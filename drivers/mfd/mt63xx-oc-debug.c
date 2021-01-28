@@ -86,6 +86,52 @@ static struct reg_oc_debug_t mt6357_reg_oc_debug[] = {
 	/*REG_OC_DEBUG(vsim2),*/
 };
 
+static struct reg_oc_debug_t mt6359_reg_oc_debug[] = {
+	REG_OC_DEBUG(vs1),
+	REG_OC_DEBUG(vgpu11),
+	REG_OC_DEBUG(vmodem),
+	REG_OC_DEBUG(vpu),
+	REG_OC_DEBUG(vcore),
+	REG_OC_DEBUG(vs2),
+	MD_REG_OC_DEBUG(vpa, MD_REG_OC_0),
+	REG_OC_DEBUG(vproc2),
+	REG_OC_DEBUG(vproc1),
+	//vcore_sshub
+	REG_OC_DEBUG(vaud18),
+	//REG_OC_DEBUG(vsim1),	camera
+	REG_OC_DEBUG(vibr),
+	MD_REG_OC_DEBUG(vrf12, MD_REG_OC_3),
+	REG_OC_DEBUG(vusb),
+	REG_OC_DEBUG(vsram_proc2),
+	REG_OC_DEBUG(vio18),
+	//REG_OC_DEBUG(vcamio), camera
+	REG_OC_DEBUG(vcn18),
+	MD_REG_OC_DEBUG(vfe28, MD_REG_OC_1),
+	REG_OC_DEBUG(vcn13),
+	//vcn33_1_bt
+	//vcn33_1_wifi
+	REG_OC_DEBUG(vaux18),
+	REG_OC_DEBUG(vsram_others),
+	REG_OC_DEBUG(vefuse),
+	//vxo22
+	REG_OC_DEBUG(vrfck),
+	REG_OC_DEBUG(vbif28),
+	REG_OC_DEBUG(vio28),
+	REG_OC_DEBUG(vemc),
+	//vcn33_2_bt
+	//vcn33_2_wifi
+	REG_OC_DEBUG(va12),
+	REG_OC_DEBUG(va09),
+	MD_REG_OC_DEBUG(vrf18, MD_REG_OC_2),
+	REG_OC_DEBUG(vsram_md),
+	REG_OC_DEBUG(vufs),
+	REG_OC_DEBUG(vm18),
+	REG_OC_DEBUG(vbbck),
+	REG_OC_DEBUG(vsram_proc1),
+	//REG_OC_DEBUG(vsim2),   camera
+	//vsram_others_sshub
+};
+
 static int md_reg_oc_notify(struct reg_oc_debug_t *reg_oc_dbg)
 {
 #if IS_ENABLED(CONFIG_MTK_CCCI_DEVICES)
@@ -189,6 +235,10 @@ static int mt63xx_oc_debug_probe(struct platform_device *pdev)
 	case MT6357_CHIP_ID:
 		ret = register_all_oc_notifier(pdev, mt6357_reg_oc_debug,
 					       ARRAY_SIZE(mt6357_reg_oc_debug));
+		break;
+	case MT6359_CHIP_ID:
+		ret = register_all_oc_notifier(pdev, mt6359_reg_oc_debug,
+					       ARRAY_SIZE(mt6359_reg_oc_debug));
 		break;
 
 	default:

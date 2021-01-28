@@ -402,6 +402,9 @@ static const struct mfd_cell mt6359_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6359_regulators_resources),
 		.resources = mt6359_regulators_resources,
 	}, {
+		.name = "mt63xx-oc-debug",
+		.of_compatible = "mediatek,mt63xx-oc-debug",
+	}, {
 		.name = "mt6397-rtc",
 		.num_resources = ARRAY_SIZE(mt6359_rtc_resources),
 		.resources = mt6359_rtc_resources,
