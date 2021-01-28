@@ -3913,7 +3913,7 @@ void mtk_crtc_load_round_corner_pattern(struct drm_crtc *crtc,
 	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
 	struct mtk_drm_gem_obj *gem;
 
-	if (panel_ext) {
+	if (panel_ext && panel_ext->round_corner_en) {
 		gem = mtk_drm_gem_create(
 			crtc->dev, panel_ext->corner_pattern_tp_size, true);
 
