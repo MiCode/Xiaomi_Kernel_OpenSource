@@ -6,6 +6,7 @@
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/device.h>
 
 #include "mtk_low_battery_throttling.h"
 #include "pmic_lbat_service.h"
@@ -16,6 +17,7 @@
 
 static struct lbat_user *lbat_pt;
 static int g_low_battery_level;
+static int g_low_battery_stop;
 
 struct low_battery_callback_table {
 	void (*lbcb)(enum LOW_BATTERY_LEVEL_TAG);
@@ -42,27 +44,139 @@ void exec_low_battery_callback(unsigned int thd)
 {
 	int i = 0;
 
-	switch (thd) {
-	case POWER_INT0_VOLT:
-		g_low_battery_level = LOW_BATTERY_LEVEL_0;
+	if (g_low_battery_stop == 1) {
+		pr_info("[%s] g_low_battery_stop=%d\n"
+			, __func__, g_low_battery_stop);
+	} else {
+		switch (thd) {
+		case POWER_INT0_VOLT:
+			g_low_battery_level = LOW_BATTERY_LEVEL_0;
 		break;
-	case POWER_INT1_VOLT:
-		g_low_battery_level = LOW_BATTERY_LEVEL_1;
-		break;
-	case POWER_INT2_VOLT:
-		g_low_battery_level = LOW_BATTERY_LEVEL_2;
-		break;
-	default:
-		pr_notice("[%s] wrong threshold=%d\n", __func__, thd);
-		return;
-	}
-	for (i = 0; i < ARRAY_SIZE(lbcb_tb); i++) {
-		if (lbcb_tb[i].lbcb)
-			lbcb_tb[i].lbcb(g_low_battery_level);
-	}
-	pr_info("[%s] low_battery_level=%d\n", __func__, g_low_battery_level);
+		case POWER_INT1_VOLT:
+			g_low_battery_level = LOW_BATTERY_LEVEL_1;
+			break;
+		case POWER_INT2_VOLT:
+			g_low_battery_level = LOW_BATTERY_LEVEL_2;
+			break;
+		default:
+			pr_notice("[%s] wrong threshold=%d\n", __func__, thd);
+			return;
+		}
 
+		for (i = 0; i < ARRAY_SIZE(lbcb_tb); i++) {
+			if (lbcb_tb[i].lbcb)
+				lbcb_tb[i].lbcb(g_low_battery_level);
+		}
+		pr_info("[%s] low_battery_level=%d\n", __func__,
+			g_low_battery_level);
+	}
 }
+
+/*****************************************************************************
+ * low battery protect UT
+ ******************************************************************************/
+static ssize_t low_battery_protect_ut_show(
+		struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	pr_debug("[%s] g_low_battery_level=%d\n", __func__,
+		g_low_battery_level);
+	return sprintf(buf, "%u\n", g_low_battery_level);
+}
+
+static ssize_t low_battery_protect_ut_store(
+		struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	int ret = 0;
+	char *pvalue = NULL;
+	unsigned int val = 0;
+	unsigned int thd;
+
+	pr_info("[%s]\n", __func__);
+
+	if (buf != NULL && size != 0) {
+		pr_info("[%s] buf is %s and size is %zu\n",
+			__func__, buf, size);
+		pvalue = (char *)buf;
+		ret = kstrtou32(pvalue, 16, (unsigned int *)&val);
+		if (val <= 2) {
+			if (val == LOW_BATTERY_LEVEL_0)
+				thd = POWER_INT0_VOLT;
+			else if (val == LOW_BATTERY_LEVEL_1)
+				thd = POWER_INT1_VOLT;
+			else if (val == LOW_BATTERY_LEVEL_2)
+				thd = POWER_INT2_VOLT;
+			exec_low_battery_callback(thd);
+			pr_info("[%s] your input is %d(%d)\n",
+				__func__, val, thd);
+		} else {
+			pr_info("[%s] wrong number (%d)\n", __func__, val);
+		}
+	}
+	return size;
+}
+
+static DEVICE_ATTR_RW(low_battery_protect_ut);
+
+/*****************************************************************************
+ * low battery protect stop
+ ******************************************************************************/
+static ssize_t low_battery_protect_stop_show(
+		struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	pr_debug("[%s] g_low_battery_stop=%d\n", __func__, g_low_battery_stop);
+	return sprintf(buf, "%u\n", g_low_battery_stop);
+}
+
+static ssize_t low_battery_protect_stop_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int ret = 0;
+	char *pvalue = NULL;
+	unsigned int val = 0;
+
+	pr_info("[%s]\n", __func__);
+
+	if (buf != NULL && size != 0) {
+		pr_info("[%s] buf is %s and size is %zu\n",
+			__func__, buf, size);
+		pvalue = (char *)buf;
+		ret = kstrtou32(pvalue, 16, (unsigned int *)&val);
+		if ((val != 0) && (val != 1))
+			val = 0;
+		g_low_battery_stop = val;
+		pr_info("[%s] g_low_battery_stop=%d\n",
+			__func__, g_low_battery_stop);
+	}
+	return size;
+}
+
+static DEVICE_ATTR_RW(low_battery_protect_stop);
+
+/*****************************************************************************
+ * low battery protect level
+ ******************************************************************************/
+static ssize_t low_battery_protect_level_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	pr_debug("[%s] g_low_battery_level=%d\n",
+		__func__, g_low_battery_level);
+	return sprintf(buf, "%u\n", g_low_battery_level);
+}
+
+static ssize_t low_battery_protect_level_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	pr_debug("[%s] g_low_battery_level = %d\n", __func__,
+		g_low_battery_level);
+
+	return size;
+}
+
+static DEVICE_ATTR_RW(low_battery_protect_level);
 
 static int low_battery_throttling_probe(struct platform_device *pdev)
 {
@@ -83,6 +197,14 @@ static int low_battery_throttling_probe(struct platform_device *pdev)
 	/* lbat_dump_reg(); */
 	dev_notice(&pdev->dev, "%d mV, %d mV, %d mV Done\n",
 		   POWER_INT0_VOLT, POWER_INT1_VOLT, POWER_INT2_VOLT);
+
+	device_create_file(&(pdev->dev),
+		&dev_attr_low_battery_protect_ut);
+	device_create_file(&(pdev->dev),
+		&dev_attr_low_battery_protect_stop);
+	device_create_file(&(pdev->dev),
+		&dev_attr_low_battery_protect_level);
+
 	return ret;
 }
 

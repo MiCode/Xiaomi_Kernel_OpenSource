@@ -15,6 +15,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/device.h>
 
 #include "mtk_battery_oc_throttling.h"
 
@@ -70,6 +71,8 @@ struct battery_oc_priv {
 	const struct battery_oc_regs_t *regs;
 };
 
+static int g_battery_oc_stop;
+
 struct battery_oc_callback_table {
 	void (*occb)(enum BATTERY_OC_LEVEL_TAG);
 };
@@ -93,14 +96,126 @@ static void exec_battery_oc_callback(enum BATTERY_OC_LEVEL_TAG battery_oc_level)
 {
 	int i;
 
-	for (i = 0; i < OCCB_MAX_NUM; i++) {
-		if (occb_tb[i].occb) {
-			occb_tb[i].occb(battery_oc_level);
-			pr_info("[%s] prio_val=%d,battery_oc_level=%d\n",
-				__func__, i, battery_oc_level);
+	if (g_battery_oc_stop == 1) {
+		pr_info("[%s] g_battery_oc_stop=%d\n"
+			, __func__, g_battery_oc_stop);
+	} else {
+		for (i = 0; i < OCCB_MAX_NUM; i++) {
+			if (occb_tb[i].occb) {
+				occb_tb[i].occb(battery_oc_level);
+				pr_info("[%s] prio_val=%d,battery_oc_level=%d\n",
+					__func__, i, battery_oc_level);
+			}
 		}
 	}
 }
+
+/*****************************************************************************
+ * battery OC protect UT
+ ******************************************************************************/
+static ssize_t battery_oc_protect_ut_show(
+		struct device *pdev, struct device_attribute *attr,
+		char *buf)
+{
+	struct battery_oc_priv *priv = dev_get_drvdata(pdev);
+
+	pr_debug("[%s] g_battery_oc_level=%d\n",
+		__func__, priv->oc_level);
+	return sprintf(buf, "%u\n", priv->oc_level);
+}
+
+static ssize_t battery_oc_protect_ut_store(
+		struct device *pdev, struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	int ret = 0;
+	char *pvalue = NULL;
+	unsigned int val = 0;
+
+	pr_info("[%s]\n", __func__);
+
+	if (buf != NULL && size != 0) {
+		pr_info("[%s] buf is %s and size is %zu\n",
+			__func__, buf, size);
+		pvalue = (char *)buf;
+		ret = kstrtou32(pvalue, 16, (unsigned int *)&val);
+		if (val <= 1) {
+			pr_info("[%s] your input is %d\n", __func__, val);
+			exec_battery_oc_callback(val);
+		} else {
+			pr_info("[%s] wrong number (%d)\n", __func__, val);
+		}
+	}
+	return size;
+}
+
+static DEVICE_ATTR_RW(battery_oc_protect_ut);
+
+/*****************************************************************************
+ * battery OC protect stop
+ ******************************************************************************/
+static ssize_t battery_oc_protect_stop_show(
+		struct device *pdev, struct device_attribute *attr,
+		char *buf)
+{
+	pr_debug("[%s] g_battery_oc_stop=%d\n",
+		__func__, g_battery_oc_stop);
+	return sprintf(buf, "%u\n", g_battery_oc_stop);
+}
+
+static ssize_t battery_oc_protect_stop_store(
+		struct device *pdev, struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	int ret = 0;
+	char *pvalue = NULL;
+	unsigned int val = 0;
+
+	pr_info("[%s]\n", __func__);
+
+	if (buf != NULL && size != 0) {
+		pr_info("[%s] buf is %s and size is %zu\n",
+			__func__, buf, size);
+		pvalue = (char *)buf;
+		ret = kstrtou32(pvalue, 16, (unsigned int *)&val);
+		if ((val != 0) && (val != 1))
+			val = 0;
+		g_battery_oc_stop = val;
+		pr_info("[%s] g_battery_oc_stop=%d\n",
+			__func__, g_battery_oc_stop);
+	}
+	return size;
+}
+
+static DEVICE_ATTR_RW(battery_oc_protect_stop);
+
+/*****************************************************************************
+ * battery OC protect level
+ ******************************************************************************/
+static ssize_t battery_oc_protect_level_show(
+		struct device *pdev, struct device_attribute *attr,
+		char *buf)
+{
+	struct battery_oc_priv *priv = dev_get_drvdata(pdev);
+
+	pr_info("[%s] g_battery_oc_level=%d\n",
+		__func__, priv->oc_level);
+	return sprintf(buf, "%u\n", priv->oc_level);
+}
+
+static ssize_t battery_oc_protect_level_store(
+		struct device *pdev, struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	struct battery_oc_priv *priv = dev_get_drvdata(pdev);
+
+	pr_info("[%s] g_battery_oc_level = %d\n",
+		__func__, priv->oc_level);
+
+	return size;
+}
+
+static DEVICE_ATTR_RW(battery_oc_protect_level);
 
 /*
  * 65535 - (I_mA * 1000 * r_fg_value / DEFAULT_RFG * 1000000 / car_tune_value
@@ -264,6 +379,14 @@ static int battery_oc_throttling_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "%dmA(0x%x), %dmA(0x%x) Done\n",
 		 priv->oc_thd_h, to_fg_code(priv, priv->oc_thd_h),
 		 priv->oc_thd_l, to_fg_code(priv, priv->oc_thd_l));
+
+	device_create_file(&(pdev->dev),
+		&dev_attr_battery_oc_protect_ut);
+	device_create_file(&(pdev->dev),
+		&dev_attr_battery_oc_protect_stop);
+	device_create_file(&(pdev->dev),
+		&dev_attr_battery_oc_protect_level);
+
 	return ret;
 }
 

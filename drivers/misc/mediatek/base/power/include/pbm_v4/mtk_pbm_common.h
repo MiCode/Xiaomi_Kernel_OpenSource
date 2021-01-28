@@ -30,6 +30,8 @@ struct hpf {
 	unsigned long loading_cpu;
 	unsigned long loading_gpu;
 	unsigned long loading_flash;
+	unsigned long to_cpu_budget;
+	unsigned long to_gpu_budget;
 };
 
 struct mrp {

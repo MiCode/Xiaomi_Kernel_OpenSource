@@ -33,11 +33,7 @@
 
 #ifndef DISABLE_PBM_FEATURE
 static bool mt_pbm_debug;
-
-static int mt_pbm_log_divisor;
-static int mt_pbm_log_counter;
-
-struct iio_channel *chan_chip_vbat;
+static int g_pbm_stop;
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -61,6 +57,8 @@ static struct hpf hpf_ctrl = {
 	.loading_cpu = 0,
 	.loading_gpu = 0,
 	.loading_flash = MAX_FLASH_POWER,	/* fixed */
+	.to_cpu_budget = 0,
+	.to_gpu_budget = 0,
 };
 
 static struct hpf hpf_ctrl_manual = {
@@ -70,6 +68,8 @@ static struct hpf hpf_ctrl_manual = {
 	.loading_cpu = 0,
 	.loading_gpu = 0,
 	.loading_flash = 0,
+	.to_cpu_budget = 0,
+	.to_gpu_budget = 0,
 };
 
 static struct pbm pbm_ctrl = {
@@ -77,7 +77,7 @@ static struct pbm pbm_ctrl = {
 	.feature_en = 1,
 	.pbm_drv_done = 0,
 	.hpf_en = 63,/* bin: 111111 (Flash, GPU, CPU, MD3, MD1, DLPT) */
-	.manual_mode = 0,
+	.manual_mode = 0, /*normal=0, UT(throttle)=1, UT(NO throttle)=2 */
 };
 
 int g_dlpt_need_do = 1;
@@ -245,7 +245,7 @@ static void pbm_allocate_budget_manager(void)
 	int cpu_lower_bound = tscpu_get_min_cpu_pwr();
 	static int pre_tocpu, pre_togpu;
 
-	if (pbm_ctrl.manual_mode == 1) {
+	if (pbm_ctrl.manual_mode == 1 || pbm_ctrl.manual_mode == 2) {
 		leakage = hpf_ctrl_manual.loading_leakage;
 		dlpt = hpf_ctrl_manual.loading_dlpt;
 		md1 = hpf_ctrl_manual.loading_md1;
@@ -263,16 +263,6 @@ static void pbm_allocate_budget_manager(void)
 		gpu = hpf_get_power_gpu();
 		flash = hpf_get_power_flash();
 		mutex_unlock(&pbm_table_lock);
-	}
-
-	if (mt_pbm_log_divisor) {
-		mt_pbm_log_counter = (mt_pbm_log_counter + 1) %
-			mt_pbm_log_divisor;
-
-		if (mt_pbm_log_counter == 1)
-			mt_pbm_debug = 1;
-		else
-			mt_pbm_debug = 0;
 	}
 
 	/* no any resource can allocate */
@@ -298,7 +288,8 @@ static void pbm_allocate_budget_manager(void)
 		if (tocpu <= 0)
 			tocpu = 1;
 
-		mt_ppm_dlpt_set_limit_by_pbm(tocpu);
+		if (pbm_ctrl.manual_mode != 2)
+			mt_ppm_dlpt_set_limit_by_pbm(tocpu);
 	} else {
 		multiple = (_dlpt * 1000) / (cpu + gpu);
 
@@ -321,9 +312,14 @@ static void pbm_allocate_budget_manager(void)
 		if (togpu <= 0)
 			togpu = 1;
 
-		mt_ppm_dlpt_set_limit_by_pbm(tocpu);
-		mt_gpufreq_set_power_limit_by_pbm(togpu);
+		if (pbm_ctrl.manual_mode != 2) {
+			mt_ppm_dlpt_set_limit_by_pbm(tocpu);
+			mt_gpufreq_set_power_limit_by_pbm(togpu);
+		}
 	}
+
+	hpf_ctrl.to_cpu_budget = tocpu;
+	hpf_ctrl.to_gpu_budget = togpu;
 
 	if (mt_pbm_debug) {
 		pr_info
@@ -555,20 +551,19 @@ static int pbm_thread_handle(void *data)
 
 		mutex_lock(&pbm_mutex);
 		if (g_dlpt_need_do == 1) {
-			/* FIXME: need g_dlpt_stop? */
-			//if (g_dlpt_stop == 0) {
+			if (g_pbm_stop == 0) {
 				pbm_allocate_budget_manager();
 				g_dlpt_state_sync = 0;
-			//} else {
-			//	pr_notice("DISABLE PBM\n");
+			} else {
+				pr_notice("DISABLE PBM\n");
 
-			//	if (g_dlpt_state_sync == 0) {
-			//		mt_ppm_dlpt_set_limit_by_pbm(0);
-			//		mt_gpufreq_set_power_limit_by_pbm(0);
-			//		g_dlpt_state_sync = 1;
-			//		pr_info("Release DLPT limit\n");
-			//	}
-			//}
+				if (g_dlpt_state_sync == 0) {
+					mt_ppm_dlpt_set_limit_by_pbm(0);
+					mt_gpufreq_set_power_limit_by_pbm(0);
+					g_dlpt_state_sync = 1;
+					pr_info("Release DLPT limit\n");
+				}
+			}
 		}
 		atomic_dec(&kthread_nreq);
 		mutex_unlock(&pbm_mutex);
@@ -645,6 +640,28 @@ static int mt_pbm_debug_proc_show(struct seq_file *m, void *v)
 	else
 		seq_puts(m, "pbm debug disabled\n");
 
+	seq_printf(m, "manual_mode: %d\n", pbm_ctrl.manual_mode);
+	if (pbm_ctrl.manual_mode > 0) {
+		seq_printf(m, "request (C/G)=%lu,%lu=>(D/L/M1/F)=%lu,%lu,%lu,%lu\n",
+			hpf_ctrl_manual.loading_cpu,
+			hpf_ctrl_manual.loading_gpu,
+			hpf_ctrl_manual.loading_dlpt,
+			hpf_ctrl_manual.loading_leakage,
+			hpf_ctrl_manual.loading_md1,
+			hpf_ctrl_manual.loading_flash);
+	} else {
+		seq_printf(m, "request (C/G)=%lu,%lu=>(D/L/M1/F)=%lu,%lu,%lu,%lu\n",
+			hpf_ctrl.loading_cpu,
+			hpf_ctrl.loading_gpu,
+			hpf_ctrl.loading_dlpt,
+			hpf_ctrl.loading_leakage,
+			hpf_ctrl.loading_md1,
+			hpf_ctrl.loading_flash);
+	}
+	seq_printf(m, "budget (C/G)=%lu,%lu\n",
+		hpf_ctrl.to_cpu_budget,
+		hpf_ctrl.to_gpu_budget);
+
 	return 0;
 }
 
@@ -677,20 +694,17 @@ static ssize_t mt_pbm_debug_proc_write
 	return count;
 }
 
-static int mt_pbm_debug_log_reduc_proc_show(struct seq_file *m, void *v)
+static int mt_pbm_stop_proc_show(struct seq_file *m, void *v)
 {
-	if (mt_pbm_log_divisor) {
-		seq_puts(m, "pbm debug enabled\n");
-		seq_printf(m, "The divisor number is :%d\n",
-			mt_pbm_log_divisor);
-	} else {
-		seq_puts(m, "Log reduction disabled\n");
-	}
+	if (g_pbm_stop)
+		seq_puts(m, "pbm stop\n");
+	else
+		seq_puts(m, "pbm enable\n");
 
 	return 0;
 }
 
-static ssize_t mt_pbm_debug_log_reduc_proc_write
+static ssize_t mt_pbm_stop_proc_write
 (struct file *file, const char __user *buffer, size_t count, loff_t *data)
 {
 	char desc[32];
@@ -704,25 +718,22 @@ static ssize_t mt_pbm_debug_log_reduc_proc_write
 
 	/* if (sscanf(desc, "%d", &debug) == 1) { */
 	if (kstrtoint(desc, 10, &debug) == 0) {
-		if (debug == 0) {
-			mt_pbm_log_divisor = 0;
-			mt_pbm_debug = 0;
-		} else if (debug > 0) {
-			mt_pbm_log_divisor = debug;
-			mt_pbm_debug = 1;
-			mt_pbm_log_counter = 0;
-		} else {
-			pr_notice("Should be >=0 [0:disable,other:enable]\n");
-		}
+		g_pbm_stop = debug;
+		if (debug == 0)
+			g_pbm_stop = 0;
+		else if (debug == 1)
+			g_pbm_stop = 1;
+		else
+			pr_notice("Should be [0:enable pbm, 1:stop pbm]\n");
 	} else
-		pr_notice("Should be >=0 [0:disable,other:enable]\n");
+		pr_notice("Should be [0:enable pbm, 1:stop pbm]\n");
 
 	return count;
 }
 
 static int mt_pbm_manual_mode_proc_show(struct seq_file *m, void *v)
 {
-	if (pbm_ctrl.manual_mode == 1)
+	if (pbm_ctrl.manual_mode >= 1)
 		seq_puts(m, "pbm manual mode enabled\n");
 	else
 		seq_puts(m, "pbm manual disabled\n");
@@ -752,20 +763,19 @@ static ssize_t mt_pbm_manual_mode_proc_write
 		return -EPERM;
 	}
 
-#if defined(CONFIG_MTK_ENG_BUILD)
-	if (manual_mode == 1) {
+	if (manual_mode == 1 || manual_mode == 2) {
 		hpf_ctrl_manual.loading_leakage = loading_leakage;
 		hpf_ctrl_manual.loading_dlpt = loading_dlpt;
 		hpf_ctrl_manual.loading_md1 = loading_md1;
 		hpf_ctrl_manual.loading_cpu = loading_cpu;
 		hpf_ctrl_manual.loading_gpu = loading_gpu;
 		hpf_ctrl_manual.loading_flash = loading_flash;
-		pbm_ctrl.manual_mode = 1;
+		pbm_ctrl.manual_mode = manual_mode;
+		pbm_allocate_budget_manager();
 	} else if (manual_mode == 0)
 		pbm_ctrl.manual_mode = 0;
 	else
-		pr_notice("pbm manual setting should be 0 or 1\n");
-#endif
+		pr_notice("pbm manual setting should be 0 or 1 or 2\n");
 
 	return count;
 }
@@ -801,7 +811,7 @@ static const struct file_operations mt_ ## name ## _proc_fops = {	\
 
 PROC_FOPS_RW(pbm_debug);
 
-PROC_FOPS_RW(pbm_debug_log_reduc);
+PROC_FOPS_RW(pbm_stop);
 
 PROC_FOPS_RW(pbm_manual_mode);
 
@@ -817,7 +827,7 @@ static int mt_pbm_create_procfs(void)
 
 	const struct pentry entries[] = {
 		PROC_ENTRY(pbm_debug),
-		PROC_ENTRY(pbm_debug_log_reduc),
+		PROC_ENTRY(pbm_stop),
 		PROC_ENTRY(pbm_manual_mode),
 	};
 
@@ -839,29 +849,6 @@ static int mt_pbm_create_procfs(void)
 }
 /* CONFIG_PBM_PROC_FS */
 
-static int mtk_pbm_probe(struct platform_device *pdev)
-{
-	int ret = 0;
-
-	chan_chip_vbat = devm_iio_channel_get(&pdev->dev, "pmic_batadc");
-	if (IS_ERR(chan_chip_vbat)) {
-		ret = PTR_ERR(chan_chip_vbat);
-		pr_notice("AUXADC_CHIP_TEMP get fail, ret=%d\n", ret);
-	}
-
-	return ret;
-}
-
-
-
-static struct platform_driver pbm_driver = {
-	.driver = {
-		.name = "pbm_driver",
-	},
-	.probe = mtk_pbm_probe,
-};
-
-
 static int __init pbm_module_init(void)
 {
 	int ret = 0;
@@ -873,12 +860,6 @@ static int __init pbm_module_init(void)
 
 	register_dlpt_notify(&kicker_pbm_by_dlpt, DLPT_PRIO_PBM);
 	ret = create_pbm_kthread();
-	if (ret) {
-		pr_notice("FAILED TO CREATE PBM KTHREAD\n");
-		return ret;
-	}
-
-	ret = platform_driver_register(&pbm_driver);
 	if (ret) {
 		pr_notice("FAILED TO CREATE PBM KTHREAD\n");
 		return ret;

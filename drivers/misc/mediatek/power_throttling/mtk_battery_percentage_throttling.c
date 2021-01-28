@@ -10,6 +10,10 @@
 #include <linux/device.h>
 #include <linux/power_supply.h>
 #include <mtk_battery_percentage_throttling.h>
+#include <linux/device.h>
+#include <linux/proc_fs.h>
+#include <linux/uaccess.h>
+#include <linux/seq_file.h>
 
 #define BAT_PERCENT_LIMIT 15
 
@@ -19,6 +23,7 @@ static DECLARE_WAIT_QUEUE_HEAD(bat_percent_notify_waiter);
 static struct wakeup_source *bat_percent_notify_lock;
 static DEFINE_MUTEX(bat_percent_notify_mutex);
 static int g_battery_percent_level;
+static int g_battery_percent_stop;
 
 struct battery_percent_callback_table {
 	void (*bpcb)(enum BATTERY_PERCENT_LEVEL_TAG);
@@ -43,10 +48,18 @@ void register_battery_percent_notify(
 	bpcb_tb[prio_val].bpcb = bp_cb;
 	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
 
-	if (g_battery_percent_level == 1) {
+	if ((g_battery_percent_stop == 0) && (g_battery_percent_level == 1)) {
+#if !IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
 		pr_info("[%s] level 1 happen\n", __func__);
 		if (bp_cb != NULL)
 			bp_cb(BATTERY_PERCENT_LEVEL_1);
+#else
+		if (prio_val == BATTERY_PERCENT_PRIO_FLASHLIGHT) {
+			pr_info("[%s at DLPT] level l happen\n", __func__);
+			if (bp_cb != NULL)
+				bp_cb(BATTERY_PERCENT_LEVEL_1);
+		}
+#endif
 	}
 }
 
@@ -55,24 +68,29 @@ void exec_battery_percent_callback(
 {
 	int i = 0;
 
+	if (g_battery_percent_stop == 1) {
+		pr_info("[%s] g_battery_percent_stop=%d\n"
+			, __func__, g_battery_percent_stop);
+	} else {
 #if !IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
-	for (i = 0; i < BPCB_MAX_NUM; i++) {
-		if (bpcb_tb[i].bpcb != NULL) {
-			bpcb_tb[i].bpcb(battery_percent_level);
-			pr_info("[%s] prio_val=%d, battery_percent_level=%d\n"
-				, __func__, i, battery_percent_level);
+		for (i = 0; i < BPCB_MAX_NUM; i++) {
+			if (bpcb_tb[i].bpcb != NULL) {
+				bpcb_tb[i].bpcb(battery_percent_level);
+				pr_info("[%s] prio_val=%d, battery_percent_level=%d\n"
+					, __func__, i, battery_percent_level);
+			}
 		}
-	}
 #else
-	if (bpcb_tb[BATTERY_PERCENT_PRIO_FLASHLIGHT].bpcb != NULL) {
-		bpcb_tb[BATTERY_PERCENT_PRIO_FLASHLIGHT].bpcb(
-			battery_percent_level);
-		pr_info("[%s] prio_val=%d, battery_percent_level=%d\n"
-				, __func__, i, battery_percent_level);
-	} else
-		pr_notice("[%s]BATTERY_PERCENT_PRIO_FLASHLIGHT is null\n"
-			, __func__);
+		if (bpcb_tb[BATTERY_PERCENT_PRIO_FLASHLIGHT].bpcb != NULL) {
+			bpcb_tb[BATTERY_PERCENT_PRIO_FLASHLIGHT].bpcb(
+				battery_percent_level);
+			pr_info("[%s] prio_val=%d, battery_percent_level=%d\n"
+					, __func__, i, battery_percent_level);
+		} else
+			pr_notice("[%s]BATTERY_PERCENT_PRIO_FLASHLIGHT is null\n"
+				, __func__);
 #endif
+	}
 }
 
 int bat_percent_notify_handler(void *unused)
@@ -138,6 +156,138 @@ int bp_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 	return NOTIFY_DONE;
 }
 
+static int mtk_battery_percent_protect_ut_proc_show
+(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", g_battery_percent_level);
+	return 0;
+}
+
+static ssize_t mtk_battery_percent_protect_ut_proc_write
+(struct file *file, const char __user *buffer, size_t count, loff_t *data)
+{
+	char desc[32];
+	int len = 0, val = 0;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+	desc[len] = '\0';
+
+	if (kstrtoint(desc, 10, &val) == 0) {
+		if (val == 0 || val == 1) {
+			pr_info("[%s] your input is %d\n", __func__, val);
+			exec_battery_percent_callback(val);
+		} else
+			pr_info("[%s] wrong number (%d)\n", __func__, val);
+	} else
+		pr_info("[%s] wrong input (%s)\n", __func__, desc);
+
+	return count;
+}
+
+static int mtk_battery_percent_protect_stop_proc_show
+(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", g_battery_percent_stop);
+	return 0;
+}
+
+static ssize_t mtk_battery_percent_protect_stop_proc_write
+(struct file *file, const char __user *buffer, size_t count, loff_t *data)
+{
+	char desc[32];
+	int len = 0, val = 0;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+	desc[len] = '\0';
+
+	if (kstrtoint(desc, 10, &val) == 0) {
+		if (val == 0 || val == 1)
+			g_battery_percent_stop = val;
+		else
+			pr_info("[%s] wrong number (%d)\n", __func__, val);
+	} else
+		pr_info("[%s] wrong input (%s)\n", __func__, desc);
+
+	return count;
+}
+
+static int mtk_battery_percent_protect_level_proc_show
+(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", g_battery_percent_level);
+	return 0;
+}
+
+#define PROC_FOPS_RW(name)						\
+static int mtk_ ## name ## _proc_open(struct inode *inode, struct file *file)\
+{									\
+	return single_open(file, mtk_ ## name ## _proc_show, PDE_DATA(inode));\
+}									\
+static const struct file_operations mtk_ ## name ## _proc_fops = {	\
+	.owner		= THIS_MODULE,					\
+	.open		= mtk_ ## name ## _proc_open,			\
+	.read		= seq_read,					\
+	.llseek		= seq_lseek,					\
+	.release	= single_release,				\
+	.write		= mtk_ ## name ## _proc_write,			\
+}
+
+#define PROC_FOPS_RO(name)						\
+static int mtk_ ## name ## _proc_open(struct inode *inode, struct file *file)\
+{									\
+	return single_open(file, mtk_ ## name ## _proc_show, PDE_DATA(inode));\
+}									\
+static const struct file_operations mtk_ ## name ## _proc_fops = {	\
+	.owner		= THIS_MODULE,				\
+	.open		= mtk_ ## name ## _proc_open,		\
+	.read		= seq_read,				\
+	.llseek		= seq_lseek,				\
+	.release	= single_release,			\
+}
+
+#define PROC_ENTRY(name)	{__stringify(name), &mtk_ ## name ## _proc_fops}
+
+PROC_FOPS_RW(battery_percent_protect_ut);
+PROC_FOPS_RW(battery_percent_protect_stop);
+PROC_FOPS_RO(battery_percent_protect_level);
+
+static int battery_percent_create_procfs(void)
+{
+	struct proc_dir_entry *dir = NULL;
+	int i;
+
+	struct pentry {
+		const char *name;
+		const struct file_operations *fops;
+	};
+
+	const struct pentry entries[] = {
+		PROC_ENTRY(battery_percent_protect_ut),
+		PROC_ENTRY(battery_percent_protect_stop),
+		PROC_ENTRY(battery_percent_protect_level),
+	};
+
+	dir = proc_mkdir("bat_per_pt", NULL);
+
+	if (!dir) {
+		pr_notice("fail to create /proc/bat_per_pt\n");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(entries); i++) {
+		if (!proc_create
+		    (entries[i].name, 0664, dir, entries[i].fops))
+			pr_notice("@%s: create /proc/pt_bat_per/%s failed\n",
+				__func__, entries[i].name);
+	}
+
+	return 0;
+}
+
 void bat_percent_notify_init(void)
 {
 	bat_percent_notify_lock = wakeup_source_register(NULL, 
@@ -158,6 +308,7 @@ void bat_percent_notify_init(void)
 static int __init battery_percentage_throttling_module_init(void)
 {
 	bat_percent_notify_init();
+	battery_percent_create_procfs();
 	return 0;
 }
 
