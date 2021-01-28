@@ -401,6 +401,7 @@ struct module {
 	/* Core layout: rbtree is accessed frequently, so keep together. */
 	struct module_layout core_layout __module_layout_align;
 	struct module_layout init_layout;
+	struct module_layout init_layout_backup;
 
 	/* Arch-specific module values */
 	struct mod_arch_specific arch;

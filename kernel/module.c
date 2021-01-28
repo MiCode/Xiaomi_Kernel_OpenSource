@@ -3525,6 +3525,7 @@ static noinline int do_init_module(struct module *mod)
 	module_enable_ro(mod, true);
 	mod_tree_remove_init(mod);
 	disable_ro_nx(&mod->init_layout);
+	mod->init_layout_backup = mod->init_layout;
 	module_arch_freeing_init(mod);
 	mod->init_layout.base = NULL;
 	mod->init_layout.size = 0;
@@ -4428,7 +4429,13 @@ void print_modules(void)
 	list_for_each_entry_rcu(mod, &modules, list) {
 		if (mod->state == MODULE_STATE_UNFORMED)
 			continue;
-		pr_cont(" %s%s", mod->name, module_flags(mod, buf));
+		pr_cont(" %s %lx %lx %d %d %s",
+			mod->name,
+			(unsigned long)mod->core_layout.base,
+			(unsigned long)mod->init_layout_backup.base,
+			mod->core_layout.size,
+			mod->init_layout_backup.size,
+			module_flags(mod, buf));
 	}
 	preempt_enable();
 	if (last_unloaded_module[0])
