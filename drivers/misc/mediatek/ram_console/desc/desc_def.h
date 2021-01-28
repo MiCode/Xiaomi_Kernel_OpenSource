@@ -20,7 +20,7 @@
 	DF(fiq_step, " fiq step: %u "),
 	DF(exp_type, " exception type: %u\n"),
 	DF(kaslr_offset, "Kernel Offset: 0x%llx\n"),
-	DF(ram_console_buffer_addr, "&ram_console_buffer: 0x%llx\n"),
+	DF(oops_in_progress_addr, "&oops_in_progress: 0x%llx\n"),
 	/* ensure info related to HWT always be bottom and keep their order*/
 	DF(mcdi_wfi, "mcdi_wfi: 0x%x\n"),
 	DF(mcdi_r15, "mcdi_r15: 0x%x\n"),

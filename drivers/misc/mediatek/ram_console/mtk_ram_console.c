@@ -58,7 +58,7 @@ struct last_reboot_reason {
 	/* 0xaeedeadX: X=1 (HWT), X=2 (KE), X=3 (nested panic) */
 	uint32_t exp_type;
 	uint64_t kaslr_offset;
-	uint64_t ram_console_buffer_addr;
+	uint64_t oops_in_progress_addr;
 
 	uint32_t last_irq_enter[AEE_MTK_CPU_NUMS];
 	uint64_t jiffies_last_irq_enter[AEE_MTK_CPU_NUMS];
@@ -933,8 +933,8 @@ static void ram_console_init_val(void)
 #else
 	LAST_RR_SET(kaslr_offset, 0xd15ab1e);
 #endif
-	LAST_RR_SET(ram_console_buffer_addr,
-		(unsigned long)&ram_console_buffer);
+	LAST_RR_SET(oops_in_progress_addr,
+		(unsigned long)&oops_in_progress);
 }
 
 void aee_rr_rec_fiq_step(u8 step)
@@ -2495,10 +2495,10 @@ void aee_rr_show_kaslr_offset(struct seq_file *m)
 
 void aee_rr_show_ram_console_buffer_addr(struct seq_file *m)
 {
-	uint64_t ram_console_buffer_addr;
+	uint64_t oops_in_progress_addr;
 
-	ram_console_buffer_addr = LAST_RRR_VAL(ram_console_buffer_addr);
-	seq_printf(m, "&ram_console_buffer: 0x%llx\n", ram_console_buffer_addr);
+	oops_in_progress_addr = LAST_RRR_VAL(oops_in_progress_addr);
+	seq_printf(m, "&oops_in_progress: 0x%llx\n", oops_in_progress_addr);
 }
 
 void aee_rr_show_last_irq_enter(struct seq_file *m, int cpu)
