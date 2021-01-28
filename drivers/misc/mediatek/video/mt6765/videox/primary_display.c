@@ -209,7 +209,7 @@ static int primary_display_get_round_corner_mva(
 #endif
 
 /* hold the wakelock to make kernel awake when primary display is on*/
-struct wakeup_source pri_wk_lock;
+struct wakeup_source *pri_wk_lock;
 
 static int smart_ovl_try_switch_mode_nolock(void);
 
@@ -4109,8 +4109,8 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 
 done:
 	DISPDBG("init and hold wakelock...\n");
-	wakeup_source_init(&pri_wk_lock, "pri_disp_wakelock");
-	__pm_stay_awake(&pri_wk_lock);
+	pri_wk_lock = wakeup_source_register("pri_disp_wakelock");
+	__pm_stay_awake(pri_wk_lock);
 
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
 		primary_display_diagnose();
@@ -4734,7 +4734,7 @@ done:
 		primary_display_esd_check_enable(0);
 
 	DISPDBG("release wakelock...\n");
-	__pm_relax(&pri_wk_lock);
+	__pm_relax(pri_wk_lock);
 
 	_primary_path_unlock(__func__);
 	disp_sw_mutex_unlock(&(pgc->capture_lock));
@@ -5174,7 +5174,7 @@ done:
 		primary_display_esd_check_enable(1);
 
 	DISPDBG("hold the wakelock...\n");
-	__pm_stay_awake(&pri_wk_lock);
+	__pm_stay_awake(pri_wk_lock);
 
 	_primary_path_unlock(__func__);
 	DISPMSG("skip_update:%d\n", skip_update);
