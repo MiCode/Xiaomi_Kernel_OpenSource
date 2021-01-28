@@ -15,7 +15,7 @@
 #include <linux/genhd.h>
 #include <mt-plat/mtk_boot.h>
 
-struct hd_struct *get_part(char *name)
+struct hd_struct *get_part(const char *name)
 {
 	dev_t devt;
 	int partno;
