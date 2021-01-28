@@ -1500,20 +1500,20 @@ static kal_uint32 open(void)
 		spin_lock(&imgsensor_drv_lock);
 		imgsensor.i2c_write_id = imgsensor_info.i2c_addr_table[i];
 		spin_unlock(&imgsensor_drv_lock);
-	do {
-		sensor_id = return_sensor_id();
-	if (sensor_id == imgsensor_info.sensor_id) {
-		pr_info("i2c write id: 0x%x, sensor id: 0x%x\n",
+		do {
+			sensor_id = return_sensor_id();
+			if (sensor_id == imgsensor_info.sensor_id) {
+				pr_info("i2c write id: 0x%x, sensor id: 0x%x\n",
+					imgsensor.i2c_write_id, sensor_id);
+				break;
+			}
+			pr_info("Read sensor id fail, id: 0x%x, sensor id: 0x%x\n",
 			imgsensor.i2c_write_id, sensor_id);
-		break;
-	}
-		pr_info("Read sensor id fail, id: 0x%x, sensor id: 0x%x\n",
-			imgsensor.i2c_write_id, sensor_id);
-		retry--;
-	} while (retry > 0);
-	i++;
-	if (sensor_id == imgsensor_info.sensor_id)
-		break;
+			retry--;
+		} while (retry > 0);
+		i++;
+		if (sensor_id == imgsensor_info.sensor_id)
+			break;
 		retry = 2;
 	}
 	if (imgsensor_info.sensor_id != sensor_id)
