@@ -214,6 +214,7 @@ static int sspm_device_probe(struct platform_device *pdev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(sspm_ipidev);
 
 static const struct of_device_id sspm_of_match[] = {
 	{ .compatible = "mediatek,sspm", },
