@@ -1864,7 +1864,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			sram_share_event = <710>, <711>;
 			mediatek,mailbox-gce = <&gce_mbox>;
 			thread_count = <24>;
-			mdp-platform = <0>;
+			secure_thread = <8 10>;
 			mboxes = <&gce_mbox 0 0 CMDQ_THR_PRIO_4>,
 				<&gce_mbox 1 0 CMDQ_THR_PRIO_4>,
 				<&gce_mbox 2 0 CMDQ_THR_PRIO_5>,
