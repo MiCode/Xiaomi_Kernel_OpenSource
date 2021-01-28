@@ -497,10 +497,15 @@ static inline void check_amms_timeout_warn(void)
 	char msg[128];
 #ifdef CONFIG_MTK_SCHED_CPULOAD
 	int cpu;
+	int ret;
 #endif
 	const char msg2[] = "AMMS timeout %lld us .\nCRDISPATCH_KEY:AMMS\n";
 
-	sprintf(msg, msg2, (t_after - t_before));
+	ret = sprintf(msg, msg2, (t_after - t_before));
+	if (ret < 0) {
+		pr_info("%s: sprintf fail\n", __func__);
+		return;
+	}
 	if ((t_after  - t_before) > TIMEOUT_WARNING) {
 		pr_info("%s: timeout happened %lld us\n",
 			__func__, (t_after - t_before));
@@ -510,6 +515,8 @@ static inline void check_amms_timeout_warn(void)
 */
 #ifdef CONFIG_MTK_SCHED_CPULOAD
 		for_each_online_cpu(cpu) {
+			if (cpu >= num_online_cpus())
+				break;
 			pr_info("cpu %d, loading %d\n", cpu,
 				sched_get_cpu_load(cpu));
 		}
