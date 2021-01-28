@@ -652,9 +652,6 @@ static bool _clk_buf_ctrl(enum clk_buf_id id, bool onoff)
 			__func__, id);
 		goto wrong_input;
 	} else {
-		if (_clk_buf_mode_get(id) == BUF_MAN_M)
-			_clk_buf_ctrl_internal(id, onoff);
-
 		pmic_clk_buf_swctrl[id] = onoff;
 	}
 
@@ -942,10 +939,12 @@ static ssize_t clk_buf_debug_store(struct kobject *kobj,
 				clkbuf_debug = false;
 			else
 				clkbuf_debug = true;
+			goto COMPLETE;
 		}
 	if (strcmp(xo_user, "0"))
 		goto ERROR_CMD;
 
+COMPLETE:
 	return count;
 ERROR_CMD:
 	pr_info("bad argument!! please follow correct format\n");
