@@ -3415,9 +3415,9 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	/* mivr task */
 	p = devm_kasprintf(mpci->dev, GFP_KERNEL,
 			   "mivr_thread.%s", dev_name(mpci->dev));
-	ret = PTR_ERR_OR_ZERO(p);
-	if (ret < 0) {
+	if (IS_ERR_OR_NULL(p)) {
 		dev_notice(mpci->dev, "devm kasprintf fail\n");
+		ret = -EINVAL;
 		goto err_register_chg_dev;
 	}
 	mpci->mivr_task = kthread_run(mt6360_chg_mivr_task_threadfn, mpci, p);
