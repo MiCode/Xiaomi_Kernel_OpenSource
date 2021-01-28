@@ -10282,7 +10282,7 @@ next_group:
 
 	env->src_grp_nr_running = sds->busiest_stat.sum_nr_running;
 
-	if (!lb_sd_parent(env->sd)) {
+	if (!env->sd->parent) {
 		/* update overload indicator if we are at root domain */
 		if (READ_ONCE(env->dst_rq->rd->overload) != overload)
 			WRITE_ONCE(env->dst_rq->rd->overload, overload);
@@ -10896,7 +10896,7 @@ static int load_balance(int this_cpu, struct rq *this_rq,
 			int *continue_balancing)
 {
 	int ld_moved, cur_ld_moved, active_balance = 0;
-	struct sched_domain *sd_parent = lb_sd_parent(sd) ? sd->parent : NULL;
+	struct sched_domain *sd_parent = sd->parent;
 	struct sched_group *group;
 	struct rq *busiest;
 	struct rq_flags rf;

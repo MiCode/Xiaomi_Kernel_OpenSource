@@ -152,9 +152,6 @@ static inline bool sched_debug(void)
 static int sd_degenerate(struct sched_domain *sd)
 {
 	if (cpumask_weight(sched_domain_span(sd)) == 1) {
-		if (sd->groups->sge)
-			sd->flags &= ~SD_LOAD_BALANCE;
-		else
 			return 1;
 	}
 
@@ -202,10 +199,6 @@ sd_parent_degenerate(struct sched_domain *sd, struct sched_domain *parent)
 				SD_PREFER_SIBLING |
 				SD_SHARE_POWERDOMAIN |
 				SD_SHARE_CAP_STATES);
-		if (parent->groups->sge) {
-			parent->flags &= ~SD_LOAD_BALANCE;
-			return 0;
-		}
 		if (nr_node_ids == 1)
 			pflags &= ~SD_SERIALIZE;
 	}
