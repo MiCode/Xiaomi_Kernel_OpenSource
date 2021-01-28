@@ -5,7 +5,7 @@
 
 #include <linux/timer.h>
 #include <linux/module.h>
-#include <linux/pm_qos.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <linux/slab.h>
 #include <linux/errno.h>
 #include <linux/mutex.h>
@@ -28,7 +28,7 @@
 
 struct qos_counter {
 	struct timer_list qos_timer;
-	struct pm_qos_request qos_req;
+	struct mtk_pm_qos_request qos_req;
 	struct list_head list;
 	struct mutex list_mtx;
 
@@ -81,25 +81,24 @@ static inline struct qos_counter *get_qos_counter(unsigned int core)
 }
 
 //-----
-static int add_qos_request(struct pm_qos_request *req)
+static int add_qos_request(struct mtk_pm_qos_request *req)
 {
-	/* FIXME: Not define PM_QOS_APU_MEMORY_BANDWIDTH yet */
-	//pm_qos_add_request(req, PM_QOS_APU_MEMORY_BANDWIDTH,
-	//	PM_QOS_DEFAULT_VALUE);
+	mtk_pm_qos_add_request(req, MTK_PM_QOS_MEMORY_EXT_BANDWIDTH,
+		PM_QOS_DEFAULT_VALUE);
 	return 0;
 }
 
-static void update_qos_request(struct pm_qos_request *req, int32_t val)
+static void update_qos_request(struct mtk_pm_qos_request *req, int32_t val)
 {
 	mdla_qos_debug("[mdla][qos] %s, bw=%d -\n", __func__, val);
-	pm_qos_update_request(req, val);
+	mtk_pm_qos_update_request(req, val);
 }
 
-static int destroy_qos_request(struct pm_qos_request *req)
+static int destroy_qos_request(struct mtk_pm_qos_request *req)
 {
-	/* FIXME: Not define PM_QOS_APU_MEMORY_BANDWIDTH yet */
-	//pm_qos_update_request(req, PM_QOS_APU_MEMORY_BANDWIDTH_DEFAULT_VALUE);
-	pm_qos_remove_request(req);
+	mtk_pm_qos_update_request(req,
+			MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE);
+	mtk_pm_qos_remove_request(req);
 	return 0;
 }
 

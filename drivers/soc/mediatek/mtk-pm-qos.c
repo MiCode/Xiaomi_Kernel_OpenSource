@@ -268,6 +268,38 @@ static struct mtk_pm_qos_object mm1_bandwidth_limiter = {
 	.name = "mm1_bandwidth_limiter",
 };
 
+static BLOCKING_NOTIFIER_HEAD(vvpu_opp_notifier);
+static struct pm_qos_constraints vvpu_opp_constraints = {
+	.list = PLIST_HEAD_INIT(vvpu_opp_constraints.list),
+	.target_value = MTK_PM_QOS_VVPU_OPP_DEFAULT_VALUE,
+	.default_value = MTK_PM_QOS_VVPU_OPP_DEFAULT_VALUE,
+	.no_constraint_value = MTK_PM_QOS_VVPU_OPP_DEFAULT_VALUE,
+	.type = PM_QOS_MIN,
+	.notifiers = &vvpu_opp_notifier,
+};
+static struct mtk_pm_qos_object vvpu_opp_pm_qos = {
+	.constraints = &vvpu_opp_constraints,
+	.req_list = LIST_HEAD_INIT(vvpu_opp_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(vvpu_opp_pm_qos.qos_lock),
+	.name = "vvpu_opp",
+};
+
+static BLOCKING_NOTIFIER_HEAD(vmdla_opp_notifier);
+static struct pm_qos_constraints vmdla_opp_constraints = {
+	.list = PLIST_HEAD_INIT(vmdla_opp_constraints.list),
+	.target_value = MTK_PM_QOS_VMDLA_OPP_DEFAULT_VALUE,
+	.default_value = MTK_PM_QOS_VMDLA_OPP_DEFAULT_VALUE,
+	.no_constraint_value = MTK_PM_QOS_VMDLA_OPP_DEFAULT_VALUE,
+	.type = PM_QOS_MIN,
+	.notifiers = &vmdla_opp_notifier,
+};
+static struct mtk_pm_qos_object vmdla_opp_pm_qos = {
+	.constraints = &vmdla_opp_constraints,
+	.req_list = LIST_HEAD_INIT(vmdla_opp_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(vmdla_opp_pm_qos.qos_lock),
+	.name = "vmdla_opp",
+};
+
 static struct mtk_pm_qos_object *mtk_pm_qos_array[] = {
 	[MTK_PM_QOS_RESERVED] = &null_mtk_pm_qos,
 
@@ -277,6 +309,8 @@ static struct mtk_pm_qos_object *mtk_pm_qos_array[] = {
 	[MTK_PM_QOS_DDR_OPP] = &ddr_opp_pm_qos,
 	[MTK_PM_QOS_VCORE_OPP] = &vcore_opp_pm_qos,
 	[MTK_PM_QOS_SCP_VCORE_REQUEST] = &scp_vcore_req_pm_qos,
+	[MTK_PM_QOS_VVPU_OPP] = &vvpu_opp_pm_qos,
+	[MTK_PM_QOS_VMDLA_OPP] = &vmdla_opp_pm_qos,
 
 	[PM_QOS_DISP_FREQ] = &disp_freq_pm_qos,
 	[PM_QOS_MDP_FREQ] = &mdp_freq_pm_qos,

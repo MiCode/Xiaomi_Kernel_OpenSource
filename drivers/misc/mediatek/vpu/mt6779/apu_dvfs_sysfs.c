@@ -6,13 +6,13 @@
 
 #include <linux/device.h>
 #include <linux/kernel.h>
-#include <linux/pm_qos.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <linux/sysfs.h>
 
 #include <apu_dvfs.h>
 
-static struct pm_qos_request dvfs_vvpu_opp_req;
-static struct pm_qos_request dvfs_vvpu2_opp_req;
+static struct mtk_pm_qos_request dvfs_vvpu_opp_req;
+static struct mtk_pm_qos_request dvfs_vvpu2_opp_req;
 
 static ssize_t dvfs_req_vvpu_opp_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
@@ -22,7 +22,7 @@ static ssize_t dvfs_req_vvpu_opp_store(struct device *dev,
 	if (kstrtoint(buf, 10, &val))
 		return -EINVAL;
 
-	pm_qos_update_request(&dvfs_vvpu_opp_req, val);
+	mtk_pm_qos_update_request(&dvfs_vvpu_opp_req, val);
 
 	return count;
 }
@@ -37,7 +37,7 @@ static ssize_t dvfs_req_vvpu2_opp_store(struct device *dev,
 	if (kstrtoint(buf, 10, &val))
 		return -EINVAL;
 
-	pm_qos_update_request(&dvfs_vvpu2_opp_req, val);
+	mtk_pm_qos_update_request(&dvfs_vvpu2_opp_req, val);
 
 	return count;
 }
@@ -72,10 +72,10 @@ static struct attribute_group apu_dvfs_attr_group = {
 
 int apu_dvfs_add_interface(struct device *dev)
 {
-	pm_qos_add_request(&dvfs_vvpu_opp_req, PM_QOS_VVPU_OPP,
-			PM_QOS_VVPU_OPP_DEFAULT_VALUE);
-	pm_qos_add_request(&dvfs_vvpu2_opp_req, PM_QOS_VVPU_OPP,
-			PM_QOS_VVPU_OPP_DEFAULT_VALUE);
+	mtk_pm_qos_add_request(&dvfs_vvpu_opp_req, MTK_PM_QOS_VVPU_OPP,
+			MTK_PM_QOS_VVPU_OPP_DEFAULT_VALUE);
+	mtk_pm_qos_add_request(&dvfs_vvpu2_opp_req, MTK_PM_QOS_VVPU_OPP,
+			MTK_PM_QOS_VVPU_OPP_DEFAULT_VALUE);
 
 	return sysfs_create_group(&dev->kobj, &apu_dvfs_attr_group);
 }

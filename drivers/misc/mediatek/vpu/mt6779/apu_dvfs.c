@@ -10,7 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
-#include <linux/pm_qos.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <linux/sched.h>
 #include <linux/mutex.h>
 #include <mt-plat/upmu_common.h>
@@ -1566,10 +1566,11 @@ static int commit_data(int type, int data)
 
 	switch (type) {
 
-	case PM_QOS_VVPU_OPP:
+	case MTK_PM_QOS_VVPU_OPP:
 		mutex_lock(&vpu_opp_lock);
 		if (get_vvpu_DVFS_is_paused_by_ptpod())
-			LOG_INF("PM_QOS_VVPU_OPP paused by ptpod %d\n", data);
+			LOG_INF("PM_QOS_VVPU_OPP paused by ptpod %d\n",
+									data);
 		else {
 			LOG_DVFS("%s PM_QOS_VVPU_OPP %d\n", __func__, data);
 /*settle time*/
@@ -1614,12 +1615,14 @@ static int commit_data(int type, int data)
 		udelay(settle_time);
 		mutex_unlock(&vpu_opp_lock);
 		break;
-	case PM_QOS_VMDLA_OPP:
+	case MTK_PM_QOS_VMDLA_OPP:
 		mutex_lock(&mdla_opp_lock);
 		if (get_vmdla_DVFS_is_paused_by_ptpod())
-			LOG_INF("PM_QOS_VMDLA_OPP paused by ptpod %d\n", data);
+			LOG_INF("PM_QOS_VMDLA_OPP paused by ptpod %d\n",
+									data);
 		else {
-			LOG_DVFS("%s PM_QOS_VMDLA_OPP %d\n", __func__, data);
+			LOG_DVFS("%s PM_QOS_VMDLA_OPP %d\n", __func__,
+									data);
 			/*settle time*/
 			if (data > vmdla_orig_opp) {
 				if (data - vmdla_orig_opp == 1)
@@ -1689,10 +1692,10 @@ static void get_pm_qos_info(char *p)
 	dvfs_get_timestamp(timestamp);
 	p += sprintf(p, "%-24s: 0x%x\n",
 			"PM_QOS_VVPU_OPP",
-			pm_qos_request(PM_QOS_VVPU_OPP));
+			pm_qos_request(MTK_PM_QOS_VVPU_OPP));
 	p += sprintf(p, "%-24s: 0x%x\n",
 			"PM_QOS_VMDLA_OPP",
-			pm_qos_request(PM_QOS_VMDLA_OPP));
+			pm_qos_request(MTK_PM_QOS_VMDLA_OPP));
 	p += sprintf(p, "%-24s: %s\n",
 			"Current Timestamp", timestamp);
 	p += sprintf(p, "%-24s: %s\n",
@@ -1720,14 +1723,14 @@ static struct devfreq_dev_profile apu_devfreq_profile = {
 static int pm_qos_vvpu_opp_notify(struct notifier_block *b,
 		unsigned long l, void *v)
 {
-	commit_data(PM_QOS_VVPU_OPP, l);
+	commit_data(MTK_PM_QOS_VVPU_OPP, l);
 
 	return NOTIFY_OK;
 }
 static int pm_qos_vmdla_opp_notify(struct notifier_block *b,
 		unsigned long l, void *v)
 {
-	commit_data(PM_QOS_VMDLA_OPP, l);
+	commit_data(MTK_PM_QOS_VMDLA_OPP, l);
 
 	return NOTIFY_OK;
 }
@@ -1738,12 +1741,12 @@ static void pm_qos_notifier_register(void)
 
 	dvfs->pm_qos_vvpu_opp_nb.notifier_call =
 		pm_qos_vvpu_opp_notify;
-	pm_qos_add_notifier(PM_QOS_VVPU_OPP,
+	pm_qos_add_notifier(MTK_PM_QOS_VVPU_OPP,
 			&dvfs->pm_qos_vvpu_opp_nb);
 
 	dvfs->pm_qos_vmdla_opp_nb.notifier_call =
 		pm_qos_vmdla_opp_notify;
-	pm_qos_add_notifier(PM_QOS_VMDLA_OPP,
+	pm_qos_add_notifier(MTK_PM_QOS_VMDLA_OPP,
 			&dvfs->pm_qos_vmdla_opp_nb);
 }
 

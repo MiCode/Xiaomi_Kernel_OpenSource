@@ -11,7 +11,7 @@
 #include <linux/ctype.h>
 #include <linux/clk.h>
 #include <linux/workqueue.h>
-#include <linux/pm_qos.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 #ifdef CONFIG_MTK_M4U
 #include <m4u.h>
 #endif
@@ -264,10 +264,10 @@ static struct mutex set_power_mutex;
 /* dvfs */
 static struct vpu_dvfs_opps opps;
 #ifdef ENABLE_PMQOS
-//static struct pm_qos_request vpu_qos_bw_request[MTK_VPU_CORE];
-static struct pm_qos_request vpu_qos_vcore_request[MTK_VPU_CORE];
-static struct pm_qos_request vpu_qos_vvpu_request[MTK_VPU_CORE];
-static struct pm_qos_request vpu_qos_vmdla_request[MTK_VPU_CORE];
+//static struct mtk_pm_qos_request vpu_qos_bw_request[MTK_VPU_CORE];
+static struct mtk_pm_qos_request vpu_qos_vcore_request[MTK_VPU_CORE];
+static struct mtk_pm_qos_request vpu_qos_vvpu_request[MTK_VPU_CORE];
+static struct mtk_pm_qos_request vpu_qos_vmdla_request[MTK_VPU_CORE];
 #endif
 
 /* jtag */
@@ -1232,16 +1232,16 @@ static bool vpu_change_opp(int core, int type)
 		#ifdef ENABLE_PMQOS
 		switch (opps.vcore.index) {
 		case 0:
-			pm_qos_update_request(&vpu_qos_vcore_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vcore_request[core],
 								VCORE_OPP_0);
 			break;
 		case 1:
-			pm_qos_update_request(&vpu_qos_vcore_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vcore_request[core],
 								VCORE_OPP_1);
 			break;
 		case 2:
 		default:
-			pm_qos_update_request(&vpu_qos_vcore_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vcore_request[core],
 								VCORE_OPP_2);
 			break;
 		}
@@ -1351,28 +1351,28 @@ static bool vpu_change_opp(int core, int type)
 		#ifdef ENABLE_PMQOS
 		switch (opps.vvpu.index) {
 		case 0:
-			pm_qos_update_request(&vpu_qos_vcore_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vcore_request[core],
 								VCORE_OPP_1);
-			pm_qos_update_request(&vpu_qos_vvpu_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vvpu_request[core],
 								VVPU_OPP_0);
-			pm_qos_update_request(&vpu_qos_vmdla_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vmdla_request[core],
 								VMDLA_OPP_0);
 			break;
 		case 1:
-			pm_qos_update_request(&vpu_qos_vvpu_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vvpu_request[core],
 								VVPU_OPP_1);
-			pm_qos_update_request(&vpu_qos_vmdla_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vmdla_request[core],
 								VMDLA_OPP_1);
-			pm_qos_update_request(&vpu_qos_vcore_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vcore_request[core],
 								VCORE_OPP_2);
 			break;
 		case 2:
 		default:
-			pm_qos_update_request(&vpu_qos_vmdla_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vmdla_request[core],
 								VMDLA_OPP_2);
-			pm_qos_update_request(&vpu_qos_vvpu_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vvpu_request[core],
 								VVPU_OPP_2);
-			pm_qos_update_request(&vpu_qos_vcore_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vcore_request[core],
 								VCORE_OPP_2);
 			break;
 		}
@@ -1695,28 +1695,28 @@ static int vpu_enable_regulator_and_clock(int core)
 #ifdef ENABLE_PMQOS
 		switch (opps.vvpu.index) {
 		case 0:
-			pm_qos_update_request(&vpu_qos_vcore_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vcore_request[core],
 								VCORE_OPP_1);
-			pm_qos_update_request(&vpu_qos_vvpu_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vvpu_request[core],
 								VVPU_OPP_0);
-			pm_qos_update_request(&vpu_qos_vmdla_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vmdla_request[core],
 								VMDLA_OPP_0);
 			break;
 		case 1:
-			pm_qos_update_request(&vpu_qos_vvpu_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vvpu_request[core],
 								VVPU_OPP_1);
-			pm_qos_update_request(&vpu_qos_vmdla_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vmdla_request[core],
 								VMDLA_OPP_1);
-			pm_qos_update_request(&vpu_qos_vcore_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vcore_request[core],
 								VCORE_OPP_2);
 				break;
 		case 2:
 		default:
-			pm_qos_update_request(&vpu_qos_vmdla_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vmdla_request[core],
 								VMDLA_OPP_2);
-			pm_qos_update_request(&vpu_qos_vvpu_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vvpu_request[core],
 								VVPU_OPP_2);
-			pm_qos_update_request(&vpu_qos_vcore_request[core],
+			mtk_pm_qos_update_request(&vpu_qos_vcore_request[core],
 								VCORE_OPP_2);
 
 			break;
@@ -2055,9 +2055,10 @@ static int vpu_disable_regulator_and_clock(int core)
 #ifdef ENABLE_PMQOS
 	LOG_DVFS("[vpu_%d]pc0=%d, pc1=%d\n",
 		core, power_counter[0], power_counter[1]);
-	pm_qos_update_request(&vpu_qos_vmdla_request[core], VMDLA_OPP_2);
-	pm_qos_update_request(&vpu_qos_vvpu_request[core], VVPU_OPP_2);
-	pm_qos_update_request(&vpu_qos_vcore_request[core], VCORE_OPP_UNREQ);
+	mtk_pm_qos_update_request(&vpu_qos_vmdla_request[core], VMDLA_OPP_2);
+	mtk_pm_qos_update_request(&vpu_qos_vvpu_request[core], VVPU_OPP_2);
+	mtk_pm_qos_update_request(&vpu_qos_vcore_request[core],
+							VCORE_OPP_UNREQ);
 #else
 	ret = mmdvfs_set_fine_step(MMDVFS_SCEN_VPU_KERNEL,
 						MMDVFS_FINE_STEP_UNREQUEST);
@@ -3966,24 +3967,24 @@ int vpu_init_hw(int core, struct vpu_device *device)
 		#ifdef ENABLE_PMQOS
 		for (i = 0 ; i < MTK_VPU_CORE ; i++) {
 			/*
-			 * pm_qos_add_request(&vpu_qos_bw_request[i],
-			 *			PM_QOS_APU_MEMORY_BANDWIDTH,
+			 * mtk_pm_qos_add_request(&vpu_qos_bw_request[i],
+			 *			MTK_PM_QOS_MEMORY_EXT_BANDWIDTH,
 			 *			PM_QOS_DEFAULT_VALUE);
 			 */
 
-			pm_qos_add_request(&vpu_qos_vcore_request[i],
-						PM_QOS_VCORE_OPP,
-						PM_QOS_VCORE_OPP_DEFAULT_VALUE);
+			mtk_pm_qos_add_request(&vpu_qos_vcore_request[i],
+					MTK_PM_QOS_VCORE_OPP,
+					MTK_PM_QOS_VCORE_OPP_DEFAULT_VALUE);
 
-		    pm_qos_add_request(&vpu_qos_vvpu_request[i],
-					    PM_QOS_VVPU_OPP,
-					    PM_QOS_VVPU_OPP_DEFAULT_VALUE);
-		    pm_qos_add_request(&vpu_qos_vmdla_request[i],
-					    PM_QOS_VMDLA_OPP,
-					    PM_QOS_VMDLA_OPP_DEFAULT_VALUE);
-		pm_qos_update_request(&vpu_qos_vvpu_request[i],
+		    mtk_pm_qos_add_request(&vpu_qos_vvpu_request[i],
+					    MTK_PM_QOS_VVPU_OPP,
+					    MTK_PM_QOS_VVPU_OPP_DEFAULT_VALUE);
+		    mtk_pm_qos_add_request(&vpu_qos_vmdla_request[i],
+					    MTK_PM_QOS_VMDLA_OPP,
+					    MTK_PM_QOS_VMDLA_OPP_DEFAULT_VALUE);
+		mtk_pm_qos_update_request(&vpu_qos_vvpu_request[i],
 							VVPU_OPP_2);
-		pm_qos_update_request(&vpu_qos_vmdla_request[i],
+		mtk_pm_qos_update_request(&vpu_qos_vmdla_request[i],
 							VMDLA_OPP_2);
 		}
 		LOG_INF("[vpu]init vvpu, vmdla to opp2\n");
@@ -4050,10 +4051,10 @@ int vpu_uninit_hw(void)
 	/* pmqos  */
 	#ifdef ENABLE_PMQOS
 	for (i = 0 ; i < MTK_VPU_CORE ; i++) {
-		//pm_qos_remove_request(&vpu_qos_bw_request[i]);
-		pm_qos_remove_request(&vpu_qos_vcore_request[i]);
-		pm_qos_remove_request(&vpu_qos_vvpu_request[i]);
-		pm_qos_remove_request(&vpu_qos_vmdla_request[i]);
+		//mtk_pm_qos_remove_request(&vpu_qos_bw_request[i]);
+		mtk_pm_qos_remove_request(&vpu_qos_vcore_request[i]);
+		mtk_pm_qos_remove_request(&vpu_qos_vvpu_request[i]);
+		mtk_pm_qos_remove_request(&vpu_qos_vmdla_request[i]);
 	}
 	#endif
 
@@ -5034,7 +5035,7 @@ int vpu_hw_processing_request(int core, struct vpu_request *request)
 #ifdef ENABLE_PMQOS
 	/* pmqos, 10880 Mbytes per second */
 	/*
-	 * pm_qos_update_request(&vpu_qos_bw_request[core],
+	 * mtk_pm_qos_update_request(&vpu_qos_bw_request[core],
 	 *				request->power_param.bw);
 	 */
 #endif
@@ -5094,7 +5095,7 @@ if (g_vpu_log_level > Log_STATE_MACHINE) {
 	#ifdef ENABLE_PMQOS
 	/* pmqos, release request after d2d done */
 	/*
-	 * pm_qos_update_request(&vpu_qos_bw_request[core],
+	 * mtk_pm_qos_update_request(&vpu_qos_bw_request[core],
 	 * PM_QOS_DEFAULT_VALUE);
 	 */
 	#endif
