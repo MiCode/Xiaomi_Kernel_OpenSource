@@ -112,30 +112,6 @@ static int mmc_crypto_cfg_entry_write_key(union swcqhci_crypto_cfg_entry *cfg,
 	return -EINVAL;
 }
 
-static void program_key(struct mmc_host *host,
-			const union swcqhci_crypto_cfg_entry *cfg,
-			int slot)
-{
-	u32 aes_key[8] = {0}, aes_tkey[8] = {0};
-	size_t key_size_bytes;
-	enum swcqhci_crypto_key_size size;
-
-	/* if cqe enabled, skip program key here,
-	 * we will do it in low level driver
-	 */
-	if ((host->caps2 & (MMC_CAP2_CQE | MMC_CAP2_CQE_DCMD)))
-		return;
-
-	/* limit half_len as sizeof(u32)*8, avoid local buffer overflow */
-	size = host->crypto_cap_array[0].key_size;
-	key_size_bytes = get_keysize_bytes(size);
-
-	/* split key into key & tkey */
-	memcpy(aes_key, &cfg->crypto_key[0], key_size_bytes);
-	memcpy(aes_tkey,
-		&cfg->crypto_key[MMC_CRYPTO_KEY_MAX_SIZE/2], key_size_bytes);
-}
-
 static int mmc_crypto_keyslot_program(struct keyslot_manager *ksm,
 			const struct blk_crypto_key *key,
 			unsigned int slot)
@@ -179,12 +155,6 @@ static int mmc_crypto_keyslot_program(struct keyslot_manager *ksm,
 				host->crypto_cap_array[cap_idx]);
 	if (err)
 		return err;
-
-	/* if cqe enabled, skip program key here,
-	 * we will do it in low level driver
-	 */
-	if (!(host->caps2 & (MMC_CAP2_CQE | MMC_CAP2_CQE_DCMD)))
-		program_key(host, &cfg, slot);
 
 	memcpy(&cfg_arr[slot], &cfg, sizeof(cfg));
 	memzero_explicit(&cfg, sizeof(cfg));
