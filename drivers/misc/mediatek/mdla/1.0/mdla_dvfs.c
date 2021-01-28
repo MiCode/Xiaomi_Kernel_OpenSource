@@ -214,6 +214,16 @@ static bool mdla_update_unlock_power_parameter
 static uint8_t mdla_boost_value_to_opp(uint8_t boost_value);
 static int mdla_lock_set_power(struct mdla_lock_power *mdla_lock_power);
 
+static inline int atf_vcore_cg_ctl(int state)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_APU_VCORE_CG_CTL
+			, state, 0, 0, 0, 0, 0, 0, &res);
+
+	return 0;
+}
+
 static inline int Map_MDLA_Freq_Table(int freq_opp)
 {
 	int freq_value = 0;

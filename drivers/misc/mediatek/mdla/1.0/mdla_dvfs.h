@@ -193,15 +193,5 @@ int mdla_dvfs_cmd_end_shutdown(void)
 
 #endif
 
-static inline int atf_vcore_cg_ctl(int state)
-{
-	struct arm_smccc_res res;
-
-	arm_smccc_smc(MTK_SIP_KERNEL_APU_VCORE_CG_CTL
-			, state, 0, 0, 0, 0, 0, 0, &res);
-
-	return 0;
-}
-
 #endif
 

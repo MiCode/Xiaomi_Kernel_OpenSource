@@ -27,10 +27,6 @@
 #include <smi_debug.h>
 #include <m4u.h>
 #include "mtk_devinfo.h"
-#ifndef MTK_VPU_FPGA_PORTING
-#include <mmdvfs_mgr.h>
-/*#include <mtk_pmic_info.h>*/
-#endif
 #include <mtk_vcorefs_manager.h>
 
 #ifdef MTK_PERF_OBSERVER

@@ -14,6 +14,7 @@ ccflags-y += -I$(srctree)/drivers/devfreq
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mdla/1.0
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/qos/
 ifeq ($(CONFIG_MTK_IOMMU_V2),y)
 ccflags-y += -I$(srctree)/drivers/iommu
 endif
