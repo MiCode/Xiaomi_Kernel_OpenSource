@@ -7,3 +7,13 @@ config MTK_CACHE_CONTROL
 	  For none important tasks, we apply two stage enforcement
 	  to mitigate important tasks cache been evicted.
 	  If unsure, say N
+
+config MTK_CACHE_PARTITION_CTRL
+	bool "MTK L3 partition control feature"
+	help
+	  Cache partition control limit cache use of non-critical
+	  task(e.g. background) against critical tasks being
+	  cache-evicted, as to meet higher cache hit rate for
+	  critical tasks.
+	  If you are not sure about whether to enable it or not,
+	  please set n.
