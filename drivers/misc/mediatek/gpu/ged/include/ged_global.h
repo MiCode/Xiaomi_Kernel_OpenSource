@@ -18,8 +18,6 @@
 
 extern GED_LOG_BUF_HANDLE ghLogBuf_DVFS;
 extern GED_LOG_BUF_HANDLE ghLogBuf_ged_srv;
-//extern void mt_gpufreq_input_boost_notify_registerCB(gpufreq_input_boost_notify pCB);
-//extern void mt_gpufreq_power_limit_notify_registerCB(gpufreq_power_limit_notify pCB);
 extern void (*mtk_boost_gpu_freq_fp)(void);
 extern void (*mtk_set_bottom_gpu_freq_fp)(unsigned int);
 extern unsigned int (*mtk_get_bottom_gpu_freq_fp)(void);
@@ -63,4 +61,5 @@ extern unsigned int g_gpu_timer_based_emu;
 extern unsigned long g_ulCalResetTS_us; // calculate loading reset time stamp
 extern unsigned long g_ulPreCalResetTS_us; // previous calculate loading reset time stamp
 extern unsigned long g_ulWorkingPeriod_us; // last frame half, t0
+
 #endif

@@ -356,14 +356,18 @@ err_parameter:
 	return err;
 }
 
-int ged_bridge_ge_alloc(GED_BRIDGE_IN_GE_ALLOC *psALLOC_IN,	GED_BRIDGE_OUT_GE_ALLOC *psALLOC_OUT)
+int ged_bridge_ge_alloc(
+	struct GED_BRIDGE_IN_GE_ALLOC *psALLOC_IN,
+	struct GED_BRIDGE_OUT_GE_ALLOC *psALLOC_OUT)
 {
 	psALLOC_OUT->ge_fd = ged_ge_alloc(psALLOC_IN->region_num, psALLOC_IN->region_sizes);
 	psALLOC_OUT->eError = !!(psALLOC_OUT->ge_fd) ? GED_OK : GED_ERROR_OOM;
 	return 0;
 }
 
-int ged_bridge_ge_get(GED_BRIDGE_IN_GE_GET *psGET_IN, GED_BRIDGE_OUT_GE_GET *psGET_OUT)
+int ged_bridge_ge_get(
+	struct GED_BRIDGE_IN_GE_GET *psGET_IN,
+	struct GED_BRIDGE_OUT_GE_GET *psGET_OUT)
 {
 	psGET_OUT->eError = ged_ge_get(
 			psGET_IN->ge_fd,
@@ -374,7 +378,9 @@ int ged_bridge_ge_get(GED_BRIDGE_IN_GE_GET *psGET_IN, GED_BRIDGE_OUT_GE_GET *psG
 	return 0;
 }
 
-int ged_bridge_ge_set(GED_BRIDGE_IN_GE_SET *psSET_IN, GED_BRIDGE_OUT_GE_SET *psSET_OUT)
+int ged_bridge_ge_set(
+	struct GED_BRIDGE_IN_GE_SET *psSET_IN,
+	struct GED_BRIDGE_OUT_GE_SET *psSET_OUT)
 {
 	psSET_OUT->eError = ged_ge_set(
 			psSET_IN->ge_fd,
@@ -385,7 +391,9 @@ int ged_bridge_ge_set(GED_BRIDGE_IN_GE_SET *psSET_IN, GED_BRIDGE_OUT_GE_SET *psS
 	return 0;
 }
 
-int ged_bridge_ge_info(GED_BRIDGE_IN_GE_INFO *psINFO_IN, GED_BRIDGE_OUT_GE_INFO *psINFO_OUT)
+int ged_bridge_ge_info(
+	struct GED_BRIDGE_IN_GE_INFO *psINFO_IN,
+	struct GED_BRIDGE_OUT_GE_INFO *psINFO_OUT)
 {
 	struct file *file = fget(psINFO_IN->ge_fd);
 
