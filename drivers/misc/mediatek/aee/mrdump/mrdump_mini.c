@@ -46,6 +46,7 @@ static char *modules_info_buf;
 
 static bool dump_all_cpus;
 
+#ifdef MODULE
 static char __aee_cmdline[COMMAND_LINE_SIZE];
 static char *aee_cmdline = __aee_cmdline;
 
@@ -74,6 +75,14 @@ const char *mrdump_get_cmd(void)
 	return aee_cmdline;
 }
 EXPORT_SYMBOL(mrdump_get_cmd);
+#else
+const char *mrdump_get_cmd(void)
+{
+	return saved_command_line;
+}
+EXPORT_SYMBOL(mrdump_get_cmd);
+
+#endif
 
 __weak void get_gz_log_buffer(unsigned long *addr, unsigned long *paddr,
 			unsigned long *size, unsigned long *start)
@@ -857,7 +866,6 @@ static void mrdump_mini_add_loads(void)
 			mrdump_mini_add_tsk_ti(cpu, &regs, tsk, 1);
 			mrdump_mini_add_entry((unsigned long)aee_cpu_rq(cpu),
 					MRDUMP_MINI_SECTION_SIZE);
-			aee_cpu_curr(cpu);
 		} else if (prstatus->pr_pid <= nr_cpu_ids) {
 			cpu = prstatus->pr_pid - 1;
 			mrdump_mini_add_tsk_ti(cpu, &regs, tsk, 0);
