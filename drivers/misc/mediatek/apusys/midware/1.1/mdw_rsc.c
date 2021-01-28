@@ -75,7 +75,7 @@ static void mdw_rsc_ws_init(void)
 	}
 	ws_cnt = 0;
 	mutex_init(&ws_mtx);
-	mdw_rsc_ws = wakeup_source_register(NULL, ws_name);
+	mdw_rsc_ws = wakeup_source_register(NULL, (const char *)ws_name);
 	if (!mdw_rsc_ws)
 		mdw_drv_err("register ws lock fail!\n");
 #else
@@ -128,7 +128,7 @@ static int mdw_rsc_get_name(int type, char *name)
 	int name_idx = 0;
 
 	name_idx = type % APUSYS_DEVICE_RT;
-	if (name_idx > sizeof(rsc_dev_name)/sizeof(char *)) {
+	if (name_idx >= sizeof(rsc_dev_name)/sizeof(char *)) {
 		mdw_drv_err("unknown dev(%d/%d) name\n", type, name_idx);
 		return -ENODEV;
 	}
@@ -668,7 +668,7 @@ static int mdw_rsc_delete_dev(struct mdw_dev_info *d)
 {
 	struct mdw_rsc_tab *tab = NULL;
 
-	if (d->type > APUSYS_DEVICE_MAX || d->type < 0)
+	if (d->type >= APUSYS_DEVICE_MAX || d->type < 0)
 		return -EINVAL;
 
 	tab = mdw_rsc_get_tab(d->type);
@@ -754,7 +754,7 @@ static void mdw_rsc_req_done(struct kref *ref)
 
 static int mdw_rsc_req_add_dev(struct mdw_dev_info *d, struct mdw_rsc_req *req)
 {
-	if (d->type > APUSYS_DEVICE_MAX || d->type < 0)
+	if (d->type >= APUSYS_DEVICE_MAX || d->type < 0)
 		return -EINVAL;
 
 	mutex_lock(&req->mtx);

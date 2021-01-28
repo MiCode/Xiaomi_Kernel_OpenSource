@@ -621,7 +621,7 @@ static void mdw_cmd_update_scr(struct mdw_apu_sc *sc)
 		sc->scr_bmp = sc->scr_bmp & ~(1ULL << idx);
 next:
 		idx++;
-		if (idx >= MDW_CMD_SC_MAX)
+		if (idx >= MDW_CMD_SC_MAX - 1)
 			break;
 	}
 }
