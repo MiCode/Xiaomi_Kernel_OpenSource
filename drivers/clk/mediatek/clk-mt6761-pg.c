@@ -13,9 +13,8 @@
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
 #include <linux/clk.h>
+#include <linux/platform_device.h>
 
-
-#include "clk-mtk-v1.h"
 #include "clk-mt6761-pg.h"
 
 #include <dt-bindings/clock/mt6761-clk.h>
@@ -29,7 +28,6 @@
 		|| !defined(CLK_DEBUG) || !defined(DUMMY_REG_TEST)
 #define MT_CCF_DEBUG	0
 #define CONTROL_LIMIT	0
-#define CLK_DEBUG	0
 #define DUMMY_REG_TEST	0
 #define SUBSYS_IF_ON	0
 #define MTCMOS_FORCE_OFF 0
@@ -103,6 +101,16 @@ struct subsys {
 	uint32_t bus_prot_mask;
 	struct subsys_ops *ops;
 };
+
+static DEFINE_SPINLOCK(clk_ops_lock);
+static DEFINE_SPINLOCK(mtcmos_ops_lock);
+
+#define mtk_clk_lock(flags)	spin_lock_irqsave(&clk_ops_lock, flags)
+#define mtk_clk_unlock(flags)	\
+	spin_unlock_irqrestore(&clk_ops_lock, flags)
+#define mtk_mtcmos_lock(flags)	spin_lock_irqsave(&mtcmos_ops_lock, flags)
+#define mtk_mtcmos_unlock(flags)	\
+	spin_unlock_irqrestore(&mtcmos_ops_lock, flags)
 
 /*static struct subsys_ops general_sys_ops;*/
 
@@ -2914,10 +2922,11 @@ static void __iomem *get_reg(struct device_node *np, int index)
 #endif
 }
 
-static void __init mt_scpsys_init(struct device_node *node)
+static int __init clk_mt6761_scpsys_probe(struct platform_device *pdev)
 {
+	struct device_node *node = pdev->dev.of_node;
 	struct clk_onecell_data *clk_data;
-	int r;
+	int ret = 0;
 
 	infracfg_base = get_reg(node, 0);
 	spm_base = get_reg(node, 1);
@@ -2927,18 +2936,22 @@ static void __init mt_scpsys_init(struct device_node *node)
 
 	if (!infracfg_base || !spm_base || !smi_common_base || !infra_base ||
 		!conn_base) {
-		pr_debug("clk-pg-mt6758: missing reg\n");
-		return;
+		pr_err("clk-mt6761-scpsys: missing reg\n");
+
+		return -EINVAL;
 	}
 
 	clk_data = alloc_clk_data(SCP_NR_SYSS);
 
 	init_clk_scpsys(clk_data);
 
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-	if (r)
-		pr_notice("[CCF] %s:could not register clock provide\n",
+	ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+	if (ret) {
+		pr_err("[CCF] %s:could not register clock provide\n",
 			__func__);
+
+		return ret;
+	}
 
 	if (mtk_is_mtcmos_enable()) {
 		/* subsys init: per modem owner request,
@@ -2973,9 +2986,9 @@ static void __init mt_scpsys_init(struct device_node *node)
 		spm_mtcmos_ctrl_vcodec_bus_prot(STA_POWER_ON);
 #endif
 	}
-}
 
-CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,scpsys", mt_scpsys_init);
+	return ret;
+}
 
 void subsys_if_on(void)
 {
@@ -3053,212 +3066,24 @@ void mtcmos_force_off(void)
 }
 #endif
 
-#if CLK_DEBUG
-/*
- * debug / unit test
- */
-
-#include <linux/proc_fs.h>
-#include <linux/fs.h>
-#include <linux/seq_file.h>
-#include <linux/uaccess.h>
-#include <linux/module.h>
-
-static char last_cmd[128] = "null";
-
-static int test_pg_dump_regs(struct seq_file *s, void *v)
-{
-	int i;
-
-	for (i = 0; i < NR_SYSS; i++) {
-		if (!syss[i].ctl_addr)
-			continue;
-
-		seq_printf(s, "%10s: [0x%p]: 0x%08x\n", syss[i].name,
-			   syss[i].ctl_addr, clk_readl(syss[i].ctl_addr));
-	}
-
-	return 0;
-}
-
-static void dump_pg_state(const char *clkname, struct seq_file *s)
-{
-	struct clk *c = __clk_lookup(clkname);
-	struct clk *p = IS_ERR_OR_NULL(c) ? NULL : clk_get_parent(c);
-
-	if (IS_ERR_OR_NULL(c)) {
-		seq_printf(s, "[%17s: NULL]\n", clkname);
-		return;
-	}
-
-	seq_printf(s, "[%17s: %3s, %3d, %10lu, %7s]\n",
-		   __clk_get_name(c),
-		   __clk_is_enabled(c) ? "ON" : "off",
-		   __clk_get_enable_count(c), clk_get_rate(c),
-			p ? __clk_get_name(p) : "");
-
-
-	clk_put(c);
-}
-
-static int test_pg_dump_state_all(struct seq_file *s, void *v)
-{
-	static const char *const clks[] = {
-		pg_md1,
-		pg_conn,
-		pg_dpy,
-		pg_dis,
-		pg_mfg,
-		pg_ifr,
-		pg_mfg_core0,
-		pg_mfg_async,
-		pg_cam,
-		pg_vcodec,
-	};
-
-	int i;
-
-/*	pr_debug("\n");*/
-	for (i = 0; i < ARRAY_SIZE(clks); i++)
-		dump_pg_state(clks[i], s);
-
-	return 0;
-}
-
-static struct {
-	const char *name;
-	struct clk *clk;
-} g_clks[] = {
-	{
-	.name = pg_md1}, {
-	.name = pg_vcodec}, {
-.name = pg_mfg},};
-
-static int test_pg_1(struct seq_file *s, void *v)
-{
-	int i;
-
-/*	pr_debug("\n");*/
-
-	for (i = 0; i < ARRAY_SIZE(g_clks); i++) {
-		g_clks[i].clk = __clk_lookup(g_clks[i].name);
-		if (IS_ERR_OR_NULL(g_clks[i].clk)) {
-			seq_printf(s, "clk_get(%s): NULL\n", g_clks[i].name);
-			continue;
-		}
-
-		clk_prepare_enable(g_clks[i].clk);
-		seq_printf(s, "clk_prepare_enable(%s)\n",
-			__clk_get_name(g_clks[i].clk));
-	}
-
-	return 0;
-}
-
-static int test_pg_2(struct seq_file *s, void *v)
-{
-	int i;
-
-/*	pr_debug("\n");*/
-
-	for (i = 0; i < ARRAY_SIZE(g_clks); i++) {
-		if (IS_ERR_OR_NULL(g_clks[i].clk)) {
-			seq_printf(s, "(%s).clk: NULL\n", g_clks[i].name);
-			continue;
-		}
-
-		seq_printf(s, "clk_disable_unprepare(%s)\n",
-			__clk_get_name(g_clks[i].clk));
-		clk_disable_unprepare(g_clks[i].clk);
-		clk_put(g_clks[i].clk);
-	}
-
-	return 0;
-}
-
-static int test_pg_show(struct seq_file *s, void *v)
-{
-	static const struct {
-		int (*fn)(struct seq_file *s, void *p);
-		const char *cmd;
-	} cmds[] = {
-		{
-		.cmd = "dump_regs", .fn = test_pg_dump_regs}, {
-		.cmd = "dump_state", .fn = test_pg_dump_state_all}, {
-		.cmd = "1", .fn = test_pg_1}, {
-	.cmd = "2", .fn = test_pg_2},};
-
-	int i;
-
-/*	pr_debug("last_cmd: %s\n", last_cmd);*/
-
-	for (i = 0; i < ARRAY_SIZE(cmds); i++) {
-		if (strcmp(cmds[i].cmd, last_cmd) == 0)
-			return cmds[i].fn(s, v);
-	}
-
-	return 0;
-}
-
-static int test_pg_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, test_pg_show, NULL);
-}
-
-static ssize_t test_pg_write(struct file *file,
-	const char __user *buffer, size_t count, loff_t *data)
-{
-	char desc[sizeof(last_cmd)];
-	int len = 0;
-
-/*	pr_debug("count: %zu\n", count);*/
-	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
-	if (copy_from_user(desc, buffer, len))
-		return 0;
-
-	desc[len] = '\0';
-	strcpy(last_cmd, desc);
-	if (last_cmd[len - 1] == '\n')
-		last_cmd[len - 1] = 0;
-
-	return count;
-}
-
-static const struct file_operations test_pg_fops = {
-	.owner = THIS_MODULE,
-	.open = test_pg_open,
-	.read = seq_read,
-	.write = test_pg_write,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct of_device_id of_match_clk_mt6761_scpsys[] = {
+	{ .compatible = "mediatek,mt6761-scpsys", },
+	{}
 };
 
-static int __init debug_init(void)
+static struct platform_driver clk_mt6761_scpsys_drv = {
+	.probe = clk_mt6761_scpsys_probe,
+	.driver = {
+		.name = "clk-mt6761-scpsys",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_clk_mt6761_scpsys,
+	},
+};
+
+static int __init clk_mt6761_scpsys_init(void)
 {
-	static int init;
-	struct proc_dir_entry *entry;
-
-/*	pr_debug("init: %d\n", init);*/
-
-	if (init)
-		return 0;
-
-	++init;
-
-	entry = proc_create("test_pg", 0000, 0000, &test_pg_fops);
-	if (!entry)
-		return -ENOMEM;
-
-	++init;
-	return 0;
+	return platform_driver_register(&clk_mt6761_scpsys_drv);
 }
 
-static void __exit debug_exit(void)
-{
-	remove_proc_entry("test_pg", NULL);
-}
+arch_initcall(clk_mt6761_scpsys_init);
 
-module_init(debug_init);
-module_exit(debug_exit);
-
-#endif				/* CLK_DEBUG */

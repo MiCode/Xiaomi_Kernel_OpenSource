@@ -48,4 +48,5 @@ extern void aee_rr_rec_clk(int id, u32 val);
 #endif
 
 extern void print_enabled_clks_once(void);
+extern int mtk_is_mtcmos_enable(void);
 #endif/* __DRV_CLK_MT6758_PG_H */
