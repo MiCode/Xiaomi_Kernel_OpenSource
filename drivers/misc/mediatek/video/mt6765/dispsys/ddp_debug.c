@@ -115,77 +115,192 @@ unsigned int get_backup_vfp(void)
 
 void _ddic_test_read(void)
 {
-	struct ddp_lcm_read_cmd_table read_table;
-		memset(&read_table, 0,
-		sizeof(struct ddp_lcm_read_cmd_table));
-	read_table.cmd[0] = 0x0A;
-	read_table.cmd[1] = 0x0A;
-	read_table.cmd[2] = 0x0A;
+	unsigned int i = 0;
+	unsigned int j = 0;
+	unsigned int ret_dlen = 0;
 
-	do_lcm_vdo_lp_read(&read_table);
+	struct dsi_cmd_desc cmd_tab[3];
 
-	DDPMSG("after b0 %x, b1 %x, b2 %x, b3 = %x\n",
-		read_table.data[0].byte0,
-		read_table.data[0].byte1,
-		read_table.data[0].byte2,
-		read_table.data[0].byte3);
-	DDPMSG("after b0 %x, b1 %x, b2 %x, b3 = %x\n",
-		read_table.data[1].byte0,
-		read_table.data[1].byte1,
-		read_table.data[1].byte2,
-		read_table.data[1].byte3);
-	DDPMSG("after b0 %x, b1 %x, b2 %x, b3 = %x\n",
-		read_table.data[2].byte0,
-		read_table.data[2].byte1,
-		read_table.data[2].byte2,
-		read_table.data[2].byte3);
+	memset(&cmd_tab, 0, 3 * sizeof(struct dsi_cmd_desc));
 
+	/*read display power mode*/
+	cmd_tab[0].dtype = 0x0A;
+	cmd_tab[0].payload = vmalloc(4 * sizeof(unsigned char));
+	memset(cmd_tab[0].payload, 0, 4);
+	cmd_tab[0].dlen = 4;
+
+
+	/*read ID2 Value*/
+	cmd_tab[1].dtype = 0xDB;
+	cmd_tab[1].payload = vmalloc(4 * sizeof(unsigned char));
+	memset(cmd_tab[1].payload, 0, 4);
+	cmd_tab[1].dlen = 4;
+
+	/*read display id*/
+	cmd_tab[2].dtype = 0x04;
+	cmd_tab[2].payload = vmalloc(4 * sizeof(unsigned char));
+	memset(cmd_tab[2].payload, 0, 4);
+	cmd_tab[2].dlen = 4;
+
+
+	do_lcm_vdo_lp_read(cmd_tab, 3);
+
+	for (i = 0; i < 3; i++) {
+		ret_dlen = cmd_tab[i].dlen;
+		DISPMSG("read lcm addr:0x%x--dlen:%d\n",
+		cmd_tab[i].dtype, ret_dlen);
+		for (j = 0; j < ret_dlen; j++) {
+			DISPMSG("read lcm addr:0x%x--byte:%d,val:0x%x\n",
+			cmd_tab[i].dtype, j, *(cmd_tab[i].payload + j));
+		}
+	}
+
+	for (i = 0; i < 3; i++)
+		vfree(cmd_tab[i].payload);
 }
+
+void _ddic_test_read_v1(void)
+{
+	unsigned int j = 0;
+	unsigned int ret_dlen = 0;
+	int ret;
+	struct dsi_cmd_desc *cmd_tab = vmalloc(sizeof(struct dsi_cmd_desc));
+
+	DISPMSG("%s start +\n", __func__);
+
+	/*read display power mode, normal value = 0x9c*/
+	cmd_tab->dtype = 0x0A;
+	cmd_tab->payload = vmalloc(4 * sizeof(unsigned char));
+	memset(cmd_tab->payload, 0, 4);
+	cmd_tab->dlen = 4;
+	cmd_tab->cmd = 0x06;
+
+	#if 0
+	/*read ID2 Value*/
+	cmd_tab->dtype = 0xDB;
+	cmd_tab->payload = vmalloc(4 * sizeof(unsigned char));
+	memset(cmd_tab->payload, 0, 4);
+	cmd_tab->dlen = 12;
+	cmd_tab->cmd = 0x06;
+
+	/*read display id*/
+	cmd_tab->dtype = 0x04;
+	cmd_tab->payload = vmalloc(4 * sizeof(unsigned char));
+	memset(cmd_tab->payload, 0, 4);
+	cmd_tab->dlen = 4;
+	cmd_tab->cmd = 0x06;
+	#endif
+
+	ret = do_lcm_vdo_lp_read_v1(cmd_tab);
+	if (ret == -1) {
+		DISPERR("do_lcm_vdo_lp_read_v1 error\n");
+		goto  done;
+	}
+
+	ret_dlen = cmd_tab->dlen;
+	DISPMSG("read lcm addr:0x%x--dlen:%d\n",
+		cmd_tab->dtype, ret_dlen);
+	for (j = 0; j < ret_dlen; j++) {
+		DISPMSG("read lcm addr:0x%x--byte:%d,val:0x%x\n",
+			cmd_tab->dtype, j, *(cmd_tab->payload + j));
+	}
+
+done:
+	vfree(cmd_tab->payload);
+	DISPMSG("%s end -\n", __func__);
+}
+
 void _ddic_test_write(void)
 {
-	struct ddp_lcm_write_cmd_table write_table[5] = {
-		{0xB6, 1, {0x01} },
-		{0xC8, 1, {0x83} },
-		{0xF0, 5, {0x55, 0xAA, 0x52, 0x08, 0x01} },/*page 1*/
-		{0xB0, 2, {0x0F, 0x0F} },
-		{0xB1, 2, {0x0F, 0x0F } },
-		};
+	unsigned int i;
 
-	do_lcm_vdo_lp_write(write_table, 5);
+	struct dsi_cmd_desc cmd_tab[5];
+
+	for (i = 0; i < 5; i++) {
+		cmd_tab[i].payload = vmalloc(5*sizeof(char));
+		cmd_tab[i].vc = 0;
+		cmd_tab[i].link_state = 1;
+	}
+	cmd_tab[0].dtype = 0xB6;
+	cmd_tab[1].dtype = 0xC8;
+	cmd_tab[2].dtype = 0xF0;
+	cmd_tab[3].dtype = 0xB0;
+	cmd_tab[4].dtype = 0xB1;
+
+	cmd_tab[0].dlen = 1;
+	cmd_tab[1].dlen = 1;
+	cmd_tab[2].dlen = 5;
+	cmd_tab[3].dlen = 2;
+	cmd_tab[4].dlen = 2;
+
+	*(cmd_tab[0].payload) = 0x01;
+	*(cmd_tab[1].payload) = 0x83;
+	(cmd_tab[2].payload)[0] = 0x55;
+	(cmd_tab[2].payload)[1] = 0xAA;
+	(cmd_tab[2].payload)[2] = 0x52;
+	(cmd_tab[2].payload)[3] = 0x08;
+	(cmd_tab[2].payload)[4] = 0x01;
+	(cmd_tab[3].payload)[0] = 0x0F;
+	(cmd_tab[3].payload)[1] = 0x0F;
+	(cmd_tab[4].payload)[0] = 0x0F;
+	(cmd_tab[4].payload)[1] = 0x0F;
+
+	do_lcm_vdo_lp_write(cmd_tab, 5);
+
+	for (i = 0; i < 5; i++)
+		vfree(cmd_tab[i].payload);
 
 }
 
 void _ddic_test_read_write(void)
 {
-	struct ddp_lcm_write_cmd_table write_table1[3] = {
-		{0x51, 1, {0xFE} },
-		{0x53, 1, {0xff} },
-		{0x5E, 1, {0x45} },
-	};
-	struct ddp_lcm_read_cmd_table read_table1;
+	unsigned int i = 0;
+	unsigned int j = 0;
+	unsigned int ret_dlen = 0;
+	struct dsi_cmd_desc read_tab[3];
+	struct dsi_cmd_desc write_table1[3];
+
+	memset(&read_tab, 0, 3 * sizeof(struct dsi_cmd_desc));
+	read_tab[0].dtype = 0x52;
+	read_tab[1].dtype = 0x54;
+	read_tab[2].dtype = 0x5F;
+
+	for (i = 0; i < 3; i++) {
+		write_table1[i].payload = vmalloc(sizeof(unsigned char));
+		write_table1[i].vc = 0;
+		write_table1[i].dlen = 1;
+		write_table1[i].link_state = 1;
+
+		read_tab[i].payload = vmalloc(4 * sizeof(unsigned char));
+		memset(read_tab[i].payload, 0, 4);
+		read_tab[i].dlen = 4;
+	}
+
+	write_table1[0].dtype = 0x51;
+	write_table1[1].dtype = 0x53;
+	write_table1[2].dtype = 0x5E;
+
+	*(write_table1[0].payload) = 0xFE;
+	*(write_table1[1].payload) = 0xff;
+	*(write_table1[2].payload) = 0x45;
 
 	do_lcm_vdo_lp_write(write_table1, 3);
-	memset(&read_table1, 0,
-		sizeof(struct ddp_lcm_read_cmd_table));
-	read_table1.cmd[0] = 0x52;
-	read_table1.cmd[1] = 0x54;
-	read_table1.cmd[2] = 0x5F;
-	do_lcm_vdo_lp_read(&read_table1);
-	DDPMSG("after b0 %x, b1 %x, b2 %x, b3 = %x\n",
-		read_table1.data[0].byte0,
-		read_table1.data[0].byte1,
-		read_table1.data[0].byte2,
-		read_table1.data[0].byte3);
-	DDPMSG("after b0 %x, b1 %x, b2 %x, b3 = %x\n",
-		read_table1.data[1].byte0,
-		read_table1.data[1].byte1,
-		read_table1.data[1].byte2,
-		read_table1.data[1].byte3);
-	DDPMSG("after b0 %x, b1 %x, b2 %x, b3 = %x\n",
-		read_table1.data[2].byte0,
-		read_table1.data[2].byte1,
-		read_table1.data[2].byte2,
-		read_table1.data[2].byte3);
+	do_lcm_vdo_lp_read(read_tab, 3);
+
+	for (i = 0; i < 3; i++) {
+		ret_dlen = read_tab[i].dlen;
+		DDPMSG("read lcm addr:0x%x--dlen:%d\n",
+		read_tab[i].dtype, ret_dlen);
+		for (j = 0; j < ret_dlen; j++) {
+			DDPMSG("read lcm addr:0x%x--byte:%d,val:0x%x\n",
+			read_tab[i].dtype, j, *(read_tab[i].payload + j));
+		}
+	}
+
+	for (i = 0; i < 3; i++) {
+		vfree(read_tab[i].payload);
+		vfree(write_table1[i].payload);
+	}
 
 }
 
@@ -363,12 +478,15 @@ static void process_dbg_opt(const char *opt)
 			return;
 		}
 
-		if (test_type < 1)
+		if (test_type == 0) {
 			_ddic_test_read();
-		else if (test_type > 1 && test_type < 5)
+		} else if (test_type == 1) {
 			_ddic_test_write();
-		else if (test_type > 10)
+		} else if (test_type == 2) {
 			_ddic_test_read_write();
+		} else if (test_type == 3) {
+			_ddic_test_read_v1();
+		}
 
 	} else if (strncmp(opt, "partial:", 8) == 0) {
 		ret = sscanf(opt, "partial:%d,%d,%d,%d,%d\n", &dbg_force_roi,

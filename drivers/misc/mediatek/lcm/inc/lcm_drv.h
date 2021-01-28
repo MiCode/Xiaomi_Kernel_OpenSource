@@ -832,6 +832,7 @@ struct dsi_cmd_desc {
 	unsigned int vc;
 	unsigned int dlen;
 	unsigned int link_state;
+	unsigned int cmd;
 	char *payload;
 };
 

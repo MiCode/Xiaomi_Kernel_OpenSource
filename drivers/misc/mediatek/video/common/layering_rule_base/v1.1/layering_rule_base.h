@@ -131,12 +131,12 @@ struct hrt_sort_entry {
 struct layering_rule_info_t {
 	int layer_tb_idx;
 	int bound_tb_idx;
-	int disp_path;
+	unsigned int disp_path;
 	int scale_rate;
 	int dal_enable;
 	int primary_fps;
-	int hrt_sys_state;
-	int wrot_sram;
+	unsigned int hrt_sys_state;
+	unsigned int wrot_sram;
 };
 
 struct layering_rule_ops {
