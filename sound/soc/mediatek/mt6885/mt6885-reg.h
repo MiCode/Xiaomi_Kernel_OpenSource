@@ -2272,6 +2272,73 @@ enum {
 #define G_SRC_ASM_ON_MASK                              0x1
 #define G_SRC_ASM_ON_MASK_SFT                          (0x1 << 0)
 
+/* AFE_ADDA_DL_SDM_AUTO_RESET_CON */
+#define ADDA_SDM_AUTO_RESET_ONOFF_SFT                  31
+#define ADDA_SDM_AUTO_RESET_ONOFF_MASK                 0x1
+#define ADDA_SDM_AUTO_RESET_ONOFF_MASK_SFT             (0x1 << 31)
+
+/* AFE_ADDA_3RD_DAC_DL_SDM_AUTO_RESET_CON */
+#define ADDA_3RD_DAC_SDM_AUTO_RESET_ONOFF_SFT          31
+#define ADDA_3RD_DAC_SDM_AUTO_RESET_ONOFF_MASK         0x1
+#define ADDA_3RD_DAC_SDM_AUTO_RESET_ONOFF_MASK_SFT     (0x1 << 31)
+
+/* AFE_TINY_CONN0 */
+#define O_3_CFG_SFT                                    24
+#define O_3_CFG_MASK                                   0x1f
+#define O_3_CFG_MASK_SFT                               (0x1f << 24)
+#define O_2_CFG_SFT                                    16
+#define O_2_CFG_MASK                                   0x1f
+#define O_2_CFG_MASK_SFT                               (0x1f << 16)
+#define O_1_CFG_SFT                                    8
+#define O_1_CFG_MASK                                   0x1f
+#define O_1_CFG_MASK_SFT                               (0x1f << 8)
+#define O_0_CFG_SFT                                    0
+#define O_0_CFG_MASK                                   0x1f
+#define O_0_CFG_MASK_SFT                               (0x1f << 0)
+
+/* AFE_TINY_CONN5 */
+#define O_23_CFG_SFT                                    24
+#define O_23_CFG_MASK                                   0x1f
+#define O_23_CFG_MASK_SFT                               (0x1f << 24)
+#define O_22_CFG_SFT                                    16
+#define O_22_CFG_MASK                                   0x1f
+#define O_22_CFG_MASK_SFT                               (0x1f << 16)
+#define O_21_CFG_SFT                                    8
+#define O_21_CFG_MASK                                   0x1f
+#define O_21_CFG_MASK_SFT                               (0x1f << 8)
+#define O_20_CFG_SFT                                    0
+#define O_20_CFG_MASK                                   0x1f
+#define O_20_CFG_MASK_SFT                               (0x1f << 0)
+
+/* AFE_MEMIF_CONN */
+#define VUL6_USE_TINY_SFT                              8
+#define VUL6_USE_TINY_MASK                             1
+#define VUL6_USE_TINY_MASK_SFT                         (0x1 << 8)
+#define VUL5_USE_TINY_SFT                              7
+#define VUL5_USE_TINY_MASK                             1
+#define VUL5_USE_TINY_MASK_SFT                         (0x1 << 7)
+#define VUL4_USE_TINY_SFT                              6
+#define VUL4_USE_TINY_MASK                             1
+#define VUL4_USE_TINY_MASK_SFT                         (0x1 << 6)
+#define VUL3_USE_TINY_SFT                              5
+#define VUL3_USE_TINY_MASK                             1
+#define VUL3_USE_TINY_MASK_SFT                         (0x1 << 5)
+#define AWB2_USE_TINY_SFT                              4
+#define AWB2_USE_TINY_MASK                             1
+#define AWB2_USE_TINY_MASK_SFT                         (0x1 << 4)
+#define AWB_USE_TINY_SFT                               3
+#define AWB_USE_TINY_MASK                              1
+#define AWB_USE_TINY_MASK_SFT                          (0x1 << 3)
+#define VUL12_USE_TINY_SFT                             2
+#define VUL12_USE_TINY_MASK                            1
+#define VUL12_USE_TINY_MASK_SFT                        (0x1 << 2)
+#define VUL2_USE_TINY_SFT                              1
+#define VUL2_USE_TINY_MASK                             1
+#define VUL2_USE_TINY_MASK_SFT                         (0x1 << 1)
+#define VUL1_USE_TINY_SFT                              0
+#define VUL1_USE_TINY_MASK                             1
+#define VUL1_USE_TINY_MASK_SFT                         (0x1 << 0)
+
 /* AFE_ASRC_2CH_CON0 */
 #define CON0_CHSET_STR_CLR_SFT                         4
 #define CON0_CHSET_STR_CLR_MASK                        1
@@ -2284,42 +2351,6 @@ enum {
 #define CALI_EN_SFT                                    0
 #define CALI_EN_MASK                                   1
 #define CALI_EN_MASK_SFT                               (0x1 << 0)
-
-/* AFE_ADDA_DL_SDM_AUTO_RESET_CON */
-#define ADDA_SDM_AUTO_RESET_ONOFF_SFT                  31
-#define ADDA_SDM_AUTO_RESET_ONOFF_MASK                 0x1
-#define ADDA_SDM_AUTO_RESET_ONOFF_MASK_SFT             (0x1 << 31)
-
-/* AFE_ADDA_3RD_DAC_DL_SDM_AUTO_RESET_CON */
-#define ADDA_3RD_DAC_SDM_AUTO_RESET_ONOFF_SFT          31
-#define ADDA_3RD_DAC_SDM_AUTO_RESET_ONOFF_MASK         0x1
-#define ADDA_3RD_DAC_SDM_AUTO_RESET_ONOFF_MASK_SFT     (0x1 << 31)
-
-/* AFE_TINY_CONN0 */
-#define RESERVED_03_SFT                                29
-#define RESERVED_03_MASK                               0x7
-#define RESERVED_03_MASK_SFT                           (0x7 << 29)
-#define O_3_CFG_SFT                                    24
-#define O_3_CFG_MASK                                   0x1f
-#define O_3_CFG_MASK_SFT                               (0x1f << 24)
-#define RESERVED_02_SFT                                21
-#define RESERVED_02_MASK                               0x7
-#define RESERVED_02_MASK_SFT                           (0x7 << 21)
-#define O_2_CFG_SFT                                    16
-#define O_2_CFG_MASK                                   0x1f
-#define O_2_CFG_MASK_SFT                               (0x1f << 16)
-#define RESERVED_01_SFT                                13
-#define RESERVED_01_MASK                               0x7
-#define RESERVED_01_MASK_SFT                           (0x7 << 13)
-#define O_1_CFG_SFT                                    8
-#define O_1_CFG_MASK                                   0x1f
-#define O_1_CFG_MASK_SFT                               (0x1f << 8)
-#define RESERVED_00_SFT                                5
-#define RESERVED_00_MASK                               0x7
-#define RESERVED_00_MASK_SFT                           (0x7 << 5)
-#define O_0_CFG_SFT                                    0
-#define O_0_CFG_MASK                                   0x1f
-#define O_0_CFG_MASK_SFT                               (0x1f << 0)
 
 #define AUDIO_TOP_CON0                                 0x0000
 #define AUDIO_TOP_CON1                                 0x0004
@@ -2419,6 +2450,7 @@ enum {
 #define AFE_SIDETONE_CON1                              0x01e8
 #define AFE_SIDETONE_GAIN                              0x01ec
 #define AFE_SINEGEN_CON0                               0x01f0
+#define AFE_I2S_MON2                                   0x01f8
 #define AFE_SINEGEN_CON_TDM                            0x01fc
 #define AFE_TOP_CON0                                   0x0200
 #define AFE_VUL2_CON0                                  0x020c

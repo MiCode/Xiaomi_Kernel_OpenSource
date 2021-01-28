@@ -168,7 +168,8 @@ static int mt6885_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	regmap_update_bits(afe->regmap, AFE_AUD_PAD_TOP, 0xff, 0x39);
 
 	/* set test type to synchronizer pulse */
-	set_cksys_reg(CKSYS_AUD_TOP_CFG, 0xffff, 0x4);
+	regmap_update_bits(afe_priv->topckgen,
+			   CKSYS_AUD_TOP_CFG, 0xffff, 0x4);
 
 	afe_priv->mtkaif_calibration_num_phase = 42;	/* mt6359: 0 ~ 42 */
 	afe_priv->mtkaif_calibration_ok = true;
@@ -183,7 +184,8 @@ static int mt6885_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 		mt6359_set_mtkaif_calibration_phase(&rtd->codec->component,
 						    phase, phase, phase);
 
-		set_cksys_reg(CKSYS_AUD_TOP_CFG, 0x1, 0x1);
+		regmap_update_bits(afe_priv->topckgen,
+				   CKSYS_AUD_TOP_CFG, 0x1, 0x1);
 
 		test_done_1 = 0;
 		test_done_2 = 0;
@@ -195,7 +197,8 @@ static int mt6885_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 		while (test_done_1 == 0 ||
 		       test_done_2 == 0 ||
 		       test_done_3 == 0) {
-			monitor = get_cksys_reg(CKSYS_AUD_TOP_MON);
+			regmap_read(afe_priv->topckgen,
+				    CKSYS_AUD_TOP_MON, &monitor);
 
 			test_done_1 = (monitor >> 28) & 0x1;
 			test_done_2 = (monitor >> 29) & 0x1;
@@ -243,7 +246,8 @@ static int mt6885_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 			afe_priv->mtkaif_phase_cycle[2] = prev_cycle_3;
 		}
 
-		set_cksys_reg(CKSYS_AUD_TOP_CFG, 0x1, 0x0);
+		regmap_update_bits(afe_priv->topckgen,
+				   CKSYS_AUD_TOP_CFG, 0x1, 0x0);
 
 		if (afe_priv->mtkaif_chosen_phase[0] >= 0 &&
 		    afe_priv->mtkaif_chosen_phase[1] >= 0 &&
@@ -987,19 +991,43 @@ static struct snd_soc_dai_link mt6885_mt6359_dai_links[] = {
 		.dpcm_playback = 1,
 		.ignore_suspend = 1,
 	},
+	{
+		.name = "Hostless_HW_Gain_AAudio",
+		.stream_name = "Hostless_HW_Gain_AAudio",
+		.cpu_dai_name = "Hostless HW Gain AAudio DAI",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.trigger = {SND_SOC_DPCM_TRIGGER_PRE,
+			    SND_SOC_DPCM_TRIGGER_PRE},
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = "Hostless_SRC_AAudio",
+		.stream_name = "Hostless_SRC_AAudio",
+		.cpu_dai_name = "Hostless SRC AAudio DAI",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.trigger = {SND_SOC_DPCM_TRIGGER_PRE,
+			    SND_SOC_DPCM_TRIGGER_PRE},
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.dpcm_capture = 1,
+		.ignore_suspend = 1,
+	},
 	/* BTCVSD */
 #ifdef CONFIG_SND_SOC_MTK_BTCVSD
 	{
 		.name = "BTCVSD",
 		.stream_name = "BTCVSD",
 		.cpu_dai_name   = "snd-soc-dummy-dai",
-		.platform_name  = "18050000.mtk-btcvsd-snd",
+		.platform_name  = "18830000.mtk-btcvsd-snd",
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
 #endif
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-#if defined(CONFIG_MTK_AUDIO_TUNNELING_SUPPORT)
 	{
 		.name = "Offload_Playback",
 		.stream_name = "Offload_Playback",
@@ -1008,7 +1036,6 @@ static struct snd_soc_dai_link mt6885_mt6359_dai_links[] = {
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
-#endif
 	{
 		.name = "DSP_Playback_Voip",
 		.stream_name = "DSP_Playback_Voip",
@@ -1053,6 +1080,22 @@ static struct snd_soc_dai_link mt6885_mt6359_dai_links[] = {
 		.name = "DSP_Call_Final",
 		.stream_name = "DSP_Call_Final",
 		.cpu_dai_name = "audio_task_call_final_dai",
+		.platform_name = "snd_audio_dsp",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
+	{
+		.name = "DSP_Playback_Fast",
+		.stream_name = "DSP_Playback_Fast",
+		.cpu_dai_name = "audio_task_fast_dai",
+		.platform_name = "snd_audio_dsp",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
+	{
+		.name = "DSP_Playback_Ktv",
+		.stream_name = "DSP_Playback_Ktv",
+		.cpu_dai_name = "audio_task_ktv_dai",
 		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",

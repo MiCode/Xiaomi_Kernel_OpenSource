@@ -58,46 +58,4 @@
 #define I_DL9_CH1 (50 - I_32_OFFSET)
 #define I_DL9_CH2 (51 - I_32_OFFSET)
 
-enum {
-	TINYCONN_CH2_MUX_NONE = 0x1f,
-	TINYCONN_CH2_MUX_I2S0 = 21,
-	TINYCONN_CH2_MUX_I2S6 = 27,
-	TINYCONN_CH2_MUX_I2S8 = 29,
-};
-
-enum {
-	TINYCONN_CH1_MUX_NONE = 0x1f,
-	TINYCONN_CH1_MUX_I2S0 = 20,
-	TINYCONN_CH1_MUX_I2S6 = 26,
-	TINYCONN_CH1_MUX_I2S8 = 28,
-};
-
-static const char * const tinyconn_ch1_mux_map[] = {
-	"NONE",
-	"I2S0_CH1",
-	"I2S6_CH1",
-	"I2S8_CH1",
-};
-
-static int tinyconn_ch1_mux_map_value[] = {
-	TINYCONN_CH1_MUX_NONE,
-	TINYCONN_CH1_MUX_I2S0,
-	TINYCONN_CH1_MUX_I2S6,
-	TINYCONN_CH1_MUX_I2S8,
-};
-
-static const char * const tinyconn_ch2_mux_map[] = {
-	"NONE",
-	"I2S0_CH2",
-	"I2S6_CH2",
-	"I2S8_CH2",
-};
-
-static int tinyconn_ch2_mux_map_value[] = {
-	TINYCONN_CH2_MUX_NONE,
-	TINYCONN_CH2_MUX_I2S0,
-	TINYCONN_CH2_MUX_I2S6,
-	TINYCONN_CH2_MUX_I2S8,
-};
-
 #endif

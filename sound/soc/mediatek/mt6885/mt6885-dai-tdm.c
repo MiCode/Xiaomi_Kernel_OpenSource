@@ -269,11 +269,32 @@ static SOC_VALUE_ENUM_SINGLE_AUTODISABLE_DECL(dptx_out_mux_map_enum,
 static const struct snd_kcontrol_new dptx_out_mux_control =
 	SOC_DAPM_ENUM("DPTX_OUT_MUX", dptx_out_mux_map_enum);
 
+
+static SOC_VALUE_ENUM_SINGLE_AUTODISABLE_DECL(dptx_virtual_out_mux_map_enum,
+					      SND_SOC_NOPM,
+					      0,
+					      1,
+					      tdm_out_mux_map,
+					      tdm_out_mux_map_value);
+
+static const struct snd_kcontrol_new dptx_virtual_out_mux_control =
+	SOC_DAPM_ENUM("DPTX_VIRTUAL_OUT_MUX", dptx_virtual_out_mux_map_enum);
+
 enum {
 	SUPPLY_SEQ_APLL,
 	SUPPLY_SEQ_TDM_MCK_EN,
 	SUPPLY_SEQ_TDM_BCK_EN,
+	SUPPLY_SEQ_TDM_DPTX_MCK_EN,
+	SUPPLY_SEQ_TDM_DPTX_BCK_EN,
 };
+
+static int get_tdm_id_by_name(const char *name)
+{
+	if (strstr(name, "DPTX"))
+		return MT6885_DAI_TDM_DPTX;
+	else
+		return MT6885_DAI_TDM;
+}
 
 static int mtk_tdm_bck_en_event(struct snd_soc_dapm_widget *w,
 				struct snd_kcontrol *kcontrol,
@@ -282,10 +303,11 @@ static int mtk_tdm_bck_en_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
 	struct mt6885_afe_private *afe_priv = afe->platform_priv;
-	struct mtk_afe_tdm_priv *tdm_priv = afe_priv->dai_priv[MT6885_DAI_TDM];
+	int dai_id = get_tdm_id_by_name(w->name);
+	struct mtk_afe_tdm_priv *tdm_priv = afe_priv->dai_priv[dai_id];
 
-	dev_info(cmpnt->dev, "%s(), name %s, event 0x%x\n",
-		 __func__, w->name, event);
+	dev_info(cmpnt->dev, "%s(), name %s, event 0x%x, dai_id %d\n",
+		 __func__, w->name, event, dai_id);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -308,10 +330,11 @@ static int mtk_tdm_mck_en_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
 	struct mt6885_afe_private *afe_priv = afe->platform_priv;
-	struct mtk_afe_tdm_priv *tdm_priv = afe_priv->dai_priv[MT6885_DAI_TDM];
+	int dai_id = get_tdm_id_by_name(w->name);
+	struct mtk_afe_tdm_priv *tdm_priv = afe_priv->dai_priv[dai_id];
 
-	dev_info(cmpnt->dev, "%s(), name %s, event 0x%x\n",
-		 __func__, w->name, event);
+	dev_info(cmpnt->dev, "%s(), name %s, event 0x%x, dai_id %d\n",
+		 __func__, w->name, event, dai_id);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -362,6 +385,20 @@ static const struct snd_soc_dapm_widget mtk_dai_tdm_widgets[] = {
 			      SND_SOC_NOPM, 0, 0,
 			      mtk_tdm_mck_en_event,
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_SUPPLY_S("TDM_DPTX_BCK", SUPPLY_SEQ_TDM_DPTX_BCK_EN,
+			      SND_SOC_NOPM, 0, 0,
+			      mtk_tdm_bck_en_event,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_SUPPLY_S("TDM_DPTX_MCK", SUPPLY_SEQ_TDM_DPTX_MCK_EN,
+			      SND_SOC_NOPM, 0, 0,
+			      mtk_tdm_mck_en_event,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MUX("DPTX_VIRTUAL_OUT_MUX",
+			 SND_SOC_NOPM, 0, 0, &dptx_virtual_out_mux_control),
+	SND_SOC_DAPM_OUTPUT("DPTX_VIRTUAL_OUT"),
 };
 
 static int mtk_afe_tdm_apll_connect(struct snd_soc_dapm_widget *source,
@@ -371,7 +408,8 @@ static int mtk_afe_tdm_apll_connect(struct snd_soc_dapm_widget *source,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
 	struct mt6885_afe_private *afe_priv = afe->platform_priv;
-	struct mtk_afe_tdm_priv *tdm_priv = afe_priv->dai_priv[MT6885_DAI_TDM];
+	int dai_id = get_tdm_id_by_name(w->name);
+	struct mtk_afe_tdm_priv *tdm_priv = afe_priv->dai_priv[dai_id];
 	int cur_apll;
 
 	/* which apll */
@@ -478,11 +516,17 @@ static const struct snd_soc_dapm_route mtk_dai_tdm_routes[] = {
 
 	{"TDM_DPTX", NULL, "DPTX_OUT_MUX"},
 	{"TDM_DPTX", NULL, "aud_tdm_clk"},
-	{"TDM_DPTX", NULL, "TDM_BCK"},
+	{"TDM_DPTX", NULL, "TDM_DPTX_BCK"},
 
 	{"TDM_BCK", NULL, "TDM_MCK"},
+	{"TDM_DPTX_BCK", NULL, "TDM_DPTX_MCK"},
 	{"TDM_MCK", NULL, APLL1_W_NAME, mtk_afe_tdm_apll_connect},
 	{"TDM_MCK", NULL, APLL2_W_NAME, mtk_afe_tdm_apll_connect},
+	{"TDM_DPTX_MCK", NULL, APLL1_W_NAME, mtk_afe_tdm_apll_connect},
+	{"TDM_DPTX_MCK", NULL, APLL2_W_NAME, mtk_afe_tdm_apll_connect},
+
+	{"DPTX_VIRTUAL_OUT_MUX", "Connect", "TDM_DPTX"},
+	{"DPTX_VIRTUAL_OUT", NULL, "DPTX_VIRTUAL_OUT_MUX"},
 };
 
 /* dai ops */
@@ -733,7 +777,8 @@ static struct snd_soc_dai_driver mtk_dai_tdm_driver[] = {
 	},
 };
 
-static struct mtk_afe_tdm_priv *init_tdm_priv_data(struct mtk_base_afe *afe)
+static struct mtk_afe_tdm_priv *init_tdm_priv_data(struct mtk_base_afe *afe,
+						   int id)
 {
 	struct mtk_afe_tdm_priv *tdm_priv;
 
@@ -742,7 +787,11 @@ static struct mtk_afe_tdm_priv *init_tdm_priv_data(struct mtk_base_afe *afe)
 	if (!tdm_priv)
 		return NULL;
 
-	tdm_priv->mclk_multiple = 128;
+	if (id == MT6885_DAI_TDM_DPTX)
+		tdm_priv->mclk_multiple = 256;
+	else
+		tdm_priv->mclk_multiple = 128;
+
 	tdm_priv->bck_id = MT6885_I2S4_BCK;
 	tdm_priv->mclk_id = MT6885_I2S4_MCK;
 
@@ -771,11 +820,11 @@ int mt6885_dai_tdm_register(struct mtk_base_afe *afe)
 	dai->dapm_routes = mtk_dai_tdm_routes;
 	dai->num_dapm_routes = ARRAY_SIZE(mtk_dai_tdm_routes);
 
-	tdm_priv = init_tdm_priv_data(afe);
+	tdm_priv = init_tdm_priv_data(afe, MT6885_DAI_TDM);
 	if (!tdm_priv)
 		return -ENOMEM;
 
-	tdm_dptx_priv = init_tdm_priv_data(afe);
+	tdm_dptx_priv = init_tdm_priv_data(afe, MT6885_DAI_TDM_DPTX);
 	if (!tdm_dptx_priv)
 		return -ENOMEM;
 

@@ -30,7 +30,7 @@ static const char * const mt6885_sgen_mode_str[] = {
 	"I21I22", "I23I24", "I25I26", "I27I28",
 	"I33",    "I34I35", "I36I37", "I38I39",
 	"I40I41", "I42I43", "I44I45", "I46I47",
-	"I48I49",
+	"I48I49", "I50I51", "I52I53", "I54I55",
 	"O0O1",   "O2",     "O3O4",   "O5O6",
 	"O7O8",   "O9O10",  "O11",    "O12",
 	"O13O14", "O15O16", "O17O18", "O19O20",
@@ -38,7 +38,8 @@ static const char * const mt6885_sgen_mode_str[] = {
 	"O34",    "O32O33", "O36O37", "O38O39",
 	"O30O31", "O40O41", "O42O43", "O44O45",
 	"O46O47", "O48O49", "O50O51", "O52O53",
-	"OFF",    "O3",     "O4",
+	"O54O55", "O56O57", "OFF",    "O3",
+	"O4",
 };
 
 static const int const mt6885_sgen_mode_idx[] = {
@@ -48,7 +49,7 @@ static const int const mt6885_sgen_mode_idx[] = {
 	12, 13, 14, 15,
 	18, 19, 20, 21,
 	22, 23, 24, 25,
-	26,
+	26, 27, 28, 29,
 	32, 33, 34, 35,
 	36, 37, 38, 39,
 	40, 41, 42, 43,
@@ -56,7 +57,8 @@ static const int const mt6885_sgen_mode_idx[] = {
 	49, 50, 52, 53,
 	54, 55, 56, 57,
 	58, 59, 60, 57,
-	-1, -1, -1,
+	61, 62, -1, -1,
+	-1,
 };
 
 static const char * const mt6885_sgen_rate_str[] = {
@@ -503,6 +505,8 @@ static int mt6885_afe_debug_set(struct snd_kcontrol *kcontrol,
 	dev_info(afe->dev, "AFE_SIDETONE_GAIN = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_SINEGEN_CON0, &value);
 	dev_info(afe->dev, "AFE_SINEGEN_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_I2S_MON2, &value);
+	dev_info(afe->dev, "AFE_I2S_MON2 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_SINEGEN_CON_TDM, &value);
 	dev_info(afe->dev, "AFE_SINEGEN_CON_TDM = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_TOP_CON0, &value);
@@ -2015,6 +2019,12 @@ static void *get_sph_property_by_name(struct mt6885_afe_private *afe_priv,
 		return &(afe_priv->speech_shm_usip);
 	else if (strcmp(name, "Speech_SHM_Widx") == 0)
 		return &(afe_priv->speech_shm_widx);
+	else if (strcmp(name, "Speech_MD_HeadVersion") == 0)
+		return &(afe_priv->speech_md_headversion);
+	else if (strcmp(name, "Speech_MD_Version") == 0)
+		return &(afe_priv->speech_md_version);
+	else if (strcmp(name, "Speech_Cust_Param_Init") == 0)
+		return &(afe_priv->speech_cust_param_init);
 	else
 		return NULL;
 }
@@ -2035,8 +2045,10 @@ static int speech_property_get(struct snd_kcontrol *kcontrol,
 	}
 	ucontrol->value.integer.value[0] = *sph_property;
 
-	dev_info(afe->dev, "%s(), %s = 0x%x\n", __func__,
-		 kcontrol->id.name, *sph_property);
+	if (strcmp(kcontrol->id.name, "Speech_A2M_Msg_ID") != 0)
+		dev_info(afe->dev, "%s(), %s = 0x%x\n", __func__,
+			 kcontrol->id.name, *sph_property);
+
 	return 0;
 }
 
@@ -2103,6 +2115,15 @@ static const struct snd_kcontrol_new mt6885_afe_speech_controls[] = {
 		       speech_property_get, speech_property_set),
 	SOC_SINGLE_EXT("Speech_SHM_Widx",
 		       SND_SOC_NOPM, 0, 0xFFFFFFFF, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_MD_HeadVersion",
+		       SND_SOC_NOPM, 0, 0xFFFFFFFF, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_MD_Version",
+		       SND_SOC_NOPM, 0, 0xFFFFFFFF, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_Cust_Param_Init",
+		       SND_SOC_NOPM, 0, 0x1, 0,
 		       speech_property_get, speech_property_set),
 };
 
