@@ -382,8 +382,8 @@ static void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 			fifo_off_ultra = 2;
 			fifo_off_dvfs = 2;
 		}
-		consume_rate = gsc->dst_width * gsc->dst_height	*
-			       if_fps * Bpp;
+		consume_rate = (unsigned long long)gsc->dst_width *
+				gsc->dst_height * if_fps * Bpp;
 		do_div(consume_rate, 1000);
 	} else {
 		fifo_off_drs_enter = 0;
@@ -391,8 +391,8 @@ static void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 		fifo_off_spm = 14; /* 10 times*/
 		fifo_off_dvfs = 2;
 		fifo_off_ultra = 0;
-		consume_rate = gsc->ext_dst_width * gsc->ext_dst_height *
-			       if_fps * Bpp;
+		consume_rate = (unsigned long long)gsc->ext_dst_width *
+				gsc->ext_dst_height * if_fps * Bpp;
 
 		do_div(consume_rate, 1000);
 	}
@@ -423,7 +423,7 @@ static void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 	issue_req_threshold = min(fifo_valid_size - preultra_high, 255U);
 
 	/* output valid should < total rdma data size, or hang will happen */
-	temp = gsc->rdma_width * gsc->rdma_height * Bpp;
+	temp = (unsigned long long)gsc->rdma_width * gsc->rdma_height * Bpp;
 	do_div(temp, 16);
 	temp -= 1;
 	output_valid_fifo_threshold = preultra_low < temp ? preultra_low : temp;

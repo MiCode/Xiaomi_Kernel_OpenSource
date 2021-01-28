@@ -4285,7 +4285,7 @@ int ddp_dsi_v2c_switch(enum DISP_MODULE_ENUM module, void *cmdq_handle,
 	struct LCM_DSI_MODE_SWITCH_CMD lcm_cmd =
 				*((struct LCM_DSI_MODE_SWITCH_CMD *)(params));
 	struct LCM_DSI_PARAMS *dsi_params = &_dsi_context[0].dsi_params;
-	int ret;
+	int ret = 0;
 
 	if (module == DISP_MODULE_DSIDUAL) {
 		if (lcm_cmd.cmd_if == (unsigned int)LCM_INTERFACE_DSI0) {
