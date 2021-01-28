@@ -310,6 +310,14 @@ extern int gM4U_log_to_uart;
 			pr_info(fmt, ##args);\
 	} while (0)
 
+#define M4U_PRINT_LOG_OR_SEQ(seq_file, fmt, args...) \
+	do {\
+		if (seq_file)\
+			seq_printf(seq_file, fmt, ##args);\
+		else\
+			pr_debug(fmt, ##args);\
+	} while (0)
+
 /* ======================================= */
 /* ==== other macros ============ */
 #define M4U_GET_PAGE_NUM(va, size) \
