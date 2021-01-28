@@ -114,8 +114,6 @@ int get_battery_temperature(struct mtk_charger *info)
 
 	bat_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
 						       "gauge");
-	pr_notice("%s %x\n", __func__, bat_psy);
-
 	if (bat_psy == NULL || IS_ERR(bat_psy)) {
 		chr_err("%s Couldn't get bat_psy\n", __func__);
 		ret = 27;

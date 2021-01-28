@@ -664,6 +664,24 @@ int pe4_hal_get_charger_type(struct chg_alg_device *alg)
 	return info->chr_type;
 }
 
+int pe4_hal_reset_eoc_state(struct chg_alg_device *alg)
+{
+	struct pe40_hal *hal;
+	int ret;
+
+	if (alg == NULL)
+		return -EINVAL;
+
+	hal = chg_alg_dev_get_drv_hal_data(alg);
+	ret = charger_dev_reset_eoc_state(hal->chg1_dev);
+	if (ret != 0) {
+		pr_notice("%s: fail ,ret=%d\n", __func__, ret);
+		return -1;
+	}
+
+	return 0;
+}
+
 int pe4_hal_reset_ta(struct chg_alg_device *alg, enum chg_idx chgidx)
 {
 	struct pe40_hal *hal;
@@ -801,7 +819,7 @@ int pe4_hal_get_charging_current(struct chg_alg_device *alg,
 		charger_dev_get_charging_current(hal->chg1_dev, ua);
 	else if (chgidx == CHG2 && hal->chg2_dev != NULL)
 		charger_dev_get_charging_current(hal->chg2_dev, ua);
-	pr_notice("%s idx:%d %d\n", __func__, chgidx, ua);
+	pr_notice("%s idx:%d %d\n", __func__, chgidx, *ua);
 
 	return 0;
 }

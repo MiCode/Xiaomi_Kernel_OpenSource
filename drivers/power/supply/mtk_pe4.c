@@ -1328,7 +1328,6 @@ static int pe4_sc_set_charger(struct chg_alg_device *alg)
 static int pe4_dcs_set_charger(struct chg_alg_device *alg)
 {
 	struct mtk_pe40 *pe4;
-	bool chg2_enable = true;
 	bool chg2_chip_enabled = false;
 	int ret;
 	int ichg1_min = -1, ichg2_min = -1;
@@ -1401,8 +1400,8 @@ static int pe4_dcs_set_charger(struct chg_alg_device *alg)
 	}
 
 	chg2_chip_enabled = pe4_hal_is_chip_enable(alg, CHG2);
-	pe4_err("chg2_en:%d %d %d\n",
-		chg2_enable, chg2_chip_enabled, pe4->state);
+	pe4_err("chg2_en:%d pe4_state:%d\n",
+		chg2_chip_enabled, pe4->state);
 	if (pe4->state == PE4_RUN) {
 		if (!chg2_chip_enabled)
 			pe4_hal_charger_enable_chip(alg, CHG2, true);
@@ -1426,6 +1425,7 @@ static int pe4_dcs_set_charger(struct chg_alg_device *alg)
 		pe4_hal_safety_check(alg, pe4->dual_polling_ieoc);
 	} else if (pe4->state == PE4_POSTCC) {
 		pe4_hal_set_eoc_current(alg, CHG1, 150000);
+		pe4_hal_reset_eoc_state(alg);
 		pe4_hal_enable_termination(alg, CHG1, true);
 	} else {
 		pe4_err("%s state error!", __func__);
@@ -1448,7 +1448,7 @@ static int pe4_dcs_set_charger(struct chg_alg_device *alg)
 		pe4->charger_current1,
 		pe4->input_current2,
 		pe4->charger_current2,
-		chg2_enable,
+		chg2_chip_enabled,
 		ichg1_min,
 		ichg2_min,
 		aicr1_min);
@@ -1655,6 +1655,7 @@ static int pe4_full_evt(struct chg_alg_device *alg)
 						CHG2, false);
 					pe4_hal_set_eoc_current(alg,
 						CHG1, 150000);
+					pe4_hal_reset_eoc_state(alg);
 					pe4_hal_enable_termination(alg,
 						CHG1, true);
 				} else {
