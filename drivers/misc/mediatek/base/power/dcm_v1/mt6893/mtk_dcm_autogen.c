@@ -2299,7 +2299,6 @@ void dcm_mp_cpusys_top_cpu_pll_div_0_dcm(int on)
 			MP_CPUSYS_TOP_CPU_PLL_DIV_0_DCM_REG0_OFF);
 	}
 }
-#endif
 
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_1_DCM_REG0_MASK ((0x1 << 12))
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_1_DCM_REG0_ON ((0x1 << 12))
@@ -2428,6 +2427,7 @@ void dcm_mp_cpusys_top_cpu_pll_div_4_dcm(int on)
 			MP_CPUSYS_TOP_CPU_PLL_DIV_4_DCM_REG0_OFF);
 	}
 }
+#endif
 
 #define MP_CPUSYS_TOP_FCM_STALL_DCM_REG0_MASK ((0x1 << 4))
 #define MP_CPUSYS_TOP_FCM_STALL_DCM_REG0_ON ((0x1 << 4))

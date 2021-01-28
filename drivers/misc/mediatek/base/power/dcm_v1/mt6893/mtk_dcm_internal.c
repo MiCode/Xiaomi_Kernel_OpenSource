@@ -331,11 +331,11 @@ bool dcm_armcore_is_on(void)
 	ret &= dcm_mp_cpusys_top_bus_pll_div_dcm_is_on();
 #if 0
 	ret &= dcm_mp_cpusys_top_cpu_pll_div_0_dcm_is_on();
-#endif
 	ret &= dcm_mp_cpusys_top_cpu_pll_div_1_dcm_is_on();
 	ret &= dcm_mp_cpusys_top_cpu_pll_div_2_dcm_is_on();
 	ret &= dcm_mp_cpusys_top_cpu_pll_div_3_dcm_is_on();
 	ret &= dcm_mp_cpusys_top_cpu_pll_div_4_dcm_is_on();
+#endif
 
 	return ret;
 }
@@ -345,11 +345,11 @@ int dcm_armcore(int mode)
 	dcm_mp_cpusys_top_bus_pll_div_dcm(mode);
 #if 0
 	dcm_mp_cpusys_top_cpu_pll_div_0_dcm(mode);
-#endif
 	dcm_mp_cpusys_top_cpu_pll_div_1_dcm(mode);
 	dcm_mp_cpusys_top_cpu_pll_div_2_dcm(mode);
 	dcm_mp_cpusys_top_cpu_pll_div_3_dcm(mode);
 	dcm_mp_cpusys_top_cpu_pll_div_4_dcm(mode);
+#endif
 
 	return 0;
 }

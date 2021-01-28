@@ -294,7 +294,6 @@ void dcm_mp_cpusys_top_cpubiu_dcm(int on);
 #if 0
 bool dcm_mp_cpusys_top_cpu_pll_div_0_dcm_is_on(void);
 void dcm_mp_cpusys_top_cpu_pll_div_0_dcm(int on);
-#endif
 bool dcm_mp_cpusys_top_cpu_pll_div_1_dcm_is_on(void);
 void dcm_mp_cpusys_top_cpu_pll_div_1_dcm(int on);
 bool dcm_mp_cpusys_top_cpu_pll_div_2_dcm_is_on(void);
@@ -303,6 +302,7 @@ bool dcm_mp_cpusys_top_cpu_pll_div_3_dcm_is_on(void);
 void dcm_mp_cpusys_top_cpu_pll_div_3_dcm(int on);
 bool dcm_mp_cpusys_top_cpu_pll_div_4_dcm_is_on(void);
 void dcm_mp_cpusys_top_cpu_pll_div_4_dcm(int on);
+#endif
 bool dcm_mp_cpusys_top_fcm_stall_dcm_is_on(void);
 void dcm_mp_cpusys_top_fcm_stall_dcm(int on);
 bool dcm_mp_cpusys_top_last_cor_idle_dcm_is_on(void);
