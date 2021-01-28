@@ -15,7 +15,6 @@
  *    ecosystem, ex: M-TEE, Trusty, GlobalPlatform, ...)
  */
 
-
 #include <linux/pagemap.h>
 #include <linux/mm.h>
 #include <linux/slab.h>

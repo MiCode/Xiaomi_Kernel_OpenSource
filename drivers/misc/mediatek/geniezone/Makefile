@@ -58,6 +58,6 @@ obj-$(CONFIG_MTK_GZ_MAIN) += gz_main_mod.o
 gz_main_mod-objs += gz_main.o \
 			     mtee_ut/gz_ut.o mtee_ut/gz_sec_storage_ut.o \
 			     mtee_ut/gz_chmem_ut.o mtee_ut/gz_shmem_ut.o mtee_ut/gz_rkp_ut.o \
-			     mtee_kree/tz_mmap.o mtee_kree/tz_system.o mtee_kree/kree_mem.o
+			     mtee-kree/tz_mmap.o mtee-kree/tz_system.o mtee-kree/kree_mem.o
 
 obj-$(CONFIG_MTK_ENABLE_GENIEZONE) += gz-trusty/

@@ -455,7 +455,7 @@ static TZ_RESULT kree_register_sharedmem(KREE_SESSION_HANDLE session,
 	union MTEEC_PARAM p[4];
 	TZ_RESULT ret = 0;
 	int locktry;
-	enum tee_id_t tee_id;
+	enum tee_id_t tee_id = 0;
 	struct mutex *shared_mem_mutex;
 
 	KREE_DEBUG("[%s]is calling.\n", __func__);

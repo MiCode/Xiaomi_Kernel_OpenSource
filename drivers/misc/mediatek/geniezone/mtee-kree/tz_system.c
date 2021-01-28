@@ -90,7 +90,7 @@ struct mutex perf_boost_lock;
 struct platform_device *tz_system_dev;
 
 #if IS_ENABLED(CONFIG_PM_WAKELOCKS)
-struct wakeup_source *TeeServiceCall_wake_lock;
+struct wakeup_source *TeeServiceCall_wake_lock; /*4.19*/
 #else
 struct wake_lock TeeServiceCall_wake_lock;
 #endif
@@ -1015,7 +1015,7 @@ static void kree_perf_boost(int enable)
 			 */
 			KREE_DEBUG("%s wake_lock\n", __func__);
 #if IS_ENABLED(CONFIG_PM_WAKELOCKS)
-			__pm_stay_awake(TeeServiceCall_wake_lock);
+			__pm_stay_awake(TeeServiceCall_wake_lock); /*4.19*/
 #else
 			wake_lock(&TeeServiceCall_wake_lock);
 #endif
@@ -1035,7 +1035,7 @@ static void kree_perf_boost(int enable)
 			 */
 			KREE_DEBUG("%s wake_unlock\n", __func__);
 #if IS_ENABLED(CONFIG_PM_WAKELOCKS)
-			__pm_relax(TeeServiceCall_wake_lock);
+			__pm_relax(TeeServiceCall_wake_lock); /*4.19*/
 #else
 			wake_unlock(&TeeServiceCall_wake_lock);
 #endif
