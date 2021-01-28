@@ -8,6 +8,7 @@
 #include <linux/init.h>
 #include <linux/sysfs.h>
 #include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 #include <mach/mtk_pbm.h>
 #include "mtk_mdpm.h"
 

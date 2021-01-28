@@ -3113,6 +3113,12 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		mediatek,clkbuf-driving-current = <1 1 1 1 1 1 1>;
 	};
 
+	pbm: pbm {
+		compatible = "mediatek,pbm";
+		io-channels = <&pmic_auxadc AUXADC_BATADC>;
+		io-channel-names = "pmic_batadc";
+	};
+
 	bat_gm30: battery {
 		compatible = "mediatek,bat_gm30";
 	};

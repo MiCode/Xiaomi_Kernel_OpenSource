@@ -23,9 +23,7 @@
 #include <mtk_pbm_data.h>
 
 #ifndef DISABLE_PBM_FEATURE
-#include <mach/upmu_sw.h>
-#include <mt-plat/upmu_common.h>
-#include <mt-plat/mtk_auxadc_intf.h>
+#include <linux/iio/consumer.h>
 #include <mtk_gpufreq.h>
 #include <mach/mtk_thermal.h>
 #include <mtk_ppm_api.h>
@@ -36,6 +34,8 @@ static bool mt_pbm_debug;
 
 static int mt_pbm_log_divisor;
 static int mt_pbm_log_counter;
+
+struct iio_channel *chan_chip_vbat;
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -123,8 +123,16 @@ spm_vcorefs_get_MD_status(void)
 
 int get_battery_volt(void)
 {
-	return pmic_get_auxadc_value(AUXADC_LIST_BATADC);
-	/* return 3900; */
+	int vbat = 4000, ret;
+
+	if (!IS_ERR(chan_chip_vbat)) {
+		ret = iio_read_channel_processed(chan_chip_vbat, &vbat);
+		if (ret < 0)
+			pr_notice("pmic_chip_temp read fail, ret=%d\n", ret);
+	}
+
+	return vbat;
+	/* return pmic_get_auxadc_value(AUXADC_LIST_BATADC); */
 }
 
 unsigned int ma_to_mw(unsigned int val)
@@ -814,6 +822,29 @@ static int mt_pbm_create_procfs(void)
 }
 /* CONFIG_PBM_PROC_FS */
 
+static int mtk_pbm_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	chan_chip_vbat = devm_iio_channel_get(&pdev->dev, "pmic_batadc");
+	if (IS_ERR(chan_chip_vbat)) {
+		ret = PTR_ERR(chan_chip_vbat);
+		pr_notice("AUXADC_CHIP_TEMP get fail, ret=%d\n", ret);
+	}
+
+	return ret;
+}
+
+
+
+static struct platform_driver pbm_driver = {
+	.driver = {
+		.name = "pbm_driver",
+	},
+	.probe = mtk_pbm_probe,
+};
+
+
 static int __init pbm_module_init(void)
 {
 	int ret = 0;
@@ -823,8 +854,19 @@ static int __init pbm_module_init(void)
 
 	pm_notifier(_mt_pbm_pm_callback, 0);
 
-	register_dlpt_notify(&kicker_pbm_by_dlpt, DLPT_PRIO_PBM);
+	/* FIXME: enable it after DLPT porting done */
+	/* register_dlpt_notify(&kicker_pbm_by_dlpt, DLPT_PRIO_PBM);*/
 	ret = create_pbm_kthread();
+	if (ret) {
+		pr_notice("FAILED TO CREATE PBM KTHREAD\n");
+		return ret;
+	}
+
+	ret = platform_driver_register(&pbm_driver);
+	if (ret) {
+		pr_notice("FAILED TO CREATE PBM KTHREAD\n");
+		return ret;
+	}
 
 	#ifdef MD_POWER_UT
 	/* pr_info("share_reg: %x", spm_vcorefs_get_MD_status());*/
@@ -834,10 +876,6 @@ static int __init pbm_module_init(void)
 
 	pr_info("%s : Done\n", __func__);
 
-	if (ret) {
-		pr_err("FAILED TO CREATE PBM KTHREAD\n");
-		return ret;
-	}
 	return ret;
 }
 
