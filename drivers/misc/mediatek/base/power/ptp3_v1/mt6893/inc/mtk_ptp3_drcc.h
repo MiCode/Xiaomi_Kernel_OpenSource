@@ -92,7 +92,7 @@ struct drcc_l_class {
 	unsigned int drcc_countsel:1;			/* [7] */
 	unsigned int drcc_cpustandbywfi_mask:1;	/* [8] */
 	unsigned int drcc_cpustandbywfe_mask:3;	/* [9] */
-	unsigned int drcc_mode:12;				/* [14:12] */
+	unsigned int drcc_mode:20;				/* [14:12] */
 
 	/* DRCC_CFG_REG2 0x0C530288, 0A88, 1288, 1A88, 2288, 2A88, 3288, 3A88 */
 	unsigned int drcc_forcetrim:8;			/* B[7:1] L[6:0] */
@@ -128,7 +128,7 @@ struct drcc_b_class {
 	unsigned int drcc_DrccClockEdgeSel:1;		/*[12:12]*/
 	unsigned int drcc_DrccVrefFilt:3;			/*[15:13]*/
 	unsigned int drcc_DrccCode:6;				/*[21:16]*/
-	unsigned int drcc_V102:11;					/*[31:21]*/
+	unsigned int drcc_V102:10;					/*[31:21]*/
 
 	/*DRFC_V103 0x0C532408, 0x0C532C08, 0x0C533408, 0x0C533C08 */
 	unsigned int drcc_DrccAutoCalibTrim:7;		/*[6:0]*/

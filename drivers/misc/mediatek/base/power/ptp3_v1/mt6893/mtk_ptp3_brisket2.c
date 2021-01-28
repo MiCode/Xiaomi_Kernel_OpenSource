@@ -116,7 +116,11 @@ static const char BRISKET2_LIST_NAME[][40] = {
 	CttEn,
 	TestMode,
 	GlobalEventEn,
-	SafeFreqReqOverride
+	SafeFreqReqOverride,
+	"Cfg",
+	"PollingEn",
+	SafeFreqEn,
+	SafeFreqBypass,
 };
 
 static const char BRISKET2_RW_REG_NAME[][5] = {
@@ -262,6 +266,44 @@ static void brisket2_ipi_handle(unsigned int cpu, unsigned int group,
 /************************************************
  * set BRISKET2 status by procfs interface
  ************************************************/
+static int brisket2_safeFreq_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int cfg = 0;
+	unsigned int cpu, value, option;
+
+	for (cpu = BRISKET2_CPU_START_ID; cpu <= BRISKET2_CPU_END_ID; cpu++) {
+		seq_printf(m, BRISKET2_TAG"[CPU%d]", cpu);
+
+		for (option = BRISKET2_LIST_SafeFreqEn;
+			option <= BRISKET2_LIST_SafeFreqBypass; option++) {
+
+			/* encode cfg */
+			/*
+			 *	cfg[15:8] option
+			 *	cfg[31:28] cpu
+			 */
+			cfg = (option << BRISKET2_CFG_OFFSET_OPTION) & BRISKET2_CFG_BITMASK_OPTION;
+			cfg |= (cpu << BRISKET2_CFG_OFFSET_CPU) & BRISKET2_CFG_BITMASK_CPU;
+
+			/* update via atf */
+			value = ptp3_smc_handle(
+				PTP3_FEATURE_BRISKET2,
+				BRISKET2_NODE_LIST_READ,
+				cfg,
+				0);
+
+			if (option != BRISKET2_LIST_SafeFreqBypass)
+				seq_printf(m, " %s:0x%x,",
+					BRISKET2_LIST_NAME[option], value);
+			else
+				seq_printf(m, " %s:0x%x;\n",
+					BRISKET2_LIST_NAME[option], value);
+
+		}
+	}
+	return 0;
+}
+
 static ssize_t brisket2_ctrl_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
@@ -723,7 +765,7 @@ static int brisket2_pollingEn_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-
+PROC_FOPS_RO(brisket2_safeFreq);
 PROC_FOPS_RW(brisket2_ctrl);
 PROC_FOPS_RO(brisket2_dump);
 PROC_FOPS_RW(brisket2_reg);
@@ -742,6 +784,7 @@ int brisket2_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 	};
 
 	struct pentry brisket2_entries[] = {
+		PROC_ENTRY(brisket2_safeFreq),
 		PROC_ENTRY(brisket2_ctrl),
 		PROC_ENTRY(brisket2_dump),
 		PROC_ENTRY(brisket2_reg),

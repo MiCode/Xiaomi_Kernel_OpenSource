@@ -81,10 +81,11 @@ enum CINST_TRIGGER_STAGE {
 
 struct cinst_class {
 	/* DIDT_REG */
-	unsigned int cinst_rg_vx_cfg_pipe_issue_sel:1;		/* [0:0] */
-	unsigned int cinst_rg_ls_cfg_pipe_issue_sel:1;		/* [1:1] */
-	unsigned int cinst_rg_vx_ctrl_en:1;		/* [2:2] */
-	unsigned int cinst_rg_ls_ctrl_en:29;		/* [3:3] */
+	unsigned int cinst_rg_ls_ctrl_en:1;		/* [0:0] */
+	unsigned int cinst_rg_vx_ctrl_en:1;		/* [1:1] */
+	unsigned int cinst_rg_ls_cfg_pipe_issue_sel:1;		/* [2:2] */
+	unsigned int cinst_rg_vx_cfg_pipe_issue_sel:1;		/* [3:3] */
+	unsigned int cinst_ao:28;
 
 	/* LS_DIDT_CONTROL */
 	unsigned int cinst_ls_cfg_credit:8;			/* [4:0] */

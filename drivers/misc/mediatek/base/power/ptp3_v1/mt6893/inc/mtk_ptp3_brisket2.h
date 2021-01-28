@@ -36,6 +36,9 @@
 #define TestMode "TestMode"
 #define GlobalEventEn "GlobalEventEn"
 #define SafeFreqReqOverride "SafeFreqReqOverride"
+#define SafeFreqEn "SafeFreqEn"
+#define	SafeFreqBypass "SafeFreqBypass"
+
 #define V101 "V101"
 
 /* BRISKET2 Cfg metadata offset */
@@ -80,6 +83,8 @@ enum BRISKET2_LIST {
 	BRISKET2_LIST_SafeFreqReqOverride,
 	BRISKET2_LIST_Cfg,
 	BRISKET2_LIST_PollingEn,
+	BRISKET2_LIST_SafeFreqEn,
+	BRISKET2_LIST_SafeFreqBypass,
 
 	NR_BRISKET2_LIST,
 };

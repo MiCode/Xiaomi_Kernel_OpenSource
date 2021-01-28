@@ -1010,15 +1010,11 @@ static int EventCount_proc_show(struct seq_file *m, void *v)
 
 static int drcc_cfg_proc_show(struct seq_file *m, void *v)
 {
-	unsigned int value = 0, drcc_n = 0, temp = 0;
-	const unsigned int drcc_group = DRCC_GROUP_CFG;
+	unsigned int value = 0;
 
-	value = drcc_smc_handle(drcc_group, 0, 0);
+	value = drcc_smc_handle(DRCC_GROUP_CFG, 0, 0);
 
-	for (drcc_n = 0; drcc_n < DRCC_NUM; drcc_n++)
-		temp |= (((value & (0x1 << drcc_n)) >> drcc_n) << (drcc_n * 4));
-
-	seq_printf(m, "%08x\n", temp);
+	seq_printf(m, "%08x\n", value);
 
 	return 0;
 }
