@@ -246,6 +246,13 @@ static void async_load_hifixdsp_and_run(
 	u32 adsp_bootup_addr;
 	struct adsp_chip_info *adsp;
 
+	if (!fw) {
+		pr_err("[ADSP] error: fw == NULL!\n");
+		pr_err("request_firmware_nowait (%s) not available.\n",
+				HIFIXDSP_IMAGE_NAME);
+		return;
+	}
+
 	pr_info("firmware %s load success, size = %d\n",
 		HIFIXDSP_IMAGE_NAME, (int)fw->size);
 
