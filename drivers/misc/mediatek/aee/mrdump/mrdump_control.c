@@ -19,60 +19,6 @@
 struct mrdump_control_block *mrdump_cblock;
 struct mrdump_rsvmem_block mrdump_sram_cb;
 
-#ifdef MODULE
-#define MRDUMP_CB_PT "mrdump_cb=0x%lx,0x%lx"
-#else
-#define MRDUMP_CB_PT "0x%lx,0x%lx"
-#endif
-
-/* mrdump_cb info from lk */
-static int __init mrdump_get_cb(char *p)
-{
-	unsigned long cbaddr, cbsize;
-	int ret;
-
-	ret = sscanf(p, MRDUMP_CB_PT, &cbaddr, &cbsize);
-	if (ret != 2) {
-		pr_notice("%s: no mrdump_sram_cb. (ret=%d, p=%s)\n",
-			 __func__, ret, p);
-	} else {
-		mrdump_sram_cb.start_addr = cbaddr;
-		mrdump_sram_cb.size = cbsize;
-		pr_notice("%s: mrdump_cbaddr=%pa, mrdump_cbsize=%pa\n",
-			 __func__,
-			 &mrdump_sram_cb.start_addr,
-			 &mrdump_sram_cb.size
-			 );
-	}
-
-	return 0;
-}
-
-#ifndef MODULE
-early_param("mrdump_cb", mrdump_get_cb);
-#else
-#define MRDUMP_CB_PREF "mrdump_cb="
-static int __init mrdump_module_param_cb(void)
-{
-	const char *cmdline = mrdump_get_cmd();
-	char cmd_mrdump_cb[64];
-	char *ptr_s;
-	char *ptr_e;
-
-	memset(cmd_mrdump_cb, 0x0, sizeof(cmd_mrdump_cb));
-	ptr_s = strstr(cmdline, MRDUMP_CB_PREF);
-	if (ptr_s) {
-		ptr_e = strstr(ptr_s, " ");
-		if (ptr_e) {
-			strncpy(cmd_mrdump_cb, ptr_s, ptr_e - ptr_s);
-			cmd_mrdump_cb[ptr_e - ptr_s] = '\0';
-		}
-	}
-
-	return mrdump_get_cb(cmd_mrdump_cb);
-}
-#endif
-
 #if defined(CONFIG_KALLSYMS) && !defined(CONFIG_KALLSYMS_BASE_RELATIVE)
 static void mrdump_cblock_kallsyms_init(struct mrdump_ksyms_param *kparam)
 {
@@ -116,14 +62,11 @@ __init void mrdump_cblock_init(void)
 {
 	struct mrdump_machdesc *machdesc_p;
 
-#ifdef MODULE
-	mrdump_module_param_cb();
-#endif
-	if (!mrdump_sram_cb.start_addr || !mrdump_sram_cb.size) {
-		pr_notice("%s: no mrdump_cb\n", __func__);
+	if (mrdump_sram_cb.start_addr == 0) {
+		pr_notice("%s: mrdump control address cannot be 0\n",
+			  __func__);
 		return;
 	}
-
 	if (mrdump_sram_cb.size < sizeof(struct mrdump_control_block)) {
 		pr_notice("%s: not enough space for mrdump control block\n",
 			  __func__);
