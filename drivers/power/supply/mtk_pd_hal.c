@@ -100,6 +100,13 @@ int pd_hal_init_hardware(struct chg_alg_device *alg)
 		return -ENODEV;
 	}
 
+	hal->chg2_dev = get_charger_by_name("secondary_chg");
+	if (hal->chg2_dev)
+		pr_notice("%s: Found secondary charger\n", __func__);
+	else
+		pr_notice("%s: Error : can't find secondary charger\n",
+			__func__);
+
 	hal->adapter = get_adapter_by_name("pd_adapter");
 	if (hal->adapter)
 		pr_notice("%s: Found pd adapter\n", __func__);
@@ -236,7 +243,10 @@ int pd_hal_get_mivr_state(struct chg_alg_device *alg,
 		return -EINVAL;
 
 	hal = chg_alg_dev_get_drv_hal_data(alg);
-	charger_dev_get_mivr_state(hal->chg1_dev, in_loop);
+	if (chgidx == CHG1)
+		charger_dev_get_mivr_state(hal->chg1_dev, in_loop);
+	else if (chgidx == CHG2)
+		charger_dev_get_mivr_state(hal->chg2_dev, in_loop);
 	return 0;
 }
 
@@ -251,6 +261,12 @@ int pd_hal_get_mivr(struct chg_alg_device *alg,
 	hal = chg_alg_dev_get_drv_hal_data(alg);
 
 	charger_dev_get_mivr(hal->chg1_dev, mivr1);
+
+	if (chgidx == CHG1)
+		charger_dev_get_mivr(hal->chg1_dev, mivr1);
+	else if (chgidx == CHG2)
+		charger_dev_get_mivr(hal->chg2_dev, mivr1);
+
 	return 0;
 }
 
@@ -343,6 +359,9 @@ int pd_hal_get_input_current(struct chg_alg_device *alg,
 	if (chgidx == CHG1)
 		charger_dev_get_input_current(hal->chg1_dev,
 		ua);
+	else if (chgidx == CHG2)
+		charger_dev_get_input_current(hal->chg2_dev,
+		ua);
 
 	return 0;
 }
@@ -357,6 +376,12 @@ int pd_hal_set_input_current(struct chg_alg_device *alg,
 
 	hal = chg_alg_dev_get_drv_hal_data(alg);
 	charger_dev_set_input_current(hal->chg1_dev, ua);
+
+	if (chgidx == CHG1)
+		charger_dev_set_input_current(hal->chg1_dev, ua);
+	else if (chgidx == CHG2)
+		charger_dev_set_input_current(hal->chg2_dev, ua);
+
 	return 0;
 }
 
@@ -369,8 +394,14 @@ int pd_hal_set_cv(struct chg_alg_device *alg,
 		return -EINVAL;
 
 	hal = chg_alg_dev_get_drv_hal_data(alg);
-	charger_dev_set_constant_voltage(hal->chg1_dev,
-								uv);
+
+	if (chgidx == CHG1)
+		charger_dev_set_constant_voltage(hal->chg1_dev,
+			uv);
+	else if (chgidx == CHG2)
+		charger_dev_set_constant_voltage(hal->chg2_dev,
+			uv);
+
 	return 0;
 }
 
@@ -384,6 +415,11 @@ int pd_hal_set_charging_current(struct chg_alg_device *alg,
 
 	hal = chg_alg_dev_get_drv_hal_data(alg);
 	charger_dev_set_charging_current(hal->chg1_dev, ua);
+
+	if (chgidx == CHG1)
+		charger_dev_set_charging_current(hal->chg1_dev, ua);
+	else if (chgidx == CHG2)
+		charger_dev_set_charging_current(hal->chg2_dev, ua);
 
 	return 0;
 }
@@ -563,6 +599,33 @@ int pd_hal_charger_enable_chip(struct chg_alg_device *alg,
 	pr_notice("%s idx:%d %d %d\n", __func__, chgidx, enable,
 		hal->chg2_dev != NULL);
 	return 0;
+}
+
+int pd_hal_get_uisoc(struct chg_alg_device *alg)
+{
+	union power_supply_propval prop;
+	struct power_supply *bat_psy = NULL;
+	int ret;
+	struct mtk_pd *pd;
+
+	if (alg == NULL)
+		return -EINVAL;
+
+	pd = dev_get_drvdata(&alg->dev);
+	bat_psy = devm_power_supply_get_by_phandle(&pd->pdev->dev,
+						       "gauge");
+	if (IS_ERR(bat_psy)) {
+		pr_notice("%s Couldn't get bat_psy\n", __func__);
+		ret = 50;
+	} else {
+		ret = power_supply_get_property(bat_psy,
+			POWER_SUPPLY_PROP_CAPACITY, &prop);
+		ret = prop.intval;
+	}
+
+	pr_notice("%s:%d\n", __func__,
+		ret);
+	return ret;
 }
 
 

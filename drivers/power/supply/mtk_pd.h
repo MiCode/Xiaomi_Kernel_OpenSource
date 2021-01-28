@@ -24,6 +24,8 @@
 #define PD_DCS_CHG1_CHARGER_CURRENT 1500000
 #define PD_DCS_CHG2_CHARGER_CURRENT 1500000
 
+#define PD_STOP_BATTERY_SOC 80
+
 
 /* dual charger */
 #define SLAVE_MIVR_DIFF 100000
@@ -112,6 +114,7 @@ struct mtk_pd {
 	int ibus_err;
 	int slave_mivr_diff;
 	int min_charger_voltage;
+	int pd_stop_battery_soc;
 
 	/* single charger dtsi setting*/
 	int sc_input_current;
@@ -189,7 +192,7 @@ extern int pd_hal_enable_charger(struct chg_alg_device *alg,
 	enum chg_idx chgidx, bool en);
 extern int pd_hal_charger_enable_chip(struct chg_alg_device *alg,
 	enum chg_idx chgidx, bool enable);
-
+extern int pd_hal_get_uisoc(struct chg_alg_device *alg);
 
 #endif /* __MTK_PD_H */
 

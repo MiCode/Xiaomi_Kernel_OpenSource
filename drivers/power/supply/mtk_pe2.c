@@ -1203,10 +1203,10 @@ static void mtk_pe2_parse_dt(struct mtk_pe20 *pe2,
 		pe2->dcs_chg2_charger_current = DCS_CHG2_CHARGER_CURRENT;
 	}
 
-	if (of_property_read_u32(np, "pe2_slave_mivr_diff", &val) >= 0)
+	if (of_property_read_u32(np, "slave_mivr_diff", &val) >= 0)
 		pe2->pe2_slave_mivr_diff = val;
 	else {
-		pr_notice("use default PE2_SLAVE_MIVR_DIFF:%d\n",
+		pr_notice("use default slave_mivr_diff:%d\n",
 			PE2_SLAVE_MIVR_DIFF);
 		pe2->pe2_slave_mivr_diff = PE2_SLAVE_MIVR_DIFF;
 	}
