@@ -137,6 +137,7 @@ struct mtk_btcvsd_snd {
 	struct mtk_btcvsd_snd_stream *rx;
 	u8 tx_packet_buf[BTCVSD_TX_BUF_SIZE];
 	u8 rx_packet_buf[BTCVSD_RX_BUF_SIZE];
+	u8 disable_write_silence;
 
 	enum BT_SCO_BAND band;
 };
@@ -207,10 +208,8 @@ static void mtk_btcvsd_snd_set_state(struct mtk_btcvsd_snd *bt,
 				     struct mtk_btcvsd_snd_stream *bt_stream,
 				     int state)
 {
-	dev_dbg(bt->dev, "%s(), stream %d, state %d, tx->state %d, rx->state %d, irq_disabled %d\n",
-		__func__,
-		bt_stream->stream, state,
-		bt->tx->state, bt->rx->state, bt->irq_disabled);
+	int pre_state = bt_stream->state;
+	int pre_irq_disabled = bt->irq_disabled;
 
 	bt_stream->state = state;
 
@@ -228,6 +227,11 @@ static void mtk_btcvsd_snd_set_state(struct mtk_btcvsd_snd *bt,
 			bt->irq_disabled = 0;
 		}
 	}
+	dev_dbg(bt->dev,
+		"%s(), stream %d, state %d->%d, tx->state %d, rx->state %d, irq_disabled %d->%d\n"
+		, __func__,
+		bt_stream->stream, pre_state, state, bt->tx->state,
+		bt->rx->state, pre_irq_disabled, bt->irq_disabled);
 }
 
 static int mtk_btcvsd_snd_tx_init(struct mtk_btcvsd_snd *bt)
@@ -381,7 +385,7 @@ static int mtk_btcvsd_read_from_bt(struct mtk_btcvsd_snd *bt,
 
 	if (connsys_addr_rx == 0xdeadfeed) {
 		/* bt return 0xdeadfeed if read register during bt sleep */
-		dev_warn(bt->dev, "%s(), connsys_addr_rx == 0xdeadfeed",
+		dev_warn(bt->dev, "%s(), connsys_addr_rx == 0xdeadfeed\n",
 			 __func__);
 		return -EIO;
 	}
@@ -497,7 +501,6 @@ static irqreturn_t mtk_btcvsd_snd_irq_handler(int irq_id, void *dev)
 
 	if (__ratelimit(&_rs))
 		dev_info(bt->dev, "%s(), irq_id=%d\n", __func__, irq_id);
-
 
 	if (bt->bypass_bt_access)
 		goto irq_handler_exit;
@@ -959,7 +962,8 @@ static int mtk_pcm_btcvsd_hw_free(struct snd_pcm_substream *substream)
 							BTCVSD_SND_NAME);
 	struct mtk_btcvsd_snd *bt = snd_soc_component_get_drvdata(component);
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+	if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) &&
+	    (bt->disable_write_silence == 0))
 		btcvsd_tx_clean_buffer(bt);
 
 	return 0;
@@ -1350,6 +1354,7 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 	u32 offset[5] = {0, 0, 0, 0, 0};
 	struct mtk_btcvsd_snd *btcvsd;
 	struct device *dev = &pdev->dev;
+	u32 disable_write_silence = 0;
 
 	/* init btcvsd private data */
 	btcvsd = devm_kzalloc(dev, sizeof(*btcvsd), GFP_KERNEL);
@@ -1422,6 +1427,15 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 		dev_warn(dev, "%s(), get offset fail, ret %d\n", __func__, ret);
 		return ret;
 	}
+	/* get disable_write_silence */
+	ret = of_property_read_u32(dev->of_node, "disable_write_silence",
+				     &disable_write_silence);
+	if (ret) {
+		dev_dbg(dev,
+			"%s(), get disable_write_silence fail %d, set 0\n"
+			, __func__, ret);
+	}
+
 	btcvsd->infra_misc_offset = offset[0];
 	btcvsd->conn_bt_cvsd_mask = offset[1];
 	btcvsd->cvsd_mcu_read_offset = offset[2];
