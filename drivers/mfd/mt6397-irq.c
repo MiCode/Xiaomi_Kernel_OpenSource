@@ -82,7 +82,7 @@ static struct irq_chip mt6397_irq_chip = {
 static void mt6397_irq_handle_reg(struct mt6397_chip *mt6397, int reg,
 				  int irqbase)
 {
-	unsigned int status;
+	unsigned int status = 0;
 	int i, irq, ret;
 
 	ret = regmap_read(mt6397->regmap, reg, &status);
