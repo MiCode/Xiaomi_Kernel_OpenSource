@@ -532,13 +532,13 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		break;
 	}
 
-	case CCU_IOCTL_SET_RUN:
+	case CCU_IOCTL_SET_RUN_INPUT:
 	{
 		ret = copy_from_user(&ccu_run_info,
 			(void *)arg, sizeof(struct ccu_run_s));
 		if (ret != 0) {
 			LOG_ERR(
-			"CCU_IOCTL_SET_RUN copy_from_user failed: %d\n",
+			"CCU_IOCTL_SET_RUN_INPUT copy_from_user failed: %d\n",
 			ret);
 			break;
 		}

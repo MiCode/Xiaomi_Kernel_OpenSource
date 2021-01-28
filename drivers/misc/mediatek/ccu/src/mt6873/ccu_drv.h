@@ -343,7 +343,7 @@ struct ccu_reg_s {
 #define CCU_IOCTL_WAIT_AF_IRQ               _IOW(CCU_MAGICNO,   8, int)
 #define CCU_IOCTL_WAIT_IRQ                  _IOW(CCU_MAGICNO,   9, int)
 #define CCU_IOCTL_SEND_CMD                  _IOWR(CCU_MAGICNO, 10, int)
-#define CCU_IOCTL_SET_RUN                   _IOW(CCU_MAGICNO,   11, int)
+#define CCU_IOCTL_SET_RUN_INPUT             _IOW(CCU_MAGICNO,   11, int)
 
 #define CCU_CLEAR_IRQ                       _IOW(CCU_MAGICNO,  12, int)
 #define CCU_REGISTER_IRQ_USER_KEY           _IOR(CCU_MAGICNO,  13, int)
