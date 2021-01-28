@@ -8147,6 +8147,9 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 	if (eenv->max_cpu_count < 2)
 		return -1;
 
+	if (!boosted_task_util(p))
+		return -1;
+
 	if(!use_fbt) {
 		/*
 		 * using this function outside wakeup balance will not supply
@@ -8234,7 +8237,8 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		eenv->cpu[EAS_CPU_NXT].cpu_id = target_cpu;
 
 		/* take note if no backup was found */
-		if (eenv->cpu[EAS_CPU_BKP].cpu_id < 0)
+		if (eenv->cpu[EAS_CPU_BKP].cpu_id < 0 &&
+				(eenv->cpu[EAS_CPU_BKP].cpu_id != prev_cpu))
 			eenv->max_cpu_count = EAS_CPU_BKP;
 
 		/* take note if no target was found */
@@ -8431,7 +8435,7 @@ pick_cpu:
 		 * then fall back to the default find_idlest_cpu choice
 		 */
 		if (!energy_sd || (energy_sd && new_cpu == -1)) {
-			new_cpu = find_idlest_cpu(sd, p, cpu, prev_cpu, sd_flag);
+			new_cpu = ___select_idle_sibling(p, prev_cpu, prev_cpu);
 			select_reason = LB_EAS_LB;
 		}
 	}
