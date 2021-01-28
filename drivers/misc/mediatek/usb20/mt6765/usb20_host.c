@@ -143,6 +143,9 @@ static void _set_vbus(int is_on)
 		if (regulator_set_voltage(reg_vbus, 5000000, 5000000))
 			DBG(0, "vbus regulator set voltage failed\n");
 
+		if (regulator_set_current_limit(reg_vbus, 1500000, 1800000))
+			DBG(0, "vbus regulator set current limit failed\n");
+
 		if (regulator_enable(reg_vbus))
 			DBG(0, "vbus regulator enable failed\n");
 
