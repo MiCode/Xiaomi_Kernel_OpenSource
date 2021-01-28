@@ -447,8 +447,8 @@ static int audio_get_auxadc_value(void)
 	int value = 0, ret = 0;
 
 	if (!IS_ERR(mCodec_priv->codec_auxadc)) {
-		ret = iio_read_channel_processed(mCodec_priv->codec_auxadc,
-						 &value);
+		ret = iio_read_channel_raw(mCodec_priv->codec_auxadc,
+					   &value);
 		if (ret < 0) {
 			pr_notice("Error: %s read fail (%d)\n", __func__, ret);
 			return ret;
