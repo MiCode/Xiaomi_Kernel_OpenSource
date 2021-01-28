@@ -64,7 +64,7 @@ obj-y += mtk_spm_internal.o
 obj-y += mtk_spm_sleep.o
 #obj-y += mtk_spm_sodi.o
 #obj-y += mtk_spm_sodi3p0.o
-#obj-y += mtk_spm_vcorefs_mt6771.o
+obj-y += mtk_spm_vcorefs_mt6771.o
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
 obj-y += mtk_spm_vcorefs_ipi_mt6771.o
 endif
