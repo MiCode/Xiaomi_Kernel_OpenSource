@@ -500,7 +500,7 @@ static void lcm_setbacklight(unsigned int level)
 
 static unsigned int lcm_ata_check(unsigned char *buffer)
 {
-#ifndef BUILD_LK
+#if 0 /* #ifndef BUILD_LK */
 	unsigned int ret = 0;
 	unsigned int x0 = FRAME_WIDTH / 4;
 	unsigned int x1 = FRAME_WIDTH * 3 / 4;
@@ -546,7 +546,7 @@ static unsigned int lcm_ata_check(unsigned char *buffer)
 	dsi_set_cmdq(data_array, 3, 1);
 	return ret;
 #else
-	return 0;
+	return 1;
 #endif
 }
 
