@@ -9,7 +9,7 @@
 #include <linux/plist.h>
 #include <linux/of_address.h>
 #include <aee.h>
-//#include "mtk_smi.h"
+#include "mtk_smi.h"
 
 #define _BIT_(_bit_) (unsigned int)(1 << (_bit_))
 #define _BITS_(_bits_, _val_) ((((unsigned int) -1 >> (31 - ((1) ? _bits_))) \
