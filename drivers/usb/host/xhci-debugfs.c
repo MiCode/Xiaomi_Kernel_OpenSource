@@ -334,7 +334,81 @@ static const struct file_operations xhci_context_fops = {
 	.release		= single_release,
 };
 
+static int xhci_testmode_show(struct seq_file *s, void *unused)
+{
+	struct xhci_port *port = s->private;
+	struct xhci_hcd	*xhci = hcd_to_xhci(port->rhub->hcd);
 
+	seq_printf(s, "%d\n", xhci->test_mode);
+
+	return 0;
+}
+
+static int xhci_testmode_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, xhci_testmode_show, inode->i_private);
+}
+
+static ssize_t xhci_testmode_write(struct file *file,  const char __user *ubuf,
+			       size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct xhci_port *port = s->private;
+	struct xhci_hcd	*xhci = hcd_to_xhci(port->rhub->hcd);
+	char buf[32];
+	unsigned long flags;
+	u8 testmode = 0;
+	u32 temp;
+	u32 __iomem *addr;
+
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (!strncmp(buf, "test packet", 10))
+		testmode = TEST_PACKET;
+	else if (!strncmp(buf, "test K", 6))
+		testmode = TEST_K;
+	else if (!strncmp(buf, "test J", 6))
+		testmode = TEST_J;
+	else if (!strncmp(buf, "test SE0 NAK", 12))
+		testmode = TEST_SE0_NAK;
+
+	if (testmode) {
+		xhci_info(xhci, "set test mode %d\n", testmode);
+
+		spin_lock_irqsave(&xhci->lock, flags);
+
+		/* set the Run/Stop in USBCMD to 0 */
+		addr = &xhci->op_regs->command;
+		temp = readl(addr);
+		temp &= ~CMD_RUN;
+		writel(temp, addr);
+
+		/*  wait for HCHalted */
+		xhci_halt(xhci);
+
+		/* test mode */
+		addr = &xhci->op_regs->port_power_base +
+			NUM_PORT_REGS * (port->hw_portnum & 0xff);
+		temp = readl(addr);
+		temp &= ~(0xf << PORT_TEST_MODE_SHIFT);
+		temp |= (testmode << PORT_TEST_MODE_SHIFT);
+		writel(temp, addr);
+		xhci->test_mode = testmode;
+		spin_unlock_irqrestore(&xhci->lock, flags);
+	} else {
+		return -EINVAL;
+	}
+	return count;
+}
+
+static const struct file_operations testmode_fops = {
+	.open			= xhci_testmode_open,
+	.write			= xhci_testmode_write,
+	.read			= seq_read,
+	.llseek			= seq_lseek,
+	.release		= single_release,
+};
 
 static int xhci_portsc_show(struct seq_file *s, void *unused)
 {
@@ -532,6 +606,7 @@ static void xhci_debugfs_create_ports(struct xhci_hcd *xhci,
 		dir = debugfs_create_dir(port_name, parent);
 		port = &xhci->hw_ports[num_ports];
 		debugfs_create_file("portsc", 0644, dir, port, &port_fops);
+		debugfs_create_file("testmode", 0644, dir, port, &testmode_fops);
 	}
 }
 
