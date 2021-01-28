@@ -33,7 +33,7 @@
 #include <mt-plat/sync_write.h>
 #include <mt-plat/mtk_io.h>
 #include <mt-plat/aee.h>
-#include <trace/events/mtk_events.h>
+/* #include <trace/events/mtk_events.h> */
 #include <mt-plat/met_drv.h>
 
 #include <mtk_cm_mgr.h>
