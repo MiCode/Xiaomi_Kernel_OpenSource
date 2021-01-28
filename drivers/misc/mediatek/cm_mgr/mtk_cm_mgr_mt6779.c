@@ -41,12 +41,26 @@
 #include "mtk_cm_mgr_common.h"
 
 #include <linux/soc/mediatek/mtk-pm-qos.h>
-#ifdef CONFIG_MTK_DRAMC_LEGACY
-#include <mtk_dramc.h>
-#endif /* CONFIG_MTK_DRAMC_LEGACY */
+#include <mtk_qos_sram.h>
+
+#ifndef CONFIG_MTK_BASE_POWER
+/* FIXME: */
+#undef CONFIG_MTK_CPU_FREQ
+#endif /* CONFIG_MTK_BASE_POWER */
+
+#ifdef CONFIG_MTK_CPU_FREQ
+#include <mtk_cpufreq_platform.h>
+#include <mtk_cpufreq_common_api.h>
+#endif /* CONFIG_MTK_CPU_FREQ */
+
+static struct delayed_work cm_mgr_work;
+static struct mtk_pm_qos_request ddr_opp_req_by_cpu_opp;
+static int cm_mgr_cpu_to_dram_opp;
+
+static unsigned int prev_freq_idx[CM_MGR_CPU_CLUSTER];
+static unsigned int prev_freq[CM_MGR_CPU_CLUSTER];
 
 static int cm_mgr_idx = -1;
-static int *cm_mgr_buf;
 
 static int cm_mgr_check_dram_type(void)
 {
@@ -211,13 +225,82 @@ static int cm_mgr_get_dram_opp(void)
 	return phy_to_virt_dram_opp[dram_opp_cur];
 }
 
+static void cm_mgr_process(struct work_struct *work)
+{
+	mtk_pm_qos_update_request(&ddr_opp_req_by_cpu_opp,
+			cm_mgr_cpu_to_dram_opp);
+}
+
+static void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
+{
+	int ret = 0;
+	int dram_opp = 0;
+
+	if (!cm_mgr_cpu_map_dram_enable) {
+		if (cm_mgr_cpu_to_dram_opp !=
+				MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE) {
+			cm_mgr_cpu_to_dram_opp =
+				MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE;
+			ret = schedule_delayed_work(&cm_mgr_work, 1);
+		}
+		return;
+	}
+
+	if ((cpu_opp >= 0) && (cpu_opp < cm_mgr_cpu_opp_size))
+		dram_opp = cm_mgr_cpu_opp_to_dram[cpu_opp];
+
+	if (cm_mgr_cpu_to_dram_opp == dram_opp)
+		return;
+
+	cm_mgr_cpu_to_dram_opp = dram_opp;
+
+	ret = schedule_delayed_work(&cm_mgr_work, 1);
+}
+
+void check_cm_mgr_status_mt6779(unsigned int cluster, unsigned int freq)
+{
+#ifdef CONFIG_MTK_CPU_FREQ
+	int freq_idx = 0;
+	struct mt_cpu_dvfs *p;
+
+	p = id_to_cpu_dvfs(cluster);
+	if (p)
+		freq_idx = _search_available_freq_idx(p, freq, 0);
+
+	if (freq_idx == prev_freq_idx[cluster])
+		return;
+
+	prev_freq_idx[cluster] = freq_idx;
+	prev_freq[cluster] = freq;
+#else
+	prev_freq_idx[cluster] = 0;
+	prev_freq[cluster] = 0;
+#endif /* CONFIG_MTK_CPU_FREQ */
+
+	if (cm_mgr_use_cpu_to_dram_map)
+		cm_mgr_update_dram_by_cpu_opp
+			(prev_freq_idx[CM_MGR_CPU_CLUSTER - 1]);
+}
+EXPORT_SYMBOL_GPL(check_cm_mgr_status_mt6779);
+
+static void cm_mgr_add_cpu_opp_to_ddr_req(void)
+{
+	char owner[20] = "cm_mgr_cpu_to_dram";
+
+	mtk_pm_qos_add_request(&ddr_opp_req_by_cpu_opp, MTK_PM_QOS_DDR_OPP,
+			MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
+
+	strncpy(ddr_opp_req_by_cpu_opp.owner,
+			owner, sizeof(ddr_opp_req_by_cpu_opp.owner) - 1);
+
+	if (cm_mgr_use_cpu_to_dram_map_new)
+		cm_mgr_cpu_map_update_table();
+}
+
 static int platform_cm_mgr_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct resource *res;
-	struct device *dev = &pdev->dev;
 	struct device_node *node = pdev->dev.of_node;
-	const char *buf;
 #ifdef CONFIG_MTK_DVFSRC
 	int i;
 #endif /* CONFIG_MTK_DVFSRC */
@@ -230,19 +313,11 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 
 	(void)cm_mgr_get_idx();
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cm_mgr_base");
-	cm_mgr_base = devm_ioremap_resource(dev, res);
-
-	if (IS_ERR((void const *) cm_mgr_base)) {
-		pr_info("[CM_MGR] Unable to ioremap registers\n");
-		return -1;
-	}
-
-	pr_info("[CM_MGR] platform-cm_mgr cm_mgr_base=%p\n",
-			cm_mgr_base);
-
+	/* required-opps */
 	cm_mgr_num_perf = of_count_phandle_with_args(node,
 			"required-opps", NULL);
+	pr_info("#@# %s(%d) cm_mgr_num_perf %d\n",
+			__func__, __LINE__, cm_mgr_num_perf);
 
 	if (cm_mgr_num_perf > 0) {
 		cm_mgr_perfs = devm_kzalloc(&pdev->dev,
@@ -257,61 +332,41 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 #ifdef CONFIG_MTK_DVFSRC
 		for (i = 0; i < cm_mgr_num_perf; i++) {
 			cm_mgr_perfs[i] =
-			dvfsrc_get_required_opp_performance_state(node, i);
+				dvfsrc_get_required_opp_performance_state
+				(node, i);
 		}
 #endif /* CONFIG_MTK_DVFSRC */
 		cm_mgr_num_array = cm_mgr_num_perf - 2;
 	} else
-		cm_mgr_num_perf = 0;
+		cm_mgr_num_array = 0;
+	pr_info("#@# %s(%d) cm_mgr_num_array %d\n",
+			__func__, __LINE__, cm_mgr_num_array);
 
-	ret = of_property_read_string(node,
-			"status", (const char **)&buf);
-
-	if (!ret) {
-		if (!strcmp(buf, "enable"))
-			cm_mgr_enable = 1;
-		else
-			cm_mgr_enable = 0;
+	ret = cm_mgr_check_dts_setting(pdev);
+	if (ret) {
+		pr_info("[CM_MGR] FAILED TO GET DTS DATA(%d)\n", ret);
+		return ret;
 	}
-
-	cm_mgr_buf = devm_kzalloc(dev, sizeof(int) * 6 * cm_mgr_num_array,
-			GFP_KERNEL);
-	if (!cm_mgr_buf) {
-		ret = -ENOMEM;
-		goto ERROR1;
-	}
-
-	cpu_power_ratio_down = cm_mgr_buf;
-	cpu_power_ratio_up = cpu_power_ratio_down + cm_mgr_num_array;
-	debounce_times_down_adb = cpu_power_ratio_up + cm_mgr_num_array;
-	debounce_times_up_adb = debounce_times_down_adb + cm_mgr_num_array;
-	vcore_power_ratio_down = debounce_times_up_adb + cm_mgr_num_array;
-	vcore_power_ratio_up = vcore_power_ratio_down + cm_mgr_num_array;
-
-	ret = of_property_read_u32_array(node, "cm_mgr,cp_down",
-			cpu_power_ratio_down, cm_mgr_num_array);
-	ret = of_property_read_u32_array(node, "cm_mgr,cp_up",
-			cpu_power_ratio_up, cm_mgr_num_array);
-	ret = of_property_read_u32_array(node, "cm_mgr,dt_down",
-			debounce_times_down_adb, cm_mgr_num_array);
-	ret = of_property_read_u32_array(node, "cm_mgr,dt_up",
-			debounce_times_up_adb, cm_mgr_num_array);
-	ret = of_property_read_u32_array(node, "cm_mgr,vp_down",
-			vcore_power_ratio_down, cm_mgr_num_array);
-	ret = of_property_read_u32_array(node, "cm_mgr,vp_up",
-			vcore_power_ratio_up, cm_mgr_num_array);
 
 	cm_mgr_pdev = pdev;
 
 	pr_info("[CM_MGR] platform-cm_mgr_probe Done.\n");
 
+#ifdef CONFIG_MTK_CPU_FREQ
+	mt_cpufreq_set_governor_freq_registerCB(check_cm_mgr_status_mt6779);
+#endif /* CONFIG_MTK_CPU_FREQ */
+
 	mtk_pm_qos_add_request(&ddr_opp_req, MTK_PM_QOS_DDR_OPP,
 			MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
 
+	if (cm_mgr_use_cpu_to_dram_map) {
+		cm_mgr_add_cpu_opp_to_ddr_req();
+
+		INIT_DELAYED_WORK(&cm_mgr_work, cm_mgr_process);
+	}
+
 	return 0;
 
-ERROR1:
-	kfree(cm_mgr_perfs);
 ERROR:
 	return ret;
 }
@@ -321,6 +376,7 @@ static int platform_cm_mgr_remove(struct platform_device *pdev)
 	cm_mgr_common_exit();
 
 	kfree(cm_mgr_perfs);
+	kfree(cm_mgr_cpu_opp_to_dram);
 	kfree(cm_mgr_buf);
 
 	return 0;
