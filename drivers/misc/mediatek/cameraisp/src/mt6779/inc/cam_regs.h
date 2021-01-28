@@ -591,6 +591,9 @@ enum{
 #define CAM_REG_IMGO_FH_SPARE_2(module)         (isp_devs[module].regs + 0x4750)
 #define CAM_REG_RRZO_FH_SPARE_2(module)         (isp_devs[module].regs + 0x4830)
 
+#define CAM_REG_IMGO_FH_SPARE_12(module)        (isp_devs[module].regs + 0x4778)
+#define CAM_REG_RRZO_FH_SPARE_12(module)        (isp_devs[module].regs + 0x4858)
+
 #define CAM_REG_RRZ_HORI_STEP(module)           (isp_devs[module].regs + 0x110C)
 #define CAM_REG_RRZ_VERT_STEP(module)           (isp_devs[module].regs + 0x1110)
 
