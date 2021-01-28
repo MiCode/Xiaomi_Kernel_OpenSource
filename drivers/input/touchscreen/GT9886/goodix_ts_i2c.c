@@ -85,73 +85,9 @@ int tpd_res_max_y;
 
 module_param(tpd_res_max_x, int, 0664);
 module_param(tpd_res_max_y, int, 0664);
-/***********only for smt end******************/
-
-/**
- * goodix_ts_pinctrl_init - Get pinctrl handler and pinctrl_state
- * @core_data: pointer to touch core data
- * return: 0 ok, <0 failed
- */
- #if 0
-static int goodix_ts_pinctrl_init(struct touch_pinctrl *core_data,
-	struct i2c_client *client)
-{
-	int r = 0;
-
-	/* get pinctrl handler from of node */
-	core_data->pinctrl = devm_pinctrl_get(client->adapter->dev.parent);
-	if (IS_ERR_OR_NULL(core_data->pinctrl)) {
-		ts_err("Failed to get pinctrl handler");
-		return PTR_ERR(core_data->pinctrl);
-	}
-
-	/* int active state */
-	core_data->pin_int_sta_active = pinctrl_lookup_state(core_data->pinctrl,
-				PINCTRL_STATE_INT_ACTIVE);
-	if (IS_ERR_OR_NULL(core_data->pin_int_sta_active)) {
-		r = PTR_ERR(core_data->pin_int_sta_active);
-		ts_err("Failed to get pinctrl state:%s, r:%d",
-				PINCTRL_STATE_INT_ACTIVE, r);
-		goto exit_pinctrl_put;
-	}
-
-	/* rst active state */
-	core_data->pin_rst_sta_active = pinctrl_lookup_state(
-		core_data->pinctrl, PINCTRL_STATE_RST_ACTIVE);
-	if (IS_ERR_OR_NULL(core_data->pin_rst_sta_active)) {
-		r = PTR_ERR(core_data->pin_rst_sta_active);
-		ts_err("Failed to get pinctrl state:%s, r:%d",
-				PINCTRL_STATE_RST_ACTIVE, r);
-		goto exit_pinctrl_put;
-	}
-
-	/* int suspend state */
-	core_data->pin_int_sta_suspend = pinctrl_lookup_state(
-		core_data->pinctrl, PINCTRL_STATE_INT_SUSPEND);
-	if (IS_ERR_OR_NULL(core_data->pin_int_sta_suspend)) {
-		r = PTR_ERR(core_data->pin_int_sta_suspend);
-		ts_err("Failed to get pinctrl state:%s, r:%d",
-				PINCTRL_STATE_INT_SUSPEND, r);
-		goto exit_pinctrl_put;
-	}
-
-	/* int suspend state */
-	core_data->pin_rst_sta_suspend = pinctrl_lookup_state(
-		core_data->pinctrl, PINCTRL_STATE_RST_SUSPEND);
-	if (IS_ERR_OR_NULL(core_data->pin_rst_sta_suspend)) {
-		r = PTR_ERR(core_data->pin_rst_sta_suspend);
-		ts_err("Failed to get pinctrl state:%s, r:%d",
-				PINCTRL_STATE_RST_SUSPEND, r);
-		goto exit_pinctrl_put;
-	}
-
-	return 0;
-exit_pinctrl_put:
-	devm_pinctrl_put(core_data->pinctrl);
-	core_data->pinctrl = NULL;
-	return r;
-}
-#endif
+/***********for config & firmware*************/
+const char *gt9886_firmware_buf;
+const char *gt9886_config_buf;
 
 #ifdef CONFIG_OF
 /**
@@ -247,6 +183,18 @@ static int goodix_parse_dt(struct device_node *node,
 			&board_data->irq_flags);
 	if (r) {
 		ts_err("Invalid irq-flags");
+		return -EINVAL;
+	}
+
+	r = of_property_read_string(node, "goodix,firmware-version",
+			&gt9886_firmware_buf);
+	if (r < 0)
+		ts_err("Invalid firmware version in dts : %d", r);
+
+	r = of_property_read_string(node, "goodix,config-version",
+			&gt9886_config_buf);
+	if (r < 0) {
+		ts_err("Invalid config version in dts : %d", r);
 		return -EINVAL;
 	}
 
@@ -1301,7 +1249,7 @@ exit:
 
 /* success return config length else return -1 */
 static int _goodix_do_read_config(struct goodix_ts_device *dev,
-					  u32 base_addr, u8 *buf)
+	u32 base_addr, u8 *buf)
 {
 	int sub_bags = 0;
 	int offset = 0;
@@ -1376,7 +1324,7 @@ err_out:
 
 /* success return config_len, <= 0 failed */
 static int goodix_read_config(struct goodix_ts_device *dev,
-					      u8 *config_data, u32 config_len)
+	u8 *config_data, u32 config_len)
 {
 	struct goodix_ts_cmd ts_cmd;
 	u8 cmd_flag;
