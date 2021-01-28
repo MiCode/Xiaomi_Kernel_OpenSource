@@ -319,6 +319,19 @@ firmware_class.path=/vendor/firmware";
 				<0 0x14002000 0 0x1000>, /* spi_common */
 				<0 0x1020e000 0 0x1000>, /* infracfg */
 				<0 0x18004000 0 0x1000>; /* connsys */
+		clocks = <&topckgen CLK_TOP_MM_SEL>,
+			<&topckgen CLK_TOP_MFG_SEL>,
+			<&mmsys_config CLK_MM_SMI_COMM0>,
+			<&mmsys_config CLK_MM_SMI_COMM1>,
+			<&mmsys_config CLK_MM_SMI_COMMON>,
+			<&mmsys_config CLK_MM_SMI_LARB0>,
+			<&camsys CLK_CAM_LARB2>,
+			<&camsys CLK_CAM>,
+			<&mmsys_config CLK_MM_SMI_CAM>,
+			<&mmsys_config CLK_MM_SMI_IMG>;
+		clock-names = "mm", "mfg",
+			"mm-0", "mm-1", "mm-2", "mm-3",
+			"cam-0", "cam-1", "cam-2", "cam-3";
 		#clock-cells = <1>;
 	};
 
@@ -655,6 +668,7 @@ firmware_class.path=/vendor/firmware";
 		dvfsrc-opp-num = <3>;
 		dvfs-opp =
 		/*	vcore	vsram	uv	dvfsrc	spm	freq	mux */
+		<	0xff	0xff	0xff	0x0	0x0	26	0>,
 		<	0xff	0xff	0xff	0x0	0x0	250	0>,
 		<	0xff	0xff	0xff	0x0	0x0	273	3>,
 		<	0xff	0xff	0xff	0x2	0x8	330	5>,
@@ -1199,7 +1213,6 @@ firmware_class.path=/vendor/firmware";
 	gce: gce@10238000 {
 		compatible = "mediatek,gce", "syscon";
 		reg = <0 0x10238000 0 0x4000>;
-		#clock-cells = <1>;
 		interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_LOW>;
 		g3d_config_base = <0x13000000 0 0xffff0000>;
 		mmsys_config_base = <0x14000000 1 0xffff0000>;
@@ -1313,7 +1326,7 @@ firmware_class.path=/vendor/firmware";
 		max_prefetch_cnt = <1>;
 		prefetch_size = <96>;
 		sram_size_cpr_64 = <64>;
-		mmsys_config = <&mmsys_config>;
+		mmsys_config = <&dispsys_config>;
 		mdp_rdma0 = <&mdp_rdma0>;
 		mdp_rsz0 = <&mdp_rsz0>;
 		mdp_rsz1 = <&mdp_rsz1>;
@@ -2334,12 +2347,27 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "RGX";
 		clock-frequency = <570000000>;
+		clocks =
+			<&scpsys SCP_SYS_MFG_ASYNC>,
+			<&scpsys SCP_SYS_MFG>,
+			<&scpsys SCP_SYS_MFG_CORE0>;
+		clock-names =
+			"mtcmos_mfg_async",
+			"mtcmos_mfg",
+			"mtcmos_mfg_core0";
 	};
 
 	mfg_cfg: mfg_cfg@13ffe000 {
 		compatible = "mediatek,mfgcfg", "syscon";
 		reg = <0 0x13ffe000 0 0x1000>;
-		#clock-cells = <1>;
+		clocks =
+			<&scpsys SCP_SYS_MFG_ASYNC>,
+			<&scpsys SCP_SYS_MFG>,
+			<&scpsys SCP_SYS_MFG_CORE0>;
+		clock-names =
+			"mtcmos_mfg_async",
+			"mtcmos_mfg",
+			"mtcmos_mfg_core0";
 	};
 
 	gpufreq {
@@ -2364,10 +2392,16 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 
 
 	mmsys_config: mmsys_config@14000000 {
-		compatible = "mediatek,mt6761-mmsys", "syscon";
+		compatible = "mediatek,mt6761-mmsys_config", "syscon";
 		reg = <0 0x14000000 0 0x1000>;
 		interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_LOW>;
 		#clock-cells = <1>;
+	};
+
+	dispsys_config: dispsys_config@14000000 {
+		compatible = "mediatek,mt6761-mmsys", "syscon";
+		reg = <0 0x14000000 0 0x1000>;
+		interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_LOW>;
 		clocks = <&mmsys_config CLK_MM_CAM_MDP>,
 				<&mmsys_config CLK_MM_IMG_DL_RELAY>,
 				<&mmsys_config CLK_MM_IMG_DL_ASYNC_TOP>;
@@ -2396,7 +2430,7 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		compatible = "mediatek,smi_common",
 			     "mediatek,mt6761-smi-common";
 		reg = <0 0x14002000 0 0x1000>;
-		mmsys_config = <&mmsys_config>;
+		mmsys_config = <&dispsys_config>;
 		clocks = <&scpsys SCP_SYS_DIS>,
 			<&mmsys_config CLK_MM_SMI_COMM0>,
 			<&mmsys_config CLK_MM_SMI_COMM1>,
