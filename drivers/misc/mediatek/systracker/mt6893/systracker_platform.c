@@ -116,7 +116,7 @@ int systracker_handler(unsigned long addr,
 	int i;
 
 #ifdef SYSTRACKER_TEST_SUIT
-	writel(0x1 << 6, p1_clr);
+	writel(0x1 << 0, p1_clr);
 #endif
 
 	/* avoid nested hit */
@@ -197,11 +197,11 @@ void __iomem *wp_ptr;
 
 static int systracker_platform_test_init(void)
 {
-	p1_set = ioremap(0x100012A0, 0x4);
-	p1_clr = ioremap(0x100012A4, 0x4);
+	p1_set = ioremap(0x10001ba0, 0x4);
+	p1_clr = ioremap(0x10001ba8, 0x4);
 
 	/* use mmsys reg base for our test */
-	mm_area1 = ioremap(0x14000000, 0x4);
+	mm_area1 = ioremap(0x11210000, 0x4);
 
 	/* use EMI CONA for our test */
 	wp_ptr = ioremap(0x10219000, 0x4);
@@ -211,7 +211,7 @@ static int systracker_platform_test_init(void)
 
 static void systracker_platform_test_cleanup(void)
 {
-	writel(0x1 << 6, p1_clr);
+	writel(0x1 << 0, p1_clr);
 }
 
 static void systracker_platform_wp_test(void)
@@ -236,33 +236,33 @@ static void systracker_platform_read_timeout_test(void)
 	 * systracker_enable();
 	 */
 
-	writel(0x1 << 6, p1_set);
+	writel(0x1 << 0, p1_set);
 
 	readl(mm_area1);
-	writel(0x1 << 6, p1_clr);
+	writel(0x1 << 0, p1_clr);
 }
 
 static void systracker_platform_write_timeout_test(void)
 {
-	writel(0x1 << 6, p1_set);
+	writel(0x1 << 0, p1_set);
 
 	writel(0x0, mm_area1);
 
-	writel(0x1 << 6, p1_clr);
+	writel(0x1 << 0, p1_clr);
 }
 
 static void systracker_platform_withrecord_test(void)
 {
 	writel(readl(IOMEM(BUS_DBG_CON_INFRA)) &
 	       ~BUS_DBG_CON_HALT_ON_EN, IOMEM(BUS_DBG_CON_INFRA));
-	writel(0x1 << 6, p1_set);
+	writel(0x1 << 0, p1_set);
 
 	readl(mm_area1);
 }
 
 static void systracker_platform_notimeout_test(void)
 {
-	writel(0x1 << 6, p1_set);
+	writel(0x1 << 0, p1_set);
 	/* disable timeout */
 	writel(readl(IOMEM(BUS_DBG_CON_INFRA)) &
 		~(BUS_DBG_CON_TIMEOUT_EN), IOMEM(BUS_DBG_CON_INFRA));
