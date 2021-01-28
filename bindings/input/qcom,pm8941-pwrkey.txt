@@ -14,7 +14,18 @@ PROPERTIES
 - reg:
 	Usage: required
 	Value type: <prop-encoded-array>
-	Definition: base address of registers for block
+	Definition: Specifies the SPMI base address for the PON (power-on)
+		    peripheral.  For PMICs that have PON peripheral (GEN3) split
+		    into PON_HLOS and PON_PBS (e.g. PMK8350), this can hold
+		    addresses of both PON_HLOS and PON_PBS peripherals.
+		    In that case, the PON_PBS address needs to be specified
+		    to facilitate software debouncing on some PMICs.
+
+- reg-names:
+	Usage: optional
+	Value type: <stringlist>
+	Definition: For PON GEN1 and GEN2, it should be "pon".  For PON GEN3, it
+		    should include "pon_hlos" and optionally "pon_pbs".
 
 - interrupts:
 	Usage: required
@@ -27,13 +38,16 @@ PROPERTIES
 	Usage: optional
 	Value type: <u32>
 	Definition: time in microseconds that key must be pressed or released
-		    for state change interrupt to trigger.
+		    for state change interrupt to trigger.  Note that this
+		    property isn't meaningful for PMK8350 or other PON GEN3
+		    PMICs.
 
 - bias-pull-up:
 	Usage: optional
 	Value type: <empty>
 	Definition: presence of this property indicates that the KPDPWR_N pin
-		    should be configured for pull up.
+		    should be configured for pull up.  Note that this property
+		    isn't meaningful for PMK8350 or other PON GEN3 PMICs.
 
 - linux,code:
 	Usage: optional
@@ -43,7 +57,7 @@ PROPERTIES
 		    include/dt-bindings/input/linux-event-codes.h
 		    When property is omitted KEY_POWER is assumed.
 
-EXAMPLE
+EXAMPLES
 
 	pwrkey@800 {
 		compatible = "qcom,pm8941-pwrkey";
@@ -51,5 +65,13 @@ EXAMPLE
 		interrupts = <0x0 0x8 0 IRQ_TYPE_EDGE_BOTH>;
 		debounce = <15625>;
 		bias-pull-up;
+		linux,code = <KEY_POWER>;
+	};
+
+	pwrkey@1300 {
+		compatible = "qcom,pmk8350-pwrkey";
+		reg = <0x1300>, <0x800>;
+		reg-names = "pon_hlos", "pon_pbs";
+		interrupts = <0x0 0x13 0x7 IRQ_TYPE_EDGE_BOTH>;
 		linux,code = <KEY_POWER>;
 	};
