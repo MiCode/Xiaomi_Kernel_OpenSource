@@ -31,8 +31,6 @@
 /* #define BRING_UP */
 
 #include "mtk_gpufreq_core.h"
-#include "upmu_common.h"
-#include "sync_write.h"
 
 /* #include "mtk_thermal_typedefs.h" */
 #include "mtk_thermal.h"

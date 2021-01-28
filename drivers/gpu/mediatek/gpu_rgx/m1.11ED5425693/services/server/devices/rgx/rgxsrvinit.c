@@ -472,11 +472,13 @@ static INLINE void GetApphints(PVRSRV_RGXDEV_INFO *psDevInfo, RGX_SRVINIT_APPHIN
 		}
 
 		/* MTK default FW debug flags */
+#if !((IMG_1_11_OPTS) & 0x1)
 		ui32LogType |= (RGXFWIF_LOG_TYPE_TRACE |
 				RGXFWIF_LOG_TYPE_GROUP_MAIN |
 				RGXFWIF_LOG_TYPE_GROUP_PM |
 				RGXFWIF_LOG_TYPE_GROUP_POW |
 				RGXFWIF_LOG_TYPE_GROUP_HWR);
+#endif
 
 		psHints->ui32LogType = ui32LogType;
 	}
