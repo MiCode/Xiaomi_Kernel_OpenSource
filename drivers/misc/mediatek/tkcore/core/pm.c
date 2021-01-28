@@ -48,23 +48,20 @@ static void tee_cancel_awake(void)
 	}
 }
 
-static void tee_prepare_suspend(void)
+static int tee_prepare_suspend(void)
 {
 	int r;
 
 	while ((r = atomic_read(&tee_wakeup_cnt)) >= 0) {
 		if (atomic_cmpxchg(&tee_wakeup_cnt, 0, -1) == 0)
-			return;
-		/* wait_event() implies a memory barrier */
-		wait_event(awake_done, atomic_read(&tee_wakeup_cnt) == 0);
+			return 0;
+
+		return -1;
 	}
 
-	pr_warn("tee_wakeup_cnt unexpected value: %d\n", r);
+	pr_err("tee_wakeup_cnt unexpected value: %d\n", r);
+	return 0;
 }
-
-#ifdef CONFIG_TRUSTKERNEL_TEE_RPMB_SUPPORT
-#include "linux/tee_rpmb.h"
-#endif
 
 static void tee_post_suspend(void)
 {
@@ -76,21 +73,25 @@ static void tee_post_suspend(void)
 }
 
 static int tee_pm_suspend_notifier(struct notifier_block *nb,
-				   unsigned long event, void *dummy)
+		unsigned long event, void *dummy)
 {
+	int r;
+
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
-		tee_prepare_suspend();
-
-#ifdef CONFIG_TRUSTKERNEL_TEE_RPMB_SUPPORT
-		{
-			struct tkcore_rpmb_request rq = {
-				.type = TEE_RPMB_SWITCH_NORMAL
-			};
-			tkcore_emmc_rpmb_execute(&rq);
-		}
-#endif
+		r = tee_prepare_suspend();
 		break;
+	default:
+		break;
+	}
+
+	return r == 0 ? NOTIFY_OK : NOTIFY_BAD;
+}
+
+static int tee_pm_wake_notifier(struct notifier_block *nb,
+		unsigned long event, void *dummy)
+{
+	switch (event) {
 	case PM_POST_SUSPEND:
 		tee_post_suspend();
 		break;
@@ -101,8 +102,15 @@ static int tee_pm_suspend_notifier(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block tz_pm_notifier = {
+
+static struct notifier_block tz_pm_suspend_notifier = {
 	.notifier_call = tee_pm_suspend_notifier,
+};
+
+/* make sure this notifier is called late in the chain */
+static struct notifier_block tz_pm_wake_notifier = {
+	.priority = -1,
+	.notifier_call = tee_pm_wake_notifier,
 };
 
 int tkcore_stay_awake(void *fn, void *data)
@@ -120,9 +128,16 @@ int tkcore_tee_pm_init(void)
 {
 	int r;
 
-	r = register_pm_notifier(&tz_pm_notifier);
+	r = register_pm_notifier(&tz_pm_suspend_notifier);
 	if (r) {
-		pr_err("failed to register pm notifier: %d\n", r);
+		pr_warn("tkcoredrv: failed to register pm_suspend_notifier: %d\n", r);
+		return r;
+	}
+
+	r = register_pm_notifier(&tz_pm_wake_notifier);
+	if (r) {
+		pr_warn("tkcoredrv: failed to register pm_wake_notifier: %d\n", r);
+		unregister_pm_notifier(&tz_pm_suspend_notifier);
 		return r;
 	}
 
@@ -133,7 +148,11 @@ void tkcore_tee_pm_exit(void)
 {
 	int r;
 
-	r = unregister_pm_notifier(&tz_pm_notifier);
+	r = unregister_pm_notifier(&tz_pm_suspend_notifier);
 	if (r)
-		pr_err("failed to unregister_pm_notifier: %d\n", r);
+		pr_warn("tkcoredrv: failed to unregister pm_suspend_notifier: %d\n", r);
+
+	r = unregister_pm_notifier(&tz_pm_wake_notifier);
+	if (r)
+		pr_warn("tkcoredrv: failed to unregister pm_wake_notifier: %d\n", r);
 }
