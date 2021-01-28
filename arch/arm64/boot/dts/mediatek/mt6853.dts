@@ -4703,7 +4703,7 @@ page_owner=on loop.max_part=7";
 	vdec@16000000 {
 		compatible = "mediatek,mt6853-vcodec-dec";
 		reg = <0 0x1602f000 0 0x1000>,		/* VDEC_SYS */
-			 <0 0x16027000 0 0x400>,		/* VDEC_VLD */
+			 <0 0x16020000 0 0x400>,		/* VDEC_VLD */
 			 <0 0x16025000 0 0x1000>;		/* VDEC_MISC */
 #ifdef CONFIG_MTK_IOMMU_V2
 		iommus = <&iommu0 M4U_PORT_L4_VDEC_MC_EXT>;
