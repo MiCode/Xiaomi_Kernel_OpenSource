@@ -640,7 +640,7 @@ void mtk_pm_qos_add_request(struct mtk_pm_qos_request *req,
 		__builtin_return_address(0));
 
 	if (n < 0)
-		strcpy(owner, "unknown");
+		strncpy(owner, "unknown", sizeof(owner) - 1);
 
 	if (mtk_pm_qos_request_active(req)) {
 		pr_err("%s: called for already added request\n", __func__);
