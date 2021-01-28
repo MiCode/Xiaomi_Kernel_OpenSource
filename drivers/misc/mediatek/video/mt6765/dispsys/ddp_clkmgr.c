@@ -244,7 +244,9 @@ int ddp_parse_apmixed_base(void)
 	if (parsed_apmixed)
 		return ret;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,apmixed");
+	node = of_find_compatible_node(NULL, NULL,
+		"mediatek,mt6761-apmixedsys");
+
 	if (!node) {
 		DDPERR("[DDP_APMIXED] DISP find apmixed node failed\n");
 		return -1;
