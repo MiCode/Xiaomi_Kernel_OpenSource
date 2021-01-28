@@ -492,12 +492,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		#size-cells = <2>;
 		ranges;
 
-		memory-ssmr {
-			compatible = "mediatek,memory_ssmr";
-			size = <0 0x28000000>;
-			alignment = <0 0x1000000>;
-		};
-
 		reserve-memory-sspm_share {
 			compatible = "mediatek,reserve-memory-sspm_share";
 			no-map;
@@ -529,6 +523,13 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			size = <0 0x600000>;
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
+		};
+		ssmr_cma_mem: ssmr-reserved-cma_memory {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x10000000>;
+			alignment = <0 0x1000000>;
+			alloc-range = <0 0xc0000000 0 0x10000000>;
 		};
 	};
 
@@ -3719,15 +3720,14 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	memory_ssmr_features: memory-ssmr-features {
 		compatible = "mediatek,memory-ssmr-features";
 		svp-size = <0 0x10000000>;
-		iris-recognition-size = <0 0x10000000>;
-		2d_fr-size = <0 0x8000000>;
-		tui-size = <0 0x4000000>;
-		wfd-size = <0 0x4000000>;
-		prot-sharedmem-size = <0 0x8000000>;
-		ta-elf-size = <0 0x1000000>;
-		ta-stack-heap-size = <0 0x6000000>;
-		sdsp-tee-sharedmem-size = <0 0x1000000>;
-		sdsp-firmware-size = <0 0x1000000>;
+		2d_fr-size = <0 0>;
+		tui-size = <0 0>;
+		wfd-size = <0 0>;
+		prot-sharedmem-size = <0 0>;
+		ta-elf-size = <0 0>;
+		ta-stack-heap-size = <0 0>;
+		sdsp-tee-sharedmem-size = <0 0>;
+		sdsp-firmware-size = <0 0>;
 	};
 
 	touch: touch {
@@ -3771,6 +3771,11 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			 <&iommu0 M4U_PORT_FDVT_RDA>,
 			 <&iommu0 M4U_PORT_CAM_IMGO_R1_C>,
 			 <&iommu0 M4U_PORT_CAM_IMGO_R1_A>;
+	};
+
+	ssmr {
+		compatible = "mediatek,memory_ssmr";
+		memory-region = <&ssmr_cma_mem>;
 	};
 };
 
