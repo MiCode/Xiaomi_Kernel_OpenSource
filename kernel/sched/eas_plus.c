@@ -1127,9 +1127,11 @@ static int find_energy_efficient_cpu_enhanced(struct task_struct *p,
 	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX;
 	int max_spare_cap_cpu_ls = prev_cpu, best_idle_cpu = -1;
 	unsigned long max_spare_cap_ls = 0, target_cap;
+	unsigned long sys_max_spare_cap = 0;
 	unsigned long cpu_cap, util, wake_util;
 	bool boosted, prefer_idle = false;
 	unsigned int min_exit_lat = UINT_MAX;
+	int sys_max_spare_cap_cpu = -1;
 	int best_energy_cpu = prev_cpu;
 	struct cpuidle_state *idle;
 	struct sched_domain *sd;
@@ -1176,6 +1178,12 @@ static int find_energy_efficient_cpu_enhanced(struct task_struct *p,
 			/* Skip CPUs that will be overutilized. */
 			wake_util = cpu_util_without(cpu, p);
 			util = wake_util + task_util_est(p);
+			cpu_cap = capacity_of(cpu);
+			spare_cap = cpu_cap - util;
+			if (spare_cap > sys_max_spare_cap) {
+				sys_max_spare_cap = spare_cap;
+				sys_max_spare_cap_cpu = cpu;
+			}
 
 			/*
 			 * Skip CPUs that cannot satisfy the capacity request.
@@ -1185,7 +1193,6 @@ static int find_energy_efficient_cpu_enhanced(struct task_struct *p,
 			 * aligned with schedutil_cpu_util().
 			 */
 			util = uclamp_rq_util_with(cpu_rq(cpu), util, p);
-			cpu_cap = capacity_of(cpu);
 			if (!fits_capacity(util, cpu_cap))
 				continue;
 
@@ -1261,8 +1268,13 @@ static int find_energy_efficient_cpu_enhanced(struct task_struct *p,
 	 * Pick the best CPU if prev_cpu cannot be used, or it it saves energy
 	 * used by prev_cpu.
 	 */
-	if (prev_delta == ULONG_MAX)
-		return best_energy_cpu;
+	if (prev_delta == ULONG_MAX) {
+		/* All cpu failed on !fit_capacity, use sys_max_spare_cap_cpu */
+		if (best_energy_cpu == prev_cpu)
+			return sys_max_spare_cap_cpu;
+		else
+			return best_energy_cpu;
+	}
 
 	if ((prev_delta - best_delta) > 0)
 		return best_energy_cpu;
