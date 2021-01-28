@@ -118,7 +118,7 @@ static void wsm_free(struct tee_session *session, struct tee_wsm *wsm)
 static int hash_path_and_data(struct task_struct *task, u8 *hash,
 			      const void *data, unsigned int data_len)
 {
-	struct mm_struct *mm = task->mm;
+	struct file *exe_file;
 	struct crypto_shash *tfm;
 	struct shash_desc *desc;
 	size_t desc_size;
@@ -131,13 +131,13 @@ static int hash_path_and_data(struct task_struct *task, u8 *hash,
 	if (!buf)
 		return -ENOMEM;
 
-	down_read(&mm->mmap_sem);
-	if (!mm->exe_file) {
+	exe_file = get_task_exe_file(task);
+	if (!exe_file) {
 		ret = -ENOENT;
 		goto end;
 	}
 
-	path = d_path(&mm->exe_file->f_path, buf, PAGE_SIZE);
+	path = d_path(&exe_file->f_path, buf, PAGE_SIZE);
 	if (IS_ERR(path)) {
 		ret = PTR_ERR(path);
 		goto end;
@@ -183,7 +183,6 @@ static int hash_path_and_data(struct task_struct *task, u8 *hash,
 err_desc:
 	crypto_free_shash(tfm);
 end:
-	up_read(&mm->mmap_sem);
 	free_page((unsigned long)buf);
 
 	return ret;
