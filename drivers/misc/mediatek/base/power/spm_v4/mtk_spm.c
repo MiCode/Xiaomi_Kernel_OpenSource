@@ -84,7 +84,7 @@ u32 spm_irq_0;
 #if defined(CONFIG_MACH_MT6763)
 #define NF_EDGE_TRIG_IRQS	7
 #elif defined(CONFIG_MACH_MT6739)
-#define NF_EDGE_TRIG_IRQS	3
+#define NF_EDGE_TRIG_IRQS	2
 #elif defined(CONFIG_MACH_MT6771)
 #define NF_EDGE_TRIG_IRQS	3 /* remove auxadc (lowbattery_irq_b) */
 #endif
@@ -385,10 +385,9 @@ static void spm_register_init(void)
 		 edge_trig_irqs[5],
 		 edge_trig_irqs[6]);
 #elif defined(CONFIG_MACH_MT6739)
-	spm_err("edge trigger irqs: %d, %d, %d\n",
+	spm_err("edge trigger irqs: %d, %d\n",
 		 edge_trig_irqs[0],
-		 edge_trig_irqs[1],
-		 edge_trig_irqs[2]);
+		 edge_trig_irqs[1]);
 #elif defined(CONFIG_MACH_MT6771)
 	spm_err("edge trigger irqs: %d, %d, %d\n",
 		 edge_trig_irqs[0],
