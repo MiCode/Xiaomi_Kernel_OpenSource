@@ -176,6 +176,11 @@ void reviser_print_tcm(void *drvinfo, void *s_file)
 	}
 	reviser_device = (struct reviser_dev_info *)drvinfo;
 
+	if (!reviser_device->tcm_base) {
+		LOG_ERR("No TCM\n");
+		return;
+	}
+
 	offset = 0;
 
 	memcpy_fromio(bank0, reviser_device->tcm_base + VLM_BANK_SIZE*0, 32);

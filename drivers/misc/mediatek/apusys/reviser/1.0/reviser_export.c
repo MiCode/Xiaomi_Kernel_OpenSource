@@ -13,6 +13,7 @@
 
 #include <linux/errno.h>
 #include <linux/slab.h>
+#include "reviser_drv.h"
 #include "apusys_device.h"
 #include "reviser_cmn.h"
 #include "reviser_export.h"
@@ -107,3 +108,19 @@ int reviser_set_context(int type,
 }
 EXPORT_SYMBOL(reviser_set_context);
 
+int reviser_get_resource_vlm(uint32_t *addr, uint32_t *size)
+{
+	int ret = 0;
+
+	if (g_reviser_device == NULL) {
+		LOG_ERR("Invalid reviser_device\n");
+		ret = -EINVAL;
+		return ret;
+	}
+
+	*addr = (uint32_t) g_reviser_device->vlm.iova;
+	*size = (uint32_t) g_reviser_device->tcm.size;
+
+	return 0;
+}
+EXPORT_SYMBOL(reviser_get_resource_vlm);
