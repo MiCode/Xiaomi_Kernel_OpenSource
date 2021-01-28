@@ -1,5 +1,11 @@
 source "drivers/misc/mediatek/Kconfig.default"
 
+config MTK_PLATFORM
+	string "MTK platform name"
+
+config ARCH_MTK_PROJECT
+	string "MTK project name"
+
 config MTK_ENG_BUILD
 	bool "MTK Engineer Build"
 	help
