@@ -975,9 +975,7 @@ static int xen_be_remove(struct xenbus_device *xdev)
 static inline int xen_be_map_ring_valloc(struct xenbus_device *dev,
 					 grant_ref_t ref, void **vaddr)
 {
-#if defined(MC_XENBUS_MAP_RING_VALLOC_4_1)
 	return xenbus_map_ring_valloc(dev, &ref, 1, vaddr);
-#endif
 }
 
 static inline void frontend_attach(struct tee_xfe *xfe)
