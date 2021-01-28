@@ -15,7 +15,7 @@
 #define __MT_IOMMU_PLAT_H__
 
 #define MTK_IOMMU_PAGE_TABLE_SHARE (1)
-#define IOMMU_POWER_CLK_SUPPORT
+//#define IOMMU_POWER_CLK_SUPPORT need turn on when SB+1w for mt6833
 //#define MTK_APU_TFRP_SUPPORT no need for mt6833
 
 #define MTK_IOMMU_SIZE_NOT_ALIGNMENT
