@@ -223,7 +223,7 @@ bool usb_prepare_clock(bool enable)
 
 	if (IS_ERR_OR_NULL(musb_clk) ||
 			IS_ERR_OR_NULL(musb_clk_top_sel) ||
-			IS_ERR_OR_NULL(musb_clk_univpll3_d4)) {
+			IS_ERR_OR_NULL(musb_clk_univpll5_d4)) {
 		DBG(0, "clk not ready\n");
 		mutex_unlock(&prepare_lock);
 		return 0;
@@ -235,7 +235,7 @@ bool usb_prepare_clock(bool enable)
 			DBG(0, "musb_clk_top_sel prepare fail\n");
 		} else {
 			if (clk_set_parent(musb_clk_top_sel,
-						musb_clk_univpll3_d4))
+						musb_clk_univpll5_d4))
 				DBG(0, "musb_clk_top_sel set_parent fail\n");
 		}
 		if (clk_prepare(musb_clk))
