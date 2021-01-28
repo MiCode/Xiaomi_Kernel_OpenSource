@@ -28,6 +28,7 @@
 #include "queue.h"
 #include "block.h"
 #include "core.h"
+#include "crypto.h"
 #include "card.h"
 #include "mmc_crypto.h"
 
@@ -450,9 +451,6 @@ void mmc_cmdq_setup_queue(struct mmc_queue *mq, struct mmc_card *card)
 						host->max_req_size / 512));
 	blk_queue_max_segment_size(mq->queue, host->max_seg_size);
 	blk_queue_max_segments(mq->queue, host->max_segs);
-
-	if (host->caps2 & MMC_CAP2_INLINECRYPT)
-		queue_flag_set_unlocked(QUEUE_FLAG_INLINECRYPT, mq->queue);
 }
 #endif
 
@@ -591,8 +589,6 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 	blk_queue_prep_rq(mq->queue, mmc_prep_request);
 	queue_flag_set_unlocked(QUEUE_FLAG_NONROT, mq->queue);
 	queue_flag_clear_unlocked(QUEUE_FLAG_ADD_RANDOM, mq->queue);
-	if (host->caps2 & MMC_CAP2_INLINECRYPT)
-		queue_flag_set_unlocked(QUEUE_FLAG_INLINECRYPT, mq->queue);
 	if (mmc_can_erase(card))
 		mmc_queue_setup_discard(mq->queue, card);
 
@@ -627,6 +623,7 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 		goto cleanup_queue;
 	}
 
+	/* mmc_crypto_setup_queue(host, mq->queue); */
 	return 0;
 
 cleanup_queue:

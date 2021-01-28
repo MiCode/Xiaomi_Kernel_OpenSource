@@ -382,4 +382,10 @@ unsigned long read_word_at_a_time(const void *addr)
 	(_________p1); \
 })
 
+/*
+ * This is needed in functions which generate the stack canary, see
+ * arch/x86/kernel/smpboot.c::start_secondary() for an example.
+ */
+#define prevent_tail_call_optimization()	mb()
+
 #endif /* __LINUX_COMPILER_H */

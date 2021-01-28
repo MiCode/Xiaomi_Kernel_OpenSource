@@ -26,6 +26,5 @@ obj-$(CONFIG_MMC_TEST)		+= mmc_test.o
 obj-$(CONFIG_SDIO_UART)		+= sdio_uart.o
 obj-$(CONFIG_MMC_FFU)		+= ffu.o
 obj-$(CONFIG_MMC_BLOCK_IO_LOG)	+= mtk_mmc_block.o
-
 obj-$(CONFIG_MTK_MMC_PWR_WP) 	+= mtk_emmc_write_protect.o
 obj-$(CONFIG_MMC_CRYPTO)	+= mmc_crypto.o

@@ -179,17 +179,30 @@ struct mmc_request {
 #ifdef CONFIG_MTK_EMMC_HW_CQ
 	struct mmc_cmdq_req *cmdq_req;
 #endif
-#ifdef CONFIG_MMC_CRYPTO
-	bool crypto_enable;
-	u8 crypto_key_slot;
-	u64 data_unit_num;
-#endif
 
 	/* Allow other commands during this ongoing data transfer or busy wait */
 	bool			cap_cmd_during_tfr;
 
 	int			tag;
+#ifdef CONFIG_MMC_CRYPTO
+	bool crypto_enable;
+	int crypto_key_slot;
+	u64 data_unit_num;
+	const struct blk_crypto_key *crypto_key;
+#endif
 };
+
+#ifdef CONFIG_MMC_CRYPTO
+static inline bool mmc_request_crypto_enabled(const struct mmc_request *mrq)
+{
+	return mrq->crypto_key != NULL;
+}
+#else
+static inline bool mmc_request_crypto_enabled(const struct mmc_request *mrq)
+{
+	return false;
+}
+#endif
 
 struct mmc_card;
 
