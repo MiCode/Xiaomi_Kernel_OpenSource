@@ -5273,8 +5273,9 @@ static int msdc_runtime_resume(struct device *dev)
 	 * 4: cap_id, no-meaning
 	 * 1: cfg_id, we choose the second cfg group
 	 */
-	arm_smccc_smc(MTK_SIP_KERNEL_HW_FDE_MSDC_CTL,
-		1, 4, 1, 0, 0, 0, 0, &res);
+	if (host->mmc->caps2 & MMC_CAP2_CRYPTO)
+		arm_smccc_smc(MTK_SIP_KERNEL_HW_FDE_MSDC_CTL,
+			1, 4, 1, 0, 0, 0, 0, &res);
 
 	return 0;
 }
