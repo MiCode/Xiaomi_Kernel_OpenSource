@@ -15,23 +15,6 @@
 
 #define clk_warn(fmt, args...)	pr_notice(TAG fmt, ##args)
 
-/* backward compatible */
-
-static const char *clk_hw_get_name(const struct clk_hw *hw)
-{
-	return __clk_get_name(hw->clk);
-}
-
-static bool clk_hw_is_prepared(const struct clk_hw *hw)
-{
-	return __clk_is_prepared(hw->clk);
-}
-
-static bool clk_hw_is_enabled(const struct clk_hw *hw)
-{
-	return __clk_is_enabled(hw->clk);
-}
-
 static const char * const *get_all_clk_names(void)
 {
 	static const char * const clks[] = {
