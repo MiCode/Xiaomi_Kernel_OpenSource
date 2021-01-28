@@ -394,7 +394,6 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	}
 
 	buffer = kernel_handle->buffer;
-	sync_va = (unsigned long)param->va;
 	sync_size = param->size;
 
 	switch (sync_type) {
@@ -410,6 +409,7 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	case ION_CACHE_INVALID_ALL:
 	case ION_CACHE_FLUSH_ALL:
 #endif
+		sync_va = (unsigned long)param->va;
 		if (sync_size == 0 || sync_va == 0) {
 			/* whole buffer cache sync
 			 * get sync_va and sync_size here
@@ -451,6 +451,7 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	case ION_CACHE_CLEAN_BY_RANGE_USE_PA:
 	case ION_CACHE_INVALID_BY_RANGE_USE_PA:
 	case ION_CACHE_FLUSH_BY_RANGE_USE_PA:
+		sync_va = param->iova;
 		ret = m4u_mva_map_kernel(sync_va, sync_size,
 					 &kernel_va, &kernel_size);
 		if (ret)
@@ -485,11 +486,11 @@ out:
 	return ret;
 
 err:
-	IONMSG("%s sync[%d] err[k%d][hdl %d-%p][addr %p][sz:%d] clt[%s]\n",
+	IONMSG("%s sync err:%d|k%d|hdl:%d-%p|addr:%p|iova:0x%llx|sz:%d|%s\n",
 	       __func__, sync_type, from_kernel,
-	       param->handle, param->kernel_handle, param->va,
-	       param->size, (*client->dbg_name) ?
-	       client->dbg_name : client->name);
+	       param->handle, param->kernel_handle,
+	       param->va, param->iova, param->size,
+	       (*client->dbg_name) ? client->dbg_name : client->name);
 	ion_drv_put_kernel_handle(kernel_handle);
 	return ret;
 }

@@ -39,6 +39,7 @@ struct compat_ion_sys_cache_sync_param {
 	compat_uptr_t va;
 	compat_size_t size;
 	compat_uint_t sync_type;
+	compat_u64 iova;
 };
 
 struct compat_ion_sys_get_phys_param {
@@ -552,6 +553,7 @@ compat_get_ion_sys_cache_sync_param(struct
 {
 	compat_int_t handle;
 	compat_uptr_t va;
+	compat_u64 iova;
 	compat_size_t size;
 	compat_uint_t sync_type;
 
@@ -561,6 +563,8 @@ compat_get_ion_sys_cache_sync_param(struct
 	err |= put_user(handle, &data->handle);
 	err |= get_user(va, &data32->va);
 	err |= put_user(compat_ptr(va), &data->va);
+	err |= get_user(iova, &data32->iova);
+	err |= put_user(iova, &data->iova);
 	err |= get_user(size, &data32->size);
 	err |= put_user(size, &data->size);
 	err |= get_user(sync_type, &data32->sync_type);
