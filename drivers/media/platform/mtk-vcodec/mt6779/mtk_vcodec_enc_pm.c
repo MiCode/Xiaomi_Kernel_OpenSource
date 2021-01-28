@@ -203,13 +203,13 @@ void mtk_venc_dvfs_begin(struct mtk_vcodec_ctx *ctx)
 					venc_freq_step_size);
 
 		if (ctx->enc_params.operationrate >= 120 &&
-			target_freq_64 > 450)
+			(target_freq_64 > 450 ||
+			ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc ==
+				V4L2_PIX_FMT_H264))
 			target_freq_64 = 450;
 
 		if (target_freq > 0) {
-			venc_freq = target_freq;
-			if (venc_freq > target_freq_64)
-				venc_freq = target_freq_64;
+			venc_freq = target_freq_64;
 
 			venc_cur_job->mhz = (int)target_freq_64;
 			mtk_pm_qos_update_request(&venc_qos_req_f,
