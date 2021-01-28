@@ -286,6 +286,9 @@ extern unsigned int pmic_config_interface_nolock(unsigned int RegNum,
 #define RTC_PDN1_KPOC				(1U << 14)
 #define RTC_PDN1_DEBUG				(1U << 15)
 
+#define RTC_GPIO_USER_MASK	(RTC_PDN1_GPIO_WIFI | RTC_PDN1_GPIO_GPS\
+	| RTC_PDN1_GPIO_BT | RTC_PDN1_GPIO_FM | RTC_PDN1_GPIO_PMIC)
+
 /*
  * RTC_PDN2:
  *     bit 0 - 3 : MTH in power-on time

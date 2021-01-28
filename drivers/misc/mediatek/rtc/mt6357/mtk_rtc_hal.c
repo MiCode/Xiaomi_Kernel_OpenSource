@@ -29,16 +29,12 @@
 #include <linux/delay.h>
 #include <linux/types.h>
 #include <linux/sched/clock.h>
-#include <mach/mtk_rtc_hal.h>
 
 #include <mtk_rtc_hal_common.h>
 #include "mtk_rtc_hw.h"
 #include <mach/mtk_pmic_wrap.h>
 #include <mtk_boot.h>
 
-#ifdef CONFIG_MTK_SMART_BATTERY
-#include <mt-plat/charging.h>
-#endif
 #include "include/pmic.h"
 
 #define hal_rtc_xinfo(fmt, args...)		\
