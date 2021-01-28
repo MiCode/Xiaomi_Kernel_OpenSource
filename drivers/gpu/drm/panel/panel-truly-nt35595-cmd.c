@@ -25,6 +25,7 @@
 
 #include <linux/module.h>
 #include <linux/of_platform.h>
+#include <linux/of_graph.h>
 #include <linux/platform_device.h>
 
 #define CONFIG_MTK_PANEL_EXT
@@ -1036,6 +1037,25 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	struct lcm *ctx;
 	struct device_node *backlight;
 	int ret;
+	struct device_node *dsi_node, *remote_node = NULL, *endpoint = NULL;
+
+	dsi_node = of_get_parent(dev->of_node);
+	if (dsi_node) {
+		endpoint = of_graph_get_next_endpoint(dsi_node, NULL);
+		if (endpoint) {
+			remote_node = of_graph_get_remote_port_parent(endpoint);
+			if (!remote_node) {
+				pr_info("No panel connected,skip probe lcm\n");
+				return -ENODEV;
+			}
+			pr_info("device node name:%s\n", remote_node->name);
+		}
+	}
+	if (remote_node != dev->of_node) {
+		pr_info("%s+ skip probe due to not current lcm\n", __func__);
+		return -ENODEV;
+	}
+
 
 	pr_info("%s+\n", __func__);
 	ctx = devm_kzalloc(dev, sizeof(struct lcm), GFP_KERNEL);
