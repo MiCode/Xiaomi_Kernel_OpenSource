@@ -27,8 +27,8 @@ int dfd_setup(int version)
 
 	if (drv && (drv->enabled == 1) && (drv->base_addr > 0)) {
 		/* check support or not first */
-		if (check_dfd_support() == 0)
-			return -1;
+		if (!drv->check_dfd_support)
+			return -EINVAL;
 
 		pr_info("dfd setup\n");
 
@@ -93,12 +93,19 @@ static int __init dfd_init(void)
 	/* get dfd settings */
 	dev_node = of_find_compatible_node(NULL, NULL, "mediatek,dfd");
 	if (dev_node) {
+
+		if (of_property_read_u32(dev_node,
+					"mediatek,dfd_latch_offset", &val)) {
+			pr_info("%s: Latch offset not found.\n", __func__);
+			return -ENODATA;
+		}
+
 		tmp = of_find_compatible_node(NULL, NULL, "mediatek,toprgu");
 		toprgu_base = of_iomap(tmp, 0);
 		if (!toprgu_base)
 			pr_info("RGU base not found.\n");
 		else
-			get_dfd_base(toprgu_base);
+			get_dfd_base(toprgu_base, val);
 
 		pr_info("get topdbg base\n");
 
@@ -118,6 +125,24 @@ static int __init dfd_init(void)
 			drv->rg_dfd_timeout = 0;
 		else
 			drv->rg_dfd_timeout = val;
+
+		if (of_property_read_u32(dev_node,
+					"mediatek,check_dfd_support", &val))
+			drv->check_dfd_support = 0;
+		else
+			drv->check_dfd_support = val;
+
+		if (of_property_read_u32(dev_node,
+					"mediatek,dfd_infra_base", &val))
+			drv->dfd_infra_base = 0;
+		else
+			drv->dfd_infra_base = val;
+
+		if (of_property_read_u32(dev_node,
+					"mediatek,dfd_ap_addr_offset", &val))
+			drv->dfd_ap_addr_offset = 0;
+		else
+			drv->dfd_ap_addr_offset = val;
 	} else
 		return -ENODEV;
 
@@ -166,9 +191,10 @@ static int __init dfd_init(void)
 		void __iomem *infra = of_iomap(infra_node, 0);
 
 		if (infra && drv->base_addr_msb) {
-			infra += dfd_infra_base();
+			infra += drv->dfd_infra_base;
 			writel(readl(infra)
-				| (drv->base_addr_msb >> dfd_ap_addr_offset()),
+				| (drv->base_addr_msb >>
+					drv->dfd_ap_addr_offset),
 				infra);
 		}
 	}

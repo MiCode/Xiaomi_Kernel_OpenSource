@@ -16,10 +16,10 @@
 #include <mt-plat/sync_write.h>
 #include <mt-plat/mtk_io.h>
 
-#include <mtk_dbgtop.h>
 #include <dbgtop.h>
 
 static void __iomem *DBGTOP_BASE;
+static unsigned int LATCH_CTL2_OFFSET;
 
 static int mtk_dbgtop_probe(struct platform_device *pdev);
 
@@ -271,8 +271,9 @@ static int __init mtk_dbgtop_get_base_addr(void)
 	return 0;
 }
 
-void get_dfd_base(void __iomem *dfd_base)
+void get_dfd_base(void __iomem *dfd_base, unsigned int latch_offset)
 {
+	LATCH_CTL2_OFFSET = latch_offset;
 	DBGTOP_BASE = dfd_base;
 	if (!DBGTOP_BASE)
 		pr_info("link RGU base failed.\n");

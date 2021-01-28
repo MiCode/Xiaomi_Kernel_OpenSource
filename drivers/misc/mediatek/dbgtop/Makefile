@@ -11,6 +11,4 @@
 # GNU General Public License for more details.
 #
 
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/dbgtop/$(CONFIG_MTK_PLATFORM)
-
 obj-y += dbgtop.o
