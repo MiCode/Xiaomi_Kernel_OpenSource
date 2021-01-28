@@ -129,6 +129,12 @@ irqreturn_t ccu_isr_handler(int irq, void *dev_id)
 
 	/*write clear mode*/
 	LOG_DBG("write clear mode\n");
+	if (!ccuInfo.IsCcuPoweredOn) {
+		LOG_DBG_MUST("CCU off no need to service isr (%d)",
+			ccuInfo.IsCcuPoweredOn);
+		return IRQ_HANDLED;
+	}
+
 	ccu_write_reg(ccu_base, EINTC_CLR, 0xFF);
 	LOG_DBG("read clear mode\n");
 	ccu_read_reg(ccu_base, EINTC_ST);
@@ -140,7 +146,7 @@ while (1) {
 	mailboxRet = mailbox_receive_cmd(&receivedCcuCmd);
 
 	if (mailboxRet == MAILBOX_QUEUE_EMPTY) {
-		LOG_DBG("MAIL_BOX IS EMPTY");
+		LOG_DBG_MUST("MAIL_BOX IS EMPTY");
 		goto ISR_EXIT;
 	}
 
