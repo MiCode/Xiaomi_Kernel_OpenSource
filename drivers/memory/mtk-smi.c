@@ -57,17 +57,22 @@
 #define SMI_L1LEN			0x100
 #define SMI_L1ARB0			0x104
 #define SMI_L1ARB(id)			(SMI_L1ARB0 + ((id) << 2))
+#define SMI_WRR_REG0			0x228
 #define SMI_M4U_TH			0x234
 #define SMI_FIFO_TH1			0x238
 #define SMI_FIFO_TH2			0x23c
 #define SMI_DCM				0x300
+#define SMI_M1_RULTRA_WRR0		0x308
+#define SMI_M1_WULTRA_WRR0		0x310
+#define SMI_M2_RULTRA_WRR0		0x318
+#define SMI_M2_WULTRA_WRR0		0x320
 #define SMI_DUMMY			0x444
 
 #define SMI_LARB_PORT_NR_MAX		32
 #define SMI_COMMON_LARB_NR_MAX		8
 
 #define SMI_LARB_MISC_NR		2
-#define SMI_COMMON_MISC_NR		6
+#define SMI_COMMON_MISC_NR		8
 
 struct mtk_smi_reg_pair {
 	u16	offset;
@@ -271,6 +276,21 @@ static const struct component_ops mtk_smi_larb_component_ops = {
 };
 
 static u8
+mtk_smi_larb_mt6761_bwl[MTK_LARB_NR_MAX][SMI_LARB_PORT_NR_MAX] = {
+	{0x1f, 0x1f, 0x0e, 0x07, 0x07, 0x04, 0x04, 0x1f},
+	{0x03, 0x01, 0x01, 0x01, 0x01, 0x05, 0x03, 0x01, 0x01, 0x01, 0x06},
+	{0x16, 0x14, 0x02, 0x02, 0x02, 0x04, 0x04, 0x02, 0x02, 0x04, 0x02, 0x02,
+	 0x04, 0x04, 0x04, 0x04, 0x04, 0x02, 0x02, 0x02, 0x02, 0x04, 0x04, 0x4},
+};
+
+static struct mtk_smi_reg_pair
+mtk_smi_larb_mt6761_misc[MTK_LARB_NR_MAX][SMI_LARB_MISC_NR] = {
+	{{SMI_LARB_CMD_THRT_CON, 0x370223}, {SMI_LARB_SW_FLAG, 0x1},},
+	{{SMI_LARB_CMD_THRT_CON, 0x370223}, {SMI_LARB_SW_FLAG, 0x1},},
+	{{SMI_LARB_CMD_THRT_CON, 0x370223}, {SMI_LARB_SW_FLAG, 0x1},},
+};
+
+static u8
 mtk_smi_larb_mt6779_bwl[MTK_LARB_NR_MAX][SMI_LARB_PORT_NR_MAX] = {
 	{0x28, 0x28, 0x01, 0x28, 0x01, 0x01, 0x0a, 0x0a, 0x28,},
 	{0x28, 0x01, 0x28, 0x28, 0x0a, 0x01, 0x01, 0x0d, 0x0d, 0x07,
@@ -328,6 +348,17 @@ static const struct mtk_smi_larb_gen mtk_smi_larb_mt2712 = {
 	.larb_direct_to_common_mask = BIT(8) | BIT(9),      /* bdpsys */
 };
 
+static const struct mtk_smi_larb_gen mtk_smi_larb_mt6761 = {
+	.port_in_larb = {8, 11, 24},
+	.config_port                = mtk_smi_larb_config_port_gen2_general,
+	.larb_direct_to_common_mask = BIT(0) | BIT(1) | BIT(2),
+				      /* MM | VCODEC | ISP */
+	.has_gals                   = true,
+	.has_bwl                    = true,
+	.bwl                        = (u8 *)mtk_smi_larb_mt6761_bwl,
+	.misc = (struct mtk_smi_reg_pair *)mtk_smi_larb_mt6761_misc,
+};
+
 static const struct mtk_smi_larb_gen mtk_smi_larb_mt6779 = {
 	.port_in_larb = {9, 14, 12, 19, 0, 26, 3, 4, 10, 24, 31, 5,},
 	.config_port                = mtk_smi_larb_config_port_gen2_general,
@@ -358,6 +389,10 @@ static const struct of_device_id mtk_smi_larb_of_ids[] = {
 	{
 		.compatible = "mediatek,mt2712-smi-larb",
 		.data = &mtk_smi_larb_mt2712
+	},
+	{
+		.compatible = "mediatek,mt6761-smi-larb",
+		.data = &mtk_smi_larb_mt6761
 	},
 	{
 		.compatible = "mediatek,mt6779-smi-larb",
@@ -480,6 +515,22 @@ static struct platform_driver mtk_smi_larb_driver = {
 	}
 };
 
+static u16 mtk_smi_common_mt6761_bwl[SMI_COMMON_LARB_NR_MAX] = {
+	0x1000, 0x1000, 0x1000,
+};
+
+static struct mtk_smi_reg_pair
+mtk_smi_common_mt6761_misc[SMI_COMMON_MISC_NR] = {
+	{SMI_L1LEN, 0xb},
+	{SMI_WRR_REG0, 0xc30c30c},
+	{SMI_DCM, 0x4fd},
+	{SMI_M1_RULTRA_WRR0, 0xc30c30c},
+	{SMI_M1_WULTRA_WRR0, 0xc30c30c},
+	{SMI_M2_RULTRA_WRR0, 0xc30c30c},
+	{SMI_M2_WULTRA_WRR0, 0xc30c30c},
+	{SMI_DUMMY, 0x1},
+};
+
 static u16 mtk_smi_common_mt6779_bwl[SMI_COMMON_LARB_NR_MAX] = {
 	0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000,
 };
@@ -500,6 +551,15 @@ static const struct mtk_smi_common_plat mtk_smi_common_gen1 = {
 
 static const struct mtk_smi_common_plat mtk_smi_common_gen2 = {
 	.gen = MTK_SMI_GEN2,
+};
+
+static const struct mtk_smi_common_plat mtk_smi_common_mt6761 = {
+	.gen      = MTK_SMI_GEN2,
+	.has_gals = true,
+	.bus_sel  = F_MMU1_LARB(1),
+	.has_bwl  = true,
+	.bwl      = mtk_smi_common_mt6761_bwl,
+	.misc     = mtk_smi_common_mt6761_misc,
 };
 
 static const struct mtk_smi_common_plat mtk_smi_common_mt6779 = {
@@ -531,6 +591,10 @@ static const struct of_device_id mtk_smi_common_of_ids[] = {
 	{
 		.compatible = "mediatek,mt2712-smi-common",
 		.data = &mtk_smi_common_gen2,
+	},
+	{
+		.compatible = "mediatek,mt6761-smi-common",
+		.data = &mtk_smi_common_mt6761,
 	},
 	{
 		.compatible = "mediatek,mt6779-smi-common",

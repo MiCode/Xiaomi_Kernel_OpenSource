@@ -2173,8 +2173,9 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		interrupts = <GIC_SPI 154 IRQ_TYPE_LEVEL_LOW>;
 	};
 
-	smi_common@14002000 {
-		compatible = "mediatek,smi_common";
+	smi_common: smi_common@14002000 {
+		compatible = "mediatek,smi_common",
+			     "mediatek,mt6761-smi-common";
 		reg = <0 0x14002000 0 0x1000>;
 		nr_larbs = <3>;
 		larbs = <&smi_larb0>, <&smi_larb1>, <&smi_larb2>;
@@ -2183,8 +2184,7 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 			<&mmsys_config CLK_MM_SMI_COMM0>,
 			<&mmsys_config CLK_MM_SMI_COMM1>,
 			<&mmsys_config CLK_MM_SMI_COMMON>;
-		clock-names = "mtcmos-dis",
-			"smi-comm0", "smi-comm1", "smi-common";
+		clock-names = "apb", "gals0", "gals1", "smi";
 	};
 
 	mmdvfs_pmqos {
@@ -2214,11 +2214,14 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 
 	smi_larb0: smi_larb0@14003000 {
 		cell-index = <0>;
-		compatible = "mediatek,smi_larb0", "mediatek,smi_larb";
+		compatible = "mediatek,smi_larb0", "mediatek,smi_larb",
+			     "mediatek,mt6761-smi-larb";
 		reg = <0 0x14003000 0 0x1000>;
 		clocks = <&scpsys SCP_SYS_DIS>,
 			<&mmsys_config CLK_MM_SMI_LARB0>;
-		clock-names = "mtcmos-dis", "smi-larb0";
+		clock-names = "apb", "smi";
+		mediatek,smi = <&smi_common>;
+		mediatek,larb-id = <0>;
 	};
 
 	mdp_rdma0: mdp_rdma0@14004000 {
@@ -2460,11 +2463,15 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 
 	smi_larb2: smi_larb2@15001000 {
 		cell-index = <2>;
-		compatible = "mediatek,smi_larb2", "mediatek,smi_larb";
+		compatible = "mediatek,smi_larb2", "mediatek,smi_larb",
+			     "mediatek,mt6761-smi-larb";
 		reg = <0 0x15001000 0 0x1000>;
 		clocks = <&scpsys SCP_SYS_CAM>,
-			<&mmsys_config CLK_MM_SMI_IMG>, <&camsys CLK_CAM_LARB2>;
-		clock-names = "mtcmos-cam", "gals-cam2img", "cam-larb2";
+			 <&mmsys_config CLK_MM_SMI_IMG>,
+			 <&camsys CLK_CAM_LARB2>;
+		clock-names = "apb", "gals", "smi";
+		mediatek,smi = <&smi_common>;
+		mediatek,larb-id = <2>;
 	};
 
 	cam@15004000 {
@@ -2619,11 +2626,14 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 
 	smi_larb1: smi_larb1@17010000 {
 		cell-index = <1>;
-		compatible = "mediatek,smi_larb1", "mediatek,smi_larb";
-		reg = <0 0x17010000 0 0x10000>;
+		compatible = "mediatek,smi_larb1", "mediatek,smi_larb",
+			     "mediatek,mt6761-smi-larb";
+		reg = <0 0x17010000 0 0x1000>;
 		clocks = <&scpsys SCP_SYS_VCODEC>,
-			<&venc_gcon CLK_VENC_SET1_VENC>;
-		clock-names = "mtcmos-vcodec", "venc-larb1";
+			 <&venc_gcon CLK_VENC_SET1_VENC>;
+		clock-names = "apb", "smi";
+		mediatek,smi = <&smi_common>;
+		mediatek,larb-id = <1>;
 	};
 
 	venc@17020000 {
