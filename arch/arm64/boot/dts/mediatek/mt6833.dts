@@ -411,10 +411,10 @@ page_owner=on";
 		interrupts = <GIC_SPI 222 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	toprgu@10007000 {
+	toprgu: toprgu@10007000 {
 		compatible = "mediatek,toprgu";
 		reg = <0 0x10007000 0 0x1000>;
-		interrupts = <GIC_SPI 77 IRQ_TYPE_EDGE_RISING>;
+		interrupts = <GIC_SPI 433 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	apxgpt@10008000 {
