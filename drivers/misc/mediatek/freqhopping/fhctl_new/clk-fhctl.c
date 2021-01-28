@@ -106,13 +106,15 @@ int freqhopping_config(unsigned int fh_id
 				array->domain,
 				array->fh_id,
 				8);
+		on = true;
 	} else if (on && !enable) {
 		FHDBG("disable\n");
 		hdlr->ops->ssc_disable(hdlr->data,
 				array->domain,
 				array->fh_id);
+		on = false;
 	} else
-		FHDBG("already %s",
+		FHDBG("already %s\n",
 				on ? "enabled" : "disabled");
 	mutex_unlock(&lock);
 
