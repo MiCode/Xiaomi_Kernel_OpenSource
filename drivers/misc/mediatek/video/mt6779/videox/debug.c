@@ -9,7 +9,15 @@
 #include <linux/fb.h>
 #include <linux/vmalloc.h>
 #include <linux/sched.h>
+
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 #include <linux/debugfs.h>
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+#include <linux/proc_fs.h>
+#endif
+
 #include <linux/wait.h>
 #include <linux/time.h>
 #include <linux/delay.h>
@@ -61,7 +69,15 @@
 
 #include "ddp_misc.h"
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 static struct dentry *mtkfb_dbgfs;
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+static struct proc_dir_entry *mtkfb_procfs;
+static struct proc_dir_entry *disp_lowpower_proc;
+
+#endif
 unsigned int g_mobilelog;
 int bypass_blank;
 int lcm_mode_status;
@@ -1543,8 +1559,46 @@ static const struct file_operations partial_fops = {
 	.read = partial_read,
 };
 
+static int idletime_set(void *data, u64 val)
+{
+	if (val < 33)
+		val = 33;
+	if (val > 1000000)
+		val = 1000000;
+
+	idle_check_interval = val;
+	return 0;
+}
+
+static int idletime_get(void *data, u64 *val)
+{
+	*val = idle_check_interval;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(idletime_fops, idletime_get, idletime_set, "%llu\n");
+
+static int idlevfp_set(void *data, u64 val)
+{
+
+	if (val > 4095)
+		val = 4095;
+
+	backup_vfp_for_lp_cust((unsigned int)val);
+	return 0;
+}
+
+static int idlevfp_get(void *data, u64 *val)
+{
+	*val = (u64)get_backup_vfp();
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(idlevfp_fops, idlevfp_get, idlevfp_set, "%llu\n");
+
 void DBG_Init(void)
 {
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	struct dentry *d_folder;
 	struct dentry *d_file;
 
@@ -1558,9 +1612,75 @@ void DBG_Init(void)
 		d_file = debugfs_create_file("partial", S_IFREG | 0444,
 					     d_folder, NULL, &partial_fops);
 	}
+#endif
+
+//do samething in procfs
+#if IS_ENABLED(CONFIG_PROC_FS)
+	mtkfb_procfs = proc_create("mtkfb", S_IFREG | 0444,
+				NULL,
+				&debug_fops);
+	if (!mtkfb_procfs) {
+		pr_info("[%s %d]failed to create mtkfb in /proc/disp_ddp\n",
+			__func__, __LINE__);
+		goto out;
+	}
+
+	disp_lowpower_proc = proc_mkdir("displowpower", NULL);
+	if (!disp_lowpower_proc) {
+		pr_info("[%s %d]failed to create dir: /proc/displowpower\n",
+			__func__, __LINE__);
+		goto out;
+	}
+
+	if (!proc_create("kickdump", S_IFREG | 0444,
+		disp_lowpower_proc, &kickidle_fops)) {
+		pr_info("[%s %d]failed to create kickdump in /proc/displowpower\n",
+			__func__, __LINE__);
+		goto out;
+	}
+
+	if (!proc_create("partial", S_IFREG | 0444,
+		disp_lowpower_proc, &partial_fops)) {
+		pr_info("[%s %d]failed to create partial in /proc/displowpower\n",
+			__func__, __LINE__);
+		goto out;
+	}
+
+	if (!proc_create("idletime", S_IFREG | 0444,
+		disp_lowpower_proc, &idletime_fops)) {
+		pr_info("[%s %d]failed to create idletime in /proc/displowpower\n",
+			__func__, __LINE__);
+		goto out;
+	}
+
+	if (!proc_create("idlevfp", S_IFREG | 0444,
+		disp_lowpower_proc, &idlevfp_fops)) {
+		pr_info("[%s %d]failed to create idlevfp in /proc/displowpower\n",
+			__func__, __LINE__);
+		goto out;
+	}
+
+out:
+	return;
+#endif
 }
 
 void DBG_Deinit(void)
 {
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	debugfs_remove(mtkfb_dbgfs);
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+	if (mtkfb_procfs) {
+		proc_remove(mtkfb_procfs);
+		mtkfb_procfs = NULL;
+	}
+	if (disp_lowpower_proc) {
+		proc_remove(disp_lowpower_proc);
+		disp_lowpower_proc = NULL;
+	}
+
+#endif
+
 }

@@ -9,7 +9,15 @@
 #include <linux/fb.h>
 #include <linux/vmalloc.h>
 #include <linux/sched.h>
+
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 #include <linux/debugfs.h>
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+#include <linux/proc_fs.h>
+#endif
+
 #include <linux/wait.h>
 #include <linux/types.h>
 
@@ -87,8 +95,14 @@ bool fbconfig_start_LCM_config;
 #define DP_COLOR_BITS_PER_PIXEL(color)	((0x0003FF00 & color) >>  8)
 #endif
 
-
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 struct dentry *ConfigPara_dbgfs;
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+struct proc_dir_entry *ConfigPara_procfs;
+#endif
+
 struct CONFIG_RECORD_LIST head_list;
 struct LCM_REG_READ reg_read;
 
@@ -1294,13 +1308,40 @@ static const struct file_operations fbconfig_fops = {
 
 void PanelMaster_Init(void)
 {
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	ConfigPara_dbgfs = debugfs_create_file("fbconfig", S_IFREG | 0444,
 					       NULL, (void *)0, &fbconfig_fops);
 
 	INIT_LIST_HEAD(&head_list.list);
+#endif
+
+//do samething in procfs
+#if IS_ENABLED(CONFIG_PROC_FS)
+	ConfigPara_procfs = proc_create("fbconfig", 0644,
+				NULL,
+				&fbconfig_fops);
+
+	if (!ConfigPara_procfs) {
+		pr_info("[%s %d] failed to register fbconfig in proc/display_ddp\n",
+			__func__, __LINE__);
+		return;
+	}
+
+#endif
+
 }
 
 void PanelMaster_Deinit(void)
 {
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	debugfs_remove(ConfigPara_dbgfs);
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+	if (ConfigPara_procfs) {
+		proc_remove(ConfigPara_procfs);
+		ConfigPara_procfs = NULL;
+	}
+#endif
+
 }
