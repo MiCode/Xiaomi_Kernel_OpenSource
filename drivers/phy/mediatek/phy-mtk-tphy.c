@@ -343,6 +343,9 @@ struct mtk_tphy {
 	int src_coef; /* coefficient for slew rate calibrate */
 };
 
+static void u2_phy_props_set(struct mtk_tphy *tphy,
+			     struct mtk_phy_instance *instance);
+
 void cover_val_to_str(u32 val, u8 width, char *str)
 {
 	int i, temp;
@@ -1036,16 +1039,39 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 				     enum phy_mode mode)
 {
 	struct u2phy_banks *u2_banks = &instance->u2_banks;
+	struct device *dev = &instance->phy->dev;
 	u32 tmp;
 
 	tmp = readl(u2_banks->com + U3P_U2PHYDTM1);
 	switch (mode) {
 	case PHY_MODE_USB_DEVICE:
 		tmp |= P2C_FORCE_IDDIG | P2C_RG_IDDIG;
+		device_property_read_u32(dev, "mediatek,eye-src",
+				 &instance->eye_src);
+		device_property_read_u32(dev, "mediatek,eye-vrt",
+				 &instance->eye_vrt);
+		device_property_read_u32(dev, "mediatek,eye-term",
+				 &instance->eye_term);
+		device_property_read_u32(dev, "mediatek,eye-rev6",
+				 &instance->eye_rev6);
+		device_property_read_u32(dev, "mediatek,eye-disc",
+				 &instance->eye_disc);
+		u2_phy_props_set(tphy, instance);
 		break;
 	case PHY_MODE_USB_HOST:
 		tmp |= P2C_FORCE_IDDIG;
 		tmp &= ~P2C_RG_IDDIG;
+		device_property_read_u32(dev, "mediatek,host-eye-src",
+				 &instance->eye_src);
+		device_property_read_u32(dev, "mediatek,host-eye-vrt",
+				 &instance->eye_vrt);
+		device_property_read_u32(dev, "mediatek,host-eye-term",
+				 &instance->eye_term);
+		device_property_read_u32(dev, "mediatek,host-eye-rev6",
+				 &instance->eye_rev6);
+		device_property_read_u32(dev, "mediatek,host-eye-disc",
+				 &instance->eye_disc);
+		u2_phy_props_set(tphy, instance);
 		break;
 	case PHY_MODE_USB_OTG:
 		tmp &= ~(P2C_FORCE_IDDIG | P2C_RG_IDDIG);
@@ -1326,7 +1352,13 @@ static void u2_phy_props_set(struct mtk_tphy *tphy,
 {
 	struct u2phy_banks *u2_banks = &instance->u2_banks;
 	void __iomem *com = u2_banks->com;
+	struct device *dev = &instance->phy->dev;
 	u32 tmp;
+
+	dev_info(dev, "%s, bc12:%d, src:%d, vrt:%d, term:%d, rev6:%d, dis:%d",
+		__func__, instance->bc12_en, instance->eye_src,
+		instance->eye_vrt, instance->eye_term, instance->eye_rev6,
+		instance->eye_disc);
 
 	if (instance->bc12_en) {
 		tmp = readl(com + U3P_U2PHYBC12C);

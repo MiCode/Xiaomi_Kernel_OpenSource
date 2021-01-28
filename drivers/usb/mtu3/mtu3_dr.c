@@ -369,6 +369,19 @@ static void ssusb_ip_sleep(struct ssusb_mtk *ssusb)
 	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL0, SSUSB_IP_SW_RST);
 }
 
+static void ssusb_phy_set_mode(struct ssusb_mtk *ssusb, enum phy_mode mode)
+{
+	int i;
+	int ret;
+
+	for (i = 0; i < ssusb->num_phys; i++) {
+		ret = phy_set_mode_ext(ssusb->phys[i], mode, 0);
+		if (ret)
+			dev_info(ssusb->dev, "in %s, phy_set_mode_ext fail\n",
+				__func__);
+	}
+}
+
 static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 {
 	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
@@ -397,6 +410,7 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 #endif
 			if (ssusb->clk_mgr) {
 				ssusb_clks_enable(ssusb);
+				ssusb_phy_set_mode(ssusb, PHY_MODE_USB_DEVICE);
 				ssusb_phy_power_on(ssusb);
 				ssusb_ip_sw_reset(ssusb);
 				/* Need to set, otherwise SSUSB_SYSPLL_STABLE
@@ -432,6 +446,7 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 			if (ssusb->clk_mgr) {
 				pm_stay_awake(ssusb->dev);
 				ssusb_clks_enable(ssusb);
+				ssusb_phy_set_mode(ssusb, PHY_MODE_USB_HOST);
 				ssusb_phy_power_on(ssusb);
 				ssusb_ip_sw_reset(ssusb);
 				ssusb_host_enable(ssusb);
