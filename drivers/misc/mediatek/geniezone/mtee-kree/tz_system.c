@@ -1251,12 +1251,6 @@ struct platform_driver tz_system_driver = {
 	},
 };
 
-int mtee_fod_enable(u32 on)
-{
-	return trusty_std_call32(tz_system_dev->dev.parent,
-		MT_SMC_SC_VPU, on, 0, 0);
-}
-
 int tz_system_std_call32(u32 smcnr, u32 a0, u32 a1, u32 a2)
 {
 	return trusty_std_call32(tz_system_dev->dev.parent,

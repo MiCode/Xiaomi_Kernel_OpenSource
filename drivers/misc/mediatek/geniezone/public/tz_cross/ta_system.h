@@ -55,6 +55,4 @@ extern struct wakeup_source TeeServiceCall_wake_lock;
 extern struct wake_lock TeeServiceCall_wake_lock;
 #endif
 
-int mtee_fod_enable(u32 on);
-
 #endif /* __TRUSTZONE_TA_SYSTEM__ */
