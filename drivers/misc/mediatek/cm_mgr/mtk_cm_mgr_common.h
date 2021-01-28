@@ -10,7 +10,6 @@
 
 struct mtk_cm_mgr {
 	struct device *dev;
-	struct proc_dir_entry *proc_dir;
 	int num_perf;
 	int idx;
 	void __iomem *base;

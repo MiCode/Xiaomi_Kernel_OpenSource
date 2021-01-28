@@ -11,7 +11,6 @@
 #include <linux/cpu.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
-#include <linux/proc_fs.h>
 #include <linux/miscdevice.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
@@ -25,7 +24,6 @@
 #include <linux/jiffies.h>
 #include <linux/bitops.h>
 #include <linux/uaccess.h>
-#include <linux/seq_file.h>
 #include <linux/types.h>
 #include <linux/suspend.h>
 #include <linux/topology.h>

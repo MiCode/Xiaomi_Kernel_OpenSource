@@ -11,7 +11,7 @@
 #include <linux/cpu.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
-#include <linux/proc_fs.h>
+#include <linux/sysfs.h>
 #include <linux/miscdevice.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
@@ -25,7 +25,6 @@
 #include <linux/jiffies.h>
 #include <linux/bitops.h>
 #include <linux/uaccess.h>
-#include <linux/seq_file.h>
 #include <linux/types.h>
 #include <linux/suspend.h>
 #include <linux/topology.h>
@@ -40,7 +39,7 @@
 #include <sspm_ipi.h>
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 
-static struct proc_dir_entry *cm_mgr_dir;
+static struct kobject *cm_mgr_kobj;
 struct platform_device *cm_mgr_pdev;
 void __iomem *cm_mgr_base;
 int cm_mgr_num_perf;
@@ -204,96 +203,87 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 EXPORT_SYMBOL_GPL(cm_mgr_to_sspm_command);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 
-static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
+static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buff)
 {
 	int i;
+	int len = 0;
 
-	seq_printf(m, "cm_mgr_opp_enable %d\n", cm_mgr_opp_enable);
-	seq_printf(m, "cm_mgr_enable %d\n", cm_mgr_enable);
+#define cm_mgr_print(...) \
+	snprintf(buff + len, (4096 - len) > 0 ? (4096 - len) : 0, __VA_ARGS__)
+
+	len += cm_mgr_print("cm_mgr_opp_enable %d\n", cm_mgr_opp_enable);
+	len += cm_mgr_print("cm_mgr_enable %d\n", cm_mgr_enable);
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
-	seq_printf(m, "cm_mgr_sspm_enable %d\n", cm_mgr_sspm_enable);
+	len += cm_mgr_print("cm_mgr_sspm_enable %d\n", cm_mgr_sspm_enable);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
-	seq_printf(m, "cm_mgr_perf_enable %d\n",
+	len += cm_mgr_print("cm_mgr_perf_enable %d\n",
 			cm_mgr_perf_enable);
-	seq_printf(m, "cm_mgr_perf_force_enable %d\n",
+	len += cm_mgr_print("cm_mgr_perf_force_enable %d\n",
 			cm_mgr_perf_force_enable);
-	seq_printf(m, "cm_mgr_disable_fb %d\n", cm_mgr_disable_fb);
-	seq_printf(m, "light_load_cps %d\n", light_load_cps);
-	seq_printf(m, "total_bw_value %d\n", total_bw_value);
-	seq_printf(m, "cm_mgr_loop_count %d\n", cm_mgr_loop_count);
-	seq_printf(m, "cm_mgr_dram_level %d\n", cm_mgr_dram_level);
-	seq_printf(m, "cm_mgr_loading_level %d\n", cm_mgr_loading_level);
-	seq_printf(m, "cm_mgr_loading_enable %d\n", cm_mgr_loading_enable);
-	seq_printf(m, "cm_mgr_emi_demand_check %d\n", cm_mgr_emi_demand_check);
+	len += cm_mgr_print("cm_mgr_disable_fb %d\n", cm_mgr_disable_fb);
+	len += cm_mgr_print("light_load_cps %d\n", light_load_cps);
+	len += cm_mgr_print("total_bw_value %d\n", total_bw_value);
+	len += cm_mgr_print("cm_mgr_loop_count %d\n", cm_mgr_loop_count);
+	len += cm_mgr_print("cm_mgr_dram_level %d\n", cm_mgr_dram_level);
+	len += cm_mgr_print("cm_mgr_loading_level %d\n", cm_mgr_loading_level);
+	len += cm_mgr_print("cm_mgr_loading_enable %d\n",
+			cm_mgr_loading_enable);
+	len += cm_mgr_print("cm_mgr_emi_demand_check %d\n",
+			cm_mgr_emi_demand_check);
 
-	seq_puts(m, "cpu_power_ratio_up");
+	len += cm_mgr_print("cpu_power_ratio_up");
 	for (i = 0; i < cm_mgr_num_array; i++)
-		seq_printf(m, " %d", cpu_power_ratio_up[i]);
-	seq_puts(m, "\n");
+		len += cm_mgr_print(" %d", cpu_power_ratio_up[i]);
+	len += cm_mgr_print("\n");
 
-	seq_puts(m, "cpu_power_ratio_down");
+	len += cm_mgr_print("cpu_power_ratio_down");
 	for (i = 0; i < cm_mgr_num_array; i++)
-		seq_printf(m, " %d", cpu_power_ratio_down[i]);
-	seq_puts(m, "\n");
+		len += cm_mgr_print(" %d", cpu_power_ratio_down[i]);
+	len += cm_mgr_print("\n");
 
-	seq_puts(m, "vcore_power_ratio_up");
+	len += cm_mgr_print("vcore_power_ratio_up");
 	for (i = 0; i < cm_mgr_num_array; i++)
-		seq_printf(m, " %d", vcore_power_ratio_up[i]);
-	seq_puts(m, "\n");
+		len += cm_mgr_print(" %d", vcore_power_ratio_up[i]);
+	len += cm_mgr_print("\n");
 
-	seq_puts(m, "vcore_power_ratio_down");
+	len += cm_mgr_print("vcore_power_ratio_down");
 	for (i = 0; i < cm_mgr_num_array; i++)
-		seq_printf(m, " %d", vcore_power_ratio_down[i]);
-	seq_puts(m, "\n");
+		len += cm_mgr_print(" %d", vcore_power_ratio_down[i]);
+	len += cm_mgr_print("\n");
 
-	seq_puts(m, "debounce_times_up_adb");
+	len += cm_mgr_print("debounce_times_up_adb");
 	for (i = 0; i < cm_mgr_num_array; i++)
-		seq_printf(m, " %d", debounce_times_up_adb[i]);
-	seq_puts(m, "\n");
+		len += cm_mgr_print(" %d", debounce_times_up_adb[i]);
+	len += cm_mgr_print("\n");
 
-	seq_puts(m, "debounce_times_down_adb");
+	len += cm_mgr_print("debounce_times_down_adb");
 	for (i = 0; i < cm_mgr_num_array; i++)
-		seq_printf(m, " %d", debounce_times_down_adb[i]);
-	seq_puts(m, "\n");
+		len += cm_mgr_print(" %d", debounce_times_down_adb[i]);
+	len += cm_mgr_print("\n");
 
-	seq_printf(m, "debounce_times_reset_adb %d\n",
+	len += cm_mgr_print("debounce_times_reset_adb %d\n",
 			debounce_times_reset_adb);
-	seq_printf(m, "debounce_times_perf_down %d\n",
+	len += cm_mgr_print("debounce_times_perf_down %d\n",
 			debounce_times_perf_down);
-	seq_printf(m, "debounce_times_perf_force_down %d\n",
+	len += cm_mgr_print("debounce_times_perf_force_down %d\n",
 			debounce_times_perf_force_down);
 
-	seq_puts(m, "\n");
+	len += cm_mgr_print("\n");
 
-	return 0;
+	return (len > 4096) ? 4096 : len;
 }
 
-static ssize_t dbg_cm_mgr_proc_write(struct file *file,
-		const char __user *buffer, size_t count, loff_t *pos)
+static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
+		struct kobj_attribute *attr, const char *buff, size_t count)
 {
 
 	int ret;
-	char *buf = (char *) __get_free_page(GFP_USER);
 	char cmd[64];
 	u32 val_1;
 	u32 val_2;
 
-	if (!buf)
-		return -ENOMEM;
-
-	ret = -EINVAL;
-
-	if (count >= PAGE_SIZE)
-		goto out;
-
-	ret = -EFAULT;
-
-	if (copy_from_user(buf, buffer, count))
-		goto out;
-
-	buf[count] = '\0';
-
-	ret = sscanf(buf, "%63s %d %d", cmd, &val_1, &val_2);
+	ret = sscanf(buff, "%63s %d %d", cmd, &val_1, &val_2);
 	if (ret < 1) {
 		ret = -EPERM;
 		goto out;
@@ -412,56 +402,36 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 	}
 
 out:
-	free_page((unsigned long)buf);
-
 	if (ret < 0)
 		return ret;
 	return count;
 }
 
-static int dbg_cm_mgr_proc_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, dbg_cm_mgr_proc_show, PDE_DATA(inode));
-}
+static struct kobj_attribute dbg_cm_mgr_attribute =
+__ATTR(dbg_cm_mgr, 0644, dbg_cm_mgr_show, dbg_cm_mgr_store);
 
-static const struct file_operations dbg_cm_mgr_proc_fops = {
-	.owner		= THIS_MODULE,
-	.open		= dbg_cm_mgr_proc_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= single_release,
-	.write		= dbg_cm_mgr_proc_write,
+static struct attribute *attrs[] = {
+	&dbg_cm_mgr_attribute.attr,
+	NULL,
 };
 
-static int create_cm_mgr_debug_fs(void)
-{
-
-	/* create /proc/cm_mgr */
-	cm_mgr_dir = proc_mkdir("cm_mgr", NULL);
-	if (!cm_mgr_dir) {
-		pr_info("fail to create /proc/cm_mgr @ %s()\n", __func__);
-		return -ENOMEM;
-	}
-
-	proc_create_data("dbg_cm_mgr", 0644,
-		cm_mgr_dir, &dbg_cm_mgr_proc_fops, NULL);
-
-	return 0;
-}
-
-static void delete_cm_mgr_debug_fs(void)
-{
-	remove_proc_entry("dbg_cm_mgr", cm_mgr_dir);
-	remove_proc_entry("cm_mgr", NULL);
-}
+static struct attribute_group attr_group = {
+	.attrs = attrs,
+};
 
 int cm_mgr_common_init(void)
 {
 	int ret;
 
-	ret = create_cm_mgr_debug_fs();
+	cm_mgr_kobj = kobject_create_and_add("cm_mgr", kernel_kobj);
+	if (!cm_mgr_kobj)
+		return -ENOMEM;
+
+	ret = sysfs_create_group(cm_mgr_kobj, &attr_group);
 	if (ret) {
 		pr_info("[CM_MGR] FAILED TO CREATE FILESYSTEM (%d)\n", ret);
+		kobject_put(cm_mgr_kobj);
+
 		return ret;
 	}
 
@@ -501,7 +471,7 @@ void cm_mgr_common_exit(void)
 {
 	int ret;
 
-	delete_cm_mgr_debug_fs();
+	kobject_put(cm_mgr_kobj);
 
 	ret = fb_unregister_client(&cm_mgr_fb_notifier);
 	if (ret)
