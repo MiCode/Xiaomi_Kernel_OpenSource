@@ -18,7 +18,6 @@ static inline void mddp_f_ip4_tcp(
 	struct mddp_f_desc *desc,
 	struct sk_buff *skb,
 	struct tuple *t,
-	struct interface *iface,
 	void *l3_header,
 	void *l4_header)
 {
@@ -49,7 +48,6 @@ static inline void mddp_f_ip4_udp(
 	struct mddp_f_desc *desc,
 	struct sk_buff *skb,
 	struct tuple *t,
-	struct interface *iface,
 	void *l3_header,
 	void *l4_header)
 {
@@ -80,7 +78,6 @@ static inline void mddp_f_ip6_tcp_lan(
 	struct mddp_f_desc *desc,
 	struct sk_buff *skb,
 	struct router_tuple *t,
-	struct interface *iface,
 	void *l3_header,
 	void *l4_header)
 {
@@ -111,7 +108,6 @@ static inline void mddp_f_ip6_udp_lan(
 	struct mddp_f_desc *desc,
 	struct sk_buff *skb,
 	struct router_tuple *t,
-	struct interface *iface,
 	void *l3_header,
 	void *l4_header)
 {

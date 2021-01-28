@@ -35,7 +35,7 @@ int32_t mddp_f_init_router_tuple(void)
 	/* get 4 bytes random number */
 	get_random_bytes(&router_tuple_hash_rnd, 4);
 
-	/* allocate memory for bridge hash table */
+	/* allocate memory for router hash table */
 	router_tuple_hash =
 		vmalloc(sizeof(struct list_head) * ROUTER_TUPLE_HASH_SIZE);
 	if (!router_tuple_hash)
@@ -221,17 +221,10 @@ static inline struct nat_tuple *mddp_f_get_nat_tuple_ip4_tcpudp(
 	MDDP_F_TUPLE_LOCK(&mddp_f_tuple_lock, flag);
 	list_for_each_entry(found_nat_tuple, &nat_tuple_hash[hash], list) {
 		not_match = 0;
-#ifndef MDDP_F_NETFILTER
-		not_match +=
-			(!ifaces[found_nat_tuple->iface_src].ready) ? 1 : 0;
-		not_match +=
-			(!ifaces[found_nat_tuple->iface_dst].ready) ? 1 : 0;
-#else
 		not_match +=
 			(found_nat_tuple->dev_src != t->dev_in) ? 1 : 0;
 		not_match +=
 			(!found_nat_tuple->dev_dst) ? 1 : 0;
-#endif
 		not_match +=
 			(found_nat_tuple->src_ip != t->nat.src) ? 1 : 0;
 		not_match +=
@@ -264,17 +257,10 @@ static inline struct nat_tuple *mddp_f_get_nat_tuple_ip4_tcpudp_wo_lock(
 
 	list_for_each_entry(found_nat_tuple, &nat_tuple_hash[hash], list) {
 		not_match = 0;
-#ifndef MDDP_F_NETFILTER
-		not_match +=
-			(!ifaces[found_nat_tuple->iface_src].ready) ? 1 : 0;
-		not_match +=
-			(!ifaces[found_nat_tuple->iface_dst].ready) ? 1 : 0;
-#else
 		not_match +=
 			(found_nat_tuple->dev_src != t->dev_in) ? 1 : 0;
 		not_match +=
 			(!found_nat_tuple->dev_dst) ? 1 : 0;
-#endif
 		not_match +=
 			(found_nat_tuple->src_ip != t->nat.src) ? 1 : 0;
 		not_match +=
@@ -308,17 +294,10 @@ static inline bool mddp_f_check_pkt_need_track_nat_tuple_ip4(
 	MDDP_F_TUPLE_LOCK(&mddp_f_tuple_lock, flag);
 	list_for_each_entry(found_nat_tuple, &nat_tuple_hash[hash], list) {
 		not_match = 0;
-#ifndef MDDP_F_NETFILTER
-		not_match +=
-			(!ifaces[found_nat_tuple->iface_src].ready) ? 1 : 0;
-		not_match +=
-			(!ifaces[found_nat_tuple->iface_dst].ready) ? 1 : 0;
-#else
 		not_match +=
 			(found_nat_tuple->dev_src != t->dev_in) ? 1 : 0;
 		not_match +=
 			(!found_nat_tuple->dev_dst) ? 1 : 0;
-#endif
 		not_match +=
 			(found_nat_tuple->src_ip != t->nat.src) ? 1 : 0;
 		not_match +=
@@ -451,13 +430,8 @@ bool mddp_f_add_router_tuple_tcpudp(struct router_tuple *t)
 	/* prevent from duplicating */
 	list_for_each_entry(found_router_tuple,
 				&router_tuple_hash[hash], list) {
-#ifndef MDDP_F_NETFILTER
-		if (found_router_tuple->iface_src != t->iface_src)
-			continue;
-#else
 		if (found_router_tuple->dev_src != t->dev_src)
 			continue;
-#endif
 		if (!ipv6_addr_equal(&found_router_tuple->saddr, &t->saddr))
 			continue;
 		if (!ipv6_addr_equal(&found_router_tuple->daddr, &t->daddr))
@@ -514,17 +488,10 @@ static inline struct router_tuple *mddp_f_get_router_tuple_tcpudp(
 	list_for_each_entry(found_router_tuple,
 				&router_tuple_hash[hash], list) {
 		not_match = 0;
-#ifndef MDDP_F_NETFILTER
-		not_match +=
-			(!ifaces[found_router_tuple->iface_dst].ready) ? 1 : 0;
-		not_match +=
-			(!ifaces[found_router_tuple->iface_src].ready) ? 1 : 0;
-#else
 		not_match +=
 			(!found_router_tuple->dev_dst) ? 1 : 0;
 		not_match +=
 			(!found_router_tuple->dev_src) ? 1 : 0;
-#endif
 		not_match +=
 			(!ipv6_addr_equal(&found_router_tuple->saddr,
 							&t->saddr)) ? 1 : 0;
@@ -560,17 +527,10 @@ static inline struct router_tuple *mddp_f_get_router_tuple_tcpudp_wo_lock(
 	list_for_each_entry(found_router_tuple,
 				&router_tuple_hash[hash], list) {
 		not_match = 0;
-#ifndef MDDP_F_NETFILTER
-		not_match +=
-			(!ifaces[found_router_tuple->iface_dst].ready) ? 1 : 0;
-		not_match +=
-			(!ifaces[found_router_tuple->iface_src].ready) ? 1 : 0;
-#else
 		not_match +=
 			(!found_router_tuple->dev_dst) ? 1 : 0;
 		not_match +=
 			(!found_router_tuple->dev_src) ? 1 : 0;
-#endif
 		not_match +=
 			(!ipv6_addr_equal(&found_router_tuple->saddr,
 							&t->saddr)) ? 1 : 0;
@@ -607,17 +567,10 @@ static inline bool mddp_f_check_pkt_need_track_router_tuple(
 	list_for_each_entry(found_router_tuple,
 				&router_tuple_hash[hash], list) {
 		not_match = 0;
-#ifndef MDDP_F_NETFILTER
-		not_match +=
-			(!ifaces[found_router_tuple->iface_dst].ready) ? 1 : 0;
-		not_match +=
-			(!ifaces[found_router_tuple->iface_src].ready) ? 1 : 0;
-#else
 		not_match +=
 			(!found_router_tuple->dev_dst) ? 1 : 0;
 		not_match +=
 			(!found_router_tuple->dev_src) ? 1 : 0;
-#endif
 		not_match +=
 			(!ipv6_addr_equal(&found_router_tuple->saddr,
 							&t->saddr)) ? 1 : 0;
