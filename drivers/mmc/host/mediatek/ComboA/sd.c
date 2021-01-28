@@ -224,7 +224,7 @@ void msdc_dump_register_core(char **buff, unsigned long *size,
 skip_dump_dvfs_reg:
 
 	if (!host->base_top)
-		goto skip_dump_top_reg;
+		return;
 
 	MSDC_RST_REG_PRINT_BUF(msg_size,
 		PRINTF_REGISTER_BUFFER_SIZE, buffer, buffer_cur_ptr);
@@ -238,8 +238,6 @@ skip_dump_dvfs_reg:
 			PRINTF_REGISTER_BUFFER_SIZE, buffer, buffer_cur_ptr, m);
 	}
 	SPREAD_PRINTF(buff, size, m, "%s\n", buffer);
-
-skip_dump_top_reg:
 
 	if (host->use_hw_dvfs != 1)
 		return;
