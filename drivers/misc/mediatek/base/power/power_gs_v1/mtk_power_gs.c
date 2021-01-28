@@ -23,7 +23,6 @@
 #undef mt_power_gs_t_dump_dpidle
 #undef mt_power_gs_t_dump_sodi3
 
-struct proc_dir_entry *mt_power_gs_dir;
 
 struct golden _g;
 
@@ -149,18 +148,9 @@ static void __exit mt_power_gs_exit(void)
 
 static int __init mt_power_gs_init(void)
 {
-	mt_power_gs_dir = proc_mkdir("mt_power_gs", NULL);
-
-	if (!mt_power_gs_dir)
-		pr_err("[%s]: mkdir /proc/mt_power_gs failed\n", __func__);
-
 	return 0;
 }
 
-module_param(slp_chk_golden_suspend, bool, 0644);
-module_param(slp_chk_golden_dpidle, bool, 0644);
-module_param(slp_chk_golden_sodi3, bool, 0644);
-module_param(slp_chk_golden_diff_mode, bool, 0644);
 module_init(mt_power_gs_init);
 module_exit(mt_power_gs_exit);
 

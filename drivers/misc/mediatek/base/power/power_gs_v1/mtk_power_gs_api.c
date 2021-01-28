@@ -47,19 +47,6 @@ static u16 gs_pmic_read(u16 reg)
 	return (u16)reg_val;
 }
 
-static void _golden_setting_enable(struct golden *g)
-{
-	if (g) {
-		g->buf_snapshot = (struct snapshot *) &(g->buf_gs[g->nr_gs]);
-		g->max_nr_snapshot = (g->buf_size -
-				sizeof(struct golden_setting) * g->nr_gs) /
-				SIZEOF_SNAPSHOT(g);
-		g->snapshot_head = 0;
-		g->snapshot_tail = 0;
-
-		g->is_golden_log = 1;
-	}
-}
 
 static void _golden_setting_disable(struct golden *g)
 {
@@ -74,10 +61,6 @@ static void _golden_setting_disable(struct golden *g)
 	}
 }
 
-static void _golden_setting_set_mode(struct golden *g, unsigned int mode)
-{
-	g->mode = mode;
-}
 
 static void _golden_setting_init(struct golden *g, unsigned int *buf,
 		unsigned int buf_size)
@@ -89,19 +72,6 @@ static void _golden_setting_init(struct golden *g, unsigned int *buf,
 		g->buf_size = buf_size;
 
 		_golden_setting_disable(g);
-	}
-}
-
-static void _golden_setting_add(struct golden *g, unsigned int addr,
-		unsigned int mask, unsigned int golden_val)
-{
-	if (g && 0 == g->is_golden_log &&
-			g->nr_gs < g->max_nr_gs && mask != 0) {
-		g->buf_gs[g->nr_gs].addr = addr;
-		g->buf_gs[g->nr_gs].mask = mask;
-		g->buf_gs[g->nr_gs].golden_val = golden_val;
-
-		g->nr_gs++;
 	}
 }
 
@@ -136,13 +106,6 @@ static int _is_snapshot_full(struct golden *g)
 		return 0;
 }
 
-static int _is_snapshot_empty(struct golden *g)
-{
-	if (g->snapshot_head == g->snapshot_tail)
-		return 1;
-	else
-		return 0;
-}
 
 static struct snapshot *_snapshot_produce(struct golden *g)
 {
@@ -151,22 +114,6 @@ static struct snapshot *_snapshot_produce(struct golden *g)
 
 		if (g->snapshot_head == g->max_nr_snapshot)
 			g->snapshot_head = 0;
-
-		return (struct snapshot *)
-			((size_t)(g->buf_snapshot) + SIZEOF_SNAPSHOT(g) * idx);
-	} else
-		return NULL;
-}
-
-static struct snapshot *_snapshot_consume(struct golden *g)
-{
-	if (g && !_is_snapshot_empty(g)) {
-		int idx = g->snapshot_tail++;
-
-		if (g->snapshot_tail == g->max_nr_snapshot)
-			g->snapshot_tail = 0;
-
-		is_already_snap_shot = false;
 
 		return (struct snapshot *)
 			((size_t)(g->buf_snapshot) + SIZEOF_SNAPSHOT(g) * idx);
@@ -206,395 +153,6 @@ int _snapshot_golden_setting(struct golden *g, const char *func,
 		return -1;
 }
 
-static int _parse_mask_val(char *buf, unsigned int *mask,
-		unsigned int *golden_val)
-{
-	unsigned int i, bit_shift;
-	unsigned int mask_result;
-	unsigned int golden_val_result;
-
-	for (i = 0, bit_shift = 1 << 31, mask_result = 0, golden_val_result = 0;
-			bit_shift > 0;) {
-		switch (buf[i]) {
-		case '1':
-			golden_val_result += bit_shift;
-
-		case '0':
-			mask_result += bit_shift;
-
-		case 'x':
-		case 'X':
-			bit_shift >>= 1;
-
-		case '_':
-			break;
-
-		default:
-			return -1;
-		}
-
-		i++;
-	}
-
-	*mask = mask_result;
-	*golden_val = golden_val_result;
-
-	return 0;
-}
-
-static char *_gen_mask_str(const unsigned int mask, const unsigned int reg_val)
-{
-	static char _mask_str[42];
-	unsigned int i, bit_shift;
-
-	strncpy(_mask_str, "0bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx", 42);
-	for (i = 2, bit_shift = 1 << 31; bit_shift > 0;) {
-		switch (_mask_str[i]) {
-		case '_':
-			break;
-
-		default:
-			if (0 == (mask & bit_shift))
-				_mask_str[i] = 'x';
-			else if (0 == (reg_val & bit_shift))
-				_mask_str[i] = '0';
-			else
-				_mask_str[i] = '1';
-
-		case '\0':
-			bit_shift >>= 1;
-			break;
-		}
-
-		i++;
-	}
-
-	return _mask_str;
-}
-
-static char *_gen_diff_str(const unsigned int mask,
-		const unsigned int golden_val, const unsigned int reg_val)
-{
-	static char _diff_str[42];
-	unsigned int i, bit_shift;
-
-	strncpy(_diff_str, "0b    _    _    _    _    _    _    _    ", 42);
-	for (i = 2, bit_shift = 1 << 31; bit_shift > 0;) {
-		switch (_diff_str[i]) {
-		case '_':
-			break;
-
-		default:
-			if (0 != ((golden_val ^ reg_val) & mask & bit_shift))
-				_diff_str[i] = '^';
-			else
-				_diff_str[i] = ' ';
-
-		case '\0':
-			bit_shift >>= 1;
-			break;
-		}
-
-		i++;
-	}
-
-	return _diff_str;
-}
-
-static char *_gen_color_str(const unsigned int mask,
-		const unsigned int golden_val, const unsigned int reg_val)
-{
-#define FC "\e[41m"
-#define EC "\e[m"
-#define XXXX FC "x" EC FC "x" EC FC "x" EC FC "x" EC
-	static char _clr_str[300];
-	unsigned int i, bit_shift;
-
-	strncpy(_clr_str, "0b"XXXX"_"XXXX"_"XXXX"_"XXXX"_"
-			XXXX"_"XXXX"_"XXXX"_"XXXX, 300);
-	for (i = 2, bit_shift = 1 << 31; bit_shift > 0;) {
-		switch (_clr_str[i]) {
-		case '_':
-			break;
-
-		default:
-			if (0 != ((golden_val ^ reg_val) & mask & bit_shift))
-				_clr_str[i + 3] = '1';
-			else
-				_clr_str[i + 3] = '0';
-
-			if (0 == (mask & bit_shift))
-				_clr_str[i + 5] = 'x';
-			else if (0 == (reg_val & bit_shift))
-				_clr_str[i + 5] = '0';
-			else
-				_clr_str[i + 5] = '1';
-
-			i += strlen(EC) + strlen(FC);
-
-		case '\0':
-			bit_shift >>= 1;
-			break;
-		}
-
-		i++;
-	}
-
-	return _clr_str;
-
-#undef FC
-#undef EC
-#undef XXXX
-}
-
-static char *_copy_from_user_for_proc(const char __user *buffer, size_t count)
-{
-	char *buf = (char *)__get_free_page(GFP_USER);
-
-	if (!buf)
-		return NULL;
-
-	if (count >= PAGE_SIZE)
-		goto out;
-
-	if (copy_from_user(buf, buffer, count))
-		goto out;
-
-	buf[count] = '\0';
-
-	return buf;
-
- out:
-	free_page((unsigned long)buf);
-
-	return NULL;
-}
-
-static int golden_test_proc_show(struct seq_file *m, void *v)
-{
-	static int idx;
-	int i = 0;
-
-	idx = 0;
-
-	if (_g.is_golden_log == 0) {
-		for (i = 0; i < _g.nr_gs; i++) {
-			seq_printf(m, ""HEX_FMT" "HEX_FMT" "HEX_FMT"\n",
-				   _g.buf_gs[i].addr,
-				   _g.buf_gs[i].mask,
-				   _g.buf_gs[i].golden_val
-				   );
-		}
-	}
-
-	if (_g.nr_gs == 0) {
-		seq_puts(m, "\n********** golden_test help *********\n");
-		seq_puts(m, "1.   disable snapshot:                  echo disable > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "2.   insert golden setting (tool mode): echo 0x10000000 (addr) 0bxxxx_xxxx_xxxx_xxxx_0001_0100_1001_0100 (mask & golden value) > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "(2.) insert golden setting (hex mode):  echo 0x10000000 (addr) 0xFFFF (mask) 0x1494 (golden value) > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "(2.) insert golden setting (dec mode):  echo 268435456 (addr) 65535 (mask) 5268 (golden value) > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "3.   set filter:                        echo filter func_name [line_num] > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "(3.) disable filter:                    echo filter > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "4.   enable snapshot:                   echo enable > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "5.   set compare mode:                  echo compare > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "(5.) set apply mode:                    echo apply > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "(5.) set color mode:                    echo color > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "(5.) set diff mode:                     echo color > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "(5.) disable compare/apply/color mode:  echo normal > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "6.   set register value (normal mode):  echo set 0x10000000 (addr) 0x13201494 (reg val) > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "(6.) set register value (mask mode):    echo set 0x10000000 (addr) 0xffff (mask) 0x13201494 (reg val) > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "(6.) set register value (bit mode):     echo set 0x10000000 (addr) 0 (bit num) 1 (reg val) > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "7.   dump suspend comapare:             echo dump_suspend > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "8.   dump dpidle comapare:              echo dump_dpidle > /proc/clkmgr/golden_test\n");
-		seq_puts(m, "9.   dump sodi comapare:                echo dump_sodi > /proc/clkmgr/golden_test\n");
-	} else {
-		static struct snapshot *ss;
-
-		if (!strcmp(_g.func, __func__) && (_g.line == 0))
-			snapshot_golden_setting(__func__, 0);
-
-		while ((idx != 0) || ((ss = _snapshot_consume(&_g)) != NULL)) {
-			if (idx == 0)
-				seq_printf(m, "// @ %s():%d\n",
-						ss->func, ss->line);
-
-			for (i = idx, idx = 0; i < _g.nr_gs; i++) {
-				if (!(_g.mode == MODE_NORMAL
-				    || ((_g.buf_gs[i].mask &
-						    _g.buf_gs[i].golden_val)
-					!= (_g.buf_gs[i].mask & ss->reg_val[i])
-					)
-				    ))
-					continue;
-				if (_g.mode == MODE_COLOR) {
-					seq_printf(m,
-						HEX_FMT"\t"HEX_FMT"\t"
-						HEX_FMT"\t%s\n",
-						_g.buf_gs[i].addr,
-						_g.buf_gs[i].mask,
-						ss->reg_val[i],
-						_gen_color_str(
-							_g.buf_gs[i].mask,
-							_g.buf_gs[i].golden_val,
-							ss->reg_val[i]));
-				} else if (_g.mode == MODE_DIFF) {
-					seq_printf(m,
-						HEX_FMT"\t"HEX_FMT"\t"
-						HEX_FMT"\t%s\n",
-						_g.buf_gs[i].addr,
-						_g.buf_gs[i].mask,
-						ss->reg_val[i],
-						_gen_mask_str(
-							_g.buf_gs[i].mask,
-							ss->reg_val[i]));
-
-					seq_printf(m,
-						HEX_FMT"\t"HEX_FMT"\t"
-						HEX_FMT"\t%s\n",
-						_g.buf_gs[i].addr,
-						_g.buf_gs[i].mask,
-						_g.buf_gs[i].golden_val,
-						_gen_diff_str(
-							_g.buf_gs[i].mask,
-							_g.buf_gs[i].golden_val,
-							ss->reg_val[i]));
-				} else
-					seq_printf(m,
-						HEX_FMT"\t"HEX_FMT"\t"
-						HEX_FMT"\n",
-						_g.buf_gs[i].addr,
-						_g.buf_gs[i].mask,
-						ss->reg_val[i]);
-			}
-		}
-	}
-
-	mt_power_gs_sp_dump();
-
-	return 0;
-}
-
-static ssize_t golden_test_proc_write(struct file *file,
-		const char __user *buffer, size_t count, loff_t *pos)
-{
-	char *buf = _copy_from_user_for_proc(buffer, count);
-	char cmd[64];
-	struct phys_to_virt_table *table;
-	unsigned int base;
-	unsigned int addr;
-	unsigned int mask;
-	unsigned int golden_val;
-
-	if (!buf)
-		return -EINVAL;
-
-	/* set golden setting (hex mode) */
-	if (sscanf(buf, "0x%x 0x%x 0x%x", &addr, &mask, &golden_val) == 3)
-		_golden_setting_add(&_g, addr, mask, golden_val);
-	/* set golden setting (dec mode) */
-	else if (sscanf(buf, "%d %d %d", &addr, &mask, &golden_val) == 3)
-		_golden_setting_add(&_g, addr, mask, golden_val);
-	/* set filter (func + line) */
-	/* XXX: 63 = sizeof(_g.func) - 1 */
-	else if (sscanf(buf, "filter %63s %d", _g.func, &_g.line) == 2)
-		;
-	/* set filter (func) */
-	/* XXX: 63 = sizeof(_g.func) - 1 */
-	else if (sscanf(buf, "filter %63s", _g.func) == 1)
-		_g.line = 0;
-	/* set golden setting (mixed mode) */
-	/* XXX: 63 = sizeof(cmd) - 1 */
-	else if (sscanf(buf, "0x%x 0b%63s", &addr, cmd) == 2) {
-		if (!_parse_mask_val(cmd, &mask, &golden_val))
-			_golden_setting_add(&_g, addr, mask, golden_val);
-	}
-	/* set reg value (mask mode) */
-	else if (sscanf(buf,
-			"set 0x%x 0x%x 0x%x", &addr, &mask, &golden_val) == 3)
-		_golden_write_reg(addr, mask, golden_val);
-	/* set reg value (bit mode) */
-	/* XXX: mask is bit number (alias) */
-	else if (sscanf(buf,
-			"set 0x%x %d %d", &addr, &mask, &golden_val) == 3) {
-		if (mask >= 0 && mask <= 31) {
-			golden_val = (golden_val & BIT(0)) << mask;
-			mask = BIT(0) << mask;
-			_golden_write_reg(addr, mask, golden_val);
-		}
-	}
-	/* set reg value (normal mode) */
-	else if (sscanf(buf, "set 0x%x 0x%x", &addr, &golden_val) == 2)
-		_golden_write_reg(addr, 0xFFFFFFFF, golden_val);
-	/* set to dump pmic reg value */
-	else if (sscanf(buf, "set_pmic_manual_dump 0x%x", &addr) == 1) {
-		if (pmd.addr_array && pmd.array_pos < pmd.array_size) {
-			pmd.addr_array[pmd.array_pos++] = addr;
-			base  = (addr &
-				(~(unsigned long)REMAP_SIZE_MASK));
-
-			if (!_is_pmic_addr(addr) &&
-			    !_is_exist_in_phys_to_virt_table(base) &&
-			    br.table) {
-
-				table = br.table;
-				table[br.table_pos].pa
-					= base;
-				table[br.table_pos].va
-					= ioremap_nocache(base,
-						REMAP_SIZE_MASK + 1);
-
-				if (!table[br.table_pos].va)
-					pr_info("Power_gs: va(0x%x, 0x%x)\n"
-						, base, REMAP_SIZE_MASK + 1);
-
-				if (br.table_pos < br.table_size)
-					br.table_pos++;
-				else
-					pr_info("Power_gs: base_remap full\n");
-			}
-		} else {
-			if (!pmd.addr_array)
-				pr_info("Power_gs: pmd init fail\n");
-			else
-				pr_info("Power_gs: pmd array is full\n");
-		}
-	}
-	/* XXX: 63 = sizeof(cmd) - 1 */
-	else if (sscanf(buf, "%63s", cmd) == 1) {
-		if (!strcmp(cmd, "enable"))
-			_golden_setting_enable(&_g);
-		else if (!strcmp(cmd, "disable"))
-			_golden_setting_disable(&_g);
-		else if (!strcmp(cmd, "normal"))
-			_golden_setting_set_mode(&_g, MODE_NORMAL);
-		else if (!strcmp(cmd, "compare"))
-			_golden_setting_set_mode(&_g, MODE_COMPARE);
-		else if (!strcmp(cmd, "apply"))
-			_golden_setting_set_mode(&_g, MODE_APPLY);
-		else if (!strcmp(cmd, "color"))
-			_golden_setting_set_mode(&_g, MODE_COLOR);
-		else if (!strcmp(cmd, "diff"))
-			_golden_setting_set_mode(&_g, MODE_DIFF);
-		else if (!strcmp(cmd, "filter"))
-			_g.func[0] = '\0';
-		else if (!strcmp(cmd, "dump_suspend"))
-			mt_power_gs_suspend_compare(GS_ALL);
-		else if (!strcmp(cmd, "dump_dpidle"))
-			mt_power_gs_dpidle_compare(GS_ALL);
-		else if (!strcmp(cmd, "dump_sodi"))
-			mt_power_gs_sodi_compare(GS_ALL);
-		else if (!strcmp(cmd, "free_pmic_manual_dump")) {
-			if (pmd.addr_array)
-				pmd.array_pos = 0;
-		}
-	}
-
-	free_page((size_t)buf);
-
-	return count;
-}
-
-
 #define PROC_FOPS_RW(name)						\
 	static int name ## _proc_open(struct inode *inode, struct file *file) \
 	{								\
@@ -625,7 +183,6 @@ static ssize_t golden_test_proc_write(struct file *file,
 
 #define PROC_ENTRY(name)	{__stringify(name), &name ## _proc_fops}
 
-PROC_FOPS_RW(golden_test);
 
 void __attribute__((weak)) mt_power_gs_internal_init(void)
 {
@@ -647,32 +204,6 @@ static int mt_golden_setting_init(void)
 		_g.io_base = 0;
 #endif
 		{
-			struct proc_dir_entry *dir = NULL;
-			int i;
-
-			const struct {
-				const char *name;
-				const struct file_operations *fops;
-			} entries[] = {
-				PROC_ENTRY(golden_test),
-			};
-
-			dir = proc_mkdir("golden", NULL);
-
-			if (!dir) {
-				pr_err("[%s]: fail to mkdir /proc/golden\n",
-						__func__);
-				return -ENOMEM;
-			}
-
-			for (i = 0; i < ARRAY_SIZE(entries); i++) {
-				if (!proc_create(entries[i].name, 0664,
-						dir, entries[i].fops))
-					pr_err("[%s]: fail to mkdir /proc/golden/%s\n",
-							__func__,
-							entries[i].name);
-			}
-
 			pmd.array_size = REMAP_SIZE_MASK;
 			if (!pmd.addr_array)
 				pmd.addr_array =
