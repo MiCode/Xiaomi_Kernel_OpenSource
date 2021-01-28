@@ -159,7 +159,7 @@ static void msdc_init_crypto(struct mmc_host *host)
 	if (host->caps2 & (MMC_CAP2_CQE | MMC_CAP2_CQE_DCMD)) {
 		WARN_ON(1);
 	} else {
-		host->crypto_capabilities.config_count = 1;
+		host->crypto_capabilities.config_count = 32;
 		/* in non-CQHCI, support only one */
 		host->crypto_capabilities.num_crypto_cap = 1;
 	}
