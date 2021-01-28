@@ -850,6 +850,7 @@ static unsigned int aggressive_idle_pull(int this_cpu)
 #ifdef CONFIG_MTK_SCHED_EAS_POWER_SUPPORT
 #define fits_capacity(cap, max) ((cap) * capacity_margin < (max) * 1024)
 
+#ifdef CONFIG_UCLAMP_TASK
 static __always_inline
 unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
 					struct task_struct *p)
@@ -874,6 +875,13 @@ unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
 
 	return clamp(util, min_util, max_util);
 }
+#else
+unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
+					struct task_struct *p)
+{
+	return util;
+}
+#endif
 
 static unsigned long __cpu_norm_sumutil(unsigned long util,
 					unsigned long capacity)
