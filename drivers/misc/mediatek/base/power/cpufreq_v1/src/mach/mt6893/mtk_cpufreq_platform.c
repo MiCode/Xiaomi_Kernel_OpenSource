@@ -656,7 +656,7 @@ int mt_cpufreq_regulator_map(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	regulator_proc2 = regulator_get_optional(&pdev->dev, "6_vbuck3");
+	regulator_proc2 = regulator_get_optional(&pdev->dev, "7_vbuck3");
 	if (GEN_DB_ON(IS_ERR(regulator_proc2), "6vbuck3 Get Failed")) {
 		tag_pr_info("@@6vbuck3 Get Failed\n");
 		return -ENODEV;
@@ -707,13 +707,14 @@ int mt_cpufreq_dts_map(void)
 unsigned int _mt_cpufreq_get_cpu_level(void)
 {
 	unsigned int lv = CPU_LEVEL_0;
-
+#if 0
 	int val = (get_devinfo_with_index(7) & 0xFF);
 
 	turbo_flag = 0;
 
 	tag_pr_info("%d, %d, Settle time(%d, %d) efuse_val = 0x%x\n",
 		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val);
+#endif
 	return lv;
 }
 #ifdef DFD_WORKAROUND

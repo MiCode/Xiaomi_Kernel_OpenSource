@@ -1740,7 +1740,7 @@ page_owner=on loop.max_part=7";
 		imax_state = <2>;
 		change_flag = <0>;
 		proc1-supply = <&mt6315_6_vbuck1>;
-		proc2-supply = <&mt6315_6_vbuck3>;
+		proc2-supply = <&mt6315_7_vbuck3>;
 		little-rise-time = <1000>;
 		little-down-time = <750>;
 		big-rise-time = <1000>;
