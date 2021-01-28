@@ -2778,6 +2778,10 @@ static signed int DIP_P2_BufQue_Erase
 	switch (listTag) {
 	case DIP_P2_BUFQUE_LIST_TAG_PACKAGE:
 	tmpIdx = P2_FramePack_List_Idx[property].start;
+	if (tmpIdx < 0) {
+		LOG_ERR("tmpIdx is negative\n");
+		return MFALSE;
+	}
 	/* [1] clear buffer status */
 	P2_FramePackage_List[property][idx].processID = 0x0;
 	P2_FramePackage_List[property][idx].callerID = 0x0;
@@ -3123,8 +3127,10 @@ static inline unsigned int DIP_P2_BufQue_WaitEventState(
 	case DIP_P2_BUFQUE_MATCH_TYPE_WAITFM:
 		spin_lock(&(SpinLock_P2FrameList));
 		index = *idx;
-		if (index < 0)
+		if (index < 0) {
+			spin_unlock(&(SpinLock_P2FrameList));
 			return MFALSE;
+		}
 		if (P2_FramePackage_List[property][index].dequedNum ==
 			P2_FramePackage_List[property][index].frameNum)
 			ret = MTRUE;
