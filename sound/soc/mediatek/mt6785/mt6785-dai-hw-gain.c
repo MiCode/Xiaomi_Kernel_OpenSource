@@ -23,6 +23,16 @@ static const struct snd_kcontrol_new mtk_hw_gain1_in_ch2_mix[] = {
 				    I_CONNSYS_I2S_CH2, 1, 0),
 };
 
+static const struct snd_kcontrol_new mtk_hw_gain2_in_ch1_mix[] = {
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN15,
+				    I_ADDA_UL_CH1, 1, 0),
+};
+
+static const struct snd_kcontrol_new mtk_hw_gain2_in_ch2_mix[] = {
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN16,
+				    I_ADDA_UL_CH2, 1, 0),
+};
+
 static int mtk_hw_gain_event(struct snd_soc_dapm_widget *w,
 			     struct snd_kcontrol *kcontrol,
 			     int event)
@@ -72,6 +82,12 @@ static const struct snd_soc_dapm_widget mtk_dai_hw_gain_widgets[] = {
 	SND_SOC_DAPM_MIXER("HW_GAIN1_IN_CH2", SND_SOC_NOPM, 0, 0,
 			   mtk_hw_gain1_in_ch2_mix,
 			   ARRAY_SIZE(mtk_hw_gain1_in_ch2_mix)),
+	SND_SOC_DAPM_MIXER("HW_GAIN2_IN_CH1", SND_SOC_NOPM, 0, 0,
+			   mtk_hw_gain2_in_ch1_mix,
+			   ARRAY_SIZE(mtk_hw_gain2_in_ch1_mix)),
+	SND_SOC_DAPM_MIXER("HW_GAIN2_IN_CH2", SND_SOC_NOPM, 0, 0,
+			   mtk_hw_gain2_in_ch2_mix,
+			   ARRAY_SIZE(mtk_hw_gain2_in_ch2_mix)),
 
 	SND_SOC_DAPM_SUPPLY(HW_GAIN_1_EN_W_NAME,
 			    AFE_GAIN1_CON0, GAIN1_ON_SFT, 0,
@@ -86,12 +102,13 @@ static const struct snd_soc_dapm_widget mtk_dai_hw_gain_widgets[] = {
 	SND_SOC_DAPM_INPUT("HW Gain 1 Out Endpoint"),
 	SND_SOC_DAPM_INPUT("HW Gain 2 Out Endpoint"),
 	SND_SOC_DAPM_OUTPUT("HW Gain 1 In Endpoint"),
-	SND_SOC_DAPM_OUTPUT("HW Gain 2 In Endpoint"),
 };
 
 static const struct snd_soc_dapm_route mtk_dai_hw_gain_routes[] = {
 	{"HW Gain 1 In", NULL, "HW_GAIN1_IN_CH1"},
 	{"HW Gain 1 In", NULL, "HW_GAIN1_IN_CH2"},
+	{"HW Gain 2 In", NULL, "HW_GAIN2_IN_CH1"},
+	{"HW Gain 2 In", NULL, "HW_GAIN2_IN_CH2"},
 
 	{"HW Gain 1 In", NULL, HW_GAIN_1_EN_W_NAME},
 	{"HW Gain 1 Out", NULL, HW_GAIN_1_EN_W_NAME},
@@ -99,7 +116,6 @@ static const struct snd_soc_dapm_route mtk_dai_hw_gain_routes[] = {
 	{"HW Gain 2 Out", NULL, HW_GAIN_2_EN_W_NAME},
 
 	{"HW Gain 1 In Endpoint", NULL, "HW Gain 1 In"},
-	{"HW Gain 2 In Endpoint", NULL, "HW Gain 2 In"},
 	{"HW Gain 1 Out", NULL, "HW Gain 1 Out Endpoint"},
 	{"HW Gain 2 Out", NULL, "HW Gain 2 Out Endpoint"},
 };
