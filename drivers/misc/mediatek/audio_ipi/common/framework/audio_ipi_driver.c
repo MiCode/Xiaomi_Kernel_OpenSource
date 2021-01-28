@@ -67,11 +67,6 @@
 #endif
 
 
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
-#include "audio_ipi_client_playback.h"
-#endif
-
-
 
 /*
  * =============================================================================
