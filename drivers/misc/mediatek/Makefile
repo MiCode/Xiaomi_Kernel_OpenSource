@@ -30,6 +30,8 @@ obj-$(CONFIG_MTK_ACCDET) += accdet/
 obj-$(CONFIG_MTK_GIC_EXT) += ext_gic/
 obj-$(CONFIG_MTK_FREQ_HOPPING) += freqhopping/
 obj-$(CONFIG_MTK_LENS)   += lens/
+obj-$(CONFIG_MTK_FLASHLIGHT) += flashlight/
+obj-$(CONFIG_RT_FLASHLIGHT)     += flashlight/richtek/
 
 obj-$(CONFIG_MTK_MEM) += mem/
 obj-$(CONFIG_MTK_MEMORY_LOWPOWER) += memory-lowpower/
