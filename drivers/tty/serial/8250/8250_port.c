@@ -1692,9 +1692,18 @@ static void serial8250_read_char(struct uart_8250_port *up, unsigned char lsr)
 	unsigned char ch;
 	char flag = TTY_NORMAL;
 
-	if (likely(lsr & UART_LSR_DR))
+	if (likely(lsr & UART_LSR_DR)) {
 		ch = serial_in(up, UART_RX);
-	else
+		/* Enable uart log output on eng load when receive char input */
+		#ifndef CONFIG_FIQ_DEBUGGER
+		#ifdef CONFIG_MTK_ENG_BUILD
+		#ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
+			if (ch == 'c')
+				printk_disable_uart = 0;
+		#endif
+		#endif
+		#endif
+	} else
 		/*
 		 * Intel 82571 has a Serial Over Lan device that will
 		 * set UART_LSR_BI without setting UART_LSR_DR when
@@ -1872,15 +1881,6 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 	spin_lock_irqsave(&port->lock, flags);
 
 	status = serial_port_in(port, UART_LSR);
-/* Enable uart log output on eng load when receive char input */
-#ifndef CONFIG_FIQ_DEBUGGER
-#ifdef CONFIG_MTK_ENG_BUILD
-#ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
-	if (uart_console(port) && (serial_port_in(port, UART_LSR) & 0x01))
-		printk_disable_uart = 0;
-#endif
-#endif
-#endif
 
 	if (status & (UART_LSR_DR | UART_LSR_BI)) {
 		if (!up->dma || handle_rx_dma(up, iir))
