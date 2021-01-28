@@ -913,7 +913,7 @@ static void __mt_gpufreq_config_dfd(bool enable)
 		if (mt_gpufreq_is_dfd_force_dump())
 			writel(0xFFFFFFFF, g_mfg_base + 0x8F8);
 
-		writel(0x00012EC9, g_mfg_base + 0xA04);
+		writel(0x00012FD3, g_mfg_base + 0xA04);
 		writel(0x0001813A, g_mfg_base + 0xA08);
 		writel(0x00210862, g_mfg_base + 0xA0C);
 		writel(0x00000000, g_mfg_base + 0xA10);
