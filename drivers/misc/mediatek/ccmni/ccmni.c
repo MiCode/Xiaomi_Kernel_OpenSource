@@ -136,7 +136,7 @@ static inline int is_ack_skb(int md_id, struct sk_buff *skb)
 		if (tag->version == 1)
 			count = 4;
 		else if (tag->version == 2)
-			count = sizeof(struct md_tag_packet);
+			count = tag->tag_len;
 	}
 #endif
 	packet_type = skb->data[0] & 0xF0;
@@ -581,8 +581,17 @@ static netdev_tx_t ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 				memcpy(skb_tail_pointer(skb), &(tag->v1),
 					count);
 			} else if (tag->version == 2) {
-				count = sizeof(struct md_tag_packet);
-				memcpy(skb_tail_pointer(skb), tag, count);
+				count = tag->tag_len;
+				if (count > skb_tailroom(skb)) {
+					CCMNI_INF_MSG(ccmni->md_id,
+					"%s: mddp tag len(%d) > skb_tailroom(%d)\n",
+					dev->name, count,
+					skb_tailroom(skb));
+					count = 0;
+				} else {
+					memcpy(skb_tail_pointer(skb),
+					tag, count);
+				}
 			}
 			skb->len += count;
 		} else {
