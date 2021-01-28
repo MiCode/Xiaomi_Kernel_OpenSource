@@ -11,7 +11,7 @@
 #include <linux/of_address.h>
 #include <linux/io.h>
 
-#include <trace/events/mtk_idle_event.h>
+//#include <trace/events/mtk_idle_event.h>
 
 #include <mtk_idle.h> /* IDLE_TYPE_xxx */
 #include <mtk_idle_internal.h>
@@ -294,13 +294,13 @@ void mtk_idle_cg_monitor(int sel)
 	spin_unlock_irqrestore(&cgmon_spin_lock, flags);
 }
 
-
+/* FIXME
 #define TRACE_CGMON(_g, _n, _cond)\
 	trace_idle_cg(_g * 32 + _n, ((1 << _n) & _cond) ? 1 : 0)
 
 static void mtk_idle_cgmon_trace_log(void)
 {
-	/* Note: trace tag is defined at trace/events/mtk_idle_event.h */
+	// Note: trace tag is defined at trace/events/mtk_idle_event.h
 	#if MTK_IDLE_TRACE_TAG_ENABLE
 	unsigned int diff, block, g, n;
 
@@ -323,7 +323,7 @@ static void mtk_idle_cgmon_trace_log(void)
 	}
 	#endif
 }
-
+*/
 /* update secure cg state by secure call */
 static void update_secure_cg_state(unsigned int clk[NR_CG_GRPS])
 {
@@ -331,9 +331,10 @@ static void update_secure_cg_state(unsigned int clk[NR_CG_GRPS])
 	#define INFRA0_BIT27	(1 << 27)
 
 	clk[1] = clk[1] & ~INFRA0_BIT27;
-
+/* FIXME
 	if (mt_secure_call(MTK_SIP_KERNEL_CHECK_SECURE_CG, 0, 0, 0, 0))
 		clk[1] |= INFRA0_BIT27;
+*/
 }
 
 /* update all idle condition state: mtcmos/pll/cg/secure_cg */
@@ -375,7 +376,9 @@ void mtk_idle_cond_update_state(void)
 	}
 
 	/* cg monitor: print cg change info to ftrace log */
+	/* FIXME
 	mtk_idle_cgmon_trace_log();
+	*/
 }
 
 /* return final idle condition check result for each idle type */

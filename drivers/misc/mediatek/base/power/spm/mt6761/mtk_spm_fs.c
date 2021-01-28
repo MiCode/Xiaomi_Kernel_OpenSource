@@ -35,7 +35,7 @@
 	}
 
 #define __ATTR_OF(_name)	(&_name##_attr.attr)
-
+/* FIXME
 static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 	[PW_PCM_FLAGS] = "pcm_flags",
 	[PW_PCM_FLAGS_CUST] = "pcm_flags_cust",
@@ -53,7 +53,7 @@ static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 	[PW_WAKE_SRC_CUST] = "wake_src_cust",
 	[PW_WAKELOCK_TIMER_VAL] = "wakelock_timer_val",
 	[PW_WDT_DISABLE] = "wdt_disable",
-	/* SPM_AP_STANDBY_CON */
+	// SPM_AP_STANDBY_CON
 	[PW_WFI_OP] = "wfi_op",
 	[PW_MP0_CPUTOP_IDLE_MASK] = "mp0_cputop_idle_mask",
 	[PW_MP1_CPUTOP_IDLE_MASK] = "mp1_cputop_idle_mask",
@@ -71,7 +71,7 @@ static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 	[PW_CONN_MASK_B] = "conn_mask_b",
 	[PW_CONN_APSRC_SEL] = "conn_apsrc_sel",
 	[PW_CONN_SRCCLKENA_SEL_MASK] = "conn_srcclkena_sel_mask",
-	/* SPM_SRC_REQ */
+	// SPM_SRC_REQ
 	[PW_SPM_APSRC_REQ] = "spm_apsrc_req",
 	[PW_SPM_F26M_REQ] = "spm_f26m_req",
 	[PW_SPM_INFRA_REQ] = "spm_infra_req",
@@ -80,7 +80,7 @@ static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 	[PW_SPM_RSV_SRC_REQ] = "spm_rsv_src_req",
 	[PW_SPM_DDREN_2_REQ] = "spm_ddren_2_req",
 	[PW_CPU_MD_DVFS_SOP_FORCE_ON] = "cpu_md_dvfs_sop_force_on",
-	/* SPM_SRC_MASK */
+	// SPM_SRC_MASK
 	[PW_CSYSPWREQ_MASK] = "csyspwreq_mask",
 	[PW_CCIF0_MD_EVENT_MASK_B] = "ccif0_md_event_mask_b",
 	[PW_CCIF0_AP_EVENT_MASK_B] = "ccif0_ap_event_mask_b",
@@ -110,7 +110,7 @@ static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 	[PW_MFG_REQ_MASK_B] = "mfg_req_mask_b",
 	[PW_VDEC_REQ_MASK_B] = "vdec_req_mask_b",
 	[PW_MCU_APSRCREQ_INFRA_MASK_B] = "mcu_apsrcreq_infra_mask_b",
-	/* SPM_SRC2_MASK */
+	// SPM_SRC2_MASK
 	[PW_MD_DDR_EN_0_MASK_B] = "md_ddr_en_0_mask_b",
 	[PW_MD_DDR_EN_1_MASK_B] = "md_ddr_en_1_mask_b",
 	[PW_CONN_DDR_EN_MASK_B] = "conn_ddr_en_mask_b",
@@ -125,11 +125,11 @@ static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 		"ddren_emi_self_refresh_ch1_mask_b",
 	[PW_MCU_APSRC_REQ_MASK_B] = "mcu_apsrc_req_mask_b",
 	[PW_MCU_DDREN_MASK_B] = "mcu_ddren_mask_b",
-	/* SPM_WAKEUP_EVENT_MASK */
+	// SPM_WAKEUP_EVENT_MASK
 	[PW_SPM_WAKEUP_EVENT_MASK] = "spm_wakeup_event_mask",
-	/* SPM_WAKEUP_EVENT_EXT_MASK */
+	//SPM_WAKEUP_EVENT_EXT_MASK
 	[PW_SPM_WAKEUP_EVENT_EXT_MASK] = "spm_wakeup_event_ext_mask",
-	/* SPM_SRC3_MASK */
+	// SPM_SRC3_MASK
 	[PW_MD_DDR_EN_2_0_MASK_B] = "md_ddr_en_2_0_mask_b",
 	[PW_MD_DDR_EN_2_1_MASK_B] = "md_ddr_en_2_1_mask_b",
 	[PW_CONN_DDR_EN_2_MASK_B] = "conn_ddr_en_2_mask_b",
@@ -143,23 +143,24 @@ static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 	[PW_DDREN2_EMI_SELF_REFRESH_CH1_MASK_B] =
 		"ddren2_emi_self_refresh_ch1_mask_b",
 	[PW_MCU_DDREN_2_MASK_B] = "mcu_ddren_2_mask_b",
-	/* MP0_CPU0_WFI_EN */
+	// MP0_CPU0_WFI_EN
 	[PW_MP0_CPU0_WFI_EN] = "mp0_cpu0_wfi_en",
-	/* MP0_CPU1_WFI_EN */
+	// MP0_CPU1_WFI_EN
 	[PW_MP0_CPU1_WFI_EN] = "mp0_cpu1_wfi_en",
-	/* MP0_CPU2_WFI_EN */
+	// MP0_CPU2_WFI_EN
 	[PW_MP0_CPU2_WFI_EN] = "mp0_cpu2_wfi_en",
-	/* MP0_CPU3_WFI_EN */
+	// MP0_CPU3_WFI_EN
 	[PW_MP0_CPU3_WFI_EN] = "mp0_cpu3_wfi_en",
-	/* MP1_CPU0_WFI_EN */
+	// MP1_CPU0_WFI_EN
 	[PW_MP1_CPU0_WFI_EN] = "mp1_cpu0_wfi_en",
-	/* MP1_CPU1_WFI_EN */
+	// MP1_CPU1_WFI_EN
 	[PW_MP1_CPU1_WFI_EN] = "mp1_cpu1_wfi_en",
-	/* MP1_CPU2_WFI_EN */
+	// MP1_CPU2_WFI_EN
 	[PW_MP1_CPU2_WFI_EN] = "mp1_cpu2_wfi_en",
-	/* MP1_CPU3_WFI_EN */
+	// MP1_CPU3_WFI_EN
 	[PW_MP1_CPU3_WFI_EN] = "mp1_cpu3_wfi_en",
 };
+*/
 
 /**************************************
  * xxx_ctrl_show Function
@@ -168,7 +169,7 @@ static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 static ssize_t show_pwr_ctrl(int id, const struct pwr_ctrl *pwrctrl, char *buf)
 {
 	char *p = buf;
-
+/* FIXME
 	p += sprintf(p, "pcm_flags = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_PCM_FLAGS, 0));
@@ -217,7 +218,7 @@ static ssize_t show_pwr_ctrl(int id, const struct pwr_ctrl *pwrctrl, char *buf)
 	p += sprintf(p, "wdt_disable = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_WDT_DISABLE, 0));
-	/* SPM_AP_STANDBY_CON */
+	// SPM_AP_STANDBY_CON
 	p += sprintf(p, "wfi_op = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_WFI_OP, 0));
@@ -269,7 +270,7 @@ static ssize_t show_pwr_ctrl(int id, const struct pwr_ctrl *pwrctrl, char *buf)
 	p += sprintf(p, "conn_srcclkena_sel_mask = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CONN_SRCCLKENA_SEL_MASK, 0));
-	/* SPM_SRC_REQ */
+	// SPM_SRC_REQ
 	p += sprintf(p, "spm_apsrc_req = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_SPM_APSRC_REQ, 0));
@@ -294,7 +295,7 @@ static ssize_t show_pwr_ctrl(int id, const struct pwr_ctrl *pwrctrl, char *buf)
 	p += sprintf(p, "cpu_md_dvfs_sop_force_on= 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CPU_MD_DVFS_SOP_FORCE_ON, 0));
-	/* SPM_SRC_MASK */
+	// SPM_SRC_MASK
 	p += sprintf(p, "csyspwreq_mask = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_CSYSPWREQ_MASK, 0));
@@ -382,7 +383,7 @@ static ssize_t show_pwr_ctrl(int id, const struct pwr_ctrl *pwrctrl, char *buf)
 	p += sprintf(p, "mcu_apsrcreq_infra_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MCU_APSRCREQ_INFRA_MASK_B, 0));
-	/* SPM_SRC2_MASK */
+	// SPM_SRC2_MASK
 	p += sprintf(p, "md_ddr_en_0_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_DDR_EN_0_MASK_B, 0));
@@ -419,15 +420,15 @@ static ssize_t show_pwr_ctrl(int id, const struct pwr_ctrl *pwrctrl, char *buf)
 	p += sprintf(p, "mcu_ddren_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MCU_DDREN_MASK_B, 0));
-	/* SPM_WAKEUP_EVENT_MASK */
+	// SPM_WAKEUP_EVENT_MASK
 	p += sprintf(p, "spm_wakeup_event_mask = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_SPM_WAKEUP_EVENT_MASK, 0));
-	/* SPM_WAKEUP_EVENT_EXT_MASK */
+	// SPM_WAKEUP_EVENT_EXT_MASK
 	p += sprintf(p, "spm_wakeup_event_ext_mask = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_SPM_WAKEUP_EVENT_EXT_MASK, 0));
-	/* SPM_SRC3_MASK */
+	// SPM_SRC3_MASK
 	p += sprintf(p, "md_ddr_en_2_0_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MD_DDR_EN_2_0_MASK_B, 0));
@@ -461,41 +462,41 @@ static ssize_t show_pwr_ctrl(int id, const struct pwr_ctrl *pwrctrl, char *buf)
 	p += sprintf(p, "mcu_ddren_2_mask_b = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MCU_DDREN_2_MASK_B, 0));
-	/* MP0_CPU0_WFI_EN */
+	// MP0_CPU0_WFI_EN
 	p += sprintf(p, "mp0_cpu0_wfi_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP0_CPU1_WFI_EN, 0));
-	/* MP0_CPU1_WFI_EN */
+	// MP0_CPU1_WFI_EN
 	p += sprintf(p, "mp0_cpu1_wfi_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP0_CPU1_WFI_EN, 0));
-	/* MP0_CPU2_WFI_EN */
+	// MP0_CPU2_WFI_EN
 	p += sprintf(p, "mp0_cpu2_wfi_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP0_CPU2_WFI_EN, 0));
-	/* MP0_CPU3_WFI_EN */
+	// MP0_CPU3_WFI_EN
 	p += sprintf(p, "mp0_cpu3_wfi_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP0_CPU3_WFI_EN, 0));
-	/* MP1_CPU0_WFI_EN */
+	// MP1_CPU0_WFI_EN
 	p += sprintf(p, "mp1_cpu0_wfi_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP0_CPU1_WFI_EN, 0));
-	/* MP1_CPU1_WFI_EN */
+	// MP1_CPU1_WFI_EN
 	p += sprintf(p, "mp1_cpu1_wfi_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP1_CPU1_WFI_EN, 0));
-	/* MP1_CPU2_WFI_EN */
+	// MP1_CPU2_WFI_EN
 	p += sprintf(p, "mp1_cpu2_wfi_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP1_CPU2_WFI_EN, 0));
-	/* MP0_CPU3_WFI_EN */
+	// MP0_CPU3_WFI_EN
 	p += sprintf(p, "mp1_cpu3_wfi_en = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_MP1_CPU3_WFI_EN, 0));
 
 	WARN_ON(p - buf >= PAGE_SIZE);
-
+*/
 	return p - buf;
 }
 
@@ -544,7 +545,7 @@ static ssize_t store_pwr_ctrl(int id, struct pwr_ctrl *pwrctrl,
 
 	pr_info("[SPM] pwr_ctrl: cmd = %s, val = 0x%x\n", cmd, val);
 
-
+/* FIXME
 	if (!strcmp(cmd,
 		pwr_ctrl_str[PW_PCM_FLAGS])) {
 		pwrctrl->pcm_flags = val;
@@ -625,7 +626,7 @@ static ssize_t store_pwr_ctrl(int id, struct pwr_ctrl *pwrctrl,
 		pwrctrl->wdt_disable = val;
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_WDT_DISABLE, val);
-	 /* SPM_AP_STANDBY_CON */
+	// SPM_AP_STANDBY_CON
 	} else if (!strcmp(cmd,
 			pwr_ctrl_str[PW_WFI_OP])) {
 		pwrctrl->wfi_op = val;
@@ -711,7 +712,7 @@ static ssize_t store_pwr_ctrl(int id, struct pwr_ctrl *pwrctrl,
 		pwrctrl->conn_apsrc_sel = val;
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_CONN_SRCCLKENA_SEL_MASK, val);
-	/* SPM_SRC_REQ */
+	// SPM_SRC_REQ
 	} else if (!strcmp(cmd,
 			pwr_ctrl_str[PW_SPM_APSRC_REQ])) {
 		unsigned int req = (val == 0) ?
@@ -777,7 +778,7 @@ static ssize_t store_pwr_ctrl(int id, struct pwr_ctrl *pwrctrl,
 		pwrctrl->cpu_md_dvfs_sop_force_on = val;
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_CPU_MD_DVFS_SOP_FORCE_ON, val);
-	/* SPM_SRC_MASK */
+	// SPM_SRC_MASK
 	} else if (!strcmp(cmd,
 			pwr_ctrl_str[PW_CSYSPWREQ_MASK])) {
 		pwrctrl->csyspwreq_mask = val;
@@ -923,7 +924,7 @@ static ssize_t store_pwr_ctrl(int id, struct pwr_ctrl *pwrctrl,
 		pwrctrl->vdec_req_mask_b = val;
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_MCU_APSRCREQ_INFRA_MASK_B, val);
-	/* SPM_SRC2_MASK */
+	// SPM_SRC2_MASK
 	} else if (!strcmp(cmd,
 			pwr_ctrl_str[PW_MD_DDR_EN_0_MASK_B])) {
 		pwrctrl->md_ddr_en_0_mask_b = val;
@@ -988,19 +989,19 @@ static ssize_t store_pwr_ctrl(int id, struct pwr_ctrl *pwrctrl,
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_MCU_DDREN_MASK_B,
 					val);
-	/* SPM_WAKEUP_EVENT_MASK */
+	// SPM_WAKEUP_EVENT_MASK
 	} else if (!strcmp(cmd,
 			pwr_ctrl_str[PW_SPM_WAKEUP_EVENT_MASK])) {
 		pwrctrl->spm_wakeup_event_mask = val;
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_SPM_WAKEUP_EVENT_MASK, val);
-	/* SPM_WAKEUP_EVENT_EXT_MASK */
+	// SPM_WAKEUP_EVENT_EXT_MASK
 	} else if (!strcmp(cmd,
 			pwr_ctrl_str[PW_SPM_WAKEUP_EVENT_EXT_MASK])) {
 		pwrctrl->spm_wakeup_event_ext_mask = val;
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_SPM_WAKEUP_EVENT_EXT_MASK, val);
-	/* SPM_SRC3_MASK */
+	// SPM_SRC3_MASK
 	} else if (!strcmp(cmd,
 			pwr_ctrl_str[PW_MD_DDR_EN_2_0_MASK_B])) {
 		pwrctrl->md_ddr_en_2_0_mask_b = val;
@@ -1059,56 +1060,56 @@ static ssize_t store_pwr_ctrl(int id, struct pwr_ctrl *pwrctrl,
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_MCU_DDREN_2_MASK_B,
 					val);
-	/* MP0_CPU0_WFI_EN */
+	// MP0_CPU0_WFI_EN
 	} else if (!strcmp(cmd,
 			pwr_ctrl_str[PW_MP0_CPU0_WFI_EN])) {
 		pwrctrl->mp0_cpu0_wfi_en = val;
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_MP0_CPU0_WFI_EN, val);
-	/* MP0_CPU1_WFI_EN */
+	// MP0_CPU1_WFI_EN
 	} else if (!strcmp(cmd,
 			pwr_ctrl_str[PW_MP0_CPU1_WFI_EN])) {
 		pwrctrl->mp0_cpu1_wfi_en = val;
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_MP0_CPU1_WFI_EN, val);
-	/* MP0_CPU2_WFI_EN */
+	// MP0_CPU2_WFI_EN
 	} else if (!strcmp(cmd,
 			pwr_ctrl_str[PW_MP0_CPU2_WFI_EN])) {
 		pwrctrl->mp0_cpu2_wfi_en = val;
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_MP0_CPU2_WFI_EN, val);
-	/* MP0_CPU3_WFI_EN */
+	// MP0_CPU3_WFI_EN
 	} else if (!strcmp(cmd,
 			pwr_ctrl_str[PW_MP0_CPU3_WFI_EN])) {
 		pwrctrl->mp0_cpu3_wfi_en = val;
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_MP0_CPU3_WFI_EN, val);
-	/* MP1_CPU0_WFI_EN */
+	// MP1_CPU0_WFI_EN
 	} else if (!strcmp(cmd,
 			pwr_ctrl_str[PW_MP1_CPU0_WFI_EN])) {
 		pwrctrl->mp1_cpu0_wfi_en = val;
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_MP1_CPU0_WFI_EN, val);
-	/* MP1_CPU1_WFI_EN */
+	// MP1_CPU1_WFI_EN
 	} else if (!strcmp(cmd,
 			pwr_ctrl_str[PW_MP1_CPU1_WFI_EN])) {
 		pwrctrl->mp1_cpu1_wfi_en = val;
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_MP1_CPU1_WFI_EN, val);
-	/* MP1_CPU2_WFI_EN */
+	// MP1_CPU2_WFI_EN
 	} else if (!strcmp(cmd,
 			pwr_ctrl_str[PW_MP1_CPU2_WFI_EN])) {
 		pwrctrl->mp1_cpu2_wfi_en = val;
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_MP1_CPU2_WFI_EN, val);
-	/* MP1_CPU3_WFI_EN */
+	// MP1_CPU3_WFI_EN
 	} else if (!strcmp(cmd,
 			pwr_ctrl_str[PW_MP1_CPU3_WFI_EN])) {
 		pwrctrl->mp1_cpu3_wfi_en = val;
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_MP1_CPU3_WFI_EN, val);
 	}
-
+*/
 	return count;
 }
 

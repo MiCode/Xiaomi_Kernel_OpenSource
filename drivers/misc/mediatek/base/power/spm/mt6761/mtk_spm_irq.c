@@ -18,13 +18,13 @@
 #include <mtk_spm.h>
 #include <mtk_spm_irq.h>
 #include <mtk_spm_internal.h>
-#include <mt-plat/mtk_cirq.h>
+//#include <mt-plat/mtk_cirq.h>
 
 #if defined(CONFIG_MTK_SYS_CIRQ)
-#include <mt-plat/mtk_cirq.h>
+//#include <mt-plat/mtk_cirq.h>
 #endif /* CONFIG_MTK_SYS_CIRQ */
 #if defined(CONFIG_MTK_GIC_V3_EXT)
-#include <linux/irqchip/mtk-gic-extend.h>
+//#include <linux/irqchip/mtk-gic-extend.h>
 #endif /* CONFIG_MTK_GIC_V3_EXT */
 
 char __attribute__((weak)) *spm_vcorefs_dump_dvfs_regs(char *p)
@@ -212,7 +212,9 @@ static irqreturn_t spm_irq0_handler(int irq, void *dev_id)
 	}
 
 	/* clean ISR status */
+	/* FIXME
 	SMC_CALL(IRQ0_HANDLER, isr, 0, 0);
+	*/
 	spin_unlock_irqrestore(&__spm_lock, flags);
 
 	if (isr & (ISRS_SW_INT1)) {

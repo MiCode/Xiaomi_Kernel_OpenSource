@@ -16,10 +16,11 @@
 static int local_spm_load_firmware_status = 1;
 int spm_load_firmware_status(void)
 {
+/* FIXME
 	if (local_spm_load_firmware_status == 1)
 		local_spm_load_firmware_status =
 			SMC_CALL(FIRMWARE_STATUS, 0, 0, 0);
-
+*/
 	/* -1 not init, 0: not loaded, 1: loaded, 2: loaded and kicked */
 	return local_spm_load_firmware_status;
 }
@@ -87,9 +88,9 @@ void spm_ap_mdsrc_req(u8 set)
 			spin_unlock_irqrestore(&__spm_lock, flags);
 		} else {
 			spm_ap_mdsrc_req_cnt++;
-
+/* FIXME
 			SMC_CALL(AP_MDSRC_REQ, 1, 0, 0);
-
+*/
 			spin_unlock_irqrestore(&__spm_lock, flags);
 
 			check_ap_mdsrc_ack();
@@ -104,8 +105,10 @@ void spm_ap_mdsrc_req(u8 set)
 				"[SPM ]warning: set = %d spm_ap_mdsrc_req_cnt = %d\n",
 				set, spm_ap_mdsrc_req_cnt);
 		} else {
+/* FIXME
 			if (spm_ap_mdsrc_req_cnt == 0)
 				SMC_CALL(AP_MDSRC_REQ, 0, 0, 0);
+*/
 		}
 
 		spin_unlock_irqrestore(&__spm_lock, flags);

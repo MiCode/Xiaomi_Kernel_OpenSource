@@ -10,7 +10,8 @@
 #include <linux/spinlock.h>
 #include <linux/io.h>
 
-#include <mt-plat/mtk_secure_api.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <mt-plat/sync_write.h>
 #include <mt-plat/aee.h>
 
@@ -30,9 +31,9 @@
 /********************************************************************
  * dpidle/sodi3/sodi default feature enable/disable
  *******************************************************************/
-#define MTK_IDLE_FEATURE_ENABLE_DPIDLE  (1)
-#define MTK_IDLE_FEATURE_ENABLE_SODI    (1)
-#define MTK_IDLE_FEATURE_ENABLE_SODI3   (1)
+#define MTK_IDLE_FEATURE_ENABLE_DPIDLE  (0)
+#define MTK_IDLE_FEATURE_ENABLE_SODI    (0)
+#define MTK_IDLE_FEATURE_ENABLE_SODI3   (0)
 
 
 /**************************************
@@ -53,10 +54,10 @@
 /* PCM_TIMER_VAL */
 #define PCM_TIMER_MAX		(0xffffffff - PCM_WDT_TIMEOUT)
 
-/* SMC call's marco */
+/* SMC call's marco
 #define SMC_CALL(_name, _arg0, _arg1, _arg2) \
 	mt_secure_call(MTK_SIP_KERNEL_SPM_##_name, _arg0, _arg1, _arg2, 0)
-
+*/
 extern spinlock_t __spm_lock;
 
 extern void __iomem *spm_base;

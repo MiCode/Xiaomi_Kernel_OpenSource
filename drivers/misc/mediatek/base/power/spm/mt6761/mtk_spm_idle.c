@@ -9,9 +9,10 @@
 #include <linux/spinlock.h>
 
 #include <mt-plat/mtk_ccci_common.h> /* exec_ccci_kern_func_by_md_id */
+#if defined(CONFIG_MTK_WATCHDOG) && defined(CONFIG_MTK_WD_KICKER)
 #include <mt-plat/mtk_wd_api.h> /* ap wdt related definitons */
-
-#include <trace/events/mtk_idle_event.h>
+#endif
+//#include <trace/events/mtk_idle_event.h>
 
 #include <mtk_idle.h>
 #include <mtk_idle_internal.h>
@@ -123,7 +124,7 @@ static void mtk_idle_gs_dump(int idle_type)
 /********************************************************************
  * dp/so3/so trigger wfi
  *******************************************************************/
-
+/* FIXME
 static void print_ftrace_tag(int idle_type, int cpu, int enter)
 {
 #if MTK_IDLE_TRACE_TAG_ENABLE
@@ -142,16 +143,19 @@ static void print_ftrace_tag(int idle_type, int cpu, int enter)
 	}
 #endif
 }
-
+*/
 int mtk_idle_trigger_wfi(int idle_type, unsigned int idle_flag, int cpu)
 {
 	int spm_dormant_sta = 0;
 	struct pwr_ctrl *pwrctrl;
+	//struct arm_smccc_res ares;
+
 	unsigned int cpuidle_mode[NR_IDLE_TYPES] = {
 		[IDLE_TYPE_DP] = MTK_DPIDLE_MODE,
 		[IDLE_TYPE_SO3] = MTK_SODI3_MODE,
 		[IDLE_TYPE_SO] = MTK_SODI_MODE,
 	};
+/* FIXME
 	unsigned int enter_flag[NR_IDLE_TYPES] = {
 		[IDLE_TYPE_DP] = SPM_ARGS_DPIDLE,
 		[IDLE_TYPE_SO3] = SPM_ARGS_SODI,
@@ -162,28 +166,30 @@ int mtk_idle_trigger_wfi(int idle_type, unsigned int idle_flag, int cpu)
 		[IDLE_TYPE_SO3] = SPM_ARGS_SODI_FINISH,
 		[IDLE_TYPE_SO] = SPM_ARGS_SODI_FINISH,
 	};
-
+*/
 	/* Dump low power golden setting */
 	if (idle_flag & MTK_IDLE_LOG_DUMP_LP_GS)
 		mtk_idle_gs_dump(idle_type);
 
 	pwrctrl = get_pwrctrl(idle_type);
-
+/* FIXME
 	print_ftrace_tag(idle_type, cpu, 1);
-
+*/
 	if (is_cpu_pdn(pwrctrl->pcm_flags))
 		spm_dormant_sta = mtk_enter_idle_state(cpuidle_mode[idle_type]);
 	else {
+/* FIXME
 		mt_secure_call(MTK_SIP_KERNEL_SPM_ARGS
 					, enter_flag[idle_type], 0, 0, 0);
 		mt_secure_call(MTK_SIP_KERNEL_SPM_LEGACY_SLEEP
 					, 0, 0, 0, 0);
 		mt_secure_call(MTK_SIP_KERNEL_SPM_ARGS
 					, leave_flag[idle_type], 0, 0, 0);
+*/
 	}
-
+/* FIXME
 	print_ftrace_tag(idle_type, cpu, 0);
-
+*/
 	if (spm_dormant_sta < 0)
 		pr_info("mtk_enter_idle_state(%d) ret %d\n",
 			cpuidle_mode[idle_type], spm_dormant_sta);
@@ -195,13 +201,13 @@ int mtk_idle_trigger_wfi(int idle_type, unsigned int idle_flag, int cpu)
 /********************************************************************
  * dp/so3/so setup/cleanup pcm
  *******************************************************************/
-
+/* FIXME
 static int smc_id[NR_IDLE_TYPES] = {
 	[IDLE_TYPE_DP] = MTK_SIP_KERNEL_SPM_DPIDLE_ARGS,
 	[IDLE_TYPE_SO3] = MTK_SIP_KERNEL_SPM_SODI_ARGS,
 	[IDLE_TYPE_SO] = MTK_SIP_KERNEL_SPM_SODI_ARGS,
 };
-
+*/
 static void spm_idle_pcm_setup_before_wfi(
 	int idle_type, struct pwr_ctrl *pwrctrl, unsigned int op_cond)
 {
@@ -211,22 +217,25 @@ static void spm_idle_pcm_setup_before_wfi(
 		spm_get_resource_usage_by_user(SPM_RESOURCE_USER_SCP)
 		: spm_get_resource_usage();
 
-
+/* FIXME
 	mt_secure_call(smc_id[idle_type], pwrctrl->pcm_flags,
 		pwrctrl->pcm_flags1, resource_usage, 0);
-
+*/
 	/* [sodi3]
 	 * ap wdt works fine without f26m and no need to enable pcm wdt
 	 *
 	 */
+/* FIXME
 	if (idle_type == IDLE_TYPE_SO3)
 		mt_secure_call(MTK_SIP_KERNEL_SPM_PWR_CTRL_ARGS
 			, SPM_PWR_CTRL_SODI3, PW_WDT_DISABLE, 1, 0);
-
+*/
 	/* [sleep dpidle] bypass wake_src and pcm timer value */
+/* FIXME
 	if (op_cond & MTK_IDLE_OPT_SLEEP_DPIDLE)
 		mt_secure_call(MTK_SIP_KERNEL_SPM_SLEEP_DPIDLE_ARGS
 			, pwrctrl->timer_val, pwrctrl->wake_src, 0, 0);
+*/
 }
 
 static void spm_idle_pcm_setup_after_wfi(

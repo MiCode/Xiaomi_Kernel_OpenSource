@@ -6,12 +6,12 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 
-#include <trace/events/mtk_idle_event.h> /* trace header */
+//#include <trace/events/mtk_idle_event.h> /* trace header */
 
 #include <mtk_mcdi_governor.h> /* idle_refcnt_inc/dec */
 
 /* add/remove_cpu_to/from_perfer_schedule_domain */
-#include <linux/irqchip/mtk-gic-extend.h>
+//#include <linux/irqchip/mtk-gic-extend.h>
 
 #include <mtk_idle.h>
 #include <mtk_idle_internal.h>

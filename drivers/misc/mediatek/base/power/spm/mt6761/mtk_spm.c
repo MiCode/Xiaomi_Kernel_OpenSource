@@ -25,7 +25,7 @@
 #include <mtk_sspm.h>
 
 #include <mtk_idle_sysfs.h>
-#include <mach/upmu_sw.h>
+//#include <mach/upmu_sw.h>
 
 DEFINE_SPINLOCK(__spm_lock);
 
@@ -249,9 +249,9 @@ static int spm_module_init(void)
 	int ret = -1;
 	struct mtk_idle_sysfs_handle pParent2ND;
 	struct mtk_idle_sysfs_handle *pParent = NULL;
-
+/*FIXME
 	wakeup_source_init(&spm_wakelock, "spm");
-
+*/
 	spm_register_init(&spm_irq_0);
 
 	/* implemented in mtk_spm_irq.c */
@@ -299,11 +299,13 @@ static int spm_module_init(void)
 	}
 #endif /* CONFIG_PM */
 #endif /* CONFIG_FPGA_EARLY_PORTING */
+
+/*FIXME
 	SMC_CALL(ARGS, SPM_ARGS_SPMFW_IDX, spm_get_spmfw_idx(), 0);
 
 	if (is_pmic_mrv())
 		SMC_CALL(ARGS, SPM_ARGS_PMIC_MRV, 0, 0);
-
+*/
 	return 0;
 }
 

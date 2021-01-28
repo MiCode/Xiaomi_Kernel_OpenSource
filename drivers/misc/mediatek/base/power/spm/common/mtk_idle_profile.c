@@ -14,7 +14,7 @@
 #endif
 
 #include <mtk_spm_internal.h>
-
+#include <linux/sched/clock.h>
 #define SPM_MET_TAGGING  0
 
 #if SPM_MET_TAGGING

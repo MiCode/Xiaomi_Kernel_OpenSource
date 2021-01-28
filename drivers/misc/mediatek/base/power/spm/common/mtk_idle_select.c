@@ -7,7 +7,7 @@
 #include <linux/module.h>
 #include <linux/spinlock.h>
 
-#include <mt-plat/mtk_meminfo.h> /* dcs_get_dcs_status_trylock/unlock */
+//#include <mt-plat/mtk_meminfo.h> /* dcs_get_dcs_status_trylock/unlock */
 #include <mt-plat/mtk_boot.h>
 
 #if defined(CONFIG_MICROTRUST_TEE_SUPPORT)
