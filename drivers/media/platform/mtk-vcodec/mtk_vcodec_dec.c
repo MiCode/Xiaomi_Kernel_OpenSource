@@ -1981,12 +1981,10 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 			dma_buf_detach(mtkbuf->frame_buffer.dma_general_buf,
 				buf_att);
 
-			/* general buf ref is hold by user */
-			dma_buf_put(mtkbuf->frame_buffer.dma_general_buf);
 		} else
 			mtkbuf->frame_buffer.dma_general_buf = 0;
 		mtk_v4l2_debug(4,
-			"general_buf fd=%d, dma_buf=%p, DMA=%lx",
+			"dma_buf_get general_buf fd=%d, dma_buf=%p, DMA=%lx",
 			mtkbuf->general_user_fd,
 			mtkbuf->frame_buffer.dma_general_buf,
 			(unsigned long)mtkbuf->frame_buffer.dma_general_addr);
@@ -2310,6 +2308,17 @@ static void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 	// Check if need to proceed cache operations for Capture Queue
 	vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
+
+	if (mtkbuf->frame_buffer.dma_general_buf != 0) {
+		dma_buf_put(mtkbuf->frame_buffer.dma_general_buf);
+		mtkbuf->frame_buffer.dma_general_buf = 0;
+		mtk_v4l2_debug(4,
+			"dma_buf_put general_buf fd=%d, dma_buf=%p, DMA=%lx",
+			mtkbuf->general_user_fd,
+			mtkbuf->frame_buffer.dma_general_buf,
+			(unsigned long)mtkbuf->frame_buffer.dma_general_addr);
+	}
+
 	if (vb->vb2_queue->memory == VB2_MEMORY_DMABUF &&
 		!(mtkbuf->flags & NO_CAHCE_INVALIDATE) &&
 		!(ctx->dec_params.svp_mode)) {
