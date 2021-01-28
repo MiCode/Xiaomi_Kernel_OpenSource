@@ -16,3 +16,5 @@ else
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
 
+obj-$(CONFIG_LEDS_MT6357) += leds-mt6357.o
+obj-$(CONFIG_LEDS_MT6357) += mt_led_trigger.o

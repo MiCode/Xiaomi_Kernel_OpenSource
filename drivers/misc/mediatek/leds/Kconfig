@@ -31,3 +31,12 @@ config BACKLIGHT_SUPPORT_LM3697
 	  Set y to support.
 	  Set n to disable.
 	  Charge pump driver for external backlight.
+
+config LEDS_MT6357
+	tristate "LED Support for Mediatek MT6357 PMIC"
+	depends on LEDS_CLASS
+	help
+	  This option enables support for on-chip LED drivers found on
+	  Mediatek MT6357 PMIC.
+	  If you want to use MediaTek(R) LEDs support, say Y or M here.
+	  If unsure, say N.

@@ -164,15 +164,6 @@ static int led_set_pwm(int pwm_num, struct nled_setting *led)
 	mt_led_set_pwm(pwm_num, led);
 	return 0;
 }
-
-static int brightness_set_pmic(enum mt65xx_led_pmic pmic_type, u32 level,
-			       u32 div)
-{
-	mt_brightness_set_pmic(pmic_type, level, div);
-	return -1;
-
-}
-
 static int mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level)
 {
 #ifdef CONTROL_BL_TEMPERATURE
@@ -565,7 +556,7 @@ static void mt65xx_leds_shutdown(struct platform_device *pdev)
 			/* break; */
 
 		case MT65XX_LED_MODE_PMIC:
-			brightness_set_pmic(g_leds_data[i]->cust.data, 0, 0);
+			pr_debug("not support set brightness through pmic!!1\n");
 			break;
 		case MT65XX_LED_MODE_CUST_LCM:
 			pr_debug("Backlight control through LCM!!1\n");
