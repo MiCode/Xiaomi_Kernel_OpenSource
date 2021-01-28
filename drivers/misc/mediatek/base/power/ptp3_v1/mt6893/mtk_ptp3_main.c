@@ -121,6 +121,8 @@
 #define PTP3_DT_MEM_OFFSET  0x40000
 #define PTP3_ADCC_MEM_OFFSET 0x50000
 
+/* TO BE FIXED: avoid system reboot */
+#if 0
 static unsigned long long ptp3_reserve_memory_init(void)
 {
 	/* GAT log use */
@@ -143,6 +145,7 @@ static unsigned long long ptp3_reserve_memory_init(void)
 	return (unsigned long long)ptp3_mem_base_virt;
 
 }
+#endif
 
 #endif /* CONFIG_OF_RESERVED_MEM */
 #endif /* CONFIG_FPGA_EARLY_PORTING */
@@ -232,12 +235,12 @@ static int create_procfs(void)
 
 static int ptp3_probe(struct platform_device *pdev)
 {
+
+/* TO BE FIXED: avoid system reboot */
+#if 0
 	/* GAT log use */
 	unsigned long long ptp3_mem_size = PTP3_MEM_SIZE;
 	unsigned long long ptp3_mem_base_virt;
-
-	/* TO BE FIXED: avoid system reboot */
-	return 0;
 
 	/* init for DRAM memory request */
 	ptp3_mem_base_virt = ptp3_reserve_memory_init();
@@ -279,16 +282,21 @@ static int ptp3_probe(struct platform_device *pdev)
 			ptp3_mem_size);
 	} else
 		ptp3_err("ptp3_mem_base_virt is null !\n");
+#endif
 
 	/* probe trigger for ptp3 features */
 	brisket2_probe(pdev);
 	fll_probe(pdev);
+
+/* TO BE FIXED: avoid system reboot */
+#if 0
 	cinst_probe(pdev);
 	drcc_probe(pdev);
 	ctt_probe(pdev);
 	pdp_probe(pdev);
 	dt_probe(pdev);
 	adcc_probe(pdev);
+#endif
 	return 0;
 }
 

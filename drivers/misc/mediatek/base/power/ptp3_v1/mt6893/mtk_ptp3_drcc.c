@@ -1342,10 +1342,12 @@ int drcc_probe(struct platform_device *pdev)
 		if (drcc7_Code <= 63)
 			mtk_drcc_DrccCode(drcc7_Code, 7);
 	}
+/* TO BE FIXED: avoid system reboot */
+#if 0
 	/* dump reg status into PICACHU dram for DB */
 	drcc_reserve_memory_dump(drcc_buf, drcc_mem_size,
 		DRCC_TRIGGER_STAGE_PROBE);
-
+#endif
 	drcc_msg("drcc probe ok!!\n");
 #endif
 #endif

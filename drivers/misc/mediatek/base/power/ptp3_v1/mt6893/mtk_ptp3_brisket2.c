@@ -100,7 +100,7 @@
 #ifdef CONFIG_OF
 
 /* B-DOE use */
-static unsigned int brisket2_cfg;
+static unsigned int brisket2_InitPath;
 
 #endif
 #endif
@@ -578,7 +578,7 @@ int brisket2_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF
 	struct device_node *node = NULL;
 	int rc = 0;
-	unsigned int cpu, value, cfg;
+	unsigned int cpu, cfg;
 
 	node = pdev->dev.of_node;
 	if (!node) {
@@ -586,17 +586,16 @@ int brisket2_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	/* brisket2_cfg */
+	/* brisket2_InitPath */
 	rc = of_property_read_u32(node,
-		"brisket2_cfg", &brisket2_cfg);
+		"brisket2_InitPath", &brisket2_InitPath);
 
-	if (!rc && (brisket2_cfg != 0xF)) {
+	if (!rc && (brisket2_InitPath != 0x10)) {
 		brisket2_msg(
-			"brisket2_cfg from DTree; rc(%d) brisket2_cfg(0x%x)\n",
+			"brisket2_InitPath from DTree; rc(%d) brisket2_InitPath(0x%x)\n",
 			rc,
-			brisket2_cfg);
+			brisket2_InitPath);
 		for (cpu = BRISKET2_CPU_START_ID; cpu <= BRISKET2_CPU_END_ID; cpu++) {
-			value = (brisket2_cfg >> cpu*4) & 0xF;
 			cfg = (BRISKET2_LIST_Cfg << BRISKET2_CFG_OFFSET_OPTION)
 				& BRISKET2_CFG_BITMASK_OPTION;
 			cfg |= (cpu << BRISKET2_CFG_OFFSET_CPU) & BRISKET2_CFG_BITMASK_CPU;
@@ -606,14 +605,15 @@ int brisket2_probe(struct platform_device *pdev)
 				PTP3_FEATURE_BRISKET2,
 				BRISKET2_NODE_LIST_WRITE,
 				cfg,
-				value);
+				brisket2_InitPath);
 		}
 	}
-
+/* TO BE FIXED: avoid system reboot */
+#if 0
 	/* dump reg status into PICACHU dram for DB */
 	brisket2_reserve_memory_dump(
 		brisket2_buf, brisket2_mem_size, BRISKET2_TRIGGER_STAGE_PROBE);
-
+#endif
 	brisket2_msg("brisket2 probe ok!!\n");
 #endif
 #endif
@@ -622,25 +622,11 @@ int brisket2_probe(struct platform_device *pdev)
 
 int brisket2_suspend(struct platform_device *pdev, pm_message_t state)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF_RESERVED_MEM
-	/* dump reg status into PICACHU dram for DB */
-	brisket2_reserve_memory_dump(
-		brisket2_buf+0x1000, brisket2_mem_size, BRISKET2_TRIGGER_STAGE_SUSPEND);
-#endif
-#endif
 	return 0;
 }
 
 int brisket2_resume(struct platform_device *pdev)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF_RESERVED_MEM
-	/* dump reg status into PICACHU dram for DB */
-	brisket2_reserve_memory_dump(
-		brisket2_buf+0x2000, brisket2_mem_size, BRISKET2_TRIGGER_STAGE_RESUME);
-#endif
-#endif
 	return 0;
 }
 

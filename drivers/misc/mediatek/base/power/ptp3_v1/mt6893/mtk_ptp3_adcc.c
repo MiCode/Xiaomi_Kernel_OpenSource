@@ -587,9 +587,12 @@ int adcc_probe(struct platform_device *pdev)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF_RESERVED_MEM
+/* TO BE FIXED: avoid system reboot */
+#if 0
 	/* dump reg status into PICACHU dram for DB */
 	adcc_reserve_memory_dump(adcc_buf, adcc_mem_size,
 		ADCC_TRIGGER_STAGE_PROBE);
+#endif
 #endif
 #endif
 	return 0;
@@ -597,27 +600,11 @@ int adcc_probe(struct platform_device *pdev)
 
 int adcc_suspend(struct platform_device *pdev, pm_message_t state)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF_RESERVED_MEM
-	/* dump reg status into PICACHU dram for DB */
-	adcc_reserve_memory_dump(
-		adcc_buf+0x1000, adcc_mem_size,
-		ADCC_TRIGGER_STAGE_SUSPEND);
-#endif
-#endif
 	return 0;
 }
 
 int adcc_resume(struct platform_device *pdev)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF_RESERVED_MEM
-	/* dump reg status into PICACHU dram for DB */
-	adcc_reserve_memory_dump(
-		adcc_buf+0x2000, adcc_mem_size,
-		ADCC_TRIGGER_STAGE_RESUME);
-#endif
-#endif
 	return 0;
 }
 

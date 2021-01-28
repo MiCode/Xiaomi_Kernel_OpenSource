@@ -448,11 +448,12 @@ int pdp_probe(struct platform_device *pdev)
 				ptp3_smc_handle(PTP3_FEATURE_PDP, PDP_RW_PINCTL_WRITE,
 				(pdp_state_pinctl >> pdp_n) & 0x1, pdp_n);
 		}
-
+/* TO BE FIXED: avoid system reboot */
+#if 0
 		/* dump reg status into PICACHU dram for DB */
 			pdp_reserve_memory_dump(pdp_buf, pdp_mem_size,
 				PDP_TRIGGER_STAGE_PROBE);
-
+#endif
 			pdp_msg("pdp probe ok!!\n");
 #endif
 #endif
