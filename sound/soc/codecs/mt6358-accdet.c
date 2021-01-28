@@ -829,6 +829,13 @@ static void send_status_event(u32 cable_type, u32 status)
 				SND_JACK_MICROPHONE);
 		pr_info("accdet MICROPHONE(4-pole) %s\n",
 			status ? "PlugIn" : "PlugOut");
+		/* when press key for a long time then plug in
+		 * even recoginized as 4-pole
+		 * disable micbias timer still timeout after 6s
+		 * it check AB=00(because keep to press key) then disable
+		 * micbias, it will cause key no response
+		 */
+		del_timer_sync(&micbias_timer);
 		break;
 	case LINE_OUT_DEVICE:
 		if (status)
