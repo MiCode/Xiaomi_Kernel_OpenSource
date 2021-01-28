@@ -1863,6 +1863,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				ret = -EFAULT;
 				goto EXIT;
 			}
+			vfree(maps);
 			thread_info.Userthread_mapsLength = mapsLength;
 
 			// 3. get stack
