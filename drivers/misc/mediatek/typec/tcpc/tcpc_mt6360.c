@@ -87,6 +87,7 @@ struct mt6360_chip {
 
 #ifdef CONFIG_MTK_TYPEC_WATER_DETECT_BY_PCB
 	int pcb_gpio;
+	int pcb_gpio_polarity;
 #endif /* CONFIG_MTK_TYPEC_WATER_DETECT_BY_PCB */
 
 #ifdef CONFIG_WATER_DETECTION
@@ -2270,11 +2271,25 @@ static int mt6360_parse_dt(struct mt6360_chip *chip, struct device *dev,
 		return ret;
 	}
 	chip->pcb_gpio = ret;
+
+	ret = of_property_read_u32(np, "mt6360pd,pcb_gpio_polarity",
+				    &chip->pcb_gpio_polarity);
+	if (ret < 0) {
+		dev_info(dev, "%s no pcb_gpio_polarity info\n", __func__);
+		return ret;
+	}
 #else
 	ret = of_property_read_u32(np, "mt6360pd,pcb_gpio_num",
 				   &chip->pcb_gpio);
 	if (ret < 0) {
 		dev_info(dev, "%s no pcb_gpio info\n", __func__);
+		return ret;
+	}
+
+	ret = of_property_read_u32(np, "mt6360pd,pcb_gpio_polarity",
+				    &chip->pcb_gpio_polarity);
+	if (ret < 0) {
+		dev_info(dev, "%s no pcb_gpio_polarity info\n", __func__);
 		return ret;
 	}
 #endif /* !CONFIG_MTK_GPIO || CONFIG_MTK_GPIOLIB_STAND */
@@ -2431,7 +2446,7 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 	chip->tcpc->tcpc_flags |= TCPC_FLAGS_DISABLE_LEGACY;
 	chip->tcpc->tcpc_flags |= TCPC_FLAGS_WATCHDOG_EN;
 #ifdef CONFIG_MTK_TYPEC_WATER_DETECT_BY_PCB
-	if (gpio_get_value(chip->pcb_gpio) != 0)
+	if (gpio_get_value(chip->pcb_gpio) == chip->pcb_gpio_polarity)
 		chip->tcpc->tcpc_flags |= TCPC_FLAGS_WATER_DETECTION;
 #else
 	chip->tcpc->tcpc_flags |= TCPC_FLAGS_WATER_DETECTION;
