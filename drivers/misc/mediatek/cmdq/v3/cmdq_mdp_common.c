@@ -1174,6 +1174,9 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	if (handle->secData.is_secure) {
 		/* insert backup cookie cmd */
 		cmdq_sec_insert_backup_cookie_instr(handle, handle->thread);
+
+		/* prevent flush directly since engine conflict with normal */
+		handle->thread = CMDQ_INVALID_THREAD;
 	}
 #endif
 
