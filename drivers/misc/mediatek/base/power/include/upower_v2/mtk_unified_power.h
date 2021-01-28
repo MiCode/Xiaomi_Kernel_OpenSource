@@ -160,6 +160,11 @@ extern void upower_get_start_time_us(unsigned int type);
 extern void upower_get_diff_time_us(unsigned int type);
 extern void print_diff_results(unsigned int type);
 #endif
+
+#ifdef SUPPORT_UPOWER_DCONFIG
+extern void upower_by_doe(void);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

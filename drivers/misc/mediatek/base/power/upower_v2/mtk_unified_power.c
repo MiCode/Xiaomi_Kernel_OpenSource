@@ -805,6 +805,10 @@ static int __init upower_init(void)
 	return 0;
 #endif
 
+#ifdef SUPPORT_UPOWER_DCONFIG
+	upower_by_doe();
+#endif
+
 /* PTP has no efuse, so volt will be set to orig data
  * before upower_init_volt(), PTP has called upower_update_volt_by_eem()
  */
