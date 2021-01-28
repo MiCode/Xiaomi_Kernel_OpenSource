@@ -6,19 +6,25 @@
 #ifndef __MTK_LP_SYSFS__
 #define __MTK_LP_SYSFS__
 
+#define MTK_LP_SYSFS_HAS_ENTRY		(1)
+
+#define MTK_LP_SYSFS_ENTRY_NAME		"mtk_lpm"
+#define MTK_LP_SYSFS_BUF_READSZ		8192
+#define MTK_LP_SYSFS_BUF_WRITESZ	512
+
 typedef ssize_t (*f_mtk_idle_sysfs_show)(char *ToUserBuf
 			, size_t sz, void *priv);
 typedef ssize_t (*f_mtk_idle_sysfs_write)(char *FromUserBuf
 			, size_t sz, void *priv);
 
+struct mtk_lp_sysfs_handle {
+	void *_current;
+};
+
 struct mtk_lp_sysfs_op {
 	f_mtk_idle_sysfs_show	fs_read;
 	f_mtk_idle_sysfs_write	fs_write;
 	void *priv;
-};
-
-struct mtk_lp_sysfs_handle {
-	void *_current;
 };
 
 struct mtk_lp_sysfs_attr {
