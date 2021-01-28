@@ -90,10 +90,6 @@
  * Marco definition
  ************************************************/
 
-/* efuse: PTPOD index */
-#define DEVINFO_IDX_0 50
-
-
 /************************************************
  * static Variable
  ************************************************/
@@ -868,6 +864,111 @@ static int fll_cfg_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+static ssize_t fll_eventFreeze_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	/* parameter input */
+	unsigned int cfg = 0;
+	unsigned int cpu, value;
+	int ret = 0;
+
+	/* proc template for check */
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf) {
+		fll_err("buf(%d) is illegal\n");
+		goto out;
+	}
+
+	if (count >= PAGE_SIZE) {
+		fll_err("count(%d) >= PAGE_SIZE\n");
+		goto out;
+	}
+
+	if (copy_from_user(buf, buffer, count)) {
+		fll_err("buffer copy fail\n");
+		goto out;
+	}
+
+	buf[count] = '\0';
+
+	/* parameter check */
+	if (sscanf(buf, "%u %u",
+		&cpu, &value) != 2) {
+
+		fll_err("bad argument!! Should input 2 arguments.\n");
+		goto out;
+	}
+
+	/* encode cfg */
+	/*
+	 *	cfg[15:8] option
+	 *	cfg[31:28] cpu
+	 */
+	cfg = (FLL_LIST_FllEventFreeze << FLL_CFG_OFFSET_OPTION) & FLL_CFG_BITMASK_OPTION;
+	cfg |= (cpu << FLL_CFG_OFFSET_CPU) & FLL_CFG_BITMASK_CPU;
+
+	/* update via atf */
+	ret = ptp3_smc_handle(
+		PTP3_FEATURE_FLL,
+		FLL_NODE_LIST_WRITE,
+		cfg,
+		value);
+
+	if (ret < 0) {
+		fll_err("ret(%d). access atf fail\n", ret);
+		goto out;
+	}
+
+	/* update via mcupm or cpu_eb */
+	fll_ipi_handle(0, 0, 0, 0, 0);
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+
+}
+
+static int fll_eventFreeze_proc_show(struct seq_file *m, void *v)
+{
+	return 0;
+}
+
+static int fll_freq_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int cfg = 0;
+	unsigned int cpu, value, option;
+
+	for (cpu = BRISKET2_CPU_START_ID; cpu <= BRISKET2_CPU_END_ID; cpu++) {
+		seq_printf(m, FLL_TAG"[CPU%d]", cpu);
+
+		for (option = FLL_LIST_FllInFreq; option <= FLL_LIST_FllOutFreq; option++) {
+			/* encode cfg */
+			/*
+			 *	cfg[15:8] option
+			 *	cfg[31:28] cpu
+			 */
+			cfg = (option << FLL_CFG_OFFSET_OPTION) & FLL_CFG_BITMASK_OPTION;
+			cfg |= (cpu << FLL_CFG_OFFSET_CPU) & FLL_CFG_BITMASK_CPU;
+
+			/* update via atf */
+			value = ptp3_smc_handle(
+				PTP3_FEATURE_FLL,
+				FLL_NODE_LIST_READ,
+				cfg,
+				0);
+
+			if (option != FLL_LIST_FllOutFreq)
+				seq_printf(m, " %s:0x%x,",
+					FLL_LIST_NAME[option], value);
+			else /* last one */
+				seq_printf(m, " %s:0x%x;\n",
+					FLL_LIST_NAME[option], value);
+		}
+	}
+	return 0;
+}
+
 
 PROC_FOPS_RW(fll_ctrl);
 PROC_FOPS_RO(fll_list);
@@ -875,6 +976,8 @@ PROC_FOPS_RO(fll_dump);
 PROC_FOPS_RW(fll_reg);
 PROC_FOPS_RW(fll_eventCount);
 PROC_FOPS_RW(fll_cfg);
+PROC_FOPS_RW(fll_eventFreeze);
+PROC_FOPS_RO(fll_freq);
 
 int fll_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 {
@@ -893,6 +996,8 @@ int fll_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 		PROC_ENTRY(fll_reg),
 		PROC_ENTRY(fll_eventCount),
 		PROC_ENTRY(fll_cfg),
+		PROC_ENTRY(fll_eventFreeze),
+		PROC_ENTRY(fll_freq),
 	};
 
 	fll_dir = proc_mkdir("fll", dir);
@@ -921,26 +1026,42 @@ int fll_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 int fll_probe(struct platform_device *pdev)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF
-/* TO BE FIXED: avoid system reboot */
-#if 0
+#ifdef CONFIG_OF_RESERVED_MEM
 	/* dump reg status into PICACHU dram for DB */
-	fll_reserve_memory_dump(
-		fll_buf, fll_mem_size, FLL_TRIGGER_STAGE_PROBE);
-#endif
-	fll_debug("fll probe ok!!\n");
-#endif
-#endif
+	if (fll_buf != NULL) {
+		fll_reserve_memory_dump(
+			fll_buf, fll_mem_size, FLL_TRIGGER_STAGE_PROBE);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 int fll_suspend(struct platform_device *pdev, pm_message_t state)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	/* dump reg status into PICACHU dram for DB */
+	if (fll_buf != NULL) {
+		fll_reserve_memory_dump(
+			fll_buf+0x1000, fll_mem_size, FLL_TRIGGER_STAGE_SUSPEND);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 int fll_resume(struct platform_device *pdev)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	/* dump reg status into PICACHU dram for DB */
+	if (fll_buf != NULL) {
+		fll_reserve_memory_dump(
+			fll_buf+0x2000, fll_mem_size, FLL_TRIGGER_STAGE_RESUME);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 

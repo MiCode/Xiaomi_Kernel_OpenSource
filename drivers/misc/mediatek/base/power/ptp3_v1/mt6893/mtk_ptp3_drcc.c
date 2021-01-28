@@ -1346,25 +1346,44 @@ int drcc_probe(struct platform_device *pdev)
 		if (drcc7_Code <= 63)
 			mtk_drcc_DrccCode(drcc7_Code, 7);
 	}
-/* TO BE FIXED: avoid system reboot */
-#if 0
+#endif /* CONFIG_OF */
+
+#ifdef CONFIG_OF_RESERVED_MEM
 	/* dump reg status into PICACHU dram for DB */
-	drcc_reserve_memory_dump(drcc_buf, drcc_mem_size,
-		DRCC_TRIGGER_STAGE_PROBE);
-#endif
-	drcc_msg("drcc probe ok!!\n");
-#endif
-#endif
+	if (drcc_buf != NULL) {
+		drcc_reserve_memory_dump(drcc_buf, drcc_mem_size,
+			DRCC_TRIGGER_STAGE_PROBE);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 int drcc_suspend(struct platform_device *pdev, pm_message_t state)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	/* dump reg status into PICACHU dram for DB */
+	if (drcc_buf != NULL) {
+		drcc_reserve_memory_dump(drcc_buf+0x1000, drcc_mem_size,
+			DRCC_TRIGGER_STAGE_SUSPEND);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 int drcc_resume(struct platform_device *pdev)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	/* dump reg status into PICACHU dram for DB */
+	if (drcc_buf != NULL) {
+		drcc_reserve_memory_dump(drcc_buf+0x2000, drcc_mem_size,
+			DRCC_TRIGGER_STAGE_RESUME);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 

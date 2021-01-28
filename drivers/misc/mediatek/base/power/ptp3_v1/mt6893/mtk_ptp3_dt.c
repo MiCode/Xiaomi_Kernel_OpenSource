@@ -514,54 +514,72 @@ int dt_probe(struct platform_device *pdev)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF
-		struct device_node *node = NULL;
-		int rc = 0;
-		unsigned int dt_n = 0;
+	struct device_node *node = NULL;
+	int rc = 0;
+	unsigned int dt_n = 0;
 
-		node = pdev->dev.of_node;
-		if (!node) {
-			dt_err("get dt device node err\n");
-			return -ENODEV;
-		}
+	node = pdev->dev.of_node;
+	if (!node) {
+		dt_err("get dt device node err\n");
+		return -ENODEV;
+	}
 
-		rc = of_property_read_u32(node, "dt_state", &dt_state);
-		if (!rc) {
-			dt_debug("[xxxxdt] state from DTree; rc(%d) dt_state(0x%x)\n",
-				rc,
-				dt_state);
+	rc = of_property_read_u32(node, "dt_state", &dt_state);
+	if (!rc) {
+		dt_debug("[xxxxdt] state from DTree; rc(%d) dt_state(0x%x)\n",
+			rc,
+			dt_state);
 
-	for (dt_n = 0; dt_n < DT_NUM; dt_n++)
-		ptp3_smc_handle(PTP3_FEATURE_DT, DT_RW_WRITE, (dt_state >> dt_n) & 0x1, dt_n);
-		}
-		rc = of_property_read_u32(node, "dt_state_pinctl", &dt_state_pinctl);
-		if (!rc) {
-			dt_debug("[xxxxdt] state from DTree; rc(%d) dt_state_pinctl(0x%x)\n",
-				rc,
-				dt_state_pinctl);
+		for (dt_n = 0; dt_n < DT_NUM; dt_n++)
+			ptp3_smc_handle(PTP3_FEATURE_DT, DT_RW_WRITE,
+				(dt_state >> dt_n) & 0x1, dt_n);
+	}
+	rc = of_property_read_u32(node, "dt_state_pinctl", &dt_state_pinctl);
+	if (!rc) {
+		dt_debug("[xxxxdt] state from DTree; rc(%d) dt_state_pinctl(0x%x)\n",
+			rc,
+			dt_state_pinctl);
 
-for (dt_n = 0; dt_n < DT_NUM; dt_n++)
-	ptp3_smc_handle(PTP3_FEATURE_DT, DT_RW_PINCTL_WRITE, (dt_state_pinctl >> dt_n) & 0x1, dt_n);
-		}
-/* TO BE FIXED: avoid system reboot */
-#if 0
-		/* dump reg status into PICACHU dram for DB */
-			dt_reserve_memory_dump(dt_buf, dt_mem_size,
-				DT_TRIGGER_STAGE_PROBE);
-#endif
-			dt_msg("dt probe ok!!\n");
-#endif
-#endif
-			return 0;
-
-
+		for (dt_n = 0; dt_n < DT_NUM; dt_n++)
+			ptp3_smc_handle(PTP3_FEATURE_DT, DT_RW_PINCTL_WRITE,
+				(dt_state_pinctl >> dt_n) & 0x1, dt_n);
+	}
+#endif /* CONFIG_OF */
+#ifdef CONFIG_OF_RESERVED_MEM
+	/* dump reg status into PICACHU dram for DB */
+	if (dt_buf != NULL) {
+		dt_reserve_memory_dump(dt_buf+0x1000, dt_mem_size,
+			DT_TRIGGER_STAGE_PROBE);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
+	return 0;
 }
 int dt_suspend(struct platform_device *pdev, pm_message_t state)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	/* dump reg status into PICACHU dram for DB */
+	if (dt_buf != NULL) {
+		dt_reserve_memory_dump(dt_buf+0x1000, dt_mem_size,
+			DT_TRIGGER_STAGE_SUSPEND);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 int dt_resume(struct platform_device *pdev)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	/* dump reg status into PICACHU dram for DB */
+	if (dt_buf != NULL) {
+		dt_reserve_memory_dump(dt_buf+0x2000, dt_mem_size,
+			DT_TRIGGER_STAGE_RESUME);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 

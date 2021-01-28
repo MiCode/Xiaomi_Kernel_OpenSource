@@ -976,34 +976,46 @@ int ctt_probe(struct platform_device *pdev)
 		if (ctt_TmaxDelta[3] <= 31)
 			mtk_ctt_TmaxDelta(ctt_TmaxDelta[3], 3);
 	}
-/* TO BE FIXED: avoid system reboot */
-#if 0
+#endif /* CONFIG_OF */
+#ifdef CONFIG_OF_RESERVED_MEM
 	/* dump reg status into PICACHU dram for DB */
-	ctt_reserve_memory_dump(ctt_buf, ctt_mem_size,
-		CTT_TRIGGER_STAGE_PROBE);
-#endif
-	ctt_info("ctt probe ok!!\n");
-#endif
-#endif
+	if (ctt_buf != NULL) {
+		ctt_reserve_memory_dump(ctt_buf, ctt_mem_size,
+			CTT_TRIGGER_STAGE_PROBE);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 int ctt_suspend(struct platform_device *pdev, pm_message_t state)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	/* dump reg status into PICACHU dram for DB */
+	if (ctt_buf != NULL) {
+		ctt_reserve_memory_dump(ctt_buf+0x1000, ctt_mem_size,
+			CTT_TRIGGER_STAGE_SUSPEND);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 int ctt_resume(struct platform_device *pdev)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	/* dump reg status into PICACHU dram for DB */
+	if (ctt_buf != NULL) {
+		ctt_reserve_memory_dump(ctt_buf+0x2000, ctt_mem_size,
+			CTT_TRIGGER_STAGE_RESUME);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 MODULE_DESCRIPTION("MediaTek CTT Driver v0.1");
 MODULE_LICENSE("GPL");
-
-
-
-
-
-
 #undef __MTK_CTT_C__

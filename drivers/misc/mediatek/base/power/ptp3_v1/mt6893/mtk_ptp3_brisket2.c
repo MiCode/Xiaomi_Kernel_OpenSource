@@ -525,11 +525,82 @@ static int brisket2_cfg_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+static ssize_t brisket2_GlobalEventEn_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	/* parameter input */
+	unsigned int cfg = 0;
+	unsigned int cpu, value;
+	int ret = 0;
+
+	/* proc template for check */
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf) {
+		brisket2_err("buf(%d) is illegal\n");
+		goto out;
+	}
+
+	if (count >= PAGE_SIZE) {
+		brisket2_err("count(%d) >= PAGE_SIZE\n");
+		goto out;
+	}
+
+	if (copy_from_user(buf, buffer, count)) {
+		brisket2_err("buffer copy fail\n");
+		goto out;
+	}
+
+	buf[count] = '\0';
+
+	/* parameter check */
+	if (sscanf(buf, "%u %u",
+		&cpu, &value) != 2) {
+
+		brisket2_err("bad argument!! Should input 2 arguments.\n");
+		goto out;
+	}
+
+	/* encode cfg */
+	/*
+	 *	cfg[15:8] option
+	 *	cfg[31:28] cpu
+	 */
+	cfg = (BRISKET2_LIST_GlobalEventEn << BRISKET2_CFG_OFFSET_OPTION)
+		& BRISKET2_CFG_BITMASK_OPTION;
+	cfg |= (cpu << BRISKET2_CFG_OFFSET_CPU) & BRISKET2_CFG_BITMASK_CPU;
+
+	/* update via atf */
+	ret = ptp3_smc_handle(
+		PTP3_FEATURE_BRISKET2,
+		BRISKET2_NODE_LIST_WRITE,
+		cfg,
+		value);
+
+	if (ret < 0) {
+		brisket2_err("ret(%d). access atf fail\n", ret);
+		return ret;
+	}
+
+	/* update via mcupm or cpu_eb */
+	brisket2_ipi_handle(0, 0, 0, 0, 0);
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+
+}
+
+static int brisket2_GlobalEventEn_proc_show(struct seq_file *m, void *v)
+{
+	return 0;
+}
 
 PROC_FOPS_RW(brisket2_ctrl);
 PROC_FOPS_RO(brisket2_dump);
 PROC_FOPS_RW(brisket2_reg);
 PROC_FOPS_RW(brisket2_cfg);
+PROC_FOPS_RW(brisket2_GlobalEventEn);
 
 int brisket2_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 {
@@ -546,6 +617,7 @@ int brisket2_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 		PROC_ENTRY(brisket2_dump),
 		PROC_ENTRY(brisket2_reg),
 		PROC_ENTRY(brisket2_cfg),
+		PROC_ENTRY(brisket2_GlobalEventEn),
 	};
 
 	brisket2_dir = proc_mkdir("brisket2", dir);
@@ -608,25 +680,44 @@ int brisket2_probe(struct platform_device *pdev)
 				brisket2_InitPath);
 		}
 	}
-/* TO BE FIXED: avoid system reboot */
-#if 0
+#endif /* CONFIG_OF */
+
+#ifdef CONFIG_OF_RESERVED_MEM
 	/* dump reg status into PICACHU dram for DB */
-	brisket2_reserve_memory_dump(
-		brisket2_buf, brisket2_mem_size, BRISKET2_TRIGGER_STAGE_PROBE);
-#endif
-	brisket2_msg("brisket2 probe ok!!\n");
-#endif
-#endif
+	if (brisket2_buf != NULL) {
+		brisket2_reserve_memory_dump(
+			brisket2_buf, brisket2_mem_size, BRISKET2_TRIGGER_STAGE_PROBE);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 int brisket2_suspend(struct platform_device *pdev, pm_message_t state)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	/* dump reg status into PICACHU dram for DB */
+	if (brisket2_buf != NULL) {
+		brisket2_reserve_memory_dump(
+			brisket2_buf+0x1000, brisket2_mem_size, BRISKET2_TRIGGER_STAGE_SUSPEND);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 int brisket2_resume(struct platform_device *pdev)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	/* dump reg status into PICACHU dram for DB */
+	if (brisket2_buf != NULL) {
+		brisket2_reserve_memory_dump(
+			brisket2_buf+0x2000, brisket2_mem_size, BRISKET2_TRIGGER_STAGE_RESUME);
+	}
+#endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
