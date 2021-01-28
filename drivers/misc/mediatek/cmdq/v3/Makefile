@@ -80,11 +80,10 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/inc/cmdq_sec_dr \
 ccflags-y += -DCMDQ_SECURE_PATH_SUPPORT
 obj-y += cmdq_sec.o
 
-ifeq ($(or $(strip $(CONFIG_MTK_TEE_GP_SUPPORT)), $(strip $(CONFIG_MICROTRUST_TEE_SUPPORT))),y)
+ifeq ($(strip $(CONFIG_MTK_TEE_GP_SUPPORT)),y)
 ccflags-y += -DCMDQ_SECURE_TEE_SUPPORT
 obj-y += cmdq_sec_gp.o
-
-else ifeq ($(or $(strip $(CONFIG_TRUSTONIC_TEE_SUPPORT)), $(strip $(CONFIG_MICROTRUST_TEE_SUPPORT))),y)
+else ifeq ($(strip $(CONFIG_TRUSTONIC_TEE_SUPPORT)),y)
 ccflags-y += -DCMDQ_SECURE_TEE_SUPPORT
 obj-y += cmdq_sec_trustonic.o
 endif
