@@ -7,6 +7,7 @@
 #include <linux/module.h>
 #include <linux/uaccess.h> /* copy_from/to_user() */
 #include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <asm/arch_timer.h>
 
 #include <sspm_ipi.h>
