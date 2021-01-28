@@ -10,6 +10,7 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/topology.h>
+#include <sched/sched.h>
 
 #include "topo_ctrl.h"
 #include "mtk_perfmgr_internal.h"
@@ -80,13 +81,14 @@ static void topo_platform_init(void)
 	}
 }
 
-#define API_READY 0
 static void calc_min_cpucap(void)
 {
 
 	int i, cpu_num = 0, min = INT_MAX, max = 0;
+	int cpu;
 	struct cpumask cpus;
 	struct cpumask cpu_online_cpumask;
+	unsigned long cap_orig;
 
 	for (i = 0; i < topo_cluster_num ; i++) {
 		memcpy(&cpus, &topo_cluster_info[i].cpus,
@@ -95,11 +97,15 @@ static void calc_min_cpucap(void)
 				&cpus, cpu_possible_mask);
 
 		calc_cpu_num[i] = cpumask_weight(&cpu_online_cpumask);
-#if API_READY
-		calc_cpu_cap[i] = arch_get_max_cpu_capacity(cpu_num);
-#else
-		calc_cpu_cap[i] = 0;
-#endif
+
+		for_each_possible_cpu(cpu) {
+			if (arch_cpu_cluster_id(cpu) == i) {
+				cap_orig = capacity_orig_of(cpu);
+				break;
+			}
+		}
+
+		calc_cpu_cap[i] = (int)cap_orig;
 
 		if (calc_cpu_cap[i] < min) {
 			s_clstr_core = i;

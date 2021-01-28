@@ -11,4 +11,7 @@
 # GNU General Public License for more details.
 #
 
+ccflags-y += \
+	-I$(srctree)/kernel/
+
 obj-y += topo_ctrl.o
