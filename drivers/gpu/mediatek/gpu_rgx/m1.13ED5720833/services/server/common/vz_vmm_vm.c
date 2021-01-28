@@ -69,15 +69,18 @@ PVRSRV_ERROR PvzOnVmOnline(IMG_UINT32 ui32OSid, IMG_UINT32 ui32Priority)
 				 "%s: invalid OSID (%d)",
 				 __func__, ui32OSid));
 
-		return PVRSRV_ERROR_INVALID_PARAMS;
+		eError = PVRSRV_ERROR_INVALID_PARAMS;
+		goto e0;
 	}
 
+#if defined(RGX_NUM_OS_SUPPORTED) && (RGX_NUM_OS_SUPPORTED > 1)
 	if (psPVRSRVData->abVmOnline[ui32OSid])
 	{
 		PVR_DPF((PVR_DBG_ERROR,
 				 "%s: OSID %d is already enabled.",
 				 __func__, ui32OSid));
-		return PVRSRV_ERROR_INVALID_PARAMS;
+		eError = PVRSRV_ERROR_INVALID_PARAMS;
+		goto e0;
 	}
 
 	/* For now, limit support to single device setups */
@@ -106,6 +109,7 @@ PVRSRV_ERROR PvzOnVmOnline(IMG_UINT32 ui32OSid, IMG_UINT32 ui32Priority)
 	}
 
 	psPVRSRVData->abVmOnline[ui32OSid] = IMG_TRUE;
+#endif
 
 e0:
 	return eError;
@@ -123,16 +127,18 @@ PVRSRV_ERROR PvzOnVmOffline(IMG_UINT32 ui32OSid)
 		PVR_DPF((PVR_DBG_ERROR,
 				 "%s: invalid OSID (%d)",
 				 __func__, ui32OSid));
-
-		return PVRSRV_ERROR_INVALID_PARAMS;
+		eError = PVRSRV_ERROR_INVALID_PARAMS;
+		goto e0;
 	}
 
+#if defined(RGX_NUM_OS_SUPPORTED) && (RGX_NUM_OS_SUPPORTED > 1)
 	if (!psPVRSRVData->abVmOnline[ui32OSid])
 	{
 		PVR_DPF((PVR_DBG_ERROR,
 				 "%s: OSID %d is already disabled.",
 				 __func__, ui32OSid));
-		return PVRSRV_ERROR_INVALID_PARAMS;
+		eError = PVRSRV_ERROR_INVALID_PARAMS;
+		goto e0;
 	}
 
 	/* For now, limit support to single device setups */
@@ -144,7 +150,9 @@ PVRSRV_ERROR PvzOnVmOffline(IMG_UINT32 ui32OSid)
 	{
 		psPVRSRVData->abVmOnline[ui32OSid] = IMG_FALSE;
 	}
+#endif
 
+e0:
 	return eError;
 }
 

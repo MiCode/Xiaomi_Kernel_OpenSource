@@ -2833,10 +2833,11 @@ MMU_MapPages(MMU_CONTEXT *psMMUContext,
 			/* Obtain non-coherent protection flags as we cannot have multiple coherent
 			   virtual pages pointing to the same physical page so all dummy page
 			   mappings have to be non-coherent even in a coherent allocation */
-			_MMU_ConvertDevMemFlags(IMG_FALSE,
+			eError = _MMU_ConvertDevMemFlags(IMG_FALSE,
 									uiMappingFlags & ~PVRSRV_MEMALLOCFLAG_GPU_CACHE_COHERENT,
 									&uiMMUProtFlags,
 									psMMUContext);
+			PVR_GOTO_IF_ERROR(eError, e2);
 
 			/* Callback to get device specific protection flags */
 			if (psConfig->uiBytesPerEntry == 8)

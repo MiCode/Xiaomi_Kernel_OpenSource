@@ -16,6 +16,7 @@
 #include <linux/seq_file.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/kmemleak.h>
 
 #include "mtk_pp.h"
 
@@ -312,6 +313,8 @@ static void *MTKPP_SeqStart(struct seq_file *s, loff_t *pos)
 		return NULL;
 
 	*spos = *pos;
+	/* Ignore kmemleak false positive */
+	kmemleak_ignore(spos);
 	return spos;
 }
 
