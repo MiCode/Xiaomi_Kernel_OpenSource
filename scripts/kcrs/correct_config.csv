@@ -458,7 +458,7 @@ CONFIG_MTK_CONN_LTE_IDC_SUPPORT,PLATFORM,Alonso.Hsu,new config in this commit 34
 CONFIG_MTK_CONNSYS_DEDICATED_LOG_PATH,PLATFORM,willy.yu,,X,X,y,X,X,y,y,y,y,y,y,y,y
 CONFIG_MTK_CONSUMER_PARTIAL_UPDATE_SUPPORT,PROJECT,weiguo.li,new config in this commit 13be5de93e0cafaa0c3fc5f5dc16aa86e0422208,,,,,,,,,,,,,
 CONFIG_MTK_CPU_CTRL_CFP,PROJECT,poting.chen,,,,,,,,,,,,,,
-CONFIG_MTK_CPU_FREQ,PLATFORM,hector.yuan,,X,X,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_MTK_CPU_FREQ,PLATFORM,hector.yuan,,X,X,y,y,y,y,y,y,y,N,N,y,y
 CONFIG_MTK_CPU_TOPOLOGY,PLATFORM,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_CQDMA,PLATFORM,,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_DCS,PROJECT,miles.chen,,,,,,,,,,,,,,
