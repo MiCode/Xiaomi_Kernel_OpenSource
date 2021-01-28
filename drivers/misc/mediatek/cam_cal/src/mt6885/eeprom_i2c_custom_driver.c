@@ -26,7 +26,6 @@
 #include <linux/of.h>
 #include "cam_cal.h"
 #include "cam_cal_define.h"
-#include "cam_cal_list.h"
 #include <linux/dma-mapping.h>
 #ifdef CONFIG_COMPAT
 /* 64 bit */
@@ -36,38 +35,33 @@
 
 #define EEPROM_I2C_MSG_SIZE_READ 2
 
-static DEFINE_SPINLOCK(g_spinLock);
-static struct i2c_client *g_pstI2CclientG;
-
 /************************************************************
  * I2C read function (Custom)
  * Customer's driver can put on here
  * Below is an example
  ************************************************************/
  #define PAGE_SIZE_ 256
-static int iReadRegI2C(u8 *a_pSendData, u16 a_sizeSendData,
+static int iReadRegI2C(struct i2c_client *client,
+		u8 *a_pSendData, u16 a_sizeSendData,
 		u8 *a_pRecvData, u16 a_sizeRecvData, u16 i2cId)
 {
-	int  i4RetValue = 0;
+	int i4RetValue = 0;
 	struct i2c_msg msg[EEPROM_I2C_MSG_SIZE_READ];
 
-	spin_lock(&g_spinLock);
-	g_pstI2CclientG->addr = (i2cId >> 1);
-	spin_unlock(&g_spinLock);
+	client->addr = (i2cId >> 1);
 
-	msg[0].addr = g_pstI2CclientG->addr;
-	msg[0].flags = g_pstI2CclientG->flags & I2C_M_TEN;
+	msg[0].addr = client->addr;
+	msg[0].flags = client->flags & I2C_M_TEN;
 	msg[0].len = a_sizeSendData;
 	msg[0].buf = a_pSendData;
 
-	msg[1].addr = g_pstI2CclientG->addr;
-	msg[1].flags = g_pstI2CclientG->flags & I2C_M_TEN;
+	msg[1].addr = client->addr;
+	msg[1].flags = client->flags & I2C_M_TEN;
 	msg[1].flags |= I2C_M_RD;
 	msg[1].len = a_sizeRecvData;
 	msg[1].buf = a_pRecvData;
 
-	i4RetValue = i2c_transfer(g_pstI2CclientG->adapter,
-				msg,
+	i4RetValue = i2c_transfer(client->adapter, msg,
 				EEPROM_I2C_MSG_SIZE_READ);
 
 	if (i4RetValue != EEPROM_I2C_MSG_SIZE_READ) {
@@ -77,7 +71,8 @@ static int iReadRegI2C(u8 *a_pSendData, u16 a_sizeSendData,
 	return 0;
 }
 
-static int custom_read_region(u32 addr, u8 *data, u16 i2c_id, u32 size)
+static int custom_read_region(struct i2c_client *client,
+			      u32 addr, u8 *data, u16 i2c_id, u32 size)
 {
 	u8 *buff = data;
 	u32 size_to_read = size;
@@ -89,7 +84,7 @@ static int custom_read_region(u32 addr, u8 *data, u16 i2c_id, u32 size)
 		u8 offset = addr % PAGE_SIZE_;
 		char *Buff = data;
 
-		if (iReadRegI2C(&offset, 1, (u8 *)Buff, 1,
+		if (iReadRegI2C(client, &offset, 1, (u8 *)Buff, 1,
 			i2c_id + (page << 1)) < 0) {
 			pr_debug("fail addr=0x%x 0x%x, P=%d, offset=0x%x",
 				addr, *Buff, page, offset);
@@ -109,8 +104,7 @@ static int custom_read_region(u32 addr, u8 *data, u16 i2c_id, u32 size)
 unsigned int Custom_read_region(struct i2c_client *client, unsigned int addr,
 				unsigned char *data, unsigned int size)
 {
-	g_pstI2CclientG = client;
-	if (custom_read_region(addr, data, g_pstI2CclientG->addr, size) == 0)
+	if (custom_read_region(client, addr, data, client->addr, size) == 0)
 		return size;
 	else
 		return 0;
