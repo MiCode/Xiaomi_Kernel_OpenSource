@@ -2080,7 +2080,7 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 				param.get_phys_param.len = 0;
 				IONMSG(" %s: Error. Cannot get iova.\n",
 				       __func__);
-				ret = -EFAULT;
+				return -EFAULT;
 			}
 			param.get_phys_param.phy_addr = phy_addr;
 
