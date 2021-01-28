@@ -112,6 +112,10 @@ static void MTKPP_PrintQueueBuffer(struct MTK_PROC_PRINT_DATA *data,
 			(data->data_array_size - data->current_data),
 			fmt,
 			args);
+	if (len < 0) {
+		pr_debug("[PVR_K ] vsnprintf failed");
+		return;
+	}
 	va_end(args);
 
 	data->current_data += len + 1;
@@ -151,6 +155,10 @@ static void MTKPP_PrintQueueBuffer2(struct MTK_PROC_PRINT_DATA *data,
 			(data->data_array_size - data->current_data),
 			fmt,
 			args);
+	if (len < 0) {
+		pr_debug("[PVR_K ] vsnprintf failed");
+		return;
+	}
 	va_end(args);
 
 	data->current_data += len + 1;
@@ -190,6 +198,10 @@ static void MTKPP_PrintRingBuffer(struct MTK_PROC_PRINT_DATA *data,
 			(data->data_array_size - data->current_data),
 			fmt,
 			args);
+	if (len < 0) {
+		pr_debug("[PVR_K ] vsnprintf failed");
+		return;
+	}
 	va_end(args);
 
 	data->current_data += len + 1;
@@ -303,13 +315,13 @@ static void MTKPP_CleanData(struct MTK_PROC_PRINT_DATA *data)
 
 static void *MTKPP_SeqStart(struct seq_file *s, loff_t *pos)
 {
-	loff_t *spos;
+	uint32_t *spos;
 
 	if (*pos >= MTKPP_ID_SIZE)
 		return NULL;
 
-	spos = kmalloc(sizeof(loff_t), GFP_KERNEL);
-	if (spos == NULL)
+	spos = kmalloc(sizeof(uint32_t), GFP_KERNEL);
+	if (!spos)
 		return NULL;
 
 	*spos = *pos;
@@ -320,7 +332,7 @@ static void *MTKPP_SeqStart(struct seq_file *s, loff_t *pos)
 
 static void *MTKPP_SeqNext(struct seq_file *s, void *v, loff_t *pos)
 {
-	loff_t *spos = (loff_t *) v;
+	uint32_t *spos = (uint32_t *)v;
 	*pos = ++(*spos);
 
 	return (*pos < MTKPP_ID_SIZE) ? spos : NULL;
@@ -334,13 +346,13 @@ static void MTKPP_SeqStop(struct seq_file *s, void *v)
 static int MTKPP_SeqShow(struct seq_file *sfile, void *v)
 {
 	struct MTK_PROC_PRINT_DATA *data;
-	int off, i;
-	loff_t *spos = (loff_t *) v;
+	uint32_t off, i;
+	uint32_t *spos = (uint32_t *)v;
 
 	off = *spos;
 	data = g_MTKPPdata[off];
 
-	seq_printf(sfile, "\n===== buffer_id = %d =====\n", off);
+	seq_printf(sfile, "\n===== buffer_id = %u =====\n", off);
 
 	MTKPP_Lock(data);
 
