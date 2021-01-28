@@ -155,6 +155,7 @@ struct layering_rule_ops {
 	bool (*rollback_all_to_GPU_for_idle)(void);
 	bool (*adjust_hrt_level)(struct disp_layer_info
 			*disp_info);
+	void (*adjust_hrt_scen)(struct disp_layer_info *disp_info);
 };
 
 #define HRT_GET_DVFS_LEVEL(hrt_num) (hrt_num & 0xF)

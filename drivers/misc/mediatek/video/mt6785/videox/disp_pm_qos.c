@@ -313,7 +313,8 @@ unsigned int get_has_hrt_bw(void)
 }
 
 int prim_disp_request_hrt_bw(int overlap_num,
-			enum DDP_SCENARIO_ENUM scenario, const char *caller)
+			enum DDP_SCENARIO_ENUM scenario, const char *caller,
+			unsigned int active_cfg)
 {
 	unsigned long long bw_base;
 	unsigned int tmp;
@@ -328,7 +329,7 @@ int prim_disp_request_hrt_bw(int overlap_num,
 	} else
 		has_hrt_bw = 1;
 
-	bw_base = layering_get_frame_bw();
+	bw_base = layering_get_frame_bw(active_cfg);
 	bw_base /= 2;
 
 	tmp = bw_base * overlap_num;
@@ -408,6 +409,8 @@ int disp_pm_qos_set_ovl_bw(unsigned long long in_fps,
 	unsigned int ovl0_fbdc_bw, ovl0_2l_fbdc_bw;
 	unsigned int ovl0_lstf_bw, ovl0_2l_lstf_bw;
 
+	DISPINFO("%s,fps:[in-%llu,out-%llu]\n",
+		__func__, in_fps, out_fps);
 	ret |= __get_cmdq_slots(DISPSYS_SLOT_BASE,
 		DISP_SLOT_IS_DC, &is_dc);
 	ret |= __get_cmdq_slots(DISPSYS_SLOT_BASE,

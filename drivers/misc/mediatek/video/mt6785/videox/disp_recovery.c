@@ -276,7 +276,7 @@ int do_esd_check_eint(void)
 
 	DISPINFO("[ESD]ESD check eint\n");
 	mmprofile_log_ex(mmp_te, MMPROFILE_FLAG_PULSE,
-		primary_display_is_video_mode(), GPIO_EINT_MODE);
+		(primary_display_is_video_mode() > 0), GPIO_EINT_MODE);
 	primary_display_switch_esd_mode(GPIO_EINT_MODE);
 
 	if (wait_event_interruptible_timeout(esd_ext_te_wq,
@@ -947,6 +947,10 @@ int primary_display_esd_recovery(void)
 		mdelay(40);
 	}
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	primary_display_update_cfg_id(0);
+	DISPCHECK("%s,cfg_id = 0\n", __func__);
+#endif
 done:
 	primary_display_manual_unlock();
 	DISPCHECK("[ESD]ESD recovery end\n");

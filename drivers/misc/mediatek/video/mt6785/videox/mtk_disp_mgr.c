@@ -1269,6 +1269,13 @@ int _ioctl_get_display_caps(unsigned long arg)
 		caps_info.disp_feature |= DISP_FEATURE_ARR;
 		DISPMSG("%s,support ARR feature\n", __func__);
 	}
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*DynFPS*/
+	if (primary_display_is_support_DynFPS()) {
+		caps_info.disp_feature |= DISP_FEATURE_DYNFPS;
+		DISPMSG("%s,support DynFPS feature\n", __func__);
+	}
+#endif
 	if (copy_to_user(argp, &caps_info, sizeof(caps_info))) {
 		DISP_PR_ERR("[FB] copy_to_user failed! line:%d\n", __LINE__);
 		ret = -EFAULT;
@@ -1599,6 +1606,40 @@ int _ioctl_wait_touch_hint(unsigned long arg)
 
 /*-----------------function for ARR notify fps changed end--------*/
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+/*--------------------------DynFPS start-------------------*/
+int _ioctl_get_multi_configs(unsigned long arg)
+{
+	int ret = 0;
+	void __user *argp = (void __user *)arg;
+	struct multi_configs multi_cfgs;
+
+	if (copy_from_user(&multi_cfgs,
+			argp, sizeof(multi_cfgs))) {
+		DISP_PR_INFO("[dfps] copy_from_user failed! line:%d\n",
+			__LINE__);
+		return -EFAULT;
+	}
+
+	ret = primary_display_get_multi_configs(&multi_cfgs);
+
+	if (ret != 0) {
+		DISP_PR_INFO("[dfps] %s fail! line:%d\n", __func__, __LINE__);
+		ret = -EFAULT;
+		return ret;
+	}
+	if (copy_to_user(argp, &multi_cfgs, sizeof(multi_cfgs))) {
+		DISP_PR_INFO("[dfps] copy_to_user failed! line:%d\n", __LINE__);
+		ret = -EFAULT;
+	}
+
+	return ret;
+
+}
+/*--------------------------DynFPS end-------------------*/
+#endif
+
+
 const char *_session_ioctl_str(unsigned int cmd)
 {
 	switch (cmd) {
@@ -1670,6 +1711,8 @@ const char *_session_ioctl_str(unsigned int cmd)
 		return "DISP_IOCTL_FRAME_CONFIG";
 	case DISP_IOCTL_TOUCH_HINT:
 		return "DISP_IOCTL_TOUCH_HINT";
+	case DISP_IOCTL_GET_MULTI_CONFIGS:
+		return "DISP_IOCTL_GET_MULTI_CONFIGS";
 	default:
 		break;
 	}
@@ -1721,6 +1764,10 @@ long mtk_disp_mgr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		return _ioctl_wait_touch_hint(arg);
 	case DISP_IOCTL_GET_SUPPORTED_FPS:
 		return _ioctl_get_supported_fps(arg);
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	case DISP_IOCTL_GET_MULTI_CONFIGS:
+		return _ioctl_get_multi_configs(arg);
+#endif
 	case DISP_IOCTL_AAL_EVENTCTL:
 	case DISP_IOCTL_AAL_GET_HIST:
 	case DISP_IOCTL_AAL_INIT_REG:

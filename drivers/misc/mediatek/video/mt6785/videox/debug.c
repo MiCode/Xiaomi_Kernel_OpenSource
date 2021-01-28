@@ -1335,10 +1335,14 @@ static void process_dbg_opt(const char *opt)
 		else
 			disable_smi_preultra(larb, value);
 	} else if (strncmp(opt, "MIPI_CLK:", 9) == 0) {
-		if (strncmp(opt + 9, "on", 2) == 0)
+		DISPMSG("%s, MIPI_CLK\n", __func__);
+		if (strncmp(opt + 9, "on", 2) == 0) {
+			DISPMSG("%s, MIPI_CLK:on\n", __func__);
 			primary_display_ccci_mipi_callback(1, 0);
-		else if (strncmp(opt + 9, "off", 3) == 0)
+		} else if (strncmp(opt + 9, "off", 3) == 0) {
+			DISPMSG("%s, MIPI_CLK:off\n", __func__);
 			primary_display_ccci_mipi_callback(0, 0);
+		}
 	} else if (!strncmp(opt, "ovl_bgcolor:", 12)) {
 		unsigned int bg_color;
 		unsigned int old;
@@ -1441,6 +1445,38 @@ static void process_dbg_opt(const char *opt)
 		for (i = 0; i < dynamic_fps_info.fps_level_num; i++)
 			DISPMSG("debug,supported fps: %d\n",
 				dynamic_fps_info.fps_levels[i]);
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	} else if (!strncmp(opt, "set_cfg_id:", 11)) {
+		char *p = (char *)opt + 11;
+		unsigned int cfg_id = 0;
+
+		ret = kstrtouint(p, 10, &cfg_id);
+		DDPMSG("debug:set_cfg_id:%d start\n", cfg_id);
+		primary_display_dynfps_chg_fps(cfg_id);
+		g_force_cfg_id = cfg_id;
+		DDPMSG("debug:set_cfg_id:%d end\n", cfg_id);
+	} else if (!strncmp(opt, "enable_force_fps:", 17)) {
+		char *p = (char *)opt + 17;
+		unsigned int enable_force_fps = 0;
+
+		ret = kstrtouint(p, 10, &enable_force_fps);
+		g_force_cfg = !!enable_force_fps;
+		DDPMSG("debug:g_force_cfg:%d\n", g_force_cfg);
+
+	} else if (!strncmp(opt, "get_multi_cfg", 13)) {
+		struct multi_configs cfgs;
+		unsigned int i = 0;
+		struct dyn_config_info *dyn_info = NULL;
+
+		memset(&cfgs, 0, sizeof(cfgs));
+		primary_display_get_multi_configs(&cfgs);
+
+		DISPMSG("debug:get_multi_cfg:=%d\n", cfgs.config_num);
+		for (i = 0; i < cfgs.config_num; i++) {
+			dyn_info = &(cfgs.dyn_cfgs[i]);
+			DISPMSG("debug:%d,%dfps\n", i, dyn_info->vsyncFPS);
+		}
+#endif
 	}
 }
 
