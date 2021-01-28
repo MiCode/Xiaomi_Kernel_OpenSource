@@ -410,7 +410,7 @@ static void mtkfb_ion_free_handle(struct ion_client *client,
 
 static size_t mtkfb_ion_phys_mmu_addr(struct ion_client *client,
 				      struct ion_handle *handle,
-				      unsigned int *mva)
+				      unsigned int *mva, int is_output)
 {
 	size_t size;
 	ion_phys_addr_t phy_addr = 0;
@@ -421,9 +421,22 @@ static size_t mtkfb_ion_phys_mmu_addr(struct ion_client *client,
 	}
 	if (!handle)
 		return 0;
+	if (is_output) {
+		struct ion_mm_data mm_data;
 
-	ion_phys(client, handle, &phy_addr, &size);
-	*mva = (unsigned int)phy_addr;
+		memset((void *)&mm_data, 0, sizeof(mm_data));
+		mm_data.mm_cmd = ION_MM_GET_IOVA;
+		mm_data.get_phys_param.kernel_handle = handle;
+		mm_data.get_phys_param.module_id = 0;
+
+		if (ion_kernel_ioctl(ion_client, ION_CMD_MULTIMEDIA,
+			(unsigned long)&mm_data))
+			pr_info("[DISP][ION] ERR: get iova failed!\n");
+		*mva = (unsigned int)mm_data.get_phys_param.phy_addr;
+	} else {
+		ion_phys(client, handle, &phy_addr, &size);
+		*mva = (unsigned int)phy_addr;
+	}
 	MTKFB_FENCE_LOG("alloc mmu addr hnd=0x%p,mva=0x%08x\n",
 			handle, (unsigned int)*mva);
 	return size;
@@ -1395,11 +1408,14 @@ static int prepare_ion_buf(struct device *dev,
 
 #if defined(MTK_FB_ION_SUPPORT)
 	struct ion_handle *handle = NULL;
+	int is_output;
+
+	is_output = (disp_buf->layer_id == disp_sync_get_output_timeline_id());
 
 	handle = mtkfb_ion_import_handle(ion_client, disp_buf->ion_fd);
 	if (handle)
 		fence_buf->size = mtkfb_ion_phys_mmu_addr(ion_client, handle,
-							  &mva);
+							  &mva, is_output);
 	else
 		DISP_PR_ERR("can't import ion handle for fd:%d\n",
 			    disp_buf->ion_fd);
