@@ -727,6 +727,58 @@ cmd_err:
 	return ioc_err ? ioc_err : err;
 }
 
+#ifdef CONFIG_MTK_EMMC_SUPPORT_OTP
+#define MMC_SEND_WRITE_PROT_TYPE        31
+#define EXT_CSD_USR_WP                  171     /* R/W */
+#define US_PERM_WP_EN                   4
+static int is_otp_dev(struct block_device *bdev)
+{
+	if (!bdev || !bdev->bd_part || !bdev->bd_part->info
+	|| strcmp(bdev->bd_part->info->volname, "otp"))
+		return 1;
+	return 0;
+}
+static int mmc_otp_ops_check(struct block_device *bdev,
+	struct mmc_ioc_cmd __user *ic_ptr)
+{
+	u32 opcode, arg;
+
+	if (is_otp_dev(bdev) == 0)
+		return 0;
+
+	if ((get_user(opcode, &ic_ptr->opcode) == 0) &&
+		(get_user(arg, &ic_ptr->arg) == 0)) {
+		if ((opcode == MMC_SET_WRITE_PROT)
+		 || (opcode == MMC_CLR_WRITE_PROT)
+		 || (opcode == MMC_SEND_WRITE_PROT)
+		 || (opcode == MMC_SEND_WRITE_PROT_TYPE)) {
+			if (arg >= bdev->bd_part->nr_sects)
+				return -EFAULT;
+			arg += bdev->bd_part->start_sect;
+		} else if (opcode == MMC_SWITCH) {
+			if (((arg >> 16) & 0xFF) != EXT_CSD_USR_WP)
+				return -EPERM;
+#ifndef CONFIG_MTK_EMMC_SUPPORT_OTP_FOR_CUSTOMER
+			/* prevent users' permanent writ protect in sqc */
+			if (((arg >> 8) & US_PERM_WP_EN)
+	&& ((((arg >> 24) & 0x3) == MMC_SWITCH_MODE_SET_BITS)
+	|| (((arg >> 24) & 0x3) == MMC_SWITCH_MODE_WRITE_BYTE))) {
+				return -EPERM;
+			}
+#endif
+		} else {
+			return -EPERM;
+		}
+	if (put_user(arg, &ic_ptr->arg) != 0)
+		return -EFAULT;
+	} else
+		return -EFAULT;
+
+	return 0;
+
+}
+#endif
+
 static int mmc_blk_check_blkdev(struct block_device *bdev)
 {
 	/*
@@ -734,6 +786,10 @@ static int mmc_blk_check_blkdev(struct block_device *bdev)
 	 * whole block device, not on a partition.  This prevents overspray
 	 * between sibling partitions.
 	 */
+#ifdef CONFIG_MTK_EMMC_SUPPORT_OTP
+	if (is_otp_dev(bdev))
+		return 0;
+#endif
 	if ((!capable(CAP_SYS_RAWIO)) || (bdev != bdev->bd_contains))
 		return -EPERM;
 	return 0;
@@ -750,6 +806,12 @@ static int mmc_blk_ioctl(struct block_device *bdev, fmode_t mode,
 		ret = mmc_blk_check_blkdev(bdev);
 		if (ret)
 			return ret;
+#ifdef CONFIG_MTK_EMMC_SUPPORT_OTP
+		ret = mmc_otp_ops_check(bdev,
+				(struct mmc_ioc_cmd __user *)arg);
+		if (ret)
+			return ret;
+#endif
 		md = mmc_blk_get(bdev->bd_disk);
 		if (!md)
 			return -EINVAL;
