@@ -34,6 +34,7 @@
 #include <mt-plat/mtk_partition.h>
 #include <mt-plat/mtk_secure_api.h>
 #include <mt-plat/mtk_boot.h>
+#include <mt-plat/upmu_common.h>
 #include <scsi/ufs/ufs-mtk-ioctl.h>
 #ifdef CONFIG_MTK_UFS_LBA_CRC16_CHECK
 #include <linux/crc16.h>
@@ -55,6 +56,12 @@ struct ufs_hba *ufs_mtk_hba;
 
 static bool ufs_mtk_is_data_cmd(char cmd_op);
 static bool ufs_mtk_is_unmap_cmd(char cmd_op);
+
+#define ufs_mtk_vufs_lpm(on) \
+	pmic_config_interface(PMIC_RG_LDO_VUFS_LP_ADDR, \
+			      (on), \
+			      PMIC_RG_LDO_VUFS_LP_MASK, \
+			      PMIC_RG_LDO_VUFS_LP_SHIFT)
 
 #ifdef CONFIG_MTK_UFS_LBA_CRC16_CHECK
 /*
@@ -1124,6 +1131,19 @@ static int ufs_mtk_post_link(struct ufs_hba *hba)
 
 }
 
+static void ufs_mtk_vreg_lpm(struct ufs_hba *hba, bool lpm)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+
+	if (!host->vreg_lpm_supported)
+		return;
+
+	if (lpm & !hba->vreg_info.vcc->enabled)
+		ufs_mtk_vufs_lpm(1);
+	else if (!lpm)
+		ufs_mtk_vufs_lpm(0);
+}
+
 static int ufs_mtk_link_startup_notify(struct ufs_hba *hba,
 	enum ufs_notify_change_status stage)
 {
@@ -1178,6 +1198,13 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		/* vendor-specific crypto suspend */
 		mt_secure_call(MTK_SIP_KERNEL_HW_FDE_UFS_CTL, (1 << 1),
 			0, 0, 0);
+		/*
+		 * Make sure no error will be returned by suspend callback
+		 * before making regulators enter low-power mode because any
+		 * error will lead to re-enable regulators by error handling
+		 * in ufshcd_suspend().
+		 */
+		ufs_mtk_vreg_lpm(hba, true);
 	}
 
 	return ret;
@@ -1209,6 +1236,8 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	int ret = 0;
 
 	if (ufshcd_is_link_hibern8(hba)) {
+
+		ufs_mtk_vreg_lpm(hba, false);
 
 		ufs_mtk_pltfrm_resume(hba);
 
