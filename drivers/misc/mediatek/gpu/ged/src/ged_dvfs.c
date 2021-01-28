@@ -304,9 +304,7 @@ EXPORT_SYMBOL(ged_query_info);
 //-----------------------------------------------------------------------------
 #ifdef GED_ENABLE_DVFS_LOADING_MODE
 void (*ged_dvfs_cal_gpu_utilization_ex_fp)(unsigned int *pui32Loading,
-	unsigned int *pui32Block, unsigned int *pui32Idle, void *Util_Ex)
-{
-}
+	unsigned int *pui32Block, unsigned int *pui32Idle, void *Util_Ex);
 EXPORT_SYMBOL(ged_dvfs_cal_gpu_utilization_ex_fp);
 #else
 void (*ged_dvfs_cal_gpu_utilization_fp)(unsigned int *pui32Loading,
