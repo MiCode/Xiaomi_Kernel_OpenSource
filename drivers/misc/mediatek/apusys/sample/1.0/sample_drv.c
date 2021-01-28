@@ -145,7 +145,7 @@ static struct platform_driver sample_driver = {
 
 static struct platform_device sample_device = {
 	.name = APUSYS_SAMPLE_DEV_NAME,
-	.id = 0,
+	.id = -1,
 };
 
 static int __init sample_init(void)

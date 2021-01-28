@@ -60,6 +60,9 @@ int mdw_queue_norm_init(struct mdw_queue_norm *nq);
 
 /* mdw queue */
 struct mdw_queue {
+	struct mutex mtx;
+	uint32_t normal_task_num;
+	uint32_t deadline_task_num;
 	struct mdw_queue_norm norm;
 	struct deadline_root deadline;
 };
