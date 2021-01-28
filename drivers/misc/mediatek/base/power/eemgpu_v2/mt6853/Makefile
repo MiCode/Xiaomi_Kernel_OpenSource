@@ -30,43 +30,43 @@ ccflags-y += \
 	-I$(EEMGPU_ROOT_DIR)/$(CONFIG_MTK_PLATFORM)/inc	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/	\
 
-ifeq ($(PROJECT_DTB_NAMES),"mediatek/k6853v1_64_6360_alpha_mcl")
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6853v1_64_6360_alpha_mcl)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),"mediatek/k6853v1_64_6360_alpha_4gb_mcl")
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6853v1_64_6360_alpha_4gb_mcl)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),"mediatek/K6853v1_64_6360_alpha_120hz_mcl")
+ifeq ($(PROJECT_DTB_NAMES),mediatek/K6853v1_64_6360_alpha_120hz_mcl)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),"mediatek/k6853v1_64_6360_alpha_120hz_turbomcl")
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6853v1_64_6360_alpha_120hz_turbomcl)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),"mediatek/k6853v1_64_turbo_2280x1080_mcl")
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6853v1_64_turbo_2280x1080_mcl)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),"mediatek/k6853v1_64_2280x1080_mcl")
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6853v1_64_2280x1080_mcl)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),"mediatek/k6853v1_64_mcl")
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6853v1_64_mcl)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),"mediatek/k6853tv1_64_mcl")
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6853tv1_64_mcl)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),"mediatek/k6853tv1_64_120hz_mcl")
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6853tv1_64_120hz_mcl)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),"mediatek/k6853v1_64_rf6190_4gb_1866_mcl")
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6853v1_64_rf6190_4gb_1866_mcl)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 

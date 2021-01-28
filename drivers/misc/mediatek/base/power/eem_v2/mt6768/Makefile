@@ -43,12 +43,12 @@ subdir-ccflags-y += -DAGING_LOAD
 endif
 
 # HQA load
-ifeq ($(PROJECT_DTB_NAMES),"mediatek/evb6779_64_hqact")
+ifeq ($(PROJECT_DTB_NAMES),mediatek/evb6779_64_hqact)
 subdir-ccflags-y += -DCORN_LOAD
 endif
 
 # HQA load
-ifeq ($(PROJECT_DTB_NAMES),"mediatek/k79v1_64_ctighten")
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k79v1_64_ctighten)
 subdir-ccflags-y += -DCORN_LOAD
 endif
 
