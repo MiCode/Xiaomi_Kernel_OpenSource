@@ -131,7 +131,7 @@ static int ufs_mtk_hce_enable_notify(struct ufs_hba *hba,
 	return 0;
 }
 
-int ufs_mtk_bind_mphy(struct ufs_hba *hba)
+static int ufs_mtk_bind_mphy(struct ufs_hba *hba)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	struct device *dev = hba->dev;
@@ -337,7 +337,8 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	hba->caps |= UFSHCD_CAP_CLK_GATING;
 
 	/* Allow auto bkops to enabled during runtime suspend */
-	//hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
+	/* Need to fix VCCQ2 issue first */
+	/* hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND; */
 
 	/*
 	 * ufshcd_vops_init() is invoked after
@@ -534,21 +535,14 @@ static void ufs_mtk_device_reset(struct ufs_hba *hba)
 static int ufs_mtk_link_set_hpm(struct ufs_hba *hba)
 {
 	int err;
-	u64 t[5];
-
-	t[0] = sched_clock();
 
 	err = ufshcd_hba_enable(hba);
 	if (err)
 		return err;
 
-	t[1] = sched_clock();
-
 	err = ufs_mtk_unipro_set_pm(hba, 0);
 	if (err)
 		return err;
-
-	t[2] = sched_clock();
 
 	err = ufshcd_uic_hibern8_exit(hba);
 	if (!err)
@@ -556,23 +550,11 @@ static int ufs_mtk_link_set_hpm(struct ufs_hba *hba)
 	else
 		return err;
 
-	t[3] = sched_clock();
-
 	err = ufshcd_make_hba_operational(hba);
 	if (err)
 		return err;
 
-	t[4] = sched_clock();
-
-	if (ufsdbg_perf_dump == 10) {
-		dev_info(hba->dev, "%s: hba-enable: %llu, unipro-pwr-down: %llu, h8-exit: %llu, operational: %llu\n",
-			__func__,
-			t[1] - t[0],
-			t[2] - t[1],
-			t[3] - t[2],
-			t[4] - t[3]);
-		}
-	return err;
+	return 0;
 }
 
 static int ufs_mtk_link_set_lpm(struct ufs_hba *hba)
@@ -580,13 +562,9 @@ static int ufs_mtk_link_set_lpm(struct ufs_hba *hba)
 	int err;
 
 	err = ufs_mtk_unipro_set_pm(hba, 1);
-	if (ufsdbg_perf_dump == 5)
-		err = -1;
 	if (err) {
 		/* Resume UniPro state for following error recovery */
 		ufs_mtk_unipro_set_pm(hba, 0);
-		if (ufsdbg_perf_dump == 5)
-			ufsdbg_perf_dump = 0;
 		return err;
 	}
 
@@ -601,7 +579,8 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (ufshcd_is_link_hibern8(hba)) {
 		err = ufs_mtk_link_set_lpm(hba);
 		if (err) {
-			/* Set link as off state enforcedly to trigger
+			/*
+			 * Set link as off state enforcedly to trigger
 			 * ufshcd_host_reset_and_restore() in ufshcd_suspend()
 			 * for completed host reset.
 			 */
@@ -620,34 +599,16 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	int err;
-	u64 t[3];
-
-	t[0] = sched_clock();
 
 	if (!ufshcd_is_link_active(hba))
 		phy_power_on(host->mphy);
 
-	t[1] = sched_clock();
-
 	if (ufshcd_is_link_hibern8(hba)) {
 		err = ufs_mtk_link_set_hpm(hba);
-		if (ufsdbg_perf_dump == 6)
-			err = -1;
 		if (err) {
 			err = ufshcd_link_recovery(hba);
-			if (ufsdbg_perf_dump == 6)
-				ufsdbg_perf_dump = 0;
 			return err;
 		}
-	}
-
-	t[2] = sched_clock();
-
-	if (ufsdbg_perf_dump == 11) {
-		dev_info(hba->dev, "%s: phy-on: %llu, set_hpm: %llu\n",
-			__func__,
-			t[1] - t[0],
-			t[2] - t[1]);
 	}
 
 	return 0;
