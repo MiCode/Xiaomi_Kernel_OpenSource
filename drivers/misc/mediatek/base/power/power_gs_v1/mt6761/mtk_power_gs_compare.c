@@ -6,7 +6,7 @@
 
 #include "mtk_power_gs.h"
 #include "mtk_power_gs_array.h"
-#include "mt-plat/mtk_rtc.h"
+
 
 void mt_power_gs_table_init(void)
 {
