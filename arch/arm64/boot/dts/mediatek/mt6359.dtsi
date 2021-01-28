@@ -512,6 +512,12 @@
 			mediatek,pwrap-regmap = <&pwrap>;
 			nvmem = <&pmic_efuse>;
 			nvmem-names = "pmic-hp-efuse";
+			io-channels =
+				<&pmic_auxadc AUXADC_HPOFS_CAL>,
+				<&pmic_auxadc AUXADC_ACCDET>;
+			io-channel-names =
+				"pmic_hpofs_cal",
+				"pmic_accdet";
 		};
 };
 
