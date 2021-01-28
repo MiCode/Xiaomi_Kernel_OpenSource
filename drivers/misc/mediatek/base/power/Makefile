@@ -32,7 +32,7 @@ obj-$(CONFIG_MACH_MT6765) += mdpm_v1/
 obj-$(CONFIG_MACH_MT6761) += mdpm_v1/
 obj-$(CONFIG_MACH_MT6779) += mdpm_v2/
 endif
-#obj-$(CONFIG_MACH_MT6765) += hps_v3/
+obj-$(CONFIG_MACH_MT6765) += hps_v3/
 obj-$(CONFIG_MACH_MT6761) += hps_v3/
 obj-$(CONFIG_MACH_MT6765) += cpuidle_v3/
 obj-$(CONFIG_MACH_MT6761) += cpuidle_v3/

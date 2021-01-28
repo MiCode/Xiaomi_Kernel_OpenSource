@@ -460,23 +460,43 @@ static inline int arch_get_nr_clusters(void)
 {
 #ifdef CONFIG_MACH_MT6761
 	return 1;
+#elif defined(CONFIG_MACH_MT6765)
+	return 2;
+#else
+	return arch_nr_clusters();
 #endif
 }
 
 static inline int arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
 {
-#ifdef CONFIG_MACH_MT6761
 	int cpu = 0;
 
 	cpumask_clear(cpus);
 
+#ifdef CONFIG_MACH_MT6761
 	while (cpu < 4) {
 		cpumask_set_cpu(cpu, cpus);
 		cpu++;
 	}
+#elif defined(CONFIG_MACH_MT6765)
+	if (cluster_id == 0) {
+		cpu = 0;
+
+		while (cpu < 4) {
+			cpumask_set_cpu(cpu, cpus);
+			cpu++;
+		}
+	} else {
+		cpu = 4;
+
+		while (cpu < 8) {
+			cpumask_set_cpu(cpu, cpus);
+			cpu++;
+		}
+	}
+#endif
 
 	return 0;
-#endif
 }
 
 static inline size_t mt_secure_call(size_t function_id,
