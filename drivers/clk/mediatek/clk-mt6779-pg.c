@@ -954,7 +954,7 @@ static void ram_console_update(void)
 					CONN_PROT_STEP1_0_13_MASK);
 			}
 		}
-		print_enabled_clks_once();
+		/* print_enabled_clks_once(); */
 
 		pr_notice("%s: clk = 0x%08x\n", __func__, data[0]);
 		pr_notice("%s: INFRA_TOPAXI_PROTECTEN = 0x%08x\n",
