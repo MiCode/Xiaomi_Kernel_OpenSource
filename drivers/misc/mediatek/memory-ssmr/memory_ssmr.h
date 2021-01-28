@@ -18,9 +18,6 @@ enum ssmr_feature_type {
 	defined(CONFIG_MTK_TEE_GP_SUPPORT)
 	SSMR_FEAT_SVP,
 #endif
-#ifdef CONFIG_MTK_IRIS_SUPPORT
-	SSMR_FEAT_IRIS,
-#endif
 #ifdef CONFIG_MTK_CAM_SECURITY_SUPPORT
 	SSMR_FEAT_2D_FR,
 #endif

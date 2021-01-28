@@ -13,27 +13,12 @@
 #ifndef __SSMR_INTERNAL_H__
 #define __SSMR_INTERNAL_H__
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) ||\
-	defined(CONFIG_MTK_TEE_GP_SUPPORT) ||\
-	defined(CONFIG_MTK_IRIS_SUPPORT) ||\
-	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-#define SSMR_SECMEM_REGION_ENABLE
-#else
-#undef SSMR_SECMEM_REGION_ENABLE
-#endif
-
 #if defined(CONFIG_TRUSTONIC_TRUSTED_UI) ||\
 	defined(CONFIG_BLOWFISH_TUI_SUPPORT) ||\
 	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 #define SSMR_TUI_REGION_ENABLE
 #else
 #undef SSMR_TUI_REGION_ENABLE
-#endif
-
-#if defined(CONFIG_MTK_PROT_MEM_SUPPORT)
-#define SSMR_PROT_SHAREDMEM_REGION_ENABLE
-#else
-#undef SSMR_PROT_SHAREDMEM_REGION_ENABLE
 #endif
 
 #include "memory_ssmr.h"
@@ -49,39 +34,43 @@
 #define NAME_LEN 32
 #define CMD_LEN  64
 
-enum region_type {
-#ifdef SSMR_SECMEM_REGION_ENABLE
-	SSMR_SECMEM,
-#endif
-#ifdef SSMR_TUI_REGION_ENABLE
-	SSMR_TUI,
-#endif
-#ifdef SSMR_PROT_SHAREDMEM_REGION_ENABLE
-	SSMR_PROT_SHAREDMEM,
-#endif
-#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
-	SSMR_TA_ELF,
-	SSMR_TA_STACK_HEAP,
-#endif
-#ifdef CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
-	SSMR_SDSP_TEE_SHAREDMEM,
-#endif
-#ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
-	SSMR_SDSP_FIRMWARE,
-#endif
-	__MAX_NR_SSMRSUBS,
-};
+/* define scenario type */
+#define SVP_FLAGS		0x01u
+#define FACE_REGISTRATION_FLAGS 0x02u
+#define FACE_PAYMENT_FLAGS	0x04u
+#define FACE_UNLOCK_FLAGS	0x08u
+#define TUI_FLAGS		0x10u
 
 #define SSMR_INVALID_FEATURE(f) (f >= __MAX_NR_SSMR_FEATURES)
-#define SSMR_INVALID_REGION(r) (r >= __MAX_NR_SSMRSUBS)
 
+/*
+ *  req_size :         feature request size
+ *  proc_entry_fops :  file operation fun pointer
+ *  state :            region online/offline state
+ *  count :            region max alloc size by feature
+ *  alloc_pages :      current feature offline alloc size
+ *  is_unmapping :     unmapping state
+ *  use_cache_memory : when use reserved memory it will be true
+ *  page :             zmc alloc page
+ *  cache_page :       alloc page by reserved memory
+ *  usable_size :      cma usage size
+ *  scheme_flag :      show feaure support which schemes
+ */
 struct SSMR_Feature {
 	char dt_prop_name[NAME_LEN];
 	char feat_name[NAME_LEN];
 	char cmd_online[CMD_LEN];
 	char cmd_offline[CMD_LEN];
+	bool is_unmapping;
+	bool use_cache_memory;
+	struct page *page;
+	struct page *cache_page;
 	u64 req_size;
-	unsigned int region;
+	unsigned int scheme_flag;
+	unsigned int state;
+	unsigned long alloc_pages;
+	unsigned long count;
+	const struct file_operations *proc_entry_fops;
 };
 
 enum ssmr_state {
@@ -103,31 +92,42 @@ const char *const ssmr_state_text[NR_STATES] = {
 	[SSMR_STATE_OFF]        = "[OFF]",
 };
 
-/*
- *  name :             region name
- *  proc_entry_fops :  file operation fun pointer
- *  state :            region online/offline state
- *  count :            region max alloc size by feature
- *  alloc_pages :      current feature offline alloc size
- *  is_unmapping :     unmapping state
- *  use_cache_memory : when use reserved memory it will be true
- *  page :             zmc alloc page
- *  cache_page :       alloc page by reserved memory
- *  usable_size :      cma usage size
- *  cur_feat :         current feature in use
- */
-struct SSMR_Region {
+enum ssmr_scheme_state {
+	SSMR_SVP,
+	SSMR_FACE_REGISTRATION,
+	SSMR_FACE_PAYMENT,
+	SSMR_FACE_UNLOCK,
+	SSMR_TUI_SCHEME,
+	__MAX_NR_SCHEME,
+};
+
+struct SSMR_Scheme {
 	char name[NAME_LEN];
-	const struct file_operations *proc_entry_fops;
-	unsigned int state;
-	unsigned long count;
-	unsigned long alloc_pages;
-	bool is_unmapping;
-	bool use_cache_memory;
-	struct page *page;
-	struct page *cache_page;
-	u64 usable_size;
-	unsigned int cur_feat;
+	u64  usable_size;
+	unsigned int flags;
+};
+
+static struct SSMR_Scheme _ssmrscheme[__MAX_NR_SCHEME] = {
+	[SSMR_SVP] = {
+		.name = "svp_scheme",
+		.flags = SVP_FLAGS
+	},
+	[SSMR_FACE_REGISTRATION] = {
+		.name = "face_registration_scheme",
+		.flags = FACE_REGISTRATION_FLAGS
+	},
+	[SSMR_FACE_PAYMENT] = {
+		.name = "face_payment_scheme",
+		.flags = FACE_PAYMENT_FLAGS
+	},
+	[SSMR_FACE_UNLOCK] = {
+		.name = "face_unlock_scheme",
+		.flags = FACE_UNLOCK_FLAGS
+	},
+	[SSMR_TUI_SCHEME] = {
+		.name = "tui_scheme",
+		.flags = TUI_FLAGS
+	}
 };
 
 static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
@@ -138,16 +138,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "svp",
 		.cmd_online = "svp=on",
 		.cmd_offline = "svp=off",
-		.region = SSMR_SECMEM
-	},
-#endif
-#ifdef CONFIG_MTK_IRIS_SUPPORT
-	[SSMR_FEAT_IRIS] = {
-		.dt_prop_name = "iris-recognition-size",
-		.feat_name = "iris",
-		.cmd_online = "iris=on",
-		.cmd_offline = "iris=off",
-		.region = SSMR_SECMEM
+		.scheme_flag = SVP_FLAGS
 	},
 #endif
 #ifdef CONFIG_MTK_CAM_SECURITY_SUPPORT
@@ -156,7 +147,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "2d_fr",
 		.cmd_online = "2d_fr=on",
 		.cmd_offline = "2d_fr=off",
-		.region = SSMR_SECMEM
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS
 	},
 #endif
 #if defined(CONFIG_TRUSTONIC_TRUSTED_UI) ||\
@@ -166,7 +158,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "tui",
 		.cmd_online = "tui=on",
 		.cmd_offline = "tui=off",
-		.region = SSMR_TUI
+		.scheme_flag = TUI_FLAGS
 	},
 #endif
 #ifdef CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
@@ -175,7 +167,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "wfd",
 		.cmd_online = "wfd=on",
 		.cmd_offline = "wfd=off",
-		.region = SSMR_TUI
+		.scheme_flag = SVP_FLAGS
 	},
 #endif
 #ifdef CONFIG_MTK_PROT_MEM_SUPPORT
@@ -184,7 +176,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "prot-sharedmem",
 		.cmd_online = "prot_sharedmem=on",
 		.cmd_offline = "prot_sharedmem=off",
-		.region = SSMR_PROT_SHAREDMEM
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS
 	},
 #endif
 #ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
@@ -193,14 +186,16 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "ta-elf",
 		.cmd_online = "ta_elf=on",
 		.cmd_offline = "ta_elf=off",
-		.region = SSMR_TA_ELF
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS
 	},
 	[SSMR_FEAT_TA_STACK_HEAP] = {
 		.dt_prop_name = "ta-stack-heap-size",
 		.feat_name = "ta-stack-heap",
 		.cmd_online = "ta_stack_heap=on",
 		.cmd_offline = "ta_stack_heap=off",
-		.region = SSMR_TA_STACK_HEAP
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS
 	},
 #endif
 #ifdef CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
@@ -209,7 +204,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "sdsp-tee-sharedmem",
 		.cmd_online = "sdsp_tee_sharedmem=on",
 		.cmd_offline = "sdsp_tee_sharedmem=off",
-		.region = SSMR_SDSP_TEE_SHAREDMEM
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS
 	},
 #endif
 #ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
@@ -218,50 +214,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "sdsp-firmware",
 		.cmd_online = "sdsp_firmware=on",
 		.cmd_offline = "sdsp_firmware=off",
-		.region = SSMR_SDSP_FIRMWARE
-	}
-#endif
-};
-
-static struct SSMR_Region _ssmregs[__MAX_NR_SSMRSUBS] = {
-#ifdef SSMR_SECMEM_REGION_ENABLE
-	[SSMR_SECMEM] = {
-		.name = "secmem_region",
-		.cur_feat = __MAX_NR_SSMR_FEATURES
-	},
-#endif
-#ifdef SSMR_TUI_REGION_ENABLE
-	[SSMR_TUI] = {
-		.name = "tui_region",
-		.cur_feat = __MAX_NR_SSMR_FEATURES
-	},
-#endif
-#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
-	[SSMR_PROT_SHAREDMEM] = {
-		.name = "prot_sharedmem_region",
-		.cur_feat = __MAX_NR_SSMR_FEATURES
-	},
-#endif
-#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
-	[SSMR_TA_ELF] = {
-		.name = "ta_elf_region",
-		.cur_feat = __MAX_NR_SSMR_FEATURES
-	},
-	[SSMR_TA_STACK_HEAP] = {
-		.name = "ta_stack_heap_region",
-		.cur_feat = __MAX_NR_SSMR_FEATURES
-	},
-#endif
-#ifdef CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
-	[SSMR_SDSP_TEE_SHAREDMEM] = {
-		.name = "sdsp_tee_sharedmem_region",
-		.cur_feat = __MAX_NR_SSMR_FEATURES
-	},
-#endif
-#ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
-	[SSMR_SDSP_FIRMWARE] = {
-		.name = "sdsp_firmware_region",
-		.cur_feat = __MAX_NR_SSMR_FEATURES
+		.scheme_flag = FACE_UNLOCK_FLAGS
 	}
 #endif
 };
