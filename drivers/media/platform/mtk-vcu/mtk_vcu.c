@@ -527,13 +527,13 @@ static int vcu_gce_set_inst_id(void *ctx, u64 gce_handle)
 			vcu_ptr->gce_info[i].v4l2_ctx = ctx;
 			vcu_ptr->gce_info[i].user_hdl = gce_handle;
 			mutex_unlock(&vcu_ptr->vcu_share);
-			pr_info("[VCU] %s ctx %p %llu create id %d\n",
+			pr_info("[VCU] %s ctx %p hndl %llu create id %d\n",
 				__func__, ctx, gce_handle, i);
 			return i;
 		}
 	}
 	mutex_unlock(&vcu_ptr->vcu_share);
-	pr_info("[VCU] %s fail ctx %p %llu\n",
+	pr_info("[VCU] %s fail ctx %p hndl %llu\n",
 		__func__, ctx, gce_handle);
 
 	return -1;
@@ -542,14 +542,15 @@ static int vcu_gce_set_inst_id(void *ctx, u64 gce_handle)
 
 static int vcu_gce_get_inst_id(u64 gce_handle)
 {
-	int i;
+	int i, temp;
 
 	mutex_lock(&vcu_ptr->vcu_share);
 	for (i = 0; i < VCODEC_INST_MAX; i++) {
 		if (vcu_ptr->gce_info[i].user_hdl == gce_handle) {
+			temp = atomic_read(&vcu_ptr->gce_info[i].flush_done);
 			mutex_unlock(&vcu_ptr->vcu_share);
-			pr_info("[VCU] %s %llu get id %d\n",
-				__func__, gce_handle, i);
+			pr_info("[VCU] %s hndl %llu get id %d cnt %d\n",
+				__func__, gce_handle, i, temp);
 			return i;
 		}
 	}
@@ -560,16 +561,25 @@ static int vcu_gce_get_inst_id(u64 gce_handle)
 
 static void vcu_gce_clear_inst_id(void *ctx)
 {
-	int i;
+	int i, temp;
+	u64 gce_handle;
 
 	mutex_lock(&vcu_ptr->vcu_share);
 	for (i = 0; i < VCODEC_INST_MAX; i++) {
 		if (vcu_ptr->gce_info[i].v4l2_ctx == ctx) {
+			gce_handle = vcu_ptr->gce_info[i].user_hdl;
 			vcu_ptr->gce_info[i].v4l2_ctx = NULL;
 			vcu_ptr->gce_info[i].user_hdl = 0;
+			temp = atomic_read(&vcu_ptr->gce_info[i].flush_done);
+			atomic_set(&vcu_ptr->gce_info[i].flush_done, 0);
 			mutex_unlock(&vcu_ptr->vcu_share);
-			pr_info("[VCU] %s ctx %p freed id %d\n",
-				__func__, ctx, i);
+			if (temp > 0)
+				vcu_aee_print(
+					"%s ctx %p hndl %llu free id %d cnt %d\n",
+					__func__, ctx, gce_handle, i, temp);
+			else
+				pr_info("[VCU] %s ctx %p hndl %llu free id %d cnt %d\n",
+					__func__, ctx, gce_handle, i, temp);
 			return;
 		}
 	}
@@ -828,7 +838,11 @@ int vcu_set_codec_ctx(struct platform_device *pdev,
 int vcu_clear_codec_ctx(struct platform_device *pdev,
 		 void *codec_ctx, unsigned long type)
 {
+	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
+
+	mutex_lock(&vcu->vcu_gce_mutex[type]);
 	vcu_gce_clear_inst_id(codec_ctx);
+	mutex_unlock(&vcu->vcu_gce_mutex[type]);
 
 	return 0;
 }
