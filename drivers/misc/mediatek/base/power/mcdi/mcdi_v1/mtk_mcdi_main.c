@@ -625,7 +625,7 @@ void mcdi_heart_beat_log_dump(void)
 	mcdi_buf_append(buf, ", system_idle_hint = %08x",
 						system_idle_hint_result_raw());
 
-	pr_info("%s\n", get_mcdi_buf(buf));
+	printk_deferred("%s\n", get_mcdi_buf(buf));
 }
 
 int wfi_enter(int cpu)
