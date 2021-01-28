@@ -216,7 +216,7 @@ static int devmpu_rw_perm_get(uint64_t pa, size_t *rd_perm, size_t *wr_perm)
 	return 0;
 }
 
-static ssize_t devmpu_show(struct device_driver *driver, char *buf)
+static ssize_t devmpu_config_show(struct device_driver *driver, char *buf)
 {
 	ssize_t ret = 0;
 
@@ -261,13 +261,7 @@ static ssize_t devmpu_show(struct device_driver *driver, char *buf)
 
 	return ret;
 }
-
-static ssize_t devmpu_store(struct device_driver *driver,
-		const char *buf, size_t count)
-{
-	return count;
-}
-DRIVER_ATTR(devmpu_config, 0444, devmpu_show, devmpu_store);
+static DRIVER_ATTR_RO(devmpu_config);
 
 static irqreturn_t devmpu_irq_handler(int irq, void *dev_id)
 {
