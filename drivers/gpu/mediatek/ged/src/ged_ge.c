@@ -16,6 +16,8 @@
 #include <linux/seq_file.h>
 #include <linux/anon_inodes.h>
 
+#include <linux/kmemleak.h>
+
 struct GEEntry {
 	uint64_t unique_id;
 
@@ -283,6 +285,9 @@ int ged_ge_set(int ge_fd, int region_id, int u32_offset,
 		}
 
 		entry->region_data[region_id] = data;
+
+		/* Avoid kmemleak scan false positive */
+		kmemleak_ignore(data);
 	}
 
 	pregion_data = entry->region_data[region_id];
