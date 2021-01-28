@@ -1022,6 +1022,9 @@ static int mtk_rtc_pdrv_probe(struct platform_device *pdev)
 	struct mt6358_rtc *rtc;
 	unsigned long flags;
 	int ret;
+#if IS_ENABLED(CONFIG_MTK_RTC)
+	struct platform_device *plt_dev;
+#endif
 
 	rtc = devm_kzalloc(&pdev->dev, sizeof(struct mt6358_rtc), GFP_KERNEL);
 	if (!rtc)
@@ -1095,6 +1098,13 @@ static int mtk_rtc_pdrv_probe(struct platform_device *pdev)
 
 	INIT_WORK(&rtc->work, mtk_rtc_work_queue);
 
+#if IS_ENABLED(CONFIG_MTK_RTC)
+	plt_dev = platform_device_register_data(&pdev->dev, "mtk_rtc_dbg",
+						-1, NULL, 0);
+	if (IS_ERR(plt_dev))
+		dev_notice(&pdev->dev,
+			"%s: failed to register mtk_rtc_dbg\n",	__func__);
+#endif
 	return 0;
 out_free_irq:
 	free_irq(rtc->irq, rtc->rtc_dev);
