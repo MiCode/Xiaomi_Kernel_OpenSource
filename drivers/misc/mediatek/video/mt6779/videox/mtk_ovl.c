@@ -82,12 +82,13 @@ atomic_t g_release_ticket = ATOMIC_INIT(1);
 static struct ovl2mem_path_context *__get_context(void)
 {
 	static struct ovl2mem_path_context g_context;
+	const char mem_disp_wakelock[] = "mem_disp_wakelock";
 
 	if (!is_context_inited) {
 		memset((void *)&g_context, 0, sizeof(g_context));
 		mutex_init(&g_context.lock);
 		is_context_inited = 1;
-		mem_wk_lock = wakeup_source_register(NULL, "mem_disp_wakelock");
+		mem_wk_lock = wakeup_source_register(NULL, mem_disp_wakelock);
 	}
 
 	return &g_context;
