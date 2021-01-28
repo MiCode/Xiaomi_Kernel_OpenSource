@@ -3634,6 +3634,7 @@ static int mt6359_gauge_probe(struct platform_device *pdev)
 
 	gauge->hw_status.car_tune_value = 1000;
 	gauge->hw_status.r_fg_value = 50;
+	gauge->attr = mt6359_sysfs_field_tbl;
 
 	if (battery_psy_init(pdev))
 		return -ENOMEM;
@@ -3647,7 +3648,6 @@ static int mt6359_gauge_probe(struct platform_device *pdev)
 	gauge->psy_cfg.drv_data = gauge;
 	gauge->psy = power_supply_register(&pdev->dev, &gauge->psy_desc,
 			&gauge->psy_cfg);
-	gauge->attr = mt6359_sysfs_field_tbl;
 	mt6359_sysfs_create_group(gauge);
 	bat_create_netlink(pdev);
 	battery_init(pdev);

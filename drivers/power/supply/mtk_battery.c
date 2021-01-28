@@ -610,6 +610,10 @@ int gauge_get_property(enum gauge_property gp,
 	gauge = (struct mtk_gauge *)power_supply_get_drvdata(psy);
 	attr = gauge->attr;
 
+	if (attr == NULL) {
+		bm_err("%s attr =NULL\n", __func__);
+		return -ENODEV;
+	}
 	if (attr[gp].prop == gp) {
 		mutex_lock(&gauge->ops_lock);
 		attr[gp].get(gauge, &attr[gp], val);
@@ -644,6 +648,10 @@ int gauge_set_property(enum gauge_property gp,
 	gauge = (struct mtk_gauge *)power_supply_get_drvdata(psy);
 	attr = gauge->attr;
 
+	if (attr == NULL) {
+		bm_err("%s attr =NULL\n", __func__);
+		return -ENODEV;
+	}
 	if (attr[gp].prop == gp) {
 		mutex_lock(&gauge->ops_lock);
 		attr[gp].set(gauge, &attr[gp], val);
