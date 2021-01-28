@@ -53,4 +53,4 @@ endif
 
 obj-y += seninf/
 
-subdir-ccflags-y +=  -DNO_CLK_METER -DNO_OC
+subdir-ccflags-y +=  -DNO_CLK_METER -DIMGSENSOR_DFS_CTRL_ENABLE
