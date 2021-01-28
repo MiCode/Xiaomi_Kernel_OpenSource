@@ -136,8 +136,20 @@
 	charger_configuration= <1>;
 };
 
+&pe2 {
+	dcs_chg1_charger_current = <2000000>;
+	dcs_chg2_charger_current = <2000000>;
+};
+
 &pdc {
 	pd_vbus_upper_bound = <12000000>;
+	dcs_chg1_charger_current = <2000000>;
+	dcs_chg2_charger_current = <2000000>;
+};
+
+&pe4 {
+	dcs_chg1_charger_current = <2000000>;
+	dcs_chg2_charger_current = <2000000>;
 };
 
 &accdet {
