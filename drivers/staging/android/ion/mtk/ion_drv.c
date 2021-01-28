@@ -143,7 +143,9 @@ static long ion_sys_cache_sync(struct ion_client *client,
 			return -EINVAL;
 		}
 #ifdef __ION_CACHE_SYNC_USER_VA_EN__
-		if (sync_type < ION_CACHE_CLEAN_BY_RANGE_USE_VA)
+		//if (sync_type < ION_CACHE_CLEAN_BY_RANGE_USE_VA)
+		//work around
+		if (sync_type < ION_CACHE_CLEAN_ALL)
 #endif
 		{
 			struct ion_buffer *buffer;
