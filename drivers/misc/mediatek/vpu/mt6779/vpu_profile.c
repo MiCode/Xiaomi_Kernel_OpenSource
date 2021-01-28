@@ -239,13 +239,15 @@ static uint32_t make_pm_ctrl(uint32_t selector, uint32_t mask)
 	return ctrl;
 }
 
-static void vpu_profile_core_start(int core)
+static void vpu_profile_core_start(int core_s)
 {
 	uint64_t ptr_axi_2;
 	uint64_t ptr_pmg, ptr_pmctrl0, ptr_pmstat0, ptr_pmcounter0;
 	uint32_t ctrl[4];
 	int i;
+	unsigned int core;
 
+	core = (unsigned int)core_s;
 	ptr_axi_2 = vpu_base[core] + g_vpu_reg_descs[REG_AXI_DEFAULT2].offset;
 	ptr_pmg   = vpu_base[core] + DEBUG_BASE_OFFSET + 0x1000;
 
