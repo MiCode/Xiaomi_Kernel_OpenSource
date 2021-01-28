@@ -11,15 +11,11 @@
 # GNU General Public License for more details.
 #-I$(srctree)/drivers/misc/mediatek/base/power/drcc_v1/$(CONFIG_MTK_PLATFORM)/inc/	\
 #
-
 ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/base/power/include/	\
-	-I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM)\
-	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/	\
-	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include/mach	\
-	-I$(srctree)/drivers/misc/mediatek/mcupm/$(CONFIG_MTK_PLATFORM)	\
+	-I$(srctree)/drivers/misc/mediatek/mcupm/mt6893	\
 	-I$(srctree)/include/linux/	\
-	-I$(PTP3_ROOT_DIR)/$(CONFIG_MTK_PLATFORM)/inc	\
+	-I$(PTP3_ROOT_DIR)/mt6893/inc	\
 
 obj-y += mtk_ptp3_main.o
 obj-y += mtk_ptp3_fll.o
