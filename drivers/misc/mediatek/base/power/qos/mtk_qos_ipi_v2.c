@@ -14,14 +14,16 @@
 #include <linux/kthread.h>
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-#include <sspm_ipi.h>
-#include <sspm_ipi_pin.h>
+#include <sspm_ipi_id.h>
 #endif
 
 #include "mtk_qos_bound.h"
 #include "mtk_qos_ipi.h"
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+int qos_ipi_ackdata;
+int qos_recv_ackdata;
+
 static void qos_sspm_enable(void)
 {
 	struct qos_ipi_data qos_ipi_d;
@@ -32,24 +34,31 @@ static void qos_sspm_enable(void)
 
 static int qos_ipi_recv_thread(void *arg)
 {
-	struct ipi_action qos_isr;
 	struct qos_ipi_data qos_ipi_d;
 	unsigned int rdata, ret;
 
-	qos_isr.data = &qos_ipi_d;
-
-	ret = sspm_ipi_recv_registration(IPI_ID_QOS, &qos_isr);
-
+	/* for AP to SSPM */
+	ret = mtk_ipi_register(&sspm_ipidev, IPIS_C_QOS, NULL, NULL,
+				(void *) &qos_ipi_ackdata);
 	if (ret) {
-		pr_err("failed to register sspm recv ipi: %u\n", ret);
-		return 0;
+		pr_err("[SSPM] IPIS_C_QOS ipi_register fail, ret %d\n", ret);
+		return -1;
 	}
+
+	/* for SSPM to AP */
+	ret = mtk_ipi_register(&sspm_ipidev, IPIR_I_QOS, NULL, NULL,
+				(void *) &qos_recv_ackdata);
+	if (ret) {
+		pr_err("[SSPM] IPIR_I_QOS ipi_register fail, ret %d\n", ret);
+		return -1;
+	}
+	pr_info("SSPM is ready to service IPI\n");
 
 	qos_sspm_enable();
 
 	do {
 		rdata = 0;
-		sspm_ipi_recv_wait(IPI_ID_QOS);
+		mtk_ipi_recv(&sspm_ipidev, IPIR_I_QOS);
 
 		switch (qos_ipi_d.cmd) {
 		case QOS_IPI_QOS_BOUND:
@@ -68,14 +77,30 @@ static int qos_ipi_recv_thread(void *arg)
 
 int qos_ipi_to_sspm_command(void *buffer, int slot)
 {
-	int ack_data = 0;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
-	int ret = sspm_ipi_send_sync(IPI_ID_QOS, IPI_OPT_POLLING,
-			buffer, slot, &ack_data, 1);
-	if (ret != 0)
-		pr_notice("qos_ipi_to_sspm error(%d)\n", ret);
+	int ret;
+
+	qos_ipi_ackdata = 0;
+
+	ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_QOS,
+		IPI_SEND_POLLING, buffer,
+		slot, 10);
+	if (ret) {
+		pr_err("SSPM: plt IPI fail ret=%d\n", ret);
+		goto error;
+	}
+
+	if (!qos_ipi_ackdata) {
+		pr_err("SSPM: plt IPI init fail, ackdata=%d\n",
+		qos_ipi_ackdata);
+		goto error;
+	}
+
+
 #endif
-	return ack_data;
+	return 0;
+error:
+	return -1;
 }
 
 void qos_ipi_init(void)
@@ -84,4 +109,3 @@ void qos_ipi_init(void)
 	kthread_run(qos_ipi_recv_thread, NULL, "qos_ipi_recv");
 #endif
 }
-
