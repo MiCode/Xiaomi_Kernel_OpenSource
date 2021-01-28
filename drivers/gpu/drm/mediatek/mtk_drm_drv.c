@@ -68,8 +68,8 @@
 atomic_t _mtk_fence_idx[3] = {ATOMIC_INIT(-1), ATOMIC_INIT(-1),
 	ATOMIC_INIT(-1)};
 #ifndef MTK_DRM_DELAY_PRESENT_FENCE
-atomic_t _mtk_fence_update_event[3] = {ATOMIC_INIT(-1), ATOMIC_INIT(-1),
-	ATOMIC_INIT(-1)};
+atomic_t _mtk_fence_update_event[3] = {ATOMIC_INIT(0), ATOMIC_INIT(0),
+	ATOMIC_INIT(0)};
 wait_queue_head_t _mtk_fence_wq[3];
 #endif
 
