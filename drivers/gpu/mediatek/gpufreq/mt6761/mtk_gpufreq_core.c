@@ -113,6 +113,17 @@ static unsigned int __mt_gpufreq_calculate_dds(unsigned int freq_khz,
 		enum g_post_divider_power_enum post_divider_power);
 static void __mt_gpufreq_setup_opp_power_table(int num);
 static void __mt_gpufreq_calculate_springboard_opp_index(void);
+/* Store GPU status footprint in AEE */
+#ifdef CONFIG_MTK_AEE_IPANIC
+static inline void gpu_dvfs_oppidx_footprint(unsigned int idx)
+{
+	aee_rr_rec_gpu_dvfs_oppidx(idx);
+}
+static inline void gpu_dvfs_oppidx_reset_footprint(void)
+{
+	aee_rr_rec_gpu_dvfs_oppidx(0xFF);
+}
+#endif
 
 /**
  * ===============================================
@@ -318,6 +329,9 @@ unsigned int mt_gpufreq_target(unsigned int idx)
 
 	g_cur_opp_idx = target_idx;
 	g_cur_opp_cond_idx = target_cond_idx;
+#ifdef CONFIG_MTK_AEE_IPANIC
+	gpu_dvfs_oppidx_footprint(target_idx);
+#endif
 
 	mutex_unlock(&mt_gpufreq_lock);
 
@@ -2364,6 +2378,10 @@ static int __init __mt_gpufreq_init(void)
 		__func__);
 
 out:
+#ifdef CONFIG_MTK_AEE_IPANIC
+	gpu_dvfs_oppidx_reset_footprint();
+#endif
+
 	return ret;
 }
 

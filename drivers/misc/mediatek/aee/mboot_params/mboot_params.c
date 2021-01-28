@@ -1261,6 +1261,7 @@ void aee_rr_rec_gpu_dvfs_vgpu(u8 val)
 		return;
 	LAST_RR_SET(gpu_dvfs_vgpu, val);
 }
+EXPORT_SYMBOL(aee_rr_rec_gpu_dvfs_vgpu);
 
 void aee_rr_rec_gpu_dvfs_oppidx(u8 val)
 {
@@ -1268,6 +1269,7 @@ void aee_rr_rec_gpu_dvfs_oppidx(u8 val)
 		return;
 	LAST_RR_SET(gpu_dvfs_oppidx, val);
 }
+EXPORT_SYMBOL(aee_rr_rec_gpu_dvfs_oppidx);
 
 void aee_rr_rec_gpu_dvfs_status(u8 val)
 {
@@ -1275,6 +1277,7 @@ void aee_rr_rec_gpu_dvfs_status(u8 val)
 		return;
 	LAST_RR_SET(gpu_dvfs_status, val);
 }
+EXPORT_SYMBOL(aee_rr_rec_gpu_dvfs_status);
 
 u8 aee_rr_curr_gpu_dvfs_status(void)
 {

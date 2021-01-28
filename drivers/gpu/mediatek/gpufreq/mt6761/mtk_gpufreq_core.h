@@ -296,8 +296,9 @@ struct g_pmic_info {
  **************************************************/
 extern bool mtk_get_gpu_loading(unsigned int *pLoading);
 extern unsigned int mt_get_ckgen_freq(unsigned int ckgen);
-
 extern int (*mt_dfs_general_pll)(unsigned int pll_id, unsigned int dds);
-
+#ifdef CONFIG_MTK_AEE_IPANIC
+extern void aee_rr_rec_gpu_dvfs_oppidx(u8 val);
+#endif /* CONFIG_MTK_AEE_IPANIC */
 
 #endif /* _MT_GPUFREQ_CORE_H_ */
