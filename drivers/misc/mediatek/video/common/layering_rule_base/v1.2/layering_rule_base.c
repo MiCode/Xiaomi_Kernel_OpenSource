@@ -72,7 +72,7 @@ int get_layering_opt(enum LYE_HELPER_OPT opt)
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 void set_round_corner_opt(enum LYE_HELPER_OPT opt, int value)
 {
-	if (opt >= LYE_OPT_NUM) {
+	if (opt >= LYE_OPT_NUM || opt < 0) {
 		DISPMSG("%s invalid round corner opt:%d\n", __func__, opt);
 		return;
 	}
@@ -82,7 +82,7 @@ void set_round_corner_opt(enum LYE_HELPER_OPT opt, int value)
 
 int get_round_corner_opt(enum LYE_HELPER_OPT opt)
 {
-	if (opt >= LYE_OPT_NUM) {
+	if (opt >= LYE_OPT_NUM || opt < 0) {
 		DISPMSG("%s invalid round corner opt:%d\n", __func__, opt);
 		return -1;
 	}
@@ -600,13 +600,14 @@ void rollback_compress_layer_to_GPU(struct disp_layer_info *disp_info,
 	if (is_layer_id_valid(disp_info, disp_idx, i) == false)
 		return;
 
-	if (disp_info->input_config[disp_idx][i].compress == 0)
-		return;
 	if (disp_idx < 0 || disp_idx > 1) {
 		DISPMSG("%s: error disp_idx:%d\n",
 			__func__, disp_idx);
 		return;
 	}
+	if (disp_info->input_config[disp_idx][i].compress == 0)
+		return;
+
 	rollback_layer_to_GPU(disp_info, disp_idx, i);
 	disp_info->input_config[disp_idx][i].layer_caps |= NO_FBDC;
 }
