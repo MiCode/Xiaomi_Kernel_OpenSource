@@ -1008,7 +1008,7 @@ static int mmc_blk_check_disk_range_wp(struct gendisk *disk,
 
 	start = part_start;
 	quot = start;
-	remain = do_div(quot, card->wp_grp_size);
+	remain = do_div(quot, (sector_t)(card->wp_grp_size));
 	if (remain) {
 		pr_notice("Start 0x%llx of disk %s not write group aligned\n",
 			(unsigned long long)part_start, disk->disk_name);
@@ -1017,14 +1017,14 @@ static int mmc_blk_check_disk_range_wp(struct gendisk *disk,
 
 	end = part_start + part_nr_sects;
 	quot = end;
-	remain = do_div(quot, card->wp_grp_size);
+	remain = do_div(quot, (sector_t)(card->wp_grp_size));
 	if (remain) {
 		pr_notice("End 0x%llx of disk %s not write group aligned\n",
 			(unsigned long long)part_start, disk->disk_name);
 		end += card->wp_grp_size - remain;
 	}
 	wp_grp_total = end - start;
-	do_div(wp_grp_total, card->wp_grp_size);
+	do_div(wp_grp_total, (sector_t)(card->wp_grp_size));
 	wp_grp_rem = wp_grp_total;
 	wp_grp_found = 0;
 
