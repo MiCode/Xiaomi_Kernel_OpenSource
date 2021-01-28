@@ -27,8 +27,12 @@ static struct wakeup_source *hps_ws;
 #define CPU_DOWN	cpu_down
 #define CPU_UP		cpu_up
 #else
-#define CPU_DOWN(i)	device_offline(get_cpu_device(i))
-#define CPU_UP(i)	device_online(get_cpu_device(i))
+#define CPU_DOWN(i)	\
+	(get_cpu_device(i) == NULL ? false \
+	: device_offline(get_cpu_device(i)))
+#define CPU_UP(i)	\
+	(get_cpu_device(i) == NULL ? false \
+	: device_online(get_cpu_device(i)))
 #endif
 
 #define HPS_RETRY	10
