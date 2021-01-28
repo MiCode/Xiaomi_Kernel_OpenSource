@@ -761,6 +761,16 @@ config MFD_MAX8998
 	  additional drivers must be enabled in order to use the functionality
 	  of the device.
 
+config MFD_MT6358
+	tristate "MediaTek MT6358 PMIC Support"
+	select MFD_CORE
+	select IRQ_DOMAIN
+	help
+	  Say yes here to add support for MediaTek MT6358 PMIC. This is
+	  a Power Management IC. This driver provides common support for
+	  accessing the device; additional drivers must be enabled in order
+	  to use the functionality of the device.
+
 config MT6358_MISC
 	tristate "MediaTek MT6358 MISC FUNCTIONS Support"
 	depends on MFD_MT6358

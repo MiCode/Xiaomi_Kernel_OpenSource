@@ -586,12 +586,6 @@ static signed int fg_set_iavg_intr(struct gauge_device *gauge_dev, void *data)
 			fg_iavg_lth_28_16, fg_iavg_lth_15_00,
 			fg_iavg_hth_28_16, fg_iavg_hth_15_00);
 
-	pmic_set_register_value(PMIC_RG_INT_EN_FG_IAVG_H, 1);
-	if (iavg_lt > 0)
-		pmic_set_register_value(PMIC_RG_INT_EN_FG_IAVG_L, 1);
-	else
-		pmic_set_register_value(PMIC_RG_INT_EN_FG_IAVG_L, 0);
-
 	return 0;
 }
 
@@ -1870,7 +1864,6 @@ static int fgauge_enable_nag_interrupt(struct gauge_device *gauge_dev, int en)
 {
 	if (en != 0)
 		en = 1;
-	pmic_set_register_value(PMIC_RG_INT_EN_NAG_C_DLTV, en);
 	pmic_set_register_value(PMIC_AUXADC_NAG_IRQ_EN, en);
 	pmic_set_register_value(PMIC_AUXADC_NAG_EN, en);
 
@@ -1998,7 +1991,6 @@ static int fgauge_enable_zcv_interrupt(struct gauge_device *gauge_dev, int en)
 	if (en != 0)
 		en = 1;
 	pmic_set_register_value(PMIC_FG_ZCV_DET_EN, en);
-	pmic_set_register_value(PMIC_RG_INT_EN_FG_ZCV, en);
 	bm_debug("[FG_ZCV_INT][fg_set_zcv_intr_en] En %d\n", en);
 
 	return 0;
@@ -2113,7 +2105,6 @@ static int fgauge_enable_battery_tmp_lt_interrupt(
 		pmic_set_register_value(PMIC_AUXADC_BAT_TEMP_DET_PRD_19_16, 0);
 		/* debounce 3 => 10s refresh */
 		pmic_set_register_value(PMIC_AUXADC_BAT_TEMP_DEBT_MAX, 3);
-		pmic_set_register_value(PMIC_RG_INT_EN_BAT_TEMP_L, 1);
 		pmic_set_register_value(PMIC_AUXADC_BAT_TEMP_IRQ_EN_MAX, 1);
 		pmic_set_register_value(PMIC_AUXADC_BAT_TEMP_EN_MAX, 1);
 
@@ -2141,7 +2132,6 @@ static int fgauge_enable_battery_tmp_ht_interrupt(
 		pmic_set_register_value(PMIC_AUXADC_BAT_TEMP_EN_MIN, 0);
 	} else {
 		tmp_int_ht = MV_to_REG_12_temp_value(threshold);
-		pmic_set_register_value(PMIC_RG_INT_EN_BAT_TEMP_H, 1);
 		pmic_set_register_value(
 			PMIC_AUXADC_BAT_TEMP_VOLT_MIN, tmp_int_ht);
 		/* MAX is low temp */
@@ -2553,8 +2543,6 @@ int fgauge_enable_iavg_interrupt(
 	bool ht_en, int ht_th,
 	bool lt_en, int lt_th)
 {
-	pmic_set_register_value(PMIC_RG_INT_EN_FG_IAVG_H, ht_en);
-	pmic_set_register_value(PMIC_RG_INT_EN_FG_IAVG_L, lt_en);
 
 	return 0;
 }
@@ -2563,7 +2551,6 @@ int fgauge_enable_iavg_interrupt(
 int fgauge_enable_vbat_low_interrupt(struct gauge_device *gauge_dev, int en)
 {
 	pmic_set_register_value(PMIC_AUXADC_SOURCE_LBAT2_SEL, 0);
-	pmic_set_register_value(PMIC_RG_INT_EN_BAT2_L, en);
 	pmic_set_register_value(PMIC_AUXADC_LBAT2_IRQ_EN_MIN, en);
 	pmic_set_register_value(PMIC_AUXADC_LBAT2_EN_MIN, en);
 
@@ -2573,7 +2560,6 @@ int fgauge_enable_vbat_low_interrupt(struct gauge_device *gauge_dev, int en)
 int fgauge_enable_vbat_high_interrupt(struct gauge_device *gauge_dev, int en)
 {
 	pmic_set_register_value(PMIC_AUXADC_SOURCE_LBAT2_SEL, 0);
-	pmic_set_register_value(PMIC_RG_INT_EN_BAT2_H, en);
 	pmic_set_register_value(PMIC_AUXADC_LBAT2_IRQ_EN_MAX, en);
 	pmic_set_register_value(PMIC_AUXADC_LBAT2_EN_MAX, en);
 

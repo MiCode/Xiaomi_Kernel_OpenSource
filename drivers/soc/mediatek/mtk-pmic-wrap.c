@@ -881,10 +881,6 @@ struct pmic_wrapper_type {
 };
 
 static struct pmic_wrapper *wrp;
-static struct of_dev_auxdata pwrap_auxdata_lookup[] = {
-	OF_DEV_AUXDATA("mediatek,mt6357-pmic", 0, "mt-pmic", NULL),
-	{ /* sentinel */ },
-};
 
 static u32 pwrap_readl(struct pmic_wrapper *wrp, enum pwrap_regs reg);
 static void pwrap_writel(struct pmic_wrapper *wrp, u32 val,
@@ -1845,7 +1841,7 @@ static const struct of_device_id of_slave_match_tbl[] = {
 		.compatible = "mediatek,mt6357-pmic",
 		.data = &pmic_mt6357,
 	}, {
-		.compatible = "mediatek,mt_pmic",
+		.compatible = "mediatek,mt6358-pmic",
 		.data = &pmic_mt6358,
 	}, {
 		/* sentinel */
@@ -2140,7 +2136,7 @@ static int pwrap_probe(struct platform_device *pdev)
 		goto err_out2;
 	}
 
-	ret = of_platform_populate(np, NULL, pwrap_auxdata_lookup, wrp->dev);
+	ret = of_platform_populate(np, NULL, NULL, wrp->dev);
 	if (ret) {
 		dev_dbg(wrp->dev, "failed to create child devices at %pOF\n",
 				np);

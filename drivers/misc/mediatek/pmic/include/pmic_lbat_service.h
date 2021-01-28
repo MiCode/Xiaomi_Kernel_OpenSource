@@ -14,6 +14,7 @@
 #ifndef __PMIC_LBAT_SERVICE_H__
 #define __PMIC_LBAT_SERVICE_H__
 
+#include <linux/platform_device.h>
 #include <linux/timer.h>
 #include <linux/workqueue.h>
 
@@ -36,10 +37,10 @@ struct lbat_user {
 };
 
 /* extern function */
-extern int lbat_service_init(void);
+extern int lbat_service_init(struct platform_device *pdev);
 extern int lbat_user_register(struct lbat_user *user, const char *name,
 	unsigned int hv_thd_volt, unsigned int lv1_thd_volt,
-	unsigned int lv2_thd_volt, void (*callback)(unsigned int));
+	unsigned int lv2_thd_volt, void (*callback)(unsigned int thd_volt));
 extern int lbat_user_set_debounce(struct lbat_user *user,
 	unsigned int hv_deb_prd, unsigned int hv_deb_cnt,
 	unsigned int lv_deb_prd, unsigned int lv_deb_cnt);

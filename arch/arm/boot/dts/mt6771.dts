@@ -19,6 +19,7 @@
 #include <dt-bindings/mmc/mt6771-msdc.h>
 #include <dt-bindings/pinctrl/mt6771-pinfunc.h>
 #include <dt-bindings/iio/mt635x-auxadc.h>
+#include <dt-bindings/mfd/mt6358-irq.h>
 #include <dt-bindings/gce/mt6771-gce.h>
 #include <generated/autoconf.h>
 
@@ -790,11 +791,11 @@
 		clocks = <&clk26m>, <&clk26m>;
 		clock-names = "spi", "wrap";
 
-		main_pmic: mt-pmic {
-			compatible = "mediatek,mt_pmic";
-			interrupt-controller;
+		main_pmic: mt6358-pmic {
+			interrupt-parent = <&pio>;
+			interrupts = <182 IRQ_TYPE_LEVEL_HIGH 182 0>;
+			status = "okay";
 		};
-
 	};
 
 	pwraph: pwraphal@ {
