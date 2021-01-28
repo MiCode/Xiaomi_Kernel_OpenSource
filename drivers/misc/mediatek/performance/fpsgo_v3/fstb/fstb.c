@@ -1432,8 +1432,8 @@ static void fstb_fps_stats(struct work_struct *work)
 				iter->target_fps_margin_dbnc_b,
 				"target_fps_margin_dbnc_b");
 
-			// ged_kpi_set_target_FPS_margin(iter->bufid,
-			// iter->target_fps, iter->target_fps_margin);
+			ged_kpi_set_target_FPS_margin(iter->bufid,
+			iter->target_fps, iter->target_fps_margin);
 
 			mtk_fstb_dprintk(
 			"%s pid:%d target_fps:%d\n",
