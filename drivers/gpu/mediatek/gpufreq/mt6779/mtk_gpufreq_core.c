@@ -1181,6 +1181,7 @@ void mt_gpufreq_power_limit_notify_registerCB(gpufreq_power_limit_notify pCB)
 {
 	/* legacy */
 }
+EXPORT_SYMBOL(mt_gpufreq_power_limit_notify_registerCB);
 
 /**
  * ===============================================
