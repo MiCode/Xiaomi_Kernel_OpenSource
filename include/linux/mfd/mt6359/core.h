@@ -137,4 +137,84 @@ enum mt6359_irq_numbers {
 	.top_offset = MT6359_##sp##_TOP,	\
 }
 
+#define MT6359_IRQ_NAME_GEN()	\
+{	\
+	[MT6359_IRQ_VPU_OC] = {.name = "vpu_oc"},	\
+	[MT6359_IRQ_VCORE_OC] = {.name = "vcore_oc"},	\
+	[MT6359_IRQ_VGPU11_OC] = {.name = "vgpu11_oc"},	\
+	[MT6359_IRQ_VGPU12_OC] = {.name = "vgpu12_oc"},	\
+	[MT6359_IRQ_VMODEM_OC] = {.name = "vmodem_oc"},	\
+	[MT6359_IRQ_VPROC1_OC] = {.name = "vproc1_oc"},	\
+	[MT6359_IRQ_VPROC2_OC] = {.name = "vproc2_oc"},	\
+	[MT6359_IRQ_VS1_OC] = {.name = "vs1_oc"},	\
+	[MT6359_IRQ_VS2_OC] = {.name = "vs2_oc"},	\
+	[MT6359_IRQ_VPA_OC] = {.name = "vpa_oc"},	\
+	[MT6359_IRQ_VFE28_OC] = {.name = "vfe28_oc"},	\
+	[MT6359_IRQ_VXO22_OC] = {.name = "vxo22_oc"},	\
+	[MT6359_IRQ_VRF18_OC] = {.name = "vrf18_oc"},	\
+	[MT6359_IRQ_VRF12_OC] = {.name = "vrf12_oc"},	\
+	[MT6359_IRQ_VEFUSE_OC] = {.name = "vefuse_oc"},	\
+	[MT6359_IRQ_VCN33_1_OC] = {.name = "vcn33_1_oc"},	\
+	[MT6359_IRQ_VCN33_2_OC] = {.name = "vcn33_2_oc"},	\
+	[MT6359_IRQ_VCN13_OC] = {.name = "vcn13_oc"},	\
+	[MT6359_IRQ_VCN18_OC] = {.name = "vcn18_oc"},	\
+	[MT6359_IRQ_VA09_OC] = {.name = "va09_oc"},	\
+	[MT6359_IRQ_VCAMIO_OC] = {.name = "vcamio_oc"},	\
+	[MT6359_IRQ_VA12_OC] = {.name = "va12_oc"},	\
+	[MT6359_IRQ_VAUX18_OC] = {.name = "vaux18_oc"},	\
+	[MT6359_IRQ_VAUD18_OC] = {.name = "vaud18_oc"},	\
+	[MT6359_IRQ_VIO18_OC] = {.name = "vio18_oc"},	\
+	[MT6359_IRQ_VSRAM_PROC1_OC] = {.name = "vsram_proc1_oc"},	\
+	[MT6359_IRQ_VSRAM_PROC2_OC] = {.name = "vsram_proc2_oc"},	\
+	[MT6359_IRQ_VSRAM_OTHERS_OC] = {.name = "vsram_others_oc"},	\
+	[MT6359_IRQ_VSRAM_MD_OC] = {.name = "vsram_md_oc"},	\
+	[MT6359_IRQ_VEMC_OC] = {.name = "vemc_oc"},	\
+	[MT6359_IRQ_VSIM1_OC] = {.name = "vsim1_oc"},	\
+	[MT6359_IRQ_VSIM2_OC] = {.name = "vsim2_oc"},	\
+	[MT6359_IRQ_VUSB_OC] = {.name = "vusb_oc"},	\
+	[MT6359_IRQ_VRFCK_OC] = {.name = "vrfck_oc"},	\
+	[MT6359_IRQ_VBBCK_OC] = {.name = "vbbck_oc"},	\
+	[MT6359_IRQ_VBIF28_OC] = {.name = "vbif28_oc"},	\
+	[MT6359_IRQ_VIBR_OC] = {.name = "vibr_oc"},	\
+	[MT6359_IRQ_VIO28_OC] = {.name = "vio28_oc"},	\
+	[MT6359_IRQ_VM18_OC] = {.name = "vm18_oc"},	\
+	[MT6359_IRQ_VUFS_OC] = {.name = "vufs_oc"},	\
+	[MT6359_IRQ_PWRKEY] = {.name = "pwrkey"},	\
+	[MT6359_IRQ_HOMEKEY] = {.name = "homekey"},	\
+	[MT6359_IRQ_PWRKEY_R] = {.name = "pwrkey_r"},	\
+	[MT6359_IRQ_HOMEKEY_R] = {.name = "homekey_r"},	\
+	[MT6359_IRQ_NI_LBAT_INT] = {.name = "ni_lbat_int"},	\
+	[MT6359_IRQ_CHRDET_EDGE] = {.name = "chrdet_edge"},	\
+	[MT6359_IRQ_RTC] = {.name = "rtc"},	\
+	[MT6359_IRQ_FG_BAT_H] = {.name = "fg_bat_h"},	\
+	[MT6359_IRQ_FG_BAT_L] = {.name = "fg_bat_l"},	\
+	[MT6359_IRQ_FG_CUR_H] = {.name = "fg_cur_h"},	\
+	[MT6359_IRQ_FG_CUR_L] = {.name = "fg_cur_l"},	\
+	[MT6359_IRQ_FG_ZCV] = {.name = "fg_zcv"},	\
+	[MT6359_IRQ_FG_N_CHARGE_L] = {.name = "fg_n_charge_l"},	\
+	[MT6359_IRQ_FG_IAVG_H] = {.name = "fg_iavg_h"},	\
+	[MT6359_IRQ_FG_IAVG_L] = {.name = "fg_iavg_l"},	\
+	[MT6359_IRQ_FG_DISCHARGE] = {.name = "fg_discharge"},	\
+	[MT6359_IRQ_FG_CHARGE] = {.name = "fg_charge"},	\
+	[MT6359_IRQ_BATON_LV] = {.name = "baton_lv"},	\
+	[MT6359_IRQ_BATON_BAT_IN] = {.name = "baton_bat_in"},	\
+	[MT6359_IRQ_BATON_BAT_OUT] = {.name = "baton_bat_out"},	\
+	[MT6359_IRQ_BIF] = {.name = "bif"},	\
+	[MT6359_IRQ_BAT_H] = {.name = "bat_h"},	\
+	[MT6359_IRQ_BAT_L] = {.name = "bat_l"},	\
+	[MT6359_IRQ_BAT2_H] = {.name = "bat2_h"},	\
+	[MT6359_IRQ_BAT2_L] = {.name = "bat2_l"},	\
+	[MT6359_IRQ_BAT_TEMP_H] = {.name = "bat_temp_h"},	\
+	[MT6359_IRQ_BAT_TEMP_L] = {.name = "bat_temp_l"},	\
+	[MT6359_IRQ_THR_H] = {.name = "thr_h"},	\
+	[MT6359_IRQ_THR_L] = {.name = "thr_l"},	\
+	[MT6359_IRQ_AUXADC_IMP] = {.name = "auxadc_imp"},	\
+	[MT6359_IRQ_NAG_C_DLTV] = {.name = "nag_c_dltv"},	\
+	[MT6359_IRQ_AUDIO] = {.name = "audio"},	\
+	[MT6359_IRQ_ACCDET] = {.name = "accdet"},	\
+	[MT6359_IRQ_ACCDET_EINT0] = {.name = "accdet_eint0"},	\
+	[MT6359_IRQ_ACCDET_EINT1] = {.name = "accdet_eint1"},	\
+	[MT6359_IRQ_SPI_CMD_ALERT] = {.name = "spi_cmd_alert"},	\
+}
+
 #endif /* __MFD_MT6359_CORE_H__ */

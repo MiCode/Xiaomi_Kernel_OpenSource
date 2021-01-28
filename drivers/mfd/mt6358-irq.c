@@ -17,6 +17,8 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 
+#define DEBUG_PMIC_IRQ	1
+
 struct irq_top_t {
 	int hwirq_base;
 	unsigned int num_int_regs;
@@ -27,6 +29,16 @@ struct irq_top_t {
 	unsigned int top_offset;
 };
 
+#if DEBUG_PMIC_IRQ
+struct irq_name_t {
+	const char *name;
+};
+
+static struct irq_name_t mt6357_irq_name[] = MT6357_IRQ_NAME_GEN();
+static struct irq_name_t mt6358_irq_name[] = MT6358_IRQ_NAME_GEN();
+static struct irq_name_t mt6359_irq_name[] = MT6359_IRQ_NAME_GEN();
+#endif
+
 struct pmic_irq_data {
 	unsigned int num_top;
 	unsigned int num_pmic_irqs;
@@ -35,6 +47,9 @@ struct pmic_irq_data {
 	bool *enable_hwirq;
 	bool *cache_hwirq;
 	struct irq_top_t *pmic_ints;
+#if DEBUG_PMIC_IRQ
+	struct irq_name_t *irq_name;
+#endif
 };
 
 static struct irq_top_t mt6357_ints[] = {
@@ -166,10 +181,13 @@ static void mt6358_irq_sp_handler(struct mt6397_chip *chip,
 			hwirq = irqd->pmic_ints[top_gp].hwirq_base +
 				irqd->reg_width * i + j;
 			virq = irq_find_mapping(chip->irq_domain, hwirq);
+#if DEBUG_PMIC_IRQ
 			dev_info(chip->dev,
-				"Reg[0x%x]=0x%x,hwirq=%d,type=%d\n",
-				sta_reg, irq_status, hwirq,
+				"Reg[0x%x]=0x%x,name=%s,hwirq=%d,type=%d\n",
+				sta_reg, irq_status,
+				irqd->irq_name[hwirq], hwirq,
 				irq_get_trigger_type(virq));
+#endif
 			if (virq)
 				handle_nested_irq(virq);
 		}
@@ -239,6 +257,9 @@ int mt6358_irq_init(struct mt6397_chip *chip)
 		irqd->reg_width = MT6357_REG_WIDTH;
 		irqd->top_int_status_reg = MT6357_TOP_INT_STATUS0;
 		irqd->pmic_ints = mt6357_ints;
+#if DEBUG_PMIC_IRQ
+		irqd->irq_name = mt6357_irq_name;
+#endif
 		break;
 	case MT6358_CHIP_ID:
 		irqd->num_top = ARRAY_SIZE(mt6358_ints);
@@ -246,6 +267,9 @@ int mt6358_irq_init(struct mt6397_chip *chip)
 		irqd->reg_width = MT6358_REG_WIDTH;
 		irqd->top_int_status_reg = MT6358_TOP_INT_STATUS0;
 		irqd->pmic_ints = mt6358_ints;
+#if DEBUG_PMIC_IRQ
+		irqd->irq_name = mt6358_irq_name;
+#endif
 		break;
 	case MT6359_CHIP_ID:
 		irqd->num_top = ARRAY_SIZE(mt6359_ints);
@@ -253,6 +277,9 @@ int mt6358_irq_init(struct mt6397_chip *chip)
 		irqd->reg_width = MT6359_REG_WIDTH;
 		irqd->top_int_status_reg = MT6359_TOP_INT_STATUS0;
 		irqd->pmic_ints = mt6359_ints;
+#if DEBUG_PMIC_IRQ
+		irqd->irq_name = mt6359_irq_name;
+#endif
 		break;
 	default:
 		dev_err(chip->dev, "unsupported chip: 0x%x\n", chip->chip_id);
