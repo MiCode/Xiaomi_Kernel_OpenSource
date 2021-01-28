@@ -2865,40 +2865,16 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		mediatek,mailbox-gce = <&gce_mbox>;
 		mboxes = <&gce_mbox 16 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 17 0 CMDQ_THR_PRIO_1>;
-		gce-event-names = "vdec_pic_start",
-			"vdec_decode_done",
-			"vdec_pause",
-			"vdec_dec_error",
-			"vdec_mc_busy_overflow_timeout",
-			"vdec_all_dram_req_done",
-			"vdec_ini_fetch_rdy",
-			"vdec_process_flag",
-			"vdec_search_start_code_done",
-			"vdec_ref_reorder_done",
-			"vdec_wp_tble_done",
-			"vdec_count_sram_clr_done",
-			"venc_eof",
+		gce-event-names = "venc_eof",
 			"venc_cmdq_pause_done",
 			"venc_mb_done",
 			"venc_128B_cnt_done";
-/**
- *		gce-events =  <&gce_mbox CMDQ_EVENT_VDEC_EVENT_0>,
- *			<&gce_mbox CMDQ_EVENT_VDEC_EVENT_1>,
- *			<&gce_mbox CMDQ_EVENT_VDEC_EVENT_2>,
- *			<&gce_mbox CMDQ_EVENT_VDEC_EVENT_3>,
- *			<&gce_mbox CMDQ_EVENT_VDEC_EVENT_4>,
- *			<&gce_mbox CMDQ_EVENT_VDEC_EVENT_5>,
- *			<&gce_mbox CMDQ_EVENT_VDEC_EVENT_6>,
- *			<&gce_mbox CMDQ_EVENT_VDEC_EVENT_7>,
- *			<&gce_mbox CMDQ_EVENT_VDEC_EVENT_8>,
- *			<&gce_mbox CMDQ_EVENT_VDEC_EVENT_9>,
- *			<&gce_mbox CMDQ_EVENT_VDEC_EVENT_10>,
- *			<&gce_mbox CMDQ_EVENT_VDEC_EVENT_11>,
- *			<&gce_mbox CMDQ_EVENT_VENC_EOF>,
- *			<&gce_mbox CMDQ_EVENT_VENC_CMDQ_PAUSE_DONE>,
- *			<&gce_mbox CMDQ_EVENT_VENC_MB_DONE>,
- *			<&gce_mbox CMDQ_EVENT_VENC_128BYTE_CNT_DONE>;
- */
+
+		gce-events =  <&gce_mbox CMDQ_EVENT_VENC_FRAME_DONE>,
+			<&gce_mbox CMDQ_EVENT_VENC_PAUSE_DONE>,
+			<&gce_mbox CMDQ_EVENT_VENC_MB_DONE>,
+			<&gce_mbox CMDQ_EVENT_VENC_128BYTE_CNT_DONE>;
+
 	};
 
 	vdec_gcon: vdec_gcon@16000000 {
