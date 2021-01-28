@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2017 MediaTek Inc.
  *
- * This program is free software: you can redistribute it and/or modify
+ * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 #ifndef __SCP_FEATURE_DEFINE_H__
@@ -16,21 +16,22 @@
 
 
 /* scp platform configs*/
-#define SCP_BOOT_TIME_OUT_MONITOR       (1)
-#define SCP_LOGGER_ENABLE               (1)
-#define SCP_VCORE_TEST_ENABLE			(1)
-#define SCP_DVFS_INIT_ENABLE			(1)
-#define SCP_RESERVED_MEM				(1)
+#define SCP_BOOT_TIME_OUT_MONITOR	(1)
+#define SCP_LOGGER_ENABLE		(0)
+#define SCP_VCORE_TEST_ENABLE		(1)
+#define SCP_DVFS_INIT_ENABLE		(0)
+#define SCP_VOW_LOW_POWER_MODE		(0)
+#define SCP_RESERVED_MEM		(1)
 /* scp rescovery feature option*/
-#define SCP_RECOVERY_SUPPORT			(1)
+#define SCP_RECOVERY_SUPPORT		(1)
 /* scp recovery timeout value (ms)*/
 #define SCP_SYS_RESET_TIMEOUT			1000
 
 /* scp aed definition*/
-#define SCP_AED_STR_LEN		(512)
+#define SCP_AED_STR_LEN			(512)
 
 /* scp sub feature register API marco*/
-#define SCP_REGISTER_SUB_SENSOR         (1)
+#define SCP_REGISTER_SUB_SENSOR		(1)
 
 /* emi mpu define*/
 #ifdef CONFIG_MTK_EMI
@@ -56,6 +57,8 @@ enum feature_id {
 	VCORE_TEST4_FEATURE_ID,
 	VCORE_TEST5_FEATURE_ID,
 #endif
+	VOW_BARGEIN_FEATURE_ID,
+	VOW_DUMP_FEATURE_ID,
 	NUM_FEATURE_ID,
 };
 
@@ -136,3 +139,5 @@ extern void scp_deregister_sensor(enum feature_id id,
 		enum scp_sensor_id sensor_id);
 
 #endif
+
+
