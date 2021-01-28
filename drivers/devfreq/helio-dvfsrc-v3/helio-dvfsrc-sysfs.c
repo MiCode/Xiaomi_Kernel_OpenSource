@@ -273,6 +273,13 @@ static ssize_t dvfsrc_level_intr_log_store(struct device *dev,
 static DEVICE_ATTR(dvfsrc_level_intr_log, 0644,
 		dvfsrc_level_intr_log_show, dvfsrc_level_intr_log_store);
 
+static ssize_t dvfsrc_num_opps_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", VCORE_DVFS_OPP_NUM);
+}
+
+static DEVICE_ATTR(dvfsrc_num_opps, 0444, dvfsrc_num_opps_show, NULL);
 
 static struct attribute *helio_dvfsrc_attrs[] = {
 	&dev_attr_dvfsrc_enable.attr,
@@ -289,6 +296,7 @@ static struct attribute *helio_dvfsrc_attrs[] = {
 	&dev_attr_dvfsrc_dump.attr,
 	&dev_attr_dvfsrc_level_intr_log.attr,
 	&dev_attr_dvfsrc_req_isphrt_bw.attr,
+	&dev_attr_dvfsrc_num_opps.attr,
 	NULL,
 };
 
