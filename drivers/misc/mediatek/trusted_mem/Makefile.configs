@@ -7,7 +7,7 @@
 # Trusted Memory Subsystem Options
 #==========================================================================
 # Enable test cases support
-TCORE_UT_TESTS_SUPPORT := y
+TCORE_UT_TESTS_SUPPORT := n
 
 # Enable profiling support
 TCORE_PROFILING_SUPPORT := n
@@ -16,7 +16,7 @@ TCORE_PROFILING_SUPPORT := n
 TCORE_PROFILING_AUTO_DUMP := n
 
 # Enable memory leak detection
-TCORE_MEMORY_LEAK_DETECTION_SUPPORT := y
+TCORE_MEMORY_LEAK_DETECTION_SUPPORT := n
 
 #==========================================================================
 # Feature Dependency Auto Changes
