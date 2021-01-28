@@ -53,7 +53,6 @@ static inline bool check_fde_mode(struct request *req,
 }
 #endif
 
-#if defined(CONFIG_HIE)
 static inline bool check_fbe_mode(struct request *req)
 {
 	if (hie_request_crypted(req))
@@ -61,12 +60,7 @@ static inline bool check_fbe_mode(struct request *req)
 
 	return false;
 }
-#else
-static inline bool check_fbe_mode(struct request *req)
-{
-	return false;
-}
-#endif
+
 static void msdc_enable_crypto(struct msdc_host *host)
 {
 	void __iomem *base = host->base;
@@ -88,16 +82,6 @@ static void msdc_disable_crypto(struct msdc_host *host)
 #define DATA_UNIT_NUM(x)	(((u64)(x) & 0xFFFFFFFF) << 0)
 #define CRYPTO_CONFIG_INDEX(x)	(((u64)(x) & 0xFF) << 32)
 #define CRYPTO_ENABLE(x)	(((u64)(x) & 0x1) << 47)
-
-union cqhci_cpt_cap {
-	u32 cap_raw;
-	struct {
-		u8 cap_cnt;
-		u8 cfg_cnt;
-		u8 resv;
-		u8 cfg_ptr;
-	} cap;
-};
 
 union cqhci_cpt_capx {
 	u32 capx_raw;
@@ -169,7 +153,6 @@ static int msdc_cqhci_fde_init(struct msdc_host *host,
 	return 0;
 }
 
-#ifdef CONFIG_HIE
 static int msdc_cqhci_fbe_init(struct msdc_host *host,
 	struct request *req)
 {
@@ -198,7 +181,7 @@ static int msdc_cqhci_fbe_init(struct msdc_host *host,
 
 	return err;
 }
-#endif
+
 static int msdc_cqhci_crypto_cfg(struct mmc_host *mmc,
 		struct mmc_request *mrq, u32 slot, u64 *ctx)
 {
@@ -222,9 +205,7 @@ static int msdc_cqhci_crypto_cfg(struct mmc_host *mmc,
 			/* use slot 0 for fde mode */
 			cc_idx = 0;
 			c_en = true;
-		}
-#ifdef CONFIG_HIE
-		else if (check_fbe_mode(req)) {
+		} else if (check_fbe_mode(req)) {
 			u64 hw_hie_iv_num;
 
 			err = msdc_cqhci_fbe_init(host, req);
@@ -234,7 +215,6 @@ static int msdc_cqhci_crypto_cfg(struct mmc_host *mmc,
 			if (hw_hie_iv_num)
 				lba = hw_hie_iv_num;
 		}
-#endif
 	}
 
 	if (ctx)
@@ -359,9 +339,7 @@ static void msdc_pre_crypto(struct mmc_host *mmc, struct mmc_request *mrq)
 	u32 blk_addr = 0;
 	u32 is_fde = 0, is_fbe = 0;
 	unsigned int key_idx;
-#ifdef CONFIG_HIE
 	int err;
-#endif
 	struct mmc_blk_request *brq;
 	struct mmc_queue_req *mq_rq = NULL;
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
@@ -419,7 +397,6 @@ check_hw_crypto:
 			host->is_crypto_init = true;
 			host->key_idx = key_idx;
 		}
-#ifdef CONFIG_HIE
 		if (is_fbe) {
 			if (!host->is_crypto_init) {
 				/* fbe init */
@@ -456,7 +433,6 @@ check_hw_crypto:
 				return;
 			}
 		}
-#endif
 		if (!mmc_card_blockaddr(mmc->card))
 			blk_addr = blk_addr >> 9;
 
@@ -474,7 +450,6 @@ static void msdc_post_crypto(struct msdc_host *host)
 	msdc_disable_crypto(host);
 }
 
-#ifdef CONFIG_HIE
 #ifdef CONFIG_MTK_EMMC_HW_CQ
 static int _msdc_hie_cqhci_cfg(unsigned int mode, const char *key,
 	int len, struct request *req, void *priv)
@@ -638,4 +613,3 @@ static void msdc_hie_register(struct msdc_host *host)
 	if (host->hw->host_function == MSDC_EMMC)
 		hie_register_device(&msdc_hie_dev);
 }
-#endif
