@@ -1227,6 +1227,13 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	if (!secData || !secData->is_secure)
 		return 0;
 
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+	if (handle->engineFlag & CMDQ_ENG_MTEE_GROUP_BITS)
+		cmdq_task_set_mtee(handle, true);
+	else
+		cmdq_task_set_mtee(handle, false);
+#endif	//CMDQ_SECURE_MTEE_SUPPORT
+
 	cmdq_task_set_secure(handle, secData->is_secure);
 	handle->secData.enginesNeedDAPC = secData->enginesNeedDAPC;
 	handle->secData.enginesNeedPortSecurity =
