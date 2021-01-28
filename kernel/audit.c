@@ -853,7 +853,8 @@ main_queue:
 	return 0;
 }
 
-#ifdef CONFIG_MTK_SELINUX_AEE_WARNING
+#if defined(CONFIG_MTK_SELINUX_AEE_WARNING) &&\
+	defined(MTK_SELINUX_WARNING_ENABLE)
 /*
  * return skb field of audit buffer
  */
