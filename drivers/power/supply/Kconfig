@@ -697,6 +697,15 @@ config CHARGER_TYPE_MT6357
 	  This driver use MT6357 to detect charger type
 	  Say no if not using MT6357 Charger Type Detection.
 
+config CHARGER_MT6357
+	bool "MT6357 Pulse Charger Driver"
+	depends on MFD_MT6397
+	help
+	  Say yes here to enable MT6357 Pulse Charger
+	  Detection Driver.
+	  This driver use MT6357 to charge
+	  Say no if not using MT6357 to charge
+
 config MTK_CHARGER
 	bool "MediaTek Charging Driver"
 	help
