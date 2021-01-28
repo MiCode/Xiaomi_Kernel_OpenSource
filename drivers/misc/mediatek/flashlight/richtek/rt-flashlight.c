@@ -202,9 +202,10 @@ static ssize_t strobe_brightness_show(struct device *dev,
 
 static struct class *flashlight_class;
 
-static int flashlight_suspend(struct device *dev, pm_message_t state)
+static int flashlight_suspend(struct device *dev)
 {
 	struct flashlight_device *flashlight_dev = to_flashlight_device(dev);
+	pm_message_t state = {};
 
 	if (flashlight_dev->ops)
 		flashlight_dev->ops->suspend(flashlight_dev, state);
@@ -233,7 +234,7 @@ static DEVICE_ATTR_RO(mode);
 static DEVICE_ATTR_RO(torch_max_brightness);
 static DEVICE_ATTR_RO(strobe_max_brightness);
 static DEVICE_ATTR_RO(color_temperature);
-static DEVICE_ATTR_RW(strobe_delay);
+static DEVICE_ATTR_RO(strobe_delay);
 static DEVICE_ATTR_RW(strobe_timeout);
 static DEVICE_ATTR_RW(torch_brightness);
 static DEVICE_ATTR_RW(strobe_brightness);
@@ -542,6 +543,9 @@ int flashlight_strobe_charge(struct flashlight_device *flashlight_dev,
 }
 EXPORT_SYMBOL(flashlight_strobe_charge);
 
+static SIMPLE_DEV_PM_OPS(flashlight_pm_ops, flashlight_suspend,
+			 flashlight_resume);
+
 static void __exit flashlight_class_exit(void)
 {
 	class_destroy(flashlight_class);
@@ -556,8 +560,7 @@ static int __init flashlight_class_init(void)
 		return PTR_ERR(flashlight_class);
 	}
 	flashlight_class->dev_groups = flashlight_groups;
-	flashlight_class->suspend = flashlight_suspend;
-	flashlight_class->resume = flashlight_resume;
+	flashlight_class->pm = &flashlight_pm_ops;
 	return 0;
 }
 
