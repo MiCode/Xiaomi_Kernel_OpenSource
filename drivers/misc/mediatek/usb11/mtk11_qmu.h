@@ -92,6 +92,11 @@ static inline int mtk11_dbg_level(unsigned int level)
 	return mtk11_qmu_dbg_level >= level;
 }
 
+#define QMU_ERR(format, args...) do {} while (0)
+#define QMU_WARN(format, args...) do {} while (0)
+#define QMU_INFO(format, args...) do {} while (0)
+#define QMU_DBG(format, args...) do {} while (0)
+
 #define QMU_PR_WARN(format, args...) do {if (mtk11_dbg_level(LOG_WARN)) \
 	pr_warn("QMU_WARN,<%s %d>, " format, __func__, __LINE__, ## args);  } \
 	while (0)
