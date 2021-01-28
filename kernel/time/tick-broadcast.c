@@ -23,6 +23,18 @@
 
 #include "tick-internal.h"
 
+#define CONFIG_MTK_TICK_BROADCAST_AEE_DUMP
+
+#ifdef CONFIG_MTK_AEE_IPANIC
+#if defined(CONFIG_MTK_TICK_BROADCAST_AEE_DUMP)
+#include <linux/cpumask.h>
+#include <linux/sched/clock.h>
+#include <mt-plat/mboot_params.h>
+
+#define _MTK_TICK_BROADCAST_AEE_DUMP
+#endif
+#endif
+
 /*
  * Broadcast support for broken x86 hardware, where the local apic
  * timer stops in C3 state.
@@ -523,6 +535,101 @@ static cpumask_var_t tick_broadcast_oneshot_mask __cpumask_var_read_mostly;
 static cpumask_var_t tick_broadcast_pending_mask __cpumask_var_read_mostly;
 static cpumask_var_t tick_broadcast_force_mask __cpumask_var_read_mostly;
 
+#ifdef _MTK_TICK_BROADCAST_AEE_DUMP
+
+struct tick_broadcast_history_struct {
+	unsigned long long time_enter;
+	unsigned long long time_exit;
+	int ret_enter;
+};
+
+static struct tick_broadcast_history_struct tick_broadcast_history[NR_CPUS];
+static char tick_broadcast_mtk_aee_dump_buf[128];
+static uint64_t tick_broadcast_enter_prev;
+static uint64_t tick_broadcast_enter_count[NR_CPUS];
+static uint64_t tick_broadcast_fail_count[NR_CPUS];
+static uint64_t tick_broadcast_success_count[NR_CPUS];
+static uint64_t tick_broadcast_interrupt_count[NR_CPUS];
+static uint64_t _tick_broadcast_enter_count[NR_CPUS];
+static uint64_t _tick_broadcast_fail_count[NR_CPUS];
+static uint64_t _tick_broadcast_success_count[NR_CPUS];
+static uint64_t _tick_broadcast_interrupt_count[NR_CPUS];
+static struct cpumask _tb_dbg_oneshot_mask;
+static struct cpumask _tb_dbg_pending_mask;
+static struct cpumask _tb_dbg_force_mask;
+static int bc_irq_affinity_on;
+
+#define LOG_BUF_LEN         1024
+struct tick_broadcast_dump_buf {
+	char buf[LOG_BUF_LEN];
+	char *p_idx;
+};
+
+#define reset_bc_dump_buf(buffer) ((buffer).p_idx = (buffer).buf)
+#define get_bc_dump_buf(buffer)   ((buffer).buf)
+#define bc_dump_buf_append(buffer, fmt, args...)           \
+	((buffer).p_idx += snprintf((buffer).p_idx,           \
+					LOG_BUF_LEN - strlen((buffer).buf), \
+					fmt, ##args))
+struct tick_broadcast_dump_buf bc_dump_buf;
+
+void tick_broadcast_mtk_aee_dump(void)
+{
+	int i;
+
+	/* tick_broadcast_oneshot_mask */
+	memset(tick_broadcast_mtk_aee_dump_buf, 0,
+		sizeof(tick_broadcast_mtk_aee_dump_buf));
+	snprintf(tick_broadcast_mtk_aee_dump_buf,
+		sizeof(tick_broadcast_mtk_aee_dump_buf),
+		"[TICK] oneshot_mask: %*pbl\n",
+		cpumask_pr_args(tick_broadcast_oneshot_mask));
+	aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
+
+	/* tick_broadcast_pending_mask */
+	memset(tick_broadcast_mtk_aee_dump_buf, 0,
+		sizeof(tick_broadcast_mtk_aee_dump_buf));
+	snprintf(tick_broadcast_mtk_aee_dump_buf,
+		sizeof(tick_broadcast_mtk_aee_dump_buf),
+		"[TICK] pending_mask: %*pbl\n",
+		cpumask_pr_args(tick_broadcast_pending_mask));
+	aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
+
+	/* tick_broadcast_force_mask */
+	memset(tick_broadcast_mtk_aee_dump_buf, 0,
+		sizeof(tick_broadcast_mtk_aee_dump_buf));
+	snprintf(tick_broadcast_mtk_aee_dump_buf,
+		sizeof(tick_broadcast_mtk_aee_dump_buf),
+		"[TICK] force_mask: %*pbl\n",
+		cpumask_pr_args(tick_broadcast_force_mask));
+	aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
+
+	/* tick_broadcast irq affinity on cpu */
+	memset(tick_broadcast_mtk_aee_dump_buf, 0,
+		sizeof(tick_broadcast_mtk_aee_dump_buf));
+	snprintf(tick_broadcast_mtk_aee_dump_buf,
+		sizeof(tick_broadcast_mtk_aee_dump_buf),
+		"[TICK] bc irq_affinity: %d\n",
+		bc_irq_affinity_on);
+	aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
+
+	for_each_possible_cpu(i) {
+		/* to avoid unexpected overrun */
+		if (i >= num_possible_cpus())
+			break;
+		memset(tick_broadcast_mtk_aee_dump_buf, 0,
+			sizeof(tick_broadcast_mtk_aee_dump_buf));
+		snprintf(tick_broadcast_mtk_aee_dump_buf,
+			sizeof(tick_broadcast_mtk_aee_dump_buf),
+			"[TICK] cpu %d, %llu, %d, %llu\n",
+			i, tick_broadcast_history[i].time_enter,
+			tick_broadcast_history[i].ret_enter,
+			tick_broadcast_history[i].time_exit);
+		aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
+	}
+}
+#endif
+
 /*
  * Exposed for debugging: see timer_list.c
  */
@@ -557,6 +664,11 @@ static void tick_broadcast_set_affinity(struct clock_event_device *bc,
 
 	bc->cpumask = cpumask;
 	irq_set_affinity(bc->irq, bc->cpumask);
+
+#ifdef _MTK_TICK_BROADCAST_AEE_DUMP
+	/* MTK PATCH: record new target cpu for dynamic irq affinity */
+	bc_irq_affinity_on = cpumask_first(cpumask);
+#endif
 }
 
 static void tick_broadcast_set_event(struct clock_event_device *bc, int cpu,
@@ -606,6 +718,9 @@ static void tick_handle_oneshot_broadcast(struct clock_event_device *dev)
 	bool bc_local;
 
 	raw_spin_lock(&tick_broadcast_lock);
+#ifdef _MTK_TICK_BROADCAST_AEE_DUMP
+	tick_broadcast_interrupt_count[smp_processor_id()]++;
+#endif
 	dev->next_event = KTIME_MAX;
 	next_event = KTIME_MAX;
 	cpumask_clear(tmpmask);
@@ -709,6 +824,11 @@ int __tick_broadcast_oneshot_control(enum tick_broadcast_state state)
 	struct clock_event_device *bc, *dev;
 	int cpu, ret = 0;
 	ktime_t now;
+#ifdef _MTK_TICK_BROADCAST_AEE_DUMP
+	uint64_t enter_offset = 0;
+	int i = 0, set_event = 0;
+	unsigned long long now_sched_clock = sched_clock();
+#endif
 
 	/*
 	 * If there is no broadcast device, tell the caller not to go
@@ -765,6 +885,9 @@ int __tick_broadcast_oneshot_control(enum tick_broadcast_state state)
 			if (cpumask_test_cpu(cpu, tick_broadcast_force_mask)) {
 				ret = -EBUSY;
 			} else if (dev->next_event < bc->next_event) {
+#ifdef _MTK_TICK_BROADCAST_AEE_DUMP
+				set_event = true;
+#endif
 				tick_broadcast_set_event(bc, cpu, dev->next_event);
 				/*
 				 * In case of hrtimer broadcasts the
@@ -846,6 +969,55 @@ int __tick_broadcast_oneshot_control(enum tick_broadcast_state state)
 		}
 	}
 out:
+#ifdef _MTK_TICK_BROADCAST_AEE_DUMP
+	if (state == TICK_BROADCAST_ENTER) {
+		tick_broadcast_history[cpu].time_enter = now_sched_clock;
+		tick_broadcast_history[cpu].ret_enter = ret;
+
+		tick_broadcast_enter_count[cpu]++;
+		if (set_event)
+			tick_broadcast_success_count[cpu]++;
+		if (ret < 0)
+			tick_broadcast_fail_count[cpu]++;
+	} else {
+		tick_broadcast_history[cpu].time_exit = now_sched_clock;
+
+		now_sched_clock = sched_clock();
+		do_div(now_sched_clock, 1000000ULL);
+		enter_offset = now_sched_clock -
+			tick_broadcast_enter_prev;
+		if (enter_offset > 5000) {
+			tick_broadcast_enter_prev =
+				now_sched_clock;
+
+			for_each_possible_cpu(i) {
+				/* to avoid unexpected overrun */
+				if (i >= num_possible_cpus())
+					break;
+				_tick_broadcast_enter_count[i] =
+					tick_broadcast_enter_count[i];
+				_tick_broadcast_fail_count[i] =
+					tick_broadcast_fail_count[i];
+				_tick_broadcast_success_count[i] =
+					tick_broadcast_success_count[i];
+				_tick_broadcast_interrupt_count[i] =
+					tick_broadcast_interrupt_count[i];
+
+				tick_broadcast_enter_count[i] = 0;
+				tick_broadcast_fail_count[i] = 0;
+				tick_broadcast_success_count[i] = 0;
+				tick_broadcast_interrupt_count[i] = 0;
+
+				cpumask_copy(&_tb_dbg_oneshot_mask,
+					tick_broadcast_oneshot_mask);
+				cpumask_copy(&_tb_dbg_pending_mask,
+					tick_broadcast_pending_mask);
+				cpumask_copy(&_tb_dbg_force_mask,
+					tick_broadcast_force_mask);
+			}
+		}
+	}
+#endif
 	raw_spin_unlock(&tick_broadcast_lock);
 	return ret;
 }

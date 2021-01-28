@@ -91,6 +91,24 @@ int in_fiq_handler(void)
 	return atomic_read(&wdt_enter_fiq);
 }
 
+/* debug timer */
+void __weak timer_list_aee_dump(int exclude_cpus)
+{
+	pr_notice("%s weak function at %s\n", __func__, __FILE__);
+}
+
+/* debug systimer */
+void __weak mtk_timer_clkevt_aee_dump(void)
+{
+	pr_notice("%s weak function at %s\n", __func__, __FILE__);
+}
+
+/* debug tick-broadcast */
+void __weak tick_broadcast_mtk_aee_dump(void)
+{
+	pr_notice("%s weak function at %s\n", __func__, __FILE__);
+}
+
 /* debug EMI */
 __weak void dump_emi_outstanding(void) {}
 
@@ -312,6 +330,13 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 	/* dump bind info */
 	dump_wdk_bind_info();
 #endif
+#else
+	/* dump systimer(tick-broadcast dev) info */
+	tick_broadcast_mtk_aee_dump();
+	/* dump systimer(tick-broadcast dev) info */
+	mtk_timer_clkevt_aee_dump();
+	/* dump hrtimer list and tick devices */
+	timer_list_aee_dump(0);
 #endif
 
 	if (regs) {

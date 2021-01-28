@@ -81,6 +81,28 @@
 #define SYST_CON_IRQ_EN          BIT(1)
 #define SYST_CON_IRQ_CLR         BIT(4)
 
+#ifdef CONFIG_MTK_AEE_IPANIC
+#define SYST_DEBUG
+#endif
+
+#ifdef SYST_DEBUG
+#include <linux/sched/clock.h>
+#include <mt-plat/mboot_params.h>
+
+static char         dbg_buf[128];
+static unsigned int dbg_setevt_cpu;
+static uint64_t     t_setevt_in;
+static uint64_t     t_hdl_in;
+static uint64_t     t_setevt_ticks;
+
+#define aee_log(fmt, ...) \
+do { \
+	memset(dbg_buf, 0, sizeof(dbg_buf)); \
+	if (snprintf(dbg_buf, sizeof(dbg_buf), fmt, ##__VA_ARGS__) > 0) \
+		aee_sram_fiq_log(dbg_buf); \
+} while (0)
+#endif
+
 static void __iomem *gpt_sched_reg __read_mostly;
 
 static void mtk_syst_ack_irq(struct timer_of *to)
@@ -94,6 +116,9 @@ static irqreturn_t mtk_syst_handler(int irq, void *dev_id)
 	struct clock_event_device *clkevt = dev_id;
 	struct timer_of *to = to_timer_of(clkevt);
 
+#ifdef SYST_DEBUG
+	t_hdl_in = sched_clock();
+#endif
 	mtk_syst_ack_irq(to);
 	clkevt->event_handler(clkevt);
 
@@ -105,6 +130,11 @@ static int mtk_syst_clkevt_next_event(unsigned long ticks,
 {
 	struct timer_of *to = to_timer_of(clkevt);
 
+#ifdef SYST_DEBUG
+	t_setevt_in = sched_clock();
+	t_setevt_ticks = ticks;
+	dbg_setevt_cpu = smp_processor_id();
+#endif
 	/* Enable clock to allow timeout tick update later */
 	writel(SYST_CON_EN, SYST_CON_REG(to));
 
@@ -375,3 +405,18 @@ static int __init mtk_gpt_init(struct device_node *node)
 }
 TIMER_OF_DECLARE(mtk_mt6577, "mediatek,mt6577-timer", mtk_gpt_init);
 TIMER_OF_DECLARE(mtk_mt6765, "mediatek,mt6765-timer", mtk_syst_init);
+
+#ifdef SYST_DEBUG
+void mtk_timer_clkevt_aee_dump(void)
+{
+	/* interrupt, clkevt handler and set next time */
+	aee_log("[timer-mtk]\n");
+	aee_log("int handler entry:    %llu\n", t_hdl_in);
+	aee_log("set next event entry: %llu\n", t_setevt_in);
+	aee_log("set next event ticks: %llu\n", t_setevt_ticks);
+	aee_log("set next event cpu:   %u\n",   dbg_setevt_cpu);
+	aee_log("CON: 0x%x\n",  readl(SYST_CON_REG(&to)));
+	aee_log("VAL: 0x%x\n",  readl(SYST_VAL_REG(&to)));
+}
+#endif
+
