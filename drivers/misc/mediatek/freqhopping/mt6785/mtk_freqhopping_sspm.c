@@ -582,9 +582,11 @@ static int mt_fh_hal_general_pll_dfs(enum FH_PLL_ID pll_id,
 		break;
 	}
 
+#if VERBOSE_DEBUG
 	FH_MSG("%s, [Pll_ID]:%d [current dds(CON1)]:0x%x, [target dds]:%d",
 	       __func__, pll_id, (fh_read32(g_reg_pll_con1[pll_id]) & MASK22b),
 	       target_dds);
+#endif
 
 	memset(&ipi_data, 0, sizeof(struct fhctl_ipi_data));
 	ipi_data.u.args[0] = pll_id;
