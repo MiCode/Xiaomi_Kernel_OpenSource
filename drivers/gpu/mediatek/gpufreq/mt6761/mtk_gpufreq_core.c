@@ -33,8 +33,12 @@
 
 #include "mtk_gpufreq_core.h"
 
+/* Todo: When thermal ready, change to CONFIG_THERMAL */
+#ifdef MT_GPUFREQ_THERMAL_SUPPORT
 /* #include "mtk_thermal_typedefs.h" */
 #include "mtk_thermal.h"
+#endif /* ifdef CONFIG_THERMAL */
+
 #ifdef FHCTL_READY
 #include "mt_freqhopping.h"
 #include "mt_fhreg.h"
@@ -111,13 +115,16 @@ static unsigned int __mt_gpufreq_calculate_dds(unsigned int freq_khz,
 		enum g_post_divider_power_enum post_divider_power);
 static void __mt_gpufreq_setup_opp_power_table(int num);
 static void __mt_gpufreq_calculate_springboard_opp_index(void);
+#ifdef USE_STAND_ALONE_VSRAM
 static void
 __mt_gpufreq_vsram_gpu_volt_switch(enum g_volt_switch_enum switch_way,
 	unsigned int sfchg_rate, unsigned int volt_old, unsigned int volt_new);
+#endif
+#ifdef USE_STAND_ALONE_VGPU
 static void
 __mt_gpufreq_vgpu_volt_switch(enum g_volt_switch_enum switch_way,
 	unsigned int sfchg_rate, unsigned int volt_old, unsigned int volt_new);
-
+#endif
 
 /**
  * ===============================================
@@ -581,7 +588,7 @@ unsigned int mt_gpufreq_get_leakage_mw(void)
 	int leak_power;
 #endif /* ifdef MT_GPUFREQ_STATIC_PWR_READY2USE */
 
-#ifdef CONFIG_THERMAL
+#ifdef MT_GPUFREQ_THERMAL_SUPPORT
 	temp = get_immediate_gpu_wrap() / 1000;
 #else
 	temp = 40;
@@ -1582,12 +1589,12 @@ static void __mt_gpufreq_calculate_springboard_opp_index(void)
 /*
  * switch VSRAM_GPU voltage via PMIC
  */
+#ifdef USE_STAND_ALONE_VSRAM
 static void __mt_gpufreq_vsram_gpu_volt_switch(
 	enum g_volt_switch_enum switch_way,
 	unsigned int sfchg_rate,
 	unsigned int volt_old, unsigned int volt_new)
 {
-#ifdef USE_STAND_ALONE_VSRAM
 	unsigned int max_diff, steps;
 
 	if (switch_way == VOLT_RISING)
@@ -1603,19 +1610,18 @@ static void __mt_gpufreq_vsram_gpu_volt_switch(
 
 	gpufreq_pr_debug("@%s: udelay us(%d) = steps(%d) * sfchg_rate(%d)\n",
 			__func__, steps * sfchg_rate, steps, sfchg_rate);
-#endif
 }
+#endif
 
 /*
  * switch VGPU voltage via PMIC
  */
+#ifdef USE_STAND_ALONE_VGPU
 static void __mt_gpufreq_vgpu_volt_switch(enum g_volt_switch_enum switch_way,
 		unsigned int sfchg_rate,
 		unsigned int volt_old, unsigned int volt_new)
 {
-#ifdef USE_STAND_ALONE_VGPU
 	unsigned int max_diff, steps;
-
 
 	if (switch_way == VOLT_RISING)
 		max_diff = (volt_new - volt_old);
@@ -1631,33 +1637,34 @@ static void __mt_gpufreq_vgpu_volt_switch(enum g_volt_switch_enum switch_way,
 	gpufreq_pr_debug(
 		"@%s: udelay us(%d) = steps(%d) * sfchg_rate(%d)\n",
 		__func__, steps * sfchg_rate, steps, sfchg_rate);
-#endif
 }
+#endif
 
 /*
  * enable bucks (VGPU and VSRAM_GPU)
  */
 static void __mt_gpufreq_bucks_enable(void)
 {
-	int ret;
 #ifdef USE_STAND_ALONE_VSRAM
-
+	int ret_vsram;
 	if (regulator_is_enabled(g_pmic->reg_vsram_gpu) == 0) {
-		ret = regulator_enable(g_pmic->reg_vsram_gpu);
-		if (ret) {
+		ret_vsram = regulator_enable(g_pmic->reg_vsram_gpu);
+		if (ret_vsram) {
 			gpufreq_perr(
 			"@%s: enable VSRAM_GPU failed, ret = %d\n",
-			__func__, ret);
+			__func__, ret_vsram);
 			return;
 		}
 	}
 #endif
 #ifdef USE_STAND_ALONE_VGPU
+	int ret_vgpu;
 	if (regulator_is_enabled(g_pmic->reg_vgpu) == 0) {
-		ret = regulator_enable(g_pmic->reg_vgpu);
-		if (ret) {
+		ret_vgpu = regulator_enable(g_pmic->reg_vgpu);
+		if (ret_vgpu) {
 			gpufreq_perr(
-			"@%s: enable VGPU failed, ret = %d\n", __func__, ret);
+			"@%s: enable VGPU failed, ret = %d\n",
+			__func__, ret_vgpu);
 			return;
 		}
 	}
@@ -1672,14 +1679,14 @@ static void __mt_gpufreq_bucks_enable(void)
  */
 static void __mt_gpufreq_bucks_disable(void)
 {
-	int ret;
-
 #ifdef USE_STAND_ALONE_VGPU
+	int ret_vgpu;
 	if (regulator_is_enabled(g_pmic->reg_vgpu) > 0) {
-		ret = regulator_disable(g_pmic->reg_vgpu);
-		if (ret) {
+		ret_vgpu = regulator_disable(g_pmic->reg_vgpu);
+		if (ret_vgpu) {
 			gpufreq_perr(
-			"@%s: disable VGPU failed, ret = %d\n", __func__, ret);
+			"@%s: disable VGPU failed, ret = %d\n",
+			__func__, ret_vgpu);
 			return;
 		}
 	}
@@ -1687,12 +1694,13 @@ static void __mt_gpufreq_bucks_disable(void)
 	__mt_gpufreq_vcore_volt_switch(0);
 #endif
 #ifdef USE_STAND_ALONE_VSRAM
+	int ret_vsram;
 	if (regulator_is_enabled(g_pmic->reg_vsram_gpu) > 0) {
-		ret = regulator_disable(g_pmic->reg_vsram_gpu);
-		if (ret) {
+		ret_vsram = regulator_disable(g_pmic->reg_vsram_gpu);
+		if (ret_vsram) {
 			gpufreq_perr(
 			"@%s: disable VSRAM_GPU failed, ret = %d\n",
-			__func__, ret);
+			__func__, ret_vsram);
 			return;
 		}
 	}
@@ -1973,7 +1981,7 @@ static void __mt_update_gpufreqs_power_table(void)
 	unsigned int freq = 0;
 	unsigned int volt = 0;
 
-#ifdef CONFIG_THERMAL
+#ifdef MT_GPUFREQ_THERMAL_SUPPORT
 	temp = get_immediate_gpu_wrap() / 1000;
 #else
 	temp = 40;
@@ -2196,7 +2204,7 @@ static void __mt_gpufreq_setup_opp_power_table(int num)
 	if (g_power_table == NULL)
 		return;
 
-#ifdef CONFIG_THERMAL
+#ifdef MT_GPUFREQ_THERMAL_SUPPORT
 	temp = get_immediate_gpu_wrap() / 1000;
 #else
 	temp = 40;
@@ -2222,7 +2230,7 @@ static void __mt_gpufreq_setup_opp_power_table(int num)
 				g_power_table[i].gpufreq_power);
 	}
 
-#ifdef CONFIG_THERMAL
+#ifdef MT_GPUFREQ_THERMAL_SUPPORT
 	mtk_gpufreq_register(g_power_table, num);
 #endif /* ifdef CONFIG_THERMAL */
 }
@@ -2275,6 +2283,9 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	struct device_node *apmixed_node;
 	struct device_node *node;
 	int i;
+
+	GPUFREQ_UNREFERENCED(g_efuse_base);
+	GPUFREQ_UNREFERENCED(__mt_gpufreq_get_opp_idx_by_volt);
 
 	gpufreq_pr_info("@%s: gpufreq driver probe, clock is %d KHz\n",
 			__func__, mt_get_ckgen_freq(9));
@@ -2337,6 +2348,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	pr_info("mtcmos_mfg is at 0x%p, mtcmos_mfg_core0 is at 0x%p, ",
 		g_clk->mtcmos_mfg, g_clk->mtcmos_mfg_core0);
 
+#ifdef MT_GPUFREQ_DEVICE_INFO_SUPPORT
 	g_efuse_id = get_devinfo_with_index(30);
 	if (g_efuse_id == 0x10 || g_efuse_id == 0x11
 		|| g_efuse_id == 0x90 || g_efuse_id == 0x91) {
@@ -2346,6 +2358,11 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 		/* Other Version, set default segment */
 		g_segment_id = MT6761_SEGMENT;
 	}
+#else
+	g_efuse_id = 0x0;
+	g_segment_id = MT6761_SEGMENT;
+#endif
+
 	gpufreq_pr_info("@%s: g_efuse_id = 0x%08X, g_segment_id = %d\n",
 		__func__, g_efuse_id, g_segment_id);
 

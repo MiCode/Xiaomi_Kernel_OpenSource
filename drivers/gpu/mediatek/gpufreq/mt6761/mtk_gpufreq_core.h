@@ -152,6 +152,8 @@
 #define gpufreq_pr_debug(fmt, args...)\
 	pr_debug(GPUFERQ_TAG"[DEBUG]"fmt, ##args)
 
+#define GPUFREQ_UNREFERENCED(param) ((void)(param))
+
 /**************************************************
  * Condition Setting
  **************************************************/
@@ -162,6 +164,7 @@
 #define MT_GPUFREQ_BATT_OC_PROTECT
 #define MT_GPUFREQ_DYNAMIC_POWER_TABLE_UPDATE
 // #define MT_GPUFREQ_PBM_SUPPORT
+// #define MT_GPUFREQ_DEVICE_INFO_SUPPORT
 
 /**************************************************
  * Battery Over Current Protect
