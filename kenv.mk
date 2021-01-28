@@ -52,9 +52,7 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
       TARGET_KERNEL_CLANG_COMPILE := CLANG_TRIPLE=aarch64-linux-gnu- CC=$(KERNEL_ROOT_DIR)/prebuilts/clang/host/linux-x86/clang-r346389c/bin/clang
     endif
   else
-    TARGET_KERNEL_CROSS_COMPILE ?= $(KERNEL_ROOT_DIR)/prebuilts/gcc/$(HOST_PREBUILT_TAG)/arm/arm-linux-androideabi-4.9/bin/arm-linux-androideabi-
-    # No CLANG support for arm yet
-    TARGET_KERNEL_CLANG_COMPILE :=
+    TARGET_KERNEL_CROSS_COMPILE ?= $(KERNEL_ROOT_DIR)/prebuilts/gcc/$(HOST_PREBUILT_TAG)/arm/arm-linux-androideabi-4.9/bin/arm-linux-androidkernel-
   endif
 
   ifeq ($(wildcard $(TARGET_PREBUILT_KERNEL)),)
