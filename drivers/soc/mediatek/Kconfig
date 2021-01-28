@@ -83,6 +83,14 @@ config MTK_LPM
 	  platform could enter deeper sleep mode when cpu preparing to
 	  power down if it have sufficient time between warmboot.
 
+config MTK_PMQOS
+	tristate "MediaTek PMQOS Framework support"
+	depends on ARCH_MEDIATEK
+	help
+	  Say yes here to support for the MediaTek PMQOS framework
+	  driver. Driver can register the Qos class notify and receive
+	  from the devices request to adjust qos policy for power
+	  and performance.
 
 menu "Security"
 

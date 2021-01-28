@@ -1,3 +1,4 @@
+obj-$(CONFIG_MTK_PMQOS) += mtk-pm-qos.o
 obj-$(CONFIG_MTK_CMDQ) += mtk-cmdq-helper.o
 obj-$(CONFIG_MTK_INFRACFG) += mtk-infracfg.o mtk-scpsys-ext.o
 obj-$(CONFIG_MTK_DVFSRC) += mtk-dvfsrc.o
