@@ -251,10 +251,12 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 		if (noti->swap_state.new_role == PD_ROLE_UFP &&
 				extcon->c_role != DUAL_PROP_DR_DEVICE) {
 			dev_info(dev, "switch role to device\n");
+			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
 			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_DEVICE);
 		} else if (noti->swap_state.new_role == PD_ROLE_DFP &&
 				extcon->c_role != DUAL_PROP_DR_HOST) {
 			dev_info(dev, "switch role to host\n");
+			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
 			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_HOST);
 		}
 		break;
