@@ -129,12 +129,27 @@ struct compat_ion_mm_sf_buf_info {
 	unsigned int info[ION_MM_SF_BUF_INFO_LEN];
 };
 
+struct compat_ion_mm_get_iova_param {
+	union {
+		compat_int_t handle;
+		compat_uptr_t kernel_handle;
+	};
+	compat_uint_t module_id;
+	compat_uint_t security;
+	compat_uint_t coherent;
+	compat_uint_t reserve_iova_start;
+	compat_uint_t reserve_iova_end;
+	compat_u64 phy_addr;
+	compat_size_t len;
+};
+
 struct compat_ion_mm_data {
 	compat_uint_t mm_cmd;
 	union {
 		struct compat_ion_mm_config_buf_param config_buffer_param;
 		struct compat_ion_mm_buf_debug_info  buf_debug_info_param;
 		struct compat_ion_mm_pool_info  pool_info_param;
+		struct compat_ion_mm_get_iova_param get_phys_param;
 	};
 };
 
