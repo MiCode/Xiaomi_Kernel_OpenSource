@@ -91,7 +91,7 @@ struct eemg_det eemg_detectors[NR_EEMG_DET] = {
 		.volt_offset	= 0,
 #endif
 		.ctrl_id	= EEMG_CTRL_GPU,
-		.features	= FEA_INIT01 | FEA_INIT02,
+		.features	= FEA_INIT02,
 		.max_freq_khz   = GPU_FREQ_BASE,
 		.VMAX		= VMAX_VAL_GPU,
 		.VBOOT		= VBOOT_VAL, /* 10uV */
