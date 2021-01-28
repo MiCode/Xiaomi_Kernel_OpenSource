@@ -1149,9 +1149,6 @@ static const struct snd_soc_dapm_route mtk_dai_i2s_routes[] = {
 	{I2S5_MCLK_EN_W_NAME, NULL, APLL2_W_NAME, mtk_afe_mclk_apll_connect},
 
 	/* i2s6 */
-	{"I2S6", NULL, "I2S6_CH1"},
-	{"I2S6", NULL, "I2S6_CH2"},
-
 	{"I2S6", NULL, "I2S0_EN", mtk_afe_i2s_share_connect},
 	{"I2S6", NULL, "I2S1_EN", mtk_afe_i2s_share_connect},
 	{"I2S6", NULL, "I2S2_EN", mtk_afe_i2s_share_connect},
@@ -1225,9 +1222,6 @@ static const struct snd_soc_dapm_route mtk_dai_i2s_routes[] = {
 	{I2S7_MCLK_EN_W_NAME, NULL, APLL2_W_NAME, mtk_afe_mclk_apll_connect},
 
 	/* i2s8 */
-	{"I2S8", NULL, "I2S8_CH1"},
-	{"I2S8", NULL, "I2S8_CH2"},
-
 	{"I2S8", NULL, "I2S0_EN", mtk_afe_i2s_share_connect},
 	{"I2S8", NULL, "I2S1_EN", mtk_afe_i2s_share_connect},
 	{"I2S8", NULL, "I2S2_EN", mtk_afe_i2s_share_connect},
