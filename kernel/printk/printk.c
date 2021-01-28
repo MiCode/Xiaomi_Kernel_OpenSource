@@ -3772,4 +3772,11 @@ void show_regs_print_info(const char *log_lvl)
 	       log_lvl, current, task_stack_page(current));
 }
 
+void get_kernel_log_buffer(unsigned long *addr,
+unsigned long *size, unsigned long *start)
+{
+	*addr = (unsigned long)log_buf;
+	*size = log_buf_len;
+	*start = (unsigned long)&log_first_idx;
+}
 #endif
