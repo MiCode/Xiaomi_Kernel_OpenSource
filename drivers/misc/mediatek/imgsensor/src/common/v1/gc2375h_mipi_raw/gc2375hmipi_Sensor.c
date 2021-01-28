@@ -1451,10 +1451,6 @@ static kal_uint32 feature_control(
 		*feature_return_para_32 = imgsensor_info.checksum_value;
 		*feature_para_len = 4;
 		break;
-	case SENSOR_FEATURE_GET_SENSOR_ID:
-		*feature_return_para_32 = imgsensor_info.sensor_id;
-		*feature_para_len = 4;
-		break;
 	case SENSOR_FEATURE_SET_FRAMERATE:
 		cam_pr_debug("current fps :%d\n", (UINT32) *feature_data_32);
 		spin_lock(&imgsensor_drv_lock);
