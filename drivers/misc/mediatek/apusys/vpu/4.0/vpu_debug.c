@@ -905,6 +905,9 @@ int vpu_init_dev_debug(struct platform_device *pdev, struct vpu_device *vd)
 	int ret = 0;
 	struct dentry *droot;
 
+	vpu_dmp_init(vd);
+	vpu_mesg_init(vd);
+
 	if (!vpu_drv->droot)
 		return -ENODEV;
 
@@ -921,9 +924,6 @@ int vpu_init_dev_debug(struct platform_device *pdev, struct vpu_device *vd)
 		&vd->pw_off_latency);
 	debugfs_create_u64("cmd_timeout", 0660, droot,
 		&vd->cmd_timeout);
-
-	vpu_dmp_init(vd);
-	vpu_mesg_init(vd);
 
 	VPU_DEBUGFS_CREATE(algo);
 	VPU_DEBUGFS_CREATE(dump);
