@@ -1747,6 +1747,13 @@ int dpmgr_check_status_by_scenario(enum DDP_SCENARIO_ENUM scenario)
 	return 0;
 }
 
+bool dpmgr_is_power_on(void)
+{
+	struct DDP_MANAGER_CONTEXT *context = _get_context();
+
+	return context->power_state;
+}
+
 int dpmgr_check_status(disp_path_handle dp_handle)
 {
 	int i = 0;

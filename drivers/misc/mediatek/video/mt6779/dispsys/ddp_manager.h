@@ -539,6 +539,8 @@ int dpmgr_register_cmdq_dump_callback(CmdqDumpInfoCB cb);
 int dpmgr_unregister_cmdq_dump_callback(CmdqDumpInfoCB cb);
 void dpmgr_invoke_cmdq_dump_callbacks(uint64_t engineFlag, int level);
 
+bool dpmgr_is_power_on(void);
+
 /* turn on dsi */
 int dpmgr_path_dsi_power_on(disp_path_handle dp_handle, void *cmdqhandle);
 

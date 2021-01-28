@@ -17,6 +17,7 @@
 #include "disp_helper.h"
 #include "ddp_rsz.h"
 #include "ddp_postmask.h"
+#include "ddp_manager.h"
 
 static char *ddp_signal_0(int bit)
 {
@@ -1527,6 +1528,9 @@ static void dsi_dump_reg(enum DISP_MODULE_ENUM module)
 
 int ddp_dump_reg(enum DISP_MODULE_ENUM module)
 {
+	if (!dpmgr_is_power_on())
+		return 0;
+
 	switch (module) {
 	case DISP_MODULE_WDMA0:
 		wdma_dump_reg(module);
