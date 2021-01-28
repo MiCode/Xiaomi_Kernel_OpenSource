@@ -196,6 +196,7 @@ extern void aee_rr_rec_ppm_min_pwr_bgt(u32 val);
 extern void aee_rr_rec_ppm_policy_mask(u32 val);
 extern void aee_rr_rec_ppm_waiting_for_pbm(u8 val);
 extern void aee_rr_rec_gpu_dvfs_vgpu(u8 val);
+extern u8 aee_rr_curr_gpu_dvfs_vgpu(void);
 extern void aee_rr_rec_gpu_dvfs_oppidx(u8 val);
 extern void aee_rr_rec_gpu_dvfs_status(u8 val);
 extern u8 aee_rr_curr_gpu_dvfs_status(void);
@@ -837,6 +838,11 @@ static inline void aee_rr_rec_ppm_waiting_for_pbm(u8 val)
 
 static inline void aee_rr_rec_gpu_dvfs_vgpu(u8 val)
 {
+}
+
+static inline u8 aee_rr_curr_gpu_dvfs_vgpu(void)
+{
+	return 0;
 }
 
 static inline void aee_rr_rec_gpu_dvfs_oppidx(u8 val)

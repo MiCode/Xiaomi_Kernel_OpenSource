@@ -21,9 +21,6 @@
 
 include $(src)/Kbuild-mtk-custom-env
 
-# MTK bring-up setting, set to 1 when bring-up
-MT_GPUFREQ_BRINGUP ?= 0
-
 mali_kbase-y += \
 	$(MALI_PLATFORM_DIR)/mali_kbase_config_mt6885.o \
 	$(MALI_PLATFORM_DIR)/mali_kbase_cpu_mt6885.o \
