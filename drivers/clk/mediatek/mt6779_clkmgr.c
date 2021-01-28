@@ -188,11 +188,13 @@ static int gpupll_fsel_read(struct seq_file *m, void *v)
 static ssize_t fmeter_write(struct file *file, const char __user *buffer,
 				   size_t count, loff_t *data)
 {
-	int len = 0;
+	unsigned int len = 0;
 
 	len = (count < (sizeof(last_cmd) - 1)) ? count : (sizeof(last_cmd) - 1);
+
 	if (copy_from_user(last_cmd, buffer, len))
 		return 0;
+
 	last_cmd[len] = '\0';
 
 	return count;
@@ -222,23 +224,27 @@ static int pll_div_value_map(int index)
 	}
 	return div;
 }
+
 #define SDM_PLL_N_INFO_MASK 0x003FFFFF /*N_INFO[21:0]*/
 #define ARMPLL_POSDIV_MASK  0x07000000 /*POSDIV[26:24]*/
 #define SDM_PLL_N_INFO_CHG  0x80000000
 #define ARMPLL_DIV_MASK	    0xFFE1FFFF
 #define ARMPLL_DIV_SHIFT    17
+
 static ssize_t armpll1_fsel_write(struct file *file, const char __user *buffer,
 				   size_t count, loff_t *data)
 {
 	char desc[32];
-	int len = 0;
+	unsigned int len = 0;
 	unsigned int ctrl_value = 0;
 	int div;
 	unsigned int value = 0;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
-	if (copy_from_user(desc, buffer, len))
+
+	if (count < 0 || copy_from_user(desc, buffer, len))
 		return 0;
+
 	desc[len] = '\0';
 
 	if (sscanf(desc, "%x %x", &div, &value) == 2) {
@@ -255,7 +261,9 @@ static ssize_t armpll1_fsel_write(struct file *file, const char __user *buffer,
 		ctrl_value |= (pll_div_value_map(div) << ARMPLL_DIV_SHIFT);
 		clk_writel(MP0_PLL_DIV_CFG, ctrl_value);
 	}
+
 	clk_dump();
+
 	return count;
 }
 
@@ -263,14 +271,16 @@ static ssize_t armpll2_fsel_write(struct file *file, const char __user *buffer,
 				  size_t count, loff_t *data)
 {
 	char desc[32];
-	int len = 0;
+	unsigned int len = 0;
 	unsigned int ctrl_value = 0;
 	int div;
 	unsigned int value;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+
 	if (copy_from_user(desc, buffer, len))
 		return 0;
+
 	desc[len] = '\0';
 
 	if (sscanf(desc, "%x %x", &div, &value) == 2) {
@@ -287,7 +297,9 @@ static ssize_t armpll2_fsel_write(struct file *file, const char __user *buffer,
 		ctrl_value |= (pll_div_value_map(div) << ARMPLL_DIV_SHIFT);
 		clk_writel(MP1_PLL_DIV_CFG, ctrl_value);
 	}
+
 	clk_dump();
+
 	return count;
 }
 
@@ -295,14 +307,16 @@ static ssize_t ccipll_fsel_write(struct file *file, const char __user *buffer,
 				    size_t count, loff_t *data)
 {
 	char desc[32];
-	int len = 0;
+	unsigned int len = 0;
 	unsigned int ctrl_value = 0;
 	int div;
 	unsigned int value;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+
 	if (copy_from_user(desc, buffer, len))
 		return 0;
+
 	desc[len] = '\0';
 
 	if (sscanf(desc, "%x %x", &div, &value) == 2) {
@@ -319,47 +333,56 @@ static ssize_t ccipll_fsel_write(struct file *file, const char __user *buffer,
 		ctrl_value |= (pll_div_value_map(div) << ARMPLL_DIV_SHIFT);
 		clk_writel(BUS_PLL_DIV_CFG, ctrl_value);
 	}
-	clk_dump();
-	return count;
 
+	clk_dump();
+
+	return count;
 }
 
 static ssize_t mmpll_fsel_write(struct file *file, const char __user *buffer,
 				    size_t count, loff_t *data)
 {
-		char desc[32];
-		int len = 0;
-		unsigned int con0_value, con1_value;
+	char desc[32];
+	unsigned int len = 0;
+	unsigned int con0_value, con1_value;
 
-		len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
-			if (copy_from_user(desc, buffer, len))
-				return 0;
-		desc[len] = '\0';
-		if (sscanf(desc, "%x %x", &con1_value, &con0_value) == 2) {
-			clk_writel(MMPLL_CON1, con1_value);
-			clk_writel(MMPLL_CON0, con0_value);
-			udelay(20);
-		}
-		return count;
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+
+	desc[len] = '\0';
+
+	if (sscanf(desc, "%x %x", &con1_value, &con0_value) == 2) {
+		clk_writel(MMPLL_CON1, con1_value);
+		clk_writel(MMPLL_CON0, con0_value);
+		udelay(20);
+	}
+
+	return count;
 }
 
 static ssize_t gpupll_fsel_write(struct file *file, const char __user *buffer,
 				    size_t count, loff_t *data)
 {
-		char desc[32];
-		int len = 0;
-		unsigned int con0_value, con1_value;
+	char desc[32];
+	unsigned int len = 0;
+	unsigned int con0_value, con1_value;
 
-		len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
-			if (copy_from_user(desc, buffer, len))
-				return 0;
-		desc[len] = '\0';
-		if (sscanf(desc, "%x %x", &con1_value, &con0_value) == 2) {
-			clk_writel(MFGPLL_CON1, con1_value);
-			clk_writel(MFGPLL_CON0, con0_value);
-			udelay(20);
-		}
-		return count;
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+
+	desc[len] = '\0';
+
+	if (sscanf(desc, "%x %x", &con1_value, &con0_value) == 2) {
+		clk_writel(MFGPLL_CON1, con1_value);
+		clk_writel(MFGPLL_CON0, con0_value);
+		udelay(20);
+	}
+
+	return count;
 }
 
 static int mm_clk_speed_dump_read(struct seq_file *m, void *v)

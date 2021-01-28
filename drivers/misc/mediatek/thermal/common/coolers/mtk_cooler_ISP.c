@@ -72,11 +72,13 @@ struct file *file, const char __user *buffer, size_t count, loff_t *data)
 	char desc[32];
 	char arg_name[32] = { 0 };
 	char trailing[32] = { 0 };
-	int isEnabled, len = 0, arg_val = 0;
-
+	int isEnabled, arg_val = 0;
+	unsigned int len = 0;
 
 	clVR_ISP_dprintk("%s %d\n", __func__, __LINE__);
+
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+
 	if (copy_from_user(desc, buffer, len))
 		return 0;
 

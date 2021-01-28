@@ -1529,7 +1529,7 @@ unsigned int level_selection(int lv)
 static ssize_t _mtk_cl_mutt_tuning_write(
 struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 {
-	int len = 0;
+	unsigned int len = 0;
 	char desc[128];
 	int klog_on = 0, mutt_a = 0, mutt_s = 0;
 	int mutt_off1pa = 0, mutt_off1ca = 0, mutt_noIMS = 0, mutt_level = 0;
@@ -1539,6 +1539,7 @@ struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 	char arg_name[32] = { 0 };
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+
 	if (copy_from_user(desc, buffer, len))
 		return 0;
 

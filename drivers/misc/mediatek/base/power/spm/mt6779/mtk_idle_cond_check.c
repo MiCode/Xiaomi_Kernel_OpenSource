@@ -1568,7 +1568,7 @@ bool mtk_idle_check_clkmux(
 {
 	u32 clkcfgs[NF_CLK_CFG] = {0};
 	int i, k;
-	int idx;
+	unsigned int idx;
 	int offset;
 	u32 masks[4] = {0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000};
 	int shifts[4] = {0, 8, 16, 24};
@@ -1618,8 +1618,9 @@ bool mtk_idle_check_clkmux(
 
 			final_result = false;
 
-			block_mask[idle_type][idx] |=
-				(clkmux_val << shifts[offset]);
+			if (likely(idle_type >= 0))
+				block_mask[idle_type][idx] |=
+					(clkmux_val << shifts[offset]);
 		}
 	}
 
