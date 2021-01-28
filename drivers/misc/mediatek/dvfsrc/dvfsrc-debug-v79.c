@@ -184,10 +184,8 @@ static u32 dvfsrc_get_md_bw(struct mtk_dvfsrc *dvfsrc)
 
 u32 dvfsrc_get_md_scenario(void)
 {
-	/* DVFSRC_DEBUG_STA_0 */
-	struct mtk_dvfsrc *dvfsrc = dvfsrc_drv;
-
-	return dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0);
+	/* return temporary  */
+	return 0;
 }
 EXPORT_SYMBOL(dvfsrc_get_md_scenario);
 
