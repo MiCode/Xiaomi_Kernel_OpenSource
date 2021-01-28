@@ -47,7 +47,7 @@ int m4u_test_alloc_dealloc(int id, unsigned int size)
 {
 	struct m4u_client_t *client;
 	unsigned long va = 0;
-	unsigned int mva;
+	unsigned int mva = 0;
 	int ret;
 	unsigned long populate;
 
@@ -200,8 +200,8 @@ static int m4u_test_map_kernel(void)
 	unsigned long va;
 	unsigned int size = 1024 * 1024;
 	unsigned int mva = 0;
-	unsigned long kernel_va;
-	unsigned int kernel_size;
+	unsigned long kernel_va = 0;
+	unsigned int kernel_size = 0;
 	int i;
 	int ret;
 	unsigned long populate;

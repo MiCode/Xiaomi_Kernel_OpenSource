@@ -1845,7 +1845,7 @@ static long MTK_M4U_ioctl(struct file *filp,
 			 cmd, arg);
 		mtk_iommu_sec_id = arg;
 		if (mtk_iommu_sec_id < 0 ||
-			mtk_iommu_sec_id > SEC_ID_COUNT)
+			mtk_iommu_sec_id >= SEC_ID_COUNT)
 			return -EFAULT;
 		ret = m4u_gz_sec_init(mtk_iommu_sec_id);
 	}

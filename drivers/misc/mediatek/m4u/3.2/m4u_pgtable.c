@@ -1237,6 +1237,12 @@ int m4u_pgtable_init(struct m4u_device *m4u_dev,
 		struct m4u_domain_t *m4u_domain, int m4u_id)
 {
 	/* ======= alloc pagetable======================= */
+
+	if (unlikely((unsigned int)m4u_id >= TOTAL_M4U_NUM)) {
+		m4u_info("%s #%d: m4u_id error:%d\n",
+			 __func__, __LINE__, m4u_id);
+		return -EINVAL;
+	}
 	m4u_domain->pgd =
 	    dma_alloc_coherent(m4u_dev->pDev[m4u_id],
 			M4U_PGD_SIZE, &(m4u_domain->pgd_pa), GFP_KERNEL);
