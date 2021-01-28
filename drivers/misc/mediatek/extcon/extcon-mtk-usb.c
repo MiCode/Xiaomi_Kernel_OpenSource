@@ -235,7 +235,8 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 			noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
 			dev_info(dev, "Type-C SRC plug in\n");
 			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_HOST);
-		} else if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
+		} else if (!(extcon->bypss_typec_sink) &&
+			noti->typec_state.old_state == TYPEC_UNATTACHED &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SNK) {
 			dev_info(dev, "Type-C SINK plug in\n");
 			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_DEVICE);
@@ -359,6 +360,10 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 	if (!of_property_read_u32(dev->of_node, "vbus-current",
 					&extcon->vbus_cur))
 		dev_info(dev, "vbus-current=%d", extcon->vbus_cur);
+
+	extcon->bypss_typec_sink =
+		of_property_read_bool(dev->of_node,
+			"mediatek,bypss-typec-sink");
 
 	/* power psy */
 	ret = mtk_usb_extcon_psy_init(extcon);
