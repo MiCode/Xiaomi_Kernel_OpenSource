@@ -1,0 +1,10 @@
+config MTK_IMGSENSOR
+	bool "Camera Imgsensor Driver Support"
+
+	help
+	  Kernel space image sensor driver. Define  project used all image
+	  sensors .The value is combination of CUSTOM_KERNEL_MAIN_IMGSENSOR,
+	  CUSTOM_KERNEL_MAIN_BACKUP_IMGSENSOR, CUSTOM_KERNEL_SUB_IMGSENSOR,
+	  and CUSTOM_KERNEL_SUB_BACKUP_IMGSENSOR
+
+source "drivers/misc/mediatek/imgsensor/src/Kconfig"

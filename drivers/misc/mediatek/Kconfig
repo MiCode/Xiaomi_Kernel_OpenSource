@@ -196,6 +196,14 @@ config MTK_LCM_PHYSICAL_ROTATION_HW
 	  Select "y" if you want to enable LCM 180 rotate.
 	  Select "n" if unsure.
 
+config CUSTOM_KERNEL_IMGSENSOR
+	string "Custom image sensor driver"
+	help
+	  Kernel space image sensor driver. Define  project used all image
+	  sensors .The value is combination of CUSTOM_KERNEL_MAIN_IMGSENSOR,
+	  CUSTOM_KERNEL_MAIN_BACKUP_IMGSENSOR, CUSTOM_KERNEL_SUB_IMGSENSOR,
+	  and CUSTOM_KERNEL_SUB_BACKUP_IMGSENSOR
+
 source "drivers/misc/mediatek/mmp/Kconfig"
 source "drivers/misc/mediatek/lcm/Kconfig"
 source "drivers/misc/mediatek/sync/Kconfig"
@@ -204,6 +212,7 @@ source "drivers/misc/mediatek/iommu/Kconfig"
 source "drivers/misc/mediatek/m4u/Kconfig"
 source "drivers/misc/mediatek/flashlight/Kconfig"
 source "drivers/misc/mediatek/flashlight/richtek/Kconfig"
+source "drivers/misc/mediatek/imgsensor/Kconfig"
 endmenu # MultiMedia
 
 menu "Sensors"

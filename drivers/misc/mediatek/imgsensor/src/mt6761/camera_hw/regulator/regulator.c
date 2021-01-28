@@ -4,9 +4,14 @@
  */
 
 #include "regulator.h"
-#include "upmu_common.h"
+/*#include "upmu_common.h"*/
 
+#define NO_OC
+
+#ifndef NO_OC
 #include <mt-plat/aee.h>
+#endif
+
 #include <asm/siginfo.h>
 #include <linux/rcupdate.h>
 #include <linux/sched.h>
@@ -31,14 +36,14 @@ struct REGULATOR_CTRL regulator_control[REGULATOR_TYPE_MAX_NUM] = {
 	{"vcamio"},
 };
 
+static struct REGULATOR reg_instance;
+
+#ifndef NO_OC
 static const int int_oc_type[REGULATOR_TYPE_MAX_NUM] = {
 	INT_VCAMA_OC,
 	INT_VCAMD_OC,
 	INT_VCAMIO_OC,
 };
-
-
-static struct REGULATOR reg_instance;
 
 static void imgsensor_oc_handler1(void)
 {
@@ -90,6 +95,7 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 	struct device *pdevice = gimgsensor_device;
 	char str_regulator_name[LENGTH_FOR_SNPRINTF];
 	int i = 0;
+
 	gimgsensor.status.oc = 0;
 
 	if (enable) {
@@ -157,6 +163,7 @@ enum IMGSENSOR_RETURN imgsensor_oc_init(void)
 
 	return IMGSENSOR_RETURN_SUCCESS;
 }
+#endif
 
 static enum IMGSENSOR_RETURN regulator_init(void *pinstance)
 {
@@ -197,7 +204,9 @@ static enum IMGSENSOR_RETURN regulator_init(void *pinstance)
 		}
 	}
 	pdevice->of_node = pof_node;
+#ifndef NO_OC
 	imgsensor_oc_init();
+#endif
 	return IMGSENSOR_RETURN_SUCCESS;
 }
 static enum IMGSENSOR_RETURN regulator_release(void *pinstance)

@@ -10,7 +10,7 @@
 #include <linux/atomic.h>
 #include <linux/platform_device.h>
 #include <kd_imgsensor_define.h>
-#define IMGSENSOR_DFS_CTRL_ENABLE
+#undef IMGSENSOR_DFS_CTRL_ENABLE
 
 #ifdef IMGSENSOR_DFS_CTRL_ENABLE
 #include <linux/pm_qos.h>

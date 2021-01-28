@@ -758,12 +758,6 @@ static void imx499_apply_LRC(void)
 	char puSendCmd[75];
 	kal_uint32 tosend;
 
-#if 0
-	pr_debug("E  Is_Read_LRC_Data=%d", Is_Read_LRC_Data);
-
-	for (i = 0; i < 140; i++)
-		pr_debug("dump LRC[i]=%d", i, imx499_LRC_data[i]);
-#endif
 	tosend = 0;
 	puSendCmd[tosend++] = (char)(startL_reg >> 8);
 	puSendCmd[tosend++] = (char)(startL_reg & 0xFF);
@@ -1079,7 +1073,7 @@ static void set_mirror_flip(kal_uint8 image_mirror)
 
 static void set_PD_pdc(kal_uint8 enable)
 {/*enable mean PD point->Pure RAW*/
-	pr_debug("%s = %d\n", __func__, enable);
+	pr_debug("PD_pdc = %d\n", enable);
 
 	set_mirror_flip(0);
 	if (enable) {
