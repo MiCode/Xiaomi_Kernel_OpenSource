@@ -22,8 +22,6 @@
 #include <linux/seq_file.h>
 extern int g_vpu_log_level;
 extern unsigned int g_mdla_func_mask;
-//extern void *apu_mdla_cmde_mreg_top;
-//extern void *apu_mdla_config_top;
 extern void *apu_conn_top;
 /* LOG & AEE */
 #define MDLA_TAG "[mdla]"
@@ -126,7 +124,6 @@ extern u32 mdla_klog;
 		pr_debug(__VA_ARGS__); \
 	} while (0)
 #endif
-void mdla_dump_reg(int core_id);
 void mdla_dump_ce(struct command_entry *ce);
 void mdla_dump_buf(int mask, void *kva, int group, u32 size);
 void mdla_debugfs_init(void);
@@ -160,6 +157,13 @@ static inline void mdla_debugfs_exit(void)
 #define mdla_qos_debug(...) mdla_debug(MDLA_DBG_QOS, __VA_ARGS__)
 #define mdla_timeout_debug(...) mdla_debug(MDLA_DBG_TIMEOUT, __VA_ARGS__)
 #define mdla_dvfs_debug(...) mdla_debug(MDLA_DBG_DVFS, __VA_ARGS__)
+#define dump_reg_top(core_id, name) \
+	mdla_timeout_debug("%s: %d: %.8x\n", #name,\
+	core_id, mdla_reg_read_with_mdlaid(core_id, name))
+
+#define dump_reg_cfg(core_id, name) \
+	mdla_timeout_debug("%s: %d: %.8x\n", #name,\
+	core_id, mdla_cfg_read_with_mdlaid(core_id, name))
 
 #endif
 

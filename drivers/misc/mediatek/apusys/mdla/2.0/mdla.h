@@ -42,14 +42,10 @@ extern int mdla_uninit_hw(void);
 extern long mdla_dvfs_ioctl(struct file *filp, unsigned int command,
 		unsigned long arg);
 extern int mdla_dvfs_cmd_end_shutdown(void);
-//void __weak mdla_qos_counter_destroy(void);//qos
-//int __weak mdla_init_hw(int core, struct platform_device *pdev);
-//int __weak mdla_uninit_hw(void);
-//int __weak mdla_qos_counter_init(void);
 
 extern void *apu_mdla_gsm_top;
 extern void *apu_mdla_gsm_base;
-extern void *infracfg_ao_top;
+//extern void *infracfg_ao_top;
 
 
 extern u32 mdla_timeout;
@@ -141,7 +137,7 @@ struct mdla_run_cmd_sync {
 	struct mdla_wait_cmd res;
 };
 
-#define MTK_MDLA_MAX_NUM 1 // shift to dts later
+#define MTK_MDLA_MAX_NUM 2 // shift to dts later
 
 /*mdla dev info, register to apusys callback*/
 struct mdla_dev {

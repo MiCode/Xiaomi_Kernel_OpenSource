@@ -20,6 +20,7 @@ int mdla_process_command(int core_id, struct command_entry *ce);
 int hw_e1_timeout_detect(int core_id);
 int mdla_dts_map(struct platform_device *pdev);
 irqreturn_t mdla_interrupt(u32 mdlaid);
+void mdla_dump_reg(int core_id);
 
 
 #ifdef __APUSYS_PREEMPTION__
