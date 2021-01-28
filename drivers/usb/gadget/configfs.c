@@ -18,6 +18,8 @@
 #include <linux/kdev_t.h>
 #include <linux/usb/ch9.h>
 
+#include "mtk_gadget.h"
+
 #ifdef CONFIG_USB_CONFIGFS_F_ACC
 extern int acc_ctrlrequest(struct usb_composite_dev *cdev,
 				const struct usb_ctrlrequest *ctrl);
@@ -1862,7 +1864,8 @@ static struct config_group *gadgets_make(
 	if (!gi->composite.gadget_driver.function)
 		goto err;
 
-	if (android_device_create(gi) < 0)
+	/* FASTMETA change */
+	if (!meta_dt_get_mboot_params() && android_device_create(gi) < 0)
 		goto err;
 
 	return &gi->group;
@@ -1917,9 +1920,11 @@ static int __init gadget_cfs_init(void)
 	ret = configfs_register_subsystem(&gadget_subsys);
 
 #ifdef CONFIG_USB_CONFIGFS_UEVENT
-	android_class = class_create(THIS_MODULE, "android_usb");
-	if (IS_ERR(android_class))
-		return PTR_ERR(android_class);
+	if (!meta_dt_get_mboot_params()) {
+		android_class = class_create(THIS_MODULE, "android_usb");
+		if (IS_ERR(android_class))
+			return PTR_ERR(android_class);
+	}
 #endif
 
 	return ret;
