@@ -51,8 +51,10 @@ static int spm_syscore_dbg_suspend(void)
 	if (mtk_suspend_debug_flag & MTK_DUMP_GPIO)
 		mtk_suspend_gpio_dbg();
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
+#ifdef CONFIG_MTK_BASE_POWER
 	if (mtk_suspend_debug_flag & MTK_DUMP_LP_GOLDEN)
 		mt_power_gs_dump_suspend(power_golden_dump_type);
+#endif
 #endif
 	mtk_suspend_clk_dbg();
 	return 0;
