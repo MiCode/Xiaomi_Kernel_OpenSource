@@ -17,6 +17,7 @@
 
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 extern int mtk_dvfsrc_query_opp_info(u32 id);
+extern int mtk_dvfsrc_vcore_opp_count(void);
 extern int mtk_dvfsrc_vcore_uv_table(u32 opp);
 extern int vcorefs_get_num_opp(void);
 extern int vcorefs_get_opp_info_num(void);
@@ -30,6 +31,8 @@ extern void dvfsrc_enable_dvfs_freq_hopping(int on);
 
 #else
 static inline int mtk_dvfsrc_query_opp_info(u32 id)
+{ return 0; }
+static int mtk_dvfsrc_vcore_opp_count(void)
 { return 0; }
 static inline int mtk_dvfsrc_vcore_uv_table(u32 opp)
 { return 0; }
