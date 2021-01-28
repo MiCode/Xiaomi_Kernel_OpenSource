@@ -15,12 +15,12 @@
 #define __M4U_PORT_PRIV_H__
 
 static const char *const gM4U_SMILARB[] = {
-	"mediatek,smi_larb0", "mediatek,smi_larb1", "mediatek,smi_larb2"
-};
+	"mediatek,smi_larb0", "mediatek,smi_larb1", "mediatek,smi_larb2"};
 
-#define M4U0_PORT_INIT(name, slave, larb, port)  {\
-		name, 0, slave, larb, port, (((larb)<<7)|((port)<<2)), 1\
-}
+#define M4U0_PORT_INIT(name, slave, larb, port)                                \
+	{                                                                      \
+		name, 0, slave, larb, port, (((larb) << 7) | ((port) << 2)), 1 \
+	}
 
 m4u_port_t gM4uPort[] = {
 
@@ -56,7 +56,6 @@ m4u_port_t gM4uPort[] = {
 	M4U0_PORT_INIT("CAM_IMGI", 0, 2, 9),
 	M4U0_PORT_INIT("CAM_IMGI2O", 0, 2, 10),
 
-	M4U0_PORT_INIT("UNKNOWN", 0, 0, 0)
-};
+	M4U0_PORT_INIT("UNKNOWN", 0, 0, 0)};
 
 #endif
