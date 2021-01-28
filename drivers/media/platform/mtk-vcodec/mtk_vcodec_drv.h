@@ -362,7 +362,7 @@ struct mtk_vcodec_ctx {
 	int is_hdr;
 	int last_is_hdr;
 	unsigned int errormap_info[VB2_MAX_FRAME];
-	u64 input_max_ts;
+	s64 input_max_ts;
 
 	int int_cond[MTK_VDEC_HW_NUM];
 	int int_type;
