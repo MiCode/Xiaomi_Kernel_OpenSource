@@ -608,6 +608,9 @@ int generic_handle_irq(unsigned int irq)
 EXPORT_SYMBOL_GPL(generic_handle_irq);
 
 #ifdef CONFIG_HANDLE_DOMAIN_IRQ
+#ifdef CONFIG_MTK_SCHED_TRACERS
+#include <trace/events/mtk_events.h>
+#endif
 /**
  * __handle_domain_irq - Invoke the handler for a HW irq belonging to a domain
  * @domain:	The domain where to perform the lookup
@@ -623,14 +626,20 @@ int __handle_domain_irq(struct irq_domain *domain, unsigned int hwirq,
 	struct pt_regs *old_regs = set_irq_regs(regs);
 	unsigned int irq = hwirq;
 	int ret = 0;
-
+#ifdef CONFIG_MTK_SCHED_TRACERS
+	struct irq_desc *desc;
+#endif
 	irq_enter();
 
 #ifdef CONFIG_IRQ_DOMAIN
 	if (lookup)
 		irq = irq_find_mapping(domain, hwirq);
 #endif
-
+#ifdef CONFIG_MTK_SCHED_TRACERS
+	desc = irq_to_desc(irq);
+	trace_irq_entry(irq, (desc && desc->action && desc->action->name) ?
+			desc->action->name : "-");
+#endif
 	/*
 	 * Some hardware gives randomly wrong interrupts.  Rather
 	 * than crashing, do something sensible.
@@ -641,7 +650,9 @@ int __handle_domain_irq(struct irq_domain *domain, unsigned int hwirq,
 	} else {
 		generic_handle_irq(irq);
 	}
-
+#ifdef CONFIG_MTK_SCHED_TRACERS
+	trace_irq_exit(irq);
+#endif
 	irq_exit();
 	set_irq_regs(old_regs);
 	return ret;
