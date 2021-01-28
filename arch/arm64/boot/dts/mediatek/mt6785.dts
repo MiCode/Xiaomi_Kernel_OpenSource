@@ -1304,7 +1304,8 @@ page_owner=on loop.max_part=7";
 	devapc@10207000 {
 		compatible = "mediatek,mt6785-devapc";
 		reg = <0 0x10207000 0 0x1000>,
-		    <0 0x1000e000 0 0x1000>;
+		      <0 0x1000e000 0 0x1000>,
+		      <0 0x10033000 0 0x1000>;
 		interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_LOW>;
 		clocks = <&infracfg_ao INFRACFG_AO_DEVICE_APC_CG>;
 		clock-names = "devapc-infra-clock";
