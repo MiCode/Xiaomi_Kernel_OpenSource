@@ -1205,7 +1205,7 @@ firmware_class.path=/vendor/firmware";
 		mdp_ccorr0 = <&mdp_ccorr>;
 		mm_mutex = <&disp_mutex0>;
 		sram_share_cnt = <1>;
-		sram_share_engine = <10>;
+		sram_share_engine = <21>;
 		sram_share_event = <710>;
 		clocks = <&infracfg_ao CLK_IFR_GCE>,
 			<&infracfg_ao CLK_IFR_GCE_26M>;
@@ -1243,12 +1243,12 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	gce_mbox: gce_mbox@10238000 {
-		compatible = "mediatek,mailbox-gce";
+		compatible = "mediatek,mt6761-gce";
 		reg = <0 0x10238000 0 0x4000>;
 		interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_LOW>;
 		#mbox-cells = <3>;
 		#gce-event-cells = <1>;
-		#gce-subsys-cells = <2>;
+		#gce-subsys-cells = <3>;
 		clocks = <&infracfg_ao CLK_IFR_GCE>,
 			<&infracfg_ao CLK_IFR_GCE_26M>;
 		clock-names = "gce", "GCE_TIMER";
