@@ -31,7 +31,7 @@
 #include <mtk_kbase_spm.h>
 #endif
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
-#include <scp_helper.h>
+#include <scp.h>
 #endif
 #include "i2c-mtk.h"
 

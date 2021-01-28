@@ -1160,8 +1160,6 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 	/* set virtual and physical address for the reserved memory */
 	scp_mem_base_virt = ioremap_wc(scp_mem_base_phys,
 		scp_mem_size);
-	pr_debug("[SCP] rsrv_phy_base = %pa, len:0x%llx\n",
-		scp_mem_base_phys, (uint64_t)scp_mem_size);
 	pr_debug("[SCP] rsrv_vir_base = 0x%llx, len:0x%llx\n",
 		(uint64_t)scp_mem_base_virt, (uint64_t)scp_mem_size);
 
