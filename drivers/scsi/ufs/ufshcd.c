@@ -6759,8 +6759,10 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	 * To avoid these unnecessary/illegal step we skip to the last error
 	 * handling stage: reset and restore.
 	 */
-	if (lrbp->lun == UFS_UPIU_UFS_DEVICE_WLUN)
+	if (lrbp->lun == UFS_UPIU_UFS_DEVICE_WLUN) {
+		ufshcd_vops_abort_handler(hba, tag, __FILE__, __LINE__);
 		return ufshcd_eh_host_reset_handler(cmd);
+	}
 
 	ufshcd_hold(hba, false);
 
@@ -6809,6 +6811,7 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 		ufs_mtk_dbg_dump_scsi_cmd(hba, cmd,
 			UFSHCD_DBG_PRINT_ABORT_CMD_EN);
 		ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(hba);
+		ufshcd_vops_abort_handler(hba, tag, __FILE__, __LINE__);
 	} else {
 		ufshcd_print_trs(hba, 1 << tag, false);
 	}
