@@ -78,11 +78,13 @@ static int wake_gesture_batch(int flag,
 static int wake_gesture_recv_data(struct data_unit_t *event,
 	void *reserved)
 {
+	int err = 0;
+
 	if (event->flush_action == FLUSH_ACTION)
 		pr_debug("wake_gesture do not support flush\n");
 	else if (event->flush_action == DATA_ACTION)
-		situation_notify(ID_WAKE_GESTURE);
-	return 0;
+		err = situation_notify(ID_WAKE_GESTURE);
+	return err;
 }
 
 static int wakehub_local_init(void)

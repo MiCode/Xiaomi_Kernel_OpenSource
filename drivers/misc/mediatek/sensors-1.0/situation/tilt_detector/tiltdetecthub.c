@@ -66,12 +66,14 @@ static int tilt_detect_flush(void)
 
 static int tilt_detect_recv_data(struct data_unit_t *event, void *reserved)
 {
+	int err = 0;
+
 	if (event->flush_action == FLUSH_ACTION)
-		situation_flush_report(ID_TILT_DETECTOR);
+		err = situation_flush_report(ID_TILT_DETECTOR);
 	else if (event->flush_action == DATA_ACTION)
-		situation_data_report(ID_TILT_DETECTOR,
+		err = situation_data_report(ID_TILT_DETECTOR,
 			event->tilt_event.state);
-	return 0;
+	return err;
 }
 
 static int tiltdetecthub_local_init(void)

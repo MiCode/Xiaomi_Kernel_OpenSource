@@ -79,11 +79,13 @@ static int inpocket_batch(int flag,
 }
 static int inpocket_recv_data(struct data_unit_t *event, void *reserved)
 {
+	int err = 0;
+
 	if (event->flush_action == FLUSH_ACTION)
 		pr_debug("inpocket do not support flush\n");
 	else if (event->flush_action == DATA_ACTION)
-		situation_notify(ID_IN_POCKET);
-	return 0;
+		err = situation_notify(ID_IN_POCKET);
+	return err;
 }
 
 static int inpocket_local_init(void)
