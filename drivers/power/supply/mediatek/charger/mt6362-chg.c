@@ -2227,6 +2227,8 @@ static int mt6362_enable_bleed_discharge(struct charger_device *chg_dev,
 	mutex_lock(&data->bd_lock);
 	if (en == data->bd_flag)
 		goto out;
+	data->bd_flag = en;
+
 	if (en) {
 		ret = mt6362_get_mivr(chg_dev, &data->bd_mivr);
 		if (ret < 0)
@@ -2247,7 +2249,6 @@ static int mt6362_enable_bleed_discharge(struct charger_device *chg_dev,
 		if (ret < 0)
 			goto out;
 	}
-	data->bd_flag = en;
 out:
 	mutex_unlock(&data->bd_lock);
 	return ret;
