@@ -438,17 +438,6 @@ int mtee_sdsp_enable(u32 on)
 			on, 0, 0);
 }
 
-atomic_t get_gz_bind_cpu_allowed = ATOMIC_INIT(0);
-void set_gz_bind_cpu(int state)
-{
-	atomic_set(&get_gz_bind_cpu_allowed, state);
-}
-
-int get_gz_bind_cpu(void)
-{
-	return atomic_read(&get_gz_bind_cpu_allowed);
-}
-
 int gz_get_cpuinfo_thread(void *data)
 {
 #ifdef MTK_PPM_SUPPORT
@@ -1237,6 +1226,51 @@ us_map_fail:
 	return cret;
 }
 
+int gz_adjust_wq_attr(struct gz_manual_wq_attr *manual_wq_attr)
+{
+	if (IS_ERR_OR_NULL(tz_system_dev)) {
+		KREE_ERR("GZ KREE is still not initialized!\n");
+		return -EINVAL;
+	}
+
+	return trusty_adjust_wq_attr(tz_system_dev->dev.parent, manual_wq_attr);
+}
+
+TZ_RESULT gz_manual_adjust_trusty_wq_attr(char __user *user_req)
+{
+	int err;
+	char str[32];
+	struct gz_manual_wq_attr manual_wq_attr;
+
+	err = copy_from_user(&str, user_req, sizeof(str));
+	if (err < 0) {
+		KREE_ERR("[%s]copy_from_user fail(0x%x)\n", __func__,
+			err);
+		return err;
+	}
+	str[31] = '\0';
+	KREE_DEBUG("%s cmd=%s\n", __func__, str);
+
+	memset(&manual_wq_attr, 0, sizeof(manual_wq_attr));
+	err = sscanf(str, "0x%x %d 0x%x %d",
+			&manual_wq_attr.kick_mask, &manual_wq_attr.kick_nice,
+			&manual_wq_attr.chk_mask, &manual_wq_attr.chk_nice);
+	if (err != 4)
+		return -EINVAL;
+
+	KREE_DEBUG("%s 0x%x %d 0x%x %d\n", __func__,
+		manual_wq_attr.kick_mask, manual_wq_attr.kick_nice,
+		manual_wq_attr.chk_mask, manual_wq_attr.chk_nice);
+
+	if (manual_wq_attr.kick_nice < -20 ||
+		manual_wq_attr.kick_nice > 19 ||
+		manual_wq_attr.chk_nice < -20 ||
+		manual_wq_attr.chk_nice > 19) {
+		return -EINVAL;
+	}
+
+	return gz_adjust_wq_attr(&manual_wq_attr);
+}
 
 static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 	unsigned int compat)
@@ -1372,6 +1406,10 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 		break;
 #endif
 
+	case MTEE_CMD_ADJUST_WQ_ATTR:
+		ret = gz_manual_adjust_trusty_wq_attr(user_req);
+		break;
+
 	default:
 		KREE_ERR("[%s] undefined ioctl cmd 0x%x\n", __func__, cmd);
 		ret = -EINVAL;
@@ -1385,9 +1423,7 @@ static long gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
 	long ret;
 
-	set_gz_bind_cpu(1);
 	ret = _gz_ioctl(filep, cmd, arg, 0);
-	set_gz_bind_cpu(0);
 	return ret;
 }
 
@@ -1397,51 +1433,10 @@ static long gz_compat_ioctl(struct file *filep, unsigned int cmd,
 {
 	long ret;
 
-	set_gz_bind_cpu(1);
 	ret = _gz_ioctl(filep, cmd, arg, 1);
-	set_gz_bind_cpu(0);
 	return ret;
 }
 #endif
-
-static int find_big_core(int *big_core_first, int *big_core_last)
-{
-	struct device_node *cpus = NULL, *cpu = NULL;
-	struct property *cpu_pp = NULL;
-
-	int cpu_num = 0, big_start_num = 0, big_type = 0, cpu_type = 0;
-	char *compat_val;
-	int compat_len, i;
-
-	cpus = of_find_node_by_path("/cpus");
-	if (cpus == NULL)
-		return -1;
-
-	for_each_child_of_node(cpus, cpu) {
-		if (of_node_cmp(cpu->type, "cpu"))
-			continue;
-
-		cpu_num++;
-
-		for_each_property_of_node(cpu, cpu_pp) {
-			if (strcmp(cpu_pp->name, "compatible") == 0) {
-				compat_val = (char *)cpu_pp->value;
-				compat_len = strlen(compat_val);
-				i = kstrtoint(compat_val + (compat_len - 2), 10,
-					      &cpu_type);
-				if (big_type < cpu_type) {
-					big_type = cpu_type;
-					big_start_num = cpu_num - 1;
-				}
-			}
-		}
-	}
-
-	*big_core_first = big_start_num;
-	*big_core_last = cpu_num - 1;
-
-	return 0;
-}
 
 #if enable_code
 
@@ -1481,31 +1476,6 @@ static int __init gz_init(void)
 	} else {
 		struct task_struct *gz_get_cpuinfo_task;
 		struct task_struct *ree_dummy_task;
-		int big_core_first = 1;
-		int big_core_last = 1;
-		int ret = 0;
-		struct cpumask ree_dummy_cmask;
-
-		cpumask_clear(&trusty_all_cmask);
-		cpumask_setall(&trusty_all_cmask);
-		cpumask_clear(&trusty_big_cmask);
-		cpumask_clear(&ree_dummy_cmask);
-
-		ret = find_big_core(&big_core_first, &big_core_last);
-		if (ret)
-			KREE_ERR("no any big core\n");
-
-		if (2 == (big_core_last-big_core_first+1)) {
-			cpumask_set_cpu(6, &trusty_big_cmask);
-			cpumask_set_cpu(7, &ree_dummy_cmask);
-		} else if (4 == (big_core_last-big_core_first+1)) {
-			cpumask_set_cpu(4, &ree_dummy_cmask);
-			cpumask_set_cpu(5, &trusty_big_cmask);
-			cpumask_set_cpu(6, &trusty_big_cmask);
-		} else {
-			cpumask_set_cpu(0, &trusty_big_cmask);
-			cpumask_set_cpu(1, &ree_dummy_cmask);
-		}
 
 		gz_get_cpuinfo_task =
 		    kthread_create(gz_get_cpuinfo_thread, NULL,
@@ -1524,7 +1494,6 @@ static int __init gz_init(void)
 				__func__);
 			res = PTR_ERR(ree_dummy_task);
 		} else {
-			set_cpus_allowed_ptr(ree_dummy_task, &ree_dummy_cmask);
 			set_user_nice(ree_dummy_task, -20);
 			wake_up_process(ree_dummy_task);
 		}

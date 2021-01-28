@@ -371,6 +371,48 @@ int trusty_call_notifier_unregister(struct device *dev,
 }
 EXPORT_SYMBOL(trusty_call_notifier_unregister);
 
+int trusty_call_callback_register(struct device *dev, struct notifier_block *n)
+{
+	struct trusty_state *s;
+
+	if (IS_ERR_OR_NULL(dev))
+		return -EINVAL;
+
+	s = platform_get_drvdata(to_platform_device(dev));
+	return blocking_notifier_chain_register(&s->callback, n);
+}
+EXPORT_SYMBOL(trusty_call_callback_register);
+
+int trusty_call_callback_unregister(struct device *dev,
+				struct notifier_block *n)
+{
+	struct trusty_state *s;
+
+	if (IS_ERR_OR_NULL(dev))
+		return -EINVAL;
+
+	s = platform_get_drvdata(to_platform_device(dev));
+	return blocking_notifier_chain_unregister(&s->callback, n);
+}
+EXPORT_SYMBOL(trusty_call_callback_unregister);
+
+int trusty_adjust_wq_attr(struct device *dev,
+				struct gz_manual_wq_attr *manual_wq_attr)
+{
+	struct trusty_state *s;
+
+	if (IS_ERR_OR_NULL(dev))
+		return -EINVAL;
+
+	s = platform_get_drvdata(to_platform_device(dev));
+
+	blocking_notifier_call_chain(&s->callback,
+			TRUSTY_CALLBACK_VIRTIO_WQ_ATTR, manual_wq_attr);
+
+	return 0;
+}
+EXPORT_SYMBOL(trusty_adjust_wq_attr);
+
 static int trusty_remove_child(struct device *dev, void *data)
 {
 	platform_device_unregister(to_platform_device(dev));

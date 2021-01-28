@@ -81,8 +81,6 @@
 DEFINE_MUTEX(fd_mutex);
 DEFINE_MUTEX(session_mutex);
 
-struct cpumask trusty_all_cmask;
-struct cpumask trusty_big_cmask;
 int perf_boost_cnt;
 struct mutex perf_boost_lock;
 struct platform_device *tz_system_dev;
@@ -995,22 +993,7 @@ static void kree_perf_boost(int enable)
 	/* KREE_ERR("%s %s\n", __func__, enable>0?"enable":"disable"); */
 
 	if (enable) {
-		if (get_gz_bind_cpu() == 1) {
-			KREE_DEBUG("set_cpus_allowed_ptr do+ big_core\n");
-			set_cpus_allowed_ptr(get_current(), &trusty_big_cmask);
-		} else {
-			KREE_DEBUG("set_cpus_allowed_ptr skip+\n");
-		}
 		if (perf_boost_cnt == 0) {
-			/*
-			 * freq_to_set[0].min = cpus_cluster_freq[0].max_freq;
-			 * freq_to_set[0].max = cpus_cluster_freq[0].max_freq;
-			 * freq_to_set[1].min = cpus_cluster_freq[1].max_freq;
-			 * freq_to_set[1].max = cpus_cluster_freq[1].max_freq;
-			 * KREE_ERR("%s enable\n", __func__);
-			 * update_userlimit_cpu_freq(PPM_KIR_MTEE, 2,
-			 * freq_to_set);
-			 */
 			KREE_DEBUG("%s wake_lock\n", __func__);
 #if IS_ENABLED(CONFIG_PM_SLEEP)
 			__pm_stay_awake(TeeServiceCall_wake_lock); /*4.19*/
@@ -1020,25 +1003,10 @@ static void kree_perf_boost(int enable)
 	} else {
 		perf_boost_cnt--;
 		if (perf_boost_cnt == 0) {
-			/*
-			 * freq_to_set[0].min = -1;
-			 * freq_to_set[0].max = -1;
-			 * freq_to_set[1].min = -1;
-			 * freq_to_set[1].max = -1;
-			 * update_userlimit_cpu_freq(PPM_KIR_MTEE, 2,
-			 * freq_to_set);
-			 * KREE_ERR("%s disable\n", __func__);
-			 */
 			KREE_DEBUG("%s wake_unlock\n", __func__);
 #if IS_ENABLED(CONFIG_PM_SLEEP)
 			__pm_relax(TeeServiceCall_wake_lock); /*4.19*/
 #endif
-		}
-		if (get_gz_bind_cpu() == 1) {
-			KREE_DEBUG("set_cpus_allowed_ptr do- all_core\n");
-			set_cpus_allowed_ptr(get_current(), &trusty_all_cmask);
-		} else {
-			KREE_DEBUG("set_cpus_allowed_ptr skip-\n");
 		}
 	}
 

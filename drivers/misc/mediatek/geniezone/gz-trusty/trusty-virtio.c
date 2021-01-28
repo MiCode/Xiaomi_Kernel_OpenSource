@@ -45,6 +45,15 @@
 
 #define  RSC_DESCR_VER  1
 
+#define TRUSTY_WQ_DEFAULT_HIGH_PRI 0
+#if TRUSTY_WQ_DEFAULT_HIGH_PRI
+#define TRUSTY_KICK_WQ_DEFAULT_NICE -20
+#define TRUSTY_CHECK_WQ_DEFAULT_NICE -20
+#else
+#define TRUSTY_KICK_WQ_DEFAULT_NICE 0
+#define TRUSTY_CHECK_WQ_DEFAULT_NICE 0
+#endif
+
 struct trusty_vdev;
 
 struct trusty_ctx {
@@ -55,6 +64,7 @@ struct trusty_ctx {
 	struct work_struct check_vqs;
 	struct work_struct kick_vqs;
 	struct notifier_block call_notifier;
+	struct notifier_block call_callback;
 	struct list_head vdev_list;
 	struct mutex mlock;	/* protects vdev_list */
 	struct workqueue_struct *kick_wq;
@@ -107,6 +117,50 @@ static void check_all_vqs(struct work_struct *work)
 	}
 }
 
+static void write_to_cmask(unsigned int mask, struct cpumask *cmask)
+{
+	unsigned int cpu_index;
+
+	for (cpu_index = 0 ; cpu_index < num_possible_cpus() ; cpu_index++) {
+		if ((mask >> cpu_index)  & 0x1)
+			cpumask_set_cpu(cpu_index, cmask);
+		else
+			cpumask_clear_cpu(cpu_index, cmask);
+	}
+}
+
+static int trusty_call_callback(struct notifier_block *nb,
+			      unsigned long action, void *data)
+{
+	struct trusty_ctx *tctx;
+	struct gz_manual_wq_attr *wq_attr = (struct gz_manual_wq_attr *)data;
+
+	tctx = container_of(nb, struct trusty_ctx, call_callback);
+
+	dev_dbg(tctx->dev, "%s, kick_mask=0x%x nice=%d, kick_wq=%p\n",
+				__func__, wq_attr->kick_mask,
+				wq_attr->kick_nice, tctx->kick_wq);
+	dev_dbg(tctx->dev, "%s, chk_mask=0x%x nice=%d, check_wq=%p\n",
+				__func__, wq_attr->chk_mask,
+				wq_attr->chk_nice, tctx->check_wq);
+
+	if (wq_attr->kick_mask)
+		write_to_cmask(wq_attr->kick_mask,
+					tctx->kick_wq_attrs->cpumask);
+
+	tctx->kick_wq_attrs->nice = wq_attr->kick_nice;
+	apply_workqueue_attrs(tctx->kick_wq, tctx->kick_wq_attrs);
+
+	if (wq_attr->chk_mask)
+		write_to_cmask(wq_attr->chk_mask,
+					tctx->check_wq_attrs->cpumask);
+
+	tctx->check_wq_attrs->nice = wq_attr->chk_nice;
+	apply_workqueue_attrs(tctx->check_wq, tctx->check_wq_attrs);
+
+	return NOTIFY_OK;
+}
+
 static int trusty_call_notify(struct notifier_block *nb,
 			      unsigned long action, void *data)
 {
@@ -146,8 +200,6 @@ static void kick_vqs(struct work_struct *work)
 	struct trusty_ctx *tctx = container_of(work, struct trusty_ctx,
 					       kick_vqs);
 
-	set_user_nice(current, -20);
-
 	mutex_lock(&tctx->mlock);
 	list_for_each_entry(tvdev, &tctx->vdev_list, node) {
 		for (i = 0; i < tvdev->vring_num; i++) {
@@ -159,8 +211,6 @@ static void kick_vqs(struct work_struct *work)
 	}
 
 	mutex_unlock(&tctx->mlock);
-
-	set_user_nice(current, 0);
 }
 
 static bool trusty_virtio_notify(struct virtqueue *vq)
@@ -681,6 +731,14 @@ static int trusty_virtio_add_devices(struct trusty_ctx *tctx)
 		goto err_register_notifier;
 	}
 
+	ret = trusty_call_callback_register(tctx->trusty_dev,
+					    &tctx->call_callback);
+	if (ret) {
+		dev_info(tctx->dev, "%s: failed (%d) to register notifier\n",
+			 __func__, ret);
+		goto err_register_callback;
+	}
+
 	/* start virtio */
 	ret = trusty_virtio_start(tctx, descr_va, descr_sz);
 	if (ret) {
@@ -696,6 +754,8 @@ static int trusty_virtio_add_devices(struct trusty_ctx *tctx)
 	return 0;
 
 err_start_virtio:
+	trusty_call_notifier_unregister(tctx->trusty_dev, &tctx->call_callback);
+err_register_callback:
 	trusty_call_notifier_unregister(tctx->trusty_dev, &tctx->call_notifier);
 	cancel_work_sync(&tctx->check_vqs);
 err_register_notifier:
@@ -709,66 +769,6 @@ err_load_descr:
 	return ret;
 }
 
-/* parse dtsi to find big core and set to mask */
-static int find_wq_cpumask(struct cpumask *kick_mask,
-						   struct cpumask *check_mask)
-{
-	struct device_node *cpus = NULL, *cpu = NULL;
-	struct property *cpu_pp = NULL;
-
-	int cpu_num = 0, big_start_num = 0, big_type = 0, cpu_type = 0;
-	char *compat_val;
-	int compat_len, i;
-
-	cpus = of_find_node_by_path("/cpus");
-	if (cpus == NULL)
-		return -1;
-
-	for_each_child_of_node(cpus, cpu) {
-		if (of_node_cmp(cpu->type, "cpu"))
-			continue;
-
-		cpu_num++;
-
-		for_each_property_of_node(cpu, cpu_pp) {
-			if (strcmp(cpu_pp->name, "compatible") == 0) {
-				compat_val = (char *)cpu_pp->value;
-				compat_len = strlen(compat_val);
-				i = kstrtoint(compat_val + (compat_len - 2), 10,
-					      &cpu_type);
-				if (i < 0) {
-					pr_info("[%s] Parse cpu_type error\n",
-						__func__);
-					break;
-				}
-				if (big_type < cpu_type) {
-					big_type = cpu_type;
-					big_start_num = cpu_num - 1;
-				}
-			}
-		}
-	}
-
-	cpumask_clear(kick_mask);
-	cpumask_clear(check_mask);
-
-	/* check_wq only handle process, no high loading, put in little core */
-	for (i = 0; i < big_start_num; i++) {
-		/* dev_info(&pdev->dev, "%s bind cpu%d\n", __func__, i); */
-		cpumask_set_cpu(i, check_mask);
-	}
-
-	// final CPU is for TEE
-	/* skip core 4 for multi core use in 4+4 core combination */
-	if (big_start_num == 4)
-		big_start_num++;
-	for (i = big_start_num; i < cpu_num - 1; i++) {
-		/* dev_info(&pdev->dev, "%s bind cpu%d\n", __func__, i); */
-		cpumask_set_cpu(i, kick_mask);
-	}
-
-	return 0;
-}
 /*for kernel-4.19 (.ko)*/
 struct workqueue_attrs *_alloc_workqueue_attrs(gfp_t gfp_mask)
 {
@@ -829,6 +829,7 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 	tctx->trusty_dev = pdev->dev.parent;
 	/* the notifier will call check_all_vqs */
 	tctx->call_notifier.notifier_call = trusty_call_notify;
+	tctx->call_callback.notifier_call = trusty_call_callback;
 	mutex_init(&tctx->mlock);
 	INIT_LIST_HEAD(&tctx->vdev_list);
 	INIT_WORK(&tctx->check_vqs, check_all_vqs);
@@ -867,14 +868,10 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 		goto err_alloc_check_wq_attrs;
 	}
 
-	ret = find_wq_cpumask(tctx->kick_wq_attrs->cpumask,
-						tctx->check_wq_attrs->cpumask);
-	if (ret) {
-		dev_info(&pdev->dev, "Failed to bind big cores\n");
-		goto err_bind_big_small_core;
-	}
-
+	/* wq default nice/priority */
+	tctx->kick_wq_attrs->nice = TRUSTY_KICK_WQ_DEFAULT_NICE;
 	apply_workqueue_attrs(tctx->kick_wq, tctx->kick_wq_attrs);
+	tctx->check_wq_attrs->nice = TRUSTY_CHECK_WQ_DEFAULT_NICE;
 	apply_workqueue_attrs(tctx->check_wq, tctx->check_wq_attrs);
 
 	ret = trusty_virtio_add_devices(tctx);
@@ -888,7 +885,6 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 	return 0;
 
 err_add_devices:
-err_bind_big_small_core:
 	if (tctx->check_wq_attrs) {
 		/*for kernel-4.19 (.ko)*/
 		free_cpumask_var(tctx->check_wq_attrs->cpumask);
@@ -917,6 +913,7 @@ static int trusty_virtio_remove(struct platform_device *pdev)
 
 	/* unregister call notifier and wait until workqueue is done */
 	trusty_call_notifier_unregister(tctx->trusty_dev, &tctx->call_notifier);
+	trusty_call_callback_unregister(tctx->trusty_dev, &tctx->call_callback);
 	cancel_work_sync(&tctx->check_vqs);
 
 	/* remove virtio devices */

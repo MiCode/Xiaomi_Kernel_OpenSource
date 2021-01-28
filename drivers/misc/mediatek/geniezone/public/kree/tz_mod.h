@@ -51,8 +51,8 @@
 	_IO(MTEE_IOC_MAGIC, 16)
 #define MTEE_CMD_FOD_TEE_SHM_OFF                                               \
 	_IO(MTEE_IOC_MAGIC, 17)
-
-
+#define MTEE_CMD_ADJUST_WQ_ATTR                                                \
+	_IOW(MTEE_IOC_MAGIC, 21, char *)
 
 
 #define DEV_IOC_MAXNR (10)

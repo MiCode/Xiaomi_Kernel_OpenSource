@@ -29,6 +29,21 @@ int trusty_call_notifier_unregister(struct device *dev,
 const char *trusty_version_str_get(struct device *dev);
 u32 trusty_get_api_version(struct device *dev);
 
+int trusty_call_callback_register(struct device *dev, struct notifier_block *n);
+int trusty_call_callback_unregister(struct device *dev,
+				    struct notifier_block *n);
+struct gz_manual_wq_attr {
+	unsigned int kick_mask;
+	unsigned int chk_mask;
+	int kick_nice;
+	int chk_nice;
+};
+int trusty_adjust_wq_attr(struct device *dev,
+			struct gz_manual_wq_attr *manual_wq_attr);
+enum {
+	TRUSTY_CALLBACK_VIRTIO_WQ_ATTR = 1,
+};
+
 struct ns_mem_page_info {
 	uint64_t attr;
 };
@@ -104,6 +119,7 @@ struct trusty_work {
 struct trusty_state {
 	struct mutex smc_lock;
 	struct atomic_notifier_head notifier;
+	struct blocking_notifier_head callback;
 	struct completion cpu_idle_completion;
 	char *version_str;
 	u32 api_version;
