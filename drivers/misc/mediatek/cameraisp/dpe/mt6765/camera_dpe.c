@@ -2620,7 +2620,7 @@ static signed int DPE_WaitIrq(struct DPE_WAIT_IRQ_STRUCT *WaitIrq)
 			DPEInfo.IrqInfo.Status[WaitIrq->Type] &=
 			(~WaitIrq->Status);
 
-			spin_unlock_irqrestore
+		spin_unlock_irqrestore
 			(&(DPEInfo.SpinLockIrq[WaitIrq->Type]), flags);
 	} else if (WaitIrq->Clear == DPE_IRQ_CLEAR_ALL) {
 		spin_lock_irqsave(&(DPEInfo.SpinLockIrq[WaitIrq->Type]), flags);
