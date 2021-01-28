@@ -156,7 +156,7 @@ static const struct mtk_chip_config mtk_default_chip_info = {
 	.cs_setuptime = 0,
 	.cs_holdtime = 0,
 	.cs_idletime = 0,
-	.deassert_mode = true,
+	.deassert_mode = false,
 	.tick_delay = 0,
 };
 
