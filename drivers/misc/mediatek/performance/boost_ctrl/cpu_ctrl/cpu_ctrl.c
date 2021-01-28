@@ -213,9 +213,10 @@ int update_userlimit_cpu_freq(int kicker, int num_cluster
 #endif
 
 ret_update:
-	update_isolation_cpu_locked(CPU_ISO_KIR_CPU_CTRL,
-		(freq_limit[clstr_num-1].min != -1) ? 0 : -1,
-		num_possible_cpus() - 1);
+	if (final_freq)
+		update_isolation_cpu_locked(CPU_ISO_KIR_CPU_CTRL,
+			(final_freq[clstr_num-1].min != -1) ? 0 : -1,
+			num_possible_cpus() - 1);
 
 	kfree(final_freq);
 	mutex_unlock(&boost_freq);
