@@ -1227,6 +1227,8 @@ static struct generic_pm_domain **get_all_genpd(void)
 
 #if CLKDBG_PM_DOMAIN_API_4_9
 	pdev = platform_device_alloc("traverse", 0);
+	if (!pdev)
+		return NULL;
 #endif
 
 	for (num_pds = 0; num_pds < maxpd; num_pds++) {
