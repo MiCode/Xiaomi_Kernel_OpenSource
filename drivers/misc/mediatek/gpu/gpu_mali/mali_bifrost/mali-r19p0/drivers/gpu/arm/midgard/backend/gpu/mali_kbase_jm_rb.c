@@ -780,8 +780,7 @@ static int kbase_jm_exit_protected_mode(struct kbase_device *kbdev,
 
 		/* ***FALLTHROUGH: TRANSITION TO HIGHER STATE*** */
 	case KBASE_ATOM_EXIT_PROTECTED_IDLE_L2:
-		if (kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_L2) ||
-				kbase_pm_get_trans_cores(kbdev, KBASE_PM_CORE_L2)) {
+		if (kbdev->pm.backend.l2_state != KBASE_L2_OFF) {
 			/*
 			 * The L2 is still powered, wait for all the users to
 			 * finish with it before doing the actual reset.
