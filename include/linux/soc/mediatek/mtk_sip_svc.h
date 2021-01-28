@@ -149,6 +149,10 @@
 #define MTK_SIP_EMIMPU_CONTROL \
 	MTK_SIP_SMC_CMD(0x50B)
 
+/* TEEs related SMC call */
+#define MTK_SIP_KERNEL_TEE_CONTROL \
+	MTK_SIP_SMC_CMD(0x516)
+
 /* AUDIO related SMC call */
 #define MTK_SIP_AUDIO_CONTROL \
 	MTK_SIP_SMC_CMD(0x517)
