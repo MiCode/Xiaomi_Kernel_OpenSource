@@ -180,6 +180,9 @@ void prepare_pll_addr(enum mt_cpu_dvfs_pll_id pll_id)
 {
 	struct pll_ctrl_t *pll_p = id_to_pll_ctrl(pll_id);
 
+	if (pll_p == NULL)
+		return;
+
 	pll_p->armpll_addr = (unsigned int *)ARMPLL_LL_CON1;
 
 	pll_p->armpll_div_addr = (unsigned int *)CKDIV1_LL_CFG;
