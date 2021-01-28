@@ -20,6 +20,7 @@
 #include <generated/autoconf.h>
 #include <dt-bindings/mmc/mt6853-msdc.h>
 #include <dt-bindings/memory/mt6833-larb-port.h>
+#include <dt-bindings/pinctrl/mt6833-pinfunc.h>
 
 / {
 	model = "MT6833";
@@ -299,41 +300,6 @@ page_owner=on";
 		reg = <0 0x10002000 0 0x1000>;
 	};
 
-	iocfg_0@10002000 {
-		compatible = "mediatek,iocfg_0";
-		reg = <0 0x10002000 0 0x200>;
-	};
-
-	iocfg_1@10002200 {
-		compatible = "mediatek,iocfg_1";
-		reg = <0 0x10002200 0 0x200>;
-	};
-
-	iocfg_2@10002400 {
-		compatible = "mediatek,iocfg_2";
-		reg = <0 0x10002400 0 0x200>;
-	};
-
-	iocfg_3@10002600 {
-		compatible = "mediatek,iocfg_3";
-		reg = <0 0x10002600 0 0x200>;
-	};
-
-	iocfg_4@10002800 {
-		compatible = "mediatek,iocfg_4";
-		reg = <0 0x10002800 0 0x200>;
-	};
-
-	iocfg_5@10002a00 {
-		compatible = "mediatek,iocfg_5";
-		reg = <0 0x10002a00 0 0x200>;
-	};
-
-	iocfg_6@10002c00 {
-		compatible = "mediatek,iocfg_6";
-		reg = <0 0x10002c00 0 0x200>;
-	};
-
 	pericfg: pericfg@10003000 {
 		compatible = "mediatek,pericfg",
 			"mediatek,mt6833-pericfg", "syscon";
@@ -341,10 +307,55 @@ page_owner=on";
 		#clock-cells=<1>;
 	};
 
+	iocfg_rb: iocfg_rb@11c30000 {
+		compatible = "mediatek,iocfg_rb";
+		reg = <0 0x11c30000 0 0x1000>;
+	};
 
-	gpio@10005000 {
+	iocfg_bm: iocfg_bm@11d10000 {
+		compatible = "mediatek,iocfg_bm";
+		reg = <0 0x11d10000 0 0x1000>;
+	};
+
+	iocfg_br: iocfg_br@11d40000 {
+		compatible = "mediatek,iocfg_br";
+		reg = <0 0x11d40000 0 0x1000>;
+	};
+
+	iocfg_lm: iocfg_lm@11e20000 {
+		compatible = "mediatek,iocfg_lm";
+		reg = <0 0x11e20000 0 0x1000>;
+	};
+
+	iocfg_bl: iocfg_bl@11e60000 {
+		compatible = "mediatek,iocfg_bl";
+		reg = <0 0x11e60000 0 0x1000>;
+	};
+
+	iocfg_rt: iocfg_rt@11ea0000 {
+		compatible = "mediatek,iocfg_rt";
+		reg = <0 0x11ea0000 0 0x1000>;
+	};
+
+	gpio: gpio@10005000 {
 		compatible = "mediatek,gpio";
 		reg = <0 0x10005000 0 0x1000>;
+	};
+
+	pio: pinctrl {
+		compatible = "mediatek,mt6833-pinctrl";
+		reg_bases = <&gpio>,
+			    <&iocfg_rb>,
+			    <&iocfg_bm>,
+			    <&iocfg_br>,
+			    <&iocfg_lm>,
+			    <&iocfg_bl>,
+			    <&iocfg_rt>;
+		reg_base_eint = <&eint>;
+		pins-are-numbered;
+		gpio-controller;
+		gpio-ranges = <&pio 0 0 201>;
+		#gpio-cells = <2>;
 	};
 
 	sleep:sleep@10006000 {
@@ -371,7 +382,7 @@ page_owner=on";
 		interrupts = <GIC_SPI 230 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	apirq@1000b000 {
+	eint: apirq@1000b000 {
 		compatible = "mediatek,apirq";
 		reg = <0 0x1000b000 0 0x1000>;
 		interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
