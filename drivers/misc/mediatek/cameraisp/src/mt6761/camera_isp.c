@@ -4377,7 +4377,8 @@ static void ISP_FBC_DUMP(unsigned int dma_id, unsigned int VF_1,
 	str[0] = '\0';
 	log_inf("current activated dmaport");
 	for (z = 0; z < _rt_dma_max_; z++) {
-		sprintf(str2, "%d_", pstRTBuf->ring_buf[z].active);
+		if (sprintf(str2, "%d_", pstRTBuf->ring_buf[z].active) < 0)
+			log_inf("Error: sprintf fail\n");
 		strncat(str, str2, strLeng - strlen(str));
 	}
 	log_inf("%s", str);
@@ -4389,8 +4390,8 @@ static void ISP_FBC_DUMP(unsigned int dma_id, unsigned int VF_1,
 		log_inf("current fillled buffer(%d):\n",
 			pstRTBuf->ring_buf[dma].total_count);
 		for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-			sprintf(str2, "%d_",
-				pstRTBuf->ring_buf[dma].data[z].bFilled);
+			if (sprintf(str2, "%d_", pstRTBuf->ring_buf[dma].data[z].bFilled) < 0)
+				log_inf("Error: sprintf fail\n");
 			strncat(str, str2, strLeng - strlen(str));
 		}
 		log_inf("%s", str);
@@ -4403,7 +4404,8 @@ static void ISP_FBC_DUMP(unsigned int dma_id, unsigned int VF_1,
 		log_inf("RCNT_RECORD:cur dma_en_recorder\n");
 		str[0] = '\0';
 		for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-			sprintf(str2, "%d_", dma_en_recorder[dma][z]);
+			if (sprintf(str2, "%d_", dma_en_recorder[dma][z]) < 0)
+				log_inf("Error: sprintf fail\n");
 			strncat(str, str2, strLeng - strlen(str));
 		}
 		log_inf("%s", str);
@@ -4411,7 +4413,8 @@ static void ISP_FBC_DUMP(unsigned int dma_id, unsigned int VF_1,
 		log_inf("RCNT_RECORD:inc record\n");
 		str[0] = '\0';
 		for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-			sprintf(str2, "%d_", mFwRcnt.INC[_IRQ][z]);
+			if (sprintf(str2, "%d_", mFwRcnt.INC[_IRQ][z]) < 0)
+				log_inf("Error: sprintf fail\n");
 			strncat(str, str2, strLeng - strlen(str));
 		}
 		log_inf("%s", str);
@@ -4430,8 +4433,8 @@ static void ISP_FBC_DUMP(unsigned int dma_id, unsigned int VF_1,
 		log_inf("current fillled buffer(%d):\n",
 			pstRTBuf->ring_buf[dma].total_count);
 		for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-			sprintf(str2, "%d_",
-				pstRTBuf->ring_buf[dma].data[z].bFilled);
+			if (sprintf(str2, "%d_", pstRTBuf->ring_buf[dma].data[z].bFilled) < 0)
+				log_inf("Error: sprintf fail\n");
 			strncat(str, str2, strLeng - strlen(str));
 		}
 		log_inf("%s", str);
@@ -4444,7 +4447,8 @@ static void ISP_FBC_DUMP(unsigned int dma_id, unsigned int VF_1,
 		log_inf("RCNT_RECORD:cur dma_en_recorder\n");
 		str[0] = '\0';
 		for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-			sprintf(str2, "%d_", dma_en_recorder[dma][z]);
+			if (sprintf(str2, "%d_", dma_en_recorder[dma][z]) < 0)
+				log_inf("Error: sprintf fail\n");
 			strncat(str, str2, strLeng - strlen(str));
 		}
 		log_inf("%s", str);
@@ -4452,7 +4456,8 @@ static void ISP_FBC_DUMP(unsigned int dma_id, unsigned int VF_1,
 		log_inf("RCNT_RECORD:inc record\n");
 		str[0] = '\0';
 		for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-			sprintf(str2, "%d_", mFwRcnt.INC[_IRQ][z]);
+			if (sprintf(str2, "%d_", mFwRcnt.INC[_IRQ][z]) < 0)
+				log_inf("Error: sprintf fail\n");
 			strncat(str, str2, strLeng - strlen(str));
 		}
 		log_inf("%s", str);
@@ -4474,8 +4479,8 @@ static void ISP_FBC_DUMP(unsigned int dma_id, unsigned int VF_1,
 		log_inf("current fillled buffer(%d):\n",
 			pstRTBuf->ring_buf[dma].total_count);
 		for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-			sprintf(str2, "%d_",
-				pstRTBuf->ring_buf[dma].data[z].bFilled);
+			if (sprintf(str2, "%d_", pstRTBuf->ring_buf[dma].data[z].bFilled) < 0)
+				log_inf("Error: sprintf fail\n");
 			strncat(str, str2, strLeng - strlen(str));
 		}
 		log_inf("%s", str);
@@ -4488,7 +4493,8 @@ static void ISP_FBC_DUMP(unsigned int dma_id, unsigned int VF_1,
 		log_inf("RCNT_RECORD:cur dma_en_recorder\n");
 		str[0] = '\0';
 		for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-			sprintf(str2, "%d_", dma_en_recorder[dma][z]);
+			if (sprintf(str2, "%d_", dma_en_recorder[dma][z]) < 0)
+				log_inf("Error: sprintf fail\n");
 			strncat(str, str2, strLeng - strlen(str));
 		}
 		log_inf("%s", str);
@@ -4496,7 +4502,8 @@ static void ISP_FBC_DUMP(unsigned int dma_id, unsigned int VF_1,
 		log_inf("RCNT_RECORD:inc record\n");
 		str[0] = '\0';
 		for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-			sprintf(str2, "%d_", mFwRcnt.INC[_IRQ_D][z]);
+			if (sprintf(str2, "%d_", mFwRcnt.INC[_IRQ_D][z]) < 0)
+				log_inf("Error: sprintf fail\n");
 			strncat(str, str2, strLeng - strlen(str));
 		}
 		log_inf("%s", str);
@@ -4512,8 +4519,8 @@ static void ISP_FBC_DUMP(unsigned int dma_id, unsigned int VF_1,
 		log_inf("current fillled buffer(%d):\n",
 			pstRTBuf->ring_buf[dma].total_count);
 		for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-			sprintf(str2, "%d_",
-				pstRTBuf->ring_buf[dma].data[z].bFilled);
+			if (sprintf(str2, "%d_", pstRTBuf->ring_buf[dma].data[z].bFilled) < 0)
+				log_inf("Error: sprintf fail\n");
 			strncat(str, str2, strLeng - strlen(str));
 		}
 		log_inf("%s", str);
@@ -4526,7 +4533,8 @@ static void ISP_FBC_DUMP(unsigned int dma_id, unsigned int VF_1,
 		log_inf("RCNT_RECORD:cur dma_en_recorder\n");
 		str[0] = '\0';
 		for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-			sprintf(str2, "%d_", dma_en_recorder[dma][z]);
+			if (sprintf(str2, "%d_", dma_en_recorder[dma][z]) < 0)
+				log_inf("Error: sprintf fail\n");
 			strncat(str, str2, strLeng - strlen(str));
 		}
 		log_inf("%s", str);
@@ -4534,7 +4542,8 @@ static void ISP_FBC_DUMP(unsigned int dma_id, unsigned int VF_1,
 		log_inf("RCNT_RECORD:inc record\n");
 		str[0] = '\0';
 		for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-			sprintf(str2, "%d_", mFwRcnt.INC[_IRQ_D][z]);
+			if (sprintf(str2, "%d_", mFwRcnt.INC[_IRQ_D][z]) < 0)
+				log_inf("Error: sprintf fail\n");
 			strncat(str, str2, strLeng - strlen(str));
 		}
 		log_inf("%s", str);
@@ -4554,9 +4563,9 @@ static void ISP_FBC_DUMP(unsigned int dma_id, unsigned int VF_1,
 			log_inf("current fillled buffer(%d):\n",
 				pstRTBuf->ring_buf[dma].total_count);
 			for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-				sprintf(str2, "%d_", pstRTBuf->ring_buf[dma]
-							     .data[z]
-							     .bFilled);
+				if (sprintf(str2, "%d_", pstRTBuf->ring_buf[dma]
+					.data[z].bFilled) < 0)
+					log_inf("Error: sprintf fail\n");
 				strncat(str, str2, strLeng - strlen(str));
 			}
 			log_inf("%s", str);
@@ -4571,7 +4580,8 @@ static void ISP_FBC_DUMP(unsigned int dma_id, unsigned int VF_1,
 			log_inf("RCNT_RECORD:cur dma_en_recorder\n");
 			str[0] = '\0';
 			for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-				sprintf(str2, "%d_", dma_en_recorder[dma][z]);
+				if (sprintf(str2, "%d_", dma_en_recorder[dma][z]) < 0)
+					log_inf("Error: sprintf fail\n");
 				strncat(str, str2, strLeng - strlen(str));
 			}
 			log_inf("%s", str);
