@@ -449,13 +449,24 @@ static int audio_get_auxadc_value(void)
 			return ret;
 		}
 	}
-	pr_info("%s() value :%d\n", __func__, value);
+	pr_debug("%s() value :%d\n", __func__, value);
 	return value;
 }
 
 static int get_accdet_auxadc(void)
 {
-	return 0;
+	int value = 0, ret = 0;
+
+	if (!IS_ERR(mCodec_priv->accdet_auxadc)) {
+		ret = iio_read_channel_processed(mCodec_priv->accdet_auxadc,
+						 &value);
+		if (ret < 0) {
+			pr_notice("Error: %s read fail (%d)\n", __func__, ret);
+			return ret;
+		}
+	}
+	pr_debug("%s() value :%d\n", __func__, value);
+	return value;
 }
 
 /*extern kal_uint32 upmu_get_reg_value(kal_uint32 reg);*/
@@ -5967,6 +5978,17 @@ static int mtk_codec_dev_probe(struct platform_device *pdev)
 	mCodec_priv->codec_auxadc = devm_iio_channel_get(&pdev->dev,
 			"pmic_codec");
 	ret = PTR_ERR_OR_ZERO(mCodec_priv->codec_auxadc);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
+			dev_dbg(&pdev->dev, "Error: Get iio ch failed (%d)\n",
+				ret);
+		return ret;
+	}
+
+	/* get pmic accdet auxadc iio channel handler */
+	mCodec_priv->accdet_auxadc = devm_iio_channel_get(&pdev->dev,
+			"pmic_accdet");
+	ret = PTR_ERR_OR_ZERO(mCodec_priv->accdet_auxadc);
 	if (ret) {
 		if (ret != -EPROBE_DEFER)
 			dev_dbg(&pdev->dev, "Error: Get iio ch failed (%d)\n",
