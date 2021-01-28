@@ -126,9 +126,6 @@ static void mtk_pll_set_rate_regs(struct mtk_clk_pll *pll, u32 pcw,
 	/* disable tuner */
 	__mtk_pll_tuner_disable(pll);
 
-	/* disable tuner */
-	__mtk_pll_tuner_disable(pll);
-
 	/* set postdiv */
 	val = readl(pll->pd_addr);
 	val &= ~(POSTDIV_MASK << pll->data->pd_shift);

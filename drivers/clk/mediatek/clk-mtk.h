@@ -20,7 +20,6 @@
 #include <linux/regmap.h>
 
 struct clk;
-struct clk_onecell_data;
 
 #define MAX_MUX_GATE_BIT	31
 #define INVALID_MUX_GATE_BIT	(MAX_MUX_GATE_BIT + 1)
@@ -171,6 +170,7 @@ struct mtk_gate {
 	int shift;
 	const struct clk_ops *ops;
 	unsigned long flags;
+	struct pwr_status *pwr_stat;
 };
 
 int mtk_clk_register_gates(struct device_node *node,

@@ -108,6 +108,7 @@ int mtk_clk_register_gates(struct device_node *node,
 	int i;
 	struct clk *clk;
 	struct regmap *regmap;
+	struct regmap *pwr_regmap;
 
 	if (!clk_data)
 		return -ENOMEM;
@@ -118,6 +119,10 @@ int mtk_clk_register_gates(struct device_node *node,
 				PTR_ERR(regmap));
 		return PTR_ERR(regmap);
 	}
+
+	pwr_regmap = syscon_regmap_lookup_by_phandle(node, "pwr-regmap");
+	if (IS_ERR(pwr_regmap))
+		pwr_regmap = NULL;
 
 	for (i = 0; i < num; i++) {
 		const struct mtk_gate *gate = &clks[i];
@@ -130,7 +135,11 @@ int mtk_clk_register_gates(struct device_node *node,
 				gate->regs->set_ofs,
 				gate->regs->clr_ofs,
 				gate->regs->sta_ofs,
-				gate->shift, gate->ops, gate->flags);
+				gate->shift,
+				gate->ops,
+				gate->flags,
+				gate->pwr_stat,
+				pwr_regmap);
 
 		if (IS_ERR(clk)) {
 			pr_err("Failed to register clk %s: %ld\n",

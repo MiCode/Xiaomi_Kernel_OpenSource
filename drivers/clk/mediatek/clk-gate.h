@@ -20,6 +20,16 @@
 
 struct clk;
 
+/*
+ * define pwr status information.
+ * including offsets/mask.
+ */
+struct pwr_status {
+	u32 pwr_ofs;
+	u32 pwr2_ofs;
+	u32 mask;
+};
+
 struct mtk_clk_gate {
 	struct clk_hw	hw;
 	struct regmap	*regmap;
@@ -27,6 +37,8 @@ struct mtk_clk_gate {
 	int		clr_ofs;
 	int		sta_ofs;
 	u8		bit;
+	struct pwr_status	*pwr_stat;
+	struct regmap	*pwr_regmap;
 };
 
 static inline struct mtk_clk_gate *to_mtk_clk_gate(struct clk_hw *hw)
@@ -48,7 +60,9 @@ struct clk *mtk_clk_register_gate(
 		int sta_ofs,
 		u8 bit,
 		const struct clk_ops *ops,
-		unsigned long flags);
+		unsigned long flags,
+		struct pwr_status *pwr_stat,
+		struct regmap *pwr_regmap);
 
 #define GATE_MTK_FLAGS(_id, _name, _parent, _regs, _shift,	\
 			_ops, _flags) {				\
@@ -61,7 +75,12 @@ struct clk *mtk_clk_register_gate(
 		.flags = _flags,				\
 	}
 
-#define GATE_MTK(_id, _name, _parent, _regs, _shift, _ops)		\
+#define GATE_MTK(_id, _name, _parent, _regs, _shift, _ops)	\
 	GATE_MTK_FLAGS(_id, _name, _parent, _regs, _shift, _ops, 0)
+
+#define GATE_PWR_STAT(_pwr_ofs, _pwr2_ofs, _mask) {		\
+		.pwr_ofs = _pwr_ofs,				\
+		.pwr2_ofs = _pwr2_ofs,				\
+		.mask = _mask}
 
 #endif /* __DRV_CLK_GATE_H */
