@@ -314,8 +314,8 @@ struct mtk_vcu {
 	int gce_codec_eid[GCE_EVENT_MAX];
 	struct gce_cmds *gce_cmds[VCU_CODEC_MAX];
 	void *curr_ctx[VCU_CODEC_MAX];
-	struct vb2_queue *curr_src_vq[VCU_CODEC_MAX];
-	struct vb2_queue *curr_dst_vq[VCU_CODEC_MAX];
+	struct vb2_buffer *curr_src_vb[VCU_CODEC_MAX];
+	struct vb2_buffer *curr_dst_vb[VCU_CODEC_MAX];
 	wait_queue_head_t gce_wq[VCU_CODEC_MAX];
 	struct gce_ctx_info gce_info[VCODEC_INST_MAX];
 	atomic_t gce_job_cnt[VCU_CODEC_MAX][GCE_THNUM_MAX];
@@ -889,14 +889,16 @@ static int vcu_wait_gce_callback(struct mtk_vcu *vcu, unsigned long arg)
 }
 
 int vcu_set_codec_ctx(struct platform_device *pdev,
-		 void *codec_ctx, struct vb2_queue *src_vq,
-		 struct vb2_queue *dst_vq, unsigned long type)
+		 void *codec_ctx, struct vb2_buffer *src_vb,
+		 struct vb2_buffer *dst_vb, unsigned long type)
 {
 	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
+	pr_debug("[VCU] type %lu vcu_set_codec_ctx %p src_vb %p dst_vb %p\n",
+		type, codec_ctx, src_vb, dst_vb);
 
 	vcu->curr_ctx[type] = codec_ctx;
-	vcu->curr_src_vq[type] = src_vq;
-	vcu->curr_dst_vq[type] = dst_vq;
+	vcu->curr_src_vb[type] = src_vb;
+	vcu->curr_dst_vb[type] = dst_vb;
 	return 0;
 }
 
@@ -908,8 +910,8 @@ int vcu_clear_codec_ctx(struct platform_device *pdev,
 	mutex_lock(&vcu->vcu_gce_mutex[type]);
 	vcu_gce_clear_inst_id(codec_ctx);
 	vcu->curr_ctx[type] = NULL;
-	vcu->curr_src_vq[type] = NULL;
-	vcu->curr_dst_vq[type] = NULL;
+	vcu->curr_src_vb[type] = NULL;
+	vcu->curr_dst_vb[type] = NULL;
 	mutex_unlock(&vcu->vcu_gce_mutex[type]);
 
 	return 0;
@@ -1317,6 +1319,8 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 		(struct mtk_vcu_queue *)file->private_data;
 	struct vcu_pa_pages *tmp;
 	struct list_head *p, *q;
+	struct mem_obj mem_buff_data;
+	struct vb2_buffer *src_vb, *dst_vb;
 
 	vcu_dev = (struct mtk_vcu *)vcu_queue->vcu;
 	vcu_dbg_log("[VCU] vma->start 0x%lx, end 0x%lx, pgoff 0x%lx\n",
@@ -1369,9 +1373,23 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 
 	if (pa_start_base >= MAP_SHMEM_MM_BASE &&
 		pa_start_base < MAP_SHMEM_PA_BASE) {
-		if (pa_start_base >= MAP_SHMEM_MM_CACHEABLE_BASE)
+		if (pa_start_base >= MAP_SHMEM_MM_CACHEABLE_BASE) {
 			pa_start -= MAP_SHMEM_MM_CACHEABLE_BASE;
-		else
+			mem_buff_data.iova = (vcu_ptr->iommu_padding) ?
+				(pa_start | 0x100000000UL) : pa_start;
+			mem_buff_data.len = length;
+			src_vb = NULL;
+			dst_vb = NULL;
+			if (strcmp(current->comm, "vdec_srv") == 0) {
+				src_vb = vcu_dev->curr_src_vb[VCU_VDEC];
+				dst_vb = vcu_dev->curr_dst_vb[VCU_VDEC];
+			} else if (strcmp(current->comm, "venc_srv") == 0) {
+				src_vb = vcu_dev->curr_src_vb[VCU_VENC];
+				dst_vb = vcu_dev->curr_dst_vb[VCU_VENC];
+			}
+			mtk_vcu_set_buffer(vcu_queue, &mem_buff_data,
+				src_vb, dst_vb);
+		} else
 			pa_start -= MAP_SHMEM_MM_BASE;
 #ifdef CONFIG_MTK_IOMMU_V2
 		while (length > 0) {
@@ -1432,7 +1450,6 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		(struct mtk_vcu_queue *)file->private_data;
 	struct vcu_pa_pages *tmp;
 	struct list_head *p, *q;
-	struct vb2_queue *src_vq, *dst_vq;
 
 	vcu_dev = (struct mtk_vcu *)vcu_queue->vcu;
 	dev = vcu_dev->dev;
@@ -1589,18 +1606,6 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case VCU_CACHE_FLUSH_BUFF:
 	case VCU_CACHE_INVALIDATE_BUFF:
-		src_vq = NULL;
-		dst_vq = NULL;
-		if (strcmp(current->comm, "vdec_srv") == 0) {
-			src_vq = vcu_dev->curr_src_vq[VCU_VDEC];
-			dst_vq = vcu_dev->curr_dst_vq[VCU_VDEC];
-		} else if (strcmp(current->comm, "venc_srv") == 0) {
-			src_vq = vcu_dev->curr_src_vq[VCU_VENC];
-			dst_vq = vcu_dev->curr_dst_vq[VCU_VENC];
-		} else
-			pr_info("[VCU][Error] Unknown user %s cache sync %d\n",
-				current->comm, cmd);
-
 		user_data_addr = (unsigned char *)arg;
 		ret = (long)copy_from_user(&mem_buff_data, user_data_addr,
 			(unsigned long)sizeof(struct mem_obj));
@@ -1610,8 +1615,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			(dma_addr_t)mem_buff_data.iova,
 			(size_t)mem_buff_data.len,
 			(cmd == VCU_CACHE_FLUSH_BUFF) ?
-				DMA_TO_DEVICE : DMA_FROM_DEVICE,
-			src_vq, dst_vq);
+				DMA_TO_DEVICE : DMA_FROM_DEVICE);
 
 		dev_dbg(dev, "[VCU] Cache flush buffer pa = %llx, size = %d\n",
 			mem_buff_data.iova, (unsigned int)mem_buff_data.len);
@@ -1783,14 +1787,13 @@ static int mtk_vcu_write(const char *val, const struct kernel_param *kp)
 
 	if (vcu_ptr != NULL &&
 		vcu_ptr->vdec_log_info != NULL &&
-		val != NULL &&
-		strlen(val) < LOG_INFO_SIZE) {
+		val != NULL) {
 		ret = param_set_charp(val, kp);
 		if (ret != 0)
 			return -EINVAL;
 
 		memcpy(vcu_ptr->vdec_log_info->log_info,
-			val, strlen(val));
+			val, strnlen(val, LOG_INFO_SIZE - 1) + 1);
 	} else
 		return -EFAULT;
 
@@ -1807,7 +1810,8 @@ static int mtk_vcu_write(const char *val, const struct kernel_param *kp)
 
 	pr_info("[log wakeup VPUD] log_info %p vcu_ptr %p val %p: %s %lu\n",
 		(char *)vcu_ptr->vdec_log_info->log_info,
-		vcu_ptr, val, val, (unsigned long)strlen(val));
+		vcu_ptr, val, val,
+		(unsigned long)strnlen(val, LOG_INFO_SIZE - 1) + 1);
 
 	atomic_set(&vcu_ptr->vdec_log_got, 1);
 	wake_up(&vcu_ptr->vdec_log_get_wq);
@@ -2202,8 +2206,8 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 
 	for (i = 0; i < (int)VCU_CODEC_MAX; i++) {
 		vcu->curr_ctx[i] = NULL;
-		vcu->curr_src_vq[i] = NULL;
-		vcu->curr_dst_vq[i] = NULL;
+		vcu->curr_src_vb[i] = NULL;
+		vcu->curr_dst_vb[i] = NULL;
 	}
 	vcu->is_entering_suspend = 0;
 	pm_notifier(mtk_vcu_suspend_notifier, 0);

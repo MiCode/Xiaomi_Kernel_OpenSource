@@ -196,8 +196,6 @@ static void vdec_deinit(unsigned long h_vdec)
 
 	vcu_dec_deinit(&inst->vcu);
 
-	vcu_dec_clear_ctx(&inst->vcu);
-
 	kfree(inst);
 }
 
@@ -243,8 +241,8 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 
 	inst->vsi->dec.bs_fd = (uint64_t)get_mapped_fd(bs->dmabuf);
 
+	inst->vsi->dec.vdec_fb_va = (u64)(uintptr_t)NULL;
 	if (fb != NULL) {
-		vcu_dec_set_ctx(&inst->vcu);
 		inst->vsi->dec.vdec_fb_va = vdec_fb_va;
 		inst->vsi->dec.index = fb->index;
 		for (i = 0; i < num_planes; i++) {
@@ -286,7 +284,7 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 	data[0] = (unsigned int)bs->size;
 	data[1] = (unsigned int)bs->length;
 	data[2] = (unsigned int)bs->flags;
-	ret = vcu_dec_start(vcu, data, 3);
+	ret = vcu_dec_start(vcu, data, 3, bs, fb);
 
 	*src_chg = inst->vsi->dec.vdec_changed_info;
 	*(errormap_info + bs->index % VB2_MAX_FRAME) =

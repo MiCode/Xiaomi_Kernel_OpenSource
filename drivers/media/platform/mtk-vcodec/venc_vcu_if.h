@@ -51,7 +51,4 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 				   struct mtk_vcodec_mem *bs_buf,
 				   unsigned int *bs_size);
 int vcu_enc_deinit(struct venc_vcu_inst *vcu);
-int vcu_enc_set_ctx(struct venc_vcu_inst *vcu);
-int vcu_enc_clear_ctx(struct venc_vcu_inst *vcu);
-
 #endif

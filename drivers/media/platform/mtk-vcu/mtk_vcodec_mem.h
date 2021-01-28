@@ -33,12 +33,16 @@
 /**
  * struct mtk_vcu_mem - memory buffer allocated in kernel
  *
- * @mem_priv:   vb2_dc_buf
- * @size:       allocated buffer size
+ * @mem_priv:   vcu allocated buffer vb2_dc_buf
+ * @size:       buffer size
+ * @dbuf:       io buffer dma_buff
+ * @iova:       io buffer iova
  */
 struct mtk_vcu_mem {
 	void *mem_priv;
 	size_t size;
+	struct dma_buf *dbuf;
+	dma_addr_t iova;
 };
 
 /**
@@ -82,6 +86,19 @@ struct mtk_vcu_queue *mtk_vcu_mem_init(struct device *dev);
 void mtk_vcu_mem_release(struct mtk_vcu_queue *vcu_queue);
 
 /**
+ * mtk_vcu_set_buffer - set the allocated buffer iova/va
+ *
+ * @vcu_queue:  the queue to store allocated buffer.
+ * @mem_buff_data:      store iova/va.
+ * @src_vb/dst_vb:      set io buffer dma to vcu_queue for cache sync.
+ *
+ * Return: Return real address if it is ok, otherwise failed
+ **/
+void *mtk_vcu_set_buffer(struct mtk_vcu_queue *vcu_queue,
+	struct mem_obj *mem_buff_data, struct vb2_buffer *src_vb,
+	struct vb2_buffer *dst_vb);
+
+/**
  * mtk_vcu_get_buffer - get the allocated buffer iova/va
  *
  * @vcu_queue:  the queue to store allocated buffer.
@@ -121,13 +138,11 @@ int vcu_buffer_flush_all(struct device *dev, struct mtk_vcu_queue *vcu_queue);
  * @dma_addr:   the buffer to be flushed dma addr
  * @dma_addr:   the corresponding flushed size
  * @op:         DMA_TO_DEVICE or DMA_FROM_DEVICE
- * @codec_type: VCU_VDEC or VCU_VENC
  *
  * Return:      Return 0 if it is ok, otherwise failed
  **/
 int vcu_buffer_cache_sync(struct device *dev, struct mtk_vcu_queue *vcu_queue,
-	dma_addr_t dma_addr, size_t size, int op,
-	struct vb2_queue *src_vq, struct vb2_queue *dst_vq);
+	dma_addr_t dma_addr, size_t size, int op);
 
 #endif
 

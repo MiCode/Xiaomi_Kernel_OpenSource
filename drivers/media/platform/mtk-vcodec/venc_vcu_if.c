@@ -229,6 +229,40 @@ void vcu_enc_set_pid(struct venc_vcu_inst *vcu)
 		vcu->daemon_pid = -1;
 }
 
+int vcu_enc_set_ctx(struct venc_vcu_inst *vcu,
+	struct venc_frm_buf *frm_buf,
+	struct mtk_vcodec_mem *bs_buf)
+{
+	int err = 0;
+	struct vb2_buffer *src_vb = NULL;
+	struct vb2_buffer *dst_vb = NULL;
+	struct mtk_video_enc_buf *temp;
+
+	if (frm_buf != NULL) {
+		temp = container_of(frm_buf, struct mtk_video_enc_buf, frm_buf);
+		src_vb = &temp->vb.vb2_buf;
+	}
+	if (bs_buf != NULL) {
+		temp = container_of(bs_buf, struct mtk_video_enc_buf, bs_buf);
+		dst_vb = &temp->vb.vb2_buf;
+	}
+	vcu_set_codec_ctx(vcu->dev,
+		(void *)vcu->ctx,
+		src_vb, dst_vb,
+		VCU_VENC);
+
+	return err;
+}
+
+int vcu_enc_clear_ctx(struct venc_vcu_inst *vcu)
+{
+	int err = 0;
+
+	vcu_clear_codec_ctx(vcu->dev,
+		(void *)vcu->ctx, VCU_VENC);
+
+	return err;
+}
 
 int vcu_enc_init(struct venc_vcu_inst *vcu)
 {
@@ -259,7 +293,10 @@ int vcu_enc_init(struct venc_vcu_inst *vcu)
 	out.venc_inst = (unsigned long)vcu;
 
 	vcu_enc_set_pid(vcu);
-	if (vcu_enc_send_msg(vcu, &out, sizeof(out))) {
+	vcu_enc_set_ctx(vcu, NULL, NULL);
+	status = vcu_enc_send_msg(vcu, &out, sizeof(out));
+
+	if (status) {
 		mtk_vcodec_err(vcu, "AP_IPIMSG_ENC_INIT fail");
 		return -EINVAL;
 	}
@@ -470,8 +507,9 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 			(unsigned long)bs_buf->dmabuf,
 			out.bs_fd);
 	}
-
+	vcu_enc_set_ctx(vcu, frm_buf, bs_buf);
 	ret = vcu_enc_send_msg(vcu, &out, sizeof(out));
+
 	if (ret) {
 		mtk_vcodec_err(vcu, "AP_IPIMSG_ENC_ENCODE %d fail %d",
 					   bs_mode, ret);
@@ -518,34 +556,10 @@ int vcu_enc_deinit(struct venc_vcu_inst *vcu)
 		return -EINVAL;
 	}
 	current->flags &= ~PF_NOFREEZE;
+	vcu_enc_clear_ctx(vcu);
 
 	mtk_vcodec_debug_leave(vcu);
 
 	return 0;
-}
-
-int vcu_enc_set_ctx(struct venc_vcu_inst *vcu)
-{
-	int err = 0;
-
-	vcu_set_codec_ctx(vcu->dev,
-		(void *)vcu->ctx,
-		v4l2_m2m_get_vq(vcu->ctx->m2m_ctx,
-			V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE),
-		v4l2_m2m_get_vq(vcu->ctx->m2m_ctx,
-			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE),
-		VCU_VENC);
-
-	return err;
-}
-
-int vcu_enc_clear_ctx(struct venc_vcu_inst *vcu)
-{
-	int err = 0;
-
-	vcu_clear_codec_ctx(vcu->dev,
-		(void *)vcu->ctx, VCU_VENC);
-
-	return err;
 }
 

@@ -446,6 +446,41 @@ void vcu_dec_set_pid(struct vdec_vcu_inst *vcu)
 		vcu->daemon_pid = -1;
 }
 
+int vcu_dec_set_ctx(struct vdec_vcu_inst *vcu,
+	struct mtk_vcodec_mem *bs,
+	struct vdec_fb *fb)
+{
+	int err = 0;
+	struct vb2_buffer *src_vb = NULL;
+	struct vb2_buffer *dst_vb = NULL;
+	struct mtk_video_dec_buf *temp;
+
+	if (bs != NULL) {
+		temp = container_of(bs, struct mtk_video_dec_buf, bs_buffer);
+		src_vb = &temp->vb.vb2_buf;
+	}
+	if (fb != NULL) {
+		temp = container_of(fb, struct mtk_video_dec_buf, frame_buffer);
+		dst_vb = &temp->vb.vb2_buf;
+	}
+	vcu_set_codec_ctx(vcu->dev,
+		(void *)vcu->ctx,
+		src_vb, dst_vb,
+		VCU_VDEC);
+
+	return err;
+}
+
+int vcu_dec_clear_ctx(struct vdec_vcu_inst *vcu)
+{
+	int err = 0;
+
+	vcu_clear_codec_ctx(vcu->dev,
+		(void *)vcu->ctx, VCU_VDEC);
+
+	return err;
+}
+
 int vcu_dec_init(struct vdec_vcu_inst *vcu)
 {
 	struct vdec_ap_ipi_init msg;
@@ -473,14 +508,17 @@ int vcu_dec_init(struct vdec_vcu_inst *vcu)
 	mtk_vcodec_debug(vcu, "vdec_inst=%p svp_mode=%d", vcu, msg.reserved);
 
 	vcu_dec_set_pid(vcu);
+
+	vcu_dec_set_ctx(vcu, NULL, NULL);
 	err = vcodec_vcu_send_msg(vcu, (void *)&msg, sizeof(msg));
 
 	mtk_vcodec_debug(vcu, "- ret=%d", err);
 	return err;
 }
 
-int vcu_dec_start(struct vdec_vcu_inst *vcu, unsigned int *data,
-				  unsigned int len)
+int vcu_dec_start(struct vdec_vcu_inst *vcu,
+	unsigned int *data, unsigned int len,
+	struct mtk_vcodec_mem *bs, struct vdec_fb *fb)
 {
 	struct vdec_ap_ipi_dec_start msg;
 	int i;
@@ -495,7 +533,9 @@ int vcu_dec_start(struct vdec_vcu_inst *vcu, unsigned int *data,
 	for (i = 0; i < len; i++)
 		msg.data[i] = data[i];
 
+	vcu_dec_set_ctx(vcu, bs, fb);
 	err = vcodec_vcu_send_msg(vcu, (void *)&msg, sizeof(msg));
+
 	mtk_vcodec_debug(vcu, "- ret=%d", err);
 	return err;
 }
@@ -507,7 +547,11 @@ int vcu_dec_end(struct vdec_vcu_inst *vcu)
 
 int vcu_dec_deinit(struct vdec_vcu_inst *vcu)
 {
-	return vcodec_send_ap_ipi(vcu, AP_IPIMSG_DEC_DEINIT);
+	int err = 0;
+
+	err = vcodec_send_ap_ipi(vcu, AP_IPIMSG_DEC_DEINIT);
+	vcu_dec_clear_ctx(vcu);
+	return err;
 }
 
 int vcu_dec_reset(struct vdec_vcu_inst *vcu)
@@ -570,31 +614,6 @@ int vcu_dec_set_param(struct vdec_vcu_inst *vcu, unsigned int id, void *param,
 
 	err = vcodec_vcu_send_msg(vcu, &msg, sizeof(msg));
 	mtk_vcodec_debug(vcu, "- id=%X ret=%d", AP_IPIMSG_DEC_SET_PARAM, err);
-
-	return err;
-}
-
-int vcu_dec_set_ctx(struct vdec_vcu_inst *vcu)
-{
-	int err = 0;
-
-	vcu_set_codec_ctx(vcu->dev,
-		(void *)vcu->ctx,
-		v4l2_m2m_get_vq(vcu->ctx->m2m_ctx,
-			V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE),
-		v4l2_m2m_get_vq(vcu->ctx->m2m_ctx,
-			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE),
-		VCU_VDEC);
-
-	return err;
-}
-
-int vcu_dec_clear_ctx(struct vdec_vcu_inst *vcu)
-{
-	int err = 0;
-
-	vcu_clear_codec_ctx(vcu->dev,
-		(void *)vcu->ctx, VCU_VDEC);
 
 	return err;
 }

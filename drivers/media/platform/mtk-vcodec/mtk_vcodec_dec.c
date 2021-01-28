@@ -2009,9 +2009,9 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 			dma_buf_detach(vb->planes[0].dbuf, buf_att);
 
 			mtk_v4l2_debug(4,
-			   "[%d] Cache sync- TD for %p sz=%d dev %p",
+			   "[%d] Cache sync- TD for %lx sz=%d dev %p",
 			   ctx->id,
-			   (void *)src_mem.dma_addr,
+			   (unsigned long)src_mem.dma_addr,
 			   (unsigned int)src_mem.size,
 			   &ctx->dev->plat_dev->dev);
 		} else {
@@ -2039,11 +2039,11 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 				dma_buf_detach(vb->planes[plane].dbuf, buf_att);
 
 				mtk_v4l2_debug(4,
-				  "[%d] Cache sync- TD for %p sz=%d dev %p",
-				  ctx->id,
-				  (void *)dst_mem.fb_base[plane].dma_addr,
-				  (unsigned int)dst_mem.fb_base[plane].size,
-				  &ctx->dev->plat_dev->dev);
+				 "[%d] Cache sync- TD for %lx sz=%d dev %p",
+				 ctx->id,
+				 (unsigned long)dst_mem.fb_base[plane].dma_addr,
+				 (unsigned int)dst_mem.fb_base[plane].size,
+				 &ctx->dev->plat_dev->dev);
 			}
 		}
 	}
@@ -2053,7 +2053,7 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 {
 	struct vb2_buffer *src_buf;
-	struct mtk_vcodec_mem src_mem;
+	struct mtk_vcodec_mem *src_mem;
 	unsigned int src_chg = 0;
 	bool res_chg = false;
 	bool mtk_vcodec_unsupport = false;
@@ -2113,40 +2113,42 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	}
 
 	vb2_v4l2 = to_vb2_v4l2_buffer(vb);
-	src_mem.va = vb2_plane_vaddr(src_buf, 0);
-	src_mem.dma_addr = vb2_dma_contig_plane_dma_addr(src_buf, 0);
-	src_mem.size = (size_t)src_buf->planes[0].bytesused;
-	src_mem.length = (size_t)src_buf->planes[0].length;
-	src_mem.dmabuf = src_buf->planes[0].dbuf;
-	src_mem.flags = vb2_v4l2->flags;
-	src_mem.index = vb->index;
+	buf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
+	src_mem = &buf->bs_buffer;
+	src_mem->va = vb2_plane_vaddr(src_buf, 0);
+	src_mem->dma_addr = vb2_dma_contig_plane_dma_addr(src_buf, 0);
+	src_mem->size = (size_t)src_buf->planes[0].bytesused;
+	src_mem->length = (size_t)src_buf->planes[0].length;
+	src_mem->dmabuf = src_buf->planes[0].dbuf;
+	src_mem->flags = vb2_v4l2->flags;
+	src_mem->index = vb->index;
 
 	mtk_v4l2_debug(2,
-		"[%d] buf id=%d va=%p dma=%lx size=%zx length=%zu dmabuf=%p",
+		"[%d] buf id=%d va=%p DMA=%lx size=%zx length=%zu dmabuf=%p",
 		ctx->id, src_buf->index,
-		src_mem.va, (unsigned long)src_mem.dma_addr,
-		src_mem.size, src_mem.length,
-		src_mem.dmabuf);
+		src_mem->va, (unsigned long)src_mem->dma_addr,
+		src_mem->size, src_mem->length,
+		src_mem->dmabuf);
 
-	if (src_mem.va != NULL) {
+	if (src_mem->va != NULL) {
 		mtk_v4l2_debug(0, "[%d] %x %x %x %x %x %x %x %x %x\n",
 					   ctx->id,
-					   ((char *)src_mem.va)[0],
-					   ((char *)src_mem.va)[1],
-					   ((char *)src_mem.va)[2],
-					   ((char *)src_mem.va)[3],
-					   ((char *)src_mem.va)[4],
-					   ((char *)src_mem.va)[5],
-					   ((char *)src_mem.va)[6],
-					   ((char *)src_mem.va)[7],
-					   ((char *)src_mem.va)[8]);
+					   ((char *)src_mem->va)[0],
+					   ((char *)src_mem->va)[1],
+					   ((char *)src_mem->va)[2],
+					   ((char *)src_mem->va)[3],
+					   ((char *)src_mem->va)[4],
+					   ((char *)src_mem->va)[5],
+					   ((char *)src_mem->va)[6],
+					   ((char *)src_mem->va)[7],
+					   ((char *)src_mem->va)[8]);
 	}
 
 	frame_size[0] = ctx->dec_params.frame_size_width;
 	frame_size[1] = ctx->dec_params.frame_size_height;
 
 	vdec_if_set_param(ctx, SET_PARAM_FRAME_SIZE, frame_size);
-	ret = vdec_if_decode(ctx, &src_mem, NULL, &src_chg);
+	ret = vdec_if_decode(ctx, src_mem, NULL, &src_chg);
 	mtk_vdec_set_param(ctx);
 
 	/* src_chg bit0 for res change flag, bit1 for realloc mv buf flag,
@@ -2179,7 +2181,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		mtk_v4l2_debug(ret ? 0 : 1,
 			"[%d] vdec_if_decode() src_buf=%d, size=%zu, fail=%d, res_chg=%d, mtk_vcodec_unsupport=%d",
 			ctx->id, src_buf->index,
-			src_mem.size, ret, res_chg,
+			src_mem->size, ret, res_chg,
 			mtk_vcodec_unsupport);
 
 		/* If not support the source, eg: w/h,
@@ -2324,9 +2326,9 @@ static void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 			dma_buf_detach(vb->planes[plane].dbuf, buf_att);
 
 			mtk_v4l2_debug(4,
-				"[%d] Cache sync- FD for %p sz=%d dev %p pfb %p",
+				"[%d] Cache sync- FD for %lx sz=%d dev %p pfb %p",
 				ctx->id,
-				(void *)dst_mem.fb_base[plane].dma_addr,
+				(unsigned long)dst_mem.fb_base[plane].dma_addr,
 				(unsigned int)dst_mem.fb_base[plane].size,
 				&ctx->dev->plat_dev->dev,
 				&buf->frame_buffer);

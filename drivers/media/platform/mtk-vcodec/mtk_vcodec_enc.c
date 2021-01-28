@@ -1560,7 +1560,6 @@ static int vb2ops_venc_buf_prepare(struct vb2_buffer *vb)
 	// Check if need to proceed cache operations
 	vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_enc_buf, vb);
-	memset(&mtkbuf->frm_buf, 0, sizeof(struct venc_frm_buf));
 
 	for (i = 0; i < q_data->fmt->num_planes; i++) {
 		if (vb2_plane_size(vb, i) < q_data->sizeimage[i]) {
@@ -1593,9 +1592,9 @@ static int vb2ops_venc_buf_prepare(struct vb2_buffer *vb)
 				vb->planes[i].data_offset);
 			dma_buf_detach(vb->planes[i].dbuf, buf_att);
 
-			mtk_v4l2_debug(4, "[%d] Cache sync TD for %p sz=%d dev %p ",
+			mtk_v4l2_debug(4, "[%d] Cache sync TD for %lx sz=%d dev %p ",
 				ctx->id,
-				(void *)src_mem.dma_addr,
+				(unsigned long)src_mem.dma_addr,
 				(unsigned int)src_mem.size,
 				&ctx->dev->plat_dev->dev);
 		}
@@ -1610,9 +1609,13 @@ static void vb2ops_venc_buf_finish(struct vb2_buffer *vb)
 	struct mtk_video_enc_buf *mtkbuf;
 	struct vb2_v4l2_buffer *vb2_v4l2;
 
-    // Check if need to proceed cache operations
 	vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_enc_buf, vb);
+
+	if (vb2_v4l2->flags & V4L2_BUF_FLAG_LAST)
+		mtk_v4l2_debug(0, "[%d] type(%d) flags=%x idx=%d pts=%llu",
+			ctx->id, vb->vb2_queue->type, vb2_v4l2->flags,
+			vb->index, vb->timestamp);
 
 	if (!(mtkbuf->flags & NO_CAHCE_INVALIDATE)) {
 		if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
@@ -1631,9 +1634,9 @@ static void vb2ops_venc_buf_finish(struct vb2_buffer *vb)
 			dst_mem.size = (size_t)vb->planes[0].bytesused;
 			dma_buf_detach(vb->planes[0].dbuf, buf_att);
 			mtk_v4l2_debug(4,
-				"[%d] Cache sync FD for %p sz=%d dev %p",
+				"[%d] Cache sync FD for %lx sz=%d dev %p",
 				ctx->id,
-				(void *)dst_mem.dma_addr,
+				(unsigned long)dst_mem.dma_addr,
 				(unsigned int)dst_mem.size,
 				&ctx->dev->plat_dev->dev);
 		}
@@ -1808,7 +1811,8 @@ static int mtk_venc_encode_header(void *priv)
 	int ret;
 	struct vb2_buffer *src_buf, *dst_buf;
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
-	struct mtk_vcodec_mem bs_buf;
+	struct mtk_video_enc_buf *dst_buf_info;
+	struct mtk_vcodec_mem *bs_buf;
 	struct venc_done_result enc_result;
 
 	memset(&enc_result, 0, sizeof(enc_result));
@@ -1817,22 +1821,25 @@ static int mtk_venc_encode_header(void *priv)
 		mtk_v4l2_debug(1, "No dst buffer");
 		return -EINVAL;
 	}
+	dst_vb2_v4l2 = to_vb2_v4l2_buffer(dst_buf);
+	dst_buf_info = container_of(dst_vb2_v4l2, struct mtk_video_enc_buf, vb);
 
-	bs_buf.va = vb2_plane_vaddr(dst_buf, 0);
-	bs_buf.dma_addr = vb2_dma_contig_plane_dma_addr(dst_buf, 0);
-	bs_buf.size = (size_t)dst_buf->planes[0].length;
-	bs_buf.dmabuf = dst_buf->planes[0].dbuf;
+	bs_buf = &dst_buf_info->bs_buf;
+	bs_buf->va = vb2_plane_vaddr(dst_buf, 0);
+	bs_buf->dma_addr = vb2_dma_contig_plane_dma_addr(dst_buf, 0);
+	bs_buf->size = (size_t)dst_buf->planes[0].length;
+	bs_buf->dmabuf = dst_buf->planes[0].dbuf;
 
 	mtk_v4l2_debug(1,
 		       "[%d] buf id=%d va=0x%p dma_addr=0x%llx size=%zu",
 		       ctx->id,
-		       dst_buf->index, bs_buf.va,
-		       (u64)bs_buf.dma_addr,
-		       bs_buf.size);
+		       dst_buf->index, bs_buf->va,
+		       (u64)bs_buf->dma_addr,
+		       bs_buf->size);
 
 	ret = venc_if_encode(ctx,
 			     VENC_START_OPT_ENCODE_SEQUENCE_HEADER,
-			     NULL, &bs_buf, &enc_result);
+			     NULL, bs_buf, &enc_result);
 
 	get_free_buffers(ctx, &enc_result);
 
@@ -1849,7 +1856,6 @@ static int mtk_venc_encode_header(void *priv)
 	src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
 	if (src_buf) {
 		src_vb2_v4l2 = to_vb2_v4l2_buffer(src_buf);
-		dst_vb2_v4l2 = to_vb2_v4l2_buffer(dst_buf);
 		dst_vb2_v4l2->vb2_buf.timestamp =
 			src_vb2_v4l2->vb2_buf.timestamp;
 		dst_vb2_v4l2->timecode = src_vb2_v4l2->timecode;
@@ -2201,7 +2207,6 @@ static void mtk_venc_worker(struct work_struct *work)
 		v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->enc_flush_buf->vb);
 	}
 
-	memset(pfrm_buf, 0, sizeof(struct venc_frm_buf));
 	for (i = 0; i < src_buf->num_planes ; i++) {
 		pfrm_buf->fb_addr[i].va = vb2_plane_vaddr(src_buf, i) +
 			(size_t)src_buf->planes[i].data_offset;

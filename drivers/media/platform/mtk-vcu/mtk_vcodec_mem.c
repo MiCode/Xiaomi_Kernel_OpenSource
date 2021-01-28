@@ -40,14 +40,100 @@ void mtk_vcu_mem_release(struct mtk_vcu_queue *vcu_queue)
 	if (vcu_queue->num_buffers != 0) {
 		for (buffer = 0; buffer < vcu_queue->num_buffers; buffer++) {
 			vcu_buffer = &vcu_queue->bufs[buffer];
-			vcu_queue->mem_ops->put(vcu_buffer->mem_priv);
-			vcu_queue->bufs[buffer].mem_priv = NULL;
-			vcu_queue->bufs[buffer].size = 0;
+			if (vcu_buffer->dbuf == NULL)
+				vcu_queue->mem_ops->put(vcu_buffer->mem_priv);
+			else
+				fput(vcu_buffer->dbuf->file);
+
+			pr_debug("Free %d dbuf = %p size = %d mem_priv = %lx\n",
+				 buffer, vcu_buffer->dbuf,
+				 (unsigned int)vcu_buffer->size,
+				 (unsigned long)vcu_buffer->mem_priv);
 		}
 	}
 	mutex_unlock(&vcu_queue->mmap_lock);
 	kfree(vcu_queue);
 	vcu_queue = NULL;
+}
+
+void *mtk_vcu_set_buffer(struct mtk_vcu_queue *vcu_queue,
+	struct mem_obj *mem_buff_data, struct vb2_buffer *src_vb,
+	struct vb2_buffer *dst_vb)
+{
+	struct mtk_vcu_mem *vcu_buffer;
+	unsigned int num_buffers, plane;
+	unsigned int buffer;
+	dma_addr_t *dma_addr = NULL;
+	struct dma_buf *dbuf = NULL;
+	int op;
+
+	pr_debug("[%s] %d iova = %llx src_vb = %p dst_vb = %p\n",
+		__func__, vcu_queue->num_buffers, mem_buff_data->iova,
+		src_vb, dst_vb);
+
+	num_buffers = vcu_queue->num_buffers;
+	if (mem_buff_data->len > CODEC_ALLOCATE_MAX_BUFFER_SIZE ||
+		mem_buff_data->len == 0U || num_buffers >= CODEC_MAX_BUFFER) {
+		pr_info("Set buffer fail: buffer len = %u num_buffers = %d !!\n",
+			   mem_buff_data->len, num_buffers);
+		return ERR_PTR(-EINVAL);
+	}
+
+	mutex_lock(&vcu_queue->mmap_lock);
+	for (buffer = 0; buffer < num_buffers; buffer++) {
+		vcu_buffer = &vcu_queue->bufs[buffer];
+		if (mem_buff_data->iova == (u64)vcu_buffer->iova) {
+			mutex_unlock(&vcu_queue->mmap_lock);
+			return vcu_buffer->mem_priv;
+		}
+	}
+
+	vcu_buffer = &vcu_queue->bufs[num_buffers];
+	if (dbuf == NULL && src_vb != NULL)
+		for (plane = 0; plane < src_vb->num_planes; plane++) {
+			dma_addr = src_vb->vb2_queue->mem_ops->cookie(
+				src_vb->planes[plane].mem_priv);
+			if (*dma_addr == mem_buff_data->iova) {
+				dbuf = src_vb->planes[plane].dbuf;
+				vcu_buffer->size = src_vb->planes[plane].length;
+				op = DMA_TO_DEVICE;
+				pr_debug("src size = %d mem_buff_data len = %d\n",
+					(unsigned int)vcu_buffer->size,
+					(unsigned int)mem_buff_data->len);
+			}
+		}
+	if (dbuf == NULL && dst_vb != NULL)
+		for (plane = 0; plane < dst_vb->num_planes; plane++) {
+			dma_addr = dst_vb->vb2_queue->mem_ops->cookie(
+				dst_vb->planes[plane].mem_priv);
+			if (*dma_addr == mem_buff_data->iova) {
+				dbuf = dst_vb->planes[plane].dbuf;
+				vcu_buffer->size = dst_vb->planes[plane].length;
+				op = DMA_FROM_DEVICE;
+				pr_debug("dst size = %d mem_buff_data len = %d\n",
+					(unsigned int)vcu_buffer->size,
+					(unsigned int)mem_buff_data->len);
+			}
+		}
+
+	if (dbuf == NULL) {
+		mutex_unlock(&vcu_queue->mmap_lock);
+		pr_debug("Set buffer not found: buffer len = %u iova = %llx !!\n",
+			   mem_buff_data->len, mem_buff_data->iova);
+		return ERR_PTR(-ENOMEM);
+	}
+	vcu_buffer->dbuf = dbuf;
+	vcu_buffer->iova = *dma_addr;
+	get_file(dbuf->file);
+	vcu_queue->num_buffers++;
+	mutex_unlock(&vcu_queue->mmap_lock);
+
+	pr_debug("[%s] Num_buffers = %d iova = %llx dbuf = %p size = %d mem_priv = %lx\n",
+		__func__, vcu_queue->num_buffers, mem_buff_data->iova,
+		vcu_buffer->dbuf, (unsigned int)vcu_buffer->size,
+		(unsigned long)vcu_buffer->mem_priv);
+
+	return vcu_buffer->mem_priv;
 }
 
 void *mtk_vcu_get_buffer(struct mtk_vcu_queue *vcu_queue,
@@ -70,6 +156,7 @@ void *mtk_vcu_get_buffer(struct mtk_vcu_queue *vcu_queue,
 	vcu_buffer->mem_priv = vcu_queue->mem_ops->alloc(vcu_queue->dev, 0,
 		mem_buff_data->len, 0, 0);
 	vcu_buffer->size = mem_buff_data->len;
+	vcu_buffer->dbuf = NULL;
 	if (IS_ERR(vcu_buffer->mem_priv)) {
 		mutex_unlock(&vcu_queue->mmap_lock);
 		goto free;
@@ -79,15 +166,15 @@ void *mtk_vcu_get_buffer(struct mtk_vcu_queue *vcu_queue,
 	dma_addr = vcu_queue->mem_ops->cookie(vcu_buffer->mem_priv);
 
 	mem_buff_data->iova = *(dma_addr_t *)dma_addr;
+	vcu_buffer->iova = *(dma_addr_t *)dma_addr;
 	mem_buff_data->va = (unsigned long)cook;
 	vcu_queue->num_buffers++;
 	mutex_unlock(&vcu_queue->mmap_lock);
 
-	pr_debug("Num_buffers = %d iova = %llx va = %llx size = %d mem_priv = %lx\n",
-			 vcu_queue->num_buffers, mem_buff_data->iova,
-			 mem_buff_data->va,
-			 (unsigned int)vcu_buffer->size,
-			 (unsigned long)vcu_buffer->mem_priv);
+	pr_debug("[%s] Num_buffers = %d iova = %llx va = %llx size = %d mem_priv = %lx\n",
+		__func__, vcu_queue->num_buffers, mem_buff_data->iova,
+		mem_buff_data->va, (unsigned int)vcu_buffer->size,
+		(unsigned long)vcu_buffer->mem_priv);
 	return vcu_buffer->mem_priv;
 
 free:
@@ -109,6 +196,8 @@ int mtk_vcu_free_buffer(struct mtk_vcu_queue *vcu_queue,
 	if (num_buffers != 0U) {
 		for (buffer = 0; buffer < num_buffers; buffer++) {
 			vcu_buffer = &vcu_queue->bufs[buffer];
+			if (vcu_buffer->dbuf != NULL)
+				continue;
 			cook = vcu_queue->mem_ops->vaddr(vcu_buffer->mem_priv);
 			dma_addr =
 				vcu_queue->mem_ops->cookie(
@@ -128,6 +217,7 @@ int mtk_vcu_free_buffer(struct mtk_vcu_queue *vcu_queue,
 						vcu_queue->bufs[last_buffer];
 				vcu_queue->bufs[last_buffer].mem_priv = NULL;
 				vcu_queue->bufs[last_buffer].size = 0;
+				vcu_queue->bufs[last_buffer].dbuf = NULL;
 				vcu_queue->num_buffers--;
 				ret = 0;
 				break;
@@ -144,124 +234,87 @@ int mtk_vcu_free_buffer(struct mtk_vcu_queue *vcu_queue,
 	return ret;
 }
 
-
 int vcu_buffer_flush_all(struct device *dev, struct mtk_vcu_queue *vcu_queue)
 {
 	struct mtk_vcu_mem *vcu_buffer;
 	unsigned int buffer, num_buffers;
-	void *dma_addr = NULL;
 	void *cook = NULL;
 
 	num_buffers = vcu_queue->num_buffers;
-	if (num_buffers != 0U) {
-		for (buffer = 0; buffer < num_buffers; buffer++) {
-			vcu_buffer = &vcu_queue->bufs[buffer];
-			dma_addr =
-				vcu_queue->mem_ops->cookie(
-					vcu_buffer->mem_priv);
-			cook = vcu_queue->mem_ops->vaddr(vcu_buffer->mem_priv);
-			pr_debug("Cache flush buffer=%d, iova=%llx, va=%p, size=%d, Q_num = %d\n",
-				buffer, *(unsigned int long *)dma_addr,
-				vcu_queue->mem_ops->vaddr(vcu_buffer->mem_priv),
-				(unsigned int)vcu_buffer->size, num_buffers);
+	if (num_buffers == 0U)
+		return 0;
+	for (buffer = 0; buffer < num_buffers; buffer++) {
+		vcu_buffer = &vcu_queue->bufs[buffer];
+		pr_debug("Cache clean %s buffer=%d iova=%lx size=%d num=%d\n",
+			(vcu_buffer->dbuf == NULL) ? "working" : "io",
+			buffer, (unsigned int long)vcu_buffer->iova,
+			(unsigned int)vcu_buffer->size, num_buffers);
+
+		if (vcu_buffer->dbuf == NULL) {
+			cook = vcu_queue->mem_ops->vaddr(
+				vcu_buffer->mem_priv);
 			dmac_map_area((void *)cook, vcu_buffer->size,
 						  DMA_TO_DEVICE);
-		}
+		} else
+			dma_buf_end_cpu_access(vcu_buffer->dbuf, DMA_TO_DEVICE);
 	}
+
 	return 0;
 }
 
-int vcu_io_buffer_cache_sync(dma_addr_t dma_addr, size_t size,
-	struct vb2_queue *q, int op)
-{
-	struct vb2_buffer *vb;
-	unsigned int buffer, plane;
-	dma_addr_t *iova = NULL;
-	void *cook = NULL;
-	struct dma_buf_attachment *buf_att;
-	struct sg_table *sgt;
-
-	for (buffer = 0; buffer < q->num_buffers; buffer++) {
-		vb = q->bufs[buffer];
-		if (!vb)
-			continue;
-		for (plane = 0; plane < vb->num_planes; plane++) {
-			if (!vb->planes[plane].mem_priv)
-				continue;
-			iova = q->mem_ops->cookie(vb->planes[plane].mem_priv);
-			cook = q->mem_ops->vaddr(vb->planes[plane].mem_priv);
-			if ((dma_addr + size) <=
-				(*iova + vb->planes[plane].length) &&
-				dma_addr >= *iova) {
-				pr_info("Cache %s io buffer iova=%p, size=%d %p p[%d].l=%d\n",
-					(op == DMA_TO_DEVICE) ?
-					"flush" : "invalidate",
-					(void *)dma_addr, (unsigned int)size,
-					(void *)*iova, plane,
-					(unsigned int)vb->planes[plane].length);
-
-				buf_att = dma_buf_attach(vb->planes[plane].dbuf,
-					q->dev);
-				sgt = dma_buf_map_attachment(buf_att,
-					op);
-				dma_sync_sg_for_device(q->dev,
-					sgt->sgl,
-					sgt->orig_nents,
-					op);
-				dma_buf_unmap_attachment(buf_att,
-					sgt, op);
-				dma_buf_detach(vb->planes[plane].dbuf, buf_att);
-				return 0;
-			}
-		}
-	}
-
-	return -1;
-}
-
 int vcu_buffer_cache_sync(struct device *dev, struct mtk_vcu_queue *vcu_queue,
-	dma_addr_t dma_addr, size_t size, int op,
-	struct vb2_queue *src_vq, struct vb2_queue *dst_vq)
+	dma_addr_t dma_addr, size_t size, int op)
 {
 	struct mtk_vcu_mem *vcu_buffer;
 	unsigned int num_buffers = 0;
 	unsigned int buffer = 0;
-	dma_addr_t *iova = NULL;
 	void *cook = NULL;
-	int ret_src = -1;
-	int ret_dst = -1;
 
 	num_buffers = vcu_queue->num_buffers;
-	if (num_buffers != 0U) {
-		for (buffer = 0; buffer < num_buffers; buffer++) {
-			vcu_buffer = &vcu_queue->bufs[buffer];
-			iova = vcu_queue->mem_ops->cookie(vcu_buffer->mem_priv);
-			cook = vcu_queue->mem_ops->vaddr(vcu_buffer->mem_priv);
-			if (*iova == dma_addr) {
-				pr_info("Cache %s buffer iova=%p size=%d vcu_buffer->size=%d\n",
-					(op == DMA_TO_DEVICE) ?
-					"flush" : "invalidate",
-					(void *)dma_addr, (unsigned int)size,
-					(unsigned int)vcu_buffer->size);
+	if (num_buffers == 0U) {
+		pr_info("Cache %s buffer fail, iova = %lx, size = %d, vcu no buffers\n",
+			(op == DMA_TO_DEVICE) ? "flush" : "invalidate",
+			(unsigned long)dma_addr, (unsigned int)size);
+		return -1;
+	}
 
+	for (buffer = 0; buffer < num_buffers; buffer++) {
+		vcu_buffer = &vcu_queue->bufs[buffer];
+		if ((dma_addr + size) <=
+			(vcu_buffer->iova + vcu_buffer->size) &&
+			dma_addr >= vcu_buffer->iova) {
+			pr_debug("Cache %s %s buffer iova=%lx range=%d (%lx %d)\n",
+				(op == DMA_TO_DEVICE) ?
+				"clean" : "invalidate",
+				(vcu_buffer->dbuf == NULL) ?
+				"working" : "io",
+				(unsigned long)dma_addr, (unsigned int)size,
+				(unsigned long)vcu_buffer->iova,
+				(unsigned int)vcu_buffer->size);
+
+			if (vcu_buffer->dbuf == NULL) {
+				cook = vcu_queue->mem_ops->vaddr(
+					vcu_buffer->mem_priv);
 				if (op == DMA_TO_DEVICE)
 					dmac_map_area((void *)cook, size, op);
 				else
 					dmac_unmap_area((void *)cook, size, op);
-				return 0;
+			} else {
+				if (op == DMA_TO_DEVICE)
+					dma_buf_end_cpu_access(
+						vcu_buffer->dbuf, op);
+				else
+					dma_buf_begin_cpu_access(
+						vcu_buffer->dbuf, op);
 			}
+			return 0;
 		}
 	}
-	if (src_vq != NULL && dst_vq != NULL) {
-		ret_src = vcu_io_buffer_cache_sync(dma_addr, size, src_vq, op);
-		ret_dst = vcu_io_buffer_cache_sync(dma_addr, size, dst_vq, op);
-	}
-	if (buffer == num_buffers && ret_src == -1 && ret_dst == -1) {
-		pr_info("Cache %s buffer fail, iova = %p, size = %d\n",
-			(op == DMA_TO_DEVICE) ? "flush" : "invalidate",
-			(void *)dma_addr, (unsigned int)size);
-	}
 
-	return 0;
+	pr_info("Cache %s buffer fail, iova = %lx, size = %d\n",
+		(op == DMA_TO_DEVICE) ? "flush" : "invalidate",
+		(unsigned long)dma_addr, (unsigned int)size);
+
+	return -1;
 }
 
