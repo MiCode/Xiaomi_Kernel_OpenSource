@@ -515,7 +515,7 @@ static int vidioc_enum_fmt(struct v4l2_fmtdesc *f, bool output_queue)
 static int vidioc_enum_framesizes(struct file *file, void *fh,
 				  struct v4l2_frmsizeenum *fsize)
 {
-	int i = 0;
+	unsigned int i = 0;
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(fh);
 
 	if (fsize->index != 0)
@@ -1083,6 +1083,10 @@ static int vidioc_venc_s_fmt_cap(struct file *file, void *priv,
 			mtk_video_formats[default_cap_fmt_idx].fourcc;
 		fmt = mtk_venc_find_format(f, MTK_FMT_ENC);
 	}
+	if (fmt == NULL) {
+		mtk_v4l2_err("fail to get fmt");
+		return -EINVAL;
+	}
 
 	q_data->fmt = fmt;
 	ret = vidioc_try_fmt(f, q_data->fmt, ctx);
@@ -1226,6 +1230,11 @@ static int vidioc_try_fmt_vid_cap_mplane(struct file *file, void *priv,
 			mtk_video_formats[default_cap_fmt_idx].fourcc;
 		fmt = mtk_venc_find_format(f, MTK_FMT_ENC);
 	}
+	if (fmt == NULL) {
+		mtk_v4l2_err("fail to get fmt");
+		return -EINVAL;
+	}
+
 	f->fmt.pix_mp.colorspace = ctx->colorspace;
 	f->fmt.pix_mp.ycbcr_enc = ctx->ycbcr_enc;
 	f->fmt.pix_mp.quantization = ctx->quantization;
@@ -1246,6 +1255,11 @@ static int vidioc_try_fmt_vid_out_mplane(struct file *file, void *priv,
 			mtk_video_formats[default_out_fmt_idx].fourcc;
 		fmt = mtk_venc_find_format(f, MTK_FMT_FRAME);
 	}
+	if (fmt == NULL) {
+		mtk_v4l2_err("fail to get fmt");
+		return -EINVAL;
+	}
+
 	if (!f->fmt.pix_mp.colorspace) {
 		f->fmt.pix_mp.colorspace = V4L2_COLORSPACE_REC709;
 		f->fmt.pix_mp.ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
@@ -2091,6 +2105,11 @@ static void mtk_venc_worker(struct work_struct *work)
 	}
 
 	src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
+	if (!src_buf) {
+		v4l2_m2m_job_finish(ctx->dev->m2m_dev_enc, ctx->m2m_ctx);
+		mutex_unlock(&ctx->worker_lock);
+		return;
+	}
 	src_vb2_v4l2 = to_vb2_v4l2_buffer(src_buf);
 	dst_vb2_v4l2 = to_vb2_v4l2_buffer(dst_buf);
 
