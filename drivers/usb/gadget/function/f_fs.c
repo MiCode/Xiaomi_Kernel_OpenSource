@@ -195,6 +195,7 @@ struct ffs_epfile {
 	unsigned char			isoc;	/* P: ffs->eps_lock */
 
 	unsigned char			_pad;
+	atomic_t			opened;
 };
 
 struct ffs_buffer {
@@ -1110,6 +1111,15 @@ ffs_epfile_open(struct inode *inode, struct file *file)
 	if (WARN_ON(epfile->ffs->state != FFS_ACTIVE))
 		return -ENODEV;
 
+	/* to get updated opened atomic variable value */
+	smp_mb__before_atomic();
+	if (atomic_read(&epfile->opened)) {
+		pr_info("%s(): ep(%s) is already opened.\n",
+					__func__, epfile->name);
+		return -EBUSY;
+	}
+
+	atomic_set(&epfile->opened, 1);
 	file->private_data = epfile;
 	ffs_data_opened(epfile->ffs);
 	atomic_set(&epfile->error, 0);
@@ -1231,6 +1241,7 @@ ffs_epfile_release(struct inode *inode, struct file *file)
 
 	ENTER();
 
+	atomic_set(&epfile->opened, 0);
 	__ffs_epfile_read_buffer_free(epfile);
 	atomic_set(&epfile->error, 1);
 	ffs_data_closed(epfile->ffs);
@@ -1857,6 +1868,7 @@ static int ffs_epfiles_create(struct ffs_data *ffs)
 	for (i = 1; i <= count; ++i, ++epfile) {
 		epfile->ffs = ffs;
 		mutex_init(&epfile->mutex);
+		atomic_set(&epfile->opened, 0);
 		if (ffs->user_flags & FUNCTIONFS_VIRTUAL_ADDR)
 			sprintf(epfile->name, "ep%02x", ffs->eps_addrmap[i]);
 		else
