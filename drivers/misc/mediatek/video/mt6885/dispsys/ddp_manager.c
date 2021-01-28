@@ -1235,7 +1235,7 @@ int dpmgr_path_trigger(disp_path_handle dp_handle, void *trigger_loop_handle,
 	int i;
 	struct DDP_MODULE_DRIVER *mod_drv;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle = (struct ddp_path_handle *)dp_handle;
 	DISP_LOG_I("dpmgr_path_trigger on scenario %s\n",
 		ddp_get_scenario_name(handle->scenario));
