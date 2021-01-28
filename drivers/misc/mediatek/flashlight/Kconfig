@@ -11,6 +11,17 @@ config MTK_FLASHLIGHT
 	  If you have any questions about this, say Y here,
 	  only say N if you know exactly what you are doing.
 
+config MTK_FLASHLIGHT_AW3644
+	tristate "Mediatek flashlight with driver IC (AW3644)"
+	depends on MTK_FLASHLIGHT
+	help
+	  This is for the flashlight driver IC (AW3644).
+
+	  Say Y here if you want a flashlight driver IC AW3644.
+	  Select this only if your board has this IC.
+
+	  Say M here if you want to compile this driver as a module.
+
 config MTK_FLASHLIGHT_LED191
 	tristate "Mediatek flashlight led191 gpio driver"
 	depends on MTK_FLASHLIGHT
