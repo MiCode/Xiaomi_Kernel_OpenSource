@@ -5341,7 +5341,7 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 	if (ret != 0) {
 		sec_thread[0] = CMDQ_MIN_SECURE_THREAD_ID;
 		sec_thread[1] = CMDQ_MIN_SECURE_THREAD_ID +
-			CMDQ_MAX_SECURE_THREAD_COUNT;
+			CMDQ_MAX_SECURE_THREAD_COUNT - 1;
 	}
 	CMDQ_LOG("sec thread index %u to %u\n", sec_thread[0], sec_thread[1]);
 #endif
