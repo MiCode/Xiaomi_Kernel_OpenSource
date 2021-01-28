@@ -445,7 +445,8 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			 * Make sure args[1], min of power lock
 			 * within the range
 			 */
-			ret = (args[1] >= APUSYS_MAX_NUM_OPPS);
+			ret = ((args[1] >= APUSYS_MAX_NUM_OPPS) ||
+				args[1] < 0);
 			if (ret) {
 				PWR_LOG_ERR("opp-%d is too big, max opp:%d\n",
 					    (int)(args[1]),
@@ -457,10 +458,11 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			 * Make sure args[2], max of power lock
 			 * within the range
 			 */
-			ret = (args[1] >= APUSYS_MAX_NUM_OPPS);
+			ret = ((args[2] >= APUSYS_MAX_NUM_OPPS) ||
+			       args[2] < 0);
 			if (ret) {
 				PWR_LOG_ERR("opp-%d is too big, max opp:%d\n",
-					    (int)(args[1]),
+					    (int)(args[2]),
 					    APUSYS_MAX_NUM_OPPS - 1);
 				goto out;
 			}
