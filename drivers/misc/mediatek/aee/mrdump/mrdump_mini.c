@@ -607,6 +607,10 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 	memset_io(cur_proc, 0, sizeof(struct aee_process_info));
 	memcpy(cur_proc->process_path, symbol, sz);
 
+	if (regs) {
+		cur_proc->ke_frame.pc = (__u64) regs->reg_pc;
+		cur_proc->ke_frame.lr = (__u64) regs->reg_lr;
+	}
 #ifdef CONFIG_STACKTRACE
 	/* Grab kernel task stack trace */
 	trace.nr_entries = 0;
@@ -617,6 +621,12 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 	 */
 	trace.skip = 4;
 	save_stack_trace_tsk(cur, &trace);
+	if (!regs) {
+		/* in case panic() is called without die */
+		/* Todo: a UT for this */
+		cur_proc->ke_frame.pc = ipanic_stack_entries[0];
+		cur_proc->ke_frame.lr = ipanic_stack_entries[1];
+	}
 	/* Skip the entries -
 	 * ipanic_save_current_tsk_info/save_stack_trace_tsk
 	 */
@@ -624,6 +634,8 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 		off = strlen(cur_proc->backtrace);
 		plen = AEE_BACKTRACE_LENGTH - ALIGN(off, 8);
 		if (plen > 16) {
+			if (ipanic_stack_entries[i] != cur_proc->ke_frame.pc)
+				ipanic_stack_entries[i] -= 4;
 			sz = snprintf(symbol, 96, "[<%px>] %pS\n",
 				      (void *)ipanic_stack_entries[i],
 				      (void *)ipanic_stack_entries[i]);
@@ -638,15 +650,6 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 		}
 	}
 #endif
-	if (regs) {
-		cur_proc->ke_frame.pc = (__u64) regs->reg_pc;
-		cur_proc->ke_frame.lr = (__u64) regs->reg_lr;
-	} else {
-		/* in case panic() is called without die */
-		/* Todo: a UT for this */
-		cur_proc->ke_frame.pc = ipanic_stack_entries[0];
-		cur_proc->ke_frame.lr = ipanic_stack_entries[1];
-	}
 	if (mrdump_virt_addr_valid(cur_proc->ke_frame.pc))
 		snprintf(cur_proc->ke_frame.pc_symbol, AEE_SZ_SYMBOL_S,
 			"[<%px>] %pS",
