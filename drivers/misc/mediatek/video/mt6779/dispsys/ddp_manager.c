@@ -1677,6 +1677,7 @@ int dpmgr_path_user_cmd(disp_path_handle dp_handle, unsigned int msg,
 	case DISP_IOCTL_SET_CCORR:
 	case DISP_IOCTL_CCORR_EVENTCTL:
 	case DISP_IOCTL_CCORR_GET_IRQ:
+	case DISP_IOCTL_SUPPORT_COLOR_TRANSFORM:
 		m_drv = ddp_get_module_driver(DISP_MODULE_CCORR0);
 		if (!m_drv || !m_drv->cmd)
 			break;

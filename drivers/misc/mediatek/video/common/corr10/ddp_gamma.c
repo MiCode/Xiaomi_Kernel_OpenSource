@@ -1090,7 +1090,6 @@ static int disp_ccorr_io(enum DISP_MODULE_ENUM module, unsigned int msg,
 
 		break;
 #endif
-#if defined(CONFIG_MACH_MT6761)
 	case DISP_IOCTL_SUPPORT_COLOR_TRANSFORM:
 		if (copy_from_user(&color_transform, (void *)arg,
 			sizeof(struct DISP_COLOR_TRANSFORM))) {
@@ -1106,7 +1105,6 @@ static int disp_ccorr_io(enum DISP_MODULE_ENUM module, unsigned int msg,
 			}
 		}
 		break;
-#endif
 	}
 
 	return 0;
