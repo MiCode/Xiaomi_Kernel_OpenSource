@@ -1109,9 +1109,12 @@ static long vpu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 			goto out;
 		}
 
-		if (ret)
+		if (ret) {
 			LOG_ERR("[ENQUE] get params failed, ret=%d\n", ret);
-		else if (req->buffer_count > VPU_MAX_NUM_PORTS) {
+			vpu_free_request(req);
+			ret = -EINVAL;
+			goto out;
+		} else if (req->buffer_count > VPU_MAX_NUM_PORTS) {
 			LOG_ERR("[ENQUE] %s, count=%d\n",
 				"wrong buffer count", req->buffer_count);
 			vpu_free_request(req);
@@ -1121,6 +1124,9 @@ static long vpu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 			    req->buffer_count * sizeof(struct vpu_buffer))) {
 			LOG_ERR("[ENQUE] %s, ret=%d\n",
 				"copy 'struct buffer' failed", ret);
+			vpu_free_request(req);
+			ret = -EINVAL;
+			goto out;
 		}
 
 		/* Check if user plane_count is valid */
