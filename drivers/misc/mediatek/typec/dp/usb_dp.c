@@ -330,9 +330,7 @@ static int chg_tcp_notifier_call(struct notifier_block *nb,
 
 	usbc_dbg(K_INFO, "%s event=%x", __func__, event);
 
-	if (event == TCP_NOTIFY_ENTER_MODE) {
-		mtk_dp_SWInterruptSet(0x4);
-	} else if (event == TCP_NOTIFY_AMA_DP_STATE) {
+	if (event == TCP_NOTIFY_AMA_DP_STATE) {
 		uint8_t signal = noti->ama_dp_state.signal;
 		uint8_t pin = noti->ama_dp_state.pin_assignment;
 		uint8_t polarity = noti->ama_dp_state.polarity;
@@ -379,9 +377,6 @@ static int chg_tcp_notifier_call(struct notifier_block *nb,
 					__func__);
 			}
 		}
-		/*set default HPD=1 for some devices without HPD events*/
-		//pi3dpx1205a_hpd(usbdp_client, 1);
-		//mtk_dp_SWInterruptSet(0x4);
 	} else if (event == TCP_NOTIFY_AMA_DP_HPD_STATE) {
 		uint8_t irq = noti->ama_dp_hpd_state.irq;
 		uint8_t state = noti->ama_dp_hpd_state.state;
