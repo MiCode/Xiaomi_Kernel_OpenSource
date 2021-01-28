@@ -760,40 +760,46 @@ int ufs_mtk_wait_link_state(struct ufs_hba *hba, u32 state,
 	return -ETIMEDOUT;
 }
 
-static void ufs_mtk_mphy_power_on(struct ufs_hba *hba, bool on)
+static int ufs_mtk_mphy_power_on(struct ufs_hba *hba, bool on)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	struct phy *mphy = host->mphy;
 	struct arm_smccc_res res;
-	int ret;
+	int ret = 0;
 
-	if (!mphy)
-		return;
+	if (!mphy || !(on ^ host->mphy_powered_on))
+		return 0;
 
-	if (on && !host->mphy_powered_on) {
-		ret = regulator_enable(host->reg_va09);
-		if (ret < 0) {
-			dev_info(hba->dev,
-				"%s: failed to enable va09: %d\n",
-				__func__, ret);
+	if (on) {
+		if (host->reg_va09) {
+			ret = regulator_enable(host->reg_va09);
+			if (ret < 0)
+				goto out;
+			/* wait 200 us to stablize VA09 */
+			usleep_range(200, 210);
+			ufs_mtk_va09_pwr_ctrl(res, 1);
 		}
-		/* wait 200 us to stablize VA09 */
-		udelay(200);
-		ufs_mtk_va09_pwr_ctrl(res, 1);
 		phy_power_on(mphy);
-	} else if (!on && host->mphy_powered_on) {
+	} else {
 		phy_power_off(mphy);
-		ufs_mtk_va09_pwr_ctrl(res, 0);
-		ret = regulator_disable(host->reg_va09);
-		if (ret < 0) {
-			dev_info(hba->dev,
-				 "%s: failed to disable va09: %d\n",
-				 __func__, ret);
+		if (host->reg_va09) {
+			ufs_mtk_va09_pwr_ctrl(res, 0);
+			ret = regulator_disable(host->reg_va09);
+			if (ret < 0)
+				goto out;
 		}
 	}
-	else
-		return;
-	host->mphy_powered_on = on;
+out:
+	if (ret) {
+		dev_info(hba->dev,
+			"failed to %s va09: %d\n",
+			on ? "enable" : "disable",
+			ret);
+	} else {
+		host->mphy_powered_on = on;
+	}
+
+	return ret;
 }
 
 /**
@@ -808,6 +814,7 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 				enum ufs_notify_change_status status)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	struct phy *mphy = host->mphy;
 	int ret = 0;
 
 	/*
@@ -832,11 +839,11 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 						      15);
 			if (!ret) {
 				ufs_mtk_setup_ref_clk(hba, on);
-				ufs_mtk_mphy_power_on(hba, on);
+				phy_power_off(mphy);
 			}
 		}
 	} else if (on && status == POST_CHANGE) {
-		ufs_mtk_mphy_power_on(hba, on);
+		phy_power_on(mphy);
 		ufs_mtk_setup_ref_clk(hba, on);
 	}
 
@@ -907,8 +914,9 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	 * ufshcd_setup_clock(true) in ufshcd_hba_init() thus
 	 * phy clock setup is skipped.
 	 *
-	 * Enable phy clocks specifically here.
+	 * Enable phy power and clocks specifically here.
 	 */
+	ufs_mtk_mphy_power_on(hba, true);
 	ufs_mtk_setup_clocks(hba, true, POST_CHANGE);
 
 	ufsdbg_register(hba->dev);
@@ -1192,40 +1200,51 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	if (ufshcd_is_link_hibern8(hba)) {
 		err = ufs_mtk_link_set_lpm(hba);
-		if (err) {
-			/*
-			 * Set link as off state enforcedly to trigger
-			 * ufshcd_host_reset_and_restore() in ufshcd_suspend()
-			 * for completed host reset.
-			 */
-			ufshcd_set_link_off(hba);
-			return -EAGAIN;
-		}
+		if (err)
+			goto fail;
+	}
+
+	if (!ufshcd_is_link_active(hba)) {
 		/*
 		 * Make sure no error will be returned to prevent
 		 * ufshcd_suspend() re-enabling regulators while vreg is still
 		 * in low-power mode.
 		 */
 		ufs_mtk_vreg_set_lpm(hba, true);
+		err = ufs_mtk_mphy_power_on(hba, false);
+		if (err)
+			goto fail;
 	}
-
 	return 0;
+fail:
+	/*
+	 * Set link as off state enforcedly to trigger
+	 * ufshcd_host_reset_and_restore() in ufshcd_suspend()
+	 * for completed host reset.
+	 */
+	ufshcd_set_link_off(hba);
+	return -EAGAIN;
 }
 
 static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	int err;
 
+	err = ufs_mtk_mphy_power_on(hba, true);
+	if (err)
+		goto fail;
+
+	ufs_mtk_vreg_set_lpm(hba, false);
+
 	if (ufshcd_is_link_hibern8(hba)) {
-		ufs_mtk_vreg_set_lpm(hba, false);
 		err = ufs_mtk_link_set_hpm(hba);
-		if (err) {
-			err = ufshcd_link_recovery(hba);
-			return err;
-		}
+		if (err)
+			goto fail;
 	}
 
 	return 0;
+fail:
+	return ufshcd_link_recovery(hba);
 }
 
 static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
