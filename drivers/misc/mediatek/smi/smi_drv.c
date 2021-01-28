@@ -48,7 +48,11 @@
 #include <sspm_ipi.h>
 #include <sspm_define.h>
 //#include <sspm_reservedmem_define.h>
+#if IS_ENABLED(CONFIG_MACH_MT6761)
 #include <sspm_reservedmem_define_mt6761.h>
+#elif IS_ENABLED(CONFIG_MACH_MT6779)
+#include <sspm_reservedmem_define_mt6779.h>
+#endif
 #endif
 #endif
 
