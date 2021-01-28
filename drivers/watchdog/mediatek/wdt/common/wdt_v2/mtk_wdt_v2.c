@@ -669,6 +669,8 @@ void wdt_arch_reset(char mode)
 	/* dump RGU registers */
 	wdt_dump_reg();
 
+	/* clear extra cnt to prevent from Q->R update cannot reboot automatically issue */
+	wdt_mode_val &= ~MTK_WDT_MODE_EXTRA_CNT;
 	mt_reg_sync_writel(wdt_mode_val, MTK_WDT_MODE);
 
 	mt_reg_sync_writel(__raw_readl(MTK_WDT_STATUS), MTK_WDT_NONRST_REG);
