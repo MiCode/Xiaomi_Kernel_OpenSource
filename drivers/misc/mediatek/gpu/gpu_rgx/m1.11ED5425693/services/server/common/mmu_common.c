@@ -372,9 +372,14 @@ _CleanupThread_FreeMMUMapping(void* pvData)
 	if (psCleanup->psSync == NULL)
 	{
 		/* Kick to invalidate the MMU caches and get sync info */
-		psDevNode->pfnMMUCacheInvalidateKick(psDevNode,
+		eError = psDevNode->pfnMMUCacheInvalidateKick(psDevNode,
 		                                     &psCleanup->uiRequiredSyncVal,
 		                                     IMG_TRUE);
+		if(eError != PVRSRV_OK)
+		{
+			OSLockRelease(psMMUCtxCleanupData->hCleanupLock);
+			return PVRSRV_ERROR_RETRY;
+		}
 		psCleanup->psSync = psDevNode->psMMUCacheSyncPrim;
 	}
 

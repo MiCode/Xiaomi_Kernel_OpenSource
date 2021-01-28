@@ -1979,7 +1979,6 @@ PVRSRV_ERROR RGXSetupFirmware(PVRSRV_DEVICE_NODE       *psDeviceNode,
 	PVRSRV_ERROR		eError;
 	DEVMEM_FLAGS_T		uiMemAllocFlags;
 	RGXFWIF_INIT		*psRGXFWInitScratch = NULL;
-	RGXFWIF_INIT		*psRGXFWInitActual = NULL;
 	PVRSRV_RGXDEV_INFO	*psDevInfo = psDeviceNode->pvDevice;
 	IMG_UINT32		dm;
 	IMG_UINT32		ui32kCCBSize = (!PVRSRV_VZ_MODE_IS(DRIVER_MODE_NATIVE) &&
@@ -2932,7 +2931,7 @@ PVRSRV_ERROR RGXSetupFirmware(PVRSRV_DEVICE_NODE       *psDeviceNode,
 
 	/* update the FW structure proper */
 	eError = DevmemAcquireCpuVirtAddr(psDevInfo->psRGXFWIfInitMemDesc,
-			(void **)&psRGXFWInitActual);
+			(void **) &psDevInfo->psRGXFWIfInit);
 	if (eError != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR,
@@ -2942,11 +2941,8 @@ PVRSRV_ERROR RGXSetupFirmware(PVRSRV_DEVICE_NODE       *psDeviceNode,
 		goto fail;
 	}
 
-	OSDeviceMemCopy(psRGXFWInitActual, psRGXFWInitScratch, sizeof(*psRGXFWInitActual));
-
-	/* We don't need access to the fw init data structure anymore */
-	DevmemReleaseCpuVirtAddr(psDevInfo->psRGXFWIfInitMemDesc);
-	psRGXFWInitActual = NULL;
+	OSDeviceMemCopy(psDevInfo->psRGXFWIfInit, psRGXFWInitScratch,
+	                sizeof(*psDevInfo->psRGXFWIfInit));
 
 #if defined(PDUMP)
 	PDUMPCOMMENT("Dump rgxfw hwperfctl structure");
@@ -3177,11 +3173,6 @@ PVRSRV_ERROR RGXSetupFirmware(PVRSRV_DEVICE_NODE       *psDeviceNode,
 	return PVRSRV_OK;
 
 	fail:
-	if (psDevInfo->psRGXFWIfInitMemDesc != NULL && psRGXFWInitActual != NULL)
-	{
-		DevmemReleaseCpuVirtAddr(psDevInfo->psRGXFWIfInitMemDesc);
-	}
-
 	if (psRGXFWInitScratch)
 	{
 		OSFreeMem(psRGXFWInitScratch);
@@ -3405,6 +3396,14 @@ void RGXFreeFirmware(PVRSRV_RGXDEV_INFO	*psDevInfo)
 		psDevInfo->psRGXFWIFCoreClkRateMemDesc = NULL;
 	}
 #endif
+
+
+	if (psDevInfo->psRGXFWIfInit)
+	{
+		DevmemReleaseCpuVirtAddr(psDevInfo->psRGXFWIfInitMemDesc);
+		psDevInfo->psRGXFWIfInit = NULL;
+	}
+
 
 	if (psDevInfo->psRGXFWIfInitMemDesc)
 	{
@@ -6066,10 +6065,8 @@ PVRSRV_ERROR RGXPdumpDrainKCCB(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_UINT32 ui32Wri
  ******************************************************************************/
 PVRSRV_ERROR IMG_CALLCONV RGXClientConnectCompatCheck_ClientAgainstFW(PVRSRV_DEVICE_NODE * psDeviceNode, IMG_UINT32 ui32ClientBuildOptions)
 {
-	PVRSRV_ERROR		eError;
 #if !defined(NO_HARDWARE) || defined(PDUMP)
 #if !defined(NO_HARDWARE)
-	RGXFWIF_INIT	*psRGXFWInit = NULL;
 	IMG_UINT32		ui32BuildOptionsMismatch;
 	IMG_UINT32		ui32BuildOptionsFW;
 #endif
@@ -6085,18 +6082,9 @@ PVRSRV_ERROR IMG_CALLCONV RGXClientConnectCompatCheck_ClientAgainstFW(PVRSRV_DEV
 		return PVRSRV_ERROR_NOT_INITIALISED;
 	}
 
-	eError = DevmemAcquireCpuVirtAddr(psDevInfo->psRGXFWIfInitMemDesc,
-			(void **)&psRGXFWInit);
-	if (eError != PVRSRV_OK)
-	{
-		PVR_DPF((PVR_DBG_ERROR,"%s: Failed to acquire kernel fw compatibility check info (%u)",
-				__func__, eError));
-		return eError;
-	}
-
 	LOOP_UNTIL_TIMEOUT(MAX_HW_TIME_US)
 	{
-		if (*((volatile IMG_BOOL *)&psRGXFWInit->sRGXCompChecks.bUpdated))
+		if (*((volatile IMG_BOOL *) &psDevInfo->psRGXFWIfInit->sRGXCompChecks.bUpdated))
 		{
 			/* No need to wait if the FW has already updated the values */
 			break;
@@ -6106,26 +6094,30 @@ PVRSRV_ERROR IMG_CALLCONV RGXClientConnectCompatCheck_ClientAgainstFW(PVRSRV_DEV
 #endif
 
 #if defined(PDUMP)
-	PDUMPCOMMENT("Compatibility check: client and FW build options");
-	eError = DevmemPDumpDevmemPol32(psDevInfo->psRGXFWIfInitMemDesc,
-			offsetof(RGXFWIF_INIT, sRGXCompChecks) +
-			offsetof(RGXFWIF_COMPCHECKS, ui32BuildOptions),
-			ui32ClientBuildOptions,
-			0xffffffff,
-			PDUMP_POLL_OPERATOR_EQUAL,
-			PDUMP_FLAGS_CONTINUOUS);
-	if (eError != PVRSRV_OK)
 	{
-		PVR_DPF((PVR_DBG_ERROR,
-				"%s: problem pdumping POL for psRGXFWIfInitMemDesc (%d)",
-				__func__,
-				eError));
-		return eError;
+		PVRSRV_ERROR eError;
+
+		PDUMPCOMMENT("Compatibility check: client and FW build options");
+		eError = DevmemPDumpDevmemPol32(psDevInfo->psRGXFWIfInitMemDesc,
+				offsetof(RGXFWIF_INIT, sRGXCompChecks) +
+				offsetof(RGXFWIF_COMPCHECKS, ui32BuildOptions),
+				ui32ClientBuildOptions,
+				0xffffffff,
+				PDUMP_POLL_OPERATOR_EQUAL,
+				PDUMP_FLAGS_CONTINUOUS);
+		if (eError != PVRSRV_OK)
+		{
+			PVR_DPF((PVR_DBG_ERROR,
+					"%s: problem pdumping POL for psRGXFWIfInitMemDesc (%d)",
+					__func__,
+					eError));
+			return eError;
+		}
 	}
 #endif
 
 #if !defined(NO_HARDWARE)
-	ui32BuildOptionsFW = psRGXFWInit->sRGXCompChecks.ui32BuildOptions;
+	ui32BuildOptionsFW = psDevInfo->psRGXFWIfInit->sRGXCompChecks.ui32BuildOptions;
 	ui32BuildOptionsMismatch = ui32ClientBuildOptions ^ ui32BuildOptionsFW;
 
 	if (ui32BuildOptionsMismatch != 0)
@@ -6143,8 +6135,8 @@ PVRSRV_ERROR IMG_CALLCONV RGXClientConnectCompatCheck_ClientAgainstFW(PVRSRV_DEV
 					"extra options present in Firmware: (0x%x). Please check rgx_options.h",
 					ui32BuildOptionsFW & ui32BuildOptionsMismatch ));
 		}
-		eError = PVRSRV_ERROR_BUILD_OPTIONS_MISMATCH;
-		goto chk_exit;
+
+		return PVRSRV_ERROR_BUILD_OPTIONS_MISMATCH;
 	}
 	else
 	{
@@ -6152,13 +6144,7 @@ PVRSRV_ERROR IMG_CALLCONV RGXClientConnectCompatCheck_ClientAgainstFW(PVRSRV_DEV
 	}
 #endif
 
-	eError = PVRSRV_OK;
-#if !defined(NO_HARDWARE)
-	chk_exit:
-	DevmemReleaseCpuVirtAddr(psDevInfo->psRGXFWIfInitMemDesc);
-#endif
-
-	return eError;
+	return PVRSRV_OK;
 }
 
 /*!

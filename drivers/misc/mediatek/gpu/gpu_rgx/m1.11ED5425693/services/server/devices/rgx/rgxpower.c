@@ -490,7 +490,6 @@ PVRSRV_ERROR RGXPostPowerState(IMG_HANDLE				hDevHandle,
 		PVRSRV_ERROR		 eError;
 		PVRSRV_DEVICE_NODE	 *psDeviceNode = hDevHandle;
 		PVRSRV_RGXDEV_INFO	 *psDevInfo = psDeviceNode->pvDevice;
-		RGXFWIF_INIT *psRGXFWInit;
 
 		if (PVRSRV_VZ_MODE_IS(DRIVER_MODE_GUEST))
 		{
@@ -515,20 +514,10 @@ PVRSRV_ERROR RGXPostPowerState(IMG_HANDLE				hDevHandle,
 
 			OSMemoryBarrier();
 
-			eError = DevmemAcquireCpuVirtAddr(psDevInfo->psRGXFWIfInitMemDesc,
-			                                  (void **)&psRGXFWInit);
-			if (eError != PVRSRV_OK)
-			{
-				PVR_DPF((PVR_DBG_ERROR,
-						"RGXPostPowerState: Failed to acquire kernel fw if ctl (%u)",
-						eError));
-				return eError;
-			}
-
 			/*
 			 * Check whether the FW has started by polling on bFirmwareStarted flag
 			 */
-			if (PVRSRVPollForValueKM((IMG_UINT32 __iomem *)&psRGXFWInit->bFirmwareStarted,
+			if (PVRSRVPollForValueKM((IMG_UINT32 __iomem *)&psDevInfo->psRGXFWIfInit->bFirmwareStarted,
 			                         IMG_TRUE,
 			                         0xFFFFFFFF) != PVRSRV_OK)
 			{
@@ -556,7 +545,6 @@ PVRSRV_ERROR RGXPostPowerState(IMG_HANDLE				hDevHandle,
 				RGXDumpRGXDebugSummary(NULL, NULL, psDeviceNode->pvDevice, IMG_TRUE);
 				RGXDumpRGXRegisters(NULL, NULL, psDeviceNode->pvDevice);
 
-				DevmemReleaseCpuVirtAddr(psDevInfo->psRGXFWIfInitMemDesc);
 				return eError;
 			}
 
@@ -574,7 +562,6 @@ PVRSRV_ERROR RGXPostPowerState(IMG_HANDLE				hDevHandle,
 				PVR_DPF((PVR_DBG_ERROR,
 						"RGXPostPowerState: problem pdumping POL for psRGXFWIfInitMemDesc (%d)",
 						eError));
-				DevmemReleaseCpuVirtAddr(psDevInfo->psRGXFWIfInitMemDesc);
 				return eError;
 			}
 
@@ -588,12 +575,10 @@ PVRSRV_ERROR RGXPostPowerState(IMG_HANDLE				hDevHandle,
 #endif
 
 #if defined(PVRSRV_ENABLE_PROCESS_STATS)
-			SetFirmwareStartTime(psRGXFWInit->ui32FirmwareStartedTimeStamp);
+			SetFirmwareStartTime(psDevInfo->psRGXFWIfInit->ui32FirmwareStartedTimeStamp);
 #endif
 
-			HTBSyncPartitionMarker(psRGXFWInit->ui32MarkerVal);
-
-			DevmemReleaseCpuVirtAddr(psDevInfo->psRGXFWIfInitMemDesc);
+			HTBSyncPartitionMarker(psDevInfo->psRGXFWIfInit->ui32MarkerVal);
 
 			psDevInfo->bRGXPowered = IMG_TRUE;
 
