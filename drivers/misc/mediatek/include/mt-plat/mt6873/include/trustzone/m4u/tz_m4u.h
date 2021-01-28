@@ -60,6 +60,18 @@ enum m4u_cmd {
 	CMD_M4U_GET_RESERVED_MEMORY,
 	CMD_M4U_GET_SEC_MEM,
 	CMD_M4U_NUM,
+
+	/* Add for m4u in MTEE*/
+	CMD_M4UTY_INIT,
+	CMD_M4UTY_CFG_PORT_SEC,
+	CMD_M4UTY_CFG_PORT_ARRAY,
+	CMD_M4UTY_MAP_NONSEC_BUFFER,
+	CMD_M4UTY_UNMAP_NONSEC_BUFFER,
+	CMD_M4UTY_ALLOC_MVA_SEC_NOIPC,
+	CMD_M4UTY_DEALLOC_MVA_SEC_NOIPC,
+	CMD_M4UTY_ALLOC_MVA_SEC,
+	CMD_M4UTY_DEALLOC_MVA_SEC,
+	CMD_M4UTY_GET_SEC_MEM,
 };
 
 
@@ -134,10 +146,41 @@ struct m4u_reserved_memory_param {
 	unsigned int reserved_mem_size;
 };
 
+enum mtk_iommu_sec_id {
+	SEC_ID_SEC_CAM = 0,
+	SEC_ID_SVP,
+	SEC_ID_SDSP,
+	SEC_ID_WFD,
+	SEC_ID_COUNT
+};
+
 struct m4u_msg {
 	unsigned int     cmd;
 	unsigned int     retval_for_tbase; /* it must be 0 */
 	unsigned int     rsp;
+
+	union {
+		struct m4u_session_param session_param;
+		struct m4u_cfg_port_param port_param;
+		struct m4u_buf_param buf_param;
+		struct m4u_init_param init_param;
+		struct m4u_cfg_port_array_param port_array_param;
+#ifdef __M4U_SECURE_SYSTRACE_ENABLE__
+		struct m4u_systrace_param systrace_param;
+#endif
+		struct m4u_larb_restore_param larb_param;
+		struct m4u_reserved_memory_param reserved_memory_param;
+		struct m4u_sec_mem_param sec_mem_param;
+	};
+
+};
+
+struct gz_m4u_msg {
+	unsigned int     cmd;
+	unsigned int     retval_for_tbase; /* it must be 0 */
+	unsigned int     rsp;
+	unsigned int     iommu_type;
+	unsigned int     iommu_sec_id;
 
 	union {
 		struct m4u_session_param session_param;
