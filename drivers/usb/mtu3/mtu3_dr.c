@@ -14,10 +14,6 @@
 #include "mtu3_dr.h"
 #include "mtu3_debug.h"
 
-#ifdef CONFIG_TCPC_CLASS
-#include "tcpm.h"
-#endif
-
 #define USB2_PORT 2
 #define USB3_PORT 3
 
@@ -137,23 +133,9 @@ int ssusb_set_vbus(struct otg_switch_mtk *otg_sx, int is_on)
 	if (!vbus)
 		return 0;
 
-	dev_info(ssusb->dev, "%s: turn %s\n", __func__, is_on ? "on" : "off");
+	dev_dbg(ssusb->dev, "%s: turn %s\n", __func__, is_on ? "on" : "off");
 
 	if (is_on) {
-		ret = regulator_set_voltage(vbus, 5000000, 5000000);
-		if (ret) {
-			dev_info(ssusb->dev, "vbus regulator set voltage failed\n");
-			return ret;
-		}
-		/* FIXME, cause mt6360_pmu_chg can not set current */
-		#ifdef MTU3_FIXME
-		ret = regulator_set_current_limit(vbus, 1100000, 1100000);
-		if (ret) {
-			dev_info(ssusb->dev, "vbus regulator set current failed\n");
-			return ret;
-		}
-		#endif
-		/* FIXME: end */
 		ret = regulator_enable(vbus);
 		if (ret) {
 			dev_err(ssusb->dev, "vbus regulator enable failed\n");
@@ -366,6 +348,8 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 	struct otg_switch_mtk *otg_sx = &ssusb->otg_switch;
 	bool id_event, vbus_event;
 
+	dev_info(ssusb->dev, "role_sw role %d\n", role);
+
 	id_event = (role == USB_ROLE_HOST);
 	vbus_event = (role == USB_ROLE_DEVICE);
 
@@ -429,71 +413,6 @@ static enum usb_role ssusb_role_sw_get(struct device *dev)
 	return role;
 }
 
-#ifdef CONFIG_TCPC_CLASS
-static int ssusb_tcp_notifier_call(struct notifier_block *nb,
-		unsigned long event, void *data)
-{
-	struct otg_switch_mtk *otg_sx =
-		container_of(nb, struct otg_switch_mtk, tcpc_nb);
-	struct ssusb_mtk *ssusb =
-		container_of(otg_sx, struct ssusb_mtk, otg_switch);
-	struct tcp_notify *noti = data;
-
-	switch (event) {
-	case TCP_NOTIFY_SOURCE_VBUS:
-		pr_info("%s source vbus = %dmv\n", __func__,
-				noti->vbus_state.mv);
-		ssusb_set_vbus(otg_sx, (noti->vbus_state.mv) ? 1 : 0);
-		break;
-	case TCP_NOTIFY_TYPEC_STATE:
-		pr_info("%s, TCP_NOTIFY_TYPEC_STATE, old_state=%d, new_state=%d\n",
-				__func__, noti->typec_state.old_state,
-			noti->typec_state.new_state);
-		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
-			noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
-			pr_info("%s OTG Plug in\n", __func__);
-			ssusb_role_sw_set(ssusb->dev, USB_ROLE_HOST);
-		} else if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
-			noti->typec_state.new_state == TYPEC_ATTACHED_SNK) {
-			pr_info("%s USB Plug in\n", __func__);
-			ssusb_role_sw_set(ssusb->dev, USB_ROLE_DEVICE);
-		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SRC ||
-			noti->typec_state.old_state == TYPEC_ATTACHED_SNK) &&
-			noti->typec_state.new_state == TYPEC_UNATTACHED) {
-			pr_info("%s Plug out\n", __func__);
-			ssusb_role_sw_set(ssusb->dev, USB_ROLE_NONE);
-		}
-		break;
-	}
-	return NOTIFY_OK;
-}
-
-static void ssusb_typec_init(struct work_struct *data)
-{
-	struct otg_switch_mtk *otg_sx = container_of(to_delayed_work(data),
-				struct otg_switch_mtk, dwork);
-	int ret;
-
-	otg_sx->tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
-	if (!otg_sx->tcpc_dev) {
-		pr_info("%s get tcpc device type_c_port0 fail\n", __func__);
-		schedule_delayed_work(&otg_sx->dwork, msecs_to_jiffies(1000));
-		return;
-	}
-
-	otg_sx->tcpc_nb.notifier_call = ssusb_tcp_notifier_call;
-	ret = register_tcp_dev_notifier(otg_sx->tcpc_dev, &otg_sx->tcpc_nb,
-		TCP_NOTIFY_TYPE_USB|TCP_NOTIFY_TYPE_VBUS|TCP_NOTIFY_TYPE_MISC);
-	if (ret < 0) {
-		pr_info("%s register tcpc notifer fail\n", __func__);
-		schedule_delayed_work(&otg_sx->dwork, msecs_to_jiffies(1000));
-		return;
-	}
-
-	pr_info("%s done\n", __func__);
-}
-#endif
-
 static int ssusb_role_sw_register(struct otg_switch_mtk *otg_sx)
 {
 	struct usb_role_switch_desc role_sx_desc = { 0 };
@@ -507,11 +426,8 @@ static int ssusb_role_sw_register(struct otg_switch_mtk *otg_sx)
 	role_sx_desc.get = ssusb_role_sw_get;
 	otg_sx->role_sw = usb_role_switch_register(ssusb->dev, &role_sx_desc);
 
-#ifdef CONFIG_TCPC_CLASS
+	/* default to role none */
 	ssusb_role_sw_set(ssusb->dev, USB_ROLE_NONE);
-	INIT_DELAYED_WORK(&otg_sx->dwork, ssusb_typec_init);
-	schedule_delayed_work(&otg_sx->dwork, 0);
-#endif
 
 	return PTR_ERR_OR_ZERO(otg_sx->role_sw);
 }
