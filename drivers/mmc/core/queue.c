@@ -488,8 +488,6 @@ static int mmc_mq_init(struct mmc_queue *mq, struct mmc_card *card,
 	/* inline crypto */
 	mmc_crypto_setup_queue(host, mq->queue);
 
-	mmc_crypto_setup_queue(host, mq->queue);
-
 	return 0;
 }
 
