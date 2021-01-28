@@ -1907,11 +1907,24 @@ static bool cmdq_sec_thread_timeout_excceed(struct cmdq_sec_thread *thread)
 	struct cmdq_task *task;
 	struct cmdqRecStruct *handle;
 	u64 duration, now, timeout;
+	s32 i, last_idx;
+	CMDQ_TIME last_trigger = 0;
 
-	task = thread->task_list[1];
+	for (i = CMDQ_MAX_TASK_IN_SECURE_THREAD - 1; i >= 0; i--) {
+		/* task put in array from index 1 */
+		if (!thread->task_list[i])
+			continue;
+		if (thread->task_list[i]->handle->trigger > last_trigger &&
+			last_trigger)
+			break;
+
+		last_idx = i;
+		task = thread->task_list[i];
+		last_trigger = thread->task_list[i]->handle->trigger;
+	}
+
 	if (!task) {
-		CMDQ_ERR(
-			"we expected this is occurred in first task, but first task is empty...\n");
+		CMDQ_MSG("timeout excceed no timeout task in list\n");
 		return true;
 	}
 
@@ -1922,6 +1935,9 @@ static bool cmdq_sec_thread_timeout_excceed(struct cmdq_sec_thread *thread)
 	if (duration < timeout) {
 		mod_timer(&thread->timeout, jiffies +
 			msecs_to_jiffies(timeout - duration));
+		CMDQ_MSG(
+			"timeout excceed ignore handle:0x%p pkt:0x%p trigger:%llu\n",
+			handle, handle->pkt, handle->trigger);
 		return false;
 	}
 
@@ -2028,7 +2044,7 @@ static void cmdq_sec_thread_irq_handle_by_cookie(
 		 */
 		thread->wait_cookie = 0;
 		thread->task_cnt = 0;
-		CMDQ_REG_SET32(va, 0);
+		*va = 0;
 
 		spin_unlock_irqrestore(&cmdq_sec_task_list_lock, flags);
 		return;
