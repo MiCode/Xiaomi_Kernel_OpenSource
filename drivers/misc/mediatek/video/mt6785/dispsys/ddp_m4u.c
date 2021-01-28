@@ -248,43 +248,31 @@ int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
 {
 #if defined(MTK_FB_ION_SUPPORT)
 	struct ion_mm_data mm_data;
-	//struct ion_sys_data sys_data;
-	ion_phys_addr_t phy_addr = 0;
 	size_t mva_size;
-	size_t len;
 
 	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
-	mm_data.config_buffer_param.module_id = port;
-	mm_data.config_buffer_param.kernel_handle = handle;
+	mm_data.mm_cmd = ION_MM_GET_IOVA;
+	mm_data.get_phys_param.module_id = port;
+	mm_data.get_phys_param.kernel_handle = handle;
 	if (fixed_mva > 0) {
-		mm_data.mm_cmd = ION_MM_CONFIG_BUFFER_EXT;
-		mm_data.config_buffer_param.reserve_iova_start = fixed_mva;
-		mm_data.config_buffer_param.reserve_iova_end = fixed_mva;
-	} else {
-		mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+		mm_data.get_phys_param.phy_addr =
+			(port << 24) | ION_FLAG_GET_FIXED_PHYS;
+		mm_data.get_phys_param.len = ION_FLAG_GET_FIXED_PHYS;
+		mm_data.get_phys_param.reserve_iova_start = fixed_mva;
+		mm_data.get_phys_param.reserve_iova_end = fixed_mva;
 	}
 	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
 		(unsigned long)&mm_data) < 0) {
-		DDPMSG("disp_ion_get_mva: config buffer failed.%p -%p\n",
-			client, handle);
+		DDPMSG("%s: get mva failed.%p -%p\n",
+			__func__, client, handle);
 		ion_free(client, handle);
 		return -1;
 	}
 
-	if (fixed_mva == 0) {
-		ion_phys(client, handle,
-			&phy_addr, &mva_size);
-		*mva = (unsigned int)phy_addr;
-	} else {
-		phy_addr = (port << 24) | ION_FLAG_GET_FIXED_PHYS;
-		len = ION_FLAG_GET_FIXED_PHYS;
-		ion_phys(client, handle,
-			&phy_addr, &len);
-		*mva = (unsigned int)phy_addr;
-		mva_size = len;
-	}
+	*mva = mm_data.get_phys_param.phy_addr;
+	mva_size = mm_data.get_phys_param.len;
 	if (*mva == 0)
-		DDPMSG("alloc mmu addr hnd=0x%p,mva=0x%08x\n",
+		DDPMSG("alloc mmu addr hnd=0x%p,mva=0x%08lx\n",
 			handle, *mva);
 #endif
 	return 0;
