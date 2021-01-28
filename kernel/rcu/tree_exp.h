@@ -595,14 +595,13 @@ static void rcu_exp_wait_wake(struct rcu_state *rsp, unsigned long s)
 	struct rcu_node *rnp;
 
 	synchronize_sched_expedited_wait(rsp);
+
+	// Switch over to wakeup mode, allowing the next GP to proceed.
+	// End the previous grace period only after acquiring the mutex
+	// to ensure that only one GP runs concurrently with wakeups.
+	mutex_lock(&rsp->exp_wake_mutex);
 	rcu_exp_gp_seq_end(rsp);
 	trace_rcu_exp_grace_period(rsp->name, s, TPS("end"));
-
-	/*
-	 * Switch over to wakeup mode, allowing the next GP, but -only- the
-	 * next GP, to proceed.
-	 */
-	mutex_lock(&rsp->exp_wake_mutex);
 
 	rcu_for_each_node_breadth_first(rsp, rnp) {
 		if (ULONG_CMP_LT(READ_ONCE(rnp->exp_seq_rq), s)) {
