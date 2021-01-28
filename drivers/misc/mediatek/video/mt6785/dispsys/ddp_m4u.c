@@ -283,7 +283,7 @@ int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
 		mva_size = len;
 	}
 	if (*mva == 0)
-		DDPMSG("alloc mmu addr hnd=0x%p,mva=0x%08lx\n",
+		DDPMSG("alloc mmu addr hnd=0x%p,mva=0x%08x\n",
 			handle, *mva);
 #endif
 	return 0;
