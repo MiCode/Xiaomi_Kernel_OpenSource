@@ -2216,12 +2216,14 @@ page_owner=on loop.max_part=7";
 			<&scp_par_clk CLK_SCP_PAR_ADSP_PLL>,
 			<&topckgen_clk CLK_TOP_ADSP_SEL>,
 			<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
-			<&topckgen_clk CLK_TOP_ADSPPLL>;
+			<&topckgen_clk CLK_TOP_ADSPPLL>,
+			<&topckgen_clk CLK_TOP_SCP_SEL>;
 		clock-names = "scp_sys_adsp",
 			"clk_adsp_ck_cg",
 			"clk_top_adsp_sel",
 			"clk_top_clk26m",
-			"clk_top_adsppll";
+			"clk_top_adsppll",
+			"clk_top_scp_sel";
 		adsp-rsv-ipidma-a = <0x200000>;
 		adsp-rsv-logger-a = <0x80000>;
 		adsp-rsv-dbg-dump-a = <0x80000>;
