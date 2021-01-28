@@ -516,7 +516,7 @@ struct CEC_ACK_INFO_T {
 };
 
 extern size_t hdmi_cec_on;
-extern unsigned int hdmi_hotplugstate;
+extern size_t hdmi_hotplugstate;
 unsigned int hdmi_cec_2n(unsigned int u4Data);
 unsigned int hdmi_cec_maskvalue(unsigned int u4Width, unsigned int u4Startbit);
 extern void vNotifyAppHdmiCecState(enum HDMI_NFY_CEC_STATE_T u1hdmicecstate);
