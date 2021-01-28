@@ -351,8 +351,8 @@ int udc_deactv_handler(struct z_stream_s *zcpr, u32 inst_id)
 				break;
 			}
 			rslt_des = rslt_des_base + ap_write;
-			rslt_des->sdu_idx = rslt_des->sdu_idx;
-			rslt_des->sit_type = rslt_des->sit_type;
+			rslt_des->sdu_idx = req_des->sdu_idx;
+			rslt_des->sit_type = req_des->sit_type;
 			rslt_des->udc = 0;
 
 			ap_write = (ap_write + 1) % 512;
@@ -471,6 +471,10 @@ static int check_cmp_buf(u32 inst_id,
 		ap_read = rw_index->md_des_ins1.read;
 		ap_write = rw_index->ap_resp_ins1.write;
 		md_read = rw_index->ap_resp_ins1.read;
+	} else {
+		CCCI_ERROR_LOG(-1, UDC,
+			"inst_id is error,rslt_des_base maybe null\n");
+		return -1;
 	}
 
 	md_read_len = (rslt_des_base + md_read)->cmp_addr
@@ -508,7 +512,7 @@ static int check_cmp_buf(u32 inst_id,
 static int cal_udc_param(struct z_stream_s *zcpr, u32 inst_id,
 	int *max_output_size, int *udc_chksum)
 {
-	struct udc_comp_req_t *req_des_tmp, *req_des_base = NULL;
+	struct udc_comp_req_t *req_des_tmp = NULL, *req_des_base = NULL;
 	unsigned int ap_read = 0, md_write = 0;
 	unsigned int uncomp_len_total = 0;
 	int j = 0;
@@ -521,10 +525,20 @@ static int cal_udc_param(struct z_stream_s *zcpr, u32 inst_id,
 		req_des_base = req_des_1_base;
 		ap_read = rw_index->md_des_ins1.read;
 		md_write = rw_index->md_des_ins1.write;
+	} else {
+		CCCI_ERROR_LOG(-1, UDC,
+			"inst_id is error\n");
+		return -1;
 	}
 
 	if (*max_output_size == 0) {
 		req_des_tmp = req_des_base + ap_read;
+		if (!req_des_tmp) {
+			CCCI_ERROR_LOG(-1, UDC,
+				"%s:req_des_base&ap_read is null\n",
+				__func__);
+			return -1;
+		}
 		if (req_des_tmp->con == 0)
 			*max_output_size = deflateBound_cb(zcpr,
 			req_des_tmp->seg_len);
@@ -609,8 +623,8 @@ int udc_kick_handler(struct port_t *port, struct z_stream_s *zcpr,
 	static unsigned int udc_chksum;
 	static unsigned int is_rst;
 	unsigned int ap_read = 0, ap_write = 0, md_read = 0, md_write = 0;
-	struct udc_comp_req_t *req_des, *req_des_base = NULL;
-	struct udc_comp_rslt_t *rslt_des, *rslt_des_base = NULL;
+	struct udc_comp_req_t *req_des = NULL, *req_des_base = NULL;
+	struct udc_comp_rslt_t *rslt_des = NULL, *rslt_des_base = NULL;
 	unsigned int uncomp_len, comp_len = 0;
 	unsigned int remain_len;
 	unsigned char *uncomp_data;
@@ -631,6 +645,10 @@ int udc_kick_handler(struct port_t *port, struct z_stream_s *zcpr,
 		ap_write = rw_index->ap_resp_ins1.write;
 		md_read = rw_index->ap_resp_ins1.read;
 		md_write = rw_index->md_des_ins1.write;
+	} else {
+		CCCI_ERROR_LOG(md_id, UDC,
+			"inst_id is error\n");
+		return -1;
 	}
 
 	/* check if cmp_rslt table is full */
@@ -644,6 +662,11 @@ int udc_kick_handler(struct port_t *port, struct z_stream_s *zcpr,
 	}
 	/* req_des table is only 4kb */
 	req_des = req_des_base + ap_read;
+	if (!req_des) {
+		CCCI_ERROR_LOG(md_id, UDC,
+			"inst_id is error\n");
+		return -1;
+	}
 	/* dump req_des */
 	CCCI_NORMAL_LOG(md_id, UDC,
 		"req%d:sdu_idx(%d),buf_type(%d),seg_len(%d),phy_offset(%#x)\n",
