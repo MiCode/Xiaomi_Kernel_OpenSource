@@ -716,6 +716,7 @@ enum{
 #define CAM_REG_DMA_SOFT_RESET1(module)         (isp_devs[module].regs + 0x4010)
 #define CAM_REG_DMA_ERR_CTRL1(module)           (isp_devs[module].regs + 0x401C)
 
+#define CAM_REG_DMA_MAGIC_NUM(module)           (isp_devs[module].regs + 0x40A4)
 
 
 /* MRAW */
