@@ -1080,6 +1080,7 @@ int mtk_pe40_cc_state(struct chg_alg_device *alg)
 	bool chg1_mivr = false;
 	bool chg2_mivr = false;
 	bool chg2_enable = false;
+	bool chg2_chip_enable = false;
 	bool thermal_skip = false;
 
 	pe40 = dev_get_drvdata(&alg->dev);
@@ -1094,8 +1095,9 @@ int mtk_pe40_cc_state(struct chg_alg_device *alg)
 	pe4_hal_get_mivr(alg, CHG1, &mivr1);
 
 	if (alg->config == DUAL_CHARGERS_IN_SERIES) {
-		chg2_enable = pe4_hal_is_chip_enable(alg, CHG2);
-		if (chg2_enable) {
+		chg2_chip_enable = pe4_hal_is_chip_enable(alg, CHG2);
+		pe4_hal_is_charger_enable(alg, CHG2, &chg2_enable);
+		if (chg2_chip_enable) {
 			pe4_hal_get_mivr_state(alg, CHG2, &chg2_mivr);
 			pe4_hal_get_mivr(alg, CHG2, &mivr2);
 		}
@@ -1185,8 +1187,13 @@ int mtk_pe40_cc_state(struct chg_alg_device *alg)
 			pe40->avbus = pe40->avbus + 50;
 			new_watt = (pe40->avbus + 50) * ibus;
 		} else if (compare_ibus <= (max_icl - icl_threshold * 2)) {
-			new_watt = pe40->avbus * pe40->ibus - 500000;
-			pe40->avbus = pe40->avbus - 50;
+			if (chg2_enable && (mivr2 / 1000 < 5000) &&
+				((vbus - 50) < (mivr2 / 1000 + 100)))
+				new_watt = watt;
+			else {
+				new_watt = pe40->avbus * pe40->ibus - 500000;
+				pe40->avbus = pe40->avbus - 50;
+			}
 		}
 
 		ret = mtk_pe40_get_setting_by_watt(alg, &pe40->avbus,
