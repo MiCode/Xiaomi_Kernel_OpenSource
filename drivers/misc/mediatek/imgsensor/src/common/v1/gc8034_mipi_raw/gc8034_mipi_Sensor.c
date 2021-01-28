@@ -1390,7 +1390,7 @@ static void fullsize_setting(void)
 	/* MIPI */
 	write_cmos_sensor(0xfe, 0x03);
 	write_cmos_sensor(0x01, 0x07);
-	write_cmos_sensor(0x02, 0x04);
+	write_cmos_sensor(0x02, 0x07);
 	write_cmos_sensor(0x04, 0x80);
 	write_cmos_sensor(0x11, 0x2b);
 	write_cmos_sensor(0x12, 0xf0);
@@ -1455,7 +1455,7 @@ static kal_uint32 streaming_control(kal_bool enable)
 	} else {
 		write_cmos_sensor(0xfe, 0x00);
 		write_cmos_sensor(0x3f, 0x00);
-		mdelay(80);
+		mdelay(30);
 	}
 	return ERROR_NONE;
 }
