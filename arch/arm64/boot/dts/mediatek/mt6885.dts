@@ -24,6 +24,7 @@
 #include <dt-bindings/clock/mt6885-clk.h>
 #include <dt-bindings/mmc/mt6885-msdc.h>
 #include <generated/autoconf.h>
+#include "mt6360.dtsi"
 
 / {
 	model = "MT6885";
@@ -4607,12 +4608,16 @@
 
 	subpmic_pmu_eint: mt6360_pmu_eint {
 	};
+};
 
+&mt6360_pmic {
+	ldo6 {
+		/delete-property/ regulator-always-on;
+	};
 };
 
 #include "mt6359p.dtsi"
 #include "cust_mt6885_msdc.dtsi"
-#include "mt6360.dtsi"
 #include "mt6360_pd.dtsi"
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
 #include "trusty.dtsi"
