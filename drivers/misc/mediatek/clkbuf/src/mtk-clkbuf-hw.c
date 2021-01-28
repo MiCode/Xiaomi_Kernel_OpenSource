@@ -273,8 +273,7 @@ static unsigned int _clk_buf_mode_get(enum clk_buf_id id)
 {
 	unsigned int val = 0;
 
-	if (CLK_BUF_STATUS[id] != CLOCK_BUFFER_DISABLE)
-		clkbuf_read(XO_HW_SEL, id, &val);
+	clkbuf_read(XO_HW_SEL, id, &val);
 
 	return val;
 }
@@ -515,12 +514,10 @@ static int _clk_buf_ctrl_internal(enum clk_buf_id id,
 	short ret = 0, no_lock = 0;
 	int val = 0;
 
-	if (!_clk_buf_get_init_sta())
-		return -1;
-
 	/* we should not turn off SOC 26M */
 	if (id < 0 || id >= CLK_BUF_INVALID ||
-			CLK_BUF_STATUS[id] == CLOCK_BUFFER_DISABLE) {
+	   (CLK_BUF_STATUS[id] == CLOCK_BUFFER_DISABLE &&
+	   cmd != CLK_BUF_OFF)) {
 		pr_info("%s: id=%d isn't supported\n", __func__, id);
 		return -1;
 	}
