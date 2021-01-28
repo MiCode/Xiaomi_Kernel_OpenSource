@@ -58,6 +58,16 @@ struct dramc_dev_t {
 	void *fmeter_dev_ptr;
 };
 
+enum DRAM_TYPE {
+	TYPE_DDR1 = 1,
+	TYPE_LPDDR2,
+	TYPE_LPDDR3,
+	TYPE_PCDDR3,
+	TYPE_LPDDR4,
+	TYPE_LPDDR4X,
+	TYPE_LPDDR4P
+};
+
 int mtk_dramc_get_steps_freq(unsigned int step);
 unsigned int mtk_dramc_get_ddr_type(void);
 unsigned int mtk_dramc_get_data_rate(void);

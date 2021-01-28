@@ -278,6 +278,22 @@ static void clear_violation(
 		post_clear_cb(emi_id);
 }
 
+static void emimpu_dump_msg(struct work_struct *work)
+{
+	struct emimpu_dbg_cb *curr_dbg_cb;
+	struct emimpu_dev_t *emimpu_dev_ptr =
+		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
+
+	for (curr_dbg_cb = emimpu_dev_ptr->dbg_cb_list; curr_dbg_cb;
+		curr_dbg_cb = curr_dbg_cb->next_dbg_cb)
+		curr_dbg_cb->func();
+
+	pr_info("%s: call aee\n", __func__);
+	aee_kernel_exception("EMIMPU", emimpu_dev_ptr->violation_msg);
+	emimpu_dev_ptr->in_msg_dump = 0;
+}
+static DECLARE_WORK(emimpu_dump_msg_wq, emimpu_dump_msg);
+
 static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 {
 	struct emimpu_dev_t *emimpu_dev_ptr =
@@ -286,11 +302,17 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	void __iomem *emi_cen_base;
 	unsigned int emi_id;
 	unsigned int i;
-	bool violation;
-	char aee_msg[MTK_EMI_MAX_CMD_LEN];
+	bool violation, mpu_violation;
+	char *aee_msg;
 	ssize_t aee_msg_cnt;
 
+	if (emimpu_dev_ptr->in_msg_dump)
+		goto ignore_violation;
+
+	aee_msg = emimpu_dev_ptr->violation_msg;
 	aee_msg_cnt = snprintf(aee_msg, MTK_EMI_MAX_CMD_LEN, "violation\n");
+
+	mpu_violation = false;
 	for (emi_id = 0; emi_id < emimpu_dev_ptr->emi_cen_cnt; emi_id++) {
 		violation = false;
 		emi_cen_base = emimpu_dev_ptr->emi_cen_base[emi_id];
@@ -298,9 +320,6 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 		for (i = 0; i < emimpu_dev_ptr->dump_cnt; i++) {
 			dump_reg[i].value = readl(
 				emi_cen_base + dump_reg[i].offset);
-			pr_info("%s: emi%d, offset(0x%x), value(0x%x)\n",
-				__func__, emi_id,
-				dump_reg[i].offset, dump_reg[i].value);
 
 			if (aee_msg_cnt < MTK_EMI_MAX_CMD_LEN) {
 				aee_msg_cnt += snprintf(aee_msg + aee_msg_cnt,
@@ -327,15 +346,20 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 				continue;
 			}
 
+		mpu_violation = true;
 		if (md_handling_cb) {
 			md_handling_cb(emi_id,
 				dump_reg, emimpu_dev_ptr->dump_cnt);
 		}
-
-		pr_info("%s: violation at emi%d\n", __func__, emi_id);
-		aee_kernel_exception("EMIMPU", aee_msg);
 	}
 
+	pr_info("%s: %s", __func__, aee_msg);
+	if (mpu_violation) {
+		emimpu_dev_ptr->in_msg_dump = 1;
+		schedule_work(&emimpu_dump_msg_wq);
+	}
+
+ignore_violation:
 	for (emi_id = 0; emi_id < emimpu_dev_ptr->emi_cen_cnt; emi_id++)
 		clear_violation(emimpu_dev_ptr, emi_id);
 
@@ -381,12 +405,18 @@ static int emimpu_probe(struct platform_device *pdev)
 	int ret;
 
 	pr_info("%s: module probe.\n", __func__);
-	emimpu_pdev = pdev;
 	emimpu_dev_ptr = devm_kmalloc(&pdev->dev,
 		sizeof(struct emimpu_dev_t), GFP_KERNEL);
 	if (!emimpu_dev_ptr)
 		return -ENOMEM;
+	emimpu_dev_ptr->in_msg_dump = 0;
 	emimpu_dev_ptr->show_region = 0;
+	emimpu_dev_ptr->dbg_cb_list = NULL;
+
+	emimpu_dev_ptr->violation_msg = devm_kmalloc(&pdev->dev,
+		MTK_EMI_MAX_CMD_LEN, GFP_KERNEL);
+	if (!(emimpu_dev_ptr->violation_msg))
+		return -ENOMEM;
 
 	ret = of_property_read_u32(emimpu_node,
 		"region_cnt", &(emimpu_dev_ptr->region_cnt));
@@ -550,14 +580,7 @@ static int emimpu_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, emimpu_dev_ptr);
-
-	emimpu_irq = irq_of_parse_and_map(emimpu_node, 0);
-	ret = request_irq(emimpu_irq, (irq_handler_t)emimpu_violation_irq,
-		IRQF_TRIGGER_NONE, "emimpu", &emimpu_drv);
-	if (ret) {
-		pr_info("%s: fail to request irq\n", __func__);
-		return -EINVAL;
-	}
+	emimpu_pdev = pdev;
 
 	/* enable AP region */
 	ret = of_property_read_u32(emimpu_node, "ap_region", &ap_region);
@@ -589,6 +612,14 @@ static int emimpu_probe(struct platform_device *pdev)
 				mtk_emimpu_set_apc(rg_info, i, ap_apc[i]);
 		mtk_emimpu_lock_region(rg_info, MTK_EMIMPU_LOCK);
 		devm_kfree(&pdev->dev, ap_apc);
+	}
+
+	emimpu_irq = irq_of_parse_and_map(emimpu_node, 0);
+	ret = request_irq(emimpu_irq, (irq_handler_t)emimpu_violation_irq,
+		IRQF_TRIGGER_NONE, "emimpu", &emimpu_drv);
+	if (ret) {
+		pr_info("%s: fail to request irq\n", __func__);
+		return -EINVAL;
 	}
 
 	ret = of_property_read_u32(emimpu_node, "slverr", &slverr);
@@ -880,6 +911,53 @@ int mtk_emimpu_postclear_register(void (*clear_func)(unsigned int emi_id))
 	return 0;
 }
 EXPORT_SYMBOL(mtk_emimpu_postclear_register);
+
+/*
+ * mtk_emimpu_debugdump_register - register callback for debug info dump
+ * @debug_func:	function point for debug info dump
+ *
+ * Return 0 for success, -EINVAL for fail
+ */
+int mtk_emimpu_debugdump_register(void (*debug_func)(void))
+{
+	struct emimpu_dbg_cb *targ_dbg_cb;
+	struct emimpu_dbg_cb *curr_dbg_cb;
+	struct emimpu_dev_t *emimpu_dev_ptr;
+
+	if (!emimpu_pdev)
+		return -EINVAL;
+
+	emimpu_dev_ptr =
+		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
+
+	if (!debug_func) {
+		pr_info("%s: debug_func is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	targ_dbg_cb = kmalloc(sizeof(struct emimpu_dbg_cb), GFP_KERNEL);
+	if (!targ_dbg_cb)
+		return -ENOMEM;
+
+	targ_dbg_cb->func = debug_func;
+	targ_dbg_cb->next_dbg_cb = NULL;
+
+	if (!(emimpu_dev_ptr->dbg_cb_list)) {
+		emimpu_dev_ptr->dbg_cb_list = targ_dbg_cb;
+		return 0;
+	}
+
+	for (curr_dbg_cb = emimpu_dev_ptr->dbg_cb_list; curr_dbg_cb;
+		curr_dbg_cb = curr_dbg_cb->next_dbg_cb) {
+		if (!(curr_dbg_cb->next_dbg_cb)) {
+			curr_dbg_cb->next_dbg_cb = targ_dbg_cb;
+			break;
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_emimpu_debugdump_register);
 
 /*
  * mtk_emimpu_md_handling_register - register callback for md handling

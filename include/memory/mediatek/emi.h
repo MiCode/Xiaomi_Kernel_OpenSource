@@ -7,6 +7,7 @@
 #ifndef __EMI_H__
 #define __EMI_H__
 
+#include <linux/workqueue.h>
 #include <linux/irqreturn.h>
 #include <linux/dcache.h>
 
@@ -33,7 +34,7 @@
 #define MTK_EMIMPU_READ_APC		2
 
 #define MTK_EMI_MAX_TOKEN		4
-#define MTK_EMI_MAX_CMD_LEN		256
+#define MTK_EMI_MAX_CMD_LEN		4096
 
 struct reg_info_t {
 	unsigned int offset;
@@ -48,6 +49,11 @@ struct emicen_dev_t {
 	unsigned long long *rk_size;
 	void __iomem **emi_cen_base;
 	void __iomem **emi_chn_base;
+};
+
+struct emimpu_dbg_cb {
+	void (*func)(void);
+	struct emimpu_dbg_cb *next_dbg_cb;
 };
 
 struct emimpu_dev_t {
@@ -65,9 +71,12 @@ struct emimpu_dev_t {
 	struct reg_info_t *clear_md_reg;
 	void __iomem **emi_cen_base;
 	void __iomem **emi_mpu_base;
+	char *violation_msg;
+	unsigned int in_msg_dump;
 	unsigned int show_region;
 	unsigned int ctrl_intf;
 	struct emimpu_region_t *ap_rg_info;
+	struct emimpu_dbg_cb *dbg_cb_list;
 };
 
 struct emiisu_dev_t {
@@ -111,6 +120,7 @@ int mtk_emimpu_prehandle_register(irqreturn_t (*bypass_func)
 	(unsigned int emi_id, struct reg_info_t *dump, unsigned int leng));
 int mtk_emimpu_postclear_register(void (*clear_func)
 	(unsigned int emi_id));
+int mtk_emimpu_debugdump_register(void (*debug_func)(void));
 int mtk_emimpu_md_handling_register(void (*md_handling_func)
 	(unsigned int emi_id, struct reg_info_t *dump, unsigned int leng));
 void mtk_clear_md_violation(void);

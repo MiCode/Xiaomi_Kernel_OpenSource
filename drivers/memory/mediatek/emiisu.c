@@ -236,7 +236,7 @@ static int emiisu_probe(struct platform_device *pdev)
 		"con_addr", (unsigned long)(emiisu_dev_ptr->con_addr),
 		"ctrl_intf", emiisu_dev_ptr->ctrl_intf);
 
-	emiisu_dev_ptr->dump_dir = debugfs_create_dir("emiisu", NULL);
+	emiisu_dev_ptr->dump_dir = debugfs_create_dir("emi_mbw", NULL);
 	if (!emiisu_dev_ptr->dump_dir) {
 		pr_info("%s: fail to create dump_dir\n", __func__);
 		return -EINVAL;

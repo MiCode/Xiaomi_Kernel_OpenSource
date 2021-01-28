@@ -30,7 +30,6 @@ static int emicen_probe(struct platform_device *pdev)
 	int ret;
 
 	pr_info("%s: module probe.\n", __func__);
-	emicen_pdev = pdev;
 	emicen_dev_ptr = devm_kmalloc(&pdev->dev,
 		sizeof(struct emicen_dev_t), GFP_KERNEL);
 	if (!emicen_dev_ptr)
@@ -87,6 +86,7 @@ static int emicen_probe(struct platform_device *pdev)
 		emicen_dev_ptr->emi_chn_base[i] = of_iomap(emichn_node, i);
 
 	platform_set_drvdata(pdev, emicen_dev_ptr);
+	emicen_pdev = pdev;
 
 	return ret;
 }
@@ -211,7 +211,10 @@ void mtk_emidbg_dump(void)
 		0, 0, 0, 0, 0, 0, &smc_res);
 
 		pr_info("%s: %d, 0x%x, 0x%x, 0x%x\n", __func__,
-			smc_res.a0, smc_res.a1, smc_res.a2, smc_res.a3);
+			(int)smc_res.a0,
+			(unsigned int)smc_res.a1,
+			(unsigned int)smc_res.a2,
+			(unsigned int)smc_res.a3);
 	}
 
 	spin_unlock_irqrestore(&emidbg_lock, spinlock_save_flags);
