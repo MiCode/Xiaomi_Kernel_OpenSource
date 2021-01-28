@@ -16,6 +16,10 @@
 #include <linux/dma-buf.h>
 #ifdef CONFIG_DMA_SHARED_BUFFER
 #include <ion.h>
+#ifdef CONFIG_MTK_ION
+/* for mtk_ion, struct ion_buffer is decleared here */
+#include <ion_priv.h>
+#endif
 #endif
 
 #ifdef CONFIG_XEN

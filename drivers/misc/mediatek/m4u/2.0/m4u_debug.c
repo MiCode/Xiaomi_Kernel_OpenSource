@@ -19,12 +19,6 @@
 #include "trustzone/kree/mem.h"
 #endif
 
-#if defined(CONFIG_MTK_LEGACY_SECMEM_SUPPORT)
-#include "secmem.h"
-#elif defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
-#include "secmem_api.h"
-#endif
-
 /* global variables */
 int gM4U_log_to_uart = 2;
 int gM4U_log_level = 2;

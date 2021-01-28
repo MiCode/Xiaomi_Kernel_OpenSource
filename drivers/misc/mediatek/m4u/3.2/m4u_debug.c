@@ -19,12 +19,6 @@
 #include "trustzone/kree/mem.h"
 #endif
 
-#if defined(CONFIG_MTK_LEGACY_SECMEM_SUPPORT)
-#include "secmem.h"
-#elif defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
-#include "secmem_api.h"
-#endif
-
 int m4u_test_domain;
 int test_mva;
 
@@ -1581,7 +1575,6 @@ int m4u_debug_init(struct m4u_device *m4u_dev)
 		0644, m4u_dev->debug_root, domain, &m4u_debug_mva_fops);
 	if (IS_ERR_OR_NULL(debug_file))
 		M4UMSG("m4u: failed to create debug files 9.\n");
-
 
 	return 0;
 }

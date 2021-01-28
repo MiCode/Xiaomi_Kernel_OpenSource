@@ -33,10 +33,7 @@ else
 ccflags-y += -DION_RUNTIME_DEBUGGER=0
 endif
 
-ifeq ($(CONFIG_MTK_LEGACY_SECMEM_SUPPORT),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/secmem
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/secmem/includes
-else ifeq ($(CONFIG_MTK_SECURE_MEM_SUPPORT),y)
+ifeq ($(CONFIG_MTK_SECURE_MEM_SUPPORT),y)
 include $(srctree)/drivers/misc/mediatek/trusted_mem/Makefile.include
 endif
 
