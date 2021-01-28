@@ -2170,8 +2170,8 @@ static int m4u_probe(struct platform_device *pdev)
 	m4u_info("%s 0\n", __func__);
 #if defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761)
 #if defined(CONFIG_MTK_SMI_EXT)
-	m4u_err("%s: %d\n", __func__, smi_mm_clk_first_get());
-	if (!smi_mm_clk_first_get()) {
+	m4u_err("%s: %d\n", __func__, smi_mm_first_get());
+	if (!smi_mm_first_get()) {
 		m4u_err("SMI not start probe\n");
 		return -EPROBE_DEFER;
 	}

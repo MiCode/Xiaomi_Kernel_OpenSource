@@ -846,7 +846,7 @@ int larb_clock_on(int larb, bool config_mtcmos)
 
 	if (larb < ARRAY_SIZE(smi_clk_name))
 		ret =
-		    smi_bus_prepare_enable(larb, smi_clk_name[larb], true);
+		    smi_bus_prepare_enable(larb, smi_clk_name[larb]);
 	if (ret != 0)
 		m4u_err("%s error: larb %d\n", __func__, larb);
 #endif
@@ -862,7 +862,7 @@ int larb_clock_off(int larb, bool config_mtcmos)
 
 	if (larb < ARRAY_SIZE(smi_clk_name))
 		ret =
-		    smi_bus_disable_unprepare(larb, smi_clk_name[larb], true);
+		    smi_bus_disable_unprepare(larb, smi_clk_name[larb]);
 	if (ret != 0)
 		m4u_err("larb_clock_on error: larb %d\n", larb);
 #endif

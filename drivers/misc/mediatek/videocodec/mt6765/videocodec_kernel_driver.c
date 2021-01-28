@@ -49,7 +49,7 @@
 
 #include "videocodec_kernel_driver.h"
 #include "../videocodec_kernel.h"
-/* #include "smi_public.h" */
+#include "smi_public.h"
 
 #include <asm/cacheflush.h>
 #include <linux/io.h>
@@ -337,8 +337,7 @@ void vdec_polling_status(void)
 						i, u4DataStatus);
 			}
 #ifdef CONFIG_MTK_SMI_EXT
-			smi_debug_bus_hang_detect(SMI_PARAM_BUS_OPTIMIZATION,
-							1, 0, 1);
+			smi_debug_bus_hang_detect(false, "VDEC");
 #endif
 			/* mmsys_cg_check(); */
 
@@ -367,7 +366,7 @@ void vdec_power_on(void)
 	}
 
 #if defined(CONFIG_MTK_SMI_EXT)
-	smi_bus_prepare_enable(SMI_LARB1_REG_INDX, "VDEC", true);
+	smi_bus_prepare_enable(SMI_LARB1, "VDEC");
 #else
 	ret = clk_prepare_enable(clk_MT_CG_SMI_COMM0);
 	if (ret) {
@@ -453,7 +452,7 @@ void vdec_power_off(void)
 		clk_disable_unprepare(clk_MT_CG_VDEC);
 		clk_disable_unprepare(clk_MT_SCP_SYS_VCODEC);
 #if defined(CONFIG_MTK_SMI_EXT)
-		smi_bus_disable_unprepare(SMI_LARB1_REG_INDX, "VDEC", true);
+		smi_bus_disable_unprepare(SMI_LARB1, "VDEC");
 #else
 		clk_disable_unprepare(clk_MT_CG_SMI_COMMON);
 		clk_disable_unprepare(clk_MT_CG_SMI_COMM1);
@@ -491,7 +490,7 @@ void venc_power_on(void)
 	}
 
 #if defined(CONFIG_MTK_SMI_EXT)
-	smi_bus_prepare_enable(SMI_LARB1_REG_INDX, "VENC", true);
+	smi_bus_prepare_enable(SMI_LARB1, "VENC");
 #else
 	ret = clk_prepare_enable(clk_MT_CG_SMI_COMM0);
 	if (ret) {
@@ -548,7 +547,7 @@ void venc_power_off(void)
 		clk_disable_unprepare(clk_MT_CG_VENC);
 		clk_disable_unprepare(clk_MT_SCP_SYS_VCODEC);
 #if defined(CONFIG_MTK_SMI_EXT)
-		smi_bus_disable_unprepare(SMI_LARB1_REG_INDX, "VENC", true);
+		smi_bus_disable_unprepare(SMI_LARB1, "VENC");
 #else
 		clk_disable_unprepare(clk_MT_CG_SMI_COMMON);
 		clk_disable_unprepare(clk_MT_CG_SMI_COMM1);

@@ -91,12 +91,10 @@ static int _disp_init_cmdq_slots(cmdqBackupSlotHandle *pSlot,
 	int count, int init_val)
 {
 	int i;
-
 	cmdqBackupAllocateSlot(pSlot, count);
 
 	for (i = 0; i < count; i++)
 		cmdqBackupWriteSlot(*pSlot, i, init_val);
-
 	return 0;
 }
 
@@ -401,7 +399,6 @@ static int disp_probe_1(void)
 	unsigned int irq;
 
 	pr_info("disp driver(1) disp_probe_1 begin\n");
-
 #if (defined(CONFIG_MTK_TEE_GP_SUPPORT) || \
 	defined(CONFIG_TRUSTONIC_TEE_SUPPORT)) && \
 	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
@@ -423,7 +420,6 @@ static int disp_probe_1(void)
 		int status;
 		struct device_node *node = NULL;
 		struct resource res;
-
 		if (!is_ddp_module_has_reg_info(i))
 			continue;
 
@@ -536,17 +532,15 @@ static int disp_probe_1(void)
 static int disp_probe(struct platform_device *pdev)
 {
 	static unsigned int disp_probe_cnt;
-
 #ifdef CONFIG_MTK_SMI_EXT
-	pr_notice("%s: %d\n", __func__, smi_mm_clk_first_get());
-	if (!smi_mm_clk_first_get()) {
+	pr_notice("%s: %d\n", __func__, smi_mm_first_get());
+	if (!smi_mm_first_get()) {
 		pr_notice("SMI not start probe\n");
 		return -EPROBE_DEFER;
 	}
 #endif
 	if (disp_probe_cnt != 0)
 		return 0;
-
 	pr_info("disp driver(1) disp_probe begin\n");
 
 	/* save pdev for disp_probe_1 */

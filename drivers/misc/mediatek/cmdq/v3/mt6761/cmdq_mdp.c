@@ -508,8 +508,7 @@ void cmdq_mdp_enable_clock(bool enable, enum CMDQ_ENG_ENUM engine)
 	case CMDQ_ENG_MDP_WROT0:
 #ifdef CONFIG_MTK_SMI_EXT
 		if (enable) {
-			smi_bus_prepare_enable(SMI_LARB0_REG_INDX, "MDPSRAM",
-				true);
+			smi_bus_prepare_enable(SMI_LARB0, "MDPSRAM");
 			/* Set WROT SRAM DELSEL */
 			CMDQ_REG_SET32(MMSYS_CONFIG_BASE + 0x8C0, 0xFFFFFFFE);
 			CMDQ_REG_SET32(MMSYS_CONFIG_BASE + 0x860, 0x2D5B24F3);
@@ -527,8 +526,7 @@ void cmdq_mdp_enable_clock(bool enable, enum CMDQ_ENG_ENUM engine)
 		}
 #ifdef CONFIG_MTK_SMI_EXT
 		if (!enable)
-			smi_bus_disable_unprepare(SMI_LARB0_REG_INDX, "MDPSRAM",
-				true);
+			smi_bus_disable_unprepare(SMI_LARB0, "MDPSRAM");
 #endif
 
 		break;
@@ -1142,11 +1140,11 @@ static void cmdq_mdp_enable_common_clock(bool enable)
 #ifdef CONFIG_MTK_SMI_EXT
 	if (enable) {
 		/* Use SMI clock API */
-		smi_bus_prepare_enable(SMI_LARB0_REG_INDX, "MDP", true);
+		smi_bus_prepare_enable(SMI_LARB0, "MDP");
 
 	} else {
 		/* disable, reverse the sequence */
-		smi_bus_disable_unprepare(SMI_LARB0_REG_INDX, "MDP", true);
+		smi_bus_disable_unprepare(SMI_LARB0, "MDP");
 	}
 #endif
 #endif	/* CMDQ_PWR_AWARE */

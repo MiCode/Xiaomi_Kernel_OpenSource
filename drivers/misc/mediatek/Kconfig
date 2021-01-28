@@ -229,6 +229,7 @@ source "drivers/misc/mediatek/cam_cal/Kconfig"
 source "drivers/misc/mediatek/cmdq/Kconfig"
 source "drivers/misc/mediatek/vpu/Kconfig"
 source "drivers/misc/mediatek/mdla/Kconfig"
+source "drivers/misc/mediatek/smi/Kconfig"
 endmenu # MultiMedia
 
 menu "Sensors"

@@ -21,7 +21,7 @@
 #endif	/* CONFIG_MTK_SMI_EXT */
 
 #include <linux/slab.h>
-#include <linux/pm_qos.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <linux/math64.h>
 #include "cmdq_mdp_pmqos.h"
 #ifdef CONFIG_MTK_SMI_EXT
@@ -42,11 +42,11 @@
 #endif	/* MDP_MMPATH */
 
 #ifndef PMQOS_VERSION2
-static struct pm_qos_request mdp_bw_qos_request[MDP_TOTAL_THREAD];
-static struct pm_qos_request isp_bw_qos_request[MDP_TOTAL_THREAD];
+static struct mtk_pm_qos_request mdp_bw_qos_request[MDP_TOTAL_THREAD];
+static struct mtk_pm_qos_request isp_bw_qos_request[MDP_TOTAL_THREAD];
 #endif	/* PMQOS_VERSION2 */
-static struct pm_qos_request mdp_clk_qos_request[MDP_TOTAL_THREAD];
-static struct pm_qos_request isp_clk_qos_request[MDP_TOTAL_THREAD];
+static struct mtk_pm_qos_request mdp_clk_qos_request[MDP_TOTAL_THREAD];
+static struct mtk_pm_qos_request isp_clk_qos_request[MDP_TOTAL_THREAD];
 
 #ifdef CONFIG_MTK_SMI_EXT
 static u64 g_freq_steps[MAX_FREQ_STEP];
@@ -1577,10 +1577,10 @@ static void cmdq_mdp_init_pmqos(void)
 
 	for (i = 0; i < MDP_TOTAL_THREAD; i++) {
 #ifndef PMQOS_VERSION2
-		pm_qos_add_request(&mdp_bw_qos_request[i],
-			PM_QOS_MM_MEMORY_BANDWIDTH, PM_QOS_DEFAULT_VALUE);
-		pm_qos_add_request(&isp_bw_qos_request[i],
-			PM_QOS_MM_MEMORY_BANDWIDTH, PM_QOS_DEFAULT_VALUE);
+		mtk_pm_qos_add_request(&mdp_bw_qos_request[i],
+			MTK_PM_QOS_MEMORY_BANDWIDTH, PM_QOS_DEFAULT_VALUE);
+		mtk_pm_qos_add_request(&isp_bw_qos_request[i],
+			MTK_PM_QOS_MEMORY_BANDWIDTH, PM_QOS_DEFAULT_VALUE);
 		snprintf(mdp_bw_qos_request[i].owner,
 		  sizeof(mdp_bw_qos_request[i].owner) - 1, "mdp_bw_%d", i);
 		snprintf(isp_bw_qos_request[i].owner,
@@ -1598,9 +1598,9 @@ static void cmdq_mdp_init_pmqos(void)
 
 #endif	/* PMQOS_VERSION2 */
 
-		pm_qos_add_request(&mdp_clk_qos_request[i],
+		mtk_pm_qos_add_request(&mdp_clk_qos_request[i],
 		  PM_QOS_MDP_FREQ, PM_QOS_DEFAULT_VALUE);
-		pm_qos_add_request(&isp_clk_qos_request[i],
+		mtk_pm_qos_add_request(&isp_clk_qos_request[i],
 		  PM_QOS_IMG_FREQ, PM_QOS_DEFAULT_VALUE);
 		snprintf(mdp_clk_qos_request[i].owner,
 		  sizeof(mdp_clk_qos_request[i].owner) - 1, "mdp_clk_%d", i);
@@ -1679,11 +1679,11 @@ void cmdq_mdp_deinit(void)
 		mm_qos_remove_all_request(&qos_isp_module_request_list[i]);
 #endif	/* CONFIG_MTK_SMI_EXT */
 #else
-		pm_qos_remove_request(&isp_bw_qos_request[i]);
-		pm_qos_remove_request(&mdp_bw_qos_request[i]);
+		mtk_pm_qos_remove_request(&isp_bw_qos_request[i]);
+		mtk_pm_qos_remove_request(&mdp_bw_qos_request[i]);
 #endif	/* PMQOS_VERSION2 */
-		pm_qos_remove_request(&isp_clk_qos_request[i]);
-		pm_qos_remove_request(&mdp_clk_qos_request[i]);
+		mtk_pm_qos_remove_request(&isp_clk_qos_request[i]);
+		mtk_pm_qos_remove_request(&mdp_clk_qos_request[i]);
 	}
 
 	cmdq_mdp_pool_clear();
@@ -2246,7 +2246,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 		| CMDQ_ENG_ISP_GROUP_BITS)) {
 		/*update bandwidth*/
 #ifndef PMQOS_VERSION2
-		pm_qos_update_request(&isp_bw_qos_request[thread_id],
+		mtk_pm_qos_update_request(&isp_bw_qos_request[thread_id],
 			isp_curr_bandwidth);
 #else
 		for (i = 0; i < PMQOS_ISP_PORT_NUM &&
@@ -2259,21 +2259,21 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 				total_pixel,
 				act_throughput,
 				isp_curr_bandwidth);
-			mm_qos_set_request(request, isp_curr_bandwidth,
+			mtk_mm_qos_set_request(request, isp_curr_bandwidth,
 						0, BW_COMP_NONE);
 		}
 		mm_qos_update_all_request(
 			&qos_isp_module_request_list[thread_id]);
 #endif	/* PMQOS_VERSION2 */
 		/*update clock*/
-		pm_qos_update_request(&isp_clk_qos_request[thread_id],
+		mtk_pm_qos_update_request(&isp_clk_qos_request[thread_id],
 			act_throughput);
 	}
 
 	/*update bandwidth*/
 	if (target_pmqos->mdp_total_datasize) {
 #ifndef PMQOS_VERSION2
-		pm_qos_update_request(&mdp_bw_qos_request[thread_id],
+		mtk_pm_qos_update_request(&mdp_bw_qos_request[thread_id],
 			mdp_curr_bandwidth);
 #else
 		for (i = 0; i < PMQOS_MDP_PORT_NUM
@@ -2297,7 +2297,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 
 	/*update clock*/
 	if (mdp_curr_pmqos->mdp_total_pixel)
-		pm_qos_update_request(&mdp_clk_qos_request[thread_id],
+		mtk_pm_qos_update_request(&mdp_clk_qos_request[thread_id],
 			act_throughput);
 
 #ifdef MDP_MMPATH
@@ -2526,18 +2526,19 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 
 	if (update_isp_throughput) {
 		/*update clock*/
-		pm_qos_update_request(&isp_clk_qos_request[thread_id],
+		mtk_pm_qos_update_request(&isp_clk_qos_request[thread_id],
 		act_throughput);
 	} else {
 		/*update clock*/
 		if (mdp_curr_pmqos->isp_total_pixel)
-			pm_qos_update_request(&isp_clk_qos_request[thread_id],
-			0);
+			mtk_pm_qos_update_request(
+				&isp_clk_qos_request[thread_id],
+				0);
 	}
 	if (update_isp_bandwidth) {
 		/*update bandwidth*/
 #ifndef PMQOS_VERSION2
-		pm_qos_update_request(
+		mtk_pm_qos_update_request(
 			&isp_bw_qos_request[thread_id], isp_curr_bandwidth);
 #else
 		for (i = 0; i < PMQOS_ISP_PORT_NUM
@@ -2561,7 +2562,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 		/*update bandwidth*/
 		if (mdp_curr_pmqos->isp_total_datasize)
 #ifndef PMQOS_VERSION2
-			pm_qos_update_request(
+			mtk_pm_qos_update_request(
 				&isp_bw_qos_request[thread_id], 0);
 #else
 			mm_qos_update_all_request_zero(
@@ -2570,7 +2571,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	}
 	if (mdp_curr_pmqos->mdp_total_datasize)
 #ifndef PMQOS_VERSION2
-		pm_qos_update_request(
+		mtk_pm_qos_update_request(
 			&mdp_bw_qos_request[thread_id], mdp_curr_bandwidth);
 #else
 	{
@@ -2597,10 +2598,12 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	/* update clock */
 	if (mdp_curr_pmqos->mdp_total_pixel) {
 		if (mdp_curr_pmqos->mdp_total_datasize)
-			pm_qos_update_request(&mdp_clk_qos_request[thread_id],
+			mtk_pm_qos_update_request(
+				&mdp_clk_qos_request[thread_id],
 				act_throughput);
 		else
-			pm_qos_update_request(&mdp_clk_qos_request[thread_id],
+			mtk_pm_qos_update_request(
+				&mdp_clk_qos_request[thread_id],
 				0);
 	}
 

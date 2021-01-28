@@ -15,8 +15,8 @@
 #ifdef MTK_FB_MMDVFS_SUPPORT
 #include <linux/pm_qos.h>
 #endif
-//#include "mt-plat/mtk_smi.h"
-//#include "mtk_smi.h"
+#include "mt-plat/mtk_smi.h"
+#include "mtk_smi.h"
 
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
@@ -32,7 +32,7 @@ enum DISP_PRIMARY_PATH_MODE {
 	DEBUG_RDMA1_DSI0_MODE
 };
 
-enum MTK_SMI_BWC_SCEN {
+/*enum MTK_SMI_BWC_SCEN {
 	SMI_BWC_SCEN_NORMAL,
 	SMI_BWC_SCEN_UI_IDLE,
 	SMI_BWC_SCEN_VPMJC,
@@ -62,6 +62,7 @@ enum {
 	MMDVFS_SCEN_VPU_KERNEL, MMDVFS_PMQOS_ISP,
 	MMDVFS_SCEN_VP_WFD, MMDVFS_SCEN_COUNT
 };
+*/
 
 #define UINT8 unsigned char
 #define UINT32 unsigned int
