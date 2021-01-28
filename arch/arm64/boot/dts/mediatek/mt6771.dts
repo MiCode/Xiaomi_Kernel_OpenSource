@@ -4021,6 +4021,14 @@ firmware_class.path=/vendor/firmware";
 		/* reserved for overlay by odm */
 	};
 
+	radio_md_cfg: radio_md_cfg {
+		compatible = "mediatek,radio_md_cfg";
+	};
+
+	dynamic_options: dynamic_options {
+		compatible = "mediatek,dynamic_options";
+	};
+
 	mt_charger: mt_charger {
 		compatible = "mediatek,mt-charger";
 	};
