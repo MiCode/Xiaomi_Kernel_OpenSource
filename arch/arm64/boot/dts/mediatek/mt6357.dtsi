@@ -86,6 +86,10 @@
 		};
 	};
 
+	mtk_ts_pmic: mtk_ts_pmic {
+		compatible = "mediatek,mtk_ts_pmic";
+	};
+
 	pmic_efuse: pmic_efuse {
 		compatible = "mediatek,mt6357-efuse";
 		#address-cells = <1>;

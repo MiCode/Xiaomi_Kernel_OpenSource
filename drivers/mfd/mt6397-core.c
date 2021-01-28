@@ -255,6 +255,9 @@ static const struct mfd_cell mt6357_devs[] = {
 	}, {
 		.name = "mtk-battery-oc-throttling",
 		.of_compatible = "mediatek,mt6357-battery_oc_throttling",
+	}, {
+		.name = "mtk_ts_pmic",
+		.of_compatible = "mediatek,mtk_ts_pmic"
 	}
 };
 
