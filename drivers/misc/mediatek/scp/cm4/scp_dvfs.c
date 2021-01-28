@@ -28,6 +28,7 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #endif
+#include <linux/syscore_ops.h>
 #include <linux/uaccess.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
@@ -577,6 +578,39 @@ void scp_pll_ctrl_handler(int id, void *data, unsigned int len)
 
 	scp_pll_ctrl_set(*pll_ctrl_flag, *pll_sel);
 }
+
+void mt_scp_dvfs_state_dump(void)
+{
+	unsigned int scp_state;
+
+	scp_state = readl(SCP_A_SLEEP_DEBUG_REG);
+	printk_deferred("scp status: %s\n",
+		((scp_state & IN_DEBUG_IDLE) == IN_DEBUG_IDLE) ? "idle mode"
+		: ((scp_state & ENTERING_SLEEP) == ENTERING_SLEEP) ?
+			"enter sleep"
+		: ((scp_state & IN_SLEEP) == IN_SLEEP) ?
+			"sleep mode"
+		: ((scp_state & ENTERING_ACTIVE) == ENTERING_ACTIVE) ?
+			"enter active"
+		: ((scp_state & IN_ACTIVE) == IN_ACTIVE) ?
+			"active mode" : "none of state");
+}
+
+int mt_scp_dvfs_syscore_suspend(void)
+{
+	mt_scp_dvfs_state_dump();
+	return 0;
+}
+
+void mt_scp_dvfs_syscore_resume(void)
+{
+	mt_scp_dvfs_state_dump();
+}
+
+static struct syscore_ops mt_scp_dvfs_syscore_ops = {
+	.suspend = mt_scp_dvfs_syscore_suspend,
+	.resume = mt_scp_dvfs_syscore_resume,
+};
 
 #ifdef CONFIG_PROC_FS
 /*
@@ -1465,6 +1499,8 @@ int __init scp_dvfs_init(void)
 	mtk_pm_qos_add_request(&dvfsrc_scp_vcore_req,
 			MTK_PM_QOS_SCP_VCORE_REQUEST,
 			MTK_PM_QOS_SCP_VCORE_REQUEST_DEFAULT_VALUE);
+
+	register_syscore_ops(&mt_scp_dvfs_syscore_ops);
 
 	return 0;
 fail:
