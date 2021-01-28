@@ -6068,6 +6068,16 @@ page_owner=on loop.max_part=7";
 			regulator-max-microvolt = <1300000>;
 			status = "okay";
 		};
+
+		ext_buck_vufs12: ext_buck_vufs12@56 {
+			compatible = "mediatek,ext_buck_vufs12";
+			reg = <0x56>;
+			regulator-name = "ext_buck_vufs12";
+			regulator-min-microvolt = <300000>;
+			regulator-max-microvolt = <1300000>;
+			regulator-always-on;
+			status = "okay";
+		};
 	};
 
 	i2c7: i2c7@11D03000 {
