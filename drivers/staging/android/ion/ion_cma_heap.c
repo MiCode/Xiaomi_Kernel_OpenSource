@@ -69,7 +69,7 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 		goto err;
 	}
 
-	info->table = kmalloc(sizeof(info->table), GFP_KERNEL);
+	info->table = kmalloc(sizeof(*info->table), GFP_KERNEL);
 	if (!info->table)
 		goto free_mem;
 
