@@ -1506,11 +1506,13 @@ int hal_dma_rx_has_pending(struct _MTK_DMA_INFO_STR_ *p_dma_info)
  *****************************************************************************/
 int hal_rx_dma_lock(bool enable)
 {
+	static unsigned long flag;
+
 	if (enable) {
-		if (!spin_trylock(&g_clk_cg_spinlock))
+		if (!spin_trylock_irqsave(&g_clk_cg_spinlock, flag))
 			return E_BTIF_FAIL;
 	}
 	else
-		spin_unlock(&g_clk_cg_spinlock);
+		spin_unlock_irqrestore(&g_clk_cg_spinlock, flag);
 	return 0;
 }
