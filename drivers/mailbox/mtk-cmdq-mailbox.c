@@ -127,6 +127,40 @@ struct cmdq {
 	struct wakeup_source	wake_lock;
 };
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+#include "../misc/mediatek/mmp/mmprofile.h"
+
+struct cmdq_mmp_event {
+	mmp_event	cmdq;
+	mmp_event	gce_irq;
+	mmp_event	thrd_enable;
+	mmp_event	thrd_suspend;
+	mmp_event	timeout;
+};
+
+struct cmdq_mmp_event	cmdq_mmp;
+#endif
+
+static inline void cmdq_mmp_init(void)
+{
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	mmprofile_enable(1);
+	if (cmdq_mmp.cmdq) {
+		mmprofile_start(1);
+		return;
+	}
+
+	cmdq_mmp.cmdq = mmprofile_register_event(MMP_ROOT_EVENT, "CMDQ");
+	cmdq_mmp.gce_irq = mmprofile_register_event(cmdq_mmp.cmdq, "gce_irq");
+	cmdq_mmp.thrd_enable =
+		mmprofile_register_event(cmdq_mmp.cmdq, "thrd_enable");
+	cmdq_mmp.thrd_suspend =
+		mmprofile_register_event(cmdq_mmp.cmdq, "thrd_suspend");
+	cmdq_mmp.timeout = mmprofile_register_event(cmdq_mmp.cmdq, "timeout");
+	mmprofile_start(1);
+#endif
+}
+
 static void cmdq_lock_wake_lock(struct cmdq *cmdq, bool lock)
 {
 	static bool is_locked;
@@ -233,6 +267,10 @@ static int cmdq_thread_suspend(struct cmdq *cmdq, struct cmdq_thread *thread)
 {
 	u32 status;
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	mmprofile_log_ex(cmdq_mmp.thrd_suspend, MMPROFILE_FLAG_PULSE,
+		thread->idx, CMDQ_THR_SUSPEND);
+#endif
 	writel(CMDQ_THR_SUSPEND, thread->base + CMDQ_THR_SUSPEND_TASK);
 
 	/* If already disabled, treat as suspended successful. */
@@ -252,6 +290,10 @@ static int cmdq_thread_suspend(struct cmdq *cmdq, struct cmdq_thread *thread)
 static void cmdq_thread_resume(struct cmdq_thread *thread)
 {
 	writel(CMDQ_THR_RESUME, thread->base + CMDQ_THR_SUSPEND_TASK);
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	mmprofile_log_ex(cmdq_mmp.thrd_suspend, MMPROFILE_FLAG_PULSE,
+		thread->idx, CMDQ_THR_RESUME);
+#endif
 }
 
 static int cmdq_thread_reset(struct cmdq *cmdq, struct cmdq_thread *thread)
@@ -294,10 +336,18 @@ static void cmdq_thread_err_reset(struct cmdq *cmdq, struct cmdq_thread *thread,
 	writel(thd_pri, thread->base + CMDQ_THR_CFG);
 	writel(CMDQ_THR_IRQ_EN, thread->base + CMDQ_THR_IRQ_ENABLE);
 	writel(CMDQ_THR_ENABLED, thread->base + CMDQ_THR_ENABLE_TASK);
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	mmprofile_log_ex(cmdq_mmp.thrd_enable, MMPROFILE_FLAG_PULSE,
+		thread->idx, CMDQ_THR_ENABLED);
+#endif
 }
 
 static void cmdq_thread_disable(struct cmdq *cmdq, struct cmdq_thread *thread)
 {
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	mmprofile_log_ex(cmdq_mmp.thrd_enable, MMPROFILE_FLAG_PULSE,
+		thread->idx, CMDQ_THR_DISABLED);
+#endif
 	cmdq_thread_reset(cmdq, thread);
 	writel(CMDQ_THR_DISABLED, thread->base + CMDQ_THR_ENABLE_TASK);
 }
@@ -466,6 +516,10 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 		cmdq_thread_set_pc(thread, task->pa_base);
 		writel(CMDQ_THR_IRQ_EN, thread->base + CMDQ_THR_IRQ_ENABLE);
 		writel(CMDQ_THR_ENABLED, thread->base + CMDQ_THR_ENABLE_TASK);
+#if IS_ENABLED(CONFIG_MMPROFILE)
+		mmprofile_log_ex(cmdq_mmp.thrd_enable, MMPROFILE_FLAG_PULSE,
+			thread->idx, CMDQ_THR_ENABLED);
+#endif
 
 		cmdq_log("set pc:0x%08x end:0x%08x pkt:0x%p",
 			(u32)task->pa_base,
@@ -800,6 +854,11 @@ static void cmdq_thread_handle_timeout_work(struct work_struct *work_item)
 		cmdq_task_exec_done(task, 0);
 		kfree(task);
 	}
+
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	mmprofile_log_ex(cmdq_mmp.timeout, MMPROFILE_FLAG_PULSE,
+		thread->idx, timeout_task ? (unsigned long)timeout_task : 0);
+#endif
 
 	if (timeout_task) {
 		thread->dirty = true;
@@ -1319,6 +1378,7 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	wakeup_source_init(&cmdq->wake_lock, "cmdq_wakelock");
 
+	cmdq_mmp_init();
 	return 0;
 }
 
