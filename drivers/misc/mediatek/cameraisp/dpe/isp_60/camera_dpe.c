@@ -4144,7 +4144,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	/*int q = 0, p = 0;*/
 	struct DPE_USER_INFO_STRUCT *pUserInfo;
 
-	LOG_INF("- E. UserCount: %d.", DPEInfo.UserCount);
+	LOG_DBG("- E. UserCount: %d.", DPEInfo.UserCount);
 
 
 	/*  */
@@ -4245,7 +4245,7 @@ EXIT:
 
 
 
-	LOG_INF("- X. Ret: %d. UserCount: %d.", Ret, DPEInfo.UserCount);
+	LOG_DBG("- X. Ret: %d. UserCount: %d.", Ret, DPEInfo.UserCount);
 	return Ret;
 
 }
@@ -4258,7 +4258,7 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 	struct DPE_USER_INFO_STRUCT *pUserInfo;
 	/*unsigned int Reg;*/
 
-	LOG_INF("- E. UserCount: %d.", DPEInfo.UserCount);
+	LOG_DBG("- E. UserCount: %d.", DPEInfo.UserCount);
 
 	/*  */
 	if (pFile->private_data != NULL) {
@@ -4287,7 +4287,7 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 
 	/* Disable clock. */
 	DPE_EnableClock(MFALSE);
-	LOG_DBG("DPE release g_u4EnableClockCount: %d", g_u4EnableClockCount);
+	LOG_INF("DPE release g_u4EnableClockCount: %d", g_u4EnableClockCount);
 
 	/*  */
 
@@ -4296,7 +4296,7 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 EXIT:
 
 
-	LOG_INF("- X. UserCount: %d.", DPEInfo.UserCount);
+	LOG_DBG("- X. UserCount: %d.", DPEInfo.UserCount);
 	return 0;
 }
 
@@ -4563,7 +4563,7 @@ static int vidioc_querycap(struct file *file, void  *priv,
 	strlcpy(cap->card, "dpe", sizeof(cap->card));
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
 			"platform:%s", dev->v4l2_dev.name);
-	LOG_ERR("[%s]\n", __func__);
+	LOG_DBG("[%s]\n", __func__);
 cap->device_caps =
 	V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
 	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
