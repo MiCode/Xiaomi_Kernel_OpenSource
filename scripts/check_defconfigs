@@ -58,13 +58,19 @@ function build_config_read ()
 
 function toolchain_check ()
 {
-	if [ ! -d "../${TOOLCHAIN_CLANG_PATH}" ]; then
+	if [ ! -d "../${TOOLCHAIN_CLANG_PATH}/linux-x86" ]; then
 		echo "CLANG does not exist, clone it"
 		mkdir -p "../${TOOLCHAIN_CLANG_PATH}"
 		cd "../${TOOLCHAIN_CLANG_PATH}"
 		git clone "http://gerrit.mediatek.inc:8080/${TOOLCHAIN_CLANG_REPO}"
-		cd -
+		cd linux-x86
+		git reset --hard ${TOOLCHAIN_CLANG_COMMIT}
+	else
+		echo "update CLANG to specific commit"
+		cd "../${TOOLCHAIN_CLANG_PATH}/linux-x86"
+		git reset --hard ${TOOLCHAIN_CLANG_COMMIT}
 	fi
+	cd ${KERNEL_PATH}
 
 	if [ ! -d "../${TOOLCHAIN_GCC_PATH}/bin" ]; then
 		echo "GCC does not exist, clone it"
@@ -72,13 +78,18 @@ function toolchain_check ()
 		mkdir -p "../prebuilts/gcc/linux-x86/aarch64"
 		cd "../prebuilts/gcc/linux-x86/aarch64"
 		git clone "http://gerrit.mediatek.inc:8080/${TOOLCHAIN_GCC_REPO}" -b alps-trunk-r0.basic
-		cd -
+	else
+		echo "update GCC to the latest codebase"
+		cd "../${TOOLCHAIN_GCC_PATH}"
+		git pull
 	fi
+	cd ${KERNEL_PATH}
 }
 
 CONFIGS=
 UPDATE=0
 CHECK_COMMIT=0
+CHECK_SERVICE=0
 CC=
 LD=
 CC_ARM=
@@ -100,6 +111,8 @@ TOOLCHAIN_CLANG_PATH='prebuilts/clang/host'
 TOOLCHAIN_GCC_PATH='prebuilts/gcc/linux-x86/aarch64/aarch64-linux-gnu-6.3.1'
 TOOLCHAIN_CLANG_REPO='platform/prebuilts/clang/host/linux-x86'
 TOOLCHAIN_GCC_REPO='alps/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-gnu-6.3.1'
+TOOLCHAIN_CLANG_COMMIT='252aba16f513a857bc923172f67b0e55e23de35f'
+KERNEL_PATH=${PWD}
 toolchain_check
 build_config_read
 
@@ -119,6 +132,10 @@ while getopts "cuh" opt; do
       c)
 	if [ $# == 2 ]; then
 		CHECK_COMMIT=$2
+		if [ ${CHECK_COMMIT} == FETCH_HEAD ]; then
+			CHECK_SERVICE=1
+			echo Checking from check service
+		fi
 	else
 		CHECK_COMMIT="HEAD"
 	fi
@@ -279,6 +296,11 @@ if [ $RETVAL != 0 ]; then
 	echo Please check the following wiki for detail, thanks!
 	echo http://wiki.mediatek.inc/display/KernelStandardization/Check+defconfig+in+kernel+preflight
 	echo http://wiki.mediatek.inc/display/KernelStandardization/SOP+to+update+kernel+config
+fi
+
+if [ ${CHECK_SERVICE} == 1 ]; then
+	rm -rf /tmp/prebuilts
+	echo Remove toolchain in check service
 fi
 
 exit $RETVAL
