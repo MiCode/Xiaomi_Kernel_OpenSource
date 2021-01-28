@@ -6886,7 +6886,8 @@ int binder_transaction_log_show(struct seq_file *m, void *unused)
 	return 0;
 }
 #ifdef BINDER_WATCHDOG
-BINDER_DEBUG_ENTRY(timeout_log);
+int binder_timeout_log_show(struct seq_file *m, void *unused);
+DEFINE_SHOW_ATTRIBUTE(binder_timeout_log);
 #endif
 
 const struct file_operations binder_fops = {
