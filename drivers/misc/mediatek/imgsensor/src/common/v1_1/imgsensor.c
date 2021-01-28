@@ -1616,6 +1616,47 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 			}
 		}
 		break;
+	case SENSOR_FEATURE_GET_SEAMLESS_SCENARIOS:
+	case SENSOR_FEATURE_SEAMLESS_SWITCH:
+		{
+#define _DATA_SIZE 64
+			char *p_data = NULL;
+			unsigned long long *pFeaturePara_64 =
+				(unsigned long long *)pFeaturePara;
+			void *usr_ptr =
+				(void *)(uintptr_t) (*(pFeaturePara_64 + 1));
+
+			p_data = kmalloc(
+				sizeof(char) * _DATA_SIZE, GFP_KERNEL);
+			if (p_data == NULL) {
+				kfree(pFeaturePara);
+				PK_DBG(" ioctl allocate mem failed\n");
+				return -ENOMEM;
+			}
+			if (copy_from_user((void *)p_data,
+				(void __user *)usr_ptr, _DATA_SIZE)) {
+				kfree(pFeaturePara);
+				kfree(p_data);
+				PK_DBG("[CAMERA_HW]ERROR: copy_from_user fail\n");
+				return -ENOMEM;
+			}
+
+			if (pFeaturePara_64 != NULL)
+				*(pFeaturePara_64 + 1) = (uintptr_t) p_data;
+
+			ret = imgsensor_sensor_feature_control(psensor,
+					pFeatureCtrl->FeatureId,
+					(unsigned char *)pFeaturePara,
+					(unsigned int *)&FeatureParaLen);
+
+			if (copy_to_user((void __user *)usr_ptr,
+					 (void *)p_data, _DATA_SIZE)) {
+				PK_DBG("[CAMERA_HW]ERROR: copy_to_user fail\n");
+			}
+			kfree(p_data);
+			*(pFeaturePara_64 + 1) = (uintptr_t) usr_ptr;
+		}
+		break;
 	case SENSOR_FEATURE_GET_PDAF_DATA:
 	case SENSOR_FEATURE_GET_4CELL_DATA:
 		{
