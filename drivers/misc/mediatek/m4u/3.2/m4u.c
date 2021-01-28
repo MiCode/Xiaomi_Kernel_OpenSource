@@ -444,7 +444,7 @@ static int m4u_fill_sgtable_user(
 	int i;
 	long ret = 0;
 	struct scatterlist *sg = *pSg;
-	struct page *pages = NULL;
+	struct page *pages;
 	int gup_flags;
 
 	va_align = round_down(va, PAGE_SIZE);
@@ -1789,9 +1789,7 @@ static int __m4u_sec_init(void)
 		goto out;
 	}
 
-	M4ULOG_HIGH("%s ret:0x%x, rsp:0x%x\n",
-		__func__, ret, ctx->m4u_msg->rsp);
-	/* ret = ctx->m4u_msg->rsp; */
+	ret = ctx->m4u_msg->rsp;
 out:
 	for (i = 0; i < SMI_LARB_NR; i++)
 		larb_clock_off(i, 1);

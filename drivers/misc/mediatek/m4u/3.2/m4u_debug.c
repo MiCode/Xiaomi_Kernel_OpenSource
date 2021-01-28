@@ -44,9 +44,9 @@ int m4u_test_alloc_dealloc(int id, unsigned int size)
 {
 	struct m4u_client_t *client;
 	unsigned long va = 0;
-	unsigned int mva = 0;
-	int ret = 0;
-	unsigned long populate = 0;
+	unsigned int mva;
+	int ret;
+	unsigned long populate;
 
 	if (id == 1) {
 		va = (unsigned long)kmalloc(size, GFP_KERNEL);
@@ -197,11 +197,11 @@ static int m4u_test_map_kernel(void)
 	unsigned long va;
 	unsigned int size = 1024 * 1024;
 	unsigned int mva = 0;
-	unsigned long kernel_va = 0;
-	unsigned int kernel_size = 0;
+	unsigned long kernel_va;
+	unsigned int kernel_size;
 	int i;
 	int ret;
-	unsigned long populate = 0;
+	unsigned long populate;
 
 	down_write(&current->mm->mmap_sem);
 	va = do_mmap_pgoff(NULL, 0, size,
@@ -1027,21 +1027,6 @@ static int m4u_debug_set(void *data, u64 val)
 		M4UMSG("debug m4u domain set 1\n");
 	}
 	break;
-
-	//case 49: backup test, should use KASAN project to test
-	case 49:
-	{
-		int i;
-
-		M4UINFO("case %lld start: backup test\n", val);
-		for (i = 0; i < 5; i++) {
-			M4UINFO("times %d\n", i);
-			m4u_reg_backup();
-		}
-		M4UINFO("case %lld end\n", val);
-	}
-	break;
-
 #ifdef M4U_TEE_SERVICE_ENABLE
 	case 50:
 	{
