@@ -692,7 +692,7 @@ EXPORT_SYMBOL(trusty_dequeue_nop);
 
 static int trusty_probe(struct platform_device *pdev)
 {
-	int ret, tee_id;
+	int ret, tee_id = 0;
 	unsigned int cpu;
 	work_func_t work_func;
 	struct trusty_state *s;
