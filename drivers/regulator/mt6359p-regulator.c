@@ -212,6 +212,33 @@ struct mt_regulator_init_data {
 	.qi = BIT(0),							\
 }
 
+#define MT_LDO_SPECIFIC(match, _name, _ops,			\
+			_volt_table, _enable_reg, _enable_mask,	\
+			_da_reg,				\
+			_vsel_reg, _vsel_mask,			\
+			mode)					\
+[MT6359_ID_##_name] = {						\
+	.desc = {						\
+		.name = #_name,					\
+		.of_match = of_match_ptr(match),		\
+		.ops = &_ops,			\
+		.type = REGULATOR_VOLTAGE,			\
+		.id = MT6359_ID_##_name,			\
+		.owner = THIS_MODULE,				\
+		.n_voltages = ARRAY_SIZE(_volt_table),		\
+		.volt_table = _volt_table,			\
+		.vsel_reg = _vsel_reg,				\
+		.vsel_mask = _vsel_mask,			\
+		.enable_reg = _enable_reg,			\
+		.enable_mask = BIT(_enable_mask),		\
+	},							\
+	.constraints = {					\
+		.valid_ops_mask = (mode),			\
+	},							\
+	.da_reg = _da_reg,					\
+	.qi = BIT(0),						\
+}
+
 //vs1
 static const struct regulator_linear_range mt_volt_range1[] = {
 	REGULATOR_LINEAR_RANGE(800000, 0, 0x70, 12500),
@@ -411,19 +438,8 @@ static const u32 vxo22_voltages[] = {
 };
 
 static const u32 vrfck_voltages[] = {
-	0,
-	0,
-	1500000,
-	0,
-	0,
-	0,
-	0,
+	1240000,
 	1600000,
-	0,
-	0,
-	0,
-	0,
-	1700000,
 };
 
 static const u32 vbif28_voltages[] = {
@@ -456,11 +472,11 @@ static const u32 vemc_voltages[] = {
 	0,
 	0,
 	0,
-	0,
-	0,
+	2500000,
+	2800000,
 	2900000,
 	3000000,
-	0,
+	3100000,
 	3300000,
 };
 
@@ -750,6 +766,72 @@ static int mt6359_get_status(struct regulator_dev *rdev)
 	return (regval & info->qi) ? REGULATOR_STATUS_ON : REGULATOR_STATUS_OFF;
 }
 
+static int mt6359_vemc_set_voltage_sel(struct regulator_dev *rdev,
+				       unsigned int sel)
+{
+	int ret;
+	unsigned int val = 0;
+
+	sel <<= ffs(rdev->desc->vsel_mask) - 1;
+	ret = regmap_write(rdev->regmap, PMIC_TMA_KEY_ADDR, 0x9CA6);
+	if (ret)
+		return ret;
+	ret = regmap_read(rdev->regmap, PMIC_VM_MODE_ADDR, &val);
+	if (ret)
+		return ret;
+	switch (val) {
+	case 0:
+		/* If HW trapping is 0, use VEMC_VOSEL_0 */
+		ret = regmap_update_bits(rdev->regmap,
+					 rdev->desc->vsel_reg,
+					 rdev->desc->vsel_mask, sel);
+		break;
+	case 1:
+		/* If HW trapping is 1, use VEMC_VOSEL_1 */
+		ret = regmap_update_bits(rdev->regmap,
+					 rdev->desc->vsel_reg + 0x2,
+					 rdev->desc->vsel_mask, sel);
+		break;
+	default:
+		break;
+	}
+	if (ret)
+		return ret;
+	ret = regmap_write(rdev->regmap, PMIC_TMA_KEY_ADDR, 0);
+	return ret;
+}
+
+static int mt6359_vemc_get_voltage_sel(struct regulator_dev *rdev)
+{
+	unsigned int val;
+	int ret;
+
+	ret = regmap_read(rdev->regmap, PMIC_VM_MODE_ADDR, &val);
+	if (ret)
+		return ret;
+	switch (val) {
+	case 0:
+		/* If HW trapping is 0, use VEMC_VOSEL_0 */
+		ret = regmap_read(rdev->regmap,
+				  rdev->desc->vsel_reg, &val);
+		break;
+	case 1:
+		/* If HW trapping is 1, use VEMC_VOSEL_1 */
+		ret = regmap_read(rdev->regmap,
+				  rdev->desc->vsel_reg + 0x2, &val);
+		break;
+	default:
+		return -EINVAL;
+	}
+	if (ret)
+		return ret;
+
+	val &= rdev->desc->vsel_mask;
+	val >>= ffs(rdev->desc->vsel_mask) - 1;
+
+	return val;
+}
+
 static const struct regulator_ops mt6359_volt_range_ops = {
 	.list_voltage = regulator_list_voltage_linear_range,
 	.map_voltage = regulator_map_voltage_linear_range,
@@ -777,6 +859,18 @@ static const struct regulator_ops mt6359_volt_table_ops = {
 };
 
 static const struct regulator_ops mt6359_volt_fixed_ops = {
+	.enable = regulator_enable_regmap,
+	.disable = mt6359_regulator_disable,
+	.is_enabled = regulator_is_enabled_regmap,
+	.get_status = mt6359_get_status,
+};
+
+static const struct regulator_ops mt6359_vemc_ops = {
+	.list_voltage = regulator_list_voltage_table,
+	.map_voltage = regulator_map_voltage_iterate,
+	.set_voltage_sel = mt6359_vemc_set_voltage_sel,
+	.get_voltage_sel = mt6359_vemc_get_voltage_sel,
+	.set_voltage_time_sel = regulator_set_voltage_time_sel,
 	.enable = regulator_enable_regmap,
 	.disable = mt6359_regulator_disable,
 	.is_enabled = regulator_is_enabled_regmap,
@@ -1040,7 +1134,7 @@ static struct mt6359_regulator_info mt6359_regulators[] = {
 		PMIC_RG_VIO28_VOSEL_MASK <<
 		PMIC_RG_VIO28_VOSEL_SHIFT,
 		MT_LDO_VOL_EN),
-	MT_LDO_NON_REGULAR("ldo_vemc", VEMC,
+	MT_LDO_SPECIFIC("ldo_vemc", VEMC, mt6359_vemc_ops,
 		vemc_voltages,
 		PMIC_RG_LDO_VEMC_EN_ADDR,
 		PMIC_RG_LDO_VEMC_EN_SHIFT,
