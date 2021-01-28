@@ -472,54 +472,48 @@ static void layering_rule_senario_decision(struct disp_layer_info *disp_info)
 
 static bool filter_by_hw_limitation(struct disp_layer_info *disp_info)
 {
-	bool flag = false;
 	unsigned int i = 0;
-	struct layer_config *info;
+	struct layer_config *p_layer_info;
 	unsigned int disp_idx = 0;
 	unsigned int layer_cnt = 0;
+	bool is_yuv_occupied = false, has_ovl_only_layer = false;
 
-	for (disp_idx = 0 ; disp_idx < 2; ++disp_idx) {
-		if (disp_info->layer_num[disp_idx] < 1)
-			continue;
-
-		/* display not support RGBA1010102 & RGBA_FP16 */
+	for (disp_idx = 0 ; disp_idx < 2 ; disp_idx++) {
 		for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
-			info = &(disp_info->input_config[disp_idx][i]);
-			if (info->src_fmt != DISP_FORMAT_RGBA1010102 &&
-					info->src_fmt != DISP_FORMAT_RGBA_FP16)
+			p_layer_info = &(disp_info->input_config[disp_idx][i]);
+			if (has_layer_cap(p_layer_info, LAYERING_OVL_ONLY)) {
+				has_ovl_only_layer = true;
+				break;
+			}
+		}
+	}
+
+	/* ovl only support 1 yuv layer */
+	for (disp_idx = 0 ; disp_idx < 2 ; disp_idx++) {
+		for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
+			p_layer_info = &(disp_info->input_config[disp_idx][i]);
+			if (is_gles_layer(disp_info, disp_idx, i))
+				continue;
+			if (!is_yuv(p_layer_info->src_fmt))
 				continue;
 
-			/* push to GPU */
-			if (disp_info->gles_head[disp_idx] == -1 ||
+			if (is_yuv_occupied ||
+				(!has_layer_cap(p_layer_info, LAYERING_OVL_ONLY) &&
+				 has_ovl_only_layer)) {
+				/* push to GPU */
+				if (disp_info->gles_head[disp_idx] == -1 ||
 					i < disp_info->gles_head[disp_idx])
-				disp_info->gles_head[disp_idx] = i;
-			if (disp_info->gles_tail[disp_idx] == -1 ||
+					disp_info->gles_head[disp_idx] = i;
+				if (disp_info->gles_tail[disp_idx] == -1 ||
 					i > disp_info->gles_tail[disp_idx])
-				disp_info->gles_tail[disp_idx] = i;
+					disp_info->gles_tail[disp_idx] = i;
+			} else {
+				is_yuv_occupied = true;
+			}
 		}
 	}
 
-	disp_idx = 1;
-	for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
-		info = &(disp_info->input_config[disp_idx][i]);
-		if (is_gles_layer(disp_info, disp_idx, i))
-			continue;
-
-		layer_cnt++;
-		if (layer_cnt > SECONDARY_OVL_LAYER_NUM) {
-			/* push to GPU */
-			if (disp_info->gles_head[disp_idx] == -1 ||
-				i < disp_info->gles_head[disp_idx])
-				disp_info->gles_head[disp_idx] = i;
-			if (disp_info->gles_tail[disp_idx] == -1 ||
-				i > disp_info->gles_tail[disp_idx])
-				disp_info->gles_tail[disp_idx] = i;
-
-			flag = false;
-		}
-	}
-
-	return flag;
+	return is_yuv_occupied;
 }
 
 unsigned int layering_rule_get_hrt_idx(void)
