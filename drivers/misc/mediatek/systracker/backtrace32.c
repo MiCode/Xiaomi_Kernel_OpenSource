@@ -53,8 +53,13 @@ void dump_regs(const char *fmt,
 		const unsigned int reg_val)
 {
 	char str_buf[256];
+	int ret;
 
-	snprintf(str_buf, sizeof(str_buf), fmt, v1, reg, reg_val);
+	ret = snprintf(str_buf, sizeof(str_buf), fmt, v1, reg, reg_val);
+
+	if (ret < 0)
+		pr_info("Fail snprintf in dump rg: %d\n", ret);
+
 	aee_sram_fiq_log(str_buf);
 }
 
@@ -72,9 +77,14 @@ void aee_dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 	char str_buf[256];
 	unsigned int fp, mode;
 	int ok = 1;
+	int ret;
 
-	snprintf(str_buf, sizeof(str_buf), "PC is 0x%lx, LR is 0x%lx\n",
+	ret = snprintf(str_buf, sizeof(str_buf), "PC is 0x%lx, LR is 0x%lx\n",
 			regs->ARM_pc, regs->ARM_lr);
+
+	if (ret < 0)
+		pr_info("Fail snprintf aee dump: %d\n", ret);
+
 	aee_sram_fiq_log(str_buf);
 
 	if (!tsk)
