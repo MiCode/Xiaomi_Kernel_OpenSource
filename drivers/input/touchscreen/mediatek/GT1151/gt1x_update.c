@@ -184,7 +184,7 @@ s32 gt1x_check_fs_mounted(char *path_name)
 
 int gt1x_i2c_write_with_readback(u16 addr, u8 *buffer, int length)
 {
-	u8 buf[100];
+	u8 buf[100] = {0};
 	int ret = gt1x_i2c_write(addr, buffer, length);
 
 	if (ret)
