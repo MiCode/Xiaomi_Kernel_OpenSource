@@ -11,6 +11,8 @@
 #include "clk-mtk.h"
 #include "clk-gate.h"
 
+#define MT_CLKMGR_MODULE_INIT	0
+
 static const struct mtk_gate_regs mm0_cg_regs = {
 	.set_ofs = 0x0104,
 	.clr_ofs = 0x0108,
@@ -131,4 +133,19 @@ static struct platform_driver clk_mt6779_mm_drv = {
 	},
 };
 
+
+#if MT_CLKMGR_MODULE_INIT
+
 builtin_platform_driver(clk_mt6779_mm_drv);
+
+#else
+
+static int __init clk_mt6779_mm_platform_init(void)
+{
+	return platform_driver_register(&clk_mt6779_mm_drv);
+}
+
+arch_initcall_sync(clk_mt6779_mm_platform_init);
+
+#endif /* MT_CLKMGR_MODULE_INIT */
+

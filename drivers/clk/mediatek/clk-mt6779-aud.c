@@ -15,6 +15,9 @@
 
 #include <dt-bindings/clock/mt6779-clk.h>
 
+#define MT_CLKMGR_MODULE_INIT	0
+
+
 #define GATE_AUDIO0(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -137,4 +140,18 @@ static struct platform_driver clk_mt6779_aud_drv = {
 	},
 };
 
+#if MT_CLKMGR_MODULE_INIT
+
 builtin_platform_driver(clk_mt6779_aud_drv);
+
+#else
+
+static int __init clk_mt6779_aud_platform_init(void)
+{
+	return platform_driver_register(&clk_mt6779_aud_drv);
+}
+
+arch_initcall_sync(clk_mt6779_aud_platform_init);
+
+#endif /* MT_CLKMGR_MODULE_INIT */
+
