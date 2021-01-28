@@ -73,7 +73,6 @@ static const struct qos_ipi_cmd mt6761_qos_ipi_pin[] = {
 		},
 };
 
-
 static const struct qos_sram_addr mt6761_qos_sram_pin[] = {
 	[QOS_DEBUG_0] = {
 			.offset = 0x38,
@@ -170,6 +169,10 @@ static const struct qos_sram_addr mt6761_qos_sram_pin[] = {
 	[CM_STALL_RATIO_ID_7] = {
 			.offset = 0x100,
 			.valid = false,
+		},
+	[QOS_TOTAL_BW] = {
+			.offset = 0x20,
+			.valid = true,
 		},
 };
 

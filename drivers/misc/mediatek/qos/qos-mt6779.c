@@ -172,6 +172,10 @@ static const struct qos_sram_addr mt6779_qos_sram_pin[] = {
 			.offset = 0x7C,
 			.valid = true,
 		},
+	[QOS_TOTAL_BW] = {
+			.offset = 0x100,
+			.valid = false,
+		},
 };
 
 static int mt6779_qos_sspm_init(void)
