@@ -26,7 +26,7 @@
 
 
 #ifdef CONFIG_MTK_BOUNCING_CHECK
-#include <mt-plat/aee.h>
+#include "../../../../drivers/misc/mediatek/include/mt-plat/aee.h"
 #endif
 extern const struct dma_map_ops dummy_dma_ops;
 
