@@ -916,13 +916,8 @@ update_sg_util(struct task_struct *p, int dst_cpu,
 
 	sg_env->sum_util = 0;
 	sg_env->max_util = 0;
-	sd = rcu_dereference_check_sched_domain(cpu_rq(cpu)->sd);
-	if (sd) {
-		sg = sd->groups;
-		sge = sg->sge;
-	} else
-		return 0;
 
+	sge = cpu_core_energy(cpu); /* for CPU */
 	/*
 	 * The capacity state of CPUs of the current rd can be driven by CPUs
 	 * of another rd if they belong to the same pd. So, account for the
@@ -933,16 +928,17 @@ update_sg_util(struct task_struct *p, int dst_cpu,
 	 * its pd list and will not be accounted by compute_energy().
 	 */
 	for_each_cpu_and(cpu, sg_mask, cpu_online_mask) {
-		unsigned long cpu_util;
+		unsigned long cpu_util, cpu_boosted_util;
 		struct task_struct *tsk = cpu == dst_cpu ? p : NULL;
 
 		cpu_util = cpu_util_without(cpu, p);
+		cpu_boosted_util = uclamp_rq_util_with(cpu_rq(cpu), cpu_util, p);
 
 		if (tsk)
 			cpu_util += task_util_est(p);
 
 		sg_env->sum_util += cpu_util;
-		sg_env->max_util = max(sg_env->max_util, cpu_util);
+		sg_env->max_util = max(sg_env->max_util, cpu_boosted_util);
 	}
 
 	/* default is max_cap if we don't find a match */
@@ -1125,7 +1121,7 @@ static int find_energy_efficient_cpu_enhanced(struct task_struct *p,
 {
 	unsigned long prev_energy = 0;
 	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX;
-	int max_spare_cap_cpu_ls = prev_cpu, best_idle_cpu = -1;
+	int max_spare_cap_cpu_ls = prev_cpu;
 	unsigned long max_spare_cap_ls = 0, target_cap;
 	unsigned long sys_max_spare_cap = 0;
 	unsigned long cpu_cap, util, wake_util;
@@ -1152,7 +1148,7 @@ static int find_energy_efficient_cpu_enhanced(struct task_struct *p,
 		return -1;
 
 	prefer_idle = schedtune_prefer_idle(p);
-	boosted = schedtune_task_boost(p) > 0;
+	boosted = (schedtune_task_boost(p) > 0) || (uclamp_task_effective_util(p, UCLAMP_MIN) > 0);
 	target_cap = boosted ? 0 : ULONG_MAX;
 
 	sg = sd->groups;
@@ -1160,7 +1156,7 @@ static int find_energy_efficient_cpu_enhanced(struct task_struct *p,
 		unsigned long cur_energy = 0, cur_delta = 0;
 		unsigned long spare_cap, max_spare_cap = 0;
 		unsigned long base_energy_sg;
-		int max_spare_cap_cpu = -1;
+		int max_spare_cap_cpu = -1, best_idle_cpu = -1;
 		int cpu;
 
 		/* compute the ''base' energy of the sg, without @p*/
@@ -1197,7 +1193,7 @@ static int find_energy_efficient_cpu_enhanced(struct task_struct *p,
 				continue;
 
 			/* Always use prev_cpu as a candidate. */
-			if (!prefer_idle && cpu == prev_cpu) {
+			if (cpu == prev_cpu) {
 				prev_energy = compute_energy_enhanced(p,
 								prev_cpu, sg);
 				prev_delta = prev_energy - base_energy_sg;
@@ -1250,19 +1246,26 @@ static int find_energy_efficient_cpu_enhanced(struct task_struct *p,
 			}
 		}
 
+		if (prefer_idle && best_idle_cpu >= 0 &&
+					best_idle_cpu != prev_cpu) {
+			cur_energy = compute_energy_enhanced(p,
+							best_idle_cpu, sg);
+			cur_delta = cur_energy - base_energy_sg;
+			if (cur_delta < best_delta) {
+				best_delta = cur_delta;
+				best_energy_cpu = best_idle_cpu;
+			}
+		}
+
 		mt_sched_printf(sched_eas_energy_calc,
 		    "prev_cpu=%d base_energy=%lu prev_energy=%lu prev_delta=%d",
 		    prev_cpu, base_energy_sg, prev_energy, (int)prev_delta);
 
 		mt_sched_printf(sched_eas_energy_calc,
-		    "max_spare_cap_cpu=%d cur_energy=%lu cur_delta=%d",
-			max_spare_cap_cpu, cur_energy, (int)cur_delta);
+		    "max_spare_cap_cpu=%d best_idle_cpu=%d cur_energy=%lu cur_delta=%d",
+			max_spare_cap_cpu, best_idle_cpu, cur_energy, (int)cur_delta);
 
 	} while (sg = sg->next, sg != sd->groups);
-
-	if (prefer_idle)
-		return best_idle_cpu >= 0 ?
-			best_idle_cpu : max_spare_cap_cpu_ls;
 
 	/*
 	 * Pick the best CPU if prev_cpu cannot be used, or it it saves energy
