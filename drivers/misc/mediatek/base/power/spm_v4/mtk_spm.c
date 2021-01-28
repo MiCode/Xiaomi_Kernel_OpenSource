@@ -655,11 +655,11 @@ int __init spm_module_init(void)
 /* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
 	if (spm_golden_setting_cmp(1) != 0)
-		aee_kernel_warning("SPM Warning",
-				   "dram golden setting mismach");
+		aee_kernel_warning(
+			"SPM Warning, dram golden setting mismach");
 #else
 	if (spm_golden_setting_cmp(1) != 0)
-		spm_crit2("SPM Warning", "dram golden setting mismach");
+		spm_crit2("SPM Warning, dram golden setting mismach");
 #endif
 #endif /* CONFIG_MTK_DRAMC */
 #endif /* CONFIG_FPGA_EARLY_PORTING */
@@ -1144,13 +1144,11 @@ void spm_phypll_mode_check(void)
 /* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
 		aee_kernel_warning(
-			"SPM Warning",
-			"Invalid SPM_POWER_ON_VAL0: 0x%08x\n",
+			"SPM Warning, Invalid SPM_POWER_ON_VAL0: 0x%08x\n",
 			val);
 #else
 		spm_crit2(
-			"SPM Warning",
-			"Invalid SPM_POWER_ON_VAL0: 0x%08x\n",
+			"SPM Warning, Invalid SPM_POWER_ON_VAL0: 0x%08x\n",
 			val);
 #endif
 	}

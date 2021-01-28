@@ -1515,10 +1515,10 @@ static ssize_t dpidle_state_read(struct file *filp,
 	mt_idle_log("\n");
 
 	for (i = 0; i < NR_GRPS; i++) {
-		mt_idle_log("[%02d]dpidle_condition_mask[%-10s]=0x%08x\t\t");
-		mt_idle_log("dpidle_block_mask[%-10s]=0x%08x\n",
+		mt_idle_log("[%02d]dpidle_condition_mask[%-10s]=0x%08x\t\t",
 			    i, mtk_get_cg_group_name(i),
-			    idle_condition_mask[IDLE_TYPE_DP][i],
+			    idle_condition_mask[IDLE_TYPE_DP][i]);
+		mt_idle_log("dpidle_block_mask[%-10s]=0x%08x\n",
 			    mtk_get_cg_group_name(i),
 			    idle_block_mask[IDLE_TYPE_DP][i]);
 	}
@@ -1671,20 +1671,20 @@ static ssize_t soidle3_state_read(struct file *filp,
 
 	for (i = 0; i < NR_PLLS; i++) {
 		mt_idle_log(
-		"[%02d]soidle3_pll_condition_mask[%-8s]=0x%08x\t\t");
-		mt_idle_log("soidle3_pll_block_mask[%-8s]=0x%08x\n",
+		"[%02d]soidle3_pll_condition_mask[%-8s]=0x%08x\t\t",
 			    i, mtk_get_pll_group_name(i),
-			    soidle3_pll_condition_mask[i],
+			    soidle3_pll_condition_mask[i]);
+		mt_idle_log("soidle3_pll_block_mask[%-8s]=0x%08x\n",
 			    mtk_get_pll_group_name(i),
 			    soidle3_pll_block_mask[i]);
 	}
 	mt_idle_log("\n");
 
 	for (i = 0; i < NR_GRPS; i++) {
-		mt_idle_log("[%02d]soidle3_condition_mask[%-10s]=0x%08x\t\t");
-		mt_idle_log("soidle3_block_mask[%-10s]=0x%08x\n",
+		mt_idle_log("[%02d]soidle3_condition_mask[%-10s]=0x%08x\t\t",
 			    i, mtk_get_cg_group_name(i),
-			    idle_condition_mask[IDLE_TYPE_SO3][i],
+			    idle_condition_mask[IDLE_TYPE_SO3][i]);
+		mt_idle_log("soidle3_block_mask[%-10s]=0x%08x\n",
 			    mtk_get_cg_group_name(i),
 			    idle_block_mask[IDLE_TYPE_SO3][i]);
 	}
@@ -1820,10 +1820,10 @@ static ssize_t soidle_state_read(struct file *filp,
 	mt_idle_log("\n");
 
 	for (i = 0; i < NR_GRPS; i++) {
-		mt_idle_log("[%02d]soidle_condition_mask[%-10s]=0x%08x\t\t");
-		mt_idle_log("soidle_block_mask[%-10s]=0x%08x\n",
+		mt_idle_log("[%02d]soidle_condition_mask[%-10s]=0x%08x\t\t",
 			    i, mtk_get_cg_group_name(i),
-			    idle_condition_mask[IDLE_TYPE_SO][i],
+			    idle_condition_mask[IDLE_TYPE_SO][i]);
+		mt_idle_log("soidle_block_mask[%-10s]=0x%08x\n",
 			    mtk_get_cg_group_name(i),
 			    idle_block_mask[IDLE_TYPE_SO][i]);
 	}
