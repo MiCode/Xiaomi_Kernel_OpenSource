@@ -97,7 +97,9 @@ static unsigned long __read_mostly tracing_mark_write_addr;
 
 /*  #include "smi_common.h" */
 
+#ifdef CONFIG_PM_SLEEP
 #include <linux/pm_wakeup.h>
+#endif
 
 /* DPE Command Queue */
 /* #include "../../cmdq/mt6797/cmdq_record.h" */
@@ -250,8 +252,9 @@ static struct Tasklet_table WPE_tasklet[WPE_IRQ_TYPE_AMOUNT] = {
 	{ISP_TaskletFunc_WPE, &Wpetkt[WPE_IRQ_TYPE_INT_WPEB_ST]},
 };
 
+#ifdef CONFIG_PM_SLEEP
 struct wakeup_source WPE_wake_lock;
-
+#endif
 
 static DEFINE_MUTEX(gWpeMutex);
 static DEFINE_MUTEX(gWpeDequeMutex);
@@ -5235,7 +5238,9 @@ static signed int WPE_probe(struct platform_device *pDev)
 		init_waitqueue_head(&WPEInfo.WaitQueueHead);
 		INIT_WORK(&WPEInfo.ScheduleWpeWork, WPE_ScheduleWork);
 
+#ifdef CONFIG_PM_SLEEP
 		wakeup_source_init(&WPE_wake_lock, "WPE_lock_wakelock");
+#endif
 
 		for (i = 0; i < WPE_IRQ_TYPE_AMOUNT; i++)
 			tasklet_init(WPE_tasklet[i].pWPE_tkt,
