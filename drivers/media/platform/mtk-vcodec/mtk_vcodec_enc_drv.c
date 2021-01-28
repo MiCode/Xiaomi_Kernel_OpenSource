@@ -106,6 +106,7 @@ static int fops_vcodec_open(struct file *file)
 				   ctx->id, ctx, ctx->m2m_ctx);
 
 	list_add(&ctx->list, &dev->ctx_list);
+	dev->enc_cnt++;
 
 	mutex_unlock(&dev->dev_mutex);
 	mtk_v4l2_debug(0, "%s encoder [%d]", dev_name(&dev->plat_dev->dev),
@@ -147,6 +148,8 @@ static int fops_vcodec_release(struct file *file)
 	list_del_init(&ctx->list);
 	kfree(ctx->enc_flush_buf);
 	kfree(ctx);
+	if (dev->enc_cnt > 0)
+		dev->enc_cnt--;
 	mutex_unlock(&dev->dev_mutex);
 	return 0;
 }
@@ -377,6 +380,7 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	dev->pm_notifier.notifier_call = mtk_vcodec_enc_suspend_notifier;
 	register_pm_notifier(&dev->pm_notifier);
 	dev->is_codec_suspending = 0;
+	dev->enc_cnt = 0;
 
 	return 0;
 

@@ -201,7 +201,12 @@ void mtk_venc_dvfs_begin(struct mtk_vcodec_ctx *ctx)
 					venc_hists);
 		target_freq_64 = match_freq(target_freq, &venc_freq_steps[0],
 					venc_freq_step_size);
-
+		if (ctx->dev->enc_cnt > 1) {
+			/* Reduce available time / increase freq */
+			target_freq = target_freq * 2;
+			if (ctx->enc_params.svp_mode > 0)
+				target_freq = 630;
+		}
 		if (ctx->enc_params.operationrate >= 120 &&
 			(target_freq_64 > 450 ||
 			ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc ==

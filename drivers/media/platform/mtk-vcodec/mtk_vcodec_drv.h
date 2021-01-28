@@ -479,6 +479,7 @@ struct mtk_vcodec_dev {
 	bool is_codec_suspending;
 
 	int dec_cnt;
+	int enc_cnt;
 };
 
 static inline struct mtk_vcodec_ctx *fh_to_ctx(struct v4l2_fh *fh)
