@@ -1717,4 +1717,66 @@ int disp_lcm_is_arr_support(struct disp_lcm_handle *plcm)
 	return 1;
 }
 
+/*-------------------DynFPS start-----------------------------*/
+int disp_lcm_is_dynfps_support(struct disp_lcm_handle *plcm)
+{
+	struct LCM_PARAMS *lcm_param = NULL;
+	unsigned int dfps_enable = 0;
+	unsigned int dfps_num = 0;
 
+	/*DISPFUNC();*/
+	if (_is_lcm_inited(plcm))
+		lcm_param = plcm->params;
+	else
+		return 0;
+
+	if (lcm_param->type != LCM_TYPE_DSI ||
+		lcm_param->dsi.mode == CMD_MODE) {
+		return 0;
+	}
+
+	dfps_enable = lcm_param->dsi.dfps_enable;
+	dfps_num = lcm_param->dsi.dfps_num;
+	if (dfps_enable == 0 ||
+		dfps_num < 2) {
+		return 0;
+	}
+	/*DynFPS:ToDo*/
+	DISPDBG("%s,lcm support arr\n", __func__);
+	return 1;
+}
+
+unsigned int disp_lcm_dynfps_get_def_fps(
+		struct disp_lcm_handle *plcm)
+{
+	struct LCM_PARAMS *lcm_param = NULL;
+
+	/*DISPFUNC();*/
+	if (_is_lcm_inited(plcm))
+		lcm_param = plcm->params;
+	else
+		return 0;
+
+	return lcm_param->dsi.dfps_default_fps;
+}
+
+#if 0
+unsigned int disp_lcm_get_cfg_fps(unsigned int config_id)(
+	struct disp_lcm_handle *plcm)
+{
+	/*ToDo*/
+	return 0;
+}
+#endif
+
+unsigned int disp_lcm_get_fps_change_index(
+	unsigned int from_fps, unsigned int to_fps)
+{
+	/*ToDo*/
+	unsigned int fps_change_index = DYNFPS_NOT_DEFINED;
+	/*ToDo,lut lcm info get index*/
+
+	return fps_change_index;
+}
+
+/*-------------------DynFPS end-----------------------------*/

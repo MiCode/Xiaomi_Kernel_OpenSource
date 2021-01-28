@@ -343,6 +343,9 @@ struct disp_frame_cfg_t {
 
 	/* for panel HBM (High Backlight Mode) control */
 	bool hbm_en;
+
+	/*DynFPS*/
+	int active_config;
 };
 
 struct disp_session_info {
@@ -503,6 +506,9 @@ struct disp_layer_info {
 	int res_idx;
 	unsigned int hrt_weight;
 	unsigned int hrt_idx;
+
+	/*DynFPS*/
+	int active_config_id;
 };
 
 enum DISP_SCENARIO {
@@ -537,6 +543,19 @@ struct dynamic_fps_levels {
 	unsigned int fps_levels[10];
 };
 
+/*DynFPS start*/
+#define MULTI_CONFIG_NUM 2
+struct dyn_config_info {
+	unsigned int vsyncFPS;
+	unsigned int width;
+	unsigned int height;
+};
+
+struct multi_configs {
+	unsigned int config_num;
+	struct dyn_config_info dyn_cfgs[MULTI_CONFIG_NUM];
+};
+/*DynFPS end*/
 
 /* IOCTL commands. */
 #define DISP_IOW(num, dtype)     _IOW('O', num, dtype)
