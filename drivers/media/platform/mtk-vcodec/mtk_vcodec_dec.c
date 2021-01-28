@@ -127,13 +127,17 @@ static struct vb2_buffer *get_display_buffer(struct mtk_vcodec_ctx *ctx,
 	unsigned int num_planes = 0;
 
 	mtk_v4l2_debug(4, "[%d]", ctx->id);
+
+	mutex_lock(&ctx->buf_lock);
 	if (vdec_if_get_param(ctx,
 						  GET_PARAM_DISP_FRAME_BUFFER,
 						  &disp_frame_buffer)) {
 		mtk_v4l2_err("[%d]Cannot get param : GET_PARAM_DISP_FRAME_BUFFER",
 					 ctx->id);
+		mutex_unlock(&ctx->buf_lock);
 		return NULL;
 	}
+	mutex_unlock(&ctx->buf_lock);
 
 	if (disp_frame_buffer == NULL) {
 		mtk_v4l2_debug(4, "No display frame buffer");
@@ -192,12 +196,16 @@ static struct vb2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 	struct mtk_video_dec_buf *dstbuf;
 	struct vdec_fb *free_frame_buffer = NULL;
 
+	mutex_lock(&ctx->buf_lock);
 	if (vdec_if_get_param(ctx,
 						  GET_PARAM_FREE_FRAME_BUFFER,
 						  &free_frame_buffer)) {
 		mtk_v4l2_err("[%d] Error!! Cannot get param", ctx->id);
+		mutex_unlock(&ctx->buf_lock);
 		return NULL;
 	}
+	mutex_unlock(&ctx->buf_lock);
+
 	if (free_frame_buffer == NULL) {
 		mtk_v4l2_debug(4, " No free frame buffer");
 		return NULL;
@@ -277,12 +285,15 @@ static struct vb2_buffer *get_free_bs_buffer(struct mtk_vcodec_ctx *ctx,
 	struct mtk_vcodec_mem *free_bs_buffer;
 	struct mtk_video_dec_buf *srcbuf;
 
+	mutex_lock(&ctx->buf_lock);
 	if (vdec_if_get_param(ctx, GET_PARAM_FREE_BITSTREAM_BUFFER,
 						  &free_bs_buffer) != 0) {
 		mtk_v4l2_err("[%d] Cannot get param : GET_PARAM_FREE_BITSTREAM_BUFFER",
 					 ctx->id);
+		mutex_unlock(&ctx->buf_lock);
 		return NULL;
 	}
+	mutex_unlock(&ctx->buf_lock);
 
 	if (free_bs_buffer == NULL) {
 		mtk_v4l2_debug(3, "No free bitstream buffer");
@@ -2157,6 +2168,10 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	frame_size[1] = ctx->dec_params.frame_size_height;
 
 	vdec_if_set_param(ctx, SET_PARAM_FRAME_SIZE, frame_size);
+
+	if (ctx->dec_param_change & MTK_DEC_PARAM_DECODE_MODE)
+		vdec_if_set_param(ctx, SET_PARAM_DECODE_MODE, &ctx->dec_params.decode_mode);
+
 	ret = vdec_if_decode(ctx, src_mem, NULL, &src_chg);
 	mtk_vdec_set_param(ctx);
 
