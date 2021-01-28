@@ -106,6 +106,7 @@ static void ftrace_events_enable(int enable)
 		trace_set_clr_event(NULL, "sched_switch", 1);
 		trace_set_clr_event(NULL, "sched_wakeup", 1);
 		trace_set_clr_event(NULL, "sched_wakeup_new", 1);
+		trace_set_clr_event(NULL, "sched_stat_iowait", 1);
 #ifdef CONFIG_SMP
 		trace_set_clr_event(NULL, "sched_migrate_task", 1);
 #endif
