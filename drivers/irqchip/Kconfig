@@ -321,3 +321,12 @@ config IRQ_UNIPHIER_AIDET
 	select IRQ_DOMAIN_HIERARCHY
 	help
 	  Support for the UniPhier AIDET (ARM Interrupt Detector).
+
+config MTK_SYSIRQ
+	bool
+	default y if ARCH_MEDIATEK
+	help
+	  GIC only support IRQ_TYPE_LEVEL_HIGH and IRQ_TYPE_EDGE_RISING,
+	  so this driver is designed for polarity configuration in order
+	  to make GIC driver support various trigger type including
+	  IRQ_TYPE_LEVEL_LOW and IRQ_TYPE_EDGE_FALLING.
