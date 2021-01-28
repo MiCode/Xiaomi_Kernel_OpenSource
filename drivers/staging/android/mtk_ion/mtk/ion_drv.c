@@ -66,12 +66,15 @@ EXPORT_SYMBOL(g_ion_device);
 #define dmac_flush_range __dma_flush_range
 #endif
 
+//workaround for 32bit kernel, waiting for cache implement
+#ifndef CONFIG_ARM64
 #define __clean_dcache_user_area(...)
 #define __clean_dcache_area_poc(...)
 #define __flush_dcache_user_area(...)
 #define __flush_dcache_area(...)
 #define __inval_dcache_user_area(...)
 #define __inval_dcache_area(...)
+#endif
 
 static void __ion_cache_mmp_start(enum ION_CACHE_SYNC_TYPE sync_type,
 				  unsigned int size, unsigned int start)
