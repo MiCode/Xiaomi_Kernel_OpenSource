@@ -1579,13 +1579,16 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 				mem_buff_data.iova |= 0x100000000UL;
 			ret = mtk_vcu_free_buffer(vcu_queue, &mem_buff_data);
 		} else {
-			cmdq_mbox_buf_free(
-				vcu_dev->clt_vdec[0]->chan->mbox->dev,
-				(void *)(unsigned long)mem_buff_data.va,
-				(dma_addr_t)mem_buff_data.pa);
+			ret = -1;
 			list_for_each_safe(p, q, &vcu_dev->pa_pages.list) {
 				tmp = list_entry(p, struct vcu_pa_pages, list);
 				if (tmp->pa == mem_buff_data.pa) {
+					ret = 0;
+					cmdq_mbox_buf_free(
+					  vcu_dev->clt_vdec[0]->chan->mbox->dev,
+					  (void *)(unsigned long)
+					  mem_buff_data.va,
+					  (dma_addr_t)mem_buff_data.pa);
 					list_del(p);
 					kfree(tmp);
 				}
@@ -1597,7 +1600,9 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			mem_buff_data.pa, mem_buff_data.iova);
 
 		if (ret != 0L) {
-			pr_info("[VCU] Dma free buf failed!\n");
+			pr_info("[VCU] VCU_FREE failed %d va %llx, pa %llx, iova %llx\n",
+				cmd == VCU_MVA_FREE, mem_buff_data.va,
+				mem_buff_data.pa, mem_buff_data.iova);
 			return -EINVAL;
 		}
 		mem_buff_data.va = 0;

@@ -2080,6 +2080,25 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 	return 0;
 }
 
+void mtk_vdec_check_queue_cnt(struct mtk_vcodec_ctx *ctx, struct vb2_queue *vq)
+{
+	int done_list_cnt = 0;
+	int rdy_q_cnt = 0;
+	struct vb2_buffer *vb;
+
+	list_for_each_entry(vb, &vq->done_list, queued_entry)
+		done_list_cnt++;
+	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		rdy_q_cnt = ctx->m2m_ctx->out_q_ctx.num_rdy;
+	else
+		rdy_q_cnt = ctx->m2m_ctx->cap_q_ctx.num_rdy;
+
+	mtk_v4l2_debug(0,
+		"[%d] type %d queued_cnt %d done_cnt %d rdy_q_cnt %d tatal %d",
+		ctx->id, vq->type, vq->queued_count,
+		done_list_cnt, rdy_q_cnt, vq->num_buffers);
+}
+
 /*
  * v4l2_m2m_streamoff() holds dev_mutex and waits mtk_venc_worker()
  * to call v4l2_m2m_job_finish().
@@ -2199,6 +2218,9 @@ static void mtk_venc_worker(struct work_struct *work)
 				}
 			} else if (!ctx->async_mode)
 				mtk_enc_put_buf(ctx);
+
+			mtk_vdec_check_queue_cnt(ctx, src_buf->vb2_queue);
+			mtk_vdec_check_queue_cnt(ctx, dst_buf->vb2_queue);
 
 			v4l2_m2m_buf_done(dst_vb2_v4l2,
 				VB2_BUF_STATE_DONE);
