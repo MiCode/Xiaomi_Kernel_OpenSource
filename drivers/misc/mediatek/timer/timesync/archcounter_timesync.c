@@ -95,6 +95,11 @@ void archcounter_timesync_init(uint8_t status)
 	}
 }
 
+u64 mtk_get_archcounter_time(u64 cyc)
+{
+	return arch_counter_to_ns(cyc);
+}
+
 uint64_t archcounter_timesync_to_monotonic(uint64_t hwclock)
 {
 	unsigned long flags = 0;
