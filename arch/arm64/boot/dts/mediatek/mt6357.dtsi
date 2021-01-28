@@ -249,7 +249,7 @@
 		};
 	};	/* End of buck_regulators */
 
-	pmic_clock_buffer_ctrl: pmic_clock_buffer_ctrl {
+	pmic_clock_buffer: pmic_clock_buffer {
 		compatible = "mediatek,mt6357-clkbuf";
 		mediatek,clkbuf-quantity = <7>;
 		mediatek,clkbuf-config = <2 0 0 0 0 0 0>;
