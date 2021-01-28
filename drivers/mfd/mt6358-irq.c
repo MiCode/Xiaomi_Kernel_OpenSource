@@ -210,10 +210,12 @@ static irqreturn_t mt6358_irq_handler(int irq, void *data)
 	unsigned int i = 0;
 	int ret = 0;
 
+	pm_stay_awake(chip->dev);
 	ret = regmap_read(chip->regmap,
 			  irqd->top_int_status_reg,
 			  &top_irq_status);
 	if (ret) {
+		pm_relax(chip->dev);
 		dev_err(chip->dev, "Can't read TOP_INT_STATUS ret=%d\n", ret);
 		return IRQ_NONE;
 	}
@@ -222,7 +224,7 @@ static irqreturn_t mt6358_irq_handler(int irq, void *data)
 		if (top_irq_status & BIT(irqd->pmic_ints[i].top_offset))
 			mt6358_irq_sp_handler(chip, i);
 	}
-
+	pm_relax(chip->dev);
 	return IRQ_HANDLED;
 }
 
