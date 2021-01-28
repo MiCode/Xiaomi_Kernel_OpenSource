@@ -1553,7 +1553,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			<&gce_mbox 2 0 CMDQ_THR_PRIO_5>,
 			<&gce_mbox 3 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox 4 0 CMDQ_THR_PRIO_4>,
-			<&gce_mbox 5 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox 5 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
 			<&gce_mbox 6 0 CMDQ_THR_PRIO_3>,
 			<&gce_mbox 7 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
