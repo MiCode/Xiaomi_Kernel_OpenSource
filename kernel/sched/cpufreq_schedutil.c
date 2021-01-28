@@ -344,6 +344,9 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	unsigned long util, max;
 	unsigned int next_f;
 	bool busy;
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+	int cid;
+#endif
 
 	sugov_set_iowait_boost(sg_cpu, time, flags);
 	sg_cpu->last_update = time;
@@ -359,6 +362,11 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 		sugov_get_util(&util, &max, sg_cpu->cpu);
 		sugov_iowait_boost(sg_cpu, &util, &max);
 		next_f = get_next_freq(sg_policy, util, max);
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+		next_f = clamp_val(next_f, policy->min, policy->max);
+		cid = arch_get_cluster_id(sg_policy->policy->cpu);
+		next_f = mt_cpufreq_find_close_freq(cid, next_f);
+#endif
 		/*
 		 * Do not reduce the frequency if the CPU has not been idle
 		 * recently, as the reduction is likely to be premature then.
