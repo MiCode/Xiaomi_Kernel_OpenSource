@@ -303,27 +303,20 @@ void show_atf_log_ctl(void)
 }
 
 static void show_data(unsigned long addr,
-	int nbytes, const char *name)
+	uint64_t nbytes, const char *name)
 {
-	int	i, j;
-	int	nlines;
-	u32	*p;
+	uint64_t i, j;
+	uint64_t nlines;
+	uint32_t *p = 0;
 
-	/*
-	 * don't attempt to dump non-kernel addresses or
-	 * values that are probably just small negative numbers
-	 */
-	if (addr < VA_START || addr > -256UL)
-		return;
-
-	pr_debug("\n%s: %#lx:\n", name, addr);
+	pr_notice("\n%s: %#lx:\n", name, addr);
 
 	/*
 	 * round address down to a 32 bit boundary
 	 * and always dump a multiple of 32 bytes
 	 */
-	p = (u32 *)(addr & ~(sizeof(u32) - 1));
-	nbytes += (addr & (sizeof(u32) - 1));
+	p = (uint32_t *)(addr & ~(sizeof(uint32_t) - 1));
+	nbytes += (uint64_t) (addr & (sizeof(uint32_t) - 1));
 	nlines = (nbytes + 31) / 32;
 
 	for (i = 0; i < nlines; i++) {
@@ -331,14 +324,14 @@ static void show_data(unsigned long addr,
 		 * just display low 16 bits of address to keep
 		 * each line of the dump < 80 characters
 		 */
-		pr_debug("%04lx ", (unsigned long)p & 0xffff);
+		pr_notice("%#lx ", ((uintptr_t)p) & 0xffff);
 		for (j = 0; j < 8; j++) {
 			u32	data;
 
-			if (probe_kernel_address(p, data))
-				pr_debug(" ********");
+			if (probe_kernel_address((void *)p, data))
+				pr_notice(" ********");
 			else
-				pr_debug(" %08x", data);
+				pr_notice(" %08x", data);
 			++p;
 		}
 		pr_debug("\n");
@@ -471,9 +464,9 @@ static int __init atf_logger_probe(struct platform_device *pdev)
 {
 	/* register module driver */
 	int err;
-	struct proc_dir_entry *atf_log_proc_dir;
-	struct proc_dir_entry *atf_log_proc_file;
-	struct proc_dir_entry *atf_raw_buf_proc_file;
+	struct proc_dir_entry *atf_log_proc_dir = NULL;
+	struct proc_dir_entry *atf_log_proc_file = NULL;
+	struct proc_dir_entry *atf_raw_buf_proc_file = NULL;
 	/* register module driver */
 	u64 time_to_sync;
 	struct arm_smccc_res res;
