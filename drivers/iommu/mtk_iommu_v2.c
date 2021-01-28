@@ -458,8 +458,6 @@ void mtk_iommu_atf_test(unsigned int m4u_id, unsigned int cmd)
 	if (m4u_id >= MTK_IOMMU_M4U_COUNT || !data)
 		return;
 
-	if (!data)
-		return;
 #ifdef IOMMU_POWER_CLK_SUPPORT
 	if (!data->poweron) {
 		pr_notice("%s: iommu:%d power off\n",
