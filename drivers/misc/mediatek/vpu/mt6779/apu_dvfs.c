@@ -1705,10 +1705,10 @@ static void get_pm_qos_info(char *p)
 	dvfs_get_timestamp(timestamp);
 	p += sprintf(p, "%-24s: 0x%x\n",
 			"PM_QOS_VVPU_OPP",
-			pm_qos_request(MTK_PM_QOS_VVPU_OPP));
+			mtk_pm_qos_request(MTK_PM_QOS_VVPU_OPP));
 	p += sprintf(p, "%-24s: 0x%x\n",
 			"PM_QOS_VMDLA_OPP",
-			pm_qos_request(MTK_PM_QOS_VMDLA_OPP));
+			mtk_pm_qos_request(MTK_PM_QOS_VMDLA_OPP));
 	p += sprintf(p, "%-24s: %s\n",
 			"Current Timestamp", timestamp);
 	p += sprintf(p, "%-24s: %s\n",
