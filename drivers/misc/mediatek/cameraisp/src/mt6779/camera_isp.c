@@ -10235,7 +10235,8 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 
 		}
 #if (Lafi_WAM_CQ_ERR == 1)
-		ISP_RecordCQAddr(reg_module);
+		if (!(ErrStatus & CQ_VS_ERR_ST))
+			ISP_RecordCQAddr(reg_module);
 #endif
 		/* update SOF time stamp for eis user */
 		/* (need match with the time stamp in image header) */
