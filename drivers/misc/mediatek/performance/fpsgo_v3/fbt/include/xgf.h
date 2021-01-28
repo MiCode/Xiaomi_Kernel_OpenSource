@@ -178,6 +178,7 @@ void *xgf_atomic_val_assign(int select);
 int xgf_atomic_read(atomic_t *val);
 int xgf_atomic_inc_return(atomic_t *val);
 void xgf_atomic_set(atomic_t *val, int i);
+unsigned int xgf_cpumask_next(int cpu,  const struct cpumask *srcp);
 int xgf_get_task_wake_cpu(struct task_struct *t);
 int xgf_get_task_pid(struct task_struct *t);
 long xgf_get_task_state(struct task_struct *t);
