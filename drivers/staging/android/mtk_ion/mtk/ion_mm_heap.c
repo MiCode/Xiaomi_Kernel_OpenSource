@@ -643,8 +643,11 @@ void ion_mm_heap_free(struct ion_buffer *buffer)
 	if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA ||
 	    heap->id == ION_HEAP_TYPE_MULTIMEDIA_PA2MVA) {
 		ion_mm_heap_free_buffer_info(buffer);
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		sg_free_table(table);
 		kfree(table);
+#endif
 		return;
 	}
 #endif
