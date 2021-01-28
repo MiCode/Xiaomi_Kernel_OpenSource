@@ -298,7 +298,6 @@ extern struct regmap *syscon_regmap_lookup_by_phandle(struct device_node *np,
 	const char *property);
 extern int regmap_write(struct regmap *map, unsigned int reg, unsigned int val);
 extern int regmap_read(struct regmap *map, unsigned int reg, unsigned int *val);
-extern void mt_irq_dump_status(int irq);
 extern void mt_irq_set_sens(unsigned int irq, unsigned int sens);
 extern void mt_irq_set_polarity(unsigned int irq, unsigned int polarity);
 /* used for throttling feature - start */

@@ -133,7 +133,7 @@ static void md_cd_ccif_delayed_work(struct ccci_modem *md)
 		/* stop CLDMA, we don't want to get CLDMA IRQ when MD is
 		 * resetting CLDMA after it got cleaq_ack
 		 */
-		cldma_stop(CLDMA_HIF_ID);
+		ccci_hif_stop(CLDMA_HIF_ID);
 		CCCI_NORMAL_LOG(md->index, TAG,
 			"%s: stop cldma done\n", __func__);
 		/*dump rxq after cldma stop to avoid race condition*/
@@ -141,11 +141,11 @@ static void md_cd_ccif_delayed_work(struct ccci_modem *md)
 			NULL, 1 << IN);
 		CCCI_NORMAL_LOG(md->index, TAG,
 			"%s: dump queue0-1 done\n", __func__);
-		if (md->hw_info->plat_ptr->cldma_hw_rst)
-			md->hw_info->plat_ptr->cldma_hw_rst(md->index);
+
+		ccci_hif_hw_reset(1 << CLDMA_HIF_ID, md->index);
 		CCCI_NORMAL_LOG(md->index, TAG,
 			"%s: hw reset done\n", __func__);
-		md_cd_clear_all_queue(CLDMA_HIF_ID, IN);
+		ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, IN);
 	}
 }
 
@@ -175,9 +175,9 @@ static void md_cd_exception(struct ccci_modem *md, enum HIF_EX_STAGE stage)
 			ccci_hif_dump_status(1 << CLDMA_HIF_ID,
 				DUMP_FLAG_CLDMA, NULL, -1);
 			/* disable CLDMA except un-stop queues */
-			cldma_stop_for_ee(CLDMA_HIF_ID);
+			ccci_hif_stop_for_ee(1 << CLDMA_HIF_ID);
 			/* purge Tx queue */
-			md_cd_clear_all_queue(CLDMA_HIF_ID, OUT);
+			ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, OUT);
 		}
 		ccci_hif_md_exception(md->hif_flag, stage);
 		/* Rx dispatch does NOT depend on queue index
@@ -199,7 +199,7 @@ static void md_cd_exception(struct ccci_modem *md, enum HIF_EX_STAGE stage)
 	case HIF_EX_ALLQ_RESET:
 		md->per_md_data.is_in_ee_dump = 1;
 		if (md->hif_flag & (1<<CLDMA_HIF_ID))
-			md_cd_ccif_allQreset_work(CLDMA_HIF_ID);
+			ccci_hif_all_q_reset(1 << CLDMA_HIF_ID);
 		ccci_hif_md_exception(md->hif_flag, stage);
 		break;
 	default:
@@ -317,22 +317,26 @@ static int ccci_md_hif_start(struct ccci_modem *md, int stage)
 		/*enable clk: cldma*/
 		if (md->hw_info->plat_ptr->set_clk_cg)
 			md->hw_info->plat_ptr->set_clk_cg(md, 1);
-		if (md->hif_flag & (1 << CLDMA_HIF_ID)) {
+
+		//ccci_hif_set_clk_cg(1 << CLDMA_HIF_ID, md->index, 1);
+
+		//if (md->hif_flag & (1 << CLDMA_HIF_ID)) {
 			/* 2. clearring buffer, just in case */
-			md_cd_clear_all_queue(CLDMA_HIF_ID, OUT);
-			md_cd_clear_all_queue(CLDMA_HIF_ID, IN);
-			if (md->hw_info->plat_ptr->cldma_hw_rst)
-				md->hw_info->plat_ptr->cldma_hw_rst(md->index);
-		}
+			//ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, OUT);
+			//ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, IN);
+			//if (md->hw_info->plat_ptr->cldma_hw_rst)
+			//	md->hw_info->plat_ptr->cldma_hw_rst(md->index);
+			//ccci_hif_hw_reset(1 << CLDMA_HIF_ID, md->index);
+		//}
 		break;
+
 	case 2:
 		if (md->hif_flag & (1 << CCIF_HIF_ID))
 			ccif_enable_irq(md);
-		if (md->hif_flag & (1 << CLDMA_HIF_ID)) {
+		//if (md->hif_flag & (1 << CLDMA_HIF_ID)) {
 			/* 8. start CLDMA */
-			cldma_reset(CLDMA_HIF_ID);
-			cldma_start(CLDMA_HIF_ID);
-		}
+			//ccci_hif_start(CLDMA_HIF_ID);
+		//}
 		break;
 	default:
 		break;
@@ -349,7 +353,7 @@ static int md_cd_start(struct ccci_modem *md)
 			md->hw_info->plat_ptr->remap_md_reg(md);
 		md_sys1_sw_init(md);
 
-		ccci_hif_late_init(md->index, md->hif_flag);
+		//ccci_hif_late_init(md->index, md->hif_flag);
 		/* init security, as security depends on dummy_char,
 		 * which is ready very late.
 		 */
@@ -602,8 +606,13 @@ static int md_cd_stop(struct ccci_modem *md, unsigned int stop_type)
 			stop_type == MD_FLIGHT_MODE_ENTER ? 100 : 0);
 	CCCI_NORMAL_LOG(md->index, TAG,
 		"modem is power off done, %d\n", ret);
-	if (md->hif_flag & (1<<CLDMA_HIF_ID))
-		md_cldma_clear(CLDMA_HIF_ID, md);
+
+	if (md->hif_flag & (1<<CLDMA_HIF_ID)) {
+		ccci_hif_clear(1 << CLDMA_HIF_ID);
+		ccci_hif_stop(CLDMA_HIF_ID);
+		ccci_hif_hw_reset(1 << CLDMA_HIF_ID, md->index);
+		ccci_hif_set_clk_cg(1 << CLDMA_HIF_ID, md->index, 0);
+	}
 	/* Check EMI after */
 	if (md->hw_info->plat_ptr->check_emi_state)
 		md->hw_info->plat_ptr->check_emi_state(md, 0);
@@ -1189,17 +1198,16 @@ static ssize_t md_cd_control_store(struct ccci_modem *md,
 				CCCI_NORMAL_LOG(md->index, TAG,
 					"reset CLDMA\n");
 				md->hw_info->plat_ptr->lock_cldma_clock_src(1);
-				cldma_stop(CLDMA_HIF_ID);
-				md_cd_clear_all_queue(CLDMA_HIF_ID, OUT);
-				md_cd_clear_all_queue(CLDMA_HIF_ID, IN);
-				cldma_reset(CLDMA_HIF_ID);
-				cldma_start(CLDMA_HIF_ID);
+				ccci_hif_stop(CLDMA_HIF_ID);
+				ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, OUT);
+				ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, IN);
+				ccci_hif_start(CLDMA_HIF_ID);
 				md->hw_info->plat_ptr->lock_cldma_clock_src(0);
 			}
 			if (strncmp(buf, "cldma_stop", count - 1) == 0) {
 				CCCI_NORMAL_LOG(md->index, TAG, "stop CLDMA\n");
 				md->hw_info->plat_ptr->lock_cldma_clock_src(1);
-				cldma_stop(CLDMA_HIF_ID);
+				ccci_hif_stop(CLDMA_HIF_ID);
 				md->hw_info->plat_ptr->lock_cldma_clock_src(0);
 			}
 		}
@@ -1420,8 +1428,14 @@ int ccci_modem_init_common(struct platform_device *plat_dev,
 		"mediatek,mdhif_type", &md->hif_flag);
 	if (ret != 0)
 		md->hif_flag = (1 << MD1_NET_HIF | 1 << MD1_NORMAL_HIF);
-	ccci_hif_init(md->index, md->hif_flag);
 
+	//ret = ccci_hif_init(md->index, md->hif_flag);
+	//if (ret < 0) {
+	//	CCCI_ERROR_LOG(md->index, TAG,
+	//		"[%s] error: ccci_hif_init() failed(%d)\n",
+	//		__func__, ret);
+	//	return ret;
+	//}
 	/* register SYS CORE suspend resume call back */
 	register_syscore_ops(&ccci_modem_sysops);
 

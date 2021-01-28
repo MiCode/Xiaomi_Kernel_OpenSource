@@ -47,13 +47,7 @@ static struct regulator *reg_vmodem, *reg_vsram;
 
 static struct ccci_clk_node clk_table[] = {
 	{ NULL,	"scp-sys-md1-main"},
-	{ NULL,	"infra-cldma-bclk"},
-	{ NULL,	"infra-ccif-ap"},
-	{ NULL,	"infra-ccif-md"},
-	{ NULL, "infra-ccif1-ap"},
-	{ NULL, "infra-ccif1-md"},
-	{ NULL, "infra-ccif2-ap"},
-	{ NULL, "infra-ccif2-md"},
+
 };
 #if defined(CONFIG_PINCTRL_ELBRUS)
 static struct pinctrl *mdcldma_pinctrl;
@@ -62,7 +56,7 @@ static struct pinctrl *mdcldma_pinctrl;
 //volatile unsigned int devapc_check_flag = 1;
 
 static void __iomem *md_sram_pd_psmcusys_base;
-static void __iomem *md_cldma_misc_base;
+
 
 #define TAG "mcd"
 
@@ -85,8 +79,6 @@ static int md_cd_soft_power_on(struct ccci_modem *md, unsigned int mode);
 static int md_cd_let_md_go(struct ccci_modem *md);
 static void md_cd_lock_cldma_clock_src(int locked);
 static void md_cd_lock_modem_clock_src(int locked);
-static void md_cldma_hw_reset(unsigned char md_id);
-static void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on);
 
 static int ccci_modem_remove(struct platform_device *dev);
 static void ccci_modem_shutdown(struct platform_device *dev);
@@ -101,8 +93,8 @@ static int md_cd_vcore_config(unsigned int md_id, unsigned int hold_req);
 
 struct ccci_plat_ops md_cd_plat_ptr = {
 	.init = &ccci_platform_init_6765,
-	.cldma_hw_rst = &md_cldma_hw_reset,
-	.set_clk_cg = &ccci_set_clk_cg,
+	//.cldma_hw_rst = &md_cldma_hw_reset,
+	//.set_clk_cg = &ccci_set_clk_cg,
 	.remap_md_reg = &md_cd_io_remap_md_side_register,
 	.lock_cldma_clock_src = &md_cd_lock_cldma_clock_src,
 	.lock_modem_clock_src = &md_cd_lock_modem_clock_src,
@@ -121,63 +113,12 @@ struct ccci_plat_ops md_cd_plat_ptr = {
 
 
 
-static void md_cldma_hw_reset(unsigned char md_id)
-{
-	unsigned int reg_value;
-	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
-
-
-	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst cldma\n", __func__);
-	/* reset cldma hw: AO Domain */
-	reg_value = ccci_read32(md->hw_info->plat_val->infra_ao_base,
-		INFRA_RST0_REG_AO);
-	reg_value &= ~(CLDMA_AO_RST_MASK); /* the bits in reg is WO, */
-	reg_value |= (CLDMA_AO_RST_MASK);/* so only this bit effective */
-	ccci_write32(md->hw_info->plat_val->infra_ao_base,
-		INFRA_RST0_REG_AO, reg_value);
-	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
-	/* reset cldma clr */
-	reg_value = ccci_read32(md->hw_info->plat_val->infra_ao_base,
-		INFRA_RST1_REG_AO);
-	reg_value &= ~(CLDMA_AO_RST_MASK);/* read no use, maybe a time delay */
-	reg_value |= (CLDMA_AO_RST_MASK);
-	ccci_write32(md->hw_info->plat_val->infra_ao_base,
-		INFRA_RST1_REG_AO, reg_value);
-	CCCI_BOOTUP_LOG(md_id, TAG, "%s:done\n", __func__);
-
-	/* reset cldma hw: PD Domain */
-	reg_value = ccci_read32(md->hw_info->plat_val->infra_ao_base,
-		INFRA_RST0_REG_PD);
-	reg_value &= ~(CLDMA_PD_RST_MASK);
-	reg_value |= (CLDMA_PD_RST_MASK);
-	ccci_write32(md->hw_info->plat_val->infra_ao_base,
-		INFRA_RST0_REG_PD, reg_value);
-	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
-	/* reset cldma clr */
-	reg_value = ccci_read32(md->hw_info->plat_val->infra_ao_base,
-		INFRA_RST1_REG_PD);
-	reg_value &= ~(CLDMA_PD_RST_MASK);
-	reg_value |= (CLDMA_PD_RST_MASK);
-	ccci_write32(md->hw_info->plat_val->infra_ao_base,
-		INFRA_RST1_REG_PD, reg_value);
-	CCCI_DEBUG_LOG(md_id, TAG, "%s:done\n", __func__);
-
-	/* set cldma wakeup source mask */
-	reg_value = ccci_read32(md->hw_info->plat_val->infra_ao_base,
-		INFRA_CLDMA_CTRL_REG);
-	reg_value |= (CLDMA_IP_BUSY_MASK);
-	ccci_write32(md->hw_info->plat_val->infra_ao_base,
-		INFRA_CLDMA_CTRL_REG, reg_value);
-	CCCI_DEBUG_LOG(md_id, TAG, "set cldma ctrl reg as:0x%x\n", reg_value);
-}
-
 int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	struct ccci_dev_cfg *dev_cfg, struct md_hw_info *hw_info)
 {
 	struct device_node *node = NULL;
 	struct device_node *node_infrao = NULL;
 	int idx = 0;
-	struct cldma_hw_info *cldma_hw;
 
 	if (dev_ptr->dev.of_node == NULL) {
 		CCCI_ERROR_LOG(0, TAG, "modem OF node NULL\n");
@@ -195,16 +136,7 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		return -1;
 	}
 
-	cldma_hw = kzalloc(sizeof(struct cldma_hw_info), GFP_KERNEL);
-	if (cldma_hw == NULL) {
-		CCCI_ERROR_LOG(-1, TAG,
-			"%s:alloc cldma hw mem fail\n",
-			__func__);
-		return -1;
-	}
-
 	memset(hw_info, 0, sizeof(struct md_hw_info));
-	hw_info->hif_hw_info = cldma_hw;
 
 	switch (dev_cfg->index) {
 	case 0:		/* MD_SYS1 */
@@ -213,23 +145,15 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		of_property_read_u32(dev_ptr->dev.of_node,
 			"mediatek,cldma_capability", &dev_cfg->capability);
 
-		cldma_hw->cldma_ap_ao_base =
-			(unsigned long)of_iomap(dev_ptr->dev.of_node, 0);
-		cldma_hw->cldma_ap_pdn_base =
-		 (unsigned long)of_iomap(dev_ptr->dev.of_node, 1);
 		hw_info->ap_ccif_base =
 		 (unsigned long)of_iomap(dev_ptr->dev.of_node, 2);
 		hw_info->md_ccif_base =
 		 (unsigned long)of_iomap(dev_ptr->dev.of_node, 3);
-		if (!(cldma_hw->cldma_ap_ao_base &&
-			cldma_hw->cldma_ap_pdn_base &&
-			hw_info->ap_ccif_base && hw_info->md_ccif_base)) {
+		if (!(hw_info->ap_ccif_base && hw_info->md_ccif_base)) {
 			CCCI_ERROR_LOG(-1, TAG, "%s: hw_info of_iomap failed\n",
 				       dev_ptr->dev.of_node->full_name);
 			return -1;
 		}
-		cldma_hw->cldma_irq_id =
-		 irq_of_parse_and_map(dev_ptr->dev.of_node, 0);
 		hw_info->ap_ccif_irq0_id =
 		 irq_of_parse_and_map(dev_ptr->dev.of_node, 1);
 		hw_info->ap_ccif_irq1_id =
@@ -242,24 +166,10 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		CCCI_BOOTUP_LOG(dev_cfg->index, TAG,
 		 "pccif:%x\n", MD_PCORE_PCCIF_BASE);
 
-		node = of_find_compatible_node(NULL, NULL,
-				"mediatek,mdcldmamisc");
-		if (node) {
-			md_cldma_misc_base = of_iomap(node, 0);
-			if (!md_cldma_misc_base) {
-				CCCI_ERROR_LOG(-1, TAG,
-				"%s: md_cldma_misc_base of_iomap failed\n",
-				       node->full_name);
-				return -1;
-			}
-		} else
-			CCCI_BOOTUP_LOG(dev_cfg->index, TAG,
-			 "warning: no md cldma misc in dts\n");
 
 		/* Device tree using none flag to register irq,
 		 * sensitivity has set at "irq_of_parse_and_map"
 		 */
-		cldma_hw->cldma_irq_flags = IRQF_TRIGGER_NONE;
 		hw_info->ap_ccif_irq0_flags = IRQF_TRIGGER_NONE;
 		hw_info->ap_ccif_irq1_flags = IRQF_TRIGGER_NONE;
 		hw_info->md_wdt_irq_flags = IRQF_TRIGGER_NONE;
@@ -328,14 +238,6 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		return -1;
 	}
 
-	if (cldma_hw->cldma_ap_ao_base == 0 ||
-		cldma_hw->cldma_ap_pdn_base == 0) {
-		CCCI_ERROR_LOG(dev_cfg->index, TAG,
-			"ap_cldma: ao_base=0x%p, pdn_base=0x%p\n",
-			(void *)cldma_hw->cldma_ap_ao_base,
-			(void *)cldma_hw->cldma_ap_pdn_base);
-		return -1;
-	}
 	if (hw_info->ap_ccif_base == 0 ||
 		hw_info->md_ccif_base == 0) {
 		CCCI_ERROR_LOG(dev_cfg->index, TAG,
@@ -344,13 +246,12 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 			(void *)hw_info->md_ccif_base);
 		return -1;
 	}
-	if (cldma_hw->cldma_irq_id == 0 ||
-		hw_info->ap_ccif_irq0_id == 0 ||
+	if (hw_info->ap_ccif_irq0_id == 0 ||
 		hw_info->ap_ccif_irq1_id == 0 ||
 		hw_info->md_wdt_irq_id == 0) {
 		CCCI_ERROR_LOG(dev_cfg->index, TAG,
-			"cldma_irq:%d,ccif_irq0:%d,ccif_irq0:%d,md_wdt_irq:%d\n",
-			cldma_hw->cldma_irq_id, hw_info->ap_ccif_irq0_id,
+			"ccif_irq0:%d,ccif_irq0:%d,md_wdt_irq:%d\n",
+			hw_info->ap_ccif_irq0_id,
 			hw_info->ap_ccif_irq1_id, hw_info->md_wdt_irq_id);
 		return -1;
 	}
@@ -358,45 +259,18 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	CCCI_DEBUG_LOG(dev_cfg->index, TAG,
 		"dev_major:%d,minor_base:%d,capability:%d\n",
 		dev_cfg->major, dev_cfg->minor_base, dev_cfg->capability);
-	CCCI_DEBUG_LOG(dev_cfg->index, TAG,
-		     "ap_cldma: ao_base=0x%p, pdn_base=0x%p\n",
-		(void *)cldma_hw->cldma_ap_ao_base,
-		(void *)cldma_hw->cldma_ap_pdn_base);
 
 	CCCI_DEBUG_LOG(dev_cfg->index, TAG,
 		"ap_ccif_base:0x%p, md_ccif_base:0x%p\n",
 					(void *)hw_info->ap_ccif_base,
 					(void *)hw_info->md_ccif_base);
+
 	CCCI_DEBUG_LOG(dev_cfg->index, TAG,
-		"cldma_irq:%d,ccif_irq0:%d,ccif_irq1:%d,md_wdt_irq:%d\n",
-		cldma_hw->cldma_irq_id, hw_info->ap_ccif_irq0_id,
+		"ccif_irq0:%d,ccif_irq1:%d,md_wdt_irq:%d\n",
+		hw_info->ap_ccif_irq0_id,
 		hw_info->ap_ccif_irq1_id, hw_info->md_wdt_irq_id);
 
 	return 0;
-}
-
-/* md1 sys_clk_cg no need set in this API*/
-static void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
-{
-	int idx = 0;
-	int ret = 0;
-
-	CCCI_NORMAL_LOG(md->index, TAG, "%s: on=%d\n", __func__, on);
-	for (idx = 1; idx < ARRAY_SIZE(clk_table); idx++) {
-		if (clk_table[idx].clk_ref == NULL)
-			continue;
-		if (on) {
-			ret = clk_prepare_enable(clk_table[idx].clk_ref);
-			if (ret)
-				CCCI_ERROR_LOG(md->index, TAG,
-					"%s: on=%d,ret=%d\n",
-					__func__, on, ret);
-			devapc_check_flag = 1;
-		} else {
-			devapc_check_flag = 0;
-			clk_disable_unprepare(clk_table[idx].clk_ref);
-		}
-	}
 }
 
 static int md_cd_io_remap_md_side_register(struct ccci_modem *md)
@@ -1308,188 +1182,13 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 	return ret;
 }
 
-void cldma_dump_register(struct md_cd_ctrl *md_ctrl)
-{
-	if (md_cldma_misc_base)
-		CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-			"MD CLDMA IP busy = %x\n",
-			ccci_read32(md_cldma_misc_base, 0));
-
-	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"dump AP CLDMA Tx pdn register, active=%x\n",
-		md_ctrl->txq_active);
-	ccci_util_mem_dump(md_ctrl->md_id, CCCI_DUMP_MEM_DUMP,
-		md_ctrl->cldma_ap_pdn_base + CLDMA_AP_UL_START_ADDR_0,
-		CLDMA_AP_UL_DEBUG_3 - CLDMA_AP_UL_START_ADDR_0 + 4);
-	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"dump AP CLDMA Tx ao register, active=%x\n",
-		md_ctrl->txq_active);
-	ccci_util_mem_dump(md_ctrl->md_id, CCCI_DUMP_MEM_DUMP,
-		md_ctrl->cldma_ap_ao_base + CLDMA_AP_UL_START_ADDR_BK_0,
-		CLDMA_AP_UL_CURRENT_ADDR_BK_4MSB -
-		CLDMA_AP_UL_START_ADDR_BK_0 + 4);
-
-	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"dump AP CLDMA Rx pdn register, active=%x\n",
-		md_ctrl->rxq_active);
-	ccci_util_mem_dump(md_ctrl->md_id, CCCI_DUMP_MEM_DUMP,
-		md_ctrl->cldma_ap_pdn_base + CLDMA_AP_SO_ERROR,
-		CLDMA_AP_DL_DEBUG_3 - CLDMA_AP_SO_ERROR + 4);
-	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"dump AP CLDMA Rx ao register, active=%x\n",
-		md_ctrl->rxq_active);
-	ccci_util_mem_dump(md_ctrl->md_id, CCCI_DUMP_MEM_DUMP,
-		md_ctrl->cldma_ap_ao_base + CLDMA_AP_SO_CFG,
-		CLDMA_AP_DL_MTU_SIZE - CLDMA_AP_SO_CFG + 4);
-
-	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"dump AP CLDMA MISC pdn register\n");
-	ccci_util_mem_dump(md_ctrl->md_id, CCCI_DUMP_MEM_DUMP,
-		md_ctrl->cldma_ap_pdn_base + CLDMA_AP_L2TISAR0,
-		CLDMA_AP_DEBUG0 - CLDMA_AP_L2TISAR0 + 4);
-	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"dump AP CLDMA MISC ao register\n");
-	ccci_util_mem_dump(md_ctrl->md_id, CCCI_DUMP_MEM_DUMP,
-		md_ctrl->cldma_ap_ao_base + CLDMA_AP_L2RIMR0,
-		CLDMA_AP_L2RIMSR0 - CLDMA_AP_L2RIMR0 + 4);
-}
-
-void ccci_cldma_restore_reg(struct ccci_modem *md)
-{
-	struct md_cd_ctrl *md_ctrl =
-	 (struct md_cd_ctrl *)ccci_hif_get_by_id(CLDMA_HIF_ID);
-	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
-	enum MD_STATE md_state = ccci_fsm_get_md_state(md->index);
-	int i;
-	unsigned long flags;
-	unsigned int val = 0;
-	dma_addr_t bk_addr = 0;
-
-	if (md_state == GATED ||
-			md_state == WAITING_TO_STOP ||
-			md_state == INVALID) {
-		CCCI_NORMAL_LOG(md->index, TAG,
-			"Resume no need reset cldma for md_state=%d\n"
-			, md_state);
-		return;
-	}
-	cldma_write32(md_info->ap_ccif_base,
-		APCCIF_CON, 0x01);	/* arbitration */
-
-	if (cldma_read32(md_ctrl->cldma_ap_pdn_base, CLDMA_AP_TQSAR(0))
-		|| cldma_reg_get_4msb_val(md_ctrl->cldma_ap_ao_base,
-		CLDMA_AP_UL_START_ADDR_4MSB, md_ctrl->txq[0].index)) {
-		CCCI_NORMAL_LOG(md->index, TAG,
-			"Resume cldma pdn register: No need  ...\n");
-		spin_lock_irqsave(&md_ctrl->cldma_timeout_lock, flags);
-		if (!(cldma_read32(md_ctrl->cldma_ap_ao_base,
-			CLDMA_AP_SO_STATUS))) {
-			cldma_write32(md_ctrl->cldma_ap_pdn_base,
-				CLDMA_AP_SO_RESUME_CMD,
-				CLDMA_BM_ALL_QUEUE & 0x1);
-			cldma_read32(md_ctrl->cldma_ap_pdn_base,
-				CLDMA_AP_SO_RESUME_CMD); /* dummy read */
-		} else
-			CCCI_NORMAL_LOG(md->index, TAG,
-				"Resume cldma ao register: No need  ...\n");
-		spin_unlock_irqrestore(&md_ctrl->cldma_timeout_lock, flags);
-	} else {
-		CCCI_NORMAL_LOG(md->index, TAG,
-			"Resume cldma pdn register ...11\n");
-		spin_lock_irqsave(&md_ctrl->cldma_timeout_lock, flags);
-#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
-		/* re-config 8G mode flag for pd register*/
-		cldma_write32(md_ctrl->cldma_ap_pdn_base, CLDMA_AP_UL_CFG,
-		cldma_read32(md_ctrl->cldma_ap_pdn_base,
-			CLDMA_AP_UL_CFG) | 0x40);
-#endif
-		cldma_write32(md_ctrl->cldma_ap_pdn_base,
-			CLDMA_AP_SO_RESUME_CMD, CLDMA_BM_ALL_QUEUE & 0x1);
-		cldma_read32(md_ctrl->cldma_ap_pdn_base,
-			CLDMA_AP_SO_RESUME_CMD); /* dummy read */
-
-		/* set start address */
-		for (i = 0; i < QUEUE_LEN(md_ctrl->txq); i++) {
-			if (cldma_read32(md_ctrl->cldma_ap_ao_base,
-				CLDMA_AP_TQCPBAK(md_ctrl->txq[i].index)) == 0
-				&& cldma_reg_get_4msb_val(
-					md_ctrl->cldma_ap_ao_base,
-					CLDMA_AP_UL_CURRENT_ADDR_BK_4MSB,
-					md_ctrl->txq[i].index) == 0) {
-				if (i != 7) /* Queue 7 not used currently */
-					CCCI_DEBUG_LOG(md->index, TAG,
-					"Resume CH(%d) current bak:== 0\n", i);
-				cldma_reg_set_tx_start_addr(
-					md_ctrl->cldma_ap_pdn_base,
-					md_ctrl->txq[i].index,
-					md_ctrl->txq[i].tr_done->gpd_addr);
-				cldma_reg_set_tx_start_addr_bk(
-					md_ctrl->cldma_ap_ao_base,
-					md_ctrl->txq[i].index,
-					md_ctrl->txq[i].tr_done->gpd_addr);
-			} else {
-#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
-				val = cldma_reg_get_4msb_val(
-					md_ctrl->cldma_ap_ao_base,
-					 CLDMA_AP_UL_CURRENT_ADDR_BK_4MSB,
-					 md_ctrl->txq[i].index);
-				/*set high bits*/
-				bk_addr = val;
-				bk_addr <<= 32;
-#else
-				bk_addr = 0;
-#endif
-				/*set low bits*/
-				val = cldma_read32(md_ctrl->cldma_ap_ao_base,
-				 CLDMA_AP_TQCPBAK(md_ctrl->txq[i].index));
-				bk_addr |= val;
-				cldma_reg_set_tx_start_addr(
-					md_ctrl->cldma_ap_pdn_base,
-					md_ctrl->txq[i].index, bk_addr);
-				cldma_reg_set_tx_start_addr_bk(
-					md_ctrl->cldma_ap_ao_base,
-					md_ctrl->txq[i].index, bk_addr);
-			}
-		}
-		/* wait write done*/
-		wmb();
-		/* start all Tx and Rx queues */
-		md_ctrl->txq_started = 0;
-		md_ctrl->txq_active |= CLDMA_BM_ALL_QUEUE;
-		/* cldma_write32(md_ctrl->cldma_ap_pdn_base,
-		 * CLDMA_AP_SO_START_CMD, CLDMA_BM_ALL_QUEUE);
-		 */
-		/* cldma_read32(md_ctrl->cldma_ap_pdn_base,
-		 * CLDMA_AP_SO_START_CMD); // dummy read
-		 */
-		/* md_ctrl->rxq_active |= CLDMA_BM_ALL_QUEUE; */
-		/* enable L2 DONE and ERROR interrupts */
-		ccci_write32(md_ctrl->cldma_ap_pdn_base, CLDMA_AP_L2TIMCR0,
-			CLDMA_TX_INT_DONE |
-			CLDMA_TX_INT_QUEUE_EMPTY |
-			CLDMA_TX_INT_ERROR);
-		/* enable all L3 interrupts */
-		cldma_write32(md_ctrl->cldma_ap_pdn_base,
-			CLDMA_AP_L3TIMCR0, CLDMA_BM_INT_ALL);
-		cldma_write32(md_ctrl->cldma_ap_pdn_base,
-			CLDMA_AP_L3TIMCR1, CLDMA_BM_INT_ALL);
-		cldma_write32(md_ctrl->cldma_ap_pdn_base,
-			CLDMA_AP_L3RIMCR0, CLDMA_BM_INT_ALL);
-		cldma_write32(md_ctrl->cldma_ap_pdn_base,
-			CLDMA_AP_L3RIMCR1, CLDMA_BM_INT_ALL);
-		spin_unlock_irqrestore(&md_ctrl->cldma_timeout_lock, flags);
-		CCCI_NORMAL_LOG(md->index, TAG,
-			"Resume cldma pdn register done\n");
-	}
-}
-
 void ccci_modem_plt_resume(struct ccci_modem *md)
 {
 	CCCI_NORMAL_LOG(0, TAG, "[%s] md->hif_flag = %d\n",
 			__func__, md->hif_flag);
 
-	if (md->hif_flag & (1 << CLDMA_HIF_ID))
-		ccci_cldma_restore_reg(md);
+	//if (md->hif_flag & (1 << CLDMA_HIF_ID))
+	//	ccci_cldma_restore_reg(md);
 }
 
 int ccci_modem_plt_suspend(struct ccci_modem *md)
@@ -1592,9 +1291,6 @@ static int ccci_modem_probe(struct platform_device *plat_dev)
 		kfree(md_hw);
 		md_hw = NULL;
 	}
-
-	CCCI_ERROR_LOG(-1, TAG,
-		"%s: end: %d\n", __func__, ret);
 
 	return ret;
 }

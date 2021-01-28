@@ -209,18 +209,13 @@ struct md_hw_info {
 	unsigned long ap_ccif_irq1_flags;
 	unsigned long md_wdt_irq_flags;
 	unsigned long ap2md_bus_timeout_irq_flags;
-	void *hif_hw_info;
+
 	/*HW info - plat*/
 	struct ccci_plat_ops *plat_ptr;
 	struct ccci_plat_val *plat_val;
+	unsigned int md_gen;
 };
 
-struct cldma_hw_info {
-	unsigned long cldma_ap_ao_base;
-	unsigned long cldma_ap_pdn_base;
-	unsigned int cldma_irq_id;
-	unsigned long cldma_irq_flags;
-};
 
 //int ccci_modem_remove(struct platform_device *dev);
 //void ccci_modem_shutdown(struct platform_device *dev);

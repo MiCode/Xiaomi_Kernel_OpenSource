@@ -27,6 +27,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/clk.h> /* for clk_prepare/un* */
+#include <linux/syscore_ops.h>
 
 #include "ccci_core.h"
 #include "ccci_modem.h"
@@ -2050,6 +2051,32 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 
 }
 
+static int ccci_ccif_syssuspend(void)
+{
+
+	return 0;
+}
+
+static void ccci_ccif_sysresume(void)
+{
+	struct ccci_modem *md;
+	struct md_sys1_info *md_info;
+
+	md = ccci_md_get_modem_by_id(0);
+	if (md) {
+		md_info = (struct md_sys1_info *)md->private_data;
+		ccif_write32(md_info->ap_ccif_base, APCCIF_CON, 0x01);
+
+	} else
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error: get modem1 failed.");
+}
+
+static struct syscore_ops ccci_ccif_sysops = {
+	.suspend = ccci_ccif_syssuspend,
+	.resume = ccci_ccif_sysresume,
+};
+
 int ccci_ccif_hif_init(struct platform_device *pdev,
 	unsigned char hif_id, unsigned char md_id)
 {
@@ -2104,6 +2131,9 @@ int ccci_ccif_hif_init(struct platform_device *pdev,
 	}
 
 	ccci_hif_register(md_ctrl->hif_id, (void *)md_ctrl, &ccci_hif_ccif_ops);
+
+	/* register SYS CORE suspend resume call back */
+	register_syscore_ops(&ccci_ccif_sysops);
 
 	return 0;
 }

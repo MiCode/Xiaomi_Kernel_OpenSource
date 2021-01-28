@@ -71,13 +71,6 @@ struct md_hw_info {
 	struct ccci_plat_val *plat_val;
 };
 
-struct cldma_hw_info {
-	unsigned long cldma_ap_ao_base;
-	unsigned long cldma_ap_pdn_base;
-	unsigned int cldma_irq_id;
-	unsigned long cldma_irq_flags;
-};
-
 
 int md_cd_low_power_notify(struct ccci_modem *md,
 	enum LOW_POEWR_NOTIFY_TYPE type, int level);

@@ -27,6 +27,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 # hif objects
 obj-$(CONFIG_MTK_ECCCI_DRIVER) := ccci_hif_all.o
 ccci_hif_all-y := ccci_hif.o \
+		ccci_cldma_plat.o \
 		ccci_hif_cldma.o \
 		ccci_hif_dpmaif.o dpmaif_drv.o ccci_debug_info.o
 

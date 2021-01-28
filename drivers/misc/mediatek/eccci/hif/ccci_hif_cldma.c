@@ -31,6 +31,7 @@
 #if defined(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
+#include <linux/clk.h>
 
 #include "ccci_config.h"
 #include "ccci_common_config.h"
@@ -43,6 +44,7 @@
 #include "modem_reg_base.h"
 #include "ccci_fsm.h"
 #include "ccci_port.h"
+#include "ccci_cldma_plat.h"
 
 #if defined(CLDMA_TRACE) || defined(CCCI_SKB_TRACE)
 #define CREATE_TRACE_POINTS
@@ -89,6 +91,61 @@ static int normal_tx_ring2queue[NORMAL_TXQ_NUM];
 #define NET_TX_FIRST_QUE	0
 
 #define TAG "cldma"
+
+struct md_cd_ctrl *cldma_ctrl;
+
+static void __iomem *md_cldma_misc_base;
+
+struct ccci_clk_node cldma_clk_table[CLDMA_CLOCK_COUNT] = {
+	{ NULL,	"infra-cldma-bclk"},
+
+};
+
+static void cldma_dump_register(struct md_cd_ctrl *md_ctrl)
+{
+	if (md_cldma_misc_base)
+		CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+			"MD CLDMA IP busy = %x\n",
+			ccci_read32(md_cldma_misc_base, 0));
+
+	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"dump AP CLDMA Tx pdn register, active=%x\n",
+		md_ctrl->txq_active);
+	ccci_util_mem_dump(md_ctrl->md_id, CCCI_DUMP_MEM_DUMP,
+		md_ctrl->cldma_ap_pdn_base + CLDMA_AP_UL_START_ADDR_0,
+		CLDMA_AP_UL_DEBUG_3 - CLDMA_AP_UL_START_ADDR_0 + 4);
+	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"dump AP CLDMA Tx ao register, active=%x\n",
+		md_ctrl->txq_active);
+	ccci_util_mem_dump(md_ctrl->md_id, CCCI_DUMP_MEM_DUMP,
+		md_ctrl->cldma_ap_ao_base + CLDMA_AP_UL_START_ADDR_BK_0,
+		CLDMA_AP_UL_CURRENT_ADDR_BK_4MSB -
+		CLDMA_AP_UL_START_ADDR_BK_0 + 4);
+
+	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"dump AP CLDMA Rx pdn register, active=%x\n",
+		md_ctrl->rxq_active);
+	ccci_util_mem_dump(md_ctrl->md_id, CCCI_DUMP_MEM_DUMP,
+		md_ctrl->cldma_ap_pdn_base + CLDMA_AP_SO_ERROR,
+		CLDMA_AP_DL_DEBUG_3 - CLDMA_AP_SO_ERROR + 4);
+	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"dump AP CLDMA Rx ao register, active=%x\n",
+		md_ctrl->rxq_active);
+	ccci_util_mem_dump(md_ctrl->md_id, CCCI_DUMP_MEM_DUMP,
+		md_ctrl->cldma_ap_ao_base + CLDMA_AP_SO_CFG,
+		CLDMA_AP_DL_MTU_SIZE - CLDMA_AP_SO_CFG + 4);
+
+	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"dump AP CLDMA MISC pdn register\n");
+	ccci_util_mem_dump(md_ctrl->md_id, CCCI_DUMP_MEM_DUMP,
+		md_ctrl->cldma_ap_pdn_base + CLDMA_AP_L2TISAR0,
+		CLDMA_AP_DEBUG0 - CLDMA_AP_L2TISAR0 + 4);
+	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"dump AP CLDMA MISC ao register\n");
+	ccci_util_mem_dump(md_ctrl->md_id, CCCI_DUMP_MEM_DUMP,
+		md_ctrl->cldma_ap_ao_base + CLDMA_AP_L2RIMR0,
+		CLDMA_AP_L2RIMSR0 - CLDMA_AP_L2RIMR0 + 4);
+}
 
 /*for mt6763 ao_misc_cfg RW type set/clear register issue*/
 static inline void cldma_write32_ao_misc(struct md_cd_ctrl *md_ctrl,
@@ -322,10 +379,6 @@ static void cldma_dump_all_tx_gpd(struct md_cd_ctrl *md_ctrl)
 		cldma_dump_gpd_queue(md_ctrl, i, 1 << OUT);
 }
 
-void __weak cldma_dump_register(struct md_cd_ctrl *md_ctrl)
-{
-}
-
 static void cldma_dump_packet_history(struct md_cd_ctrl *md_ctrl)
 {
 	int i;
@@ -373,8 +426,7 @@ static void cldma_dump_queue_history(struct md_cd_ctrl *md_ctrl,
 static int md_cldma_hif_dump_status(unsigned char hif_id,
 	enum MODEM_DUMP_FLAG flag, void *buff, int length)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 	int i, q_bitmap = 0;
 	unsigned int dir = 1 << OUT | 1 << IN;
 
@@ -601,8 +653,7 @@ static inline void ccci_md_check_rx_seq_num(unsigned char md_id,
 static int cldma_gpd_rx_collect(struct md_cd_queue *queue,
 	int budget, int blocking)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(queue->hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 
 	struct cldma_request *req;
 	struct cldma_rgpd *rgpd;
@@ -930,8 +981,7 @@ static int cldma_net_rx_push_thread(void *arg)
 {
 	struct sk_buff *skb = NULL;
 	struct md_cd_queue *queue = (struct md_cd_queue *)arg;
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(queue->hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 #ifdef CCCI_SKB_TRACE
 	struct ccci_per_md *per_md_data =
 		ccci_get_per_md_data(md_ctrl->md_id);
@@ -977,8 +1027,7 @@ static void cldma_rx_done(struct work_struct *work)
 	struct md_cd_queue *queue =
 		container_of(work, struct md_cd_queue, cldma_rx_work);
 
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(queue->hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 	int ret;
 
 	md_ctrl->traffic_info.latest_q_rx_time[queue->index]
@@ -996,8 +1045,7 @@ static void cldma_rx_done(struct work_struct *work)
 static int cldma_gpd_bd_tx_collect(struct md_cd_queue *queue,
 	int budget, int blocking)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(queue->hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 	unsigned long flags;
 	struct cldma_request *req;
 	struct cldma_request *req_bd;
@@ -1138,8 +1186,7 @@ static int cldma_gpd_bd_tx_collect(struct md_cd_queue *queue,
 static int cldma_gpd_tx_collect(struct md_cd_queue *queue,
 	int budget, int blocking)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(queue->hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 	unsigned long flags;
 	struct cldma_request *req;
 	struct cldma_tgpd *tgpd;
@@ -1243,8 +1290,7 @@ static int cldma_gpd_tx_collect(struct md_cd_queue *queue,
 
 static void cldma_tx_queue_empty_handler(struct md_cd_queue *queue)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(queue->hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 	unsigned long flags;
 	struct cldma_request *req;
 	struct cldma_tgpd *tgpd;
@@ -1298,8 +1344,7 @@ static void cldma_tx_done(struct work_struct *work)
 	struct delayed_work *dwork = to_delayed_work(work);
 	struct md_cd_queue *queue =
 		container_of(dwork, struct md_cd_queue, cldma_tx_work);
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(queue->hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 	int count;
 	unsigned int L2TISAR0 = 0;
 #ifdef CLDMA_TRACE
@@ -1506,8 +1551,7 @@ static void cldma_tx_ring_init(struct md_cd_ctrl *md_ctrl,
 
 static void cldma_queue_switch_ring(struct md_cd_queue *queue)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(queue->hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 	struct cldma_request *req;
 
 	if (queue->dir == OUT) {
@@ -1565,8 +1609,7 @@ static void cldma_queue_switch_ring(struct md_cd_queue *queue)
 
 static void cldma_rx_queue_init(struct md_cd_queue *queue)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(queue->hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 
 	cldma_queue_switch_ring(queue);
 	INIT_WORK(&queue->cldma_rx_work, cldma_rx_done);
@@ -1591,8 +1634,7 @@ static void cldma_rx_queue_init(struct md_cd_queue *queue)
 
 static void cldma_tx_queue_init(struct md_cd_queue *queue)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(queue->hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 
 	cldma_queue_switch_ring(queue);
 	queue->worker =
@@ -1794,15 +1836,16 @@ void __weak dump_emi_latency(void)
 	pr_notice("[ccci/dummy] %s is not supported!\n", __func__);
 }
 
-void cldma_stop(unsigned char hif_id)
+static int cldma_stop(unsigned char hif_id)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 	int count, i;
 	unsigned long flags;
 #ifdef ENABLE_CLDMA_TIMER
 	int qno;
 #endif
+
+	md_ctrl->cldma_state = HIF_CLDMA_STATE_PWROFF;
 
 	CCCI_NORMAL_LOG(md_ctrl->md_id, TAG, "%s from %ps\n",
 		__func__, __builtin_return_address(0));
@@ -1868,12 +1911,13 @@ void cldma_stop(unsigned char hif_id)
 			continue;
 		flush_work(&md_ctrl->rxq[i].cldma_rx_work);
 	}
+
+	return 0;
 }
 
-void cldma_stop_for_ee(unsigned char hif_id)
+static int cldma_stop_for_ee(unsigned char hif_id)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 	int ret, count;
 	unsigned long flags;
 	struct ccci_smem_region *mdccci_dbg =
@@ -1973,13 +2017,14 @@ void cldma_stop_for_ee(unsigned char hif_id)
 		CLDMA_AP_L3RIMSR1, CLDMA_BM_INT_ALL & NONSTOP_QUEUE_MASK_32);
 
 	spin_unlock_irqrestore(&md_ctrl->cldma_timeout_lock, flags);
+
+	return 0;
 }
 
 #if TRAFFIC_MONITOR_INTERVAL
 static void md_cd_clear_traffic_data(unsigned char hif_id)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 
 	memset(md_ctrl->tx_traffic_monitor, 0,
 		sizeof(md_ctrl->tx_traffic_monitor));
@@ -1990,10 +2035,9 @@ static void md_cd_clear_traffic_data(unsigned char hif_id)
 }
 #endif
 
-void cldma_reset(unsigned char hif_id)
+static int cldma_reset(unsigned char hif_id)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 
 	CCCI_NORMAL_LOG(md_ctrl->md_id, TAG, "%s from %ps\n",
 		__func__, __builtin_return_address(0));
@@ -2012,14 +2056,24 @@ void cldma_reset(unsigned char hif_id)
 	cldma_write32(md_ctrl->cldma_ap_ao_base, CLDMA_AP_SO_CFG,
 		cldma_read32(md_ctrl->cldma_ap_ao_base,
 			CLDMA_AP_SO_CFG) | 0x1);
+
+	return 0;
 }
 
-void cldma_start(unsigned char hif_id)
+static int md_cd_late_init(unsigned char hif_id);
+
+static int cldma_start(unsigned char hif_id)
 {
 	int i;
 	unsigned long flags;
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
+	int ret;
+
+	/* re-start CLDMA */
+	ret = cldma_reset(md_ctrl->hif_id);
+	if (ret)
+		return ret;
+
 	CCCI_NORMAL_LOG(md_ctrl->md_id, TAG, "%s from %ps\n",
 		__func__, __builtin_return_address(0));
 	cldma_enable_irq(md_ctrl);
@@ -2072,14 +2126,17 @@ void cldma_start(unsigned char hif_id)
 	cldma_write32(md_ctrl->cldma_ap_pdn_base,
 		CLDMA_AP_L3RIMCR1, CLDMA_BM_INT_ALL);
 	spin_unlock_irqrestore(&md_ctrl->cldma_timeout_lock, flags);
+
+	md_ctrl->cldma_state = HIF_CLDMA_STATE_PWRON;
+
+	return 0;
 }
 
-void md_cd_ccif_allQreset_work(unsigned char hif_id)
+int md_cldma_allQreset_work(unsigned char hif_id)
 {
 	unsigned int SO_CFG;
 
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 
 	/* re-start CLDMA */
 	cldma_reset(md_ctrl->hif_id);
@@ -2098,18 +2155,19 @@ void md_cd_ccif_allQreset_work(unsigned char hif_id)
 			cldma_read32(md_ctrl->cldma_ap_ao_base,
 			CLDMA_AP_SO_CFG) | 0x05);
 	}
+
+	return 0;
 }
 
 
 /* only allowed when cldma is stopped */
-void md_cd_clear_all_queue(unsigned char hif_id, enum DIRECTION dir)
+static int md_cd_clear_all_queue(unsigned char hif_id, enum DIRECTION dir)
 {
 	int i;
 	struct cldma_request *req = NULL;
 	struct cldma_tgpd *tgpd;
 	unsigned long flags;
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 
 	if (dir == OUT) {
 		for (i = 0; i < QUEUE_LEN(md_ctrl->txq); i++) {
@@ -2198,7 +2256,7 @@ void md_cd_clear_all_queue(unsigned char hif_id, enum DIRECTION dir)
 						CCCI_ERROR_LOG(
 							md_ctrl->md_id, TAG,
 							"error dma mapping\n");
-						return;
+						return 0;
 					}
 					cldma_rgpd_set_data_ptr(rgpd,
 						req->data_buffer_ptr_saved);
@@ -2206,13 +2264,14 @@ void md_cd_clear_all_queue(unsigned char hif_id, enum DIRECTION dir)
 			}
 		}
 	}
+
+	return 0;
 }
 
 static int md_cd_stop_queue(unsigned char hif_id, unsigned char qno,
 	enum DIRECTION dir)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 	int count, ret;
 	unsigned long flags;
 
@@ -2252,8 +2311,7 @@ static int md_cd_stop_queue(unsigned char hif_id, unsigned char qno,
 static int md_cd_start_queue(unsigned char hif_id, unsigned char qno,
 	enum DIRECTION dir)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 	struct cldma_request *req = NULL;
 	struct cldma_rgpd *rgpd;
 	unsigned long flags;
@@ -2330,8 +2388,7 @@ static inline int cldma_sw_init(struct md_cd_ctrl *md_ctrl)
 
 static int md_cd_give_more(unsigned char hif_id, unsigned char qno)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 	unsigned long flags;
 
 	if (qno >= QUEUE_LEN(md_ctrl->rxq))
@@ -2348,8 +2405,7 @@ static int md_cd_give_more(unsigned char hif_id, unsigned char qno)
 
 static int md_cd_write_room(unsigned char hif_id, unsigned char qno)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 
 	if (qno >= QUEUE_LEN(md_ctrl->txq))
 		return -CCCI_ERR_INVALID_QUEUE_INDEX;
@@ -2359,10 +2415,9 @@ static int md_cd_write_room(unsigned char hif_id, unsigned char qno)
 /* only run this in thread context,
  * as we use flush_work in it
  */
-void md_cldma_clear(unsigned char hif_id, struct ccci_modem *md)
+static int md_cldma_clear(unsigned char hif_id)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 	unsigned int ret;
 	int retry = 100;
 	retry = 5;
@@ -2397,7 +2452,7 @@ void md_cldma_clear(unsigned char hif_id, struct ccci_modem *md)
 		CCCI_NORMAL_LOG(md_ctrl->md_id, TAG,
 			"%s: md tx done\n", __func__);
 	}
-	cldma_stop(hif_id);
+	//cldma_stop(hif_id);
 
 	/* 6. reset ring buffer */
 	md_cd_clear_all_queue(md_ctrl->hif_id, OUT);
@@ -2411,9 +2466,8 @@ void md_cldma_clear(unsigned char hif_id, struct ccci_modem *md)
 	 * RX_DONE interrupt.
 	 */
 	md_cd_clear_all_queue(md_ctrl->hif_id, IN);
-	if (md->hw_info->plat_ptr->cldma_hw_rst)
-		md->hw_info->plat_ptr->cldma_hw_rst(md_ctrl->md_id);
 
+	return 0;
 }
 
 /* this is called inside queue->ring_lock */
@@ -2421,8 +2475,7 @@ static int cldma_gpd_bd_handle_tx_request(struct md_cd_queue *queue,
 	struct cldma_request *tx_req, struct sk_buff *skb,
 	unsigned int ioc_override)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(queue->hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 	struct cldma_tgpd *tgpd;
 	struct skb_shared_info *info = skb_shinfo(skb);
 	int cur_frag;
@@ -2504,8 +2557,7 @@ static int cldma_gpd_handle_tx_request(struct md_cd_queue *queue,
 	unsigned int ioc_override)
 {
 	struct cldma_tgpd *tgpd;
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(queue->hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 	struct ccci_header *ccci_h;
 
 	tgpd = tx_req->gpd;
@@ -2554,8 +2606,7 @@ static int cldma_gpd_handle_tx_request(struct md_cd_queue *queue,
 static int md_cd_send_skb(unsigned char hif_id, int qno,
 	struct sk_buff *skb, int skb_from_pool, int blocking)
 {
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
 	struct md_cd_queue *queue;
 	struct cldma_request *tx_req;
 	int ret = 0;
@@ -2829,19 +2880,85 @@ static void md_cldma_rxq0_tasklet(unsigned long data)
 }
 
 static struct ccci_hif_ops ccci_hif_cldma_ops = {
+	//.init = &md_cd_init,
+	.late_init = &md_cd_late_init,
 	.send_skb = &md_cd_send_skb,
 	.give_more = &md_cd_give_more,
 	.write_room = &md_cd_write_room,
 	.stop_queue = &md_cd_stop_queue,
 	.start_queue = &md_cd_start_queue,
 	.dump_status = &md_cldma_hif_dump_status,
+
+	.start = &cldma_start,
+	.stop = &cldma_stop,
+	.stop_for_ee = &cldma_stop_for_ee,
+	.all_q_reset = &md_cldma_allQreset_work,
+	.clear_all_queue = &md_cd_clear_all_queue,
+	.clear = &md_cldma_clear,
+
+	//.set_clk_cg = &cldma_plat_set_clk_cg,
+	//.hw_reset = &cldma_plat_hw_reset,
+
 };
 
-int ccci_cldma_hif_init(unsigned char hif_id, unsigned char md_id)
+static int ccci_cldma_syssuspend(void)
+{
+	if (cldma_ctrl->cldma_plat_ops.syssuspend)
+		return cldma_ctrl->cldma_plat_ops.syssuspend(0);
+
+	return 0;
+}
+
+static void ccci_cldma_sysresume(void)
+{
+	if (cldma_ctrl->cldma_plat_ops.sysresume)
+		cldma_ctrl->cldma_plat_ops.sysresume(0);
+}
+
+static struct syscore_ops ccci_cldma_sysops = {
+	.suspend = ccci_cldma_syssuspend,
+	.resume = ccci_cldma_sysresume,
+};
+
+static int ccci_cldma_set_plat_ops(void)
+{
+	if (cldma_ctrl->cldma_platform == 6761 ||
+		cldma_ctrl->cldma_platform == 6765) {
+		cldma_ctrl->cldma_plat_ops.hw_reset = &cldma_plat_hw_reset;
+		cldma_ctrl->cldma_plat_ops.set_clk_cg = &cldma_plat_set_clk_cg;
+		cldma_ctrl->cldma_plat_ops.syssuspend = &cldma_plat_suspend;
+		cldma_ctrl->cldma_plat_ops.sysresume = &cldma_plat_resume;
+
+	} else {
+		CCCI_ERROR_LOG(-1, TAG,
+			"error: platform number is invalid.\n");
+		return -1;
+	}
+
+	ccci_hif_cldma_ops.set_clk_cg = cldma_ctrl->cldma_plat_ops.set_clk_cg;
+	ccci_hif_cldma_ops.hw_reset = cldma_ctrl->cldma_plat_ops.hw_reset;
+
+	return 0;
+}
+
+#define DMA_BIT_MASK(n) (((n) == 64) ? ~0ULL : ((1ULL<<(n))-1))
+static u64 s_cldma_dmamask = DMA_BIT_MASK(36);
+
+static int ccci_cldma_hif_init(struct platform_device *pdev,
+		unsigned char hif_id, unsigned char md_id)
 {
 	struct device_node *node = NULL;
 	struct md_cd_ctrl *md_ctrl;
-	int i;
+	int i, idx;
+
+	if (pdev->dev.of_node == NULL) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"error: CLDMA OF node NULL\n");
+		return -1;
+	}
+
+	pdev->dev.dma_mask = &s_cldma_dmamask;
+	pdev->dev.coherent_dma_mask = s_cldma_dmamask;
 
 	md_ctrl = kzalloc(sizeof(struct md_cd_ctrl), GFP_KERNEL);
 	if (md_ctrl == NULL) {
@@ -2850,35 +2967,80 @@ int ccci_cldma_hif_init(unsigned char hif_id, unsigned char md_id)
 		return -1;
 	}
 	memset(md_ctrl, 0, sizeof(struct md_cd_ctrl));
+	cldma_ctrl = md_ctrl;
 
+	md_ctrl->cldma_state = HIF_CLDMA_STATE_NONE;
 	md_ctrl->ops = &ccci_hif_cldma_ops;
 	md_ctrl->md_id = md_id;
 	md_ctrl->hif_id = hif_id;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mddriver");
-	if (node == NULL) {
-		CCCI_BOOTUP_LOG(md_id, TAG,
-			"warning: no mediatek,mddriver in dts\n");
-		kfree(md_ctrl);
-		return -1;
-	}
-	of_property_read_u32(node,
+	of_property_read_u32(pdev->dev.of_node,
 		"mediatek,md_generation", &md_ctrl->plat_val.md_gen);
+
+	of_property_read_u32(pdev->dev.of_node,
+		"mediatek,platform", &md_ctrl->cldma_platform);
+
+	if (ccci_cldma_set_plat_ops())
+		return -1;
+
+	md_ctrl->plat_val.infra_ao_base =
+			syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+			"cldma-infracfg");
+
+	md_ctrl->plat_val.offset_epof_md1 = 7*1024+0x234;
+
+	CCCI_NORMAL_LOG(md_id, TAG,
+		"[%s]: md_gen: %d; infra_ao_base: %p; offset_epof_md1: %lld\n",
+		__func__,
+		md_ctrl->plat_val.md_gen,
+		md_ctrl->plat_val.infra_ao_base,
+		md_ctrl->plat_val.offset_epof_md1);
+
 	md_ctrl->cldma_irq_flags = IRQF_TRIGGER_NONE;
-	md_ctrl->cldma_irq_id = irq_of_parse_and_map(node, 0);
+	md_ctrl->cldma_irq_id = irq_of_parse_and_map(pdev->dev.of_node, 0);
 	if (md_ctrl->cldma_irq_id == 0) {
 		CCCI_ERROR_LOG(md_id, TAG, "no cldma irq id set in dts\n");
 		kfree(md_ctrl);
 		return -1;
 	}
-	md_ctrl->cldma_ap_ao_base = of_iomap(node, 0);
-	md_ctrl->cldma_ap_pdn_base = of_iomap(node, 1);
+
+	md_ctrl->cldma_ap_ao_base = of_iomap(pdev->dev.of_node, 0);
+	md_ctrl->cldma_ap_pdn_base = of_iomap(pdev->dev.of_node, 1);
 	if (md_ctrl->cldma_ap_pdn_base == NULL ||
 		md_ctrl->cldma_ap_ao_base == NULL) {
 		CCCI_ERROR_LOG(md_id, TAG, "no cldma register set in dts\n");
 		kfree(md_ctrl);
 		return -1;
 	}
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdcldmamisc");
+	if (node) {
+		md_cldma_misc_base = of_iomap(node, 0);
+		if (!md_cldma_misc_base) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"%s: md_cldma_misc_base of_iomap failed\n",
+				node->full_name);
+			return -1;
+		}
+
+	} else
+		CCCI_BOOTUP_LOG(-1, TAG,
+			"warning: no md cldma misc in dts\n");
+
+
+	for (idx = 0; idx < ARRAY_SIZE(cldma_clk_table); idx++) {
+		cldma_clk_table[idx].clk_ref = devm_clk_get(&pdev->dev,
+					cldma_clk_table[idx].clk_name);
+
+		if (IS_ERR(cldma_clk_table[idx].clk_ref)) {
+			CCCI_ERROR_LOG(md_id, TAG,
+				"[%s] error: get %s failed\n",
+				__func__, cldma_clk_table[idx].clk_name);
+
+			cldma_clk_table[idx].clk_ref = NULL;
+		}
+	}
+
 	md_ctrl->txq_active = 0;
 	md_ctrl->rxq_active = 0;
 	tasklet_init(&md_ctrl->cldma_rxq0_task,
@@ -2888,6 +3050,7 @@ int ccci_cldma_hif_init(unsigned char hif_id, unsigned char md_id)
 	for (i = 0; i < QUEUE_LEN(md_ctrl->txq); i++)
 		md_cd_queue_struct_init(&md_ctrl->txq[i],
 			md_ctrl->hif_id, OUT, i);
+
 	for (i = 0; i < QUEUE_LEN(md_ctrl->rxq); i++)
 		md_cd_queue_struct_init(&md_ctrl->rxq[i],
 			md_ctrl->hif_id, IN, i);
@@ -2896,28 +3059,34 @@ int ccci_cldma_hif_init(unsigned char hif_id, unsigned char md_id)
 	    alloc_workqueue("md%d_cldma_worker",
 			WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_HIGHPRI,
 			1, md_id + 1);
+
 	INIT_WORK(&md_ctrl->cldma_irq_work, cldma_irq_work);
 
 	atomic_set(&md_ctrl->cldma_irq_enabled, 1);
 #if TRAFFIC_MONITOR_INTERVAL
-	//init_timer(&md_ctrl->traffic_monitor);
-	//md_ctrl->traffic_monitor.function =
-	//	md_cd_traffic_monitor_func;
-	//md_ctrl->traffic_monitor.data = (unsigned long)md_ctrl;
 	timer_setup(&md_ctrl->traffic_monitor, md_cd_traffic_monitor_func, 0);
 #endif
 	md_ctrl->tx_busy_warn_cnt = 0;
 
-	ccci_hif[hif_id] = (void *)md_ctrl;
+	ccci_hif_register(CLDMA_HIF_ID, (void *)cldma_ctrl,
+		&ccci_hif_cldma_ops);
+
+	/* register SYS CORE suspend resume call back */
+	register_syscore_ops(&ccci_cldma_sysops);
+
 	return 0;
 }
 
 /* we put initializations which takes too much time here */
-int md_cd_late_init(unsigned char hif_id)
+static int md_cd_late_init(unsigned char hif_id)
 {
 	int i;
-	struct md_cd_ctrl *md_ctrl =
-		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_cd_ctrl *md_ctrl = cldma_ctrl;
+
+	if (md_ctrl->cldma_state != HIF_CLDMA_STATE_NONE)
+		return 0;
+
+	md_ctrl->cldma_state = HIF_CLDMA_STATE_INIT;
 
 	atomic_set(&md_ctrl->wakeup_src, 0);
 	ccci_reset_seq_num(&md_ctrl->traffic_info);
@@ -3003,7 +3172,63 @@ int md_cd_late_init(unsigned char hif_id)
 		cldma_tx_queue_init(&md_ctrl->txq[i]);
 	for (i = 0; i < QUEUE_LEN(md_ctrl->rxq); i++)
 		cldma_rx_queue_init(&md_ctrl->rxq[i]);
+
 	return 0;
 }
 
+int ccci_hif_cldma_probe(struct platform_device *pdev)
+{
+	int ret;
+
+	CCCI_ERROR_LOG(-1, TAG, "[%s] start", __func__);
+
+	ret = ccci_cldma_hif_init(pdev, CLDMA_HIF_ID, MD_SYS1);
+	if (ret < 0) {
+		CCCI_ERROR_LOG(-1, TAG, "ccci cldma init fail");
+		return ret;
+	}
+
+	return 0;
+}
+
+static const struct of_device_id ccci_cldma_of_ids[] = {
+	{.compatible = "mediatek,ccci_cldma"},
+	{}
+};
+
+static struct platform_driver ccci_cldma_driver = {
+
+	.driver = {
+		.name = "ccci_hif_cldma",
+		.of_match_table = ccci_cldma_of_ids,
+	},
+
+	.probe = ccci_hif_cldma_probe,
+};
+
+static int __init ccci_cldma_init(void)
+{
+	int ret;
+
+	ret = platform_driver_register(&ccci_cldma_driver);
+	if (ret) {
+		CCCI_ERROR_LOG(-1, TAG, "ccci hif_cldma driver init fail %d",
+			ret);
+		return ret;
+	}
+	return 0;
+}
+
+static void __exit ccci_cldma_exit(void)
+{
+	CCCI_NORMAL_LOG(-1, TAG,
+		"[%S] CLDMA driver is exit.", __func__);
+}
+
+module_init(ccci_cldma_init);
+module_exit(ccci_cldma_exit);
+
+MODULE_AUTHOR("ccci");
+MODULE_DESCRIPTION("ccci hif ccif driver");
+MODULE_LICENSE("GPL");
 
