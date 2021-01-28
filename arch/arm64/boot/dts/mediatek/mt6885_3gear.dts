@@ -120,7 +120,7 @@ page_owner=on loop.max_part=7";
 			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
-		cpu7: cpu@103 {
+		cpu7: cpu@200 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a75";
 			reg = <0x0700>;
@@ -158,10 +158,15 @@ page_owner=on loop.max_part=7";
 				core2 {
 					cpu = <&cpu6>;
 				};
-				core3 {
+				doe_dvfs_cl1: doe {
+				};
+			};
+
+			cluster2 {
+				core0 {
 					cpu = <&cpu7>;
 				};
-				doe_dvfs_cl1: doe {
+				doe_dvfs_cl2: doe {
 				};
 			};
 
