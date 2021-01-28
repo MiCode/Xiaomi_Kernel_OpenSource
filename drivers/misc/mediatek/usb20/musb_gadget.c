@@ -2529,16 +2529,16 @@ int musb_gadget_setup(struct musb *musb)
 	musb->is_active = 0;
 	musb_platform_try_idle(musb, 0);
 
-//#ifdef CONFIG_OF
-#if defined(CONFIG_R_PORTING)
-	/*gadget device dma ops is null,so add musb controller dma ops*/
-	/* to gadget device dma ops, otherwise will go do dma dump ops.*/
-	if (musb->controller->archdata.dma_ops) {
+	/* Fix: gadget device dma ops is null,so add musb controller dma ops */
+	/* to gadget device dma ops, otherwise will go do dma dump ops. */
+#ifdef CONFIG_XEN
+	if (musb->controller->archdata.dev_dma_ops) {
 		DBG(0, "musb controller dma ops is non-null\n");
-		musb->g.dev.archdata.dma_ops =
-			musb->controller->archdata.dma_ops;
+		musb->g.dev.archdata.dev_dma_ops =
+			musb->controller->archdata.dev_dma_ops;
 	}
 #endif
+
 	status = usb_add_gadget_udc(musb->controller, &musb->g);
 	if (status)
 		goto err;
