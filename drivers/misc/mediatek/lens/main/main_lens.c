@@ -246,7 +246,7 @@ static int DrvPwrDn3 = 1;
 void AF_PowerDown(void)
 {
 	if (g_pstAF_I2Cclient != NULL) {
-#if defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6771) ||              \
+#if defined(CONFIG_MACH_MT6771) ||              \
 	defined(CONFIG_MACH_MT6775)
 		LC898217AF_PowerDown(g_pstAF_I2Cclient, &g_s4AF_Opened);
 #endif
