@@ -41,8 +41,6 @@
 #include "mtk_static_power_mt6779.h"
 #endif
 
-extern u32 get_devinfo_with_index(u32 index);
-
 /*
  * @argument
  * dev: the enum of MT_SPOWER_xxx

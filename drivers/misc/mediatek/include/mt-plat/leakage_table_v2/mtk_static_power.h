@@ -13,7 +13,6 @@
 #include "mtk_static_power_platform.h"
 #endif
 
-extern u32 get_devinfo_with_index(u32 index);
 
 /*
  * @argument

@@ -282,7 +282,6 @@ extern struct mt_cpu_dvfs *id_to_cpu_dvfs(enum mt_cpu_dvfs_id id);
 extern struct buck_ctrl_t *id_to_buck_ctrl(enum mt_cpu_dvfs_buck_id id);
 extern struct pll_ctrl_t *id_to_pll_ctrl(enum mt_cpu_dvfs_pll_id id);
 
-extern u32 get_devinfo_with_index(u32 index);
 extern int turbo_flag;
 
 extern void _kick_PBM_by_cpu(void);

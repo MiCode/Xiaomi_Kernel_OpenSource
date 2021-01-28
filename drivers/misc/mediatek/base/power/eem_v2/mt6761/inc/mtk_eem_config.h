@@ -38,6 +38,18 @@
 #define DEVINFO_IDX_10 62	/* 5A8 */
 #define DEVINFO_IDX_11 63	/* 5AC */
 
+#define DEVINFO_OFF_0 0xc8	/* 580 */
+#define DEVINFO_OFF_1 0xcc	/* 584 */
+#define DEVINFO_OFF_2 0xd0	/* 588 */
+#define DEVINFO_OFF_3 0xd4	/* 58C */
+#define DEVINFO_OFF_4 0xd8	/* 590 */
+#define DEVINFO_OFF_5 0xdc	/* 594 */
+#define DEVINFO_OFF_6 0xe0	/* 598 */
+#define DEVINFO_OFF_7 0xe4	/* 59C */
+#define DEVINFO_OFF_8 0xe8	/* 5A0 */
+#define DEVINFO_OFF_9 0xf4	/* 5A4 */
+#define DEVINFO_OFF_10 0xf8	/* 5A8 */
+#define DEVINFO_OFF_11 0xfc	/* 5AC */
 
 /*****************************************
  * eem sw setting

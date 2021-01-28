@@ -11,7 +11,8 @@
 #include <linux/math64.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
-
+#include <linux/of_platform.h>
+#include <linux/nvmem-consumer.h>
 #include "mtk_spower_data.h"
 #include "mtk_common_static_power.h"
 
@@ -412,6 +413,10 @@ int mt_spower_init(void)
 
 	/* Group FF,TT,SS tables of all the banks together */
 	struct sptab_list *tab[MTK_SPOWER_MAX];
+	struct platform_device *pdev;
+	struct nvmem_device *nvmem_dev;
+	struct device_node *node;
+	unsigned int err_flag = 0;
 
 #ifdef SPOWER_NOT_READY
 	/* FIX ME */
@@ -421,6 +426,22 @@ int mt_spower_init(void)
 	if (mtSpowerInited == 1)
 		return 0;
 
+	node = of_find_node_by_name(NULL, "eem_fsm");
+	if (node == NULL) {
+		pr_notice("%s fail to get device node\n", __func__);
+		err_flag = 1;
+		goto efuse_end;
+	}
+	pdev = of_device_alloc(node, NULL, NULL);
+	nvmem_dev = nvmem_device_get(&pdev->dev, "mtk_efuse");
+	if (IS_ERR(nvmem_dev)) {
+		pr_notice("%s failed to get mtk_efuse device\n",
+			__func__);
+		err_flag = 1;
+		goto efuse_end;
+	}
+
+efuse_end:
 	for (i = 0; i < MTK_SPOWER_MAX; i++)
 		tab[i] = kmalloc(sizeof(struct sptab_list), GFP_KERNEL);
 
@@ -430,11 +451,14 @@ int mt_spower_init(void)
 
 #ifndef WITHOUT_LKG_EFUSE
 	for (i = 0; i < MTK_LEAKAGE_MAX; i++) {
-		devinfo = (int)get_devinfo_with_index(
-				spower_lkg_info[i].devinfo_idx);
+		if (!err_flag)
+			nvmem_device_read(nvmem_dev,
+				spower_lkg_info[i].devinfo_idx,
+				sizeof(__u32),
+				&devinfo);
 		temp_lkg =
 			(devinfo >> spower_lkg_info[i].devinfo_offset) & 0xff;
-		SPOWER_DEBUG("[Efuse] %s => 0x%x\n", spower_lkg_info[i].name,
+		pr_notice("[Efuse] %s => 0x%x\n", spower_lkg_info[i].name,
 				temp_lkg);
 		/*
 		 * if has leakage info in efuse, get the final leakage

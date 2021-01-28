@@ -43,6 +43,24 @@
 #define EX_DEV_IDX_2 65		/* 5BC */
 #define EX_DEV_IDX_3 133	/* 7AC */
 
+#define DEVINFO_OFF_0 0xc8	/* 580 */
+#define DEVINFO_OFF_1 0xcc	/* 584 */
+#define DEVINFO_OFF_2 0xd0	/* 588 */
+#define DEVINFO_OFF_3 0xd4	/* 58C */
+#define DEVINFO_OFF_4 0xd8	/* 590 */
+#define DEVINFO_OFF_5 0xdc	/* 594 */
+#define DEVINFO_OFF_6 0xe0	/* 598 */
+#define DEVINFO_OFF_7 0xe4	/* 59C */
+#define DEVINFO_OFF_8 0xe8	/* 5A0 */
+#define DEVINFO_OFF_9 0xf4	/* 5A4 */
+#define DEVINFO_OFF_10 0xf8	/* 5A8 */
+#define DEVINFO_OFF_11 0xfc	/* 5AC */
+
+#define EX_DEV_OFF_0 0xec	/* 5A4 */
+#define EX_DEV_OFF_1 0x100	/* 5B8 */
+#define EX_DEV_OFF_2 0x104	/* 5BC */
+#define EX_DEV_OFF_3 0x214	/* 7AC */
+
 /*****************************************
  * eem sw setting
  ******************************************

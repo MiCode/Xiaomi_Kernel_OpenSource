@@ -206,22 +206,26 @@ static int get_devinfo(void)
 	int ret = 0;
 	int i = 0;
 	int *val;
+	struct platform_device *pdev;
+	struct nvmem_device *nvmem_dev;
+	struct device_node *node;
 
 	val = (int *)&eem_devinfo;
 
 	/* FTPGM */
-	val[0] = get_devinfo_with_index(DEVINFO_IDX_0);
-	val[1] = get_devinfo_with_index(DEVINFO_IDX_1);
-	val[2] = get_devinfo_with_index(DEVINFO_IDX_2);
-	val[3] = get_devinfo_with_index(DEVINFO_IDX_3);
-	val[4] = get_devinfo_with_index(DEVINFO_IDX_4);
-	val[5] = get_devinfo_with_index(DEVINFO_IDX_5);
-	val[6] = get_devinfo_with_index(DEVINFO_IDX_6);
-	val[7] = get_devinfo_with_index(DEVINFO_IDX_7);
-	val[8] = get_devinfo_with_index(DEVINFO_IDX_8);
-	val[9] = get_devinfo_with_index(DEVINFO_IDX_9);
-	val[10] = get_devinfo_with_index(DEVINFO_IDX_10);
-	val[11] = get_devinfo_with_index(DEVINFO_IDX_11);
+
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_0, sizeof(__u32), &val[0]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_1, sizeof(__u32), &val[1]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_2, sizeof(__u32), &val[2]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_3, sizeof(__u32), &val[3]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_4, sizeof(__u32), &val[4]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_5, sizeof(__u32), &val[5]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_6, sizeof(__u32), &val[6]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_7, sizeof(__u32), &val[7]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_8, sizeof(__u32), &val[8]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_9, sizeof(__u32), &val[9]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_10, sizeof(__u32), &val[10]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_11, sizeof(__u32), &val[11]);
 
 	for (i = 1; i < NR_HW_RES_FOR_BANK; i++) {
 		if (val[i] == 0) {
@@ -328,10 +332,10 @@ static int get_devinfo(void)
 #if defined(CONFIG_CPU_FORCE_TO_BIN2)
 	val = (int *)&ex_eem_devinfo;
 
-	val[0] = get_devinfo_with_index(EX_DEV_IDX_0);
-	val[1] = get_devinfo_with_index(EX_DEV_IDX_1);
-	val[2] = get_devinfo_with_index(EX_DEV_IDX_2);
-	val[3] = get_devinfo_with_index(EX_DEV_IDX_3);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_0, sizeof(__u32), &val[0]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_1, sizeof(__u32), &val[1]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_2, sizeof(__u32), &val[2]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_3, sizeof(__u32), &val[3]);
 
 	aee_rr_rec_ptp_devinfo_1((unsigned int)val[0]);
 	aee_rr_rec_ptp_devinfo_2((unsigned int)val[1]);

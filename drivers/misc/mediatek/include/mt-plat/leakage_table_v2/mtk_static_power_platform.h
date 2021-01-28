@@ -20,13 +20,13 @@
 
 /* devinfo offset for each bank */
 /* CCI use LL leakage */
-#define DEVINFO_IDX_LL 136 /* 07B8 */
-#define DEVINFO_IDX_L 136 /* 07B8 */
-#define DEVINFO_IDX_CCI 137 /* 07BC */
-#define DEVINFO_IDX_GPU 137 /* 07BC */
-#define DEVINFO_IDX_VCORE 137 /* 07BC */
-#define DEVINFO_IDX_MODEM 137 /* 07BC */
-#define DEVINFO_IDX_VPU 136 /* 07B8 */
+#define DEVINFO_IDX_LL 0x220 /* 07B8 */
+#define DEVINFO_IDX_L 0x220 /* 07B8 */
+#define DEVINFO_IDX_CCI 0x220 /* 07BC */
+#define DEVINFO_IDX_GPU 0x224 /* 07BC */
+#define DEVINFO_IDX_VCORE 0x224 /* 07BC */
+#define DEVINFO_IDX_MODEM 0x224 /* 07BC */
+#define DEVINFO_IDX_VPU 0x220 /* 07B8 */
 
 #define DEVINFO_OFF_LL 0
 #define DEVINFO_OFF_L 8

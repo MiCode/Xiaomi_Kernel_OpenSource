@@ -849,7 +849,7 @@ static int __init upower_init(void)
 	return 0;
 }
 #ifdef __KERNEL__
-subsys_initcall(upower_get_tbl_ref);
+module_init(upower_get_tbl_ref);
 late_initcall(upower_init);
 #endif
 MODULE_DESCRIPTION("MediaTek Unified Power Driver v1.0");

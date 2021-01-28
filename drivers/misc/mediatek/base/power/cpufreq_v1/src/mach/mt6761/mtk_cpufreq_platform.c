@@ -6,7 +6,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/regulator/consumer.h>
-
+#include <linux/nvmem-consumer.h>
 #include <mt-plat/mtk_chip.h>
 #include <mt-plat/mtk_devinfo.h>
 #ifdef CONFIG_MTK_FREQ_HOPPING
@@ -17,6 +17,7 @@
 
 #include "mtk_cpufreq_platform.h"
 #include "../../mtk_cpufreq_hybrid.h"
+#include <linux/of_platform.h>
 
 static struct regulator *regulator_proc1;
 static struct regulator *regulator_sram1;
@@ -474,21 +475,44 @@ int mt_cpufreq_dts_map(void)
 unsigned int _mt_cpufreq_get_cpu_level(void)
 {
 	unsigned int lv = CPU_LEVEL_0;
-	int seg = get_devinfo_with_index(30);
-	int val = (get_devinfo_with_index(7) & 0xFF);
+	unsigned int efuse_seg;
+	struct platform_device *pdev;
+	struct device_node *node;
+	struct nvmem_cell *efuse_cell;
+	size_t efuse_len;
+	unsigned int *efuse_buf;
 
-	if (val == CHIP_SW_VER_01)
-		lv = CPU_LEVEL_2;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6761-dvfsp");
+
+	if (!node) {
+		tag_pr_info("%s fail to get device node\n", __func__);
+		return 0;
+	}
+	pdev = of_device_alloc(node, NULL, NULL);
+	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
+	if (IS_ERR(efuse_cell)) {
+		tag_pr_info("@%s: cannot get efuse_cell\n", __func__);
+		return PTR_ERR(efuse_cell);
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	efuse_seg = *efuse_buf;
+	kfree(efuse_buf);
+
 
 #if defined(CONFIG_MTK_LP_OPP)
 		lv = CPU_LEVEL_0;
 #endif
-	if ((seg == 0x10) || (seg == 0x11) || (seg == 0x90) || (seg == 0x91))
+
+	if ((efuse_seg == 0x10) || (efuse_seg == 0x11) || (efuse_seg == 0x90)
+			|| (efuse_seg == 0x91))
 		lv = CPU_LEVEL_3;
 
 	turbo_flag = 0;
 	tag_pr_info("%d,%d,0x%x,%d,%d,%d,%d\n",
-		lv, turbo_flag, val,
+		lv, turbo_flag, efuse_seg,
 		UP_VPROC_ST, DOWN_VPROC_ST,
 		UP_VSRAM_ST, DOWN_VSRAM_ST);
 

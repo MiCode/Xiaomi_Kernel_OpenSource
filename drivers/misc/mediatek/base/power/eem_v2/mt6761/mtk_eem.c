@@ -68,7 +68,8 @@
 #include "mtk_eem_internal.h"
 #include <mt-plat/mtk_devinfo.h>
 #include <regulator/consumer.h>
-
+#include <linux/of_platform.h>
+#include <linux/nvmem-consumer.h>
 
 #if UPDATE_TO_UPOWER
 #include "mtk_upower.h"
@@ -221,17 +222,33 @@ static int get_devinfo(void)
 	int *val;
 	int i = 0;
 	struct eem_det *det;
+	struct platform_device *pdev;
+	struct nvmem_device *nvmem_dev;
+	struct device_node *node;
+
 
 	val = (int *)&eem_devinfo;
+	node = of_find_node_by_name(NULL, "eem_fsm");
+	//node = of_find_compatible_node(NULL, NULL, "mediatek,eem_fsm");
+	if (node == NULL) {
+		eem_error("%s fail to get device node\n", __func__);
+		return 0;
+	}
+	pdev = of_device_alloc(node, NULL, NULL);
+	nvmem_dev = nvmem_device_get(&pdev->dev, "mtk_efuse");
 
+	if (IS_ERR(nvmem_dev)) {
+		eem_error("%s ptpod failed to get mtk_efuse device\n",
+				__func__);
+		return 0;
+	}
 
-	/* FTPGM */
-	val[0] = get_devinfo_with_index(DEVINFO_IDX_0);
-	val[1] = get_devinfo_with_index(DEVINFO_IDX_1);
-	val[2] = get_devinfo_with_index(DEVINFO_IDX_2);
-	val[3] = get_devinfo_with_index(DEVINFO_IDX_3);
-	val[4] = get_devinfo_with_index(DEVINFO_IDX_7);
-	val[5] = get_devinfo_with_index(DEVINFO_IDX_8);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_0, sizeof(__u32), &val[0]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_1, sizeof(__u32), &val[1]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_2, sizeof(__u32), &val[2]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_3, sizeof(__u32), &val[3]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_7, sizeof(__u32), &val[4]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_8, sizeof(__u32), &val[5]);
 
 #if ENABLE_LOO
 	for (i = 1; i < NR_HW_RES_FOR_BANK; i++) {

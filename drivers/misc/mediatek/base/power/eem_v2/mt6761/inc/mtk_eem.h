@@ -74,7 +74,6 @@ enum {
 	EEM_VOLT_RESTORE = BIT(1),
 };
 
-extern u32 get_devinfo_with_index(u32 index);
 extern const unsigned int reg_dump_addr_off[105];
 
 #ifdef CONFIG_MTK_RAM_CONSOLE
