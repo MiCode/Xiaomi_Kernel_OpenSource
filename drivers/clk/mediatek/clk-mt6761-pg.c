@@ -516,6 +516,9 @@ static void ram_console_update(void)
 	}
 
 	if (k > 5000 && print_once) {
+		enum subsys_id id =
+			(enum subsys_id)(DBG_ID % (DBG_ID_NUM / 2));
+
 		print_once = false;
 		k = 0;
 		if (DBG_ID == DBG_ID_CONN_BUS) {
@@ -532,7 +535,7 @@ static void ram_console_update(void)
 		/* debug callback hook searching */
 		list_for_each_entry_reverse(pgcb, &pgcb_list, list) {
 			if (pgcb->debug_dump)
-				pgcb->debug_dump(DBG_ID);
+				pgcb->debug_dump(id);
 		}
 
 		if (DBG_ID == DBG_ID_CONN_BUS) {
@@ -3050,7 +3053,7 @@ static int clk_mt6761_scpsys_probe(struct platform_device *pdev)
 			spm_mtcmos_ctrl_md1_bus_prot(STA_POWER_DOWN);
 			spm_mtcmos_ctrl_md1_pwr(STA_POWER_DOWN);
 		}
-		if (subsys_is_on(SYS_MD1)) {	/*do after ccif*/
+		if (subsys_is_on(SYS_CONN)) {	/*do after ccif*/
 			spm_mtcmos_ctrl_conn_bus_prot(STA_POWER_DOWN);
 			spm_mtcmos_ctrl_conn_pwr(STA_POWER_DOWN);
 		}

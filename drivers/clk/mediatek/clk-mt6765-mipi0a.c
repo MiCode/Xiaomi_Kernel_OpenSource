@@ -40,6 +40,8 @@ static int clk_mt6765_mipi0a_probe(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 
 	clk_data = mtk_alloc_clk_data(CLK_MIPI0A_NR_CLK);
+	if (!clk_data)
+		return -ENOMEM;
 
 	mtk_clk_register_gates(node, mipi0a_clks,
 			       ARRAY_SIZE(mipi0a_clks), clk_data);

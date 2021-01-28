@@ -46,6 +46,8 @@ static int clk_mt6765_vcodec_probe(struct platform_device *pdev)
 	int r;
 
 	clk_data = mtk_alloc_clk_data(CLK_VENC_NR_CLK);
+	if (!clk_data)
+		return -ENOMEM;
 
 	mtk_clk_register_gates(node, venc_clks,
 			       ARRAY_SIZE(venc_clks), clk_data);

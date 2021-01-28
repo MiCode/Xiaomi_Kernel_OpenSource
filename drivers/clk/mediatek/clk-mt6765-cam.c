@@ -51,6 +51,8 @@ static int clk_mt6765_cam_probe(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 
 	clk_data = mtk_alloc_clk_data(CLK_CAM_NR_CLK);
+	if (!clk_data)
+		return -ENOMEM;
 
 	mtk_clk_register_gates(node, cam_clks, ARRAY_SIZE(cam_clks), clk_data);
 

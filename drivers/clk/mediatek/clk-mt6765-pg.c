@@ -471,6 +471,7 @@ struct pg_callbacks *register_pg_callback(struct pg_callbacks *pgcb)
 
 	return pgcb;
 }
+EXPORT_SYMBOL(register_pg_callback);
 
 static struct subsys *id_to_sys(unsigned int id)
 {
@@ -528,6 +529,9 @@ static void ram_console_update(void)
 	static u32 pre_data;
 	static int k;
 	static bool print_once = true;
+
+	if (DBG_ID < 0 || DBG_ID >= DBG_ID_NUM)
+		return;
 
 	data[i] = ((DBG_ID << 24) & ID_MADK)
 		| ((DBG_STA << 20) & STA_MASK)
@@ -684,7 +688,7 @@ static void ram_console_update(void)
 }
 
 /* auto-gen begin*/
-int spm_mtcmos_ctrl_md1_bus_prot(int state)
+static int spm_mtcmos_ctrl_md1_bus_prot(int state)
 {
 	int err = 0;
 
@@ -839,7 +843,7 @@ int spm_mtcmos_ctrl_md1_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_conn_bus_prot(int state)
+static int spm_mtcmos_ctrl_conn_bus_prot(int state)
 {
 	int err = 0;
 
@@ -913,7 +917,7 @@ int spm_mtcmos_ctrl_conn_bus_prot(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_conn_pwr(int state)
+static int spm_mtcmos_ctrl_conn_pwr(int state)
 {
 	int err = 0;
 
@@ -984,7 +988,7 @@ int spm_mtcmos_ctrl_conn_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_dpy_bus_prot(int state)
+static int spm_mtcmos_ctrl_dpy_bus_prot(int state)
 {
 	int err = 0;
 
@@ -1052,7 +1056,7 @@ int spm_mtcmos_ctrl_dpy_bus_prot(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_dpy_pwr(int state)
+static int spm_mtcmos_ctrl_dpy_pwr(int state)
 {
 	int err = 0;
 
@@ -1155,7 +1159,7 @@ int spm_mtcmos_ctrl_dpy_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_dis_bus_prot(int state)
+static int spm_mtcmos_ctrl_dis_bus_prot(int state)
 {
 	int err = 0;
 
@@ -1262,7 +1266,7 @@ int spm_mtcmos_ctrl_dis_bus_prot(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_dis_pwr(int state)
+static int spm_mtcmos_ctrl_dis_pwr(int state)
 {
 	int err = 0;
 
@@ -1328,7 +1332,7 @@ int spm_mtcmos_ctrl_dis_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_mfg_bus_prot(int state)
+static int spm_mtcmos_ctrl_mfg_bus_prot(int state)
 {
 	int err = 0;
 
@@ -1399,7 +1403,7 @@ int spm_mtcmos_ctrl_mfg_bus_prot(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_mfg_pwr(int state)
+static int spm_mtcmos_ctrl_mfg_pwr(int state)
 {
 	int err = 0;
 
@@ -1464,7 +1468,7 @@ int spm_mtcmos_ctrl_mfg_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_isp_bus_prot(int state)
+static int spm_mtcmos_ctrl_isp_bus_prot(int state)
 {
 	int err = 0;
 
@@ -1537,7 +1541,7 @@ int spm_mtcmos_ctrl_isp_bus_prot(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_isp_pwr(int state)
+static int spm_mtcmos_ctrl_isp_pwr(int state)
 {
 	int err = 0;
 
@@ -1603,7 +1607,7 @@ int spm_mtcmos_ctrl_isp_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_ifr_pwr(int state)
+static int spm_mtcmos_ctrl_ifr_pwr(int state)
 {
 	int err = 0;
 
@@ -1696,7 +1700,7 @@ int spm_mtcmos_ctrl_ifr_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_mfg_core0_pwr(int state)
+static int spm_mtcmos_ctrl_mfg_core0_pwr(int state)
 {
 	int err = 0;
 
@@ -1796,7 +1800,7 @@ int spm_mtcmos_ctrl_mfg_core0_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_mfg_async_pwr(int state)
+static int spm_mtcmos_ctrl_mfg_async_pwr(int state)
 {
 	int err = 0;
 
@@ -1879,7 +1883,7 @@ int spm_mtcmos_ctrl_mfg_async_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_cam_bus_prot(int state)
+static int spm_mtcmos_ctrl_cam_bus_prot(int state)
 {
 	int err = 0;
 
@@ -1974,7 +1978,7 @@ int spm_mtcmos_ctrl_cam_bus_prot(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_cam_pwr(int state)
+static int spm_mtcmos_ctrl_cam_pwr(int state)
 {
 	int err = 0;
 
@@ -2040,7 +2044,7 @@ int spm_mtcmos_ctrl_cam_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_vcodec_pwr(int state)
+static int spm_mtcmos_ctrl_vcodec_pwr(int state)
 {
 	int err = 0;
 
@@ -2532,10 +2536,17 @@ static int enable_subsys(enum subsys_id id, enum mtcmos_op action)
 
 	mtk_clk_lock(flags);
 
-	if (action == MTCMOS_BUS_PROT)
-		r = sys->ops->prepare(sys);
-	else if (action == MTCMOS_PWR)
-		r = sys->ops->enable(sys);
+	if (action == MTCMOS_BUS_PROT) {
+		if (sys->ops->prepare)
+			r = sys->ops->prepare(sys);
+		else
+			pr_notice("%s: prepare function is NULL\n", __func__);
+	} else if (action == MTCMOS_PWR) {
+		if (sys->ops->enable)
+			r = sys->ops->enable(sys);
+		else
+			pr_notice("%s: enable function is NULL\n", __func__);
+	}
 
 	WARN_ON(r);
 
@@ -2607,10 +2618,17 @@ static int disable_subsys(enum subsys_id id, enum mtcmos_op action)
 
 	mtk_clk_lock(flags);
 
-	if (action == MTCMOS_BUS_PROT)
-		r = sys->ops->unprepare(sys);
-	else if (action == MTCMOS_PWR)
-		r = sys->ops->disable(sys);
+	if (action == MTCMOS_BUS_PROT) {
+		if (sys->ops->unprepare)
+			r = sys->ops->unprepare(sys);
+		else
+			pr_notice("%s: unprepare function is NULL\n", __func__);
+	} else if (action == MTCMOS_PWR) {
+		if (sys->ops->disable)
+			r = sys->ops->disable(sys);
+		else
+			pr_notice("%s: disable function is NULL\n", __func__);
+	}
 
 	WARN_ON(r);
 
@@ -2647,7 +2665,7 @@ static int pg_is_enabled(struct clk_hw *hw)
 		return subsys_is_on(pg->pd_id);
 }
 
-int pg_prepare(struct clk_hw *hw)
+static int pg_prepare(struct clk_hw *hw)
 {
 	struct mt_power_gate *pg = to_power_gate(hw);
 	struct subsys *sys =  id_to_sys(pg->pd_id);
@@ -2656,6 +2674,11 @@ int pg_prepare(struct clk_hw *hw)
 	struct clk *clk;
 	int ret = 0;
 	int i = 0;
+
+	if (!sys) {
+		WARN_ON(!sys);
+		return -EINVAL;
+	}
 
 	mtk_mtcmos_lock(flags);
 #if CHECK_PWR_ST
@@ -2716,32 +2739,42 @@ int pg_prepare(struct clk_hw *hw)
 		i++;
 	} while (i < CLK_NUM);
 
-	if (!skip_pg && sys->ops->prepare)
+	if (!skip_pg) {
 		ret = enable_subsys(pg->pd_id, MTCMOS_BUS_PROT);
 		if (ret)
 			goto fail;
+	}
 
 fail:
 	mtk_mtcmos_unlock(flags);
 	return ret;
 }
 
-void pg_unprepare(struct clk_hw *hw)
+static void pg_unprepare(struct clk_hw *hw)
 {
-	int i = 0;
-	unsigned long flags;
-	int skip_pg = 0;
-	struct clk *clk;
 	struct mt_power_gate *pg = to_power_gate(hw);
 	struct subsys *sys =  id_to_sys(pg->pd_id);
+	struct clk *clk;
+	unsigned long flags;
+	int skip_pg = 0;
+	int ret = 0;
+	int i = 0;
+
+	if (!sys) {
+		WARN_ON(!sys);
+		return;
+	}
 
 	mtk_mtcmos_lock(flags);
 #if CHECK_PWR_ST
 	if (sys->ops->get_state(sys) == SUBSYS_PWR_DOWN)
 		skip_pg = 1;
 #endif				/* CHECK_PWR_ST */
-	if (!skip_pg && sys->ops->unprepare)
-		disable_subsys(pg->pd_id, MTCMOS_BUS_PROT);
+	if (!skip_pg) {
+		ret = disable_subsys(pg->pd_id, MTCMOS_BUS_PROT);
+		if (ret)
+			return;
+	}
 
 	do {
 		if (pg->pre_clk2_list == NULL)
@@ -2931,7 +2964,7 @@ static int init_clk_scpsys(struct clk_onecell_data *clk_data)
 				NULL, pg->pd_id);
 
 		if (IS_ERR(clk)) {
-			pr_debug("[CCF] %s: Failed to register clk %s: %ld\n",
+			pr_err("[CCF] %s: Failed to register clk %s: %ld\n",
 				__func__, pg->name, PTR_ERR(clk));
 			continue;
 		}
@@ -3002,7 +3035,7 @@ static int clk_mt6765_scpsys_probe(struct platform_device *pdev)
 
 	if (!infracfg_base || !spm_base || !smi_common_base || !infra_base ||
 		!conn_base || !conn_mcu_base) {
-		pr_err("clk-pg-mt6758: missing reg\n");
+		pr_err("clk-mt6765-scpsys: missing reg\n");
 
 		return -EINVAL;
 	}

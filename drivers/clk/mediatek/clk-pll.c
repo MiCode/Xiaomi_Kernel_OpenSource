@@ -199,8 +199,8 @@ static void mtk_pll_calc_values(struct mtk_clk_pll *pll, u32 *pcw, u32 *postdiv,
 	/* _pcw = freq * postdiv / fin * 2^pcwfbits */
 	ibits = pll->data->pcwibits ? pll->data->pcwibits : INTEGER_BITS;
 	_pcw = ((u64)freq << val) << (pll->data->pcwbits - ibits);
-	if (fin > 0)
-		do_div(_pcw, fin);
+	if (fin != 0)
+		div64_ul(_pcw, fin);
 
 	*pcw = (u32)_pcw;
 }
