@@ -56,7 +56,6 @@ config MTK_SWPM
 
 config MTK_PBM
 	bool "MTK power budget management"
-	select MTK_DYNAMIC_LOADING_POWER_THROTTLING
 	help
 	  This kernel config can be used to enable power budget management.
 	  When enable this option, pbm will allocate limit power budget to
