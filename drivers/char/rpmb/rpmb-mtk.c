@@ -496,14 +496,16 @@ int emmc_rpmb_req_handle(struct mmc_card *card, struct emmc_rpmb_req *rpmb_req)
 	struct emmc_rpmb_blk_data *md = NULL, *part_md;
 	int ret;
 	struct emmc_rpmb_data *rpmb;
+	struct list_head *pos;
 
+	part_md = vzalloc(sizeof(struct emmc_rpmb_blk_data));
+	if (!part_md)
+		return -ENOMEM;
 	/* rpmb_dump_frame(rpmb_req->data_frame); */
-
 	md = dev_get_drvdata(&card->dev);
-	list_for_each_entry(part_md, &md->rpmbs, rpmbs) {
-		rpmb = container_of(&part_md->rpmbs,
-					struct emmc_rpmb_data, node);
-		if (rpmb->part_index == EXT_CSD_PART_CONFIG_ACC_RPMB) {
+	list_for_each(pos, &md->rpmbs) {
+		rpmb = list_entry(pos, struct emmc_rpmb_data, node);
+		if (rpmb) {
 			part_md->part_type = EXT_CSD_PART_CONFIG_ACC_RPMB;
 			break;
 		}
@@ -545,7 +547,7 @@ error:
 	mmc_put_card(card, NULL);
 
 	rpmb_dump_frame(rpmb_req->data_frame);
-
+	vfree(part_md);
 	return ret;
 }
 
