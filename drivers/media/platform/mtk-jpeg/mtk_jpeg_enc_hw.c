@@ -207,13 +207,13 @@ void mtk_jpeg_enc_set_config(void __iomem *base,
 		fb->num_planes == 1) {
 
 		pr_info("%s set 2 plane by add offset w %d h %d\n", __func__,
-			config->enc_w, config->enc_h);
+			config->img_stride, config->align_h);
 
 		mtk_jpeg_enc_set_src_buf(base, config->img_stride,
 			 config->mem_stride,
 			 fb->fb_addr[0].dma_addr,
 			 fb->fb_addr[0].dma_addr +
-			 config->enc_h*config->mem_stride);
+			 config->align_h*config->mem_stride);
 	} else {
 		mtk_jpeg_enc_set_src_buf(base, config->img_stride,
 			 config->mem_stride,

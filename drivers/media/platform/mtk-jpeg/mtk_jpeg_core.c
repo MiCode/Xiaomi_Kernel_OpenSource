@@ -801,6 +801,8 @@ static int mtk_jpeg_s_fmt_mplane(struct mtk_jpeg_ctx *ctx,
 		pix_mp->num_planes, f_type);
 	q_data->w = pix_mp->width;
 	q_data->h = pix_mp->height;
+	q_data->align_h = pix_mp->height;
+
 	ctx->colorspace = pix_mp->colorspace;
 	ctx->ycbcr_enc = pix_mp->ycbcr_enc;
 	ctx->xfer_func = pix_mp->xfer_func;
@@ -1146,6 +1148,7 @@ static void mtk_jpeg_set_param(struct mtk_jpeg_ctx *ctx,
 	}
 	param->enc_w = q_data_src->w;
 	param->enc_h = q_data_src->h;
+	param->align_h = q_data_src->align_h;
 
 	pr_info("%s crop width %d height %d",
 		 __func__, param->enc_w, param->enc_h);
@@ -1186,8 +1189,9 @@ static void mtk_jpeg_set_param(struct mtk_jpeg_ctx *ctx,
 
 
 	param->mem_stride = q_data_src->bytesperline[0];
-	pr_info("%s mem_stride %d img_stride %d",
-		 __func__, param->mem_stride, param->img_stride);
+	pr_info("%s mem_stride %d img_stride %d align_h %d",
+		 __func__, param->mem_stride, param->img_stride,
+		  param->align_h);
 
 	param->total_encdu =
 		((padding_width >> 4) * (padding_height >> (Is420 ? 4 : 3)) *

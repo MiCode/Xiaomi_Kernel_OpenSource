@@ -184,6 +184,7 @@ struct mtk_jpeg_q_data {
 	u32			h;
 	u32			bytesperline[VIDEO_MAX_PLANES];
 	u32			sizeimage[VIDEO_MAX_PLANES];
+	u32			align_h;
 };
 
 /**
@@ -221,6 +222,7 @@ struct mtk_jpeg_enc_param {
 	u32 img_stride;
 	u32 mem_stride;
 	u32 total_encdu;
+	u32 align_h;
 };
 /**
  * mtk_jpeg_ctx - the device context data
