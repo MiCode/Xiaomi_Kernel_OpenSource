@@ -26,7 +26,11 @@ void mmc_crypto_free_host(struct mmc_host *host)
 void mmc_crypto_prepare_req(struct mmc_queue_req *mqrq)
 {
 	struct request *req = mqrq->req;
+#ifdef CONFIG_MTK_EMMC_HW_CQ
 	struct mmc_request *mrq = &(mqrq->cmdq_req.mrq);
+#else /* let BUG() if SW-CQHCI run to here */
+	struct mmc_request *mrq = NULL;
+#endif
 	const struct bio_crypt_ctx *bc;
 
 	if (!bio_crypt_should_process(req))

@@ -41,6 +41,8 @@
 #include <mt-plat/mtk_lpae.h>
 #include <linux/seq_file.h>
 #include <linux/pm_runtime.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 
 #include "mtk_sd.h"
 #include <mmc/core/core.h>
@@ -5504,17 +5506,17 @@ static int msdc_runtime_suspend(struct device *dev)
 	if (host->mclk)
 		msdc_clk_disable(host);
 
-	clk_unprepare(host->clk_ctl);
+	clk_disable_unprepare(host->clk_ctl);
 	if (host->aes_clk_ctl)
-		clk_unprepare(host->aes_clk_ctl);
+		clk_disable_unprepare(host->aes_clk_ctl);
 	if (host->hclk_ctl)
-		clk_unprepare(host->hclk_ctl);
+		clk_disable_unprepare(host->hclk_ctl);
 	if (host->axi_clk_ctl)
-		clk_unprepare(host->axi_clk_ctl);
+		clk_disable_unprepare(host->axi_clk_ctl);
 	if (host->ahb2axi_brg_clk_ctl)
-		clk_unprepare(host->ahb2axi_brg_clk_ctl);
+		clk_disable_unprepare(host->ahb2axi_brg_clk_ctl);
 	if (host->pclk_ctl)
-		clk_unprepare(host->pclk_ctl);
+		clk_disable_unprepare(host->pclk_ctl);
 
 	pm_qos_update_request(&host->msdc_pm_qos_req,
 		PM_QOS_DEFAULT_VALUE);
@@ -5525,24 +5527,33 @@ static int msdc_runtime_suspend(struct device *dev)
 static int msdc_runtime_resume(struct device *dev)
 {
 	struct msdc_host *host = dev_get_drvdata(dev);
+	struct arm_smccc_res smccc_res;
 
 	pm_qos_update_request(&host->msdc_pm_qos_req, 0);
 
 	if (host->pclk_ctl)
-		(void)clk_prepare(host->pclk_ctl);
+		(void)clk_prepare_enable(host->pclk_ctl);
 	if (host->axi_clk_ctl)
-		(void)clk_prepare(host->axi_clk_ctl);
+		(void)clk_prepare_enable(host->axi_clk_ctl);
 	if (host->ahb2axi_brg_clk_ctl)
-		(void)clk_prepare(host->ahb2axi_brg_clk_ctl);
-	(void)clk_prepare(host->clk_ctl);
+		(void)clk_prepare_enable(host->ahb2axi_brg_clk_ctl);
+	(void)clk_prepare_enable(host->clk_ctl);
 	if (host->aes_clk_ctl)
-		(void)clk_prepare(host->aes_clk_ctl);
+		(void)clk_prepare_enable(host->aes_clk_ctl);
 	if (host->hclk_ctl)
-		(void)clk_prepare(host->hclk_ctl);
+		(void)clk_prepare_enable(host->hclk_ctl);
 
 	/* mclk = 0 means core layer resume will enable clk later. */
 	if (host->mclk)
 		msdc_clk_enable_and_stable(host);
+	/*
+	 * 1: MSDC_AES_CTL_INIT
+	 * 4: cap_id, no-meaning
+	 * 1: cfg_id, we choose the second cfg group
+	 */
+	if (host->mmc->caps2 & MMC_CAP2_CRYPTO)
+		arm_smccc_smc(MTK_SIP_KERNEL_HW_FDE_MSDC_CTL,
+			1, 4, 1, 0, 0, 0, 0, &smccc_res);
 
 	return 0;
 }

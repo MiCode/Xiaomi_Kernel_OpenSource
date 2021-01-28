@@ -18,7 +18,8 @@
 #define MSDC_AES_CTR1_GP1 0x694
 #define MSDC_AES_CTR2_GP1 0x698
 #define MSDC_AES_CTR3_GP1 0x69C
-
+/* Crypto CQE */
+#define MSDC_CRCAP        0x100
 /* Crypto context fields in CQHCI data command task descriptor */
 #define DATA_UNIT_NUM(x)	    (((u64)(x) & 0xFFFFFFFF) << 0)
 #define CRYPTO_CONFIG_INDEX(x)	(((u64)(x) & 0xFF) << 32)
@@ -61,17 +62,20 @@ union cqhci_cpt_cap {
 	} cap;
 };
 
+/*--------------------------------------------------------------------------*/
+/* enum                                                    */
+/*--------------------------------------------------------------------------*/
+enum msdc_crypto_alg {
+	MSDC_CRYPTO_ALG_BITLOCKER_AES_CBC	= 1,
+	MSDC_CRYPTO_ALG_AES_ECB				= 2,
+	MSDC_CRYPTO_ALG_ESSIV_AES_CBC		= 3,
+	MSDC_CRYPTO_ALG_AES_XTS				= 4,
+};
 
 #ifdef CONFIG_MMC_CRYPTO
 void msdc_crypto_init_vops(struct mmc_host *host);
-int cqhci_crypto_start(struct mmc_host *host, struct mmc_request *mrq);
 #else
 static inline void msdc_crypto_init_vops(struct mmc_host *host) { return ; }
-static inline int cqhci_crypto_start(struct mmc_host *host,
-	struct mmc_request *mrq)
-{
-	return 0;
-}
 #endif
 
 #endif /* _MSDC_CRYPTO_H */
