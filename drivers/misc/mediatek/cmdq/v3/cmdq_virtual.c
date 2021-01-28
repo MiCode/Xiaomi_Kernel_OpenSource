@@ -618,6 +618,11 @@ const char *cmdq_virtual_module_from_event_id(const s32 event,
 		group = CMDQ_GROUP_ISP;
 		break;
 
+	case CMDQ_EVENT_OCC_DONE:
+		module = "OWE";
+		group = CMDQ_GROUP_ISP;
+		break;
+
 	case CMDQ_EVENT_FDVT_DONE:
 		module = "FDVT";
 		group = CMDQ_GROUP_ISP;
