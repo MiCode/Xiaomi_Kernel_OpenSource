@@ -25,7 +25,7 @@
 
 #include "cpu_ctrl.h"
 #include "eas_ctrl.h"
-#include "fpsgo_common.h"
+//#include "fpsgo_common.h"
 #include "perf_ioctl.h"
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))

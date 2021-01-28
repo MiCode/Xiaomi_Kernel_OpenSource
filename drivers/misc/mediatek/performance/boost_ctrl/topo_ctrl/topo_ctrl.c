@@ -22,21 +22,84 @@
 #include <linux/slab.h>
 #include <linux/topology.h>
 
-#include "tchbst.h"
+//#include "tchbst.h"
 #include "topo_ctrl.h"
 #include "mtk_perfmgr_internal.h"
+#include "cpu_topo_platform.h"
 
+/* data type */
+struct topo_plat_cluster_info {
+	unsigned int cluster_id;
+	unsigned int core_num;
+	unsigned int cpu_id;	/* cpu id of the dvfs policy owner */
+	struct cpumask cpus;
+};
+
+/* global variable */
 static int *calc_cpu_cap, *calc_cpu_num;
 static int  s_clstr_core, b_clstr_core;
 
+static int topo_cluster_num;
+static struct topo_plat_cluster_info *topo_cluster_info;
+
 int topo_ctrl_get_nr_clusters(void)
 {
+#if 0
 	return perfmgr_clusters;
+#else
+	/* get cluster num */
+    #ifndef NO_SCHEDULE_API
+	return arch_get_nr_clusters();
+    #else
+	return NR_PPM_CLUSTERS;
+    #endif
 
+#endif
 }
 EXPORT_SYMBOL(topo_ctrl_get_nr_clusters);
 
 /***************************************/
+static void topo_platform_init(void)
+{
+	int i, j, bit = 0;
+
+	/* get cluster num */
+#ifndef NO_SCHEDULE_API
+	topo_cluster_num = (unsigned int)arch_get_nr_clusters();
+#else
+	topo_cluster_num = NR_PPM_CLUSTERS;
+#endif
+
+	if (topo_cluster_num <= 0)
+		return;
+
+	topo_cluster_info =	kcalloc(topo_cluster_num,
+		sizeof(struct topo_plat_cluster_info), GFP_KERNEL);
+
+	for (i = 0; i < topo_cluster_num; i++) {
+#ifndef NO_SCHEDULE_API
+		arch_get_cluster_cpus(&cpu_mask, i);
+		topo_cluster_info[i].core_num = cpumask_weight(&cpu_mask);
+		topo_cluster_info[i].cpu_id = cpumask_first(&cpu_mask);
+#else
+		topo_cluster_info[i].core_num = get_cluster_cpu_core(i);
+		if (i > 0)
+			topo_cluster_info[i].cpu_id =
+				topo_cluster_info[i-1].cpu_id +
+				get_cluster_cpu_core(i-1);
+		else
+			topo_cluster_info[i].cpu_id = 0;
+#endif
+
+		cpumask_clear(&topo_cluster_info[i].cpus);
+
+		for (j = 0; j < topo_cluster_info[i].core_num; j++) {
+			cpumask_set_cpu(bit, &topo_cluster_info[i].cpus);
+			bit++;
+		}
+	}
+}
+
 static void calc_min_cpucap(void)
 {
 
@@ -50,7 +113,11 @@ static void calc_min_cpucap(void)
 				&cpus, cpu_possible_mask);
 
 		calc_cpu_num[i] = cpumask_weight(&cpu_online_cpumask);
+#if 0
 		calc_cpu_cap[i] = arch_get_max_cpu_capacity(cpu_num);
+#else
+		calc_cpu_cap[i] = 0;
+#endif
 
 		if (calc_cpu_cap[i] < min) {
 			s_clstr_core = i;
@@ -90,13 +157,42 @@ static int perfmgr_glb_info_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "b_clstr_core : %d\n", b_clstr_core);
 	return 0;
 }
+
 static int perfmgr_topo_ctrl_proc_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "%d\n", perfmgr_clusters);
 	return 0;
 }
+
+static int perfmgr_is_big_little_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", (topo_cluster_num) > 1 ? 1 : 0);
+	return 0;
+}
+
+static int perfmgr_nr_clusters_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", topo_cluster_num);
+	return 0;
+}
+
+static int perfmgr_cpus_per_cluster_proc_show(struct seq_file *m, void *v)
+{
+	int i;
+
+	for (i = 0; i < topo_cluster_num; i++)
+		seq_printf(m, "cluster%d: %0lx\n", i,
+			*cpumask_bits(&topo_cluster_info[i].cpus));
+
+	return 0;
+}
+
 PROC_FOPS_RO(topo_ctrl);
 PROC_FOPS_RO(glb_info);
+PROC_FOPS_RO(is_big_little);
+PROC_FOPS_RO(nr_clusters);
+PROC_FOPS_RO(cpus_per_cluster);
+
 /************************************************/
 int topo_ctrl_init(struct proc_dir_entry *parent)
 {
@@ -111,14 +207,15 @@ int topo_ctrl_init(struct proc_dir_entry *parent)
 	const struct pentry entries[] = {
 		PROC_ENTRY(topo_ctrl),
 		PROC_ENTRY(glb_info),
+		PROC_ENTRY(is_big_little),
+		PROC_ENTRY(nr_clusters),
+		PROC_ENTRY(cpus_per_cluster),
 	};
 
 	topo_dir = proc_mkdir("topo_ctrl", parent);
 
 	if (!topo_dir)
 		pr_debug("topo_dir null\n ");
-
-
 
 	/* create procfs */
 	for (i = 0; i < ARRAY_SIZE(entries); i++) {
@@ -131,6 +228,9 @@ int topo_ctrl_init(struct proc_dir_entry *parent)
 		}
 	}
 
+	topo_cluster_num = 0;
+	topo_cluster_info = NULL;
+	topo_platform_init();
 
 	calc_cpu_cap =  kcalloc(perfmgr_clusters, sizeof(int), GFP_KERNEL);
 	calc_cpu_num =  kcalloc(perfmgr_clusters, sizeof(int), GFP_KERNEL);

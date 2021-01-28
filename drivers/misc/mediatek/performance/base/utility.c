@@ -142,4 +142,19 @@ void perfmgr_trace_end(void)
 	preempt_enable();
 }
 
+void perfmgr_trace_log(char *module, const char *fmt, ...)
+{
+	char log[256];
+	va_list args;
+	int len;
+
+	va_start(args, fmt);
+	len = vsnprintf(log, sizeof(log), fmt, args);
+
+	if (unlikely(len == 256))
+		log[255] = '\0';
+	va_end(args);
+	perfmgr_trace_printk(module, log);
+}
+
 #endif

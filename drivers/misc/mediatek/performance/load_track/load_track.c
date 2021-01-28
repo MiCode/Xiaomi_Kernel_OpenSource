@@ -24,8 +24,8 @@
 struct LT_USER_DATA {
 	void (*fn)(int loading);
 	unsigned long polling_ms;
-	cputime64_t *prev_idle_time;
-	cputime64_t *prev_wall_time;
+	u64 *prev_idle_time;
+	u64 *prev_wall_time;
 	struct hlist_node user_list_node;
 	struct LT_WORK_DATA *link2work;
 };
@@ -86,8 +86,8 @@ static int lt_update_loading(struct LT_USER_DATA *lt_data)
 {
 	int ret = -EOVERFLOW;
 	int cpu;
-	cputime64_t cur_idle_time_i, cur_wall_time_i;
-	cputime64_t cpu_idle_time = 0, cpu_wall_time = 0;
+	u64 cur_idle_time_i, cur_wall_time_i;
+	u64 cpu_idle_time = 0, cpu_wall_time = 0;
 
 	lt_lockprove(__func__);
 	for_each_possible_cpu(cpu) {
@@ -150,12 +150,12 @@ static void *new_lt_user(void (*fn)(int loading),
 	new_lt->fn             = fn;
 	new_lt->polling_ms     = polling_ms;
 	new_lt->prev_idle_time =
-		kcalloc(nr_cpus, sizeof(cputime64_t), GFP_KERNEL);
+		kcalloc(nr_cpus, sizeof(u64), GFP_KERNEL);
 	if (!new_lt->prev_idle_time)
 		goto new_lt_idle_alloc_err;
 
 	new_lt->prev_wall_time =
-		kcalloc(nr_cpus, sizeof(cputime64_t), GFP_KERNEL);
+		kcalloc(nr_cpus, sizeof(u64), GFP_KERNEL);
 	if (!new_lt->prev_wall_time)
 		goto new_lt_wall_alloc_err;
 
