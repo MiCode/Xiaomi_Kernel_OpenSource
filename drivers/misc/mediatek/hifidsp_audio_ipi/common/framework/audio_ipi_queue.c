@@ -76,6 +76,7 @@ struct msg_queue_t {
 	spinlock_t rw_lock;
 
 	struct ipi_msg_t ipi_msg_ack;
+	spinlock_t ack_lock;
 
 	bool enable;
 };
@@ -189,6 +190,7 @@ static struct msg_queue_t *create_msg_queue(const uint8_t task_scene)
 	msg_queue->idx_w = 0;
 
 	spin_lock_init(&msg_queue->rw_lock);
+	spin_lock_init(&msg_queue->ack_lock);
 
 	memset(&msg_queue->ipi_msg_ack, 0, sizeof(struct ipi_msg_t));
 
@@ -435,6 +437,7 @@ int send_message_ack(
 {
 	struct msg_queue_t *msg_queue = NULL;
 	uint8_t task_scene = 0xFF;
+	unsigned long flags = 0;
 
 	/* error handling */
 	if (handler == NULL) {
@@ -465,6 +468,7 @@ int send_message_ack(
 
 
 	/* get msg ack & wake up queue */
+	spin_lock_irqsave(&msg_queue->ack_lock, flags);
 	if (msg_queue->ipi_msg_ack.magic != 0) {
 		DUMP_IPI_MSG("ack not clean", &msg_queue->ipi_msg_ack);
 		WARN_ON(1);
@@ -474,6 +478,7 @@ int send_message_ack(
 	       sizeof(struct ipi_msg_t));
 	dsb(SY);
 	wake_up_interruptible(&msg_queue->element[msg_queue->idx_r].wq);
+	spin_unlock_irqrestore(&msg_queue->ack_lock, flags);
 
 	return 0;
 }
@@ -600,17 +605,20 @@ static int process_message_in_queue(
 		}
 
 		/* should be in pair */
+		spin_lock_irqsave(&msg_queue->ack_lock, flags);
 		if (!check_ack_msg_valid(p_ipi_msg, p_ack)) {
 			DUMP_IPI_MSG("ack not pair", p_ipi_msg);
 			DUMP_IPI_MSG("ack not pair", p_ack);
 			memset(p_ack, 0, sizeof(struct ipi_msg_t));
 			retval = -1;
+			spin_unlock_irqrestore(&msg_queue->ack_lock, flags);
 			WARN_ON(1);
 			break;
 		}
 
 		memcpy(p_ipi_msg, p_ack, sizeof(struct ipi_msg_t));
 		memset(p_ack, 0, sizeof(struct ipi_msg_t));
+		spin_unlock_irqrestore(&msg_queue->ack_lock, flags);
 		retval = 0;
 		break;
 	}
