@@ -11,6 +11,7 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+#include <linux/proc_fs.h>
 #include <linux/debugfs.h>
 #include <linux/export.h>
 #include <linux/init.h>
@@ -391,6 +392,8 @@ void mtk_spower_ut(void)
 }
 #endif
 
+
+#ifdef CONFIG_DEBUG_FS
 static int static_power_show(struct seq_file *s, void *unused)
 {
 	seq_printf(s, "%s", static_power_buf);
@@ -409,6 +412,61 @@ static const struct file_operations static_power_operations = {
 	.release = single_release,
 };
 
+#endif
+#define PROC_FOPS_RO(name)					\
+	static int name ## _proc_open(struct inode *inode,	\
+		struct file *file)				\
+	{							\
+		return single_open(file, name ## _proc_show,	\
+			PDE_DATA(inode));			\
+	}							\
+	static const struct file_operations name ## _proc_fops = {	\
+		.owner		  = THIS_MODULE,			\
+		.open		   = name ## _proc_open,		\
+		.read		   = seq_read,				\
+		.llseek		 = seq_lseek,				\
+		.release		= single_release,		\
+	}
+
+#define PROC_ENTRY(name)	{__stringify(name), &name ## _proc_fops}
+
+static int spower_lkg_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s", static_power_buf);
+	return 0;
+}
+PROC_FOPS_RO(spower_lkg);
+
+int spower_procfs_init(void)
+{
+	struct proc_dir_entry *dir = NULL;
+	int i;
+
+	struct pentry {
+		const char *name;
+		const struct file_operations *fops;
+	};
+
+	const struct pentry entries[] = {
+		PROC_ENTRY(spower_lkg),
+	};
+
+	dir = proc_mkdir("leakage", NULL);
+
+	if (!dir) {
+		pr_notice("fail to create /proc/leakage @ %s()\n",
+								__func__);
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(entries); i++) {
+		if (!proc_create
+		    (entries[i].name, 0664, dir, entries[i].fops))
+			pr_notice("%s(), create /proc/leakage/%s failed\n",
+				__func__, entries[i].name);
+	}
+	return 0;
+}
 static unsigned int mtSpowerInited;
 int mt_spower_init(void)
 {
@@ -494,9 +552,13 @@ int mt_spower_init(void)
 
 	/* print static_power_buf and generate debugfs node */
 	SPOWER_ERR("%s", static_power_buf);
+#ifdef CONFIG_DEBUG_FS
 	debugfs_create_file("static_power", S_IFREG | 0400, NULL, NULL,
 			    &static_power_operations);
 
+#endif
+
+	spower_procfs_init();
 	for (i = 0; i < MTK_SPOWER_MAX; i++)
 		kfree(tab[i]);
 
