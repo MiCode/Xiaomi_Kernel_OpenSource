@@ -80,12 +80,6 @@ struct gpio_config {
 	.data_off = offsetof(struct nanohub_data, name), \
 	.options = GPIO_OPT_HAS_IRQ | (_opts)
 
-static int nanohub_open(struct inode *, struct file *);
-static ssize_t nanohub_read(struct file *, char *, size_t, loff_t *);
-static ssize_t nanohub_write(struct file *, const char *, size_t, loff_t *);
-static unsigned int nanohub_poll(struct file *, poll_table *);
-static int nanohub_release(struct inode *, struct file *);
-
 static struct class *sensor_class;
 static int major;
 
@@ -107,11 +101,6 @@ static const struct iio_info nanohub_iio_info = {
 
 static const struct file_operations nanohub_fileops = {
 	.owner = THIS_MODULE,
-	.open = nanohub_open,
-	.read = nanohub_read,
-	.write = nanohub_write,
-	.poll = nanohub_poll,
-	.release = nanohub_release,
 };
 
 enum {
@@ -679,72 +668,6 @@ done:
 	return ret;
 }
 
-static int nanohub_match_devt(struct device *dev, const void *data)
-{
-	const dev_t *devt = data;
-
-	return dev->devt == *devt;
-}
-
-static int nanohub_open(struct inode *inode, struct file *file)
-{
-	dev_t devt = inode->i_rdev;
-	struct device *dev;
-
-	dev = class_find_device(sensor_class, NULL, &devt, nanohub_match_devt);
-	if (dev) {
-		file->private_data = dev_get_drvdata(dev);
-		nonseekable_open(inode, file);
-		return 0;
-	}
-
-	return -ENODEV;
-}
-
-static ssize_t nanohub_read(struct file *file, char *buffer, size_t length,
-			    loff_t *offset)
-{
-	struct nanohub_io *io = file->private_data;
-	struct nanohub_data *data = io->data;
-	struct nanohub_buf *buf;
-	int ret;
-
-	if (!nanohub_io_has_buf(io) && (file->f_flags & O_NONBLOCK))
-		return -EAGAIN;
-
-	buf = nanohub_io_get_buf(io, true);
-	if (IS_ERR_OR_NULL(buf))
-		return PTR_ERR(buf);
-
-	ret = copy_to_user(buffer, buf->buffer, buf->length);
-	if (ret != 0)
-		ret = -EFAULT;
-	else
-		ret = buf->length;
-
-	nanohub_io_put_buf(&data->free_pool, buf);
-
-	return ret;
-}
-
-static ssize_t nanohub_write(struct file *file, const char *buffer,
-			     size_t length, loff_t *offset)
-{
-	struct nanohub_io *io = file->private_data;
-	struct nanohub_data *data = io->data;
-	int ret;
-
-	ret = request_wakeup_timeout(data, WAKEUP_TIMEOUT_MS);
-	if (ret)
-		return ret;
-
-	ret = nanohub_comms_write(data, buffer, length);
-
-	release_wakeup(data);
-
-	return ret;
-}
-
 ssize_t nanohub_external_write(const char *buffer, size_t length)
 {
 	struct nanohub_data *data = g_nanohub_data_p;
@@ -769,26 +692,6 @@ ssize_t nanohub_external_write(const char *buffer, size_t length)
 	release_wakeup(data);
 
 	return ret;
-}
-
-static unsigned int nanohub_poll(struct file *file, poll_table *wait)
-{
-	struct nanohub_io *io = file->private_data;
-	unsigned int mask = POLLOUT | POLLWRNORM;
-
-	poll_wait(file, &io->buf_wait, wait);
-
-	if (nanohub_io_has_buf(io))
-		mask |= POLLIN | POLLRDNORM;
-
-	return mask;
-}
-
-static int nanohub_release(struct inode *inode, struct file *file)
-{
-	file->private_data = NULL;
-
-	return 0;
 }
 
 static bool nanohub_os_log(char *buffer, int len)
