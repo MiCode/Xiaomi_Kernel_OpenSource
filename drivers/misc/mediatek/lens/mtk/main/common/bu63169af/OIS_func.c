@@ -662,11 +662,12 @@ void I2C_OIS_F0123_wr_(unsigned char u08_dat0, unsigned char u08_dat1,
 
 unsigned short int I2C_OIS_F0123__rd(void)
 {
-	unsigned char u08_dat;
+	unsigned char u08_dat[2];
 
-	u08_dat = 0xF0; /* Op-code */
+	u08_dat[0] = 0xF0; /* Op-code */
+	u08_dat[1] = 0;
 
-	return RD_I2C(_SLV_OIS_, 1, &u08_dat);
+	return RD_I2C(_SLV_OIS_, 2, u08_dat);
 }
 
 /* ----------------------------------------------------------- */
