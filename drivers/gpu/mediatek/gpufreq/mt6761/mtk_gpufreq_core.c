@@ -102,9 +102,6 @@ __mt_gpufreq_get_post_divider_power(unsigned int freq, unsigned int efuse);
 static void __mt_gpufreq_switch_to_clksrc(enum g_clock_source_enum clksrc);
 static void __mt_gpufreq_kick_pbm(int enable);
 static void __mt_gpufreq_clock_switch(unsigned int freq_new);
-static void __mt_gpufreq_volt_switch(unsigned int volt_old,
-	unsigned int volt_new, unsigned int vsram_volt_old,
-	unsigned int vsram_volt_new);
 static void __mt_gpufreq_batt_oc_protect(unsigned int limited_idx);
 #ifdef MT_GPUFREQ_BATT_PERCENT_PROTECT
 static void __mt_gpufreq_batt_percent_protect(unsigned int limited_index);
@@ -116,16 +113,6 @@ static unsigned int __mt_gpufreq_calculate_dds(unsigned int freq_khz,
 		enum g_post_divider_power_enum post_divider_power);
 static void __mt_gpufreq_setup_opp_power_table(int num);
 static void __mt_gpufreq_calculate_springboard_opp_index(void);
-#ifdef USE_STAND_ALONE_VSRAM
-static void
-__mt_gpufreq_vsram_gpu_volt_switch(enum g_volt_switch_enum switch_way,
-	unsigned int sfchg_rate, unsigned int volt_old, unsigned int volt_new);
-#endif
-#ifdef USE_STAND_ALONE_VGPU
-static void
-__mt_gpufreq_vgpu_volt_switch(enum g_volt_switch_enum switch_way,
-	unsigned int sfchg_rate, unsigned int volt_old, unsigned int volt_new);
-#endif
 
 /**
  * ===============================================
@@ -1422,44 +1409,11 @@ static void __mt_gpufreq_set(unsigned int freq_old, unsigned int freq_new,
 		vsram_volt_old, vsram_volt_new);
 
 	if (freq_new > freq_old) {
-		if (vsram_volt_new > (volt_old + BUCK_VARIATION_MAX)) {
-			__mt_gpufreq_volt_switch(volt_old,
-			g_opp_table[g_opp_springboard_idx].gpufreq_volt,
-			vsram_volt_old,
-			g_opp_table[g_opp_springboard_idx].gpufreq_vsram);
-			__mt_gpufreq_volt_switch(
-			g_opp_table[g_opp_springboard_idx].gpufreq_volt,
-			volt_new,
-			g_opp_table[g_opp_springboard_idx].gpufreq_vsram,
-				vsram_volt_new);
-		} else
-#ifdef USE_STAND_ALONE_VGPU
-			__mt_gpufreq_volt_switch(volt_old, volt_new,
-				vsram_volt_old, vsram_volt_new);
-#else
 		__mt_gpufreq_vcore_volt_switch(volt_new);
-#endif
 		__mt_gpufreq_clock_switch(freq_new);
 	} else {
 		__mt_gpufreq_clock_switch(freq_new);
-#ifdef USE_STAND_ALONE_VGPU
-		if (vsram_volt_old > (volt_new + BUCK_VARIATION_MAX)) {
-			__mt_gpufreq_volt_switch(volt_old,
-			g_opp_table[g_opp_springboard_idx].gpufreq_volt,
-			vsram_volt_old,
-			g_opp_table[g_opp_springboard_idx].gpufreq_vsram);
-			__mt_gpufreq_volt_switch(
-			g_opp_table[g_opp_springboard_idx].gpufreq_volt,
-			volt_new,
-			g_opp_table[g_opp_springboard_idx].gpufreq_vsram,
-				vsram_volt_new);
-		} else {
-			__mt_gpufreq_volt_switch(volt_old,
-				volt_new, vsram_volt_old, vsram_volt_new);
-		}
-#else
 		__mt_gpufreq_vcore_volt_switch(volt_new);
-#endif
 	}
 
 #ifdef CONFIG_MTK_GPU_SUPPORT /* Only enable when GPU isn't kerenl module */
@@ -1561,34 +1515,6 @@ static void __mt_gpufreq_switch_to_clksrc(enum g_clock_source_enum clksrc)
 }
 
 /*
- * switch voltage and vsram via PMIC
- */
-static void __mt_gpufreq_volt_switch(unsigned int volt_old,
-		unsigned int volt_new, unsigned int vsram_volt_old,
-		unsigned int vsram_volt_new)
-{
-	if (volt_new > volt_old) {
-#ifdef USE_STAND_ALONE_VSRAM
-		__mt_gpufreq_vsram_gpu_volt_switch(VOLT_RISING,
-			g_vsram_sfchg_rrate, vsram_volt_old, vsram_volt_new);
-#endif
-#ifdef USE_STAND_ALONE_VGPU
-		__mt_gpufreq_vgpu_volt_switch(VOLT_RISING,
-			g_vgpu_sfchg_rrate, volt_old, volt_new);
-#endif
-	} else {
-#ifdef USE_STAND_ALONE_VGPU
-		__mt_gpufreq_vgpu_volt_switch(VOLT_FALLING, g_vgpu_sfchg_frate,
-			volt_old, volt_new);
-#endif
-#ifdef USE_STAND_ALONE_VSRAM
-		__mt_gpufreq_vsram_gpu_volt_switch(VOLT_FALLING,
-			g_vsram_sfchg_frate, vsram_volt_old, vsram_volt_new);
-#endif
-	}
-}
-
-/*
  * calculate springboard opp index
  * to avoid buck variation, the voltage between VGPU
  * and VSRAM_GPU must be in 100mV?~ 250mV
@@ -1613,91 +1539,11 @@ static void __mt_gpufreq_calculate_springboard_opp_index(void)
 }
 
 /*
- * switch VSRAM_GPU voltage via PMIC
- */
-#ifdef USE_STAND_ALONE_VSRAM
-static void __mt_gpufreq_vsram_gpu_volt_switch(
-	enum g_volt_switch_enum switch_way,
-	unsigned int sfchg_rate,
-	unsigned int volt_old, unsigned int volt_new)
-{
-	unsigned int max_diff, steps;
-
-	if (switch_way == VOLT_RISING)
-		max_diff = (volt_new - volt_old);
-	else
-		max_diff = (volt_old - volt_new);
-
-	steps = (max_diff / DELAY_FACTOR) + 1;
-
-	regulator_set_voltage(g_pmic->reg_vsram_gpu,
-		volt_new * 10, VSRAM_GPU_MAX_VOLT * 10 + 125);
-	udelay(steps * sfchg_rate);
-
-	gpufreq_pr_debug("@%s: udelay us(%d) = steps(%d) * sfchg_rate(%d)\n",
-			__func__, steps * sfchg_rate, steps, sfchg_rate);
-}
-#endif
-
-/*
- * switch VGPU voltage via PMIC
- */
-#ifdef USE_STAND_ALONE_VGPU
-static void __mt_gpufreq_vgpu_volt_switch(enum g_volt_switch_enum switch_way,
-		unsigned int sfchg_rate,
-		unsigned int volt_old, unsigned int volt_new)
-{
-	unsigned int max_diff, steps;
-
-	if (switch_way == VOLT_RISING)
-		max_diff = (volt_new - volt_old);
-	else
-		max_diff = (volt_old - volt_new);
-
-	steps = (max_diff / DELAY_FACTOR) + 1;
-
-	regulator_set_voltage(g_pmic->reg_vgpu,
-		volt_new * 10, VGPU_MAX_VOLT * 10 + 125);
-	udelay(PMIC_SRCLKEN_HIGH_TIME_US);
-
-	gpufreq_pr_debug(
-		"@%s: udelay us(%d) = steps(%d) * sfchg_rate(%d)\n",
-		__func__, steps * sfchg_rate, steps, sfchg_rate);
-}
-#endif
-
-/*
  * enable bucks (VGPU and VSRAM_GPU)
  */
 static void __mt_gpufreq_bucks_enable(void)
 {
-#ifdef USE_STAND_ALONE_VSRAM
-	int ret_vsram;
-	if (regulator_is_enabled(g_pmic->reg_vsram_gpu) == 0) {
-		ret_vsram = regulator_enable(g_pmic->reg_vsram_gpu);
-		if (ret_vsram) {
-			gpufreq_perr(
-			"@%s: enable VSRAM_GPU failed, ret = %d\n",
-			__func__, ret_vsram);
-			return;
-		}
-	}
-#endif
-#ifdef USE_STAND_ALONE_VGPU
-	int ret_vgpu;
-	if (regulator_is_enabled(g_pmic->reg_vgpu) == 0) {
-		ret_vgpu = regulator_enable(g_pmic->reg_vgpu);
-		if (ret_vgpu) {
-			gpufreq_perr(
-			"@%s: enable VGPU failed, ret = %d\n",
-			__func__, ret_vgpu);
-			return;
-		}
-	}
-	gpufreq_pr_debug("@%s: bucks is enabled\n", __func__);
-#else
 	__mt_gpufreq_vcore_volt_switch(g_cur_opp_volt);
-#endif
 }
 
 /*
@@ -1705,33 +1551,7 @@ static void __mt_gpufreq_bucks_enable(void)
  */
 static void __mt_gpufreq_bucks_disable(void)
 {
-#ifdef USE_STAND_ALONE_VGPU
-	int ret_vgpu;
-	if (regulator_is_enabled(g_pmic->reg_vgpu) > 0) {
-		ret_vgpu = regulator_disable(g_pmic->reg_vgpu);
-		if (ret_vgpu) {
-			gpufreq_perr(
-			"@%s: disable VGPU failed, ret = %d\n",
-			__func__, ret_vgpu);
-			return;
-		}
-	}
-#else
 	__mt_gpufreq_vcore_volt_switch(0);
-#endif
-#ifdef USE_STAND_ALONE_VSRAM
-	int ret_vsram;
-	if (regulator_is_enabled(g_pmic->reg_vsram_gpu) > 0) {
-		ret_vsram = regulator_disable(g_pmic->reg_vsram_gpu);
-		if (ret_vsram) {
-			gpufreq_perr(
-			"@%s: disable VSRAM_GPU failed, ret = %d\n",
-			__func__, ret_vsram);
-			return;
-		}
-	}
-	gpufreq_pr_debug("@%s: bucks is disabled\n", __func__);
-#endif
 }
 
 /*
@@ -1762,13 +1582,9 @@ static void __mt_gpufreq_set_fixed_volt(int fixed_volt)
 	mt_gpufreq_voltage_enable_set(1);
 	gpufreq_pr_debug("@%s: now, g_fixed_freq = %d, g_fixed_volt = %d\n",
 			__func__, g_fixed_freq, g_fixed_volt);
-#ifdef USE_STAND_ALONE_VGPU
-	regulator_set_voltage(g_pmic->reg_vgpu, g_fixed_volt * 10,
-		g_fixed_volt * 10 + 125);
-#else
+
 	regulator_set_voltage(g_pmic->reg_vcore, g_fixed_volt * 10,
 		g_fixed_volt * 10 + 125);
-#endif
 
 	g_cur_opp_volt = g_fixed_volt;
 	g_cur_opp_vsram_volt =
@@ -1913,13 +1729,7 @@ static unsigned int __mt_gpufreq_get_cur_vsram_volt(void)
 	unsigned int volt = 0;
 
 	/* WARRNING: regulator_get_voltage prints uV */
-#ifdef USE_STAND_ALONE_VSRAM
-	volt = regulator_get_voltage(g_pmic->reg_vsram_gpu) / 10;
-
-	gpufreq_pr_debug("@%s: volt = %d\n", __func__, volt);
-#else
 	gpufreq_pr_debug("@%s: volt = 87500 (FIXED VALUE)\n", __func__);
-#endif
 
 	return volt;
 }
@@ -1932,12 +1742,7 @@ static unsigned int __mt_gpufreq_get_cur_volt(void)
 	unsigned int volt = 0;
 
 	if (g_volt_enable_state) {
-#ifdef USE_STAND_ALONE_VGPU
-		/* WARRNING: regulator_get_voltage prints uV */
-		volt = regulator_get_voltage(g_pmic->reg_vgpu) / 10;
-#else
 		volt = regulator_get_voltage(g_pmic->reg_vcore) / 10;
-#endif
 	}
 
 	gpufreq_pr_debug("@%s: volt = %d\n", __func__, volt);
@@ -2353,7 +2158,6 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 		return PTR_ERR(g_clk->clk_sub_parent);
 	}
 
-
 	g_clk->mtcmos_mfg_async = devm_clk_get(&pdev->dev, "mtcmos_mfg_async");
 	if (IS_ERR(g_clk->mtcmos_mfg_async)) {
 		gpufreq_perr("@%s: cannot get mtcmos_mfg_async\n", __func__);
@@ -2415,13 +2219,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	g_pmic = kzalloc(sizeof(struct g_pmic_info), GFP_KERNEL);
 	if (g_pmic == NULL)
 		return -ENOMEM;
-#ifdef USE_STAND_ALONE_VGPU
-	g_pmic->reg_vgpu = regulator_get(&pdev->dev, "ext_buck_vgpu");
-	if (IS_ERR(g_pmic->reg_vgpu)) {
-		gpufreq_perr("@%s: cannot get VGPU\n", __func__);
-		return PTR_ERR(g_pmic->reg_vgpu);
-	}
-#else
+
 	mtk_pm_qos_add_request(&g_pmic->mtk_pm_vgpu,
 	MTK_PM_QOS_VCORE_OPP, VCORE_OPP_0);
 
@@ -2430,15 +2228,6 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 		gpufreq_perr("@%s: cannot get VCORE\n", __func__);
 		return PTR_ERR(g_pmic->reg_vcore);
 	}
-
-#endif
-#ifdef USE_STAND_ALONE_VSRAM
-	g_pmic->reg_vsram_gpu = regulator_get(&pdev->dev, "vsram_gpu");
-	if (IS_ERR(g_pmic->reg_vsram_gpu)) {
-		gpufreq_perr("@%s: cannot get VSRAM_GPU\n", __func__);
-		return PTR_ERR(g_pmic->reg_vsram_gpu);
-	}
-#endif
 
 #ifdef MT_GPUFREQ_STATIC_PWR_READY2USE
 	/* Initial leackage power usage */
@@ -2455,27 +2244,6 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 			ARRAY_SIZE(g_opp_table_6761));
 		g_fixed_vsram_volt_idx = 0;
 	}
-
-	/* set VSRAM_GPU */
-#ifdef USE_STAND_ALONE_VSRAM
-	regulator_set_voltage(g_pmic->reg_vsram_gpu,
-		VSRAM_GPU_MAX_VOLT * 10, VSRAM_GPU_MAX_VOLT * 10 + 125);
-#endif
-	/* set VGPU */
-#ifdef USE_STAND_ALONE_VGPU
-	regulator_set_voltage(g_pmic->reg_vgpu, VGPU_MAX_VOLT * 10,
-		VGPU_MAX_VOLT * 10 + 125);
-#endif
-
-	/* enable bucks (VGPU && VSRAM_GPU) enforcement */
-#ifdef USE_STAND_ALONE_VSRAM
-	if (regulator_enable(g_pmic->reg_vsram_gpu))
-		gpufreq_perr("@%s: enable VSRAM_GPU failed\n", __func__);
-#endif
-#ifdef USE_STAND_ALONE_VGPU
-	if (regulator_enable(g_pmic->reg_vgpu))
-		gpufreq_perr("@%s: enable VGPU failed\n", __func__);
-#endif
 
 	/*pr_info("[GPU/DVFS][INFO]@%s: VGPU is enabled = %d (%d mV),"
 	 *		" VSRAM_GPU is enabled = %d (%d mV)\n",
@@ -2550,21 +2318,18 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 		BATTERY_OC_PRIO_GPU);
 #endif /* ifdef MT_GPUFREQ_BATT_OC_PROTECT */
 
-
 	pr_info(
 		"[GPU/DVFS][INFO]@%s: VGPU sfchg raising rate: %d us,",
 		__func__, g_vgpu_sfchg_rrate);
 	pr_info(
-		" VGPU sfchg falling rate: %d us, \t", g_vgpu_sfchg_frate);
+		"VGPU sfchg falling rate: %d us, \t", g_vgpu_sfchg_frate);
 	pr_info(
 		"VSRAM_GPU sfchg raising rate: %d us,", g_vsram_sfchg_rrate);
 	pr_info(
-		" VSRAM_GPU sfchg falling rate: %d us, \t",
+		"VSRAM_GPU sfchg falling rate: %d us, \t",
 		g_vsram_sfchg_frate);
 	pr_info(
 		"PMIC SRCLKEN_HIGH time: %d us\n", PMIC_SRCLKEN_HIGH_TIME_US);
-
-
 
 #ifdef CONFIG_MTK_QOS_SUPPORT
 	mt_gpu_bw_init();
@@ -2610,11 +2375,7 @@ static void __exit __mt_gpufreq_exit(void)
 	platform_driver_unregister(&g_gpufreq_pdrv);
 }
 
-#ifdef USE_STAND_ALONE_VGPU
-late_initcall(__mt_gpufreq_init);
-#else
 module_init(__mt_gpufreq_init);
-#endif
 module_exit(__mt_gpufreq_exit);
 
 MODULE_DEVICE_TABLE(of, g_gpufreq_of_match);
