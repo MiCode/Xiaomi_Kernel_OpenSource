@@ -3372,16 +3372,11 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 
 		venc_jpg@17030000 {
-			compatible = "mediatek,jpgenc";
+			compatible = "mediatek,venc_jpg";
 			reg = <0 0x17030000 0 0x10000>;
 			interrupts = <GIC_SPI 271 IRQ_TYPE_LEVEL_LOW>;
-			iommus = <&iommu0 M4U_PORT_JPGENC_Y_RDMA>,
-				<&iommu0 M4U_PORT_JPGENC_C_RDMA>,
-				<&iommu0 M4U_PORT_JPGENC_Q_TABLE>,
-				<&iommu0 M4U_PORT_JPGENC_BSDMA>;
 			clocks = <&vencsys CLK_VENC_GCON_JPGENC>;
-			clock-names = "jpgenc";
-			#clock-cells = <1>;
+			clock-names = "MT_CG_VENC_JPGENC";
 		};
 
 		wifi@18000000 {
