@@ -1726,6 +1726,20 @@ int set_task_util_min(pid_t pid, unsigned int util_min)
 }
 EXPORT_SYMBOL(set_task_util_min);
 
+int set_task_util_min_pct(pid_t pid, unsigned int pct)
+{
+	unsigned int util_min;
+
+	if (pid <= 0)
+		return -EINVAL;
+	if (pct < 0 || pct > 100)
+		return -ERANGE;
+
+	util_min = scale_from_percent(pct);
+	return set_task_util_min(pid, util_min);
+}
+EXPORT_SYMBOL(set_task_util_min_pct);
+
 /**
  * init_uclamp: initialize data structures required for utilization clamping
  */
