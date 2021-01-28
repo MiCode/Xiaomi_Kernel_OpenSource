@@ -166,7 +166,6 @@ static unsigned int lock_mon_3rd_th_ms = 15000; /* trigger Kernel API dump */
 static unsigned int lock_mon_period_ms = 2500; /* check held locks */
 static unsigned int lock_mon_period_cnt = 4; /* show more information */
 static unsigned int lock_mon_door;
-static struct delayed_work lock_mon_work;
 
 static const char * const held_lock_white_list[] = {
 	"&tty->ldisc_sem",
@@ -5606,62 +5605,61 @@ retry:
 }
 EXPORT_SYMBOL_GPL(check_held_locks);
 
-static void check_debug_locks_stats(void)
+static void show_debug_locks_state(void)
 {
-	char str[256] = { 0 };
-	char buf[48];
+	char buf[64];
 	unsigned long long time_sec;
 
-	if (nr_lock_classes >= MAX_LOCKDEP_KEYS) {
+	if (nr_lock_classes >= MAX_LOCKDEP_KEYS)
 		snprintf(buf, sizeof(buf),
 			 "lock-classes [%lu]", nr_lock_classes);
-		strlcat(str, buf, sizeof(str));
-	}
-	if (nr_list_entries >= MAX_LOCKDEP_ENTRIES) {
+
+	if (nr_list_entries >= MAX_LOCKDEP_ENTRIES)
 		snprintf(buf, sizeof(buf),
 			 "direct dependencies [%lu]", nr_list_entries);
-		strlcat(str, buf, sizeof(str));
-	}
-	if (nr_lock_chains >= MAX_LOCKDEP_CHAINS) {
+
+	if (nr_lock_chains >= MAX_LOCKDEP_CHAINS)
 		snprintf(buf, sizeof(buf),
 			 "dependency chains [%lu]", nr_lock_chains);
-		strlcat(str, buf, sizeof(str));
-	}
-	if (nr_chain_hlocks >= MAX_LOCKDEP_CHAIN_HLOCKS) {
+
+	if (nr_chain_hlocks > MAX_LOCKDEP_CHAIN_HLOCKS)
 		snprintf(buf, sizeof(buf),
 			 "dependency chain hlocks [%d]", nr_chain_hlocks);
-		strlcat(str, buf, sizeof(str));
-	}
-	if (nr_stack_trace_entries >= MAX_STACK_TRACE_ENTRIES) {
+
+	if (nr_stack_trace_entries >= MAX_STACK_TRACE_ENTRIES - 1)
 		snprintf(buf, sizeof(buf),
 			 "stack-trace entries [%lu]", nr_stack_trace_entries);
-		strlcat(str, buf, sizeof(str));
-	}
+
 	/* check debug_locks per 10 seconds */
 	time_sec = sec_high(sched_clock());
 	if (!debug_locks && !do_div(time_sec, 10)) {
 		pr_info("debug_locks is off [%lld.%06lu] %s\n",
 			sec_high(debug_locks_off_ts),
-			sec_low(debug_locks_off_ts), str);
+			sec_low(debug_locks_off_ts), buf);
 	}
 }
 
-static void lock_monitor_work(struct work_struct *work)
+static int lock_monitor_work(void *data)
 {
 	static int count;
 	int force = 0;
 
-	/* print backtrace or not */
-	if (++count == lock_mon_period_cnt) {
-		count = 0;
-		force = 1;
-	}
+	while (1) {
+		force = 0;
 
-	check_debug_locks_stats();
-	if (lock_mon_enable)
-		check_held_locks(force);
-	queue_delayed_work(system_unbound_wq, &lock_mon_work,
-			   msecs_to_jiffies(lock_mon_period_ms));
+		/* print backtrace or not */
+		if (++count == lock_mon_period_cnt) {
+			count = 0;
+			force = 1;
+		}
+
+		if (!debug_locks)
+			show_debug_locks_state();
+		if (lock_mon_enable)
+			check_held_locks(force);
+
+		msleep(lock_mon_period_ms);
+	}
 }
 
 #define DECLARE_LOCK_MONITOR_MATCH(name, param) \
@@ -5774,9 +5772,7 @@ void lock_monitor_init(void)
 	if (!pe)
 		return;
 
-	INIT_DELAYED_WORK(&lock_mon_work, lock_monitor_work);
-	queue_delayed_work(system_unbound_wq, &lock_mon_work,
-			   msecs_to_jiffies(lock_mon_period_ms));
+	kthread_run(lock_monitor_work, NULL, "lock_monitor_work");
 }
 #else
 void check_held_locks(int force)
