@@ -3277,6 +3277,7 @@ page_owner=on loop.max_part=7";
 			"MTK_DRM_OPT_GAME_PQ",
 			"MTK_DRM_OPT_MMPATH",
 			"MTK_DRM_OPT_HBM",
+			"MTK_DRM_OPT_VDS_PATH_SWITCH",
 			"MTK_DRM_OPT_LAYER_REC";
 
 		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
@@ -3314,6 +3315,7 @@ page_owner=on loop.max_part=7";
 			<0>, /*MTK_DRM_OPT_GAME_PQ*/
 			<0>, /*MTK_DRM_OPT_MMPATH*/
 			<0>, /*MTK_DRM_OPT_HBM*/
+			<1>, /*MTK_DRM_OPT_VDS_PATH_SWITCH*/
 			<0>; /*MTK_DRM_OPT_LAYER_REC*/
 	};
 
@@ -3844,8 +3846,8 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x14014000 0 0x1000>;
 		interrupts = <GIC_SPI 270 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&mmsys_config_clk CLK_MM_DISP_WDMA0>;
-		mediatek,larb = <&smi_larb0>;
-		mediatek,smi-id = <0>;
+		mediatek,larb = <&smi_larb1>;
+		mediatek,smi-id = <1>;
 		iommus = <&iommu0 M4U_PORT_L1_DISP_WDMA0>;
 	};
 

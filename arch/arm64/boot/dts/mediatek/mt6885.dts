@@ -4301,6 +4301,7 @@ page_owner=on loop.max_part=7";
 			"MTK_DRM_OPT_GAME_PQ",
 			"MTK_DRM_OPT_MMPATH",
 			"MTK_DRM_OPT_HBM",
+			"MTK_DRM_OPT_VDS_PATH_SWITCH",
 			"MTK_DRM_OPT_LAYER_REC";
 
 		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
@@ -4338,6 +4339,7 @@ page_owner=on loop.max_part=7";
 			<0>, /*MTK_DRM_OPT_GAME_PQ*/
 			<0>, /*MTK_DRM_OPT_MMPATH*/
 			<0>, /*MTK_DRM_OPT_HBM*/
+			<0>, /*MTK_DRM_OPT_VDS_PATH_SWITCH*/
 			<0>; /*MTK_DRM_OPT_LAYER_REC*/
 	};
 
