@@ -30,7 +30,7 @@
 #include <mt-plat/mtk_usb2jtag.h>
 #endif
 
-#if defined(CONFIG_R_PORTING)
+#if defined(CONFIG_MTK_BASE_POWER)
 #include "mtk_spm_resource_req.h"
 
 static int dpidle_status = USB_DPIDLE_ALLOWED;
@@ -45,10 +45,8 @@ static DEFINE_SPINLOCK(usb_hal_dpidle_lock);
 
 static void issue_dpidle_timer(void);
 
-static void dpidle_timer_wakeup_func(unsigned long data)
+static void dpidle_timer_wakeup_func(struct timer_list *timer)
 {
-	struct timer_list *timer = (struct timer_list *)data;
-
 	DBG_LIMIT(1, "dpidle_timer<%p> alive", timer);
 	DBG(2, "dpidle_timer<%p> alive...\n", timer);
 
@@ -66,16 +64,13 @@ static void issue_dpidle_timer(void)
 		return;
 
 	DBG(2, "add dpidle_timer<%p>\n", timer);
-	init_timer(timer);
-	timer->function = dpidle_timer_wakeup_func;
-	timer->data = (unsigned long)timer;
+	timer_setup(timer, dpidle_timer_wakeup_func, 0);
 	timer->expires = jiffies + msecs_to_jiffies(DPIDLE_TIMER_INTERVAL_MS);
 	add_timer(timer);
 }
 
 static void usb_6765_dpidle_request(int mode)
 {
-#if defined(CONFIG_R_PORTING)
 	unsigned long flags;
 
 	spin_lock_irqsave(&usb_hal_dpidle_lock, flags);
@@ -118,7 +113,6 @@ static void usb_6765_dpidle_request(int mode)
 	}
 
 	spin_unlock_irqrestore(&usb_hal_dpidle_lock, flags);
-#endif
 }
 #endif
 
@@ -276,18 +270,14 @@ exit:
 	usb_prepare_clock(false);
 }
 
-static struct timer_list musb_idle_timer;
-
-#if defined(CONFIG_R_PORTING)
-static void musb_do_idle(unsigned long _musb)
+#if defined(CONFIG_MTK_BASE_POWER)
+static void musb_do_idle(struct timer_list *t)
 {
-	struct musb *musb = (void *)_musb;
+	struct musb *musb = from_timer(musb, t, idle_timer);
 
 	queue_delayed_work(musb->st_wq, &idle_work, 0);
 }
-#endif
 
-#if defined(CONFIG_R_PORTING)
 static void mt_usb_try_idle(struct musb *musb, unsigned long timeout)
 {
 	unsigned long default_timeout = jiffies + msecs_to_jiffies(3);
@@ -302,13 +292,13 @@ static void mt_usb_try_idle(struct musb *musb, unsigned long timeout)
 				== OTG_STATE_A_WAIT_BCON))) {
 		DBG(0, "%s active, deleting timer\n",
 			otg_state_string(musb->xceiv->otg->state));
-		del_timer(&musb_idle_timer);
+		del_timer(&musb->idle_timer);
 		last_timer = jiffies;
 		return;
 	}
 
 	if (time_after(last_timer, timeout)) {
-		if (!timer_pending(&musb_idle_timer))
+		if (!timer_pending(&musb->idle_timer))
 			last_timer = timeout;
 		else {
 			DBG(0, "Longer idle timer already pending, ignoring\n");
@@ -320,7 +310,7 @@ static void mt_usb_try_idle(struct musb *musb, unsigned long timeout)
 	DBG(0, "%s inactive, for idle timer for %lu ms\n",
 	    otg_state_string(musb->xceiv->otg->state),
 	    (unsigned long)jiffies_to_msecs(timeout - jiffies));
-	mod_timer(&musb_idle_timer, timeout);
+	mod_timer(&musb->idle_timer, timeout);
 }
 #endif
 
@@ -1604,8 +1594,8 @@ static int __init mt_usb_init(struct musb *musb)
 		    USBCOM_INT_STATUS |
 		    DMA_INT_STATUS);
 #endif
-#if defined(CONFIG_R_PORTING)
-	setup_timer(&musb_idle_timer, musb_do_idle, (unsigned long)musb);
+#if defined(CONFIG_MTK_BASE_POWER)
+	timer_setup(&musb->idle_timer, musb_do_idle, 0);
 #endif
 #ifdef CONFIG_USB_MTK_OTG
 	mt_usb_otg_init(musb);
@@ -1620,7 +1610,7 @@ static int __init mt_usb_init(struct musb *musb)
 
 static int mt_usb_exit(struct musb *musb)
 {
-	del_timer_sync(&musb_idle_timer);
+	del_timer_sync(&musb->idle_timer);
 #ifndef FPGA_PLATFORM
 	if (reg_vusb)
 		regulator_put(reg_vusb);
@@ -1657,7 +1647,7 @@ static const struct musb_platform_ops mt_usb_ops = {
 	.init = mt_usb_init,
 	.exit = mt_usb_exit,
 	/*.set_mode     = mt_usb_set_mode, */
-#if defined(CONFIG_R_PORTING)
+#if defined(CONFIG_MTK_BASE_POWER)
 	.try_idle = mt_usb_try_idle,
 #endif
 	.enable = mt_usb_enable,
@@ -1790,7 +1780,7 @@ static int mt_usb_probe(struct platform_device *pdev)
 	mtk_host_qmu_force_isoc_restart = 0;
 #endif
 #ifndef FPGA_PLATFORM
-#if defined(CONFIG_R_PORTING)
+#if defined(CONFIG_MTK_BASE_POWER)
 	register_usb_hal_dpidle_request(usb_6765_dpidle_request);
 #endif
 #endif

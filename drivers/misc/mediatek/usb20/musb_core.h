@@ -365,6 +365,7 @@ struct musb {
 	struct list_head out_bulk;	/* of musb_qh */
 
 	struct timer_list otg_timer;
+	struct timer_list idle_timer;
 #if defined(CONFIG_USBIF_COMPLIANCE)
 	struct timer_list otg_vbus_polling_timer;
 #endif

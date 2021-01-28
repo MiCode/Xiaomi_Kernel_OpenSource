@@ -84,7 +84,7 @@ void low_power_timer_resource_reset(void)
 	low_power_timer_trigger_cnt = low_power_timer_wake_cnt = 0;
 }
 
-static void low_power_timer_wakeup_func(unsigned long data)
+static void low_power_timer_wakeup_func(struct timer_list *timer)
 {
 #ifdef TIMER_LOCK
 	unsigned long flags;
@@ -159,9 +159,7 @@ void try_trigger_low_power_timer(signed int sleep_ms)
 			return;
 		}
 
-		init_timer(timer);
-		timer->function = low_power_timer_wakeup_func;
-		timer->data = (unsigned long)timer;
+		timer_setup(timer, low_power_timer_wakeup_func, 0);
 		timer->expires = jiffies + msecs_to_jiffies(sleep_ms);
 		add_timer(timer);
 	}
