@@ -271,63 +271,6 @@ static const struct file_operations eara_Fops = {
 	.release = single_release,
 };
 
-/*--------------------PERFMGR OP------------------------*/
-static int dev_perfmgr_show(struct seq_file *m, void *v)
-{
-	return 0;
-}
-
-static int dev_perfmgr_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, dev_perfmgr_show, inode->i_private);
-}
-
-static long dev_perfmgr_ioctl(struct file *filp,
-		unsigned int cmd, unsigned long arg)
-{
-	ssize_t ret = 0;
-	struct _PERFMGR_PACKAGE *msgKM = NULL,
-		*msgUM = (struct _PERFMGR_PACKAGE *)arg;
-	struct _PERFMGR_PACKAGE smsgKM;
-
-	msgKM = &smsgKM;
-
-	if (perfctl_copy_from_user(msgKM, msgUM,
-		sizeof(struct _PERFMGR_PACKAGE))) {
-		ret = -EFAULT;
-		goto ret_ioctl;
-	}
-
-	switch (cmd) {
-	case PERFMGR_CPU_PREFER:
-		pr_debug(TAG " sched_set_cpuprefer:%d, %d\n",
-			msgKM->tid, msgKM->prefer_type);
-#if defined(CONFIG_MTK_SCHED_BOOST)
-		sched_set_cpuprefer(msgKM->tid, msgKM->prefer_type);
-#endif
-		break;
-
-	default:
-		pr_debug(TAG "%s %d: unknown cmd %x\n",
-			__FILE__, __LINE__, cmd);
-		ret = -1;
-		goto ret_ioctl;
-	}
-
-ret_ioctl:
-	return ret;
-}
-
-static const struct file_operations perfmgr_Fops = {
-	.unlocked_ioctl = dev_perfmgr_ioctl,
-	.compat_ioctl = dev_perfmgr_ioctl,
-	.open = dev_perfmgr_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
-
 /*--------------------INIT------------------------*/
 
 static int device_show(struct seq_file *m, void *v)
@@ -444,15 +387,6 @@ int init_perfctl(struct proc_dir_entry *parent)
 	}
 
 	pe = proc_create("eara_ioctl", 0664, parent, &eara_Fops);
-	if (!pe) {
-		pr_debug(TAG"%s failed with %d\n",
-				"Creating file node ",
-				ret_val);
-		ret_val = -ENOMEM;
-		goto out_wq;
-	}
-
-	pe = proc_create("perfmgr_ioctl", 0664, parent, &perfmgr_Fops);
 	if (!pe) {
 		pr_debug(TAG"%s failed with %d\n",
 				"Creating file node ",

@@ -81,13 +81,6 @@ enum  {
 	USAGE_DEVTYPE_MAX  = 5,
 };
 
-struct _PERFMGR_PACKAGE {
-	__u32 tid;
-	union {
-		__u32 prefer_type;
-	};
-};
-
 #define FPSGO_QUEUE                  _IOW('g', 1,  struct _FPSGO_PACKAGE)
 #define FPSGO_DEQUEUE                _IOW('g', 3,  struct _FPSGO_PACKAGE)
 #define FPSGO_VSYNC                  _IOW('g', 5,  struct _FPSGO_PACKAGE)
@@ -99,11 +92,6 @@ struct _PERFMGR_PACKAGE {
 #define EARA_NN_END                 _IOW('g', 2, struct _EARA_NN_PACKAGE)
 #define EARA_GETUSAGE               _IOW('g', 3, struct _EARA_NN_PACKAGE)
 #define EARA_GETSTATE               _IOW('g', 4, struct _EARA_NN_PACKAGE)
-
-#define PERFMGR_CPU_PREFER          _IOW('g', 1, struct _PERFMGR_PACKAGE)
-
-/* extern API */
-extern int sched_set_cpuprefer(pid_t pid, unsigned int prefer_type);
 
 #endif
 
