@@ -83,6 +83,7 @@
 #define DSI_EN BIT(1)
 #define DSI_PHY_RESET BIT(2)
 #define CON_CTRL_FLD_REG_DUAL_EN REG_FLD_MSB_LSB(4, 4)
+#define DSI_CM_WAIT_FIFO_FULL_EN BIT(27)
 
 #define DSI_MODE_CTRL 0x14
 #define MODE (3)
@@ -650,6 +651,10 @@ static void mtk_dsi_phy_timconfig(struct mtk_dsi *dsi,
 static void mtk_dsi_enable(struct mtk_dsi *dsi)
 {
 	mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_EN, DSI_EN);
+#if !defined(CONFIG_MACH_MT6885)
+	mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_WAIT_FIFO_FULL_EN,
+		DSI_CM_WAIT_FIFO_FULL_EN);
+#endif
 }
 
 static void mtk_dsi_disable(struct mtk_dsi *dsi)
