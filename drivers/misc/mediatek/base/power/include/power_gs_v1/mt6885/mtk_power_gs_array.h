@@ -28,7 +28,7 @@ extern const unsigned int *AP_PMIC_REG_6359P_gs_suspend_32kless;
 extern unsigned int AP_PMIC_REG_6359P_gs_suspend_32kless_len;
 
 /* PMIC 6315-1 */
-extern const unsigned int *AP_PMIC_REG_MT6315_1_gs_deepidle___lp_mp3_32kless
+extern const unsigned int *AP_PMIC_REG_MT6315_1_gs_deepidle___lp_mp3_32kless;
 extern unsigned int AP_PMIC_REG_MT6315_1_gs_deepidle___lp_mp3_32kless_len;
 
 extern const unsigned int *AP_PMIC_REG_MT6315_1_gs_sodi3p0_32kless;
@@ -76,6 +76,6 @@ extern unsigned int AP_DCM_Golden_Setting_tcl_gs_suspend_len;
 extern const unsigned int *AP_DCM_Golden_Setting_tcl_gs_sodi;
 extern unsigned int AP_DCM_Golden_Setting_tcl_gs_sodi_len;
 
-
+extern bool slp_chk_golden_diff_mode;
 
 #endif
