@@ -1632,10 +1632,11 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 
 static inline void smi_control_clock_mtcmos(bool en)
 {
-	#define LARB9PORTSIZE  21
-	#define LARB10PORTSIZE 29
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
+#ifndef EP_MARK_SMI
+#define LARB9PORTSIZE  21
+#define LARB10PORTSIZE 29
 
-	#ifndef EP_MARK_SMI
 	int ret = 0,  inx = 0;
 	static const  char *larb9_port_Name[LARB9PORTSIZE] = {
 		"imgo_r1_c",   "rrzo_r1_c",  "lsci_r1_c",  "bpci_r1_c",
@@ -1709,9 +1710,10 @@ static inline void smi_control_clock_mtcmos(bool en)
 		}
 
 	}
-	#endif
-	#undef  LARB9PORTSIZE
-	#undef  LARB10PORTSIZE
+#undef  LARB9PORTSIZE
+#undef  LARB10PORTSIZE
+#endif
+#endif
 }
 
 
@@ -10363,6 +10365,7 @@ LB_CAM_SOF_IGNORE:
  ******************************************************************************/
 static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 {
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 #ifndef EP_MARK_SMI
 	switch (irq_module) {
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
@@ -10452,6 +10455,7 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 		LOG_NOTICE("error:unsupported module:%d\n", irq_module);
 		break;
 	}
+#endif
 #endif
 }
 
