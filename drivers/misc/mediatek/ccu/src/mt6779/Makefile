@@ -12,9 +12,16 @@
 #
 
 #ion
-ccflags-y += -I$(srctree)/drivers/staging/android/ion \
-             -I$(srctree)/drivers/staging/android/ion/mtk \
-             -I$(srctree)/drivers/iommu/
+ccflags-y += -I$(srctree)/drivers/iommu/ \
+#			 -I$(srctree)/drivers/staging/android/ion \
+#            -I$(srctree)/drivers/staging/android/ion/mtk \
+
+ifeq ($(CONFIG_MTK_ION),y)
+    ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion/
+    ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion/mtk/
+else
+     ccflags-$(CONFIG_ION) += -I$(srctree)/drivers/staging/android/aosp_ion/
+endif
 #for sensorType in ccu_set_sensor_info
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/imgsensor/inc
 #
@@ -29,8 +36,9 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccu/src/2.1
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccu/inc/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccu/src/$(MTK_PLATFORM)/ccu_ext_interface/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs/
 ccflags-y += -I$(srctree)/drivers/i2c/busses/
-
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmqos/
 
 #obj-$(CONFIG_MTK_VPU) += ccu_hw.o
 obj-y += ccu_hw.o ccu_reg.o ccu_kd_mailbox.o ccu_i2c_hw.o ccu_sw_ver.o ccu_imgsensor.o ccu_mva.o ccu_qos.o

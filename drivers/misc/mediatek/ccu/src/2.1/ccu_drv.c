@@ -63,7 +63,7 @@
 #include "ccu_qos.h"
 
 //for mmdvfs
-#include <linux/pm_qos.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <mmdvfs_pmqos.h>
 
 /***************************************************************************
@@ -120,7 +120,7 @@ static irqreturn_t ccu_isr_callback_xxx(int irq, void *device_id)
 
 static struct pm_qos_request _ccu_qos_request;
 static u64 _g_freq_steps[MAX_FREQ_STEP];
-static u32 _step_size;
+// static u32 _step_size;
 
 static int ccu_probe(struct platform_device *dev);
 
@@ -1260,7 +1260,7 @@ static int ccu_probe(struct platform_device *pdev)
 				goto EXIT;
 			}
 #ifdef CONFIG_PM_WAKELOCKS
-			wakeup_source_init(&ccu_wake_lock, "ccu_lock_wakelock");
+/*wakeup_source_init(&ccu_wake_lock, "ccu_lock_wakelock");*/
 #else
 			wake_lock_init(&ccu_wake_lock, WAKE_LOCK_SUSPEND,
 				       "ccu_lock_wakelock");
@@ -1376,7 +1376,7 @@ static int ccu_resume(struct platform_device *pdev)
 static int __init CCU_INIT(void)
 {
 	int ret = 0;
-	int result = 0;
+	//int result = 0;
 
 	/*struct device_node *node = NULL;*/
 
@@ -1396,7 +1396,7 @@ static int __init CCU_INIT(void)
 	}
 
 	LOG_DBG("platform_driver_register finsish\n");
-
+#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 	//Call pm_qos_add_request when
 	//initialize module or driver prob
 	pm_qos_add_request(&_ccu_qos_request,
@@ -1409,7 +1409,7 @@ static int __init CCU_INIT(void)
 
 	if (result < 0)
 		LOG_ERR("get MMDVFS freq steps failed, result: %d\n", result);
-
+#endif
 	return ret;
 }
 
@@ -1418,7 +1418,9 @@ static void __exit CCU_EXIT(void)
 {
 	//Call pm_qos_remove_request when
 	//de-initialize module or driver remove
+#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 	pm_qos_remove_request(&_ccu_qos_request);
+#endif
 	platform_driver_unregister(&ccu_driver);
 	kfree(g_ccu_device);
 }
