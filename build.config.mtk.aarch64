@@ -1,0 +1,17 @@
+ARCH=arm64
+CLANG_TRIPLE=aarch64-linux-gnu-
+CROSS_COMPILE=aarch64-linux-androidkernel-
+CC=clang
+LD=ld.lld
+DEFCONFIG=defconfig
+KERNEL_DIR=kernel-4.19
+CLANG_PREBUILT_BIN=prebuilts/clang/host/linux-x86/clang-r370808/bin
+LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin
+POST_DEFCONFIG_CMDS="update_config"
+function update_config() {
+    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+         -d CONFIG_DRM_RCAR_DU \
+
+    (cd ${OUT_DIR} && \
+     make O=${OUT_DIR} $archsubarch CC=${CC} LD=${LD} CROSS_COMPILE=${CROSS_COMPILE} olddefconfig)
+}
