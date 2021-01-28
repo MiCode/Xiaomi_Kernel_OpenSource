@@ -14,6 +14,7 @@ extern unsigned int capacity_margin;
 extern void unthrottle_offline_rt_rqs(struct rq *rq);
 DECLARE_PER_CPU(struct hmp_domain *, hmp_cpu_domain);
 #include "../../drivers/misc/mediatek/base/power/include/mtk_upower.h"
+#include "../../drivers/misc/mediatek/include/mt-plat/eas_ctrl.h"
 extern int l_plus_cpu;
 extern unsigned long get_cpu_util(int cpu);
 extern void init_sched_groups_capacity(int cpu, struct sched_domain *sd);
@@ -64,6 +65,12 @@ inline unsigned int freq_util(unsigned long util);
 #define TASK_ROTATION_THRESHOLD_NS      6000000
 #define HEAVY_TASK_NUM  4
 
+struct task_rotate_reset_uclamp_work {
+	struct work_struct w;
+};
+
+extern struct task_rotate_reset_uclamp_work task_rotate_reset_uclamp_works;
+extern bool set_uclamp;
 extern void task_rotate_work_init(void);
 extern void check_for_migration(struct rq *rq, struct task_struct *p);
 extern void task_check_for_rotation(struct rq *rq);

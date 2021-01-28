@@ -12029,6 +12029,24 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 	int new_cpu;
 	int cpu = task_cpu(p);
 	int force = 0;
+	int i, heavy_task = 0;
+	struct task_rotate_reset_uclamp_work *wr = NULL;
+
+	for_each_possible_cpu(i) {
+		struct rq *rq = cpu_rq(i);
+		struct task_struct *curr_task = rq->curr;
+
+		if (curr_task &&
+			!task_fits_capacity(curr_task, capacity_of(i)))
+			heavy_task += 1;
+	}
+
+	if (heavy_task < HEAVY_TASK_NUM && set_uclamp) {
+		wr = &task_rotate_reset_uclamp_works;
+		if (wr) {
+			queue_work_on(cpu, system_highpri_wq, &wr->w);
+		}
+	}
 
 	if (rq->misfit_task_load) {
 		if (rq->curr->state != TASK_RUNNING ||
