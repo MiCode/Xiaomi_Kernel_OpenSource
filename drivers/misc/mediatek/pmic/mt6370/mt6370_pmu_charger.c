@@ -4095,18 +4095,28 @@ static const DEVICE_ATTR_WO(shipping_mode);
 static int mt6370_charger_get_online(struct mt6370_pmu_charger_data *chg_data,
 				     union power_supply_propval *val)
 {
+#ifndef CONFIG_TCPC_CLASS
 	int ret;
-	bool uvp_d_stat;
+#endif
+	bool pwr_rdy = false;
 
+#ifdef CONFIG_TCPC_CLASS
+	mutex_lock(&chg_data->attach_lock);
+	pwr_rdy = chg_data->attach;
+	mutex_unlock(&chg_data->attach_lock);
+#else
 	ret = mt6370_pmu_reg_test_bit(chg_data->chip,
 		MT6370_PMU_REG_OVPCTRLSTAT,
-		MT6370_SHIFT_OVPCTRL_UVP_D_STAT, &uvp_d_stat);
+		MT6370_SHIFT_OVPCTRL_UVP_D_STAT, &pwr_rdy);
 	if (ret < 0) {
 		dev_notice(chg_data->dev,
 			"%s: read uvp_d_stat fail\n", __func__);
 		return ret;
 	}
-	val->intval = !uvp_d_stat;
+	pwr_rdy = !pwr_rdy;
+#endif
+	dev_info(chg_data->dev, "%s: online = %d\n", __func__, pwr_rdy);
+	val->intval = pwr_rdy;
 	return 0;
 }
 
