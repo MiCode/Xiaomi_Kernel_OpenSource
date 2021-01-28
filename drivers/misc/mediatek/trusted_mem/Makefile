@@ -137,6 +137,11 @@ ifeq ($(CONFIG_MTK_SSMR),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-ssmr/
 endif # !CONFIG_MTK_SSMR
 
+ifeq ($(CONFIG_MTK_ION),y)
+ccflags-y += -I$(srctree)/drivers/staging/android/ion
+ccflags-y += -I$(srctree)/drivers/staging/android/ion/mtk
+endif # !CONFIG_MTK_ION
+
 ifeq ($(CONFIG_MTK_TEE_GP_SUPPORT),y)
 ccflags-y += -I$(srctree)/arch/arm/mach-$(MTK_PLATFORM)/include/trustzone/utils/tlutils
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/utils/tlutils
