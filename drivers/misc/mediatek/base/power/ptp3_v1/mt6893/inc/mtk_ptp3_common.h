@@ -121,7 +121,27 @@ struct ptp3_ipi_data {
 		struct {
 			unsigned int cfg;
 			unsigned int val;
+		} ptp3;
+		struct {
+			unsigned int cfg;
+			unsigned int val;
+		} brisket2;
+		struct {
+			unsigned int cfg;
+			unsigned int val;
+		} adcc;
+		struct {
+			unsigned int cfg;
+			unsigned int val;
 		} fll;
+		struct {
+			unsigned int cfg;
+			unsigned int val;
+		} ctt;
+		struct {
+			unsigned int cfg;
+			unsigned int val;
+		} drcc;
 		struct {
 			unsigned int cfg;
 			unsigned int val;
@@ -129,7 +149,12 @@ struct ptp3_ipi_data {
 		struct {
 			unsigned int cfg;
 			unsigned int val;
-		} drcc;
+		} dt;
+		struct {
+			unsigned int cfg;
+			unsigned int val;
+		} pdp;
+
 	} u;
 };
 

@@ -91,15 +91,71 @@
 #define FllFctrl_pong "FllFctrl_pong"
 #define FllEventCount0 "FllEventCount0"
 #define FllEventCount1 "FllEventCount1"
+#define V111 "V111"
+#define V112 "V112"
+#define V113 "V113"
+#define V114 "V114"
+#define V115 "V115"
+#define V116 "V116"
+#define V117 "V117"
+#define V118 "V118"
+#define V119 "V119"
+#define V120 "V120"
+#define V121 "V121"
+#define V122 "V122"
+#define V123 "V123"
+#define V124 "V124"
+#define V125 "V125"
+#define V126 "V126"
+
+
+/* FLL Cfg metadata offset */
+#define FLL_CFG_OFFSET_VALUE 0
+#define FLL_CFG_OFFSET_OPTION 20
+#define FLL_CFG_OFFSET_CPU 28
+
+/* FLL Cfg metadata bitmask */
+#define FLL_CFG_BITMASK_VALUE 0xFFFF
+#define FLL_CFG_BITMASK_OPTION 0xFF00000
+#define FLL_CFG_BITMASK_CPU 0xF0000000
 
 /************************************************
  * config enum
  ************************************************/
-enum FLL_RW {
-	FLL_RW_READ,
-	FLL_RW_WRITE,
+enum FLL_NODE {
+	FLL_NODE_LIST_READ,
+	FLL_NODE_LIST_WRITE,
+	FLL_NODE_RW_REG_READ,
+	FLL_NODE_RW_REG_WRITE,
+	FLL_NODE_RO_REG_READ,
 
-	NR_FLL_RW,
+	NR_FLL_NODE
+};
+
+enum FLL_RW_GROUP {
+	FLL_RW_GROUP_V111,
+	FLL_RW_GROUP_V112,
+	FLL_RW_GROUP_V113,
+	FLL_RW_GROUP_V114,
+	FLL_RW_GROUP_V115,
+	FLL_RW_GROUP_V116,
+	FLL_RW_GROUP_V117,
+	FLL_RW_GROUP_V118,
+
+	NR_FLL_RW_GROUP,
+};
+
+enum FLL_RO_GROUP {
+	FLL_RO_GROUP_V119,
+	FLL_RO_GROUP_V120,
+	FLL_RO_GROUP_V121,
+	FLL_RO_GROUP_V122,
+	FLL_RO_GROUP_V123,
+	FLL_RO_GROUP_V124,
+	FLL_RO_GROUP_V125,
+	FLL_RO_GROUP_V126,
+
+	NR_FLL_RO_GROUP,
 };
 
 enum FLL_LIST {
@@ -171,75 +227,6 @@ enum FLL_LIST {
 	FLL_LIST_FllEventCount1,
 
 	NR_FLL_LIST,
-};
-
-static const char FLL_LIST_NAME[][40] = {
-	FllFastKpOnline,
-	FllFastKiOnline,
-	FllSlowKpOnline,
-	FllSlowKiOnline,
-	FllKpOffline,
-	FllKiOffline,
-	FllCttTargetScaleDisable,
-	FllTargetScale,
-	FllInFreqOverrideVal,
-	FllFreqErrWtOnline,
-	FllFreqErrWtOffline,
-	FllPhaseErrWt,
-	FllFreqErrCapOnline,
-	FllFreqErrCapOffline,
-	FllPhaseErrCap,
-	FllStartInPong,
-	FllPingMaxThreshold,
-	FllPongMinThreshold,
-	FllDccEn,
-	FllDccClkShaperCalin,
-	FllClk26mDetDis,
-	FllClk26mEn,
-	FllControl,
-	FllPhaselockThresh,
-	FllPhaselockCycles,
-	FllFreqlockRatio,
-	FllFreqlockCycles,
-	FllFreqUnlock,
-	FllTst_cctrl,
-	FllTst_fctrl,
-	FllTst_sctrl,
-	FllSlowReqCode,
-	FllSlowReqResponseSelectMode,
-	FllSlowReqFastResponseCycles,
-	FllSlowReqErrorMask,
-	FllEventSource0,
-	FllEventSource1,
-	FllEventType0,
-	FllEventType1,
-	FllEventSourceThresh0,
-	FllEventSourceThresh1,
-	FllEventFreeze,
-	FllWGTriggerSource,
-	FllWGTriggerCaptureDelay,
-	FllWGTriggerEdge,
-	FllWGTriggerVal,
-	FllInFreq,
-	FllOutFreq,
-	FllCalFreq,
-	FllStatus,
-	FllPhaseErr,
-	FllPhaseLockDet,
-	FllFreqLockDet,
-	FllClk26mDet,
-	FllErrOnline,
-	FllErrOffline,
-	Fllfsm_state_sr,
-	Fllfsm_state,
-	FllSctrl_pong,
-	FllCctrl_ping,
-	FllFctrl_ping,
-	FllSctrl_ping,
-	FllCctrl_pong,
-	FllFctrl_pong,
-	FllEventCount0,
-	FllEventCount1
 };
 
 enum FLL_TRIGGER_STAGE {

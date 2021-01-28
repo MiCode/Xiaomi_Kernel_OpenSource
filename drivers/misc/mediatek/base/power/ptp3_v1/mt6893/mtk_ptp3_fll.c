@@ -105,6 +105,97 @@ static unsigned int fll_doe_fllCtrl;
 #endif
 #endif
 
+static const char FLL_LIST_NAME[][40] = {
+	FllFastKpOnline,
+	FllFastKiOnline,
+	FllSlowKpOnline,
+	FllSlowKiOnline,
+	FllKpOffline,
+	FllKiOffline,
+	FllCttTargetScaleDisable,
+	FllTargetScale,
+	FllInFreqOverrideVal,
+	FllFreqErrWtOnline,
+	FllFreqErrWtOffline,
+	FllPhaseErrWt,
+	FllFreqErrCapOnline,
+	FllFreqErrCapOffline,
+	FllPhaseErrCap,
+	FllStartInPong,
+	FllPingMaxThreshold,
+	FllPongMinThreshold,
+	FllDccEn,
+	FllDccClkShaperCalin,
+	FllClk26mDetDis,
+	FllClk26mEn,
+	FllControl,
+	FllPhaselockThresh,
+	FllPhaselockCycles,
+	FllFreqlockRatio,
+	FllFreqlockCycles,
+	FllFreqUnlock,
+	FllTst_cctrl,
+	FllTst_fctrl,
+	FllTst_sctrl,
+	FllSlowReqCode,
+	FllSlowReqResponseSelectMode,
+	FllSlowReqFastResponseCycles,
+	FllSlowReqErrorMask,
+	FllEventSource0,
+	FllEventSource1,
+	FllEventType0,
+	FllEventType1,
+	FllEventSourceThresh0,
+	FllEventSourceThresh1,
+	FllEventFreeze,
+	FllWGTriggerSource,
+	FllWGTriggerCaptureDelay,
+	FllWGTriggerEdge,
+	FllWGTriggerVal,
+	FllInFreq,
+	FllOutFreq,
+	FllCalFreq,
+	FllStatus,
+	FllPhaseErr,
+	FllPhaseLockDet,
+	FllFreqLockDet,
+	FllClk26mDet,
+	FllErrOnline,
+	FllErrOffline,
+	Fllfsm_state_sr,
+	Fllfsm_state,
+	FllSctrl_pong,
+	FllCctrl_ping,
+	FllFctrl_ping,
+	FllSctrl_ping,
+	FllCctrl_pong,
+	FllFctrl_pong,
+	FllEventCount0,
+	FllEventCount1
+};
+
+static const char FLL_RW_REG_NAME[][5] = {
+	V111,
+	V112,
+	V113,
+	V114,
+	V115,
+	V116,
+	V117,
+	V118
+};
+
+static const char FLL_RO_REG_NAME[][5] = {
+	V119,
+	V120,
+	V121,
+	V122,
+	V123,
+	V124,
+	V125,
+	V126
+};
+
 /************************************************
  * log dump into reserved memory for AEE
  ************************************************/
@@ -177,10 +268,6 @@ int fll_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 #endif
 
 /************************************************
- * SMC between kernel and atf
- ************************************************/
-
-/************************************************
  * IPI between kernel and mcupm/cpu_eb
  ************************************************/
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
@@ -215,50 +302,64 @@ static void fll_ipi_handle(unsigned int cpu, unsigned int group,
 /************************************************
  * set FLL status by procfs interface
  ************************************************/
-static unsigned int _proc_write_allocate_buf(
-	const char __user *buffer, size_t count, char *buf)
+static ssize_t fll_ctrl_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
 {
+	/* parameter input */
+	unsigned int cfg = 0;
+	unsigned int cpu, option, value;
+	int ret = 0;
+
 	/* proc template for check */
-	buf = (char *) __get_free_page(GFP_USER);
+	char *buf = (char *) __get_free_page(GFP_USER);
 
 	if (!buf) {
 		fll_err("buf(%d) is illegal\n");
-		return 0;
+		goto out;
 	}
 
 	if (count >= PAGE_SIZE) {
 		fll_err("count(%d) >= PAGE_SIZE\n");
-		return 0;
+		goto out;
 	}
 
 	if (copy_from_user(buf, buffer, count)) {
 		fll_err("buffer copy fail\n");
-		return 0;
+		goto out;
 	}
 
 	buf[count] = '\0';
 
-	return 1;
-}
+	/* parameter check */
+	if (sscanf(buf, "%u %u %u",
+		&cpu, &option, &value) != 3) {
 
-unsigned int option_r;
-static ssize_t fll_ctrl_r_proc_write(struct file *file,
-	const char __user *buffer, size_t count, loff_t *pos)
-{
-	/* parameter input */
-	unsigned int ret = 0;
-	char *buf = 0;
-
-	/* allocate buf for proc_write */
-	ret = _proc_write_allocate_buf(buffer, count, buf);
-
-	if (ret) {
-		/* parameter check */
-		if (kstrtou32((const char *)buf, 0, &option_r)) {
-			fll_err("bad argument!! Should input 1 arguments.\n");
-			goto out;
-		}
+		fll_err("bad argument!! Should input 3 arguments.\n");
+		goto out;
 	}
+
+	/* encode cfg */
+	/*
+	 *	cfg[15:8] option
+	 *	cfg[31:28] cpu
+	 */
+	cfg = (option << FLL_CFG_OFFSET_OPTION) & FLL_CFG_BITMASK_OPTION;
+	cfg |= (cpu << FLL_CFG_OFFSET_CPU) & FLL_CFG_BITMASK_CPU;
+
+	/* update via atf */
+	ret = ptp3_smc_handle(
+		PTP3_FEATURE_FLL,
+		FLL_NODE_LIST_WRITE,
+		cfg,
+		value);
+
+	if (ret < 0) {
+		fll_err("ret(%d). access atf fail\n", ret);
+		goto out;
+	}
+
+	/* update via mcupm or cpu_eb */
+	fll_ipi_handle(0, 0, 0, 0, 0);
 
 out:
 	free_page((unsigned long)buf);
@@ -266,70 +367,10 @@ out:
 
 }
 
-static int fll_ctrl_r_proc_show(struct seq_file *m, void *v)
-{
-	unsigned int value, cpu;
-
-	for (cpu = FLL_CPU_START_ID; cpu <= FLL_CPU_END_ID; cpu++) {
-
-		/* update via atf */
-		value = ptp3_smc_handle(
-			FLL_RW_READ,
-			cpu,
-			option_r,
-			value);
-
-		seq_printf(m, FLL_TAG"[CPU%d] FLL_CTRL(%d):%d\n",
-			cpu,
-			FLL_LIST_NAME[option_r],
-			value);
-	}
-	return 0;
-}
-
-static ssize_t fll_ctrl_w_proc_write(struct file *file,
-	const char __user *buffer, size_t count, loff_t *pos)
-{
-	/* parameter input */
-	unsigned int cpu, option, value;
-	unsigned int ret = 0;
-	char *buf = 0;
-
-	/* allocate buf for proc_write */
-	ret = _proc_write_allocate_buf(buffer, count, buf);
-
-	if (ret) {
-		/* parameter check */
-		if (sscanf(buf, "%u %u %u",
-			&cpu, &option, &value) != 3) {
-
-			fll_err("bad argument!! Should input 3 arguments.\n");
-			goto out;
-		}
-
-		/* update via atf */
-		ptp3_smc_handle(
-			FLL_RW_WRITE,
-			cpu,
-			option,
-			value);
-
-		/* update via mcupm or cpu_eb */
-		fll_ipi_handle(0, 0, 0, 0, 0);
-
-	}
-
-out:
-	free_page((unsigned long)buf);
-	return count;
-
-}
-
-static int fll_ctrl_w_proc_show(struct seq_file *m, void *v)
+static int fll_ctrl_proc_show(struct seq_file *m, void *v)
 {
 	return 0;
 }
-
 
 static int fll_list_proc_show(struct seq_file *m, void *v)
 {
@@ -341,9 +382,421 @@ static int fll_list_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-PROC_FOPS_RW(fll_ctrl_r);
-PROC_FOPS_RW(fll_ctrl_w);
+static int fll_info_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int cfg = 0;
+	unsigned int cpu, value, option;
+
+	for (cpu = FLL_CPU_START_ID; cpu <= FLL_CPU_END_ID; cpu++) {
+		seq_printf(m, FLL_TAG"[CPU%d]", cpu);
+
+		for (option = 0; option < NR_FLL_LIST; option++) {
+
+			switch (option) {
+			case FLL_LIST_FllFastKpOnline:
+			case FLL_LIST_FllFastKiOnline:
+			case FLL_LIST_FllSlowKpOnline:
+			case FLL_LIST_FllSlowKiOnline:
+			case FLL_LIST_FllKpOffline:
+			case FLL_LIST_FllKiOffline:
+			case FLL_LIST_FllFreqlockRatio:
+			case FLL_LIST_FllFreqlockCycles:
+#if 0
+			case FLL_LIST_FllCttTargetScaleDisable:
+			case FLL_LIST_FllTargetScale:
+			case FLL_LIST_FllInFreqOverrideVal:
+			case FLL_LIST_FllFreqErrWtOnline:
+			case FLL_LIST_FllFreqErrWtOffline:
+			case FLL_LIST_FllPhaseErrWt:
+			case FLL_LIST_FllFreqErrCapOnline:
+			case FLL_LIST_FllFreqErrCapOffline:
+			case FLL_LIST_FllPhaseErrCap:
+			case FLL_LIST_FllStartInPong:
+			case FLL_LIST_FllPingMaxThreshold:
+			case FLL_LIST_FllPongMinThreshold:
+			case FLL_LIST_FllDccEn:
+			case FLL_LIST_FllDccClkShaperCalin:
+			case FLL_LIST_FllClk26mDetDis:
+			case FLL_LIST_FllClk26mEn:
+			case FLL_LIST_FllControl:
+			case FLL_LIST_FllPhaselockThresh:
+			case FLL_LIST_FllPhaselockCycles:
+			case FLL_LIST_FllFreqUnlock:
+			case FLL_LIST_FllTst_cctrl:
+			case FLL_LIST_FllTst_fctrl:
+			case FLL_LIST_FllTst_sctrl:
+			case FLL_LIST_FllSlowReqCode:
+			case FLL_LIST_FllSlowReqResponseSelectMode:
+			case FLL_LIST_FllSlowReqFastResponseCycles:
+			case FLL_LIST_FllSlowReqErrorMask:
+			case FLL_LIST_FllWGTriggerSource:
+			case FLL_LIST_FllWGTriggerCaptureDelay:
+			case FLL_LIST_FllWGTriggerEdge:
+			case FLL_LIST_FllWGTriggerVal:
+			case FLL_LIST_FllInFreq:
+			case FLL_LIST_FllOutFreq:
+			case FLL_LIST_FllCalFreq:
+			case FLL_LIST_FllStatus:
+			case FLL_LIST_FllPhaseErr:
+			case FLL_LIST_FllPhaseLockDet:
+			case FLL_LIST_FllFreqLockDet:
+			case FLL_LIST_FllClk26mDet:
+			case FLL_LIST_FllErrOnline:
+			case FLL_LIST_FllErrOffline:
+			case FLL_LIST_Fllfsm_state_sr:
+			case FLL_LIST_Fllfsm_state:
+			case FLL_LIST_FllSctrl_pong:
+			case FLL_LIST_FllCctrl_ping:
+			case FLL_LIST_FllFctrl_ping:
+			case FLL_LIST_FllSctrl_ping:
+			case FLL_LIST_FllCctrl_pong:
+			case FLL_LIST_FllFctrl_pong:
+#endif
+				/* encode cfg */
+				/*
+				 *	cfg[15:8] option
+				 *	cfg[31:28] cpu
+				 */
+				cfg = (option << FLL_CFG_OFFSET_OPTION) & FLL_CFG_BITMASK_OPTION;
+				cfg |= (cpu << FLL_CFG_OFFSET_CPU) & FLL_CFG_BITMASK_CPU;
+
+				/* update via atf */
+				value = ptp3_smc_handle(
+					PTP3_FEATURE_FLL,
+					FLL_NODE_LIST_READ,
+					cfg,
+					0);
+
+				if (option != FLL_LIST_FllFreqlockCycles)
+					seq_printf(m, " %s:0x%x,",
+						FLL_LIST_NAME[option], value);
+				else /* last one */
+					seq_printf(m, " %s:0x%x;\n",
+						FLL_LIST_NAME[option], value);
+				break;
+
+			default:
+				break;
+			}
+		}
+	}
+	return 0;
+}
+
+static ssize_t fll_reg_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	/* parameter input */
+	unsigned int cfg = 0;
+	unsigned int cpu, group, value;
+	int ret = 0;
+
+	/* proc template for check */
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf) {
+		fll_err("buf(%d) is illegal\n");
+		goto out;
+	}
+
+	if (count >= PAGE_SIZE) {
+		fll_err("count(%d) >= PAGE_SIZE\n");
+		goto out;
+	}
+
+	if (copy_from_user(buf, buffer, count)) {
+		fll_err("buffer copy fail\n");
+		goto out;
+	}
+
+	buf[count] = '\0';
+
+	/* parameter check */
+	if (sscanf(buf, "%u %u %u",
+		&cpu, &group, &value) != 3) {
+
+		fll_err("bad argument!! Should input 3 arguments.\n");
+		goto out;
+	}
+
+	/* encode cfg */
+	/*
+	 *	cfg[15:8] option
+	 *	cfg[31:28] cpu
+	 */
+	cfg = (group << FLL_CFG_OFFSET_OPTION) & FLL_CFG_BITMASK_OPTION;
+	cfg |= (cpu << FLL_CFG_OFFSET_CPU) & FLL_CFG_BITMASK_CPU;
+
+	/* update via atf */
+	ret = ptp3_smc_handle(
+		PTP3_FEATURE_FLL,
+		FLL_NODE_RW_REG_WRITE,
+		cfg,
+		value);
+
+	if (ret < 0) {
+		fll_err("ret(%d). access atf fail\n", ret);
+		goto out;
+	}
+
+	/* update via mcupm or cpu_eb */
+	fll_ipi_handle(0, 0, 0, 0, 0);
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+
+}
+
+
+static int fll_reg_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int cfg = 0;
+	unsigned int cpu, value, group;
+
+	for (cpu = FLL_CPU_START_ID; cpu <= FLL_CPU_END_ID; cpu++) {
+		seq_printf(m, FLL_TAG"[CPU%d]", cpu);
+
+		for (group = 0; group < NR_FLL_RW_GROUP; group++) {
+
+			/* encode cfg */
+			/*
+			 *	cfg[15:8] option
+			 *	cfg[31:28] cpu
+			 */
+			cfg = (group << FLL_CFG_OFFSET_OPTION) & FLL_CFG_BITMASK_OPTION;
+			cfg |= (cpu << FLL_CFG_OFFSET_CPU) & FLL_CFG_BITMASK_CPU;
+
+			/* update via atf */
+			value = ptp3_smc_handle(
+				PTP3_FEATURE_FLL,
+				FLL_NODE_RW_REG_READ,
+				cfg,
+				0);
+
+			if (group != NR_FLL_RW_GROUP-1)
+				seq_printf(m, " %s:0x%08x,",
+					FLL_RW_REG_NAME[group], value);
+			else
+				seq_printf(m, " %s:0x%08x;\n",
+					FLL_RW_REG_NAME[group], value);
+		}
+	}
+
+	for (cpu = FLL_CPU_START_ID; cpu <= FLL_CPU_END_ID; cpu++) {
+		seq_printf(m, FLL_TAG"[CPU%d]", cpu);
+
+		for (group = 0; group < NR_FLL_RO_GROUP; group++) {
+
+			/* encode cfg */
+			/*
+			 *	cfg[15:8] option
+			 *	cfg[31:28] cpu
+			 */
+			cfg = (group << FLL_CFG_OFFSET_OPTION) & FLL_CFG_BITMASK_OPTION;
+			cfg |= (cpu << FLL_CFG_OFFSET_CPU) & FLL_CFG_BITMASK_CPU;
+
+			/* update via atf */
+			value = ptp3_smc_handle(
+				PTP3_FEATURE_FLL,
+				FLL_NODE_RO_REG_READ,
+				cfg,
+				0);
+
+			if (group != NR_FLL_RO_GROUP-1)
+				seq_printf(m, " %s:0x%08x,",
+					FLL_RO_REG_NAME[group], value);
+			else
+				seq_printf(m, " %s:0x%08x;\n",
+					FLL_RO_REG_NAME[group], value);
+		}
+	}
+	return 0;
+}
+
+static ssize_t fll_eventCount_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	/* parameter input */
+	unsigned int cfg = 0;
+	unsigned int cntSel, src, type, thres;
+	unsigned int cpu;
+	int ret = 0;
+
+	/* proc template for check */
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf) {
+		fll_err("buf(%d) is illegal\n");
+		goto out;
+	}
+
+	if (count >= PAGE_SIZE) {
+		fll_err("count(%d) >= PAGE_SIZE\n");
+		goto out;
+	}
+
+	if (copy_from_user(buf, buffer, count)) {
+		fll_err("buffer copy fail\n");
+		goto out;
+	}
+
+	buf[count] = '\0';
+
+	/* parameter check */
+	if (sscanf(buf, "%u %u %u %u %u",
+		&cpu, &cntSel, &src, &type, &thres) != 5) {
+
+		fll_err("bad argument!! Should input 3 arguments.\n");
+		goto out;
+	}
+
+	/* check for cnt0 or cnt1 */
+	if (cntSel == 0) {
+		/* set EventSource */
+		cfg = (FLL_LIST_FllEventSource0 << FLL_CFG_OFFSET_OPTION) &
+			FLL_CFG_BITMASK_OPTION;
+		cfg |= (cpu << FLL_CFG_OFFSET_CPU) & FLL_CFG_BITMASK_CPU;
+
+		/* update via atf */
+		ret = ptp3_smc_handle(
+			PTP3_FEATURE_FLL,
+			FLL_NODE_LIST_WRITE,
+			cfg,
+			src);
+
+		/* set EventType */
+		cfg = (FLL_LIST_FllEventType0 << FLL_CFG_OFFSET_OPTION) &
+			FLL_CFG_BITMASK_OPTION;
+		cfg |= (cpu << FLL_CFG_OFFSET_CPU) & FLL_CFG_BITMASK_CPU;
+
+		/* update via atf */
+		ret = ptp3_smc_handle(
+			PTP3_FEATURE_FLL,
+			FLL_NODE_LIST_WRITE,
+			cfg,
+			type);
+
+		/* set EventSourceThresh */
+		cfg = (FLL_LIST_FllEventSourceThresh0 << FLL_CFG_OFFSET_OPTION) &
+			FLL_CFG_BITMASK_OPTION;
+		cfg |= (cpu << FLL_CFG_OFFSET_CPU) & FLL_CFG_BITMASK_CPU;
+
+		/* update via atf */
+		ret = ptp3_smc_handle(
+			PTP3_FEATURE_FLL,
+			FLL_NODE_LIST_WRITE,
+			cfg,
+			thres);
+	} else {
+		/* set EventSource */
+		cfg = (FLL_LIST_FllEventSource1 << FLL_CFG_OFFSET_OPTION) &
+			FLL_CFG_BITMASK_OPTION;
+		cfg |= (cpu << FLL_CFG_OFFSET_CPU) & FLL_CFG_BITMASK_CPU;
+
+		/* update via atf */
+		ret = ptp3_smc_handle(
+			PTP3_FEATURE_FLL,
+			FLL_NODE_LIST_WRITE,
+			cfg,
+			src);
+
+		/* set EventType */
+		cfg = (FLL_LIST_FllEventType1 << FLL_CFG_OFFSET_OPTION) &
+			FLL_CFG_BITMASK_OPTION;
+		cfg |= (cpu << FLL_CFG_OFFSET_CPU) & FLL_CFG_BITMASK_CPU;
+
+		/* update via atf */
+		ret = ptp3_smc_handle(
+			PTP3_FEATURE_FLL,
+			FLL_NODE_LIST_WRITE,
+			cfg,
+			type);
+
+		/* set EventSourceThresh */
+		cfg = (FLL_LIST_FllEventSourceThresh1 << FLL_CFG_OFFSET_OPTION) &
+			FLL_CFG_BITMASK_OPTION;
+		cfg |= (cpu << FLL_CFG_OFFSET_CPU) & FLL_CFG_BITMASK_CPU;
+
+		/* update via atf */
+		ret = ptp3_smc_handle(
+			PTP3_FEATURE_FLL,
+			FLL_NODE_LIST_WRITE,
+			cfg,
+			thres);
+	}
+
+	if (ret < 0) {
+		fll_err("ret(%d). access atf fail\n", ret);
+		goto out;
+	}
+
+	/* update via mcupm or cpu_eb */
+	fll_ipi_handle(0, 0, 0, 0, 0);
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+
+}
+
+
+static int fll_eventCount_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int cfg = 0;
+	unsigned int cpu, value, option;
+
+	for (cpu = FLL_CPU_START_ID; cpu <= FLL_CPU_END_ID; cpu++) {
+		seq_printf(m, FLL_TAG"[CPU%d]", cpu);
+
+		for (option = 0; option < NR_FLL_LIST; option++) {
+
+			switch (option) {
+			case FLL_LIST_FllEventSource0:
+			case FLL_LIST_FllEventSource1:
+			case FLL_LIST_FllEventType0:
+			case FLL_LIST_FllEventType1:
+			case FLL_LIST_FllEventSourceThresh0:
+			case FLL_LIST_FllEventSourceThresh1:
+			case FLL_LIST_FllEventFreeze:
+			case FLL_LIST_FllEventCount0:
+			case FLL_LIST_FllEventCount1:
+				/* encode cfg */
+				/*
+				 *	cfg[15:8] option
+				 *	cfg[31:28] cpu
+				 */
+				cfg = (option << FLL_CFG_OFFSET_OPTION) & FLL_CFG_BITMASK_OPTION;
+				cfg |= (cpu << FLL_CFG_OFFSET_CPU) & FLL_CFG_BITMASK_CPU;
+
+				/* update via atf */
+				value = ptp3_smc_handle(
+					PTP3_FEATURE_FLL,
+					FLL_NODE_LIST_READ,
+					cfg,
+					0);
+
+				if (option != FLL_LIST_FllEventCount1)
+					seq_printf(m, " %s:0x%x,",
+						FLL_LIST_NAME[option], value);
+				else /* the last one */
+					seq_printf(m, " %s:0x%x;\n",
+						FLL_LIST_NAME[option], value);
+				break;
+			default:
+				break;
+			}
+		}
+	}
+	return 0;
+}
+
+
+PROC_FOPS_RW(fll_ctrl);
 PROC_FOPS_RO(fll_list);
+PROC_FOPS_RO(fll_info);
+PROC_FOPS_RW(fll_reg);
+PROC_FOPS_RW(fll_eventCount);
 
 int fll_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 {
@@ -355,9 +808,11 @@ int fll_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 	};
 
 	struct pentry fll_entries[] = {
-		PROC_ENTRY(fll_ctrl_r),
-		PROC_ENTRY(fll_ctrl_w),
+		PROC_ENTRY(fll_ctrl),
 		PROC_ENTRY(fll_list),
+		PROC_ENTRY(fll_info),
+		PROC_ENTRY(fll_reg),
+		PROC_ENTRY(fll_eventCount),
 	};
 
 	for (i = 0; i < ARRAY_SIZE(fll_entries); i++) {
@@ -399,14 +854,14 @@ int fll_probe(struct platform_device *pdev)
 			rc,
 			fll_doe_fllCtrl);
 
-		cpu = (fll_doe_fllCtrl & 0xF0000000) >> 28;
-		option = (fll_doe_fllCtrl & 0xFFF0000) >> 16;
-		value = fll_doe_fllCtrl & 0xFFFF;
+		cpu = (fll_doe_fllCtrl & FLL_CFG_BITMASK_CPU) >> FLL_CFG_OFFSET_CPU;
+		option = (fll_doe_fllCtrl & FLL_CFG_BITMASK_OPTION) >> FLL_CFG_OFFSET_OPTION;
+		value = (fll_doe_fllCtrl & FLL_CFG_BITMASK_VALUE) >> FLL_CFG_OFFSET_VALUE;
 
 		if (fll_doe_fllCtrl != 0xFFFFFFFF) {
 			/* update via atf */
 			ptp3_smc_handle(
-				FLL_RW_WRITE,
+				FLL_NODE_LIST_WRITE,
 				cpu,
 				option,
 				value);

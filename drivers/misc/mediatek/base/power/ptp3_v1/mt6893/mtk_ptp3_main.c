@@ -58,6 +58,7 @@
 	#include "mtk_ptp3_fll.h"
 	#include "mtk_ptp3_cinst.h"
 	#include "mtk_ptp3_drcc.h"
+	#include "mtk_ptp3_brisket2.h"
 #endif
 
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
@@ -210,6 +211,7 @@ static int create_procfs(void)
 		return -1;
 	}
 
+	brisket2_create_procfs(proc_name, dir);
 	fll_create_procfs(proc_name, dir);
 	cinst_create_procfs(proc_name, dir);
 	drcc_create_procfs(proc_name, dir);
@@ -247,6 +249,7 @@ static int ptp3_probe(struct platform_device *pdev)
 		ptp3_err("ptp3_mem_base_virt is null !\n");
 
 	/* probe trigger for ptp3 features */
+	brisket2_probe(pdev);
 	fll_probe(pdev);
 	cinst_probe(pdev);
 	drcc_probe(pdev);
