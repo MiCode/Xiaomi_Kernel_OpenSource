@@ -414,7 +414,6 @@ static int m4u_debug_set(void *data, u64 val)
 		page = alloc_pages(GFP_KERNEL, get_order(page_num));
 		ret = sg_alloc_table(sg_table, page_num, GFP_KERNEL);
 		if (ret) {
-			kfree(sg_table);
 			m4u_info("%s alloc_sgtable fail, ret:%d\n",
 				 __func__, ret);
 			return -ENOMEM;
@@ -444,7 +443,6 @@ static int m4u_debug_set(void *data, u64 val)
 
 		ret = sg_alloc_table(sg_table, page_num, GFP_KERNEL);
 		if (ret) {
-			kfree(sg_table);
 			m4u_info("%s alloc_sgtable fail, ret:%d\n",
 				 __func__, ret);
 			return -ENOMEM;
@@ -475,7 +473,6 @@ static int m4u_debug_set(void *data, u64 val)
 
 		ret = sg_alloc_table(sg_table, page_num, GFP_KERNEL);
 		if (ret) {
-			kfree(sg_table);
 			m4u_info("%s alloc_sgtable fail, ret:%d\n",
 				 __func__, ret);
 			return -ENOMEM;
@@ -506,7 +503,6 @@ static int m4u_debug_set(void *data, u64 val)
 
 		ret = sg_alloc_table(sg_table, page_num, GFP_KERNEL);
 		if (ret) {
-			kfree(sg_table);
 			m4u_info("%s alloc_sgtable fail, ret:%d\n",
 				 __func__, ret);
 			return -ENOMEM;
@@ -535,7 +531,6 @@ static int m4u_debug_set(void *data, u64 val)
 
 		ret = sg_alloc_table(sg_table, 1, GFP_KERNEL);
 		if (ret) {
-			kfree(sg_table);
 			m4u_info("%s alloc_sgtable fail, ret:%d\n",
 				 __func__, ret);
 			return -ENOMEM;
