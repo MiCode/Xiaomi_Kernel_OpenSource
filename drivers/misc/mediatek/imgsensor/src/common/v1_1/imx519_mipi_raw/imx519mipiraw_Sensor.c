@@ -80,7 +80,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 2328,
-		.grabwindow_height = 1728, /*1746*/
+		.grabwindow_height = 1748, /*1746*/
 		.mipi_data_lp2hs_settle_dc = 85,
 		/* following for GetDefaultFramerateByScenario() */
 		.mipi_pixel_rate = 226290000,
@@ -295,8 +295,8 @@ static struct imgsensor_struct imgsensor = {
 
 /* Sensor output window information */
 static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[8] = {
-	{4656, 3496, 000, 20, 4656, 3456, 2328, 1728,
-	0000, 0000, 2328, 1728, 0, 0, 2328, 1728}, /* Preview */
+	{4656, 3496, 000, 0, 4656, 3496, 2328, 1748,
+	0000, 0000, 2328, 1748, 0, 0, 2328, 1748}, /* Preview */
 	{4656, 3496, 000, 000, 4656, 3496, 4656, 3496,
 	0000, 0000, 4656, 3496, 0, 0, 4656, 3496}, /* capture */
 	{4656, 3496, 000, 440, 4656, 2616, 4656, 2616,
@@ -1736,11 +1736,11 @@ static kal_uint16 imx519_preview_setting[] = {
 	0x0344, 0x00,
 	0x0345, 0x00,
 	0x0346, 0x00,
-	0x0347, 0x12,
+	0x0347, 0x00,
 	0x0348, 0x12,
 	0x0349, 0x2F,
 	0x034A, 0x0D,
-	0x034B, 0x95,
+	0x034B, 0xa7,
 	0x0220, 0x00,
 	0x0221, 0x11,
 	0x0222, 0x01,
@@ -1779,11 +1779,11 @@ static kal_uint16 imx519_preview_setting[] = {
 	0x040C, 0x09,
 	0x040D, 0x18,
 	0x040E, 0x06,
-	0x040F, 0xC0,
+	0x040F, 0xd4,
 	0x034C, 0x09,
 	0x034D, 0x18,
 	0x034E, 0x06,
-	0x034F, 0xC0,
+	0x034F, 0xd4,
 	0x0301, 0x06,
 	0x0303, 0x04,
 	0x0305, 0x04,
