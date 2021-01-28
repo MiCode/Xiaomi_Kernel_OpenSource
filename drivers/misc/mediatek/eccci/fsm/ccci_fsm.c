@@ -56,6 +56,11 @@ void mdee_set_ex_time_str(unsigned char md_id, unsigned int type, char *str)
 {
 	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
 
+	if (ctl == NULL) {
+		CCCI_ERROR_LOG(md_id, FSM,
+			"%s:fsm_get_entity_by_md_id fail\n", __func__);
+		return;
+	}
 	mdee_set_ex_start_str(&ctl->ee_ctl, type, str);
 }
 
