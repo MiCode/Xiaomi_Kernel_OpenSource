@@ -268,7 +268,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	scpsys: scpsys@10001000 {
-		compatible = "mediatek,scpsys", "syscon";
+		compatible = "mediatek,mt6761-scpsys", "syscon";
 		reg =	<0 0x10001000 0 0x1000>, /* infra_ao */
 				<0 0x10006000 0 0x1000>, /* spm */
 				<0 0x14002000 0 0x1000>, /* spi_common */
