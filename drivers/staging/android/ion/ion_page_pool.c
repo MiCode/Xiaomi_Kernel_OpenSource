@@ -37,6 +37,7 @@ static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 {
 	unsigned long long start, end;
 	struct page *page;
+	unsigned int i;
 
 	start = sched_clock();
 	page = alloc_pages(pool->gfp_mask, pool->order);
@@ -56,6 +57,8 @@ static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 				  page, PAGE_SIZE << pool->order,
 				  DMA_BIDIRECTIONAL);
 	atomic64_add_return((1 << pool->order), &page_sz_cnt);
+	for (i = 0; i < (1 << pool->order); i++)
+		SetPageIommu(&page[i]);
 	return page;
 }
 
