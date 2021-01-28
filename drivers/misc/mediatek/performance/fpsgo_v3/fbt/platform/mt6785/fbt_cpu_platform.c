@@ -102,14 +102,10 @@ static int generate_cpu_mask(unsigned int prefer_type, struct cpumask *cpu_mask)
 {
 	if (prefer_type == FPSGO_PREFER_BIG) {
 		cpumask_clear(cpu_mask);
-		cpumask_set_cpu(4, cpu_mask);
-		cpumask_set_cpu(5, cpu_mask);
 		cpumask_set_cpu(6, cpu_mask);
 		cpumask_set_cpu(7, cpu_mask);
 	} else if (prefer_type == FPSGO_PREFER_LITTLE) {
 		cpumask_setall(cpu_mask);
-		cpumask_clear_cpu(4, cpu_mask);
-		cpumask_clear_cpu(5, cpu_mask);
 		cpumask_clear_cpu(6, cpu_mask);
 		cpumask_clear_cpu(7, cpu_mask);
 	} else if (prefer_type == FPSGO_PREFER_NONE)
@@ -170,6 +166,6 @@ int fbt_get_default_boost_ta(void)
 
 int fbt_get_default_adj_loading(void)
 {
-	return 1;
+	return 0;
 }
 

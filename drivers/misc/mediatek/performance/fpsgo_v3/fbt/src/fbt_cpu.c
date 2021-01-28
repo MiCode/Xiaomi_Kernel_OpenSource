@@ -117,9 +117,9 @@ enum FPSGO_JERK {
 };
 
 enum FPSGO_LLF_CPU_POLICY {
-	FPSGO_LLF_CPU_PREFER = 0,
+	FPSGO_LLF_CPU_NONE = 0,
 	FPSGO_LLF_CPU_AFFINITY = 1,
-	FPSGO_LLF_CPU_NONE = 2,
+	FPSGO_LLF_CPU_PREFER = 2,
 };
 
 static struct kobject *fbt_kobj;
@@ -1002,10 +1002,11 @@ static unsigned int fbt_must_enhance_floor(unsigned int blc_wt,
 	return blc_wt;
 }
 
-static unsigned int fbt_get_new_base_blc(struct ppm_limit_data *pld, int jerkid)
+static unsigned int fbt_get_new_base_blc(struct ppm_limit_data *pld, int floor)
 {
 	int cluster;
 	unsigned int blc_wt = 0U;
+	int base;
 
 	if (!pld) {
 		FPSGO_LOGE("ERROR %d\n", __LINE__);
@@ -1025,7 +1026,12 @@ static unsigned int fbt_get_new_base_blc(struct ppm_limit_data *pld, int jerkid)
 			pld[cluster].max = -1;
 	}
 
-	blc_wt = fbt_enhance_floor(max_blc, rescue_opp_f);
+	if (boost_ta)
+		base = max_blc;
+	else
+		base = floor;
+
+	blc_wt = fbt_enhance_floor(base, rescue_opp_f);
 
 	mutex_unlock(&fbt_mlock);
 
@@ -1115,8 +1121,7 @@ static void fbt_do_jerk(struct work_struct *work)
 	fpsgo_render_tree_lock(__func__);
 	fpsgo_thread_lock(&(thr->thr_mlock));
 
-	if (jerk->id == proc->active_jerk_id
-		&& thr->linger == 0) {
+	if (jerk->id == proc->active_jerk_id && thr->linger == 0) {
 
 		unsigned int blc_wt = 0U;
 		struct ppm_limit_data *pld;
@@ -1136,7 +1141,7 @@ static void fbt_do_jerk(struct work_struct *work)
 			if (!pld)
 				goto leave;
 
-			blc_wt = fbt_get_new_base_blc(pld, jerk->id);
+			blc_wt = fbt_get_new_base_blc(pld, temp_blc);
 			if (!blc_wt)
 				goto leave;
 
@@ -1349,7 +1354,7 @@ static void fbt_check_var(long loading,
 					frame_info[*f_iter].mips);
 		else
 			mips_diff = frame_info[pre_iter].mips;
-		mips_diff = clamp(mips_diff, 1LL, 100LL);
+		mips_diff = MAX(1LL, mips_diff);
 		frame_time =
 			frame_info[pre_iter].running_time +
 			frame_info[*f_iter].running_time;
@@ -1520,11 +1525,11 @@ static void fbt_do_boost(unsigned int blc_wt, int pid)
 static int fbt_boost_correct(struct render_info *th_info,
 			unsigned int blc_wt, int pid)
 {
-	if (th_info->is_black == NOT_ASKED)
-		th_info->is_black =
+	if (th_info->is_listed == NOT_ASKED)
+		th_info->is_listed =
 		(fpsgo_fbt2fstb_query_fteh_list(pid))?ASKED_IN:ASKED_OUT;
 
-	if (th_info->is_black == ASKED_IN)
+	if (th_info->is_listed == ASKED_IN)
 		return 0;
 
 	return fpsgo_fbt2fteh_judge_ceiling(th_info, blc_wt);
@@ -1940,6 +1945,7 @@ static void fbt_check_max_blc_locked(void)
 		if (ultra_rescue)
 			fbt_boost_dram(0);
 		memset(base_opp, 0, cluster_num * sizeof(unsigned int));
+		fbt_notify_CM_limit(0);
 	} else
 		fbt_set_limit(max_blc, max_blc_pid, NULL, 0);
 }
@@ -3332,7 +3338,7 @@ static ssize_t llf_task_policy_store(struct kobject *kobj,
 		return count;
 	}
 
-	if (val < FPSGO_LLF_CPU_PREFER || val > FPSGO_LLF_CPU_NONE) {
+	if (val < FPSGO_LLF_CPU_NONE || val > FPSGO_LLF_CPU_PREFER) {
 		mutex_unlock(&fbt_mlock);
 		return count;
 	}
@@ -3417,6 +3423,7 @@ int __init fbt_cpu_init(void)
 	loading_adj_cnt = 30;
 	loading_debnc_cnt = 30;
 	loading_time_diff = TIME_2MS;
+	llf_task_policy = FPSGO_LLF_CPU_NONE;
 
 	_gdfrc_fps_limit = TARGET_DEFAULT_FPS;
 	vsync_period = GED_VSYNC_MISS_QUANTUM_NS;
