@@ -58,6 +58,17 @@ struct GPIO_PINCTRL gpio_pinctrl_list[GPIO_CTRL_STATE_MAX_NUM] = {
 	{"cam_ldo_sub2_vcamd_0"},
 	{"cam_ldo_sub2_vcamio_1"},
 	{"cam_ldo_sub2_vcamio_0"},
+	/* Main3 */
+	{"cam4_pnd1"},
+	{"cam4_pnd0"},
+	{"cam4_rst1"},
+	{"cam4_rst0"},
+	{"cam4_ldo_vcama_1"},
+	{"cam4_ldo_vcama_0"},
+	{"cam4_ldo_vcamd_1"},
+	{"cam4_ldo_vcamd_0"},
+	{NULL},
+	{NULL},
 
 #ifdef MIPI_SWITCH
 	{"cam_mipi_switch_en_1"},
@@ -83,7 +94,7 @@ static enum IMGSENSOR_RETURN gpio_init(
 	pgpio->ppinctrl = devm_pinctrl_get(&pcommon->pplatform_device->dev);
 	if (IS_ERR(pgpio->ppinctrl)) {
 		PK_PR_ERR("%s : Cannot find camera pinctrl!", __func__);
-		ret = IMGSENSOR_RETURN_ERROR;
+		return IMGSENSOR_RETURN_ERROR;
 	}
 
 	for (i = 0; i < GPIO_CTRL_STATE_MAX_NUM; i++, pgpio_pinctrl++) {
@@ -150,7 +161,10 @@ static enum IMGSENSOR_RETURN gpio_set(
 		(sensor_idx == IMGSENSOR_SENSOR_IDX_SUB)   ?
 			GPIO_CTRL_STATE_CAM1_PDN_H :
 		(sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN2) ?
-			GPIO_CTRL_STATE_CAM2_PDN_H : GPIO_CTRL_STATE_CAM3_PDN_H;
+			GPIO_CTRL_STATE_CAM2_PDN_H :
+		(sensor_idx == IMGSENSOR_SENSOR_IDX_SUB2) ?
+			GPIO_CTRL_STATE_CAM3_PDN_H :
+			GPIO_CTRL_STATE_CAM4_PDN_H;
 
 		ppinctrl_state = pgpio->ppinctrl_state[ctrl_state_offset +
 			     ((pin - IMGSENSOR_HW_PIN_PDN) << 1) + gpio_state];
