@@ -490,6 +490,9 @@ static inline int tcpci_report_usb_port_attached(struct tcpc_device *tcpc)
 	default:
 		break;
 	}
+	/* set typec switch orientation */
+	typec_set_orientation(tcpc->typec_port, tcpc->typec_polarity ?
+			TYPEC_ORIENTATION_NORMAL : TYPEC_ORIENTATION_REVERSE);
 
 	tcpci_set_wake_lock_pd(tcpc, true);
 
@@ -530,6 +533,8 @@ static inline int tcpci_report_usb_port_detached(struct tcpc_device *tcpc)
 	typec_set_pwr_role(tcpc->typec_port, TYPEC_SINK);
 	typec_set_vconn_role(tcpc->typec_port, TYPEC_SINK);
 	typec_set_pwr_opmode(tcpc->typec_port, TYPEC_PWR_MODE_USB);
+	/* set typec switch orientation */
+	typec_set_orientation(tcpc->typec_port, TYPEC_ORIENTATION_NONE);
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 	/* MTK Only */

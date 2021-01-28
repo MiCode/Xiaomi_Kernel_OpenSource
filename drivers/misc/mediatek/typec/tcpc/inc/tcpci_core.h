@@ -396,6 +396,7 @@ struct tcpc_device {
 
 	struct typec_capability typec_caps;
 	struct typec_port *typec_port;
+	struct device_connection dev_conn;
 	uint8_t dual_role_supported_modes;
 	uint8_t dual_role_mode;
 	uint8_t dual_role_pr;

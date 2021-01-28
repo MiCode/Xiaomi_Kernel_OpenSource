@@ -162,6 +162,7 @@ static int tcpm_try_role(const struct typec_capability *cap, int role)
 
 int tcpc_dual_role_phy_init(struct tcpc_device *tcpc)
 {
+	struct device_node *switch_np;
 	int err;
 
 	tcpc->typec_caps.revision = 0x0120;	/* Type-C spec release 1.2 */
@@ -174,6 +175,19 @@ int tcpc_dual_role_phy_init(struct tcpc_device *tcpc)
 	tcpc->typec_caps.type = TYPEC_PORT_DRP;
 	tcpc->typec_caps.data = TYPEC_PORT_DRD;
 	tcpc->typec_caps.prefer_role = TYPEC_SINK;
+
+	switch_np = of_parse_phandle(tcpc->dev.parent->of_node, "switch", 0);
+	if (switch_np) {
+		tcpc->dev_conn.endpoint[0] = kasprintf(GFP_KERNEL,
+				"%s-switch", switch_np->name);
+		/* 0 is typec port id */
+		tcpc->dev_conn.endpoint[1] = kasprintf(GFP_KERNEL,
+				"port%d", 0);
+		tcpc->dev_conn.id = "orientation-switch";
+		device_connection_add(&tcpc->dev_conn);
+		dev_info(&tcpc->dev, "add %s\n", tcpc->dev_conn.endpoint[0]);
+	} else
+		dev_info(&tcpc->dev, "can't find switch\n");
 
 	tcpc->typec_port = typec_register_port(&tcpc->dev, &tcpc->typec_caps);
 	if (IS_ERR(tcpc->typec_port)) {
