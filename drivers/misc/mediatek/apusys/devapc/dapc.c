@@ -280,6 +280,7 @@ static void slv_irq(unsigned int slv, bool enable)
 }
 
 static void do_kernel_exception(struct dapc_driver *drv, unsigned int i,
+	const char *slv_name,
 	struct dapc_exception *ex)
 {
 	/* mask irq for slv "i" */
@@ -294,6 +295,7 @@ static void do_kernel_exception(struct dapc_driver *drv, unsigned int i,
 	if (drv->enable_aee) {
 		aee_kernel_exception("APUSYS_DEVAPC",
 			"Violation Slave: %s (%s%s): transaction ID:0x%x, Addr:0x%x, HighAddr: %x, Domain: 0x%x\n",
+			slv_name,
 			(ex->read_vio) ? "R" : "",
 			(ex->write_vio) ? " W" : "",
 			ex->trans_id,
@@ -418,9 +420,9 @@ static irqreturn_t apusys_devapc_isr(int irq_number, void *data)
 {
 	int i;
 	struct dapc_driver *d = (struct dapc_driver *)data;
-	struct dapc_config *cfg = d->cfg;
-	unsigned int shift_max = cfg->vio_shift_max_bit;
-	struct dapc_slave *slv = cfg->slv;
+	struct dapc_config *cfg;
+	unsigned int shift_max;
+	struct dapc_slave *slv;
 	struct dapc_exception ex;
 
 	if (!is_violation_irq())
@@ -430,6 +432,10 @@ static irqreturn_t apusys_devapc_isr(int irq_number, void *data)
 		pr_info("%s: driver abort\n", __func__);
 		return IRQ_NONE;
 	}
+
+	cfg = d->cfg;
+	slv = cfg->slv;
+	shift_max = cfg->vio_shift_max_bit;
 
 	if (irq_number != d->irq) {
 		pr_info("%s: get unknown irq %d\n", __func__, irq_number);
@@ -441,6 +447,7 @@ static irqreturn_t apusys_devapc_isr(int irq_number, void *data)
 		return IRQ_NONE;
 	}
 
+	memset(&ex, 0, sizeof(struct dapc_exception));
 	disable_irq_nosync(irq_number);
 	apusys_devapc_dbg("ISR begin");
 
@@ -477,7 +484,7 @@ static irqreturn_t apusys_devapc_isr(int irq_number, void *data)
 		clear_vio_status(i);
 		pr_info("%s: vio_sta device: %d, slave: %s\n",
 			__func__, i, slv[i].name);
-		do_kernel_exception(d, i, &ex);
+		do_kernel_exception(d, i, slv[i].name, &ex);
 	}
 
 	apusys_devapc_dbg("ISR end");
