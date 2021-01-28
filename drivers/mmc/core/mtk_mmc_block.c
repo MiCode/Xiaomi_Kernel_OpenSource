@@ -255,12 +255,12 @@ int mtk_btag_pidlog_add_mmc(struct request_queue *q, pid_t pid, __u32 len,
 {
 	unsigned long flags;
 	struct mt_bio_context *ctx;
-	struct mmc_queue *mq;
-	struct mmc_host *host;
+	struct mmc_queue *mq = NULL;
+	struct mmc_host *host = NULL;
 
 	if (q && q->queuedata) {
 		mq = (struct mmc_queue *)(q->queuedata);
-		host = mq->card->host;
+		host = mq ? mq->card->host : 0;
 	}
 
 	if (!host)
@@ -279,7 +279,7 @@ int mtk_btag_pidlog_add_mmc(struct request_queue *q, pid_t pid, __u32 len,
 		spin_lock_irqsave(&ctx->lock, flags);
 		mtk_mq_btag_pidlog_insert(&ctx->pidlog, pid, len, write, true);
 	} else
-		spin_lock_irqsave(&ctx->lock, flags);
+		return 0;
 
 	if (ctx->qid == BTAG_STORAGE_EMBEDDED)
 		mtk_btag_mictx_eval_req(write, 1, len);
