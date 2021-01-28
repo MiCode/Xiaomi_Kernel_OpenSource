@@ -157,6 +157,7 @@ int kbase_hwaccess_pm_init(struct kbase_device *kbdev)
 	kbdev->pm.backend.reset_done = false;
 
 	init_waitqueue_head(&kbdev->pm.zero_active_count_wait);
+	init_waitqueue_head(&kbdev->pm.resume_wait);
 	kbdev->pm.active_count = 0;
 
 	spin_lock_init(&kbdev->pm.backend.gpu_cycle_counter_requests_lock);
@@ -680,6 +681,7 @@ void kbase_hwaccess_pm_resume(struct kbase_device *kbdev)
 
 	kbase_backend_timer_resume(kbdev);
 
+	wake_up_all(&kbdev->pm.resume_wait);
 	kbase_pm_unlock(kbdev);
 }
 
