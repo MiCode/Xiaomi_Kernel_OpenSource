@@ -544,4 +544,25 @@ int pd_hal_enable_termination(struct chg_alg_device *alg,
 	return 0;
 }
 
+int pd_hal_charger_enable_chip(struct chg_alg_device *alg,
+	enum chg_idx chgidx, bool enable)
+{
+	struct pd_hal *hal;
+	int ret;
+
+	if (alg == NULL)
+		return -EINVAL;
+	hal = chg_alg_dev_get_drv_hal_data(alg);
+
+	if (chgidx == CHG1 && hal->chg1_dev != NULL)
+		ret = charger_dev_enable_chip(hal->chg1_dev, enable);
+	else if (chgidx == CHG2 && hal->chg2_dev != NULL) {
+		pr_notice("%s idx:%d %d test\n", __func__, chgidx, enable);
+		ret = charger_dev_enable_chip(hal->chg2_dev, enable);
+	}
+	pr_notice("%s idx:%d %d %d\n", __func__, chgidx, enable,
+		hal->chg2_dev != NULL);
+	return 0;
+}
+
 

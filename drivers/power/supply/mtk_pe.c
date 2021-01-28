@@ -41,6 +41,8 @@
 #include "mtk_pe.h"
 #include "mtk_charger_algorithm_class.h"
 
+#define VBUS_MAX_DROP 1500000
+
 static int pe_dbg_level = PE_DEBUG_LEVEL;
 
 int pe_get_debug_level(void)
@@ -55,6 +57,7 @@ int mtk_pe_reset_ta_vchr(struct chg_alg_device *alg)
 	struct mtk_pe *pe;
 	bool is_chip_enabled = false;
 	int chg_cnt, i;
+	int mivr;
 
 	pe = dev_get_drvdata(&alg->dev);
 	pe_dbg("%s: starts\n", __func__);
@@ -88,7 +91,10 @@ int mtk_pe_reset_ta_vchr(struct chg_alg_device *alg)
 
 	if (retry_cnt >= 3) {
 		pe_err("%s: failed, ret = %d\n", __func__, ret);
-		pe_hal_set_mivr(alg, CHG1, chr_volt - 1000000);
+		mivr = chr_volt - 1000000;
+		if (mivr < pe->min_charger_voltage)
+			mivr = pe->min_charger_voltage;
+		pe_hal_set_mivr(alg, CHG1, mivr);
 		/*
 		 * SET_INPUT_CURRENT success but chr_volt does not reset to 5V
 		 * set ret = -EIO to represent the case
@@ -183,7 +189,7 @@ static int pe_increase_ta_vchr(struct chg_alg_device *alg, u32 vchr_target)
 		__pe_increase_ta_vchr(alg);
 		vchr_after = pe_hal_get_vbus(alg);
 
-		if (abs(vchr_after - vchr_target) <= 1000000) {
+		if (abs(vchr_after - vchr_target) <= VBUS_MAX_DROP) {
 			pe_dbg("%s: OK\n", __func__);
 			return ret_value;
 		}
@@ -576,6 +582,7 @@ static int __pe_run(struct chg_alg_device *alg)
 	struct mtk_pe *pe;
 	int ret = 0, chr_volt, ret_value = 0, ichg;
 	bool tune = false;
+	int mivr;
 
 	pe = dev_get_drvdata(&alg->dev);
 	pe_dbg("%s: starts\n", __func__);
@@ -583,19 +590,17 @@ static int __pe_run(struct chg_alg_device *alg)
 	if (pe->is_cable_out_occur)
 		goto _out;
 
-	mtk_pe_set_charging_current(alg);
-
 	chr_volt = pe_hal_get_vbus(alg);
 
 	if (pe->ta_9v_support && pe->ta_12v_support) {
-		if (abs(chr_volt - 12000000) > 1000000)
+		if (abs(chr_volt - 12000000) > VBUS_MAX_DROP)
 			tune = true;
 		pe_dbg("%s: vbus:%d target:%d 9v:%d 12v:%d tune:%d\n",
 			__func__, chr_volt,
 			12000000, pe->ta_9v_support,
 			pe->ta_12v_support, tune);
 	} else if (pe->ta_9v_support && !pe->ta_12v_support) {
-		if (abs(chr_volt - 9000000) > 1000000)
+		if (abs(chr_volt - 9000000) > VBUS_MAX_DROP)
 			tune = true;
 		pe_dbg("%s: vbus:%d target:%d 9v:%d 12v:%d tune:%d\n",
 			__func__, chr_volt,
@@ -656,8 +661,13 @@ static int __pe_run(struct chg_alg_device *alg)
 		}
 	}
 
+	mtk_pe_set_charging_current(alg);
+
 	chr_volt = pe_hal_get_vbus(alg);
-	ret = pe_hal_set_mivr(alg, CHG1, chr_volt - 1000000);
+	mivr = chr_volt - 1000000;
+	if (mivr < pe->min_charger_voltage)
+		mivr = pe->min_charger_voltage;
+	ret = pe_hal_set_mivr(alg, CHG1, mivr);
 	if (ret < 0) {
 		pe_err("%s: set mivr fail\n",
 			__func__);

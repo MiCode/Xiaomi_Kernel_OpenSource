@@ -100,11 +100,9 @@ int pe2_hal_init_hardware(struct chg_alg_device *alg)
 	hal->chg2_dev = get_charger_by_name("secondary_chg");
 	if (hal->chg2_dev)
 		pr_notice("%s: Found secondary charger\n", __func__);
-	else {
+	else
 		pr_notice("%s: Error : can't find secondary charger\n",
 			__func__);
-		return -ENODEV;
-	}
 
 	return 0;
 }

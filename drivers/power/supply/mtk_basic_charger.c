@@ -210,7 +210,7 @@ done:
 	if (ret != -ENOTSUPP && pdata->input_current_limit < aicr1_min) {
 		pdata->input_current_limit = 0;
 		chr_err("min_input_current is too low %d %d\n",
-			pdata->charging_current_limit, aicr1_min);
+			pdata->input_current_limit, aicr1_min);
 		is_basic = true;
 	}
 

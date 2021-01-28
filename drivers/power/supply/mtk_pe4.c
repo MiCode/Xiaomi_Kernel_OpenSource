@@ -1472,8 +1472,8 @@ int _pe4_set_setting(struct chg_alg_device *alg_dev,
 	mutex_lock(&pe4->access_lock);
 	__pm_stay_awake(pe4->suspend_lock);
 	pe4->cv = setting->cv;
-	pe4->input_current_limit = setting->input_current_limit;
-	pe4->charging_current_limit = setting->charging_current_limit;
+	pe4->input_current_limit = setting->input_current_limit1;
+	pe4->charging_current_limit = setting->charging_current_limit1;
 
 	pe4->input_current = pe4->pe40_max_ibus * 1000;
 

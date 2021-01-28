@@ -122,6 +122,8 @@ struct mtk_pd {
 	int dcs_chg1_charger_current;
 	int dcs_chg2_charger_current;
 
+	int dual_polling_ieoc;
+
 	struct pd_power_cap cap;
 	int pdc_max_watt;
 	int pdc_max_watt_setting;
@@ -185,6 +187,9 @@ extern int pd_hal_enable_termination(struct chg_alg_device *alg,
 	enum chg_idx chgidx, bool enable);
 extern int pd_hal_enable_charger(struct chg_alg_device *alg,
 	enum chg_idx chgidx, bool en);
+extern int pd_hal_charger_enable_chip(struct chg_alg_device *alg,
+	enum chg_idx chgidx, bool enable);
+
 
 #endif /* __MTK_PD_H */
 

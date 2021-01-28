@@ -1298,6 +1298,7 @@ static bool charger_init_algo(struct mtk_charger *info)
 		register_chg_alg_notifier(alg, &info->chg_alg_nb);
 	}
 	idx++;
+
 	alg = get_chg_alg_by_name("pe");
 	info->alg[idx] = alg;
 	if (alg == NULL)

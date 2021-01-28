@@ -1018,9 +1018,16 @@ static int _pe2_stop_algo(struct chg_alg_device *alg)
 	pe2 = dev_get_drvdata(&alg->dev);
 
 	pe2_dbg("%s %d\n", __func__, pe2->state);
-	if (pe2->state == PE2_RUN) {
+	if (pe2->state == PE2_RUN ||
+		pe2->state == PE2_TUNING ||
+		pe2->state == PE2_POSTCC) {
 		pe2_reset_ta_vchr(alg);
 		pe2->state = PE2_HW_READY;
+		if (alg->config == DUAL_CHARGERS_IN_SERIES) {
+			pe2_hal_enable_charger(alg, CHG2, false);
+			pe2_hal_charger_enable_chip(alg,
+			CHG2, false);
+		}
 	}
 
 	return 0;

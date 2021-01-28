@@ -124,6 +124,7 @@ static int _pd_is_algo_ready(struct chg_alg_device *alg)
 	struct mtk_pd *pd = dev_get_drvdata(&alg->dev);
 	int ret_value;
 
+	pd_err("%s %d\n", __func__, pd->state);
 	switch (pd->state) {
 	case PD_HW_UNINIT:
 	case PD_HW_FAIL:
@@ -756,6 +757,8 @@ static int _pd_start_algo(struct chg_alg_device *alg)
 			ret_value = ALG_TA_NOT_SUPPORT;
 			break;
 		case PD_RUN:
+		case PD_TUNING:
+		case PD_POSTCC:
 		case PD_STOP:
 			ret_value = __pd_run(alg);
 			pd->state = PD_RUN;
@@ -805,6 +808,8 @@ static int _pd_stop_algo(struct chg_alg_device *alg)
 	case PD_STOP:
 	case PD_TA_NOT_SUPPORT:
 		break;
+	case PD_TUNING:
+	case PD_POSTCC:
 	case PD_RUN:
 		mtk_pdc_reset(alg);
 		pd_hal_set_charging_current(alg,
@@ -813,16 +818,18 @@ static int _pd_stop_algo(struct chg_alg_device *alg)
 			CHG1, PD_FAIL_CURRENT);
 		pd_hal_set_cv(alg,
 			CHG1, pd->cv);
-
 		pd->state = PD_STOP;
+		if (alg->config == DUAL_CHARGERS_IN_SERIES) {
+			pd_hal_enable_charger(alg, CHG2, false);
+			pd_hal_charger_enable_chip(alg,
+			CHG2, false);
+		}
 		break;
 	default:
 		pd_err("PD unknown state:%d\n", pd->state);
 		ret_value = ALG_INIT_FAIL;
 		break;
 	}
-
-
 	mutex_unlock(&pd->access_lock);
 
 	return ret_value;
@@ -848,8 +855,8 @@ static int _pd_notifier_call(struct chg_alg_device *alg,
 		case PD_HW_FAIL:
 		case PD_HW_READY:
 		case PD_STOP:
-		case PD_TA_NOT_SUPPORT:
 			break;
+		case PD_TA_NOT_SUPPORT:
 		case PD_RUN:
 		case PD_TUNING:
 		case PD_POSTCC:
@@ -1014,6 +1021,14 @@ static void mtk_pd_parse_dt(struct mtk_pd *pd,
 		pd_err("use default SLAVE_MIVR_DIFF:%d\n", SLAVE_MIVR_DIFF);
 		pd->slave_mivr_diff = SLAVE_MIVR_DIFF;
 	}
+
+	if (of_property_read_u32(np, "dual_polling_ieoc", &val) >= 0)
+		pd->dual_polling_ieoc = val;
+	else {
+		pd_err("use default dual_polling_ieoc :%d\n", 750000);
+		pd->dual_polling_ieoc = 750000;
+	}
+
 
 
 }
