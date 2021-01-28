@@ -88,7 +88,7 @@ void ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(struct ufs_hba *hba)
 #ifdef UPMU_READY
 	int vcc_enabled, vcc_0_value, vcc_1_value;
 	int vccq2_enabled, va12_enabled;
-	u32 val_0, val_1;
+	u32 val_0, val_1, ufs_mon;
 
 	/* check ufs debug register */
 	ufshcd_writel(hba, 0x20, REG_UFS_MTK_DEBUG_SEL);
@@ -101,11 +101,13 @@ void ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(struct ufs_hba *hba)
 	vcc_1_value = pmic_get_register_value(PMIC_RG_VEMC_VOSEL_1);
 	vccq2_enabled = pmic_get_register_value(PMIC_DA_EXT_PMIC_EN1);
 	va12_enabled = pmic_get_register_value(PMIC_RG_LDO_VA12_EN);
+	ufs_mon = upmu_get_reg_value(MT6359_LDO_VUFS_MON);
+
 	/* dump vcc, vccq2 info */
 	dev_info(hba->dev,
-		"vcc_en:%d, vcc_0:%d, vcc_1:%d, vccq2_en:%d, va12_en:%d\n",
+		"vcc_en:%d, vcc_0:%d, vcc_1:%d, vccq2_en:%d, va12_en:%d ufs_mon:0x%x\n",
 		vcc_enabled, vcc_0_value, vcc_1_value,
-		vccq2_enabled, va12_enabled);
+		vccq2_enabled, va12_enabled, ufs_mon);
 
 	if (ufs_mtk_mmio_base_infracfg_ao) {
 		val_0 = readl(ufs_mtk_mmio_base_infracfg_ao + CLK_CG_2_STA);
@@ -318,6 +320,7 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 			udelay(1);
 			break;
 		default:
+			udelay(30);
 			break;
 		}
 	}
@@ -372,12 +375,13 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 			udelay(32);
 			break;
 		default:
+			udelay(30);
 			break;
 		}
 	}
 
 	/* inform ATF clock is off */
-	if (!on)
+	if (!on && !hba->auto_bkops_enabled)
 		mt_secure_call(MTK_SIP_KERNEL_UFS_CTL, 4, 0, 0, 0);
 
 	return 0;
@@ -448,7 +452,8 @@ int ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on)
 		}
 
 		val = VENDOR_POWERSTATE_HIBERNATE;
-		ufs_mtk_wait_link_state(hba, &val, 0);
+		ufs_mtk_wait_link_state(hba, &val,
+			hba->clk_gating.delay_ms);
 
 		if (val == VENDOR_POWERSTATE_HIBERNATE) {
 			/* Host need turn off clock by itself */
