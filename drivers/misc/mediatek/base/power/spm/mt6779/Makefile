@@ -18,7 +18,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/eem_v2/$(MTK_PLATFORM
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 # Include uart header "mtk_uart_api.h"
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/uart/include/
-ifeq ($(CONFIG_MTK_DRAMC), y)
+ifeq ($(CONFIG_MTK_DRAMC_LEGACY), y)
 # Include dramc header "mtk_dramc.h"
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 endif
