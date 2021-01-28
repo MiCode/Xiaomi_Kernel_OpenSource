@@ -1247,6 +1247,8 @@ static inline void uclamp_cpu_get_id(struct task_struct *p, struct rq *rq,
 
 	if (rq->uclamp.value[clamp_id] < effective)
 		rq->uclamp.value[clamp_id] = effective;
+
+	trace_uclamp_cpu_get_id(p, rq, clamp_id);
 }
 
 /**
@@ -1302,6 +1304,8 @@ static inline void uclamp_cpu_put_id(struct task_struct *p, struct rq *rq,
 			uclamp_maps[clamp_id][group_id].value;
 		uclamp_cpu_update(rq, clamp_id, clamp_value);
 	}
+
+	trace_uclamp_cpu_put_id(p, rq, clamp_id, clamp_value);
 }
 
 /**
