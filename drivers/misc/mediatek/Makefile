@@ -44,7 +44,7 @@ obj-$(CONFIG_MTK_CONN_MD) += conn_md/
 
 obj-$(CONFIG_TRUSTONIC_TEE_SUPPORT) += gud/
 obj-$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) += trusted_mem/
-obj-$(CONFIG_MTK_GZ_KREE) += geniezone/
+obj-$(CONFIG_MTK_ENABLE_GENIEZONE) += geniezone/
 obj-$(CONFIG_MTK_TEE_SANITY) += tee_sanity/
 obj-y += atf/
 obj-y += devinfo/

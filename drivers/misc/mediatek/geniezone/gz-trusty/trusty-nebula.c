@@ -15,8 +15,6 @@
 #include <gz-trusty/trusty.h>
 #include <gz-trusty/smcall.h>
 
-
-#ifdef CONFIG_MT_TRUSTY_DEBUGFS
 ssize_t vmm_fast_add_show(struct device *dev, struct device_attribute *attr,
 	char *buf)
 {
@@ -149,4 +147,3 @@ err_create_vmm_fast_multiply:
 err_create_vmm_fast_add:
 	device_remove_file(pdev, &dev_attr_vmm_fast_add);
 }
-#endif				/* CONFIG_MT_TRUSTY_DEBUGFS */

@@ -1,9 +1,24 @@
 menu "GZ Kree"
 
+config MTK_ENABLE_GENIEZONE
+	tristate "MTK GenieZone enable"
+	select MTK_GZ_KREE
+	select VIRTIO
+	select GZ_LOG
+	select GZ_TRUSTY_INTERRUPT_MAP
+	select GZ_TRUSTY_INTERRUPT_FIQ_ONLY
+	select MT_GZ_TRUSTY_DEBUGFS if (MTK_ENG_BUILD)
+	help
+	  This is used for Trusty to support MTK Geniezone
+	  Irq will be masked in trusty irq handler
+	  for irq routing to GenieZone.
+	  Irq work will be put to global queue when cpu dead.
+	  We move the GZ TIPC driver from drivers/trusty to
+	  drivers/misc/mediatek/geniezone/gz-trusty. Use
+	  MTK_ENABLE_GENIEZONE instead of TRUSTY to enable it.
+
 config MTK_GZ_KREE
 	bool "MediaTek GenieZone support"
-	depends on MTK_ENABLE_GENIEZONE
-	default y
 	help
 	  Mediatek GenieZone kernel driver
 	  with APIs based on MTEE framework
@@ -13,7 +28,6 @@ config MTK_GZ_KREE
 config GZ_VPU_WITH_M4U
 	bool "GenieZone support VPU with M4U"
 	depends on MTK_GZ_KREE
-	default n
 	help
 	  GZ control VPU at M4U map.
 	  Because VPU is 32 bits, only see 4G
@@ -23,7 +37,6 @@ config GZ_VPU_WITH_M4U
 config GZ_SUPPORT_SDSP
 	bool "GenieZone support SDSP"
 	depends on MTK_GZ_KREE
-	default n
 	help
 	  GZ smcall into mtee for sdsp on and off.
 	  When switch normal/secure vpu, need add

@@ -88,12 +88,7 @@ static inline void trusty_nop_init(struct trusty_nop *nop,
 	nop->args[2] = arg2;
 }
 
-#if defined(CONFIG_MTK_NEBULA_VM_SUPPORT) && defined(CONFIG_GZ_SMC_CALL_REMAP)
-void trusty_enqueue_nop(struct device *dev, struct trusty_nop *nop,
-			bool vmm_specific);
-#else
 void trusty_enqueue_nop(struct device *dev, struct trusty_nop *nop);
-#endif
 void trusty_dequeue_nop(struct device *dev, struct trusty_nop *nop);
 
 #endif
