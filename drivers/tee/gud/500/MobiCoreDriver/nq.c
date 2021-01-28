@@ -648,7 +648,7 @@ static int nq_boot_tee(void)
 #endif
 	l_ctx.mcp_buffer->message.init_values.flags |= MC_IV_FLAG_TIME;
 	if (irq_d) {
-#ifdef CONFIG_MTK_SYSIRQ
+#ifdef CONFIG_ARCH_MEDIATEK
 		if (irq_d->parent_data) {
 			l_ctx.mcp_buffer->message.init_values.flags |=
 				MC_IV_FLAG_IRQ;
