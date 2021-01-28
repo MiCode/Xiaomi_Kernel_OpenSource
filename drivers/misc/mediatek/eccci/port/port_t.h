@@ -101,6 +101,8 @@ struct port_t {
 	 * Rx list to hold packets.
 	 */
 	struct sk_buff_head rx_skb_list;
+	/* add high prio rx list for udc */
+	struct sk_buff_head rx_skb_list_hp;
 	unsigned char skb_from_pool;
 	spinlock_t rx_req_lock;
 	wait_queue_head_t rx_wq;	/* for uplayer user */

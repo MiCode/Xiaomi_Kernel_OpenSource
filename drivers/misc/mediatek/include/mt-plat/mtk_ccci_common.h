@@ -551,6 +551,8 @@ enum SMEM_USER_ID {
 	SMEM_USER_RAW_MD_CONSYS,
 	SMEM_USER_RAW_PHY_CAP,
 	SMEM_USER_RAW_USIP,
+	SMEM_USER_RAW_UDC_DATA,
+	SMEM_USER_RAW_UDC_DESCTAB,
 	SMEM_USER_MAX,
 };
 
@@ -598,6 +600,8 @@ int get_md_resv_mem_info(int md_id, phys_addr_t *r_rw_base,
 	unsigned int *r_rw_size, phys_addr_t *srw_base, unsigned int *srw_size);
 int get_md_resv_ccb_info(int md_id, phys_addr_t *ccb_data_base,
 	unsigned int *ccb_data_size);
+int get_md_resv_udc_info(int md_id, unsigned int *udc_noncache_size,
+	unsigned int *udc_cache_size);
 int get_md1_md3_resv_smem_info(int md_id, phys_addr_t *rw_base,
 	unsigned int *rw_size);
 unsigned int get_md_resv_phy_cap_size(int md_id);

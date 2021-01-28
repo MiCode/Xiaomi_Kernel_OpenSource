@@ -29,6 +29,7 @@ ccci-y := ccci_core.o ccci_bm.o ccci_modem.o modem_sys1.o
 obj-y += fsm/
 obj-y += hif/
 obj-y += port/
+obj-y += udc/
 
 ifeq ($(CONFIG_MTK_ECCCI_C2K), y)
 ccci-y += modem_sys3.o

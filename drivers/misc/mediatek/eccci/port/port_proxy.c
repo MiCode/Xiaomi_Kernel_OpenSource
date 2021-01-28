@@ -37,6 +37,7 @@
 #include "ccci_hif.h"
 #include "ccci_port.h"
 #include "port_proxy.h"
+#include "port_udc.h"
 #define TAG PORT
 #define CCCI_DEV_NAME "ccci"
 
@@ -407,6 +408,8 @@ static inline void port_struct_init(struct port_t *port,
 	INIT_LIST_HEAD(&port->exp_entry);
 	INIT_LIST_HEAD(&port->queue_entry);
 	skb_queue_head_init(&port->rx_skb_list);
+	if (port->tx_ch == CCCI_UDC_TX)
+		skb_queue_head_init(&port->rx_skb_list_hp);
 	init_waitqueue_head(&port->rx_wq);
 	port->tx_busy_count = 0;
 	port->rx_busy_count = 0;
