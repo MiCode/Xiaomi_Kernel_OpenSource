@@ -30,7 +30,7 @@
 #include "mtk_charger_intf.h"
 #include "rt9467.h"
 #define I2C_ACCESS_MAX_RETRY	5
-#define RT9467_DRV_VERSION	"1.0.18_MTK"
+#define RT9467_DRV_VERSION	"1.0.19_MTK"
 
 /* ======================= */
 /* RT9467 Parameter        */
@@ -204,6 +204,7 @@ static const int rt9467_adc_offset[RT9467_ADC_MAX] = {
 
 struct rt9467_desc {
 	u32 ichg;	/* uA */
+	u32 ichg_dis_chg;/* uA */
 	u32 aicr;	/* uA */
 	u32 mivr;	/* uV */
 	u32 cv;		/* uV */
@@ -225,6 +226,7 @@ struct rt9467_desc {
 /* These default values will be applied if there's no property in dts */
 static struct rt9467_desc rt9467_default_desc = {
 	.ichg = 2000000,	/* uA */
+	.ichg_dis_chg = 2000000,/* uA */
 	.aicr = 500000,		/* uA */
 	.mivr = 4400000,	/* uV */
 	.cv = 4350000,		/* uA */
@@ -281,6 +283,7 @@ struct rt9467_info {
 	enum charger_type chg_type;
 	u32 ieoc;
 	u32 ichg;
+	u32 ichg_dis_chg;
 	bool ieoc_wkard;
 	struct work_struct init_work;
 	atomic_t bc12_sdp_cnt;
@@ -2504,6 +2507,7 @@ static int rt9467_enable_charging(struct charger_device *chg_dev, bool en)
 {
 	int ret = 0;
 	struct rt9467_info *info = dev_get_drvdata(&chg_dev->dev);
+	u32 ichg_ramp_t = 0;
 
 	dev_info(info->dev, "%s: en = %d\n", __func__, en);
 
@@ -2521,8 +2525,41 @@ static int rt9467_enable_charging(struct charger_device *chg_dev, bool en)
 			gpio_set_value(info->ceb_gpio, !en);
 	}
 
-	return (en ? rt9467_set_bit : rt9467_clr_bit)
+	/* Workaround for vsys overshoot */
+	mutex_lock(&info->ichg_access_lock);
+	mutex_lock(&info->ieoc_lock);
+
+	if (info->ichg <= 500000)
+		goto out;
+
+	if (!en) {
+		info->ichg_dis_chg = info->ichg;
+		ichg_ramp_t = (info->ichg - 500000) / 50000 * 2;
+		/* Set ichg to 500mA */
+		ret = __rt9467_set_ichg(info, 500000);
+		if (ret < 0) {
+			dev_notice(info->dev,
+				   "%s: set ichg fail\n", __func__);
+			goto vsys_overshoot_error;
+		}
+		msleep(ichg_ramp_t);
+	} else {
+		if (info->ichg == info->ichg_dis_chg) {
+			ret = __rt9467_set_ichg(info, info->ichg);
+			if (ret < 0) {
+				dev_notice(info->dev,
+					   "%s: set ichg fail\n", __func__);
+				goto vsys_overshoot_error;
+			}
+		}
+	}
+out:
+	ret = (en ? rt9467_set_bit : rt9467_clr_bit)
 		(info, RT9467_REG_CHG_CTRL2, RT9467_MASK_CHG_EN);
+vsys_overshoot_error:
+	mutex_unlock(&info->ichg_access_lock);
+	mutex_unlock(&info->ieoc_lock);
+	return ret;
 }
 
 static int rt9467_enable_safety_timer(struct charger_device *chg_dev, bool en)
@@ -3104,7 +3141,7 @@ static int __rt9467_enable_auto_sensing(struct rt9467_info *info, bool en)
 		goto out;
 	}
 
-	if (en)
+	if (!en)
 		auto_sense &= 0xFE; /* clear bit0 */
 	else
 		auto_sense |= 0x01; /* set bit0 */
@@ -3142,6 +3179,7 @@ static int rt9467_sw_reset(struct rt9467_info *info)
 		mutex_unlock(&info->i2c_access_lock);
 		mutex_unlock(&info->hidden_mode_lock);
 
+		mdelay(50);
 		reg_data[0] = 0x14; /* HZ */
 		reg_data[1] = 0x83; /* Shipping mode */
 	}
@@ -3466,6 +3504,32 @@ static int rt9467_do_event(struct charger_device *chg_dev, u32 event, u32 args)
 	return 0;
 }
 
+static int rt9467_safety_check(struct charger_device *chg_dev, u32 polling_ieoc)
+{
+	int ret = 0;
+	int adc_ibat = 0;
+	static int counter;
+	struct rt9467_info *info = dev_get_drvdata(&chg_dev->dev);
+
+	ret = rt9467_get_adc(info, RT9467_ADC_IBAT, &adc_ibat);
+	if (ret < 0) {
+		dev_info(info->dev, "%s: get adc failed\n", __func__);
+		return ret;
+	}
+	if (adc_ibat <= polling_ieoc)
+		counter++;
+	else
+		counter = 0;
+	/* If IBAT is less than polling_ieoc for 3 times, trigger EOC event */
+	if (counter == 3) {
+		dev_info(info->dev, "%s: polling_ieoc = %d, ibat = %d\n",
+			__func__, polling_ieoc, adc_ibat);
+		charger_dev_notify(info->chg_dev, CHARGER_DEV_NOTIFY_EOC);
+		counter = 0;
+	}
+	return ret;
+}
+
 static struct charger_ops rt9467_chg_ops = {
 	/* Normal charging */
 	.plug_in = rt9467_plug_in,
@@ -3490,6 +3554,7 @@ static struct charger_ops rt9467_chg_ops = {
 	.enable_termination = rt9467_enable_te,
 	.run_aicl = rt9467_run_aicl,
 	.reset_eoc_state = rt9467_reset_eoc_state,
+	.safety_check = rt9467_safety_check,
 
 	/* Safety timer */
 	.enable_safety_timer = rt9467_enable_safety_timer,
@@ -3564,6 +3629,46 @@ static void rt9467_init_setting_work_handler(struct work_struct *work)
 /* I2C driver function       */
 /* ========================= */
 
+static ssize_t shipping_mode_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct rt9467_info *info = dev_get_drvdata(dev);
+	int ret = 0;
+	bool is_main_chg = strcmp(info->desc->chg_dev_name,
+		"primary_chg") == 0 ? true : false;
+
+	mutex_lock(&info->adc_access_lock);
+	if (is_main_chg) {
+		ret = __rt9467_enable_auto_sensing(info, false);
+		if (ret < 0) {
+			dev_notice(dev, "%s: disable auto sensing fail\n",
+				__func__);
+			goto out;
+		}
+		mdelay(50);
+	}
+
+	ret = rt9467_sw_reset(info);
+	if (ret < 0) {
+		dev_notice(dev, "%s: sw reset fail\n", __func__);
+		goto out;
+	}
+
+	if (is_main_chg) {
+		ret = rt9467_set_bit(info, RT9467_REG_CHG_CTRL2,
+			RT9467_MASK_SHIP_MODE);
+		if (ret < 0)
+			dev_notice(dev, "%s: set shipping mode fail\n",
+				__func__);
+	}
+out:
+	mutex_unlock(&info->adc_access_lock);
+	return ret;
+}
+
+static const DEVICE_ATTR_WO(shipping_mode);
+
 static int rt9467_probe(struct i2c_client *client,
 	const struct i2c_device_id *dev_id)
 {
@@ -3601,6 +3706,7 @@ static int rt9467_probe(struct i2c_client *client,
 	info->ieoc_wkard = false;
 	info->ieoc = 250000; /* register default value 250mA */
 	info->ichg = 2000000; /* register default value 2000mA */
+	info->ichg_dis_chg = 2000000;
 	info->tchg = 25;
 	memcpy(info->irq_mask, rt9467_irq_maskall, RT9467_IRQIDX_MAX);
 
@@ -3666,9 +3772,18 @@ static int rt9467_probe(struct i2c_client *client,
 	}
 
 	schedule_work(&info->init_work);
+
+	ret = device_create_file(info->dev, &dev_attr_shipping_mode);
+	if (ret < 0) {
+		dev_notice(info->dev, "%s: create shipping attr fail\n",
+			__func__);
+		goto err_register_ls_dev;
+	}
+
 	dev_info(info->dev, "%s: successfully\n", __func__);
 	return ret;
 
+err_register_ls_dev:
 err_irq_init:
 err_irq_register:
 	charger_device_unregister(info->chg_dev);
@@ -3706,6 +3821,7 @@ static int rt9467_remove(struct i2c_client *client)
 #ifdef CONFIG_RT_REGMAP
 		rt_regmap_device_unregister(info->regmap_dev);
 #endif
+		device_remove_file(info->dev, &dev_attr_shipping_mode);
 		mutex_destroy(&info->i2c_access_lock);
 		mutex_destroy(&info->adc_access_lock);
 		mutex_destroy(&info->irq_access_lock);
@@ -3826,6 +3942,14 @@ MODULE_VERSION(RT9467_DRV_VERSION);
 
 /*
  * Release Note
+ * 1.0.19
+ * (1) Revise enable_auto_sensing function, set auto sensing bit when enable
+	it, otherwise clear it.
+ * (2) Add shipping_mode_store node, and add adc_access_lock to avoid
+	conflicting access with adc measurement.
+ * (3) Add safety_check ops, trigger ieoc event, when ibat < ieoc for 3 times.
+ * (4) Add workaround for vsys overshoot
+ *
  * 1.0.18
  * (1) Check tchg 3 times if it >= 120 degree
  *
