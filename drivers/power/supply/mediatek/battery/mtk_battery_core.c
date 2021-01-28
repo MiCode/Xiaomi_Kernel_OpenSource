@@ -4199,6 +4199,27 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 	}
 	break;
 
+	case FG_DAEMON_CMD_SET_BATTERY_CAPACITY:
+	{
+		struct fgd_cmd_param_t_8 param;
+
+		memcpy(&param, &msg->fgd_data[0],
+			sizeof(struct fgd_cmd_param_t_8));
+		bm_debug(
+			"[fr] FG_DAEMON_CMD_SET_BATTERY_CAPACITY = %d %d %d %d %d %d %d %d %d %d RM:%d\n",
+			param.data[0],
+			param.data[1],
+			param.data[2],
+			param.data[3],
+			param.data[4],
+			param.data[5],
+			param.data[6],
+			param.data[7],
+			param.data[8],
+			param.data[9],
+			param.data[4] * param.data[6] / 10000);
+	}
+	break;
 	default:
 		bm_err("bad FG_DAEMON_CTRL_CMD_FROM_USER 0x%x\n", msg->fgd_cmd);
 		break;

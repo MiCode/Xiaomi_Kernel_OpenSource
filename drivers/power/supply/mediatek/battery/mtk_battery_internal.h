@@ -209,6 +209,7 @@ enum Fg_daemon_cmds {
 	FG_DAEMON_CMD_DUMP_LOG,
 	FG_DAEMON_CMD_SEND_DATA,
 	FG_DAEMON_CMD_COMMUNICATION_INT,
+	FG_DAEMON_CMD_SET_BATTERY_CAPACITY,
 
 	FG_DAEMON_CMD_FROM_USER_NUMBER
 };
@@ -297,6 +298,11 @@ struct fgd_cmd_param_t_7 {
 	int input;
 	int output;
 	int status;
+};
+
+struct fgd_cmd_param_t_8 {
+	int size;
+	int data[512];
 };
 
 enum daemon_cmd_int_data {
