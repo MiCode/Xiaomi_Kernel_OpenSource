@@ -25,6 +25,9 @@
 static ulong dbg_data[40];
 static int mtk_cpuidle_initialized;
 
+#define MTK_SIP_POWER_FLOW_DEBUG \
+	MTK_SIP_SMC_CMD(0X214)
+
 #ifdef CPUIDLE_PROFILE
 
 #define PROFILE_EACH_CPU_ONCE
@@ -201,7 +204,7 @@ static void cpuidle_perf_print(int cpu, int mode)
 #endif /* CPUIDLE_PROFILE */
 
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 
 static u32 *cpuidle_fp_pa;
 static u32 *cpuidle_fp_va;
@@ -235,7 +238,7 @@ static inline void cpuidle_fp_reset(int cpu)
 #define cpuidle_fp(cpu, checkpoint)
 #define cpuidle_fp_reset(cpu)
 
-#endif /* CONFIG_MTK_RAM_CONSOLE */
+#endif /* CONFIG_MTK_AEE_IPANIC */
 
 static void mtk_platform_save(int cpu)
 {

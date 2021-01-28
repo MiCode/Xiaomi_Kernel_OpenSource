@@ -14,7 +14,7 @@ enum cpu_dvfs_state {
 
 void aee_record_cpu_dvfs_in(struct mt_cpu_dvfs *p)
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	if (p->id == MT_CPU_DVFS_LL)
 		aee_rr_rec_cpu_dvfs_status(aee_rr_curr_cpu_dvfs_status() |
 					   (1 << CPU_DVFS_LL_IS_DOING_DVFS));
@@ -34,7 +34,7 @@ void aee_record_cpu_dvfs_in(struct mt_cpu_dvfs *p)
 
 void aee_record_cpu_dvfs_out(struct mt_cpu_dvfs *p)
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	if (p->id == MT_CPU_DVFS_LL)
 		aee_rr_rec_cpu_dvfs_status(aee_rr_curr_cpu_dvfs_status() &
 					   ~(1 << CPU_DVFS_LL_IS_DOING_DVFS));
@@ -54,14 +54,14 @@ void aee_record_cpu_dvfs_out(struct mt_cpu_dvfs *p)
 
 void aee_record_cpu_dvfs_step(unsigned int step)	/* step: 0~15 */
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	aee_rr_rec_cpu_dvfs_step((aee_rr_curr_cpu_dvfs_step() & 0xF0) | step);
 #endif
 }
 
 void aee_record_cci_dvfs_step(unsigned int step)	/* step: 0~15 */
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	aee_rr_rec_cpu_dvfs_step(
 		(aee_rr_curr_cpu_dvfs_step() & 0x0F) | (step << 4));
 #endif
@@ -69,21 +69,21 @@ void aee_record_cci_dvfs_step(unsigned int step)	/* step: 0~15 */
 
 void aee_record_cpu_dvfs_cb(unsigned int step)	/* step: 0~255 */
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	aee_rr_rec_cpu_dvfs_cb(step);
 #endif
 }
 
 void aee_record_cpufreq_cb(unsigned int step)	/* step: 0~255 */
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	aee_rr_rec_cpufreq_cb(step);
 #endif
 }
 
 void aee_record_cpu_volt(struct mt_cpu_dvfs *p, unsigned int volt)
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	struct buck_ctrl_t *vproc_p = id_to_buck_ctrl(p->Vproc_buck_id);
 
 	if (p->Vproc_buck_id == 0)
@@ -97,7 +97,7 @@ void aee_record_cpu_volt(struct mt_cpu_dvfs *p, unsigned int volt)
 
 void aee_record_freq_idx(struct mt_cpu_dvfs *p, int idx)	/* idx: 0~15 */
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	if (p->id == MT_CPU_DVFS_LL)
 		aee_rr_rec_cpu_dvfs_oppidx(
 			(aee_rr_curr_cpu_dvfs_oppidx() & 0xF0) | idx);
@@ -117,7 +117,7 @@ void aee_record_freq_idx(struct mt_cpu_dvfs *p, int idx)	/* idx: 0~15 */
 
 void _mt_cpufreq_aee_init(void)
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	aee_rr_rec_cpu_dvfs_vproc_big(0x0);
 	aee_rr_rec_cpu_dvfs_vproc_little(0x0);
 	aee_rr_rec_cpu_dvfs_oppidx(0xFF);

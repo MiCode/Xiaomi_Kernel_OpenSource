@@ -173,7 +173,7 @@ static unsigned int drcc7_Code;
 /************************************************
  * Global function definition
  ************************************************/
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 static void _mt_drcc_aee_init(void)
 {
 	#ifdef FIX_ME
@@ -228,7 +228,7 @@ void mtk_drcc_log2RamConsole(void)
 			DRCC_CONF0 + (i * 4), 0, 0);
 		/* drcc_debug("reg_0x%x = 0x%X\n", i, value[i]); */
 	}
-	#ifdef FIX_ME /* def CONFIG_MTK_RAM_CONSOLE */
+	#ifdef FIX_ME /* def CONFIG_MTK_AEE_IPANIC */
 	aee_rr_rec_drcc_0(value[0]);
 	aee_rr_rec_drcc_1(value[1]);
 	aee_rr_rec_drcc_2(value[2]);
@@ -1324,7 +1324,7 @@ static int drcc_probe(struct platform_device *pdev)
 	}
 	#endif
 
-	#ifdef CONFIG_MTK_RAM_CONSOLE
+	#ifdef CONFIG_MTK_AEE_IPANIC
 	_mt_drcc_aee_init();
 	#endif
 	drcc_debug("drcc probe ok!!\n");

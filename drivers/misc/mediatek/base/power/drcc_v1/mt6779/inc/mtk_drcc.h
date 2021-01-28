@@ -85,7 +85,7 @@ static noinline int mt_secure_call_drcc(u64 function_id,
 extern void mtk_drcc_enable(unsigned int onOff, unsigned int drcc_num);
 extern int mtk_drcc_feature_enabled_check(void);
 /* SRAM debugging */
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 extern void aee_rr_rec_drcc_0(u32 val);
 extern void aee_rr_rec_drcc_1(u32 val);
 extern void aee_rr_rec_drcc_2(u32 val);
