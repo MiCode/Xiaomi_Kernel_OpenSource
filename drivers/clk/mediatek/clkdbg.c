@@ -26,14 +26,15 @@
 #include "clkdbg.h"
 
 #if defined(CONFIG_PM_DEBUG)
-#define CLKDBG_PM_DOMAIN	1
+#define CLKDBG_PM_DOMAIN		1
 #else
-#define CLKDBG_PM_DOMAIN	0
+#define CLKDBG_PM_DOMAIN		0
 #endif
 #define CLKDBG_PM_DOMAIN_API_4_9	1
-#define CLKDBG_CCF_API_4_4	1
-#define CLKDBG_HACK_CLK		0
-#define CLKDBG_HACK_CLK_CORE	1
+#define CLKDBG_PM_DOMAIN_API_4_19	1
+#define CLKDBG_CCF_API_4_4		1
+#define CLKDBG_HACK_CLK			0
+#define CLKDBG_HACK_CLK_CORE		1
 
 
 #if !CLKDBG_CCF_API_4_4
@@ -1179,7 +1180,7 @@ static struct generic_pm_domain **get_all_genpd(void)
 	static int num_pds;
 	const size_t maxpd = ARRAY_SIZE(pds);
 	struct device_node *node;
-#if CLKDBG_PM_DOMAIN_API_4_9
+#if CLKDBG_PM_DOMAIN_API_4_9 || CLKDBG_PM_DOMAIN_API_4_19
 	struct platform_device *pdev;
 	int r;
 #endif
@@ -1192,7 +1193,7 @@ static struct generic_pm_domain **get_all_genpd(void)
 	if (node == NULL)
 		return NULL;
 
-#if CLKDBG_PM_DOMAIN_API_4_9
+#if CLKDBG_PM_DOMAIN_API_4_9 || CLKDBG_PM_DOMAIN_API_4_19
 	pdev = platform_device_alloc("traverse", 0);
 #endif
 
@@ -1203,14 +1204,18 @@ static struct generic_pm_domain **get_all_genpd(void)
 		pa.args[0] = num_pds;
 		pa.args_count = 1;
 
-#if CLKDBG_PM_DOMAIN_API_4_9
+#if CLKDBG_PM_DOMAIN_API_4_9 || CLKDBG_PM_DOMAIN_API_4_19
 		r = of_genpd_add_device(&pa, &pdev->dev);
 		if (r == -EINVAL)
 			continue;
 		else if (r != 0)
 			pr_warn("%s(): of_genpd_add_device(%d)\n", __func__, r);
 		pds[num_pds] = pd_to_genpd(pdev->dev.pm_domain);
+#if CLKDBG_PM_DOMAIN_API_4_19
+		r = pm_genpd_remove_device(&pdev->dev);
+#else /* < v4.19 */
 		r = pm_genpd_remove_device(pds[num_pds], &pdev->dev);
+#endif
 		if (r != 0)
 			pr_warn("%s(): pm_genpd_remove_device(%d)\n",
 					__func__, r);
@@ -1224,7 +1229,7 @@ static struct generic_pm_domain **get_all_genpd(void)
 		}
 	}
 
-#if CLKDBG_PM_DOMAIN_API_4_9
+#if CLKDBG_PM_DOMAIN_API_4_9 || CLKDBG_PM_DOMAIN_API_4_19
 	platform_device_put(pdev);
 #endif
 
@@ -1737,7 +1742,11 @@ static void unreg_pdev_drv(const char *pdname, struct seq_file *s)
 		if (!allpd && strcmp(pdname, pd->name) != 0)
 			continue;
 
+#if CLKDBG_PM_DOMAIN_API_4_19
+		r = pm_genpd_remove_device(&pderv[i].pdev->dev);
+#else
 		r = pm_genpd_remove_device(pd, &pderv[i].pdev->dev);
+#endif
 		if (r != 0 && s != NULL)
 			seq_printf(s, "%s(): pm_genpd_remove_device(%d)\n",
 						__func__, r);
