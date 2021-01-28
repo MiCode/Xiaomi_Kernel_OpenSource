@@ -346,7 +346,8 @@ static void mt6359_clk_buf_get_xo_en(u32 *stat)
 	pmic_clkbuf_write(PMIC_AUXOUT_SEL, 0, node->cfg.bit[1]);
 
 	for (i = 0; i < XO_NUMBER; i++)
-		pmic_clkbuf_read(PMIC_AUXOUT_XO, i, &(stat[i]));
+		if (node->cfg.ofs[i] != NOT_VALID)
+			pmic_clkbuf_read(PMIC_AUXOUT_XO, i, &(stat[i]));
 
 	pr_info("[%s]: EN_STAT=%u %u %u %u %u %u\n",
 		__func__,
