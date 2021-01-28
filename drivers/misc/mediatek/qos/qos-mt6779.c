@@ -186,6 +186,7 @@ static int mt6779_qos_sspm_init(void)
 
 static int mt6779_qos_ipi_recv_handler(void *arg)
 {
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	struct ipi_action qos_isr;
 	struct qos_ipi_data qos_ipi_d;
 	struct mtk_qos *qos = arg;
@@ -214,6 +215,7 @@ static int mt6779_qos_ipi_recv_handler(void *arg)
 				__func__, qos_ipi_d.cmd);
 
 	} while (!kthread_should_stop());
+#endif
 
 	return 0;
 }

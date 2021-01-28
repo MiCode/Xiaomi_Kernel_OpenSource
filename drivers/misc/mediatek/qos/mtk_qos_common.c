@@ -27,6 +27,7 @@ static unsigned int qos_sram_bound;
 
 int qos_ipi_to_sspm_command(void *buffer, int slot)
 {
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	int ack_data = 0;
 	struct qos_ipi_data *qos_ipi = buffer;
 
@@ -40,12 +41,17 @@ int qos_ipi_to_sspm_command(void *buffer, int slot)
 			buffer, slot, &ack_data, 1);
 
 	return ack_data;
+#else
+	return 0;
+#endif
 }
 
 
 void qos_ipi_init(struct mtk_qos *qos)
 {
-	kthread_run(qos->soc->qos_ipi_recv_handler, qos, "qos_ipi_recv");
+	if (qos->soc->qos_ipi_recv_handler)
+		kthread_run(qos->soc->qos_ipi_recv_handler,
+			qos, "qos_ipi_recv");
 }
 
 
@@ -57,6 +63,8 @@ u32 qos_sram_read(u32 id)
 	if (!m_qos)
 		return 0;
 	if (m_qos->soc->sram_pin[id].valid == false)
+		return 0;
+	if (id >= QOS_SRAM_ID_MAX)
 		return 0;
 
 	offset = m_qos->soc->sram_pin[id].offset;
@@ -74,6 +82,8 @@ void qos_sram_write(u32 id, u32 val)
 		return;
 	if (m_qos->soc->sram_pin[id].valid == false)
 		return;
+	if (id >= QOS_SRAM_ID_MAX)
+		return;
 
 	offset = m_qos->soc->sram_pin[id].offset;
 	if (!qos_sram_base || offset >= qos_sram_bound)
@@ -88,6 +98,8 @@ void qos_sram_init(void __iomem *regs, unsigned int bound)
 
 	qos_sram_base = regs;
 	qos_sram_bound = bound;
+	pr_info("qos_sram addr:0x%x len:%d\n",
+		qos_sram_base, qos_sram_bound);
 
 	for (i = 0; i < bound; i += 4)
 		writel(0x0, qos_sram_base+i);
@@ -121,7 +133,9 @@ int mtk_qos_probe(struct platform_device *pdev,
 	qos_sram_init(qos->regs, qos->regsize);
 	qos_add_interface(&pdev->dev);
 	qos_ipi_init(qos);
-	qos_bound_init();
+
+	if (qos->soc->ipi_pin[QOS_IPI_QOS_BOUND].valid == true)
+		qos_bound_init();
 
 	platform_set_drvdata(pdev, qos);
 

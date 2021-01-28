@@ -36,8 +36,8 @@ enum {
 	CM_STALL_RATIO_ID_5,
 	CM_STALL_RATIO_ID_6,
 	CM_STALL_RATIO_ID_7,
+	QOS_SRAM_ID_MAX,
 };
-
 
 extern u32 qos_sram_read(u32 id);
 extern void qos_sram_write(u32 id, u32 val);
