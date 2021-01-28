@@ -10,7 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
-
+#ifdef JPEG_ENC_DRIVER
 #include <linux/kernel.h>
 /* #include <linux/xlog.h> */
 
@@ -498,4 +498,5 @@ unsigned int jpeg_drv_enc_get_result(unsigned int *fileSize)
 	return 3;
 }
 
+#endif
 #endif
