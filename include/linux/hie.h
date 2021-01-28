@@ -60,7 +60,7 @@ static inline bool hie_request_crypted(struct request *req)
 }
 
 #ifdef CONFIG_HIE
-int hie_is_ready(void);
+bool hie_is_capable(const struct super_block *sb);
 int hie_is_dummy(void);
 int hie_is_nocrypt(void);
 int hie_register_fs(struct hie_fs *fs);
@@ -78,9 +78,9 @@ int hie_req_end_size(struct request *req, unsigned long bytes);
 int hie_dump_req(struct request *req, const char *prefix);
 #else
 static inline
-int hie_is_ready(void)
+bool hie_is_capable(const struct super_block *sb)
 {
-	return 0;
+	return false;
 }
 
 static inline
