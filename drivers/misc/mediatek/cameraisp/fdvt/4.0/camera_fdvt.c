@@ -158,7 +158,9 @@ static unsigned long gFDVT_Reg[FDVT_BASEADDR_NUM];
 
 static FDVTDBuffRegMap pFDVTReadBuffer;
 static FDVTDBuffRegMap pFDVTWriteBuffer;
+#if (MTK_SECURE_FD_SUPPORT == 1)
 static FDVTSecureMeta  g_fdvt_secmeta;
+#endif
 
 /* register map */
 #define FDVT_START                 (FDVT_ADDR+0x0)
@@ -404,7 +406,9 @@ static int nr_fdvt_devs;
 #endif
 
 bool haveConfig;
+#if (MTK_SECURE_FD_SUPPORT == 1)
 bool g_isSecure;
+#endif
 
 void FDVT_basic_config(void)
 {
@@ -625,7 +629,7 @@ static inline int FDVT_switchPortToNonSecure(void)
 
 	return 0;
 }
-#endif
+
 /***********************************************************
  * Set FDVT Meta Data
  ************************************************************/
@@ -707,6 +711,7 @@ static int FDVT_SetMetaData(FDVTMetaData *pMetaData)
 
 	return ret;
 }
+#endif
 
 /*=======================================================================*/
 /* FDVT FD Config Registers */
@@ -818,9 +823,9 @@ static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 #ifdef FDVT_USE_GCE
 	cmdqRecCreate(CMDQ_SCENARIO_ISP_FDVT, &handle);
 
+#if (MTK_SECURE_FD_SUPPORT == 1)
 	LOG_DBG("FDVT isSecure: %d\n", g_isSecure);
 
-#if (MTK_SECURE_FD_SUPPORT == 1)
 	if (g_isSecure != 0)
 		FDVT_switchCmdqToSecure(handle);
 #endif
@@ -1198,6 +1203,7 @@ static long FDVT_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		haveConfig = 0;
 		FDVT_basic_config();
 		break;
+#if (MTK_SECURE_FD_SUPPORT == 1)
 	case FDVT_IOC_INIT_SETNORMAL_CMD:
 		LOG_DBG("[FDVT] FDVT_INIT_SETNORMAL_CMD\n");
 		g_isSecure = 0;
@@ -1206,6 +1212,7 @@ static long FDVT_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		LOG_DBG("[FDVT] FDVT_INIT_SETSECURE_CMD\n");
 		g_isSecure = 1;
 		break;
+#endif
 	case FDVT_IOC_STARTFD_CMD:
 		/* LOG_DBG("[FDVT] FDVTIOC_STARTFD_CMD\n"); */
 		if (haveConfig) {
@@ -1247,10 +1254,12 @@ static long FDVT_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		/* LOG_DBG("[FDVT] FDVT read FD config\n"); */
 		ret = FDVT_ReadRegHW((FDVTRegIO *)pBuff);
 		break;
+#if (MTK_SECURE_FD_SUPPORT == 1)
 	case FDVT_IOC_SETMETA_CMD:
 		LOG_DBG("[FDVT] FDVT set meta data\n");
 		ret = FDVT_SetMetaData((FDVTMetaData *)pBuff);
 		break;
+#endif
 	case FDVT_IOC_T_DUMPREG:
 		LOG_DBG("[FDVT] FDVT_DUMPREG\n");
 		FDVT_DUMPREG();
@@ -1319,6 +1328,7 @@ static int compat_FD_put_register_data(
 	return err;
 }
 
+#if (MTK_SECURE_FD_SUPPORT == 1)
 static int compat_FD_get_meta_data(compat_FDVTMetaData __user *data32,
 					      FDVTMetaData __user *data)
 {
@@ -1329,6 +1339,7 @@ static int compat_FD_get_meta_data(compat_FDVTMetaData __user *data32,
 	err |= put_user(compat_ptr(uptr), &data->SecureMeta);
 	return err;
 }
+#endif
 
 static long compat_FD_ioctl(
 	struct file *file, unsigned int cmd, unsigned long arg)
@@ -1339,6 +1350,7 @@ static long compat_FD_ioctl(
 		return -ENOTTY;
 
 	switch (cmd) {
+#if (MTK_SECURE_FD_SUPPORT == 1)
 	case COMPAT_FDVT_IOC_INIT_SETSECURE_CMD:
 	{
 	return
@@ -1349,6 +1361,7 @@ static long compat_FD_ioctl(
 	return
 	file->f_op->unlocked_ioctl(file, cmd, (unsigned long)compat_ptr(arg));
 	}
+#endif
 	case COMPAT_FDVT_IOC_INIT_SETPARA_CMD:
 	{
 	return
@@ -1441,6 +1454,7 @@ static long compat_FD_ioctl(
 			(unsigned long)data);
 		return ret ? ret : err;
 	}
+#if (MTK_SECURE_FD_SUPPORT == 1)
 	case COMPAT_FDVT_IOC_SETMETA_CMD:
 	{
 		compat_FDVTMetaData __user *data32;
@@ -1461,6 +1475,7 @@ static long compat_FD_ioctl(
 			(unsigned long)data);
 		return ret ? ret : err;
 	}
+#endif
 	case COMPAT_FDVT_IOC_T_DUMPREG:
 	{
 	return
