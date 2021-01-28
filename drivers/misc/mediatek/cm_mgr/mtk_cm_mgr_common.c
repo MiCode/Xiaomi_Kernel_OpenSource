@@ -35,6 +35,9 @@
 
 #include "mtk_cm_mgr_common.h"
 
+#define USE_CM_MGR_AT_SSPM
+
+
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 #include <sspm_ipi.h>
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
@@ -350,7 +353,6 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 		if (ret == 3 && val_1 < cm_mgr_num_array)
 			cpu_power_ratio_down[val_1] = val_2;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
-		cm_mgr_to_sspm_command(IPI_CM_MGR_CPU_POWER_RATIO_UP,
 		cm_mgr_to_sspm_command(IPI_CM_MGR_CPU_POWER_RATIO_DOWN,
 				val_1 << 16 | val_2);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
@@ -358,7 +360,6 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 		if (ret == 3 && val_1 < cm_mgr_num_array)
 			vcore_power_ratio_up[val_1] = val_2;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
-		cm_mgr_to_sspm_command(IPI_CM_MGR_CPU_POWER_RATIO_UP,
 		cm_mgr_to_sspm_command(IPI_CM_MGR_VCORE_POWER_RATIO_UP,
 				val_1 << 16 | val_2);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
@@ -366,7 +367,6 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 		if (ret == 3 && val_1 < cm_mgr_num_array)
 			vcore_power_ratio_down[val_1] = val_2;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
-		cm_mgr_to_sspm_command(IPI_CM_MGR_CPU_POWER_RATIO_UP,
 		cm_mgr_to_sspm_command(IPI_CM_MGR_VCORE_POWER_RATIO_DOWN,
 				val_1 << 16 | val_2);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
@@ -374,7 +374,6 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 		if (ret == 3 && val_1 < cm_mgr_num_array)
 			debounce_times_up_adb[val_1] = val_2;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
-		cm_mgr_to_sspm_command(IPI_CM_MGR_CPU_POWER_RATIO_UP,
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DEBOUNCE_UP,
 				val_1 << 16 | val_2);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
@@ -382,14 +381,12 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 		if (ret == 3 && val_1 < cm_mgr_num_array)
 			debounce_times_down_adb[val_1] = val_2;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
-		cm_mgr_to_sspm_command(IPI_CM_MGR_CPU_POWER_RATIO_UP,
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DEBOUNCE_DOWN,
 				val_1 << 16 | val_2);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "debounce_times_reset_adb")) {
 		debounce_times_reset_adb = val_1;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
-		cm_mgr_to_sspm_command(IPI_CM_MGR_CPU_POWER_RATIO_UP,
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DEBOUNCE_TIMES_RESET_ADB,
 				debounce_times_reset_adb);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
@@ -448,7 +445,6 @@ int cm_mgr_common_init(void)
 	}
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
-		cm_mgr_to_sspm_command(IPI_CM_MGR_CPU_POWER_RATIO_UP,
 	cm_mgr_to_sspm_command(IPI_CM_MGR_INIT, 0);
 
 	cm_mgr_to_sspm_command(IPI_CM_MGR_ENABLE,
