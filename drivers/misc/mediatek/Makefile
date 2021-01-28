@@ -38,9 +38,11 @@ obj-$(CONFIG_MTK_AEE_FEATURE) += aee/
 obj-$(CONFIG_MTK_CLK_BUFFER) += clkbuf/
 obj-$(CONFIG_MTK_QOS_FRAMEWORK) += qos/
 obj-$(CONFIG_MTK_CM_MGR) += cm_mgr/
-ifneq ($(CONFIG_MACH_MT6761), y)
+# workaround for refphone
+obj-$(CONFIG_MACH_MT6761) += base/power/cpufreq_v1/
+obj-$(CONFIG_MACH_MT6761) += base/power/ppm_v3/
 obj-$(CONFIG_MTK_PPM) += ppm_v3/
-endif
+
 obj-$(CONFIG_MTK_SRCLKEN_RC) += srclken_rc/
 obj-$(CONFIG_MTK_COMBO) += connectivity/
 obj-$(CONFIG_MTK_BTIF) += btif/
