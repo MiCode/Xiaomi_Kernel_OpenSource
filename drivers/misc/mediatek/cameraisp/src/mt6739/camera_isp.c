@@ -12022,7 +12022,7 @@ static signed int ISP_probe(struct platform_device *pDev)
 	init_waitqueue_head(&IspInfo.WaitQueueHead);
 	tasklet_init(&isp_tasklet, ISP_TaskletFunc, 0);
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	wakeup_source_init(&isp_wake_lock, "isp_lock_wakelock");
 #endif
 
