@@ -6059,6 +6059,20 @@ page_owner=on loop.max_part=7";
 	rt-pd-manager {
 		compatible = "mediatek,rt-pd-manager";
 	};
+
+	/* NFC start */
+	nfc:nfc {
+		compatible = "mediatek,nfc-gpio-v2";
+		gpio-rst = <92>;
+		gpio-rst-std = <&pio 92 0x0>;
+		gpio-irq = <05>;
+		gpio-irq-std = <&pio 05 0x0>;
+	};
+
+	irq_nfc: irq_nfc {
+		compatible = "mediatek,irq_nfc-eint";
+	};
+	/* NFC end */
 };
 
 &i2c6 {
