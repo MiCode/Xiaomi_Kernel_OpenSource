@@ -341,74 +341,39 @@ firmware_class.path=/vendor/firmware";
 			"emi_ch1";
 	};
 
-	io_cfg_lt@10002000 {
+	io_cfg_lt: io_cfg_lt@10002000 {
 		compatible = "mediatek,io_cfg_lt";
 		reg = <0 0x10002000 0 0x200>;
 	};
 
-	syscfg_pctl_1: syscfg_pctl_1@10002000 {
-		compatible = "mediatek,mt6761-pctl-1-syscfg", "syscon";
-		reg = <0 0x10002000 0 0x1000>;
-	};
-
-	io_cfg_lm@10002200 {
+	io_cfg_lm: io_cfg_lm@10002200 {
 		compatible = "mediatek,io_cfg_lm";
 		reg = <0 0x10002200 0 0x200>;
 	};
 
-	syscfg_pctl_2: syscfg_pctl_2@10002200 {
-		compatible = "mediatek,mt6761-pctl-2-syscfg", "syscon";
-		reg = <0 0x10002200 0 0x1000>;
-	};
-
-	io_cfg_lb@10002400 {
+	io_cfg_lb: io_cfg_lb@10002400 {
 		compatible = "mediatek,io_cfg_lb";
 		reg = <0 0x10002400 0 0x200>;
 	};
 
-	syscfg_pctl_3: syscfg_pctl_3@10002400 {
-		compatible = "mediatek,mt6761-pctl-3-syscfg", "syscon";
-		reg = <0 0x10002400 0 0x1000>;
-	};
-
-	io_cfg_bl@10002600 {
+	io_cfg_bl: io_cfg_bl@10002600 {
 		compatible = "mediatek,io_cfg_bl";
 		reg = <0 0x10002600 0 0x200>;
 	};
 
-	syscfg_pctl_4: syscfg_pctl_4@10002600 {
-		compatible = "mediatek,mt6761-pctl-4-syscfg", "syscon";
-		reg = <0 0x10002600 0 0x1000>;
-	};
-
-	io_cfg_rr@10002800 {
+	io_cfg_rr: io_cfg_rr@10002800 {
 		compatible = "mediatek,io_cfg_rr";
 		reg = <0 0x10002800 0 0x200>;
 	};
 
-	syscfg_pctl_5: syscfg_pctl_5@10002800 {
-		compatible = "mediatek,mt6761-pctl-5-syscfg", "syscon";
-		reg = <0 0x10002800 0 0x1000>;
-	};
-
-	io_cfg_rb@10002a00 {
+	io_cfg_rb: io_cfg_rb@10002a00 {
 		compatible = "mediatek,io_cfg_rb";
 		reg = <0 0x10002a00 0 0x200>;
 	};
 
-	syscfg_pctl_6: syscfg_pctl_6@10002a00 {
-		compatible = "mediatek,mt6761-pctl-6-syscfg", "syscon";
-		reg = <0 0x10002a00 0 0x1000>;
-	};
-
-	io_cfg_rt@10002c00 {
+	io_cfg_rt: io_cfg_rt@10002c00 {
 		compatible = "mediatek,io_cfg_rt";
 		reg = <0 0x10002c00 0 0x200>;
-	};
-
-	syscfg_pctl_7: syscfg_pctl_7@10002c00 {
-		compatible = "mediatek,mt6761-pctl-7-syscfg", "syscon";
-		reg = <0 0x10002c00 0 0x1000>;
 	};
 
 	pericfg: pericfg@10003000 {
@@ -463,21 +428,18 @@ firmware_class.path=/vendor/firmware";
 
 	pio: pinctrl@1000b000 {
 		compatible = "mediatek,mt6761-pinctrl";
-		reg = <0 0x1000b000 0 0x1000>;
-		mediatek,pctl-regmap = <&syscfg_pctl_0>,
-				     <&syscfg_pctl_1>,
-				     <&syscfg_pctl_2>,
-				     <&syscfg_pctl_3>,
-				     <&syscfg_pctl_4>,
-				     <&syscfg_pctl_5>,
-				     <&syscfg_pctl_6>,
-				     <&syscfg_pctl_7>;
+		reg_bases = <&gpio>,
+			<&io_cfg_lt>,
+			<&io_cfg_lm>,
+			<&io_cfg_lb>,
+			<&io_cfg_bl>,
+			<&io_cfg_rr>,
+			<&io_cfg_rb>,
+			<&io_cfg_rt>;
 		pins-are-numbered;
 		gpio-controller;
+		gpio-ranges = <&pio 0 0 179>;
 		#gpio-cells = <2>;
-		interrupt-controller;
-		#interrupt-cells = <4>;
-		interrupts = <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	toprgu@10007000 {
