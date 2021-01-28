@@ -1927,6 +1927,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 
 	mutex_init(&info->cable_out_lock);
 	mutex_init(&info->charger_lock);
+	mutex_init(&info->pd_lock);
 	info->charger_wakelock =
 		wakeup_source_register(NULL, "charger suspend wakelock");
 	spin_lock_init(&info->slock);
