@@ -1851,7 +1851,7 @@ static int wait_for_avail(struct snd_pcm_substream *substream,
 		if (substream->wait_time) {
 			wait_time = substream->wait_time;
 		} else {
-			wait_time = 10;
+			wait_time = 2; /* 10 Modified by MTK */
 
 			if (runtime->rate) {
 				long t = runtime->period_size * 2 /
