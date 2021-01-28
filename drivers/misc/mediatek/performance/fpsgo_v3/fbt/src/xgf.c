@@ -1209,7 +1209,6 @@ void xgf_reset_renders(void)
 
 	xgf_clean_hw_events();
 }
-EXPORT_SYMBOL(xgf_reset_renders);
 
 void fpsgo_ctrl2xgf_nn_job_begin(unsigned int tid, unsigned long long mid)
 {
@@ -1367,6 +1366,7 @@ static void xgf_print_debug_log(int rpid,
 	char total_pid_list[1024] = {"\0"};
 	char pid[20] = {"\0"};
 	int overflow = 0;
+	int len = 0;
 
 	struct xgf_render_sector *xrs;
 	struct hlist_node *s, *p;
@@ -1376,9 +1376,12 @@ static void xgf_print_debug_log(int rpid,
 
 	hlist_for_each_entry_safe(xrs, s, &render->sector_head, hlist) {
 		if (strlen(total_pid_list) == 0)
-			snprintf(pid, sizeof(pid), "%d", xrs->sector_id);
+			len = snprintf(pid, sizeof(pid), "%d", xrs->sector_id);
 		else
-			snprintf(pid, sizeof(pid), "-%d", xrs->sector_id);
+			len = snprintf(pid, sizeof(pid), "-%d", xrs->sector_id);
+
+		if (len < 0 || len >= sizeof(pid))
+			goto error;
 
 		overflow = 0;
 		xgf_strcat(total_pid_list, pid,
@@ -1389,7 +1392,10 @@ static void xgf_print_debug_log(int rpid,
 
 		hlist_for_each_entry_safe(pids_iter, p,
 			&xrs->path_head, hlist) {
-			snprintf(pid, sizeof(pid), ",%d", pids_iter->pid);
+			len = snprintf(pid, sizeof(pid), ",%d", pids_iter->pid);
+
+			if (len < 0 || len >= sizeof(pid))
+				goto error;
 
 			overflow = 0;
 			xgf_strcat(total_pid_list, pid,
@@ -1406,6 +1412,13 @@ out:
 	else
 		xgf_log_trace("xgf_debug_log r:%d runtime:%llu pid_list:%s",
 		rpid, runtime, total_pid_list);
+
+	return;
+
+error:
+	xgf_log_trace("xgf_debug_log(pid of) r:%d runtime:%llu",
+		rpid, runtime);
+	return;
 }
 
 static int xgf_enter_est_runtime(int rpid, struct xgf_render *render,
@@ -1587,6 +1600,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	}
 
 qudeq_notify_err:
+	xgf_trace("xgf result:%d at rpid:%d cmd:%d", ret, rpid, cmd);
 	xgf_unlock(__func__);
 	return ret;
 }
