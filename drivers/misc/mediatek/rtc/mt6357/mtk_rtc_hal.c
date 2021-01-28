@@ -29,11 +29,7 @@
 #include <linux/delay.h>
 #include <linux/types.h>
 #include <linux/sched/clock.h>
-#if defined(CONFIG_MACH_MT6739)
 #include <mach/mtk_rtc_hal.h>
-#else
-#include <mtk_rtc_hal.h>
-#endif
 
 #include <mtk_rtc_hal_common.h>
 #include "mtk_rtc_hw.h"
