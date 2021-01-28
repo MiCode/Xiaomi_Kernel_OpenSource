@@ -1,10 +1,22 @@
 config MTK_LPM_DBG_COMMON
 	tristate "Meditaek Low Power common debug Module"
+	depends on MTK_LOW_POWER_MODULE
 	help
 	   Select MTK_LPM_DBG_COMMON then Mediatek low module
 	   common debug feature will be enabled. The common debug
 	   feature will support basic debug control and show the
 	   information to console.
+
+config MTK_LPM_MODULE_NAME
+	string "Set mtk-lpm module output name"
+	default "generic" if MTK_PLATFORM = ""
+	default MTK_PLATFORM if MTK_PLATFORM != ""
+	help
+	   Customize the debug module output name.
+	   Set the specific name for kernel module.
+	   The platform name will be set as default
+	   name if the MTK_LPM_MODULE_NAME didn't
+	   set before.
 
 config MTK_LPM_MT6779
 	tristate "Specify Mediatek LPM Platform is MT6779"

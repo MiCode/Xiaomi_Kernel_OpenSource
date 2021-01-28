@@ -12,16 +12,20 @@
 
 static int __init mt6779_dbg_init(void)
 {
+#ifdef MTK_LPM_DBG_COMMON
 	mtk_dbg_common_fs_init();
+#endif
 	mtk_cpupm_dbg_init();
 	mt6779_dbg_fs_init();
 	return 0;
 }
 static void __exit mt6779_dbg_exit(void)
 {
+#ifdef MTK_LPM_DBG_COMMON
+	mtk_dbg_common_fs_exit();
+#endif
 	mt6779_dbg_fs_exit();
 	mtk_cpupm_dbg_exit();
-	mtk_dbg_common_fs_exit();
 }
 
 

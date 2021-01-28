@@ -25,3 +25,4 @@ int mt6779_dbg_fs_init(void)
 	pr_info("%s %d: finish", __func__, __LINE__);
 	return 0;
 }
+

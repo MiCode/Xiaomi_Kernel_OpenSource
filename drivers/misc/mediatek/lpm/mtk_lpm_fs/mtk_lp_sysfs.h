@@ -87,24 +87,24 @@ struct mtk_lp_sysfs_group {
 		Po = NULL;\
 	(Po != NULL); })
 
-int mtk_lp_sysfs_entry_func_create(const char *name, int mode
-			, struct mtk_lp_sysfs_handle *parent
-			, struct mtk_lp_sysfs_handle *handle);
+int mtk_lp_sysfs_entry_func_create(const char *name, int mode,
+			struct mtk_lp_sysfs_handle *parent,
+			struct mtk_lp_sysfs_handle *handle);
 
-int mtk_lp_sysfs_entry_func_node_add(const char *name
-		, int mode, const struct mtk_lp_sysfs_op *op
-		, struct mtk_lp_sysfs_handle *parent
-		, struct mtk_lp_sysfs_handle *node);
+int mtk_lp_sysfs_entry_func_node_add(const char *name,
+		int mode, const struct mtk_lp_sysfs_op *op,
+		struct mtk_lp_sysfs_handle *parent,
+		struct mtk_lp_sysfs_handle *node);
 
 int mtk_lp_sysfs_entry_func_node_remove(
 		struct mtk_lp_sysfs_handle *node);
 
-int mtk_lp_sysfs_entry_func_group_create(const char *name
-		, int mode, struct mtk_lp_sysfs_group *_group
-		, struct mtk_lp_sysfs_handle *parent
-		, struct mtk_lp_sysfs_handle *handle);
+int mtk_lp_sysfs_entry_func_group_create(const char *name,
+		int mode, struct mtk_lp_sysfs_group *_group,
+		struct mtk_lp_sysfs_handle *parent,
+		struct mtk_lp_sysfs_handle *handle);
 
-int mtk_lp_sysfs_get_path(struct mtk_lp_sysfs_handle *handle
-		, char *name, int namelen);
+int mtk_lp_sysfs_get_path(struct mtk_lp_sysfs_handle *handle,
+		char *name, int namelen);
 
 #endif

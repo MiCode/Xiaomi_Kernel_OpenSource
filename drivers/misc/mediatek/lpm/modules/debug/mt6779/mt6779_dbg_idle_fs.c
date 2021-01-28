@@ -14,7 +14,7 @@
 #include <mtk_dbg_common_v1.h>
 #include <mtk_lpm_module.h>
 #include <mtk_resource_constraint_v1.h>
-#include <mtk_idle_sysfs.h>
+#include <mtk_lpm_sysfs.h>
 #include <mtk_suspend_sysfs.h>
 #include <mtk_spm_sysfs.h>
 
@@ -71,7 +71,7 @@ static ssize_t mt6779_idle_dram_read(char *ToUserBuf,
 		mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RC_SWITCH,
 				    MT_LPM_SMC_ACT_GET,
 				    MT_RM_CONSTRAINT_ID_DRAM, 0)
-		& MT_RM_CONSTRAINT_SW_VALID,
+		& MT_SPM_RC_VALID_SW,
 		mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RC_CNT,
 				    MT_LPM_SMC_ACT_GET,
 				    MT_RM_CONSTRAINT_ID_DRAM, 0),
@@ -122,7 +122,7 @@ static ssize_t mt6779_idle_dram_write(char *FromUserBuf,
 	return -EINVAL;
 }
 
-static const struct mtk_idle_sysfs_op mt6779_idle_dram_fops = {
+static const struct mtk_lp_sysfs_op mt6779_idle_dram_fops = {
 	.fs_read = mt6779_idle_dram_read,
 	.fs_write = mt6779_idle_dram_write,
 };
@@ -141,7 +141,7 @@ static ssize_t mt6779_idle_syspll_read(char *ToUserBuf,
 		mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RC_SWITCH,
 				    MT_LPM_SMC_ACT_GET,
 				    MT_RM_CONSTRAINT_ID_SYSPLL, 0)
-		& MT_RM_CONSTRAINT_SW_VALID,
+		& MT_SPM_RC_VALID_SW,
 		mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RC_CNT,
 				    MT_LPM_SMC_ACT_GET,
 				    MT_RM_CONSTRAINT_ID_SYSPLL, 0),
@@ -192,7 +192,7 @@ static ssize_t mt6779_idle_syspll_write(char *FromUserBuf,
 	return -EINVAL;
 }
 
-static const struct mtk_idle_sysfs_op mt6779_idle_syspll_fops = {
+static const struct mtk_lp_sysfs_op mt6779_idle_syspll_fops = {
 	.fs_read = mt6779_idle_syspll_read,
 	.fs_write = mt6779_idle_syspll_write,
 };
@@ -211,7 +211,7 @@ static ssize_t mt6779_idle_bus26m_read(char *ToUserBuf,
 		mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RC_SWITCH,
 				    MT_LPM_SMC_ACT_GET,
 				    MT_RM_CONSTRAINT_ID_BUS26M, 0)
-		& MT_RM_CONSTRAINT_SW_VALID,
+		& MT_SPM_RC_VALID_SW,
 		mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RC_CNT,
 				    MT_LPM_SMC_ACT_GET,
 				    MT_RM_CONSTRAINT_ID_BUS26M, 0),
@@ -261,7 +261,7 @@ static ssize_t mt6779_idle_bus26m_write(char *FromUserBuf,
 	return -EINVAL;
 }
 
-static const struct mtk_idle_sysfs_op mt6779_idle_bus26m_fops = {
+static const struct mtk_lp_sysfs_op mt6779_idle_bus26m_fops = {
 	.fs_read = mt6779_idle_bus26m_read,
 	.fs_write = mt6779_idle_bus26m_write,
 };
@@ -271,12 +271,12 @@ int mt6779_dbg_idle_fs_init(void)
 	/* enable resource constraint condition block latch */
 	mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_BLOCK_LATCH,
 				    MT_LPM_SMC_ACT_SET, 0, 0);
-	mtk_idle_sysfs_entry_create();
-	mtk_idle_sysfs_entry_node_add("IdleDram_state"
+	mtk_lpm_sysfs_root_entry_create();
+	mtk_lpm_sysfs_entry_node_add("IdleDram_state"
 		      , 0644, &mt6779_idle_dram_fops, NULL);
-	mtk_idle_sysfs_entry_node_add("IdleSyspll_state"
+	mtk_lpm_sysfs_entry_node_add("IdleSyspll_state"
 		      , 0644, &mt6779_idle_syspll_fops, NULL);
-	mtk_idle_sysfs_entry_node_add("IdleBus26m_state"
+	mtk_lpm_sysfs_entry_node_add("IdleBus26m_state"
 		      , 0644, &mt6779_idle_bus26m_fops, NULL);
 	return 0;
 }

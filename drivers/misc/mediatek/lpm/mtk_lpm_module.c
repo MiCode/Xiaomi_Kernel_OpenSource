@@ -139,7 +139,7 @@ int mtk_lpm_module_register_blockcall(int cpu, void *p)
 
 	if (!reg || (reg->magic != MTK_LPM_MODULE_MAGIC)) {
 		pr_info("[name:mtk_lpm][P] - registry(%d) fail (%s:%d)\n",
-			reg->type, __func__, __LINE__);
+			reg ? reg->type : -1, __func__, __LINE__);
 		return -EINVAL;
 	}
 

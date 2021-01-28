@@ -21,8 +21,8 @@ struct mtk_lpm_registry_wk {
 	struct cpumask cpus;
 };
 
-#define INIT_MTK_LPM_REG_WK(wk, _type, _cb, _priv)\
-	({	(wk)->magic = MTK_LPM_REGISTRY_MAGIC;\
+#define INIT_MTK_LPM_REG_WK(wk, _type, _cb, _priv) ({\
+		(wk)->magic = MTK_LPM_REGISTRY_MAGIC;\
 		(wk)->type = _type;\
 		(wk)->cb = _cb;\
 		(wk)->priv = _priv; })
@@ -34,7 +34,7 @@ struct mtk_lpm_registry_wk {
 
 
 #define IS_MTK_LPM_REG_WAKEALL(cpumask)\
-	(cpumask_weight(cpumask) == num_possible_cpus())
+	(cpumask_weight(cpumask) == num_online_cpus())
 
 static long mtk_lpm_registry_work(void *pData)
 {
@@ -77,9 +77,8 @@ int mtk_lpm_do_work(int type, blockcall call, void *priv)
 
 	cpumask_clear(&lpm_wk.cpus);
 
-	for_each_possible_cpu(cpu) {
-		work_on_cpu(cpu,
-			mtk_lpm_registry_work, &lpm_wk);
+	for_each_online_cpu(cpu) {
+		work_on_cpu(cpu, mtk_lpm_registry_work, &lpm_wk);
 	}
 
 	cpuidle_resume_and_unlock();

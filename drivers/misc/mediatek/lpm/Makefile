@@ -6,5 +6,5 @@ obj-y += mtk_lpm_call.o
 obj-y += mtk_lpm_registry.o
 obj-y += mtk_lpm_fs/
 obj-y += mtk_lpm_trace_event/
-
+obj-y += platform/
 obj-y += modules/

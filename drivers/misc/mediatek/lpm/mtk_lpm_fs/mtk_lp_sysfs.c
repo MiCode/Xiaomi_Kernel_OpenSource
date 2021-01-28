@@ -16,16 +16,16 @@
 
 DEFINE_MUTEX(mtk_lp_sysfs_locker);
 
-int __weak mtk_lp_sysfs_entry_create_plat(const char *name
-		, int mode, struct mtk_lp_sysfs_handle *parent
-		, struct mtk_lp_sysfs_handle *handle)
+int __weak mtk_lp_sysfs_entry_create_plat(const char *name,
+		int mode, struct mtk_lp_sysfs_handle *parent,
+		struct mtk_lp_sysfs_handle *handle)
 {
 	return 0;
 }
-int __weak mtk_lp_sysfs_entry_node_add_plat(const char *name
-		, int mode, const struct mtk_lp_sysfs_op *op
-		, struct mtk_lp_sysfs_handle *parent
-		, struct mtk_lp_sysfs_handle *handle)
+int __weak mtk_lp_sysfs_entry_node_add_plat(const char *name,
+		int mode, const struct mtk_lp_sysfs_op *op,
+		struct mtk_lp_sysfs_handle *parent,
+		struct mtk_lp_sysfs_handle *handle)
 {
 	return 0;
 }
@@ -36,17 +36,17 @@ int __weak mtk_lp_sysfs_entry_node_remove_plat(
 	return 0;
 }
 
-int __weak mtk_lp_sysfs_entry_group_create_plat(const char *name
-		, int mode, struct mtk_lp_sysfs_group *_group
-		, struct mtk_lp_sysfs_handle *parent
-		, struct mtk_lp_sysfs_handle *handle)
+int __weak mtk_lp_sysfs_entry_group_create_plat(const char *name,
+		int mode, struct mtk_lp_sysfs_group *_group,
+		struct mtk_lp_sysfs_handle *parent,
+		struct mtk_lp_sysfs_handle *handle)
 {
 	return 0;
 }
 
-int mtk_lp_sysfs_entry_func_create(const char *name
-		, int mode, struct mtk_lp_sysfs_handle *parent
-		, struct mtk_lp_sysfs_handle *handle)
+int mtk_lp_sysfs_entry_func_create(const char *name,
+		int mode, struct mtk_lp_sysfs_handle *parent,
+		struct mtk_lp_sysfs_handle *handle)
 {
 	int bRet = 0;
 
@@ -58,10 +58,10 @@ int mtk_lp_sysfs_entry_func_create(const char *name
 }
 EXPORT_SYMBOL(mtk_lp_sysfs_entry_func_create);
 
-int mtk_lp_sysfs_entry_func_node_add(const char *name
-		, int mode, const struct mtk_lp_sysfs_op *op
-		, struct mtk_lp_sysfs_handle *parent
-		, struct mtk_lp_sysfs_handle *node)
+int mtk_lp_sysfs_entry_func_node_add(const char *name,
+		int mode, const struct mtk_lp_sysfs_op *op,
+		struct mtk_lp_sysfs_handle *parent,
+		struct mtk_lp_sysfs_handle *node)
 {
 	int bRet = 0;
 
@@ -85,10 +85,10 @@ int mtk_lp_sysfs_entry_func_node_remove(
 }
 EXPORT_SYMBOL(mtk_lp_sysfs_entry_func_node_remove);
 
-int mtk_lp_sysfs_entry_func_group_create(const char *name
-		, int mode, struct mtk_lp_sysfs_group *_group
-		, struct mtk_lp_sysfs_handle *parent
-		, struct mtk_lp_sysfs_handle *handle)
+int mtk_lp_sysfs_entry_func_group_create(const char *name,
+		int mode, struct mtk_lp_sysfs_group *_group,
+		struct mtk_lp_sysfs_handle *parent,
+		struct mtk_lp_sysfs_handle *handle)
 {
 	int bRet = 0;
 

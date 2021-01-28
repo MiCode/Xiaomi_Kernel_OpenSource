@@ -14,13 +14,11 @@
 #include <mtk_dbg_common_v1.h>
 #include <mtk_lpm_module.h>
 #include <mtk_resource_constraint_v1.h>
-#include <mtk_idle_sysfs.h>
 #include <mtk_suspend_sysfs.h>
 #include <mtk_spm_sysfs.h>
 
 
 #define MTK_DGB_SUSP_NODE	"/sys/kernel/debug/suspend/suspend_state"
-#define MTK_DBG_IDLE_STATE_NAME	"idle_state"
 
 #undef mtk_dbg_log
 #define mtk_dbg_log(fmt, args...) \
@@ -29,46 +27,6 @@
 		p += l; \
 		sz -= l; \
 	} while (0)
-
-/* Debug sysfs */
-static ssize_t mtk_dbg_idle_state_read(char *ToUserBuf, size_t sz, void *priv)
-{
-	char *p = ToUserBuf;
-
-	mtk_dbg_log("idle count=%lu\n",
-		mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_IDLE_CNT,
-				    MT_LPM_SMC_ACT_GET, DBG_CTRL_COUNT, 0));
-
-	mtk_dbg_log("*************** idle command help ****************\n");
-	mtk_dbg_log("\n");
-
-	return p - ToUserBuf;
-}
-
-static ssize_t mtk_dbg_idle_state_write(char *FromUser, size_t sz, void *priv)
-{
-	char cmd[128];
-	int parm;
-
-	if (sscanf(FromUser, "%127s %x", cmd, &parm) == 2)
-		return sz;
-	else if ((!kstrtoint(FromUser, 10, &parm)) == 1)
-		return sz;
-
-	return -EINVAL;
-}
-
-static const struct mtk_idle_sysfs_op  mtk_dbg_idle_state_fops = {
-	.fs_read = mtk_dbg_idle_state_read,
-	.fs_write = mtk_dbg_idle_state_write,
-};
-
-static void mtk_dbg_idle_fs_init(void)
-{
-	mtk_idle_sysfs_entry_create();
-	mtk_idle_sysfs_entry_node_add(MTK_DBG_IDLE_STATE_NAME,
-				      0644, &mtk_dbg_idle_state_fops, NULL);
-}
 
 
 static struct wakeup_source *mtk_suspend_lock;
@@ -141,7 +99,7 @@ static ssize_t mtk_dbg_suspend_state_write(char *FromUser,
 	return -EINVAL;
 }
 
-static const struct mtk_suspend_sysfs_op mtk_dbg_suspend_state_fops = {
+static const struct mtk_lp_sysfs_op mtk_dbg_suspend_state_fops = {
 	.fs_read = mtk_dbg_suspend_state_read,
 	.fs_write = mtk_dbg_suspend_state_write,
 };
@@ -159,13 +117,13 @@ static ssize_t mtk_dbg_get_spm_sleep_count(char *ToUserBuf,
 	return (bLen > sz) ? sz : bLen;
 }
 
-static const struct mtk_suspend_sysfs_op mtk_dbg_spm_sleep_count_fops = {
+static const struct mtk_lp_sysfs_op mtk_dbg_spm_sleep_count_fops = {
 	.fs_read = mtk_dbg_get_spm_sleep_count,
 };
 
 static void mtk_dbg_suspend_fs_init(void)
 {
-	mtk_suspend_sysfs_entry_create();
+	mtk_suspend_sysfs_root_entry_create();
 	mtk_suspend_sysfs_entry_node_add("suspend_state"
 			, 0444, &mtk_dbg_suspend_state_fops, NULL);
 	mtk_suspend_sysfs_entry_node_add("spm_sleep_count"
@@ -182,7 +140,7 @@ static ssize_t mtk_dbg_get_spm_last_wakeup_src(char *ToUserBuf,
 	return (bLen > sz) ? sz : bLen;
 }
 
-static const struct mtk_spm_sysfs_op mtk_dbg_spm_last_wakesrc_fops = {
+static const struct mtk_lp_sysfs_op mtk_dbg_spm_last_wakesrc_fops = {
 	.fs_read = mtk_dbg_get_spm_last_wakeup_src,
 };
 
@@ -196,7 +154,7 @@ static ssize_t mtk_dbg_get_spm_last_debug_flag(char *ToUserBuf,
 	return (bLen > sz) ? sz : bLen;
 }
 
-static const struct mtk_spm_sysfs_op mtk_dbg_spm_last_debugflag_fops = {
+static const struct mtk_lp_sysfs_op mtk_dbg_spm_last_debugflag_fops = {
 	.fs_read = mtk_dbg_get_spm_last_debug_flag,
 };
 
@@ -208,10 +166,10 @@ static ssize_t mtk_dbg_get_spmfw_version(char *ToUserBuf,
 	char *p = ToUserBuf;
 
 	struct device_node *node =
-		of_find_compatible_node(NULL, NULL, "mediatek,mtk-lpm");
+		of_find_compatible_node(NULL, NULL, "mediatek,sleep");
 
 	if (node == NULL) {
-		mtk_dbg_log("No Found mediatek,mtk-lpm\n");
+		mtk_dbg_log("No Found mediatek,mediatek,sleep\n");
 		goto return_size;
 	}
 
@@ -228,7 +186,7 @@ static ssize_t mtk_dbg_get_spmfw_version(char *ToUserBuf,
 		(mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RC_SWITCH,
 				    MT_LPM_SMC_ACT_GET,
 				    MT_RM_CONSTRAINT_ID_DRAM, -1)
-		& MT_RM_CONSTRAINT_FW_VALID) ? 1 : 0);
+		& MT_SPM_RC_VALID_FW) ? 1 : 0);
 
 	if (node)
 		of_node_put(node);
@@ -236,13 +194,13 @@ return_size:
 	return p - ToUserBuf;
 }
 
-static const struct mtk_spm_sysfs_op mtk_dbg_spm_spmfw_ver_fops = {
+static const struct mtk_lp_sysfs_op mtk_dbg_spm_spmfw_ver_fops = {
 	.fs_read = mtk_dbg_get_spmfw_version,
 };
 
 static void mtk_dbg_spm_fs_init(void)
 {
-	mtk_spm_sysfs_entry_create();
+	mtk_spm_sysfs_root_entry_create();
 
 	mtk_spm_sysfs_entry_node_add("spm_last_wakeup_src", 0444
 			, &mtk_dbg_spm_last_wakesrc_fops, NULL);
@@ -265,7 +223,7 @@ void mtk_dbg_common_fs_exit(void)
 	unregister_syscore_ops(&spm_block_syscore_ops);
 	unregister_syscore_ops(&spm_dbg_syscore_ops);
 }
-EXPORT_SYMBOL(mtk_dbg_common_fs_exit);
+
 int mtk_dbg_common_fs_init(void)
 {
 	/* wakeup source init for suspend enable and disable */
@@ -278,7 +236,6 @@ int mtk_dbg_common_fs_init(void)
 	mtk_system_console_suspend = console_suspend_enabled;
 	console_suspend_enabled = false;
 
-	mtk_dbg_idle_fs_init();
 	mtk_dbg_suspend_fs_init();
 	mtk_dbg_spm_fs_init();
 	register_syscore_ops(&spm_dbg_syscore_ops);
@@ -286,4 +243,3 @@ int mtk_dbg_common_fs_init(void)
 	pr_info("%s %d: finish", __func__, __LINE__);
 	return 0;
 }
-EXPORT_SYMBOL(mtk_dbg_common_fs_init);

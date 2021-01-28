@@ -15,9 +15,9 @@ static struct mtk_lp_sysfs_handle mtk_spm_fs_root = {
 	NULL
 };
 
-int mtk_spm_sysfs_entry_group_add(const char *name
-		, int mode, struct mtk_lp_sysfs_group *_group
-		, struct mtk_lp_sysfs_handle *handle)
+int mtk_spm_sysfs_entry_group_add(const char *name,
+		int mode, struct mtk_lp_sysfs_group *_group,
+		struct mtk_lp_sysfs_handle *handle)
 {
 	if (!IS_MTK_LP_SYS_HANDLE_VALID(&mtk_spm_fs_root))
 		mtk_spm_sysfs_root_entry_create();
@@ -27,9 +27,9 @@ int mtk_spm_sysfs_entry_group_add(const char *name
 }
 EXPORT_SYMBOL(mtk_spm_sysfs_entry_group_add);
 
-int mtk_spm_sysfs_entry_node_add(const char *name
-		, int mode, const struct mtk_lp_sysfs_op *op
-		, struct mtk_lp_sysfs_handle *handle)
+int mtk_spm_sysfs_entry_node_add(const char *name,
+		int mode, const struct mtk_lp_sysfs_op *op,
+		struct mtk_lp_sysfs_handle *handle)
 {
 	if (!IS_MTK_LP_SYS_HANDLE_VALID(&mtk_spm_fs_root))
 		mtk_spm_sysfs_root_entry_create();

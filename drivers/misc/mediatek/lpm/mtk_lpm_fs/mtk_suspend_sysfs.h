@@ -9,27 +9,18 @@
 #include "mtk_lp_sysfs.h"
 #include "mtk_lp_kernfs.h"
 
-/* For legacy definition*/
-#define mtk_suspend_sysfs_handle	mtk_lp_sysfs_handle
-#define mtk_suspend_sysfs_op		mtk_lp_sysfs_op
-
-#define mtk_suspend_sysfs_entry_func_create	mtk_lp_sysfs_entry_func_create
-#define mtk_suspend_sysfs_entry_func_node_add	mtk_lp_sysfs_entry_func_node_add
-#define mtk_suspend_sysfs_entry_create	mtk_suspend_sysfs_root_entry_create
-
-
 /*Get the mtk idle system fs root entry handle*/
 int mtk_suspend_sysfs_entry_root_get(struct mtk_lp_sysfs_handle **handle);
 
 /*Creat the entry for mtk idle systme fs*/
-int mtk_suspend_sysfs_entry_group_add(const char *name
-		, int mode, struct mtk_lp_sysfs_group *_group
-		, struct mtk_lp_sysfs_handle *handle);
+int mtk_suspend_sysfs_entry_group_add(const char *name,
+		int mode, struct mtk_lp_sysfs_group *_group,
+		struct mtk_lp_sysfs_handle *handle);
 
 /*Add the child file node to mtk idle system*/
-int mtk_suspend_sysfs_entry_node_add(const char *name, int mode
-			, const struct mtk_lp_sysfs_op *op
-			, struct mtk_lp_sysfs_handle *node);
+int mtk_suspend_sysfs_entry_node_add(const char *name, int mode,
+			const struct mtk_lp_sysfs_op *op,
+			struct mtk_lp_sysfs_handle *node);
 
 int mtk_suspend_sysfs_entry_node_remove(
 		struct mtk_lp_sysfs_handle *handle);

@@ -7,7 +7,7 @@
 #define __MTK_DBG_COMMON_H__
 
 /* For sysfs get the last wake status */
-enum mt6779_spm_wake_status_enum {
+enum mt_spm_wake_status_enum {
 	WAKE_STA_R12,
 	WAKE_STA_R12_EXT,
 	WAKE_STA_RAW_STA,
@@ -63,5 +63,6 @@ struct dbg_ctrl {
 int mtk_dbg_common_fs_init(void);
 
 void mtk_dbg_common_fs_exit(void);
+
 
 #endif /* __MTK_DBG_COMMON_H__ */

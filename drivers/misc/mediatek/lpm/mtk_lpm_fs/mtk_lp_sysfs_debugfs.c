@@ -89,7 +89,7 @@ static int mtk_lp_sysfs_debugfs_open(
 static int mtk_lp_sysfs_debugfs_close(
 	struct inode *inode, struct file *filp)
 {
-	return 0;
+	return seq_release(inode, filp);
 }
 
 static ssize_t mtk_lp_sysfs_debugfs_read(
