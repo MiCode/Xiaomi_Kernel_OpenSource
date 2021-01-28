@@ -478,10 +478,14 @@ void jpeg_drv_enc_power_on(void)
 		#endif
 	#endif
 #endif
+	enable_irq(gJpegqDev.encIrqId);
+
 }
 
 void jpeg_drv_enc_power_off(void)
 {
+
+	disable_irq(gJpegqDev.encIrqId);
 #ifdef CONFIG_MTK_CLKMGR
 	#ifdef CONFIG_ARCH_MT6735M
 		disable_clock(MT_CG_IMAGE_JPGENC, "JPEG");
@@ -1739,7 +1743,6 @@ static int jpeg_probe(struct platform_device *pdev)
 
 	/* mt6575_irq_unmask(MT6575_JPEG_CODEC_IRQ_ID); */
 	JPEG_MSG("request JPEG Encoder IRQ\n");
-	enable_irq(gJpegqDev.encIrqId);
 	if (request_irq(gJpegqDev.encIrqId,
 		 jpeg_drv_enc_isr, IRQF_TRIGGER_LOW,
 		 "jpeg_enc_driver", NULL))
