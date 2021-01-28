@@ -892,9 +892,6 @@ static void _cmd_mode_enter_idle(void)
 	if (disp_helper_get_option(DISP_OPT_HRT_MODE) == 1)
 		prim_disp_request_hrt_bw(HRT_BW_UNREQ,
 			DDP_SCENARIO_PRIMARY_DISP, __func__);
-	else
-		primary_display_request_dvfs_perf(SMI_BWC_SCEN_UI_IDLE,
-					  HRT_LEVEL_LEVEL0);
 #endif
 
 	/* please keep last */
@@ -922,9 +919,7 @@ static void _cmd_mode_leave_idle(void)
 		    primary_display_get_dvfs_last_req();
 
 		prim_disp_request_hrt_bw(overlap_num, scen, __func__);
-	} else
-		primary_display_request_dvfs_perf(SMI_BWC_SCEN_UI_IDLE,
-				primary_display_get_dvfs_last_req());
+	}
 #endif
 
 	DISPDBG("[LP]%s\n", __func__);
@@ -963,23 +958,6 @@ void primary_display_idlemgr_leave_idle_nolock(void)
 		_vdo_mode_leave_idle();
 	else
 		_cmd_mode_leave_idle();
-}
-
-int primary_display_request_dvfs_perf(int scenario, int req)
-{
-#ifdef MTK_FB_MMDVFS_SUPPORT
-	if (primary_get_state() == DISP_SLEPT) {
-		DISPMSG("%s:already slept (%d)\n", __func__,
-			atomic_read(&dvfs_ovl_req_status));
-		return 0;
-	}
-
-	if (req != atomic_read(&dvfs_ovl_req_status)) {
-		disp_pm_qos_request_dvfs(req);
-		atomic_set(&dvfs_ovl_req_status, req);
-	}
-#endif
-	return 0;
 }
 
 unsigned long long disp_lp_set_idle_check_interval(

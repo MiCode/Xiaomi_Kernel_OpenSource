@@ -26,7 +26,6 @@
 #include "lcm_drv.h"
 #include "ddp_ovl_wcg.h"
 #ifdef MTK_FB_MMDVFS_SUPPORT
-#include "mmdvfs_mgr.h"
 #include "mmdvfs_pmqos.h"
 #endif
 

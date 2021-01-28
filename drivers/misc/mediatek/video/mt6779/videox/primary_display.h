@@ -232,6 +232,7 @@ struct display_primary_path_context {
 	cmdqBackupSlotHandle dsi_vfp_line;
 	cmdqBackupSlotHandle night_light_params;
 	cmdqBackupSlotHandle hrt_idx_id;
+	cmdqBackupSlotHandle request_mmclk_450;
 
 
 	int is_primary_sec;

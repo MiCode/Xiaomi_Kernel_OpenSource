@@ -6,7 +6,6 @@
 #include "ddp_hal.h"
 #include "ddp_reg.h"
 #include "disp_pm_qos.h"
-#include <linux/pm_qos.h>
 #include "layering_rule.h"
 #include "mmprofile.h"
 #include "mmprofile_function.h"
@@ -14,11 +13,10 @@
 #include "disp_drv_platform.h"
 #ifdef MTK_FB_MMDVFS_SUPPORT
 #include "mmdvfs_pmqos.h"
+//#include <linux/pm_qos.h> //old on Q
+#include "linux/soc/mediatek/mtk-pm-qos.h"//new on R
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_PMQOS)
-#include "linux/soc/mediatek/mtk-pm-qos.h"
-#endif
 
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_port.h"
@@ -43,6 +41,8 @@ static struct mm_qos_request rdma0_request;
 static struct mm_qos_request wdma0_request;
 
 static struct mtk_pm_qos_request mm_freq_request;
+static u64 g_freq_steps[MAX_FREQ_STEP];
+
 static struct plist_head hrt_request_list;
 static struct mm_qos_request ovl0_hrt_request;
 static struct mm_qos_request ovl0_2l_hrt_request;
@@ -85,6 +85,7 @@ static int __get_cmdq_slots(cmdqBackupSlotHandle Slot,
 void disp_pm_qos_init(void)
 {
 	unsigned long long bandwidth;
+	u32 step_size;
 
 	/* initialize display slot */
 	__init_cmdq_slots(&(dispsys_slot), DISP_SLOT_NUM, 0);
@@ -107,6 +108,8 @@ void disp_pm_qos_init(void)
 			   SMI_PORT_DISP_WDMA0);
 	mtk_pm_qos_add_request(&mm_freq_request, PM_QOS_DISP_FREQ,
 			   PM_QOS_MM_FREQ_DEFAULT_VALUE);
+	/* 0: 60611; 1:45011; 2: 31511*/
+	mmdvfs_qos_get_freq_steps(PM_QOS_DISP_FREQ, g_freq_steps, &step_size);
 
 	plist_head_init(&hrt_request_list);
 
@@ -135,14 +138,6 @@ void disp_pm_qos_deinit(void)
 #endif
 }
 
-/* Display will not request DVFS directly.
- * So, This Api may be useless......
- * However, at port stage, still add it but return 0.
- */
-int disp_pm_qos_request_dvfs(enum HRT_LEVEL hrt)
-{
-	return 0;
-}
 
 static int __set_hrt_bw(enum DISP_MODULE_ENUM module,
 	unsigned int bandwidth)
@@ -507,3 +502,13 @@ int disp_pm_qos_set_rdma_bw(unsigned long long out_fps,
 	return ret;
 }
 
+void disp_pm_qos_set_mmclk(int level)
+{
+#ifdef MTK_FB_MMDVFS_SUPPORT
+	if (level < 0 || level > 2)
+		mtk_pm_qos_update_request(&mm_freq_request, 0);
+	else
+		mtk_pm_qos_update_request(&mm_freq_request,
+					  g_freq_steps[level]);
+#endif
+}
