@@ -101,7 +101,7 @@ static char *gz_sys_service_name[] = {
 
 static struct tipc_k_handle
 	_kree_session_handle_pool[KREE_SESSION_HANDLE_MAX_SIZE];
-static int32_t _kree_session_handle_idx;
+static uint32_t _kree_session_handle_idx;
 
 #define debugFg 0
 
@@ -220,7 +220,7 @@ int32_t _setSessionHandle(struct tipc_k_handle h)
 	return session;
 }
 
-void _clearSessionHandle(int32_t session)
+void _clearSessionHandle(uint32_t session)
 {
 	mutex_lock(&fd_mutex);
 	_kree_session_handle_pool[session].dn = 0;
@@ -293,7 +293,7 @@ void KREE_SESSION_UNLOCK(int32_t handle)
 		mutex_unlock(&chan_p->sess_lock);
 }
 
-static TZ_RESULT KREE_OpenSysFd(enum tee_id_t tee_id)
+static TZ_RESULT KREE_OpenSysFd(uint32_t tee_id)
 {
 	TZ_RESULT ret = TZ_RESULT_SUCCESS;
 
@@ -1052,7 +1052,7 @@ TZ_RESULT KREE_CreateSession(const char *ta_uuid, KREE_SESSION_HANDLE *pHandle)
 	struct tipc_dn_chan *chan_p;
 	union MTEEC_PARAM p[4];
 	KREE_SESSION_HANDLE session;
-	int tee_id;
+	uint tee_id;
 
 	KREE_DEBUG("%s: %s\n", __func__, ta_uuid);
 

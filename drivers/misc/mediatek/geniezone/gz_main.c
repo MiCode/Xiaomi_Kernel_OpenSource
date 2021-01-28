@@ -779,7 +779,7 @@ static long tz_client_tee_service(struct file *file, unsigned long arg,
 	unsigned long cret;
 	uint32_t tmpTypes;
 	union MTEEC_PARAM param[4], oparam[4];
-	int i;
+	uint i;
 	TZ_RESULT ret;
 	KREE_SESSION_HANDLE handle;
 	void __user *ubuf;
