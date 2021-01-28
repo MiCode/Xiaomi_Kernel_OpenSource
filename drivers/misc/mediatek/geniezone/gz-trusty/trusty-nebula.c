@@ -26,7 +26,8 @@ ssize_t vmm_fast_add_show(struct device *dev, struct device_attribute *attr,
 	b &= 0xFF;
 	get_random_bytes(&c, sizeof(s32));
 	c &= 0xFF;
-	ret = trusty_fast_call32(dev, SMC_FC_VM_TEST_ADD, a, b, c);
+	ret = trusty_fast_call32(dev, MTEE_SMCNR(SMCF_FC_TEST_ADD, dev),
+				 a, b, c);
 	return scnprintf(buf, PAGE_SIZE, "%d + %d + %d = %d, %s\n", a, b, c,
 			 ret, (a + b + c) == ret ? "PASS" : "FAIL");
 }
@@ -52,7 +53,8 @@ ssize_t vmm_fast_multiply_show(struct device *dev,
 	b &= 0xFF;
 	get_random_bytes(&c, sizeof(s32));
 	c &= 0xFF;
-	ret = trusty_fast_call32(dev, SMC_FC_VM_TEST_MULTIPLY, a, b, c);
+	ret = trusty_fast_call32(dev, MTEE_SMCNR(SMCF_FC_TEST_MULTIPLY, dev),
+				 a, b, c);
 	return scnprintf(buf, PAGE_SIZE, "%d * %d * %d = %d, %s\n", a, b, c,
 			 ret, (a * b * c) == ret ? "PASS" : "FAIL");
 }
@@ -77,7 +79,8 @@ ssize_t vmm_std_add_show(struct device *dev, struct device_attribute *attr,
 	b &= 0xFF;
 	get_random_bytes(&c, sizeof(s32));
 	c &= 0xFF;
-	ret = trusty_std_call32(dev, SMC_SC_VM_TEST_ADD, a, b, c);
+	ret = trusty_std_call32(dev, MTEE_SMCNR(SMCF_SC_TEST_ADD, dev),
+						a, b, c);
 	return scnprintf(buf, PAGE_SIZE, "%d + %d + %d = %d, %s\n", a, b, c,
 			 ret, (a + b + c) == ret ? "PASS" : "FAIL");
 }
@@ -102,7 +105,8 @@ ssize_t vmm_std_multiply_show(struct device *dev, struct device_attribute *attr,
 	b &= 0xFF;
 	get_random_bytes(&c, sizeof(s32));
 	c &= 0xFF;
-	ret = trusty_std_call32(dev, SMC_SC_VM_TEST_MULTIPLY, a, b, c);
+	ret = trusty_std_call32(dev, MTEE_SMCNR(SMCF_SC_TEST_MULTIPLY, dev),
+				a, b, c);
 	return scnprintf(buf, PAGE_SIZE, "%d * %d * %d = %d, %s\n", a, b, c,
 			 ret, (a * b * c) == ret ? "PASS" : "FAIL");
 }

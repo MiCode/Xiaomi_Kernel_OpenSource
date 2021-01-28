@@ -180,9 +180,11 @@ static int get_gz_version(void *args)
 	int i;
 	int version_str_len;
 	char *version_str;
+	struct device *trusty_dev = tz_system_dev->dev.parent;
 
-	ret = trusty_fast_call32(gz_device.this_device, SMC_FC_GET_VERSION_STR,
-				 -1, 0, 0);
+	ret = trusty_fast_call32(trusty_dev,
+				MTEE_SMCNR(SMCF_FC_GET_VERSION_STR, trusty_dev),
+				-1, 0, 0);
 	if (ret <= 0) {
 		KREE_ERR("failed to get version: %d\n", ret);
 		return TZ_RESULT_ERROR_GENERIC;
@@ -195,8 +197,9 @@ static int get_gz_version(void *args)
 		return TZ_RESULT_ERROR_OUT_OF_MEMORY;
 
 	for (i = 0; i < version_str_len; i++) {
-		ret = trusty_fast_call32(gz_device.this_device,
-					 SMC_FC_GET_VERSION_STR, i, 0, 0);
+		ret = trusty_fast_call32(trusty_dev,
+				MTEE_SMCNR(SMCF_FC_GET_VERSION_STR, trusty_dev),
+				i, 0, 0);
 		if (ret < 0)
 			goto err_get_char;
 		version_str[i] = ret;
@@ -390,7 +393,8 @@ static int _unregister_session_info(struct file *fp,
 int mtee_sdsp_enable(u32 on)
 {
 	return trusty_std_call32(tz_system_dev->dev.parent,
-			MT_SMC_SC_VPU, on, 0, 0);
+			MTEE_SMCNR(MT_SMCF_SC_VPU, tz_system_dev->dev.parent),
+			on, 0, 0);
 }
 
 atomic_t get_gz_bind_cpu_allowed = ATOMIC_INIT(0);
