@@ -24,6 +24,11 @@
 #include <device/mali_kbase_device.h>
 
 #ifdef CONFIG_DEBUG_FS
+
+#ifdef ENABLE_MTK_MEMINFO
+#include <platform/mtk_platform_common.h>
+#endif
+
 /** Show callback for the @c gpu_memory debugfs file.
  *
  * This function is called to get the contents of the @c gpu_memory debugfs
@@ -41,6 +46,12 @@ static int kbasep_gpu_memory_seq_show(struct seq_file *sfile, void *data)
 	struct list_head *entry;
 	const struct list_head *kbdev_list;
 
+#ifdef ENABLE_MTK_MEMINFO
+	ssize_t mtk_kbase_gpu_meminfo_index;
+
+	mtk_kbase_reset_gpu_meminfo();
+#endif
+
 	kbdev_list = kbase_device_get_list();
 	list_for_each(entry, kbdev_list) {
 		struct kbase_device *kbdev = NULL;
@@ -51,14 +62,28 @@ static int kbasep_gpu_memory_seq_show(struct seq_file *sfile, void *data)
 		seq_printf(sfile, "%-16s  %10u\n",
 				kbdev->devname,
 				atomic_read(&(kbdev->memdev.used_pages)));
+
+#ifdef ENABLE_MTK_MEMINFO
+		g_mtk_gpu_total_memory_usage_in_pages_debugfs = atomic_read(&(kbdev->memdev.used_pages));
+#endif
+
 		mutex_lock(&kbdev->kctx_list_lock);
+#ifdef ENABLE_MTK_MEMINFO
+		mtk_kbase_gpu_meminfo_index = 0;
+#endif
 		list_for_each_entry(kctx, &kbdev->kctx_list, kctx_list_link) {
 			/* output the memory usage and cap for each kctx
 			* opened on this device */
-			seq_printf(sfile, "  %s-0x%p %10u\n",
+			seq_printf(sfile, "  %s-0x%p %10u %10u\n",
 				"kctx",
 				kctx,
-				atomic_read(&(kctx->used_pages)));
+				atomic_read(&(kctx->used_pages)),
+				kctx->tgid);
+#ifdef ENABLE_MTK_MEMINFO
+			mtk_kbase_set_gpu_meminfo(mtk_kbase_gpu_meminfo_index, kctx->tgid,
+					(int)atomic_read(&(kctx->used_pages)));
+			mtk_kbase_gpu_meminfo_index++;
+#endif
 		}
 		mutex_unlock(&kbdev->kctx_list_lock);
 	}

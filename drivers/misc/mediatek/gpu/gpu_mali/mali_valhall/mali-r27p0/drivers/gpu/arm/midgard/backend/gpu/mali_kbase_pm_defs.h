@@ -180,6 +180,9 @@ struct kbasep_pm_metrics {
 	u32 time_idle;
 	u32 busy_cl[2];
 	u32 busy_gl;
+#if defined(GED_ENABLE_DVFS_LOADING_MODE)
+	u32 busy_gl_plus[3];
+#endif	
 };
 
 /**

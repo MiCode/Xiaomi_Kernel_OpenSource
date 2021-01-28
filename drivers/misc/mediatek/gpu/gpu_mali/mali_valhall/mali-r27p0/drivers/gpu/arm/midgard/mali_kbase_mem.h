@@ -42,6 +42,13 @@
 /* Required for kbase_mem_evictable_unmake */
 #include "mali_kbase_mem_linux.h"
 
+#if defined(CONFIG_MTK_IOMMU_V2)
+#include <mtk/ion_drv.h>
+#include <mtk/mtk_ion.h>
+#include <ion.h>
+#include <mach/mt_iommu.h>
+#endif
+
 static inline void kbase_process_page_usage_inc(struct kbase_context *kctx,
 		int pages);
 
@@ -147,6 +154,10 @@ struct kbase_mem_phy_alloc {
 			unsigned int current_mapping_usage_count;
 			struct sg_table *sgt;
 			bool need_sync;
+#if defined(CONFIG_MTK_IOMMU_V2)
+			struct ion_client *ion_client;
+			struct ion_handle *ion_handle;
+#endif
 		} umm;
 		struct {
 			u64 stride;
