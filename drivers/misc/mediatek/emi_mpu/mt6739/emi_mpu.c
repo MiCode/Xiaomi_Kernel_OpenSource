@@ -374,10 +374,10 @@ static ssize_t emi_mpu_store(struct device_driver *driver,
 const char *buf, size_t count)
 {
 	int i;
-	unsigned long long start_addr;
-	unsigned long long end_addr;
-	unsigned long region;
-	unsigned long long access_permission;
+	unsigned long long start_addr = 0;
+	unsigned long long end_addr = 0;
+	unsigned long region = 0;
+	unsigned long long access_permission = 0;
 	char *command;
 	char *ptr;
 	char *token[6];
