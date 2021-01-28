@@ -119,6 +119,11 @@ static struct imgsensor_info_struct _imgsensor_info_m1_v2 =                    \
 	},                                                                     \
 	.margin = 16,                                                          \
 	.min_shutter = 1,                                                      \
+	.min_gain = 64,                                                        \
+	.max_gain = 1024,                                                      \
+	.min_gain_iso = 100,                                                   \
+	.gain_step = 2,                                                       \
+	.gain_type = 2,                                                        \
 	.max_frame_length = 0xffff,                                            \
 	.ae_shut_delay_frame = 0,                                              \
 	.ae_sensor_gain_delay_frame = 0,                                       \
