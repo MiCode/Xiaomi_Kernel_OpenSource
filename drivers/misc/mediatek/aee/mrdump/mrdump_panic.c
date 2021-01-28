@@ -19,6 +19,7 @@
 #include <asm/stacktrace.h>
 #include <asm/traps.h>
 #include <asm/system_misc.h>
+#include <asm/kexec.h>
 #include <linux/kdebug.h>
 #include <linux/module.h>
 #include <linux/delay.h>
@@ -137,7 +138,7 @@ void ipanic_recursive_ke(struct pt_regs *regs, struct pt_regs *excp_regs,
 				regs, "Kernel NestedPanic");
 	} else {
 		aee_nested_printf("both NULL\n");
-		mrdump_mini_save_regs(&saved_regs);
+		crash_setup_regs(&saved_regs, NULL);
 		__mrdump_create_oops_dump(AEE_REBOOT_MODE_NESTED_EXCEPTION,
 				&saved_regs, "Kernel NestedPanic");
 	}
@@ -204,7 +205,7 @@ int ipanic(struct notifier_block *this, unsigned long event, void *ptr)
 #ifdef CONFIG_MTK_RAM_CONSOLE
 	fiq_step = AEE_FIQ_STEP_KE_IPANIC_START;
 #endif
-	mrdump_mini_save_regs(&saved_regs);
+	crash_setup_regs(&saved_regs, NULL);
 	return mrdump_common_die(fiq_step,
 				 AEE_REBOOT_MODE_KERNEL_PANIC,
 				 "Kernel Panic", &saved_regs);

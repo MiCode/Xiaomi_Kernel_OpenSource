@@ -30,6 +30,7 @@
 #include <asm-generic/sections.h>
 #include <asm/page.h>
 #include <asm/irq.h>
+#include <asm/kexec.h>
 #include <mrdump.h>
 #include <mt-plat/aee.h>
 #include <linux/of.h>
@@ -758,7 +759,7 @@ void mrdump_mini_ke_cpu_regs(struct pt_regs *regs)
 
 	if (!regs) {
 		regs = &context;
-		mrdump_mini_save_regs(regs);
+		crash_setup_regs(regs, NULL);
 	}
 	cpu = get_HW_cpuid();
 	mrdump_mini_cpu_regs(cpu, regs, current, 1);
