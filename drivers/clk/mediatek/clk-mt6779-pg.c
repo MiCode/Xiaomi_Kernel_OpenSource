@@ -5326,7 +5326,7 @@ void iomap_mm(void)
 
 /*mmsys_config*/
 	node = of_find_compatible_node(NULL, NULL,
-				"mediatek,mt6779-mmsys_config");
+				"mediatek,mt6779-mmsys");
 	if (!node)
 		pr_debug("[CLK_MMSYS] find node failed\n");
 	clk_mmsys_config_base = of_iomap(node, 0);
@@ -5341,7 +5341,7 @@ void iomap_mm(void)
 		pr_debug("[CLK_IMGSYS_CONFIG] base failed\n");
 /*ipesys*/
 	node = of_find_compatible_node(NULL, NULL,
-				"mediatek,mt6779-ipesys_config");
+				"mediatek,mt6779-ipesys");
 	if (!node)
 		pr_debug("[CLK_IPESYS_CONFIG] find node failed\n");
 	clk_ipesys_base = of_iomap(node, 0);
