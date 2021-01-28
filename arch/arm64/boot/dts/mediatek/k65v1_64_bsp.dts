@@ -395,11 +395,9 @@
 	mt6370pd,intr_gpio = <&pio 41 0x0>;
 };
 
-
-
-
-
-
+&mt6370_chg {
+	bc12_sel = <1>;
+};
 
 #include "k65v1_64_bsp/cust.dtsi"
 #include "mediatek/cust_mt6765_camera.dtsi"
