@@ -3769,6 +3769,8 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 			current->pid,
 			current->tgid);
 		Ret = -ENOMEM;
+		mutex_unlock(&(MutexMFBRef));
+		goto EXIT;
 	} else {
 		pUserInfo = (struct MFB_USER_INFO_STRUCT *) pFile->private_data;
 		pUserInfo->Tid = current->tgid;
@@ -3780,6 +3782,11 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 		for (i = 0;  i < IRQ_USER_NUM_MAX; i++) {
 			if (MFBInfo.IrqInfo.MssIrqUse[i] == -1)
 				break;
+		}
+		if (i == IRQ_USER_NUM_MAX) {
+			mutex_unlock(&(MutexMFBRef));
+			LOG_DBG("ERROR: MssIrqUse is full (%d)", i);
+			goto EXIT;
 		}
 		MFBInfo.IrqInfo.MssIrqUse[i] = 1;
 		pUserInfo->Pid = i;
@@ -3867,6 +3874,8 @@ static signed int MFB_release(struct inode *pInode, struct file *pFile)
 	/*  */
 	if (pFile->private_data != NULL)
 		pUserInfo = (struct MFB_USER_INFO_STRUCT *) pFile->private_data;
+	else
+		goto EXIT;
 	/*  */
 	mutex_lock(&(MutexMFBRef));
 	MFBInfo.UserCount--;
