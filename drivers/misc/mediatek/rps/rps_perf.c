@@ -47,7 +47,7 @@ int set_rps_map(struct netdev_rx_queue *queue, unsigned long rps_value)
 #ifdef CONFIG_RPS
 	struct rps_map *old_map, *map;
 	cpumask_var_t mask;
-	int cpu, i, len;
+	int cpu, i, len = 3;
 	static DEFINE_MUTEX(rps_map_mutex);
 
 	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
