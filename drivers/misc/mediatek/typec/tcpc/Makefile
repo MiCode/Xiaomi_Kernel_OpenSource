@@ -9,6 +9,8 @@ else
 obj-$(CONFIG_TCPC_CLASS)		+= tcpci_alert.o
 endif
 
+obj-$(CONFIG_TCPC_CLASS)		+= rt_pd_manager.o
+
 obj-$(CONFIG_USB_POWER_DELIVERY)	+= tcpci_event.o \
 		pd_core.o pd_policy_engine.o pd_process_evt.o \
 		pd_dpm_core.o pd_dpm_uvdm.o pd_dpm_alt_mode_dp.o pd_dpm_pdo_select.o\
