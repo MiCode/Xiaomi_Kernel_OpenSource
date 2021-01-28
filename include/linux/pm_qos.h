@@ -113,6 +113,7 @@ struct pm_qos_constraints {
 	s32 default_value;
 	s32 no_constraint_value;
 	enum pm_qos_type type;
+	struct mutex qos_lock;
 	struct blocking_notifier_head *notifiers;
 };
 
