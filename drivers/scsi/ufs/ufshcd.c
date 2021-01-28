@@ -5349,14 +5349,26 @@ static int ufshcd_is_resp_upiu_valid(struct ufs_hba *hba,
 	u8 val;
 	bool err = false;
 
-	val = lrbp->cmd->cmnd[0];
-	if (val != READ_10 && val != WRITE_10 && val != SYNCHRONIZE_CACHE)
-		return 0;
-
 	if (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL)
 		return 0;
 
 	word = be32_to_cpu(lrbp->ucd_rsp_ptr->header.dword_0);
+
+	/* Check tag anyway */
+	val = word & 0xff;
+	if (val != lrbp->task_tag || val != index) {
+		dev_info(hba->dev, "inv. tag, upiu: 0x%x, lrbp: 0x%x, outstanding: 0x%x, cmd: 0x%x\n",
+			 val, lrbp->task_tag, index, lrbp->cmd->cmnd[0]);
+		err = true;
+	}
+
+	if (!err) {
+		val = lrbp->cmd->cmnd[0];
+		if (val != READ_10 && val != WRITE_10 &&
+		    val != SYNCHRONIZE_CACHE)
+			return 0;
+	}
+
 	val = (word & 0x00ff0000) >> 16;
 	if (val) {
 		dev_info(hba->dev, "inv. flag: 0x%x\n", val);
@@ -5367,13 +5379,6 @@ static int ufshcd_is_resp_upiu_valid(struct ufs_hba *hba,
 	if (val != lrbp->lun) {
 		dev_info(hba->dev, "inv. lun: upiu: 0x%x, lrbp: 0x%x\n",
 			 val, lrbp->lun);
-		err = true;
-	}
-
-	val = word & 0xff;
-	if (val != lrbp->task_tag || val != index) {
-		dev_info(hba->dev, "inv. tag, upiu: 0x%x, lrbp: 0x%x, outstanding: 0x%x\n",
-			 val, lrbp->task_tag, index);
 		err = true;
 	}
 
