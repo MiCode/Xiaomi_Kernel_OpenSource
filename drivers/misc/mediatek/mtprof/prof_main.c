@@ -24,146 +24,6 @@
 #define MTK_DEATH_SIGNAL_LOG
 #define SIGNAL_LOG_THRESHOLD 500000000ULL /*500ms (unit is ns) */
 
-#ifdef CONFIG_MTK_ENG_BUILD
-
-MT_DEBUG_ENTRY(log);
-static unsigned long print_num;
-static unsigned long long second = 1;
-
-static int mt_log_show(struct seq_file *m, void *v)
-{
-	SEQ_printf(m, "Print %ld lines log in %lld second in last time.\n",
-		print_num, second);
-	SEQ_printf(m,
-		"show: Please echo m n > log again. m: second, n: level.\n");
-	return 0;
-}
-
-static ssize_t mt_log_write(struct file *filp,
-				const char *ubuf,
-				size_t cnt,
-				loff_t *data)
-{
-	char buf[64];
-	unsigned long long t1 = 0, t2 = 0;
-	int level = 0;
-
-	if (cnt >= sizeof(buf))
-		return -EINVAL;
-
-	if (copy_from_user(&buf, ubuf, cnt))
-		return -EFAULT;
-
-	buf[cnt] = 0;
-
-	if (sscanf(buf, "%lld %d ", &second, &level) == 2) {
-		SEQ_printf(NULL, "will print log in level %d",
-			level);
-		SEQ_printf(NULL, " about %lld second.\n",
-			second);
-	} else {
-		SEQ_printf(NULL, "Please echo m n > log;");
-		SEQ_printf(NULL, "m: second, n: level.\n");
-		return cnt;
-	}
-	t1 = sched_clock();
-	pr_info("print debug log: start time: %lld.\n", t1);
-	print_num = 0;
-	for (;;) {
-		t2 = sched_clock();
-		if (t2 - t1 > second * 1000000000)
-			break;
-		pr_info("print debug log: the %ld line, time: %lld.\n",
-			print_num++, t2);
-		switch (level) {
-		case 0:
-			break;
-		case 1:
-			__delay(1);
-			break;
-		case 2:
-			__delay(5);
-			break;
-		case 3:
-			__delay(10);
-			break;
-		case 4:
-			__delay(50);
-			break;
-		case 5:
-			__delay(100);
-			break;
-		case 6:
-			__delay(200);
-			break;
-		case 7:
-			__delay(500);
-			break;
-		case 8:
-			__delay(1000);
-			break;
-		case 9:
-			msleep(20);
-			break;
-		default:
-			msleep(20);
-			break;
-		}
-	}
-
-	pr_info("mt log total write %ld line in %lld second.\n",
-		print_num, second);
-	return cnt;
-}
-#endif
-
-/* 6. reboot pid*/
-MT_DEBUG_ENTRY(pid);
-
-int reboot_pid;
-static int mt_pid_show(struct seq_file *m, void *v)
-{
-	SEQ_printf(m, "reboot pid %d.\n", reboot_pid);
-	return 0;
-}
-
-static ssize_t mt_pid_write(struct file *filp, const char *ubuf,
-	   size_t cnt, loff_t *data)
-{
-	char buf[10];
-	unsigned long val = 0;
-	int ret;
-	struct task_struct *tsk;
-
-	if (cnt >= sizeof(buf)) {
-		pr_debug("mt_pid input stream size to large.\n");
-		return -EINVAL;
-	}
-
-	if (copy_from_user(&buf, ubuf, cnt))
-		return -EFAULT;
-	buf[cnt] = 0;
-	ret = kstrtoul(buf, 10, &val);
-
-	reboot_pid = val;
-	if (reboot_pid > PID_MAX_DEFAULT) {
-		pr_debug("get reboot pid error %d.\n", reboot_pid);
-		reboot_pid = 0;
-		return -EFAULT;
-	}
-	pr_debug("get reboot pid: %d.\n", reboot_pid);
-
-	if (reboot_pid > 1) {
-		tsk = find_task_by_vpid(reboot_pid);
-		if (tsk != NULL)
-			pr_info("Reboot Process(%s:%d).\n",
-				tsk->comm, tsk->pid);
-	}
-
-	return cnt;
-
-}
-
 #define STORE_SIGINFO(_errno, _code, info)			\
 	do {							\
 		if (info == SEND_SIG_NOINFO ||			\
@@ -195,8 +55,11 @@ enum {
 	SI_DELIVER  = (1 << 1),
 } SI_LOG_MASK;
 
-//static const char stat_nam[] = TASK_STATE_TO_CHAR_STR;
-static const char stat_nam[] = "OOXX";
+#ifndef TASK_STATE_TO_CHAR_STR
+#define TASK_STATE_TO_CHAR_STR "RSDTtXZxKWPNn"
+#endif
+
+static const char stat_nam[] = TASK_STATE_TO_CHAR_STR;
 static unsigned int enabled_signal_log;
 
 static void probe_signal_generate(void *ignore, int sig, struct siginfo *info,
@@ -470,9 +333,6 @@ static int __init init_mtsched_prof(void)
 
 	if (!proc_mkdir("mtprof", NULL))
 		return -1;
-	pe = proc_create("mtprof/reboot_pid", 0660, NULL, &mt_pid_fops);
-	if (!pe)
-		return -ENOMEM;
 	init_signal_log();
 	pe = proc_create("mtprof/signal_log", 0664, NULL, &mt_signal_log_fops);
 	if (!pe)
@@ -486,11 +346,6 @@ static int __init init_mtsched_prof(void)
 		return -ENOMEM;
 #endif
 
-#ifdef CONFIG_MTK_ENG_BUILD
-	pe = proc_create("mtprof/log", 0664, NULL, &mt_log_fops);
-	if (!pe)
-		return -ENOMEM;
-#endif
 	return 0;
 }
 

@@ -20,13 +20,13 @@
 
 static bool sched_mon_door;
 
-bool irq_time_tracer;
+bool irq_time_tracer __read_mostly;
 unsigned int irq_time_th1_ms = 100; /* log */
 unsigned int irq_time_th2_ms = 500; /* aee */
 unsigned int irq_time_aee_limit;
 
 #ifdef CONFIG_MTK_IRQ_COUNT_TRACER
-static bool irq_count_tracer;
+static bool irq_count_tracer __read_mostly;
 static unsigned int irq_period_th1_ns = 200000; /* log */
 static unsigned int irq_period_th2_ns = 200000; /* aee */
 static unsigned int irq_count_aee_limit;
@@ -35,11 +35,13 @@ struct irq_count_period_setting {
 	const char *name;
 	unsigned int period;
 } irq_count_plist[] = {
-	{"ufshcd", 10000} /* 100000 irqs per sec*/
+	{"ufshcd", 10000}, /* 100000 irqs per sec*/
+	{"arch_timer", 50000}, /* 20000 irqs per sec*/
+	{"musb-hdrc", 16666} /* 60000 irqs per sec*/
 };
 #endif
 #ifdef CONFIG_MTK_IRQ_OFF_TRACER
-static bool irq_off_tracer;
+static bool irq_off_tracer __read_mostly;
 static bool irq_off_tracer_trace;
 static unsigned int irq_off_th1_ms = 50; /* trace */
 static unsigned int irq_off_th2_ms = 500; /* print */
@@ -48,7 +50,7 @@ static unsigned int irq_off_aee_limit;
 static unsigned int irq_off_aee_debounce_ms = 60000;
 #endif
 #ifdef CONFIG_MTK_PREEMPT_TRACER
-static bool preempt_tracer;
+static bool preempt_tracer __read_mostly;
 static bool preempt_tracer_trace;
 static unsigned int preempt_th1_ms = 60000; /* trace */
 static unsigned int preempt_th2_ms = 180000; /* print */
@@ -191,20 +193,29 @@ void show_irq_handle_info(int output)
  */
 static struct hrtimer irq_count_timer;
 
-#ifdef CONFIG_SPARSE_IRQ
-#define IRQ_BITMAP_BITS	(NR_IRQS + 8196)
-#else
-#define IRQ_BITMAP_BITS	NR_IRQS
-#endif
+#define MAX_IRQ_NUM 1024
 
 struct irq_count_stat {
 	struct irq_work work;
 	unsigned long long t_start;
 	unsigned long long t_end;
-	unsigned int count[IRQ_BITMAP_BITS];
+	unsigned int count[MAX_IRQ_NUM];
 };
 
 DEFINE_PER_CPU(struct irq_count_stat, irq_count_data);
+
+struct irq_count_all {
+	spinlock_t lock; /* protect this struct */
+	unsigned long long ts;
+	unsigned long long te;
+	unsigned int num[MAX_IRQ_NUM];
+	unsigned int diff[MAX_IRQ_NUM];
+	bool warn[MAX_IRQ_NUM];
+};
+
+#define REC_NUM 4
+static struct irq_count_all irq_cpus[REC_NUM];
+static unsigned int rec_indx;
 
 static void __irq_count_tracer_work(struct irq_work *work)
 {
@@ -212,14 +223,43 @@ static void __irq_count_tracer_work(struct irq_work *work)
 	int cpu = smp_processor_id();
 	int irq, irq_num, i, skip;
 	unsigned int count;
-	unsigned long long t_avg, t_diff;
+	unsigned long long t_avg, t_diff, t_diff_ms;
 	char msg[128];
 	int list_num = ARRAY_SIZE(irq_count_plist);
 
+	/* skip checking if more than one work is blocked in queue */
+	if (sched_clock() - irq_cnt->t_end < 500000000ULL)
+		return;
+
+	/* check irq count on all cpu */
+	if (cpu == 0) {
+		unsigned int pre_idx;
+		unsigned int pre_num;
+
+		spin_lock(&irq_cpus[rec_indx].lock);
+
+		pre_idx = rec_indx ? rec_indx - 1 : REC_NUM - 1;
+		irq_cpus[rec_indx].ts = irq_cpus[pre_idx].te;
+		irq_cpus[rec_indx].te = sched_clock();
+
+		for (irq = 0; irq < min_t(int, nr_irqs, MAX_IRQ_NUM); irq++) {
+			irq_num = kstat_irqs(irq);
+			pre_num = irq_cpus[pre_idx].num[irq];
+			irq_cpus[rec_indx].num[irq] = irq_num;
+			irq_cpus[rec_indx].diff[irq] = irq_num - pre_num;
+			irq_cpus[rec_indx].warn[irq] = 0;
+		}
+
+		spin_unlock(&irq_cpus[rec_indx].lock);
+
+		rec_indx = (rec_indx == REC_NUM - 1) ? 0 : rec_indx + 1;
+	}
+
 	irq_cnt->t_start = irq_cnt->t_end;
 	irq_cnt->t_end = sched_clock();
+	t_diff = irq_cnt->t_end - irq_cnt->t_start;
 
-	for (irq = 0; irq < nr_irqs; irq++) {
+	for (irq = 0; irq < min_t(int, nr_irqs, MAX_IRQ_NUM); irq++) {
 		irq_num = kstat_irqs_cpu(irq, cpu);
 		count = irq_num - irq_cnt->count[irq];
 
@@ -228,10 +268,11 @@ static void __irq_count_tracer_work(struct irq_work *work)
 			continue;
 
 		irq_cnt->count[irq] = irq_num;
-		t_diff = irq_cnt->t_end - irq_cnt->t_start;
+
 		t_avg = t_diff;
+		t_diff_ms = t_diff;
 		do_div(t_avg, count);
-		do_div(t_diff, 1000000);
+		do_div(t_diff_ms, 1000000);
 
 		if (t_avg > irq_period_th1_ns)
 			continue;
@@ -249,11 +290,36 @@ static void __irq_count_tracer_work(struct irq_work *work)
 
 		snprintf(msg, sizeof(msg),
 			 "irq:%d %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on CPU:%d",
-			 irq, irq_to_name(irq), count, t_diff,
+			 irq, irq_to_name(irq), count, t_diff_ms,
 			 sec_high(irq_cnt->t_start), sec_low(irq_cnt->t_start),
 			 sec_high(irq_cnt->t_end), sec_low(irq_cnt->t_end),
 			 raw_smp_processor_id());
 		sched_mon_msg(TO_BOTH, msg);
+
+		for (i = 0; i < REC_NUM; i++) {
+			spin_lock(&irq_cpus[i].lock);
+
+			if (irq_cpus[i].warn[irq] || !irq_cpus[i].diff[irq]) {
+				spin_unlock(&irq_cpus[i].lock);
+				continue;
+			}
+			irq_cpus[i].warn[irq] = 1;
+
+			t_diff_ms = irq_cpus[i].te - irq_cpus[i].ts;
+			do_div(t_diff_ms, 1000000);
+
+			snprintf(msg, sizeof(msg),
+				 "irq:%d %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on all CPU",
+				 irq, irq_to_name(irq),
+				 irq_cpus[i].diff[irq], t_diff_ms,
+				 sec_high(irq_cpus[i].ts),
+				 sec_low(irq_cpus[i].ts),
+				 sec_high(irq_cpus[i].te),
+				 sec_low(irq_cpus[i].te));
+			sched_mon_msg(TO_BOTH, msg);
+
+			spin_unlock(&irq_cpus[i].lock);
+		}
 
 		if (irq_period_th2_ns && irq_count_aee_limit &&
 		    t_avg < irq_period_th2_ns) {
@@ -283,7 +349,10 @@ static enum hrtimer_restart irq_count_polling_timer(struct hrtimer *unused)
 
 static int __init init_irq_count_tracer(void)
 {
-	int cpu;
+	int cpu, i;
+
+	for (i = 0; i < REC_NUM; i++)
+		spin_lock_init(&irq_cpus[i].lock);
 
 	for_each_online_cpu(cpu)
 		init_irq_work(per_cpu_ptr(&irq_count_data.work, cpu),
@@ -318,7 +387,7 @@ static void __show_irq_count_info(int output)
 			      sec_high(irq_cnt->t_end), sec_low(irq_cnt->t_end),
 			      msec_high(irq_cnt->t_end - irq_cnt->t_start));
 
-		for (irq = 0; irq < nr_irqs; irq++) {
+		for (irq = 0; min_t(int, nr_irqs, MAX_IRQ_NUM); irq++) {
 			unsigned int count;
 
 			count = kstat_irqs_cpu(irq, cpu);
