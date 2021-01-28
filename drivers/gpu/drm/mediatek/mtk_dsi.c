@@ -2468,6 +2468,7 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 	struct mtk_drm_crtc *mtk_crtc, struct drm_crtc_state *old_state)
 {
 	struct mtk_panel_ext *panel_ext = mtk_crtc->panel_ext;
+	struct mtk_panel_ext *get_panel_ext = find_panel_ext(dsi->panel);
 	struct drm_display_mode *old_mode;
 	struct drm_display_mode *adjust_mode;
 	struct mtk_panel_params *cur_panel_params = panel_ext->params;
@@ -2497,7 +2498,10 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 		DDPINFO("%s,error:not support src MODE:(%d)\n", __func__,
 			src_mode_idx);
 
-	cur_panel_params = find_panel_ext(dsi->panel)->params;
+	if (get_panel_ext) {
+		cur_panel_params = get_panel_ext->params;
+		adjust_panel_params = get_panel_ext->params;
+	}
 
 	if (panel_ext && panel_ext->funcs &&
 		panel_ext->funcs->ext_param_set) {
@@ -2509,10 +2513,8 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 		DDPINFO("%s,error:not support dst MODE:(%d)\n", __func__,
 			dst_mode_idx);
 
-	adjust_panel_params = find_panel_ext(dsi->panel)->params;
-
 	if (!(dsi->mipi_hopping_sta && adjust_panel_params &&
-		cur_panel_params->dyn.switch_en &&
+		cur_panel_params && cur_panel_params->dyn.switch_en &&
 		adjust_panel_params->dyn.switch_en == 1)) {
 		if (adjust_mode->vtotal !=
 			old_mode->vtotal) {
@@ -2522,12 +2524,13 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 			old_mode->htotal) {
 			fps_chg_index |= DYNFPS_DSI_HFP;
 		}
-		if (panel_ext->params->data_rate !=
+		if (panel_ext && adjust_panel_params &&
+			panel_ext->params->data_rate !=
 			adjust_panel_params->data_rate) {
 			fps_chg_index |= DYNFPS_DSI_MIPI_CLK;
 		}
-		if (!fps_chg_index &&
-			cur_panel_params->pll_clk !=
+		if (!fps_chg_index && cur_panel_params &&
+			adjust_panel_params && cur_panel_params->pll_clk !=
 			adjust_panel_params->pll_clk) {
 			fps_chg_index |= DYNFPS_DSI_MIPI_CLK;
 		}
@@ -2535,7 +2538,7 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 			adjust_mode->clock != old_mode->clock) {
 			fps_chg_index |= DYNFPS_DSI_MIPI_CLK;
 		}
-	} else {
+	} else if (cur_panel_params && adjust_panel_params) {
 		if (cur_panel_params->dyn.vfp !=
 			adjust_panel_params->dyn.vfp) {
 			fps_chg_index |= DYNFPS_DSI_VFP;
