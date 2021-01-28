@@ -25,6 +25,7 @@
 #include "kd_imgsensor_define.h"
 
 #include "seninf_common.h"
+#define TG1_ALWAYS_ON
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
 #define SENINF_CLK_CONTROL 0
@@ -89,6 +90,7 @@ enum SENINF_CLK_TG {
 	SENINF_CLK_TG_2,
 	SENINF_CLK_TG_3,
 	SENINF_CLK_TG_4,
+	SENINF_CLK_TG_5,
 	SENINF_CLK_TG_MAX_NUM
 };
 
