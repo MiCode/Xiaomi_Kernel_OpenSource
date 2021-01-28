@@ -69,10 +69,10 @@ static void mt6315_S3_default_vosel(void)
 		regmap_write(regmap, MT6315_PMIC_RG_BUCK_VBUCK4_VOSEL_ADDR,
 			     g_vsram_md_vosel);
 #elif defined(CONFIG_MACH_MT6853)
-		regmap_write(regmap, MT6315_PMIC_RG_BUCK_VBUCK1_VOSEL_ADDR,
-			     g_vmodem_vosel);
 		regmap_write(regmap, MT6315_PMIC_RG_BUCK_VBUCK4_VOSEL_ADDR,
 			     g_vsram_md_vosel);
+		regmap_write(regmap, MT6315_PMIC_RG_BUCK_VBUCK1_VOSEL_ADDR,
+			     g_vmodem_vosel);
 #endif
 		pr_info("[%s] set vmodem=0x%x, vnr=0x%x, vsram_md=0x%x\n"
 			, __func__, g_vmodem_vosel, g_vnr_vosel,
