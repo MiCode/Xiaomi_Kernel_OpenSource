@@ -32,7 +32,7 @@ obj-$(CONFIG_MACH_MT6765) += dcm_v1/
 obj-$(CONFIG_MACH_MT6779) += dcm_v1/
 ifneq ($(CONFIG_FPGA_EARLY_PORTING),y)
 obj-$(CONFIG_MACH_MT6765) += clkbuf_v1/
-obj-$(CONFIG_MACH_MT6761) += clkbuf_v1/
+#obj-$(CONFIG_MACH_MT6761) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6779) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6765) += pbm_v4/
 obj-$(CONFIG_MACH_MT6761) += pbm_v4/

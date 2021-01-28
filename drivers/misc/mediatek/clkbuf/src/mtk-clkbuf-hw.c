@@ -57,24 +57,6 @@ static unsigned int CLK_BUF_STATUS[XO_NUMBER] = {
 		CLOCK_BUFFER_DISABLE,
 		CLOCK_BUFFER_SW_CONTROL};
 
-static unsigned int CLK_BUF_OUTPUT_IMPEDANCE[XO_NUMBER] = {
-		CLK_BUF_OUTPUT_IMPEDANCE_6,
-		CLK_BUF_OUTPUT_IMPEDANCE_4,
-		CLK_BUF_OUTPUT_IMPEDANCE_6,
-		CLK_BUF_OUTPUT_IMPEDANCE_4,
-		CLK_BUF_OUTPUT_IMPEDANCE_0,
-		CLK_BUF_OUTPUT_IMPEDANCE_0,
-		CLK_BUF_OUTPUT_IMPEDANCE_6};
-
-static unsigned int CLK_BUF_CONTROLS_DESENSE[XO_NUMBER] = {
-		CLK_BUF_CONTROLS_FOR_DESENSE_0,
-		CLK_BUF_CONTROLS_FOR_DESENSE_4,
-		CLK_BUF_CONTROLS_FOR_DESENSE_0,
-		CLK_BUF_CONTROLS_FOR_DESENSE_4,
-		CLK_BUF_CONTROLS_FOR_DESENSE_0,
-		CLK_BUF_CONTROLS_FOR_DESENSE_0,
-		CLK_BUF_CONTROLS_FOR_DESENSE_0};
-
 /*
  * This is strings defined for debug usage, it's better understand of meaning
  * of data we present.
@@ -115,30 +97,28 @@ static struct dts_predef clkbuf_dts[DTS_NUM] = {
 	[XO_HW_SEL] = {"pmic-xo-mode", 7, 0, 0x3, 0},
 
 	[BBL_SW_EN] = {"pmic-bblpm-sw", 1, 0, 0x1, 0},
-	[BBL_HW_MSK] = {"pmic-bblpm-hw", 7, 0, 0x1, 0},
-	[BBL_HW_SEL] = {"pmic-bblpm-sel", 1, 0, 0x1, 0},
 
 	[MISC_SRCLKENI_EN] = {"pmic-srclkeni3", 1, 0, 0x1, 0},
-	[MISC_VRF_CK_EN] = {"pmic-ldo-vrfck", 1, 0, 0x1, 0},
-	[MISC_VRF_CK_OP] = {"pmic-ldo-vrfck", 1, 2, 0x1, 0},
-	[MISC_VBB_CK_EN] = {"pmic-ldo-vbbck", 1, 0, 0x1, 0},
-	[MISC_VBB_CK_OP] = {"pmic-ldo-vbbck", 1, 2, 0x1, 0},
+	[MISC_DRV_CURR] = {"pmic-drvcurr", 7, 0, 0x3, 0},
 
-	[AUXOUT_SEL] = {"pmic-auxout-sel", 4, 0, 0x2f, 0},
-	[AUXOUT_XO_EN] = {"pmic-auxout-xo", 7, 0, 0x1, 0},
+	[AUXOUT_SEL] = {"pmic-auxout-sel", 6, 0, 0x2f, 0},
+	[AUXOUT_XO_SOC_WCN_EN] = {"pmic-auxout-xo", 2, 0, 0x1, 0},
+	[AUXOUT_XO_NFC_CEL_EN] = {"pmic-auxout-xo", 2, 4, 0x1, 0},
+	[AUXOUT_XO_PD_EN] = {"pmic-auxout-xo", 1, 10, 0x1, 0},
+	[AUXOUT_XO_EXT_EN] = {"pmic-auxout-xo", 1, 12, 0x1, 0},
 	[AUXOUT_BBLPM_EN] = {"auxout-bblpm-en", 1, 0, 0x1, 0},
-	[AUXOUT_BBLPM_O] = {"auxout-bblpm-o", 1, 0, 0x1, 0},
+	[AUXOUT_XO_SOC_WCN_CURR] = {"pmic-auxout-drvcurr", 2, 0, 0x3, 0},
+	[AUXOUT_XO_NFC_CEL_CURR] = {"pmic-auxout-drvcurr", 2, 4, 0x3, 0},
+	[AUXOUT_XO_PD_EXT_CURR] = {"pmic-auxout-drvcurr", 2, 10, 0x3, 0},
 
 	[PWRAP_DCXO_EN] = {"pwrap-dcxo-en", 1, 0, 0xffff, 0},
 	[PWRAP_CONN_EN] = {"pwrap-dcxo-en", 1, 2, 0x1, 0},
 	[PWRAP_NFC_EN] = {"pwrap-dcxo-en", 1, 4, 0x1, 0},
 	[PWRAP_CONN_CFG] = {"pwrap-dcxo-cfg", 4, 0, 0xffff, 0x4},
 	[PWRAP_NFC_CFG] = {"pwrap-dcxo-cfg", 4, 1, 0xffff, 0x4},
-
-	[GPIO_NFC_MODE] = {"gpio-nfc-mode", 1, 0, 0x7, 0},
 };
 
-static const char *base_n[REGMAP_NUM] = {"pmic", "pwrap", "gpio"};
+static const char *base_n[REGMAP_NUM] = {"pmic", "pwrap"};
 
 #ifndef CLKBUF_BRINGUP
 static enum CLK_BUF_TYPE  pmic_clk_buf_swctrl[XO_NUMBER] = {
@@ -174,6 +154,7 @@ static inline void clkbuf_read(u32 dts, u32 id, u32 *val)
 static inline void clkbuf_write(u32 dts, u32 id, u32 val)
 {
 	val <<= cfg[dts].bit[id];
+	pr_info("offset: 0x%x\n", cfg[dts].ofs[id]);
 	regmap_write(cfg[dts].regmap, cfg[dts].ofs[id], val);
 }
 
@@ -194,7 +175,7 @@ static inline void clkbuf_update(u32 dts, u32 id, u32 val)
 	u32 mask;
 
 	val <<= cfg[dts].bit[id];
-	mask = 1 << clkbuf_dts[dts].mask;
+	mask = clkbuf_dts[dts].mask << cfg[dts].bit[id];
 
 	regmap_update_bits(cfg[dts].regmap,
 			cfg[dts].ofs[id],
@@ -258,21 +239,12 @@ static void _clk_buf_en_set(enum clk_buf_id id, bool onoff)
 
 static enum dev_sta _get_nfc_dev_state(void)
 {
-#ifndef CONFIG_NFC_CHIP_SUPPORT
-	enum dev_sta gpio_mode = DEV_OFF;
-
-	/* check if GPIO is configured correctly for SCP VREQ */
-	clkbuf_read(GPIO_NFC_MODE, 0, &gpio_mode);
-
-	if (gpio_mode == 1) {
-		pr_info("nfc_clk muxpin set to srclkeno0\n");
-		gpio_mode = DEV_ON;
-	} else
-		pr_info("nfc_clk muxpin setting : %d\n", gpio_mode);
-
-	return gpio_mode;
-#endif
+	pr_info("%s: NFC support: %d\n", __func__, NFC_CLKBUF_SUPPORT);
+#if defined(CONFIG_MTK_CLKBUF_NFC)
 	return DEV_ON;
+#else
+	return DEV_NOT_SUPPORT;
+#endif
 }
 
 static enum dev_sta _get_ufs_dev_state(void)
@@ -286,35 +258,12 @@ static enum dev_sta _get_ufs_dev_state(void)
 #if BBLPM_SUPPORT
 static int _clk_buf_set_bblpm_hw_en(bool on)
 {
-	u32 val = 0;
-
-	clkbuf_update(BBL_HW_SEL, 0, on);
-	clkbuf_read(BBL_HW_SEL, 0, &val);
-
-	pr_debug("%s(%u): bblpm_hw=0x%x\n",
-			__func__, (on ? 1 : 0), val);
-
 	return 0;
 }
 
 static void _clk_buf_set_bblpm_hw_msk(enum clk_buf_id id, bool onoff)
 {
-
-	if (id < 0 || id >= CLK_BUF_INVALID) {
-		pr_err("%s: %s isn't supported\n", __func__, XO_NAME[id]);
-		return;
-	}
-
-	if (CLK_BUF_STATUS[id] == CLOCK_BUFFER_DISABLE) {
-		pr_info("%s: %s isn't enabled\n", __func__, XO_NAME[id]);
-		return;
-	}
-
-	mutex_lock(&clk_buf_ctrl_lock);
-
-	clkbuf_update(BBL_HW_MSK, id, onoff);
-
-	mutex_unlock(&clk_buf_ctrl_lock);
+	return;
 }
 
 static void _clk_buf_get_bblpm_en(u32 *stat)
@@ -322,15 +271,14 @@ static void _clk_buf_get_bblpm_en(u32 *stat)
 	int idx;
 
 	idx = AUXOUT_BBLPM_EN - AUXOUT_START;
-	clkbuf_update(AUXOUT_SEL, 0, cfg[AUXOUT_SEL].bit[idx]);
+	pr_info("%s: bblpm idx: %d\n", __func__, idx);
+	clkbuf_write(AUXOUT_SEL, 0, cfg[AUXOUT_SEL].bit[idx]);
 	clkbuf_read(AUXOUT_BBLPM_EN, 0, &stat[0]);
 
-	idx = AUXOUT_BBLPM_O - AUXOUT_START;
-	clkbuf_update(AUXOUT_SEL, 0, cfg[AUXOUT_SEL].bit[idx]);
-	clkbuf_read(AUXOUT_BBLPM_O, 0, &stat[1]);
+	clkbuf_read(BBL_SW_EN, 0, &(stat[1]));
 
-	pr_info("%s: bblpm en_stat(%d) en_o(%d)\n",
-			__func__, stat[0], stat[1]);
+	pr_info("%s: bblpm auxout en_stat(%d)\n", __func__, stat[0]);
+	pr_info("%s: bblpm_en(%d)\n", __func__, stat[1]);
 }
 
 static int _clk_buf_get_bblpm_en_stat(void)
@@ -507,6 +455,52 @@ static int _clk_buf_ctrl_internal(enum clk_buf_id id,
 	return ret;
 }
 
+static void _clk_buf_get_drv_curr(u32 *drv_curr)
+{
+	int i, max;
+	int offset = 0;
+
+	max = AUXOUT_XO_PD_EXT_CURR - AUXOUT_XO_SOC_WCN_CURR + 1;
+
+	for (i = 0; i < max; i++) {
+		pr_info("%s: AUXOUT drv curr idx: %d, value: %d\n",
+				__func__,
+				i,
+				cfg[AUXOUT_SEL].bit[i + 1]);
+
+		clkbuf_write(AUXOUT_SEL, 0,
+				cfg[AUXOUT_SEL].bit[i + 1]);
+
+		if (i == 2)
+			offset = 1;
+
+		clkbuf_read(AUXOUT_XO_SOC_WCN_CURR + i,
+				0,
+				&(drv_curr[i * 2 + offset]));
+		clkbuf_read(AUXOUT_XO_SOC_WCN_CURR + i,
+				1,
+				&(drv_curr[i * 2 + 1 + offset]));
+	}
+
+	pr_info("%s: PMIC_CLKBUF_DRV_CURR_AUXOUT (1/2/3/4/6/7)= %u %u %u %u %u %u\n",
+		__func__,
+		drv_curr[XO_SOC], drv_curr[XO_WCN],
+		drv_curr[XO_NFC], drv_curr[XO_CEL],
+		drv_curr[XO_PD], drv_curr[XO_EXT]);
+}
+
+static void _clk_buf_set_manual_drv_curr(u32 *drv_curr_vals)
+{
+	int i = 0;
+	u32 drv_curr[XO_NUMBER];
+
+	for (i = 0 ; i < XO_NUMBER; i++)
+		if (cfg[MISC_DRV_CURR].ofs[i] != NOT_VALID)
+			clkbuf_update(MISC_DRV_CURR, i, drv_curr_vals[i] % 4);
+
+	_clk_buf_get_drv_curr(drv_curr);
+}
+
 static void _pmic_clk_buf_ctrl(enum CLK_BUF_TYPE *status)
 {
 	u32 i;
@@ -577,16 +571,6 @@ static char *_clk_buf_dump_dws_log(void)
 				"CLK_BUF%d_STATUS=%d\n",
 				i+1, CLK_BUF_STATUS[i]);
 
-	for (i = 0; i < XO_NUMBER; i++)
-		len += snprintf(buf+len, PAGE_SIZE-len,
-				"CLK_BUF%d_OUTPUT_IMPEDANCE=%d\n",
-				i + 1, CLK_BUF_OUTPUT_IMPEDANCE[i]);
-
-	for (i = 0; i < XO_NUMBER; i++)
-		len += snprintf(buf+len, PAGE_SIZE-len,
-				"CLK_BUF%d_CONTROLS_DESENSE=%d\n",
-				i + 1, CLK_BUF_CONTROLS_DESENSE[i]);
-
 	pr_info("%s: %s\n", __func__, buf);
 
 	return buf;
@@ -623,14 +607,36 @@ static char *_clk_buf_dump_misc_log(void)
 static void _clk_buf_get_xo_en(u32 *stat)
 {
 	int idx;
-	int i;
 
-	idx = AUXOUT_XO_EN - AUXOUT_START;
+	idx = AUXOUT_XO_SOC_WCN_EN - AUXOUT_START;
+	pr_info("[%s] idx: %d, AUXOUT write: %u\n",
+		__func__, idx, cfg[AUXOUT_SEL].bit[idx]);
 	clkbuf_write(AUXOUT_SEL, 0, cfg[AUXOUT_SEL].bit[idx]);
 
-	for (i = 0 ; i < XO_NUMBER; i++)
-		if (cfg[AUXOUT_XO_EN].ofs[i] != NOT_VALID)
-			clkbuf_read(AUXOUT_XO_EN, i, &stat[i]);
+	clkbuf_read(AUXOUT_XO_SOC_WCN_EN, 0, &stat[0]);
+	clkbuf_read(AUXOUT_XO_SOC_WCN_EN, 1, &stat[1]);
+
+	idx = AUXOUT_XO_NFC_CEL_EN - AUXOUT_START;
+	pr_info("[%s] idx: %d, AUXOUT write: %u\n",
+		__func__, idx, cfg[AUXOUT_SEL].bit[idx]);
+	clkbuf_write(AUXOUT_SEL, 0, cfg[AUXOUT_SEL].bit[idx]);
+
+	clkbuf_read(AUXOUT_XO_NFC_CEL_EN, 0, &stat[2]);
+	clkbuf_read(AUXOUT_XO_NFC_CEL_EN, 1, &stat[3]);
+
+	idx = AUXOUT_XO_PD_EN - AUXOUT_START;
+	pr_info("[%s] idx: %d, AUXOUT write: %u\n",
+		__func__, idx, cfg[AUXOUT_SEL].bit[idx]);
+	clkbuf_write(AUXOUT_SEL, 0, cfg[AUXOUT_SEL].bit[idx]);
+
+	clkbuf_read(AUXOUT_XO_PD_EN, 0, &stat[5]);
+
+	idx = AUXOUT_XO_EXT_EN - AUXOUT_START;
+	pr_info("[%s] idx: %d, AUXOUT write: %u\n",
+		__func__, idx, cfg[AUXOUT_SEL].bit[idx]);
+	clkbuf_write(AUXOUT_SEL, 0, cfg[AUXOUT_SEL].bit[idx]);
+
+	clkbuf_read(AUXOUT_XO_EXT_EN, 0, &stat[6]);
 
 	pr_info("%s: EN_STAT=%d %d %d %d %d %d\n",
 		__func__,
@@ -645,6 +651,7 @@ static void _clk_buf_get_xo_en(u32 *stat)
 static ssize_t _clk_buf_show_status_info_internal(char *buf)
 {
 	u32 stat[XO_NUMBER];
+	u32 drv_curr[XO_NUMBER];
 	u32 bblpm_stat[2];
 	u32 buf_mode;
 	u32 buf_en;
@@ -653,6 +660,7 @@ static ssize_t _clk_buf_show_status_info_internal(char *buf)
 	int i;
 
 	_clk_buf_get_xo_en(stat);
+	_clk_buf_get_drv_curr(drv_curr);
 
 	for (i = 0; i < XO_NUMBER; i++)
 		len += snprintf(buf+len, PAGE_SIZE-len,
@@ -696,6 +704,12 @@ static ssize_t _clk_buf_show_status_info_internal(char *buf)
 	len += snprintf(buf+len, PAGE_SIZE-len,
 			"DCXO_ENABLE=0x%x, flight mode = %d bblpm = %d\n",
 			val[0], _clk_buf_get_flight_mode(), bblpm_stat[0]);
+
+	len += snprintf(buf + len, PAGE_SIZE - len,
+			"PMIC_CLKBUF_DRV_CURR (1/2/3/4/6/7)= %u %u %u %u %u %u\n",
+			drv_curr[XO_SOC], drv_curr[XO_WCN],
+			drv_curr[XO_NFC], drv_curr[XO_CEL],
+			drv_curr[XO_PD], drv_curr[XO_EXT]);
 
 	len += snprintf(buf+len, PAGE_SIZE-len,
 			".********** clock buffer command help **********\n");
@@ -778,6 +792,11 @@ static ssize_t clk_buf_ctrl_store(struct kobject *kobj,
 
 		mutex_unlock(&clk_buf_ctrl_lock);
 
+		return count;
+	} else if (!strcmp(cmd, "drvcurr")) {
+		mutex_lock(&clk_buf_ctrl_lock);
+		_clk_buf_set_manual_drv_curr(clk_buf_en);
+		mutex_unlock(&clk_buf_ctrl_lock);
 		return count;
 	} else {
 		return -EINVAL;
@@ -902,9 +921,8 @@ static ssize_t clk_buf_bblpm_show(struct kobject *kobj,
 		xo_stat[XO_EXT]);
 
 	len += snprintf(buf+len, PAGE_SIZE-len,
-		"bblpm en_stat(%d) en_o(%d)\n",
-		bblpm_stat[0],
-		bblpm_stat[1]);
+		"bblpm en_stat(%d)\n",
+		bblpm_stat[0]);
 
 	return len;
 }
@@ -1042,18 +1060,6 @@ static int _clk_buf_dts_init(struct platform_device *pdev)
 	if (ret)
 		goto no_property;
 
-	ret = of_property_read_u32_array(node,
-		"mediatek,clkbuf-output-impedance",
-		CLK_BUF_OUTPUT_IMPEDANCE, XO_NUMBER);
-	if (ret)
-		goto no_property;
-
-	ret = of_property_read_u32_array(node,
-		"mediatek,clkbuf-controls-for-desense",
-		CLK_BUF_CONTROLS_DESENSE, XO_NUMBER);
-	if (ret)
-		goto no_property;
-
 	cfg = kzalloc(sizeof(struct reg_info) * DTS_NUM, GFP_KERNEL);
 	if (!cfg)
 		goto no_mem;
@@ -1081,6 +1087,7 @@ static int _clk_buf_dts_init(struct platform_device *pdev)
 					PTR_ERR(regmap));
 				goto no_compatible;
 			}
+			pr_info("found %s regmap\n", base_n[i]);
 		}
 
 		for (j = start[i]; j < end[i]; j++) {

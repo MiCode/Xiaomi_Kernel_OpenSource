@@ -53,11 +53,6 @@ struct clk_buf_bridge {
 	clk_buf_bridge_dump_log_cb dump_log_cb;
 };
 
-#ifdef CONFIG_MTK_BASE_POWER
-extern bool clk_buf_ctrl(enum clk_buf_id id, bool onoff);
-extern void clk_buf_set_by_flightmode(bool on);
-extern void clk_buf_dump_clkbuf_log(void);
-#else
 void clk_buf_export_platform_bridge_register(struct clk_buf_bridge *cb);
 void clk_buf_export_platform_bridge_unregister(void);
 extern enum clk_buf_ret_type clk_buf_ctrl(enum clk_buf_id id, bool onoff);
@@ -65,7 +60,6 @@ extern enum clk_buf_ret_type clk_buf_set_by_flightmode(bool on);
 extern enum clk_buf_ret_type clk_buf_control_bblpm(bool on);
 extern enum clk_buf_ret_type clk_buf_dump_clkbuf_log(void);
 extern enum clk_buf_ret_type clk_buf_get_xo_en_sta(enum xo_id id);
-#endif
 
 #endif
 
