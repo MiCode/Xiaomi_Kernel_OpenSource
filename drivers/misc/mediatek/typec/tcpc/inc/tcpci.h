@@ -136,7 +136,8 @@ int tcpci_disable_vbus_control(struct tcpc_device *tcpc);
 int tcpci_notify_attachwait_state(struct tcpc_device *tcpc, bool as_sink);
 int tcpci_enable_ext_discharge(struct tcpc_device *tcpc, bool en);
 int tcpci_enable_auto_discharge(struct tcpc_device *tcpc, bool en);
-int tcpci_enable_force_discharge(struct tcpc_device *tcpc, int mv);
+int __tcpci_enable_force_discharge(struct tcpc_device *tcpc, bool en, int mv);
+int tcpci_enable_force_discharge(struct tcpc_device *tcpc, bool en, int mv);
 int tcpci_disable_force_discharge(struct tcpc_device *tcpc);
 
 #ifdef CONFIG_USB_POWER_DELIVERY

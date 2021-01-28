@@ -22,6 +22,9 @@
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 #include "pd_core.h"
+#ifdef CONFIG_TYPEC_WAIT_BC12
+#include <linux/power_supply.h>
+#endif /* CONFIG_TYPEC_WAIT_BC12 */
 #endif
 
 /* The switch of log message */
@@ -323,6 +326,7 @@ struct tcpc_device {
 
 	struct delayed_work	init_work;
 	struct delayed_work	event_init_work;
+	struct workqueue_struct *evt_wq;
 	struct srcu_notifier_head evt_nh[TCP_NOTIFY_IDX_NR];
 	struct tcpc_managed_res *mr_head;
 	struct mutex mr_lock;
@@ -344,6 +348,7 @@ struct tcpc_device {
 	bool typec_power_ctrl;
 	bool typec_watchdog;
 	bool typec_reach_vsafe0v;
+	bool typec_is_attached_src;
 
 	int typec_usb_sink_curr;
 
@@ -472,10 +477,10 @@ struct tcpc_device {
 	uint8_t charging_status;
 	int bat_soc;
 #endif /* CONFIG_USB_PD_REV30 */
-#ifdef CONFIG_MTK_WAIT_BC12
-	uint8_t wait_bc12_cnt;
+#ifdef CONFIG_TYPEC_WAIT_BC12
+	uint8_t sink_wait_bc12_count;
 	struct power_supply *chg_psy;
-#endif /* CONFIG_MTK_WAIT_BC12 */
+#endif /* CONFIG_TYPEC_WAIT_BC12 */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 	u8 vbus_level:2;
 	bool vbus_safe0v;

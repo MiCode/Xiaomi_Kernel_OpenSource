@@ -446,7 +446,7 @@ static inline bool pd_process_timer_msg(
 			PE_SRC_CBL_SEND_SOFT_RESET, PE_SRC_SEND_CAPABILITIES);
 #endif	/*  CONFIG_PD_SRC_RESET_CABLE */
 #endif
-		/* fall-through */
+
 	case PD_TIMER_PS_HARD_RESET:
 		return PE_MAKE_STATE_TRANSIT(PD_TIMER_PS_HARD_RESET);
 

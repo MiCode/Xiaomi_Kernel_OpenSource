@@ -49,7 +49,7 @@ extern void dpm_extract_pdo_info(
 			uint32_t pdo, struct dpm_pdo_info_t *info);
 
 extern bool dpm_find_match_req_info(struct dpm_rdo_info_t *req_info,
-	uint32_t snk_pdo, int cnt, uint32_t *src_pdos,
+	struct dpm_pdo_info_t *sink, int cnt, uint32_t *src_pdos,
 	int min_uw, uint32_t select_rule);
 
 #endif	/* PD_DPM_PDO_SELECT_H */

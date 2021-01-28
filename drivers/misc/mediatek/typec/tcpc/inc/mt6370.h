@@ -15,6 +15,7 @@
 /* MT6370 Private RegMap */
 
 #define MT6370_REG_PHY_CTRL1				(0x80)
+#define MT6370_REG_PHY_CTRL2				(0x81)
 #define MT6370_REG_PHY_CTRL3				(0x82)
 #define MT6370_REG_CLK_CTRL2				(0x87)
 #define MT6370_REG_CLK_CTRL3				(0x88)
@@ -39,6 +40,9 @@
 #define MT6370_REG_TTCPC_FILTER			(0xA1)
 #define MT6370_REG_DRP_TOGGLE_CYCLE		(0xA2)
 #define MT6370_REG_DRP_DUTY_CTRL			(0xA3)
+
+#define MT6370_REG_PHY_CTRL11				(0xBA)
+#define MT6370_REG_PHY_CTRL12				(0xBB)
 
 /*
  * Device ID

@@ -818,8 +818,8 @@ void (*pe_get_exit_action(uint8_t pe_state))
 #endif	/* CONFIG_USB_PD_REV30_STATUS_REMOTE */
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PE_SOURCE */
+
 /******************* Sink *******************/
-		/* fall-through */
 #ifdef CONFIG_USB_PD_PE_SINK
 	case PE_SNK_SELECT_CAPABILITY:
 		retval = pe_snk_select_capability_exit;
@@ -848,7 +848,6 @@ void (*pe_get_exit_action(uint8_t pe_state))
 #endif	/* CONFIG_USB_PD_PE_SINK */
 
 /******************* PR_SWAP *******************/
-		/* fall-through */
 #ifdef CONFIG_USB_PD_PR_SWAP
 	case PE_DR_SRC_GET_SOURCE_CAP:
 		retval = pe_dr_src_get_source_cap_exit;
@@ -869,7 +868,6 @@ void (*pe_get_exit_action(uint8_t pe_state))
 #endif	/* CONFIG_USB_PD_PR_SWAP */
 
 /******************* PD30 Common *******************/
-		/* fall-through */
 #ifdef CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_BAT_CAP_REMOTE
 	case PE_GET_BATTERY_CAP:
@@ -1077,7 +1075,7 @@ static inline bool pd_try_get_vdm_event(
 		break;
 #endif	/* CONFIG_PD_SRC_RESET_CABLE */
 #endif	/* CONFIG_USB_PD_PE_SOURCE */
-		/* fall-through */
+
 #ifdef CONFIG_USB_PD_CUSTOM_DBGACC
 	case PE_DBG_READY:
 		ret = pd_get_vdm_event(tcpc_dev, pd_event);

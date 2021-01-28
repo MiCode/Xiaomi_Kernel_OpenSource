@@ -46,23 +46,18 @@ void pe_src_startup_entry(struct pd_port *pd_port)
 
 void pe_src_discovery_entry(struct pd_port *pd_port)
 {
-	/* MessageID Should be 0 for First SourceCap (Ellisys)... */
-
 	/* The SourceCapabilitiesTimer continues to run during the states
 	 * defined in Source Startup Structured VDM Discover Identity State
 	 * Diagram
 	 */
 
-	pd_port->pe_data.msg_id_tx[TCPC_TX_SOP] = 0;
 	pd_port->pe_data.pd_connected = false;
 
 	pd_enable_timer(pd_port, PD_TIMER_SOURCE_CAPABILITY);
 
 #ifdef CONFIG_USB_PD_SRC_STARTUP_DISCOVER_ID
-	if (pd_is_discover_cable(pd_port)) {
-		pd_port->pe_data.msg_id_tx[TCPC_TX_SOP_PRIME] = 0;
+	if (pd_is_discover_cable(pd_port))
 		pd_enable_timer(pd_port, PD_TIMER_DISCOVER_ID);
-	}
 #endif
 }
 

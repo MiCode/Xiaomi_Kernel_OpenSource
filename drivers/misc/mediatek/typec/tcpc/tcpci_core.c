@@ -23,7 +23,7 @@
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
-#define TCPC_CORE_VERSION		"2.0.10_MTK"
+#define TCPC_CORE_VERSION		"2.0.12_MTK"
 
 static ssize_t tcpc_show_property(struct device *dev,
 				  struct device_attribute *attr, char *buf);
@@ -359,6 +359,7 @@ struct tcpc_device *tcpc_device_register(struct device *parent,
 		return NULL;
 	}
 
+	tcpc->evt_wq = alloc_ordered_workqueue("%s", 0, tcpc_desc->name);
 	for (i = 0; i < TCP_NOTIFY_IDX_NR; i++)
 		srcu_init_notifier_head(&tcpc->evt_nh[i]);
 
@@ -375,7 +376,7 @@ struct tcpc_device *tcpc_device_register(struct device *parent,
 	tcpc->dev.release = tcpc_device_release;
 	dev_set_drvdata(&tcpc->dev, tcpc);
 	tcpc->drv_data = drv_data;
-	dev_set_name(&tcpc->dev, tcpc_desc->name);
+	dev_set_name(&tcpc->dev, "%s", tcpc_desc->name);
 	tcpc->desc = *tcpc_desc;
 	tcpc->ops = ops;
 	tcpc->typec_local_rp_level = tcpc_desc->rp_lvl;
@@ -383,6 +384,8 @@ struct tcpc_device *tcpc_device_register(struct device *parent,
 #ifdef CONFIG_TCPC_VCONN_SUPPLY_MODE
 	tcpc->tcpc_vconn_supply = tcpc_desc->vconn_supply;
 #endif	/* CONFIG_TCPC_VCONN_SUPPLY_MODE */
+
+	device_set_of_node_from_dev(&tcpc->dev, parent);
 
 	ret = device_register(&tcpc->dev);
 	if (ret) {
@@ -397,9 +400,9 @@ struct tcpc_device *tcpc_device_register(struct device *parent,
 	 * please use it instead of "WAKE_LOCK_SUSPEND"
 	 */
 	tcpc->attach_wake_lock =
-		wakeup_source_register(NULL, "tcpc_attach_wakelock");
+		wakeup_source_register(&tcpc->dev, "tcpc_attach_wakelock");
 	tcpc->dettach_temp_wake_lock =
-		wakeup_source_register(NULL, "tcpc_detach_wakelock");
+		wakeup_source_register(&tcpc->dev, "tcpc_detach_wakelock");
 
 	tcpci_timer_init(tcpc);
 #ifdef CONFIG_USB_POWER_DELIVERY
@@ -424,21 +427,20 @@ static int tcpc_device_irq_enable(struct tcpc_device *tcpc)
 		return -EINVAL;
 	}
 
+	tcpci_lock_typec(tcpc);
 	ret = tcpci_init(tcpc, false);
 	if (ret < 0) {
+		tcpci_unlock_typec(tcpc);
 		pr_err("%s tcpc init fail\n", __func__);
 		return ret;
 	}
 
-	tcpci_lock_typec(tcpc);
 	ret = tcpc_typec_init(tcpc, tcpc->desc.role_def + 1);
 	tcpci_unlock_typec(tcpc);
 	if (ret < 0) {
 		pr_err("%s : tcpc typec init fail\n", __func__);
 		return ret;
 	}
-	if (tcpc->ops->init_alert_mask)
-		tcpci_init_alert_mask(tcpc);
 
 	schedule_delayed_work(
 		&tcpc->event_init_work, msecs_to_jiffies(10*1000));
@@ -481,8 +483,8 @@ static void bat_update_work_func(struct work_struct *work)
 	if (ret < 0)
 		TCPC_ERR("%s get battery charger now fail\n", __func__);
 
-	tcpm_update_bat_status_soc(
-		tcpc, tcpc->charging_status, tcpc->bat_soc * 10);
+	tcpm_update_bat_status_soc(tcpc,
+		PD_BAT_REF_FIXED0, tcpc->charging_status, tcpc->bat_soc * 10);
 }
 
 static int bat_nb_call_func(
@@ -514,8 +516,16 @@ static void tcpc_event_init_work(struct work_struct *work)
 
 	tcpci_lock_typec(tcpc);
 	tcpci_event_init(tcpc);
+#ifdef CONFIG_TYPEC_WAIT_BC12
+	tcpc->chg_psy = devm_power_supply_get_by_phandle(
+		tcpc->dev.parent, "charger");
+	if (IS_ERR_OR_NULL(tcpc->chg_psy)) {
+		TCPC_ERR("%s get charger psy fail\n", __func__);
+		return;
+	}
+#endif /* CONFIG_TYPEC_WAIT_BC12 */
 	tcpc->pd_inited_flag = 1; /* MTK Only */
-	pr_info("%s typec attache new = %d\n",
+	pr_info("%s typec attach new = %d\n",
 			__func__, tcpc->typec_attach_new);
 	if (tcpc->typec_attach_new)
 		pd_put_cc_attached_event(tcpc, tcpc->typec_attach_new);
@@ -770,9 +780,9 @@ void tcpc_device_unregister(struct device *dev, struct tcpc_device *tcpc)
 
 	tcpc_typec_deinit(tcpc);
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#ifdef CONFIG_USB_PD_REV30
 	wakeup_source_unregister(tcpc->pd_port.pps_request_wake_lock);
-#endif /* CONFIG_USB_POWER_DELIVERY */
+#endif /* CONFIG_USB_PD_REV30 */
 	wakeup_source_unregister(tcpc->dettach_temp_wake_lock);
 	wakeup_source_unregister(tcpc->attach_wake_lock);
 
@@ -878,10 +888,9 @@ static int __tcpc_class_complete_work(struct device *dev, void *data)
 #ifdef CONFIG_USB_POWER_DELIVERY
 #ifdef CONFIG_RECV_BAT_ABSENT_NOTIFY
 		fg_bat_nb->notifier_call = fg_bat_notifier_call;
-/* FIXME : skip build error */
-/* CONFIG_MTK_GAUGE_VERSION == 30 */
+#if CONFIG_MTK_GAUGE_VERSION == 30
 		ret = register_battery_notifier(fg_bat_nb);
-/* #endif */
+#endif
 		if (ret < 0) {
 			pr_notice("%s: register bat notifier fail\n", __func__);
 			return -EINVAL;
@@ -909,6 +918,18 @@ MODULE_VERSION(TCPC_CORE_VERSION);
 MODULE_LICENSE("GPL");
 
 /* Release Version
+ * 2.0.12_MTK
+ * (1) Fix voltage/current steps of RDO for APDO
+ * (2) Non-blocking TCPC notification by default
+ * (3) Fix synchronization/locking problems
+ * (4) Fix NoRp.SRC support
+ *
+ * 2.0.11_MTK
+ * (1) Fix PD compliance failures of Ellisys and MQP
+ * (2) Wait the result of BC1.2 before starting PD policy engine
+ * (3) Fix compile warnings
+ * (4) Fix NoRp.SRC support
+ *
  * 2.0.10_MTK
  * (1) fix battery noitifier plug out cause recursive locking detected in
  *     nh->srcu.

@@ -336,7 +336,8 @@ static inline int __tcpci_alert(struct tcpc_device *tcpc_dev)
 
 #ifdef CONFIG_USB_PD_DBG_ALERT_STATUS
 	if (alert_status != 0)
-		TCPC_INFO("Alert:0x%04x\r\n", alert_status);
+		TCPC_INFO("Alert:0x%04x, Mask:0x%04x\r\n",
+			  alert_status, alert_mask);
 #endif /* CONFIG_USB_PD_DBG_ALERT_STATUS */
 
 	alert_status &= alert_mask;
@@ -466,6 +467,8 @@ static inline int tcpci_report_usb_port_attached(struct tcpc_device *tcpc)
 
 	switch (tcpc->typec_attach_new) {
 	case TYPEC_ATTACHED_SNK:
+	case TYPEC_ATTACHED_CUSTOM_SRC:
+	case TYPEC_ATTACHED_NORP_SRC:
 		tcpc->dual_role_pr = DUAL_ROLE_PROP_PR_SNK;
 		tcpc->dual_role_dr = DUAL_ROLE_PROP_DR_DEVICE;
 		tcpc->dual_role_mode = DUAL_ROLE_PROP_MODE_UFP;
@@ -504,16 +507,8 @@ static inline int tcpci_report_usb_port_attached(struct tcpc_device *tcpc)
 #endif	/* CONFIG_USB_PD_DISABLE_PE */
 
 	/* MTK Only */
-	if (tcpc->pd_inited_flag) {
-#ifdef CONFIG_MTK_WAIT_BC12
-		if (tcpc->typec_attach_new == TYPEC_ATTACHED_SNK)
-			tcpc_enable_timer(tcpc, TYPEC_RT_TIMER_SINK_WAIT_BC12);
-		else
-			pd_put_cc_attached_event(tcpc, tcpc->typec_attach_new);
-#else
+	if (tcpc->pd_inited_flag)
 		pd_put_cc_attached_event(tcpc, tcpc->typec_attach_new);
-#endif
-	}
 #endif /* CONFIG_USB_POWER_DLEIVERY */
 
 	return 0;
@@ -572,6 +567,8 @@ int tcpci_report_power_control_on(struct tcpc_device *tcpc)
 {
 	tcpci_set_wake_lock_pd(tcpc, true);
 
+	mutex_lock(&tcpc->access_lock);
+
 #ifdef CONFIG_TYPEC_CAP_AUTO_DISCHARGE
 
 #ifdef CONFIG_TCPC_AUTO_DISCHARGE_EXT
@@ -583,17 +580,24 @@ int tcpci_report_power_control_on(struct tcpc_device *tcpc)
 #endif	/* CONFIG_TCPC_AUTO_DISCHARGE_IC */
 
 	tcpc_disable_timer(tcpc, TYPEC_RT_TIMER_AUTO_DISCHARGE);
+
 #endif	/* CONFIG_TYPEC_CAP_AUTO_DISCHARGE */
+
+	mutex_unlock(&tcpc->access_lock);
 
 	return 0;
 }
 
 int tcpci_report_power_control_off(struct tcpc_device *tcpc)
 {
+	mutex_lock(&tcpc->access_lock);
+
 #ifdef CONFIG_USB_POWER_DELIVERY
+#ifdef CONFIG_TYPEC_CAP_FORCE_DISCHARGE
 #ifdef CONFIG_TCPC_FORCE_DISCHARGE_IC
-	tcpci_disable_force_discharge(tcpc);
+	__tcpci_enable_force_discharge(tcpc, false, 0);
 #endif	/* CONFIG_TCPC_FORCE_DISCHARGE_IC */
+#endif	/* CONFIG_TYPEC_CAP_FORCE_DISCHARGE */
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 
 #ifdef CONFIG_TYPEC_CAP_AUTO_DISCHARGE
@@ -604,6 +608,8 @@ int tcpci_report_power_control_off(struct tcpc_device *tcpc)
 
 	tcpc_enable_timer(tcpc, TYPEC_RT_TIMER_AUTO_DISCHARGE);
 #endif	/* CONFIG_TYPEC_CAP_AUTO_DISCHARGE */
+
+	mutex_unlock(&tcpc->access_lock);
 
 	tcpci_set_wake_lock_pd(tcpc, false);
 	return 0;

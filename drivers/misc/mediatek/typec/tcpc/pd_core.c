@@ -732,7 +732,7 @@ int pd_reset_protocol_layer(struct pd_port *pd_port, bool sop_only)
 	pe_data->cap_counter = 0;
 #endif	/* CONFIG_USB_PD_PE_SOURCE */
 
-	pe_data->explicit_contract = 0;
+	pe_data->explicit_contract = false;
 	pe_data->local_selected_cap = 0;
 	pe_data->remote_selected_cap = 0;
 	pe_data->during_swap = 0;
@@ -960,6 +960,7 @@ int pd_reset_local_hw(struct pd_port *pd_port)
 	pd_port->state_machine = PE_STATE_MACHINE_NORMAL;
 
 	pd_set_data_role(pd_port, dr);
+	pd_init_spec_revision(pd_port);
 	pd_dpm_notify_pe_hardreset(pd_port);
 	PE_DBG("reset_local_hw\r\n");
 
@@ -989,8 +990,8 @@ void pd_handle_first_pd_command(struct pd_port *pd_port)
 	pd_sync_sop_spec_revision(pd_port);
 #endif	/* CONFIG_USB_PD_REV30 */
 
-	pd_port->pe_data.pd_connected = 1;
-	pd_port->pe_data.pd_prev_connected = 1;
+	pd_port->pe_data.pd_connected = true;
+	pd_port->pe_data.pd_prev_connected = true;
 }
 
 void pd_handle_hard_reset_recovery(struct pd_port *pd_port)
@@ -1399,13 +1400,17 @@ void pd_set_sink_tx(struct pd_port *pd_port, uint8_t cc)
 	if (cc == PD30_SINK_TX_OK &&
 		pd_port->pe_data.pd_traffic_control != PD_SINK_TX_OK) {
 		PE_INFO("sink_tx_ok\r\n");
+		tcpci_lock_typec(pd_port->tcpc_dev);
 		tcpci_set_cc(pd_port->tcpc_dev, cc);
+		tcpci_unlock_typec(pd_port->tcpc_dev);
 		pd_port->pe_data.pd_traffic_control = PD_SINK_TX_OK;
 		pd_disable_timer(pd_port, PD_TIMER_SINK_TX);
 	} else if (cc == PD30_SINK_TX_NG &&
 		pd_port->pe_data.pd_traffic_control == PD_SINK_TX_OK) {
 		PE_INFO("sink_tx_ng\r\n");
+		tcpci_lock_typec(pd_port->tcpc_dev);
 		tcpci_set_cc(pd_port->tcpc_dev, cc);
+		tcpci_unlock_typec(pd_port->tcpc_dev);
 		pd_port->pe_data.pd_traffic_control = PD_SINK_TX_NG;
 		pd_enable_timer(pd_port, PD_TIMER_SINK_TX);
 	}
@@ -1417,7 +1422,7 @@ void pd_sync_sop_spec_revision(struct pd_port *pd_port)
 #ifdef CONFIG_USB_PD_REV30_SYNC_SPEC_REV
 	uint8_t rev = pd_get_msg_hdr_rev(pd_port);
 
-	if (!pd_port->pe_data.pd_prev_connected) {
+	if (!pd_port->pe_data.pd_connected) {
 		pd_port->pd_revision[0] = MIN(PD_REV30, rev);
 		pd_port->pd_revision[1] = MIN(pd_port->pd_revision[1], rev);
 

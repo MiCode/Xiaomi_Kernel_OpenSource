@@ -40,7 +40,7 @@
 
 /* #define DEBUG_GPIO	66 */
 
-#define MT6360_DRV_VERSION	"2.0.2_MTK"
+#define MT6360_DRV_VERSION	"2.0.3_MTK"
 
 #define MT6360_IRQ_WAKE_TIME	(500) /* ms */
 
@@ -1021,7 +1021,7 @@ static int mt6360_init_alert(struct tcpc_device *tcpc)
 	kthread_init_worker(&chip->irq_worker);
 
 	chip->irq_worker_task = kthread_run(kthread_worker_fn,
-					    &chip->irq_worker,
+					    &chip->irq_worker, "%s",
 					    chip->tcpc_desc->name);
 	if (IS_ERR(chip->irq_worker_task)) {
 		dev_err(chip->dev, "%s could not create tcpc task\n", __func__);
@@ -1280,7 +1280,7 @@ static int mt6360_set_cc(struct tcpc_device *tcpc, int pull)
 {
 	int ret;
 	u8 data;
-	int rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(pull);
+	int rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(pull), pull1, pull2;
 #ifdef CONFIG_WD_SBU_POLLING
 	struct mt6360_chip *chip = tcpc_get_dev_data(tcpc);
 #endif /* CONFIG_WD_SBU_POLLING */
@@ -1318,7 +1318,18 @@ static int mt6360_set_cc(struct tcpc_device *tcpc, int pull)
 		cancel_delayed_work(&chip->usbid_poll_work);
 		mt6360_enable_usbid_polling(chip, false);
 #endif /* CONFIG_WD_POLLING_ONLY */
-		data = TCPC_V10_REG_ROLE_CTRL_RES_SET(0, rp_lvl, pull, pull);
+
+		pull1 = pull2 = pull;
+
+		if ((pull == TYPEC_CC_RP_DFT || pull == TYPEC_CC_RP_1_5 ||
+			pull == TYPEC_CC_RP_3_0) &&
+			tcpc->typec_is_attached_src) {
+			if (tcpc->typec_polarity)
+				pull1 = TYPEC_CC_RD;
+			else
+				pull2 = TYPEC_CC_RD;
+		}
+		data = TCPC_V10_REG_ROLE_CTRL_RES_SET(0, rp_lvl, pull1, pull2);
 		ret = mt6360_i2c_write8(tcpc, TCPC_V10_REG_ROLE_CTRL, data);
 		mt6360_enable_auto_rpconnect(tcpc, false);
 		mt6360_enable_oneshot_rpconnect(tcpc, true);
@@ -1670,6 +1681,7 @@ static int mt6360_alert_vendor_defined_handler(struct tcpc_device *tcpc)
 		if (!alert[i])
 			continue;
 		MT6360_INFO("Vend INT%d:0x%02X\n", i + 1, alert[i]);
+		MT6360_INFO("Mask INT%d:0x%02X\n", i + 1, mask[i]);
 		alert[i] &= mask[i];
 	}
 
@@ -2003,8 +2015,7 @@ static int mt6360_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	mt6360_init_water_detection(tcpc);
 #endif /* CONFIG_WATER_DETECTION */
 
-	if (sw_reset)
-		mt6360_init_alert_mask(tcpc);
+	mt6360_init_alert_mask(tcpc);
 
 	if (tcpc->tcpc_flags & TCPC_FLAGS_WATCHDOG_EN) {
 		mt6360_i2c_write8(tcpc, MT6360_REG_WATCHDOG_CTRL,
@@ -2221,9 +2232,6 @@ static int mt6360_parse_dt(struct mt6360_chip *chip, struct device *dev,
 	struct resource *res;
 	int res_cnt, ret;
 
-	if (!np)
-		return -EINVAL;
-
 	pr_info("%s\n", __func__);
 
 #if (!defined(CONFIG_MTK_GPIO) || defined(CONFIG_MTK_GPIOLIB_STAND))
@@ -2348,9 +2356,6 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 #endif
 	u32 val, len;
 	const char *name = "default";
-
-	if (!np)
-		return -EINVAL;
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
@@ -2548,13 +2553,13 @@ static int mt6360_i2c_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, chip);
 	INIT_DELAYED_WORK(&chip->poll_work, mt6360_poll_work);
 	chip->irq_wake_lock =
-		wakeup_source_register(&client->dev, "mt6360_irq_wakelock");
+		wakeup_source_register(chip->dev, "mt6360_irq_wakelock");
 	chip->i2c_wake_lock =
-		wakeup_source_register(&client->dev, "mt6360_i2c_wakelock");
+		wakeup_source_register(chip->dev, "mt6360_i2c_wakelock");
 
 #ifdef CONFIG_WATER_DETECTION
 	chip->wd_wakeup_src =
-		wakeup_source_register(&client->dev, "mt6360_wd_wakeup_src");
+		wakeup_source_register(chip->dev, "mt6360_wd_wakeup_src");
 	atomic_set(&chip->wd_protect_rty, CONFIG_WD_PROTECT_RETRY_COUNT);
 #ifdef CONFIG_WD_POLLING_ONLY
 	INIT_DELAYED_WORK(&chip->usbid_poll_work, mt6360_usbid_poll_work);
@@ -2754,6 +2759,9 @@ MODULE_DESCRIPTION("MT6360 TCPC Driver");
 MODULE_VERSION(MT6360_DRV_VERSION);
 
 /**** Release Note ****
+ * 2.0.3_MTK
+ *	(1) Single Rp as Attatched.SRC for Ellisys TD.4.9.4
+ *
  * 2.0.2_MTK
  *	(1) Add vendor defined irq handler
  *	(2) Remove init_cc_param

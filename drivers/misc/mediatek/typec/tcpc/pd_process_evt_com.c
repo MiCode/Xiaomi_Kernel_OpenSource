@@ -43,9 +43,6 @@ static inline bool pd_evaluate_reject_pr_swap(struct pd_port *pd_port)
 #ifdef CONFIG_USB_PD_VCONN_SWAP
 static inline bool pd_evaluate_accept_vconn_swap(struct pd_port *pd_port)
 {
-	if (pd_port->vconn_role)
-		return true;
-
 	if (pd_port->dpm_caps & DPM_CAP_LOCAL_VCONN_SUPPLY)
 		return true;
 
@@ -110,7 +107,13 @@ static inline bool pd_process_ctrl_msg_vconn_swap(
 	}
 #endif	/* CONFIG_USB_PD_VCONN_SWAP */
 
-	PE_TRANSIT_STATE(pd_port, PE_REJECT);
+	if (pd_check_rev30(pd_port)) {
+		PE_TRANSIT_STATE(pd_port,
+			(pd_port->power_role == PD_ROLE_SINK) ?
+			PE_SNK_SEND_NOT_SUPPORTED : PE_SRC_SEND_NOT_SUPPORTED);
+	} else
+		PE_TRANSIT_STATE(pd_port, PE_REJECT);
+
 	return true;
 }
 

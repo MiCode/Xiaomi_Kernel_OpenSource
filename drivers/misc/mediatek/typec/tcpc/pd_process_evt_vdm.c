@@ -347,6 +347,8 @@ DECL_PE_STATE_REACTION(PD_DPM_MSG_DISCOVER_CABLE);
  * [BLOCK] Porcess Ctrl MSG
  */
 
+#ifdef CONFIG_USB_PD_ALT_MODE
+#ifdef CONFIG_USB_PD_DBG_DP_UFP_U_AUTO_ATTENTION
 static inline bool pd_ufp_u_auto_send_attention(struct pd_port *pd_port)
 {
 	struct dp_data *dp_data = pd_get_dp_data(pd_port);
@@ -359,6 +361,8 @@ static inline bool pd_ufp_u_auto_send_attention(struct pd_port *pd_port)
 
 	return false;
 }
+#endif	/* CONFIG_USB_PD_DBG_DP_UFP_U_AUTO_ATTENTION */
+#endif	/* CONFIG_USB_PD_ALT_MODE */
 
 static inline bool pd_process_ctrl_msg(
 	struct pd_port *pd_port, struct pd_event *pd_event)
@@ -730,9 +734,8 @@ static inline bool pd_process_tcp_cable_event(
 {
 	bool ret;
 	int tcp_ret;
-	bool role_check = true;
-
 #ifdef CONFIG_PD_DISCOVER_CABLE_ID
+	bool role_check = true;
 
 #ifdef CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port))
@@ -832,6 +835,7 @@ static inline void pd_parse_tcp_dpm_evt_from_tcpm(
 		break;
 #endif	/* CONFIG_USB_PD_KEEP_SVIDS */
 
+#ifdef CONFIG_USB_PD_ALT_MODE
 	case TCP_DPM_EVT_DISCOVER_MODES:
 	case TCP_DPM_EVT_ENTER_MODE:
 	case TCP_DPM_EVT_EXIT_MODE:
@@ -842,6 +846,7 @@ static inline void pd_parse_tcp_dpm_evt_from_tcpm(
 	case TCP_DPM_EVT_DP_ATTENTION:
 		pd_parse_tcp_dpm_evt_dp_status(pd_port);
 		break;
+#endif	/* CONFIG_USB_PD_ALT_MODE */
 
 #ifdef CONFIG_USB_PD_ALT_MODE_DFP
 	case TCP_DPM_EVT_DP_STATUS_UPDATE:

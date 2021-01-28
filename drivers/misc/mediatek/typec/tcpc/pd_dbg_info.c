@@ -69,7 +69,7 @@ static inline bool pd_dbg_print_out(void)
 		while (atomic_read(&busy))
 			usleep_range(1000, 2000);
 
-		pr_info("%s", pd_dbg_buffer[index].buf + i);
+		pr_notice("%s", pd_dbg_buffer[index].buf + i);
 		pd_dbg_buffer[index].buf[OUT_BUF_MAX + i] = temp;
 	}
 

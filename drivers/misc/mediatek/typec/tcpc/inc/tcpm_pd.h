@@ -266,7 +266,7 @@ struct pd_country_info {
 
 /* SDB, Status */
 
-#define PD_SDB_SIZE	5
+#define PD_SDB_SIZE	6
 
 #define PD_STATUS_INPUT_EXT_POWER	(1<<1)
 #define PD_STATUS_INPUT_EXT_POWER_FROM_AC	(1<<2)
@@ -294,6 +294,7 @@ struct pd_status {
 	uint8_t present_battey_input; /* bit filed */
 	uint8_t event_flags;	/* bit filed */
 	uint8_t temp_status;	/* bit filed */
+	uint8_t power_status;	/* bit filed */
 };
 
 /* PPSSDB, PPSStatus */

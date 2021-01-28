@@ -363,8 +363,8 @@ static int rt5081_regmap_init(struct rt5081_chip *chip)
 	if ((!props->name) || (!props->aliases))
 		return -ENOMEM;
 
-	strlcpy((char *)props->name, name, strlen(name)+1);
-	strlcpy((char *)props->aliases, name, strlen(name)+1);
+	strlcpy((char *)props->name, name, len+1);
+	strlcpy((char *)props->aliases, name, len+1);
 	props->io_log_en = 0;
 
 	chip->m_dev = rt_regmap_device_register(props,
@@ -1146,8 +1146,8 @@ static int rt5081_set_bist_carrier_mode(
 	return 0;
 }
 
-/* message header (2byte) + data object (7*4) */
-#define RT5081_TRANSMIT_MAX_SIZE	(sizeof(uint16_t) + sizeof(uint32_t)*7)
+/* transmit count (1byte) + message header (2byte) + data object (4byte * 7) */
+#define RT5081_TRANSMIT_MAX_SIZE (1 + sizeof(uint16_t) + sizeof(uint32_t) * 7)
 
 #ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
 static int rt5081_retransmit(struct tcpc_device *tcpc)
@@ -1395,7 +1395,7 @@ static int rt5081_tcpcdev_init(struct rt5081_chip *chip, struct device *dev)
 	if (!desc->name)
 		return -ENOMEM;
 
-	strlcpy((char *)desc->name, name, strlen(name)+1);
+	strlcpy((char *)desc->name, name, len+1);
 
 	chip->tcpc_desc = desc;
 
@@ -1508,7 +1508,7 @@ static int rt5081_i2c_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, chip);
 	INIT_DELAYED_WORK(&chip->poll_work, rt5081_poll_work);
 	chip->irq_wake_lock =
-		wakeup_source_register("rt5081_irq_wakelock");
+		wakeup_source_register(chip->dev, "rt5081_irq_wakelock");
 
 	chip->chip_id = chip_id;
 	pr_info("rt5081_chipID = 0x%0x\n", chip_id);

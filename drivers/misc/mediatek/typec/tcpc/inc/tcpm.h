@@ -1172,10 +1172,10 @@ extern int tcpm_update_bat_status_wh_no_mutex(struct tcpc_device *tcpc,
 	enum pd_battery_reference ref, uint8_t status, uint16_t wh);
 
 extern int tcpm_update_bat_status_soc(struct tcpc_device *tcpc,
-	uint8_t status, uint16_t soc);
+	enum pd_battery_reference ref, uint8_t status, uint16_t soc);
 
 extern int tcpm_update_bat_status_soc_no_mutex(struct tcpc_device *tcpc,
-	uint8_t status, uint16_t soc);
+	enum pd_battery_reference ref, uint8_t status, uint16_t soc);
 
 /**
  * tcpm_update_bat_last_full

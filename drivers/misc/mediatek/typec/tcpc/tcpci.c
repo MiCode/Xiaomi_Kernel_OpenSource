@@ -5,9 +5,61 @@
 
 #include "inc/tcpci.h"
 #include <linux/time.h>
+#include <linux/slab.h>
 
 #define TCPC_NOTIFY_OVERTIME	(20) /* ms */
 
+#ifdef CONFIG_TCPC_NOTIFICATION_NON_BLOCKING
+struct tcp_notify_work {
+	struct work_struct work;
+	struct tcpc_device *tcpc;
+	struct tcp_notify tcp_noti;
+	uint8_t type;
+	uint8_t state;
+};
+
+static void tcp_notify_func(struct work_struct *work)
+{
+	struct tcp_notify_work *tn_work =
+		container_of(work, struct tcp_notify_work, work);
+	struct tcpc_device *tcpc = tn_work->tcpc;
+	struct tcp_notify *tcp_noti = &tn_work->tcp_noti;
+	uint8_t type = tn_work->type;
+	uint8_t state = tn_work->state;
+#ifdef CONFIG_PD_BEGUG_ON
+	struct timeval begin, end;
+	int timeval = 0;
+
+	do_gettimeofday(&begin);
+	srcu_notifier_call_chain(&tcpc->evt_nh[type], state, tcp_noti);
+	do_gettimeofday(&end);
+	timeval = (timeval_to_ns(end) - timeval_to_ns(begin))/1000/1000;
+	PD_BUG_ON(timeval > TCPC_NOTIFY_OVERTIME);
+#else
+	srcu_notifier_call_chain(&tcpc->evt_nh[type], state, tcp_noti);
+#endif
+
+	kfree(tn_work);
+}
+
+static int tcpc_check_notify_time(struct tcpc_device *tcpc,
+	struct tcp_notify *tcp_noti, uint8_t type, uint8_t state)
+{
+	struct tcp_notify_work *tn_work;
+
+	tn_work = kzalloc(sizeof(*tn_work), GFP_KERNEL);
+	if (!tn_work)
+		return -ENOMEM;
+
+	INIT_WORK(&tn_work->work, tcp_notify_func);
+	tn_work->tcpc = tcpc;
+	tn_work->tcp_noti = *tcp_noti;
+	tn_work->type = type;
+	tn_work->state = state;
+
+	return queue_work(tcpc->evt_wq, &tn_work->work) ? 0 : -EAGAIN;
+}
+#else
 static int tcpc_check_notify_time(struct tcpc_device *tcpc,
 	struct tcp_notify *tcp_noti, uint8_t type, uint8_t state)
 {
@@ -26,6 +78,7 @@ static int tcpc_check_notify_time(struct tcpc_device *tcpc,
 #endif
 	return ret;
 }
+#endif /* CONFIG_TCPC_NOTIFICATION_BLOCKING */
 
 int tcpci_check_vbus_valid_from_ic(struct tcpc_device *tcpc)
 {
@@ -34,7 +87,7 @@ int tcpci_check_vbus_valid_from_ic(struct tcpc_device *tcpc)
 
 	if (tcpci_get_power_status(tcpc, &power_status) == 0) {
 		if (vbus_level != tcpc->vbus_level) {
-			TCPC_INFO("[Warning] ps_chagned %d ->%d\r\n",
+			TCPC_INFO("[Warning] ps_changed %d ->%d\r\n",
 				vbus_level, tcpc->vbus_level);
 		}
 	}
@@ -294,10 +347,9 @@ int tcpci_set_watchdog(struct tcpc_device *tcpc, bool en)
 {
 	int rv = 0;
 
-	if (tcpc->tcpc_flags & TCPC_FLAGS_WATCHDOG_EN) {
+	if (tcpc->tcpc_flags & TCPC_FLAGS_WATCHDOG_EN)
 		if (tcpc->ops->set_watchdog)
 			rv = tcpc->ops->set_watchdog(tcpc, en);
-	}
 
 	return rv;
 }
@@ -650,8 +702,6 @@ int tcpci_enable_ext_discharge(struct tcpc_device *tcpc, bool en)
 #ifdef CONFIG_TCPC_EXT_DISCHARGE
 	struct tcp_notify tcp_noti;
 
-	mutex_lock(&tcpc->access_lock);
-
 	if (tcpc->typec_ext_discharge != en) {
 		tcpc->typec_ext_discharge = en;
 		tcp_noti.en_state.en = en;
@@ -659,8 +709,6 @@ int tcpci_enable_ext_discharge(struct tcpc_device *tcpc, bool en)
 		ret = tcpc_check_notify_time(tcpc, &tcp_noti,
 			TCP_NOTIFY_IDX_VBUS, TCP_NOTIFY_EXT_DISCHARGE);
 	}
-
-	mutex_unlock(&tcpc->access_lock);
 #endif	/* CONFIG_TCPC_EXT_DISCHARGE */
 
 	return ret;
@@ -683,42 +731,34 @@ int tcpci_enable_auto_discharge(struct tcpc_device *tcpc, bool en)
 	return ret;
 }
 
-int tcpci_enable_force_discharge(struct tcpc_device *tcpc, int mv)
+int __tcpci_enable_force_discharge(struct tcpc_device *tcpc, bool en, int mv)
 {
 	int ret = 0;
 
 #ifdef CONFIG_TYPEC_CAP_FORCE_DISCHARGE
 #ifdef CONFIG_TCPC_FORCE_DISCHARGE_IC
-	if (!tcpc->pd_force_discharge) {
-		tcpc->pd_force_discharge = true;
+	if (tcpc->pd_force_discharge != en) {
+		tcpc->pd_force_discharge = en;
 		if (tcpc->ops->set_force_discharge)
-			ret = tcpc->ops->set_force_discharge(tcpc, true, mv);
+			ret = tcpc->ops->set_force_discharge(tcpc, en, mv);
 	}
 #endif	/* CONFIG_TCPC_FORCE_DISCHARGE_IC */
-
-#ifdef CONFIG_TCPC_FORCE_DISCHARGE_EXT
-	ret = tcpci_enable_ext_discharge(tcpc, true);
-#endif	/* CONFIG_TCPC_FORCE_DISCHARGE_EXT */
 #endif	/* CONFIG_TYPEC_CAP_FORCE_DISCHARGE */
 
 	return ret;
 }
 
-int tcpci_disable_force_discharge(struct tcpc_device *tcpc)
+int tcpci_enable_force_discharge(struct tcpc_device *tcpc, bool en, int mv)
 {
 	int ret = 0;
 
 #ifdef CONFIG_TYPEC_CAP_FORCE_DISCHARGE
 #ifdef CONFIG_TCPC_FORCE_DISCHARGE_IC
-	if (tcpc->pd_force_discharge) {
-		tcpc->pd_force_discharge = false;
-		if (tcpc->ops->set_force_discharge)
-			ret = tcpc->ops->set_force_discharge(tcpc, false, 0);
-	}
+	ret = __tcpci_enable_force_discharge(tcpc, en, mv);
 #endif	/* CONFIG_TCPC_FORCE_DISCHARGE_IC */
 
 #ifdef CONFIG_TCPC_FORCE_DISCHARGE_EXT
-	ret = tcpci_enable_ext_discharge(tcpc, false);
+	ret = tcpci_enable_ext_discharge(tcpc, en);
 #endif	/* CONFIG_TCPC_FORCE_DISCHARGE_EXT */
 #endif	/* CONFIG_TYPEC_CAP_FORCE_DISCHARGE */
 
@@ -812,15 +852,19 @@ int tcpci_dp_configure(struct tcpc_device *tcpc, uint32_t dp_config)
 		tcp_noti.ama_dp_state.sel_config = SW_USB;
 		break;
 	case MODE_DP_SNK:
-		tcp_noti.ama_dp_state.sel_config = SW_UFP_D;
-		tcp_noti.ama_dp_state.pin_assignment = (dp_config >> 16) & 0xff;
-		break;
-	case MODE_DP_SRC:
 		tcp_noti.ama_dp_state.sel_config = SW_DFP_D;
 		tcp_noti.ama_dp_state.pin_assignment = (dp_config >> 8) & 0xff;
 		break;
+	case MODE_DP_SRC:
+		tcp_noti.ama_dp_state.sel_config = SW_UFP_D;
+		tcp_noti.ama_dp_state.pin_assignment = (dp_config >> 16) & 0xff;
+		break;
 	}
+	if (tcp_noti.ama_dp_state.pin_assignment == 0)
+		tcp_noti.ama_dp_state.pin_assignment = (dp_config >> 16) & 0xff;
 
+	DP_INFO("pin assignment: 0x%x\r\n",
+		tcp_noti.ama_dp_state.pin_assignment);
 	tcp_noti.ama_dp_state.signal = (dp_config >> 2) & 0x0f;
 	tcp_noti.ama_dp_state.polarity = tcpc->typec_polarity;
 	tcp_noti.ama_dp_state.active = 1;

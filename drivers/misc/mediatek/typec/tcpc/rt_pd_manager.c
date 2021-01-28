@@ -25,7 +25,7 @@
 
 #include "inc/tcpm.h"
 
-#define RT_PD_MANAGER_VERSION	"1.0.6_MTK"
+#define RT_PD_MANAGER_VERSION	"1.0.7_MTK"
 
 struct rt_pd_manager_data {
 	struct charger_device *chg_dev;
@@ -34,6 +34,10 @@ struct rt_pd_manager_data {
 	struct notifier_block pd_nb;
 	struct mutex param_lock;
 	bool tcpc_kpoc;
+	int sink_mv_new;
+	int sink_ma_new;
+	int sink_mv_old;
+	int sink_ma_old;
 };
 
 enum {
@@ -56,8 +60,6 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 	struct rt_pd_manager_data *rpmd =
 		(struct rt_pd_manager_data *)container_of(nb,
 		struct rt_pd_manager_data, pd_nb);
-	int pd_sink_mv_new, pd_sink_ma_new;
-	u8 pd_sink_type;
 #ifdef CONFIG_MTK_CHARGER
 	union power_supply_propval propval;
 #endif
@@ -65,21 +67,24 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 	switch (event) {
 	case TCP_NOTIFY_SINK_VBUS:
 		mutex_lock(&rpmd->param_lock);
-		pd_sink_mv_new = noti->vbus_state.mv;
-		pd_sink_ma_new = noti->vbus_state.ma;
-
-		if (noti->vbus_state.type & TCP_VBUS_CTRL_PD_DETECT)
-			pd_sink_type = SINK_TYPE_PD_CONNECTED;
-		else if (noti->vbus_state.type == TCP_VBUS_CTRL_REMOVE)
-			pd_sink_type = SINK_TYPE_REMOVE;
-		else if (noti->vbus_state.type == TCP_VBUS_CTRL_TYPEC)
-			pd_sink_type = SINK_TYPE_TYPEC;
-		else if (noti->vbus_state.type == TCP_VBUS_CTRL_PD)
-			pd_sink_type = SINK_TYPE_PD_TRY;
-		else if (noti->vbus_state.type == TCP_VBUS_CTRL_REQUEST)
-			pd_sink_type = SINK_TYPE_REQUEST;
-		pr_info("%s sink vbus %dmv %dma type(%d)\n", __func__,
-			pd_sink_mv_new, pd_sink_ma_new, pd_sink_type);
+		rpmd->sink_mv_new = noti->vbus_state.mv;
+		rpmd->sink_ma_new = noti->vbus_state.ma;
+		pr_info("%s sink vbus %dmV %dmA type(0x%02X)\n", __func__,
+			rpmd->sink_mv_new, rpmd->sink_ma_new,
+			noti->vbus_state.type);
+#ifdef CONFIG_MTK_CHARGER
+		if ((rpmd->sink_mv_new != rpmd->sink_mv_old) ||
+		    (rpmd->sink_ma_new != rpmd->sink_ma_old)) {
+			rpmd->sink_mv_old = rpmd->sink_mv_new;
+			rpmd->sink_ma_old = rpmd->sink_ma_new;
+			if (rpmd->sink_mv_new && rpmd->sink_ma_new)
+				charger_dev_enable_powerpath(rpmd->chg_dev,
+							     true);
+			else if (!rpmd->tcpc_kpoc)
+				charger_dev_enable_powerpath(rpmd->chg_dev,
+							     false);
+		}
+#endif
 		mutex_unlock(&rpmd->param_lock);
 		break;
 	case TCP_NOTIFY_TYPEC_STATE:
@@ -244,7 +249,9 @@ MODULE_LICENSE("GPL");
 /*
  * Release Note
  * 1.0.6
+ * (1) enable power path in sink vbus
+ *
+ * 1.0.6
  * (1) refactor data struct and remove unuse part
  * (2) move bc12 relative to charger ic driver
- *
  */

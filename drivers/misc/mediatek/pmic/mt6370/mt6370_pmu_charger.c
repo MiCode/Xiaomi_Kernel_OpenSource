@@ -2103,11 +2103,11 @@ static int mt6370_set_otg_current_limit(struct charger_device *chg_dev, u32 uA)
 	struct mt6370_pmu_charger_data *chg_data =
 		dev_get_drvdata(&chg_dev->dev);
 
-	reg_ilimit = mt6370_find_closest_reg_value_via_table(
-		mt6370_otg_oc_threshold,
-		ARRAY_SIZE(mt6370_otg_oc_threshold),
-		uA
-	);
+	/* Set higher OC threshold */
+	for (reg_ilimit = 0;
+	     reg_ilimit < ARRAY_SIZE(mt6370_otg_oc_threshold) - 1; reg_ilimit++)
+		if (uA <= mt6370_otg_oc_threshold[reg_ilimit])
+			break;
 
 	dev_info(chg_data->dev, "%s: ilimit = %d (0x%02X)\n", __func__, uA,
 		reg_ilimit);
