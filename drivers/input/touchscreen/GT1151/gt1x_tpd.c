@@ -67,8 +67,8 @@ static int tpd_i2c_detect(struct i2c_client *client,
 				struct i2c_board_info *info);
 static int tpd_i2c_remove(struct i2c_client *client);
 
-static irqreturn_t tpd_eint_interrupt_handler(unsigned int irq,
-							struct irq_desc *desc);
+static irqreturn_t tpd_eint_interrupt_handler(int irq,
+							void *desc);
 
 #define GTP_DRIVER_NAME  "gt1151"
 static const struct i2c_device_id tpd_i2c_id[] = { {GTP_DRIVER_NAME, 0}, {} };
@@ -420,10 +420,10 @@ int tpd_get_pinctrl(struct i2c_client *client)
 				"ts_i2c_mode", ret);
 	}
 
-	eint_as_int = pinctrl_lookup_state(pinctrl1, "ts_eint_as_int");
+	eint_as_int = pinctrl_lookup_state(pinctrl1, "ts_int_active");
 	if (IS_ERR(eint_as_int)) {
 		ret = PTR_ERR(eint_as_int);
-		GTP_ERROR("Cannot find pinctrl ts_eint_as_int!\n");
+		GTP_ERROR("Cannot find pinctrl ts_int_active!\n");
 		return ret;
 	}
 	eint_output0 = pinctrl_lookup_state(pinctrl1, "ts_int_suspend");
@@ -432,10 +432,10 @@ int tpd_get_pinctrl(struct i2c_client *client)
 		GTP_ERROR("Cannot find pinctrl ts_int_suspend!\n");
 		return ret;
 	}
-	eint_output1 = pinctrl_lookup_state(pinctrl1, "ts_int_active");
+	eint_output1 = pinctrl_lookup_state(pinctrl1, "ts_eint_high");
 	if (IS_ERR(eint_output1)) {
 		ret = PTR_ERR(eint_output1);
-		GTP_ERROR("Cannot find pinctrl ts_int_active!\n");
+		GTP_ERROR("Cannot find pinctrl ts_eint_high!\n");
 		return ret;
 	}
 	if (tpd_dts_data.tpd_use_ext_gpio == false) {
@@ -538,7 +538,6 @@ void gt1x_power_switch(s32 state)
 	GTP_GPIO_OUTPUT(GTP_RST_PORT, 0);
 	GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
 	msleep(20);
-
 	switch (state) {
 	case SWITCH_ON:
 		if (power_flag == 0) {
@@ -715,8 +714,8 @@ static int tpd_registration(void *client)
 {
 	s32 err = 0;
 	s32 idx = 0;
-	gt1x_i2c_client = client;
 
+	gt1x_i2c_client = client;
 	GTP_INFO(" start %s ++\n", __func__);
 
 	tpd_get_pinctrl(client);
@@ -805,8 +804,8 @@ static s32 tpd_i2c_probe(struct i2c_client *client,
 	return 0;
 }
 
-static irqreturn_t tpd_eint_interrupt_handler(unsigned int irq,
-							struct irq_desc *desc)
+static irqreturn_t tpd_eint_interrupt_handler(int irq,
+							void *desc)
 {
 	unsigned long flags;
 
