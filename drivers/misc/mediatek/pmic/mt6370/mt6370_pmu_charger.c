@@ -4198,7 +4198,7 @@ static const struct power_supply_desc mt6370_charger_desc = {
 
 static char *mt6370_charger_supplied_to[] = {
 	"battery",
-	"mtk-charger"
+	"mtk-master-charger"
 };
 
 static int mt6370_boost_enable(struct regulator_dev *rdev)

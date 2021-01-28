@@ -521,12 +521,9 @@ int psy_chr_type_set_property(struct power_supply *psy,
 	pr_notice("%s: prop:%d %d\n", __func__, psp, val->intval);
 
 	info = (struct mtk_charger_type *)power_supply_get_drvdata(psy);
-	pr_notice("test1\n");
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		pr_notice("test2\n");
 		info->type = get_charger_type(info);
-		pr_notice("test3\n");
 		break;
 	default:
 		return -EINVAL;

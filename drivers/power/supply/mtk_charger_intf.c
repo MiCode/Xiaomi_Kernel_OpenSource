@@ -213,6 +213,29 @@ bool is_battery_exist(struct mtk_charger *info)
 	return ret;
 }
 
+bool is_charger_exist(struct mtk_charger *info)
+{
+	union power_supply_propval prop;
+	static struct power_supply *chg_psy;
+	int ret;
+
+	if (chg_psy == NULL)
+		chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
+						       "charger");
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
+		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		ret = -1;
+	} else {
+		ret = power_supply_get_property(chg_psy,
+			POWER_SUPPLY_PROP_ONLINE, &prop);
+		ret = prop.intval;
+	}
+
+	chr_debug("%s:%d\n", __func__,
+		ret);
+	return ret;
+}
+
 int get_charger_type(struct mtk_charger *info)
 {
 	union power_supply_propval prop, prop2;
@@ -239,6 +262,60 @@ int get_charger_type(struct mtk_charger *info)
 	if (prop.intval == 0)
 		return POWER_SUPPLY_USB_TYPE_UNKNOWN;
 	return prop2.intval;
+}
+
+int get_charger_temperature(struct mtk_charger *info)
+{
+	int ret = 0;
+	int tchg_min = 0, tchg_max = 0;
+
+	if (info == NULL)
+		return 0;
+	ret = charger_dev_get_temperature(info->chg1_dev, &tchg_min, &tchg_max);
+	if (ret < 0)
+		chr_err("%s: get temperature failed: %d\n", __func__, ret);
+	else
+		ret = (tchg_max + tchg_min) / 2;
+
+	chr_debug("%s:%d\n", __func__,
+		ret);
+	return ret;
+}
+
+int get_charger_charging_current(struct mtk_charger *info)
+{
+	int ret = 0;
+	int olduA = 0;
+
+	if (info == NULL)
+		return 0;
+	ret = charger_dev_get_charging_current(info->chg1_dev, &olduA);
+	if (ret < 0)
+		chr_err("%s: get charging current failed: %d\n", __func__, ret);
+	else
+		ret = olduA;
+
+	chr_debug("%s:%d\n", __func__,
+		ret);
+	return ret;
+}
+
+int get_charger_input_current(struct mtk_charger *info)
+{
+	int ret = 0;
+	int olduA = 0;
+
+	if (info == NULL)
+		return 0;
+	ret = charger_dev_get_input_current(info->chg1_dev, &olduA);
+	if (ret < 0)
+		chr_err("%s: get input current failed: %d\n", __func__, ret);
+	else
+		ret = olduA;
+
+	chr_debug("%s:%d\n", __func__,
+		ret);
+	return ret;
 }
 
 #define PMIC_RG_VCDT_HV_EN_ADDR		0xb88

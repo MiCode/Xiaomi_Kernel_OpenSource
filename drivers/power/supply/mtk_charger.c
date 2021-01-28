@@ -74,7 +74,7 @@ int chr_get_debug_level(void)
 	int ret;
 
 	if (info == NULL) {
-		psy = power_supply_get_by_name("mtk-charger");
+		psy = power_supply_get_by_name("mtk-master-charger");
 		if (psy == NULL)
 			ret = CHRLOG_DEBUG_LEVEL;
 		else {
@@ -876,7 +876,7 @@ int mtk_chg_enable_vbus_ovp(bool enable)
 	struct power_supply *psy;
 
 	if (pinfo == NULL) {
-		psy = power_supply_get_by_name("mtk-charger");
+		psy = power_supply_get_by_name("mtk-master-charger");
 		if (psy == NULL) {
 			chr_err("[%s]psy is not rdy\n", __func__);
 			return -1;
@@ -1458,8 +1458,29 @@ void mtk_charger_get_atm_mode(struct mtk_charger *info)
 	chr_err("%s: atm_enabled = %d\n", __func__, info->atm_enabled);
 }
 
+
+static int psy_charger_property_is_writeable(struct power_supply *psy,
+					       enum power_supply_property psp)
+{
+	switch (psp) {
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		return 1;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		return 1;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
 static enum power_supply_property charger_psy_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
 };
 
 static int psy_charger_get_property(struct power_supply *psy,
@@ -1471,11 +1492,58 @@ static int psy_charger_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = 0;
+		val->intval = is_charger_exist(info);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		val->intval = info->enable_hv_charging;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		val->intval = get_vbus(info);
+		break;
+	case POWER_SUPPLY_PROP_TEMP:
+		val->intval = get_charger_temperature(info);
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		val->intval = get_charger_charging_current(info);
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		val->intval = get_charger_input_current(info);
 		break;
 	default:
 		return -EINVAL;
 	}
+
+	return 0;
+}
+
+int psy_charger_set_property(struct power_supply *psy,
+			enum power_supply_property psp,
+			const union power_supply_propval *val)
+{
+	struct mtk_charger *info;
+
+	chr_err("%s: prop:%d %d\n", __func__, psp, val->intval);
+
+	info = (struct mtk_charger *)power_supply_get_drvdata(psy);
+	switch (psp) {
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		if (val->intval > 0)
+			info->enable_hv_charging = true;
+		else
+			info->enable_hv_charging = false;
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		info->chg_data[CHGS_SETTING].thermal_charging_current_limit =
+			val->intval;
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		info->chg_data[CHGS_SETTING].thermal_input_current_limit =
+			val->intval;
+		break;
+	default:
+		return -EINVAL;
+	}
+	_wake_up_charger(info);
 
 	return 0;
 }
@@ -1496,7 +1564,7 @@ static void mtk_charger_external_power_changed(struct power_supply *psy)
 		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_ONLINE, &prop);
 		ret = power_supply_get_property(chg_psy,
-			POWER_SUPPLY_PROP_TYPE, &prop2);
+			POWER_SUPPLY_PROP_USB_TYPE, &prop2);
 	}
 
 	pr_notice("%s event, name:%s online:%d type:%d vbus:%d\n", __func__,
@@ -1544,11 +1612,14 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	}
 	info->enable_hv_charging = true;
 
-	info->psy_desc.name = "mtk-charger";
+	info->psy_desc.name = "mtk-master-charger";
 	info->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
 	info->psy_desc.properties = charger_psy_properties;
 	info->psy_desc.num_properties = ARRAY_SIZE(charger_psy_properties);
 	info->psy_desc.get_property = psy_charger_get_property;
+	info->psy_desc.set_property = psy_charger_set_property;
+	info->psy_desc.property_is_writeable =
+			psy_charger_property_is_writeable;
 	info->psy_desc.external_power_changed =
 		mtk_charger_external_power_changed;
 	info->psy_cfg.drv_data = info;

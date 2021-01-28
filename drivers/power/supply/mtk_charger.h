@@ -308,6 +308,10 @@ extern int get_vbus(struct mtk_charger *info);
 extern bool is_battery_exist(struct mtk_charger *info);
 extern int get_charger_type(struct mtk_charger *info);
 extern int disable_hw_ovp(struct mtk_charger *info, int en);
+extern bool is_charger_exist(struct mtk_charger *info);
+extern int get_charger_temperature(struct mtk_charger *info);
+extern int get_charger_charging_current(struct mtk_charger *info);
+extern int get_charger_input_current(struct mtk_charger *info);
 
 /* functions for other */
 extern int mtk_chg_enable_vbus_ovp(bool enable);

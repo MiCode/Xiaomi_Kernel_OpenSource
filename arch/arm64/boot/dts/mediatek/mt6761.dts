@@ -3019,7 +3019,7 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 	charger: charger {
 		compatible = "mediatek,charger";
 		algorithm_name = "Basic";
-		/* gauge = <&mtk_gauge>; */
+		gauge = <&mt6357_gauge>;
 		charger = <&mt6370_chg>;
 		bootmode = <&chosen>;
 
