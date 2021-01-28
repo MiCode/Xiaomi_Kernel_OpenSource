@@ -1804,8 +1804,8 @@ static int rt9471_parse_dt(struct rt9471_chip *chip)
 		dev_notice(chip->dev, "%s no rt,intr_gpio(%d)\n",
 				      __func__, ret);
 		return ret;
-	} else
-		chip->intr_gpio = ret;
+	}
+	chip->intr_gpio = ret;
 
 	ret = of_get_named_gpio(parent_np, "rt,ceb_gpio", 0);
 	if (ret < 0) {
