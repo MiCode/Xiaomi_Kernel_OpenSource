@@ -172,6 +172,7 @@ struct cmdq {
 	u32			*dma_va;
 	s32			gpr[CMDQ_GPR_CNT_ID];
 	bool			pair;
+	atomic_t		user;
 };
 
 struct gce_plat {
@@ -312,9 +313,10 @@ static void cmdq_clk_disable(struct cmdq *cmdq)
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	if (usage == -1)
-		cmdq_util_aee("CMDQ", "%s cmdq:%pa suspend:%d usage:%d pair:%d",
+		cmdq_util_aee("CMDQ",
+			"%s cmdq:%pa suspend:%d usage:%d pair:%d user:%d",
 			__func__, &cmdq->base_pa, cmdq->suspended, usage,
-			cmdq->pair);
+			cmdq->pair, atomic_read(&cmdq->user));
 #endif
 	if (usage < 0) {
 		/* print error but still try close */
@@ -943,9 +945,10 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	if (atomic_read(&cmdq->usage) == -1)
 		cmdq_util_aee("CMDQ",
-			"%s irq:%d cmdq:%pa suspend:%d usage:%d pair:%d",
+			"%s irq:%d cmdq:%pa suspend:%d usage:%d pair:%d user:%d",
 			__func__, irq, &cmdq->base_pa, cmdq->suspended,
-			atomic_read(&cmdq->usage), cmdq->pair);
+			atomic_read(&cmdq->usage), cmdq->pair,
+			atomic_read(&cmdq->user));
 #endif
 	if (atomic_read(&cmdq->usage) <= 0) {
 		if (cmdq->suspended)
@@ -2049,6 +2052,20 @@ void cmdq_mbox_enable(void *chan)
 			atomic_read(&cmdq->usage));
 		return;
 	}
+
+	if (atomic_read(&cmdq->user) < 0) {
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+		cmdq_util_aee("CMDQ", "%s cmdq:%pa suspend:%d usage:%d user:%d",
+			__func__, &cmdq->base_pa, cmdq->suspended,
+			atomic_read(&cmdq->usage), atomic_read(&cmdq->user));
+#else
+		cmdq_err("%s cmdq:%pa suspend:%d usage:%d user:%d",
+			__func__, &cmdq->base_pa, cmdq->suspended,
+			atomic_read(&cmdq->usage), atomic_read(&cmdq->user));
+#endif
+		return;
+	}
+	atomic_inc(&cmdq->user);
 	cmdq_clk_enable(cmdq);
 }
 
@@ -2064,6 +2081,20 @@ void cmdq_mbox_disable(void *chan)
 			atomic_read(&cmdq->usage));
 		return;
 	}
+
+	if (!atomic_read(&cmdq->user)) {
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+		cmdq_util_aee("CMDQ", "%s cmdq:%pa suspend:%d usage:%d user:%d",
+			__func__, &cmdq->base_pa, cmdq->suspended,
+			atomic_read(&cmdq->usage), atomic_read(&cmdq->user));
+#else
+		cmdq_err("%s cmdq:%pa suspend:%d usage:%d user:%d",
+			__func__, &cmdq->base_pa, cmdq->suspended,
+			atomic_read(&cmdq->usage), atomic_read(&cmdq->user));
+#endif
+		return;
+	}
+	atomic_dec(&cmdq->user);
 	cmdq_clk_disable(cmdq);
 }
 
