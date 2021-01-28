@@ -45,6 +45,41 @@ struct REGULATOR_CTRL regulator_control[REGULATOR_TYPE_MAX_NUM] = {
 
 static struct REGULATOR reg_instance;
 
+static unsigned int mt6357_upmu_set_rg_ldo_vdram_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+	return ret;
+}
+
+static unsigned int mt6357_upmu_set_tma_key(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+	return ret;
+}
+
+static unsigned int mt6357_upmu_set_rg_vdram_vosel_1(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+	return ret;
+}
+
+static unsigned int mt6357_upmu_set_rg_vdram_vocal_1(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+	return ret;
+}
+
+static unsigned int mt6357_upmu_set_rg_vcamd_vocal(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+	return ret;
+}
+
 #ifndef NO_OC
 static const int int_oc_type[REGULATOR_TYPE_MAX_NUM] = {
 	INT_VCAMA_OC,

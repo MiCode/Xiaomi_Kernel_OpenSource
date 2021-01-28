@@ -17,11 +17,11 @@
 
 extern struct device *gimgsensor_device;
 extern struct IMGSENSOR gimgsensor;
-extern unsigned int mt6357_upmu_set_rg_vcamd_vocal(unsigned int val);
-extern unsigned int mt6357_upmu_set_rg_vdram_vocal_1(unsigned int val);
-extern unsigned int mt6357_upmu_set_rg_vdram_vosel_1(unsigned int val);
-extern unsigned int mt6357_upmu_set_tma_key(unsigned int val);
-extern unsigned int mt6357_upmu_set_rg_ldo_vdram_en(unsigned int val);
+//extern unsigned int mt6357_upmu_set_rg_vcamd_vocal(unsigned int val);
+//extern unsigned int mt6357_upmu_set_rg_vdram_vocal_1(unsigned int val);
+//extern unsigned int mt6357_upmu_set_rg_vdram_vosel_1(unsigned int val);
+//extern unsigned int mt6357_upmu_set_tma_key(unsigned int val);
+//extern unsigned int mt6357_upmu_set_rg_ldo_vdram_en(unsigned int val);
 
 enum REGULATOR_VOLTAGE {
 	REGULATOR_VOLTAGE_0    = 0,
