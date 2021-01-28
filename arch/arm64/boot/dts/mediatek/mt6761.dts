@@ -3435,6 +3435,7 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 
 #include "cust_mt6761_msdc.dtsi"
 #include "mt6357.dtsi"
+#include "bat_setting/mt6761_battery_prop.dtsi"
 #include "mt6370.dtsi"
 #include "mt6370_pd.dtsi"
 
