@@ -40,7 +40,6 @@
 #include "mdla_dvfs.h"
 #endif
 
-#define API_READY 0
 
 #define MAX_DEVICE 2
 struct EARA_NN_JOB {
@@ -1103,7 +1102,7 @@ static void get_pwr_tbl(void)
 	unsigned int temp2;
 	int cluster_num = 2;
 
-#if API_READY
+#if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6785)
 	cobra_tbl = ppm_cobra_pass_tbl();
 #endif
 	if (!cobra_tbl)
@@ -1144,7 +1143,7 @@ static void get_pwr_tbl(void)
 		sizeof(eara_cpu_table));
 
 #if defined(CONFIG_MTK_VPU_SUPPORT)
-#if API_READY
+#if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6785)
 	for (opp = 0; opp < VPU_OPP_NUM; opp++) {
 		eara_vpu_table.power[opp] =
 			vpu_power_table[opp].power;
@@ -1158,7 +1157,7 @@ static void get_pwr_tbl(void)
 #endif
 
 #if defined(CONFIG_MTK_MDLA_SUPPORT)
-#if API_READY
+#if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6785)
 	for (opp = 0; opp < MDLA_OPP_NUM; opp++) {
 		eara_mdla_table.power[opp] =
 			mdla_power_table[opp].power;
