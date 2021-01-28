@@ -25,9 +25,9 @@
 #define V_VMODE_SHIFT 0
 #define V_CT_SHIFT 5
 #define V_CT_TEST_SHIFT 6
-#define VCORE_VB_FF_EN_SHIFT 8
-#define VCORE_VB_TT_EN_SHIFT 9
-#define VCORE_VB_SS_EN_SHIFT 10
+#define VCORE_VB_TYPEA_EN_SHIFT 8
+#define VCORE_VB_TYPEB_EN_SHIFT 9
+#define VCORE_VB_TYPEC_EN_SHIFT 10
 #define VCORE_VB_750_EN_SHIFT 12
 #define VCORE_VB_575_EN_SHIFT 13
 
@@ -143,17 +143,17 @@ static int get_vb_volt(int vcore_opp, int info_mode)
 	info = 3;
 	ptpod = 5;
 
-	if ((info > 0) && (info <= 4) && (info_mode & (1 << VCORE_VB_FF_EN_SHIFT))) {
+	if ((info > 0) && (info <= 4) && (info_mode & (1 << VCORE_VB_TYPEA_EN_SHIFT))) {
 		if (vcore_opp == VCORE_OPP_0)
 			ret = (ptpod <= 3) ? ptpod : 3;
 		else if (vcore_opp == VCORE_OPP_4)
 			ret = (ptpod <= 4) ? ptpod : 4;
-	} else if ((info > 4) && (info <= 10) && (info_mode & (1 << VCORE_VB_TT_EN_SHIFT))) {
+	} else if ((info > 4) && (info <= 10) && (info_mode & (1 << VCORE_VB_TYPEB_EN_SHIFT))) {
 		if (vcore_opp == VCORE_OPP_0)
 			ret = (ptpod <= 2) ? ptpod : 2;
 		else if (vcore_opp == VCORE_OPP_4)
 			ret = (ptpod <= 2) ? ptpod : 2;
-	} else if ((info > 10) && (info_mode & (1 << VCORE_VB_SS_EN_SHIFT))) {
+	} else if ((info > 10) && (info_mode & (1 << VCORE_VB_TYPEC_EN_SHIFT))) {
 		if (vcore_opp == VCORE_OPP_0)
 			ret = (ptpod <= 1) ? ptpod : 1;
 		else if (vcore_opp == VCORE_OPP_4)

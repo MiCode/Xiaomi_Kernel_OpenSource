@@ -446,6 +446,9 @@ void get_opp_info(char *p)
 	p += sprintf(p, "%-10s: %-8u uv  (PMIC: 0x%x)\n",
 			"Vcore", vcore_uv, vcore_uv_to_pmic(vcore_uv));
 	p += sprintf(p, "%-10s: %-8u khz\n", "DDR", ddr_khz);
+	p += sprintf(p, "%s: 0x%08x\n", "INFO1", get_devinfo_with_index(134));
+	p += sprintf(p, "%s: 0x%08x\n", "INFO2", get_devinfo_with_index(140));
+	p += sprintf(p, "%s: 0x%08x\n", "INFO3", get_devinfo_with_index(69));
 }
 
 
