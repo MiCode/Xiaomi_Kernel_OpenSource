@@ -154,9 +154,12 @@ static void check_violation(void)
 		if (is_md_master(master_id, domain_id)) {
 			char str[CCCI_STR_MAX_LEN] = "0";
 
-			snprintf(str, CCCI_STR_MAX_LEN,
+			if (snprintf(str, CCCI_STR_MAX_LEN,
 				"EMI_MPUS = 0x%x, ADDR = 0x%llx",
-				mpus, vio_addr);
+				mpus, vio_addr) < 0) {
+				pr_info("[MPU] CCCI string fail\n");
+			}
+
 #if CCCI_API_READY
 			exec_ccci_kern_func_by_md_id(0, ID_MD_MPU_ASSERT,
 				str, strlen(str));
