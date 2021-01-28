@@ -1614,10 +1614,12 @@ static int mt_usb_exit(struct musb *musb)
 	if (reg_vusb) {
 		regulator_disable(reg_vusb);
 		regulator_put(reg_vusb);
+		reg_vusb = NULL;
 	}
 	if (reg_va12) {
 		regulator_disable(reg_va12);
 		regulator_put(reg_va12);
+		reg_va12 = NULL;
 	}
 #endif
 #ifdef CONFIG_USB_MTK_OTG
