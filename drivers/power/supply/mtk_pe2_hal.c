@@ -164,7 +164,7 @@ int pe2_hal_get_charger_type(struct chg_alg_device *alg)
 	}
 
 	pr_notice("%s type:%d\n", __func__, ret);
-	return info->chr_type;
+	return ret;
 }
 
 int pe2_hal_set_mivr(struct chg_alg_device *alg, enum chg_idx chgidx, int uV)
