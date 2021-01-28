@@ -243,6 +243,37 @@ config MACH_MT8173
 	  Please note this also select ARCH_MEDIATEK, so driver depends
 	  on it can be selected.
 
+config MACH_MT8195
+	bool "MediaTek MT8195"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select MFD_SYSCON
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select CPU_IDLE
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select MTK_GIC_TARGET_ALL
+	select MTK_GIC_V3_EXT
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_TIMER_SYSTIMER
+	select OVERLAY_FS
+	select MTK_SYSTRACKER_V2
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_DEBUG_LATCH
+	help
+	  This enables support for MediaTek MT8195
+	  Support for aarch64 Architecture
+	  Support for fpga_64_mt8195 related projects
+	  Support for mt8195 related projects
+
 config ARCH_MESON
 	bool "Amlogic Platforms"
 	select PINCTRL
