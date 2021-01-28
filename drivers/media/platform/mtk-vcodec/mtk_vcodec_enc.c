@@ -355,6 +355,13 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		p->nonrefp = ctrl->val;
 		ctx->param_change |= MTK_ENCODE_PARAM_NONREFP;
 		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_NONREFP_FREQ:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_ENCODE_NONREFP_FREQ: %d",
+			ctrl->val);
+		p->nonrefpfreq = ctrl->val;
+		ctx->param_change |= MTK_ENCODE_PARAM_NONREFPFREQ;
+		break;
 	case V4L2_CID_MPEG_MTK_ENCODE_DETECTED_FRAMERATE:
 		mtk_v4l2_debug(2,
 			"V4L2_CID_MPEG_MTK_ENCODE_DETECTED_FRAMERATE: %d",
@@ -442,6 +449,12 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 			ctrl->val);
 		p->b_qp = ctrl->val;
 		break;
+	case V4L2_CID_MPEG_VIDEO_ENABLE_TSVC:
+		mtk_v4l2_debug(0, "V4L2_CID_MPEG_VIDEO_ENABLE_TSVC");
+		p->tsvc = ctrl->val;
+		ctx->param_change |= MTK_ENCODE_PARAM_TSVC;
+		break;
+
 	default:
 		mtk_v4l2_err("ctrl-id=%d not support!", ctrl->id);
 		ret = -EINVAL;
@@ -1012,6 +1025,7 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->p_qp = enc_params->p_qp;
 	param->b_qp = enc_params->b_qp;
 	param->svp_mode = enc_params->svp_mode;
+	param->tsvc = enc_params->tsvc;
 
 }
 
@@ -1969,6 +1983,15 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 					 &enc_prm);
 	}
 
+	if (!ret && mtk_buf->param_change & MTK_ENCODE_PARAM_NONREFPFREQ) {
+		enc_prm.nonrefpfreq = mtk_buf->enc_params.nonrefpfreq;
+		mtk_v4l2_debug(1, "[%d] idx=%d, change param nonrefpfreq=%d",
+			       ctx->id, mtk_buf->vb.vb2_buf.index,
+			       mtk_buf->enc_params.nonrefpfreq);
+		ret |= venc_if_set_param(
+				ctx, VENC_SET_PARAM_NONREFPFREQ, &enc_prm);
+	}
+
 	if (!ret &&
 	mtk_buf->param_change & MTK_ENCODE_PARAM_DETECTED_FRAMERATE) {
 		enc_prm.detectframerate = mtk_buf->enc_params.detectframerate;
@@ -2064,6 +2087,18 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 				enc_prm.color_desc->full_range);
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_COLOR_DESC,
+					&enc_prm);
+	}
+
+	if (!ret &&
+	mtk_buf->param_change & MTK_ENCODE_PARAM_TSVC) {
+		enc_prm.tsvc = mtk_buf->enc_params.tsvc;
+		mtk_v4l2_debug(1, "[%d] idx=%d, tsvc=%d",
+				ctx->id,
+				mtk_buf->vb.vb2_buf.index,
+				mtk_buf->enc_params.tsvc);
+		ret |= venc_if_set_param(ctx,
+					VENC_SET_PARAM_TSVC,
 					&enc_prm);
 	}
 
@@ -2528,6 +2563,18 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_NONREFP_FREQ;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video encode nonrefp";
+	cfg.min = 0;
+	cfg.max = 32;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_DETECTED_FRAMERATE;
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
@@ -2654,6 +2701,17 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.dims[0] = sizeof(struct venc_resolution_change)/sizeof(u32);
 	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
 
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_VIDEO_ENABLE_TSVC;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video encode tsvc switch";
+	cfg.min = 0;
+	cfg.max = 8;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
 	if (handler->error) {
 		mtk_v4l2_err("Init control handler fail %d",
 			     handler->error);
