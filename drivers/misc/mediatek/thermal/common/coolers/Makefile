@@ -10,8 +10,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
+# Default set common=mt6779
 
-THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/mt6779
+THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/platform
 ccflags-y  += -I$(THERMAL_CHIP_DRIVER_DIR)/inc
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/video/include
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/gpu/ged/include
@@ -20,14 +21,14 @@ ccflags-y  += -I$(srctree)/drivers/power/mediatek/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/dfrc/
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT),y)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/mt6779
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/platform
 endif
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/vpu/mt6779
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/vpu/platform
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mdla/1.0
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/ppm_v3/src/mach/mt6779
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/ppm_v3/src/mach/platform
 
 obj-y += mtk_ta.o
 
