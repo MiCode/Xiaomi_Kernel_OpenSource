@@ -16,7 +16,7 @@
 
 #define CALI_CAR_TUNE_AVG_NUM   60
 
-#define GAUGE_SYSFS_FIELD_RW(_name_set, _name_get, _prop)	\
+#define GAUGE_SYSFS_FIELD_RW(_name, _name_set, _name_get, _prop)	\
 {									 \
 	.attr   = __ATTR(_name, 0644, gauge_sysfs_show, gauge_sysfs_store),\
 	.prop	= _prop,	\
