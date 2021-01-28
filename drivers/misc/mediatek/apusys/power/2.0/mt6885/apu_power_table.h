@@ -28,10 +28,12 @@ enum APU_OPP_INDEX {
 	APU_OPP_3 = 3,
 	APU_OPP_4 = 4,
 	APU_OPP_5 = 5,
+#if !defined(CONFIG_MACH_MT6893)
 	APU_OPP_6 = 6,
 	APU_OPP_7 = 7,
 	APU_OPP_8 = 8,
 	APU_OPP_9 = 9,
+#endif
 	APU_OPP_NUM,
 	VPU_OPP_NUM = APU_OPP_NUM,
 };

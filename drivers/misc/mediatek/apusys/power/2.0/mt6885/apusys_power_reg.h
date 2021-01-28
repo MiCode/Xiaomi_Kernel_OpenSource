@@ -14,6 +14,20 @@
 #include <linux/io.h>
 #include <sync_write.h>
 
+#if defined(CONFIG_MACH_MT6893)
+/*
+ * BIT Operation
+ */
+#undef  BIT
+#define BIT(_bit_) (unsigned int)(1 << (_bit_))
+#define BITS(_bits_, _val_) ((((unsigned int) -1 >> (31 - ((1) ? _bits_))) \
+& ~((1U << ((0) ? _bits_)) - 1)) & ((_val_)<<((0) ? _bits_)))
+#define BITMASK(_bits_) (((unsigned int) -1 >> (31 - ((1) ? _bits_))) \
+& ~((1U << ((0) ? _bits_)) - 1))
+#define GET_BITS_VAL(_bits_, _val_) (((_val_) & \
+(BITMASK(_bits_))) >> ((0) ? _bits_))
+#endif
+
 static inline void DRV_WriteReg32(void *addr, uint32_t value)
 {
 	mt_reg_sync_writel(value, addr);
@@ -141,3 +155,10 @@ extern void *g_APU_SPM_BASE;
 #define	APU_MDLA1_BASE			(g_APU_MDLA1_BASE)
 #define APU_MDLA1_APU_MDLA_CG_CON	(void *)(APU_MDLA1_BASE+0x000)
 
+#if defined(CONFIG_MACH_MT6893)
+/**************************************************
+ * Vol Binning and Raising
+ **************************************************/
+#define EFUSE_BIN	72	//(PTPOD22)
+#define EFUSE_RAISE	134	//(FAB_INFO4)
+#endif

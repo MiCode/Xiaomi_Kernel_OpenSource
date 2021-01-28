@@ -28,18 +28,24 @@ void apu_power_dump_opp_table(struct seq_file *s)
 	int buck_domain;
 
 	seq_printf(s,
-		"|opp| vpu0| vpu1| vpu2|mdla0|mdla1| conn|iommu|ipuif|\n");
+		"|opp| vpu0| volt| vpu1| volt| vpu2| volt| dla0| volt| dla1| volt| conn| volt| iomm| volt| ipui| volt|\n");
 	seq_printf(s,
-		"|---------------------------------------------------|\n");
+		"|---------------------------------------------------------------------------------------------------|\n");
 	for (opp_num = 0 ; opp_num < APUSYS_MAX_NUM_OPPS ; opp_num++) {
 		seq_printf(s, "| %d |", opp_num);
 		for (buck_domain = 0 ; buck_domain < APUSYS_BUCK_DOMAIN_NUM;
 			buck_domain++) {
-			seq_printf(s, " %d |",
+#if defined(CONFIG_MACH_MT6893)
+			seq_printf(s, " %d |.%d |",
+			apusys_opps.opps[opp_num][buck_domain].freq / 1000,
+			apusys_opps.opps[opp_num][buck_domain].voltage / 1000);
+#else
+			seq_printf(s, " %d | --- |",
 			apusys_opps.opps[opp_num][buck_domain].freq / 1000);
+#endif
 		}
 		seq_printf(s,
-			"\n|---------------------------------------------------|\n");
+			"\n|---------------------------------------------------------------------------------------------------|\n");
 	}
 }
 

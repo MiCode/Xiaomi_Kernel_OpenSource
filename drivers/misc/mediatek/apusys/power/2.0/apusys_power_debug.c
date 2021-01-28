@@ -109,7 +109,12 @@ int apu_power_power_stress(int type, int device, int opp)
 		break;
 
 	case 4: // power driver debug func
-		hal_config_power(PWR_CMD_DEBUG_FUNC, VPU0, NULL);
+#if defined(CONFIG_MACH_MT6893)
+		// device: binning test
+		// opp: raise test
+		opp = ((device & 0xF) << 8) | opp;
+#endif
+		hal_config_power(PWR_CMD_DEBUG_FUNC, VPU0, &opp);
 		break;
 
 	case 5: // dvfs all combination test , opp = run count
