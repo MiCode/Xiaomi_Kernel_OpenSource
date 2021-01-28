@@ -1286,7 +1286,11 @@ static int of_link_to_suppliers(struct device *dev,
 }
 
 
+#if defined(CONFIG_PINCTRL_MT6779)
+static bool of_devlink;
+#else
 static bool of_devlink = true;
+#endif
 core_param(of_devlink, of_devlink, bool, 0);
 
 static int of_fwnode_add_links(const struct fwnode_handle *fwnode,
