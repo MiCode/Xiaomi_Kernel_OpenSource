@@ -75,9 +75,6 @@ void spm_suspend_post_process(struct pwr_ctrl *pwrctrl);
 /**************************************
  * External functions and variable
  **************************************/
-#if defined(CONFIG_MTK_EIC) || defined(CONFIG_PINCTRL_MTK)
-extern void mt_eint_print_status(void);
-#endif
 
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
 extern void mt_print_scp_ipi_id(void);

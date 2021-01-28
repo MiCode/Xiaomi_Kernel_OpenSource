@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2017 MediaTek Inc.
  */
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/kobject.h>
@@ -53,7 +52,7 @@ static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 	[PW_WAKE_SRC_CUST] = "wake_src_cust",
 	[PW_WAKELOCK_TIMER_VAL] = "wakelock_timer_val",
 	[PW_WDT_DISABLE] = "wdt_disable",
-	// SPM_AP_STANDBY_CON
+	/* SPM_AP_STANDBY_CON */
 	[PW_WFI_OP] = "wfi_op",
 	[PW_MP0_CPUTOP_IDLE_MASK] = "mp0_cputop_idle_mask",
 	[PW_MP1_CPUTOP_IDLE_MASK] = "mp1_cputop_idle_mask",
@@ -71,7 +70,7 @@ static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 	[PW_CONN_MASK_B] = "conn_mask_b",
 	[PW_CONN_APSRC_SEL] = "conn_apsrc_sel",
 	[PW_CONN_SRCCLKENA_SEL_MASK] = "conn_srcclkena_sel_mask",
-	// SPM_SRC_REQ
+	/* SPM_SRC_REQ */
 	[PW_SPM_APSRC_REQ] = "spm_apsrc_req",
 	[PW_SPM_F26M_REQ] = "spm_f26m_req",
 	[PW_SPM_INFRA_REQ] = "spm_infra_req",
@@ -80,7 +79,7 @@ static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 	[PW_SPM_RSV_SRC_REQ] = "spm_rsv_src_req",
 	[PW_SPM_DDREN_2_REQ] = "spm_ddren_2_req",
 	[PW_CPU_MD_DVFS_SOP_FORCE_ON] = "cpu_md_dvfs_sop_force_on",
-	// SPM_SRC_MASK
+	/* SPM_SRC_MASK */
 	[PW_CSYSPWREQ_MASK] = "csyspwreq_mask",
 	[PW_CCIF0_MD_EVENT_MASK_B] = "ccif0_md_event_mask_b",
 	[PW_CCIF0_AP_EVENT_MASK_B] = "ccif0_ap_event_mask_b",
@@ -110,7 +109,7 @@ static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 	[PW_MFG_REQ_MASK_B] = "mfg_req_mask_b",
 	[PW_VDEC_REQ_MASK_B] = "vdec_req_mask_b",
 	[PW_MCU_APSRCREQ_INFRA_MASK_B] = "mcu_apsrcreq_infra_mask_b",
-	// SPM_SRC2_MASK
+	/* SPM_SRC2_MASK */
 	[PW_MD_DDR_EN_0_MASK_B] = "md_ddr_en_0_mask_b",
 	[PW_MD_DDR_EN_1_MASK_B] = "md_ddr_en_1_mask_b",
 	[PW_CONN_DDR_EN_MASK_B] = "conn_ddr_en_mask_b",
@@ -125,11 +124,11 @@ static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 		"ddren_emi_self_refresh_ch1_mask_b",
 	[PW_MCU_APSRC_REQ_MASK_B] = "mcu_apsrc_req_mask_b",
 	[PW_MCU_DDREN_MASK_B] = "mcu_ddren_mask_b",
-	// SPM_WAKEUP_EVENT_MASK
+	/* SPM_WAKEUP_EVENT_MASK */
 	[PW_SPM_WAKEUP_EVENT_MASK] = "spm_wakeup_event_mask",
-	//SPM_WAKEUP_EVENT_EXT_MASK
+	/* SPM_WAKEUP_EVENT_EXT_MASK */
 	[PW_SPM_WAKEUP_EVENT_EXT_MASK] = "spm_wakeup_event_ext_mask",
-	// SPM_SRC3_MASK
+	/* SPM_SRC3_MASK */
 	[PW_MD_DDR_EN_2_0_MASK_B] = "md_ddr_en_2_0_mask_b",
 	[PW_MD_DDR_EN_2_1_MASK_B] = "md_ddr_en_2_1_mask_b",
 	[PW_CONN_DDR_EN_2_MASK_B] = "conn_ddr_en_2_mask_b",
@@ -143,24 +142,23 @@ static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 	[PW_DDREN2_EMI_SELF_REFRESH_CH1_MASK_B] =
 		"ddren2_emi_self_refresh_ch1_mask_b",
 	[PW_MCU_DDREN_2_MASK_B] = "mcu_ddren_2_mask_b",
-	// MP0_CPU0_WFI_EN
+	/* MP0_CPU0_WFI_EN */
 	[PW_MP0_CPU0_WFI_EN] = "mp0_cpu0_wfi_en",
-	// MP0_CPU1_WFI_EN
+	/* MP0_CPU1_WFI_EN */
 	[PW_MP0_CPU1_WFI_EN] = "mp0_cpu1_wfi_en",
-	// MP0_CPU2_WFI_EN
+	/* MP0_CPU2_WFI_EN */
 	[PW_MP0_CPU2_WFI_EN] = "mp0_cpu2_wfi_en",
-	// MP0_CPU3_WFI_EN
+	/* MP0_CPU3_WFI_EN */
 	[PW_MP0_CPU3_WFI_EN] = "mp0_cpu3_wfi_en",
-	// MP1_CPU0_WFI_EN
+	/* MP1_CPU0_WFI_EN */
 	[PW_MP1_CPU0_WFI_EN] = "mp1_cpu0_wfi_en",
-	// MP1_CPU1_WFI_EN
+	/* MP1_CPU1_WFI_EN */
 	[PW_MP1_CPU1_WFI_EN] = "mp1_cpu1_wfi_en",
-	// MP1_CPU2_WFI_EN
+	/* MP1_CPU2_WFI_EN */
 	[PW_MP1_CPU2_WFI_EN] = "mp1_cpu2_wfi_en",
-	// MP1_CPU3_WFI_EN
+	/* MP1_CPU3_WFI_EN */
 	[PW_MP1_CPU3_WFI_EN] = "mp1_cpu3_wfi_en",
 };
-
 
 /**************************************
  * xxx_ctrl_show Function
@@ -231,7 +229,8 @@ static ssize_t store_pwr_ctrl(int id, struct pwr_ctrl *pwrctrl,
 		return -EPERM;
 
 	pr_info("[SPM] pwr_ctrl: cmd = %s, val = 0x%x\n", cmd, val);
-	// SPM_SRC_REQ
+
+
 	if (!strcmp(cmd,
 		pwr_ctrl_str[PW_SPM_APSRC_REQ])) {
 		unsigned int req = (val == 0) ?
@@ -273,7 +272,7 @@ static ssize_t store_pwr_ctrl(int id, struct pwr_ctrl *pwrctrl,
 			, _RES_MASK(MTK_SPM_RES_EX_MAINPLL)) != 0) {
 			pwrctrl->spm_vrf18_req = val;
 			SMC_CALL(PWR_CTRL_ARGS,
-				id, PW_SPM_VRF18_REQ, val);
+					id, PW_SPM_VRF18_REQ, val);
 		}
 		return count;
 	} else if (!strcmp(cmd,

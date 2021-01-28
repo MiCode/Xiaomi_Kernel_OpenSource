@@ -190,10 +190,6 @@ static unsigned int spm_output_wake_reason(struct wake_status *wakesta)
 			spm_read(SPM_POWER_ON_VAL1) & (1 << 17));
 	}
 
-#if defined(CONFIG_MTK_EIC) || defined(CONFIG_PINCTRL_MTK)
-	if (wakesta->r12 & WAKE_SRC_R12_EINT_EVENT_B)
-		mt_eint_print_status();
-#endif
 
 #ifdef CONFIG_MTK_CCCI_DEVICES
 		exec_ccci_kern_func_by_md_id(0, ID_DUMP_MD_SLEEP_MODE,
