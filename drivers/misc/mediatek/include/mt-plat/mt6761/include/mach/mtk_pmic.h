@@ -6,29 +6,20 @@
 #ifndef _CUST_PMIC_H_
 #define _CUST_PMIC_H_
 
-#define PT_DLPT_BRINGUP 0
-
-#if defined(CONFIG_FPGA_EARLY_PORTING) || PT_DLPT_BRINGUP
-/* Define for disable low battery protect feature,
- * default no define for enable low battery protect.
- */
+#if !IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 #define DISABLE_LOW_BATTERY_PROTECT
+#endif
 
-/*Define for disable battery OC protect*/
+#if !IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 #define DISABLE_BATTERY_OC_PROTECT
+#endif
 
-/*Define for disable battery 15% protect*/
+#if !IS_ENABLED(CONFIG_MTK_BATTERY_PERCENTAGE_POWER_THROTTLING)
 #define DISABLE_BATTERY_PERCENT_PROTECT
+#endif
 
-/*Define for DLPT*/
+#if !IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
 #define DISABLE_DLPT_FEATURE
-#endif /* defined(CONFIG_FPGA_EARLY_PORTING) || PT_DLPT_BRINGUP */
-
-#define IMAX_MAX_VALUE 5500
-#define DLPT_POWER_OFF_EN
-#define POWEROFF_BAT_CURRENT 3000
-#define DLPT_POWER_OFF_THD 100
-
-#define DLPT_VOLT_MIN 3100
+#endif
 
 #endif /* _CUST_PMIC_H_ */

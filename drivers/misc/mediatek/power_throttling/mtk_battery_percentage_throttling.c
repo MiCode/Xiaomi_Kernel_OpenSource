@@ -55,6 +55,7 @@ void exec_battery_percent_callback(
 {
 	int i;
 
+#if !IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
 	for (i = 0; i < BPCB_MAX_NUM; i++) {
 		if (bpcb_tb[i].bpcb != NULL) {
 			bpcb_tb[i].bpcb(battery_percent_level);
@@ -62,6 +63,16 @@ void exec_battery_percent_callback(
 				, __func__, i, battery_percent_level);
 		}
 	}
+#else
+	if (bpcb_tb[BATTERY_PERCENT_PRIO_FLASHLIGHT].bpcb != NULL) {
+		bpcb_tb[BATTERY_PERCENT_PRIO_FLASHLIGHT].bpcb(
+			battery_percent_level);
+		pr_info("[%s] prio_val=%d, battery_percent_level=%d\n"
+				, __func__, i, battery_percent_level);
+	} else
+		pr_notice("[%s]BATTERY_PERCENT_PRIO_FLASHLIGHT is null\n"
+			, __func__);
+#endif
 }
 
 int bat_percent_notify_handler(void *unused)

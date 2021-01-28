@@ -21,6 +21,8 @@
 #include <mach/mtk_pbm.h>
 #include <mtk_pbm_common.h>
 #include <mtk_pbm_data.h>
+#include <mtk_dynamic_loading_throttling.h>
+#include <linux/power_supply.h>
 
 #ifndef DISABLE_PBM_FEATURE
 #include <linux/iio/consumer.h>
@@ -121,18 +123,26 @@ spm_vcorefs_get_MD_status(void)
 	return 0;
 }
 
-int get_battery_volt(void)
+static int get_battery_volt(void)
 {
-	int vbat = 4000, ret;
+	union power_supply_propval prop;
+	struct power_supply *psy;
+	int ret;
 
-	if (!IS_ERR(chan_chip_vbat)) {
-		ret = iio_read_channel_processed(chan_chip_vbat, &vbat);
-		if (ret < 0)
-			pr_notice("pmic_chip_temp read fail, ret=%d\n", ret);
+	psy = power_supply_get_by_name("battery");
+	if (psy == NULL) {
+		pr_notice("%s can't get battery node\n", __func__);
+		return -ENODEV;
 	}
 
-	return vbat;
-	/* return pmic_get_auxadc_value(AUXADC_LIST_BATADC); */
+	ret = power_supply_get_property(psy,
+		POWER_SUPPLY_PROP_VOLTAGE_NOW, &prop);
+	if (ret || prop.intval < 0) {
+		pr_info("%s: POWER_SUPPLY_PROP_VOLTAGE_NOW fail\n", __func__);
+		return -EINVAL;
+	}
+
+	return prop.intval / 1000;
 }
 
 unsigned int ma_to_mw(unsigned int val)
@@ -141,6 +151,12 @@ unsigned int ma_to_mw(unsigned int val)
 	unsigned int ret_val = 0;
 
 	bat_vol = get_battery_volt();	/* return mV */
+	if (bat_vol <= 0) {
+		pr_notice_ratelimited("[%s] wrong volt=%d, set 4V\n",
+			bat_vol);
+		bat_vol = 4000;
+	}
+
 	ret_val = (bat_vol * val) / 1000;	/* mW = (mV * mA)/1000 */
 	pr_info("[%s] %d(mV) * %d(mA) = %d(mW)\n",
 		__func__, bat_vol, val, ret_val);
@@ -438,7 +454,7 @@ static void mtk_power_budget_manager(enum pbm_kicker kicker, struct mrp *mrpmgr)
  * i_max: mA
  * condition: persentage decrease 1%, then update i_max
  */
-void kicker_pbm_by_dlpt(unsigned int i_max)
+void kicker_pbm_by_dlpt(int i_max)
 {
 	struct pbm *pwrctrl = &pbm_ctrl;
 	struct mrp mrpmgr = {0};
@@ -855,8 +871,7 @@ static int __init pbm_module_init(void)
 
 	pm_notifier(_mt_pbm_pm_callback, 0);
 
-	/* FIXME: enable it after DLPT porting done */
-	/* register_dlpt_notify(&kicker_pbm_by_dlpt, DLPT_PRIO_PBM);*/
+	register_dlpt_notify(&kicker_pbm_by_dlpt, DLPT_PRIO_PBM);
 	ret = create_pbm_kthread();
 	if (ret) {
 		pr_notice("FAILED TO CREATE PBM KTHREAD\n");
@@ -882,7 +897,7 @@ static int __init pbm_module_init(void)
 
 #else				/* #ifndef DISABLE_PBM_FEATURE */
 
-void kicker_pbm_by_dlpt(unsigned int i_max)
+void kicker_pbm_by_dlpt(int i_max)
 {
 }
 
