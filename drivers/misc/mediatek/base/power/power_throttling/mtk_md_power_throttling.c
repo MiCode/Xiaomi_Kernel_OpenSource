@@ -71,6 +71,35 @@ static void md_pt_over_current_cb(enum BATTERY_OC_LEVEL_TAG level)
 }
 #endif
 
+#ifndef DISABLE_BATTERY_PERCENT_PROTECT
+static void md_pt_battery_percent_cb(enum BATTERY_PERCENT_LEVEL_TAG level)
+{
+	unsigned int md_throttle_cmd = 0;
+	int ret = 0;
+	enum tmc_ctrl_low_pwr_enum val = 0;
+
+	if (level <= BATTERY_PERCENT_LEVEL_1 &&
+		level >= BATTERY_PERCENT_LEVEL_0) {
+
+		if (level == BATTERY_PERCENT_LEVEL_0)
+			val = TMC_CTRL_LOW_POWER_RECHARGE_BATTERY_EVENT;
+		else if (level == BATTERY_PERCENT_LEVEL_1)
+			val = TMC_CTRL_LOW_POWER_LOW_BATTERY_EVENT;
+
+		md_throttle_cmd = TMC_CTRL_CMD_LOW_POWER_IND | val << 8;
+#if defined(CONFIG_MTK_ECCCI_DRIVER)
+		ret = exec_ccci_kern_func_by_md_id(MD_SYS1,
+			ID_THROTTLING_CFG,
+			(char *) &md_throttle_cmd, 4);
+#endif
+	}
+
+	if (ret || !md_throttle_cmd)
+		pr_notice("%s: error, ret=%d, cmd=0x%x l=%d\n", __func__, ret,
+			md_throttle_cmd, level);
+}
+#endif
+
 static int __init mtk_md_power_throttling_module_init(void)
 {
 #ifndef DISABLE_LOW_BATTERY_PROTECT
@@ -82,6 +111,12 @@ static int __init mtk_md_power_throttling_module_init(void)
 	register_battery_oc_notify(
 		&md_pt_over_current_cb, BATTERY_OC_PRIO_MD);
 #endif
+
+#ifndef DISABLE_BATTERY_PERCENT_PROTECT
+	register_battery_percent_notify_ext(
+		&md_pt_battery_percent_cb, BATTERY_PERCENT_PRIO_MD);
+#endif
+
 	return 0;
 }
 
