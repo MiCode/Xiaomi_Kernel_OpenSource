@@ -563,8 +563,8 @@ pr_debug(IRQTAG fmt, ##args)
 	struct SV_LOG_STR *src = &sv_log[irq];\
 	char *ptr;\
 	unsigned int i;\
-	signed int ppb = 0;\
-	signed int log_t = 0;\
+	unsigned int ppb = 0;\
+	unsigned int log_t = 0;\
 	unsigned int index = 0;\
 	if (ppb_in > 1) {\
 		ppb = 1;\
