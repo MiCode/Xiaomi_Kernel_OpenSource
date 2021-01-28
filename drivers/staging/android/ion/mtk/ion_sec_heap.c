@@ -41,12 +41,6 @@
 #include "trustzone/kree/mem.h"
 #endif
 
-#if defined(CONFIG_MTK_LEGACY_SECMEM_SUPPORT)
-#include "secmem.h"
-#elif defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
-#include "secmem_api.h"
-#endif
-
 #ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
 #define SECMEM_KERNEL_API
 #include "trusted_mem_api.h"

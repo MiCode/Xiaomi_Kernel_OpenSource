@@ -81,7 +81,6 @@ endif # !TCORE_UT_FWK_SUPPORT
 #==========================================================================
 obj-$(CONFIG_MTK_PROT_MEM_SUPPORT) += pmem.o
 pmem-y += pmem/pmem_device.o
-pmem-y += pmem/pmem_api.o
 
 ifeq ($(PMEM_MOCK_OBJECT_SUPPORT),y)
 pmem-y += pmem/pmem_mock.o
@@ -106,7 +105,6 @@ endif # !CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
 #==========================================================================
 obj-$(CONFIG_MTK_WFD_SMEM_SUPPORT) += wfd_smem.o
 wfd_smem-y += wfd_smem/wfd_smem_device.o
-wfd_smem-y += wfd_smem/wfd_smem_api.o
 
 #==========================================================================
 # MTEE Multiple Chunk Memory Core Driver
