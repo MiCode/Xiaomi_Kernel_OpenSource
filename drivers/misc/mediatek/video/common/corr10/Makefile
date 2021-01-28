@@ -24,7 +24,8 @@ ccflags-y += \
 
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6763) $(CONFIG_MACH_MT6799) $(CONFIG_MACH_MT6759) \
 					 $(CONFIG_MACH_MT6758) $(CONFIG_MACH_MT6739) $(CONFIG_MACH_MT6765) \
-					 $(CONFIG_MACH_MT6761) $(CONFIG_MACH_MT6771) $(CONFIG_MACH_MT3967)))
+					 $(CONFIG_MACH_MT6761) $(CONFIG_MACH_MT6771) $(CONFIG_MACH_MT3967) \
+					 $(CONFIG_MACH_MT8168)))
 ccflags-y += \
                                 -I$(srctree)/drivers/misc/mediatek/cmdq/v3/
 
@@ -40,17 +41,18 @@ ccflags-y += \
 endif
 
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6763) $(CONFIG_MACH_MT6739) $(CONFIG_MACH_MT6765) \
-					 $(CONFIG_MACH_MT6761) $(CONFIG_MACH_MT6771) $(CONFIG_MACH_MT3967)))
+					 $(CONFIG_MACH_MT6761) $(CONFIG_MACH_MT6771) $(CONFIG_MACH_MT3967) \
+					 $(CONFIG_MACH_MT8168)))
 ccflags-y += -DGAMMA_LIGHT
 endif
 
-ifeq (y, $(filter y, $(CONFIG_MACH_MT6765) $(CONFIG_MACH_MT6761)))
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6765) $(CONFIG_MACH_MT6761) $(CONFIG_MACH_MT8168)))
 ccflags-y += -DGAMMA_ROUND_CORNER
 endif
 
 ifneq ($(CONFIG_MTK_CMDQ_TAB), y)
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6758) $(CONFIG_MACH_MT6765) $(CONFIG_MACH_MT6761) \
-					$(CONFIG_MACH_MT6771)))
+					$(CONFIG_MACH_MT6771) $(CONFIG_MACH_MT8168)))
 ccflags-y += -DCCORR_TRANSITION
 endif
 endif
