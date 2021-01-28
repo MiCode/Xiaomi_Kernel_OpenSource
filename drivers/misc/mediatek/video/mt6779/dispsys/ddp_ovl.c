@@ -2544,15 +2544,19 @@ void ovl_dump_reg(enum DISP_MODULE_ENUM module)
 			DISP_REG_GET(DISP_REG_OVL_DUMMY_REG + base),
 			DISP_REG_GET(DISP_REG_OVL_GDRDY_PRD + base));
 
-		n = snprintf(msg, len, "0x230:0x%08x 0x%08x 0x240:0x%08x ",
+		n = snprintf(msg, len,
+			"0x230:0x%08x 0x%08x 0x240:0x%08x 0x%08x 0x2a0:0x%08x 0x%08x\n",
 			     DISP_REG_GET(DISP_REG_OVL_SMI_DBG + base),
 			     DISP_REG_GET(DISP_REG_OVL_GREQ_LAYER_CNT + base),
-			     DISP_REG_GET(DISP_REG_OVL_FLOW_CTRL_DBG + base));
-		n += snprintf(msg + n, len - n, "0x%08x 0x2a0:0x%08x 0x%08x\n",
+			     DISP_REG_GET(DISP_REG_OVL_FLOW_CTRL_DBG + base),
 			      DISP_REG_GET(DISP_REG_OVL_ADDCON_DBG + base),
 			      DISP_REG_GET(DISP_REG_OVL_FUNC_DCM0 + base),
 			      DISP_REG_GET(DISP_REG_OVL_FUNC_DCM1 + base));
-		DDPDUMP("%s", msg);
+		if (n < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, n);
+		} else
+			DDPDUMP("%s", msg);
 
 		DDPDUMP("0x3A0: 0x%08x, 0x3A4: 0x%08x, 0x3A8: 0x%08x\n",
 			DISP_REG_GET(DISP_REG_OVL_SBCH + base),
