@@ -1659,121 +1659,97 @@ int check_disp_info(struct disp_layer_info *disp_info)
 	return 0;
 }
 
+static int _copy_layer_info_from_disp(struct disp_layer_info *disp_info_user,
+	int debug_mode, int disp_idx)
+{
+	struct disp_layer_info *l_info = &layering_info;
+	unsigned long int layer_size = 0;
+	int ret = 0, layer_num = 0;
+
+	if (l_info->layer_num[disp_idx] <= 0)
+		return -EFAULT;
+
+
+	layer_num = l_info->layer_num[disp_idx];
+	layer_size = sizeof(struct layer_config) * layer_num;
+	l_info->input_config[disp_idx] =
+		kzalloc(layer_size, GFP_KERNEL);
+
+	if (l_info->input_config[disp_idx] == NULL) {
+		pr_info("[DISP][HRT]:alloc input config 0 fail, layer_num:%d\n",
+			l_info->layer_num[disp_idx]);
+		return -EFAULT;
+	}
+
+	if (debug_mode) {
+		memcpy(l_info->input_config[disp_idx],
+			disp_info_user->input_config[disp_idx],
+			layer_size);
+	} else {
+		if (copy_from_user(l_info->input_config[disp_idx],
+				disp_info_user->input_config[disp_idx],
+				layer_size)) {
+			pr_info("[DISP][FB]: copy_from_user failed! line:%d\n",
+				__LINE__);
+			return -EFAULT;
+		}
+	}
+
+	return ret;
+}
+
 int set_disp_info(struct disp_layer_info *disp_info_user, int debug_mode)
 {
-
 	memcpy(&layering_info, disp_info_user, sizeof(struct disp_layer_info));
 
-	if (layering_info.layer_num[0]) {
-		layering_info.input_config[0] =
-			kcalloc(layering_info.layer_num[0],
-				sizeof(struct layer_config), GFP_KERNEL);
-
-		if (layering_info.input_config[0] == NULL) {
-			pr_info("[DISP][%s #%d]ERROR:[HRT]:alloc input config 0 fail,layer_num:%d\n",
-				__func__, __LINE__,
-				layering_info.layer_num[0]);
-			return -EFAULT;
-		}
-
-		if (debug_mode) {
-			memcpy(layering_info.input_config[0],
-				disp_info_user->input_config[0],
-				sizeof(struct layer_config)
-				* layering_info.layer_num[0]);
-		} else {
-			if (copy_from_user(layering_info.input_config[0],
-				disp_info_user->input_config[0],
-				sizeof(struct layer_config)
-				* layering_info.layer_num[0])) {
-				DISPERR("[FB]:copy_from_user failed!line:%d\n",
-					__LINE__);
-				return -EFAULT;
-			}
-		}
-	}
-
-	if (layering_info.layer_num[1]) {
-		layering_info.input_config[1] =
-			kcalloc(layering_info.layer_num[1],
-				sizeof(struct layer_config),
-				GFP_KERNEL);
-		if (layering_info.input_config[1] == NULL) {
-			pr_info("[DISP][%s #%d]ERROR:[HRT]: alloc input config 1 fail, layer_num:%d\n",
-				__func__, __LINE__,
-				layering_info.layer_num[1]);
-			return -EFAULT;
-		}
-
-		if (debug_mode) {
-			memcpy(layering_info.input_config[1],
-				disp_info_user->input_config[1],
-				sizeof(struct layer_config)
-				* layering_info.layer_num[1]);
-		} else {
-			if (copy_from_user(layering_info.input_config[1],
-				disp_info_user->input_config[1],
-				sizeof(struct layer_config)
-				* layering_info.layer_num[1])) {
-				pr_info("[DISP][%s #%d]ERROR:[FB]: copy_from_user failed! line:%d\n",
-					__func__, __LINE__, __LINE__);
-				return -EFAULT;
-			}
-		}
-	}
+	_copy_layer_info_from_disp(disp_info_user, debug_mode, 0);
+	_copy_layer_info_from_disp(disp_info_user, debug_mode, 1);
 
 	l_rule_info->disp_path = HRT_PATH_UNKNOWN;
 	return 0;
+}
+
+static int _copy_layer_info_by_disp(struct disp_layer_info *disp_info_user,
+	int debug_mode, int disp_idx)
+{
+	struct disp_layer_info *l_info = &layering_info;
+	unsigned long int layer_size = 0;
+	int ret = 0;
+
+	if (l_info->layer_num[disp_idx] <= 0)
+		return -EFAULT;
+
+	disp_info_user->gles_head[disp_idx] = l_info->gles_head[disp_idx];
+	disp_info_user->gles_tail[disp_idx] = l_info->gles_tail[disp_idx];
+
+	layer_size = sizeof(struct layer_config) *
+		disp_info_user->layer_num[disp_idx];
+
+	if (debug_mode) {
+		memcpy(disp_info_user->input_config[disp_idx],
+			l_info->input_config[disp_idx], layer_size);
+	} else {
+		if (copy_to_user(disp_info_user->input_config[disp_idx],
+				l_info->input_config[disp_idx], layer_size)) {
+			pr_info("[DISP][FB]: copy_to_user failed! line:%d\n",
+				__LINE__);
+			ret = -EFAULT;
+		}
+		kfree(l_info->input_config[disp_idx]);
+	}
+
+	return ret;
 }
 
 int copy_layer_info_to_user(struct disp_layer_info *disp_info_user,
 	int debug_mode)
 {
 	int ret = 0;
+	struct disp_layer_info *l_info = &layering_info;
 
-	disp_info_user->hrt_num = layering_info.hrt_num;
-	if (layering_info.layer_num[0] > 0) {
-		disp_info_user->gles_head[0] = layering_info.gles_head[0];
-		disp_info_user->gles_tail[0] = layering_info.gles_tail[0];
-
-		if (debug_mode) {
-			memcpy(disp_info_user->input_config[0],
-				layering_info.input_config[0],
-				sizeof(struct layer_config)
-				* disp_info_user->layer_num[0]);
-		} else {
-			if (copy_to_user(disp_info_user->input_config[0],
-				layering_info.input_config[0],
-				sizeof(struct layer_config)
-				* layering_info.layer_num[0])) {
-				DISPERR("[FB]: copy_to_user failed! line:%d\n",
-				__LINE__);
-				ret = -EFAULT;
-			}
-			kfree(layering_info.input_config[0]);
-		}
-	}
-
-	if (layering_info.layer_num[1] > 0) {
-		disp_info_user->gles_head[1] = layering_info.gles_head[1];
-		disp_info_user->gles_tail[1] = layering_info.gles_tail[1];
-		if (debug_mode) {
-			memcpy(disp_info_user->input_config[1],
-				layering_info.input_config[1],
-				sizeof(struct layer_config)
-				* disp_info_user->layer_num[1]);
-		} else {
-			if (copy_to_user(disp_info_user->input_config[1],
-				layering_info.input_config[1],
-				sizeof(struct layer_config) *
-				layering_info.layer_num[1])) {
-				DISPERR("[FB]: copy_to_user failed! line:%d\n",
-					__LINE__);
-				ret = -EFAULT;
-			}
-			kfree(layering_info.input_config[1]);
-		}
-	}
+	disp_info_user->hrt_num = l_info->hrt_num;
+	_copy_layer_info_by_disp(disp_info_user, debug_mode, 0);
+	_copy_layer_info_by_disp(disp_info_user, debug_mode, 1);
 
 	return ret;
 }
