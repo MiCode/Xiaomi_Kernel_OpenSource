@@ -2114,7 +2114,7 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			mutex_unlock(&buffer->lock);
 
 		} else {
-			IONMSG(": Error. get iova is not from %c heap.\n",
+			IONMSG(": Error. get iova is not from %d heap.\n",
 			       buffer->heap->type);
 			ret = -EFAULT;
 		}

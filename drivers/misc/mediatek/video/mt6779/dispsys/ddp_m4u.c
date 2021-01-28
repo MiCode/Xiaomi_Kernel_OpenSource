@@ -264,13 +264,11 @@ int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
 {
 #if defined(MTK_FB_ION_SUPPORT)
 	struct ion_mm_data mm_data;
-	size_t mva_size;
-	ion_phys_addr_t phy_addr = 0;
 
 	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
-	mm_data.config_buffer_param.module_id = port;
-	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	mm_data.mm_cmd = ION_MM_GET_IOVA;
+	mm_data.get_phys_param.module_id = port;
+	mm_data.get_phys_param.kernel_handle = handle;
 	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
 			     (unsigned long)&mm_data) < 0) {
 		DISP_PR_ERR("%s: config buffer failed.0x%p -0x%p\n",
@@ -279,8 +277,7 @@ int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
 		return -1;
 	}
 
-	ion_phys(client, handle, &phy_addr, &mva_size);
-	*mva = (unsigned int)phy_addr;
+	*mva = (unsigned int)mm_data.get_phys_param.phy_addr;
 	DDPDBG("alloc mmu addr hnd=0x%p,mva=0x%08x\n",
 		   handle, (unsigned int)*mva);
 #endif
