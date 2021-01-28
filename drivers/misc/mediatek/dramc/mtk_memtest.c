@@ -387,6 +387,9 @@ static ssize_t read_dram_addr_write(struct file *file,
 		sz = simple_write_to_buffer(buf, sizeof(buf), offset,
 			user_buf, len);
 
+		if (sz < 0)
+			return sz;
+
 		if (sz != len)
 			return -EIO;
 
@@ -471,6 +474,9 @@ static ssize_t test_result_write(struct file *file,
 	int ret, sz, region;
 
 	sz =  simple_write_to_buffer(buf, sizeof(buf), offset, user_buf, len);
+
+	if (sz < 0)
+		return sz;
 
 	if (sz != len)
 		return -EIO;
