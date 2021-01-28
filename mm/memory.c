@@ -4550,6 +4550,9 @@ vm_fault_t __handle_speculative_fault(struct mm_struct *mm,
 
 	put_vma(vma);
 
+	if (ret != VM_FAULT_RETRY)
+		count_vm_event(SPECULATIVE_PGFAULT);
+
 	/*
 	 * The task may have entered a memcg OOM situation but
 	 * if the allocation error was handled gracefully (no
