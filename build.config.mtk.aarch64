@@ -11,6 +11,7 @@ POST_DEFCONFIG_CMDS="update_config"
 function update_config() {
     ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
          -d CONFIG_DRM_RCAR_DU \
+	 -d CONFIG_TRANSPARENT_HUGEPAGE \
 
     (cd ${OUT_DIR} && \
      make O=${OUT_DIR} $archsubarch CC=${CC} LD=${LD} CROSS_COMPILE=${CROSS_COMPILE} olddefconfig)
