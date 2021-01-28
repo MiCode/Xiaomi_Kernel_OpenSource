@@ -1751,7 +1751,8 @@ static unsigned long long fbt_est_loading(int cur_ts,
 		return 0;
 
 	if (cur_ts > atomic_read(&last_ts)) {
-		unsigned long long dur = cur_ts - atomic_read(&last_ts);
+		unsigned long long dur = (unsigned long long)cur_ts -
+						atomic_read(&last_ts);
 
 		return dur * obv;
 	}
