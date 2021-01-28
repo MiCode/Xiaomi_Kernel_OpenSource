@@ -2388,9 +2388,10 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		    <0 0x18080000 0 0x10000>; /*SRAM_BANK2*/
 		interrupts = <GIC_SPI 283 IRQ_TYPE_LEVEL_LOW>;
 		mediatek,infracfg = <&infracfg_ao>;
-		mediatek,offset =<0xf00 0x800 0x140 0x144 0x148>;
 		/*INFRA MISC, conn_bt_cvsd_mask*/
 		/*cvsd_mcu_read, write, packet_indicator*/
+		mediatek,offset =<0xf00 0x800 0x140 0x144 0x148>;
+		disable_write_silence = <0>;
 	};
 
 	mt_soc_playback_offload {
