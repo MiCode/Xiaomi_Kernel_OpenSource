@@ -3192,8 +3192,6 @@ int autok_path_sel(struct msdc_host *host)
 
 	MSDC_SET_FIELD(MSDC_PATCH_BIT1, MSDC_PB1_GET_BUSY_MA,
 		platform_para_rx.busy_ma_val);
-	if (platform_para_func.r1b_check != 1)
-		MSDC_SET_FIELD(MSDC_PATCH_BIT1, 1 << 7, 1);
 	/* DDR50 byte swap issue design fix feature enable */
 	if (platform_para_func.ddr50_fix == 1)
 		MSDC_SET_FIELD(MSDC_PATCH_BIT2, 1 << 19, 1);
