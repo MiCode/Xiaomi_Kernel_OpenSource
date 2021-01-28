@@ -83,7 +83,7 @@ QOS_BOUND_DETECT := true
 #ccflags-y += -DCHECK_VOLTAGE #Should be enabled when gki complete
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6765"))
 SUPPORT_MMP := true
-FORCE_STEP0 := true
+FORCE_STEP0 := false
 BUILD_MMDVFS := true
 endif
 
