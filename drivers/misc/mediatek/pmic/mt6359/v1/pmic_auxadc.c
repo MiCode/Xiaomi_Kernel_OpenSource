@@ -20,6 +20,7 @@
 #include <linux/ratelimit.h>
 #include <linux/timekeeping.h>
 #include <linux/math64.h>
+#include <linux/of_address.h>
 
 #include <linux/iio/consumer.h>
 #include <linux/iio/adc/mt635x-auxadc-internal.h>
@@ -46,6 +47,7 @@
 
 static struct device *pmic_auxadc_dev;
 static int auxadc_bat_temp_cali(int bat_temp, int precision_factor);
+static bool mts_enable = true;
 
 /*********************************
  * PMIC AUXADC Exported API
@@ -559,6 +561,27 @@ out:
 	return bat_temp;
 }
 
+static void parsing_cust_setting(void)
+{
+	struct device_node *np;
+	unsigned int disable_modem = 0;
+
+	/* check customer setting */
+	np = of_find_compatible_node(NULL, NULL,
+		"mediatek,mt-pmic-custom-setting");
+	if (!np) {
+		HKLOG("[%s]Failed to find device-tree node\n", __func__);
+		return;
+	}
+
+	if (!of_property_read_u32(np, "disable-modem", &disable_modem)) {
+		if (disable_modem)
+			mts_enable = false;
+	}
+
+	of_node_put(np);
+}
+
 int pmic_auxadc_chip_init(struct device *dev)
 {
 	int ret = 0;
@@ -574,7 +597,9 @@ int pmic_auxadc_chip_init(struct device *dev)
 	legacy_auxadc_init(dev);
 
 	wk_auxadc_dbg_init();
-	mdrt_monitor_init();
+	parsing_cust_setting();
+	if (mts_enable)
+		mdrt_monitor_init();
 	/* only enable MDRT wakeup when enter suspend */
 	pmic_set_register_value(PMIC_AUXADC_MDRT_DET_WKUP_EN, 0);
 	/* set MDRT_WAKEUP AVG_NUM to the same with Ch7(128 samples) */
