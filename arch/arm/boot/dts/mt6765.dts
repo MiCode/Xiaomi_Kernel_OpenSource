@@ -1925,9 +1925,16 @@
 		#clock-cells = <1>;
 	};
 
-	efusec@11c50000 {
-		compatible = "mediatek,efusec";
+	efuse: efuse@11c50000 {
+		compatible = "mediatek,devinfo";
 		reg = <0 0x11c50000 0 0x10000>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		efuse_segment: segment@78 {
+			reg = <0x78 0x4>;
+		};
 	};
 
 	mipi_tx0@11c80000 {
