@@ -74,6 +74,9 @@ static bool is_critical_spinlock(raw_spinlock_t *lock)
 		return true;
 	if (!strcmp(lock->dep_map.name, "depot_lock"))
 		return true;
+	/* The following locks are in the white list */
+	if (!strcmp(lock->dep_map.name, "show_lock"))
+		return true;
 #endif
 	return false;
 }
@@ -138,7 +141,8 @@ static void spin_lock_check_holding_time(raw_spinlock_t *lock)
 			raw_smp_processor_id());
 		dump_stack();
 
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if defined(CONFIG_MTK_AEE_FEATURE) && \
+	!defined(CONFIG_KASAN) && !defined(CONFIG_UBSAN)
 		snprintf(aee_str, sizeof(aee_str),
 			"Spinlock lockup: (%s) in %s\n",
 			lock_name, current->comm);
@@ -304,7 +308,8 @@ static void show_cpu_backtrace(void *info)
 	dump_stack();
 
 	if (info != LOCK_CSD_IN_USE) {
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if defined(CONFIG_MTK_AEE_FEATURE) && \
+	!defined(CONFIG_KASAN) && !defined(CONFIG_UBSAN)
 		char aee_str[128];
 
 		snprintf(aee_str, sizeof(aee_str),
@@ -458,13 +463,15 @@ void do_raw_spin_lock(raw_spinlock_t *lock)
 	unsigned long long ts = 0;
 #endif
 	debug_spin_lock_before(lock);
-#ifdef MTK_DEBUG_SPINLOCK_V1
+#if defined(MTK_DEBUG_SPINLOCK_V1)
 	if (unlikely(!arch_spin_trylock(&lock->raw_lock)))
 		__spin_lock_debug(lock);
-#else
+#elif defined(MTK_DEBUG_SPINLOCK_V2)
 	spin_lock_get_timestamp(&ts);
 	arch_spin_lock(&lock->raw_lock);
 	spin_lock_check_spinning_time(lock, ts);
+#else
+	arch_spin_lock(&lock->raw_lock);
 #endif
 	debug_spin_lock_after(lock);
 }
