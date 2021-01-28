@@ -201,6 +201,31 @@ struct mt_regulator_init_data {
 	.qi = BIT(15),							\
 }
 
+#define MT6358_LDO_VMC_DESC(match, _name, volt_ranges,	\
+	_enable_reg, _da_reg, _vsel_reg, _vsel_mask, mode)\
+[MT6358_ID_##_name] = {					\
+	.desc = {					\
+		.name = #_name,				\
+		.of_match = of_match_ptr(match),	\
+		.ops = &mt6358_vmc_ops,			\
+		.type = REGULATOR_VOLTAGE,		\
+		.id = MT6358_ID_##_name,		\
+		.owner = THIS_MODULE,			\
+		.n_voltages = 0xd01,			\
+		.linear_ranges = volt_ranges,		\
+		.n_linear_ranges = ARRAY_SIZE(volt_ranges),\
+		.vsel_reg = _vsel_reg,			\
+		.vsel_mask = _vsel_mask,		\
+		.enable_reg = _enable_reg,		\
+		.enable_mask = BIT(0),			\
+	},						\
+	.constraints = {				\
+		.valid_ops_mask = (mode),		\
+	},						\
+	.da_reg = _da_reg,				\
+	.qi = BIT(15),					\
+}
+
 static const struct regulator_linear_range mt_volt_range1[] = {
 	REGULATOR_LINEAR_RANGE(500000, 0, 0x7f, 6250),
 };
@@ -215,6 +240,17 @@ static const struct regulator_linear_range mt_volt_range3[] = {
 
 static const struct regulator_linear_range mt_volt_range4[] = {
 	REGULATOR_LINEAR_RANGE(1000000, 0, 0x7f, 12500),
+};
+
+/* for vmc voltage calibration: 1.86V */
+static const struct regulator_linear_range mt_volt_range5[] = {
+	REGULATOR_LINEAR_RANGE(1800000, 0x400, 0x400, 0),
+	REGULATOR_LINEAR_RANGE(1810000, 0x401, 0x40a, 10000),
+	REGULATOR_LINEAR_RANGE(2900000, 0xa00, 0xa00, 0),
+	REGULATOR_LINEAR_RANGE(2910000, 0xa01, 0xa09, 10000),
+	REGULATOR_LINEAR_RANGE(3000000, 0xb00, 0xb00, 0),
+	REGULATOR_LINEAR_RANGE(3010000, 0xb01, 0xb0a, 10000),
+	REGULATOR_LINEAR_RANGE(3300000, 0xd00, 0xd00, 0),
 };
 
 static const u32 vdram2_voltages[] = {
@@ -417,23 +453,6 @@ static const u32 vcama2_voltages[] = {
 	2800000,
 	2900000,
 	3000000,
-};
-
-static const u32 vmc_voltages[] = {
-	0,
-	0,
-	0,
-	0,
-	1800000,
-	0,
-	0,
-	0,
-	0,
-	0,
-	2900000,
-	3000000,
-	0,
-	3300000,
 };
 
 static const u32 vldo28_voltages[] = {
@@ -673,6 +692,17 @@ static struct regulator_ops pmic_regulator_ext2_ops = {
 	.enable = pmic_regulator_ext2_enable,
 	.disable = pmic_regulator_ext2_disable,
 	.is_enabled = mt6358_get_status,
+};
+
+static const struct regulator_ops mt6358_vmc_ops = {
+	.list_voltage = regulator_list_voltage_linear_range,
+	.enable = regulator_enable_regmap,
+	.disable = mt6358_regulator_disable,
+	.is_enabled = regulator_is_enabled_regmap,
+	.get_status = mt6358_get_status,
+	.set_voltage_sel = regulator_set_voltage_sel_regmap,
+	.get_voltage_sel = regulator_get_voltage_sel_regmap,
+	.set_voltage_time_sel = regulator_set_voltage_time_sel,
 };
 
 /* The array is indexed by id(MT6358_ID_XXX) */
@@ -937,13 +967,10 @@ static struct mt6358_regulator_info mt6358_regulators[] = {
 		PMIC_RG_VCAMA2_VOSEL_MASK <<
 		PMIC_RG_VCAMA2_VOSEL_SHIFT,
 		MT_LDO_VOL_EN),
-	MT_LDO_NON_REGULAR("ldo_vmc", VMC,
-		vmc_voltages, PMIC_RG_LDO_VMC_EN_ADDR,
-		PMIC_DA_VMC_EN_ADDR,
-		PMIC_RG_VMC_VOSEL_ADDR,
-		PMIC_RG_VMC_VOSEL_MASK <<
-		PMIC_RG_VMC_VOSEL_SHIFT,
-		MT_LDO_VOL_EN),
+	MT6358_LDO_VMC_DESC("ldo_vmc", VMC, mt_volt_range5,
+			    PMIC_RG_LDO_VMC_EN_ADDR,
+			    PMIC_DA_VMC_EN_ADDR, PMIC_RG_VMC_VOSEL_ADDR,
+			    0xFFF, MT_LDO_VOL_EN),
 	MT_LDO_NON_REGULAR("ldo_vldo28", VLDO28,
 		vldo28_voltages, PMIC_RG_LDO_VLDO28_EN_0_ADDR,
 		PMIC_DA_VLDO28_EN_ADDR,
