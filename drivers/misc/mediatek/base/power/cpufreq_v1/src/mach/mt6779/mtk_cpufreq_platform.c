@@ -616,11 +616,8 @@ int mt_cpufreq_dts_map(void)
 unsigned int _mt_cpufreq_get_cpu_level(void)
 {
 	unsigned int lv = CPU_LEVEL_0;
-
-#if defined(CONFIG_MACH_MT6779)
-	return lv;
-#else
 	int val = 0;
+
 	unsigned int efuse_seg;
 	struct platform_device *pdev;
 	struct device_node *node;
@@ -659,7 +656,6 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	tag_pr_info("%d, %d, (%d, %d) efuse_val = 0x%x\n",
 		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val);
 	return lv;
-#endif
 }
 
 unsigned int cpufreq_get_nr_clusters(void)
