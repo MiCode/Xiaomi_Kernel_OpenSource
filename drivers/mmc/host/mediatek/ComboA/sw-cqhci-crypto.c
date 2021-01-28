@@ -5,6 +5,19 @@
 
 #include "mtk_sd.h"
 
+static int msdc_complete_mqr_crypto(struct mmc_host *host)
+{
+	struct msdc_host *ll_host = mmc_priv(host);
+
+	/* only for non-cqe, cqe needs nothing */
+	if ((readl(ll_host->base + MSDC_AES_SWST)
+			& MSDC_AES_BYPASS) == 0)
+		/* disable AES path by set bypass bit */
+		MSDC_SET_BIT32(ll_host->base + MSDC_AES_SWST, MSDC_AES_BYPASS);
+
+	return 0;
+}
+
 /* non-cqe only set IV here */
 static int set_crypto(struct msdc_host *host,
 		u64 data_unit_num, int ddir)
@@ -86,6 +99,9 @@ static void msdc_crypto_program_key(struct mmc_host *host,
 	if (!ll_host || !ll_host->base)
 		return;
 
+	/* disable AES path firstly if need for safety */
+	msdc_complete_mqr_crypto(host);
+
 	if (unlikely(!*key && !tkey)) {
 		/* disable AES path by set bypass bit */
 		MSDC_SET_BIT32(ll_host->base + MSDC_AES_SWST, MSDC_AES_BYPASS);
@@ -132,19 +148,6 @@ static int msdc_prepare_mqr_crypto(struct mmc_host *host,
 	return set_crypto(ll_host, data_unit_num, ddir);
 }
 
-static int msdc_complete_mqr_crypto(struct mmc_host *host)
-{
-	struct msdc_host *ll_host = mmc_priv(host);
-
-	/* only for non-cqe, cqe needs nothing */
-	if ((readl(ll_host->base + MSDC_AES_SWST)
-			& MSDC_AES_BYPASS) == 0)
-		/* disable AES path by set bypass bit */
-		MSDC_SET_BIT32(ll_host->base + MSDC_AES_SWST, MSDC_AES_BYPASS);
-
-	return 0;
-}
-
 static void msdc_init_crypto(struct mmc_host *host)
 {
 	if (host->caps2 & (MMC_CAP2_CQE | MMC_CAP2_CQE_DCMD)) {
@@ -166,7 +169,7 @@ static int msdc_get_crypto_capabilities(struct mmc_host *host)
 	/*
 	 * non-cqe has only one algorithm
 	 * algorithm_id : AES-XTS (04)
-	 * sdus_mask: meaningless (09)
+	 * sdus_mask: support 512 & 4096 (09)
 	 * key_size: 256bits (02)
 	 * reserved: 0x5A (meaningless)
 	 * please noted that we used 0x5A to distinguish non-cqe and cqe

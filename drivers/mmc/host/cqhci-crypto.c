@@ -230,15 +230,12 @@ int cqhci_prep_crypto_desc(struct mmc_request *mrq, __le64 *task_desc)
 		crypto_desc = lower_32_bits(mrq->data_unit_num) |
 			      CQHCI_CRYPTO_CONFIG_INDEX(mrq->crypto_key_slot) |
 			      CQHCI_CRYPTO_ENABLE_BIT;
-		task_desc[1] = cpu_to_le64(crypto_desc);
-	} else
-		task_desc[1] = 0;
-
+	}
 	/*
 	 *  Assign upper 64bits data of 128 bits task descriptor
 	 *  with the crypto context
 	 */
-	//task_desc[1] = cpu_to_le64(crypto_desc);
+	task_desc[1] = cpu_to_le64(crypto_desc);
 	return 0;
 }
 

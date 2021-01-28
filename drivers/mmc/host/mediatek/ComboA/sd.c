@@ -5004,11 +5004,10 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	mmc->caps |= MMC_CAP_ERASE;
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-		if (host->hw->host_function == MSDC_EMMC)
-			mmc->caps2 |= MMC_CAP2_SWCQ;
-#endif
-	/* inline crypto */
+	if (host->hw->host_function == MSDC_EMMC)
+		mmc->caps2 |= MMC_CAP2_SWCQ;
 	msdc_crypto_init_vops(mmc);
+#endif
 
 	/* If 0  < mmc->max_busy_timeout < cmd.busy_timeout,
 	 * R1B will change to R1, host will not detect DAT0 busy,

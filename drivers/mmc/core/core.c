@@ -981,8 +981,10 @@ int mmc_run_queue_thread(void *data)
 				trace_mmc_request_start(host, dat_mrq);
 				err = mmc_swcq_prepare_mqr_crypto(host,
 					dat_mrq);
-				if (err == -EINVAL)
+				if (err) {
+					pr_info("eMMC crypto fail %d\n", err);
 					WARN_ON(1);
+				}
 				host->ops->request(host, dat_mrq);
 				mt_biolog_cmdq_dma_start(task_id);
 				atomic_dec(&host->cq_rdy_cnt);
