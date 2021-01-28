@@ -81,6 +81,7 @@ struct mtk_mmsys_driver_data {
 	void (*sodi_config)(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			struct cmdq_pkt *handle, void *data);
 	const struct mtk_fake_eng_data *fake_eng_data;
+	bool bypass_infra_ddr_control;
 };
 
 struct mtk_drm_lyeblob_ids {
@@ -115,6 +116,8 @@ struct mtk_drm_private {
 	struct device *mutex_dev;
 	void __iomem *config_regs;
 	resource_size_t config_regs_pa;
+	void __iomem *infra_regs;
+	resource_size_t infra_regs_pa;
 	const struct mtk_mmsys_reg_data *reg_data;
 	struct device_node *comp_node[DDP_COMPONENT_ID_MAX];
 	struct mtk_ddp_comp *ddp_comp[DDP_COMPONENT_ID_MAX];

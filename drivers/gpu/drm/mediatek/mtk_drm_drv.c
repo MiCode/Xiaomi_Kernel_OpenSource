@@ -1643,6 +1643,7 @@ static const struct mtk_mmsys_driver_data mt6833_mmsys_driver_data = {
 	.mmsys_id = MMSYS_MT6833,
 	.mode_tb = mt6833_mode_tb,
 	.sodi_config = mt6833_mtk_sodi_config,
+	.bypass_infra_ddr_control = true,
 };
 
 #ifdef MTK_DRM_FENCE_SUPPORT
@@ -2964,6 +2965,37 @@ static int mtk_drm_probe(struct platform_device *pdev)
 
 	private->config_regs_pa = mem->start;
 	private->mmsys_dev = dev;
+
+	if (private->data->bypass_infra_ddr_control) {
+		struct device_node *infra_node;
+		struct platform_device *infra_pdev;
+		struct device *infra_dev;
+		struct resource *infra_mem;
+
+		infra_node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg_ao_mem");
+		if (infra_node == NULL) {
+			DDPPR_ERR("mediatek,infracfg_ao_mem is not found\n");
+		} else {
+			infra_pdev = of_find_device_by_node(infra_node);
+			if (!infra_pdev) {
+				dev_err(dev, "Waiting for infra-ao-mem device %s\n",
+					private->mutex_node->full_name);
+				of_node_put(infra_node);
+				return -EPROBE_DEFER;
+			}
+			infra_dev = get_device(&infra_pdev->dev);
+			infra_mem = platform_get_resource(infra_pdev, IORESOURCE_MEM, 0);
+			private->infra_regs_pa = infra_mem->start;
+			private->infra_regs = devm_ioremap_resource(infra_dev, infra_mem);
+			if (IS_ERR(private->infra_regs))
+				DDPPR_ERR("%s: infra_ao_base of_iomap failed\n", __func__);
+			else
+				DDPMSG("%s, infra_regs:0x%p, infra_regs_pa:0x%lx\n",
+					__func__, (void *)private->infra_regs,
+					private->infra_regs_pa);
+		}
+		of_node_put(infra_node);
+	}
 
 	/* Get and enable top clk align to HW */
 	mtk_drm_get_top_clk(private);
