@@ -2465,7 +2465,8 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	g_volt_enable_state = true;
 
 	/* init APMIXED base address */
-	apmixed_node = of_find_compatible_node(NULL, NULL, "mediatek,apmixed");
+	apmixed_node = of_find_compatible_node(NULL, NULL,
+					"mediatek,mt6761-apmixedsys");
 	g_apmixed_base = of_iomap(apmixed_node, 0);
 	if (!g_apmixed_base) {
 		gpufreq_perr("@%s: APMIXED iomap failed", __func__);
