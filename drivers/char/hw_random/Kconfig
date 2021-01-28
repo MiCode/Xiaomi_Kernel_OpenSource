@@ -402,6 +402,7 @@ config HW_RANDOM_MT67XX
 	tristate "Mediatek MT67XX Random Number Generator support"
 	depends on HW_RANDOM
 	depends on ARCH_MEDIATEK || COMPILE_TEST
+	default HW_RANDOM
 	help
 	  This driver provides kernel-side support for the Random Number
 	  Generator hardware found on Mediatek MT67xx SoCs. The difference
