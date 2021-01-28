@@ -191,6 +191,7 @@ DECLARE_WAIT_QUEUE_HEAD(decouple_update_rdma_wq);
 atomic_t decouple_trigger_event = ATOMIC_INIT(0);
 DECLARE_WAIT_QUEUE_HEAD(decouple_trigger_wq);
 wait_queue_head_t primary_display_present_fence_wq;
+static bool pf_thread_init;
 atomic_t primary_display_pt_fence_update_event = ATOMIC_INIT(0);
 atomic_t real_input_layer = ATOMIC_INIT(0);
 static unsigned int _need_lfr_check(void);
@@ -4039,43 +4040,20 @@ static int _present_fence_release_worker_thread(void *data)
 
 	sched_setscheduler(current, SCHED_RR, &param);
 
-	dpmgr_enable_event(pgc->dpmgr_handle, DISP_PATH_EVENT_IF_VSYNC);
-
 	while (1) {
-		int tl_pf;
-		struct disp_sync_info *l_info;
+		unsigned int pf_idx = 0;
 
 		wait_event_interruptible(primary_display_present_fence_wq,
 			atomic_read(&primary_display_pt_fence_update_event));
 
 		atomic_set(&primary_display_pt_fence_update_event, 0);
 
-		if (!islcmconnected && !primary_display_is_video_mode()) {
-			DISPCHECK("LCM Not Connected && CMD Mode\n");
-			msleep(20);
-#if 0
-		/*ToDo: ARR not need waiting until sof?*/
-		} else if (disp_helper_get_option(DISP_OPT_ARR_PHASE_1)) {
-			dpmgr_wait_event(pgc->dpmgr_handle,
-					 DISP_PATH_EVENT_FRAME_START);
-#endif
-		} else {
-			dpmgr_wait_event(pgc->dpmgr_handle,
-					 DISP_PATH_EVENT_IF_VSYNC);
-		}
-
-		tl_pf = disp_sync_get_present_timeline_id();
-		l_info = disp_sync_get_layer_info(primary_session_id, tl_pf);
-		if (!l_info) {
-			mmprofile_log_ex(
-			ddp_mmp_get_events()->primary_present_fence_release,
-				MMPROFILE_FLAG_PULSE, -1, 0x5a5a5a5a);
-			continue;
-		}
-
 		_primary_path_lock(__func__);
+		cmdqBackupReadSlot(pgc->cur_config_fence,
+			disp_sync_get_present_timeline_id(),
+			&pf_idx);
 		mtkfb_release_present_fence(primary_session_id,
-			gPresentFenceIndex);
+			pf_idx);
 		_primary_path_unlock(__func__);
 
 		if (atomic_read(&od_trigger_kick)) {
@@ -4600,6 +4578,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 					_present_fence_release_worker_thread,
 					NULL, "present_fence_worker");
 		wake_up_process(present_fence_release_worker_task);
+		pf_thread_init = true;
 	}
 
 	if (disp_helper_get_option(DISP_OPT_PERFORMANCE_DEBUG)) {
@@ -6042,9 +6021,21 @@ done:
 	return ret;
 }
 
-void primary_display_update_present_fence(unsigned int fence_idx)
+void primary_display_update_present_fence(struct cmdqRecStruct *cmdq_handle,
+	unsigned int fence_idx)
 {
+	cmdqRecBackupUpdateSlot(cmdq_handle,
+		pgc->cur_config_fence,
+		disp_sync_get_present_timeline_id(),
+		fence_idx);
+
 	gPresentFenceIndex = fence_idx;
+}
+
+void primary_display_wakeup_pf_thread(void)
+{
+	if (!pf_thread_init)
+		return;
 	atomic_set(&primary_display_pt_fence_update_event, 1);
 	if (disp_helper_get_option(DISP_OPT_PRESENT_FENCE))
 		wake_up_interruptible(&primary_display_present_fence_wq);
@@ -7558,6 +7549,16 @@ int primary_display_frame_cfg(struct disp_frame_cfg_t *cfg)
 	primary_frame_cfg_input(cfg);
 	dprec_done(input_event, cfg->overlap_layer_num, 0);
 
+	if (cfg->present_fence_idx != (unsigned int)-1) {
+		struct cmdqRecStruct *cmdq_handle;
+
+		if (primary_display_is_decouple_mode())
+			cmdq_handle = pgc->cmdq_handle_ovl1to2_config;
+		else
+			cmdq_handle = pgc->cmdq_handle_config;
+		primary_display_update_present_fence(cmdq_handle, cfg->present_fence_idx);
+	}
+
 	if (cfg->output_en) {
 		/* set output */
 		dprec_start(output_event, cfg->present_fence_idx,
@@ -7578,8 +7579,6 @@ int primary_display_frame_cfg(struct disp_frame_cfg_t *cfg)
 
 	primary_display_trigger_nolock(0, NULL, 0);
 
-	if (cfg->present_fence_idx != (unsigned int)-1)
-		primary_display_update_present_fence(cfg->present_fence_idx);
 
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	/*DynFPS*/
