@@ -753,13 +753,14 @@ enum UT_RET_STATE mem_alloc_mixed_size_test(enum TRUSTED_MEM_TYPE mem_type,
 					    int region_final_state)
 {
 	int ret;
+	u32 min_alloc_sz = tmem_core_get_min_chunk_size(mem_type);
 
 	ret = mem_alloc_mixed_size_test_with_alignment(mem_type, mem_owner, 0);
 	ASSERT_EQ(0, ret, "alloc mixed size alignment is 0");
 
 	ret = mem_alloc_mixed_size_test_with_alignment(mem_type, mem_owner,
-						       SZ_1M);
-	ASSERT_EQ(0, ret, "alloc mixed size alignment is 1MB");
+						       min_alloc_sz);
+	ASSERT_EQ(0, ret, "alloc mixed size alignment with minimal chunk size");
 
 	ASSERT_EQ(0, regmgr_state_check(mem_type, region_final_state),
 		  "reg state check");
