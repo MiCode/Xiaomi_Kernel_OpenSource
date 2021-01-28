@@ -29,6 +29,8 @@ Optional properties:
  - vbus-gpios      : input GPIO for USB VBUS pin.
  - vbus-supply     : reference to the VBUS regulator, needed when supports
                      dual-role mode
+ - usb-role-switch : use USB Role Switch to support dual-role switch, see
+                     usb/generic.txt.
 
 Example:
 
@@ -45,9 +47,9 @@ usb2: usb@11200000 {
 		 <&pericfg CLK_PERI_USB_SLV>;
 	clock-names = "main","mcu","univpll";
 	power-domains = <&scpsys MT2701_POWER_DOMAIN_IFR_MSC>;
+	usb-role-switch;
 	connector{
-		compatible = "gpio-usb-b-connector";
-		label = "micro-USB";
+		compatible = "gpio-usb-b-connector", "usb-b-connector";
 		type = "micro";
 		id-gpios = <&pio 44 GPIO_ACTIVE_HIGH>;
 		vbus-supply = <&usb_vbus>;
