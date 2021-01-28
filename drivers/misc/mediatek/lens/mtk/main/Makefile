@@ -29,7 +29,9 @@ ifeq ($(CONFIG_MTK_LENS_BU63165AF_SUPPORT), y)
 else
   subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/mtk/main/common/bu63169af/inc
 endif
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/timer/timesync/
+ifeq ($(CONFIG_MACH_MT6779), y)
+  ccflags-y += -I$(srctree)/drivers/misc/mediatek/timer/timesync/
+endif
 
 obj-$(CONFIG_MTK_LENS)    += mainaf.o
 

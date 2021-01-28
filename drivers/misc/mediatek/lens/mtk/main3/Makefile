@@ -23,7 +23,9 @@ MTK_CUSTOM_PATH  := $(srctree)/drivers/misc/mediatek
 
 subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/mtk/main3/inc
 
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/timer/timesync/
+ifeq ($(CONFIG_MACH_MT6779), y)
+  ccflags-y += -I$(srctree)/drivers/misc/mediatek/timer/timesync/
+endif
 
 obj-$(CONFIG_MTK_LENS)    += main3af.o
 
