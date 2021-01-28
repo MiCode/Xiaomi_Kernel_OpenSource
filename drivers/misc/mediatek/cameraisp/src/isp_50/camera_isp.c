@@ -45,9 +45,8 @@
 
 /* MET: define to enable MET*/
 /*#define ISP_MET_READY*/
-#define EP_STAGE
 
-/* #define EP_STAGE */
+#define EP_NO_K_LOG_ADJUST
 #ifdef EP_STAGE
 /* disable SMI related for EP */
 #define EP_MARK_SMI
@@ -93,7 +92,7 @@
 #include "inc/camera_isp.h"
 
 #ifndef EP_NO_PMQOS /* EP_NO_PMQOS is equivalent to EP_MARK_MMDVFS */
-#include <mmdvfs_mgr.h>
+//#include <mmdvfs_mgr.h>
 #ifdef CONFIG_MTK_QOS_SUPPORT
 #include <mmdvfs_pmqos.h>
 #endif
