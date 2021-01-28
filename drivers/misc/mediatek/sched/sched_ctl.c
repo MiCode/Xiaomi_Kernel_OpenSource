@@ -543,10 +543,8 @@ int aware_big_thermal(int cpu, struct task_struct *p)
 		if (sd) {
 			sg = sd->groups;
 			sge = sg->sge;
-		} else{
-			printk_deferred("sched: %s no sd", __func__);
+		} else
 			goto out;
-		}
 
 		min_new_util = calc_cpu_util(sge, cpu, p, 1);
 		for (cpu_idx = last_cpu; cpu_idx > cpu; --cpu_idx) {
