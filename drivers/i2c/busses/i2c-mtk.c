@@ -1343,7 +1343,8 @@ err_exit:
 	return ret;
 }
 
-#ifdef CONFIG_TRUSTONIC_TEE_SUPPORT
+#if (defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	defined(CONFIG_MICROTRUST_TEE_SUPPORT))
 int i2c_tui_enable_clock(int id)
 {
 	struct i2c_adapter *adap;
