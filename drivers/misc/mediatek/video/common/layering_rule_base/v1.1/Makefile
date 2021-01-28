@@ -11,6 +11,7 @@
 # GNU General Public License for more details.
 #
 
+CMDQ_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
 	MTK_PLATFORM := mt6765
 else
@@ -36,7 +37,7 @@ ccflags-y += \
 ccflags-y += \
                                 -I$(srctree)/drivers/misc/mediatek/cmdq/v3/
 
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(CMDQ_PLATFORM)/
 
 ifeq ($(CONFIG_MACH_MT6779), y)
     ccflags-y += -DCONFIG_MACH_MT6779

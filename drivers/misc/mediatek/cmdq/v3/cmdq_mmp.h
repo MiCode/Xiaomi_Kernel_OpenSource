@@ -9,7 +9,6 @@
 #include "cmdq_helper_ext.h"
 #if IS_ENABLED(CONFIG_MMPROFILE)
 #include "mmprofile.h"
-#include "mmprofile_function.h"
 #endif
 
 struct CMDQ_MMP_events_t {

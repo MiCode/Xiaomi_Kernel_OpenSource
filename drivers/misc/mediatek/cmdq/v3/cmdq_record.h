@@ -125,6 +125,10 @@ s32 cmdq_task_secure_enable_port_security(struct cmdqRecStruct *handle,
 s32 cmdqRecSecureEnablePortSecurity(struct cmdqRecStruct *handle,
 	const u64 engineFlag);
 
+/* Assign secure metadata for client driver */
+s32 cmdq_task_set_secure_meta(struct cmdqRecStruct *handle,
+	enum cmdq_sec_rec_meta_type type, void *meta, u32 size);
+
 /* Append mark command to the recorder
  * Parameter:
  *     handle: the command queue recorder handle
@@ -575,6 +579,24 @@ s32 cmdq_task_create_delay_thread_dram(void **pp_delay_thread_buffer,
 s32 cmdq_task_create_delay_thread_sram(void **pp_delay_thread_buffer,
 	u32 *buffer_size, u32 *cpr_offset);
 
+/* tablet use */
+/*
+ * Set secure mode to prevent m4u translation fault
+ * Parameter:
+ *	   handle: the command queue recorder handle
+ *	   mode: secure mode type
+ * Return:
+ *	   0 for success; else the error code is returned
+ * Note:
+ *	mutex protected, be careful
+ *	Remember to flush handle after this API to release resource via GCE
+ */
+#ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
+	s32 cmdq_task_set_secure_mode(struct cmdqRecStruct *handle,
+		enum CMDQ_DISP_MODE mode);
+	s32 cmdqRecSetSecureMode(struct cmdqRecStruct *handle,
+		enum CMDQ_DISP_MODE mode);
+#endif
 
 /* Initialize the logical variable
  * Parameter:

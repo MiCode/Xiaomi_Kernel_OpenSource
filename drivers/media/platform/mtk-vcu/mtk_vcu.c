@@ -486,7 +486,7 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 		cmdq_pkt_read_addr(pkt, addr, CMDQ_THR_SPR_IDX1);
 	break;
 	case CMD_WRITE:
-		cmdq_pkt_write_ex(pkt, vcu->clt_base, addr, data, mask);
+		cmdq_pkt_write(pkt, vcu->clt_base, addr, data, mask);
 	break;
 	case CMD_POLL_REG:
 		cmdq_pkt_poll_addr(pkt, data, addr, mask, CMDQ_GPR_R10);
@@ -604,7 +604,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	atomic_inc(&vcu->gce_job_cnt[i]);
 	mutex_unlock(&vcu->vcu_mutex[i]);
 
-	pkt_ptr = cmdq_pkt_create(cl, 0);
+	pkt_ptr = cmdq_pkt_create(cl);
 	if (pkt_ptr == NULL)
 		pr_info("[VCU] cmdq_pkt_cl_create fail\n");
 	buff->pkt_ptr = pkt_ptr;
@@ -1149,9 +1149,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 #ifdef CONFIG_MTK_CMDQ
 		} else {
 			mem_priv =
-				cmdq_mbox_buf_alloc(
-				vcu_dev->clt_vdec->chan->mbox->dev,
-				&temp_pa);
+				cmdq_mbox_buf_alloc(dev, &temp_pa);
 			mem_buff_data.va = (unsigned long)mem_priv;
 			mem_buff_data.pa = (unsigned long)temp_pa;
 			mem_buff_data.iova = 0;
@@ -1199,8 +1197,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			ret = mtk_vcu_free_buffer(vcu_queue, &mem_buff_data);
 #ifdef CONFIG_MTK_CMDQ
 		else
-			cmdq_mbox_buf_free(
-				vcu_dev->clt_vdec->chan->mbox->dev,
+			cmdq_mbox_buf_free(dev,
 				(void *)(unsigned long)mem_buff_data.va,
 				(dma_addr_t)mem_buff_data.pa);
 #endif
@@ -1676,8 +1673,8 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	}
 #ifdef CONFIG_MTK_CMDQ
 	vcu->clt_base = cmdq_register_device(dev);
-	vcu->clt_vdec = cmdq_mbox_create(dev, VCU_VDEC, CMDQ_NO_TIMEOUT);
-	vcu->clt_venc = cmdq_mbox_create(dev, VCU_VENC, CMDQ_NO_TIMEOUT);
+	vcu->clt_vdec = cmdq_mbox_create(dev, VCU_VDEC);
+	vcu->clt_venc = cmdq_mbox_create(dev, VCU_VENC);
 	dev_dbg(dev, "[VCU] GCE clt_base %p clt_vdec %p clt_venc %p dev %p",
 		vcu->clt_base, vcu->clt_vdec, vcu->clt_venc, dev);
 

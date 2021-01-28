@@ -4685,8 +4685,7 @@ static signed int DIP_probe(struct platform_device *pDev)
 		/* [GKI Modify]+ */
 		dip_clt_base = cmdq_register_device(dip_dev->dev);
 		/* [GKI Modify]+ */
-		dip_clt = cmdq_mbox_create(dip_dev->dev, 0,
-					CMDQ_TIMEOUT_DEFAULT);
+		dip_clt = cmdq_mbox_create(dip_dev->dev, 0);
 #if CHECK_SERVICE_IF_0
 		/* [GKI Modify]+ */
 		dip_event_thread0_id = cmdq_dev_get_event(dip_dev->dev,

@@ -9,6 +9,22 @@
 #include "cmdq_def.h"
 #include "cmdq_helper_ext.h"
 #include <linux/types.h>
+#ifdef CONFIG_MTK_SMI_EXT
+
+/* translate port */
+typedef uint32_t (*CmdqTranslatePort) (uint32_t engineId);
+
+/* get request */
+typedef struct mm_qos_request *(*CmdqGetRequest) (
+	uint32_t thread_id, uint32_t port);
+
+/* init pmqos mdp */
+typedef void (*CmdqInitPmqosMdp) (s32 index, struct plist_head *owner_list);
+
+/* init pmqos isp */
+typedef void (*CmdqInitPmqosIsp) (s32 index, struct plist_head *owner_list);
+
+#endif	/* CONFIG_MTK_SMI_EXT */
 
 /* dump mmsys config */
 typedef void (*CmdqDumpMMSYSConfig) (void);
@@ -75,6 +91,12 @@ typedef void (*CmdqCheckHwStatus) (struct cmdqRecStruct *handle);
 typedef u64(*CmdqMdpGetSecEngine) (u64 engine_flag);
 
 struct cmdqMDPFuncStruct {
+#ifdef CONFIG_MTK_SMI_EXT
+	CmdqTranslatePort translatePort;
+	CmdqGetRequest getRequest;
+	CmdqInitPmqosMdp initPmqosMdp;
+	CmdqInitPmqosIsp initPmqosIsp;
+#endif	/* CONFIG_MTK_SMI_EXT */
 	CmdqDumpMMSYSConfig dumpMMSYSConfig;
 	CmdqVEncDumpInfo vEncDumpInfo;
 	CmdqMdpInitModuleBaseVA initModuleBaseVA;
@@ -123,7 +145,7 @@ struct mdp_pmqos_record {
 #define MDP_BUF_INFO_STR_LEN 8 /* each buf info length */
 /* dispatch key format is MDP_(ThreadName) */
 #define MDP_DISPATCH_KEY_STR_LEN (TASK_COMM_LEN + 5)
-#define MDP_TOTAL_THREAD 8
+#define MDP_TOTAL_THREAD 16
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 #define MDP_THREAD_START (CMDQ_MIN_SECURE_THREAD_ID + 2)
 #else
@@ -137,6 +159,7 @@ void cmdq_mdp_fix_command_scenario_for_user_space(
 bool cmdq_mdp_is_request_from_user_space(
 	const enum CMDQ_SCENARIO_ENUM scenario);
 s32 cmdq_mdp_query_usage(s32 *counters);
+s32 cmdq_mdp_get_smi_usage(void);
 
 void cmdq_mdp_reset_resource(void);
 void cmdq_mdp_dump_thread_usage(void);
@@ -175,6 +198,8 @@ long cmdq_mdp_get_module_base_VA_MMSYS_CONFIG(void);
 void cmdq_mdp_unmap_mmsys_VA(void);
 struct cmdqMDPFuncStruct *cmdq_mdp_get_func(void);
 
+void cmdq_mdp_enable(u64 engineFlag, enum CMDQ_ENG_ENUM engine);
+
 int cmdq_mdp_loop_reset(enum CMDQ_ENG_ENUM engine,
 	const unsigned long resetReg,
 	const unsigned long resetStateReg,
@@ -202,9 +227,27 @@ const char *cmdq_mdp_parse_error_module_by_hwflag(
 const char *cmdq_mdp_parse_handle_error_module_by_hwflag(
 	const struct cmdqRecStruct *handle);
 
+/* Platform dependent function */
+
+s32 cmdqMdpClockOn(u64 engineFlag);
+
+s32 cmdqMdpDumpInfo(u64 engineFlag, int level);
+
+s32 cmdqVEncDumpInfo(u64 engineFlag, int level);
+
+s32 cmdqMdpResetEng(u64 engineFlag);
+
+s32 cmdqMdpClockOff(u64 engineFlag);
+
+u32 cmdq_mdp_rdma_get_reg_offset_src_addr(void);
+u32 cmdq_mdp_wrot_get_reg_offset_dst_addr(void);
+u32 cmdq_mdp_wdma_get_reg_offset_dst_addr(void);
+
+void testcase_clkmgr_mdp(void);
+
 /* Platform virtual function setting */
-void cmdq_mdp_set_platform(struct device *dev);
-void cmdq_mdp_set_mt6761(void);
-void cmdq_mdp_set_mt6779(void);
+void cmdq_mdp_platform_function_setting(void);
+
+long cmdq_mdp_get_module_base_VA_MDP_WROT0(void);
 
 #endif				/* __CMDQ_MDP_COMMON_H__ */

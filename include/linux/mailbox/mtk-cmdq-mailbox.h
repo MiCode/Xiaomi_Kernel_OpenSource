@@ -9,12 +9,23 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/trace_events.h>
+
+#if !IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+#define cmdq_util_msg(f, args...) cmdq_msg(f, ##args)
+#define cmdq_util_err(f, args...) cmdq_dump(f, ##args)
+#endif
 
 /* see also gce platform binding header */
-#define CMDQ_NO_TIMEOUT			0xffffffffu
+#define CMDQ_NO_TIMEOUT			0xffffffff
 #define CMDQ_TIMEOUT_DEFAULT		1000
 
+#if IS_ENABLED(CONFIG_MACH_MT6771) || IS_ENABLED(CONFIG_MACH_MT6785) || \
+	IS_ENABLED(CONFIG_MACH_MT6789)
 #define CMDQ_THR_MAX_COUNT		24
+#else
+#define CMDQ_THR_MAX_COUNT		16
+#endif
 #define CMDQ_INST_SIZE			8 /* instruction is 64-bit */
 #define CMDQ_SUBSYS_SHIFT		16
 #define CMDQ_OP_CODE_SHIFT		24
@@ -27,6 +38,7 @@
 #define CMDQ_WFE_UPDATE_VALUE		BIT(16)
 #define CMDQ_WFE_WAIT			BIT(15)
 #define CMDQ_WFE_WAIT_VALUE		0x1
+#define CMDQ_EVENT_MAX			0x3FF
 
 /*
  * CMDQ_CODE_MASK:
@@ -77,15 +89,9 @@ enum cmdq_code {
 	CMDQ_CODE_JUMP_C_RELATIVE = 0xb1, /* conditional jump (related) */
 };
 
-enum cmdq_cb_status {
-	CMDQ_CB_NORMAL = 0,
-	CMDQ_CB_ERROR
-};
-
 struct cmdq_cb_data {
-	enum cmdq_cb_status	sta;
-	s32			err;
-	void			*data;
+	s32		err;
+	void		*data;
 };
 
 typedef void (*cmdq_async_flush_cb)(struct cmdq_cb_data data);
@@ -103,23 +109,39 @@ struct cmdq_pkt_buffer {
 	bool			map;
 };
 
-typedef s32 (*cmdq_buf_cb)(struct cmdq_pkt_buffer *buf);
+struct cmdq_buf_pool {
+	struct dma_pool *pool;
+	atomic_t *cnt;
+	u32 *limit;
+};
 
 struct cmdq_pkt {
 	struct list_head	buf;
-	void			*va_base;	/* only for compatible */
-	dma_addr_t		pa_base;	/* only for compatible */
 	size_t			avail_buf_size; /* available buf size */
 	size_t			cmd_buf_size; /* command occupied size */
 	size_t			buf_size; /* real buffer size */
 	u32			priority;
 	struct cmdq_task_cb	cb;
-	struct cmdq_task_cb	async_cb;
 	struct cmdq_task_cb	err_cb;
 	void			*user_data;
 	void			*cl;
-	struct device		*dev;
+	struct device		*dev;	/* client assigned dev */
 	bool			loop;
+	void			*flush_item;
+	struct completion	cmplt;
+	struct cmdq_buf_pool	cur_pool;
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+	bool			mdp;
+	u64			rec_submit;
+	u64			rec_trigger;
+	u64			rec_wait;
+	u64			rec_irq;
+
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+	void			*sec_data;
+#endif
+#endif	/* end of CONFIG_MTK_CMDQ_MBOX_EXT */
 };
 
 struct cmdq_thread {
@@ -131,10 +153,10 @@ struct cmdq_thread {
 	u32			timeout_ms;
 	struct work_struct	timeout_work;
 	u32			priority;
-	bool			atomic_exec;
 	u32			idx;
-	bool			dirty;
 	bool			occupied;
+	bool			dirty;
+	u64			timer_mod;
 };
 
 extern int mtk_cmdq_log;
@@ -157,13 +179,65 @@ do { \
 #define cmdq_dump(fmt, args...) \
 	pr_notice("[cmdq][err] "fmt"\n", ##args)
 
+/* CMDQ FTRACE */
+#define cmdq_trace_begin(fmt, args...) do { \
+	preempt_disable(); \
+	event_trace_printk(cmdq_get_tracing_mark(), \
+		"B|%d|"fmt"\n", current->tgid, ##args); \
+	preempt_enable();\
+} while (0)
+
+#define cmdq_trace_end() do { \
+	preempt_disable(); \
+	event_trace_printk(cmdq_get_tracing_mark(), "E\n"); \
+	preempt_enable(); \
+} while (0)
+
+extern int cmdq_trace;
+#define cmdq_trace_ex_begin(fmt, args...) do { \
+	if (cmdq_trace) { \
+		preempt_disable(); \
+		event_trace_printk(cmdq_get_tracing_mark(), \
+			"B|%d|"fmt"\n", current->tgid, ##args); \
+		preempt_enable();\
+	} \
+} while (0)
+
+#define cmdq_trace_ex_end() do { \
+	if (cmdq_trace) { \
+		preempt_disable(); \
+		event_trace_printk(cmdq_get_tracing_mark(), "E\n"); \
+		preempt_enable(); \
+	} \
+} while (0)
+
+#define cmdq_trace_c(fmt, args...) do { \
+	preempt_disable(); \
+	event_trace_printk(cmdq_get_tracing_mark(), \
+		"C|"fmt, ##args); \
+	preempt_enable(); \
+} while (0)
+
+dma_addr_t cmdq_thread_get_pc(struct cmdq_thread *thread);
+dma_addr_t cmdq_thread_get_end(struct cmdq_thread *thread);
+void cmdq_thread_set_spr(struct mbox_chan *chan, u8 id, u32 val);
 void cmdq_mbox_channel_stop(struct mbox_chan *chan);
-void cmdq_thread_dump_err(struct mbox_chan *chan);
+void cmdq_dump_core(struct mbox_chan *chan);
+void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
+	u64 **inst_out, dma_addr_t *pc_out);
+void cmdq_thread_dump_all(void *mbox_cmdq);
+void cmdq_thread_dump_all_seq(void *mbox_cmdq, struct seq_file *seq);
 void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 	struct cmdq_pkt *pkt);
+void cmdq_mbox_enable(void *chan);
+void cmdq_mbox_disable(void *chan);
+s32 cmdq_mbox_get_usage(void *chan);
+void *cmdq_mbox_get_base(void *chan);
+phys_addr_t cmdq_mbox_get_base_pa(void *chan);
 s32 cmdq_mbox_thread_reset(void *chan);
 s32 cmdq_mbox_thread_suspend(void *chan);
 void cmdq_mbox_thread_disable(void *chan);
+u32 cmdq_mbox_get_thread_timeout(void *chan);
 u32 cmdq_mbox_set_thread_timeout(void *chan, u32 timeout);
 s32 cmdq_mbox_chan_id(void *chan);
 s32 cmdq_task_get_thread_pc(struct mbox_chan *chan, dma_addr_t *pc_out);
@@ -178,5 +252,18 @@ s32 cmdq_task_get_pkt_from_thread(struct mbox_chan *chan,
 void cmdq_set_event(void *chan, u16 event_id);
 void cmdq_clear_event(void *chan, u16 event_id);
 u32 cmdq_get_event(void *chan, u16 event_id);
+void cmdq_event_verify(void *chan, u16 event_id);
+unsigned long cmdq_get_tracing_mark(void);
+u32 cmdq_thread_timeout_backup(struct cmdq_thread *thread, const u32 ms);
+void cmdq_thread_timeout_restore(struct cmdq_thread *thread, const u32 ms);
+
+#if IS_ENABLED(CONFIG_MMPROFILE)
+void cmdq_mmp_wait(struct mbox_chan *chan, void *pkt);
+#endif
+
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt);
+#endif
 
 #endif /* __MTK_CMDQ_MAILBOX_H__ */

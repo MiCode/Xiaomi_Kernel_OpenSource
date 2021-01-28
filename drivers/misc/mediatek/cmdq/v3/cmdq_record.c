@@ -54,7 +54,6 @@ s32 cmdq_op_condition_push(struct cmdq_stack_node **top_node, u32 position,
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_op_condition_push);
 
 /* pop a value out from the stack */
 s32 cmdq_op_condition_pop(struct cmdq_stack_node **top_node, u32 *position,
@@ -76,7 +75,6 @@ s32 cmdq_op_condition_pop(struct cmdq_stack_node **top_node, u32 *position,
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_op_condition_pop);
 
 /* query from the stack */
 s32 cmdq_op_condition_query(const struct cmdq_stack_node *top_node,
@@ -93,7 +91,6 @@ s32 cmdq_op_condition_query(const struct cmdq_stack_node *top_node,
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_op_condition_query);
 
 /* query op position from the stack by type bit */
 s32 cmdq_op_condition_find_op_type(const struct cmdq_stack_node *top_node,
@@ -120,7 +117,6 @@ s32 cmdq_op_condition_find_op_type(const struct cmdq_stack_node *top_node,
 
 	return (s32)(got_position - position);
 }
-EXPORT_SYMBOL(cmdq_op_condition_find_op_type);
 
 static bool cmdq_is_cpr(u32 argument, u32 arg_type)
 {
@@ -132,7 +128,6 @@ static bool cmdq_is_cpr(u32 argument, u32 arg_type)
 
 	return false;
 }
-EXPORT_SYMBOL(cmdq_is_cpr);
 
 static void cmdq_save_op_variable_position(
 	struct cmdqRecStruct *handle, u32 index)
@@ -281,7 +276,6 @@ s32 cmdq_reset_v3_struct(struct cmdqRecStruct *handle)
 	} while (1);
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_reset_v3_struct);
 
 s32 cmdq_rec_realloc_addr_metadata_buffer(struct cmdqRecStruct *handle,
 	const u32 size)
@@ -432,10 +426,8 @@ s32 cmdq_task_create(enum CMDQ_SCENARIO_ENUM scenario,
 	handle->submit = sched_clock();
 	CMDQ_PROF_MMP(cmdq_mmp_get_event()->alloc_task, MMPROFILE_FLAG_END,
 		current->pid, scenario);
-
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_task_create);
 
 s32 cmdq_task_duplicate(struct cmdqRecStruct *handle,
 	struct cmdqRecStruct **handle_out)
@@ -519,8 +511,6 @@ s32 cmdq_task_duplicate(struct cmdqRecStruct *handle,
 	else
 		handle_new->cmd_end = NULL;
 
-	cmdq_op_finalize_command(handle_new, handle->pkt->loop);
-
 	handle_new->pkt->priority = handle->pkt->priority;
 
 	/* copy metadata */
@@ -588,8 +578,6 @@ s32 cmdq_task_duplicate(struct cmdqRecStruct *handle,
 		handle_new->replace_instr.position = (cmdqU32Ptr_t)
 			(unsigned long)p_new_buffer;
 	}
-
-	/* TODO: design secure part copy */
 
 	*handle_out = handle_new;
 
@@ -1109,7 +1097,6 @@ s32 cmdq_append_command(struct cmdqRecStruct *handle,
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_append_command);
 
 s32 cmdq_task_set_engine(struct cmdqRecStruct *handle, u64 engineFlag)
 {
@@ -1121,7 +1108,6 @@ s32 cmdq_task_set_engine(struct cmdqRecStruct *handle, u64 engineFlag)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_task_set_engine);
 
 static void cmdq_task_release_buffer(struct cmdqRecStruct *handle)
 {
@@ -1173,8 +1159,6 @@ static void cmdq_task_release_buffer(struct cmdqRecStruct *handle)
 
 s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 {
-	s32 err;
-
 	if (!handle)
 		return -EFAULT;
 
@@ -1219,20 +1203,11 @@ s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 	/* we should have new buffers for new commands */
 	cmdq_task_release_buffer(handle);
 
-	handle->pkt = cmdq_pkt_create(NULL, 0);
-	if (IS_ERR(handle->pkt)) {
-		err = PTR_ERR(handle->pkt);
-		handle->pkt = NULL;
-		return err;
-	}
-
-	if (handle->thread != CMDQ_INVALID_THREAD) {
-		struct cmdq_client *cl =
-			cmdq_helper_mbox_client(handle->thread);
-
-		if (cl)
-			cmdq_pkt_set_client(handle->pkt, cl);
-	}
+	if (handle->thread != CMDQ_INVALID_THREAD)
+		handle->pkt = cmdq_pkt_create(
+			cmdq_helper_mbox_client(handle->thread));
+	else
+		handle->pkt = cmdq_pkt_create(NULL);
 
 	/* assign client or dev fail, assign cmdq dev directly */
 	if (!handle->pkt->dev)
@@ -1250,25 +1225,9 @@ s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 		handle->secData.enginesNeedPortSecurity = 0LL;
 	}
 
-	if (handle->timeout_info) {
-		struct cmdq_thread_task_info *task_info = NULL, *tmp = NULL;
-
-		list_for_each_entry_safe(task_info, tmp,
-			&handle->timeout_info->task_list, list_entry) {
-			list_del(&task_info->list_entry);
-			kfree(task_info->pkt);
-			kfree(task_info);
-		}
-
-		list_del_init(&handle->timeout_info->task_list);
-	}
-
-	kfree(handle->timeout_info);
-	handle->timeout_info = NULL;
-
 	/* performance debug begin */
 	if (cmdq_core_profile_exec_enabled()) {
-		cmdq_pkt_write_ex(handle->pkt, NULL, CMDQ_TPR_MASK_PA,
+		cmdq_pkt_write(handle->pkt, NULL, CMDQ_TPR_MASK_PA,
 			0xffffffff, 0x8000000);
 		cmdq_pkt_perf_begin(handle->pkt);
 		handle->profile_exec = true;
@@ -1276,7 +1235,6 @@ s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_task_reset);
 
 s32 cmdq_task_set_secure(struct cmdqRecStruct *handle, const bool is_secure)
 {
@@ -1284,6 +1242,11 @@ s32 cmdq_task_set_secure(struct cmdqRecStruct *handle, const bool is_secure)
 		return -EFAULT;
 
 	handle->secData.is_secure = is_secure;
+
+	if (handle->finalized) {
+		CMDQ_ERR("config secure after finalized\n");
+		dump_stack();
+	}
 
 	if (handle->pkt->cmd_buf_size > 0)
 		CMDQ_MSG("[warn]set secure after record size:%zu\n",
@@ -1305,7 +1268,6 @@ s32 cmdq_task_set_secure(struct cmdqRecStruct *handle, const bool is_secure)
 	return -EFAULT;
 #endif
 }
-EXPORT_SYMBOL(cmdq_task_set_secure);
 
 s32 cmdq_task_is_secure(struct cmdqRecStruct *handle)
 {
@@ -1314,7 +1276,18 @@ s32 cmdq_task_is_secure(struct cmdqRecStruct *handle)
 
 	return handle->secData.is_secure;
 }
-EXPORT_SYMBOL(cmdq_task_is_secure);
+
+#ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
+s32 cmdq_task_set_secure_mode(struct cmdqRecStruct *handle,
+	enum CMDQ_DISP_MODE mode)
+{
+	if (handle == NULL)
+		return -EFAULT;
+
+	handle->secData.secMode = mode;
+	return 0;
+}
+#endif
 
 s32 cmdq_task_secure_enable_dapc(struct cmdqRecStruct *handle,
 	const u64 engineFlag)
@@ -1330,7 +1303,6 @@ s32 cmdq_task_secure_enable_dapc(struct cmdqRecStruct *handle,
 	return -EFAULT;
 #endif
 }
-EXPORT_SYMBOL(cmdq_task_secure_enable_dapc);
 
 s32 cmdq_task_secure_enable_port_security(
 	struct cmdqRecStruct *handle, const u64 engineFlag)
@@ -1346,7 +1318,21 @@ s32 cmdq_task_secure_enable_port_security(
 	return -EFAULT;
 #endif
 }
-EXPORT_SYMBOL(cmdq_task_secure_enable_port_security);
+
+s32 cmdq_task_set_secure_meta(struct cmdqRecStruct *handle,
+	enum cmdq_sec_rec_meta_type type, void *meta, u32 size)
+{
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	if (!cmdq_task_is_secure(handle) || size > CMDQ_SEC_ISP_META_MAX)
+		return -EINVAL;
+
+	handle->sec_meta_type = type;
+	handle->sec_meta_size = size;
+	handle->sec_client_meta = meta;
+#endif
+
+	return 0;
+}
 
 s32 cmdq_op_write_reg(struct cmdqRecStruct *handle, u32 addr,
 	CMDQ_VARIABLE argument, u32 mask)
@@ -1374,7 +1360,6 @@ s32 cmdq_op_write_reg(struct cmdqRecStruct *handle, u32 addr,
 	return cmdq_append_command(handle, op_code, addr, arg_b_i, 0,
 		arg_b_type);
 }
-EXPORT_SYMBOL(cmdq_op_write_reg);
 
 s32 cmdq_op_write_reg_secure(struct cmdqRecStruct *handle, u32 addr,
 	enum CMDQ_SEC_ADDR_METADATA_TYPE type, u64 baseHandle,
@@ -1410,7 +1395,6 @@ s32 cmdq_op_write_reg_secure(struct cmdqRecStruct *handle, u32 addr,
 	return -EFAULT;
 #endif
 }
-EXPORT_SYMBOL(cmdq_op_write_reg_secure);
 
 s32 cmdq_op_poll(struct cmdqRecStruct *handle, u32 addr, u32 value, u32 mask)
 {
@@ -1427,7 +1411,6 @@ s32 cmdq_op_poll(struct cmdqRecStruct *handle, u32 addr, u32 value, u32 mask)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_op_poll);
 
 /* Efficient Polling */
 s32 cmdq_op_poll_v3(struct cmdqRecStruct *handle, u32 addr, u32 value,
@@ -1458,7 +1441,6 @@ s32 cmdq_op_poll_v3(struct cmdqRecStruct *handle, u32 addr, u32 value,
 		handle->arg_source);
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_op_poll_v3);
 
 static s32 cmdq_get_event_op_id(enum cmdq_event event)
 {
@@ -1478,7 +1460,6 @@ static s32 cmdq_get_event_op_id(enum cmdq_event event)
 
 	return event_id;
 }
-EXPORT_SYMBOL(cmdq_get_event_op_id);
 
 s32 cmdq_op_wait(struct cmdqRecStruct *handle, enum cmdq_event event)
 {
@@ -1489,7 +1470,6 @@ s32 cmdq_op_wait(struct cmdqRecStruct *handle, enum cmdq_event event)
 
 	return cmdq_pkt_wfe(handle->pkt, arg_a);
 }
-EXPORT_SYMBOL(cmdq_op_wait);
 
 s32 cmdq_op_wait_no_clear(struct cmdqRecStruct *handle,
 	enum cmdq_event event)
@@ -1501,7 +1481,6 @@ s32 cmdq_op_wait_no_clear(struct cmdqRecStruct *handle,
 
 	return cmdq_pkt_wait_no_clear(handle->pkt, arg_a);
 }
-EXPORT_SYMBOL(cmdq_op_wait_no_clear);
 
 s32 cmdq_op_clear_event(struct cmdqRecStruct *handle,
 	enum cmdq_event event)
@@ -1513,7 +1492,6 @@ s32 cmdq_op_clear_event(struct cmdqRecStruct *handle,
 
 	return cmdq_pkt_clear_event(handle->pkt, arg_a);
 }
-EXPORT_SYMBOL(cmdq_op_clear_event);
 
 s32 cmdq_op_set_event(struct cmdqRecStruct *handle, enum cmdq_event event)
 {
@@ -1524,7 +1502,6 @@ s32 cmdq_op_set_event(struct cmdqRecStruct *handle, enum cmdq_event event)
 
 	return cmdq_pkt_set_event(handle->pkt, arg_a);
 }
-EXPORT_SYMBOL(cmdq_op_set_event);
 
 s32 cmdq_op_replace_overwrite_cpr(struct cmdqRecStruct *handle, u32 index,
 	s32 new_arg_a, s32 new_arg_b, s32 new_arg_c)
@@ -1554,7 +1531,6 @@ s32 cmdq_op_replace_overwrite_cpr(struct cmdqRecStruct *handle, u32 index,
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_op_replace_overwrite_cpr);
 
 s32 cmdq_op_read_to_data_register(struct cmdqRecStruct *handle, u32 hw_addr,
 	enum cmdq_gpr_reg dst_data_reg)
@@ -1586,7 +1562,6 @@ s32 cmdq_op_read_to_data_register(struct cmdqRecStruct *handle, u32 hw_addr,
 	return -EFAULT;
 #endif
 }
-EXPORT_SYMBOL(cmdq_op_read_to_data_register);
 
 s32 cmdq_op_write_from_data_register(struct cmdqRecStruct *handle,
 	enum cmdq_gpr_reg src_data_reg, u32 hw_addr)
@@ -1610,7 +1585,6 @@ s32 cmdq_op_write_from_data_register(struct cmdqRecStruct *handle,
 	return -EFAULT;
 #endif				/* CMDQ_GPR_SUPPORT */
 }
-EXPORT_SYMBOL(cmdq_op_write_from_data_register);
 
 /* Allocate 32-bit register backup slot */
 s32 cmdq_alloc_mem(cmdqBackupSlotHandle *p_h_backup_slot, u32 slotCount)
@@ -1623,7 +1597,7 @@ s32 cmdq_alloc_mem(cmdqBackupSlotHandle *p_h_backup_slot, u32 slotCount)
 	if (p_h_backup_slot == NULL)
 		return -EINVAL;
 
-	status = cmdqCoreAllocWriteAddress(slotCount, &paStart);
+	status = cmdqCoreAllocWriteAddress(slotCount, &paStart, CMDQ_CLT_DISP);
 	*p_h_backup_slot = paStart;
 
 	return status;
@@ -1633,7 +1607,6 @@ s32 cmdq_alloc_mem(cmdqBackupSlotHandle *p_h_backup_slot, u32 slotCount)
 	return -EFAULT;
 #endif				/* CMDQ_GPR_SUPPORT */
 }
-EXPORT_SYMBOL(cmdq_alloc_mem);
 
 /* Read 32-bit register backup slot by index */
 s32 cmdq_cpu_read_mem(cmdqBackupSlotHandle h_backup_slot, u32 slot_index,
@@ -1659,7 +1632,6 @@ s32 cmdq_cpu_read_mem(cmdqBackupSlotHandle h_backup_slot, u32 slot_index,
 	return -EFAULT;
 #endif				/* CMDQ_GPR_SUPPORT */
 }
-EXPORT_SYMBOL(cmdq_cpu_read_mem);
 
 s32 cmdq_cpu_write_mem(cmdqBackupSlotHandle h_backup_slot, u32 slot_index,
 	u32 value)
@@ -1677,7 +1649,6 @@ s32 cmdq_cpu_write_mem(cmdqBackupSlotHandle h_backup_slot, u32 slot_index,
 	return -EFAULT;
 #endif				/* CMDQ_GPR_SUPPORT */
 }
-EXPORT_SYMBOL(cmdq_cpu_write_mem);
 
 /* Free allocated backup slot. DO NOT free them before corresponding
  * task finishes. Becareful on AsyncFlush use cases.
@@ -1685,13 +1656,12 @@ EXPORT_SYMBOL(cmdq_cpu_write_mem);
 s32 cmdq_free_mem(cmdqBackupSlotHandle h_backup_slot)
 {
 #ifdef CMDQ_GPR_SUPPORT
-	return cmdqCoreFreeWriteAddress(h_backup_slot);
+	return cmdqCoreFreeWriteAddress(h_backup_slot, CMDQ_CLT_DISP);
 #else
 	CMDQ_ERR("func:%s failed since CMDQ doesn't support GPR\n", __func__);
 	return -EFAULT;
 #endif				/* CMDQ_GPR_SUPPORT */
 }
-EXPORT_SYMBOL(cmdq_free_mem);
 
 /* Insert instructions to backup given 32-bit HW register
  * to a backup slot.
@@ -1725,7 +1695,6 @@ s32 cmdq_op_read_reg_to_mem(struct cmdqRecStruct *handle,
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_read_reg_to_mem);
 
 s32 cmdq_op_read_mem_to_reg(struct cmdqRecStruct *handle,
 	cmdqBackupSlotHandle h_backup_slot, u32 slot_index, u32 addr)
@@ -1757,7 +1726,6 @@ s32 cmdq_op_read_mem_to_reg(struct cmdqRecStruct *handle,
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_read_mem_to_reg);
 
 s32 cmdq_op_write_mem(struct cmdqRecStruct *handle,
 	cmdqBackupSlotHandle h_backup_slot, u32 slot_index, u32 value)
@@ -1782,7 +1750,6 @@ s32 cmdq_op_write_mem(struct cmdqRecStruct *handle,
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_write_mem);
 
 s32 cmdq_op_finalize_command(struct cmdqRecStruct *handle, bool loop)
 {
@@ -1874,7 +1841,6 @@ s32 cmdq_op_finalize_command(struct cmdqRecStruct *handle, bool loop)
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_finalize_command);
 
 s32 cmdq_setup_sec_data_of_command_desc_by_rec_handle(
 	struct cmdqCommandStruct *pDesc, struct cmdqRecStruct *handle)
@@ -1899,7 +1865,6 @@ s32 cmdq_setup_sec_data_of_command_desc_by_rec_handle(
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_setup_sec_data_of_command_desc_by_rec_handle);
 
 s32 cmdq_setup_replace_of_command_desc_by_rec_handle(
 	struct cmdqCommandStruct *pDesc, struct cmdqRecStruct *handle)
@@ -1913,7 +1878,6 @@ s32 cmdq_setup_replace_of_command_desc_by_rec_handle(
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_setup_replace_of_command_desc_by_rec_handle);
 
 s32 cmdq_rec_setup_profile_marker_data(
 	struct cmdqCommandStruct *pDesc, struct cmdqRecStruct *handle)
@@ -1931,7 +1895,6 @@ s32 cmdq_rec_setup_profile_marker_data(
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_rec_setup_profile_marker_data);
 
 void cmdq_task_prepare(struct cmdqRecStruct *handle)
 {
@@ -1942,7 +1905,6 @@ void cmdq_task_prepare(struct cmdqRecStruct *handle)
 	if (handle->res_flag_acquire)
 		cmdq_mdp_enable_res(handle->res_flag_acquire, true);
 }
-EXPORT_SYMBOL(cmdq_task_prepare);
 
 void cmdq_task_unprepare(struct cmdqRecStruct *handle)
 {
@@ -1953,7 +1915,6 @@ void cmdq_task_unprepare(struct cmdqRecStruct *handle)
 	if (handle->res_flag_release)
 		cmdq_mdp_enable_res(handle->res_flag_release, false);
 }
-EXPORT_SYMBOL(cmdq_task_unprepare);
 
 void cmdq_task_release_property(struct cmdqRecStruct *handle)
 {
@@ -1964,7 +1925,6 @@ void cmdq_task_release_property(struct cmdqRecStruct *handle)
 	handle->prop_addr = NULL;
 	handle->prop_size = 0;
 }
-EXPORT_SYMBOL(cmdq_task_release_property);
 
 s32 cmdq_task_update_property(struct cmdqRecStruct *handle,
 	void *prop_addr, u32 prop_size)
@@ -1989,7 +1949,6 @@ s32 cmdq_task_update_property(struct cmdqRecStruct *handle,
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_task_update_property);
 
 s32 cmdq_task_flush(struct cmdqRecStruct *handle)
 {
@@ -2001,7 +1960,6 @@ s32 cmdq_task_flush(struct cmdqRecStruct *handle)
 
 	return cmdq_pkt_flush_ex(handle);
 }
-EXPORT_SYMBOL(cmdq_task_flush);
 
 s32 cmdq_task_append_backup_reg(struct cmdqRecStruct *handle,
 	u32 reg_count, u32 *addrs)
@@ -2032,7 +1990,6 @@ s32 cmdq_task_append_backup_reg(struct cmdqRecStruct *handle,
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_task_append_backup_reg);
 
 s32 cmdq_task_flush_and_read_register(struct cmdqRecStruct *handle,
 	u32 reg_count, u32 *addrs, u32 *values_out)
@@ -2056,7 +2013,6 @@ s32 cmdq_task_flush_and_read_register(struct cmdqRecStruct *handle,
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_task_flush_and_read_register);
 
 static s32 cmdq_task_async_callback_auto_release(unsigned long data)
 {
@@ -2074,7 +2030,6 @@ s32 cmdq_task_flush_async(struct cmdqRecStruct *handle)
 {
 	return cmdq_task_flush_async_callback(handle, NULL, 0);
 }
-EXPORT_SYMBOL(cmdq_task_flush_async);
 
 s32 cmdq_task_flush_async_callback(struct cmdqRecStruct *handle,
 	CmdqAsyncFlushCB callback, u64 user_data)
@@ -2095,7 +2050,7 @@ s32 cmdq_task_flush_async_callback(struct cmdqRecStruct *handle,
 		return status;
 	}
 
-	status = cmdq_op_finalize_command(flush_handle, false);
+	status = cmdq_op_finalize_command(flush_handle, handle->pkt->loop);
 	if (status < 0) {
 		kfree(async);
 		return status;
@@ -2109,7 +2064,6 @@ s32 cmdq_task_flush_async_callback(struct cmdqRecStruct *handle,
 		cmdq_task_async_callback_auto_release,
 			(unsigned long)async, true);
 }
-EXPORT_SYMBOL(cmdq_task_flush_async_callback);
 
 s32 cmdq_task_flush_async_destroy(struct cmdqRecStruct *handle)
 {
@@ -2136,7 +2090,6 @@ s32 cmdq_task_flush_async_destroy(struct cmdqRecStruct *handle)
 		cmdq_task_async_callback_auto_release,
 			(unsigned long)async, true);
 }
-EXPORT_SYMBOL(cmdq_task_flush_async_destroy);
 
 static s32 cmdq_dummy_irq_callback(unsigned long data)
 {
@@ -2172,14 +2125,12 @@ s32 cmdq_task_start_loop(struct cmdqRecStruct *handle)
 {
 	return _cmdq_task_start_loop_callback(handle, NULL, 0, "");
 }
-EXPORT_SYMBOL(cmdq_task_start_loop);
 
 s32 cmdq_task_start_loop_callback(struct cmdqRecStruct *handle,
 	CmdqInterruptCB loopCB, unsigned long loopData)
 {
 	return _cmdq_task_start_loop_callback(handle, loopCB, loopData, "");
 }
-EXPORT_SYMBOL(cmdq_task_start_loop_callback);
 
 s32 cmdq_task_start_loop_sram(struct cmdqRecStruct *handle,
 	const char *sram_owner_name)
@@ -2187,13 +2138,11 @@ s32 cmdq_task_start_loop_sram(struct cmdqRecStruct *handle,
 	return _cmdq_task_start_loop_callback(handle, &cmdq_dummy_irq_callback,
 		0, sram_owner_name);
 }
-EXPORT_SYMBOL(cmdq_task_start_loop_sram);
 
 s32 cmdq_task_stop_loop(struct cmdqRecStruct *handle)
 {
 	return cmdq_pkt_stop(handle);
 }
-EXPORT_SYMBOL(cmdq_task_stop_loop);
 
 s32 cmdq_task_copy_to_sram(dma_addr_t pa_src, u32 sram_dest, size_t size)
 {
@@ -2232,7 +2181,6 @@ s32 cmdq_task_copy_to_sram(dma_addr_t pa_src, u32 sram_dest, size_t size)
 	cmdq_task_destroy(handle);
 	return status;
 }
-EXPORT_SYMBOL(cmdq_task_copy_to_sram);
 
 s32 cmdq_task_copy_from_sram(dma_addr_t pa_dest, u32 sram_src, size_t size)
 {
@@ -2269,7 +2217,6 @@ s32 cmdq_task_copy_from_sram(dma_addr_t pa_dest, u32 sram_src, size_t size)
 	cmdq_task_destroy(handle);
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_task_copy_from_sram);
 
 s32 cmdq_task_get_inst_cnt(struct cmdqRecStruct *handle)
 {
@@ -2277,7 +2224,6 @@ s32 cmdq_task_get_inst_cnt(struct cmdqRecStruct *handle)
 		return 0;
 	return handle->pkt->cmd_buf_size / CMDQ_INST_SIZE;
 }
-EXPORT_SYMBOL(cmdq_task_get_inst_cnt);
 
 s32 cmdq_op_profile_marker(struct cmdqRecStruct *handle, const char *tag)
 {
@@ -2301,7 +2247,7 @@ s32 cmdq_op_profile_marker(struct cmdqRecStruct *handle, const char *tag)
 			!handle->profileMarker.hSlot) {
 			status = cmdqCoreAllocWriteAddress(
 				CMDQ_MAX_PROFILE_MARKER_IN_TASK,
-				&allocatedStartPA);
+				&allocatedStartPA, CMDQ_CLT_DISP);
 			if (status < 0) {
 				CMDQ_ERR(
 					"[REC][PROF_MARKER]allocate failed, status:%d\n",
@@ -2342,7 +2288,6 @@ s32 cmdq_op_profile_marker(struct cmdqRecStruct *handle, const char *tag)
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_profile_marker);
 
 s32 cmdq_task_destroy(struct cmdqRecStruct *handle)
 {
@@ -2372,22 +2317,6 @@ s32 cmdq_task_destroy(struct cmdqRecStruct *handle)
 		handle->thd_dispatch = CMDQ_THREAD_NOTSET;
 	}
 
-	/* Free command handle */
-	if (handle->timeout_info) {
-		struct cmdq_thread_task_info *task_info = NULL, *tmp = NULL;
-
-		list_for_each_entry_safe(task_info, tmp,
-			&handle->timeout_info->task_list, list_entry) {
-			list_del(&task_info->list_entry);
-			kfree(task_info->pkt);
-			kfree(task_info);
-		}
-
-		list_del_init(&handle->timeout_info->task_list);
-	}
-	kfree(handle->timeout_info);
-	handle->timeout_info = NULL;
-
 	cmdq_task_release_property(handle);
 
 	kfree(handle);
@@ -2396,7 +2325,6 @@ s32 cmdq_task_destroy(struct cmdqRecStruct *handle)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_task_destroy);
 
 s32 cmdq_op_set_nop(struct cmdqRecStruct *handle, u32 index)
 {
@@ -2410,7 +2338,6 @@ s32 cmdq_op_set_nop(struct cmdqRecStruct *handle, u32 index)
 
 	return index;
 }
-EXPORT_SYMBOL(cmdq_op_set_nop);
 
 s32 cmdq_task_query_offset(struct cmdqRecStruct *handle, u32 startIndex,
 	const enum cmdq_code opCode, enum cmdq_event event)
@@ -2521,7 +2448,6 @@ s32 cmdq_task_query_offset(struct cmdqRecStruct *handle, u32 startIndex,
 
 	return offset;
 }
-EXPORT_SYMBOL(cmdq_task_query_offset);
 
 s32 cmdq_resource_acquire(struct cmdqRecStruct *handle,
 	enum cmdq_event resourceEvent)
@@ -2541,7 +2467,6 @@ s32 cmdq_resource_acquire(struct cmdqRecStruct *handle,
 	}
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_resource_acquire);
 
 s32 cmdq_resource_acquire_and_write(struct cmdqRecStruct *handle,
 	enum cmdq_event resourceEvent, u32 addr, u32 value, u32 mask)
@@ -2554,7 +2479,6 @@ s32 cmdq_resource_acquire_and_write(struct cmdqRecStruct *handle,
 
 	return cmdq_op_write_reg(handle, addr, value, mask);
 }
-EXPORT_SYMBOL(cmdq_resource_acquire_and_write);
 
 s32 cmdq_resource_release(struct cmdqRecStruct *handle,
 	enum cmdq_event resourceEvent)
@@ -2566,7 +2490,6 @@ s32 cmdq_resource_release(struct cmdqRecStruct *handle,
 		&handle->res_flag_release);
 	return cmdq_op_set_event(handle, resourceEvent);
 }
-EXPORT_SYMBOL(cmdq_resource_release);
 
 s32 cmdq_resource_release_and_write(struct cmdqRecStruct *handle,
 	enum cmdq_event resourceEvent, u32 addr, u32 value, u32 mask)
@@ -2587,7 +2510,6 @@ s32 cmdq_resource_release_and_write(struct cmdqRecStruct *handle,
 		result);
 	return result;
 }
-EXPORT_SYMBOL(cmdq_resource_release_and_write);
 
 static s32 cmdq_append_logic_command(struct cmdqRecStruct *handle,
 	CMDQ_VARIABLE *arg_a, CMDQ_VARIABLE arg_b, enum CMDQ_LOGIC_ENUM s_op,
@@ -2673,14 +2595,12 @@ void cmdq_op_init_variable(CMDQ_VARIABLE *arg)
 {
 	*arg = CMDQ_TASK_CPR_INITIAL_VALUE;
 }
-EXPORT_SYMBOL(cmdq_op_init_variable);
 
 void cmdq_op_init_global_cpr_variable(CMDQ_VARIABLE *arg,
 	u32 cpr_offset)
 {
 	*arg = CMDQ_ARG_CPR_START + cpr_offset;
 }
-EXPORT_SYMBOL(cmdq_op_init_global_cpr_variable);
 
 s32 cmdq_op_assign(struct cmdqRecStruct *handle,
 	CMDQ_VARIABLE *arg_out, CMDQ_VARIABLE arg_in)
@@ -2698,7 +2618,6 @@ s32 cmdq_op_assign(struct cmdqRecStruct *handle,
 	return cmdq_append_logic_command(handle, arg_out, arg_b,
 		CMDQ_LOGIC_ASSIGN, arg_c);
 }
-EXPORT_SYMBOL(cmdq_op_assign);
 
 s32 cmdq_op_add(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	CMDQ_VARIABLE arg_b, CMDQ_VARIABLE arg_c)
@@ -2706,7 +2625,6 @@ s32 cmdq_op_add(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	return cmdq_append_logic_command(handle, arg_out, arg_b,
 		CMDQ_LOGIC_ADD, arg_c);
 }
-EXPORT_SYMBOL(cmdq_op_add);
 
 s32 cmdq_op_subtract(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	CMDQ_VARIABLE arg_b, CMDQ_VARIABLE arg_c)
@@ -2714,7 +2632,6 @@ s32 cmdq_op_subtract(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	return cmdq_append_logic_command(handle, arg_out, arg_b,
 		CMDQ_LOGIC_SUBTRACT, arg_c);
 }
-EXPORT_SYMBOL(cmdq_op_subtract);
 
 s32 cmdq_op_multiply(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	CMDQ_VARIABLE arg_b, CMDQ_VARIABLE arg_c)
@@ -2722,7 +2639,6 @@ s32 cmdq_op_multiply(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	return cmdq_append_logic_command(handle, arg_out, arg_b,
 		CMDQ_LOGIC_MULTIPLY, arg_c);
 }
-EXPORT_SYMBOL(cmdq_op_multiply);
 
 s32 cmdq_op_xor(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	CMDQ_VARIABLE arg_b, CMDQ_VARIABLE arg_c)
@@ -2730,7 +2646,6 @@ s32 cmdq_op_xor(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	return cmdq_append_logic_command(handle, arg_out, arg_b,
 		CMDQ_LOGIC_XOR, arg_c);
 }
-EXPORT_SYMBOL(cmdq_op_xor);
 
 s32 cmdq_op_not(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	CMDQ_VARIABLE arg_b)
@@ -2738,7 +2653,6 @@ s32 cmdq_op_not(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	return cmdq_append_logic_command(handle, arg_out, arg_b,
 		CMDQ_LOGIC_NOT, 0);
 }
-EXPORT_SYMBOL(cmdq_op_not);
 
 s32 cmdq_op_or(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	CMDQ_VARIABLE arg_b, CMDQ_VARIABLE arg_c)
@@ -2746,7 +2660,6 @@ s32 cmdq_op_or(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	return cmdq_append_logic_command(handle, arg_out, arg_b,
 		CMDQ_LOGIC_OR, arg_c);
 }
-EXPORT_SYMBOL(cmdq_op_or);
 
 s32 cmdq_op_and(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	CMDQ_VARIABLE arg_b, CMDQ_VARIABLE arg_c)
@@ -2754,7 +2667,6 @@ s32 cmdq_op_and(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	return cmdq_append_logic_command(handle, arg_out, arg_b,
 		CMDQ_LOGIC_AND, arg_c);
 }
-EXPORT_SYMBOL(cmdq_op_and);
 
 s32 cmdq_op_left_shift(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	CMDQ_VARIABLE arg_b, CMDQ_VARIABLE arg_c)
@@ -2762,7 +2674,6 @@ s32 cmdq_op_left_shift(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	return cmdq_append_logic_command(handle, arg_out, arg_b,
 		CMDQ_LOGIC_LEFT_SHIFT, arg_c);
 }
-EXPORT_SYMBOL(cmdq_op_left_shift);
 
 s32 cmdq_op_right_shift(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	CMDQ_VARIABLE arg_b, CMDQ_VARIABLE arg_c)
@@ -2770,7 +2681,6 @@ s32 cmdq_op_right_shift(struct cmdqRecStruct *handle, CMDQ_VARIABLE *arg_out,
 	return cmdq_append_logic_command(handle, arg_out, arg_b,
 		CMDQ_LOGIC_RIGHT_SHIFT, arg_c);
 }
-EXPORT_SYMBOL(cmdq_op_right_shift);
 
 s32 cmdq_op_backup_CPR(struct cmdqRecStruct *handle, CMDQ_VARIABLE cpr,
 	cmdqBackupSlotHandle h_backup_slot, u32 slot_index)
@@ -2785,7 +2695,6 @@ s32 cmdq_op_backup_CPR(struct cmdqRecStruct *handle, CMDQ_VARIABLE cpr,
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_backup_CPR);
 
 s32 cmdq_op_backup_TPR(struct cmdqRecStruct *handle,
 	cmdqBackupSlotHandle h_backup_slot, u32 slot_index)
@@ -2802,7 +2711,6 @@ s32 cmdq_op_backup_TPR(struct cmdqRecStruct *handle,
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_backup_TPR);
 
 enum CMDQ_CONDITION_ENUM cmdq_reverse_op_condition(
 	enum CMDQ_CONDITION_ENUM arg_condition)
@@ -3002,7 +2910,6 @@ s32 cmdq_op_rewrite_jump_c(struct cmdqRecStruct *handle,
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_op_rewrite_jump_c);
 
 static void cmdq_op_check_logic_pos(u32 *logic_pos)
 {
@@ -3042,7 +2949,6 @@ s32 cmdq_op_if(struct cmdqRecStruct *handle, CMDQ_VARIABLE arg_b,
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_if);
 
 s32 cmdq_op_end_if(struct cmdqRecStruct *handle)
 {
@@ -3088,13 +2994,12 @@ s32 cmdq_op_end_if(struct cmdqRecStruct *handle)
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_end_if);
 
 s32 cmdq_op_else(struct cmdqRecStruct *handle)
 {
 	s32 status = 0;
 	u32 logic_pos, if_logic_pos, else_next_pos;
-	enum CMDQ_STACK_TYPE_ENUM rewritten_stack_type;
+	enum CMDQ_STACK_TYPE_ENUM rewritten_stack_type = CMDQ_STACK_NULL;
 
 	if (!handle)
 		return -EFAULT;
@@ -3144,7 +3049,6 @@ s32 cmdq_op_else(struct cmdqRecStruct *handle)
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_else);
 
 s32 cmdq_op_else_if(struct cmdqRecStruct *handle, CMDQ_VARIABLE arg_b,
 	enum CMDQ_CONDITION_ENUM arg_condition, CMDQ_VARIABLE arg_c)
@@ -3166,7 +3070,6 @@ s32 cmdq_op_else_if(struct cmdqRecStruct *handle, CMDQ_VARIABLE arg_b,
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_else_if);
 
 s32 cmdq_op_while(struct cmdqRecStruct *handle, CMDQ_VARIABLE arg_b,
 	enum CMDQ_CONDITION_ENUM arg_condition, CMDQ_VARIABLE arg_c)
@@ -3199,7 +3102,6 @@ s32 cmdq_op_while(struct cmdqRecStruct *handle, CMDQ_VARIABLE arg_b,
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_while);
 
 s32 cmdq_op_continue(struct cmdqRecStruct *handle)
 {
@@ -3257,7 +3159,6 @@ s32 cmdq_op_continue(struct cmdqRecStruct *handle)
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_continue);
 
 s32 cmdq_op_break(struct cmdqRecStruct *handle)
 {
@@ -3301,13 +3202,12 @@ s32 cmdq_op_break(struct cmdqRecStruct *handle)
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_break);
 
 s32 cmdq_op_end_while(struct cmdqRecStruct *handle)
 {
 	s32 status = 0, whileCount = 1;
 	u32 logic_pos, exit_while_pos;
-	enum CMDQ_STACK_TYPE_ENUM rewritten_stack_type;
+	enum CMDQ_STACK_TYPE_ENUM rewritten_stack_type = CMDQ_STACK_NULL;
 
 	if (!handle)
 		return -EFAULT;
@@ -3356,7 +3256,6 @@ s32 cmdq_op_end_while(struct cmdqRecStruct *handle)
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_end_while);
 
 s32 cmdq_op_do_while(struct cmdqRecStruct *handle)
 {
@@ -3372,14 +3271,13 @@ s32 cmdq_op_do_while(struct cmdqRecStruct *handle)
 		current_position, CMDQ_STACK_TYPE_DO_WHILE);
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_do_while);
 
 s32 cmdq_op_end_do_while(struct cmdqRecStruct *handle, CMDQ_VARIABLE arg_b,
 	enum CMDQ_CONDITION_ENUM arg_condition, CMDQ_VARIABLE arg_c)
 {
 	s32 status = 0;
 	u32 stack_op_position, condition_position;
-	enum CMDQ_STACK_TYPE_ENUM stack_op_type;
+	enum CMDQ_STACK_TYPE_ENUM stack_op_type = CMDQ_STACK_NULL;
 
 	if (!handle)
 		return -EFAULT;
@@ -3443,7 +3341,6 @@ s32 cmdq_op_end_do_while(struct cmdqRecStruct *handle, CMDQ_VARIABLE arg_b,
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_end_do_while);
 
 s32 cmdq_op_read_reg(struct cmdqRecStruct *handle, u32 addr,
 	CMDQ_VARIABLE *arg_out, u32 mask)
@@ -3481,7 +3378,6 @@ s32 cmdq_op_read_reg(struct cmdqRecStruct *handle, u32 addr,
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_read_reg);
 
 s32 cmdq_op_read_mem(struct cmdqRecStruct *handle,
 	cmdqBackupSlotHandle h_backup_slot, u32 slot_index,
@@ -3489,51 +3385,51 @@ s32 cmdq_op_read_mem(struct cmdqRecStruct *handle,
 {
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_op_read_mem);
 
 s32 cmdqRecCreate(enum CMDQ_SCENARIO_ENUM scenario,
 	struct cmdqRecStruct **pHandle)
 {
 	return cmdq_task_create(scenario, pHandle);
 }
-EXPORT_SYMBOL(cmdqRecCreate);
 
 s32 cmdqRecSetEngine(struct cmdqRecStruct *handle, u64 engineFlag)
 {
 	return cmdq_task_set_engine(handle, engineFlag);
 }
-EXPORT_SYMBOL(cmdqRecSetEngine);
 
 s32 cmdqRecReset(struct cmdqRecStruct *handle)
 {
 	return cmdq_task_reset(handle);
 }
-EXPORT_SYMBOL(cmdqRecReset);
 
 s32 cmdqRecSetSecure(struct cmdqRecStruct *handle, const bool is_secure)
 {
 	return cmdq_task_set_secure(handle, is_secure);
 }
-EXPORT_SYMBOL(cmdqRecSetSecure);
 
 s32 cmdqRecIsSecure(struct cmdqRecStruct *handle)
 {
 	return cmdq_task_is_secure(handle);
 }
-EXPORT_SYMBOL(cmdqRecIsSecure);
+
+/* tablet use */
+#ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
+s32 cmdqRecSetSecureMode(struct cmdqRecStruct *handle, enum CMDQ_DISP_MODE mode)
+{
+	return cmdq_task_set_secure_mode(handle, mode);
+}
+#endif
 
 s32 cmdqRecSecureEnableDAPC(struct cmdqRecStruct *handle, const u64 engineFlag)
 {
 	return cmdq_task_secure_enable_dapc(handle, engineFlag);
 }
-EXPORT_SYMBOL(cmdqRecSecureEnableDAPC);
 
 s32 cmdqRecSecureEnablePortSecurity(struct cmdqRecStruct *handle,
 	const u64 engineFlag)
 {
 	return cmdq_task_secure_enable_port_security(handle, engineFlag);
 }
-EXPORT_SYMBOL(cmdqRecSecureEnablePortSecurity);
 
 s32 cmdqRecMark(struct cmdqRecStruct *handle)
 {
@@ -3568,13 +3464,11 @@ s32 cmdqRecMark(struct cmdqRecStruct *handle)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdqRecMark);
 
 s32 cmdqRecWrite(struct cmdqRecStruct *handle, u32 addr, u32 value, u32 mask)
 {
 	return cmdq_op_write_reg(handle, addr, (CMDQ_VARIABLE)value, mask);
 }
-EXPORT_SYMBOL(cmdqRecWrite);
 
 s32 cmdqRecWriteSecure(struct cmdqRecStruct *handle, u32 addr,
 	enum CMDQ_SEC_ADDR_METADATA_TYPE type,
@@ -3583,80 +3477,68 @@ s32 cmdqRecWriteSecure(struct cmdqRecStruct *handle, u32 addr,
 	return cmdq_op_write_reg_secure(handle, addr, type, baseHandle, offset,
 		size, port);
 }
-EXPORT_SYMBOL(cmdqRecWriteSecure);
 
 s32 cmdqRecPoll(struct cmdqRecStruct *handle, u32 addr, u32 value, u32 mask)
 {
 	return cmdq_op_poll(handle, addr, value, mask);
 }
-EXPORT_SYMBOL(cmdqRecPoll);
 
 s32 cmdqRecWait(struct cmdqRecStruct *handle, enum cmdq_event event)
 {
 	return cmdq_op_wait(handle, event);
 }
-EXPORT_SYMBOL(cmdqRecWait);
 
 s32 cmdqRecWaitNoClear(struct cmdqRecStruct *handle,
 	enum cmdq_event event)
 {
 	return cmdq_op_wait_no_clear(handle, event);
 }
-EXPORT_SYMBOL(cmdqRecWaitNoClear);
 
 s32 cmdqRecClearEventToken(struct cmdqRecStruct *handle,
 	enum cmdq_event event)
 {
 	return cmdq_op_clear_event(handle, event);
 }
-EXPORT_SYMBOL(cmdqRecClearEventToken);
 
 s32 cmdqRecSetEventToken(struct cmdqRecStruct *handle,
 	enum cmdq_event event)
 {
 	return cmdq_op_set_event(handle, event);
 }
-EXPORT_SYMBOL(cmdqRecSetEventToken);
 
 s32 cmdqRecReadToDataRegister(struct cmdqRecStruct *handle, u32 hw_addr,
 	enum cmdq_gpr_reg dst_data_reg)
 {
 	return cmdq_op_read_to_data_register(handle, hw_addr, dst_data_reg);
 }
-EXPORT_SYMBOL(cmdqRecReadToDataRegister);
 
 s32 cmdqRecWriteFromDataRegister(struct cmdqRecStruct *handle,
 	enum cmdq_gpr_reg src_data_reg, u32 hw_addr)
 {
 	return cmdq_op_write_from_data_register(handle, src_data_reg, hw_addr);
 }
-EXPORT_SYMBOL(cmdqRecWriteFromDataRegister);
 
 s32 cmdqBackupAllocateSlot(cmdqBackupSlotHandle *p_h_backup_slot, u32 slotCount)
 {
 	return cmdq_alloc_mem(p_h_backup_slot, slotCount);
 }
-EXPORT_SYMBOL(cmdqBackupAllocateSlot);
 
 s32 cmdqBackupReadSlot(cmdqBackupSlotHandle h_backup_slot, u32 slot_index,
 	u32 *value)
 {
 	return cmdq_cpu_read_mem(h_backup_slot, slot_index, value);
 }
-EXPORT_SYMBOL(cmdqBackupReadSlot);
 
 s32 cmdqBackupWriteSlot(cmdqBackupSlotHandle h_backup_slot,
 	u32 slot_index, u32 value)
 {
 	return cmdq_cpu_write_mem(h_backup_slot, slot_index, value);
 }
-EXPORT_SYMBOL(cmdqBackupWriteSlot);
 
 s32 cmdqBackupFreeSlot(cmdqBackupSlotHandle h_backup_slot)
 {
 	return cmdq_free_mem(h_backup_slot);
 }
-EXPORT_SYMBOL(cmdqBackupFreeSlot);
 
 s32 cmdqRecBackupRegisterToSlot(struct cmdqRecStruct *handle,
 	cmdqBackupSlotHandle h_backup_slot, u32 slot_index, u32 regAddr)
@@ -3664,21 +3546,18 @@ s32 cmdqRecBackupRegisterToSlot(struct cmdqRecStruct *handle,
 	return cmdq_op_read_reg_to_mem(handle, h_backup_slot, slot_index,
 		regAddr);
 }
-EXPORT_SYMBOL(cmdqRecBackupRegisterToSlot);
 
 s32 cmdqRecBackupWriteRegisterFromSlot(struct cmdqRecStruct *handle,
 	cmdqBackupSlotHandle h_backup_slot, u32 slot_index, u32 addr)
 {
 	return cmdq_op_read_mem_to_reg(handle, h_backup_slot, slot_index, addr);
 }
-EXPORT_SYMBOL(cmdqRecBackupWriteRegisterFromSlot);
 
 s32 cmdqRecBackupUpdateSlot(struct cmdqRecStruct *handle,
 	cmdqBackupSlotHandle h_backup_slot, u32 slot_index, u32 value)
 {
 	return cmdq_op_write_mem(handle, h_backup_slot, slot_index, value);
 }
-EXPORT_SYMBOL(cmdqRecBackupUpdateSlot);
 
 s32 cmdqRecEnablePrefetch(struct cmdqRecStruct *handle)
 {
@@ -3700,7 +3579,6 @@ s32 cmdqRecEnablePrefetch(struct cmdqRecStruct *handle)
 	return -EFAULT;
 #endif
 }
-EXPORT_SYMBOL(cmdqRecEnablePrefetch);
 
 s32 cmdqRecDisablePrefetch(struct cmdqRecStruct *handle)
 {
@@ -3735,13 +3613,11 @@ s32 cmdqRecDisablePrefetch(struct cmdqRecStruct *handle)
 	CMDQ_MSG("%s status:%d\n", __func__, status);
 	return status;
 }
-EXPORT_SYMBOL(cmdqRecDisablePrefetch);
 
 s32 cmdqRecFlush(struct cmdqRecStruct *handle)
 {
 	return cmdq_task_flush(handle);
 }
-EXPORT_SYMBOL(cmdqRecFlush);
 
 s32 cmdqRecFlushAndReadRegister(struct cmdqRecStruct *handle, u32 regCount,
 	u32 *addrArray, u32 *valueArray)
@@ -3749,83 +3625,70 @@ s32 cmdqRecFlushAndReadRegister(struct cmdqRecStruct *handle, u32 regCount,
 	return cmdq_task_flush_and_read_register(handle, regCount, addrArray,
 		valueArray);
 }
-EXPORT_SYMBOL(cmdqRecFlushAndReadRegister);
 
 s32 cmdqRecFlushAsync(struct cmdqRecStruct *handle)
 {
 	return cmdq_task_flush_async(handle);
 }
-EXPORT_SYMBOL(cmdqRecFlushAsync);
 
 s32 cmdqRecFlushAsyncCallback(struct cmdqRecStruct *handle,
 	CmdqAsyncFlushCB callback, u64 user_data)
 {
 	return cmdq_task_flush_async_callback(handle, callback, user_data);
 }
-EXPORT_SYMBOL(cmdqRecFlushAsyncCallback);
 
 s32 cmdqRecStartLoop(struct cmdqRecStruct *handle)
 {
 	return cmdq_task_start_loop(handle);
 }
-EXPORT_SYMBOL(cmdqRecStartLoop);
 
 s32 cmdqRecStartLoopWithCallback(struct cmdqRecStruct *handle,
 	CmdqInterruptCB loopCB, unsigned long loopData)
 {
 	return cmdq_task_start_loop_callback(handle, loopCB, loopData);
 }
-EXPORT_SYMBOL(cmdqRecStartLoopWithCallback);
 
 s32 cmdqRecStopLoop(struct cmdqRecStruct *handle)
 {
 	return cmdq_task_stop_loop(handle);
 }
-EXPORT_SYMBOL(cmdqRecStopLoop);
 
 s32 cmdqRecGetInstructionCount(struct cmdqRecStruct *handle)
 {
 	return cmdq_task_get_inst_cnt(handle);
 }
-EXPORT_SYMBOL(cmdqRecGetInstructionCount);
 
 s32 cmdqRecProfileMarker(struct cmdqRecStruct *handle, const char *tag)
 {
 	return cmdq_op_profile_marker(handle, tag);
 }
-EXPORT_SYMBOL(cmdqRecProfileMarker);
 
 s32 cmdqRecDumpCommand(struct cmdqRecStruct *handle)
 {
 	return cmdq_pkt_dump_command(handle);
 }
-EXPORT_SYMBOL(cmdqRecDumpCommand);
 
 void cmdqRecDestroy(struct cmdqRecStruct *handle)
 {
 	cmdq_task_destroy(handle);
 }
-EXPORT_SYMBOL(cmdqRecDestroy);
 
 s32 cmdqRecSetNOP(struct cmdqRecStruct *handle, u32 index)
 {
 	return cmdq_op_set_nop(handle, index);
 }
-EXPORT_SYMBOL(cmdqRecSetNOP);
 
 s32 cmdqRecQueryOffset(struct cmdqRecStruct *handle, u32 startIndex,
 	const enum cmdq_code opCode, enum cmdq_event event)
 {
 	return cmdq_task_query_offset(handle, startIndex, opCode, event);
 }
-EXPORT_SYMBOL(cmdqRecQueryOffset);
 
 s32 cmdqRecAcquireResource(struct cmdqRecStruct *handle,
 	enum cmdq_event resourceEvent)
 {
 	return cmdq_resource_acquire(handle, resourceEvent);
 }
-EXPORT_SYMBOL(cmdqRecAcquireResource);
 
 s32 cmdqRecWriteForResource(struct cmdqRecStruct *handle,
 	enum cmdq_event resourceEvent, u32 addr, u32 value, u32 mask)
@@ -3833,14 +3696,12 @@ s32 cmdqRecWriteForResource(struct cmdqRecStruct *handle,
 	return cmdq_resource_acquire_and_write(handle, resourceEvent, addr,
 		value, mask);
 }
-EXPORT_SYMBOL(cmdqRecWriteForResource);
 
 s32 cmdqRecReleaseResource(struct cmdqRecStruct *handle,
 	enum cmdq_event resourceEvent)
 {
 	return cmdq_resource_release(handle, resourceEvent);
 }
-EXPORT_SYMBOL(cmdqRecReleaseResource);
 
 s32 cmdqRecWriteAndReleaseResource(struct cmdqRecStruct *handle,
 	enum cmdq_event resourceEvent, u32 addr, u32 value, u32 mask)
@@ -3848,4 +3709,4 @@ s32 cmdqRecWriteAndReleaseResource(struct cmdqRecStruct *handle,
 	return cmdq_resource_release_and_write(handle, resourceEvent, addr,
 		value, mask);
 }
-EXPORT_SYMBOL(cmdqRecWriteAndReleaseResource);
+

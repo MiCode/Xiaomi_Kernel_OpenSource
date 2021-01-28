@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2015 MediaTek Inc.
  */
+
 #ifndef __CMDQ_DEF_H__
 #define __CMDQ_DEF_H__
 
@@ -36,7 +37,14 @@
 /* Thread that are high-priority (display threads) */
 #define CMDQ_MAX_HIGH_PRIORITY_THREAD_COUNT (8)
 #define CMDQ_MIN_SECURE_THREAD_ID	(CMDQ_MAX_HIGH_PRIORITY_THREAD_COUNT)
+
+#if IS_ENABLED(CONFIG_MACH_MT6779) || IS_ENABLED(CONFIG_MACH_MT6785)
+/* primary disp / secondary disp / mdp / isp fd */
+#define CMDQ_MAX_SECURE_THREAD_COUNT	(4)
+#else
+/* primary disp / secondary disp / mdp */
 #define CMDQ_MAX_SECURE_THREAD_COUNT	(3)
+#endif
 
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 #define CMDQ_DYNAMIC_THREAD_ID_START	(CMDQ_MIN_SECURE_THREAD_ID + \
@@ -231,6 +239,10 @@ enum CMDQ_SCENARIO_ENUM {
 	CMDQ_SCENARIO_ISP_RSC = 43,
 	CMDQ_SCENARIO_ISP_FDVT = 44,
 	CMDQ_SCENARIO_ISP_DPE = 45,
+	CMDQ_SCENARIO_ISP_FDVT_OFF = 46,
+
+	/* Trigger loop scenario does not enable HWs */
+	CMDQ_SCENARIO_TRIGGER_LOOP_SUB = 47,
 
 	CMDQ_MAX_SCENARIO_COUNT	/* ALWAYS keep at the end */
 };
@@ -330,14 +342,6 @@ struct cmdqReadAddressStruct {
 	cmdqU32Ptr_t values;
 };
 
-struct cmdqIovaMeta {
-	uint32_t fd;
-	uint32_t iova;
-	uint64_t dma_buf;
-	uint64_t attach;
-	uint64_t sgt;
-};
-
 /*
  * Secure address metadata:
  * According to handle type,
@@ -409,6 +413,24 @@ struct cmdqSecIspMeta {
 	uint64_t DmgiHandle;
 };
 
+/* client extension bits for cmdq secure driver
+ * must sync with iwc header sec_extension_iwc
+ */
+enum sec_extension {
+	SEC_MDP_AAL = 0,
+	SEC_TDSHP
+};
+
+#ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
+/* tablet use */
+enum CMDQ_DISP_MODE {
+	CMDQ_DISP_NON_SUPPORTED_MODE = 0,
+	CMDQ_DISP_SINGLE_MODE = 1,
+	CMDQ_DISP_VIDEO_MODE = 2,
+	CMDQ_MDP_USER_MODE = 3,
+};
+#endif
+
 struct cmdqSecDataStruct {
 	bool is_secure;		/* [IN]true for secure command */
 
@@ -432,6 +454,14 @@ struct cmdqSecDataStruct {
 
 	/* ISP metadata for secure camera */
 	struct cmdqSecIspMeta ispMeta;
+
+	/* client extension feature */
+	uint64_t extension;
+
+#ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
+	/* tablet use */
+	uint32_t secMode;
+#endif
 };
 
 struct cmdq_v3_replace_struct {

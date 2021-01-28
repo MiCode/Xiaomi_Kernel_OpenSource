@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2015 MediaTek Inc.
  */
 
 #include "cmdq_reg.h"
@@ -48,13 +48,13 @@ struct CmdqMdpModuleClock {
 };
 static struct CmdqMdpModuleClock gCmdqMdpModuleClock;
 #define IMP_ENABLE_MDP_HW_CLOCK(FN_NAME, HW_NAME)	\
-static uint32_t cmdq_mdp_enable_clock_##FN_NAME(bool enable)	\
+uint32_t cmdq_mdp_enable_clock_##FN_NAME(bool enable)	\
 {		\
 	return cmdq_dev_enable_device_clock(enable,	\
 		gCmdqMdpModuleClock.clk_##HW_NAME, #HW_NAME "-clk");	\
 }
 #define IMP_MDP_HW_CLOCK_IS_ENABLE(FN_NAME, HW_NAME)	\
-static bool cmdq_mdp_clock_is_enable_##FN_NAME(void)	\
+bool cmdq_mdp_clock_is_enable_##FN_NAME(void)	\
 {		\
 	return cmdq_dev_device_clock_is_enable(		\
 		gCmdqMdpModuleClock.clk_##HW_NAME);	\
@@ -70,9 +70,7 @@ IMP_ENABLE_MDP_HW_CLOCK(MDP_CCORR, MDP_CCORR);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_WDMA, MDP_WDMA);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_WROT0, MDP_WROT0);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_TDSHP0, MDP_TDSHP);
-#ifdef CMDQ_MDP_COLOR
 IMP_ENABLE_MDP_HW_CLOCK(MDP_COLOR0, MDP_COLOR);
-#endif
 IMP_MDP_HW_CLOCK_IS_ENABLE(CAM_MDP, CAM_MDP);
 IMP_MDP_HW_CLOCK_IS_ENABLE(IMG_DL_RELAY, IMG_DL_RELAY);
 IMP_MDP_HW_CLOCK_IS_ENABLE(IMG_DL_ASYNC_TOP, IMG_DL_ASYNC_TOP);
@@ -351,6 +349,43 @@ mtk_iommu_callback_ret_t cmdq_TranslationFault_callback(
 	return MTK_IOMMU_CALLBACK_HANDLED;
 }
 #elif defined(CONFIG_MTK_M4U)
+m4u_callback_ret_t cmdq_TranslationFault_callback(
+	int port, unsigned int mva, void *data)
+{
+	char dispatchModel[MDP_DISPATCH_KEY_STR_LEN] = "MDP";
+
+	CMDQ_ERR("================= [MDP M4U] Dump Begin ================\n");
+	CMDQ_ERR("[MDP M4U]fault call port=%d, mva=0x%x", port, mva);
+
+	cmdq_core_dump_tasks_info();
+
+	switch (port) {
+	case M4U_PORT_MDP_RDMA0:
+		cmdq_mdp_dump_rdma(MDP_RDMA0_BASE, "RDMA0");
+		break;
+	case M4U_PORT_MDP_WDMA0:
+		cmdq_mdp_dump_wdma(MDP_WDMA_BASE, "WDMA");
+		break;
+	case M4U_PORT_MDP_WROT0:
+		cmdq_mdp_dump_rot(MDP_WROT0_BASE, "WROT0");
+		break;
+	default:
+		CMDQ_ERR("[MDP M4U]fault callback function");
+		break;
+	}
+
+	CMDQ_ERR(
+		"=============== [MDP] Frame Information Begin ====================================\n");
+	/* find dispatch module and assign dispatch key */
+	cmdq_mdp_check_TF_address(mva, dispatchModel);
+	memcpy(data, dispatchModel, sizeof(dispatchModel));
+	CMDQ_ERR(
+		"=============== [MDP] Frame Information End ====================================\n");
+	CMDQ_ERR(
+		"================= [MDP M4U] Dump End ================\n");
+
+	return M4U_CALLBACK_HANDLED;
+}
 #endif
 
 int32_t cmdqVEncDumpInfo(uint64_t engineFlag, int logLevel)
@@ -407,8 +442,8 @@ bool cmdq_mdp_clock_is_on(enum CMDQ_ENG_ENUM engine)
 	switch (engine) {
 	case CMDQ_ENG_MDP_CAMIN:
 		return cmdq_mdp_clock_is_enable_CAM_MDP() &&
-			cmdq_mdp_clock_is_enable_IMG_DL_RELAY() &&
-			cmdq_mdp_clock_is_enable_IMG_DL_ASYNC_TOP();
+				cmdq_mdp_clock_is_enable_IMG_DL_RELAY() &&
+				cmdq_mdp_clock_is_enable_IMG_DL_ASYNC_TOP();
 	case CMDQ_ENG_MDP_RDMA0:
 		return cmdq_mdp_clock_is_enable_MDP_RDMA0();
 	case CMDQ_ENG_MDP_RSZ0:
@@ -615,16 +650,6 @@ void cmdq_mdp_dump_tdshp(const unsigned long base, const char *label)
 	CMDQ_ERR("TDSHP OUTPUT_OFFSET: 0x%08x, BLANK_WIDTH: 0x%08x\n",
 		value[7], value[9]);
 }
-
-static void cmdq_mdp_enable(u64 engineFlag, enum CMDQ_ENG_ENUM engine)
-{
-#ifdef CMDQ_PWR_AWARE
-	CMDQ_VERBOSE("Test for ENG %d\n", engine);
-	if (engineFlag & (1LL << engine))
-		cmdq_mdp_get_func()->enableMdpClock(true, engine);
-#endif
-}
-
 int32_t cmdqMdpClockOn(uint64_t engineFlag)
 {
 	uint32_t oldValue;
@@ -975,6 +1000,16 @@ void cmdqMdpInitialSetting(void)
 		cmdq_TranslationFault_callback, (void *)data);
 	mtk_iommu_register_fault_callback(M4U_PORT_MDP_WROT0,
 		cmdq_TranslationFault_callback, (void *)data);
+#elif defined(CONFIG_MTK_M4U)
+	char *data = kzalloc(MDP_DISPATCH_KEY_STR_LEN, GFP_KERNEL);
+
+	/* Register M4U Translation Fault function */
+	m4u_register_fault_callback(M4U_PORT_MDP_RDMA0,
+		cmdq_TranslationFault_callback, (void *)data);
+	m4u_register_fault_callback(M4U_PORT_MDP_WDMA0,
+		cmdq_TranslationFault_callback, (void *)data);
+	m4u_register_fault_callback(M4U_PORT_MDP_WROT0,
+		cmdq_TranslationFault_callback, (void *)data);
 #endif
 }
 
@@ -1154,7 +1189,7 @@ static void cmdq_mdp_check_hw_status(struct cmdqRecStruct *handle)
 	}
 }
 
-void cmdq_mdp_set_mt6761(void)
+void cmdq_mdp_platform_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc = cmdq_mdp_get_func();
 
@@ -1186,4 +1221,3 @@ void cmdq_mdp_set_mt6761(void)
 	pFunc->mdpEnableCommonClock = cmdq_mdp_enable_common_clock;
 	pFunc->CheckHwStatus = cmdq_mdp_check_hw_status;
 }
-EXPORT_SYMBOL(cmdq_mdp_set_mt6761);

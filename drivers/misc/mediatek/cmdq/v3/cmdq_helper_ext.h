@@ -13,7 +13,7 @@
 
 #include "cmdq_def.h"
 
-#ifdef CMDQ_AEE_READY
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
 
@@ -42,6 +42,7 @@ enum TASK_STATE_ENUM {
 #define CMDQ_THREAD_SEC_PRIMARY_DISP	(CMDQ_MIN_SECURE_THREAD_ID)
 #define CMDQ_THREAD_SEC_SUB_DISP	(CMDQ_MIN_SECURE_THREAD_ID + 1)
 #define CMDQ_THREAD_SEC_MDP		(CMDQ_MIN_SECURE_THREAD_ID + 2)
+#define CMDQ_THREAD_SEC_ISP		(CMDQ_MIN_SECURE_THREAD_ID + 3)
 
 /* max count of input */
 #define CMDQ_MAX_COMMAND_SIZE		(0x80000000)
@@ -101,7 +102,7 @@ if (status < 0)		\
 	break;			\
 }
 
-#ifdef CMDQ_AEE_READY
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #define CMDQ_AEE_EX(DB_OPTs, tag, string, args...) \
 {		\
 do {			\
@@ -171,7 +172,7 @@ do {if (cmdq_core_met_enabled()) met_tag_oneshot(args);	\
 #define CMDQ_PROF_ONESHOT(args...)
 #endif
 
-#if IS_ENABLED(CONFIG_MMPROFILE)
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
 #define CMDQ_PROF_MMP(args...)\
 {\
 do {if (1) mmprofile_log_ex(args); } while (0);	\
@@ -181,7 +182,6 @@ do {if (1) mmprofile_log_ex(args); } while (0);	\
 #endif
 
 /* CMDQ FTRACE */
-#ifdef CMDQ_TRACE
 #define CMDQ_TRACE_FORCE_BEGIN(fmt, args...) do { \
 	preempt_disable(); \
 	event_trace_printk(cmdq_get_tracing_mark(), \
@@ -207,12 +207,6 @@ do {if (1) mmprofile_log_ex(args); } while (0);	\
 		CMDQ_TRACE_FORCE_END(); \
 	} \
 } while (0)
-#else
-#define CMDQ_TRACE_FORCE_BEGIN(fmt, args...)
-#define CMDQ_TRACE_FORCE_END()
-#define CMDQ_SYSTRACE_BEGIN(fmt, args...)
-#define CMDQ_SYSTRACE_END()
-#endif
 
 #define CMDQ_GET_TIME_IN_MS(start, end, duration)	\
 {	\
@@ -313,6 +307,20 @@ struct CmdqDebugCBkStruct {
 	/* Debug Register Dump */
 	CmdqDebugRegDumpBeginCB beginDebugRegDump;
 	CmdqDebugRegDumpEndCB endDebugRegDump;
+};
+
+enum CMDQ_CLT_ENUM {
+	CMDQ_CLT_UNKN,
+	CMDQ_CLT_MDP,
+	CMDQ_CLT_CMDQ,
+	CMDQ_CLT_GNRL,
+	CMDQ_CLT_DISP,
+	CMDQ_CLT_MAX	/* ALWAYS keep at the end */
+};
+
+/* sync with request in atf */
+enum cmdq_smc_request {
+	CMDQ_ENABLE_DEBUG,
 };
 
 /* handle to gce life cycle callback */
@@ -606,6 +614,8 @@ struct ContextStruct {
 	/* Delay set CPR start information */
 	u32 delay_cpr_start;
 
+	void *inst_check_buffer;
+
 #ifdef CMDQ_INSTRUCTION_COUNT
 	/* GCE instructions count information */
 	s32 instructionCountLevel;
@@ -619,6 +629,8 @@ struct DumpCommandBufferStruct {
 	u32 count;
 	char *cmdqString;
 };
+
+/* TODO: add stress support */
 
 struct cmdq_event_table {
 	u16 event;	/* cmdq event enum value */
@@ -649,6 +661,15 @@ enum CMDQ_SPM_MODE {
 	CMDQ_PD_MODE,
 };
 
+/* secure world wsm metadata type in message ex,
+ * must sync with cmdq_sec_meta_type in cmdq_sec_iwc_common.h
+ */
+enum cmdq_sec_rec_meta_type {
+	CMDQ_SEC_METAEX_NONE,
+	CMDQ_SEC_METAEX_FD,
+	CMDQ_SEC_METAEX_CQ,
+};
+
 struct cmdqRecStruct {
 	struct list_head list_entry;
 	struct cmdq_pkt *pkt;
@@ -659,6 +680,7 @@ struct cmdqRecStruct {
 	void *running_task;
 	bool jump_replace;	/* jump replace or not */
 	bool finalized;		/* set to true after flush() or startLoop() */
+	bool force_inorder;
 	CmdqInterruptCB loop_cb;
 	unsigned long loop_user_data;
 	CmdqAsyncFlushCB async_callback;
@@ -683,6 +705,7 @@ struct cmdqRecStruct {
 
 	/* task executing data */
 	atomic_t exec;
+	atomic_t wait_protect;
 	enum TASK_STATE_ENUM state;	/* task life cycle */
 	s32 thread;
 	enum cmdq_thread_dispatch thd_dispatch;
@@ -715,8 +738,6 @@ struct cmdqRecStruct {
 	cmdq_core_handle_cb unprepare;
 	cmdq_core_handle_cb stop;
 
-	struct cmdq_timeout_info *timeout_info;
-
 	/* debug information */
 	u32 error_irq_pc;
 	bool dumpAllocTime;	/* flag to print static info to kernel log. */
@@ -740,6 +761,9 @@ struct cmdqRecStruct {
 	/* secure world */
 	struct iwcCmdqSecStatus_t *secStatus;
 	u32 irq;
+	void *sec_client_meta;
+	enum cmdq_sec_rec_meta_type sec_meta_type;
+	u32 sec_meta_size;
 };
 
 /* TODO: add controller support */
@@ -758,6 +782,7 @@ u32 cmdq_event_get_table_size(void);
 
 /* CMDQ core feature functions */
 
+bool cmdq_core_check_user_valid(void *src, u32 size);
 bool cmdq_core_check_pkt_valid(struct cmdq_pkt *pkt);
 
 void cmdq_core_deinit_group_cb(void);
@@ -825,12 +850,17 @@ void cmdq_core_reset_first_dump(void);
 s32 cmdq_core_save_first_dump(const char *string, ...);
 
 /* Allocate/Free HW use buffer, e.g. command buffer forCMDQ HW */
+void *cmdq_core_alloc_hw_buffer_clt(struct device *dev, size_t size,
+	dma_addr_t *dma_handle, const gfp_t flag, enum CMDQ_CLT_ENUM clt);
+void cmdq_core_free_hw_buffer_clt(struct device *dev, size_t size,
+	void *cpu_addr, dma_addr_t dma_handle, enum CMDQ_CLT_ENUM clt);
 void *cmdq_core_alloc_hw_buffer(struct device *dev,
 	size_t size, dma_addr_t *dma_handle, const gfp_t flag);
 void cmdq_core_free_hw_buffer(struct device *dev, size_t size,
 	void *cpu_addr, dma_addr_t dma_handle);
 s32 cmdq_core_alloc_pool_buf(struct cmdq_pkt_buffer *buf);
 s32 cmdq_core_free_pool_buf(struct cmdq_pkt_buffer *buf);
+void cmdq_core_dump_sram(void);
 s32 cmdq_core_alloc_sram_buffer(size_t size,
 	const char *owner_name, u32 *out_cpr_offset);
 void cmdq_core_free_sram_buffer(u32 cpr_offset, size_t size);
@@ -839,11 +869,12 @@ size_t cmdq_core_get_cpr_cnt(void);
 void cmdq_delay_dump_thread(bool dump_sram);
 u32 cmdq_core_get_delay_start_cpr(void);
 s32 cmdq_delay_get_id_by_scenario(enum CMDQ_SCENARIO_ENUM scenario);
-int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart);
+int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart,
+	enum CMDQ_CLT_ENUM clt);
 u32 cmdqCoreReadWriteAddress(dma_addr_t pa);
 void cmdqCoreReadWriteAddressBatch(u32 *addrs, u32 count, u32 *val_out);
 u32 cmdqCoreWriteWriteAddress(dma_addr_t pa, u32 value);
-int cmdqCoreFreeWriteAddress(dma_addr_t paStart);
+int cmdqCoreFreeWriteAddress(dma_addr_t paStart, enum CMDQ_CLT_ENUM clt);
 
 /* Get and HW information from device tree */
 void cmdq_core_init_dts_data(void);
@@ -876,16 +907,16 @@ u32 cmdq_core_subsys_to_reg_addr(u32 arg_a);
 const char *cmdq_core_parse_subsys_from_reg_addr(u32 reg_addr);
 s32 cmdq_core_subsys_from_phys_addr(u32 physAddr);
 
-ssize_t cmdq_core_error_show(struct device *dev,
+ssize_t cmdq_core_print_error(struct device *dev,
 	struct device_attribute *attr, char *buf);
 void cmdq_core_set_log_level(const s32 value);
-ssize_t cmdq_core_log_level_show(struct device *dev,
+ssize_t cmdq_core_print_log_level(struct device *dev,
 	struct device_attribute *attr, char *buf);
-ssize_t cmdq_core_log_level_store(struct device *dev,
+ssize_t cmdq_core_write_log_level(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size);
-ssize_t cmdq_core_profile_enable_show(struct device *dev,
+ssize_t cmdq_core_print_profile_enable(struct device *dev,
 	struct device_attribute *attr, char *buf);
-ssize_t cmdq_core_profile_enable_store(struct device *dev,
+ssize_t cmdq_core_write_profile_enable(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size);
 
 void cmdq_core_dump_tasks_info(void);

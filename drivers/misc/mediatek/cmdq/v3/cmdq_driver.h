@@ -99,9 +99,4 @@ struct cmdqWriteAddressStruct {
 /*  */
 #define CMDQ_IOCTL_NOTIFY_ENGINE _IOW(CMDQ_IOCTL_MAGIC_NUMBER, 12, uint64_t)
 
-#define CMDQ_IOCTL_ALLOC_IOVA _IOW(CMDQ_IOCTL_MAGIC_NUMBER, 13, \
-	struct cmdqIovaMeta)
-#define CMDQ_IOCTL_FREE_IOVA _IOW(CMDQ_IOCTL_MAGIC_NUMBER, 14, \
-	struct cmdqIovaMeta)
-
 #endif				/* __CMDQ_DRIVER_H__ */

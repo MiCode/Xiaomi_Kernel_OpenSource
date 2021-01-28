@@ -14,6 +14,7 @@
 # drivers/video/mtk/Makefile
 #
 
+CMDQ_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
 	MTK_PLATFORM := mt6765
 else
@@ -81,7 +82,7 @@ endif
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/
 
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(CMDQ_PLATFORM)/
 
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/

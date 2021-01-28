@@ -14,6 +14,7 @@
 #
 # Makefile for external display driver.
 #
+CMDQ_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
 	MTK_PLATFORM := mt6765
 else
@@ -44,11 +45,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/ \
              -I$(srctree)/drivers/staging/android/ion/mtk \
              -I$(srctree)/drivers/misc/mediatek/lcm/inc
 
-ifeq ($(CONFIG_MACH_MT6761),y)
-    ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/mt6765/
-else
-    ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
-endif
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(CMDQ_PLATFORM)/
 
 ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/mt6761 \

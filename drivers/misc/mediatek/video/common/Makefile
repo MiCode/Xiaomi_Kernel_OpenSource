@@ -24,6 +24,7 @@
 
 #####################################
 # MT67xx chipset group
+CMDQ_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
 	MTK_PLATFORM := mt6765
 else
@@ -90,11 +91,7 @@ ifeq (y, $(filter y, $(CONFIG_MACH_MT6799) $(CONFIG_MACH_MT6759) \
 ccflags-y += \
 				-I$(srctree)/drivers/misc/mediatek/cmdq/v3/
 
-ifeq ($(CONFIG_MACH_MT6761),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/mt6765/
-else
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
-endif
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(CMDQ_PLATFORM)/
 else
 ccflags-y += \
 				-I$(srctree)/drivers/misc/mediatek/cmdq/v2/ \

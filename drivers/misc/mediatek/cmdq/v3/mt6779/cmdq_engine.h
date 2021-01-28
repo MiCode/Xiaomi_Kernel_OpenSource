@@ -3,8 +3,10 @@
  * Copyright (c) 2015 MediaTek Inc.
  */
 
-#ifndef __CMDQ_ENGINE_COMMON_H__
-#define __CMDQ_ENGINE_COMMON_H__
+#ifndef __CMDQ_ENGINE_H__
+#define __CMDQ_ENGINE_H__
+
+#define SUPPORT_MDP_CAMIN2
 
 enum CMDQ_ENG_ENUM {
 	/* ISP */
@@ -56,36 +58,34 @@ enum CMDQ_ENG_ENUM {
 	CMDQ_ENG_DISP_DSI0,		/* 37 */
 	CMDQ_ENG_DISP_2L_OVL0,		/* 38 */
 	CMDQ_ENG_DISP_2L_OVL1,		/* 39 */
-	CMDQ_ENG_DISP_2L_OVL2,		/* 40 */
 
 	/* ISP */
-	CMDQ_ENG_DPE,			/* 41 */
-	CMDQ_ENG_RSC,			/* 42 */
-	CMDQ_ENG_GEPF,			/* 43 */
-	CMDQ_ENG_EAF,			/* 44 */
-	CMDQ_ENG_OWE,			/* 45 */
-	CMDQ_ENG_MFB,			/* 46 */
-	CMDQ_ENG_FDVT,			/* 47 */
-
-	/* ISP sec */
-	CMDQ_ENG_ISP_VIPI,		/* 48 */
-	CMDQ_ENG_ISP_LCEI,		/* 49 */
-	CMDQ_ENG_ISP_IMG3O,		/* 50 */
-	CMDQ_ENG_ISP_SMXIO,		/* 51 */
-	CMDQ_ENG_ISP_DMGI_DEPI,		/* 52 */
-	CMDQ_ENG_ISP_IMGCI,		/* 53 */
-	CMDQ_ENG_ISP_TIMGO,		/* 54 */
-
-	/* MDP : MT6761 */
-	CMDQ_ENG_MDP_CCORR0,		/* 55 */
+	CMDQ_ENG_DPE,			/* 40 */
+	CMDQ_ENG_RSC,			/* 41 */
+	CMDQ_ENG_GEPF,			/* 42 */
+	CMDQ_ENG_EAF,			/* 43 */
+	CMDQ_ENG_OWE,			/* 44 */
+	CMDQ_ENG_MFB,			/* 45 */
+	CMDQ_ENG_FDVT,			/* 46 */
 
 	/* temp: CMDQ internal usage */
-	CMDQ_ENG_CMDQ = 63,
+	CMDQ_ENG_CMDQ,			/* 47 */
 
 	/* Dummy Engine */
-	CMDQ_ENG_MDP_RSZ2 = 63,
-	CMDQ_ENG_MDP_TDSHP1 = 63,
-	CMDQ_ENG_MDP_WDMA = 63,
+	CMDQ_ENG_MDP_RSZ2,		/* 48 */
+	CMDQ_ENG_MDP_TDSHP1,		/* 49 */
+	CMDQ_ENG_MDP_WDMA,		/* 50 */
+
+	/* ISP sec */
+	CMDQ_ENG_ISP_VIPI,		/* 51 */
+	CMDQ_ENG_ISP_LCEI,		/* 52 */
+	CMDQ_ENG_ISP_IMG3O,		/* 53 */
+	CMDQ_ENG_ISP_SMXIO,		/* 54 */
+	CMDQ_ENG_ISP_DMGI_DEPI,		/* 55 */
+	CMDQ_ENG_ISP_IMGCI,		/* 56 */
+	CMDQ_ENG_ISP_TIMGO,		/* 57 */
+
+	CMDQ_ENG_INORDER,		/* 58 */
 
 	CMDQ_MAX_ENGINE_COUNT		/* ALWAYS keep at the end */
 };
@@ -159,6 +159,11 @@ enum CMDQ_ENG_ENUM {
 #define CMDQ_ENG_EAF_GROUP_FLAG(flag)	((flag) & (CMDQ_ENG_EAF_GROUP_BITS))
 #define CMDQ_ENG_FDVT_GROUP_FLAG(flag)	((flag) & (CMDQ_ENG_FDVT_GROUP_BITS))
 
+#define CMDQ_ENG_ISP_PERF_FLAG(flag)	((flag) & (CMDQ_ENG_WPE_GROUP_BITS | \
+					CMDQ_ENG_ISP_GROUP_BITS | \
+					(1LL << CMDQ_ENG_ISP_VIPI) | \
+					(1LL << CMDQ_ENG_ISP_IMG3O)))
+
 #define CMDQ_FOREACH_GROUP(ACTION_struct)\
 	ACTION_struct(CMDQ_GROUP_ISP, ISP)	\
 	ACTION_struct(CMDQ_GROUP_MDP, MDP)	\
@@ -180,4 +185,4 @@ enum CMDQ_GROUP_ENUM {
 	CMDQ_MAX_GROUP_COUNT,	/* ALWAYS keep at the end */
 };
 
-#endif				/* __CMDQ_ENGINE_COMMON_H__ */
+#endif				/* __CMDQ_ENGINE_H__ */

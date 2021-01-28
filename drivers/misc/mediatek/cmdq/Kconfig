@@ -1,0 +1,7 @@
+config MTK_CMDQ_V3
+	bool "build CMDQ v3 driver"
+	help
+	  This CMDQ module is used for help multi-media driver,
+	  to control HW engine register in specific timing,
+	  and notify caller configuration is done.
+	  Especially for display/MDP.

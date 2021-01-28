@@ -15,9 +15,9 @@
 #define CMDQ_SEC_SHARED_OP_OFFSET (0x300)
 
 /* commanad buffer & metadata */
-#define CMDQ_TZ_CMD_BLOCK_SIZE	 (32 * 1024)
+#define CMDQ_TZ_CMD_BLOCK_SIZE	 (16 * 1024)
 
-#define CMDQ_IWC_MAX_CMD_LENGTH (32 * 1024 / 4)
+#define CMDQ_IWC_MAX_CMD_LENGTH (CMDQ_TZ_CMD_BLOCK_SIZE / 4)
 
 #define CMDQ_IWC_MAX_ADDR_LIST_LENGTH (30)
 
@@ -35,6 +35,7 @@
 #define CMDQ_SEC_ISP_DEPI_SIZE	(520200)	/* MAX: 510x510x2 byte */
 #define CMDQ_SEC_ISP_DMGI_SIZE	(130560)	/* MAX: 480x272 byte */
 #define CMDQ_IWC_ISP_META_CNT	8
+#define CMDQ_SEC_ISP_META_MAX	(0x1000)	/* 4k */
 
 enum CMDQ_IWC_ADDR_METADATA_TYPE {
 	CMDQ_IWC_H_2_PA = 0, /* sec handle to sec PA */
@@ -79,6 +80,7 @@ enum CMDQ_SEC_ENG_ENUM {
 	CMDQ_SEC_WPEO,		/* 27 */
 	CMDQ_SEC_WPEI2,		/* 28 */
 	CMDQ_SEC_WPEO2,		/* 29 */
+	CMDQ_SEC_FDVT,		/* 30 */
 
 	CMDQ_SEC_MAX_ENG_COUNT	/* ALWAYS keep at the end */
 };
@@ -193,6 +195,12 @@ struct iwcCmdqSecIspMeta {
 	uint64_t DmgiHandle;
 };
 
+/* extension flag for secure driver, must sync with def */
+enum sec_extension_iwc {
+	IWC_MDP_AAL = 0,
+	IWC_MDP_TDSHP,
+};
+
 struct iwcCmdqCommand_t {
 	/* basic execution data */
 	uint32_t thread;
@@ -216,12 +224,22 @@ struct iwcCmdqCommand_t {
 	struct iwcCmdqMetadata_t metadata;
 	struct iwcCmdqSecIspMeta isp_metadata;
 
+	/* client extension bits */
+	uint64_t extension;
+	uint64_t readback_pa;
+
 	/* ISP share memory buffer */
 	uint32_t isp_lcei[CMDQ_SEC_ISP_LCEI_SIZE / sizeof(uint32_t)];
 	uint32_t isp_lcei_size;
 
 	/* debug */
 	uint64_t hNormalTask; /* handle to reference task in normal world*/
+};
+
+enum cmdq_sec_meta_type {
+	CMDQ_METAEX_NONE,
+	CMDQ_METAEX_FD,
+	CMDQ_METAEX_CQ,
 };
 
 struct iwcIspMessage {
@@ -241,6 +259,10 @@ struct iwcIspMessage {
 	uint32_t isp_dmgi_size;
 };
 
+struct iwcIspMeta {
+	uint32_t size;
+	uint32_t data[CMDQ_SEC_ISP_META_MAX / sizeof(uint32_t)];
+};
 
 /* linex kernel and mobicore has their own MMU tables,
  * the latter's is used to map world shared memory and physical address
@@ -269,10 +291,14 @@ struct iwcCmdqMessage_t {
 	struct iwcCmdqSecStatus_t secStatus;
 
 	bool iwcMegExAvailable;
+	uint32_t metaex_type;
 };
 
 struct iwcCmdqMessageEx_t {
-	struct iwcIspMessage isp;
+	union {
+		struct iwcIspMessage isp;
+		struct iwcIspMeta meta;
+	};
 };
 
 /*  */

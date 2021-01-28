@@ -8,7 +8,6 @@
 #include "cmdq_device.h"
 #include "cmdq_virtual.h"
 #include <linux/seq_file.h>
-#include <linux/pm_runtime.h>
 #ifdef CMDQ_CG_M4U_LARB0
 #include "m4u.h"
 #endif
@@ -373,6 +372,9 @@ int cmdq_virtual_get_thread_index(enum CMDQ_SCENARIO_ENUM scenario,
 		 * secure thread is enough
 		 */
 		return CMDQ_THREAD_SEC_MDP;
+	case CMDQ_SCENARIO_ISP_FDVT:
+	case CMDQ_SCENARIO_ISP_FDVT_OFF:
+		return CMDQ_THREAD_SEC_ISP;
 	default:
 		CMDQ_ERR("no dedicated secure thread for scenario:%d\n",
 			scenario);
@@ -609,6 +611,11 @@ const char *cmdq_virtual_module_from_event_id(const s32 event,
 		group = CMDQ_GROUP_ISP;
 		break;
 
+	case CMDQ_EVENT_OCC_DONE:
+		module = "OWE";
+		group = CMDQ_GROUP_ISP;
+		break;
+
 	case CMDQ_EVENT_FDVT_DONE:
 		module = "FDVT";
 		group = CMDQ_GROUP_ISP;
@@ -774,17 +781,13 @@ void cmdq_virtual_enable_common_clock_locked(bool enable)
 		/* Use SMI clock API */
 #ifdef CONFIG_MTK_SMI_EXT
 		smi_bus_prepare_enable(SMI_LARB0, "CMDQ");
-#else
-		pm_runtime_get_sync(cmdq_dev_get());
-#endif /* CONFIG_MTK_SMI_EXT */
+#endif
 	} else {
 		CMDQ_VERBOSE("[CLOCK] Disable SMI & LARB0 Clock\n");
 		/* disable, reverse the sequence */
 #ifdef CONFIG_MTK_SMI_EXT
 		smi_bus_disable_unprepare(SMI_LARB0, "CMDQ");
-#else
-		pm_runtime_put_sync(cmdq_dev_get());
-#endif /* CONFIG_MTK_SMI_EXT */
+#endif
 	}
 #endif				/* CMDQ_PWR_AWARE */
 }
@@ -1101,10 +1104,8 @@ void cmdq_virtual_function_setting(void)
 	pFunc->testCleanup = cmdq_virtual_test_cleanup;
 	pFunc->initModulePAStat = cmdq_virtual_init_module_PA_stat;
 }
-EXPORT_SYMBOL(cmdq_virtual_function_setting);
 
 struct cmdqCoreFuncStruct *cmdq_get_func(void)
 {
 	return &gFunctionPointer;
 }
-EXPORT_SYMBOL(cmdq_get_func);

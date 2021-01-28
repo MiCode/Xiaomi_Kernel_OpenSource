@@ -11,7 +11,11 @@
 #if defined(CMDQ_SECURE_PATH_SUPPORT)
 #include "tee_client_api.h"
 #include "cmdq_sec_iwc_common.h"
+#if defined(CMDQ_GP_SUPPORT)
 #include "cmdq_sec_gp.h"
+#else
+#include "cmdq_sec_trustonic.h"
+#endif
 #endif /* CMDQ_SECURE_PATH_SUPPORT */
 
 

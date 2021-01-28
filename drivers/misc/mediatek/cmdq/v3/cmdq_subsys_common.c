@@ -71,10 +71,9 @@ struct cmdq_subsys_dts_name *cmdq_subsys_get_dts(void)
 {
 	return subsys;
 }
-EXPORT_SYMBOL(cmdq_subsys_get_dts);
 
 u32 cmdq_subsys_get_size(void)
 {
 	return ARRAY_SIZE(subsys);
 }
-EXPORT_SYMBOL(cmdq_subsys_get_size);
+

@@ -39,8 +39,6 @@
 #ifdef CMDQ_USE_LEGACY
 #include <mach/mt_boot.h>
 #endif
-#include <linux/dma-buf.h>
-#include <linux/pm_runtime.h>
 
 /*
  * @device tree porting note
@@ -49,24 +47,18 @@
  *  - use io_map to map and get VA of HW's rgister
  */
 static const struct of_device_id cmdq_of_ids[] = {
-	{.compatible = "mediatek,cmdq-ext",},
+	{.compatible = "mediatek,gce",},
 	{}
 };
 
 static dev_t gCmdqDevNo;
 static struct cdev *gCmdqCDev;
 static struct class *gCMDQClass;
-static struct device *mdp_dev;
-
-static dev_t g_mdp_dev_no;
-static struct cdev *g_mdp_cdev;
-static struct class *g_mdp_class;
-
 
 static ssize_t error_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	return cmdq_core_error_show(dev, attr, buf);
+	return cmdq_core_print_error(dev, attr, buf);
 }
 
 static ssize_t error_store(struct device *dev,
@@ -75,19 +67,18 @@ static ssize_t error_store(struct device *dev,
 	return -EACCES;
 }
 
-
 static DEVICE_ATTR_RW(error);
 
 static ssize_t log_level_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size)
 {
-	return cmdq_core_log_level_store(dev, attr, buf, size);
+	return cmdq_core_write_log_level(dev, attr, buf, size);
 }
 
 static ssize_t log_level_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	return cmdq_core_log_level_show(dev, attr, buf);
+	return cmdq_core_print_log_level(dev, attr, buf);
 }
 
 static DEVICE_ATTR_RW(log_level);
@@ -95,16 +86,17 @@ static DEVICE_ATTR_RW(log_level);
 static ssize_t profile_enable_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	return cmdq_core_profile_enable_show(dev, attr, buf);
+	return cmdq_core_print_profile_enable(dev, attr, buf);
 }
 
 static ssize_t profile_enable_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size)
 {
-	return cmdq_core_profile_enable_store(dev, attr, buf, size);
+	return cmdq_core_write_profile_enable(dev, attr, buf, size);
 }
 
 static DEVICE_ATTR_RW(profile_enable);
+
 
 static int cmdq_proc_status_open(struct inode *inode, struct file *file)
 {
@@ -133,7 +125,19 @@ static const struct file_operations cmdqDebugRecordOp = {
 };
 
 #ifdef CMDQ_INSTRUCTION_COUNT
-static DEVICE_ATTR_RW(instruction_count_level, 0644);
+static ssize_t instruction_count_level_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	return cmdqCorePrintInstructionCountLevel(dev, attr, buf);
+}
+
+static ssize_t instruction_count_level_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	return cmdqCoreWriteInstructionCountLevel(dev, attr, buf, size);
+}
+
+static DEVICE_ATTR_RW(instruction_count_level);
 
 static int cmdq_proc_instruction_count_open(struct inode *inode,
 	struct file *file)
@@ -496,6 +500,7 @@ static long cmdq_driver_create_secure_medadata(
 			pCommand->secData.ispMeta.ispBufs[i].size = 0;
 		}
 	}
+
 #endif
 	return 0;
 }
@@ -506,6 +511,19 @@ static long cmdq_driver_process_command_request(
 	s32 status = 0;
 	u32 *userRegValue = NULL;
 	u32 userRegCount = 0;
+
+	if (pCommand->regRequest.count > CMDQ_MAX_DUMP_REG_COUNT) {
+		CMDQ_ERR("reg request count too much:%u\n",
+			pCommand->regRequest.count);
+		return -EFAULT;
+	}
+
+
+	if (pCommand->regValue.count > CMDQ_MAX_DUMP_REG_COUNT) {
+		CMDQ_ERR("reg value count too much:%u\n",
+			pCommand->regValue.count);
+		return -EFAULT;
+	}
 
 	if (pCommand->regRequest.count != pCommand->regValue.count) {
 		CMDQ_ERR("mismatch regRequest and regValue\n");
@@ -868,6 +886,7 @@ static s32 cmdq_driver_ioctl_async_job_wait_and_close(unsigned long param)
 		CMDQ_ERR("wait task result failed:%d handle:0x%p\n",
 			status, handle);
 		cmdq_task_destroy(handle);
+		kfree(CMDQ_U32_PTR(jobResult.regValue.regValues));
 		return status;
 	}
 
@@ -891,6 +910,7 @@ static s32 cmdq_driver_ioctl_async_job_wait_and_close(unsigned long param)
 	if (copy_to_user((void *)userRegValue, (void *)(unsigned long)
 		handle->reg_values, handle->user_reg_count * sizeof(u32))) {
 		CMDQ_ERR("Copy REGVALUE to user space failed\n");
+		kfree(CMDQ_U32_PTR(jobResult.regValue.regValues));
 		return -EFAULT;
 	}
 
@@ -923,7 +943,8 @@ static s32 cmdq_driver_ioctl_alloc_write_address(unsigned long param)
 		return -EFAULT;
 	}
 
-	status = cmdqCoreAllocWriteAddress(addrReq.count, &paStart);
+	status = cmdqCoreAllocWriteAddress(addrReq.count, &paStart,
+		CMDQ_CLT_MDP);
 	if (status != 0) {
 		CMDQ_ERR("%s alloc write address failed\n", __func__);
 		return status;
@@ -951,7 +972,7 @@ static s32 cmdq_driver_ioctl_free_write_address(unsigned long param)
 		return -EFAULT;
 	}
 
-	return cmdqCoreFreeWriteAddress(freeReq.startPA);
+	return cmdqCoreFreeWriteAddress(freeReq.startPA, CMDQ_CLT_MDP);
 }
 
 static s32 cmdq_driver_ioctl_read_address_value(unsigned long param)
@@ -1013,86 +1034,6 @@ static s32 cmdq_driver_ioctl_notify_engine(unsigned long param)
 	return 0;
 }
 
-static s32 cmdq_driver_ioctl_alloc_iova(unsigned long param)
-{
-	struct cmdqIovaMeta meta;
-	struct dma_buf *buf;
-	struct dma_buf_attachment *attach;
-	struct sg_table *sgt;
-	dma_addr_t iova;
-
-	if (copy_from_user(&meta, (void *)param, sizeof(meta))) {
-		CMDQ_ERR("%s copy_from_user failed\n",
-			__func__);
-		return -EFAULT;
-	}
-
-	buf = dma_buf_get(meta.fd);
-	if (IS_ERR(buf)) {
-		CMDQ_ERR("%s fail to get dma buf:%d fd:%#x\n",
-			__func__, (int)PTR_ERR(buf), meta.fd);
-		return -EFAULT;
-	}
-
-	attach = dma_buf_attach(buf, mdp_dev);
-	if (IS_ERR(attach)) {
-		CMDQ_ERR("%s fail to attach dma buf:%d dev:%p\n",
-			__func__, (int)PTR_ERR(attach), mdp_dev);
-		goto err_attach;
-	}
-
-	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
-	if (IS_ERR(sgt)) {
-		CMDQ_ERR("%s fail to MAP dma buf:%d attach:%p\n",
-			__func__, (int)PTR_ERR(sgt), attach);
-		goto err_map;
-	}
-
-	iova = sg_dma_address(sgt->sgl);
-	CMDQ_MSG("mdp map iova:%#lx\n", (unsigned long)iova);
-
-	meta.dma_buf = (uint64_t)(unsigned long)buf;
-	meta.attach = (uint64_t)(unsigned long)attach;
-	meta.sgt = (uint64_t)(unsigned long)sgt;
-	meta.iova = (uint32_t)iova;
-
-	if (copy_to_user((void *)param, (void *)&meta, sizeof(meta))) {
-		CMDQ_ERR("%s fail to return meta\n", __func__);
-		goto err_return;
-	}
-
-	return 0;
-
-err_return:
-	dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
-
-err_map:
-	dma_buf_detach(buf, attach);
-
-err_attach:
-	dma_buf_put(buf);
-
-	return -EFAULT;
-}
-
-static s32 cmdq_driver_ioctl_free_iova(unsigned long param)
-{
-	struct cmdqIovaMeta meta;
-
-	if (copy_from_user(&meta, (void *)param, sizeof(meta))) {
-		CMDQ_ERR("%s copy_from_user failed\n", __func__);
-		return -EFAULT;
-	}
-
-	dma_buf_unmap_attachment((void *)(unsigned long)meta.attach,
-		(void *)(unsigned long)meta.sgt, DMA_BIDIRECTIONAL);
-	dma_buf_detach((void *)(unsigned long)meta.dma_buf,
-		(void *)(unsigned long)meta.attach);
-	dma_buf_put((void *)(unsigned long)meta.dma_buf);
-
-	return 0;
-}
-
 static long cmdq_ioctl(struct file *pf, unsigned int code,
 	unsigned long param)
 {
@@ -1135,7 +1076,6 @@ static long cmdq_ioctl(struct file *pf, unsigned int code,
 	case CMDQ_IOCTL_NOTIFY_ENGINE:
 		status = cmdq_driver_ioctl_notify_engine(param);
 		break;
-
 	default:
 		CMDQ_ERR("unrecognized ioctl 0x%08x\n", code);
 		return -ENOIOCTLCMD;
@@ -1245,23 +1185,11 @@ static int cmdq_probe(struct platform_device *pDevice)
 {
 	int status;
 	struct device *object;
-	struct cmdqMDPFuncStruct *mdp_func;
 
 	CMDQ_LOG("CMDQ driver probe begin\n");
 
 	/* Function link */
 	cmdq_virtual_function_setting();
-
-	cmdq_mdp_set_platform(&pDevice->dev);
-	mdp_func = cmdq_mdp_get_func();
-
-	/* Register VENC callback */
-	cmdqCoreRegisterCB(CMDQ_GROUP_VENC, NULL, mdp_func->vEncDumpInfo,
-		NULL, NULL);
-
-	/* Register PMQoS */
-	cmdq_core_register_task_cycle_cb(CMDQ_GROUP_MDP,
-		mdp_func->beginTask, mdp_func->endTask);
 
 	/* init cmdq device related data */
 	cmdq_dev_init(pDevice);
@@ -1271,7 +1199,6 @@ static int cmdq_probe(struct platform_device *pDevice)
 
 	/* init cmdq context */
 	cmdq_mdp_init();
-	pm_runtime_enable(&pDevice->dev);
 
 	status = alloc_chrdev_region(&gCmdqDevNo, 0, 1,
 		CMDQ_DRIVER_DEVICE_NAME);
@@ -1295,6 +1222,8 @@ static int cmdq_probe(struct platform_device *pDevice)
 	gCMDQClass = class_create(THIS_MODULE, CMDQ_DRIVER_DEVICE_NAME);
 	object = device_create(gCMDQClass, NULL, gCmdqDevNo, NULL,
 		CMDQ_DRIVER_DEVICE_NAME);
+
+	/* mtk-cmdq-mailbox will register the irq */
 
 	/* proc debug access point */
 	cmdq_create_debug_entries();
@@ -1321,6 +1250,7 @@ static int cmdq_probe(struct platform_device *pDevice)
 	return 0;
 }
 
+
 static int cmdq_remove(struct platform_device *pDevice)
 {
 	disable_irq(cmdq_dev_get_irq_id());
@@ -1334,120 +1264,6 @@ static int cmdq_remove(struct platform_device *pDevice)
 	return 0;
 }
 
-static int mdp_open(struct inode *node, struct file *f)
-{
-	CMDQ_MSG("%s\n", __func__);
-	return 0;
-}
-
-static int mdp_release(struct inode *node, struct file *f)
-{
-	CMDQ_MSG("%s\n", __func__);
-	return 0;
-}
-
-static long mdp_ioctl(struct file *pf, unsigned int code,
-	unsigned long param)
-{
-	s32 status = 0;
-
-	CMDQ_MSG("[MDP]%s code:0x%08x f:0x%p\n", __func__, code, pf);
-
-	switch (code) {
-	case CMDQ_IOCTL_ALLOC_IOVA:
-		status = cmdq_driver_ioctl_alloc_iova(param);
-		break;
-	case CMDQ_IOCTL_FREE_IOVA:
-		status = cmdq_driver_ioctl_free_iova(param);
-		break;
-	default:
-		CMDQ_ERR("[MDP]unrecognized ioctl 0x%08x\n", code);
-		return -ENOIOCTLCMD;
-	}
-
-	if (status < 0)
-		CMDQ_ERR("[MDP]ioctl return fail:%d\n", status);
-	else
-		CMDQ_MSG("[MDP]ioctl success cmd:%#x\n", code);
-
-	return status;
-}
-
-#ifdef CONFIG_COMPAT
-static long mdp_ioctl_compat(struct file *pFile, unsigned int code,
-	unsigned long param)
-{
-	switch (code) {
-	case CMDQ_IOCTL_ALLOC_IOVA:
-	case CMDQ_IOCTL_FREE_IOVA:
-		/* All ioctl structures should be the same size in
-		 * 32-bit and 64-bit linux.
-		 */
-		return mdp_ioctl(pFile, code, param);
-	default:
-		CMDQ_ERR("[MDP][COMPAT]unrecognized ioctl 0x%08x\n", code);
-		return -ENOIOCTLCMD;
-	}
-
-	CMDQ_ERR("[MDP][COMPAT]unrecognized ioctl 0x%08x\n", code);
-	return -ENOIOCTLCMD;
-}
-#endif
-
-static const struct file_operations mdp_op = {
-	.owner = THIS_MODULE,
-	.open = mdp_open,
-	.release = mdp_release,
-	.unlocked_ioctl = mdp_ioctl,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl = mdp_ioctl_compat,
-#endif
-};
-
-static int mdp_probe(struct platform_device *pdev)
-{
-	int status;
-	struct device *object;
-
-	CMDQ_LOG("%s\n", __func__);
-	mdp_dev = &pdev->dev;
-
-	/* init module clock */
-	cmdq_dev_init_module_clk();
-
-	status = alloc_chrdev_region(&g_mdp_dev_no, 0, 1, "mtk_mdp");
-	if (status != 0) {
-		/* Cannot get MDP device major number */
-		CMDQ_ERR("Get MDP device major number(%d) failed(%d)\n",
-			g_mdp_dev_no, status);
-	} else {
-		/* Get MDP device major number successfully */
-		CMDQ_MSG("Get CMDQ device major number(%d) success(%d)\n",
-			g_mdp_dev_no, status);
-	}
-
-	/* ioctl access point (/dev/mtk_mdp) */
-	g_mdp_cdev = cdev_alloc();
-	g_mdp_cdev->owner = THIS_MODULE;
-	g_mdp_cdev->ops = &mdp_op;
-
-	status = cdev_add(g_mdp_cdev, g_mdp_dev_no, 1);
-
-	g_mdp_class = class_create(THIS_MODULE, "mtk_mdp");
-	object = device_create(g_mdp_class, NULL, g_mdp_dev_no, NULL,
-		"mtk_mdp");
-
-	CMDQ_LOG("%s end\n", __func__);
-
-	return 0;
-}
-
-static int mdp_remove(struct platform_device *pdev)
-{
-	mdp_dev = NULL;
-
-	return 0;
-}
 
 static int cmdq_suspend(struct device *pDevice)
 {
@@ -1488,40 +1304,29 @@ static struct platform_driver gCmdqDriver = {
 	}
 };
 
-static const struct of_device_id mdp_of_ids[] = {
-	{.compatible = "mediatek,mdp",},
-	{}
-};
-
-static struct platform_driver mdp_drv = {
-	.probe = mdp_probe,
-	.remove = mdp_remove,
-	.driver = {
-		.name = "mtk_mdp",
-		.owner = THIS_MODULE,
-		.of_match_table = mdp_of_ids,
-	}
-};
-
 static int __init cmdq_init(void)
 {
 	int status;
-
+	struct cmdqMDPFuncStruct *mdp_func = cmdq_mdp_get_func();
 
 	CMDQ_LOG("%s CMDQ driver init begin\n", __func__);
 
 	/* MDP function link */
 	cmdq_mdp_virtual_function_setting();
+	cmdq_mdp_platform_function_setting();
+
+	/* Register VENC callback */
+	cmdqCoreRegisterCB(CMDQ_GROUP_VENC, NULL, mdp_func->vEncDumpInfo,
+		NULL, NULL);
+
+	/* Register PMQoS */
+	cmdq_core_register_task_cycle_cb(CMDQ_GROUP_MDP,
+			cmdq_mdp_get_func()->beginTask,
+			cmdq_mdp_get_func()->endTask);
 
 	status = platform_driver_register(&gCmdqDriver);
 	if (status != 0) {
 		CMDQ_ERR("Failed to register the CMDQ driver(%d)\n", status);
-		return -ENODEV;
-	}
-
-	status = platform_driver_register(&mdp_drv);
-	if (status != 0) {
-		CMDQ_ERR("Failed to register the MDP driver(%d)\n", status);
 		return -ENODEV;
 	}
 

@@ -3,7 +3,6 @@
  * Copyright (c) 2015 MediaTek Inc.
  */
 
-#include <linux/module.h>
 #include "cmdq_prof.h"
 #include "cmdq_helper_ext.h"
 
@@ -165,16 +164,3 @@ s32 cmdq_prof_estimate_command_exe_time(const u32 *pCmd,
 
 	return totalNS;
 }
-
-static int __init cmdq_module_init(void)
-{
-	return 0;
-}
-
-static void __exit cmdq_module_exit(void)
-{
-}
-
-module_init(cmdq_module_init);
-module_exit(cmdq_module_exit);
-MODULE_LICENSE("GPL");
