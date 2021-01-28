@@ -24,7 +24,6 @@ extern int kernel_addr_valid(unsigned long addr);
 #define mrdump_virt_addr_valid(kaddr) \
 	kernel_addr_valid((unsigned long)kaddr)
 
-#ifdef CONFIG_ARM64
 static inline int get_HW_cpuid(void)
 {
 	u64 mpidr;
@@ -35,15 +34,6 @@ static inline int get_HW_cpuid(void)
 
 	return id;
 }
-#else
-static inline int get_HW_cpuid(void)
-{
-	int id;
-
-	asm("mrc     p15, 0, %0, c0, c0, 5 @ Get CPUID\n":"=r"(id));
-	return (id & 0x3) + ((id & 0xF00) >> 6);
-}
-#endif
 
 struct pt_regs;
 

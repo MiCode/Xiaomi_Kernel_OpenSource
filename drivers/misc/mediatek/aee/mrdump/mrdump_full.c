@@ -253,7 +253,7 @@ void __mrdump_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
 #endif
 
 		cpu = get_HW_cpuid();
-		if (cpu >= 0) {
+		if (cpu >= 0 && cpu < AEE_MTK_CPU_NUMS) {
 			crashing_cpu = cpu;
 			/* null regs, no register dump */
 			if (regs) {
