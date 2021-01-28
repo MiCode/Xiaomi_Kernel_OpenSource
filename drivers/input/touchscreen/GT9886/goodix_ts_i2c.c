@@ -205,7 +205,6 @@ static int goodix_parse_dt_resolution(struct device_node *node,
 		struct goodix_ts_board_data *board_data)
 {
 	int r, err;
-	int convert_err = -EINVAL;
 
 	r = of_property_read_u32(node, "goodix,panel-max-id",
 				&board_data->panel_max_id);
@@ -226,17 +225,6 @@ static int goodix_parse_dt_resolution(struct device_node *node,
 	if (r)
 		err = -ENOENT;
 
-	/* For unreal lcm test */
-#if defined(CONFIG_LCM_WIDTH) && defined(CONFIG_LCM_HEIGHT)
-	convert_err = kstrtou32(CONFIG_LCM_WIDTH, 10,
-		&board_data->input_max_x);
-	if (convert_err)
-		ts_err("GET LCM WIDTH failed!\n");
-	convert_err = kstrtou32(CONFIG_LCM_HEIGHT, 10,
-		&board_data->input_max_y);
-	if (convert_err)
-		ts_err("GET LCM HEIGHT failed!\n");
-#else
 	ts_info("Set Default lcm-resolution!");
 	r = of_property_read_u32(node, "goodix,input-max-x",
 				 &board_data->input_max_x);
@@ -247,7 +235,7 @@ static int goodix_parse_dt_resolution(struct device_node *node,
 				&board_data->input_max_y);
 	if (r)
 		err = -ENOENT;
-#endif
+
 	r = of_property_read_u32(node, "goodix,panel-max-w",
 				&board_data->panel_max_w);
 	if (r)
