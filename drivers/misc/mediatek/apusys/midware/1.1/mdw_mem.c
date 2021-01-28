@@ -237,8 +237,8 @@ unsigned int mdw_mem_get_support(void)
 
 void mdw_mem_get_vlm(unsigned int *start, unsigned int *size)
 {
-	unsigned int vlm_size;
-	unsigned int vlm_addr;
+	unsigned int vlm_size = 0;
+	unsigned int vlm_addr = 0;
 
 	reviser_get_resource_vlm(&vlm_addr, &vlm_size);
 

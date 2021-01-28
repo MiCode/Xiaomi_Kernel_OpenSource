@@ -33,6 +33,8 @@ static ssize_t dsp_task_num_show(struct device *dev,
 		return -EINVAL;
 
 	ret = sprintf(buf, "%u\n", mq->normal_task_num);
+	if (ret < 0)
+		mdw_drv_warn("show dsp task num fail(%d)\n", ret);
 
 	return ret;
 }
@@ -49,6 +51,8 @@ static ssize_t dla_task_num_show(struct device *dev,
 		return -EINVAL;
 
 	ret = sprintf(buf, "%u\n", mq->normal_task_num);
+	if (ret < 0)
+		mdw_drv_warn("show dla task num fail(%d)\n", ret);
 
 	return ret;
 }
@@ -65,6 +69,8 @@ static ssize_t dma_task_num_show(struct device *dev,
 		return -EINVAL;
 
 	ret = sprintf(buf, "%u\n", mq->normal_task_num);
+	if (ret < 0)
+		mdw_drv_warn("show dma task num fail(%d)\n", ret);
 
 	return ret;
 }
