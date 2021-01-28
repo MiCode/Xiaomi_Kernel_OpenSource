@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
+
+&i2c7 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	rt-swchg@53 {
+		compatible = "richtek,swchg";
+		reg = <0x53>;
+		status = "okay";
+
+		rt,intr_gpio = <&pio 42 0x0>; /* GPIO */
+		rt,intr_gpio_num = <42>; /* direct defined GPIO num */
+		/*
+		 * rt,ceb_gpio = <&pio 43 0x0>;
+		 * rt,ceb_gpio_num = <43>;
+		 */
+		rt9471 {
+			/*
+			 * Charger name
+			 * Main charger: primary_chg
+			 * Slave charger: secondary_chg
+			 */
+			chg_name = "primary_chg";
+			chg_alias_name = "rt9471_chg";
+			rm-slave-addr = /bits/ 8 <0x53>;
+			rm-name = "rt9471";
+			interrupt-names = "wdt", "chg_mivr", "vbus_gd",
+					  "bc12_done", "detach", "vac_ov",
+					  "otg_fault", "chg_rdy", "chg_done",
+					  "aicc_done", "pe_done", "chg_tout",
+					  "rechg", "chg_batov";
+			vac_ovp = <14000000>;		/* uV */
+			mivr = <4400000>;		/* uV */
+			aicr = <500000>;		/* uA */
+			cv = <4350000>;			/* uV */
+			ichg = <1000000>;		/* uA */
+			ieoc = <200000>;		/* uA */
+			safe_tmr = <10>;		/* hour */
+			wdt = <40>;			/* sec */
+			/*
+			 * 0: MIVR register
+			 * 1: MIVR = VBAT + 200mV
+			 * 2: MIVR = VBAT + 250mV
+			 * >= 3: MIVR = VBAT + 300mV
+			 */
+			mivr_track = <0>;
+			en_safe_tmr;
+			en_te;
+			/* en_jeita; */
+			/* ceb_invert; */
+			/* dis_i2c_tout; */
+			en_qon_rst;
+			/* auto_aicr; */
+		};
+	};
+};
