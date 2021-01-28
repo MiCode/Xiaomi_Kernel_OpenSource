@@ -239,12 +239,7 @@ static int mtk_dvfsrc_up_probe(struct platform_device *pdev)
 {
 	struct arm_smccc_res ares;
 	struct device *dev = &pdev->dev;
-	struct platform_device *parent_dev;
 	struct mtk_dvfsrc_up *dvfsrc;
-
-	parent_dev = to_platform_device(dev->parent);
-	if (!parent_dev)
-		return -ENODEV;
 
 	dvfsrc = devm_kzalloc(&pdev->dev, sizeof(*dvfsrc), GFP_KERNEL);
 	if (!dvfsrc)

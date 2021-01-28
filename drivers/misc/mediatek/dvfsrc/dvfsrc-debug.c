@@ -51,9 +51,6 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 
 	parent_dev = to_platform_device(dev->parent);
-	if (!parent_dev)
-		return -ENODEV;
-
 	dvfsrc = devm_kzalloc(&pdev->dev, sizeof(*dvfsrc), GFP_KERNEL);
 	if (!dvfsrc)
 		return -ENOMEM;

@@ -921,9 +921,13 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 		if (!dvfsrc->domains)
 			return -ENOMEM;
 
-		for (i = 0; i < dvfsrc->num_domains; i++)
-			of_property_read_u32_index(node, "perf-domains",
+		for (i = 0; i < dvfsrc->num_domains; i++) {
+			ret = of_property_read_u32_index(node, "perf-domains",
 				i, &dvfsrc->domains[i].id);
+			if (ret)
+				dev_info(dvfsrc->dev,
+					"Invalid favor domain idx = %d\n", i);
+		}
 	} else
 		dvfsrc->num_domains = 0;
 

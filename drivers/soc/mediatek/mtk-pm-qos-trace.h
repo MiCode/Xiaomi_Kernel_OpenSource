@@ -23,15 +23,15 @@ DECLARE_EVENT_CLASS(mtk_pm_qos_request,
 	TP_ARGS(mtk_pm_qos_class, value, owner),
 
 	TP_STRUCT__entry(
-		__field(int,                    mtk_pm_qos_class)
-		__field(s32,                    value)
-		__string(owner,                 owner)
+		__field(int, mtk_pm_qos_class)
+		__field(s32, value)
+		__array(char, owner, 20)
 	),
 
 	TP_fast_assign(
 		__entry->mtk_pm_qos_class = mtk_pm_qos_class;
 		__entry->value = value;
-		__assign_str(owner, owner);
+		strncpy(__entry->owner, owner, 19);
 	),
 
 	TP_printk("pm_qos_class=%s value=%d owner=%s",
@@ -41,7 +41,7 @@ DECLARE_EVENT_CLASS(mtk_pm_qos_request,
 			{ MTK_PM_QOS_DDR_OPP,	"QOS_DDR" },
 			{ MTK_PM_QOS_VCORE_OPP,	"QOS_VCORE" },
 			{ MTK_PM_QOS_SCP_VCORE_REQUEST,	"QOS_SCP" }),
-		  __entry->value, __get_str(owner))
+		  __entry->value, __entry->owner)
 );
 
 DEFINE_EVENT(mtk_pm_qos_request, mtk_pm_qos_add_request,
