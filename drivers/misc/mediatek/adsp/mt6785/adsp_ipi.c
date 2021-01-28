@@ -117,11 +117,6 @@ void adsp_ipi_handler(int irq, void *data, int cid)
 			 ipi_id);
 	}
 
-	/* ADSP side write 1 to assert SPM wakeup src,
-	 * while AP side write 0 to clear wakeup src.
-	 */
-	adsp_mt_clr_spm(cid);
-
 	stop_time = ktime_us_delta(ktime_get(), start_time);
 	if (stop_time > 1000) /* 1 ms */
 		pr_notice("IPC ISR %lld us too long!!", stop_time);
