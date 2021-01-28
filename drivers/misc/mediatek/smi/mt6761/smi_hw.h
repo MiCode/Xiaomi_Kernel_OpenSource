@@ -11,9 +11,9 @@
 
 static const u32 smi_subsys_to_larbs[NR_SYSS] = {
 
-	[SYS_DIS] = (1 << 3),
-	[SYS_CAM] = (1 << 8),
-	[SYS_VCODEC] = (1 << 9),
+	[SYS_DIS] = (1 << 0) | (1 << 3),
+	[SYS_CAM] = (1 << 2),
+	[SYS_VCODEC] = (1 << 1),
 
 };
 
