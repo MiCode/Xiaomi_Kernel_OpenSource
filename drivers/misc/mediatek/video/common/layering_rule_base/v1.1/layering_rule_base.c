@@ -1735,6 +1735,7 @@ static int _copy_layer_info_by_disp(struct disp_layer_info *disp_info_user,
 	if (debug_mode) {
 		memcpy(disp_info_user->input_config[disp_idx],
 			l_info->input_config[disp_idx], layer_size);
+		kfree(l_info->input_config[disp_idx]);
 	} else {
 		if (copy_to_user(disp_info_user->input_config[disp_idx],
 				l_info->input_config[disp_idx], layer_size)) {
