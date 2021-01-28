@@ -211,6 +211,18 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 	return mtk_gem;
 }
 
+void mtk_drm_fb_gem_release(struct drm_device *dev)
+{
+	struct mtk_drm_private *priv = dev->dev_private;
+	struct mtk_drm_gem_obj *mtk_gem = to_mtk_gem_obj(priv->fbdev_bo);
+
+	sg_free_table(mtk_gem->sg);
+	drm_gem_object_release(&mtk_gem->base);
+
+	kfree(mtk_gem->sg);
+	kfree(mtk_gem);
+}
+
 struct mtk_drm_gem_obj *mtk_drm_gem_create(struct drm_device *dev, size_t size,
 					   bool alloc_kmap)
 {
