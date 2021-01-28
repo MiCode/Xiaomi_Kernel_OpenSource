@@ -2480,12 +2480,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
-		audio: clock-controller@11210000 {
-			compatible = "mediatek,mt6779-audio", "syscon";
-			reg = <0 0x11210000 0 0x1000>;
-			#clock-cells = <1>;
-		};
-
 		mmc0: mmc@11230000 {
 			compatible = "mediatek,mt6779-mmc";
 			reg = <0 0x11230000 0 0x1000>,
@@ -3832,6 +3826,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	audclk: audclk@11210000  {
 		compatible = "mediatek,mt6779-audio", "syscon";
 		reg = <0 0x11210000 0 0x1000>;
+		#clock-cells = <1>;
 	};
 
 	afe: mt6779-afe-pcm@11210000  {
