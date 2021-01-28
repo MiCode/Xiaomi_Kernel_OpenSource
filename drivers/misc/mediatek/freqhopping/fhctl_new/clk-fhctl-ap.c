@@ -98,9 +98,8 @@ static int __ssc_6739(struct fh_pll_regs *regs,
 	unsigned int updnlmt_val;
 
 	if (rate > 0) {
-		fh_set_field(regs->reg_cfg, data->frddsx_en, 0);
-		fh_set_field(regs->reg_cfg, data->sfstrx_en, 0);
-		fh_set_field(regs->reg_cfg, data->fhctlx_en, 0);
+		/* prevent reg setting value not sync */
+		mb();
 
 		/* Set the relative parameter registers (dt/df/upbnd/downbnd) */
 		fh_set_field(regs->reg_cfg, data->msk_frddsx_dys,
@@ -108,17 +107,19 @@ static int __ssc_6739(struct fh_pll_regs *regs,
 		fh_set_field(regs->reg_cfg, data->msk_frddsx_dts,
 				data->dt_val);
 
-		writel((readl(regs->reg_con_pcw) & data->dds_mask) |
-				data->tgl_org, regs->reg_dds);
+		if (fh_id == FH_ID_MEM_6739)
+			writel((((readl(regs->reg_con_pcw) & 0xFFFFFFFE) >> 11) & data->dds_mask) |
+					data->tgl_org,
+					regs->reg_dds);
+		else
+			writel((readl(regs->reg_con_pcw) & data->dds_mask) |
+					data->tgl_org, regs->reg_dds);
+
 		/* Calculate UPDNLMT */
 		updnlmt_val = PERCENT_TO_DDSLMT((readl(regs->reg_dds) &
 					data->dds_mask), rate) << data->updnlmt_shft;
 
 		writel(updnlmt_val, regs->reg_updnlmt);
-
-		/* Switch to FHCTL_CORE controller - Original design */
-		fh_set_field(regs->reg_hp_en, BIT(fh_id),
-				1);
 
 		if (fh_id == FH_ID_MEM_6739) {
 			unsigned int val;
@@ -139,6 +140,16 @@ static int __ssc_6739(struct fh_pll_regs *regs,
 			writel(val, g_spm_base_6739 + 0x4DC);
 		}
 
+		get_hw_sem_6739();
+		/* make sure hw_sem done */
+		mb();
+		/* 3. switch to hopping control */
+		fh_set_field(regs->reg_hp_en, BIT(fh_id),
+				1);
+		release_hw_sem_6739();
+		/* make sure hw_sem done */
+		mb();
+
 		/* Enable SSC */
 		fh_set_field(regs->reg_cfg, data->frddsx_en, 1);
 		/* Enable Hopping control */
@@ -146,15 +157,22 @@ static int __ssc_6739(struct fh_pll_regs *regs,
 
 	} else {
 		fh_set_field(regs->reg_cfg, data->frddsx_en, 0);
-		fh_set_field(regs->reg_cfg, data->sfstrx_en, 0);
 		fh_set_field(regs->reg_cfg, data->fhctlx_en, 0);
+		/* prevent reg setting value not sync */
+		mb();
 
-		/* Switch to APMIXEDSYS control */
+		get_hw_sem_6739();
+		/* make sure hw_sem done */
+		mb();
+		/* 6. switch to APMIXEDSYS control */
 		fh_set_field(regs->reg_hp_en, BIT(fh_id),
 				0);
+		/* make sure hw_sem done */
+		mb();
+		release_hw_sem_6739();
 
-		/* Wait for DDS to be stable */
-		udelay(30);
+		/* prevent reg setting value not sync */
+		mb();
 	}
 
 	return 0;
@@ -209,7 +227,7 @@ static int ap_hopping_6739(void *priv_data, char *domain_name, int fh_id,
 	/* make sure hw_sem done */
 	mb();
 	/* 3. switch to hopping control */
-	fh_set_field(regs->reg_hp_en, (0x1U << fh_id),
+	fh_set_field(regs->reg_hp_en, BIT(fh_id),
 						1);
 	release_hw_sem_6739();
 	/* make sure hw_sem done */
@@ -521,7 +539,7 @@ static int ap_hopping_v1(void *priv_data, char *domain_name, int fh_id,
 	writel(data->slope1_value, regs->reg_slope1);
 
 	/* 3. switch to hopping control */
-	fh_set_field(regs->reg_hp_en, (0x1U << fh_id),
+	fh_set_field(regs->reg_hp_en, BIT(fh_id),
 						1);
 
 	/* 4. set DFS DDS */
