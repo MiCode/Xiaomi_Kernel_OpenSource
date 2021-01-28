@@ -194,7 +194,7 @@ static long ged_dispatch(struct file *pFile,
 
 			if (ged_copy_from_user(pvIn,
 				psBridgePackageKM->pvParamIn,
-				psBridgePackageKM->i32InBufferSize) != 0) {
+				inputBufferSize) != 0) {
 				GED_LOGE("Failed to ged_copy_from_user\n");
 				goto dispatch_exit;
 			}

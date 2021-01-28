@@ -261,7 +261,7 @@ int ged_ge_set(int ge_fd, int region_id, int u32_offset,
 
 	spin_lock_irqsave(&ge_raf_lock, flags);
 	while (!entry->region_data[region_id]) {
-		void *data;
+		void *data = NULL;
 
 		spin_unlock_irqrestore(&ge_raf_lock, flags);
 		data = kzalloc(entry->region_sizes[region_id], GFP_KERNEL);
