@@ -461,7 +461,7 @@ static void dump_drb_queue_data(unsigned int qno)
 
 	i = 0;
 	while (i < count) {
-		DPMA_DRB_DATA_INFO("%08X(%04d): %016lX %016lX %016lX %016lX %016lX %016lX %016lX %016lX\n",
+		DPMA_DRB_DATA_INFO("%08X(%04d): %016llX %016llX %016llX %016llX %016llX %016llX %016llX %016llX\n",
 			(u32)data_64ptr, (i * 8),
 			*data_64ptr, *(data_64ptr + 1),
 			*(data_64ptr + 2), *(data_64ptr + 3),
