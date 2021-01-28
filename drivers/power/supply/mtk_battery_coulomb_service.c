@@ -184,14 +184,18 @@ void gauge_coulomb_start(struct gauge_consumer *coulomb, int car)
 	struct mtk_battery *gm;
 
 	gm = get_mtk_battery();
-	cs = &gm->cs;
+
+	if (gm != NULL)
+		cs = &gm->cs;
 
 	if (car == 0)
 		return;
 
-	if (cs->init == false) {
+	if (cs == NULL)
 		return;
-	}
+
+	if (cs->init == false)
+		return;
 
 	mutex_lock(&cs->coulomb_lock);
 	gauge_get_property(GAUGE_PROP_COULOMB, &val);
