@@ -248,8 +248,8 @@ void msdc_emmc_power(struct msdc_host *host, u32 on)
 		msdc_set_rdsel(host, MSDC_TDRDSEL_1V8, 0);
 	}
 
-	msdc_ldo_power(on, host->mmc->supply.vmmc,
-		VOL_3000, &host->power_flash);
+	//msdc_ldo_power(on, host->mmc->supply.vmmc,
+	//	VOL_3000, &host->power_flash);
 #endif
 #ifdef MTK_MSDC_BRINGUP_DEBUG
 	msdc_dump_ldo_sts(NULL, 0, NULL, host);
@@ -1218,7 +1218,17 @@ int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 	msdc_get_pinctl_settings(host, np);
 
 	mmc->supply.vmmc = regulator_get(mmc_dev(mmc), "vmmc");
+	if (IS_ERR(mmc->supply.vmmc)) {
+		pr_info("err=%ld,failed to get vmmc\n",
+			PTR_ERR(mmc->supply.vmmc));
+		//goto vmmc_fail;
+	}
 	mmc->supply.vqmmc = regulator_get(mmc_dev(mmc), "vqmmc");
+	if (IS_ERR(mmc->supply.vqmmc)) {
+		pr_info("err=%ld ,failed to get vqmmc\n",
+			PTR_ERR(mmc->supply.vqmmc));
+		//goto vqmmc_fail;
+	}
 #else
 	msdc_fpga_pwr_init();
 #endif
