@@ -57,7 +57,12 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 
+#ifdef CONFIG_MTK_IOMMU_V2
+#include <mach/mt_iommu.h>
+#else
 #include <m4u.h>
+#endif
+
 #include <cmdq_core.h>
 #include <cmdq_record.h>
 #include <smi_public.h>
@@ -147,7 +152,7 @@ struct FDVT_CLK_STRUCT fdvt_clk;
 #endif
 
 #define FDVT_DEV_NAME                "camera-fdvt"
-#define EP_NO_CLKMGR // GASPER ADD
+//#define EP_NO_CLKMGR // GASPER ADD
 #define BYPASS_REG         (0)
 /* #define FDVT_WAITIRQ_LOG  */
 #define FDVT_USE_GCE
@@ -173,11 +178,12 @@ pr_info(MyTag "[%s] " format, __func__, ##args)
 #define log_notice(format, args...) \
 pr_notice(MyTag "[%s] " format, __func__, ##args)
 #define log_wrn(format, args...) \
-pr_debug(MyTag "[%s] " format, __func__, ##args)
+pr_info(MyTag "[%s] " format, __func__, ##args)
 #define log_err(format, args...) \
-pr_debug(MyTag "[%s] " format, __func__, ##args)
+pr_info(MyTag "[%s] " format, __func__, ##args)
 #define log_ast(format, args...) \
 pr_debug(MyTag "[%s] " format, __func__, ##args)
+
 
 /*****************************************************************************
  *
@@ -295,13 +301,12 @@ static int nr_FDVT_devs;
 
 #define ISP_FDVT_BASE                  (FDVT_devs[FDVT_DEV_NODE_IDX].regs)
 #define ISP_IMGSYS_BASE               (FDVT_devs[IMGSYS_DEV_MODE_IDX].regs)
-
 /* #define ISP_FDVT_BASE                  (gISPSYS_Reg[FDVT_DEV_NODE_IDX]) */
 
 
 
 #else
-#define ISP_FDVT_BASE                        (IMGSYS_BASE + 0x1000)
+#define ISP_FDVT_BASE                        (IMGSYS_BASE + 0xb000)
 
 #endif
 
@@ -354,6 +359,11 @@ struct FDVT_REQUEST_RING_STRUCT {
 
 struct  FDVT_CONFIG_STRUCT {
 	FDVT_Config FdvtFrameConfig[_SUPPORT_MAX_FDVT_FRAME_REQUEST_];
+};
+
+struct S_START_T {
+	unsigned int sec;
+	unsigned int usec;
 };
 
 static struct FDVT_REQUEST_RING_STRUCT g_FDVT_ReqRing;
@@ -424,6 +434,7 @@ struct SV_LOG_STR {
 	unsigned int _cnt[LOG_PPNUM][_LOG_MAX];
 	/* char   _str[_LOG_MAX][SV_LOG_STR_LEN]; */
 	char *_str[LOG_PPNUM][_LOG_MAX];
+	struct S_START_T   _lastIrqTime;
 } *FDVT_PSV_LOG_STR;
 
 static void *pLog_kmalloc;
@@ -439,8 +450,11 @@ static struct SV_LOG_STR gSvLog[FDVT_IRQ_TYPE_AMOUNT];
 #define IRQ_LOG_KEEPER(irq, ppb, logT, fmt, ...) do {\
 	char *ptr; \
 	char *pDes;\
+	signed int avaLen;\
 	unsigned int *ptr2 = &gSvLog[irq]._cnt[ppb][logT];\
 	unsigned int str_leng;\
+	unsigned int i = 0;\
+	struct SV_LOG_STR *pSrc = &gSvLog[irq];\
 	if (logT == _LOG_ERR) {\
 		str_leng = NORMAL_STR_LEN*ERR_PAGE;\
 	} else if (logT == _LOG_DBG) {\
@@ -450,20 +464,75 @@ static struct SV_LOG_STR gSvLog[FDVT_IRQ_TYPE_AMOUNT];
 	} else {\
 		str_leng = 0;\
 	} \
-	ptr = pDes = (char *)\
-		&(gSvLog[irq]._str[ppb][logT][gSvLog[irq]._cnt[ppb][logT]]);\
-	sprintf((char *)(pDes), fmt, ##__VA_ARGS__);   \
+	ptr = pDes = \
+	(char *)&(gSvLog[irq]._str[ppb][logT][gSvLog[irq]._cnt[ppb][logT]]);\
+	avaLen = str_leng - 1 - gSvLog[irq]._cnt[ppb][logT];\
+	if (avaLen > 1) {\
+		snprintf((char *)(pDes), avaLen, "[%d.%06d]" fmt,\
+		gSvLog[irq]._lastIrqTime.sec, gSvLog[irq]._lastIrqTime.usec,\
+		##__VA_ARGS__);   \
 	if ('\0' != gSvLog[irq]._str[ppb][logT][str_leng - 1]) {\
 		log_err("log str over flow(%d)", irq);\
 	} \
 	while (*ptr++ != '\0') {        \
 		(*ptr2)++;\
 	}     \
+	} else { \
+		log_inf("(%d)(%d)log str avalible=0, print log\n", irq, logT);\
+	ptr = pSrc->_str[ppb][logT];\
+	if (pSrc->_cnt[ppb][logT] != 0) {\
+		if (logT == _LOG_DBG) {\
+			for (i = 0; i < DBG_PAGE; i++) {\
+				if (ptr[NORMAL_STR_LEN*(i+1) - 1] != '\0') {\
+					ptr[NORMAL_STR_LEN*(i+1) - 1] = '\0';\
+					log_dbg("%s", &ptr[NORMAL_STR_LEN*i]);\
+				} else{\
+					log_dbg("%s", &ptr[NORMAL_STR_LEN*i]);\
+					break;\
+				} \
+			} \
+		} \
+		else if (logT == _LOG_INF) {\
+			for (i = 0; i < INF_PAGE; i++) {\
+				if (ptr[NORMAL_STR_LEN*(i+1) - 1] != '\0') {\
+					ptr[NORMAL_STR_LEN*(i+1) - 1] = '\0';\
+					log_inf("%s", &ptr[NORMAL_STR_LEN*i]);\
+				} else{\
+					log_inf("%s", &ptr[NORMAL_STR_LEN*i]);\
+					break;\
+				} \
+			} \
+		} \
+		else if (logT == _LOG_ERR) {\
+			for (i = 0; i < ERR_PAGE; i++) {\
+				if (ptr[NORMAL_STR_LEN*(i+1) - 1] != '\0') {\
+					ptr[NORMAL_STR_LEN*(i+1) - 1] = '\0';\
+					log_err("%s", &ptr[NORMAL_STR_LEN*i]);\
+				} else{\
+					log_err("%s", &ptr[NORMAL_STR_LEN*i]);\
+					break;\
+				} \
+			} \
+		} \
+		else {\
+			log_err("N.S.%d", logT);\
+		} \
+		ptr[0] = '\0';\
+		pSrc->_cnt[ppb][logT] = 0;\
+		avaLen = str_leng - 1;\
+		ptr = pDes = \
+		(char *)&(pSrc->_str[ppb][logT][pSrc->_cnt[ppb][logT]]);\
+		ptr2 = &(pSrc->_cnt[ppb][logT]);\
+		snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__);   \
+		while (*ptr++ != '\0') {\
+			(*ptr2)++;\
+		} \
+	} \
+	} \
 } while (0)
 #else
-#define IRQ_LOG_KEEPER(irq, ppb, logT, fmt, ...)  \
-xlog_printk(ANDROID_LOG_DEBUG,\
-"KEEPER", "[%s] " fmt, __func__, ##__VA_ARGS__)
+#define IRQ_LOG_KEEPER(irq, ppb, logT, fmt, args...) \
+pr_debug(IRQTag fmt,  ##args)
 #endif
 
 #if 1
@@ -534,6 +603,7 @@ xlog_printk(ANDROID_LOG_DEBUG,\
 #define IMGSYS_REG_CG_CON             (ISP_IMGSYS_BASE + 0x0)
 #define IMGSYS_REG_CG_SET             (ISP_IMGSYS_BASE + 0x4)
 #define IMGSYS_REG_CG_CLR             (ISP_IMGSYS_BASE + 0x8)
+
 
 /* FDVT unmapped base address macro for GCE to access */
 #define FDVT_START_HW                       (FDVT_BASE_HW)
@@ -885,6 +955,47 @@ static inline unsigned int FDVT_UsToJiffies(unsigned int Us)
 /*****************************************************************************
  *
  *****************************************************************************/
+
+static inline int FDVT_switchCmdqToSecure(void *handle)
+{
+	enum CMDQ_ENG_ENUM cmdq_engine;
+	/*enum CMDQ_EVENT_ENUM cmdq_event;*/
+
+	/*cmdq_engine = module_to_cmdq_engine(module);*/
+	cmdq_engine = CMDQ_ENG_FDVT;
+	/*cmdq_event	= CMDQ_EVENT_DVE_EOF;*/
+
+	cmdqRecSetSecure(handle, 1);
+	/* set engine as sec */
+	cmdqRecSecureEnablePortSecurity(handle, (1LL << cmdq_engine));
+	//cmdqRecSecureEnableDAPC(handle, (1LL << cmdq_engine));
+
+	return 0;
+}
+
+/*****************************************************************************
+ *
+ *****************************************************************************/
+
+static inline int FDVT_switchPortToNonSecure(void)
+{
+	struct cmdqRecStruct *handle;
+	uint64_t engineFlag = (uint64_t)(1LL << CMDQ_ENG_FDVT);
+
+	cmdq_task_create(CMDQ_SCENARIO_ISP_FDVT, &handle);
+	cmdq_task_set_secure(handle, true);
+	cmdqRecSetEngine(handle, engineFlag);
+	//cmdq_task_secure_enable_dapc(handle, engineFlag);
+	cmdq_task_secure_enable_port_security(handle, engineFlag);
+	cmdq_task_flush(handle);
+
+	return 0;
+}
+
+/**************************************************************
+ *
+ **************************************************************/
+
 static inline unsigned int FDVT_GetIRQState(unsigned int type,
 					    unsigned int userNumber,
 					    unsigned int stus,
@@ -942,9 +1053,8 @@ static inline unsigned int FDVT_JiffiesToMs(unsigned int Jiffies)
 
 #define RegDump(start, end) {\
 	unsigned int i;\
-	for (i = start; i <= end; i += 0x10) {\
-		log_dbg(\
-		"[0x%08X %08X],[0x%08X %08X],[0x%08X %08X],[0x%08X %08X]",\
+for (i = start; i <= end; i += 0x10) {\
+	log_dbg("[0x%08X %08X],[0x%08X %08X],[0x%08X %08X],[0x%08X %08X]",\
 		(unsigned int)(ISP_FDVT_BASE + i),\
 		(unsigned int)FDVT_RD32(ISP_FDVT_BASE + i),\
 		(unsigned int)(ISP_FDVT_BASE + i+0x4),\
@@ -956,6 +1066,57 @@ static inline unsigned int FDVT_JiffiesToMs(unsigned int Jiffies)
 	} \
 }
 
+/*****************************************************************************
+ *
+ *****************************************************************************/
+static inline void FDVT_Reset(void)
+{
+	log_dbg("- E.");
+
+	log_dbg(" FDVT Reset start!\n");
+	spin_lock(&(FDVTInfo.SpinLockFDVTRef));
+
+	if (FDVTInfo.UserCount > 1) {
+		spin_unlock(&(FDVTInfo.SpinLockFDVTRef));
+		log_dbg("Curr UserCount(%d) users exist", FDVTInfo.UserCount);
+	} else {
+		spin_unlock(&(FDVTInfo.SpinLockFDVTRef));
+
+		/* Reset FDVT flow */
+		FDVT_WR32(FDVT_DMA_CTL_REG, 0x11111111);
+		FDVT_WR32(FDVT_START_REG,
+			 (FDVT_RD32(FDVT_START_REG) |
+			 0x20000));
+		while (((FDVT_RD32(FDVT_START_REG) & 0x20000) != 0x0))
+			log_dbg("FDVT resetting...\n");
+		FDVT_WR32(FDVT_START_REG, 0x30000);
+		FDVT_WR32(FDVT_START_REG, 0x0);
+		log_dbg(" FDVT Reset end!\n");
+	}
+
+}
+
+static inline void FDVT_Reset_Every_Frame(void)
+{
+	log_dbg("- E.");
+
+	log_dbg(" FDVT Reset Every Frame start!\n");
+
+	/* Reset FDVT flow */
+	FDVT_WR32(FDVT_DMA_CTL_REG, 0x11111111);
+	FDVT_WR32(FDVT_START_REG,
+		 (FDVT_RD32(FDVT_START_REG) |
+		 0x20000));
+	while (((FDVT_RD32(FDVT_START_REG) & 0x20000) != 0x0))
+		log_dbg("FDVT resetting...\n");
+	FDVT_WR32(FDVT_START_REG, 0x30000);
+	FDVT_WR32(FDVT_START_REG, 0x0);
+	log_dbg(" FDVT Reset Every Frame end!\n");
+}
+/*****************************************************************************
+ *
+ *****************************************************************************/
+
 static bool ConfigFDVTRequest(signed int ReqIdx)
 {
 #ifdef FDVT_USE_GCE
@@ -964,8 +1125,7 @@ static bool ConfigFDVTRequest(signed int ReqIdx)
 	unsigned long flags;
 
 
-	spin_lock_irqsave(&(FDVTInfo
-			  .SpinLockIrq
+	spin_lock_irqsave(&(FDVTInfo.SpinLockIrq
 			  [FDVT_IRQ_TYPE_INT_FDVT_ST]),
 			  flags);
 	if (g_FDVT_ReqRing.FDVTReq_Struct[ReqIdx].State ==
@@ -974,23 +1134,17 @@ static bool ConfigFDVTRequest(signed int ReqIdx)
 		FDVT_REQUEST_STATE_RUNNING;
 		for (j = 0; j < _SUPPORT_MAX_FDVT_FRAME_REQUEST_; j++) {
 			if (FDVT_FRAME_STATUS_ENQUE ==
-			    g_FDVT_ReqRing
-			    .FDVTReq_Struct
-			    [ReqIdx]
-			    .FdvtFrameStatus[j]) {
-				g_FDVT_ReqRing
-				.FDVTReq_Struct
-				[ReqIdx]
-				.FdvtFrameStatus[j] =
+			    g_FDVT_ReqRing.FDVTReq_Struct
+			    [ReqIdx].FdvtFrameStatus[j]) {
+				g_FDVT_ReqRing.FDVTReq_Struct
+				[ReqIdx].FdvtFrameStatus[j] =
 				    FDVT_FRAME_STATUS_RUNNING;
 				spin_unlock_irqrestore(&
-						(FDVTInfo
-						.SpinLockIrq
+						(FDVTInfo.SpinLockIrq
 						[FDVT_IRQ_TYPE_INT_FDVT_ST]),
 						flags);
-				ConfigFDVTHW(&g_FDVT_ReqRing
-					     .FDVTReq_Struct[ReqIdx]
-					     .FdvtFrameConfig[j]);
+				ConfigFDVTHW(&g_FDVT_ReqRing.FDVTReq_Struct
+				[ReqIdx].FdvtFrameConfig[j]);
 				spin_lock_irqsave(&(FDVTInfo.SpinLockIrq
 						  [FDVT_IRQ_TYPE_INT_FDVT_ST]),
 						  flags);
@@ -1037,25 +1191,21 @@ static bool ConfigFDVT(void)
 			    FDVT_REQUEST_STATE_RUNNING;
 			for (j = 0; j < _SUPPORT_MAX_FDVT_FRAME_REQUEST_; j++) {
 				if (FDVT_FRAME_STATUS_ENQUE ==
-				    g_FDVT_ReqRing
-				    .FDVTReq_Struct[i]
-				    .FdvtFrameStatus[j]) {
+				    g_FDVT_ReqRing.FDVTReq_Struct
+				    [i].FdvtFrameStatus[j]) {
 					/* break; */
-					g_FDVT_ReqRing
-					.FDVTReq_Struct[i]
-					.FdvtFrameStatus[j] =
+					g_FDVT_ReqRing.FDVTReq_Struct
+					[i].FdvtFrameStatus[j] =
 					    FDVT_FRAME_STATUS_RUNNING;
 					spin_unlock_irqrestore(&
-						(FDVTInfo
-						.SpinLockIrq
+						(FDVTInfo.SpinLockIrq
 						[FDVT_IRQ_TYPE_INT_FDVT_ST]),
 						flags);
-					ConfigFDVTHW(&g_FDVT_ReqRing
-						     .FDVTReq_Struct[i]
-						     .FdvtFrameConfig[j]);
+					ConfigFDVTHW(
+					&g_FDVT_ReqRing.FDVTReq_Struct
+					[i].FdvtFrameConfig[j]);
 					spin_lock_irqsave(&
-						  (FDVTInfo
-						  .SpinLockIrq
+						  (FDVTInfo.SpinLockIrq
 						  [FDVT_IRQ_TYPE_INT_FDVT_ST]),
 						  flags);
 				}
@@ -1115,9 +1265,8 @@ static bool ConfigFDVT(void)
 		    FDVT_REQUEST_STATE_PENDING) {
 			for (j = 0; j < _SUPPORT_MAX_FDVT_FRAME_REQUEST_; j++) {
 				if (FDVT_FRAME_STATUS_ENQUE ==
-				    g_FDVT_ReqRing
-				    .FDVTReq_Struct[i]
-				    .FdvtFrameStatus[j]) {
+				    g_FDVT_ReqRing.FDVTReq_Struct
+				    [i].FdvtFrameStatus[j]) {
 					break;
 				}
 			}
@@ -1125,12 +1274,11 @@ static bool ConfigFDVT(void)
 			"%s idx j:%d\n",
 			__func__, j);
 			if (j != _SUPPORT_MAX_FDVT_FRAME_REQUEST_) {
-				g_FDVT_ReqRing
-				.FDVTReq_Struct[i]
-				.FdvtFrameStatus[j] =
+				g_FDVT_ReqRing.FDVTReq_Struct
+				[i].FdvtFrameStatus[j] =
 				    FDVT_FRAME_STATUS_RUNNING;
-				ConfigFDVTHW(&g_FDVT_ReqRing.FDVTReq_Struct[i]
-					     .FdvtFrameConfig[j]);
+				ConfigFDVTHW(&g_FDVT_ReqRing.FDVTReq_Struct
+					     [i].FdvtFrameConfig[j]);
 				return MTRUE;
 			}
 			/*else {*/
@@ -1155,7 +1303,6 @@ static bool ConfigFDVT(void)
 
 }
 
-
 static bool UpdateFDVT(pid_t *ProcessID)
 {
 #ifdef FDVT_USE_GCE
@@ -1171,9 +1318,8 @@ static bool UpdateFDVT(pid_t *ProcessID)
 			     j < _SUPPORT_MAX_FDVT_FRAME_REQUEST_;
 			     j++) {
 				if (FDVT_FRAME_STATUS_RUNNING ==
-				    g_FDVT_ReqRing
-				    .FDVTReq_Struct[i]
-				    .FdvtFrameStatus[j]) {
+				    g_FDVT_ReqRing.FDVTReq_Struct
+				    [i].FdvtFrameStatus[j]) {
 					break;
 				}
 			}
@@ -1184,26 +1330,34 @@ static bool UpdateFDVT(pid_t *ProcessID)
 				       __func__, j);
 			if (j != _SUPPORT_MAX_FDVT_FRAME_REQUEST_) {
 				next_idx = j + 1;
-				g_FDVT_ReqRing
-				.FDVTReq_Struct[i]
-				.FdvtFrameStatus[j] =
+				g_FDVT_ReqRing.FDVTReq_Struct
+				[i].FdvtFrameStatus[j] =
 				    FDVT_FRAME_STATUS_FINISHED;
+				g_FDVT_ReqRing.FDVTReq_Struct
+				[i].FdvtFrameConfig
+				[j].RESULT =
+				    FDVT_RD32(FDVT_RESULT_REG);
+				g_FDVT_ReqRing.FDVTReq_Struct
+				[i].FdvtFrameConfig
+				[j].RESULT1 =
+				    FDVT_RD32(FDVT_RESULT_1_REG);
+				//FDVT_Reset_Every_Frame();
 				if ((_SUPPORT_MAX_FDVT_FRAME_REQUEST_ ==
 				    (next_idx))
 				    || ((_SUPPORT_MAX_FDVT_FRAME_REQUEST_ >
 				    (next_idx))
 				    && (FDVT_FRAME_STATUS_EMPTY ==
-				    g_FDVT_ReqRing.FDVTReq_Struct[i]
-				    .FdvtFrameStatus[next_idx]))) {
+				    g_FDVT_ReqRing.FDVTReq_Struct
+				    [i].FdvtFrameStatus[next_idx]))) {
+					FDVT_Reset_Every_Frame();
 					bFinishRequest = MTRUE;
 					(*ProcessID) =
-					    g_FDVT_ReqRing
-					    .FDVTReq_Struct[i].processID;
-					g_FDVT_ReqRing
-					.FDVTReq_Struct[i].State =
+					    g_FDVT_ReqRing.FDVTReq_Struct
+					    [i].processID;
+					g_FDVT_ReqRing.FDVTReq_Struct
+					[i].State =
 					    FDVT_REQUEST_STATE_FINISHED;
-					g_FDVT_ReqRing
-					.HWProcessIdx =
+					g_FDVT_ReqRing.HWProcessIdx =
 					(g_FDVT_ReqRing.HWProcessIdx +
 					1) %
 					_SUPPORT_MAX_FDVT_REQUEST_RING_SIZE_;
@@ -1213,8 +1367,7 @@ static bool UpdateFDVT(pid_t *ProcessID)
 						_LOG_INF,
 						"Finish FDVT Request i:%d, j:%d, HWProcessIdx:%d\n",
 						i, j,
-						g_FDVT_ReqRing
-						.HWProcessIdx);
+						g_FDVT_ReqRing.HWProcessIdx);
 				} else {
 					IRQ_LOG_KEEPER(
 						FDVT_IRQ_TYPE_INT_FDVT_ST,
@@ -1222,8 +1375,7 @@ static bool UpdateFDVT(pid_t *ProcessID)
 						_LOG_DBG,
 						"Finish FDVT Frame i:%d, j:%d, HWProcessIdx:%d\n",
 						i, j,
-						g_FDVT_ReqRing
-						.HWProcessIdx);
+						g_FDVT_ReqRing.HWProcessIdx);
 				}
 				break;
 			}
@@ -1258,9 +1410,8 @@ static bool UpdateFDVT(pid_t *ProcessID)
 		    FDVT_REQUEST_STATE_PENDING) {
 			for (j = 0; j < _SUPPORT_MAX_FDVT_FRAME_REQUEST_; j++) {
 				if (FDVT_FRAME_STATUS_RUNNING ==
-				    g_FDVT_ReqRing
-				    .FDVTReq_Struct[i]
-				    .FdvtFrameStatus[j]) {
+				    g_FDVT_ReqRing.FDVTReq_Struct
+				    [i].FdvtFrameStatus[j]) {
 					break;
 				}
 			}
@@ -1269,53 +1420,47 @@ static bool UpdateFDVT(pid_t *ProcessID)
 				       _LOG_DBG,
 				       "%s idx j:%d\n",
 				       __func__, j);
-			if (j != _SUPPORT_MAX_FDVT_FRAME_REQUEST_) {
-				next_idx = j + 1;
-				g_FDVT_ReqRing.FDVTReq_Struct[i]
-				.FdvtFrameStatus[j] =
-				    FDVT_FRAME_STATUS_FINISHED;
-				if ((_SUPPORT_MAX_FDVT_FRAME_REQUEST_ ==
-				    (next_idx))
-				    || ((_SUPPORT_MAX_FDVT_FRAME_REQUEST_ >
-				    (next_idx))
-					&& (FDVT_FRAME_STATUS_EMPTY ==
-					    g_FDVT_ReqRing
-					    .FDVTReq_Struct[i]
-					    .FdvtFrameStatus[next_idx]))) {
-					bFinishRequest = MTRUE;
-					(*ProcessID) =
-					    g_FDVT_ReqRing
-					    .FDVTReq_Struct[i]
-					    .processID;
-					g_FDVT_ReqRing
-					.FDVTReq_Struct[i]
-					.State =
-					    FDVT_REQUEST_STATE_FINISHED;
-					g_FDVT_ReqRing
-					.HWProcessIdx =
-					(g_FDVT_ReqRing.HWProcessIdx +
-					1) %
-					_SUPPORT_MAX_FDVT_REQUEST_RING_SIZE_;
-					IRQ_LOG_KEEPER(
-						FDVT_IRQ_TYPE_INT_FDVT_ST,
-						m_CurrentPPB,
-						_LOG_INF,
-						"Finish FDVT Request i:%d, j:%d, HWProcessIdx:%d\n",
-						i, j,
-						g_FDVT_ReqRing
-						.HWProcessIdx);
-				} else {
-					IRQ_LOG_KEEPER(
-						FDVT_IRQ_TYPE_INT_FDVT_ST,
-						m_CurrentPPB,
-						_LOG_DBG,
-						"Finish FDVT Frame i:%d, j:%d, HWProcessIdx:%d\n",
-						i, j,
-						g_FDVT_ReqRing
-						.HWProcessIdx);
-				}
-				break;
-			}
+if (j != _SUPPORT_MAX_FDVT_FRAME_REQUEST_) {
+	next_idx = j + 1;
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[i].FdvtFrameStatus[j] =
+	FDVT_FRAME_STATUS_FINISHED;
+	if ((_SUPPORT_MAX_FDVT_FRAME_REQUEST_ ==
+		(next_idx))
+		|| ((_SUPPORT_MAX_FDVT_FRAME_REQUEST_ >
+		(next_idx))
+		&& (FDVT_FRAME_STATUS_EMPTY ==
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[i].FdvtFrameStatus[next_idx]))) {
+		bFinishRequest = MTRUE;
+		(*ProcessID) =
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[i].processID;
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[i].State =
+		FDVT_REQUEST_STATE_FINISHED;
+		g_FDVT_ReqRing.HWProcessIdx =
+		(g_FDVT_ReqRing.HWProcessIdx +
+		1) %
+		_SUPPORT_MAX_FDVT_REQUEST_RING_SIZE_;
+		IRQ_LOG_KEEPER(
+			FDVT_IRQ_TYPE_INT_FDVT_ST,
+			m_CurrentPPB,
+			_LOG_INF,
+			"Finish FDVT Request i:%d, j:%d, HWProcessIdx:%d\n",
+			i, j,
+			g_FDVT_ReqRing.HWProcessIdx);
+		} else {
+			IRQ_LOG_KEEPER(
+				FDVT_IRQ_TYPE_INT_FDVT_ST,
+				m_CurrentPPB,
+				_LOG_DBG,
+				"Finish FDVT Frame i:%d, j:%d, HWProcessIdx:%d\n",
+				i, j,
+				g_FDVT_ReqRing.HWProcessIdx);
+		}
+	break;
+}
 			/*else {*/
 			IRQ_LOG_KEEPER(FDVT_IRQ_TYPE_INT_FDVT_ST,
 				       m_CurrentPPB,
@@ -1371,18 +1516,29 @@ static signed int ConfigFDVTHW(FDVT_Config *pFdvtConfig)
 	mt_kernel_trace_begin("ConfigFDVTHW");
 #endif
 
-	cmdqRecCreate(CMDQ_SCENARIO_KERNEL_CONFIG_GENERAL, &handle);
+	cmdqRecCreate(CMDQ_SCENARIO_ISP_FDVT, &handle);
 	/* CMDQ driver dispatches CMDQ HW thread
 	 * and HW thread's priority according to scenario
 	 */
 
-	cmdqRecSetEngine(handle, engineFlag);
+	if (pFdvtConfig->FDVT_IS_SECURE != 0)
+		FDVT_switchCmdqToSecure(handle);
 
-	cmdqRecReset(handle);
+	cmdqRecSetEngine(handle, engineFlag);
 
 #if 1
 	/* Use command queue to write register */
 	/* BIT0 for INT_EN */
+	cmdqRecWrite(handle, FDVT_WRA_0_CON3_HW, 0x0, CMDQ_REG_MASK);
+	cmdqRecWrite(handle, FDVT_WRA_1_CON3_HW, 0x0, CMDQ_REG_MASK);
+	cmdqRecWrite(handle, FDVT_RDA_0_CON3_HW, 0x0, CMDQ_REG_MASK);
+	cmdqRecWrite(handle, FDVT_RDA_1_CON3_HW, 0x0, CMDQ_REG_MASK);
+
+	cmdqRecWrite(handle, FDVT_WRB_0_CON3_HW, 0x0, CMDQ_REG_MASK);
+	cmdqRecWrite(handle, FDVT_WRB_1_CON3_HW, 0x0, CMDQ_REG_MASK);
+	cmdqRecWrite(handle, FDVT_RDB_0_CON3_HW, 0x0, CMDQ_REG_MASK);
+	cmdqRecWrite(handle, FDVT_RDB_1_CON3_HW, 0x0, CMDQ_REG_MASK);
+
 	cmdqRecWrite(handle, FDVT_ENABLE_HW, 0x00000111, CMDQ_REG_MASK);
 	if (pFdvtConfig->FD_MODE == 0) {
 		cmdqRecWrite(handle, FDVT_RS_HW, 0x00000409, CMDQ_REG_MASK);
@@ -1394,30 +1550,61 @@ static signed int ConfigFDVTHW(FDVT_Config *pFdvtConfig)
 		cmdqRecWrite(handle, FDVT_RS_HW, 0x00000403, CMDQ_REG_MASK);
 		cmdqRecWrite(handle, FDVT_FD_HW, 0x04000012, CMDQ_REG_MASK);
 	}
+	cmdqRecWrite(handle, FDVT_RPN_HW, 0x0, CMDQ_REG_MASK);
 	cmdqRecWrite(handle, FDVT_YUV2RGB_HW,
 		     pFdvtConfig->FDVT_YUV2RGB, CMDQ_REG_MASK);
 	cmdqRecWrite(handle, FDVT_YUV_SRC_WD_HT_HW,
 		     pFdvtConfig->FDVT_YUV_SRC_WD_HT, CMDQ_REG_MASK);
 	cmdqRecWrite(handle, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
 
-	cmdqRecWrite(handle, FDVT_RSCON_BASE_ADR_HW,
-		     pFdvtConfig->FDVT_RSCON_BASE_ADR, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, FDVT_FD_CON_BASE_ADR_HW,
-		     pFdvtConfig->FDVT_FD_CON_BASE_ADR, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, FDVT_YUV2RGBCON_BASE_ADR_HW,
-		     pFdvtConfig->FDVT_YUV2RGBCON_BASE_ADR, CMDQ_REG_MASK);
-	cmdqRecWrite(handle, FDVT_FD_RLT_BASE_ADR_HW, 0x0, CMDQ_REG_MASK);
-
+	if (pFdvtConfig->FDVT_IS_SECURE != 0) {
+		cmdqRecWriteSecure(handle,
+			FDVT_RSCON_BASE_ADR_HW,
+			CMDQ_SAM_H_2_MVA,
+			pFdvtConfig->FDVT_RSCON_BASE_ADR,
+			0,
+			pFdvtConfig->FDVT_RSCON_BUFSIZE,
+			M4U_PORT_FDVT_RDA);
+		cmdqRecWriteSecure(handle,
+			FDVT_FD_CON_BASE_ADR_HW,
+			CMDQ_SAM_H_2_MVA,
+			pFdvtConfig->FDVT_FD_CON_BASE_ADR,
+			0,
+			pFdvtConfig->FDVT_FD_CON_BUFSIZE,
+			M4U_PORT_FDVT_RDA);
+		cmdqRecWriteSecure(handle,
+			FDVT_YUV2RGBCON_BASE_ADR_HW,
+			CMDQ_SAM_H_2_MVA,
+			pFdvtConfig->FDVT_YUV2RGBCON_BASE_ADR,
+			0,
+			pFdvtConfig->FDVT_YUV2RGBCON_BUFSIZE,
+			M4U_PORT_FDVT_RDA);
+	} else {
+		cmdqRecWrite(handle, FDVT_RSCON_BASE_ADR_HW,
+			pFdvtConfig->FDVT_RSCON_BASE_ADR, CMDQ_REG_MASK);
+		cmdqRecWrite(handle, FDVT_FD_CON_BASE_ADR_HW,
+			pFdvtConfig->FDVT_FD_CON_BASE_ADR, CMDQ_REG_MASK);
+		cmdqRecWrite(handle, FDVT_YUV2RGBCON_BASE_ADR_HW,
+			pFdvtConfig->FDVT_YUV2RGBCON_BASE_ADR, CMDQ_REG_MASK);
+		cmdqRecWrite(handle, FDVT_FD_RLT_BASE_ADR_HW,
+			0x0, CMDQ_REG_MASK);
+	}
+#if 1
+	if (pFdvtConfig->FDVT_IS_SECURE == 1) {
+		cmdq_task_set_secure_meta(
+			handle,
+			CMDQ_SEC_METAEX_FD,
+			&(pFdvtConfig->FDVT_METADATA_TO_GCE),
+			sizeof(pFdvtConfig->FDVT_METADATA_TO_GCE));
+	}
+#endif
 	cmdqRecWrite(handle, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
 	cmdqRecWait(handle, CMDQ_EVENT_FDVT_DONE);
 	cmdqRecWrite(handle, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
 #endif
 	/* non-blocking API, Please  use cmdqRecFlushAsync() */
-	cmdqRecFlushAsync(handle);
-	/* if you want to re-use the handle, please reset the handle */
-	cmdqRecReset(handle);
-	cmdqRecDestroy(handle); /* recycle the memory */
-	FDVT_DumpReg(); // ADD by gasper
+	cmdq_task_flush_async_destroy(handle);	/* flush and destroy in cmdq */
+	//FDVT_DumpReg(); // ADD by gasper
 #ifdef __FDVT_KERNEL_PERFORMANCE_MEASURE__
 	mt_kernel_trace_end();
 #endif
@@ -1500,23 +1687,436 @@ static signed int FDVT_DumpReg(void)
 		(unsigned int)FDVT_RD32(FDVT_ENABLE_REG));
 	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RS_HW),
 		(unsigned int)FDVT_RD32(FDVT_RS_REG));
-	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_INT_EN_HW),
-		(unsigned int)FDVT_RD32(FDVT_INT_EN_REG));
-	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_YUV2RGB_HW),
-		(unsigned int)FDVT_RD32(FDVT_YUV2RGB_REG));
-	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_FD_HW),
-		(unsigned int)FDVT_RD32(FDVT_FD_REG));
-	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_YUV_SRC_WD_HT_HW),
-		(unsigned int)FDVT_RD32(FDVT_YUV_SRC_WD_HT_REG));
-
 	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RSCON_BASE_ADR_HW),
 		(unsigned int)FDVT_RD32(FDVT_RSCON_BASE_ADR_REG));
-	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_FD_CON_BASE_ADR_HW),
-		(unsigned int)FDVT_RD32(FDVT_FD_CON_BASE_ADR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_YUV2RGB_HW),
+		(unsigned int)FDVT_RD32(FDVT_YUV2RGB_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_FD_PACK_MODE_HW),
+		(unsigned int)FDVT_RD32(FDVT_FD_PACK_MODE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_CONV0_HW),
+		(unsigned int)FDVT_RD32(FDVT_CONV0_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_CONV1_HW),
+		(unsigned int)FDVT_RD32(FDVT_CONV1_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_CONV_WD_HT_HW),
+		(unsigned int)FDVT_RD32(FDVT_CONV_WD_HT_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_SRC_WD_HT_HW),
+		(unsigned int)FDVT_RD32(FDVT_SRC_WD_HT_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_DES_WD_HT_HW),
+		(unsigned int)FDVT_RD32(FDVT_DES_WD_HT_REG));
 	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_YUV2RGBCON_BASE_ADR_HW),
 		(unsigned int)FDVT_RD32(FDVT_YUV2RGBCON_BASE_ADR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_KERNEL_HW),
+		(unsigned int)FDVT_RD32(FDVT_KERNEL_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_IN_SIZE_0_HW),
+		(unsigned int)FDVT_RD32(FDVT_IN_SIZE_0_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_IN_STRIDE_0_HW),
+		(unsigned int)FDVT_RD32(FDVT_IN_STRIDE_0_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_IN_SIZE_1_HW),
+		(unsigned int)FDVT_RD32(FDVT_IN_SIZE_1_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_IN_STRIDE_1_HW),
+		(unsigned int)FDVT_RD32(FDVT_IN_STRIDE_1_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_IN_SIZE_2_HW),
+		(unsigned int)FDVT_RD32(FDVT_IN_SIZE_2_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_IN_STRIDE_2_HW),
+		(unsigned int)FDVT_RD32(FDVT_IN_STRIDE_2_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_IN_SIZE_3_HW),
+		(unsigned int)FDVT_RD32(FDVT_IN_SIZE_3_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_IN_STRIDE_3_HW),
+		(unsigned int)FDVT_RD32(FDVT_IN_STRIDE_3_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_OUT_SIZE_0_HW),
+		(unsigned int)FDVT_RD32(FDVT_OUT_SIZE_0_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_OUT_STRIDE_0_HW),
+		(unsigned int)FDVT_RD32(FDVT_OUT_STRIDE_0_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_OUT_SIZE_1_HW),
+		(unsigned int)FDVT_RD32(FDVT_OUT_SIZE_1_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_OUT_STRIDE_1_HW),
+		(unsigned int)FDVT_RD32(FDVT_OUT_STRIDE_1_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_OUT_SIZE_2_HW),
+		(unsigned int)FDVT_RD32(FDVT_OUT_SIZE_2_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_OUT_STRIDE_2_HW),
+		(unsigned int)FDVT_RD32(FDVT_OUT_STRIDE_2_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_OUT_SIZE_3_HW),
+		(unsigned int)FDVT_RD32(FDVT_OUT_SIZE_3_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_OUT_STRIDE_3_HW),
+		(unsigned int)FDVT_RD32(FDVT_OUT_STRIDE_3_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_KERNEL_SIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_KERNEL_SIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_KERNEL_STRIDE_HW),
+		(unsigned int)FDVT_RD32(FDVT_KERNEL_STRIDE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_IN_BASE_ADR_0_HW),
+		(unsigned int)FDVT_RD32(FDVT_IN_BASE_ADR_0_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_IN_BASE_ADR_1_HW),
+		(unsigned int)FDVT_RD32(FDVT_IN_BASE_ADR_1_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_IN_BASE_ADR_2_HW),
+		(unsigned int)FDVT_RD32(FDVT_IN_BASE_ADR_2_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_IN_BASE_ADR_3_HW),
+		(unsigned int)FDVT_RD32(FDVT_IN_BASE_ADR_3_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_OUT_BASE_ADR_0_HW),
+		(unsigned int)FDVT_RD32(FDVT_OUT_BASE_ADR_0_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_OUT_BASE_ADR_1_HW),
+		(unsigned int)FDVT_RD32(FDVT_OUT_BASE_ADR_1_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_OUT_BASE_ADR_2_HW),
+		(unsigned int)FDVT_RD32(FDVT_OUT_BASE_ADR_2_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_OUT_BASE_ADR_3_HW),
+		(unsigned int)FDVT_RD32(FDVT_OUT_BASE_ADR_3_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_KERNEL_BASE_ADR_0_HW),
+		(unsigned int)FDVT_RD32(FDVT_KERNEL_BASE_ADR_0_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_KERNEL_BASE_ADR_1_HW),
+		(unsigned int)FDVT_RD32(FDVT_KERNEL_BASE_ADR_1_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_FD_HW),
+		(unsigned int)FDVT_RD32(FDVT_FD_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_FD_CON_BASE_ADR_HW),
+		(unsigned int)FDVT_RD32(FDVT_FD_CON_BASE_ADR_REG));
 	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_FD_RLT_BASE_ADR_HW),
 		(unsigned int)FDVT_RD32(FDVT_FD_RLT_BASE_ADR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RPN_HW),
+		(unsigned int)FDVT_RD32(FDVT_RPN_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_FD_ANCHOR0_INFO0_HW),
+		(unsigned int)FDVT_RD32(FDVT_FD_ANCHOR0_INFO0_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_FD_ANCHOR1_INFO0_HW),
+		(unsigned int)FDVT_RD32(FDVT_FD_ANCHOR1_INFO0_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_FD_ANCHOR2_INFO0_HW),
+		(unsigned int)FDVT_RD32(FDVT_FD_ANCHOR2_INFO0_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_FD_ANCHOR3_INFO0_HW),
+		(unsigned int)FDVT_RD32(FDVT_FD_ANCHOR3_INFO0_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_FD_ANCHOR4_INFO0_HW),
+		(unsigned int)FDVT_RD32(FDVT_FD_ANCHOR4_INFO0_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_YUV_SRC_WD_HT_HW),
+		(unsigned int)FDVT_RD32(FDVT_YUV_SRC_WD_HT_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_INT_EN_HW),
+		(unsigned int)FDVT_RD32(FDVT_INT_EN_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_INT_HW),
+		(unsigned int)FDVT_RD32(FDVT_INT_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_DEBUG_INFO_1_HW),
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_1_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_DEBUG_INFO_2_HW),
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_2_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_DEBUG_INFO_3_HW),
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RESULT_HW),
+		(unsigned int)FDVT_RD32(FDVT_RESULT_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RESULT_1_HW),
+		(unsigned int)FDVT_RD32(FDVT_RESULT_1_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_DMA_CTL_HW),
+		(unsigned int)FDVT_RD32(FDVT_DMA_CTL_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RPN_PACK_MODE_HW),
+		(unsigned int)FDVT_RD32(FDVT_RPN_PACK_MODE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RSCON1_HW),
+		(unsigned int)FDVT_RD32(FDVT_RSCON1_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RSCON2_HW),
+		(unsigned int)FDVT_RD32(FDVT_RSCON2_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_CONV2_HW),
+		(unsigned int)FDVT_RD32(FDVT_CONV2_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RPN_IMAGE_COORD_HW),
+		(unsigned int)FDVT_RD32(FDVT_RPN_IMAGE_COORD_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_SPARE_CELL_HW),
+		(unsigned int)FDVT_RD32(FDVT_SPARE_CELL_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_CTRL_HW),
+		(unsigned int)FDVT_RD32(FDVT_CTRL_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_VERSION_HW),
+		(unsigned int)FDVT_RD32(FDVT_VERSION_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_ANCHOR_SHIFT0_HW),
+		(unsigned int)FDVT_RD32(FDVT_ANCHOR_SHIFT0_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_LANDMARK_SHIFT0_HW),
+		(unsigned int)FDVT_RD32(FDVT_LANDMARK_SHIFT0_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_ANCHOR_SHIFT1_HW),
+		(unsigned int)FDVT_RD32(FDVT_ANCHOR_SHIFT1_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_LANDMARK_SHIFT1_HW),
+		(unsigned int)FDVT_RD32(FDVT_LANDMARK_SHIFT1_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(DMA_SOFT_RSTSTAT_HW),
+		(unsigned int)FDVT_RD32(DMA_SOFT_RSTSTAT_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRA_0_BASE_ADDR_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRA_0_BASE_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRA_0_OFST_ADDR_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRA_0_OFST_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRA_0_XSIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRA_0_XSIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRA_0_YSIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRA_0_YSIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRA_0_STRIDE_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRA_0_STRIDE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRA_1_BASE_ADDR_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRA_1_BASE_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRA_1_OFST_ADDR_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRA_1_OFST_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRA_1_XSIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRA_1_XSIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRA_1_YSIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRA_1_YSIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRA_1_STRIDE_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRA_1_STRIDE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDA_0_BASE_ADDR_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDA_0_BASE_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDA_0_OFST_ADDR_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDA_0_OFST_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDA_0_XSIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDA_0_XSIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDA_0_YSIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDA_0_YSIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDA_0_STRIDE_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDA_0_STRIDE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDA_1_BASE_ADDR_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDA_1_BASE_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDA_1_OFST_ADDR_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDA_1_OFST_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDA_1_XSIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDA_1_XSIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDA_1_YSIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDA_1_YSIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDA_1_STRIDE_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDA_1_STRIDE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRB_0_BASE_ADDR_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRB_0_BASE_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRB_0_OFST_ADDR_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRB_0_OFST_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRB_0_XSIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRB_0_XSIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRB_0_YSIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRB_0_YSIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRB_0_STRIDE_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRB_0_STRIDE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRB_1_BASE_ADDR_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRB_1_BASE_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRB_1_OFST_ADDR_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRB_1_OFST_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRB_1_XSIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRB_1_XSIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRB_1_YSIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRB_1_YSIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRB_1_STRIDE_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRB_1_STRIDE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDB_0_BASE_ADDR_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDB_0_BASE_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDB_0_OFST_ADDR_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDB_0_OFST_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDB_0_XSIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDB_0_XSIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDB_0_YSIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDB_0_YSIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDB_0_STRIDE_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDB_0_STRIDE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDB_1_BASE_ADDR_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDB_1_BASE_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDB_1_OFST_ADDR_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDB_1_OFST_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDB_1_XSIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDB_1_XSIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDB_1_YSIZE_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDB_1_YSIZE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDB_1_STRIDE_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDB_1_STRIDE_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(DMA_ERR_CTRL_HW),
+		(unsigned int)FDVT_RD32(DMA_ERR_CTRL_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRA_0_ERR_STAT_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRA_0_ERR_STAT_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRA_1_ERR_STAT_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRA_1_ERR_STAT_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRB_0_ERR_STAT_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRB_0_ERR_STAT_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_WRB_1_ERR_STAT_HW),
+		(unsigned int)FDVT_RD32(FDVT_WRB_1_ERR_STAT_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDA_0_ERR_STAT_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDA_0_ERR_STAT_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDA_1_ERR_STAT_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDA_1_ERR_STAT_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDB_0_ERR_STAT_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDB_0_ERR_STAT_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RDB_1_ERR_STAT_HW),
+		(unsigned int)FDVT_RD32(FDVT_RDB_1_ERR_STAT_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(DMA_DEBUG_ADDR_HW),
+		(unsigned int)FDVT_RD32(DMA_DEBUG_ADDR_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(DMA_DEBUG_SEL_HW),
+		(unsigned int)FDVT_RD32(DMA_DEBUG_SEL_REG));
+
+	// DMA DEBUG
+	// DEBUG_MODULE_SEL[13:15] = 0x0
+	FDVT_WR32(FDVT_CTRL_REG,
+		 (FDVT_RD32(FDVT_CTRL_REG) &
+		 0xFFFF1FFF));
+
+	// fdvt_rda_0
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x000013);
+	log_inf("fdvt_rda_0: checksum_debug0 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x000113);
+	log_inf("fdvt_rda_0: checksum_debug1 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x000213);
+	log_inf("fdvt_rda_0: checksum_debug2 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x000313);
+	log_inf("fdvt_rda_0: checksum_debug3 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x000101);
+	log_inf("fdvt_rda_0: smi_debug_data (case 0) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x010201);
+	log_inf("fdvt_rda_0: fifo_debug_data (case 1) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x030201);
+	log_inf("fdvt_rda_0: fifo_debug_data (case 3) = %08X\n",
+		 (unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+
+	// fdvt_rda_1
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x000413);
+	log_inf("fdvt_rda_1: checksum_debug0 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x000513);
+	log_inf("fdvt_rda_1: checksum_debug1 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x000613);
+	log_inf("fdvt_rda_1: checksum_debug2 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x000713);
+	log_inf("fdvt_rda_1: checksum_debug3 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x000102);
+	log_inf("fdvt_rda_1: smi_debug_data (case 0) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x010202);
+	log_inf("fdvt_rda_1: fifo_debug_data (case 1) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x030202);
+	log_inf("fdvt_rda_1: fifo_debug_data (case 3) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+
+	// fdvt_rdb_0
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x001813);
+	log_inf("fdvt_rdb_0: checksum_debug0 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x001913);
+	log_inf("fdvt_rdb_0: checksum_debug1 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x001a13);
+	log_inf("fdvt_rdb_0: checksum_debug2 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x001b13);
+	log_inf("fdvt_rdb_0: checksum_debug3 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x000105);
+	log_inf("fdvt_rdb_0: smi_debug_data (case 0) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x010205);
+	log_inf("fdvt_rdb_0: fifo_debug_data (case 1) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x030205);
+	log_inf("fdvt_rdb_0: fifo_debug_data (case 3) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+
+	// fdvt_rdb_1
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x001c13);
+	log_inf("fdvt_rdb_1: checksum_debug0 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x001d13);
+	log_inf("fdvt_rdb_1: checksum_debug1 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x001e13);
+	log_inf("fdvt_rdb_1: checksum_debug2 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x001f13);
+	log_inf("fdvt_rdb_1: checksum_debug3 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x000106);
+	log_inf("fdvt_rdb_1: smi_debug_data (case 0) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x010206);
+	log_inf("fdvt_rdb_1: fifo_debug_data (case 1) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x030206);
+	log_inf("fdvt_rdb_1: fifo_debug_data (case 3) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+
+	// fdvt_wra_0
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x001013);
+	log_inf("fdvt_wra_0: checksum_debug0 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x001113);
+	log_inf("fdvt_wra_0: checksum_debug1 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x001213);
+	log_inf("fdvt_wra_0: checksum_debug2 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x001313);
+	log_inf("fdvt_wra_0: checksum_debug3 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x00040b);
+	log_inf("fdvt_wra_0: smi_debug_data (case 0) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x01030b);
+	log_inf("fdvt_wra_0: fifo_debug_data (case 1) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x03030b);
+	log_inf("fdvt_wra_0: fifo_debug_data (case 3) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+
+	// fdvt_wra_1
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x001413);
+	log_inf("fdvt_wra_1: checksum_debug0 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x001513);
+	log_inf("fdvt_wra_1: checksum_debug1 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x001613);
+	log_inf("fdvt_wra_1: checksum_debug2 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x001713);
+	log_inf("fdvt_wra_1: checksum_debug3 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x00040c);
+	log_inf("fdvt_wra_1: smi_debug_data (case 0) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x01030c);
+	log_inf("fdvt_wra_1: fifo_debug_data (case 1) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x03030c);
+	log_inf("fdvt_wra_1: fifo_debug_data (case 3) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+
+	// fdvt_wrb_0
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x002013);
+	log_inf("fdvt_wra_0: checksum_debug0 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x002113);
+	log_inf("fdvt_wra_0: checksum_debug1 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x002213);
+	log_inf("fdvt_wra_0: checksum_debug2 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x002313);
+	log_inf("fdvt_wra_0: checksum_debug3 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x00040d);
+	log_inf("fdvt_wra_0: smi_debug_data (case 0) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x01030d);
+	log_inf("fdvt_wra_0: fifo_debug_data (case 1) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x03030d);
+	log_inf("fdvt_wra_0: fifo_debug_data (case 3) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+
+  // fdvt_wrb_1
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x002413);
+	log_inf("fdvt_wrb_1: checksum_debug0 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x002513);
+	log_inf("fdvt_wrb_1: checksum_debug1 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x002613);
+	log_inf("fdvt_wrb_1: checksum_debug2 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x002713);
+	log_inf("fdvt_wrb_1: checksum_debug3 = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x00040e);
+	log_inf("fdvt_wrb_1: smi_debug_data (case 0) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x01030e);
+	log_inf("fdvt_wrb_1: fifo_debug_data (case 1) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
+	FDVT_WR32(DMA_DEBUG_SEL_REG, 0x03030e);
+	log_inf("fdvt_wrb_1: fifo_debug_data (case 3) = %08X\n",
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_3_REG));
 #if 0
 	log_inf("FDVT:HWProcessIdx:%d, WriteIdx:%d, ReadIdx:%d\n",
 		g_FDVT_ReqRing.HWProcessIdx,
@@ -1526,34 +2126,26 @@ static signed int FDVT_DumpReg(void)
 	for (i = 0; i < _SUPPORT_MAX_FDVT_REQUEST_RING_SIZE_; i++) {
 		log_inf(
 		"FDVT Req:State:%d, procID:0x%08X, callerID:0x%08X, enqueReqNum:%d, FrameWRIdx:%d, RrameRDIdx:%d\n",
-		g_FDVT_ReqRing.FDVTReq_Struct[i].State,
-		g_FDVT_ReqRing.FDVTReq_Struct[i].processID,
-		g_FDVT_ReqRing.FDVTReq_Struct[i].callerID,
-		g_FDVT_ReqRing.FDVTReq_Struct[i].enqueReqNum,
-		g_FDVT_ReqRing.FDVTReq_Struct[i].FrameWRIdx,
-		g_FDVT_ReqRing.FDVTReq_Struct[i].RrameRDIdx);
+	g_FDVT_ReqRing.FDVTReq_Struct[i].State,
+	g_FDVT_ReqRing.FDVTReq_Struct[i].processID,
+	g_FDVT_ReqRing.FDVTReq_Struct[i].callerID,
+	g_FDVT_ReqRing.FDVTReq_Struct[i].enqueReqNum,
+	g_FDVT_ReqRing.FDVTReq_Struct[i].FrameWRIdx,
+	g_FDVT_ReqRing.FDVTReq_Struct[i].RrameRDIdx);
 
-		for (j = 0; j < _SUPPORT_MAX_FDVT_FRAME_REQUEST_;) {
-			log_inf(
-			"FDVT:FrameStatus[%d]:%d, FrameStatus[%d]:%d, FrameStatus[%d]:%d, FrameStatus[%d]:%d\n",
-			j,
-			g_FDVT_ReqRing
-			.FDVTReq_Struct[i]
-			.FdvtFrameStatus[j],
-			j + 1,
-			g_FDVT_ReqRing
-			.FDVTReq_Struct[i]
-			.FdvtFrameStatus[j + 1],
-			j + 2,
-			g_FDVT_ReqRing
-			.FDVTReq_Struct[i]
-			.FdvtFrameStatus[j + 2],
-			j + 3,
-			g_FDVT_ReqRing
-			.FDVTReq_Struct[i]
-			.FdvtFrameStatus[j + 3]);
-			j = j + 4;
-		}
+for (j = 0; j < _SUPPORT_MAX_FDVT_FRAME_REQUEST_;) {
+	log_inf(
+	"FDVT:FrameStatus[%d]:%d, FrameStatus[%d]:%d, FrameStatus[%d]:%d, FrameStatus[%d]:%d\n",
+	j,
+	g_FDVT_ReqRing.FDVTReq_Struct[i].FdvtFrameStatus[j],
+	j + 1,
+	g_FDVT_ReqRing.FDVTReq_Struct[i].FdvtFrameStatus[j + 1],
+	j + 2,
+	g_FDVT_ReqRing.FDVTReq_Struct[i].FdvtFrameStatus[j + 2],
+	j + 3,
+	g_FDVT_ReqRing.FDVTReq_Struct[i].FdvtFrameStatus[j + 3]);
+	j = j + 4;
+}
 
 	}
 
@@ -1621,9 +2213,8 @@ static inline void FDVT_Prepare_Enable_ccf_clock(void)
 	if (ret)
 		log_err("cannot prepare and enable CG_IMGSYS_LARB clock\n");
 #else
-	//smi_bus_enable(SMI_LARB_IMGSYS1, "camera_fdvt"); //modified by Gasper
-	// tony
 	//smi_bus_prepare_enable(SMI_LARB5_REG_INDX, "camera-fdvt", true);
+	smi_bus_prepare_enable(SMI_LARB5, "camera-fdvt");
 #endif
 
 	ret = clk_prepare_enable(fdvt_clk.CG_IMGSYS_FDVT);
@@ -1653,9 +2244,8 @@ static inline void FDVT_Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(fdvt_clk.CG_MM_SMI_COMMON);
 	clk_disable_unprepare(fdvt_clk.CG_SCP_SYS_MM0);
 #else
-	//smi_bus_disable(SMI_LARB_IMGSYS1, "camera_fdvt"); // marked by gasper
-	// tony
 	//smi_bus_disable_unprepare(SMI_LARB5_REG_INDX, "camera-fdvt", true);
+	smi_bus_disable_unprepare(SMI_LARB5, "camera-fdvt");
 #endif
 }
 #endif
@@ -1747,35 +2337,6 @@ static void FDVT_EnableClock(bool En)
 /*****************************************************************************
  *
  *****************************************************************************/
-static inline void FDVT_Reset(void)
-{
-	log_dbg("- E.");
-
-	log_dbg(" FDVT Reset start!\n");
-	spin_lock(&(FDVTInfo.SpinLockFDVTRef));
-
-	if (FDVTInfo.UserCount > 1) {
-		spin_unlock(&(FDVTInfo.SpinLockFDVTRef));
-		log_dbg("Curr UserCount(%d) users exist", FDVTInfo.UserCount);
-	} else {
-		spin_unlock(&(FDVTInfo.SpinLockFDVTRef));
-
-		/* Reset FDVT flow */
-		FDVT_WR32(FDVT_START_REG,
-			 (FDVT_RD32(FDVT_START_REG) |
-			 0x20000));
-		while ((FDVT_RD32(FDVT_START_REG) && 0x20000 != 0x0))
-			log_dbg("FDVT resetting...\n");
-		FDVT_WR32(FDVT_START_REG, 0x10000);
-		FDVT_WR32(FDVT_START_REG, 0x0);
-		log_dbg(" FDVT Reset end!\n");
-	}
-
-}
-
-/*****************************************************************************
- *
- *****************************************************************************/
 static signed int FDVT_ReadReg(FDVT_REG_IO_STRUCT *pRegIo)
 {
 	unsigned int i;
@@ -1784,6 +2345,15 @@ static signed int FDVT_ReadReg(FDVT_REG_IO_STRUCT *pRegIo)
 	FDVT_REG_STRUCT reg;
 	/* unsigned int* pData = (unsigned int*)pRegIo->Data; */
 	FDVT_REG_STRUCT *pData = (FDVT_REG_STRUCT *) pRegIo->pData;
+
+	if ((pRegIo->pData == NULL) ||
+		(pRegIo->Count == 0) ||
+		(pRegIo->Count > (FDVT_REG_RANGE>>2))) {
+		log_err("FDVT ReadReg pRegIo->pData is NULL, Count:%d!!",
+			pRegIo->Count);
+		Ret = -EFAULT;
+		goto EXIT;
+	}
 
 	for (i = 0; i < pRegIo->Count; i++) {
 		if (get_user(reg.Addr, (unsigned int *) &pData->Addr) != 0) {
@@ -1894,16 +2464,17 @@ static signed int FDVT_WriteReg(FDVT_REG_IO_STRUCT *pRegIo)
 	 * (pRegIo->Count)*sizeof(FDVT_REG_STRUCT), GFP_ATOMIC);
 	 */
 	pData = kmalloc((pRegIo->Count) * sizeof(FDVT_REG_STRUCT), GFP_KERNEL);
-	/* if (pData == NULL) {
-	 * log_err(
-	 * "ERROR: kmalloc failed, (process, pid, tgid)=(%s, %d, %d)\n",
-	 * current->comm,
-	 * current->pid,
-	 * current->tgid);
-	 * Ret = -ENOMEM;
-	 * goto EXIT;
-	 * }
-	 */
+	if (pData == NULL) {
+		/* log_err( */
+		/* "ERROR: kmalloc failed, */
+		/* (process, pid, tgid)=(%s, %d, %d)\n", */
+		/* current->comm, */
+		/* current->pid, */
+		/* current->tgid); */
+		Ret = -ENOMEM;
+		goto EXIT;
+	}
+
 	if (copy_from_user
 		(pData, (void __user *)(pRegIo->pData),
 		pRegIo->Count * sizeof(FDVT_REG_STRUCT)) != 0) {
@@ -2050,13 +2621,19 @@ static signed int FDVT_WaitIrq(FDVT_WAIT_IRQ_STRUCT *WaitIrq)
 		(!FDVT_GetIRQState(WaitIrq->Type, WaitIrq->UserKey,
 				   WaitIrq->Status, whichReq,
 				   WaitIrq->ProcessID))) {
-		log_dbg("interrupted by system, timeout(%d),irq Type/User/Sts/whichReq/Pid(0x%x/%d/0x%x/%d/%d)\n",
+		log_err("interrupted by system, timeout(%d),irq Type/User/Sts/whichReq/Pid(0x%x/%d/0x%x/%d/%d)\n",
 		Timeout, WaitIrq->Type, WaitIrq->UserKey,
 		WaitIrq->Status, whichReq, WaitIrq->ProcessID);
+		mt_irq_dump_status(FDVTInfo.IrqNum);
 		/* actually it should be -ERESTARTSYS */
 		Ret = -ERESTARTSYS;
 		goto EXIT;
 	}
+
+	if (WaitIrq->isSecure != 0) {
+		FDVT_switchPortToNonSecure();
+	}
+
 	/* timeout */
 	if (Timeout == 0) {
 		/* Store irqinfo status in here
@@ -2066,8 +2643,7 @@ static signed int FDVT_WaitIrq(FDVT_WAIT_IRQ_STRUCT *WaitIrq)
 				  [WaitIrq->Type]),
 				  flags);
 		irqStatus = FDVTInfo.IrqInfo.Status[WaitIrq->Type];
-		spin_unlock_irqrestore(&(FDVTInfo
-				       .SpinLockIrq
+		spin_unlock_irqrestore(&(FDVTInfo.SpinLockIrq
 				       [WaitIrq->Type]),
 				       flags);
 
@@ -2082,6 +2658,8 @@ static signed int FDVT_WaitIrq(FDVT_WAIT_IRQ_STRUCT *WaitIrq)
 
 		if (WaitIrq->bDumpReg)
 			FDVT_DumpReg();
+
+		mt_irq_dump_status(FDVTInfo.IrqNum);
 
 		Ret = -EFAULT;
 		goto EXIT;
@@ -2115,9 +2693,8 @@ static signed int FDVT_WaitIrq(FDVT_WAIT_IRQ_STRUCT *WaitIrq)
 			if (WaitIrq->Status & FDVT_INT_ST) {
 				FDVTInfo.IrqInfo.FdvtIrqCnt--;
 				if (FDVTInfo.IrqInfo.FdvtIrqCnt == 0)
-					FDVTInfo.IrqInfo
-					.Status[WaitIrq->Type] &=
-					(~WaitIrq->Status);
+					FDVTInfo.IrqInfo.Status[WaitIrq->Type]
+					&= (~WaitIrq->Status);
 			} else {
 				log_err("FDVT_IRQ_WAIT_CLEAR Error, Type(%d), WaitStatus(0x%08X)",
 					WaitIrq->Type, WaitIrq->Status);
@@ -2128,8 +2705,7 @@ static signed int FDVT_WaitIrq(FDVT_WAIT_IRQ_STRUCT *WaitIrq)
 				FDVTInfo.IrqInfo.Status[WaitIrq->Type] &=
 				(~WaitIrq->Status);
 #endif
-			spin_unlock_irqrestore(&(FDVTInfo
-					       .SpinLockIrq
+			spin_unlock_irqrestore(&(FDVTInfo.SpinLockIrq
 					       [WaitIrq->Type]),
 					       flags);
 		}
@@ -2154,7 +2730,6 @@ static signed int FDVT_WaitIrq(FDVT_WAIT_IRQ_STRUCT *WaitIrq)
 
 
 EXIT:
-
 
 	return Ret;
 }
@@ -2335,18 +2910,16 @@ static long FDVT_ioctl(struct file *pFile,
 				log_dbg("FDVT_CLEAR_IRQ:Type(%d),Status(0x%08X),IrqStatus(0x%08X)\n",
 					ClearIrq.Type, ClearIrq.Status,
 					FDVTInfo.IrqInfo.Status[ClearIrq.Type]);
-				spin_lock_irqsave(&
-						(FDVTInfo
-						.SpinLockIrq
-						[ClearIrq.Type]),
-						flags);
+	spin_lock_irqsave(&
+	(FDVTInfo.SpinLockIrq
+	[ClearIrq.Type]),
+	flags);
 				FDVTInfo.IrqInfo.Status[ClearIrq.Type] &=
 				(~ClearIrq.Status);
-				spin_unlock_irqrestore(&
-						   (FDVTInfo
-						   .SpinLockIrq
-						   [ClearIrq.Type]),
-						   flags);
+	spin_unlock_irqrestore(&
+	(FDVTInfo.SpinLockIrq
+	[ClearIrq.Type]),
+	flags);
 			} else {
 				log_err("FDVT_CLEAR_IRQ copy_from_user failed\n");
 				Ret = -EFAULT;
@@ -2356,58 +2929,45 @@ static long FDVT_ioctl(struct file *pFile,
 	case FDVT_ENQNUE_NUM:
 		{
 			/* enqueNum */
-			if (copy_from_user(&enqueNum,
-					   (void *)Param,
-					   sizeof(int)) == 0) {
-				if (FDVT_REQUEST_STATE_EMPTY ==
-				    g_FDVT_ReqRing
-				    .FDVTReq_Struct
-				    [g_FDVT_ReqRing.WriteIdx]
-				    .State) {
-					spin_lock_irqsave(&
-						(FDVTInfo
-						.SpinLockIrq
-						[FDVT_IRQ_TYPE_INT_FDVT_ST]),
-						flags);
-					g_FDVT_ReqRing
-					.FDVTReq_Struct
-					[g_FDVT_ReqRing
-					.WriteIdx].processID =
-					    pUserInfo->Pid;
-					g_FDVT_ReqRing
-					.FDVTReq_Struct
-					[g_FDVT_ReqRing
-					.WriteIdx]
-					.enqueReqNum =
-					    enqueNum;
-					spin_unlock_irqrestore(&
-						(FDVTInfo
-						.SpinLockIrq
-						[FDVT_IRQ_TYPE_INT_FDVT_ST]),
-						flags);
-					if (enqueNum >
-					    _SUPPORT_MAX_FDVT_FRAME_REQUEST_) {
-						log_err(
-						"FDVT Enque Num is bigger than enqueNum:%d\n",
-						enqueNum);
-					}
-					log_dbg("FDVT_ENQNUE_NUM:%d\n",
-						enqueNum);
-				} else {
-					log_err(
-					"WFME Enque request state is not empty:%d, writeIdx:%d, readIdx:%d\n",
-					g_FDVT_ReqRing
-					.FDVTReq_Struct
-					[g_FDVT_ReqRing
-					.WriteIdx]
-					.State,
-					g_FDVT_ReqRing.WriteIdx,
-					g_FDVT_ReqRing.ReadIdx);
-				}
-			} else {
-				log_err("FDVT_EQNUE_NUM copy_from_user failed\n");
-				Ret = -EFAULT;
-			}
+if (copy_from_user(&enqueNum,
+	(void *)Param,
+	sizeof(int)) == 0) {
+	if (FDVT_REQUEST_STATE_EMPTY ==
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.WriteIdx].State) {
+		spin_lock_irqsave(&
+		(FDVTInfo.SpinLockIrq
+		[FDVT_IRQ_TYPE_INT_FDVT_ST]),
+		flags);
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.WriteIdx].processID =
+		pUserInfo->Pid;
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.WriteIdx].enqueReqNum =
+		enqueNum;
+		spin_unlock_irqrestore(&
+		(FDVTInfo.SpinLockIrq[FDVT_IRQ_TYPE_INT_FDVT_ST]),
+		flags);
+		if (enqueNum >
+			_SUPPORT_MAX_FDVT_FRAME_REQUEST_) {
+			log_err(
+			"FDVT Enque Num is bigger than enqueNum:%d\n",
+			enqueNum);
+		}
+		log_dbg("FDVT_ENQNUE_NUM:%d\n",
+		enqueNum);
+		} else {
+			log_err(
+			"WFME Enque request state is not empty:%d, writeIdx:%d, readIdx:%d\n",
+			g_FDVT_ReqRing.FDVTReq_Struct
+			[g_FDVT_ReqRing.WriteIdx].State,
+			g_FDVT_ReqRing.WriteIdx,
+			g_FDVT_ReqRing.ReadIdx);
+	}
+	} else {
+		log_err("FDVT_EQNUE_NUM copy_from_user failed\n");
+		Ret = -EFAULT;
+}
 
 			break;
 		}
@@ -2425,83 +2985,52 @@ static long FDVT_ioctl(struct file *pFile,
 				spin_lock_irqsave(&(FDVTInfo.SpinLockIrq
 						  [FDVT_IRQ_TYPE_INT_FDVT_ST]),
 						  flags);
-				if ((FDVT_REQUEST_STATE_EMPTY ==
-				     g_FDVT_ReqRing
-				     .FDVTReq_Struct
-				     [g_FDVT_ReqRing.WriteIdx]
-				     .State)
-				    && (g_FDVT_ReqRing
-					.FDVTReq_Struct
-					[g_FDVT_ReqRing.WriteIdx]
-					.FrameWRIdx <
-					g_FDVT_ReqRing
-					.FDVTReq_Struct
-					[g_FDVT_ReqRing
-					.WriteIdx]
-					.enqueReqNum)) {
-					g_FDVT_ReqRing
-					.FDVTReq_Struct
-					[g_FDVT_ReqRing
-					.WriteIdx]
-					    .FdvtFrameStatus[g_FDVT_ReqRing
-							    .FDVTReq_Struct
-							    [g_FDVT_ReqRing
-							    .WriteIdx]
-							    .FrameWRIdx] =
-					    FDVT_FRAME_STATUS_ENQUE;
-					memcpy(&g_FDVT_ReqRing
-					       .FDVTReq_Struct
-					       [g_FDVT_ReqRing.WriteIdx]
-					       .FdvtFrameConfig
-					       [g_FDVT_ReqRing
-					       .FDVTReq_Struct[g_FDVT_ReqRing
-					       .WriteIdx]
-					       .FrameWRIdx++],
-					       &fdvt_FdvtConfig,
-					       sizeof(FDVT_Config));
-					if (g_FDVT_ReqRing
-					    .FDVTReq_Struct
-					    [g_FDVT_ReqRing.WriteIdx]
-					    .FrameWRIdx ==
-					    g_FDVT_ReqRing
-					    .FDVTReq_Struct
-					    [g_FDVT_ReqRing
-					    .WriteIdx]
-					    .enqueReqNum) {
-						g_FDVT_ReqRing
-						    .FDVTReq_Struct
-						    [g_FDVT_ReqRing.WriteIdx]
-						    .State =
-						    FDVT_REQUEST_STATE_PENDING;
-						g_FDVT_ReqRing.WriteIdx =
-						(g_FDVT_ReqRing.WriteIdx +
-						 1) %
-					_SUPPORT_MAX_FDVT_REQUEST_RING_SIZE_;
-						log_dbg("FDVT enque done!!\n");
-					} else {
-						log_dbg("FDVT enque frame!!\n");
-					}
-				} else {
-					log_err("No Buffer! WriteIdx(%d), Stat(%d), FrameWRIdx(%d), enqueReqNum(%d)\n",
-					     g_FDVT_ReqRing
-					     .WriteIdx,
-					     g_FDVT_ReqRing
-					     .FDVTReq_Struct
-					     [g_FDVT_ReqRing.WriteIdx]
-					     .State,
-					     g_FDVT_ReqRing
-					     .FDVTReq_Struct
-					     [g_FDVT_ReqRing.WriteIdx]
-					     .FrameWRIdx,
-					     g_FDVT_ReqRing
-					     .FDVTReq_Struct
-					     [g_FDVT_ReqRing.WriteIdx]
-					     .enqueReqNum);
-				}
+if ((FDVT_REQUEST_STATE_EMPTY ==
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.WriteIdx].State)
+	&& (g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.WriteIdx].FrameWRIdx <
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.WriteIdx].enqueReqNum)) {
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.WriteIdx].FdvtFrameStatus
+	[g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.WriteIdx].FrameWRIdx] =
+	FDVT_FRAME_STATUS_ENQUE;
+	memcpy(&g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.WriteIdx].FdvtFrameConfig
+	[g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.WriteIdx].FrameWRIdx++],
+	&fdvt_FdvtConfig,
+	sizeof(FDVT_Config));
+	if (g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.WriteIdx].FrameWRIdx ==
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.WriteIdx].enqueReqNum) {
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.WriteIdx].State =
+		FDVT_REQUEST_STATE_PENDING;
+		g_FDVT_ReqRing.WriteIdx =
+		(g_FDVT_ReqRing.WriteIdx +
+		1) %
+		_SUPPORT_MAX_FDVT_REQUEST_RING_SIZE_;
+		log_dbg("FDVT enque done!!\n");
+		} else {
+			log_dbg("FDVT enque frame!!\n");
+	}
+} else {
+	log_err("No Buffer! WriteIdx(%d), Stat(%d), FrameWRIdx(%d), enqueReqNum(%d)\n",
+	g_FDVT_ReqRing.WriteIdx,
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.WriteIdx].State,
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.WriteIdx].FrameWRIdx,
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.WriteIdx].enqueReqNum);
+}
 #ifdef FDVT_USE_GCE
 				spin_unlock_irqrestore(&
-						(FDVTInfo
-						.SpinLockIrq
+						(FDVTInfo.SpinLockIrq
 						[FDVT_IRQ_TYPE_INT_FDVT_ST]),
 						flags);
 				log_dbg("ConfigFDVT!!\n");
@@ -2516,8 +3045,7 @@ static long FDVT_ioctl(struct file *pFile,
 					log_inf("FDVT HW is busy!!\n");
 				}
 				spin_unlock_irqrestore(&
-						(FDVTInfo
-						.SpinLockIrq
+						(FDVTInfo.SpinLockIrq
 						[FDVT_IRQ_TYPE_INT_FDVT_ST]),
 						flags);
 #endif
@@ -2562,79 +3090,52 @@ static long FDVT_ioctl(struct file *pFile,
 				spin_lock_irqsave(&(FDVTInfo.SpinLockIrq
 						  [FDVT_IRQ_TYPE_INT_FDVT_ST]),
 						  flags);
-				if (FDVT_REQUEST_STATE_EMPTY ==
-				    g_FDVT_ReqRing
-				    .FDVTReq_Struct
-				    [g_FDVT_ReqRing.WriteIdx]
-				    .State) {
-					g_FDVT_ReqRing
-					.FDVTReq_Struct
-					[g_FDVT_ReqRing
-					.WriteIdx]
-					.processID =
-					    pUserInfo->Pid;
-					g_FDVT_ReqRing
-					.FDVTReq_Struct
-					[g_FDVT_ReqRing
-					.WriteIdx]
-					.enqueReqNum =
-					    fdvt_FdvtReq.m_ReqNum;
+if (FDVT_REQUEST_STATE_EMPTY ==
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.WriteIdx].State) {
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.WriteIdx].processID =
+	pUserInfo->Pid;
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.WriteIdx].enqueReqNum =
+	fdvt_FdvtReq.m_ReqNum;
 
-					for (idx = 0;
-					     idx < fdvt_FdvtReq.m_ReqNum;
-					     idx++) {
-						g_FDVT_ReqRing
-						.FDVTReq_Struct
-						[g_FDVT_ReqRing.WriteIdx]
-						.FdvtFrameStatus
-						[g_FDVT_ReqRing
-						.FDVTReq_Struct
-						[g_FDVT_ReqRing.WriteIdx]
-						.FrameWRIdx] =
-						    FDVT_FRAME_STATUS_ENQUE;
-						memcpy(&g_FDVT_ReqRing
-						       .FDVTReq_Struct
-						       [g_FDVT_ReqRing
-						       .WriteIdx]
-						       .FdvtFrameConfig
-						       [g_FDVT_ReqRing
-						       .FDVTReq_Struct
-						       [g_FDVT_ReqRing
-						       .WriteIdx].FrameWRIdx++],
-						       &g_FdvtEnqueReq_Struct
-						       .FdvtFrameConfig[idx],
-						       sizeof(FDVT_Config));
-					}
-					g_FDVT_ReqRing
-					.FDVTReq_Struct
-					[g_FDVT_ReqRing
-					.WriteIdx].State =
-					    FDVT_REQUEST_STATE_PENDING;
-					FdvtWriteIdx = g_FDVT_ReqRing.WriteIdx;
-					g_FDVT_ReqRing.WriteIdx =
-					(g_FDVT_ReqRing.WriteIdx +
-					1) %
-					_SUPPORT_MAX_FDVT_REQUEST_RING_SIZE_;
-					log_dbg("FDVT request enque done!!\n");
-				} else {
-					log_err("Enque req NG: WriteIdx(%d) Stat(%d) FrameWRIdx(%d) enqueReqNum(%d)\n",
-					     g_FDVT_ReqRing.WriteIdx,
-					     g_FDVT_ReqRing
-					     .FDVTReq_Struct
-					     [g_FDVT_ReqRing.WriteIdx]
-					     .State,
-					     g_FDVT_ReqRing
-					     .FDVTReq_Struct
-					     [g_FDVT_ReqRing.WriteIdx]
-					     .FrameWRIdx,
-					     g_FDVT_ReqRing
-					     .FDVTReq_Struct
-					     [g_FDVT_ReqRing.WriteIdx]
-					     .enqueReqNum);
-				}
+	for (idx = 0;
+	     idx < fdvt_FdvtReq.m_ReqNum;
+	     idx++) {
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.WriteIdx].FdvtFrameStatus
+		[g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.WriteIdx].FrameWRIdx] =
+		FDVT_FRAME_STATUS_ENQUE;
+		memcpy(&g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.WriteIdx].FdvtFrameConfig
+		[g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.WriteIdx].FrameWRIdx++],
+		&g_FdvtEnqueReq_Struct.FdvtFrameConfig[idx],
+		sizeof(FDVT_Config));
+		}
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.WriteIdx].State =
+	FDVT_REQUEST_STATE_PENDING;
+	FdvtWriteIdx = g_FDVT_ReqRing.WriteIdx;
+	g_FDVT_ReqRing.WriteIdx =
+	(g_FDVT_ReqRing.WriteIdx +
+	1) %
+	_SUPPORT_MAX_FDVT_REQUEST_RING_SIZE_;
+	log_dbg("FDVT request enque done!!\n");
+	} else {
+		log_err("Enque req NG: WriteIdx(%d) Stat(%d) FrameWRIdx(%d) enqueReqNum(%d)\n",
+	  g_FDVT_ReqRing.WriteIdx,
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.WriteIdx].State,
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.WriteIdx].FrameWRIdx,
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.WriteIdx].enqueReqNum);
+	}
 				spin_unlock_irqrestore(&
-						(FDVTInfo
-						.SpinLockIrq
+						(FDVTInfo.SpinLockIrq
 						[FDVT_IRQ_TYPE_INT_FDVT_ST]),
 						flags);
 				log_dbg("ConfigFDVT Request!!\n");
@@ -2650,34 +3151,26 @@ static long FDVT_ioctl(struct file *pFile,
 		}
 	case FDVT_DEQUE_NUM:
 		{
-			if (FDVT_REQUEST_STATE_FINISHED ==
-			    g_FDVT_ReqRing
-			    .FDVTReq_Struct
-			    [g_FDVT_ReqRing.ReadIdx]
-			    .State) {
-				dequeNum =
-				    g_FDVT_ReqRing
-				    .FDVTReq_Struct
-				    [g_FDVT_ReqRing.ReadIdx]
-				    .enqueReqNum;
-				log_dbg("FDVT_DEQUE_NUM(%d)\n", dequeNum);
-			} else {
-				dequeNum = 0;
-				log_err("DEQUE_NUM:No Buffer: ReadIdx(%d) State(%d) RrameRDIdx(%d) enqueReqNum(%d)\n",
-				     g_FDVT_ReqRing.ReadIdx,
-				     g_FDVT_ReqRing
-				     .FDVTReq_Struct
-				     [g_FDVT_ReqRing.ReadIdx]
-				     .State,
-				     g_FDVT_ReqRing
-				     .FDVTReq_Struct
-				     [g_FDVT_ReqRing.ReadIdx]
-				     .RrameRDIdx,
-				     g_FDVT_ReqRing
-				     .FDVTReq_Struct
-				     [g_FDVT_ReqRing.ReadIdx]
-				     .enqueReqNum);
-			}
+if (FDVT_REQUEST_STATE_FINISHED ==
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.ReadIdx].
+	State) {
+	dequeNum =
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.ReadIdx].enqueReqNum;
+	log_dbg("FDVT_DEQUE_NUM(%d)\n", dequeNum);
+	} else {
+		dequeNum = 0;
+		log_err("DEQUE_NUM:No Buffer: ReadIdx(%d) State(%d) RrameRDIdx(%d) enqueReqNum(%d)\n",
+		g_FDVT_ReqRing.ReadIdx,
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].State,
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].RrameRDIdx,
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].
+		enqueReqNum);
+	}
 			if (copy_to_user((void *)Param,
 			    &dequeNum, sizeof(unsigned int)) != 0) {
 				log_err("FDVT_DEQUE_NUM copy_to_user failed\n");
@@ -2693,116 +3186,85 @@ static long FDVT_ioctl(struct file *pFile,
 					  (FDVTInfo.SpinLockIrq
 					  [FDVT_IRQ_TYPE_INT_FDVT_ST]),
 					  flags);
-			if ((FDVT_REQUEST_STATE_FINISHED ==
-			     g_FDVT_ReqRing
-			     .FDVTReq_Struct
-			     [g_FDVT_ReqRing.ReadIdx]
-			     .State)
-			    && (g_FDVT_ReqRing
-				.FDVTReq_Struct
-				[g_FDVT_ReqRing.ReadIdx]
-				.RrameRDIdx <
-				g_FDVT_ReqRing
-				.FDVTReq_Struct
-				[g_FDVT_ReqRing.ReadIdx]
-				.enqueReqNum)) {
-				/* dequeNum = g_DVE_RequestRing.
-				 * DVEReq_Struct[g_DVE_RequestRing.ReadIdx]
-				 *.enqueReqNum;
-				 */
-				if (FDVT_FRAME_STATUS_FINISHED ==
-				    g_FDVT_ReqRing.FDVTReq_Struct
-				    [g_FDVT_ReqRing.ReadIdx]
-				    .FdvtFrameStatus[g_FDVT_ReqRing
-						    .FDVTReq_Struct
-						    [g_FDVT_ReqRing.ReadIdx]
-						    .RrameRDIdx]) {
+if ((FDVT_REQUEST_STATE_FINISHED ==
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.ReadIdx].State)
+	&& (g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.ReadIdx].RrameRDIdx <
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.ReadIdx].enqueReqNum)) {
+	/* dequeNum = g_DVE_RequestRing.
+	 * DVEReq_Struct[g_DVE_RequestRing.ReadIdx]
+	 *.enqueReqNum;
+	 */
+	if (FDVT_FRAME_STATUS_FINISHED ==
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].FdvtFrameStatus
+		[g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].RrameRDIdx]) {
 
-					memcpy(&fdvt_FdvtConfig,
-					       &g_FDVT_ReqRing
-					       .FDVTReq_Struct
-					       [g_FDVT_ReqRing.ReadIdx]
-					       .FdvtFrameConfig
-					       [g_FDVT_ReqRing
-					       .FDVTReq_Struct
-					       [g_FDVT_ReqRing
-					       .ReadIdx].RrameRDIdx],
-					       sizeof(FDVT_Config));
-					g_FDVT_ReqRing
-					.FDVTReq_Struct[g_FDVT_ReqRing
-						       .ReadIdx]
-						       .FdvtFrameStatus
-						       [g_FDVT_ReqRing
-						       .FDVTReq_Struct
-						       [g_FDVT_ReqRing
-						       .ReadIdx]
-						       .RrameRDIdx++] =
-						       FDVT_FRAME_STATUS_EMPTY;
-				}
-				if (g_FDVT_ReqRing.FDVTReq_Struct
-				    [g_FDVT_ReqRing.ReadIdx]
-				    .RrameRDIdx ==
-				    g_FDVT_ReqRing
-				    .FDVTReq_Struct
-				    [g_FDVT_ReqRing.ReadIdx]
-				    .enqueReqNum) {
-					g_FDVT_ReqRing
-						.FDVTReq_Struct[g_FDVT_ReqRing
-						.ReadIdx].State =
-						FDVT_REQUEST_STATE_EMPTY;
-					g_FDVT_ReqRing
-						.FDVTReq_Struct[g_FDVT_ReqRing
-						.ReadIdx].FrameWRIdx = 0;
-					g_FDVT_ReqRing
-						.FDVTReq_Struct[g_FDVT_ReqRing
-						.ReadIdx].RrameRDIdx = 0;
-					g_FDVT_ReqRing
-						.FDVTReq_Struct[g_FDVT_ReqRing
-						.ReadIdx].enqueReqNum = 0;
-					g_FDVT_ReqRing.ReadIdx =
-					(g_FDVT_ReqRing.ReadIdx +
-					 1) %
-					 _SUPPORT_MAX_FDVT_REQUEST_RING_SIZE_;
-					log_dbg(
-					"FDVT ReadIdx(%d)\n",
-					g_FDVT_ReqRing.ReadIdx);
-				}
-				spin_unlock_irqrestore(&
-						(FDVTInfo
-						.SpinLockIrq
-						[FDVT_IRQ_TYPE_INT_FDVT_ST]),
-						flags);
-				if (copy_to_user
-				    ((void *)Param,
-				     &g_FDVT_ReqRing
-				     .FDVTReq_Struct
-				     [g_FDVT_ReqRing.ReadIdx]
-				     .FdvtFrameConfig[g_FDVT_ReqRing
-						     .FDVTReq_Struct
-						     [g_FDVT_ReqRing.ReadIdx]
-						     .RrameRDIdx],
-				     sizeof(FDVT_Config)) != 0) {
-					log_err("FDVT_DEQUE copy_to_user failed\n");
-					Ret = -EFAULT;
-				}
+		memcpy(&fdvt_FdvtConfig,
+		&g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].
+		FdvtFrameConfig
+		[g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].RrameRDIdx],
+		sizeof(FDVT_Config));
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].FdvtFrameStatus
+		[g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].RrameRDIdx++] =
+		FDVT_FRAME_STATUS_EMPTY;
+		}
+	if (g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].RrameRDIdx ==
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].enqueReqNum) {
 
-			} else {
-				spin_unlock_irqrestore(&
-						(FDVTInfo
-						.SpinLockIrq
-						[FDVT_IRQ_TYPE_INT_FDVT_ST]),
-						flags);
-				log_err("FDVT_DEQUE No Buffer: ReadIdx(%d)State(%d) RrameRDIdx(%d), enqueReqNum(%d)\n",
-				     g_FDVT_ReqRing.ReadIdx,
-				     g_FDVT_ReqRing.FDVTReq_Struct
-				     [g_FDVT_ReqRing.ReadIdx].State,
-				     g_FDVT_ReqRing
-				     .FDVTReq_Struct[g_FDVT_ReqRing.ReadIdx]
-				     .RrameRDIdx,
-				     g_FDVT_ReqRing
-				     .FDVTReq_Struct[g_FDVT_ReqRing.ReadIdx]
-				     .enqueReqNum);
-			}
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].State =
+		FDVT_REQUEST_STATE_EMPTY;
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].FrameWRIdx = 0;
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].RrameRDIdx = 0;
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].enqueReqNum = 0;
+		g_FDVT_ReqRing.ReadIdx =
+		(g_FDVT_ReqRing.ReadIdx + 1) %
+		_SUPPORT_MAX_FDVT_REQUEST_RING_SIZE_;
+		log_dbg(
+		"FDVT ReadIdx(%d)\n",
+		g_FDVT_ReqRing.ReadIdx);
+		}
+	spin_unlock_irqrestore(&
+			(FDVTInfo.SpinLockIrq
+			[FDVT_IRQ_TYPE_INT_FDVT_ST]),
+			flags);
+	if (copy_to_user
+		((void *)Param,
+		&g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].FdvtFrameConfig
+		[g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].RrameRDIdx],
+		sizeof(FDVT_Config)) != 0) {
+		log_err("FDVT_DEQUE copy_to_user failed\n");
+		Ret = -EFAULT;
+		}
+	} else {
+		spin_unlock_irqrestore(&
+		(FDVTInfo.SpinLockIrq
+		[FDVT_IRQ_TYPE_INT_FDVT_ST]),
+		flags);
+		log_err("FDVT_DEQUE No Buffer: ReadIdx(%d)State(%d) RrameRDIdx(%d), enqueReqNum(%d)\n",
+		g_FDVT_ReqRing.ReadIdx,
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].State,
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].RrameRDIdx,
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].enqueReqNum);
+	}
 
 			break;
 		}
@@ -2813,115 +3275,78 @@ static long FDVT_ioctl(struct file *pFile,
 				/* Protect the Multi Process */
 				mutex_lock(&gFdvtDequeMutex);
 
-				spin_lock_irqsave(&(FDVTInfo
-						  .SpinLockIrq
+				spin_lock_irqsave(&(FDVTInfo.SpinLockIrq
 						  [FDVT_IRQ_TYPE_INT_FDVT_ST]),
 						  flags);
 
-				if (FDVT_REQUEST_STATE_FINISHED ==
-				    g_FDVT_ReqRing
-				    .FDVTReq_Struct
-				    [g_FDVT_ReqRing.ReadIdx]
-				    .State) {
-					dequeNum =
-					    g_FDVT_ReqRing
-					    .FDVTReq_Struct
-					    [g_FDVT_ReqRing
-					    .ReadIdx]
-					    .enqueReqNum;
-					log_dbg(
-					"FDVT_DEQUE_REQ(%d)\n", dequeNum);
-				} else {
-					dequeNum = 0;
-					log_err("DEQUE_REQ no buf:RIdx(%d) Stat(%d) RrameRDIdx(%d) enqueReqNum(%d)\n",
-					     g_FDVT_ReqRing.ReadIdx,
-					     g_FDVT_ReqRing
-					     .FDVTReq_Struct
-					     [g_FDVT_ReqRing.ReadIdx]
-					     .State,
-					     g_FDVT_ReqRing
-					     .FDVTReq_Struct
-					     [g_FDVT_ReqRing.ReadIdx]
-					     .RrameRDIdx,
-					     g_FDVT_ReqRing
-					     .FDVTReq_Struct
-					     [g_FDVT_ReqRing.ReadIdx]
-					     .enqueReqNum);
-				}
+if (FDVT_REQUEST_STATE_FINISHED ==
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.ReadIdx].State) {
+	dequeNum =
+	g_FDVT_ReqRing.FDVTReq_Struct
+	[g_FDVT_ReqRing.ReadIdx].enqueReqNum;
+	log_dbg(
+	"FDVT_DEQUE_REQ(%d)\n", dequeNum);
+	} else {
+		dequeNum = 0;
+		log_err("DEQUE_REQ no buf:RIdx(%d) Stat(%d) RrameRDIdx(%d) enqueReqNum(%d)\n",
+		g_FDVT_ReqRing.ReadIdx,
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].State,
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].RrameRDIdx,
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].enqueReqNum);
+	}
 				fdvt_FdvtReq.m_ReqNum = dequeNum;
 
-				for (idx = 0; idx < dequeNum; idx++) {
-					if (FDVT_FRAME_STATUS_FINISHED ==
-					    g_FDVT_ReqRing
-					    .FDVTReq_Struct
-					    [g_FDVT_ReqRing.ReadIdx]
-					    .FdvtFrameStatus[g_FDVT_ReqRing
-							   .FDVTReq_Struct
-							   [g_FDVT_ReqRing
-							   .ReadIdx]
-							   .RrameRDIdx]) {
-
-						memcpy(&g_FdvtDequeReq_Struct
-						       .FdvtFrameConfig[idx],
-						       &g_FDVT_ReqRing
-						       .FDVTReq_Struct
-						       [g_FDVT_ReqRing
-						       .ReadIdx]
-						       .FdvtFrameConfig
-						       [g_FDVT_ReqRing
-						       .FDVTReq_Struct
-						       [g_FDVT_ReqRing.ReadIdx]
-						       .RrameRDIdx],
-						       sizeof(FDVT_Config));
-						g_FDVT_ReqRing
-						.FDVTReq_Struct
-						[g_FDVT_ReqRing.ReadIdx]
-						.FdvtFrameStatus[g_FDVT_ReqRing
-						.FDVTReq_Struct
-						[g_FDVT_ReqRing.ReadIdx]
-						.RrameRDIdx++] =
-						    FDVT_FRAME_STATUS_EMPTY;
-					} else {
-						log_err("deq err idx(%d) dequNum(%d) Rd(%d) RrameRD(%d) FrmStat(%d)\n",
-						idx, dequeNum,
-						g_FDVT_ReqRing.ReadIdx,
-						g_FDVT_ReqRing
-						.FDVTReq_Struct
-						[g_FDVT_ReqRing.ReadIdx]
-						.RrameRDIdx,
-						g_FDVT_ReqRing
-						.FDVTReq_Struct
-						[g_FDVT_ReqRing.ReadIdx]
-						.FdvtFrameStatus
-						[g_FDVT_ReqRing
-						.FDVTReq_Struct
-						[g_FDVT_ReqRing.ReadIdx]
-						.RrameRDIdx]);
-					}
-				}
-				g_FDVT_ReqRing
-				    .FDVTReq_Struct[g_FDVT_ReqRing.ReadIdx]
-				    .State = FDVT_REQUEST_STATE_EMPTY;
-				g_FDVT_ReqRing
-				    .FDVTReq_Struct[g_FDVT_ReqRing.ReadIdx]
-				    .FrameWRIdx = 0;
-				g_FDVT_ReqRing
-				    .FDVTReq_Struct[g_FDVT_ReqRing.ReadIdx]
-				    .RrameRDIdx = 0;
-				g_FDVT_ReqRing
-				    .FDVTReq_Struct[g_FDVT_ReqRing.ReadIdx]
-				    .enqueReqNum = 0;
+for (idx = 0; idx < dequeNum; idx++) {
+	if (FDVT_FRAME_STATUS_FINISHED ==
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].FdvtFrameStatus
+		[g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].RrameRDIdx]){
+		memcpy(&
+		g_FdvtDequeReq_Struct.FdvtFrameConfig[idx],
+		&g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].FdvtFrameConfig
+		[g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].RrameRDIdx],
+		sizeof(FDVT_Config));
+		g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].FdvtFrameStatus
+		[g_FDVT_ReqRing.FDVTReq_Struct
+		[g_FDVT_ReqRing.ReadIdx].RrameRDIdx++]
+		= FDVT_FRAME_STATUS_EMPTY;
+		} else {
+			log_err("deq err idx(%d) dequNum(%d) Rd(%d) RrameRD(%d) FrmStat(%d)\n",
+			idx, dequeNum,
+			g_FDVT_ReqRing.ReadIdx,
+			g_FDVT_ReqRing.FDVTReq_Struct
+			[g_FDVT_ReqRing.ReadIdx].RrameRDIdx,
+			g_FDVT_ReqRing.FDVTReq_Struct
+			[g_FDVT_ReqRing.ReadIdx].FdvtFrameStatus
+			[g_FDVT_ReqRing.FDVTReq_Struct
+			[g_FDVT_ReqRing.ReadIdx].RrameRDIdx]);
+		}
+}
+g_FDVT_ReqRing.FDVTReq_Struct[g_FDVT_ReqRing.ReadIdx].State
+		= FDVT_REQUEST_STATE_EMPTY;
+g_FDVT_ReqRing.FDVTReq_Struct[g_FDVT_ReqRing.ReadIdx].FrameWRIdx
+		= 0;
+g_FDVT_ReqRing.FDVTReq_Struct[g_FDVT_ReqRing.ReadIdx].RrameRDIdx
+		= 0;
+g_FDVT_ReqRing.FDVTReq_Struct[g_FDVT_ReqRing.ReadIdx].enqueReqNum
+		= 0;
 				g_FDVT_ReqRing.ReadIdx =
 				    (g_FDVT_ReqRing.ReadIdx +
 				     1) % _SUPPORT_MAX_FDVT_REQUEST_RING_SIZE_;
 				log_dbg("FDVT Request ReadIdx(%d)\n",
 					 g_FDVT_ReqRing.ReadIdx);
 
-				spin_unlock_irqrestore(&
-						(FDVTInfo
-						.SpinLockIrq
-						[FDVT_IRQ_TYPE_INT_FDVT_ST]),
-						flags);
+spin_unlock_irqrestore(&
+		(FDVTInfo.SpinLockIrq[FDVT_IRQ_TYPE_INT_FDVT_ST]),
+		flags);
 
 				mutex_unlock(&gFdvtDequeMutex);
 
@@ -3354,7 +3779,7 @@ EXIT:
  *****************************************************************************/
 static signed int FDVT_mmap(struct file *pFile, struct vm_area_struct *pVma)
 {
-	unsigned long length = 0;
+	long length = 0;
 	unsigned int pfn = 0x0;
 
 	length = pVma->vm_end - pVma->vm_start;
@@ -3408,7 +3833,47 @@ static const struct file_operations FDVTFileOper = {
 	.compat_ioctl = FDVT_ioctl_compat,
 #endif
 };
+/**************************************************************
+ *
+ **************************************************************/
+#ifdef CONFIG_MTK_IOMMU_V2
+enum mtk_iommu_callback_ret_t FDVT_M4U_TranslationFault_callback(int port,
+	unsigned int mva, void *data)
+#else
+enum m4u_callback_ret_t FDVT_M4U_TranslationFault_callback(int port,
+	unsigned int mva, void *data)
+#endif
+{
 
+	pr_info("[FDVT_M4U]fault call port=%d, mva=0x%x", port, mva);
+
+	switch (port) {
+	case M4U_PORT_FDVT_RDA:
+	case M4U_PORT_FDVT_RDB:
+	case M4U_PORT_FDVT_WRA:
+	case M4U_PORT_FDVT_WRB:
+	default:  //ISP_FDVT_BASE = 0x1b001000
+		pr_info("FDVT_IN_BASE_ADR_0:0x%08x, FDVT_IN_BASE_ADR_1:0x%08x, FDVT_IN_BASE_ADR_2:0x%08x, FDVT_IN_BASE_ADR_3:0x%08x\n",
+			FDVT_RD32(FDVT_IN_BASE_ADR_0_REG),
+			FDVT_RD32(FDVT_IN_BASE_ADR_1_REG),
+			FDVT_RD32(FDVT_IN_BASE_ADR_2_REG),
+			FDVT_RD32(FDVT_IN_BASE_ADR_3_REG));
+		pr_info("FDVT_OUT_BASE_ADR_0:0x%08x, FDVT_OUT_BASE_ADR_1:0x%08x, FDVT_OUT_BASE_ADR_2:0x%08x, FDVT_OUT_BASE_ADR_3:0x%08x\n",
+			FDVT_RD32(FDVT_OUT_BASE_ADR_0_REG),
+			FDVT_RD32(FDVT_OUT_BASE_ADR_1_REG),
+			FDVT_RD32(FDVT_OUT_BASE_ADR_2_REG),
+			FDVT_RD32(FDVT_OUT_BASE_ADR_3_REG));
+		pr_info("FDVT_KERNEL_BASE_ADR_0:0x%08x, FDVT_KERNEL_BASE_ADR_1:0x%08x\n",
+			FDVT_RD32(FDVT_KERNEL_BASE_ADR_0_REG),
+			FDVT_RD32(FDVT_KERNEL_BASE_ADR_1_REG));
+	break;
+	}
+#ifdef CONFIG_MTK_IOMMU_V2
+	return MTK_IOMMU_CALLBACK_HANDLED;
+#else
+	return M4U_CALLBACK_HANDLED;
+#endif
+}
 /*****************************************************************************
  *
  *****************************************************************************/
@@ -3524,6 +3989,8 @@ static signed int FDVT_probe(struct platform_device *pDev)
 	/* get IRQ ID and request IRQ */
 	FDVT_dev->irq = irq_of_parse_and_map(pDev->dev.of_node, 0);
 
+	FDVTInfo.IrqNum = FDVT_dev->irq;
+
 	if (FDVT_dev->irq > 0) {
 		/* Get IRQ Flag from device node */
 		if (of_property_read_u32_array
@@ -3540,12 +4007,10 @@ static signed int FDVT_probe(struct platform_device *pDev)
 				Ret =
 				    request_irq(FDVT_dev->irq,
 						(irq_handler_t)
-						FDVT_IRQ_CB_TBL[i]
-						.isr_fp,
+						FDVT_IRQ_CB_TBL[i].isr_fp,
 						irq_info[2],
 						(const char *)
-						FDVT_IRQ_CB_TBL[i]
-						.device_name,
+						FDVT_IRQ_CB_TBL[i].device_name,
 						NULL);
 				if (Ret) {
 					dev_dbg(&pDev->dev,
@@ -3734,8 +4199,8 @@ static signed int FDVT_probe(struct platform_device *pDev)
 		FDVTInfo.UserCount = 0;
 		spin_unlock(&(FDVTInfo.SpinLockFDVTRef));
 		/*  */
-		FDVTInfo.IrqInfo
-		.Mask[FDVT_IRQ_TYPE_INT_FDVT_ST] = INT_ST_MASK_FDVT;
+		FDVTInfo.IrqInfo.Mask[FDVT_IRQ_TYPE_INT_FDVT_ST]
+		= INT_ST_MASK_FDVT;
 
 	}
 
@@ -3984,27 +4449,19 @@ static int fdvt_dump_read(struct seq_file *m, void *v)
 			   g_FDVT_ReqRing.FDVTReq_Struct[i].FrameWRIdx,
 			   g_FDVT_ReqRing.FDVTReq_Struct[i].RrameRDIdx);
 
-		for (j = 0; j < _SUPPORT_MAX_FDVT_FRAME_REQUEST_;) {
-			seq_printf(m,
-				   "FDVT:FrameStatus[%d]:%d, FrameStatus[%d]:%d, FrameStatus[%d]:%d, FrameStatus[%d]:%d\n",
-				   j,
-				   g_FDVT_ReqRing
-				   .FDVTReq_Struct[i]
-				   .FdvtFrameStatus[j],
-				   j + 1,
-				   g_FDVT_ReqRing
-				   .FDVTReq_Struct[i]
-				   .FdvtFrameStatus[j + 1],
-				   j + 2,
-				   g_FDVT_ReqRing
-				   .FDVTReq_Struct[i]
-				   .FdvtFrameStatus[j + 2]
-				   , j + 3,
-				   g_FDVT_ReqRing
-				   .FDVTReq_Struct[i]
-				   .FdvtFrameStatus[j + 3]);
-			j = j + 4;
-		}
+for (j = 0; j < _SUPPORT_MAX_FDVT_FRAME_REQUEST_;) {
+	seq_printf(m,
+	"FDVT:FrameStatus[%d]:%d, FrameStatus[%d]:%d, FrameStatus[%d]:%d, FrameStatus[%d]:%d\n",
+	j,
+	g_FDVT_ReqRing.FDVTReq_Struct[i].FdvtFrameStatus[j],
+	j + 1,
+	g_FDVT_ReqRing.FDVTReq_Struct[i].FdvtFrameStatus[j + 1],
+	j + 2,
+	g_FDVT_ReqRing.FDVTReq_Struct[i].FdvtFrameStatus[j + 2],
+	j + 3,
+	g_FDVT_ReqRing.FDVTReq_Struct[i].FdvtFrameStatus[j + 3]);
+	j = j + 4;
+}
 	}
 
 	seq_puts(m, "\n============ fdvt dump debug ============\n");
@@ -4208,8 +4665,8 @@ static signed int __init FDVT_Init(void)
 	void *tmp;
 	/* FIX-ME: linux-3.10 procfs API changed */
 	/* use proc_create */
-	struct proc_dir_entry *proc_entry;
-	struct proc_dir_entry *isp_fdvt_dir;
+	/*struct proc_dir_entry *proc_entry;*/
+	/*struct proc_dir_entry *isp_fdvt_dir;*/
 
 
 	int i;
@@ -4238,20 +4695,20 @@ static signed int __init FDVT_Init(void)
 	log_dbg("ISP_FDVT_BASE: %lx\n", ISP_FDVT_BASE);
 #endif
 
-	isp_fdvt_dir = proc_mkdir("fdvt", NULL);
-	if (!isp_fdvt_dir) {
-		log_err("[%s]: fail to mkdir /proc/fdvt\n", __func__);
-		return 0;
-	}
+	/*isp_fdvt_dir = proc_mkdir("fdvt", NULL);*/
+	/*if (!isp_fdvt_dir) {*/
+	/*	log_err("[%s]: fail to mkdir /proc/fdvt\n", __func__);*/
+	/*	return 0;*/
+	/*}*/
 
 	// proc_entry = proc_create("pll_test", S_IRUGO | S_IWUSR,
 	// isp_fdvt_dir, &pll_test_proc_fops);
 
-	proc_entry = proc_create("fdvt_dump", 0444,
-				 isp_fdvt_dir, &fdvt_dump_proc_fops);
+	/*proc_entry = proc_create("fdvt_dump", 0444,*/
+	/*			 isp_fdvt_dir, &fdvt_dump_proc_fops);*/
 
-	proc_entry = proc_create("fdvt_reg", 0644,
-				 isp_fdvt_dir, &fdvt_reg_proc_fops);
+	/*proc_entry = proc_create("fdvt_reg", 0644,*/
+	/*			 isp_fdvt_dir, &fdvt_reg_proc_fops);*/
 
 
 	/* isr log */
@@ -4375,14 +4832,15 @@ static irqreturn_t ISP_Irq_FDVT(signed int Irq, void *DeviceId)
 		FDVT_WR32(FDVT_START_REG, 0);
 #endif
 		bResulst = UpdateFDVT(&ProcessID);
+
 		/* ConfigFDVT(); */
 		if (bResulst == MTRUE) {
 			schedule_work(&FDVTInfo.ScheduleFdvtWork);
 #ifdef FDVT_USE_GCE
-			FDVTInfo.IrqInfo
-			.Status[FDVT_IRQ_TYPE_INT_FDVT_ST] |= FDVT_INT_ST;
-			FDVTInfo.IrqInfo
-			.ProcessID[FDVT_PROCESS_ID_FDVT] = ProcessID;
+			FDVTInfo.IrqInfo.Status[FDVT_IRQ_TYPE_INT_FDVT_ST]
+			|= FDVT_INT_ST;
+			FDVTInfo.IrqInfo.ProcessID[FDVT_PROCESS_ID_FDVT]
+			= ProcessID;
 			FDVTInfo.IrqInfo.FdvtIrqCnt++;
 			FDVTInfo.ProcessID[FDVTInfo.WriteReqIdx] = ProcessID;
 			FDVTInfo.WriteReqIdx =
@@ -4401,10 +4859,10 @@ static irqreturn_t ISP_Irq_FDVT(signed int Irq, void *DeviceId)
 #endif
 
 #else
-			FDVTInfo.IrqInfo
-			.Status[FDVT_IRQ_TYPE_INT_FDVT_ST] |= FDVT_INT_ST;
-			FDVTInfo.IrqInfo
-			.ProcessID[FDVT_PROCESS_ID_FDVT] = ProcessID;
+			FDVTInfo.IrqInfo.Status[FDVT_IRQ_TYPE_INT_FDVT_ST]
+			|= FDVT_INT_ST;
+			FDVTInfo.IrqInfo.ProcessID[FDVT_PROCESS_ID_FDVT]
+			= ProcessID;
 #endif
 		}
 #ifdef __FDVT_KERNEL_PERFORMANCE_MEASURE__
@@ -4427,10 +4885,9 @@ static irqreturn_t ISP_Irq_FDVT(signed int Irq, void *DeviceId)
 	 *  "FdvtHWSta:0x%x, FdvtHWSta:0x%x,
 	 *  DpeDveSta0:0x%x\n", DveStatus, FdvtStatus, DpeDveSta0);
 	 */
-
 	if (FdvtStatus & FDVT_INT_ST)
-		tasklet_schedule(FDVT_tasklet[FDVT_IRQ_TYPE_INT_FDVT_ST]
-				.pFDVT_tkt);
+		tasklet_schedule(FDVT_tasklet
+					[FDVT_IRQ_TYPE_INT_FDVT_ST].pFDVT_tkt);
 
 	return IRQ_HANDLED;
 }

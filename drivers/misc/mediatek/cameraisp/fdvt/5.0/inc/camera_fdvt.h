@@ -41,7 +41,7 @@
 
 #define FDVT_REG_RANGE           (0x1000)
 
-#define FDVT_BASE_HW   0x1500B000
+#define FDVT_BASE_HW   0x1502B000
 
 
 /*This macro is for setting irq status represnted
@@ -49,6 +49,7 @@
  */
 #define FDVT_INT_ST                 (1<<0)
 
+extern void mt_irq_dump_status(int irq);
 
 struct FDVT_REG_STRUCT {
 	unsigned int module;
@@ -94,6 +95,7 @@ struct FDVT_WAIT_IRQ_STRUCT {
 	int UserKey;		/* user key for doing interrupt operation */
 	int ProcessID;		/* user ProcessID (will filled in kernel) */
 	unsigned int bDumpReg;	/* check dump register or not */
+	bool isSecure;
 };
 #define FDVT_WAIT_IRQ_STRUCT struct FDVT_WAIT_IRQ_STRUCT
 
@@ -103,6 +105,37 @@ struct FDVT_CLEAR_IRQ_STRUCT {
 	unsigned int Status;	/* Input */
 };
 #define FDVT_CLEAR_IRQ_STRUCT struct FDVT_CLEAR_IRQ_STRUCT
+
+struct FDVT_MetaDataToGCE {
+	unsigned int ImgSrcY_Handler;
+	unsigned int ImgSrcUV_Handler;
+	unsigned int YUVConfig_Handler;
+	unsigned int YUVOutBuf_Handler;
+	unsigned int RSConfig_Handler;
+	unsigned int RSOutBuf_Handler;
+	unsigned int FDConfig_Handler;
+	unsigned int FDOutBuf_Handler;
+	unsigned int FDResultBuf_MVA;
+	unsigned int ImgSrc_Y_Size;
+	unsigned int ImgSrc_UV_Size;
+	unsigned int YUVConfigSize;
+	unsigned int YUVOutBufSize;
+	unsigned int RSConfigSize;
+	unsigned int RSOutBufSize;
+	unsigned int FDConfigSize;
+	unsigned int FDOutBufSize;
+	unsigned int FDResultBufSize;
+	unsigned int FDMode;
+	unsigned int srcImgFmt;
+	unsigned int srcImgWidth;
+	unsigned int srcImgHeight;
+	unsigned int maxWidth;
+	unsigned int maxHeight;
+	unsigned int rotateDegree;
+	unsigned short featureTH;
+	unsigned short SecMemType;
+};
+#define FDVT_MetaDataToGCE struct FDVT_MetaDataToGCE
 
 struct FDVT_Config {
 	/*fdvt_reg_t REG_STRUCT;*/
@@ -114,6 +147,11 @@ struct FDVT_Config {
 	unsigned int FD_MODE;
 	unsigned int RESULT;
 	unsigned int RESULT1;
+	unsigned int FDVT_IS_SECURE;
+	unsigned int FDVT_RSCON_BUFSIZE;
+	unsigned int FDVT_YUV2RGBCON_BUFSIZE;
+	unsigned int FDVT_FD_CON_BUFSIZE;
+	FDVT_MetaDataToGCE FDVT_METADATA_TO_GCE;
 };
 #define FDVT_Config struct FDVT_Config
 
