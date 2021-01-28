@@ -2900,9 +2900,9 @@ void DSI_set_cmdq_V3(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 	/* UINT32 layer, layer_state, lane_num; */
 	unsigned long goto_addr, mask_para, set_para;
 	/* UINT32 fbPhysAddr, fbVirAddr; */
-	struct DSI_T0_INS t0;
+	struct DSI_T0_INS t0 = {0};
 	/* DSI_T1_INS t1; */
-	struct DSI_T2_INS t2;
+	struct DSI_T2_INS t2 = {0};
 	UINT32 index = 0;
 	unsigned char data_id, cmd, count;
 	unsigned char *para_list;
@@ -3791,7 +3791,7 @@ UINT32 DSI_dcs_read_lcm_reg_v4(enum DISP_MODULE_ENUM module,
 	/* Just read 10 bytes valid each time */
 	UINT32 VALID_DATA_SIZE = 10;
 	int dsi_i, i, ret = 0;
-	UINT8 buffer[30];
+	UINT8 buffer[30] = {0};
 	struct DSI_RX_DATA_REG read_data[4];
 	UINT32 recv_data_cnt = 0;
 	UINT32 read_data_cnt = 0;
