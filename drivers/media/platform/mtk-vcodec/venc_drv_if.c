@@ -133,11 +133,11 @@ void venc_encode_unprepare(void *ctx_unprepare,
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_unprepare;
 	disable_irq(ctx->dev->enc_irq);
+	mtk_venc_pmqos_end_frame(ctx);
 	mtk_vcodec_enc_clock_off(&ctx->dev->pm, core_id);
 	spin_lock_irqsave(&ctx->dev->irqlock, *flags);
 	ctx->dev->curr_ctx = NULL;
 	spin_unlock_irqrestore(&ctx->dev->irqlock, *flags);
-	mtk_venc_pmqos_end_frame(ctx);
 	mtk_venc_unlock(ctx, core_id);
 }
 EXPORT_SYMBOL_GPL(venc_encode_unprepare);
