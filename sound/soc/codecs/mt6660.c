@@ -368,8 +368,11 @@ static ssize_t lock_debug_read(struct file *file,
 	struct dbg_info *di = file->private_data;
 	struct dbg_internal *d = &di->internal;
 	char buf[10];
+	int ret;
 
-	snprintf(buf, sizeof(buf), "%d\n", mutex_is_locked(&d->io_lock));
+	ret = snprintf(buf, sizeof(buf), "%d\n", mutex_is_locked(&d->io_lock));
+	if (ret < 0)
+		pr_debug("%s snprintf failed\n", __func__);
 	return simple_read_from_buffer(user_buf, cnt, loff, buf, strlen(buf));
 }
 
@@ -1067,4 +1070,8 @@ EXPORT_SYMBOL(mt6660_i2c_remove);
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
 MODULE_DESCRIPTION("MT6660 SPKAMP Driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("1.0.6_G");
+MODULE_VERSION("1.0.7_G");
+
+/* 1.0.7_G
+ *	add return check for snprintf function
+ */
