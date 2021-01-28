@@ -1575,6 +1575,9 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 
 	device_init_wakeup(&pdev->dev, 1);
 
+	mt6397_rtc_suspend_lock =
+		wakeup_source_register(NULL, "mt6397-rtc suspend wakelock");
+
 	rtc->rtc_dev->ops = &mtk_rtc_ops;
 
 	ret = rtc_register_device(rtc->rtc_dev);
