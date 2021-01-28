@@ -424,6 +424,7 @@ static size_t mtkfb_ion_phys_mmu_addr(struct ion_client *client,
 		(unsigned long)&mm_data))
 		pr_info("[DISP][ION] ERR: get iova failed!\n");
 	*mva = (unsigned int)mm_data.get_phys_param.phy_addr;
+	size = (size_t)mm_data.get_phys_param.len;
 
 	MTKFB_FENCE_LOG("alloc mmu addr hnd=0x%p,mva=0x%08x\n",
 			handle, (unsigned int)*mva);
