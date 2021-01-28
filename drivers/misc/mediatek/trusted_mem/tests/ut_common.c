@@ -285,7 +285,8 @@ mem_alloc_saturation_variant(enum TRUSTED_MEM_TYPE mem_type, u8 *mem_owner,
 {
 	int ret;
 	int chunk_num;
-	u32 alignment = 0, chunk_size, ref_count;
+	u32 alignment = 0, chunk_size;
+	u32 ref_count = 0;
 	u32 one_more_handle;
 	int max_pool_size = tmem_core_get_max_pool_size(mem_type);
 	int max_items;
