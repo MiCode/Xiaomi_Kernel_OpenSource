@@ -67,11 +67,9 @@
 		};
 		fled {
 			compatible = "mediatek,mt6360_pmu_fled";
-			interrupts = <11 0>, <74 0>, <75 0>, <78 0>,
-				     <79 0>;
-			interrupt-names = "fled_chg_vinovp_evt", "fled_tx_evt",
-					  "fled_lvf_evt", "fled2_short_evt",
-					  "fled1_short_evt";
+			interrupts = <74 0>, <75 0>, <78 0>, <79 0>;
+			interrupt-names = "fled_tx_evt", "fled_lvf_evt",
+					  "fled2_short_evt", "fled1_short_evt";
 			/* 0: fixed mode, 1: tracking mode */
 			fled_vmid_track = <0>;
 			/* 64~2432ms, 32ms/step */
