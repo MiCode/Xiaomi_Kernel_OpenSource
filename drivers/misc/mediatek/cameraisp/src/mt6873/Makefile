@@ -20,7 +20,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/timer/timesync/
 ccflags-y += -I$(srctree)/include/dt-bindings/memory/
 ccflags-y += -I$(srctree)/drivers/iommu/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6885/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6873/include/
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/
 
 obj-y += camera_isp.o

@@ -343,8 +343,6 @@ enum{
 #define CAM_REG_CTL_CD_DONE_SEL(module)         (isp_devs[module].regs + 0x0058)
 #define CAM_REG_CTL_TWIN_STATUS(module)         (isp_devs[module].regs + 0x00A8)
 #define CAM_REG_CTL_MISC(module)                (isp_devs[module].regs + 0x0054)
-#define CAM_REG_CTL_DONE_SEL(module)            (isp_devs[module].regs + 0x0058)
-#define CAM_REG_CTL_DONE_SEL2(module)           (isp_devs[module].regs + 0x005C)
 #define CAM_REG_CTL_SW_PASS1_DONE(module)       (isp_devs[module].regs + 0x0080)
 #define CAM_REG_CTL_SW_SUB_CTL(module)          (isp_devs[module].regs + 0x0084)
 
@@ -467,7 +465,6 @@ enum{
 #define CAM_REG_PDO_BASE_ADDR(module)          (isp_devs[module].regs + 0x4260)
 #define CAM_REG_FLKO_BASE_ADDR(module)         (isp_devs[module].regs + 0x4580)
 #define CAM_REG_LTMSO_BASE_ADDR(module)        (isp_devs[module].regs + 0x45F0)
-#define CAM_REG_TSFSO_BASE_ADDR(module)        (isp_devs[module].regs + 0x43C0)
 
 #define CAM_REG_IMGO_DRS(module)                (isp_devs[module].regs + 0x4828)
 #define CAM_REG_IMGO_CON(module)                (isp_devs[module].regs + 0x4838)
@@ -626,12 +623,6 @@ enum{
 #define CAM_REG_BPCI_R2_CON2(module)            (isp_devs[module].regs + 0x431C)
 #define CAM_REG_BPCI_R2_CON3(module)            (isp_devs[module].regs + 0x4320)
 #define CAM_REG_BPCI_R2_CON4(module)            (isp_devs[module].regs + 0x4328)
-
-#define CAM_REG_BPCI_R3_DRS(module)             (isp_devs[module].regs + 0x4338)
-#define CAM_REG_BPCI_R3_CON(module)             (isp_devs[module].regs + 0x4348)
-#define CAM_REG_BPCI_R3_CON2(module)            (isp_devs[module].regs + 0x434C)
-#define CAM_REG_BPCI_R3_CON3(module)            (isp_devs[module].regs + 0x4350)
-#define CAM_REG_BPCI_R3_CON4(module)            (isp_devs[module].regs + 0x4358)
 
 #define CAM_REG_LSCI_DRS(module)                (isp_devs[module].regs + 0x4398)
 #define CAM_REG_LSCI_CON(module)                (isp_devs[module].regs + 0x43A8)
