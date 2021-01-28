@@ -272,7 +272,7 @@ ENTRY(idmap_kpti_install_ng_mappings)
 	/* We need to walk swapper, so turn off the MMU. */
 	mrs	x17, sctlr_el1
 	bic	x17, x17, #SCTLR_ELx_M
-	msr	sctlr_el1, x18
+	msr	sctlr_el1, x17
 	isb
 
 	/* Everybody is enjoying the idmap, so we can rewrite swapper. */
