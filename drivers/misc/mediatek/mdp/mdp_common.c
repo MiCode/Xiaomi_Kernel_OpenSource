@@ -3303,12 +3303,18 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	cmdq_pkt_jump_addr(pkt, begin_pa);
 	condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, condi_offset);
 	if (unlikely(!condi_inst)) {
-		CMDQ_ERR("%s wrong offset %u\n", condi_offset);
+		CMDQ_ERR("%s wrong offset %u\n", __func__, condi_offset);
 		return;
 	}
-	if (condi_inst[1] == 0x10000001)
+	if (condi_inst[1] == 0x10000001) {
 		condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt,
 			condi_offset + 8);
+		if (unlikely(!condi_inst)) {
+			CMDQ_ERR("%s wrong offset %u.\n", __func__, condi_offset);
+			return;
+		}
+	}
+
 	*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(cmdq_pkt_get_curr_buf_pa(pkt));
 
 	pa = pa + MDP_HDR_HIST_CNT * 4;
