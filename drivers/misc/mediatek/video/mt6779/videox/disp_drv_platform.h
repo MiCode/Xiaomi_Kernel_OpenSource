@@ -29,8 +29,8 @@
 #define MTK_FB_ALIGNMENT	32
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
-//#define MTK_FB_MMDVFS_SUPPORT
-/* #define MTK_FB_SPM_SUPPORT */
+#define MTK_FB_MMDVFS_SUPPORT
+#define MTK_FB_SPM_SUPPORT
 #endif
 
 /* 2nd display */

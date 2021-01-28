@@ -15,11 +15,7 @@
 #include "mmdvfs_pmqos.h"
 //#include <linux/pm_qos.h> //old on Q
 #include "linux/soc/mediatek/mtk-pm-qos.h"//new on R
-#endif
-
-
-#ifdef CONFIG_MTK_SMI_EXT
-#include "smi_port.h"
+#include "smi_port.h"//for SMI_PORT_DISP_XXX
 #endif
 
 #if defined(CONFIG_MTK_CMDQ)
