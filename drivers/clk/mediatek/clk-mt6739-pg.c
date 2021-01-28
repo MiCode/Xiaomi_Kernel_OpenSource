@@ -310,13 +310,20 @@ static struct subsys syss[] =	/* NR_SYSS */ /* FIXME: set correct value */
 		     },
 };
 
+spinlock_t pgcb_lock;
 LIST_HEAD(pgcb_list);
 
 struct pg_callbacks *register_pg_callback(struct pg_callbacks *pgcb)
 {
+	unsigned long spinlock_save_flags;
+
+	spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
+
 	INIT_LIST_HEAD(&pgcb->list);
 
 	list_add(&pgcb->list, &pgcb_list);
+
+	spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 
 	return pgcb;
 }
@@ -1250,6 +1257,7 @@ static int enable_subsys(enum subsys_id id)
 	unsigned long flags;
 	struct subsys *sys = id_to_sys(id);
 	struct pg_callbacks *pgcb;
+	unsigned long spinlock_save_flags;
 
 	WARN_ON(!sys);
 
@@ -1295,10 +1303,16 @@ static int enable_subsys(enum subsys_id id)
 
 	mtk_clk_unlock(flags);
 
+	spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
 	list_for_each_entry(pgcb, &pgcb_list, list) {
-		if (pgcb->after_on)
+		if (!pgcb) {
+			pr_notice("pgcb(%d) null\r\n", id);
+			WARN_ON(1);
+		}
+		if (pgcb && pgcb->after_on)
 			pgcb->after_on(id);
 	}
+	spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 
 	return r;
 }
@@ -1309,6 +1323,7 @@ static int disable_subsys(enum subsys_id id)
 	unsigned long flags;
 	struct subsys *sys = id_to_sys(id);
 	struct pg_callbacks *pgcb;
+	unsigned long spinlock_save_flags;
 
 	WARN_ON(!sys);
 
@@ -1342,10 +1357,16 @@ static int disable_subsys(enum subsys_id id)
 
 	/* TODO: check all clocks related to this subsys are off */
 	/* could be power off or not */
+	spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
 	list_for_each_entry_reverse(pgcb, &pgcb_list, list) {
-		if (pgcb->before_off)
+		if (!pgcb) {
+			pr_notice("pgcb(%d) null\r\n", id);
+			WARN_ON(1);
+		}
+		if (pgcb && pgcb->before_off)
 			pgcb->before_off(id);
 	}
+	spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 
 	mtk_clk_lock(flags);
 
@@ -1728,6 +1749,7 @@ static void __init mt_scpsys_init(struct device_node *node)
 	spm_mtcmos_ctrl_vcodec(STA_POWER_ON);
 #endif
 #endif				/* !MT_CCF_BRINGUP */
+	spin_lock_init(&pgcb_lock);
 }
 
 CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,scpsys", mt_scpsys_init);
