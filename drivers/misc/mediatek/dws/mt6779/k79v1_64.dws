@@ -78,13 +78,6 @@
                 <sensitive_level>Level</sensitive_level>
                 <debounce_en>Enable</debounce_en>
             </eint8>
-            <eint9>
-                <varName>ACCDET</varName>
-                <debounce_time>256</debounce_time>
-                <polarity>Low</polarity>
-                <sensitive_level>Level</sensitive_level>
-                <debounce_en>Enable</debounce_en>
-            </eint9>
             <eint35>
                 <varName>GOODIX_FP</varName>
                 <debounce_time>0</debounce_time>
