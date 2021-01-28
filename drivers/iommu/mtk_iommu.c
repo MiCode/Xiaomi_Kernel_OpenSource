@@ -407,7 +407,57 @@ static void mtk_iommu_domain_free(struct iommu_domain *domain)
 	kfree(to_mtk_domain(domain));
 }
 
-#ifndef CONFIG_ARM64
+#ifdef CONFIG_ARM64
+static void mtk_iommu_get_resv_regions(struct device *dev,
+				      struct list_head *head)
+{
+	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data();
+	unsigned int i, total_cnt = data->plat_data->spec_cnt;
+	const struct mtk_iommu_resv_iova_region *spec_data;
+	struct iommu_resv_region *region;
+	unsigned long base = 0;
+	size_t size = 0;
+	int prot = IOMMU_WRITE | IOMMU_READ;
+
+	if (!total_cnt || !of_device_is_compatible(dev->of_node,
+				data->plat_data->spec_device_comp))
+		return;
+
+	spec_data = data->plat_data->spec_region;
+
+	for (i = 0; i < total_cnt; i++) {
+		size = 0;
+		if (spec_data[i].iova_size) {
+			base = spec_data[i].iova_base;
+			size = spec_data[i].iova_size;
+		} else if (spec_data[i].get_resv_data)
+			spec_data[i].get_resv_data(&base, &size, data);
+		if (!size)
+			continue;
+
+		region = iommu_alloc_resv_region(base, size, prot,
+						 spec_data[i].type);
+		if (!region)
+			return;
+
+		list_add_tail(&region->list, head);
+
+		/* for debug */
+		dev_info(data->dev, "%s iova 0x%x ~ 0x%x\n",
+			(spec_data[i].type == IOMMU_RESV_DIRECT) ? "dm" : "rsv",
+			(unsigned int)base, (unsigned int)(base + size - 1));
+	}
+}
+
+static void mtk_iommu_put_resv_regions(struct device *dev,
+				      struct list_head *head)
+{
+	struct iommu_resv_region *entry, *next;
+
+	list_for_each_entry_safe(entry, next, head, list)
+		kfree(entry);
+}
+#else
 static int mtk_iommu_reserve_region(struct mtk_iommu_data *data)
 {
 	struct iommu_domain *domain = &data->m4u_dom->domain;
@@ -681,58 +731,6 @@ static int mtk_iommu_of_xlate(struct device *dev, struct of_phandle_args *args)
 
 	return iommu_fwspec_add_ids(dev, args->args, 1);
 }
-
-#ifdef CONFIG_ARM64
-static void mtk_iommu_get_resv_regions(struct device *dev,
-				      struct list_head *head)
-{
-	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data();
-	unsigned int i, total_cnt = data->plat_data->spec_cnt;
-	const struct mtk_iommu_resv_iova_region *spec_data;
-	struct iommu_resv_region *region;
-	unsigned long base = 0;
-	size_t size = 0;
-	int prot = IOMMU_WRITE | IOMMU_READ;
-
-	if (!total_cnt || !of_device_is_compatible(dev->of_node,
-				data->plat_data->spec_device_comp))
-		return;
-
-	spec_data = data->plat_data->spec_region;
-
-	for (i = 0; i < total_cnt; i++) {
-		size = 0;
-		if (spec_data[i].iova_size) {
-			base = spec_data[i].iova_base;
-			size = spec_data[i].iova_size;
-		} else if (spec_data[i].get_resv_data)
-			spec_data[i].get_resv_data(&base, &size, data);
-		if (!size)
-			continue;
-
-		region = iommu_alloc_resv_region(base, size, prot,
-						 spec_data[i].type);
-		if (!region)
-			return;
-
-		list_add_tail(&region->list, head);
-
-		/* for debug */
-		dev_info(data->dev, "%s iova 0x%x ~ 0x%x\n",
-			(spec_data[i].type == IOMMU_RESV_DIRECT) ? "dm" : "rsv",
-			(unsigned int)base, (unsigned int)(base + size - 1));
-	}
-}
-
-static void mtk_iommu_put_resv_regions(struct device *dev,
-				      struct list_head *head)
-{
-	struct iommu_resv_region *entry, *next;
-
-	list_for_each_entry_safe(entry, next, head, list)
-		kfree(entry);
-}
-#endif
 
 static struct iommu_ops mtk_iommu_ops = {
 	.domain_alloc	= mtk_iommu_domain_alloc,
@@ -1041,7 +1039,10 @@ static void mtk_get_sec_rsv_region(unsigned long *base, size_t *size,
 
 	*size = dom->sec_iova_size;
 #else
-	*size = 0;
+	/* Here reserve the region with zero iova,
+	 * so that user wouldn't get a zero iova.
+	 */
+	*size = 0x10000;
 #endif
 	*base = 0;
 }
