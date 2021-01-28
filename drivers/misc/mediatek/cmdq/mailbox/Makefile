@@ -4,6 +4,7 @@
 #
 
 obj-y += cmdq-test.o
+obj-y += cmdq-util.o
 
 ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
 
