@@ -1,0 +1,67 @@
+* Mediatek Technologies mt6357 ALSA SoC audio accdet driver
+
+This node models the Mediatek Technologies mt6357 ALSA SoC audio accdet driver
+
+Required properties:
+
+  - compatible : One of "mediatek,mt6357-accdet", "mediatek,pmic-accdet"
+
+  - accdet-name : named as "mt63xx-accdet" for snd_soc_card_jack
+
+  - accdet-mic-vol : accdet micbias voltage
+			0x09:2.85v 0x08:2.8v 0x07:2.7v 0x05:2.5v 0x02:1.9v
+
+  - accdet-mic-mode : value as 1, 2, 6 to indicate ACC/DCC mode.
+            default is DCC mode 2
+			1:ACC mode, 2:low cost without in bias, 6:low cost with in bias
+
+  - eint_use_ext_res : select VTH to 2v and 500k, default 0 use internal resistance.
+
+  - headset-mode-setting : Indicates customized pwm, debounce setting
+			accdet pwm_width, pwm_thresh, fall_delay, rise_delay
+			debounce0, debounce1, debounce3, debounce4
+			eint pwm_width, eint pwm_thresh
+			eint deb(debounce0, debounce1, debounce2, debounce3), inv_debounce
+
+  - headset-three-key-threshold :  For 3key CDD device and define its threshold.
+			0--MD_MAX--UP_MAX--DW_MAX
+
+  - io-channels : declare which iio channel accdet used.
+
+  - io-channel-names : named as "pmic_accdet"
+
+  - nvmem : reference to pmic efuse node
+
+  - nvmen-names : named as "mt63xx-accdet-efuse"
+
+Optional properties:
+
+  - accdet-plugout-debounce : For using ap gpio eint only, it is sw debounce time.
+
+  - headset-three-key-threshold-CDD : For 3key CDD device and define its threshold.
+			threshold: 0--MD_MAX--UP_MAX--DW_MAX
+  - headset-four-key-threshold : For 4key device and define its threshold.
+			threshold: 0--MD_MAX--VOICE_MAX--UP_MAX--DW_MAX
+Example:
+&pwrap {
+	pmic: pmic {
+		pmic_accdet: pmic_accdet {
+			compatible = "mediatek,mt6357-accdet";
+			accdet-name = "mt63xx-accdet";
+			accdet-mic-vol = <8>;
+			accdet-plugout-debounce = <1>;
+			accdet-mic-mode = <2>;
+			eint_use_ext_res = <0>;
+			headset-mode-setting = <0x500 0x500 1 0x1f0
+						0x800 0x800 0x20 0x44
+						0x4 0x1
+						0x5 0x3 0x3 0x5 0xe>;
+			headset-three-key-threshold = <0 80 220 400>;
+			io-channels = <&pmic_auxadc AUXADC_ACCDET>;
+			io-channel-names = "pmic_accdet";
+			nvmem = <&pmic_efuse>;
+			nvmen-names = "mt63xx-accdet-efuse";
+			status = "okay";
+		};
+	};
+};
