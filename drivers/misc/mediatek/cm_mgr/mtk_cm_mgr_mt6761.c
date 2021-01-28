@@ -43,6 +43,11 @@
 #include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <dvfsrc-exp.h>
 
+#ifdef CONFIG_MTK_CPU_FREQ
+#include <mtk_cpufreq_internal.h>
+#include <mtk_cpufreq_api.h>
+#endif /* CONFIG_MTK_CPU_FREQ */
+
 #ifdef USE_CPU_TO_DRAM_MAP
 static struct delayed_work cm_mgr_work;
 static struct mtk_pm_qos_request ddr_opp_req_by_cpu_opp;
