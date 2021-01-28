@@ -244,7 +244,8 @@ static int ufs_mtk_di_cmp(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 
 	/* HPB use READ_16, Transfer_len in cmd[15]*/
 	if (cmd->cmnd[0] == READ_16) {
-		if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG)
+		if ((hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG) ||
+			(hba->card->wmanufacturerid == UFS_VENDOR_MICRON))
 			blk_cnt = cmd->cmnd[15];
 		else
 			blk_cnt = cmd->cmnd[14];  /* JEDEC version */
