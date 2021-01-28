@@ -6146,6 +6146,7 @@ static signed int ISP_P2_BufQue_CTRL_FUNC(struct ISP_P2_BUFQUE_STRUCT param)
 			pr_err(
 			"Do not find match buffer (pty/pid/cid: %d/0x%x/0x%x) to deque!",
 			    param.property, param.processID, param.callerID);
+			spin_unlock(&(SpinLock_P2FrameList));
 			ret =  -EFAULT;
 			return ret;
 		}
