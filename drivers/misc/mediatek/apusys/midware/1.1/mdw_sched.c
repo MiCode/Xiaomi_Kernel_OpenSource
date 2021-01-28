@@ -26,7 +26,7 @@
 #include "mdw_cmd.h"
 #include "mdw_sched.h"
 #include "mdw_dispr.h"
-#include "midware_trace.h"
+#include "mdw_trace.h"
 #include "mnoc_api.h"
 #include "reviser_export.h"
 #include "mdw_tag.h"
@@ -191,6 +191,7 @@ static int mdw_sched_sc_done(void)
 	int ret = 0;
 
 	mdw_flw_debug("\n");
+	mdw_trace_begin("check done list|%s", __func__);
 
 	/* get done sc from done sc list */
 	mutex_lock(&ms_mgr.mtx);
@@ -199,9 +200,10 @@ static int mdw_sched_sc_done(void)
 	if (s)
 		list_del(&s->ds_item);
 	mutex_unlock(&ms_mgr.mtx);
-	if (!s)
-		return -ENODATA;
-
+	if (!s) {
+		ret = -ENODATA;
+		goto out;
+	}
 	/* recv finished subcmd */
 	while (1) {
 		c = s->parent;
@@ -229,6 +231,8 @@ static int mdw_sched_sc_done(void)
 		}
 	};
 
+out:
+	mdw_trace_end("check done list|%s", __func__);
 	return ret;
 }
 
@@ -242,8 +246,9 @@ static void mdw_sched_enque_done_sc(struct kref *ref)
 
 	mutex_lock(&ms_mgr.mtx);
 	list_add_tail(&sc->ds_item, &ms_mgr.ds_list);
-	mdw_sched(NULL);
 	mutex_unlock(&ms_mgr.mtx);
+
+	mdw_sched(NULL);
 }
 
 int mdw_sched_dev_routine(void *arg)
@@ -296,7 +301,13 @@ int mdw_sched_dev_routine(void *arg)
 		/* execute */
 		mdw_sched_trace(sc, d, &h, ret, 0);
 		getnstimeofday(&sc->ts_start);
+		mdw_trace_begin("dev(%s-%d) exec|sc(0x%llx-%d) boost(%d/%u)",
+			d->name, d->idx, sc->parent->kid, sc->idx,
+			h.boost_val, sc->boost);
 		ret = d->dev->send_cmd(APUSYS_CMD_EXECUTE, &h, d->dev);
+		mdw_trace_end("dev(%s-%d) exec|sc(0x%llx-%d) boost(%d/%u)",
+			d->name, d->idx, sc->parent->kid, sc->idx,
+			h.boost_val, sc->boost);
 		getnstimeofday(&sc->ts_end);
 		sc->driver_time = mdw_cmn_get_time_diff(&sc->ts_start,
 			&sc->ts_end);
@@ -344,6 +355,9 @@ static int mdw_sched_dispatch(struct mdw_apu_sc *sc)
 {
 	int ret = 0, dev_num = 0, exec_num = 0;
 
+	mdw_trace_begin("dispatch|sc(0x%llx-%d) pack(%d) multi(%d)",
+		sc->parent->kid, sc->idx, sc->hdr->pack_id, sc->parent->multi);
+
 	/* get dev num */
 	dev_num =  mdw_rsc_get_dev_num(sc->type);
 
@@ -359,6 +373,9 @@ static int mdw_sched_dispatch(struct mdw_apu_sc *sc)
 		ret = mdw_dispr_multi(sc);
 	else
 		ret = mdw_dispr_norm(sc);
+
+	mdw_trace_end("dispatch|sc(0x%llx-%d)",
+		sc->parent->kid, sc->idx);
 
 	return ret;
 }
@@ -400,7 +417,6 @@ static int mdw_sched_routine(void *arg)
 			mdw_drv_err("pop sc(%d) fail\n", t);
 			goto fail_pop_sc;
 		}
-		getnstimeofday(&sc->ts_deque);
 		mdw_flw_debug("pop sc(0x%llx-#%d/%d/%llu)\n",
 			sc->parent->kid, sc->idx, sc->type, sc->period);
 

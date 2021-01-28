@@ -89,7 +89,7 @@ int mdw_sysfs_init(struct device *kdev)
 	/* create /sys/devices/platform/apusys/device/xxx */
 	mdw_dev = kdev;
 	ret = sysfs_create_group(&mdw_dev->kobj, &mdw_devinfo_attr_group);
-	if (!ret)
+	if (ret)
 		mdw_drv_err("create mdw attribute fail, ret %d\n", ret);
 
 	return ret;
