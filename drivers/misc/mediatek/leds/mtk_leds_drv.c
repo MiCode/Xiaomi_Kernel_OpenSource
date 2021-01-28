@@ -382,7 +382,7 @@ int backlight_brightness_set(int level)
 		return mt65xx_led_set_cust(&cust_led_list[TYPE_LCD],
 					   (level >> (MT_LED_LEVEL_BIT - 8)));
 	}
-
+	return 0;
 }
 EXPORT_SYMBOL(backlight_brightness_set);
 

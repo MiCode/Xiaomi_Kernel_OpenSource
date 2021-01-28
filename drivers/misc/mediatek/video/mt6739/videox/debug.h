@@ -18,7 +18,7 @@ void DBG_Init(void);
 void DBG_Deinit(void);
 
 #include "mmprofile.h"
-#include "mmprofile_function.h"
+/* #include "mmprofile_function.h" */
 extern int bypass_blank;
 extern int lcm_mode_status;
 extern unsigned long fb_pa;

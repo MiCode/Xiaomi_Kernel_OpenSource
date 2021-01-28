@@ -24,6 +24,7 @@
 #include <linux/of_irq.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
+#include <uapi/linux/sched/types.h>
 #include "ion_drv.h"
 #include "mtk_ion.h"
 /* #include "mtk_idle.h" */
@@ -556,7 +557,7 @@ static int primary_display_check_recovery_worker_kthread(void *data)
 int primary_display_esd_recovery(void)
 {
 	enum DISP_STATUS ret = DISP_STATUS_OK;
-	LCM_PARAMS *lcm_param = NULL;
+	struct LCM_PARAMS *lcm_param = NULL;
 
 	DISPFUNC();
 	dprec_logger_start(DPREC_LOGGER_ESD_RECOVERY, 0, 0);
@@ -604,7 +605,7 @@ int primary_display_esd_recovery(void)
 
 	mmprofile_log_ex(ddp_mmp_get_events()->esd_recovery_t, MMPROFILE_FLAG_PULSE, 0, 6);
 	{
-		LCM_PARAMS *lcm_param;
+		struct LCM_PARAMS *lcm_param;
 		struct disp_ddp_path_config *data_config;
 		struct ddp_io_golden_setting_arg gset_arg;
 
@@ -625,7 +626,8 @@ int primary_display_esd_recovery(void)
 		lcm_param = disp_lcm_get_params(primary_get_lcm());
 
 		data_config = dpmgr_path_get_last_config(primary_get_dpmgr_handle());
-		memcpy(&(data_config->dispif_config), lcm_param, sizeof(LCM_PARAMS));
+		memcpy(&(data_config->dispif_config),
+			lcm_param, sizeof(struct LCM_PARAMS));
 
 		data_config->dst_w = disp_helper_get_option(DISP_OPT_FAKE_LCM_WIDTH);
 		data_config->dst_h = disp_helper_get_option(DISP_OPT_FAKE_LCM_HEIGHT);

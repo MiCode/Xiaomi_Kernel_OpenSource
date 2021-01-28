@@ -39,7 +39,7 @@ enum DISP_MODULE_ENUM m4u_port_to_module(int port);
 m4u_callback_ret_t disp_m4u_callback(int port, unsigned long mva, void *data);
 void disp_m4u_init(void);
 int config_display_m4u_port(void);
-int disp_allocate_mva(m4u_client_t *client, enum DISP_MODULE_ENUM module,
+int disp_allocate_mva(struct m4u_client_t *client, enum DISP_MODULE_ENUM module,
 								unsigned long va, struct sg_table *sg_table,
 								unsigned int size, unsigned int prot,
 								unsigned int flags, unsigned int *pMva);

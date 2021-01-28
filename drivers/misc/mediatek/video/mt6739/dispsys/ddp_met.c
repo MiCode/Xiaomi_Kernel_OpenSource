@@ -308,7 +308,7 @@ static void met_irq_handler(enum DISP_MODULE_ENUM module, unsigned int reg_val)
 		index = module - DISP_MODULE_OVL0;
 		if (reg_val & (1 << 1)) {/*EOF*/
 			ddp_inout_info_tag(index);
-			if (met_mmsys_event_disp_ovl_eof)
+			if (!IS_ERR_OR_NULL(met_mmsys_event_disp_ovl_eof))
 				met_mmsys_event_disp_ovl_eof(index);
 		}
 
@@ -318,11 +318,12 @@ static void met_irq_handler(enum DISP_MODULE_ENUM module, unsigned int reg_val)
 		/*reg_val is  DISP_REG_GET(DISP_REG_CONFIG_MUTEX_INTSTA) & 0x7C1F; */
 		for (mutexID = DISP_MUTEX_DDP_FIRST; mutexID <= DISP_MUTEX_DDP_LAST; mutexID++) {
 			if (reg_val & (0x1<<mutexID))
-				if (met_mmsys_event_disp_sof)
+				if (!IS_ERR_OR_NULL(met_mmsys_event_disp_sof))
 					met_mmsys_event_disp_sof(mutexID);
 
 			if (reg_val & (0x1<<(mutexID+DISP_MUTEX_TOTAL)))
-				if (met_mmsys_event_disp_mutex_eof)
+				if (!IS_ERR_OR_NULL(
+					met_mmsys_event_disp_mutex_eof))
 					met_mmsys_event_disp_mutex_eof(mutexID);
 		}
 		break;

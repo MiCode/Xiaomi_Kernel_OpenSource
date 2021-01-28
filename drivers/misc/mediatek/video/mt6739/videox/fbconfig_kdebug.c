@@ -107,8 +107,8 @@ struct LCM_REG_READ reg_read;
 struct PM_TOOL_S {
 	enum DSI_INDEX dsi_id;
 	struct LCM_REG_READ reg_read;
-	LCM_PARAMS *pLcm_params;
-	LCM_DRIVER *pLcm_drv;
+	struct LCM_PARAMS *pLcm_params;
+	struct LCM_DRIVER *pLcm_drv;
 };
 static struct PM_TOOL_S pm_params = {
 	.dsi_id = PM_DSI0,
@@ -264,7 +264,7 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 	void __user *argp = (void __user *)arg;
 	struct PM_TOOL_S *pm = (struct PM_TOOL_S *) pm_get_handle();
 	uint32_t dsi_id = pm->dsi_id;
-	LCM_DSI_PARAMS *pParams = get_dsi_params_handle(dsi_id);
+	struct LCM_DSI_PARAMS *pParams = get_dsi_params_handle(dsi_id);
 
 #ifdef FBCONFIG_SHOULD_KICK_IDLEMGR
 	primary_display_idlemgr_kick(__func__, 1);
@@ -287,7 +287,7 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 	case LCM_TEST_DSI_CLK:
 	{
 		struct LCM_TYPE_FB lcm_fb;
-		LCM_PARAMS *pLcm_params = pm->pLcm_params;
+		struct LCM_PARAMS *pLcm_params = pm->pLcm_params;
 
 		lcm_fb.clock = pLcm_params->dsi.PLL_CLOCK;
 		lcm_fb.lcm_type = pLcm_params->dsi.mode;
