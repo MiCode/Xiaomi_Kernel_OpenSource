@@ -5094,31 +5094,37 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module, void *cmdq_trigger_handle,
 			lcm_esd_tb = &dsi_params->lcm_esd_check_table[i];
 
 			n = snprintf(msg, len,
-				     "[DSI]enter cmp read_data0 byte0=0x%x ",
-				     read_data0.byte0);
-			n += snprintf(msg + n, len - n,
-				      "byte1=0x%x byte2=0x%x byte3=0x%x\n",
-				      read_data0.byte1, read_data0.byte2,
-				      read_data0.byte3);
-			DISPDBG("%s", msg);
+				     "[DSI]enter cmp read_data0 byte0=0x%x byte1=0x%x byte2=0x%x byte3=0x%x\n",
+				     read_data0.byte0, read_data0.byte1,
+				     read_data0.byte2, read_data0.byte3);
+			if (unlikely(n < 0))
+				DISP_PR_INFO("[%s %d]snprintf err:%d\n",
+					     __func__, __LINE__, n);
+			else
+				DISPDBG("%s", msg);
+
 			n = snprintf(msg, len,
-				     "[DSI]enter cmp read_data1 byte0=0x%x ",
-				     read_data1.byte0);
-			n += snprintf(msg + n, len - n,
-				      "byte1=0x%x byte2=0x%x byte3=0x%x\n",
-				      read_data1.byte1, read_data1.byte2,
-				      read_data1.byte3);
-			DISPDBG("%s", msg);
+				     "[DSI]enter cmp read_data1 byte0=0x%x byte1=0x%x byte2=0x%x byte3=0x%x\n",
+				     read_data1.byte0, read_data1.byte1,
+				     read_data1.byte2, read_data1.byte3);
+			if (unlikely(n < 0))
+				DISP_PR_INFO("[%s %d]snprintf err:%d\n",
+					     __func__, __LINE__, n);
+			else
+				DISPDBG("%s", msg);
+
 			n = snprintf(msg, len,
-				     "[DSI]enter cmp check_table cmd=0x%x,",
-				     lcm_esd_tb->cmd);
-			n += snprintf(msg + n, len - n,
-				      "count=0x%x,para_list[0]=0x%x,",
-				      lcm_esd_tb->count,
-				      lcm_esd_tb->para_list[0]);
-			n += snprintf(msg + n, len - n, "para_list[1]=0x%x\n",
-				      lcm_esd_tb->para_list[1]);
-			DISPDBG("%s", msg);
+				     "[DSI]enter cmp check_table cmd=0x%x,count=0x%x,para_list[0]=0x%x,para_list[1]=0x%x\n",
+				     lcm_esd_tb->cmd,
+				     lcm_esd_tb->count,
+				     lcm_esd_tb->para_list[0],
+				     lcm_esd_tb->para_list[1]);
+			if (unlikely(n < 0))
+				DISP_PR_INFO("[%s %d]snprintf err:%d\n",
+					     __func__, __LINE__, n);
+			else
+				DISPDBG("%s", msg);
+
 			DISPDBG("[DSI]enter cmp DSI+0x200=0x%x\n",
 				AS_UINT32(DISPSYS_DSI0_BASE + 0x200));
 			DISPDBG("[DSI]enter cmp DSI+0x204=0x%x\n",
@@ -5142,12 +5148,15 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module, void *cmdq_trigger_handle,
 				ret = 0; /* esd pass */
 			} else {
 				/* esd fail */
-				n = snprintf(msg, len, "[DSI]cmp fail:");
-				n += snprintf(msg + n, len - n,
-					      "read(0x%x)!=expect(0x%x)\n",
-					      read_data0.byte1,
-					      lcm_esd_tb->para_list[0]);
-				DISP_PR_ERR("%s", msg);
+				n = snprintf(msg, len,
+					     "[DSI]cmp fail:read(0x%x)!=expect(0x%x)\n",
+					     read_data0.byte1,
+					     lcm_esd_tb->para_list[0]);
+				if (unlikely(n < 0))
+					DISP_PR_INFO("[%s %d]snprintf err:%d\n",
+						     __func__, __LINE__, n);
+				else
+					DISP_PR_ERR("%s", msg);
 				ret = 1;
 				break;
 			}
