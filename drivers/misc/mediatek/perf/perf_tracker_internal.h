@@ -12,14 +12,8 @@
  */
 
 
-#ifndef _PERF_TRACKER_H
-#define _PERF_TRACKER_H
-
-#ifdef CONFIG_MTK_CPU_FREQ
-extern unsigned int mt_cpufreq_get_cur_freq(int id);
-#else
-static inline  int mt_cpufreq_get_cur_freq(int id) { return 0; }
-#endif
+#ifndef _PERF_TRACKER_INTERNAL_H
+#define _PERF_TRACKER_INTERNAL_H
 
 #ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
 extern void MTKGPUPower_model_start(unsigned int interval_ns);
@@ -29,4 +23,4 @@ extern void MTKGPUPower_model_resume(void);
 void perf_update_gpu_counter(unsigned int gpu_pmu[], unsigned int len);
 #endif
 
-#endif /* _PERF_TRACKER_H */
+#endif /* _PERF_TRACKER_INTERNAL_H */
