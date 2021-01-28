@@ -51,6 +51,7 @@
 
 #include "mtk_leds_sw.h"
 #include "mtk_leds_hal.h"
+#include "../mtk_leds_drv.h"
 
 /* for LED&Backlight bringup, define the dummy API */
 #ifndef CONFIG_MTK_PMIC_NEW_ARCH

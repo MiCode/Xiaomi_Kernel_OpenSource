@@ -44,12 +44,14 @@
 #include "mtkfb.h"
 #endif
 
+#define MET_USER_EVENT_SUPPORT
 #ifdef MET_USER_EVENT_SUPPORT
 #include <mt-plat/met_drv.h>
 #endif
 
 #include "mtk_leds_sw.h"
 #include "mtk_leds_hal.h"
+#include "../mtk_leds_drv.h"
 
 /* for LED&Backlight bringup, define the dummy API */
 #ifndef CONFIG_MTK_PMIC_NEW_ARCH
@@ -152,9 +154,8 @@ struct cust_mt65xx_led *get_cust_led_dtsi(void)
 	int mode, data;
 	int pwm_config[5] = { 0 };
 
-	if (pled_dtsi) {
+	if (pled_dtsi)
 		goto out;
-	}
 
 	pr_info("[LED] %s pled_dtsi is null, load dts file\n", __func__);
 	pled_dtsi = kmalloc(TYPE_TOTAL * sizeof(struct cust_mt65xx_led),
