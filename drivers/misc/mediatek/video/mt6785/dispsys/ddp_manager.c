@@ -1335,6 +1335,9 @@ int dpmgr_path_mutex_sof(disp_path_handle dp_handle, void *trigger_loop_handle,
 	int m_num;
 
 	ASSERT(dp_handle != NULL);
+	if (!dp_handle)
+		return 0;
+
 	phandle = (struct ddp_path_handle *)dp_handle;
 	DISP_LOG_I("%s scenario %s\n", __func__,
 		   ddp_get_scenario_name(phandle->scenario));
@@ -1357,6 +1360,9 @@ int dpmgr_path_trigger_no_mutex(disp_path_handle dp_handle,
 	int m_n;
 
 	ASSERT(dp_handle != NULL);
+	if (!dp_handle)
+		return 0;
+
 	phandle = (struct ddp_path_handle *)dp_handle;
 	DISP_LOG_I("%s on scenario %s\n", __func__,
 		   ddp_get_scenario_name(phandle->scenario));
@@ -1846,6 +1852,9 @@ int dpmgr_check_status(disp_path_handle dp_handle)
 	struct DDP_MANAGER_CONTEXT *context = _get_context();
 
 	ASSERT(dp_handle != NULL);
+	if (!dp_handle)
+		return 0;
+
 	handle = kmalloc(sizeof(struct ddp_path_handle), GFP_ATOMIC);
 	if (IS_ERR_OR_NULL(handle)) {
 		DISP_PR_INFO("%s:%d alloc path handle fail!\n",

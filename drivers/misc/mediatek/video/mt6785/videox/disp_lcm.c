@@ -1590,8 +1590,10 @@ int disp_lcm_is_video_mode(struct disp_lcm_handle *plcm)
 	/* DISPFUNC(); */
 	if (_is_lcm_inited(plcm))
 		lcm_param = plcm->params;
-	else
+	else {
+		disp_aee_db_print("LCM isn't init\n");
 		return -1;
+	}
 
 	switch (lcm_param->type) {
 	case LCM_TYPE_DBI:
