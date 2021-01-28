@@ -432,7 +432,7 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, gls);
 
 	/* create /proc/gz_log */
-	gls->proc = proc_create_data("gz_log", 0444, NULL, &proc_gz_log_fops,
+	gls->proc = proc_create_data("gz_log", 0440, NULL, &proc_gz_log_fops,
 				     gls);
 	if (!gls->proc) {
 		dev_info(&pdev->dev, "gz_log proc_create failed!\n");
