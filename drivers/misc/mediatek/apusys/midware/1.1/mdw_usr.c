@@ -622,6 +622,8 @@ int mdw_usr_run_cmd_async(struct mdw_usr *u, struct apusys_ioctl_cmd *in)
 	}
 	c->pid = u->pid;
 	c->tgid = u->tgid;
+	c->usr = u;
+
 
 	in->cmd_id = c->kid;
 
@@ -642,11 +644,68 @@ out:
 	return ret;
 }
 
+int mdw_wait_cmd(struct mdw_apu_cmd *c)
+{
+	int ret = 0, retry = 100, retry_time = 50;
+	unsigned long timeout = 0;
+
+	mdw_usr_ws_lock();
+
+	/* setup timeout */
+	if (c->hdr->hard_limit)
+		timeout = msecs_to_jiffies(c->hdr->hard_limit);
+	else
+		timeout = msecs_to_jiffies(MDW_CMD_DEFAULT_TIMEOUT);
+
+rewait:
+	ret = wait_for_completion_interruptible_timeout(&c->cmplt, timeout);
+	if (ret == -ERESTARTSYS) { //restart
+		if (retry) {
+			if (!(retry % 20))
+				mdw_drv_warn("cmd(0x%llx) rewait(%d)\n",
+					c->kid, retry);
+
+			retry--;
+			msleep(retry_time);
+			goto rewait;
+		} else {
+			mdw_drv_warn("cmd(0x%llx) leak\n", c->kid);
+		}
+
+	} else if (ret == 0) { //timeout
+		mdw_drv_err("cmd(0x%llx) timeout ms(%u)\n",
+			c->kid, jiffies_to_msecs(timeout));
+		ret = -ETIME;
+
+	} else if (ret < 0) { //error
+		mdw_drv_err("cmd(0x%llx) fail(%d)\n", c->kid, ret);
+
+	}
+
+	/* Remove u_item anyway */
+	mutex_lock(&c->usr->mtx);
+	list_del(&c->u_item);
+	mutex_unlock(&c->usr->mtx);
+
+	if (ret < 0) { /* Wait fail handle */
+		if (mdw_dbg_get_prop(MDW_DBG_PROP_CMD_TIMEOUT_AEE))
+			mdw_dbg_aee("apusys midware wait timeout");
+		cmd_parser->abort_cmd(c);
+	} else { /* Wait done, delete cmd */
+		if (cmd_parser->delete_cmd(c))
+			mdw_drv_err("delete cmd fail\n");
+		ret = 0;
+	}
+
+	mdw_usr_ws_unlock();
+
+	return ret;
+}
+
+
 int mdw_usr_wait_cmd(struct mdw_usr *u, struct apusys_ioctl_cmd *in)
 {
 	struct mdw_apu_cmd *c = NULL;
-	int ret = 0, retry = 100, retry_time = 50;
-	unsigned long timeout = 0;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 
 	mdw_flw_debug("\n");
@@ -671,62 +730,7 @@ int mdw_usr_wait_cmd(struct mdw_usr *u, struct apusys_ioctl_cmd *in)
 	}
 	mdw_flw_debug("wait cmd(0x%llx/0x%llx)\n", c->kid, c->hdr->uid);
 
-	/* setup timeout */
-	if (c->hdr->hard_limit)
-		timeout = msecs_to_jiffies(c->hdr->hard_limit);
-	else
-		timeout = msecs_to_jiffies(MDW_CMD_DEFAULT_TIMEOUT);
-
-	mdw_usr_ws_lock();
-
-rewait:
-	ret = wait_for_completion_interruptible_timeout(&c->cmplt, timeout);
-	if (ret == -ERESTARTSYS) { //restart
-		if (retry) {
-			if (!(retry % 20))
-				mdw_drv_warn("cmd(0x%llx) rewait(%d)\n",
-					c->kid, retry);
-
-			retry--;
-			msleep(retry_time);
-			goto rewait;
-		} else {
-			mdw_drv_warn("cmd(0x%llx) leak\n", c->kid);
-			goto fail_wait_cmd;
-		}
-
-	} else if (ret == 0) { //timeout
-		mdw_drv_err("cmd(0x%llx) timeout ms(%u)\n",
-			c->kid, jiffies_to_msecs(timeout));
-		ret = -ETIME;
-		goto fail_wait_cmd;
-
-	} else if (ret < 0) { //error
-		mdw_drv_err("cmd(0x%llx) fail(%d)\n", c->kid, ret);
-		goto fail_wait_cmd;
-
-	} else { //success
-		mutex_lock(&u->mtx);
-		list_del(&c->u_item);
-		mutex_unlock(&u->mtx);
-		if (cmd_parser->delete_cmd(c))
-			mdw_drv_err("delete cmd fail\n");
-		ret = 0;
-	}
-
-	mdw_usr_ws_unlock();
-	return ret;
-
-fail_wait_cmd:
-	if (mdw_dbg_get_prop(MDW_DBG_PROP_CMD_TIMEOUT_AEE))
-		mdw_dbg_aee("apusys midware wait timeout");
-
-	mutex_lock(&u->mtx);
-	list_del(&c->u_item);
-	mutex_unlock(&u->mtx);
-	cmd_parser->abort_cmd(c);
-	mdw_usr_ws_unlock();
-	return ret;
+	return mdw_wait_cmd(c);
 }
 
 int mdw_usr_run_cmd_sync(struct mdw_usr *u, struct apusys_ioctl_cmd *in)
