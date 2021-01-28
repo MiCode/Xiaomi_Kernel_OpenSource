@@ -73,8 +73,14 @@ FORCE_STEP0 := true
 BUILD_MMDVFS := true
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6779"))
 SUPPORT_MMP := true
-FORCE_STEP0 := true
+FORCE_STEP0 := false
 BUILD_MMDVFS := true
+HRT_MECHANISM := true
+BLOCKING_MECHANISM := true
+MMDVFS_LIMIT := true
+SKIP_SMI_CONFIG := false
+QOS_BOUND_DETECT := true
+#ccflags-y += -DCHECK_VOLTAGE #Should be enabled when gki complete
 endif
 
 ifeq ($(CONFIG_MTK_MMDVFS),y)
@@ -137,7 +143,7 @@ ccflags-y += -DMMDVFS_MMP
 endif
 endif
 
-ifeq ($(CONFIG_MTK_DRAMC),y)
+ifeq ($(CONFIG_MTK_DRAMC_LEGACY),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 ccflags-y += -DUSE_MTK_DRAMC
 endif
