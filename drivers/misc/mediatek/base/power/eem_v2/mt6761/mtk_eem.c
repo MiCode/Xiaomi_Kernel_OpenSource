@@ -1297,7 +1297,6 @@ static void eem_set_eem_volt(struct eem_det *det)
 	unsigned int i;
 	int low_temp_offset = 0;
 	struct eem_ctrl *ctrl = id_to_eem_ctrl(det->ctrl_id);
-	int val = mt_get_chip_sw_ver(); /* = get_devinfo_with_index(num); */
 #if ENABLE_LOO
 	struct eem_det *org_det = det;
 	unsigned int init2chk = 0;
@@ -1358,12 +1357,6 @@ static void eem_set_eem_volt(struct eem_det *det)
 				det->ops->eem_2_pmic(det, det->VMIN),
 				det->ops->eem_2_pmic(det, det->VMAX))),
 				det->volt_tbl_orig[i]);
-			if (val == CHIP_SW_VER_01) {
-#ifndef CONFIG_MTK_LP_OPP
-				if (det->volt_tbl_pmic[i] < 0x2D)
-					det->volt_tbl_pmic[i] = 0x2D;
-#endif
-			}
 			break;
 		default:
 			eem_error("[%s] incorrect det :%s!!", __func__,
