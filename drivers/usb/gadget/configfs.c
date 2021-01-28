@@ -16,6 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/kdev_t.h>
 #include <linux/usb/ch9.h>
+#include "mtk_gadget.h"
 
 #ifdef CONFIG_USB_CONFIGFS_F_ACC
 extern int acc_ctrlrequest(struct usb_composite_dev *cdev,
@@ -40,6 +41,10 @@ struct device *create_function_device(char *name)
 		return ERR_PTR(-EINVAL);
 }
 EXPORT_SYMBOL_GPL(create_function_device);
+#endif
+
+#ifndef CONFIG_USB_CONFIGFS_UEVENT
+int acm_shortcut(void) {return 0; }
 #endif
 
 int check_user_usb_string(const char *name,
@@ -1846,7 +1851,7 @@ static struct config_group *gadgets_make(
 	if (!gi->composite.gadget_driver.function)
 		goto err;
 
-	if (android_device_create(gi) < 0)
+	if (!acm_shortcut() && android_device_create(gi) < 0)
 		goto err;
 
 	return &gi->group;
@@ -1901,9 +1906,11 @@ static int __init gadget_cfs_init(void)
 	ret = configfs_register_subsystem(&gadget_subsys);
 
 #ifdef CONFIG_USB_CONFIGFS_UEVENT
-	android_class = class_create(THIS_MODULE, "android_usb");
-	if (IS_ERR(android_class))
-		return PTR_ERR(android_class);
+	if (!acm_shortcut()) {
+		android_class = class_create(THIS_MODULE, "android_usb");
+		if (IS_ERR(android_class))
+			return PTR_ERR(android_class);
+	}
 #endif
 
 	return ret;
