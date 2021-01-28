@@ -104,7 +104,7 @@ then
 	cd ..
 	export PATH=$PWD\
 /prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/:\
-$PWD/prebuilts/clang/host/linux-x86/clang-r353983c/bin/:$PATH
+$PWD/prebuilts/clang/host/linux-x86/clang-r377782c/bin/:$PATH
 	cd $BASE_DIR
 	make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
 	CROSS_COMPILE=aarch64-linux-android- CC=clang $src_defconfig O=out
