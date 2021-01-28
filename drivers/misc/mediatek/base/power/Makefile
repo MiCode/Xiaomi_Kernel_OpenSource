@@ -18,6 +18,7 @@ obj-$(CONFIG_MACH_MT6761) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
 obj-$(CONFIG_MACH_MT6765) += spm/
 obj-$(CONFIG_MACH_MT6761) += spm/
+obj-$(CONFIG_MACH_MT6779) += spm/
 obj-$(CONFIG_MTK_STATIC_POWER) += leakage_table_v2/
 obj-$(CONFIG_MTK_CPU_FREQ) += cpufreq_v1/
 ifneq ($(CONFIG_FPGA_EARLY_PORTING),y)
