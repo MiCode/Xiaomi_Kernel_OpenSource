@@ -417,6 +417,14 @@ struct cmdqSecIspMeta {
 	uint64_t DmgiHandle;
 };
 
+/* client extension bits for cmdq secure driver
+ * must sync with iwc header sec_extension_iwc
+ */
+enum sec_extension {
+	SEC_MDP_AAL = 0,
+	SEC_TDSHP
+};
+
 struct cmdqSecDataStruct {
 	bool is_secure;		/* [IN]true for secure command */
 
@@ -440,6 +448,9 @@ struct cmdqSecDataStruct {
 
 	/* ISP metadata for secure camera */
 	struct cmdqSecIspMeta ispMeta;
+
+	/* client extension feature */
+	uint64_t extension;
 };
 
 struct cmdq_v3_replace_struct {

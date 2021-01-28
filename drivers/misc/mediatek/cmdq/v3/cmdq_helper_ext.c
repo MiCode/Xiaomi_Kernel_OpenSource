@@ -1416,6 +1416,12 @@ static void cmdq_core_dump_thread(const struct cmdqRecStruct *handle,
 		tag, value[5], value[6], value[9], value[10],
 		value[11], value[12], value[13], value[14]);
 
+	CMDQ_LOG("[%s]spr:%#x %#x %#x %#x\n",
+		tag, CMDQ_REG_GET32(CMDQ_THR_SPR0(thread)),
+		CMDQ_REG_GET32(CMDQ_THR_SPR1(thread)),
+		CMDQ_REG_GET32(CMDQ_THR_SPR2(thread)),
+		CMDQ_REG_GET32(CMDQ_THR_SPR3(thread)));
+
 	/* if pc match end and irq flag on, dump irq status */
 	if (dump_irq && value[0] == value[1] && value[2] == 1)
 #ifdef CONFIG_MTK_GIC_V3_EXT
