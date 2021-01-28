@@ -2275,7 +2275,9 @@ static int rpmb_execute_emmc(u32 cmdId)
 	return 0;
 }
 #endif
+#endif
 
+#if defined(CONFIG_MMC_MTK_PRO)
 static int rpmb_gp_execute_emmc(u32 cmdId)
 {
 	int ret;
