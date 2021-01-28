@@ -555,12 +555,19 @@ void layering_rule_init(void)
 	struct LCM_PARAMS *lcm_param = disp_lcm_get_params(primary_get_lcm());
 #endif
 
+	int opt = 0;
 	l_rule_info.primary_fps = 60;
 	l_rule_info.hrt_idx = 0;
 	register_layering_rule_ops(&l_rule_ops, &l_rule_info);
 
-	set_layering_opt(LYE_OPT_RPO, disp_helper_get_option(DISP_OPT_RPO));
-	set_layering_opt(LYE_OPT_EXT_LAYER,
+	opt = disp_helper_get_option(DISP_OPT_RPO);
+	if (opt != -1)
+		set_layering_opt(LYE_OPT_RPO,
+			disp_helper_get_option(DISP_OPT_RPO));
+
+	opt = disp_helper_get_option(DISP_OPT_OVL_EXT_LAYER);
+	if (opt != -1)
+		set_layering_opt(LYE_OPT_EXT_LAYER,
 			 disp_helper_get_option(DISP_OPT_OVL_EXT_LAYER));
 
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
