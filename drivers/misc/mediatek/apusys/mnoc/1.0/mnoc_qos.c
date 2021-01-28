@@ -336,7 +336,7 @@ void apu_qos_off(void)
 
 static void update_cmd_qos(struct qos_bound *qos_info, struct cmd_qos *cmd_qos)
 {
-	int idx = 0, qos_smi_idx = 0;
+	unsigned int idx = 0, qos_smi_idx = 0;
 
 	/* sample device has no BW */
 	if (cmd_qos->core < NR_APU_QOS_ENGINE)
@@ -345,6 +345,12 @@ static void update_cmd_qos(struct qos_bound *qos_info, struct cmd_qos *cmd_qos)
 	/* sum current bw value to cmd_qos */
 	mutex_lock(&cmd_qos->mtx);
 	idx = cmd_qos->last_idx;
+
+	if (idx >= QOS_BOUND_BUF_SIZE) {
+		LOG_ERR("idx(%d) out of bound\n", idx);
+		idx = 0;
+	}
+
 	while (idx != ((qos_info->idx + 1) % MTK_QOS_BUF_SIZE)) {
 		if (cmd_qos->core < NR_APU_QOS_ENGINE)
 			cmd_qos->total_bw +=
