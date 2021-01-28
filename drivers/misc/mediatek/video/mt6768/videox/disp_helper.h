@@ -80,6 +80,8 @@ enum DISP_HELPER_OPT {
 	DISP_OPT_OVL_SBCH,
 	DISP_OPT_GMO_OPTIMIZE,
 	DISP_OPT_TUI_MODE, /* 0: single-window; 1: multi-window */
+	/* HBM: High Backlight Mode */
+	DISP_OPT_LCM_HBM,
 
 	DISP_OPT_NUM
 };
