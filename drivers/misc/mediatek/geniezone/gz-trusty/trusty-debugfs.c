@@ -353,6 +353,9 @@ static void trusty_create_debugfs(struct trusty_state *s, struct device *dev)
 
 	pr_info("%s-%s\n", __func__, get_tee_name(s->tee_id));
 
+	if (!is_trusty_tee(s->tee_id))
+		return;
+
 	mtee_dev[s->tee_id] = dev;
 
 	ret = device_create_file(dev, &dev_attr_gz_concurrent);
@@ -513,6 +516,9 @@ static void nebula_create_debugfs(struct trusty_state *s, struct device *dev)
 	int ret;
 
 	pr_info("%s-%s\n", __func__, get_tee_name(s->tee_id));
+
+	if (!is_nebula_tee(s->tee_id))
+		return;
 
 	mtee_dev[s->tee_id] = dev;
 
