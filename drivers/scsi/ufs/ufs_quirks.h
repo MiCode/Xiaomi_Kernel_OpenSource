@@ -133,14 +133,6 @@ struct ufs_dev_fix {
 
 /*
  * MTK PATCH
- * Toshiba Gen5 Gen6 UFS memory device need 100us delay before disable REF_CLK.
- * If thoshiba can improve this delay in the future(ex: Gen7),
- * this quirk can be removed then.
- */
-#define UFS_DEVICE_QUIRK_DELAY_BEFORE_DISABLE_REF_CLK	(1 << 29)
-
-/*
- * MTK PATCH
  * Some UFS memory device needs limited RPMB max rw size otherwise
  * device issue, for example, device hang, may happen in some scenarios.
  */
