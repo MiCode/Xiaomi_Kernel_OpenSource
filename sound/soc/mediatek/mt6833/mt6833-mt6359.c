@@ -2,8 +2,8 @@
 /*
  *  mt6833-mt6359.c  --  mt6833 mt6359 ALSA SoC machine driver
  *
- *  Copyright (c) 2019 MediaTek Inc.
- *  Author: Shane Chien <shane.chien@mediatek.com>
+ *  Copyright (c) 2020 MediaTek Inc.
+ *  Author: Eason Yen <eason.yen@mediatek.com>
  */
 
 #include <linux/module.h>
@@ -43,7 +43,6 @@ static const char *const
 				     MTK_SPK_I2S_7_STR,
 				     MTK_SPK_I2S_8_STR,
 				     MTK_SPK_I2S_9_STR,
-				     MTK_SPK_TINYCONN_I2S_0_STR,
 				     };
 
 static const struct soc_enum mt6833_spk_type_enum[] = {
@@ -169,8 +168,6 @@ static int mt6833_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	pm_runtime_get_sync(afe->dev);
 	mt6833_afe_gpio_request(afe, true, MT6833_DAI_ADDA, 1);
 	mt6833_afe_gpio_request(afe, true, MT6833_DAI_ADDA, 0);
-	mt6833_afe_gpio_request(afe, true, MT6833_DAI_ADDA_CH34, 1);
-	mt6833_afe_gpio_request(afe, true, MT6833_DAI_ADDA_CH34, 0);
 
 	mt6359_mtkaif_calibration_enable(&rtd->codec->component);
 
@@ -281,8 +278,6 @@ static int mt6833_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 
 	mt6833_afe_gpio_request(afe, false, MT6833_DAI_ADDA, 1);
 	mt6833_afe_gpio_request(afe, false, MT6833_DAI_ADDA, 0);
-	mt6833_afe_gpio_request(afe, false, MT6833_DAI_ADDA_CH34, 1);
-	mt6833_afe_gpio_request(afe, false, MT6833_DAI_ADDA_CH34, 0);
 	pm_runtime_put(afe->dev);
 
 	dev_info(afe->dev, "%s(), mtkaif_chosen_phase[0/1/2]:%d/%d/%d\n",
@@ -623,17 +618,7 @@ static struct snd_soc_dai_link mt6833_mt6359_dai_links[] = {
 		.dynamic = 1,
 		.dpcm_capture = 1,
 	},
-	{
-		.name = "Playback_HDMI",
-		.stream_name = "Playback_HDMI",
-		.cpu_dai_name = "HDMI",
-		.codec_name = "snd-soc-dummy",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.trigger = {SND_SOC_DPCM_TRIGGER_PRE,
-			    SND_SOC_DPCM_TRIGGER_PRE},
-		.dynamic = 1,
-		.dpcm_playback = 1,
-	},
+
 	{
 		.name = "Hostless_LPBK",
 		.stream_name = "Hostless_LPBK",
@@ -749,26 +734,8 @@ static struct snd_soc_dai_link mt6833_mt6359_dai_links[] = {
 		.init = mt6833_mt6359_init,
 	},
 	{
-		.name = "Primary Codec CH34",
-		.cpu_dai_name = "ADDA_CH34",
-		.codec_dai_name = "mt6359-snd-codec-aif2",
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.dpcm_capture = 1,
-		.ignore_suspend = 1,
-	},
-	{
 		.name = "AP_DMIC",
 		.cpu_dai_name = "AP_DMIC",
-		.codec_name = "snd-soc-dummy",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.no_pcm = 1,
-		.dpcm_capture = 1,
-		.ignore_suspend = 1,
-	},
-	{
-		.name = "AP_DMIC_CH34",
-		.cpu_dai_name = "AP_DMIC_CH34",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.no_pcm = 1,
@@ -894,15 +861,6 @@ static struct snd_soc_dai_link mt6833_mt6359_dai_links[] = {
 		.dpcm_capture = 1,
 		.ignore_suspend = 1,
 	},
-	{
-		.name = "TDM",
-		.cpu_dai_name = "TDM",
-		.codec_name = "snd-soc-dummy",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.ignore_suspend = 1,
-	},
 	/* dummy BE for ul memif to record from dl memif */
 	{
 		.name = "Hostless_UL1",
@@ -938,15 +896,6 @@ static struct snd_soc_dai_link mt6833_mt6359_dai_links[] = {
 		.codec_name = "snd-soc-dummy",
 		.no_pcm = 1,
 		.dpcm_capture = 1,
-		.ignore_suspend = 1,
-	},
-	{
-		.name = "Hostless_DSP_DL",
-		.cpu_dai_name = "Hostless_DSP_DL DAI",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
-		.no_pcm = 1,
-		.dpcm_playback = 1,
 		.ignore_suspend = 1,
 	},
 	{
@@ -998,6 +947,7 @@ static struct snd_soc_dai_link mt6833_mt6359_dai_links[] = {
 		.name = "DSP_Playback_Voip",
 		.stream_name = "DSP_Playback_Voip",
 		.cpu_dai_name = "audio_task_voip_dai",
+		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1005,6 +955,7 @@ static struct snd_soc_dai_link mt6833_mt6359_dai_links[] = {
 		.name = "DSP_Playback_Primary",
 		.stream_name = "DSP_Playback_Primary",
 		.cpu_dai_name = "audio_task_primary_dai",
+		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1012,6 +963,7 @@ static struct snd_soc_dai_link mt6833_mt6359_dai_links[] = {
 		.name = "DSP_Playback_DeepBuf",
 		.stream_name = "DSP_Playback_DeepBuf",
 		.cpu_dai_name = "audio_task_deepbuf_dai",
+		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1019,6 +971,7 @@ static struct snd_soc_dai_link mt6833_mt6359_dai_links[] = {
 		.name = "DSP_Playback_Playback",
 		.stream_name = "DSP_Playback_Playback",
 		.cpu_dai_name = "audio_task_Playback_dai",
+		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1026,6 +979,7 @@ static struct snd_soc_dai_link mt6833_mt6359_dai_links[] = {
 		.name = "DSP_Capture_Ul1",
 		.stream_name = "DSP_Capture_Ul1",
 		.cpu_dai_name = "audio_task_capture_ul1_dai",
+		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1033,6 +987,7 @@ static struct snd_soc_dai_link mt6833_mt6359_dai_links[] = {
 		.name = "DSP_Call_Final",
 		.stream_name = "DSP_Call_Final",
 		.cpu_dai_name = "audio_task_call_final_dai",
+		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1040,6 +995,7 @@ static struct snd_soc_dai_link mt6833_mt6359_dai_links[] = {
 		.name = "DSP_Playback_Fast",
 		.stream_name = "DSP_Playback_Fast",
 		.cpu_dai_name = "audio_task_fast_dai",
+		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1047,6 +1003,7 @@ static struct snd_soc_dai_link mt6833_mt6359_dai_links[] = {
 		.name = "DSP_Playback_Ktv",
 		.stream_name = "DSP_Playback_Ktv",
 		.cpu_dai_name = "audio_task_ktv_dai",
+		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1054,6 +1011,7 @@ static struct snd_soc_dai_link mt6833_mt6359_dai_links[] = {
 		.name = "DSP_Playback_A2DP",
 		.stream_name = "DSP_Playback_A2DP",
 		.cpu_dai_name = "audio_task_a2dp_dai",
+		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1097,11 +1055,13 @@ static struct snd_soc_card mt6833_mt6359_soc_card = {
 static int mt6833_mt6359_dev_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &mt6833_mt6359_soc_card;
-	struct device_node *platform_node, *codec_node, *spk_node, *dsp_node;
+	struct device_node *platform_node, *codec_node, *spk_node;
 	struct snd_soc_dai_link *spk_out_dai_link, *spk_iv_dai_link;
 	int ret, i;
 	int spk_out_dai_link_idx, spk_iv_dai_link_idx;
-	const char *name;
+
+
+	dev_info(&pdev->dev, "%s(), ++\n", __func__);
 
 	ret = mtk_spk_update_info(card, pdev,
 				  &spk_out_dai_link_idx, &spk_iv_dai_link_idx,
@@ -1111,6 +1071,8 @@ static int mt6833_mt6359_dev_probe(struct platform_device *pdev)
 			__func__);
 		return -EINVAL;
 	}
+
+	dev_info(&pdev->dev, "%s(), update spk dai\n", __func__);
 
 	spk_out_dai_link = &mt6833_mt6359_dai_links[spk_out_dai_link_idx];
 	spk_iv_dai_link = &mt6833_mt6359_dai_links[spk_iv_dai_link_idx];
@@ -1139,30 +1101,21 @@ static int mt6833_mt6359_dev_probe(struct platform_device *pdev)
 		}
 	}
 
+	dev_info(&pdev->dev, "%s(), update platform dai\n", __func__);
+
 	platform_node = of_parse_phandle(pdev->dev.of_node,
 					 "mediatek,platform", 0);
 	if (!platform_node) {
 		dev_err(&pdev->dev, "Property 'platform' missing or invalid\n");
 		return -EINVAL;
 	}
-
-	dsp_node = of_parse_phandle(pdev->dev.of_node,
-				    "mediatek,snd_audio_dsp", 0);
-	if (!dsp_node)
-		dev_info(&pdev->dev, "Property 'snd_audio_dsp' missing or invalid\n");
-
 	for (i = 0; i < card->num_links; i++) {
 		if (mt6833_mt6359_dai_links[i].platform_name)
 			continue;
-		/* no platform assign and with dsp playback node. */
-		name = mt6833_mt6359_dai_links[i].name;
-		if (!strncmp(name, "DSP", strlen("DSP")) &&
-		    mt6833_mt6359_dai_links[i].platform_name == NULL) {
-			mt6833_mt6359_dai_links[i].platform_of_node = dsp_node;
-			continue;
-		}
 		mt6833_mt6359_dai_links[i].platform_of_node = platform_node;
 	}
+
+	dev_info(&pdev->dev, "%s(), update audio-codec dai\n", __func__);
 
 	codec_node = of_parse_phandle(pdev->dev.of_node,
 				      "mediatek,audio-codec", 0);
@@ -1180,6 +1133,8 @@ static int mt6833_mt6359_dev_probe(struct platform_device *pdev)
 	}
 
 	card->dev = &pdev->dev;
+
+	dev_info(&pdev->dev, "%s(), devm_snd_soc_register_card\n", __func__);
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret)
@@ -1215,6 +1170,6 @@ module_platform_driver(mt6833_mt6359_driver);
 
 /* Module information */
 MODULE_DESCRIPTION("MT6833 MT6359 ALSA SoC machine driver");
-MODULE_AUTHOR("Shane Chien <shane.chien@mediatek.com>");
+MODULE_AUTHOR("Eason Yen <eason.yen@mediatek.com>");
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("mt6833 mt6359 soc card");

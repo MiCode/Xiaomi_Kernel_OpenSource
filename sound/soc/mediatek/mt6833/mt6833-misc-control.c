@@ -2,8 +2,8 @@
 /*
  *  MediaTek ALSA SoC Audio Misc Control
  *
- *  Copyright (c) 2019 MediaTek Inc.
- *  Author: Shane Chien <shane.chien@mediatek.com>
+ *  Copyright (c) 2020 MediaTek Inc.
+ *  Author: Eason Yen <eason.yen@mediatek.com>
  */
 
 #include <linux/delay.h>
@@ -453,46 +453,10 @@ static int mt6833_afe_debug_set(struct snd_kcontrol *kcontrol,
 	dev_info(afe->dev, "AFE_VUL_END_MSB = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_VUL_END, &value);
 	dev_info(afe->dev, "AFE_VUL_END = 0x%x\n", value);
-	regmap_read(afe->regmap,
-		    AFE_ADDA_3RD_DAC_DL_SDM_AUTO_RESET_CON, &value);
-	dev_info(afe->dev,
-		 "AFE_ADDA_3RD_DAC_DL_SDM_AUTO_RESET_CON = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SRC2_CON0, &value);
-	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_SRC2_CON0 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SRC2_CON1, &value);
-	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_SRC2_CON1 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_PREDIS_CON0, &value);
-	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_PREDIS_CON0 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_PREDIS_CON1, &value);
-	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_PREDIS_CON1 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_PREDIS_CON2, &value);
-	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_PREDIS_CON2 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_PREDIS_CON3, &value);
-	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_PREDIS_CON3 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SDM_DCCOMP_CON, &value);
-	dev_info(afe->dev,
-		 "AFE_ADDA_3RD_DAC_DL_SDM_DCCOMP_CON = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SDM_TEST, &value);
-	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_SDM_TEST = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_DC_COMP_CFG0, &value);
-	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_DC_COMP_CFG0 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_DC_COMP_CFG1, &value);
-	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_DC_COMP_CFG1 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SDM_FIFO_MON, &value);
-	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_SDM_FIFO_MON = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SRC_LCH_MON, &value);
-	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_SRC_LCH_MON = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SRC_RCH_MON, &value);
-	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_SRC_RCH_MON = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SDM_OUT_MON, &value);
-	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_SDM_OUT_MON = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_SIDETONE_DEBUG, &value);
 	dev_info(afe->dev, "AFE_SIDETONE_DEBUG = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_SIDETONE_MON, &value);
 	dev_info(afe->dev, "AFE_SIDETONE_MON = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SDM_DITHER_CON, &value);
-	dev_info(afe->dev,
-		 "AFE_ADDA_3RD_DAC_DL_SDM_DITHER_CON = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_SINEGEN_CON2, &value);
 	dev_info(afe->dev, "AFE_SINEGEN_CON2 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_SIDETONE_CON0, &value);
@@ -505,10 +469,6 @@ static int mt6833_afe_debug_set(struct snd_kcontrol *kcontrol,
 	dev_info(afe->dev, "AFE_SIDETONE_GAIN = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_SINEGEN_CON0, &value);
 	dev_info(afe->dev, "AFE_SINEGEN_CON0 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_I2S_MON2, &value);
-	dev_info(afe->dev, "AFE_I2S_MON2 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_SINEGEN_CON_TDM, &value);
-	dev_info(afe->dev, "AFE_SINEGEN_CON_TDM = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_TOP_CON0, &value);
 	dev_info(afe->dev, "AFE_TOP_CON0 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_VUL2_CON0, &value);
@@ -609,8 +569,6 @@ static int mt6833_afe_debug_set(struct snd_kcontrol *kcontrol,
 	dev_info(afe->dev, "AFE_VUL12_END_MSB = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_VUL12_END, &value);
 	dev_info(afe->dev, "AFE_VUL12_END = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_HDMI_CONN0, &value);
-	dev_info(afe->dev, "AFE_HDMI_CONN0 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_IRQ3_MCU_CNT_MON, &value);
 	dev_info(afe->dev, "AFE_IRQ3_MCU_CNT_MON = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_IRQ4_MCU_CNT_MON, &value);
@@ -747,32 +705,12 @@ static int mt6833_afe_debug_set(struct snd_kcontrol *kcontrol,
 	dev_info(afe->dev, "AFE_CONN56_1 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_CONN57_1, &value);
 	dev_info(afe->dev, "AFE_CONN57_1 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_TINY_CONN2, &value);
-	dev_info(afe->dev, "AFE_TINY_CONN2 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_TINY_CONN3, &value);
-	dev_info(afe->dev, "AFE_TINY_CONN3 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_TINY_CONN4, &value);
-	dev_info(afe->dev, "AFE_TINY_CONN4 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_TINY_CONN5, &value);
-	dev_info(afe->dev, "AFE_TINY_CONN5 = 0x%x\n", value);
 	regmap_read(afe->regmap, PCM_INTF_CON1, &value);
 	dev_info(afe->dev, "PCM_INTF_CON1 = 0x%x\n", value);
 	regmap_read(afe->regmap, PCM_INTF_CON2, &value);
 	dev_info(afe->dev, "PCM_INTF_CON2 = 0x%x\n", value);
 	regmap_read(afe->regmap, PCM2_INTF_CON, &value);
 	dev_info(afe->dev, "PCM2_INTF_CON = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_TDM_CON1, &value);
-	dev_info(afe->dev, "AFE_TDM_CON1 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_TDM_CON2, &value);
-	dev_info(afe->dev, "AFE_TDM_CON2 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_I2S_CON6, &value);
-	dev_info(afe->dev, "AFE_I2S_CON6 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_I2S_CON7, &value);
-	dev_info(afe->dev, "AFE_I2S_CON7 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_I2S_CON8, &value);
-	dev_info(afe->dev, "AFE_I2S_CON8 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_I2S_CON9, &value);
-	dev_info(afe->dev, "AFE_I2S_CON9 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_CONN34, &value);
 	dev_info(afe->dev, "AFE_CONN34 = 0x%x\n", value);
 	regmap_read(afe->regmap, AUDIO_TOP_DBG_CON, &value);
@@ -819,12 +757,6 @@ static int mt6833_afe_debug_set(struct snd_kcontrol *kcontrol,
 	dev_info(afe->dev, "AFE_IRQ_MCU_CNT25 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT26, &value);
 	dev_info(afe->dev, "AFE_IRQ_MCU_CNT26 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT31, &value);
-	dev_info(afe->dev, "AFE_IRQ_MCU_CNT31 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_TINY_CONN6, &value);
-	dev_info(afe->dev, "AFE_TINY_CONN6 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_TINY_CONN7, &value);
-	dev_info(afe->dev, "AFE_TINY_CONN7 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_IRQ9_MCU_CNT_MON, &value);
 	dev_info(afe->dev, "AFE_IRQ9_MCU_CNT_MON = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_IRQ10_MCU_CNT_MON, &value);
@@ -1063,8 +995,6 @@ static int mt6833_afe_debug_set(struct snd_kcontrol *kcontrol,
 	dev_info(afe->dev, "AFE_CONN41 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_CONN42, &value);
 	dev_info(afe->dev, "AFE_CONN42 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_SGEN_CON_SGEN32, &value);
-	dev_info(afe->dev, "AFE_SGEN_CON_SGEN32 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_CONN39_1, &value);
 	dev_info(afe->dev, "AFE_CONN39_1 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_CONN40_1, &value);
@@ -1119,10 +1049,6 @@ static int mt6833_afe_debug_set(struct snd_kcontrol *kcontrol,
 	dev_info(afe->dev, "AFE_ADD6A_UL_SRC_MON0 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_ADDA6_UL_SRC_MON1, &value);
 	dev_info(afe->dev, "AFE_ADDA6_UL_SRC_MON1 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_TINY_CONN0, &value);
-	dev_info(afe->dev, "AFE_TINY_CONN0 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_TINY_CONN1, &value);
-	dev_info(afe->dev, "AFE_TINY_CONN1 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_CONN43, &value);
 	dev_info(afe->dev, "AFE_CONN43 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_CONN43_1, &value);
@@ -1141,20 +1067,6 @@ static int mt6833_afe_debug_set(struct snd_kcontrol *kcontrol,
 	dev_info(afe->dev, "AFE_MOD_DAI_END_MSB = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_MOD_DAI_END, &value);
 	dev_info(afe->dev, "AFE_MOD_DAI_END = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_HDMI_OUT_CON0, &value);
-	dev_info(afe->dev, "AFE_HDMI_OUT_CON0 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_HDMI_OUT_BASE_MSB, &value);
-	dev_info(afe->dev, "AFE_HDMI_OUT_BASE_MSB = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_HDMI_OUT_BASE, &value);
-	dev_info(afe->dev, "AFE_HDMI_OUT_BASE = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_HDMI_OUT_CUR_MSB, &value);
-	dev_info(afe->dev, "AFE_HDMI_OUT_CUR_MSB = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_HDMI_OUT_CUR, &value);
-	dev_info(afe->dev, "AFE_HDMI_OUT_CUR = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_HDMI_OUT_END_MSB, &value);
-	dev_info(afe->dev, "AFE_HDMI_OUT_END_MSB = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_HDMI_OUT_END, &value);
-	dev_info(afe->dev, "AFE_HDMI_OUT_END = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_AWB_RCH_MON, &value);
 	dev_info(afe->dev, "AFE_AWB_RCH_MON = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_AWB_LCH_MON, &value);
@@ -1333,8 +1245,6 @@ static int mt6833_afe_debug_set(struct snd_kcontrol *kcontrol,
 	dev_info(afe->dev, "AFE_ADDA_PREDIS_CON2 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_ADDA_PREDIS_CON3, &value);
 	dev_info(afe->dev, "AFE_ADDA_PREDIS_CON3 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_MEMIF_CONN, &value);
-	dev_info(afe->dev, "AFE_MEMIF_CONN = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_SE_DOMAIN_SIDEBAND1, &value);
 	dev_info(afe->dev, "AFE_SE_DOMAIN_SIDEBAND1 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_SE_DOMAIN_SIDEBAND2, &value);
@@ -1811,22 +1721,6 @@ static int mt6833_afe_debug_set(struct snd_kcontrol *kcontrol,
 	dev_info(afe->dev, "AFE_SECURE_MASK_CONN55_1 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_SECURE_MASK_CONN56_1, &value);
 	dev_info(afe->dev, "AFE_SECURE_MASK_CONN56_1 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_SECURE_MASK_TINY_CONN0, &value);
-	dev_info(afe->dev, "AFE_SECURE_MASK_TINY_CONN0 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_SECURE_MASK_TINY_CONN1, &value);
-	dev_info(afe->dev, "AFE_SECURE_MASK_TINY_CONN1 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_SECURE_MASK_TINY_CONN2, &value);
-	dev_info(afe->dev, "AFE_SECURE_MASK_TINY_CONN2 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_SECURE_MASK_TINY_CONN3, &value);
-	dev_info(afe->dev, "AFE_SECURE_MASK_TINY_CONN3 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_SECURE_MASK_TINY_CONN4, &value);
-	dev_info(afe->dev, "AFE_SECURE_MASK_TINY_CONN4 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_SECURE_MASK_TINY_CONN5, &value);
-	dev_info(afe->dev, "AFE_SECURE_MASK_TINY_CONN5 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_SECURE_MASK_TINY_CONN6, &value);
-	dev_info(afe->dev, "AFE_SECURE_MASK_TINY_CONN6 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_SECURE_MASK_TINY_CONN7, &value);
-	dev_info(afe->dev, "AFE_SECURE_MASK_TINY_CONN7 = 0x%x\n", value);
 
 	return 0;
 }
@@ -2023,6 +1917,8 @@ static void *get_sph_property_by_name(struct mt6833_afe_private *afe_priv,
 		return &afe_priv->speech_md_version;
 	else if (strcmp(name, "Speech_Cust_Param_Init") == 0)
 		return &afe_priv->speech_cust_param_init;
+	else if (strcmp(name, "Speech_Dynamic_DL_Mute") == 0)
+		return &afe_priv->speech_dynamic_dl_mute;
 	else
 		return NULL;
 }
@@ -2043,10 +1939,6 @@ static int speech_property_get(struct snd_kcontrol *kcontrol,
 	}
 	ucontrol->value.integer.value[0] = *sph_property;
 
-	if (strcmp(kcontrol->id.name, "Speech_A2M_Msg_ID") != 0)
-		dev_info(afe->dev, "%s(), %s = 0x%x\n", __func__,
-			 kcontrol->id.name, *sph_property);
-
 	return 0;
 }
 
@@ -2066,8 +1958,6 @@ static int speech_property_set(struct snd_kcontrol *kcontrol,
 	}
 	*sph_property = ucontrol->value.integer.value[0];
 
-	dev_info(afe->dev, "%s(), %s = 0x%x\n", __func__,
-		 kcontrol->id.name, *sph_property);
 	return 0;
 }
 
@@ -2121,6 +2011,9 @@ static const struct snd_kcontrol_new mt6833_afe_speech_controls[] = {
 		       SND_SOC_NOPM, 0, 0xFFFFFFFF, 0,
 		       speech_property_get, speech_property_set),
 	SOC_SINGLE_EXT("Speech_Cust_Param_Init",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_Dynamic_DL_Mute",
 		       SND_SOC_NOPM, 0, 0x1, 0,
 		       speech_property_get, speech_property_set),
 };

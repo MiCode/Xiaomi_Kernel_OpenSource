@@ -2,8 +2,8 @@
 /*
  *  MediaTek ALSA SoC Audio DAI HW Gain Control
  *
- *  Copyright (c) 2019 MediaTek Inc.
- *  Author: Shane Chien <shane.chien@mediatek.com>
+ *  Copyright (c) 2020 MediaTek Inc.
+ *  Author: Eason Yen <eason.yen@mediatek.com>
  */
 
 #include <linux/regmap.h>

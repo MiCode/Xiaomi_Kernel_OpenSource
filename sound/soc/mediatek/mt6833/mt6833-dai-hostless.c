@@ -2,8 +2,8 @@
 /*
  *  MediaTek ALSA SoC Audio DAI Hostless Control
  *
- *  Copyright (c) 2019 MediaTek Inc.
- *  Author: Shane Chien <shane.chien@mediatek.com>
+ *  Copyright (c) 2020 MediaTek Inc.
+ *  Author: Eason Yen <eason.yen@mediatek.com>
  */
 
 #include "mt6833-afe-common.h"
@@ -45,7 +45,6 @@ static const struct snd_soc_dapm_route mtk_dai_hostless_routes[] = {
 	{"I2S5_CH1", "ADDA_UL_CH1", "Hostless LPBK DL"},
 	{"I2S5_CH2", "ADDA_UL_CH2", "Hostless LPBK DL"},
 	{"Hostless LPBK UL", NULL, "ADDA_UL_Mux"},
-	{"Hostless LPBK UL", NULL, "ADDA_CH34_UL_Mux"},
 
 	/* Hostless Speech */
 	{"ADDA_DL_CH1", "PCM_1_CAP_CH1", "Hostless Speech DL"},
@@ -91,7 +90,6 @@ static const struct snd_soc_dapm_route mtk_dai_hostless_routes[] = {
 	{"Hostless Speech UL", NULL, "PCM 1 Capture"},
 	{"Hostless Speech UL", NULL, "PCM 2 Capture"},
 	{"Hostless Speech UL", NULL, "ADDA_UL_Mux"},
-	{"Hostless Speech UL", NULL, "ADDA_CH34_UL_Mux"},
 
 	/* Hostless_Sph_Echo_Ref_DAI */
 	{"PCM_1_PB_CH4", "I2S0_CH1", "Hostless_Sph_Echo_Ref_DL"},
@@ -368,18 +366,6 @@ static struct snd_soc_dai_driver mtk_dai_hostless_driver[] = {
 		.id = MT6833_DAI_HOSTLESS_UL3,
 		.capture = {
 			.stream_name = "Hostless_UL3 UL",
-			.channels_min = 1,
-			.channels_max = 2,
-			.rates = MTK_HOSTLESS_RATES,
-			.formats = MTK_HOSTLESS_FORMATS,
-		},
-		.ops = &mtk_dai_hostless_ops,
-	},
-	{
-		.name = "Hostless_DSP_DL DAI",
-		.id = MT6833_DAI_HOSTLESS_DSP_DL,
-		.playback = {
-			.stream_name = "Hostless_DSP_DL DL",
 			.channels_min = 1,
 			.channels_max = 2,
 			.rates = MTK_HOSTLESS_RATES,

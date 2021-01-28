@@ -2,8 +2,8 @@
 /*
  * Mediatek MT6833 audio driver interconnection definition
  *
- * Copyright (c) 2019 MediaTek Inc.
- * Author: Shane Chien <shane.chien@mediatek.com>
+ * Copyright (c) 2020 MediaTek Inc.
+ * Author: Eason Yen <eason.yen@mediatek.com>
  */
 
 #ifndef _MT6833_INTERCONNECTION_H_

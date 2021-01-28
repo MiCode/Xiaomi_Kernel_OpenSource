@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * mt6833-afe-common.h  --  Mediatek 6853 audio driver definitions
+ * mt6833-afe-common.h  --  Mediatek 6833 audio driver definitions
  *
- * Copyright (c) 2019 MediaTek Inc.
- * Author: Shane Chien <shane.chien@mediatek.com>
+ * Copyright (c) 2020 MediaTek Inc.
+ * Author: Eason Yen <eason.yen@mediatek.com>
  */
 
-#ifndef _MT_6853_AFE_COMMON_H_
-#define _MT_6853_AFE_COMMON_H_
+#ifndef _MT_6833_AFE_COMMON_H_
+#define _MT_6833_AFE_COMMON_H_
 #include <sound/soc.h>
 #include <linux/list.h>
 #include <linux/regmap.h>
@@ -37,12 +37,9 @@ enum {
 	MT6833_MEMIF_VUL6,
 	MT6833_MEMIF_AWB,
 	MT6833_MEMIF_AWB2,
-	MT6833_MEMIF_HDMI,
 	MT6833_MEMIF_NUM,
 	MT6833_DAI_ADDA = MT6833_MEMIF_NUM,
-	MT6833_DAI_ADDA_CH34,
 	MT6833_DAI_AP_DMIC,
-	MT6833_DAI_AP_DMIC_CH34,
 	MT6833_DAI_VOW,
 	MT6833_DAI_CONNSYS_I2S,
 	MT6833_DAI_I2S_0,
@@ -56,7 +53,6 @@ enum {
 	MT6833_DAI_SRC_2,
 	MT6833_DAI_PCM_1,
 	MT6833_DAI_PCM_2,
-	MT6833_DAI_TDM,
 	MT6833_DAI_HOSTLESS_LPBK,
 	MT6833_DAI_HOSTLESS_FM,
 	MT6833_DAI_HOSTLESS_HW_GAIN_AAUDIO,
@@ -71,7 +67,6 @@ enum {
 	MT6833_DAI_HOSTLESS_UL2,
 	MT6833_DAI_HOSTLESS_UL3,
 	MT6833_DAI_HOSTLESS_UL6,
-	MT6833_DAI_HOSTLESS_DSP_DL,
 	MT6833_DAI_NUM,
 };
 
@@ -121,7 +116,6 @@ enum {
 	MT6833_IRQ_24,
 	MT6833_IRQ_25,
 	MT6833_IRQ_26,
-	MT6833_IRQ_31,	/* used only for TDM */
 	MT6833_IRQ_NUM,
 };
 
@@ -205,8 +199,6 @@ struct mt6833_afe_private {
 	int mtkaif_phase_cycle[4];
 	int mtkaif_calibration_num_phase;
 	int mtkaif_dmic;
-	int mtkaif_dmic_ch34;
-	int mtkaif_adda6_only;
 
 	/* mck */
 	int mck_rate[MT6833_MCK_NUM];
@@ -229,6 +221,7 @@ struct mt6833_afe_private {
 	int speech_md_headversion;
 	int speech_md_version;
 	int speech_cust_param_init;
+	int speech_dynamic_dl_mute;
 };
 
 int mt6833_dai_adda_register(struct mtk_base_afe *afe);
@@ -236,7 +229,6 @@ int mt6833_dai_i2s_register(struct mtk_base_afe *afe);
 int mt6833_dai_hw_gain_register(struct mtk_base_afe *afe);
 int mt6833_dai_src_register(struct mtk_base_afe *afe);
 int mt6833_dai_pcm_register(struct mtk_base_afe *afe);
-int mt6833_dai_tdm_register(struct mtk_base_afe *afe);
 
 int mt6833_dai_hostless_register(struct mtk_base_afe *afe);
 

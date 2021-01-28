@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- *  mt6833-afe-gpio.c  --  Mediatek 6853 afe gpio ctrl
+ *  mt6833-afe-gpio.c  --  Mediatek 6833 afe gpio ctrl
  *
- *  Copyright (c) 2018 MediaTek Inc.
- *  Author: Shane Chien <shane.chien@mediatek.com>
+ *  Copyright (c) 2020 MediaTek Inc.
+ *  Author: Eason Yen <eason.yen@mediatek.com>
  */
 
 #include <linux/gpio.h>
@@ -19,10 +19,6 @@ enum mt6833_afe_gpio {
 	MT6833_AFE_GPIO_DAT_MISO_ON,
 	MT6833_AFE_GPIO_DAT_MOSI_OFF,
 	MT6833_AFE_GPIO_DAT_MOSI_ON,
-	MT6833_AFE_GPIO_DAT_MISO_CH34_OFF,
-	MT6833_AFE_GPIO_DAT_MISO_CH34_ON,
-	MT6833_AFE_GPIO_DAT_MOSI_CH34_OFF,
-	MT6833_AFE_GPIO_DAT_MOSI_CH34_ON,
 	MT6833_AFE_GPIO_I2S0_OFF,
 	MT6833_AFE_GPIO_I2S0_ON,
 	MT6833_AFE_GPIO_I2S1_OFF,
@@ -65,14 +61,6 @@ static struct audio_gpio_attr aud_gpios[MT6833_AFE_GPIO_GPIO_NUM] = {
 	[MT6833_AFE_GPIO_VOW_DAT_ON] = {"vow_dat_miso_on", false, NULL},
 	[MT6833_AFE_GPIO_VOW_CLK_OFF] = {"vow_clk_miso_off", false, NULL},
 	[MT6833_AFE_GPIO_VOW_CLK_ON] = {"vow_clk_miso_on", false, NULL},
-	[MT6833_AFE_GPIO_DAT_MISO_CH34_OFF] = {"aud_dat_miso_ch34_off",
-					       false, NULL},
-	[MT6833_AFE_GPIO_DAT_MISO_CH34_ON] = {"aud_dat_miso_ch34_on",
-					      false, NULL},
-	[MT6833_AFE_GPIO_DAT_MOSI_CH34_OFF] = {"aud_dat_mosi_ch34_off",
-					       false, NULL},
-	[MT6833_AFE_GPIO_DAT_MOSI_CH34_ON] = {"aud_dat_mosi_ch34_on",
-					      false, NULL},
 };
 
 static DEFINE_MUTEX(gpio_request_mutex);
@@ -158,28 +146,6 @@ static int mt6833_afe_gpio_adda_ul(struct mtk_base_afe *afe, bool enable)
 	}
 }
 
-static int mt6833_afe_gpio_adda_ch34_dl(struct mtk_base_afe *afe, bool enable)
-{
-	if (enable) {
-		return mt6833_afe_gpio_select(afe,
-			MT6833_AFE_GPIO_DAT_MOSI_CH34_ON);
-	} else {
-		return mt6833_afe_gpio_select(afe,
-			MT6833_AFE_GPIO_DAT_MOSI_CH34_OFF);
-	}
-}
-
-static int mt6833_afe_gpio_adda_ch34_ul(struct mtk_base_afe *afe, bool enable)
-{
-	if (enable) {
-		return mt6833_afe_gpio_select(afe,
-			MT6833_AFE_GPIO_DAT_MISO_CH34_ON);
-	} else {
-		return mt6833_afe_gpio_select(afe,
-			MT6833_AFE_GPIO_DAT_MISO_CH34_OFF);
-	}
-}
-
 int mt6833_afe_gpio_request(struct mtk_base_afe *afe, bool enable,
 			    int dai, int uplink)
 {
@@ -190,12 +156,6 @@ int mt6833_afe_gpio_request(struct mtk_base_afe *afe, bool enable,
 			mt6833_afe_gpio_adda_ul(afe, enable);
 		else
 			mt6833_afe_gpio_adda_dl(afe, enable);
-		break;
-	case MT6833_DAI_ADDA_CH34:
-		if (uplink)
-			mt6833_afe_gpio_adda_ch34_ul(afe, enable);
-		else
-			mt6833_afe_gpio_adda_ch34_dl(afe, enable);
 		break;
 	case MT6833_DAI_I2S_0:
 		if (enable)

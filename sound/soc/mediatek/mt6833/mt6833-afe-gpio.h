@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * mt6833-afe-gpio.h  --  Mediatek 6853 afe gpio ctrl definition
+ * mt6833-afe-gpio.h  --  Mediatek 6833 afe gpio ctrl definition
  *
- * Copyright (c) 2019 MediaTek Inc.
- * Author: Shane Chien <shane.chien@mediatek.com>
+ * Copyright (c) 2020 MediaTek Inc.
+ * Author: Eason Yen <eason.yen@mediatek.com>
  */
 
 #ifndef _MT6833_AFE_GPIO_H_

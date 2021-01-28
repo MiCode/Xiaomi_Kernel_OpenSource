@@ -26,7 +26,10 @@
 #if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 #include "../scp_vow/mtk-scp-vow-common.h"
 #endif
+
+#if defined(CONFIG_MTK_ION)
 #include "mtk-mmap-ion.h"
+#endif
 
 #if defined(CONFIG_SND_SOC_MTK_SRAM)
 #include "mtk-sram-manager.h"
@@ -161,7 +164,8 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 	unsigned int rate = params_rate(params);
 	snd_pcm_format_t format = params_format(params);
 
-		// mmap don't alloc buffer
+#if defined(CONFIG_MTK_ION)
+	// mmap don't alloc buffer
 	if (memif->use_mmap_share_mem != 0) {
 		unsigned long phy_addr;
 		void *vir_addr;
@@ -194,6 +198,7 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 		}
 		goto END;
 	}
+#endif
 
 #if defined(CONFIG_SND_SOC_MTK_SRAM)
 	/*
@@ -285,8 +290,10 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 	memif->using_sram = 0;
 #endif
 
-END:
 
+#if defined(CONFIG_MTK_ION)
+END:
+#endif
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		memset_io(substream->runtime->dma_area,
 			  0, substream->runtime->dma_bytes);
@@ -366,9 +373,11 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 		return mtk_audio_sram_free(afe->sram, substream);
 	}
 
+#if defined(CONFIG_MTK_ION)
 	// mmap don't free buffer
 	if (memif->use_mmap_share_mem != 0)
 		return 0;
+#endif
 
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	if (memif->use_adsp_share_mem == true)

@@ -31,6 +31,7 @@ obj-$(CONFIG_SND_SOC_MT6768) += mt6768/
 obj-$(CONFIG_SND_SOC_MT8168) += mt8168/
 obj-$(CONFIG_SND_SOC_MT6785) += mt6785/
 obj-$(CONFIG_SND_SOC_MT8173) += mt8173/
+obj-$(CONFIG_SND_SOC_MT6833) += mt6833/
 obj-$(CONFIG_SND_SOC_MT6853) += mt6853/
 obj-$(CONFIG_SND_SOC_MT6873) += mt6873/
 obj-$(CONFIG_SND_SOC_MT6885) += mt6885/
@@ -92,13 +93,20 @@ subdir-ccflags-y += -D_REG_SYNC_WRITE
 # include path
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/accdet/mt6358
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include
+subdir-ccflags-${CONFIG_MACH_MT6833} += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6833/include
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/base/power/include
+subdir-ccflags-${CONFIG_MACH_MT6833} += -Werror -I$(srctree)/drivers/misc/mediatek/base/power/mt6833/
+subdir-ccflags-${CONFIG_MACH_MT6833} += -Werror -I$(srctree)/drivers/misc/mediatek/dramc/mt6833/
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 
+ifeq ($(CONFIG_MACH_MT6833),y)
+AUDIO_PLATFORM := mt6833
+else
 AUDIO_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+endif
 
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/scp/$(AUDIO_PLATFORM)/
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/audio_ipi/$(AUDIO_PLATFORM)/

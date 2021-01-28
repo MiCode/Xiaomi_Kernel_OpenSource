@@ -11,7 +11,6 @@ snd-soc-mt6833-afe-objs := \
 	mt6833-dai-hw-gain.o \
 	mt6833-dai-src.o \
 	mt6833-dai-pcm.o \
-	mt6833-dai-tdm.o \
 	mt6833-dai-hostless.o \
 	mt6833-misc-control.o
 
