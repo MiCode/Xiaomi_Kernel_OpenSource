@@ -2760,8 +2760,9 @@ int m4u_hw_init(struct m4u_device *m4u_dev, int m4u_id)
 
 	gM4UBaseAddr[m4u_id] = m4u_dev->m4u_base[m4u_id];
 
-	pProtectVA = (unsigned long)kmalloc(TF_PROTECT_BUFFER_SIZE * 2,
-				GFP_KERNEL | __GFP_ZERO);
+	pProtectVA = (unsigned long)devm_kzalloc(m4u_dev->pDev[m4u_id],
+						 TF_PROTECT_BUFFER_SIZE * 2,
+						 GFP_KERNEL);
 	if ((void *)pProtectVA == NULL) {
 		M4UMSG("Physical memory not available.\n");
 		return -1;
@@ -2780,7 +2781,9 @@ int m4u_hw_init(struct m4u_device *m4u_dev, int m4u_id)
 		pProtectVA, (unsigned long)ProtectPA,
 		gM4UtfAddr[m4u_id]);
 
-	pM4URegBackUp = kmalloc(M4U_REG_BACKUP_SIZE, GFP_KERNEL | __GFP_ZERO);
+	pM4URegBackUp = devm_kzalloc(m4u_dev->pDev[m4u_id],
+				     M4U_REG_BACKUP_SIZE,
+				     GFP_KERNEL);
 	if (pM4URegBackUp == NULL) {
 		M4UMSG("Physical memory not available size=%d.\n",
 			(int)M4U_REG_BACKUP_SIZE);
