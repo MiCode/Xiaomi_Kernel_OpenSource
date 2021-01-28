@@ -90,6 +90,7 @@ static int has_memory_session;
 
 static unsigned int session_config[MAX_SESSION_COUNT];
 static DEFINE_MUTEX(disp_session_lock);
+static DEFINE_MUTEX(disp_layer_lock);
 
 static dev_t mtk_disp_mgr_devno;
 static struct cdev *mtk_disp_mgr_cdev;
@@ -1297,7 +1298,9 @@ static long _ioctl_query_valid_layer(unsigned long arg)
 		return -EINVAL;
 	}
 
+	mutex_lock(&disp_layer_lock);
 	layering_rule_start(&disp_info_user, 0);
+	mutex_unlock(&disp_layer_lock);
 
 	if (copy_to_user(argp, &disp_info_user, sizeof(disp_info_user))) {
 		DISPERR("[FB]: copy_to_user failed! line:%d\n", __LINE__);
