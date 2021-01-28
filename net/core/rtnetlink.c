@@ -127,7 +127,6 @@ static void rtnl_print_btrace(struct timer_list *unused)
 		print_stack_trace(&show_trace, 0);
 		show_stack(rtnl_instance.task, NULL);
 		pr_info("------------%s end-----------\n", __func__);
-		mod_timer(&rtnl_chk_timer, jiffies + 8 * HZ);
 	} else {
 		pr_info("[mtk_net][rtnl_lock]There is no process hold rtnl lock\n");
 	}
@@ -147,12 +146,10 @@ struct rtnl_link {
 };
 
 static DEFINE_MUTEX(rtnl_mutex);
-static unsigned long long rtnl_mutex_ts, rtnl_mutex_te;
 
 void rtnl_lock(void)
 {
 	mutex_lock(&rtnl_mutex);
-	rtnl_mutex_ts = sched_clock();
 	rtnl_get_btrace(current);
 }
 EXPORT_SYMBOL(rtnl_lock);
@@ -179,16 +176,7 @@ void __rtnl_unlock(void)
 
 	defer_kfree_skb_list = NULL;
 
-	rtnl_mutex_te = sched_clock();
-	if (rtnl_mutex_te - rtnl_mutex_ts > 2000000000)
-		pr_info("[mtk_net][rtnl_unlock] rtnl_lock is held by %s[%d][%c] from [%llu] to [%llu]\n",
-			rtnl_instance.task->comm,
-			rtnl_instance.pid,
-			task_state_to_char(rtnl_instance.task),
-			rtnl_mutex_ts, rtnl_mutex_te);
-
 	mutex_unlock(&rtnl_mutex);
-	mod_timer(&rtnl_chk_timer, 0);
 
 	while (head) {
 		struct sk_buff *next = head->next;
