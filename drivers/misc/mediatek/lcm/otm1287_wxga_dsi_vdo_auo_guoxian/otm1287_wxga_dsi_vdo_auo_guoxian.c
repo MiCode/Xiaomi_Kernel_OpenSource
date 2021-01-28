@@ -560,7 +560,7 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 
 	params->dsi.ssc_disable	= 1;
 	params->dsi.cont_clock	= 0;
-	params->dsi.PLL_CLOCK   = 205;
+	params->dsi.PLL_CLOCK   = 219;
 
 	params->dsi.clk_lp_per_line_enable   = 0;
 	/* params->dsi.esd_check_enable = 0; */
