@@ -1166,7 +1166,7 @@ void ged_log_perf_trace_counter(char *name, long long count, int pid,
 {
 	if (ged_log_perf_trace_enable) {
 		__mt_update_tracing_mark_write_addr();
-#ifdef ENABLE_GED_SYSTRACE_UTIL
+#if (defined(CONFIG_EVENT_TRACING) && defined(CONFIG_MTK_GPU_SUPPORT))
 		preempt_disable();
 		event_trace_printk(tracing_mark_write_addr,
 			"C|%d|%s|%lld|%llu|%lu\n", pid,
