@@ -2188,6 +2188,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 					<0 0>, <0 0>;
 
 			vcc-supply = <&mt_pmic_vemc_ldo_reg>;
+			vccq2-supply = <&mt_pmic_vufs_ldo_reg>;
 
 			/* Reference clock control mode */
 			/* SW mode: 0, Half-HW mode: 1, HW mode: 2 */
