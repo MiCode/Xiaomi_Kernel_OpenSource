@@ -6280,6 +6280,7 @@ lock_mon_enable_write(struct file *filp, const char *ubuf,
 	if (ret)
 		return ret;
 
+	lock_mon_enable = !!lock_mon_enable;
 	if (lock_mon_disabled && lock_mon_enable)
 		kthread_run(lock_monitor_work, NULL, "lock_monitor");
 
@@ -6294,6 +6295,7 @@ lock_mon_enable_read(struct file *file, char __user *user_buf,
 	int len;
 
 	len = snprintf(buf, sizeof(buf), "%d\n", lock_mon_enable);
+	len = len > sizeof(buf) ? sizeof(buf) : len;
 	return simple_read_from_buffer(user_buf, count, ppos, buf, len);
 }
 
