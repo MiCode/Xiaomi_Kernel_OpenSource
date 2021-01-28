@@ -55,6 +55,7 @@
 
 #define ADSP_CFGREG_RSV_RW_REG0     (ADSP_BASE + 0x008C)
 #define ADSP_CFGREG_RSV_RW_REG1     (ADSP_BASE + 0x0090)
+#define ADSP_CREG_BOOTUP_MARK       ADSP_CFGREG_RSV_RW_REG0
 
 /* Latch Debug info after WDT */
 #define ADSP_A_WDT_DEBUG_PC_REG     (ADSP_BASE + 0x0170)
@@ -81,23 +82,12 @@
 #define ADSP_LATMON_CONT1           (ADSP_BASE + 0x0130)
 #define ADSP_LATMON_CONT2           (ADSP_BASE + 0x0134)
 
-
 #define ADSP_A_DEBUG_PC_REG         (ADSP_BASE + 0x013C)
 #define ADSP_DBG_PEND_CNT           (ADSP_BASE + 0x015C)
 #define ADSP_SLEEP_STATUS_REG       (ADSP_BASE + 0x0158)
 #define ADSP_BUS_MON_BASE           (ADSP_BASE + 0x5000)
 
-/* adsp power state*/
-#define ADSP_A_IS_RESET             (0x00)
-#define ADSP_A_IS_ACTIVE            (0x10)
-#define ADSP_A_IS_WFI               (0x20)
-/* adsp current state */
-#define ADSP_A_CUR_RESET            (0x0)
-#define ADSP_A_CUR_STALL            (0x1)
-#define ADSP_A_CUR_ACTIVE           (0x3)
-#define ADSP_A_CUR_WFI              (0x4)
-#define ADSP_A_CUR_WAKEUP           (0x5) //Wakeup state (Receive irq)
-
+#define ADSP_A_IS_WFI               (1 << 0)
 #define ADSP_AXI_BUS_IS_IDLE        (1 << 1)
 
  /* clk reg */
