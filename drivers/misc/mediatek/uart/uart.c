@@ -49,6 +49,7 @@
 #include <linux/irq.h>
 /* #include <asm/scatterlist.h> */
 #include <mt-plat/dma.h>
+#include <mt-plat/mtk_printk_ctrl.h>
 /* #include <mach/mt_clkmgr.h> */
 #include <linux/slab.h>
 #include <linux/delay.h>
@@ -61,6 +62,7 @@
 #include <linux/ratelimit.h>
 
 #include "include/mtk_uart_internal.h"
+
 
 /*#define TTY_FLIP_ARG(a)  ((a)->port)*/
 
@@ -1748,7 +1750,7 @@ static irqreturn_t mtk_uart_irq(int irq, void *dev_id)
 
 	base = uart->base;
 	if ((uart == console_port) && (UART_READ32(UART_LSR) & 0x01))
-		printk_disable_uart = 0;
+		mt_enable_uart();
 #endif
 #endif
 #endif
@@ -3062,6 +3064,39 @@ int request_uart_to_wakeup(void)
 }
 EXPORT_SYMBOL(request_uart_to_wakeup);
 
+#endif
+
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+char uart_write_statbuf[256];
+char *mtk8250_uart_dump(void)
+{
+	u32 high_speed = 0, dll = 0, dlh = 0, line = 0;
+	u32 lcr = 0, count = 0, point = 0, guide = 0;
+	struct mtk_uart *uart;
+	unsigned long base;
+
+	for (line = 0; line < UART_NR; line++) {
+		uart = &mtk_uarts[line];
+		base = uart->base;
+		if (uart != console_port)
+			continue;
+		lcr = UART_READ32(UART_LCR);
+		high_speed = UART_READ32(UART_HIGHSPEED);
+		count = UART_READ32(UART_SAMPLE_COUNT);
+		point = UART_READ32(UART_SAMPLE_POINT);
+		reg_sync_writel(0x01, (base+0x9c));//enable new map
+		dll = UART_READ32(base+0x90);
+		dlh = UART_READ32(base+0x94);
+		reg_sync_writel(0x00, (base+0x9c));
+		guide = UART_READ32(UART_GUARD);
+	}
+	snprintf(uart_write_statbuf,
+		sizeof(uart_write_statbuf) - 1,
+	"high_speed = 0x%x, dll = 0x%x, dlh = 0x%x, lcr = 0x%x, count = 0x%x, point = 0x%x, guide = 0x%x",
+					high_speed, dll, dlh, lcr,
+					count, point, guide);
+	return uart_write_statbuf;
+}
 #endif
 /*---------------------------------------------------------------------------*/
 module_init(mtk_uart_init);
