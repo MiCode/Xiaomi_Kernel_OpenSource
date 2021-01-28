@@ -103,6 +103,10 @@ extern int gM4U_log_to_uart;
 #endif
 #endif
 
+#if defined(MTK_CAM_GENIEZONE_SUPPORT)
+#define M4U_GZ_SERVICE_ENABLE
+#endif
+
 #include "m4u_hw.h"
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
@@ -376,6 +380,7 @@ struct M4U_DMA {
 #define MTK_M4U_T_DMA_OP	      _IOW(MTK_M4U_MAGICNO, 29, int)
 
 #define MTK_M4U_T_SEC_INIT	    _IOW(MTK_M4U_MAGICNO, 50, int)
+#define MTK_M4U_GZ_SEC_INIT	    _IOW(MTK_M4U_MAGICNO, 60, int)
 
 #ifdef M4U_TEE_SERVICE_ENABLE
 int m4u_config_port_tee(struct m4u_port_config_struct *pM4uPort);

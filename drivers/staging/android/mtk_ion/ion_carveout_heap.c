@@ -132,6 +132,21 @@ static struct ion_heap_ops carveout_heap_ops = {
 	.phys = ion_carveout_heap_phys,
 };
 
+static void print_phys_addr_bit32(char *caller_name,
+				  ion_phys_addr_t addr, size_t size)
+{
+	unsigned int bit32 = (unsigned int)((addr & (3LL << 32)) >> 32);
+	unsigned int bit32_max =
+			(unsigned int)(((addr + size) & (3LL << 32)) >> 32);
+
+	if (bit32_max == bit32)
+		IONMSG("%s: addr 0x%lx, size %zu, bit32: %d\n",
+		       caller_name, addr, size, bit32);
+	else
+		IONMSG("%s: error! addr 0x%lx, size %zu, bit32: %d ~ %d\n",
+		       caller_name, addr, size, bit32, bit32_max);
+}
+
 struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 {
 	struct ion_carveout_heap *carveout_heap;
@@ -165,6 +180,8 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 	carveout_heap->heap.ops = &carveout_heap_ops;
 	carveout_heap->heap.type = ION_HEAP_TYPE_CARVEOUT;
 	carveout_heap->heap.flags = ION_HEAP_FLAG_DEFER_FREE;
+	print_phys_addr_bit32((char *)__func__, carveout_heap->base,
+			      heap_data->size);
 
 	return &carveout_heap->heap;
 }

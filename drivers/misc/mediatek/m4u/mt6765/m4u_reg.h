@@ -362,6 +362,7 @@
 #define F_SMI_SEC_MMU_EN(en)	F_BIT_VAL(en, 0)
 #define F_SMI_SEC_EN(sec)	F_BIT_VAL(sec, 1)
 #define F_SMI_DOMN(domain)	F_VAL(domain, 8, 4)
+#define F_SMI_BIT32	F_MSK(15, 8)
 /* ========================================================================= */
 /* peripheral system */
 /* ========================================================================= */
