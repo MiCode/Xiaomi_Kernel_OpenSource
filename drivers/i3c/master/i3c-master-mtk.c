@@ -586,7 +586,7 @@ static int mtk_i3c_master_start_transfer(struct mtk_i3c_master *master)
 
 	mtk_i3c_master_init_hw(master);
 
-	control_reg = CONTROL_ACKERR_DET_EN | CONTROL_CLK_EXT_EN | CONTROL_RS;
+	control_reg = CONTROL_ACKERR_DET_EN | CONTROL_RS;
 	if ((cmd->op != MASTER_DAA) && (cmd->ccc_id != I3C_CCC_GETMXDS))
 		control_reg |= CONTROL_DMA_EN | CONTROL_DMAACK_EN |
 			       CONTROL_ASYNC_MODE;
