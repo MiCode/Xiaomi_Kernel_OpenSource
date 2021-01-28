@@ -1380,9 +1380,10 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				mtk_dump_comp_str(&dsi->ddp_comp));
 #endif
 
-			if (dsi->encoder.crtc) {
+			if (dsi_underrun_trigger == 1 && dsi->encoder.crtc) {
 				mtk_drm_crtc_analysis(dsi->encoder.crtc);
 				mtk_drm_crtc_dump(dsi->encoder.crtc);
+				dsi_underrun_trigger = 0;
 			}
 		}
 
