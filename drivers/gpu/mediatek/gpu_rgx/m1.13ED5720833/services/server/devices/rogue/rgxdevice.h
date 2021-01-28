@@ -484,6 +484,11 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 	IMG_BYTE				*psRGXFWIfHWPerfBuf;
 	IMG_UINT32				ui32RGXFWIfHWPerfBufSize; /* in bytes */
 
+#if defined(MTK_GPU_BM_SUPPORT)
+	DEVMEM_MEMDESC			*psJobStatusQOSBufMemDesc;
+	IMG_BYTE				*psJobStatusQOSBuf;
+	IMG_CPU_PHYADDR			ui32JobStatusQOSPhyAddr;
+#endif
 	DEVMEM_MEMDESC			*psRGXFWIfRegCfgMemDesc;
 
 	DEVMEM_MEMDESC			*psRGXFWIfHWPerfCountersMemDesc;

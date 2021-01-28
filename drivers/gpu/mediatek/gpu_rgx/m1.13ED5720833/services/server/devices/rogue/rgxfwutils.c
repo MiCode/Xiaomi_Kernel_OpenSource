@@ -127,6 +127,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "vz_vmm_pvz.h"
 #include "rgx_heaps.h"
 
+#if defined(MTK_GPU_BM_SUPPORT)
+#include <gpu_bm.h>
+#endif
+
 /*!
  ******************************************************************************
  * HWPERF
@@ -1978,6 +1982,68 @@ static void RGXPDumpLoadFWInitData(PVRSRV_RGXDEV_INFO *psDevInfo,
 }
 #endif /* defined(PDUMP) */
 
+#if defined(MTK_GPU_BM_SUPPORT)
+static PVRSRV_ERROR MTKJobStatusResources(PVRSRV_RGXDEV_INFO *psDevInfo)
+{
+	DEVMEM_FLAGS_T     uiMemAllocFlags;
+	PVRSRV_ERROR       eError = PVRSRV_OK;
+	int                size = 4096;
+	IMG_BOOL           valid;
+
+	uiMemAllocFlags = PVRSRV_MEMALLOCFLAG_DEVICE_FLAG(PMMETA_PROTECT)
+				| PVRSRV_MEMALLOCFLAG_GPU_READABLE
+				| PVRSRV_MEMALLOCFLAG_GPU_WRITEABLE
+				| PVRSRV_MEMALLOCFLAG_CPU_READABLE
+				| PVRSRV_MEMALLOCFLAG_CPU_WRITEABLE
+				| PVRSRV_MEMALLOCFLAG_KERNEL_CPU_MAPPABLE
+				| PVRSRV_MEMALLOCFLAG_UNCACHED;
+
+	eError = DevmemFwAllocate(psDevInfo,
+							size,
+							uiMemAllocFlags,
+							"FwJobStatusBuf",
+							&psDevInfo->psJobStatusQOSBufMemDesc);
+
+	if (eError != PVRSRV_OK) {
+		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to allocate %d bytes for jobstatus (%u)",
+				__func__, size, eError));
+		goto fail;
+	}
+
+	RGXSetFirmwareAddress(&psDevInfo->psRGXFWIfRuntimeCfg->sJobStatsQOS,
+						psDevInfo->psJobStatusQOSBufMemDesc,
+						0, RFW_FWADDR_NOREF_FLAG);
+
+	eError = DevmemAcquireCpuVirtAddr(psDevInfo->psJobStatusQOSBufMemDesc,
+						(void **)&psDevInfo->psJobStatusQOSBuf);
+
+	if (eError != PVRSRV_OK) {
+		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to acquire cpu_addr (%u)",
+				__func__, eError));
+		goto fail;
+	}
+
+	eError = PMR_CpuPhysAddr(
+			psDevInfo->psJobStatusQOSBufMemDesc->psImport->hPMR,
+			1, 1, 0,
+			&psDevInfo->ui32JobStatusQOSPhyAddr,
+			&valid);
+
+	if (eError != PVRSRV_OK) {
+		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to acquire phy_addr (%u)",
+				__func__, eError));
+		goto fail;
+	}
+
+	MTKGPUQoS_setup(
+		(uint32_t *)psDevInfo->psJobStatusQOSBuf,
+		psDevInfo->ui32JobStatusQOSPhyAddr.uiAddr, size);
+
+fail:
+	return eError;
+}
+#endif
+
 /*!
 *******************************************************************************
  @Function    RGXSetupFwSysData
@@ -2364,6 +2430,10 @@ static PVRSRV_ERROR RGXSetupFwSysData(PVRSRV_DEVICE_NODE       *psDeviceNode,
 		eError = RGXHWPerfInitOnDemandResources(psDevInfo);
 		PVR_LOG_GOTO_IF_ERROR(eError, "RGXHWPerfInitOnDemandResources", fail);
 	}
+
+#if defined(MTK_GPU_BM_SUPPORT)
+	MTKJobStatusResources(psDevInfo);
+#endif
 
 	RGXHWPerfInitAppHintCallbacks(psDeviceNode);
 

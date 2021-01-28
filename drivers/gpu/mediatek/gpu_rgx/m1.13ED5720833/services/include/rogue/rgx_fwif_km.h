@@ -1540,6 +1540,9 @@ typedef struct
 	IMG_UINT32         ui32CoreClockSpeed;         /* Core clock speed, currently only used to calculate timer ticks */
 	IMG_UINT32         ui32DefaultDustsNumInit;    /* Last number of dusts change requested by the host */
 	PRGXFWIF_HWPERFBUF sHWPerfBuf;                 /* On-demand allocated HWPerf buffer address, to be passed to the FW */
+#if defined(MTK_GPU_BM_SUPPORT)
+	PRGXFWIF_HWPERFBUF sJobStatsQOS;
+#endif
 } RGXFWIF_RUNTIME_CFG;
 
 /*!

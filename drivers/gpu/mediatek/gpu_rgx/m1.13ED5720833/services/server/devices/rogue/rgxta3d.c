@@ -3051,9 +3051,6 @@ PVRSRV_ERROR PVRSRVRGXDestroyRenderContextKM(RGX_SERVER_RENDER_CONTEXT *psRender
 	IMG_UINT32 ui32WorkEstCCBSubmitted;
 #endif
 
-#if defined(CONFIG_KASAN)
-	BUG_ON(OSLockIsLocked(psRenderContext->hLock));
-#endif
 	/* remove node from list before calling destroy - as destroy, if successful
 	 * will invalidate the node
 	 * must be re-added if destroy fails
