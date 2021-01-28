@@ -393,7 +393,7 @@ int dpmgr_path_set_video_mode(disp_path_handle dp_handle, int is_vdo_mode)
 {
 	struct ddp_path_handle *handle = NULL;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle = (struct ddp_path_handle *)dp_handle;
 	handle->mode = is_vdo_mode ? DDP_VIDEO_MODE : DDP_CMD_MODE;
 	DDPDBG("set scenario %s mode: %s\n",
