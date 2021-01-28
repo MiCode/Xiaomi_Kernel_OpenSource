@@ -1361,10 +1361,10 @@ static void ion_dma_buf_detatch(struct dma_buf *dmabuf,
 		return;
 	}
 
-	free_duped_table(a->table);
 	mutex_lock(&buffer->lock);
 	list_del(&a->list);
 	mutex_unlock(&buffer->lock);
+	free_duped_table(a->table);
 
     //pr_notice("%s, %d\n", __func__, __LINE__);
 	kfree(a);
@@ -1707,7 +1707,7 @@ static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 	}
 	if (ion_iommu_heap_type(buffer) ||
 	    buffer->heap->type == (int)ION_HEAP_TYPE_SYSTEM) {
-		IONMSG("%s iommu device, to cache sync\n", __func__);
+		IONDBG("%s iommu device, to cache sync\n", __func__);
 
 		mutex_lock(&buffer->lock);
 		list_for_each_entry(a, &buffer->attachments, list) {
@@ -1736,7 +1736,7 @@ static int ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 
 	if (ion_iommu_heap_type(buffer) ||
 	    buffer->heap->type == (int)ION_HEAP_TYPE_SYSTEM) {
-		IONMSG("%s iommu device, to cache sync\n", __func__);
+		IONDBG("%s iommu device, to cache sync\n", __func__);
 
 		mutex_lock(&buffer->lock);
 		list_for_each_entry(a, &buffer->attachments, list) {
