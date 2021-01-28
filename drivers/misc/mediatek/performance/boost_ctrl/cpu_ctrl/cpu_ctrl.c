@@ -40,6 +40,7 @@ static struct ppm_limit_data *current_freq;
 static struct ppm_limit_data *freq_set[CPU_MAX_KIR];
 static int log_enable;
 static unsigned long *policy_mask;
+static int num_cpu;
 static int *cpu_isolation[CPU_ISO_MAX_KIR];
 
 #ifdef CONFIG_MTK_CPU_CTRL_CFP
@@ -52,6 +53,16 @@ int powerhal_tid;
 static void update_isolation_cpu_locked(int kicker, int enable, int cpu)
 {
 	int i, final = -1;
+
+	if (kicker < 0 || kicker >= CPU_ISO_MAX_KIR) {
+		pr_debug("kicker:%d, error\n", kicker);
+		return;
+	}
+
+	if (cpu < 0 || cpu >= num_cpu) {
+		pr_debug("cpu:%d, error\n", cpu);
+		return;
+	}
 
 	if (enable == cpu_isolation[kicker][cpu])
 		return;
@@ -216,7 +227,7 @@ ret_update:
 	if (final_freq)
 		update_isolation_cpu_locked(CPU_ISO_KIR_CPU_CTRL,
 			(final_freq[clstr_num-1].min != -1) ? 0 : -1,
-			num_possible_cpus() - 1);
+			num_cpu - 1);
 
 	kfree(final_freq);
 	mutex_unlock(&boost_freq);
@@ -226,19 +237,6 @@ EXPORT_SYMBOL(update_userlimit_cpu_freq);
 
 int update_isolation_cpu(int kicker, int enable, int cpu)
 {
-	int num_cpu;
-
-	if (kicker < 0 || kicker >= CPU_ISO_MAX_KIR) {
-		pr_debug("kicker:%d, error\n", kicker);
-		return -EINVAL;
-	}
-
-	num_cpu = num_possible_cpus();
-	if (cpu < 0 || cpu >= num_cpu) {
-		pr_debug("cpu:%d, error\n", cpu);
-		return -EINVAL;
-	}
-
 	mutex_lock(&boost_freq);
 	update_isolation_cpu_locked(kicker, enable, cpu);
 	mutex_unlock(&boost_freq);
@@ -431,7 +429,6 @@ int cpu_ctrl_init(struct proc_dir_entry *parent)
 {
 	struct proc_dir_entry *boost_dir = NULL;
 	int i, j, ret = 0;
-	int num_cpu;
 
 	struct pentry {
 		const char *name;
