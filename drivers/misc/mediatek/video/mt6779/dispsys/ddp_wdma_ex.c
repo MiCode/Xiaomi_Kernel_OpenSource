@@ -1175,7 +1175,8 @@ int wdma_switch_to_nonsec(enum DISP_MODULE_ENUM module, void *handle)
 			if (primary_display_is_decouple_mode())
 				cmdqRecWaitNoClear(nonsec_switch_handle,
 						   cmdq_event);
-			else
+			else if (primary_display_get_power_mode() == FB_RESUME
+				|| primary_display_get_power_mode() == DOZE)
 				_cmdq_insert_wait_frame_done_token_mira(
 							nonsec_switch_handle);
 		} else {
