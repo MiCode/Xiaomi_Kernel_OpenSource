@@ -266,6 +266,9 @@ static long _map_user_pages(struct MTIOMMU_PIN_RANGE_T *pinRange,
 	struct vm_area_struct *vma;
 	int res, j;
 
+#ifdef CONFIG_ARM64_TAGGED_ADDR_ABI
+	uaddr = untagged_addr(uaddr);
+#endif
 	if ((uaddr == 0) || (size == 0))
 		return -EFAULT;
 
