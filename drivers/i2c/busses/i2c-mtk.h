@@ -29,6 +29,15 @@
 
 #define I2C_DEBUG_FS
 
+#define I3C_EN                           (0x01 << 15)
+#define I3C_UNLOCK_HFIFO                (0x01 << 15)
+#define I3C_NINTH_BIT                   (0x02 << 8)
+#define MASTER_CODE                     0x08
+#define I2C_HFIFO_ADDR_CLR              0x2
+
+#define I2C_HS_HOLD_SEL                 (0x01 << 15)
+#define I2C_HS_HOLD_TIME                (0x01 << 2)
+
 #define I2C_BUS_ERR			(0x01 << 8)
 #define I2C_IBI				(0x01 << 7)
 #define I2C_DMAERR			(0x01 << 6)
@@ -61,8 +70,10 @@
 #define I2C_DELAY_LEN				0x000A/* not use 0x02 */
 #define I2C_ST_START_CON			0x8001
 #define I2C_FS_START_CON			0x1800
+#define I2C_FS_PLUS_START_CON                   0xa0f
 #define I2C_TIME_CLR_VALUE			0x0000
-#define I2C_TIME_DEFAULT_VALUE		0x0003
+#define I2C_TIME_DEFAULT_VALUE		0x0001
+#define I2C_HS_SPEED			0x0080
 #define I2C_TIMEOUT_EN				0x0001
 #define I2C_ROLLBACK				0x0001
 #define I2C_SHADOW_REG_MODE		0x0002
@@ -77,8 +88,13 @@
 #define I2C_DMA_WARM_RST		0x0001
 #define I2C_DMA_4G_MODE		0x0001
 
+#define I2C_DMA_DIR_CHANGE              (0x1 << 9)
+#define I2C_DMA_SKIP_CONFIG             (0x1 << 4)
+#define I2C_DMA_ASYNC_MODE              (0x1 << 2)
+
 #define I2C_DEFAUT_SPEED		100000/* hz */
 #define MAX_FS_MODE_SPEED		400000/* hz */
+#define MAX_FS_PLUS_MODE_SPEED          1000000/* hz */
 #define MAX_HS_MODE_SPEED		3400000/* hz */
 #define MAX_DMA_TRANS_SIZE	4096/* 255 */
 #define MAX_CLOCK_DIV			8
@@ -95,6 +111,7 @@
 #define I2C_CONTROL_DIR_CHANGE	(0x1 << 4)
 #define I2C_CONTROL_ACKERR_DET_EN	(0x1 << 5)
 #define I2C_CONTROL_TRANSFER_LEN_CHANGE (0x1 << 6)
+#define I2C_CONTROL_IRQ_SEL     (0x1 << 7)
 #define I2C_CONTROL_DMAACK_EN	(0x1 << 8)
 #define I2C_CONTROL_ASYNC_MODE	(0x1 << 9)
 #define I2C_CONTROL_WRAPPER		(0x1 << 0)
@@ -102,7 +119,7 @@
 #define I2C_CCU_INTR_EN			0x2
 
 #define I2C_RECORD_LEN			10
-#define I2C_MAX_CHANNEL		10
+#define I2C_MAX_CHANNEL		16
 
 #define MAX_SCL_LOW_TIME		2/* unit: milli-second */
 #define LSAMPLE_MSK			0x1C0
@@ -110,6 +127,13 @@
 
 #define I2C_DRV_NAME		"mt-i2c"
 #define I2CTAG					"[I2C]"
+
+enum {
+	DMA_HW_VERSION0 = 0,
+	DMA_HW_VERSION1 = 1,
+	MDA_SUPPORT_8G  = 2,
+	DMA_SUPPORT_64G = 3,
+};
 
 enum DMA_REGS_OFFSET {
 	OFFSET_INT_FLAG = 0x0,
@@ -314,9 +338,14 @@ struct mtk_i2c_compatible {
 	unsigned char set_ltiming;/* need to set LTIMING */
 	unsigned char set_aed;/* need to set AED */
 	unsigned char ver;/* controller version */
+	unsigned char dma_ver;/* dma controller version */
 	/* for constraint of SAMPLE_CNT_DIV and STEP_CNT_DIV of mt6765 */
 	/* 1, has-a-constraint; 0, no constraint */
 	unsigned char cnt_constraint;
+	/* only for MT6768 */
+	/* this option control defined when nack error or ack error occurs */
+	/* 0 : disable, 1 : enable*/
+	unsigned char control_irq_sel;
 	u16 ext_time_config;
 	char clk_compatible[128];
 	u16 clk_sta_offset[I2C_MAX_CHANNEL];/* I2C clock status register */
@@ -355,8 +384,10 @@ struct mt_i2c {
 	bool gpupm;/* I2C for GPUPM */
 	bool buffermode;	/* I2C Buffer mode support */
 	bool hs_only;	/* I2C HS only */
+	bool fifo_only;  /* i2c fifo mode only, does not have dma HW support */
 	/* set when doing the transfer */
 	u16 irq_stat;	/* interrupt status */
+	u16 i3c_en;     /* i3c enalbe */
 	unsigned int speed_hz;/* The speed in transfer */
 	unsigned int clk_src_div;
 	unsigned int aed;/* aed value from dt */
