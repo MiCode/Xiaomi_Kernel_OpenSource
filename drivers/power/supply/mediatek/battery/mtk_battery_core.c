@@ -2681,6 +2681,36 @@ void fg_daemon_comm_INT_data(char *rcv, char *ret)
 			gm.is_reset_aging_factor = 0;
 		}
 		break;
+	case FG_GET_SOC_DECIMAL_RATE:
+		{
+			int decimal_rate = gm.soc_decimal_rate;
+
+			memcpy(&pret->output,
+				&decimal_rate, sizeof(decimal_rate));
+			bm_debug("[FG_GET_SOC_DECIMAL_RATE]soc_decimal_rate:%d %d\n",
+				decimal_rate, gm.soc_decimal_rate);
+		}
+		break;
+	case FG_GET_DIFF_SOC_SET:
+		{
+			/* 1 = 0.01%, 50 = 0.5% */
+			int soc_setting = 1;
+
+			memcpy(&pret->output,
+				&soc_setting, sizeof(soc_setting));
+		}
+		break;
+	case FG_GET_IS_FORCE_FULL:
+		{
+			/* 1 = trust customer full condition */
+			/* 0 = using gauge ori full flow */
+			int force_full = gm.is_force_full;
+
+			memcpy(&pret->output,
+				&force_full, sizeof(force_full));
+		}
+		break;
+
 	case FG_SET_SOC:
 		{
 			gm.soc = (prcv->input + 50) / 100;
@@ -2760,6 +2790,16 @@ void fg_daemon_comm_INT_data(char *rcv, char *ret)
 
 			bm_err("set GAUGE_MONITOR_SOFF_VALIDTIME ori:%d, new:%d\n",
 				ori_value, prcv->input);
+		}
+		break;
+	case FG_SET_ZCV_INTR_EN:
+		{
+			int zcv_intr_en = prcv->input;
+
+			if (zcv_intr_en == 0 || zcv_intr_en == 1)
+				gauge_set_zcv_interrupt_en(zcv_intr_en);
+
+			bm_err("set zcv_interrupt_en %d\n", zcv_intr_en);
 		}
 		break;
 	default:
@@ -3073,6 +3113,7 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 		{
 			unsigned int ptim_bat_vol = 0;
 			signed int ptim_R_curr = 0;
+			int curr_bat_vol = 0;
 
 			if (gm.init_flag == 1) {
 				_do_ptim();
@@ -3083,8 +3124,15 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 			} else {
 				ptim_bat_vol = gm.ptim_lk_v;
 				ptim_R_curr = gm.ptim_lk_i;
-				bm_warn("[fr] PTIM_LK V %d I %d\n",
-					ptim_bat_vol, ptim_R_curr);
+
+				curr_bat_vol =
+					battery_get_bat_voltage() * 10;
+				if (gm.ptim_lk_v == 0)
+					ptim_bat_vol = curr_bat_vol;
+
+				bm_err("[fr] PTIM_LK V %d I %d,curr_bat_vol=%d\n",
+					ptim_bat_vol, ptim_R_curr,
+					curr_bat_vol);
 			}
 			ptim_vbat = ptim_bat_vol;
 			ptim_i = ptim_R_curr;

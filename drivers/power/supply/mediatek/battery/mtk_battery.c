@@ -1219,6 +1219,14 @@ static ssize_t store_Battery_Temperature(
 
 	if (kstrtoint(buf, 10, &temp) == 0) {
 
+		if (temp > 58 || temp < -10) {
+			bm_err(
+				"%s: setting tmp:%d!,reject set\n",
+				__func__,
+				temp);
+			return size;
+		}
+
 		gm.fixed_bat_tmp = temp;
 		if (gm.fixed_bat_tmp == 0xffff)
 			fg_bat_temp_int_internal();
@@ -3048,6 +3056,38 @@ void exec_BAT_EC(int cmd, int param)
 			wakeup_fg_algo_cmd(
 				FG_INTR_KERNEL_CMD,
 				FG_KERNEL_CMD_AG_LOG_TEST, param);
+		}
+		break;
+	case 797:
+		{
+			gm.soc_decimal_rate = param;
+			bm_err(
+				"exe_BAT_EC cmd %d,soc_decimal_rate=%d\n",
+				cmd, param);
+
+		}
+		break;
+	case 798:
+		{
+			bm_err(
+				"exe_BAT_EC cmd %d,FG_KERNEL_CMD_CHG_DECIMAL_RATE=%d\n",
+				cmd, param);
+
+			gm.soc_decimal_rate = param;
+
+			wakeup_fg_algo_cmd(
+				FG_INTR_KERNEL_CMD,
+				FG_KERNEL_CMD_CHG_DECIMAL_RATE, param);
+		}
+		break;
+	case 799:
+		{
+			bm_err(
+				"exe_BAT_EC cmd %d, Send INTR_CHR_FULL to daemon, force_full =%d\n",
+				cmd, param);
+
+			gm.is_force_full = param;
+			wakeup_fg_algo(FG_INTR_CHR_FULL);
 		}
 		break;
 
