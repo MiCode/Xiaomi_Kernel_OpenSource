@@ -21,7 +21,7 @@ void fbt_notify_CM_limit(int reach_limit)
 #ifdef CONFIG_MTK_CM_MGR
 	cm_mgr_perf_set_status(reach_limit);
 #endif
-	fpsgo_systrace_c_fbt_gm(-100, reach_limit, "notify_cm");
+	fpsgo_systrace_c_fbt_gm(-100, 0, reach_limit, "notify_cm");
 }
 
 void fbt_reg_dram_request(int reg)
@@ -44,7 +44,7 @@ void fbt_boost_dram(int boost)
 	if (!pm_qos_request_active(&dram_req)) {
 		fbt_reg_dram_request(1);
 		if (!pm_qos_request_active(&dram_req)) {
-			fpsgo_systrace_c_fbt_gm(-100, -1, "dram_boost");
+			fpsgo_systrace_c_fbt_gm(-100, 0, -1, "dram_boost");
 			return;
 		}
 	}
@@ -55,7 +55,7 @@ void fbt_boost_dram(int boost)
 		pm_qos_update_request(&dram_req,
 				PM_QOS_DDR_OPP_DEFAULT_VALUE);
 
-	fpsgo_systrace_c_fbt_gm(-100, boost, "dram_boost");
+	fpsgo_systrace_c_fbt_gm(-100, 0, boost, "dram_boost");
 #endif
 }
 
@@ -65,7 +65,7 @@ void fbt_set_boost_value(unsigned int base_blc)
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	update_eas_uclamp_min(EAS_UCLAMP_KIR_FPSGO, CGROUP_TA, (int)base_blc);
 #endif
-	fpsgo_systrace_c_fbt_gm(-100, base_blc, "TA_cap");
+	fpsgo_systrace_c_fbt_gm(-100, 0, base_blc, "TA_cap");
 }
 
 void fbt_clear_boost_value(void)
@@ -73,7 +73,7 @@ void fbt_clear_boost_value(void)
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	update_eas_uclamp_min(EAS_UCLAMP_KIR_FPSGO, CGROUP_TA, 0);
 #endif
-	fpsgo_systrace_c_fbt_gm(-100, 0, "TA_cap");
+	fpsgo_systrace_c_fbt_gm(-100, 0, 0, "TA_cap");
 
 	fbt_notify_CM_limit(0);
 	fbt_boost_dram(0);
@@ -94,12 +94,12 @@ void fbt_set_per_task_min_cap(int pid, unsigned int base_blc)
 	ret = set_task_util_min(pid, base_blc_1024);
 #endif
 	if (ret != 0) {
-		fpsgo_systrace_c_fbt(pid, ret, "uclamp fail");
-		fpsgo_systrace_c_fbt(pid, 0, "uclamp fail");
+		fpsgo_systrace_c_fbt(pid, 0, ret, "uclamp fail");
+		fpsgo_systrace_c_fbt(pid, 0, 0, "uclamp fail");
 		return;
 	}
 
-	fpsgo_systrace_c_fbt_gm(pid, base_blc, "min_cap");
+	fpsgo_systrace_c_fbt_gm(pid, 0, base_blc, "min_cap");
 }
 
 static int generate_cpu_mask(unsigned int prefer_type, struct cpumask *cpu_mask)
@@ -139,11 +139,11 @@ void fbt_set_affinity(pid_t pid, unsigned int prefer_type)
 
 	ret = sched_setaffinity(pid, &mask[prefer_type]);
 	if (ret != 0) {
-		fpsgo_systrace_c_fbt(pid, ret, "setaffinity fail");
-		fpsgo_systrace_c_fbt(pid, 0, "setaffinity fail");
+		fpsgo_systrace_c_fbt(pid, 0, ret, "setaffinity fail");
+		fpsgo_systrace_c_fbt(pid, 0, 0, "setaffinity fail");
 		return;
 	}
-	fpsgo_systrace_c_fbt(pid, prefer_type, "set_affinity");
+	fpsgo_systrace_c_fbt(pid, 0, prefer_type, "set_affinity");
 }
 
 void fbt_set_cpu_prefer(int pid, unsigned int prefer_type)
@@ -155,7 +155,7 @@ void fbt_set_cpu_prefer(int pid, unsigned int prefer_type)
 		return;
 
 	ret = sched_set_cpuprefer(pid, prefer_type);
-	fpsgo_systrace_c_fbt(pid, prefer_type, "set_cpuprefer");
+	fpsgo_systrace_c_fbt(pid, 0, prefer_type, "set_cpuprefer");
 #endif
 }
 

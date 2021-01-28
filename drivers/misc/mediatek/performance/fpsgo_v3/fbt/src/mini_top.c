@@ -525,10 +525,10 @@ static int minitop_has_heavy(void)
 	}
 
 	if (heavy)
-		fpsgo_systrace_c(FPSGO_DEBUG_MANDATORY, curr_tid, 1,
+		fpsgo_systrace_c(FPSGO_DEBUG_MANDATORY, curr_tid, 0, 1,
 				 "minitop_free_ceiling");
 	else if (last_tid) {
-		fpsgo_systrace_c(FPSGO_DEBUG_MANDATORY, last_tid, 0,
+		fpsgo_systrace_c(FPSGO_DEBUG_MANDATORY, last_tid, 0, 0,
 				 "minitop_free_ceiling");
 		last_tid = 0;
 	}
@@ -690,100 +690,6 @@ void fpsgo_sched_nominate(pid_t *tid, int *util)
 	suc = schedule_work(&mw->work);
 	if (unlikely(!suc))
 		minitop_put_work(mw);
-}
-
-/**
- * FTEH (Frame Time Error Handle) supports
- */
-int fpsgo_fteh2minitop_start(int count, struct fpsgo_loading *fl)
-{
-	int i;
-	struct minitop_rec *mr;
-
-	if (!minitop_if_active_then_lock())
-		return -EAGAIN;
-
-	for (i = 0; i < count; i++) {
-		minitop_trace(" %5d being nominated FTEH", fl[i].pid);
-		if (!fl[i].pid)
-			continue;
-		mr = __minitop_nominate(fl[i].pid, MINITOP_FTEH);
-		if (!mr)
-			continue;
-
-		mr->debnc_fteh = (int)(0x1 << __cooldn_order);
-	}
-
-	minitop_unlock(__func__);
-	return 0;
-}
-
-int fpsgo_fteh2minitop_end(void)
-{
-	struct rb_node *n, *next;
-	struct minitop_rec *mr;
-
-	if (!minitop_if_active_then_lock())
-		return -EAGAIN;
-
-	for (n = rb_first(&minitop_root); n; n = next) {
-		next = rb_next(n);
-
-		mr = rb_entry(n, struct minitop_rec, node);
-		if (mr->source != MINITOP_FTEH) {
-			mr->source &= ~(MINITOP_FTEH);
-			continue;
-		}
-
-		rb_erase(n, &minitop_root);
-		kfree(mr);
-	}
-
-	minitop_unlock(__func__);
-	return 0;
-}
-
-int fpsgo_fteh2minitop_query(int count, struct fpsgo_loading *fl)
-{
-	struct rb_node *n = minitop_root.rb_node;
-	struct minitop_rec *mr;
-	int i;
-
-	if (!minitop_if_active_then_lock())
-		return -EAGAIN;
-
-	for (n = rb_first(&minitop_root); n; n = rb_next(n)) {
-		mr = rb_entry(n, struct minitop_rec, node);
-		if (mr->source & MINITOP_FTEH)
-			mr->debnc_fteh--;
-	}
-
-	for (i = 0; i < count; i++) {
-		n = minitop_root.rb_node;
-		while (n) {
-			mr = rb_entry(n, struct minitop_rec, node);
-
-			if (mr->tid < fl[i].pid)
-				n = n->rb_left;
-			else if (mr->tid > fl[i].pid)
-				n = n->rb_right;
-			else {
-				if ((mr->source & MINITOP_FTEH) == 0) {
-					fl[i].loading = 0;
-					break;
-				}
-
-				fl[i].loading = mr->ratio;
-				break;
-			}
-			/* Not found */
-			fl[i].loading = 0;
-		}
-	}
-
-	minitop_unlock(__func__);
-
-	return 0;
 }
 
 /**

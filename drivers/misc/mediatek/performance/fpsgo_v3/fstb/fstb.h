@@ -8,21 +8,16 @@
 
 int mtk_fstb_exit(void);
 int mtk_fstb_init(void);
-static inline int fpsgo_ctrl2fstb_display_time_update(unsigned long long ns)
-{ return 0; }
-static inline int fpsgo_ctrl2fstb_gpu_time_update(
-		long long t_gpu, unsigned int cur_freq,
-		unsigned int cur_max_freq) { return 0; }
 void fpsgo_comp2fstb_queue_time_update(
-	int pid, int frame_type,
+	int pid, unsigned long long bufID, int frame_type,
 	unsigned long long ts,
-	unsigned long long bufferid, int api);
-int fpsgo_comp2fstb_enq_end(int pid, unsigned long long enq);
+	int api);
+int fpsgo_comp2fstb_enq_end(int pid,
+	unsigned long long bufID, unsigned long long enq);
 int fpsgo_ctrl2fstb_gblock(int tid, int start);
 void fpsgo_comp2fstb_camera_active(int pid);
 
 #if defined(CONFIG_MTK_FPSGO) || defined(CONFIG_MTK_FPSGO_V3)
-int fpsgo_fstb2fbt_reset_asfc(int value);
 int is_fstb_enable(void);
 int is_fstb_active(long long time_diff);
 int fpsgo_ctrl2fstb_switch_fstb(int value);
@@ -36,6 +31,7 @@ int switch_fps_error_threhosld(int threshold);
 int switch_percentile_frametime(int ratio);
 int fpsgo_fbt2fstb_update_cpu_frame_info(
 	int pid,
+	unsigned long long bufID,
 	int tgid,
 	int frame_type,
 	unsigned long long Q2Q_time,
@@ -43,13 +39,12 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 	unsigned int Curr_cap,
 	unsigned int Max_cap,
 	unsigned long long mid);
-void fpsgo_fbt2fstb_query_fps(int pid, int *target_fps,
-			int *target_cpu_time, int tgid, unsigned long long mid);
-int fpsgo_fbt2fstb_query_fteh_list(int pid);
+void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
+		int *target_fps, int *target_cpu_time,
+		int tgid, unsigned long long mid);
 void fpsgo_ctrl2fstb_dfrc_fps(int dfrc_fps);
 
 #else
-static inline int fpsgo_fstb2fbt_reset_asfc(int level) { return 0; }
 static inline int is_fstb_enable(void) { return 0; }
 static inline int fpsgo_ctrl2fstb_switch_fstb(int en) { return 0; }
 static inline int switch_sample_window(long long time_usec) { return 0; }
@@ -64,6 +59,7 @@ static inline int switch_fps_error_threhosld(int threshold) { return 0; }
 static inline int switch_percentile_frametime(int ratio) { return 0; }
 static inline int fpsgo_fbt2fstb_update_cpu_frame_info(
 	int pid,
+	unsigned long long bufID,
 	int tgid,
 	int frame_type,
 	unsigned long long Q2Q_time,
@@ -74,7 +70,6 @@ static inline int fpsgo_fbt2fstb_update_cpu_frame_info(
 static inline void fpsgo_fbt2fstb_query_fps(int pid,
 			int *target_fps, int *target_cpu_time,
 			int tgid, unsigned long long mid) { }
-static inline int fpsgo_fbt2fstb_query_fteh_list(int pid) { return 0; }
 static void fpsgo_ctrl2fstb_dfrc_fps(int dfrc_fps) { }
 
 #endif

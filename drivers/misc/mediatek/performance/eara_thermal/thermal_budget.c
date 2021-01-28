@@ -113,7 +113,9 @@
 
 static void wq_func(struct work_struct *data);
 static void thrm_pb_turn_record_locked(int ready);
-static void set_major_pair_locked(int pid, int max_time);
+static int is_major_pair_locked(int pid, unsigned long long bufid);
+static void set_major_pair_locked(int pid, unsigned long long bufid,
+				int max_time);
 
 enum COBRA_RESULT {
 	NO_CHANGE = 0,
@@ -179,6 +181,8 @@ struct thrm_pb_frame {
 
 struct thrm_pb_render {
 	int pid;
+	unsigned long long bufid;
+	unsigned long long key;
 	unsigned long long ts;
 	int count;
 	struct thrm_pb_frame frame_info;
@@ -218,6 +222,7 @@ static int cur_gpu_pb;
 static int g_max_cpu_power;
 
 static int cur_max_pid;
+static unsigned long long cur_max_bufid;
 static int cur_max_time;
 
 static int has_bg_AI;
@@ -265,6 +270,17 @@ static unsigned long long get_time(void)
 	return temp;
 }
 
+static unsigned long long thrm_pb_gen_key(int pid,
+		unsigned long long bufID)
+{
+	unsigned long long key;
+
+	key = ((bufID & 0xFFFFFFFFFFFF)
+		| ((unsigned long long)pid << 48));
+
+	return key;
+}
+
 static void thrm_pb_list_clear(void)
 {
 	struct rb_node *n;
@@ -281,7 +297,7 @@ static void thrm_pb_list_clear(void)
 
 static void thrm_pb_list_delete(struct thrm_pb_render *obj)
 {
-	EARA_THRM_LOGI("list del %d\n", obj->pid);
+	EARA_THRM_LOGI("list del %d-%llu\n", obj->pid, obj->bufid);
 
 	if (obj) {
 		rb_erase(&obj->entry, &render_list);
@@ -289,18 +305,20 @@ static void thrm_pb_list_delete(struct thrm_pb_render *obj)
 	}
 }
 
-static struct thrm_pb_render *thrm_pb_list_get(int pid, int add)
+static struct thrm_pb_render *thrm_pb_list_get(int pid,
+				unsigned long long bufid, int add)
 {
 	struct rb_node **p = &render_list.rb_node;
 	struct rb_node *parent = NULL;
 	struct thrm_pb_render *thrm;
+	unsigned long long key = thrm_pb_gen_key(pid, bufid);
 
 	while (*p) {
 		parent = *p;
 		thrm = rb_entry(parent, struct thrm_pb_render, entry);
-		if (pid < thrm->pid)
+		if (key < thrm->key)
 			p = &(*p)->rb_left;
-		else if (pid > thrm->pid)
+		else if (key > thrm->key)
 			p = &(*p)->rb_right;
 		else
 			return thrm;
@@ -313,9 +331,11 @@ static struct thrm_pb_render *thrm_pb_list_get(int pid, int add)
 	if (!thrm)
 		return NULL;
 
-	EARA_THRM_LOGI("list add %d\n", pid);
+	EARA_THRM_LOGI("list add %d-%llu\n", pid, bufid);
 
 	thrm->pid = pid;
+	thrm->bufid = bufid;
+	thrm->key = key;
 	rb_link_node(&thrm->entry, parent, p);
 	rb_insert_color(&thrm->entry, &render_list);
 	return thrm;
@@ -403,8 +423,8 @@ static void wq_func(struct work_struct *data)
 		if (p->ts >= cur_ts - TIME_1S)
 			continue;
 
-		if (p->pid == cur_max_pid)
-			set_major_pair_locked(0, 0);
+		if (is_major_pair_locked(p->pid, p->bufid))
+			set_major_pair_locked(0, 0, 0);
 		thrm_pb_list_delete(p);
 	}
 
@@ -473,12 +493,22 @@ static int mdla_cap_to_opp(unsigned int capacity_ratio)
 }
 #endif
 
-static void set_major_pair_locked(int pid, int max_time)
+static int is_major_pair_locked(int pid, unsigned long long bufid)
 {
-	if (cur_max_pid != pid) {
-		EARA_THRM_LOGI("Replace tracking thread %d -> %d\n",
-			cur_max_pid, pid);
+	if (cur_max_pid == pid && cur_max_bufid == bufid)
+		return 1;
+
+	return 0;
+}
+
+static void set_major_pair_locked(int pid, unsigned long long bufid,
+					int max_time)
+{
+	if (!is_major_pair_locked(pid, bufid)) {
+		EARA_THRM_LOGI("Replace tracking thread %d-%llu -> %d-%llu\n",
+			cur_max_pid, cur_max_bufid, pid, bufid);
 		cur_max_pid = pid;
+		cur_max_bufid = bufid;
 	}
 
 	cur_max_time = max_time;
@@ -729,7 +759,7 @@ static void thrm_pb_turn_record_locked(int input)
 	} else {
 		thrm_pb_turn_cont_locked(0);
 		thrm_pb_list_clear();
-		set_major_pair_locked(0, 0);
+		set_major_pair_locked(0, 0, 0);
 	}
 }
 
@@ -944,7 +974,8 @@ static int AI_info_error_check(int type, int vpu_time,
 	return 0;
 }
 
-static int need_reallocate(struct thrm_pb_render *thr, int pid)
+static int need_reallocate(struct thrm_pb_render *thr, int pid,
+				unsigned long long bufid)
 {
 	int max_time;
 	int cpu_time = thr->frame_info.cpu_time;
@@ -961,13 +992,13 @@ static int need_reallocate(struct thrm_pb_render *thr, int pid)
 	max_time = TIME_MAX((cpu_time + vpu_time + mdla_time), gpu_time);
 
 	if (rb_is_singular(&render_list)) {
-		if (cur_max_pid != pid)
-			set_major_pair_locked(pid, max_time);
+		if (!is_major_pair_locked(pid, bufid))
+			set_major_pair_locked(pid, bufid, max_time);
 		return 1;
 	}
 
-	if (max_time > cur_max_time || pid == cur_max_pid) {
-		if (pid != cur_max_pid && cur_max_pid) {
+	if (max_time > cur_max_time || is_major_pair_locked(pid, bufid)) {
+		if (!is_major_pair_locked(pid, bufid) && cur_max_pid) {
 			thr->count++;
 
 			if (thr->count > REPLACE_FRAME_COUNT)
@@ -976,7 +1007,7 @@ static int need_reallocate(struct thrm_pb_render *thr, int pid)
 				return 0;
 		}
 
-		set_major_pair_locked(pid, max_time);
+		set_major_pair_locked(pid, bufid, max_time);
 		return 1;
 	}
 
@@ -1642,7 +1673,7 @@ static void get_cur_status(int vpu_opp, int mdla_opp, int *out_cur_sys_cap,
 #endif
 }
 
-void eara_thrm_pb_frame_start(int pid,
+void eara_thrm_pb_frame_start(int pid, unsigned long long bufid,
 	int cpu_time, int vpu_time, int mdla_time,
 	int cpu_cap, int vpu_boost, int mdla_boost,
 	int queuefps, unsigned long long q2q_time,
@@ -1675,7 +1706,7 @@ void eara_thrm_pb_frame_start(int pid,
 			put_task_struct(tsk);
 	}
 
-	thr = thrm_pb_list_get(pid, 1);
+	thr = thrm_pb_list_get(pid, bufid, 1);
 	if (!thr) {
 		EARA_THRM_LOGE("%s:NO MEM\n", __func__);
 		goto exit;
@@ -1694,8 +1725,8 @@ void eara_thrm_pb_frame_start(int pid,
 		vpu_cross, mdla_time, mdla_boost, mdla_cross);
 	update_AI_bg(vpu_bg, mdla_bg);
 
-	EARA_THRM_LOGI("pid %d, AI_type %d, bg %d, ts %llu\n",
-		pid, thr->frame_info.AI_type, has_bg_AI, thr->ts);
+	EARA_THRM_LOGI("pid %d-%llu, AI_type %d, bg %d, ts %llu\n",
+		pid, bufid, thr->frame_info.AI_type, has_bg_AI, thr->ts);
 
 	thr->frame_info.queue_fps = queuefps;
 	thr->frame_info.q2q_time = (int)q2q_time;
@@ -1800,8 +1831,8 @@ static int is_limit_in_range(int cpu_limit, int gpu_limit,
 
 }
 
-void eara_thrm_pb_enqueue_end(int pid, int gpu_time,
-			int gpu_freq, unsigned long long enq)
+void eara_thrm_pb_enqueue_end(int pid, unsigned long long bufid,
+		int gpu_time, int gpu_freq, unsigned long long enq)
 {
 	struct thrm_pb_render *thr = NULL;
 	int i, j;
@@ -1853,23 +1884,23 @@ void eara_thrm_pb_enqueue_end(int pid, int gpu_time,
 
 	if (!is_AI_controllable()) {
 		EARA_THRM_LOGE("%s:AI NOT under control\n", __func__);
-		set_major_pair_locked(0, 0);
+		set_major_pair_locked(0, 0, 0);
 		thrm_pb_turn_cont_locked(0);
 		goto exit;
 	}
 
-	if (!pid || !gpu_time || !gpu_freq || gpu_time == -1
+	if (!pid || !bufid || !gpu_time || !gpu_freq || gpu_time == -1
 		|| gpu_time > TOO_LONG_TIME || gpu_time < TOO_SHORT_TIME) {
 		EARA_THRM_LOGE("%s:gpu_time %d, gpu_freq %d\n",
 				__func__, gpu_time, gpu_freq);
-		if (pid == cur_max_pid && pid) {
-			set_major_pair_locked(0, 0);
+		if (pid && is_major_pair_locked(pid, bufid)) {
+			set_major_pair_locked(0, 0, 0);
 			thrm_pb_turn_cont_locked(0);
 		}
 		goto exit;
 	}
 
-	thr = thrm_pb_list_get(pid, 0);
+	thr = thrm_pb_list_get(pid, bufid, 0);
 	if (!thr)
 		goto exit;
 
@@ -1895,14 +1926,14 @@ void eara_thrm_pb_enqueue_end(int pid, int gpu_time,
 		|| AI_check) {
 		EARA_THRM_LOGE("%s:cpu_time %d, AI_check -%d\n",
 			__func__, cpu_time, AI_check);
-		if (pid == cur_max_pid && pid) {
-			set_major_pair_locked(0, 0);
+		if (pid && is_major_pair_locked(pid, bufid)) {
+			set_major_pair_locked(0, 0, 0);
 			thrm_pb_turn_cont_locked(0);
 		}
 		goto exit;
 	}
 
-	if (!need_reallocate(thr, pid) || thr->frame_info.bypass)
+	if (!need_reallocate(thr, pid, bufid) || thr->frame_info.bypass)
 		goto exit;
 
 	get_cobra_tbl();
@@ -2079,7 +2110,7 @@ exit:
 }
 EXPORT_SYMBOL(eara_thrm_pb_enqueue_end);
 
-void eara_thrm_pb_gblock_bypass(int pid, int bypass)
+void eara_thrm_pb_gblock_bypass(int pid, unsigned long long bufid, int bypass)
 {
 	struct thrm_pb_render *thr = NULL;
 
@@ -2088,13 +2119,13 @@ void eara_thrm_pb_gblock_bypass(int pid, int bypass)
 	if (!is_enable || !is_throttling)
 		goto exit;
 
-	EARA_THRM_LOGI("pid %d(cur %d), bypass %d\n",
-			pid, cur_max_pid, bypass);
+	EARA_THRM_LOGI("%d-%llu (cur %d-%llu), bypass %d\n",
+			pid, bufid, cur_max_pid, cur_max_bufid, bypass);
 
-	if (!pid || cur_max_pid != pid)
+	if (!pid  || !bufid || !is_major_pair_locked(pid, bufid))
 		goto exit;
 
-	thr = thrm_pb_list_get(pid, 0);
+	thr = thrm_pb_list_get(pid, bufid, 0);
 	if (!thr)
 		goto exit;
 
@@ -2112,7 +2143,7 @@ void eara_thrm_pb_gblock_bypass(int pid, int bypass)
 			thr->frame_info.bypass = 0;
 	}
 
-	EARA_THRM_LOGI("pid %d->bypass %d, cnt %d\n", pid,
+	EARA_THRM_LOGI("%d-%llu->bypass %d, cnt %d\n", pid, bufid,
 		thr->frame_info.bypass, thr->frame_info.bypass_cnt);
 exit:
 	mutex_unlock(&thrm_lock);
@@ -2535,7 +2566,7 @@ static ssize_t info_show(struct kobject *kobj,
 
 	mutex_lock(&thrm_lock);
 
-	thr = thrm_pb_list_get(cur_max_pid, 0);
+	thr = thrm_pb_list_get(cur_max_pid, cur_max_bufid, 0);
 
 	length = scnprintf(temp + posi,
 		EARA_SYSFS_MAX_BUFF_SIZE - posi,

@@ -60,6 +60,7 @@ struct xgf_render {
 	struct hlist_node hlist;
 	pid_t parent;
 	pid_t render;
+	unsigned long long bufID;
 
 	struct hlist_head sector_head;
 	int sector_nr;
@@ -193,7 +194,7 @@ void fpsgo_ctrl2xgf_switch_xgf(int val);
 void fpsgo_ctrl2xgf_nn_job_begin(unsigned int tid, unsigned long long mid);
 int fpsgo_ctrl2xgf_nn_job_end(unsigned int tid, unsigned long long mid);
 
-int fpsgo_comp2xgf_qudeq_notify(int rpid, int cmd,
+int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	unsigned long long *run_time, unsigned long long *mid,
 	unsigned long long ts);
 void fpsgo_fstb2xgf_do_recycle(int fstb_active);
