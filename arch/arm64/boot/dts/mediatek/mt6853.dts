@@ -4392,6 +4392,10 @@ page_owner=on";
 		compatible = "mediatek, camera_af_lens";
 	};
 
+	mtk_composite_v4l2_2: mtk_composite_v4l2_2 {
+		compatible = "mediatek,mtk_composite_v4l2_2";
+	};
+
 	smi_larb9: smi_larb9@1502e000 {
 		compatible = "mediatek,smi_larb9", "mediatek,smi_larb";
 		reg = <0 0x1502e000 0 0x1000>;
