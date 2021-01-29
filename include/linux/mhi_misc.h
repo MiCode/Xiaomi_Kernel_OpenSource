@@ -208,4 +208,53 @@ long mhi_device_ioctl(struct mhi_device *mhi_dev, unsigned int cmd,
 int mhi_controller_set_sfr_support(struct mhi_controller *mhi_cntrl,
 				   size_t len);
 
+/**
+ * mhi_controller_setup_timesync - Set support for time synchronization feature
+ * @mhi_cntrl: MHI controller
+ * @time_get: Callback to set for the MHI controller to receive host time
+ * @lpm_disable: Callback to set for the MHI controller to disable link LPM
+ * @lpm_enable: Callback to set for the MHI controller to enable link LPM
+ *
+ * Returns:
+ * 0 for success, error code for failure
+ */
+int mhi_controller_setup_timesync(struct mhi_controller *mhi_cntrl,
+				  u64 (*time_get)(struct mhi_controller *c),
+				  int (*lpm_disable)(struct mhi_controller *c),
+				  int (*lpm_enable)(struct mhi_controller *c));
+
+/**
+ * mhi_get_remote_time_sync - Get external soc time relative to local soc time
+ * using MMIO method.
+ * @mhi_dev: Device associated with the channels
+ * @t_host: Pointer to output local soc time
+ * @t_dev: Pointer to output remote soc time
+ *
+ * Returns:
+ * 0 for success, error code for failure
+ */
+int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
+			     u64 *t_host,
+			     u64 *t_dev);
+
+/**
+ * mhi_get_remote_time - Get external modem time relative to host time
+ * Trigger event to capture modem time, also capture host time so client
+ * can do a relative drift comparision.
+ * Recommended only tsync device calls this method and do not call this
+ * from atomic context
+ * @mhi_dev: Device associated with the channels
+ * @sequence:unique sequence id track event
+ * @cb_func: callback function to call back
+ *
+ * Returns:
+ * 0 for success, error code for failure
+ */
+int mhi_get_remote_time(struct mhi_device *mhi_dev,
+			u32 sequence,
+			void (*cb_func)(struct mhi_device *mhi_dev,
+					u32 sequence,
+					u64 local_time,
+					u64 remote_time));
+
 #endif /* _MHI_MISC_H_ */
