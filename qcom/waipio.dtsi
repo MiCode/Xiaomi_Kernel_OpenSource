@@ -1548,7 +1548,6 @@
 		reg = <0x149004 0x4>;
 		regulator-name = "gcc_usb30_prim_gdsc";
 		qcom,gds-timeout = <500>;
-		parent-supply = <&VDD_CX_LEVEL>;
 		qcom,retain-regs;
 	};
 
