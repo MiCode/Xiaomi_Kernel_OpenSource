@@ -3454,6 +3454,7 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 	remote_arg_t ra[6];
 	int fds[6];
 	unsigned int gid = 0, one_mb = 1024*1024;
+	unsigned int dsp_userpd_memlen = 3 * one_mb;
 	struct fastrpc_buf *init_mem;
 
 	struct {
@@ -3537,8 +3538,13 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 		locked = 0;
 	}
 
-	/* Allocate DMA buffer in kernel for donating to remote process */
-	memlen = ALIGN(max(3*one_mb, init->filelen * 4), one_mb);
+	/* Allocate DMA buffer in kernel for donating to remote process
+	 * Unsigned PD requires additional memory because of the
+	 * additional static heap initialized within the process.
+	 */
+	if (uproc->attrs & FASTRPC_MODE_UNSIGNED_MODULE)
+		dsp_userpd_memlen += 2*one_mb;
+	memlen = ALIGN(max(dsp_userpd_memlen, init->filelen * 4), one_mb);
 	imem_dma_attr = DMA_ATTR_EXEC_MAPPING |
 					DMA_ATTR_DELAYED_UNMAP |
 					DMA_ATTR_NO_KERNEL_MAPPING;
