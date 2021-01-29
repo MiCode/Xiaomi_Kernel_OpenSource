@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -273,6 +273,7 @@ enum mhi_cmd_type {
 	MHI_CMD_RESET_CHAN = 16,
 	MHI_CMD_STOP_CHAN = 17,
 	MHI_CMD_START_CHAN = 18,
+	MHI_CMD_SFR_CFG = 73,
 };
 
 /* No operation command */
