@@ -3016,6 +3016,7 @@
 	};
 };
 
+#include "ipcc-test.dtsi"
 #include "waipio-qupv3.dtsi"
 #include "waipio-pinctrl.dtsi"
 #include "msm-arm-smmu-waipio.dtsi"
