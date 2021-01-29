@@ -636,8 +636,6 @@ struct msm_pcie_device_info {
 	short short_bdf;
 	u32 sid;
 	int domain;
-	void __iomem *conf_base;
-	unsigned long phy_address;
 	struct msm_pcie_register_event *event_reg;
 	bool registered;
 };
@@ -3030,9 +3028,8 @@ static int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 	void __iomem *config_base;
 	bool rc = false;
 	u32 rc_idx, *filtered_bdf;
-	int rv = 0;
+	int i, rv = 0;
 	u32 bdf = BDF_OFFSET(bus->number, devfn);
-	int i;
 
 	dev = PCIE_BUS_PRIV_DATA(bus);
 
@@ -3098,28 +3095,14 @@ static int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 		}
 	}
 
-	if (!rc && !dev->enumerated)
+	if (!rc)
 		msm_pcie_cfg_bdf(dev, bus->number, devfn);
 
 	word_offset = where & ~0x3;
 	byte_offset = where & 0x3;
 	mask = ((u32)~0 >> (8 * (4 - size))) << (8 * byte_offset);
 
-	if (rc || !dev->enumerated) {
-		config_base = rc ? dev->dm_core : dev->conf;
-	} else {
-		for (i = 0; i < MAX_DEVICE_NUM; i++) {
-			if (dev->pcidev_table[i].bdf == bdf) {
-				config_base = dev->pcidev_table[i].conf_base;
-				break;
-			}
-		}
-		if (i == MAX_DEVICE_NUM) {
-			*val = ~0;
-			rv = PCIBIOS_DEVICE_NOT_FOUND;
-			goto unlock;
-		}
-	}
+	config_base = rc ? dev->dm_core : dev->conf;
 
 	rd_val = readl_relaxed(config_base + word_offset);
 
@@ -3664,25 +3647,6 @@ static int pcie_phy_init(struct msm_pcie_dev_t *dev)
 	return 0;
 }
 
-static void msm_pcie_iatu_config_all_ep(struct msm_pcie_dev_t *dev)
-{
-	int i;
-	u8 type;
-	struct msm_pcie_device_info *dev_table = dev->pcidev_table;
-
-	for (i = 0; i < MAX_DEVICE_NUM; i++) {
-		if (!dev_table[i].bdf)
-			break;
-
-		type = dev_table[i].bdf >> 24 == 0x1 ?
-			PCIE20_CTRL1_TYPE_CFG0 : PCIE20_CTRL1_TYPE_CFG1;
-
-		msm_pcie_iatu_config(dev, i, type, dev_table[i].phy_address,
-			dev_table[i].phy_address + SZ_4K - 1,
-			dev_table[i].bdf);
-	}
-}
-
 static void msm_pcie_config_core_preset(struct msm_pcie_dev_t *pcie_dev)
 {
 	u32 supported_link_speed =
@@ -3745,14 +3709,11 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 	/*
 	 * program and enable address translation region 0 (device config
 	 * address space); region type config;
-	 * axi config address range to device config address range
+	 * axi config address range to device config address range. Enable
+	 * translation for bus 1 dev 0 fn 0.
 	 */
-	if (dev->enumerated) {
-		msm_pcie_iatu_config_all_ep(dev);
-	} else {
-		dev->current_bdf = 0; /* to force IATU re-config */
-		msm_pcie_cfg_bdf(dev, 1, 0);
-	}
+	dev->current_bdf = 0; /* to force IATU re-config */
+	msm_pcie_cfg_bdf(dev, 1, 0);
 
 	/* configure N_FTS */
 	PCIE_DBG2(dev, "Original PCIE20_ACK_F_ASPM_CTRL_REG:0x%x\n",
@@ -4829,14 +4790,10 @@ static void msm_pcie_disable(struct msm_pcie_dev_t *dev)
 static int msm_pcie_config_device_table(struct pci_dev *pcidev, void *pdev)
 {
 	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *) pdev;
-	struct resource *axi_conf = pcie_dev->res[MSM_PCIE_RES_CONF].resource;
 	int ret = 0;
 	u32 rc_idx = pcie_dev->rc_idx;
 	u32 i;
 	u32 bdf = 0;
-	u8 type;
-	u32 h_type;
-	u32 bme;
 
 	PCIE_DBG(pcie_dev,
 		"PCI device found: vendor-id:0x%x device-id:0x%x\n",
@@ -4846,8 +4803,6 @@ static int msm_pcie_config_device_table(struct pci_dev *pcidev, void *pdev)
 		return ret;
 
 	bdf = BDF_OFFSET(pcidev->bus->number, pcidev->devfn);
-	type = pcidev->bus->number == 1 ?
-		PCIE20_CTRL1_TYPE_CFG0 : PCIE20_CTRL1_TYPE_CFG1;
 
 	for (i = 0; i < MAX_DEVICE_NUM; i++) {
 		struct msm_pcie_device_info *dev_table_t =
@@ -4858,26 +4813,14 @@ static int msm_pcie_config_device_table(struct pci_dev *pcidev, void *pdev)
 
 		dev_table_t->dev = pcidev;
 		dev_table_t->domain = rc_idx;
-		dev_table_t->conf_base = pcie_dev->conf + i * SZ_4K;
-		dev_table_t->phy_address = axi_conf->start + i * SZ_4K;
 
-		msm_pcie_iatu_config(pcie_dev, i, type,
-				     dev_table_t->phy_address,
-				     dev_table_t->phy_address + SZ_4K - 1, bdf);
-
-		h_type = readl_relaxed(dev_table_t->conf_base +
-				       PCIE20_HEADER_TYPE);
-
-		bme = readl_relaxed(dev_table_t->conf_base +
-				    PCIE20_COMMAND_STATUS);
-
-		if (h_type & (1 << 16)) {
-			pci_write_config_dword(pcidev, PCIE20_COMMAND_STATUS,
-					       bme | 0x06);
-		} else {
+		if (pci_pcie_type(pcidev) == PCI_EXP_TYPE_ENDPOINT) {
 			pcie_dev->num_ep++;
 			dev_table_t->registered = false;
 		}
+
+		if (pci_pcie_type(pcidev) == PCI_EXP_TYPE_UPSTREAM)
+			pci_set_master(pcidev);
 
 		if (pcie_dev->num_ep > 1)
 			pcie_dev->pending_ep_reg = true;
@@ -6407,8 +6350,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		pcie_dev->pcidev_table[i].short_bdf = 0;
 		pcie_dev->pcidev_table[i].sid = 0;
 		pcie_dev->pcidev_table[i].domain = rc_idx;
-		pcie_dev->pcidev_table[i].conf_base = NULL;
-		pcie_dev->pcidev_table[i].phy_address = 0;
 		pcie_dev->pcidev_table[i].event_reg = NULL;
 		pcie_dev->pcidev_table[i].registered = true;
 	}
