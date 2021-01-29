@@ -71,6 +71,9 @@ void mhi_misc_unregister_controller(struct mhi_controller *mhi_cntrl)
 	list_del(&mhi_priv->node);
 	mutex_unlock(&mhi_bus.lock);
 
+	if (mhi_priv->sfr_info)
+		kfree(mhi_priv->sfr_info->str);
+	kfree(mhi_priv->sfr_info);
 	kfree(mhi_priv);
 }
 
@@ -134,10 +137,17 @@ static int mhi_notify_fatal_cb(struct device *dev, void *data)
 
 int mhi_report_error(struct mhi_controller *mhi_cntrl)
 {
+	struct device *dev;
+	struct mhi_private *mhi_priv;
+	struct mhi_sfr_info *sfr_info;
 	enum mhi_pm_state cur_state;
 
 	if (!mhi_cntrl)
 		return -EINVAL;
+
+	dev = &mhi_cntrl->mhi_dev->dev;
+	mhi_priv = dev_get_drvdata(dev);
+	sfr_info = mhi_priv->sfr_info;
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
 
@@ -154,6 +164,12 @@ int mhi_report_error(struct mhi_controller *mhi_cntrl)
 	mhi_cntrl->dev_state = MHI_STATE_SYS_ERR;
 	wake_up_all(&mhi_cntrl->state_event);
 	write_unlock_irq(&mhi_cntrl->pm_lock);
+
+	/* copy subsystem failure reason string if supported */
+	if (sfr_info && sfr_info->buf_addr) {
+		memcpy(sfr_info->str, sfr_info->buf_addr, sfr_info->len);
+		MHI_ERR("mhi: %s sfr: %s\n", dev_name(dev), sfr_info->buf_addr);
+	}
 
 	/* Notify fatal error to all client drivers to halt processing */
 	device_for_each_child(&mhi_cntrl->mhi_dev->dev, NULL,
@@ -987,3 +1003,100 @@ long mhi_device_ioctl(struct mhi_device *mhi_dev, unsigned int cmd,
 }
 EXPORT_SYMBOL(mhi_device_ioctl);
 #endif
+
+int mhi_controller_set_sfr_support(struct mhi_controller *mhi_cntrl, size_t len)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+	struct mhi_sfr_info *sfr_info;
+
+	sfr_info = kzalloc(sizeof(*sfr_info), GFP_KERNEL);
+	if (!sfr_info)
+		return -ENOMEM;
+
+	sfr_info->len = len;
+	sfr_info->str = kzalloc(len, GFP_KERNEL);
+	if (!sfr_info->str)
+		return -ENOMEM;
+
+	mhi_priv->sfr_info = sfr_info;
+
+	return 0;
+}
+EXPORT_SYMBOL(mhi_controller_set_sfr_support);
+
+void mhi_misc_mission_mode(struct mhi_controller *mhi_cntrl)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+	struct mhi_sfr_info *sfr_info = mhi_priv->sfr_info;
+	int ret = -EIO;
+
+	/* initialize SFR */
+	if (!sfr_info)
+		return;
+
+	/* do a clean-up if we reach here post SSR */
+	memset(sfr_info->str, 0, sfr_info->len);
+
+	sfr_info->buf_addr = mhi_alloc_coherent(mhi_cntrl, sfr_info->len,
+						&sfr_info->dma_addr,
+						GFP_KERNEL);
+	if (!sfr_info->buf_addr) {
+		MHI_ERR("Failed to allocate memory for sfr\n");
+		return;
+	}
+
+	init_completion(&sfr_info->completion);
+
+	ret = mhi_send_cmd(mhi_cntrl, NULL, MHI_CMD_SFR_CFG);
+	if (ret) {
+		MHI_ERR("Failed to send sfr cfg cmd\n");
+		return;
+	}
+
+	ret = wait_for_completion_timeout(&sfr_info->completion,
+			msecs_to_jiffies(mhi_cntrl->timeout_ms));
+	if (!ret || sfr_info->ccs != MHI_EV_CC_SUCCESS)
+		MHI_ERR("Failed to get sfr cfg cmd completion\n");
+}
+
+void mhi_misc_disable(struct mhi_controller *mhi_cntrl)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+	struct mhi_sfr_info *sfr_info = mhi_priv->sfr_info;
+
+	if (sfr_info && sfr_info->buf_addr) {
+		mhi_free_coherent(mhi_cntrl, sfr_info->len, sfr_info->buf_addr,
+				  sfr_info->dma_addr);
+		sfr_info->buf_addr = NULL;
+	}
+}
+
+void mhi_misc_cmd_configure(struct mhi_controller *mhi_cntrl, unsigned int type,
+			    u64 *ptr, u32 *dword0, u32 *dword1)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+	struct mhi_sfr_info *sfr_info = mhi_priv->sfr_info;
+
+	if (type == MHI_CMD_SFR_CFG && sfr_info) {
+		*ptr = MHI_TRE_CMD_SFR_CFG_PTR(sfr_info->dma_addr);
+		*dword0 = MHI_TRE_CMD_SFR_CFG_DWORD0(sfr_info->len - 1);
+		*dword1 = MHI_TRE_CMD_SFR_CFG_DWORD1;
+	}
+}
+
+void mhi_misc_cmd_completion(struct mhi_controller *mhi_cntrl,
+			     unsigned int type, unsigned int ccs)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+	struct mhi_sfr_info *sfr_info = mhi_priv->sfr_info;
+
+	if (type == MHI_CMD_SFR_CFG && sfr_info) {
+		sfr_info->ccs = ccs;
+		complete(&sfr_info->completion);
+	}
+}

@@ -46,6 +46,11 @@
 					((seq) & 0xFF))
 #define MHI_BW_SCALE_NACK 0xF
 
+/* subsystem failure reason cfg command */
+#define MHI_TRE_CMD_SFR_CFG_PTR(ptr) (ptr)
+#define MHI_TRE_CMD_SFR_CFG_DWORD0(len) (len)
+#define MHI_TRE_CMD_SFR_CFG_DWORD1 (MHI_CMD_SFR_CFG << 16)
+
 #define MHI_VERB(fmt, ...) do { \
 	struct mhi_private *mhi_priv = \
 		dev_get_drvdata(&mhi_cntrl->mhi_dev->dev); \
@@ -140,6 +145,7 @@ struct mhi_private {
 	int (*bw_scale)(struct mhi_controller *mhi_cntrl,
 			struct mhi_link_info *link_info);
 	phys_addr_t base_addr;
+	struct mhi_sfr_info *sfr_info;
 };
 
 /**
@@ -150,6 +156,18 @@ struct mhi_bus {
 	struct mutex lock;
 };
 
+/**
+ * struct mhi_sfr_info - For receiving MHI subsystem failure reason
+ */
+struct mhi_sfr_info {
+	void *buf_addr;
+	dma_addr_t dma_addr;
+	size_t len;
+	char *str;
+	unsigned int ccs;
+	struct completion completion;
+};
+
 #ifdef CONFIG_MHI_BUS_MISC
 void mhi_misc_init(void);
 void mhi_misc_exit(void);
@@ -158,6 +176,13 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl);
 void mhi_misc_unregister_controller(struct mhi_controller *mhi_cntrl);
 int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 				struct mhi_event *mhi_event, u32 event_quota);
+void mhi_misc_mission_mode(struct mhi_controller *mhi_cntrl);
+void mhi_misc_disable(struct mhi_controller *mhi_cntrl);
+void mhi_misc_cmd_configure(struct mhi_controller *mhi_cntrl,
+			    unsigned int type, u64 *ptr, u32 *dword0,
+			    u32 *dword1);
+void mhi_misc_cmd_completion(struct mhi_controller *mhi_cntrl,
+			     unsigned int type, unsigned int ccs);
 #else
 static inline void mhi_misc_init(void)
 {
@@ -186,6 +211,25 @@ static inline int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 				struct mhi_event *mhi_event, u32 event_quota)
 {
 	return 0;
+}
+
+static inline void mhi_misc_mission_mode(struct mhi_controller *mhi_cntrl)
+{
+}
+
+static inline void mhi_misc_disable(struct mhi_controller *mhi_cntrl)
+{
+}
+
+static inline void mhi_misc_cmd_configure(struct mhi_controller *mhi_cntrl,
+					  unsigned int type, u64 *ptr,
+					  u32 *dword0, u32 *dword1)
+{
+}
+
+static inline void mhi_misc_cmd_completion(struct mhi_controller *mhi_cntrl,
+					   unsigned int type, unsigned int ccs)
+{
 }
 #endif
 

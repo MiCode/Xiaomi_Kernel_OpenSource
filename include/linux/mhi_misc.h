@@ -198,4 +198,14 @@ struct mhi_device *mhi_get_device_for_channel(struct mhi_controller *mhi_cntrl,
 long mhi_device_ioctl(struct mhi_device *mhi_dev, unsigned int cmd,
 		      unsigned long arg);
 
+/**
+ * mhi_controller_set_sfr_support - Set support for subsystem failure reason
+ * @mhi_cntrl: MHI controller
+ *
+ * Returns:
+ * 0 for success, error code for failure
+ */
+int mhi_controller_set_sfr_support(struct mhi_controller *mhi_cntrl,
+				   size_t len);
+
 #endif /* _MHI_MISC_H_ */
