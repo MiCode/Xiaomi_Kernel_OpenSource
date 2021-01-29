@@ -66,15 +66,7 @@ config OVERRIDE_MEMORY_LIMIT
 	  hot-plugging.
 	  If unsure, say N
 
-config QCOM_MEM_BUF
-	tristate "Qualcomm Technologies, Inc. Memory Buffer Sharing Driver"
-	depends on HH_MSGQ && HH_RM_DRV
-	help
-	  Add support for lending memory from one virtual machine to another.
-	  This driver communicates with the hypervisor, as well as other
-	  virtual machines, to request and lend memory from and to VMs
-	  respectively.
-	  If unsure, say N
+source "drivers/soc/qcom/mem_buf/Kconfig"
 
 config QCOM_CPR
 	tristate "QCOM Core Power Reduction (CPR) support"
