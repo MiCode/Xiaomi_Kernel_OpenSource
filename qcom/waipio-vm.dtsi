@@ -49,6 +49,7 @@
 			min-residency-us = <4488>;
 			arm,psci-suspend-param = <0x40000004>;
 			local-timer-stop;
+			status = "disabled";
 		};
 
 		CLUSTER_PWR_DWN: d4 { /* C4+D4 */
@@ -59,6 +60,7 @@
 			min-residency-us = <6118>;
 			arm,psci-suspend-param = <0x40000044>;
 			local-timer-stop;
+			status = "disabled";
 		};
 	};
 
@@ -228,12 +230,14 @@
 		method = "smc";
 	};
 
-	vgic: interrupt-controller@17a00000 {
+	vgic: interrupt-controller@17100000 {
 		compatible = "arm,gic-v3";
 		interrupt-controller;
 		#interrupt-cells = <0x3>;
-		reg = <0x17a00000 0x10000>,     /* GICD */
-		      <0x17a60000 0x100000>;    /* GICR * 8 */
+		#redistributor-regions = <1>;
+		redistributor-stride = <0x0 0x40000>;
+		reg = <0x17100000 0x10000>,     /* GICD */
+		      <0x17180000 0x100000>;    /* GICR * 8 */
 	};
 
 	arch_timer: timer {
@@ -243,6 +247,7 @@
 			     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
 			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
 			     <GIC_PPI 12 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>;
+		clock-frequency = <19200000>;
 	};
 
 	/*
