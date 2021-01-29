@@ -104,6 +104,7 @@ struct geni_se_device {
 	struct bus_vectors *vectors;
 	int num_paths;
 	bool vote_for_bw;
+	struct se_geni_rsc wrapper_rsc;
 };
 
 #define HW_VER_MAJOR_MASK GENMASK(31, 28)
@@ -1630,6 +1631,34 @@ out:
 	return NULL;
 }
 
+void geni_se_remove_earlycon_icc_vote(struct device *dev)
+{
+	struct platform_device *pdev;
+	struct device_node *parent;
+	struct device_node *child;
+	struct geni_se_device *geni_se_dev;
+	int ret;
+
+	parent = of_get_next_parent(dev->of_node);
+	for_each_child_of_node(parent, child) {
+		if (!of_device_is_compatible(child, "qcom,qupv3-geni-se"))
+			continue;
+
+		pdev = of_find_device_by_node(child);
+		if (!pdev)
+			continue;
+
+		geni_se_dev = platform_get_drvdata(pdev);
+		ret = geni_se_rmv_ab_ib(geni_se_dev, &geni_se_dev->wrapper_rsc);
+
+		if (ret)
+			dev_err(dev, "%s: Error %d during bus_bw_update\n", __func__,
+					ret);
+	}
+	of_node_put(parent);
+}
+EXPORT_SYMBOL(geni_se_remove_earlycon_icc_vote);
+
 static int geni_se_iommu_probe(struct device *dev)
 {
 	struct geni_se_device *geni_se_dev;
@@ -1720,6 +1749,31 @@ static int geni_se_probe(struct platform_device *pdev)
 		dev_err(dev, "%s Failed to allocate log context\n", __func__);
 
 	dev_set_drvdata(dev, geni_se_dev);
+
+	/*
+	 * TBD: Proxy vote on QUP core path on behalf of earlycon.
+	 * Once the ICC sync state feature is implemented, we can make
+	 * console UART as dummy consumer of ICC to get rid of this HACK
+	 */
+#if IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE)
+	geni_se_dev->wrapper_rsc.wrapper_dev = dev;
+	geni_se_dev->wrapper_rsc.ctrl_dev = dev;
+
+	ret = geni_se_resources_init(&geni_se_dev->wrapper_rsc,
+					UART_CONSOLE_CORE2X_VOTE,
+					(DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
+	if (ret) {
+		dev_err(dev, "Resources init failed: %d\n", ret);
+		return ret;
+	}
+
+	ret = geni_se_add_ab_ib(geni_se_dev, &geni_se_dev->wrapper_rsc);
+	if (ret) {
+		dev_err(dev, "%s: Error %d during bus_bw_update\n", __func__,
+				ret);
+		return ret;
+	}
+#endif
 
 	ret = of_platform_populate(dev->of_node, geni_se_dt_match, NULL, dev);
 	if (ret) {
