@@ -83,3 +83,4 @@ qcom_edac.ko
 kryo_arm64_edac.ko
 qcom-cpufreq-hw.ko
 sched-walt.ko
+msm_performance.ko

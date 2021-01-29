@@ -137,6 +137,7 @@ qcom_edac.ko
 qcom-cpufreq-hw.ko
 qcom-cpufreq-hw-debug.ko
 sched-walt.ko
+msm_performance.ko
 soc_sleep_stats.ko
 sensors_ssc.ko
 sys_pm_vx.ko
