@@ -3029,6 +3029,7 @@
 #include "waipio-audio.dtsi"
 #include "waipio-pcie.dtsi"
 #include "msm-rdbg.dtsi"
+#include "waipio-thermal.dtsi"
 
 &qupv3_se7_2uart {
 	status = "ok";
