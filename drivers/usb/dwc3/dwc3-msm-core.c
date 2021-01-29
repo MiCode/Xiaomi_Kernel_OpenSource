@@ -249,6 +249,11 @@ enum usb_gsi_reg {
 	GSI_REG_MAX,
 };
 
+struct dwc3_hw_ep {
+	enum usb_hw_ep_mode	mode;
+	u8 dbm_ep_num;
+};
+
 struct dwc3_msm_req_complete {
 	struct list_head list_item;
 	struct usb_request *req;
@@ -441,7 +446,6 @@ struct dwc3_msm {
 
 	const struct dbm_reg_data *dbm_reg_table;
 	int			dbm_num_eps;
-	u8			dbm_ep_num_mapping[DBM_1_5_NUM_EP];
 	bool			dbm_is_1p4;
 
 	/* VBUS regulator for host mode */
@@ -515,6 +519,8 @@ struct dwc3_msm {
 
 	void            *dwc_ipc_log_ctxt;
 	void            *dwc_dma_ipc_log_ctxt;
+
+	struct dwc3_hw_ep	hw_eps[DWC3_ENDPOINTS_NUM];
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -698,11 +704,8 @@ static inline void msm_dbm_write_ep_reg(struct dwc3_msm *mdwc, enum dbm_reg reg,
  */
 static int find_matching_dbm_ep(struct dwc3_msm *mdwc, u8 usb_ep)
 {
-	int i;
-
-	for (i = 0; i < mdwc->dbm_num_eps; i++)
-		if (mdwc->dbm_ep_num_mapping[i] == usb_ep)
-			return i;
+	if (mdwc->hw_eps[usb_ep].mode == USB_EP_BAM)
+		return mdwc->hw_eps[usb_ep].dbm_ep_num;
 
 	dev_dbg(mdwc->dev, "%s: No DBM EP matches USB EP %d\n",
 			__func__, usb_ep);
@@ -717,8 +720,8 @@ static int dbm_get_num_of_eps_configured(struct dwc3_msm *mdwc)
 	int i;
 	int count = 0;
 
-	for (i = 0; i < mdwc->dbm_num_eps; i++)
-		if (mdwc->dbm_ep_num_mapping[i])
+	for (i = 0; i < DWC3_ENDPOINTS_NUM; i++)
+		if (mdwc->hw_eps[i].mode == USB_EP_BAM)
 			count++;
 
 	return count;
@@ -824,7 +827,7 @@ int msm_data_fifo_config(struct usb_ep *ep, unsigned long addr,
 		return -EINVAL;
 	}
 
-	mdwc->dbm_ep_num_mapping[dbm_ep] = dep->number;
+	mdwc->hw_eps[dep->number].dbm_ep_num = dbm_ep;
 
 	if (!mdwc->dbm_is_1p4 || sizeof(addr) > sizeof(u32)) {
 		msm_dbm_write_ep_reg(mdwc, DBM_DATA_FIFO_LSB, dbm_ep, lo);
@@ -2171,8 +2174,7 @@ static int dbm_ep_unconfig(struct dwc3_msm *mdwc, u8 usb_ep)
 	if (dbm_ep < 0)
 		return dbm_ep;
 
-	mdwc->dbm_ep_num_mapping[dbm_ep] = 0;
-
+	mdwc->hw_eps[usb_ep].dbm_ep_num = 0;
 	data = msm_dbm_read_ep_reg(mdwc, DBM_EP_CFG, dbm_ep);
 	data &= (~0x1);
 	msm_dbm_write_ep_reg(mdwc, DBM_EP_CFG, dbm_ep, data);
@@ -2226,14 +2228,6 @@ int msm_ep_unconfig(struct usb_ep *ep)
 	return 0;
 }
 EXPORT_SYMBOL(msm_ep_unconfig);
-
-void msm_ep_set_endless(struct usb_ep *ep, bool set_clear)
-{
-	struct dwc3_ep *dep = to_dwc3_ep(ep);
-
-	dep->endless = !!set_clear;
-}
-EXPORT_SYMBOL(msm_ep_set_endless);
 
 /**
  * msm_ep_clear_ops - Restore default endpoint operations
@@ -2316,6 +2310,18 @@ int msm_ep_update_ops(struct usb_ep *ep)
 	return 0;
 }
 EXPORT_SYMBOL(msm_ep_update_ops);
+
+int msm_ep_set_mode(struct usb_ep *ep, enum usb_hw_ep_mode mode)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3 *dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	mdwc->hw_eps[dep->number].mode = mode;
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_ep_set_mode);
 
 #endif /* (CONFIG_USB_DWC3_GADGET) || (CONFIG_USB_DWC3_DUAL_ROLE) */
 

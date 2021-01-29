@@ -52,6 +52,11 @@ enum gsi_ep_op {
 	GSI_EP_OP_DISABLE,
 };
 
+enum usb_hw_ep_mode {
+	USB_EP_NONE,
+	USB_EP_BAM,
+};
+
 /*
  * @buf_base_addr: Base pointer to buffer allocated for each GSI enabled EP.
  *	TRBs point to buffers that are split from this pool. The size of the
@@ -117,7 +122,6 @@ struct usb_ep *usb_ep_autoconfig_by_name(struct usb_gadget *gadget,
 int usb_gsi_ep_op(struct usb_ep *ep, void *op_data, enum gsi_ep_op op);
 int msm_ep_config(struct usb_ep *ep, struct usb_request *request, u32 bam_opts);
 int msm_ep_unconfig(struct usb_ep *ep);
-void msm_ep_set_endless(struct usb_ep *ep, bool set_clear);
 void dwc3_tx_fifo_resize_request(struct usb_ep *ep, bool qdss_enable);
 int msm_data_fifo_config(struct usb_ep *ep, unsigned long addr, u32 size,
 	u8 dst_pipe_idx);
@@ -125,6 +129,7 @@ int msm_dwc3_reset_dbm_ep(struct usb_ep *ep);
 int dwc3_msm_release_ss_lane(struct device *dev);
 int msm_ep_update_ops(struct usb_ep *ep);
 int msm_ep_clear_ops(struct usb_ep *ep);
+int msm_ep_set_mode(struct usb_ep *ep, enum usb_hw_ep_mode mode);
 int dwc3_msm_kretprobe_init(void);
 void dwc3_msm_kretprobe_exit(void);
 #else
@@ -143,8 +148,6 @@ static inline int msm_ep_config(struct usb_ep *ep, struct usb_request *request,
 { return -ENODEV; }
 static inline int msm_ep_unconfig(struct usb_ep *ep)
 { return -ENODEV; }
-static inline void msm_ep_set_endless(struct usb_ep *ep, bool set_clear)
-{ }
 static inline void dwc3_tx_fifo_resize_request(struct usb_ep *ep,
 	bool qdss_enable)
 { }
@@ -155,6 +158,8 @@ static inline int dwc3_msm_release_ss_lane(struct device *dev)
 int msm_ep_update_ops(struct usb_ep *ep)
 { return -ENODEV; }
 int msm_ep_clear_ops(struct usb_ep *ep)
+{ return -ENODEV; }
+int msm_ep_set_mode(struct usb_ep *ep, enum usb_hw_ep_mode mode)
 { return -ENODEV; }
 int dwc3_msm_kretprobe_init(void)
 { return 0; }
