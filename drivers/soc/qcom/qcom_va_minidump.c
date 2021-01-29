@@ -33,8 +33,9 @@ struct va_md_elf_info {
 	unsigned long str_tbl_size;
 };
 
-#define MAX_ELF_SECTION		(SHN_LORESERVE - 1)
-#define MAX_STRING_TABLE_SIZE	(MAX_ELF_SECTION * MAX_OWNER_STRING)
+#define VA_MD_VADDR_MARKER	-1
+#define VA_MD_CB_MARKER		-2
+#define MAX_ELF_SECTION		0xFFFFU
 
 struct va_minidump_data {
 	phys_addr_t mem_phys_addr;
@@ -64,8 +65,15 @@ static void va_md_add_entry(struct va_md_entry *entry)
 		"Client entry name %s (len = %u) is greater than expected %u\n",
 		entry->owner, len, MAX_OWNER_STRING - 1);
 	dst->entry.owner[MAX_OWNER_STRING - 1] = '\0';
-	dst->lindex = -1;
-	dst->rindex = -1;
+
+	if (entry->vaddr) {
+		dst->lindex = VA_MD_VADDR_MARKER;
+		dst->rindex = VA_MD_VADDR_MARKER;
+	} else {
+		dst->lindex = VA_MD_CB_MARKER;
+		dst->rindex = VA_MD_CB_MARKER;
+	}
+
 	va_md_data.num_sections++;
 }
 
@@ -126,36 +134,45 @@ static int va_md_tree_insert(struct va_md_entry *entry)
 {
 	unsigned int baseindex = 0;
 	int ret = 0;
+	static int num_nodes;
 	struct va_md_tree_node *tree = (struct va_md_tree_node *)va_md_data.elf_mem;
 
-	if (unlikely(!va_md_data.num_sections)) {
+	if (!entry->vaddr || !va_md_data.num_sections) {
 		va_md_add_entry(entry);
 		goto out;
 	}
 
 	while (baseindex < va_md_data.num_sections) {
+		if ((tree[baseindex].lindex == VA_MD_CB_MARKER) &&
+			(tree[baseindex].rindex == VA_MD_CB_MARKER)) {
+			baseindex++;
+			continue;
+		}
+
 		if (va_md_check_overlap(entry, baseindex)) {
 			entry->owner[MAX_OWNER_STRING - 1] = '\0';
 			pr_err("Overlapping region owner:%s\n", entry->owner);
 			ret = -EINVAL;
-			break;
+			goto out;
 		}
 
 		if (va_md_move_left(entry, baseindex)) {
-			if (tree[baseindex].lindex == -1) {
+			if (tree[baseindex].lindex == VA_MD_VADDR_MARKER) {
 				tree[baseindex].lindex = va_md_data.num_sections;
 				va_md_add_entry(entry);
-				goto out;
+				num_nodes++;
+				goto exit_loop;
 			} else {
 				baseindex = tree[baseindex].lindex;
 				continue;
 			}
 
 		} else if (va_md_move_right(entry, baseindex)) {
-			if (tree[baseindex].rindex == -1) {
+			if (tree[baseindex].rindex == VA_MD_VADDR_MARKER) {
 				tree[baseindex].rindex = va_md_data.num_sections;
 				va_md_add_entry(entry);
-				goto out;
+				num_nodes++;
+				goto exit_loop;
 			} else {
 				baseindex = tree[baseindex].rindex;
 				continue;
@@ -163,6 +180,12 @@ static int va_md_tree_insert(struct va_md_entry *entry)
 		} else {
 			pr_err("Warning: Corrupted Binary Search Tree\n");
 		}
+	}
+
+exit_loop:
+	if (!num_nodes) {
+		va_md_add_entry(entry);
+		num_nodes++;
 	}
 
 out:
@@ -188,7 +211,7 @@ int qcom_va_md_add_region(struct va_md_entry *entry)
 	if (!va_md_data.in_oops_handler)
 		return -EINVAL;
 
-	if (!entry->vaddr || (entry->size <= 0)) {
+	if ((!entry->vaddr == !entry->cb) || (entry->size <= 0)) {
 		entry->owner[MAX_OWNER_STRING - 1] = '\0';
 		pr_err("Invalid entry from owner:%s\n", entry->owner);
 		return -EINVAL;
@@ -298,7 +321,6 @@ static void qcom_va_add_hdrs(void)
 		shdr = elf_section(ehdr, ehdr->e_shnum);
 		shdr->sh_type = SHT_PROGBITS;
 		shdr->sh_name = set_sec_name(ehdr, arr[i].entry.owner);
-		shdr->sh_addr = arr[i].entry.vaddr;
 		shdr->sh_size = arr[i].entry.size;
 		shdr->sh_flags = SHF_WRITE;
 		shdr->sh_offset = offset;
@@ -307,12 +329,18 @@ static void qcom_va_add_hdrs(void)
 		phdr = elf_program(ehdr, ehdr->e_phnum);
 		phdr->p_type = PT_LOAD;
 		phdr->p_offset = offset;
-		phdr->p_vaddr = arr[i].entry.vaddr;
 		phdr->p_filesz = phdr->p_memsz = arr[i].entry.size;
 		phdr->p_flags = PF_R | PF_W;
 
-		memcpy((void *)(va_md_data.elf.ehdr + offset), (void *)shdr->sh_addr,
-			shdr->sh_size);
+		if (arr[i].entry.vaddr) {
+			shdr->sh_addr =  phdr->p_vaddr = arr[i].entry.vaddr;
+			memcpy((void *)(va_md_data.elf.ehdr + offset),
+				(void *)shdr->sh_addr, shdr->sh_size);
+		} else {
+			shdr->sh_addr =  phdr->p_vaddr = va_md_data.elf.ehdr + offset;
+			arr[i].entry.cb((void *)(va_md_data.elf.ehdr + offset),
+				shdr->sh_size);
+		}
 
 		offset += shdr->sh_size;
 		ehdr->e_shnum++;

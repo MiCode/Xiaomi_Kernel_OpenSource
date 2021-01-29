@@ -67,6 +67,7 @@ struct va_md_entry {
 	unsigned long vaddr;
 	unsigned char owner[MAX_OWNER_STRING];
 	unsigned int size;
+	void (*cb)(void *dst, unsigned long size);
 };
 
 #if IS_ENABLED(CONFIG_QCOM_VA_MINIDUMP)
