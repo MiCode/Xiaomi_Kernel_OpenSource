@@ -2422,14 +2422,25 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 	}
 
 	/* Handle IO LOW/HIGH */
-	if (irq_status & CORE_PWRCTL_IO_LOW)
+	if (irq_status & CORE_PWRCTL_IO_LOW) {
 		io_level = REQ_IO_LOW;
+		/* Switch voltage low */
+		ret = sdhci_msm_set_vdd_io_vol(msm_host, VDD_IO_LOW, 0);
+		if (ret)
+			irq_ack |= CORE_PWRCTL_IO_FAIL;
+		else
+			irq_ack |= CORE_PWRCTL_IO_SUCCESS;
+	}
 
-	if (irq_status & CORE_PWRCTL_IO_HIGH)
+	if (irq_status & CORE_PWRCTL_IO_HIGH) {
 		io_level = REQ_IO_HIGH;
-
-	if (io_level)
-		irq_ack |= CORE_PWRCTL_IO_SUCCESS;
+		/* Switch voltage high */
+		ret = sdhci_msm_set_vdd_io_vol(msm_host, VDD_IO_HIGH, 0);
+		if (ret)
+			irq_ack |= CORE_PWRCTL_IO_FAIL;
+		else
+			irq_ack |= CORE_PWRCTL_IO_SUCCESS;
+	}
 
 	if (io_level && !IS_ERR(mmc->supply.vqmmc) && !pwr_state) {
 		ret = mmc_regulator_set_vqmmc(mmc, &mmc->ios);
