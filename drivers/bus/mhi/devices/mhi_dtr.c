@@ -1,19 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.*/
 
-#include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/dma-direction.h>
 #include <linux/dma-mapping.h>
 #include <linux/interrupt.h>
 #include <linux/list.h>
-#include <linux/of.h>
+#include <linux/mhi.h>
+#include <linux/mhi_misc.h>
 #include <linux/module.h>
+#include <linux/of_device.h>
 #include <linux/slab.h>
 #include <linux/termios.h>
 #include <linux/wait.h>
-#include <linux/mhi.h>
-#include "mhi_internal.h"
 
 struct dtr_ctrl_msg {
 	u32 preamble;
@@ -23,6 +22,29 @@ struct dtr_ctrl_msg {
 	u32 msg;
 } __packed;
 
+static struct dtr_info {
+	struct completion completion;
+	struct mhi_device *mhi_dev;
+	void *ipc_log;
+} *dtr_info;
+
+static enum MHI_DEBUG_LEVEL dtr_log_level = MHI_MSG_LVL_INFO;
+
+#define MHI_DTR_IPC_LOG_PAGES (5)
+#define DTR_LOG(fmt, ...) do { \
+		dev_dbg(dev, "[I][%s] " fmt, __func__, ##__VA_ARGS__); \
+		if (dtr_info->ipc_log && dtr_log_level <= MHI_MSG_LVL_INFO) \
+			ipc_log_string(dtr_info->ipc_log, "[I][%s] " fmt, \
+				       __func__, ##__VA_ARGS__); \
+	} while (0)
+
+#define DTR_ERR(fmt, ...) do { \
+		dev_err(dev, "[E][%s] " fmt, __func__, ##__VA_ARGS__); \
+		if (dtr_info->ipc_log && dtr_log_level <= MHI_MSG_LVL_ERROR) \
+			ipc_log_string(dtr_info->ipc_log, "[E][%s] " fmt, \
+				       __func__, ##__VA_ARGS__); \
+	} while (0)
+
 #define CTRL_MAGIC (0x4C525443)
 #define CTRL_MSG_DTR BIT(0)
 #define CTRL_MSG_RTS BIT(1)
@@ -31,14 +53,15 @@ struct dtr_ctrl_msg {
 #define CTRL_MSG_RI BIT(3)
 #define CTRL_HOST_STATE (0x10)
 #define CTRL_DEVICE_STATE (0x11)
-#define CTRL_GET_CHID(dtr) (dtr->dest_id & 0xFF)
+#define CTRL_GET_CHID(dtr) ((dtr)->dest_id & 0xFF)
 
 static int mhi_dtr_tiocmset(struct mhi_controller *mhi_cntrl,
 			    struct mhi_device *mhi_dev,
 			    u32 tiocm)
 {
+	struct device *dev = &mhi_dev->dev;
 	struct dtr_ctrl_msg *dtr_msg = NULL;
-	struct mhi_chan *dtr_chan = mhi_cntrl->dtr_dev->ul_chan;
+	/* protects state changes for MHI device termios states */
 	spinlock_t *res_lock = &mhi_dev->dev.devres_lock;
 	u32 cur_tiocm;
 	int ret = 0;
@@ -47,11 +70,9 @@ static int mhi_dtr_tiocmset(struct mhi_controller *mhi_cntrl,
 
 	tiocm &= (TIOCM_DTR | TIOCM_RTS);
 
-	/* state did not changed */
+	/* state did not change */
 	if (cur_tiocm == tiocm)
 		return 0;
-
-	mutex_lock(&dtr_chan->mutex);
 
 	dtr_msg = kzalloc(sizeof(*dtr_msg), GFP_KERNEL);
 	if (!dtr_msg) {
@@ -68,16 +89,16 @@ static int mhi_dtr_tiocmset(struct mhi_controller *mhi_cntrl,
 	if (tiocm & TIOCM_RTS)
 		dtr_msg->msg |= CTRL_MSG_RTS;
 
-	reinit_completion(&dtr_chan->completion);
-	ret = mhi_queue_transfer(mhi_cntrl->dtr_dev, DMA_TO_DEVICE, dtr_msg,
-				 sizeof(*dtr_msg), MHI_EOT);
+	reinit_completion(&dtr_info->completion);
+	ret = mhi_queue_buf(dtr_info->mhi_dev, DMA_TO_DEVICE, dtr_msg,
+			    sizeof(*dtr_msg), MHI_EOT);
 	if (ret)
 		goto tiocm_exit;
 
-	ret = wait_for_completion_timeout(&dtr_chan->completion,
+	ret = wait_for_completion_timeout(&dtr_info->completion,
 				msecs_to_jiffies(mhi_cntrl->timeout_ms));
 	if (!ret) {
-		MHI_ERR("Failed to receive transfer callback\n");
+		DTR_ERR("Failed to receive transfer callback\n");
 		ret = -EIO;
 		goto tiocm_exit;
 	}
@@ -90,18 +111,18 @@ static int mhi_dtr_tiocmset(struct mhi_controller *mhi_cntrl,
 
 tiocm_exit:
 	kfree(dtr_msg);
-	mutex_unlock(&dtr_chan->mutex);
 
 	return ret;
 }
 
-long mhi_ioctl(struct mhi_device *mhi_dev, unsigned int cmd, unsigned long arg)
+long mhi_device_ioctl(struct mhi_device *mhi_dev, unsigned int cmd,
+		      unsigned long arg)
 {
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 	int ret;
 
 	/* ioctl not supported by this controller */
-	if (!mhi_cntrl->dtr_dev)
+	if (dtr_info->mhi_dev)
 		return -EIO;
 
 	switch (cmd) {
@@ -123,31 +144,28 @@ long mhi_ioctl(struct mhi_device *mhi_dev, unsigned int cmd, unsigned long arg)
 
 	return -ENOIOCTLCMD;
 }
-EXPORT_SYMBOL(mhi_ioctl);
+EXPORT_SYMBOL(mhi_device_ioctl);
 
 static void mhi_dtr_dl_xfer_cb(struct mhi_device *mhi_dev,
 			       struct mhi_result *mhi_result)
 {
+	struct device *dev = &mhi_dev->dev;
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 	struct dtr_ctrl_msg *dtr_msg = mhi_result->buf_addr;
-	u32 chan;
+	/* protects state changes for MHI device termios states */
 	spinlock_t *res_lock;
 
 	if (mhi_result->bytes_xferd != sizeof(*dtr_msg)) {
-		MHI_ERR("Unexpected length %zu received\n",
+		DTR_ERR("Unexpected length %zu received\n",
 			mhi_result->bytes_xferd);
 		return;
 	}
 
-	MHI_VERB("preamble:0x%x msg_id:%u dest_id:%u msg:0x%x\n",
-		 dtr_msg->preamble, dtr_msg->msg_id, dtr_msg->dest_id,
-		 dtr_msg->msg);
+	DTR_LOG("preamble: 0x%x msg_id: %u dest_id: %u msg: 0x%x\n",
+		dtr_msg->preamble, dtr_msg->msg_id, dtr_msg->dest_id,
+		dtr_msg->msg);
 
-	chan = CTRL_GET_CHID(dtr_msg);
-	if (chan >= mhi_cntrl->max_chan)
-		return;
-
-	mhi_dev = mhi_cntrl->mhi_chan[chan].mhi_dev;
+	mhi_dev = mhi_get_device_for_channel(mhi_cntrl, CTRL_GET_CHID(dtr_msg));
 	if (!mhi_dev)
 		return;
 
@@ -172,34 +190,32 @@ static void mhi_dtr_dl_xfer_cb(struct mhi_device *mhi_dev,
 static void mhi_dtr_ul_xfer_cb(struct mhi_device *mhi_dev,
 			       struct mhi_result *mhi_result)
 {
-	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
-	struct mhi_chan *dtr_chan = mhi_cntrl->dtr_dev->ul_chan;
+	struct device *dev = &mhi_dev->dev;
 
-	MHI_VERB("Received with status:%d\n", mhi_result->transaction_status);
+	DTR_LOG("Received with status: %d\n", mhi_result->transaction_status);
 	if (!mhi_result->transaction_status)
-		complete(&dtr_chan->completion);
+		complete(&dtr_info->completion);
 }
 
 static void mhi_dtr_remove(struct mhi_device *mhi_dev)
 {
-	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
-
-	mhi_cntrl->dtr_dev = NULL;
+	dtr_info->mhi_dev = NULL;
 }
 
 static int mhi_dtr_probe(struct mhi_device *mhi_dev,
 			 const struct mhi_device_id *id)
 {
-	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	struct device *dev = &mhi_dev->dev;
 	int ret;
-
-	MHI_LOG("Enter for DTR control channel\n");
 
 	ret = mhi_prepare_for_transfer(mhi_dev);
 	if (!ret)
-		mhi_cntrl->dtr_dev = mhi_dev;
+		dtr_info->mhi_dev = mhi_dev;
 
-	MHI_LOG("Exit with ret:%d\n", ret);
+	dtr_info->ipc_log = ipc_log_context_create(MHI_DTR_IPC_LOG_PAGES,
+						   dev_name(&mhi_dev->dev), 0);
+
+	DTR_LOG("%s setup complete, ret: %d\n", dev_name(&mhi_dev->dev), ret);
 
 	return ret;
 }
@@ -221,7 +237,25 @@ static struct mhi_driver mhi_dtr_driver = {
 	}
 };
 
-int __init mhi_dtr_init(void)
+static int __init mhi_dtr_init(void)
 {
+	dtr_info = kzalloc(sizeof(*dtr_info), GFP_KERNEL);
+	if (!dtr_info)
+		return -ENOMEM;
+
+	init_completion(&dtr_info->completion);
+
 	return mhi_driver_register(&mhi_dtr_driver);
 }
+module_init(mhi_dtr_init);
+
+static void __exit mhi_dtr_exit(void)
+{
+	mhi_driver_unregister(&mhi_dtr_driver);
+	kfree(dtr_info);
+}
+module_exit(mhi_dtr_exit);
+
+MODULE_LICENSE("GPL v2");
+MODULE_ALIAS("MHI_DTR");
+MODULE_DESCRIPTION("MHI DTR Driver");

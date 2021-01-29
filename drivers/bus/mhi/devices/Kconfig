@@ -21,6 +21,18 @@ config MHI_UCI
 	  Please check mhi_uci_match_table for all supported channels that
 	  are exposed to userspace.
 
+config MHI_DTR
+	tristate "MHI DTR SIGNALING"
+	depends on MHI_BUS && MHI_BUS_MISC
+	help
+	  MHI device driver for enabling DTR<>RTS UART signaling as IP_CTRL
+	  client for userspace. Data Terminal Ready (DTR) is a control signal
+	  in RS-232 serial communications, transmitted from data terminal
+	  equipment (DTE), or host in this case, to data communications
+	  equipment (DCE), or external modem in this case to indicate that the
+	  terminal/host is ready for communications and the modem may initiate
+	  a communications channel.
+
 config MHI_SATELLITE
 	tristate "MHI SATELLITE"
 	depends on MHI_BUS
