@@ -614,6 +614,8 @@ struct fastrpc_file {
 	/* Identifies the device (MINOR_NUM_DEV / MINOR_NUM_SECURE_DEV) */
 	int dev_minor;
 	char *debug_buf;
+	/* Flag to indicate attempt has been made to allocate memory for debug_buf*/
+	int debug_buf_alloced_attempted;
 	/* Flag to enable PM wake/relax voting for every remote invoke */
 	int wake_enable;
 	struct gid_list gidlist;
@@ -5485,12 +5487,13 @@ static int fastrpc_set_process_info(struct fastrpc_file *fl)
 			+ strlen(strpid) + 1;
 
 		spin_lock(&fl->hlock);
-		if (fl->debug_buf) {
+		if (fl->debug_buf_alloced_attempted) {
 			spin_unlock(&fl->hlock);
 			return err;
 		}
-		fl->debug_buf = kzalloc(buf_size, GFP_KERNEL);
+		fl->debug_buf_alloced_attempted = 1;
 		spin_unlock(&fl->hlock);
+		fl->debug_buf = kzalloc(buf_size, GFP_KERNEL);
 
 		if (!fl->debug_buf) {
 			err = -ENOMEM;
