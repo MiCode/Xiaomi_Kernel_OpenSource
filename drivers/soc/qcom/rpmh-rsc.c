@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s " fmt, KBUILD_MODNAME
@@ -1096,7 +1096,6 @@ int rpmh_rsc_update_fast_path(struct rsc_drv *drv,
 				return -EBUSY;
 			}
 			udelay(1);
-			mb(); /* Ensure the data is read again */
 		}
 	} while (!sts);
 
