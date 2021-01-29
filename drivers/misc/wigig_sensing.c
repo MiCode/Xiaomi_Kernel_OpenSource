@@ -1371,11 +1371,29 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 	if (spi_status.b.int_data_ready) {
 		SPI_STATS_MEAS_START(ctx, SPI_STATS_MEAS_DATA_READY);
 		pr_debug("DATA READY INTERRUPT\n");
+
+		/*
+		 * Data ready interrupt is received when waiting for deep sleep
+		 * exit, break and exit deep sleep
+		 */
+		if (ctx->stm.waiting_for_deep_sleep_exit) {
+			additional_inb_command = ctx->inb_cmd;
+			memset(&ctx->inb_cmd, 0, sizeof(ctx->inb_cmd));
+
+			pr_err("Received data ready interrupt when waiting for deep sleep exit, treating it so\n");
+			ctx->stm.waiting_for_deep_sleep_exit = false;
+			ctx->stm.waiting_for_deep_sleep_exit_first_pass = false;
+			spi_status.v &= ~INT_DEEP_SLEEP_EXIT;
+			goto finish_data_ready;
+		}
+
 		if (!ctx->stm.change_mode_in_progress)
 			wigig_sensing_chip_data_ready(
 			   ctx, spi_status.b.fill_level, ctx->stm.burst_size);
 		else
 			pr_debug("Change mode in progress, aborting data processing\n");
+
+finish_data_ready:
 		SPI_STATS_MEAS_STOP(ctx, SPI_STATS_MEAS_DATA_READY);
 
 		spi_status.v &= ~INT_DATA_READY;
