@@ -609,13 +609,6 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 		if (llcc_cfg[i].slice_id > drv_data->max_slices)
 			drv_data->max_slices = llcc_cfg[i].slice_id;
 
-	drv_data->offsets = devm_kcalloc(dev, num_banks, sizeof(u32),
-							GFP_KERNEL);
-	if (!drv_data->offsets) {
-		ret = -ENOMEM;
-		goto err;
-	}
-
 	drv_data->cap_based_alloc_and_pwr_collapse =
 		of_property_read_bool(pdev->dev.of_node,
 				      "cap-based-alloc-and-pwr-collapse");
