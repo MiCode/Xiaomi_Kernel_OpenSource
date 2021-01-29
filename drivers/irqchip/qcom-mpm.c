@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -559,6 +559,10 @@ static const struct of_device_id mpm_gic_chip_data_table[] = {
 	{
 		.compatible = "qcom,mpm-gic-holi",
 		.data = mpm_holi_gic_chip_data,
+	},
+	{
+		.compatible = "qcom,mpm-gic-sdxnightjar",
+		.data = mpm_sdxnightjar_gic_chip_data,
 	},
 	{}
 };
