@@ -60,20 +60,6 @@ static int mhi_arch_pm_notifier(struct notifier_block *nb,
 
 static int mhi_arch_set_bus_request(struct mhi_controller *mhi_cntrl, int index)
 {
-
-	struct mhi_qcom_priv *mhi_priv = mhi_controller_get_privdata(mhi_cntrl);
-	struct arch_info *arch_info = mhi_priv->arch_info;
-
-	MHI_CNTRL_LOG("Setting bus request to index %d\n", index);
-
-	/* if (index >= arch_info->icc_peak_bw_len)
-		return -EINVAL;
-
-	if (arch_info->icc_path)
-		return icc_set_bw(arch_info->icc_path, 0,
-				  arch_info->icc_peak_bw[index]);
-	*/
-
 	/* default return success */
 	return 0;
 }
@@ -401,7 +387,6 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 		struct msm_pcie_register_event *reg_event;
 		struct pci_dev *root_port = pcie_find_root_port(pci_dev);
 		struct device_node *root_ofnode = root_port->dev.of_node;
-		int size = 0;
 
 		arch_info = devm_kzalloc(mhi_cntrl->cntrl_dev,
 					 sizeof(*arch_info), GFP_KERNEL);
