@@ -968,3 +968,13 @@ int mhi_get_event_ring_db_base(struct mhi_device *mhi_dev, phys_addr_t *value)
 	return ret;
 }
 EXPORT_SYMBOL(mhi_get_event_ring_db_base);
+
+struct mhi_device *mhi_get_device_for_channel(struct mhi_controller *mhi_cntrl,
+					      u32 channel)
+{
+	if (channel >= mhi_cntrl->max_chan)
+		return NULL;
+
+	return mhi_cntrl->mhi_chan[channel].mhi_dev;
+}
+EXPORT_SYMBOL(mhi_get_device_for_channel);

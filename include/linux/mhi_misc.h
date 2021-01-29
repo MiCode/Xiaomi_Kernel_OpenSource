@@ -177,4 +177,15 @@ int mhi_get_channel_db_base(struct mhi_device *mhi_dev, phys_addr_t *value);
  */
 int mhi_get_event_ring_db_base(struct mhi_device *mhi_dev, phys_addr_t *value);
 
+/**
+ * mhi_get_device_for_channel - get the MHI device for a specific channel number
+ * @mhi_cntrl: MHI controller
+ * @channel - channel number
+ *
+ * Returns:
+ * Pointer to the MHI device associated with the channel
+ */
+struct mhi_device *mhi_get_device_for_channel(struct mhi_controller *mhi_cntrl,
+					      u32 channel);
+
 #endif /* _MHI_MISC_H_ */
