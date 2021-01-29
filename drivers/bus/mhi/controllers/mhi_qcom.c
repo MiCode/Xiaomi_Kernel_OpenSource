@@ -243,7 +243,8 @@ static const struct mhi_pci_dev_info mhi_qcom_sdx65_info = {
 	.bar_num = MHI_PCI_BAR_NUM,
 	.dma_data_width = 64,
 	.allow_m1 = false,
-	.skip_forced_suspend = false
+	.skip_forced_suspend = false,
+	.sfr_support = true
 };
 
 static const struct mhi_pci_dev_info mhi_qcom_debug_info = {
@@ -255,7 +256,8 @@ static const struct mhi_pci_dev_info mhi_qcom_debug_info = {
 	.bar_num = MHI_PCI_BAR_NUM,
 	.dma_data_width = 64,
 	.allow_m1 = true,
-	.skip_forced_suspend = true
+	.skip_forced_suspend = true,
+	.sfr_support = false
 };
 
 static const struct pci_device_id mhi_pcie_device_id[] = {
@@ -876,6 +878,15 @@ static struct mhi_controller *mhi_qcom_register_controller(struct pci_dev *pci_d
 
 	mhi_cntrl->fw_image = info->fw_image;
 	mhi_cntrl->edl_image = info->edl_image;
+
+	if (info->sfr_support) {
+		ret = mhi_controller_set_sfr_support(mhi_cntrl,
+						     MHI_MAX_SFR_LEN);
+		if (ret) {
+			mhi_unregister_controller(mhi_cntrl);
+			goto error_register;
+		}
+	}
 
 	/* set name based on PCIe BDF format */
 	mhi_dev = mhi_cntrl->mhi_dev;

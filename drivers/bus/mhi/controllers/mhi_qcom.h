@@ -10,6 +10,7 @@
 /* runtime suspend timer */
 #define MHI_RPM_SUSPEND_TMR_MS (250)
 #define MHI_PCI_BAR_NUM (0)
+#define MHI_MAX_SFR_LEN (256)
 
 #define PCI_INVALID_READ(val) ((val) == U32_MAX)
 
@@ -74,6 +75,7 @@ struct mhi_pci_dev_info {
 	unsigned int dma_data_width;
 	bool allow_m1;
 	bool skip_forced_suspend;
+	bool sfr_support;
 };
 
 struct mhi_qcom_priv {
