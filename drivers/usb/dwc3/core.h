@@ -1050,6 +1050,7 @@ struct dwc3_scratchpad_array {
  * @u1u2: only used on revisions <1.83a for workaround
  * @maximum_speed: maximum speed to operate as requested by sw
  * @max_hw_supp_speed: maximum speed supported by hw design
+ * @gadget_max_speed: maximum gadget speed requested
  * @ip: controller's ID
  * @revision: controller's version of an IP
  * @version_type: VERSIONTYPE register contents, a sub release of a revision
@@ -1233,6 +1234,7 @@ struct dwc3 {
 	u32			u1u2;
 	u32			maximum_speed;
 	u32			max_hw_supp_speed;
+	u32			gadget_max_speed;
 
 	u32			ip;
 

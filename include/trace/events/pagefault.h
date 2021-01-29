@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 #undef TRACE_SYSTEM
+#undef TRACE_INCLUDE_PATH
 #define TRACE_SYSTEM pagefault
 
 #if !defined(_TRACE_PAGEFAULT_H) || defined(TRACE_HEADER_MULTI_READ)

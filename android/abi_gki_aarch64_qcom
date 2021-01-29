@@ -15,8 +15,8 @@
   alarm_start_relative
   alloc_chrdev_region
   __alloc_disk_node
-  alloc_io_pgtable_ops
   alloc_etherdev_mqs
+  alloc_io_pgtable_ops
   alloc_netdev_mqs
   __alloc_pages_nodemask
   __alloc_percpu
@@ -228,13 +228,13 @@
   cpufreq_register_notifier
   cpufreq_unregister_driver
   cpufreq_unregister_notifier
-  cpuidle_governor_latency_req
-  cpuidle_register_governor
   __cpuhp_remove_state
   __cpuhp_setup_state
   __cpuhp_setup_state_cpuslocked
   cpu_hwcap_keys
   cpu_hwcaps
+  cpuidle_governor_latency_req
+  cpuidle_register_governor
   cpu_irqtime
   cpu_is_hotpluggable
   cpu_latency_qos_add_request
@@ -312,11 +312,11 @@
   dev_driver_string
   _dev_emerg
   _dev_err
+  dev_err_probe
   dev_fwnode
   __dev_get_by_index
   dev_get_by_name
   dev_get_regmap
-  dev_queue_xmit
   device_add
   device_add_groups
   device_create
@@ -453,6 +453,7 @@
   dev_pm_qos_remove_request
   dev_pm_qos_update_request
   dev_printk
+  dev_queue_xmit
   devres_add
   devres_alloc_node
   devres_free
@@ -508,11 +509,11 @@
   dma_heap_get_dev
   dma_heap_get_drvdata
   dmam_alloc_attrs
-  dma_mmap_attrs
   dma_map_page_attrs
   dma_map_resource
   dma_map_sg_attrs
   dmam_free_coherent
+  dma_mmap_attrs
   dma_pool_alloc
   dma_pool_create
   dma_pool_destroy
@@ -822,6 +823,8 @@
   freq_scale
   ftrace_dump
   fwnode_find_reference
+  fwnode_get_name
+  fwnode_get_named_child_node
   fwnode_get_next_child_node
   fwnode_handle_get
   fwnode_handle_put
@@ -911,6 +914,7 @@
   hrtimer_active
   hrtimer_cancel
   hrtimer_forward
+  __hrtimer_get_remaining
   hrtimer_init
   hrtimer_start_range_ns
   hrtimer_try_to_cancel
@@ -922,7 +926,6 @@
   hwrng_unregister
   hwspin_lock_free
   hwspin_lock_request_specific
-  __hrtimer_get_remaining
   __hwspin_lock_timeout
   __hwspin_unlock
   hypervisor_kobj
@@ -1268,6 +1271,8 @@
   __napi_schedule
   napi_schedule_prep
   __netdev_alloc_skb
+  netdev_rx_handler_register
+  netdev_rx_handler_unregister
   netdev_update_features
   netif_carrier_off
   netif_carrier_on
@@ -1278,8 +1283,6 @@
   netif_receive_skb
   netif_receive_skb_list
   netif_rx
-  netdev_rx_handler_unregister
-  netdev_rx_handler_register
   netif_rx_ni
   netif_schedule_queue
   netif_tx_stop_all_queues
@@ -1360,6 +1363,7 @@
   of_graph_get_remote_node
   of_graph_get_remote_port
   of_graph_get_remote_port_parent
+  of_graph_is_present
   of_graph_parse_endpoint
   of_hwspin_lock_get_id
   of_icc_get
@@ -1903,16 +1907,16 @@
   skb_coalesce_rx_frag
   skb_copy
   skb_copy_bits
-  skb_copy_expand
   skb_copy_datagram_iter
+  skb_copy_expand
   skb_dequeue
   skb_free_datagram
   __skb_pad
   skb_pull
   skb_push
   skb_put
-  skb_queue_purge
   skb_queue_head
+  skb_queue_purge
   skb_queue_tail
   skb_recv_datagram
   skb_set_owner_w
@@ -1937,7 +1941,9 @@
   snd_pcm_period_elapsed
   snd_pcm_set_managed_buffer_all
   snd_pcm_set_ops
+  snd_pcm_stream_lock
   _snd_pcm_stream_lock_irqsave
+  snd_pcm_stream_unlock
   snd_pcm_stream_unlock_irqrestore
   snd_soc_add_component_controls
   snd_soc_card_get_kcontrol
@@ -2034,6 +2040,7 @@
   __stack_chk_guard
   stack_trace_print
   stack_trace_save
+  static_key_disable
   static_key_disable_cpuslocked
   stop_machine
   stop_one_cpu_nowait
@@ -2179,8 +2186,8 @@
   __tracepoint_android_vh_freq_table_limits
   __tracepoint_android_vh_jiffies_update
   __tracepoint_android_vh_scheduler_tick
-  __tracepoint_android_vh_show_resume_epoch_val
   __tracepoint_android_vh_show_max_freq
+  __tracepoint_android_vh_show_resume_epoch_val
   __tracepoint_android_vh_show_suspend_epoch_val
   __tracepoint_binder_transaction_received
   __tracepoint_cpu_frequency
@@ -2369,6 +2376,7 @@
   usb_initialize_gadget
   usb_interface_id
   usb_kill_urb
+  usb_phy_set_charger_current
   usb_poison_urb
   usb_put_dev
   usb_put_function_instance
@@ -2459,8 +2467,8 @@
   wait_for_completion_interruptible_timeout
   wait_for_completion_killable
   wait_for_completion_timeout
-  wait_woken
   __wait_rcu_gp
+  wait_woken
   __wake_up
   wake_up_if_idle
   __wake_up_locked
@@ -2484,4 +2492,3 @@
   xa_find_after
   xa_load
   xa_store
-  static_key_disable
