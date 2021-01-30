@@ -2,9 +2,10 @@
 
 #include "waipio.dtsi"
 #include "waipio-qrd.dtsi"
+#include "waipio-pm8008.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. Waipio QRD";
+	model = "Qualcomm Technologies, Inc. Waipio QRD with PM8008";
 	compatible = "qcom,waipio-qrd", "qcom,waipio", "qcom,qrd";
 	qcom,board-id = <11 0>;
 };
