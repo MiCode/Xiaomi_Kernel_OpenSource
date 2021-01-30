@@ -28,6 +28,7 @@
 #include <soc/qcom/secure_buffer.h>
 #include <uapi/linux/mem-buf.h>
 
+#include "../../../../drivers/dma-buf/heaps/qcom_sg_ops.h"
 #include "mem-buf-dev.h"
 #include "trace-mem-buf.h"
 
@@ -1294,6 +1295,12 @@ void *mem_buf_get(int fd)
 }
 EXPORT_SYMBOL(mem_buf_get);
 
+static void mem_buf_retrieve_release(struct qcom_sg_buffer *buffer)
+{
+	sg_free_table(&buffer->sg_table);
+	kfree(buffer);
+}
+
 struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
 {
 	int ret;
@@ -1339,15 +1346,18 @@ struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
 		ret = PTR_ERR(sgt);
 		goto err_dup_sgt;
 	}
+	buffer->sg_table = *sgt;
+	kfree(sgt);
 
 	INIT_LIST_HEAD(&buffer->attachments);
 	mutex_init(&buffer->lock);
+	buffer->heap = NULL;
 	buffer->len = mem_buf_get_sgl_buf_size(sgl_desc);
-	buffer->sg_table = sgt;
+	buffer->uncached = false;
 	buffer->free = mem_buf_retrieve_release;
 	buffer->vmperm = mem_buf_vmperm_alloc_accept(sgt, arg->memparcel_hdl);
 
-	exp_info.ops = &mem_buf_dma_buf_ops.dma_ops;
+	exp_info.ops = &qcom_sg_buf_ops.dma_ops;
 	exp_info.size = buffer->len;
 	exp_info.flags = arg->fd_flags;
 	exp_info.priv = buffer;
@@ -1362,8 +1372,7 @@ struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
 	return dmabuf;
 
 err_export_dma_buf:
-	sg_free_table(sgt);
-	kfree(sgt);
+	sg_free_table(&buffer->sg_table);
 err_dup_sgt:
 	mem_buf_unmap_mem_s1(sgl_desc);
 err_map_mem_s1:

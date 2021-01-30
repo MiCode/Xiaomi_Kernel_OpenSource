@@ -37,31 +37,6 @@ int mem_buf_unmap_mem_s2(hh_memparcel_handle_t memparcel_hdl);
 int mem_buf_map_mem_s1(struct hh_sgl_desc *sgl_desc);
 int mem_buf_unmap_mem_s1(struct hh_sgl_desc *sgl_desc);
 
-/*
- * Deltas from original qcom_sg_buffer:
- * Removed heap & secure fields
- * Added vmperm
- * Changed sg_tablee to pointer.
- */
-struct qcom_sg_buffer {
-	struct list_head attachments;
-	struct mutex lock;
-	unsigned long len;
-	struct sg_table *sg_table;
-	int vmap_cnt;
-	void *vaddr;
-	void (*free)(struct qcom_sg_buffer *buffer);
-	struct mem_buf_vmperm *vmperm;
-};
-
-struct dma_heap_attachment {
-	struct device *dev;
-	struct sg_table *table;
-	struct list_head list;
-	bool mapped;
-};
-
-
 #define MEM_BUF_API_HYP_ASSIGN BIT(0)
 #define MEM_BUF_API_HAVEN BIT(1)
 
@@ -96,6 +71,5 @@ int mem_buf_fd_to_vmid(int fd);
 int mem_buf_lend_internal(struct dma_buf *dmabuf,
 			struct mem_buf_lend_kernel_arg *arg,
 			bool is_lend);
-void mem_buf_retrieve_release(struct qcom_sg_buffer *buffer);
 #endif
 
