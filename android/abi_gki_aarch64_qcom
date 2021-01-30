@@ -1841,12 +1841,14 @@
   scsi_compat_ioctl
   scsi_device_get
   scsi_device_put
+  scsi_device_quiesce
   scsi_ioctl
   scsi_ioctl_block_when_processing_errors
   __scsi_iterate_devices
   scsi_normalize_sense
   __scsi_print_sense
   scsi_register_interface
+  scsi_remove_device
   sdev_prefix_printk
   __sdhci_add_host
   sdhci_add_host
@@ -2272,6 +2274,7 @@
   ufshcd_query_flag
   ufshcd_release
   ufshcd_remove
+  ufshcd_shutdown
   ufshcd_uic_hibern8_enter
   ufshcd_uic_hibern8_exit
   __uio_register_device

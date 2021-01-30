@@ -3707,6 +3707,22 @@ static int ufs_qcom_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void ufs_qcom_shutdown(struct platform_device *pdev)
+{
+	struct ufs_hba *hba =  platform_get_drvdata(pdev);
+	struct scsi_device *sdev;
+
+	pm_runtime_get_sync(hba->dev);
+
+	shost_for_each_device(sdev, hba->host) {
+		if (sdev == hba->sdev_ufs_device)
+			scsi_device_quiesce(sdev);
+		else
+			scsi_remove_device(sdev);
+	}
+	ufshcd_shutdown(hba);
+}
+
 static const struct of_device_id ufs_qcom_of_match[] = {
 	{ .compatible = "qcom,ufshc"},
 	{},
@@ -3732,7 +3748,7 @@ static const struct dev_pm_ops ufs_qcom_pm_ops = {
 static struct platform_driver ufs_qcom_pltform = {
 	.probe	= ufs_qcom_probe,
 	.remove	= ufs_qcom_remove,
-	.shutdown = ufshcd_pltfrm_shutdown,
+	.shutdown = ufs_qcom_shutdown,
 	.driver	= {
 		.name	= "ufshcd-qcom",
 		.pm	= &ufs_qcom_pm_ops,
