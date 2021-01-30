@@ -868,6 +868,7 @@
   __get_task_comm
   get_task_mm
   get_unused_fd_flags
+  get_zeroed_page
   gic_nonsecure_priorities
   gov_attr_set_init
   gov_attr_set_put
@@ -1420,8 +1421,10 @@
   panic
   panic_notifier_list
   panic_timeout
+  param_array_ops
   param_get_int
   param_get_string
+  param_get_ullong
   param_ops_bool
   param_ops_byte
   param_ops_charp
@@ -1430,6 +1433,7 @@
   param_ops_string
   param_ops_uint
   param_ops_ullong
+  param_ops_ulong
   param_set_bool
   param_set_copystring
   param_set_int
@@ -1584,12 +1588,14 @@
   print_hex_dump
   printk
   printk_deferred
+  proc_create
   proc_create_data
   proc_dointvec
   proc_dointvec_minmax
   proc_dostring
   proc_douintvec_minmax
   proc_mkdir
+  proc_set_user
   proto_register
   proto_unregister
   pskb_expand_head
@@ -1916,7 +1922,10 @@
   skb_copy_datagram_iter
   skb_copy_expand
   skb_dequeue
+  skb_dequeue_tail
   skb_free_datagram
+  __skb_get_hash
+  __skb_gso_segment
   __skb_pad
   skb_pull
   skb_push
@@ -2010,6 +2019,7 @@
   sock_register
   sock_release
   sock_unregister
+  softnet_data
   sort
   __spi_alloc_controller
   spi_register_controller
