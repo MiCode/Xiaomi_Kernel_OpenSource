@@ -948,6 +948,7 @@ void core_ctl_check(u64 window_start)
 	struct cluster_data *cluster;
 	unsigned int index = 0;
 	unsigned long flags;
+	unsigned int wakeup = 0;
 
 	if (unlikely(!initialized))
 		return;
@@ -972,11 +973,11 @@ void core_ctl_check(u64 window_start)
 
 	update_running_avg();
 
-	for_each_cluster(cluster, index) {
-		if (eval_need(cluster))
-			wake_up_core_ctl_thread();
-	}
+	for_each_cluster(cluster, index)
+		wakeup |= eval_need(cluster);
 
+	if (wakeup)
+		wake_up_core_ctl_thread();
 	core_ctl_call_notifier();
 }
 
@@ -988,11 +989,6 @@ static void move_cpu_lru(struct cpu_data *cpu_data)
 	list_del(&cpu_data->sib);
 	list_add_tail(&cpu_data->sib, &cpu_data->cluster->lru);
 	spin_unlock_irqrestore(&state_lock, flags);
-}
-
-static bool should_we_pause(int cpu, struct cluster_data *cluster)
-{
-	return true;
 }
 
 static void try_to_pause(struct cluster_data *cluster, unsigned int need,
@@ -1026,9 +1022,6 @@ static void try_to_pause(struct cluster_data *cluster, unsigned int need,
 		 * all CPUs are eligible for pausing.
 		 */
 		if (cluster->nr_not_preferred_cpus && !c->not_preferred)
-			continue;
-
-		if (!should_we_pause(c->cpu, cluster))
 			continue;
 
 		spin_unlock_irqrestore(&state_lock, flags);
@@ -1159,8 +1152,6 @@ static void __ref do_core_ctl(void)
 	cpumask_t cpus_to_unpause = { CPU_BITS_NONE };
 
 	for_each_cluster(cluster, index) {
-
-		eval_need(cluster);
 
 		need = apply_limits(cluster, cluster->need_cpus);
 
