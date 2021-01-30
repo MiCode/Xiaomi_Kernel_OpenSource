@@ -2859,6 +2859,8 @@ int icnss_smmu_map(struct device *dev,
 		   phys_addr_t paddr, uint32_t *iova_addr, size_t size)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int flag = IOMMU_READ | IOMMU_WRITE;
+	bool dma_coherent = false;
 	unsigned long iova;
 	int prop_len = 0;
 	size_t len;
@@ -2888,11 +2890,17 @@ int icnss_smmu_map(struct device *dev,
 		return -ENOMEM;
 	}
 
+	dma_coherent = of_property_read_bool(dev->of_node, "dma-coherent");
+	icnss_pr_dbg("dma-coherent is %s\n",
+		     dma_coherent ? "enabled" : "disabled");
+	if (dma_coherent)
+		flag |= IOMMU_CACHE;
+
 	icnss_pr_dbg("IOMMU Map: iova %lx, len %zu\n", iova, len);
 
 	ret = iommu_map(priv->iommu_domain, iova,
 			rounddown(paddr, PAGE_SIZE), len,
-			IOMMU_READ | IOMMU_WRITE);
+			flag);
 	if (ret) {
 		icnss_pr_err("PA to IOVA mapping failed, ret %d\n", ret);
 		return ret;
