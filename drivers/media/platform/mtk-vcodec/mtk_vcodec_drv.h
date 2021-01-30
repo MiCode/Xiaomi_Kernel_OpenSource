@@ -633,7 +633,7 @@ static inline struct mtk_vcodec_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 
 /* Mediatek control IDs */
 #define V4L2_CID_MPEG_MTK_BASE \
-	(V4L2_CTRL_CLASS_MPEG | 0x2000)
+	(V4L2_CTRL_CLASS_CODEC | 0x2000)
 #define V4L2_CID_MPEG_MTK_FRAME_INTERVAL \
 	(V4L2_CID_MPEG_MTK_BASE+0)
 #define V4L2_CID_MPEG_MTK_ERRORMB_MAP \
