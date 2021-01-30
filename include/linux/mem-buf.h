@@ -10,6 +10,7 @@
 #include <linux/errno.h>
 #include <linux/haven/hh_rm_drv.h>
 #include <linux/types.h>
+#include <linux/dma-buf.h>
 #include <uapi/linux/mem-buf.h>
 
 /**

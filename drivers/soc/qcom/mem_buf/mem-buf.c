@@ -23,13 +23,12 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/mem-buf-exporter.h>
 
 #include <soc/qcom/secure_buffer.h>
 #include <uapi/linux/mem-buf.h>
 
-#include "mem-buf-private.h"
-
-#define CREATE_TRACE_POINTS
+#include "mem-buf-dev.h"
 #include "trace-mem-buf.h"
 
 #define MEM_BUF_MAX_DEVS 1
@@ -54,9 +53,10 @@ static DEFINE_MUTEX(mem_buf_idr_mutex);
 static DEFINE_IDR(mem_buf_txn_idr);
 static struct task_struct *mem_buf_msgq_recv_thr;
 static void *mem_buf_hh_msgq_hdl;
-unsigned char mem_buf_capability;
 static struct workqueue_struct *mem_buf_wq;
 
+static size_t mem_buf_get_sgl_buf_size(struct hh_sgl_desc *sgl_desc);
+static struct sg_table *dup_hh_sgl_desc_to_sgt(struct hh_sgl_desc *sgl_desc);
 /**
  * struct mem_buf_txn: Represents a transaction (request/response pair) in the
  * membuf driver.
@@ -72,9 +72,6 @@ struct mem_buf_txn {
 	struct completion txn_done;
 	void *resp_buf;
 };
-
-/* Data structures for maintaining memory shared to other VMs */
-struct device *mem_buf_dev;
 
 /* Maintains a list of memory buffers lent out to other VMs */
 static DEFINE_MUTEX(mem_buf_xfer_mem_list_lock);
@@ -349,7 +346,7 @@ static int mem_buf_hh_acl_desc_to_vmid_perm_list(struct hh_acl_desc *acl_desc,
 	return 0;
 }
 
-struct hh_acl_desc *mem_buf_vmid_perm_list_to_hh_acl(int *vmids, int *perms,
+static struct hh_acl_desc *mem_buf_vmid_perm_list_to_hh_acl(int *vmids, int *perms,
 		unsigned int nr_acl_entries)
 {
 	struct hh_acl_desc *hh_acl;
@@ -368,105 +365,6 @@ struct hh_acl_desc *mem_buf_vmid_perm_list_to_hh_acl(int *vmids, int *perms,
 	}
 
 	return hh_acl;
-}
-
-int mem_buf_assign_mem(struct sg_table *sgt, int *dst_vmids,
-			      int *dst_perms, unsigned int nr_acl_entries)
-{
-	u32 src_vmid = VMID_HLOS;
-	int ret;
-
-	if (!sgt || !dst_vmids || !dst_perms || !nr_acl_entries)
-		return -EINVAL;
-
-	pr_debug("%s: Assigning memory to target VMIDs\n", __func__);
-	ret = hyp_assign_table(sgt, &src_vmid, 1, dst_vmids, dst_perms,
-			       nr_acl_entries);
-	if (ret < 0)
-		pr_err("%s: failed to assign memory for rmt allocation rc:%d\n",
-		       __func__, ret);
-	else
-		pr_debug("%s: Memory assigned to target VMIDs\n", __func__);
-
-	return ret;
-}
-
-int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
-				unsigned int nr_acl_entries)
-{
-	int dst_vmid = VMID_HLOS;
-	int dst_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
-	int ret;
-
-	if (!sgt || !src_vmids || !nr_acl_entries)
-		return -EINVAL;
-
-	pr_debug("%s: Unassigning memory to HLOS\n", __func__);
-	ret = hyp_assign_table(sgt, src_vmids, nr_acl_entries, &dst_vmid,
-			       &dst_perms, 1);
-	if (ret < 0)
-		pr_err("%s: failed to assign memory from rmt allocation rc: %d\n",
-		       __func__, ret);
-	else
-		pr_debug("%s: Unassigned memory to HLOS\n", __func__);
-
-	return ret;
-}
-
-int mem_buf_retrieve_memparcel_hdl(struct sg_table *sgt,
-					  int *dst_vmids, int *dst_perms,
-					  u32 nr_acl_entries,
-					  hh_memparcel_handle_t *memparcel_hdl)
-{
-	struct hh_sgl_desc *sgl_desc;
-	struct hh_acl_desc *acl_desc;
-	unsigned int i, nr_sg_entries;
-	struct scatterlist *sg;
-	int ret;
-	size_t sgl_desc_size, acl_desc_size;
-
-	if (!sgt || !dst_vmids || !dst_perms || !nr_acl_entries ||
-	    !memparcel_hdl)
-		return -EINVAL;
-
-	nr_sg_entries = sgt->nents;
-	sgl_desc_size = offsetof(struct hh_sgl_desc,
-				 sgl_entries[nr_sg_entries]);
-	sgl_desc = kzalloc(sgl_desc_size, GFP_KERNEL);
-	if (!sgl_desc)
-		return -ENOMEM;
-
-	acl_desc_size = offsetof(struct hh_acl_desc,
-				 acl_entries[nr_acl_entries]);
-	acl_desc = kzalloc(acl_desc_size, GFP_KERNEL);
-	if (!acl_desc) {
-		kfree(sgl_desc);
-		return -ENOMEM;
-	}
-
-	sgl_desc->n_sgl_entries = nr_sg_entries;
-	for_each_sg(sgt->sgl, sg, nr_sg_entries, i) {
-		sgl_desc->sgl_entries[i].ipa_base = page_to_phys(sg_page(sg));
-		sgl_desc->sgl_entries[i].size = sg->length;
-	}
-
-	acl_desc->n_acl_entries = nr_acl_entries;
-	for (i = 0; i < nr_acl_entries; i++) {
-		acl_desc->acl_entries[i].vmid = dst_vmids[i];
-		acl_desc->acl_entries[i].perms = dst_perms[i];
-	}
-
-
-	ret = hh_rm_mem_qcom_lookup_sgl(HH_RM_MEM_TYPE_NORMAL, 0, acl_desc,
-					sgl_desc, NULL, memparcel_hdl);
-	trace_lookup_sgl(sgl_desc, ret, *memparcel_hdl);
-	if (ret < 0)
-		pr_err("%s: hh_rm_mem_qcom_lookup_sgl failure rc: %d\n",
-		       __func__, ret);
-
-	kfree(acl_desc);
-	kfree(sgl_desc);
-	return ret;
 }
 
 static
@@ -624,18 +522,6 @@ static void mem_buf_cleanup_alloc_req(struct mem_buf_xfer_mem *xfer_mem)
 	}
 	mem_buf_rmt_free_mem(xfer_mem);
 	mem_buf_free_xfer_mem(xfer_mem);
-}
-
-static int mem_buf_get_mem_xfer_type(struct hh_acl_desc *acl_desc)
-{
-	u32 i, nr_acl_entries = acl_desc->n_acl_entries;
-
-	for (i = 0; i < nr_acl_entries; i++)
-		if (acl_desc->acl_entries[i].vmid == VMID_HLOS &&
-		    acl_desc->acl_entries[i].perms != 0)
-			return HH_RM_TRANS_TYPE_SHARE;
-
-	return HH_RM_TRANS_TYPE_LEND;
 }
 
 static void mem_buf_alloc_req_work(struct work_struct *work)
@@ -957,60 +843,6 @@ static void mem_buf_relinquish_mem(u32 memparcel_hdl)
 		pr_debug("%s: allocation relinquish message sent\n", __func__);
 }
 
-/*
- * FIXME: hh_rm_mem_accept uses kmemdup, which isn't right for large buffers.
- */
-struct hh_sgl_desc *mem_buf_map_mem_s2(
-					hh_memparcel_handle_t memparcel_hdl,
-					struct hh_acl_desc *acl_desc)
-{
-	struct hh_sgl_desc *sgl_desc;
-
-	if (!acl_desc)
-		return ERR_PTR(-EINVAL);
-
-	pr_debug("%s: adding CPU MMU stage 2 mappings\n", __func__);
-	sgl_desc = hh_rm_mem_accept(memparcel_hdl, HH_RM_MEM_TYPE_NORMAL,
-				    mem_buf_get_mem_xfer_type(acl_desc),
-				    HH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS |
-				    HH_RM_MEM_ACCEPT_DONE, 0, acl_desc, NULL,
-				    NULL, 0);
-	if (IS_ERR(sgl_desc)) {
-		pr_err("%s failed to map memory in stage 2 rc: %d\n", __func__,
-		       PTR_ERR(sgl_desc));
-		return sgl_desc;
-	}
-
-	trace_map_mem_s2(memparcel_hdl, sgl_desc);
-	return sgl_desc;
-}
-
-int mem_buf_unmap_mem_s2(hh_memparcel_handle_t memparcel_hdl)
-{
-	int ret;
-
-	pr_debug("%s: removing CPU MMU stage 2 mappings\n", __func__);
-	ret = hh_rm_mem_release(memparcel_hdl, 0);
-
-	if (ret < 0)
-		pr_err("%s: Failed to release memparcel hdl: 0x%lx rc: %d\n",
-		       __func__, memparcel_hdl, ret);
-	else
-		pr_debug("%s: CPU MMU stage 2 mappings removed\n", __func__);
-
-	return ret;
-}
-
-int mem_buf_map_mem_s1(struct hh_sgl_desc *sgl_desc)
-{
-	return -EINVAL;
-}
-
-int mem_buf_unmap_mem_s1(struct hh_sgl_desc *sgl_desc)
-{
-	return -EINVAL;
-}
-
 static int mem_buf_add_ion_mem(struct sg_table *sgt, void *dst_data)
 {
 	struct mem_buf_ion_data *dst_ion_data = dst_data;
@@ -1198,26 +1030,6 @@ err_inv_vmid_perms:
 	kfree(acl_desc);
 	return ERR_PTR(ret);
 }
-
-struct hh_acl_desc *mem_buf_vmids_to_hh_acl(int *vmids, int *perms, unsigned int nr_acl_entries)
-{
-	unsigned int i;
-	struct hh_acl_desc *acl_desc = kzalloc(offsetof(struct hh_acl_desc,
-						acl_entries[nr_acl_entries]),
-						GFP_KERNEL);
-
-	if (!acl_desc)
-		return ERR_PTR(-ENOMEM);
-
-	acl_desc->n_acl_entries = nr_acl_entries;
-	for (i = 0; i < nr_acl_entries; i++) {
-		acl_desc->acl_entries[i].vmid = vmids[i];
-		acl_desc->acl_entries[i].perms = perms[i];
-	}
-
-	return acl_desc;
-}
-
 
 static void *mem_buf_retrieve_ion_mem_type_data_user(
 				struct mem_buf_ion_data __user *mem_type_data)
@@ -1482,6 +1294,89 @@ void *mem_buf_get(int fd)
 }
 EXPORT_SYMBOL(mem_buf_get);
 
+struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
+{
+	int ret;
+	struct qcom_sg_buffer *buffer;
+	struct hh_acl_desc *acl_desc;
+	struct hh_sgl_desc *sgl_desc;
+	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
+	struct dma_buf *dmabuf;
+	struct sg_table *sgt;
+
+	if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
+		return ERR_PTR(-EOPNOTSUPP);
+
+	if (arg->fd_flags & ~MEM_BUF_VALID_FD_FLAGS)
+		return ERR_PTR(-EINVAL);
+
+	if (!arg->nr_acl_entries || !arg->vmids || !arg->perms)
+		return ERR_PTR(-EINVAL);
+
+	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
+	if (!buffer)
+		return ERR_PTR(-ENOMEM);
+
+	acl_desc = mem_buf_vmid_perm_list_to_hh_acl(arg->vmids, arg->perms,
+				arg->nr_acl_entries);
+	if (IS_ERR(acl_desc)) {
+		ret = PTR_ERR(acl_desc);
+		goto err_hh_acl;
+	}
+
+	sgl_desc = mem_buf_map_mem_s2(arg->memparcel_hdl, acl_desc);
+	if (IS_ERR(sgl_desc)) {
+		ret = PTR_ERR(sgl_desc);
+		goto err_map_s2;
+	}
+
+	ret = mem_buf_map_mem_s1(sgl_desc);
+	if (ret < 0)
+		goto err_map_mem_s1;
+
+	sgt = dup_hh_sgl_desc_to_sgt(sgl_desc);
+	if (IS_ERR(sgt)) {
+		ret = PTR_ERR(sgt);
+		goto err_dup_sgt;
+	}
+
+	INIT_LIST_HEAD(&buffer->attachments);
+	mutex_init(&buffer->lock);
+	buffer->len = mem_buf_get_sgl_buf_size(sgl_desc);
+	buffer->sg_table = sgt;
+	buffer->free = mem_buf_retrieve_release;
+	buffer->vmperm = mem_buf_vmperm_alloc_accept(sgt, arg->memparcel_hdl);
+
+	exp_info.ops = &mem_buf_dma_buf_ops.dma_ops;
+	exp_info.size = buffer->len;
+	exp_info.flags = arg->fd_flags;
+	exp_info.priv = buffer;
+
+	dmabuf = mem_buf_dma_buf_export(&exp_info);
+	if (IS_ERR(dmabuf))
+		goto err_export_dma_buf;
+
+	/* sgt & qcom_sg_buffer will be freed by mem_buf_retrieve_release */
+	kfree(sgl_desc);
+	kfree(acl_desc);
+	return dmabuf;
+
+err_export_dma_buf:
+	sg_free_table(sgt);
+	kfree(sgt);
+err_dup_sgt:
+	mem_buf_unmap_mem_s1(sgl_desc);
+err_map_mem_s1:
+	kfree(sgl_desc);
+	mem_buf_unmap_mem_s2(arg->memparcel_hdl);
+err_map_s2:
+	kfree(acl_desc);
+err_hh_acl:
+	kfree(buffer);
+	return ERR_PTR(ret);
+}
+EXPORT_SYMBOL(mem_buf_retrieve);
+
 /* Userspace machinery */
 static int mem_buf_prep_alloc_data(struct mem_buf_allocation_data *alloc_data,
 				struct mem_buf_alloc_ioctl_arg *allocation_args)
@@ -1630,7 +1525,7 @@ out:
 	return ret;
 }
 
-size_t mem_buf_get_sgl_buf_size(struct hh_sgl_desc *sgl_desc)
+static size_t mem_buf_get_sgl_buf_size(struct hh_sgl_desc *sgl_desc)
 {
 	size_t size = 0;
 	unsigned int i;
@@ -1641,7 +1536,7 @@ size_t mem_buf_get_sgl_buf_size(struct hh_sgl_desc *sgl_desc)
 	return size;
 }
 
-struct sg_table *dup_hh_sgl_desc_to_sgt(struct hh_sgl_desc *sgl_desc)
+static struct sg_table *dup_hh_sgl_desc_to_sgt(struct hh_sgl_desc *sgl_desc)
 {
 	struct sg_table *new_table;
 	int ret, i;
@@ -1668,27 +1563,6 @@ struct sg_table *dup_hh_sgl_desc_to_sgt(struct hh_sgl_desc *sgl_desc)
 	}
 
 	return new_table;
-}
-
-struct hh_sgl_desc *dup_sgt_to_hh_sgl_desc(struct sg_table *sgt)
-{
-	struct hh_sgl_desc *hh_sgl;
-	size_t size;
-	int i;
-	struct scatterlist *sg;
-
-	size = offsetof(struct hh_sgl_desc, sgl_entries[sgt->orig_nents]);
-	hh_sgl = kvmalloc(size, GFP_KERNEL);
-	if (!hh_sgl)
-		return ERR_PTR(-ENOMEM);
-
-	hh_sgl->n_sgl_entries = sgt->orig_nents;
-	for_each_sgtable_sg(sgt, sg, i) {
-		hh_sgl->sgl_entries[i].ipa_base = sg_phys(sg);
-		hh_sgl->sgl_entries[i].size = sg->length;
-	}
-
-	return hh_sgl;
 }
 
 static int mem_buf_lend_user(struct mem_buf_lend_ioctl_arg *uarg, bool is_lend)
@@ -1900,35 +1774,20 @@ static const struct file_operations mem_buf_dev_fops = {
 	.unlocked_ioctl = mem_buf_dev_ioctl,
 };
 
-static int mem_buf_probe(struct platform_device *pdev)
+/*
+ * The msgq needs to live in the same module as the ioctl handling code because it
+ * directly calls into mem_buf_process_alloc_resp without using a function
+ * pointer. Ideally msgq would support a client registration API which would
+ * associated a 'struct mem_buf_msg_hdr->msg_type' with a handler callback.
+ */
+static int mem_buf_msgq_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct device *dev = &pdev->dev;
 	struct device *class_dev;
-	u64 dma_mask = IS_ENABLED(CONFIG_ARM64) ? DMA_BIT_MASK(64) :
-		DMA_BIT_MASK(32);
 
-	if (of_property_match_string(dev->of_node, "qcom,mem-buf-capabilities",
-				     "supplier") >= 0) {
-		mem_buf_capability = MEM_BUF_CAP_SUPPLIER;
-	} else if (of_property_match_string(dev->of_node,
-					    "qcom,mem-buf-capabilities",
-					    "consumer") >= 0) {
-		mem_buf_capability = MEM_BUF_CAP_CONSUMER;
-	} else if (of_property_match_string(dev->of_node,
-					    "qcom,mem-buf-capabilities",
-					    "dual") >= 0) {
-		mem_buf_capability = MEM_BUF_CAP_DUAL;
-	} else {
-		dev_err(dev, "Transfer direction property not present or not valid\n");
-		return -EINVAL;
-	}
-
-	ret = dma_set_mask_and_coherent(dev, dma_mask);
-	if (ret) {
-		dev_err(dev, "Unable to set dma mask: %d\n", ret);
-		return ret;
-	}
+	if (!mem_buf_dev)
+		return -EPROBE_DEFER;
 
 	mem_buf_wq = alloc_workqueue("mem_buf_wq", WQ_HIGHPRI | WQ_UNBOUND, 0);
 	if (!mem_buf_wq) {
@@ -1960,7 +1819,6 @@ static int mem_buf_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_cdev_add;
 
-	mem_buf_dev = dev;
 	class_dev = device_create(mem_buf_class, NULL, mem_buf_dev_no, NULL,
 				  "membuf");
 	if (IS_ERR(class_dev)) {
@@ -1968,17 +1826,10 @@ static int mem_buf_probe(struct platform_device *pdev)
 		goto err_dev_create;
 	}
 
-	ret = mem_buf_vm_init(dev);
-	if (ret)
-		goto err_vm_init;
-
 	wake_up_process(mem_buf_msgq_recv_thr);
 	return 0;
 
-err_vm_init:
-	put_device(class_dev);
 err_dev_create:
-	mem_buf_dev = NULL;
 	cdev_del(&mem_buf_char_dev);
 err_cdev_add:
 	hh_msgq_unregister(mem_buf_hh_msgq_hdl);
@@ -1992,7 +1843,7 @@ err_kthread_create:
 	return ret;
 }
 
-static int mem_buf_remove(struct platform_device *pdev)
+static int mem_buf_msgq_remove(struct platform_device *pdev)
 {
 	mutex_lock(&mem_buf_list_lock);
 	if (!list_empty(&mem_buf_list))
@@ -2007,7 +1858,6 @@ static int mem_buf_remove(struct platform_device *pdev)
 	mutex_unlock(&mem_buf_xfer_mem_list_lock);
 
 	device_destroy(mem_buf_class, mem_buf_dev_no);
-	mem_buf_dev = NULL;
 	cdev_del(&mem_buf_char_dev);
 	hh_msgq_unregister(mem_buf_hh_msgq_hdl);
 	mem_buf_hh_msgq_hdl = NULL;
@@ -2018,17 +1868,17 @@ static int mem_buf_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id mem_buf_match_tbl[] = {
-	 {.compatible = "qcom,mem-buf"},
+static const struct of_device_id mem_buf_msgq_match_tbl[] = {
+	 {.compatible = "qcom,mem-buf-msgq"},
 	 {},
 };
 
-static struct platform_driver mem_buf_driver = {
-	.probe = mem_buf_probe,
-	.remove = mem_buf_remove,
+static struct platform_driver mem_buf_msgq_driver = {
+	.probe = mem_buf_msgq_probe,
+	.remove = mem_buf_msgq_remove,
 	.driver = {
-		.name = "mem-buf",
-		.of_match_table = of_match_ptr(mem_buf_match_tbl),
+		.name = "mem-buf-msgq",
+		.of_match_table = of_match_ptr(mem_buf_msgq_match_tbl),
 	},
 };
 
@@ -2047,7 +1897,7 @@ static int __init mem_buf_init(void)
 		goto err_class_create;
 	}
 
-	ret = platform_driver_register(&mem_buf_driver);
+	ret = platform_driver_register(&mem_buf_msgq_driver);
 	if (ret < 0)
 		goto err_platform_drvr_register;
 
@@ -2064,8 +1914,7 @@ module_init(mem_buf_init);
 
 static void __exit mem_buf_exit(void)
 {
-	mem_buf_vm_exit();
-	platform_driver_unregister(&mem_buf_driver);
+	platform_driver_unregister(&mem_buf_msgq_driver);
 	class_destroy(mem_buf_class);
 	unregister_chrdev_region(mem_buf_dev_no, MEM_BUF_MAX_DEVS);
 }

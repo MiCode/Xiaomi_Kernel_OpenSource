@@ -7,7 +7,7 @@
 
 #include <linux/highmem.h>
 #include <linux/mem-buf-exporter.h>
-#include "mem-buf-private.h"
+#include "mem-buf-dev.h"
 
 struct mem_buf_vmperm {
 	u32 flags;
@@ -191,6 +191,27 @@ static int __mem_buf_vmperm_reclaim(struct mem_buf_vmperm *vmperm)
 	mem_buf_vmperm_update_state(vmperm, new_vmids, new_perms, 1);
 	vmperm->flags &= ~MEM_BUF_WRAPPER_FLAG_LENDSHARE;
 	return 0;
+}
+
+static struct hh_sgl_desc *dup_sgt_to_hh_sgl_desc(struct sg_table *sgt)
+{
+	struct hh_sgl_desc *hh_sgl;
+	size_t size;
+	int i;
+	struct scatterlist *sg;
+
+	size = offsetof(struct hh_sgl_desc, sgl_entries[sgt->orig_nents]);
+	hh_sgl = kvmalloc(size, GFP_KERNEL);
+	if (!hh_sgl)
+		return ERR_PTR(-ENOMEM);
+
+	hh_sgl->n_sgl_entries = sgt->orig_nents;
+	for_each_sgtable_sg(sgt, sg, i) {
+		hh_sgl->sgl_entries[i].ipa_base = sg_phys(sg);
+		hh_sgl->sgl_entries[i].size = sg->length;
+	}
+
+	return hh_sgl;
 }
 
 static int mem_buf_vmperm_relinquish(struct mem_buf_vmperm *vmperm)
@@ -813,7 +834,7 @@ err_resize:
 	mutex_unlock(&vmperm->lock);
 	return ret;
 }
-EXPORT_SYMBOL(mem_buf_lend);
+EXPORT_SYMBOL(mem_buf_lend_internal);
 
 /*
  * Kernel API for Sharing, Lending, Recieving or Reclaiming
@@ -824,6 +845,7 @@ int mem_buf_lend(struct dma_buf *dmabuf,
 {
 	return mem_buf_lend_internal(dmabuf, arg, true);
 }
+EXPORT_SYMBOL(mem_buf_lend);
 
 int mem_buf_share(struct dma_buf *dmabuf,
 			struct mem_buf_lend_kernel_arg *arg)
@@ -838,89 +860,7 @@ void mem_buf_retrieve_release(struct qcom_sg_buffer *buffer)
 	kfree(buffer->sg_table);
 	kfree(buffer);
 }
-
-struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
-{
-	int ret;
-	struct qcom_sg_buffer *buffer;
-	struct hh_acl_desc *acl_desc;
-	struct hh_sgl_desc *sgl_desc;
-	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
-	struct dma_buf *dmabuf;
-	struct sg_table *sgt;
-
-	if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
-		return ERR_PTR(-EOPNOTSUPP);
-
-	if (arg->fd_flags & ~MEM_BUF_VALID_FD_FLAGS)
-		return ERR_PTR(-EINVAL);
-
-	if (!arg->nr_acl_entries || !arg->vmids || !arg->perms)
-		return ERR_PTR(-EINVAL);
-
-	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
-	if (!buffer)
-		return ERR_PTR(-ENOMEM);
-
-	acl_desc = mem_buf_vmid_perm_list_to_hh_acl(arg->vmids, arg->perms,
-				arg->nr_acl_entries);
-	if (IS_ERR(acl_desc)) {
-		ret = PTR_ERR(acl_desc);
-		goto err_hh_acl;
-	}
-
-	sgl_desc = mem_buf_map_mem_s2(arg->memparcel_hdl, acl_desc);
-	if (IS_ERR(sgl_desc)) {
-		ret = PTR_ERR(sgl_desc);
-		goto err_map_s2;
-	}
-
-	ret = mem_buf_map_mem_s1(sgl_desc);
-	if (ret < 0)
-		goto err_map_mem_s1;
-
-	sgt = dup_hh_sgl_desc_to_sgt(sgl_desc);
-	if (IS_ERR(sgt)) {
-		ret = PTR_ERR(sgt);
-		goto err_dup_sgt;
-	}
-
-	INIT_LIST_HEAD(&buffer->attachments);
-	mutex_init(&buffer->lock);
-	buffer->len = mem_buf_get_sgl_buf_size(sgl_desc);
-	buffer->sg_table = sgt;
-	buffer->free = mem_buf_retrieve_release;
-	buffer->vmperm = mem_buf_vmperm_alloc_accept(sgt, arg->memparcel_hdl);
-
-	exp_info.ops = &mem_buf_dma_buf_ops.dma_ops;
-	exp_info.size = buffer->len;
-	exp_info.flags = arg->fd_flags;
-	exp_info.priv = buffer;
-
-	dmabuf = mem_buf_dma_buf_export(&exp_info);
-	if (IS_ERR(dmabuf))
-		goto err_export_dma_buf;
-
-	/* sgt & qcom_sg_buffer will be freed by mem_buf_retrieve_release */
-	kfree(sgl_desc);
-	kfree(acl_desc);
-	return dmabuf;
-
-err_export_dma_buf:
-	sg_free_table(sgt);
-	kfree(sgt);
-err_dup_sgt:
-	mem_buf_unmap_mem_s1(sgl_desc);
-err_map_mem_s1:
-	kfree(sgl_desc);
-	mem_buf_unmap_mem_s2(arg->memparcel_hdl);
-err_map_s2:
-	kfree(acl_desc);
-err_hh_acl:
-	kfree(buffer);
-	return ERR_PTR(ret);
-}
-EXPORT_SYMBOL(mem_buf_retrieve);
+EXPORT_SYMBOL(mem_buf_retrieve_release);
 
 int mem_buf_reclaim(struct dma_buf *dmabuf)
 {

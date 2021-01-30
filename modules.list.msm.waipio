@@ -94,6 +94,7 @@ msm_dma_iommu_mapping.ko
 system_heap.ko
 qcom_dma_heaps.ko
 mem_buf.ko
+mem_buf_dev.ko
 qcom_smem.ko
 qcom_smd.ko
 mdt_loader.ko
