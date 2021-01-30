@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 #include <linux/irqdomain.h>
 #include <linux/delay.h>
@@ -407,11 +407,11 @@ static struct syscore_ops qcom_wdt_syscore_ops = {
 static void qcom_wdt_reset_on_oops(struct msm_watchdog_data *wdog_dd,
 			int timeout)
 {
+	wdog_dd->ops->reset_wdt(wdog_dd);
 	wdog_dd->ops->set_bark_time((timeout + 10) * 1000,
 					wdog_dd);
 	wdog_dd->ops->set_bite_time((timeout + 10) * 1000,
 					wdog_dd);
-	wdog_dd->ops->reset_wdt(wdog_dd);
 }
 
 static int qcom_wdt_panic_handler(struct notifier_block *this,
