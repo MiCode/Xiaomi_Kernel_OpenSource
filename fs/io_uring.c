@@ -2226,7 +2226,8 @@ restart:
 		/* Ensure we clear previously set non-block flag */
 		req->rw.ki_flags &= ~IOCB_NOWAIT;
 
-		if (req->fs != current->fs && current->fs != old_fs_struct) {
+		if ((req->fs && req->fs != current->fs) ||
+		    (!req->fs && current->fs != old_fs_struct)) {
 			task_lock(current);
 			if (req->fs)
 				current->fs = req->fs;
@@ -2351,7 +2352,7 @@ out:
 		mmput(cur_mm);
 	}
 	revert_creds(old_cred);
-	if (old_fs_struct) {
+	if (old_fs_struct != current->fs) {
 		task_lock(current);
 		current->fs = old_fs_struct;
 		task_unlock(current);
