@@ -178,3 +178,4 @@ memory_dump_v2.ko
 glink_pkt.ko
 qsee_ipc_irq_bridge.ko
 kryo_arm64_edac.ko
+msm_rtb.ko

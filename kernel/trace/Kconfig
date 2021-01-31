@@ -124,22 +124,13 @@ config PREEMPTIRQ_TRACEPOINTS
 	  of the kernel can use them to generate or add hooks to them.
 
 config QCOM_RTB
-	bool "Register tracing"
+	tristate "Register tracing"
+	depends on TRACE_MMIO_ACCESS
 	help
 	  The RTB is used to log discrete events in the system in an uncached
 	  buffer that can be post processed from RAM dumps. This is designed
 	  to aid in debugging reset cases where the caches may not be flushed
 	  before the target resets.
-
-config QCOM_RTB_QGKI
-	bool "QCOM RTB QGKI support"
-	depends on QGKI
-	help
-	  When QGKI variants are selected, include arch specific io header in
-	  in resolving multiple declaration of various read, write log variants.
-	  This flag is enabled only for QGKI variants and when enabled,ABI
-	  compatibilities are not applicable as exported symbols' CRC changes
-	  with the arch specific header inclusion.
 
 config QCOM_RTB_SEPARATE_CPUS
 	bool "Separate entries for each cpu"
