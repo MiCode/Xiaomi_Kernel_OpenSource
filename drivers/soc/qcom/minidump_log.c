@@ -598,7 +598,7 @@ static void md_register_trace_buf(void)
 	struct md_region md_entry;
 	void *buffer_start;
 
-	buffer_start = kmalloc(MD_FTRACE_BUF_SIZE, GFP_KERNEL);
+	buffer_start = kzalloc(MD_FTRACE_BUF_SIZE, GFP_KERNEL);
 
 	if (!buffer_start)
 		return;
@@ -944,7 +944,7 @@ static int md_die_context_notify(struct notifier_block *self,
 
 static struct notifier_block md_die_context_nb = {
 	.notifier_call = md_die_context_notify,
-	.priority = INT_MAX
+	.priority = INT_MAX - 2, /* < msm watchdog die notifier */
 };
 #endif
 
@@ -1004,7 +1004,7 @@ dump_rq:
 
 static struct notifier_block md_panic_blk = {
 	.notifier_call = md_panic_handler,
-	.priority = INT_MAX,
+	.priority = INT_MAX - 2, /* < msm watchdog panic notifier */
 };
 
 static int md_register_minidump_entry(char *name, u64 virt_addr,

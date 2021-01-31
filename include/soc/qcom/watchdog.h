@@ -124,6 +124,7 @@ struct msm_watchdog_data {
 	cpumask_t alive_mask;
 	struct mutex disable_lock;
 	struct notifier_block panic_blk;
+	struct notifier_block die_blk;
 	struct notifier_block wdog_cpu_pm_nb;
 	struct notifier_block restart_blk;
 
