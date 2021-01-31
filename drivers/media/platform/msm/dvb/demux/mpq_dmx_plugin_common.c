@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -273,12 +273,32 @@ err:
 	return ret;
 }
 
+/*
+ * CR-2864017: Deregister dma buffers from shmbridge here, because
+ * mpq_sdmx_destroy_shm_bridge_callback will not be called if the OMX
+ * application does't release buffers but reuse them even after switching
+ * PES filters.
+ */
 static void mpq_dmx_dmabuf_unmap(struct sg_table *sgt,
-			struct dma_buf_attachment *attach,
-			struct dma_buf *dmabuf)
+		struct dma_buf_attachment *attach,
+		struct dma_buf *dmabuf)
 {
+	int ret = 0;
+	uint64_t handle = 0;
+
 	dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
 	dma_buf_detach(dmabuf, attach);
+
+	handle = (uint64_t)dmabuf->dtor_data;
+	MPQ_DVB_DBG_PRINT("%s: to destroy shm bridge %lld\n",
+			__func__, handle);
+	ret = qtee_shmbridge_deregister(handle);
+	if (ret) {
+		MPQ_DVB_ERR_PRINT("%s: failed to destroy shm bridge %lld\n",
+				__func__, handle);
+	}
+
+	dma_buf_set_destructor(dmabuf, NULL, NULL);
 	dma_buf_put(dmabuf);
 }
 
