@@ -11,6 +11,7 @@
 //Chirp Microsystems Firmware Header Generator
 
 #include "ch101.h"
+#include <linux/types.h>
 
 char ch101_gpr_version[CH101_FW_VERS_SIZE];
 

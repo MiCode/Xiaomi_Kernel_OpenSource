@@ -20,6 +20,8 @@ endmenu
 
 menu "Proximity and distance sensors"
 
+source "drivers/iio/proximity/inv_ch101/Kconfig"
+
 config ISL29501
 	tristate "Intersil ISL29501 Time Of Flight sensor"
 	depends on I2C
