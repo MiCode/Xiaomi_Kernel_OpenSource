@@ -393,9 +393,8 @@ static void a6xx_gmu_power_config(struct adreno_device *adreno_dev)
 	}
 
 	/* Enable RPMh GPU client */
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_RPMH))
-		gmu_core_regrmw(device, A6XX_GMU_RPMH_CTRL, RPMH_ENABLE_MASK,
-				RPMH_ENABLE_MASK);
+	gmu_core_regrmw(device, A6XX_GMU_RPMH_CTRL, RPMH_ENABLE_MASK,
+		RPMH_ENABLE_MASK);
 }
 
 static void gmu_ao_sync_event(struct adreno_device *adreno_dev)
@@ -598,6 +597,8 @@ static int find_vma_block(struct a6xx_gmu_device *gmu, u32 addr, u32 size)
 
 	return -ENOENT;
 }
+
+#define MAX_GMUFW_SIZE	0x8000	/* in bytes */
 
 static int _load_legacy_gmu_fw(struct kgsl_device *device,
 	struct a6xx_gmu_device *gmu)
@@ -1263,9 +1264,6 @@ static void a6xx_gmu_enable_lm(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 val;
-
-	memset(adreno_dev->busy_data.throttle_cycles, 0,
-		sizeof(adreno_dev->busy_data.throttle_cycles));
 
 	if (!adreno_dev->lm_enabled)
 		return;
@@ -1944,31 +1942,23 @@ static void a6xx_gmu_cooperative_reset(struct kgsl_device *device)
 static int a6xx_gmu_wait_for_active_transition(
 	struct kgsl_device *device)
 {
-	unsigned int reg, num_retries;
+	unsigned int reg;
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(ADRENO_DEVICE(device));
 
 	if (!gmu_core_isenabled(device))
 		return 0;
 
-	gmu_core_regread(device,
-		A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
+	if (gmu_core_timed_poll_check(device, A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE,
+			GPU_HW_ACTIVE, 100, GENMASK(3, 0))) {
+		gmu_core_regread(device, A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
+		dev_err(&gmu->pdev->dev,
+			"GMU failed to move to ACTIVE state, Current state: 0x%x\n",
+			reg);
 
-	for (num_retries = 0; reg != GPU_HW_ACTIVE && num_retries < 100;
-		num_retries++) {
-		/* Wait for small time before trying again */
-		udelay(5);
-		gmu_core_regread(device,
-			A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
+		return -ETIMEDOUT;
 	}
 
-	if (reg == GPU_HW_ACTIVE)
-		return 0;
-
-	dev_err(&gmu->pdev->dev,
-		"GMU failed to move to ACTIVE state, Current state: 0x%x\n",
-		reg);
-
-	return -ETIMEDOUT;
+	return 0;
 }
 
 static bool a6xx_gmu_scales_bandwidth(struct kgsl_device *device)

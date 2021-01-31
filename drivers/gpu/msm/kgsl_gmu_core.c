@@ -5,6 +5,7 @@
 
 #include <linux/iopoll.h>
 #include <linux/of.h>
+#include <linux/iopoll.h>
 
 #include "adreno.h"
 #include "kgsl_device.h"
@@ -13,7 +14,10 @@
 
 static const struct of_device_id gmu_match_table[] = {
 	{ .compatible = "qcom,gpu-gmu", .data = &a6xx_gmu_driver },
+	{ .compatible = "qcom,gpu-gmu-hwsched", .data = &a6xx_hwsched_driver },
 	{ .compatible = "qcom,gpu-rgmu", .data = &a6xx_rgmu_driver },
+	{ .compatible = "qcom,genc-gmu", .data = &genc_gmu_driver },
+	{ .compatible = "qcom,genc-gmu-hwsched", .data = &genc_hwsched_driver },
 	{},
 };
 

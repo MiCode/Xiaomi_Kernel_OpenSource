@@ -1212,6 +1212,7 @@ static void adreno_setup_device(struct adreno_device *adreno_dev)
 }
 
 static const struct of_device_id adreno_gmu_match[] = {
+	{ .compatible = "qcom,genc-gmu" },
 	{ .compatible = "qcom,gpu-gmu" },
 	{ .compatible = "qcom,gpu-rgmu" },
 	{},
@@ -1270,9 +1271,10 @@ int adreno_device_probe(struct platform_device *pdev,
 		kgsl_mmu_set_feature(device, KGSL_MMU_64BIT);
 
 	/*
-	 * Set the SMMU aperture on A6XX targets to use per-process pagetables.
+	 * Set the SMMU aperture on A6XX/GenC targets to use per-process
+	 * pagetables.
 	 */
-	if (adreno_is_a6xx(adreno_dev))
+	if (ADRENO_GPUREV(adreno_dev) >= 600)
 		kgsl_mmu_set_feature(device, KGSL_MMU_SMMU_APERTURE);
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_IOCOHERENT))

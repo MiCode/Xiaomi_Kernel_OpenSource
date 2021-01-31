@@ -83,42 +83,38 @@
 
 /* Adreno core features */
 /* The core supports SP/TP hw controlled power collapse */
-#define ADRENO_SPTP_PC BIT(3)
+#define ADRENO_SPTP_PC BIT(0)
 /* The GPU supports content protection */
-#define ADRENO_CONTENT_PROTECTION BIT(5)
+#define ADRENO_CONTENT_PROTECTION BIT(1)
 /* The GPU supports preemption */
-#define ADRENO_PREEMPTION BIT(6)
-/* The core uses GPMU for power and limit management */
-#define ADRENO_GPMU BIT(7)
+#define ADRENO_PREEMPTION BIT(2)
 /* The GPMU supports Limits Management */
-#define ADRENO_LM BIT(8)
+#define ADRENO_LM BIT(3)
 /* The GPU supports retention for cpz registers */
-#define ADRENO_CPZ_RETENTION BIT(10)
+#define ADRENO_CPZ_RETENTION BIT(4)
 /* The core has soft fault detection available */
-#define ADRENO_SOFT_FAULT_DETECT BIT(11)
-/* The GMU supports RPMh for power management*/
-#define ADRENO_RPMH BIT(12)
+#define ADRENO_SOFT_FAULT_DETECT BIT(5)
 /* The GMU supports IFPC power management*/
-#define ADRENO_IFPC BIT(13)
+#define ADRENO_IFPC BIT(6)
 /* The GMU supports HW based NAP */
-#define ADRENO_HW_NAP BIT(14)
+#define ADRENO_HW_NAP BIT(7)
 /* The GMU supports min voltage*/
-#define ADRENO_MIN_VOLT BIT(15)
+#define ADRENO_MIN_VOLT BIT(8)
 /* The core supports IO-coherent memory */
-#define ADRENO_IOCOHERENT BIT(16)
+#define ADRENO_IOCOHERENT BIT(9)
 /*
  * The GMU supports Adaptive Clock Distribution (ACD)
  * for droop mitigation
  */
-#define ADRENO_ACD BIT(17)
+#define ADRENO_ACD BIT(10)
 /* Cooperative reset enabled GMU */
-#define ADRENO_COOP_RESET BIT(18)
+#define ADRENO_COOP_RESET BIT(11)
 /* Indicates that the specific target is no longer supported */
-#define ADRENO_DEPRECATED BIT(19)
+#define ADRENO_DEPRECATED BIT(12)
 /* The target supports ringbuffer level APRIV */
-#define ADRENO_APRIV BIT(20)
+#define ADRENO_APRIV BIT(13)
 /* The GMU supports Battery Current Limiting */
-#define ADRENO_BCL BIT(21)
+#define ADRENO_BCL BIT(14)
 /*
  * Adreno GPU quirks - control bits for various workarounds
  */
@@ -203,6 +199,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A650 = 650,
 	ADRENO_REV_A660 = 660,
 	ADRENO_REV_A680 = 680,
+	ADRENO_REV_C500 = 10000,
 };
 
 #define ADRENO_SOFT_FAULT BIT(0)
@@ -345,6 +342,17 @@ struct adreno_reglist {
 	u32 offset;
 	/** @value: Default value of the register to write */
 	u32 value;
+};
+
+/**
+ * struct adreno_reglist_list - A container for list of registers and
+ * number of registers in the list
+ */
+struct adreno_reglist_list {
+	/** @reg: List of register **/
+	const u32 *regs;
+	/** @count: Number of registers in the list **/
+	u32 count;
 };
 
 /**
@@ -586,8 +594,6 @@ struct adreno_device {
 	 * @critpkts: Memory descriptor for 5xx secure critical packets
 	 */
 	struct kgsl_memdesc *critpkts_secure;
-	/** @cp_init_cmds: A copy of the CP INIT commands */
-	const void *cp_init_cmds;
 	/** @irq_mask: The current interrupt mask for the GPU device */
 	u32 irq_mask;
 	/*
@@ -813,6 +819,11 @@ struct adreno_gpudev {
 			struct kgsl_power_stats *stats);
 	int (*setproperty)(struct kgsl_device_private *priv, u32 type,
 		void __user *value, u32 sizebytes);
+	/**
+	 * @gpu_model - Copy the gpu model string into the provided buffer
+	 */
+	void (*gpu_model)(struct adreno_device *adreno_dev,
+			char *str, size_t bufsz);
 };
 
 /**
@@ -879,6 +890,7 @@ extern const struct adreno_gpudev adreno_a6xx_rgmu_gpudev;
 extern const struct adreno_gpudev adreno_a619_holi_gpudev;
 extern const struct adreno_gpudev adreno_a630_gpudev;
 extern const struct adreno_gpudev adreno_a6xx_hwsched_gpudev;
+extern const struct adreno_gpudev adreno_genc_gmu_gpudev;
 
 extern int adreno_wake_nice;
 extern unsigned int adreno_wake_timeout;
@@ -1113,6 +1125,14 @@ static inline int adreno_is_a640v2(struct adreno_device *adreno_dev)
 	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A640) &&
 		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 1);
 }
+
+static inline int adreno_is_genc(struct adreno_device *adreno_dev)
+{
+	return ADRENO_GPUREV(adreno_dev) >= 10000 &&
+			ADRENO_GPUREV(adreno_dev) < 11000;
+}
+
+ADRENO_TARGET(c500, ADRENO_REV_C500)
 
 /*
  * adreno_checkreg_off() - Checks the validity of a register enum
