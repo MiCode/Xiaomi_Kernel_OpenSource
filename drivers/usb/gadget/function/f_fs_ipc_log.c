@@ -108,6 +108,31 @@ static struct ipc_log ipc_log_s[MAX_IPC_INSTANCES];
 /* Number of devices for f_fs driver */
 static int num_devices;
 
+static void *create_ipc_context(const char *dev_name, struct ffs_data *ffs)
+{
+	char ipcname[24] = "usb_ffs_";
+	void *ctx;
+
+	if (num_devices >= MAX_IPC_INSTANCES) {
+		pr_err("Can't create any more FFS log contexts\n");
+		return NULL;
+	}
+
+	strlcat(ipcname, dev_name, sizeof(ipcname));
+	ctx = ipc_log_context_create(10, ipcname, 0);
+	if (IS_ERR_OR_NULL(ctx)) {
+		pr_err("%s: Could not create IPC log context for device %s\n",
+			__func__, dev_name);
+		return NULL;
+	}
+
+	ipc_log_s[num_devices].context = ctx;
+	ipc_log_s[num_devices].ffs = ffs;
+	num_devices++;
+
+	return ctx;
+}
+
 static void *get_ipc_context(struct ffs_data *ffs)
 {
 	int i = 0;
@@ -116,8 +141,8 @@ static void *get_ipc_context(struct ffs_data *ffs)
 		if (ipc_log_s[i].ffs == ffs)
 			return ipc_log_s[i].context;
 
-	pr_err("Unable to locate ffs kprobe context\n");
-	return NULL;
+	/* not found, create a new one now */
+	return create_ipc_context(ffs->dev_name, ffs);
 }
 
 static int entry_ffs_user_copy_worker(struct kretprobe_instance *ri,
@@ -259,27 +284,13 @@ static int entry_ffs_data_put(struct kretprobe_instance *ri, struct pt_regs *reg
 
 static int entry_ffs_sb_fill(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-	struct kprobe_data *data = (struct kprobe_data *)ri->data;
 	struct fs_context *fc = (struct fs_context *)regs->regs[1];
-	struct ffs_sb_fill_data *ctx = fc->fs_private;
-	/* TO-DO: Change the ipcname to usb_ffs after removing logs from f_fs */
-	char ipcname[24] = "usb_kprobe_";
+	struct ffs_sb_fill_data *data = fc->fs_private;
+	void *ctx;
 
-	data->x1 = fc;
-	if (num_devices < MAX_IPC_INSTANCES) {
-		strlcat(ipcname, fc->source, sizeof(ipcname));
-		ipc_log_s[num_devices].context = ipc_log_context_create(10, ipcname, 0);
-		if (IS_ERR_OR_NULL(ipc_log_s[num_devices].context)) {
-			ipc_log_s[num_devices].context =  NULL;
-			pr_info("%s: Could not create IPC log context for device %s\n",
-				__func__, fc->source);
-		} else {
-			ipc_log_s[num_devices].ffs = ctx->ffs_data;
-			kprobe_log(ipc_log_s[num_devices].context,
-				ri->rp->kp.symbol_name, "enter");
-		}
-	}
-	num_devices++;
+	ctx = create_ipc_context(fc->source, data->ffs_data);
+	kprobe_log(ctx, ri->rp->kp.symbol_name, "enter");
+
 	return 0;
 }
 
