@@ -19,6 +19,7 @@ enum mem_buf_mem_type {
 	MEM_BUF_ION_MEM_TYPE,
 	MEM_BUF_MAX_MEM_TYPE,
 };
+#define MEM_BUF_DMAHEAP_MEM_TYPE (MEM_BUF_ION_MEM_TYPE + 1)
 
 /* The mem-buf values that represent VMIDs for an ACL. */
 #define MEM_BUF_VMID_PRIMARY_VM 0
@@ -53,6 +54,16 @@ struct acl_entry {
  */
 struct mem_buf_ion_data {
 	__u32 heap_id;
+};
+
+#define MEM_BUF_MAX_DMAHEAP_NAME_LEN 256
+/**
+ * struct mem_buf_dmaheap_data: Data that is unique to memory that is of type
+ * MEM_BUF_DMAHEAP_MEM_TYPE.
+ * @heap_name: array of characters containing the heap name.
+ */
+struct mem_buf_dmaheap_data {
+	__u64 heap_name;
 };
 
 /**
