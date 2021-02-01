@@ -1569,12 +1569,15 @@ static void cnss_pci_set_mhi_state_bit(struct cnss_pci_data *pci_priv,
 		clear_bit(CNSS_MHI_INIT, &pci_priv->mhi_state);
 		break;
 	case CNSS_MHI_POWER_ON:
+		clear_bit(CNSS_MHI_POWER_OFF, &pci_priv->mhi_state);
 		set_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state);
 		break;
 	case CNSS_MHI_POWERING_OFF:
 		set_bit(CNSS_MHI_POWERING_OFF, &pci_priv->mhi_state);
 		break;
 	case CNSS_MHI_POWER_OFF:
+		set_bit(CNSS_MHI_POWER_OFF, &pci_priv->mhi_state);
+		fallthrough;
 	case CNSS_MHI_FORCE_POWER_OFF:
 		clear_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state);
 		clear_bit(CNSS_MHI_POWERING_OFF, &pci_priv->mhi_state);
@@ -3025,7 +3028,8 @@ int cnss_pci_suspend_bus(struct cnss_pci_data *pci_priv)
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
 	int ret = 0;
 
-	if (pci_priv->pci_link_state == PCI_LINK_DOWN)
+	if (pci_priv->pci_link_state == PCI_LINK_DOWN ||
+	    test_bit(CNSS_MHI_POWER_OFF, &pci_priv->mhi_state))
 		goto out;
 
 	if (cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_SUSPEND)) {
