@@ -256,6 +256,11 @@ config HOTPLUG_SIZE_BITS
 	 size for memory hotplug is represent as a power
 	 of 2.
 	 If unsure, stick with default value.
+config KERNEL_CUSTOM_FACTORY
+    default n
+        bool "Custom for hardware FACTORY_pcb"
+	    help
+	            Custom for FACTORY_pcb.
 
 config SWIOTLB
 	def_bool y
@@ -834,6 +839,18 @@ config ARCH_HAS_CACHE_LINE_SIZE
 
 source "mm/Kconfig"
 
+config THERMAL_SWITCH
+    default n
+        bool "Support themral config switch"
+	    help
+	            Support themral config switch.
+
+config DISABLE_DOWNLOAD
+    default n
+        bool "Disable download mode"
+	    help
+	            Disable download mode.
+
 config ARM64_DMA_USE_IOMMU
 	bool "ARM64 DMA iommu integration"
 	select ARM_HAS_SG_CHAIN
@@ -1381,6 +1398,13 @@ config KRYO_PMU_WORKAROUND
 	  overflow interrupts from multiple monitors.
 
 	  Enable this flag for effect SoCs.
+
+config BOOT_INFO
+	bool "Boot information from bootloader"
+	default y
+	help
+	  On embedded linux device, we try to collect more information from
+	  bootloader to kernel. eg. powerup reason.
 
 config BUILD_ARM64_DT_OVERLAY
 	bool "enable DT overlay compilation support"

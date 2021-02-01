@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -189,7 +190,16 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			#cooling-cells = <2>;
-
+			qcom,fcc-max-ua = <3000000>;
+			qcom,fv-max-uv = <4400000>;
+			qcom,dc-icl-ua = <3000000>;
+			qcom,usb-icl-ua = <3000000>;
+			qcom,chg-term-src = <1>;
+			qcom,chg-term-current-ma = <(-200)>;
+			qcom,sw-jeita-enable;
+			qcom,thermal-mitigation
+				= <3000000 2500000 2200000 2000000 1500000
+					1000000 800000 500000 200000>;
 			qcom,pmic-revid = <&pmi632_revid>;
 			io-channels = <&pmi632_vadc ADC_USB_IN_V_16>,
 				      <&pmi632_vadc ADC_USB_IN_I>,
@@ -351,8 +361,14 @@
 			compatible = "qcom,qpnp-qg";
 			#address-cells = <1>;
 			#size-cells = <1>;
-
+			qcom,qg-iterm-ma = <350>;
 			qcom,pmic-revid = <&pmi632_revid>;
+			qcom,vbatt-cutoff-mv = <3500>;
+			qcom,hold-soc-while-full;
+			qcom,linearize-soc;
+			qcom,s3-entry-ibat-ua = <18000>;
+			qcom,s3-exit-ibat-ua = <38000>;
+			qcom,qg-vadc = <&pmi632_vadc>;
 			io-channels = <&pmi632_vadc ADC_BAT_THERM_PU2>,
 				      <&pmi632_vadc ADC_BAT_ID_PU2>;
 			io-channel-names = "batt-therm",
@@ -418,7 +434,7 @@
 		pmi632_vib: qcom,vibrator@5700 {
 			compatible = "qcom,qpnp-vibrator-ldo";
 			reg = <0x5700 0x100>;
-			qcom,vib-ldo-volt-uv = <3000000>;
+			qcom,vib-ldo-volt-uv = <3300000>;
 			qcom,disable-overdrive;
 		};
 
@@ -432,8 +448,7 @@
 			nvmem = <&pmi632_sdam7>;
 			qcom,pbs-client = <&pmi632_pbs_client3>;
 			qcom,lut-sdam-base = <0x80>;
-			qcom,lut-patterns = <0 0 0 14 28 42 56 70 84 100
-						100 84 70 56 42 28 14 0 0 0>;
+			qcom,lut-patterns = <50 50 49 47 45 42 39 35 31 27 22 17 11 6  0 0 0 0 0 0 0>;
 			lpg@1 {
 				qcom,lpg-chan-id = <1>;
 				qcom,ramp-step-ms = <200>;
@@ -585,6 +600,13 @@
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
 			};
 
+			qcom,flashlight_0 {
+				label = "flashlight";
+				qcom,led-name = "flashlight";
+				qcom,torch-name = "led:torch_0", "led:torch_1";
+				qcom,switch-name = "led:switch_0";
+				qcom,id = <0>;
+			};
 			pmi632_switch0: qcom,led_switch_0 {
 				label = "switch";
 				qcom,led-name = "led:switch_0";

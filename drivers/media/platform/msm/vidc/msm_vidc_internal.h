@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -442,7 +443,7 @@ struct msm_vidc_core {
 
 struct msm_vidc_inst {
 	struct list_head list;
-	struct mutex sync_lock, lock, flush_lock;
+	struct mutex sync_lock, lock;
 	struct msm_vidc_core *core;
 	enum session_type session_type;
 	void *session;

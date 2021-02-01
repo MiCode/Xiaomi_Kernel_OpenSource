@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +26,8 @@
 #include <linux/power_supply.h>
 #include <linux/regmap.h>
 #include <linux/iio/consumer.h>
+#undef pr_debug
+#define pr_debug pr_err
 
 #define MISC_CSIR_LSB_REG		0x9F1
 #define MISC_CSIR_MSB_REG		0x9F2

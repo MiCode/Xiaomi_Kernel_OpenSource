@@ -851,7 +851,7 @@ enum elv_merge blk_try_merge(struct request *rq, struct bio *bio)
 		return ELEVATOR_DISCARD_MERGE;
 	} else if (blk_rq_pos(rq) + blk_rq_sectors(rq) ==
 						bio->bi_iter.bi_sector) {
-		if (crypto_not_mergeable(rq->bio, bio))
+		if (crypto_not_mergeable(rq->biotail, bio))
 			return ELEVATOR_NO_MERGE;
 		return ELEVATOR_BACK_MERGE;
 	} else if (blk_rq_pos(rq) - bio_sectors(bio) ==

@@ -1,4 +1,5 @@
-/* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -944,7 +945,7 @@ end:
 static int diag_cmd_set_all_msg_mask(unsigned char *src_buf, int src_len,
 			unsigned char *dest_buf, int dest_len, int pid)
 {
-	int i, write_len = 0, peripheral;
+	int i, write_len = 0, peripheral, ret_val = 0;
 	int header_len = sizeof(struct diag_msg_config_rsp_t);
 	struct diag_msg_config_rsp_t rsp;
 	struct diag_msg_config_rsp_t *req = NULL;
@@ -1019,7 +1020,10 @@ static int diag_cmd_set_all_msg_mask(unsigned char *src_buf, int src_len,
 			mutex_lock(&driver->md_session_lock);
 			info = diag_md_session_get_peripheral(DIAG_LOCAL_PROC,
 								APPS_DATA);
-			diag_save_user_msg_mask(info);
+			ret_val = diag_save_user_msg_mask(info);
+			if (ret_val < 0)
+				pr_err("diag: unable to save msg mask to update userspace clients err:%d\n",
+					ret_val);
 			mutex_unlock(&driver->md_session_lock);
 			if (diag_check_update(APPS_DATA, pid))
 				diag_update_userspace_clients(MSG_MASKS_TYPE);
@@ -1378,7 +1382,7 @@ static int diag_cmd_set_log_mask(unsigned char *src_buf, int src_len,
 
 	mask_info = (!info) ? &log_mask : info->log_mask;
 	if (!src_buf || !dest_buf || dest_len <= 0 || !mask_info ||
-		src_len < sizeof(struct diag_log_config_req_t)) {
+		src_len < sizeof(struct diag_log_config_get_req_t)) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d, mask_info: %pK\n",
 		       __func__, src_buf, src_len, dest_buf, dest_len,
 		       mask_info);
@@ -1829,14 +1833,14 @@ static int __diag_mask_init(struct diag_mask_info *mask_info, int mask_len,
 			return -ENOMEM;
 		}
 		kmemleak_not_leak(mask_info->update_buf);
-		mask_info->update_buf_client = kzalloc(MAX_USERSPACE_BUF_SIZ,
-							GFP_KERNEL);
+		mask_info->update_buf_client = vzalloc(MAX_USERSPACE_BUF_SIZ);
 		if (!mask_info->update_buf_client) {
+			kfree(mask_info->update_buf);
+			mask_info->update_buf = NULL;
 			kfree(mask_info->ptr);
 			mask_info->ptr = NULL;
 			return -ENOMEM;
 		}
-		kmemleak_not_leak(mask_info->update_buf_client);
 		mask_info->update_buf_client_len = 0;
 	}
 	return 0;
@@ -1852,7 +1856,7 @@ static void __diag_mask_exit(struct diag_mask_info *mask_info)
 	mask_info->ptr = NULL;
 	kfree(mask_info->update_buf);
 	mask_info->update_buf = NULL;
-	kfree(mask_info->update_buf_client);
+	vfree(mask_info->update_buf_client);
 	mask_info->update_buf_client = NULL;
 	mutex_unlock(&mask_info->lock);
 }
@@ -2050,7 +2054,7 @@ static void diag_msg_mask_exit(void)
 	}
 	kfree(msg_mask.update_buf);
 	msg_mask.update_buf = NULL;
-	kfree(msg_mask.update_buf_client);
+	vfree(msg_mask.update_buf_client);
 	msg_mask.update_buf_client = NULL;
 	mutex_unlock(&driver->msg_mask_lock);
 }
@@ -2094,6 +2098,7 @@ static int diag_log_mask_init(void)
 {
 	int err = 0, i;
 	struct diag_md_session_t *session_info = NULL;
+
 	mutex_init(&log_mask.lock);
 	err = __diag_mask_init(&log_mask, LOG_MASK_SIZE, APPS_BUF_SIZE);
 	if (err)
@@ -2129,6 +2134,8 @@ static void diag_log_mask_exit(void)
 	}
 
 	kfree(log_mask.update_buf);
+	vfree(log_mask.update_buf_client);
+	log_mask.update_buf_client = NULL;
 }
 
 static int diag_event_mask_init(void)
@@ -2183,6 +2190,7 @@ static void diag_event_mask_exit(void)
 {
 	kfree(event_mask.ptr);
 	kfree(event_mask.update_buf);
+	vfree(event_mask.update_buf_client);
 }
 
 int diag_copy_to_user_msg_mask(char __user *buf, size_t count,
@@ -2198,8 +2206,8 @@ int diag_copy_to_user_msg_mask(char __user *buf, size_t count,
 		return -EIO;
 
 	if (!mask_info->ptr || !mask_info->update_buf_client) {
-		pr_err("diag: In %s, invalid input mask_info->ptr: %pK, mask_info->update_buf: %pK\n",
-			__func__, mask_info->ptr, mask_info->update_buf);
+		pr_err("diag: In %s, invalid input mask_info->ptr: %pK, mask_info->update_buf_client: %pK\n",
+			__func__, mask_info->ptr, mask_info->update_buf_client);
 		return -EINVAL;
 	}
 
@@ -2224,9 +2232,9 @@ int diag_copy_to_user_log_mask(char __user *buf, size_t count,
 	if (!mask_info)
 		return -EIO;
 
-	if (!mask_info->ptr || !mask_info->update_buf_client_len) {
-		pr_err("diag: In %s, invalid input mask_info->ptr: %pK, mask_info->update_buf: %pK\n",
-			__func__, mask_info->ptr, mask_info->update_buf);
+	if (!mask_info->ptr || !mask_info->update_buf_client) {
+		pr_err("diag: In %s, invalid input mask_info->ptr: %pK, mask_info->update_buf_client: %pK\n",
+			__func__, mask_info->ptr, mask_info->update_buf_client);
 		return -EINVAL;
 	}
 
@@ -2358,7 +2366,7 @@ static int diag_save_user_log_mask(struct diag_md_session_t *info)
 		len += copy_len;
 		mutex_unlock(&mask->lock);
 		/* + sizeof(int) to account for data_type already in buf */
-		if (total_len + len > MAX_USERSPACE_BUF_SIZ) {
+		if (total_len + sizeof(int) + len > MAX_USERSPACE_BUF_SIZ) {
 			pr_err("diag: In %s, unable to send log masks to user space, total_len: %d\n",
 			       __func__, total_len);
 			err = -ENOMEM;

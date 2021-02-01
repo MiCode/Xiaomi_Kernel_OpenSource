@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,6 +70,14 @@ module_param_named(sleep_time_override,
 	msm_pm_sleep_time_override, int, 0664);
 static struct msm_mpm_device_data msm_mpm_dev_data;
 static unsigned int *mpm_to_irq;
+static uint32_t previous_irq_enable[3];
+static uint32_t previous_irq_fall[3];
+static uint32_t previous_irq_raise[3];
+static uint32_t previous_irq_pol[3];
+static uint32_t current_irq_enable[3];
+static uint32_t current_irq_fall[3];
+static uint32_t current_irq_raise[3];
+static uint32_t current_irq_pol[3];
 static DEFINE_SPINLOCK(mpm_lock);
 
 static int msm_get_irq_pin(int mpm_pin, struct mpm_pin *mpm_data)
@@ -396,6 +405,27 @@ static inline void msm_mpm_timer_write(uint32_t *expiry)
 
 static void msm_mpm_enter_sleep(struct cpumask *cpumask)
 {
+        int i =0;
+	for (i = 0; i < QCOM_MPM_REG_WIDTH; i++) {
+		current_irq_enable[i] = msm_mpm_read(0, i);
+		current_irq_fall[i] = msm_mpm_read(1, i); 
+		current_irq_raise[i] = msm_mpm_read(2, i);
+		current_irq_pol[i] = msm_mpm_read(3, i); 
+
+		if(current_irq_fall[i] != current_irq_fall[i] ){
+			pr_err("falling edge config is changed: prev:0x%x cur:0x%x\n",previous_irq_fall[i] ,current_irq_fall[i]);
+		}
+		if(current_irq_raise[i] != current_irq_raise[i] ){
+			pr_err("falling edge config is changed: prev:0x%x cur:0x%x\n",previous_irq_raise[i] ,current_irq_raise[i]);
+		}
+		if(current_irq_pol[i] != current_irq_pol[i] ){
+			pr_err("falling edge config is changed: prev:0x%x cur:0x%x\n",previous_irq_pol[i] ,current_irq_pol[i]);
+		}
+		if(current_irq_enable[i] != current_irq_enable[i] ){
+			pr_err("falling edge config is changed: prev:0x%x cur:0x%x\n",previous_irq_enable[i] ,current_irq_enable[i]);
+		}
+	}
+
 	msm_mpm_send_interrupt();
 	irq_set_affinity(msm_mpm_dev_data.ipc_irq, cpumask);
 }
@@ -508,6 +538,10 @@ static irqreturn_t msm_mpm_irq(int irq, void *dev_id)
 
 	for (i = 0; i < QCOM_MPM_REG_WIDTH; i++) {
 		value[i] = msm_mpm_read(reg, i);
+		previous_irq_enable[i] = msm_mpm_read(0, i);
+		previous_irq_fall[i] = msm_mpm_read(1, i); 
+		previous_irq_raise[i] = msm_mpm_read(2, i);
+		previous_irq_pol[i] = msm_mpm_read(3, i); 
 		trace_mpm_wakeup_enable_irqs(i, value[i]);
 	}
 

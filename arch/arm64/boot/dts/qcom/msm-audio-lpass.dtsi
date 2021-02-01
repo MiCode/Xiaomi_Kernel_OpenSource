@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -102,22 +103,22 @@
 		dai_mi2s0: qcom,msm-dai-q6-mi2s-prim {
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <0>;
-			qcom,msm-mi2s-rx-lines = <3>;
-			qcom,msm-mi2s-tx-lines = <0>;
+			qcom,msm-mi2s-rx-lines = <1>;
+			qcom,msm-mi2s-tx-lines = <2>;
 		};
 
 		dai_mi2s1: qcom,msm-dai-q6-mi2s-sec {
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <1>;
 			qcom,msm-mi2s-rx-lines = <1>;
-			qcom,msm-mi2s-tx-lines = <0>;
+			qcom,msm-mi2s-tx-lines = <2>;
 		};
 
 		dai_mi2s2: qcom,msm-dai-q6-mi2s-tert {
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <2>;
-			qcom,msm-mi2s-rx-lines = <0>;
-			qcom,msm-mi2s-tx-lines = <3>;
+			qcom,msm-mi2s-rx-lines = <1>;
+			qcom,msm-mi2s-tx-lines = <2>;
 		};
 
 		dai_mi2s3: qcom,msm-dai-q6-mi2s-quat {

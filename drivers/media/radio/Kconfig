@@ -499,3 +499,6 @@ config RADIO_ZOLTRIX_PORT
 endif # V4L_RADIO_ISA_DRIVERS
 
 endif # RADIO_ADAPTERS
+
+config FM_INSIDE_LAN
+    tristate "config fm inside lan"

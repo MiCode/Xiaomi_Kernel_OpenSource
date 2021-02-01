@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, 2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +23,8 @@
 
 #define NUM_MAX_CLIENTS		32
 #define DEBUG_FORCE_CLIENT	"DEBUG_FORCE_CLIENT"
+#undef pr_debug
+#define pr_debug pr_err
 
 static DEFINE_SPINLOCK(votable_list_slock);
 static LIST_HEAD(votable_list);

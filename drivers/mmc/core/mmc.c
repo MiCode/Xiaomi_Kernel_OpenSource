@@ -21,7 +21,6 @@
 #include <linux/mmc/mmc.h>
 #include <linux/reboot.h>
 #include <trace/events/mmc.h>
-
 #include "core.h"
 #include "card.h"
 #include "host.h"

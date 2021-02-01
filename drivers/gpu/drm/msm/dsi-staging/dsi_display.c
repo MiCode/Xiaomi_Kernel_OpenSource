@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +19,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/err.h>
+#include <linux/msm_drm_notify.h>
 
 #include "msm_drv.h"
 #include "sde_connector.h"
@@ -43,6 +45,18 @@
 
 #define DSI_CLOCK_BITRATE_RADIX 10
 #define MAX_TE_SOURCE_ID  2
+
+static struct dsi_display *whitep_display;
+#if (defined CONFIG_TOUCHSCREEN_XIAOMI_C3J) || (defined CONFIG_TOUCHSCREEN_XIAOMI_C3X)
+extern char g_lcd_id[128];
+//Update /proc/tp_info & /proc/tp_lockdown_info node
+extern void update_lct_tp_info(char *tp_info_buf, char *tp_lockdown_info_buf);
+//Set tp_lockdown_info node callback funcation
+extern void set_lct_tp_lockdown_info_callback(int (*pfun)(void));
+#endif
+
+extern int backlight_hbm_set(int hbm_mode);
+extern char *saved_command_line;
 
 DEFINE_MUTEX(dsi_display_clk_mutex);
 
@@ -634,6 +648,99 @@ static void dsi_display_parse_te_data(struct dsi_display *display)
 	display->te_source = val;
 }
 
+
+static char dcs_cmd[2] = {0x00, 0x00}; /* DTYPE_DCS_READ */
+static struct dsi_cmd_desc dcs_read_cmd = {
+       {0, 6, MIPI_DSI_MSG_REQ_ACK, 0, 5, sizeof(dcs_cmd), dcs_cmd, 0, 0},
+       1,
+       5,
+};
+
+static int dsi_display_read_reg(struct dsi_display_ctrl *ctrl, char cmd0,
+		char cmd1, char *rbuf, int len)
+{
+	int rc = 0;
+	struct dsi_cmd_desc *cmds;
+	u32 flags = 0;
+
+	if (!ctrl || !ctrl->ctrl)
+		return -EINVAL;
+
+	/*
+	 * When DSI controller is not in initialized state, we do not want to
+	 * report a false failure and hence we defer until next read
+	 * happen.
+	 */
+	if (!dsi_ctrl_validate_host_state(ctrl->ctrl))
+		return 1;
+
+	dcs_cmd[0] = cmd0;
+	dcs_cmd[1] = cmd1;
+
+	cmds = &dcs_read_cmd;
+	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ );
+
+	memset(rbuf, 0x0, SZ_4K);
+	if (cmds->last_command) {
+		cmds->msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
+		flags |= DSI_CTRL_CMD_LAST_COMMAND;
+	}
+	cmds->msg.rx_buf = rbuf;
+	cmds->msg.rx_len = len;
+	rc = dsi_ctrl_cmd_transfer(ctrl->ctrl, &cmds->msg, flags);
+	if (rc <= 0) {
+		pr_err("rx cmd transfer failed rc=%d\n", rc);
+		return rc;
+	}
+	printk("xinj: rbuf[0]= %x,rbuf[1]= %x, rbuf[2] = %x, rbuf[3] =%x,rbuf[4]=%x,rbuf[5]=%x,rbuf[6]=%x,rbuf[7]=%x\n",
+			rbuf[0] ,rbuf[1], rbuf[2],rbuf[3], rbuf[4],rbuf[5],rbuf[6],rbuf[7]);
+
+	return rc;
+ }
+
+#if (defined CONFIG_TOUCHSCREEN_XIAOMI_C3J) || (defined CONFIG_TOUCHSCREEN_XIAOMI_C3X)
+static char dcs_cmd_page[2] = {0x00, 0x00}; /* DTYPE_DCS_READ */
+static struct dsi_cmd_desc dcs_read_cmd_page = {
+       {0, 0x15, MIPI_DSI_MSG_REQ_ACK, 0, 5, sizeof(dcs_cmd_page), dcs_cmd_page, 0, 0},
+       1,
+       5,
+};
+
+static int dsi_display_write_reg_page(struct dsi_display_ctrl *ctrl, char cmd0,
+		char cmd1, char *rbuf, int len)
+{
+	int rc = 0;
+	struct dsi_cmd_desc *cmds;
+	u32 flags = 0;
+
+	if (!ctrl || !ctrl->ctrl)
+		return -EINVAL;
+
+	if (!dsi_ctrl_validate_host_state(ctrl->ctrl))
+		return 1;
+
+	dcs_cmd_page[0] = cmd0;
+	dcs_cmd_page[1] = cmd1;
+	cmds = &dcs_read_cmd_page;
+	flags |= (DSI_CTRL_CMD_FETCH_MEMORY);
+
+	memset(rbuf, 0x0, SZ_4K);
+	if (cmds->last_command) {
+		cmds->msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
+		flags |= DSI_CTRL_CMD_LAST_COMMAND;
+	}
+	cmds->msg.rx_buf = NULL;
+	cmds->msg.rx_len = 0;
+	rc = dsi_ctrl_cmd_transfer(ctrl->ctrl, &cmds->msg, flags);
+	if (rc < 0) {
+		pr_err("rx cmd transfer failed rc=%d\n", rc);
+		return rc;
+	}
+
+	return rc;
+ }
+#endif
+
 static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
 		struct dsi_panel *panel)
 {
@@ -1075,23 +1182,50 @@ int dsi_display_set_power(struct drm_connector *connector,
 {
 	struct dsi_display *display = disp;
 	int rc = 0;
+	struct drm_notify_data g_notify_data;
+	struct drm_device *dev = NULL;
+	int event = 0;
+
 
 	if (!display || !display->panel) {
 		pr_err("invalid display/panel\n");
 		return -EINVAL;
 	}
+	if ((strnstr(saved_command_line,"tianma",strlen(saved_command_line)) != NULL) || (strnstr(saved_command_line,"shenchao",strlen(saved_command_line)) != NULL)){
+	if (!connector || !connector->dev) {
+			pr_err("invalid connector/dev\n");
+			return -EINVAL;
+	} else {
+			dev = connector->dev;
+			event = dev->doze_state;
+	}
 
+	g_notify_data.data = &event;
+	}
 	switch (power_mode) {
 	case SDE_MODE_DPMS_LP1:
+		if ((strnstr(saved_command_line,"tianma",strlen(saved_command_line)) != NULL) || (strnstr(saved_command_line,"shenchao",strlen(saved_command_line)) != NULL))
+		drm_notifier_call_chain(DRM_EARLY_EVENT_BLANK, &g_notify_data);
 		rc = dsi_panel_set_lp1(display->panel);
+		if ((strnstr(saved_command_line,"tianma",strlen(saved_command_line)) != NULL) || (strnstr(saved_command_line,"shenchao",strlen(saved_command_line)) != NULL))
+		drm_notifier_call_chain(DRM_EVENT_BLANK, &g_notify_data);
 		break;
 	case SDE_MODE_DPMS_LP2:
+		if ((strnstr(saved_command_line,"tianma",strlen(saved_command_line)) != NULL) || (strnstr(saved_command_line,"shenchao",strlen(saved_command_line)) != NULL))
+		drm_notifier_call_chain(DRM_EARLY_EVENT_BLANK, &g_notify_data);
 		rc = dsi_panel_set_lp2(display->panel);
+		if ((strnstr(saved_command_line,"tianma",strlen(saved_command_line)) != NULL) || (strnstr(saved_command_line,"shenchao",strlen(saved_command_line)) != NULL))
+		drm_notifier_call_chain(DRM_EVENT_BLANK, &g_notify_data);
 		break;
 	case SDE_MODE_DPMS_ON:
 		if (display->panel->power_mode == SDE_MODE_DPMS_LP1 ||
-			display->panel->power_mode == SDE_MODE_DPMS_LP2)
+			display->panel->power_mode == SDE_MODE_DPMS_LP2) {
+			if ((strnstr(saved_command_line,"tianma",strlen(saved_command_line)) != NULL) || (strnstr(saved_command_line,"shenchao",strlen(saved_command_line)) != NULL))
+			drm_notifier_call_chain(DRM_EARLY_EVENT_BLANK, &g_notify_data);
 			rc = dsi_panel_set_nolp(display->panel);
+			if ((strnstr(saved_command_line,"tianma",strlen(saved_command_line)) != NULL) || (strnstr(saved_command_line,"shenchao",strlen(saved_command_line)) != NULL))
+			drm_notifier_call_chain(DRM_EVENT_BLANK, &g_notify_data);
+		}
 		break;
 	case SDE_MODE_DPMS_OFF:
 	default:
@@ -4871,6 +5005,256 @@ static ssize_t sysfs_dynamic_dsi_clk_write(struct device *dev,
 	return rc;
 
 }
+static ssize_t dsi_display_set_cabc(struct device *dev,struct device_attribute *attr,const char *buf,size_t len)
+{
+
+        int rc = 0;
+        int param = 0;
+        struct dsi_display *display;
+
+        display = dev_get_drvdata(dev);
+        if (!display) {
+                pr_err("Invalid display\n");
+                return -EINVAL;
+        }
+
+        rc = kstrtoint(buf, 10, &param);
+        if (rc) {
+                pr_err("kstrtoint failed. rc=%d\n", rc);
+                return rc;
+        }
+
+        pr_info("xinj:_###_%s,set_cabc_cmd: %d\n",__func__, param);
+        switch(param) {
+                case 0x1: //cabc on
+                        dsi_panel_set_feature(display->panel, DSI_CMD_SET_CABC_ON);
+                        break;
+                case 0x2: //cabc off
+                        dsi_panel_set_feature(display->panel, DSI_CMD_SET_CABC_OFF);
+                        break;
+                default:
+                        pr_err("unknow cmds: %d\n", param);
+                        break;
+        }
+        printk("xinj:_##### cabc over ###\n");
+        return len;
+}
+static ssize_t dsi_display_set_cabc_movie(struct device *dev,struct device_attribute *attr,const char *buf,size_t len)
+{
+
+        int rc = 0;
+        int param = 0;
+        struct dsi_display *display;
+
+        display = dev_get_drvdata(dev);
+        if (!display) {
+                pr_err("Invalid display\n");
+                return -EINVAL;
+        }
+
+        rc = kstrtoint(buf, 10, &param);
+        if (rc) {
+                pr_err("kstrtoint failed. rc=%d\n", rc);
+                return rc;
+        }
+
+//        pr_info("xinj:_###_%s,set_cabc_movie_cmd: %d\n",__func__, param);
+        switch(param) {
+                case 0x1: //cabc_movie on
+                        dsi_panel_set_feature(display->panel, DSI_CMD_SET_CABC_MOVIE_ON);
+                        break;
+                case 0x2: //cabc_movie off
+                        dsi_panel_set_feature(display->panel, DSI_CMD_SET_CABC_OFF);
+                        break;
+                default:
+                        pr_err("unknow cmds: %d\n", param);
+                        break;
+        }
+        printk("xinj:_##### cabc_movie over ###\n");
+        return len;
+}
+
+static ssize_t dsi_display_set_cabc_still(struct device *dev,struct device_attribute *attr,const char *buf,size_t len)
+{
+
+        int rc = 0;
+        int param = 0;
+        struct dsi_display *display;
+
+        display = dev_get_drvdata(dev);
+        if (!display) {
+                pr_err("Invalid display\n");
+                return -EINVAL;
+        }
+
+        rc = kstrtoint(buf, 10, &param);
+        if (rc) {
+                pr_err("kstrtoint failed. rc=%d\n", rc);
+                return rc;
+        }
+
+//        pr_info("xinj:_###_%s,set_cabc_still_cmd: %d\n",__func__, param);
+        switch(param) {
+                case 0x1: //cabc_still on
+                        dsi_panel_set_feature(display->panel, DSI_CMD_SET_CABC_STILL_ON);
+                        break;
+                case 0x2: //cabc_still off
+                        dsi_panel_set_feature(display->panel, DSI_CMD_SET_CABC_OFF);
+                        break;
+                default:
+                        pr_err("unknow cmds: %d\n", param);
+                        break;
+        }
+        printk("xinj:_##### cabc_still over ###\n");
+        return len;
+}
+static ssize_t dsi_display_set_hbm(struct device *dev,struct device_attribute *attr,const char *buf,size_t len)
+{
+
+        int rc = 0;
+        int param = 0;
+        struct dsi_display *display;
+
+        display = dev_get_drvdata(dev);
+        if (!display) {
+                pr_err("Invalid display\n");
+                return -EINVAL;
+        }
+
+        rc = kstrtoint(buf, 10, &param);
+        if (rc) {
+                pr_err("kstrtoint failed. rc=%d\n", rc);
+                return rc;
+        }
+
+        switch(param) {
+            case 0x1: //hbm1 on
+               dsi_panel_set_feature(display->panel, DSI_CMD_SET_HBM1_ON);    
+			//   backlight_hbm_set(1);
+               break;
+            case 0x2: //hbm2 on
+               dsi_panel_set_feature(display->panel, DSI_CMD_SET_HBM2_ON);
+			//   backlight_hbm_set(2);
+               break;
+	    	case 0x03://hbm3 on
+	    		dsi_panel_set_feature(display->panel, DSI_CMD_SET_HBM3_ON);
+			 //   backlight_hbm_set(3);
+                break;
+	    	case 0x0://hbm off
+	    		dsi_panel_set_feature(display->panel, DSI_CMD_SET_HBM_OFF);
+			 //  backlight_hbm_set(0);
+                break;
+             default:
+                pr_err("unknow cmds: %d\n", param);
+                break;
+        }
+        return len;
+}
+
+static DEVICE_ATTR(dsi_display_cabc, 0644, NULL, dsi_display_set_cabc);
+static DEVICE_ATTR(dsi_display_hbm, 0644, NULL, dsi_display_set_hbm);
+static DEVICE_ATTR(dsi_display_cabc_movie, 0644, NULL, dsi_display_set_cabc_movie);
+static DEVICE_ATTR(dsi_display_cabc_still, 0644, NULL, dsi_display_set_cabc_still);
+
+static struct attribute *dsi_display_feature_attrs[] = {
+	&dev_attr_dsi_display_cabc.attr,
+	&dev_attr_dsi_display_hbm.attr,
+	&dev_attr_dsi_display_cabc_movie.attr,
+	&dev_attr_dsi_display_cabc_still.attr,
+	NULL,
+};
+static struct attribute_group dsi_display_feature_attrs_group = {
+	.attrs = dsi_display_feature_attrs,
+};
+
+static int dsi_display_feature_create_sysfs(struct dsi_display *display){
+        int ret =0;
+        struct device *dev = &display->pdev->dev;
+
+        ret = sysfs_create_group(&dev->kobj,
+			&dsi_display_feature_attrs_group);
+        if(ret){
+                pr_err("%s failed \n",__func__);
+                return -ENOMEM;
+        }
+        pr_info("xinj:%s success\n",__func__);
+        return ret;
+}
+
+static ssize_t dsi_display_get_whitepoint(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct dsi_display_ctrl *ctrl = NULL;
+
+	ssize_t rc = 0;
+	struct dsi_display *display;
+
+	display = whitep_display;
+	if (!display) {
+			pr_err("Invalid display\n");
+			return -EINVAL;
+	}
+
+	if (display->tx_cmd_buf == NULL) {
+		rc = dsi_host_alloc_cmd_tx_buffer(display);
+		if (rc) {
+			pr_err("failed to allocate cmd tx buffer memory\n");
+			goto done;
+		}
+	}
+
+	rc = dsi_display_cmd_engine_enable(display);
+	if (rc) {
+		pr_err("cmd engine enable failed\n");
+		return -EPERM;
+	}
+
+	ctrl = &display->ctrl[display->cmd_master_idx];
+
+#if (defined CONFIG_TOUCHSCREEN_XIAOMI_C3J) || (defined CONFIG_TOUCHSCREEN_XIAOMI_C3X)
+	if((strstr(g_lcd_id, "huaxing")!= NULL)) {
+		rc = dsi_display_write_reg_page(ctrl, 0x00, 0x60, buf, sizeof(buf));
+		rc = dsi_display_read_reg(ctrl, 0xf4, 0x00, buf, sizeof(buf));
+	} else {
+		rc = dsi_display_write_reg_page(ctrl, 0xff, 0x10, buf, sizeof(buf));
+		rc = dsi_display_read_reg(ctrl, 0xa1, 0, buf, sizeof(buf));
+	}
+#else
+	rc = dsi_display_read_reg(ctrl, 0xa1, 0, buf, sizeof(buf));
+#endif
+	if (rc <= 0) {
+		pr_err("get whitepoint failed rc=%d\n", rc);
+		goto exit;
+	}
+	if(0 != buf[1])
+		rc = snprintf(buf, PAGE_SIZE, "val0=%d,val1=%d\n",buf[0],buf[1]);
+	else
+		rc = snprintf(buf, PAGE_SIZE, "val0=%d,val1=%d\n",buf[0],buf[2]);
+exit:
+	dsi_display_cmd_engine_disable(display);
+done:
+	return rc;
+}
+
+static DEVICE_ATTR(whitepoint, 0644, dsi_display_get_whitepoint,NULL );
+static struct kobject *msm_whitepoint;
+static int dsi_display_whitepoint_create_sysfs(void){
+        int ret;
+        msm_whitepoint=kobject_create_and_add("android_whitepoint",NULL);
+        if(msm_whitepoint==NULL){
+                pr_info("msm_whitepoint_create_sysfs_ failed\n");
+                ret=-ENOMEM;
+                return ret;
+        }
+        ret=sysfs_create_file(msm_whitepoint,&dev_attr_whitepoint.attr);
+        if(ret){
+                pr_err("xinj:%s failed \n",__func__);
+                kobject_del(msm_whitepoint);
+                return ret;
+        }
+        pr_info("xinj:%s success\n",__func__);
+        return ret;
+}
 
 static DEVICE_ATTR(dynamic_dsi_clock, 0644,
 			sysfs_dynamic_dsi_clk_read,
@@ -4944,6 +5328,73 @@ static int dsi_display_sysfs_deinit(struct dsi_display *display)
 	return 0;
 
 }
+
+#if (defined CONFIG_TOUCHSCREEN_XIAOMI_C3J) || (defined CONFIG_TOUCHSCREEN_XIAOMI_C3X)
+int lct_tp_lockdown_info_callback(void)
+{
+	static bool is_already_read = false;
+	ssize_t rc = 0;
+	char *buf = NULL;
+	struct dsi_display *display;
+	struct dsi_display_ctrl *ctrl = NULL;
+
+	display = whitep_display;
+
+	if (is_already_read)
+		return 0;
+
+	if (!display) {
+		pr_err("Invalid display\n");
+		return -EINVAL;
+	}
+
+	if (display->tx_cmd_buf == NULL) {
+		rc = dsi_host_alloc_cmd_tx_buffer(display);
+		if (rc) {
+			pr_err("failed to allocate cmd tx buffer memory\n");
+			goto done;
+		}
+	}
+
+	rc = dsi_display_cmd_engine_enable(display);
+	if (rc) {
+		pr_err("cmd engine enable failed\n");
+		return -EPERM;
+	}
+
+	buf = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(buf)){
+		pr_err("%s: kzalloc() request memory failed!\n", __func__);
+		return -ENOMEM;
+	}
+
+	ctrl = &display->ctrl[display->cmd_master_idx];
+	if((strstr(g_lcd_id, "huaxing")!= NULL))
+	{
+		rc = dsi_display_write_reg_page(ctrl, 0x00, 0x50, buf, sizeof(buf));
+		rc = dsi_display_read_reg(ctrl, 0xf4, 0x00, buf, sizeof(buf));
+	} else {
+		rc = dsi_display_write_reg_page(ctrl, 0xff, 0x21, buf, sizeof(buf));
+		rc = dsi_display_read_reg(ctrl, 0xf7, 0, buf, sizeof(buf));
+	}
+	if (rc < 0) {
+		pr_err("get lockdown  failed rc=%d\n", rc);
+		goto exit;
+	}
+
+	rc = snprintf(buf, PAGE_SIZE, "%02X%02X%02X%02X%02X%02X%02X%02X\n",buf[0],buf[1],buf[2],
+			buf[3],buf[4],buf[5],buf[6],buf[7]);
+
+	update_lct_tp_info(NULL, buf);
+	is_already_read = true;
+
+exit:
+	kfree(buf);
+	dsi_display_cmd_engine_disable(display);
+done:
+	return rc;
+}
+#endif
 
 /**
  * dsi_display_bind - bind dsi device with controlling device
@@ -5167,6 +5618,11 @@ static int dsi_display_bind(struct device *dev,
 	/* register te irq handler */
 	dsi_display_register_te_irq(display);
 
+	dsi_display_feature_create_sysfs(display);
+	dsi_display_whitepoint_create_sysfs();
+#if (defined CONFIG_TOUCHSCREEN_XIAOMI_C3J) || (defined CONFIG_TOUCHSCREEN_XIAOMI_C3X)
+	set_lct_tp_lockdown_info_callback(lct_tp_lockdown_info_callback);
+#endif
 	goto error;
 
 error_host_deinit:
@@ -5380,6 +5836,7 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 	display->pdev = pdev;
 	display->boot_disp = boot_disp;
 	display->dsi_type = dsi_type;
+	display->is_prim_display = true;
 
 	dsi_display_parse_cmdline_topology(display, index);
 
@@ -6908,6 +7365,7 @@ int dsi_display_prepare(struct dsi_display *display)
 		return -EINVAL;
 	}
 
+	whitep_display = display;
 	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
 	mutex_lock(&display->display_lock);
 

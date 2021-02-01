@@ -2,6 +2,7 @@
  * RAM Oops/Panic logger
  *
  * Copyright (C) 2010 Marco Stornelli <marco.stornelli@gmail.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2011 Kees Cook <keescook@chromium.org>
  *
  * This program is free software; you can redistribute it and/or
@@ -778,6 +779,8 @@ static int ramoops_probe(struct platform_device *pdev)
 
 	dump_mem_sz = cxt->size - cxt->console_size - cxt->ftrace_size
 			- cxt->pmsg_size;
+
+	pr_err("dump_mem_sz=%d,cxt->record_size=%d,cxt->size=%d,cxt->console_size=%d,cxt->ftrace_size=%d,cxt->pmsg_size=%d\n",dump_mem_sz,cxt->record_size,cxt->size,cxt->console_size,cxt->ftrace_size,cxt->pmsg_size);
 	err = ramoops_init_przs("dump", dev, cxt, &cxt->dprzs, &paddr,
 				dump_mem_sz, cxt->record_size,
 				&cxt->max_dump_cnt, 0, 0);

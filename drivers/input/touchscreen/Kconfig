@@ -11,6 +11,27 @@ menuconfig INPUT_TOUCHSCREEN
 
 if INPUT_TOUCHSCREEN
 
+source "drivers/input/touchscreen/nt36xxx_spi_c3j/Kconfig"
+source "drivers/input/touchscreen/nt36xxx_spi_c3x/Kconfig"
+
+source "drivers/input/touchscreen/ft8719_spi_c3j/Kconfig"
+
+config TOUCHSCREEN_XIAOMI_C3J
+	bool "touchscreen for xiaomi c3j project"
+	depends on SPI
+	default n
+	help
+		Say Y here if you have a Xiaomi C3J touchscreen and want to enable
+		support for the built-in touchscreen.
+
+config TOUCHSCREEN_XIAOMI_C3X
+	bool "touchscreen for xiaomi c3x project"
+	depends on SPI
+	default n
+	help
+		Say Y here if you have a Xiaomi C3X touchscreen and want to enable
+		support for the built-in touchscreen.
+
 config TOUCHSCREEN_PROPERTIES
 	def_tristate INPUT
 	depends on INPUT

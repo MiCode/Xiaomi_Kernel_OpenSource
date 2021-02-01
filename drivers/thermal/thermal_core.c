@@ -558,6 +558,61 @@ static void thermal_zone_device_check(struct work_struct *work)
 	thermal_zone_device_update(tz, THERMAL_EVENT_UNSPECIFIED);
 }
 
+
+#ifdef CONFIG_THERMAL_SWITCH
+#define to_thermal_msg_device(_dev)	\
+	container_of(_dev, struct thermal_message_device, device)
+
+static ssize_t
+sconfig_show(struct device *dev, struct device_attribute *devattr,
+		       char *buf){
+	struct thermal_message_device *thermal_msg = to_thermal_msg_device(dev);
+
+	return sprintf(buf,"%d\n",thermal_msg->sconfig);
+}
+
+static ssize_t
+sconfig_store(struct device *dev, struct device_attribute *devattr,
+		const char *buf, size_t count){
+	int sconfig;
+	struct thermal_message_device *thermal_msg = to_thermal_msg_device(dev);
+
+	if (kstrtoint(buf,10,&sconfig))
+		return -EINVAL;
+
+	thermal_msg->sconfig = sconfig;
+
+	return count;
+}
+
+static DEVICE_ATTR(sconfig,0644,sconfig_show,sconfig_store);
+
+//Add 3C state node
+static ssize_t
+temp_state_show(struct device *dev, struct device_attribute *devattr,
+		       char *buf){
+	struct thermal_message_device *thermal_msg = to_thermal_msg_device(dev);
+
+	return sprintf(buf,"%d\n",thermal_msg->temp_state);
+}
+
+static ssize_t
+temp_state_store(struct device *dev, struct device_attribute *devattr,
+		const char *buf, size_t count){
+	int temp_state;
+	struct thermal_message_device *thermal_msg = to_thermal_msg_device(dev);
+
+	if (kstrtoint(buf,10,&temp_state))
+		return -EINVAL;
+
+	thermal_msg->temp_state = temp_state;
+
+	return count;
+}
+
+static DEVICE_ATTR(temp_state,0644,temp_state_show,temp_state_store);
+#endif //CONFIG_THERMAL_SWITCH
+
 /*
  * Power actor section: interface to power actors to estimate power
  *
@@ -1621,6 +1676,45 @@ static struct notifier_block thermal_pm_nb = {
 	.notifier_call = thermal_pm_notify,
 };
 
+#ifdef CONFIG_THERMAL_SWITCH
+int thermal_message_device_register(void) {
+	struct thermal_message_device *thermal_msg;
+	int result = 0;
+
+	thermal_msg = kzalloc(sizeof(struct thermal_message_device),GFP_KERNEL);
+	thermal_msg->device.class = &thermal_class;
+	dev_set_name(&thermal_msg->device,"thermal_message");
+
+	result = device_register(&thermal_msg->device);
+	if (result) {
+		kfree(thermal_msg);
+		return result;
+	}
+
+	result = device_create_file(&thermal_msg->device,&dev_attr_sconfig);
+
+	if (result)
+		goto unregister;
+
+	result = device_create_file(&thermal_msg->device,&dev_attr_temp_state);
+
+	if (result)
+		goto unregister;
+
+
+	return result;
+
+unregister:
+	device_unregister(&thermal_msg->device);
+	return result;
+}
+
+
+void thermal_message_device_unregister(void) {
+	//Do nothing
+}
+#endif //CONFIG_THERMAL_SWITCH
+
 static int __init thermal_init(void)
 {
 	int result;
@@ -1652,6 +1746,10 @@ static int __init thermal_init(void)
 		pr_warn("Thermal: Can not register suspend notifier, return %d\n",
 			result);
 
+#ifdef CONFIG_THERMAL_SWITCH
+	result = thermal_message_device_register();
+#endif //CONFIG_THERMAL_SWITCH
+
 	return 0;
 
 exit_zone_parse:
@@ -1671,6 +1769,9 @@ error:
 
 static void thermal_exit(void)
 {
+#ifdef CONFIG_THERMAL_SWITCH
+	thermal_message_device_unregister();
+#endif //CONFIG_THERMAL_SWITCH
 	unregister_pm_notifier(&thermal_pm_nb);
 	of_thermal_destroy_zones();
 	destroy_workqueue(thermal_passive_wq);

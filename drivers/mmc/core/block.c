@@ -2,6 +2,7 @@
  * Block driver for media (i.e., flash cards)
  *
  * Copyright 2002 Hewlett-Packard Company
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2005-2008 Pierre Ossman
  *
  * Use consistent with the GNU GPL is permitted,
@@ -47,7 +48,6 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
-
 #include <linux/uaccess.h>
 
 #include "queue.h"
@@ -152,7 +152,7 @@ MODULE_PARM_DESC(perdev_minors, "Minors numbers to allocate per device");
 static inline int mmc_blk_part_switch(struct mmc_card *card,
 				      unsigned int part_type);
 static int mmc_blk_cmdq_switch(struct mmc_card *card,
-			       struct mmc_blk_data *md, bool enable);
+			struct mmc_blk_data *md, bool enable);
 static void mmc_blk_cmdq_err(struct mmc_queue *mq);
 static enum blk_eh_timer_return mmc_blk_cmdq_req_timed_out(struct request *req);
 
@@ -2329,7 +2329,6 @@ static bool mmc_blk_rw_cmd_err(struct mmc_blk_data *md, struct mmc_card *card,
 	}
 	return req_pending;
 }
-
 static int mmc_blk_cmdq_switch(struct mmc_card *card,
 			       struct mmc_blk_data *md, bool enable)
 {

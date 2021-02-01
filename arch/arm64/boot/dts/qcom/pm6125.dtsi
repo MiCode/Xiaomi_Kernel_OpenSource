@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +45,10 @@
 				qcom,pon-type = <PON_POWER_ON_TYPE_KPDPWR>;
 				qcom,pull-up = <1>;
 				linux,code = <KEY_POWER>;
+                                qcom,support-reset = <1>;
+                                qcom,s1-timer = <4480>;
+                                qcom,s2-timer = <2000>;
+                                qcom,s2-type = <PON_POWER_OFF_TYPE_HARD_RESET>;
 			};
 
 			qcom,pon_2 {
@@ -51,6 +56,16 @@
 				qcom,pull-up = <1>;
 				linux,code = <KEY_VOLUMEDOWN>;
 			};
+
+                        qcom,pon_3 {
+                                qcom,pon-type = <3>;
+                                qcom,pull-up = <1>;
+                                qcom,support-reset = <1>;
+                                qcom,s1-timer = <4480>;
+                                qcom,s2-timer = <1000>;
+                                qcom,s2-type = <PON_POWER_OFF_TYPE_WARM_RESET>;
+                        };
+
 		};
 
 		pm6125_vadc: vadc@3100 {

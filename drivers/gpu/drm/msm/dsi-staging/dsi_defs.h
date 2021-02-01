@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -271,6 +272,14 @@ enum dsi_cmd_set_type {
 	DSI_CMD_SET_PRE_OFF,
 	DSI_CMD_SET_OFF,
 	DSI_CMD_SET_POST_OFF,
+	DSI_CMD_SET_CABC_ON,
+	DSI_CMD_SET_CABC_OFF,
+	DSI_CMD_SET_CABC_MOVIE_ON,
+	DSI_CMD_SET_CABC_STILL_ON,
+	DSI_CMD_SET_HBM1_ON,
+    DSI_CMD_SET_HBM2_ON,
+	DSI_CMD_SET_HBM3_ON,
+	DSI_CMD_SET_HBM_OFF,
 	DSI_CMD_SET_PRE_RES_SWITCH,
 	DSI_CMD_SET_RES_SWITCH,
 	DSI_CMD_SET_POST_RES_SWITCH,

@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +50,8 @@
 #define FCC_STEPPER_VOTER		"FCC_STEPPER_VOTER"
 #define FCC_VOTER			"FCC_VOTER"
 #define MAIN_FCC_VOTER			"MAIN_FCC_VOTER"
+#undef pr_debug
+#define pr_debug pr_err
 
 struct pl_data {
 	int			pl_mode;
@@ -122,7 +125,7 @@ enum {
 	FORCE_INOV_DISABLE_BIT	= BIT(1),
 };
 
-static int debug_mask;
+static int debug_mask = 0xfff;
 module_param_named(debug_mask, debug_mask, int, 0600);
 
 #define pl_dbg(chip, reason, fmt, ...)				\
@@ -1178,12 +1181,15 @@ static bool is_batt_available(struct pl_data *chip)
 }
 
 #define PARALLEL_FLOAT_VOLTAGE_DELTA_UV 50000
+static u8 cycle_flag = 0;
+extern u8 set_cycle_flag;
 static int pl_fv_vote_callback(struct votable *votable, void *data,
 			int fv_uv, const char *client)
 {
 	struct pl_data *chip = data;
 	union power_supply_propval pval = {0, };
 	int rc = 0;
+	int charge_cycle_count;
 
 	if (fv_uv < 0)
 		return 0;
@@ -1191,7 +1197,34 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	if (!chip->main_psy)
 		return 0;
 
-	pval.intval = fv_uv;
+	rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CYCLE_COUNT,&pval);
+	charge_cycle_count = pval.intval;
+
+	if(charge_cycle_count >= 100 && cycle_flag == 0)
+		cycle_flag = 1;
+
+  	if(set_cycle_flag == 1)
+          	cycle_flag = 0;
+  
+	if(!cycle_flag)
+	{
+		if(charge_cycle_count >= 300)
+			pval.intval = fv_uv- 30000;
+		else if (charge_cycle_count >= 200 && charge_cycle_count < 300)
+			pval.intval = fv_uv- 20000;
+		else if (charge_cycle_count >= 100 && charge_cycle_count < 200)
+			pval.intval = fv_uv- 10000;
+		else
+			pval.intval = fv_uv;
+	} else {
+		if(charge_cycle_count - 100 >= 200)
+			pval.intval = fv_uv-30000;
+		else if (charge_cycle_count - 100 >= 100 && charge_cycle_count - 100 < 200)
+			pval.intval = fv_uv- 20000;
+		else
+			pval.intval = fv_uv- 10000;
+	}
 
 	rc = power_supply_set_property(chip->main_psy,
 			POWER_SUPPLY_PROP_VOLTAGE_MAX, &pval);

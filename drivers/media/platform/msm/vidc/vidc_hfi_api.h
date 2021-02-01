@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -996,10 +997,9 @@ struct hal_fw_info {
 };
 
 enum hal_flush {
-	HAL_FLUSH_INPUT,
-	HAL_FLUSH_OUTPUT,
-	HAL_FLUSH_ALL,
-	HAL_UNUSED_FLUSH = 0x10000000,
+	HAL_FLUSH_INPUT = BIT(0),
+	HAL_FLUSH_OUTPUT = BIT(1),
+	HAL_FLUSH_ALL = HAL_FLUSH_INPUT | HAL_FLUSH_OUTPUT,
 };
 
 enum hal_event_type {

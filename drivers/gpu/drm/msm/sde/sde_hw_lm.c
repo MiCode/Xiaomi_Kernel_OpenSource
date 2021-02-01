@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -201,8 +202,7 @@ static void sde_hw_lm_setup_dim_layer(struct sde_hw_mixer *ctx,
 	int stage_off;
 	u32 val = 0, alpha = 0;
 
-	if (dim_layer->stage == SDE_STAGE_BASE)
-		return;
+
 
 	stage_off = _stage_offset(ctx, dim_layer->stage);
 	if (stage_off < 0) {

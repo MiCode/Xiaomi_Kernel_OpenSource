@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,7 +64,11 @@ static void scm_disable_sdi(void);
  * There is no API from TZ to re-enable the registers.
  * So the SDI cannot be re-enabled when it already by-passed.
  */
-static int download_mode = 1;
+#ifdef CONFIG_DISABLE_DOWNLOAD
+int download_mode = 0;
+#else
+int download_mode = 1;
+#endif
 static bool force_warm_reboot;
 
 #ifdef CONFIG_QCOM_DLOAD_MODE
@@ -190,10 +195,12 @@ static int dload_set(const char *val, const struct kernel_param *kp)
 
 	int old_val = download_mode;
 
-	if (!download_mode) {
+	/* make sure DUT entry ramdump by "echo 1 > /sys/module/msm_poweroff/parameters/download_mode" */
+	/*if (!download_mode) {
 		pr_err("Error: SDI dynamic enablement is not supported\n");
 		return -EINVAL;
 	}
+	*/
 
 	ret = param_set_int(val, kp);
 
@@ -300,12 +307,16 @@ static void msm_restart_prepare(const char *cmd)
 		pr_info("Forcing a warm reset of the system\n");
 
 	/* Hard reset the PMIC unless memory contents must be maintained. */
-	if (force_warm_reboot || need_warm_reset)
+	if (force_warm_reboot || need_warm_reset || in_panic) {
+		pr_info("a warm reset of the system with in_panic %d or need_warm_reset %d\n", in_panic, need_warm_reset);
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
-	else
+	} else {
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
+	}
 
-	if (cmd != NULL) {
+	if (in_panic) {
+		qpnp_pon_set_restart_reason(PON_RESTART_REASON_PANIC);
+	} else if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_BOOTLOADER);
@@ -339,10 +350,20 @@ static void msm_restart_prepare(const char *cmd)
 				__raw_writel(0x6f656d00 | (code & 0xff),
 					     restart_reason);
 		} else if (!strncmp(cmd, "edl", 3)) {
-			enable_emergency_dload_mode();
+			if (0)
+			{
+				enable_emergency_dload_mode();
+			}else
+			{
+				pr_notice("This command already been disabled\n");
+			}
 		} else {
+			qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
 			__raw_writel(0x77665501, restart_reason);
 		}
+	} else {
+		qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
+		__raw_writel(0x77665501, restart_reason);
 	}
 
 	flush_cache_all();

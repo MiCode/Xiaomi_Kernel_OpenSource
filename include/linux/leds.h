@@ -2,6 +2,7 @@
  * Driver model for leds and led triggers
  *
  * Copyright (C) 2005 John Lenz <lenz@cs.wisc.edu>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2005 Richard Purdie <rpurdie@openedhand.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -29,8 +30,8 @@ struct device;
 enum led_brightness {
 	LED_OFF		= 0,
 	LED_ON		= 1,
-	LED_HALF	= 127,
-	LED_FULL	= 255,
+	LED_HALF	= 25,
+	LED_FULL	= 50,
 };
 
 struct led_classdev {

@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +27,12 @@
 #include "btfm_slim.h"
 #include "btfm_slim_wcn3990.h"
 #include <linux/bluetooth-power.h>
+
+/*begin, add support fm inside lan add by wangfajie@longcheer.com at 20190501*/
+#if defined(CONFIG_FM_INSIDE_LAN)
+#include <sound/fm_lan.h>
+#endif
+/*end*/
 
 int btfm_slim_write(struct btfmslim *btfmslim,
 		uint16_t reg, int bytes, void *src, uint8_t pgd)
@@ -507,6 +514,16 @@ static int btfm_slim_probe(struct slim_device *slim)
 	BTFMSLIM_DBG("");
 	if (!slim->ctrl)
 		return -EINVAL;
+
+	/*begin, add support fm inside lan add by wangfajie@longcheer.com at 20190501*/
+#if defined(CONFIG_FM_INSIDE_LAN)
+	ret = gpio_request(g_fm_lan_gpio, "g_fm_lan_gpio");
+	if (0 != ret){
+		BTFMSLIM_ERR("request fm lan gpio97 failed: ret = %d", ret);
+		return ret;
+	}
+#endif
+	/*end*/
 
 	/* Allocation btfmslim data pointer */
 	btfm_slim = kzalloc(sizeof(struct btfmslim), GFP_KERNEL);

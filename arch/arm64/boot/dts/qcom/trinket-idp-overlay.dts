@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +18,7 @@
 #include <dt-bindings/clock/qcom,gcc-trinket.h>
 #include "trinket-idp.dtsi"
 #include "trinket-audio-overlay.dtsi"
+#include "ginkgo-touchpad.dtsi"
 
 / {
 	model = "IDP";
@@ -25,6 +27,11 @@
 	qcom,board-id = <34 0>;
 };
 
-&dsi_td4330_truly_cmd_display {
+&dsi_nt36672a_tianma_vid_display {
 	qcom,dsi-display-active;
 };
+//begin for sdcard recognise by lilin added;
+&sdhc_2 {
+	cd-gpios = <&tlmm 98 0>;
+};
+//end begin for sdcard recognise by lilin added;

@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,6 +67,7 @@ struct msm_camera_sensor_slave_info32 {
 	enum i2c_freq_mode_t i2c_freq_mode;
 	enum msm_camera_i2c_reg_addr_type addr_type;
 	struct msm_sensor_id_info_t32 sensor_id_info;
+	struct msm_vendor_id_info_t vendor_id_info;
 	struct msm_sensor_power_setting_array32 power_setting_array;
 	uint8_t  is_init_params_valid;
 	struct msm_sensor_init_params sensor_init_params;

@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -90,6 +91,9 @@ struct msm_sensor_ctrl_t {
 	uint8_t is_csid_tg_mode;
 	uint32_t is_secure;
 	uint8_t bypass_video_node_creation;
+#ifdef VIRTUAL_CAMERA
+	uint8_t is_virtual_camera;
+#endif
 };
 
 int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void *argp);
@@ -103,6 +107,7 @@ int msm_sensor_check_id(struct msm_sensor_ctrl_t *s_ctrl);
 int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl);
 
 int msm_sensor_update_cfg(struct msm_sensor_ctrl_t *s_ctrl);
+int msm_sensor_match_vendor_id(struct msm_sensor_ctrl_t *s_ctrl);
 
 int msm_sensor_free_sensor_data(struct msm_sensor_ctrl_t *s_ctrl);
 

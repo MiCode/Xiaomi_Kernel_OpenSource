@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +30,11 @@
 #include <linux/usb/phy.h>
 #include <linux/reset.h>
 #include <linux/debugfs.h>
+
+#undef dev_dbg 
+#define dev_dbg dev_err 
+#undef pr_debug 
+#define pr_debug pr_info 
 
 #define USB2_PHY_USB_PHY_UTMI_CTRL0		(0x3c)
 #define OPMODE_MASK				(0x3 << 3)

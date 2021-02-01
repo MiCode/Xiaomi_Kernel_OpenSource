@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,7 +73,7 @@
 	qcom,auto-recharge-soc = <98>;
 	qcom,flash-disable-soc = <10>;
 	qcom,hw-die-temp-mitigation;
-	qcom,hw-connector-mitigation;
+	//qcom,hw-connector-mitigation;
 	qcom,connector-internal-pull-kohm = <100>;
 	qcom,float-option = <1>;
 	qcom,thermal-mitigation = <4200000 3500000 3000000
@@ -106,7 +107,7 @@
 
 &qupv3_se1_i2c {
 	status = "ok";
-	nq@28 {
+	/*nq@28 {
 		compatible = "qcom,nq-nci";
 		reg = <0x28>;
 		qcom,nq-irq = <&tlmm 85 0x00>;
@@ -121,7 +122,7 @@
 				&nfc_clk_req_active>;
 		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
 				&nfc_clk_req_suspend>;
-	};
+	};*/
 };
 
 &sdhc_1 {
@@ -364,7 +365,7 @@
 		"SpkrLeft IN", "WSA_SPK1 OUT",
 		"WSA_SPK1 OUT", "VA_MCLK";
 		qcom,wsa-max-devs = <1>;
-		qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;
+		/*qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;*/
 		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
 		qcom,msm-mbhc-hphl-swh = <1>;
 		qcom,msm-mbhc-gnd-swh = <1>;

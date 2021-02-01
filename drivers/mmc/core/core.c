@@ -59,7 +59,6 @@
 
 /* The max erase timeout, used when host->max_busy_timeout isn't specified */
 #define MMC_ERASE_TIMEOUT_MS	(60 * 1000) /* 60 s */
-
 static const unsigned freqs[] = { 400000, 300000, 200000, 100000 };
 
 /*
@@ -3394,6 +3393,8 @@ void mmc_init_erase(struct mmc_card *card)
 	if (mmc_card_sd(card) && card->ssr.au) {
 		card->pref_erase = card->ssr.au;
 		card->erase_shift = ffs(card->ssr.au) - 1;
+	} else if (card->ext_csd.hc_erase_size) {
+		card->pref_erase = card->ext_csd.hc_erase_size;
 	} else if (card->erase_size) {
 		sz = (card->csd.capacity << (card->csd.read_blkbits - 9)) >> 11;
 		if (sz < 128)
@@ -4502,6 +4503,7 @@ int mmc_power_restore_host(struct mmc_host *host)
 	return ret;
 }
 EXPORT_SYMBOL(mmc_power_restore_host);
+
 
 #ifdef CONFIG_PM_SLEEP
 /* Do the card removal on suspend if card is assumed removeable

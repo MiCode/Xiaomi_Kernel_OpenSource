@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -804,6 +805,8 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	else
 		pipes_per_stage = 1;
 
+	mixercfg = CTL_MIXER_BORDER_OUT; /* always set BORDER_OUT */
+
 	if (!stage_cfg)
 		goto exit;
 
@@ -910,9 +913,6 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	}
 
 exit:
-	if ((!mixercfg && !mixercfg_ext && !mixercfg_ext2 && !mixercfg_ext3) ||
-			(stage_cfg && !stage_cfg->stage[0][0]))
-		mixercfg |= CTL_MIXER_BORDER_OUT;
 
 	SDE_REG_WRITE(c, CTL_LAYER(lm), mixercfg);
 	SDE_REG_WRITE(c, CTL_LAYER_EXT(lm), mixercfg_ext);

@@ -3,6 +3,7 @@
  * fs/f2fs/recovery.c
  *
  * Copyright (c) 2012 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *             http://www.samsung.com/
  */
 #include <linux/fs.h>
@@ -99,7 +100,7 @@ err_out:
 static void del_fsync_inode(struct fsync_inode_entry *entry, int drop)
 {
 	if (drop) {
-		/* inode should not be recovered, drop it */
+		make_bad_inode(entry->inode);
 		f2fs_inode_synced(entry->inode);
 	}
 	iput(entry->inode);
@@ -683,7 +684,7 @@ static int recover_data(struct f2fs_sb_info *sbi, struct list_head *inode_list,
 		}
 
 		if (entry->blkaddr == blkaddr)
-			list_move_tail(&entry->list, tmp_inode_list);
+			del_fsync_inode(entry, 0);
 next:
 		/* check next segment */
 		blkaddr = next_blkaddr_of_node(page);

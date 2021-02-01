@@ -1,4 +1,5 @@
 /* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,7 +75,7 @@
 
 		qcom,sde-mixer-cwb-pref = "none", "cwb", "none",
 					      "none", "none", "none";
-		qcom,sde-mixer-stage-base-layer;
+	
 
 		qcom,sde-dspp-top-off = <0x1300>;
 		qcom,sde-dspp-top-size = <0x80>;
@@ -130,7 +131,7 @@
 		qcom,sde-mixer-linewidth = <2560>;
 		qcom,sde-sspp-linewidth = <2160>;
 		qcom,sde-wb-linewidth = <2160>;
-		qcom,sde-mixer-blendstages = <0x6>;
+		qcom,sde-mixer-blendstages = <0x5>;
 		qcom,sde-highest-bank-bit = <0x1>;
 		qcom,sde-ubwc-version = <0x100>;
 		qcom,sde-ubwc-swizzle = <1>;

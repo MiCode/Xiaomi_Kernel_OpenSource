@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,8 +42,12 @@
 #include "qg-soc.h"
 #include "qg-battery-profile.h"
 #include "qg-defs.h"
+#undef pr_debug
+#define pr_debug pr_err
 
-static int qg_debug_mask;
+u8 set_cycle_flag = 0;
+
+static int qg_debug_mask = 0xfff;
 module_param_named(
 	debug_mask, qg_debug_mask, int, 0600
 );
@@ -210,6 +215,7 @@ static void qg_notify_charger(struct qpnp_qg *chip)
 		return;
 
 	prop.intval = chip->bp.float_volt_uv;
+
 	rc = power_supply_set_property(chip->batt_psy,
 			POWER_SUPPLY_PROP_VOLTAGE_MAX, &prop);
 	if (rc < 0) {
@@ -2040,6 +2046,9 @@ static int qg_psy_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FG_RESET:
 		qg_reset(chip);
 		break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+		rc = set_cycle_count(chip->counter, pval->intval);
+		break;
 	case POWER_SUPPLY_PROP_BATT_AGE_LEVEL:
 		rc = qg_setprop_batt_age_level(chip, pval->intval);
 		break;
@@ -2283,7 +2292,8 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 				chip->msoc, health, chip->charge_full,
 				chip->charge_done);
 	if (chip->charge_done && !chip->charge_full) {
-		if (chip->msoc >= 99 && health == POWER_SUPPLY_HEALTH_GOOD) {
+		if (chip->msoc >= 99 && (health == POWER_SUPPLY_HEALTH_GOOD || 
+			health == POWER_SUPPLY_HEALTH_WARM || health == POWER_SUPPLY_HEALTH_COOL) ) {
 			chip->charge_full = true;
 			qg_dbg(chip, QG_DEBUG_STATUS, "Setting charge_full (0->1) @ msoc=%d\n",
 					chip->msoc);
@@ -4524,6 +4534,12 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 	rc = qg_register_device(chip);
 	if (rc < 0) {
 		pr_err("Failed to register QG char device, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = qg_sanitize_sdam(chip);
+	if (rc < 0) {
+		pr_err("Failed to sanitize SDAM, rc=%d\n", rc);
 		return rc;
 	}
 

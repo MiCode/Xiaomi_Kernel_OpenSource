@@ -2,6 +2,7 @@
  * composite.c - infrastructure for Composite USB Gadgets
  *
  * Copyright (C) 2006-2008 David Brownell
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +24,10 @@
 #include <asm/unaligned.h>
 
 #include "u_os_desc.h"
-
+#undef dev_dbg
+#define dev_dbg dev_info
+#undef pr_debug 
+#define pr_debug pr_info
 /**
  * struct usb_os_string - represents OS String to be reported by a gadget
  * @bLength: total length of the entire descritor, always 0x12
@@ -1747,7 +1751,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 					cdev->desc.bcdUSB = cpu_to_le16(0x0320);
 					cdev->desc.bMaxPacketSize0 = 9;
 				} else {
-					cdev->desc.bcdUSB = cpu_to_le16(0x0210);
+					cdev->desc.bcdUSB = cpu_to_le16(0x0200);
 				}
 			} else {
 				if (gadget->lpm_capable)
