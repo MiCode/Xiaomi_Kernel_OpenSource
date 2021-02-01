@@ -11,6 +11,7 @@
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
+#include <linux/suspend.h>
 #include <soc/qcom/sb_notification.h>
 
 #define STATUS_UP 1
@@ -304,6 +305,12 @@ static int sdx_ext_ipc_panic(struct notifier_block *this,
 	return NOTIFY_DONE;
 }
 
+static irqreturn_t hw_irq_handler(int irq, void *p)
+{
+	pm_system_wakeup();
+	return IRQ_WAKE_THREAD;
+}
+
 static int sdx_ext_ipc_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -371,9 +378,9 @@ static int sdx_ext_ipc_probe(struct platform_device *pdev)
 
 	if (mdm->gpios[WAKEUP_IN] >= 0) {
 		ret = devm_request_threaded_irq(mdm->dev, mdm->wakeup_irq,
-				sdx_ext_ipc_wakeup_irq, NULL,
-				IRQF_TRIGGER_FALLING, "sdx_ext_ipc_wakeup",
-				mdm);
+				hw_irq_handler, sdx_ext_ipc_wakeup_irq,
+				IRQF_TRIGGER_FALLING | IRQF_ONESHOT |
+				IRQF_NO_SUSPEND, "sdx_ext_ipc_wakeup", mdm);
 		if (ret < 0) {
 			dev_err(mdm->dev,
 				"%s: WAKEUP_IN IRQ#%d request failed,\n",
