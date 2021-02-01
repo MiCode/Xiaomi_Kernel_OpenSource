@@ -160,7 +160,7 @@ static int entry_ffs_epfile_io(struct kretprobe_instance *ri, struct pt_regs *re
 	data->x0 = file;
 	data->x1 = io_data;
 	kprobe_log(context, ri->rp->kp.symbol_name,
-		"enter: %s about to queue %zd bytes time %lld ns",
+		"enter: %s about to queue %zd bytes",
 		epfile->name, iov_iter_count(&io_data->data));
 	return 0;
 }
