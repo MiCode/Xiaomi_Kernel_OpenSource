@@ -2330,7 +2330,8 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	dwc->softconnect = is_on;
 
 	if (((dwc->dr_mode > USB_DR_MODE_HOST) && !dwc->vbus_active)
-			|| !dwc->gadget_driver || dwc->err_evt_seen) {
+			|| !dwc->gadget_driver || (dwc->err_evt_seen &&
+				dwc->softconnect)) {
 		/*
 		 * Need to wait for vbus_session(on) from otg driver or to
 		 * the udc_start.
