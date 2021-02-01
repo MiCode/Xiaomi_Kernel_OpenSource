@@ -1088,8 +1088,7 @@ static const struct file_operations mem_buf_fops = {
 
 static bool is_valid_mem_type(enum mem_buf_mem_type mem_type)
 {
-	return mem_type >= MEM_BUF_ION_MEM_TYPE &&
-		mem_type < MEM_BUF_MAX_MEM_TYPE;
+	return mem_type == MEM_BUF_ION_MEM_TYPE;
 }
 
 static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
