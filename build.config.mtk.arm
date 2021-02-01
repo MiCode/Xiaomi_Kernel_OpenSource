@@ -3,7 +3,7 @@ CROSS_COMPILE=arm-linux-gnueabi-
 LLVM=1
 # DEFCONFIG=defconfig
 KERNEL_DIR=kernel-mainline
-CLANG_PREBUILT_BIN=prebuilts/clang/host/linux-x86/clang-r383902/bin
+CLANG_PREBUILT_BIN=prebuilts/clang/host/linux-x86/clang-r407598/bin
 BUILDTOOLS_PREBUILT_BIN=prebuilts/build-tools/linux-x86/bin
 # for check scripts
 CC=clang
