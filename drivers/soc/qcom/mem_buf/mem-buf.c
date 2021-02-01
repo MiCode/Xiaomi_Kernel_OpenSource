@@ -58,6 +58,10 @@ static struct workqueue_struct *mem_buf_wq;
 
 static size_t mem_buf_get_sgl_buf_size(struct hh_sgl_desc *sgl_desc);
 static struct sg_table *dup_hh_sgl_desc_to_sgt(struct hh_sgl_desc *sgl_desc);
+static int mem_buf_acl_to_vmid_perms_list(unsigned int nr_acl_entries,
+					  const void __user *acl_entries,
+					  int **dst_vmids, int **dst_perms,
+					  bool lookup_fd);
 /**
  * struct mem_buf_txn: Represents a transaction (request/response pair) in the
  * membuf driver.
@@ -997,41 +1001,6 @@ static int mem_buf_perms_to_perms(u32 mem_buf_perms)
 	return perms;
 }
 
-static struct hh_acl_desc *mem_buf_acl_to_hh_acl(unsigned int nr_acl_entries,
-						 struct acl_entry *entries)
-{
-	unsigned int i;
-	int ret;
-	u32 mem_buf_vmid, mem_buf_perms;
-	int vmid, perms;
-	struct hh_acl_desc *acl_desc = kzalloc(offsetof(struct hh_acl_desc,
-						acl_entries[nr_acl_entries]),
-						GFP_KERNEL);
-
-	if (!acl_desc)
-		return ERR_PTR(-ENOMEM);
-
-	acl_desc->n_acl_entries = nr_acl_entries;
-	for (i = 0; i < nr_acl_entries; i++) {
-		mem_buf_vmid = entries[i].vmid;
-		mem_buf_perms = entries[i].perms;
-		vmid = mem_buf_vmid_to_vmid(mem_buf_vmid);
-		perms = mem_buf_perms_to_perms(mem_buf_perms);
-		if (vmid < 0 || perms < 0) {
-			ret = -EINVAL;
-			goto err_inv_vmid_perms;
-		}
-		acl_desc->acl_entries[i].vmid = vmid;
-		acl_desc->acl_entries[i].perms = perms;
-	}
-
-	return acl_desc;
-
-err_inv_vmid_perms:
-	kfree(acl_desc);
-	return ERR_PTR(ret);
-}
-
 static void *mem_buf_retrieve_ion_mem_type_data_user(
 				struct mem_buf_ion_data __user *mem_type_data)
 {
@@ -1134,7 +1103,7 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 		return ERR_PTR(-EOPNOTSUPP);
 
 	if (!alloc_data || !alloc_data->size || !alloc_data->nr_acl_entries ||
-	    !alloc_data->acl_list ||
+	    !alloc_data->vmids || !alloc_data->perms ||
 	    (alloc_data->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS) ||
 	    !is_valid_mem_type(alloc_data->src_mem_type) ||
 	    !is_valid_mem_type(alloc_data->dst_mem_type))
@@ -1146,8 +1115,9 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 
 	pr_debug("%s: mem buf alloc begin\n", __func__);
 	membuf->size = ALIGN(alloc_data->size, MEM_BUF_MHP_ALIGNMENT);
-	membuf->acl_desc = mem_buf_acl_to_hh_acl(alloc_data->nr_acl_entries,
-						 alloc_data->acl_list);
+	membuf->acl_desc = mem_buf_vmid_perm_list_to_hh_acl(
+				alloc_data->vmids, alloc_data->perms,
+				alloc_data->nr_acl_entries);
 	if (IS_ERR(membuf->acl_desc)) {
 		ret = PTR_ERR(membuf->acl_desc);
 		goto err_alloc_acl_list;
@@ -1389,18 +1359,17 @@ EXPORT_SYMBOL(mem_buf_retrieve);
 static int mem_buf_prep_alloc_data(struct mem_buf_allocation_data *alloc_data,
 				struct mem_buf_alloc_ioctl_arg *allocation_args)
 {
-	struct acl_entry *acl_list;
 	unsigned int nr_acl_entries = allocation_args->nr_acl_entries;
 	int ret;
 
 	alloc_data->size = allocation_args->size;
 	alloc_data->nr_acl_entries = nr_acl_entries;
 
-	alloc_data->acl_list =
-		memdup_user((const void __user *)allocation_args->acl_list,
-			    sizeof(*acl_list) * nr_acl_entries);
-	if (IS_ERR(alloc_data->acl_list))
-		return PTR_ERR(alloc_data->acl_list);
+	ret = mem_buf_acl_to_vmid_perms_list(nr_acl_entries,
+				(const void __user *)allocation_args->acl_list,
+				&alloc_data->vmids, &alloc_data->perms, true);
+	if (ret)
+		goto err_acl;
 
 	alloc_data->src_mem_type = allocation_args->src_mem_type;
 	alloc_data->dst_mem_type = allocation_args->dst_mem_type;
@@ -1429,7 +1398,9 @@ err_alloc_dst_data:
 	mem_buf_free_mem_type_data(alloc_data->src_mem_type,
 				   alloc_data->src_data);
 err_alloc_src_data:
-	kfree(alloc_data->acl_list);
+	kfree(alloc_data->vmids);
+	kfree(alloc_data->perms);
+err_acl:
 	return ret;
 }
 
@@ -1439,7 +1410,8 @@ static void mem_buf_free_alloc_data(struct mem_buf_allocation_data *alloc_data)
 				   alloc_data->dst_data);
 	mem_buf_free_mem_type_data(alloc_data->src_mem_type,
 				   alloc_data->src_data);
-	kfree(alloc_data->acl_list);
+	kfree(alloc_data->vmids);
+	kfree(alloc_data->perms);
 }
 
 static int mem_buf_alloc_fd(struct mem_buf_alloc_ioctl_arg *allocation_args)

@@ -136,7 +136,8 @@ int mem_buf_dma_buf_copy_vmperm(struct dma_buf *dmabuf, int **vmids, int **perms
 struct mem_buf_allocation_data {
 	size_t size;
 	unsigned int nr_acl_entries;
-	struct acl_entry *acl_list;
+	int *vmids;
+	int *perms;
 	enum mem_buf_mem_type src_mem_type;
 	void *src_data;
 	enum mem_buf_mem_type dst_mem_type;
