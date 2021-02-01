@@ -163,3 +163,12 @@ config QTI_DDR_COOLING_DEVICE
 	   devices will be used by QTI chipset to place a DDR state request
 	   to meet the performance requirement under thermally constrained
 	   conditions.
+
+config MAX31760_FAN_CONTROLLER
+	tristate "MAX31760 Fan Controller Driver"
+	depends on THERMAL_OF && QTI_THERMAL && I2C_GPIO
+	help
+	  This enables the MAX31760 fan controller cooling device.
+	  This driver uses i2c bus to control registers for setting
+	  different fan speed. Also, this driver initializes the power for
+	  the fan controller.
