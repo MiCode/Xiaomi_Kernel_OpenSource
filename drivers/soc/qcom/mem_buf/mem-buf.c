@@ -1123,7 +1123,7 @@ static bool is_valid_mem_type(enum mem_buf_mem_type mem_type)
 		mem_type < MEM_BUF_MAX_MEM_TYPE;
 }
 
-void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
+static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 {
 	int ret;
 	struct file *filp;
@@ -1230,7 +1230,6 @@ err_alloc_acl_list:
 	kfree(membuf);
 	return ERR_PTR(ret);
 }
-EXPORT_SYMBOL(mem_buf_alloc);
 
 static int _mem_buf_get_fd(struct file *filp)
 {

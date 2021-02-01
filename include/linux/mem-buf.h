@@ -169,8 +169,6 @@ int mem_buf_reclaim(struct dma_buf *dmabuf);
 
 #if IS_ENABLED(CONFIG_QCOM_MEM_BUF)
 
-void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data);
-
 int mem_buf_get_fd(void *membuf_desc);
 
 void mem_buf_put(void *membuf_desc);
@@ -178,11 +176,6 @@ void mem_buf_put(void *membuf_desc);
 void *mem_buf_get(int fd);
 
 #else
-
-static inline void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
-{
-	return ERR_PTR(-ENODEV);
-}
 
 static inline int mem_buf_get_fd(void *membuf_desc)
 {
