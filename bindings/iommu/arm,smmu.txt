@@ -267,6 +267,12 @@ conditions.
 		the IOVA range which was created through the
 		qcom,iommu-dma-addr-pool DT property.
 
+- qcom,iommu-msi-size:
+		Optional, Int.
+		Indicates the amount of space--in bytes--that must be reserved from
+		the client's total IOVA space for mapping MSI registers when the
+		qcom,iommu-dma property is set to "fastmap".
+
 ** Examples:
 
         /* SMMU with stream matching or stream indexing */
