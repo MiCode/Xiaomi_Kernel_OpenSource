@@ -416,6 +416,7 @@ struct fts_ts_info {
 	struct clk *core_clk;
 	struct clk *iface_clk;
 	atomic_t trusted_touch_initialized;
+	atomic_t trusted_touch_underway;
 	atomic_t trusted_touch_enabled;
 	atomic_t trusted_touch_event;
 	atomic_t trusted_touch_abort_status;
