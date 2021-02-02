@@ -754,7 +754,8 @@ static int mhi_get_er_index(struct mhi_controller *mhi_cntrl,
 	return -ENOENT;
 }
 
-static int mhi_init_bw_scale(struct mhi_controller *mhi_cntrl)
+static int mhi_init_bw_scale(struct mhi_controller *mhi_cntrl,
+			     void __iomem *bw_scale_db)
 {
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
@@ -776,6 +777,8 @@ static int mhi_init_bw_scale(struct mhi_controller *mhi_cntrl)
 		return er_index;
 
 	bw_cfg_offset += BW_SCALE_CFG_OFFSET;
+
+	mhi_priv->bw_scale_db = bw_scale_db;
 
 	/* advertise host support */
 	mhi_write_reg(mhi_cntrl, mhi_cntrl->regs, bw_cfg_offset,
@@ -855,28 +858,25 @@ static int mhi_init_timesync(struct mhi_controller *mhi_cntrl,
 int mhi_misc_init_mmio(struct mhi_controller *mhi_cntrl)
 {
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
-	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
-	void __iomem *base = mhi_cntrl->regs;
-	void __iomem *time_db;
 	u32 chdb_off;
 	int ret;
 
 	/* Read channel db offset */
-	ret = mhi_read_reg_field(mhi_cntrl, base, CHDBOFF, CHDBOFF_CHDBOFF_MASK,
+	ret = mhi_read_reg_field(mhi_cntrl, mhi_cntrl->regs, CHDBOFF,
+				 CHDBOFF_CHDBOFF_MASK,
 				 CHDBOFF_CHDBOFF_SHIFT, &chdb_off);
 	if (ret) {
 		MHI_ERR("Unable to read CHDBOFF register\n");
 		return -EIO;
 	}
 
-	mhi_priv->bw_scale_db = base + chdb_off + (8 * MHI_BW_SCALE_CHAN_DB);
-
-	ret = mhi_init_bw_scale(mhi_cntrl);
+	ret = mhi_init_bw_scale(mhi_cntrl, (mhi_cntrl->regs + chdb_off +
+					    (8 * MHI_BW_SCALE_CHAN_DB)));
 	if (ret)
 		MHI_LOG("BW scale setup failure\n");
 
-	time_db = base + chdb_off + (8 * MHI_TIMESYNC_CHAN_DB);
-	ret = mhi_init_timesync(mhi_cntrl, time_db);
+	ret = mhi_init_timesync(mhi_cntrl, (mhi_cntrl->regs + chdb_off +
+					    (8 * MHI_TIMESYNC_CHAN_DB)));
 	if (ret)
 		MHI_LOG("Time synchronization setup failure\n");
 
