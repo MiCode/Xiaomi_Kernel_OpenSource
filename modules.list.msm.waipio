@@ -83,6 +83,7 @@ usb_f_cdev.ko
 usb_f_diag.ko
 usb_f_mass_storage.ko
 usb_f_qdss.ko
+pci-msm-drv.ko
 sps_drv.ko
 usb_bam.ko
 dcc_v2.ko
