@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3069,8 +3070,11 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		 * Default to rndis over ethernet which loads NDIS6 drivers
 		 * for windows7/windows10 to avoid data stall issues
 		 */
-		if (gsi->rndis_id == RNDIS_ID_UNKNOWN)
+		if (cdev->isMSOS) {
 			gsi->rndis_id = MISC_RNDIS_OVER_ETHERNET;
+		} else {
+			gsi->rndis_id = WIRELESS_CONTROLLER_REMOTE_NDIS;
+		}
 
 		switch (gsi->rndis_id) {
 		default:

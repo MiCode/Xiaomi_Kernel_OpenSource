@@ -7,8 +7,11 @@ obj-$(CONFIG_MSM_NPU) += npu/
 obj-$(CONFIG_MSM_NPU_V2) += npu_v2/
 obj-$(CONFIG_MSM_VIDC_V4L2) += vidc/
 obj-$(CONFIG_MSM_VIDC_3X_V4L2) += vidc_3x/
+ifeq ($(CONFIG_SPECTRA_CAMERA_UPGRADE),y)
+obj-$(CONFIG_SPECTRA_CAMERA) += camera_v3/
+else
 obj-$(CONFIG_SPECTRA_CAMERA) += camera/
+endif
 obj-$(CONFIG_MSM_AIS) += ais/
 obj-$(CONFIG_TSPP) += broadcast/
 obj-$(CONFIG_DVB_MPQ) += dvb/
-obj-$(CONFIG_MSMB_CAMERA) += camera_v2/

@@ -3,6 +3,7 @@
  * drivers/staging/android/ion/ion.c
  *
  * Copyright (C) 2011 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -142,6 +143,13 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 		goto err1;
 	}
 
+	spin_lock(&heap->stat_lock);
+	heap->num_of_buffers++;
+	heap->num_of_alloc_bytes += len;
+	if (heap->num_of_alloc_bytes > heap->alloc_bytes_wm)
+		heap->alloc_bytes_wm = heap->num_of_alloc_bytes;
+	spin_unlock(&heap->stat_lock);
+
 	table = buffer->sg_table;
 	buffer->dev = dev;
 	buffer->size = len;
@@ -190,6 +198,11 @@ void ion_buffer_destroy(struct ion_buffer *buffer)
 		buffer->heap->ops->unmap_kernel(buffer->heap, buffer);
 	}
 	buffer->heap->ops->free(buffer);
+	spin_lock(&buffer->heap->stat_lock);
+	buffer->heap->num_of_buffers--;
+	buffer->heap->num_of_alloc_bytes -= buffer->size;
+	spin_unlock(&buffer->heap->stat_lock);
+
 	kfree(buffer);
 }
 
@@ -1053,7 +1066,7 @@ static const struct dma_buf_ops dma_buf_ops = {
 };
 
 struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
-				 unsigned int flags)
+				 unsigned int flags, int pid_info)
 {
 	struct ion_device *dev = internal_dev;
 	struct ion_buffer *buffer = NULL;
@@ -1061,6 +1074,8 @@ struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 	struct dma_buf *dmabuf;
 	char task_comm[TASK_COMM_LEN];
+	char caller_task_comm[TASK_COMM_LEN];
+	struct task_struct *p = current->group_leader;
 
 	pr_debug("%s: len %zu heap_id_mask %u flags %x\n", __func__,
 		 len, heap_id_mask, flags);
@@ -1074,6 +1089,24 @@ struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
 
 	if (!len)
 		return ERR_PTR(-EINVAL);
+
+	if (pid_info <= 0) {
+		get_task_comm(task_comm, p);
+	} else {
+		get_task_comm(task_comm, p);
+		rcu_read_lock();
+		p = find_task_by_vpid(pid_info);
+		if (p) {
+			get_task_struct(p);
+			rcu_read_unlock();
+			get_task_comm(caller_task_comm, p);
+			put_task_struct(p);
+		} else {
+			rcu_read_unlock();
+			p = current->group_leader;
+			get_task_comm(caller_task_comm, p);
+		}
+	}
 
 	down_read(&dev->lock);
 	plist_for_each_entry(heap, &dev->heaps, node) {
@@ -1092,15 +1125,17 @@ struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
 	if (IS_ERR(buffer))
 		return ERR_CAST(buffer);
 
-	get_task_comm(task_comm, current->group_leader);
-
 	exp_info.ops = &dma_buf_ops;
 	exp_info.size = buffer->size;
 	exp_info.flags = O_RDWR;
 	exp_info.priv = buffer;
-	exp_info.exp_name = kasprintf(GFP_KERNEL, "%s-%s-%d-%s", KBUILD_MODNAME,
+	if (pid_info <= 0) {
+		exp_info.exp_name = kasprintf(GFP_KERNEL, "%s-%s-%d-%s", KBUILD_MODNAME,
 				      heap->name, current->tgid, task_comm);
-
+	} else {
+		exp_info.exp_name = kasprintf(GFP_KERNEL, "%s-%s-%d-%s-caller|%d-%s|", KBUILD_MODNAME,
+				      heap->name, current->tgid, task_comm, pid_info, caller_task_comm);
+	}
 	dmabuf = dma_buf_export(&exp_info);
 	if (IS_ERR(dmabuf)) {
 		_ion_buffer_destroy(buffer);
@@ -1147,7 +1182,7 @@ struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
 	if (!type_valid)
 		return ERR_PTR(-EINVAL);
 
-	return ion_alloc_dmabuf(len, heap_id_mask, flags);
+	return ion_alloc_dmabuf(len, heap_id_mask, flags, 0);
 }
 EXPORT_SYMBOL(ion_alloc);
 
@@ -1156,10 +1191,26 @@ int ion_alloc_fd(size_t len, unsigned int heap_id_mask, unsigned int flags)
 	int fd;
 	struct dma_buf *dmabuf;
 
-	dmabuf = ion_alloc_dmabuf(len, heap_id_mask, flags);
+	dmabuf = ion_alloc_dmabuf(len, heap_id_mask, flags, 0);
 	if (IS_ERR(dmabuf)) {
 		return PTR_ERR(dmabuf);
 	}
+
+	fd = dma_buf_fd(dmabuf, O_CLOEXEC);
+	if (fd < 0)
+		dma_buf_put(dmabuf);
+
+	return fd;
+}
+
+int ion_alloc_fd_with_caller_pid(size_t len, unsigned int heap_id_mask, unsigned int flags, int pid_info)
+{
+	int fd;
+	struct dma_buf *dmabuf;
+
+	dmabuf = ion_alloc_dmabuf(len, heap_id_mask, flags, pid_info);
+	if (IS_ERR(dmabuf))
+		return PTR_ERR(dmabuf);
 
 	fd = dma_buf_fd(dmabuf, O_CLOEXEC);
 	if (fd < 0)
@@ -1221,6 +1272,36 @@ static const struct file_operations ion_fops = {
 #endif
 };
 
+static int ion_debug_heap_show(struct seq_file *s, void *unused)
+{
+	struct ion_heap *heap = s->private;
+
+	seq_puts(s, "----------------------------------------------------\n");
+	seq_printf(s, "%25s %16zu\n", "num_of_alloc_bytes ", heap->num_of_alloc_bytes);
+	seq_printf(s, "%25s %16zu\n", "num_of_buffers ", heap->num_of_buffers);
+	seq_printf(s, "%25s %16zu\n", "alloc_bytes_wm ", heap->alloc_bytes_wm);
+	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
+		seq_printf(s, "%25s %16zu\n", "deferred free ", heap->free_list_size);
+	seq_puts(s, "----------------------------------------------------\n");
+
+	if (heap->debug_show)
+		heap->debug_show(heap, s, unused);
+
+	return 0;
+}
+
+static int ion_debug_heap_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ion_debug_heap_show, inode->i_private);
+}
+
+static const struct file_operations debug_heap_fops = {
+	.open = ion_debug_heap_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 static int debug_shrink_set(void *data, u64 val)
 {
 	struct ion_heap *heap = data;
@@ -1259,12 +1340,15 @@ DEFINE_SIMPLE_ATTRIBUTE(debug_shrink_fops, debug_shrink_get,
 void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 {
 	struct dentry *debug_file;
+	struct dentry *heap_root;
+	char debug_name[64];
 
 	if (!heap->ops->allocate || !heap->ops->free)
 		pr_err("%s: can not add heap with invalid ops struct.\n",
 		       __func__);
 
 	spin_lock_init(&heap->free_lock);
+	spin_lock_init(&heap->stat_lock);
 	heap->free_list_size = 0;
 
 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
@@ -1274,6 +1358,45 @@ void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 		ion_heap_init_shrinker(heap);
 
 	heap->dev = dev;
+	heap->num_of_buffers = 0;
+	heap->num_of_alloc_bytes = 0;
+	heap->alloc_bytes_wm = 0;
+
+	debug_file = debugfs_create_file(heap->name, 0664,
+					dev->heaps_debug_root, heap,
+					&debug_heap_fops);
+
+	if (!debug_file) {
+		char buf[256], *path;
+
+		path = dentry_path(dev->heaps_debug_root, buf, 256);
+		pr_err("Failed to create heap debugfs at %s/%s\n",
+			path, heap->name);
+	}
+
+	heap_root = debugfs_create_dir(heap->name, dev->debug_root);
+	debugfs_create_u64("num_of_buffers",
+			   0444, heap_root,
+			   &heap->num_of_buffers);
+	debugfs_create_u64("num_of_alloc_bytes",
+			   0444,
+			   heap_root,
+			   &heap->num_of_alloc_bytes);
+	debugfs_create_u64("alloc_bytes_wm",
+			   0444,
+			   heap_root,
+			   &heap->alloc_bytes_wm);
+
+	if (heap->shrinker.count_objects &&
+	    heap->shrinker.scan_objects) {
+		snprintf(debug_name, 64, "%s_shrink", heap->name);
+		debugfs_create_file(debug_name,
+				    0644,
+				    heap_root,
+				    heap,
+				    &debug_shrink_fops);
+	}
+
 	down_write(&dev->lock);
 	/*
 	 * use negative heap->id to reverse the priority -- when traversing
@@ -1281,22 +1404,6 @@ void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 	 */
 	plist_node_init(&heap->node, -heap->id);
 	plist_add(&heap->node, &dev->heaps);
-
-	if (heap->shrinker.count_objects && heap->shrinker.scan_objects) {
-		char debug_name[64];
-
-		snprintf(debug_name, 64, "%s_shrink", heap->name);
-		debug_file = debugfs_create_file(
-			debug_name, 0644, dev->debug_root, heap,
-			&debug_shrink_fops);
-		if (!debug_file) {
-			char buf[256], *path;
-
-			path = dentry_path(dev->debug_root, buf, 256);
-			pr_err("Failed to create heap shrinker debugfs at %s/%s\n",
-			       path, debug_name);
-		}
-	}
 
 	dev->heap_cnt++;
 	up_write(&dev->lock);
@@ -1381,6 +1488,11 @@ struct ion_device *ion_device_create(void)
 	idev->debug_root = debugfs_create_dir("ion", NULL);
 	if (!idev->debug_root) {
 		pr_err("ion: failed to create debugfs root directory.\n");
+		goto debugfs_done;
+	}
+	idev->heaps_debug_root = debugfs_create_dir("heaps", idev->debug_root);
+	if (!idev->heaps_debug_root) {
+		pr_err("ion: failed to create debugfs heaps directory.\n");
 		goto debugfs_done;
 	}
 

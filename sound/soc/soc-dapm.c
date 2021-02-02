@@ -2,6 +2,7 @@
  * soc-dapm.c  --  ALSA SoC Dynamic Audio Power Management
  *
  * Copyright 2005 Wolfson Microelectronics PLC.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Liam Girdwood <lrg@slimlogic.co.uk>
  *
  *  This program is free software; you can redistribute  it and/or modify it
@@ -1164,6 +1165,10 @@ static __always_inline int is_connected_ep(struct snd_soc_dapm_widget *widget,
 	struct snd_soc_dapm_path *path;
 	int con = 0;
 
+        if (NULL == widget) {
+                printk("is_connected_input_ep: widget is null");
+                return 0;
+        }
 	if (widget->endpoints[dir] >= 0)
 		return widget->endpoints[dir];
 

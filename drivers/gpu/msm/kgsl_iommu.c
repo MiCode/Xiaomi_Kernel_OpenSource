@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -854,8 +855,6 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	if (pt->name == KGSL_MMU_SECURE_PT)
 		ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
 
-	ctx->fault = 1;
-
 	if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
 		&adreno_dev->ft_pf_policy) &&
 		(flags & IOMMU_FAULT_TRANSACTION_STALLED)) {
@@ -947,6 +946,9 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 		sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx, SCTLR);
 		sctlr_val &= ~(0x1 << KGSL_IOMMU_SCTLR_CFIE_SHIFT);
 		KGSL_IOMMU_SET_CTX_REG(ctx, SCTLR, sctlr_val);
+
+		 /* This is used by reset/recovery path */
+		ctx->stalled_on_fault = true;
 
 		adreno_set_gpu_fault(adreno_dev, ADRENO_IOMMU_PAGE_FAULT);
 		/* Go ahead with recovery*/
@@ -2076,7 +2078,7 @@ static void kgsl_iommu_clear_fsr(struct kgsl_mmu *mmu)
 	struct kgsl_iommu_context  *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 	unsigned int sctlr_val;
 
-	if (ctx->default_pt != NULL) {
+	if (ctx->default_pt != NULL && ctx->stalled_on_fault) {
 		kgsl_iommu_enable_clk(mmu);
 		KGSL_IOMMU_SET_CTX_REG(ctx, FSR, 0xffffffff);
 		/*
@@ -2093,6 +2095,7 @@ static void kgsl_iommu_clear_fsr(struct kgsl_mmu *mmu)
 		 */
 		wmb();
 		kgsl_iommu_disable_clk(mmu);
+		ctx->stalled_on_fault = false;
 	}
 }
 
@@ -2100,36 +2103,31 @@ static void kgsl_iommu_pagefault_resume(struct kgsl_mmu *mmu)
 {
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
-	unsigned int fsr_val;
 
-	if (ctx->default_pt != NULL && ctx->fault) {
-		while (1) {
-			KGSL_IOMMU_SET_CTX_REG(ctx, FSR, 0xffffffff);
-			/*
-			 * Make sure the above register write
-			 * is not reordered across the barrier
-			 * as we use writel_relaxed to write it.
-			 */
-			wmb();
+	if (ctx->default_pt != NULL && ctx->stalled_on_fault) {
+		/*
+		 * This will only clear fault bits in FSR. FSR.SS will still
+		 * be set. Writing to RESUME (below) is the only way to clear
+		 * FSR.SS bit.
+		 */
+		KGSL_IOMMU_SET_CTX_REG(ctx, FSR, 0xffffffff);
+		/*
+		 * Make sure the above register write is not reordered across
+		 * the barrier as we use writel_relaxed to write it.
+		 */
+		wmb();
 
-			/*
-			 * Write 1 to RESUME.TnR to terminate the
-			 * stalled transaction.
-			 */
-			KGSL_IOMMU_SET_CTX_REG(ctx, RESUME, 1);
-			/*
-			 * Make sure the above register writes
-			 * are not reordered across the barrier
-			 * as we use writel_relaxed to write them
-			 */
-			wmb();
+		/*
+		 * Write 1 to RESUME.TnR to terminate the stalled transaction.
+		 * This will also allow the SMMU to process new transactions.
+		 */
+		KGSL_IOMMU_SET_CTX_REG(ctx, RESUME, 1);
+		/*
+		 * Make sure the above register writes are not reordered across
+		 * the barrier as we use writel_relaxed to write them.
+		 */
+		wmb();
 
-			udelay(5);
-			fsr_val = KGSL_IOMMU_GET_CTX_REG(ctx, FSR);
-			if (!(fsr_val & (1 << KGSL_IOMMU_FSR_SS_SHIFT)))
-				break;
-		}
-		ctx->fault = 0;
 	}
 }
 

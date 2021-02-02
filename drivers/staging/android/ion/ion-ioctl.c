@@ -1,6 +1,7 @@
 /*
  *
  * Copyright (C) 2011 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -85,10 +86,17 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case ION_IOC_ALLOC:
 	{
 		int fd;
+		if (data.allocation.unused > 0) {
+			fd = ion_alloc_fd_with_caller_pid(
+				data.allocation.len,
+				data.allocation.heap_id_mask,
+				data.allocation.flags, data.allocation.unused);
+		} else {
+			fd = ion_alloc_fd(data.allocation.len,
+					  data.allocation.heap_id_mask,
+					  data.allocation.flags);
+		}
 
-		fd = ion_alloc_fd(data.allocation.len,
-				  data.allocation.heap_id_mask,
-				  data.allocation.flags);
 		if (fd < 0)
 			return fd;
 

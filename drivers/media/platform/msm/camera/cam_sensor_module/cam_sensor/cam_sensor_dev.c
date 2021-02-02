@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -106,6 +107,7 @@ static struct v4l2_subdev_ops cam_sensor_subdev_ops = {
 static const struct v4l2_subdev_internal_ops cam_sensor_internal_ops = {
 	.close = cam_sensor_subdev_close,
 };
+
 
 static int cam_sensor_init_subdev_params(struct cam_sensor_ctrl_t *s_ctrl)
 {
@@ -336,6 +338,8 @@ static int32_t cam_sensor_driver_platform_probe(
 
 	s_ctrl->sensordata->power_info.dev = &pdev->dev;
 	platform_set_drvdata(pdev, s_ctrl);
+	v4l2_set_subdevdata(&(s_ctrl->v4l2_dev_str.sd), s_ctrl);
+
 	s_ctrl->sensor_state = CAM_SENSOR_INIT;
 
 	return rc;

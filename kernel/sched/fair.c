@@ -202,6 +202,7 @@ unsigned int sched_capacity_margin_down[NR_CPUS] = {
 unsigned int sysctl_sched_min_task_util_for_boost = 51;
 /* 0.68ms default for 20ms window size scaled to 1024 */
 unsigned int sysctl_sched_min_task_util_for_colocation = 35;
+bool sched_prefer_idle_on_input;
 #endif
 static unsigned int __maybe_unused sched_small_task_threshold = 102;
 
@@ -8189,6 +8190,15 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		 */
 		prefer_idle = sched_feat(EAS_PREFER_IDLE) ?
 				(schedtune_prefer_idle(p) > 0) : 0;
+
+		/*
+		 * when input boost is active, enable need_idle for
+		 * all tasks. we use need_idle instead of prefer_idle
+		 * to avoid tasks spilling on to the other cluster just
+		 * because this cluster did not have idle CPUs.
+		 */
+		if (sched_prefer_idle_on_input)
+			need_idle = true;
 
 		eenv->max_cpu_count = EAS_CPU_BKP + 1;
 

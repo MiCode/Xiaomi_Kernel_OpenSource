@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 Google Limited.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file is released under the GPL.
  */
@@ -1247,8 +1248,7 @@ static void dm_bow_status(struct dm_target *ti, status_type_t type,
 	}
 }
 
-int dm_bow_prepare_ioctl(struct dm_target *ti, struct block_device **bdev,
-			 fmode_t *mode)
+int dm_bow_prepare_ioctl(struct dm_target *ti, struct block_device **bdev)
 {
 	struct bow_context *bc = ti->private;
 	struct dm_dev *dev = bc->dev;

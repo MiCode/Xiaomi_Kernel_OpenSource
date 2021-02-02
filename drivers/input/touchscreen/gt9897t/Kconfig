@@ -1,0 +1,33 @@
+config TOUCHSCREEN_GOODIX_BRL
+	tristate "Goodix 9897 Touchscreen"
+	default n
+	depends on SPI_MASTER
+	help
+	  Say Y here if you have Goodix series I2C touchscreen.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.
+
+config TOUCHSCREEN_GOODIX_TS_TOOLS
+	tristate "Goodix debug tools support"
+	default n
+	depends on TOUCHSCREEN_GOODIX_BRL
+	help
+	  Say Y here to enable debug tools
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.
+
+config TOUCHSCREEN_GOODIX_TS_GESTURE
+	tristate "Goodix gesture support"
+	default n
+	depends on TOUCHSCREEN_GOODIX_BRL
+	help
+	  Say Y to enable gesture
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.
+

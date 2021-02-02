@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,12 +17,10 @@
 #include "cam_hw.h"
 #include "cam_ife_csid_hw_intf.h"
 #include "cam_ife_csid_soc.h"
-#include "cam_csid_ppi_core.h"
 
 #define CAM_IFE_CSID_HW_RES_MAX      4
 #define CAM_IFE_CSID_CID_RES_MAX     4
 #define CAM_IFE_CSID_RDI_MAX         4
-#define CAM_CSID_WORKQ_NUM_TASK      10
 
 #define CSID_CSI2_RX_INFO_PHY_DL0_EOT_CAPTURED    BIT(0)
 #define CSID_CSI2_RX_INFO_PHY_DL1_EOT_CAPTURED    BIT(1)
@@ -81,7 +80,6 @@
 #define CSID_DEBUG_ENABLE_CPHY_PKT_CAPTURE        BIT(6)
 #define CSID_DEBUG_ENABLE_HBI_VBI_INFO            BIT(7)
 #define CSID_DEBUG_DISABLE_EARLY_EOF              BIT(8)
-#define CSID_DEBUG_RECOVERY_ENABLED               BIT(24)
 
 /* enum cam_csid_path_halt_mode select the path halt mode control */
 enum cam_csid_path_halt_mode {
@@ -100,22 +98,6 @@ enum cam_csid_path_timestamp_stb_sel {
 	CSID_TIMESTAMP_STB_POST_HALT,
 	CSID_TIMESTAMP_STB_POST_IRQ,
 	CSID_TIMESTAMP_STB_MAX,
-};
-
-/**
- *enum cam_csid_irq_status - csid irq status to keep track
- * various status registers
- */
-enum cam_csid_irq_status {
-	CSID_IRQ_STATUS_TOP,
-	CSID_IRQ_STATUS_RX,
-	CSID_IRQ_STATUS_IPP,
-	CSID_IRQ_STATUS_PPP,
-	CSID_IRQ_STATUS_RDI0,
-	CSID_IRQ_STATUS_RDI1,
-	CSID_IRQ_STATUS_RDI2,
-	CSID_IRQ_STATUS_RDI3,
-	CSID_IRQ_STATUS_MAX,
 };
 
 struct cam_ife_csid_pxl_reg_offset {
@@ -160,6 +142,10 @@ struct cam_ife_csid_pxl_reg_offset {
 	uint32_t  early_eof_en_shift_val;
 	uint32_t  quad_cfa_bin_en_shift_val;
 	uint32_t  ccif_violation_en;
+#ifdef CONFIG_CSID_CAMERA
+	uint32_t  binning_enable_shift_val;
+	 uint32_t  binning_mode_shift_val;
+#endif
 };
 
 struct cam_ife_csid_rdi_reg_offset {
@@ -328,10 +314,6 @@ struct cam_ife_csid_common_reg_offset {
 	uint32_t ppp_irq_mask_all;
 	uint32_t measure_en_hbi_vbi_cnt_mask;
 	uint32_t format_measure_en_val;
-	uint32_t format_measure_width_shift_val;
-	uint32_t format_measure_width_mask_val;
-	uint32_t format_measure_height_shift_val;
-	uint32_t format_measure_height_mask_val;
 };
 
 /**
@@ -420,18 +402,6 @@ struct cam_ife_csid_cid_data {
 	uint32_t                     init_cnt;
 };
 
-/**
- * struct cam_csid_hw_work_data- work data for csid
- * Later other fields can be added to this data
- * @evt_type   : Event type from CSID
- * @irq_status : IRQ Status register
- * @ctx        : pointer to ctx
- */
-struct cam_csid_hw_work_data {
-	uint32_t           evt_type;
-	uint32_t           irq_status[CSID_IRQ_STATUS_MAX];
-	void              *ctx;
-};
 
 /**
  * struct cam_ife_csid_path_cfg- csid path configuration details. It is stored
@@ -456,9 +426,6 @@ struct cam_csid_hw_work_data {
  * @master_idx:     For Slave reservation, Give master IFE instance Index.
  *                  Slave will synchronize with master Start and stop operations
  * @clk_rate        Clock rate
- * @usage_type      Usage type ie dual or single ife usecase
- * @init_frame_drop init frame drop value. In dual ife case rdi need to drop one
- *                  more frame than pix.
  *
  */
 struct cam_ife_csid_path_cfg {
@@ -476,9 +443,11 @@ struct cam_ife_csid_path_cfg {
 	uint32_t                        height;
 	enum cam_isp_hw_sync_mode       sync_mode;
 	uint32_t                        master_idx;
+#ifdef CONFIG_CSID_CAMERA
+	uint32_t                        enable_binning;
+	uint32_t                        binning_mode;
+#endif
 	uint64_t                        clk_rate;
-	uint32_t                        usage_type;
-	uint32_t                        init_frame_drop;
 };
 
 /**
@@ -505,33 +474,11 @@ struct cam_ife_csid_path_cfg {
  * @csid_debug:               csid debug information to enable the SOT, EOT,
  *                            SOF, EOF, measure etc in the csid hw
  * @clk_rate                  Clock rate
- * @ipp_path                  ipp path configuration
- * @ppp_path                  ppp path configuration
- * @rdi_path                  RDI path configuration
- * @hbi                       Horizontal blanking
- * @vbi                       Vertical blanking
  * @sof_irq_triggered:        Flag is set on receiving event to enable sof irq
  *                            incase of SOF freeze.
  * @irq_debug_cnt:            Counter to track sof irq's when above flag is set.
  * @error_irq_count           Error IRQ count, if continuous error irq comes
  *                            need to stop the CSID and mask interrupts.
- * @device_enabled            Device enabled will set once CSID powered on and
- *                            initial configuration are done.
- * @lock_state                csid spin lock
- * @dual_usage                usage type, dual ife or single ife
- * @init_frame_drop           Initial frame drop number
- * @res_sof_cnt               path resource sof count value. it used for initial
- *                            frame drop
- * @prev_boot_timestamp       first bootime stamp at the start
- * @prev_qtimer_ts            stores csid timestamp
- * @ppi_hw_intf               interface to ppi hardware
- * @ppi_enabled               flag to specify if the hardware has ppi bridge
- *                            or not
- * @fatal_err_detected        flag to indicate fatal errror is reported
- * @ctx                       Hw manager context
- * @work                      Work queue to handle CSID IRQ work
- * @work_data                 Work data to be passed to work queue
- * @event_cb                  Callback to hw manager if CSID event reported
  *
  */
 struct cam_ife_csid_hw {
@@ -555,28 +502,11 @@ struct cam_ife_csid_hw {
 	struct completion    csid_rdin_complete[CAM_IFE_CSID_RDI_MAX];
 	uint64_t                         csid_debug;
 	uint64_t                         clk_rate;
-	struct cam_isp_sensor_dimension  ipp_path_config;
-	struct cam_isp_sensor_dimension  ppp_path_config;
-	struct cam_isp_sensor_dimension  rdi_path_config[4];
-	uint32_t                         hbi;
-	uint32_t                         vbi;
 	bool                             sof_irq_triggered;
 	uint32_t                         irq_debug_cnt;
 	uint32_t                         error_irq_count;
 	uint32_t                         device_enabled;
 	spinlock_t                       lock_state;
-	uint32_t                         dual_usage;
-	uint32_t                         init_frame_drop;
-	uint32_t                         res_sof_cnt[CAM_IFE_PIX_PATH_RES_MAX];
-	uint64_t                         prev_boot_timestamp;
-	uint64_t                         prev_qtimer_ts;
-	struct cam_hw_intf              *ppi_hw_intf[CAM_CSID_PPI_HW_MAX];
-	bool                             ppi_enable;
-	bool                             fatal_err_detected;
-	void                            *ctx;
-	struct cam_req_mgr_core_workq   *work;
-	struct cam_csid_hw_work_data     work_data[CAM_CSID_WORKQ_NUM_TASK];
-	cam_hw_mgr_event_cb_func         event_cb;
 };
 
 int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -732,7 +733,7 @@ static int qpnp_rtc_freeze(struct device *dev)
 }
 
 static const struct dev_pm_ops qpnp_rtc_pm_ops = {
-	.freeze = qpnp_rtc_freeze,
+        .freeze = qpnp_rtc_freeze,
 	.restore = qpnp_rtc_restore,
 	.thaw = qpnp_rtc_restore,
 };
@@ -752,7 +753,7 @@ static struct platform_driver qpnp_rtc_driver = {
 		.name		= "qcom,qpnp-rtc",
 		.owner		= THIS_MODULE,
 		.of_match_table	= spmi_match_table,
-		.pm		= &qpnp_rtc_pm_ops,
+		.pm     = &qpnp_rtc_pm_ops,
 	},
 };
 

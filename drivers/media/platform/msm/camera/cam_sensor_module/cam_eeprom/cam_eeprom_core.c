@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +21,14 @@
 #include "cam_common_util.h"
 #include "cam_packet_util.h"
 
+#include <soc/qcom/socinfo.h>
+
+extern uint32_t hw_version_platform;
+
+#ifdef CONFIG_LDO_WL2866D
+extern int wl2866d_camera_power_up_eeprom(void);
+extern int wl2866d_camera_power_down_eeprom(void);
+#endif
 /**
  * cam_eeprom_read_memory() - read map data into buffer
  * @e_ctrl:     eeprom control struct
@@ -46,6 +55,8 @@ static int cam_eeprom_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
 
 	eb_info = (struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
 
+	CAM_DBG(CAM_EEPROM, "hw_version_platform = %d", hw_version_platform);
+
 	for (j = 0; j < block->num_map; j++) {
 		CAM_DBG(CAM_EEPROM, "slave-addr = 0x%X", emap[j].saddr);
 		if (emap[j].saddr) {
@@ -66,7 +77,22 @@ static int cam_eeprom_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
 			i2c_reg_settings.size = 1;
 			i2c_reg_array.reg_addr = emap[j].page.addr;
 			i2c_reg_array.reg_data = emap[j].page.data;
-			i2c_reg_array.delay = emap[j].page.delay;
+			/**
+			 * toco s5k5e9 read otp need delay 1ms after write 0x0A00,
+			 * hardcode here temporary for the kernel driver may add
+			 * delay for all write operation which cause read failed.
+			 **/
+			if (i2c_reg_array.reg_addr == 0x0A00 && i2c_reg_array.reg_data == 0x01
+					&& (hw_version_platform == HARDWARE_PLATFORM_TOCO)) {
+				CAM_ERR(CAM_EEPROM, "add 1ms delay for otp read.");
+				i2c_reg_array.delay = 1200;
+			} else if (i2c_reg_array.reg_addr == 0x0100 && i2c_reg_array.reg_data == 0x01
+					&& (hw_version_platform == HARDWARE_PLATFORM_TOCO)) {
+				CAM_ERR(CAM_EEPROM, "add 50ms delay for otp read.");
+				i2c_reg_array.delay = 52000;
+			} else {
+				i2c_reg_array.delay = emap[j].page.delay;
+			}
 			i2c_reg_settings.reg_setting = &i2c_reg_array;
 			rc = camera_io_dev_write(&e_ctrl->io_master_info,
 				&i2c_reg_settings);
@@ -113,7 +139,7 @@ static int cam_eeprom_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
 				emap[j].mem.addr_type,
 				emap[j].mem.data_type,
 				emap[j].mem.valid_size);
-			if (rc < 0) {
+			if (rc) {
 				CAM_ERR(CAM_EEPROM, "read failed rc %d",
 					rc);
 				return rc;
@@ -223,6 +249,7 @@ static int cam_eeprom_power_down(struct cam_eeprom_ctrl_t *e_ctrl)
 		CAM_ERR(CAM_EEPROM, "failed: power_info %pK", power_info);
 		return -EINVAL;
 	}
+
 	rc = cam_sensor_util_power_down(power_info, soc_info);
 	if (rc) {
 		CAM_ERR(CAM_EEPROM, "power down the core is failed:%d", rc);
@@ -356,7 +383,7 @@ static int32_t cam_eeprom_get_dev_handle(struct cam_eeprom_ctrl_t *e_ctrl,
 	bridge_params.v4l2_sub_dev_flag = 0;
 	bridge_params.media_entity_flag = 0;
 	bridge_params.priv = e_ctrl;
-	bridge_params.dev_id = CAM_EEPROM;
+
 	eeprom_acq_dev.device_handle =
 		cam_create_device_hdl(&bridge_params);
 	e_ctrl->bridge_intf.device_hdl = eeprom_acq_dev.device_handle;
@@ -438,32 +465,18 @@ static int32_t cam_eeprom_parse_memory_map(
 	else if (cmm_hdr->cmd_type == CAMERA_SENSOR_CMD_TYPE_WAIT)
 		validate_size = sizeof(struct cam_cmd_unconditional_wait);
 
-	if (remain_buf_len < validate_size ||
-	    *num_map >= (MSM_EEPROM_MAX_MEM_MAP_CNT *
-		MSM_EEPROM_MEMORY_MAP_MAX_SIZE)) {
+	if (remain_buf_len < validate_size) {
 		CAM_ERR(CAM_EEPROM, "not enough buffer");
 		return -EINVAL;
 	}
+
 	switch (cmm_hdr->cmd_type) {
 	case CAMERA_SENSOR_CMD_TYPE_I2C_RNDM_WR:
 		i2c_random_wr = (struct cam_cmd_i2c_random_wr *)cmd_buf;
-
-		if (i2c_random_wr->header.count == 0 ||
-		    i2c_random_wr->header.count >= MSM_EEPROM_MAX_MEM_MAP_CNT ||
-		    (size_t)*num_map >= ((MSM_EEPROM_MAX_MEM_MAP_CNT *
-				MSM_EEPROM_MEMORY_MAP_MAX_SIZE) -
-				i2c_random_wr->header.count)) {
-			CAM_ERR(CAM_EEPROM, "OOB Error");
-			return -EINVAL;
-		}
 		cmd_length_in_bytes   = sizeof(struct cam_cmd_i2c_random_wr) +
 			((i2c_random_wr->header.count - 1) *
 			sizeof(struct i2c_random_wr_payload));
 
-		if (cmd_length_in_bytes > remain_buf_len) {
-			CAM_ERR(CAM_EEPROM, "Not enough buffer remaining");
-			return -EINVAL;
-		}
 		for (cnt = 0; cnt < (i2c_random_wr->header.count);
 			cnt++) {
 			map[*num_map + cnt].page.addr =
@@ -486,11 +499,6 @@ static int32_t cam_eeprom_parse_memory_map(
 		i2c_cont_rd = (struct cam_cmd_i2c_continuous_rd *)cmd_buf;
 		cmd_length_in_bytes = sizeof(struct cam_cmd_i2c_continuous_rd);
 
-		if (i2c_cont_rd->header.count >= U32_MAX - data->num_data) {
-			CAM_ERR(CAM_EEPROM,
-				"int overflow on eeprom memory block");
-			return -EINVAL;
-		}
 		map[*num_map].mem.addr = i2c_cont_rd->reg_addr;
 		map[*num_map].mem.addr_type = i2c_cont_rd->header.addr_type;
 		map[*num_map].mem.data_type = i2c_cont_rd->header.data_type;
@@ -892,7 +900,13 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 		rc = cam_eeprom_read_memory(e_ctrl, &e_ctrl->cal_data);
 		if (rc) {
 			CAM_ERR(CAM_EEPROM,
-				"read_eeprom_memory failed");
+				"read_eeprom_memory failed, rc = %d", rc);
+			cam_destroy_device_hdl(e_ctrl->bridge_intf.device_hdl);
+			CAM_ERR(CAM_EEPROM, "destroying the device hdl");
+
+			e_ctrl->bridge_intf.device_hdl = -1;
+			e_ctrl->bridge_intf.link_hdl = -1;
+			e_ctrl->bridge_intf.session_hdl = -1;
 			goto power_down;
 		}
 
@@ -932,7 +946,7 @@ error:
 	vfree(e_ctrl->cal_data.map);
 	e_ctrl->cal_data.num_data = 0;
 	e_ctrl->cal_data.num_map = 0;
-	e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
+	e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;
 release_buf:
 	if (cam_mem_put_cpu_buf(dev_config.packet_handle))
 		CAM_WARN(CAM_EEPROM, "Put cpu buffer failed : 0x%x",
@@ -1057,7 +1071,7 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 	case CAM_CONFIG_DEV:
 		rc = cam_eeprom_pkt_parse(e_ctrl, arg);
 		if (rc) {
-			CAM_ERR(CAM_EEPROM, "Failed in eeprom pkt Parsing");
+			CAM_ERR(CAM_EEPROM, "Failed in eeprom pkt Parsing, rc %d", rc);
 			goto release_mutex;
 		}
 		break;

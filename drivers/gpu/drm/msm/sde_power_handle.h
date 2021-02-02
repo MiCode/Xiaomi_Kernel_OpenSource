@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +25,10 @@
 
 #define SDE_POWER_HANDLE_CONT_SPLASH_BUS_IB_QUOTA	3000000000ULL
 #define SDE_POWER_HANDLE_CONT_SPLASH_BUS_AB_QUOTA	3000000000ULL
+
+#define SDE_POWER_HANDLE_MNOC_OVERRIDE_IB_QUOTA    2500000000
+#define SDE_POWER_HANDLE_LLCC_OVERRIDE_IB_QUOTA    400000000
+#define SDE_POWER_HANDLE_EBI_OVERRIDE_IB_QUOTA     1600000000
 
 #include <linux/sde_io_util.h>
 #include <soc/qcom/cx_ipeak.h>

@@ -2,6 +2,7 @@
  * kernel/power/main.c - PM subsystem core functionality.
  *
  * Copyright (c) 2003 Patrick Mochel
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2003 Open Source Development Lab
  *
  * This file is released under the GPLv2
@@ -597,6 +598,7 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 power_attr(state);
+
 
 #ifdef CONFIG_PM_SLEEP
 /*

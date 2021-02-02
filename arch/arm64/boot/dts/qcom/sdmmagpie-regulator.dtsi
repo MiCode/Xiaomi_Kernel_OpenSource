@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,6 +146,19 @@
 		};
 	};
 
+    rpmh-regulator-smpa5 {
+        compatible = "qcom,rpmh-vrm-regulator";
+        mboxes = <&apps_rsc 0>;
+        qcom,resource-name = "smpa5";
+        S5A: pm6150_s5: regulator-pm6150-s5 {
+            regulator-name = "pm6150_s5";
+            qcom,set = <RPMH_REGULATOR_SET_ALL>;
+            regulator-min-microvolt = <1744000>;
+            regulator-max-microvolt = <2040000>;
+            qcom,init-voltage = <1744000>;
+        };
+    };
+
 	rpmh-regulator-smpc8 {
 		compatible = "qcom,rpmh-vrm-regulator";
 		mboxes = <&apps_rsc 0>;
@@ -290,7 +304,7 @@
 		L6A: pm6150_l6: regulator-pm6150-l6 {
 			regulator-name = "pm6150_l6";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <1096000>;
+			regulator-min-microvolt = <1050000>;
 			regulator-max-microvolt = <1304000>;
 			qcom,init-voltage = <1096000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
@@ -480,9 +494,9 @@
 		L16A: pm6150_l16: regulator-pm6150-l16 {
 			regulator-name = "pm6150_l16";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <2424000>;
+			regulator-min-microvolt = <1800000>; //Modified by qudao1@xiaomi.com
 			regulator-max-microvolt = <2976000>;
-			qcom,init-voltage = <2424000>;
+			qcom,init-voltage = <1800000>; //Modified by qudao1@xiaomi.com
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};
 	};

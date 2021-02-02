@@ -87,6 +87,9 @@ struct dual_role_phy_instance {
 
 	struct device dev;
 	struct work_struct changed_work;
+
+	/* for MI smart inter-charge */
+	bool reverse_flag;
 };
 
 #if IS_ENABLED(CONFIG_DUAL_ROLE_USB_INTF)

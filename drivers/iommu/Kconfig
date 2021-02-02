@@ -493,3 +493,8 @@ config QCOM_IOMMU
 	  Support for IOMMU on certain Qualcomm SoCs.
 
 endif # IOMMU_SUPPORT
+
+
+menuconfig NO_DELAY_DMA_UNMAP_CAMERA
+	bool "Support DMA_ATTR_NO_DELAYED_UNMAP for Camera"
+	default n
