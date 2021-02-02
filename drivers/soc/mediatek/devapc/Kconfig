@@ -1,11 +1,3 @@
-config MTK_DEVAPC
-	tristate "Mediatek Device APC Support"
-	help
-	  Device APC is a kernel driver controlling internal device security.
-	  If someone tries to access a device, which is not allowed by the
-	  device, it cannot access the device and will get a violation
-	  interrupt. Device APC prevents malicious access to internal devices.
-
 config DEVAPC_ARCH_MULTI
 	tristate "Mediatek Device APC driver architecture multi"
 	help
