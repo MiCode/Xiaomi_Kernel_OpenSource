@@ -28,10 +28,9 @@ static struct mem_buf_vm vm_ ## _lname = {	\
 	.name = "qcom," #_lname,		\
 	.vmid = VMID_ ## _uname,		\
 	.hh_id = HH_VM_MAX,			\
-	.peripheral = true,			\
+	.allowed_api = MEM_BUF_API_HYP_ASSIGN,	\
 }
 
-PERIPHERAL_VM(HLOS, hlos);
 PERIPHERAL_VM(CP_TOUCH, cp_touch);
 PERIPHERAL_VM(CP_BITSTREAM, cp_bitstream);
 PERIPHERAL_VM(CP_PIXEL, cp_pixel);
@@ -44,22 +43,21 @@ PERIPHERAL_VM(CP_SPSS_SP_SHARED, cp_spss_sp_shared);
 PERIPHERAL_VM(CP_SPSS_HLOS_SHARED, cp_spss_hlos_shared);
 PERIPHERAL_VM(CP_CDSP, cp_cdsp);
 
-static struct mem_buf_vm vm_primary_vm = {
-	.name = "qcom,primary_vm",
-	/* Vmid via dynamic lookup */
-	.hh_id = HH_PRIMARY_VM,
-	.peripheral = false,
-};
-
 static struct mem_buf_vm vm_trusted_vm = {
 	.name = "qcom,trusted_vm",
 	/* Vmid via dynamic lookup */
 	.hh_id = HH_TRUSTED_VM,
-	.peripheral = false,
+	.allowed_api = MEM_BUF_API_HAVEN,
+};
+
+static struct mem_buf_vm vm_hlos = {
+	.name = "qcom,hlos",
+	.vmid = VMID_HLOS,
+	.hh_id = HH_VM_MAX,
+	.allowed_api = MEM_BUF_API_HYP_ASSIGN | MEM_BUF_API_HAVEN,
 };
 
 struct mem_buf_vm *pdata_array[] = {
-	&vm_primary_vm,
 	&vm_trusted_vm,
 	&vm_hlos,
 	&vm_cp_touch,
@@ -129,31 +127,32 @@ static struct mem_buf_vm *find_vm_by_vmid(int vmid)
 	return ERR_PTR(-EINVAL);
 }
 
-int mem_buf_vm_supports_handle(struct sg_table *sgt, int *vmids,
-		unsigned int nr_acl_entries)
+int mem_buf_vm_get_backend_api(int *vmids, unsigned int nr_acl_entries)
 {
-	int i;
 	struct mem_buf_vm *vm;
-	bool peripheral = false;
+	u32 allowed_api = U32_MAX;
+	int i;
 
 	for (i = 0; i < nr_acl_entries; i++) {
 		vm = find_vm_by_vmid(vmids[i]);
-		if (IS_ERR(vm))
+		if (IS_ERR(vm)) {
+			pr_err_ratelimited("No vm with vmid=0x%x\n", vmids[i]);
 			return PTR_ERR(vm);
-
-		if (i && peripheral != vm->peripheral) {
-			pr_err_ratelimited("Mixed peripheral and cpu vms\n");
-			return -EINVAL;
 		}
-		peripheral = vm->peripheral;
+
+		allowed_api &= vm->allowed_api;
 	}
-	if (peripheral)
-		return false;
-	if (sgt->orig_nents != 1) {
-		pr_err_ratelimited("cpu vms require nents=1\n");
+
+	if (!allowed_api) {
+		pr_err_ratelimited("Vms have no common backend API\n");
 		return -EINVAL;
 	}
-	return true;
+
+	/* Prefer hyp assign since it has fewer limitations */
+	if (allowed_api & MEM_BUF_API_HYP_ASSIGN)
+		return MEM_BUF_API_HYP_ASSIGN;
+	else
+		return MEM_BUF_API_HAVEN;
 }
 
 int mem_buf_fd_to_vmid(int fd)
@@ -246,6 +245,7 @@ err_cdev_add:
 	xa_erase(&mem_buf_vms, new_vm->vmid);
 err_xa_store:
 	xa_erase(&mem_buf_vm_minors, minor);
+	put_device(dev);
 err_devt:
 err_duplicate:
 	return ret;
@@ -268,6 +268,33 @@ static int mem_buf_vm_add_pdata(struct mem_buf_vm *pdata)
 	return 0;
 }
 
+static int mem_buf_vm_add_self(void)
+{
+	struct mem_buf_vm *vm, *self;
+	int ret;
+
+	vm = find_vm_by_vmid(current_vmid);
+	if (IS_ERR(vm))
+		return PTR_ERR(vm);
+
+	self = kzalloc(sizeof(*self), GFP_KERNEL);
+	if (!self)
+		return -ENOMEM;
+
+	/* Create an aliased name */
+	self->name = "qcom,self";
+	self->vmid = vm->vmid;
+	self->hh_id = vm->hh_id;
+	self->allowed_api = vm->allowed_api;
+
+	ret = mem_buf_vm_add(self);
+	if (ret) {
+		kfree(self);
+		return ret;
+	}
+	return 0;
+}
+
 static char *mem_buf_vm_devnode(struct device *dev, umode_t *mode)
 {
 	return kasprintf(GFP_KERNEL, "mem_buf_vm/%s", dev_name(dev));
@@ -275,7 +302,9 @@ static char *mem_buf_vm_devnode(struct device *dev, umode_t *mode)
 
 static int mem_buf_vm_put_class_device_cb(struct device *dev, void *data)
 {
-	put_device(dev);
+	struct mem_buf_vm *vm = container_of(dev, struct mem_buf_vm, dev);
+
+	cdev_device_del(&vm->cdev, dev);
 	return 0;
 }
 
@@ -309,8 +338,13 @@ int mem_buf_vm_init(struct device *dev)
 			goto err_pdata;
 	}
 
+	ret = mem_buf_vm_add_self();
+	if (ret)
+		goto err_self;
+
 	return 0;
 
+err_self:
 err_pdata:
 	xa_destroy(&mem_buf_vms);
 	xa_destroy(&mem_buf_vm_minors);

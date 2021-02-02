@@ -94,6 +94,7 @@
   cdev_alloc
   cdev_del
   cdev_device_add
+  cdev_device_del
   cdev_init
   __cfg80211_alloc_event_skb
   __cfg80211_alloc_reply_skb

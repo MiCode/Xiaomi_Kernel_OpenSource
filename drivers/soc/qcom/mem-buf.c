@@ -1575,11 +1575,10 @@ out:
 
 union mem_buf_ioctl_arg {
 	struct mem_buf_alloc_ioctl_arg allocation;
-	struct mem_buf_export_ioctl_arg export;
-	struct mem_buf_import_ioctl_arg import;
-	struct mem_buf_lend_ioctl_arg2 lend;
-	struct mem_buf_retrieve_ioctl_arg2 retrieve;
-	struct mem_buf_reclaim_ioctl_arg2 reclaim;
+	struct mem_buf_lend_ioctl_arg lend;
+	struct mem_buf_retrieve_ioctl_arg retrieve;
+	struct mem_buf_reclaim_ioctl_arg reclaim;
+	struct mem_buf_share_ioctl_arg share;
 };
 
 static int mem_buf_acl_to_vmid_perms_list(unsigned int nr_acl_entries,
@@ -1692,63 +1691,7 @@ struct hh_sgl_desc *dup_sgt_to_hh_sgl_desc(struct sg_table *sgt)
 	return hh_sgl;
 }
 
-static int mem_buf_lend_user(struct mem_buf_export_ioctl_arg *uarg)
-{
-	int *vmids, *perms;
-	int ret;
-	struct dma_buf *dmabuf;
-	struct mem_buf_lend_kernel_arg karg;
-	int fd;
-
-	if (!uarg->nr_acl_entries || !uarg->acl_list ||
-	    uarg->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS ||
-	    uarg->reserved0 || uarg->reserved1 || uarg->reserved2)
-		return -EINVAL;
-
-	dmabuf = dma_buf_get(uarg->dma_buf_fd);
-	if (IS_ERR(dmabuf))
-		return PTR_ERR(dmabuf);
-
-	ret = mem_buf_acl_to_vmid_perms_list(uarg->nr_acl_entries,
-			(void *)uarg->acl_list, &vmids, &perms, false);
-	if (ret)
-		goto err_acl;
-
-	karg.nr_acl_entries = uarg->nr_acl_entries;
-	karg.vmids = vmids;
-	karg.perms = perms;
-
-	ret = mem_buf_lend(dmabuf, &karg);
-	if (ret)
-		goto err_lend;
-
-	/*
-	 * The ioctl requires duping the fd. This also means that since we are
-	 * transfefring our refcount to userspace, we shouldn't call dma_buf_put.
-	 */
-	fd = dma_buf_fd(dmabuf, O_CLOEXEC);
-	if (fd < 0) {
-		ret = fd;
-		goto err_fd;
-	}
-
-	uarg->memparcel_hdl = karg.memparcel_hdl;
-	uarg->export_fd = fd;
-	kfree(perms);
-	kfree(vmids);
-	return 0;
-
-err_fd:
-	mem_buf_reclaim(dmabuf);
-err_lend:
-	kfree(perms);
-	kfree(vmids);
-err_acl:
-	dma_buf_put(dmabuf);
-	return ret;
-}
-
-static int mem_buf_lend_user2(struct mem_buf_lend_ioctl_arg2 *uarg)
+static int mem_buf_lend_user(struct mem_buf_lend_ioctl_arg *uarg, bool is_lend)
 {
 	int *vmids, *perms;
 	int ret;
@@ -1773,7 +1716,7 @@ static int mem_buf_lend_user2(struct mem_buf_lend_ioctl_arg2 *uarg)
 	karg.vmids = vmids;
 	karg.perms = perms;
 
-	ret = mem_buf_lend(dmabuf, &karg);
+	ret = mem_buf_lend_internal(dmabuf, &karg, is_lend);
 	if (ret)
 		goto err_lend;
 
@@ -1790,54 +1733,7 @@ err_acl:
 	return ret;
 }
 
-static int mem_buf_retrieve_user(struct mem_buf_import_ioctl_arg *uarg)
-{
-	int ret, fd;
-	int *vmids, *perms;
-	struct dma_buf *dmabuf;
-	struct mem_buf_retrieve_kernel_arg karg;
-
-	if (!uarg->nr_acl_entries || !uarg->acl_list ||
-	    uarg->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS ||
-	    uarg->reserved0 || uarg->reserved1 || uarg->reserved2)
-		return -EINVAL;
-
-	ret = mem_buf_acl_to_vmid_perms_list(uarg->nr_acl_entries,
-			(void *)uarg->acl_list, &vmids, &perms, false);
-	if (ret)
-		return ret;
-
-	karg.nr_acl_entries = uarg->nr_acl_entries;
-	karg.vmids = vmids;
-	karg.perms = perms;
-	karg.memparcel_hdl = uarg->memparcel_hdl;
-	/* This ioctl version doesn't support passing fd_flags */
-	karg.fd_flags = O_RDWR | O_CLOEXEC;
-	dmabuf = mem_buf_retrieve(&karg);
-	if (IS_ERR(dmabuf)) {
-		ret = PTR_ERR(dmabuf);
-		goto err_retrieve;
-	}
-
-	fd = dma_buf_fd(dmabuf, karg.fd_flags);
-	if (fd < 0) {
-		ret = fd;
-		goto err_fd;
-	}
-
-	uarg->dma_buf_import_fd = fd;
-	kfree(vmids);
-	kfree(perms);
-	return 0;
-err_fd:
-	dma_buf_put(dmabuf);
-err_retrieve:
-	kfree(vmids);
-	kfree(perms);
-	return ret;
-}
-
-static int mem_buf_retrieve_user2(struct mem_buf_retrieve_ioctl_arg2 *uarg)
+static int mem_buf_retrieve_user(struct mem_buf_retrieve_ioctl_arg *uarg)
 {
 	int ret, fd;
 	int *vmids, *perms;
@@ -1885,7 +1781,7 @@ err_retrieve:
 	return ret;
 }
 
-static int mem_buf_reclaim_user2(struct mem_buf_reclaim_ioctl_arg2 *uarg)
+static int mem_buf_reclaim_user(struct mem_buf_reclaim_ioctl_arg *uarg)
 {
 	struct dma_buf *dmabuf;
 	int ret;
@@ -1935,72 +1831,62 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 		allocation->mem_buf_fd = fd;
 		break;
 	}
-	case MEM_BUF_IOC_EXPORT:
+	case MEM_BUF_IOC_LEND:
 	{
-		struct mem_buf_export_ioctl_arg *export = &ioctl_arg.export;
+		struct mem_buf_lend_ioctl_arg *lend = &ioctl_arg.lend;
 		int ret;
 
 		if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
 			return -EOPNOTSUPP;
 
-		ret = mem_buf_lend_user(export);
+		ret = mem_buf_lend_user(lend, true);
 		if (ret)
 			return ret;
 
 		break;
 	}
-	case MEM_BUF_IOC_IMPORT:
+	case MEM_BUF_IOC_RETRIEVE:
 	{
-		struct mem_buf_import_ioctl_arg *import = &ioctl_arg.import;
-		int ret;
-
-		if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
-			return -EOPNOTSUPP;
-
-		ret = mem_buf_retrieve_user(import);
-		if (ret)
-			return ret;
-		break;
-	}
-	case MEM_BUF_IOC_LEND2:
-	{
-		struct mem_buf_lend_ioctl_arg2 *lend = &ioctl_arg.lend;
-		int ret;
-
-		if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
-			return -EOPNOTSUPP;
-
-		ret = mem_buf_lend_user2(lend);
-		if (ret)
-			return ret;
-
-		break;
-	}
-	case MEM_BUF_IOC_RETRIEVE2:
-	{
-		struct mem_buf_retrieve_ioctl_arg2 *retrieve =
+		struct mem_buf_retrieve_ioctl_arg *retrieve =
 			&ioctl_arg.retrieve;
 		int ret;
 
 		if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
 			return -EOPNOTSUPP;
 
-		ret = mem_buf_retrieve_user2(retrieve);
+		ret = mem_buf_retrieve_user(retrieve);
 		if (ret)
 			return ret;
 		break;
 	}
-	case MEM_BUF_IOC_RECLAIM2:
+	case MEM_BUF_IOC_RECLAIM:
 	{
-		struct mem_buf_reclaim_ioctl_arg2 *reclaim =
+		struct mem_buf_reclaim_ioctl_arg *reclaim =
 			&ioctl_arg.reclaim;
 		int ret;
 
-		ret = mem_buf_reclaim_user2(reclaim);
+		ret = mem_buf_reclaim_user(reclaim);
 		if (ret)
 			return ret;
 		break;
 	}
+	case MEM_BUF_IOC_SHARE:
+	{
+		struct mem_buf_share_ioctl_arg *share = &ioctl_arg.share;
+		int ret;
+
+		if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
+			return -EOPNOTSUPP;
+
+		/* The two formats are currently identical */
+		ret = mem_buf_lend_user((struct mem_buf_lend_ioctl_arg *)share,
+					 false);
+		if (ret)
+			return ret;
+
+		break;
+	}
+
 	default:
 		return -ENOTTY;
 	}

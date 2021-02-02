@@ -674,15 +674,37 @@ const struct mem_buf_dma_buf_ops mem_buf_dma_buf_ops = {
 };
 EXPORT_SYMBOL(mem_buf_dma_buf_ops);
 
-/*
- * Kernel API for Sharing, Lending, Recieving or Reclaiming
- * a dma-buf from a remote Virtual Machine.
- */
-int mem_buf_lend(struct dma_buf *dmabuf,
-			struct mem_buf_lend_kernel_arg *arg)
+static int validate_lend_vmids(struct mem_buf_lend_kernel_arg *arg,
+				bool is_lend)
+{
+	int i;
+	bool found = false;
+
+	for (i = 0; i < arg->nr_acl_entries; i++) {
+		if (arg->vmids[i] == current_vmid) {
+			found = true;
+			break;
+		}
+	}
+
+	if (found && is_lend) {
+		pr_err_ratelimited("Lend cannot target the current VM\n");
+		return -EINVAL;
+	} else if (!found && !is_lend) {
+		pr_err_ratelimited("Share must target the current VM\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+int mem_buf_lend_internal(struct dma_buf *dmabuf,
+			struct mem_buf_lend_kernel_arg *arg,
+			bool is_lend)
 {
 	struct mem_buf_vmperm *vmperm;
+	struct sg_table *sgt;
 	int ret;
+	int api;
 
 	if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
 		return -EOPNOTSUPP;
@@ -696,6 +718,30 @@ int mem_buf_lend(struct dma_buf *dmabuf,
 				dmabuf->ops);
 		return -EINVAL;
 	}
+	sgt = vmperm->sgt;
+
+	api = mem_buf_vm_get_backend_api(arg->vmids, arg->nr_acl_entries);
+	if (api < 0)
+		return -EINVAL;
+
+	if (api == MEM_BUF_API_HAVEN) {
+		/* Due to hyp-assign batching */
+		if (sgt->nents > 1) {
+			pr_err_ratelimited("Operation requires physically contiguous memory\n");
+			return -EINVAL;
+		}
+
+		/* Due to memory-hotplug */
+		if ((sg_virt(sgt->sgl) && (SUBSECTION_SIZE - 1)) ||
+				(sgt->sgl->length % SUBSECTION_SIZE)) {
+			pr_err_ratelimited("Operation requires SUBSECTION_SIZE alignemnt\n");
+			return -EINVAL;
+		}
+	}
+
+	ret = validate_lend_vmids(arg, is_lend);
+	if (ret)
+		return ret;
 
 	mutex_lock(&vmperm->lock);
 	if (vmperm->flags & MEM_BUF_WRAPPER_FLAG_STATIC_VM) {
@@ -742,16 +788,12 @@ int mem_buf_lend(struct dma_buf *dmabuf,
 		goto err_assign;
 	}
 
-	ret = mem_buf_vm_supports_handle(vmperm->sgt, arg->vmids,
-					arg->nr_acl_entries);
-	if (ret > 0) {
+	if (api == MEM_BUF_API_HAVEN) {
 		ret = mem_buf_retrieve_memparcel_hdl(vmperm->sgt, arg->vmids,
 				arg->perms, arg->nr_acl_entries,
 				&arg->memparcel_hdl);
 		if (ret)
 			goto err_retrieve_hdl;
-	} else if (ret < 0) {
-		goto err_retrieve_hdl;
 	} else {
 		arg->memparcel_hdl = 0;
 	}
@@ -773,10 +815,20 @@ err_resize:
 }
 EXPORT_SYMBOL(mem_buf_lend);
 
+/*
+ * Kernel API for Sharing, Lending, Recieving or Reclaiming
+ * a dma-buf from a remote Virtual Machine.
+ */
+int mem_buf_lend(struct dma_buf *dmabuf,
+			struct mem_buf_lend_kernel_arg *arg)
+{
+	return mem_buf_lend_internal(dmabuf, arg, true);
+}
+
 int mem_buf_share(struct dma_buf *dmabuf,
 			struct mem_buf_lend_kernel_arg *arg)
 {
-	return mem_buf_lend(dmabuf, arg);
+	return mem_buf_lend_internal(dmabuf, arg, false);
 }
 EXPORT_SYMBOL(mem_buf_share);
 
