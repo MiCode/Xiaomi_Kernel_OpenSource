@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #define DEBUG
@@ -54,7 +54,7 @@ struct ipc_event {
 };
 
 struct fd_event {
-	struct timeval timestamp;
+	struct timespec64 timestamp;
 	int X;
 	int Y;
 	int id;
@@ -183,9 +183,6 @@ static void qbt_touch_report_event(struct input_handle *handle,
 		&fd_touch->current_events[fd_touch->current_slot];
 	static bool report_event = true;
 
-	if (!fd_touch->config.touch_fd_enable || !drvdata->fd_gpio.irq_enabled)
-		return;
-
 	if (type != EV_SYN && type != EV_ABS)
 		return;
 
@@ -217,8 +214,16 @@ static void qbt_touch_report_event(struct input_handle *handle,
 	}
 
 	if (report_event) {
-		pm_stay_awake(drvdata->dev);
-		schedule_work(&drvdata->fd_touch.work);
+		if (!fd_touch->config.touch_fd_enable ||
+				!drvdata->fd_gpio.irq_enabled)
+			memcpy(fd_touch->last_events,
+					fd_touch->current_events,
+					MT_MAX_FINGERS * sizeof(
+					struct touch_event));
+		else {
+			pm_stay_awake(drvdata->dev);
+			schedule_work(&drvdata->fd_touch.work);
+		}
 	}
 }
 
@@ -283,7 +288,6 @@ static void qbt_touch_work_func(struct work_struct *work)
 	struct finger_detect_touch *fd_touch = NULL;
 	struct touch_event current_event, last_event;
 	struct fd_event finger_event;
-	struct timespec timestamp;
 	int slot = 0;
 
 	if (!work) {
@@ -325,7 +329,8 @@ static void qbt_touch_work_func(struct work_struct *work)
 				finger_event.state = QBT_EVENT_FINGER_UP;
 			else
 				continue;
-		else if (!qbt_touch_filter_aoi_region(&last_event, config))
+		else if (!qbt_touch_filter_aoi_region(&last_event, config) &&
+				current_event.id >= 0)
 			finger_event.state = QBT_EVENT_FINGER_DOWN;
 
 		if (finger_event.state == QBT_EVENT_FINGER_MOVE &&
@@ -333,10 +338,7 @@ static void qbt_touch_work_func(struct work_struct *work)
 				&current_event,	&last_event, slot))
 			continue;
 
-		getnstimeofday(&timestamp);
-		finger_event.timestamp.tv_sec = timestamp.tv_sec;
-		finger_event.timestamp.tv_usec = timestamp.tv_nsec / 1000;
-
+		finger_event.timestamp = ktime_to_timespec64(ktime_get());
 		finger_event.id = slot;
 		finger_event.X = current_event.X;
 		finger_event.Y = current_event.Y;
@@ -721,10 +723,10 @@ static ssize_t qbt_read(struct file *filp, char __user *ubuf,
 			}
 			pr_debug("Reading event id: %d state: %d\n",
 					fd_evt->id, fd_evt->state);
-			pr_debug("x: %d y: %d timestamp: %ld.%06ld\n",
+			pr_debug("x: %d y: %d timestamp: %ld.%03ld\n",
 					fd_evt->X, fd_evt->Y,
 					fd_evt->timestamp.tv_sec,
-					fd_evt->timestamp.tv_usec);
+					fd_evt->timestamp.tv_nsec);
 		}
 		pr_debug("%d FD events read at time %lu uS\n",
 				scratch_buf->num_events,
@@ -935,7 +937,6 @@ end:
 static void qbt_gpio_report_event(struct qbt_drvdata *drvdata, int state)
 {
 	struct fd_event event;
-	struct timespec timestamp;
 
 	memset(&event, 0, sizeof(event));
 
@@ -957,9 +958,7 @@ static void qbt_gpio_report_event(struct qbt_drvdata *drvdata, int state)
 
 	event.state = state;
 	event.touch_valid = false;
-	getnstimeofday(&timestamp);
-	event.timestamp.tv_sec = timestamp.tv_sec;
-	event.timestamp.tv_usec = timestamp.tv_nsec / 1000;
+	event.timestamp = ktime_to_timespec64(ktime_get());
 	qbt_fd_report_event(drvdata, &event);
 }
 
