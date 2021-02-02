@@ -272,12 +272,17 @@ static struct clk_rcg2 gpu_cc_hub_clk_src = {
 	},
 };
 
+static const struct freq_tbl ftbl_gpu_cc_xo_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 gpu_cc_xo_clk_src = {
 	.cmd_rcgr = 0x9010,
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = gpu_cc_parent_map_3,
-	.freq_tbl = NULL,
+	.freq_tbl = ftbl_gpu_cc_xo_clk_src,
 	.enable_safe_config = true,
 	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &(struct clk_init_data){
