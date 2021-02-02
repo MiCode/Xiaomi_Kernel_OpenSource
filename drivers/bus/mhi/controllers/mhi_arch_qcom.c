@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.*/
 
+#include <asm/arch_timer.h>
 #include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/dma-direction.h>
@@ -604,4 +605,25 @@ resume_no_pci_lpm:
 	MHI_CNTRL_LOG("Exited with ret: %d\n", ret);
 
 	return ret;
+}
+
+u64 mhi_arch_time_get(struct mhi_controller *mhi_cntrl)
+{
+	return arch_counter_get_cntvct();
+}
+
+int mhi_arch_link_lpm_disable(struct mhi_controller *mhi_cntrl)
+{
+	struct pci_dev *pci_dev = to_pci_dev(mhi_cntrl->cntrl_dev);
+
+	return msm_pcie_prevent_l1(pci_dev);
+}
+
+int mhi_arch_link_lpm_enable(struct mhi_controller *mhi_cntrl)
+{
+	struct pci_dev *pci_dev = to_pci_dev(mhi_cntrl->cntrl_dev);
+
+	msm_pcie_allow_l1(pci_dev);
+
+	return 0;
 }

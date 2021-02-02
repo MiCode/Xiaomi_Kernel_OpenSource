@@ -76,6 +76,7 @@ struct mhi_pci_dev_info {
 	bool allow_m1;
 	bool skip_forced_suspend;
 	bool sfr_support;
+	bool timesync;
 };
 
 struct mhi_qcom_priv {
@@ -100,6 +101,9 @@ void mhi_arch_pcie_deinit(struct mhi_controller *mhi_cntrl);
 int mhi_arch_link_suspend(struct mhi_controller *mhi_cntrl);
 int mhi_arch_link_resume(struct mhi_controller *mhi_cntrl);
 void mhi_arch_mission_mode_enter(struct mhi_controller *mhi_cntrl);
+u64 mhi_arch_time_get(struct mhi_controller *mhi_cntrl);
+int mhi_arch_link_lpm_disable(struct mhi_controller *mhi_cntrl);
+int mhi_arch_link_lpm_enable(struct mhi_controller *mhi_cntrl);
 
 #else
 
@@ -124,6 +128,21 @@ static inline int mhi_arch_link_resume(struct mhi_controller *mhi_cntrl)
 
 static inline void mhi_arch_mission_mode_enter(struct mhi_controller *mhi_cntrl)
 {
+}
+
+static inline u64 mhi_arch_time_get(struct mhi_controller *mhi_cntrl)
+{
+	return 0;
+}
+
+static inline int mhi_arch_link_lpm_disable(struct mhi_controller *mhi_cntrl)
+{
+	return 0;
+}
+
+static inline int mhi_arch_link_lpm_enable(struct mhi_controller *mhi_cntrl)
+{
+	return 0;
 }
 
 #endif

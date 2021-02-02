@@ -191,8 +191,7 @@ static const struct mhi_event_config modem_qcom_sdx65_mhi_events[] = {
 	MHI_EVENT_CONFIG(4, 5, MHI_ER_BW_SCALE, 64, 0,
 			 MHI_ER_PRIORITY_HI_SLEEP, MHI_DB_BRST_DISABLE, false,
 			 false, false, 0),
-	/* reserved SW ring */
-	MHI_EVENT_CONFIG(5, 6, MHI_ER_DATA, 64, 0,
+	MHI_EVENT_CONFIG(5, 6, MHI_ER_TIMESYNC, 64, 0,
 			 MHI_ER_PRIORITY_HI_SLEEP, MHI_DB_BRST_DISABLE, false,
 			 false, false, 0),
 	/* Hardware channels request dedicated hardware event rings */
@@ -244,7 +243,8 @@ static const struct mhi_pci_dev_info mhi_qcom_sdx65_info = {
 	.dma_data_width = 64,
 	.allow_m1 = false,
 	.skip_forced_suspend = false,
-	.sfr_support = true
+	.sfr_support = true,
+	.timesync = true
 };
 
 static const struct mhi_pci_dev_info mhi_qcom_debug_info = {
@@ -257,7 +257,8 @@ static const struct mhi_pci_dev_info mhi_qcom_debug_info = {
 	.dma_data_width = 64,
 	.allow_m1 = true,
 	.skip_forced_suspend = true,
-	.sfr_support = false
+	.sfr_support = false,
+	.timesync = false
 };
 
 static const struct pci_device_id mhi_pcie_device_id[] = {
@@ -307,6 +308,21 @@ static void mhi_qcom_write_reg(struct mhi_controller *mhi_cntrl,
 			       void __iomem *addr, u32 val)
 {
 	writel_relaxed(val, addr);
+}
+
+static u64 mhi_qcom_time_get(struct mhi_controller *mhi_cntrl)
+{
+	return mhi_arch_time_get(mhi_cntrl);
+}
+
+static int mhi_qcom_lpm_disable(struct mhi_controller *mhi_cntrl)
+{
+	return mhi_arch_link_lpm_disable(mhi_cntrl);
+}
+
+static int mhi_qcom_lpm_enable(struct mhi_controller *mhi_cntrl)
+{
+	return mhi_arch_link_lpm_enable(mhi_cntrl);
 }
 
 static int mhi_debugfs_trigger_m0(void *data, u64 val)
@@ -882,6 +898,17 @@ static struct mhi_controller *mhi_qcom_register_controller(struct pci_dev *pci_d
 	if (info->sfr_support) {
 		ret = mhi_controller_set_sfr_support(mhi_cntrl,
 						     MHI_MAX_SFR_LEN);
+		if (ret) {
+			mhi_unregister_controller(mhi_cntrl);
+			goto error_register;
+		}
+	}
+
+	if (info->timesync) {
+		ret = mhi_controller_setup_timesync(mhi_cntrl,
+						    &mhi_qcom_time_get,
+						    &mhi_qcom_lpm_disable,
+						    &mhi_qcom_lpm_enable);
 		if (ret) {
 			mhi_unregister_controller(mhi_cntrl);
 			goto error_register;
