@@ -1498,6 +1498,7 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 	struct tee_mmu *records = NULL;
 	unsigned long *image_buffer_Y = NULL;
 	unsigned long *image_buffer_UV = NULL;
+	unsigned int srcbuf32 = 0;
 	dma_addr_t dma_addr;
 
 	if (FDVT_DBG_DBGLOG == (FDVT_DBG_DBGLOG & fdvt_info.debug_mask)) {
@@ -1591,9 +1592,14 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 						basic_config->SRC_IMG_FMT);
 				}
 			}
+			memcpy(&records[0], &mmu, sizeof(struct tee_mmu));
+			srcbuf32 = (unsigned long)image_buffer_Y & 0x00000000ffffffff;
+			*(basic_config->FDVT_IMG_Y_VA) = srcbuf32;
+		} else {
+			log_inf("MMU GET Y DMA BUF ERROR!\n");
+			return 0;
 		}
-		memcpy(&records[0], &mmu, sizeof(struct tee_mmu));
-		FDVT_WR32(basic_config->FDVT_IMG_Y_VA, image_buffer_Y);
+
 
 		success = mmu_get_dma_buffer(&mmu, basic_config->FDVT_IMG_UV_FD);
 
@@ -1632,7 +1638,11 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 				}
 			}
 			memcpy(&records[1], &mmu, sizeof(struct tee_mmu));
-			FDVT_WR32(basic_config->FDVT_IMG_UV_VA, image_buffer_UV);
+			srcbuf32 = (unsigned long)image_buffer_UV & 0x00000000ffffffff;
+			*(basic_config->FDVT_IMG_UV_VA) = srcbuf32;
+		} else {
+			log_inf("MMU GET UV DMA BUF ERROR!\n");
+			return 0;
 		}
 	}
 
