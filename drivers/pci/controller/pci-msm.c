@@ -25,6 +25,7 @@
 #include <linux/pci.h>
 #include <linux/platform_device.h>
 #include <linux/pm_wakeup.h>
+#include <linux/remoteproc/qcom_rproc.h>
 #include <linux/reset.h>
 #include <linux/regulator/consumer.h>
 #include <linux/rpmsg.h>
@@ -809,6 +810,10 @@ static struct pcie_drv_sta {
 	struct work_struct drv_connect; /* connect worker */
 	struct mutex drv_lock;
 	struct mutex rpmsg_lock;
+
+	/* ssr notification  */
+	struct notifier_block nb;
+	void *notifier;
 } pcie_drv;
 
 #define PCIE_RC_DRV_ENABLED(rc_idx) test_bit((rc_idx), &pcie_drv.rc_drv_enabled)
@@ -6293,7 +6298,9 @@ static void msm_pcie_drv_notify_client(struct pcie_drv_sta *pcie_drv,
 
 static void msm_pcie_drv_rpmsg_remove(struct rpmsg_device *rpdev)
 {
+	int ret;
 	struct pcie_drv_sta *pcie_drv = dev_get_drvdata(&rpdev->dev);
+	struct msm_pcie_dev_t *pcie_dev = pcie_drv->msm_pcie_dev;
 
 	mutex_lock(&pcie_drv->rpmsg_lock);
 	pcie_drv->rc_drv_enabled = 0;
@@ -6303,6 +6310,16 @@ static void msm_pcie_drv_rpmsg_remove(struct rpmsg_device *rpdev)
 	flush_work(&pcie_drv->drv_connect);
 
 	msm_pcie_drv_notify_client(pcie_drv, MSM_PCIE_EVENT_DRV_DISCONNECT);
+
+	if (!pcie_drv->notifier)
+		return;
+
+	ret = qcom_unregister_ssr_notifier(pcie_drv->notifier, &pcie_drv->nb);
+	if (ret) {
+		PCIE_ERR(pcie_dev, "PCIe: RC%d: DRV: error %d unregistering notifier\n",
+			 pcie_dev->rc_idx, ret);
+		pcie_drv->notifier = NULL;
+	}
 }
 
 static int msm_pcie_drv_rpmsg_cb(struct rpmsg_device *rpdev, void *data,
@@ -6409,14 +6426,18 @@ static struct rpmsg_driver msm_pcie_drv_rpmsg_driver = {
 	},
 };
 
-static void msm_pcie_early_notifier(void *data)
+static int msm_pcie_ssr_notifier(struct notifier_block *nb,
+				       unsigned long action, void *data)
 {
 	struct pcie_drv_sta *pcie_drv = data;
 
-	pcie_drv->rc_drv_enabled = 0;
-	pcie_drv->rpdev = NULL;
+	if (action == QCOM_SSR_BEFORE_SHUTDOWN) {
+		pcie_drv->rc_drv_enabled = 0;
+		pcie_drv->rpdev = NULL;
+		msm_pcie_drv_notify_client(pcie_drv, MSM_PCIE_EVENT_WAKEUP);
+	}
 
-	msm_pcie_drv_notify_client(pcie_drv, MSM_PCIE_EVENT_WAKEUP);
+	return NOTIFY_OK;
 };
 
 static void msm_pcie_drv_disable_pc(struct work_struct *w)
@@ -6474,8 +6495,12 @@ static void msm_pcie_drv_connect_worker(struct work_struct *work)
 		mutex_unlock(&pcie_dev->drv_pc_lock);
 	}
 
-	subsys_register_early_notifier("adsp", PCIE_DRV_LAYER_NOTIF,
-				msm_pcie_early_notifier, pcie_drv);
+	pcie_drv->notifier = qcom_register_ssr_notifier("adsp", &pcie_drv->nb);
+	if (IS_ERR(pcie_drv->notifier)) {
+		PCIE_ERR(pcie_dev, "PCIe: RC%d: DRV: failed to register ssr notifier\n",
+			 pcie_dev->rc_idx);
+		pcie_drv->notifier = NULL;
+	}
 }
 
 static int __init pcie_init(void)
@@ -6562,6 +6587,7 @@ static int __init pcie_init(void)
 	if (!mpcie_wq)
 		return -ENOMEM;
 
+	pcie_drv.nb.notifier_call = msm_pcie_ssr_notifier;
 	INIT_WORK(&pcie_drv.drv_connect, msm_pcie_drv_connect_worker);
 	pcie_drv.msm_pcie_dev = msm_pcie_dev;
 
