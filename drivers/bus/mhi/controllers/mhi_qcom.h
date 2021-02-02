@@ -88,6 +88,7 @@ struct mhi_qcom_priv {
 	bool mdm_state;
 	bool disable_pci_lpm;
 	enum mhi_suspend_mode suspend_mode;
+	bool driver_remove;
 };
 
 void mhi_deinit_pci_dev(struct mhi_controller *mhi_cntrl);

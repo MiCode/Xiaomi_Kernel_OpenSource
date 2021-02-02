@@ -371,7 +371,22 @@ static struct mhi_driver mhi_bl_driver = {
 
 void mhi_arch_pcie_deinit(struct mhi_controller *mhi_cntrl)
 {
+	struct mhi_qcom_priv *mhi_priv = mhi_controller_get_privdata(mhi_cntrl);
+	struct arch_info *arch_info = mhi_priv->arch_info;
+
 	mhi_arch_set_bus_request(mhi_cntrl, 0);
+
+	if (!mhi_priv->driver_remove)
+		return;
+
+	mhi_driver_unregister(&mhi_bl_driver);
+	esoc_unregister_client_hook(arch_info->esoc_client,
+				    &arch_info->esoc_ops);
+	devm_unregister_esoc_client(mhi_cntrl->cntrl_dev,
+				    arch_info->esoc_client);
+	complete_all(&arch_info->pm_completion);
+	unregister_pm_notifier(&arch_info->pm_notifier);
+	msm_pcie_deregister_event(&arch_info->pcie_reg_event);
 }
 
 int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
