@@ -1205,7 +1205,13 @@ void mhi_misc_mission_mode(struct mhi_controller *mhi_cntrl)
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
 	struct mhi_sfr_info *sfr_info = mhi_priv->sfr_info;
+	u64 local, remote;
 	int ret = -EIO;
+
+	/* Attempt to print local and remote SOC time delta for debug */
+	ret = mhi_get_remote_time_sync(mhi_cntrl->mhi_dev, &local, &remote);
+	if (!ret)
+		MHI_LOG("Timesync: local: %llx, remote: %llx\n", local, remote);
 
 	/* initialize SFR */
 	if (!sfr_info)
