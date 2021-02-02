@@ -3,6 +3,7 @@
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/dma-iommu.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-mapping-fast.h>
 #include <linux/dma-map-ops.h>
@@ -916,6 +917,41 @@ static void fast_smmu_reserve_pci_windows(struct device *dev,
 	spin_unlock_irqrestore(&mapping->lock, flags);
 }
 
+static void fast_smmu_reserve_msi_iova(struct device *dev, struct dma_fast_smmu_mapping *fast)
+{
+	dma_addr_t msi_iova_base;
+	u32 msi_size;
+	int ret;
+	unsigned long flags;
+
+	spin_lock_irqsave(&fast->lock, flags);
+
+	/* MSI cookie has already been setup. */
+	if (fast->domain->iova_cookie)
+		goto out;
+
+	if (qcom_iommu_get_msi_size(dev, &msi_size) < 0)
+		goto out;
+
+	msi_iova_base = __fast_smmu_alloc_iova(fast, 0, msi_size);
+	if (msi_iova_base == DMA_MAPPING_ERROR) {
+		dev_err(dev, "iova allocator failed to reserve MSI range of size: 0x%x\n",
+			msi_size);
+		goto out;
+	}
+	dev_dbg(dev, "iova allocator reserved 0x%lx-0x%lx for MSI\n", msi_iova_base,
+		msi_iova_base + msi_size);
+
+	ret = iommu_get_msi_cookie(fast->domain, msi_iova_base);
+	if (ret < 0) {
+		dev_err(dev, "failed to obtain MSI iova cookie rc: %d\n", ret);
+		__fast_smmu_free_iova(fast, msi_iova_base, msi_size);
+	}
+
+out:
+	spin_unlock_irqrestore(&fast->lock, flags);
+}
+
 static void fast_smmu_reserve_iommu_regions(struct device *dev,
 		struct dma_fast_smmu_mapping *fast)
 {
@@ -939,6 +975,8 @@ static void fast_smmu_reserve_iommu_regions(struct device *dev,
 		bitmap_set(fast->clean_bitmap, lo, hi - lo + 1);
 	}
 	qcom_iommu_put_resv_regions(dev, &resv_regions);
+
+	fast_smmu_reserve_msi_iova(dev, fast);
 }
 
 void fast_smmu_put_dma_cookie(struct iommu_domain *domain)
@@ -947,6 +985,8 @@ void fast_smmu_put_dma_cookie(struct iommu_domain *domain)
 
 	if (!fast)
 		return;
+
+	iommu_put_dma_cookie(domain);
 
 	if (fast->iovad) {
 		put_iova_domain(fast->iovad);
