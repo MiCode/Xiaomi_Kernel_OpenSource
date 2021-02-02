@@ -1829,7 +1829,7 @@ static const struct adreno_genc_core adreno_gpu_core_c500 = {
 	},
 	.sqefw_name = "a730_sqe.fw",
 	.gmufw_name = "c500_gmu.bin",
-	.zap_name = "c500_zap",
+	.zap_name = "a730_zap",
 	.hwcg = c500_hwcg_regs,
 	.hwcg_count = ARRAY_SIZE(c500_hwcg_regs),
 	.gbif = c500_gbif_regs,
