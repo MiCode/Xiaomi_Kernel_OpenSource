@@ -29,12 +29,78 @@ void mhi_misc_exit(void)
 	mutex_destroy(&mhi_bus.lock);
 }
 
+static ssize_t time_show(struct device *dev,
+			 struct device_attribute *attr,
+			 char *buf)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	u64 t_host, t_device;
+	int ret;
+
+	ret = mhi_get_remote_time_sync(mhi_dev, &t_host, &t_device);
+	if (ret) {
+		MHI_ERR("Failed to obtain time, ret:%d\n", ret);
+		return scnprintf(buf, PAGE_SIZE,
+				 "Request failed or feature unsupported\n");
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "local: %llu remote: %llu (ticks)\n",
+			 t_host, t_device);
+}
+static DEVICE_ATTR_RO(time);
+
+static void mhi_time_async_cb(struct mhi_device *mhi_dev, u32 sequence,
+			      u64 local_time, u64 remote_time)
+{
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	struct device *dev = &mhi_dev->dev;
+
+	MHI_LOG("Time response: seq:%llx local: %llu remote: %llu (ticks)\n",
+		sequence, local_time, remote_time);
+}
+
+static ssize_t time_async_show(struct device *dev,
+			       struct device_attribute *attr,
+			       char *buf)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	u32 seq = prandom_u32();
+	int ret;
+
+	if (!seq)
+		seq = 1;
+
+	ret = mhi_get_remote_time(mhi_dev, seq, &mhi_time_async_cb);
+	if (ret) {
+		MHI_ERR("Failed to request time, seq:%llx, ret:%d\n", seq, ret);
+		return scnprintf(buf, PAGE_SIZE,
+				 "Request failed or feature unsupported\n");
+	}
+
+	return scnprintf(buf, PAGE_SIZE,
+			 "Requested time asynchronously with seq:%llx\n", seq);
+}
+static DEVICE_ATTR_RO(time_async);
+
+static struct attribute *mhi_tsync_attrs[] = {
+	&dev_attr_time.attr,
+	&dev_attr_time_async.attr,
+	NULL,
+};
+
+static const struct attribute_group mhi_tsync_group = {
+	.attrs = mhi_tsync_attrs,
+};
+
 int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 {
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	struct mhi_private *mhi_priv = kzalloc(sizeof(*mhi_priv), GFP_KERNEL);
 	struct mhi_device *mhi_dev = mhi_cntrl->mhi_dev;
 	struct pci_dev *parent = to_pci_dev(mhi_cntrl->cntrl_dev);
+	int ret;
 
 	if (!mhi_priv)
 		return -ENOMEM;
@@ -57,11 +123,16 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 
 	dev_set_drvdata(dev, mhi_priv);
 
+	ret = sysfs_create_group(&dev->kobj, &mhi_tsync_group);
+	if (ret)
+		MHI_ERR("Failed to create time synchronization sysfs group\n");
+
 	return 0;
 }
 
 void mhi_misc_unregister_controller(struct mhi_controller *mhi_cntrl)
 {
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	struct mhi_private *mhi_priv = dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
 
 	if (!mhi_priv)
@@ -70,6 +141,8 @@ void mhi_misc_unregister_controller(struct mhi_controller *mhi_cntrl)
 	mutex_lock(&mhi_bus.lock);
 	list_del(&mhi_priv->node);
 	mutex_unlock(&mhi_bus.lock);
+
+	sysfs_remove_group(&dev->kobj, &mhi_tsync_group);
 
 	if (mhi_priv->sfr_info)
 		kfree(mhi_priv->sfr_info->str);
