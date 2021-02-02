@@ -11,12 +11,13 @@
 #include "kgsl_trace.h"
 
 static int genc_rb_pagetable_switch(struct adreno_device *adreno_dev,
-		struct adreno_ringbuffer *rb,
+		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
 		struct kgsl_pagetable *pagetable, u32 *cmds)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u64 ttbr0 = kgsl_mmu_pagetable_get_ttbr0(pagetable);
 	int count = 0;
+	u32 id = drawctxt ? drawctxt->base.id : 0;
 
 	if (pagetable == device->mmu.defaultpagetable)
 		return 0;
@@ -25,7 +26,7 @@ static int genc_rb_pagetable_switch(struct adreno_device *adreno_dev,
 	cmds[count++] = cp_type7_packet(CP_SMMU_TABLE_UPDATE, 3);
 	cmds[count++] = lower_32_bits(ttbr0);
 	cmds[count++] = upper_32_bits(ttbr0);
-	cmds[count++] = 0;
+	cmds[count++] = id;
 
 	cmds[count++] = cp_type7_packet(CP_MEM_WRITE, 5);
 	cmds[count++] = lower_32_bits(rb->pagetable_desc->gpuaddr +
@@ -34,7 +35,7 @@ static int genc_rb_pagetable_switch(struct adreno_device *adreno_dev,
 			PT_INFO_OFFSET(ttbr0));
 	cmds[count++] = lower_32_bits(ttbr0);
 	cmds[count++] = upper_32_bits(ttbr0);
-	cmds[count++] = 0;
+	cmds[count++] = id;
 
 	return count;
 }
@@ -50,8 +51,21 @@ static int genc_rb_context_switch(struct adreno_device *adreno_dev,
 	u32 cmds[32];
 
 	if (adreno_drawctxt_get_pagetable(rb->drawctxt_active) != pagetable)
-		count += genc_rb_pagetable_switch(adreno_dev, rb, pagetable,
-				cmds);
+		count += genc_rb_pagetable_switch(adreno_dev, rb,
+			drawctxt, pagetable, cmds);
+	else {
+		struct kgsl_iommu *iommu = KGSL_IOMMU(device);
+		u32 id = drawctxt ? drawctxt->base.id : 0;
+		u32 offset = GENC_SMMU_BASE + (iommu->cb0_offset >> 2) + 0x0d;
+
+		/*
+		 * Set the CONTEXTIDR register to the current context id so we
+		 * can use it in pagefault debugging. Unlike TTBR0 we don't
+		 * need any special sequence or locking to change it
+		 */
+		cmds[count++] = cp_type4_packet(offset, 1);
+		cmds[count++] = id;
+	}
 
 	cmds[count++] = cp_type7_packet(CP_NOP, 1);
 	cmds[count++] = CONTEXT_TO_MEM_IDENTIFIER;
@@ -132,15 +146,13 @@ int genc_ringbuffer_submit(struct adreno_ringbuffer *rb,
 int genc_ringbuffer_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	int i;
+	int i, ret;
 
-	if (IS_ERR_OR_NULL(device->scratch))
-		device->scratch = kgsl_allocate_global(device, PAGE_SIZE,
+	ret = adreno_allocate_global(device, &device->scratch, PAGE_SIZE,
 			0, 0, KGSL_MEMDESC_RANDOM | KGSL_MEMDESC_PRIVILEGED,
 			"scratch");
-
-	if (IS_ERR(device->scratch))
-		return PTR_ERR(device->scratch);
+	if (ret)
+		return ret;
 
 	adreno_dev->cur_rb = &(adreno_dev->ringbuffers[0]);
 

@@ -123,32 +123,28 @@ int adreno_ringbuffer_setup(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int priv = 0;
+	int ret;
 
 	/*
 	 * Allocate mem for storing RB pagetables and commands to
 	 * switch pagetable
 	 */
-	if (IS_ERR_OR_NULL(rb->pagetable_desc)) {
-		rb->pagetable_desc = kgsl_allocate_global(device, PAGE_SIZE,
-			SZ_16K, 0, KGSL_MEMDESC_PRIVILEGED, "pagetable_desc");
-		if (IS_ERR(rb->pagetable_desc))
-			return PTR_ERR(rb->pagetable_desc);
-	}
+	ret = adreno_allocate_global(device, &rb->pagetable_desc, PAGE_SIZE,
+		SZ_16K, 0, KGSL_MEMDESC_PRIVILEGED, "pagetable_desc");
+	if (ret)
+		return ret;
 
 	/* allocate a chunk of memory to create user profiling IB1s */
-	if (IS_ERR_OR_NULL(rb->profile_desc))
-		rb->profile_desc = kgsl_allocate_global(device, PAGE_SIZE,
-			0, KGSL_MEMFLAGS_GPUREADONLY, 0, "profile_desc");
+	adreno_allocate_global(device, &rb->profile_desc, PAGE_SIZE,
+		0, KGSL_MEMFLAGS_GPUREADONLY, 0, "profile_desc");
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
 		priv |= KGSL_MEMDESC_PRIVILEGED;
 
-	if (IS_ERR_OR_NULL(rb->buffer_desc)) {
-		rb->buffer_desc = kgsl_allocate_global(device, KGSL_RB_SIZE,
-			SZ_4K, KGSL_MEMFLAGS_GPUREADONLY, priv, "ringbuffer");
-		if (IS_ERR(rb->buffer_desc))
-			return PTR_ERR(rb->buffer_desc);
-	}
+	ret = adreno_allocate_global(device, &rb->buffer_desc, KGSL_RB_SIZE,
+		SZ_4K, KGSL_MEMFLAGS_GPUREADONLY, priv, "ringbuffer");
+	if (ret)
+		return ret;
 
 	if (!list_empty(&rb->events.group))
 		return 0;

@@ -162,7 +162,9 @@ int genc_fenced_write(struct adreno_device *adreno_dev, u32 offset,
 
 int genc_init(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_genc_core *genc_core = to_genc_core(adreno_dev);
+	int ret;
 
 	adreno_dev->highest_bank_bit = genc_core->highest_bank_bit;
 	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
@@ -170,14 +172,11 @@ int genc_init(struct adreno_device *adreno_dev)
 
 	genc_crashdump_init(adreno_dev);
 
-	if (IS_ERR_OR_NULL(adreno_dev->pwrup_reglist)) {
-		adreno_dev->pwrup_reglist =
-				kgsl_allocate_global(KGSL_DEVICE(adreno_dev),
-					PAGE_SIZE, 0, 0, KGSL_MEMDESC_PRIVILEGED,
-					"powerup_register_list");
-		if (IS_ERR(adreno_dev->pwrup_reglist))
-			return PTR_ERR(adreno_dev->pwrup_reglist);
-	}
+	ret = adreno_allocate_global(device, &adreno_dev->pwrup_reglist,
+		PAGE_SIZE, 0, 0, KGSL_MEMDESC_PRIVILEGED,
+		"powerup_register_list");
+	if (ret)
+		return ret;
 
 	adreno_create_profile_buffer(adreno_dev);
 

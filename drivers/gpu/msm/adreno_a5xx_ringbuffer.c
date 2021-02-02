@@ -11,10 +11,12 @@
 #include "kgsl_trace.h"
 
 static int a5xx_rb_pagetable_switch(struct kgsl_device *device,
+		struct adreno_context *drawctxt,
 		struct adreno_ringbuffer *rb,
 		struct kgsl_pagetable *pagetable, u32 *cmds)
 {
 	u64 ttbr0 = kgsl_mmu_pagetable_get_ttbr0(pagetable);
+	u32 id = drawctxt ? drawctxt->base.id : 0;
 
 	if (pagetable == device->mmu.defaultpagetable)
 		return 0;
@@ -22,7 +24,7 @@ static int a5xx_rb_pagetable_switch(struct kgsl_device *device,
 	cmds[0] = cp_type7_packet(CP_SMMU_TABLE_UPDATE, 3);
 	cmds[1] = lower_32_bits(ttbr0);
 	cmds[2] = upper_32_bits(ttbr0);
-	cmds[3] = 0;
+	cmds[3] = id;
 
 	cmds[4] = cp_type7_packet(CP_WAIT_FOR_IDLE, 0);
 	cmds[5] = cp_type7_packet(CP_WAIT_FOR_ME, 0);
@@ -36,7 +38,7 @@ static int a5xx_rb_pagetable_switch(struct kgsl_device *device,
 			PT_INFO_OFFSET(ttbr0));
 	cmds[11] = lower_32_bits(ttbr0);
 	cmds[12] = upper_32_bits(ttbr0);
-	cmds[13] = 0;
+	cmds[13] = id;
 
 	cmds[14] = cp_type7_packet(CP_WAIT_FOR_IDLE, 0);
 	cmds[15] = cp_type7_packet(CP_WAIT_FOR_ME, 0);
@@ -332,7 +334,8 @@ static int a5xx_rb_context_switch(struct adreno_device *adreno_dev,
 	u32 cmds[32];
 
 	if (adreno_drawctxt_get_pagetable(rb->drawctxt_active) != pagetable)
-		count += a5xx_rb_pagetable_switch(device, rb, pagetable, cmds);
+		count += a5xx_rb_pagetable_switch(device, drawctxt,
+				rb, pagetable, cmds);
 
 	cmds[count++] = cp_type7_packet(CP_NOP, 1);
 	cmds[count++] = CONTEXT_TO_MEM_IDENTIFIER;

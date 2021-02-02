@@ -609,34 +609,30 @@ static int genc_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 	const struct adreno_genc_core *genc_core = to_genc_core(adreno_dev);
 	u64 ctxt_record_size = GENC_CP_CTXRECORD_SIZE_IN_BYTES;
 	u32 cp_rb_cntl = GENC_CP_RB_CNTL_DEFAULT;
+	int ret;
 
 	if (genc_core->ctxt_record_size)
 		ctxt_record_size = genc_core->ctxt_record_size;
 
-	if (IS_ERR_OR_NULL(rb->preemption_desc))
-		rb->preemption_desc = kgsl_allocate_global(device,
-			ctxt_record_size, SZ_16K, 0,
-			KGSL_MEMDESC_PRIVILEGED, "preemption_desc");
-	if (IS_ERR(rb->preemption_desc))
-		return PTR_ERR(rb->preemption_desc);
+	ret = adreno_allocate_global(device, &rb->preemption_desc,
+		ctxt_record_size, SZ_16K, 0,
+		KGSL_MEMDESC_PRIVILEGED, "preemption_desc");
+	if (ret)
+		return ret;
 
-	if (IS_ERR_OR_NULL(rb->secure_preemption_desc))
-		rb->secure_preemption_desc = kgsl_allocate_global(device,
-			ctxt_record_size, 0,
-			KGSL_MEMFLAGS_SECURE, KGSL_MEMDESC_PRIVILEGED,
-			"secure_preemption_desc");
+	ret = adreno_allocate_global(device, &rb->secure_preemption_desc,
+		ctxt_record_size, 0,
+		KGSL_MEMFLAGS_SECURE, KGSL_MEMDESC_PRIVILEGED,
+		"secure_preemption_desc");
+	if (ret)
+		return ret;
 
-	if (IS_ERR(rb->secure_preemption_desc))
-		return PTR_ERR(rb->secure_preemption_desc);
-
-	if (IS_ERR_OR_NULL(rb->perfcounter_save_restore_desc))
-		rb->perfcounter_save_restore_desc = kgsl_allocate_global(device,
-			GENC_CP_PERFCOUNTER_SAVE_RESTORE_SIZE, 0, 0,
-			KGSL_MEMDESC_PRIVILEGED,
-			"perfcounter_save_restore_desc");
-
-	if (IS_ERR(rb->perfcounter_save_restore_desc))
-		return PTR_ERR(rb->perfcounter_save_restore_desc);
+	ret = adreno_allocate_global(device, &rb->perfcounter_save_restore_desc,
+		GENC_CP_PERFCOUNTER_SAVE_RESTORE_SIZE, 0, 0,
+		KGSL_MEMDESC_PRIVILEGED,
+		"perfcounter_save_restore_desc");
+	if (ret)
+		return ret;
 
 	kgsl_sharedmem_writel(rb->preemption_desc,
 		PREEMPT_RECORD(magic), GENC_CP_CTXRECORD_MAGIC_REF);
@@ -683,22 +679,19 @@ int genc_preemption_init(struct adreno_device *adreno_dev)
 			return ret;
 	}
 
-	if (IS_ERR_OR_NULL(preempt->scratch)) {
-		preempt->scratch = kgsl_allocate_global(device, PAGE_SIZE,
+	ret = adreno_allocate_global(device, &preempt->scratch, PAGE_SIZE,
 			0, 0, 0, "preempt_scratch");
-		if (IS_ERR(preempt->scratch))
-			return PTR_ERR(preempt->scratch);
-	}
-
-	/* Allocate mem for storing preemption smmu record */
-	if (kgsl_mmu_is_perprocess(&device->mmu) && IS_ERR_OR_NULL(iommu->smmu_info))
-		iommu->smmu_info = kgsl_allocate_global(device, PAGE_SIZE, 0,
-			KGSL_MEMFLAGS_GPUREADONLY, KGSL_MEMDESC_PRIVILEGED,
-			"smmu_info");
-
-	ret = PTR_ERR_OR_ZERO(iommu->smmu_info);
 	if (ret)
 		return ret;
+
+	/* Allocate mem for storing preemption smmu record */
+	if (kgsl_mmu_is_perprocess(&device->mmu)) {
+		ret = adreno_allocate_global(device, &iommu->smmu_info, PAGE_SIZE, 0,
+			KGSL_MEMFLAGS_GPUREADONLY, KGSL_MEMDESC_PRIVILEGED,
+			"smmu_info");
+		if (ret)
+			return ret;
+	}
 
 	set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
 	return 0;

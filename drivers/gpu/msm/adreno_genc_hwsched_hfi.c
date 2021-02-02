@@ -1035,7 +1035,7 @@ static int send_context_register(struct adreno_device *adreno_dev,
 	cmd.ctxt_id = context->id;
 	cmd.flags = HFI_CTXT_FLAG_NOTIFY | context->flags;
 	cmd.pt_addr = kgsl_mmu_pagetable_get_ttbr0(pt);
-	cmd.ctxt_idr = 0;
+	cmd.ctxt_idr = pid_nr(context->proc_priv->pid);
 	cmd.ctxt_bank = kgsl_mmu_pagetable_get_context_bank(pt);
 
 	return genc_hfi_send_cmd_async(adreno_dev, &cmd);

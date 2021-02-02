@@ -2109,7 +2109,7 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int script_size = 0;
 	unsigned int data_size = 0;
-	unsigned int i, j, k;
+	unsigned int i, j, k, ret;
 	uint64_t *ptr;
 	uint64_t offset = 0;
 
@@ -2237,20 +2237,16 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	/* Now allocate the script and data buffers */
 
 	/* The script buffers needs 2 extra qwords on the end */
-	if (IS_ERR_OR_NULL(a6xx_capturescript))
-		a6xx_capturescript = kgsl_allocate_global(device,
-			script_size + 16, 0, KGSL_MEMFLAGS_GPUREADONLY,
-			KGSL_MEMDESC_PRIVILEGED, "capturescript");
-
-	if (IS_ERR(a6xx_capturescript))
+	ret = adreno_allocate_global(device, &a6xx_capturescript,
+		script_size + 16, 0, KGSL_MEMFLAGS_GPUREADONLY,
+		KGSL_MEMDESC_PRIVILEGED, "capturescript");
+	if (ret)
 		return;
 
-	if (IS_ERR_OR_NULL(a6xx_crashdump_registers))
-		a6xx_crashdump_registers = kgsl_allocate_global(device,
-			data_size, 0, 0, KGSL_MEMDESC_PRIVILEGED,
-			"capturescript_regs");
-
-	if (IS_ERR(a6xx_crashdump_registers))
+	ret = adreno_allocate_global(device, &a6xx_crashdump_registers,
+		data_size, 0, 0, KGSL_MEMDESC_PRIVILEGED,
+		"capturescript_regs");
+	if (ret)
 		return;
 
 	/* Build the crash script */
