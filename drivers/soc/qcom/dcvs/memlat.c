@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "qcom-memlat: " fmt
@@ -117,6 +117,7 @@ struct memlat_group {
 	enum dcvs_hw_type		hw_type;
 	enum dcvs_path_type		sampling_path_type;
 	enum dcvs_path_type		threadlat_path_type;
+	u32				sampling_cur_freq;
 	bool				fp_voting_enabled;
 	u32				fp_freq;
 	u32				*fp_votes;
@@ -608,7 +609,8 @@ static void memlat_update_work(struct work_struct *work)
 
 	for (grp = 0; grp < MAX_MEMLAT_GRPS; grp++) {
 		memlat_grp = memlat_data->groups[grp];
-		if (!memlat_grp || memlat_grp->fp_voting_enabled)
+		if (!memlat_grp || memlat_grp->fp_voting_enabled ||
+				memlat_grp->sampling_cur_freq == max_freqs[grp])
 			continue;
 		new_freq.ib = max_freqs[grp];
 		new_freq.ab = 0;
@@ -617,6 +619,7 @@ static void memlat_update_work(struct work_struct *work)
 				&new_freq, 1, memlat_grp->sampling_path_type);
 		if (ret < 0)
 			dev_err(memlat_grp->dev, "qcom dcvs err: %d\n", ret);
+		memlat_grp->sampling_cur_freq = max_freqs[grp];
 	}
 }
 
