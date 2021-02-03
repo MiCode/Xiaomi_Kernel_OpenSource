@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, 2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -94,8 +94,6 @@ struct msm_rpm_driver_data {
 	uint32_t ch_type;
 	struct smd_channel *ch_info;
 	struct work_struct work;
-	spinlock_t smd_lock_write;
-	spinlock_t smd_lock_read;
 	struct completion smd_open;
 };
 
@@ -206,7 +204,6 @@ enum rpm_msg_fmts {
 };
 
 static struct rb_root tr_root = RB_ROOT;
-static int msm_rpm_send_smd_buffer(char *buf, uint32_t size);
 static uint32_t msm_rpm_get_next_msg_id(void);
 
 static inline uint32_t get_offset_value(uint32_t val, uint32_t offset,
@@ -722,8 +719,8 @@ static int msm_rpm_flush_requests(bool print)
 
 		set_msg_id(s->buf, msm_rpm_get_next_msg_id());
 
-		ret = msm_rpm_send_smd_buffer(s->buf,
-					get_buf_len(s->buf));
+		ret = rpmsg_send(rpm->rpm_channel, s->buf, get_buf_len(s->buf));
+
 		WARN_ON(ret != 0);
 		trace_rpm_smd_send_sleep_set(get_msg_id(s->buf), type, id);
 
@@ -1185,17 +1182,6 @@ static void msm_rpm_log_request(struct msm_rpm_request *cdata)
 	pr_info("request info %s\n", buf);
 }
 
-static int msm_rpm_send_smd_buffer(char *buf, uint32_t size)
-{
-	unsigned long flags;
-	int ret;
-
-	spin_lock_irqsave(&msm_rpm_data.smd_lock_write, flags);
-	ret = rpmsg_send(rpm->rpm_channel, buf, size);
-	spin_unlock_irqrestore(&msm_rpm_data.smd_lock_write, flags);
-	return ret;
-}
-
 static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 		int msg_type, bool noack)
 {
@@ -1290,7 +1276,7 @@ static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 
 	msm_rpm_add_wait_list(msg_id, noack);
 
-	ret = msm_rpm_send_smd_buffer(&cdata->buf[0], msg_size);
+	ret = rpmsg_send(rpm->rpm_channel, &cdata->buf[0], msg_size);
 
 	if (!ret) {
 		for (i = 0; (i < cdata->write_idx); i++)
@@ -1599,8 +1585,6 @@ static int qcom_smd_rpm_probe(struct rpmsg_device *rpdev)
 
 	mutex_init(&rpm->lock);
 	init_completion(&rpm->ack);
-	spin_lock_init(&msm_rpm_data.smd_lock_write);
-	spin_lock_init(&msm_rpm_data.smd_lock_read);
 
 skip_init:
 	probe_status = of_platform_populate(p, NULL, NULL, &rpdev->dev);
