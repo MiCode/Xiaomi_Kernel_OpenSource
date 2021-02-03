@@ -4731,7 +4731,8 @@ void process_embms_receive_skb(struct sk_buff *skb)
 }
 
 #ifdef CONFIG_ENABLE_SFE
-int (*athrs_fast_nat_recv)(struct sk_buff *skb) __rcu __read_mostly;
+int (*athrs_fast_nat_recv)(struct sk_buff *skb,
+			   struct packet_type *pt_temp) __rcu __read_mostly;
 EXPORT_SYMBOL(athrs_fast_nat_recv);
 #endif
 
@@ -4745,8 +4746,9 @@ static int __netif_receive_skb_core(struct sk_buff **pskb, bool pfmemalloc,
 	bool deliver_exact = false;
 	int ret = NET_RX_DROP;
 	__be16 type;
+
 #ifdef CONFIG_ENABLE_SFE
-	int (*fast_recv)(struct sk_buff *skb);
+	int (*fast_recv)(struct sk_buff *skb, struct packet_type *pt_temp);
 #endif
 
 	net_timestamp_check(!netdev_tstamp_prequeue, skb);
@@ -4824,7 +4826,7 @@ skip_classify:
 #ifdef CONFIG_ENABLE_SFE
 	fast_recv = rcu_dereference(athrs_fast_nat_recv);
 	if (fast_recv) {
-		if (fast_recv(skb)) {
+		if (fast_recv(skb, pt_prev)) {
 			ret = NET_RX_SUCCESS;
 			goto out;
 		}
