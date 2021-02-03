@@ -40,6 +40,11 @@ static int divide_memory_pool(void *virt, unsigned long size)
 	if (!vmemmap_base)
 		return -ENOMEM;
 
+	nr_pages = hyp_shadow_table_pages(sizeof(struct kvm_shadow_vm));
+	shadow_table = hyp_early_alloc_contig(nr_pages);
+	if (!shadow_table)
+		return -ENOMEM;
+
 	nr_pages = hyp_s1_pgtable_pages();
 	hyp_pgt_base = hyp_early_alloc_contig(nr_pages);
 	if (!hyp_pgt_base)

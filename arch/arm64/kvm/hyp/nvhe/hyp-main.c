@@ -15,6 +15,7 @@
 
 #include <nvhe/mem_protect.h>
 #include <nvhe/mm.h>
+#include <nvhe/pkvm.h>
 #include <nvhe/trap_handler.h>
 
 DEFINE_PER_CPU(struct kvm_nvhe_init_params, kvm_init_params);
@@ -23,18 +24,54 @@ struct kvm_iommu_ops kvm_iommu_ops;
 
 void __kvm_hyp_host_forward_smc(struct kvm_cpu_context *host_ctxt);
 
+static struct kvm_vcpu *get_shadow_vcpu(struct kvm_vcpu *host_vcpu)
+{
+	struct kvm_vcpu *shadow_vcpu;
+
+	host_vcpu = kern_hyp_va(host_vcpu);
+	shadow_vcpu = hyp_get_shadow_vcpu(host_vcpu);
+
+	if (shadow_vcpu) {
+		shadow_vcpu->arch.pkvm.exit_code = 0;
+		return shadow_vcpu;
+	}
+
+	return host_vcpu;
+}
+
+static void put_shadow_vcpu(struct kvm_vcpu *shadow_vcpu, int exit_code)
+{
+	shadow_vcpu->arch.pkvm.exit_code = exit_code;
+}
+
 static void handle___kvm_vcpu_run(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(struct kvm_vcpu *, vcpu, host_ctxt, 1);
+	struct kvm_vcpu *shadow_vcpu;
+	int ret;
 
-	cpu_reg(host_ctxt, 1) =  __kvm_vcpu_run(kern_hyp_va(vcpu));
+	shadow_vcpu = get_shadow_vcpu(vcpu);
+	ret = __kvm_vcpu_run(shadow_vcpu);
+
+	if (shadow_vcpu != kern_hyp_va(vcpu))
+		put_shadow_vcpu(shadow_vcpu, ret);
+
+	cpu_reg(host_ctxt, 1) =  ret;
 }
 
 static void handle___kvm_adjust_pc(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(struct kvm_vcpu *, vcpu, host_ctxt, 1);
 
-	__kvm_adjust_pc(kern_hyp_va(vcpu));
+	/*
+	 * This get_shadow_vcpu() shouldn't exist, as we would never
+	 * commit a pending update before returning to userspace, and
+	 * this is an actual attack vector (it leaves EL1 in full
+	 * control of PC).
+	 */
+	vcpu = get_shadow_vcpu(vcpu);
+
+	__kvm_adjust_pc(vcpu);
 }
 
 static void handle___kvm_flush_vm_context(struct kvm_cpu_context *host_ctxt)
@@ -178,6 +215,23 @@ static void handle___pkvm_vcpu_init_traps(struct kvm_cpu_context *host_ctxt)
 	__pkvm_vcpu_init_traps(kern_hyp_va(vcpu));
 }
 
+static void handle___pkvm_init_shadow(struct kvm_cpu_context *host_ctxt)
+{
+	DECLARE_REG(struct kvm *, host_kvm, host_ctxt, 1);
+	DECLARE_REG(void *, host_shadow_va, host_ctxt, 2);
+	DECLARE_REG(size_t, shadow_size, host_ctxt, 3);
+
+	cpu_reg(host_ctxt, 1) = __pkvm_init_shadow(host_kvm, host_shadow_va,
+						       shadow_size);
+}
+
+static void handle___pkvm_teardown_shadow(struct kvm_cpu_context *host_ctxt)
+{
+	DECLARE_REG(struct kvm *, host_kvm, host_ctxt, 1);
+
+	cpu_reg(host_ctxt, 1) = __pkvm_teardown_shadow(host_kvm);
+}
+
 typedef void (*hcall_t)(struct kvm_cpu_context *);
 
 #define HANDLE_FUNC(x)	[__KVM_HOST_SMCCC_FUNC_##x] = (hcall_t)handle_##x
@@ -207,6 +261,8 @@ static const hcall_t host_hcall[] = {
 	HANDLE_FUNC(__vgic_v3_save_aprs),
 	HANDLE_FUNC(__vgic_v3_restore_aprs),
 	HANDLE_FUNC(__pkvm_vcpu_init_traps),
+	HANDLE_FUNC(__pkvm_init_shadow),
+	HANDLE_FUNC(__pkvm_teardown_shadow),
 };
 
 static void handle_host_hcall(struct kvm_cpu_context *host_ctxt)

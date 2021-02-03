@@ -11,6 +11,9 @@
 #include <asm/kvm_pgtable.h>
 #include <asm/sysreg.h>
 
+/* Maximum number of protected VMs that can be created. */
+#define KVM_MAX_PVMS 255
+
 #define HYP_MEMBLOCK_REGIONS 128
 
 /*
@@ -196,7 +199,6 @@
 	ARM64_FEATURE_MASK(ID_AA64ISAR1_I8MM) \
 	)
 
-
 extern struct memblock_region kvm_nvhe_sym(hyp_memory)[];
 extern unsigned int kvm_nvhe_sym(hyp_memblock_nr);
 
@@ -224,6 +226,11 @@ static inline unsigned long hyp_vmemmap_pages(size_t vmemmap_entry_size)
 	}
 
 	return res >> PAGE_SHIFT;
+}
+
+static inline unsigned long hyp_shadow_table_pages(size_t shadow_entry_size)
+{
+	return PAGE_ALIGN(KVM_MAX_PVMS * shadow_entry_size) >> PAGE_SHIFT;
 }
 
 static inline unsigned long __hyp_pgtable_max_pages(unsigned long nr_pages)
