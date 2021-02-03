@@ -1,0 +1,120 @@
+Summit smb1351 battery charger
+
+SMB1351 is a single-cell battery charger. It can charge
+the battery and power the system via the USB/AC adapter input.
+
+The smb1351 interface is via I2C bus.
+
+Required Properties:
+- compatible			Must be "qcom,smb1351-charger".
+- reg				The device 7-bit I2C address.
+
+Required Properties for standalone charger:
+- regulator-name		A string used as a descriptive name for OTG regulator.
+- pinctrl-names			The state name of the pin configuration. Only
+				support "default".
+- pinctrl-0			The phandle of the pin configuration node in
+				pinctrl for smb_int_pin.
+
+Optional Properties:
+
+- interrupts			This indicates the IRQ number of the GPIO
+				connected to the STAT pin.
+- qcom,fastchg-current-max-ma 	Fast Charging current in mA. Supported range is
+				from 1000mA to 4500mA.
+- qcom,chg-autonomous-mode	This is a bool property and it indicates that the
+				charger is configured for autonomous operation and
+				does not require any software configuration.
+- qcom,disable-apsd		This is a bool property which disables automatic
+				power source detection (APSD). If this is set
+				charger detection is done by DCIN UV irq.
+- qcom,charging-disabled	This is a bool property which disables charging
+				by suspending usb.
+- qcom,batt-charging-disabled	This is a bool property which disables battery
+				charging.
+- qcom,using-pmic-therm		This property indicates thermal pin connected to pmic or smb.
+- qcom,bms-psy-name		This is a string and it points to the bms
+				power supply name.
+- qcom,iterm-ma			Specifies the termination current to indicate end-of-charge.
+				Possible values in mA - 70, 100, 200, 300, 400, 500, 600, 700.
+- qcom,iterm-disabled		Disables the termination current feature. This is a bool
+				property.
+- qcom,float-voltage-mv	 	Float Voltage in mV - the maximum voltage up to which
+				the battery is charged. Supported range 3500mV to 4500mV
+- qcom,recharge-mv		Recharge threshold in mV - the offset from the float-volatge
+				as which the charger restarts charging. Possible
+				values are 50mV and 100mV.
+- qcom,recharge-disabled	Boolean value which disables the auto-recharge.
+- qcom,bms-controlled-charging	This property enables BMS to control EOC and
+				recharge. BMS and charger communicates with each
+				other via power_supply framework. This
+				property should be used with 'qcom,iterm-disabled'
+				to ensure EOC detection in charger is disabled.
+- qcom,force-hvdcp-2p0		Boolean value which allows to force hvdcp working on 2.0 mode.
+- qcom,parallel-charger		Boolean value which enables the parallel charger.
+- qcom,chg-vadc			Corresponding VADC device's phandle.
+- qcom,chg-adc_tm		phandle to the corresponding VADC device to read the ADC channels.
+- qcom,batt-cold-decidegc	Cold battery temperature in decidegC.
+- qcom,batt-hot-decidegc	Hot battery temperature in decidegC.
+- qcom,batt-missing-decidegc	This is a property indicating battery missing temperature, if
+				higher than it, battery should exist.
+- qcom,batt-warm-decidegc:	Warm battery temperature in decidegC. After hitting this threshold,
+				"qcom,warm-bat-ma" defines maximum charging current and
+				"qcom,warm-bat-mv" defines maximum target voltage.
+- qcom,batt-cool-decidegc:       Cool battery temperature in decidegC. After hitting this threshold,
+				"qcom,cool-bat-ma" defines maximum charging current and
+				"qcom,cool-bat-mv" defines maximum target voltage.
+- qcom,batt-warm-ma:		Maximum warm battery charge current in milli-amps.
+- qcom,batt-cool-ma:		Maximum cool battery charge current in milli-amps.
+- qcom,batt-warm-mv:		Maximum warm battery target voltage in milli-volts.
+- qcom,batt-cool-mv:		Maximum cool battery target voltage in milli-volts.
+- qcom,parallel-en-pin-polarity Specify the polarity of enable signal controlled
+				via pin in a parallel-charger configuration.
+				0 - Active low and 1  - Active high.
+				If not specified the default value is active-low.
+- qcom,parallel-external-current-sense If present specifies external rsense is
+				used for charge current sensing.
+- qcom,stacked-batfet:		Boolean flag. Specifies if parallel charger has stacked BATFET
+				cofiguration.
+- qcom,otg-enable:		Boolean value which enables OTG(On-The-Go)
+				functionality.
+
+Example for standalone charger:
+
+&i2c_4 {
+	smb1351_otg_supply: smb1351-charger@57 {
+		compatible = "qcom,smb1351-charger";
+		reg = <0x57>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <62 2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default>;
+		qcom,iterm-ma = <100>;
+		qcom,recharge-mv = <100>;
+		qcom,bms-psy-name = "bms";
+		regulator-name = "smb1351_otg_vreg";
+		qcom,using-pmic-therm;
+		qcom,chg-adc_tm = <&pm8916_adc_tm>;
+		qcom,chg-vadc = <&pm8916_vadc>;
+		qcom,batt-hot-decidegc = <550>;
+		qcom,batt-cold-decidegc = <0>;
+		qcom,batt-missing-decidegc = <(-200)>;
+		qcom,batt-warm-decidegc = <500>;
+		qcom,batt-cool-decidegc = <50>;
+		qcom,batt-warm-ma = <350>;
+		qcom,batt-cool-ma = <350>;
+		qcom,batt-warm-mv = <4200>;
+		qcom,batt-cool-mv = <4200>;
+	};
+};
+
+Example for parallel charger:
+
+&i2c_11 {
+	smb1351-charger@1d {
+		compatible = "qcom,smb1351-charger";
+		reg = <0x1d>;
+		qcom,parallel-charger;
+		qcom,recharge-mv = <100>;
+	};
+};

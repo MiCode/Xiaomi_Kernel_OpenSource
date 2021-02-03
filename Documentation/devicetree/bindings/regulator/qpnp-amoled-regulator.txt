@@ -1,0 +1,103 @@
+QPNP AMOLED Triple power supply regulator devices
+
+QPNP OLEDB module provides AVDD voltage rail output for bias and QPNP AB/IBB
+module provides ELVDD/ELVSS voltage rail output to power up AMOLED panels.
+
+For PM8150A, allowed voltage levels are as below:
+AVDD - Programmable output from 4.925 V to 8.1 V.
+ELVDD  - Programmable output from 4.6 V to 6.1 V.
+ELVSS  - Programmable output from -0.8 V to -5.4 V.
+
+
+This document describes the bindings for AMOLED regulator devices.
+
+=======================
+Required Node Structure
+=======================
+
+AMOLED regulator device must be described in two level of device nodes.
+
+- compatible:
+	Usage:      required
+	Value type: <string>
+	Definition: should be "qcom,qpnp-amoled-regulator"
+
+==========================================
+Second Level Nodes - OLEDB/AB/IBB specific
+==========================================
+
+Subnode common properties for OLEDB and AB/IBB regulator devices.
+
+- reg:
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Register base and length for OLEDB, AB and IBB modules
+		    which are represented as child nodes.
+
+- reg-names:
+	Usage:      required
+	Value type: <string>
+	Definition: The name of the register defined in the reg property.
+
+- regulator-name:
+	Usage:      required
+	Value type: <string>
+	Definition: A string used to describe the regulator.
+
+- regulator-min-microvolt:
+	Usage:      required
+	Value type: <u32>
+	Definition: Minimum voltage (in uV) supported by the regulator.
+
+- regulator-max-microvolt:
+	Usage:      required
+	Value type: <u32>
+	Definition: Maximum voltage (in uV) supported by the regulator.
+
+- qcom,swire-control:
+	Usage:	    optional
+	Value type: <empty>
+	Definition: A boolean property to specify that the regulator output is
+		    controlled by SWIRE signal. When this is specified, output
+		    voltage of the regulator is not controlled by SW.
+
+- qcom,aod-pd-control:
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property to specify that the pull down control
+		    for AB/IBB needs to be configured during AOD mode.
+
+Example:
+
+pm8150a_amoled: oledb@e000 {
+	compatible = "qcom,qpnp-amoled-regulator";
+
+	oledb_vreg: oledb@e000 {
+		reg = <0xe000 0x100>;
+		reg-names = "oledb_base";
+		regulator-name = "oledb_vreg";
+		regulator-min-microvolt = <4925000>;
+		regulator-max-microvolt = <8100000>;
+		qcom,swire-control;
+	};
+
+	ab_vreg: ab@de00 {
+		reg = <0xde00 0x100>;
+		reg-names = "ab_base";
+		regulator-name = "ab_vreg";
+		regulator-min-microvolt = <4600000>;
+		regulator-max-microvolt = <6100000>;
+		qcom,swire-control;
+		qcom,aod-pd-control;
+	};
+
+	ibb_vreg: ibb@dc00 {
+		reg = <0xdc00 0x100>;
+		reg-names = "ibb_base";
+		regulator-name = "ibb_vreg";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <5400000>;
+		qcom,swire-control;
+		qcom,aod-pd-control;
+	};
+};

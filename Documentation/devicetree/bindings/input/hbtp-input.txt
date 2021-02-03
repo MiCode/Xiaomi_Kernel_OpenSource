@@ -1,0 +1,89 @@
+Platform device for Host Based Touch Processing (HBTP)
+
+hbtp_input is a kernel driver that provides functionality needed by
+Host Based Touch Processing (HBTP) from the kernel. One of the
+functionality is to manage the power source for touch Analog Front
+End (AFE).
+
+Required properties:
+
+ - compatible		: should be "qcom,hbtp-input"
+
+Optional properties:
+
+ - vcc_ana-supply	: Analog power supply needed to power device
+ - qcom,afe-load	: AFE/Analog supply load in uA
+ - qcom,afe-vtg-min	: AFE/Analog minimum voltage in uV
+ - qcom,afe-vtg-max	: AFE/Analog maximum voltage in uV
+ - qcom,dig-load	: Digital supply load in uA
+ - qcom,dig-vtg-min	: Digital supply minimum voltage in uV
+ - qcom,dig-vtg-max	: Digital supply maximum voltage in uV
+ - qcom,display-resolution	: Display resolution - maxX, maxY
+ - qcom,use-scale	: boolean, enables the scaling for touch coordinates
+ - pinctrl-names	: defines pinctrl names
+			"pmx_ts_active" : Required pinctrl name.
+				This should specify active config of TS RST gpio
+			"pmx_ts_suspend" : Required pinctrl name
+				This should specify suspend config of TS RST gpio
+			"ddic_rst_active" : Required pinctrl name
+				This should specify active config of DDIC RST gpio
+			"ddic_rst_suspend" : Required pinctrl name
+				This should specify suspend config of DDIC RST gpio
+ - pinctrl-0		: pin control to be used for TS active config
+ - pinctrl-1		: pin control to be used for TS suspend config
+ - pinctrl-2		: pin control to be used for DDIC active config
+ - pinctrl-3		: pin control to be used for DDIC suspend config
+
+Optional properties if qcom,use-scale DT property is defined:
+ - qcom,def-maxx	: default X-resolution of the touch panel.
+ - qcom,def-maxy	: default Y-resolution of the touch panel.
+			(Above two properties should be defined in pairs only)
+ - qcom,des-maxx	: desired X-resolution of the touch panel.
+ - qcom,des-maxy	: desired Y-resolution of the touch panel.
+			(Above two properties should be defined in pairs only)
+
+Optional Properties if pinctrl names are defined:
+ - qcom,pmx-ts-on-seq-delay-us : unsigned integer type for
+		delay after active TS RST gpio is changed
+ - qcom,fb-resume-delay-us : unsigned integer type for
+		delay in early resume framebuffer callback
+ - qcom,ddic-rst-on-seq-delay-us : array of unsigned integer type for
+		delay of each step in series of DDIC RST gpio control
+
+Optional Properties if qcom,afe-vtg and qcom,dig-vtg are defined
+ - qcom,afe-power-on-delay-us : unsigned integer type for
+		delay between turning on analog and digital power supply
+ - qcom,afe-power-off-delay-us : unsigned integer type for
+		delay between turning off digital and analog power supply
+
+Example:
+	&soc {
+		hbtp {
+			compatible = "qcom,hbtp-input";
+			vcc_ana-supply = <&pm8941_l17>;
+			vcc_dig-supply = <&pm8950_l16>;
+			qcom,afe-load = <50000>;
+			qcom,afe-vtg-min = <2850000>;
+			qcom,afe-vtg-max = <2850000>;
+			qcom,dig-load = <15000>;
+			qcom,dig-vtg-min = <1800000>;
+			qcom,dig-vtg-max = <1800000>;
+			qcom,display-resolution = <719 1279>;
+			qcom,use-scale;
+			qcom,default-max-x = <1080>;
+			qcom,default-max-y = <1920>;
+			qcom,desired-max-x = <720>;
+			qcom,desired-max-y = <1280>;
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+					"ddic_rst_active", "ddic_rst_suspend";
+			pinctrl-0 = <&ts_rst_active>;
+			pinctrl-1 = <&ts_rst_suspend>;
+			pinctrl-2 = <&ddic_rst_active>;
+			pinctrl-3 = <&ddic_rst_suspend>;
+			qcom,pmx-ts-on-seq-delay-us = <1000>;
+			qcom,ddic-rst-on-seq-delay-us = <10000 10000 10000 10000>;
+			qcom,fb-resume-delay-us = <90000>;
+			qcom,afe-power-on-delay-us = <1000>;
+			qcom,afe-power-off-delay-us = <6>;
+		};
+	};

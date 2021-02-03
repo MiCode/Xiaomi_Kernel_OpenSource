@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "%s " fmt, KBUILD_MODNAME
@@ -678,11 +679,11 @@ static void print_tcs_info(struct rsc_drv *drv, int tcs_id, unsigned long *accl)
 
 	data = read_tcs_reg(drv, RSC_DRV_CONTROL, tcs_id, 0);
 	irq_sts = read_tcs_reg(drv, RSC_DRV_IRQ_STATUS, 0, 0);
-	pr_warn("Request: tcs-in-use:%s active_tcs=%s(%d) state=%d wait_for_compl=%u]\n",
+	pr_err("Request: tcs-in-use:%s active_tcs=%s(%d) state=%d wait_for_compl=%u]\n",
 		(in_use ? "YES" : "NO"),
 		((tcs_grp->type == ACTIVE_TCS) ? "YES" : "NO"),
 		tcs_grp->type, req->state, req->wait_for_compl);
-	pr_warn("TCS=%d [ctrlr-sts:%s amc-mode:0x%x irq-sts:%s]\n",
+	pr_err("TCS=%d [ctrlr-sts:%s amc-mode:0x%x irq-sts:%s]\n",
 		tcs_id, sts ? "IDLE" : "BUSY", data,
 		(irq_sts & BIT(tcs_id)) ? "COMPLETED" : "PENDING");
 
@@ -691,7 +692,7 @@ static void print_tcs_info(struct rsc_drv *drv, int tcs_id, unsigned long *accl)
 		data = read_tcs_reg(drv, RSC_DRV_CMD_DATA, tcs_id, i);
 		msgid = read_tcs_reg(drv, RSC_DRV_CMD_MSGID, tcs_id, i);
 		sts = read_tcs_reg(drv, RSC_DRV_CMD_STATUS, tcs_id, i);
-		pr_warn("\tCMD=%d [addr=0x%x data=0x%x hdr=0x%x sts=0x%x enabled=1]\n",
+		pr_err("\tCMD=%d [addr=0x%x data=0x%x hdr=0x%x sts=0x%x enabled=1]\n",
 			i, addr, data, msgid, sts);
 		if (!(sts & CMD_STATUS_ISSUED))
 			continue;
@@ -709,7 +710,7 @@ void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 	unsigned long accl = 0;
 	char str[20] = "";
 
-	pr_warn("RSC:%s\n", drv->name);
+	pr_err("RSC:%s\n", drv->name);
 
 	for (i = 0; i < drv->num_tcs; i++) {
 		if (!test_bit(i, drv->tcs_in_use))
@@ -724,7 +725,7 @@ void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 	}
 
 	irq_get_irqchip_state(drv->irq, IRQCHIP_STATE_PENDING, &irq_sts);
-	pr_warn("HW IRQ %lu is %s at GIC\n", rsc_irq_data->hwirq,
+	pr_err("HW IRQ %lu is %s at GIC\n", rsc_irq_data->hwirq,
 		irq_sts ? "PENDING" : "NOT PENDING");
 	pr_warn("Completion is %s to finish\n",
 		completion_done(compl) ? "PENDING" : "NOT PENDING");
@@ -735,10 +736,10 @@ void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 	}
 
 	if (busy && !irq_sts)
-		pr_warn("ERROR:Accelerator(s) { %s } at AOSS did not respond\n",
+		pr_err("ERROR:Accelerator(s) { %s } at AOSS did not respond\n",
 			str);
 	else if (irq_sts)
-		pr_warn("ERROR:Possible lockup in Linux\n");
+		pr_err("ERROR:Possible lockup in Linux\n");
 
 	/*
 	 * The TCS(s) are busy waiting, we have no way to recover from this.

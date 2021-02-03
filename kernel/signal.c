@@ -55,7 +55,6 @@
 #include <asm/siginfo.h>
 #include <asm/cacheflush.h>
 #include "audit.h"	/* audit_signal_info() */
-
 /*
  * SLAB caches for signal bits.
  */

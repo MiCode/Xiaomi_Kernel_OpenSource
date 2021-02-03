@@ -3,6 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufs.h
  * Copyright (C) 2011-2013 Samsung India Software Operations
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -623,8 +624,6 @@ struct ufs_dev_info {
 	unsigned int quirks;
 
 	bool keep_vcc_on;
-
-	bool wb_config_lun;
 };
 
 #define MAX_MODEL_LEN 16

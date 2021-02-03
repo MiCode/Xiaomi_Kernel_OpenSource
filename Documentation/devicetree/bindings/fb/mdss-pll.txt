@@ -1,0 +1,109 @@
+Qualcomm Technologies, Inc. MDSS pll for DSI/EDP/HDMI
+
+mdss-pll is a pll controller device which supports pll devices that
+are compatible with MIPI display serial interface specification,
+HDMI and edp.
+
+Required properties:
+- compatible:		Compatible name used in the driver. Should be one of:
+                        "qcom,mdss_dsi_pll_8916", "qcom,mdss_dsi_pll_8939",
+                        "qcom,mdss_dsi_pll_8974", "qcom,mdss_dsi_pll_8994",
+                        "qcom,mdss_dsi_pll_8994", "qcom,mdss_dsi_pll_8909",
+                        "qcom,mdss_hdmi_pll", "qcom,mdss_hdmi_pll_8994",
+                        "qcom,mdss_dsi_pll_8992", "qcom,mdss_hdmi_pll_8992",
+                        "qcom,mdss_dsi_pll_8996", "qcom,mdss_hdmi_pll_8996",
+                        "qcom,mdss_hdmi_pll_8996_v2", "qcom,mdss_dsi_pll_8996_v2",
+                        "qcom,mdss_hdmi_pll_8996_v3", "qcom,mdss_hdmi_pll_8996_v3_1p8",
+                        "qcom,mdss_edp_pll_8996_v3",  "qcom,mdss_edp_pll_8996_v3_1p8",
+                        "qcom,mdss_dsi_pll_10nm",  "qcom,mdss_dp_pll_8998",
+                        "qcom,mdss_hdmi_pll_8998", "qcom,mdss_dp_pll_10nm",
+                        "qcom,mdss_dsi_pll_7nm",   "qcom,mdss_dp_pll_7nm",
+			"qcom,mdss_dsi_pll_28lpm", "qcom,mdss_dsi_pll_14nm",
+			"qcom,mdss_dp_pll_14nm", "qcom,mdss_hdmi_pll_28lpm",
+			"qcom,mdss_dsi_pll_7nm_v2"
+			"qcom,mdss_dp_pll_sdm660",
+			"qcom,mdss_dsi_pll_sdm660"
+- cell-index:		Specifies the controller used
+- reg:			offset and length of the register set for the device.
+- reg-names :		names to refer to register sets related to this device
+- gdsc-supply:		Phandle for gdsc regulator device node.
+- vddio-supply:		Phandle for vddio regulator device node.
+- clocks:		List of Phandles for clock device nodes
+			needed by the device.
+- clock-names:		List of clock names needed by the device.
+- clock-rate:		List of clock rates in Hz.
+
+Optional properties:
+- label:	       	A string used to describe the driver used.
+- vcca-supply:		Phandle for vcca regulator device node.
+
+
+- qcom,dsi-pll-ssc-en:	Boolean property to indicate that ssc is enabled.
+- qcom,dsi-pll-ssc-mode: Spread-spectrum clocking. It can be either "down-spread"
+			or "center-spread". Default is "down-spread" if it is not specified.
+- qcom,ssc-frequency-hz:	Integer property to specify the spread frequency
+			to be programmed for the SSC.
+- qcom,ssc-ppm:		Integer property to specify the Parts per Million
+			value of SSC.
+
+- qcom,platform-supply-entries:	A node that lists the elements of the supply. There
+				can be more than one instance of this binding,
+				in which case the entry would be appended with
+				the supply entry index.
+				e.g. qcom,platform-supply-entry@0
+				- reg: offset and length of the register set for the device.
+				-- qcom,supply-name: name of the supply (vdd/vdda/vddio)
+				-- qcom,supply-min-voltage: minimum voltage level (uV)
+				-- qcom,supply-max-voltage: maximum voltage level (uV)
+				-- qcom,supply-enable-load: load drawn (uA) from enabled supply
+				-- qcom,supply-disable-load: load drawn (uA) from disabled supply
+				-- qcom,supply-pre-on-sleep: time to sleep (ms) before turning on
+				-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
+				-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
+				-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
+
+Example:
+	mdss_dsi0_pll: qcom,mdss_dsi_pll@fd922A00 {
+		compatible = "qcom,mdss_dsi_pll_8974";
+		label = "MDSS DSI 0 PLL";
+		cell-index = <0>;
+
+		reg = <0xfd922A00 0xD4>,
+		      <0xfd922900 0x64>,
+		      <0xfd8c2300 0x8>;
+		reg-names = "pll_base", "dynamic_pll_base", "gdsc_base";
+		gdsc-supply = <&gdsc_mdss>;
+		vddio-supply = <&pm8941_l12>;
+		vcca-supply = <&pm8941_l28>;
+
+		clocks = <&clock_gcc clk_gcc_mdss_mdp_clk>,
+			 <&clock_gcc clk_gcc_mdss_ahb_clk>,
+			 <&clock_gcc clk_gcc_mdss_axi_clk>;
+		clock-names = "mdp_core_clk", "iface_clk", "bus_clk";
+		clock-rate = <0>, <0>, <0>;
+
+		qcom,dsi-pll-slave;
+		qcom,dsi-pll-ssc-en;
+		qcom,dsi-pll-ssc-mode = "down-spread";
+		qcom,ssc-frequency-hz = <30000>;
+		qcom,ssc-ppm = <5000>;
+
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <20>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+			};
+		};
+	};
+

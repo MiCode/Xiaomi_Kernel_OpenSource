@@ -1,0 +1,208 @@
+* Qualcomm Technologies, Inc. MSM VFE
+
+Required properties for parent node:
+- compatible :
+    - "qcom,vfe"
+- #address-cells : Number of address related values in the reg field
+- #size-cells : Number of size related values in the reg field
+- ranges: How the register offsets for child translate to parent.
+
+Required properties for child node:
+- cell-index: vfe hardware core index
+- compatible :
+    - "qcom,vfe32"
+    - "qcom,vfe40"
+    - "qcom,vfe44"
+    - "qcom,vfe46"
+    - "qcom,vfe47"
+    - "qcom,vfe48"
+- reg : offset and length of the register set for the device
+    for the vfe operating in compatible mode. For parent node, add union of
+    all registers for both vfe.
+- reg-names : should specify relevant names to each reg property defined.
+    Only needed for child node.
+    - "vfe" - Required.
+    - "vfe_vbif" - Optional for "vfe32". Required for "vfe40".
+    - "vfe_fuse" - Optional.
+- interrupts : should contain the vfe interrupt.
+- interrupt-names : should specify relevant names to each interrupts
+  property defined.
+    - "vfe" - Required.
+- vdd-supply: phandle to GDSC regulator controlling VFE core.
+- qos-entries: number of QoS registers to program
+- qos-regs: relative address offsets of QoS registers
+- qos-settings: QoS values to be written to QoS registers
+- vbif-entries - number of VBIF registers to program (optional)
+- vbif-regs: relative address offsets of VBIF registers (optional)
+- vbif-settings: VBIF values to be written to VBIF registers (optional)
+- ds-entries: number danger/safe registers to program (optional)
+- ds-regs: relative address offsets of danger/safe registers (optional)
+- ds-settings: danger/safe values to be written to registers (optional)
+  NOTE: For all qos*, vbif*, ds* parameters, same SoC can have different
+  hardware versions with different entries/registers/settings. They can be
+  specified by adding version to the string e.g. qos-v2-settings. Also
+  different SoC can have same hardware version and still different QOS, VBIF,
+  and DS parameters. In this case they are exported if separate SoC version
+  specific dts files.
+- max-svs-clk: svs rate of the VFE clock in Hertz.
+- max-nominal-clk: nominal rate of the VFE clock in Hertz.
+- max-turbo-clk: turbo/high rate of the VFE clock in Hertz.
+
+Example:
+
+vfe0: qcom,vfe0@fda10000 {
+	cell-index = <0>;
+	compatible = "qcom,vfe44";
+	reg = <0xfda10000 0x1000>,
+		<0xfda40000 0x200>,
+		<0x7801a4 0x8>;
+	reg-names = "vfe", "vfe_vbif", "vfe_fuse";
+	interrupts = <0 57 0>;
+	interrupt-names = "vfe";
+	vdd-supply = <&gdsc_vfe>;
+	qos-entries = <8>;
+	qos-regs = <0x2c4 0x2c8 0x2cc 0x2d0 0x2d4 0x2d8
+		0x2dc 0x2e0>;
+	qos-settings = <0xaaaaaaaa 0xaaaaaaaa 0xaaaaaaaa
+		0xaaaaaaaa 0xaaaaaaaa 0xaaaaaaaa
+		0xaaaaaaaa 0x0002aaaa>;
+	qos-v2-settings = <0xaaa9aaa9 0xaaa9aaa9 0xaaa9aaa9
+		0xaaa9aaa9 0xaaa9aaa9 0xaaa9aaa9
+		0xaaa9aaa9 0x0001aaa9>;
+	qos-v3-settings = <0xaaa9aaa9 0xaaa9aaa9 0xaaa9aaa9
+		0xaaa9aaa9 0xaaa9aaa9 0xaaa9aaa9
+		0xaaa9aaa9 0x0001aaa9>;
+	vbif-entries = <17>;
+	vbif-regs = <0x4 0xb0 0xb4 0xb8 0xc0 0xc4 0xc8 0xd0
+		0xd4 0xd8 0xdc 0xf0 0x178 0x17c 0x124 0x160
+		0x164>;
+	vbif-settings = <0x1 0x01010101 0x01010101 0x10010110
+		0x10101010 0x10101010 0x10101010 0x00001010
+		0x00001010 0x00000707 0x00000707 0x00000030
+		0x00000fff 0x0fff0fff 0x00000001 0x22222222
+		0x00002222>;
+	vbif-v2-entries = <16>;
+	vbif-v2-regs = <0x4 0xb0 0xb4 0xb8 0xc0 0xc4 0xc8 0xd0
+		0xd4 0xd8 0xf0 0x178 0x17c 0x124 0x160
+		0x164>;
+	vbif-v2-settings = <0x1 0x10101010 0x10101010 0x10101010
+		0x10101010 0x10101010 0x10101010 0x00000010
+		0x00000010 0x00000707 0x00000010 0x00000fff
+		0x0fff0fff 0x00000003 0x22222222 0x00002222>;
+	ds-entries = <17>;
+	ds-regs = <0x988 0x98c 0x990 0x994 0x998
+		0x99c 0x9a0 0x9a4 0x9a8 0x9ac 0x9b0
+		0x9b4 0x9b8 0x9bc 0x9c0 0x9c4 0x9c8>;
+	ds-settings = <0x44441111 0x44441111 0x44441111
+		0x44441111 0x44441111 0x44441111
+		0x44441111 0x44441111 0x44441111
+		0x44441111 0x44441111 0x44441111
+		0x44441111 0x44441111 0x44441111
+		0x44441111 0x00000103>;
+	max-clk-svs = <300000000>;
+	max-clk-nominal = <465000000>;
+	max-clk-turbo = <600000000>;
+};
+
+vfe1: qcom,vfe1@fda14000 {
+	cell-index = <1>;
+	compatible = "qcom,vfe44";
+	reg = <0xfda14000 0x1000>,
+		<0xfda40000 0x200>,
+		<0x7801a4 0x8>;
+	reg-names = "vfe", "vfe_vbif", "vfe_fuse";
+	interrupts = <0 58 0>;
+	interrupt-names = "vfe";
+	vdd-supply = <&gdsc_vfe>;
+	qos-entries = <8>;
+	qos-regs = <0x2c4 0x2c8 0x2cc 0x2d0 0x2d4 0x2d8
+		0x2dc 0x2e0>;
+	qos-settings = <0xaaaaaaaa 0xaaaaaaaa 0xaaaaaaaa
+		0xaaaaaaaa 0xaaaaaaaa 0xaaaaaaaa
+		0xaaaaaaaa 0x0002aaaa>;
+	qos-v2-settings = <0xaaa9aaa9 0xaaa9aaa9 0xaaa9aaa9
+		0xaaa9aaa9 0xaaa9aaa9 0xaaa9aaa9
+		0xaaa9aaa9 0x0001aaa9>;
+	qos-v3-settings = <0xaaa9aaa9 0xaaa9aaa9 0xaaa9aaa9
+		0xaaa9aaa9 0xaaa9aaa9 0xaaa9aaa9
+		0xaaa9aaa9 0x0001aaa9>;
+	vbif-entries = <17>;
+	vbif-regs = <0x4 0xb0 0xb4 0xb8 0xc0 0xc4 0xc8 0xd0
+		0xd4 0xd8 0xdc 0xf0 0x178 0x17c 0x124 0x160
+		0x164>;
+	vbif-settings = <0x1 0x01010101 0x01010101 0x10010110
+		0x10101010 0x10101010 0x10101010 0x00001010
+		0x00001010 0x00000707 0x00000707 0x00000030
+		0x00000fff 0x0fff0fff 0x00000001 0x22222222
+		0x00002222>;
+	vbif-v2-entries = <16>;
+	vbif-v2-regs = <0x4 0xb0 0xb4 0xb8 0xc0 0xc4 0xc8 0xd0
+		0xd4 0xd8 0xf0 0x178 0x17c 0x124 0x160
+		0x164>;
+	vbif-v2-settings = <0x1 0x10101010 0x10101010 0x10101010
+		0x10101010 0x10101010 0x10101010 0x00000010
+		0x00000010 0x00000707 0x00000010 0x00000fff
+		0x0fff0fff 0x00000003 0x22222222 0x00002222>;
+	ds-entries = <17>;
+	ds-regs = <0x988 0x98c 0x990 0x994 0x998
+		0x99c 0x9a0 0x9a4 0x9a8 0x9ac 0x9b0
+		0x9b4 0x9b8 0x9bc 0x9c0 0x9c4 0x9c8>;
+	ds-settings = <0x44441111 0x44441111 0x44441111
+		0x44441111 0x44441111 0x44441111
+		0x44441111 0x44441111 0x44441111
+		0x44441111 0x44441111 0x44441111
+		0x44441111 0x44441111 0x44441111
+		0x44441111 0x00000103>;
+	max-clk-svs = <300000000>;
+	max-clk-nominal = <465000000>;
+	max-clk-turbo = <600000000>;
+};
+
+qcom,vfe {
+	compatible = "qcom,vfe";
+	num_child = <2>;
+};
+
+In version specific file one needs to move only entries that differ between
+SoC versions with same VFE HW version:
+
+	&vfe0 {
+		qos-entries = <8>;
+		qos-regs = <0x378 0x37C 0x380 0x384 0x388 0x38C
+				0x390 0x394>;
+		qos-settings = <0xAAA9AAA9
+			0xAAA9AAA9
+			0xAAA9AAA9
+			0xAAA9AAA9
+			0xAAA9AAA9
+			0xAAA9AAA9
+			0xAAA9AAA9
+			0x0001AAA9>;
+		vbif-entries = <1>;
+		vbif-regs = <0x124>;
+		vbif-settings = <0x3>;
+		ds-entries = <17>;
+		ds-regs = <0xBD8 0xBDC 0xBE0 0xBE4 0xBE8
+			0xBEC 0xBF0 0xBF4 0xBF8 0xBFC 0xC00
+			0xC04 0xC08 0xC0C 0xC10 0xC14 0xC18>;
+		ds-settings = <0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x00000103>;
+		max-clk-svs = <300000000>;
+		max-clk-nominal = <465000000>;
+		max-clk-turbo = <600000000>;
+	};

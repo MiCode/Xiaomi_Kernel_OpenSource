@@ -1,0 +1,102 @@
+MSM USB Bus Access Manager (BAM)
+
+This describes the device used to interface the USB controller
+with the Smart Peripheral Subsystem (SPS). The BAM serves to
+connect USB directly with other peer peripherals in the system
+and is statically configured with a number of unidirectional pipes.
+
+Required properties:
+- compatible: should be "qcom,usb-bam-msm"
+- reg  : pair of physical base addresses and region size of BAM device
+- interrupts: IRQ line for BAM device
+- qcom,usb-bam-num-pipes: max number of pipes that can be used
+
+Optional properties:
+- qcom,usb-bam-fifo-baseaddr: base address for bam pipe's data and descriptor
+	fifos. This can be on chip memory (ocimem). This
+	property is required if sub-node's mem-type is ocimem or usb private mem.
+- qcom,disable-clk-gating: If present then disable BAM clock gating.
+- qcom,usb-bam-override-threshold: If present then the default 512 byte threshold
+	is overridden. This threshold configures the threshold value for Read/Write
+	event generation by the BAM towards another BAM.
+- qcom,usb-bam-max-mbps-highspeed: max mbps in high speed connection
+	for either rx or tx direction.
+- qcom,usb-bam-max-mbps-superspeed: max mbps in super speed connection
+	for either rx or tx direction.
+- qcom,reset-bam-on-connect: If present then BAM is RESET before connecting
+	pipe. This may be required if BAM peripheral is also reset before connect.
+- qcom,reset-bam-on-disconnect: If present then BAM is RESET after disconnecting pipes.
+
+A number of USB BAM pipe parameters are represented as sub-nodes:
+
+Subnode Required:
+- label: a string describing uniquely the usb bam pipe. The string can be
+	constracted as follows: <core>-<peer>-<direction>-<pipe num>.
+	core options: hsusb, ssusb/dwc3, hsic
+	peer options: qdss, ipa
+	direction options: in (from peer to usb), out (from usb to peer)
+	pipe num options: 0..127
+- qcom,usb-bam-mem-type: Type of memory used by this PIPE. Can be one of
+	0 - Uses SPS's dedicated pipe memory
+	1 - System RAM allocated by driver
+	2 - OCI memory residing @ 'qcom,usb-bam-fifo-baseaddr'
+- qcom,dir: pipe direction
+	0 - from usb (out)
+	1 - to usb (in)
+- qcom,pipe-num: pipe number
+- qcom,peer-bam: peer BAM can be one of
+	0 - QDSS_P_BAM
+	1 - IPA_P_BAM
+- qcom,data-fifo-size: data fifo size
+- qcom,descriptor-fifo-size: descriptor fifo size
+
+Optional Properties for Subnode:
+- qcom,peer-bam-physical-address: peer BAM's physical address.
+	Not specified for IPA and used only for qdss connection
+- qcom,dst-bam-pipe-index: destination BAM pipe index
+- qcom,src-bam-pipe-index: source BAM pipe index
+- qcom,data-fifo-offset: data fifo offset address
+- qcom,descriptor-fifo-offset: descriptor fifo offset address
+- qcom,pipe-connection-type: type of pipe connection. Can be one of
+	0 - BAM2BAM (default if not specified)
+	1 - SYS2BAM (only supported on UL)
+
+Example USB BAM controller device node:
+
+	qcom,usbbam@f9a44000 {
+		compatible = "qcom,usb-bam-msm";
+		reg = <0xf9a44000 0x11000>;
+		interrupts = <0 135 0>;
+		qcom,usb-bam-num-pipes = <16>;
+		qcom,ignore-core-reset-ack;
+		qcom,disable-clk-gating;
+		qcom,usb-bam-max-mbps-highspeed = <400>;
+		qcom,usb-bam-max-mbps-superspeed = <3600>;
+		qcom,bam-type = <1>;
+		qcom,bam-mode = <0>;
+
+		qcom,pipe0 {
+			label = "hsusb-ipa-out-0";
+			qcom,usb-bam-mem-type = <0>;
+			qcom,dir = <0>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <2>;
+			qcom,src-bam-pipe-index = <1>;
+			qcom,data-fifo-offset = <0x2200>;
+			qcom,data-fifo-size = <0x1e00>;
+			qcom,descriptor-fifo-offset = <0x2100>;
+			qcom,descriptor-fifo-size = <0x100>;
+		};
+		qcom,pipe1 {
+			label = "hsusb-ipa-in-0";
+			qcom,usb-bam-mem-type = <0>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <2>;
+			qcom,dst-bam-pipe-index = <0>;
+			qcom,data-fifo-offset = <0x300>;
+			qcom,data-fifo-size = <0x1e00>;
+			qcom,descriptor-fifo-offset = <0>;
+			qcom,descriptor-fifo-size = <0x300>;
+		};
+	};

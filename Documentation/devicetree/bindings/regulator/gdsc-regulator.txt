@@ -1,0 +1,89 @@
+QTI Global Distributed Switch Controller (GDSC) Regulator Driver
+
+The GDSC driver, implemented under the regulator framework, is responsible for
+safely collapsing and restoring power to peripheral and multimedia cores on
+chipsets like SDM845 for power savings.
+
+Required properties:
+ - compatible:      Must be "qcom,gdsc"
+ - regulator-name:  A string used as a descriptive name for regulator outputs
+ - reg:             The address of the GDSCR register
+
+Optional properties:
+ - parent-supply:   phandle to the parent supply/regulator node
+ - clock-names:     List of string names for core clocks
+ - qcom,retain-mem:  Presence denotes a hardware requirement to leave the
+		     forced core memory retention signals in the core's clock
+		     branch control registers asserted.
+ - qcom,retain-periph: Presence denotes a hardware requirement to leave the
+		     forced periph memory retention signal in the core's clock
+		     branch control registers asserted.
+ - qcom,retain-regs: Presence denotes a hardware requirement to enable the
+		     usage of retention registers which maintain their state
+		     after the GDSC is disabled and re-enabled.
+ - qcom,skip-logic-collapse: Presence denotes a requirement to leave power to
+                             the core's logic enabled.
+ - qcom,support-hw-trigger: Presence denotes a hardware feature to switch
+			    on/off this regulator based on internal HW signals
+			    to save more power.
+ - qcom,enable-root-clk: Presence denotes that the clocks in the "clocks"
+			property are required to be enabled before gdsc is
+			turned on and disabled before turning off gdsc. This
+			will be used in subsystems where reset is synchronous
+			and root clk is active without sw being aware of its
+			state. The clock-name which denotes the root clock
+			should be named as "core_root_clk".
+ - qcom,force-enable-root-clk: If set, denotes that the root clock should be
+			force enabled before turning on the GDSC and then be
+			immediately force disabled. Likewise for GDSC disable.
+			This is used in cases where the core root clock needs
+			to be force-enabled prior to turning on the core. The
+			clock-name which denotes the root clock should be
+			"core_root_clk".
+ - qcom,clk-dis-wait-val: Input value for CLK_DIS_WAIT controls state transition
+			 delay after halting clock in the collapsible core.
+ - reg-names:		Names of the bases for the above "reg" registers.
+			Ex. "base", "domain-addr", "sw-reset", "hw-ctrl-addr".
+ - qcom,no-status-check-on-disable: Do not poll the status bit when GDSC
+			is disabled.
+ - qcom,disallow-clear: Presence denotes the periph & core memory will not be
+			cleared, unless the required subsystem does not invoke
+			the api which will allow clearing the bits.
+ - qcom,gds-timeout:	Maximum time (in usecs) that might be taken by a GDSC
+			to enable.
+ - qcom,reset-aon-logic: If present, the GPU DEMET cells need to be reset while
+			 enabling the GX GDSC.
+ - vdd_parent-supply:	phandle to the regulator that this GDSC gates. If
+			present, need to vote for a minimum operational voltage
+			(LOW_SVS) on the GDSC parent regulator prior to
+			configuring it. The vote is removed once the GDSC FSM
+			has latched on to the new state.
+ - resets: reset specifier pair consisting of phandle for the reset controller
+			and reset lines used by this controller. These can be
+			supplied only if we support qcom,skip-logic-collapse.
+ - reset-names: reset signal name strings sorted in the same order as the resets
+			property. These can be supplied only if we support
+			qcom,skip-logic-collapse.
+ - qcom,msm-bus,name:	Name to use for the bus client.  See [1] for details.
+ - qcom,msm-bus,num-cases: Must be 2 if qcom,msm-bus,name is specified.  The
+			first case corresponds to no bus request and the second
+			case corresponds to a minimum bus request.  See [1] for
+			details.
+ - qcom,msm-bus,num-paths: Should be 1 if qcom,msm-bus,name is specified.  See
+			[1] for details.
+ - qcom,msm-bus,vectors-KBps: Required if qcom,msm-bus,name is specified.  See
+			[1] for an explanation of the data format.
+ - qcom,skip-disable-before-sw-enable : Presence denotes a hardware requirement
+					to leave the GDSC on that has been
+					enabled by an entity external to HLOS.
+
+[1]: Documentation/devicetree/bindings/arm/msm/msm_bus.txt
+
+Example:
+	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_oxili_gx";
+		parent-supply = <&pm8841_s4>;
+		reg = <0xfd8c4024 0x4>;
+		clock-names = "core_clk";
+	};

@@ -1,0 +1,22 @@
+* QCOM LLCC PMU Bindings
+
+This represents the miss counters located in the LLCC hardware counters.
+Only one event is supported:
+
+ 0x1000      	  - LLCC misses
+
+The follow section describes the LLCC PMU DT node binding.
+
+Required properties:
+- compatible		: Shall be "qcom,llcc-pmu-ver1" or "qcom,llcc-pmu-ver2"
+- reg			: There shall be one resource, a pair of the form
+			  < base_address total_size > representing the DDR_LAGG
+			  region.
+- reg-names		: Shall be "lagg-base".
+
+Example:
+	llcc_pmu: llcc-pmu {
+		compatible = "qcom,qcom-llcc-pmu";
+		reg = < 0x090CC000 0x300 >;
+		reg-names = "lagg-base";
+	};

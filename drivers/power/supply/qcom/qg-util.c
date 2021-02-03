@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/alarmtimer.h>
@@ -360,9 +361,11 @@ int qg_write_monotonic_soc(struct qpnp_qg *chip, int msoc)
 	return rc;
 }
 
+#define TEMP_READ_RETRY		3
 int qg_get_battery_temp(struct qpnp_qg *chip, int *temp)
 {
 	int rc = 0;
+	static int retry = 0;
 
 	if (chip->battery_missing) {
 		*temp = 250;
@@ -371,9 +374,31 @@ int qg_get_battery_temp(struct qpnp_qg *chip, int *temp)
 
 	rc = iio_read_channel_processed(chip->batt_therm_chan, temp);
 	if (rc < 0) {
-		pr_err("Failed reading BAT_TEMP over ADC rc=%d\n", rc);
-		return rc;
+		while (retry < TEMP_READ_RETRY) {
+			rc = iio_read_channel_processed(chip->batt_therm_chan, temp);
+			if (rc >= 0) {
+				retry = 0;
+				break;
+			} else {
+				retry++;
+			}
+		}
+		if (retry >= TEMP_READ_RETRY) {
+			pr_err("Failed reading BAT_TEMP over ADC rc=%d\n", rc);
+			retry = 0;
+			return rc;
+		}
 	}
+
+	if (abs(chip->last_temp - *temp) > 50) {
+		rc = iio_read_channel_processed(chip->batt_therm_chan, temp);
+		pr_err("Read battery temp again temp=%d\n", *temp);
+		if (rc < 0) {
+			pr_err("Failed reading BAT_TEMP over ADC when re-read temp rc=%d\n", rc);
+			return rc;
+		}
+	}
+	chip->last_temp = *temp;
 	pr_debug("batt_temp = %d\n", *temp);
 
 	return 0;
@@ -411,6 +436,11 @@ int qg_get_battery_current(struct qpnp_qg *chip, int *ibat_ua)
 
 	last_ibat = sign_extend32(last_ibat, 15);
 	*ibat_ua = qg_iraw_to_ua(chip, last_ibat);
+	if (*ibat_ua < 0) {
+		pr_err("ibat_ua =%d", *ibat_ua);
+		chip->sdam_data[SDAM_IBAT_UA] = 0;
+	} else
+		chip->sdam_data[SDAM_IBAT_UA] =  (chip->sdam_data[SDAM_IBAT_UA] != 0) ? (chip->sdam_data[SDAM_IBAT_UA] * 9 + *ibat_ua) / 10 :  *ibat_ua;
 
 release:
 	/* release */

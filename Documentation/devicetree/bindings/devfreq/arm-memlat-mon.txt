@@ -1,0 +1,73 @@
+ARM CPU memory latency monitor device
+
+arm-memlat-mon is a device that represents the use of the PMU in ARM cores
+to measure the parameters for latency driven memory access patterns.
+
+Required structure:
+An instance of arm-memlat-mon must be described in two levels of device nodes.
+The first level describes the controller while the second level describes the
+monitors that the controller manages. At least one monitor is required per
+controller.
+
+[First Level Nodes]
+Required properties:
+- compatible:			Must be "qcom,arm-memlat-cpugrp"
+- qcom,cpulist:			List of CPU phandles to be monitored in a
+				cluster. Must be a superset of cpulists
+				described in second level nodes.
+
+[Second Level Nodes]
+Required properties:
+- compatible:			Must be "qcom,arm-memlat-mon" or
+				"qcom,arm-compute-mon"
+- qcom,target-dev:		The DT device that corresponds to this master
+				port
+- qcom,core-dev-table:		A mapping table of core frequency to a required
+				bandwidth vote at the given core frequency.
+- qcom,cachemiss-ev:		The cache miss event that this monitor is
+				supposed to measure. Optional for compute only.
+Optional properties:
+- qcom,cpulist:			List of CPU phandles to be monitored in a
+				cluster. Must be a subset of the cpulist
+				described in first level node. Defaults to
+				cpulist in first level node if not specified.
+- qcom,inst-ev:			The instruction count event that this monitor is
+				supposed to measure. Defaults to 0x08 if not
+				specified.
+- qcom,stall-cycle-ev:		The stall cycle count that this monitor is
+				supposed to measure. Assumes 100% stall if not
+				specified.
+- qcom,ddr-type:		Optional property indicates ddr type which can support
+				different frequencies for a given target.
+
+Example:
+
+#define DDR_TYPE_LPDDR3	5
+#define DDR_TYPE_LPDDR4X	7
+
+	qcom,arm-memlat-cpugrp {
+		compatible = "qcom,arm-memlat-cpugrp";
+		qcom,cpulist = <&CPU0 &CPU1>;
+
+		qcom,arm-memlat-mon {
+			compatible = "qcom,arm-memlat-mon";
+			qcom,target-dev = <&memlat0>;
+			qcom,cachemiss-ev = <0x2A>;
+			qcom,inst-ev = <0x08>;
+			qcom,stall-cycle-ev = <0xE7>;
+			ddr3-map {
+				qcom,ddr-type = <DDR_TYPE_LPDDR3>;
+				qcom,core-dev-table =
+				<  300000 1525 >,
+				<  499200 3143 >,
+				< 1881600 5859 >;
+			};
+			ddr4-map {
+				qcom,ddr-type = <DDR_TYPE_LPDDR4X>;
+				qcom,core-dev-table =
+					<  300000 1525 >,
+					<  499200 3143 >,
+					< 1881600 5859 >;
+			};
+		};
+	};

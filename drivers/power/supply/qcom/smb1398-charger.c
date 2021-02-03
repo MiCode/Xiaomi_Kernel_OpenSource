@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "SMB1398: %s: " fmt, __func__
@@ -112,6 +113,7 @@
 #define EN_SLAVE_OWN_FREQ_BIT		BIT(5)
 #define DIV2_WIN_UV_SEL_BIT		BIT(4)
 #define DIV2_WIN_UV_25MV		0
+#define DIV2_WIN_UV_12P5MV		BIT(4)
 #define COMBO_WIN_LO_EXIT_SEL_MASK	GENMASK(3, 2)
 #define EXIT_DIV2_VOUT_HI_12P5MV	0
 #define EXIT_DIV2_VOUT_HI_25MV		1
@@ -152,10 +154,14 @@
 #define LCM_EXIT_CTRL_REG		0x265D
 
 #define ICHG_SS_DAC_TARGET_REG		0x2660
+#define ICHG_SS_DAC_MAX_REG		0x2661
+#define ICHG_SS_DAC_MIN_REG		0x2662
 #define ICHG_SS_DAC_VALUE_MASK		GENMASK(5, 0)
 #define ICHG_STEP_MA			100
 
 #define VOUT_DAC_TARGET_REG		0x2663
+#define VOUT_DAC_MAX_REG		0x2664
+#define VOUT_DAC_MIN_REG		0x2665
 #define VOUT_DAC_VALUE_MASK		GENMASK(7, 0)
 #define VOUT_1P_MIN_MV			3300
 #define VOUT_1S_MIN_MV			6600
@@ -163,6 +169,8 @@
 #define VOUT_1S_STEP_MV			20
 
 #define VOUT_SS_DAC_TARGET_REG		0x2666
+#define VOUT_SS_DAC_MAX_REG		0x2667
+#define VOUT_SS_DAC_MIN_REG		0x2668
 #define VOUT_SS_DAC_VALUE_MASK		GENMASK(5, 0)
 #define VOUT_SS_1P_STEP_MV		90
 #define VOUT_SS_1S_STEP_MV		180
@@ -174,6 +182,8 @@
 #define PERPH0_DIV2_REF_CFG		0x2671
 #define CFG_IREV_REF_BIT		BIT(2)
 
+#define IIN_SS_DAC_MAX_REG		0x266A
+#define IIN_SS_DAC_MIN_REG		0x266B
 #define PERPH0_CFG_SDCDC_REG		0x267A
 #define EN_WIN_UV_BIT			BIT(7)
 
@@ -217,13 +227,18 @@
 #define TAPER_MAIN_ICL_LIMIT_VOTER	"TAPER_MAIN_ICL_LIMIT_VOTER"
 
 /* Constant definitions */
-#define DIV2_MAX_ILIM_UA		5000000
-#define DIV2_MAX_ILIM_DUAL_CP_UA	10000000
+/* Need to define max ILIM for smb1398 */
 #define DIV2_ILIM_CFG_PCT		105
 
 #define TAPER_STEPPER_UA_DEFAULT	100000
 #define TAPER_STEPPER_UA_IN_CC_MODE	200000
 #define CC_MODE_TAPER_MAIN_ICL_UA	500000
+#define MAIN_FCC_VOTER			"MAIN_FCC_VOTER"
+
+/* Constant definitions */
+/* Need to define max ILIM for smb1398 */
+#define DIV2_MAX_ILIM_UA		5000000
+#define DIV2_MAX_ILIM_DUAL_CP_UA	10000000
 
 #define MAX_IOUT_UA			6300000
 #define MAX_1S_VOUT_UV			11700000
@@ -233,6 +248,8 @@
 #define DIV2_CP_MASTER			0
 #define DIV2_CP_SLAVE			1
 #define COMBO_PRE_REGULATOR		2
+
+#define DIV2_CP_HW_VERSION_3		3
 
 enum isns_mode {
 	ISNS_MODE_OFF = 0,
@@ -376,150 +393,6 @@ static int smb1398_masked_write(struct smb1398_chip *chip,
 	return rc;
 }
 
-static int smb1398_get_enable_status(struct smb1398_chip *chip)
-{
-	int rc = 0;
-	u8 val;
-	bool switcher_en = false;
-
-	rc = smb1398_read(chip, MODE_STATUS_REG, &val);
-	if (rc < 0)
-		return rc;
-
-	chip->smb_en = !!(val & SMB_EN);
-	chip->switcher_en = !!(val & PRE_EN_DCDC);
-	chip->slave_en = !!(val & DIV2_EN_SLAVE);
-
-	rc = smb1398_read(chip, MISC_SL_SWITCH_EN_REG, &val);
-	if (rc < 0)
-		return rc;
-
-	switcher_en = !!(val & EN_SWITCHER);
-	chip->switcher_en = switcher_en && chip->switcher_en;
-
-	dev_dbg(chip->dev, "smb_en = %d, switcher_en = %d, slave_en = %d\n",
-			chip->smb_en, chip->switcher_en, chip->slave_en);
-	return rc;
-}
-
-static int smb1398_get_iin_ma(struct smb1398_chip *chip, int *iin_ma)
-{
-	int rc = 0;
-	u8 val;
-
-	rc = smb1398_read(chip, IIN_SS_DAC_TARGET_REG, &val);
-	if (rc < 0)
-		return rc;
-
-	*iin_ma = (val & IIN_SS_DAC_VALUE_MASK) * IIN_STEP_MA;
-
-	dev_dbg(chip->dev, "get iin_ma = %dmA\n", *iin_ma);
-	return rc;
-}
-
-static int smb1398_set_iin_ma(struct smb1398_chip *chip, int iin_ma)
-{
-	int rc = 0;
-	u8 val;
-
-	val = iin_ma / IIN_STEP_MA;
-	rc = smb1398_masked_write(chip, IIN_SS_DAC_TARGET_REG,
-			IIN_SS_DAC_VALUE_MASK, val);
-	if (rc < 0)
-		return rc;
-
-	dev_dbg(chip->dev, "set iin_ma = %dmA\n", iin_ma);
-	return rc;
-}
-
-static int smb1398_set_ichg_ma(struct smb1398_chip *chip, int ichg_ma)
-{
-	int rc = 0;
-	u8 val;
-
-	if (ichg_ma < 0 || ichg_ma > ICHG_SS_DAC_VALUE_MASK * ICHG_STEP_MA)
-		return rc;
-
-	val = ichg_ma / ICHG_STEP_MA;
-	rc = smb1398_masked_write(chip, ICHG_SS_DAC_TARGET_REG,
-			ICHG_SS_DAC_VALUE_MASK, val);
-
-	dev_dbg(chip->dev, "set ichg %dmA\n", ichg_ma);
-	return rc;
-}
-
-static int smb1398_get_ichg_ma(struct smb1398_chip *chip, int *ichg_ma)
-{
-	int rc = 0;
-	u8 val;
-
-	rc = smb1398_read(chip, ICHG_SS_DAC_TARGET_REG, &val);
-	if (rc < 0)
-		return rc;
-
-	*ichg_ma = (val & ICHG_SS_DAC_VALUE_MASK) * ICHG_STEP_MA;
-
-	dev_dbg(chip->dev, "get ichg %dmA\n", *ichg_ma);
-	return 0;
-}
-
-static int smb1398_set_1s_vout_mv(struct smb1398_chip *chip, int vout_mv)
-{
-	int rc = 0;
-	u8 val;
-
-	if (vout_mv < VOUT_1S_MIN_MV)
-		return -EINVAL;
-
-	val = (vout_mv - VOUT_1S_MIN_MV) / VOUT_1S_STEP_MV;
-
-	rc = smb1398_masked_write(chip, VOUT_DAC_TARGET_REG,
-			VOUT_DAC_VALUE_MASK, val);
-	if (rc < 0)
-		return rc;
-
-	return 0;
-}
-
-static int smb1398_get_1s_vout_mv(struct smb1398_chip *chip, int *vout_mv)
-{
-	int rc;
-	u8 val;
-
-	rc = smb1398_read(chip, VOUT_DAC_TARGET_REG, &val);
-	if (rc < 0)
-		return rc;
-
-	*vout_mv = (val & VOUT_DAC_VALUE_MASK) * VOUT_1S_STEP_MV +
-		VOUT_1S_MIN_MV;
-
-	return 0;
-}
-
-static int smb1398_get_die_temp(struct smb1398_chip *chip, int *temp)
-{
-	int die_temp_deciC = 0, rc = 0;
-
-	rc =  smb1398_get_enable_status(chip);
-	if (rc < 0)
-		return rc;
-
-	if (!chip->smb_en)
-		return -ENODATA;
-
-	mutex_lock(&chip->die_chan_lock);
-	rc = iio_read_channel_processed(chip->die_temp_chan, &die_temp_deciC);
-	mutex_unlock(&chip->die_chan_lock);
-	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't read die_temp_chan, rc=%d\n", rc);
-	} else {
-		*temp = die_temp_deciC / 100;
-		dev_dbg(chip->dev, "die temp %d\n", *temp);
-	}
-
-	return rc;
-}
-
 static int smb1398_div2_cp_get_status1(
 		struct smb1398_chip *chip, u8 *status)
 {
@@ -609,6 +482,95 @@ static int smb1398_div2_cp_get_irq_status(
 	return rc;
 }
 
+static int smb1398_get_enable_status(struct smb1398_chip *chip)
+{
+	int rc = 0;
+	u8 val;
+	bool switcher_en = false;
+
+	rc = smb1398_read(chip, MODE_STATUS_REG, &val);
+	if (rc < 0)
+		return rc;
+
+	chip->smb_en = !!(val & SMB_EN);
+	chip->switcher_en = !!(val & PRE_EN_DCDC);
+	chip->slave_en = !!(val & DIV2_EN_SLAVE);
+
+	rc = smb1398_read(chip, MISC_SL_SWITCH_EN_REG, &val);
+	if (rc < 0)
+		return rc;
+
+	switcher_en = !!(val & EN_SWITCHER);
+	chip->switcher_en = switcher_en && chip->switcher_en;
+
+	dev_dbg(chip->dev, "smb_en = %d, switcher_en = %d, slave_en = %d\n",
+			chip->smb_en, chip->switcher_en, chip->slave_en);
+	return rc;
+}
+
+static int smb1398_get_iin_ma(struct smb1398_chip *chip, int *iin_ma)
+{
+	int rc = 0, ilim, max;
+	u8 val;
+
+	rc = smb1398_read(chip, IIN_SS_DAC_TARGET_REG, &val);
+	if (rc < 0)
+		return rc;
+
+	ilim = (val & IIN_SS_DAC_VALUE_MASK) * IIN_STEP_MA;
+
+	rc = smb1398_read(chip, IIN_SS_DAC_MAX_REG, &val);
+	if (rc < 0)
+		return rc;
+
+	val = 0x64;//Temporary fix for IIN_SS_DAC_MAX_REG trim
+
+	max = (val & IIN_SS_DAC_VALUE_MASK) * IIN_STEP_MA;
+
+	*iin_ma = min(ilim, max);
+
+	dev_dbg(chip->dev, "get iin_ma = %dmA\n", *iin_ma);
+	return rc;
+}
+
+#define MAX_QC_IIN_MA 2200
+static int smb1398_set_iin_ma(struct smb1398_chip *chip, int iin_ma)
+{
+	int rc = 0;
+	u8 val, max, temp;
+	union power_supply_propval pval = {0};
+
+	rc = power_supply_get_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_SMB_EN_REASON, &pval);
+	if (rc < 0) {
+		dev_err(chip->dev, "Get SMB_EN_REASON failed, rc=%d\n", rc);
+		pval.intval = POWER_SUPPLY_CP_NONE;
+	}
+
+
+	iin_ma += 400;
+	if (iin_ma > MAX_QC_IIN_MA) {
+		dev_err(chip->dev, "iin_ma %d reach QC limit thresh %dmA, set to %dmA\n",
+				iin_ma, MAX_QC_IIN_MA, MAX_QC_IIN_MA);
+		iin_ma = MAX_QC_IIN_MA;
+	}
+
+	rc = smb1398_read(chip, IIN_SS_DAC_MAX_REG, &max);
+	if (rc < 0)
+		return rc;
+
+	max = 0x64;//Temporary fix for IIN_SS_DAC_MAX_REG trim
+	temp = (u8)(iin_ma / IIN_STEP_MA);
+	val = min(temp, max);
+	rc = smb1398_masked_write(chip, IIN_SS_DAC_TARGET_REG,
+			IIN_SS_DAC_VALUE_MASK, val);
+	if (rc < 0)
+		return rc;
+
+	dev_dbg(chip->dev, "set iin_ma = %dmA\n", iin_ma);
+	return rc;
+}
+
 static int smb1398_div2_cp_switcher_en(struct smb1398_chip *chip, bool en)
 {
 	int rc;
@@ -616,13 +578,125 @@ static int smb1398_div2_cp_switcher_en(struct smb1398_chip *chip, bool en)
 	rc = smb1398_masked_write(chip, MISC_SL_SWITCH_EN_REG,
 			EN_SWITCHER, en ? EN_SWITCHER : 0);
 	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't write SWITCH_EN_REG, rc=%d\n", rc);
+		dev_err(chip->dev, "write SWITCH_EN_REG failed, rc=%d\n", rc);
 		return rc;
 	}
 
 	chip->switcher_en = en;
 
 	dev_dbg(chip->dev, "%s switcher\n", en ? "enable" : "disable");
+	return rc;
+}
+
+static int smb1398_set_ichg_ma(struct smb1398_chip *chip, int ichg_ma)
+{
+	int rc = 0;
+	u8 val, max, temp;
+
+	if (ichg_ma < 0 || ichg_ma > ICHG_SS_DAC_VALUE_MASK * ICHG_STEP_MA)
+		return rc;
+
+	rc = smb1398_read(chip, ICHG_SS_DAC_MAX_REG, &max);
+	if (rc < 0)
+		return rc;
+
+	max = 0x3C;//Temporary fix for ICHG_SS_DAC_MAX_REG trim
+	temp = (u8)(ichg_ma / ICHG_STEP_MA);
+	val = min(temp, max);
+	rc = smb1398_masked_write(chip, ICHG_SS_DAC_TARGET_REG,
+			ICHG_SS_DAC_VALUE_MASK, val);
+
+	dev_dbg(chip->dev, "set ichg %dmA\n", ichg_ma);
+	return rc;
+}
+
+static int smb1398_get_ichg_ma(struct smb1398_chip *chip, int *ichg_ma)
+{
+	int rc = 0, ichg, max;
+	u8 val;
+
+	rc = smb1398_read(chip, ICHG_SS_DAC_TARGET_REG, &val);
+	if (rc < 0)
+		return rc;
+
+	ichg = (val & ICHG_SS_DAC_VALUE_MASK) * ICHG_STEP_MA;
+
+	rc = smb1398_read(chip, ICHG_SS_DAC_MAX_REG, &val);
+	if (rc < 0)
+		return rc;
+
+	val = 0x3C;//Temporary fix for ICHG_SS_DAC_MAX_REG trim
+
+	max = (val & ICHG_SS_DAC_VALUE_MASK) * ICHG_STEP_MA;
+
+	*ichg_ma = min(ichg, max);
+
+	dev_dbg(chip->dev, "get ichg %dmA\n", *ichg_ma);
+	return 0;
+}
+
+static int smb1398_set_1s_vout_mv(struct smb1398_chip *chip, int vout_mv)
+{
+	int rc = 0;
+	u8 val;
+
+	if (vout_mv < VOUT_1S_MIN_MV)
+		return -EINVAL;
+
+	val = (vout_mv - VOUT_1S_MIN_MV) / VOUT_1S_STEP_MV;
+
+	rc = smb1398_masked_write(chip, VOUT_DAC_TARGET_REG,
+			VOUT_DAC_VALUE_MASK, val);
+	if (rc < 0)
+		return rc;
+
+	return 0;
+}
+
+static int smb1398_get_1s_vout_mv(struct smb1398_chip *chip, int *vout_mv)
+{
+	int rc, vout, max;
+	u8 val;
+
+	rc = smb1398_read(chip, VOUT_DAC_TARGET_REG, &val);
+	if (rc < 0)
+		return rc;
+
+	vout = (val & VOUT_DAC_VALUE_MASK) * VOUT_1S_STEP_MV +
+		VOUT_1S_MIN_MV;
+
+	rc = smb1398_read(chip, VOUT_DAC_MAX_REG, &val);
+	if (rc < 0)
+		return rc;
+
+	max = (val & VOUT_DAC_VALUE_MASK) * VOUT_1S_STEP_MV +
+		VOUT_1S_MIN_MV;
+
+	*vout_mv = min(vout, max);
+	return 0;
+}
+
+static int smb1398_get_die_temp(struct smb1398_chip *chip, int *temp)
+{
+	int die_temp_deciC = 0, rc = 0;
+
+	rc =  smb1398_get_enable_status(chip);
+	if (rc < 0)
+		return rc;
+
+	if (!chip->smb_en)
+		return -ENODATA;
+
+	mutex_lock(&chip->die_chan_lock);
+	rc = iio_read_channel_processed(chip->die_temp_chan, &die_temp_deciC);
+	mutex_unlock(&chip->die_chan_lock);
+	if (rc < 0) {
+		dev_err(chip->dev, "read die_temp_chan failed, rc=%d\n", rc);
+	} else {
+		*temp = die_temp_deciC / 100;
+		dev_dbg(chip->dev, "die temp %d\n", *temp);
+	}
+
 	return rc;
 }
 
@@ -707,6 +781,7 @@ static int smb1398_div2_cp_get_master_isns(
 	 *   read corresponding ADC channel in Kekaha;
 	 *   set DIV2_CP switch phase-shif back to 90 deg;
 	 *   set master CP TEMP_MUX to VTEMP;
+	 *   set slave CP TEMP_MUX to HighZ;
 	 */
 	mutex_lock(&chip->die_chan_lock);
 	if (is_cps_available(chip)) {
@@ -759,6 +834,14 @@ static int smb1398_div2_cp_get_master_isns(
 		goto unlock;
 	}
 
+	if (is_cps_available(chip)) {
+		pval.intval = ISNS_MODE_OFF;
+		rc = power_supply_set_property(chip->div2_cp_slave_psy,
+				POWER_SUPPLY_PROP_CURRENT_CAPABILITY, &pval);
+		if (rc < 0)
+			dev_err(chip->dev, "Couldn't set slave ISNS_MODE_OFF, rc=%d\n",
+					rc);
+	}
 unlock:
 	mutex_unlock(&chip->die_chan_lock);
 	if (rc >= 0) {
@@ -827,6 +910,15 @@ static int smb1398_div2_cp_get_slave_isns(
 	rc = iio_read_channel_processed(chip->die_temp_chan, &temp);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't get die_temp_chan, rc=%d\n", rc);
+		goto unlock;
+	}
+
+	pval.intval = ISNS_MODE_OFF;
+	rc = power_supply_set_property(chip->div2_cp_slave_psy,
+			POWER_SUPPLY_PROP_CURRENT_CAPABILITY, &pval);
+	if (rc < 0) {
+		dev_err(chip->dev, "Set slave ISNS_MODE_OFF failed, rc=%d\n",
+				 rc);
 		goto unlock;
 	}
 
@@ -1041,20 +1133,25 @@ static int div2_cp_master_get_prop(struct power_supply *psy,
 		chip->cp_ilim = val->intval;
 		break;
 	case POWER_SUPPLY_PROP_CHIP_VERSION:
-		val->intval = chip->pmic_rev_id->rev4;
-		break;
-	case POWER_SUPPLY_PROP_MODEL_NAME:
-		val->strval = (chip->pmic_rev_id->rev4 > 1) ? "SMB1398_V2" :
-								"SMB1398_V1";
+		val->intval = DIV2_CP_HW_VERSION_3;
 		break;
 	case POWER_SUPPLY_PROP_PARALLEL_MODE:
-		val->intval = chip->pl_input_mode;
+		/* USBIN only */
+		val->intval = POWER_SUPPLY_PL_USBIN_USBIN;
 		break;
 	case POWER_SUPPLY_PROP_PARALLEL_OUTPUT_MODE:
-		val->intval = chip->pl_output_mode;
+		/* VBAT only */
+		val->intval = POWER_SUPPLY_PL_OUTPUT_VBAT;
 		break;
 	case POWER_SUPPLY_PROP_MIN_ICL:
 		val->intval = smb1398_div2_cp_get_min_icl(chip);
+		break;
+	case POWER_SUPPLY_PROP_MODEL_NAME:
+		rc = smb1398_div2_cp_get_status1(chip, &status);
+		if (rc < 0)
+			val->strval = "unknown";
+		else
+			val->strval = "smb1395";
 		break;
 	default:
 		rc = -EINVAL;
@@ -1185,14 +1282,6 @@ static bool is_psy_voter_available(struct smb1398_chip *chip)
 		}
 	}
 
-	if (!chip->usb_icl_votable) {
-		chip->usb_icl_votable = find_votable("USB_ICL");
-		if (!chip->usb_icl_votable) {
-			dev_dbg(chip->dev, "Couldn't find USB_ICL voltable\n");
-			return false;
-		}
-	}
-
 	if (!chip->fcc_main_votable) {
 		chip->fcc_main_votable = find_votable("FCC_MAIN");
 		if (!chip->fcc_main_votable) {
@@ -1201,6 +1290,13 @@ static bool is_psy_voter_available(struct smb1398_chip *chip)
 		}
 	}
 
+	if (!chip->usb_icl_votable) {
+		chip->usb_icl_votable = find_votable("USB_ICL");
+		if (!chip->usb_icl_votable) {
+			dev_dbg(chip->dev, "Couldn't find USB_ICL voltable\n");
+			return false;
+		}
+	}
 	return true;
 }
 
@@ -1393,9 +1489,23 @@ static int smb1398_div2_cp_ilim_vote_cb(struct votable *votable,
 					rc);
 			return rc;
 		}
+		/*
+		 * Remove CP Taper condition disable vote if float voltage
+		 * increased in comparison to voltage at which it entered taper.
+		 */
+		if (chip->taper_entry_fv < get_effective_result(chip->fv_votable)) {
+			if (is_cps_available(chip))
+				vote(chip->div2_cp_slave_disable_votable, TAPER_VOTER, false, 0);
+			vote(chip->div2_cp_disable_votable, TAPER_VOTER, false, 0);
+		}
+
 		dev_dbg(chip->dev, "set CP master ilim to %duA\n", ilim_ua);
 		vote(chip->div2_cp_disable_votable, ILIM_VOTER, false, 0);
 	}
+
+	/* Notify userspace ILIM changed */
+	if (chip->div2_cp_master_psy)
+		power_supply_changed(chip->div2_cp_master_psy);
 
 	return 0;
 }
@@ -1438,6 +1548,9 @@ static int smb1398_div2_cp_create_votables(struct smb1398_chip *chip)
 		rc = PTR_ERR_OR_ZERO(chip->div2_cp_ilim_votable);
 		goto destroy;
 	}
+
+	/* Keep slave SMB disabled */
+	vote(chip->div2_cp_slave_disable_votable, SRC_VOTER, true, 0);
 
 	vote(chip->div2_cp_disable_votable, USER_VOTER, true, 0);
 	vote(chip->div2_cp_disable_votable, CUTOFF_SOC_VOTER,
@@ -1609,45 +1722,16 @@ static int smb1398_request_interrupts(struct smb1398_chip *chip)
 #define ILIM_DR			8
 #define ILIM_FACTOR(ilim)	((ilim * ILIM_NR) / ILIM_DR)
 
-static void smb1398_configure_ilim(struct smb1398_chip *chip, int mode)
-{
-	int rc;
-	union power_supply_propval pval = {0, };
-
-	/* PPS adapter reply on the current advertised by the adapter */
-	if ((chip->pl_output_mode == POWER_SUPPLY_PL_OUTPUT_VPH)
-			&& (mode == POWER_SUPPLY_CP_PPS)) {
-		rc = power_supply_get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_PD_CURRENT_MAX, &pval);
-		if (rc < 0)
-			pr_err("Couldn't get PD CURRENT MAX rc=%d\n", rc);
-		else
-			vote(chip->div2_cp_ilim_votable, ICL_VOTER,
-					true, ILIM_FACTOR(pval.intval));
-	}
-
-	/* QC3.0/Wireless adapter rely on the settled AICL for USBMID_USBMID */
-	if ((chip->pl_input_mode == POWER_SUPPLY_PL_USBMID_USBMID)
-			&& (mode == POWER_SUPPLY_CP_HVDCP3)) {
-		rc = power_supply_get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED, &pval);
-		if (rc < 0)
-			pr_err("Couldn't get usb aicl rc=%d\n", rc);
-		else
-			vote(chip->div2_cp_ilim_votable, ICL_VOTER,
-					true, pval.intval);
-	}
-}
-
 static void smb1398_status_change_work(struct work_struct *work)
 {
 	struct smb1398_chip *chip = container_of(work,
 			struct smb1398_chip, status_change_work);
 	union power_supply_propval pval = {0};
-	int rc;
+	int rc, ilim_ua;
 
 	if (!is_psy_voter_available(chip))
 		goto out;
+
 	/*
 	 * If batt soc is not valid upon bootup, but becomes
 	 * valid due to the battery discharging later, remove
@@ -1674,8 +1758,6 @@ static void smb1398_status_change_work(struct work_struct *work)
 		vote(chip->div2_cp_disable_votable, CUTOFF_SOC_VOTER, true, 0);
 		vote(chip->fcc_votable, CP_VOTER, false, 0);
 		vote(chip->div2_cp_ilim_votable, CC_MODE_VOTER, false, 0);
-		vote_override(chip->usb_icl_votable,
-				TAPER_MAIN_ICL_LIMIT_VOTER, false, 0);
 		goto out;
 	}
 
@@ -1687,10 +1769,8 @@ static void smb1398_status_change_work(struct work_struct *work)
 		goto out;
 	}
 
-	/*
-	 * Slave SMB1398 is not required for the power-rating of QC3
-	 */
-	if (pval.intval != POWER_SUPPLY_CP_HVDCP3)
+	if ((pval.intval != POWER_SUPPLY_CP_HVDCP3)
+		&& (pval.intval != POWER_SUPPLY_CP_HVDCP3P5))
 		vote(chip->div2_cp_slave_disable_votable, SRC_VOTER, false, 0);
 
 	if (pval.intval == POWER_SUPPLY_CP_NONE) {
@@ -1721,7 +1801,27 @@ static void smb1398_status_change_work(struct work_struct *work)
 					true, pval.intval);
 	} else {
 		vote(chip->div2_cp_ilim_votable, WIRELESS_VOTER, false, 0);
-		smb1398_configure_ilim(chip, pval.intval);
+		/* CC mode for PPS and CV mode for HVDCP3 */
+		if (pval.intval == POWER_SUPPLY_CP_PPS) {
+			rc = power_supply_get_property(chip->usb_psy,
+						POWER_SUPPLY_PROP_PD_CURRENT_MAX, &pval);
+			if (rc < 0) {
+				dev_err(chip->dev, "get INPUT_CURRENT failed, rc = %d\n",
+						rc);
+				goto out;
+			}
+			ilim_ua = pval.intval;
+			/* Over draw PPS adapter to keep it in CC mode */
+			ilim_ua = ilim_ua * 10 / 8;
+
+			vote(chip->div2_cp_ilim_votable, ICL_VOTER, true, ilim_ua);
+		} else if ((pval.intval == POWER_SUPPLY_CP_HVDCP3P5)
+				|| (pval.intval == POWER_SUPPLY_CP_HVDCP3)
+				|| (pval.intval == POWER_SUPPLY_CP_NONE)) {
+			// do nothing
+		} else {
+			goto out;
+		}
 	}
 
 	/*
@@ -1729,8 +1829,8 @@ static void smb1398_status_change_work(struct work_struct *work)
 	 * increased in comparison to voltage at which it entered taper.
 	 */
 	if (chip->taper_entry_fv < get_effective_result(chip->fv_votable)) {
-		vote(chip->div2_cp_slave_disable_votable,
-				TAPER_VOTER, false, 0);
+		if (is_cps_available(chip))
+			vote(chip->div2_cp_slave_disable_votable, TAPER_VOTER, false, 0);
 		vote(chip->div2_cp_disable_votable, TAPER_VOTER, false, 0);
 	}
 
@@ -1788,6 +1888,7 @@ static int smb1398_notifier_cb(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+#define FCC_MAIN_WITH_CP_UA 400000
 static void smb1398_taper_work(struct work_struct *work)
 {
 	struct smb1398_chip *chip = container_of(work,
@@ -1818,6 +1919,7 @@ static void smb1398_taper_work(struct work_struct *work)
 		}
 
 		fv_uv = get_effective_result(chip->fv_votable);
+		fcc_ua = get_effective_result(chip->fcc_votable);
 		if (fv_uv > chip->taper_entry_fv) {
 			dev_dbg(chip->dev, "Float voltage increased (%d-->%d)uV, exit!\n",
 					chip->taper_entry_fv, fv_uv);
@@ -1834,6 +1936,15 @@ static void smb1398_taper_work(struct work_struct *work)
 				TAPER_STEPPER_UA_DEFAULT;
 			fcc_ua = get_effective_result(chip->fcc_votable)
 				- stepper_ua;
+
+			if (fcc_ua - FCC_MAIN_WITH_CP_UA >= (chip->div2_cp_min_ilim_ua * 2)) {
+				dev_dbg(chip->dev, "Re-vote FCC_MAIN to Default value %d\n",
+						FCC_MAIN_WITH_CP_UA);
+				vote_override(chip->fcc_main_votable, CC_MODE_VOTER, true, FCC_MAIN_WITH_CP_UA);
+				if (chip->fcc_main_votable)
+					main_fcc_ua = get_effective_result(chip->fcc_main_votable);
+			}
+
 			dev_dbg(chip->dev, "Taper stepper reduce FCC to %d\n",
 					fcc_ua);
 			vote(chip->fcc_votable, CP_VOTER, true, fcc_ua);
@@ -1842,18 +1953,20 @@ static void smb1398_taper_work(struct work_struct *work)
 			 * If total FCC is less than the minimum ILIM to
 			 * keep CP master and slave online, disable CP.
 			 */
-			if (fcc_ua < (min_ilim_ua * 2)) {
+			if (fcc_ua < (chip->div2_cp_min_ilim_ua * 2)) {
+				if (chip->fcc_main_votable) {
+					vote_override(chip->fcc_main_votable, CC_MODE_VOTER, false, -22);
+
+					if (chip->usb_icl_votable)
+						vote_override(chip->usb_icl_votable, CC_MODE_VOTER, false, -22);
+
+					vote(chip->fcc_main_votable, MAIN_FCC_VOTER, true, fcc_ua);
+
+					/* Main FCC updated re-calculate FCC */
+					rerun_election(chip->fcc_votable);
+				}
 				vote(chip->div2_cp_disable_votable,
 						TAPER_VOTER, true, 0);
-				/*
-				 * When master CP is disabled, reset all votes
-				 * on ICL to enable Main charger to pump
-				 * charging current.
-				 */
-				if (chip->usb_icl_votable)
-					vote_override(chip->usb_icl_votable,
-						TAPER_MAIN_ICL_LIMIT_VOTER,
-						false, 0);
 				goto out;
 			}
 			/*
@@ -1865,19 +1978,12 @@ static void smb1398_taper_work(struct work_struct *work)
 					chip->div2_cp_slave_disable_votable);
 			if ((fcc_ua < chip->ilim_ua_disable_div2_cp_slave) &&
 					slave_en && is_cps_available(chip)) {
-				dev_dbg(chip->dev, "Disable slave CP in taper\n");
 				vote(chip->div2_cp_slave_disable_votable,
 						TAPER_VOTER, true, 0);
+				dev_dbg(chip->dev, "Disable slave CP in taper\n");
 				vote_override(chip->div2_cp_ilim_votable,
-					CC_MODE_VOTER,
-					is_adapter_in_cc_mode(chip),
-					DIV2_MAX_ILIM_DUAL_CP_UA);
-
-				if (chip->usb_icl_votable)
-					vote_override(chip->usb_icl_votable,
-					  TAPER_MAIN_ICL_LIMIT_VOTER,
-					  is_adapter_in_cc_mode(chip),
-					  chip->cc_mode_taper_main_icl_ua);
+						CC_MODE_VOTER, true,
+						DIV2_MAX_ILIM_DUAL_CP_UA);
 			}
 		} else {
 			dev_dbg(chip->dev, "Not in taper, exit!\n");
@@ -1972,36 +2078,6 @@ static int smb1398_div2_cp_hw_init(struct smb1398_chip *chip)
 		return rc;
 	}
 
-	/* Configure IREV threshold to 200mA */
-	rc = smb1398_masked_write(chip, PERPH0_DIV2_REF_CFG,
-			CFG_IREV_REF_BIT, 0);
-	if (rc < 0) {
-		pr_err("Couldn't configure IREV threshold rc=%d\n", rc);
-		return rc;
-		}
-
-	/* Initial configuration needed before enabling DIV2_CP operations */
-	rc = smb1398_masked_write(chip, MISC_DIV2_3LVL_CTRL_REG,
-				MISC_DIV2_3LVL_CTRL_MASK, 0x04);
-	if (rc < 0) {
-		dev_err(chip->dev, "set EN_DIV2_CP failed, rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = smb1398_masked_write(chip, MISC_CFG1_REG, MISC_CFG1_MASK, 0x02);
-	if (rc < 0) {
-		dev_err(chip->dev, "set OP_MODE_COMBO failed, rc=%d\n", rc);
-		return rc;
-	}
-
-	/* Do not disable FP_FET during IREV conditions */
-	rc = smb1398_masked_write(chip, MISC_CFG0_REG, CFG_DIS_FPF_IREV_BIT, 0);
-	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't set CFG_DIS_FPF_IREV_BIT, rc=%d\n",
-				rc);
-		return rc;
-	}
-
 	/* switcher enable controlled by register */
 	rc = smb1398_masked_write(chip, MISC_CFG0_REG,
 			SW_EN_SWITCHER_BIT, SW_EN_SWITCHER_BIT);
@@ -2049,26 +2125,11 @@ static int smb1398_div2_cp_parse_dt(struct smb1398_chip *chip)
 	chip->max_cutoff_soc = 85;
 	of_property_read_u32(chip->dev->of_node, "qcom,max-cutoff-soc",
 			&chip->max_cutoff_soc);
+	pr_err("qcom,max-cutoff-soc:%d \n", chip->max_cutoff_soc);
 
 	chip->ilim_ua_disable_div2_cp_slave = chip->div2_cp_min_ilim_ua * 3;
-
 	of_property_read_u32(chip->dev->of_node, "qcom,ilim-ua-disable-slave",
-					&chip->ilim_ua_disable_div2_cp_slave);
-
-	chip->cc_mode_taper_main_icl_ua = CC_MODE_TAPER_MAIN_ICL_UA;
-	of_property_read_u32(chip->dev->of_node,
-				"qcom,cc-mode-taper-main-icl-ua",
-				&chip->cc_mode_taper_main_icl_ua);
-
-	/* Default parallel output configuration is VPH connection */
-	chip->pl_output_mode = POWER_SUPPLY_PL_OUTPUT_VPH;
-	of_property_read_u32(chip->dev->of_node, "qcom,parallel-output-mode",
-			&chip->pl_output_mode);
-
-	/* Default parallel input configuration is USBMID connection */
-	chip->pl_input_mode = POWER_SUPPLY_PL_USBMID_USBMID;
-	of_property_read_u32(chip->dev->of_node, "qcom,parallel-input-mode",
-			&chip->pl_input_mode);
+			&chip->ilim_ua_disable_div2_cp_slave);
 
 	return 0;
 }
@@ -2076,44 +2137,23 @@ static int smb1398_div2_cp_parse_dt(struct smb1398_chip *chip)
 static int smb1398_div2_cp_master_probe(struct smb1398_chip *chip)
 {
 	int rc;
-	struct device_node *revid_dev_node;
-	struct pmic_revid_data *pmic_rev_id;
-
-	revid_dev_node = of_parse_phandle(chip->dev->of_node,
-					  "qcom,pmic-revid", 0);
-	if (!revid_dev_node) {
-		pr_err("Couldn't get revid node\n");
-		return -EINVAL;
-	}
-
-	pmic_rev_id = get_revid_data(revid_dev_node);
-	of_node_put(revid_dev_node);
-
-	if (IS_ERR_OR_NULL(pmic_rev_id)) {
-		/*
-		 * the revid peripheral must be registered, any failure
-		 * here only indicates that the rev-id module has not
-		 * probed yet.
-		 */
-		return -EPROBE_DEFER;
-	}
-
-	chip->pmic_rev_id = pmic_rev_id;
-	spin_lock_init(&chip->status_change_lock);
-	mutex_init(&chip->die_chan_lock);
 
 	rc = smb1398_div2_cp_parse_dt(chip);
 	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't parse devicetree, rc=%d\n", rc);
+		dev_err(chip->dev, "parse devicetree failed, rc=%d\n", rc);
 		return rc;
 	}
-
-	INIT_WORK(&chip->status_change_work, &smb1398_status_change_work);
-	INIT_WORK(&chip->taper_work, &smb1398_taper_work);
 
 	rc = smb1398_div2_cp_hw_init(chip);
 	if (rc < 0) {
 		dev_err(chip->dev, "div2_cp_hw_init failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = device_init_wakeup(chip->dev, true);
+	if (rc < 0) {
+		dev_err(chip->dev, "init wakeup failed for div2_cp_master device, rc=%d\n",
+				rc);
 		return rc;
 	}
 
@@ -2124,12 +2164,18 @@ static int smb1398_div2_cp_master_probe(struct smb1398_chip *chip)
 		return rc;
 	}
 
+	mutex_init(&chip->die_chan_lock);
+
 	rc = smb1398_init_div2_cp_master_psy(chip);
 	if (rc > 0) {
 		dev_err(chip->dev, "smb1398_init_div2_cp_master_psy failed, rc=%d\n",
 				rc);
 		goto destroy_votable;
 	}
+
+	spin_lock_init(&chip->status_change_lock);
+	INIT_WORK(&chip->status_change_work, &smb1398_status_change_work);
+	INIT_WORK(&chip->taper_work, &smb1398_taper_work);
 
 	chip->nb.notifier_call = smb1398_notifier_cb;
 	rc = power_supply_reg_notifier(&chip->nb);
@@ -2143,13 +2189,6 @@ static int smb1398_div2_cp_master_probe(struct smb1398_chip *chip)
 		dev_err(chip->dev, "smb1398_request_interrupts failed, rc=%d\n",
 				rc);
 		goto destroy_votable;
-	}
-
-	rc = device_init_wakeup(chip->dev, true);
-	if (rc < 0) {
-		dev_err(chip->dev, "init wakeup failed for div2_cp_master device, rc=%d\n",
-				rc);
-		return rc;
 	}
 
 	dev_dbg(chip->dev, "smb1398 DIV2_CP master is probed successfully\n");
@@ -2181,10 +2220,11 @@ static int div2_cp_slave_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
 		pval->intval = 0;
 		if (!chip->div2_cp_ilim_votable)
-			chip->div2_cp_ilim_votable = find_votable("CP_ILIM");
+			chip->div2_cp_ilim_votable =
+				find_votable("CP_ILIM");
 		if (chip->div2_cp_ilim_votable)
 			pval->intval = get_effective_result_locked(
-						chip->div2_cp_ilim_votable);
+					chip->div2_cp_ilim_votable);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_CAPABILITY:
 		pval->intval = (int)chip->current_capability;
@@ -2277,7 +2317,7 @@ static int smb1398_init_div2_cp_slave_psy(struct smb1398_chip *chip)
 
 static int smb1398_div2_cp_slave_probe(struct smb1398_chip *chip)
 {
-	int rc;
+	int rc = 0;
 	u8 status;
 
 	rc = smb1398_update_ovp(chip);
@@ -2585,7 +2625,7 @@ static int smb1398_probe(struct platform_device *pdev)
 		dev_err(chip->dev, "Get regmap failed\n");
 		return -EINVAL;
 	}
-	chip->disabled = true;
+
 	platform_set_drvdata(pdev, chip);
 
 	chip->div2_cp_role = (int)of_device_get_match_data(chip->dev);

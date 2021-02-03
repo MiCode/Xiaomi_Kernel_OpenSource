@@ -2,6 +2,7 @@
  * core.c  --  Voltage/Current Regulator framework.
  *
  * Copyright 2007, 2008 Wolfson Microelectronics PLC.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2008 SlimLogic Ltd.
  *
  * Author: Liam Girdwood <lrg@slimlogic.co.uk>
@@ -52,12 +53,14 @@
 #define rdev_dbg(rdev, fmt, ...)					\
 	pr_debug("%s: " fmt, rdev_get_name(rdev), ##__VA_ARGS__)
 
+
 static DEFINE_MUTEX(regulator_list_mutex);
 static LIST_HEAD(regulator_map_list);
 static LIST_HEAD(regulator_ena_gpio_list);
 static LIST_HEAD(regulator_supply_alias_list);
 static bool has_full_constraints;
 static bool debug_suspend;
+
 
 static struct dentry *debugfs_root;
 
@@ -5273,7 +5276,6 @@ static int __init regulator_init(void)
 
 	debugfs_create_bool("debug_suspend", 0644, debugfs_root,
 			    &debug_suspend);
-
 	regulator_dummy_init();
 
 	return ret;

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +26,7 @@
 #define UFS_VENDOR_SAMSUNG     0x1CE
 #define UFS_VENDOR_SKHYNIX     0x1AD
 #define UFS_VENDOR_WDC         0x145
-#define UFS_VENDOR_MICRON      0x12C
+#define UFS_VENDOR_MICRON	0x12C	
 
 /**
  * ufs_dev_fix - ufs device quirk info
@@ -155,7 +156,6 @@ struct ufs_dev_fix {
  */
 #define UFS_DEVICE_QUIRK_WAIT_AFTER_REF_CLK_UNGATE	(1 << 11)
 
-
 /*
  * Few samsung UFS device models advertise PA_HIBERN8TIME as
  * 200us during handshaking in link establishment b/w host and device but
@@ -164,6 +164,5 @@ struct ufs_dev_fix {
  * 300us even if device advertises PA_HIBERN8TIME of 200us.
  */
 #define UFS_DEVICE_QUIRK_PA_HIBER8TIME   (1 << 12)
-
 
 #endif /* UFS_QUIRKS_H_ */

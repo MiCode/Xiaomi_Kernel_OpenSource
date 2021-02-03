@@ -1,0 +1,10 @@
+MAXIM-FANCONTROLLER provides a way to configure maxim-fanconroller driver.
+
+Required properties:
+- compatible : should be "maxim,xrfancontroller"
+
+Optional properties:
+Example:
+	xrfancontroller {
+		compatible = "maxim,xrfancontroller";
+	};

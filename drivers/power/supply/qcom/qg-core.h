@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef __QG_CORE_H__
@@ -15,7 +16,9 @@ struct qg_batt_props {
 	int			float_volt_uv;
 	int			vbatt_full_mv;
 	int			fastchg_curr_ma;
+	int			cutoff_curr_ua;
 	int			qg_profile_version;
+	int			nom_cap_uah;
 };
 
 struct qg_irq_info {
@@ -58,6 +61,8 @@ struct qg_dt {
 	int			min_sleep_time_secs;
 	int			sys_min_volt_mv;
 	int			fvss_vbat_mv;
+	int			*dec_rate_seq;
+	int			dec_rate_len;
 	int			tcss_entry_soc;
 	int			esr_low_temp_threshold;
 	bool			hold_soc_while_full;
@@ -75,6 +80,7 @@ struct qg_dt {
 	bool			multi_profile_load;
 	bool			tcss_enable;
 	bool			bass_enable;
+	bool			shutdown_delay_enable;
 };
 
 struct qg_esr_data {
@@ -84,6 +90,22 @@ struct qg_esr_data {
 	u32			post_esr_i;
 	u32			esr;
 	bool			valid;
+};
+
+#define BATT_MA_AVG_SAMPLES	8
+struct batt_params {
+	bool			update_now;
+	int			batt_raw_soc;
+	int			batt_soc;
+	int			samples_num;
+	int			samples_index;
+	int			batt_ma_avg_samples[BATT_MA_AVG_SAMPLES];
+	int			batt_ma_avg;
+	int			batt_ma_prev;
+	int			batt_ma;
+	int			batt_mv;
+	int			batt_temp;
+	struct timespec		last_soc_change_time;
 };
 
 struct qpnp_qg {
@@ -99,10 +121,25 @@ struct qpnp_qg {
 	struct device_node      *batt_node;
 	struct dentry		*dfs_root;
 	dev_t			dev_no;
+	struct batt_params	param;
+	struct delayed_work	soc_monitor_work;
+	struct delayed_work	force_shutdown_work;
 	struct work_struct	udata_work;
 	struct work_struct	scale_soc_work;
 	struct work_struct	qg_status_change_work;
 	struct delayed_work	qg_sleep_exit_work;
+#ifdef CONFIG_BATT_VERIFY_BY_DS28E16
+	struct delayed_work	battery_authentic_work;
+	int			battery_authentic_result;
+	struct delayed_work	ds_romid_work;
+	unsigned char		ds_romid[8];
+	struct delayed_work	ds_status_work;
+	unsigned char		ds_status[8];
+	struct delayed_work	ds_page0_work;
+	unsigned char		ds_page0[16];
+	struct delayed_work	profile_load_work;
+	bool				profile_judge_done;
+#endif
 	struct notifier_block	nb;
 	struct mutex		bus_lock;
 	struct mutex		data_lock;
@@ -124,11 +161,15 @@ struct qpnp_qg {
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
 	struct power_supply	*parallel_psy;
+#ifdef CONFIG_BATT_VERIFY_BY_DS28E16
+	struct power_supply *max_verify_psy;
+#endif
 	struct power_supply	*cp_psy;
 	struct qg_esr_data	esr_data[QG_MAX_ESR_COUNT];
 
 	/* status variable */
 	u32			*debug_mask;
+	bool			force_shutdown;
 	u32			qg_version;
 	bool			qg_device_open;
 	bool			profile_loaded;
@@ -144,7 +185,9 @@ struct qpnp_qg {
 	bool			force_soc;
 	bool			fvss_active;
 	bool			tcss_active;
+	bool			fastcharge_mode_enabled;
 	bool			bass_active;
+	bool			shutdown_delay;
 	int			charge_status;
 	int			charge_type;
 	int			chg_iterm_ma;
@@ -192,7 +235,10 @@ struct qpnp_qg {
 	int			sys_soc;
 	int			last_adj_ssoc;
 	int			recharge_soc;
+	int			cycle_count;
+	int			maxim_cycle_count;
 	int			batt_age_level;
+	int			last_temp;
 	struct alarm		alarm_timer;
 	u32			sdam_data[SDAM_MAX];
 

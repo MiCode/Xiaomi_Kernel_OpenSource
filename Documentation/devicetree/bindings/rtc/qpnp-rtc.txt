@@ -1,0 +1,60 @@
+* msm-qpnp-rtc
+
+msm-qpnp-rtc is a RTC driver that supports 32 bit RTC housed inside PMIC.
+Driver utilizes MSM SPMI interface to communicate with the RTC module.
+RTC device is divided into two sub-peripherals one which controls basic RTC
+and other for controlling alarm.
+
+[PMIC RTC Device Declarations]
+
+-Root Node-
+
+Required properties :
+ - compatible:		Must be "qcom,qpnp-rtc"
+ - #address-cells:	The number of cells dedicated to represent an address
+			This must be set to '1'.
+ - #size-cells:		The number of cells dedicated to represent address
+			space range of a peripheral. This must be set to '1'.
+
+Optional properties:
+ - qcom,qpnp-rtc-write:		This property enables/disables rtc write
+				operation. If not mentioned rtc driver keeps
+				rtc writes disabled.
+				0 = Disable rtc writes.
+				1 = Enable rtc writes.
+ - qcom,qpnp-rtc-alarm-pwrup:	This property enables/disables feature of
+				powering up phone (from power down state)
+				through alarm interrupt.
+				If not mentioned rtc driver will disable
+				feature of powring-up phone through alarm.
+				0 = Disable powering up of phone through
+				alarm interrupt.
+				1 = Enable powering up of phone through
+				alarm interrupt.
+
+-Child Nodes-
+
+Required properties :
+ - reg :		Specify the spmi offset and size for device.
+ - interrupts:		Specifies alarm interrupt, only for rtc_alarm
+			sub-peripheral.
+
+Example:
+	qcom,pm8941_rtc {
+		compatible = "qcom,qpnp-rtc";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		qcom,qpnp-rtc-write = <0>;
+		qcom,qpnp-rtc-alarm-pwrup = <0>;
+
+		qcom,pm8941_rtc_rw@6000 {
+			reg = <0x6000 0x100>;
+		};
+
+		qcom,pm8941_rtc_alarm@6100 {
+			reg = <0x6100 0x100>;
+			interrupts = <0x0 0x61 0x1>;
+		};
+	};
+
+

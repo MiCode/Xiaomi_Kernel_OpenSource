@@ -1,0 +1,166 @@
+Attached MDM Modem Devices
+
+External modems are devices that are attached to the msm and controlled by gpios.
+There is also a data channel between the msm and the external modem that sometimes needs
+to be reset.
+
+Required Properties:
+- compatible:	The bus devices need to be compatible with
+		"qcom,ext-mdm9x55", "qcom,ext-sdx50m", "qcom,ext-sdx55m".
+
+Required named gpio properties:
+- qcom,mdm2ap-errfatal-gpio: gpio for the external modem to indicate to the apps processor
+		of an error fatal condition on the modem.
+- qcom,ap2mdm-errfatal-gpio: gpio for the apps processor to indicate to the external modem
+		of an error fatal condition on the apps processor.
+- qcom,mdm2ap-status-gpio: gpio to indicate to the apps processor when there is a watchdog
+		bite on the external modem.
+- qcom,ap2mdm-status-gpio: gpio for the apps processor to indicate to the modem that an apps
+		processor watchdog bite has occurred.
+- qcom,ap2mdm-soft-reset-gpio: gpio for the apps processor to use to soft-reset the external
+		modem. If the flags parameter has a value of 0x1 then the gpio is active LOW.
+
+Required Interrupts:
+- "err_fatal_irq": Interrupt generated on the apps processor when the error fatal gpio is pulled
+		high by the external modem.
+- "status_irq": Interrupt generated on the apps processor when the mdm2ap-status gpio falls low
+		on the external modem. This usually indicates a watchdog bite on the modem.
+- "plbrdy_irq": Interrupt generated on the aps processor when the mdm2ap-pblrdy gpio is pulled
+		either high or low by the external modem. This is an indication that the modem
+		has rebooted.
+- "mdm2ap_vddmin_irq": Interrupt generated on the apps processor when the external modem goes
+		into vddmin power state.
+
+Optional named gpio properties:
+- qcom,mdm2ap-pblrdy-gpio: gpio used by some external modems to indicate when the modem has
+		booted into the PBL bootloader.
+- qcom,ap2mdm-wakeup-gpio: gpio used by the apps processor to wake the external modem
+		out of a low power state.
+- qcom,ap2mdm-chnl-rdy-gpio: gpio used by the apps processor to inform the external modem
+		that data link is ready.
+- qcom,mdm2ap-wakeup-gpio: gpio from the external modem to the apps processor to wake it
+		out of a low power state.
+- qcom,ap2mdm-vddmin-gpio: gpio to indicate to the external modem when the apps processor
+		is about to enter vddmin power state.
+- qcom,mdm2ap-vddmin-gpio: gpio used by the external modem to inform the apps processor
+		when it is about to enter vddmin power state.
+- qcom,ap2mdm-kpdpwr-gpio: gpio used to simulate a power button press on the external
+		modem. Some modems use this as part of their initial power-up sequence.
+		If the "flags" parameter has a value of 0x1 then it is active LOW.
+- qcom,ap2mdm-pmic-pwr-en-gpio: Some modems need this gpio for the apps processor to enable
+		the pmic on the external modem.
+- qcom,use-usb-port-gpio: some modems use this gpio to switch a port connection from uart to usb.
+		This is used during firmware upgrade of some modems.
+- qcom,mdm-link-detect-gpio: some modems may support two interfaces. This gpio
+		indicates whether only one or both links can be used.
+
+Optional driver parameters:
+- qcom,ramdump-delay-ms: time in milliseconds to wait before starting to collect ramdumps.
+		This interval is the time to wait after an error on the external modem is
+		signaled to the apps processor before starting to collect ramdumps. Its
+		value depends on the type of external modem (e.g. MDM vs QSC), and how
+		error fatal handing is done on the modem.
+		The default value is 2 seconds (2000 milliseconds) as specified by the
+		mdm9x15 software developer. Consultation with the developer of the modem
+		software is required to determine this value for that modem.
+- qcom,ps-hold-delay-ms: minimum delay in milliseconds between consecutive PS_HOLD toggles.
+		SGLTE targets that use a QSC1215 modem require a minimum delay between consecutive
+		toggling of the PS_HOLD pmic input. For one target it is 500 milliseconds but it
+		may vary depending on the target and how the external modem is connected. The value
+		is specified by the hardware designers.
+- qcom,early-power-on: boolean flag to indicate if to power on the modem when the device is probed.
+- qcom,sfr-query: boolean flag to indicate if to query the modem for a reset reason.
+- qcom,no-powerdown-after-ramdumps: boolean flag to indicate if to power down the modem after ramdumps.
+- qcom,no-a2m-errfatal-on-ssr: boolean to tell driver not to raise ap2mdm errfatal during SSR.
+- qcom,no-reset-on-first-powerup: boolean to tell driver not to reset the modem when first
+		powering up the modem.
+- qcom,ramdump-timeout-ms: ramdump timeout interval in milliseconds.
+		This interval is the time to wait for collection of the external modem's ramdump
+		to complete. It's value depends on the speed of the data connection between the
+		external modem and the apps processor on the platform. If the connection is a
+		UART port then this delay needs to be longer in order to avoid premature timeout
+		of the ramdump collection.
+		The default value is 2 minutes (120000 milliseconds) which is based on the
+		measured time it takes over a UART connection. It is reduced when the data
+		connection is an HSIC port. The value is usually tuned empirically for a
+		particular target.
+- qcom,image-upgrade-supported: boolean flag to indicate if software upgrade is supported.
+- qcom,support-shutdown: boolean flag to indicate if graceful shutdown is supported.
+- qcom,vddmin-drive-strength: drive strength in milliamps of the ap2mdm-vddmin gpio.
+		The ap2mdm_vddmin gpio is controlled by the RPM processor. It is pulled low
+		to indicate to the external modem that the apps processor has entered vddmin
+		state, and high to indicate the reverse. Its parameters are passed to the RPM
+		software from the HLOS because the RPM software has to way of saving this type
+		of configuration when an external modem is attached.
+		The value of the drive strength is specified by the hardware designers. A value
+		of 8 milliamps is typical.
+		This property is ignored if the property "qcom,ap2mdm-vddmin-gpio" is
+		not set.
+- qcom,vddmin-modes: a string indicating the "modes" requested for the ap2mdm-vddmin gpio.
+		This value is passed to RPM and is used by the RPM module to determine the
+		gpio mux function. The only currently supported modes string is "normal" and
+		corresponds to the value 0x03 that is passed to RPM.
+- qcom,restart-group: List of subsystems that will need to restart together.
+- qcom,mdm-dual-link: Boolean indicates whether both links can used for
+		communication.
+- qcom,ssctl-instance-id: Instance id used by the subsystem to connect with the SSCTL service.
+- qcom,sysmon-id: platform device id that sysmon is probed with for the subsystem.
+- qcom,pil-force-shutdown: Boolean. If set, the SSR framework will not trigger graceful shutdown
+			   on behalf of the subsystem driver.
+- qcom,mdm-link-info: a string indicating additional info about the physical link.
+			For example: "devID_domain.bus.slot" in case of PCIe.
+- qcom,mdm-auto-boot: Boolean. To indicate this instance of esoc boots independently.
+- qcom,mdm-statusline-not-a-powersource: Boolean. If set, status line to esoc device is not a
+		power source.
+- qcom,mdm-userspace-handle-shutdown: Boolean. If set, userspace handles shutdown requests.
+- qcom,shutdown-timeout-ms: graceful shutdown timeout in milliseconds.
+		This interval is the time needed for the external modem to gracefully shutdown
+		after the host sends a shutdown command. The value depends on how long it takes
+		for the high level OS in the external modem to shutdown gracefully. The default
+		value is 10000 milliseconds.
+- qcom,reset-time-ms: time it takes for the external modem to forcefully reset in milliseconds.
+		This interval is the time it takes to toggle the reset of an external modem by
+		holding down the reset pin. The value depends on the external modem's power
+		management boot options. The default value is 203 milliseconds.
+- qcom,esoc-skip-restart-for-mdm-crash: Boolean. If set, the esoc framework would skip the warm
+		reboot phase during the momem crash.
+- qcom,esoc-spmi-soft-reset: Boolean. If set, esoc framework will use qpnp apis to reset the
+		external modem chip instead of toggling gpios.
+
+Example:
+	mdm0: qcom,mdm0 {
+                compatible = "qcom,mdm2-modem";
+		cell-index = <0>;
+		#address-cells = <0>;
+                interrupt-parent = <&mdm0>;
+                interrupts = <0 1 2 3>;
+                #interrupt-cells = <1>;
+                interrupt-map-mask = <0xffffffff>;
+                interrupt-map =
+			<0 &msmgpio 82 0x3
+			1 &msmgpio 46 0x3
+			2 &msmgpio 80 0x3
+			3 &msmgpio 27 0x3>;
+                interrupt-names =
+			"err_fatal_irq",
+			"status_irq",
+			"plbrdy_irq",
+			"mdm2ap_vddmin_irq";
+
+                qcom,mdm2ap-errfatal-gpio = <&msmgpio 82 0x00>;
+		qcom,ap2mdm-errfatal-gpio = <&msmgpio 106 0x00>;
+		qcom,mdm2ap-status-gpio   = <&msmgpio 46 0x00>;
+		qcom,ap2mdm-status-gpio   = <&msmgpio 105 0x00>;
+		qcom,ap2mdm-soft-reset-gpio = <&msmgpio 24 0x00>;
+		qcom,mdm2ap-pblrdy-gpio = <&msmgpio 80 0x00>;
+		qcom,ap2mdm-wakeup-gpio = <&msmgpio 104 0x00>;
+		qcom,ap2mdm-vddmin-gpio = <&msmgpio 108 0x00>;
+		qcom,mdm2ap-vddmin-gpio = <&msmgpio 27 0x00>;
+
+                qcom,ramdump-delay-ms = <2000>;
+                qcom,ramdump-timeout-ms = <120000>;
+                qcom,vddmin-modes  = "normal";
+                qcom,vddmin-drive-strength = <8>;
+		qcom,ssctl-instance-id = <10>;
+		qcom,sysmon-id = <20>;
+        };

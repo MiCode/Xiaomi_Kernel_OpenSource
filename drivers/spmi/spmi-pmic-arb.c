@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/bitmap.h>
 #include <linux/delay.h>
@@ -1172,6 +1173,7 @@ static const struct irq_domain_ops pmic_arb_irq_domain_ops = {
 	.xlate	= qpnpint_irq_domain_dt_translate,
 	.activate	= qpnpint_irq_domain_activate,
 };
+
 
 static int spmi_pmic_arb_probe(struct platform_device *pdev)
 {

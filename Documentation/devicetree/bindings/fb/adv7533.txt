@@ -1,0 +1,54 @@
+ADV7533 DSI to HDMI bridge
+
+
+Required properties:
+- compatible:				Must be "adv7533"
+- reg:					Main I2C slave ID (for I2C host driver)
+- adi,video-mode:			Excepted a number and possible inputs are 0 to 3, while:
+					3 = 1080p
+					2 = 720p
+					1 = 480p
+					0 = 1080p pattern
+- adi,main-addr:			Main I2C slave ID
+- adi,cec-dsi-addr:			CEC DSI I2C slave ID
+
+Optional properties:
+- adi,enable-audio:
+- adi,disable-gpios:
+- adi,irq-gpio:				Main IRQ gpio mapping
+- adi,hpd-irq-gpio:			HPD IRQ gpio mapping
+- adi,switch-gpio:			DSI switch gpio mapping
+- qcom,supply-names:			Regulator names that supply 5v to bridge chip
+- qcom,min-voltage-level		Minimum voltage level to be supplied to bridge chip
+- qcom,max-voltage-level		Maximum voltage level to be supplied to bridge chip
+- qcom,enable-load			Load current to bridge chip when enabled
+- qcom,disable-load			Load current to bridge chip when disabled
+- qcom,post-on-sleep			Sleep time (ms) to indicate the sleep
+					time after the vreg is enabled
+
+Example:
+&soc {
+	i2c@78b8000 {
+		adv7533@39 {
+			compatible = "adv7533";
+			reg = <0x39>;
+			adi,video-mode = <3>; /* 3 = 1080p */
+			adi,main-addr = <0x39>;
+			adi,cec-dsi-addr = <0x3C>;
+			adi,enable-audio;
+			pinctrl-names = "pmx_adv7533_active","pmx_adv7533_suspend";
+			pinctrl-0 = <&adv7533_int_active &adv7533_hpd_int_active &adv7533_switch_active>;
+			pinctrl-1 = <&adv7533_int_suspend &adv7533_hpd_int_suspend &adv7533_switch_suspend>;
+			adi,irq-gpio = <&msm_gpio 31 0x2002>;
+			adi,hpd-irq-gpio = <&msm_gpio 20 0x2003>;
+			adi,switch-gpio = <&msm_gpio 32 0x0>;
+			hpd-5v-en-supply = <&adv_vreg>;
+			qcom,supply-names = "hpd-5v-en";
+			qcom,min-voltage-level = <0>;
+			qcom,max-voltage-level = <0>;
+			qcom,enable-load = <0>;
+			qcom,disable-load = <0>;
+			qcom,post-on-sleep = <10>;
+		};
+	};
+};

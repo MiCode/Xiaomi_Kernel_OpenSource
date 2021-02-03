@@ -1,0 +1,153 @@
+Qualcomm Technologies, Inc. mdss-rgb
+
+mdss-rgb is the master RGB device which supports software RGB interface.
+
+Required properties:
+- compatible:				Must be "qcom,mdss-rgb"
+- ranges:				The standard property which specifies the child address
+- reg: 					Base address and length of the different register
+					regions(s) required for RGB functionality.
+- reg-names: 				A list of strings that map in order to the list of regs.
+					"dsi_phy" - MDSS DSI PHY register region
+					"dsi_phy_regulator" - MDSS DSI PHY REGULATOR region
+					"mmss_misc_phys" - Register region for MMSS DSI clamps
+- vdda-supply:				Phandle for vdda regulator device node.
+- vddio-supply:				Phandle for vddio regulator device node.
+- qcom,mdss-mdp:			pHandle that specifies the mdss-mdp device.
+- qcom,mdss-fb-map:			pHandle that specifies the framebuffer to which the
+
+- qcom,platform-reset-gpio:		Specifies the panel reset gpio.
+- pinctrl-names:			List of names to assign mdss pin states defined in pinctrl device node
+					Refer to pinctrl-bindings.txt
+- pinctrl-<0..n>:			Lists phandles each pointing to the pin configuration node within a pin
+					controller. These pin configurations are installed in the pinctrl
+					device node. Refer to pinctrl-bindings.txt
+
+- qcom,<type>-supply-entries:		A node that lists the elements of the supply used by the
+					a particular "type" of RGB modulee. The module "types"
+					can be "core", "ctrl", and "phy". Within the same type,
+					there can be more than one instance of this binding,
+					in which case the entry would be appended with the
+					supply entry index.
+					e.g. qcom,ctrl-supply-entry@0
+					-- qcom,supply-name: name of the supply (vdd/vdda/vddio)
+					-- qcom,supply-min-voltage: minimum voltage level (uV)
+					-- qcom,supply-max-voltage: maximum voltage level (uV)
+					-- qcom,supply-enable-load: load drawn (uA) from enabled supply
+					-- qcom,supply-disable-load: load drawn (uA) from disabled supply
+					-- qcom,supply-ulp-load: load drawn (uA) from supply in ultra-low power mode
+					-- qcom,supply-pre-on-sleep: time to sleep (ms) before turning on
+					-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
+					-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
+					-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
+
+
+Example:
+	mdss_rgb: qcom,mdss_rgb {
+		compatible = "qcom,mdss-rgb";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		ranges = <0x1a94400 0x1a94400 0x280
+			0x1a94b80 0x1a94b80 0x30
+			0x193e000 0x193e000 0x30>;
+
+		reg = <0x1a94400 0x280>,
+			<0x1a94b80 0x30>,
+			<0x193e000 0x30>;
+		reg-names = "dsi_phy",
+			"dsi_phy_regulator", "mmss_misc_phys";
+
+		gdsc-supply = <&gdsc_mdss>;
+		vdda-1p2-supply = <&pms405_l4>;
+		vdda-1p8-supply = <&pms405_l5>;
+		vddio-supply = <&pms405_l6>;
+
+		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,mdss-mdp = <&mdss_mdp>;
+
+		pinctrl-names = "mdss_default", "mdss_sleep";
+		pinctrl-0 = <&mdss_rgb_active &mdss_rgb_data0_active
+				&mdss_rgb_data1_active &mdss_rgb_data2_active
+				&mdss_rgb_data3_active &mdss_rgb_data4_active
+				&mdss_rgb_data5_active &mdss_rgb_data_b0_active
+				&mdss_rgb_data_b1_active &mdss_rgb_data_b2_active
+				&mdss_rgb_data_b3_active &mdss_rgb_data_b4_active
+				&mdss_rgb_data_b5_active &mdss_rgb_hsync_active
+				&mdss_rgb_vsync_active &mdss_rgb_de_active
+				&mdss_rgb_clk_active>;
+		pinctrl-1 = <&mdss_rgb_suspend &mdss_rgb_data0_suspend
+				&mdss_rgb_data1_suspend &mdss_rgb_data2_suspend
+				&mdss_rgb_data3_suspend &mdss_rgb_data4_suspend
+				&mdss_rgb_data5_suspend &mdss_rgb_data_b0_suspend
+				&mdss_rgb_data_b1_suspend &mdss_rgb_data_b2_suspend
+				&mdss_rgb_data_b3_suspend &mdss_rgb_data_b4_suspend
+				&mdss_rgb_data_b5_suspend &mdss_rgb_hsync_suspend
+				&mdss_rgb_vsync_suspend &mdss_rgb_de_suspend
+				&mdss_rgb_clk_suspend>;
+		qcom,platform-reset-gpio = <&tlmm 58 0>;
+
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			  };
+		};
+
+		qcom,ctrl-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,ctrl-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda-1p2";
+				qcom,supply-min-voltage = <1200000>;
+				qcom,supply-max-voltage = <1200000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-post-on-sleep = <20>;
+			};
+		};
+
+		qcom,phy-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,phy-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda-1p8";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+			};
+		};
+	};
+
+mdss-rgb-spi is the SPI controller for RGB device which supports control
+commands communication with RGB panel.
+
+Required properties:
+- compatible:				Must be "qcom,mdss-rgb-spi"
+- spi-max-frequency : Maximum SPI clocking speed of device in Hz
+
+Optional properties:
+- label: A string used to describe the controller used.
+- spi-cpol : Empty property indicating device requires inverse
+  clock polarity (CPOL) mode
+- spi-cpha :  Empty property indicating device requires shifted
+  clock phase (CPHA) mode
+
+Example:
+	mdss_rgb_spi: qcom,mdss_rgb_spi {
+		compatible = "qcom,mdss-rgb-spi";
+		label = "MDSS SPI QUP1 CLIENT";
+		spi-max-frequency = <5000000>;
+	}

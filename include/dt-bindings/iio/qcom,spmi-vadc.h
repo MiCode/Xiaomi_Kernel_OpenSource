@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2012-2014,2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 
@@ -322,5 +323,6 @@
 /* VADC scale function index */
 #define ADC_SCALE_HW_CALIB_THERM_100K_PU_PM7	0x10
 #define ADC_SCALE_HW_CALIB_PMIC_THERM_PM7	0x11
+#define ADC_SCALE_HW_CALIB_MAX			0x20
 
 #endif /* _DT_BINDINGS_QCOM_SPMI_VADC_H */
