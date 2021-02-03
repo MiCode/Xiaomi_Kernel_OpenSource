@@ -655,6 +655,11 @@ struct ipa_ext_intf {
  * @keep_ipa_awake: when true, IPA will not be clock gated
  * @napi_enabled: when true, IPA call client callback to start polling
  * @bypass_agg: when true, IPA bypasses the aggregation
+ * @int_modt: GSI event ring interrupt moderation time
+ *		cycles base interrupt moderation (32KHz clock)
+ * @int_modc: GSI event ring interrupt moderation packet counter
+ * @buff_size: Actual buff size of rx_pkt
+ * @ext_ioctl_v2: Flag to determine whether ioctl_v2 received
  */
 struct ipa_sys_connect_params {
 	struct ipa_ep_cfg ipa_ep_cfg;
@@ -667,6 +672,10 @@ struct ipa_sys_connect_params {
 	struct napi_struct *napi_obj;
 	bool recycle_enabled;
 	bool bypass_agg;
+	u32 int_modt;
+	u32 int_modc;
+	u32 buff_size;
+	bool ext_ioctl_v2;
 };
 
 /**
