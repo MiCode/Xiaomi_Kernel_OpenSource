@@ -98,6 +98,7 @@
 #define VOW_GET_ALEXA_ENGINE_VER      _IOW(VOW_IOC_MAGIC, 0x11, unsigned int)
 #define VOW_GET_GOOGLE_ENGINE_VER     _IOW(VOW_IOC_MAGIC, 0x12, unsigned int)
 #define VOW_GET_GOOGLE_ARCH           _IOW(VOW_IOC_MAGIC, 0x13, unsigned int)
+#define VOW_READ_VOICE_DATA           _IOW(VOW_IOC_MAGIC, 0x17, unsigned int)
 
 #if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 
@@ -162,7 +163,6 @@ enum { /* dump_data_t */
  *****************************************************************************/
 enum vow_control_cmd_t {
 	VOWControlCmd_Init = 0,
-	VOWControlCmd_ReadVoiceData,
 	VOWControlCmd_EnableDebug,
 	VOWControlCmd_DisableDebug,
 	VOWControlCmd_EnableSeamlessRecord,
