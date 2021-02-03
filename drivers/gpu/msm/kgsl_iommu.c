@@ -850,8 +850,7 @@ static int kgsl_iommu_fault_handler(struct kgsl_mmu *mmu,
 
 	stall = kgsl_iommu_check_stall_on_fault(mmu, flags);
 
-	kgsl_iommu_print_fault(mmu, ctx, addr, flags, ptbase, contextidr,
-		private);
+	kgsl_iommu_print_fault(mmu, ctx, addr, ptbase, contextidr, flags, private);
 
 	if (stall) {
 		struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
