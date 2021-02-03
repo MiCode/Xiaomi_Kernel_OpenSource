@@ -2681,16 +2681,9 @@ static signed int fdvt_wait_irq(FDVT_WAIT_IRQ_STRUCT *wait_irq)
 	unsigned long flags;
 	unsigned int irqStatus;
 	/*int cnt = 0;*/
-	struct timeval time_getrequest;
-	unsigned long long sec = 0;
-	unsigned long usec = 0;
+	struct timespec64 time_getrequest;
 
-	/* do_gettimeofday(&time_getrequest); */
-	//sec = cpu_clock(0);	/* ns */
-	do_div(sec, 1000);	/* usec */
-	usec = do_div(sec, 1000000);	/* sec and usec */
-	time_getrequest.tv_usec = usec;
-	time_getrequest.tv_sec = sec;
+	ktime_get_ts64(&time_getrequest);
 
 	/* Debug interrupt */
 	if (fdvt_info.debug_mask & FDVT_DBG_INT) {
