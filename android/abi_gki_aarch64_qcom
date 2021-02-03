@@ -287,6 +287,7 @@
   debugfs_attr_write
   debugfs_create_atomic_t
   debugfs_create_bool
+  debugfs_create_blob
   debugfs_create_dir
   debugfs_create_file
   debugfs_create_file_unsafe
