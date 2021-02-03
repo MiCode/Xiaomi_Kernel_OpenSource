@@ -850,7 +850,7 @@ static int report_iommu_fault_helper(struct arm_smmu_domain *smmu_domain,
 {
 	u32 fsr, fsynr;
 	unsigned long iova;
-	int ret, flags;
+	int flags;
 
 	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
 	fsynr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR0);
@@ -868,27 +868,8 @@ static int report_iommu_fault_helper(struct arm_smmu_domain *smmu_domain,
 		flags |= IOMMU_FAULT_TRANSACTION_STALLED;
 
 
-	ret = report_iommu_fault(&smmu_domain->domain,
+	return report_iommu_fault(&smmu_domain->domain,
 				 smmu->dev, iova, flags);
-
-	/*
-	 * If the client returns -EBUSY, do not clear FSR and do not RESUME
-	 * if stalled. This is required to keep the IOMMU client stalled on
-	 * the outstanding fault. This gives the client a chance to take any
-	 * debug action and then terminate the stalled transaction.
-	 * So, the sequence in case of stall on fault should be:
-	 * 1) Do not clear FSR or write to RESUME here
-	 * 2) Client takes any debug action
-	 * 3) Client terminates the stalled transaction and resumes the IOMMU
-	 * 4) Client clears FSR. The FSR should only be cleared after 3) and
-	 *    not before so that the fault remains outstanding. This ensures
-	 *    SCTLR.HUPCF has the desired effect if subsequent transactions also
-	 *    need to be terminated.
-	 */
-	if (!ret || (ret == -EBUSY))
-		return IRQ_HANDLED;
-
-	return IRQ_NONE;
 }
 
 static int arm_smmu_get_fault_ids(struct iommu_domain *domain,
@@ -956,27 +937,45 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		BUG();
 	}
 
-	ret = report_iommu_fault_helper(smmu_domain, smmu, idx);
-	if (ret == IRQ_HANDLED)
-		goto out_power_off;
-
-	if (__ratelimit(&_rs)) {
-		print_fault_regs(smmu_domain, smmu, idx);
-		arm_smmu_verify_fault(smmu_domain, smmu, idx);
-	}
-	BUG_ON(!test_bit(DOMAIN_ATTR_NON_FATAL_FAULTS, smmu_domain->attributes));
-
-	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
-
 	/*
-	 * Barrier required to ensure that the FSR is cleared
-	 * before resuming SMMU operation
+	 * If the fault helper returns -ENOSYS, then no client fault helper was
+	 * registered. In that case, print the default report.
+	 *
+	 * If the client returns -EBUSY, do not clear FSR and do not RESUME
+	 * if stalled. This is required to keep the IOMMU client stalled on
+	 * the outstanding fault. This gives the client a chance to take any
+	 * debug action and then terminate the stalled transaction.
+	 * So, the sequence in case of stall on fault should be:
+	 * 1) Do not clear FSR or write to RESUME here
+	 * 2) Client takes any debug action
+	 * 3) Client terminates the stalled transaction and resumes the IOMMU
+	 * 4) Client clears FSR. The FSR should only be cleared after 3) and
+	 *    not before so that the fault remains outstanding. This ensures
+	 *    SCTLR.HUPCF has the desired effect if subsequent transactions also
+	 *    need to be terminated.
 	 */
-	wmb();
+	ret = report_iommu_fault_helper(smmu_domain, smmu, idx);
+	if (ret == -ENOSYS) {
+		if (__ratelimit(&_rs)) {
+			print_fault_regs(smmu_domain, smmu, idx);
+			arm_smmu_verify_fault(smmu_domain, smmu, idx);
+		}
+		BUG_ON(!test_bit(DOMAIN_ATTR_NON_FATAL_FAULTS, smmu_domain->attributes));
+	}
+	if (ret != -EBUSY) {
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
 
-	if (fsr & ARM_SMMU_FSR_SS)
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
+		/*
+		 * Barrier required to ensure that the FSR is cleared
+		 * before resuming SMMU operation
+		 */
+		wmb();
+
+		if (fsr & ARM_SMMU_FSR_SS)
+			arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
 				  ARM_SMMU_RESUME_TERMINATE);
+	}
+
 	ret = IRQ_HANDLED;
 out_power_off:
 	arm_smmu_rpm_put(smmu);
