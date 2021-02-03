@@ -80,7 +80,6 @@ unsigned int __read_mostly sched_init_task_load_windows;
  * sched_load_granule.
  */
 unsigned int __read_mostly sched_load_granule;
-__read_mostly bool sched_predl = true;
 
 /*
  *@boost:should be 0,1,2.
@@ -172,12 +171,6 @@ __read_mostly unsigned int new_sched_ravg_window = DEFAULT_SCHED_RAVG_WINDOW;
 
 static DEFINE_SPINLOCK(sched_ravg_window_lock);
 u64 sched_ravg_window_change_time;
-
-/*
- * A after-boot constant divisor for cpu_util_freq_walt() to apply the load
- * boost.
- */
-static __read_mostly unsigned int walt_cpu_util_freq_divisor;
 
 unsigned int __read_mostly sched_init_task_load_windows_scaled;
 unsigned int __read_mostly sysctl_sched_init_task_load_pct = 15;
@@ -617,30 +610,23 @@ static bool rtgb_active;
 static inline unsigned long
 __cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load)
 {
-	u64 util, util_unboosted;
+	u64 util;
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long capacity = capacity_orig_of(cpu);
-	int boost;
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 
-	boost = sysctl_sched_load_boost[cpu];
-	util_unboosted = util = freq_policy_load(rq);
-	util = div64_u64(util * (100 + boost),
-			walt_cpu_util_freq_divisor);
+	util = div64_u64(freq_policy_load(rq),
+			sched_ravg_window >> SCHED_CAPACITY_SHIFT);
 
 	if (walt_load) {
 		u64 nl = wrq->nt_prev_runnable_sum +
 				wrq->grp_time.nt_prev_runnable_sum;
 		u64 pl = wrq->walt_stats.pred_demands_sum_scaled;
 
-		/* do_pl_notif() needs unboosted signals */
-		wrq->old_busy_time = div64_u64(util_unboosted,
-						sched_ravg_window >>
-						SCHED_CAPACITY_SHIFT);
+		wrq->old_busy_time = util;
 		wrq->old_estimated_time = pl;
 
-		nl = div64_u64(nl * (100 + boost), walt_cpu_util_freq_divisor);
-
+		nl = div64_u64(nl, sched_ravg_window >> SCHED_CAPACITY_SHIFT);
 		walt_load->nl = nl;
 		walt_load->pl = pl;
 		walt_load->ws = walt_load_reported_window;
@@ -1261,9 +1247,6 @@ static void update_task_pred_demand(struct rq *rq, struct task_struct *p, int ev
 	u16 new_scaled;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
-	if (!sched_predl)
-		return;
-
 	if (is_idle_task(p))
 		return;
 
@@ -1808,9 +1791,6 @@ static inline u32 predict_and_update_buckets(
 	int bidx;
 	u32 pred_demand;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
-
-	if (!sched_predl)
-		return 0;
 
 	bidx = busy_to_bucket(runtime);
 	pred_demand = get_pred_busy(p, bidx, runtime);
@@ -3593,8 +3573,6 @@ fill_util:
 
 static void walt_init_window_dep(void)
 {
-	walt_cpu_util_freq_divisor =
-	    (sched_ravg_window >> SCHED_CAPACITY_SHIFT) * 100;
 	walt_scale_demand_divisor = sched_ravg_window >> SCHED_CAPACITY_SHIFT;
 
 	sched_init_task_load_windows =
@@ -3947,8 +3925,6 @@ static void android_rvh_try_to_wake_up_success(void *unused, struct task_struct 
 
 	if (static_branch_unlikely(&walt_disabled))
 		return;
-	if (!sched_predl)
-		return;
 
 	raw_spin_lock_irqsave(&cpu_rq(cpu)->lock, flags);
 	if (do_pl_notif(cpu_rq(cpu)))
@@ -4183,8 +4159,10 @@ static void walt_init(void)
 	waltgov_register();
 
 	i = match_string(sched_feat_names, __SCHED_FEAT_NR, "TTWU_QUEUE");
-	static_key_disable_cpuslocked(&sched_feat_keys[i]);
-	sysctl_sched_features &= ~(1UL << i);
+	if (i >= 0) {
+		static_key_disable(&sched_feat_keys[i]);
+		sysctl_sched_features &= ~(1UL << i);
+	}
 }
 
 static bool are_cpufreq_policies_available(void)

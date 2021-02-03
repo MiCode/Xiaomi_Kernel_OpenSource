@@ -29,13 +29,6 @@
 
 #define NR_WINDOWS_PER_SEC (NSEC_PER_SEC / DEFAULT_SCHED_RAVG_WINDOW)
 
-#define SCHED_CPUFREQ_MIGRATION	(1U << 1)
-#define SCHED_CPUFREQ_INTERCLUSTER_MIG	(1U << 3)
-#define SCHED_CPUFREQ_WALT	(1U << 4)
-#define SCHED_CPUFREQ_PL	(1U << 5)
-#define SCHED_CPUFREQ_EARLY_DET	(1U << 6)
-#define SCHED_CPUFREQ_CONTINUE	(1U << 8)
-
 /* MAX_MARGIN_LEVELS should be one less than MAX_CLUSTERS */
 #define MAX_MARGIN_LEVELS (MAX_CLUSTERS - 1)
 
@@ -136,10 +129,6 @@ struct walt_task_struct {
 	cpumask_t			cpus_requested;
 	bool				iowaited;
 };
-
-/*End linux/sched.h port */
-/*SCHED.H PORT*/
-extern __read_mostly bool sched_predl;
 
 struct walt_cpu_load {
 	unsigned long	nl;
@@ -300,8 +289,6 @@ extern void acquire_rq_locks_irqsave(const cpumask_t *cpus,
 extern void release_rq_locks_irqrestore(const cpumask_t *cpus,
 		unsigned long *flags);
 extern struct list_head cluster_head;
-extern int set_sched_ravg_window(char *str);
-extern int set_sched_predl(char *str);
 extern int input_boost_init(void);
 extern int core_ctl_init(void);
 
@@ -330,7 +317,6 @@ extern enum sched_boost_policy boost_policy;
 extern unsigned int sysctl_input_boost_ms;
 extern unsigned int sysctl_input_boost_freq[8];
 extern unsigned int sysctl_sched_boost_on_input;
-extern unsigned int sysctl_sched_load_boost[WALT_NR_CPUS];
 extern unsigned int sysctl_sched_user_hint;
 extern unsigned int sysctl_sched_conservative_pl;
 #define WALT_MANY_WAKEUP_DEFAULT 1000
@@ -409,6 +395,7 @@ void android_vh_show_max_freq(void *unused, struct cpufreq_policy *policy,
 #define WALT_CPUFREQ_IC_MIGRATION	(1U << 2)
 #define WALT_CPUFREQ_PL			(1U << 3)
 #define WALT_CPUFREQ_EARLY_DET		(1U << 4)
+#define WALT_CPUFREQ_BOOST_UPDATE	(1U << 5)
 
 #define NO_BOOST 0
 #define FULL_THROTTLE_BOOST 1
@@ -523,18 +510,6 @@ static inline unsigned long cpu_util_cum(int cpu, int delta)
 		return 0;
 
 	return (delta >= capacity) ? capacity : delta;
-}
-
-extern unsigned int capacity_margin_freq;
-
-static inline unsigned long
-add_capacity_margin(unsigned long cpu_capacity, int cpu)
-{
-	cpu_capacity = cpu_capacity * capacity_margin_freq *
-			(100 + sysctl_sched_load_boost[cpu]);
-	cpu_capacity /= 100;
-	cpu_capacity /= SCHED_CAPACITY_SCALE;
-	return cpu_capacity;
 }
 
 static inline enum sched_boost_policy sched_boost_policy(void)
