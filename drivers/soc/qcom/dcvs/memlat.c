@@ -78,6 +78,8 @@ struct cpu_stats {
 	struct cpu_ctrs			curr;
 	struct cpu_ctrs			delta;
 	struct qcom_pmu_data		raw_ctrs;
+	bool				idle_sample;
+	ktime_t				sample_ts;
 	ktime_t				last_sample_ts;
 	spinlock_t			ctrs_lock;
 	u32				freq_mhz;
@@ -403,8 +405,9 @@ static void calculate_sampling_stats(void)
 	struct cpu_ctrs *delta;
 	struct memlat_group *memlat_grp;
 	ktime_t now = ktime_get();
-	s64 delta_us = ktime_us_delta(now, memlat_data->last_update_ts);
+	s64 delta_us, update_us;
 
+	update_us = ktime_us_delta(now, memlat_data->last_update_ts);
 	memlat_data->last_update_ts = now;
 
 	local_irq_save(flags);
@@ -419,9 +422,16 @@ static void calculate_sampling_stats(void)
 
 	for_each_possible_cpu(cpu) {
 		stats = per_cpu(sampling_stats, cpu);
-		/* update last sample ts to synchronize idle cpus */
-		stats->last_sample_ts = now;
 		delta = &stats->delta;
+		/* use update_us and now to synchronize idle cpus */
+		if (stats->idle_sample) {
+			delta_us = update_us;
+			stats->last_sample_ts = now;
+		} else {
+			delta_us = ktime_us_delta(stats->sample_ts,
+							stats->last_sample_ts);
+			stats->last_sample_ts = stats->sample_ts;
+		}
 		for (i = 0; i < NUM_COMMON_EVS; i++) {
 			if (!memlat_data->common_ev_ids[i])
 				continue;
@@ -702,6 +712,7 @@ static void memlat_pmu_idle_cb(struct qcom_pmu_data *data, int cpu, int state)
 	spin_lock_irqsave(&stats->ctrs_lock, flags);
 	memcpy(&stats->raw_ctrs, data, sizeof(*data));
 	process_raw_ctrs(stats);
+	stats->idle_sample = true;
 	spin_unlock_irqrestore(&stats->ctrs_lock, flags);
 }
 
@@ -724,7 +735,8 @@ static void memlat_sched_tick_cb(void *unused, struct rq *rq)
 	delta_ns = now - stats->last_sample_ts + HALF_TICK_NS;
 	if (delta_ns < ms_to_ktime(memlat_data->sample_ms))
 		goto out;
-	stats->last_sample_ts = now;
+	stats->sample_ts = now;
+	stats->idle_sample = false;
 	stats->raw_ctrs.num_evs = 0;
 	ret = qcom_pmu_read_all_local(&stats->raw_ctrs);
 	if (ret < 0 || stats->raw_ctrs.num_evs == 0) {
