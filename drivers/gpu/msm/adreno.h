@@ -335,16 +335,6 @@ struct adreno_device_private {
 };
 
 /**
- * struct adreno_reglist - simple container for register offsets / values
- */
-struct adreno_reglist {
-	/** @offset: Offset of the register */
-	u32 offset;
-	/** @value: Default value of the register to write */
-	u32 value;
-};
-
-/**
  * struct adreno_reglist_list - A container for list of registers and
  * number of registers in the list
  */
@@ -514,8 +504,6 @@ struct adreno_device {
 	unsigned long isense_base;
 	unsigned int isense_len;
 	void __iomem *isense_virt;
-	unsigned long gmu_wrapper_base;
-	void __iomem *gmu_wrapper_virt;
 	const struct adreno_gpu_core *gpucore;
 	struct adreno_firmware fw[2];
 	size_t gpmu_cmds_size;
@@ -1229,24 +1217,6 @@ static inline void adreno_write_gmureg(struct adreno_device *adreno_dev,
 }
 
 /**
- * adreno_read_gmu_wrapper() - Read a GMU wrapper register
- * @adreno_dev: Pointer to the the adreno device
- * @offsetwords: Offset of the wrapper register
- * @val: Register value read is placed here
- */
-void adreno_read_gmu_wrapper(struct adreno_device *adreno_dev,
-	u32 offsetwords, u32 *val);
-
-/**
- * adreno_write_gmu_wrapper() - write on a GMU wrapper register
- * @adreno_dev: Pointer to the the adreno device
- * @offsetwords: Offset of the wrapper register
- * @val: value to write on wrapper register
- */
-void adreno_write_gmu_wrapper(struct adreno_device *adreno_dev,
-	u32 offsetwords, u32 value);
-
-/**
  * adreno_gpu_fault() - Return the current state of the GPU
  * @adreno_dev: A pointer to the adreno_device to query
  *
@@ -1341,17 +1311,6 @@ static inline void adreno_put_gpu_halt(struct adreno_device *adreno_dev)
 	WARN(ret < 0, "GPU halt refcount unbalanced\n");
 }
 
-
-/**
- * adreno_reglist_write - Write each register in a reglist
- * @adreno_dev: An Adreno GPU device handle
- * @reglist: A list of &struct adreno_reglist items
- * @count: Number of items in @reglist
- *
- * Write each register listed in @reglist.
- */
-void adreno_reglist_write(struct adreno_device *adreno_dev,
-		const struct adreno_reglist *list, u32 count);
 
 #ifdef CONFIG_DEBUG_FS
 void adreno_debugfs_init(struct adreno_device *adreno_dev);
@@ -1616,18 +1575,16 @@ static inline bool adreno_has_gbif(struct adreno_device *adreno_dev)
 static inline int adreno_wait_for_halt_ack(struct kgsl_device *device,
 	int ack_reg, unsigned int mask)
 {
-	void __iomem *addr = device->reg_virt + (ack_reg << 2);
 	u32 val;
+	int ret = kgsl_regmap_read_poll_timeout(&device->regmap, ack_reg,
+		val, (val & mask) == mask, 100, VBIF_RESET_ACK_TIMEOUT * 1000);
 
-	if (readl_poll_timeout(addr, val, (val & mask) == mask, 100,
-		VBIF_RESET_ACK_TIMEOUT  * 1000)) {
+	if (ret)
 		dev_err(device->dev,
 			"GBIF/VBIF Halt ack timeout: reg=%08x mask=%08x status=%08x\n",
 			ack_reg, mask, val);
-		return -ETIMEDOUT;
-	}
 
-	return 0;
+	return ret;
 }
 
 /**

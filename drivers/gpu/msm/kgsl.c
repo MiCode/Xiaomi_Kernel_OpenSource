@@ -4349,21 +4349,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	if (status != 0)
 		goto error_pwrctrl_close;
 
-	if (!devm_request_mem_region(&pdev->dev, device->reg_phys,
-				device->reg_len, device->name)) {
-		dev_err(device->dev, "request_mem_region failed\n");
-		status = -ENODEV;
-		goto error_pwrctrl_close;
-	}
-
-	device->reg_virt = devm_ioremap(&pdev->dev, device->reg_phys,
-					device->reg_len);
-
-	if (device->reg_virt == NULL) {
-		dev_err(device->dev, "ioremap failed\n");
-		status = -ENODEV;
-		goto error_pwrctrl_close;
-	}
 
 	status = kgsl_request_irq(pdev, "kgsl_3d0_irq",
 		kgsl_irq_handler, device);

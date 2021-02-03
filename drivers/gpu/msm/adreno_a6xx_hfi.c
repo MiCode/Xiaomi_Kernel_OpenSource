@@ -265,6 +265,7 @@ static int poll_gmu_reg(struct adreno_device *adreno_dev,
 
 	ao_pre_poll = a6xx_read_alwayson(adreno_dev);
 
+	/* FIXME: readl_poll_timeout? */
 	while (time_is_after_jiffies(timeout)) {
 		gmu_core_regread(device, offsetdwords, &val);
 		if ((val & mask) == expected_val)

@@ -273,7 +273,7 @@ static void genc_hwcg_set(struct adreno_device *adreno_dev, bool on)
 
 	for (i = 0; i < genc_core->hwcg_count; i++)
 		kgsl_regwrite(device, genc_core->hwcg[i].offset,
-			on ? genc_core->hwcg[i].value : 0);
+			on ? genc_core->hwcg[i].val : 0);
 
 	/* enable top level HWCG */
 	kgsl_regwrite(device, GENC_RBBM_CLOCK_CNTL,
@@ -393,7 +393,7 @@ int genc_start(struct adreno_device *adreno_dev)
 	static bool patch_reglist;
 
 	/* Set up GBIF registers from the GPU core definition */
-	adreno_reglist_write(adreno_dev, genc_core->gbif,
+	kgsl_regmap_multi_write(&device->regmap, genc_core->gbif,
 		genc_core->gbif_count);
 
 	kgsl_regwrite(device, GENC_UCHE_GBIF_GX_CONFIG, 0x10240e0);

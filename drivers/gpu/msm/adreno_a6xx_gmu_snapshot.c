@@ -183,6 +183,7 @@ static size_t a6xx_gmu_snapshot_dtcm(struct kgsl_device *device,
 	mem_hdr->gmuaddr = gmu->vma[GMU_DTCM].start;
 	mem_hdr->gpuaddr = 0;
 
+	/* FIXME: use a bulk read? */
 	for (i = 0; i < (gmu->vma[GMU_DTCM].size >> 2); i++)
 		gmu_core_regread(device, A6XX_GMU_CM3_DTCM_START + i, data++);
 

@@ -17,7 +17,7 @@ struct adreno_a3xx_core {
 	/** pfpfw_name: Name of the PFP microcode file */
 	const char *pfpfw_name;
 	/** @vbif: List of registers and values to write for VBIF */
-	const struct adreno_reglist *vbif;
+	const struct kgsl_regmap_list *vbif;
 	/** @vbif_count: Number of registers in @vbif */
 	u32 vbif_count;
 };

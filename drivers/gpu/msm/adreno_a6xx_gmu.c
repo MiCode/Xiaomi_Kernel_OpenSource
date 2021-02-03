@@ -139,7 +139,7 @@ void a6xx_load_rsc_ucode(struct adreno_device *adreno_dev)
 	if (adreno_is_a650_family(adreno_dev))
 		rscc = gmu->rscc_virt;
 	else
-		rscc = device->gmu_core.reg_virt + 0x23000;
+		rscc = kgsl_regmap_virt(&device->regmap, 0x23400);
 
 	/* Disable SDE clock gating */
 	_regwrite(rscc, A6XX_GPU_RSCC_RSC_STATUS0_DRV0, BIT(24));
@@ -621,8 +621,7 @@ static void load_tcm(struct adreno_device *adreno_dev, const u8 *src,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 tcm_offset = tcm_start + ((blk->addr - base)/sizeof(u32));
-	void __iomem *addr = device->gmu_core.reg_virt +
-		((tcm_offset - device->gmu_core.gmu2gpu_offset) << 2);
+	void __iomem *addr = kgsl_regmap_virt(&device->regmap, tcm_offset);
 
 	memcpy_toio(addr, src, blk->size);
 }
@@ -923,18 +922,10 @@ int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 
 	if (adreno_is_a619_holi(adreno_dev)) {
 		u32 val;
-		void __iomem *addr = adreno_dev->gmu_wrapper_virt +
-				(A6XX_GMU_SPTPRAC_PWR_CLK_STATUS << 2) -
-				adreno_dev->gmu_wrapper_base;
+		void __iomem *addr = kgsl_regmap_virt(&device->regmap,
+			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS);
 
-		if (!adreno_dev->gmu_wrapper_virt) {
-			dev_err(device->dev,
-				"invalid gmu_wrapper addr, power on SPTPRAC fail\n");
-			return -EINVAL;
-		}
-
-		adreno_write_gmu_wrapper(adreno_dev,
-			A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
+		kgsl_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
 			SPTPRAC_POWERON_CTRL_MASK);
 
 		if (readl_poll_timeout(addr, val,
@@ -979,23 +970,14 @@ void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev)
 
 	if (adreno_is_a619_holi(adreno_dev)) {
 		u32 val;
-		void __iomem *addr = adreno_dev->gmu_wrapper_virt +
-				(A6XX_GMU_SPTPRAC_PWR_CLK_STATUS << 2) -
-				adreno_dev->gmu_wrapper_base;
-
-		if (!adreno_dev->gmu_wrapper_virt) {
-			dev_err(device->dev,
-				"invalid gmu_wrapper addr, power off SPTPRAC fail\n");
-			return;
-		}
+		void __iomem *addr = kgsl_regmap_virt(&device->regmap,
+			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS);
 
 		/* Ensure that retention is on */
-		adreno_read_gmu_wrapper(adreno_dev,
-			A6XX_GPU_CC_GX_GDSCR, &val);
-		adreno_write_gmu_wrapper(adreno_dev,
-			A6XX_GPU_CC_GX_GDSCR,
-			(val | A6XX_RETAIN_FF_ENABLE_ENABLE_MASK));
-		adreno_write_gmu_wrapper(adreno_dev,
+		kgsl_regrmw(device, A6XX_GPU_CC_GX_GDSCR,
+			0, A6XX_RETAIN_FF_ENABLE_ENABLE_MASK);
+
+		kgsl_regwrite(device,
 			A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
 			SPTPRAC_POWEROFF_CTRL_MASK);
 		if (readl_poll_timeout(addr, val,
@@ -1052,7 +1034,7 @@ bool a6xx_gmu_sptprac_is_on(struct adreno_device *adreno_dev)
 		return true;
 
 	if (adreno_is_a619_holi(adreno_dev))
-		adreno_read_gmu_wrapper(adreno_dev,
+		kgsl_regread(device,
 			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
 	else
 		gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS,
@@ -1253,6 +1235,7 @@ int a6xx_gmu_itcm_shadow(struct adreno_device *adreno_dev)
 
 	dest = (u32 *)gmu->itcm_shadow;
 
+	/* FIXME: use bulk read? */
 	for (i = 0; i < (gmu->vma[GMU_ITCM].size >> 2); i++)
 		gmu_core_regread(KGSL_DEVICE(adreno_dev),
 			A6XX_GMU_CM3_ITCM_START + i, dest++);
@@ -2483,31 +2466,14 @@ static int a6xx_gmu_reg_probe(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
-	struct resource *res;
+	int ret;
 
-	res = platform_get_resource_byname(gmu->pdev, IORESOURCE_MEM,
-			"kgsl_gmu_reg");
-	if (!res) {
-		dev_err(&gmu->pdev->dev, "The GMU register region isn't defined\n");
-		return -ENODEV;
-	}
-
-	device->gmu_core.gmu2gpu_offset = (res->start - device->reg_phys) >> 2;
-	device->gmu_core.reg_len = resource_size(res);
-
-	/*
-	 * We can't use devm_ioremap_resource here because we purposely double
-	 * map the gpu_cc registers for debugging purposes
-	 */
-	device->gmu_core.reg_virt = devm_ioremap(&gmu->pdev->dev, res->start,
-		resource_size(res));
-
-	if (!device->gmu_core.reg_virt) {
+	ret = kgsl_regmap_add_region(&device->regmap, gmu->pdev,
+		"kgsl_gmu_reg", NULL, NULL);
+	if (ret)
 		dev_err(&gmu->pdev->dev, "Unable to map the GMU registers\n");
-		return -ENOMEM;
-	}
 
-	return 0;
+	return ret;
 }
 
 static void a6xx_gmu_rdpm_probe(struct a6xx_gmu_device *gmu,

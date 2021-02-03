@@ -79,86 +79,31 @@ int gmu_core_dev_acd_set(struct kgsl_device *device, bool val)
 	return -EINVAL;
 }
 
-bool gmu_core_is_register_offset(struct kgsl_device *device,
-				unsigned int offsetwords)
-{
-	return (gmu_core_isenabled(device) &&
-		(offsetwords >= device->gmu_core.gmu2gpu_offset) &&
-		((offsetwords - device->gmu_core.gmu2gpu_offset) *
-			sizeof(uint32_t) < device->gmu_core.reg_len));
-}
-
 void gmu_core_regread(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int *value)
 {
-	void __iomem *reg;
-
-	if (WARN(!gmu_core_is_register_offset(device, offsetwords),
-			"Out of bounds register read: 0x%x\n", offsetwords))
-		return;
-
-	offsetwords -= device->gmu_core.gmu2gpu_offset;
-
-	reg = device->gmu_core.reg_virt + (offsetwords << 2);
-
-	*value = __raw_readl(reg);
-
-	/*
-	 * ensure this read finishes before the next one.
-	 * i.e. act like normal readl()
-	 */
-	rmb();
+	u32 val = kgsl_regmap_read(&device->regmap, offsetwords);
+	*value  = val;
 }
 
 void gmu_core_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int value)
 {
-	void __iomem *reg;
-
-	if (WARN(!gmu_core_is_register_offset(device, offsetwords),
-			"Out of bounds register write: 0x%x\n", offsetwords))
-		return;
-
-	trace_kgsl_regwrite(device, offsetwords, value);
-
-	offsetwords -= device->gmu_core.gmu2gpu_offset;
-	reg = device->gmu_core.reg_virt + (offsetwords << 2);
-
-	/*
-	 * ensure previous writes post before this one,
-	 * i.e. act like normal writel()
-	 */
-	wmb();
-	__raw_writel(value, reg);
+	kgsl_regmap_write(&device->regmap, value, offsetwords);
 }
 
 void gmu_core_blkwrite(struct kgsl_device *device, unsigned int offsetwords,
 		const void *buffer, size_t size)
 {
-	void __iomem *base;
-
-	if (WARN_ON(!gmu_core_is_register_offset(device, offsetwords)))
-		return;
-
-	offsetwords -= device->gmu_core.gmu2gpu_offset;
-	base = device->gmu_core.reg_virt + (offsetwords << 2);
-
-	memcpy_toio(base, buffer, size);
+	kgsl_regmap_bulk_write(&device->regmap, offsetwords,
+		buffer, size >> 2);
 }
 
 void gmu_core_regrmw(struct kgsl_device *device,
 		unsigned int offsetwords,
 		unsigned int mask, unsigned int bits)
 {
-	unsigned int val = 0;
-
-	if (WARN(!gmu_core_is_register_offset(device, offsetwords),
-			"Out of bounds register rmw: 0x%x\n", offsetwords))
-		return;
-
-	gmu_core_regread(device, offsetwords, &val);
-	val &= ~mask;
-	gmu_core_regwrite(device, offsetwords, val | bits);
+	kgsl_regmap_rmw(&device->regmap, offsetwords, mask, bits);
 }
 
 int gmu_core_dev_oob_set(struct kgsl_device *device, enum oob_request req)
@@ -239,16 +184,7 @@ int gmu_core_timed_poll_check(struct kgsl_device *device,
 		unsigned int timeout_ms, unsigned int mask)
 {
 	u32 val;
-	void __iomem *addr = device->gmu_core.reg_virt +
-		((offset - device->gmu_core.gmu2gpu_offset) << 2);
 
-	if (WARN(!gmu_core_is_register_offset(device, offset),
-		"Out of bounds register read: 0x%x\n", offset))
-		return -EINVAL;
-
-	if (readl_poll_timeout(addr, val, (val & mask) == expected_ret, 100,
-		timeout_ms * 1000))
-		return -ETIMEDOUT;
-
-	return 0;
+	return kgsl_regmap_read_poll_timeout(&device->regmap, offset,
+		val, (val & mask) == expected_ret, 100, timeout_ms * 1000);
 }

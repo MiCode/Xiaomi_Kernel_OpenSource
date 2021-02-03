@@ -226,19 +226,11 @@ struct gmu_dev_ops {
 /**
  * struct gmu_core_device - GMU Core device structure
  * @ptr: Pointer to GMU device structure
- * @gmu2gpu_offset: address difference between GMU register set
- *	and GPU register set, the offset will be used when accessing
- *	gmu registers using offset defined in GPU register space.
- * @reg_len: GMU registers length
- * @reg_virt: GMU CSR virtual address
  * @dev_ops: Pointer to gmu device operations
  * @flags: GMU flags
  */
 struct gmu_core_device {
 	void *ptr;
-	unsigned int gmu2gpu_offset;
-	unsigned int reg_len;
-	void __iomem *reg_virt;
 	const struct gmu_dev_ops *dev_ops;
 	unsigned long flags;
 };
@@ -258,8 +250,6 @@ bool gmu_core_gpmu_isenabled(struct kgsl_device *device);
 bool gmu_core_scales_bandwidth(struct kgsl_device *device);
 bool gmu_core_isenabled(struct kgsl_device *device);
 int gmu_core_dev_acd_set(struct kgsl_device *device, bool val);
-bool gmu_core_is_register_offset(struct kgsl_device *device,
-				unsigned int offsetwords);
 void gmu_core_regread(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int *value);
 void gmu_core_regwrite(struct kgsl_device *device, unsigned int offsetwords,

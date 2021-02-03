@@ -1133,7 +1133,7 @@ static int a3xx_start(struct adreno_device *adreno_dev)
 	adreno_dev->irq_mask = A3XX_INT_MASK;
 
 	/* Set up VBIF registers from the GPU core definition */
-	adreno_reglist_write(adreno_dev, a3xx_core->vbif,
+	kgsl_regmap_multi_write(&device->regmap, a3xx_core->vbif,
 		a3xx_core->vbif_count);
 
 	/* Make all blocks contribute to the GPU BUSY perf counter */
@@ -1365,19 +1365,17 @@ static void a3xx_microcode_load(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	size_t pm4_size = adreno_dev->fw[ADRENO_FW_PM4].size;
 	size_t pfp_size = adreno_dev->fw[ADRENO_FW_PFP].size;
-	int i;
 
 	/* load the CP ucode using AHB writes */
 	kgsl_regwrite(device, A3XX_CP_ME_RAM_WADDR, 0);
 
-	for (i = 1; i < pm4_size; i++)
-		kgsl_regwrite(device, A3XX_CP_ME_RAM_DATA,
-			adreno_dev->fw[ADRENO_FW_PM4].fwvirt[i]);
+	kgsl_regmap_bulk_write(&device->regmap, A3XX_CP_ME_RAM_DATA,
+		adreno_dev->fw[ADRENO_FW_PM4].fwvirt, pm4_size);
 
 	kgsl_regwrite(device, A3XX_CP_PFP_UCODE_ADDR, 0);
-	for (i = 1; i < pfp_size; i++)
-		kgsl_regwrite(device, A3XX_CP_PFP_UCODE_DATA,
-			adreno_dev->fw[ADRENO_FW_PFP].fwvirt[i]);
+
+	kgsl_regmap_bulk_write(&device->regmap, A3XX_CP_PFP_UCODE_DATA,
+		adreno_dev->fw[ADRENO_FW_PFP].fwvirt, pfp_size);
 }
 
 #if IS_ENABLED(CONFIG_COMMON_CLK_QCOM)

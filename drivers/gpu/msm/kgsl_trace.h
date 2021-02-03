@@ -875,19 +875,18 @@ TRACE_EVENT(kgsl_mmu_pagefault,
 
 TRACE_EVENT(kgsl_regwrite,
 
-	TP_PROTO(struct kgsl_device *device, unsigned int offset,
-		unsigned int value),
+	TP_PROTO(unsigned int offset, unsigned int value),
 
-	TP_ARGS(device, offset, value),
+	TP_ARGS(offset, value),
 
 	TP_STRUCT__entry(
-		__string(device_name, device->name)
+		__string(device_name, "kgsl-3d0")
 		__field(unsigned int, offset)
 		__field(unsigned int, value)
 	),
 
 	TP_fast_assign(
-		__assign_str(device_name, device->name);
+		__assign_str(device_name, "kgsl-3d0");
 		__entry->offset = offset;
 		__entry->value = value;
 	),

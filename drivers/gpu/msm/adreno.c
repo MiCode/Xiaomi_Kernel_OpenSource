@@ -107,16 +107,6 @@ int adreno_zap_shader_load(struct adreno_device *adreno_dev,
 	return ret;
 }
 
-void adreno_reglist_write(struct adreno_device *adreno_dev,
-		const struct adreno_reglist *list, u32 count)
-{
-	int i;
-
-	for (i = 0; list && i < count; i++)
-		kgsl_regwrite(KGSL_DEVICE(adreno_dev),
-			list[i].offset, list[i].value);
-}
-
 /**
  * adreno_readreg64() - Read a 64bit register by getting its offset from the
  * offset array defined in gpudev node
@@ -953,26 +943,7 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 		struct platform_device *pdev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct resource *res;
 	int ret;
-
-	/* Get starting physical address of device registers */
-	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
-		"kgsl_3d0_reg_memory");
-
-	if (res == NULL) {
-		dev_err(device->dev,
-			     "platform_get_resource_byname failed\n");
-		return -EINVAL;
-	}
-	if (res->start == 0 || resource_size(res) == 0) {
-		dev_err(device->dev, "dev %d invalid register region\n",
-			     device->id);
-		return -EINVAL;
-	}
-
-	device->reg_phys = res->start;
-	device->reg_len = resource_size(res);
 
 	ret = adreno_of_get_pwrlevels(adreno_dev, pdev->dev.of_node);
 	if (ret)
@@ -1005,10 +976,10 @@ static void adreno_cx_dbgc_probe(struct kgsl_device *device)
 	if (res == NULL)
 		return;
 
-	adreno_dev->cx_dbgc_base = res->start - device->reg_phys;
+	adreno_dev->cx_dbgc_base = res->start - device->regmap.base->start;
 	adreno_dev->cx_dbgc_len = resource_size(res);
 	adreno_dev->cx_dbgc_virt = devm_ioremap(&device->pdev->dev,
-					device->reg_phys +
+			device->regmap.base->start +
 						adreno_dev->cx_dbgc_base,
 					adreno_dev->cx_dbgc_len);
 
@@ -1042,7 +1013,7 @@ static void adreno_isense_probe(struct kgsl_device *device)
 	if (res == NULL)
 		return;
 
-	adreno_dev->isense_base = res->start - device->reg_phys;
+	adreno_dev->isense_base = res->start - device->regmap.base->start;
 	adreno_dev->isense_len = resource_size(res);
 	adreno_dev->isense_virt = devm_ioremap(&device->pdev->dev, res->start,
 					adreno_dev->isense_len);
@@ -1170,6 +1141,18 @@ static int adreno_probe_llcc(struct adreno_device *adreno_dev,
 }
 #endif
 
+static void adreno_regmap_op_preaccess(struct kgsl_regmap_region *region)
+{
+	struct kgsl_device *device = region->priv;
+
+	if (!in_interrupt())
+		kgsl_pre_hwaccess(device);
+}
+
+static const struct kgsl_regmap_ops adreno_regmap_ops = {
+	.preaccess = adreno_regmap_op_preaccess,
+};
+
 static const struct kgsl_functable adreno_functable;
 
 static void adreno_setup_device(struct adreno_device *adreno_dev)
@@ -1242,6 +1225,11 @@ int adreno_device_probe(struct platform_device *pdev,
 		return status;
 
 	status = kgsl_bus_init(device, pdev);
+	if (status)
+		goto err;
+
+	status = kgsl_regmap_init(pdev, &device->regmap, "kgsl_3d0_reg_memory",
+		&adreno_regmap_ops, device);
 	if (status)
 		goto err;
 
@@ -2533,125 +2521,6 @@ int adreno_suspend_context(struct kgsl_device *device)
 	return adreno_idle(device);
 }
 
-static void adreno_retry_rbbm_read(struct kgsl_device *device,
-		unsigned int offsetwords, unsigned int *value)
-{
-	int i;
-
-	/*
-	 * If 0xdeafbead was transient, second read is expected to return the
-	 * actual register value. However, if a register value is indeed
-	 * 0xdeafbead, read it enough times to guarantee that.
-	 */
-	for (i = 0; i < 16; i++) {
-		*value = readl_relaxed(device->reg_virt + (offsetwords << 2));
-		/*
-		 * Read barrier needed so that register is read from hardware
-		 * every iteration
-		 */
-		rmb();
-
-		if (*value != 0xdeafbead)
-			return;
-	}
-}
-
-static bool adreno_is_rbbm_batch_reg(struct adreno_device *adreno_dev,
-	unsigned int offsetwords)
-{
-	if ((adreno_is_a650(adreno_dev) &&
-		ADRENO_CHIPID_PATCH(adreno_dev->chipid) < 2) ||
-		adreno_is_a620v1(adreno_dev)) {
-		if (((offsetwords >= 0x0) && (offsetwords <= 0x3FF)) ||
-		((offsetwords >= 0x4FA) && (offsetwords <= 0x53F)) ||
-		((offsetwords >= 0x556) && (offsetwords <= 0x5FF)) ||
-		((offsetwords >= 0xF400) && (offsetwords <= 0xFFFF)))
-			return  true;
-	}
-
-	return false;
-}
-
-/**
- * adreno_regread - Used to read adreno device registers
- * @offsetwords - Word (4 Bytes) offset to the register to be read
- * @value - Value read from device register
- */
-static void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
-	unsigned int *value)
-{
-	/* Make sure we're not reading from invalid memory */
-	if (WARN(offsetwords * sizeof(uint32_t) >= device->reg_len,
-		"Out of bounds register read: 0x%x/0x%x\n",
-			offsetwords, device->reg_len >> 2))
-		return;
-
-	if (!in_interrupt())
-		kgsl_pre_hwaccess(device);
-
-	*value = readl_relaxed(device->reg_virt + (offsetwords << 2));
-	/* Order this read with respect to the following memory accesses */
-	rmb();
-
-	if ((*value == 0xdeafbead) &&
-		adreno_is_rbbm_batch_reg(ADRENO_DEVICE(device), offsetwords))
-		adreno_retry_rbbm_read(device, offsetwords, value);
-}
-
-static void adreno_regwrite(struct kgsl_device *device,
-				unsigned int offsetwords,
-				unsigned int value)
-{
-	void __iomem *reg;
-
-	/* Make sure we're not writing to an invalid register */
-	if (WARN(offsetwords * sizeof(uint32_t) >= device->reg_len,
-		"Out of bounds register write: 0x%x/0x%x\n",
-			offsetwords, device->reg_len >> 2))
-		return;
-
-	if (!in_interrupt())
-		kgsl_pre_hwaccess(device);
-
-	trace_kgsl_regwrite(device, offsetwords, value);
-
-	reg = (device->reg_virt + (offsetwords << 2));
-
-	/*
-	 * ensure previous writes post before this one,
-	 * i.e. act like normal writel()
-	 */
-	wmb();
-	__raw_writel(value, reg);
-}
-
-void adreno_read_gmu_wrapper(struct adreno_device *adreno_dev,
-		u32 offsetwords, u32 *val)
-{
-	if (!adreno_dev->gmu_wrapper_virt)
-		return;
-
-	*val = __raw_readl(adreno_dev->gmu_wrapper_virt +
-			(offsetwords << 2) - adreno_dev->gmu_wrapper_base);
-	/* Order this read with respect to the following memory accesses */
-	rmb();
-}
-
-void adreno_write_gmu_wrapper(struct adreno_device *adreno_dev,
-		u32 offsetwords, u32 value)
-{
-	if (!adreno_dev->gmu_wrapper_virt)
-		return;
-
-	/*
-	 * ensure previous writes post before this one,
-	 * i.e. act like normal writel()
-	 */
-	wmb();
-	__raw_writel(value, adreno_dev->gmu_wrapper_virt +
-			(offsetwords << 2) - adreno_dev->gmu_wrapper_base);
-}
-
 bool adreno_is_cx_dbgc_register(struct kgsl_device *device,
 		unsigned int offsetwords)
 {
@@ -2692,7 +2561,7 @@ void adreno_cx_dbgc_regwrite(struct kgsl_device *device,
 		return;
 
 	cx_dbgc_offset = (offsetwords << 2) - adreno_dev->cx_dbgc_base;
-	trace_kgsl_regwrite(device, offsetwords, value);
+	trace_kgsl_regwrite(offsetwords, value);
 
 	/*
 	 * ensure previous writes post before this one,
@@ -3279,8 +3148,6 @@ static void adreno_deassert_gbif_halt(struct kgsl_device *device)
 
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
-	.regread = adreno_regread,
-	.regwrite = adreno_regwrite,
 	.idle = adreno_idle,
 	.suspend_context = adreno_suspend_context,
 	.first_open = adreno_first_open,
