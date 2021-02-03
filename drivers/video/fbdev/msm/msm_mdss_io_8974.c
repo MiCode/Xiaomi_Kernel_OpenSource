@@ -2569,7 +2569,7 @@ int mdss_dsi_post_clkon_cb(void *priv,
 	}
 
 	if ((clk & MDSS_DSI_LINK_CLK) && (l_type == MDSS_DSI_LINK_LP_CLK)) {
-		if (ctrl->ulps && mmss_clamp) {
+		if (ctrl->ulps) {
 			/*
 			 * ULPS Entry Request. This is needed if the lanes were
 			 * in ULPS prior to power collapse, since after
