@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "qcom-bwmon: " fmt
@@ -641,22 +641,31 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 
 /*
  * Governor function that computes new target frequency
- * based on bw measurement (mbps) and updates cur_freq (khz)
+ * based on bw measurement (mbps) and updates cur_freq (khz).
+ * Returns true if cur_freq was changed
  * Note: must hold node->update_lock before calling
  */
-static int bwmon_update_cur_freq(struct hwmon_node *node)
+static bool bwmon_update_cur_freq(struct hwmon_node *node)
 {
 	struct bw_hwmon *hw = node->hw;
-	struct dcvs_freq new_freq_mbps;
+	struct dcvs_freq new_freq;
 
-	get_bw_and_set_irq(node, &new_freq_mbps);
+	get_bw_and_set_irq(node, &new_freq);
 
-	node->cur_freq.ib = MBPS_TO_KHZ(new_freq_mbps.ib, hw->dcvs_width);
-	node->cur_freq.ib = max(node->cur_freq.ib, node->min_freq);
-	node->cur_freq.ib = min(node->cur_freq.ib, node->max_freq);
-	node->cur_freq.ab = MBPS_TO_KHZ(new_freq_mbps.ab, hw->dcvs_width);
+	/* first convert freq from mbps to khz */
+	new_freq.ab = MBPS_TO_KHZ(new_freq.ab, hw->dcvs_width);
+	new_freq.ib = MBPS_TO_KHZ(new_freq.ib, hw->dcvs_width);
+	new_freq.ib = max(new_freq.ib, node->min_freq);
+	new_freq.ib = min(new_freq.ib, node->max_freq);
 
-	return 0;
+	if (new_freq.ib != node->cur_freq.ib ||
+			new_freq.ab != node->cur_freq.ab) {
+		node->cur_freq.ib = new_freq.ib;
+		node->cur_freq.ab = new_freq.ab;
+		return true;
+	}
+
+	return false;
 }
 
 static const u64 HALF_TICK_NS = (NSEC_PER_SEC / HZ) >> 1;
@@ -683,15 +692,15 @@ static void bwmon_jiffies_update_cb(void *unused, void *extra)
 
 static void bwmon_monitor_work(struct work_struct *work)
 {
-	int err;
+	int err = 0;
 	struct bw_hwmon *hw = container_of(work, struct bw_hwmon, work);
 	struct hwmon_node *node = hw->node;
 
 	/* governor update and commit */
 	mutex_lock(&node->update_lock);
-	bwmon_update_cur_freq(node);
-	err = qcom_dcvs_update_votes(dev_name(hw->dev), &node->cur_freq, 1,
-							hw->dcvs_path);
+	if (bwmon_update_cur_freq(node))
+		err = qcom_dcvs_update_votes(dev_name(hw->dev),
+					&node->cur_freq, 1, hw->dcvs_path);
 	if (err < 0)
 		dev_err(hw->dev, "bwmon monitor update failed: %d\n", err);
 	mutex_unlock(&node->update_lock);
@@ -712,7 +721,7 @@ static inline void bwmon_monitor_stop(struct bw_hwmon *hw)
 static int update_bw_hwmon(struct bw_hwmon *hwmon)
 {
 	struct hwmon_node *node = hwmon->node;
-	int ret;
+	int ret = 0;
 
 	mutex_lock(&node->mon_lock);
 	if (!node->mon_started) {
@@ -724,9 +733,9 @@ static int update_bw_hwmon(struct bw_hwmon *hwmon)
 
 	/* governor update and commit */
 	mutex_lock(&node->update_lock);
-	bwmon_update_cur_freq(node);
-	ret = qcom_dcvs_update_votes(dev_name(hwmon->dev), &node->cur_freq, 1,
-							hwmon->dcvs_path);
+	if (bwmon_update_cur_freq(node))
+		ret = qcom_dcvs_update_votes(dev_name(hwmon->dev),
+					&node->cur_freq, 1, hwmon->dcvs_path);
 	if (ret < 0)
 		dev_err(hwmon->dev, "bwmon irq update failed: %d\n", ret);
 	mutex_unlock(&node->update_lock);
