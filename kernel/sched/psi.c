@@ -187,11 +187,7 @@ static void group_init(struct psi_group *group)
 		seqcount_init(&per_cpu_ptr(group->pcpu, cpu)->seq);
 	group->avg_last_update = sched_clock();
 	group->avg_next_update = group->avg_last_update + psi_period;
-#ifdef CONFIG_SCHED_WALT
-	INIT_DEFERRABLE_WORK(&group->avgs_work, psi_avgs_work);
-#else
 	INIT_DELAYED_WORK(&group->avgs_work, psi_avgs_work);
-#endif
 	mutex_init(&group->avgs_lock);
 	/* Init trigger-related members */
 	mutex_init(&group->trigger_lock);
@@ -542,10 +538,6 @@ static u64 update_triggers(struct psi_group *group, u64 now)
 			wake_up_interruptible(&t->event_wait);
 		t->last_event_time = now;
 	}
-
-#if defined(CONFIG_PSI_FTRACE) && defined(CONFIG_SCHED_WALT)
-	trace_event_helper(group);
-#endif
 
 	if (new_stall)
 		memcpy(group->polling_total, total,
