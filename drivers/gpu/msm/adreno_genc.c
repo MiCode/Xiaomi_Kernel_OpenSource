@@ -215,32 +215,6 @@ static void genc_protect_init(struct adreno_device *adreno_dev)
 	}
 }
 
-bool genc_cx_regulator_disable_wait(struct regulator *reg,
-				struct kgsl_device *device, u32 timeout)
-{
-	ktime_t tout = ktime_add_us(ktime_get(), timeout * 1000);
-	unsigned int val;
-
-	if (IS_ERR_OR_NULL(reg))
-		return true;
-
-	regulator_disable(reg);
-
-	for (;;) {
-		gmu_core_regread(device, GENC_GPU_CC_CX_GDSCR, &val);
-
-		if (!(val & BIT(31)))
-			return true;
-
-		if (ktime_compare(ktime_get(), tout) > 0) {
-			gmu_core_regread(device, GENC_GPU_CC_CX_GDSCR, &val);
-			return (!(val & BIT(31)));
-		}
-
-		usleep_range(26, 100);
-	}
-}
-
 #define RBBM_CLOCK_CNTL_ON 0x8aa8aa82
 #define GMU_AO_CGC_MODE_CNTL 0x00020000
 #define GMU_AO_CGC_DELAY_CNTL 0x00010111

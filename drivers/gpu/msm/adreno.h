@@ -789,7 +789,6 @@ struct adreno_gpudev {
 	const struct adreno_power_ops *power_ops;
 	int (*clear_pending_transactions)(struct adreno_device *adreno_dev);
 	void (*deassert_gbif_halt)(struct adreno_device *adreno_dev);
-	void (*regulator_disable_poll)(struct kgsl_device *device);
 	int (*ringbuffer_submitcmd)(struct adreno_device *adreno_dev,
 			struct kgsl_drawobj_cmd *cmdobj, u32 flags,
 			struct adreno_submit_time *time);
@@ -1816,4 +1815,17 @@ static inline int adreno_allocate_global(struct kgsl_device *device,
 	*memdesc = kgsl_allocate_global(device, size, padding, flags, priv, name);
 	return PTR_ERR_OR_ZERO(*memdesc);
 }
+
+/**
+ * adreno_regulator_disable_poll - Disable the regulator and wait for it to
+ * complete
+ * @device: A GPU device handle
+ * @reg: Pointer to the regulator to disable
+ * @offset: Offset of the register to poll for success
+ * @timeout: Timeout (in milliseconds)
+ *
+ * Return: true if the regulator got disabled or false on timeout
+ */
+bool adreno_regulator_disable_poll(struct kgsl_device *device,
+		struct regulator *reg, u32 offset, u32 timeout);
 #endif /*__ADRENO_H */

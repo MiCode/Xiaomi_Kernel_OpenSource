@@ -71,146 +71,6 @@ done:
 	return size;
 }
 
-/* Snapshot the Linux specific information */
-static size_t snapshot_os(struct kgsl_device *device,
-	u8 *buf, size_t remain, void *priv)
-{
-	struct kgsl_snapshot_linux_v2 *header =
-		(struct kgsl_snapshot_linux_v2 *)buf;
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	int ctxtcount = 0, id;
-	size_t size = sizeof(*header);
-	struct kgsl_context *context;
-	struct kgsl_snapshot_linux_context_v2 *ctxhdr;
-
-	/*
-	 * Figure out how many active contexts there are - these will
-	 * be appended on the end of the structure
-	 */
-
-	read_lock(&device->context_lock);
-	idr_for_each_entry(&device->context_idr, context, id)
-		ctxtcount++;
-	read_unlock(&device->context_lock);
-
-	size += ctxtcount * sizeof(struct kgsl_snapshot_linux_context_v2);
-
-	/* Make sure there is enough room for the data */
-	if (remain < size) {
-		SNAPSHOT_ERR_NOMEM(device, "OS");
-		return 0;
-	}
-
-	memset(header, 0, sizeof(*header));
-
-	header->osid = KGSL_SNAPSHOT_OS_LINUX_V3;
-
-	/* Get the kernel build information */
-	strlcpy(header->release, init_utsname()->release,
-			sizeof(header->release));
-	strlcpy(header->version, init_utsname()->version,
-			sizeof(header->version));
-
-	/* Get the Unix time for the timestamp */
-	header->seconds = get_seconds();
-
-	/* Remember the power information */
-	header->power_flags = pwr->power_flags;
-	header->power_level = pwr->active_pwrlevel;
-	header->power_interval_timeout = pwr->interval_timeout;
-	header->grpclk = kgsl_get_clkrate(pwr->grp_clks[0]);
-
-	/*
-	 * Save the last active context from global index since its more
-	 * reliable than currrent RB index
-	 */
-	kgsl_sharedmem_readl(device->memstore, &header->current_context,
-		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context));
-
-	context = kgsl_context_get(device, header->current_context);
-
-	/* Get the current PT base */
-	header->ptbase = kgsl_mmu_get_current_ttbr0(&device->mmu);
-
-	/* And the PID for the task leader */
-	if (context) {
-
-		header->pid = context->tid;
-		strlcpy(header->comm, context->proc_priv->comm,
-				sizeof(header->comm));
-		kgsl_context_put(context);
-		context = NULL;
-	}
-
-	header->ctxtcount = ctxtcount;
-
-	/* append information for each context */
-	read_lock(&device->context_lock);
-
-	ctxhdr = (struct kgsl_snapshot_linux_context_v2 *)
-		(buf + sizeof(*header));
-
-	idr_for_each_entry(&device->context_idr, context, id) {
-		ctxhdr->id = id;
-
-		/*
-		 * future-proof for per-context timestamps - for now, just
-		 * return the global timestamp for all contexts
-		 */
-
-		kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_QUEUED,
-			&ctxhdr->timestamp_queued);
-		kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_CONSUMED,
-			&ctxhdr->timestamp_consumed);
-		kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED,
-			&ctxhdr->timestamp_retired);
-
-		ctxhdr++;
-	}
-	read_unlock(&device->context_lock);
-
-	/* Return the size of the data segment */
-	return size;
-}
-
-/* Snapshot the Linux specific information */
-static size_t snapshot_os_no_ctxt(struct kgsl_device *device,
-	u8 *buf, size_t remain, void *priv)
-{
-	struct kgsl_snapshot_linux_v2 *header =
-		(struct kgsl_snapshot_linux_v2 *)buf;
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	size_t size = sizeof(*header);
-
-	/* Make sure there is enough room for the data */
-	if (remain < size) {
-		SNAPSHOT_ERR_NOMEM(device, "OS");
-		return 0;
-	}
-
-	memset(header, 0, sizeof(*header));
-
-	header->osid = KGSL_SNAPSHOT_OS_LINUX_V3;
-
-	/* Get the kernel build information */
-	strlcpy(header->release, init_utsname()->release,
-			sizeof(header->release));
-	strlcpy(header->version, init_utsname()->version,
-			sizeof(header->version));
-
-	/* Get the Unix time for the timestamp */
-	header->seconds = get_seconds();
-
-	/* Remember the power information */
-	header->power_flags = pwr->power_flags;
-	header->power_level = pwr->active_pwrlevel;
-	header->power_interval_timeout = pwr->interval_timeout;
-	header->grpclk = kgsl_get_clkrate(pwr->grp_clks[0]);
-
-	/* Return the size of the data segment */
-	return size;
-}
-
 static void kgsl_snapshot_put_object(struct kgsl_snapshot_object *obj)
 {
 	list_del(&obj->node);
@@ -660,7 +520,6 @@ err:
 void kgsl_device_snapshot(struct kgsl_device *device,
 		struct kgsl_context *context, bool gmu_fault)
 {
-	struct kgsl_snapshot_header *header = device->snapshot_memory.ptr;
 	struct kgsl_snapshot *snapshot;
 	struct timespec64 boot;
 	phys_addr_t pa;
@@ -722,30 +581,7 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 	snapshot->first_read = true;
 	snapshot->sysfs_read = 0;
 
-	header = (struct kgsl_snapshot_header *) snapshot->ptr;
-
-	header->magic = SNAPSHOT_MAGIC;
-	header->gpuid = kgsl_gpuid(device, &header->chipid);
-
-	snapshot->ptr += sizeof(*header);
-	snapshot->remain -= sizeof(*header);
-	snapshot->size += sizeof(*header);
-
-	/* Build the Linux specific header */
-	if (gmu_fault)
-		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_OS,
-			snapshot, snapshot_os_no_ctxt, NULL);
-	else
-		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_OS,
-			snapshot, snapshot_os, NULL);
-
-	/*
-	 * Trigger both GPU and GMU snapshot. GPU specific code
-	 * will take care of whether to dumps full state or only
-	 * GMU state based on current GPU power state.
-	 */
-	if (device->ftbl->snapshot)
-		device->ftbl->snapshot(device, snapshot, context);
+	device->ftbl->snapshot(device, snapshot, context);
 
 	/*
 	 * The timestamp is the seconds since boot so it is easier to match to
