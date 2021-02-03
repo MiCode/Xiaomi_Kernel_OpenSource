@@ -53,7 +53,7 @@ static u32 clkreq_irq;
 struct ep_pcie_dev_t ep_pcie_dev = {0};
 
 static struct ep_pcie_vreg_info_t ep_pcie_vreg_info[EP_PCIE_MAX_VREG] = {
-	{NULL, "vreg-1p8", 1200000, 1200000, 3000, true},
+	{NULL, "vreg-1p8", 1200000, 1200000, 30000, true},
 	{NULL, "vreg-0p9", 912000, 912000, 132000, true},
 	{NULL, "vreg-cx", 0, 0, 0, false},
 	{NULL, "vreg-mx", 0, 0, 0, false}
