@@ -4177,4 +4177,30 @@ static struct kernel_param_ops mdp_profile_ops = {
 
 module_param_cb(profile, &mdp_profile_ops, NULL, 0644);
 
+
+static u32 mdp_record_block_no;
+
+static int mdp_record_set(const char *val, const struct kernel_param *kp)
+{
+	int n = 0, ret;
+
+	ret = kstrtoint(val, 10, &n);
+	if (ret != 0 || n >= 8)
+		return -EINVAL;
+
+	return param_set_int(val, kp);
+}
+
+static int mdp_record_get(char *buf, const struct kernel_param *kp)
+{
+	return cmdq_core_dump_record(buf, mdp_record_block_no);
+}
+
+static struct kernel_param_ops mdp_record_ops = {
+	.set = mdp_record_set,
+	.get = mdp_record_get,
+};
+
+module_param_cb(record, &mdp_record_ops, &mdp_record_block_no, 0644);
+
 MODULE_LICENSE("GPL v2");

@@ -877,6 +877,7 @@ ssize_t cmdq_core_print_profile_enable(struct device *dev,
 	struct device_attribute *attr, char *buf);
 ssize_t cmdq_core_write_profile_enable(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size);
+s32 cmdq_core_dump_record(char *buf, int record_block_no);
 
 void cmdq_core_dump_tasks_info(void);
 struct cmdqRecStruct *cmdq_core_get_valid_handle(unsigned long job);

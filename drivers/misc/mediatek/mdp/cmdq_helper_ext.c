@@ -1081,7 +1081,7 @@ static int cmdq_core_print_record(const struct RecordStruct *pRecord,
 	/* pRecord->priority for task priority */
 	/* when pRecord->is_secure is 0 for secure task */
 	length = snprintf(buf, bufLen,
-		"%4d,%5d,%2d,0x%012llx,%2d,%d,%d,%02d,%02d,",
+		"%5u,%5u,%2u,0x%012llx,%2u,%2u,%8u,%4u,%4u,",
 		index, pRecord->user, pRecord->scenario, pRecord->engineFlag,
 		pRecord->priority, pRecord->is_secure, pRecord->size,
 		pRecord->thread,
@@ -1090,9 +1090,12 @@ static int cmdq_core_print_record(const struct RecordStruct *pRecord,
 	buf += length;
 
 	length = snprintf(buf, bufLen,
-		"%5llu.%06lu,%4d%s,%4d%s,%4d%s,%4d%s,%dus,%dus,%dus,%4d%s,",
-		submitTimeSec, rem_nsec / 1000, acquireThreadTime, unit[0],
-		IRQTime, unit[1], beginWaitTime, unit[2], execTime, unit[3],
+		"%5llu.%06lu,%4u%s,%4u%s,%4u%s,%4u%s,%dus,%dus,%dus,%4u%s,",
+		submitTimeSec, rem_nsec / 1000,
+		acquireThreadTime, unit[0],
+		IRQTime, unit[1],
+		beginWaitTime, unit[2],
+		execTime, unit[3],
 		pRecord->durAlloc, pRecord->durReclaim, pRecord->durRelease,
 		totalTime, unit[4]);
 	bufLen -= length;
@@ -1110,7 +1113,7 @@ static int cmdq_core_print_record(const struct RecordStruct *pRecord,
 		profileMarkerCount = CMDQ_MAX_PROFILE_MARKER_IN_TASK;
 
 	for (i = 0; i < profileMarkerCount; i++) {
-		length = snprintf(buf, bufLen, ",%s,%lld",
+		length = snprintf(buf, bufLen, ",%s,%llu",
 			pRecord->profileMarkerTag[i],
 			pRecord->profileMarkerTimeNS[i]);
 		bufLen -= length;
@@ -1161,6 +1164,69 @@ int cmdq_core_print_record_seq(struct seq_file *m, void *v)
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_core_print_record_seq);
+
+int cmdq_core_dump_record(char *buf, int record_block_no)
+{
+#define MAX_RECORD_BLOCK 8
+
+	unsigned long flags;
+	s32 index, index_start, index_end;
+	s32 record_block[MAX_RECORD_BLOCK];
+	u32 record_per_block = CMDQ_MAX_RECORD_COUNT/MAX_RECORD_BLOCK;
+
+	s32 numRec;
+	struct RecordStruct record;
+	int i = 0, result, length = 0;
+
+	/* we try to minimize time spent in spin lock */
+	/* since record is an array so it is okay to */
+	/* allow displaying an out-of-date entry. */
+	spin_lock_irqsave(&cmdq_record_lock, flags);
+	numRec = cmdq_ctx.recNum;
+	record_block[0] = cmdq_ctx.lastID - 1;
+	spin_unlock_irqrestore(&cmdq_record_lock, flags);
+
+	for (i = 1; i < MAX_RECORD_BLOCK; i++) {
+		if (record_block[i-1] < record_per_block)
+			record_block[i] = CMDQ_MAX_RECORD_COUNT -
+				(record_per_block - record_block[i-1]);
+		else
+			record_block[i] = record_block[i-1] - record_per_block;
+	}
+
+	index_start = record_block[record_block_no];
+	if (index_start < record_per_block)
+		index_end = CMDQ_MAX_RECORD_COUNT -
+			    (record_per_block - index_start);
+	else
+		index_end = index_start - record_per_block;
+
+	/* we print record in reverse order. */
+	result = cmdq_core_print_record_title(buf + length, PAGE_SIZE - length);
+	length += result;
+
+	index = index_start;
+	for (; (numRec > 0) && (index != index_end); --numRec, --index) {
+		if (index >= CMDQ_MAX_RECORD_COUNT)
+			index = 0;
+		else if (index < 0)
+			index = CMDQ_MAX_RECORD_COUNT - 1;
+
+		spin_lock_irqsave(&cmdq_record_lock, flags);
+		record = cmdq_ctx.record[index];
+		spin_unlock_irqrestore(&cmdq_record_lock, flags);
+
+		result = cmdq_core_print_record(&record, index, buf + length,
+						PAGE_SIZE - length);
+		if (result <= 0)
+			break;
+		length += result;
+		if (length >= PAGE_SIZE)
+			break;
+	}
+
+	return length;
+}
 
 static void cmdq_core_print_thd_usage(struct seq_file *m, void *v,
 	u32 thread_idx)
@@ -4151,7 +4217,9 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 		cmdq_dump_pkt(handle->pkt, 0, false);
 	} while (1);
 
+	handle->beginWait = sched_clock();
 	status = cmdq_pkt_wait_complete(handle->pkt);
+	handle->wakedUp = sched_clock();
 
 	if (handle->profile_exec) {
 		u32 *va = cmdq_pkt_get_perf_ret(handle->pkt);
