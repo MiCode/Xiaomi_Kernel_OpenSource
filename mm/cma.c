@@ -561,7 +561,7 @@ struct page *cma_alloc(struct cma *cma, size_t count, unsigned int align,
 
 	if (ret && !no_warn) {
 		pr_err("%s: %s: alloc failed, req-size: %zu pages, ret: %d\n",
-			__func__, cma->name, cma->count, ret);
+			__func__, cma->name, count, ret);
 		cma_debug_show_areas(cma);
 	}
 
