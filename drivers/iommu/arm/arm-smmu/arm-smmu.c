@@ -913,7 +913,7 @@ static int arm_smmu_get_fault_ids(struct iommu_domain *domain,
 	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
 
 	if (!(fsr & ARM_SMMU_FSR_FAULT)) {
-		arm_smmu_power_off(smmu, smmu->pwr);
+		arm_smmu_rpm_put(smmu);
 		return -EINVAL;
 	}
 
