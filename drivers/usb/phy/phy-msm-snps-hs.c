@@ -33,6 +33,7 @@
 #define POR					BIT(1)
 
 #define USB2_PHY_USB_PHY_HS_PHY_CTRL_COMMON0	(0x54)
+#define SIDDQ					BIT(2)
 #define RETENABLEN				BIT(3)
 #define FSEL_MASK				(0x7 << 4)
 #define FSEL_DEFAULT				(0x3 << 4)
@@ -456,6 +457,9 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL0,
 				SLEEPM, SLEEPM);
+
+	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL_COMMON0,
+				SIDDQ, 0);
 
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL5,
 				POR, 0);
