@@ -56,7 +56,7 @@ bool adreno_regulator_disable_poll(struct kgsl_device *device,
 	regulator_disable(reg);
 
 	ret = kgsl_regmap_read_poll_timeout(&device->regmap, offset,
-		val, (val & BIT(31)), 100, timeout * 1000);
+		val, !(val & BIT(31)), 100, timeout * 1000);
 
 	return ret ? false : true;
 }
