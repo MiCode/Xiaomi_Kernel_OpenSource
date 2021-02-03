@@ -3022,6 +3022,7 @@
 #include "waipio-pcie.dtsi"
 #include "msm-rdbg.dtsi"
 #include "waipio-thermal.dtsi"
+#include "waipio-gpu.dtsi"
 
 &qupv3_se7_2uart {
 	status = "ok";
