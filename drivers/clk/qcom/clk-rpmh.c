@@ -595,7 +595,7 @@ static int clk_rpmh_probe(struct platform_device *pdev)
 		if (!res_addr) {
 			if (rpmh_clk->optional)
 				continue;
-			dev_err(&pdev->dev, "missing RPMh resource address for %s\n",
+			WARN(1, "clk-rpmh: Missing RPMh resource address for %s\n",
 				rpmh_clk->res_name);
 			return -ENODEV;
 		}
@@ -603,8 +603,7 @@ static int clk_rpmh_probe(struct platform_device *pdev)
 		data = cmd_db_read_aux_data(rpmh_clk->res_name, &aux_data_len);
 		if (IS_ERR(data)) {
 			ret = PTR_ERR(data);
-			dev_err(&pdev->dev,
-				"error reading RPMh aux data for %s (%d)\n",
+			WARN(1, "clk-rpmh: error reading RPMh aux data for %s (%d)\n",
 				rpmh_clk->res_name, ret);
 			return ret;
 		}
