@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "qcom-dcvs: " fmt
@@ -57,7 +57,7 @@ struct qcom_dcvs_data {
 };
 static struct qcom_dcvs_data	*dcvs_data;
 
-static u32 get_target_freq(struct dcvs_hw *hw, u32 freq);
+static u32 get_target_freq(struct dcvs_path *path, u32 freq);
 
 struct qcom_dcvs_attr {
 	struct attribute	attr;
@@ -105,7 +105,7 @@ static ssize_t store_##name(struct kobject *kobj,			\
 	return count;							\
 }									\
 
-static ssize_t store_user_max_freq(struct kobject *kobj,
+static ssize_t store_boost_freq(struct kobject *kobj,
 			struct attribute *attr, const char *buf,
 			size_t count)
 {
@@ -113,66 +113,37 @@ static ssize_t store_user_max_freq(struct kobject *kobj,
 	unsigned int val;
 	struct dcvs_hw *hw = to_dcvs_hw(kobj);
 	struct dcvs_path *path;
+	struct dcvs_voter *voter;
 	struct dcvs_freq new_freq;
 
 	ret = kstrtouint(buf, 10, &val);
 	if (ret < 0)
 		return ret;
-	if (val < hw->user_min_freq)
+	if (val > hw->hw_max_freq)
 		return -EINVAL;
-
-	val = min(val, hw->hw_max_freq);
-
-	hw->user_max_freq = val;
-
+	/* boost_freq only supported on hw with slow path */
 	path = hw->dcvs_paths[DCVS_SLOW_PATH];
-	if (path) {
-		mutex_lock(&path->voter_lock);
-		memcpy(&new_freq, &path->cur_freq, sizeof(new_freq));
-		new_freq.ib = get_target_freq(hw, new_freq.ib);
-		if (new_freq.ib != path->cur_freq.ib) {
-			ret = path->commit_dcvs_freqs(path, &new_freq, 1);
-			if (ret < 0)
-				pr_err("Error setting max freq: %d\n", ret);
-		}
-		mutex_unlock(&path->voter_lock);
-	}
-
-	return count;
-}
-
-static ssize_t store_user_min_freq(struct kobject *kobj,
-			struct attribute *attr, const char *buf,
-			size_t count)
-{
-	int ret;
-	unsigned int val;
-	struct dcvs_hw *hw = to_dcvs_hw(kobj);
-	struct dcvs_path *path;
-	struct dcvs_freq new_freq;
-
-	ret = kstrtouint(buf, 10, &val);
-	if (ret < 0)
-		return ret;
-	if (val > hw->user_max_freq)
-		return -EINVAL;
+	if (!path)
+		return -EPERM;
 
 	val = max(val, hw->hw_min_freq);
+	hw->boost_freq = val;
 
-	hw->user_min_freq = val;
-
-	path = hw->dcvs_paths[DCVS_SLOW_PATH];
-	if (path) {
-		mutex_lock(&path->voter_lock);
-		memcpy(&new_freq, &path->cur_freq, sizeof(new_freq));
-		new_freq.ib = get_target_freq(hw, new_freq.ib);
-		if (new_freq.ib != path->cur_freq.ib) {
-			ret = path->commit_dcvs_freqs(path, &new_freq, 1);
-			if (ret < 0)
-				pr_err("Error setting min freq: %d\n", ret);
-		}
-		mutex_unlock(&path->voter_lock);
+	/* must re-aggregate votes to get new freq after boost update */
+	mutex_lock(&path->voter_lock);
+	new_freq.ib = new_freq.ab = 0;
+	new_freq.hw_type = hw->type;
+	list_for_each_entry(voter, &path->voter_list, node) {
+		new_freq.ib = max(voter->freq.ib, new_freq.ib);
+		new_freq.ab += voter->freq.ab;
 	}
+	new_freq.ib = get_target_freq(path, new_freq.ib);
+	if (new_freq.ib != path->cur_freq.ib) {
+		ret = path->commit_dcvs_freqs(path, &new_freq, 1);
+		if (ret < 0)
+			pr_err("Error setting boost freq: %d\n", ret);
+	}
+	mutex_unlock(&path->voter_lock);
 
 	return count;
 }
@@ -218,23 +189,20 @@ static ssize_t show_available_frequencies(struct kobject *kobj,
 	return cnt;
 }
 
-show_attr(user_min_freq);
-show_attr(user_max_freq);
 show_attr(hw_min_freq);
 show_attr(hw_max_freq);
+show_attr(boost_freq);
 
-DCVS_ATTR_RW(user_min_freq);
-DCVS_ATTR_RW(user_max_freq);
 DCVS_ATTR_RO(hw_min_freq);
 DCVS_ATTR_RO(hw_max_freq);
+DCVS_ATTR_RW(boost_freq);
 DCVS_ATTR_RO(cur_freq);
 DCVS_ATTR_RO(available_frequencies);
 
 static struct attribute *dcvs_hw_attr[] = {
-	&user_min_freq.attr,
-	&user_max_freq.attr,
 	&hw_min_freq.attr,
 	&hw_max_freq.attr,
+	&boost_freq.attr,
 	&cur_freq.attr,
 	&available_frequencies.attr,
 	NULL,
@@ -288,15 +256,16 @@ static inline struct dcvs_path *get_dcvs_path(enum dcvs_hw_type hw,
 	return NULL;
 }
 
-static u32 get_target_freq(struct dcvs_hw *hw, u32 freq)
+static u32 get_target_freq(struct dcvs_path *path, u32 freq)
 {
+	struct dcvs_hw *hw = path->hw;
 	u32 *freq_table = hw->freq_table;
 	u32 len = hw->table_len;
 	u32 target_freq = 0;
 	int i;
 
-	freq = max(freq, hw->user_min_freq);
-	freq = min(freq, hw->user_max_freq);
+	if (path->type == DCVS_SLOW_PATH)
+		freq = max(freq, hw->boost_freq);
 
 	for (i = 0; i < len; i++) {
 		if (freq <= freq_table[i]) {
@@ -350,7 +319,7 @@ static int qcom_dcvs_sp_update(const char *name, struct dcvs_freq *votes,
 			mutex_unlock(&path->voter_lock);
 			return -EINVAL;
 		}
-		new_freq.ib = get_target_freq(path->hw, new_freq.ib);
+		new_freq.ib = get_target_freq(path, new_freq.ib);
 		if (new_freq.ib != path->cur_freq.ib ||
 					new_freq.ab != path->cur_freq.ab)
 			ret = path->commit_dcvs_freqs(path, &new_freq, 1);
@@ -392,7 +361,7 @@ static int qcom_dcvs_fp_update(const char *name, struct dcvs_freq *votes,
 			return -EINVAL;
 
 		/* no aggregation required since only single client allowed */
-		new_freqs[i].ib = get_target_freq(path->hw, votes[i].ib);
+		new_freqs[i].ib = get_target_freq(path, votes[i].ib);
 		if (new_freqs[i].ib != path->cur_freq.ib)
 			commit_mask |= BIT(i);
 	}
@@ -435,7 +404,7 @@ static int qcom_dcvs_percpu_update(const char *name, struct dcvs_freq *votes,
 			return -EINVAL;
 
 		/* no aggregation required since only single client per cpu */
-		new_freq.ib = get_target_freq(path->hw, votes[i].ib);
+		new_freq.ib = get_target_freq(path, votes[i].ib);
 		new_freq.hw_type = hw_type;
 		if (new_freq.ib != path->percpu_cur_freqs[cpu]) {
 			ret = path->commit_dcvs_freqs(path, &new_freq, 1);
@@ -711,9 +680,8 @@ static int qcom_dcvs_hw_probe(struct platform_device *pdev)
 
 	hw->hw_max_freq = hw->freq_table[hw->table_len-1];
 	hw->hw_min_freq = hw->freq_table[0];
-	hw->user_max_freq = hw->hw_max_freq;
-	/* start with min_freq = max_freq for boot perf */
-	hw->user_min_freq = hw->user_max_freq;
+	/* start with boost_freq = max_freq for better boot perf */
+	hw->boost_freq = hw->hw_max_freq;
 
 	ret = of_property_read_u32(dev->of_node, QCOM_DCVS_WIDTH_PROP,
 								&hw->width);
@@ -813,7 +781,7 @@ static int qcom_dcvs_path_probe(struct platform_device *pdev)
 	mutex_init(&path->voter_lock);
 
 	/* commit max_freq for boot perf */
-	new_freqs[hw->type].ib = hw->user_max_freq;
+	new_freqs[hw->type].ib = hw->hw_max_freq;
 	new_freqs[hw->type].ab = 0;
 	new_freqs[hw->type].hw_type = hw->type;
 	if (path->type == DCVS_FAST_PATH)
