@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 #include <linux/debugfs.h>
 #include <linux/errno.h>
@@ -1481,7 +1481,7 @@ static int tz_log_probe(struct platform_device *pdev)
 	 * Map the diagnostic information area if encryption is disabled
 	 */
 	if (!tzdbg.is_encrypted_log_enabled) {
-		tzdbg.virt_iobase = devm_ioremap_nocache(&pdev->dev,
+		tzdbg.virt_iobase = devm_ioremap(&pdev->dev,
 				tzdiag_phy_iobase, debug_rw_buf_size);
 
 		if (!tzdbg.virt_iobase) {
