@@ -1,0 +1,80 @@
+/*
+ * Copyright (c) 2017 MediaTek Inc.
+ * Author: Shi.Ma <shi.ma@mediatek.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&i2c1 {
+	rt9467@5b {
+		compatible = "richtek,rt9467";
+		reg = <0x5b>;
+		rt,intr_gpio_num = <101>;	/* direct defined GPIO num */
+		rt,intr_gpio = <&pio 101 0x0>;
+		interrupt-names = "wdtmri", "chg_mivr", "chg_aiclmeasi",
+			"attachi", "detachi", "pwr_rdy", "chg_statci";
+		status = "okay";
+		/*
+		 * Charger name
+		 * Main charger: primary_chg
+		 * Slave charger: secondary_chg
+		 */
+		charger_name = "primary_chg";
+		regmap_name = "rt9467_primary";
+		regmap_represent_slave_addr = <0x5b>;
+		ichg = <2000000>;	/* uA */
+		aicr = <500000>;	/* uA */
+		mivr = <4400000>;	/* uV */
+		cv = <4350000>;		/* uV */
+		ieoc = <250000>;	/* uA */
+		safety_timer = <12>;	/* hour */
+		ircmp_resistor = <25000>;	/* uohm */
+		ircmp_vclamp = <32000>;		/* uV */
+		en_te;
+		en_wdt;
+		en_chgdet;
+		/* en_jeita; */
+		/* en_irq_pulse; */
+	};
+};
+
+&i2c0 {
+	rt9467@5b {
+		compatible = "richtek,rt9467";
+		reg = <0x5b>;
+		rt,ceb_gpio_num = <160>;
+		rt,ceb_gpio = <&pio 160 0x0>;
+		rt,intr_gpio_num = <102>;	/* direct defined GPIO num */
+		rt,intr_gpio = <&pio 102 0x0>;
+		status = "okay";
+		/*
+		 * Charger name
+		 * Main charger: primary_chg
+		 * Slave charger: secondary_chg
+		 */
+		charger_name = "secondary_chg";
+		regmap_name = "rt9467_secondary";
+		regmap_represent_slave_addr = <0x5c>;
+		ichg = <2000000>;	/* uA */
+		aicr = <500000>;	/* uA */
+		mivr = <4400000>;	/* uV */
+		cv = <4350000>;		/* uV */
+		ieoc = <250000>;	/* uA */
+		safety_timer = <12>;	/* hour */
+		ircmp_resistor = <25000>;	/* uohm */
+		ircmp_vclamp = <32000>;		/* uV */
+		en_te;
+		/* en_wdt; */
+		/* en_chgdet; */
+		/* en_jeita; */
+		/* en_irq_pulse; */
+		/* ceb_invert; */
+	};
+};

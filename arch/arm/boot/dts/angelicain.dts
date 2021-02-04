@@ -1,0 +1,116 @@
+/*
+ * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
+
+#include "custom_common.dtsi"
+#include "touchscreen.dtsi"
+#include <angelicain/cust.dtsi>
+
+/* FINGERPRINT start */
+/*
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	fingerprint@0 {
+		compatible = "goodix,goodix-fp";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		netlink-event = <30>;
+		status = "okay";
+	};
+};
+
+&goodix_fp {
+	pinctrl-names = "default", "reset_high", "reset_low";
+	pinctrl-0 = <&fingerprint_default>;
+	pinctrl-1 = <&fingerprint_reset_high>;
+	pinctrl-2 = <&fingerprint_reset_low>;
+	status = "okay";
+};
+
+&pio {
+	fingerprint_default: state_default {
+	};
+	fingerprint_reset_high: state_reset_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO172__FUNC_GPIO172>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fingerprint_reset_low: state_reset_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO172__FUNC_GPIO172>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+};
+*/
+&spi1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	fpc_tee@0 {
+		compatible = "fpc,fpc_spi";
+		reg = <0>;
+		fpc,enable-wakeup;
+		spi-max-frequency = <10000000>;
+		netlink-event = <31>;
+		status = "okay";
+	};
+
+};
+
+&fpsensor_finger {
+	pinctrl-names =  "fpsensor_fpc_rst_low", "fpsensor_fpc_rst_high","fpsensor_fpc_pwr_high", "fpsensor_fpc_pwr_low";
+	pinctrl-0 = <&fpsensor_fpc_rst_low>;
+	pinctrl-1 = <&fpsensor_fpc_rst_high>;
+	pinctrl-2 = <&fpsensor_fpc_pwr_high>;
+	pinctrl-3 = <&fpsensor_fpc_pwr_low>;
+	status = "okay";
+};
+
+&pio {
+	fpsensor_fpc_rst_low: fpsensor_fpc_rst_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO167__FUNC_GPIO167>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	fpsensor_fpc_rst_high: fpsensor_fpc_rst_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO167__FUNC_GPIO167>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	fpsensor_fpc_pwr_high: fpsensor_fpc_pwr_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO169__FUNC_GPIO169>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	fpsensor_fpc_pwr_low: fpsensor_fpc_pwr_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO169__FUNC_GPIO169>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+};
+/* FINGERPRINT end */

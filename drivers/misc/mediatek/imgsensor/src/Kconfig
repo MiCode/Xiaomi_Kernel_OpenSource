@@ -1,0 +1,43 @@
+config SPECIFY_IMGSENSOR
+	bool SPECIFY_IMGSENSOR
+	depends on MTK_IMGSENSOR
+	help
+	  Specify name of each sensor to prevent obtaining wrong sensor driver with same sensor ID.
+	  For example, imx258_mipi_raw and imx258_mipi_mono are of same sensor ID. If not specifying
+	  sensor, imx258_mipi_mono may be recognized as imx258_mipi_raw.
+
+config IMGSENSOR_MAIN
+	string "Custom main image sensor"
+	depends on SPECIFY_IMGSENSOR
+	help
+	  Specify main sensor.
+
+config IMGSENSOR_MAIN2
+	string "Custom main2 image sensor"
+	depends on SPECIFY_IMGSENSOR
+	help
+	  Specify main2 sensor.
+
+config IMGSENSOR_SUB
+	string "Custom sub image sensor"
+	depends on SPECIFY_IMGSENSOR
+	help
+	  Specify sub sensor.
+
+config IMGSENSOR_SUB2
+	string "Custom sub2 image sensor"
+	depends on SPECIFY_IMGSENSOR
+	help
+	  Specify sub2 sensor.
+
+config MTK_CAMERA_FAKE_STEREO_MAIN2
+	bool "use fake stereo main2"
+	default n
+	help
+	  use fake stereo main2, no isp, no hal
+
+config MTK_CAMERA_FAKE_STEREO_SUB2
+	bool "use fake stereo sub2"
+	default n
+	help
+	  use fake stereo sub2, no isp, no hal

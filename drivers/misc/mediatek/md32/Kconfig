@@ -1,0 +1,6 @@
+config MD32_SUPPORT
+	bool "MediaTek MD32 Support"
+	help
+	  Support for the MD32 in MediaTek SoCs.
+	  The MD32 is a tiny processor to handle specific tasks such as
+	  Sensor HUB, Deep Power Down, thermal management, DVFS, and so on.

@@ -1,0 +1,35 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
+&i2c1 {
+	rt9465@4b {
+		compatible = "richtek,rt9465";
+		reg = <0x4b>;
+		status = "okay";
+		rt,en_gpio_num = <0>;
+		rt,en_gpio = <&pio 0 0x0>;
+		mt6306_en_pin = <1>;
+		rt,intr_gpio_num = <9>; /* direct defined GPIO num */
+		rt,intr_gpio = <&pio 9 0x0>;
+		interrupt-names = "wdtmri";
+		charger_name = "secondary_chg";
+		ichg = <1500000>; /* uA */
+		mivr = <4500000>; /* uV */
+		cv = <4550000>; /* uV */
+		ieoc = <700000>; /* uA */
+		safety_timer = <12>; /* hour */
+		en_st; /* safety timer */
+		/* en_te; */
+		en_wdt;
+	};
+};

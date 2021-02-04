@@ -1,0 +1,4 @@
+config CUSTOM_KERNEL_SENSOR_CAL
+  bool "CUSTOM_KERNEL_SENSOR_CAL"
+  help
+    Kernel driver which implements file I/O to read&write sensor cal file 

@@ -1,0 +1,68 @@
+menu "Android"
+
+if ANDROID
+
+config ASHMEM
+	bool "Enable the Anonymous Shared Memory Subsystem"
+	default n
+	depends on SHMEM
+	---help---
+	  The ashmem subsystem is a new shared memory allocator, similar to
+	  POSIX SHM but with different behavior and sporting a simpler
+	  file-based API.
+
+	  It is, in theory, a good memory allocator for low-memory devices,
+	  because it can discard shared memory units when under memory pressure.
+
+config ANDROID_LOW_MEMORY_KILLER
+	bool "Android Low Memory Killer"
+	depends on !MTK_ENABLE_AGO
+	---help---
+	  Registers processes to be killed when low memory conditions, this is useful
+	  as there is no particular swap space on android.
+
+	  The registered process will kill according to the priorities in android init
+	  scripts (/init.rc), and it defines priority values with minimum free memory size
+	  for each priority.
+
+config ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES
+	bool "Android Low Memory Killer: detect oom_adj values"
+	depends on ANDROID_LOW_MEMORY_KILLER
+	default y
+	---help---
+	  Detect oom_adj values written to
+	  /sys/module/lowmemorykiller/parameters/adj and convert them
+	  to oom_score_adj values.
+
+config ANDROID_VSOC
+	tristate "Android Virtual SoC support"
+	default n
+	depends on PCI_MSI
+	---help---
+	  This option adds support for the Virtual SoC driver needed to boot
+	  a 'cuttlefish' Android image inside QEmu. The driver interacts with
+	  a QEmu ivshmem device. If built as a module, it will be called vsoc.
+
+config SYNC
+    bool "Synchronization framework"
+    default y
+    ---help---
+      This option enables the framework for synchronization between multiple
+      drivers.  Sync implementations can take advantage of hardware
+      synchronization built into devices like GPUs.
+
+config ANDROID_INTF_ALARM_DEV
+	bool "Android alarm driver"
+	depends on RTC_CLASS
+	default n
+	---help---
+	  Provides non-wakeup and rtc backed wakeup alarms based on rtc or
+	  elapsed realtime, and a non-wakeup alarm on the monotonic clock.
+	  Espically for wake up alarm ioctl.
+	  Also exports the alarm interface to user-space.
+
+source "drivers/staging/android/ion/Kconfig"
+
+endif # if ANDROID
+
+endmenu

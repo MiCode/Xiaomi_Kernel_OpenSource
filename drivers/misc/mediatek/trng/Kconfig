@@ -1,0 +1,9 @@
+config MTK_TRNG_DRIVER
+	bool "Enable MTK TRNG driver"
+	default y if (!FPGA_EARLY_PORTING) && (EXT4_ENCRYPTION || EXT4_FS_ENCRYPTION || F2FS_FS_ENCRYPTION)
+	help
+	  TRNG contributes randomness to kernel
+	  CRNG in boot process. This is required
+	  when FBE is enabled. TRNG kernel driver
+	  also creates procfs to dump random number
+	  through SMC call in eng load.

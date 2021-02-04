@@ -1,0 +1,28 @@
+config MTK_MDLA_SUPPORT
+	bool "MDLA (Mediatek Deep Learning Accelerator) Driver"
+	default n
+	help
+	  Support deep neural network calculation using
+	  hardware accelerator. Customers and third party
+	  could use MDLA to develop feature and algorithm
+	  by themselves.
+
+config MTK_MDLA_DEBUG
+	bool "MDLA debug"
+	depends on MTK_MDLA_SUPPORT
+	default y
+	help
+	  Enable debug facility:
+	  1. print debug logs when accessing MDLA.
+	  2. dump registers on error.
+	  3. debugfs entry at /d/mdla
+
+config MTK_MDLA_ION
+	bool "MDLA use ION memory"
+	depends on MTK_MDLA_SUPPORT
+	depends on MTK_ION
+	default y
+	help
+	  Enable MDLA to use MTK ION for better memory
+	  utilization. IOCTL_MALLOC will automatically use ION
+	  memory for allocation type MEM_DRAM.

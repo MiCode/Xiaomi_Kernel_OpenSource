@@ -1,0 +1,8 @@
+config MMC_MTK_SDIO
+	tristate "MediaTek SDIO Interface support"
+	depends on HAS_DMA
+	help
+	  This selects the MediaTek(R) SDIO Interface.
+	  If you have a machine with a integrated SDIO reader, say Y or M here.
+	  This is needed if support for any SDIO devices is required.
+	  If unsure, say N.

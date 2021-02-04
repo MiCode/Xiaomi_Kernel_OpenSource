@@ -1,0 +1,197 @@
+#
+# MTK PMIC configuration
+#
+
+config MTK_PMIC_NEW_ARCH
+	tristate "MediaTek Power Management New Arch driver"
+	default n
+	---help---
+	  This selects for MediaTek(R) PMIC New Arch driver.
+	  Separate pmic feature form Power folder that also have battery and charging feature.
+	  Select y to support MTK PMIC NEW ARCH.
+	  If so, you should choose the corresponding main chip to follow.
+
+	  Select n to support MTK PMIC LEGACY ARCH.
+
+config MTK_PMIC_COMMON
+	tristate "MediaTek Power Management Common driver"
+	default n
+	---help---
+	  This selects for MediaTek(R) PMIC common driver.
+	  This feature is mainly to separate to common and platform part from driver layer.
+	  Select y to support MTK PMIC COMMON feature.
+	  Set n and choose other chip.
+
+config MTK_PMIC_CHIP_MT6353
+	tristate "MediaTek PMIC MT6353 Driver"
+	default n
+	---help---
+	  This selects for MediaTek(R) PMIC MT6353 driver.
+	  It's main chip type and providing power features like auxadc,
+	  buck/ldo, interrupt-controller..etc
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
+config MTK_PMIC_CHIP_MT6355
+	tristate "MediaTek PMIC MT6355 Driver"
+	default n
+	---help---
+	  This selects for MediaTek(R) PMIC MT6355 driver.
+	  It's main chip type and providing power features like auxadc,
+	  buck/ldo, interrupt-controller..etc
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
+config MTK_PMIC_CHIP_MT6356
+	tristate "MediaTek PMIC MT6356 Driver"
+	default n
+	---help---
+	  This selects for MediaTek(R) PMIC MT6356 driver.
+	  It's main chip type and providing power features like auxadc,
+	  buck/ldo, interrupt-controller..etc
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
+config MTK_PMIC_CHIP_MT6357
+	tristate "MediaTek PMIC MT6357 Driver"
+	default n
+	---help---
+	  This selects for MediaTek(R) PMIC MT6357 driver.
+	  It's main chip type and providing power features like auxadc,
+	  buck/ldo, interrupt-controller..etc
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
+config MTK_PMIC_CHIP_MT6358
+	tristate "MediaTek PMIC MT6358 Driver"
+	default n
+	---help---
+	  This selects for MediaTek(R) PMIC MT6358 driver.
+	  It's main chip type and providing power features like auxadc,
+	  buck/ldo, interrupt-controller..etc
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
+config MTK_PMIC_CHIP_MT6391
+	tristate "MediaTek PMIC MT6391 Driver"
+	---help---
+	  This selects for MediaTek(R) PMIC MT6391 driver.
+	  It's main chip type and providing power features like auxadc,
+	  buck/ldo, interrupt-controller..etc
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
+config MTK_PMIC_CHIP_MT6359
+	tristate "MediaTek PMIC MT6359 Driver"
+	default n
+	---help---
+	  This selects for MediaTek(R) PMIC MT6359 driver.
+	  It's main chip type and providing power features like auxadc,
+	  buck/ldo, interrupt-controller..etc
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
+config MTK_PMIC_CHIP_MT6335
+	tristate "MediaTek Power MT6335 Driver"
+	default n
+	---help---
+	  This selects for MediaTek(R) PMIC MT6335 driver.
+	  It's main chip type and providing power features like auxadc,
+	  buck/ldo, interrupt-controller..etc
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
+config MTK_PMIC_CHIP_MT6323
+	tristate "MediaTek PMIC MT6323 Driver"
+	---help---
+	  This selects for MediaTek(R) PMIC MT6323 driver.
+	  It's main chip type and providing power features like auxadc,
+	  buck/ldo, interrupt-controller..etc
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
+config MTK_EXTBUCK
+	tristate "EXT BUCK Driver"
+	default n
+	---help---
+	  This selects for EXT BUCK driver.
+	  It's sub chip type and used mainly in buck controlling.
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
+config EXTBUCK_MT6311
+	bool "MediaTek I2C Ext Buck MT6311"
+	depends on MTK_EXTBUCK
+	default n
+	---help---
+	  MediaTek(R) I2C interface External BUCK MT6311 driver.
+	  External Buck for PROC1.
+	  Regulator Driver.
+
+if MTK_LDVT
+config MTK_LDVT_PMIC
+	bool "MediaTek PMIC driver for LDVT"
+	default y
+	---help---
+	  MediaTek PMIC driver for LDVT
+	  Set y to support DVT.
+	  Set n to default.
+endif
+
+config MTK_AUXADC_INTF
+	bool "MediaTek PMIC Auxadc interface"
+	depends on MTK_PMIC_NEW_ARCH
+	default n
+	---help---
+	  MediaTek PMIC Auxadc interface Driver
+	  only for MTK_PMIC_NEW_ARCH
+	  Set y to enable it.
+	  Set n to disable it.
+
+config REGULATOR_ISL91302A
+	bool "Intersil Spi Ext Buck Isl91302a"
+	depends on MTK_EXTBUCK
+	select RT_REGMAP
+	default n
+	---help---
+	  Intersil SPI Interface
+	  External Buck for
+	  GPU, PROC1, PROC2
+	  Regulator Driver
+
+config REGULATOR_RT5734
+	bool "Richtek Spi Ext Buck rt5734"
+	depends on MTK_EXTBUCK
+	select RT_REGMAP
+	default n
+	---help---
+	  Richtek SPI Interface External Buck for GPU, PROC1, PROC2
+	  Regulator Driver
+	  Say Y to enable it.
+	  Say N to disable it.
+
+config REGULATOR_RT5738
+	bool "Richtek Ext Buck RT5738"
+	depends on MTK_EXTBUCK
+	default n
+	---help---
+	  Richtek I2c Interface
+	  Extern Buck for MTK Platform
+	  Say Y to enable it.
+	  Say N to disable it.
+
+config MTK_EXTERNAL_CHARGER_TYPE_DETECT
+	bool "MediaTek external charger type detection"
+	depends on MTK_PMIC_NEW_ARCH
+	default n
+	---help---
+	  MediaTek external charger type detection flow
+	  only for MTK_PMIC_NEW_ARCH
+	  It used to support external charger type detection.
+	  Default is MTK PMIC path. Select Y to disable MTK charger type detect.
+	  Set y to enable it.
+	  Set n to disable it.
+
+source "drivers/misc/mediatek/pmic/mt6370/Kconfig"
+source "drivers/misc/mediatek/pmic/mt6360/Kconfig"
+source "drivers/misc/mediatek/pmic/rt5081/Kconfig"

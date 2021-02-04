@@ -1,0 +1,10 @@
+config MTK_AURISYS_PHONE_CALL_SUPPORT
+	bool "enable phone call speech processing on OpenDSP"
+	default n
+	help
+	  Select this to enable phone call speech enhancement in OpenDSP.
+	  The OpenDSP is a DSP that can integrate 3rd party algorithm
+	  for speech processing.
+	  If unsure, say N here.
+
+

@@ -1,0 +1,9 @@
+config MTK_ION_CACHE_OPTIMIZATION
+	bool "MTK FPGA EARLY PORTING"
+	default n
+	help
+	  This option is used for optimize ion cache
+	  operation flow, users only pass flushed address
+	  and range, CMO driver decides using which operations
+	  (by set/way or by range).
+

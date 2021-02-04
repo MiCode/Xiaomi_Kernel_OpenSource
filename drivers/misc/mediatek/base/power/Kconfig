@@ -1,0 +1,101 @@
+config MTK_CPU_FREQ
+	bool "MTK CPU FREQ"
+	default n
+	---help---
+	  This kernel config can be used to enable CPU FREQ.
+	  When enable this option, CPU frequency and voltage will be
+	  changed which will depended on CPU FREQ governor.
+	  If unsure, say N.
+
+config MTK_PTPOD
+	bool "MTK PTPOD"
+	default n
+	---help---
+	  This kernel config can be used to enable PTPOD.
+	  When enable this option, voltage will be
+	  changed which will depended on chip.
+	  If unsure, say N.
+
+config MTK_STATIC_POWER
+	bool "MTK STATIC POWER"
+	default n
+	---help---
+	  This kernel config can be used to enable static power.
+	  This information can provide power data to someone who
+	  need it
+	  If unsure, say N.
+
+config MTK_UNIFY_POWER
+	bool "MTK UNIFY POWER"
+	default n
+	---help---
+	  This kernel config can be used to enable unified power table.
+	  This table can provide power data and capacity to someone who
+	  need it.
+	  If unsure, say Y.
+
+config MTK_CM_MGR
+	bool "MTK CM MGR"
+	default n
+	---help---
+	  This kernel config can be used to enable CM MGR. When enable
+	  this option, dram opp level will be changed which will depended
+	  on power table.
+	  If unsure, say N.
+
+config CPU_FORCE_TO_BIN2
+	bool "Read extra efuse for BIN2 IC"
+	default n
+	---help---
+	  This kernel config can be used to force cpu to segment BIN2.
+	  When enable this option, eem driver will read extra efuse to
+	  obtain parameters for segment BIN2 IC.
+	  If unsure, say N.
+
+config MTK_LP_OPP
+	bool "MTK LP OPP"
+	default n
+	---help---
+	  This kernel config can be used to enable MTK LP OPP. When enable
+	  this option, cpudvfs opp will be changed for low power.
+	  If unsure, say N.
+
+config MTK_SWPM
+	bool "MTK SW Power Meter"
+	default n
+	---help---
+	  This kernel config can be used to enable SW power meter. When enable
+	  this option, user can turn on SW power meter and get average power
+	  for each power rail for low power debugging.
+	  If unsure, say N.
+
+config MTK_QOS_FRAMEWORK
+	bool "MTK QOS FRAMEWORK"
+	default n
+	---help---
+	  This kernel config can be used to enable MTK QOS FRAMEWORK.
+	  When enabling this option, BW Limiter and BW Bound Detector
+	  will be enabled and set EMI hardware.
+	  If unsure, say N.
+
+config MTK_QOS_V1
+	bool "MTK QOS Framework Ver 1.0"
+	default y if MACH_MT6765
+	default y if MACH_MT6761
+	default y if MACH_MT6768
+	---help---
+	  This version support QOS ver 1.0 feature sets.
+	  The dram opp could be controlled by the BW prediction.
+	  It is also mapped with sspm qos v1.
+	  If unsure, say N.
+
+config MTK_QOS_V2
+	bool "MTK QOS Framework Ver 2.0"
+	default y if MACH_MT6779
+	default y if MACH_MT6785
+	select MTK_QOS_FRAMEWORK
+	---help---
+	  This version support QOS version 2.0 feature sets.
+	  It supports BW prediction, BW bound detection, and BW limiter.
+	  It is also mapped with sspm qos v2.
+	  If unsure, say N.

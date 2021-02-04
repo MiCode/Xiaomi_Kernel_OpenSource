@@ -1,0 +1,21 @@
+* Mediatek Secure Power Management
+
+This describes the device tree binding for the Mediatek Secure Power Managermenet
+which control low power on/off. such as cpu on/off, pll on/off, and lower voltage
+for each power domain.
+
+Required properties:
+- compatible:
+  - "mediatek,sleep" : For all compatible products support spm
+- reg: 1. Address base and range for SPMFW loading.
+       2. Address base for device_mpu
+- interrupts: IRQ for SPM wake up AP
+
+Example:
+
+	sleep@10a00000 {
+		compatible = "mediatek,sleep";
+		reg = <0 0x10a00000 0 0x30000>,
+		      <0 0x0011bb80 0 0x80>;
+		interrupts = <GIC_SPI 196 IRQ_TYPE_LEVEL_LOW>;
+	};

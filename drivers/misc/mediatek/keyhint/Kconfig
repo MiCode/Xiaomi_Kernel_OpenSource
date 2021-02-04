@@ -1,0 +1,13 @@
+comment "Key Hint"
+
+config MTK_KEY_HINT
+	bool "Key management tool for HIE"
+	depends on HIE
+	default y
+	help
+	  Enable Key Hint to manage keys for HIE
+	  (Hardware Inline Encryption).
+
+	  Keys in key-hint are managed by LRU and the key index
+	  is directly mapped to crypto slots index in crypto IP
+	  embbeded in storage host.

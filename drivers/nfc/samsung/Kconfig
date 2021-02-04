@@ -1,0 +1,64 @@
+#
+# Near Field Communication (NFC) devices
+#
+
+menu "Near Field Communication (NFC) devices"
+	depends on NFC
+
+config SEC_NFC
+	bool "Samsung NFC driver"
+	default y
+	help
+	  SAMSUNG NFC Driver.
+	  This driver provides support for SAMSUNG NFC products.
+	  You should select your NFC product and interface.
+
+	  Say Y here to compile support for SAMSUNG NFC driver into the
+	  kernel.
+
+choice
+	prompt "SEC NFC Products"
+	depends on SEC_NFC
+        default SEC_NFC_PRODUCT_N5
+config SEC_NFC_PRODUCT_N3
+        bool "RN3"
+config SEC_NFC_PRODUCT_N5
+        bool "RN5/RNx"
+endchoice
+choice
+	prompt "SEC NFC Interface"
+	depends on SEC_NFC
+    default SEC_NFC_IF_I2C
+config SEC_NFC_IF_UART
+	bool "UART"
+config SEC_NFC_IF_I2C
+	bool "I2C"
+config SEC_NFC_IF_I2C_GPIO
+        bool "I2C-GPIO (S/W-I2C)"
+        select I2C_CHARDEV
+        select I2C_MUX
+        select I2C_MUX_GPIO
+        select I2C_ARB_GPIO_CHALLENGE
+        select I2C_ALGOBIT
+        select I2C_GPIO
+endchoice
+config SEC_NFC_GPIO_CLK
+        bool "SEC NFC GPIO CLK"
+        default n
+        help
+          SAMSUNG NFC CLR REQ feature.
+          This feature provides support for SAMSUNG NFC products.
+          You should select this feature if your NFC product uses AP CLK.
+
+          Say Y here to compile support for SAMSUNG NFC CLK REQ feature into the
+          kernel.
+config SEC_NFC_DEDICATED_CLK
+        bool "SEC NFC DEDICATED CLK"
+        default n
+config SEC_NFC_LDO_EN
+        bool "SEC NFC LDO"
+        default n
+config SEC_NFC_PMIC_LDO
+        bool "SEC NFC PMIC LDO"
+        default n
+endmenu

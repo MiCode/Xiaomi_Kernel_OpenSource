@@ -1,0 +1,17 @@
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft5422.o
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft5822.o
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft6426.o
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft8006m.o
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft8607.o
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft8716.o
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft8736.o
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft8006u.o
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft5422u.o
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft8719.o
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft8739.o
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft5452.o
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft5472.o
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft8006p.o
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft6216.o
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft7251.o
+obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD) += focaltech_upgrade_ft8613s.o

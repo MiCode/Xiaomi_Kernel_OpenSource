@@ -1,0 +1,28 @@
+/*
+ * Copyright:
+ * ----------------------------------------------------------------------------
+ * This confidential and proprietary software may be used only as authorized
+ * by a licensing agreement from ARM Limited.
+ *      (C) COPYRIGHT 2018 ARM Limited, ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorized copies and
+ * copies may only be made to the extent permitted by a licensing agreement
+ * from ARM Limited.
+ * ----------------------------------------------------------------------------
+ */
+
+bob_kernel_module {
+    name: "smc_protected_mode_switcher",
+    enabled: false,
+    smc_protected_mode_switcher: {
+        enabled: true,
+    },
+    srcs: [
+        "Kbuild",
+        "protected_mode_switcher_device.c",
+        "protected_mode_switcher_smc.S",
+    ],
+    kbuild_options: [
+        "CONFIG_SMC_PROTECTED_MODE_SWITCHER=m",
+    ],
+    defaults: ["kernel_defaults"],
+}

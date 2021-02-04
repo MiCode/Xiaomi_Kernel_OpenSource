@@ -1,0 +1,14 @@
+config MTK_EMI_BWL
+	bool "enable MTK_EMI_BWL"
+	default n
+	help
+	  This config enable/disable EMI Bandwidth Limit driver.
+	  EMI Bandwidth Limit driver is used to set different
+	  bandwidth limit value for different scenario.
+	  It can set individual value for all EMI master ports.
+
+config MTK_COMMON_EMI
+	bool "common emi driver for 8127/2701/7623"
+	help
+	  This enable 8127/7623/2701
+	  common emi driver.

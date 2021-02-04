@@ -1,0 +1,49 @@
+config MTK_GPU_SUPPORT
+	bool "Support MTK GPU"
+	default n
+	help
+	  config supports MTK GPU driver.
+	  CONFIG_MTK_GPU_SUPPORT defines
+	  if the gpu driver should be built in or not
+
+config MTK_GPU_VERSION
+	string "Support MTK GPU Driver Version"
+	default ""
+	help
+	  CONFIG_MTK_GPU_VERSION define which gpu ddk version will be used
+	  It has three parts
+	  1.vendor name 2.GPU architecture name 3. driver version
+
+config MTK_GPU_COMMON_DVFS_SUPPORT
+	bool "Support GPU VSync-Based DVFS Policy"
+	default n
+	help
+	  config supports to enable GPU DVFS policy.
+	  It is nice method to save power.
+	  It is recommended to enable it when MTK_GPU_SUPPORT is enabled.
+
+config MTK_GPU_R5P0
+	bool "Force to use r5p0 driver"
+	default n
+	help
+	  config defines to use r5p0 drivers
+	  Choose this option to force r5p0 driver verison
+
+config SW_SYNC64
+	bool "Enable SW 64bit sync counter"
+	depends on SW_SYNC
+	help
+	  A sync object driver that uses a 64bit counter to coordinate
+	  syncrhronization.  Useful when there is no hardware primitive backing
+	  the synchronization.
+
+config MTK_GPU_SPM_DVFS_SUPPORT
+	bool "Enable GPU SPM DVFS"
+	default n
+	help
+	  Choose this option to enable a dedicated HW to do GPU DVFS.
+	  The feature is still under experiment. Enable only if you know
+	  what your are doing.
+	  MTK_GPU_COMMON_DVFS_SUPPORT and MTK_GPU_SPM_DVFS_SUPPORT shouldn't
+	  exist concurrently.
+

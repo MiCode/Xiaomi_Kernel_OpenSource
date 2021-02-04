@@ -1,0 +1,9 @@
+
+config MTK_AKM09911
+	tristate "AKM09911 for MediaTek package"
+	default n
+	help
+	  It support different magnetometer sensor.
+	  If this option is set, it will support
+	  AKMD09911 magnetometer which is a 3-axis electronic
+	  compass IC with high sensitive Hall sensor technology.

@@ -1,0 +1,788 @@
+#!/bin/bash
+
+CORRECT_CONFIG_FILE="./scripts/kcrs/correct_config.csv"
+BLACK_PROJECT_LIST="./scripts/kcrs/project_not_review.txt"
+export CORRECT_CONFIG_FILE
+
+function usage ()
+{
+    echo $0 'Check for kernel config with correct_config.csv'
+    echo 'Usage:'
+    echo '  '$0' [-c] [-h]'
+    echo '      -c  commit ID to check(HEAD if not set)'
+    echo '	-u  flag to decide warning only or return error'
+    echo '      -h  This help'
+    exit 0
+}
+
+function remove_value_note
+{
+    INPUT_VALUE=$1
+    RESULT_VALUE=$(echo $INPUT_VALUE | sed 's/(USER)//g')
+    RESULT_VALUE=$(echo $RESULT_VALUE | sed 's/(PLATFORM)//g')
+    RESULT_VALUE=$(echo $RESULT_VALUE | sed 's/(USER;PROJECT)//g')
+    RESULT_VALUE=$(echo $RESULT_VALUE | sed 's/(NOT_USER)//g')
+    RESULT_VALUE=$(echo $RESULT_VALUE | sed 's/(PROJECT)//g')
+    echo $RESULT_VALUE
+}
+export -f remove_value_note
+
+PDL_CONFIG=""
+PDL_VALUE=""
+function parse_defconfig_line
+{
+    PDL_VALUE=""
+    PDL_CONFIG=""
+    PARSE_LINE=$1
+
+    PDL_CONFIG=$(echo $PARSE_LINE | sed 's/^# //g' | awk -F" |=" '{ print $1 }')
+    # for is not set
+    if [ "$(echo $PARSE_LINE | grep "is not set")" != "" ]; then
+        PDL_VALUE="N"
+    # for CONFIG_CUSTOM_KERNEL_IMGSENSOR="xxxxxxxx"
+    elif [ "$(echo $PARSE_LINE | grep \")" != "" ]; then
+        # from string to X
+        PDL_VALUE="$(echo $PARSE_LINE | awk -F\" '{ print $2 }')"
+    else
+    #for CONFIG_MTK_DRAM_LOG_STORE=y
+    #for CONFIG_MTK_DRAM_LOG_STORE_ADDR=0x12345678
+        # from value to X
+        PDL_VALUE=$(echo $PARSE_LINE | awk -F= '{ print $2 }')
+    fi
+
+    if [ "$PARSE_LINE" == "" ]; then
+        PDL_VALUE="X"
+    fi
+}
+
+PCI_RESULT=""
+function parse_config_item
+{
+    PARSE_LINE=$1
+    PARSE_INDEX=$2
+    FAIL=0
+
+    # we want to get the No. $(PARSE_INDEX) value
+    TEMP_LINE=$(echo $PARSE_LINE | sed 's/\r//g')
+    for ((TEMP_INDEX=1; TEMP_INDEX<=$PARSE_INDEX; TEMP_INDEX++))
+    do
+        # grep -o only print the matched part.
+        # for some special case, but we cannot seen right now.
+        PCI_RESULT=$(echo $TEMP_LINE | grep -o "^[ ]*\"[^\"]*\"[ ]*,")
+        if [ "$PCI_RESULT" == "" ]; then
+            PCI_RESULT=$(echo $TEMP_LINE | grep -o "^[ ]*\"[^\"]*\"[ ]*$")
+        else
+            TEMP_LINE=$(echo $TEMP_LINE | sed -e 's/^[ ]*\"[^\"]*\"[ ]*,//g')
+            continue
+        fi
+        # separate by ","
+        if [ "$PCI_RESULT" == "" ]; then
+            PCI_RESULT=$(echo $TEMP_LINE | grep -o "^[^,]*,")
+        else
+            TEMP_LINE=$(echo $TEMP_LINE | sed -e 's/^[ ]*\"[^\"]*\"[ ]*$//g')
+            continue
+        fi
+        # exclude "," case, if the previous one cannot find anything. should useless
+        if [ "$PCI_RESULT" == "" ]; then
+            PCI_RESULT=$(echo $TEMP_LINE | grep -o "^[^,]*")
+        fi
+        SED_STRING="s/^$PCI_RESULT//g"
+        # remove the pattern which is mattched.
+        TEMP_LINE=$(echo $TEMP_LINE | sed -e "$SED_STRING")
+    done
+    PCI_RESULT=$(echo $PCI_RESULT | sed 's/,$//g')
+}
+export -f parse_config_item
+
+PDC_RESULT=""
+function parse_dot_config_value
+{
+	PARSE_FILE=$1
+	PARSE_CONFIG_NAME=$2
+
+	while read DOT_CONFIG_LINE
+	do
+		# 1. skip comment
+		if [ "$(echo $DOT_CONFIG_LINE | grep "CONFIG_")" == "" ]; then
+			continue
+		fi
+
+		# 2. find config name
+		if [ "$(echo $DOT_CONFIG_LINE | grep "#")" == "" ]; then
+			DOT_CONFIG_NAME=$(echo $DOT_CONFIG_LINE | awk '{ print $1 }' | sed 's/=.*//g' )
+		else
+			DOT_CONFIG_NAME=$(echo $DOT_CONFIG_LINE | awk '{ print $2 }')
+		fi
+
+		# 3. find value
+		if [ "${CONFIG_TABLE_HASH[$PARSE_CONFIG_NAME,CONFIG]}" == "$DOT_CONFIG_NAME" ]; then
+			if [ "$(echo $DOT_CONFIG_LINE | grep "is not set")" != "" ]; then
+				# case N
+				DOT_CONFIG_VALUE="N"
+			elif [ "$(echo $DOT_CONFIG_LINE | grep \")" != "" ]; then
+				# case string
+				DOT_CONFIG_VALUE="$(echo $DOT_CONFIG_LINE | awk -F\" '{ print $2 }')"
+			else
+				# case value
+				DOT_CONFIG_VALUE=$(echo $DOT_CONFIG_LINE | awk -F= '{ print $2 }')
+				# support kernel module m=y
+				if [ "$DOT_CONFIG_VALUE" == "m" ]; then
+					DOT_CONFIG_VALUE="y"
+				fi
+			fi
+			break
+		fi
+	done < $PARSE_FILE
+
+	PDC_RESULT=$DOT_CONFIG_VALUE
+}
+export -f parse_dot_config_value
+
+GIT_COMMIT_ID=""
+UPLOAD_MSG_TO_GERRIT=""
+GIT_CMD="git diff --cached --no-color"
+
+export GIT_COMMIT_ID
+export UPLOAD_MSG_TO_GERRIT
+export GIT_CMD
+
+build_table() {
+    declare -A CONFIG_TABLE_HASH
+    declare -A CORRECT_TABLE_HASH
+    declare -A DEBUG_USER_TABLE_HASH
+
+    FAIL=0
+    FILE=$1
+
+    if [ ! -f $FILE ]; then
+        return $FAIL
+    fi
+
+    # get the FILE_PLATFORM and 64 from config file
+    # defconfig file architecture and platform
+    FILE_PLATFORM=$(grep "CONFIG_ARCH_MT....[A-Z]*=y" $FILE | awk -F= '{ print $1 }' | sed 's/CONFIG_ARCH_MT//g')
+    # skip not CONFIG_ARCH_MTxxxxx=y platform
+    if [ "$FILE_PLATFORM" == "" ]; then
+        # try again if this is 4.4, ARCH_MTXXXX rename to MACH_MTXXXX
+        FILE_PLATFORM=$(grep "CONFIG_MACH_MT....[A-Z]*=y" $FILE | awk -F= '{ print $1 }' | sed 's/CONFIG_MACH_MT//g')
+        if [ "$FILE_PLATFORM" == "" ]; then
+            echo "skip file $FILE"
+            continue
+        fi
+    fi
+
+     # generate .config and output .config to ./$FILE folder
+    DEFCONFIG_NAME=$(echo "$FILE" | sed 's/.*configs\///g')
+#   "+" must escape one level to use regular expression
+#    DEFCONFIG_NAME=$(echo "$FILE" | sed 's/.\+configs\///g')
+
+    if [ "$(echo $FILE | grep "arch/arm64/configs")" != "" ]; then
+        FILE_PLATFORM=$FILE_PLATFORM"_64"
+        make ARCH=arm64 O=./$DEFCONFIG_NAME $DEFCONFIG_NAME
+    else
+        make ARCH=arm O=./$DEFCONFIG_NAME $DEFCONFIG_NAME
+    fi
+
+    # A. Find Old Setting of Configs
+    # 1. find old setting in defconfig file, the lines which lead by "-"
+    # 2. get the old value
+    # 3. give new value as a default value "X"
+    # 4. Add modified Configs into CONFIG_LIST
+    CONFIG_LIST=""
+    CONFIG_VALUE=""
+    while read LINE
+    do
+        # 1. find old setting in config file, the lines which lead by "-"
+        if [ "$(echo $LINE | grep "#")" == "" ]; then
+            CONFIG_NAME=$(echo $LINE | awk '{ print $1 }' | sed 's/-//g' | sed 's/=.*//g' )
+        else
+            CONFIG_NAME=$(echo $LINE | awk '{ print $2 }' | sed 's/-//g')
+        fi
+        if [ "$(echo $LINE | grep "is not set")" != "" ]; then
+            # from N to X, X : means depends
+            ORI_VALUE="N"
+        elif [ "$(echo $LINE | grep \")" != "" ]; then
+            # from string to X
+            ORI_VALUE="$(echo $LINE | awk -F\" '{ print $2 }')"
+        else
+            # from value to X
+            ORI_VALUE=$(echo $LINE | awk -F= '{ print $2 }')
+            # support kernel module m=y
+            if [ "$ORI_VALUE" == "m" ]; then
+                ORI_VALUE="y"
+            fi
+        fi
+
+        # 2. get the old value
+        CONFIG_TABLE_HASH[$CONFIG_NAME,CONFIG]="$CONFIG_NAME"
+        CONFIG_TABLE_HASH[$CONFIG_NAME,ORI_VALUE]="$ORI_VALUE"
+
+        # 3. give new value as a default value "X"
+        # use .config value instead
+        parse_dot_config_value "./$DEFCONFIG_NAME/.config" "$CONFIG_NAME"
+
+        CONFIG_TABLE_HASH[$CONFIG_NAME,VALUE]=$PDC_RESULT
+        CONFIG_TABLE_HASH[$CONFIG_NAME,LINE]="$LINE"
+        CONFIG_VALUE="X"
+
+        # 4. CONFIG_LIST will list all modified CONFIG_NAME
+        CONFIG_LIST="$CONFIG_LIST$CONFIG_NAME "
+    # what is the purpose of this line? re-read the file again after do done loop? but what is the < < for?
+    done < <($GIT_CMD --pretty="format:" $GIT_COMMIT_ID $FILE | grep "^-.*CONFIG_")
+
+    # why read line twice? git command 1st is old value, 2nd is the new value
+    # It's for modified case.
+    # When given KO is modified from a to b, record the ORI_VALUE and overwrite with new VALUE with b.
+    # For new or delete items, it will also record the necessary info.
+    # 1st hash table is "-" index, show the ORI_VALUE
+    # 2nd hash table is "+" index, show the VALUE
+
+    # B. Find New settings of Configs
+    # 1. Find new setting in defconfig file, the lines which lead by "+"
+    # 2. Get the new value and store to the hash
+    # 3. Add modified Configs into CONFIG_LIST
+    while read LINE
+    do
+        # 1. find new setting in config file, the lines which lead by "+"
+        if [ "$(echo $LINE | grep "#")" == "" ]; then
+            CONFIG_NAME=$(echo $LINE | awk '{ print $1 }' | sed 's/+//g' | sed 's/=.*//g')
+        else
+            CONFIG_NAME=$(echo $LINE | awk '{ print $2 }' | sed 's/+//g')
+        fi
+
+        # 2. get the new value and store to the hash
+        if [ "$(echo $LINE | grep "is not set")" != "" ]; then
+            CONFIG_VALUE="N"
+        elif [ "$(echo $LINE | grep \")" != "" ]; then
+            CONFIG_VALUE="$(echo $LINE | awk -F\" '{ print $2 }')"
+        else
+            CONFIG_VALUE=$(echo $LINE | awk -F= '{ print $2 }')
+            # support kernel module m=y
+            if [ "$CONFIG_VALUE" == "m" ]; then
+                CONFIG_VALUE="y"
+            fi
+        fi
+        CONFIG_TABLE_HASH[$CONFIG_NAME,CONFIG]="$CONFIG_NAME"
+        CONFIG_TABLE_HASH[$CONFIG_NAME,VALUE]="$CONFIG_VALUE"
+        CONFIG_TABLE_HASH[$CONFIG_NAME,LINE]="$LINE"
+
+        # 3. CONFIG_LIST will list all modified CONFIG_NAME
+        if [ "$(echo $CONFIG_LIST | grep "$CONFIG_NAME\b")" == "" ];then
+            CONFIG_LIST="$CONFIG_LIST$CONFIG_NAME "
+        fi
+    done < <($GIT_CMD --pretty="format:" $GIT_COMMIT_ID $FILE | grep "^+.*CONFIG_")
+
+	# remove defconfig folder
+    rm -rf $DEFCONFIG_NAME
+
+    # C. Compare Config to Correct table
+    # 1. Check if it is a new Config
+    #    Configs are not declared in correct config file and the Cofnig is not dependent (X)
+    # 2. Build Correct table hash
+    # 3. Check with correct_config.csv
+    #       Check PROJECT, USER;PLATFORM, COMMON, PLATFORM, USER TYPE
+    #       In PROJECT type, Verify debug and user load should be the same
+    #       Build USER table hash
+    # Only check Configs which is modified, it will be list in config list,
+    for CONFIG in $CONFIG_LIST
+    do
+        # 1. Check if it is a new Config
+        # Configs are not declared in correct config file and the Config is not dependent (X)
+        # echo "$FILE set $CONFIG to ${CONFIG_TABLE_HASH[$CONFIG,VALUE]}"
+        # echo "CORRECT_CONFIG_FILE: $CORRECT_CONFIG_FILE"
+        LINE=$(grep "$CONFIG," $CORRECT_CONFIG_FILE | sed 's/\r//g')
+        if [ "$LINE" == "" ] && [ "${CONFIG_TABLE_HASH[$CONFIG,VALUE]}" != "X" ]; then
+            echo "check_kernel_config fail" >> $TEMPFILE_PATH
+            echo "$FILE set $CONFIG to ${CONFIG_TABLE_HASH[$CONFIG,VALUE]} is new config(new config)"  >> $TEMPFILE_PATH
+            $GIT_CMD --pretty="format:" $GIT_COMMIT_ID $FILE | grep "^[+|-].*$CONFIG[=|\b]" >> $TEMPFILE_PATH
+            echo "please reference http://wiki.mediatek.inc/display/OSS10SS15/check_kernel_config+result" >> $TEMPFILE_PATH
+            echo "=====================================================================" >> $TEMPFILE_PATH
+            FAIL=1
+        fi
+
+        # 2. Build Correct table hash
+        if [ "${CORRECT_TABLE_HASH[$CONFIG,CONFIG]}" == "" ]; then
+            CORRECT_TABLE_HASH[$CONFIG,CONFIG]="$CONFIG"
+            TYPE=$(echo $LINE | awk -F, '{ print $2 }' | sed 's/ //g')
+            CORRECT_TABLE_HASH[$CONFIG,TYPE]="$TYPE"
+            OWNER=$(echo $LINE | awk -F, '{ print $3 }' | sed 's/ //g')
+            CORRECT_TABLE_HASH[$CONFIG,OWNER]="$OWNER"
+            NOTE=$(echo $LINE | awk -F, '{ print $4 }')
+            CORRECT_TABLE_HASH[$CONFIG,NOTE]="$NOTE"
+
+            # 5th entry is the first platform value.
+            # CONFIG, TYPE, Owner, NOTE, plat1, plat2, plat3, plat4, ... etc
+            #    1     2      3     4      5
+            # CORRECT_CONFIG_HEADER=$(head -n 1 $CORRECT_CONFIG_FILE)
+            # CURRENT_PLATFORM_LIST=$(echo $CORRECT_CONFIG_HEADER | sed 's/^.*NOTE,//g' | sed 's/,/ /g')
+            INDEX=5
+            for PLATFORM in $CURRENT_PLATFORM_LIST
+            do
+                # how to find the value of corresponding platform?
+                # set each platform in platform list sequentially
+                # parse_config_item: handle some special string case, like
+                # CONFIG_CMDLINE,COMMON,,,"console=tty0 console=ttyMT3,921600n1 ... "
+                # or
+                # CONFIG_MTK_SND_SOC_CODEC,PROJECT, new config in this commit ...,"""6351""","""6351""","""6351"""
+                # or
+                # CONFIG_CUSTOM_KERNEL_MAGNETOMETER_MODULE,PROJECT,"new config in this commit ...
+                # ",X,X,X
+                # then parse_config_item replace some special pattern to empty
+                # if their is a quote " in the line, we must handle the line in special case
+                if [ "$(echo $LINE | grep "\"")" != "" ]; then
+                    parse_config_item "$LINE" $INDEX
+                    VALUE=$(echo $PCI_RESULT | sed 's/"//g')
+                else
+                    # if not, we can use awk directly.
+                    VALUE=$(echo $LINE | awk -F, '{ print $'$INDEX' }')
+                fi
+                if [ "$TYPE" == "PROJECT" ] || [ "$TYPE" == "USER;PROJECT" ]; then
+                    # if project type, Replace (USER),(PLATFORM),(PROJECT),(NOT_USER),(USER;PROJECT) by empty
+                    VALUE=$(remove_value_note "$VALUE")
+                fi
+
+                # support kernel module m=y
+                if [ "$VALUE" == "m" ]; then
+                    VALUE="y"
+                fi
+                if [ "$TYPE" == "USER;PLATFORM" ]; then
+                    VALUE=$(echo $VALUE | sed 's/m(/y(/g')
+                fi
+
+                CORRECT_TABLE_HASH[$CONFIG,$PLATFORM]="$VALUE"
+                INDEX=$(($INDEX+1))
+            done
+        fi
+
+        # Check COMMON/USER KO
+        # If FILE_PLATFORM is not in CURRENT_PLATFORM_LIST,
+        # skip not reviewed platform other than COMMON/USER KO
+        if [ "$(echo $CURRENT_PLATFORM_LIST | grep "$FILE_PLATFORM\b")" == "" ] && \
+           [ "${CORRECT_TABLE_HASH[$CONFIG,TYPE]}" != "COMMON" ] && \
+           [ "${CORRECT_TABLE_HASH[$CONFIG,TYPE]}" != "USER" ]; then
+            continue
+        fi
+
+        # 3. Check with correct_config.csv
+        # Check PROJECT, USER;PLATFORM, COMMON, PLATFORM, USER TYPE
+        if [ "${CORRECT_TABLE_HASH[$CONFIG,TYPE]}" == "PROJECT" ]; then
+            # In PROJECT case, Verify debug and user load should be the same
+            # Build USER table hash
+            DEBUG_USER_TABLE_HASH[$CONFIG,$FILE,VALUE]=${CONFIG_TABLE_HASH[$CONFIG,VALUE]}
+            DEBUG_USER_TABLE_HASH[$CONFIG,$FILE,CONFIG]=$CONFIG
+            PROJECT_CONFIG_LIST="$PROJECT_CONFIG_LIST$FILE:$CONFIG "
+            continue
+        elif [ "${CORRECT_TABLE_HASH[$CONFIG,TYPE]}" == "USER;PLATFORM" ]; then
+            # Check PLATFORM case in USER;PLATFORM
+            # sed 's/(.*)$//g' is for case CONFIG_PAGE_OWNER,USER;PLATFORM,,,X(USER),X(PLATFORM),X(USER)
+            if [ "$(echo ${CORRECT_TABLE_HASH[$CONFIG,$FILE_PLATFORM]} | grep \(PLATFORM\))" != "" ]; then
+                CORRECT_PLATFORM_VALUE=$(echo ${CORRECT_TABLE_HASH[$CONFIG,$FILE_PLATFORM]} | sed 's/(.*)$//g')
+                if [ "$CORRECT_PLATFORM_VALUE" != "${CONFIG_TABLE_HASH[$CONFIG,VALUE]}" ]; then
+                    # USER;PLATFORM platform type config value is wrong
+                    echo "check_kernel_config fail" >> $TEMPFILE_PATH
+                    echo "$FILE set $CONFIG to ${CONFIG_TABLE_HASH[$CONFIG,VALUE]} is wrong(${CORRECT_TABLE_HASH[$CONFIG,TYPE]} (PLATFORM) type wrong value) " >> $TEMPFILE_PATH
+                    echo "${CONFIG_TABLE_HASH[$CONFIG,LINE]}" >> $TEMPFILE_PATH
+                    echo "correct_config.csv type=${CORRECT_TABLE_HASH[$CONFIG,TYPE]} value=${CORRECT_TABLE_HASH[$CONFIG,$FILE_PLATFORM]}" >> $TEMPFILE_PATH
+                    echo "settings in $CORRECT_CONFIG_FILE" >> $TEMPFILE_PATH
+                    echo "$CORRECT_CONFIG_HEADER" >> $TEMPFILE_PATH
+                    echo "$LINE" >> $TEMPFILE_PATH
+                    echo "please reference http://wiki.mediatek.inc/display/OSS10SS15/check_kernel_config+result" >> $TEMPFILE_PATH
+                    echo "=====================================================================" >> $TEMPFILE_PATH
+                    FAIL=1
+                fi
+            else
+                # USER config in USER;PLATFORM type
+                CORRECT_PLATFORM_VALUE=$(echo ${CORRECT_TABLE_HASH[$CONFIG,$FILE_PLATFORM]} | sed 's/(.*)$//g')
+                if [ "$(echo $FILE | grep "_debug_")" != "" ]; then
+                    # for Config FILE is eng version, if with the same value with Correct_table(user) => error
+                    if [ "$CORRECT_PLATFORM_VALUE" == "${CONFIG_TABLE_HASH[$CONFIG,VALUE]}" ]; then
+                        # user type config, debug load should be different
+                        echo "check_kernel_config fail" >> $TEMPFILE_PATH
+                        echo "debug load $FILE set $CONFIG to ${CONFIG_TABLE_HASH[$CONFIG,VALUE]} is wrong(USER;PLATFORM (USER) type wrong value)" >> $TEMPFILE_PATH
+                        echo "${CONFIG_TABLE_HASH[$CONFIG,LINE]}" >> $TEMPFILE_PATH
+                        echo "correct_config.csv type=${CORRECT_TABLE_HASH[$CONFIG,TYPE]} value=${CORRECT_TABLE_HASH[$CONFIG,$FILE_PLATFORM]}" >> $TEMPFILE_PATH
+                        echo "settings in $CORRECT_CONFIG_FILE" >> $TEMPFILE_PATH
+                        echo "$CORRECT_CONFIG_HEADER" >> $TEMPFILE_PATH
+                        echo "$LINE" >> $TEMPFILE_PATH
+                        echo "please reference http://wiki.mediatek.inc/display/OSS10SS15/check_kernel_config+result" >> $TEMPFILE_PATH
+                        echo "=====================================================================" >> $TEMPFILE_PATH
+                        FAIL=1
+                    fi
+                else
+                    # for Config FILE is user version, if with the different value with Correct_table(user) => error
+                    if [ "$CORRECT_PLATFORM_VALUE" != "${CONFIG_TABLE_HASH[$CONFIG,VALUE]}" ]; then
+                        # user type config, user load should be the same
+                        echo "check_kernel_config fail" >> $TEMPFILE_PATH
+                        echo "release load $FILE set $CONFIG to ${CONFIG_TABLE_HASH[$CONFIG,VALUE]} is wrong(USER;PLATFORM (USER) type wrong value)" >> $TEMPFILE_PATH
+                        echo "${CONFIG_TABLE_HASH[$CONFIG,LINE]}" >> $TEMPFILE_PATH
+                        echo "correct_config.csv type=${CORRECT_TABLE_HASH[$CONFIG,TYPE]} value=${CORRECT_TABLE_HASH[$CONFIG,$FILE_PLATFORM]}" >> $TEMPFILE_PATH
+                        echo "$CORRECT_CONFIG_HEADER" >> $TEMPFILE_PATH
+                        echo "$LINE" >> $TEMPFILE_PATH
+                        echo "please reference http://wiki.mediatek.inc/display/OSS10SS15/check_kernel_config+result" >> $TEMPFILE_PATH
+                        echo "=====================================================================" >> $TEMPFILE_PATH
+                        FAIL=1
+                    fi
+                fi
+            fi
+        elif [ "${CORRECT_TABLE_HASH[$CONFIG,TYPE]}" == "COMMON" ]; then
+            # for COMMON should be the same value
+            # we will check COMMON type KO even not in $CURRENT_PLATFORM_LIST
+            # get common value from any platform in CURRENT_PLATFORM_LIST
+            if [ "$(echo $CURRENT_PLATFORM_LIST | grep "$FILE_PLATFORM\b")" == "" ]; then
+                # get common value from any platform in CURRENT_PLATFORM_LIST
+                for PLATFORM in $CURRENT_PLATFORM_LIST
+                do
+                    COMMON_KO_PLATFORM=${PLATFORM}
+                    break
+                done
+            else
+                # if $FILE_PLATFORM in $CURRENT_PLATFORM_LIST
+                COMMON_KO_PLATFORM=$FILE_PLATFORM
+            fi
+            echo "COMMON_KO_PLATFORM ${COMMON_KO_PLATFORM}" >> $TEMPFILE_PATH
+
+            if [ "${CORRECT_TABLE_HASH[$CONFIG,$COMMON_KO_PLATFORM]}" != "${CONFIG_TABLE_HASH[$CONFIG,VALUE]}" ]; then
+                # common or platform type config value is wrong
+                echo "check_kernel_config fail" >> $TEMPFILE_PATH
+                echo "$FILE set $CONFIG to ${CONFIG_TABLE_HASH[$CONFIG,VALUE]} is wrong(${CORRECT_TABLE_HASH[$CONFIG,TYPE]} type wrong value) " >> $TEMPFILE_PATH
+                echo "${CONFIG_TABLE_HASH[$CONFIG,LINE]}" >> $TEMPFILE_PATH
+                echo "correct_config.csv type=${CORRECT_TABLE_HASH[$CONFIG,TYPE]} value=${CORRECT_TABLE_HASH[$CONFIG,$COMMON_KO_PLATFORM]}" >> $TEMPFILE_PATH
+                echo "settings in $CORRECT_CONFIG_FILE" >> $TEMPFILE_PATH
+                echo "$CORRECT_CONFIG_HEADER" >> $TEMPFILE_PATH
+                echo "$LINE" >> $TEMPFILE_PATH
+                echo "please reference http://wiki.mediatek.inc/display/OSS10SS15/check_kernel_config+result" >> $TEMPFILE_PATH
+                echo "=====================================================================" >> $TEMPFILE_PATH
+                FAIL=1
+            fi
+        elif [ "${CORRECT_TABLE_HASH[$CONFIG,TYPE]}" == "PLATFORM" ]; then
+            # for PLATFORM, should be the same value
+            if [ "${CORRECT_TABLE_HASH[$CONFIG,$FILE_PLATFORM]}" != "${CONFIG_TABLE_HASH[$CONFIG,VALUE]}" ]; then
+                # common or platform type config value is wrong
+                echo "check_kernel_config fail" >> $TEMPFILE_PATH
+                echo "$FILE set $CONFIG to ${CONFIG_TABLE_HASH[$CONFIG,VALUE]} is wrong(${CORRECT_TABLE_HASH[$CONFIG,TYPE]} type wrong value) " >> $TEMPFILE_PATH
+                echo "${CONFIG_TABLE_HASH[$CONFIG,LINE]}" >> $TEMPFILE_PATH
+                echo "correct_config.csv type=${CORRECT_TABLE_HASH[$CONFIG,TYPE]} value=${CORRECT_TABLE_HASH[$CONFIG,$FILE_PLATFORM]}" >> $TEMPFILE_PATH
+                echo "settings in $CORRECT_CONFIG_FILE" >> $TEMPFILE_PATH
+                echo "$CORRECT_CONFIG_HEADER" >> $TEMPFILE_PATH
+                echo "$LINE" >> $TEMPFILE_PATH
+                echo "please reference http://wiki.mediatek.inc/display/OSS10SS15/check_kernel_config+result" >> $TEMPFILE_PATH
+                echo "=====================================================================" >> $TEMPFILE_PATH
+                FAIL=1
+            fi
+        elif [ "${CORRECT_TABLE_HASH[$CONFIG,TYPE]}" == "USER" ]; then
+            # we will check USER type KO even not in $CURRENT_PLATFORM_LIST
+            # seems all USER type KO has the same value
+            if [ "$(echo $CURRENT_PLATFORM_LIST | grep "$FILE_PLATFORM\b")" == "" ]; then
+                # get common value from any platform in CURRENT_PLATFORM_LIST
+                for PLATFORM in $CURRENT_PLATFORM_LIST
+                do
+                    USER_KO_PLATFORM=${PLATFORM}
+                    break
+                done
+            else
+                # if $FILE_PLATFORM in $CURRENT_PLATFORM_LIST
+                USER_KO_PLATFORM=$FILE_PLATFORM
+            fi
+            echo "USER_KO_PLATFORM=${USER_KO_PLATFORM}" >> $TEMPFILE_PATH
+
+            if [ "$(echo $FILE | grep "_debug_")" != "" ]; then
+                # for Config FILE is eng version, if with the same value with Correct_table(user) => error
+                if [ "${CORRECT_TABLE_HASH[$CONFIG,$USER_KO_PLATFORM]}" == "${CONFIG_TABLE_HASH[$CONFIG,VALUE]}" ]; then
+                    # user type config, debug load should be different
+                    echo "check_kernel_config fail" >> $TEMPFILE_PATH
+                    echo "debug load $FILE set $CONFIG to ${CONFIG_TABLE_HASH[$CONFIG,VALUE]} is wrong(USER type wrong value)" >> $TEMPFILE_PATH
+                    echo "${CONFIG_TABLE_HASH[$CONFIG,LINE]}" >> $TEMPFILE_PATH
+                    echo "correct_config.csv type=${CORRECT_TABLE_HASH[$CONFIG,TYPE]} value=${CORRECT_TABLE_HASH[$CONFIG,$USER_KO_PLATFORM]}" >> $TEMPFILE_PATH
+                    echo "settings in $CORRECT_CONFIG_FILE" >> $TEMPFILE_PATH
+                    echo "$CORRECT_CONFIG_HEADER" >> $TEMPFILE_PATH
+                    echo "$LINE" >> $TEMPFILE_PATH
+                    echo "please reference http://wiki.mediatek.inc/display/OSS10SS15/check_kernel_config+result" >> $TEMPFILE_PATH
+                    echo "=====================================================================" >> $TEMPFILE_PATH
+                    FAIL=1
+                fi
+            else
+                # for Config FILE is user version, if with the different value with Correct_table(user) => error
+                if [ "${CORRECT_TABLE_HASH[$CONFIG,$USER_KO_PLATFORM]}" != "${CONFIG_TABLE_HASH[$CONFIG,VALUE]}" ]; then
+                    # user type config, user load should be the same
+                    echo "check_kernel_config fail" >> $TEMPFILE_PATH
+                    echo "release load $FILE set $CONFIG to ${CONFIG_TABLE_HASH[$CONFIG,VALUE]} is wrong(USER type wrong value)" >> $TEMPFILE_PATH
+                    echo "${CONFIG_TABLE_HASH[$CONFIG,LINE]}" >> $TEMPFILE_PATH
+                    echo "correct_config.csv type=${CORRECT_TABLE_HASH[$CONFIG,TYPE]} value=${CORRECT_TABLE_HASH[$CONFIG,$USER_KO_PLATFORM]}" >> $TEMPFILE_PATH
+                    echo "$CORRECT_CONFIG_HEADER" >> $TEMPFILE_PATH
+                    echo "$LINE" >> $TEMPFILE_PATH
+                    echo "please reference http://wiki.mediatek.inc/display/OSS10SS15/check_kernel_config+result" >> $TEMPFILE_PATH
+                    echo "=====================================================================" >> $TEMPFILE_PATH
+                    FAIL=1
+                fi
+            fi
+        fi
+    done
+    return $FAIL
+}
+
+export -f build_table
+
+if [ $# == 0 ]; then
+    # check local modification
+    echo "check local modification"
+fi
+
+
+while getopts "c:uh" opt; do
+    case $opt in
+      c)
+        GIT_COMMIT_ID=$OPTARG
+        GIT_CMD="git show"
+        ;;
+      u)
+        # send message to gerrit instead of return error
+        # only for preflight server, mark this to block preflight
+        # unmark it to show warning message in gerrit only
+        # UPLOAD_MSG_TO_GERRIT="yes"
+        ;;
+      h)
+        usage
+        ;;
+    esac
+done
+
+TEMPFILE_PATH=$(mktemp -t check_kernel_config_temp.$$.XXXXX.txt)
+export TEMPFILE_PATH
+RETURN=0
+
+
+# check if there is not correct_config.csv file
+if [ ! -f $CORRECT_CONFIG_FILE ]; then
+    exit 0
+fi
+
+SKIP="0"
+GREP_CMD=""
+if [ -f $BLACK_PROJECT_LIST ]; then
+    while read LINE
+    do
+        if [ "$LINE" != "" ]; then
+            if [ "$SKIP" == "0" ]; then
+                SKIP="1"
+                GREP_CMD=$GREP_CMD"/$LINE"
+            else
+                GREP_CMD=$GREP_CMD"\|/$LINE"
+            fi
+        fi
+    done < $BLACK_PROJECT_LIST
+fi
+GIT_FILE_LIST=$($GIT_CMD --pretty="format:" --name-status $GIT_COMMIT_ID arch/arm/configs arch/arm64/configs | grep ^M | grep -v "$GREP_CMD" | awk '{ print $2 }')
+
+# head -n: print n line of specific file
+CORRECT_CONFIG_HEADER=$(head -n 1 $CORRECT_CONFIG_FILE)
+CURRENT_PLATFORM_LIST=$(echo $CORRECT_CONFIG_HEADER | sed 's/^.*NOTE,//g' | sed 's/,/ /g')
+export CURRENT_PLATFORM_LIST
+PROJECT_CONFIG_LIST=""
+export PROJECT_CONFIG_LIST
+
+#echo $GIT_FILE_LIST | xargs -n 1 -P 2
+#echo $GIT_FILE_LIST | xargs -n 1 -P 1 ./build_table.sh
+#echo $GIT_FILE_LIST | xargs -n 1 -P 10 -I {} bash -c 'build_table "$@"' _ {}
+
+echo "strint_len: ${#GIT_FILE_LIST}"
+if [ ${#GIT_FILE_LIST} -gt 0 ]; then
+    echo "GIT_FILE_LIST: ${GIT_FILE_LIST}"
+    parallel -k --line-buffer build_table ::: $GIT_FILE_LIST
+    #parallel -k --line-buffer --timeout 300% --progress build_table ::: arch/arm64/configs/k65v1_64_bsp_wwop_defconfig
+    RETURN=$?
+else
+    echo "GIT_FILE_LIST is empty"
+# do not exit, check correct_config.csv format
+#    exit $RETURN
+fi
+
+# D. Check if user/debug value is the same in Project type
+# 1. Set the user/debug file name of defconfig
+# 2. for PROJECT type(in $PROJECT_CONFIG_LIST), config of user and debug should be the same
+# 2-1 Both Debug and User value is in hash table
+# 2-2 Only User value is in hash table, find the debug value from debug_defconfig
+# 2-3 Only Debug value is in hash table, find the User value from defconfig
+for ITEM in $PROJECT_CONFIG_LIST
+do
+    # 1. Set the file name of defconfig
+    FILE=$(echo $ITEM | awk -F: '{ print $1 }')
+    CONFIG=$(echo $ITEM | awk -F: '{ print $2 }')
+    if [ "$(echo $FILE | grep "_debug_")" == "" ]; then
+        FILE_DEBUG=$(echo $FILE | sed 's/_defconfig/_debug_defconfig/g')
+        FILE_USER=$FILE
+    else
+        FILE_USER=$(echo $FILE | sed 's/_debug_defconfig/_defconfig/g')
+        FILE_DEBUG=$FILE
+    fi
+    # 2. for PROJECT type(in $PROJECT_CONFIG_LIST), config of user and debug should be the same
+    if [ "${DEBUG_USER_TABLE_HASH[$CONFIG,$FILE_DEBUG,VALUE]}" != "${DEBUG_USER_TABLE_HASH[$CONFIG,$FILE_USER,VALUE]}" ]; then
+        # 2-1 Both Debug and User value is in hash table
+        if [ "${DEBUG_USER_TABLE_HASH[$CONFIG,$FILE_DEBUG,CONFIG]}" != "" ] &&  \
+            [ "${DEBUG_USER_TABLE_HASH[$CONFIG,$FILE_USER,CONFIG]}" != "" ]; then
+            echo "check_kernel_config fail" >> $TEMPFILE_PATH
+            echo "PROJECT type $CONFIG is wrong (debug user mismatch)" >> $TEMPFILE_PATH
+            echo "DEBUG load $FILE_DEBUG $CONFIG is ${DEBUG_USER_TABLE_HASH[$CONFIG,$FILE_DEBUG,VALUE]}" >> $TEMPFILE_PATH
+            echo "USER load $FILE_USER $CONFIG is ${DEBUG_USER_TABLE_HASH[$CONFIG,$FILE_USER,VALUE]}" >> $TEMPFILE_PATH
+            FILE_DEBUG_MSG=$($GIT_CMD --pretty="format:" $GIT_COMMIT_ID $FILE_DEBUG | grep "^[+|-].*$CONFIG[=|\b| ]")
+            echo "$FILE_DEBUG : $FILE_DEBUG_MSG" >> $TEMPFILE_PATH
+            FILE_USER_MSG=$($GIT_CMD --pretty="format:" $GIT_COMMIT_ID $FILE_USER | grep "^[+|-].*$CONFIG[=|\b| ]")
+            echo "$FILE_USER : $FILE_USER_MSG" >> $TEMPFILE_PATH
+            echo "please reference http://wiki.mediatek.inc/display/OSS10SS15/check_kernel_config+result" >> $TEMPFILE_PATH
+            echo "=====================================================================" >> $TEMPFILE_PATH
+            RETURN=1
+        # 2-2 Only User value is in hash table, find the debug value from debug_defconfig
+        elif [ "${DEBUG_USER_TABLE_HASH[$CONFIG,$FILE_DEBUG,CONFIG]}" == "" ]; then
+            CONFIG_LINE=$(grep "$CONFIG[ |\=]" $FILE_DEBUG)
+            # parse the CONFIG value
+            parse_defconfig_line "$CONFIG_LINE"
+            if [ "$PDL_VALUE" != "${DEBUG_USER_TABLE_HASH[$CONFIG,$FILE_USER,VALUE]}" ]; then
+                echo "check_kernel_config fail" >> $TEMPFILE_PATH
+                echo "PROJECT type $CONFIG is wrong (debug user mismatch)" >> $TEMPFILE_PATH
+                echo "USER load $FILE_USER $CONFIG is ${DEBUG_USER_TABLE_HASH[$CONFIG,$FILE_USER,VALUE]}" >> $TEMPFILE_PATH
+                echo "DEBUG load $FILE_DEBUG $CONFIG is not modified in this commit" >> $TEMPFILE_PATH
+                echo "DEBUG load $FILE_DEBUG $CONFIG in preflight codebase is $PDL_VALUE" >> $TEMPFILE_PATH
+                FILE_USER_MSG=$($GIT_CMD --pretty="format:" $GIT_COMMIT_ID $FILE_USER | grep "^[+|-].*$CONFIG[=|\b| ]")
+                echo "$FILE_USER : $FILE_USER_MSG" >> $TEMPFILE_PATH
+                echo "please reference http://wiki.mediatek.inc/display/OSS10SS15/check_kernel_config+result" >> $TEMPFILE_PATH
+                echo "=====================================================================" >> $TEMPFILE_PATH
+                RETURN=1
+            fi
+        # 2-3 Only Debug value is in hash table, find the User value from defconfig
+        elif [ "${DEBUG_USER_TABLE_HASH[$CONFIG,$FILE_USER,CONFIG]}" == "" ]; then
+            CONFIG_LINE=$(grep "$CONFIG[ |\=]" $FILE_USER)
+            parse_defconfig_line "$CONFIG_LINE"
+            if [ "$PDL_VALUE" != "${DEBUG_USER_TABLE_HASH[$CONFIG,$FILE_DEBUG,VALUE]}" ]; then
+                echo "check_kernel_config fail" >> $TEMPFILE_PATH
+                echo "PROJECT type $CONFIG is wrong (debug user mismatch)" >> $TEMPFILE_PATH
+                echo "DEBUG load $FILE_DEBUG $CONFIG is ${DEBUG_USER_TABLE_HASH[$CONFIG,$FILE_DEBUG,VALUE]}" >> $TEMPFILE_PATH
+                echo "USER load $FILE_USER $CONFIG is not modified in this commit" >> $TEMPFILE_PATH
+                echo "USER load $FILE_USER $CONFIG in preflight codebase is $PDL_VALUE" >> $TEMPFILE_PATH
+                FILE_DEBUG_MSG=$($GIT_CMD --pretty="format:" $GIT_COMMIT_ID $FILE_DEBUG | grep "^[+|-].*$CONFIG[=|\b| ]")
+                echo "$FILE_DEBUG : $FILE_DEBUG_MSG" >> $TEMPFILE_PATH
+                echo "please reference http://wiki.mediatek.inc/display/OSS10SS15/check_kernel_config+result" >> $TEMPFILE_PATH
+                echo "=====================================================================" >> $TEMPFILE_PATH
+                RETURN=1
+            fi
+        fi
+        # miss else condition
+    fi
+done
+
+declare -A CHECK_CORRECT_TABLE_HASH
+
+# E. Check correct_config.csv format, if Correct Config file is modified
+# 1. Build Correct table hash
+# 2. if COMMON, all value should be the same
+# 3. if USER;PLATFORM, each filed should have (SUB_VALUE)
+GIT_MODIFY_CORRECT=$($GIT_CMD --pretty="format:" --name-status $GIT_COMMIT_ID $CORRECT_CONFIG_FILE)
+if [ "$GIT_MODIFY_CORRECT" != "" ]; then
+    while read LINE
+    do
+        # 1. Build Correct table hash
+        LINE=$(echo $LINE | sed 's/\r//g')
+        MOD_LINE=$(echo $LINE | sed 's/^+//g')
+        CONFIG=$(echo $MOD_LINE | awk -F, '{ print $1 }' | sed 's/ //g')
+        if [ "${CHECK_CORRECT_TABLE_HASH[$CONFIG,CONFIG]}" == "" ]; then
+            CHECK_CORRECT_TABLE_HASH[$CONFIG,CONFIG]="$CONFIG"
+            TYPE=$(echo $MOD_LINE | awk -F, '{ print $2 }' | sed 's/ //g')
+            CHECK_CORRECT_TABLE_HASH[$CONFIG,TYPE]="$TYPE"
+            OWNER=$(echo $MOD_LINE | awk -F, '{ print $3 }' | sed 's/ //g')
+            CHECK_CORRECT_TABLE_HASH[$CONFIG,OWNER]="$OWNER"
+            NOTE=$(echo $MOD_LINE | awk -F, '{ print $4 }')
+            CHECK_CORRECT_TABLE_HASH[$CONFIG,NOTE]="$NOTE"
+
+            INDEX=5
+            for PLATFORM in $CURRENT_PLATFORM_LIST
+            do
+                if [ "$(echo $MOD_LINE | grep "\"")" != "" ]; then
+                    parse_config_item "$MOD_LINE" $INDEX
+                    VALUE=$(echo $PCI_RESULT | sed 's/"//g')
+                else
+                    VALUE=$(echo $MOD_LINE | awk -F, '{ print $'$INDEX' }')
+                fi
+                CHECK_CORRECT_TABLE_HASH[$CONFIG,$PLATFORM]="$VALUE"
+                INDEX=$(($INDEX+1))
+            done
+        fi
+
+        # 2. if COMMON, all value should be the same
+        if [ "${CHECK_CORRECT_TABLE_HASH[$CONFIG,TYPE]}" == "COMMON" ]; then
+            SKIP="0"
+            COMMON_VALUE=""
+            for PLATFORM in $CURRENT_PLATFORM_LIST
+            do
+                if [ "$SKIP" == "0" ]; then
+                    COMMON_PLATFORM=$PLATFORM
+                    COMMON_VALUE=${CHECK_CORRECT_TABLE_HASH[$CONFIG,$PLATFORM]}
+                    SKIP="1"
+                else
+                    if [ "${CHECK_CORRECT_TABLE_HASH[$CONFIG,$PLATFORM]}" != "$COMMON_VALUE" ]; then
+                        echo "check_kernel_config fail" >> $TEMPFILE_PATH
+                        echo "$CORRECT_CONFIG_FILE set $CONFIG to ${CHECK_CORRECT_TABLE_HASH[$CONFIG,TYPE]} is wrong(correct_config.csv format wrong)" >> $TEMPFILE_PATH
+                        echo "$COMMON_PLATFORM is $COMMON_VALUE , $PLATFORM is ${CHECK_CORRECT_TABLE_HASH[$CONFIG,$PLATFORM]}" >> $TEMPFILE_PATH
+                        echo "all the platform value of COMMON type in correct_config.csv should be the same" >> $TEMPFILE_PATH
+                        echo "your change in $CORRECT_CONFIG_FILE" >> $TEMPFILE_PATH
+                        echo "$CORRECT_CONFIG_HEADER" >> $TEMPFILE_PATH
+                        echo "$MOD_LINE" >> $TEMPFILE_PATH
+                        echo "please reference http://wiki.mediatek.inc/display/OSS10SS15/check_kernel_config+result" >> $TEMPFILE_PATH
+                        echo "=====================================================================" >> $TEMPFILE_PATH
+                        RETURN=1
+                        break
+                    fi
+                fi
+            done
+        # 3. if USER;PLATFORM, each filed should have (SUB_VALUE)
+        elif [ "${CHECK_CORRECT_TABLE_HASH[$CONFIG,TYPE]}" == "USER;PLATFORM" ]; then
+            COMMON_VALUE=""
+            for PLATFORM in $CURRENT_PLATFORM_LIST
+            do
+                USER_PLATFORM_SUBVALUE="(USER)$\|(PLATFORM)$"
+                if [ "$(echo ${CHECK_CORRECT_TABLE_HASH[$CONFIG,$PLATFORM]} | grep $USER_PLATFORM_SUBVALUE)" == "" ]; then
+                    echo "check_kernel_config fail" >> $TEMPFILE_PATH
+                    echo "$CORRECT_CONFIG_FILE set $CONFIG to ${CHECK_CORRECT_TABLE_HASH[$CONFIG,TYPE]} is wrong(correct_config.csv format wrong)" >> $TEMPFILE_PATH
+                    echo "$PLATFORM set ${CHECK_CORRECT_TABLE_HASH[$CONFIG,$PLATFORM]}" >> $TEMPFILE_PATH
+                    echo "all the platform value of USER;PLATFORM type in correct_config.csv should have subvalue (USER) or (PLATFORM)" >> $TEMPFILE_PATH
+                    echo "your change in $CORRECT_CONFIG_FILE" >> $TEMPFILE_PATH
+                    echo "$CORRECT_CONFIG_HEADER" >> $TEMPFILE_PATH
+                    echo "$MOD_LINE" >> $TEMPFILE_PATH
+                    echo "please reference http://wiki.mediatek.inc/display/OSS10SS15/check_kernel_config+result" >> $TEMPFILE_PATH
+                    echo "=====================================================================" >> $TEMPFILE_PATH
+                    RETURN=1
+                    break
+                fi
+            done
+        fi
+
+    done < <($GIT_CMD --pretty="format:" $GIT_COMMIT_ID $CORRECT_CONFIG_FILE | grep "^+.*CONFIG_")
+fi
+
+# F. Upload the error message to Gerrit
+if [ "$RETURN" != "0" ] && [ -f $TEMPFILE_PATH ]; then
+
+    cat $TEMPFILE_PATH
+    if [ "$UPLOAD_MSG_TO_GERRIT" == "yes" ]; then
+    	PREFLIGHT_FOLDER="/proj/srv_gghpbm/workspace/Preflight_Git_Kernel/ws/$BUILD_NUMBER"
+	    GERRIT_FILE_PATH=$(ls $PREFLIGHT_FOLDER/gerrit*)
+	    GERRIT_CHANGE_NUMBER=$(echo $GERRIT_FILE_PATH | awk -F/ '{ print $NF }' | sed 's/^gerrit_//g' | sed 's/\.properties//g')
+	    GERRIT_PATCHSET_REVISION=$(cat $GERRIT_FILE_PATH | grep revision | awk -F= '{ print $2 }' | sed 's/ //g')
+        if [ "$GERRIT_CHANGE_NUMBER" != "" ] && [ "$GERRIT_PATCHSET_REVISION" != "" ]; then
+            python /mtkeda/CI/Gerrit-ACL/gerrit_review.py \
+            -s http://gerrit.mediatek.inc:8080 \
+            -u "adm_jenkins" \
+            -c $GERRIT_CHANGE_NUMBER \
+            -r $GERRIT_PATCHSET_REVISION \
+            -m $TEMPFILE_PATH
+        else
+            echo "BUILD_NUMBER : $BUILD_NUMBER"
+            echo "GERRIT_FILE_PATH : $GERRIT_FILE_PATH"
+            echo "GERRIT_CHANGE_NUMBER : $GERRIT_CHANGE_NUMBER"
+            echo "GERRIT_PATCHSET_REVISION : $GERRIT_PATCHSET_REVISION"
+        fi
+        # don't stop preflight if we have warning message
+        RETURN=0
+    fi
+    rm $TEMPFILE_PATH
+fi
+
+exit $RETURN
+

@@ -1,0 +1,31 @@
+$(info mali MTK evironment, building r19p0 DDK)
+
+MTK_TOP = $(srctree)/drivers/misc/mediatek/
+
+# build support for a ARM Mali Midgard GPU
+CONFIG_MALI_MIDGARD := y
+
+# use mtk platform
+CONFIG_MALI_PLATFORM_THIRDPARTY := y
+CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := $(CONFIG_MTK_PLATFORM)
+
+$(info mtk-Kbuild CONFIG_MALI_PLATFORM_THIRDPARTY := $(CONFIG_MALI_PLATFORM_THIRDPARTY))
+$(info mtk-Kbuild CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := $(CONFIG_MALI_PLATFORM_THIRDPARTY_NAME))
+
+CONFIG_MALI_DEBUG := y
+
+ccflags-y += -I-I$(srctree)/include
+ccflags-y += -I$(srctree)/drivers/staging/android
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/ged/include
+
+ccflags-y += -DCONFIG_MALI_MIDGARD_DVFS
+ccflags-y += -DCONFIG_DEBUG_FS
+ccflags-y += -DCONFIG_PROC_FS
+ccflags-y += -DENABLE_MTK_MEMINFO
+ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DENABLE_COMMON_DVFS
+
+ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6771"))
+ccflags-y += -DENABLE_MTK_DEBUG
+$(info *GPU defined ENABLE_MTK_DEBUG)
+endif

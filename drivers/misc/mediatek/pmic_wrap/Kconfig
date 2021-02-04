@@ -1,0 +1,7 @@
+config MTK_PMIC_WRAP_HAL
+	bool "MediaTek PMIC_WRAP driver"
+	---help---
+	  MediaTek PMIC_WRAP driver.
+	  The PMIC wrapper serves as the bridge for communication between AP and PMIC.
+	  Set y to support this driver.
+	  Set n and choose other chargers.

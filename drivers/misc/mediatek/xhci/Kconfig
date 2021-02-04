@@ -1,0 +1,57 @@
+#
+# Mediatek XHCI Driver
+#
+
+config USB_MTK_DUALMODE
+	bool "MediaTek DUAL MODE support"
+	depends on USB_XHCI_MTK
+	---help---
+	  Enable Mediatek USB Host OTG DUAL-ROLE SUPPORT
+	  The USB Port can act device role or host role.
+	  Say Y here if your system support usb otg DUAL_ROLE.
+	  If unsure, say N.
+
+config MTK_TEST_XHCI
+	tristate "MediaTek U3 TEST XHCI driver support"
+	---help---
+	  Enables support Mediatek U3 XHCI test driver
+	  kernel framework.
+	  Say Y if you would like to do verification program.
+	  If unsure, say N.
+
+config USB_MTK_OTG_SWITCH
+	tristate "MediaTek OTG IDDIG Function Switch"
+	depends on USB_XHCI_MTK_IDDIG
+	---help---
+	  Enable Mediatek OTG function Switch mechanism.
+	  The default OTG DUALROLE function is disabled.
+	  User can switch to enable or disable by command.
+	  Say Y here if your want to use mechanism.
+	  If unsure, say N.
+
+config USB_XHCI_MTK_SUSPEND_SUPPORT
+	tristate "MediaTek XHCI SUSPEND SUPPORT"
+	depends on USB_XHCI_MTK
+	---help---
+	  Enable Mediatek OTG function Switch mechanism.
+	  The default OTG DUALROLE function is disabled.
+	  User can switch to enable or disable by command.
+	  Say Y here if your want to use mechanism.
+
+config USB_VBUS_GPIO
+	tristate "MediaTek OTG VBUS GPIO control support"
+	depends on USB_XHCI_MTK_IDDIG
+	---help---
+	  Enable Mediatek USB OTG VBUS GPIO control mechanism.
+	  Say Y here if your want to use mechanism.
+	  If unsure, say N.
+
+config USB_XHCI_MTK_IDDIG
+	bool "MediaTek OTG IDDIG support"
+	default n
+	depends on USB_MTK_DUALMODE
+	---help---
+	  Enable Mediatek USB Host OTG detection mechanism
+	  IDDIG - OTG cable attachment detection.
+	  Say Y here if your system support OTG IDDIG detection.
+	  If unsure, say N.

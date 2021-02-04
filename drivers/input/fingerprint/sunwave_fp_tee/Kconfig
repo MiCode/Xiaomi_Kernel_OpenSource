@@ -1,0 +1,5 @@
+config MTK_FINGERPRINT_SUNWAVECORP
+	tristate "Sunwave Fingerprint"
+	default n
+	help
+	  SUNWAVECORP Fingerprint

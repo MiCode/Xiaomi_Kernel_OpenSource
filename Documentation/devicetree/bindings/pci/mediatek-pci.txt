@@ -1,0 +1,113 @@
+* Mediatek PCIe controller
+
+Mandatory properties:
+- compatible: Must be "mediatek,pcie"
+- reg: specifies the physical base address and length of
+  PCIe controller register
+- interrupts: GIC interrupt lines connected to INTx or MSI
+- bus-range: PCI bus numbers covered
+- #address-cells: set to <3>
+- #size-cells: set to <2>
+- ranges: describes the translation of addresses for root ports
+  and standard PCI regions
+
+Moreover, the device tree node have sub-nodes to define each
+PCIe interface. The properties of sub-node:
+- device_type: Must be "pci"
+- reg: used only for interrupt mapping, so only the first four bytes
+  are used to refer to the correct bus number and device number
+- #address-cells: set to <3>
+- #size-cells: set to <2>
+- ranges: sub-ranges distributed from the PCIe controller node
+- interrupt-map-mask, interrupt-map: standard PCI properties
+  to define the mapping of the PCIe interface to interrupt numbers
+- pcie-port: the physical PCIe port number
+- num-lanes: number of lanes to use
+- phys: phandle of the PCIe PHY device
+- phy-names: Must be "pcie-phy0", "pcie-phy1", "pcie-phyN".. based on the
+  number of PHYs as specified in *phys* property
+- status: either "ok" or "disabled"
+- pcie_intc#: Interrupt controller device node
+
+PCIe controller may needs to adjust PHY settings through PHY device node,
+having the following mandatory properties:
+- compatible: Must be "mediatek,pcie-phy"
+- reg: specifies the physical base address and length of
+  PCIe PHY register
+- #phy-cells: set to <0>
+
+Example:
+
+	pcie@0x1a143000 {
+		compatible = "mediatek,pcie";
+		device_type = "pci";
+		reg = <0 0x1a143000 0 0x2000
+			0 0x1a145000 0 0x2000>;
+		interrupts = <GIC_SPI 228 IRQ_TYPE_LEVEL_LOW
+			      GIC_SPI 229 IRQ_TYPE_LEVEL_LOW>;
+		bus-range = <0x00 0xff>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		ranges = <0x82000000 0 0x20000000  0x0 0x20000000  0 0x02000000>;
+
+		pcie0: pcie@1,0 {
+			device_type = "pci";
+			reg = <0x0800 0 0 0 0>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+			#interrupt-cells = <1>;
+			ranges;
+			interrupt-map-mask = <0 0 0 7>;
+			interrupt-map = <0 0 0 1 &pcie_intc0 1>,
+					<0 0 0 2 &pcie_intc0 2>,
+					<0 0 0 3 &pcie_intc0 3>,
+					<0 0 0 4 &pcie_intc0 4>;
+			pcie-port = <0>;
+			num-lanes = <1>;
+			phys = <&pcie0_phy>;
+			phy-names = "pcie-phy0";
+			status = "okay";
+			pcie_intc0: interrupt-controller {
+				interrupt-controller;
+				#address-cells = <0>;
+				#interrupt-cells = <1>;
+			};
+		};
+
+		pcie1: pcie@2,0 {
+			device_type = "pci";
+			reg = <0x1000 0 0 0 0>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+			#interrupt-cells = <1>;
+			ranges;
+			interrupt-map-mask = <0 0 0 7>;
+			interrupt-map = <0 0 0 1 &pcie_intc1 1>,
+					<0 0 0 2 &pcie_intc1 2>,
+					<0 0 0 3 &pcie_intc1 3>,
+					<0 0 0 4 &pcie_intc1 4>;
+			pcie-port = <1>;
+			num-lanes = <1>;
+			phys = <&pcie1_phy>;
+			phy-names = "pcie-phy1";
+			status = "okay";
+			pcie_intc1: interrupt-controller {
+				interrupt-controller;
+				#address-cells = <0>;
+				#interrupt-cells = <1>;
+			};
+		};
+	};
+
+	pcie0_phy: pciephy@0x1a147000 {
+		compatible = "mediatek,pcie-phy";
+		reg = <0 0x1a147000 0 0x0800>;
+		#phy-cells = <0>;
+	};
+
+	pcie1_phy: pciephy@0x1a147800 {
+		compatible = "mediatek,pcie-phy";
+		reg = <0 0x1a147800 0 0x0800>;
+		#phy-cells = <0>;
+	};
+

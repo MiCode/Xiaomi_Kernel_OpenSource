@@ -1,0 +1,616 @@
+menu "Platform selection"
+
+config ARCH_SUNXI
+	bool "Allwinner sunxi 64-bit SoC Family"
+	select ARCH_HAS_RESET_CONTROLLER
+	select GENERIC_IRQ_CHIP
+	select PINCTRL
+	select PINCTRL_SUN50I_A64
+	select RESET_CONTROLLER
+	help
+	  This enables support for Allwinner sunxi based SoCs like the A64.
+
+config ARCH_ALPINE
+	bool "Annapurna Labs Alpine platform"
+	select ALPINE_MSI if PCI
+	help
+	  This enables support for the Annapurna Labs Alpine
+	  Soc family.
+
+config ARCH_BCM2835
+	bool "Broadcom BCM2835 family"
+	select CLKSRC_OF
+	select GPIOLIB
+	select PINCTRL
+	select PINCTRL_BCM2835
+	select ARM_AMBA
+	select ARM_TIMER_SP804
+	select HAVE_ARM_ARCH_TIMER
+	help
+	  This enables support for the Broadcom BCM2837 SoC.
+	  This SoC is used in the Raspberry Pi 3 device.
+
+config ARCH_BCM_IPROC
+	bool "Broadcom iProc SoC Family"
+	select COMMON_CLK_IPROC
+	select GPIOLIB
+	select PINCTRL
+	help
+	  This enables support for Broadcom iProc based SoCs
+
+config ARCH_BERLIN
+	bool "Marvell Berlin SoC Family"
+	select DW_APB_ICTL
+	select GPIOLIB
+	select PINCTRL
+	help
+	  This enables support for Marvell Berlin SoC Family
+
+config ARCH_BRCMSTB
+	bool "Broadcom Set-Top-Box SoCs"
+	select BRCMSTB_L2_IRQ
+	select GENERIC_IRQ_CHIP
+	help
+	  This enables support for Broadcom's ARMv8 Set Top Box SoCs
+
+config ARCH_EXYNOS
+	bool "ARMv8 based Samsung Exynos SoC family"
+	select COMMON_CLK_SAMSUNG
+	select HAVE_S3C2410_WATCHDOG if WATCHDOG
+	select HAVE_S3C_RTC if RTC_CLASS
+	select PINCTRL
+	select PINCTRL_EXYNOS
+	select SOC_SAMSUNG
+	help
+	  This enables support for ARMv8 based Samsung Exynos SoC family.
+
+config ARCH_LAYERSCAPE
+	bool "ARMv8 based Freescale Layerscape SoC family"
+	select EDAC_SUPPORT
+	help
+	  This enables support for the Freescale Layerscape SoC family.
+
+config ARCH_LG1K
+	bool "LG Electronics LG1K SoC Family"
+	help
+	  This enables support for LG Electronics LG1K SoC Family
+
+config ARCH_HISI
+	bool "Hisilicon SoC Family"
+	select ARM_TIMER_SP804
+	select HISILICON_IRQ_MBIGEN if PCI
+	select PINCTRL
+	help
+	  This enables support for Hisilicon ARMv8 SoC family
+
+config ARCH_MEDIATEK
+	bool "Mediatek MT65xx & MT81xx ARMv8 SoC"
+	select ARM_GIC
+	select PINCTRL
+	select MTK_TIMER
+	help
+	  Support for Mediatek MT65xx & MT81xx ARMv8 SoCs
+
+config MACH_MT6757
+	bool "MediaTek MT6757"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select MTK_SYS_CIRQ
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select CPU_IDLE
+	select PINCTRL
+	select PINCTRL_MT6757
+	select MFD_SYSCON
+	select MTK_BASE_POWER
+	select MTK_POWER_GS
+	select MTK_SYSTRACKER_V2
+	select MTK_GIC_V3_EXT
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_IRQ_NEW_DESIGN
+	select MTK_IRQ_NEW_DESIGN_DEBUG
+	select ARM_HAS_SG_CHAIN
+	select POWER_SUPPLY
+	select MTK_TIMER
+	select COMMON_CLK if !MTK_CLKMGR
+	select MTK_LASTPC_V2
+	select ARM_ERRATA_855873
+	select MTK_SEC_DEINT_SUPPORT
+	select MTK_BOUNCING_CHECK
+	select ARM64_CRYPTO
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE
+	select MTK_SEC_DEINT_SUPPORT
+	select MTK_FIQ_CACHE
+	select FAST_CIRQ_CLONE_FLUSH
+	select OVERLAY_FS
+	select DM_BOW
+	help
+	  This enables support for MediaTek Helio P20 - MT6757
+	  Highly power-efficient, performance-oriented 4G LTE processor
+	  for premium, thin-design smartphones. The MediaTek Helio P20
+	  is built on a 16nm process node and offers 25% better power
+	  efficiency, higher processing performance and our most advanced
+	  camera/video features to date. Helio P20 also offers significant
+	  multitasking and multimedia improvements thanks to its new
+	  LPDDR4X memory support.
+
+config MACH_MT6758
+	bool "MediaTek MT6758"
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select MTK_SYS_CIRQ
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select CPU_IDLE
+	select PINCTRL
+	select PINCTRL_MT6758
+	select MFD_SYSCON
+	select MTK_BASE_POWER
+	select MTK_GIC_V3_EXT
+	select MTK_IRQ_NEW_DESIGN
+	select MTK_IRQ_NEW_DESIGN_DEBUG
+	select MTK_SYSIRQ
+	select MTK_TIMER
+	select MTK_SYSTRACKER_V2
+	help
+	  This enables support for MediaTek Helio P30 - MT6758
+	  Highly power-efficient, performance-oriented 4G LTE processor for premium,
+	  thin-design smartphones.
+	  Support for aarch64 Architecture
+
+config MACH_MT6765
+	bool "MediaTek MT6765"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select CPU_IDLE
+	select PINCTRL
+	select PINCTRL_MT6765
+	select MFD_SYSCON
+	select MTK_BASE_POWER
+	select MTK_GIC_V3_EXT
+	select MTK_SYSIRQ
+	select MTK_TIMER_APXGPT
+	select MTK_TIMER_TIMESYNC
+	select MTK_SYSTRACKER_V2
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select MTK_DRAMC
+	select PM_DEVFREQ
+	select MTK_EMI
+	select MTK_SYS_CIRQ
+	select MTK_GIC_TARGET_ALL
+	select FAST_CIRQ_CLONE_FLUSH
+	select MTK_FIQ_CACHE
+	select MTK_DEBUG_LATCH
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_L2C_PARITY_CHECK
+	help
+	  This enables support for MediaTek MT6765
+	  Highly power-efficient, performance-oriented 4G LTE processor for premium,
+	  thin-design smartphones. MT6765 also offers significant multitasking and
+	  multimedia improvements.
+
+config MACH_MT6761
+	bool "MediaTek MT6761"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select CPU_IDLE
+	select PINCTRL
+	select PINCTRL_MT6761
+	select MFD_SYSCON
+	select MTK_BASE_POWER
+	select MTK_GIC_V3_EXT
+	select FAST_CIRQ_CLONE_FLUSH
+	select MTK_FIQ_CACHE
+	select MTK_GIC_TARGET_ALL
+	select MTK_SYSIRQ
+	select MTK_EMI
+	select MTK_TIMER
+	select MTK_DRAMC
+	select PM_DEVFREQ
+	select MTK_SYS_CIRQ
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select MTK_SECURITY_SW_SUPPORT
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_DEBUG_LATCH
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_SYSTRACKER_V2
+	select MTK_L2C_PARITY_CHECK
+	help
+	  This enables support for MediaTek MT6761
+	  Highly power-efficient, performance-oriented 4G LTE processor for premium,
+	  thin-design smartphones. MT6761 also offers significant multitasking and
+	  multimedia improvements.
+
+config MACH_MT6763
+	bool "MediaTek MT6763"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select MTK_SYS_CIRQ
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select CPU_IDLE
+	select PINCTRL
+	select PINCTRL_MT6763
+	select MFD_SYSCON
+	select MTK_BASE_POWER
+	select MTK_GIC_V3_EXT
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select MTK_EIC_HISTORY_DUMP
+	select MTK_EIC
+	select MTK_BOUNCING_CHECK
+	select HIE
+	select MTK_IO_BOOST
+	select MTK_SYSTRACKER_V2
+	select MTK_TIMER_APXGPT
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_IRQ_NEW_DESIGN
+	select MTK_IRQ_NEW_DESIGN_DEBUG
+	select MTK_SEC_DEINT_SUPPORT
+	select MTK_FIQ_CACHE
+	select ARM64_CRYPTO
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	select FAST_CIRQ_CLONE_FLUSH
+	select OVERLAY_FS
+	help
+	  This enables support for MediaTek MT6763
+	  Support for aarch64 Architecture
+	  Support for fpga6763_64_emmc related projects
+	  Support for fpga6763_64_ufs related projects
+
+config MACH_MT6779
+	bool "MediaTek MT6779"
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select ARM_DSU_PMU
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select EXT4_FS
+	select EXT4_FS_ENCRYPTION
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select OVERLAY_FS
+	select HIE
+	select HIE_DEBUG
+	select PINCTRL
+	select PINCTRL_MT6779
+	select MFD_SYSCON
+	select MTK_BASE_POWER
+	select MTK_QOS_FRAMEWORK
+	select PM_DEVFREQ
+	select CPU_IDLE
+	select MTK_GIC_V3_EXT
+	select MTK_PID_MAP
+	select MTK_FIQ_CACHE
+	select MTK_SYSIRQ
+	select MTK_INDIRECT_ACCESS
+	select MTK_GIC_TARGET_ALL
+	select MTK_TIMER_SYSTIMER
+	select MTK_WATCHDOG_COMMON
+	select MTK_DEBUG_LATCH
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select DEBUG_TIMEKEEPING
+	select SDCARD_FS
+	select MTK_SYSTRACKER_V2
+	select MTK_DRAMC
+	select MTK_SYS_CIRQ
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_EMI
+	select FAST_CIRQ_CLONE_FLUSH
+	select MTK_L2C_PARITY_CHECK
+	select MTK_LASTBUS_INTERFACE
+	select MTK_ION_CACHE_OPTIMIZATION
+	select MTK_DEVMPU
+	help
+	  This enables support for MediaTek - MT6779
+	  Highly power-efficient, performance-oriented 4G LTE processor for premium,
+	  thin-design smartphones.
+	  Support for aarch64 Architecture
+
+
+config MACH_MT3967
+	bool "MediaTek MT3967"
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select ARM_DSU_PMU
+	select CPU_V7
+	select HAVE_SMP
+	select EXT4_FS
+	select EXT4_FS_ENCRYPTION
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select F2FS_FS
+	select F2FS_FS_ENCRYPTION
+	select F2FS_FS_SECURITY
+	select F2FS_FS_XATTR
+	select HIE
+	select HIE_DEBUG
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select PINCTRL
+	select PINCTRL_MT3967
+	select MFD_SYSCON
+	select CPU_IDLE
+	select SDCARD_FS
+	select MTK_GIC_V3_EXT
+	select MTK_SYSIRQ
+	select MTK_DRAMC
+	select MTK_TIMER_SYSTIMER
+	select MTK_TIMER_TIMESYNC
+	select MTK_BASE_POWER
+	select MTK_WATCHDOG_COMMON
+	select MTK_WATCHDOG_COMMON_V2
+	select MTK_WD_KICKER
+	select MTK_EMI
+	select MTK_DEBUG_LATCH
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_FIQ_CACHE
+	select MTK_GIC_TARGET_ALL
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select MTK_SYSTRACKER_V2
+	select MTK_PID_MAP
+	select DEBUG_TIMEKEEPING
+	select MTK_DEVMPU
+	help
+	  This enables support for MediaTek - MT3967
+	  Highly power-efficient, performance-oriented 4G LTE processor for premium,
+	  thin-design smartphones.
+	  Support for aarch64 Architecture
+
+config MACH_MT3887
+	bool "MediaTek MT3887"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select CPU_IDLE
+	select MTK_GIC_V3_EXT
+	select MTK_SYSIRQ
+	select MTK_TIMER_APXGPT
+	help
+	  This enables support for MediaTek MT3887
+	  Highly power-efficient, performance-oriented 4G LTE processor for premium,
+	  thin-design smartphones. MT3887 also offers significant multitasking and
+	  multimedia improvements.
+
+config MACH_MT8163
+	bool "MediaTek MT8163"
+	select ARCH_MEDIATEK
+	select MTK_BASE_POWER
+	select MTK_SYS_CIRQ
+	select MTK_GIC_EXT
+	select CPU_IDLE
+	select CPU_IDLE_GOV_MTK
+	help
+	  This enable support for MediaTek MT8163. If you need support
+	  for MediaTek MT8163, say Y here.
+	  Please note this also select ARCH_MEDIATEK, so driver depends
+	  on it can be selected.
+
+config MACH_MT8173
+	bool "MediaTek MT8173"
+	select ARCH_MEDIATEK
+	select MTK_BASE_POWER
+	select MTK_SYS_CIRQ
+	select MTK_GIC_EXT
+	select MTK_SYSIRQ
+	select CPU_IDLE
+	select CPU_IDLE_GOV_MTK
+	help
+	  This enable support for MediaTek MT8173. If you need support
+	  for MediaTek MT8173, say Y here.
+	  Please note this also select ARCH_MEDIATEK, so driver depends
+	  on it can be selected.
+
+config ARCH_MESON
+	bool "Amlogic Platforms"
+	select PINCTRL
+	select PINCTRL_MESON
+	select COMMON_CLK_AMLOGIC
+	select COMMON_CLK_GXBB
+	help
+	  This enables support for the Amlogic S905 SoCs.
+
+config ARCH_MVEBU
+	bool "Marvell EBU SoC Family"
+	select ARMADA_AP806_SYSCON
+	select ARMADA_CP110_SYSCON
+	select ARMADA_37XX_CLK
+	select MVEBU_ODMI
+	select MVEBU_PIC
+	help
+	  This enables support for Marvell EBU familly, including:
+	   - Armada 3700 SoC Family
+	   - Armada 7K SoC Family
+	   - Armada 8K SoC Family
+
+config ARCH_QCOM
+	bool "Qualcomm Platforms"
+	select PINCTRL
+	help
+	  This enables support for the ARMv8 based Qualcomm chipsets.
+
+config ARCH_ROCKCHIP
+	bool "Rockchip Platforms"
+	select ARCH_HAS_RESET_CONTROLLER
+	select GPIOLIB
+	select PINCTRL
+	select PINCTRL_ROCKCHIP
+	select PM
+	select ROCKCHIP_TIMER
+	help
+	  This enables support for the ARMv8 based Rockchip chipsets,
+	  like the RK3368.
+
+config ARCH_SEATTLE
+	bool "AMD Seattle SoC Family"
+	help
+	  This enables support for AMD Seattle SOC Family
+
+config ARCH_SHMOBILE
+	bool
+
+config ARCH_RENESAS
+	bool "Renesas SoC Platforms"
+	select ARCH_SHMOBILE
+	select PINCTRL
+	select PM
+	select PM_GENERIC_DOMAINS
+	select RENESAS_IRQC
+	help
+	  This enables support for the ARMv8 based Renesas SoCs.
+
+config ARCH_R8A7795
+	bool "Renesas R-Car H3 SoC Platform"
+	depends on ARCH_RENESAS
+	help
+	  This enables support for the Renesas R-Car H3 SoC.
+
+config ARCH_R8A7796
+	bool "Renesas R-Car M3-W SoC Platform"
+	depends on ARCH_RENESAS
+	help
+	  This enables support for the Renesas R-Car M3-W SoC.
+
+config ARCH_STRATIX10
+	bool "Altera's Stratix 10 SoCFPGA Family"
+	help
+	  This enables support for Altera's Stratix 10 SoCFPGA Family.
+
+config ARCH_TEGRA
+	bool "NVIDIA Tegra SoC Family"
+	select ARCH_HAS_RESET_CONTROLLER
+	select CLKDEV_LOOKUP
+	select CLKSRC_MMIO
+	select CLKSRC_OF
+	select GENERIC_CLOCKEVENTS
+	select GPIOLIB
+	select PINCTRL
+	select PM
+	select PM_GENERIC_DOMAINS
+	select RESET_CONTROLLER
+	help
+	  This enables support for the NVIDIA Tegra SoC family.
+
+config ARCH_SPRD
+	bool "Spreadtrum SoC platform"
+	help
+	  Support for Spreadtrum ARM based SoCs
+
+config ARCH_THUNDER
+	bool "Cavium Inc. Thunder SoC Family"
+	help
+	  This enables support for Cavium's Thunder Family of SoCs.
+
+config ARCH_UNIPHIER
+	bool "Socionext UniPhier SoC Family"
+	select ARCH_HAS_RESET_CONTROLLER
+	select PINCTRL
+	help
+	  This enables support for Socionext UniPhier SoC family.
+
+config ARCH_VEXPRESS
+	bool "ARMv8 software model (Versatile Express)"
+	select COMMON_CLK_VERSATILE
+	select GPIOLIB
+	select PM
+	select PM_GENERIC_DOMAINS
+	select POWER_RESET_VEXPRESS
+	select VEXPRESS_CONFIG
+	help
+	  This enables support for the ARMv8 software model (Versatile
+	  Express).
+
+config ARCH_VULCAN
+	bool "Broadcom Vulcan SOC Family"
+	select GPIOLIB
+	help
+	  This enables support for Broadcom Vulcan SoC Family
+
+config ARCH_XGENE
+	bool "AppliedMicro X-Gene SOC Family"
+	help
+	  This enables support for AppliedMicro X-Gene SOC Family
+
+config ARCH_ZX
+	bool "ZTE ZX SoC Family"
+	help
+	  This enables support for ZTE ZX SoC Family
+
+config ARCH_ZYNQMP
+	bool "Xilinx ZynqMP Family"
+	help
+	  This enables support for Xilinx ZynqMP Family
+
+endmenu
