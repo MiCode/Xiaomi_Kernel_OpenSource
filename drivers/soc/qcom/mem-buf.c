@@ -1721,10 +1721,6 @@ static int mem_buf_lend_user(struct mem_buf_lend_ioctl_arg *uarg, bool is_lend)
 		goto err_lend;
 
 	uarg->memparcel_hdl = karg.memparcel_hdl;
-	kfree(perms);
-	kfree(vmids);
-	return 0;
-
 err_lend:
 	kfree(perms);
 	kfree(vmids);
