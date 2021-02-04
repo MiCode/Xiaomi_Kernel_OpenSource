@@ -1599,7 +1599,7 @@
 		qcom,gds-timeout = <500>;
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
-		parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
+		parent-supply = <&video_cc_mvs0c_gdsc>;
 		qcom,support-hw-trigger;
 		qcom,retain-regs;
 	};
@@ -1622,7 +1622,7 @@
 		qcom,gds-timeout = <500>;
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
-		parent-supply = <&VDD_MM_MXC_VOTER_LEVEL>;
+		parent-supply = <&video_cc_mvs1c_gdsc>;
 		qcom,support-hw-trigger;
 		qcom,retain-regs;
 	};
