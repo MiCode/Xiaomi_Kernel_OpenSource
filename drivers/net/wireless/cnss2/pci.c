@@ -1643,11 +1643,16 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 
 	pci_priv->mhi_ctrl->timeout_ms = timeout;
 
-	/* -ETIMEDOUT means MHI power on has succeeded but timed out
-	 * for firmware mission mode event, so handle it properly.
-	 */
-	if (ret == -ETIMEDOUT)
+	if (ret == -ETIMEDOUT) {
+		/* This is a special case needs to be handled that if MHI
+		 * power on returns -ETIMEDOUT, controller needs to take care
+		 * the cleanup by calling MHI power down. Force to set the bit
+		 * for driver internal MHI state to make sure it can be handled
+		 * properly later.
+		 */
+		set_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state);
 		ret = cnss_pci_handle_mhi_poweron_timeout(pci_priv);
+	}
 
 	return ret;
 }
