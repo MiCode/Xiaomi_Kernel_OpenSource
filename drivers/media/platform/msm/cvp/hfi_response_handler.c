@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitops.h>
@@ -429,6 +429,12 @@ static int hfi_process_session_cvp_operation_config(u32 device_id,
 	else if (pkt->packet_type == HFI_MSG_SESSION_CVP_SET_MODEL_BUFFERS)
 		signal = get_signal_from_pkt_type(
 				HFI_CMD_SESSION_CVP_SET_MODEL_BUFFERS);
+	else if (pkt->packet_type == HFI_MSG_SESSION_CVP_SET_FD_CHROMA_BUFFER)
+		signal = get_signal_from_pkt_type(
+				HFI_CMD_SESSION_CVP_SET_FD_CHROMA_BUFFER);
+	else if (pkt->packet_type == HFI_MSG_SESSION_CVP_RELEASE_FD_CHROMA_BUFFER)
+		signal = get_signal_from_pkt_type(
+				HFI_CMD_SESSION_CVP_RELEASE_FD_CHROMA_BUFFER);
 	else
 		signal = get_signal_from_pkt_type(conf_id);
 
@@ -656,6 +662,8 @@ int cvp_hfi_process_msg_packet(u32 device_id, void *hdr,
 	case HFI_MSG_SESSION_CVP_OPERATION_CONFIG:
 	case HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS:
 	case HFI_MSG_SESSION_CVP_RELEASE_PERSIST_BUFFERS:
+	case HFI_MSG_SESSION_CVP_SET_FD_CHROMA_BUFFER:
+	case HFI_MSG_SESSION_CVP_RELEASE_FD_CHROMA_BUFFER:
 	case HFI_MSG_SESSION_CVP_SET_MODEL_BUFFERS:
 		pkt_func =
 			(pkt_func_def)hfi_process_session_cvp_operation_config;

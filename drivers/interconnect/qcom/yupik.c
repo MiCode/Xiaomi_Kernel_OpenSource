@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -496,7 +496,7 @@ static struct qcom_icc_qosbox alm_gpu_tcu_qos = {
 	.num_ports = 1,
 	.offsets = { 0xd7000 },
 	.config = &(struct qos_config) {
-		.prio = 1,
+		.prio = 2,
 		.urg_fwd = 0,
 	},
 };
@@ -2084,6 +2084,9 @@ static struct qcom_icc_bcm bcm_sh0_disp = {
 };
 
 static struct qcom_icc_bcm *aggre1_noc_bcms[] = {
+	&bcm_sn5,
+	&bcm_sn6,
+	&bcm_sn14,
 };
 
 static struct qcom_icc_node *aggre1_noc_nodes[] = {
@@ -2091,12 +2094,15 @@ static struct qcom_icc_node *aggre1_noc_nodes[] = {
 	[MASTER_QUP_0] = &qhm_qup0,
 	[MASTER_QUP_1] = &qhm_qup1,
 	[MASTER_A1NOC_CFG] = &qnm_a1noc_cfg,
+	[MASTER_PCIE_0] = &xm_pcie3_0,
+	[MASTER_PCIE_1] = &xm_pcie3_1,
 	[MASTER_SDCC_1] = &xm_sdc1,
 	[MASTER_SDCC_2] = &xm_sdc2,
 	[MASTER_SDCC_4] = &xm_sdc4,
 	[MASTER_UFS_MEM] = &xm_ufs_mem,
 	[MASTER_USB3_0] = &xm_usb3_0,
 	[SLAVE_A1NOC_SNOC] = &qns_a1noc_snoc,
+	[SLAVE_ANOC_PCIE_GEM_NOC] = &qns_pcie_mem_noc,
 	[SLAVE_SERVICE_A1NOC] = &srvc_aggre1_noc,
 };
 
@@ -2115,9 +2121,6 @@ static struct qcom_icc_desc yupik_aggre1_noc = {
 
 static struct qcom_icc_bcm *aggre2_noc_bcms[] = {
 	&bcm_ce0,
-	&bcm_sn5,
-	&bcm_sn6,
-	&bcm_sn14,
 };
 
 static struct qcom_icc_node *aggre2_noc_nodes[] = {
@@ -2126,11 +2129,8 @@ static struct qcom_icc_node *aggre2_noc_nodes[] = {
 	[MASTER_CNOC_A2NOC] = &qnm_cnoc_datapath,
 	[MASTER_CRYPTO] = &qxm_crypto,
 	[MASTER_IPA] = &qxm_ipa,
-	[MASTER_PCIE_0] = &xm_pcie3_0,
-	[MASTER_PCIE_1] = &xm_pcie3_1,
 	[MASTER_QDSS_ETR] = &xm_qdss_etr,
 	[SLAVE_A2NOC_SNOC] = &qns_a2noc_snoc,
-	[SLAVE_ANOC_PCIE_GEM_NOC] = &qns_pcie_mem_noc,
 	[SLAVE_SERVICE_A2NOC] = &srvc_aggre2_noc,
 };
 
@@ -2587,9 +2587,6 @@ static int qnoc_probe(struct platform_device *pdev)
 
 		if (!qnodes[i])
 			continue;
-
-		if (qnodes[i]->qosbox)
-			qnodes[i]->qosbox = NULL;
 
 		qnodes[i]->regmap = dev_get_regmap(qp->dev, NULL);
 

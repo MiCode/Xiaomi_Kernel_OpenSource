@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.*/
 
 /*
  * MSM PCIe endpoint core driver.
@@ -206,22 +206,14 @@ static int ep_pcie_gpio_init(struct ep_pcie_dev_t *dev)
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
 
-	for (i = 0; i < EP_PCIE_MAX_GPIO; i++) {
+	for (i = 0; i < EP_PCIE_GPIO_CLKREQ; i++) {
 		info = &dev->gpio[i];
 
 		if (!info->num) {
-			if (i == EP_PCIE_GPIO_MDM2AP) {
-				EP_PCIE_DBG(dev,
-					"PCIe V%d: gpio %s does not exist\n",
-					dev->rev, info->name);
-				continue;
-			} else {
-				EP_PCIE_ERR(dev,
-					"PCIe V%d:  the number of gpio %s is invalid\n",
-					dev->rev, info->name);
-				rc = -EINVAL;
-				break;
-			}
+			EP_PCIE_DBG(dev,
+				"PCIe V%d: gpio %s does not exist\n",
+				dev->rev, info->name);
+			continue;
 		}
 
 		rc = gpio_request(info->num, info->name);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/jiffies.h>
@@ -804,6 +804,8 @@ void cvp_handle_cmd_response(enum hal_command_response cmd, void *data)
 	case HAL_SESSION_DME_FRAME_CMD_DONE:
 	case HAL_SESSION_PERSIST_SET_DONE:
 	case HAL_SESSION_PERSIST_REL_DONE:
+	case HAL_SESSION_CHROMA_SET_DONE:
+	case HAL_SESSION_CHROMA_REL_DONE:
 	case HAL_SESSION_TME_CONFIG_CMD_DONE:
 	case HAL_SESSION_ODT_CONFIG_CMD_DONE:
 	case HAL_SESSION_OD_CONFIG_CMD_DONE:

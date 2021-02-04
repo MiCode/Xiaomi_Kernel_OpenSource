@@ -77,6 +77,9 @@ int cnss_wlfw_wlan_mac_req_send_sync(struct cnss_plat_data *plat_priv,
 				     u8 *mac, u32 mac_len);
 int cnss_dms_init(struct cnss_plat_data *plat_priv);
 void cnss_dms_deinit(struct cnss_plat_data *plat_priv);
+int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv);
+int cnss_wlfw_qdss_data_send_sync(struct cnss_plat_data *plat_priv, char *file_name,
+				  u32 total_size);
 #else
 #define QMI_WLFW_TIMEOUT_MS		10000
 
@@ -260,6 +263,16 @@ static inline int cnss_dms_init(struct cnss_plat_data *plat_priv)
 	return 0;
 }
 
+int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+int cnss_wlfw_qdss_data_send_sync(struct cnss_plat_data *plat_priv, char *file_name,
+				  u32 total_size)
+{
+	return 0;
+}
 static inline void cnss_dms_deinit(struct cnss_plat_data *plat_priv) {}
 #endif /* CONFIG_CNSS2_QMI */
 
