@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -82,6 +83,7 @@ enum print_reason {
 #define DETACH_DETECT_VOTER		"DETACH_DETECT_VOTER"
 #define CC_MODE_VOTER			"CC_MODE_VOTER"
 #define MAIN_FCC_VOTER			"MAIN_FCC_VOTER"
+#define TMP_JEITA_VOTER		"JEITA_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -92,11 +94,28 @@ enum print_reason {
 #define ITERM_LIMITS_PM8150B_MA		10000
 #define ADC_CHG_ITERM_MASK		32767
 
+#define FLOAT_ADD_1000_MA               1000000
 #define SDP_100_MA			100000
 #define SDP_CURRENT_UA			500000
+/*HMI_M6300_A10-393 2018/11/02 set CDP ICL as 500ma
+	at factory version ,begin*/
+#ifdef LONGCHEER_FACTORY_ENABLE
+#define CDP_CURRENT_UA			500000
+#else
 #define CDP_CURRENT_UA			1500000
-#define DCP_CURRENT_UA			1500000
-#define HVDCP_CURRENT_UA		3000000
+#endif
+/*HMI_M6300_A10-393 2018/11/02 set CDP ICL as 500ma
+	at factory version ,end*/
+#define HVDCP_CURRENT_UA               3000000
+/*2018/10/25 set DCP cherger ICL as 2A as HW require,begin*/
+//#define DCP_CURRENT_UA			1500000
+#define DCP_CURRENT_UA			2000000
+/*2018/10/25 set DCP cherger ICL as 2A as HW require,end*/
+/*HMI_M6300_A10-306 2018/11/02 as HW/HW tester require
+	set float charger type ICL as 1A ,begin*/
+#define NONSTANDARD_CURRENT_UA			1000000
+/*HMI_M6300_A10-306 2018/11/02 as HW/HW tester require
+	set float charger type ICL as 1A ,end*/
 #define TYPEC_DEFAULT_CURRENT_UA	900000
 #define TYPEC_MEDIUM_CURRENT_UA		1500000
 #define TYPEC_HIGH_CURRENT_UA		3000000
@@ -577,6 +596,8 @@ struct smb_charger {
 
 	/* wireless */
 	int			wireless_vout;
+	struct notifier_block notifier;
+	struct work_struct fb_notify_work;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
@@ -782,4 +803,13 @@ int smblib_get_irq_status(struct smb_charger *chg,
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);
+//modified by yangshengtao 2018.11.02 add for factory runin test interface start
+#ifdef LONGCHEER_FACTORY_ENABLE
+int smblib_set_prop_battery_charging_enabled(struct smb_charger *chg,
+                const union power_supply_propval *val);
+int smblib_get_prop_battery_charging_enabled(struct smb_charger *chg,
+                union power_supply_propval *val);
+#endif
+//modified by yangshengtao 2018.11.02 add for factory runin test interface start
+
 #endif /* __SMB5_CHARGER_H */

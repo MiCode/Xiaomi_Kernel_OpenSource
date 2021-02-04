@@ -7,6 +7,7 @@
  * files. As such this file MUST only contain comments and defines.
  *
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2015 Hans de Goede <hdegoede@redhat.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -694,6 +695,10 @@
 #define KEY_FP_GESTURE_RIGHT		0x2eb
 #define KEY_FP_GESTURE_LONG_PRESS	0x2ec
 #define KEY_FP_GESTURE_TAP		0x2ed
+
+/* ANT CHECK keys */
+#define KEY_ANT_CONNECT			0x292
+#define KEY_ANT_UNCONNECT		0x293
 
 /* We avoid low common keys in module aliases so they don't get huge. */
 #define KEY_MIN_INTERESTING	KEY_MUTE

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +19,10 @@
 
 #include "dsi_pwr.h"
 #include "dsi_parser.h"
+
+/* add begin by zhangchaofan for gesture flag, 2018-10-25*/
+extern bool enable_gesture_mode;
+/* add end by zhangchaofan for gesture flag, 2018-10-25 */
 
 /*
  * dsi_pwr_parse_supply_node() - parse power supply node from root device node
@@ -133,10 +138,20 @@ static int dsi_pwr_enable_vregs(struct dsi_regulator_info *regs, bool enable)
 {
 	int rc = 0, i = 0;
 	struct dsi_vreg *vreg;
-	int num_of_v = 0;
+	int num_of_v = 0, ges_flag = 0;
 
+/* modify begin by zhangchaofan for gesture, 2018-10-25 */
 	if (enable) {
 		for (i = 0; i < regs->count; i++) {
+			if (enable_gesture_mode && ges_flag) {
+				if ( (strcmp(regs->vregs[i].vreg_name,"lab")==0) ||
+					(strcmp(regs->vregs[i].vreg_name,"ibb")==0) ||
+						(strcmp(regs->vregs[i].vreg_name,"vddio")==0) ) {
+					pr_info("dsi_pwr_enable_vregs---'%s' enable_gesture_mode power supply is enable\n",regs->vregs[i].vreg_name);
+					continue;
+				}
+			}
+			pr_info("dsi_pwr_enable_vregs---'%s' power supply is enable\n",regs->vregs[i].vreg_name);
 			vreg = &regs->vregs[i];
 			if (vreg->pre_on_sleep)
 				msleep(vreg->pre_on_sleep);
@@ -167,11 +182,23 @@ static int dsi_pwr_enable_vregs(struct dsi_regulator_info *regs, bool enable)
 				goto error_disable_voltage;
 			}
 
+//                        pr_info("xinj: dsi_pwr_enable_vregs %s enable\n",vreg->vreg_name);
 			if (vreg->post_on_sleep)
 				msleep(vreg->post_on_sleep);
 		}
 	} else {
 		for (i = (regs->count - 1); i >= 0; i--) {
+			if (enable_gesture_mode) {
+				if ((strcmp(regs->vregs[i].vreg_name,"lab")==0) ||
+					(strcmp(regs->vregs[i].vreg_name,"ibb")==0) ||
+						(strcmp(regs->vregs[i].vreg_name,"vddio")==0) ) {
+					pr_info("dsi_pwr_enable_vregs---'%s' enable_gesture_mode power supply is not disable\n",regs->vregs[i].vreg_name);
+					ges_flag = 1;
+					continue;
+				}
+				continue;
+			}
+            //pr_info("dsi_pwr_enable_vregs---'%s' power supply is disable\n",regs->vregs[i].vreg_name);
 			if (regs->vregs[i].pre_off_sleep)
 				msleep(regs->vregs[i].pre_off_sleep);
 
@@ -188,6 +215,7 @@ static int dsi_pwr_enable_vregs(struct dsi_regulator_info *regs, bool enable)
 				msleep(regs->vregs[i].post_off_sleep);
 		}
 	}
+	/* modify end by zhangchaofan for gesture, 2018-10-25 */
 
 	return 0;
 error_disable_opt_mode:

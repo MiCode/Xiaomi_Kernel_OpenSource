@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -275,9 +276,7 @@ static int cam_vfe_camif_resource_start(
 				rsrc_data->first_line) / 2) +
 				rsrc_data->first_line;
 		} else {
-			epoch0_irq_mask = (((rsrc_data->last_line -
-				rsrc_data->first_line) * 2) / 3) +
-				rsrc_data->first_line;
+			epoch0_irq_mask = 0x14;
 		}
 		epoch1_irq_mask = rsrc_data->reg_data->epoch_line_cfg &
 				0xFFFF;

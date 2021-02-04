@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -207,6 +208,7 @@ enum cam_req_mgr_link_evt_type {
  * @trigger  : trigger point of this notification, CRM will send apply
  * only to the devices which subscribe to this point.
  * @sof_timestamp_val: Captured time stamp value at sof hw event
+ * @req_id   : req id which returned buf_done
  */
 struct cam_req_mgr_trigger_notify {
 	int32_t  link_hdl;
@@ -214,6 +216,7 @@ struct cam_req_mgr_trigger_notify {
 	int64_t  frame_id;
 	uint32_t trigger;
 	uint64_t sof_timestamp_val;
+	uint64_t req_id;
 };
 
 /**

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015, Sony Mobile Communications Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2013, 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -46,6 +47,8 @@
 
 #define AID_VENDOR_QRTR	KGIDT_INIT(2906)
 
+#define QRTR_RESERVED_SKBS	10
+#define QRTR_MAX_PKT_SIZE	0x4400
 /**
  * struct qrtr_hdr_v1 - (I|R)PCrouter packet header version 1
  * @version: protocol version
@@ -102,6 +105,7 @@ struct qrtr_cb {
 
 	u8 type;
 	u8 confirm_rx;
+	u8 reserved_skb;
 };
 
 #define QRTR_HDR_MAX_SIZE max_t(size_t, sizeof(struct qrtr_hdr_v1), \
@@ -147,6 +151,7 @@ static DEFINE_MUTEX(qrtr_port_lock);
  * @resume_tx: wait until remote port acks control flag
  * @qrtr_tx_lock: lock for qrtr_tx_flow
  * @rx_queue: receive queue
+ * @reserved_skbs: reserved skbs
  * @item: list item for broadcast list
  * @kworker: worker thread for recv work
  * @task: task to run the worker thread
@@ -167,6 +172,7 @@ struct qrtr_node {
 	struct mutex qrtr_tx_lock;	/* for qrtr_tx_flow */
 
 	struct sk_buff_head rx_queue;
+	struct sk_buff_head reserved_skbs;
 	struct list_head item;
 
 	struct kthread_worker kworker;
@@ -287,6 +293,21 @@ static void qrtr_log_rx_msg(struct qrtr_node *node, struct sk_buff *skb)
 	}
 }
 
+static void qrtr_fill_reserved_skbs(struct sk_buff_head *list)
+{
+	struct sk_buff *skb;
+	int i;
+
+	for (i = skb_queue_len(list); i < QRTR_RESERVED_SKBS; i++) {
+		skb = netdev_alloc_skb(NULL, QRTR_MAX_PKT_SIZE);
+		if (!skb) {
+			pr_err("Skb allocation fails i[%d]\n", __func__, i);
+			continue;
+		}
+		skb_queue_tail(list, skb);
+	}
+}
+
 static bool refcount_dec_and_rwsem_lock(refcount_t *r,
 					struct rw_semaphore *sem)
 {
@@ -356,6 +377,7 @@ static void __qrtr_node_release(struct kref *kref)
 	kthread_stop(node->task);
 
 	skb_queue_purge(&node->rx_queue);
+	skb_queue_purge(&node->reserved_skbs);
 	kfree(node);
 }
 
@@ -544,8 +566,13 @@ static int qrtr_node_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 	hdr->size = cpu_to_le32(len);
 	hdr->confirm_rx = !!confirm_rx;
 
-	skb_put_padto(skb, ALIGN(len, 4) + sizeof(*hdr));
 	qrtr_log_tx_msg(node, hdr, skb);
+	rc = skb_put_padto(skb, ALIGN(len, 4) + sizeof(*hdr));
+	if (rc) {
+		pr_err("%s: failed to pad size %lu to %lu rc:%d\n", __func__,
+		       len, ALIGN(len, 4) + sizeof(*hdr), rc);
+		return rc;
+	}
 
 	mutex_lock(&node->ep_lock);
 	if (node->ep)
@@ -682,6 +709,7 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 	struct qrtr_node *node = ep->node;
 	const struct qrtr_hdr_v1 *v1;
 	const struct qrtr_hdr_v2 *v2;
+	bool reseved_skb = false;
 	struct sk_buff *skb;
 	struct qrtr_cb *cb;
 	unsigned int size;
@@ -697,13 +725,22 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 	if (!skb) {
 		skb = alloc_skb_with_frags(0, len, 0, &err, GFP_ATOMIC);
 		if (!skb) {
-			pr_err("%s memory allocation failed\n", __func__);
-			return -ENOMEM;
+			if (len > QRTR_MAX_PKT_SIZE) {
+				pr_err("%s alloc failed len[%d]\n", __func__, len);
+				return -ENOMEM;
+			}
+			skb = skb_dequeue(&node->reserved_skbs);
+			if (!skb) {
+				pr_err("%s No reserved skb len[%d]\n", __func__, len);
+				return -ENOMEM;
+			}
+			reseved_skb = true;
 		}
 		frag = true;
 	}
 
 	cb = (struct qrtr_cb *)skb->cb;
+	cb->reserved_skb = reseved_skb;
 
 	/* Version field in v1 is little endian, so this works for both cases */
 	ver = *(u8 *)data;
@@ -957,6 +994,9 @@ int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int net_id,
 	kref_init(&node->ref);
 	mutex_init(&node->ep_lock);
 	skb_queue_head_init(&node->rx_queue);
+	skb_queue_head_init(&node->reserved_skbs);
+	qrtr_fill_reserved_skbs(&node->reserved_skbs);
+
 	node->nid = QRTR_EP_NID_AUTO;
 	node->ep = ep;
 	atomic_set(&node->hello_sent, 0);
@@ -1536,9 +1576,12 @@ static int qrtr_recvmsg(struct socket *sock, struct msghdr *msg,
 {
 	DECLARE_SOCKADDR(struct sockaddr_qrtr *, addr, msg->msg_name);
 	struct sock *sk = sock->sk;
+	struct qrtr_node *node;
+	bool reserved = false;
 	struct sk_buff *skb;
 	struct qrtr_cb *cb;
 	int copied, rc;
+	int nid;
 
 	lock_sock(sk);
 
@@ -1577,8 +1620,17 @@ out:
 	if (cb->confirm_rx)
 		qrtr_resume_tx(cb);
 
+	reserved = cb->reserved_skb;
+	nid = cb->src_node;
 	skb_free_datagram(sk, skb);
 	release_sock(sk);
+
+	if (reserved) {
+		node = qrtr_node_lookup(nid);
+		if (node &&
+		    skb_queue_len(&node->reserved_skbs) < QRTR_RESERVED_SKBS)
+			qrtr_fill_reserved_skbs(&node->reserved_skbs);
+	}
 
 	return rc;
 }

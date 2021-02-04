@@ -2,6 +2,7 @@
  * drivers/base/power/main.c - Where the driver meets power management.
  *
  * Copyright (c) 2003 Patrick Mochel
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2003 Open Source Development Lab
  *
  * This file is released under the GPLv2
@@ -1635,6 +1636,8 @@ int dpm_suspend(pm_message_t state)
 		if (error) {
 			pm_dev_err(dev, state, "", error);
 			dpm_save_failed_dev(dev_name(dev));
+			/*add log when suspend by qujiong 20190813*/
+			log_suspend_abort_reason("%s devices failed to suspend.\n",dev_name(dev));
 			put_device(dev);
 			break;
 		}

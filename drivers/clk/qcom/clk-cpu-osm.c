@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +39,11 @@
 #include "clk-regmap.h"
 #include "clk-voter.h"
 #include "clk-debug.h"
+#include <linux/proc_fs.h>
+#include <linux/uaccess.h>
+
+
+static unsigned long cpu_max_freq = 0;
 
 #define OSM_INIT_RATE			300000000UL
 #define XO_RATE				19200000UL
@@ -676,6 +682,8 @@ static int osm_cpufreq_cpu_init(struct cpufreq_policy *policy)
 			table[i].frequency = (XO_RATE * lval) / 1000;
 		table[i].driver_data = table[i].frequency;
 
+		if(cpu_max_freq < table[i].frequency) cpu_max_freq = table[i].frequency;
+
 		if (core_count == SINGLE_CORE_COUNT)
 			table[i].frequency = CPUFREQ_ENTRY_INVALID;
 
@@ -976,6 +984,33 @@ static int clk_osm_read_lut(struct platform_device *pdev, struct clk_osm *c)
 	return 0;
 }
 
+
+static int cpumaxfreq_proc_show(struct seq_file *m, void *v)
+{
+	//correct to 0.01
+	unsigned long freq = 0;
+	if((cpu_max_freq/1000)%10>=5)   
+		freq=1+(cpu_max_freq/10000);	
+	else
+		freq=(cpu_max_freq/10000);
+	seq_printf(m,"%d.%02d\n", freq/100, (freq%100));
+	return 0;
+}
+
+static int cpumaxfreq_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, cpumaxfreq_proc_show, NULL);
+}
+
+
+static const struct file_operations cpumaxfreq_proc_fops = {
+	.open		= cpumaxfreq_proc_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+
 static int clk_osm_resources_init(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -1251,6 +1286,8 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	rc = cpufreq_register_driver(&qcom_osm_cpufreq_driver);
 	if (rc)
 		goto provider_err;
+	
+	proc_create("cpumaxfreq", 0444, NULL, &cpumaxfreq_proc_fops);	//add the file node of cpumaxfreq in proc
 
 	pr_info("OSM CPUFreq driver inited\n");
 	return 0;

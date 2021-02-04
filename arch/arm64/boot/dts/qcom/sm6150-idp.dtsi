@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +17,8 @@
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <dt-bindings/input/input.h>
 #include "sm6150-sde-display.dtsi"
+#include "sm6150-novatek-i2c_f7b.dtsi"	/* modify by zhangchaofan for NT36672A dts, 2018-09-01 */
+#include "sm6150-ft8719-i2c_f7b.dtsi"	/* modify by zhangchaofan for FT8719 dts, 2018-11-19 */
 #include <dt-bindings/clock/qcom,gcc-sm6150.h>
 
 &qupv3_se3_i2c {
@@ -26,7 +29,17 @@
 	#include "smb1390.dtsi"
 	#include "smb1355.dtsi"
 };
-
+&qupv3_se6_spi {
+	status = "ok";
+	device@1 {
+		compatible = "qcom,spi-msm-codec-slave";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <1>; /* Chip select 0 */
+		spi-max-frequency = <1000000>;
+		spi-cpol;
+	};
+};
 &pm6150l_gpios {
 	key_vol_up {
 		key_vol_up_default: key_vol_up_default {
@@ -58,9 +71,45 @@
 		};
 	};
 
+	simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio = <&tlmm 80 0x00>;
+	};
+	
+	goodix_fp {
+	compatible = "goodix,fingerprint";
+	interrupt-parent = <&tlmm>;
+	interrupt = <93 0x0>;
+	vcc_spi-supply = <&pm6150l_l7>;
+	vcc_ana-supply = <&pm6150l_l7>;
+	vdd_io-supply = <&pm6150l_l7>;
+	fp-gpio-irq = <&tlmm 93 0x00>;
+	fp-gpio-reset = <&tlmm 101 0x00>;
+	status = "okay";
+	};
+	
+	fpc1020 {
+		status = "ok";
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <93 0x0>;
+		fpc,gpio_rst    = <&tlmm 101 0x0>;
+		fpc,gpio_irq    = <&tlmm 93 0x0>;
+		vcc_spi-supply  = <&pm6150l_l10>;
+		vdd_io-supply   = <&pm6150l_l10>;
+		vdd_ana-supply  = <&pm6150l_l10>;
+
+		pinctrl-names = "fpc1020_reset_reset",
+			"fpc1020_reset_active",
+			"fpc1020_irq_active";
+
+		pinctrl-0 = <&msm_gpio_101>;
+		pinctrl-1 = <&msm_gpio_101_output_high>;
+		pinctrl-2 = <&msm_gpio_93>;
+	};
+
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
-		#include "qg-batterydata-alium-3600mah.dtsi"
 		#include "qg-batterydata-mlp356477-2800mah.dtsi"
 	};
 	emac_hw: qcom,emac@20000 {
@@ -141,6 +190,12 @@
 			qcom,iova-mapping = <0x80000000 0x40000000>;
 		};
 	};
+
+	xiaomi_touch {
+		compatible = "xiaomi-touch";
+		status = "ok";
+		touch,name = "xiaomi-touch";
+	};
 };
 
 &qupv3_se0_2uart {
@@ -193,6 +248,7 @@
 &qupv3_se1_i2c {
 	status = "okay";
 	himax_ts@48 {
+		status = "disabled";
 		compatible = "himax,hxcommon";
 		reg = <0x48>;
 		interrupt-parent = <&tlmm>;
@@ -273,15 +329,23 @@
 	status = "ok";
 };
 
+&mtp_batterydata {
+	#include "LC_M6300_ATL4000mAh_3633204_FG.dtsi"
+	#include "LC_M6300_Sunwoda4000mAh_3632066_FG.dtsi"
+	#include "LC_M6300_Coslight_4000mAh_3884533_FG.dtsi"
+};
+
 &pm6150_qg {
 	qcom,battery-data = <&mtp_batterydata>;
-	qcom,qg-iterm-ma = <100>;
+	/delete-property/ qcom,qg-iterm-ma ;
+	qcom,qg-iterm-ma = <200>;
 	qcom,hold-soc-while-full;
 	qcom,linearize-soc;
 	qcom,cl-feedback-on;
 };
 
 &pm6150_charger {
+	/delete-property/ qcom,thermal-mitigation;
 	io-channels = <&pm6150_vadc ADC_USB_IN_V_16>,
 		      <&pm6150_vadc ADC_USB_IN_I>,
 		      <&pm6150_vadc ADC_CHG_TEMP>,
@@ -302,12 +366,15 @@
 	qcom,sw-jeita-enable;
 	qcom,fcc-stepping-enable;
 	qcom,suspend-input-on-debug-batt;
-	qcom,sec-charger-config = <3>;
-	qcom,thermal-mitigation = <4200000 3500000 3000000
+	qcom,sec-charger-config = <0>;
+	qcom,qg-vadc = <&pm6150_vadc>;
+	qcom,thermal-mitigation = <3000000
 			2500000 2000000 1500000 1000000 500000>;
 	dpdm-supply = <&qusb_phy0>;
 	qcom,charger-temp-max = <800>;
 	qcom,smb-temp-max = <800>;
+	qcom,chg-term-src = <1>;
+	qcom,chg-term-current-ma = <(-200)>;
 };
 
 &smb1390 {
@@ -375,6 +442,32 @@
 	qcom,platform-reset-gpio = <&tlmm 91 0>;
 };
 
+&dsi_ft8719_tianma_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 90 0>;
+	qcom,platform-reset-gpio = <&tlmm 91 0>;
+};
+&dsi_nt36672a_shenchao_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 90 0>;
+	qcom,platform-reset-gpio = <&tlmm 91 0>;
+};
+
+&dsi_sharp_split_link_wuxga_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 90 0>;
+	qcom,platform-reset-gpio = <&tlmm 91 0>;
+};
+
 &dsi_rm69298_truly_amoled_video {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
@@ -393,11 +486,68 @@
 	qcom,platform-reset-gpio = <&tlmm 91 0>;
 };
 
-&dsi_sharp_split_link_wuxga_video {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
-	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
-	qcom,platform-te-gpio = <&tlmm 90 0>;
-	qcom,platform-reset-gpio = <&tlmm 91 0>;
+&thermal_zones {
+	quiet-therm-step {
+		status = "disabled";
+	};
 };
+
+&qusb_phy0 {
+	/delete-property/ qcom,qusb-phy-init-seq;
+	/delete-property/ reg;
+	/delete-property/ reg-names;
+	qcom,qusb-phy-init-seq = <0xf8 0x80
+					0x33 0x84
+					0x83 0x88
+					0xc5 0x8c
+					0x30 0x08
+					0x79 0x0c
+					0x21 0x10
+					0x14 0x9c
+					0x9f 0x1c
+					0x00 0x18>;
+	reg = <0x88e2000 0x180>,
+		<0x01fcb250 0x4>;
+	reg-names = "qusb_phy_base",
+		"tcsr_clamp_dig_n_1p8";
+};
+
+/* hall was removed by xuquan in 20181023 start */
+/*
+&tlmm {
+    hall_int_active:hall_int_active {
+        mux {
+                pins = "gpio96";
+                function = "gpio";
+        };
+        config{
+                pins = "gpio96";
+                driver-strength = <6>;
+                bias-pull-up;
+        };
+    };
+    hall_int_suspend:hall_int_suspend {
+        mux {
+                pins =  "gpio96";
+                function = "gpio";
+        };
+        config{
+                pins = "gpio96";
+                driver-strength = <6>;
+                bias-pull-up;
+        };
+    };
+};
+&soc {
+    hall_switch {
+        compatible = "hall-switch,och175";
+        pinctrl-names = "hall_active","hall_suspend";
+        pinctrl-0 = <&hall_int_active>;
+        pinctrl-1 = <&hall_int_suspend>;
+        vdd-io-supply = <&pm6150_l10>;
+        interrupt-names = "hall_irq";
+        hall,irq-gpio = <&tlmm 96 0x0>;
+    };
+};
+*/
+/* hall was removed by xuquan in 20181023 end */

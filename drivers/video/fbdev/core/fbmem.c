@@ -1088,7 +1088,6 @@ fb_blank(struct fb_info *info, int blank)
 		if (!early_ret)
 			fb_notifier_call_chain(FB_R_EARLY_EVENT_BLANK, &event);
 	}
-
  	return ret;
 }
 EXPORT_SYMBOL(fb_blank);

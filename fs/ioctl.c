@@ -491,7 +491,10 @@ static int file_ioctl(struct file *filp, unsigned int cmd,
 	case FIBMAP:
 		return ioctl_fibmap(filp, p);
 	case FIONREAD:
-		return put_user(i_size_read(inode) - filp->f_pos, p);
+		if (vfs_ioctl(filp, cmd, arg))
+			return put_user(i_size_read(inode) - filp->f_pos, p);
+		else
+			return 0;
 	case FS_IOC_RESVSP:
 	case FS_IOC_RESVSP64:
 		return ioctl_preallocate(filp, p);

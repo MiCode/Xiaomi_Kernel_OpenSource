@@ -136,13 +136,7 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sm6150-usbc-minidp-idp-overlay.dtbo \
 		sm6150-cmd-mode-display-idp-overlay.dtbo \
 		sa6155-adp-star-overlay.dtbo \
-		sa6155p-adp-star-overlay.dtbo \
-		sa6155-adp-air-overlay.dtbo \
-		sa6155p-adp-air-overlay.dtbo \
-		sa6155p-v2-adp-star-overlay.dtbo \
-		sa6155p-v2-adp-air-overlay.dtbo \
-		qcs610-iot-overlay.dtbo \
-		qcs410-iot-overlay.dtbo
+		sa6155p-adp-star-overlay.dtbo
 
 sm6150-rumi-overlay.dtbo-base := sm6150.dtb
 sm6150-qrd-overlay.dtbo-base := sm6150.dtb
@@ -155,12 +149,6 @@ sm6150-usbc-minidp-idp-overlay.dtbo-base := sm6150.dtb
 sm6150-cmd-mode-display-idp-overlay.dtbo-base := sm6150.dtb
 sa6155-adp-star-overlay.dtbo-base := sa6155.dtb
 sa6155p-adp-star-overlay.dtbo-base := sa6155p.dtb
-sa6155p-v2-adp-star-overlay.dtbo-base := sa6155p.dtb
-sa6155-adp-air-overlay.dtbo-base := sa6155.dtb
-sa6155p-adp-air-overlay.dtbo-base := sa6155p.dtb
-sa6155p-v2-adp-air-overlay.dtbo-base := sa6155p.dtb
-qcs610-iot-overlay.dtbo-base := sm6150.dtb
-qcs410-iot-overlay.dtbo-base := sm6150.dtb
 else
 dtb-$(CONFIG_ARCH_SM6150)	+= sm6150-rumi.dtb \
 	sm6150-qrd.dtb \
@@ -172,50 +160,35 @@ dtb-$(CONFIG_ARCH_SM6150)	+= sm6150-rumi.dtb \
 	sm6150-usbc-minidp-idp.dtb \
 	sm6150-cmd-mode-display-idp.dtb \
 	sa6155-adp-star.dtb \
-	sa6155p-adp-star.dtb \
-	sa6155-adp-air.dtb \
-	sa6155p-adp-air.dtb \
-	sa6155p-v2-adp-star.dtb \
-	sa6155p-v2-adp-air.dtb \
-	qcs610-iot.dtb \
-	qcs410-iot.dtb
+	sa6155p-adp-star.dtb
 
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SDMMAGPIE) += \
 		sdmmagpie-idp-overlay.dtbo \
-		sdmmagpie-atp-overlay.dtbo \
 		sdmmagpie-rumi-overlay.dtbo \
 		sdmmagpie-qrd-overlay.dtbo \
 		sdmmagpiep-idp-overlay.dtbo \
-		sdmmagpiep-atp-overlay.dtbo \
 		sdmmagpiep-qrd-overlay.dtbo \
 		sdmmagpie-external-codec-idp-overlay.dtbo \
-		sdmmagpie-usbc-idp-overlay.dtbo \
-		sdmmagpie-dual-display-idp-overlay.dtbo
+		sdmmagpie-usbc-idp-overlay.dtbo
 
 sdmmagpie-idp-overlay.dtbo-base := sdmmagpie.dtb
-sdmmagpie-atp-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-rumi-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-qrd-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpiep-idp-overlay.dtbo-base := sdmmagpiep.dtb
-sdmmagpiep-atp-overlay.dtbo-base := sdmmagpiep.dtb
 sdmmagpiep-qrd-overlay.dtbo-base := sdmmagpiep.dtb
 sdmmagpie-external-codec-idp-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-usbc-idp-overlay.dtbo-base := sdmmagpie.dtb
-sdmmagpie-dual-display-idp-overlay.dtbo-base := sdmmagpie.dtb
 else
 dtb-$(CONFIG_ARCH_SDMMAGPIE)	+= sdmmagpie-rumi.dtb \
 	sdmmagpie-idp.dtb \
-	sdmmagpie-atp.dtb \
 	sdmmagpie-qrd.dtb \
 	sdmmagpiep-idp.dtb \
-	sdmmagpiep-atp.dtb \
 	sdmmagpiep-qrd.dtb \
 	sdmmagpie-external-codec-idp.dtb \
-	sdmmagpie-usbc-idp.dtb \
-	sdmmagpie-dual-display-idp.dtb
+	sdmmagpie-usbc-idp.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)

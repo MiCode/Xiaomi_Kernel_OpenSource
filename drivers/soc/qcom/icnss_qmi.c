@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -141,7 +142,7 @@ int wlfw_msa_mem_info_send_sync_msg(struct icnss_priv *priv)
 	for (i = 0; i < resp->mem_region_info_len; i++) {
 
 		if (resp->mem_region_info[i].size > priv->msa_mem_size ||
-		    resp->mem_region_info[i].region_addr > max_mapped_addr ||
+		    resp->mem_region_info[i].region_addr >= max_mapped_addr ||
 		    resp->mem_region_info[i].region_addr < priv->msa_pa ||
 		    resp->mem_region_info[i].size +
 		    resp->mem_region_info[i].region_addr > max_mapped_addr) {

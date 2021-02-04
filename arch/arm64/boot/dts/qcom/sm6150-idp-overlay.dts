@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +26,145 @@
 	qcom,msm-id = <355 0x0>;
 	qcom,board-id = <34 0>;
 };
-
+/*
 &dsi_hx83112a_truly_vid_display {
 	qcom,dsi-display-active;
+};
+*/
+&dsi_ft8719_tianma_vid_display {
+	qcom,dsi-display-active;
+};
+
+&dsi_nt36672a_shenchao_vid_display {
+	qcom,dsi-display-active;
+};
+
+&sdhc_2 {
+	cd-gpios = <&tlmm 99 0>;
+};
+
+&tlmm {
+	ant-check-pin {
+		ant_check_default: ant_check_default {
+			mux {
+				pins = "gpio85";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio85";
+				drive-strength = <2>;
+				bias-disable;
+				input-enable;
+				input-debounce = <5000>;
+			};
+		};
+	};
+};
+
+&soc {
+	ant_check {
+		compatible = "ant_check";
+	        ant_check_gpio = <&tlmm 85 0x0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ant_check_default>;
+	};
+};
+
+&qupv3_se5_i2c {
+	status = "disabled";
+};
+
+&smb1355 {
+	status = "disabled";
+};
+
+&smb1355_charger {
+	status = "disabled";
+};
+
+&smb1390 {
+	status = "disabled";
+};
+
+&smb1390_charger {
+	status = "disabled";
+};
+
+&pm6150_charger {
+	/delete-property/ qcom,thermal-mitigation;
+	io-channels = <&pm6150_vadc ADC_USB_IN_V_16>,
+		      <&pm6150_vadc ADC_USB_IN_I>,
+		      <&pm6150_vadc ADC_CHG_TEMP>,
+		      <&pm6150_vadc ADC_VPH_PWR>,
+				  <&pm6150_vadc ADC_DIE_TEMP>,
+				  <&pm6150_vadc ADC_AMUX_THM2_PU2>,
+				  <&pm6150_vadc ADC_AMUX_THM4_PU2>;
+	io-channel-names = "usb_in_voltage",
+			   "usb_in_current",
+			   "chg_temp",
+			   "vph_voltage",
+				   "die_temp",
+				   "skin_temp",
+				   "conn_temp";
+	qcom,thermal-mitigation = <3000000
+			2500000 2300000 2000000 1500000 800000 500000 100000 50000 0>;
+	qcom,auto-recharge-soc = <99>;
+};
+
+&usb0{
+	dwc3@a600000 {
+		usb-phy = <&qusb_phy0>, <&usb_nop_phy>;
+		snps,dis_u2_susphy_quirk;
+		snps,dis_enblslpm_quirk;
+		maximum-speed = "high-speed";
+	};
+};
+
+&usb_qmp_phy {
+	status = "disabled";
+};
+
+&usb1{
+	dwc3@a800000 {
+		snps,dis_u2_susphy_quirk;
+		snps,dis_enblslpm_quirk;
+	};
+};
+
+&pm6150_qg {
+	qcom,qg-iterm-ma = <350>;
+	qcom,s3-entry-ibat-ua = <18000>;
+	qcom,s3-exit-ibat-ua = <38000>;
+	qcom,vbatt-cutoff-mv = <3400>;
+};
+
+&qusb_phy0 {
+	qcom,qusb-phy-init-seq = <0xc8 0x80
+					0x73 0x84
+					0x83 0x88
+					0xc7 0x8c
+					0x30 0x08
+					0x79 0x0c
+					0x21 0x10
+					0x14 0x9c
+					0x9f 0x1c
+					0x00 0x18>;
+};
+
+&pm6150_pdphy{
+	qcom,default-sink-caps = <5000 3000>, /* 5V @ 3A */
+						 <9000 3000>; /* 9V @ 3A */
+};
+
+&qusb_phy0 {
+	qcom,qusb-phy-init-seq = <0xc8 0x80
+					0xb3 0x84
+					0x83 0x88
+					0xc0 0x8c
+					0x30 0x08
+					0x79 0x0c
+					0x21 0x10
+					0x14 0x9c
+					0x9f 0x1c
+					0x00 0x18>;
 };

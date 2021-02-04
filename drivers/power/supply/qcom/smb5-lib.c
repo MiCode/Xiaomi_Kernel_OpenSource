@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1865,14 +1866,15 @@ static bool is_charging_paused(struct smb_charger *chg)
 
 	return val & CHARGING_PAUSE_CMD_BIT;
 }
-
+#define BATTERY_VOLTAGE_MAX 4400000
+#define BATTERY_VOLTAGE_WARM_MAX 4100000
 int smblib_get_prop_batt_status(struct smb_charger *chg,
 				union power_supply_propval *val)
 {
 	union power_supply_propval pval = {0, };
 	bool usb_online, dc_online;
 	u8 stat;
-	int rc, suspend = 0;
+	int rc, suspend, batt_vol_max, batt_health = 0;
 
 	if (chg->dbc_usbov) {
 		rc = smblib_get_prop_usb_present(chg, &pval);
@@ -1915,12 +1917,39 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 	}
 	dc_online = (bool)pval.intval;
 
+	rc = smblib_get_prop_batt_health(chg, &pval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get batt health property rc=%d\n",
+			rc);
+		return rc;
+	}
+	batt_health = pval.intval;
+
 	rc = smblib_read(chg, BATTERY_CHARGER_STATUS_1_REG, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read BATTERY_CHARGER_STATUS_1 rc=%d\n",
 			rc);
 		return rc;
 	}
+	
+	if(is_client_vote_enabled_locked(chg->fv_votable, TMP_JEITA_VOTER)){
+		rc = get_client_vote_locked(chg->fv_votable, TMP_JEITA_VOTER);
+		if(rc < 0)
+                	smblib_err(chg, "get_client_vote_locked failed\n");
+		else
+			batt_vol_max = rc;		
+	}
+
+	rc = power_supply_get_property(chg->batt_psy,
+			POWER_SUPPLY_PROP_CHARGE_DONE, &pval);
+	if (rc < 0)
+		pr_err("Failed to get charge done status, rc=%d\n", rc);
+	else
+		chg->chg_done = pval.intval;
+
+	pr_info("%s stat:%x max_voltage:%d chg_done:%d\n",
+			__FUNCTION__,stat, batt_vol_max, chg->chg_done);
+
 	stat = stat & BATTERY_CHARGER_STATUS_MASK;
 
 	if (!usb_online && !dc_online) {
@@ -1954,6 +1983,16 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 	default:
 		val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
 		break;
+	}
+
+	if(val->intval == POWER_SUPPLY_STATUS_FULL){
+		if(BATTERY_VOLTAGE_WARM_MAX == batt_vol_max)
+			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+		else if(!chg->chg_done)
+			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+
+		if( val->intval == POWER_SUPPLY_STATUS_CHARGING )
+			return 0;
 	}
 
 	if (is_charging_paused(chg)) {
@@ -2052,7 +2091,7 @@ int smblib_get_prop_batt_health(struct smb_charger *chg,
 			 * If Vbatt is within 40mV above Vfloat, then don't
 			 * treat it as overvoltage.
 			 */
-			effective_fv_uv = get_effective_result(chg->fv_votable);
+			effective_fv_uv = get_effective_result_locked(chg->fv_votable);
 			if (pval.intval >= effective_fv_uv + 40000) {
 				val->intval = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
 				smblib_err(chg, "battery over-voltage vbat_fg = %duV, fv = %duV\n",
@@ -2180,7 +2219,28 @@ int smblib_get_prop_batt_charge_done(struct smb_charger *chg,
 	val->intval = (stat == TERMINATE_CHARGE);
 	return 0;
 }
+//modified by yangshengtao 2018.11.02 add for factory runin test interface start
+#ifdef LONGCHEER_FACTORY_ENABLE
+int smblib_get_prop_battery_charging_enabled(struct smb_charger *chg,
+                union power_supply_propval *val)
+{
+	int rc;
+	u8 reg;
 
+	rc = smblib_read(chg, CHARGING_ENABLE_CMD_REG, &reg);
+	if (rc < 0) {
+		smblib_err(chg,
+			"Couldn't read battery CHARGING_ENABLE_CMD rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	reg = reg & CHARGING_ENABLE_CMD_BIT;
+	val->intval = (reg == CHARGING_ENABLE_CMD_BIT);
+	return 0;
+}
+#endif
+//modified by yangshengtao 2018.11.02 add for factory runin test interface end
 /***********************
  * BATTERY PSY SETTERS *
  ***********************/
@@ -2209,6 +2269,41 @@ int smblib_set_prop_input_suspend(struct smb_charger *chg,
 	return rc;
 }
 
+ //modified by yangshengtao 2018.11.02 add for factory runin test interface start
+#ifdef LONGCHEER_FACTORY_ENABLE
+int smblib_set_prop_battery_charging_enabled(struct smb_charger *chg,
+                const union power_supply_propval *val)
+{
+	int rc;
+
+	smblib_dbg(chg, PR_MISC, "%s intval= %x\n",__FUNCTION__,val->intval);
+
+	if (1 == val->intval) {
+		rc = smblib_masked_write(chg, CHARGING_ENABLE_CMD_REG,
+			CHARGING_ENABLE_CMD_BIT,CHARGING_ENABLE_CMD_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't enable charging rc=%d\n",
+						rc);
+			return rc;
+		}
+	}
+	else if (0 == val->intval) {
+		rc = smblib_masked_write(chg, CHARGING_ENABLE_CMD_REG,
+			CHARGING_ENABLE_CMD_BIT,0);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't disable charging rc=%d\n",
+						rc);
+			return rc;
+		}
+	}
+	else
+		smblib_err(chg, "Couldn't disable charging rc=%d\n",rc);
+
+	return 0;
+}
+#endif
+//modified by yangshengtao 2018.11.02 add for factory runin test interface start
+
 int smblib_set_prop_batt_capacity(struct smb_charger *chg,
 				  const union power_supply_propval *val)
 {
@@ -2233,6 +2328,11 @@ int smblib_set_prop_batt_status(struct smb_charger *chg,
 	return 0;
 }
 
+extern union power_supply_propval lct_therm_lvl_reserved;
+extern bool lct_backlight_off;
+extern int LctIsInCall;
+extern int LctThermal;
+
 int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 				const union power_supply_propval *val)
 {
@@ -2245,7 +2345,31 @@ int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 	if (val->intval > chg->thermal_levels)
 		return -EINVAL;
 
+	pr_info("%s val=%d, chg->system_temp_level=%d, LctThermal=%d, lct_backlight_off= %d, IsInCall=%d \n " 
+		,__FUNCTION__,val->intval,chg->system_temp_level, LctThermal, lct_backlight_off, LctIsInCall);
+
+	if (LctThermal == 0) { //from therml-engine always store lvl_sel
+		lct_therm_lvl_reserved.intval = val->intval;
+	}
+
+	/*backlight off and not-incall, force minimum level 3*/
+	if ((lct_backlight_off) && (LctIsInCall == 0) && (val->intval > 3)) {
+		pr_info("leve ignored:backlight_off:%d level:%d",lct_backlight_off,val->intval);
+		return 0;
+	}
+
+	/*incall,force level 5*/
+	if ((LctIsInCall == 1) && (val->intval != 5)) {
+		pr_info("leve ignored:LctIsInCall:%d level:%d",LctIsInCall,val->intval);
+		return 0;
+	}
+
+	if (val->intval == chg->system_temp_level)
+		return 0;
+
 	chg->system_temp_level = val->intval;
+	pr_info("%s intval:%d system temp level:%d thermal_levels:%d",
+		__FUNCTION__,val->intval,chg->system_temp_level,chg->thermal_levels);
 
 	if (chg->system_temp_level == chg->thermal_levels)
 		return vote(chg->chg_disable_votable,
@@ -3906,7 +4030,13 @@ int smblib_set_prop_pd_current_max(struct smb_charger *chg,
 static int smblib_handle_usb_current(struct smb_charger *chg,
 					int usb_current)
 {
+/*HMI_M6300_A10-306 2018/11/02 as HW/HW tester require set float
+	charger type ICL as 1A ,begin*/
+#ifndef NONSTANDARD_CURRENT_UA
 	int rc = 0, rp_ua, typec_mode;
+#else
+	int rc = 0, rp_ua;
+#endif
 	union power_supply_propval val = {0, };
 
 	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
@@ -3928,6 +4058,7 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 
 			if (chg->connector_type ==
 					POWER_SUPPLY_CONNECTOR_TYPEC) {
+#ifndef NONSTANDARD_CURRENT_UA
 				/*
 				 * Valid FLOAT charger, report the current
 				 * based of Rp.
@@ -3935,6 +4066,11 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 				typec_mode = smblib_get_prop_typec_mode(chg);
 				rp_ua = get_rp_based_dcp_current(chg,
 								typec_mode);
+#else
+		rp_ua = NONSTANDARD_CURRENT_UA;
+		smblib_dbg(chg, PR_MISC,
+				"force set FLOAT charger ICL rp_ua=%d\n",rp_ua);
+#endif
 				rc = vote(chg->usb_icl_votable,
 						SW_ICL_MAX_VOTER, true, rp_ua);
 				if (rc < 0)
@@ -3951,6 +4087,15 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 			 * charge with the requested current and update the
 			 * real_charger_type
 			 */
+#ifdef NONSTANDARD_CURRENT_UA
+			usb_current = NONSTANDARD_CURRENT_UA;
+			smblib_dbg(chg, PR_MISC,
+				"force set FLOAT charger ICL usb_current=%d\n",
+					usb_current);
+#endif
+/*HMI_M6300_A10-306 2018/11/02 as HW/HW tester require set float 
+				charger type ICL as 1A ,end*/
+
 			chg->real_charger_type = POWER_SUPPLY_TYPE_USB;
 			rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
 						true, usb_current);
@@ -4486,8 +4631,10 @@ int smblib_get_charge_current(struct smb_charger *chg,
 			break;
 		case DCP_CHARGER_BIT:
 		case OCP_CHARGER_BIT:
-		case FLOAT_CHARGER_BIT:
 			current_ua = DCP_CURRENT_UA;
+			break;
+		case FLOAT_CHARGER_BIT:
+			current_ua = NONSTANDARD_CURRENT_UA;
 			break;
 		default:
 			current_ua = 0;
@@ -4506,8 +4653,10 @@ int smblib_get_charge_current(struct smb_charger *chg,
 			break;
 		case DCP_CHARGER_BIT:
 		case OCP_CHARGER_BIT:
-		case FLOAT_CHARGER_BIT:
 			current_ua = chg->default_icl_ua;
+			break;
+		case FLOAT_CHARGER_BIT:
+			current_ua = NONSTANDARD_CURRENT_UA;
 			break;
 		default:
 			current_ua = 0;
@@ -5187,7 +5336,7 @@ static void update_sw_icl_max(struct smb_charger *chg, int pst)
 		 * if this is a SDP and appropriately set the current
 		 */
 		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
-					SDP_100_MA);
+					FLOAT_ADD_1000_MA);
 		break;
 	case POWER_SUPPLY_TYPE_UNKNOWN:
 	default:

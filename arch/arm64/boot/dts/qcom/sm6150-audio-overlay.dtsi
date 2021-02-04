@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +17,7 @@
 #include <dt-bindings/sound/audio-codec-port-types.h>
 
 &bolero {
-	qcom,num-macros = <4>;
+	qcom,num-macros = <3>;
 	qcom,va-without-decimation;
 	slew_rate_reg1 = <0x62B6F000 0x0>;
 	slew_rate_reg2 = <0x62B6F004 0x0>;
@@ -97,6 +98,7 @@
 			 <&clock_audio_wsa_2 0>;
 		qcom,wsa-swr-gpios = <&wsa_swr_gpios>;
 		qcom,wsa-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
+		status = "disabled";
 		swr0: wsa_swr_master {
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
@@ -184,9 +186,11 @@
 		qcom,cdc-vdd-mic-bias-voltage = <3296000 3296000>;
 		qcom,cdc-vdd-mic-bias-current = <25000>;
 
-		qcom,cdc-micbias1-mv = <1800>;
-		qcom,cdc-micbias2-mv = <1800>;
-		qcom,cdc-micbias3-mv = <1800>;
+		qcom,cdc-micbias1-mv = <2600>;
+		qcom,cdc-micbias2-mv = <2600>;
+		qcom,cdc-micbias3-mv = <2600>;
+
+		qcom,msm-mbhc-hs-mic-max-threshold-mv = <2550>;
 
 		qcom,cdc-static-supplies = "cdc-vdd-ldo-rxtx",
 					   "cdc-vddpx-1",
@@ -196,6 +200,8 @@
 
 };
 
+/*#include "sm6150-wsa881x.dtsi"*/
+
 &sm6150_snd {
 	qcom,model = "sm6150-idp-snd-card";
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
@@ -203,14 +209,10 @@
 	qcom,audio-routing =
 		"AMIC2", "MIC BIAS2",
 		"MIC BIAS2", "Analog Mic2",
-		"TX DMIC0", "MIC BIAS1",
-		"MIC BIAS1", "Digital Mic0",
-		"TX DMIC1", "MIC BIAS1",
-		"MIC BIAS1", "Digital Mic1",
-		"TX DMIC2", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic2",
-		"TX DMIC3", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic3",
+		"AMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Analog Mic1",
+		"AMIC3", "MIC BIAS3",
+		"MIC BIAS3", "Analog Mic3",
 		"TX_AIF1 CAP", "VA_MCLK",
 		"TX_AIF2 CAP", "VA_MCLK",
 		"RX AIF1 PB", "VA_MCLK",
@@ -225,9 +227,6 @@
 		"IN3_AUX", "AUX_OUT",
 		"TX SWR_ADC0", "ADC1_OUTPUT",
 		"TX SWR_ADC2", "ADC2_OUTPUT",
-		"WSA SRC0_INP", "SRC0",
-		"WSA_TX DEC0_INP", "TX DEC0 MUX",
-		"WSA_TX DEC1_INP", "TX DEC1 MUX",
 		"RX_TX DEC0_INP", "TX DEC0 MUX",
 		"RX_TX DEC1_INP", "TX DEC1 MUX",
 		"RX_TX DEC2_INP", "TX DEC2 MUX",
@@ -240,18 +239,37 @@
 	qcom,msm-mbhc-gnd-swh = <1>;
 	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
 	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
+	qcom,pri-mi2s-gpios = <&cdc_pri_mi2s_gpios>;
 	asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
 	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
 			   "msm-ext-disp-audio-codec-rx";
-	qcom,wsa-max-devs = <2>;
-	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
-			<&wsa881x_0213>, <&wsa881x_0214>;
+	qcom,wsa-max-devs = <0>;
+	/*qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
+			<&wsa881x_0213>, <&wsa881x_0214>;*/
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 				  "SpkrLeft", "SpkrRight";
 	qcom,codec-max-aux-devs = <1>;
 	qcom,codec-aux-devs = <&wcd937x_codec>;
 	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>,
 				<&lpi_tlmm>, <&bolero>;
+};
+
+&qupv3_se4_i2c {
+	 status = "ok";
+	 tas2563@4c {
+			 #sound-dai-cells = <1>;
+			 compatible = "ti,tas2563";
+			 reg = <0x4c>;
+			 ti,reset-gpio = <&tlmm 22 0>;
+			 ti,irq-gpio = <&tlmm 117 0>;
+			 ti,asi-format = <0>; /* 0, i2S; 1, DSP;  */
+			 ti,left-slot = <0>; /* <left slot number> */
+			 ti,right-slot = <1>; /* <right slot number> */
+			 ti,imon-slot-no = <0>; /* <current sense slot number> */
+			 ti,vmon-slot-no = <2>; /* <current voltage slot number> */
+			 status = "ok";
+		 };
+
 };
 
 &soc {
@@ -272,6 +290,7 @@
 	};
 
 	wsa_swr_gpios: wsa_swr_clk_data_pinctrl {
+		status = "disabled";
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&wsa_swr_clk_active &wsa_swr_data_active>;
@@ -297,6 +316,7 @@
 	};
 
 	wsa_spkr_en1: wsa_spkr_en1_pinctrl {
+		status = "disabled";
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&spkr_1_sd_n_active>;
@@ -304,6 +324,7 @@
 	};
 
 	wsa_spkr_en2: wsa_spkr_en2_pinctrl {
+		status = "disabled";
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&spkr_2_sd_n_active>;
@@ -435,6 +456,17 @@
 	    startup-delay-us = <0>;
 	    enable-active-high;
 	};
+
+	cdc_pri_mi2s_gpios: msm_cdc_pinctrl_pri {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&pri_i2s_sck_active &pri_i2s_data0_active
+			     &pri_i2s_data1_active>;
+		pinctrl-1 = <&pri_i2s_sck_sleep &pri_i2s_data0_sleep
+			     &pri_i2s_data1_sleep>;
+	};
+
+
 };
 
 &slim_aud {

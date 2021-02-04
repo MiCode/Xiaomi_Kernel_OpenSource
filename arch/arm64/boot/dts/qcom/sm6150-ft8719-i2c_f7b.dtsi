@@ -1,0 +1,41 @@
+/********************************************************************************
+
+ **** Copyright (C), 2018, xx xx xx xx info&tech Co., Ltd.                ****
+ * Copyright (C) 2021 XiaoMi, Inc.
+
+ ********************************************************************************
+ * File Name     : sm6150-ft8719-i2c_f7b.dtsi
+ * Author        : zhangchaofan
+ * Date          : 2018-11-03
+ * Description   : ft8719 device tree file function description
+ * Version       : 1.0
+ * Function List :
+ *
+ * Record        :
+ * 1.Date        : 2018-11-03
+ *   Author      : zhangchaofan
+ *   Modification: Created file
+
+*********************************************************************************/
+
+&qupv3_se1_i2c {
+	focaltech@38 {
+		status = "okay";
+		compatible = "focaltech,fts";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <89 0x2008>;
+		//vcc_i2c-supply=<&pm6150_l13>;
+
+		focaltech,reset-gpio = <&tlmm 88 0x01>;
+		focaltech,irq-gpio = <&tlmm 89 0x02>;
+
+		focaltech,max-touch-number = <10>;
+		focaltech,display-coords =  <0 0 1080 2340>;
+
+		//pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
+		//pinctrl-0 = <&ts_active>;
+		//pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		//pinctrl-2 = <&ts_release>;
+	};
+};

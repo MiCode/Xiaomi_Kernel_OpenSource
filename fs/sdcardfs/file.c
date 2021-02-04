@@ -2,6 +2,7 @@
  * fs/sdcardfs/file.c
  *
  * Copyright (c) 2013 Samsung Electronics Co. Ltd
+ * Copyright (C) 2021 XiaoMi, Inc.
  *   Authors: Daeho Jeong, Woojoong Lee, Seunghwan Hyun,
  *               Sunghwan Yun, Sungjong Seo
  *
@@ -22,6 +23,7 @@
 #ifdef CONFIG_SDCARD_FS_FADV_NOACTIVE
 #include <linux/backing-dev.h>
 #endif
+#include <asm/ioctls.h>
 
 static ssize_t sdcardfs_read(struct file *file, char __user *buf,
 			   size_t count, loff_t *ppos)
@@ -117,6 +119,12 @@ static long sdcardfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 	if (!lower_file || !lower_file->f_op)
 		goto out;
 
+	if (cmd == FIONREAD) {
+		int __user *p = (int __user *)arg;;
+		fsstack_copy_inode_size(file_inode(file), file_inode(lower_file));
+		put_user(i_size_read(file_inode(file)) - file->f_pos, p);
+		return 0;
+	}
 	/* save current_cred and override it */
 	saved_cred = override_fsids(sbi, SDCARDFS_I(file_inode(file))->data);
 	if (!saved_cred) {

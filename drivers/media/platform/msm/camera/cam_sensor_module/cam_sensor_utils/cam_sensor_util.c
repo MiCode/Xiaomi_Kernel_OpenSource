@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,8 +37,13 @@ static struct i2c_settings_list*
 	else
 		return NULL;
 
+	// MI MOD: START
+	// tmp->i2c_settings.reg_setting = (struct cam_sensor_i2c_reg_array *)
+	//	kcalloc(size, sizeof(struct cam_sensor_i2c_reg_array),
+	//		GFP_KERNEL);
 	tmp->i2c_settings.reg_setting = (struct cam_sensor_i2c_reg_array *)
-		vzalloc(size * sizeof(struct cam_sensor_i2c_reg_array));
+		vzalloc(sizeof(struct cam_sensor_i2c_reg_array) * size);
+	// END
 	if (tmp->i2c_settings.reg_setting == NULL) {
 		list_del(&(tmp->list));
 		kfree(tmp);
@@ -60,6 +66,8 @@ int32_t delete_request(struct i2c_settings_array *i2c_array)
 
 	list_for_each_entry_safe(i2c_list, i2c_next,
 		&(i2c_array->list_head), list) {
+		// MI MOD
+		// kfree(i2c_list->i2c_settings.reg_setting);
 		vfree(i2c_list->i2c_settings.reg_setting);
 		list_del(&(i2c_list->list));
 		kfree(i2c_list);
