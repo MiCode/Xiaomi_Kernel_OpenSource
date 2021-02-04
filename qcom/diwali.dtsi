@@ -524,6 +524,7 @@
 };
 
 #include "diwali-pinctrl.dtsi"
+#include "diwali-dma-heaps.dtsi"
 #include "diwali-gdsc.dtsi"
 
 &cam_cc_bps_gdsc {
