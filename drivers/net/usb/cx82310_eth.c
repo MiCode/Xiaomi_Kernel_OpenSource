@@ -1,6 +1,7 @@
 /*
  * Driver for USB ethernet port of Conexant CX82310-based ADSL routers
  * Copyright (C) 2010 by Ondrej Zary
+ * Copyright (C) 2021 XiaoMi, Inc.
  * some parts inspired by the cxacru driver
  *
  * This program is free software; you can redistribute it and/or modify
@@ -175,7 +176,8 @@ static int cx82310_bind(struct usbnet *dev, struct usb_interface *intf)
 	}
 	if (!timeout) {
 		dev_err(&udev->dev, "firmware not ready in time\n");
-		return -ETIMEDOUT;
+		ret = -ETIMEDOUT;
+		goto err;
 	}
 
 	/* enable ethernet mode (?) */

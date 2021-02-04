@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016,2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1006,6 +1007,9 @@ static enum vidc_status hfi_parse_init_done_properties(
 			}
 			while (prof_count) {
 				prof_level = (struct hfi_profile_level *)ptr;
+				VALIDATE_PROPERTY_STRUCTURE_SIZE(rem_bytes -
+					next_offset,
+					sizeof(*prof_level));
 				capability.
 				profile_level.profile_level[count].profile
 					= prof_level->profile;

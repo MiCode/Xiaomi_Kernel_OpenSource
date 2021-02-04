@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -500,6 +501,44 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_panel_cmds lp_on_cmds;
 	struct dsi_panel_cmds lp_off_cmds;
 	struct dsi_panel_cmds status_cmds;
+	struct dsi_panel_cmds cabc_on_cmds;
+	struct dsi_panel_cmds cabc_off_cmds;
+	struct dsi_panel_cmds ce_on_cmds;
+	struct dsi_panel_cmds ce_off_cmds;
+	struct dsi_panel_cmds srgb_on_cmds;
+	struct dsi_panel_cmds srgb_off_cmds;
+	struct dsi_panel_cmds cabc_movie_on_cmds;
+	struct dsi_panel_cmds cabc_still_on_cmds;
+	struct dsi_panel_cmds hbm1_on_cmds;
+	struct dsi_panel_cmds hbm2_on_cmds;
+	struct dsi_panel_cmds hbm3_on_cmds;
+	struct dsi_panel_cmds hbm_off_cmds;
+	struct dsi_panel_cmds gamma0_cmds;
+	struct dsi_panel_cmds gamma1_cmds;
+	struct dsi_panel_cmds gamma2_cmds;
+	struct dsi_panel_cmds gamma3_cmds;
+	struct dsi_panel_cmds gamma4_cmds;
+	struct dsi_panel_cmds gamma5_cmds;
+	struct dsi_panel_cmds gamma6_cmds;
+	struct dsi_panel_cmds gamma7_cmds;
+	struct dsi_panel_cmds gamma8_cmds;
+	struct dsi_panel_cmds gamma9_cmds;
+	struct dsi_panel_cmds gamma10_cmds;
+	struct dsi_panel_cmds gamma11_cmds;
+	struct dsi_panel_cmds gamma12_cmds;
+	struct dsi_panel_cmds gamma13_cmds;
+	struct dsi_panel_cmds gamma14_cmds;
+	struct dsi_panel_cmds gamma15_cmds;
+	struct dsi_panel_cmds gamma16_cmds;
+	struct dsi_panel_cmds gamma17_cmds;
+	struct dsi_panel_cmds gamma18_cmds;
+	struct dsi_panel_cmds gamma19_cmds;
+	struct dsi_panel_cmds gamma20_cmds;
+	struct dsi_panel_cmds gamma21_cmds;
+	struct dsi_panel_cmds gamma22_cmds;
+	struct dsi_panel_cmds gamma23_cmds;
+	struct dsi_panel_cmds gamma24_cmds;
+
 	u32 *status_valid_params;
 	u32 *status_cmds_rlen;
 	u32 *status_value;
@@ -713,6 +752,7 @@ int mdss_dsi_phy_pll_reset_status(struct mdss_dsi_ctrl_pdata *ctrl);
 int mdss_dsi_check_panel_status(struct mdss_dsi_ctrl_pdata *ctrl, void *arg);
 
 void mdss_dsi_debug_bus_init(struct mdss_dsi_data *sdata);
+void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,struct dsi_panel_cmds *pcmds, u32 flags);
 
 static inline const char *__mdss_dsi_pm_name(enum dsi_pm_type module)
 {

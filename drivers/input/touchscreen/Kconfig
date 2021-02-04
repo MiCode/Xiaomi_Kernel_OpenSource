@@ -11,7 +11,11 @@ menuconfig INPUT_TOUCHSCREEN
 
 if INPUT_TOUCHSCREEN
 
-source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+#source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+
+# HMI_M6100_A01
+source "drivers/input/touchscreen/nvt_touch_f7a/Kconfig"
+source "drivers/input/touchscreen/synaptics_tcm_f7a/Kconfig"
 
 config OF_TOUCHSCREEN
 	def_tristate INPUT
@@ -1222,6 +1226,19 @@ config TOUCHSCREEN_ST
 	  Say Y here if you have a STMicroelectronics Touchscreen.
 
 	  If unsure, say N.
+
+config TOUCHSCREEN_NVT_D2S
+       tristate "novatek touchscreens"
+       help
+         Say Y here if you have a nvt touchscreen.
+         nvt controllers are multi touch controllers which can
+         report 5 touches at a time.
+
+         If unsure, say N.
+
+         To compile this driver as a module, choose M here: the
+         module will be called nvt.
+
 
 source "drivers/input/touchscreen/st/Kconfig"
 

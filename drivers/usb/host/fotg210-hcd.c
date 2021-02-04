@@ -1,6 +1,7 @@
 /* Faraday FOTG210 EHCI-like driver
  *
  * Copyright (c) 2013 Faraday Technology Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Yuan-Hsin Chen <yhchen@faraday-tech.com>
  *	   Feng-Hsin Chiang <john453@faraday-tech.com>
@@ -1653,6 +1654,10 @@ static int fotg210_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			/* see what we found out */
 			temp = check_reset_complete(fotg210, wIndex, status_reg,
 					fotg210_readl(fotg210, status_reg));
+
+			/* restart schedule */
+			fotg210->command |= CMD_RUN;
+			fotg210_writel(fotg210, fotg210->command, &fotg210->regs->command);
 		}
 
 		if (!(temp & (PORT_RESUME|PORT_RESET))) {

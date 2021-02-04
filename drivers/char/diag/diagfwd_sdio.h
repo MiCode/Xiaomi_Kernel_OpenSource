@@ -1,4 +1,5 @@
 /* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +14,7 @@
 #ifndef DIAGFWD_SDIO_H
 #define DIAGFWD_SDIO_H
 
-#ifdef CONFIG_QCOM_SDIO_CLIENT
+#ifdef CONFIG_QTI_SDIO_CLIENT
 
 #ifdef CONFIG_DIAG_OVER_USB
 #include <linux/usb/usbdiag.h>
@@ -52,4 +53,4 @@ int diag_sdio_init(void);
 void diag_sdio_exit(void);
 
 #endif
-#endif /*CONFIG_QCOM_SDIO_CLIENT*/
+#endif /*CONFIG_QTI_SDIO_CLIENT*/

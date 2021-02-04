@@ -3,6 +3,7 @@
  * Samsung GT-B3730 and GT-B3710.
  *
  * Copyright (C) 2011 Marius Bjoernstad Kotsbak <marius@kotsbak.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Sponsored by Quicklink Video Distribution Services Ltd.
  *
@@ -117,16 +118,16 @@ kalmia_init_and_get_ethernet_addr(struct usbnet *dev, u8 *ethernet_addr)
 	status = kalmia_send_init_packet(dev, usb_buf, sizeof(init_msg_1)
 		/ sizeof(init_msg_1[0]), usb_buf, 24);
 	if (status != 0)
-		return status;
+		goto out;
 
 	memcpy(usb_buf, init_msg_2, 12);
 	status = kalmia_send_init_packet(dev, usb_buf, sizeof(init_msg_2)
 		/ sizeof(init_msg_2[0]), usb_buf, 28);
 	if (status != 0)
-		return status;
+		goto out;
 
 	memcpy(ethernet_addr, usb_buf + 10, ETH_ALEN);
-
+out:
 	kfree(usb_buf);
 	return status;
 }

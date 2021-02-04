@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,9 +89,9 @@ static DEFINE_MUTEX(work_lock);
 static spinlock_t list_lock;
 
 #define	qlog(qsb, _msg, ...) do {					     \
-	if (to_console)							     \
-		pr_err("[%s] " _msg, __func__, ##__VA_ARGS__);   \
-	if (ipc_log)							     \
+	if (!qsb ? 1 : to_console)					     \
+		pr_err("[%s] " _msg, __func__, ##__VA_ARGS__);		     \
+	if (qsb && ipc_log)						     \
 		ipc_log_string(qsb->ipc_log_ctxt, "[%s] " _msg, __func__,    \
 							##__VA_ARGS__);	     \
 } while (0)
@@ -438,8 +439,10 @@ int qti_client_read(int id, char *buf, size_t count)
 
 	wait_event(qsb->wait_q, qsb->data_avail ||
 					atomic_read(&qsb->is_client_closing));
-	if (atomic_read(&qsb->is_client_closing))
-		return count;
+	if (atomic_read(&qsb->is_client_closing)) {
+		ret = -ENODEV;
+		goto out;
+	}
 
 	bytes = qsb->data_avail;
 
@@ -484,7 +487,7 @@ out:
 	if (id == QCN_SDIO_CLI_ID_DIAG && qsb->ops &&
 						qsb->ops->read_complete_cb) {
 		qsb->ops->read_complete_cb((void *)(uintptr_t)0, buf, count,
-									count);
+				ret < 0 ? ret : count);
 	}
 
 	if (!qsb->data_remain) {
@@ -593,8 +596,10 @@ int qti_client_write(int id, char *buf, size_t count)
 
 		wait_event(qsb->wait_q, qsb->tx_ready ||
 					atomic_read(&qsb->is_client_closing));
-		if (atomic_read(&qsb->is_client_closing))
-			return count;
+		if (atomic_read(&qsb->is_client_closing)) {
+			ret = -ENODEV;
+			goto out;
+		}
 
 		if (qsb->mode) {
 			reinit_completion(&tx_complete);
@@ -627,10 +632,11 @@ int qti_client_write(int id, char *buf, size_t count)
 		buffer = buffer + temp_count;
 	}
 
+out:
 	if (id == QCN_SDIO_CLI_ID_DIAG && qsb->ops &&
 			qsb->ops->write_complete_cb) {
 		qsb->ops->write_complete_cb((void *)(uintptr_t)0, buf, count,
-				count);
+				ret < 0 ? ret : count);
 	}
 
 	return count;

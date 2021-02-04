@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1429,6 +1430,8 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 	struct msm_sensor_power_setting *power_setting = NULL;
 
 	CDBG("%s:%d\n", __func__, __LINE__);
+        //pr_err("%s:%d\n", __func__, __LINE__);
+        msleep(3);
 	if (!ctrl || !sensor_i2c_client) {
 		pr_err("failed ctrl %pK sensor_i2c_client %pK\n", ctrl,
 			sensor_i2c_client);

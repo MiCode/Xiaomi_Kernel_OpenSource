@@ -218,6 +218,24 @@ config ARM64_DMA_USE_IOMMU
 	select ARM_HAS_SG_CHAIN
 	select NEED_SG_DMA_LENGTH
 
+config THERMAL_SWITCH
+    default n
+        bool "Support themral config switch"
+	    help
+	            Support themral config switch.
+
+config KERNEL_CUSTOM_D2S
+    default n
+        bool "Custom for hardware D2S_pcb"
+	    help
+	            Custom for D2S_pcb.
+
+config KERNEL_CUSTOM_F7A
+    default n
+        bool "Custom for hardware F7A_pcb"
+        help
+                Custom for F7A_pcb.
+				
 if ARM64_DMA_USE_IOMMU
 
 config ARM64_DMA_IOMMU_ALIGNMENT
@@ -301,6 +319,13 @@ config PCI_DOMAINS_GENERIC
 
 config PCI_SYSCALL
 	def_bool PCI
+
+config KERNEL_CUSTOM_D2S
+    default n
+        bool "Custom for hardware D2S_pcb"
+            help
+                    Custom for D2S_pcb.
+
 
 source "drivers/pci/Kconfig"
 source "drivers/pci/pcie/Kconfig"
@@ -1165,6 +1190,13 @@ config BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES
 	help
 	  Space separated list of names of dtbs to append when
 	  building a concatenated Image.gz-dtb.
+
+config BOOT_INFO
+	bool "Boot information from bootloader"
+	default y
+	help
+	  On embedded linux device, we try to collect more information from
+	  bootloader to kernel. eg. powerup reason.
 
 config BUILD_ARM64_DT_OVERLAY
 	bool "enable DT overlay compilation support"

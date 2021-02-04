@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -586,6 +587,20 @@ enum {
 #define EN_TRYSINK_MODE_BIT			BIT(2)
 #define EN_LEGACY_CABLE_DETECTION_BIT		BIT(1)
 #define ALLOW_PD_DRING_UFP_TCCDB_BIT		BIT(0)
+
+#define HVDCP_PULSE_COUNT_MAX_REG		(USBIN_BASE + 0x5B)
+#define HVDCP_PULSE_COUNT_MAX_QC2_MASK	 GENMASK(7, 6)
+
+enum {
+	HVDCP_PULSE_COUNT_MAX_QC2_5V,
+	HVDCP_PULSE_COUNT_MAX_QC2_9V,
+	HVDCP_PULSE_COUNT_MAX_QC2_12V,
+	HVDCP_PULSE_COUNT_MAX_QC2_INVALID
+};
+
+#define PULSE_COUNT_QC2P0_12V			BIT(7)
+#define PULSE_COUNT_QC2P0_9V			BIT(6)
+#define PULSE_COUNT_QC3P0_MASK			GENMASK(5, 0)
 
 #define USBIN_ADAPTER_ALLOW_CFG_REG		(USBIN_BASE + 0x60)
 #define USBIN_ADAPTER_ALLOW_MASK		GENMASK(3, 0)

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -652,12 +653,12 @@ static int msm_qti_pp_set_sec_auxpcm_lb_vol_mixer(
 static int msm_qti_pp_get_channel_map_mixer(struct snd_kcontrol *kcontrol,
 					    struct snd_ctl_elem_value *ucontrol)
 {
-	char channel_map[PCM_FORMAT_MAX_NUM_CHANNEL_V2] = {0};
+	//char channel_map[PCM_FORMAT_MAX_NUM_CHANNEL_V2] = {0};
 	int i;
 
-	adm_get_multi_ch_map(channel_map, ADM_PATH_PLAYBACK);
+	//adm_get_multi_ch_map(channel_map, ADM_PATH_PLAYBACK);
 	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL_V2; i++)
-		ucontrol->value.integer.value[i] = (unsigned) channel_map[i];
+		ucontrol->value.integer.value[i] = 0;
 	return 0;
 }
 
@@ -666,11 +667,9 @@ static int msm_qti_pp_put_channel_map_mixer(struct snd_kcontrol *kcontrol,
 {
 	char channel_map[PCM_FORMAT_MAX_NUM_CHANNEL_V2] = {0};
 	int i;
-
 	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL_V2; i++)
 		channel_map[i] = (char)(ucontrol->value.integer.value[i]);
 	adm_set_multi_ch_map(channel_map, ADM_PATH_PLAYBACK);
-
 	return 0;
 }
 

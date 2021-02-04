@@ -3,6 +3,7 @@
  * Derived from the PCAN project file driver/src/pcan_usb_core.c
  *
  * Copyright (C) 2003-2010 PEAK System-Technik GmbH
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2010-2012 Stephane Grosjean <s.grosjean@peak-system.com>
  *
  * Many thanks to Klaus Hitschler <klaus.hitschler@gmx.de>
@@ -881,7 +882,7 @@ static void peak_usb_disconnect(struct usb_interface *intf)
 
 		dev_prev_siblings = dev->prev_siblings;
 		dev->state &= ~PCAN_USB_STATE_CONNECTED;
-		strncpy(name, netdev->name, IFNAMSIZ);
+		strlcpy(name, netdev->name, IFNAMSIZ);
 
 		unregister_netdev(netdev);
 

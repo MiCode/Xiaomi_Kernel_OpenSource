@@ -633,8 +633,8 @@ config MSM_RDBG
 	  for a debugger running on a host PC to communicate with a remote
 	  stub running on peripheral subsystems such as the ADSP, MODEM etc.
 
-config QCOM_SDIO_CLIENT
-	bool "QCOM_SDIO_CLIENT support"
+config QTI_SDIO_CLIENT
+	bool "QTI_SDIO_CLIENT support"
 	depends on SDIO_QCN
 	default y
 	help

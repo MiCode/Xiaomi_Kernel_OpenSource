@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2005 Marc Kleine-Budde, Pengutronix
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2006 Andrey Volkov, Varma Electronics
  * Copyright (C) 2008-2009 Wolfgang Grandegger <wg@grandegger.com>
  *
@@ -1065,6 +1066,8 @@ static struct rtnl_link_ops can_link_ops __read_mostly = {
 int register_candev(struct net_device *dev)
 {
 	dev->rtnl_link_ops = &can_link_ops;
+	netif_carrier_off(dev);
+
 	return register_netdev(dev);
 }
 EXPORT_SYMBOL_GPL(register_candev);

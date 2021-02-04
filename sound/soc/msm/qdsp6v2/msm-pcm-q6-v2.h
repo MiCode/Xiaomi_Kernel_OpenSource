@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2008 HTC Corporation
  * Copyright (c) 2012-2018 The Linux Foundation. All rights reserved.
  *
@@ -127,6 +128,7 @@ struct msm_plat_data {
 	struct snd_pcm *pcm;
 	struct snd_pcm *pcm_device[MSM_FRONTEND_DAI_MM_SIZE];
 	struct msm_pcm_channel_mixer chmixer_pspd[MSM_FRONTEND_DAI_MM_SIZE][2];
+	struct mutex lock;
 };
 
 #endif /*_MSM_PCM_H*/

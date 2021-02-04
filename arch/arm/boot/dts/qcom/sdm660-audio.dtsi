@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,19 +96,6 @@
 			qcom,mem-base-addr = <0x100000>;
 		};
 
-		wcd_usbc_analog_en1_gpio: msm_cdc_pinctrl_usbc_audio_en1 {
-			compatible = "qcom,msm-cdc-pinctrl";
-			pinctrl-names = "aud_active", "aud_sleep";
-			pinctrl-0 = <&wcd_usbc_analog_en1_active>;
-			pinctrl-1 = <&wcd_usbc_analog_en1_idle>;
-		};
-
-		wcd_usbc_analog_en2n_gpio: msm_cdc_pinctrl_usbc_audio_en2 {
-			compatible = "qcom,msm-cdc-pinctrl";
-			pinctrl-names = "aud_active", "aud_sleep";
-			pinctrl-0 = <&wcd_usbc_analog_en2n_active>;
-			pinctrl-1 = <&wcd_usbc_analog_en2n_idle>;
-		};
 	};
 };
 
@@ -208,23 +196,23 @@
 
 	cdc_sdw_gpios: sdw_clk_data_pinctrl {
 	      compatible = "qcom,msm-cdc-pinctrl";
-	      pinctrl-names = "aud_active", "aud_sleep";
-	      pinctrl-0 = <&sdw_clk_active &sdw_data_active>;
-	      pinctrl-1 = <&sdw_clk_sleep &sdw_data_sleep>;
+	      //pinctrl-names = "aud_active", "aud_sleep";
+	      //pinctrl-0 = <&sdw_clk_active &sdw_data_active>;
+	     // pinctrl-1 = <&sdw_clk_sleep &sdw_data_sleep>;
 	};
 
 	wsa_spkr_en1: wsa_spkr_en1_pinctrl {
 	      compatible = "qcom,msm-cdc-pinctrl";
-	      pinctrl-names = "aud_active", "aud_sleep";
-	      pinctrl-0 = <&spkr_1_sd_n_active>;
-	      pinctrl-1 = <&spkr_1_sd_n_sleep>;
+	      //pinctrl-names = "aud_active", "aud_sleep";
+	     // pinctrl-0 = <&spkr_1_sd_n_active>;
+	     // pinctrl-1 = <&spkr_1_sd_n_sleep>;
 	};
 
 	wsa_spkr_en2: wsa_spkr_en2_pinctrl {
 	      compatible = "qcom,msm-cdc-pinctrl";
-	      pinctrl-names = "aud_active", "aud_sleep";
-	      pinctrl-0 = <&spkr_2_sd_n_active>;
-	      pinctrl-1 = <&spkr_2_sd_n_sleep>;
+	      //pinctrl-names = "aud_active", "aud_sleep";
+	      //pinctrl-0 = <&spkr_2_sd_n_active>;
+	      //pinctrl-1 = <&spkr_2_sd_n_sleep>;
 	};
 
 	msm_sdw_codec: msm-sdw-codec@152c1000 {
@@ -233,7 +221,7 @@
 		reg = <0x152c1000 0x0>;
 		interrupts = <0 161 0>;
 		interrupt-names = "swr_master_irq";
-		qcom,cdc-sdw-gpios = <&cdc_sdw_gpios>;
+		//qcom,cdc-sdw-gpios = <&cdc_sdw_gpios>;
 
 		swr_master {
 			compatible = "qcom,swr-wcd";

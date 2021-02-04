@@ -2,6 +2,7 @@
  * Atmel SDMMC controller driver.
  *
  * Copyright (C) 2015 Atmel,
+ * Copyright (C) 2021 XiaoMi, Inc.
  *		 2015 Ludovic Desroches <ludovic.desroches@atmel.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -143,6 +144,9 @@ static int sdhci_at91_probe(struct platform_device *pdev)
 		goto clocks_disable_unprepare;
 
 	sdhci_get_of_property(pdev);
+
+	/* HS200 is broken at this moment */
+	host->quirks2 = SDHCI_QUIRK2_BROKEN_HS200;
 
 	ret = sdhci_add_host(host);
 	if (ret)
