@@ -743,6 +743,7 @@
   drm_mode_duplicate
   drm_mode_equal
   drm_mode_get_tile_group
+  drm_mode_is_420_only
   drm_mode_object_find
   drm_mode_object_get
   drm_mode_object_put
