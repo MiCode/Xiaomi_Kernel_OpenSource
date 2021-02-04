@@ -120,3 +120,5 @@ obj-$(CONFIG_MSM_SLATECOM_INTERFACE) += slatecom_interface.o
 obj-$(CONFIG_QCOM_AOP_SET_DDR) += aop-set-ddr.o
 obj-$(CONFIG_CPU_V7) += idle-v7.o
 obj-$(CONFIG_DUMP_XBL_LOG) += dump_boot_log.o
+# GNSS driver
+obj-$(CONFIG_GNSS_SIRF)		+= gnsssirf/
