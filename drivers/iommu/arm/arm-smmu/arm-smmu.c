@@ -1203,7 +1203,6 @@ static int arm_smmu_get_dma_cookie(struct device *dev,
 		ret = fast_smmu_init_mapping(dev, domain, pgtbl_ops);
 		if (ret)
 			return ret;
-		dev->dma_ops = fast_smmu_get_dma_ops();
 	}
 
 	return 0;
