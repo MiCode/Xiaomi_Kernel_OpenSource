@@ -32,6 +32,7 @@
 | gram-q-oss | MI POCO M2 Pro,Redmi Note 9 Pro,Redmi Note 9 Pro Max | Android Q | LA.UM.8.9.r1-07100-SM6xx.0 | [gram-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gram-q-oss) |
 | gemini-m-oss | Mi 5 | Android M | LA.HB.1.1.1.c2_rb1035 | [gemini-m-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gemini-m-oss) |
 | ginkgo-p-oss | Redmi Note 8 | Android P | LA.UM.7.11.r1-02700-NICOBAR.0 | [ginkgo-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ginkgo-p-oss) |
+| ginkgo-q-oss | Redmi Note 8, Redmi Note 8T | Android Q | LA.UM.8.11.r1-02400-NICOBAR.0 | [ginkgo-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ginkgo-q-oss) |
 | grus-p-oss | Mi 8SE, Mi 9SE | Android P | LA.UM.7.8.r1-04400-SDM710.0 | [grus-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/grus-p-oss) |
 | gucci-kk-oss | Redmi Note Dual SIM | Android KK | LNX.LA.3.7.2.1.c6-01400-8x16.0 | [gucci-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gucci-kk-oss) |
 | gauguin-q-oss | Redmi Note 9 Pro | Android Q | LA.UM.8.13.r1-09200-SAIPAN.0 | [gauguin-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gauguin-q-oss) |
