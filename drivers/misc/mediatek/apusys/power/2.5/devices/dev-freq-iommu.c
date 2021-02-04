@@ -263,7 +263,7 @@ static int iommu_devfreq_remove(struct platform_device *pdev)
 
 static const struct apu_plat_data mt688x_iommu_data = {
 	.user = APUIOMMU,
-	.clkgp_name = "mt688x_iommun",
+	.clkgp_name = "mt688x_iommu",
 	.plat_ops_name = "mt68xx_platops",
 };
 

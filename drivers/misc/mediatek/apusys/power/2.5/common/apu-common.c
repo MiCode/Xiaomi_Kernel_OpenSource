@@ -42,6 +42,7 @@ const char *apu_dev_string(enum DVFS_USER user)
 		[MDLA] = "APUMDLA",
 		[MDLA0] = "APUMDLA0",
 		[MDLA1] = "APUMDLA1",
+		[APUIOMMU] = "APUIOMMU",
 		[APUCONN] = "APUCONN",
 		[APUCORE] = "APUCORE",
 		[APUCB] = "APUCB",
