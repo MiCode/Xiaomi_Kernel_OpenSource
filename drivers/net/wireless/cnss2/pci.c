@@ -5026,21 +5026,35 @@ static int cnss_mhi_bw_scale(struct mhi_controller *mhi_ctrl,
 			     struct mhi_link_info *link_info)
 {
 	struct cnss_pci_data *pci_priv = dev_get_drvdata(mhi_ctrl->cntrl_dev);
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 	int ret = 0;
+
+	cnss_pr_dbg("Setting link speed:0x%x, width:0x%x\n",
+		    link_info->target_link_speed,
+		    link_info->target_link_width);
+
+	/* It has to set target link speed here before setting link bandwidth
+	 * when device requests link speed change. This can avoid setting link
+	 * bandwidth getting rejected if requested link speed is higher than
+	 * current one.
+	 */
+	ret = msm_pcie_set_target_link_speed(plat_priv->rc_num,
+					     link_info->target_link_speed);
+	if (ret)
+		cnss_pr_err("Failed to set target link speed to 0x%x, err = %d\n",
+			    link_info->target_link_speed, ret);
 
 	ret = msm_pcie_set_link_bandwidth(pci_priv->pci_dev,
 					  link_info->target_link_speed,
 					  link_info->target_link_width);
 
-	if (ret)
+	if (ret) {
+		cnss_pr_err("Failed to set link bandwidth, err = %d\n", ret);
 		return ret;
+	}
 
 	pci_priv->def_link_speed = link_info->target_link_speed;
 	pci_priv->def_link_width = link_info->target_link_width;
-
-	cnss_pr_dbg("Setting link speed:0x%x, width:0x%x\n",
-		    link_info->target_link_speed,
-		    link_info->target_link_width);
 
 	return 0;
 }
@@ -5540,6 +5554,21 @@ int cnss_pci_init(struct cnss_plat_data *plat_priv)
 	if (ret) {
 		cnss_pr_err("Failed to find PCIe RC number, err = %d\n", ret);
 		goto out;
+	}
+
+	plat_priv->rc_num = rc_num;
+
+	/* Always set initial target PCIe link speed to Gen2 for QCA6490 device
+	 * since there may be link issues if it boots up with Gen3 link speed.
+	 * Device is able to change it later at any time. It will be rejected
+	 * if requested speed is higher than the one specified in PCIe DT.
+	 */
+	if (plat_priv->device_id == QCA6490_DEVICE_ID) {
+		ret = msm_pcie_set_target_link_speed(rc_num,
+						     PCI_EXP_LNKSTA_CLS_5_0GB);
+		if (ret)
+			cnss_pr_err("Failed to set target PCIe link speed to Gen2, err = %d\n",
+				    ret);
 	}
 
 retry:
