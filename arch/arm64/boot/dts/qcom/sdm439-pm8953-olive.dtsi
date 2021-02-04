@@ -1,0 +1,322 @@
+/*
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&rpm_bus {
+	/* Deleting all pm8937 regulators */
+	/delete-node/ rpm-regulator-smpa1;
+	/delete-node/ rpm-regulator-smpa2;
+	/delete-node/ rpm-regulator-smpa3;
+	/delete-node/ rpm-regulator-smpa4;
+	/delete-node/ rpm-regulator-ldoa2;
+	/delete-node/ rpm-regulator-ldoa3;
+	/delete-node/ rpm-regulator-ldoa5;
+	/delete-node/ rpm-regulator-ldoa6;
+	/delete-node/ rpm-regulator-ldoa7;
+	/delete-node/ rpm-regulator-ldoa8;
+	/delete-node/ rpm-regulator-ldoa9;
+	/delete-node/ rpm-regulator-ldoa10;
+	/delete-node/ rpm-regulator-ldoa11;
+	/delete-node/ rpm-regulator-ldoa12;
+	/delete-node/ rpm-regulator-ldoa13;
+	/delete-node/ rpm-regulator-ldoa14;
+	/delete-node/ rpm-regulator-ldoa15;
+	/delete-node/ rpm-regulator-ldoa16;
+	/delete-node/ rpm-regulator-ldoa17;
+	/delete-node/ rpm-regulator-ldoa19;
+	/delete-node/ rpm-regulator-ldoa22;
+	/delete-node/ rpm-regulator-ldoa23;
+};
+
+&spmi_bus {
+	/delete-node/ qcom,pm8937@0;
+	/delete-node/ qcom,pm8937@1;
+};
+
+&thermal_zones {
+	/delete-node/ pa-therm1-adc;
+	/delete-node/ xo-therm-adc;
+	/delete-node/ xo-therm-buf-adc;
+	/delete-node/ case-therm-adc;
+	/delete-node/ pa-therm0-adc;
+	/delete-node/ pm8937_tz;
+};
+
+&int_codec {
+	asoc-codec = <&stub_codec>;
+	asoc-codec-names = "msm-stub-codec.1";
+	/delete-property/ msm-vdd-wsa-switch-supply;
+};
+
+&clock_audio {
+	/delete-property/ qcom,audio-ref-clk-gpio;
+};
+
+&wcd9335 {
+	/delete-property/ cdc-vdd-buck-supply;
+	/delete-property/ cdc-buck-sido-supply;
+	/delete-property/ cdc-vdd-tx-h-supply;
+	/delete-property/ cdc-vdd-rx-h-supply;
+	/delete-property/ cdc-vdd-px-supply;
+	/delete-property/ cdc-vdd-mic-bias-supply;
+};
+
+&soc {
+	/delete-node/ regulator@01946004;
+	/delete-node/ regulator@b018000;
+	/delete-node/ eldo2;
+	/delete-node/ adv_vreg;
+
+	qcom,gcc@1800000 {
+		/delete-property/ vdd_dig-supply;
+		/delete-property/ vdd_sr2_dig-supply;
+		/delete-property/ vdd_sr2_pll-supply;
+		/delete-property/ vdd_hf_dig-supply;
+		/delete-property/ vdd_hf_pll-supply;
+		vdd_dig-supply = <&pm8953_s2_level>;
+		vdd_sr2_dig-supply = <&pm8953_s2_level_ao>;
+		vdd_sr2_pll-supply = <&pm8953_l7_ao>;
+		vdd_hf_dig-supply = <&pm8953_s2_level_ao>;
+		vdd_hf_pll-supply = <&pm8953_l7_ao>;
+	};
+
+	qcom,cpu-clock-8939@b111050 {
+		/delete-property/ vdd-c0-supply;
+		/delete-property/ vdd-c1-supply;
+		/delete-property/ vdd-cci-supply;
+	};
+
+	qcom,lpass@c200000 {
+		/delete-property/ vdd_cx-supply;
+	};
+
+	qcom,pronto@a21b000 {
+		/delete-property/ vdd_pronto_pll-supply;
+	};
+
+	qcom,wcnss-wlan@0a000000 {
+		/delete-property/ qcom,pronto-vddmx-supply;
+		/delete-property/ qcom,pronto-vddcx-supply;
+		/delete-property/ qcom,pronto-vddpx-supply;
+		/delete-property/ qcom,iris-vddxo-supply;
+		/delete-property/ qcom,iris-vddrfa-supply;
+		/delete-property/ qcom,iris-vddpa-supply;
+		/delete-property/ qcom,iris-vdddig-supply;
+		/delete-property/ qcom,wcnss-adc_tm;
+	};
+};
+
+&pil_mss {
+	/delete-property/ vdd_mss-supply;
+	/delete-property/ vdd_cx-supply;
+	/delete-property/ vdd_cx-voltage;
+	/delete-property/ vdd_mx-supply;
+	/delete-property/ vdd_mx-uV;
+	/delete-property/ vdd_pll-supply;
+};
+
+&mdss_dsi {
+	vdda-supply = <&pm8953_l23>;
+	vddio-supply = <&pm8953_l5>;
+
+	qcom,ctrl-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,ctrl-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdda";
+			qcom,supply-min-voltage = <800000>;
+			qcom,supply-max-voltage = <800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-post-on-sleep = <20>;
+		};
+	};
+};
+
+&usb_otg {
+	hsusb_vdd_dig-supply = <&pm8953_l23>;
+	HSUSB_1p8-supply = <&pm8953_l7>;
+	HSUSB_3p3-supply = <&pm8953_l13>;
+	qcom,vdd-voltage-level = <0 800000 800000>;
+};
+
+&mdss_dsi0_pll {
+	vddio-supply = <&pm8953_l6>;
+};
+
+&mdss_dsi1_pll {
+	vddio-supply = <&pm8953_l6>;
+};
+
+&mdss_dsi0 {
+	vdd-supply = <&pm8953_l17>;
+	vddio-supply = <&pm8953_l6>;
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+	vdd-supply = <&pm8953_l17>;
+	vddio-supply = <&pm8953_l6>;
+};
+
+&int_codec {
+	/delete-property/ asoc-codec;
+	/delete-property/ msm-vdd-wsa-switch-supply;
+};
+
+&clock_audio {
+	/delete-property/ qcom,audio-ref-clk-gpio;
+};
+
+&wcd9335 {
+	/delete-property/ cdc-vdd-buck-supply;
+	/delete-property/ cdc-buck-sido-supply;
+	/delete-property/ cdc-vdd-tx-h-supply;
+	/delete-property/ cdc-vdd-rx-h-supply;
+	/delete-property/ cdc-vdd-px-supply;
+	/delete-property/ cdc-vdd-mic-bias-supply;
+};
+
+#include "pm8953.dtsi"
+#include "pm8953-rpm-regulator.dtsi"
+#include "sdm439-regulator-olive.dtsi"
+
+&thermal_zones {
+	aoss0-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+
+	mdm-core-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	lpass-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	camera-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	cpuss1-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	apc1-cpu0-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	apc1-cpu1-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	apc1-cpu2-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	apc1-cpu3-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	cpuss0-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	gpu-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+
+	pa-therm0 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm8953_adc_tm 0x36>;
+		thermal-governor = "user_space";
+		wake-capable-sensor;
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+	};
+};
+
+&pil_mss {
+	vdd_mss-supply = <&pm8953_s1>;
+	vdd_cx-supply = <&pm8953_s2_level>;
+	vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	vdd_mx-supply = <&pm8953_s7_level_ao>;
+	vdd_mx-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	vdd_pll-supply = <&pm8953_l7>;
+};
+
+&soc {
+	qcom,lpass@c200000 {
+		vdd_cx-supply = <&pm8953_s2_level>;
+	};
+
+	qcom,pronto@a21b000 {
+		vdd_pronto_pll-supply = <&pm8953_l7>;
+	};
+
+	qcom,wcnss-wlan@0a000000 {
+		qcom,pronto-vddmx-supply = <&pm8953_s7_level_ao>;
+		qcom,pronto-vddcx-supply = <&pm8953_s2_level>;
+		qcom,pronto-vddpx-supply = <&pm8953_l5>;
+		qcom,iris-vddxo-supply   = <&pm8953_l7>;
+		qcom,iris-vddrfa-supply  = <&pm8953_l19>;
+		qcom,iris-vddpa-supply   = <&pm8953_l9>;
+		qcom,iris-vdddig-supply  = <&pm8953_l5>;
+		qcom,wcnss-adc_tm = <&pm8953_adc_tm>;
+	};
+};
+

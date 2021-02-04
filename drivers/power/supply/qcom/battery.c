@@ -1,4 +1,5 @@
 /* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -868,6 +869,7 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	 * check for termination at reduced float voltage and re-trigger
 	 * charging if new float voltage is above last FV.
 	 */
+	/*
 	if ((chip->float_voltage_uv < fv_uv) && is_batt_available(chip)) {
 		rc = power_supply_get_property(chip->batt_psy,
 				POWER_SUPPLY_PROP_STATUS, &pval);
@@ -888,7 +890,7 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	}
 
 	chip->float_voltage_uv = fv_uv;
-
+	*/
 	return 0;
 }
 

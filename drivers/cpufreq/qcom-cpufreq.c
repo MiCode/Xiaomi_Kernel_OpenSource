@@ -3,6 +3,7 @@
  * MSM architecture cpufreq driver
  *
  * Copyright (C) 2007 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2007-2017, The Linux Foundation. All rights reserved.
  * Author: Mike A. Chan <mikechan@google.com>
  *
@@ -30,6 +31,9 @@
 #include <linux/of_device.h>
 #include <linux/cpu_cooling.h>
 #include <trace/events/power.h>
+
+#include <linux/proc_fs.h>
+#include <linux/uaccess.h>
 
 static DEFINE_MUTEX(l2bw_lock);
 
@@ -310,6 +314,29 @@ static struct freq_attr *msm_freq_attr[] = {
 	&cpufreq_freq_attr_scaling_available_freqs,
 	NULL,
 };
+static unsigned long max_freq;
+static int cpumaxfreq_proc_show(struct seq_file *m, void *v)
+{
+	unsigned long freq = 0;
+	//if((max_freq/1000)%10>=5)//rounded to 0.1
+	//	freq=1+(max_freq/10000);
+	//else
+		freq = (max_freq/10000);
+	seq_printf(m, "%lu.%02lu", freq/100, freq%100);
+	return 0;
+}
+
+static int cpumaxfreq_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, cpumaxfreq_proc_show, NULL);
+}
+static const struct file_operations cpumaxfreq_proc_fops = {
+	.open		= cpumaxfreq_proc_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
 
 static void msm_cpufreq_ready(struct cpufreq_policy *policy)
 {
@@ -416,6 +443,8 @@ static struct cpufreq_frequency_table *cpufreq_parse_dt(struct device *dev,
 
 		ftbl[j].driver_data = j;
 		ftbl[j].frequency = f;
+		if (max_freq < f)
+			max_freq = f;
 		j++;
 	}
 
@@ -460,6 +489,7 @@ static int msm_cpufreq_probe(struct platform_device *pdev)
 	if (!IS_ERR(ftbl)) {
 		for_each_possible_cpu(cpu)
 			per_cpu(freq_table, cpu) = ftbl;
+		proc_create("cpumaxfreq", 0444, NULL, &cpumaxfreq_proc_fops);
 		goto out_register;
 	}
 
@@ -499,6 +529,7 @@ static int msm_cpufreq_probe(struct platform_device *pdev)
 		}
 		per_cpu(freq_table, cpu) = ftbl;
 	}
+	proc_create("cpumaxfreq", 0444, NULL, &cpumaxfreq_proc_fops);
 
 out_register:
 	ret = register_pm_notifier(&msm_cpufreq_pm_notifier);

@@ -1,6 +1,7 @@
 /* drivers/soc/qcom/msm_smd.c
  *
  * Copyright (C) 2007 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2008-2017, 2018, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
@@ -508,11 +509,11 @@ static int smsm_pm_notifier(struct notifier_block *nb,
 {
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
-		smsm_change_state(SMSM_APPS_STATE, SMSM_PROC_AWAKE, 0);
+		//smsm_change_state(SMSM_APPS_STATE, SMSM_PROC_AWAKE, 0);
 		break;
 
 	case PM_POST_SUSPEND:
-		smsm_change_state(SMSM_APPS_STATE, 0, SMSM_PROC_AWAKE);
+		//smsm_change_state(SMSM_APPS_STATE, 0, SMSM_PROC_AWAKE);
 		break;
 	}
 	return NOTIFY_DONE;

@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -239,6 +240,13 @@ static int is_sensor_port(struct msm_ipc_router_remote_port *rport)
 
 	if (rport && rport->server) {
 		svcid = rport->server->name.service;
+
+// 277 is QMI service ID of SNS_SAM_SENSOR_THRESH(SAM sensor based on Proximity)
+// 256 is QMI service ID of SNS_SMGR_API(All physical sensors, include SAR Sensor)
+// If false is returned, services will hold wakelock and prevent AP sleep.
+		if (svcid == 277 || svcid == 256)
+			return false;
+
 		if (svcid == 400 || (svcid >= 256 && svcid <= 320))
 			return true;
 	}

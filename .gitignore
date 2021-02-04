@@ -18,12 +18,10 @@
 *.so
 *.so.dbg
 *.mod.c
-*.i
 *.lst
 *.symtypes
 *.order
 *.elf
-*.bin
 *.tar
 *.gz
 *.bz2

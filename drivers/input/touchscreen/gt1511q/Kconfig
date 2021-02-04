@@ -1,0 +1,259 @@
+#
+# Touchscreen driver configuration
+#
+menuconfig TOUCHSCREEN_GOODIX_GT1X
+	bool "GOODIX GT1X Touchscreen"
+	default y
+	help
+	  Say Y here if you have GOODIX GT1X Touchscreen.
+
+	  If unsure, say N.
+
+if TOUCHSCREEN_GOODIX_GT1X
+config GTP_INT_SEL_SYNC
+	bool "GTP INT GPIO SELECT I2C-ADDR AND SYNC"
+	default y
+	help
+	  Say Y here if your want int gpio select i2c-addr
+
+	  If unsure, say N
+
+config GTP_INCELL_PANEL
+	bool "GTP_INCELL_PANEL"
+	default n
+	help
+	Say Y here if you have GT1152 incell panel..
+
+	If unsure, say N.
+
+config GTP_DRIVER_SEND_CFG
+	bool "GTP_DRIVER_SEND_CONFIG"
+	default y
+	help
+	Say Y here if you want touch driver send chip config
+	data to hardware.
+
+	If unsure, say N.
+
+config GTP_CUSTOM_CFG
+	bool "GTP_CUSTOM_CONFIG"
+	default y
+	help
+	Say Y here if you want to customize the resolution and
+	INT trigger type.
+
+	If unsure, say N.
+
+config GTP_CHANGE_X2Y
+	bool "GTP_CHANGE_X2Y"
+	default n
+	help
+	Say Y here if you want to change x/y coordinate.
+
+	If unsure, say N.
+
+config GTP_WARP_X_ON
+	bool "GTP_WARP_X_ON"
+	default n
+	help
+	Say Y here if you want to mirror x.
+
+	If unsure, say N.
+
+config GTP_WARP_Y_ON
+	bool "GTP_WARP_Y_ON"
+	default n
+	help
+	Say Y here if you want to mirror y.
+
+	If unsure, say N.
+
+config GTP_GESTURE_WAKEUP
+	bool "GTP_GESTURE_WAKEUP Feature"
+	default y
+	help
+	Say Y here if you want to enable gesture feature.
+
+	If unsure, say N.
+
+config GTP_EDGE_INHIBITION
+	bool "GTP_EDGE_INHIBITION Feature"
+	default n
+	help
+	Say Y here if you want to send cmd change edge Inhibition feature.
+
+	If unsure, say N.
+
+config GTP_HOTKNOT
+	bool "GTP_HOTKNOT Feature"
+	default n
+	help
+	Say Y here if you want to enable hotknot feature.
+
+	If unsure, say N.
+
+config HOTKNOT_BLOCK_RW
+	bool "HOTKNOT_BLOCK_RW"
+	default n
+	help
+	Say Y here if you have want to enable blocking rw
+	feature when using hotknot.
+
+	If unsure, say N.
+
+config GTP_FW_UPDATE_VERIFY
+	bool "GTP_FW_UPDATE_VERIFY"
+	default n
+	help
+	Say Y here if you want verify firmware in chip flash
+	during firmware update, it's unnecessary to enable
+	verification if you use the latest firmwrae.
+
+	If unsure, say N.
+
+config GTP_HAVE_TOUCH_KEY
+	bool "GTP_HAVE_TOUCH_KEY"
+	default n
+	help
+	Say Y here if you have touch key.
+
+	If unsure, say N.
+
+config GTP_PROXIMITY
+	bool "GTP_PROXIMITY Feature"
+	default n
+	help
+	Say Y here if you want enable proximity feature.
+
+	If unsure, say N.
+
+config GTP_WITH_STYLUS
+	bool "GTP_WITH_STYLUS"
+	default n
+	help
+	Say Y here if you have pen.
+
+	If unsure, say N.
+
+config GTP_HAVE_STYLUS_KEY
+	bool "GTP_HAVE_STYLUS_KEY"
+	default n
+	help
+	Say Y here if you have GTP_HAVE_STYLUS_KEY.
+
+	If unsure, say N.
+
+config GTP_AUTO_UPDATE
+	bool "GTP_AUTO_UPDATE"
+	default y
+	help
+	Say Y here if you want to check and update firmware
+	during kernel booting.
+
+	If unsure, say N.
+
+config GTP_ITO_TEST_SELF
+	bool "GTP_ITO_TEST_SELF"
+	default y
+	help
+	Say Y here if you want to test TP ITO
+	during kernel booting.
+
+	If unsure, say N.
+
+config GTP_CREATE_WR_NODE
+	bool "GTP_CREATE_WR_NODE DebugTools Node"
+	default y
+	help
+	Say Y here if you want to use Goodix debug tools..
+
+	If unsure, say N.
+
+config GTP_ESD_PROTECT
+	bool "GTP_ESD_PROTECT"
+	default n
+	help
+	Say Y here if you want ESD protection.
+
+	If unsure, say N.
+
+config GTP_CHARGER_SWITCH
+	bool "GTP_CHARGER_SWITCH"
+	default n
+	help
+	Say Y here if you want ot turn on charger detector.
+
+	If unsure, say N.
+
+config GTP_POWER_CTRL_SLEEP
+	bool "GTP_POWER_CTRL_SLEEP"
+	default n
+	help
+	Say Y here if you want ot power off touch panel
+	after suspend.
+
+	If unsure, say N.
+
+config GTP_TYPE_B_PROTOCOL
+	bool "GTP_TYPE_B_PROTOCOL"
+	default y
+	help
+	Say Y here if you want to use input type B protocol.
+
+	If unsure, say N.
+
+config GTP_SMART_COVER
+	bool "GTP_SMART_COVER"
+	default n
+	help
+	Say Y here if you want to use smart cover feature.
+
+	If unsure, say N.
+
+config GTP_DEBUG_ON
+	bool "GTP_DEBUG_ON"
+	default n
+	help
+	Say Y here if you want to keep debug logs.
+
+	If unsure, say N.
+
+config GTP_DEBUG_ARRAY_ON
+	bool "GTP_DEBUG_ARRAY_ON"
+	depends on GTP_DEBUG_ON
+	default n
+	help
+	Say Y here if you have GTP_DEBUG_ARRAY_ON.
+
+	If unsure, say N.
+
+config GTP_DEBUG_FUNC_ON
+	bool "GTP_DEBUG_FUNC_ON"
+	depends on GTP_DEBUG_ON
+	default n
+	help
+	Say Y here if you have GTP_DEBUG_FUNC_ON.
+
+	If unsure, say N.
+
+config TPD_HAVE_BUTTON
+	bool "TPD_HAVE_BUTTON"
+	depends on MTK_PLATFORM
+	default n
+	help
+	Say Y here if you have tpd button.
+
+	If unsure, say N.
+
+config GTP_REQUEST_FW_UPDATE
+	bool "GTP_REQUEST_FW_UPDATE"
+	default y
+	help
+	Say Y here if you have touch panel GTP_REQUEST_FW_UPDATE.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+endif

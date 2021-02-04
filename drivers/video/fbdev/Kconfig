@@ -2504,3 +2504,9 @@ config FB_SM712
 	  This driver is also available as a module. The module will be
 	  called sm712fb. If you want to compile it as a module, say M
 	  here and read <file:Documentation/kbuild/modules.txt>.
+
+config LM3697_SUPPORT
+	tristate "TI LM3697"
+	default n
+	help
+	  Say y here to support TI backlight IC LM3697.

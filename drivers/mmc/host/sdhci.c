@@ -1822,7 +1822,7 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		if (mrq->data)
 			mrq->data->error = -EIO;
 		host->mrq = NULL;
-		sdhci_dumpregs(host);
+		//sdhci_dumpregs(host);
 		mmc_request_done(host->mmc, mrq);
 		return;
 	}

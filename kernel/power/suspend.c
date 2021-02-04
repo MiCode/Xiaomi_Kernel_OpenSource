@@ -2,6 +2,7 @@
  * kernel/power/suspend.c - Suspend to RAM and standby functionality.
  *
  * Copyright (c) 2003 Patrick Mochel
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2003 Open Source Development Lab
  * Copyright (c) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
  *
@@ -31,6 +32,8 @@
 #include <linux/compiler.h>
 #include <linux/moduleparam.h>
 #include <linux/wakeup_reason.h>
+
+#include <soc/qcom/smsm.h>
 
 #include "power.h"
 
@@ -571,7 +574,11 @@ int pm_suspend(suspend_state_t state)
 		return -EINVAL;
 
 	pm_suspend_marker("entry");
+	smsm_change_state(SMSM_APPS_STATE, SMSM_PROC_AWAKE, 0);
+	pr_warn("%s: PM: PM_SUPEND_PREPARE smsm_change_state", __func__);
 	error = enter_state(state);
+	smsm_change_state(SMSM_APPS_STATE, 0, SMSM_PROC_AWAKE);
+	pr_warn("%s: PM: PM_POST_SUSPEND smsm_change_state", __func__);
 	if (error) {
 		suspend_stats.fail++;
 		dpm_save_failed_errno(error);

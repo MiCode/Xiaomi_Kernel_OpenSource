@@ -1,0 +1,268 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
+ * As a general rule, only version-specific property overrides should be placed
+ * inside this file. However, device definitions should be placed inside the
+ * yep_product_ql1001_flatform.dtsi file.
+ */
+
+&tlmm {
+		ts_int_default: ts_int_default {
+			mux {
+				pins = "gpio65";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio65";
+				drive-strength = <8>;
+				/*bias-pull-up;*/
+				input-enable;
+				bias-disable;
+			};
+		};
+
+		ts_int_output_high: ts_int_output_high {
+			mux {
+				pins = "gpio65";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio65";
+				drive-strength = <8>;
+				output-high;
+				bias-pull-up;
+			};
+		};
+
+		ts_int_output_low: ts_int_output_low {
+			mux {
+				pins = "gpio65";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio65";
+				drive-strength = <8>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+
+		ts_int_input: ts_int_input {
+			mux {
+				pins = "gpio65";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio65";
+				drive-strength = <8>;
+				input-enable;
+				bias-disable;
+			};
+		};
+
+		pmx_ts_reset_release {
+			ts_as_reset: ts_as_reset {
+				mux {
+					pins = "gpio64";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio64";
+					drive-strength = <8>;
+					input-enable;
+					bias-disable;
+				};
+			};
+		};
+
+		pmx_ts_reset_suspend {
+			ts_reset_suspend: ts_reset_suspend {
+				mux {
+					pins = "gpio64";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio64";
+					drive-strength = <8>;
+					bias-pull-down;
+					output-low;
+				};
+			};
+		};
+
+		pmx_ts_reset_active {
+			ts_reset_active: ts_reset_active {
+				mux {
+					pins = "gpio64";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio64";
+					drive-strength = <8>;
+					bias-pull-up;
+					output-high;
+				};
+			};
+		};
+
+		pmx_ts_rst_active {
+				ts_rst_active: ts_rst_active {
+						mux {
+								pins = "gpio64";
+								function = "gpio";
+						};
+
+						config {
+								pins = "gpio64";
+								drive-strength = <16>;
+								bias-pull-up;
+						};
+				};
+		};
+
+		pmx_ts_rst_suspend {
+			ts_rst_suspend: ts_rst_suspend {
+						mux {
+								pins = "gpio64";
+								function = "gpio";
+						};
+
+						config {
+								pins = "gpio64";
+								drive-strength = <2>;
+								bias-pull-down;
+						};
+				};
+		};
+};
+
+
+&soc {
+	i2c@78b7000 {
+		status = "okay";
+
+		goodix_ts@14 {
+			compatible = "goodix,gt1x";
+			reg = <0x14>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <65 0x2>;
+			vdd_ana-supply = <&pm8953_l10>;
+			vcc_i2c-supply = <&pm8953_l5>;
+			/* pins used by touchscreen */
+			pinctrl-names = "default","int-output-high","int-output-low","int-input",
+					"erst_as_default","erst_output_low","erst_output_high";
+					pinctrl-0 = <&ts_int_default>;
+					pinctrl-1 = <&ts_int_output_high>;
+					pinctrl-2 = <&ts_int_output_low>;
+					pinctrl-3 = <&ts_int_input>;
+					pinctrl-4 = <&ts_as_reset>;
+					pinctrl-5 = <&ts_reset_suspend>;
+					pinctrl-6 = <&ts_reset_active>;
+
+			goodix,reset-gpio = <&tlmm 64 0x00>;
+			goodix,irq-gpio = <&tlmm 65 0x2008>;
+			goodix,default-config0 = [
+				0B D0 02 A0 05 0A 3D 14 F0 80
+				CE 0F 64 46 3E 11 00 10 0A 00
+				01 01 00 00 00 00 00 18 00 00
+				A0 0A 0C 46 1E 5A 00 00 87 9E
+				D7 00 00 00 00 00 C7 E1 15 34
+				00 00 00 00 8E 20 1C 32 34 B8
+				08 00 2E 33 24 7B 1E 00 23 DC
+				05 41 50 01 4D 0F 0A 00 00 00
+				00 14 00 00 00 00 57 00 00 FF
+				F0 A9 07 00 00 00 00 00 00 00
+				00 00 00 00 23 4B 90 94 FF 00
+				10 03 EE 29 AA 30 82 37 72 3D
+				6E 44 6E 01 0F 14 03 1E 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 01 02 03 04 05
+				06 07 08 09 0A 0B 0C 0D 0E 0F
+				10 12 13 14 15 16 17 18 19 1A
+				1B 1D 1F FF FF FF FF 1D 1C 1B
+				1A 19 18 17 15 14 13 12 0C 08
+				06 FF FF FF FF FF FF FF FF FF
+				FF FF FF FF FF FF FF FF FF 00
+				C4 09 24 23 2A 7E 04 46 25 05
+				96 00 00 A4 61 00 6A F4 40 00
+				AA 00 33 33 00 40 67 E9 01 F3
+				32 64 32 00 00 00 00 00 00 28
+				A5 00 00 00 00 96 0A 75 00 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 04 55 88 02 0F 32 78 AA
+				66 04 00 75 1E 0A 05 DC 00 00
+				00 00 00 00 00 20 3A EF 86 00
+				00 00 00 0F 00 00 00 00 32 00
+				00 00 00 00 00 00 00 00 00 0F
+				00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 14 00
+				00 03 06 1E 33 8A 55 00 64 28
+				22 5A 14 0A 00 0A 07 2A C8 00
+				C8 94 26 84 10 2D 56
+			];
+		};
+
+		focaltech@38 {
+			compatible = "focaltech,ft5446";
+			reg = <0x38>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <65 0x2>;
+			vdd-supply = <&pm8953_l10>;
+			vcc_i2c-supply = <&pm8953_l5>;
+
+			/* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+					"pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			focaltech,name = "ft5446";
+			focaltech,family-id = <0x54>;
+			focaltech,reset-gpio = <&tlmm 64 0x0>;
+			focaltech,irq-gpio = <&tlmm 65 0x02>;
+			focaltech,max-touch-number = <10>;
+			focaltech,display-coords = <0 0 720 1440>;
+			focaltech,panel-coords = <0 0 720 1440>;
+			focaltech,no-force-update;
+			focaltech,i2c-pull-up;
+			focaltech,group-id = <1>;
+			focaltech,hard-reset-delay-ms = <200>;
+			focaltech,soft-reset-delay-ms = <200>;
+			focaltech,num-max-touches = <10>;
+			focaltech,fw-delay-aa-ms = <2>;
+			focaltech,fw-delay-55-ms = <2>;
+			focaltech,fw-upgrade-id1 = <0x54>;
+			focaltech,fw-upgrade-id2 = <0x2c>;
+			focaltech,fw-delay-readid-ms = <10>;
+			focaltech,fw-delay-era-flsh-ms = <2000>;
+			focaltech,fw-auto-cal;
+			focaltech,fw-vkey-support;
+			focaltech,resume-in-workqueue;
+			focaltech,num-virtual-key = <3>;
+			focal,virtual_key_1 = <172 500 2040>;/*home*/
+			focal,virtual_key_2 = <139 200 2040>;/*menu*/
+			focal,virtual_key_3 = <158 800 2040>;/*back*/
+			};
+
+		vituralsar@33{/*Add by HQ-102007757 for vituralsar*/
+			compatible = "virtualsar,sar";
+			reg = <0x33>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <126 0x02>;
+			vituralsar,irq-gpio = <&tlmm 126 0x2008>;
+			};
+	};
+};

@@ -1218,6 +1218,7 @@ static void mmc_sd_detect(struct mmc_host *host)
 		goto out;
 	}
 
+	mmc_power_up(host, host->ocr_avail);
 	/*
 	 * Just check if our card has been removed.
 	 */
@@ -1358,6 +1359,9 @@ static int _mmc_sd_resume(struct mmc_host *host)
 		mmc_card_set_removed(host->card);
 		mmc_detect_change(host, msecs_to_jiffies(200));
 	} else if (err) {
+		pr_err("%s: %s: mmc_sd_init_card_failed (%d)\n",
+			mmc_hostname(host), __func__, err);
+		mmc_power_off(host);
 		goto out;
 	}
 	mmc_card_clr_suspended(host->card);

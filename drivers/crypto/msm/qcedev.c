@@ -2,6 +2,7 @@
  * QTI CE device driver.
  *
  * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1915,6 +1916,11 @@ static inline long qcedev_ioctl(struct file *file,
 			if (copy_from_user(&map_buf,
 					(void __user *)arg, sizeof(map_buf))) {
 				err = -EFAULT;
+				goto exit_free_qcedev_areq;
+			}
+
+			if (map_buf.num_fds > QCEDEV_MAX_BUFFERS) {
+				err = -EINVAL;
 				goto exit_free_qcedev_areq;
 			}
 

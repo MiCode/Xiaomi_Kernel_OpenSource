@@ -1,0 +1,303 @@
+/*
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "pmi632-olive.dtsi"
+
+&pmi632_charger {
+	dpdm-supply = <&usb_otg>;
+};
+
+&usb_otg {
+	vbus_otg-supply = <&smb5_vbus>;
+	extcon = <&pmi632_charger>;
+};
+
+&pmi632_pon {
+	qcom,ps-hold-hard-reset-disable;
+	qcom,ps-hold-shutdown-disable;
+};
+
+/{
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <10>;
+		#include "Olive-SWD-5000mah-330kohm.dtsi"
+		#include "Olive-GY-5000mah-100kohm.dtsi"
+		#include "Olive-Default-5000mah-330kohm.dtsi"
+	};
+};
+
+&pmi632_qg {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&pmi632_charger {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&pmi632_vadc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&quiet_therm_default &smb_therm_default>;
+};
+
+&pmi632_gpios {
+	quiet_therm {
+		quiet_therm_default: quiet_therm_default {
+			pins = "gpio3";
+			bias-disable;
+			bias-high-impedance;
+		};
+	};
+
+	smb_therm {
+		smb_therm_default: smb_therm_default {
+			pins = "gpio4";
+			bias-high-impedance;
+		};
+	};
+};
+
+&pm8953_typec {
+	status = "disabled";
+};
+
+&thermal_zones {
+	pmi-vbat-lvl0 {
+		cooling-maps {
+			vbat_map0 {
+				trip = <&pmi632_vbat_lvl0>;
+				cooling-device =
+					<&CPU0 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map1 {
+				trip = <&pmi632_vbat_lvl0>;
+				cooling-device =
+					<&CPU1 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map2 {
+				trip = <&pmi632_vbat_lvl0>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map3 {
+				trip = <&pmi632_vbat_lvl0>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	soc {
+		cooling-maps {
+			soc_map0 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU0 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map1 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU1 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map2 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map3 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	quiet-therm-step {
+		polling-delay-passive = <1000>;
+		polling-delay = <0>;
+		thermal-sensors = <&pmi632_adc_tm 0x13>;
+		thermal-governor = "step_wise";
+
+		trips {
+			quiet_modem_439_trip1: quiet-modem-trip0 {
+				temperature = <59000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+			quiet_modem_439_trip2: quiet-modem-trip1 {
+				temperature = <61000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+			quiet_cpus_439_trip: quiet-cpus-trip {
+				temperature = <48000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			quiet_modem_439_trip3: quiet-modem-trip2 {
+				temperature = <63000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			quiet_batt_439_trip1: quiet-batt-trip1 {
+				temperature = <37000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+			quiet_gpu_439_trip: quiet-gpu-trip {
+				temperature = <50000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			quiet_batt_439_trip2: quiet-batt-trip2 {
+				temperature = <38000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			quiet_batt_439_trip3: quiet-batt-trip3 {
+				temperature = <40000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			quiet_batt_439_trip4: quiet-batt-trip4 {
+				temperature = <43000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			quiet_modem_439_trip4: quiet-modem-trip3 {
+				temperature = <70000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+			quiet_batt_439_trip5: quiet-batt-trip5 {
+				temperature = <48000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			skin_cpu0 {
+				trip = <&quiet_cpus_439_trip>;
+				/* throttle from fmax to 1497600KHz */
+				cooling-device = <&CPU0 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-3)>;
+			};
+			skin_cpu1 {
+				trip = <&quiet_cpus_439_trip>;
+				cooling-device = <&CPU1 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-3)>;
+			};
+			skin_cpu2 {
+				trip = <&quiet_cpus_439_trip>;
+				cooling-device = <&CPU2 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-3)>;
+			};
+			skin_cpu3 {
+				trip = <&quiet_cpus_439_trip>;
+				cooling-device = <&CPU3 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-3)>;
+			};
+			skin_cpu4 {
+				trip = <&quiet_cpus_439_trip>;
+				/* throttle from fmax to 1171200KHz */
+				cooling-device = <&CPU4 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-3)>;
+			};
+			skin_cpu5 {
+				trip = <&quiet_cpus_439_trip>;
+				cooling-device = <&CPU5 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-3)>;
+			};
+			skin_cpu6 {
+				trip = <&quiet_cpus_439_trip>;
+				cooling-device = <&CPU6 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-3)>;
+			};
+			skin_cpu7 {
+				trip = <&quiet_cpus_439_trip>;
+				cooling-device = <&CPU7 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-3)>;
+			};
+			skin_gpu {
+				trip = <&quiet_gpu_439_trip>;
+				/* throttle from fmax to 510000000Hz */
+				cooling-device = <&msm_gpu THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-2)>;
+			};
+			modem_proc_lvl1 {
+				trip = <&quiet_modem_439_trip1>;
+				cooling-device = <&modem_proc 1 1>;
+			};
+			modem_proc_lvl2 {
+				trip = <&quiet_modem_439_trip4>;
+				cooling-device = <&modem_proc 3 3>;
+			};
+			modem_lvl1 {
+				trip = <&quiet_modem_439_trip2>;
+				cooling-device = <&modem_pa 1 1>;
+			};
+			modem_lvl2 {
+				trip = <&quiet_modem_439_trip3>;
+				cooling-device = <&modem_pa 2 2>;
+			};
+			modem_lvl3 {
+				trip = <&quiet_modem_439_trip4>;
+				cooling-device = <&modem_pa 3 3>;
+			};
+			battery_lvl1 {
+				trip = <&quiet_batt_439_trip1>;
+				cooling-device = <&pmi632_charger 1 1>;
+			};
+			battery_lvl2 {
+				trip = <&quiet_batt_439_trip2>;
+				cooling-device = <&pmi632_charger 2 2>;
+			};
+			battery_lvl3 {
+				trip = <&quiet_batt_439_trip3>;
+				cooling-device = <&pmi632_charger 3 3>;
+			};
+			battery_lvl4 {
+				trip = <&quiet_batt_439_trip4>;
+				cooling-device = <&pmi632_charger 4 4>;
+			};
+			battery_lvl5 {
+				trip = <&quiet_batt_439_trip5>;
+				cooling-device = <&pmi632_charger 5 5>;
+			};
+		};
+	};
+
+	quiet-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pmi632_adc_tm 0x13>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+};
