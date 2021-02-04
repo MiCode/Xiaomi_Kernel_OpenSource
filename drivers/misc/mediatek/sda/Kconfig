@@ -30,4 +30,13 @@ config MTK_DBGTOP
 	  Provide APIs for interactions between debuggers
 	  and some hardware modules.
 
+config MTK_BUS_PARITY_CHECK
+	tristate "MediaTek BUS PARITY CHECK"
+	help
+	  This selects the device driver for the bus parity-check
+	  module. The module detects errors of bus in the Mediatek SoC.
+
+	  Enable this to get the report on detection or correction
+	  of errors.
+
 endif
