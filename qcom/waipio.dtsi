@@ -2923,6 +2923,7 @@
 		qcom,ipa-holb-monitor-max-cnt-11ad = <10>;
 		qcom,tx-wrapper-cache-max-size = <400>;
 		qcom,ipa-gpi-event-rp-ddr;
+		qcom,max_num_smmu_cb = <4>;
 		clock-names = "core_clk";
 		clocks = <&clock_rpmh RPMH_IPA_CLK>;
 		qcom,interconnect,num-cases = <5>;
@@ -2979,7 +2980,7 @@
 				<0x146A8000 0x146A8000 0x2000>;
 			qcom,iommu-dma = "fastmap";
 			dma-coherent;
-			com,ipa-q6-smem-size = <36864>;
+			qcom,ipa-q6-smem-size = <36864>;
 		};
 
 		ipa_smmu_wlan: ipa_smmu_wlan {
