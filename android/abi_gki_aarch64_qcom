@@ -300,6 +300,7 @@
   debugfs_create_u8
   debugfs_create_ulong
   debugfs_create_x32
+  debugfs_create_x64
   debugfs_create_x8
   debugfs_file_get
   debugfs_file_put
