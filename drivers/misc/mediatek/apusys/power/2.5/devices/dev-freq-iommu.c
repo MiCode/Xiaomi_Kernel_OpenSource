@@ -154,7 +154,7 @@ static int iommu_devfreq_probe(struct platform_device *pdev)
 	struct apu_dev *ad = NULL;
 	const struct apu_plat_data *apu_data = NULL;
 	struct device_node *con_np = NULL;
-	int err = 0;
+	int err = 0, con_size = 0, idx;
 
 	dev_info(&pdev->dev, "%s\n", __func__);
 	apu_data = of_device_get_match_data(&pdev->dev);
@@ -164,10 +164,17 @@ static int iommu_devfreq_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	con_np = of_parse_phandle(dev->of_node, "consumer", 0);
-	err = of_apu_link(dev, con_np, dev->of_node, DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME);
-	if (err)
-		goto out;
+	con_size = of_count_phandle_with_args(dev->of_node, "consumer", NULL);
+	if (con_size > 0) {
+		for (idx = 0; idx < con_size; idx++) {
+			con_np = of_parse_phandle(dev->of_node, "consumer", idx);
+			err = of_apu_link(dev, con_np, dev->of_node,
+					  DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME);
+			if (err)
+				goto out;
+		}
+	}
+
 	ad = devm_kzalloc(dev, sizeof(*ad), GFP_KERNEL);
 	if (!ad)
 		return -ENOMEM;
