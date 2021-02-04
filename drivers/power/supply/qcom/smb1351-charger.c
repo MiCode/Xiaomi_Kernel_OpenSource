@@ -2097,6 +2097,7 @@ irqreturn_t smb1351_usb_id_irq_handler(int irq, void *data)
 	struct smb1351_charger *chip = data;
 	bool id_state;
 	int rc = 0;
+	union extcon_property_value val;
 
 	id_state = gpio_get_value(chip->usb_id_gpio);
 	pr_debug("id_state=%d\n", id_state);
@@ -2108,6 +2109,11 @@ irqreturn_t smb1351_usb_id_irq_handler(int irq, void *data)
 	else
 		pr_debug("SMB1351 OTG %s\n",  id_state ? "disabled" : "enabled");
 
+	if (!id_state) {
+		val.intval = true;
+		extcon_set_property(chip->extcon, EXTCON_USB_HOST,
+					EXTCON_PROP_USB_SS, val);
+	}
 	extcon_set_state_sync(chip->extcon, EXTCON_USB_HOST, !id_state);
 
 	return IRQ_HANDLED;
