@@ -27,7 +27,9 @@
 #define LLCC_MDMHPFX     20
 #define LLCC_MDMPNG      21
 #define LLCC_AUDHW       22
+#define LLCC_NPU         23
 #define LLCC_WLNHW       24
+#define LLCC_PIMEM       25
 #define LLCC_CVP         28
 #define LLCC_MDMVPE      29
 #define LLCC_APTCM       30

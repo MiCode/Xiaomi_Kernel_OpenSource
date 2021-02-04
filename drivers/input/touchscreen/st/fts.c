@@ -769,6 +769,7 @@ static void fts_trusted_touch_abort_pvm(struct fts_ts_info *info)
 	case TRUSTED_TOUCH_PVM_INIT:
 	case PVM_I2C_RESOURCE_RELEASED:
 		atomic_set(&info->trusted_touch_enabled, 0);
+		atomic_set(&info->trusted_touch_underway, 0);
 	}
 
 	atomic_set(&info->trusted_touch_abort_status, 0);
@@ -807,7 +808,8 @@ static int fts_bus_get(struct fts_ts_info *info)
 {
 	int rc = 0;
 
-	flush_workqueue(info->event_wq);
+	cancel_work_sync(&info->suspend_work);
+	cancel_work_sync(&info->resume_work);
 	reinit_completion(&info->trusted_touch_powerdown);
 	fts_enable_reg(info, true);
 	mutex_lock(&info->fts_clk_io_ctrl_mutex);
@@ -884,6 +886,7 @@ static void fts_trusted_touch_pvm_vm_mode_disable(struct fts_ts_info *info)
 	fts_trusted_touch_set_pvm_driver_state(info,
 						TRUSTED_TOUCH_PVM_INIT);
 	atomic_set(&info->trusted_touch_enabled, 0);
+	atomic_set(&info->trusted_touch_underway, 0);
 	return;
 error:
 	fts_trusted_touch_abort_handler(info,
@@ -1017,6 +1020,8 @@ static int fts_trusted_touch_pvm_vm_mode_enable(struct fts_ts_info *info)
 {
 	int rc = 0;
 	struct trusted_touch_vm_info *vm_info = info->vm_info;
+
+	atomic_set(&info->trusted_touch_underway, 1);
 
 	/* i2c session start and resource acquire */
 	if (fts_bus_get(info) < 0) {
@@ -5350,7 +5355,7 @@ static void fts_resume_work(struct work_struct *work)
 	info = container_of(work, struct fts_ts_info, resume_work);
 
 #ifdef CONFIG_ST_TRUSTED_TOUCH
-	if (atomic_read(&info->trusted_touch_enabled))
+	if (atomic_read(&info->trusted_touch_underway))
 		wait_for_completion_interruptible(
 				&info->trusted_touch_powerdown);
 #endif
@@ -5385,7 +5390,7 @@ static void fts_suspend_work(struct work_struct *work)
 	info = container_of(work, struct fts_ts_info, suspend_work);
 
 #ifdef CONFIG_ST_TRUSTED_TOUCH
-	if (atomic_read(&info->trusted_touch_enabled))
+	if (atomic_read(&info->trusted_touch_underway))
 		wait_for_completion_interruptible(
 				&info->trusted_touch_powerdown);
 #endif

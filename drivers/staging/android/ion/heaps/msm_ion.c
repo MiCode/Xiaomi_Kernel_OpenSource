@@ -24,6 +24,12 @@
 #define ION_INIT_FAILURE 1
 #define ION_READY 2
 
+#ifdef CONFIG_PANIC_ON_MSM_ION_HEAPS_FAILURE
+#define MSM_ION_WARN(fmt...) panic(fmt)
+#else /* CONFIG_PANIC_ON_MSM_ION_HEAPS_FAILURE */
+#define MSM_ION_WARN(fmt...) WARN(1, fmt)
+#endif /* CONFIG_PANIC_ON_MSM_ION_HEAPS_FAILURE */
+
 static int num_heaps;
 static int status = ION_NOT_READY;
 static struct ion_heap **heaps;
@@ -328,8 +334,12 @@ static int msm_ion_get_heap_type_from_dt_node(struct device_node *node,
 	int i, ret = -EINVAL;
 
 	ret = of_property_read_string(node, "qcom,ion-heap-type", &name);
-	if (ret)
+	if (ret) {
+		pr_err("Reading %s property in node %s failed with err %d.\n",
+		       "qcom,ion-heap-type", of_node_full_name(node), ret);
 		goto out;
+	}
+
 	for (i = 0; i < ARRAY_SIZE(heap_types_info); ++i) {
 		if (!strcmp(heap_types_info[i].name, name)) {
 			*heap_type = heap_types_info[i].heap_type;
@@ -337,8 +347,9 @@ static int msm_ion_get_heap_type_from_dt_node(struct device_node *node,
 			goto out;
 		}
 	}
-	WARN(1, "Unknown heap type: %s. You might need to update heap_types_info in %s",
-	     name, __FILE__);
+
+	pr_err("Unknown heap type: %s. Check and update %s:heap_types_info\n",
+	       name, __FILE__);
 out:
 	return ret;
 }
@@ -361,9 +372,10 @@ static int msm_ion_populate_heap(struct device_node *node,
 			break;
 		}
 	}
+
 	if (ret)
-		pr_err("%s: Unable to populate heap, error: %d\n", __func__,
-		       ret);
+		MSM_ION_WARN("%s: Unable to populate heap id 0x%x, error: %d\n",
+			     __func__, heap->id, ret);
 	return ret;
 }
 
@@ -469,7 +481,11 @@ static int msm_ion_get_heap_dt_data(struct device_node *node,
 		ret = init_reserved_memory(heap, pnode);
 
 	of_node_put(pnode);
-	WARN(ret, "Failed to parse DT node for heap %s\n", heap->name);
+
+	if (ret)
+		MSM_ION_WARN("Failed to parse DT node for heap %s\n",
+			     heap->name);
+
 	return ret;
 }
 

@@ -44,6 +44,8 @@ obj-$(CONFIG_QCOM_LAHAINA_LLCC) += llcc-lahaina.o
 obj-$(CONFIG_QCOM_SDXLEMUR_LLCC) += llcc-sdxlemur.o
 obj-$(CONFIG_QCOM_SHIMA_LLCC) += llcc-shima.o
 obj-$(CONFIG_QCOM_YUPIK_LLCC) += llcc-yupik.o
+obj-$(CONFIG_QCOM_SM8150_LLCC) += llcc-sm8150.o
+obj-$(CONFIG_QCOM_SDMSHRIKE_LLCC) += llcc-sdmshrike.o
 obj-$(CONFIG_QCOM_MINIDUMP) += msm_minidump.o minidump_log.o
 obj-$(CONFIG_QCOM_MEM_OFFLINE) += mem-offline.o
 obj-$(CONFIG_QCOM_MEM_BUF) += mem-buf.o mem_buf_dma_buf.o
@@ -91,6 +93,7 @@ obj-$(CONFIG_QTI_CRYPTO_TZ) += crypto-qti-tz.o
 obj-$(CONFIG_QTI_HW_KEY_MANAGER) += hwkm.o crypto-qti-hwkm.o
 obj-$(CONFIG_QCOM_WDT_CORE) += qcom_wdt_core.o
 obj-$(CONFIG_QCOM_SOC_WATCHDOG) += qcom_soc_wdt.o
+obj-$(CONFIG_MSM_HAB) += hab/
 ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif

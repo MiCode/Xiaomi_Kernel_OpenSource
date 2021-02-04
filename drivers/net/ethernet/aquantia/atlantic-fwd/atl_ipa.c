@@ -689,7 +689,7 @@ static int aqc_vote_ipa_bw(struct aqo_device *aqo_dev)
 	aqo_log_dbg(aqo_dev, "Voting IPA bandwidth");
 
 	memset(&profile, 0, sizeof(profile));
-	profile.max_supported_bw_mbps = SPEED_100000;
+	profile.max_supported_bw_mbps = SPEED_10000;
 
 	if (ipa_eth_client_set_perf_profile(&aqo_dev->eth_client, &profile)) {
 		aqo_log_err(aqo_dev, "Failed to set voting on bandwidth");

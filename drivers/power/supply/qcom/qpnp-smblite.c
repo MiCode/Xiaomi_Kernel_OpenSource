@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -11,15 +11,16 @@
 #include <linux/regmap.h>
 #include <linux/power_supply.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/of_gpio.h>
 #include <linux/of_irq.h>
 #include <linux/log2.h>
-#include <linux/qpnp/qpnp-revid.h>
 #include <linux/iio/consumer.h>
 #include <linux/pmic-voter.h>
 #include <linux/usb/typec.h>
 #include "smblite-reg.h"
 #include "smblite-lib.h"
+#include "smb5-iio.h"
 #include "schgm-flashlite.h"
 
 static struct power_supply_desc usb_psy_desc;
@@ -71,7 +72,6 @@ static struct smb_params smblite_params = {
 
 struct smb_dt_props {
 	int			usb_icl_ua;
-	struct device_node	*revid_dev_node;
 	int			chg_inhibit_thr_mv;
 	bool			no_battery;
 	int			auto_recharge_soc;
@@ -89,6 +89,9 @@ struct smblite {
 	struct smb_charger	chg;
 	struct dentry		*dfs_root;
 	struct smb_dt_props	dt;
+	unsigned int		nchannels;
+	struct iio_channel	*iio_chans;
+	struct iio_chan_spec	*iio_chan_ids;
 };
 
 static int __debug_mask;
@@ -127,38 +130,17 @@ ATTRIBUTE_GROUPS(smblite);
 static int smblite_chg_config_init(struct smblite *chip)
 {
 	struct smb_charger *chg = &chip->chg;
-	struct pmic_revid_data *pmic_rev_id;
-	struct device_node *revid_dev_node, *node = chg->dev->of_node;
+	int subtype = (u8)of_device_get_match_data(chg->dev);
 	u8 val;
 	int rc = 0;
 
-	revid_dev_node = of_parse_phandle(node, "qcom,pmic-revid", 0);
-	if (!revid_dev_node) {
-		pr_err("Missing qcom,pmic-revid property\n");
-		return -EINVAL;
-	}
-
-	pmic_rev_id = get_revid_data(revid_dev_node);
-	if (IS_ERR_OR_NULL(pmic_rev_id)) {
-		/*
-		 * the revid peripheral must be registered, any failure
-		 * here only indicates that the rev-id module has not
-		 * probed yet.
-		 */
-		rc =  -EPROBE_DEFER;
-		goto out;
-	}
-
-	switch (pmic_rev_id->pmic_subtype) {
-	case PM2250_SUBTYPE:
+	switch (subtype) {
+	case PM2250:
 		chg->wa_flags |= WEAK_ADAPTER_WA;
-		if (pmic_rev_id->rev4 < 2)
-			chg->wa_flags |= FLASH_DIE_TEMP_DERATE_WA;
 		break;
 	default:
-		pr_err("Unsupported PMIC subtype=%d\n",
-				pmic_rev_id->pmic_subtype);
-		break;
+		pr_err("Unsupported PMIC subtype=%d\n", subtype);
+		return -EINVAL;
 	}
 
 	rc = smblite_lib_read(chg, DCDC_LDO_CFG_REG, &val);
@@ -172,8 +154,6 @@ static int smblite_chg_config_init(struct smblite *chip)
 	chg->param = smblite_params;
 	chg->name = "PM2250_charger";
 
-out:
-	of_node_put(revid_dev_node);
 	return rc;
 }
 
@@ -374,18 +354,18 @@ static enum power_supply_property smblite_usb_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
-	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TYPE,
-	POWER_SUPPLY_PROP_TYPEC_MODE,
-	POWER_SUPPLY_PROP_TYPEC_POWER_ROLE,
-	POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION,
-	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
-	POWER_SUPPLY_PROP_HW_CURRENT_MAX,
-	POWER_SUPPLY_PROP_REAL_TYPE,
-	POWER_SUPPLY_PROP_CONNECTOR_TYPE,
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
+};
+
+static enum power_supply_usb_type smblite_usb_psy_supported_types[] = {
+	POWER_SUPPLY_USB_TYPE_UNKNOWN,
+	POWER_SUPPLY_USB_TYPE_SDP,
+	POWER_SUPPLY_USB_TYPE_DCP,
+	POWER_SUPPLY_USB_TYPE_CDP,
 };
 
 static int smblite_usb_get_prop(struct power_supply *psy,
@@ -395,8 +375,8 @@ static int smblite_usb_get_prop(struct power_supply *psy,
 	struct smblite *chip = power_supply_get_drvdata(psy);
 	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
-
 	val->intval = 0;
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_PRESENT:
 		rc = smblite_lib_get_prop_usb_present(chg, val);
@@ -407,32 +387,8 @@ static int smblite_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		rc = smblite_lib_get_prop_usb_voltage_now(chg, val);
 		break;
-	case POWER_SUPPLY_PROP_SDP_CURRENT_MAX:
-		rc = smblite_lib_get_charge_current(chg, &val->intval);
-		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = POWER_SUPPLY_TYPE_USB;
-		break;
-	case POWER_SUPPLY_PROP_REAL_TYPE:
-		val->intval = chg->real_charger_type;
-		break;
-	case POWER_SUPPLY_PROP_TYPEC_MODE:
-		rc = smblite_lib_get_usb_prop_typec_mode(chg, val);
-		break;
-	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
-		rc = smblite_lib_get_prop_typec_power_role(chg, val);
-		break;
-	case POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION:
-		rc = smblite_lib_get_prop_typec_cc_orientation(chg, val);
-		break;
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED:
-		rc = smblite_lib_get_prop_input_current_settled(chg, val);
-		break;
-	case POWER_SUPPLY_PROP_HW_CURRENT_MAX:
-		rc = smblite_lib_get_hw_current_max(chg, &val->intval);
-		break;
-	case POWER_SUPPLY_PROP_CONNECTOR_TYPE:
-		val->intval = chg->connector_type;
 		break;
 	case POWER_SUPPLY_PROP_SCOPE:
 		rc = smblite_lib_get_prop_scope(chg, val);
@@ -443,6 +399,10 @@ static int smblite_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = 5000000;
 		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		/* USB uses this to set SDP current */
+		rc = smblite_lib_get_charge_current(chg, &val->intval);
+		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
 		rc = -EINVAL;
@@ -450,7 +410,7 @@ static int smblite_usb_get_prop(struct power_supply *psy,
 	}
 
 	if (rc < 0) {
-		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		pr_debug("Couldn't get usb prop %d rc = %d\n", psp, rc);
 		return -ENODATA;
 	}
 
@@ -481,14 +441,11 @@ static int smblite_usb_set_prop(struct power_supply *psy,
 	int rc = 0;
 
 	switch (psp) {
-	case POWER_SUPPLY_PROP_SDP_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		rc = smblite_lib_set_prop_current_max(chg, val);
 		break;
-	case POWER_SUPPLY_PROP_REAL_TYPE:
-		rc = smblite_lib_set_prop_usb_type(chg, val);
-		break;
 	default:
-		pr_err("set prop %d is not supported\n", psp);
+		pr_err("usb set prop %d is not supported\n", psp);
 		rc = -EINVAL;
 		break;
 	}
@@ -499,15 +456,14 @@ static int smblite_usb_set_prop(struct power_supply *psy,
 static int smblite_usb_prop_is_writeable(struct power_supply *psy,
 		enum power_supply_property psp)
 {
-	int rc = 0;
-
 	switch (psp) {
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		return 1;
 	default:
-		rc = 0;
 		break;
 	}
 
-	return rc;
+	return 0;
 }
 
 static struct power_supply_desc usb_psy_desc = {
@@ -517,7 +473,9 @@ static struct power_supply_desc usb_psy_desc = {
 	.num_properties = ARRAY_SIZE(smblite_usb_props),
 	.get_property = smblite_usb_get_prop,
 	.set_property = smblite_usb_set_prop,
+	.usb_types = smblite_usb_psy_supported_types,
 	.property_is_writeable = smblite_usb_prop_is_writeable,
+	.num_usb_types = ARRAY_SIZE(smblite_usb_psy_supported_types),
 };
 
 static int smblite_init_usb_psy(struct smblite *chip)
@@ -538,185 +496,15 @@ static int smblite_init_usb_psy(struct smblite *chip)
 	return 0;
 }
 
-/*****************************
- * USB MAIN PSY REGISTRATION *
- *****************************/
-
-static enum power_supply_property smblite_usb_main_props[] = {
-	POWER_SUPPLY_PROP_VOLTAGE_MAX,
-	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
-	POWER_SUPPLY_PROP_TYPE,
-	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
-	POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED,
-	POWER_SUPPLY_PROP_FCC_DELTA,
-	POWER_SUPPLY_PROP_CURRENT_MAX,
-	POWER_SUPPLY_PROP_FLASH_TRIGGER,
-	POWER_SUPPLY_PROP_FLASH_ACTIVE,
-};
-
-static int smblite_usb_main_get_prop(struct power_supply *psy,
-		enum power_supply_property psp,
-		union power_supply_propval *val)
-{
-	struct smblite *chip = power_supply_get_drvdata(psy);
-	struct smb_charger *chg = &chip->chg;
-	int rc = 0;
-
-	switch (psp) {
-	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		rc = smblite_lib_get_charge_param(chg, &chg->param.fv,
-							&val->intval);
-		break;
-	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
-		rc = smblite_lib_get_charge_param(chg, &chg->param.fcc,
-							&val->intval);
-		break;
-	case POWER_SUPPLY_PROP_TYPE:
-		val->intval = POWER_SUPPLY_TYPE_MAIN;
-		break;
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED:
-		rc = smblite_lib_get_prop_input_current_settled(chg, val);
-		break;
-	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED:
-		rc = smblite_lib_get_prop_input_voltage_settled(chg, val);
-		break;
-	case POWER_SUPPLY_PROP_FCC_DELTA:
-		val->intval = 0;
-		break;
-	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		rc = smblite_lib_get_icl_current(chg, &val->intval);
-		break;
-	case POWER_SUPPLY_PROP_FLASH_TRIGGER:
-		rc = schgm_flashlite_get_vreg_ok(chg, &val->intval);
-		break;
-	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
-		val->intval = chg->flash_active;
-		break;
-	default:
-		pr_debug("get prop %d is not supported in usb-main\n", psp);
-		rc = -EINVAL;
-		break;
-	}
-	if (rc < 0)
-		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
-
-	return rc;
-}
-
-static int smblite_usb_main_set_prop(struct power_supply *psy,
-		enum power_supply_property psp,
-		const union power_supply_propval *val)
-{
-	struct smblite *chip = power_supply_get_drvdata(psy);
-	struct smb_charger *chg = &chip->chg;
-	int rc = 0, icl_ua;
-	union power_supply_propval pval = {0, };
-
-	switch (psp) {
-	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		rc = smblite_lib_set_charge_param(chg, &chg->param.fv,
-						val->intval);
-		break;
-	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
-		rc = smblite_lib_set_charge_param(chg, &chg->param.fcc,
-						val->intval);
-		break;
-	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		rc = smblite_lib_set_icl_current(chg, val->intval);
-		break;
-	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
-		if (chg->flash_active != val->intval) {
-			chg->flash_active = val->intval;
-
-			rc = smblite_lib_get_prop_usb_present(chg, &pval);
-			if (rc < 0)
-				pr_err("Failed to get USB present status rc=%d\n",
-						rc);
-			if (!pval.intval) {
-				/* vote 100ma when usb is not present*/
-				vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER,
-							true, USBIN_100UA);
-			} else if (chg->flash_active) {
-				icl_ua = get_effective_result_locked(
-						chg->usb_icl_votable);
-				if (icl_ua >= USBIN_400UA) {
-					vote(chg->usb_icl_votable,
-						FLASH_ACTIVE_VOTER,
-						true, icl_ua - USBIN_300UA);
-				}
-			} else {
-				vote(chg->usb_icl_votable, FLASH_ACTIVE_VOTER,
-							false, 0);
-			}
-			pr_debug("flash_active=%d usb_present=%d icl=%d\n",
-				chg->flash_active, pval.intval,
-				get_effective_result_locked(
-				chg->usb_icl_votable));
-
-		}
-		break;
-	default:
-		pr_err("set prop %d is not supported\n", psp);
-		rc = -EINVAL;
-		break;
-	}
-
-	return rc;
-}
-
-static int smblite_usb_main_prop_is_writeable(struct power_supply *psy,
-				enum power_supply_property psp)
-{
-	int rc = 0;
-
-	switch (psp) {
-	default:
-		rc = 0;
-		break;
-	}
-
-	return rc;
-}
-
-static const struct power_supply_desc usb_main_psy_desc = {
-	.name		= "main",
-	.type		= POWER_SUPPLY_TYPE_MAIN,
-	.properties	= smblite_usb_main_props,
-	.num_properties	= ARRAY_SIZE(smblite_usb_main_props),
-	.get_property	= smblite_usb_main_get_prop,
-	.set_property	= smblite_usb_main_set_prop,
-	.property_is_writeable = smblite_usb_main_prop_is_writeable,
-};
-
-static int smblite_init_usb_main_psy(struct smblite *chip)
-{
-	struct power_supply_config usb_main_cfg = {};
-	struct smb_charger *chg = &chip->chg;
-
-	usb_main_cfg.drv_data = chip;
-	usb_main_cfg.of_node = chg->dev->of_node;
-	chg->usb_main_psy = devm_power_supply_register(chg->dev,
-						  &usb_main_psy_desc,
-						  &usb_main_cfg);
-	if (IS_ERR(chg->usb_main_psy)) {
-		pr_err("Couldn't register USB main power supply\n");
-		return PTR_ERR(chg->usb_main_psy);
-	}
-
-	return 0;
-}
-
 /*************************
  * BATT PSY REGISTRATION *
  *************************/
 static enum power_supply_property smblite_batt_props[] = {
-	POWER_SUPPLY_PROP_INPUT_SUSPEND,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_CAPACITY,
-	POWER_SUPPLY_PROP_CHARGER_TEMP,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
@@ -725,22 +513,14 @@ static enum power_supply_property smblite_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
-	POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED,
-	POWER_SUPPLY_PROP_SW_JEITA_ENABLED,
-	POWER_SUPPLY_PROP_CHARGE_DONE,
-	POWER_SUPPLY_PROP_SET_SHIP_MODE,
-	POWER_SUPPLY_PROP_DIE_HEALTH,
 	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX,
 	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
-	POWER_SUPPLY_PROP_RECHARGE_SOC,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
-	POWER_SUPPLY_PROP_FORCE_RECHARGE,
-	POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE,
-	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
 };
 
 #define DEBUG_ACCESSORY_TEMP_DECIDEGC	250
@@ -761,9 +541,6 @@ static int smblite_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PRESENT:
 		rc = smblite_lib_get_prop_batt_present(chg, val);
 		break;
-	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
-		rc = smblite_lib_get_prop_input_suspend(chg, val);
-		break;
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		rc = smblite_lib_get_prop_batt_charge_type(chg, val);
 		break;
@@ -776,25 +553,16 @@ static int smblite_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX:
 		rc = smblite_lib_get_prop_system_temp_level_max(chg, val);
 		break;
-	case POWER_SUPPLY_PROP_CHARGER_TEMP:
-		rc = smblite_lib_get_prop_charger_temp(chg, val);
-		break;
-	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
-		val->intval = chg->step_chg_enabled;
-		break;
-	case POWER_SUPPLY_PROP_SW_JEITA_ENABLED:
-		val->intval = 1;
-		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		rc = smblite_lib_get_prop_from_bms(chg,
-				POWER_SUPPLY_PROP_VOLTAGE_NOW, val);
+				SMB5_QG_VOLTAGE_NOW, &val->intval);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = get_client_vote(chg->fv_votable,
 					      BATT_PROFILE_VOTER);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		rc = smblite_lib_get_batt_current_now(chg, val);
+		rc = smblite_lib_get_batt_current_now(chg, &val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		val->intval = get_client_vote(chg->fcc_votable,
@@ -807,56 +575,37 @@ static int smblite_batt_get_prop(struct power_supply *psy,
 		rc = smblite_lib_get_prop_batt_iterm(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		if (chg->typec_mode == POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY)
+		if (chg->typec_mode == QTI_POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY)
 			val->intval = DEBUG_ACCESSORY_TEMP_DECIDEGC;
 		else
 			rc = smblite_lib_get_prop_from_bms(chg,
-						POWER_SUPPLY_PROP_TEMP, val);
+						SMB5_QG_TEMP, &val->intval);
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
 		break;
-	case POWER_SUPPLY_PROP_CHARGE_DONE:
-		rc = smblite_lib_get_prop_batt_charge_done(chg, val);
-		break;
-	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
-		/* Not in ship mode as long as device is active */
-		val->intval = 0;
-		break;
-	case POWER_SUPPLY_PROP_DIE_HEALTH:
-		rc = smblite_lib_get_die_health(chg, val);
-		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
 		rc = smblite_lib_get_prop_from_bms(chg,
-				POWER_SUPPLY_PROP_CHARGE_COUNTER, val);
+				SMB5_QG_CHARGE_COUNTER, &val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
 		rc = smblite_lib_get_prop_from_bms(chg,
-				POWER_SUPPLY_PROP_CYCLE_COUNT, val);
-		break;
-	case POWER_SUPPLY_PROP_RECHARGE_SOC:
-		val->intval = chg->auto_recharge_soc;
+				SMB5_QG_CYCLE_COUNT, &val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		rc = smblite_lib_get_prop_from_bms(chg,
-				POWER_SUPPLY_PROP_CHARGE_FULL, val);
+				SMB5_QG_CHARGE_FULL, &val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		rc = smblite_lib_get_prop_from_bms(chg,
-				POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN, val);
+				SMB5_QG_CHARGE_FULL_DESIGN, &val->intval);
 		break;
 	case POWER_SUPPLY_PROP_TIME_TO_FULL_NOW:
 		rc = smblite_lib_get_prop_from_bms(chg,
-				POWER_SUPPLY_PROP_TIME_TO_FULL_NOW, val);
-		break;
-	case POWER_SUPPLY_PROP_FORCE_RECHARGE:
-		val->intval = 0;
-		break;
-	case POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE:
-		val->intval = chg->fcc_stepper_enable;
-		break;
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
-		rc = smblite_lib_get_prop_input_current_limited(chg, val);
+				SMB5_QG_TIME_TO_FULL_NOW, &val->intval);
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		/* For battery, INPUT_CURRENT_LIMIT equates to INPUT_SUSPEND */
+		rc = smblite_lib_get_prop_input_suspend(chg, &val->intval);
 		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
@@ -864,7 +613,7 @@ static int smblite_batt_get_prop(struct power_supply *psy,
 	}
 
 	if (rc < 0) {
-		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		pr_debug("Couldn't get batt prop %d rc = %d\n", psp, rc);
 		return -ENODATA;
 	}
 
@@ -882,9 +631,6 @@ static int smblite_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_STATUS:
 		rc = smblite_lib_set_prop_batt_status(chg, val);
 		break;
-	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
-		rc = smblite_lib_set_prop_input_suspend(chg, val);
-		break;
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
 		rc = smblite_lib_set_prop_system_temp_level(chg, val);
 		break;
@@ -895,39 +641,12 @@ static int smblite_batt_set_prop(struct power_supply *psy,
 		chg->batt_profile_fv_uv = val->intval;
 		vote(chg->fv_votable, BATT_PROFILE_VOTER, true, val->intval);
 		break;
-	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
-		chg->step_chg_enabled = !!val->intval;
-		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		chg->batt_profile_fcc_ua = val->intval;
 		vote(chg->fcc_votable, BATT_PROFILE_VOTER, true, val->intval);
 		break;
-	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
-		/* Not in ship mode as long as the device is active */
-		if (!val->intval)
-			break;
-		if (chg->pl.psy)
-			power_supply_set_property(chg->pl.psy,
-				POWER_SUPPLY_PROP_SET_SHIP_MODE, val);
-		rc = smblite_lib_set_prop_ship_mode(chg, val);
-		break;
-	case POWER_SUPPLY_PROP_DIE_HEALTH:
-		power_supply_changed(chg->batt_psy);
-		break;
-	case POWER_SUPPLY_PROP_RECHARGE_SOC:
-		rc = smblite_lib_set_prop_rechg_soc_thresh(chg, val);
-		break;
-	case POWER_SUPPLY_PROP_FORCE_RECHARGE:
-		/* toggle charging to force recharge */
-		vote(chg->chg_disable_votable, FORCE_RECHARGE_VOTER,
-					true, 0);
-		/* charge disable delay */
-		msleep(50);
-		vote(chg->chg_disable_votable, FORCE_RECHARGE_VOTER,
-					false, 0);
-		break;
-	case POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE:
-		chg->fcc_stepper_enable = val->intval;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		rc = smblite_lib_set_prop_input_suspend(chg, val->intval);
 		break;
 	default:
 		rc = -EINVAL;
@@ -943,11 +662,11 @@ static int smblite_batt_prop_is_writeable(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
-	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 	case POWER_SUPPLY_PROP_CAPACITY:
-	case POWER_SUPPLY_PROP_DIE_HEALTH:
-	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		rc = 1;
 		break;
 	default:
@@ -992,7 +711,6 @@ static int smblite_init_batt_psy(struct smblite *chip)
  ***************************/
 static int smblite_configure_typec(struct smb_charger *chg)
 {
-	union power_supply_propval pval = {0, };
 	int rc;
 	u8 val = 0;
 
@@ -1008,8 +726,8 @@ static int smblite_configure_typec(struct smb_charger *chg)
 	 * detection by disabling/enabling typeC mode.
 	 */
 	if (val & TYPEC_LEGACY_CABLE_STATUS_BIT) {
-		pval.intval = POWER_SUPPLY_TYPEC_PR_NONE;
-		smblite_lib_set_prop_typec_power_role(chg, &pval);
+		rc = smblite_lib_set_prop_typec_power_role(chg,
+				QTI_POWER_SUPPLY_TYPEC_PR_NONE);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't disable TYPEC rc=%d\n", rc);
 			return rc;
@@ -1018,8 +736,8 @@ static int smblite_configure_typec(struct smb_charger *chg)
 		/* delay before enabling typeC */
 		msleep(50);
 
-		pval.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
-		smblite_lib_set_prop_typec_power_role(chg, &pval);
+		rc = smblite_lib_set_prop_typec_power_role(chg,
+				QTI_POWER_SUPPLY_TYPEC_PR_DUAL);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't enable TYPEC rc=%d\n", rc);
 			return rc;
@@ -1139,7 +857,6 @@ static int smblite_configure_recharging(struct smblite *chip)
 {
 	int rc = 0;
 	struct smb_charger *chg = &chip->chg;
-	union power_supply_propval pval;
 
 	/* Configure VBATT-based or automatic recharging */
 	rc = smblite_lib_masked_write(chg, CHGR_RECHG_CFG_REG, RECHG_MASK,
@@ -1184,8 +901,8 @@ static int smblite_configure_recharging(struct smblite *chip)
 
 	/* program the auto-recharge threshold */
 	if (chip->dt.auto_recharge_soc != -EINVAL) {
-		pval.intval = chip->dt.auto_recharge_soc;
-		rc = smblite_lib_set_prop_rechg_soc_thresh(chg, &pval);
+		rc = smblite_lib_set_prop_rechg_soc_thresh(chg,
+				chip->dt.auto_recharge_soc);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't configure CHG_RCHG_SOC_REG rc=%d\n",
 					rc);
@@ -1213,9 +930,9 @@ static int smblite_init_connector_type(struct smb_charger *chg)
 	pr_debug("Connector type=%s\n", type ? "Micro USB" : "TypeC");
 
 	if (type) {
-		chg->connector_type = POWER_SUPPLY_CONNECTOR_MICRO_USB;
+		chg->connector_type = QTI_POWER_SUPPLY_CONNECTOR_MICRO_USB;
 	} else {
-		chg->connector_type = POWER_SUPPLY_CONNECTOR_TYPEC;
+		chg->connector_type = QTI_POWER_SUPPLY_CONNECTOR_TYPEC;
 		rc = smblite_configure_typec(chg);
 		if (rc < 0) {
 			dev_err(chg->dev,
@@ -1234,7 +951,7 @@ static int smblite_init_otg(struct smblite *chip)
 
 	chg->usb_id_gpio = chg->usb_id_irq = -EINVAL;
 
-	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_TYPEC)
+	if (chg->connector_type == QTI_POWER_SUPPLY_CONNECTOR_TYPEC)
 		return 0;
 
 	if (of_find_property(chg->dev->of_node, "qcom,usb-id-gpio", NULL))
@@ -1442,7 +1159,6 @@ static int smblite_init_hw(struct smblite *chip)
 static int smblite_post_init(struct smblite *chip)
 {
 	struct smb_charger *chg = &chip->chg;
-	union power_supply_propval pval;
 	int rc;
 
 	/*
@@ -1452,10 +1168,10 @@ static int smblite_post_init(struct smblite *chip)
 	 */
 	rerun_election(chg->usb_icl_votable);
 
-	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_TYPEC) {
+	if (chg->connector_type == QTI_POWER_SUPPLY_CONNECTOR_TYPEC) {
 		/* configure power role for dual-role */
-		pval.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
-		rc = smblite_lib_set_prop_typec_power_role(chg, &pval);
+		rc = smblite_lib_set_prop_typec_power_role(chg,
+				QTI_POWER_SUPPLY_TYPEC_PR_DUAL);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't configure DRP role rc=%d\n",
 					rc);
@@ -1485,9 +1201,7 @@ static int smblite_determine_initial_status(struct smblite *chip)
 		return rc;
 	}
 
-	if (chg->bms_psy)
-		smblite_lib_suspend_on_debug_battery(chg);
-
+	smblite_lib_suspend_on_debug_battery(chg);
 	smblite_usb_plugin_irq_handler(0, &irq_data);
 	smblite_typec_attach_detach_irq_handler(0, &irq_data);
 	smblite_typec_state_change_irq_handler(0, &irq_data);
@@ -1498,7 +1212,7 @@ static int smblite_determine_initial_status(struct smblite *chip)
 	smblite_typec_or_rid_detection_change_irq_handler(0, &irq_data);
 
 	if (chg->usb_id_gpio > 0 &&
-		chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
+		chg->connector_type == QTI_POWER_SUPPLY_CONNECTOR_MICRO_USB)
 		smblite_usb_id_irq_handler(0, chg);
 
 	return 0;
@@ -1884,7 +1598,7 @@ static int smblite_show_charger_status(struct smblite *chip)
 
 	pr_info("SMBLITE: Mode=%s Conn=%s USB Present=%d Battery present=%d health=%d charge=%d\n",
 		chg->ldo_mode ? "LDO" : "SMBC",
-		(chg->connector_type == POWER_SUPPLY_CONNECTOR_TYPEC) ?
+		(chg->connector_type == QTI_POWER_SUPPLY_CONNECTOR_TYPEC) ?
 			"TYPEC" : "uUSB", usb_present, batt_present,
 			batt_health, batt_charge_type);
 	return rc;
@@ -1904,7 +1618,6 @@ static int smblite_init_typec_class(struct smblite *chip)
 	chg->typec_caps.data = TYPEC_PORT_DRD;
 	chg->typec_partner_desc.usb_pd = false;
 	chg->typec_partner_desc.accessory = TYPEC_ACCESSORY_NONE;
-	chg->typec_caps.port_type_set = smblite_lib_typec_port_type_set;
 	chg->typec_caps.revision = 0x0130;
 
 	chg->typec_port = typec_register_port(chg->dev, &chg->typec_caps);
@@ -1917,17 +1630,162 @@ static int smblite_init_typec_class(struct smblite *chip)
 	return rc;
 }
 
+static int smblite_of_xlate(struct iio_dev *indio_dev,
+				const struct of_phandle_args *iiospec)
+{
+	struct smblite *iio_chip = iio_priv(indio_dev);
+	struct iio_chan_spec *iio_chan = iio_chip->iio_chan_ids;
+	int i;
+
+	for (i = 0; i < iio_chip->nchannels; i++, iio_chan++)
+		if (iio_chan->channel == iiospec->args[0])
+			return i;
+
+	return -EINVAL;
+}
+
+static int smblite_read_raw(struct iio_dev *indio_dev,
+			 struct iio_chan_spec const *chan, int *val, int *val2,
+			 long mask)
+{
+	struct smblite *iio_chip = iio_priv(indio_dev);
+	struct smb_charger *chg = &iio_chip->chg;
+
+	return smblite_iio_get_prop(chg, chan->channel, val);
+}
+
+static int smblite_write_raw(struct iio_dev *indio_dev,
+			 struct iio_chan_spec const *chan, int val, int val2,
+			 long mask)
+{
+	struct smblite *iio_chip = iio_priv(indio_dev);
+	struct smb_charger *chg = &iio_chip->chg;
+
+	return smblite_iio_set_prop(chg, chan->channel, val);
+}
+
+static const struct iio_info smblite_iio_info = {
+	.read_raw = smblite_read_raw,
+	.write_raw = smblite_write_raw,
+	.of_xlate = smblite_of_xlate,
+};
+
+static int smblite_direct_iio_read(struct device *dev, int iio_chan_no, int *val)
+{
+	struct smblite *chip = dev_get_drvdata(dev);
+	struct smb_charger *chg = &chip->chg;
+	int rc;
+
+	rc = smblite_iio_get_prop(chg, iio_chan_no, val);
+
+	return (rc < 0) ? rc : 0;
+}
+
+static int smblite_direct_iio_write(struct device *dev, int iio_chan_no, int val)
+{
+	struct smblite *chip = dev_get_drvdata(dev);
+	struct smb_charger *chg = &chip->chg;
+
+	return smblite_iio_set_prop(chg, iio_chan_no, val);
+}
+
+static int smblite_iio_init(struct smblite *chip, struct platform_device *pdev,
+		struct iio_dev *indio_dev)
+{
+	struct iio_chan_spec *iio_chan;
+	int i, rc;
+
+	for (i = 0; i < chip->nchannels; i++) {
+		chip->iio_chans[i].indio_dev = indio_dev;
+		iio_chan = &chip->iio_chan_ids[i];
+		chip->iio_chans[i].channel = iio_chan;
+
+		iio_chan->channel = smb5_chans_pmic[i].channel_num;
+		iio_chan->datasheet_name = smb5_chans_pmic[i].datasheet_name;
+		iio_chan->extend_name = smb5_chans_pmic[i].datasheet_name;
+		iio_chan->info_mask_separate = smb5_chans_pmic[i].info_mask;
+		iio_chan->type = smb5_chans_pmic[i].type;
+		iio_chan->address = i;
+	}
+
+	indio_dev->dev.parent = &pdev->dev;
+	indio_dev->dev.of_node = pdev->dev.of_node;
+	indio_dev->name = "qpnp-smblite";
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->channels = chip->iio_chan_ids;
+	indio_dev->num_channels = chip->nchannels;
+
+	rc = devm_iio_device_register(&pdev->dev, indio_dev);
+	if (rc < 0)
+		pr_err("iio device register failed rc=%d\n", rc);
+
+	return rc;
+}
+
+static int smblite_extcon_init(struct smb_charger *chg)
+{
+	int rc;
+
+	/* extcon registration */
+	chg->extcon = devm_extcon_dev_allocate(chg->dev, smblite_lib_extcon_cable);
+	if (IS_ERR(chg->extcon)) {
+		rc = PTR_ERR(chg->extcon);
+		dev_err(chg->dev, "failed to allocate extcon device rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	rc = devm_extcon_dev_register(chg->dev, chg->extcon);
+	if (rc < 0) {
+		dev_err(chg->dev, "failed to register extcon device rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	/* Support reporting polarity and speed via properties */
+	rc = extcon_set_property_capability(chg->extcon,
+			EXTCON_USB, EXTCON_PROP_USB_TYPEC_POLARITY);
+	rc |= extcon_set_property_capability(chg->extcon,
+			EXTCON_USB, EXTCON_PROP_USB_SS);
+	rc |= extcon_set_property_capability(chg->extcon,
+			EXTCON_USB_HOST, EXTCON_PROP_USB_TYPEC_POLARITY);
+	rc |= extcon_set_property_capability(chg->extcon,
+			EXTCON_USB_HOST, EXTCON_PROP_USB_SS);
+	if (rc < 0)
+		dev_err(chg->dev,
+			"failed to configure extcon capabilities\n");
+
+	return rc;
+}
+
 static int smblite_probe(struct platform_device *pdev)
 {
 	struct smblite *chip;
+	struct iio_dev *indio_dev;
 	struct smb_charger *chg;
 	int rc = 0;
 
-	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
-	if (!chip)
+	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*chip));
+	if (!indio_dev)
+		return -ENOMEM;
+
+	indio_dev->info = &smblite_iio_info;
+	chip = iio_priv(indio_dev);
+	chip->nchannels = ARRAY_SIZE(smb5_chans_pmic);
+
+	chip->iio_chans = devm_kcalloc(&pdev->dev, chip->nchannels,
+				sizeof(*chip->iio_chans), GFP_KERNEL);
+	if (!chip->iio_chans)
+		return -ENOMEM;
+
+	chip->iio_chan_ids = devm_kcalloc(&pdev->dev, chip->nchannels,
+				sizeof(*chip->iio_chan_ids), GFP_KERNEL);
+	if (!chip->iio_chan_ids)
 		return -ENOMEM;
 
 	chg = &chip->chg;
+	chg->iio_chans = chip->iio_chans;
+	chg->iio_chan_list_qg = NULL;
 	chg->dev = &pdev->dev;
 	chg->debug_mask = &__debug_mask;
 	chg->weak_chg_icl_ua = 500000;
@@ -1942,6 +1800,10 @@ static int smblite_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	rc = smblite_iio_init(chip, pdev, indio_dev);
+	if (rc < 0)
+		return rc;
+
 	rc = smblite_chg_config_init(chip);
 	if (rc < 0) {
 		if (rc != -EPROBE_DEFER)
@@ -1954,6 +1816,11 @@ static int smblite_probe(struct platform_device *pdev)
 		pr_err("Couldn't parse device tree rc=%d\n", rc);
 		return rc;
 	}
+	 /* set driver data before resources request it */
+	platform_set_drvdata(pdev, chip);
+
+	chg->chg_param.iio_read = smblite_direct_iio_read;
+	chg->chg_param.iio_write = smblite_direct_iio_write;
 
 	rc = smblite_lib_init(chg);
 	if (rc < 0) {
@@ -1961,40 +1828,9 @@ static int smblite_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	/* set driver data before resources request it */
-	platform_set_drvdata(pdev, chip);
-
-	/* extcon registration */
-	chg->extcon = devm_extcon_dev_allocate(chg->dev,
-					smblite_lib_extcon_cable);
-	if (IS_ERR(chg->extcon)) {
-		rc = PTR_ERR(chg->extcon);
-		dev_err(chg->dev, "Couldn't to allocate extcon device rc=%d\n",
-				rc);
+	rc = smblite_extcon_init(chg);
+	if (rc < 0)
 		goto cleanup;
-	}
-
-	rc = devm_extcon_dev_register(chg->dev, chg->extcon);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't to register extcon device rc=%d\n",
-				rc);
-		goto cleanup;
-	}
-
-	/* Support reporting polarity and speed via properties */
-	rc = extcon_set_property_capability(chg->extcon,
-			EXTCON_USB, EXTCON_PROP_USB_TYPEC_POLARITY);
-	rc |= extcon_set_property_capability(chg->extcon,
-			EXTCON_USB, EXTCON_PROP_USB_SS);
-	rc |= extcon_set_property_capability(chg->extcon,
-			EXTCON_USB_HOST, EXTCON_PROP_USB_TYPEC_POLARITY);
-	rc |= extcon_set_property_capability(chg->extcon,
-			EXTCON_USB_HOST, EXTCON_PROP_USB_SS);
-	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't to configure extcon capabilities\n");
-		goto cleanup;
-	}
 
 	rc = smblite_init_hw(chip);
 	if (rc < 0) {
@@ -2005,12 +1841,6 @@ static int smblite_probe(struct platform_device *pdev)
 	rc = smblite_init_usb_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize usb psy rc=%d\n", rc);
-		goto cleanup;
-	}
-
-	rc = smblite_init_usb_main_psy(chip);
-	if (rc < 0) {
-		pr_err("Couldn't initialize usb main psy rc=%d\n", rc);
 		goto cleanup;
 	}
 
@@ -2094,13 +1924,16 @@ static void smblite_shutdown(struct platform_device *pdev)
 	smblite_disable_interrupts(chg);
 
 	/* configure power role for UFP */
-	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_TYPEC)
+	if (chg->connector_type == QTI_POWER_SUPPLY_CONNECTOR_TYPEC)
 		smblite_lib_masked_write(chg, TYPE_C_MODE_CFG_REG,
 				TYPEC_POWER_ROLE_CMD_MASK, EN_SNK_ONLY_BIT);
 }
 
 static const struct of_device_id match_table[] = {
-	{ .compatible = "qcom,qpnp-smblite", },
+	{
+		.compatible = "qcom,qpnp-smblite",
+		.data = (void *)PM2250,
+	},
 	{ },
 };
 

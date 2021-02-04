@@ -964,13 +964,13 @@ static int dwc3_gadget_ep_disable(struct usb_ep *ep)
 					dep->name))
 		return 0;
 
-	pm_runtime_get_sync(dwc->dev);
+	pm_runtime_get_sync(dwc->sysdev);
 	spin_lock_irqsave(&dwc->lock, flags);
 	ret = __dwc3_gadget_ep_disable(dep);
 	dbg_event(dep->number, "DISABLE", ret);
 	spin_unlock_irqrestore(&dwc->lock, flags);
-	pm_runtime_mark_last_busy(dwc->dev);
-	pm_runtime_put_sync_autosuspend(dwc->dev);
+	pm_runtime_mark_last_busy(dwc->sysdev);
+	pm_runtime_put_sync_autosuspend(dwc->sysdev);
 
 	return ret;
 }
@@ -2330,7 +2330,8 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	dwc->softconnect = is_on;
 
 	if (((dwc->dr_mode > USB_DR_MODE_HOST) && !dwc->vbus_active)
-			|| !dwc->gadget_driver || dwc->err_evt_seen) {
+			|| !dwc->gadget_driver || (dwc->err_evt_seen &&
+				dwc->softconnect)) {
 		/*
 		 * Need to wait for vbus_session(on) from otg driver or to
 		 * the udc_start.

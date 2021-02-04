@@ -203,6 +203,24 @@ config QCOM_YUPIK_LLCC
 	  can start using the LLCC slices.
 	  If unsure, say n.
 
+config QCOM_SM8150_LLCC
+	tristate "Qualcomm Technologies, Inc. SM8150 LLCC driver"
+	depends on QCOM_LLCC
+	help
+	 Say y or m here to enable the LLCC driver for SM8150 platform.
+	 This provides data required to configure LLCC so that clients
+	 can start using the LLCC slices.
+	 If unsure, say n.
+
+config QCOM_SDMSHRIKE_LLCC
+	tristate "Qualcomm Technologies, Inc. SDMSHRIKE LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  Say y or m here to enable the LLCC driver for SDMSHRIKE platform.
+	  This provides data required to configure LLCC so that clients
+	  can start using the LLCC slices.
+	  If unsure, say n.
+
 config QCOM_SDM845_LLCC
 	tristate "Qualcomm Technologies, Inc. SDM845 LLCC driver"
 	depends on QCOM_LLCC
@@ -609,6 +627,8 @@ config QCOM_GLINK_PKT
 	  clients to communicate over G-Link via device nodes.
 	  This enable the userspace clients to read and write to
 	  some glink packets channel.
+
+source "drivers/soc/qcom/hab/Kconfig"
 
 config MSM_PERFORMANCE
         tristate "msm performance driver to support userspace fmin/fmax request"

@@ -2,7 +2,7 @@
 /*
  * QTI Secure Execution Environment Communicator (QSEECOM) driver
  *
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "QSEECOM: %s: " fmt, __func__
@@ -876,6 +876,23 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			__qseecom_reentrancy_check_if_no_app_blocked(smc_id);
 			ret = __qseecom_scm_call2_locked(smc_id, &desc);
 			break;
+		}
+		case QSEOS_DIAG_FUSE_REQ_CMD:
+		case QSEOS_DIAG_FUSE_REQ_RSP_CMD: {
+			struct qseecom_client_send_fsm_diag_req *req;
+
+			smc_id = TZ_SECBOOT_GET_FUSE_INFO;
+			desc.arginfo = TZ_SECBOOT_GET_FUSE_INFO_PARAM_ID;
+
+			req = (struct qseecom_client_send_fsm_diag_req *) req_buf;
+			desc.args[0] = req->req_ptr;
+			desc.args[1] = req->req_len;
+			desc.args[2] = req->rsp_ptr;
+			desc.args[3] = req->rsp_len;
+			__qseecom_reentrancy_check_if_no_app_blocked(smc_id);
+			ret = __qseecom_scm_call2_locked(smc_id, &desc);
+			break;
+
 		}
 		case QSEOS_GENERATE_KEY: {
 			u32 tzbuflen = PAGE_ALIGN(sizeof
@@ -3309,7 +3326,7 @@ static int __qseecom_process_rpmb_svc_cmd(struct qseecom_dev_handle *data_ptr,
 static int __qseecom_process_fsm_key_svc_cmd(
 		struct qseecom_dev_handle *data_ptr,
 		struct qseecom_send_svc_cmd_req *req_ptr,
-		struct qseecom_client_send_fsm_key_req *send_svc_ireq_ptr)
+		struct qseecom_client_send_fsm_diag_req *send_svc_ireq_ptr)
 {
 	int ret = 0;
 	uint32_t reqd_len_sb_in = 0;
@@ -3327,7 +3344,6 @@ static int __qseecom_process_fsm_key_svc_cmd(
 				reqd_len_sb_in, data_ptr->client.sb_length);
 		return -ENOMEM;
 	}
-
 	send_svc_ireq_ptr->qsee_cmd_id = req_ptr->cmd_id;
 	send_svc_ireq_ptr->req_len = req_ptr->cmd_req_len;
 	send_svc_ireq_ptr->rsp_ptr = (uint32_t)(__qseecom_uvirt_to_kphys(
@@ -3431,7 +3447,7 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 {
 	int ret = 0;
 	struct qseecom_client_send_service_ireq send_svc_ireq;
-	struct qseecom_client_send_fsm_key_req send_fsm_key_svc_ireq;
+	struct qseecom_client_send_fsm_diag_req send_fsm_diag_svc_ireq;
 	struct qseecom_command_scm_resp resp;
 	struct qseecom_send_svc_cmd_req req;
 	void   *send_req_ptr;
@@ -3469,8 +3485,11 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 	case QSEOS_FSM_OEM_FUSE_READ_ROW:
 	case QSEOS_FSM_ENCFS_REQ_CMD:
 	case QSEOS_FSM_ENCFS_REQ_RSP_CMD:
-		send_req_ptr = &send_fsm_key_svc_ireq;
-		req_buf_size = sizeof(send_fsm_key_svc_ireq);
+	case QSEOS_DIAG_FUSE_REQ_CMD:
+	case QSEOS_DIAG_FUSE_REQ_RSP_CMD:
+
+		send_req_ptr = &send_fsm_diag_svc_ireq;
+		req_buf_size = sizeof(send_fsm_diag_svc_ireq);
 		if (__qseecom_process_fsm_key_svc_cmd(data, &req,
 				send_req_ptr))
 			return -EINVAL;

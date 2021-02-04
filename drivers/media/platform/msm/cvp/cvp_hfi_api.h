@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __CVP_HFI_API_H__
@@ -231,6 +231,8 @@ enum hal_command_response {
 	HAL_SESSION_ICA_FRAME_CMD_DONE,
 	HAL_SESSION_FD_FRAME_CMD_DONE,
 	HAL_SESSION_PROPERTY_INFO,
+	HAL_SESSION_CHROMA_SET_DONE,
+	HAL_SESSION_CHROMA_REL_DONE,
 	HAL_SESSION_ERROR,
 	HAL_RESPONSE_UNUSED = 0x10000000,
 };

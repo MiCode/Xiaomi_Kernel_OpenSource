@@ -90,6 +90,7 @@ struct cnss_pinctrl_info {
 	struct pinctrl_state *wlan_en_active;
 	struct pinctrl_state *wlan_en_sleep;
 	int bt_en_gpio;
+	int xo_clk_gpio; /*qca6490 only */
 };
 
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
@@ -261,6 +262,7 @@ enum cnss_driver_event_type {
 	CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM,
 	CNSS_DRIVER_EVENT_FW_MEM_FILE_SAVE,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_FREE,
+	CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA,
 	CNSS_DRIVER_EVENT_MAX,
 };
 

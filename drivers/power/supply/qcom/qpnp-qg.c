@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"QG-K: %s: " fmt, __func__
@@ -2148,13 +2148,13 @@ static int qg_iio_write_raw(struct iio_dev *indio_dev,
 		rc = qg_setprop_batt_age_level(chip, val1);
 		break;
 	default:
-		pr_err("Unsupported QG IIO chan %d\n", chan->channel);
+		pr_debug("Unsupported QG IIO chan %d\n", chan->channel);
 		rc = -EINVAL;
 		break;
 	}
 
 	if (rc < 0)
-		pr_err("Couldn't write IIO channel %d, rc = %d\n",
+		pr_err_ratelimited("Couldn't write IIO channel %d, rc = %d\n",
 			chan->channel, rc);
 
 	return rc;
@@ -2288,13 +2288,13 @@ static int qg_iio_read_raw(struct iio_dev *indio_dev,
 		*val1 = chip->qg_mode;
 		break;
 	default:
-		pr_debug("Unsupported property %d\n", chan->channel);
+		pr_debug("Unsupported QG IIO chan %d\n", chan->channel);
 		rc = -EINVAL;
 		break;
 	}
 
 	if (rc < 0) {
-		pr_err("Couldn't read IIO channel %d, rc = %d\n",
+		pr_err_ratelimited("Couldn't read IIO channel %d, rc = %d\n",
 			chan->channel, rc);
 		return rc;
 	}

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021 The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "SMB1398: %s: " fmt, __func__
@@ -131,6 +131,7 @@
 #define SMB_EN_POS_TRIGGER		BIT(0)
 
 #define PERPH0_DIV2_SLAVE		0x2652
+#define CFG_EN_SLAVE_OWN_FREQ		BIT(1)
 #define CFG_DIV2_SYNC_CLK_PHASE_90		BIT(0)
 
 #define DIV2_LCM_CFG_REG		0x2653
@@ -149,6 +150,10 @@
 #define WIN_OV_300_MV			1
 #define WIN_OV_400_MV			2
 #define WIN_OV_500_MV			3
+
+#define PERPH0_OVLO_REF_REG			0x265B
+#define SMB1394_INPUT_OVLO_CONF_MASK	GENMASK(2, 0)
+#define SMB1394_INPUT_OVLO_13P04V	0x5
 
 #define DIV2_MODE_CFG_REG		0x265C
 
@@ -181,11 +186,14 @@
 #define EN_WIN_UV_BIT			BIT(7)
 
 #define PERPH0_SOVP_CFG0_REG		0x2680
+#define CFG_OVP_VSNS_THRESHOLD		BIT(4)
 #define CFG_OVP_IGNORE_UVLO		BIT(5)
 
 #define PERPH0_SSUPPLY_CFG0_REG		0x2682
 #define EN_HV_OV_OPTION2_BIT		BIT(7)
 #define EN_MV_OV_OPTION2_BIT		BIT(5)
+#define CFG_CMP_VOUT_VS_4V_REF_MASK	GENMASK(2, 1)
+#define CMP_VOUT_VS_4V_REF_3P2V		0x3	/* Value for SMB1394 only */
 
 #define SSUPLY_TEMP_CTRL_REG		0x2683
 #define SEL_OUT_TEMP_MAX_MASK		GENMASK(7, 5)
@@ -239,6 +247,11 @@
 #define DIV2_CP_MASTER			0
 #define DIV2_CP_SLAVE			1
 #define COMBO_PRE_REGULATOR		2
+#define SMB1394_DIV2_CP_PRY		3
+#define SMB1394_DIV2_CP_SECY		4
+
+#define IS_SMB1394(role) \
+	(role == SMB1394_DIV2_CP_PRY || role == SMB1394_DIV2_CP_SECY)
 
 enum isns_mode {
 	ISNS_MODE_OFF = 0,
@@ -724,6 +737,14 @@ static int smb1398_div2_cp_switcher_en(struct smb1398_chip *chip, bool en)
 {
 	int rc;
 
+	rc = smb1398_masked_write(chip, MISC_USB_WLS_SUSPEND_REG,
+			USB_SUSPEND, en ? 0 : USB_SUSPEND);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't write USB_WLS_SUSPEND_REG, rc=%d\n",
+				rc);
+		return rc;
+	}
+
 	rc = smb1398_masked_write(chip, MISC_SL_SWITCH_EN_REG,
 			EN_SWITCHER, en ? EN_SWITCHER : 0);
 	if (rc < 0) {
@@ -1040,6 +1061,8 @@ static int smb1398_div2_cp_get_min_icl(struct smb1398_chip *chip)
 
 static char *div2_cp_get_model_name(struct smb1398_chip *chip)
 {
+	if (IS_SMB1394(chip->div2_cp_role))
+		return "SMB1394";
 
 	if (chip->rev4 > 2)
 		return "SMB1398_V3";
@@ -1872,7 +1895,7 @@ out:
 	chip->taper_work_running = false;
 }
 
-static int smb1398_update_ovp(struct smb1398_chip *chip)
+static int _smb1398_update_ovp(struct smb1398_chip *chip)
 {
 	int rc = 0;
 
@@ -1898,7 +1921,38 @@ static int smb1398_update_ovp(struct smb1398_chip *chip)
 		return rc;
 	}
 
-	return 0;
+	return rc;
+}
+
+static int _smb1394_update_ovp(struct smb1398_chip *chip)
+{
+	int rc = 0;
+
+	rc = smb1398_masked_write(chip, PERPH0_SOVP_CFG0_REG,
+			CFG_OVP_VSNS_THRESHOLD, CFG_OVP_VSNS_THRESHOLD);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set PERPH0_SOVP_CFG0_REG rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	rc = smb1398_masked_write(chip, PERPH0_OVLO_REF_REG,
+			SMB1394_INPUT_OVLO_CONF_MASK,
+			SMB1394_INPUT_OVLO_13P04V);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set PERPH0_OVLO_REF rc=%d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+static int smb1398_update_ovp(struct smb1398_chip *chip)
+{
+	if (IS_SMB1394(chip->div2_cp_role))
+		return _smb1394_update_ovp(chip);
+
+	return _smb1398_update_ovp(chip);
 }
 
 static int smb1398_div2_cp_hw_init(struct smb1398_chip *chip)
@@ -1982,6 +2036,17 @@ static int smb1398_div2_cp_hw_init(struct smb1398_chip *chip)
 		dev_err(chip->dev, "Couldn't set CFG_EN_SOURCE, rc=%d\n",
 				rc);
 		return rc;
+	}
+
+	if (IS_SMB1394(chip->div2_cp_role)) {
+		rc = smb1398_masked_write(chip, PERPH0_SSUPPLY_CFG0_REG,
+				CFG_CMP_VOUT_VS_4V_REF_MASK,
+				CMP_VOUT_VS_4V_REF_3P2V);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't set PERPH0_SSUPPLY_CFG0_REG, rc=%d\n",
+					rc);
+			return rc;
+		}
 	}
 
 	return rc;
@@ -2242,13 +2307,32 @@ static int smb1398_div2_cp_slave_probe(struct smb1398_chip *chip)
 		return rc;
 	}
 
-	/* Enable slave clock on its own */
-	rc = smb1398_masked_write(chip, NOLOCK_SPARE_REG,
-			EN_SLAVE_OWN_FREQ_BIT, EN_SLAVE_OWN_FREQ_BIT);
-	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't enable slave clock, rc=%d\n",
-				rc);
-		return rc;
+	if (IS_SMB1394(chip->div2_cp_role)) {
+		rc = smb1398_masked_write(chip, PERPH0_SSUPPLY_CFG0_REG,
+				CFG_CMP_VOUT_VS_4V_REF_MASK,
+				CMP_VOUT_VS_4V_REF_3P2V);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't set PERPH0_SSUPPLY_CFG0_REG, rc=%d\n",
+					rc);
+			return rc;
+		}
+
+		rc = smb1398_masked_write(chip, PERPH0_DIV2_SLAVE,
+				CFG_EN_SLAVE_OWN_FREQ, CFG_EN_SLAVE_OWN_FREQ);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't set PERPH0_DIV2_SLAVE, rc=%d\n",
+					rc);
+			return rc;
+		}
+	} else {
+		/* Enable slave clock on its own */
+		rc = smb1398_masked_write(chip, NOLOCK_SPARE_REG,
+				EN_SLAVE_OWN_FREQ_BIT, EN_SLAVE_OWN_FREQ_BIT);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't enable slave clock, rc=%d\n",
+					rc);
+			return rc;
+		}
 	}
 
 	rc = smb1398_init_div2_cp_slave_psy(chip);
@@ -2276,7 +2360,7 @@ static int smb1398_pre_regulator_iout_vote_cb(struct votable *votable,
 		return -EINVAL;
 
 	iout_ua = min(iout_ua, MAX_IOUT_UA);
-	rc = smb1398_set_ichg_ma(chip, do_div(iout_ua, 1000));
+	rc = smb1398_set_ichg_ma(chip, (iout_ua / 1000));
 	if (rc < 0)
 		return rc;
 
@@ -2862,7 +2946,8 @@ static int cp_iio_probe_init(struct smb1398_chip *chip,
 		iio_chan->address = i;
 	}
 
-	if (chip->div2_cp_role == DIV2_CP_MASTER) {
+	if (chip->div2_cp_role == DIV2_CP_MASTER ||
+			chip->div2_cp_role == SMB1394_DIV2_CP_PRY) {
 		cp_smb5_iio_init(chip);
 		indio_dev->name = "smb1396-div2-cp-master";
 	} else {
@@ -2899,6 +2984,7 @@ static int smb1398_probe(struct platform_device *pdev)
 	chip->div2_cp_role = (int)of_device_get_match_data(chip->dev);
 	switch (chip->div2_cp_role) {
 	case DIV2_CP_MASTER:
+	case SMB1394_DIV2_CP_PRY:
 		chip->nchannels = ARRAY_SIZE(cp_master_chans);
 		rc = smb1398_div2_cp_master_probe(chip);
 		if (rc < 0) {
@@ -2910,6 +2996,7 @@ static int smb1398_probe(struct platform_device *pdev)
 		rc = cp_iio_probe_init(chip, indio_dev, cp_master_chans, &cp_master_iio_info);
 		break;
 	case DIV2_CP_SLAVE:
+	case SMB1394_DIV2_CP_SECY:
 		chip->nchannels = ARRAY_SIZE(cp_slave_chans);
 		rc = smb1398_div2_cp_slave_probe(chip);
 		if (rc < 0) {
@@ -2966,7 +3053,8 @@ static int smb1398_remove(struct platform_device *pdev)
 {
 	struct smb1398_chip *chip = platform_get_drvdata(pdev);
 
-	if (chip->div2_cp_role == DIV2_CP_MASTER) {
+	if (chip->div2_cp_role == DIV2_CP_MASTER ||
+			chip->div2_cp_role == SMB1394_DIV2_CP_PRY) {
 		vote(chip->awake_votable, SHUTDOWN_VOTER, false, 0);
 		vote(chip->div2_cp_disable_votable, SHUTDOWN_VOTER, true, 0);
 		vote(chip->div2_cp_ilim_votable, SHUTDOWN_VOTER, true, 0);
@@ -3032,6 +3120,12 @@ static const struct of_device_id match_table[] = {
 	},
 	{ .compatible = "qcom,smb1398-pre-regulator",
 	  .data = (void *)COMBO_PRE_REGULATOR,
+	},
+	{ .compatible = "qcom,smb1394-div2-cp-primary",
+	  .data = (void *)SMB1394_DIV2_CP_PRY,
+	},
+	{ .compatible = "qcom,smb1394-div2-cp-secondary",
+	  .data = (void *)SMB1394_DIV2_CP_SECY,
 	},
 	{
 	},
