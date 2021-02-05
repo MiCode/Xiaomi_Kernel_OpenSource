@@ -168,6 +168,14 @@ static int qrcuart_data_status(struct qrc_dev *dev)
 	return kfifo_len(&qrc->qrc_rx_fifo);
 }
 
+static void qrcuart_data_clean(struct qrc_dev *dev)
+{
+	struct qrcuart *qrc = qrc_get_data(dev);
+
+	kfifo_reset(&qrc->qrc_rx_fifo);
+}
+
+
 static enum qrcdev_tx qrcuart_xmit(const char __user  *buf,
 				size_t data_length, struct qrc_dev *dev)
 {
@@ -220,6 +228,7 @@ static const struct qrc_device_ops qrcuart_qrc_ops = {
 	.qrcops_config = qrcuart_config,
 	.qrcops_setup = qrcuart_setup,
 	.qrcops_data_status = qrcuart_data_status,
+	.qrcops_data_clean = qrcuart_data_clean,
 };
 
 static int qrcuart_setup(struct qrc_dev *dev)
@@ -269,6 +278,7 @@ static int qrc_uart_probe(struct serdev_device *serdev)
 	serdev_device_set_flow_control(serdev, false);
 
 	ret = qrc_register_device(qdev, &serdev->dev);
+
 	if (ret) {
 		pr_err("qrcuart: Unable to register qrc device %s\n");
 		serdev_device_close(serdev);

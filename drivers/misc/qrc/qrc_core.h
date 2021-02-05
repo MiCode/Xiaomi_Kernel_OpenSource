@@ -14,12 +14,26 @@
 #include <linux/kfifo.h>
 #include <linux/sched/signal.h>
 #include <linux/uaccess.h>
+#include <linux/ioctl.h>
 
 #define QRC_NAME_SIZE 30
 #define QRC_INTERFACE_SIZE 30
 #define QRC_FIFO_SIZE	0x1000
 
 struct qrc_dev;
+
+/* IOCTL commands */
+#define QRC_IOC_MAGIC   'q'
+
+/* Clear read fifo */
+#define QRC_FIFO_CLEAR	_IO(QRC_IOC_MAGIC, 1)
+/* Reboot QRC controller */
+#define QRC_REBOOT	_IO(QRC_IOC_MAGIC, 2)
+/* QRC boot from memory */
+#define QRC_BOOT_TO_MEM	_IO(QRC_IOC_MAGIC, 3)
+/* QRC boot from flash */
+#define QRC_BOOT_TO_FLASH	_IO(QRC_IOC_MAGIC, 4)
+
 
 enum qrcdev_state_t {
 	__STATE_IDLE,
@@ -62,6 +76,7 @@ struct qrc_device_ops {
 	int		(*qrcops_data_status)
 			(struct qrc_dev *dev);
 	int		(*qrcops_config)(struct qrc_dev *dev);
+	void	(*qrcops_data_clean)(struct qrc_dev *dev);
 };
 
 /* qrc char device */
@@ -76,6 +91,8 @@ struct qrc_dev {
 	struct cdev cdev;
 	struct device *dev;
 	void *data;
+	int qrc_boot0_gpio;
+	int qrc_reset_gpio;
 };
 
 /**
