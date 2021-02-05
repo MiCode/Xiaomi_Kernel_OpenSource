@@ -23,6 +23,7 @@
 #include <linux/kthread.h>
 #include <linux/mailbox_client.h>
 #include <linux/ipc_logging.h>
+#include <linux/suspend.h>
 #include <soc/qcom/subsystem_notif.h>
 
 #include "rpmsg_internal.h"
@@ -53,6 +54,8 @@ do {									     \
 
 #define RPM_GLINK_CID_MIN	1
 #define RPM_GLINK_CID_MAX	65536
+
+static int should_wake;
 
 struct glink_msg {
 	__le16 cmd;
@@ -1241,6 +1244,8 @@ static irqreturn_t qcom_glink_native_intr(int irq, void *data)
 	unsigned int cmd;
 	int ret = 0;
 
+	if (should_wake)
+		pm_system_wakeup();
 	/* To wakeup any blocking writers */
 	wake_up_all(&glink->tx_avail_notify);
 
@@ -2221,6 +2226,26 @@ void qcom_glink_native_unregister(struct qcom_glink *glink)
 	device_unregister(glink->dev);
 }
 EXPORT_SYMBOL_GPL(qcom_glink_native_unregister);
+
+static int qcom_glink_suspend_no_irq(struct device *dev)
+{
+	should_wake = true;
+
+	return 0;
+}
+
+static int qcom_glink_resume_no_irq(struct device *dev)
+{
+	should_wake = false;
+
+	return 0;
+}
+
+const struct dev_pm_ops glink_native_pm_ops = {
+	.suspend_noirq = qcom_glink_suspend_no_irq,
+	.resume_noirq = qcom_glink_resume_no_irq,
+};
+EXPORT_SYMBOL(glink_native_pm_ops);
 
 MODULE_DESCRIPTION("Qualcomm GLINK driver");
 MODULE_LICENSE("GPL v2");
