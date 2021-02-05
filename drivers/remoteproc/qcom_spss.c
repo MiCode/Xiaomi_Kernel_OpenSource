@@ -244,8 +244,9 @@ static bool check_status(struct qcom_spss *spss)
 	err_value =  __raw_readl(spss->err_status_spare);
 	status_val = __raw_readl(spss->irq_status);
 
-	if ((status_val & BIT(spss->bits_arr[ERR_READY])) && err_value) {
-		dev_err(spss->dev, "SPSS crashed before booting\n");
+	if ((status_val & BIT(spss->bits_arr[ERR_READY])) && err_value == SPSS_WDOG_ERR) {
+		dev_err(spss->dev, "wdog bite is pending\n");
+		__raw_writel(BIT(spss->bits_arr[ERR_READY]), spss->irq_clr);
 		return true;
 	}
 	return false;
