@@ -265,3 +265,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_finished);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alter_rwsem_list_add);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_thermal_power_cap);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_tk_based_time_sync);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_kswapd_per_node);
