@@ -1445,6 +1445,7 @@
   of_property_read_u32_index
   of_property_read_u64
   of_property_read_u64_index
+  of_property_read_variable_u16_array
   of_property_read_variable_u32_array
   of_property_read_variable_u8_array
   of_prop_next_string
