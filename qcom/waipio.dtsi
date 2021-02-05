@@ -3036,7 +3036,7 @@
 };
 
 &qupv3_se20_4uart {
-	status = "disabled";
+	status = "ok";
 };
 
 &qupv3_se5_i2c {
