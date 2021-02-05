@@ -61,3 +61,4 @@ endif
 obj-$(CONFIG_MSM_ADSPRPC)	+= frpc-adsprpc.o
 obj-$(CONFIG_ADI)		+= adi.o
 obj-$(CONFIG_MSM_RDBG)		+= rdbg.o
+obj-$(CONFIG_MSM_FASTCVPD)	+= fastcvpd.o
