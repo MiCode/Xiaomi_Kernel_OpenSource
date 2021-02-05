@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -279,6 +279,9 @@ static int clk_rpmh_bcm_send_cmd(struct clk_rpmh *c, bool enable)
 		if (c->aggr_state)
 			cmd_state = c->aggr_state;
 	}
+
+	if (cmd_state > BCM_TCS_CMD_VOTE_MASK)
+		cmd_state = BCM_TCS_CMD_VOTE_MASK;
 
 	if (c->last_sent_aggr_state == cmd_state) {
 		mutex_unlock(&rpmh_clk_lock);
