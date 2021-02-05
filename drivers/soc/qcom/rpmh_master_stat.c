@@ -35,6 +35,7 @@ enum master_smem_id {
 	GPU,
 	DISPLAY,
 	SLPI_ISLAND = 613,
+	APSS = 631,
 };
 
 enum master_pid {
@@ -63,6 +64,7 @@ struct msm_rpmh_master_data {
 };
 
 static const struct msm_rpmh_master_data rpmh_masters[] = {
+	{"APSS", APSS, QCOM_SMEM_HOST_ANY},
 	{"MPSS", MPSS, PID_MPSS},
 	{"WPSS", MPSS, PID_WPSS},
 	{"ADSP", ADSP, PID_ADSP},
@@ -134,8 +136,10 @@ static ssize_t msm_rpmh_master_stats_show(struct kobject *kobj,
 
 	/* First Read APSS master stats */
 
-	length = msm_rpmh_master_stats_print_data(buf, PAGE_SIZE,
-						&apss_master_stats, "APSS");
+	if (rpmh_unit_base)
+		length = msm_rpmh_master_stats_print_data(buf, PAGE_SIZE,
+							  &apss_master_stats,
+							  "APSS");
 
 	/* Read SMEM data written by other masters */
 
@@ -229,17 +233,14 @@ static int msm_rpmh_master_stats_probe(struct platform_device *pdev)
 
 	rpmh_unit_base = of_iomap(pdev->dev.of_node, 0);
 	if (!rpmh_unit_base) {
-		pr_err("Failed to get rpmh_unit_base\n");
-		ret = -ENOMEM;
-		goto fail_iomap;
+		pr_err("Failed to get rpmh_unit_base or rpm based target\n");
+		rpmh_unit_base = NULL;
 	}
 
 	apss_master_stats.version_id = 0x1;
 	platform_set_drvdata(pdev, prvdata);
 	return ret;
 
-fail_iomap:
-	sysfs_remove_file(prvdata->kobj, &prvdata->ka.attr);
 fail_sysfs:
 	kobject_put(prvdata->kobj);
 	return ret;
@@ -255,7 +256,8 @@ static int msm_rpmh_master_stats_remove(struct platform_device *pdev)
 	sysfs_remove_file(prvdata->kobj, &prvdata->ka.attr);
 	kobject_put(prvdata->kobj);
 	platform_set_drvdata(pdev, NULL);
-	iounmap(rpmh_unit_base);
+	if (rpmh_unit_base)
+		iounmap(rpmh_unit_base);
 	rpmh_unit_base = NULL;
 
 	return 0;
