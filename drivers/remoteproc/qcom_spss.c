@@ -64,6 +64,7 @@ struct qcom_spss {
 	void __iomem *irq_mask;
 	void __iomem *err_status;
 	void __iomem *err_status_spare;
+	void __iomem *rmb_gpm;
 	u32 bits_arr[2];
 };
 
@@ -474,6 +475,11 @@ static int qcom_spss_init_mmio(struct platform_device *pdev, struct qcom_spss *s
 	struct resource *res;
 	int ret;
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rmb_general_purpose");
+	spss->rmb_gpm = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(spss->rmb_gpm))
+		return PTR_ERR(spss->rmb_gpm);
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "sp2soc_irq_status");
 	spss->irq_status = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(spss->irq_status))
@@ -553,13 +559,17 @@ static int qcom_spss_probe(struct platform_device *pdev)
 	spss->pas_id = desc->pas_id;
 	init_completion(&spss->start_done);
 	platform_set_drvdata(pdev, spss);
-	rproc->state = RPROC_DETACHED;
 	rproc->auto_boot = desc->auto_boot;
 	rproc_coredump_set_elf_info(rproc, ELFCLASS32, EM_NONE);
 
 	ret = qcom_spss_init_mmio(pdev, spss);
 	if (ret)
 		goto free_rproc;
+
+	if (!(__raw_readl(spss->rmb_gpm) & BIT(0)))
+		rproc->state = RPROC_DETACHED;
+	else
+		rproc->state = RPROC_OFFLINE;
 
 	ret = spss_alloc_memory_region(spss);
 	if (ret)
