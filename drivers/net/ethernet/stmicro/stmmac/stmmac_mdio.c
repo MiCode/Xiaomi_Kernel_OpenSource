@@ -269,7 +269,7 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 #ifdef CONFIG_DWMAC_QCOM_ETHQOS
 	active_high = false;
 #endif
-	if (priv->early_eth)
+	if (priv->plat->early_eth)
 		return 0;
 
 #ifdef CONFIG_OF
