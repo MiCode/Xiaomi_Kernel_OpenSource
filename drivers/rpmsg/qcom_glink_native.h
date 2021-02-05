@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2016-2017, Linaro Ltd
+ * Copyright (c) 2016-2017, 2021, Linaro Ltd
  */
 
 #ifndef __QCOM_GLINK_NATIVE_H__
@@ -27,6 +27,7 @@ struct qcom_glink_pipe {
 };
 
 struct qcom_glink;
+extern const struct dev_pm_ops glink_native_pm_ops;
 
 struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 					   unsigned long features,
