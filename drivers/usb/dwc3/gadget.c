@@ -2105,7 +2105,7 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 	unsigned long	flags;
 
 	spin_lock_irqsave(&dwc->lock, flags);
-	if (!dwc->is_remote_wakeup_enabled) {
+	if (g->speed < USB_SPEED_SUPER && !dwc->is_remote_wakeup_enabled) {
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		dbg_log_string("remote wakeup not supported\n");
 		return -EINVAL;
