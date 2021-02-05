@@ -6723,8 +6723,9 @@ static int msm_pcie_drv_send_rpmsg(struct msm_pcie_dev_t *pcie_dev,
 
 	ret = rpmsg_trysend(pcie_drv.rpdev->ept, msg, sizeof(*msg));
 	if (ret) {
-		PCIE_ERR(pcie_dev, "PCIe: RC%d: DRV: failed to send rpmsg\n",
-			pcie_dev->rc_idx);
+		PCIE_ERR(pcie_dev,
+			 "PCIe: RC%d: DRV: failed to send rpmsg, ret:%d\n",
+			pcie_dev->rc_idx, ret);
 		goto out;
 	}
 
