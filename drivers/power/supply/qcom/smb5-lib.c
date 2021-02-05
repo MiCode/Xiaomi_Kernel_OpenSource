@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +28,14 @@
 #include "step-chg-jeita.h"
 #include "storm-watch.h"
 #include "schgm-flash.h"
+//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+#include <linux/moduleparam.h>
+extern struct smb_charger *wt_smbchip;
+//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+//+bug xxx add by machengcheng@wt for usb check for tp
+int usb_check_in_state = 0;
+extern void tpd_usb_plugin(int plugin);
+//-bug xxx add by machengcheng@wt for usb check for tp
 
 #define smblib_err(chg, fmt, ...)		\
 	pr_err("%s: %s: " fmt, chg->name,	\
@@ -1151,6 +1160,8 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	cancel_delayed_work_sync(&chg->usbov_dbc_work);
 	vote(chg->awake_votable, USBOV_DBC_VOTER, false, 0);
 	chg->dbc_usbov = false;
+	//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	chg->chg_done = 0;
 
 	chg->voltage_min_uv = MICRO_5V;
 	chg->voltage_max_uv = MICRO_5V;
@@ -1262,6 +1273,10 @@ static int set_sdp_current(struct smb_charger *chg, int icl_ua)
 	int rc;
 	u8 icl_options;
 	const struct apsd_result *apsd_result = smblib_get_apsd_result(chg);
+	//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	u8 reg_ufp_try;
+	u8 reg_ufp_legacy;
+	//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 
 	/* power source is SDP */
 	switch (icl_ua) {
@@ -1276,6 +1291,18 @@ static int set_sdp_current(struct smb_charger *chg, int icl_ua)
 	case USBIN_500MA:
 		/* USB 2.0 500mA */
 		icl_options = USB51_MODE_BIT;
+		//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+		/*UFP is detect as SDP in platform ,setting 900mA when detect ufp type*/
+		rc = smblib_read(chg, TYPE_C_CURRSRC_SNK_SRC_REG, &reg_ufp_try);
+		rc |= smblib_read(chg, TYPE_C_CURRSRC_LEGACY_CABLE_REG, &reg_ufp_legacy);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't get typeC cable info rc=%d\n", rc);
+		}
+		else if ((reg_ufp_try & BIT(0)) && !(reg_ufp_legacy & BIT(1))){
+			icl_options = CFG_USB3P0_SEL_BIT | USB51_MODE_BIT;
+			smblib_err(chg, "WT:Detect as typeC ufp 900mA\n");
+		}
+		//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 		break;
 	case USBIN_900MA:
 		/* USB 3.0 900mA */
@@ -1416,6 +1443,32 @@ int smblib_toggle_smb_en(struct smb_charger *chg, int toggle)
 	return rc;
 }
 
+//+bug 438937 zhaolinquan.wt, MODIFY, 20190418, Setting 1A charging current on call state
+#define DCP_CALL_CURRENT 1000000
+#define HVDCP_CALL_CURRENT 600000
+void smb5_set_calling_current(struct smb_charger *chg)
+{
+	const struct apsd_result *apsd_result = smblib_get_apsd_result(chg);
+
+	smblib_dbg(chg, PR_MISC, "APSD=%s call_state=%d\n", apsd_result->name, chg->call_state);
+
+	if(chg->call_state == 0)
+	{
+		if(!strcmp(apsd_result->name, "DCP")){
+			pr_err("call_icl_voltage DCP vote 1000mA when calling\n");
+			vote(chg->usb_icl_votable, CALL_ICL_MAX_VOTER, true, DCP_CALL_CURRENT);
+		}
+		if(!strcmp(apsd_result->name, "HVDCP3") || !strcmp(apsd_result->name, "HVDCP2"))
+		{
+			pr_err("call_icl_voltage HVDCP vote 650mA when calling\n");
+			vote(chg->usb_icl_votable, CALL_ICL_MAX_VOTER, true, HVDCP_CALL_CURRENT);
+		}
+	}else {
+		pr_err("call_icl_volter false");
+		vote(chg->usb_icl_votable, CALL_ICL_MAX_VOTER, false, 0);
+	}
+}
+//-bug 438937 zhaolinquan.wt, MODIFY, 20190418, Setting 1A charging current on call state
 int smblib_get_irq_status(struct smb_charger *chg,
 				union power_supply_propval *val)
 {
@@ -1438,6 +1491,60 @@ int smblib_get_irq_status(struct smb_charger *chg,
 
 	return rc;
 }
+
+//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+#define BATTERY_0_TEMP	0
+#define BATTERY_5_TEMP	50
+#define BATTERY_15_TEMP	150
+#define BATTERY_45_TEMP	450
+#define BATTERY_55_TEMP	550
+
+#define BATT_050_FCC	394000
+#define BATT_515_FCC	1182000
+#define BATT_1545_FCC	3000000
+#define BATT_4555_FCC	1970000
+#define BATT_COLD_HOT_FCC	0
+extern bool usbchg_lcd_is_on(void);
+void batt_temp_charging_current(struct smb_charger *chg, int bat_temp)
+{
+	bool lcd_is_on;
+	int bat_current = 0, rc = 0;
+	lcd_is_on = usbchg_lcd_is_on();
+
+	if (bat_temp <= BATTERY_0_TEMP) {
+		bat_current = BATT_COLD_HOT_FCC;
+	} else if (BATTERY_0_TEMP <= bat_temp && bat_temp < BATTERY_5_TEMP) {
+		bat_current = BATT_050_FCC;
+	} else if (BATTERY_5_TEMP <= bat_temp && bat_temp < BATTERY_15_TEMP) {
+		bat_current = BATT_515_FCC;
+	} else if (BATTERY_15_TEMP <= bat_temp && bat_temp < BATTERY_45_TEMP) {
+		bat_current = BATT_1545_FCC;
+	} else if (BATTERY_45_TEMP <= bat_temp && bat_temp < BATTERY_55_TEMP) {
+		bat_current = BATT_4555_FCC;
+	} else {
+		bat_current = BATT_COLD_HOT_FCC;
+	}
+
+	if (bat_current != chg->last_bat_current) {
+		pr_err("bat_current = %d,lcd_is_on = %d,bat_temp = %d,last_bat_current=%d\n",
+			bat_current,lcd_is_on,bat_temp,chg->last_bat_current);
+		rc = vote(chg->fcc_votable,
+					BATT_TEMP_VOTER, true, bat_current);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't vote fastchg ma rc = %d\n", rc);
+		}
+
+		rc = vote(chg->chg_disable_votable,
+				BATT_TEMP_VOTER, (bat_current==0) ? true : false, 0);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't set battchg suspend rc %d\n", rc);
+		}
+		chg->last_bat_current = bat_current;
+	}
+}
+//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 
 /****************************
  * uUSB Moisture Protection *
@@ -1894,7 +2001,13 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 		 * charging path is un-suspended.
 		 */
 		if (pval.intval && !suspend) {
-			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+			if(chg->chg_done)
+				val->intval = POWER_SUPPLY_STATUS_FULL;
+			else
+				val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			smblib_err(chg, "WT USBOV status =%d\n",val->intval);
+			//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 			return 0;
 		}
 	}
@@ -1933,7 +2046,9 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
 			break;
 		}
-		return rc;
+		//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+		//return rc;
+		goto out;
 	}
 
 	switch (stat) {
@@ -1958,7 +2073,9 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 
 	if (is_charging_paused(chg)) {
 		val->intval = POWER_SUPPLY_STATUS_CHARGING;
-		return 0;
+		//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+		//return 0;
+		goto out;
 	}
 
 	/*
@@ -1968,16 +2085,23 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 	if (is_client_vote_enabled(chg->usb_icl_votable,
 						CHG_TERMINATION_VOTER)) {
 		val->intval = POWER_SUPPLY_STATUS_FULL;
-		return 0;
+		//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+		//return 0;
+		goto out;
 	}
 
-	if (val->intval != POWER_SUPPLY_STATUS_CHARGING)
-		return 0;
+	if (val->intval != POWER_SUPPLY_STATUS_CHARGING){
+		//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+		//return 0;
+		goto out;
+	}
 
 	if (!usb_online && dc_online
 		&& chg->fake_batt_status == POWER_SUPPLY_STATUS_FULL) {
 		val->intval = POWER_SUPPLY_STATUS_FULL;
-		return 0;
+		//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+		//return 0;
+		goto out;
 	}
 
 	rc = smblib_read(chg, BATTERY_CHARGER_STATUS_5_REG, &stat);
@@ -1992,6 +2116,20 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 
 	if (!stat)
 		val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+
+//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+out:
+	//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	if((val->intval == POWER_SUPPLY_STATUS_FULL)&&(!chg->chg_done)){
+		smblib_get_prop_batt_capacity(chg, &pval);
+		if(pval.intval != 100)
+			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+	}
+	if(chg->old_batt_status != val->intval){
+		smblib_err(chg, "WT batt_status  old=%d,new=%d\n",chg->old_batt_status,val->intval);
+		chg->old_batt_status = val->intval;
+	}
+	//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 
 	return 0;
 }
@@ -2429,6 +2567,8 @@ static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
 	power_supply_changed(chg->usb_main_psy);
 }
 
+//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+#define PULSE_CNT_MAX  17      /*17*200 + 5000 = 8.4V*/
 int smblib_dp_dm(struct smb_charger *chg, int val)
 {
 	int target_icl_ua, rc = 0;
@@ -2441,6 +2581,12 @@ int smblib_dp_dm(struct smb_charger *chg, int val)
 		 * Pre-emptively increment pulse count to enable the setting
 		 * of FSW prior to increasing voltage.
 		 */
+
+		//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+		if(chg->pulse_cnt >= PULSE_CNT_MAX)
+			break;
+		//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+
 		chg->pulse_cnt++;
 
 		rc = smblib_hvdcp3_set_fsw(chg);
@@ -2458,8 +2604,15 @@ int smblib_dp_dm(struct smb_charger *chg, int val)
 			chg->pulse_cnt--;
 		}
 
+	//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	#if 0
 		smblib_dbg(chg, PR_PARALLEL, "DP_DM_DP_PULSE rc=%d cnt=%d\n",
 				rc, chg->pulse_cnt);
+	#else
+		smblib_dbg(chg, PR_INTERRUPT, "DP_DM_DP_PULSE rc=%d cnt=%d\n",
+				rc, chg->pulse_cnt);
+	#endif
+	//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 		break;
 	case POWER_SUPPLY_DP_DM_DM_PULSE:
 		rc = smblib_dm_pulse(chg);
@@ -3226,12 +3379,37 @@ int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 				    union power_supply_propval *val)
 {
 	union power_supply_propval pval = {0, };
-	int rc;
+	//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	int rc, ret;
+	u8 reg;
+	mutex_lock(&chg->adc_lock);
+
+	if (chg->wa_flags & USBIN_ADC_WA) {
+	/* Store ADC channel config in order to restore later */
+	rc = smblib_read(chg, BATIF_ADC_CHANNEL_EN_REG, &reg);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't read ADC config rc=%d\n", rc);
+			ret = rc;
+			goto unlock;
+		}
+
+		/* Disable all ADC channels except IBAT channel */
+		rc = smblib_write(chg, BATIF_ADC_CHANNEL_EN_REG,
+						IBATT_CHANNEL_EN_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't disable ADC channels rc=%d\n",
+						rc);
+			ret = rc;
+			goto unlock;
+		}
+	}
 
 	rc = smblib_get_prop_usb_present(chg, &pval);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't get usb presence status rc=%d\n", rc);
-		return -ENODATA;
+		ret = -ENODATA;
+		goto restore_adc_config;
+
 	}
 
 	/*
@@ -3240,9 +3418,25 @@ int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 	 * voltages.
 	 */
 	if (chg->smb_version == PM8150B_SUBTYPE && pval.intval)
-		return smblib_read_mid_voltage_chan(chg, val);
+		rc = smblib_read_mid_voltage_chan(chg, val);
 	else
-		return smblib_read_usbin_voltage_chan(chg, val);
+		rc = smblib_read_usbin_voltage_chan(chg, val);
+		if (rc < 0) {
+			smblib_err(chg, "Failed to read USBIN over vadc, rc=%d\n", rc);
+			ret = rc;
+		}
+
+	restore_adc_config:
+		 /* Restore ADC channel config */
+		if (chg->wa_flags & USBIN_ADC_WA)
+			rc = smblib_write(chg, BATIF_ADC_CHANNEL_EN_REG, reg);
+			if (rc < 0)
+				smblib_err(chg, "Couldn't write ADC config rc=%d\n",
+							rc);
+	unlock:
+		mutex_unlock(&chg->adc_lock);
+		return ret;
+	//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 }
 
 int smblib_get_prop_vph_voltage_now(struct smb_charger *chg,
@@ -3811,7 +4005,7 @@ static int smblib_get_typec_connector_temp_status(struct smb_charger *chg)
 	return POWER_SUPPLY_HEALTH_COOL;
 }
 
-int smblib_get_skin_temp_status(struct smb_charger *chg)
+static int smblib_get_skin_temp_status(struct smb_charger *chg)
 {
 	int rc;
 	u8 stat;
@@ -3932,11 +4126,20 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 				 * Valid FLOAT charger, report the current
 				 * based of Rp.
 				 */
-				typec_mode = smblib_get_prop_typec_mode(chg);
-				rp_ua = get_rp_based_dcp_current(chg,
-								typec_mode);
-				rc = vote(chg->usb_icl_votable,
-						SW_ICL_MAX_VOTER, true, rp_ua);
+				 //+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+				#if 0
+					typec_mode = smblib_get_prop_typec_mode(chg);
+					rp_ua = get_rp_based_dcp_current(chg,
+									typec_mode);
+					rc = vote(chg->usb_icl_votable,
+							SW_ICL_MAX_VOTER, true, rp_ua);
+				#else
+					typec_mode = 0;
+					rp_ua = 0;
+					rc = vote(chg->usb_icl_votable,
+							SW_ICL_MAX_VOTER, true, FLOAT_CURRENT_UA);
+				#endif
+				//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 				if (rc < 0)
 					return rc;
 			} else {
@@ -4539,8 +4742,10 @@ irqreturn_t default_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
-
-	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
+	if(!strcmp(irq_data->name,"input-current-limiting"))//bug 455387 zhaolinquan.wt, MODIFY, 20190704, reduce charge log
+		smblib_dbg(chg, PR_REGISTER, "IRQ: %s\n", irq_data->name);
+	else
+		smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
 	return IRQ_HANDLED;
 }
 
@@ -4616,8 +4821,11 @@ static void smblib_eval_chg_termination(struct smb_charger *chg, u8 batt_status)
 	 * to prevent overcharing.
 	 */
 	if ((batt_status == TERMINATE_CHARGE) && (pval.intval == 100)) {
+		//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 		chg->cc_soc_ref = 0;
 		chg->last_cc_soc = 0;
+		chg->chg_done = 1;
+		//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 		alarm_start_relative(&chg->chg_termination_alarm,
 				ms_to_ktime(CHG_TERM_WA_ENTRY_DELAY_MS));
 	} else if (pval.intval < 100) {
@@ -4626,10 +4834,23 @@ static void smblib_eval_chg_termination(struct smb_charger *chg, u8 batt_status)
 		 * we exit the TERMINATE_CHARGE state and soc drops below 100%
 		 */
 		chg->cc_soc_ref = 0;
+		//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 		chg->last_cc_soc = 0;
 	}
 }
 
+//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+static void smblib_usbov_delay_report_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+						usbov_delay_report_work.work);
+
+	power_supply_changed(chg->batt_psy);
+	vote(chg->awake_votable, USBOV_DELAY_VOTER, false, 0);
+}
+
+#define DELAY_REPORT_PERIOD_MS 20
+//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 irqreturn_t chg_state_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
@@ -4651,7 +4872,12 @@ irqreturn_t chg_state_change_irq_handler(int irq, void *data)
 	if (chg->wa_flags & CHG_TERMINATION_WA)
 		smblib_eval_chg_termination(chg, stat);
 
-	power_supply_changed(chg->batt_psy);
+	//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	//power_supply_changed(chg->batt_psy);
+	vote(chg->awake_votable, USBOV_DELAY_VOTER, true, 0);
+	schedule_delayed_work(&chg->usbov_delay_report_work,
+			msecs_to_jiffies(DELAY_REPORT_PERIOD_MS));
+	//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 	return IRQ_HANDLED;
 }
 
@@ -4662,6 +4888,8 @@ irqreturn_t batt_temp_changed_irq_handler(int irq, void *data)
 	int rc;
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
+	//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	power_supply_changed(chg->batt_psy);
 
 	if (chg->jeita_configured != JEITA_CFG_COMPLETE)
 		return IRQ_HANDLED;
@@ -4890,6 +5118,10 @@ void smblib_usb_plugin_hard_reset_locked(struct smb_charger *chg)
 	bool vbus_rising;
 	struct smb_irq_data *data;
 	struct storm_watch *wdata;
+	//+Extb 59334,xujianbang.wt,Modify,20190614,Limit HVDCP when XIAOMI Charger error.
+	//static unsigned long rtc_in = 0, rtc_out = 0;
+	//static int insert_count = 0;
+	//-Extb 59334,xujianbang.wt,Modify,20190614,Limit HVDCP when XIAOMI Charger error.
 
 	rc = smblib_read(chg, USBIN_BASE + INT_RT_STS_OFFSET, &stat);
 	if (rc < 0) {
@@ -4928,7 +5160,18 @@ void smblib_usb_plugin_hard_reset_locked(struct smb_charger *chg)
 					vbus_rising ? "attached" : "detached");
 }
 
+//+Extb 59334,xujianbang.wt,Modify,20190614,Limit HVDCP when XIAOMI Charger error.
+//#ifdef GET_RTC_TIME
+extern int get_rtc_time(unsigned long *rtc_time);
+#define CHECK_ERROR_COUNT	2
+#define RESET_TIME_S	3
+#define ERROR_TIME_S	1
+//#endif
+//-Extb 59334,xujianbang.wt,Modify,20190614,Limit HVDCP when XIAOMI Charger error.
 #define PL_DELAY_MS	30000
+//+bug 448305 zhaolinquan.wt, MODIFY, 20190528, setting SDP 500mA if USB driver has issues
+#define USB_CURRENT_CHECK_MS 20000
+//-bug 448305 zhaolinquan.wt, MODIFY, 20190528, setting SDP 500mA if USB driver has issues
 void smblib_usb_plugin_locked(struct smb_charger *chg)
 {
 	int rc;
@@ -4936,6 +5179,12 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 	bool vbus_rising;
 	struct smb_irq_data *data;
 	struct storm_watch *wdata;
+	//+Extb 59334,xujianbang.wt,Modify,20190614,Limit HVDCP when XIAOMI Charger error.
+//#ifdef GET_RTC_TIME
+	static unsigned long rtc_in = 0, rtc_out = 0;
+	static int insert_count = 0;
+//#endif
+	//-Extb 59334,xujianbang.wt,Modify,20190614,Limit HVDCP when XIAOMI Charger error.
 
 	rc = smblib_read(chg, USBIN_BASE + INT_RT_STS_OFFSET, &stat);
 	if (rc < 0) {
@@ -4948,12 +5197,56 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 						chg->chg_freq.freq_removal);
 
 	if (vbus_rising) {
-		cancel_delayed_work_sync(&chg->pr_swap_detach_work);
+//#ifdef GET_RTC_TIME
+		//+Extb 59334,xujianbang.wt,Modify,20190614,Limit HVDCP when XIAOMI Charger error.
+		rc = get_rtc_time(&rtc_in);
+		if (rc < 0) {
+			pr_err("Failed to read RTC1 time rc=%d\n", rc);
+		}
+
+		/* Charger insert and remove in 1 Second detect as wrong */
+		if ((rtc_in - rtc_out) <= ERROR_TIME_S)
+			insert_count ++;
+		else if ((rtc_in - rtc_out) >= RESET_TIME_S){
+			chg->hvdcp_disable = false;
+			insert_count = 0;
+			rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
+					HVDCP_EN_BIT, HVDCP_EN_BIT);
+			if (rc < 0) {
+				smblib_err(chg, "WT could not write HVDCP_EN_BIT 1\n");
+			}
+		}
+		/* 3 times error try to disable HVDCP */
+		if (insert_count >= CHECK_ERROR_COUNT){
+			chg->hvdcp_disable = true;
+
+			rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
+				HVDCP_EN_BIT, 0);
+			if (rc < 0) {
+				smblib_err(chg, "WT could not write HVDCP_EN_BIT 0\n");
+			}
+			smblib_err(chg, "WT disable hvdcp\n");
+		}
+		smblib_err(chg, "WT attached count=%d,hvdcp_disable=%d,time_in_ount=%ld, %ld\n",
+			insert_count,chg->hvdcp_disable,rtc_in,rtc_out);
+		//-Extb 59334,xujianbang.wt,Modify,20190614,Limit HVDCP when XIAOMI Charger error.
+//#endif
 		vote(chg->awake_votable, DETACH_DETECT_VOTER, false, 0);
+		//+bug xxx add by machengcheng@wt for usb check for tp
+		usb_check_in_state = 1;
+		tpd_usb_plugin(1);
+		//+bug xxx add by machengcheng@wt for usb check for tp
 		rc = smblib_request_dpdm(chg, true);
 		if (rc < 0)
 			smblib_err(chg, "Couldn't to enable DPDM rc=%d\n", rc);
 
+		vote(chg->awake_votable, CHG_INSERT_VOTER, true, 0);//bug 431225 zhaolinquan.wt, MODIFY, 20190304, add period_update_work
+
+		//+bug 448305 zhaolinquan.wt, MODIFY, 20190528, setting SDP 500mA if USB driver has issues
+		cancel_delayed_work_sync(&chg->usb_current_work);
+		schedule_delayed_work(&chg->usb_current_work,
+				msecs_to_jiffies(USB_CURRENT_CHECK_MS));
+		//-bug 448305 zhaolinquan.wt, MODIFY, 20190528, setting SDP 500mA if USB driver has issues
 		/* Enable SW Thermal regulation */
 		rc = smblib_set_sw_thermal_regulation(chg, true);
 		if (rc < 0)
@@ -4969,6 +5262,24 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 		schedule_delayed_work(&chg->pl_enable_work,
 					msecs_to_jiffies(PL_DELAY_MS));
 	} else {
+		//+bug xxx add by machengcheng@wt for usb check for tp 2019-11-8
+		usb_check_in_state = 0;
+		//-bug xxx add by machengcheng@wt for usb check for tp 2019-11-8
+
+//#ifdef GET_RTC_TIME
+		//+Extb 59334,xujianbang.wt,Modify,20190614,Limit HVDCP when XIAOMI Charger error.
+		rc = get_rtc_time(&rtc_out);
+		if (rc < 0) {
+			pr_err("Failed to read rtc_out time rc=%d\n", rc);
+		}
+		//smblib_err(chg, "WT detached time rtc_in=%ld,rtc_out=%ld\n", rtc_in,rtc_out);
+		//-Extb 59334,xujianbang.wt,Modify,20190614,Limit HVDCP when XIAOMI Charger error.
+//#endif
+
+		//+bug xxx add by machengcheng@wt for usb check for tp 2019-11-8
+		tpd_usb_plugin(0);
+		//-bug xxx add by machengcheng@wt for usb check for tp 2019-11-8
+
 		/* Disable SW Thermal Regulation */
 		rc = smblib_set_sw_thermal_regulation(chg, false);
 		if (rc < 0)
@@ -5025,6 +5336,10 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 			smblib_err(chg, "Couldn't disable DPDM rc=%d\n", rc);
 
 		smblib_update_usb_type(chg);
+		rc = smblib_masked_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,TYPEC_WATER_DETECTION_INT_EN_BIT, 0);
+		if (rc < 0) {
+		    smblib_err(chg, "Couldn't set TYPE_C_INTERRUPT_EN_CFG_2_REG rc=%d\n", rc);
+	    }
 	}
 
 	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
@@ -5034,6 +5349,14 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 						!vbus_rising, 0);
 
 	power_supply_changed(chg->usb_psy);
+	//+bug 448305 zhaolinquan.wt, MODIFY, 20190528, setting SDP 500mA if USB driver has issues
+	if (!vbus_rising) {
+		cancel_delayed_work_sync(&chg->usb_current_work);
+		vote(chg->awake_votable, CHG_INSERT_VOTER, false, 0);
+	}
+	//-bug 448305 zhaolinquan.wt, MODIFY, 20190528, setting SDP 500mA if USB driver has issues
+	
+
 	if (chg->dual_role)
 		dual_role_instance_changed(chg->dual_role);
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: usbin-plugin %s\n",
@@ -5523,10 +5846,13 @@ static void typec_src_removal(struct smb_charger *chg)
 		vote(chg->cp_disable_votable, SW_THERM_REGULATION_VOTER,
 								false, 0);
 
+	vote(chg->awake_votable, CHG_INSERT_VOTER, false, 0);//bug 431225 zhaolinquan.wt, MODIFY, 20190304, add period_update_work
 	/* reset USBOV votes and cancel work */
 	cancel_delayed_work_sync(&chg->usbov_dbc_work);
 	vote(chg->awake_votable, USBOV_DBC_VOTER, false, 0);
 	chg->dbc_usbov = false;
+	//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	chg->chg_done = 0;
 
 	chg->pulse_cnt = 0;
 	chg->usb_icl_delta_ua = 0;
@@ -6056,16 +6382,28 @@ irqreturn_t usbin_ov_irq_handler(int irq, void *data)
 	 * differentiate between OV IRQ glitch and real OV_IRQ, add a debounce
 	 * period for evaluation.
 	 */
-	if (stat & USBIN_OV_RT_STS_BIT) {
-		chg->dbc_usbov = true;
-		vote(chg->awake_votable, USBOV_DBC_VOTER, true, 0);
-		schedule_delayed_work(&chg->usbov_dbc_work,
-				msecs_to_jiffies(USB_OV_DBC_PERIOD_MS));
-	} else {
-		cancel_delayed_work_sync(&chg->usbov_dbc_work);
-		chg->dbc_usbov = false;
-		vote(chg->awake_votable, USBOV_DBC_VOTER, false, 0);
-	}
+
+//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+#if 0
+       if (stat & USBIN_OV_RT_STS_BIT || chg->dbc_usbov == false) {
+               chg->dbc_usbov = true;
+               vote(chg->awake_votable, USBOV_DBC_VOTER, true, 0);
+               schedule_delayed_work(&chg->usbov_dbc_work,
+                               msecs_to_jiffies(USB_OV_DBC_PERIOD_MS));
+       } else {
+               cancel_delayed_work_sync(&chg->usbov_dbc_work);
+               chg->dbc_usbov = false;
+               vote(chg->awake_votable, USBOV_DBC_VOTER, false, 0);
+       }
+#else
+	chg->dbc_usbov = true;
+	vote(chg->awake_votable, USBOV_DBC_VOTER, true, 0);
+	/*Should reset for double triggred*/
+	cancel_delayed_work_sync(&chg->usbov_dbc_work);
+	schedule_delayed_work(&chg->usbov_dbc_work,
+			msecs_to_jiffies(USB_OV_DBC_PERIOD_MS));
+#endif
+//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 
 	smblib_dbg(chg, PR_MISC, "USBOV debounce status %d\n",
 				chg->dbc_usbov);
@@ -6310,6 +6648,181 @@ static void smblib_thermal_regulation_work(struct work_struct *work)
 		smblib_err(chg, "Couldn't run sw thermal regulation %d\n",
 					rc);
 }
+//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+static int period_ms;
+static int smb_period_ms_set(const char *val, const struct kernel_param *kp)
+{
+	int ret;
+
+	ret = param_set_int(val, kp);
+	if (ret) {
+		pr_err("error setting value %d\n", ret);
+		return ret;
+	}
+	if (wt_smbchip) {
+		pr_info("set_period_ms to %d\n", period_ms);
+		cancel_delayed_work_sync(&wt_smbchip->period_update_work);
+		schedule_delayed_work(&wt_smbchip->period_update_work,
+					  round_jiffies_relative(msecs_to_jiffies
+								 (period_ms)));
+		return 0;
+	}
+	return -EINVAL;
+}
+
+static struct kernel_param_ops smb_period_ops = {
+	.set = smb_period_ms_set,
+	.get = param_get_int,
+};
+/*new function in new andriod version*/
+module_param_cb(period_ms, &smb_period_ops, &period_ms, 0644);
+
+//+bug 448305 zhaolinquan.wt, MODIFY, 20190528, setting SDP 500mA if USB driver has issues
+static void usb_current_worker(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct smb_charger *chip = container_of(dwork,
+				struct smb_charger, usb_current_work);
+	int rc = 0, settled_ua = 0;
+	const struct apsd_result *apsd_result = smblib_get_apsd_result(chip);
+	//+Extb 64830, zhaolinquan.wt, MODIFY, 20190604, for compate audio adapter
+	int suspend = 0;
+	rc = smblib_get_usb_suspend(chip, &suspend);
+	if (rc < 0) {
+		smblib_err(chip, "Couldn't get usb suspend rc=%d\n", rc);
+	}
+	//-Extb 64830, zhaolinquan.wt, MODIFY, 20190604, for compate audio adapter
+
+	rc = smblib_get_charge_param(chip, &chip->param.icl_stat,
+				&settled_ua);
+	if (rc < 0) {
+		smblib_err(chip, "WT Couldn't get ICL status rc=%d\n", rc);
+	}
+	//+Extb 64830, zhaolinquan.wt, MODIFY, 20190604, for compate audio adapter
+	smblib_err(chip, "WT settled_ua=%d,apsd_name=%s,suspend=%d\n",
+		settled_ua,apsd_result->name,suspend);
+	if((!strcmp(apsd_result->name, "SDP")) && (settled_ua <= 100000)&& !suspend){
+		smblib_err(chip,"WT SDP setting current\n");
+		rc = smblib_masked_write(chip, USBIN_ICL_OPTIONS_REG,
+				CFG_USB3P0_SEL_BIT | USB51_MODE_BIT, USB51_MODE_BIT);
+		if (rc < 0) {
+			smblib_err(chip, "WT Couldn't set ICL options rc=%d\n", rc);
+		}
+
+		rc = smblib_icl_override(chip, SW_OVERRIDE_USB51_MODE);
+		if (rc < 0) {
+			smblib_err(chip, "WT Couldn't set ICL override rc=%d\n", rc);
+		}
+	}
+	if((!strcmp(apsd_result->name, "FLOAT")) && (settled_ua <= 100000) && !suspend){
+		smblib_err(chip, "WT FLOAT setting current\n");
+		rc = smblib_masked_write(chip, USBIN_ICL_OPTIONS_REG,
+				CFG_USB3P0_SEL_BIT | USB51_MODE_BIT, USB51_MODE_BIT);
+		if (rc < 0) {
+			smblib_err(chip, "WT Couldn't set ICL options rc=%d\n", rc);
+		}
+
+		rc = smblib_icl_override(chip, SW_OVERRIDE_USB51_MODE);
+		if (rc < 0) {
+			smblib_err(chip, "WT Couldn't set ICL override rc=%d\n", rc);
+		}
+	}
+	//-Extb 64830, zhaolinquan.wt, MODIFY, 20190604, for compate audio adapter
+}
+//-bug 448305 zhaolinquan.wt, MODIFY, 20190528, setting SDP 500mA if USB driver has issues
+
+#define LOW_SOC_HEARTBEAT_MS	20000
+#define HEARTBEAT_MS	60000
+static void period_update(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct smb_charger *chip = container_of(dwork,
+				struct smb_charger, period_update_work);
+	union power_supply_propval val = {0, };
+
+	int period = 500,rc = 0;
+	int temp,v_batt,c_batt,cap,status,charge_type,batt_p,usb_p;
+	static int old_temp = 0,old_cap = 0,old_status = 0,old_present = 0,old_usb_present = 0,
+		printk_counter = 0,usb_v = 0;
+
+	if(chip==NULL)
+	{
+		pr_err("pmic fatal error:the_chip=null\n!!");
+		return;
+	}
+
+	rc = smblib_get_prop_from_bms(chip,
+			POWER_SUPPLY_PROP_VOLTAGE_NOW, &val);
+	v_batt = val.intval/1000;
+	rc = smblib_get_prop_from_bms(chip,
+			POWER_SUPPLY_PROP_TEMP, &val);
+	temp = val.intval;
+	rc = smblib_get_prop_from_bms(chip,
+			POWER_SUPPLY_PROP_CURRENT_NOW, &val);
+	c_batt = val.intval/1000;
+
+#if 1
+	smblib_get_prop_usb_voltage_now(chip, &val);
+	usb_v = val.intval/1000;
+#endif
+
+	smblib_get_prop_batt_capacity(chip, &val);
+	cap = val.intval;
+	//smblib_get_prop_batt_status(chip, &val);
+	//status = val.intval;
+	status = chip->old_batt_status;
+	smblib_get_prop_batt_charge_type(chip, &val);
+	charge_type = val.intval;
+	smblib_get_prop_batt_present(chip, &val);
+	batt_p = val.intval;
+	smblib_get_prop_usb_present(chip, &val);
+	usb_p = val.intval;
+	printk_counter++;
+
+	#ifndef CONFIG_DISABLE_TEMP_PROTECT
+	if(usb_p)
+		batt_temp_charging_current(chip,temp);
+	#endif
+
+	/*if heatbeat_ms is bigger than 500ms,must output the logs directly.*/
+	if ((period_ms>=500)|| (old_cap != cap) || (old_status != status)
+		|| (old_present != batt_p) || (old_usb_present != usb_p)||(printk_counter>=5))
+	{
+		pr_err("***temp=%d,v_batt=%dmV,c_batt=%dmA,cap=%d,status=%d,charge_type=%d,batt_p=%d,usb_p=%d,usb_v=%dmV,chg_done=%d\n",
+						temp,v_batt,c_batt,cap,status,charge_type,batt_p,usb_p,usb_v,chip->chg_done);
+
+		old_cap = cap;
+		old_status = status;
+		old_present = batt_p;
+		old_usb_present = usb_p;
+		printk_counter=0;
+	}
+
+	/*When temperature changes by 3 degrees ,report power_supply*/
+	if(abs(temp-old_temp) >= 30) {
+		old_temp = temp;
+		pr_err("WT temp change\n");
+		power_supply_changed(chip->batt_psy);
+	}
+
+	if (period_ms >= 500) {
+		period = period_ms;
+	} else {
+		if (cap <= 5)
+			period = LOW_SOC_HEARTBEAT_MS;
+		else
+			period = HEARTBEAT_MS;
+	}
+
+	if(chip->usb_type_show == false){
+		chip->usb_type_show = true;
+		power_supply_changed(chip->usb_psy);
+	}
+
+	schedule_delayed_work(&chip->period_update_work,
+				      round_jiffies_relative(msecs_to_jiffies(period)));
+}
+//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 
 #define MOISTURE_PROTECTION_CHECK_DELAY_MS 300000		/* 5 mins */
 static void smblib_moisture_protection_work(struct work_struct *work)
@@ -6515,6 +7028,7 @@ static enum alarmtimer_restart chg_termination_alarm_cb(struct alarm *alarm,
 	return ALARMTIMER_NORESTART;
 }
 
+extern const char *BATTERY_DEFAULT;//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 static void jeita_update_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
@@ -6554,6 +7068,13 @@ static void jeita_update_work(struct work_struct *work)
 				rc);
 		goto out;
 	}
+	//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	if (!pnode) {
+		pr_err("Couldn't find profile, default battery profile was set\n");
+		pnode = of_batterydata_get_best_profile(batt_node,
+			val.intval / 1000, BATTERY_DEFAULT);
+	}
+	//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 
 	rc = of_property_read_u32_array(pnode, "qcom,jeita-hard-thresholds",
 				jeita_hard_thresholds, 2);
@@ -7015,6 +7536,15 @@ int smblib_init(struct smb_charger *chg)
 	INIT_DELAYED_WORK(&chg->thermal_regulation_work,
 					smblib_thermal_regulation_work);
 	INIT_DELAYED_WORK(&chg->usbov_dbc_work, smblib_usbov_dbc_work);
+	//+bug 448305 zhaolinquan.wt, MODIFY, 20190528, setting SDP 500mA if USB driver has issues
+	INIT_DELAYED_WORK(&chg->usb_current_work, usb_current_worker);
+	//-bug 448305 zhaolinquan.wt, MODIFY, 20190528, setting SDP 500mA if USB driver has issues
+	//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	INIT_DELAYED_WORK(&chg->usbov_delay_report_work, smblib_usbov_delay_report_work);
+	INIT_DELAYED_WORK(&chg->period_update_work, period_update);
+	schedule_delayed_work(&chg->period_update_work,
+				  round_jiffies_relative(msecs_to_jiffies(10000)));
+	//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 	INIT_DELAYED_WORK(&chg->role_reversal_check,
 					smblib_dual_role_check_work);
 	INIT_DELAYED_WORK(&chg->pr_swap_detach_work,
@@ -7045,6 +7575,9 @@ int smblib_init(struct smb_charger *chg)
 			return -ENODEV;
 		}
 	}
+	//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	chg->usb_type_show = false;
+	chg->last_bat_current = 1;//bug 441468 zhaolinquan.wt, MODIFY, 20190505, set last_bat_current default value
 
 	chg->fake_capacity = -EINVAL;
 	chg->fake_input_current_limited = -EINVAL;
@@ -7065,8 +7598,16 @@ int smblib_init(struct smb_charger *chg)
 			return rc;
 		}
 
+//+bug 444969 zhaolinquan.wt, MODIFY, 20190508, battery temp above 45 degree setting voltage 4.1V
+#if 0
 		rc = qcom_step_chg_init(chg->dev, chg->step_chg_enabled,
 						chg->sw_jeita_enabled, false);
+#else
+		rc = qcom_step_chg_init(chg->dev, chg->step_chg_enabled,
+						chg->sw_jeita_enabled, true);
+#endif
+//-bug 444969 zhaolinquan.wt, MODIFY, 20190508, battery temp above 45 degree setting voltage 4.1V
+
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't init qcom_step_chg_init rc=%d\n",
 				rc);
@@ -7159,6 +7700,8 @@ int smblib_deinit(struct smb_charger *chg)
 		cancel_delayed_work_sync(&chg->lpd_detach_work);
 		cancel_delayed_work_sync(&chg->thermal_regulation_work);
 		cancel_delayed_work_sync(&chg->usbov_dbc_work);
+		//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+		cancel_delayed_work_sync(&chg->usbov_delay_report_work);
 		cancel_delayed_work_sync(&chg->role_reversal_check);
 		cancel_delayed_work_sync(&chg->pr_swap_detach_work);
 		power_supply_unreg_notifier(&chg->nb);

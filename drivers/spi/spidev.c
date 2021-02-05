@@ -2,6 +2,7 @@
  * Simple synchronous userspace interface to SPI devices
  *
  * Copyright (C) 2006 SWAPP
+ * Copyright (C) 2021 XiaoMi, Inc.
  *	Andrea Paterniani <a.paterniani@swapp-eng.it>
  * Copyright (C) 2007 David Brownell (simplification, cleanup)
  *
@@ -90,7 +91,8 @@ struct spidev_data {
 static LIST_HEAD(device_list);
 static DEFINE_MUTEX(device_list_lock);
 
-static unsigned bufsiz = 4096;
+//bug 436190, zhangrui@wingtech.com, 20190403, modify for IR LED function
+static unsigned bufsiz = 512*4096;
 module_param(bufsiz, uint, S_IRUGO);
 MODULE_PARM_DESC(bufsiz, "data bytes in biggest supported SPI message");
 
@@ -117,13 +119,17 @@ spidev_sync(struct spidev_data *spidev, struct spi_message *message)
 	return status;
 }
 
+//bug 436190, zhangrui@wingtech.com, 20190403, modify for IR LED function
 static inline ssize_t
 spidev_sync_write(struct spidev_data *spidev, size_t len)
 {
 	struct spi_transfer	t = {
 			.tx_buf		= spidev->tx_buffer,
 			.len		= len,
-			.speed_hz	= spidev->speed_hz,
+			.delay_usecs = 0,
+			.cs_change   =0,
+			.speed_hz   = 960000,
+//			.speed_hz	= spidev->speed_hz,
 		};
 	struct spi_message	m;
 
@@ -570,24 +576,9 @@ static int spidev_open(struct inode *inode, struct file *filp)
 		pr_debug("spidev: nothing for minor %d\n", iminor(inode));
 		goto err_find_dev;
 	}
-
-	if (!spidev->tx_buffer) {
-		spidev->tx_buffer = kmalloc(bufsiz, GFP_KERNEL);
-		if (!spidev->tx_buffer) {
-			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
-			status = -ENOMEM;
-			goto err_find_dev;
-		}
-	}
-
-	if (!spidev->rx_buffer) {
-		spidev->rx_buffer = kmalloc(bufsiz, GFP_KERNEL);
-		if (!spidev->rx_buffer) {
-			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
-			status = -ENOMEM;
-			goto err_alloc_rx_buf;
-		}
-	}
+//bug 436190, zhangrui@wingtech.com, 20190403, modify for IR LED function
+	memset(spidev->tx_buffer,0,bufsiz);
+	memset(spidev->rx_buffer,0,bufsiz);
 
 	spidev->users++;
 	filp->private_data = spidev;
@@ -596,9 +587,6 @@ static int spidev_open(struct inode *inode, struct file *filp)
 	mutex_unlock(&device_list_lock);
 	return 0;
 
-err_alloc_rx_buf:
-	kfree(spidev->tx_buffer);
-	spidev->tx_buffer = NULL;
 err_find_dev:
 	mutex_unlock(&device_list_lock);
 	return status;
@@ -616,12 +604,6 @@ static int spidev_release(struct inode *inode, struct file *filp)
 	spidev->users--;
 	if (!spidev->users) {
 		int		dofree;
-
-		kfree(spidev->tx_buffer);
-		spidev->tx_buffer = NULL;
-
-		kfree(spidev->rx_buffer);
-		spidev->rx_buffer = NULL;
 
 		spin_lock_irq(&spidev->spi_lock);
 		if (spidev->spi)
@@ -766,6 +748,26 @@ static int spidev_probe(struct spi_device *spi)
 		set_bit(minor, minors);
 		list_add(&spidev->device_entry, &device_list);
 	}
+
+//bug 436190, zhangrui@wingtech.com, 20190403, modify for IR LED function
+	if (!spidev->tx_buffer) {
+		spidev->tx_buffer = kmalloc(bufsiz, GFP_KERNEL);
+		if (!spidev->tx_buffer) {
+			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
+			status = -ENOMEM;
+			goto err_find_dev;
+		}
+	}
+
+	if (!spidev->rx_buffer) {
+		spidev->rx_buffer = kmalloc(bufsiz, GFP_KERNEL);
+		if (!spidev->rx_buffer) {
+			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
+			status = -ENOMEM;
+			goto err_alloc_rx_buf;
+		}
+	}
+
 	mutex_unlock(&device_list_lock);
 
 	spidev->speed_hz = spi->max_speed_hz;
@@ -773,7 +775,16 @@ static int spidev_probe(struct spi_device *spi)
 	if (status == 0)
 		spi_set_drvdata(spi, spidev);
 	else
-		kfree(spidev);
+		goto err_dev_status;
+
+	return status;
+err_dev_status:
+	kfree(spidev);
+err_alloc_rx_buf:
+	kfree(spidev->tx_buffer);
+	spidev->tx_buffer = NULL;
+err_find_dev:
+	mutex_unlock(&device_list_lock);
 
 	return status;
 }
@@ -784,6 +795,13 @@ static int spidev_remove(struct spi_device *spi)
 
 	/* make sure ops on existing fds can abort cleanly */
 	spin_lock_irq(&spidev->spi_lock);
+//bug 436190, zhangrui@wingtech.com, 20190403, modify for IR LED function
+	kfree(spidev->tx_buffer);
+	spidev->tx_buffer = NULL;
+
+	kfree(spidev->rx_buffer);
+	spidev->rx_buffer = NULL;
+
 	spidev->spi = NULL;
 	spin_unlock_irq(&spidev->spi_lock);
 

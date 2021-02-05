@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,8 +18,14 @@
 #include "camera.h"
 #include "msm_cci.h"
 #include "msm_camera_dt_util.h"
+#include <linux/hardware_info.h> //bug 432607, sunhushan.wt, ADD, 2019.03.14, add hardware info of the camera
 #include "msm_sensor_driver.h"
 
+//+bug 432607, sunhushan.wt, ADD, 2019.03.14, add hardware info of the camera
+extern int main_module_id;
+extern int sub_module_id;
+extern int aux_8m_module_id;
+//-bug 432607, sunhushan.wt, ADD, 2019.03.14, add hardware info of the camera
 /* Logging macro */
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -30,6 +37,27 @@ static int32_t msm_sensor_driver_platform_probe(struct platform_device *pdev);
 
 /* Static declaration */
 static struct msm_sensor_ctrl_t *g_sctrl[MAX_CAMERAS];
+//+bug 432607, sunhushan.wt, ADD, 2019.03.14, add hardware info of the camera
+static const char *module_info[]=
+{
+	"Unkonw",
+	"Sunny",
+	"Unkonw",
+	"Semco",
+	"Unkonw",
+	"Unkonw",
+	"Qtech",
+	"Ofilm",
+	"Unkonw",
+	"Unkonw",
+	"Unkonw",
+	"Unkonw",
+	"Unknow",
+	"Unknow",
+	"Unknow",
+	"Liteon",
+};
+//-bug 432607, sunhushan.wt, ADD, 2019.03.14, add hardware info of the camera
 
 static int msm_sensor_platform_remove(struct platform_device *pdev)
 {
@@ -966,6 +994,43 @@ int32_t msm_sensor_driver_probe(void *setting,
 		goto free_slave_info;
 	}
 
+	if(!strcmp(slave_info->sensor_name, "laurus_imx586_sunny")) {
+		if (main_module_id != 1) {
+			pr_err("failed: main_module_id %d, sensor is not %s", main_module_id, slave_info->sensor_name);
+			rc = -EINVAL;
+			goto free_slave_info;
+		}
+	}else if(!strcmp(slave_info->sensor_name, "laurus_s5kgd1_sunny")) {
+		if (sub_module_id != 1) {
+			pr_err("failed: sub_module_id %d, sensor is not %s", main_module_id, slave_info->sensor_name);
+			rc = -EINVAL;
+			goto free_slave_info;
+		}
+	}else if(!strcmp(slave_info->sensor_name, "laurus_s5k4h7_sunny")) {
+		if (aux_8m_module_id != 1) {
+			pr_err("failed: aux_8m_module_id %d, sensor is not %s", main_module_id, slave_info->sensor_name);
+			rc = -EINVAL;
+			goto free_slave_info;
+		}
+	}else if(!strcmp(slave_info->sensor_name, "laurus_imx586_qtech")) {
+		if (main_module_id != 6) {
+			pr_err("failed: main_module_id %d, sensor is not %s", main_module_id, slave_info->sensor_name);
+			rc = -EINVAL;
+			goto free_slave_info;
+		}
+	}else if(!strcmp(slave_info->sensor_name, "laurus_s5kgd1_ofilm")) {
+		if (sub_module_id != 7) {
+			pr_err("failed: sub_module_id %d, sensor is not %s", main_module_id, slave_info->sensor_name);
+			rc = -EINVAL;
+			goto free_slave_info;
+		}
+	}else if(!strcmp(slave_info->sensor_name, "laurus_s5k4h7_qtech")) {
+		if (aux_8m_module_id != 6) {
+			pr_err("failed: aux_8m_module_id %d, sensor is not %s", main_module_id, slave_info->sensor_name);
+			rc = -EINVAL;
+			goto free_slave_info;
+		}
+	}
 	/* Extract s_ctrl from camera id */
 	s_ctrl = g_sctrl[slave_info->camera_id];
 	if (!s_ctrl) {
@@ -1186,6 +1251,36 @@ CSID_TG:
 	s_ctrl->sensordata->cam_slave_info = slave_info;
 
 	msm_sensor_fill_sensor_info(s_ctrl, probed_info, entity_name);
+	//+bug 432607, sunhushan.wt, ADD, 2019.03.14, add hardware info of the camera
+	if(!strcmp(slave_info->sensor_name, "laurus_imx586_sunny")) {
+		hardwareinfo_set_prop(HARDWARE_BACK_CAM,"sony_imx586_i");
+		hardwareinfo_set_prop(HARDWARE_BACK_CAM_MOUDULE_ID,module_info[main_module_id]);
+	}else if (!strcmp(slave_info->sensor_name, "laurus_imx586_qtech")) {
+		hardwareinfo_set_prop(HARDWARE_BACK_CAM,"sony_imx586_ii");
+		hardwareinfo_set_prop(HARDWARE_BACK_CAM_MOUDULE_ID,"Qtech");
+	}else if (!strcmp(slave_info->sensor_name, "laurus_s5kgd1_sunny")) {
+		hardwareinfo_set_prop(HARDWARE_FRONT_CAM,"samsung_s5kgd1_i");
+		hardwareinfo_set_prop(HARDWARE_FRONT_CAM_MOUDULE_ID,module_info[sub_module_id]);
+	}else if (!strcmp(slave_info->sensor_name, "laurus_s5kgd1_ofilm")) {
+		hardwareinfo_set_prop(HARDWARE_FRONT_CAM,"samsung_s5kgd1_ii");
+		hardwareinfo_set_prop(HARDWARE_FRONT_CAM_MOUDULE_ID,"Ofilm");
+	}else if(!strcmp(slave_info->sensor_name, "laurus_s5k4h7_sunny")) {
+		hardwareinfo_set_prop(HARDWARE_WIDE_ANGLE_CAM,"samsung_s5k4h7_i");
+		hardwareinfo_set_prop(HARDWARE_WIDE_ANGLE_CAM_MOUDULE_ID,module_info[aux_8m_module_id]);
+	}else if(!strcmp(slave_info->sensor_name, "laurus_s5k4h7_qtech")) {
+		hardwareinfo_set_prop(HARDWARE_WIDE_ANGLE_CAM,"samsung_s5k4h7_ii");
+		hardwareinfo_set_prop(HARDWARE_WIDE_ANGLE_CAM_MOUDULE_ID,"Qtech");
+	}else if(!strcmp(slave_info->sensor_name, "laurus_ov02a10_sunny")) {
+		hardwareinfo_set_prop(HARDWARE_BACK_SUB_CAM,"ov_ov02a10_i");
+		hardwareinfo_set_prop(HARDWARE_BACK_SUB_CAM_MOUDULE_ID,"Sunny");
+	}else if(!strcmp(slave_info->sensor_name, "laurus_gc2375_qtech")) {
+		hardwareinfo_set_prop(HARDWARE_BACK_SUB_CAM,"gc_gc2375_ii");
+		hardwareinfo_set_prop(HARDWARE_BACK_SUB_CAM_MOUDULE_ID,"Qtech");
+	}else if(!strcmp(slave_info->sensor_name, "laurus_imx582_qtech")) {
+		hardwareinfo_set_prop(HARDWARE_BACK_CAM,"qtech_imx582_ii");
+		hardwareinfo_set_prop(HARDWARE_BACK_CAM_MOUDULE_ID,"Qtech");
+	}
+	//-bug 432607, sunhushan.wt, ADD, 2019.03.14, add hardware info of the camera
 
 	/*
 	 * Set probe succeeded flag to 1 so that no other camera shall

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -158,6 +159,7 @@ struct cci_device {
 	uint8_t ref_count;
 	enum msm_cci_state_t cci_state;
 	size_t num_clk;
+	struct mutex mutex;  //Bug 450051,tiantian.wt,20190603,modify for cci wrong
 	size_t num_clk_cases;
 	struct clk **cci_clk;
 	uint32_t **cci_clk_rates;

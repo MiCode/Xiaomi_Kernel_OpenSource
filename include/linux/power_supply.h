@@ -323,6 +323,13 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_CLEAR_SOH,
 	POWER_SUPPLY_PROP_FORCE_RECHARGE,
 	POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE,
+	//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	POWER_SUPPLY_PROP_STOPCHARGING_TEST,
+	POWER_SUPPLY_PROP_STARTCHARGING_TEST,
+	//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	//+bug 438937 zhaolinquan.wt, MODIFY, 20190418, Setting 1A charging current on call state
+	POWER_SUPPLY_PROP_CHARGING_CALL_STATE,
+	//-bug 438937 zhaolinquan.wt, MODIFY, 20190418, Setting 1A charging current on call state
 	POWER_SUPPLY_PROP_TOGGLE_STAT,
 	POWER_SUPPLY_PROP_MAIN_FCC_MAX,
 	POWER_SUPPLY_PROP_FG_RESET,

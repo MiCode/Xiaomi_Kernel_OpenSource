@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -638,7 +639,7 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 			&vfe_dev->common_data->ms_resource;
 
 	if (!vfe_dev || !arg) {
-		pr_err("%s: Error! Invalid input vfe_dev %pK arg %pK\n",
+		pr_err("%s: Error! Invalid input vfe_dev %p arg %p\n",
 			__func__, vfe_dev, arg);
 		return -EINVAL;
 	}
@@ -717,7 +718,7 @@ static int msm_isp_proc_cmd_list_unlocked(struct vfe_device *vfe_dev, void *arg)
 	struct msm_vfe_cfg_cmd_list cmd, cmd_next;
 
 	if (!vfe_dev || !arg) {
-		pr_err("%s:%d failed: vfe_dev %pK arg %pK", __func__, __LINE__,
+		pr_err("%s:%d failed: vfe_dev %p arg %p", __func__, __LINE__,
 			vfe_dev, arg);
 		return -EINVAL;
 	}
@@ -1017,6 +1018,11 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		if (arg) {
 			enum msm_vfe_input_src frame_src =
 				*((enum msm_vfe_input_src *)arg);
+			trace_printk("VIDIOC_MSM_ISP_REG_UPDATE_CMD: vfeid: %d framesrc: %d frmid: %d\n",
+					 vfe_dev->pdev->id,
+					 frame_src,
+					 vfe_dev->axi_data.src_info[frame_src].frame_id);
+
 			vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev,
 				frame_src);
 		}
@@ -1903,7 +1909,7 @@ static int msm_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 			NO_OVERFLOW) {
 		spin_unlock_irqrestore(
 			&vfe_dev->common_data->common_dev_data_lock, irq_flags);
-		pr_err_ratelimited("%s: overflow detected during IOMMU\n",
+		trace_printk("%s: overflow detected during IOMMU\n",
 			__func__);
 		/* Don't treat the Overflow + Page fault scenario as fatal.
 		 * Instead try to do a recovery. Using an existing event as
@@ -1913,8 +1919,11 @@ static int msm_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 	} else {
 		spin_unlock_irqrestore(
 			&vfe_dev->common_data->common_dev_data_lock, irq_flags);
-		pr_err("%s:%d] VFE%d Handle Page fault! vfe_dev %pK\n",
+		trace_printk("%s:%d] VFE%d Handle Page fault! vfe_dev %p\n",
 			__func__, __LINE__,  vfe_dev->pdev->id, vfe_dev);
+		trace_printk("%s: dumping WM config for vfe %d\n", __func__, vfe_dev->pdev->id);
+		msm_camera_io_dump(vfe_dev->vfe_base + 0xA0, 0x100, 1);
+
 		vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 0);
 		msm_isp_halt_send_error(vfe_dev, ISP_EVENT_IOMMU_P_FAULT);
 	}
@@ -2041,6 +2050,7 @@ int msm_isp_process_overflow_irq(
 			temp_vfe->recovery_irq1_mask = temp_vfe->irq1_mask;
 			temp_vfe->hw_info->vfe_ops.core_ops
 				.set_halt_restart_mask(temp_vfe);
+			trace_printk("calling halt for overflow: vfeid: %d", other_vfe_id);
 			temp_vfe->hw_info->vfe_ops.axi_ops.halt(temp_vfe, 0);
 		}
 
@@ -2210,6 +2220,9 @@ irqreturn_t msm_isp_process_irq_dual_sync(int irq_num, void *data)
 			vfe_dev->hw_info->vfe_ops.irq_ops.preprocess_camif_irq(
 			vfe_dev, dual_irq_status);
 	}
+	trace_printk("%s:vfe_dev %d dual_irq_status 0x%x\n",
+		__func__,vfe_dev->pdev->id, dual_irq_status);
+
 	msm_isp_enqueue_tasklet_cmd(vfe_dev, 0, 0,
 					ping_pong_status, dual_irq_status);
 	return IRQ_HANDLED;
@@ -2323,6 +2336,10 @@ void msm_isp_do_tasklet(unsigned long data)
 				__func__);
 			continue;
 		}
+		trace_printk("%s:vfe %d, status0 %x, status1 %x pingpong %d\n", 
+				__func__,vfe_dev->pdev->id,
+				irq_status0, irq_status1, pingpong_status);
+
 		msm_isp_process_error_info(vfe_dev);
 		irq_ops->process_stats_irq(vfe_dev,
 			irq_status0, irq_status1, dual_irq_status,
@@ -2339,8 +2356,7 @@ void msm_isp_do_tasklet(unsigned long data)
 			 * and RDI redupdate from individual VFEs
 			 */
 			irq_ops->process_reg_update(vfe_dev,
-				((irq_status0 & 0xE0) |
-				dual_irq_status),
+				(irq_status0 | dual_irq_status),
 				irq_status1, &ts);
 			irq_ops->process_epoch_irq(vfe_dev,
 				dual_irq_status, irq_status1, &ts);
@@ -2372,13 +2388,14 @@ static void msm_vfe_iommu_fault_handler(struct iommu_domain *domain,
 	struct device *dev, unsigned long iova, int flags, void *token)
 {
 	struct vfe_device *vfe_dev = NULL;
+	trace_printk("E:  %s: %d  \n", __func__, __LINE__);
 
 	if (token) {
 		vfe_dev = (struct vfe_device *)token;
 		vfe_dev->page_fault_addr = iova;
 		if (!vfe_dev->buf_mgr || !vfe_dev->buf_mgr->ops ||
 			!vfe_dev->axi_data.num_active_stream) {
-			pr_err("%s:%d buf_mgr %pK active strms %d\n", __func__,
+			pr_err("%s:%d buf_mgr %p active strms %d\n", __func__,
 				__LINE__, vfe_dev->buf_mgr,
 				vfe_dev->axi_data.num_active_stream);
 			goto end;
@@ -2386,16 +2403,21 @@ static void msm_vfe_iommu_fault_handler(struct iommu_domain *domain,
 
 		mutex_lock(&vfe_dev->core_mutex);
 		if (vfe_dev->vfe_open_cnt > 0) {
-			pr_err_ratelimited("%s: fault address is %lx\n",
+				trace_printk("%s: fault address is %lx\n",
+						__func__, iova);
+				pr_err("%s: fault address is %lx\n",
+
 				__func__, iova);
 			msm_isp_process_iommu_page_fault(vfe_dev);
 		} else {
 			pr_err("%s: no handling, vfe open cnt = %d\n",
 				__func__, vfe_dev->vfe_open_cnt);
+			trace_printk("%s: no handling, vfe open cnt = %d\n",
+				__func__, vfe_dev->vfe_open_cnt);
 		}
 		mutex_unlock(&vfe_dev->core_mutex);
 	} else {
-		ISP_DBG("%s:%d] no token received: %pK\n",
+		trace_printk("%s:%d no token received: %p\n",
 			__func__, __LINE__, token);
 		goto end;
 	}

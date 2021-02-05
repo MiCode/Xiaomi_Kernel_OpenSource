@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -414,7 +415,10 @@ static struct msm_soc_info cpu_of_id[] = {
 	[384] = {MSM_CPU_SA6155, "SA6155"},
 
 	/* trinket ID */
-	[394] = {MSM_CPU_TRINKET, "TRINKET"},
+	/* +Extb HONGMI-68124 for CMCC DM 2019-11-9 */
+	/*[394] = {MSM_CPU_TRINKET, "TRINKET"},*/
+	[394] = {MSM_CPU_TRINKET, "SM6125"},
+	/* -Extb HONGMI-68124 for CMCC DM 2019-11-9 */
 
 	/* qcs610 ID */
 	[401] = {MSM_CPU_QCS610, "QCS610"},
@@ -965,6 +969,33 @@ msm_get_nmodem_supported(struct device *dev,
 		socinfo_get_nmodem_supported());
 }
 
+/*bug450365, add hwlevel to soc0, bengin*/
+static ssize_t
+msm_get_hwlevel(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	char *hwlevel_start = NULL;
+	char *temp = NULL;
+	char hwlevel[16]= {0};
+	int len = 0;
+
+	hwlevel_start = strstr(saved_command_line,"androidboot.hwlevel=");
+	if(hwlevel_start != NULL){
+		temp = hwlevel_start + strlen("androidboot.hwlevel=");
+		len = strstr(temp, " ") - temp;
+		strncpy(hwlevel, temp, len);
+	}
+	else
+	{
+		pr_err("sarsensor read hwlevel error\n");
+	}
+
+	return snprintf(buf, SMEM_IMAGE_VERSION_VARIANT_SIZE, "%-s\n",
+		hwlevel);
+}
+/*bug450365, add hwlevel to soc0, end*/
+
 static ssize_t
 msm_get_pmic_model(struct device *dev,
 			struct device_attribute *attr,
@@ -1272,6 +1303,12 @@ static struct device_attribute msm_soc_attr_nmodem_supported =
 	__ATTR(nmodem_supported, 0444,
 			msm_get_nmodem_supported, NULL);
 
+/*bug450365, add hwlevel to soc0, bengin*/
+static struct device_attribute hwlevel =
+	__ATTR(hwlevel, 0444,
+			msm_get_hwlevel, NULL);
+/*bug450365, add hwlevel to soc0, end*/
+
 static struct device_attribute msm_soc_attr_pmic_model =
 	__ATTR(pmic_model, 0444,
 			msm_get_pmic_model, NULL);
@@ -1424,6 +1461,7 @@ static void __init populate_soc_sysfs_files(struct device *msm_soc_device)
 	device_create_file(msm_soc_device, &image_crm_version);
 	device_create_file(msm_soc_device, &select_image);
 	device_create_file(msm_soc_device, &images);
+	device_create_file(msm_soc_device, &hwlevel); //bug450365, add hwlevel to soc0
 
 	switch (socinfo_format) {
 	case SOCINFO_VERSION(0, 15):

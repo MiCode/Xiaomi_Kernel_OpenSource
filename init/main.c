@@ -128,6 +128,9 @@ void (*__initdata late_time_init)(void);
 char __initdata boot_command_line[COMMAND_LINE_SIZE];
 /* Untouched saved command line (eg. for /proc) */
 char *saved_command_line;
+/*bug_487235, zhanghao1, 2019/0917,Use different boardID loading different audio parameters start*/
+EXPORT_SYMBOL(saved_command_line);
+/*bug_487235, zhanghao1, 2019/0917,Use different boardID loading different audio parameters end*/
 /* Command line for parameter parsing */
 static char *static_command_line;
 /* Command line for per-initcall parameter parsing */

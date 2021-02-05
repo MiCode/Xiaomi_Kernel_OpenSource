@@ -3042,6 +3042,7 @@ int do_swap_page(struct vm_fault *vmf)
 	struct mem_cgroup *memcg;
 	swp_entry_t entry;
 	struct swap_info_struct *si;
+	int swp_cnt;
 	bool skip_swapcache = false;
 	pte_t pte;
 	int locked;
@@ -3094,6 +3095,7 @@ int do_swap_page(struct vm_fault *vmf)
 	 * and can then take the readahead path instead of SWP_SYNCHRONOUS_IO.
 	 */
 	si = swp_swap_info(entry);
+	swp_cnt = __swap_count(si, entry);
 	if (si->flags & SWP_SYNCHRONOUS_IO && __swap_count(si, entry) == 1)
 		skip_swapcache = true;
 
@@ -3101,7 +3103,7 @@ int do_swap_page(struct vm_fault *vmf)
 	swapcache = page;
 
 	if (!page) {
-		if (skip_swapcache) {
+		if (si->flags & SWP_SYNCHRONOUS_IO && swp_cnt == 1) {
 			page = alloc_page_vma(GFP_HIGHUSER_MOVABLE, vma,
 							vmf->address);
 			if (page) {

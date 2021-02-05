@@ -72,6 +72,7 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
        obj-y += microdump_collector.o
        obj-$(CONFIG_QTI_GVM_QUIN) += subsystem_notif_virt.o
 endif
+obj-$(CONFIG_CPUMAXFREQ) += cpumaxfreq.o
 obj-$(CONFIG_QCOM_EUD) += eud.o
 obj-$(CONFIG_QSEE_IPC_IRQ) += qsee_ipc_irq.o
 obj-$(CONFIG_QSEE_IPC_IRQ_BRIDGE) += qsee_ipc_irq_bridge.o
@@ -103,3 +104,6 @@ obj-$(CONFIG_MSM_HAB) += hab/
 obj-$(CONFIG_QCOM_HYP_CORE_CTL) += hyp_core_ctl.o
 obj-$(CONFIG_QCOM_AOP_DDRSS_COMMANDS) += aop_ddrss_cmds.o
 obj-$(CONFIG_RMNET_CTL) += rmnet_ctl/
+obj-y += secboot_fuse.o
+obj-y += serial_num.o
+obj-y += cpu_feature_id.o

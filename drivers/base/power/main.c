@@ -2,6 +2,7 @@
  * drivers/base/power/main.c - Where the driver meets power management.
  *
  * Copyright (c) 2003 Patrick Mochel
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2003 Open Source Development Lab
  *
  * This file is released under the GPLv2
@@ -577,6 +578,7 @@ static int device_resume_noirq(struct device *dev, pm_message_t state, bool asyn
 	dev->power.is_noirq_suspended = false;
 
  Out:
+ 	pm_runtime_enable(dev);
 	complete_all(&dev->power.completion);
 	TRACE_RESUME(error);
 	return error;
@@ -719,7 +721,6 @@ static int device_resume_early(struct device *dev, pm_message_t state, bool asyn
  Out:
 	TRACE_RESUME(error);
 
-	pm_runtime_enable(dev);
 	complete_all(&dev->power.completion);
 	return error;
 }
@@ -1101,6 +1102,8 @@ static int __device_suspend_noirq(struct device *dev, pm_message_t state, bool a
 	TRACE_DEVICE(dev);
 	TRACE_SUSPEND(0);
 
+	__pm_runtime_disable(dev, false);
+
 	dpm_wait_for_subordinate(dev, async);
 
 	if (async_error)
@@ -1259,8 +1262,6 @@ static int __device_suspend_late(struct device *dev, pm_message_t state, bool as
 
 	TRACE_DEVICE(dev);
 	TRACE_SUSPEND(0);
-
-	__pm_runtime_disable(dev, false);
 
 	dpm_wait_for_subordinate(dev, async);
 

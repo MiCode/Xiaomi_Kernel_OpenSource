@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -173,9 +174,9 @@
 		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
 		qcom,cdc-vdd-buck-current = <650000>;
 
-		qcom,cdc-micbias1-mv = <1800>;
-		qcom,cdc-micbias2-mv = <1800>;
-		qcom,cdc-micbias3-mv = <1800>;
+		qcom,cdc-micbias1-mv = <2750>;
+		qcom,cdc-micbias2-mv = <2700>;
+		qcom,cdc-micbias3-mv = <2750>;
 
 		qcom,cdc-static-supplies = "cdc-vdd-ldo-rxtx",
 					   "cdc-vddpx-1";
@@ -183,21 +184,19 @@
 	};
 };
 
+
 &sm6150_snd {
-	qcom,model = "trinket-idp-snd-card";
+	status = "okay";
+	qcom,model = "trinket-qrd-snd-card";
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
-	qcom,ext-disp-audio-rx = <1>;
+	qcom,ext-disp-audio-rx = <0>;
 	qcom,audio-routing =
+		"AMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Analog Mic1",
 		"AMIC2", "MIC BIAS2",
 		"MIC BIAS2", "Analog Mic2",
-		"TX DMIC0", "MIC BIAS1",
-		"MIC BIAS1", "Digital Mic0",
-		"TX DMIC1", "MIC BIAS1",
-		"MIC BIAS1", "Digital Mic1",
-		"TX DMIC2", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic2",
-		"TX DMIC3", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic3",
+		"AMIC3", "MIC BIAS3",
+		"MIC BIAS3", "Analog Mic3",
 		"TX_AIF1 CAP", "VA_MCLK",
 		"TX_AIF2 CAP", "VA_MCLK",
 		"RX AIF1 PB", "VA_MCLK",
@@ -212,36 +211,54 @@
 		"IN3_AUX", "AUX_OUT",
 		"TX SWR_ADC0", "ADC1_OUTPUT",
 		"TX SWR_ADC2", "ADC2_OUTPUT",
-		"WSA SRC0_INP", "SRC0",
-		"WSA_TX DEC0_INP", "TX DEC0 MUX",
-		"WSA_TX DEC1_INP", "TX DEC1 MUX",
+		//"WSA SRC0_INP", "SRC0",
+		//"WSA_TX DEC0_INP", "TX DEC0 MUX",
+		//"WSA_TX DEC1_INP", "TX DEC1 MUX",
 		"RX_TX DEC0_INP", "TX DEC0 MUX",
 		"RX_TX DEC1_INP", "TX DEC1 MUX",
 		"RX_TX DEC2_INP", "TX DEC2 MUX",
-		"RX_TX DEC3_INP", "TX DEC3 MUX",
-		"SpkrLeft IN", "WSA_SPK1 OUT",
-		"SpkrRight IN", "WSA_SPK2 OUT",
-		"WSA_SPK1 OUT", "VA_MCLK",
-		"WSA_SPK2 OUT", "VA_MCLK";
-	qcom,msm-mbhc-hphl-swh = <1>;
-	qcom,msm-mbhc-gnd-swh = <1>;
-	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
-	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
-	asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
-	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
-				"msm-ext-disp-audio-codec-rx";
-	qcom,wsa-max-devs = <1>;
-	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
-			<&wsa881x_0213>, <&wsa881x_0214>;
-	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
-				  "SpkrLeft", "SpkrRight";
-	qcom,codec-max-aux-devs = <1>;
-	qcom,codec-aux-devs = <&wcd937x_codec>;
-	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>,
+		"RX_TX DEC3_INP", "TX DEC3 MUX";
+		//"SpkrLeft IN", "WSA_SPK1 OUT",
+		//"WSA_SPK1 OUT", "VA_MCLK";
+		qcom,wsa-max-devs = <0>;
+		//qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;
+		//qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
+		qcom,msm-mbhc-hphl-swh = <1>;
+		qcom,msm-mbhc-gnd-swh = <0>;
+		asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
+		asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
+				   "msm-ext-disp-audio-codec-rx";
+		qcom,codec-max-aux-devs = <1>;
+		qcom,codec-aux-devs = <&wcd937x_codec>;
+		qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>,
 				<&bolero>;
+		/delete-property/ qcom,mbhc-audio-jack-type;
+		fsa4480-i2c-handle;
+		/*bug 497075,wangchengqiang,20191031,add for audio bringup*/
+		qcom,sec-mi2s-gpios = <&sec_mi2s_gpios>;
 };
 
+&qupv3_se1_i2c {
+/*bug 497075,wangchengqiang,20191031,add for audio bringup*/
+	status = "okay";
+		spkamp@3a {/* max98927 smartpa device*/
+		compatible = "maxim,max98927L";
+		status = "okay";
+		reg = <0x3a>;
+		mono_stereo_mode = <0>;
+		interleave_mode = <0>;
+		maxim,98927-reset-gpio = <&tlmm 95 0>;
+	};
+};
 &soc {
+	/*bug 497075,wangchengqiang,20191031,add for audio bringup*/
+		sec_mi2s_gpios: sec_mi2s_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&sec_mi2s_gpios_active>;
+		pinctrl-1 = <&sec_mi2s_gpios_sleep>;
+	};
+/*
 	cdc_dmic01_gpios: cdc_dmic01_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
@@ -254,7 +271,7 @@
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_dmic23_clk_active &cdc_dmic23_data_active>;
 		pinctrl-1 = <&cdc_dmic23_clk_sleep &cdc_dmic23_data_sleep>;
-	};
+	};*/
 
 	wsa_swr_gpios: wsa_swr_clk_data_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";

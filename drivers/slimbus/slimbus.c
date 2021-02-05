@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -731,7 +732,7 @@ void slim_msg_response(struct slim_controller *ctrl, u8 *reply, u8 tid, u8 len)
 	if (txn == NULL || txn->rbuf == NULL) {
 		spin_unlock_irqrestore(&ctrl->txn_lock, flags);
 		if (txn == NULL)
-			dev_err(&ctrl->dev, "Got response to invalid TID:%d, len:%d",
+			dev_err(&ctrl->dev, "Got response to invalid TID:%d, len:%d\n",
 				tid, len);
 		else
 			dev_err(&ctrl->dev, "Invalid client buffer passed\n");
@@ -864,7 +865,7 @@ ret_assigned_laddr:
 	if (exists || ret)
 		return ret;
 
-	pr_info("slimbus:%d laddr:0x%x, EAPC:0x%x:0x%x", ctrl->nr, *laddr,
+	pr_info("slimbus:%d laddr:0x%x, EAPC:0x%x:0x%x\n", ctrl->nr, *laddr,
 				e_addr[1], e_addr[2]);
 	mutex_lock(&ctrl->m_ctrl);
 	list_for_each_safe(pos, next, &ctrl->devs) {
@@ -1114,7 +1115,7 @@ int slim_xfer_msg(struct slim_controller *ctrl, struct slim_device *sbdev,
 		if (!ret && !msg->comp) {
 			ret = wait_for_completion_timeout(&complete, HZ);
 			if (!ret) {
-				dev_err(&ctrl->dev, "slimbus Read timed out");
+				dev_err(&ctrl->dev, "slimbus Read timed out\n");
 				spin_lock_irqsave(&ctrl->txn_lock, flags);
 				/* Invalidate the transaction */
 				ctrl->txnt[txn->tid] = NULL;
@@ -1123,7 +1124,7 @@ int slim_xfer_msg(struct slim_controller *ctrl, struct slim_device *sbdev,
 			} else
 				ret = 0;
 		} else if (ret < 0 && !msg->comp) {
-			dev_err(&ctrl->dev, "slimbus Read error");
+			dev_err(&ctrl->dev, "slimbus Read error\n");
 			spin_lock_irqsave(&ctrl->txn_lock, flags);
 			/* Invalidate the transaction */
 			ctrl->txnt[txn->tid] = NULL;
@@ -1183,7 +1184,7 @@ int slim_bulk_msg_write(struct slim_device *sb, u8 mt, u8 mc,
 	if (!sb || !sb->ctrl || !msgs || n <= 0)
 		return -EINVAL;
 	if (!sb->ctrl->xfer_bulk_wr) {
-		pr_warn("controller does not support bulk WR, serializing");
+		pr_warn("controller does not support bulk WR, serializing\n");
 		for (i = 0; i < n; i++) {
 			struct slim_ele_access ele;
 
@@ -1308,11 +1309,11 @@ int slim_dealloc_mgrports(struct slim_device *sb, u32 *hdl, int nports)
 			int j, ret;
 
 			if (pn >= ctrl->nports) {
-				dev_err(&ctrl->dev, "invalid port number");
+				dev_err(&ctrl->dev, "invalid port number\n");
 				ret = -EINVAL;
 			} else {
 				dev_err(&ctrl->dev,
-					"Can't dealloc connected port:%d", i);
+					"Can't dealloc connected port:%d\n", i);
 				ret = -EISCONN;
 			}
 			for (j = i - 1; j >= 0; j--) {
@@ -2033,7 +2034,8 @@ int slim_dealloc_ch(struct slim_device *sb, u16 chanh)
 		return 0;
 	}
 	if (slc->state >= SLIM_CH_PENDING_ACTIVE) {
-		dev_err(&ctrl->dev, "Channel:%d should be removed first", chan);
+		dev_err(&ctrl->dev, "Channel:%d should be removed first\n",
+								chan);
 		mutex_unlock(&ctrl->sched.m_reconf);
 		return -EISCONN;
 	}
@@ -2486,7 +2488,7 @@ static int slim_sched_chans(struct slim_device *sb, u32 clkgear,
 				slc3 = ctrl->sched.chc3[coeff3];
 			}
 			/* update 4k openslot records */
-			if (opensl1valid == false) {
+			if (!opensl1valid) {
 				for (i = 0; i < 3; i++) {
 					opensl1[i * 2] = opensl3[0];
 					opensl1[(i * 2) + 1] = opensl3[1];
@@ -2949,7 +2951,7 @@ int slim_reconfigure_now(struct slim_device *sb)
 			}
 		}
 		if (list_empty(&sb->mark_removal)) {
-			pr_info("SLIM_CL: skip reconfig sequence");
+			pr_info("SLIM_CL: skip reconfig sequence\n");
 			return 0;
 		}
 	}
@@ -3267,7 +3269,7 @@ int slim_control_ch(struct slim_device *sb, u16 chanh,
 		if (nchan < SLIM_GRP_TO_NCHAN(chanh))
 			chan = SLIM_HDL_TO_CHIDX(slc->nextgrp);
 	} while (nchan < SLIM_GRP_TO_NCHAN(chanh));
-	if (!ret && commit == true)
+	if (!ret && commit)
 		ret = slim_reconfigure_now(sb);
 	mutex_unlock(&ctrl->sched.m_reconf);
 	mutex_unlock(&sb->sldev_reconf);
@@ -3303,7 +3305,7 @@ int slim_reservemsg_bw(struct slim_device *sb, u32 bw_bps, bool commit)
 	dev_dbg(&ctrl->dev, "request:bw:%d, slots:%d, current:%d\n", bw_bps, sl,
 						sb->cur_msgsl);
 	sb->pending_msgsl = sl;
-	if (commit == true) {
+	if (commit) {
 		mutex_lock(&ctrl->sched.m_reconf);
 		ret = slim_reconfigure_now(sb);
 		mutex_unlock(&ctrl->sched.m_reconf);
@@ -3333,7 +3335,7 @@ int slim_ctrl_clk_pause(struct slim_controller *ctrl, bool wakeup, u8 restart)
 				SLIM_MSG_MC_BEGIN_RECONFIGURATION, 0, 3,
 				NULL, NULL, 0);
 
-	if (wakeup == false && restart > SLIM_CLK_UNSPECIFIED)
+	if (!wakeup && restart > SLIM_CLK_UNSPECIFIED)
 		return -EINVAL;
 	mutex_lock(&ctrl->m_ctrl);
 	if (wakeup) {
@@ -3398,7 +3400,7 @@ int slim_ctrl_clk_pause(struct slim_controller *ctrl, bool wakeup, u8 restart)
 	for (i = 0; i < ctrl->last_tid; i++) {
 		if (ctrl->txnt[i]) {
 			ret = -EBUSY;
-			pr_info("slim_clk_pause: txn-rsp for %d pending", i);
+			pr_info("slim_clk_pause: txn-rsp for %d pending\n", i);
 			mutex_unlock(&ctrl->m_ctrl);
 			return -EBUSY;
 		}
@@ -3409,7 +3411,7 @@ int slim_ctrl_clk_pause(struct slim_controller *ctrl, bool wakeup, u8 restart)
 	mutex_lock(&ctrl->sched.m_reconf);
 	/* Data channels active */
 	if (ctrl->sched.usedslots) {
-		pr_info("slim_clk_pause: data channel active");
+		pr_info("slim_clk_pause: data channel active\n");
 		ret = -EBUSY;
 		goto clk_pause_ret;
 	}

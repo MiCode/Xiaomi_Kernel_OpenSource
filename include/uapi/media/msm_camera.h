@@ -253,7 +253,14 @@ struct msm_mctl_post_proc_cmd {
 #define MSM_CAMERA_STROBE_FLASH_NONE 0
 #define MSM_CAMERA_STROBE_FLASH_XENON 1
 
-#define MSM_MAX_CAMERA_SENSORS  5
+//#ifdef WT_CODE_MODIFY
+#if 1
+    //bug432817,tiantian.wt,modify,20190315,modify camera id(main back:0,front:1,back aux:20,back wide:21,bokeh:61)
+    #define MSM_MAX_CAMERA_SENSORS  16
+#else
+    #define MSM_MAX_CAMERA_SENSORS  5
+#endif
+
 #define MAX_SENSOR_NAME 32
 #define MAX_CAM_NAME_SIZE 32
 #define MAX_ACT_MOD_NAME_SIZE 32

@@ -348,6 +348,8 @@ static int console_may_schedule;
  * non-prinatable characters are escaped in the "\xff" notation.
  */
 
+#define TASK_COMM_LEN 16
+
 enum log_flags {
 	LOG_NOCONS	= 1,	/* already flushed, do not print to console */
 	LOG_NEWLINE	= 2,	/* text ended with a newline */
@@ -363,6 +365,11 @@ struct printk_log {
 	u8 facility;		/* syslog facility */
 	u8 flags:5;		/* internal record flags */
 	u8 level:3;		/* syslog level */
+	pid_t pid;
+#ifdef CONFIG_SMP
+	unsigned int cpu;
+#endif
+	char comm[TASK_COMM_LEN];
 }
 #ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
 __packed __aligned(4)
@@ -625,6 +632,12 @@ static int log_store(int facility, int level,
 	msg->facility = facility;
 	msg->level = level & 7;
 	msg->flags = flags & 0x1f;
+	msg->pid = current->pid;
+#ifdef CONFIG_SMP
+	msg->cpu = task_cpu(current);
+#endif
+	memset(msg->comm, 0, TASK_COMM_LEN);
+	memcpy(msg->comm, current->comm, TASK_COMM_LEN-1);
 	if (ts_nsec > 0)
 		msg->ts_nsec = ts_nsec;
 	else
@@ -695,9 +708,9 @@ static ssize_t msg_print_ext_header(char *buf, size_t size,
 
 	do_div(ts_usec, 1000);
 
-	return scnprintf(buf, size, "%u,%llu,%llu,%c;",
+	return scnprintf(buf, size, "%u,%llu,%llu,%c;[<%u>][%d, %s]",
 		       (msg->facility << 3) | msg->level, seq, ts_usec,
-		       msg->flags & LOG_CONT ? 'c' : '-');
+		       msg->flags & LOG_CONT ? 'c' : '-', msg->cpu, msg->pid, msg->comm);
 }
 
 static ssize_t msg_print_ext_body(char *buf, size_t size,
@@ -774,11 +787,14 @@ static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
 	if (devkmsg_log & DEVKMSG_LOG_MASK_OFF)
 		return len;
 
+// bug 430906, zhanglong1.wt 20180228,add log avoid init log loss
+#ifdef WT_FINAL_RELEASE
 	/* Ratelimit when not explicitly enabled. */
 	if (!(devkmsg_log & DEVKMSG_LOG_MASK_ON)) {
 		if (!___ratelimit(&user->rs, current->comm))
 			return ret;
 	}
+#endif
 
 	buf = kmalloc(len+1, GFP_KERNEL);
 	if (buf == NULL)
@@ -1229,6 +1245,30 @@ static size_t print_time(u64 ts, char *buf)
 		       (unsigned long)ts, rem_nsec / 1000);
 }
 
+static bool printk_task_info = 1;
+module_param_named(task_info, printk_task_info, bool, S_IRUGO | S_IWUSR);
+
+static size_t print_task_info(pid_t pid, const char *task_name, char *buf)
+{
+	if (!printk_task_info)
+		return 0;
+	if (!buf)
+		return snprintf(NULL, 0, "[%d, %s]", pid, task_name);
+	return sprintf(buf, "[%d, %s]", pid, task_name);
+}
+#ifdef CONFIG_SMP
+static bool printk_cpu_info = 1;
+module_param_named(cpu_info, printk_cpu_info, bool, S_IRUGO | S_IWUSR);
+static size_t print_cpu_info(unsigned int cpu, char *buf)
+{
+	if (!printk_cpu_info)
+		return 0;
+	if (!buf)
+		return snprintf(NULL, 0, "[<%u>]", cpu);
+	return sprintf(buf, "[<%u>]", cpu);
+}
+#endif
+
 static size_t print_prefix(const struct printk_log *msg, bool syslog, char *buf)
 {
 	size_t len = 0;
@@ -1249,6 +1289,10 @@ static size_t print_prefix(const struct printk_log *msg, bool syslog, char *buf)
 	}
 
 	len += print_time(msg->ts_nsec, buf ? buf + len : NULL);
+#ifdef CONFIG_SMP
+	len += print_cpu_info(msg->cpu, buf ? buf + len : NULL);
+#endif
+	len += print_task_info(msg->pid, msg->comm, buf ? buf + len : NULL);
 	return len;
 }
 

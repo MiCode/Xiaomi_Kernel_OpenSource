@@ -3,6 +3,7 @@
  *
  * Original Copyright (C) 1995  Linus Torvalds
  * Copyright (C) 1996-2000 Russell King - Converted to ARM.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2012 ARM Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -58,6 +59,7 @@
 #include <asm/mmu_context.h>
 #include <asm/processor.h>
 #include <asm/stacktrace.h>
+#include <wt_sys/wt_boot_reason.h>
 
 #ifdef CONFIG_CC_STACKPROTECTOR
 #include <linux/stackprotector.h>
@@ -257,6 +259,17 @@ void __show_regs(struct pt_regs *regs)
 	print_symbol("pc : %s\n", regs->pc);
 	print_symbol("lr : %s\n", lr);
 	printk("sp : %016llx pstate : %08llx\n", sp, regs->pstate);
+/* bug 407890, wanghui2.wt, 2018/12/12, add save_panic_key_log, begin */
+#ifdef CONFIG_WT_BOOT_REASON
+	if (wt_panic_oops == 1) {
+		save_panic_key_log_symbol("PC is at %s,", regs->pc);
+		save_panic_key_log(" [<%016llx>] \n", regs->pc);
+		save_panic_key_log_symbol("LR is at %s,", lr);
+		save_panic_key_log(" [<%016llx>] \n", lr);
+		wt_panic_oops = 0;
+	}
+#endif
+/* bug 407890, wanghui2.wt, 2018/12/12, add save_panic_key_log, end */
 
 	i = top_reg;
 

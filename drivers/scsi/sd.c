@@ -135,6 +135,10 @@ static struct kmem_cache *sd_cdb_cache;
 static mempool_t *sd_cdb_pool;
 static mempool_t *sd_page_pool;
 
+//bug 434857, guodandan@wt, 2019.03.23, start
+extern struct gendisk *ufs_disk[];
+//bug 434857, guodandan@wt, 2019.03.23, end
+
 static const char *sd_cache_types[] = {
 	"write through", "none", "write back",
 	"write back, no read (daft)"
@@ -3285,6 +3289,9 @@ static int sd_probe(struct device *dev)
 	struct scsi_device *sdp = to_scsi_device(dev);
 	struct scsi_disk *sdkp;
 	struct gendisk *gd;
+	//bug 434857, guodandan@wt, 2019.03.23, start
+	static int num = 0;
+	//bug 434857, guodandan@wt, 2019.03.23, end
 	int index;
 	int error;
 
@@ -3331,6 +3338,11 @@ static int sd_probe(struct device *dev)
 		sdev_printk(KERN_WARNING, sdp, "SCSI disk (sd) name length exceeded.\n");
 		goto out_free_index;
 	}
+
+	//bug 434857, guodandan@wt, 2019.03.23, start
+	if(num < SD_NUM)
+		ufs_disk[num++] = gd;
+	//bug 434857, guodandan@wt, 2019.03.23, end
 
 	sdkp->device = sdp;
 	sdkp->driver = &sd_template;

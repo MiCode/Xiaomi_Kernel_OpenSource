@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,6 +134,9 @@ static inline void msm_isp_cfg_stream_scratch(
 		for (j = 0; j < stream_info->num_isp; j++) {
 			vfe_idx = msm_isp_get_vfe_idx_for_stream(
 					stream_info->vfe_dev[j], stream_info);
+			trace_printk("%s: stream_id: %x, vfe %d wm %d pingpong_bit %d\n", __func__,
+					stream_info->stream_id,vfe_idx, stream_info->wm[vfe_idx][i], pingpong_bit);
+
 			msm_isp_cfg_wm_scratch(stream_info->vfe_dev[j],
 				stream_info->wm[vfe_idx][i],
 				~pingpong_bit);

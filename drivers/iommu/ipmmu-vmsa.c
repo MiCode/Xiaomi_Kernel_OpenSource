@@ -2,6 +2,7 @@
  * IPMMU VMSA
  *
  * Copyright (C) 2014 Renesas Electronics Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -621,6 +622,14 @@ static size_t ipmmu_unmap(struct iommu_domain *io_domain, unsigned long iova,
 	return domain->iop->unmap(domain->iop, iova, size);
 }
 
+static void ipmmu_iotlb_sync(struct iommu_domain *io_domain)
+{
+    struct ipmmu_vmsa_domain *domain = to_vmsa_domain(io_domain);
+
+    if (domain->mmu)
+        ipmmu_tlb_flush_all(domain);
+}
+
 static phys_addr_t ipmmu_iova_to_phys(struct iommu_domain *io_domain,
 				      dma_addr_t iova)
 {
@@ -758,6 +767,8 @@ static const struct iommu_ops ipmmu_ops = {
 	.detach_dev = ipmmu_detach_device,
 	.map = ipmmu_map,
 	.unmap = ipmmu_unmap,
+    .flush_iotlb_all = ipmmu_iotlb_sync,
+    .iotlb_sync = ipmmu_iotlb_sync,
 	.map_sg = default_iommu_map_sg,
 	.iova_to_phys = ipmmu_iova_to_phys,
 	.add_device = ipmmu_add_device,

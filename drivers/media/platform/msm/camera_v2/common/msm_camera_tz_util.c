@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -191,7 +192,7 @@ static uint32_t msm_camera_tz_get_tzbsp_status(uint32_t status_mask)
 			.arginfo = SCM_ARGS(0),
 		};
 		ktime_t startTime = ktime_get();
-
+                //Extb 59853,tiantian.wt,modify,20190516,qcom modify for reboot
 		int32_t scmcall_status = scm_call2(
 			SCM_SIP_FNID(
 				MSM_CAMERA_TZ_SVC_CAMERASS_CALL_ID,

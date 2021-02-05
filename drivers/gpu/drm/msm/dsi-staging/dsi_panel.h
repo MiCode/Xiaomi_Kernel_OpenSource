@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -146,13 +147,15 @@ enum esd_check_status_mode {
 	ESD_MODE_REG_READ,
 	ESD_MODE_SW_BTA,
 	ESD_MODE_PANEL_TE,
+	ESD_MODE_PANEL_ERROR_FLAG,//Bug 442815 zhangxiaolong.wt,Modify,20190523,for esd error flag
 	ESD_MODE_SW_SIM_SUCCESS,
 	ESD_MODE_SW_SIM_FAILURE,
 	ESD_MODE_MAX
 };
 
 struct drm_panel_esd_config {
-	bool esd_enabled;
+	bool esd_enabled;//bug430786 sijun.wt,Modify,20190423,add white point function
+	bool acl_white_enabled;
 
 	enum esd_check_status_mode status_mode;
 	struct dsi_panel_cmd_set status_cmd;
@@ -163,7 +166,21 @@ struct drm_panel_esd_config {
 	u8 *status_buf;
 	u32 groups;
 };
-
+/*bug430786 sijun.wt,Modify,20190423,add white point function begin*/
+struct white_point {
+	int point_x;
+	int point_y;
+};
+/*bug430786 sijun.wt,Modify,20190423,add white point function end*/
+#if 0
+struct dsi_read_config {
+	bool enabled;
+	struct dsi_panel_cmd_set read_cmd;
+	u32 cmds_rlen;
+	u32 valid_bits;
+	u8 rbuf[64];
+};
+#endif
 struct dsi_panel {
 	const char *name;
 	const char *type;
@@ -197,6 +214,23 @@ struct dsi_panel {
 	struct dsi_parser_utils utils;
 
 	bool lp11_init;
+	bool dimming;
+	bool finger_unlock_back;
+	bool sansumg_flag;
+	bool last_acl_flag;
+
+	u32 last_bl_lvl;
+    #if defined(CONFIG_LAURUS_DISPLAY)
+	#else
+	u32 aod_last_bl_lvl;
+	#endif
+	bool fod_hbm_enabled;
+	bool fod_backlight_flag;
+	bool dimming_enabled;
+       bool skip_dimming_on;
+	//struct delayed_work dimming_work;
+
+	struct white_point point_read;
 	bool ulps_feature_enabled;
 	bool ulps_suspend_enabled;
 	bool allow_phy_power_off;
@@ -290,6 +324,8 @@ int dsi_panel_post_enable(struct dsi_panel *panel);
 
 int dsi_panel_pre_disable(struct dsi_panel *panel);
 
+int dsi_panel_write_panel_register(struct dsi_panel *panel,int value);
+
 int dsi_panel_disable(struct dsi_panel *panel);
 
 int dsi_panel_unprepare(struct dsi_panel *panel);
@@ -297,6 +333,12 @@ int dsi_panel_unprepare(struct dsi_panel *panel);
 int dsi_panel_post_unprepare(struct dsi_panel *panel);
 
 int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl);
+
+int dsi_panel_set_doze_backlight(struct dsi_panel *panel, u32 bl_lvl);
+
+int dsi_panel_set_dimming_brightness(struct dsi_panel *panel, u8 dimming, u32 brightness);
+int dsi_panel_set_brightness(struct dsi_panel *panel, u8 dimming, u32 brightness);
+
 
 int dsi_panel_update_pps(struct dsi_panel *panel);
 

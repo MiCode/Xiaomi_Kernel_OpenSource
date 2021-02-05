@@ -24,6 +24,10 @@
 #include "scsi_priv.h"
 #include "scsi_logging.h"
 
+//bug 434857, guodandan@wt, 2019.03.23, start
+struct gendisk *ufs_disk[SD_NUM];
+//bug 434857, guodandan@wt, 2019.03.23, end
+
 static struct device_type scsi_dev_type;
 
 static const struct {

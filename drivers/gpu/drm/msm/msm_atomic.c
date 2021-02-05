@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2014 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -24,6 +25,7 @@
 #include "msm_gem.h"
 #include "msm_fence.h"
 #include "sde_trace.h"
+#include "./sde/sde_connector.h"   //bug441305 notify tp in aod function
 
 #define MULTIPLE_CONN_DETECTED(x) (x > 1)
 
@@ -73,7 +75,7 @@ EXPORT_SYMBOL(msm_drm_unregister_client);
  * @v: notifier data, inculde display id and display blank
  *     event(unblank or power down).
  */
-static int msm_drm_notifier_call_chain(unsigned long val, void *v)
+int msm_drm_notifier_call_chain(unsigned long val, void *v)
 {
 	return blocking_notifier_call_chain(&msm_drm_notifier_list, val,
 					    v);
@@ -262,8 +264,12 @@ msm_disable_outputs(struct drm_device *dev, struct drm_atomic_state *old_state)
 			blank = MSM_DRM_BLANK_POWERDOWN;
 			notifier_data.data = &blank;
 			notifier_data.id = crtc_idx;
+            /*bug440891 remove nitification chain for tp requirement begin*/
+            #if 0
 			msm_drm_notifier_call_chain(MSM_DRM_EARLY_EVENT_BLANK,
 						     &notifier_data);
+            #endif
+           /*bug440891 remove nitification chain for tp requirement end*/
 		}
 		/*
 		 * Each encoder has at most one connector (since we always steal
@@ -418,6 +424,8 @@ void msm_atomic_helper_commit_modeset_disables(struct drm_device *dev,
  * and do the plane commits at the end. This is useful for drivers doing runtime
  * PM since planes updates then only happen when the CRTC is actually enabled.
  */
+ 
+
 static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 		struct drm_atomic_state *old_state)
 {
@@ -501,8 +509,12 @@ static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 			notifier_data.id =
 				connector->state->crtc->index;
 			DRM_DEBUG_ATOMIC("Notify early unblank\n");
+            /*bug440891 remove nitification chain for tp requirement begin*/
+            #if 0
 			msm_drm_notifier_call_chain(MSM_DRM_EARLY_EVENT_BLANK,
 					    &notifier_data);
+            #endif
+            /*bug440891 remove nitification chain for tp requirement end*/
 		}
 		/*
 		 * Each encoder has at most one connector (since we always steal

@@ -2,6 +2,7 @@
  * Based on arch/arm/kernel/traps.c
  *
  * Copyright (C) 1995-2009 Russell King
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2012 ARM Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -50,6 +51,7 @@
 #include <asm/system_misc.h>
 #include <asm/sysreg.h>
 #include <trace/events/exception.h>
+#include <wt_sys/wt_boot_reason.h>
 
 static const char *handler[]= {
 	"Synchronous Abort",
@@ -207,6 +209,11 @@ static int __die(const char *str, int err, struct pt_regs *regs)
 		 TASK_COMM_LEN, tsk->comm, task_pid_nr(tsk),
 		 end_of_stack(tsk));
 	show_regs(regs);
+/* bug 407890, wanghui2.wt, 2018/12/12, add save_panic_key_log, begin */
+#ifdef CONFIG_WT_BOOT_REASON
+	save_panic_key_log("Process %.*s (pid: %d)\n", TASK_COMM_LEN, tsk->comm, task_pid_nr(tsk));
+#endif
+/* bug 407890, wanghui2.wt, 2018/12/12, add save_panic_key_log, end */
 
 	if (!user_mode(regs))
 		dump_instr(KERN_EMERG, regs);
@@ -230,6 +237,13 @@ void die(const char *str, struct pt_regs *regs, int err)
 
 	console_verbose();
 	bust_spinlocks(1);
+/* bug 407890, wanghui2.wt, 2018/12/12, add save_panic_key_log, begin */
+#ifdef CONFIG_WT_BOOT_REASON
+	wt_panic_oops = 1;
+	save_panic_key_log(str);
+	save_panic_key_log("\n");
+#endif
+/* bug 407890, wanghui2.wt, 2018/12/12, add save_panic_key_log, end */
 	ret = __die(str, err, regs);
 
 	if (regs && kexec_should_crash(current))

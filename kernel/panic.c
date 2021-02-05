@@ -31,6 +31,7 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/exception.h>
 #include <soc/qcom/minidump.h>
+#include <wt_sys/wt_boot_reason.h>
 
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
@@ -180,6 +181,9 @@ void panic(const char *fmt, ...)
 	va_end(args);
 	dump_stack_minidump(0);
 	pr_emerg("Kernel panic - not syncing: %s\n", buf);
+#ifdef CONFIG_WT_BOOT_REASON
+	save_panic_key_log("Kernel panic - not syncing: %s\n", buf);
+#endif
 #ifdef CONFIG_DEBUG_BUGVERBOSE
 	/*
 	 * Avoid nested stack-dumping if a panic occurs during oops processing

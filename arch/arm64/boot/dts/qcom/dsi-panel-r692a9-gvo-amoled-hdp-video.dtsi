@@ -1,0 +1,172 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+&soc {
+  dsi_panel_pwr_supply_gvo: dsi_panel_pwr_supply_gvo {
+
+	 qcom,panel-supply-entry@0 {
+		 reg = <0>;
+		 qcom,supply-name = "vddio";
+		 qcom,supply-min-voltage = <1800000>;
+		 qcom,supply-max-voltage = <1800000>;
+		 qcom,supply-enable-load = <62000>;
+		 qcom,supply-disable-load = <80>;
+	 };
+/*bug430786 gpio configuration for ldo begin*/
+	 qcom,panel-supply-entry@1 {
+			 reg = <1>;
+			 qcom,supply-name = "panel_ldo";
+			 qcom,supply-min-voltage = <1800000>;
+			 qcom,supply-max-voltage = <1800000>;
+			 qcom,supply-enable-load = <100000>;
+			 qcom,supply-disable-load = <100>;
+			 qcom,supply-post-on-sleep = <1000>;
+			 qcom,supply-pre-off-sleep = <2000>;
+		 };
+/*bug430786 gpio configuration for ldo end*/
+	 qcom,panel-supply-entry@2 {
+		 reg = <2>;
+		 qcom,supply-name = "panel_iovcc";
+		 qcom,supply-min-voltage = <1800000>;
+		 qcom,supply-max-voltage = <1800000>;
+		 qcom,supply-enable-load = <100000>;
+		 qcom,supply-disable-load = <100>;
+		 qcom,supply-pre-off-sleep = <1000>;
+	 };
+ };
+};
+
+&mdss_mdp {
+	dsi_r692a9_gvo_hdp_video: qcom,mdss_dsi_r692a9_gvo_hdp_video {
+		qcom,mdss-dsi-panel-name =
+			"r692a9 gvo amoled video mode dsi panel";
+		qcom,mdss-dsi-panel-type = "dsi_video_mode";
+
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-h-left-border = <0>;
+		qcom,mdss-dsi-h-right-border = <0>;
+		qcom,mdss-dsi-v-top-border = <0>;
+		qcom,mdss-dsi-v-bottom-border = <0>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-color-order = "rgb_swap_rgb";
+		qcom,mdss-dsi-underflow-color = <0xff>;
+		qcom,mdss-dsi-border-color = <0>;
+		qcom,mdss-dsi-h-sync-pulse = <0>;
+		qcom,mdss-dsi-traffic-mode = "non_burst_sync_event";
+		qcom,mdss-dsi-lane-map = "lane_map_0123";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		//qcom,mdss-dsi-tx-eot-append;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-lp11-init;
+		qcom,bl-update-flag = "delay_until_first_frame";
+		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+		/*bug440349 optimize panel on when panel sleep*/
+		qcom,mdss-dsi-reset-sequence = <1 12>, <0 2>, <1 10>;
+		/*bug439995 add physical size for f9s begin*/
+		qcom,mdss-pan-physical-width-dimension = <65>;
+		qcom,mdss-pan-physical-height-dimension = <140>;
+		/*bug439995 add physical size for f9s begin*/
+
+		qcom,mdss-dsi-display-timings {
+			timing@0 {
+				qcom,mdss-dsi-panel-width = <720>;
+				qcom,mdss-dsi-panel-height = <1560>;
+				qcom,mdss-dsi-h-front-porch = <252>;
+				qcom,mdss-dsi-h-back-porch = <252>;
+				qcom,mdss-dsi-h-pulse-width = <136>;
+				qcom,mdss-dsi-h-sync-skew = <0>;
+				qcom,mdss-dsi-v-back-porch = <28>;
+				qcom,mdss-dsi-v-front-porch = <40>;
+				qcom,mdss-dsi-v-pulse-width = <4>;
+				qcom,mdss-dsi-panel-framerate = <60>;
+				qcom,mdss-dsi-on-command = [
+				  15 01 00 00 00 00 02 FE 40
+				  15 01 00 00 00 00 02 9A 01
+				  15 01 00 00 00 00 02 FE D0
+				  15 01 00 00 00 00 02 04 03
+				  15 01 00 00 00 00 02 FE 00
+				  15 01 00 00 00 00 02 C2 08
+				  15 01 00 00 00 00 02 35 00
+				  39 01 00 00 00 00 03 51 00 00
+				  15 01 00 00 00 00 02 53 20
+				  05 01 00 00 64 00 02 11 00
+				  05 01 00 00 05 00 02 29 00];
+				qcom,mdss-dsi-off-command = [
+				  05 01 00 00 32 00 02 28 00
+				  05 01 00 00 14 00 02 10 00
+				];
+/*bug430786 sijun.wt,Modify,20190419,add acl function begin*/
+				qcom,mdss-dsi-acl-on-command = [
+				  15 01 00 00 00 00 02 55 00
+				];
+				qcom,mdss-dsi-acl-off-command = [
+				  15 01 00 00 00 00 02 55 00
+				];
+				qcom,mdss-dsi-post-panel-on-command = [
+				  15 01 00 00 00 00 02 55 00
+				];
+/*bug430786 sijun.wt,Modify,20190423,add white point function begin*/
+				qcom,mdss-dsi-r692a9-page60-command = [
+				15 01 00 00 00 00 02 FE 60
+				];
+				qcom,mdss-dsi-r692a9-page00-command = [
+				15 01 00 00 00 00 02 FE 00
+				];
+				 qcom,mdss-dsi-nolp-command = [
+				  15 01 00 00 00 00 02 53 28
+				];
+				qcom,mdss-dsi-doze-lb-command = [
+				  15 01 00 00 00 00 02 53 20
+				  39 01 00 00 00 00 03 51 00 0F
+				];
+				qcom,mdss-dsi-doze-hb-command = [
+				  15 01 00 00 00 00 02 53 20
+				  39 01 00 00 00 00 03 51 00 BE
+				];
+				qcom,mdss-dsi-dimming-brightness-command = [
+				  15 01 00 00 00 00 02 53 20
+				  39 01 00 00 00 00 03 51 00 BE
+				];
+
+				qcom,mdss-dsi-dimming-enable-command = [
+				  15 01 00 00 00 00 02 53 28
+				];
+				qcom,mdss-dsi-brightness-command = [
+				  39 01 00 00 00 00 03 51 00 BE
+				];
+				qcom,mdss-dsi-doze-lb-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-doze-hb-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-dimming-brightness-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-dimming-enable-command-state= "dsi_lp_mode";
+				qcom,mdss-dsi-nolp-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-r692a9-page60-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-brightness-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-r692a9-page00-command-state = "dsi_lp_mode";
+/*bug430786 sijun.wt,Modify,20190419,add white point function end*/
+
+				qcom,mdss-dsi-acl-on-command-state = "dsi_lp_mode";
+			    qcom,mdss-dsi-acl-off-command-state = "dsi_hs_mode";
+				qcom,mdss-dsi-post-on-command-state = "dsi_lp_mode";
+/*bug430786 sijun.wt,Modify,20190419,add acl function end*/
+				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+			};
+		};
+	};
+};

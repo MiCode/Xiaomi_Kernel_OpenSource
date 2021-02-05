@@ -1,4 +1,5 @@
 /* Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3995,8 +3996,7 @@ static void adreno_iommu_sync(struct kgsl_device *device, bool sync)
 	}
 }
 
-static void
-_regulator_disable(struct kgsl_regulator *regulator, unsigned int timeout)
+static void _regulator_disable(struct kgsl_regulator *regulator, unsigned int timeout)
 {
 	unsigned long wait_time;
 

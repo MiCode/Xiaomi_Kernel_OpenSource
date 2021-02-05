@@ -57,7 +57,14 @@
 #define MSM_CAMERA_SUBDEV_EXT          (MSM_CAMERA_SUBDEV_BASE + 19)
 #define MSM_CAMERA_SUBDEV_TOF          (MSM_CAMERA_SUBDEV_BASE + 20)
 #define MSM_CAMERA_SUBDEV_LASER_LED    (MSM_CAMERA_SUBDEV_BASE + 21)
-#define MSM_MAX_CAMERA_SENSORS  5
+
+//#ifdef WT_CODE_MODIFY
+#if 1
+  //bug432817,tiantian.wt,modify,20190315,modify camera id(main back:0,front:1,back aux:20,back wide:21,bokeh:61)
+  #define MSM_MAX_CAMERA_SENSORS  16
+#else
+  #define MSM_MAX_CAMERA_SENSORS  5
+#endif
 
 /* The below macro is defined to put an upper limit on maximum
  * number of buffer requested per stream. In case of extremely

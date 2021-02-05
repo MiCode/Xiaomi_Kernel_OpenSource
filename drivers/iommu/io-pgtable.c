@@ -14,6 +14,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Copyright (C) 2014 ARM Limited
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Will Deacon <will.deacon@arm.com>
  */
@@ -89,6 +90,7 @@ void free_io_pgtable_ops(struct io_pgtable_ops *ops)
 
 	iop = container_of(ops, struct io_pgtable, ops);
 	io_pgtable_tlb_flush_all(iop);
+    io_pgtable_tlb_sync(iop);
 	io_pgtable_init_table[iop->fmt]->free(iop);
 }
 

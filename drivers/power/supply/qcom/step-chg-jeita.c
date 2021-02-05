@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -229,6 +230,8 @@ clean:
 }
 EXPORT_SYMBOL(read_range_data_from_node);
 
+//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+const char *BATTERY_DEFAULT= "S88512_mtp_default_battery_4V4_4040mAh";
 static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 {
 	struct device_node *batt_node, *profile_node;
@@ -268,8 +271,11 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 		return PTR_ERR(profile_node);
 
 	if (!profile_node) {
-		pr_err("Couldn't find profile\n");
-		return -ENODATA;
+		//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+		pr_err("Couldn't find profile, default battery profile was set\n");
+		profile_node = of_batterydata_get_best_profile(batt_node,
+			batt_id_ohms / 1000, BATTERY_DEFAULT);
+		//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 	}
 
 	rc = of_property_read_string(profile_node, "qcom,battery-type",
@@ -349,6 +355,8 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 					rc);
 		chip->sw_jeita_cfg_valid = false;
 	}
+	//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	chip->sw_jeita_cfg_valid = true;
 
 	rc = read_range_data_from_node(profile_node,
 			"qcom,jeita-fv-ranges",
@@ -620,6 +628,7 @@ static int handle_jeita(struct step_chg_info *chip)
 	union power_supply_propval pval = {0, };
 	int rc = 0, fcc_ua = 0, fv_uv = 0;
 	u64 elapsed_us;
+	static int last_fv_uv = -22;//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 
 	rc = power_supply_get_property(chip->batt_psy,
 		POWER_SUPPLY_PROP_SW_JEITA_ENABLED, &pval);
@@ -710,14 +719,34 @@ static int handle_jeita(struct step_chg_info *chip)
 	if (chip->jeita_arb_en && fv_uv > 0) {
 		rc = power_supply_get_property(chip->batt_psy,
 				POWER_SUPPLY_PROP_VOLTAGE_NOW, &pval);
+	//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	#if 0
 		if (!rc && (pval.intval > fv_uv))
 			vote(chip->usb_icl_votable, JEITA_VOTER, true, 0);
+	#else
+		if (!rc && (pval.intval > (fv_uv + JEITA_SUSPEND_HYST_UV )))
+			vote(chip->usb_icl_votable, JEITA_VOTER, true, 0);
+	#endif
+	//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 		else if (pval.intval < (fv_uv - JEITA_SUSPEND_HYST_UV))
 			vote(chip->usb_icl_votable, JEITA_VOTER, false, 0);
 	}
 
 set_jeita_fv:
 	vote(chip->fv_votable, JEITA_VOTER, fv_uv ? true : false, fv_uv);
+
+	//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	if((last_fv_uv == 4100000) && (fv_uv == 4400000)){
+		pr_err("WT force recharge for jeita\n");
+		pval.intval = 1;
+		rc = power_supply_set_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_FORCE_RECHARGE, &pval);
+		if (rc < 0)
+			pr_err("Failed to force recharge rc=%d\n", rc);
+	}
+	if (last_fv_uv != fv_uv)
+		last_fv_uv = fv_uv;
+	//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 
 update_time:
 	chip->jeita_last_update_time = ktime_get();

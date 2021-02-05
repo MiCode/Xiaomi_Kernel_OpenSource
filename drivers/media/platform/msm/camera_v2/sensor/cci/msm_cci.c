@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,7 +33,8 @@
 #define CYCLES_PER_MICRO_SEC_DEFAULT 4915
 #define CCI_MAX_DELAY 1000000
 
-#define CCI_TIMEOUT msecs_to_jiffies(500)
+//Bug 450051,tiantian.wt,20190603,modify for cci wrong
+#define CCI_TIMEOUT msecs_to_jiffies(1000)
 
 /* TODO move this somewhere else */
 #define MSM_CCI_DRV_NAME "msm_cci"
@@ -1665,9 +1667,15 @@ static int32_t msm_cci_config(struct v4l2_subdev *sd,
 	struct msm_camera_cci_ctrl *cci_ctrl)
 {
 	int32_t rc = 0;
-
+	//Bug 450051,tiantian.wt,20190603,modify for cci wrong
+	struct cci_device *cci_dev;
 	CDBG("%s line %d cmd %d\n", __func__, __LINE__,
 		cci_ctrl->cmd);
+	//+Bug 450051,tiantian.wt,20190603,modify for cci wrong
+	cci_dev = v4l2_get_subdevdata(sd);
+	mutex_lock(&cci_dev->mutex);
+	//-Bug 450051,tiantian.wt,20190603,modify for cci wrong
+
 	switch (cci_ctrl->cmd) {
 	case MSM_CCI_INIT:
 		rc = msm_cci_init(sd, cci_ctrl);
@@ -1676,6 +1684,10 @@ static int32_t msm_cci_config(struct v4l2_subdev *sd,
 		rc = msm_cci_release(sd);
 		break;
 	case MSM_CCI_I2C_READ:
+		//+Bug 450051,tiantian.wt,20190603,modify for cci wrong
+		if (cci_dev->cci_state == CCI_STATE_DISABLED)
+			break;
+		//-Bug 450051,tiantian.wt,20190603,modify for cci wrong
 		rc = msm_cci_i2c_read_bytes(sd, cci_ctrl);
 		break;
 	case MSM_CCI_I2C_WRITE:
@@ -1683,6 +1695,10 @@ static int32_t msm_cci_config(struct v4l2_subdev *sd,
 	case MSM_CCI_I2C_WRITE_SYNC:
 	case MSM_CCI_I2C_WRITE_ASYNC:
 	case MSM_CCI_I2C_WRITE_SYNC_BLOCK:
+		//+Bug 450051,tiantian.wt,20190603,modify for cci wrong
+		if (cci_dev->cci_state == CCI_STATE_DISABLED)
+			break;
+		//-Bug 450051,tiantian.wt,20190603,modify for cci wrong
 		rc = msm_cci_write(sd, cci_ctrl);
 		break;
 	case MSM_CCI_GPIO_WRITE:
@@ -1696,6 +1712,8 @@ static int32_t msm_cci_config(struct v4l2_subdev *sd,
 	}
 	CDBG("%s line %d rc %d\n", __func__, __LINE__, rc);
 	cci_ctrl->status = rc;
+	//Bug 450051,tiantian.wt,20190603,modify for cci wrong
+	mutex_unlock(&cci_dev->mutex);
 	return rc;
 }
 
@@ -2092,6 +2110,8 @@ static int msm_cci_probe(struct platform_device *pdev)
 		pr_err("%s: no enough memory\n", __func__);
 		return -ENOMEM;
 	}
+	//Bug 450051,tiantian.wt,20190603,modify for cci wrong
+	mutex_init(&new_cci_dev->mutex);
 	v4l2_subdev_init(&new_cci_dev->msm_sd.sd, &msm_cci_subdev_ops);
 	snprintf(new_cci_dev->msm_sd.sd.name,
 			ARRAY_SIZE(new_cci_dev->msm_sd.sd.name), "msm_cci");
@@ -2189,6 +2209,7 @@ cci_invalid_vreg_data:
 cci_release_mem:
 	msm_camera_put_reg_base(pdev, new_cci_dev->base, "cci", true);
 cci_no_resource:
+	mutex_destroy(&new_cci_dev->mutex); //Bug 450051,tiantian.wt,20190603,modify for cci wrong
 	kfree(new_cci_dev);
 	return rc;
 }

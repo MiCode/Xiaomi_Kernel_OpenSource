@@ -1,4 +1,5 @@
 /* Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -142,6 +143,8 @@ struct kgsl_mmu_pt_ops {
 #define KGSL_MMU_IO_COHERENT BIT(10)
 /* The device requires VA mappings padded up to a given size */
 #define KGSL_MMU_PAD_VA BIT(11)
+/* The MMU supports unmap fast path */
+#define KGSL_MMU_UNMAP_FAST BIT(12)
 
 /**
  * struct kgsl_mmu - Master definition for KGSL MMU devices

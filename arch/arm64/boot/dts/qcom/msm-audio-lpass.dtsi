@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -110,7 +111,7 @@
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <1>;
 			qcom,msm-mi2s-rx-lines = <1>;
-			qcom,msm-mi2s-tx-lines = <0>;
+			qcom,msm-mi2s-tx-lines = <2>;/*bug 497075,wangchengqiang,20191031,add for audio bringup*/
 		};
 
 		dai_mi2s2: qcom,msm-dai-q6-mi2s-tert {
@@ -532,7 +533,7 @@
 		qcom,msm-auxpcm-interface = "quinary";
 		qcom,msm-cpudai-afe-clk-ver = <2>;
 	};
-
+/*
 	dai_sen_auxpcm: qcom,msm-sen-auxpcm {
 		compatible = "qcom,msm-auxpcm-dev";
 		qcom,msm-cpudai-auxpcm-mode = <0>, <0>;
@@ -545,7 +546,7 @@
 		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
 		qcom,msm-auxpcm-interface = "senary";
 		qcom,msm-cpudai-afe-clk-ver = <2>;
-	};
+	};*/
 
 	hdmi_dba: qcom,msm-hdmi-dba-codec-rx {
 		compatible = "qcom,msm-hdmi-dba-codec-rx";
@@ -747,7 +748,7 @@
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 	};
-
+/*
 	tdm_sen_rx: qcom,msm-dai-tdm-sen-rx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37200>;
@@ -784,7 +785,7 @@
 			qcom,msm-cpudai-tdm-dev-id = <36945>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
-	};
+	};*/
 
 	dai_pri_spdif_rx: qcom,msm-dai-q6-spdif-pri-rx {
 		compatible = "qcom,msm-dai-q6-spdif";

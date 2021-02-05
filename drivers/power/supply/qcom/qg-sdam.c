@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,11 +89,13 @@ static struct qg_sdam_info sdam_info[] = {
 		.offset = QG_SDAM_ESR_DISCHARGE_SF_OFFSET,
 		.length = 2,
 	},
+	//+bug 468159 zhaolinquan.wt, PATCH Add logic to sanitize SDAM
 	[SDAM_MAGIC] = {
 		.name	= "SDAM_MAGIC_OFFSET",
 		.offset = QG_SDAM_MAGIC_OFFSET,
 		.length = 4,
 	},
+	//-bug 468159 zhaolinquan.wt, PATCH Add logic to sanitize SDAM
 };
 
 int qg_sdam_write(u8 param, u32 data)
@@ -118,10 +121,15 @@ int qg_sdam_write(u8 param, u32 data)
 	if (rc < 0)
 		pr_err("Failed to write offset=%0x4 param=%d value=%d\n",
 					offset, param, data);
-	else
-		pr_debug("QG SDAM write param=%s value=%d\n",
+	else{
+		/*Extb 60233,xujianbang.wt,Modify,20190428,Modify power_on soc.*/
+		if(param == SDAM_SOC)
+			pr_err("QG SDAM write param=%s value=%d\n",
 					sdam_info[param].name, data);
-
+		else
+			pr_debug("QG SDAM write param=%s value=%d\n",
+					sdam_info[param].name, data);
+	}
 	return rc;
 }
 
@@ -247,6 +255,7 @@ int qg_sdam_write_all(u32 *sdam_data)
 	return 0;
 }
 
+//+bug 468159 zhaolinquan.wt, PATCH Add logic to sanitize SDAM
 int qg_sdam_clear(void)
 {
 	int i, rc = 0;
@@ -263,6 +272,7 @@ int qg_sdam_clear(void)
 
 	return rc;
 }
+//-bug 468159 zhaolinquan.wt, PATCH Add logic to sanitize SDAM
 
 int qg_sdam_init(struct device *dev)
 {

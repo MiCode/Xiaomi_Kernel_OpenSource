@@ -2,6 +2,7 @@
  * Based on arch/arm/mm/fault.c
  *
  * Copyright (C) 1995  Linus Torvalds
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 1995-2004 Russell King
  * Copyright (C) 2012 ARM Ltd.
  *
@@ -48,6 +49,7 @@
 #include <acpi/ghes.h>
 #include <soc/qcom/scm.h>
 #include <trace/events/exception.h>
+#include <wt_sys/wt_boot_reason.h>
 
 struct fault_info {
 	int	(*fn)(unsigned long addr, unsigned int esr,
@@ -286,7 +288,11 @@ static void __do_kernel_fault(unsigned long addr, unsigned int esr,
 
 	pr_alert("Unable to handle kernel %s at virtual address %08lx\n", msg,
 		 addr);
-
+/* bug 407890, wanghui2.wt, 2018/12/12, add save_panic_key_log, begin */
+#ifdef CONFIG_WT_BOOT_REASON
+	save_panic_key_log("Unable to handle kernel %s at virtual address %08lx\n", msg, addr);
+#endif
+/* bug 407890, wanghui2.wt, 2018/12/12, add save_panic_key_log, end */
 	mem_abort_decode(esr);
 
 	show_pte(addr);

@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,7 +43,8 @@
 #include "qg-battery-profile.h"
 #include "qg-defs.h"
 
-static int qg_debug_mask;
+/*Extb 60233,xujianbang.wt,Modify,20190428,Modify power_on soc.*/
+static int qg_debug_mask = QG_DEBUG_PON;
 module_param_named(
 	debug_mask, qg_debug_mask, int, 0600
 );
@@ -952,7 +954,7 @@ static int qg_process_esr_data(struct qpnp_qg *chip)
 
 static int qg_esr_estimate(struct qpnp_qg *chip)
 {
-	int rc, i, ibat = 0;
+	int rc, i, ibat = 0,temp = 0;
 	u8 esr_done_count, reg0 = 0, reg1 = 0;
 	bool is_charging = false;
 
@@ -960,9 +962,17 @@ static int qg_esr_estimate(struct qpnp_qg *chip)
 		return 0;
 
 	/*
-	 * Charge - enable ESR estimation if IBAT > MIN_IBAT.
+	 * Charge - enable ESR estimation if IBAT > MIN_IBAT and temp > 0.
 	 * Discharge - enable ESR estimation only if enabled via DT.
 	 */
+
+    rc = qg_get_battery_temp(chip, &temp);
+    if (rc < 0)
+          return rc;
+    if (temp < 100 ) {
+       qg_dbg(chip, QG_DEBUG_ESR,"Skip CHG ESR, temp (%d) below 0C\n", temp);
+       return 0;
+    }
 	rc = qg_get_battery_current(chip, &ibat);
 	if (rc < 0)
 		return rc;
@@ -1658,6 +1668,7 @@ static int qg_get_battery_capacity(struct qpnp_qg *chip, int *soc)
 	return 0;
 }
 
+//+Extb 60152,xujianbang.wt,Modify,20190514,CR2439510:Handle cc_soc jump in the overcharge WA.
 static int qg_get_battery_capacity_real(struct qpnp_qg *chip, int *soc)
 {
 	mutex_lock(&chip->soc_lock);
@@ -1666,7 +1677,7 @@ static int qg_get_battery_capacity_real(struct qpnp_qg *chip, int *soc)
 
 	return 0;
 }
-
+//-Extb 60152,xujianbang.wt,Modify,20190514,CR2439510:Handle cc_soc jump in the overcharge WA.
 static int qg_get_charge_counter(struct qpnp_qg *chip, int *charge_counter)
 {
 	int rc, cc_soc = 0;
@@ -2181,6 +2192,18 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 	if (chip->charge_done && !chip->charge_full) {
 		if (chip->msoc >= 99 && health == POWER_SUPPLY_HEALTH_GOOD) {
 			chip->charge_full = true;
+			//+bug 445649 zhaolinquan.wt, MODIFY, 20190514, hold msoc 100% when charge done
+			chip->msoc = 100;
+			/* update the SOC register */
+			rc = qg_write_monotonic_soc(chip, chip->msoc);
+			if (rc < 0)
+				pr_err("WT Failed to update MSOC register rc=%d\n", rc);
+			chip->sdam_data[SDAM_SOC] = chip->msoc;
+			rc = qg_sdam_write(SDAM_SOC, chip->msoc);
+			if (rc < 0)
+				pr_err("WT Failed to update SDAM with MSOC rc=%d\n", rc);
+			pr_info("WT hold msoc 100% when charge done\n");
+			//-bug 445649 zhaolinquan.wt, MODIFY, 20190514, hold msoc 100% when charge done
 			qg_dbg(chip, QG_DEBUG_STATUS, "Setting charge_full (0->1) @ msoc=%d\n",
 					chip->msoc);
 		} else if (health != POWER_SUPPLY_HEALTH_GOOD) {
@@ -2773,6 +2796,7 @@ static int get_batt_id_ohm(struct qpnp_qg *chip, u32 *batt_id_ohm)
 	return 0;
 }
 
+extern const char *BATTERY_DEFAULT;//bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 static int qg_load_battery_profile(struct qpnp_qg *chip)
 {
 	struct device_node *node = chip->dev->of_node;
@@ -2791,6 +2815,14 @@ static int qg_load_battery_profile(struct qpnp_qg *chip)
 		rc = PTR_ERR(profile_node);
 		pr_err("Failed to detect valid QG battery profile %d\n", rc);
 		return rc;
+	}
+
+	if (!profile_node) {
+		//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+		pr_err("Couldn't find profile, default battery profile was set\n");
+		profile_node = of_batterydata_get_best_profile(batt_node,
+			chip->batt_id_ohm / 1000, BATTERY_DEFAULT);
+		//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 	}
 
 	rc = of_property_read_string(profile_node, "qcom,battery-type",
@@ -2819,7 +2851,12 @@ static int qg_load_battery_profile(struct qpnp_qg *chip)
 		pr_err("Failed to read battery fastcharge current rc:%d\n", rc);
 		chip->bp.fastchg_curr_ma = -EINVAL;
 	}
-
+	//+bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
+	#ifdef CONFIG_DISABLE_TEMP_PROTECT
+		chip->bp.float_volt_uv = 4100000;
+		chip->bp.fastchg_curr_ma = 1500;
+	#endif
+	//-bug 498013 zhaolinquan.wt, modify 20191104 F9S android P to Q bringup
 	rc = of_property_read_u32(profile_node, "qcom,qg-batt-profile-ver",
 				&chip->bp.qg_profile_version);
 	if (rc < 0) {

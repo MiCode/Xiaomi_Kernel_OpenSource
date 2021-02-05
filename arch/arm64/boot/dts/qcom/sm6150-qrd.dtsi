@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -259,9 +260,9 @@
 	fpc1020 {
 		compatible = "fpc,fpc1020";
 		interrupt-parent = <&tlmm>;
-		interrupts = <93 0>;
-		fpc,gpio_rst = <&tlmm 101 0x0>;
-		fpc,gpio_irq = <&tlmm 93 0>;
+		/*interrupts = <93 0>;*/
+		/*fpc,gpio_rst = <&tlmm 101 0x0>;*/
+		/*fpc,gpio_irq = <&tlmm 93 0>;*/
 		vcc_spi-supply = <&pm6150_l10>;
 		vdd_io-supply  = <&pm6150_l10>;
 		vdd_ana-supply = <&pm6150_l10>;

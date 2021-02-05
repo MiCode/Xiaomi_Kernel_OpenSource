@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2551,14 +2552,25 @@ static int _dsi_ctrl_setup_isr(struct dsi_ctrl *dsi_ctrl)
  */
 static void _dsi_ctrl_destroy_isr(struct dsi_ctrl *dsi_ctrl)
 {
-	if (!dsi_ctrl || !dsi_ctrl->pdev || dsi_ctrl->irq_info.irq_num < 0)
-		return;
+    uint32_t intr_idx = 0;
 
-	if (dsi_ctrl->irq_info.irq_num != -1) {
-		devm_free_irq(&dsi_ctrl->pdev->dev,
-				dsi_ctrl->irq_info.irq_num, dsi_ctrl);
-		dsi_ctrl->irq_info.irq_num = -1;
-	}
+    if (!dsi_ctrl || !dsi_ctrl->pdev || dsi_ctrl->irq_info.irq_num < 0)
+        return;
+
+    if (dsi_ctrl->irq_info.irq_num != -1) {
+        devm_free_irq(&dsi_ctrl->pdev->dev, dsi_ctrl->irq_info.irq_num, dsi_ctrl);
+        dsi_ctrl->irq_info.irq_num = -1;
+
+        for (intr_idx = 0; intr_idx < DSI_STATUS_INTERRUPT_COUNT; intr_idx++)
+        {
+            if (dsi_ctrl->irq_info.irq_stat_refcount[intr_idx] != 0)
+            {
+                pr_err("%s: intr_idx = %d, ref_count = %d\n", __func__, intr_idx, dsi_ctrl->irq_info.irq_stat_refcount[intr_idx]);
+                dsi_ctrl->irq_info.irq_stat_refcount[intr_idx] = 0;
+                dsi_ctrl->irq_info.irq_stat_mask = 0;
+            }
+        }
+    }
 }
 
 void dsi_ctrl_enable_status_interrupt(struct dsi_ctrl *dsi_ctrl,
