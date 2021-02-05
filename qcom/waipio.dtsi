@@ -1,4 +1,3 @@
-#include <dt-bindings/sound/qcom,gpr.h>
 #include <dt-bindings/clock/qcom,aop-qmp.h>
 #include <dt-bindings/clock/qcom,camcc-waipio.h>
 #include <dt-bindings/clock/qcom,dispcc-waipio.h>
@@ -43,15 +42,11 @@
 		mboxes = <&qmp_aop 0>;
 	};
 
-	aliases {
+	aliases: aliases {
 		serial0 = &qupv3_se7_2uart;
 		hsuart0 = &qupv3_se20_4uart;
 		sdhc2 = &sdhc_2;
 		ufshc1 = &ufshc_mem; /* Embedded UFS Slot */
-		swr0 = &swr0;
-		swr1 = &swr1;
-		swr2 = &swr2;
-		swr3 = &swr3;
 		pci-domain0 = &pcie0; /* PCIe0 domain */
 		pci-domain1 = &pcie1; /* PCIe1 domain */
 	};
@@ -957,7 +952,7 @@
 		qcom,smem-states = <&adsp_smp2p_out 0>;
 		qcom,smem-state-names = "stop";
 
-		glink-edge {
+		glink_edge: glink-edge {
 			qcom,remote-pid = <2>;
 			transport = "smem";
 			mboxes = <&ipcc_mproc IPCC_CLIENT_LPASS
@@ -976,29 +971,6 @@
 				qcom,intents = <0x800  5
 						0x2000 3
 						0x4400 2>;
-			};
-
-			audio_gpr: qcom,gpr {
-				compatible = "qcom,gpr";
-				qcom,glink-channels = "adsp_apps";
-				qcom,intents = <0x200 20>;
-				reg = <GPR_DOMAIN_ADSP>;
-
-				spf_core {
-					compatible = "qcom,spf_core";
-					reg = <GPR_SVC_ADSP_CORE>;
-				};
-
-				audio-pkt {
-					compatible = "qcom,audio-pkt";
-					qcom,audiopkt-ch-name = "apr_audio_svc";
-					reg = <GPR_SVC_MAX>;
-				};
-
-				audio_prm: q6prm {
-					compatible = "qcom,audio_prm";
-					reg = <GPR_SVC_ASM>;
-				};
 			};
 
 			qcom,msm_fastrpc_rpmsg {
@@ -3501,7 +3473,6 @@
 #include "waipio-dma-heaps.dtsi"
 #include "waipio-debug.dtsi"
 #include "waipio-eva.dtsi"
-#include "waipio-audio.dtsi"
 #include "waipio-pcie.dtsi"
 #include "msm-rdbg.dtsi"
 #include "waipio-gpu.dtsi"
@@ -3533,13 +3504,6 @@
 	status = "ok";
 };
 
-&adsp_loader {
-	status = "ok";
-	compatible = "qcom,adsp-loader";
-	qcom,rproc-handle = <&adsp_pas>;
-	qcom,adsp-state = <0>;
-};
-
 &qupv3_se20_4uart {
 	status = "ok";
 };
@@ -3555,5 +3519,10 @@
 		rtc6226,vdd-load = <15000>;
 		vio-supply = <&S10B>;
 		rtc6226,vio-supply-voltage = <1800000 1800000 >;
+	};
+
+	fsa4480: fsa4480@42 {
+		compatible = "qcom,fsa4480-i2c";
+		reg = <0x42>;
 	};
 };
