@@ -2204,6 +2204,8 @@
   total_swapcache_pages
   _totalram_pages
   __trace_bprintk
+  __trace_bputs
+  __trace_printk
   trace_clock_local
   trace_event_buffer_commit
   trace_event_buffer_reserve
