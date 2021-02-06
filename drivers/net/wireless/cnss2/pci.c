@@ -8,8 +8,10 @@
 #include <linux/module.h>
 #include <linux/msi.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/pm_runtime.h>
+#include <linux/suspend.h>
 #include <linux/memblock.h>
 #include <linux/completion.h>
 
@@ -527,6 +529,7 @@ static int cnss_pci_force_wake_put(struct cnss_pci_data *pci_priv)
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_INTERCONNECT)
 /**
  * cnss_setup_bus_bandwidth() - Setup interconnect vote for given bandwidth
  * @plat_priv: Platform private data struct
@@ -580,6 +583,18 @@ int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
 
 	return cnss_setup_bus_bandwidth(plat_priv, (u32)bandwidth, true);
 }
+#else
+static int cnss_setup_bus_bandwidth(struct cnss_plat_data *plat_priv,
+				    u32 bw, bool save)
+{
+	return 0;
+}
+
+int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
+{
+	return 0;
+}
+#endif
 EXPORT_SYMBOL(cnss_request_bus_bandwidth);
 
 int cnss_pci_debug_reg_read(struct cnss_pci_data *pci_priv, u32 offset,
@@ -4908,6 +4923,42 @@ static int cnss_mhi_bw_scale(struct mhi_controller *mhi_ctrl,
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_IPC_LOGGING)
+static int cnss_pci_mhi_ipc_logging_init(struct cnss_pci_data *pci_priv)
+{
+	struct mhi_controller *mhi_ctrl = pci_priv->mhi_ctrl;
+
+	mhi_ctrl->log_buf = ipc_log_context_create(CNSS_IPC_LOG_PAGES,
+						   "cnss-mhi", 0);
+	if (!mhi_ctrl->log_buf)
+		cnss_pr_err("Unable to create CNSS MHI IPC log context\n");
+
+	mhi_ctrl->cntrl_log_buf = ipc_log_context_create(CNSS_IPC_LOG_PAGES,
+							 "cnss-mhi-cntrl", 0);
+	if (!mhi_ctrl->cntrl_log_buf)
+		cnss_pr_err("Unable to create CNSS MHICNTRL IPC log context\n");
+
+	return 0;
+}
+
+static void cnss_pci_mhi_ipc_logging_deinit(struct cnss_pci_data *pci_priv)
+{
+	struct mhi_controller *mhi_ctrl = pci_priv->mhi_ctrl;
+
+	if (mhi_ctrl->log_buf)
+		ipc_log_context_destroy(mhi_ctrl->log_buf);
+	if (mhi_ctrl->cntrl_log_buf)
+		ipc_log_context_destroy(mhi_ctrl->cntrl_log_buf);
+}
+#else
+static int cnss_pci_mhi_ipc_logging_init(struct cnss_pci_data *pci_priv)
+{
+	return 0;
+}
+
+static void cnss_pci_mhi_ipc_logging_deinit(struct cnss_pci_data *pci_priv) {}
+#endif
+
 static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -4972,15 +5023,7 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	mhi_ctrl->fbc_download = true;
 	mhi_ctrl->rddm_supported = true;
 
-	mhi_ctrl->log_buf = ipc_log_context_create(CNSS_IPC_LOG_PAGES,
-						   "cnss-mhi", 0);
-	if (!mhi_ctrl->log_buf)
-		cnss_pr_err("Unable to create CNSS MHI IPC log context\n");
-
-	mhi_ctrl->cntrl_log_buf = ipc_log_context_create(CNSS_IPC_LOG_PAGES,
-							 "cnss-mhi-cntrl", 0);
-	if (!mhi_ctrl->cntrl_log_buf)
-		cnss_pr_err("Unable to create CNSS MHICNTRL IPC log context\n");
+	cnss_pci_mhi_ipc_logging_init(pci_priv);
 
 	ret = of_register_mhi_controller(mhi_ctrl);
 	if (ret) {
@@ -4997,10 +5040,7 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 unreg_mhi:
 	mhi_unregister_mhi_controller(mhi_ctrl);
 destroy_ipc:
-	if (mhi_ctrl->log_buf)
-		ipc_log_context_destroy(mhi_ctrl->log_buf);
-	if (mhi_ctrl->cntrl_log_buf)
-		ipc_log_context_destroy(mhi_ctrl->cntrl_log_buf);
+	cnss_pci_mhi_ipc_logging_deinit(pci_priv);
 	kfree(mhi_ctrl->irq);
 free_mhi_ctrl:
 	mhi_free_controller(mhi_ctrl);
@@ -5016,10 +5056,7 @@ static void cnss_pci_unregister_mhi(struct cnss_pci_data *pci_priv)
 		return;
 
 	mhi_unregister_mhi_controller(mhi_ctrl);
-	if (mhi_ctrl->log_buf)
-		ipc_log_context_destroy(mhi_ctrl->log_buf);
-	if (mhi_ctrl->cntrl_log_buf)
-		ipc_log_context_destroy(mhi_ctrl->cntrl_log_buf);
+	cnss_pci_mhi_ipc_logging_deinit(pci_priv);
 	kfree(mhi_ctrl->irq);
 	mhi_free_controller(mhi_ctrl);
 }
@@ -5048,6 +5085,151 @@ static void cnss_pci_config_regs(struct cnss_pci_data *pci_priv)
 		return;
 	}
 }
+
+#if !IS_ENABLED(CONFIG_ARCH_QCOM)
+static irqreturn_t cnss_pci_wake_handler(int irq, void *data)
+{
+	struct cnss_pci_data *pci_priv = data;
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+
+	pci_priv->wake_counter++;
+	cnss_pr_dbg("WLAN PCI wake IRQ (%u) is asserted #%u\n",
+		    pci_priv->wake_irq, pci_priv->wake_counter);
+
+	/* Make sure abort current suspend */
+	cnss_pm_stay_awake(plat_priv);
+	cnss_pm_relax(plat_priv);
+	/* Above two pm* API calls will abort system suspend only when
+	 * plat_dev->dev->ws is initiated by device_init_wakeup() API, and
+	 * calling pm_system_wakeup() is just to guarantee system suspend
+	 * can be aborted if it is not initiated in any case.
+	 */
+	pm_system_wakeup();
+
+	complete(&pci_priv->wake_event);
+	if (cnss_pci_get_monitor_wake_intr(pci_priv) &&
+	    cnss_pci_get_auto_suspended(pci_priv)) {
+		cnss_pci_set_monitor_wake_intr(pci_priv, false);
+		cnss_pci_pm_request_resume(pci_priv);
+	}
+
+	return IRQ_HANDLED;
+}
+
+/**
+ * cnss_pci_wake_gpio_init() - Setup PCI wake GPIO for WLAN
+ * @pci_priv: driver PCI bus context pointer
+ *
+ * This function initializes WLAN PCI wake GPIO and corresponding
+ * interrupt. It should be used in non-MSM platforms whose PCIe
+ * root complex driver doesn't handle the GPIO.
+ *
+ * Return: 0 for success or skip, negative value for error
+ */
+static int cnss_pci_wake_gpio_init(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct device *dev = &plat_priv->plat_dev->dev;
+	int ret = 0;
+
+	pci_priv->wake_gpio = of_get_named_gpio(dev->of_node,
+						"wlan-pci-wake-gpio", 0);
+	if (pci_priv->wake_gpio < 0)
+		goto out;
+
+	cnss_pr_dbg("Get PCI wake GPIO (%d) from device node\n",
+		    pci_priv->wake_gpio);
+
+	ret = gpio_request(pci_priv->wake_gpio, "wlan_pci_wake_gpio");
+	if (ret) {
+		cnss_pr_err("Failed to request PCI wake GPIO, err = %d\n",
+			    ret);
+		goto out;
+	}
+
+	gpio_direction_input(pci_priv->wake_gpio);
+	pci_priv->wake_irq = gpio_to_irq(pci_priv->wake_gpio);
+
+	ret = request_irq(pci_priv->wake_irq, cnss_pci_wake_handler,
+			  IRQF_TRIGGER_FALLING, "wlan_pci_wake_irq", pci_priv);
+	if (ret) {
+		cnss_pr_err("Failed to request PCI wake IRQ, err = %d\n", ret);
+		goto free_gpio;
+	}
+
+	ret = enable_irq_wake(pci_priv->wake_irq);
+	if (ret) {
+		cnss_pr_err("Failed to enable PCI wake IRQ, err = %d\n", ret);
+		goto free_irq;
+	}
+
+	return 0;
+
+free_irq:
+	free_irq(pci_priv->wake_irq, pci_priv);
+free_gpio:
+	gpio_free(pci_priv->wake_irq);
+out:
+	return ret;
+}
+
+static void cnss_pci_wake_gpio_deinit(struct cnss_pci_data *pci_priv)
+{
+	if (pci_priv->wake_irq < 0)
+		return;
+
+	disable_irq_wake(pci_priv->wake_irq);
+	free_irq(pci_priv->wake_irq, pci_priv);
+	gpio_free(pci_priv->wake_irq);
+}
+#else
+static int cnss_pci_wake_gpio_init(struct cnss_pci_data *pci_priv)
+{
+	return 0;
+}
+
+static void cnss_pci_wake_gpio_deinit(struct cnss_pci_data *pci_priv)
+{
+}
+#endif
+
+#if IS_ENABLED(CONFIG_ARCH_QCOM)
+/**
+ * cnss_pci_of_reserved_mem_device_init() - Assign reserved memory region
+ *                                          to given PCI device
+ * @pci_priv: driver PCI bus context pointer
+ *
+ * This function shall call corresponding of_reserved_mem_device* API to
+ * assign reserved memory region to PCI device based on where the memory is
+ * defined and attached to (platform device of_node or PCI device of_node)
+ * in device tree.
+ *
+ * Return: 0 for success, negative value for error
+ */
+static int cnss_pci_of_reserved_mem_device_init(struct cnss_pci_data *pci_priv)
+{
+	struct device *dev_pci = &pci_priv->pci_dev->dev;
+	int ret;
+
+	/* Use of_reserved_mem_device_init_by_idx() if reserved memory is
+	 * attached to platform device of_node.
+	 */
+	ret = of_reserved_mem_device_init(dev_pci);
+	if (ret)
+		cnss_pr_err("Failed to init reserved mem device, err = %d\n",
+			    ret);
+	if (dev_pci->cma_area)
+		cnss_pr_dbg("CMA area is %s\n",
+			    cma_get_name(dev_pci->cma_area));
+
+	return ret;
+}
+#else
+static int cnss_pci_of_reserved_mem_device_init(struct cnss_pci_data *pci_priv)
+{
+	return 0;
+}
+#endif
 
 /* Setting to use this cnss_pm_domain ops will let PM framework override the
  * ops from dev->bus->pm which is pci_dev_pm_ops from pci-driver.c. This ops
@@ -5097,12 +5279,7 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	if (plat_priv->use_pm_domain)
 		dev->pm_domain = &cnss_pm_domain;
 
-	ret = of_reserved_mem_device_init(dev);
-	if (ret)
-		cnss_pr_err("Failed to init reserved mem device, err = %d\n",
-			    ret);
-	if (dev->cma_area)
-		cnss_pr_dbg("CMA area is %s\n", cma_get_name(dev->cma_area));
+	cnss_pci_of_reserved_mem_device_init(pci_priv);
 
 	ret = cnss_register_subsys(plat_priv);
 	if (ret)
@@ -5151,6 +5328,7 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 				  cnss_pci_time_sync_work_hdlr);
 		cnss_pci_get_link_status(pci_priv);
 		cnss_pci_set_wlaon_pwr_ctrl(pci_priv, false, true, false);
+		cnss_pci_wake_gpio_init(pci_priv);
 		break;
 	default:
 		cnss_pr_err("Unknown PCI device found: 0x%x\n",
@@ -5204,6 +5382,7 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
 	case WCN7850_DEVICE_ID:
+		cnss_pci_wake_gpio_deinit(pci_priv);
 		complete_all(&pci_priv->wake_event);
 		del_timer(&pci_priv->dev_rddm_timer);
 		break;
@@ -5223,7 +5402,6 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	} else {
 		cnss_pr_err("Plat_priv is null, Unable to unregister ramdump,subsys\n");
 	}
-
 }
 
 static const struct pci_device_id cnss_pci_id_table[] = {

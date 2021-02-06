@@ -1,12 +1,15 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #ifndef _CNSS_DEBUG_H
 #define _CNSS_DEBUG_H
 
+#if IS_ENABLED(CONFIG_IPC_LOGGING)
 #include <linux/ipc_logging.h>
+#endif
 #include <linux/printk.h>
 
+#if IS_ENABLED(CONFIG_IPC_LOGGING)
 #define CNSS_IPC_LOG_PAGES		32
 
 extern void *cnss_ipc_log_context;
@@ -17,6 +20,10 @@ extern void *cnss_ipc_log_long_context;
 
 #define cnss_ipc_log_long_string(_x...)					\
 	ipc_log_string(cnss_ipc_log_long_context, _x)
+#else
+#define cnss_ipc_log_string(_x...)
+#define cnss_ipc_log_long_string(_x...)
+#endif
 
 #define cnss_pr_err(_fmt, ...) do {					\
 		printk("%scnss: " _fmt, KERN_ERR, ##__VA_ARGS__);	\
