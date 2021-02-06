@@ -12,4 +12,13 @@ config PCI_SW_SWITCHTEC
 	 devices. See <file:Documentation/driver-api/switchtec.rst> for more
 	 information.
 
+config PCI_SW_QCOM_SWITCH
+	depends on ARCH_QCOM
+	tristate "Qualcomm Technologies, Inc. PCIe Switch Management Driver"
+	help
+	 Enables support for switches connected to Qualcomm Technologies, Inc.
+	 PCIe Rootport. Switches that require erratas can bind with this driver
+	 and run errata for the corresponding port. Values can be saved and
+	 restored using this driver during suspend and resume.
+
 endmenu
