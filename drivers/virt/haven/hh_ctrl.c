@@ -101,7 +101,7 @@ static void __exit hh_sysfs_unregister(void)
 			   ARM_SMCCC_OWNER_VENDOR_HYP, 0x0)
 #define QC_HYP_SMCCC_UART_ENABLE                                              \
 	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_32,              \
-			   ARM_SMCCC_OWNER_VENDOR_HYP, 0x1)
+			   ARM_SMCCC_OWNER_VENDOR_HYP, 0xc)
 #define ENABLE 1
 #define DISABLE 0
 
