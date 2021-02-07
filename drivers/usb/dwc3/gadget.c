@@ -799,7 +799,7 @@ static void dwc3_remove_requests(struct dwc3 *dwc, struct dwc3_ep *dep)
 	struct dwc3_request		*req;
 	int ret = -EINVAL;
 
-	if (dep->number == 0 && dwc->ep0state != EP0_SETUP_PHASE) {
+	if (dep->number == 0) {
 		unsigned int dir;
 
 		dbg_log_string("CTRLPEND", dwc->ep0state);
