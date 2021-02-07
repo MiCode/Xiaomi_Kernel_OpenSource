@@ -160,9 +160,28 @@ static ssize_t power_supply_show_property(struct device *dev,
 			       power_supply_health_text[value.intval]);
 	else if (off >= POWER_SUPPLY_PROP_MODEL_NAME)
 		return sprintf(buf, "%s\n", value.strval);
+#ifdef CONFIG_BATT_VERIFY_BY_DS28E16
+	else if ((off == POWER_SUPPLY_PROP_ROMID) || (off == POWER_SUPPLY_PROP_DS_STATUS))
+		return scnprintf(buf, PAGE_SIZE, "%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x\n",
+			value.arrayval[0], value.arrayval[1], value.arrayval[2], value.arrayval[3],
+			value.arrayval[4], value.arrayval[5], value.arrayval[6], value.arrayval[7]);
+	else if ((off == POWER_SUPPLY_PROP_PAGE0_DATA) ||
+			(off == POWER_SUPPLY_PROP_PAGE1_DATA) ||
+			(off == POWER_SUPPLY_PROP_PAGEDATA))
+		return scnprintf(buf, PAGE_SIZE, "%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x\n",
+			value.arrayval[0], value.arrayval[1], value.arrayval[2], value.arrayval[3],
+			value.arrayval[4], value.arrayval[5], value.arrayval[6], value.arrayval[7],
+			value.arrayval[8], value.arrayval[9], value.arrayval[10], value.arrayval[11],
+			value.arrayval[12], value.arrayval[13], value.arrayval[14], value.arrayval[15]);
+	else if (off == POWER_SUPPLY_PROP_VERIFY_MODEL_NAME)
+		return sprintf(buf, "%s\n", value.strval);
+#endif
 
 	if (off == POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT)
 		return sprintf(buf, "%lld\n", value.int64val);
+	else if (off == POWER_SUPPLY_PROP_TYPE_RECHECK)
+		return scnprintf(buf, PAGE_SIZE, "0x%x\n",
+				value.intval);
 	else
 		return sprintf(buf, "%d\n", value.intval);
 }
@@ -294,6 +313,8 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(charge_enabled),
 	POWER_SUPPLY_ATTR(set_ship_mode),
 	POWER_SUPPLY_ATTR(real_type),
+	POWER_SUPPLY_ATTR(hvdcp3_type),
+	POWER_SUPPLY_ATTR(quick_charge_type),
 	POWER_SUPPLY_ATTR(charge_now_raw),
 	POWER_SUPPLY_ATTR(charge_now_error),
 	POWER_SUPPLY_ATTR(capacity_raw),
@@ -332,6 +353,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(flash_trigger),
 	POWER_SUPPLY_ATTR(force_tlim),
 	POWER_SUPPLY_ATTR(dp_dm),
+	POWER_SUPPLY_ATTR(dp_dm_bq),
 	POWER_SUPPLY_ATTR(input_current_limited),
 	POWER_SUPPLY_ATTR(input_current_now),
 	POWER_SUPPLY_ATTR(charge_qnovo_enable),
@@ -348,6 +370,8 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(typec_src_rp),
 	POWER_SUPPLY_ATTR(pd_allowed),
 	POWER_SUPPLY_ATTR(pd_active),
+	POWER_SUPPLY_ATTR(pd_authentication),
+	POWER_SUPPLY_ATTR(pd_remove_compensation),
 	POWER_SUPPLY_ATTR(pd_in_hard_reset),
 	POWER_SUPPLY_ATTR(pd_current_max),
 	POWER_SUPPLY_ATTR(pd_usb_suspend_supported),
@@ -362,12 +386,15 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(parallel_mode),
 	POWER_SUPPLY_ATTR(die_health),
 	POWER_SUPPLY_ATTR(connector_health),
+	POWER_SUPPLY_ATTR(connector_temp),
+	POWER_SUPPLY_ATTR(vbus_disable),
 	POWER_SUPPLY_ATTR(ctm_current_max),
 	POWER_SUPPLY_ATTR(hw_current_max),
 	POWER_SUPPLY_ATTR(pr_swap),
 	POWER_SUPPLY_ATTR(cc_step),
 	POWER_SUPPLY_ATTR(cc_step_sel),
 	POWER_SUPPLY_ATTR(sw_jeita_enabled),
+	POWER_SUPPLY_ATTR(dynamic_fv_enabled),
 	POWER_SUPPLY_ATTR(pd_voltage_max),
 	POWER_SUPPLY_ATTR(pd_voltage_min),
 	POWER_SUPPLY_ATTR(sdp_current_max),
@@ -378,8 +405,12 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(moisture_detected),
 	POWER_SUPPLY_ATTR(batt_profile_version),
 	POWER_SUPPLY_ATTR(batt_full_current),
+	POWER_SUPPLY_ATTR(battery_charging_limited),
+	POWER_SUPPLY_ATTR(slowly_charging),
+	POWER_SUPPLY_ATTR(bq_input_suspend),
 	POWER_SUPPLY_ATTR(recharge_soc),
 	POWER_SUPPLY_ATTR(hvdcp_opti_allowed),
+	POWER_SUPPLY_ATTR(fastcharge_mode),
 	POWER_SUPPLY_ATTR(smb_en_mode),
 	POWER_SUPPLY_ATTR(smb_en_reason),
 	POWER_SUPPLY_ATTR(esr_actual),
@@ -397,6 +428,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(voltage_vph),
 	POWER_SUPPLY_ATTR(chip_version),
 	POWER_SUPPLY_ATTR(therm_icl_limit),
+	POWER_SUPPLY_ATTR(type_recheck),
 	POWER_SUPPLY_ATTR(dc_reset),
 	POWER_SUPPLY_ATTR(scale_mode_en),
 	POWER_SUPPLY_ATTR(voltage_max_limit),
@@ -418,8 +450,40 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(cp_toggle_switcher),
 	POWER_SUPPLY_ATTR(cp_irq_status),
 	POWER_SUPPLY_ATTR(cp_ilim),
+	/* Bq charge pump properties */
+	POWER_SUPPLY_ATTR(ti_battery_present),
+	POWER_SUPPLY_ATTR(ti_vbus_present),
+	POWER_SUPPLY_ATTR(ti_battery_voltage),
+	POWER_SUPPLY_ATTR(ti_battery_current),
+	POWER_SUPPLY_ATTR(ti_battery_temperature),
+	POWER_SUPPLY_ATTR(ti_bus_voltage),
+	POWER_SUPPLY_ATTR(ti_bus_current),
+	POWER_SUPPLY_ATTR(ti_bus_temperature),
+	POWER_SUPPLY_ATTR(ti_die_temperature),
+	POWER_SUPPLY_ATTR(ti_alarm_status),
+	POWER_SUPPLY_ATTR(ti_fault_status),
+	POWER_SUPPLY_ATTR(ti_reg_status),
+	POWER_SUPPLY_ATTR(ti_set_bus_protection_for_qc3),
 	POWER_SUPPLY_ATTR(irq_status),
 	POWER_SUPPLY_ATTR(parallel_output_mode),
+	POWER_SUPPLY_ATTR(ffc_chg_term_current),
+#ifdef CONFIG_BATT_VERIFY_BY_DS28E16
+	/* battery verify properties */
+	POWER_SUPPLY_ATTR(romid),
+	POWER_SUPPLY_ATTR(ds_status),
+	POWER_SUPPLY_ATTR(pagenumber),
+	POWER_SUPPLY_ATTR(pagedata),
+	POWER_SUPPLY_ATTR(authen_result),
+	POWER_SUPPLY_ATTR(session_seed),
+	POWER_SUPPLY_ATTR(s_secret),
+	POWER_SUPPLY_ATTR(challenge),
+	POWER_SUPPLY_ATTR(auth_anon),
+	POWER_SUPPLY_ATTR(auth_bdconst),
+	POWER_SUPPLY_ATTR(page0_data),
+	POWER_SUPPLY_ATTR(page1_data),
+	POWER_SUPPLY_ATTR(verify_model_name),
+	POWER_SUPPLY_ATTR(chip_ok),
+#endif
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */

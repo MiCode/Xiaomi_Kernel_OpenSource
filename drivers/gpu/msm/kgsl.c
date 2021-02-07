@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -516,8 +517,6 @@ static int kgsl_mem_entry_attach_process(struct kgsl_device *device,
 /* Detach a memory entry from a process and unmap it from the MMU */
 static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 {
-	unsigned int type;
-
 	if (entry == NULL)
 		return;
 
@@ -530,10 +529,7 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 		idr_remove(&entry->priv->mem_idr, entry->id);
 	entry->id = 0;
 
-	type = kgsl_memdesc_usermem_type(&entry->memdesc);
-
-	if (type != KGSL_MEM_ENTRY_ION)
-		entry->priv->gpumem_mapped -= entry->memdesc.mapsize;
+	entry->priv->gpumem_mapped -= entry->memdesc.mapsize;
 
 	spin_unlock(&entry->priv->mem_lock);
 
@@ -3541,11 +3537,15 @@ long kgsl_ioctl_sparse_phys_alloc(struct kgsl_device_private *dev_priv,
 	unsigned int cmd, void *data)
 {
 	struct kgsl_process_private *process = dev_priv->process_priv;
+	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_sparse_phys_alloc *param = data;
 	struct kgsl_mem_entry *entry;
 	uint64_t flags;
 	int ret;
 	int id;
+
+	if (!(device->flags & KGSL_FLAG_SPARSE))
+		return -ENOTSUPP;
 
 	ret = _sparse_alloc_param_sanity_check(param->size, param->pagesize);
 	if (ret)
@@ -3630,8 +3630,12 @@ long kgsl_ioctl_sparse_phys_free(struct kgsl_device_private *dev_priv,
 	unsigned int cmd, void *data)
 {
 	struct kgsl_process_private *process = dev_priv->process_priv;
+	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_sparse_phys_free *param = data;
 	struct kgsl_mem_entry *entry;
+
+	if (!(device->flags & KGSL_FLAG_SPARSE))
+		return -ENOTSUPP;
 
 	entry = kgsl_sharedmem_find_id_flags(process, param->id,
 			KGSL_MEMFLAGS_SPARSE_PHYS);
@@ -3662,9 +3666,13 @@ long kgsl_ioctl_sparse_virt_alloc(struct kgsl_device_private *dev_priv,
 	unsigned int cmd, void *data)
 {
 	struct kgsl_process_private *private = dev_priv->process_priv;
+	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_sparse_virt_alloc *param = data;
 	struct kgsl_mem_entry *entry;
 	int ret;
+
+	if (!(device->flags & KGSL_FLAG_SPARSE))
+		return -ENOTSUPP;
 
 	ret = _sparse_alloc_param_sanity_check(param->size, param->pagesize);
 	if (ret)
@@ -3706,8 +3714,12 @@ long kgsl_ioctl_sparse_virt_free(struct kgsl_device_private *dev_priv,
 	unsigned int cmd, void *data)
 {
 	struct kgsl_process_private *process = dev_priv->process_priv;
+	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_sparse_virt_free *param = data;
 	struct kgsl_mem_entry *entry = NULL;
+
+	if (!(device->flags & KGSL_FLAG_SPARSE))
+		return -ENOTSUPP;
 
 	entry = kgsl_sharedmem_find_id_flags(process, param->id,
 			KGSL_MEMFLAGS_SPARSE_VIRT);
@@ -4055,6 +4067,7 @@ long kgsl_ioctl_sparse_bind(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data)
 {
 	struct kgsl_process_private *private = dev_priv->process_priv;
+	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_sparse_bind *param = data;
 	struct kgsl_sparse_binding_object obj;
 	struct kgsl_mem_entry *virt_entry;
@@ -4062,6 +4075,9 @@ long kgsl_ioctl_sparse_bind(struct kgsl_device_private *dev_priv,
 	void __user *ptr;
 	int ret = 0;
 	int i = 0;
+
+	if (!(device->flags & KGSL_FLAG_SPARSE))
+		return -ENOTSUPP;
 
 	ptr = (void __user *) (uintptr_t) param->list;
 
@@ -4117,6 +4133,9 @@ long kgsl_ioctl_gpu_sparse_command(struct kgsl_device_private *dev_priv,
 	struct kgsl_drawobj_sparse *sparseobj;
 	long result;
 	unsigned int i = 0;
+
+	if (!(device->flags & KGSL_FLAG_SPARSE))
+		return -ENOTSUPP;
 
 	/* Make sure sparse and syncpoint count isn't too big */
 	if (param->numsparse > KGSL_MAX_SPARSE ||
@@ -4749,6 +4768,8 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 			vm_insert_page(vma, addr, page);
 			addr += PAGE_SIZE;
 		}
+		m->mapsize = m->size;
+		entry->priv->gpumem_mapped += m->mapsize;
 	}
 
 	vma->vm_file = file;
@@ -4886,6 +4907,9 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	/* Initialize logging first, so that failures below actually print. */
 	kgsl_device_debugfs_init(device);
+
+	/* Disable the sparse ioctl invocation as they are not used */
+	device->flags &= ~KGSL_FLAG_SPARSE;
 
 	status = kgsl_pwrctrl_init(device);
 	if (status)

@@ -2,6 +2,7 @@
  * kernel/power/suspend.c - Suspend to RAM and standby functionality.
  *
  * Copyright (c) 2003 Patrick Mochel
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2003 Open Source Development Lab
  * Copyright (c) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
  *
@@ -437,7 +438,6 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 		log_suspend_abort_reason("Disabling non-boot cpus failed");
 		goto Enable_cpus;
 	}
-
 	arch_suspend_disable_irqs();
 	BUG_ON(!irqs_disabled());
 

@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -91,27 +92,27 @@ int32_t cam_sensor_get_sub_module_index(struct device_node *of_node,
 		sensor_info->subdev_id[SUB_MODULE_LED_FLASH] = val;
 		of_node_put(src_node);
 	}
-
-	rc = of_property_read_u32(of_node, "csiphy-sd-index", &val);
-	if (rc < 0)
-		CAM_ERR(CAM_SENSOR, "paring the dt node for csiphy rc %d", rc);
-	else
-		sensor_info->subdev_id[SUB_MODULE_CSIPHY] = val;
-
-	src_node = of_parse_phandle(of_node, "ir-led-src", 0);
+#ifdef CONFIG_SOFTLED_CAMERA
+	src_node = of_parse_phandle(of_node, "soft-led-flash-src", 0);
 	if (!src_node) {
-		CAM_DBG(CAM_SENSOR, "ir led src_node NULL");
+		CAM_DBG(CAM_SENSOR, " src_node NULL");
 	} else {
 		rc = of_property_read_u32(src_node, "cell-index", &val);
-		CAM_DBG(CAM_SENSOR, "ir led cell index %d, rc %d", val, rc);
+		CAM_ERR(CAM_SENSOR, "FXF led flash cell index %d, rc %d", val, rc);
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR, "failed %d", rc);
 			of_node_put(src_node);
 			return rc;
 		}
-		sensor_info->subdev_id[SUB_MODULE_IR_LED] = val;
+		sensor_info->subdev_id[SUB_MODULE_LED_SOFT] = val;
 		of_node_put(src_node);
 	}
+#endif
+	rc = of_property_read_u32(of_node, "csiphy-sd-index", &val);
+	if (rc < 0)
+		CAM_ERR(CAM_SENSOR, "paring the dt node for csiphy rc %d", rc);
+	else
+		sensor_info->subdev_id[SUB_MODULE_CSIPHY] = val;
 
 	return rc;
 }
@@ -224,6 +225,11 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 		&sensordata->pos_yaw) < 0) {
 		CAM_DBG(CAM_SENSOR, "Invalid sensor position");
 		sensordata->pos_yaw = 360;
+	}
+	if (of_property_read_u32(of_node, "is-mipi-switch",
+		&s_ctrl->is_mipi_switch) < 0) {
+		CAM_DBG(CAM_SENSOR, "Invalid flag of is-mipi-switch");
+		s_ctrl->is_mipi_switch = 0;
 	}
 
 	return rc;

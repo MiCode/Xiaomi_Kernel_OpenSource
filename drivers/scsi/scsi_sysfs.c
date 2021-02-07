@@ -1103,6 +1103,84 @@ static DEVICE_ATTR(queue_ramp_up_period, S_IRUGO | S_IWUSR,
 		   sdev_show_queue_ramp_up_period,
 		   sdev_store_queue_ramp_up_period);
 
+int ufshcd_get_hynix_hr(struct scsi_device *sdev, u8 *buf, u32 size);
+
+static int hr_flag;
+static ssize_t
+sdev_show_hr(struct device *dev, struct device_attribute *attr,
+	     char *buf)
+{
+	struct scsi_device *sdev;
+	int i, n = 0;
+	int err = 0;
+	int len = 512; /*0x200*/
+	char *hr;
+
+	sdev = to_scsi_device(dev);
+	if (!sdev) {
+		pr_err("get sdev fail\n");
+		return n;
+	}
+
+	hr = kzalloc(len, GFP_KERNEL);
+	if (!hr) {
+		pr_err("kzalloc fail\n");
+		return -ENOMEM;
+	}
+
+	if (!strncmp(sdev->vendor, "WDC", 3)) {
+		err = scsi_sdr(sdev, hr, len);
+	} else if (!strncmp(sdev->vendor, "TOSHIBA", 7)) {
+		err = scsi_hr_inquiry(sdev, hr, len);
+	} else if (!strncmp(sdev->vendor, "SAMSUNG", 7)) {
+		err = scsi_osv(sdev, hr, 0x1c);/*0x200 is the same with 0x1c*/
+	} else if (!strncmp(sdev->vendor, "MICRON", 6)) {
+		err = scsi_mhr(sdev, hr, len);
+	} else if (!strncmp(sdev->vendor, "SKhynix", 7)) {
+		err = ufshcd_get_hynix_hr(sdev, hr, len);
+	} else {
+		n += snprintf(buf, PAGE_SIZE - n, "NOT SUPPORTED %s\n", sdev->vendor);
+		goto out;
+	}
+
+	if (err) {
+		n += snprintf(buf, PAGE_SIZE - n, "Fail to get hr, err is: %d\n", err);
+	} else {
+		for (i = 0; i < 512; i++)
+			n += snprintf(buf + n, PAGE_SIZE - n, "%02x", hr[i]);
+		n += snprintf(buf + n, PAGE_SIZE - n, "\n");
+	}
+
+	if (!strncmp(sdev->vendor, "SAMSUNG", 7)) {
+		memset(hr, 0, 512);
+		err = scsi_ss_hr(sdev, hr, 0x4c);
+		if (!err) {
+			for (i = 0; i < 0x4c; i++)
+				snprintf(buf + 128*2 + i*2, PAGE_SIZE - n, "%02x", hr[i]);
+		}
+	}
+
+out:
+	kfree(hr);
+	return n;
+}
+
+static ssize_t
+sdev_store_hr(struct device *dev, struct device_attribute *attr,
+		    const char *buf, size_t count)
+{
+	if (!strncmp(buf, "osv", 3)) {
+		hr_flag = 1;
+	} else {
+		hr_flag = 0;
+	}
+	return count;
+}
+
+static DEVICE_ATTR(hr, S_IRUGO | S_IWUSR,
+		sdev_show_hr,
+		sdev_store_hr);
+
 static umode_t scsi_sdev_attr_is_visible(struct kobject *kobj,
 					 struct attribute *attr, int i)
 {
@@ -1167,6 +1245,7 @@ static struct attribute *scsi_sdev_attrs[] = {
 	&dev_attr_queue_depth.attr,
 	&dev_attr_queue_type.attr,
 	&dev_attr_wwid.attr,
+	&dev_attr_hr.attr,
 #ifdef CONFIG_SCSI_DH
 	&dev_attr_dh_state.attr,
 	&dev_attr_access_state.attr,

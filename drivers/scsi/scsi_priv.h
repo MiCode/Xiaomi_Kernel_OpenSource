@@ -192,4 +192,14 @@ static inline void scsi_dh_remove_device(struct scsi_device *sdev) { }
 
 #define SCSI_DEVICE_BLOCK_MAX_TIMEOUT	600	/* units in seconds */
 
+int scsi_hr_inquiry(struct scsi_device *sdev, char *hr_inq, int len);
+
+int scsi_sdr(struct scsi_device *sdev, char *sdr, int len);
+
+int scsi_osv(struct scsi_device *sdev, char *osv, int len);
+
+int scsi_ss_hr(struct scsi_device *sdev, char *osv, int len);
+
+int scsi_mhr(struct scsi_device *sdev, char *sdr, int len);
+
 #endif /* _SCSI_PRIV_H */

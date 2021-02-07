@@ -358,6 +358,273 @@ static int scsi_vpd_inquiry(struct scsi_device *sdev, unsigned char *buffer,
 	return get_unaligned_be16(&buffer[2]) + 4;
 }
 
+/*
+ *get toshiba hr inquiry
+ *
+ */
+int scsi_hr_inquiry(struct scsi_device *sdev, char *hr_inq, int len)
+{
+	int result;
+	unsigned char cmd[16] = {0};
+
+	if (!hr_inq)
+		return -EINVAL;
+
+	cmd[0] = INQUIRY;
+	cmd[1] = 0x69;		/* EVPD */
+	cmd[2] = 0xC0;
+	cmd[3] = len >> 8;
+	cmd[4] = len & 0xff;
+	cmd[5] = 0;		/* Control byte */
+
+	result = scsi_execute_req(sdev, cmd, DMA_FROM_DEVICE, hr_inq,
+				  len, NULL, 30 * HZ, 3, NULL);
+	if (result) {
+		pr_err("ufs: get hr_inquiry result error\n");
+		return -EIO;
+	}
+
+	/* Sanity check that we got the page back that we asked for */
+	if (hr_inq[1] != 0xC0)
+		pr_err("ufs: hr_inruiry data error\n");
+
+	return 0;
+}
+
+/*
+ *get sandisk device report
+ *
+ */
+int scsi_sdr(struct scsi_device *sdev, char *sdr, int len)
+{
+	int result;
+	unsigned char cmd[16] = {0};
+
+	if (!sdr)
+		return -EINVAL;
+
+	cmd[0] = READ_BUFFER;
+	cmd[1] = 0x01;		/* mode vendor specific*/
+	cmd[2] = 0x01;		/* buffer ID*/
+
+	cmd[3] = 0x7D;
+	cmd[4] = 0x9C;
+	cmd[5] = 0x69;
+
+	cmd[6] = 0x00;
+	cmd[7] = 0x02;
+	cmd[8] = 0x00;
+
+	cmd[9] = 0;		/* Control byte */
+
+	result = scsi_execute_req(sdev, cmd, DMA_FROM_DEVICE, sdr,
+				  len, NULL, 30 * HZ, 3, NULL);
+
+	if (result) {
+		pr_err("ufs: get sdr result error\n");
+		return -EIO;
+	}
+
+	return 0;
+}
+
+/*
+ *get micron hr
+ *
+ */
+int scsi_mhr(struct scsi_device *sdev, char *hr, int len)
+{
+	int result;
+	unsigned char write_buffer[16] = {0x3B, 0xE1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2C, 0x00};
+	unsigned char read_buffer[16] = {0x3C, 0xC1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00};
+
+	char VU[0x2c] = {0};
+
+	VU[0] = 0xFE;
+	VU[1] = 0x40;
+	VU[3] = 0x10;
+	VU[4] = 0x01;
+
+	if (!hr)
+		return -EINVAL;
+
+	result = scsi_execute_req(sdev, write_buffer, DMA_TO_DEVICE, VU,
+				  0x2c, NULL, 30 * HZ, 3, NULL);
+	if (result) {
+		pr_err("ufs: hr write buffer  error\n");
+		return -EIO;
+	}
+	result = scsi_execute_req(sdev, read_buffer, DMA_FROM_DEVICE, hr,
+				  len, NULL, 30 * HZ, 3, NULL);
+	if (result) {
+		pr_err("ufs: hr read buffer  error\n");
+		return -EIO;
+	}
+
+	return 0;
+}
+
+/*
+ *get samsung osv
+ *
+ */
+int scsi_osv(struct scsi_device *sdev, char *osv, int len)
+{
+	int result;
+	unsigned char cmd[16] = {0};
+
+	if (!osv)
+		return -EINVAL;
+
+	cmd[0] = 0xc0; /*VENDOR_SPECIFIC_CDB;*/
+	cmd[1] = 0x40;
+
+	cmd[4] = 0x01;
+	cmd[5] = 0x0c;
+
+	cmd[15] = 0x1c;
+
+	result = scsi_execute_req(sdev, cmd, DMA_FROM_DEVICE, osv,
+				  len, NULL, 30 * HZ, 3, NULL);
+	if (result) {
+		pr_err("ufs: get osv result error\n");
+		return -EIO;
+	}
+
+	return 0;
+}
+
+
+int scsi_ss_set_pwd(struct scsi_device *sdev)
+{
+	int result;
+	unsigned char cmd[16] = {0};
+
+	cmd[0] = 0xc0; /*VENDOR_SPECIFIC_CDB;*/
+	cmd[1] = 0x03;
+
+	/*password*/
+	cmd[2] = 'g';
+	cmd[3] = 'h';
+	cmd[4] = 'r';
+	cmd[5] = 0;
+
+	result = scsi_execute_req(sdev, cmd, DMA_NONE, 0,
+				  0, NULL, 30 * HZ, 3, NULL);
+	if (result) {
+		pr_err("ufs: scsi_ss_set_pwd error\n");
+	}
+	return result;
+}
+
+
+int scsi_ss_enter_vendor_mode(struct scsi_device *sdev)
+{
+	int result;
+	unsigned char cmd[16] = {0};
+
+	cmd[0] = 0xc0; /*VENDOR_SPECIFIC_CDB;*/
+	cmd[1] = 0;
+
+	cmd[2] = 0x5C;
+	cmd[3] = 0x38;
+	cmd[4] = 0x23;
+	cmd[5] = 0xAE;
+
+	/*password*/
+	cmd[6] = 'g';
+	cmd[7] = 'h';
+	cmd[8] = 'r';
+	cmd[9] = 0;
+
+	result = scsi_execute_req(sdev, cmd, DMA_NONE, 0,
+				  0, NULL, 30 * HZ, 3, NULL);
+	if (result) {
+		pr_err("ufs: scsi_ss_enter_vendor_mode error\n");
+	}
+	return result;
+}
+
+int scsi_ss_exit_vendor_mode(struct scsi_device *sdev)
+{
+	int result;
+	unsigned char cmd[16] = {0};
+
+	cmd[0] = 0xc0; /*VENDOR_SPECIFIC_CDB;*/
+	cmd[1] = 0x01;
+
+	result = scsi_execute_req(sdev, cmd, DMA_NONE, 0,
+				  0, NULL, 30 * HZ, 3, NULL);
+	if (result) {
+		pr_err("ufs: scsi_ss_enter_vendor_mode error\n");
+	}
+	return result;
+}
+
+
+int scsi_ss_nandinfo(struct scsi_device *sdev, char *osv, int len)
+{
+	int result;
+	unsigned char cmd[16] = {0};
+
+	if (!osv)
+		return -EINVAL;
+
+	cmd[0] = 0xc0; /*VENDOR_SPECIFIC_CDB;*/
+	cmd[1] = 0x40;
+
+	cmd[4] = 0x01;
+	cmd[5] = 0x0A;
+
+	cmd[15] = 0x4C;
+
+	len = 0x4C;
+	result = scsi_execute_req(sdev, cmd, DMA_FROM_DEVICE, osv,
+				  len, NULL, 30 * HZ, 3, NULL);
+	if (result) {
+		pr_err("ufs: get osv result error\n");
+		return -EIO;
+	}
+
+	return 0;
+}
+
+int scsi_ss_hr(struct scsi_device *sdev, char *osv, int len)
+{
+	int result = 0;
+
+	result = scsi_ss_enter_vendor_mode(sdev);
+	if (result) {
+		pr_err("ufs: enter vendor mode fail, program key and try again\n");
+
+		result = scsi_ss_set_pwd(sdev);
+		if (result) {
+			pr_err("ufs: set pwd fail\n");
+			goto out;
+		} else {
+			result = scsi_ss_enter_vendor_mode(sdev);
+			if (result) {
+				pr_err("ufs: enter vendor mode fail\n");
+				goto out;
+			}
+		}
+	}
+
+	result = scsi_ss_nandinfo(sdev, osv, len);
+	if (result) {
+		pr_err("ufs: ger hr fail fail\n");
+	}
+
+	result = scsi_ss_exit_vendor_mode(sdev);
+	if (result) {
+		pr_err("ufs: exit vendor mode fail\n");
+	}
+
+out:
+	return result;
+}
+
+
 /**
  * scsi_get_vpd_page - Get Vital Product Data from a SCSI device
  * @sdev: The device to ask

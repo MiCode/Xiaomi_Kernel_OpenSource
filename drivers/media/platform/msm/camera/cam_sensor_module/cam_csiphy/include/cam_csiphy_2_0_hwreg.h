@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -295,34 +296,6 @@ struct csiphy_reg_t csiphy_3ph_v2_0_reg[MAX_LANES][MAX_SETTINGS_PER_LANE] = {
 		{0x05CC, 0x41, 0x00, CSIPHY_DEFAULT_PARAMS},
 		{0x0564, 0x40, 0x00, CSIPHY_DEFAULT_PARAMS},
 	},
-};
-
-struct data_rate_settings_t data_rate_delta_table_2_0 = {
-	.num_data_rate_settings = 2,
-	.data_rate_settings = {
-		{
-			// data rate <= 2 Gsps
-			// max bandwidth = 2 * 2.28 * (10**3) Mbps
-			.bandwidth = 4560000000,
-			.data_rate_reg_array_size = 3,
-			.csiphy_data_rate_regs = {
-				{0x0164, 0x50, 0x00, CSIPHY_DEFAULT_PARAMS},
-				{0x0364, 0x50, 0x00, CSIPHY_DEFAULT_PARAMS},
-				{0x0564, 0x50, 0x00, CSIPHY_DEFAULT_PARAMS}
-			}
-		},
-		{
-			// 2 Gsps <= data rate <= 2.5 Gsps
-			// max bandwidth = 2.5 * 2.28 * (10**3) Mbps
-			.bandwidth = 5700000000,
-			.data_rate_reg_array_size = 3,
-			.csiphy_data_rate_regs = {
-				{0x0164, 0x40, 0x00, CSIPHY_DEFAULT_PARAMS},
-				{0x0364, 0x40, 0x00, CSIPHY_DEFAULT_PARAMS},
-				{0x0564, 0x40, 0x00, CSIPHY_DEFAULT_PARAMS}
-			}
-		}
-	}
 };
 
 #endif /* _CAM_CSIPHY_2_0_HWREG_H_ */

@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -233,8 +234,12 @@ int cam_flash_get_dt_data(struct cam_flash_ctrl *fctrl,
 		rc = -ENOMEM;
 		goto release_soc_res;
 	}
-	of_node = fctrl->pdev->dev.of_node;
 
+	if (fctrl->io_master_info.master_type == I2C_MASTER) {
+		of_node = fctrl->of_node;
+	} else {
+		of_node = fctrl->pdev->dev.of_node;
+	}
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc) {
 		CAM_ERR(CAM_FLASH, "Get_dt_properties failed rc %d", rc);

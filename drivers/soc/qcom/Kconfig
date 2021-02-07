@@ -904,3 +904,8 @@ config QCOM_HYP_CORE_CTL
 	  CPUs can be assigned to the other guest OS by the hypervisor.
 	  An offline CPU is considered as a reserved CPU since this OS can't use
 	  it.
+config DEBUG_POLICY_STATUS
+	bool "read debug policy status and update command line"
+	help
+	  This driver read debug policy status using Qualcomm scm_call2 interface
+	  and then update cmdline

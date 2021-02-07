@@ -4,6 +4,13 @@
 
 menu "Misc devices"
 
+config SPI_XIAOMI_TP
+	bool
+	depends on SPI
+	default y if TOUCHSCREEN_NT36xxx_HOSTDL_SPI
+	help
+	  Say Y if want use xiaomi touch panel.
+
 config SENSORS_LIS3LV02D
 	tristate
 	depends on INPUT
@@ -553,6 +560,14 @@ config QPNP_MISC
 	  and the driver provides an API to check if this interrupt
 	  is available on the current PMIC chip.
 
+config TI_DRV8846
+	tristate "TI step motor driver IC"
+	depends on PWM
+	help
+	  Say 'y' here to include support for the H-Bridge Stepper
+	  Motor Driver. The MISC peripheral holds the pwm and the
+	  driver provides an API to drive stepper motor.
+
 config OKL4_USER_VIRQ
 	tristate "User space accessible OKL4 virtual interrupts"
 	depends on OKL4_GUEST
@@ -586,6 +601,12 @@ config TEST_IRQ_REQUESTER
 	  interrupt handling.
 
 	  If in doubt, say N.
+
+config SIMTRAY_STATUS
+	tristate "Xiaomi SIM tray status"
+	default n
+	help
+	  Say 'y' here to support SIM tray GPIO detection
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"

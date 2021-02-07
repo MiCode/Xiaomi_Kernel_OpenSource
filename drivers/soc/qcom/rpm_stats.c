@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +24,7 @@
 #include <linux/uaccess.h>
 #include <asm/arch_timer.h>
 #include <soc/qcom/boot_stats.h>
+
 #define RPM_STATS_NUM_REC	2
 #define MSM_ARCH_TIMER_FREQ	19200000
 

@@ -3198,6 +3198,7 @@ static int sd_format_disk_name(char *prefix, int index, char *buf, int buflen)
 
 	return 0;
 }
+int ufs_ffu(struct scsi_device *sdev);
 
 /*
  * The asynchronous part of sd_probe
@@ -3257,6 +3258,12 @@ static void sd_probe_async(void *data, async_cookie_t cookie)
 		if (sdkp->opal_dev)
 			sd_printk(KERN_NOTICE, sdkp, "supports TCG Opal\n");
 	}
+
+	/*for some device , boot LUN can not support write buffer cmd. We shall check LUN config for every project*/
+	if (sdp->lun == 0) {
+		ufs_ffu(sdp);
+	}
+	sd_printk(KERN_NOTICE, sdkp, "Attached SCSI %sdisk\n", sdp->removable ? "removable " : "");
 
 	scsi_autopm_put_device(sdp);
 	put_device(&sdkp->dev);

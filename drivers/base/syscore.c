@@ -58,6 +58,7 @@ int syscore_suspend(void)
 	if (pm_wakeup_pending())
 		return -EBUSY;
 
+
 	WARN_ONCE(!irqs_disabled(),
 		"Interrupts enabled before system core suspend.\n");
 

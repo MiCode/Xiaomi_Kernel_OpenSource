@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,10 +32,6 @@
 #define ALL_MODES_ENABLED	0x7
 
 #define MAX_COUNT_SIZE_SUPPORTED	128
-
-#define SDE_RSC_REV_1			0x1
-#define SDE_RSC_REV_2			0x2
-#define SDE_RSC_REV_3			0x3
 
 struct sde_rsc_priv;
 

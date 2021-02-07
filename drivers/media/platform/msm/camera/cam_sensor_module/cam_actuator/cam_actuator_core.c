@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -786,7 +787,7 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 		bridge_params.v4l2_sub_dev_flag = 0;
 		bridge_params.media_entity_flag = 0;
 		bridge_params.priv = a_ctrl;
-		bridge_params.dev_id = CAM_ACTUATOR;
+
 		actuator_acq_dev.device_handle =
 			cam_create_device_hdl(&bridge_params);
 		a_ctrl->bridge_intf.device_hdl = actuator_acq_dev.device_handle;
@@ -936,6 +937,57 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 		}
 	}
 		break;
+	case CAM_READ_REG: {
+		struct cam_sensor_i2c_reg_setting user_reg_setting;
+		struct cam_sensor_i2c_reg_array *i2c_reg_setting;
+		int ret = 0;
+		int i;
+
+		rc = copy_from_user(&user_reg_setting, (void __user *)cmd->handle, sizeof(user_reg_setting));
+		if (rc < 0) {
+			CAM_ERR(CAM_ACTUATOR, "Copy data from user space failed");
+			goto release_mutex;
+		}
+
+		CAM_DBG(CAM_SENSOR, "CAM_READ_REG reg setting size = %d", user_reg_setting.size);
+		i2c_reg_setting = kzalloc(sizeof(struct cam_sensor_i2c_reg_array) *
+			user_reg_setting.size, GFP_KERNEL);
+		if (!i2c_reg_setting) {
+			rc = -ENOMEM;
+			CAM_ERR(CAM_ACTUATOR, "kzalloc memory failed\n");
+			goto release_mutex;
+		}
+
+		rc = copy_from_user(i2c_reg_setting, (void __user *)user_reg_setting.reg_setting,
+			sizeof(struct cam_sensor_i2c_reg_array) * user_reg_setting.size);
+		if (rc < 0) {
+			CAM_ERR(CAM_ACTUATOR, "Copy i2c setting from user space failed");
+			kfree(i2c_reg_setting);
+			goto release_mutex;
+		}
+
+		for (i = 0; i < user_reg_setting.size; i++) {
+			ret += camera_io_dev_read(
+				&(a_ctrl->io_master_info),
+				i2c_reg_setting[i].reg_addr,
+				&i2c_reg_setting[i].reg_data, user_reg_setting.addr_type,
+				user_reg_setting.data_type);
+			CAM_DBG(CAM_ACTUATOR, "CAM_READ_REG reg_addr=0x%x, reg_value=0x%x, sid = 0x%x",
+				i2c_reg_setting[i].reg_addr, i2c_reg_setting[i].reg_data, a_ctrl->io_master_info.cci_client->sid);
+		}
+
+		if (copy_to_user((void __user *)user_reg_setting.reg_setting, i2c_reg_setting,
+			sizeof(struct cam_sensor_i2c_reg_array) * user_reg_setting.size) || ret != 0) {
+			CAM_ERR(CAM_ACTUATOR, "Copy data to user space failed");
+			rc = -EFAULT;
+		}
+		if (copy_to_user((void __user *)cmd->handle, &user_reg_setting, sizeof(user_reg_setting)) || ret != 0) {
+			CAM_ERR(CAM_ACTUATOR, "Copy data to user space failed");
+			rc = -EFAULT;
+		}
+		kfree(i2c_reg_setting);
+	}
+	break;
 	default:
 		CAM_ERR(CAM_ACTUATOR, "Invalid Opcode %d", cmd->op_code);
 	}

@@ -3,6 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufs.h
  * Copyright (C) 2011-2013 Samsung India Software Operations
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -139,6 +140,7 @@ enum {
 enum {
 	UPIU_QUERY_FUNC_STANDARD_READ_REQUEST           = 0x01,
 	UPIU_QUERY_FUNC_STANDARD_WRITE_REQUEST          = 0x81,
+	UPIU_QUERY_FUNC_VENDOR_READ_REQUEST             = 0x40,
 };
 
 enum desc_header_offset {
@@ -153,6 +155,7 @@ enum ufs_desc_def_size {
 	QUERY_DESC_INTERCONNECT_DEF_SIZE	= 0x06,
 	QUERY_DESC_GEOMETRY_DEF_SIZE		= 0x44,
 	QUERY_DESC_POWER_DEF_SIZE		= 0x62,
+	QUERY_DESC_HEALTH_MAX_SIZE		= 0x25,
 };
 
 /* Unit descriptor parameters offsets in bytes*/

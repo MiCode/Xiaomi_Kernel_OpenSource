@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2630,6 +2631,10 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
+
+		/* null terminate the string */
+		fst_switch.netdev_name[IPA_RESOURCE_NAME_MAX - 1] = '\0';
+
 		retval = ipa_wigig_send_msg(WIGIG_FST_SWITCH,
 			fst_switch.netdev_name,
 			fst_switch.client_mac_addr,

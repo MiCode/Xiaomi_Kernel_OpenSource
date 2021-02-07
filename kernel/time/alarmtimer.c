@@ -8,6 +8,7 @@
  * interface.
  *
  * Copyright (C) 2010 IBM Corperation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: John Stultz <john.stultz@linaro.org>
  *
@@ -920,6 +921,7 @@ static int __init alarmtimer_init(void)
 		error = PTR_ERR(pdev);
 		goto out_drv;
 	}
+
 	return 0;
 
 out_drv:

@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -329,6 +330,8 @@ enum gsi_evt_ch_cmd_opcode {
 enum gsi_generic_ee_cmd_opcode {
 	GSI_GEN_EE_CMD_HALT_CHANNEL = 0x1,
 	GSI_GEN_EE_CMD_ALLOC_CHANNEL = 0x2,
+	GSI_GEN_EE_CMD_ENABLE_FLOW_CHANNEL = 0x3,
+	GSI_GEN_EE_CMD_DISABLE_FLOW_CHANNEL = 0x4,
 };
 
 enum gsi_generic_ee_cmd_return_code {

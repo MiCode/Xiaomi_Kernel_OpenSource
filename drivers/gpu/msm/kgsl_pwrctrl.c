@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2840,6 +2841,7 @@ _aware(struct kgsl_device *device)
 	case KGSL_STATE_RESET:
 		if (!gmu_core_gpmu_isenabled(device))
 			break;
+		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 		status = gmu_core_start(device);
 		break;
 	case KGSL_STATE_INIT:
@@ -2904,6 +2906,7 @@ _aware(struct kgsl_device *device)
 				 * to make sure next attempt to wake up
 				 * GMU/GPU is indeed a fresh start.
 				 */
+				kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 				gmu_core_suspend(device);
 				kgsl_pwrctrl_set_state(device, state);
 			} else {

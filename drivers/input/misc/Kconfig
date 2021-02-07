@@ -107,6 +107,17 @@ config INPUT_BMA150
 	  To compile this driver as a module, choose M here: the
 	  module will be called bma150.
 
+config INPUT_AKM09970
+    tristate "INPUT_AK09970 digital hall sensor support"
+    depends on I2C
+    select INPUT_POLLDEV
+    help
+      Say Y here if you have AKM Sensortec's AK09970 magnet
+      sensor hooked to an I2C bus.
+
+      To compile this driver as a module, choose M here: the
+      module will be called akm09970.
+
 config INPUT_E3X0_BUTTON
 	tristate "NI Ettus Research USRP E3xx Button support."
 	default n

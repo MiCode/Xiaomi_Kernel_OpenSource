@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -302,6 +303,24 @@ enum sde_rsc_state get_sde_rsc_current_state(int rsc_index)
 	return rsc->current_state;
 }
 EXPORT_SYMBOL(get_sde_rsc_current_state);
+
+u32 get_sde_rsc_version(int rsc_index)
+{
+	struct sde_rsc_priv *rsc;
+
+	if (rsc_index >= MAX_RSC_COUNT) {
+		pr_err("invalid rsc index:%d\n", rsc_index);
+		return 0;
+	} else if (!rsc_prv_list[rsc_index]) {
+		pr_err("rsc idx:%d not probed yet or not available\n",
+								rsc_index);
+		return 0;
+	}
+
+	rsc = rsc_prv_list[rsc_index];
+	return rsc->version;
+}
+EXPORT_SYMBOL(get_sde_rsc_version);
 
 static int sde_rsc_clk_enable(struct sde_power_handle *phandle,
 	struct sde_power_client *pclient, bool enable)

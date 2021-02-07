@@ -2,6 +2,7 @@
  * drivers/base/power/wakeup.c - System wakeup events framework
  *
  * Copyright (c) 2010 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file is released under the GPLv2.
  */
@@ -20,7 +21,6 @@
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/irqdesc.h>
-
 #include "power.h"
 
 /*
@@ -31,10 +31,10 @@ bool events_check_enabled __read_mostly;
 
 /* First wakeup IRQ seen by the kernel in the last cycle. */
 unsigned int pm_wakeup_irq __read_mostly;
+extern void system_sleep_status_print_enabled(void);
 
 /* If greater than 0 and the system is suspending, terminate the suspend. */
 static atomic_t pm_abort_suspend __read_mostly;
-
 /*
  * Combined counters of registered wakeup events and wakeup events in progress.
  * They need to be modified together atomically, so it's better to use one
@@ -1089,8 +1089,9 @@ static int print_wakeup_source_stats(struct seq_file *m,
 /**
  * wakeup_sources_stats_show - Print wakeup sources statistics information.
  * @m: seq_file to print the statistics into.
+ * @v: wakeup_source of each iteration
  */
-static int wakeup_sources_stats_show(struct seq_file *m, void *unused)
+static int wakeup_sources_stats_show(struct seq_file *m, void *v)
 {
 	struct wakeup_source *ws;
 	int srcuidx;

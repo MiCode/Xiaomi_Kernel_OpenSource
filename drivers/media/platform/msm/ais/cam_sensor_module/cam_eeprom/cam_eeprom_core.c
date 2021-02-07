@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1015,7 +1016,7 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 			&eeprom_cap,
 			sizeof(struct cam_eeprom_query_cap_t))) {
 			CAM_ERR(CAM_EEPROM, "Failed Copy to User");
-			return -EFAULT;
+			rc = -EFAULT;
 			goto release_mutex;
 		}
 		CAM_DBG(CAM_EEPROM, "eeprom_cap: ID: %d", eeprom_cap.slot_info);

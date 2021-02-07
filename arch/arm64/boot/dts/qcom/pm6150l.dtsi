@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -143,15 +144,6 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		pm6150l_pwm_1: qcom,pwms@bc00 {
-			status = "disabled";
-			compatible = "qcom,pwm-lpg";
-			reg = <0xbc00 0x100>;
-			reg-names = "lpg-base";
-			qcom,num-lpg-channels = <1>;
-			#pwm-cells = <2>;
-		};
-
 		pm6150l_lcdb: qcom,lcdb@ec00 {
 			compatible = "qcom,qpnp-lcdb-regulator";
 			#address-cells = <1>;
@@ -160,7 +152,7 @@
 			interrupts = <0x5 0xec 0x1 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "sc-irq";
 			qcom,pmic-revid = <&pm6150l_revid>;
-			qcom,voltage-step-ramp;
+			//qcom,voltage-step-ramp;
 			status = "disabled";
 
 			lcdb_ldo_vreg: ldo {
@@ -302,6 +294,21 @@
 				qcom,led-mask = <3>;
 				qcom,default-led-trigger = "switch2_trigger";
 			};
+
+			/* Added by qudao1@xiaomi.com */
+			pm6150l_flashlight: qcom,flashlight {
+				label = "flash";
+				qcom,led-name = "flashlight";
+				qcom,max-current = <750>;
+				qcom,default-led-trigger = "flashlight_trigger";
+				qcom,id = <3>;
+				qcom,current-ma = <500>;
+				qcom,duration-ms = <1280>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+			/* End of Added by qudao1@xiaomi.com */
 		};
 
 		pm6150l_wled: qcom,wled@d800 {
@@ -354,7 +361,7 @@
 				qcom,ramp-pattern-repeat;
 			};
 
-			lpg2 {
+			pwm_lpg2:lpg2 {
 				qcom,lpg-chan-id = <2>;
 				qcom,ramp-step-ms = <100>;
 				qcom,ramp-pause-hi-count = <2>;
@@ -365,7 +372,7 @@
 				qcom,ramp-pattern-repeat;
 			};
 
-			lpg3 {
+			pwm_lpg3:lpg3 {
 				qcom,lpg-chan-id = <3>;
 				qcom,ramp-step-ms = <100>;
 				qcom,ramp-pause-hi-count = <2>;
@@ -377,22 +384,33 @@
 			};
 		};
 
+		/* Added by qudao1@xiaomi.com */
+		pm6150l_pwm: qcom,pwms@bc00 {
+			compatible = "qcom,pwm-lpg";
+			reg = <0xbc00 0x200>;
+			reg-names = "lpg-base";
+			#pwm-cells = <2>;
+			qcom,num-lpg-channels = <2>;
+			status = "disabled";
+		};
+		/* End of Added by qudao1@xiaomi.com */
+
 		pm6150l_rgb_led: qcom,leds@d000 {
 			compatible = "qcom,tri-led";
 			reg = <0xd000 0x100>;
-			red {
+			red_led: led {
 				label = "red";
 				pwms = <&pm6150l_lpg 0 1000000>;
 				led-sources = <0>;
 				linux,default-trigger = "timer";
 			};
-			green {
+			green_led: green {
 				label = "green";
 				pwms = <&pm6150l_lpg 1 1000000>;
 				led-sources = <1>;
 				linux,default-trigger = "timer";
 			};
-			blue {
+			blue_led: blue {
 				label = "blue";
 				pwms = <&pm6150l_lpg 2 1000000>;
 				led-sources = <2>;

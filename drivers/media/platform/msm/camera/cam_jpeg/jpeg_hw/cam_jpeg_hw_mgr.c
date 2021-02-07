@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -647,13 +648,8 @@ static void cam_jpeg_mgr_print_io_bufs(struct cam_packet *packet,
 
 	for (i = 0; i < packet->num_io_configs; i++) {
 		for (j = 0; j < CAM_PACKET_MAX_PLANES; j++) {
-			if (!io_cfg[i].mem_handle[j]) {
-				CAM_ERR(CAM_JPEG,
-					"Mem Handle %d is NULL for %d io config",
-					j, i);
+			if (!io_cfg[i].mem_handle[j])
 				break;
-			}
-
 
 			if (GET_FD_FROM_HANDLE(io_cfg[i].mem_handle[j]) ==
 				GET_FD_FROM_HANDLE(pf_buf_info)) {
@@ -764,7 +760,7 @@ static int cam_jpeg_mgr_prepare_hw_update(void *hw_mgr_priv,
 		(void *)packet, (void *)cmd_desc,
 		sizeof(struct cam_cmd_buf_desc));
 
-	rc = cam_packet_util_process_patches(packet, hw_mgr->iommu_hdl, -1, 0);
+	rc = cam_packet_util_process_patches(packet, hw_mgr->iommu_hdl, -1);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "Patch processing failed %d", rc);
 		return rc;

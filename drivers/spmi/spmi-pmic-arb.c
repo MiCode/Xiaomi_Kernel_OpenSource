@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -168,6 +169,7 @@ struct spmi_pmic_arb {
 	u16			last_apid;
 	struct apid_data	apid_data[PMIC_ARB_MAX_PERIPHS];
 };
+
 
 /**
  * pmic_arb_ver: version dependent functionality.
