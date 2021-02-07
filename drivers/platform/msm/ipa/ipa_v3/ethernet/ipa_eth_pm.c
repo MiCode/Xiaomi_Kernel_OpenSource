@@ -1,4 +1,5 @@
 /* Copyright (c) 2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,6 +12,7 @@
  */
 
 #include <linux/ethtool.h>
+#include <linux/rtnetlink.h>
 
 #include "ipa_eth_i.h"
 
@@ -100,7 +102,10 @@ static u32 __fetch_ethtool_link_speed(struct ipa_eth_device *eth_dev)
 	int rc;
 	struct ethtool_link_ksettings link_ksettings;
 
+	rtnl_lock();
 	rc = __ethtool_get_link_ksettings(eth_dev->net_dev, &link_ksettings);
+	rtnl_unlock();
+
 	if (rc) {
 		ipa_eth_dev_err(eth_dev,
 			"Failed to obtain link settings via ethtool");

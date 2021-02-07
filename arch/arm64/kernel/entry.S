@@ -2,6 +2,7 @@
  * Low-level exception handling code
  *
  * Copyright (C) 2012 ARM Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Authors:	Catalin Marinas <catalin.marinas@arm.com>
  *		Will Deacon <will.deacon@arm.com>
  *
@@ -602,7 +603,7 @@ el1_undef:
 	enable_dbg
 	mov	x0, sp
 	bl	do_undefinstr
-	ASM_BUG()
+	kernel_exit 1
 el1_dbg:
 	/*
 	 * Debug exception handling

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -545,6 +546,11 @@
 				mhi,chan = "IP_HW0_RSC";
 				mhi,mru = <0x8000>;
 				mhi,rsc-parent = <&mhi_netdev_0>;
+			};
+
+			mhi_qrtr {
+				 mhi,chan = "IPCR";
+				 mhi,early-notify;
 			};
 		};
 	};

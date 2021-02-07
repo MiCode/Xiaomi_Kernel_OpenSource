@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -250,6 +251,8 @@ void mdss_pll_util_resource_release(struct platform_device *pdev,
 int mdss_pll_util_resource_enable(struct mdss_pll_resources *pll_res,
 								bool enable);
 int mdss_pll_util_resource_parse(struct platform_device *pdev,
+				struct mdss_pll_resources *pll_res);
+void mdss_pll_util_parse_dt_dfps(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
 struct dss_vreg *mdss_pll_get_mp_by_reg_name(struct mdss_pll_resources *pll_res
 		, char *name);

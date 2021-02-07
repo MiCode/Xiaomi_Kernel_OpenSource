@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -299,6 +300,7 @@ static int gmu_iommu_cb_probe(struct gmu_device *gmu,
 		dev_err(&gmu->pdev->dev, "gmu iommu fail to attach %s device\n",
 			ctx->name);
 		iommu_domain_free(ctx->domain);
+		ctx->domain = NULL;
 	}
 
 	return ret;
@@ -375,6 +377,9 @@ static void gmu_kmem_close(struct gmu_device *gmu)
 	gmu->dump_mem = NULL;
 	gmu->gmu_log = NULL;
 
+	if (!ctx->domain)
+		return;
+
 	/* Unmap and free all memories in GMU kernel memory pool */
 	for (i = 0; i < GMU_KERNEL_ENTRIES; i++) {
 		if (!test_bit(i, &gmu_kmem_bitmap))
@@ -396,14 +401,23 @@ static void gmu_kmem_close(struct gmu_device *gmu)
 
 	/* free kernel mem context */
 	iommu_domain_free(ctx->domain);
+	ctx->domain = NULL;
 }
 
 static void gmu_memory_close(struct gmu_device *gmu)
 {
-	gmu_kmem_close(gmu);
-	/* Free user memory context */
-	iommu_domain_free(gmu_ctx[GMU_CONTEXT_USER].domain);
+	struct gmu_iommu_context *ctx = &gmu_ctx[GMU_CONTEXT_USER];
 
+	gmu_kmem_close(gmu);
+
+	if (ctx->domain) {
+		/* Detach the device from SMMU context bank */
+		iommu_detach_device(ctx->domain, ctx->dev);
+
+		/* Free user memory context */
+		iommu_domain_free(ctx->domain);
+		ctx->domain = NULL;
+	}
 }
 
 /*
@@ -1241,22 +1255,30 @@ static void gmu_aop_send_acd_state(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct kgsl_mailbox *mailbox = &gmu->mailbox;
 	struct mbox_message msg;
 	char msg_buf[33];
 	bool state = test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
 	int ret;
 
-	if (!gmu->mailbox.client)
+	if (!mailbox->client)
+		return;
+
+	if (state == mailbox->enabled)
 		return;
 
 	msg.len = scnprintf(msg_buf, sizeof(msg_buf),
 			"{class: gpu, res: acd, value: %d}", state);
 	msg.msg = msg_buf;
 
-	ret = mbox_send_message(gmu->mailbox.channel, &msg);
-	if (ret < 0)
+	ret = mbox_send_message(mailbox->channel, &msg);
+	if (ret < 0) {
 		dev_err(&gmu->pdev->dev,
 				"AOP mbox send message failed: %d\n", ret);
+		return;
+	}
+
+	mailbox->enabled = state;
 }
 
 static void gmu_aop_mailbox_destroy(struct kgsl_device *device)
@@ -1268,13 +1290,15 @@ static void gmu_aop_mailbox_destroy(struct kgsl_device *device)
 	if (!mailbox->client)
 		return;
 
+	/* Turn off ACD in AOP */
+	clear_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+	gmu_aop_send_acd_state(device);
+
 	mbox_free_channel(mailbox->channel);
 	mailbox->channel = NULL;
 
 	kfree(mailbox->client);
 	mailbox->client = NULL;
-
-	clear_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
 }
 
 static int gmu_aop_mailbox_init(struct kgsl_device *device,
@@ -1282,6 +1306,9 @@ static int gmu_aop_mailbox_init(struct kgsl_device *device,
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_mailbox *mailbox = &gmu->mailbox;
+
+	if (adreno_is_a640v2(adreno_dev) && (!adreno_dev->speed_bin))
+		return 0;
 
 	mailbox->client = kzalloc(sizeof(*mailbox->client), GFP_KERNEL);
 	if (!mailbox->client)
@@ -1299,8 +1326,8 @@ static int gmu_aop_mailbox_init(struct kgsl_device *device,
 		return PTR_ERR(mailbox->channel);
 	}
 
-	if (adreno_dev->speed_bin)
-		set_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+	set_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+
 	return 0;
 }
 

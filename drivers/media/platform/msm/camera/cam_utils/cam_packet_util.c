@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -109,7 +110,7 @@ int cam_packet_util_get_kmd_buffer(struct cam_packet *packet,
 	}
 
 	if ((packet->kmd_cmd_buf_index < 0) ||
-		(packet->kmd_cmd_buf_index >= packet->num_cmd_buf)) {
+		(packet->kmd_cmd_buf_index > packet->num_cmd_buf)) {
 		CAM_ERR(CAM_UTIL, "Invalid kmd buf index: %d",
 			packet->kmd_cmd_buf_index);
 		return -EINVAL;
@@ -169,7 +170,7 @@ rel_kmd_buf:
 }
 
 int cam_packet_util_process_patches(struct cam_packet *packet,
-	int32_t iommu_hdl, int32_t sec_mmu_hdl, int pf_dump_flag)
+	int32_t iommu_hdl, int32_t sec_mmu_hdl)
 {
 	struct cam_patch_desc *patch_desc = NULL;
 	dma_addr_t iova_addr;
@@ -242,14 +243,6 @@ int cam_packet_util_process_patches(struct cam_packet *packet,
 		if (cam_mem_put_cpu_buf(patch_desc[i].dst_buf_hdl))
 			CAM_WARN(CAM_UTIL, "unable to put dst buf address:0x%x",
 				patch_desc[i].dst_buf_hdl);
-
-		if (pf_dump_flag) {
-			CAM_INFO(CAM_UTIL,
-				"patch[%d]: patched addr 0x%x sz 0x%x offset:0x%x",
-				i, *((uint64_t *)dst_cpu_addr),
-				(uint32_t)src_buf_size,
-				patch_desc[i].src_offset);
-		}
 	}
 
 	return rc;

@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -454,7 +455,11 @@ static int cam_vfe_irq_top_half(uint32_t    evt_id,
 	struct cam_vfe_irq_handler_priv     *handler_priv;
 	struct cam_vfe_top_irq_evt_payload  *evt_payload;
 	struct cam_vfe_hw_core_info         *core_info;
+	struct cam_isp_timestamp            timestamp_before_spinlok;
+	struct timespec ts;
 
+	get_monotonic_boottime64(&ts);
+	cam_isp_hw_get_timestamp(&timestamp_before_spinlok);
 	handler_priv = th_payload->handler_priv;
 
 	CAM_DBG(CAM_ISP, "IRQ status_0 = %x", th_payload->evt_status_arr[0]);
@@ -471,7 +476,10 @@ static int cam_vfe_irq_top_half(uint32_t    evt_id,
 	}
 
 	core_info =  handler_priv->core_info;
-	cam_isp_hw_get_timestamp(&evt_payload->ts);
+	evt_payload->ts.mono_time.tv_sec = timestamp_before_spinlok.mono_time.tv_sec;
+	evt_payload->ts.mono_time.tv_usec = timestamp_before_spinlok.mono_time.tv_usec;
+	evt_payload->boot_time = (uint64_t)((ts.tv_sec * 1000000000) +
+		ts.tv_nsec);
 
 	evt_payload->core_index = handler_priv->core_index;
 	evt_payload->core_info  = handler_priv->core_info;
@@ -760,7 +768,6 @@ int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 	case CAM_ISP_HW_CMD_CLOCK_UPDATE:
 	case CAM_ISP_HW_CMD_BW_UPDATE:
 	case CAM_ISP_HW_CMD_BW_CONTROL:
-	case CAM_ISP_HW_CMD_GET_IRQ_REGISTER_DUMP:
 		rc = core_info->vfe_top->hw_ops.process_cmd(
 			core_info->vfe_top->top_priv, cmd_type, cmd_args,
 			arg_size);

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -356,15 +357,15 @@ static ssize_t ipa3_write_keep_awake(struct file *file, const char __user *buf,
 		break;
 	case 2:
 		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-		bw_mbps = 350;
+		bw_mbps = 700;
 		break;
 	case 3:
 		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-		bw_mbps = 690;
+		bw_mbps = 3000;
 		break;
 	case 4:
 		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-		bw_mbps = 1200;
+		bw_mbps = 7000;
 		break;
 	default:
 		pr_err("Not support this vote (%d)\n", option);

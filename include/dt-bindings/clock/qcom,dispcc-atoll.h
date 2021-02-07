@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,9 +46,6 @@
 #define DISP_CC_MDSS_RSCC_VSYNC_CLK				28
 #define DISP_CC_MDSS_VSYNC_CLK					29
 #define DISP_CC_MDSS_VSYNC_CLK_SRC				30
-#define DISP_CC_SLEEP_CLK					31
-#define DISP_CC_SLEEP_CLK_SRC					32
-#define DISP_CC_XO_CLK						33
-#define DISP_CC_XO_CLK_SRC					34
+#define DISP_CC_XO_CLK						31
 
 #endif

@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -457,7 +458,7 @@ static void diag_close_logging_process(const int pid)
 	int i, j;
 	int session_mask = 0;
 	int device_mask = 0;
-	uint32_t p_mask;
+	uint32_t p_mask = 0;
 	struct diag_md_session_t *session_info = NULL;
 	struct diag_logging_mode_param_t params;
 
@@ -523,9 +524,11 @@ static void diag_close_logging_process(const int pid)
 			}
 		}
 	}
+	mutex_lock(&driver->hdlc_disable_mutex);
 	mutex_lock(&driver->md_session_lock);
 	diag_md_session_close(pid);
 	mutex_unlock(&driver->md_session_lock);
+	mutex_unlock(&driver->hdlc_disable_mutex);
 	diag_switch_logging(&params);
 	mutex_unlock(&driver->diagchar_mutex);
 }
@@ -1443,6 +1446,8 @@ static void diag_md_session_close(int pid)
 			driver->md_session_map[proc][i] = NULL;
 			driver->md_session_mask[proc] &=
 				~session_info->peripheral_mask[proc];
+			driver->p_hdlc_disabled[i] =
+				driver->hdlc_disabled;
 		}
 	}
 	diag_log_mask_free(session_info->log_mask);

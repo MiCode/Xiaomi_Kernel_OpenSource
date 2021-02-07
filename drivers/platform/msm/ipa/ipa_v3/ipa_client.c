@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -779,6 +780,7 @@ int ipa3_xdci_start(u32 clnt_hdl, u8 xferrscidx, bool xferrscidx_valid)
 	int result = -EFAULT;
 	enum gsi_status gsi_res;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
+	int code = 0;
 
 	IPADBG("entry\n");
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes  ||
@@ -820,6 +822,19 @@ int ipa3_xdci_start(u32 clnt_hdl, u8 xferrscidx, bool xferrscidx_valid)
 	if (gsi_res != GSI_STATUS_SUCCESS) {
 		IPAERR("Error starting channel: %d\n", gsi_res);
 		goto write_chan_scratch_fail;
+	}
+
+	if (IPA_CLIENT_IS_PROD(ep->client) && ep->skip_ep_cfg &&
+			ipa3_ctx->ipa_endp_delay_wa) {
+		gsi_res = gsi_enable_flow_control_ee(ep->gsi_chan_hdl, 0,
+									&code);
+		if (gsi_res == GSI_STATUS_SUCCESS) {
+			IPADBG("flow control sussess gsi ch %d with code %d\n",
+					ep->gsi_chan_hdl, code);
+		} else {
+			IPADBG("failed to flow control gsi ch %d code %d\n",
+					ep->gsi_chan_hdl, code);
+		}
 	}
 	ipa3_start_gsi_debug_monitor(clnt_hdl);
 	if (!ep->keep_ipa_awake)
@@ -1231,6 +1246,7 @@ int ipa3_start_stop_client_prod_gsi_chnl(enum ipa_client_type client,
 	int result = 0;
 	int pipe_idx;
 	struct ipa3_ep_context *ep;
+	int code = 0;
 
 	if (IPA_CLIENT_IS_CONS(client)) {
 		IPAERR("client (%d) not PROD\n", client);
@@ -1247,9 +1263,18 @@ int ipa3_start_stop_client_prod_gsi_chnl(enum ipa_client_type client,
 	client_lock_unlock_cb(client, true);
 	ep = &ipa3_ctx->ep[pipe_idx];
 	if (ep->valid && ep->skip_ep_cfg && ipa3_get_teth_port_status(client)) {
-		if (start_chnl)
+		if (start_chnl) {
 			result = ipa3_start_gsi_channel(pipe_idx);
-		else
+			result = gsi_enable_flow_control_ee(ep->gsi_chan_hdl,
+								0, &code);
+			if (result == GSI_STATUS_SUCCESS) {
+				IPADBG("flow control sussess ch %d code %d\n",
+						ep->gsi_chan_hdl, code);
+			} else {
+				IPADBG("failed to flow control ch %d code %d\n",
+						ep->gsi_chan_hdl, code);
+			}
+		} else
 			result = ipa3_stop_gsi_channel(pipe_idx);
 	}
 	client_lock_unlock_cb(client, false);

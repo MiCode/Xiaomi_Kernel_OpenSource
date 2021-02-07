@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3642,6 +3643,7 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.preemption_post_ibsubmit =
 			a5xx_preemption_post_ibsubmit,
 	.preemption_init = a5xx_preemption_init,
+	.preemption_close = a5xx_preemption_close,
 	.preemption_schedule = a5xx_preemption_schedule,
 	.enable_64bit = a5xx_enable_64bit,
 	.clk_set_options = a5xx_clk_set_options,

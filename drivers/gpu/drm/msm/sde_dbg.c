@@ -1,4 +1,5 @@
 /* Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,10 +27,18 @@
 
 #define SDE_DBG_BASE_MAX		10
 
+#ifdef CONFIG_DRM_SDE_XLOG_DEBUG
 #define DEFAULT_PANIC		1
 #define DEFAULT_REGDUMP		SDE_DBG_DUMP_IN_MEM
 #define DEFAULT_DBGBUS_SDE	SDE_DBG_DUMP_IN_MEM
 #define DEFAULT_DBGBUS_VBIFRT	SDE_DBG_DUMP_IN_MEM
+#else
+#define DEFAULT_PANIC		0
+#define DEFAULT_REGDUMP		SDE_DBG_DUMP_IN_LOG
+#define DEFAULT_DBGBUS_SDE	SDE_DBG_DUMP_IN_LOG
+#define DEFAULT_DBGBUS_VBIFRT	SDE_DBG_DUMP_IN_LOG
+#endif
+
 #define DEFAULT_BASE_REG_CNT	0x100
 #define GROUP_BYTES		4
 #define ROW_BYTES		16
@@ -5143,7 +5152,8 @@ void sde_dbg_init_dbg_buses(u32 hwversion)
 		dbg->dbgbus_dsi.size = ARRAY_SIZE(dsi_dbg_bus_sdm845);
 	} else if (IS_SM8150_TARGET(hwversion) || IS_SM6150_TARGET(hwversion) ||
 				IS_SDMMAGPIE_TARGET(hwversion) ||
-				IS_SDMTRINKET_TARGET(hwversion)) {
+				IS_SDMTRINKET_TARGET(hwversion) ||
+				IS_ATOLL_TARGET(hwversion)) {
 		dbg->dbgbus_sde.entries = dbg_bus_sde_sm8150;
 		dbg->dbgbus_sde.cmn.entries_size =
 				ARRAY_SIZE(dbg_bus_sde_sm8150);

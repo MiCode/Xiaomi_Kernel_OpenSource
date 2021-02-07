@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +31,7 @@
 #define MSM_VFE48_BUS_CLIENT_INIT 0xABAB
 #define VFE48_STATS_BURST_LEN 3
 #define VFE48_UB_SIZE_VFE 2048 /* 2048 * 256 bits = 64KB */
-#define VFE48_UB_STATS_SIZE 144
+#define VFE48_UB_STATS_SIZE 288
 #define MSM_ISP48_TOTAL_IMAGE_UB_VFE (VFE48_UB_SIZE_VFE - VFE48_UB_STATS_SIZE)
 
 
@@ -321,15 +322,15 @@ void msm_vfe48_stats_cfg_ub(struct vfe_device *vfe_dev)
 	int i;
 	uint32_t ub_offset = 0, stats_burst_len;
 	uint32_t ub_size[VFE47_NUM_STATS_TYPE] = {
-		16, /* MSM_ISP_STATS_HDR_BE */
-		16, /* MSM_ISP_STATS_BG */
-		16, /* MSM_ISP_STATS_BF */
-		16, /* MSM_ISP_STATS_HDR_BHIST */
-		16, /* MSM_ISP_STATS_RS */
-		16, /* MSM_ISP_STATS_CS */
-		16, /* MSM_ISP_STATS_IHIST */
-		16, /* MSM_ISP_STATS_BHIST */
-		16, /* MSM_ISP_STATS_AEC_BG */
+		32, /* MSM_ISP_STATS_HDR_BE */
+		32, /* MSM_ISP_STATS_BG */
+		32, /* MSM_ISP_STATS_BF */
+		32, /* MSM_ISP_STATS_HDR_BHIST */
+		32, /* MSM_ISP_STATS_RS */
+		32, /* MSM_ISP_STATS_CS */
+		32, /* MSM_ISP_STATS_IHIST */
+		32, /* MSM_ISP_STATS_BHIST */
+		32, /* MSM_ISP_STATS_AEC_BG */
 	};
 
 	stats_burst_len = VFE48_STATS_BURST_LEN;
@@ -488,20 +489,29 @@ void msm_vfe48_dual_config_irq(struct vfe_device *vfe_dev,
 			vfe_dev->irq1_mask &= ~irq1_mask;
 			break;
 		case MSM_ISP_IRQ_SET:
-			vfe_dev->dual_irq_mask = irq0_mask;
-			vfe_dev->irq1_mask = irq1_mask;
+			/* clear the IRQ */
 			msm_camera_io_w_mb(irq0_mask,
 				vfe_dev->camss_base + 0x13C);
 			msm_camera_io_w_mb(irq1_mask, vfe_dev->vfe_base + 0x68);
 			msm_camera_io_w_mb(0x1,
 				vfe_dev->camss_base + 0x134);
+			/* set the HW mask */
+			msm_camera_io_w_mb(irq0_mask,
+						vfe_dev->camss_base + 0x138);
+			msm_camera_io_w_mb(irq1_mask,
+						vfe_dev->vfe_base + 0x60);
+			/* update the software Mask */
+			vfe_dev->dual_irq_mask = irq0_mask;
+			vfe_dev->irq1_mask = irq1_mask;
 			break;
 		}
 		/* Program the DUAL_VFE_IRQ_MASK and VFE_IRQ_MASK_1 */
-		msm_camera_io_w_mb(vfe_dev->dual_irq_mask,
+		if (oper != MSM_ISP_IRQ_SET) {
+			msm_camera_io_w_mb(vfe_dev->dual_irq_mask,
 					vfe_dev->camss_base + 0x138);
-		msm_camera_io_w_mb(vfe_dev->irq1_mask,
+			msm_camera_io_w_mb(vfe_dev->irq1_mask,
 					vfe_dev->vfe_base + 0x60);
+		}
 	}
 }
 

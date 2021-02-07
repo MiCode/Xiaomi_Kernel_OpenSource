@@ -3,6 +3,7 @@
  * Based on arch/arm/include/asm/ptrace.h
  *
  * Copyright (C) 1996-2003 Russell King
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2012 ARM Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -45,6 +46,7 @@
 #define PSR_I_BIT	0x00000080
 #define PSR_A_BIT	0x00000100
 #define PSR_D_BIT	0x00000200
+#define PSR_SSBS_BIT	0x00001000
 #define PSR_PAN_BIT	0x00400000
 #define PSR_UAO_BIT	0x00800000
 #define PSR_Q_BIT	0x08000000

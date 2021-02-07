@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1855,6 +1856,10 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	/* Calculate the script and data size for MVC registers */
 	for (i = 0; i < ARRAY_SIZE(a6xx_clusters); i++) {
 		struct a6xx_cluster_registers *cluster = &a6xx_clusters[i];
+
+		/* 16 bytes if cluster sel exists */
+		if (cluster->sel)
+			script_size += 16;
 
 		for (j = 0; j < A6XX_NUM_CTXTS; j++) {
 

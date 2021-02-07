@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -106,6 +107,7 @@
 
 #define LPG_LUT_VALUE_MSB_MASK		BIT(0)
 #define LPG_LUT_COUNT_MAX		47
+#define RETURN_ERR				-1
 
 /* LPG config settings in SDAM */
 #define SDAM_REG_PBS_SEQ_EN			0x42
@@ -172,6 +174,10 @@ struct qpnp_lpg_lut {
 	struct mutex		lock;
 	u32			reg_base;
 	u32			*pattern; /* patterns in percentage */
+	bool		pattern_switch;
+	u32			pattern_length;
+	u32			*pattern_camera;
+	u32			pattern_camera_length;
 };
 
 struct qpnp_lpg_channel {
@@ -381,6 +387,58 @@ static struct qpnp_lpg_channel *pwm_dev_to_qpnp_lpg(struct pwm_chip *pwm_chip,
 
 	return &chip->lpgs[hw_idx];
 }
+
+void qpnp_lpg_ramp_step_ms_set(struct pwm_device *pwm, u16 step_ms)
+{
+	struct qpnp_lpg_channel *channel;
+
+	if (pwm != NULL)
+		channel = pwm_dev_to_qpnp_lpg(pwm->chip, pwm);
+
+	if (channel != NULL)
+		channel->ramp_config.step_ms = step_ms;
+}
+EXPORT_SYMBOL(qpnp_lpg_ramp_step_ms_set);
+
+int qpnp_lpg_ramp_step_ms_get(struct pwm_device *pwm)
+{
+	struct qpnp_lpg_channel *channel;
+
+	if (pwm != NULL)
+		channel = pwm_dev_to_qpnp_lpg(pwm->chip, pwm);
+
+	if (channel != NULL)
+		return channel->ramp_config.step_ms;
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_lpg_ramp_step_ms_get);
+
+void qpnp_lpg_pause_lo_count_set(struct pwm_device *pwm, u8 pause_lo_count)
+{
+	struct qpnp_lpg_channel *channel;
+
+	if (pwm != NULL)
+		channel = pwm_dev_to_qpnp_lpg(pwm->chip, pwm);
+
+	if (channel != NULL)
+		channel->ramp_config.pause_lo_count = pause_lo_count;
+}
+EXPORT_SYMBOL(qpnp_lpg_pause_lo_count_set);
+
+u8 qpnp_lpg_pause_lo_count_get(struct pwm_device *pwm)
+{
+	struct qpnp_lpg_channel *channel;
+
+	if (pwm != NULL)
+		channel = pwm_dev_to_qpnp_lpg(pwm->chip, pwm);
+
+	if (channel != NULL)
+		return channel->ramp_config.pause_lo_count;
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_lpg_pause_lo_count_get);
 
 static int __find_index_in_array(int member, const int array[], int length)
 {
@@ -724,6 +782,84 @@ static int qpnp_lpg_set_ramp_config(struct qpnp_lpg_channel *lpg)
 
 	return rc;
 }
+
+u8 qpnp_lpg_switch_lut_pattern(struct pwm_device *pwm, int index)
+{
+	struct qpnp_lpg_channel *channel;
+	struct qpnp_lpg_lut *lut;
+
+	if (pwm != NULL)
+		channel = pwm_dev_to_qpnp_lpg(pwm->chip, pwm);
+
+	if (channel != NULL)
+		lut = channel->chip->lut;
+
+	if (lut == NULL) {
+		pr_err("lut is NULL\n");
+		return RETURN_ERR;
+	}
+
+	if (!lut->pattern_switch) {
+		pr_err("lut pattern switch disabled\n");
+		return RETURN_ERR;
+	}
+
+	if (index < 0) {
+		pr_err("invalid index:%d\n", index);
+		return RETURN_ERR;
+	}
+
+	if (index == 0) {
+		channel->ramp_config.lo_idx = 0;
+		qpnp_lpg_set_lut_pattern(channel, lut->pattern, lut->pattern_length);
+		channel->ramp_config.hi_idx = lut->pattern_length - 1;
+	} else {
+		channel->ramp_config.lo_idx = 0;
+		qpnp_lpg_set_lut_pattern(channel, lut->pattern_camera, lut->pattern_camera_length);
+		channel->ramp_config.hi_idx = lut->pattern_camera_length - 1;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_lpg_switch_lut_pattern);
+
+u8 qpnp_lpg_lo_idx_get(struct pwm_device *pwm)
+{
+	struct qpnp_lpg_channel *channel;
+
+	if (pwm != NULL)
+		channel = pwm_dev_to_qpnp_lpg(pwm->chip, pwm);
+
+	return channel->ramp_config.lo_idx;
+}
+EXPORT_SYMBOL(qpnp_lpg_lo_idx_get);
+
+u8 qpnp_lpg_lo_idx_set(struct pwm_device *pwm, int lo_idx)
+{
+	struct qpnp_lpg_channel *channel;
+	struct qpnp_lpg_lut *lut;
+
+	if (pwm != NULL)
+		channel = pwm_dev_to_qpnp_lpg(pwm->chip, pwm);
+
+	if (channel != NULL)
+		lut = channel->chip->lut;
+
+	if (lut == NULL) {
+		pr_err("lut is NULL\n");
+		return RETURN_ERR;
+	}
+
+	if (lo_idx < 0 || lo_idx > lut->pattern_length) {
+		pr_err("invalid lo_idx:%d\n", lo_idx);
+		return RETURN_ERR;
+	}
+
+	channel->ramp_config.lo_idx = lo_idx;
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_lpg_lo_idx_set);
 
 static void __qpnp_lpg_calc_pwm_period(u64 period_ns,
 			struct lpg_pwm_config *pwm_config)
@@ -1438,6 +1574,7 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 	}
 
 	length = rc;
+	chip->lut->pattern_length = rc;
 	if (length > max_count) {
 		dev_err(chip->dev, "qcom,lut-patterns length %d exceed max %d\n",
 				length, max_count);
@@ -1455,6 +1592,41 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 		dev_err(chip->dev, "Get qcom,lut-patterns failed, rc=%d\n",
 				rc);
 		return rc;
+	}
+
+	chip->lut->pattern_switch = of_property_read_bool(chip->dev->of_node,
+						"qcom,lut-pattern-switch");
+	pr_info("lut pattern switch %s\n",
+		chip->lut->pattern_switch ? "enable" : "disable");
+
+	if (chip->lut->pattern_switch) {
+		rc = of_property_count_elems_of_size(chip->dev->of_node,
+				"qcom,lut-patterns-camera", sizeof(u32));
+		if (rc < 0) {
+			dev_err(chip->dev, "Read qcom,lut-patterns-camera failed, rc=%d\n",
+								rc);
+			return rc;
+		}
+
+		chip->lut->pattern_camera_length = rc;
+		if (chip->lut->pattern_camera_length > LPG_LUT_COUNT_MAX) {
+			dev_err(chip->dev, "qcom,lut-patterns-camera length %d exceed max %d\n",
+					length, LPG_LUT_COUNT_MAX);
+			return -EINVAL;
+		}
+
+		chip->lut->pattern_camera = devm_kcalloc(chip->dev, LPG_LUT_COUNT_MAX,
+				sizeof(*chip->lut->pattern_camera), GFP_KERNEL);
+		if (!chip->lut->pattern_camera)
+			return -ENOMEM;
+
+		rc = of_property_read_u32_array(chip->dev->of_node, "qcom,lut-patterns-camera",
+						chip->lut->pattern_camera, chip->lut->pattern_camera_length);
+		if (rc < 0) {
+			dev_err(chip->dev, "Get qcom,lut-patterns-camera failed, rc=%d\n",
+					rc);
+			return rc;
+		}
 	}
 
 	if (of_get_available_child_count(chip->dev->of_node) == 0) {
@@ -1537,6 +1709,12 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 		ramp->pattern_length = ramp->hi_idx - ramp->lo_idx + 1;
 		ramp->pattern = &chip->lut->pattern[ramp->lo_idx];
 		lpg->max_pattern_length = ramp->pattern_length;
+
+		if (chip->lut->pattern_switch) {
+			lpg->max_pattern_length =
+				chip->lut->pattern_length > chip->lut->pattern_camera_length ? \
+				chip->lut->pattern_length : chip->lut->pattern_camera_length;
+		}
 
 		ramp->pattern_repeat = of_property_read_bool(child,
 				"qcom,ramp-pattern-repeat");

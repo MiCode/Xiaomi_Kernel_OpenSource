@@ -2,6 +2,7 @@
  * Based on arch/arm/include/asm/ptrace.h
  *
  * Copyright (C) 1996-2003 Russell King
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2012 ARM Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -50,6 +51,7 @@
 #define COMPAT_PSR_I_BIT	0x00000080
 #define COMPAT_PSR_A_BIT	0x00000100
 #define COMPAT_PSR_E_BIT	0x00000200
+#define COMPAT_PSR_SSBS_BIT	0x00800000
 #define COMPAT_PSR_J_BIT	0x01000000
 #define COMPAT_PSR_Q_BIT	0x08000000
 #define COMPAT_PSR_V_BIT	0x10000000

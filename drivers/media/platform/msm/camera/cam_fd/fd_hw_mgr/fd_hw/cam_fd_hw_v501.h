@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,6 +58,7 @@ static struct cam_fd_hw_static_info cam_fd_wrapper200_core501_info = {
 		.single_irq_only         = true,
 		.ro_mode_enable_always   = true,
 		.ro_mode_results_invalid = true,
+		.skip_reset              = true,
 	},
 	.irq_mask = CAM_FD_IRQ_TO_MASK(CAM_FD_IRQ_FRAME_DONE) |
 		CAM_FD_IRQ_TO_MASK(CAM_FD_IRQ_HALT_DONE) |

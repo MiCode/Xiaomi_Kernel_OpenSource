@@ -3,6 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * Authors:
@@ -47,9 +48,12 @@
 #include "ufs_quirks.h"
 #include "unipro.h"
 #include "ufs-debugfs.h"
+#include "ufs-statistics.h"
 #include "ufs-qcom.h"
 
 #ifdef CONFIG_DEBUG_FS
+
+void updata_mv_ufs(u16 w_manufacturer_id, u8 *inquiry, u64 qTotalTawDeviceCapacity);
 
 static int ufshcd_tag_req_type(struct request *rq)
 {
@@ -218,10 +222,10 @@ static void ufshcd_update_uic_error_cnt(struct ufs_hba *hba, u32 reg, int type)
 /* Query request retries */
 #define QUERY_REQ_RETRIES 3
 /* Query request timeout */
-#define QUERY_REQ_TIMEOUT 1500 /* 1.5 seconds */
+#define QUERY_REQ_TIMEOUT 3000 /* 3.0 seconds */
 
 /* Task management command timeout */
-#define TM_CMD_TIMEOUT	100 /* msecs */
+#define TM_CMD_TIMEOUT	500 /* msecs */
 
 /* maximum number of retries for a general UIC command  */
 #define UFS_UIC_COMMAND_RETRIES 3
@@ -420,6 +424,8 @@ static struct ufs_dev_fix ufs_fixups[] = {
 	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_HOST_PA_SAVECONFIGTIME),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_WAIT_AFTER_REF_CLK_UNGATE),
+	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_WAIT_AFTER_REF_CLK_UNGATE),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, "hB8aL1",
 		UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH),
@@ -1740,7 +1746,7 @@ out:
 
 static int ufshcd_clock_scaling_prepare(struct ufs_hba *hba)
 {
-	#define DOORBELL_CLR_TOUT_US		(1000 * 1000) /* 1 sec */
+	#define DOORBELL_CLR_TOUT_US		(40*1000*1000) /* 40 sec */
 	int ret = 0;
 	/*
 	 * make sure that there are no outstanding requests when
@@ -4344,6 +4350,78 @@ static int ufshcd_query_attr_retry(struct ufs_hba *hba,
 	return ret;
 }
 
+/*
+* for skhynix to count sram bitflip times
+*
+*/
+static int ufshcd_query_osf(struct ufs_hba *hba, enum query_opcode opcode, u32 *osf)
+{
+	struct ufs_query_req *request = NULL;
+	struct ufs_query_res *response = NULL;
+
+	u8 flag = 0x54;
+	int err;
+
+	BUG_ON(!hba);
+
+	ufshcd_hold_all(hba);
+	if (!osf) {
+		dev_err(hba->dev, "%s: attribute value required for opcode 0x%x\n",
+				__func__, opcode);
+		err = -EINVAL;
+		goto out;
+	}
+
+	mutex_lock(&hba->dev_cmd.lock);
+	ufshcd_init_query(hba, &request, &response, opcode, 0, 0, 0);
+
+	switch (opcode) {
+	case UPIU_QUERY_OPCODE_READ_OSF:
+		request->query_func = UPIU_QUERY_FUNC_VENDOR_READ_REQUEST;
+		break;
+	default:
+		dev_err(hba->dev, "%s: Expected query osf opcode but got = 0x%.2x\n",
+				__func__, opcode);
+		err = -EINVAL;
+		goto out_unlock;
+	}
+
+	err = ufshcd_exec_dev_cmd(hba, DEV_CMD_TYPE_QUERY, QUERY_REQ_TIMEOUT);
+
+	if (err) {
+		dev_err(hba->dev, "%s: opcode 0x%.2x failed, err = %d\n", __func__, opcode, err);
+		goto out_unlock;
+	}
+
+	*osf = (flag) | (response->upiu_res.idn << 8) | (response->upiu_res.index << 16) | (response->upiu_res.selector<<24);
+
+out_unlock:
+	mutex_unlock(&hba->dev_cmd.lock);
+out:
+	ufshcd_release_all(hba);
+	return err;
+}
+
+static int ufshcd_query_osf_retry(struct ufs_hba *hba, enum query_opcode opcode, u32 *osf)
+{
+	int ret = 0;
+	u32 retries;
+
+	for (retries = QUERY_REQ_RETRIES; retries > 0; retries--) {
+		ret = ufshcd_query_osf(hba, opcode, osf);
+		if (ret)
+			dev_dbg(hba->dev, "%s: failed with error %d, retries %d\n",
+				__func__, ret, retries);
+		else
+			break;
+	}
+
+	if (ret)
+		dev_err(hba->dev, "%s: query attribute, failed with error %d after %d retires\n",
+			__func__, ret, retries);
+	return ret;
+}
+
 static int __ufshcd_query_descriptor(struct ufs_hba *hba,
 			enum query_opcode opcode, enum desc_idn idn, u8 index,
 			u8 selector, u8 *desc_buf, int *buf_len)
@@ -4522,6 +4600,9 @@ int ufshcd_map_desc_id_to_length(struct ufs_hba *hba,
 	case QUERY_DESC_IDN_RFU_1:
 		*desc_len = 0;
 		break;
+	case QUERY_DESC_IDN_HEALTH:
+		*desc_len = hba->desc_size.dev_heal_desc;
+		break;
 	default:
 		*desc_len = 0;
 		return -EINVAL;
@@ -4631,6 +4712,36 @@ int ufshcd_read_device_desc(struct ufs_hba *hba, u8 *buf, u32 size)
 	return ufshcd_read_desc(hba, QUERY_DESC_IDN_DEVICE, 0, buf, size);
 }
 
+int ufshcd_read_geometry_desc(struct ufs_hba *hba, u8 *buf, u32 size)
+{
+	return ufshcd_read_desc(hba, QUERY_DESC_IDN_GEOMETRY, 0, buf, size);
+}
+
+int ufshcd_read_health_desc(struct ufs_hba *hba, u8 *buf, u32 size)
+{
+	return ufshcd_read_desc(hba, QUERY_DESC_IDN_HEALTH, 0, buf, size);
+}
+
+int ufshcd_get_hynix_hr(struct scsi_device *sdev, u8 *buf, u32 size)
+{
+	struct ufs_hba *hba;
+	int ret = 0;
+
+	hba = shost_priv(sdev->host);
+	size = QUERY_DESC_HEALTH_MAX_SIZE; //size is at least 4 bytes larger than QUERY_DESC_HEALTH_MAX_SIZE
+	pm_runtime_get_sync(hba->dev);
+	ret = ufshcd_read_desc(hba, QUERY_DESC_IDN_HEALTH, 0, buf, size);
+
+	if (!ret && !strncmp(sdev->vendor, "SKhynix", strlen("SKhynix"))
+		&& !strncmp(sdev->model, "H9HQ53AECMMDAR", strlen("H9HQ53AECMMDAR"))
+		&& !strncmp(sdev->rev, "0005", strlen("0005"))) {
+		u32* val = (u32*)(buf + QUERY_DESC_HEALTH_MAX_SIZE);
+		ret = ufshcd_query_osf_retry(hba, UPIU_QUERY_OPCODE_READ_OSF, val);
+	}
+	pm_runtime_put_sync(hba->dev);
+	return ret;
+}
+
 /**
  * ufshcd_read_string_desc - read string descriptor
  * @hba: pointer to adapter instance
@@ -4642,7 +4753,7 @@ int ufshcd_read_device_desc(struct ufs_hba *hba, u8 *buf, u32 size)
  * Return 0 in case of success, non-zero otherwise
  */
 #define ASCII_STD true
-static int ufshcd_read_string_desc(struct ufs_hba *hba, int desc_index,
+int ufshcd_read_string_desc(struct ufs_hba *hba, int desc_index,
 				   u8 *buf, u32 size, bool ascii)
 {
 	int err = 0;
@@ -8538,6 +8649,11 @@ static void ufshcd_init_desc_sizes(struct ufs_hba *hba)
 		&hba->desc_size.geom_desc);
 	if (err)
 		hba->desc_size.geom_desc = QUERY_DESC_GEOMETRY_DEF_SIZE;
+
+	err = ufshcd_read_desc_length(hba, QUERY_DESC_IDN_HEALTH, 0,
+		&hba->desc_size.dev_heal_desc);
+	if (err)
+		hba->desc_size.dev_heal_desc = QUERY_DESC_HEALTH_MAX_SIZE;
 }
 
 static void ufshcd_def_desc_sizes(struct ufs_hba *hba)
@@ -8548,6 +8664,7 @@ static void ufshcd_def_desc_sizes(struct ufs_hba *hba)
 	hba->desc_size.conf_desc = QUERY_DESC_CONFIGURATION_DEF_SIZE;
 	hba->desc_size.unit_desc = QUERY_DESC_UNIT_DEF_SIZE;
 	hba->desc_size.geom_desc = QUERY_DESC_GEOMETRY_DEF_SIZE;
+	hba->desc_size.dev_heal_desc = QUERY_DESC_HEALTH_MAX_SIZE;
 }
 
 static void ufshcd_apply_pm_quirks(struct ufs_hba *hba)
@@ -8692,6 +8809,42 @@ out:
 	return err;
 }
 
+static char serial[QUERY_DESC_MAX_SIZE] = {0};
+
+char *ufs_get_serial(void)
+{
+	return serial;
+}
+
+static int ufs_init_serial(struct ufs_hba *hba)
+{
+	int err, i;
+	u8 model_index;
+	u8 str_desc_buf[QUERY_DESC_MAX_SIZE + 1];
+	u8 desc_buf[QUERY_DESC_DEVICE_DEF_SIZE];
+
+	err = ufshcd_read_device_desc(hba, desc_buf,
+			QUERY_DESC_DEVICE_DEF_SIZE);
+	if (err) {
+		pr_err("read device_desc failed\n");
+		goto out;
+	}
+
+	/*SerialNumber*/
+	model_index = desc_buf[DEVICE_DESC_PARAM_SN];
+	memset(str_desc_buf, 0, QUERY_DESC_MAX_SIZE);
+	err = ufshcd_read_string_desc(hba, model_index, str_desc_buf,
+			QUERY_DESC_MAX_SIZE, FALSE);
+	if (err)
+		goto out;
+
+	for (i = 2; i <  str_desc_buf[QUERY_DESC_LENGTH_OFFSET]; i += 2)
+		snprintf(serial + i * 2 - 4, QUERY_DESC_MAX_SIZE, "%02x%02x", str_desc_buf[i], str_desc_buf[i + 1]);
+	pr_info("SerialNumber:%s\n", serial);
+
+out:
+	return err;
+}
 /**
  * ufshcd_probe_hba - probe hba to detect device and initialize
  * @hba: per-adapter instance
@@ -8703,6 +8856,8 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	struct ufs_dev_desc card = {0};
 	int ret;
 	ktime_t start = ktime_get();
+	static int priv_mark;
+	u8 desc_buf[QUERY_DESC_GEOMETRY_DEF_SIZE + 8] = {};
 
 reinit:
 	ret = ufshcd_link_startup(hba);
@@ -8774,6 +8929,13 @@ reinit:
 
 	ufs_fixup_device_setup(hba, &card);
 	ufshcd_tune_unipro_params(hba);
+	if (priv_mark == 0) {
+		ufs_init_serial(hba);
+		ufs_add_statistics(hba);
+		priv_mark = 1;
+	}
+
+	ufshcd_read_geometry_desc(hba, desc_buf, hba->desc_size.geom_desc);
 
 	ufshcd_apply_pm_quirks(hba);
 	if (card.wspecversion < 0x300) {
@@ -8855,6 +9017,8 @@ reinit:
 		scsi_scan_host(hba->host);
 		pm_runtime_put_sync(hba->dev);
 	}
+
+	updata_mv_ufs(hba->dev_info.w_manufacturer_id, hba->sdev_ufs_device->inquiry, *((u64 *)(desc_buf + 4)));
 
 	/*
 	 * Enable auto hibern8 if supported, after full host and
@@ -10820,6 +10984,9 @@ void ufshcd_remove(struct ufs_hba *hba)
 	}
 
 	ufshcd_hba_exit(hba);
+
+	ufs_remove_statistics(hba);
+
 	ufsdbg_remove_debugfs(hba);
 }
 EXPORT_SYMBOL_GPL(ufshcd_remove);

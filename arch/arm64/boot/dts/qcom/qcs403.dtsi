@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -59,19 +60,6 @@
 			/delete-node/ port@3;
 			/delete-node/ port@4;
 		};
-	};
-
-	/delete-node/ qcom,msm-cpufreq;
-
-	msm_cpufreq: qcom,msm-cpufreq {
-		compatible = "qcom,msm-cpufreq";
-		clock-names = "cpu0_clk";
-		clocks = <&clock_cpu APCS_MUX_CLK>;
-
-		qcom,cpufreq-table =
-			 < 1094400 >,
-			 < 1248000 >,
-			 < 1401600 >;
 	};
 
 	/delete-node/ qcom,cpu0-computemon;

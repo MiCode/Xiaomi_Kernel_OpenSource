@@ -1,4 +1,5 @@
 /* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -718,7 +719,7 @@ static void __exit virtio_clk_fini(void)
 {
 	unregister_virtio_driver(&virtio_clk_driver);
 }
-subsys_initcall(virtio_clk_init);
+subsys_initcall_sync(virtio_clk_init);
 module_exit(virtio_clk_fini);
 
 MODULE_DEVICE_TABLE(virtio, id_table);

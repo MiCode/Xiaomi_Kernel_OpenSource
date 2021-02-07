@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,6 +57,9 @@ struct msm_iommu_meta {
 	struct kref ref;
 	struct mutex lock;
 	void *buffer;
+#if defined(NO_DELAY_DMA_UNMAP_CAMERA)
+	struct dma_buf *dma_buf;
+#endif
 };
 
 static struct rb_root iommu_root;
@@ -107,6 +111,38 @@ static struct msm_iommu_meta *msm_iommu_meta_lookup(void *buffer)
 	return NULL;
 }
 
+#if defined(NO_DELAY_DMA_UNMAP_CAMERA)
+static struct msm_iommu_meta *msm_iommu_meta_dump()
+{
+	struct rb_root *root = &iommu_root;
+	struct msm_iommu_meta *tmp = NULL;
+	struct msm_iommu_meta *meta;
+
+	mutex_lock(&msm_iommu_map_mutex);
+	rbtree_postorder_for_each_entry_safe(meta, tmp, root, node) {
+		struct msm_iommu_map *iommu_map;
+		struct msm_iommu_map *iommu_map_next;
+
+		mutex_lock(&meta->lock);
+		list_for_each_entry_safe(iommu_map, iommu_map_next,
+			&meta->iommu_maps, lnode) {
+
+			pr_err("dev=%p(%s),buf=%p,iova=%lx,sz=%x,mapRef=%d,metaRef=%d",
+			iommu_map->dev, dev_name(iommu_map->dev),
+			meta->buffer,
+			iommu_map->sgl ? sg_dma_address(iommu_map->sgl) : 0,
+			meta->dma_buf ? meta->dma_buf->size : 0,
+			kref_read(&iommu_map->ref),
+			kref_read(&meta->ref));
+		}
+		mutex_unlock(&meta->lock);
+	}
+	mutex_unlock(&msm_iommu_map_mutex);
+
+	return NULL;
+}
+#endif
+
 static void msm_iommu_add(struct msm_iommu_meta *meta,
 			  struct msm_iommu_map *iommu)
 {
@@ -139,6 +175,9 @@ static struct msm_iommu_meta *msm_iommu_meta_create(struct dma_buf *dma_buf)
 
 	INIT_LIST_HEAD(&meta->iommu_maps);
 	meta->buffer = dma_buf->priv;
+#if defined(NO_DELAY_DMA_UNMAP_CAMERA)
+	meta->dma_buf = dma_buf;
+#endif
 	kref_init(&meta->ref);
 	mutex_init(&meta->lock);
 	msm_iommu_meta_add(meta);
@@ -186,10 +225,12 @@ static inline int __msm_dma_map_sg(struct device *dev, struct scatterlist *sg,
 			ret = PTR_ERR(iommu_meta);
 			goto out;
 		}
+#if !defined(NO_DELAY_DMA_UNMAP_CAMERA)
 		if (late_unmap) {
 			kref_get(&iommu_meta->ref);
 			extra_meta_ref_taken = true;
 		}
+#endif
 	} else {
 		kref_get(&iommu_meta->ref);
 	}
@@ -208,6 +249,10 @@ static inline int __msm_dma_map_sg(struct device *dev, struct scatterlist *sg,
 
 		ret = dma_map_sg_attrs(dev, sg, nents, dir, attrs);
 		if (!ret) {
+#if defined(NO_DELAY_DMA_UNMAP_CAMERA)
+			pr_err("%s dma_map_sg_attrs failed, dev=%p(%s)", __func__,
+				dev, dev_name(dev));
+#endif
 			kfree(iommu_map);
 			goto out_unlock;
 		}
@@ -225,8 +270,13 @@ static inline int __msm_dma_map_sg(struct device *dev, struct scatterlist *sg,
 		iommu_map->buf_start_addr = sg_phys(sg);
 
 		kref_init(&iommu_map->ref);
-		if (late_unmap)
+		if (late_unmap) {
 			kref_get(&iommu_map->ref);
+#if defined(NO_DELAY_DMA_UNMAP_CAMERA)
+			/* make sure meta->ref equals to all iommu_map->ref summed up */
+			kref_get(&iommu_meta->ref);
+#endif
+		}
 		iommu_map->meta = iommu_meta;
 		msm_iommu_add(iommu_meta, iommu_map);
 
@@ -291,6 +341,12 @@ out:
 			msm_iommu_meta_put(iommu_meta);
 		msm_iommu_meta_put(iommu_meta);
 	}
+
+#if defined(NO_DELAY_DMA_UNMAP_CAMERA)
+	if (!ret)
+		msm_iommu_meta_dump();
+#endif
+
 	return ret;
 
 }
@@ -461,13 +517,20 @@ void msm_dma_buf_freed(void *buffer)
 		mutex_unlock(&msm_iommu_map_mutex);
 		return;
 	}
+#if defined(NO_DELAY_DMA_UNMAP_CAMERA)
+	kref_get(&meta->ref);
+#endif
 	mutex_unlock(&msm_iommu_map_mutex);
 
 	mutex_lock(&meta->lock);
 
 	list_for_each_entry_safe(iommu_map, iommu_map_next, &meta->iommu_maps,
-				 lnode)
+				 lnode) {
 		kref_put(&iommu_map->ref, msm_iommu_map_release);
+#if defined(NO_DELAY_DMA_UNMAP_CAMERA)
+		msm_iommu_meta_put(meta);
+#endif
+	}
 
 	if (!list_empty(&meta->iommu_maps)) {
 		WARN(1, "%s: DMA buffer %p destroyed with outstanding iommu mappings\n",
@@ -476,6 +539,11 @@ void msm_dma_buf_freed(void *buffer)
 
 	INIT_LIST_HEAD(&meta->iommu_maps);
 	mutex_unlock(&meta->lock);
+
+#if defined(NO_DELAY_DMA_UNMAP_CAMERA)
+	WARN(kref_read(&meta->ref) != 1, "%s: DMA buffer %p destroyed, But meta ref is %d\n",
+	     __func__, meta->buffer, kref_read(&meta->ref));
+#endif
 
 	msm_iommu_meta_put(meta);
 }

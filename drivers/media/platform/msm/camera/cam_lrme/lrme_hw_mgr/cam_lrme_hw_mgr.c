@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -871,8 +872,7 @@ static int cam_lrme_mgr_hw_prepare_update(void *hw_mgr_priv,
 		kmd_buf.size, kmd_buf.used_bytes);
 
 	rc = cam_packet_util_process_patches(args->packet,
-		hw_mgr->device_iommu.non_secure,
-		hw_mgr->device_iommu.secure, 0);
+		hw_mgr->device_iommu.non_secure, hw_mgr->device_iommu.secure);
 	if (rc) {
 		CAM_ERR(CAM_LRME, "Patch packet failed, rc=%d", rc);
 		return rc;

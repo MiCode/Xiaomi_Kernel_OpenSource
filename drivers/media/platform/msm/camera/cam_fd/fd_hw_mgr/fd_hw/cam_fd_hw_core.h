@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -142,11 +143,13 @@ struct cam_fd_wrapper_regs {
  * @ro_mode_enable_always   : Whether to enable ro mode always
  * @ro_mode_results_invalid : Whether results written directly into output
  *                            memory by HW are valid or not
+ * @skip_reset              : Whether to skip reset during init
  */
 struct cam_fd_hw_errata_wa {
 	bool   single_irq_only;
 	bool   ro_mode_enable_always;
 	bool   ro_mode_results_invalid;
+	bool   skip_reset;
 };
 
 /**

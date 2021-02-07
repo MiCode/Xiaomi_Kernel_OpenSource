@@ -7,7 +7,8 @@ Required properties :
 		"qcom,debugcc-sm6150",
 		"qcom,debugcc-sdmmagpie"
 		"qcom,debugcc-sdxprairie",
-		"qcom,debugcc-trinket".
+		"qcom,debugcc-trinket",
+		"qcom,atoll-debugcc".
 - qcom,gcc: phandle to the GCC device node.
 - qcom,videocc: phandle to the Video CC device node.
 - qcom,camcc: phandle to the Camera CC device node.

@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -620,7 +621,7 @@ static int cam_cpas_util_apply_client_axi_vote(
 	struct cam_cpas_client *temp_client;
 	struct cam_axi_vote req_axi_vote = *axi_vote;
 	struct cam_cpas_axi_port *axi_port = cpas_client->axi_port;
-	uint64_t camnoc_bw = 0, mnoc_bw = 0, mnoc_bw_ab = 0;
+	uint64_t camnoc_bw = 0, mnoc_bw = 0;
 	int rc = 0;
 
 	if (!axi_port) {
@@ -632,21 +633,14 @@ static int cam_cpas_util_apply_client_axi_vote(
 	 * Make sure we use same bw for both compressed, uncompressed
 	 * in case client has requested either of one only
 	 */
-	if (req_axi_vote.compressed_bw == 0) {
+	if (req_axi_vote.compressed_bw == 0)
 		req_axi_vote.compressed_bw = req_axi_vote.uncompressed_bw;
-		req_axi_vote.compressed_bw_ab = req_axi_vote.uncompressed_bw;
-	}
-
-	if (req_axi_vote.compressed_bw_ab == 0)
-		req_axi_vote.compressed_bw_ab = req_axi_vote.compressed_bw;
 
 	if (req_axi_vote.uncompressed_bw == 0)
 		req_axi_vote.uncompressed_bw = req_axi_vote.compressed_bw;
 
 	if ((cpas_client->axi_vote.compressed_bw ==
 		req_axi_vote.compressed_bw) &&
-		(cpas_client->axi_vote.compressed_bw_ab ==
-		req_axi_vote.compressed_bw_ab) &&
 		(cpas_client->axi_vote.uncompressed_bw ==
 		req_axi_vote.uncompressed_bw))
 		return 0;
@@ -658,27 +652,23 @@ static int cam_cpas_util_apply_client_axi_vote(
 		&axi_port->clients_list_head, axi_sibling_client) {
 		camnoc_bw += curr_client->axi_vote.uncompressed_bw;
 		mnoc_bw += curr_client->axi_vote.compressed_bw;
-		mnoc_bw_ab += curr_client->axi_vote.compressed_bw_ab;
 	}
 
 	if ((!soc_private->axi_camnoc_based) && (mnoc_bw < camnoc_bw))
 		mnoc_bw = camnoc_bw;
 
-	if ((!soc_private->axi_camnoc_based) && (mnoc_bw_ab < camnoc_bw))
-		mnoc_bw_ab = mnoc_bw;
-
 	axi_port->consolidated_axi_vote.compressed_bw = mnoc_bw;
 	axi_port->consolidated_axi_vote.uncompressed_bw = camnoc_bw;
 
 	CAM_DBG(CAM_CPAS,
-		"axi[(%d, %d),(%d, %d)] : camnoc_bw[%llu], mnoc_bw[ab: %llu, ib: %llu]",
+		"axi[(%d, %d),(%d, %d)] : camnoc_bw[%llu], mnoc_bw[%llu]",
 		axi_port->mnoc_bus.src, axi_port->mnoc_bus.dst,
 		axi_port->camnoc_bus.src, axi_port->camnoc_bus.dst,
-		camnoc_bw, mnoc_bw_ab, mnoc_bw);
+		camnoc_bw, mnoc_bw);
 
 	if (axi_port->ib_bw_voting_needed)
 		rc = cam_cpas_util_vote_bus_client_bw(&axi_port->mnoc_bus,
-			mnoc_bw_ab, mnoc_bw, false);
+			mnoc_bw, mnoc_bw, false);
 	else
 		rc = cam_cpas_util_vote_bus_client_bw(&axi_port->mnoc_bus,
 			mnoc_bw, 0, false);
@@ -686,7 +676,9 @@ static int cam_cpas_util_apply_client_axi_vote(
 	if (rc) {
 		CAM_ERR(CAM_CPAS,
 			"Failed in mnoc vote ab[%llu] ib[%llu] rc=%d",
-			mnoc_bw_ab, mnoc_bw, rc);
+			mnoc_bw,
+			(axi_port->ib_bw_voting_needed ? mnoc_bw : 0),
+			rc);
 		goto unlock_axi_port;
 	}
 
@@ -732,13 +724,11 @@ static int cam_cpas_hw_update_axi_vote(struct cam_hw_info *cpas_hw,
 	axi_vote = *client_axi_vote;
 
 	if ((axi_vote.compressed_bw == 0) &&
-		(axi_vote.uncompressed_bw == 0) &&
-		(axi_vote.compressed_bw_ab == 0)) {
+		(axi_vote.uncompressed_bw == 0)) {
 		CAM_DBG(CAM_CPAS, "0 vote from client_handle=%d",
 			client_handle);
 		axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 		axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
-		axi_vote.compressed_bw_ab = CAM_CPAS_DEFAULT_AXI_BW;
 	}
 
 	if (!CAM_CPAS_CLIENT_VALID(client_indx))
@@ -757,10 +747,10 @@ static int cam_cpas_hw_update_axi_vote(struct cam_hw_info *cpas_hw,
 	}
 
 	CAM_DBG(CAM_PERF,
-		"Client=[%d][%s][%d] Req comp[%llu], comp_ab[%llu], uncomp[%llu]",
+		"Client=[%d][%s][%d] Requested compressed[%llu], uncompressed[%llu]",
 		client_indx, cpas_client->data.identifier,
 		cpas_client->data.cell_index, axi_vote.compressed_bw,
-		axi_vote.compressed_bw_ab, axi_vote.uncompressed_bw);
+		axi_vote.uncompressed_bw);
 
 	rc = cam_cpas_util_apply_client_axi_vote(cpas_hw,
 		cpas_core->cpas_client[client_indx], &axi_vote);
@@ -1012,11 +1002,11 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 	if (rc)
 		goto done;
 
-	CAM_INFO(CAM_CPAS,
-		"AXI client=[%d][%s][%d] comp[%llu], comp_ab[%llu], uncomp[%llu]",
+	CAM_DBG(CAM_CPAS,
+		"AXI client=[%d][%s][%d] compressed_bw[%llu], uncompressed_bw[%llu]",
 		client_indx, cpas_client->data.identifier,
 		cpas_client->data.cell_index, axi_vote->compressed_bw,
-		axi_vote->compressed_bw_ab, axi_vote->uncompressed_bw);
+		axi_vote->uncompressed_bw);
 	rc = cam_cpas_util_apply_client_axi_vote(cpas_hw,
 		cpas_client, axi_vote);
 	if (rc)
@@ -1167,7 +1157,6 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 
 	axi_vote.uncompressed_bw = 0;
 	axi_vote.compressed_bw = 0;
-	axi_vote.compressed_bw_ab = 0;
 	rc = cam_cpas_util_apply_client_axi_vote(cpas_hw,
 		cpas_client, &axi_vote);
 

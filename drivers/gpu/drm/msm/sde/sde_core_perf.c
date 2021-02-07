@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -169,6 +170,15 @@ static void _sde_core_perf_calc_crtc(struct sde_kms *kms,
 			perf->max_per_pipe_ib[i] = kms->perf.fix_core_ib_vote;
 		}
 		perf->core_clk_rate = kms->perf.fix_core_clk_rate;
+	}
+
+	if (IS_SDMMAGPIE_TARGET(kms->catalog->hwversion)) {
+		perf->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_MNOC] =
+			SDE_POWER_HANDLE_MNOC_OVERRIDE_IB_QUOTA;
+		perf->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_LLCC] =
+			SDE_POWER_HANDLE_LLCC_OVERRIDE_IB_QUOTA;
+		perf->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_EBI] =
+			SDE_POWER_HANDLE_EBI_OVERRIDE_IB_QUOTA;
 	}
 
 	SDE_EVT32(crtc->base.id, perf->core_clk_rate);
@@ -627,6 +637,15 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 		if (update_bus & BIT(i))
 			_sde_core_perf_crtc_update_bus(kms, crtc, i);
 	}
+
+	if (kms->perf.bw_vote_mode == DISP_RSC_MODE &&
+		((get_sde_rsc_version(SDE_RSC_INDEX) != SDE_RSC_REV_3) ||
+	     (get_sde_rsc_current_state(SDE_RSC_INDEX) != SDE_RSC_CLK_STATE
+	      && params_changed) ||
+	     (get_sde_rsc_current_state(SDE_RSC_INDEX) == SDE_RSC_CLK_STATE
+	      && update_bus)))
+		sde_rsc_client_trigger_vote(sde_cstate->rsc_client,
+				update_bus ? true : false);
 
 	/*
 	 * Update the clock after bandwidth vote to ensure

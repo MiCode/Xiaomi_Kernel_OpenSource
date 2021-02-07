@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -111,6 +112,7 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 		break;
 	case DSI_CTRL_VERSION_2_2:
 	case DSI_CTRL_VERSION_2_3:
+	case DSI_CTRL_VERSION_2_4:
 		ctrl->ops.phy_reset_config = dsi_ctrl_hw_22_phy_reset_config;
 		ctrl->ops.config_clk_gating = dsi_ctrl_hw_22_config_clk_gating;
 		ctrl->ops.get_cont_splash_status =
@@ -175,6 +177,7 @@ int dsi_catalog_ctrl_setup(struct dsi_ctrl_hw *ctrl,
 	case DSI_CTRL_VERSION_2_0:
 	case DSI_CTRL_VERSION_2_2:
 	case DSI_CTRL_VERSION_2_3:
+	case DSI_CTRL_VERSION_2_4:
 		ctrl->phy_isolation_enabled = phy_isolation_enabled;
 		dsi_catalog_cmn_init(ctrl, version);
 		break;

@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -146,7 +147,7 @@
 #define LINK_UP_CHECK_MAX_COUNT		      30000
 #define BME_TIMEOUT_US_MIN	              1000
 #define BME_TIMEOUT_US_MAX	              1000
-#define BME_CHECK_MAX_COUNT		      30000
+#define BME_CHECK_MAX_COUNT		      100000
 #define PHY_STABILIZATION_DELAY_US_MIN	      1000
 #define PHY_STABILIZATION_DELAY_US_MAX	      1000
 #define REFCLK_STABILIZATION_DELAY_US_MIN     1000

@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -175,7 +176,8 @@ static void gsi_channel_state_change_wait(unsigned long chan_hdl,
 		}
 
 		if (op == GSI_CH_START) {
-			if (curr_state == GSI_CHAN_STATE_STARTED) {
+			if (curr_state == GSI_CHAN_STATE_STARTED ||
+				curr_state == GSI_CHAN_STATE_FLOW_CONTROL) {
 				ctx->state = curr_state;
 				return;
 			}
@@ -2780,7 +2782,8 @@ int gsi_start_channel(unsigned long chan_hdl)
 		ctx,
 		GSI_START_CMD_TIMEOUT_MS, op);
 
-	if (ctx->state != GSI_CHAN_STATE_STARTED) {
+	if (ctx->state != GSI_CHAN_STATE_STARTED &&
+		ctx->state != GSI_CHAN_STATE_FLOW_CONTROL) {
 		/*
 		* Hardware returned unexpected status, unexpected
 		* hardware state.
@@ -3110,7 +3113,7 @@ int gsi_dealloc_channel(unsigned long chan_hdl)
 	}
 	devm_kfree(gsi_ctx->dev, ctx->user_data);
 	ctx->allocated = false;
-	if (ctx->evtr)
+	if (ctx->evtr && (ctx->props.prot != GSI_CHAN_PROT_GCI))
 		atomic_dec(&ctx->evtr->chan_ref_cnt);
 	atomic_dec(&gsi_ctx->num_chan);
 
@@ -3339,8 +3342,8 @@ int __gsi_get_gci_cookie(struct gsi_chan_ctx *ctx, uint16_t idx)
 	 * idx is not completed yet and it is getting reused by a new TRE.
 	 */
 	ctx->stats.userdata_in_use++;
+	end = ctx->ring.max_num_elem + 1;
 	for (i = 0; i < GSI_VEID_MAX; i++) {
-		end = ctx->ring.max_num_elem + 1;
 		if (!ctx->user_data[end + i].valid) {
 			ctx->user_data[end + i].valid = true;
 			return end + i;
@@ -3349,7 +3352,7 @@ int __gsi_get_gci_cookie(struct gsi_chan_ctx *ctx, uint16_t idx)
 
 	/* TODO: Increase escape buffer size if we hit this */
 	GSIERR("user_data is full\n");
-	return -EPERM;
+	return 0xFFFF;
 }
 
 int __gsi_populate_gci_tre(struct gsi_chan_ctx *ctx,
@@ -3380,7 +3383,7 @@ int __gsi_populate_gci_tre(struct gsi_chan_ctx *ctx,
 	gci_tre.buf_len = xfer->len;
 	gci_tre.re_type = GSI_RE_COAL;
 	gci_tre.cookie = __gsi_get_gci_cookie(ctx, idx);
-	if (gci_tre.cookie < 0)
+	if (gci_tre.cookie > (ctx->ring.max_num_elem + GSI_VEID_MAX))
 		return -EPERM;
 
 	/* write the TRE to ring */
@@ -4188,6 +4191,91 @@ int gsi_chk_intset_value(void)
 	return val;
 }
 EXPORT_SYMBOL(gsi_chk_intset_value);
+
+int gsi_enable_flow_control_ee(unsigned int chan_idx, unsigned int ee,
+								int *code)
+{
+	enum gsi_generic_ee_cmd_opcode op = GSI_GEN_EE_CMD_ENABLE_FLOW_CHANNEL;
+	uint32_t val;
+	enum gsi_chan_state curr_state = GSI_CHAN_STATE_NOT_ALLOCATED;
+	int res;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (chan_idx >= gsi_ctx->max_ch || !code) {
+		GSIERR("bad params chan_idx=%d\n", chan_idx);
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	mutex_lock(&gsi_ctx->mlock);
+	reinit_completion(&gsi_ctx->gen_ee_cmd_compl);
+
+	/* invalidate the response */
+	gsi_ctx->scratch.word0.val = gsi_readl(gsi_ctx->base +
+			GSI_EE_n_CNTXT_SCRATCH_0_OFFS(gsi_ctx->per.ee));
+	gsi_ctx->scratch.word0.s.generic_ee_cmd_return_code = 0;
+	gsi_writel(gsi_ctx->scratch.word0.val, gsi_ctx->base +
+			GSI_EE_n_CNTXT_SCRATCH_0_OFFS(gsi_ctx->per.ee));
+
+	gsi_ctx->gen_ee_cmd_dbg.halt_channel++;
+	val = (((op << GSI_EE_n_GSI_EE_GENERIC_CMD_OPCODE_SHFT) &
+		GSI_EE_n_GSI_EE_GENERIC_CMD_OPCODE_BMSK) |
+		((chan_idx << GSI_EE_n_GSI_EE_GENERIC_CMD_VIRT_CHAN_IDX_SHFT) &
+			GSI_EE_n_GSI_EE_GENERIC_CMD_VIRT_CHAN_IDX_BMSK) |
+		((ee << GSI_EE_n_GSI_EE_GENERIC_CMD_EE_SHFT) &
+			GSI_EE_n_GSI_EE_GENERIC_CMD_EE_BMSK));
+	gsi_writel(val, gsi_ctx->base +
+		GSI_EE_n_GSI_EE_GENERIC_CMD_OFFS(gsi_ctx->per.ee));
+
+	res = wait_for_completion_timeout(&gsi_ctx->gen_ee_cmd_compl,
+		msecs_to_jiffies(GSI_CMD_TIMEOUT));
+	if (res == 0) {
+		GSIERR("chan_idx=%u ee=%u timed out\n", chan_idx, ee);
+		res = -GSI_STATUS_TIMED_OUT;
+		goto free_lock;
+	}
+
+	gsi_ctx->scratch.word0.val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_CNTXT_SCRATCH_0_OFFS(gsi_ctx->per.ee));
+	if (gsi_ctx->scratch.word0.s.generic_ee_cmd_return_code ==
+		GSI_GEN_EE_CMD_RETURN_CODE_CHANNEL_NOT_RUNNING) {
+		GSIDBG("chan_idx=%u ee=%u not in correct state\n",
+							chan_idx, ee);
+		*code = GSI_GEN_EE_CMD_RETURN_CODE_CHANNEL_NOT_RUNNING;
+		res = -GSI_STATUS_RES_ALLOC_FAILURE;
+		goto free_lock;
+	} else if (gsi_ctx->scratch.word0.s.generic_ee_cmd_return_code ==
+			GSI_GEN_EE_CMD_RETURN_CODE_INCORRECT_CHANNEL_TYPE ||
+			gsi_ctx->scratch.word0.s.generic_ee_cmd_return_code ==
+			GSI_GEN_EE_CMD_RETURN_CODE_INCORRECT_CHANNEL_INDEX){
+		GSIERR("chan_idx=%u ee=%u not in correct state\n",
+				chan_idx, ee);
+		BUG();
+	}
+	if (gsi_ctx->scratch.word0.s.generic_ee_cmd_return_code == 0) {
+		GSIERR("No response received\n");
+		res = -GSI_STATUS_ERROR;
+		goto free_lock;
+	}
+
+	/*Reading current channel state*/
+	val = gsi_readl(gsi_ctx->base +
+				GSI_EE_n_GSI_CH_k_CNTXT_0_OFFS(chan_idx, ee));
+	curr_state = (val &
+				GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_BMSK) >>
+				GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_SHFT;
+	GSIDBG("ch %u state updated to %u\n", chan_idx, curr_state);
+	res = GSI_STATUS_SUCCESS;
+	*code = gsi_ctx->scratch.word0.s.generic_ee_cmd_return_code;
+free_lock:
+	mutex_unlock(&gsi_ctx->mlock);
+
+	return res;
+}
+EXPORT_SYMBOL(gsi_enable_flow_control_ee);
 
 int gsi_map_virtual_ch_to_per_ep(u32 ee, u32 chan_num, u32 per_ep_index)
 {

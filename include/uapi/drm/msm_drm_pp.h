@@ -233,6 +233,9 @@ struct drm_msm_pgc_lut {
  * @c2: color2 component lut
  * @strength: dither strength, considered valid when IGC_DITHER_ENABLE
  *            is set in flags. Strength value based on source bit width.
+ * @c0_last: color0 lut_last component
+ * @c1_last: color1 lut_last component
+ * @c2_last: color2 lut_last component
  */
 struct drm_msm_igc_lut {
 	__u64 flags;
@@ -240,7 +243,11 @@ struct drm_msm_igc_lut {
 	__u32 c1[IGC_TBL_LEN];
 	__u32 c2[IGC_TBL_LEN];
 	__u32 strength;
+	__u32 c0_last;
+	__u32 c1_last;
+	__u32 c2_last;
 };
+#define LAST_LUT 2
 
 #define HIST_V_SIZE 256
 /**

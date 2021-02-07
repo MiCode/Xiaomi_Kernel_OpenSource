@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1568,6 +1569,8 @@ void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 {
 	u32 m_cmd0 = 0;
 	u32 m_irq_status = 0;
+	u32 s_cmd0 = 0;
+	u32 s_irq_status = 0;
 	u32 geni_status = 0;
 	u32 geni_ios = 0;
 	u32 dma_rx_irq = 0;
@@ -1594,10 +1597,12 @@ void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 	}
 	m_cmd0 = geni_read_reg(base, SE_GENI_M_CMD0);
 	m_irq_status = geni_read_reg(base, SE_GENI_M_IRQ_STATUS);
+	s_cmd0 = geni_read_reg(base, SE_GENI_S_CMD0);
+	s_irq_status = geni_read_reg(base, SE_GENI_S_IRQ_STATUS);
 	geni_status = geni_read_reg(base, SE_GENI_STATUS);
 	geni_ios = geni_read_reg(base, SE_GENI_IOS);
-	dma_rx_irq = geni_read_reg(base, SE_DMA_TX_IRQ_STAT);
-	dma_tx_irq = geni_read_reg(base, SE_DMA_RX_IRQ_STAT);
+	dma_tx_irq = geni_read_reg(base, SE_DMA_TX_IRQ_STAT);
+	dma_rx_irq = geni_read_reg(base, SE_DMA_RX_IRQ_STAT);
 	rx_fifo_status = geni_read_reg(base, SE_GENI_RX_FIFO_STATUS);
 	tx_fifo_status = geni_read_reg(base, SE_GENI_TX_FIFO_STATUS);
 	se_dma_dbg = geni_read_reg(base, SE_DMA_DEBUG_REG0);

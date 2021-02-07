@@ -1,4 +1,5 @@
 /* Copyright (c) 2011, 2014-2016 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 
-int msm_show_resume_irq_mask;
+int msm_show_resume_irq_mask = 1;
 
 module_param_named(
 	debug_mask, msm_show_resume_irq_mask, int, 0664);

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -73,6 +74,9 @@ struct msm_gem_vma;
 
 #define TEARDOWN_DEADLOCK_RETRY_MAX 5
 
+extern atomic_t resume_pending;
+extern wait_queue_head_t resume_wait_q;
+
 struct msm_file_private {
 	/* update the refcount when user driver calls power_ctrl IOCTL */
 	unsigned short enable_refcnt;
@@ -103,6 +107,7 @@ enum msm_mdp_plane_property {
 
 	/* range properties */
 	PLANE_PROP_ZPOS = PLANE_PROP_BLOBCOUNT,
+	PLANE_PROP_FOD,
 	PLANE_PROP_ALPHA,
 	PLANE_PROP_COLOR_FILL,
 	PLANE_PROP_H_DECIMATE,
@@ -164,6 +169,7 @@ enum msm_mdp_crtc_property {
 	CRTC_PROP_CAPTURE_OUTPUT,
 
 	CRTC_PROP_IDLE_PC_STATE,
+	CRCT_PROP_MI_FOD_SYNC_INFO,
 
 	/* total # of properties */
 	CRTC_PROP_COUNT
@@ -446,6 +452,7 @@ struct msm_display_topology {
  * @mdp_transfer_time_us   Specifies the mdp transfer time for command mode
  *                         panels in microseconds.
  * @vpadding:        panel stacking height
+ * @overlap_pixels:	overlap pixels for certain panels
  */
 struct msm_mode_info {
 	uint32_t frame_rate;
@@ -460,6 +467,7 @@ struct msm_mode_info {
 	bool wide_bus_en;
 	u32 mdp_transfer_time_us;
 	u32 vpadding;
+	u32 overlap_pixels;
 };
 
 /**
@@ -529,6 +537,14 @@ struct msm_roi_list {
 struct msm_display_kickoff_params {
 	struct msm_roi_list *rois;
 	struct drm_msm_ext_hdr_metadata *hdr_meta;
+};
+
+/**
+ * struct - msm_display_conn_params - info of dpu display features
+ * @qsync_mode: Qsync mode, where 0: disabled 1: continuous mode
+ * @qsync_update: Qsync settings were changed/updated
+ */
+struct msm_display_conn_params {
 	uint32_t qsync_mode;
 	bool qsync_update;
 };
@@ -601,6 +617,7 @@ struct msm_drm_private {
 
 	/* crtcs pending async atomic updates: */
 	uint32_t pending_crtcs;
+	uint32_t pending_planes;
 	wait_queue_head_t pending_crtcs_event;
 
 	unsigned int num_planes;

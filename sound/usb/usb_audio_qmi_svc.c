@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1156,17 +1157,17 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 
 response:
 	if (!req_msg->enable && ret != -EINVAL) {
+		mutex_lock(&chip->dev_lock);
 		if (info_idx >= 0) {
-			mutex_lock(&chip->dev_lock);
 			info = &uadev[pcm_card_num].info[info_idx];
 			uaudio_dev_intf_cleanup(uadev[pcm_card_num].udev, info);
 			uaudio_dbg("release resources: intf# %d card# %d\n",
 					subs->interface, pcm_card_num);
-			mutex_unlock(&chip->dev_lock);
 		}
 		if (atomic_read(&uadev[pcm_card_num].in_use))
 			kref_put(&uadev[pcm_card_num].kref,
 					uaudio_dev_release);
+		mutex_unlock(&chip->dev_lock);
 	}
 
 	resp.usb_token = req_msg->usb_token;

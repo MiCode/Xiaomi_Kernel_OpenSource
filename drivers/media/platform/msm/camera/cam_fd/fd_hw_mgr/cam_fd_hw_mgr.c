@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1269,6 +1270,8 @@ static int cam_fd_mgr_hw_start(void *hw_mgr_priv, void *mgr_start_args)
 	struct cam_fd_hw_mgr_ctx *hw_ctx;
 	struct cam_fd_device *hw_device;
 	struct cam_fd_hw_init_args hw_init_args;
+	struct cam_hw_info *fd_hw;
+	struct cam_fd_core *fd_core;
 
 	if (!hw_mgr_priv || !hw_mgr_start_args) {
 		CAM_ERR(CAM_FD, "Invalid arguments %pK %pK",
@@ -1291,9 +1294,17 @@ static int cam_fd_mgr_hw_start(void *hw_mgr_priv, void *mgr_start_args)
 		return rc;
 	}
 
+	fd_hw = (struct cam_hw_info *)hw_device->hw_intf->hw_priv;
+	fd_core = (struct cam_fd_core *)fd_hw->core_info;
+
 	if (hw_device->hw_intf->hw_ops.init) {
 		hw_init_args.hw_ctx = hw_ctx;
 		hw_init_args.ctx_hw_private = hw_ctx->ctx_hw_private;
+		if (fd_core->hw_static_info->enable_errata_wa.skip_reset)
+			hw_init_args.reset_required = false;
+		else
+			hw_init_args.reset_required = true;
+
 		rc = hw_device->hw_intf->hw_ops.init(
 			hw_device->hw_intf->hw_priv, &hw_init_args,
 			sizeof(hw_init_args));
@@ -1629,7 +1640,7 @@ static int cam_fd_mgr_hw_prepare_update(void *hw_mgr_priv,
 
 	/* We do not expect any patching, but just do it anyway */
 	rc = cam_packet_util_process_patches(prepare->packet,
-		hw_mgr->device_iommu.non_secure, -1, 0);
+		hw_mgr->device_iommu.non_secure, -1);
 	if (rc) {
 		CAM_ERR(CAM_FD, "Patch FD packet failed, rc=%d", rc);
 		return rc;

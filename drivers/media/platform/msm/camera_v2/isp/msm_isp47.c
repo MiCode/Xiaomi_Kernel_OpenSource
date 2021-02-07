@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,7 +39,7 @@
 #define VFE47_STATS_BURST_LEN 3
 #define VFE47_UB_SIZE_VFE0 2048
 #define VFE47_UB_SIZE_VFE1 1536
-#define VFE47_UB_STATS_SIZE 144
+#define VFE47_UB_STATS_SIZE 288
 #define MSM_ISP47_TOTAL_IMAGE_UB_VFE0 (VFE47_UB_SIZE_VFE0 - VFE47_UB_STATS_SIZE)
 #define MSM_ISP47_TOTAL_IMAGE_UB_VFE1 (VFE47_UB_SIZE_VFE1 - VFE47_UB_STATS_SIZE)
 #define VFE47_WM_BASE(idx) (0xA0 + 0x2C * idx)
@@ -179,17 +180,24 @@ void msm_vfe47_config_irq(struct vfe_device *vfe_dev,
 		vfe_dev->irq1_mask &= ~irq1_mask;
 		break;
 	case MSM_ISP_IRQ_SET:
-		vfe_dev->irq0_mask = irq0_mask;
-		vfe_dev->irq1_mask = irq1_mask;
+		/* clear the IRQ */
 		msm_camera_io_w_mb(irq0_mask, vfe_dev->vfe_base + 0x64);
 		msm_camera_io_w_mb(irq1_mask, vfe_dev->vfe_base + 0x68);
 		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x58);
+		/* set the HW mask */
+		msm_camera_io_w_mb(irq0_mask, vfe_dev->vfe_base + 0x5C);
+		msm_camera_io_w_mb(irq1_mask, vfe_dev->vfe_base + 0x60);
+		/* update the software Mask */
+		vfe_dev->irq0_mask = irq0_mask;
+		vfe_dev->irq1_mask = irq1_mask;
 		break;
 	}
-	msm_camera_io_w_mb(vfe_dev->irq0_mask,
+	if (oper != MSM_ISP_IRQ_SET) {
+		msm_camera_io_w_mb(vfe_dev->irq0_mask,
 				vfe_dev->vfe_base + 0x5C);
-	msm_camera_io_w_mb(vfe_dev->irq1_mask,
+		msm_camera_io_w_mb(vfe_dev->irq1_mask,
 				vfe_dev->vfe_base + 0x60);
+	}
 }
 
 static int32_t msm_vfe47_init_dt_parms(struct vfe_device *vfe_dev,

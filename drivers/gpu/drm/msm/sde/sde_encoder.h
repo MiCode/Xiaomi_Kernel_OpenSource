@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -311,6 +312,14 @@ void sde_encoder_recovery_events_handler(struct drm_encoder *encoder,
  * @Return:     true if successful in updating the encoder structure
  */
 bool sde_encoder_in_clone_mode(struct drm_encoder *enc);
+
+/**
+ *sde_encoder_is_topology_ppsplit - checks if the current encoder is in
+	ppsplit topology.
+ *@drm_enc:	Pointer to drm encoder structure
+ *@Return:	true if the present topology is ppsplit
+ */
+bool sde_encoder_is_topology_ppsplit(struct drm_encoder *drm_enc);
 
 /**
  * sde_encoder_is_primary_display - checks if underlying display is primary

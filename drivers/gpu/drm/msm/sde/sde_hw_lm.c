@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -267,7 +268,8 @@ static void _setup_mixer_ops(struct sde_mdss_cfg *m,
 			IS_SDMSHRIKE_TARGET(m->hwversion) ||
 			IS_SM6150_TARGET(m->hwversion) ||
 			IS_SDMMAGPIE_TARGET(m->hwversion) ||
-			IS_SDMTRINKET_TARGET(m->hwversion))
+			IS_SDMTRINKET_TARGET(m->hwversion) ||
+			IS_ATOLL_TARGET(m->hwversion))
 		ops->setup_blend_config = sde_hw_lm_setup_blend_config_sdm845;
 	else
 		ops->setup_blend_config = sde_hw_lm_setup_blend_config;

@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,8 +98,8 @@ enum mhi_client_channel {
 	MHI_CLIENT_IP_CTRL_0_IN = 17,
 	MHI_CLIENT_IP_CTRL_1_OUT = 18,
 	MHI_CLIENT_IP_CTRL_1_IN = 19,
-	MHI_CLIENT_DCI_OUT = 20,
-	MHI_CLIENT_DCI_IN = 21,
+	MHI_CLIENT_IPCR_OUT = 20,
+	MHI_CLIENT_IPCR_IN = 21,
 	MHI_CLIENT_IP_CTRL_3_OUT = 22,
 	MHI_CLIENT_IP_CTRL_3_IN = 23,
 	MHI_CLIENT_IP_CTRL_4_OUT = 24,

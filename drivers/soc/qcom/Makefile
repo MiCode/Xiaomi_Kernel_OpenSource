@@ -70,6 +70,7 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
        obj-y += subsystem_restart.o
        obj-y += ramdump.o
        obj-y += microdump_collector.o
+       obj-$(CONFIG_QTI_GVM_QUIN) += subsystem_notif_virt.o
 endif
 obj-$(CONFIG_QCOM_EUD) += eud.o
 obj-$(CONFIG_QSEE_IPC_IRQ) += qsee_ipc_irq.o
@@ -101,3 +102,4 @@ obj-$(CONFIG_QCOM_AOP_DDR_MESSAGING) += aop_ddr_msgs.o
 obj-$(CONFIG_MSM_HAB) += hab/
 obj-$(CONFIG_QCOM_HYP_CORE_CTL) += hyp_core_ctl.o
 obj-$(CONFIG_QCOM_AOP_DDRSS_COMMANDS) += aop_ddrss_cmds.o
+obj-$(CONFIG_DEBUG_POLICY_STATUS) += debug_policy_status.o

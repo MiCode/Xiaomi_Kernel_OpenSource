@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -433,8 +434,12 @@ void sde_vbif_set_qos_remap(struct sde_kms *sde_kms,
 		return;
 	}
 
-	qos_tbl = params->is_rt ? &vbif->cap->qos_rt_tbl :
-			&vbif->cap->qos_nrt_tbl;
+	if (params->client_type > VBIF_MAX_CLIENT) {
+		SDE_ERROR("invalid client type:%d\n", params->client_type);
+		return;
+	}
+
+	qos_tbl = &vbif->cap->qos_tbl[params->client_type];
 
 	if (!qos_tbl->npriority_lvl || !qos_tbl->priority_lvl) {
 		SDE_DEBUG("qos tbl not defined\n");

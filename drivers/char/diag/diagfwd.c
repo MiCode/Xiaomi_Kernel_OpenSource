@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1862,6 +1863,9 @@ static int diagfwd_mux_write_done(unsigned char *buf, int len, int buf_ctxt,
 				DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 				"No apps data buffer is allocated to be freed\n");
 			if (temp) {
+				DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+				"Freeing Apps data buffer after write done hdlc.allocated: %d, non_hdlc.allocated: %d\n",
+				hdlc_data.allocated, non_hdlc_data.allocated);
 				diagmem_free(driver, temp->buf, POOL_TYPE_HDLC);
 				temp->buf = NULL;
 				temp->len = 0;

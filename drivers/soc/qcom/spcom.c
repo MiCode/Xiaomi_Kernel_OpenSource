@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1684,7 +1685,7 @@ static int spcom_create_channel_chardev(const char *name)
 	ch = spcom_find_channel_by_name(name);
 	if (ch) {
 		pr_err("channel [%s] already exist.\n", name);
-		return -EINVAL;
+		return -EBUSY;
 	}
 
 	ch = spcom_find_channel_by_name(""); /* find reserved channel */

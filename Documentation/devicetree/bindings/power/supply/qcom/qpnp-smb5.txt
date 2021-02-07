@@ -306,11 +306,24 @@ Charger specific properties:
   Definition: Boolean flag which when present enables h/w based skin
 		temperature mitigation.
 
+- qcom,en-skin-therm-mitigation
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables skin
+		thermal mitigation.
+
 - qcom,connector-internal-pull-kohm
   Usage:      optional
   Value type: <u32>
   Definition: Specifies internal pull-up configuration to be applied to
 		connector THERM, only valid values are (0/30/100/400).
+		If not specified 100K is used as default pull-up.
+
+- qcom,smb-internal-pull-kohm
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies internal pull-up configuration to be applied to
+		smb THERM, only valid values are (0/30/100/400).
 		If not specified 100K is used as default pull-up.
 
 - qcom,wd-snarl-time-config

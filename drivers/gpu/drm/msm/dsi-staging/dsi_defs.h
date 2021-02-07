@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -264,6 +265,7 @@ enum dsi_dfps_type {
  * @DSI_CMD_SET_QSYNC_OFF                  Disable qsync mode
  * @DSI_CMD_SET_MAX
  */
+
 enum dsi_cmd_set_type {
 	DSI_CMD_SET_PRE_ON = 0,
 	DSI_CMD_SET_ON,
@@ -282,14 +284,76 @@ enum dsi_cmd_set_type {
 	DSI_CMD_SET_LP1,
 	DSI_CMD_SET_LP2,
 	DSI_CMD_SET_NOLP,
+	DSI_CMD_SET_DOZE_HBM,
+	DSI_CMD_SET_DOZE_LBM,
 	DSI_CMD_SET_PPS,
 	DSI_CMD_SET_ROI,
 	DSI_CMD_SET_TIMING_SWITCH,
 	DSI_CMD_SET_POST_TIMING_SWITCH,
+	DSI_CMD_SET_ELVSS_DIMMING_OFFSET,
+	DSI_CMD_SET_ELVSS_DIMMING_READ,
+	DSI_CMD_SET_DISP_WARM,
+	DSI_CMD_SET_DISP_DEFAULT,
+	DSI_CMD_SET_DISP_COLD,
+	DSI_CMD_SET_DISP_PAPER,
+	DSI_CMD_SET_DISP_PAPER1,
+	DSI_CMD_SET_DISP_PAPER2,
+	DSI_CMD_SET_DISP_PAPER3,
+	DSI_CMD_SET_DISP_PAPER4,
+	DSI_CMD_SET_DISP_PAPER5,
+	DSI_CMD_SET_DISP_PAPER6,
+	DSI_CMD_SET_DISP_PAPER7,
+	DSI_CMD_SET_DISP_NORMAL1,
+	DSI_CMD_SET_DISP_NORMAL2,
+	DSI_CMD_SET_DISP_SRGB,
+	DSI_CMD_SET_DISP_CEON,
+	DSI_CMD_SET_DISP_CEOFF,
+	DSI_CMD_SET_DISP_CABCUION,
+	DSI_CMD_SET_DISP_CABCSTILLON,
+	DSI_CMD_SET_DISP_CABCMOVIEON,
+	DSI_CMD_SET_DISP_CABCOFF,
+	DSI_CMD_SET_DISP_SKINCE_CABCUION,
+	DSI_CMD_SET_DISP_SKINCE_CABCSTILLON,
+	DSI_CMD_SET_DISP_SKINCE_CABCMOVIEON,
+	DSI_CMD_SET_DISP_SKINCE_CABCOFF,
+	DSI_CMD_SET_DISP_DIMMINGON,
+	DSI_CMD_SET_DISP_DIMMINGOFF,
+	DSI_CMD_SET_DISP_ACL_OFF,
+	DSI_CMD_SET_DISP_ACL_L1,
+	DSI_CMD_SET_DISP_ACL_L2,
+	DSI_CMD_SET_DISP_ACL_L3,
+	DSI_CMD_SET_DISP_LCD_HBM_L1_ON,
+	DSI_CMD_SET_DISP_LCD_HBM_L2_ON,
+	DSI_CMD_SET_DISP_LCD_HBM_OFF,
+	DSI_CMD_SET_DISP_HBM_ON,
+	DSI_CMD_SET_DISP_HBM_OFF,
+	DSI_CMD_SET_DISP_HBM_FOD_ON,
+	DSI_CMD_SET_DISP_HBM_FOD_OFF,
+	DSI_CMD_SET_DISP_HBM_FOD2NORM,
+	DSI_CMD_SET_DISP_OFF_MODE,
+	DSI_CMD_SET_DISP_ON_MODE,
+	DSI_CMD_SET_READ_XY_COORDINATE,
+	DSI_CMD_SET_READ_BRIGHTNESS,
+	DSI_CMD_SET_READ_MAX_LUMINANCE,
+	DSI_CMD_SET_MAX_LUMINANCE_VALID,
 	DSI_CMD_SET_QSYNC_ON,
 	DSI_CMD_SET_QSYNC_OFF,
+	DSI_CMD_SET_DISP_CRC_DCIP3,
+	DSI_CMD_SET_DISP_CRC_OFF,
+	DSI_CMD_SET_DISP_ELVSS_DIMMING_OFF,
+	DSI_CMD_SET_READ_LOCKDOWN_INFO,
+	DSI_CMD_SET_DISP_ONE_PLUSE,
+	DSI_CMD_SET_DISP_FOUR_PLUSE,
+	DSI_CMD_SET_DISP_DEMURA_LEVEL02,
+	DSI_CMD_SET_DISP_DEMURA_LEVEL08,
+	DSI_CMD_SET_DISP_DEMURA_LEVEL0D,
+	DSI_CMD_SET_DISP_DC_DEMURA_L1,
+	DSI_CMD_SET_DISP_DC_DEMURA_L2,
+	DSI_CMD_SET_DISP_DC_ON,
+	DSI_CMD_SET_DISP_DC_OFF,
 	DSI_CMD_SET_MAX
 };
+
 
 /**
  * enum dsi_cmd_set_state - command set state
@@ -392,6 +456,7 @@ struct dsi_panel_cmd_set {
  * @clk_rate_hz:      DSI bit clock rate per lane in Hz.
  * @mdp_transfer_time_us:   Specifies the mdp transfer time for command mode
  *                    panels in microseconds.
+ * @overlap_pixels:   overlap pixels for certain panels.
  * @dsc_enabled:      DSC compression enabled.
  * @dsc:              DSC compression configuration.
  * @roi_caps:         Panel ROI capabilities.
@@ -413,6 +478,7 @@ struct dsi_mode_info {
 	u32 refresh_rate;
 	u64 clk_rate_hz;
 	u32 mdp_transfer_time_us;
+	u32 overlap_pixels;
 	bool dsc_enabled;
 	struct msm_display_dsc_info *dsc;
 	struct msm_roi_caps roi_caps;
@@ -566,6 +632,7 @@ struct dsi_host_config {
  * @mdp_transfer_time_us:   Specifies the mdp transfer time for command mode
  *                          panels in microseconds.
  * @clk_rate_hz:          DSI bit clock per lane in hz.
+ * @overlap_pixels:       overlap pixels for certain panels.
  * @topology:             Topology selected for the panel
  * @dsc:                  DSC compression info
  * @dsc_enabled:          DSC compression enabled
@@ -582,6 +649,7 @@ struct dsi_display_mode_priv_info {
 	u32 panel_prefill_lines;
 	u32 mdp_transfer_time_us;
 	u64 clk_rate_hz;
+	u32 overlap_pixels;
 
 	struct msm_display_topology topology;
 	struct msm_display_dsc_info dsc;

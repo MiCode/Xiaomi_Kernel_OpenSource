@@ -1,6 +1,7 @@
 /*
  * aQuantia Corporation Network Driver
  * Copyright (C) 2018 aQuantia Corporation. All rights reserved
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -414,6 +415,8 @@ struct atl_fwd_ring *atl_fwd_request_ring(struct net_device *ndev,
 		atl_nic_err("%s: couldn't alloc the ring\n", __func__);
 		goto free_ring;
 	}
+
+	memset(hwring->descs, 0, hwring->size * sizeof(*hwring->descs));
 
 	hwring->reg_base = dir_tx ? ATL_TX_RING(idx) : ATL_RX_RING(idx);
 

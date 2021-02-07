@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1366,6 +1367,7 @@ void mhi_unregister_mhi_controller(struct mhi_controller *mhi_cntrl)
 	list_del(&mhi_cntrl->node);
 	mutex_unlock(&mhi_bus.lock);
 }
+EXPORT_SYMBOL(mhi_unregister_mhi_controller);
 
 /* set ptr to control private data */
 static inline void mhi_controller_set_devdata(struct mhi_controller *mhi_cntrl,
@@ -1466,6 +1468,7 @@ void mhi_unprepare_after_power_down(struct mhi_controller *mhi_cntrl)
 	mhi_deinit_dev_ctxt(mhi_cntrl);
 	mhi_cntrl->pre_init = false;
 }
+EXPORT_SYMBOL(mhi_unprepare_after_power_down);
 
 /* match dev to drv */
 static int mhi_match(struct device *dev, struct device_driver *drv)

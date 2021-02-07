@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -523,6 +524,7 @@ struct sde_mdss_color {
 #define SDE_DBG_MASK_DS       (1 << 13)
 #define SDE_DBG_MASK_REGDMA   (1 << 14)
 #define SDE_DBG_MASK_QDSS     (1 << 15)
+#define SDE_DBG_MASK_SID      (1 << 15)
 
 /**
  * struct sde_hw_cp_cfg: hardware dspp/lm feature payload.

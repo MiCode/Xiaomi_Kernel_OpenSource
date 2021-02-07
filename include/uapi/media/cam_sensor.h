@@ -9,7 +9,6 @@
 #define CAM_FLASH_MAX_LED_TRIGGERS 3
 #define MAX_OIS_NAME_SIZE 32
 #define CAM_CSIPHY_SECURE_MODE_ENABLED 1
-#define CAM_IR_LED_SUPPORTED
 /**
  * struct cam_sensor_query_cap - capabilities info for sensor
  *
@@ -23,7 +22,6 @@
  * @ois_slot_id      :  OIS slot id which connected to sensor
  * @flash_slot_id    :  Flash slot id which connected to sensor
  * @csiphy_slot_id   :  CSIphy slot id which connected to sensor
- * @irled_slot_id    :  IRLED slot id which connected to sensor
  *
  */
 struct  cam_sensor_query_cap {
@@ -37,7 +35,9 @@ struct  cam_sensor_query_cap {
 	uint32_t        ois_slot_id;
 	uint32_t        flash_slot_id;
 	uint32_t        csiphy_slot_id;
-	uint32_t        ir_led_slot_id;
+#if defined (CONFIG_SOFTLED_CAMERA) || defined (TUCANA_CAM) || defined(TOCO_CAM)
+	uint32_t        soft_flash_slot_id;
+#endif
 } __attribute__((packed));
 
 /**
@@ -115,6 +115,8 @@ struct cam_ois_opcode {
 	uint32_t coeff;
 	uint32_t pheripheral;
 	uint32_t memory;
+	uint8_t  fw_addr_type; //Xiaomi add
+	uint8_t  is_addr_increase; //Xiaomi add
 } __attribute__((packed));
 
 /**
@@ -125,6 +127,7 @@ struct cam_ois_opcode {
  * @cmd_type              :    Explains type of command
  * @ois_fw_flag           :    indicates if fw is present or not
  * @is_ois_calib          :    indicates the calibration data is available
+ * @is_ois_pre_init       :    indicates the pre initialize data is available
  * @ois_name              :    OIS name
  * @opcode                :    opcode
  */
@@ -134,6 +137,7 @@ struct cam_cmd_ois_info {
 	uint8_t               cmd_type;
 	uint8_t               ois_fw_flag;
 	uint8_t               is_ois_calib;
+	uint8_t               is_ois_pre_init; //xiaomi add
 	char                  ois_name[MAX_OIS_NAME_SIZE];
 	struct cam_ois_opcode opcode;
 } __attribute__((packed));
@@ -370,6 +374,7 @@ struct cam_sensor_acquire_dev {
 	uint32_t    handle_type;
 	uint32_t    reserved;
 	uint64_t    info_handle;
+	uint32_t    operation_mode;//XIAOMI: libin16 add for face unlock
 } __attribute__((packed));
 
 /**
@@ -477,32 +482,4 @@ struct cam_flash_query_cap_info {
 	uint32_t    max_current_torch[CAM_FLASH_MAX_LED_TRIGGERS];
 } __attribute__ ((packed));
 
-/**
- * struct cam_ir_led_query_cap  :  capabilities info for ir_led
- *
- * @slot_info           :  Indicates about the slotId or cell Index
- *
- */
-struct cam_ir_led_query_cap_info {
-	uint32_t    slot_info;
-} __attribute__ ((packed));
-
-/**
- * struct cam_ir_ledset_on_off : led turn on/off command buffer
- *
- * @opcode             :   command buffer opcodes
- * @cmd_type           :   command buffer operation type
- * @ir_led_intensity   :   ir led intensity level
- * @pwm_duty_on_ns     :   PWM duty cycle in ns for IRLED intensity
- * @pwm_period_ns      :   PWM period in ns
- *
- */
-struct cam_ir_led_set_on_off {
-	uint16_t    reserved;
-	uint8_t     opcode;
-	uint8_t     cmd_type;
-	uint32_t    ir_led_intensity;
-	uint32_t    pwm_duty_on_ns;
-	uint32_t    pwm_period_ns;
-} __attribute__((packed));
 #endif

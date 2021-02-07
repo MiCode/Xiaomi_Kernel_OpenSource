@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -68,8 +69,7 @@ enum {
 	R_MAX
 };
 
-#define SDE_QSEED3_DEFAULT_PRELOAD_H 0x4
-#define SDE_QSEED3_DEFAULT_PRELOAD_V 0x3
+#define SDE_QSEED_DEFAULT_DYN_EXP 0x0
 
 #define DEFAULT_REFRESH_RATE	60
 
@@ -713,12 +713,13 @@ static void _sde_plane_set_qos_remap(struct drm_plane *plane)
 	qos_params.clk_ctrl = psde->pipe_hw->cap->clk_ctrl;
 	qos_params.xin_id = psde->pipe_hw->cap->xin_id;
 	qos_params.num = psde->pipe_hw->idx - SSPP_VIG0;
-	qos_params.is_rt = psde->is_rt_pipe;
+	qos_params.client_type = psde->is_rt_pipe ?
+					VBIF_RT_CLIENT : VBIF_NRT_CLIENT;
 
 	SDE_DEBUG("plane%d pipe:%d vbif:%d xin:%d rt:%d, clk_ctrl:%d\n",
 			plane->base.id, qos_params.num,
 			qos_params.vbif_idx,
-			qos_params.xin_id, qos_params.is_rt,
+			qos_params.xin_id, qos_params.client_type,
 			qos_params.clk_ctrl);
 
 	sde_vbif_set_qos_remap(sde_kms, &qos_params);
@@ -871,11 +872,11 @@ static void _sde_plane_inline_rot_set_qos_remap(struct drm_plane *plane,
 	qos_params.xin_id = cfg->xin_id;
 	qos_params.clk_ctrl = cfg->clk_ctrl;
 	qos_params.num = cfg->num;
-	qos_params.is_rt = true;
+	qos_params.client_type = VBIF_RT_CLIENT;
 
 	SDE_DEBUG("vbif:%d xin:%d num:%d rt:%d clk_ctrl:%d\n",
-			qos_params.vbif_idx, qos_params.xin_id,
-			qos_params.num, qos_params.is_rt, qos_params.clk_ctrl);
+		qos_params.vbif_idx, qos_params.xin_id,
+		qos_params.num, qos_params.client_type, qos_params.clk_ctrl);
 
 	sde_vbif_set_qos_remap(sde_kms, &qos_params);
 }
@@ -1169,12 +1170,15 @@ static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 			scale_cfg->src_width[i] /= chroma_subsmpl_h;
 			scale_cfg->src_height[i] /= chroma_subsmpl_v;
 		}
-		scale_cfg->preload_x[i] = SDE_QSEED3_DEFAULT_PRELOAD_H;
-		scale_cfg->preload_y[i] = SDE_QSEED3_DEFAULT_PRELOAD_V;
+
+		scale_cfg->preload_x[i] = psde->pipe_sblk->scaler_blk.h_preload;
+		scale_cfg->preload_y[i] = psde->pipe_sblk->scaler_blk.v_preload;
+
 		pstate->pixel_ext.num_ext_pxls_top[i] =
 			scale_cfg->src_height[i];
 		pstate->pixel_ext.num_ext_pxls_left[i] =
 			scale_cfg->src_width[i];
+
 	}
 
 	if ((!(SDE_FORMAT_IS_YUV(fmt)) && (src_h == dst_h)
@@ -1195,6 +1199,7 @@ static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 	scale_cfg->lut_flag = 0;
 	scale_cfg->blend_cfg = 1;
 	scale_cfg->enable = 1;
+	scale_cfg->dyn_exp_disabled = SDE_QSEED_DEFAULT_DYN_EXP;
 }
 
 /**
@@ -3899,7 +3904,7 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	if (psde->revalidate) {
 		SDE_DEBUG("plane:%d - reconfigure all the parameters\n",
 				plane->base.id);
-		pstate->dirty = SDE_PLANE_DIRTY_ALL | SDE_PLANE_DIRTY_CP;
+		pstate->dirty = SDE_PLANE_DIRTY_ALL;
 		psde->revalidate = false;
 	}
 
@@ -3933,6 +3938,7 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		case PLANE_PROP_ALPHA:
 		case PLANE_PROP_INPUT_FENCE:
 		case PLANE_PROP_BLEND_OP:
+		case PLANE_PROP_FOD:
 			/* no special action required */
 			break;
 		case PLANE_PROP_FB_TRANSLATION_MODE:
@@ -4254,6 +4260,18 @@ static void _sde_plane_atomic_disable(struct drm_plane *plane,
 				SDE_SSPP_RECT_SOLO, SDE_SSPP_MULTIRECT_NONE);
 }
 
+int sde_plane_check_fod_layer(const struct drm_plane_state *drm_state)
+{
+	struct sde_plane_state *pstate;
+
+	if (!drm_state)
+		return 0;
+
+	pstate = to_sde_plane_state(drm_state);
+
+	return sde_plane_get_property(pstate, PLANE_PROP_FOD);
+}
+
 static void sde_plane_atomic_update(struct drm_plane *plane,
 				struct drm_plane_state *old_state)
 {
@@ -4370,6 +4388,9 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 
 	msm_property_install_range(&psde->property_info, "zpos",
 		0x0, 0, zpos_max, zpos_def, PLANE_PROP_ZPOS);
+
+	msm_property_install_range(&psde->property_info, "fod",
+		0x0, 0, INT_MAX, 0, PLANE_PROP_FOD);
 
 	msm_property_install_range(&psde->property_info, "alpha",
 		0x0, 0, 255, 255, PLANE_PROP_ALPHA);
@@ -4524,6 +4545,8 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			psde->pipe_sblk->maxvdeciexp);
 	sde_kms_info_add_keyint(info, "max_per_pipe_bw",
 			psde->pipe_sblk->max_per_pipe_bw * 1000LL);
+	sde_kms_info_add_keyint(info, "max_per_pipe_bw_high",
+			psde->pipe_sblk->max_per_pipe_bw_high * 1000LL);
 
 	if ((!master_plane_id &&
 		(psde->features & BIT(SDE_SSPP_INVERSE_PMA))) ||

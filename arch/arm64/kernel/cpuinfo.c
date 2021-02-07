@@ -2,6 +2,7 @@
  * Record and handle CPU attributes.
  *
  * Copyright (C) 2014 ARM Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -81,6 +82,7 @@ static const char *const hwcap_str[] = {
 	"sm4",
 	"asimddp",
 	"sha512",
+	"ssbs",
 	NULL
 };
 

@@ -1,4 +1,5 @@
 /* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +29,10 @@
 &qupv3_se3_i2c {
 	status = "ok";
 	#include "smb1390.dtsi"
+};
+
+&fsa4480 {
+	status = "disabled";
 };
 
 &pm6150l_gpios {
@@ -197,10 +202,6 @@
 	status = "ok";
 };
 
-&pm6150l_pwm_1 {
-	status = "okay";
-};
-
 &pm6150_qg {
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,qg-iterm-ma = <100>;
@@ -322,13 +323,16 @@
 	regulator-max-microvolt = <2912000>;
 };
 
-&dsi_hx83112a_truly_video {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
-	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
-	qcom,platform-te-gpio = <&tlmm 90 0>;
-	qcom,platform-reset-gpio = <&tlmm 91 0>;
+&sde_dp {
+	status="disabled";
+};
+
+&mdss_dp_pll {
+	status="disabled";
+};
+
+&mdss_mdp {
+	connectors = <&sde_rscc &sde_wb &sde_dsi>;
 };
 
 &qupv3_se1_i2c {

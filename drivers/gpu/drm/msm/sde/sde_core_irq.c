@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -496,6 +497,10 @@ void sde_core_irq_preinstall(struct sde_kms *sde_kms)
 			sizeof(atomic_t), GFP_KERNEL);
 	sde_kms->irq_obj.irq_counts = kcalloc(sde_kms->irq_obj.total_irqs,
 			sizeof(atomic_t), GFP_KERNEL);
+	if (!sde_kms->irq_obj.irq_cb_tbl || !sde_kms->irq_obj.enable_counts
+			|| !sde_kms->irq_obj.irq_counts)
+		return;
+
 	for (i = 0; i < sde_kms->irq_obj.total_irqs; i++) {
 		if (sde_kms->irq_obj.irq_cb_tbl)
 			INIT_LIST_HEAD(&sde_kms->irq_obj.irq_cb_tbl[i]);

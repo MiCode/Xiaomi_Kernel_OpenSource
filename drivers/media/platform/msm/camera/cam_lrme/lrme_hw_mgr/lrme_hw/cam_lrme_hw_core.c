@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -955,7 +956,8 @@ int cam_lrme_hw_submit_req(void *hw_priv, void *hw_submit_args,
 
 	if (lrme_core->req_submit != NULL) {
 		CAM_ERR(CAM_LRME, "req_submit is not NULL");
-		return -EBUSY;
+		rc = -EBUSY;
+		goto error;
 	}
 
 	rc = cam_lrme_hw_util_submit_req(lrme_core, frame_req);

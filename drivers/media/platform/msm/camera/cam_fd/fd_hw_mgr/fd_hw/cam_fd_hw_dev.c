@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -116,6 +117,7 @@ static int cam_fd_hw_dev_probe(struct platform_device *pdev)
 
 	memset(&init_args, 0x0, sizeof(init_args));
 	memset(&deinit_args, 0x0, sizeof(deinit_args));
+	init_args.reset_required = true;
 	rc = cam_fd_hw_init(fd_hw, &init_args, sizeof(init_args));
 	if (rc) {
 		CAM_ERR(CAM_FD, "Failed to hw init, rc=%d", rc);
@@ -201,6 +203,10 @@ static const struct of_device_id cam_fd_hw_dt_match[] = {
 	{
 		.compatible = "qcom,fd41",
 		.data = &cam_fd_wrapper120_core410_info,
+	},
+	{
+		.compatible = "qcom,fd501",
+		.data = &cam_fd_wrapper200_core501_info,
 	},
 	{
 		.compatible = "qcom,fd501",

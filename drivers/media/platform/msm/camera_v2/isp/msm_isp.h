@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,6 +132,8 @@ struct msm_isp_timestamp {
 	struct timeval vt_time;
 	/*Wall clock for userspace event*/
 	struct timeval event_time;
+	/* event time in nanosec*/
+	uint64_t buf_time_ns;
 };
 
 struct msm_vfe_irq_ops {
@@ -874,6 +877,9 @@ struct vfe_device {
 	/* irq info */
 	uint32_t dual_irq_mask;
 	uint32_t irq_sof_id;
+
+	/* nano sec timestamp */
+	uint32_t nanosec_ts_enable;
 };
 
 struct vfe_parent_device {

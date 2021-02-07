@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -304,6 +305,8 @@
 #define GCC_USB30_SEC_BCR					39
 #define GCC_USB_PHY_CFG_AHB2PHY_BCR			40
 #define GCC_VIDEO_AXIC_CLK_BCR				41
+#define GCC_VIDEO_AXI0_CLK_BCR				42
+#define GCC_VIDEO_AXI1_CLK_BCR				43
 
 #define MMCX_CLK					0
 #endif

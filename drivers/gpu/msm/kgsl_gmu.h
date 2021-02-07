@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -120,6 +121,7 @@ enum gmu_load_mode {
 };
 
 struct kgsl_mailbox {
+	bool enabled;
 	struct mbox_client *client;
 	struct mbox_chan *channel;
 };

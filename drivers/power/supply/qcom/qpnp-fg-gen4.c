@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1029,7 +1030,7 @@ static int fg_gen4_get_prop_soc_scale(struct fg_gen4_chip *chip)
 	return rc;
 }
 
-#define SDAM1_MEM_127_REG	0xB0BF
+#define SDAM1_MEM_124_REG	0xB0BC
 static int fg_gen4_set_calibrate_level(struct fg_gen4_chip *chip, int val)
 {
 	struct fg_dev *fg = &chip->fg;
@@ -1048,9 +1049,10 @@ static int fg_gen4_set_calibrate_level(struct fg_gen4_chip *chip, int val)
 		return 0;
 
 	buf = (u8)val;
-	rc = fg_write(fg, SDAM1_MEM_127_REG, &buf, 1);
+	rc = fg_write(fg, SDAM1_MEM_124_REG, &buf, 1);
 	if (rc < 0) {
-		pr_err("Error in writing to 0xB0BF, rc=%d\n", rc);
+		pr_err("Error in writing to 0x%04X, rc=%d\n",
+			SDAM1_MEM_124_REG, rc);
 		return rc;
 	}
 
@@ -1061,9 +1063,10 @@ static int fg_gen4_set_calibrate_level(struct fg_gen4_chip *chip, int val)
 		return rc;
 	}
 
-	rc = fg_read(fg, SDAM1_MEM_127_REG, &buf, 1);
+	rc = fg_read(fg, SDAM1_MEM_124_REG, &buf, 1);
 	if (rc < 0) {
-		pr_err("Error in reading from 0xB0BF, rc=%d\n", rc);
+		pr_err("Error in reading from 0x%04X, rc=%d\n",
+			SDAM1_MEM_124_REG, rc);
 		return rc;
 	}
 
@@ -2332,8 +2335,8 @@ done:
 out:
 	if (!chip->esr_fast_calib || is_debug_batt_id(fg)) {
 		/* If it is debug battery, then disable ESR fast calibration */
-		chip->esr_fast_calib = false;
 		fg_gen4_esr_fast_calib_config(chip, false);
+		chip->esr_fast_calib = false;
 	}
 
 	if (chip->dt.multi_profile_load && rc < 0)

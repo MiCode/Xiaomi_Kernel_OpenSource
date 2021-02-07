@@ -1,4 +1,5 @@
 /* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,7 +59,7 @@
 
 static struct llcc_slice_config atoll_data[] =  {
 	SCT_ENTRY("cpuss",       1, 1, 256, 1, 0, 0xF, 0x0, 0, 0, 0, 1, 1),
-	SCT_ENTRY("modem",       8, 8, 256, 0, 0, 0xF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("modem",       8, 8, 128, 1, 0, 0xF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("gpuhtw",      11, 11, 128, 1, 0, 0xF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("gpu",         12, 12, 128, 1, 0, 0xF, 0x0, 0, 0, 0, 1, 0),
 };

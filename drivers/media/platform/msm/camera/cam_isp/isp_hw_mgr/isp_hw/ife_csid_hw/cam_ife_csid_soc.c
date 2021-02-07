@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,7 +118,7 @@ int cam_ife_csid_deinit_soc_resources(
 }
 
 int cam_ife_csid_enable_soc_resources(
-	struct cam_hw_soc_info *soc_info, enum cam_vote_level clk_level)
+	struct cam_hw_soc_info *soc_info, uint32_t clk_lvl)
 {
 	int rc = 0;
 	struct cam_csid_soc_private       *soc_private;
@@ -129,7 +130,6 @@ int cam_ife_csid_enable_soc_resources(
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SVS_VOTE;
 	axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
-	axi_vote.compressed_bw_ab = CAM_CPAS_DEFAULT_AXI_BW;
 	axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 
 	CAM_DBG(CAM_ISP, "csid vote compressed_bw:%lld uncompressed_bw:%lld",
@@ -143,7 +143,7 @@ int cam_ife_csid_enable_soc_resources(
 	}
 
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
-		clk_level, true);
+		clk_lvl, true);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "enable platform failed");
 		goto stop_cpas;
@@ -235,4 +235,25 @@ int cam_ife_csid_disable_ife_force_clock_on(struct cam_hw_soc_info *soc_info,
 		soc_info->index);
 
 	return rc;
+}
+
+uint32_t cam_ife_csid_get_vote_level(struct cam_hw_soc_info *soc_info,
+	uint64_t clock_rate)
+{
+	int i = 0;
+
+	if (!clock_rate)
+		return CAM_SVS_VOTE;
+
+	for (i = 0; i < CAM_MAX_VOTE; i++) {
+		if (soc_info->clk_rate[i][soc_info->num_clk - 1] >=
+			clock_rate) {
+			CAM_DBG(CAM_ISP,
+				"Clock rate %lld, selected clock level %d",
+				clock_rate, i);
+			return i;
+		}
+	}
+
+	return CAM_TURBO_VOTE;
 }

@@ -4,7 +4,10 @@ Qualcomm Technologies, Inc. High Speed I2S Interface
 
 Required properties:
 
- - compatible : Should be "qcom,hsi2s"
+ - compatible : Should include "qcom,hsi2s"
+		Should include target specific compatible field
+		"qcom,sa6155-hsi2s" for SA6155
+		"qcom,sa8155-hsi2s" for SA8155
  - number-of-interfaces : Denotes the number of HS-I2S interfaces
  - reg : Specifies the base physical address and the size of the HS-I2S
 	 register space
@@ -12,6 +15,8 @@ Required properties:
  - interrupts : Interrupt number used by this interface
  - clocks : Core clocks used by this interface
  - clock-names : Clock names for each core clock
+ - bit-clock-hz : Default bit clock frequency in hertz
+ - interrupt-interval-ms : Default interrupt interval in milliseconds
 
 * HS-I2S interface nodes
 
@@ -21,6 +26,7 @@ Required properties:
  - minor-number : Minor number of the character device interface
 		  Should be 0 for HS0 interface
 		  Should be 1 for HS1 interface
+		  Should be 2 for HS2 interface
  - clocks : Interface clock used by this interface
  - clock-names : Clock name for the interface clock
  - pinctrl-names : Pinctrl state names for each pin group configuration
@@ -35,7 +41,7 @@ Optional properties:
 Example:
 
 hsi2s: qcom,hsi2s {
-	compatible = "qcom,hsi2s";
+	compatible = "qcom,sa6155-hsi2s", "qcom,hsi2s";
 	number-of-interfaces = <2>;
 	reg = <0x1B40000 0x28000>;
 	reg-names = "lpa_if";

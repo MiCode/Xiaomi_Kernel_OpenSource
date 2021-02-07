@@ -2,6 +2,7 @@
  * core.h - DesignWare USB3 DRD Core Header
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -45,6 +46,7 @@
 #define DWC3_EP0_SETUP_SIZE	512
 #define DWC3_ENDPOINTS_NUM	32
 #define DWC3_XHCI_RESOURCES_NUM	2
+#define MAX_ERROR_RECOVERY_TRIES	3
 
 #define DWC3_SCRATCHBUF_SIZE	4096	/* each buffer is assumed to be 4KiB */
 #define DWC3_EVENT_BUFFERS_SIZE	4096
@@ -1204,6 +1206,7 @@ struct dwc3 {
 	 * connected devices on PM resume.
 	 */
 	bool			host_poweroff_in_pm_suspend;
+	int			retries_on_error;
 };
 
 #define work_to_dwc(w)		(container_of((w), struct dwc3, drd_work))

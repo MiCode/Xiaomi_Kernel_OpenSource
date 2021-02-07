@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -310,7 +311,7 @@ void dsi_ctrl_hw_cmn_set_video_timing(struct dsi_ctrl_hw *ctrl,
 		reg |= 1;
 		DSI_W32(ctrl, DSI_VIDEO_COMPRESSION_MODE_CTRL, reg);
 	} else {
-		width = mode->h_active;
+		width = mode->h_active + mode->overlap_pixels;
 	}
 
 	hs_end = mode->h_sync_width;
@@ -421,8 +422,8 @@ void dsi_ctrl_hw_cmn_setup_cmd_stream(struct dsi_ctrl_hw *ctrl,
 		stride_final = roi->w * 3;
 		height_final = roi->h;
 	} else {
-		width_final = mode->h_active;
-		stride_final = h_stride;
+		width_final = mode->h_active + mode->overlap_pixels;
+		stride_final = h_stride + mode->overlap_pixels * 3;
 		height_final = mode->v_active;
 	}
 

@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -165,10 +166,12 @@ struct cam_fd_hw_release_args {
  *
  * @hw_ctx         : HW context for which init is requested
  * @ctx_hw_private : HW layer's private information specific to this hw context
+ * @reset_required : Indicates if the reset is required during init or not
  */
 struct cam_fd_hw_init_args {
 	void    *hw_ctx;
 	void    *ctx_hw_private;
+	bool     reset_required;
 };
 
 /**

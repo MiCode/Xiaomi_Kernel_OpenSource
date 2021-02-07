@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -522,6 +523,7 @@ static const struct of_device_id clk_rpmh_match_table[] = {
 	{ .compatible = "qcom,rpmh-clk-sdmmagpie", .data = &clk_rpmh_sm6150},
 	{ .compatible = "qcom,rpmh-clk-sdxprairie",
 						.data = &clk_rpmh_sdxprairie},
+	{ .compatible = "qcom,rpmh-clk-atoll", .data = &clk_rpmh_sm6150},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, clk_rpmh_match_table);
