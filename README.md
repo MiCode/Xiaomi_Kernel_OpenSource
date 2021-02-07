@@ -50,6 +50,7 @@
 | latte-l-oss | Mi Pad 2 | Android L | imin.cht_rvp.a51.20150519-2015_ww20_b | [latte-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/latte-l-oss) |
 | laurel-q-oss| Mi A3 | Android Q | LA.UM.8.11.r1-01200-NICOBAR.0 | [laurel-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/laurel-q-oss) |
 | laurus-p-oss| MI CC 9e, Mi A3 | Android P | LA.UM.7.11.r1-02100-NICOBAR.0 | [laurus-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/laurus-p-oss) |
+| laurus-q-oss | MI CC 9e | Android Q | LA.UM.8.11.r1-01200-NICOBAR.0-2 | [laurus-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/laurus-q-oss) |
 | lavender-p-oss| Redmi Note 7 | Android P | LA.UM.7.2.r1-04900-sdm660.0 | [lavender-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/lavender-p-oss) |
 | lavender-q-oss | Redmi Note 7 | Android Q | LA.UM.8.2.r1-04800-sdm660.0-1 | [lavender-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/lavender-q-oss) |
 | lancelot-q-oss | Redmi 10X 4G,Redmi 9,Redmi POCO M2 | Android Q | MTK | [lancelot-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/lancelot-q-oss) |
