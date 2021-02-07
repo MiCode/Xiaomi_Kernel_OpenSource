@@ -35,6 +35,7 @@
 #include "ccci_platform.h"
 #include "ccci_hif_ccif.h"
 #include "md_sys1_platform.h"
+#include "modem_secure_base.h"
 
 #ifdef CONFIG_OF
 #include <linux/of.h>
@@ -627,10 +628,9 @@ static void md_ccif_sram_rx_work(struct work_struct *work)
 		i += 4;
 	}
 
-	if (atomic_cmpxchg(&md_ctrl->wakeup_src, 1, 0) == 1) {
-		md_ctrl->wakeup_count++;
+	if (test_and_clear_bit((D2H_SRAM), &md_ctrl->wakeup_ch)) {
 		CCCI_NOTICE_LOG(md_ctrl->md_id, TAG,
-			"CCIF_MD wakeup source:(SRX_IDX/%d)(%u)\n",
+			"CCIF_MD wakeup source:(SRX_IDX/%d)(%u), HS1\n",
 			ccci_h->channel, md_ctrl->wakeup_count);
 	}
 	ccci_hdr = *ccci_h;
@@ -942,12 +942,12 @@ static int ccif_rx_collect(struct md_ccif_queue *queue, int budget,
 				c2k_mem_dump(data_ptr, pkg_size);
 			}
 		}
-		if (atomic_cmpxchg(&md_ctrl->wakeup_src, 1, 0) == 1) {
-			md_ctrl->wakeup_count++;
+		if (test_and_clear_bit(queue->index, &md_ctrl->wakeup_ch)) {
 			CCCI_NOTICE_LOG(md_ctrl->md_id, TAG,
-				"CCIF_MD wakeup source:(%d/%d/%x)(%u)\n",
+				"CCIF_MD wakeup source:(%d/%d/%x)(%u) %s\n",
 				queue->index, ccci_h->channel,
-				ccci_h->reserved, md_ctrl->wakeup_count);
+				ccci_h->reserved, md_ctrl->wakeup_count,
+				ccci_port_get_dev_name(ccci_h->channel));
 		}
 		if (ccci_h->channel == CCCI_C2K_LB_DL)
 			atomic_set(&lb_dl_q, queue->index);
@@ -1266,12 +1266,14 @@ static void md_ccif_launch_work(struct md_ccif_ctrl *md_ctrl)
 	if (md_ctrl->channel_id & (1 << AP_MD_CCB_WAKEUP)) {
 		clear_bit(AP_MD_CCB_WAKEUP, &md_ctrl->channel_id);
 		CCCI_DEBUG_LOG(md_ctrl->md_id, TAG, "CCB wakeup\n");
-		if (atomic_cmpxchg(&md_ctrl->wakeup_src, 1, 0) == 1) {
-			md_ctrl->wakeup_count++;
+
+		if (test_and_clear_bit(AP_MD_CCB_WAKEUP,
+			&md_ctrl->wakeup_ch)) {
 			CCCI_NOTICE_LOG(md_ctrl->md_id, TAG,
-			"CCIF_MD wakeup source:(CCB)(%u)\n",
-			md_ctrl->wakeup_count);
+				"CCIF_MD wakeup source:(CCB)(%u)\n",
+				md_ctrl->wakeup_count);
 		}
+
 #ifdef DEBUG_FOR_CCB
 		/* CCB count here for channel_id of ccb is clear in this if */
 		md_ctrl->traffic_info.latest_q_rx_isr_time[AP_MD_CCB_WAKEUP]
@@ -1800,13 +1802,18 @@ static int ccif_debug(unsigned char hif_id,
 
 	switch (flag) {
 	case CCCI_HIF_DEBUG_SET_WAKEUP:
-		arch_atomic_set(&ccif_ctrl->wakeup_src, para[0]);
-		ret = para[0];
+		CCCI_NORMAL_LOG(-1, TAG,
+			"CCIF0 Wake up old path: channel_id == 0x%x\n",
+			ccif_read32(ccif_ctrl->ccif_ap_base, APCCIF_RCHNUM));
+		ccif_ctrl->wakeup_ch =
+			ccif_read32(ccif_ctrl->ccif_ap_base, APCCIF_RCHNUM);
+		ret = 0;
 		break;
 	case CCCI_HIF_DEBUG_RESET:
 		ccci_reset_ccif_hw(ccif_ctrl->md_id, AP_MD1_CCIF,
 			ccif_ctrl->ccif_ap_base,
 			ccif_ctrl->ccif_md_base, ccif_ctrl);
+		ret = 0;
 		break;
 	default:
 		break;
@@ -2131,29 +2138,6 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 
 }
 
-static int ccci_ccif_syssuspend(void)
-{
-
-	return 0;
-}
-
-static void ccci_ccif_sysresume(void)
-{
-	struct md_ccif_ctrl *md_ctrl =
-		(struct md_ccif_ctrl *)ccci_hif_get_by_id(CCIF_HIF_ID);
-
-	if (md_ctrl  && md_ctrl->plat_val.md_gen == 6293)
-		ccif_write32(md_ctrl->ccif_ap_base, APCCIF_CON, 0x01);
-	else if (!md_ctrl)
-		CCCI_ERROR_LOG(-1, TAG,
-			"[%s] error: ccci_hif_get_by_id failed.", __func__);
-}
-
-static struct syscore_ops ccci_ccif_sysops = {
-	.suspend = ccci_ccif_syssuspend,
-	.resume = ccci_ccif_sysresume,
-};
-
 int ccci_ccif_hif_init(struct platform_device *pdev,
 	unsigned char hif_id, unsigned char md_id)
 {
@@ -2186,7 +2170,7 @@ int ccci_ccif_hif_init(struct platform_device *pdev,
 		syscon_regmap_lookup_by_phandle(node_md,
 		"ccci-infracfg");
 	atomic_set(&md_ctrl->reset_on_going, 1);
-	atomic_set(&md_ctrl->wakeup_src, 0);
+	md_ctrl->wakeup_ch = 0;
 	atomic_set(&md_ctrl->ccif_irq_enabled, 1);
 	atomic_set(&md_ctrl->ccif_irq1_enabled, 1);
 	ccci_reset_seq_num(&md_ctrl->traffic_info);
@@ -2206,10 +2190,6 @@ int ccci_ccif_hif_init(struct platform_device *pdev,
 		CCCI_ERROR_LOG(-1, TAG, "ccci ccif hw init fail");
 		return ret;
 	}
-
-	/* register SYS CORE suspend resume call back */
-	register_syscore_ops(&ccci_ccif_sysops);
-
 	ccci_hif_register(md_ctrl->hif_id, (void *)md_ctrl, &ccci_hif_ccif_ops);
 
 	return 0;
@@ -2228,6 +2208,47 @@ int ccci_hif_ccif_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static int ccif_suspend_noirq(struct device *dev)
+{
+	return 0;
+}
+
+static int ccif_resume_noirq(struct device *dev)
+{
+	struct arm_smccc_res res;
+	struct md_ccif_ctrl *ccif_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(CCIF_HIF_ID);
+	unsigned int ccif_ch;
+
+	if (ccif_ctrl && ccif_ctrl->plat_val.md_gen == 6293)
+		ccif_write32(ccif_ctrl->ccif_ap_base, APCCIF_CON, 0x01);
+	else if (!ccif_ctrl) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error: ccci_hif_get_by_id failed.", __func__);
+		return 0;
+	}
+
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
+		MD_WAKEUP_AP_SRC, WAKE_SRC_HIF_CCIF0, 0, 0, 0, 0, &res);
+	CCCI_NORMAL_LOG(-1, TAG,
+		"[%s] flag_1=0x%llx, flag_2=0x%llx, flag_3=0x%llx, flag_4=0x%llx\n",
+		__func__, res.a0, res.a1, res.a2, res.a3);
+	if (!res.a0 && res.a1 == WAKE_SRC_HIF_CCIF0) {
+		ccif_ch = ccif_read32(ccif_ctrl->ccif_ap_base, APCCIF_RCHNUM);
+		CCCI_NORMAL_LOG(-1, TAG,
+			"CCIF 0 Wake up: channel_id == 0x%x\n", ccif_ch);
+		ccif_ctrl->wakeup_ch = ccif_ch;
+		ccif_ctrl->wakeup_count++;
+	}
+	return 0;
+}
+
+
+static const struct dev_pm_ops ccif_pm_ops = {
+	.suspend_noirq = ccif_suspend_noirq,
+	.resume_noirq = ccif_resume_noirq,
+};
+
 static const struct of_device_id ccci_ccif_of_ids[] = {
 	{.compatible = "mediatek,ccci_ccif"},
 	{}
@@ -2238,6 +2259,7 @@ static struct platform_driver ccci_hif_ccif_driver = {
 	.driver = {
 		.name = "ccci_hif_ccif",
 		.of_match_table = ccci_ccif_of_ids,
+		.pm = &ccif_pm_ops,
 	},
 
 	.probe = ccci_hif_ccif_probe,

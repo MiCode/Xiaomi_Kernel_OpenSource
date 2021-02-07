@@ -116,6 +116,18 @@ static struct ccci_plat_ops md_cd_plat_ptr = {
 	.vcore_config = NULL,
 };
 
+static size_t mt_secure_call(
+		size_t arg0, size_t arg1, size_t arg2,
+		size_t arg3, size_t r1, size_t r2, size_t r3)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, arg0, arg1,
+			arg2, arg3, r1, r2, r3, &res);
+
+	return res.a0;
+}
+
 #ifdef ENABLE_DEBUG_DUMP /* Fix me! */
 void md1_subsys_debug_dump(enum subsys_id sys)
 {

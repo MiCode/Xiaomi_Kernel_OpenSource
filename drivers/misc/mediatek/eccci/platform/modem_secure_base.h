@@ -25,6 +25,7 @@ enum MD_CLOCK_REG_ID {
 	MD_REG_AP_MDSRC_REQ = 0,
 	MD_REG_AP_MDSRC_ACK,
 	MD_REG_AP_MDSRC_SETTLE,
+	MD_WAKEUP_AP_SRC,
 };
 
 enum MD_POWER_CONFIG_ID {
@@ -34,22 +35,5 @@ enum MD_POWER_CONFIG_ID {
 	MD_CHECK_DONE,
 	MD_BOOT_STATUS,
 };
-
-
-static size_t mt_secure_call(
-		size_t arg0, size_t arg1, size_t arg2,
-		size_t arg3, size_t r1, size_t r2, size_t r3)
-{
-	struct arm_smccc_res res;
-
-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, arg0, arg1,
-			arg2, arg3, r1, r2, r3, &res);
-
-	return res.a0;
-}
-
-#define mdreg_write32(reg_id, value)		\
-	mt_secure_call(MD_DBGSYS_REG_DUMP, \
-			reg_id, value, 0, 0, 0, 0)
 
 #endif				/* __MODEM_SECURE_BASE_H__ */
