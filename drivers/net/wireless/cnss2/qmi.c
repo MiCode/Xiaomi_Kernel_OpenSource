@@ -21,7 +21,10 @@
 #define REGDB_FILE_NAME			"regdb.bin"
 #define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
 
-#define QDSS_TRACE_CONFIG_FILE "qdss_trace_config.cfg"
+#define QDSS_TRACE_CONFIG_FILE		"qdss_trace_config"
+#define DEBUG_STR			"debug"
+#define HW_V1_NUMBER			"v1"
+#define HW_V2_NUMBER			"v2"
 
 #define QMI_WLFW_TIMEOUT_MS		(plat_priv->ctrl_params.qmi_timeout)
 #define QMI_WLFW_TIMEOUT_JF		msecs_to_jiffies(QMI_WLFW_TIMEOUT_MS)
@@ -921,6 +924,38 @@ end:
 	return ret;
 }
 
+#ifdef CONFIG_CNSS2_DEBUG
+static void cnss_get_qdss_cfg_filename(struct cnss_plat_data *plat_priv,
+				       char *filename, u32 filename_len)
+{
+	char filename_tmp[MAX_FIRMWARE_NAME_LEN];
+
+	if (plat_priv->device_version.major_version == FW_V2_NUMBER)
+		snprintf(filename_tmp, filename_len, QDSS_TRACE_CONFIG_FILE
+			 "_%s_%s.cfg", DEBUG_STR, HW_V2_NUMBER);
+	else
+		snprintf(filename_tmp, filename_len, QDSS_TRACE_CONFIG_FILE
+			 "_%s_%s.cfg", DEBUG_STR, HW_V1_NUMBER);
+
+	cnss_bus_add_fw_prefix_name(plat_priv, filename, filename_tmp);
+}
+#else
+static void cnss_get_qdss_cfg_filename(struct cnss_plat_data *plat_priv,
+				       char *filename, u32 filename_len)
+{
+	char filename_tmp[MAX_FIRMWARE_NAME_LEN];
+
+	if (plat_priv->device_version.major_version == FW_V2_NUMBER)
+		snprintf(filename_tmp, filename_len, QDSS_TRACE_CONFIG_FILE
+			 "_%s.cfg", HW_V2_NUMBER);
+	else
+		snprintf(filename_tmp, filename_len, QDSS_TRACE_CONFIG_FILE
+			 "_%s.cfg", HW_V1_NUMBER);
+
+	cnss_bus_add_fw_prefix_name(plat_priv, filename, filename_tmp);
+}
+#endif
+
 int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 {
 	struct wlfw_qdss_trace_config_download_req_msg_v01 *req;
@@ -928,6 +963,7 @@ int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 	struct qmi_txn txn;
 	const struct firmware *fw_entry = NULL;
 	const u8 *temp;
+	char qdss_cfg_filename[MAX_FIRMWARE_NAME_LEN];
 	unsigned int remaining;
 	int ret = 0;
 
@@ -944,11 +980,12 @@ int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 		return -ENOMEM;
 	}
 
-	ret = request_firmware(&fw_entry, QDSS_TRACE_CONFIG_FILE,
+	cnss_get_qdss_cfg_filename(plat_priv, qdss_cfg_filename, sizeof(qdss_cfg_filename));
+	ret = request_firmware(&fw_entry, qdss_cfg_filename,
 			       &plat_priv->plat_dev->dev);
 	if (ret) {
 		cnss_pr_err("Failed to load QDSS: %s\n",
-			    QDSS_TRACE_CONFIG_FILE);
+			    qdss_cfg_filename);
 		goto err_req_fw;
 	}
 
@@ -956,7 +993,7 @@ int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 	remaining = fw_entry->size;
 
 	cnss_pr_dbg("Downloading QDSS: %s, size: %u\n",
-		    QDSS_TRACE_CONFIG_FILE, remaining);
+		    qdss_cfg_filename, remaining);
 
 	while (remaining) {
 		req->total_size_valid = 1;
@@ -1027,6 +1064,97 @@ err_req_fw:
 	kfree(req);
 	kfree(resp);
 	return ret;
+}
+
+static int wlfw_send_qdss_trace_mode_req
+		(struct cnss_plat_data *plat_priv,
+		 enum wlfw_qdss_trace_mode_enum_v01 mode,
+		 unsigned long long option)
+{
+	int rc = 0;
+	int tmp = 0;
+	struct wlfw_qdss_trace_mode_req_msg_v01 *req;
+	struct wlfw_qdss_trace_mode_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	req->mode_valid = 1;
+	req->mode = mode;
+	req->option_valid = 1;
+	req->option = option;
+
+	tmp = plat_priv->hw_trc_override;
+
+	req->hw_trc_disable_override_valid = 1;
+	req->hw_trc_disable_override =
+	(tmp > QMI_PARAM_DISABLE_V01 ? QMI_PARAM_DISABLE_V01 :
+		 (tmp < 0 ? QMI_PARAM_INVALID_V01 : tmp));
+
+	cnss_pr_dbg("%s: mode %u, option %llu, hw_trc_disable_override: %u",
+		    __func__, mode, option, req->hw_trc_disable_override);
+
+	rc = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
+			  wlfw_qdss_trace_mode_resp_msg_v01_ei, resp);
+	if (rc < 0) {
+		cnss_pr_err("Fail to init txn for QDSS Mode resp %d\n",
+			    rc);
+		goto out;
+	}
+
+	rc = qmi_send_request(&plat_priv->qmi_wlfw, NULL, &txn,
+			      QMI_WLFW_QDSS_TRACE_MODE_REQ_V01,
+			      WLFW_QDSS_TRACE_MODE_REQ_MSG_V01_MAX_MSG_LEN,
+			      wlfw_qdss_trace_mode_req_msg_v01_ei, req);
+	if (rc < 0) {
+		qmi_txn_cancel(&txn);
+		cnss_pr_err("Fail to send QDSS Mode req %d\n", rc);
+		goto out;
+	}
+
+	rc = qmi_txn_wait(&txn, plat_priv->ctrl_params.qmi_timeout);
+	if (rc < 0) {
+		cnss_pr_err("QDSS Mode resp wait failed with rc %d\n",
+			    rc);
+		goto out;
+	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		cnss_pr_err("QMI QDSS Mode request rejected, result:%d error:%d\n",
+			    resp->resp.result, resp->resp.error);
+		rc = -resp->resp.result;
+		goto out;
+	}
+
+	kfree(resp);
+	kfree(req);
+	return rc;
+out:
+	kfree(resp);
+	kfree(req);
+	CNSS_QMI_ASSERT();
+	return rc;
+}
+
+int wlfw_qdss_trace_send_start(struct cnss_plat_data *plat_priv)
+{
+	return wlfw_send_qdss_trace_mode_req(plat_priv,
+					     QMI_WLFW_QDSS_TRACE_ON_V01, 0);
+}
+
+int wlfw_qdss_trace_send_stop(struct cnss_plat_data *plat_priv, unsigned long long option)
+{
+	return wlfw_send_qdss_trace_mode_req(plat_priv, QMI_WLFW_QDSS_TRACE_OFF_V01,
+					     option);
 }
 
 int cnss_wlfw_wlan_mode_send_sync(struct cnss_plat_data *plat_priv,
