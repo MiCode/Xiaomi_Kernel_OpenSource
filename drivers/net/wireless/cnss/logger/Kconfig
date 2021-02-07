@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# cnss logger configuration
+#
+
+config CNSS_LOGGER
+	tristate "CNSS Logging Service Driver"
+	help
+	  This module adds support for the CNSS Logging Service for CLD
+	  driver, including the netlink socket service registration, transmit,
+	  event receive.
