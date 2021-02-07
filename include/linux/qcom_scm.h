@@ -90,6 +90,7 @@ extern int qcom_scm_spin_cpu(void);
 extern void qcom_scm_set_download_mode(enum qcom_download_mode mode,
 				       phys_addr_t tcsr_boot_misc);
 extern int qcom_scm_config_cpu_errata(void);
+extern void qcom_scm_phy_update_scm_level_shifter(u32 val);
 extern bool qcom_scm_pas_supported(u32 peripheral);
 extern int qcom_scm_pas_init_image(u32 peripheral, const void *metadata,
 				   size_t size);
@@ -219,6 +220,7 @@ static inline void qcom_scm_set_download_mode(enum qcom_download_mode mode,
 		phys_addr_t tcsr_boot_misc) {}
 static inline int qcom_scm_config_cpu_errata(void)
 		{ return -ENODEV; }
+static inline void qcom_scm_phy_update_scm_level_shifter(u32 val) {}
 static inline bool qcom_scm_pas_supported(u32 peripheral) { return false; }
 static inline int qcom_scm_pas_init_image(u32 peripheral, const void *metadata,
 					  size_t size) { return -ENODEV; }

@@ -174,6 +174,14 @@ int qcom_scm_config_cpu_errata(void)
 }
 EXPORT_SYMBOL(qcom_scm_config_cpu_errata);
 
+void qcom_scm_phy_update_scm_level_shifter(u32 val)
+{
+	struct device *dev = __scm ? __scm->dev : NULL;
+
+	__qcom_scm_phy_update_scm_level_shifter(dev, val);
+}
+EXPORT_SYMBOL(qcom_scm_phy_update_scm_level_shifter);
+
 /**
  * qcom_scm_pas_supported() - Check if the peripheral authentication service is
  *			      available for the given peripherial
