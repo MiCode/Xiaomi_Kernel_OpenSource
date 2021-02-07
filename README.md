@@ -112,6 +112,7 @@
 | vangogh-q-oss | Mi 10 Lite 5G, Mi 10 Lite Zoom | Android Q | LA.UM.8.13.r1-04700-SAIPAN.0 | [vangogh-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/vangogh-q-oss) |
 | venus-r-oss | Mi 11 | Android R | LA.UM.9.14.r1-10000-LAHAINA.0 | [venus-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/venus-r-oss) |
 | violet-p-oss | Redmi Note 7Pro | Android P | LA.UM.7.9.r1-03500-sm6150.0 | [violet-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/violet-p-oss) |
+| violet-q-oss | Redmi Note 7 Pro | Android Q | LA.UM.8.9.r1-04400-SM6xx.0-1 | [violet-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/violet-q-oss) |
 | whyred-n-oss | Redmi Note 5 | Android N | LA.UM.6.1.r1-11000-sdm660.0 | [whyred-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/whyred-n-oss) |
 | whyred-o-oss | Redmi Note 5, Redmi Note6 Pro, Mi 6X | Android O | LA.UM.6.2.r1-06100-sdm660.0 | [whyred-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/whyred-o-oss) |
 | willow-p-oss | Redmi Note 8T | Android P | LA.UM.7.11.r1-02700-NICOBAR.0 | [willow-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/willow-p-oss) |
