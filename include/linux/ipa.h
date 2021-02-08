@@ -1412,6 +1412,7 @@ int ipa_put_rt_tbl(u32 rt_tbl_hdl);
 int ipa_register_intf(const char *name,
 	const struct ipa_tx_intf *tx,
 	const struct ipa_rx_intf *rx);
+int ipa_deregister_intf(const char *name);
 
 /*
  * Aggregation
@@ -1586,7 +1587,11 @@ int ipa_enable_wdi_pipe(u32 clnt_hdl);
 int ipa_disable_wdi_pipe(u32 clnt_hdl);
 int ipa_resume_wdi_pipe(u32 clnt_hdl);
 int ipa_suspend_wdi_pipe(u32 clnt_hdl);
-
+int ipa_reg_uc_rdyCB(struct ipa_wdi_uc_ready_params *param);
+int ipa_dereg_uc_rdyCB(void);
+int ipa_add_hdr(struct ipa_ioc_add_hdr *hdrs);
+int ipa_del_hdr(struct ipa_ioc_del_hdr *hdls);
+int ipa_get_hdr(struct ipa_ioc_get_hdr *lookup);
 /**
  * ipa_get_wdi_stats() - Query WDI statistics from uc
  * @stats:	[inout] stats blob from client populated by driver
@@ -2334,26 +2339,6 @@ static inline struct iommu_domain *ipa_get_smmu_domain(void)
 
 static inline int ipa_disable_apps_wan_cons_deaggr(
 	uint32_t agg_size, uint32_t agg_count)
-{
-	return -EPERM;
-}
-
-static inline int ipa_add_hdr(struct ipa_ioc_add_hdr *hdrs)
-{
-	return -EPERM;
-}
-
-static inline int ipa_del_hdr(struct ipa_ioc_del_hdr *hdls)
-{
-	return -EPERM;
-}
-
-static inline int ipa_get_hdr(struct ipa_ioc_get_hdr *lookup)
-{
-	return -EPERM;
-}
-
-static inline int ipa_deregister_intf(const char *name)
 {
 	return -EPERM;
 }
