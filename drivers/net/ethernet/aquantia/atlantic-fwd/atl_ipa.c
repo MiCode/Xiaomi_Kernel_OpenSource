@@ -7,6 +7,7 @@
 
 #include <linux/gfp.h>
 #include <linux/slab.h>
+#include <linux/pm_wakeup.h>
 
 #include <linux/ipa_eth.h>
 #include <linux/etherdevice.h>
@@ -103,6 +104,7 @@ struct aqo_device {
 	union aqc_ipa_eth_hdr hdr_v4;
 	union aqc_ipa_eth_hdr hdr_v6;
 
+	struct wakeup_source *ws;
 	phys_addr_t mmio_phys_addr;
 	unsigned long long exception_packets;
 };
@@ -1022,6 +1024,13 @@ static int atl_ipa_open_device(struct ipa_eth_device *eth_dev)
 	if (!aqo_dev)
 		return -ENOMEM;
 
+	aqo_dev->ws = wakeup_source_register(eth_dev->dev, "aqc-ipa");
+	if (!aqo_dev->ws) {
+		aqo_log_err(aqo_dev, "Error in initializing wake up source\n");
+		kfree(aqo_dev);
+		return -ENOMEM;
+	}
+
 	aqo_dev->eth_client.inst_id = AQC_IPA_INST_ID;
 	aqo_dev->eth_client.client_type = IPA_ETH_CLIENT_AQC107;
 	aqo_dev->eth_client.traffic_type = IPA_ETH_PIPE_BEST_EFFORT;
@@ -1031,12 +1040,17 @@ static int atl_ipa_open_device(struct ipa_eth_device *eth_dev)
 	eth_dev->net_dev = nic->ndev;
 	aqo_dev->eth_dev = eth_dev;
 
+	__pm_stay_awake(aqo_dev->ws);
+
 	return 0;
 }
 
 static void atl_ipa_close_device(struct ipa_eth_device *eth_dev)
 {
 	struct aqo_device *aqo_dev = eth_dev->od_priv;
+
+	__pm_relax(aqo_dev->ws);
+	wakeup_source_unregister(aqo_dev->ws);
 
 	eth_dev->od_priv = NULL;
 	eth_dev->net_dev = NULL;
