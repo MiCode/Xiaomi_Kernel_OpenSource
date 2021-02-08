@@ -11,7 +11,7 @@
 
 #include <trace/events/sched.h>
 
-#include "walt.h"
+#include "walt/walt.h"
 
 #include <trace/hooks/sched.h>
 

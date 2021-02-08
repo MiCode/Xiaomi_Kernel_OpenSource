@@ -21,7 +21,7 @@
 #include "../smpboot.h"
 
 #include "pelt.h"
-#include "walt.h"
+#include "walt/walt.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
