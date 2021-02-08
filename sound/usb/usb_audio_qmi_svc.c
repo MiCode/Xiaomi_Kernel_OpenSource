@@ -21,7 +21,6 @@
 #include <linux/dma-map-ops.h>
 #include <linux/platform_device.h>
 #include <linux/usb/audio-v3.h>
-#include <linux/usb/xhci-sec.h>
 #include <linux/ipc_logging.h>
 
 #include "usbaudio.h"
@@ -51,6 +50,17 @@
 #define IOVA_XFER_BUF_MAX (0xfffff000 - PAGE_SIZE)
 
 #define MAX_XFER_BUFF_LEN (24 * PAGE_SIZE)
+
+struct xhci_ring;
+
+struct xhci_ring *xhci_sec_event_ring_setup(struct usb_device *udev,
+		unsigned int intr_num);
+int xhci_sec_event_ring_cleanup(struct usb_device *udev, struct xhci_ring *ring);
+phys_addr_t xhci_get_sec_event_ring_phys_addr(struct usb_device *udev,
+		struct xhci_ring *ring, dma_addr_t *dma);
+phys_addr_t xhci_get_xfer_ring_phys_addr(struct usb_device *udev,
+		struct usb_host_endpoint *ep, dma_addr_t *dma);
+int xhci_stop_endpoint(struct usb_device *udev, struct usb_host_endpoint *ep);
 
 struct iova_info {
 	struct list_head list;
@@ -98,6 +108,7 @@ struct uaudio_qmi_dev {
 	struct device *dev;
 	u32 sid;
 	u32 intr_num;
+	struct xhci_ring *sec_ring;
 	struct iommu_domain *domain;
 
 	/* list to keep track of available iova */
@@ -671,25 +682,26 @@ skip_sync_ep:
 	dma_coherent = dev_is_dma_coherent(subs->dev->bus->sysdev);
 
 	/* event ring */
-	ret = xhci_sec_event_ring_setup(subs->dev, resp->interrupter_num);
-	if (ret) {
+	uaudio_qdev->sec_ring = xhci_sec_event_ring_setup(subs->dev, resp->interrupter_num);
+	if (IS_ERR(uaudio_qdev->sec_ring)) {
+		ret = PTR_ERR(uaudio_qdev->sec_ring);
 		uaudio_err("failed to setup sec event ring ret %d\n", ret);
 		goto err;
 	}
 
 	xhci_pa = xhci_get_sec_event_ring_phys_addr(subs->dev,
-			resp->interrupter_num, &dma);
+			uaudio_qdev->sec_ring, &dma);
 	if (!xhci_pa) {
 		uaudio_err("failed to get sec event ring dma address\n");
 		ret = -ENODEV;
-		goto err;
+		goto free_sec_ring;
 	}
 
 	va = uaudio_iommu_map(MEM_EVENT_RING, dma_coherent, xhci_pa, PAGE_SIZE,
 			NULL);
 	if (!va) {
 		ret = -ENOMEM;
-		goto err;
+		goto free_sec_ring;
 	}
 
 	resp->xhci_mem_info.evt_ring.va = PREPEND_SID_TO_IOVA(va,
@@ -825,6 +837,8 @@ unmap_data:
 	uaudio_iommu_unmap(MEM_XFER_RING, tr_data_va, PAGE_SIZE, PAGE_SIZE);
 unmap_er:
 	uaudio_iommu_unmap(MEM_EVENT_RING, IOVA_BASE, PAGE_SIZE, PAGE_SIZE);
+free_sec_ring:
+	xhci_sec_event_ring_cleanup(subs->dev, uaudio_qdev->sec_ring);
 err:
 	return ret;
 }
@@ -886,7 +900,7 @@ static void uaudio_dev_cleanup(struct uaudio_dev *dev)
 	if (!uaudio_qdev->card_slot) {
 		uaudio_iommu_unmap(MEM_EVENT_RING, IOVA_BASE, PAGE_SIZE,
 			PAGE_SIZE);
-		xhci_sec_event_ring_cleanup(dev->udev, uaudio_qdev->intr_num);
+		xhci_sec_event_ring_cleanup(dev->udev, uaudio_qdev->sec_ring);
 		uaudio_dbg("all audio devices disconnected\n");
 	}
 
@@ -966,7 +980,7 @@ static void uaudio_dev_release(struct kref *kref)
 
 	/* all audio devices are disconnected */
 	if (!uaudio_qdev->card_slot) {
-		xhci_sec_event_ring_cleanup(dev->udev, uaudio_qdev->intr_num);
+		xhci_sec_event_ring_cleanup(dev->udev, uaudio_qdev->sec_ring);
 		uaudio_iommu_unmap(MEM_EVENT_RING, IOVA_BASE, PAGE_SIZE,
 			PAGE_SIZE);
 		uaudio_dbg("all audio devices disconnected\n");
