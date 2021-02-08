@@ -1,0 +1,129 @@
+#include <dt-bindings/thermal/thermal_qti.h>
+
+&thermal_zones {
+	socd {
+		cooling-maps {
+			socd_apc1 {
+				trip = <&socd_trip>;
+				cooling-device = <&APC1_pause 1 1>;
+			};
+		};
+	};
+
+	pm8350b-bcl-lvl0 {
+		cooling-maps {
+			vbat_cpu_4_5 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&cpu_4_5_pause 1 1>;
+			};
+
+			vbat_gpu0 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
+		};
+	};
+
+	pm8350b-bcl-lvl1 {
+		cooling-maps {
+			vbat_cpu_6_7 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&cpu_6_7_pause 1 1>;
+			};
+
+			vbat_gpu1 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&msm_gpu 4 4>;
+			};
+		};
+	};
+
+	pm8350b-bcl-lvl2 {
+		cooling-maps {
+			vbat_gpu2 {
+				trip = <&b_bcl_lvl2>;
+				cooling-device = <&msm_gpu 7 THERMAL_NO_LIMIT>;
+			};
+		};
+	};
+
+	pm8350c-bcl-lvl0 {
+		cooling-maps {
+			vph_cpu_4_5 {
+				trip = <&c_bcl_lvl0>;
+				cooling-device = <&cpu_4_5_pause 1 1>;
+			};
+
+			vph_gpu0 {
+				trip = <&c_bcl_lvl0>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
+		};
+	};
+
+	pm8350c-bcl-lvl1 {
+		cooling-maps {
+			vph_cpu_6_7 {
+				trip = <&c_bcl_lvl1>;
+				cooling-device = <&cpu_6_7_pause 1 1>;
+			};
+
+			vph_gpu1 {
+				trip = <&c_bcl_lvl1>;
+				cooling-device = <&msm_gpu 4 4>;
+			};
+		};
+	};
+
+	pm8350c-bcl-lvl2 {
+		cooling-maps {
+			vph_gpu2 {
+				trip = <&c_bcl_lvl2>;
+				cooling-device = <&msm_gpu 7 THERMAL_NO_LIMIT>;
+			};
+		};
+	};
+
+	pm8450_tz {
+		cooling-maps {
+			pm8450_cpu4_freq {
+				trip = <&pm8450_trip0>;
+				cooling-device = <&CPU4 15 THERMAL_NO_LIMIT>;
+			};
+
+			pm8450_cpu7_freq {
+				trip = <&pm8450_trip0>;
+				cooling-device = <&CPU7 15 THERMAL_NO_LIMIT>;
+			};
+
+			pm8450_apc1 {
+				trip = <&pm8450_trip0>;
+				cooling-device = <&APC1_pause 1 1>;
+			};
+		};
+	};
+
+	pm8350_tz {
+		cooling-maps {
+			pm8350_gpu {
+				trip = <&pm8350_trip0>;
+				cooling-device = <&msm_gpu 7 THERMAL_NO_LIMIT>;
+			};
+
+			pm8350_cpu4_freq {
+				trip = <&pm8350_trip0>;
+				cooling-device = <&CPU4 15 THERMAL_NO_LIMIT>;
+			};
+
+			pm8350_cpu7_freq {
+				trip = <&pm8350_trip0>;
+				cooling-device = <&CPU7 15 THERMAL_NO_LIMIT>;
+			};
+
+			pm8350_apc1 {
+				trip = <&pm8350_trip0>;
+				cooling-device = <&APC1_pause 1 1>;
+			};
+		};
+	};
+};
