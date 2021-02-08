@@ -847,6 +847,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	int bhr_opp_local;
 	int bhr_local;
 	int cluster = 0;
+	int freq_trace;
 	unsigned int max_cap_base = 100;
 	unsigned int max_cap_jerk = 0;
 	unsigned int max_cap = 0;
@@ -932,14 +933,16 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 				max_cap_jerk = max(max_cap_jerk,
 					cpu_dvfs[cluster].capacity_ratio[min(mbhr_opp, i)]);
 
-			freq_ceiling[cluster] = cpu_dvfs[cluster].power[min(mbhr_opp, i)];
+			freq_ceiling[cluster] = freq_trace =
+				cpu_dvfs[cluster].power[min(mbhr_opp, i)];
 		} else {
+			freq_trace = cpu_dvfs[cluster].power[0];
 			freq_ceiling[cluster] = -1;
 		}
 
 		if (enable_ceiling)
 			fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
-				freq_ceiling[cluster],	"cpu_ceil_cluster_%d", cluster);
+				freq_trace,	"cluster%d ceiling_freq", cluster);
 	}
 
 	max_cap_jerk = max_cap_jerk == 0 ? 100 : max_cap_jerk;
