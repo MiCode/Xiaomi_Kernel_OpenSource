@@ -1595,10 +1595,6 @@ static int dwc3_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	if (notify_event)
-		/* will be enabled in dwc3_msm_resume() */
-		disable_irq(irq);
-
 	dwc->irq = irq;
 	/*
 	 * Request memory region but exclude xHCI regs,
@@ -1655,13 +1651,10 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	spin_lock_init(&dwc->lock);
 
-	pm_runtime_no_callbacks(dev);
 	pm_runtime_set_active(dev);
-	if (dwc->enable_bus_suspend) {
-		pm_runtime_set_autosuspend_delay(dev,
-			DWC3_DEFAULT_AUTOSUSPEND_DELAY);
-		pm_runtime_use_autosuspend(dev);
-	}
+	pm_runtime_set_autosuspend_delay(dev,
+		DWC3_DEFAULT_AUTOSUSPEND_DELAY);
+	pm_runtime_use_autosuspend(dev);
 	pm_runtime_enable(dev);
 	pm_runtime_forbid(dev);
 
@@ -1676,31 +1669,24 @@ static int dwc3_probe(struct platform_device *pdev)
 	if (ret)
 		goto err2;
 
-	if (!notify_event) {
-		ret = dwc3_core_init(dwc);
-		if (ret) {
-			dev_err_probe(dev, ret, "failed to initialize core\n");
-			goto err3;
-		}
+	ret = dwc3_core_init(dwc);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "failed to initialize core: %d\n",
+					ret);
+		goto err3;
+	}
 
-		ret = dwc3_event_buffers_setup(dwc);
-		if (ret) {
-			dev_err(dwc->dev, "failed to setup event buffers\n");
-			goto err3;
-		}
+	ret = dwc3_event_buffers_setup(dwc);
+	if (ret) {
+		dev_err(dwc->dev, "failed to setup event buffers\n");
+		goto err3;
+	}
 
-		ret = dwc3_core_init_mode(dwc);
-		if (ret) {
-			dwc3_event_buffers_cleanup(dwc);
-			goto err3;
-		}
-	} else if (dwc->dr_mode == USB_DR_MODE_OTG ||
-		dwc->dr_mode == USB_DR_MODE_PERIPHERAL) {
-		ret = dwc3_gadget_init(dwc);
-		if (ret) {
-			dev_err(dwc->dev, "gadget init failed %d\n", ret);
-			goto err3;
-		}
+	ret = dwc3_core_init_mode(dwc);
+	if (ret) {
+		dwc3_event_buffers_cleanup(dwc);
+		goto err3;
 	}
 
 	dwc3_instance[count] = dwc;
@@ -1919,10 +1905,6 @@ static int dwc3_runtime_suspend(struct device *dev)
 	struct dwc3     *dwc = dev_get_drvdata(dev);
 	int		ret;
 
-	/* Check if platform glue driver handling PM, if not then handle here */
-	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_SUSPEND_EVENT, 0))
-		return 0;
-
 	if (dwc3_runtime_checks(dwc))
 		return -EBUSY;
 
@@ -1939,10 +1921,6 @@ static int dwc3_runtime_resume(struct device *dev)
 {
 	struct dwc3     *dwc = dev_get_drvdata(dev);
 	int		ret;
-
-	/* Check if platform glue driver handling PM, if not then handle here */
-	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_RESUME_EVENT, 0))
-		return 0;
 
 	device_init_wakeup(dev, false);
 
@@ -1993,13 +1971,17 @@ static int dwc3_suspend(struct device *dev)
 	struct dwc3	*dwc = dev_get_drvdata(dev);
 	int		ret;
 
-	/* Check if platform glue driver handling PM, if not then handle here */
-	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_SUSPEND_EVENT, 0))
-		return 0;
-
-	ret = dwc3_suspend_common(dwc, PMSG_SUSPEND);
-	if (ret)
-		return ret;
+	/*
+	 * Avoid suspending again if DWC3 core has already run the suspend
+	 * common.  The PM layer ensures that any pending runtime PM transition
+	 * states are completed, and PM runtime is disabled before calling the
+	 * device's PM suspend callback.
+	 */
+	if (!pm_runtime_status_suspended(dev)) {
+		ret = dwc3_suspend_common(dwc, PMSG_SUSPEND);
+		if (ret)
+			return ret;
+	}
 
 	pinctrl_pm_select_sleep_state(dev);
 
@@ -2011,30 +1993,11 @@ static int dwc3_resume(struct device *dev)
 	struct dwc3	*dwc = dev_get_drvdata(dev);
 	int		ret;
 
-	/* Check if platform glue driver handling PM, if not then handle here */
-	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_RESUME_EVENT, 0)) {
-		/*
-		 * If the core was in host mode during suspend, then set the
-		 * runtime PM state as active to reflect actual state of device
-		 * which is now out of LPM. This allows runtime_suspend later.
-		 */
-		if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_HOST &&
-		    dwc->host_poweroff_in_pm_suspend)
-			goto runtime_set_active;
-
-		return 0;
-	}
-
 	pinctrl_pm_select_default_state(dev);
 
 	ret = dwc3_resume_common(dwc, PMSG_RESUME);
 	if (ret)
 		return ret;
-
-runtime_set_active:
-	pm_runtime_disable(dev);
-	pm_runtime_set_active(dev);
-	pm_runtime_enable(dev);
 
 	return 0;
 }
