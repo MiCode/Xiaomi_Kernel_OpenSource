@@ -252,6 +252,7 @@
   cpu_pm_unregister_notifier
   __cpu_possible_mask
   __cpu_present_mask
+  cpupri_find_fitness
   cpu_scale
   cpus_read_lock
   cpus_read_unlock
@@ -2183,6 +2184,7 @@
   sys_tz
   task_active_pid_ns
   task_groups
+  task_may_not_preempt
   __tasklet_hi_schedule
   tasklet_init
   tasklet_kill
@@ -2243,6 +2245,7 @@
   __tracepoint_android_rvh_schedule
   __tracepoint_android_rvh_schedule_bug
   __tracepoint_android_rvh_select_task_rq_fair
+  __tracepoint_android_rvh_select_task_rq_rt
   __tracepoint_android_rvh_set_gfp_zone_flags
   __tracepoint_android_rvh_set_readahead_gfp_mask
   __tracepoint_android_rvh_set_skip_swapcache_flags
