@@ -80,7 +80,7 @@ int ovl_setattr(struct dentry *dentry, struct iattr *attr)
 		inode_lock(upperdentry->d_inode);
 		old_cred = ovl_override_creds(dentry->d_sb);
 		err = notify_change(upperdentry, attr, NULL);
-		ovl_revert_creds(dentry->d_sb, old_cred);
+		revert_creds(old_cred);
 		if (!err)
 			ovl_copyattr(upperdentry->d_inode, dentry->d_inode);
 		inode_unlock(upperdentry->d_inode);
@@ -272,7 +272,7 @@ int ovl_getattr(const struct path *path, struct kstat *stat,
 		stat->nlink = dentry->d_inode->i_nlink;
 
 out:
-	ovl_revert_creds(dentry->d_sb, old_cred);
+	revert_creds(old_cred);
 
 	return err;
 }
@@ -306,7 +306,7 @@ int ovl_permission(struct inode *inode, int mask)
 		mask |= MAY_READ;
 	}
 	err = inode_permission(realinode, mask);
-	ovl_revert_creds(inode->i_sb, old_cred);
+	revert_creds(old_cred);
 
 	return err;
 }
@@ -323,14 +323,20 @@ static const char *ovl_get_link(struct dentry *dentry,
 
 	old_cred = ovl_override_creds(dentry->d_sb);
 	p = vfs_get_link(ovl_dentry_real(dentry), done);
-	ovl_revert_creds(dentry->d_sb, old_cred);
+	revert_creds(old_cred);
 	return p;
 }
 
 bool ovl_is_private_xattr(struct super_block *sb, const char *name)
 {
-	return strncmp(name, OVL_XATTR_PREFIX,
-		       sizeof(OVL_XATTR_PREFIX) - 1) == 0;
+	struct ovl_fs *ofs = sb->s_fs_info;
+
+	if (ofs->config.userxattr)
+		return strncmp(name, OVL_XATTR_USER_PREFIX,
+			       sizeof(OVL_XATTR_USER_PREFIX) - 1) == 0;
+	else
+		return strncmp(name, OVL_XATTR_TRUSTED_PREFIX,
+			       sizeof(OVL_XATTR_TRUSTED_PREFIX) - 1) == 0;
 }
 
 int ovl_xattr_set(struct dentry *dentry, struct inode *inode, const char *name,
@@ -366,7 +372,7 @@ int ovl_xattr_set(struct dentry *dentry, struct inode *inode, const char *name,
 		WARN_ON(flags != XATTR_REPLACE);
 		err = vfs_removexattr(realdentry, name);
 	}
-	ovl_revert_creds(dentry->d_sb, old_cred);
+	revert_creds(old_cred);
 
 	/* copy c/mtime */
 	ovl_copyattr(d_inode(realdentry), inode);
@@ -388,7 +394,7 @@ int ovl_xattr_get(struct dentry *dentry, struct inode *inode, const char *name,
 	old_cred = ovl_override_creds(dentry->d_sb);
 	res = __vfs_getxattr(realdentry, d_inode(realdentry), name,
 			     value, size, flags);
-	ovl_revert_creds(dentry->d_sb, old_cred);
+	revert_creds(old_cred);
 	return res;
 }
 
@@ -416,7 +422,7 @@ ssize_t ovl_listxattr(struct dentry *dentry, char *list, size_t size)
 
 	old_cred = ovl_override_creds(dentry->d_sb);
 	res = vfs_listxattr(realdentry, list, size);
-	ovl_revert_creds(dentry->d_sb, old_cred);
+	revert_creds(old_cred);
 	if (res <= 0 || size == 0)
 		return res;
 
@@ -451,7 +457,7 @@ struct posix_acl *ovl_get_acl(struct inode *inode, int type)
 
 	old_cred = ovl_override_creds(inode->i_sb);
 	acl = get_acl(realinode, type);
-	ovl_revert_creds(inode->i_sb, old_cred);
+	revert_creds(old_cred);
 
 	return acl;
 }
@@ -477,7 +483,7 @@ static int ovl_fiemap(struct inode *inode, struct fiemap_extent_info *fieinfo,
 		      u64 start, u64 len)
 {
 	int err;
-	struct inode *realinode = ovl_inode_real(inode);
+	struct inode *realinode = ovl_inode_realdata(inode);
 	const struct cred *old_cred;
 
 	if (!realinode->i_op->fiemap)
@@ -485,7 +491,7 @@ static int ovl_fiemap(struct inode *inode, struct fiemap_extent_info *fieinfo,
 
 	old_cred = ovl_override_creds(inode->i_sb);
 	err = realinode->i_op->fiemap(realinode, fieinfo, start, len);
-	ovl_revert_creds(inode->i_sb, old_cred);
+	revert_creds(old_cred);
 
 	return err;
 }
@@ -691,7 +697,7 @@ static void ovl_fill_inode(struct inode *inode, umode_t mode, dev_t rdev)
  * For the first, copy up case, the union nlink does not change, whether the
  * operation succeeds or fails, but the upper inode nlink may change.
  * Therefore, before copy up, we store the union nlink value relative to the
- * lower inode nlink in the index inode xattr trusted.overlay.nlink.
+ * lower inode nlink in the index inode xattr .overlay.nlink.
  *
  * For the second, upper hardlink case, the union nlink should be incremented
  * or decremented IFF the operation succeeds, aligned with nlink change of the

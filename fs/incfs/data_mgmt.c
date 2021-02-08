@@ -123,6 +123,7 @@ int incfs_realloc_mount_info(struct mount_info *mi,
 
 void incfs_free_mount_info(struct mount_info *mi)
 {
+	int i;
 	if (!mi)
 		return;
 
@@ -136,8 +137,8 @@ void incfs_free_mount_info(struct mount_info *mi)
 	mutex_destroy(&mi->mi_zstd_workspace_mutex);
 	put_cred(mi->mi_owner);
 	kfree(mi->mi_log.rl_ring_buf);
-	kfree(mi->log_xattr);
-	kfree(mi->pending_read_xattr);
+	for (i = 0; i < ARRAY_SIZE(mi->pseudo_file_xattr); ++i)
+		kfree(mi->pseudo_file_xattr[i].data);
 	kfree(mi->mi_per_uid_read_timeouts);
 	kfree(mi);
 }
@@ -189,6 +190,7 @@ static struct data_file *handle_mapped_file(struct mount_info *mi,
 	struct path path;
 	struct file *bf;
 	struct data_file *result = NULL;
+	const struct cred *old_cred;
 
 	file_id_str = file_id_to_str(df->df_id);
 	if (!file_id_str)
@@ -211,7 +213,11 @@ static struct data_file *handle_mapped_file(struct mount_info *mi,
 		.dentry = index_file_dentry
 	};
 
-	bf = dentry_open(&path, O_RDWR | O_NOATIME | O_LARGEFILE, mi->mi_owner);
+	old_cred = override_creds(mi->mi_owner);
+	bf = dentry_open(&path, O_RDWR | O_NOATIME | O_LARGEFILE,
+			 current_cred());
+	revert_creds(old_cred);
+
 	if (IS_ERR(bf)) {
 		result = (struct data_file *)bf;
 		goto out;
@@ -644,7 +650,7 @@ static int validate_hash_tree(struct backing_file_context *bfc, struct file *f,
 			int i;
 			bool zero = true;
 
-			pr_debug("incfs: Hash mismatch lvl:%d blk:%d\n",
+			pr_warn("incfs: Hash mismatch lvl:%d blk:%d\n",
 				lvl, block_index);
 			for (i = 0; i < digest_size; i++)
 				if (stored_digest[i]) {
@@ -653,7 +659,7 @@ static int validate_hash_tree(struct backing_file_context *bfc, struct file *f,
 				}
 
 			if (zero)
-				pr_debug("incfs: Note saved_digest all zero - did you forget to load the hashes?\n");
+				pr_debug("Note saved_digest all zero - did you forget to load the hashes?\n");
 			return -EBADMSG;
 		}
 
@@ -678,7 +684,7 @@ static int validate_hash_tree(struct backing_file_context *bfc, struct file *f,
 		return res;
 
 	if (memcmp(stored_digest, calculated_digest, digest_size)) {
-		pr_debug("incfs: Leaf hash mismatch blk:%d\n", block_index);
+		pr_debug("Leaf hash mismatch blk:%d\n", block_index);
 		return -EBADMSG;
 	}
 
@@ -1128,7 +1134,7 @@ static int wait_for_data_block(struct data_file *df, int block_index,
 			 * Somehow wait finished successfully bug block still
 			 * can't be found. It's not normal.
 			 */
-			pr_warn("incfs:Wait succeeded, but block not found.\n");
+			pr_warn("incfs: Wait succeeded but block not found.\n");
 			error = -ENODATA;
 		}
 	}

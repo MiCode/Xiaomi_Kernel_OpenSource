@@ -30,12 +30,12 @@ DECLARE_HOOK(android_vh_scheduler_tick,
 	TP_ARGS(rq));
 
 DECLARE_RESTRICTED_HOOK(android_rvh_enqueue_task,
-	TP_PROTO(struct rq *rq, struct task_struct *p),
-	TP_ARGS(rq, p), 1);
+	TP_PROTO(struct rq *rq, struct task_struct *p, int flags),
+	TP_ARGS(rq, p, flags), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_dequeue_task,
-	TP_PROTO(struct rq *rq, struct task_struct *p),
-	TP_ARGS(rq, p), 1);
+	TP_PROTO(struct rq *rq, struct task_struct *p, int flags),
+	TP_ARGS(rq, p, flags), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_can_migrate_task,
 	TP_PROTO(struct task_struct *p, int dst_cpu, int *can_migrate),
@@ -101,10 +101,6 @@ DECLARE_RESTRICTED_HOOK(android_rvh_migrate_queued_task,
 		 struct task_struct *p, int new_cpu,
 		 int *detached),
 	TP_ARGS(rq, rf, p, new_cpu, detached), 1);
-
-DECLARE_RESTRICTED_HOOK(android_rvh_resume_cpus,
-	TP_PROTO(struct cpumask *cpus, int *err),
-	TP_ARGS(cpus, err), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_find_energy_efficient_cpu,
 	TP_PROTO(struct task_struct *p, int prev_cpu, int sync, int *new_cpu),
@@ -214,8 +210,8 @@ DECLARE_HOOK(android_vh_em_pd_energy,
 #define trace_android_rvh_select_task_rq_rt(p, prev_cpu, sd_flag, wake_flags, new_cpu)
 #define trace_android_rvh_select_fallback_rq(cpu, p, dest_cpu)
 #define trace_android_vh_scheduler_tick(rq)
-#define trace_android_rvh_enqueue_task(rq, p)
-#define trace_android_rvh_dequeue_task(rq, p)
+#define trace_android_rvh_enqueue_task(rq, p, flags)
+#define trace_android_rvh_dequeue_task(rq, p, flags)
 #define trace_android_rvh_can_migrate_task(p, dst_cpu, can_migrate)
 #define trace_android_rvh_find_lowest_rq(p, local_cpu_mask, ret, lowest_cpu)
 #define trace_android_rvh_prepare_prio_fork(p)
@@ -230,7 +226,6 @@ DECLARE_HOOK(android_vh_em_pd_energy,
 #define trace_android_rvh_sched_nohz_balancer_kick(rq, flags, done)
 #define trace_android_rvh_find_busiest_queue(dst_cpu, group, env_cpus, busiest, done)
 #define trace_android_rvh_migrate_queued_task(rq, rf, p, new_cpu, detached)
-#define trace_android_rvh_resume_cpus(cpus, err)
 #define trace_android_rvh_find_energy_efficient_cpu(p, prev_cpu, sync, new_cpu)
 #define trace_android_vh_set_sugov_sched_attr(attr)
 #define trace_android_rvh_set_iowait(p, should_iowait_boost)

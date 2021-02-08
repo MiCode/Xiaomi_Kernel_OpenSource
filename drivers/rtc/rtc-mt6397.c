@@ -536,7 +536,7 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 		if (mtk_rtc_set_spare(&pdev->dev))
 			dev_err(&pdev->dev, "spare is not supported\n");
 
-	return rtc_register_device(rtc->rtc_dev);
+	return devm_rtc_register_device(rtc->rtc_dev);
 }
 
 #ifdef CONFIG_PM_SLEEP

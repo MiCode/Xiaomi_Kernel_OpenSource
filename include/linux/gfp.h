@@ -39,21 +39,11 @@ struct vm_area_struct;
 #define ___GFP_HARDWALL		0x100000u
 #define ___GFP_THISNODE		0x200000u
 #define ___GFP_ACCOUNT		0x400000u
-#ifdef CONFIG_CMA
-#define ___GFP_CMA		0x800000u
-#else
-#define ___GFP_CMA		0
-#endif
 #ifdef CONFIG_LOCKDEP
-#ifdef CONFIG_CMA
-#define ___GFP_NOLOCKDEP	0x1000000u
-#else
 #define ___GFP_NOLOCKDEP	0x800000u
-#endif
 #else
 #define ___GFP_NOLOCKDEP	0
 #endif
-
 /* If the above are modified, __GFP_BITS_SHIFT may need updating */
 
 /*
@@ -67,7 +57,6 @@ struct vm_area_struct;
 #define __GFP_HIGHMEM	((__force gfp_t)___GFP_HIGHMEM)
 #define __GFP_DMA32	((__force gfp_t)___GFP_DMA32)
 #define __GFP_MOVABLE	((__force gfp_t)___GFP_MOVABLE)  /* ZONE_MOVABLE allowed */
-#define __GFP_CMA	((__force gfp_t)___GFP_CMA)
 #define GFP_ZONEMASK	(__GFP_DMA|__GFP_HIGHMEM|__GFP_DMA32|__GFP_MOVABLE)
 
 /**
@@ -235,11 +224,7 @@ struct vm_area_struct;
 #define __GFP_NOLOCKDEP ((__force gfp_t)___GFP_NOLOCKDEP)
 
 /* Room for N __GFP_FOO bits */
-#ifdef CONFIG_CMA
-#define __GFP_BITS_SHIFT (24 + IS_ENABLED(CONFIG_LOCKDEP))
-#else
 #define __GFP_BITS_SHIFT (23 + IS_ENABLED(CONFIG_LOCKDEP))
-#endif
 #define __GFP_BITS_MASK ((__force gfp_t)((1 << __GFP_BITS_SHIFT) - 1))
 
 /**
@@ -586,8 +571,6 @@ void * __meminit alloc_pages_exact_nid(int nid, size_t size, gfp_t gfp_mask);
 
 extern void __free_pages(struct page *page, unsigned int order);
 extern void free_pages(unsigned long addr, unsigned int order);
-extern void free_unref_page(struct page *page);
-extern void free_unref_page_list(struct list_head *list);
 
 struct page_frag_cache;
 extern void __page_frag_cache_drain(struct page *page, unsigned int count);

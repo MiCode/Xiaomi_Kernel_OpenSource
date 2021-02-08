@@ -34,6 +34,14 @@ config RPMSG_MTK_CCD
 	  communicate with Camera Control Daemon base on rpmsg framework. It
 	  provide channels, endpoints creation and send operations.
 
+config RPMSG_NS
+	tristate "RPMSG name service announcement"
+	depends on RPMSG
+	help
+	  Say Y here to enable the support of the name service announcement
+	  channel that probes the associated RPMsg device on remote endpoint
+	  service announcement.
+
 config RPMSG_MTK_SCP
 	tristate "MediaTek SCP"
 	depends on MTK_SCP
@@ -81,6 +89,7 @@ config RPMSG_VIRTIO
 	tristate "Virtio RPMSG bus driver"
 	depends on HAS_DMA
 	select RPMSG
+	select RPMSG_NS
 	select VIRTIO
 
 endmenu

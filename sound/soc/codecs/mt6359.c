@@ -42,16 +42,6 @@ static void mt6359_set_gpio_driving(struct mt6359_priv *priv)
 	regmap_update_bits(priv->regmap, MT6359_DRV_CON4, 0x00ff, 0x88);
 }
 
-int mt6359_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
-			       int mtkaif_protocol)
-{
-	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-
-	priv->mtkaif_protocol = mtkaif_protocol;
-	return 0;
-}
-EXPORT_SYMBOL_GPL(mt6359_set_mtkaif_protocol);
-
 static void mt6359_set_playback_gpio(struct mt6359_priv *priv)
 {
 	/* set gpio mosi mode, clk / data mosi */
@@ -132,7 +122,7 @@ static void mt6359_reset_vow_gpio(struct mt6359_priv *priv)
 			   0x1 << 0, 0x0);
 }
 
-/* use only when not govern by DAPM */
+/* use only when doing mtkaif calibraiton at the boot time */
 static void mt6359_set_dcxo(struct mt6359_priv *priv, bool enable)
 {
 	regmap_update_bits(priv->regmap, MT6359_DCXO_CW12,
@@ -217,6 +207,15 @@ static void mt6359_mtkaif_tx_disable(struct mt6359_priv *priv)
 	regmap_update_bits(priv->regmap, MT6359_AFE_AUD_PAD_TOP,
 			   0xff00, 0x3000);
 }
+
+void mt6359_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
+				int mtkaif_protocol)
+{
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	priv->mtkaif_protocol = mtkaif_protocol;
+}
+EXPORT_SYMBOL_GPL(mt6359_set_mtkaif_protocol);
 
 void mt6359_mtkaif_calibration_enable(struct snd_soc_component *cmpnt)
 {
@@ -2872,7 +2871,6 @@ static const struct snd_soc_dapm_widget mt6359_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY_S("CLK_BUF", SUPPLY_SEQ_CLK_BUF,
 			      MT6359_DCXO_CW12,
 			      RG_XO_AUDIO_EN_M_SFT, 0, NULL, 0),
-	SND_SOC_DAPM_REGULATOR_SUPPLY("vaud18", 0, 0),
 	SND_SOC_DAPM_SUPPLY_S("AUDGLB", SUPPLY_SEQ_AUD_GLB,
 			      MT6359_AUDDEC_ANA_CON13,
 			      RG_AUDGLB_PWRDN_VA32_SFT, 1, NULL, 0),
@@ -2918,6 +2916,8 @@ static const struct snd_soc_dapm_widget mt6359_dapm_widgets[] = {
 			      SND_SOC_NOPM, 0, 0,
 			      mt_vow_periodic_cfg_event,
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_REGULATOR_SUPPLY("vaud18", 0, 0),
+
 	/* Digital Clock */
 	SND_SOC_DAPM_SUPPLY_S("AUDIO_TOP_AFE_CTL", SUPPLY_SEQ_AUD_TOP_LAST,
 			      MT6359_AUDIO_TOP_CON0,

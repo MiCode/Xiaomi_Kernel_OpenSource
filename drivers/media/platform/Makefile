@@ -52,6 +52,7 @@ obj-$(CONFIG_VIDEO_RENESAS_FDP1)	+= rcar_fdp1.o
 obj-$(CONFIG_VIDEO_RENESAS_JPU)		+= rcar_jpu.o
 obj-$(CONFIG_VIDEO_RENESAS_VSP1)	+= vsp1/
 
+obj-$(CONFIG_VIDEO_ROCKCHIP_ISP1)	+= rockchip/rkisp1/
 obj-$(CONFIG_VIDEO_ROCKCHIP_RGA)	+= rockchip/rga/
 
 obj-y	+= omap/
@@ -70,8 +71,11 @@ obj-$(CONFIG_VIDEO_STM32_DCMI)		+= stm32/
 obj-$(CONFIG_VIDEO_MEDIATEK_VPU)	+= mtk-vpu/
 
 obj-$(CONFIG_VIDEO_MEDIATEK_VCU)	+= mtk-vcu/
+
 obj-$(CONFIG_VIDEO_MEDIATEK_VCODEC)	+= mtk-vcodec/
+
 obj-$(CONFIG_VB2_MEDIATEK_DMA_CONTIG)	+= mtk-videobuf/
+
 obj-$(CONFIG_VIDEO_MEDIATEK_MDP)	+= mtk-mdp/
 
 obj-$(CONFIG_VIDEO_MEDIATEK_JPEG)	+= mtk-jpeg/
@@ -86,3 +90,4 @@ obj-y					+= mtk-isp/
 
 obj-$(CONFIG_VIDEO_MTK_AIE)		+= mtk-aie/
 
+obj-$(CONFIG_VIDEO_MESON_GE2D)		+= meson/ge2d/

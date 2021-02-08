@@ -815,7 +815,6 @@ int mtk_memif_set_format(struct mtk_base_afe *afe,
 	struct mtk_base_afe_memif *memif = &afe->memif[id];
 	int hd_audio = 0;
 	int hd_align = 0;
-	int ret = 0;
 
 	/* set hd mode */
 	switch (format) {
@@ -843,20 +842,13 @@ int mtk_memif_set_format(struct mtk_base_afe *afe,
 		break;
 	}
 
-	ret = mtk_regmap_update_bits(afe->regmap, memif->data->hd_reg,
-				     0x3, hd_audio, memif->data->hd_shift);
-	if (ret)
-		dev_err(afe->dev, "%s() error set memif->data->hd_reg %d\n",
-			__func__, ret);
+	mtk_regmap_update_bits(afe->regmap, memif->data->hd_reg,
+			       0x3, hd_audio, memif->data->hd_shift);
 
-	ret = mtk_regmap_update_bits(afe->regmap, memif->data->hd_align_reg,
-				     0x1, hd_align,
-				     memif->data->hd_align_mshift);
-	if (ret)
-		dev_err(afe->dev, "%s() error set memif->data->hd_align_mshift %d\n",
-			__func__, ret);
+	mtk_regmap_update_bits(afe->regmap, memif->data->hd_align_reg,
+			       0x1, hd_align, memif->data->hd_align_mshift);
 
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_memif_set_format);
 

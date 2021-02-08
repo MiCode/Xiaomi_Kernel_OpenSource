@@ -295,7 +295,7 @@ config ASPEED_ADC
 config AT91_ADC
 	tristate "Atmel AT91 ADC"
 	depends on ARCH_AT91 || COMPILE_TEST
-	depends on INPUT && SYSFS
+	depends on INPUT && SYSFS && OF
 	select IIO_BUFFER
 	select IIO_TRIGGERED_BUFFER
 	help
@@ -713,28 +713,16 @@ config MEDIATEK_MT635X_AUXADC
 	  This driver can also be built as a module. If so, the module will be
 	  called mt635x-auxadc.
 
-config MEDIATEK_MT6360_AUXADC
-	tristate "Mediatek MT6360 ADC Part"
+config MEDIATEK_MT6360_ADC
+	tristate "Mediatek MT6360 ADC driver"
 	depends on MFD_MT6360
-	select IIO_BUFFER
-	select IIO_KFIFO_BUF
-	help
-	  Say Y here to enable MT6360 ADC Part.
-	  Integrated for System Monitoring include
-	  Charger and Battery Current, Voltage and
-	  Terperature
-
-config MEDIATEK_MT6362_ADC
-	tristate "Mediatek MT6362 SPMI ADC driver"
-	depends on MFD_MT6362
 	select IIO_BUFFER
 	select IIO_TRIGGERED_BUFFER
 	help
-	  Say yes here to have support for the MT6362 ADC.
-	  Provide VBUS, VSYS, VBAT, IBUS, IBAT several channel.
-
-	  The driver can also be build as a module.
-	  If so, the module will be called mt6362_adc.
+	  Say Y here to enable MT6360 ADC support.
+	  Integrated for System Monitoring includes
+	  is used in smartphones and tablets and supports a 11 channel
+	  general purpose ADC.
 
 config MEDIATEK_MT6577_AUXADC
 	tristate "MediaTek AUXADC driver"

@@ -35,7 +35,6 @@ struct snd_usb_audio {
 	wait_queue_head_t shutdown_wait;
 	unsigned int txfr_quirk:1; /* Subframe boundaries on transfers */
 	unsigned int tx_length_quirk:1; /* Put length specifier in transfers */
-	unsigned int setup_fmt_after_resume_quirk:1; /* setup the format to interface after resume */
 	unsigned int need_delayed_register:1; /* warn for delayed registration */
 	int num_interfaces;
 	int num_suspended_intf;
@@ -52,17 +51,12 @@ struct snd_usb_audio {
 	struct list_head mixer_list;	/* list of mixer interfaces */
 
 	int setup;			/* from the 'device_setup' module param */
+	bool generic_implicit_fb;	/* from the 'implicit_fb' module param */
 	bool autoclock;			/* from the 'autoclock' module param */
-	bool keep_iface;		/* keep interface/altset after closing
-					 * or parameter change
-					 */
 
 	struct usb_host_interface *ctrl_intf;	/* the audio control interface */
 	struct media_device *media_dev;
 	struct media_intf_devnode *ctl_intf_media_devnode;
-	struct mutex dev_lock;  /* to protect any race with disconnect */
-	int card_num;	/* cache pcm card number to use upon disconnect */
-	void (*disconnect_cb)(struct snd_usb_audio *chip);
 };
 
 #define usb_audio_err(chip, fmt, args...) \
@@ -128,51 +122,5 @@ void snd_usb_unlock_shutdown(struct snd_usb_audio *chip);
 
 extern bool snd_usb_use_vmalloc;
 extern bool snd_usb_skip_validation;
-
-struct audioformat;
-
-enum snd_vendor_pcm_open_close {
-	SOUND_PCM_CLOSE = 0,
-	SOUND_PCM_OPEN,
-};
-
-/**
- * struct snd_usb_audio_vendor_ops - function callbacks for USB audio accelerators
- * @connect: called when a new interface is found
- * @disconnect: called when an interface is removed
- * @set_interface: called when an interface is initialized
- * @set_rate: called when the rate is set
- * @set_pcm_buf: called when the pcm buffer is set
- * @set_pcm_intf: called when the pcm interface is set
- * @set_pcm_connection: called when pcm is opened/closed
- * @set_pcm_binterval: called when the pcm binterval is set
- * @usb_add_ctls: called when USB controls are added
- *
- * Set of callbacks for some accelerated USB audio streaming hardware.
- *
- * TODO: make this USB host-controller specific, right now this only works for
- * one USB controller in the system at a time, which is only realistic for
- * self-contained systems like phones.
- */
-struct snd_usb_audio_vendor_ops {
-	int (*connect)(struct usb_interface *intf);
-	void (*disconnect)(struct usb_interface *intf);
-
-	int (*set_interface)(struct usb_device *udev,
-			     struct usb_host_interface *alts,
-			     int iface, int alt);
-	int (*set_rate)(struct usb_interface *intf, int iface, int rate,
-			int alt);
-	int (*set_pcm_buf)(struct usb_device *udev, int iface);
-	int (*set_pcm_intf)(struct usb_interface *intf, int iface, int alt,
-			    int direction);
-	int (*set_pcm_connection)(struct usb_device *udev,
-				  enum snd_vendor_pcm_open_close onoff,
-				  int direction);
-	int (*set_pcm_binterval)(struct audioformat *fp,
-				 struct audioformat *found,
-				 int *cur_attr, int *attr);
-	int (*usb_add_ctls)(struct snd_usb_audio *chip);
-};
 
 #endif /* __USBAUDIO_H */

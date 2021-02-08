@@ -160,7 +160,7 @@ const struct clk_ops mtk_mux_gate_clr_set_upd_ops = {
 };
 EXPORT_SYMBOL(mtk_mux_gate_clr_set_upd_ops);
 
-struct clk *mtk_clk_register_mux(const struct mtk_mux *mux,
+static struct clk *mtk_clk_register_mux(const struct mtk_mux *mux,
 				 struct regmap *regmap,
 				 spinlock_t *lock)
 {
@@ -191,7 +191,6 @@ struct clk *mtk_clk_register_mux(const struct mtk_mux *mux,
 
 	return clk;
 }
-EXPORT_SYMBOL(mtk_clk_register_mux);
 
 int mtk_clk_register_muxes(const struct mtk_mux *muxes,
 			   int num, struct device_node *node,

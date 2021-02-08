@@ -547,16 +547,18 @@ static int incfs_rmdir(struct dentry *dentry)
 
 static void maybe_delete_incomplete_file(struct data_file *df)
 {
-	char *file_id_str;
-	struct dentry *incomplete_file_dentry;
+	struct mount_info *mi = df->df_mount_info;
+	char *file_id_str = NULL;
+	struct dentry *incomplete_file_dentry = NULL;
+	const struct cred *old_cred = override_creds(mi->mi_owner);
 
 	if (atomic_read(&df->df_data_blocks_written) < df->df_data_block_count)
-		return;
+		goto out;
 
 	/* This is best effort - there is no useful action to take on failure */
 	file_id_str = file_id_to_str(df->df_id);
 	if (!file_id_str)
-		return;
+		goto out;
 
 	incomplete_file_dentry = incfs_lookup_dentry(
 					df->df_mount_info->mi_incomplete_dir,
@@ -575,6 +577,7 @@ static void maybe_delete_incomplete_file(struct data_file *df)
 out:
 	dput(incomplete_file_dentry);
 	kfree(file_id_str);
+	revert_creds(old_cred);
 }
 
 static long ioctl_fill_blocks(struct file *f, void __user *arg)
@@ -1229,6 +1232,7 @@ static int file_open(struct inode *inode, struct file *file)
 	int err = 0;
 	int flags = O_NOATIME | O_LARGEFILE |
 		(S_ISDIR(inode->i_mode) ? O_RDONLY : O_RDWR);
+	const struct cred *old_cred;
 
 	WARN_ON(file->private_data);
 
@@ -1239,7 +1243,9 @@ static int file_open(struct inode *inode, struct file *file)
 	if (!backing_path.dentry)
 		return -EBADF;
 
-	backing_file = dentry_open(&backing_path, flags, mi->mi_owner);
+	old_cred = override_creds(mi->mi_owner);
+	backing_file = dentry_open(&backing_path, flags, current_cred());
+	revert_creds(old_cred);
 	path_put(&backing_path);
 
 	if (IS_ERR(backing_file)) {
@@ -1434,6 +1440,7 @@ static ssize_t incfs_getxattr(struct dentry *d, const char *name,
 	struct mount_info *mi = get_mount_info(d->d_sb);
 	char *stored_value;
 	size_t stored_size;
+	int i;
 
 	if (di && di->backing_path.dentry)
 		return vfs_getxattr(di->backing_path.dentry, name, value, size);
@@ -1441,16 +1448,14 @@ static ssize_t incfs_getxattr(struct dentry *d, const char *name,
 	if (strcmp(name, "security.selinux"))
 		return -ENODATA;
 
-	if (!strcmp(d->d_iname, INCFS_PENDING_READS_FILENAME)) {
-		stored_value = mi->pending_read_xattr;
-		stored_size = mi->pending_read_xattr_size;
-	} else if (!strcmp(d->d_iname, INCFS_LOG_FILENAME)) {
-		stored_value = mi->log_xattr;
-		stored_size = mi->log_xattr_size;
-	} else {
+	for (i = 0; i < PSEUDO_FILE_COUNT; ++i)
+		if (!strcmp(d->d_iname, incfs_pseudo_file_names[i].data))
+			break;
+	if (i == PSEUDO_FILE_COUNT)
 		return -ENODATA;
-	}
 
+	stored_value = mi->pseudo_file_xattr[i].data;
+	stored_size = mi->pseudo_file_xattr[i].len;
 	if (!stored_value)
 		return -ENODATA;
 
@@ -1459,7 +1464,6 @@ static ssize_t incfs_getxattr(struct dentry *d, const char *name,
 
 	memcpy(value, stored_value, stored_size);
 	return stored_size;
-
 }
 
 
@@ -1468,8 +1472,9 @@ static ssize_t incfs_setxattr(struct dentry *d, const char *name,
 {
 	struct dentry_info *di = get_incfs_dentry(d);
 	struct mount_info *mi = get_mount_info(d->d_sb);
-	void **stored_value;
+	u8 **stored_value;
 	size_t *stored_size;
+	int i;
 
 	if (di && di->backing_path.dentry)
 		return vfs_setxattr(di->backing_path.dentry, name, value, size,
@@ -1481,16 +1486,14 @@ static ssize_t incfs_setxattr(struct dentry *d, const char *name,
 	if (size > INCFS_MAX_FILE_ATTR_SIZE)
 		return -E2BIG;
 
-	if (!strcmp(d->d_iname, INCFS_PENDING_READS_FILENAME)) {
-		stored_value = &mi->pending_read_xattr;
-		stored_size = &mi->pending_read_xattr_size;
-	} else if (!strcmp(d->d_iname, INCFS_LOG_FILENAME)) {
-		stored_value = &mi->log_xattr;
-		stored_size = &mi->log_xattr_size;
-	} else {
+	for (i = 0; i < PSEUDO_FILE_COUNT; ++i)
+		if (!strcmp(d->d_iname, incfs_pseudo_file_names[i].data))
+			break;
+	if (i == PSEUDO_FILE_COUNT)
 		return -ENODATA;
-	}
 
+	stored_value = &mi->pseudo_file_xattr[i].data;
+	stored_size = &mi->pseudo_file_xattr[i].len;
 	kfree (*stored_value);
 	*stored_value = kzalloc(size, GFP_NOFS);
 	if (!*stored_value)
@@ -1653,8 +1656,8 @@ void incfs_kill_sb(struct super_block *sb)
 	struct mount_info *mi = sb->s_fs_info;
 
 	pr_debug("incfs: unmount\n");
-	incfs_free_mount_info(mi);
 	generic_shutdown_super(sb);
+	incfs_free_mount_info(mi);
 }
 
 static int show_options(struct seq_file *m, struct dentry *root)

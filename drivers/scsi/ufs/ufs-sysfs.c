@@ -28,6 +28,7 @@ static const char *ufschd_ufs_dev_pwr_mode_to_string(
 	case UFS_ACTIVE_PWR_MODE:	return "ACTIVE";
 	case UFS_SLEEP_PWR_MODE:	return "SLEEP";
 	case UFS_POWERDOWN_PWR_MODE:	return "POWERDOWN";
+	case UFS_DEEPSLEEP_PWR_MODE:	return "DEEPSLEEP";
 	default:			return "UNKNOWN";
 	}
 }
@@ -38,12 +39,18 @@ static inline ssize_t ufs_sysfs_pm_lvl_store(struct device *dev,
 					     bool rpm)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_dev_info *dev_info = &hba->dev_info;
 	unsigned long flags, value;
 
 	if (kstrtoul(buf, 0, &value))
 		return -EINVAL;
 
 	if (value >= UFS_PM_LVL_MAX)
+		return -EINVAL;
+
+	if (ufs_pm_lvl_states[value].dev_state == UFS_DEEPSLEEP_PWR_MODE &&
+	    (!(hba->caps & UFSHCD_CAP_DEEPSLEEP) ||
+	     !(dev_info->wspecversion >= 0x310)))
 		return -EINVAL;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -785,7 +792,8 @@ static ssize_t _pname##_show(struct device *dev,			\
 	struct scsi_device *sdev = to_scsi_device(dev);			\
 	struct ufs_hba *hba = shost_priv(sdev->host);			\
 	u8 lun = ufshcd_scsi_to_upiu_lun(sdev->lun);			\
-	if (!ufs_is_valid_unit_desc_lun(&hba->dev_info, lun))		\
+	if (!ufs_is_valid_unit_desc_lun(&hba->dev_info, lun,		\
+				_duname##_DESC_PARAM##_puname))		\
 		return -EINVAL;						\
 	return ufs_sysfs_read_desc_param(hba, QUERY_DESC_IDN_##_duname,	\
 		lun, _duname##_DESC_PARAM##_puname, buf, _size);	\

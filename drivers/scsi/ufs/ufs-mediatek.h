@@ -32,22 +32,6 @@
 #define REFCLK_REQ_TIMEOUT_US       3000
 
 /*
- * Vendor specific pre-defined parameters
- */
-#define UFS_MTK_LIMIT_NUM_LANES_RX  2
-#define UFS_MTK_LIMIT_NUM_LANES_TX  2
-#define UFS_MTK_LIMIT_HSGEAR_RX     UFS_HS_G3
-#define UFS_MTK_LIMIT_HSGEAR_TX     UFS_HS_G3
-#define UFS_MTK_LIMIT_PWMGEAR_RX    UFS_PWM_G4
-#define UFS_MTK_LIMIT_PWMGEAR_TX    UFS_PWM_G4
-#define UFS_MTK_LIMIT_RX_PWR_PWM    SLOW_MODE
-#define UFS_MTK_LIMIT_TX_PWR_PWM    SLOW_MODE
-#define UFS_MTK_LIMIT_RX_PWR_HS     FAST_MODE
-#define UFS_MTK_LIMIT_TX_PWR_HS     FAST_MODE
-#define UFS_MTK_LIMIT_HS_RATE       PA_HS_MODE_B
-#define UFS_MTK_LIMIT_DESIRED_MODE  UFS_HS_MODE
-
-/*
  * Other attributes
  */
 #define VS_DEBUGCLOCKENABLE         0xD0A1
@@ -108,6 +92,12 @@ struct ufs_mtk_crypt_cfg {
 	int vcore_volt;
 };
 
+struct ufs_mtk_hw_ver {
+	u8 step;
+	u8 minor;
+	u8 major;
+};
+
 struct ufs_mtk_host {
 	struct phy *mphy;
 	struct regulator *reg_va09;
@@ -116,6 +106,7 @@ struct ufs_mtk_host {
 	struct reset_control *crypto_reset;
 	struct ufs_hba *hba;
 	struct ufs_mtk_crypt_cfg *crypt;
+	struct ufs_mtk_hw_ver hw_ver;
 	enum ufs_mtk_host_caps caps;
 	bool mphy_powered_on;
 	bool unipro_lpm;
