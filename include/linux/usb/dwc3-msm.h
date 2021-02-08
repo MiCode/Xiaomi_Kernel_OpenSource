@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __LINUX_USB_DWC3_MSM_H
@@ -125,6 +125,8 @@ int msm_dwc3_reset_dbm_ep(struct usb_ep *ep);
 int dwc3_msm_release_ss_lane(struct device *dev);
 int msm_ep_update_ops(struct usb_ep *ep);
 int msm_ep_clear_ops(struct usb_ep *ep);
+int dwc3_msm_kretprobe_init(void);
+void dwc3_msm_kretprobe_exit(void);
 #else
 static inline struct usb_ep *usb_ep_autoconfig_by_name(
 		struct usb_gadget *gadget, struct usb_endpoint_descriptor *desc,
@@ -154,6 +156,10 @@ int msm_ep_update_ops(struct usb_ep *ep)
 { return -ENODEV; }
 int msm_ep_clear_ops(struct usb_ep *ep)
 { return -ENODEV; }
+int dwc3_msm_kretprobe_init(void)
+{ return 0; }
+void dwc3_msm_kretprobe_exit(void)
+{ }
 #endif
 
 #endif /* __LINUX_USB_DWC3_MSM_H */

@@ -531,8 +531,6 @@ struct dwc3_msm {
 
 static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
 static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA);
-static void dwc3_msm_notify_event(struct dwc3 *dwc,
-		enum dwc3_notify_event event, unsigned int value);
 static int dwc3_msm_core_init(struct dwc3_msm *mdwc);
 
 static enum usb_device_speed dwc3_msm_get_max_speed(struct dwc3_msm *mdwc)
@@ -2522,7 +2520,7 @@ static void dwc3_msm_set_clk_sel(struct dwc3_msm *mdwc)
 	}
 }
 
-static void dwc3_msm_notify_event(struct dwc3 *dwc,
+void dwc3_msm_notify_event(struct dwc3 *dwc,
 		enum dwc3_notify_event event, unsigned int value)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
@@ -4683,6 +4681,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	device_create_file(&pdev->dev, &dev_attr_speed);
 	device_create_file(&pdev->dev, &dev_attr_bus_vote);
 
+	dwc3_msm_kretprobe_init();
 	dwc3_msm_debug_init(mdwc);
 	return 0;
 
@@ -4782,6 +4781,8 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	mdwc->dwc_ipc_log_ctxt = NULL;
 	ipc_log_context_destroy(mdwc->dwc_dma_ipc_log_ctxt);
 	mdwc->dwc_dma_ipc_log_ctxt = NULL;
+
+	dwc3_msm_kretprobe_exit();
 
 	return 0;
 }

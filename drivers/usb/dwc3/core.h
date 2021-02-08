@@ -1675,6 +1675,8 @@ enum dwc3_notify_event {
 	DWC3_CONTROLLER_NOTIFY_CLEAR_DB,
 };
 
+extern void dwc3_msm_notify_event(struct dwc3 *dwc,
+		enum dwc3_notify_event event, unsigned int value);
 extern void dwc3_set_notifier(void (*notify)(struct dwc3 *dwc3,
 						enum dwc3_notify_event event,
 						unsigned int value));
