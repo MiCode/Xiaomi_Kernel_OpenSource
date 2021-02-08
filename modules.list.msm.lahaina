@@ -91,3 +91,5 @@ qcom-reboot-reason.ko
 hh_virt_wdt.ko
 qcom_wdt_core.ko
 msm_kgsl.ko
+governor_msm_adreno_tz.ko
+governor_gpubw_mon.ko
