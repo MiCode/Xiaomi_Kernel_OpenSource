@@ -543,7 +543,7 @@ static int dwc3_ep0_handle_endpoint(struct dwc3 *dwc,
 			return -EINVAL;
 
 		/* ClearFeature(Halt) may need delayed status */
-		if (!set && (dep->flags & DWC3_EP_END_TRANSFER_PENDING))
+		if (!set && (!dep->gsi && (dep->flags & DWC3_EP_END_TRANSFER_PENDING)))
 			return USB_GADGET_DELAYED_STATUS;
 
 		break;
