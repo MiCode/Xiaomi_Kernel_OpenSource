@@ -81,27 +81,6 @@ int xhci_handshake(void __iomem *ptr, u32 mask, u32 done, int usec)
 	return ret;
 }
 
-int xhci_handshake_check_state(struct xhci_hcd *xhci,
-		void __iomem *ptr, u32 mask, u32 done, int usec)
-{
-	u32	result;
-
-	do {
-		result = readl_relaxed(ptr);
-		if (result == ~(u32)0)	/* card removed */
-			return -ENODEV;
-		/* host removed. Bail out */
-		if (xhci->xhc_state & XHCI_STATE_REMOVING)
-			return -ENODEV;
-		result &= mask;
-		if (result == done)
-			return 0;
-		udelay(1);
-		usec--;
-	} while (usec > 0);
-	return -ETIMEDOUT;
-}
-
 /*
  * Disable interrupts and begin the xHCI halting process.
  */
@@ -136,7 +115,7 @@ int xhci_halt(struct xhci_hcd *xhci)
 	xhci_quiesce(xhci);
 
 	ret = xhci_handshake(&xhci->op_regs->status,
-			STS_HALT, STS_HALT, 2 * XHCI_MAX_HALT_USEC);
+			STS_HALT, STS_HALT, XHCI_MAX_HALT_USEC);
 	if (ret) {
 		xhci_warn(xhci, "Host halt failed, %d\n", ret);
 		return ret;
@@ -153,13 +132,7 @@ int xhci_start(struct xhci_hcd *xhci)
 {
 	u32 temp;
 	int ret;
-	struct usb_hcd *hcd = xhci_to_hcd(xhci);
 
-	/*
-	 * disable irq to avoid xhci_irq flooding due to unhandeled port
-	 * change event in halt state, as soon as xhci_start clears halt bit
-	 */
-	disable_irq(hcd->irq);
 	temp = readl(&xhci->op_regs->command);
 	temp |= (CMD_RUN);
 	xhci_dbg_trace(xhci, trace_xhci_dbg_init, "// Turn on HC, cmd = 0x%x.",
@@ -179,8 +152,6 @@ int xhci_start(struct xhci_hcd *xhci)
 	if (!ret)
 		/* clear state flags. Including dying, halted or removing */
 		xhci->xhc_state = 0;
-
-	enable_irq(hcd->irq);
 
 	return ret;
 }
@@ -225,7 +196,7 @@ int xhci_reset(struct xhci_hcd *xhci)
 	if (xhci->quirks & XHCI_INTEL_HOST)
 		udelay(1000);
 
-	ret = xhci_handshake_check_state(xhci, &xhci->op_regs->command,
+	ret = xhci_handshake(&xhci->op_regs->command,
 			CMD_RESET, 0, 10 * 1000 * 1000);
 	if (ret)
 		return ret;
