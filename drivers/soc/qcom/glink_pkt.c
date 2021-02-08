@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/platform_device.h>
@@ -77,7 +77,8 @@ struct glink_pkt_device {
 	struct sk_buff_head queue;
 	wait_queue_head_t readq;
 	int sig_change;
-
+	bool enable_ch_close;
+	int drv_registered;
 	const char *dev_name;
 	const char *ch_name;
 	const char *edge;
@@ -222,8 +223,17 @@ static int glink_pkt_open(struct inode *inode, struct file *file)
 		       gpdev->ch_name, current->comm,
 		       task_pid_nr(current), refcount_read(&gpdev->refcount));
 
+	if (!gpdev->drv_registered && gpdev->enable_ch_close) {
+		register_rpmsg_driver(&gpdev->drv);
+		gpdev->drv_registered = 1;
+	}
+
 	ret = wait_for_completion_interruptible_timeout(&gpdev->ch_open, tout);
 	if (ret <= 0) {
+		if (gpdev->drv_registered && gpdev->enable_ch_close) {
+			unregister_rpmsg_driver(&gpdev->drv);
+			gpdev->drv_registered = 0;
+		}
 		refcount_dec(&gpdev->refcount);
 		put_device(dev);
 		GLINK_PKT_INFO("timeout for %s by %s:%d\n", gpdev->ch_name,
@@ -273,6 +283,10 @@ static int glink_pkt_release(struct inode *inode, struct file *file)
 		spin_unlock_irqrestore(&gpdev->queue_lock, flags);
 	}
 
+	if (gpdev->drv_registered && gpdev->enable_ch_close) {
+		unregister_rpmsg_driver(&gpdev->drv);
+		gpdev->drv_registered = 0;
+	}
 	put_device(dev);
 
 	return 0;
@@ -607,8 +621,11 @@ static int glink_pkt_parse_devicetree(struct device_node *np,
 	if (ret < 0)
 		goto error;
 
-	GLINK_PKT_INFO("Parsed %s:%s /dev/%s\n", gpdev->edge, gpdev->ch_name,
-		       gpdev->dev_name);
+	key = "qcom,glinkpkt-enable-ch-close";
+	gpdev->enable_ch_close = of_property_read_bool(np, key);
+
+	GLINK_PKT_INFO("Parsed %s:%s /dev/%s enable channel close:%d\n", gpdev->edge,
+			gpdev->ch_name, gpdev->dev_name, gpdev->enable_ch_close);
 	return 0;
 
 error:
@@ -734,8 +751,10 @@ static int glink_pkt_create_device(struct device *parent,
 		GLINK_PKT_ERR("device_create_file failed for %s\n",
 			      gpdev->dev_name);
 
-	if (glink_pkt_init_rpmsg(gpdev))
+	if (glink_pkt_init_rpmsg(gpdev)) {
+		gpdev->drv_registered = 1;
 		goto free_dev;
+	}
 
 	return 0;
 
