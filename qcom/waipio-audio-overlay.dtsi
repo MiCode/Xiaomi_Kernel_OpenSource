@@ -248,7 +248,7 @@
 			qcom,swr-num-dev = <2>;
 			qcom,dynamic-port-map-supported = <0>;
 			wsa883x_2_0221: wsa883x@02170221 {
-				compatible = "qcom,wsa883x";
+				compatible = "qcom,wsa883x_2";
 				reg = <0x2 0x2170221>;
 				qcom,spkr-sd-n-node = <&wsa2_spkr_en1>;
 				qcom,lpass-cdc-handle = <&lpass_cdc>;
@@ -261,7 +261,7 @@
 			};
 
 			wsa883x_2_0222: wsa883x@02170222 {
-				compatible = "qcom,wsa883x";
+				compatible = "qcom,wsa883x_2";
 				reg = <0x2 0x2170222>;
 				qcom,spkr-sd-n-node = <&wsa2_spkr_en2>;
 				qcom,lpass-cdc-handle = <&lpass_cdc>;
