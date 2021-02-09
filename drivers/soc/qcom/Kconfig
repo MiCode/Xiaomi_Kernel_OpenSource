@@ -975,7 +975,7 @@ config QTI_HW_KEY_MANAGER
 	 be used for storage encryption.
 
 config MSM_EXT_DISPLAY
-	bool "MSM External Display Driver"
+	tristate "MSM External Display Driver"
 	depends on DRM
 	help
 	  Enabling this option adds MSM External Display Driver.
