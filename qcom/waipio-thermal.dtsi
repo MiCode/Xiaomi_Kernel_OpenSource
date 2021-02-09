@@ -1,8 +1,8 @@
 &soc {
 	tsens0: thermal-sensor@c263000 {
 		compatible = "qcom,tsens-v2";
-		reg = <0x0 0x0c263000 0x0 0x1ff>, /* TM */
-			<0x0 0x0c222000 0x0 0x1ff>; /* SROT */
+		reg = <0x0c263000 0x1ff>, /* TM */
+			<0x0c222000 0x1ff>; /* SROT */
 		#qcom,sensors = <16>;
 		interrupts = <GIC_SPI 506 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 508 IRQ_TYPE_LEVEL_HIGH>;
@@ -12,13 +12,57 @@
 
 	tsens1: thermal-sensor@c265000 {
 		compatible = "qcom,tsens-v2";
-		reg = <0x0 0x0c265000 0x0 0x1ff>, /* TM */
-			<0x0 0x0c223000 0x0 0x1ff>; /* SROT */
+		reg = <0x0c265000 0x1ff>, /* TM */
+			<0x0c223000 0x1ff>; /* SROT */
 		#qcom,sensors = <16>;
 		interrupts = <GIC_SPI 507 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 509 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "uplow","critical";
 		#thermal-sensor-cells = <1>;
+	};
+
+	qcom,cpu-hotplug {
+		compatible = "qcom,cpu-hotplug";
+
+		cpu0_hotplug: cpu0-hotplug {
+			qcom,cpu = <&CPU0>;
+			#cooling-cells = <2>;
+		};
+
+		cpu1_hotplug: cpu1-hotplug {
+			qcom,cpu = <&CPU1>;
+			#cooling-cells = <2>;
+		};
+
+		cpu2_hotplug: cpu2-hotplug {
+			qcom,cpu = <&CPU2>;
+			#cooling-cells = <2>;
+		};
+
+		cpu3_hotplug: cpu3-hotplug {
+			qcom,cpu = <&CPU3>;
+			#cooling-cells = <2>;
+		};
+
+		cpu4_hotplug: cpu4-hotplug {
+			qcom,cpu = <&CPU4>;
+			#cooling-cells = <2>;
+		};
+
+		cpu5_hotplug: cpu5-hotplug {
+			qcom,cpu = <&CPU5>;
+			#cooling-cells = <2>;
+		};
+
+		cpu6_hotplug: cpu6-hotplug {
+			qcom,cpu = <&CPU6>;
+			#cooling-cells = <2>;
+		};
+
+		cpu7_hotplug: cpu7-hotplug {
+			qcom,cpu = <&CPU7>;
+			#cooling-cells = <2>;
+		};
 	};
 };
 
