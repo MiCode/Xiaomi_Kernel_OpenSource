@@ -17,7 +17,7 @@
 #include <linux/module.h>
 #include <linux/input.h>
 #include <linux/kthread.h>
-#include <linux/sched/core_ctl.h>
+#include <linux/sched/walt.h>
 #include <soc/qcom/msm_performance.h>
 #include <linux/spinlock.h>
 #include <linux/circ_buf.h>
