@@ -896,7 +896,7 @@ static int memlat_dev_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct kobject *dcvs_kobj;
 	struct memlat_dev_data *dev_data;
-	int i, cpu, last_ev = 0, last_cpu = 0, max, ret;
+	int i, cpu, ret;
 	u32 event_id;
 
 	dev_data = devm_kzalloc(dev, sizeof(*dev_data), GFP_KERNEL);
@@ -935,18 +935,17 @@ static int memlat_dev_probe(struct platform_device *pdev)
 		dev_data->common_ev_ids[STALL_IDX] = event_id;
 
 	for_each_possible_cpu(cpu) {
-		last_cpu = cpu;
 		for (i = 0; i < NUM_COMMON_EVS; i++) {
-			last_ev = i;
 			event_id = dev_data->common_ev_ids[i];
 			if (!event_id)
 				continue;
-			ret = qcom_pmu_create(event_id, cpu);
-			if (ret < 0) {
-				dev_err(dev, "err creating cpu%d ev=%lu: %d\n",
-							cpu, event_id, ret);
-				goto err_out;
-			}
+			ret = qcom_pmu_event_supported(event_id, cpu);
+			if (!ret)
+				continue;
+			if (ret != -EPROBE_DEFER)
+				dev_err(dev, "ev=%lu not found on cpu%d: %d\n",
+						event_id, cpu, ret);
+			return ret;
 		}
 	}
 
@@ -954,39 +953,26 @@ static int memlat_dev_probe(struct platform_device *pdev)
 	if (IS_ERR(dcvs_kobj)) {
 		ret = PTR_ERR(dcvs_kobj);
 		dev_err(dev, "error getting kobj from qcom_dcvs: %d\n", ret);
-		goto err_out;
+		return ret;
 	}
 	ret = kobject_init_and_add(&dev_data->kobj, &memlat_settings_ktype,
 					dcvs_kobj, "memlat_settings");
 	if (ret < 0) {
 		dev_err(dev, "failed to init memlat settings kobj: %d\n", ret);
 		kobject_put(&dev_data->kobj);
-		goto err_out;
+		return ret;
 	}
 
 	memlat_data = dev_data;
 
 	return 0;
-
-err_out:
-	for (cpu = 0; cpu <= last_cpu; cpu++) {
-		max = (cpu == last_cpu) ? last_ev : NUM_COMMON_EVS;
-		for (i = 0; i < max; i++) {
-			event_id = dev_data->common_ev_ids[i];
-			if (!event_id)
-				continue;
-			qcom_pmu_delete(event_id, cpu);
-		}
-	}
-
-	return ret;
 }
 
 static int memlat_grp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct memlat_group *memlat_grp;
-	int i, cpu, last_ev = 0, last_cpu = 0, max, ret;
+	int i, cpu, ret;
 	u32 event_id, num_mons;
 	u32 hw_type = NUM_DCVS_PATHS, path_type = NUM_DCVS_PATHS;
 	struct device_node *of_node;
@@ -1100,18 +1086,17 @@ static int memlat_grp_probe(struct platform_device *pdev)
 		memlat_grp->grp_ev_ids[WB_IDX] = event_id;
 
 	for_each_possible_cpu(cpu) {
-		last_cpu = cpu;
 		for (i = 0; i < NUM_GRP_EVS; i++) {
-			last_ev = i;
 			event_id = memlat_grp->grp_ev_ids[i];
 			if (!event_id)
 				continue;
-			ret = qcom_pmu_create(event_id, cpu);
-			if (ret < 0) {
-				dev_err(dev, "err creating cpu%d ev=%lu: %d\n",
-							cpu, event_id, ret);
-				goto err_out;
-			}
+			ret = qcom_pmu_event_supported(event_id, cpu);
+			if (!ret)
+				continue;
+			if (ret != -EPROBE_DEFER)
+				dev_err(dev, "ev=%lu not found on cpu%d: %d\n",
+						event_id, cpu, ret);
+			return ret;
 		}
 	}
 
@@ -1128,19 +1113,6 @@ static int memlat_grp_probe(struct platform_device *pdev)
 	dev_set_drvdata(dev, memlat_grp);
 
 	return 0;
-
-err_out:
-	for (cpu = 0; cpu <= last_cpu; cpu++) {
-		max = (cpu == last_cpu) ? last_ev : NUM_GRP_EVS;
-		for (i = 0; i < max; i++) {
-			event_id = memlat_grp->grp_ev_ids[i];
-			if (!event_id)
-				continue;
-			qcom_pmu_delete(event_id, cpu);
-		}
-	}
-
-	return ret;
 }
 
 static int memlat_mon_probe(struct platform_device *pdev)

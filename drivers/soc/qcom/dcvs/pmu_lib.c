@@ -50,6 +50,7 @@ struct cpu_data {
 
 static DEFINE_PER_CPU(struct cpu_data *, cpu_ev_data);
 static bool qcom_pmu_inited;
+static int cpuhp_state;
 static LIST_HEAD(idle_notif_list);
 static DEFINE_SPINLOCK(idle_list_lock);
 
@@ -146,12 +147,12 @@ static int __qcom_pmu_read(int cpu, u32 event_id, u64 *pmu_data, bool local)
 		return -EINVAL;
 
 	cpu_data = per_cpu(cpu_ev_data, cpu);
-	for (i = 0; i < MAX_PMU_EVS; i++) {
+	for (i = 0; i < cpu_data->num_evs; i++) {
 		event = &cpu_data->events[i];
 		if (event->event_id == event_id)
 			break;
 	}
-	if (i == MAX_PMU_EVS)
+	if (i == cpu_data->num_evs)
 		return -ENOENT;
 
 	*pmu_data = read_event(event, local, false);
@@ -172,7 +173,7 @@ int __qcom_pmu_read_all(int cpu, struct qcom_pmu_data *data, bool local)
 		return -EINVAL;
 
 	cpu_data = per_cpu(cpu_ev_data, cpu);
-	for (i = 0; i < MAX_PMU_EVS; i++) {
+	for (i = 0; i < cpu_data->num_evs; i++) {
 		event = &cpu_data->events[i];
 		if (!event->event_id)
 			continue;
@@ -185,105 +186,28 @@ int __qcom_pmu_read_all(int cpu, struct qcom_pmu_data *data, bool local)
 	return 0;
 }
 
-int qcom_pmu_create(u32 event_id, int cpu)
-{
-	struct cpu_data *cpu_data;
-	struct event_data *event, *new_event = NULL;
-	struct perf_event_attr *attr = alloc_attr();
-	int i, ret = 0;
-
-	if (!attr)
-		return -ENOMEM;
-
-	if (!qcom_pmu_inited) {
-		ret = -EPROBE_DEFER;
-		goto out;
-	}
-
-	if (!event_id || cpu >= num_possible_cpus()) {
-		ret = -EINVAL;
-		goto out;
-	}
-
-	cpu_data = per_cpu(cpu_ev_data, cpu);
-	mutex_lock(&cpu_data->events_lock);
-	if (cpu_data->num_evs >= MAX_PMU_EVS) {
-		ret = -ENOSPC;
-		goto unlock_out;
-	}
-	for (i = 0; i < MAX_PMU_EVS; i++) {
-		event = &cpu_data->events[i];
-		if (event->event_id == event_id) {
-			event->ref_cnt++;
-			goto unlock_out;
-		} else if (!event->event_id && !new_event)
-			new_event = event;
-	}
-
-	if (!new_event) {
-		ret = -ENOSPC;
-		goto unlock_out;
-	}
-
-	new_event->event_id = event_id;
-	ret = set_event(new_event, cpu, attr);
-	if (ret < 0) {
-		new_event->event_id = 0;
-		goto unlock_out;
-	} else {
-		cpu_data->num_evs++;
-		new_event->ref_cnt = 1;
-	}
-
-unlock_out:
-	mutex_unlock(&cpu_data->events_lock);
-out:
-	kfree(attr);
-	return ret;
-}
-EXPORT_SYMBOL(qcom_pmu_create);
-
-int qcom_pmu_delete(u32 event_id, int cpu)
+int qcom_pmu_event_supported(u32 event_id, int cpu)
 {
 	struct cpu_data *cpu_data;
 	struct event_data *event;
-	int i, ret = 0;
+	int i;
 
 	if (!qcom_pmu_inited)
-		return -ENODEV;
+		return -EPROBE_DEFER;
 
 	if (!event_id || cpu >= num_possible_cpus())
 		return -EINVAL;
 
 	cpu_data = per_cpu(cpu_ev_data, cpu);
-	mutex_lock(&cpu_data->events_lock);
-	if (cpu_data->num_evs == 0) {
-		ret = -ENOENT;
-		goto out;
-	}
-	for (i = 0; i < MAX_PMU_EVS; i++) {
+	for (i = 0; i < cpu_data->num_evs; i++) {
 		event = &cpu_data->events[i];
 		if (event->event_id == event_id)
-			break;
-	}
-	if (i == MAX_PMU_EVS) {
-		ret = -ENOENT;
-		goto out;
-	}
-	event->ref_cnt--;
-	if (event->ref_cnt <= 0) {
-		event->event_id = 0;
-		delete_event(event);
-		event->cached_count = 0;
-		event->ref_cnt = 0;
-		cpu_data->num_evs--;
+			return 0;
 	}
 
-out:
-	mutex_unlock(&cpu_data->events_lock);
-	return ret;
+	return -ENOENT;
 }
-EXPORT_SYMBOL(qcom_pmu_delete);
+EXPORT_SYMBOL(qcom_pmu_event_supported);
 
 int qcom_pmu_read(int cpu, u32 event_id, u64 *pmu_data)
 {
@@ -364,7 +288,7 @@ static void qcom_pmu_idle_enter_notif(void *unused, int *state,
 	if (cpu_data->is_idle || cpu_data->is_hp)
 		return;
 	cpu_data->is_idle = true;
-	for (i = 0; i < MAX_PMU_EVS; i++) {
+	for (i = 0; i < cpu_data->num_evs; i++) {
 		ev = &cpu_data->events[i];
 		if (!ev->event_id || !ev->pevent)
 			continue;
@@ -402,7 +326,7 @@ static int qcom_pmu_hotplug_coming_up(unsigned int cpu)
 		goto out;
 
 	mutex_lock(&cpu_data->events_lock);
-	for (i = 0; i < MAX_PMU_EVS; i++) {
+	for (i = 0; i < cpu_data->num_evs; i++) {
 		ret = set_event(&cpu_data->events[i], cpu, attr);
 		if (ret < 0) {
 			pr_err("event %d not set for cpu %d ret %d\n",
@@ -429,7 +353,7 @@ static int qcom_pmu_hotplug_going_down(unsigned int cpu)
 
 	mutex_lock(&cpu_data->events_lock);
 	cpu_data->is_hp = true;
-	for (i = 0; i < MAX_PMU_EVS; i++) {
+	for (i = 0; i < cpu_data->num_evs; i++) {
 		event = &cpu_data->events[i];
 		if (!event->event_id || !event->pevent)
 			continue;
@@ -443,21 +367,96 @@ static int qcom_pmu_hotplug_going_down(unsigned int cpu)
 
 static int qcom_pmu_cpu_hp_init(void)
 {
-	int ret = 0;
+	int ret;
 
 	ret = cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
 				"QCOM_PMU",
 				qcom_pmu_hotplug_coming_up,
 				qcom_pmu_hotplug_going_down);
 	if (ret < 0)
-		pr_err("qcom_pmu: CPU hotplug notifier error: %d\n", ret);
-	else
-		ret = 0;
+		pr_err("qcom_pmu: CPU hotplug notifier error: %d\n",
+		       ret);
+
 	return ret;
 }
 #else
 static int qcom_pmu_cpu_hp_init(void) { return 0; }
 #endif
+
+static int configure_pmu_event(u32 event_id, int cpu)
+{
+	struct cpu_data *cpu_data;
+	struct event_data *event;
+	struct perf_event_attr *attr = alloc_attr();
+	int ret = 0;
+
+	if (!event_id || cpu >= num_possible_cpus()) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	cpu_data = per_cpu(cpu_ev_data, cpu);
+	if (cpu_data->num_evs >= MAX_PMU_EVS) {
+		ret = -ENOSPC;
+		goto out;
+	}
+	event = &cpu_data->events[cpu_data->num_evs];
+	event->event_id = event_id;
+	ret = set_event(event, cpu, attr);
+	if (ret < 0)
+		event->event_id = 0;
+	else
+		cpu_data->num_evs++;
+
+out:
+	kfree(attr);
+	return ret;
+}
+
+#define PMU_TBL_PROP	"qcom,pmu-events-tbl"
+#define NUM_COLS	2
+static int setup_pmu_events(struct device *dev)
+{
+	struct device_node *of_node = dev->of_node;
+	int ret, len, i, j, cpu;
+	u32 data, event_id;
+	unsigned long cpus;
+
+	if (!of_find_property(of_node, PMU_TBL_PROP, &len))
+		return -ENODEV;
+	len /= sizeof(data);
+	if (len % NUM_COLS || len == 0)
+		return -EINVAL;
+	len /= NUM_COLS;
+	if (len >= MAX_PMU_EVS)
+		return -ENOSPC;
+
+	for (i = 0, j = 0; i < len; i++, j += 2) {
+		ret = of_property_read_u32_index(of_node, PMU_TBL_PROP, j,
+							&event_id);
+		if (ret < 0 || !event_id)
+			return -EINVAL;
+
+		ret = of_property_read_u32_index(of_node, PMU_TBL_PROP, j + 1,
+							&data);
+		if (ret < 0 || !data)
+			return -EINVAL;
+		cpus = (unsigned long)data;
+
+		dev_dbg(dev, "entry=%d: ev=%lu, cpus=%lu\n", i, event_id, cpus);
+		for_each_cpu(cpu, to_cpumask(&cpus)) {
+			ret = configure_pmu_event(event_id, cpu);
+			if (!ret)
+				continue;
+			else if (ret != -EPROBE_DEFER)
+				dev_err(dev, "error enabling ev=%d on cpu%d\n",
+								event_id, cpu);
+			return ret;
+		}
+	}
+
+	return 0;
+}
 
 static int qcom_pmu_driver_probe(struct platform_device *pdev)
 {
@@ -483,11 +482,19 @@ static int qcom_pmu_driver_probe(struct platform_device *pdev)
 		per_cpu(cpu_ev_data, cpu) = cpu_data;
 	}
 
-	ret = qcom_pmu_cpu_hp_init();
+	ret = setup_pmu_events(dev);
 	if (ret < 0) {
+		dev_err(dev, "failed to setup pmu events: %d\n", ret);
+		goto out;
+	}
+
+	cpuhp_state = qcom_pmu_cpu_hp_init();
+	if (cpuhp_state < 0) {
+		ret = cpuhp_state;
 		dev_err(dev, "qcom pmu driver failed to probe: %d\n", ret);
 		goto out;
 	}
+
 	register_trace_android_vh_cpu_idle_enter(qcom_pmu_idle_enter_notif, NULL);
 	register_trace_android_vh_cpu_idle_exit(qcom_pmu_idle_exit_notif, NULL);
 	qcom_pmu_inited = true;
@@ -504,7 +511,8 @@ static int qcom_pmu_driver_remove(struct platform_device *pdev)
 	int cpu, i;
 
 	qcom_pmu_inited = false;
-	cpuhp_remove_state_nocalls(CPUHP_AP_ONLINE_DYN);
+	if (cpuhp_state > 0)
+		cpuhp_remove_state_nocalls(cpuhp_state);
 	unregister_trace_android_vh_cpu_idle_enter(qcom_pmu_idle_enter_notif, NULL);
 	unregister_trace_android_vh_cpu_idle_exit(qcom_pmu_idle_exit_notif, NULL);
 	for_each_possible_cpu(cpu) {
@@ -516,7 +524,7 @@ static int qcom_pmu_driver_remove(struct platform_device *pdev)
 	for_each_possible_cpu(cpu) {
 		cpu_data = per_cpu(cpu_ev_data, cpu);
 		mutex_lock(&cpu_data->events_lock);
-		for (i = 0; i < MAX_PMU_EVS; i++) {
+		for (i = 0; i < cpu_data->num_evs; i++) {
 			event = &cpu_data->events[i];
 			if (!event->event_id || !event->pevent)
 				continue;
@@ -524,7 +532,6 @@ static int qcom_pmu_driver_remove(struct platform_device *pdev)
 			delete_event(event);
 			event->cached_count = 0;
 			event->ref_cnt = 0;
-			cpu_data->num_evs--;
 		}
 		cpu_data->num_evs = 0;
 		mutex_unlock(&cpu_data->events_lock);
