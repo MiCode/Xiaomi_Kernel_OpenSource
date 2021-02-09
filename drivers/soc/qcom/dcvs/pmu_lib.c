@@ -35,9 +35,6 @@ struct event_data {
 	int			cpu;
 	u64			cached_count;
 	u32			ref_cnt;
-	atomic_t		read_cnt;
-	bool			active;
-	spinlock_t		lock;
 };
 
 struct cpu_data {
@@ -45,7 +42,8 @@ struct cpu_data {
 	bool			is_hp;
 	struct event_data	events[MAX_PMU_EVS];
 	u32			num_evs;
-	struct mutex		events_lock;
+	atomic_t		read_cnt;
+	spinlock_t		read_lock;
 };
 
 static DEFINE_PER_CPU(struct cpu_data *, cpu_ev_data);
@@ -92,36 +90,19 @@ static int set_event(struct event_data *ev, int cpu,
 	perf_event_enable(pevent);
 	ev->pevent = pevent;
 	ev->cpu = cpu;
-	ev->active = true;
 
 	return 0;
 }
 
 static inline void delete_event(struct event_data *event)
 {
-	spin_lock(&event->lock);
-	event->active = false;
-	spin_unlock(&event->lock);
-	while (atomic_read(&event->read_cnt) > 0)
-		udelay(10);
 	perf_event_release_kernel(event->pevent);
 	event->pevent = NULL;
 }
 
-static inline u64 read_event(struct event_data *event, bool local, bool force)
+static inline u64 read_event(struct event_data *event, bool local)
 {
 	u64 enabled, running, total = 0;
-	int cpu = event->cpu;
-	struct cpu_data *cpudata = per_cpu(cpu_ev_data, cpu);
-
-	spin_lock(&event->lock);
-	if (((cpudata->is_hp || cpudata->is_idle) && !force)
-						|| !event->active) {
-		spin_unlock(&event->lock);
-		return event->cached_count;
-	}
-	atomic_inc(&event->read_cnt);
-	spin_unlock(&event->lock);
 
 	if (local)
 		perf_event_read_local(event->pevent, &total, NULL, NULL);
@@ -129,7 +110,6 @@ static inline u64 read_event(struct event_data *event, bool local, bool force)
 		total = perf_event_read_value(event->pevent, &enabled,
 								&running);
 	event->cached_count = total;
-	atomic_dec(&event->read_cnt);
 
 	return total;
 }
@@ -155,7 +135,16 @@ static int __qcom_pmu_read(int cpu, u32 event_id, u64 *pmu_data, bool local)
 	if (i == cpu_data->num_evs)
 		return -ENOENT;
 
-	*pmu_data = read_event(event, local, false);
+	spin_lock(&cpu_data->read_lock);
+	if (cpu_data->is_hp || cpu_data->is_idle) {
+		spin_unlock(&cpu_data->read_lock);
+		*pmu_data = event->cached_count;
+		return 0;
+	}
+	atomic_inc(&cpu_data->read_cnt);
+	spin_unlock(&cpu_data->read_lock);
+	*pmu_data = read_event(event, local);
+	atomic_dec(&cpu_data->read_cnt);
 
 	return 0;
 }
@@ -165,6 +154,7 @@ int __qcom_pmu_read_all(int cpu, struct qcom_pmu_data *data, bool local)
 	struct cpu_data *cpu_data;
 	struct event_data *event;
 	int i, cnt = 0;
+	bool use_cache = false;
 
 	if (!qcom_pmu_inited)
 		return -ENODEV;
@@ -173,15 +163,28 @@ int __qcom_pmu_read_all(int cpu, struct qcom_pmu_data *data, bool local)
 		return -EINVAL;
 
 	cpu_data = per_cpu(cpu_ev_data, cpu);
+	spin_lock(&cpu_data->read_lock);
+	if (cpu_data->is_hp || cpu_data->is_idle)
+		use_cache = true;
+	else
+		atomic_inc(&cpu_data->read_cnt);
+	spin_unlock(&cpu_data->read_lock);
+
 	for (i = 0; i < cpu_data->num_evs; i++) {
 		event = &cpu_data->events[i];
 		if (!event->event_id)
 			continue;
 		data->event_ids[cnt] = event->event_id;
-		data->ev_data[cnt] = read_event(event, local, false);
+		if (use_cache)
+			data->ev_data[cnt] = event->cached_count;
+		else
+			data->ev_data[cnt] = read_event(event, local);
 		cnt++;
 	}
 	data->num_evs = cnt;
+
+	if (!use_cache)
+		atomic_dec(&cpu_data->read_cnt);
 
 	return 0;
 }
@@ -285,18 +288,24 @@ static void qcom_pmu_idle_enter_notif(void *unused, int *state,
 	struct qcom_pmu_notif_node *idle_node;
 	int i, cnt = 0;
 
-	if (cpu_data->is_idle || cpu_data->is_hp)
+	spin_lock(&cpu_data->read_lock);
+	if (cpu_data->is_idle || cpu_data->is_hp) {
+		spin_unlock(&cpu_data->read_lock);
 		return;
+	}
 	cpu_data->is_idle = true;
+	atomic_inc(&cpu_data->read_cnt);
+	spin_unlock(&cpu_data->read_lock);
 	for (i = 0; i < cpu_data->num_evs; i++) {
 		ev = &cpu_data->events[i];
 		if (!ev->event_id || !ev->pevent)
 			continue;
-		ev->cached_count = read_event(ev, true, true);
+		ev->cached_count = read_event(ev, true);
 		pmu_data.event_ids[cnt] = ev->event_id;
 		pmu_data.ev_data[cnt] = ev->cached_count;
 		cnt++;
 	}
+	atomic_dec(&cpu_data->read_cnt);
 	pmu_data.num_evs = cnt;
 
 	/* send snapshot of pmu data to all registered idle clients */
@@ -325,7 +334,6 @@ static int qcom_pmu_hotplug_coming_up(unsigned int cpu)
 	if (!qcom_pmu_inited)
 		goto out;
 
-	mutex_lock(&cpu_data->events_lock);
 	for (i = 0; i < cpu_data->num_evs; i++) {
 		ret = set_event(&cpu_data->events[i], cpu, attr);
 		if (ret < 0) {
@@ -334,8 +342,9 @@ static int qcom_pmu_hotplug_coming_up(unsigned int cpu)
 			break;
 		}
 	}
+	spin_lock(&cpu_data->read_lock);
 	cpu_data->is_hp = false;
-	mutex_unlock(&cpu_data->events_lock);
+	spin_unlock(&cpu_data->read_lock);
 
 out:
 	kfree(attr);
@@ -351,16 +360,18 @@ static int qcom_pmu_hotplug_going_down(unsigned int cpu)
 	if (!qcom_pmu_inited)
 		return 0;
 
-	mutex_lock(&cpu_data->events_lock);
+	spin_lock(&cpu_data->read_lock);
 	cpu_data->is_hp = true;
+	spin_unlock(&cpu_data->read_lock);
+	while (atomic_read(&cpu_data->read_cnt) > 0)
+		udelay(10);
 	for (i = 0; i < cpu_data->num_evs; i++) {
 		event = &cpu_data->events[i];
 		if (!event->event_id || !event->pevent)
 			continue;
-		event->cached_count = read_event(event, false, true);
+		event->cached_count = read_event(event, false);
 		delete_event(event);
 	}
-	mutex_unlock(&cpu_data->events_lock);
 
 	return 0;
 }
@@ -462,7 +473,7 @@ static int qcom_pmu_driver_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	int ret = 0;
-	unsigned int cpu, i;
+	unsigned int cpu;
 	struct cpu_data *cpu_data;
 
 	get_online_cpus();
@@ -474,11 +485,8 @@ static int qcom_pmu_driver_probe(struct platform_device *pdev)
 		}
 		if (!cpumask_test_cpu(cpu, cpu_online_mask))
 			cpu_data->is_hp = true;
-		mutex_init(&cpu_data->events_lock);
-		for (i = 0; i < MAX_PMU_EVS; i++) {
-			spin_lock_init(&cpu_data->events[i].lock);
-			atomic_set(&cpu_data->events[i].read_cnt, 0);
-		}
+		spin_lock_init(&cpu_data->read_lock);
+		atomic_set(&cpu_data->read_cnt, 0);
 		per_cpu(cpu_ev_data, cpu) = cpu_data;
 	}
 
@@ -517,13 +525,16 @@ static int qcom_pmu_driver_remove(struct platform_device *pdev)
 	unregister_trace_android_vh_cpu_idle_exit(qcom_pmu_idle_exit_notif, NULL);
 	for_each_possible_cpu(cpu) {
 		cpu_data = per_cpu(cpu_ev_data, cpu);
+		spin_lock(&cpu_data->read_lock);
 		cpu_data->is_hp = true;
 		cpu_data->is_idle = true;
+		spin_unlock(&cpu_data->read_lock);
 	}
 
 	for_each_possible_cpu(cpu) {
 		cpu_data = per_cpu(cpu_ev_data, cpu);
-		mutex_lock(&cpu_data->events_lock);
+		while (atomic_read(&cpu_data->read_cnt) > 0)
+			udelay(10);
 		for (i = 0; i < cpu_data->num_evs; i++) {
 			event = &cpu_data->events[i];
 			if (!event->event_id || !event->pevent)
@@ -534,7 +545,6 @@ static int qcom_pmu_driver_remove(struct platform_device *pdev)
 			event->ref_cnt = 0;
 		}
 		cpu_data->num_evs = 0;
-		mutex_unlock(&cpu_data->events_lock);
 	}
 
 	return 0;
