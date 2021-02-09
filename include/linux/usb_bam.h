@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2011-2017, 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2017, 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _USB_BAM_H_
@@ -409,6 +409,12 @@ static inline int get_qdss_bam_info(enum usb_ctrl cur_bam, u8 idx,
 {
 	return false;
 }
+
+static inline bool msm_usb_bam_enable(enum usb_ctrl ctrl, bool bam_enable)
+{
+	return false;
+}
+
 #endif
 
 /* CONFIG_PM */
