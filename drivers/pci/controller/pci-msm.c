@@ -103,6 +103,7 @@
 #define PCIE20_ELBI_SYS_STTS (0x08)
 
 #define PCIE20_CAP (0x70)
+#define PCIE20_CAP_DEVCAP (PCIE20_CAP + 0x04)
 #define PCIE20_CAP_DEVCTRLSTATUS (PCIE20_CAP + 0x08)
 #define PCIE20_CAP_LINKCTRLSTATUS (PCIE20_CAP + 0x10)
 #define PCIE_CAP_DLL_ACTIVE BIT(29)
@@ -3646,6 +3647,8 @@ done:
 
 static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 {
+	u32 val;
+
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
 
 	/*
@@ -3680,6 +3683,13 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 		msm_pcie_write_reg_field(dev->dm_core,
 					PCIE20_DEVICE_CONTROL2_STATUS2,
 					0xf, dev->cpl_timeout);
+
+	/* update RC Max Payload Size based on Max Payload Size Supported */
+	val = readl_relaxed(dev->dm_core + PCIE20_CAP_DEVCAP) &
+	      PCI_EXP_DEVCAP_PAYLOAD;
+	msm_pcie_write_reg_field(dev->dm_core,
+				 PCIE20_CAP_DEVCTRLSTATUS,
+				 PCI_EXP_DEVCTL_PAYLOAD, val);
 
 	/* Enable AER on RC */
 	if (dev->aer_enable) {
