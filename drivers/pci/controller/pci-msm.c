@@ -2,6 +2,7 @@
 /* Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.*/
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+#include <linux/aer.h>
 #include <linux/bitops.h>
 #include <linux/clk.h>
 #include <linux/compiler.h>
@@ -4838,45 +4839,6 @@ static void msm_pcie_disable(struct msm_pcie_dev_t *dev)
 	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
 }
 
-static void msm_pcie_config_ep_aer(struct msm_pcie_dev_t *dev,
-				struct msm_pcie_device_info *ep_dev_info)
-{
-	u32 val;
-	void __iomem *ep_base = ep_dev_info->conf_base;
-	u32 current_offset = readl_relaxed(ep_base + PCIE_CAP_PTR_OFFSET) &
-						0xff;
-
-	while (current_offset) {
-		if (msm_pcie_check_align(dev, current_offset))
-			return;
-
-		val = readl_relaxed(ep_base + current_offset);
-		if ((val & 0xff) == PCIE20_CAP_ID) {
-			ep_dev_info->dev_ctrlstts_offset =
-				current_offset + 0x8;
-			break;
-		}
-		current_offset = (val >> 8) & 0xff;
-	}
-
-	if (!ep_dev_info->dev_ctrlstts_offset) {
-		PCIE_DBG(dev,
-			"RC%d endpoint does not support PCIe cap registers\n",
-			dev->rc_idx);
-		return;
-	}
-
-	PCIE_DBG2(dev, "RC%d: EP dev_ctrlstts_offset: 0x%x\n",
-		dev->rc_idx, ep_dev_info->dev_ctrlstts_offset);
-
-	/* Enable AER on EP */
-	msm_pcie_write_mask(ep_base + ep_dev_info->dev_ctrlstts_offset, 0,
-				BIT(3)|BIT(2)|BIT(1)|BIT(0));
-
-	PCIE_DBG(dev, "EP's PCIE20_CAP_DEVCTRLSTATUS:0x%x\n",
-		readl_relaxed(ep_base + ep_dev_info->dev_ctrlstts_offset));
-}
-
 static int msm_pcie_config_device_table(struct pci_dev *pcidev, void *pdev)
 {
 	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *) pdev;
@@ -4933,8 +4895,15 @@ static int msm_pcie_config_device_table(struct pci_dev *pcidev, void *pdev)
 		if (pcie_dev->num_ep > 1)
 			pcie_dev->pending_ep_reg = true;
 
-		if (pcie_dev->aer_enable)
-			msm_pcie_config_ep_aer(pcie_dev, dev_table_t);
+		if (pcie_dev->aer_enable) {
+#ifdef CONFIG_PCI_QTI
+			if (pci_enable_pcie_error_reporting(pcidev))
+				PCIE_ERR(pcie_dev,
+					 "PCIe: RC%d: PCIE error reporting unavailable on %02x:%02x:%01x\n",
+					 pcie_dev->rc_idx, pcidev->bus->number,
+					 PCI_SLOT(pcidev->devfn), PCI_FUNC(pcidev->devfn));
+#endif
+		}
 
 		break;
 	}
