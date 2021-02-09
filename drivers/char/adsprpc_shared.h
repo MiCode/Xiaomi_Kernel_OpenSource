@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef ADSPRPC_SHARED_H
 #define ADSPRPC_SHARED_H
@@ -138,7 +138,7 @@ do {\
 #define K_COPY_TO_USER_WITHOUT_ERR(kernel, dst, src, size) \
 	do {\
 		if (!(kernel))\
-			copy_to_user((void __user *)(dst),\
+			(void)copy_to_user((void __user *)(dst),\
 			(src), (size));\
 		else\
 			memmove((dst), (src), (size));\
