@@ -2401,6 +2401,7 @@
   trace_event_reg
   trace_handle_return
   __tracepoint_dma_fence_emit
+  __tracepoint_gpu_mem_total
   __tracepoint_xdp_exception
   trace_print_array_seq
   trace_print_flags_seq
