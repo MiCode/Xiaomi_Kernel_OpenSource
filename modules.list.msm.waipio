@@ -184,3 +184,5 @@ msm_rtb.ko
 msm_sysstats.ko
 qcom_tsens.ko
 cpu_hotplug.ko
+bcl_soc.ko
+bcl_pmic5.ko
