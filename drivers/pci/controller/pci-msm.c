@@ -101,6 +101,7 @@
 #define PCIE20_CAP (0x70)
 #define PCIE20_CAP_DEVCTRLSTATUS (PCIE20_CAP + 0x08)
 #define PCIE20_CAP_LINKCTRLSTATUS (PCIE20_CAP + 0x10)
+#define PCIE_CAP_DLL_ACTIVE BIT(29)
 
 #define PCIE20_COMMAND_STATUS (0x04)
 #define PCIE20_HEADER_TYPE (0x0c)
@@ -1477,46 +1478,35 @@ static int msm_pcie_check_align(struct msm_pcie_dev_t *dev,
 	return 0;
 }
 
+static bool msm_pcie_dll_link_active(struct msm_pcie_dev_t *dev)
+{
+	return (readl_relaxed(dev->dm_core + PCIE20_CAP_LINKCTRLSTATUS) &
+		PCIE_CAP_DLL_ACTIVE);
+}
+
 static bool msm_pcie_confirm_linkup(struct msm_pcie_dev_t *dev,
 						bool check_sw_stts,
 						bool check_ep,
-						void __iomem *ep_conf)
+						struct pci_dev *pcidev)
 {
-	u32 val;
-
 	if (check_sw_stts && (dev->link_status != MSM_PCIE_LINK_ENABLED)) {
 		PCIE_DBG(dev, "PCIe: The link of RC %d is not enabled.\n",
-			dev->rc_idx);
+			 dev->rc_idx);
 		return false;
 	}
 
-	if (!(readl_relaxed(dev->dm_core + 0x80) & BIT(29))) {
+	if (!msm_pcie_dll_link_active(dev)) {
 		PCIE_DBG(dev, "PCIe: The link of RC %d is not up.\n",
-			dev->rc_idx);
+			 dev->rc_idx);
 		return false;
 	}
 
-	val = readl_relaxed(dev->dm_core);
-	PCIE_DBG(dev, "PCIe: device ID and vender ID of RC %d are 0x%x.\n",
-		dev->rc_idx, val);
-	if (val == PCIE_LINK_DOWN) {
+	if (check_ep && !pci_device_is_present(pcidev)) {
 		PCIE_ERR(dev,
-			"PCIe: The link of RC %d is not really up; device ID and vender ID of RC %d are 0x%x.\n",
-			dev->rc_idx, dev->rc_idx, val);
+			 "PCIe: RC%d: Config space access failed for BDF 0x%04x\n",
+			 dev->rc_idx,
+			 PCI_DEVID(pcidev->bus->number, pcidev->devfn));
 		return false;
-	}
-
-	if (check_ep) {
-		val = readl_relaxed(ep_conf);
-		PCIE_DBG(dev,
-			"PCIe: device ID and vender ID of EP of RC %d are 0x%x.\n",
-			dev->rc_idx, val);
-		if (val == PCIE_LINK_DOWN) {
-			PCIE_ERR(dev,
-				"PCIe: The link of RC %d is not really up; device ID and vender ID of EP of RC %d are 0x%x.\n",
-				dev->rc_idx, dev->rc_idx, val);
-			return false;
-		}
 	}
 
 	return true;
@@ -1537,7 +1527,7 @@ static void msm_pcie_cfg_recover(struct msm_pcie_dev_t *dev, bool rc)
 			shadow = dev->rc_shadow;
 		} else {
 			if (!msm_pcie_confirm_linkup(dev, false, true,
-				dev->pcidev_table[i].conf_base))
+						     dev->pcidev_table[i].dev))
 				continue;
 
 			shadow = dev->ep_shadow[i];
@@ -4380,12 +4370,10 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 		val =  readl_relaxed(dev->elbi + PCIE20_ELBI_SYS_STTS);
 		PCIE_DBG(dev, "PCIe RC%d: LTSSM_STATE: %s\n",
 			dev->rc_idx, TO_LTSSM_STR((val >> 12) & 0x3f));
-	} while ((!(val & XMLH_LINK_UP) ||
-		!msm_pcie_confirm_linkup(dev, false, false, NULL))
+	} while ((!(val & XMLH_LINK_UP) || !msm_pcie_dll_link_active(dev))
 		&& (link_check_count++ < dev->link_check_max_count));
 
-	if ((val & XMLH_LINK_UP) &&
-		msm_pcie_confirm_linkup(dev, false, false, NULL)) {
+	if ((val & XMLH_LINK_UP) && msm_pcie_dll_link_active(dev)) {
 		PCIE_DBG(dev, "Link is up after %d checkings\n",
 			link_check_count);
 		PCIE_INFO(dev, "PCIe RC%d link initialized\n", dev->rc_idx);
@@ -7437,8 +7425,7 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 	}
 
 	if (dev && !(options & MSM_PCIE_CONFIG_NO_CFG_RESTORE)
-		&& msm_pcie_confirm_linkup(pcie_dev, true, true,
-			pcie_dev->conf)) {
+		&& msm_pcie_confirm_linkup(pcie_dev, true, true, dev)) {
 		ret = pci_save_state(dev);
 		pcie_dev->saved_state =	pci_store_saved_state(dev);
 	}
@@ -8282,7 +8269,7 @@ int msm_pcie_recover_config(struct pci_dev *dev)
 		return -ENODEV;
 	}
 
-	if (msm_pcie_confirm_linkup(pcie_dev, true, true, pcie_dev->conf)) {
+	if (msm_pcie_confirm_linkup(pcie_dev, true, true, dev)) {
 		PCIE_DBG(pcie_dev,
 			"Recover config space of RC%d and its EP\n",
 			pcie_dev->rc_idx);
