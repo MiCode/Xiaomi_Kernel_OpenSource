@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _QCOM_PMU_H
@@ -24,8 +24,7 @@ struct qcom_pmu_notif_node {
 };
 
 #if IS_ENABLED(CONFIG_QCOM_PMU_LIB)
-int qcom_pmu_create(u32 event_id, int cpu);
-int qcom_pmu_delete(u32 event_id, int cpu);
+int qcom_pmu_event_supported(u32 event_id, int cpu);
 int qcom_pmu_read(int cpu, u32 event_id, u64 *pmu_data);
 int qcom_pmu_read_local(u32 event_id, u64 *pmu_data);
 int qcom_pmu_read_all(int cpu, struct qcom_pmu_data *data);
@@ -33,11 +32,7 @@ int qcom_pmu_read_all_local(struct qcom_pmu_data *data);
 int qcom_pmu_idle_register(struct qcom_pmu_notif_node *idle_node);
 int qcom_pmu_idle_unregister(struct qcom_pmu_notif_node *idle_node);
 #else
-static inline int qcom_pmu_create(u32 event_id, int cpu)
-{
-	return -ENODEV;
-}
-static inline int qcom_pmu_delete(u32 event_id, int cpu)
+static inline int qcom_pmu_event_supported(u32 event_id, int cpu)
 {
 	return -ENODEV;
 }
