@@ -13,8 +13,10 @@
 #include <linux/spinlock.h>
 #include <linux/suspend.h>
 #include <linux/sysrq.h>
-#include <mt-plat/mboot_params.h>
 #include <uapi/linux/sched/types.h>
+
+#include <mt-plat/mboot_params.h>
+#include "mrdump_helper.h"
 
 /*************************************************************************
  * Feature configure region
@@ -157,6 +159,13 @@ void wk_cpu_update_bit_flag(int cpu, int plug_status)
 	}
 }
 
+static void (*p_mt_aee_dump_irq_info)(void);
+void kwdt_regist_irq_info(void (*fn)(void))
+{
+	p_mt_aee_dump_irq_info = fn;
+}
+EXPORT_SYMBOL_GPL(kwdt_regist_irq_info);
+
 static void kwdt_process_kick(int local_bit, int cpu,
 				unsigned long curInterval, char msg_buf[])
 {
@@ -199,6 +208,11 @@ static void kwdt_process_kick(int local_bit, int cpu,
 
 	if (dump_timeout) {
 		dump_wdk_bind_info();
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR)
+		if (p_mt_aee_dump_irq_info)
+			p_mt_aee_dump_irq_info();
+#endif
+		sysrq_sched_debug_show_at_AEE();
 		//panic("cpu hang detected!\n");
 	}
 }

@@ -2185,6 +2185,7 @@ static int aed_proc_done(void)
 {
 	remove_proc_entry(CURRENT_EE_COREDUMP, aed_proc_dir);
 
+	aee_rr_proc_done(aed_proc_dir);
 	aed_proc_debug_done(aed_proc_dir);
 
 	remove_proc_entry("aed", NULL);

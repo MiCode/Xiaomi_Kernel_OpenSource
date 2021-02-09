@@ -217,4 +217,5 @@ int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long size,
 extern void mlog_get_buffer(char **ptr, int *size)__attribute__((weak));
 extern void get_msdc_aee_buffer(unsigned long *buff,
 	unsigned long *size)__attribute__((weak));
+extern void kwdt_regist_irq_info(void (*fn)(void));
 #endif
