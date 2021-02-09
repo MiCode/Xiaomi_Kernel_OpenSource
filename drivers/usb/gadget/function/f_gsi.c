@@ -2596,6 +2596,11 @@ static void gsi_disable(struct usb_function *f)
 	/* send 0 len pkt to qti/qbi/gps to notify state change */
 	gsi_ctrl_send_cpkt_tomodem(gsi, NULL, 0);
 	gsi->c_port.notify_req_queued = false;
+
+	gsi->func_is_suspended = false;
+	gsi->func_wakeup_allowed = false;
+	gsi->func_wakeup_pending = false;
+
 	/* Disable Data Path  - only if it was initialized already (alt=1) */
 	if (!gsi->data_interface_up) {
 		log_event_dbg("%s: data intf is closed", __func__);

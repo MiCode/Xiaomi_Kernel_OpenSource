@@ -583,6 +583,8 @@ static void usb_cser_disable(struct usb_function *f)
 		"port(%s) deactivated\n", port->name);
 
 	usb_cser_disconnect(port);
+	port->func_is_suspended = false;
+	port->func_wakeup_allowed = false;
 	port->func_wakeup_pending = false;
 	usb_ep_disable(port->port_usb.notify);
 	port->port_usb.notify->driver_data = NULL;
