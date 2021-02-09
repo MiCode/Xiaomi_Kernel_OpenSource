@@ -319,21 +319,6 @@ static const struct attribute *_attr_list[] = {
 static GPU_SYSFS_ATTR(gpu_model, 0444, _gpu_model_show, NULL);
 
 /**
- * adreno_sysfs_close() - Take down the adreno sysfs files
- * @adreno_dev: Pointer to the adreno device
- *
- * Take down the sysfs files on when the device goes away
- */
-void adreno_sysfs_close(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	sysfs_remove_files(&device->dev->kobj, _attr_list);
-	sysfs_remove_file(&device->gpu_sysfs_kobj,
-		&gpu_sysfs_attr_gpu_model.attr);
-}
-
-/**
  * adreno_sysfs_init() - Initialize adreno sysfs files
  * @adreno_dev: Pointer to the adreno device
  *

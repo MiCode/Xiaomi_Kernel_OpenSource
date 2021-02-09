@@ -124,7 +124,7 @@ struct genc_hwsched_hfi *to_genc_hwsched_hfi(struct adreno_device *adreno_dev);
  * This function sends a GET_VALUE HFI packet to get the number of
  * preemptions completed since last SLUMBER exit.
  *
- * Return: Preemption count on success or negative error on failure
+ * Return: Preemption count
  */
-int genc_hwsched_preempt_count_get(struct adreno_device *adreno_dev);
+u32 genc_hwsched_preempt_count_get(struct adreno_device *adreno_dev);
 #endif

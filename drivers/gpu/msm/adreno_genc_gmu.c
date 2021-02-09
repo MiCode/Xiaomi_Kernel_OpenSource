@@ -432,8 +432,6 @@ static const char *oob_to_str(enum oob_request req)
 static void trigger_reset_recovery(struct adreno_device *adreno_dev,
 	enum oob_request req)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
 	/*
 	 * Trigger recovery for perfcounter oob only since only
 	 * perfcounter oob can happen alongside an actively rendering gpu.
@@ -441,15 +439,9 @@ static void trigger_reset_recovery(struct adreno_device *adreno_dev,
 	if (req != oob_perfcntr)
 		return;
 
-	if (test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
-		adreno_get_gpu_halt(adreno_dev);
-
-		adreno_hwsched_set_fault(adreno_dev);
-	} else {
-		adreno_set_gpu_fault(adreno_dev,
+	if (adreno_dev->dispatch_ops && adreno_dev->dispatch_ops->fault)
+		adreno_dev->dispatch_ops->fault(adreno_dev,
 			ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
-		adreno_dispatcher_schedule(device);
-	}
 }
 
 int genc_gmu_oob_set(struct kgsl_device *device,
@@ -1191,7 +1183,7 @@ static unsigned int genc_gmu_ifpc_show(struct kgsl_device *device)
 }
 
 /* Send an NMI to the GMU */
-static void genc_gmu_send_nmi(struct adreno_device *adreno_dev)
+void genc_gmu_send_nmi(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
@@ -1279,47 +1271,57 @@ static bool genc_gmu_scales_bandwidth(struct kgsl_device *device)
 	return true;
 }
 
+void genc_gmu_handle_watchdog(struct adreno_device *adreno_dev)
+{
+	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 mask;
+
+	/* Temporarily mask the watchdog interrupt to prevent a storm */
+	gmu_core_regread(device, GENC_GMU_AO_HOST_INTERRUPT_MASK, &mask);
+	gmu_core_regwrite(device, GENC_GMU_AO_HOST_INTERRUPT_MASK,
+			(mask | GMU_INT_WDOG_BITE));
+
+	/* make sure we're reading the latest cm3_fault */
+	smp_rmb();
+
+	/*
+	 * We should not send NMI if there was a CM3 fault reported
+	 * because we don't want to overwrite the critical CM3 state
+	 * captured by gmu before it sent the CM3 fault interrupt.
+	 */
+	if (!atomic_read(&gmu->cm3_fault))
+		genc_gmu_send_nmi(adreno_dev);
+
+	/*
+	 * There is sufficient delay for the GMU to have finished
+	 * handling the NMI before snapshot is taken, as the fault
+	 * worker is scheduled below.
+	 */
+
+	dev_err_ratelimited(&gmu->pdev->dev,
+			"GMU watchdog expired interrupt received\n");
+}
+
 static irqreturn_t genc_gmu_irq_handler(int irq, void *data)
 {
 	struct kgsl_device *device = data;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
-	unsigned int mask, status = 0;
+	const struct genc_gpudev *genc_gpudev =
+		to_genc_gpudev(ADRENO_GPU_DEVICE(adreno_dev));
+	unsigned int status = 0;
 
 	gmu_core_regread(device, GENC_GMU_AO_HOST_INTERRUPT_STATUS, &status);
 	gmu_core_regwrite(device, GENC_GMU_AO_HOST_INTERRUPT_CLR, status);
 
-	/* Ignore GMU_INT_RSCC_COMP and GMU_INT_DBD WAKEUP interrupts */
-	if (status & GMU_INT_WDOG_BITE) {
-		/* Temporarily mask the watchdog interrupt to prevent a storm */
-		gmu_core_regread(device, GENC_GMU_AO_HOST_INTERRUPT_MASK,
-			&mask);
-		gmu_core_regwrite(device, GENC_GMU_AO_HOST_INTERRUPT_MASK,
-				(mask | GMU_INT_WDOG_BITE));
-
-		/* make sure we're reading the latest cm3_fault */
-		smp_rmb();
-
-		/*
-		 * We should not send NMI if there was a CM3 fault reported
-		 * because we don't want to overwrite the critical CM3 state
-		 * captured by gmu before it sent the CM3 fault interrupt.
-		 */
-		if (!atomic_read(&gmu->cm3_fault))
-			genc_gmu_send_nmi(adreno_dev);
-
-		/*
-		 * There is sufficient delay for the GMU to have finished
-		 * handling the NMI before snapshot is taken, as the fault
-		 * worker is scheduled below.
-		 */
-
-		dev_err_ratelimited(&gmu->pdev->dev,
-				"GMU watchdog expired interrupt received\n");
-	}
 	if (status & GMU_INT_HOST_AHB_BUS_ERR)
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"AHB bus error interrupt received\n");
+
+	if (status & GMU_INT_WDOG_BITE)
+		genc_gpudev->handle_watchdog(adreno_dev);
+
 	if (status & GMU_INT_FENCE_ERR) {
 		unsigned int fence_status;
 
@@ -1920,16 +1922,10 @@ int genc_gmu_probe(struct kgsl_device *device,
 	gmu->irq = kgsl_request_irq(gmu->pdev, "gmu",
 		genc_gmu_irq_handler, device);
 
-	if (gmu->irq < 0) {
-		ret = gmu->irq;
-		goto error;
-	}
+	if (gmu->irq >= 0)
+		return 0;
 
-	/* Don't enable GMU interrupts until GMU started */
-	/* We cannot use irq_disable because it writes registers */
-	disable_irq(gmu->irq);
-
-	return 0;
+	ret = gmu->irq;
 
 error:
 	genc_gmu_remove(device);
@@ -2037,7 +2033,7 @@ void genc_enable_gpu_irq(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
+	kgsl_pwrctrl_irq(device, true);
 
 	adreno_irqctrl(adreno_dev, 1);
 }
@@ -2046,7 +2042,7 @@ void genc_disable_gpu_irq(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+	kgsl_pwrctrl_irq(device, false);
 
 	if (genc_gmu_gx_is_on(device))
 		adreno_irqctrl(adreno_dev, 0);
@@ -2243,7 +2239,7 @@ static int genc_power_off(struct adreno_device *adreno_dev)
 
 	genc_gmu_oob_clear(device, oob_gpu);
 
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+	kgsl_pwrctrl_irq(device, false);
 
 	genc_gmu_power_off(adreno_dev);
 
@@ -2385,7 +2381,7 @@ static int genc_gmu_pm_suspend(struct adreno_device *adreno_dev)
 
 	set_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags);
 
-	adreno_dispatcher_halt(device);
+	adreno_get_gpu_halt(adreno_dev);
 
 	trace_kgsl_pwr_set_state(device, KGSL_STATE_SUSPEND);
 
@@ -2404,7 +2400,7 @@ static void genc_gmu_pm_resume(struct adreno_device *adreno_dev)
 		"resume invoked without a suspend\n"))
 		return;
 
-	adreno_dispatcher_unhalt(device);
+	adreno_put_gpu_halt(adreno_dev);
 
 	adreno_dispatcher_start(device);
 
@@ -2516,30 +2512,37 @@ int genc_gmu_restart(struct kgsl_device *device)
 	return genc_boot(adreno_dev);
 }
 
+int genc_gmu_hfi_probe(struct adreno_device *adreno_dev)
+{
+	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
+	struct genc_hfi *hfi = &gmu->hfi;
+
+	hfi->irq = kgsl_request_irq(gmu->pdev, "hfi",
+		genc_hfi_irq_handler, KGSL_DEVICE(adreno_dev));
+
+	return hfi->irq < 0 ? hfi->irq : 0;
+}
+
 static int genc_gmu_bind(struct device *dev, struct device *master, void *data)
 {
 	struct kgsl_device *device = dev_get_drvdata(master);
-	struct genc_gmu_device *gmu = to_genc_gmu(ADRENO_DEVICE(device));
-	struct genc_hfi *hfi = &gmu->hfi;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct genc_gpudev *genc_gpudev = to_genc_gpudev(gpudev);
 	int ret;
 
 	ret = genc_gmu_probe(device, to_platform_device(dev));
 	if (ret)
 		return ret;
 
-	/*
-	 * genc_gmu_probe() is also called by hwscheduling probe. However,
-	 * since HFI interrupts are handled differently in hwscheduling, move
-	 * out HFI interrupt setup from genc_gmu_probe().
-	 */
-	hfi->irq = kgsl_request_irq(gmu->pdev, "hfi",
-		genc_hfi_irq_handler, device);
-	if (hfi->irq < 0) {
-		genc_gmu_remove(device);
-		return hfi->irq;
-	}
+	if (genc_gpudev->hfi_probe) {
+		ret = genc_gpudev->hfi_probe(adreno_dev);
 
-	disable_irq(gmu->hfi.irq);
+		if (ret) {
+			genc_gmu_remove(device);
+			return ret;
+		}
+	}
 
 	return 0;
 }

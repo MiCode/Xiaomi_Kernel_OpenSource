@@ -828,7 +828,7 @@ static void adreno_snapshot_os(struct kgsl_device *device,
 	header->power_flags = device->pwrctrl.power_flags;
 	header->power_level = device->pwrctrl.active_pwrlevel;
 	header->power_interval_timeout = device->pwrctrl.interval_timeout;
-	header->grpclk = kgsl_get_clkrate(device->pwrctrl.grp_clks[0]);
+	header->grpclk = clk_get_rate(device->pwrctrl.grp_clks[0]);
 
 	/* Get the current PT base */
 	header->ptbase = kgsl_mmu_get_current_ttbr0(&device->mmu);

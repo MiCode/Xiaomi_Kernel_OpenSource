@@ -569,7 +569,9 @@ static int genc_hwsched_first_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	adreno_hwsched_init(adreno_dev);
+	ret = adreno_hwsched_init(adreno_dev);
+	if (ret)
+		return ret;
 
 	adreno_hwsched_start(adreno_dev);
 
@@ -624,7 +626,7 @@ static int genc_hwsched_power_off(struct adreno_device *adreno_dev)
 	genc_gmu_oob_clear(device, oob_gpu);
 
 no_gx_power:
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+	kgsl_pwrctrl_irq(device, false);
 
 	genc_hwsched_gmu_power_off(adreno_dev);
 
@@ -833,12 +835,12 @@ static int genc_hwsched_pm_suspend(struct adreno_device *adreno_dev)
 	mutex_unlock(&device->mutex);
 
 	/* Flush any currently running instances of the dispatcher */
-	kthread_flush_worker(&kgsl_driver.worker);
+	adreno_hwsched_flush(adreno_dev);
 
 	mutex_lock(&device->mutex);
 
 	/* This ensures that dispatcher doesn't submit any new work */
-	adreno_dispatcher_halt(device);
+	adreno_get_gpu_halt(adreno_dev);
 
 	/**
 	 * Wait for the dispatcher to retire everything by waiting
@@ -875,7 +877,7 @@ static int genc_hwsched_pm_suspend(struct adreno_device *adreno_dev)
 	return 0;
 
 err:
-	adreno_dispatcher_unhalt(device);
+	adreno_put_gpu_halt(adreno_dev);
 	adreno_hwsched_start(adreno_dev);
 
 	return ret;
@@ -883,18 +885,53 @@ err:
 
 static void genc_hwsched_pm_resume(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
 
 	if (WARN(!test_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags),
 		"resume invoked without a suspend\n"))
 		return;
 
-	adreno_dispatcher_unhalt(device);
+	adreno_put_gpu_halt(adreno_dev);
 
 	adreno_hwsched_start(adreno_dev);
 
 	clear_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags);
+}
+
+void genc_hwsched_handle_watchdog(struct adreno_device *adreno_dev)
+{
+	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 mask;
+
+	/* Temporarily mask the watchdog interrupt to prevent a storm */
+	gmu_core_regread(device, GENC_GMU_AO_HOST_INTERRUPT_MASK,
+		&mask);
+	gmu_core_regwrite(device, GENC_GMU_AO_HOST_INTERRUPT_MASK,
+			(mask | GMU_INT_WDOG_BITE));
+
+	/* make sure we're reading the latest cm3_fault */
+	smp_rmb();
+
+	/*
+	 * We should not send NMI if there was a CM3 fault reported
+	 * because we don't want to overwrite the critical CM3 state
+	 * captured by gmu before it sent the CM3 fault interrupt.
+	 */
+	if (!atomic_read(&gmu->cm3_fault))
+		genc_gmu_send_nmi(adreno_dev);
+
+	/*
+	 * There is sufficient delay for the GMU to have finished
+	 * handling the NMI before snapshot is taken, as the fault
+	 * worker is scheduled below.
+	 */
+
+	dev_err_ratelimited(&gmu->pdev->dev,
+			"GMU watchdog expired interrupt received\n");
+
+	adreno_get_gpu_halt(adreno_dev);
+	adreno_hwsched_set_fault(adreno_dev);
 }
 
 static void genc_hwsched_drain_ctxt_unregister(struct adreno_device *adreno_dev)
@@ -988,62 +1025,3 @@ int genc_hwsched_probe(struct platform_device *pdev,
 
 	return 0;
 }
-
-static int genc_hwsched_bind(struct device *dev, struct device *master,
-	void *data)
-{
-	struct kgsl_device *device = dev_get_drvdata(master);
-	int ret;
-
-	ret = genc_gmu_probe(device, to_platform_device(dev));
-	if (ret)
-		return ret;
-
-	ret = genc_hwsched_hfi_probe(ADRENO_DEVICE(device));
-	if (ret) {
-		genc_gmu_remove(device);
-		return ret;
-	}
-
-	set_bit(GMU_DISPATCH, &device->gmu_core.flags);
-
-	return 0;
-}
-
-static void genc_hwsched_unbind(struct device *dev, struct device *master,
-		void *data)
-{
-	struct kgsl_device *device = dev_get_drvdata(master);
-
-	genc_gmu_remove(device);
-}
-
-static const struct component_ops genc_hwsched_component_ops = {
-	.bind = genc_hwsched_bind,
-	.unbind = genc_hwsched_unbind,
-};
-
-static int genc_hwsched_probe_dev(struct platform_device *pdev)
-{
-	return component_add(&pdev->dev, &genc_hwsched_component_ops);
-}
-
-static int genc_hwsched_remove_dev(struct platform_device *pdev)
-{
-	component_del(&pdev->dev, &genc_hwsched_component_ops);
-	return 0;
-}
-
-static const struct of_device_id genc_gmu_match_table[] = {
-	{ .compatible = "qcom,gpu-gmu" },
-	{ },
-};
-
-struct platform_driver genc_hwsched_driver = {
-	.probe = genc_hwsched_probe_dev,
-	.remove = genc_hwsched_remove_dev,
-	.driver = {
-		.name = "adreno-genc-gmu",
-		.of_match_table = genc_gmu_match_table,
-	},
-};

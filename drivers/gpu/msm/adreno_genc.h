@@ -18,6 +18,15 @@ extern const struct adreno_power_ops genc_gmu_power_ops;
 extern const struct adreno_power_ops genc_hwsched_power_ops;
 extern const struct adreno_perfcounters adreno_genc_perfcounters;
 
+struct genc_gpudev {
+	struct adreno_gpudev base;
+	int (*hfi_probe)(struct adreno_device *adreno_dev);
+	void (*handle_watchdog)(struct adreno_device *adreno_dev);
+};
+
+extern const struct genc_gpudev adreno_genc_gmu_gpudev;
+extern const struct genc_gpudev adreno_genc_hwsched_gpudev;
+
 /**
  * struct genc_device - Container for the genc_device
  */
@@ -416,4 +425,17 @@ int genc_ringbuffer_addcmds(struct adreno_device *adreno_dev,
  */
 void genc_cp_init_cmds(struct adreno_device *adreno_dev, u32 *cmds);
 
+/**
+ * genc_gmu_hfi_probe - Probe GenC HFI specific data
+ * @adreno_dev: An Adreno GPU handle
+ *
+ * Return: 0 on success or negative on failure
+ */
+int genc_gmu_hfi_probe(struct adreno_device *adreno_dev);
+
+static inline const struct genc_gpudev *
+to_genc_gpudev(const struct adreno_gpudev *gpudev)
+{
+	return container_of(gpudev, struct genc_gpudev, base);
+}
 #endif

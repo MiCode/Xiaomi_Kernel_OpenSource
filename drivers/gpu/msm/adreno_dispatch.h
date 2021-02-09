@@ -81,6 +81,7 @@ struct adreno_dispatcher {
 	struct kthread_work work;
 	struct kobject kobj;
 	struct completion idle_gate;
+	struct kthread_worker *worker;
 };
 
 enum adreno_dispatcher_flags {
@@ -90,41 +91,15 @@ enum adreno_dispatcher_flags {
 };
 
 struct adreno_device;
-struct adreno_context;
-struct kgsl_context;
 struct kgsl_device;
-struct kgsl_device_private;
 
 void adreno_dispatcher_start(struct kgsl_device *device);
-void adreno_dispatcher_halt(struct kgsl_device *device);
-void adreno_dispatcher_unhalt(struct kgsl_device *device);
 int adreno_dispatcher_init(struct adreno_device *adreno_dev);
-void adreno_dispatcher_close(struct adreno_device *adreno_dev);
 int adreno_dispatcher_idle(struct adreno_device *adreno_dev);
-void adreno_dispatcher_irq_fault(struct adreno_device *adreno_dev);
 void adreno_dispatcher_stop(struct adreno_device *adreno_dev);
 
 void adreno_dispatcher_start_fault_timer(struct adreno_device *adreno_dev);
 void adreno_dispatcher_stop_fault_timer(struct kgsl_device *device);
 
-struct kgsl_drawobj;
-
-int adreno_dispatcher_queue_cmds(struct kgsl_device_private *dev_priv,
-		struct kgsl_context *context, struct kgsl_drawobj *drawobj[],
-		uint32_t count, uint32_t *timestamp);
-
 void adreno_dispatcher_schedule(struct kgsl_device *device);
-void adreno_dispatcher_pause(struct adreno_device *adreno_dev);
-void adreno_dispatcher_queue_context(struct kgsl_device *device,
-		struct adreno_context *drawctxt);
-void adreno_dispatcher_preempt_callback(struct adreno_device *adreno_dev,
-					int bit);
-void adreno_preempt_process_dispatch_queue(struct adreno_device *adreno_dev,
-	struct adreno_dispatcher_drawqueue *dispatch_q);
-
-static inline bool adreno_drawqueue_is_empty(
-		struct adreno_dispatcher_drawqueue *drawqueue)
-{
-	return (drawqueue != NULL && drawqueue->head == drawqueue->tail);
-}
 #endif /* __ADRENO_DISPATCHER_H */

@@ -26,6 +26,7 @@ struct adreno_hwsched {
 	struct list_head cmd_list;
 	/** @fault: Atomic to record a fault */
 	atomic_t fault;
+	struct kthread_worker *worker;
 };
 
 enum adreno_hwsched_flags {
@@ -43,33 +44,6 @@ enum adreno_hwsched_flags {
 void adreno_hwsched_trigger(struct adreno_device *adreno_dev);
 
 /**
- * adreno_hwsched_queue_cmds() - Queue a new draw object in the context
- * @dev_priv: Pointer to the device private struct
- * @context: Pointer to the kgsl draw context
- * @drawobj: Pointer to the array of drawobj's being submitted
- * @count: Number of drawobj's being submitted
- * @timestamp: Pointer to the requested timestamp
- *
- * Queue a command in the context - if there isn't any room in the queue, then
- * block until there is
- *
- * Return: 0 on success and negative error on failure to queue
- */
-int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
-	struct kgsl_context *context, struct kgsl_drawobj *drawobj[],
-	u32 count, u32 *timestamp);
-/**
- * adreno_hwsched_queue_context() - schedule a drawctxt in the hw dispatcher
- * @device: pointer to the KGSL device
- * @drawctxt: pointer to the drawctxt to schedule
- *
- * Put a draw context on the dispatcher job listse and schedule the
- * dispatcher. This is used to reschedule changes that might have been blocked
- * for sync points or other concerns
- */
-void adreno_hwsched_queue_context(struct kgsl_device *device,
-	struct adreno_context *drawctxt);
-/**
  * adreno_hwsched_start() - activate the hwsched dispatcher
  * @adreno_dev: pointer to the adreno device
  *
@@ -80,17 +54,10 @@ void adreno_hwsched_start(struct adreno_device *adreno_dev);
  * adreno_hwsched_dispatcher_init() - Initialize the hwsched dispatcher
  * @adreno_dev: pointer to the adreno device
  *
- * Set up the dispatcher resources
+ * Set up the dispatcher resources.
+ * Return: 0 on success or negative on failure.
  */
-void adreno_hwsched_init(struct adreno_device *adreno_dev);
-
-/**
- * adreno_hwsched_dispatcher_close() - close the hwsched dispatcher
- * @adreno_dev: pointer to the adreno device structure
- *
- * Free the dispatcher resources
- */
-void adreno_hwsched_dispatcher_close(struct adreno_device *adreno_dev);
+int adreno_hwsched_init(struct adreno_device *adreno_dev);
 
 /**
  * adreno_hwsched_set_fault - Set hwsched fault to request recovery
@@ -120,4 +87,6 @@ void adreno_hwsched_mark_drawobj(struct adreno_device *adreno_dev, u32 ctxt_id,
  */
 void adreno_hwsched_parse_fault_cmdobj(struct adreno_device *adreno_dev,
 	struct kgsl_snapshot *snapshot);
+
+void adreno_hwsched_flush(struct adreno_device *adreno_dev);
 #endif

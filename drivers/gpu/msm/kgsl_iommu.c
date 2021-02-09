@@ -359,7 +359,6 @@ static int
 _kgsl_iommu_map(struct iommu_domain *domain, struct kgsl_memdesc *memdesc)
 {
 	int prot = _iommu_get_protection_flags(domain, memdesc);
-	struct sg_table *sgt = NULL;
 	size_t mapped, padding;
 	int ret = 0;
 
@@ -368,19 +367,23 @@ _kgsl_iommu_map(struct iommu_domain *domain, struct kgsl_memdesc *memdesc)
 	 * Allocate sgt here just for its map operation. Contiguous memory
 	 * already has its sgt, so no need to allocate it here.
 	 */
-	if (memdesc->pages != NULL)
-		sgt = kgsl_alloc_sgt_from_pages(memdesc);
-	else
-		sgt = memdesc->sgt;
+	if (!memdesc->pages) {
+		mapped = _iommu_map_sg(domain, memdesc->gpuaddr,
+				memdesc->sgt, prot);
+	} else {
+		struct sg_table sgt;
 
-	if (IS_ERR(sgt))
-		return PTR_ERR(sgt);
+		ret = sg_alloc_table_from_pages(&sgt, memdesc->pages,
+			memdesc->page_count, 0, memdesc->size, GFP_KERNEL);
+		if (ret)
+			return ret;
 
-	mapped = _iommu_map_sg(domain, memdesc->gpuaddr, sgt, prot);
-	if (!mapped) {
-		ret = -ENOMEM;
-		goto done;
+		mapped = _iommu_map_sg(domain, memdesc->gpuaddr, &sgt, prot);
+		sg_free_table(&sgt);
 	}
+
+	if (!mapped)
+		return -ENOMEM;
 
 	padding = kgsl_memdesc_footprint(memdesc) - mapped;
 
@@ -397,10 +400,6 @@ _kgsl_iommu_map(struct iommu_domain *domain, struct kgsl_memdesc *memdesc)
 			}
 		}
 	}
-
-done:
-	if (memdesc->pages != NULL)
-		kgsl_free_sgt(sgt);
 
 	return ret;
 }
@@ -827,7 +826,7 @@ static bool kgsl_iommu_check_stall_on_fault(struct kgsl_mmu *mmu, int flags)
 	 * The device mutex must be held to change power state
 	 */
 	if (gmu_core_isenabled(device))
-		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+		kgsl_pwrctrl_irq(device, false);
 	else
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
 
@@ -851,8 +850,7 @@ static int kgsl_iommu_fault_handler(struct kgsl_mmu *mmu,
 
 	stall = kgsl_iommu_check_stall_on_fault(mmu, flags);
 
-	kgsl_iommu_print_fault(mmu, ctx, addr, flags, ptbase, contextidr,
-		private);
+	kgsl_iommu_print_fault(mmu, ctx, addr, ptbase, contextidr, flags, private);
 
 	if (stall) {
 		struct adreno_device *adreno_dev = ADRENO_DEVICE(device);

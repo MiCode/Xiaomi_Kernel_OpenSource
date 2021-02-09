@@ -41,7 +41,6 @@ enum gmu_core_flags {
 	GMU_ENABLED,
 	GMU_RSCC_SLEEP_SEQ_DONE,
 	GMU_DISABLE_SLUMBER,
-	GMU_DISPATCH,
 };
 
 /*
@@ -302,5 +301,20 @@ void gmu_core_fault_snapshot(struct kgsl_device *device);
 int gmu_core_timed_poll_check(struct kgsl_device *device,
 		unsigned int offset, unsigned int expected_ret,
 		unsigned int timeout_ms, unsigned int mask);
+
+struct kgsl_memdesc;
+struct iommu_domain;
+
+/**
+ * gmu_core_map_memdesc - Map the memdesc into the GMU IOMMU domain
+ * @domain: Domain to map the memory into
+ * @memdesc: Memory descriptor to map
+ * @gmuaddr: Virtual GMU address to map the memory into
+ * @attrs: Attributes for the mapping
+ *
+ * Return: 0 on success or -ENOMEM on failure
+ */
+int gmu_core_map_memdesc(struct iommu_domain *domain, struct kgsl_memdesc *memdesc,
+		u64 gmuaddr, int attrs);
 
 #endif /* __KGSL_GMU_CORE_H */

@@ -18,6 +18,9 @@
 #define MMU_DEFAULT_TTBR0(_d) \
 	(kgsl_mmu_pagetable_get_ttbr0((_d)->mmu.defaultpagetable))
 
+#define KGSL_MMU_DEVICE(_mmu) \
+	container_of((_mmu), struct kgsl_device, mmu)
+
 /**
  * enum kgsl_ft_pagefault_policy_bits - KGSL pagefault policy bits
  * @KGSL_FT_PAGEFAULT_INT_ENABLE: No longer used, but retained for compatibility

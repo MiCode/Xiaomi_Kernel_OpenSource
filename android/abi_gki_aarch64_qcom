@@ -1201,7 +1201,9 @@
   kthread_cancel_delayed_work_sync
   kthread_cancel_work_sync
   kthread_create_on_node
+  kthread_create_worker
   kthread_delayed_work_timer_fn
+  kthread_destroy_worker
   kthread_flush_work
   kthread_flush_worker
   __kthread_init_worker

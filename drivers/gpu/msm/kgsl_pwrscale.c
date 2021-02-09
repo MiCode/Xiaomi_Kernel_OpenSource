@@ -227,7 +227,7 @@ void kgsl_pwrscale_disable(struct kgsl_device *device, bool turbo)
 			&device->pwrscale.devfreq_suspend_ws);
 	device->pwrscale.enabled = false;
 	if (turbo)
-		kgsl_pwrctrl_pwrlevel_change(device, KGSL_PWRLEVEL_TURBO);
+		kgsl_pwrctrl_pwrlevel_change(device, 0);
 }
 
 /*
@@ -281,7 +281,6 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 {
 	struct kgsl_device *device = dev_get_drvdata(dev);
 	struct kgsl_pwrctrl *pwr;
-	struct kgsl_pwrlevel *pwr_level;
 	int level;
 	unsigned int i;
 	unsigned long cur_freq, rec_freq;
@@ -308,7 +307,6 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	mutex_lock(&device->mutex);
 	cur_freq = kgsl_pwrctrl_active_freq(pwr);
 	level = pwr->active_pwrlevel;
-	pwr_level = &pwr->pwrlevels[level];
 
 	/* If the governor recommends a new frequency, update it here */
 	if (rec_freq != cur_freq) {
@@ -773,7 +771,7 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct devfreq *devfreq;
 	struct msm_adreno_extended_profile *gpu_profile;
-	int i, ret;
+	int i;
 
 	pwrscale->enabled = true;
 
@@ -873,8 +871,8 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 	if (adreno_tz_data.bus.num)
 		pwrscale_busmon_create(device, pdev, pwrscale->freq_table);
 
-	ret = sysfs_create_link(&device->dev->kobj,
-			&devfreq->dev.kobj, "devfreq");
+	WARN_ON(sysfs_create_link(&device->dev->kobj,
+			&devfreq->dev.kobj, "devfreq"));
 
 	pwrscale->devfreq_wq = create_freezable_workqueue("kgsl_devfreq_wq");
 	INIT_WORK(&pwrscale->devfreq_suspend_ws, do_devfreq_suspend);
@@ -886,14 +884,6 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 
 	pwrscale->next_governor_call = ktime_add_us(ktime_get(),
 			KGSL_GOVERNOR_CALL_INTERVAL);
-
-	/* Add links to the devfreq sysfs nodes */
-	kgsl_gpu_sysfs_add_link(&device->gpu_sysfs_kobj,
-			 &pwrscale->devfreqptr->dev.kobj, "governor",
-			"gpu_governor");
-	kgsl_gpu_sysfs_add_link(&device->gpu_sysfs_kobj,
-			 &pwrscale->devfreqptr->dev.kobj,
-			"available_governors", "gpu_available_governor");
 
 	return 0;
 }

@@ -49,4 +49,11 @@ void a6xx_hwsched_restart(struct adreno_device *adreno_dev);
  */
 void a6xx_hwsched_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_snapshot *snapshot);
+
+/**
+ * a6xx_hwsched_handle_watchdog - Handle watchdog interrupt
+ * @adreno_dev: Pointer to the adreno device
+ */
+void a6xx_hwsched_handle_watchdog(struct adreno_device *adreno_dev);
+
 #endif

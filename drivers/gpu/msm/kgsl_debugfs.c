@@ -13,20 +13,6 @@
 struct dentry *kgsl_debugfs_dir;
 static struct dentry *proc_d_debugfs;
 
-static int _strict_set(void *data, u64 val)
-{
-	kgsl_sharedmem_set_noretry(val ? true : false);
-	return 0;
-}
-
-static int _strict_get(void *data, u64 *val)
-{
-	*val = kgsl_sharedmem_get_noretry();
-	return 0;
-}
-
-DEFINE_DEBUGFS_ATTRIBUTE(_strict_fops, _strict_get, _strict_set, "%llu\n");
-
 static void kgsl_qdss_gfx_register_probe(struct kgsl_device *device)
 {
 	struct resource *res;
@@ -65,7 +51,7 @@ static int _isdb_get(void *data, u64 *val)
 
 DEFINE_DEBUGFS_ATTRIBUTE(_isdb_fops, _isdb_get, _isdb_set, "%llu\n");
 
-static int globals_print(struct seq_file *s, void *unused)
+static int globals_show(struct seq_file *s, void *unused)
 {
 	struct kgsl_device *device = s->private;
 	struct kgsl_global_memdesc *md;
@@ -91,23 +77,7 @@ static int globals_print(struct seq_file *s, void *unused)
 	return 0;
 }
 
-static int globals_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, globals_print, inode->i_private);
-}
-
-static int globals_release(struct inode *inode, struct file *file)
-{
-	return single_release(inode, file);
-}
-
-static const struct file_operations global_fops = {
-	.open = globals_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = globals_release,
-};
-
+DEFINE_SHOW_ATTRIBUTE(globals);
 
 void kgsl_device_debugfs_init(struct kgsl_device *device)
 {
@@ -120,7 +90,7 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 						       kgsl_debugfs_dir);
 
 	debugfs_create_file("globals", 0444, device->d_debugfs, device,
-		&global_fops);
+		&globals_fops);
 
 	snapshot_dir = debugfs_create_dir("snapshot", kgsl_debugfs_dir);
 	debugfs_create_file("break_isdb", 0644, snapshot_dir, device,
@@ -372,16 +342,12 @@ void kgsl_process_init_debugfs(struct kgsl_process_private *private)
 
 void kgsl_core_debugfs_init(void)
 {
-	struct dentry *debug_dir;
-
 	kgsl_debugfs_dir = debugfs_create_dir("kgsl", NULL);
 	if (IS_ERR_OR_NULL(kgsl_debugfs_dir))
 		return;
 
-	debug_dir = debugfs_create_dir("debug", kgsl_debugfs_dir);
-
-	debugfs_create_file("strict_memory", 0644, debug_dir, NULL,
-		&_strict_fops);
+	kgsl_driver.debugfs_debug_dir = debugfs_create_dir("debug",
+		kgsl_debugfs_dir);
 
 	proc_d_debugfs = debugfs_create_dir("proc", kgsl_debugfs_dir);
 }
