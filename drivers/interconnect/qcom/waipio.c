@@ -2629,6 +2629,7 @@ static int qnoc_probe(struct platform_device *pdev)
 	provider->xlate = of_icc_xlate_onecell;
 	INIT_LIST_HEAD(&provider->nodes);
 	provider->data = data;
+	provider->get_bw = qcom_icc_get_bw_stub;
 
 	qp->dev = &pdev->dev;
 	qp->bcms = desc->bcms;
