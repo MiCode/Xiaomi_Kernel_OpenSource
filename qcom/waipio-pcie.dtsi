@@ -206,10 +206,10 @@
 		};
 	};
 
-	pcie0_msi: qcom,pcie0_msi@17100040 {
+	pcie0_msi: qcom,pcie0_msi@0x17110040 {
 		compatible = "qcom,pci-msi";
 		msi-controller;
-		reg = <0x17100040 0x0>;
+		reg = <0x17110040 0x0>;
 		interrupt-parent = <&intc>;
 		interrupts = <GIC_SPI 768 IRQ_TYPE_EDGE_RISING>,
 			<GIC_SPI 769 IRQ_TYPE_EDGE_RISING>,
