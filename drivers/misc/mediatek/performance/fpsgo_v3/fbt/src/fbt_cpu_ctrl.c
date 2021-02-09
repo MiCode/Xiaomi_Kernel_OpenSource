@@ -368,16 +368,27 @@ static int fbt_cpu_topo_info(void)
 
 	fbt_cpu_policy = kcalloc(policy_num,
 		sizeof(struct cpufreq_policy *), GFP_KERNEL);
+	if (!fbt_cpu_policy)
+		return -ENOMEM;
+
 	fbt_cpu_rq = kcalloc(policy_num,
 		sizeof(struct freq_qos_request), GFP_KERNEL);
+	if (!fbt_cpu_policy)
+		return -ENOMEM;
 
 	fbt_freq_min_notifier = kcalloc(policy_num, sizeof(struct notifier_block), GFP_KERNEL);
+
+	if (!fbt_freq_min_notifier)
+		return -ENOMEM;
 
 	num = 0;
 
 	for_each_possible_cpu(cpu) {
 		policy = cpufreq_cpu_get(cpu);
 		fbt_cpu_policy[num] = policy;
+
+		if (!policy)
+			continue;
 #if DEBUG_LOG
 		pr_info("%s, policy[%d]: first:%d", __func__, num, cpu);
 #endif
