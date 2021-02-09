@@ -14,6 +14,7 @@ arch/arm64/crypto/sha2-ce-core.S
 arch/arm64/crypto/sha2-ce-glue.c
 arch/arm64/include/asm/acpi.h
 arch/arm64/include/asm/alternative.h
+arch/arm64/include/asm/alternative-macros.h
 arch/arm64/include/asm/arch_gicv3.h
 arch/arm64/include/asm/archrandom.h
 arch/arm64/include/asm/arch_timer.h
@@ -50,6 +51,7 @@ arch/arm64/include/asm/dcc.h
 arch/arm64/include/asm/debug-monitors.h
 arch/arm64/include/asm/device.h
 arch/arm64/include/asm/efi.h
+arch/arm64/include/asm/el2_setup.h
 arch/arm64/include/asm/elf.h
 arch/arm64/include/asm/esr.h
 arch/arm64/include/asm/exception.h
@@ -77,7 +79,6 @@ arch/arm64/include/asm/kgdb.h
 arch/arm64/include/asm/kprobes.h
 arch/arm64/include/asm/kvm_arm.h
 arch/arm64/include/asm/kvm_asm.h
-arch/arm64/include/asm/kvm_coproc.h
 arch/arm64/include/asm/kvm_emulate.h
 arch/arm64/include/asm/kvm_host.h
 arch/arm64/include/asm/kvm_hyp.h
@@ -118,6 +119,7 @@ arch/arm64/include/asm/proc-fns.h
 arch/arm64/include/asm/ptdump.h
 arch/arm64/include/asm/ptrace.h
 arch/arm64/include/asm/pvclock-abi.h
+arch/arm64/include/asm/rwonce.h
 arch/arm64/include/asm/scs.h
 arch/arm64/include/asm/sdei.h
 arch/arm64/include/asm/seccomp.h
@@ -257,7 +259,6 @@ arch/arm64/kernel/vdso/vdso.lds.S
 arch/arm64/kernel/vdso/vdso.S
 arch/arm64/kernel/vdso/vgettimeofday.c
 arch/arm64/kernel/vmlinux.lds.S
-arch/arm64/kvm/aarch32.c
 arch/arm64/kvm/arch_timer.c
 arch/arm64/kvm/arm.c
 arch/arm64/kvm/debug.c
@@ -267,22 +268,26 @@ arch/arm64/kvm/handle_exit.c
 arch/arm64/kvm/hyp/aarch32.c
 arch/arm64/kvm/hyp/entry.S
 arch/arm64/kvm/hypercalls.c
+arch/arm64/kvm/hyp/exception.c
 arch/arm64/kvm/hyp/fpsimd.S
 arch/arm64/kvm/hyp/hyp-entry.S
+arch/arm64/kvm/hyp/include/hyp/adjust_pc.h
 arch/arm64/kvm/hyp/include/hyp/debug-sr.h
 arch/arm64/kvm/hyp/include/hyp/switch.h
 arch/arm64/kvm/hyp/include/hyp/sysreg-sr.h
+arch/arm64/kvm/hyp/include/nvhe/trap_handler.h
 arch/arm64/kvm/hyp/nvhe/debug-sr.c
 arch/arm64/kvm/hyp/nvhe/host.S
 arch/arm64/kvm/hyp/nvhe/hyp-init.S
 arch/arm64/kvm/hyp/nvhe/hyp.lds.S
 arch/arm64/kvm/hyp/nvhe/hyp-main.c
+arch/arm64/kvm/hyp/nvhe/hyp-smp.c
+arch/arm64/kvm/hyp/nvhe/psci-relay.c
 arch/arm64/kvm/hyp/nvhe/switch.c
 arch/arm64/kvm/hyp/nvhe/sysreg-sr.c
 arch/arm64/kvm/hyp/nvhe/timer-sr.c
 arch/arm64/kvm/hyp/nvhe/tlb.c
 arch/arm64/kvm/hyp/pgtable.c
-arch/arm64/kvm/hyp/smccc_wa.S
 arch/arm64/kvm/hyp/vgic-v2-cpuif-proxy.c
 arch/arm64/kvm/hyp/vgic-v3-sr.c
 arch/arm64/kvm/hyp/vhe/debug-sr.c
@@ -299,7 +304,6 @@ arch/arm64/kvm/pmu.c
 arch/arm64/kvm/pmu-emul.c
 arch/arm64/kvm/psci.c
 arch/arm64/kvm/pvtime.c
-arch/arm64/kvm/regmap.c
 arch/arm64/kvm/reset.c
 arch/arm64/kvm/sys_regs.c
 arch/arm64/kvm/sys_regs.h
@@ -513,6 +517,7 @@ drivers/android/binder.c
 drivers/android/binderfs.c
 drivers/android/binder_internal.h
 drivers/android/binder_trace.h
+drivers/android/debug_symbols.c
 drivers/android/vendor_hooks.c
 drivers/base/arch_topology.c
 drivers/base/attribute_container.c
@@ -2252,6 +2257,7 @@ include/linux/aio.h
 include/linux/alarmtimer.h
 include/linux/amba/bus.h
 include/linux/amba/serial.h
+include/linux/android_debug_symbols.h
 include/linux/android_vendor.h
 include/linux/anon_inodes.h
 include/linux/arch_topology.h
