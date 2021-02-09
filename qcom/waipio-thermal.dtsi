@@ -73,6 +73,13 @@
 		};
 	};
 
+	ddr_cdev: qcom,ddr-cdev {
+		compatible = "qcom,ddr-cooling-device";
+		#cooling-cells = <2>;
+		qcom,freq-table = <&ddr_freq_table>;
+		interconnects = <&mc_virt MASTER_LLCC &mc_virt SLAVE_EBI1>;
+	};
+
 	qcom,limits-dcvs {
 		compatible = "qcom,msm-hw-limits";
 		isens_vref_0p8-supply = <&pm8350_l5_ao>;
