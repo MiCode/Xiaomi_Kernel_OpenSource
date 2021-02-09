@@ -1628,6 +1628,7 @@
   proc_dostring
   proc_douintvec_minmax
   proc_mkdir
+  proc_remove
   proc_set_user
   proto_register
   proto_unregister
