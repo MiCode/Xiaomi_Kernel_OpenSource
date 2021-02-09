@@ -64,6 +64,14 @@
 			#cooling-cells = <2>;
 		};
 	};
+
+	qcom,cpu-voltage-cdev {
+		compatible = "qcom,cc-cooling-devices";
+		apc1_cluster: qcom,apc1-cluster {
+			qcom,cpus = <&CPU4 &CPU7>;
+			#cooling-cells = <2>;
+		};
+	};
 };
 
 &thermal_zones {
