@@ -182,3 +182,5 @@ qsee_ipc_irq_bridge.ko
 kryo_arm64_edac.ko
 msm_rtb.ko
 msm_sysstats.ko
+qcom_tsens.ko
+cpu_hotplug.ko
