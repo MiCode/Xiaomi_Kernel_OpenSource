@@ -270,7 +270,13 @@ static const struct pci_device_id mhi_pcie_device_id[] = {
 };
 MODULE_DEVICE_TABLE(pci, mhi_pcie_device_id);
 
-static int debug_mode;
+static enum mhi_debug_mode debug_mode;
+
+const char * const mhi_debug_mode_str[MHI_DEBUG_MODE_MAX] = {
+	[MHI_DEBUG_OFF] = "Debug mode OFF",
+	[MHI_DEBUG_ON] = "Debug mode ON",
+	[MHI_DEBUG_NO_LPM] = "Debug mode - no LPM",
+};
 
 const char * const mhi_suspend_mode_str[MHI_SUSPEND_MODE_MAX] = {
 	[MHI_ACTIVE_STATE] = "Active",
@@ -278,6 +284,8 @@ const char * const mhi_suspend_mode_str[MHI_SUSPEND_MODE_MAX] = {
 	[MHI_FAST_LINK_OFF] = "Fast Link Off",
 	[MHI_FAST_LINK_ON] = "Fast Link On",
 };
+
+static int mhi_qcom_power_up(struct mhi_controller *mhi_cntrl);
 
 static int mhi_link_status(struct mhi_controller *mhi_cntrl)
 {
@@ -324,6 +332,31 @@ static int mhi_qcom_lpm_enable(struct mhi_controller *mhi_cntrl)
 {
 	return mhi_arch_link_lpm_enable(mhi_cntrl);
 }
+
+static int mhi_debugfs_power_up(void *data, u64 val)
+{
+	struct mhi_controller *mhi_cntrl = data;
+	struct mhi_qcom_priv *mhi_priv = mhi_controller_get_privdata(mhi_cntrl);
+	int ret;
+
+	if (!val || mhi_priv->powered_on)
+		return -EINVAL;
+
+	MHI_CNTRL_LOG("Trigger power up from %s\n",
+		      TO_MHI_DEBUG_MODE_STR(debug_mode));
+
+	ret = mhi_qcom_power_up(mhi_cntrl);
+	if (ret) {
+		MHI_CNTRL_ERR("Failed to power up MHI\n");
+		return ret;
+	}
+
+	mhi_priv->powered_on = true;
+
+	return ret;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(debugfs_power_up_fops, NULL,
+			 mhi_debugfs_power_up, "%llu\n");
 
 static int mhi_debugfs_trigger_m0(void *data, u64 val)
 {
@@ -780,11 +813,10 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 		break;
 	case MHI_CB_EE_MISSION_MODE:
 		MHI_CNTRL_LOG("Mission mode entry\n");
-		if (debug_mode == MHI_DEBUG_NO_D3 ||
-		    debug_mode == MHI_FWIMAGE_NO_D3) {
+		if (debug_mode == MHI_DEBUG_NO_LPM) {
 			mhi_arch_mission_mode_enter(mhi_cntrl);
-			MHI_CNTRL_LOG("Exited due to debug mode:%d\n",
-				      debug_mode);
+			MHI_CNTRL_LOG("Exit due to: %s\n",
+				      TO_MHI_DEBUG_MODE_STR(debug_mode));
 			break;
 		}
 		/*
@@ -976,10 +1008,17 @@ int mhi_qcom_pci_probe(struct pci_dev *pci_dev,
 		goto error_init_pci;
 
 	/* start power up sequence */
-	if (!debug_mode) {
+	if (debug_mode) {
+		if (mhi_cntrl->debugfs_dentry)
+			debugfs_create_file("power_up", 0644,
+					    mhi_cntrl->debugfs_dentry,
+					    mhi_cntrl, &debugfs_power_up_fops);
+		mhi_priv->powered_on = false;
+	} else {
 		ret = mhi_qcom_power_up(mhi_cntrl);
 		if (ret) {
 			MHI_CNTRL_ERR("Failed to power up MHI\n");
+			mhi_priv->powered_on = false;
 			goto error_power_up;
 		}
 	}
@@ -1063,6 +1102,78 @@ static const struct dev_pm_ops pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(mhi_system_suspend, mhi_system_resume)
 };
 
+#ifdef CONFIG_MHI_BUS_DEBUG
+static struct dentry *mhi_qcom_debugfs;
+
+static int mhi_qcom_debugfs_debug_mode_show(struct seq_file *m, void *d)
+{
+	seq_printf(m, "%s\n", TO_MHI_DEBUG_MODE_STR(debug_mode));
+
+	return 0;
+}
+
+static ssize_t mhi_qcom_debugfs_debug_mode_write(struct file *file,
+						 const char __user *ubuf,
+						 size_t count, loff_t *ppos)
+{
+	struct seq_file *m = file->private_data;
+	u32 input;
+
+	if (kstrtou32_from_user(ubuf, count, 0, &input))
+		return -EINVAL;
+
+	if (input >= MHI_DEBUG_MODE_MAX)
+		return -EINVAL;
+
+	debug_mode = input;
+
+	seq_printf(m, "Changed debug mode to: %s\n",
+		   TO_MHI_DEBUG_MODE_STR(debug_mode));
+
+	return count;
+}
+
+static int mhi_qcom_debugfs_debug_mode_open(struct inode *inode, struct file *p)
+{
+	return single_open(p, mhi_qcom_debugfs_debug_mode_show,
+			   inode->i_private);
+}
+
+static const struct file_operations debugfs_debug_mode_fops = {
+	.open = mhi_qcom_debugfs_debug_mode_open,
+	.write = mhi_qcom_debugfs_debug_mode_write,
+	.release = single_release,
+	.read = seq_read,
+};
+
+void mhi_qcom_debugfs_init(void)
+{
+	mhi_qcom_debugfs = debugfs_create_dir("mhi_qcom", NULL);
+
+	debugfs_create_file("debug_mode", 0644, mhi_qcom_debugfs, NULL,
+			    &debugfs_debug_mode_fops);
+}
+
+void mhi_qcom_debugfs_exit(void)
+{
+	debugfs_remove_recursive(mhi_qcom_debugfs);
+	mhi_qcom_debugfs = NULL;
+}
+
+#else
+
+static inline void mhi_qcom_debugfs_init(void)
+{
+
+}
+
+static inline void mhi_qcom_debugfs_exit(void)
+{
+
+}
+
+#endif
+
 static struct pci_driver mhi_pcie_driver = {
 	.name = "mhi",
 	.id_table = mhi_pcie_device_id,
@@ -1073,7 +1184,28 @@ static struct pci_driver mhi_pcie_driver = {
 	}
 };
 
-module_pci_driver(mhi_pcie_driver);
+static int __init mhi_qcom_init(void)
+{
+	int ret = 0;
+
+	mhi_qcom_debugfs_init();
+	ret = pci_register_driver(&mhi_pcie_driver);
+	if (ret) {
+		mhi_qcom_debugfs_exit();
+		return ret;
+	}
+
+	return 0;
+}
+
+static void __exit mhi_qcom_exit(void)
+{
+	pci_unregister_driver(&mhi_pcie_driver);
+	mhi_qcom_debugfs_exit();
+}
+
+module_init(mhi_qcom_init);
+module_exit(mhi_qcom_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("MHI_CORE");
