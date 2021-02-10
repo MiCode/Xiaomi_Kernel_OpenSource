@@ -367,6 +367,7 @@ struct ep_pcie_dev_t {
 
 	u32                          rev;
 	u32                          phy_rev;
+	u32			     aux_clk_val;
 	void                         *ipc_log_sel;
 	void                         *ipc_log_ful;
 	void                         *ipc_log_dump;

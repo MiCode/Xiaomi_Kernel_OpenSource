@@ -839,7 +839,7 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 	}
 
 	if (dev->active_config) {
-		ep_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x14);
+		ep_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, dev->aux_clk_val);
 
 		/* Prevent L1ss wakeup after 100ms */
 		ep_pcie_write_mask(dev->dm_core + PCIE20_GEN3_RELATED_OFF,
@@ -1926,7 +1926,7 @@ checkbme:
 	ep_pcie_core_toggle_wake_gpio(false);
 
 	if (dev->active_config)
-		ep_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x14);
+		ep_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, dev->aux_clk_val);
 
 	if (!(opt & EP_PCIE_OPT_ENUM_ASYNC)) {
 		/* Wait for up to 1000ms for BME to be set */
@@ -3309,6 +3309,18 @@ static int ep_pcie_probe(struct platform_device *pdev)
 			ep_pcie_dev.rev, ep_pcie_dev.mhi_soc_reset_offset);
 		ep_pcie_dev.mhi_soc_reset_en = true;
 	}
+
+	ep_pcie_dev.aux_clk_val = 0x14;
+	ret = of_property_read_u32((&pdev->dev)->of_node, "qcom,aux-clk",
+					&ep_pcie_dev.aux_clk_val);
+	if (ret)
+		EP_PCIE_DBG(&ep_pcie_dev,
+			"PCIe V%d: Using default value 19.2 MHz.\n",
+				ep_pcie_dev.rev);
+	else
+		EP_PCIE_DBG(&ep_pcie_dev,
+			"PCIe V%d: Gen4 using aux_clk = 16.6 MHz\n",
+				ep_pcie_dev.rev);
 
 	memcpy(ep_pcie_dev.vreg, ep_pcie_vreg_info,
 				sizeof(ep_pcie_vreg_info));
