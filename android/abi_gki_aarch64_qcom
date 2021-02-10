@@ -1036,7 +1036,9 @@
   iomem_resource
   iommu_alloc_resv_region
   iommu_attach_device
+  iommu_attach_group
   iommu_detach_device
+  iommu_detach_group
   iommu_device_register
   iommu_device_sysfs_add
   iommu_device_sysfs_remove
@@ -1048,6 +1050,7 @@
   iommu_domain_free
   iommu_domain_get_attr
   iommu_domain_set_attr
+  iommu_iova_to_phys
   iommu_fwspec_add_ids
   iommu_fwspec_free
   iommu_get_dma_cookie
@@ -1194,6 +1197,7 @@
   kstrtou8_from_user
   kstrtouint
   kstrtouint_from_user
+  kstrtoull_from_user
   kstrtoul_from_user
   kstrtoull
   kthread_bind
