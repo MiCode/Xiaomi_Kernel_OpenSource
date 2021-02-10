@@ -77,3 +77,4 @@ module_exit(qcom_msm_pinctrl_exit);
 MODULE_DESCRIPTION("QTI pinctrl driver");
 MODULE_LICENSE("GPL v2");
 MODULE_DEVICE_TABLE(of, qcom_pinctrl_of_match);
+MODULE_SOFTDEP("pre: qcom_tlmm_vm_irqchip");

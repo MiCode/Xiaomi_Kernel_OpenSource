@@ -40,6 +40,7 @@ obj-$(CONFIG_QCOM_SOC_SLEEP_STATS)	+= soc_sleep_stats.o
 obj-$(CONFIG_QCOM_PROXY_OF_CONSUMER) += qcom_proxy_of_consumer.o
 obj-$(CONFIG_QCOM_WCNSS_CTRL) += wcnss_ctrl.o
 obj-$(CONFIG_QCOM_MSM_IPCC) += qcom_ipcc.o
+obj-$(CONFIG_QCOM_TLMM_VM_IRQCHIP) += qcom_tlmm_vm_irqchip.o
 obj-$(CONFIG_QCOM_IPCC) += qcom_ipcc.o
 obj-$(CONFIG_QCOM_RIMPS) += qcom_rimps.o
 obj-$(CONFIG_QCOM_RUN_QUEUE_STATS) += rq_stats.o
