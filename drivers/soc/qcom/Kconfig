@@ -119,6 +119,14 @@ config QCOM_RIMPS
 	 the subsystems.
 	 If unsure, say n.
 
+config QCOM_TLMM_VM_IRQCHIP
+       tristate "Qualcomm Technologies, Inc. TLMM VM irqchip driver"
+       help
+         Qualcomm Technologies, Inc. TLMM VM irqchip driver for MSM devices. The
+         driver acts as a parent interrupt controller for tlmm driver for VMs.
+         Say Y here to compile the driver as a part of kernel or M to compile
+         as a module.
+
 config QCOM_LLCC
 	tristate "Qualcomm Technologies, Inc. LLCC driver"
 	depends on ARCH_QCOM || COMPILE_TEST
