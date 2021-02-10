@@ -152,6 +152,23 @@
 		isens_vref_1p8-supply = <&pm8350_l6_ao>;
 		isens-vref-1p8-settings = <1200000 1200000 8000>;
 	};
+
+	qmi_tmd: qmi-tmd-devices {
+		compatible = "qcom,qmi-cooling-devices";
+		cdsp {
+			qcom,instance-id = <QMI_CDSP_INST_ID>;
+
+			cdsp_sw: cdsp {
+				qcom,qmi-dev-name = "cdsp_sw";
+				#cooling-cells = <2>;
+			};
+
+			cdsp_hw: cdsp_hw {
+				qcom,qmi-dev-name = "cdsp_hw";
+				#cooling-cells = <2>;
+			};
+		};
+	};
 };
 
 &thermal_zones {
