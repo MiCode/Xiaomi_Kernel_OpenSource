@@ -13,6 +13,7 @@
 #include <linux/of_device.h>
 #include <linux/suspend.h>
 #include <linux/cpumask.h>
+#include <linux/sched/walt.h>
 
 enum thermal_pause_levels {
 	THERMAL_NO_CPU_PAUSE,
@@ -119,7 +120,7 @@ static int thermal_pause_cpus_pause(struct thermal_pause_cdev *thermal_pause_cde
 			cpumask_pr_args(&thermal_pause_cdev->cpu_mask));
 		mutex_unlock(&cpus_pause_lock);
 
-		ret = pause_cpus(&cpus_to_pause);
+		ret = walt_pause_cpus(&cpus_to_pause);
 
 		mutex_lock(&cpus_pause_lock);
 
@@ -175,7 +176,7 @@ static int thermal_pause_cpus_unpause(struct thermal_pause_cdev *thermal_pause_c
 
 	if (!cpumask_empty(&cpus_to_unpause)) {
 		mutex_unlock(&cpus_pause_lock);
-		ret = resume_cpus(&cpus_to_unpause);
+		ret = walt_resume_cpus(&cpus_to_unpause);
 		if (ret)
 			pr_err("Error resuming CPU:%*pbl. err:%d\n",
 					cpumask_pr_args(&cpus_to_unpause), ret);
@@ -402,7 +403,7 @@ static int thermal_pause_remove(struct platform_device *pdev)
 
 	if (!cpumask_empty(&cpus_paused_by_thermal)) {
 		mutex_unlock(&cpus_pause_lock);
-		ret = resume_cpus(&cpus_paused_by_thermal);
+		ret = walt_resume_cpus(&cpus_paused_by_thermal);
 		if (ret)
 			pr_err("Error resuming CPU:%*pbl. err:%d\n",
 				cpumask_pr_args(&cpus_paused_by_thermal), ret);

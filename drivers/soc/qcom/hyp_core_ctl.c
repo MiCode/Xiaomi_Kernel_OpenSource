@@ -27,6 +27,8 @@
 #include <linux/haven/hh_errno.h>
 #include <linux/haven/hh_rm_drv.h>
 
+#include <linux/sched/walt.h>
+
 #define MAX_RESERVE_CPUS (num_possible_cpus()/2)
 
 static DEFINE_PER_CPU(struct freq_qos_request, qos_min_req);
@@ -105,7 +107,7 @@ static inline int pause_cpu(int cpu)
 	cpumask_clear(&cpus_to_pause);
 	cpumask_set_cpu(cpu, &cpus_to_pause);
 
-	ret = pause_cpus(&cpus_to_pause);
+	ret = walt_pause_cpus(&cpus_to_pause);
 
 	return ret;
 }
@@ -118,7 +120,7 @@ static inline int resume_cpu(int cpu)
 	cpumask_clear(&cpus_to_resume);
 	cpumask_set_cpu(cpu, &cpus_to_resume);
 
-	ret = resume_cpus(&cpus_to_resume);
+	ret = walt_resume_cpus(&cpus_to_resume);
 
 	return ret;
 }
