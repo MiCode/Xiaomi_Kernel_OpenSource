@@ -577,7 +577,6 @@ static int lpm_enable_device(struct cpuidle_driver *drv,
 	struct hrtimer *cpu_histtimer = &cpu_gov->histtimer;
 	int ret;
 
-	memset(cpu_gov, 0, sizeof(struct lpm_cpu));
 	hrtimer_init(cpu_histtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	if (!traces_registered) {
 		ret = register_trace_ipi_raise(ipi_raise, NULL);
