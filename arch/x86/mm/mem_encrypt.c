@@ -375,6 +375,7 @@ bool force_dma_unencrypted(struct device *dev)
 
 	return false;
 }
+EXPORT_SYMBOL_GPL(sev_active);
 
 /* Architecture __weak replacement functions */
 void __init mem_encrypt_free_decrypted_mem(void)
