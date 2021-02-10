@@ -185,4 +185,5 @@ msm_sysstats.ko
 qcom_tsens.ko
 cpu_voltage_cooling.ko
 ddr_cdev.ko
+msm_lmh_dcvs.ko
 cpu_hotplug.ko
