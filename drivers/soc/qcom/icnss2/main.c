@@ -1993,9 +1993,9 @@ static int icnss_trigger_ssr_smp2p(struct icnss_priv *priv)
 			ICNSS_SMEM_VALUE_MASK,
 			value);
 	if (ret)
-		icnss_pr_dbg("Error in SMP2P sent ret: %d\n", ret);
+		icnss_pr_vdbg1("Error in SMP2P sent ret: %d\n", ret);
 
-	icnss_pr_dbg("Initiate Root PD restart. SMP2P sent value: 0x%X\n",
+	icnss_pr_vdbg1("Initiate Root PD restart. SMP2P sent value: 0x%X\n",
 		     value);
 	set_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
 	return ret;
@@ -2929,7 +2929,7 @@ int icnss_exit_power_save(struct device *dev)
 	unsigned int value = 0;
 	int ret;
 
-	icnss_pr_dbg("Calling Exit Power Save\n");
+	icnss_pr_vdbg1("Calling Exit Power Save\n");
 
 	if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
 	    !test_bit(ICNSS_MODE_ON, &priv->state))
@@ -2943,9 +2943,9 @@ int icnss_exit_power_save(struct device *dev)
 			ICNSS_SMEM_VALUE_MASK,
 			value);
 	if (ret)
-		icnss_pr_dbg("Error in SMP2P sent ret: %d\n", ret);
+		icnss_pr_vdbg1("Error in SMP2P sent ret: %d\n", ret);
 
-	icnss_pr_dbg("SMP2P sent value: 0x%X\n", value);
+	icnss_pr_vdbg1("SMP2P sent value: 0x%X\n", value);
 	return ret;
 }
 EXPORT_SYMBOL(icnss_exit_power_save);
@@ -3496,7 +3496,7 @@ static inline void  icnss_get_smp2p_info(struct icnss_priv *priv)
 					    "wlan-smp2p-out",
 					    &priv->smp2p_info.smem_bit);
 	if (IS_ERR(priv->smp2p_info.smem_state)) {
-		icnss_pr_dbg("Failed to get smem state %d",
+		icnss_pr_vdbg1("Failed to get smem state %d",
 			     PTR_ERR(priv->smp2p_info.smem_state));
 	}
 
@@ -3732,10 +3732,10 @@ static int icnss_pm_suspend(struct device *dev)
 				ICNSS_SMEM_VALUE_MASK,
 				value);
 			if (ret)
-				icnss_pr_dbg("Error in SMP2P sent ret: %d\n",
+				icnss_pr_vdbg1("Error in SMP2P sent ret: %d\n",
 					     ret);
 
-			icnss_pr_dbg("SMP2P sent value: 0x%X\n", value);
+			icnss_pr_vdbg1("SMP2P sent value: 0x%X\n", value);
 		}
 		priv->stats.pm_suspend++;
 		set_bit(ICNSS_PM_SUSPEND, &priv->state);
@@ -3865,9 +3865,9 @@ static int icnss_pm_runtime_suspend(struct device *dev)
 				ICNSS_SMEM_VALUE_MASK,
 				value);
 		if (ret)
-			icnss_pr_dbg("Error in SMP2P sent ret: %d\n", ret);
+			icnss_pr_vdbg1("Error in SMP2P sent ret: %d\n", ret);
 
-		icnss_pr_dbg("SMP2P sent value: 0x%X\n", value);
+		icnss_pr_vdbg1("SMP2P sent value: 0x%X\n", value);
 	}
 out:
 	return ret;
