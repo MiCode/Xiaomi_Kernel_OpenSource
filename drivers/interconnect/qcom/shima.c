@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -2548,6 +2548,13 @@ static int qnoc_probe(struct platform_device *pdev)
 	if (qp->num_clks < 0)
 		return qp->num_clks;
 
+	ret = clk_bulk_prepare_enable(qp->num_clks, qp->clks);
+
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable clocks\n");
+		return ret;
+	}
+
 	for (i = 0; i < num_nodes; i++) {
 		size_t j;
 
@@ -2560,6 +2567,11 @@ static int qnoc_probe(struct platform_device *pdev)
 		if (IS_ERR(node)) {
 			ret = PTR_ERR(node);
 			goto err;
+		}
+
+		if (qnodes[i]->qosbox) {
+			qnodes[i]->noc_ops->set_qos(qnodes[i]);
+			qnodes[i]->qosbox->initialized = true;
 		}
 
 		node->name = qnodes[i]->name;
@@ -2576,6 +2588,8 @@ static int qnoc_probe(struct platform_device *pdev)
 		data->nodes[i] = node;
 	}
 	data->num_nodes = num_nodes;
+
+	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
 
 	for (i = 0; i < qp->num_bcms; i++)
 		qcom_icc_bcm_init(qp->bcms[i], &pdev->dev);
