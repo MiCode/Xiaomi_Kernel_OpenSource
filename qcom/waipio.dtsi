@@ -2818,6 +2818,12 @@
 
 	qcom_pmu: qcom,pmu {
 		compatible = "qcom,pmu";
+		qcom,pmu-events-tbl =
+			< 0x0008 0xFF >,
+			< 0x0011 0xFF >,
+			< 0x0017 0xFF >,
+			< 0x002A 0xFF >,
+			< 0x1000 0xFF >;
 	};
 
 	ddr_freq_table: ddr-freq-table {
