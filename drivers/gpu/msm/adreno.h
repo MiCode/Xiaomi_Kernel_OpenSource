@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_H
 #define __ADRENO_H
@@ -702,6 +702,7 @@ enum adreno_regs {
 	ADRENO_REG_GMU_AHB_FENCE_STATUS,
 	ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
 	ADRENO_REG_GPMU_POWER_COUNTER_ENABLE,
+	ADRENO_REG_GMU_AO_RBBM_INT_UNMASKED_STATUS,
 	ADRENO_REG_REGISTER_MAX,
 };
 
