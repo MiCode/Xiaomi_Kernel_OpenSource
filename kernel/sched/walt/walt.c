@@ -2550,6 +2550,13 @@ static void walt_get_possible_siblings(int cpuid, struct cpumask *cluster_cpus)
 	}
 }
 
+static void walt_rest_init(struct work_struct *work)
+{
+	core_ctl_init();
+	cpu_boost_init();
+}
+static DECLARE_WORK(walt_work, walt_rest_init);
+
 void walt_update_cluster_topology(void)
 {
 	struct cpumask cpus = *cpu_possible_mask;
@@ -2617,6 +2624,7 @@ void walt_update_cluster_topology(void)
 	}
 	smp_store_release(&cpu_array, tmp);
 	walt_clusters_parsed = true;
+	schedule_work(&walt_work);
 }
 
 static int cpufreq_notifier_trans(struct notifier_block *nb,
