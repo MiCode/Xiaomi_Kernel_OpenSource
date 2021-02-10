@@ -3204,10 +3204,10 @@
 		qcom,blk-size = <1>;
 	};
 
-	swao_csr: csr@ec11000 {
+	swao_csr: csr@10b11000 {
 		compatible = "qcom,coresight-csr";
-		reg = <0xec11000 0x1000>,
-		      <0xec110f8 0x50>;
+		reg = <0x10b11000 0x1000>,
+		      <0x10b110f8 0x50>;
 		reg-names = "csr-base", "msr-base";
 
 		coresight-name = "coresight-swao-csr";
