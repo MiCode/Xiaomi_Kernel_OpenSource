@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.*/
 
 #include <linux/cdev.h>
 #include <linux/device.h>
@@ -124,6 +124,35 @@ static int mhi_queue_inbound(struct uci_dev *uci_dev)
 			return ret;
 		}
 	}
+
+	return ret;
+}
+
+static long mhi_uci_ioctl(struct file *file,
+			  unsigned int cmd,
+			  unsigned long arg)
+{
+	struct uci_dev *uci_dev = file->private_data;
+	struct mhi_device *mhi_dev = uci_dev->mhi_dev;
+	struct uci_chan *uci_chan = &uci_dev->dl_chan;
+	long ret = -ENOIOCTLCMD;
+
+	mutex_lock(&uci_dev->mutex);
+
+	if (cmd == TIOCMGET) {
+		spin_lock_bh(&uci_chan->lock);
+		ret = uci_dev->tiocm;
+		spin_unlock_bh(&uci_chan->lock);
+	} else if (uci_dev->enabled) {
+		ret = mhi_device_ioctl(mhi_dev, cmd, arg);
+		if (!ret) {
+			spin_lock_bh(&uci_chan->lock);
+			uci_dev->tiocm = mhi_dev->tiocm;
+			spin_unlock_bh(&uci_chan->lock);
+		}
+	}
+
+	mutex_unlock(&uci_dev->mutex);
 
 	return ret;
 }
@@ -479,6 +508,7 @@ static const struct file_operations mhidev_fops = {
 	.read = mhi_uci_read,
 	.write = mhi_uci_write,
 	.poll = mhi_uci_poll,
+	.unlocked_ioctl = mhi_uci_ioctl,
 };
 
 static void mhi_uci_remove(struct mhi_device *mhi_dev)
@@ -630,6 +660,20 @@ static void mhi_dl_xfer_cb(struct mhi_device *mhi_dev,
 	wake_up(&uci_chan->wq);
 }
 
+static void mhi_status_cb(struct mhi_device *mhi_dev, enum mhi_callback reason)
+{
+	struct uci_dev *uci_dev = dev_get_drvdata(&mhi_dev->dev);
+	struct uci_chan *uci_chan = &uci_dev->dl_chan;
+	unsigned long flags;
+
+	if (reason == MHI_CB_DTR_SIGNAL) {
+		spin_lock_irqsave(&uci_chan->lock, flags);
+		uci_dev->tiocm = mhi_dev->tiocm;
+		spin_unlock_irqrestore(&uci_chan->lock, flags);
+		wake_up(&uci_chan->wq);
+	}
+}
+
 /* .driver_data stores max mtu */
 static const struct mhi_device_id mhi_uci_match_table[] = {
 	{ .chan = "LOOPBACK", .driver_data = 0x1000 },
@@ -650,6 +694,7 @@ static struct mhi_driver mhi_uci_driver = {
 	.probe = mhi_uci_probe,
 	.ul_xfer_cb = mhi_ul_xfer_cb,
 	.dl_xfer_cb = mhi_dl_xfer_cb,
+	.status_cb = mhi_status_cb,
 	.driver = {
 		.name = MHI_UCI_DRIVER_NAME,
 		.owner = THIS_MODULE,

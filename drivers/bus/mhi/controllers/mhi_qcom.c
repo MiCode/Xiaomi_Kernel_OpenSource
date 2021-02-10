@@ -191,8 +191,7 @@ static const struct mhi_event_config modem_qcom_sdx65_mhi_events[] = {
 	MHI_EVENT_CONFIG(4, 5, MHI_ER_BW_SCALE, 64, 0,
 			 MHI_ER_PRIORITY_HI_SLEEP, MHI_DB_BRST_DISABLE, false,
 			 false, false, 0),
-	/* reserved SW ring */
-	MHI_EVENT_CONFIG(5, 6, MHI_ER_DATA, 64, 0,
+	MHI_EVENT_CONFIG(5, 6, MHI_ER_TIMESYNC, 64, 0,
 			 MHI_ER_PRIORITY_HI_SLEEP, MHI_DB_BRST_DISABLE, false,
 			 false, false, 0),
 	/* Hardware channels request dedicated hardware event rings */
@@ -243,7 +242,9 @@ static const struct mhi_pci_dev_info mhi_qcom_sdx65_info = {
 	.bar_num = MHI_PCI_BAR_NUM,
 	.dma_data_width = 64,
 	.allow_m1 = false,
-	.skip_forced_suspend = false
+	.skip_forced_suspend = false,
+	.sfr_support = true,
+	.timesync = true
 };
 
 static const struct mhi_pci_dev_info mhi_qcom_debug_info = {
@@ -255,7 +256,9 @@ static const struct mhi_pci_dev_info mhi_qcom_debug_info = {
 	.bar_num = MHI_PCI_BAR_NUM,
 	.dma_data_width = 64,
 	.allow_m1 = true,
-	.skip_forced_suspend = true
+	.skip_forced_suspend = true,
+	.sfr_support = false,
+	.timesync = false
 };
 
 static const struct pci_device_id mhi_pcie_device_id[] = {
@@ -305,6 +308,21 @@ static void mhi_qcom_write_reg(struct mhi_controller *mhi_cntrl,
 			       void __iomem *addr, u32 val)
 {
 	writel_relaxed(val, addr);
+}
+
+static u64 mhi_qcom_time_get(struct mhi_controller *mhi_cntrl)
+{
+	return mhi_arch_time_get(mhi_cntrl);
+}
+
+static int mhi_qcom_lpm_disable(struct mhi_controller *mhi_cntrl)
+{
+	return mhi_arch_link_lpm_disable(mhi_cntrl);
+}
+
+static int mhi_qcom_lpm_enable(struct mhi_controller *mhi_cntrl)
+{
+	return mhi_arch_link_lpm_enable(mhi_cntrl);
 }
 
 static int mhi_debugfs_trigger_m0(void *data, u64 val)
@@ -877,6 +895,26 @@ static struct mhi_controller *mhi_qcom_register_controller(struct pci_dev *pci_d
 	mhi_cntrl->fw_image = info->fw_image;
 	mhi_cntrl->edl_image = info->edl_image;
 
+	if (info->sfr_support) {
+		ret = mhi_controller_set_sfr_support(mhi_cntrl,
+						     MHI_MAX_SFR_LEN);
+		if (ret) {
+			mhi_unregister_controller(mhi_cntrl);
+			goto error_register;
+		}
+	}
+
+	if (info->timesync) {
+		ret = mhi_controller_setup_timesync(mhi_cntrl,
+						    &mhi_qcom_time_get,
+						    &mhi_qcom_lpm_disable,
+						    &mhi_qcom_lpm_enable);
+		if (ret) {
+			mhi_unregister_controller(mhi_cntrl);
+			goto error_register;
+		}
+	}
+
 	/* set name based on PCIe BDF format */
 	mhi_dev = mhi_cntrl->mhi_dev;
 	dev_set_name(&mhi_dev->dev, "mhi_%04x_%02u.%02u.%02u", pci_dev->device,
@@ -890,6 +928,7 @@ static struct mhi_controller *mhi_qcom_register_controller(struct pci_dev *pci_d
 	return mhi_cntrl;
 
 error_register:
+	kfree(mhi_priv);
 	mhi_free_controller(mhi_cntrl);
 
 	return ERR_PTR(-EINVAL);
@@ -904,12 +943,15 @@ int mhi_qcom_pci_probe(struct pci_dev *pci_dev,
 	u32 dev_id = pci_dev->device;
 	u32 slot = PCI_SLOT(pci_dev->devfn);
 	struct mhi_qcom_priv *mhi_priv;
+	bool initial_probe = false;
 	int ret;
 
 	/* see if we already registered */
 	mhi_cntrl = mhi_bdf_to_controller(domain, bus, slot, dev_id);
-	if (!mhi_cntrl)
+	if (!mhi_cntrl) {
+		initial_probe = true;
 		mhi_cntrl = mhi_qcom_register_controller(pci_dev, dev_info);
+	}
 
 	if (IS_ERR(mhi_cntrl))
 		return PTR_ERR(mhi_cntrl);
@@ -950,7 +992,16 @@ error_power_up:
 	mhi_deinit_pci_dev(mhi_cntrl);
 
 error_init_pci:
+	if (!initial_probe) {
+		mhi_arch_pcie_deinit(mhi_cntrl);
+		return ret;
+	}
+
+	mhi_priv->driver_remove = true;
 	mhi_arch_pcie_deinit(mhi_cntrl);
+	mhi_unregister_controller(mhi_cntrl);
+	kfree(mhi_priv);
+	mhi_free_controller(mhi_cntrl);
 
 	return ret;
 }
@@ -961,6 +1012,48 @@ int mhi_pci_probe(struct pci_dev *pci_dev, const struct pci_device_id *id)
 				(struct mhi_pci_dev_info *) id->driver_data;
 
 	return mhi_qcom_pci_probe(pci_dev, info);
+}
+
+void mhi_pci_remove(struct pci_dev *pci_dev)
+{
+	struct mhi_controller *mhi_cntrl;
+	struct mhi_qcom_priv *mhi_priv;
+	u32 domain = pci_domain_nr(pci_dev->bus);
+	u32 bus = pci_dev->bus->number;
+	u32 dev_id = pci_dev->device;
+	u32 slot = PCI_SLOT(pci_dev->devfn);
+
+	/* see if we already registered */
+	mhi_cntrl = mhi_bdf_to_controller(domain, bus, slot, dev_id);
+	if (!mhi_cntrl)
+		return;
+
+	mhi_priv = mhi_controller_get_privdata(mhi_cntrl);
+	if (!mhi_priv)
+		return;
+
+	/* if link is in suspend, wake it up */
+	pm_runtime_get_sync(mhi_cntrl->cntrl_dev);
+
+	if (mhi_priv->powered_on) {
+		MHI_CNTRL_LOG("Triggering shutdown process\n");
+		mhi_power_down(mhi_cntrl, false);
+		mhi_unprepare_after_power_down(mhi_cntrl);
+	}
+	mhi_priv->powered_on = false;
+
+	pm_runtime_put_noidle(mhi_cntrl->cntrl_dev);
+
+	/* allow arch driver to free memory and unregister esoc if set */
+	mhi_priv->driver_remove = true;
+
+	/* turn the link off */
+	mhi_deinit_pci_dev(mhi_cntrl);
+	mhi_arch_pcie_deinit(mhi_cntrl);
+
+	mhi_unregister_controller(mhi_cntrl);
+	kfree(mhi_priv);
+	mhi_free_controller(mhi_cntrl);
 }
 
 static const struct dev_pm_ops pm_ops = {
@@ -974,6 +1067,7 @@ static struct pci_driver mhi_pcie_driver = {
 	.name = "mhi",
 	.id_table = mhi_pcie_device_id,
 	.probe = mhi_pci_probe,
+	.remove = mhi_pci_remove,
 	.driver = {
 		.pm = &pm_ops
 	}

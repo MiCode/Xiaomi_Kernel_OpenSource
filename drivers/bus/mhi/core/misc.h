@@ -46,6 +46,31 @@
 					((seq) & 0xFF))
 #define MHI_BW_SCALE_NACK 0xF
 
+/* subsystem failure reason cfg command */
+#define MHI_TRE_CMD_SFR_CFG_PTR(ptr) (ptr)
+#define MHI_TRE_CMD_SFR_CFG_DWORD0(len) (len)
+#define MHI_TRE_CMD_SFR_CFG_DWORD1 (MHI_CMD_SFR_CFG << 16)
+
+/* MHI Timesync offsets */
+#define TIMESYNC_CFG_OFFSET (0x04)
+#define TIMESYNC_CFG_ENABLED_MASK (0x80000000)
+#define TIMESYNC_CFG_ENABLED_SHIFT (31)
+#define TIMESYNC_CFG_CHAN_DB_ID_MASK (0x0000FF00)
+#define TIMESYNC_CFG_CHAN_DB_ID_SHIFT (8)
+#define TIMESYNC_CFG_ER_ID_MASK (0x000000FF)
+#define TIMESYNC_CFG_ER_ID_SHIFT (0)
+
+#define TIMESYNC_TIME_LOW_OFFSET (0x8)
+#define TIMESYNC_TIME_HIGH_OFFSET (0xC)
+
+#define MHI_TIMESYNC_CHAN_DB (125)
+#define TIMESYNC_CAP_ID (2)
+
+#define MHI_TIMESYNC_DB_SETUP(er_index) ((MHI_TIMESYNC_CHAN_DB << \
+	TIMESYNC_CFG_CHAN_DB_ID_SHIFT) & TIMESYNC_CFG_CHAN_DB_ID_MASK | \
+	(1 << TIMESYNC_CFG_ENABLED_SHIFT) & TIMESYNC_CFG_ENABLED_MASK | \
+	((er_index) << TIMESYNC_CFG_ER_ID_SHIFT) & TIMESYNC_CFG_ER_ID_MASK)
+
 #define MHI_VERB(fmt, ...) do { \
 	struct mhi_private *mhi_priv = \
 		dev_get_drvdata(&mhi_cntrl->mhi_dev->dev); \
@@ -140,6 +165,8 @@ struct mhi_private {
 	int (*bw_scale)(struct mhi_controller *mhi_cntrl,
 			struct mhi_link_info *link_info);
 	phys_addr_t base_addr;
+	struct mhi_sfr_info *sfr_info;
+	struct mhi_timesync *timesync;
 };
 
 /**
@@ -150,6 +177,49 @@ struct mhi_bus {
 	struct mutex lock;
 };
 
+/**
+ * struct mhi_sfr_info - For receiving MHI subsystem failure reason
+ */
+struct mhi_sfr_info {
+	void *buf_addr;
+	dma_addr_t dma_addr;
+	size_t len;
+	char *str;
+	unsigned int ccs;
+	struct completion completion;
+};
+
+/**
+ * struct mhi_timesync - For enabling use of MHI time synchronization feature
+ */
+struct mhi_timesync {
+	u64 (*time_get)(struct mhi_controller *mhi_cntrl);
+	int (*lpm_disable)(struct mhi_controller *mhi_cntrl);
+	int (*lpm_enable)(struct mhi_controller *mhi_cntrl);
+	void __iomem *time_reg;
+	void __iomem *time_db;
+	u32 int_sequence;
+	u64 local_time;
+	u64 remote_time;
+	bool db_pending;
+	struct completion completion;
+	spinlock_t lock; /* list protection */
+	struct list_head head;
+	struct mutex mutex;
+};
+
+/**
+ * struct tsync_node - Stores requests when using the timesync doorbell method
+ */
+struct tsync_node {
+	struct list_head node;
+	u32 sequence;
+	u64 remote_time;
+	struct mhi_device *mhi_dev;
+	void (*cb_func)(struct mhi_device *mhi_dev, u32 sequence,
+			u64 local_time, u64 remote_time);
+};
+
 #ifdef CONFIG_MHI_BUS_MISC
 void mhi_misc_init(void);
 void mhi_misc_exit(void);
@@ -158,6 +228,15 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl);
 void mhi_misc_unregister_controller(struct mhi_controller *mhi_cntrl);
 int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 				struct mhi_event *mhi_event, u32 event_quota);
+int mhi_process_misc_tsync_ev_ring(struct mhi_controller *mhi_cntrl,
+				   struct mhi_event *mhi_event, u32 event_quota);
+void mhi_misc_mission_mode(struct mhi_controller *mhi_cntrl);
+void mhi_misc_disable(struct mhi_controller *mhi_cntrl);
+void mhi_misc_cmd_configure(struct mhi_controller *mhi_cntrl,
+			    unsigned int type, u64 *ptr, u32 *dword0,
+			    u32 *dword1);
+void mhi_misc_cmd_completion(struct mhi_controller *mhi_cntrl,
+			     unsigned int type, unsigned int ccs);
 #else
 static inline void mhi_misc_init(void)
 {
@@ -186,6 +265,32 @@ static inline int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 				struct mhi_event *mhi_event, u32 event_quota)
 {
 	return 0;
+}
+
+static inline int mhi_process_misc_tsync_ev_ring
+				(struct mhi_controller *mhi_cntrl,
+				 struct mhi_event *mhi_event, u32 event_quota)
+{
+	return 0;
+}
+
+static inline void mhi_misc_mission_mode(struct mhi_controller *mhi_cntrl)
+{
+}
+
+static inline void mhi_misc_disable(struct mhi_controller *mhi_cntrl)
+{
+}
+
+static inline void mhi_misc_cmd_configure(struct mhi_controller *mhi_cntrl,
+					  unsigned int type, u64 *ptr,
+					  u32 *dword0, u32 *dword1)
+{
+}
+
+static inline void mhi_misc_cmd_completion(struct mhi_controller *mhi_cntrl,
+					   unsigned int type, unsigned int ccs)
+{
 }
 #endif
 

@@ -690,6 +690,10 @@ static int parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 		case MHI_ER_BW_SCALE:
 			mhi_event->process_event = mhi_process_misc_bw_ev_ring;
 			break;
+		case MHI_ER_TIMESYNC:
+			mhi_event->process_event =
+						mhi_process_misc_tsync_ev_ring;
+			break;
 		default:
 			MHI_ERR("Event Ring type not supported\n");
 			goto error_ev_cfg;
@@ -904,8 +908,8 @@ int mhi_register_controller(struct mhi_controller *mhi_cntrl,
 	INIT_WORK(&mhi_cntrl->st_worker, mhi_pm_st_worker);
 	init_waitqueue_head(&mhi_cntrl->state_event);
 
-	mhi_cntrl->hiprio_wq = alloc_ordered_workqueue
-				("mhi_hiprio_wq", WQ_MEM_RECLAIM | WQ_HIGHPRI);
+	mhi_cntrl->hiprio_wq = alloc_ordered_workqueue("mhi_hiprio_wq",
+						       WQ_HIGHPRI);
 	if (!mhi_cntrl->hiprio_wq) {
 		dev_err(mhi_cntrl->cntrl_dev, "Failed to allocate workqueue\n");
 		ret = -ENOMEM;
