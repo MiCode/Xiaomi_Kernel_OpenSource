@@ -14,7 +14,7 @@
 #ifdef CONFIG_SCHED_WALT
 struct rq;
 struct group_cpu_time;
-extern const char __weak *task_event_names[];
+extern const char *task_event_names[];
 
 TRACE_EVENT(sched_update_pred_demand,
 
@@ -289,7 +289,7 @@ TRACE_EVENT(sched_update_task_ravg_mini,
 );
 
 struct migration_sum_data;
-extern const char __weak *migrate_type_names[];
+extern const char *migrate_type_names[];
 
 TRACE_EVENT(sched_set_preferred_cluster,
 

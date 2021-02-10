@@ -13,9 +13,9 @@
 
 #define EXITING_TASK_MARKER	0xdeaddead
 
-extern unsigned int __weak walt_rotation_enabled;
-extern int __read_mostly __weak num_sched_clusters;
-extern cpumask_t __read_mostly __weak **cpu_array;
+extern unsigned int walt_rotation_enabled;
+extern int __read_mostly num_sched_clusters;
+extern cpumask_t __read_mostly **cpu_array;
 extern void
 walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime);
