@@ -638,7 +638,6 @@ struct msm_pcie_device_info {
 	int domain;
 	void __iomem *conf_base;
 	unsigned long phy_address;
-	u32 dev_ctrlstts_offset;
 	struct msm_pcie_register_event *event_reg;
 	bool registered;
 };
@@ -5218,16 +5217,30 @@ out:
 	mutex_unlock(&dev->recovery_lock);
 }
 
+static struct pci_dev *find_pci_dev_from_bdf(u16 bdf, int domain)
+{
+	u8 busnr, devfn;
+	struct pci_bus *bus;
+
+	busnr = bdf >> 8;
+	devfn = bdf & 0xff;
+
+	bus = pci_find_bus(domain, busnr);
+	if (!bus)
+		return NULL;
+
+	return pci_get_slot(bus, devfn);
+}
+
 static irqreturn_t handle_aer_irq(int irq, void *data)
 {
 	struct msm_pcie_dev_t *dev = data;
-
+	struct pci_dev *pcidev;
+	u16 aer_cap, ep_src_bdf = 0, ep_dev_stts = 0;
 	int corr_val = 0, uncorr_val = 0, rc_err_status = 0;
-	int ep_corr_val = 0, ep_uncorr_val = 0;
-	int rc_dev_ctrlstts = 0, ep_dev_ctrlstts = 0;
-	u32 ep_dev_ctrlstts_offset = 0;
-	int i, j, ep_src_bdf = 0;
-	void __iomem *ep_base = NULL;
+	u32 ep_corr_val = 0, ep_uncorr_val = 0;
+	int rc_dev_ctrlstts = 0;
+	int i;
 
 	PCIE_DBG2(dev,
 		"AER Interrupt handler fired for RC%d irq %d\nrc_corr_counter: %lu\nrc_non_fatal_counter: %lu\nrc_fatal_counter: %lu\nep_corr_counter: %lu\nep_non_fatal_counter: %lu\nep_fatal_counter: %lu\n",
@@ -5269,43 +5282,42 @@ static irqreturn_t handle_aer_irq(int irq, void *data)
 
 	for (i = 0; i < 2; i++) {
 		if (i)
-			ep_src_bdf = readl_relaxed(dev->dm_core +
-				PCIE20_AER_ERR_SRC_ID_REG) & ~0xffff;
-		else
 			ep_src_bdf = (readl_relaxed(dev->dm_core +
-				PCIE20_AER_ERR_SRC_ID_REG) & 0xffff) << 16;
+				PCIE20_AER_ERR_SRC_ID_REG) & ~0xffff) >> 16;
+		else
+			ep_src_bdf = readl_relaxed(dev->dm_core +
+				PCIE20_AER_ERR_SRC_ID_REG) & 0xffff;
 
 		if (!ep_src_bdf)
 			continue;
 
-		for (j = 0; j < MAX_DEVICE_NUM; j++) {
-			if (ep_src_bdf == dev->pcidev_table[j].bdf) {
-				PCIE_DBG2(dev,
-					"PCIe: %s Error from Endpoint: %02x:%02x.%01x\n",
-					i ? "Uncorrectable" : "Correctable",
-					dev->pcidev_table[j].bdf >> 24,
-					dev->pcidev_table[j].bdf >> 19 & 0x1f,
-					dev->pcidev_table[j].bdf >> 16 & 0x07);
-				ep_base = dev->pcidev_table[j].conf_base;
-				ep_dev_ctrlstts_offset =
-				dev->pcidev_table[j].dev_ctrlstts_offset;
-				break;
-			}
-		}
-
-		if (!ep_base) {
+		pcidev = find_pci_dev_from_bdf(ep_src_bdf,
+					       pci_domain_nr(dev->dev->bus));
+		if (!pcidev) {
 			PCIE_ERR(dev,
 				"PCIe: RC%d no endpoint found for reported error\n",
 				dev->rc_idx);
 			goto out;
 		}
 
-		ep_uncorr_val = readl_relaxed(ep_base +
-					PCIE20_AER_UNCORR_ERR_STATUS_REG);
-		ep_corr_val = readl_relaxed(ep_base +
-					PCIE20_AER_CORR_ERR_STATUS_REG);
-		ep_dev_ctrlstts = readl_relaxed(ep_base +
-					ep_dev_ctrlstts_offset);
+		PCIE_DBG2(dev,
+			  "PCIe: %s Error from Endpoint: %02x:%02x.%01x\n",
+			  i ? "Uncorrectable" : "Correctable",
+			  ep_src_bdf >> 24, ep_src_bdf >> 19 & 0x1f,
+			  ep_src_bdf >> 16 & 0x07);
+
+		aer_cap = pci_find_ext_capability(pcidev, PCI_EXT_CAP_ID_ERR);
+		if (!aer_cap) {
+			PCIE_ERR(dev, "PCIe: BDF 0x%04x does not support AER\n",
+				 PCI_DEVID(pcidev->bus->number, pcidev->devfn));
+			goto out;
+		}
+
+		pci_read_config_dword(pcidev, aer_cap + PCI_ERR_UNCOR_STATUS,
+				      &ep_uncorr_val);
+		pci_read_config_dword(pcidev, aer_cap + PCI_ERR_COR_STATUS,
+				      &ep_corr_val);
+		pcie_capability_read_word(pcidev, PCI_EXP_DEVSTA, &ep_dev_stts);
 
 		if (ep_uncorr_val)
 			PCIE_DBG(dev,
@@ -5316,22 +5328,25 @@ static irqreturn_t handle_aer_irq(int irq, void *data)
 				"EP's PCIE20_AER_CORR_ERR_STATUS_REG:0x%x\n",
 				ep_corr_val);
 
-		if ((ep_dev_ctrlstts >> 18) & 0x1)
+		if (ep_dev_stts & PCI_EXP_DEVSTA_FED)
 			dev->ep_fatal_counter++;
-		if ((ep_dev_ctrlstts >> 17) & 0x1)
+		if (ep_dev_stts & PCI_EXP_DEVSTA_NFED)
 			dev->ep_non_fatal_counter++;
-		if ((ep_dev_ctrlstts >> 16) & 0x1)
+		if (ep_dev_stts & PCI_EXP_DEVSTA_CED)
 			dev->ep_corr_counter++;
 
-		msm_pcie_write_mask(ep_base + ep_dev_ctrlstts_offset, 0,
-					BIT(18)|BIT(17)|BIT(16));
+		pcie_capability_clear_and_set_word(pcidev, PCI_EXP_DEVSTA, 0,
+						   PCI_EXP_DEVSTA_CED |
+						   PCI_EXP_DEVSTA_NFED |
+						   PCI_EXP_DEVSTA_FED);
 
-		msm_pcie_write_reg_field(ep_base,
-				PCIE20_AER_UNCORR_ERR_STATUS_REG,
-				0x3fff031, 0x3fff031);
-		msm_pcie_write_reg_field(ep_base,
-				PCIE20_AER_CORR_ERR_STATUS_REG,
-				0xf1c1, 0xf1c1);
+		pci_write_config_dword(pcidev, aer_cap + PCI_ERR_COR_STATUS,
+				       ep_corr_val);
+
+#ifdef CONFIG_PCI_QTI
+		/* Clear status bits for ERR_NONFATAL errors only */
+		pci_cleanup_aer_uncorrect_error_status(pcidev);
+#endif
 	}
 out:
 	if (((dev->rc_corr_counter < corr_counter_limit) &&
@@ -6394,7 +6409,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		pcie_dev->pcidev_table[i].domain = rc_idx;
 		pcie_dev->pcidev_table[i].conf_base = NULL;
 		pcie_dev->pcidev_table[i].phy_address = 0;
-		pcie_dev->pcidev_table[i].dev_ctrlstts_offset = 0;
 		pcie_dev->pcidev_table[i].event_reg = NULL;
 		pcie_dev->pcidev_table[i].registered = true;
 	}
