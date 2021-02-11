@@ -97,6 +97,15 @@
 #define PCIE20_ACK_F_ASPM_CTRL_REG (0x70c)
 #define PCIE20_ACK_N_FTS (0xff00)
 
+#define PCIE20_PLR_IATU_VIEWPORT (0x900)
+#define PCIE20_PLR_IATU_CTRL1 (0x904)
+#define PCIE20_PLR_IATU_CTRL2 (0x908)
+#define PCIE20_PLR_IATU_LBAR (0x90c)
+#define PCIE20_PLR_IATU_UBAR (0x910)
+#define PCIE20_PLR_IATU_LAR (0x914)
+#define PCIE20_PLR_IATU_LTAR (0x918)
+#define PCIE20_PLR_IATU_UTAR (0x91c)
+
 #define PCIE_IATU_BASE(n) (n * 0x200)
 #define PCIE_IATU_CTRL1(n) (PCIE_IATU_BASE(n) + 0x00)
 #define PCIE_IATU_CTRL2(n) (PCIE_IATU_BASE(n) + 0x04)
@@ -2502,32 +2511,105 @@ static bool msm_pcie_check_ltssm_state(struct msm_pcie_dev_t *dev, u32 state)
  * @host_addr: - region start address on host
  * @host_end: - region end address (low 32 bit) on host,
  *	upper 32 bits are same as for @host_addr
- * @bdf: - bus:device:function
+ * @target_addr: - region start address on target
  */
 static void msm_pcie_iatu_config(struct msm_pcie_dev_t *dev, int nr, u8 type,
-				unsigned long host_addr, u32 host_end, u32 bdf)
+				unsigned long host_addr, u32 host_end,
+				unsigned long target_addr)
 {
-	if (!dev->iatu) {
-		PCIE_ERR(dev, "PCIe: RC%d no iatu resource\n", dev->rc_idx);
-		return;
+	void __iomem *iatu_base = dev->iatu ? dev->iatu : dev->dm_core;
+
+	u32 iatu_viewport_offset;
+	u32 iatu_ctrl1_offset;
+	u32 iatu_ctrl2_offset;
+	u32 iatu_lbar_offset;
+	u32 iatu_ubar_offset;
+	u32 iatu_lar_offset;
+	u32 iatu_ltar_offset;
+	u32 iatu_utar_offset;
+
+	if (dev->iatu) {
+		iatu_viewport_offset = 0;
+		iatu_ctrl1_offset = PCIE_IATU_CTRL1(nr);
+		iatu_ctrl2_offset = PCIE_IATU_CTRL2(nr);
+		iatu_lbar_offset = PCIE_IATU_LBAR(nr);
+		iatu_ubar_offset = PCIE_IATU_UBAR(nr);
+		iatu_lar_offset = PCIE_IATU_LAR(nr);
+		iatu_ltar_offset = PCIE_IATU_LTAR(nr);
+		iatu_utar_offset = PCIE_IATU_UTAR(nr);
+	} else {
+		iatu_viewport_offset = PCIE20_PLR_IATU_VIEWPORT;
+		iatu_ctrl1_offset = PCIE20_PLR_IATU_CTRL1;
+		iatu_ctrl2_offset = PCIE20_PLR_IATU_CTRL2;
+		iatu_lbar_offset = PCIE20_PLR_IATU_LBAR;
+		iatu_ubar_offset = PCIE20_PLR_IATU_UBAR;
+		iatu_lar_offset = PCIE20_PLR_IATU_LAR;
+		iatu_ltar_offset = PCIE20_PLR_IATU_LTAR;
+		iatu_utar_offset = PCIE20_PLR_IATU_UTAR;
 	}
 
-	/* configure iATU only for endpoints */
-	if (!bdf)
-		return;
+	if (dev->shadow_en && iatu_viewport_offset) {
+		dev->rc_shadow[PCIE20_PLR_IATU_VIEWPORT / 4] =
+			nr;
+		dev->rc_shadow[PCIE20_PLR_IATU_CTRL1 / 4] =
+			type;
+		dev->rc_shadow[PCIE20_PLR_IATU_LBAR / 4] =
+			lower_32_bits(host_addr);
+		dev->rc_shadow[PCIE20_PLR_IATU_UBAR / 4] =
+			upper_32_bits(host_addr);
+		dev->rc_shadow[PCIE20_PLR_IATU_LAR / 4] =
+			host_end;
+		dev->rc_shadow[PCIE20_PLR_IATU_LTAR / 4] =
+			lower_32_bits(target_addr);
+		dev->rc_shadow[PCIE20_PLR_IATU_UTAR / 4] =
+			upper_32_bits(target_addr);
+		dev->rc_shadow[PCIE20_PLR_IATU_CTRL2 / 4] =
+			BIT(31);
+	}
+
+	/* select region */
+	if (iatu_viewport_offset)
+		msm_pcie_write_reg(iatu_base, iatu_viewport_offset, nr);
 
 	/* switch off region before changing it */
-	msm_pcie_write_reg(dev->iatu, PCIE_IATU_CTRL2(nr), 0);
+	msm_pcie_write_reg(iatu_base, iatu_ctrl2_offset, 0);
 
-	msm_pcie_write_reg(dev->iatu, PCIE_IATU_CTRL1(nr), type);
-	msm_pcie_write_reg(dev->iatu, PCIE_IATU_LBAR(nr),
-			   lower_32_bits(host_addr));
-	msm_pcie_write_reg(dev->iatu, PCIE_IATU_UBAR(nr),
-			   upper_32_bits(host_addr));
-	msm_pcie_write_reg(dev->iatu, PCIE_IATU_LAR(nr), host_end);
-	msm_pcie_write_reg(dev->iatu, PCIE_IATU_LTAR(nr), lower_32_bits(bdf));
-	msm_pcie_write_reg(dev->iatu, PCIE_IATU_UTAR(nr), 0);
-	msm_pcie_write_reg(dev->iatu, PCIE_IATU_CTRL2(nr), BIT(31));
+	msm_pcie_write_reg(iatu_base, iatu_ctrl1_offset, type);
+	msm_pcie_write_reg(iatu_base, iatu_lbar_offset,
+				lower_32_bits(host_addr));
+	msm_pcie_write_reg(iatu_base, iatu_ubar_offset,
+				upper_32_bits(host_addr));
+	msm_pcie_write_reg(iatu_base, iatu_lar_offset, host_end);
+	msm_pcie_write_reg(iatu_base, iatu_ltar_offset,
+				lower_32_bits(target_addr));
+	msm_pcie_write_reg(iatu_base, iatu_utar_offset,
+				upper_32_bits(target_addr));
+	msm_pcie_write_reg(iatu_base, iatu_ctrl2_offset, BIT(31));
+
+	if (dev->enumerated) {
+		PCIE_DBG2(dev, "IATU for Endpoint %02x:%02x.%01x\n",
+			dev->pcidev_table[nr].bdf >> 24,
+			dev->pcidev_table[nr].bdf >> 19 & 0x1f,
+			dev->pcidev_table[nr].bdf >> 16 & 0x07);
+		if (iatu_viewport_offset)
+			PCIE_DBG2(dev, "IATU_VIEWPORT:0x%x\n",
+				readl_relaxed(dev->dm_core +
+					PCIE20_PLR_IATU_VIEWPORT));
+		PCIE_DBG2(dev, "IATU_CTRL1:0x%x\n",
+			readl_relaxed(iatu_base + iatu_ctrl1_offset));
+		PCIE_DBG2(dev, "IATU_LBAR:0x%x\n",
+			readl_relaxed(iatu_base + iatu_lbar_offset));
+		PCIE_DBG2(dev, "IATU_UBAR:0x%x\n",
+			readl_relaxed(iatu_base + iatu_ubar_offset));
+		PCIE_DBG2(dev, "IATU_LAR:0x%x\n",
+			readl_relaxed(iatu_base + iatu_lar_offset));
+		PCIE_DBG2(dev, "IATU_LTAR:0x%x\n",
+			readl_relaxed(iatu_base + iatu_ltar_offset));
+		PCIE_DBG2(dev, "IATU_UTAR:0x%x\n",
+			readl_relaxed(iatu_base + iatu_utar_offset));
+		PCIE_DBG2(dev, "IATU_CTRL2:0x%x\n\n",
+			readl_relaxed(iatu_base + iatu_ctrl2_offset));
+	}
 }
 
 /**
