@@ -790,6 +790,8 @@
   drm_vblank_init
   drm_wait_one_vblank
   dump_stack
+  __dynamic_dev_dbg
+  __dynamic_pr_debug
   edac_device_add_device
   edac_device_alloc_ctl_info
   edac_device_alloc_index
