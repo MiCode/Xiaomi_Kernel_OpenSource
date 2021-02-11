@@ -162,18 +162,6 @@ static int entry_ffs_user_copy_worker(struct kretprobe_instance *ri,
 	return 0;
 }
 
-static int exit_ffs_user_copy_worker(struct kretprobe_instance *ri,
-				     struct pt_regs *regs)
-{
-	struct kprobe_data *data = (struct kprobe_data *)ri->data;
-	struct work_struct *work = data->x0;
-	struct ffs_io_data *io_data = container_of(work, struct ffs_io_data, work);
-	void *context = get_ipc_context(io_data->ffs);
-
-	kprobe_log(context, ri->rp->kp.symbol_name, "exit");
-	return 0;
-}
-
 static int entry_ffs_epfile_io(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
 	struct kprobe_data *data = (struct kprobe_data *)ri->data;
@@ -811,7 +799,7 @@ static int exit_ffs_closed(struct kretprobe_instance *ri,
 }
 
 static struct kretprobe ffsprobes[] = {
-	ENTRY_EXIT(ffs_user_copy_worker),
+	ENTRY(ffs_user_copy_worker),
 	ENTRY_EXIT(ffs_epfile_io),
 	ENTRY(ffs_epfile_async_io_complete),
 	ENTRY_EXIT(ffs_epfile_write_iter),
