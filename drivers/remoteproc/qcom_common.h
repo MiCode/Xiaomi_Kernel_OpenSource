@@ -6,6 +6,12 @@
 #include "remoteproc_internal.h"
 #include <linux/soc/qcom/qmi.h>
 
+struct reg_info {
+	struct regulator *reg;
+	int uV;
+	int uA;
+};
+
 struct qcom_sysmon;
 
 struct qcom_rproc_glink {
