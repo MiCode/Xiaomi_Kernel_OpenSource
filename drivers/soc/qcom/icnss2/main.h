@@ -446,6 +446,7 @@ struct icnss_reg_info {
 	uint32_t data_len;
 };
 
+void icnss_free_qdss_mem(struct icnss_priv *priv);
 char *icnss_driver_event_to_str(enum icnss_driver_event_type type);
 int icnss_call_driver_uevent(struct icnss_priv *priv,
 				    enum icnss_uevent uevent, void *data);
