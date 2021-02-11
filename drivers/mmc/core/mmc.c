@@ -1610,37 +1610,6 @@ static int mmc_scale_high(struct mmc_host *host)
 		mmc_set_clock(host, MMC_HIGH_26_MAX_DTR);
 	}
 
-	if (!host->card->ext_csd.strobe_support) {
-		if (!(host->card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200)) {
-			pr_err("%s: %s: card does not support HS200\n",
-				mmc_hostname(host), __func__);
-			WARN_ON(1);
-			return -EPERM;
-		}
-
-		err = mmc_select_hs200(host->card);
-		if (err) {
-			pr_err("%s: %s: selecting HS200 failed (%d)\n",
-				mmc_hostname(host), __func__, err);
-			return err;
-		}
-
-		mmc_set_bus_speed(host->card);
-
-		err = mmc_hs200_tuning(host->card);
-		if (err) {
-			pr_err("%s: %s: hs200 tuning failed (%d)\n",
-				mmc_hostname(host), __func__, err);
-			return err;
-		}
-
-		if (!(host->card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400)) {
-			pr_debug("%s: card does not support HS400\n",
-				mmc_hostname(host));
-			return 0;
-		}
-	}
-
 	mmc_set_initial_state(host);
 	err = mmc_select_timing(host->card);
 	if (err) {
@@ -1649,6 +1618,20 @@ static int mmc_scale_high(struct mmc_host *host)
 		return err;
 	}
 
+	if (mmc_card_hs200(host->card)) {
+		err = mmc_hs200_tuning(host->card);
+		if (err) {
+			pr_err("%s: %s: hs200 tuning failed (%d)\n",
+				mmc_hostname(host), __func__, err);
+			return err;
+		}
+		err = mmc_select_hs400(host->card);
+		if (err) {
+			pr_err("%s: %s: Select hs400 failed (%d)\n",
+				mmc_hostname(host), __func__, err);
+			return err;
+		}
+	}
 	return 0;
 }
 
