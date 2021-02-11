@@ -1282,13 +1282,9 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 		    response_type == QSEOS_RESULT_BLOCKED_ON_LISTENER) {
 			ret = qseecom_process_listener_from_smcinvoke(
 					&req->result, &response_type, &data);
-			/*
-			 * new scm APIs do not provide complete response i.e. res[0-2],
-			 * we loose some values returned from QSEECom APIs. so we need to
-			 * populate result from response type i.e. res[1]
-			 */
-			req->result = response_type;
-			if (!req->result) {
+
+			if (!req->result &&
+			response_type != SMCINVOKE_RESULT_INBOUND_REQ_NEEDED) {
 				ret = marshal_out_invoke_req(in_buf,
 						in_buf_len, req, args_buf);
 			}
