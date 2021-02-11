@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 #include <linux/module.h>
 #include <linux/thermal.h>
@@ -106,7 +106,7 @@ static int ddr_cdev_probe(struct platform_device *pdev)
 {
 	int ret = 0, opp_ct = 0;
 	struct ddr_cdev *ddr_cdev = NULL;
-	struct device_node *np = pdev->dev.of_node;
+	struct device_node *np = pdev->dev.of_node, *freq_np = NULL;
 	struct device *dev = &pdev->dev;
 	uint32_t *freq_table = NULL;
 	char cdev_name[THERMAL_NAME_LENGTH] = DDR_CDEV_NAME;
@@ -122,21 +122,38 @@ static int ddr_cdev_probe(struct platform_device *pdev)
 					ret);
 		return ret;
 	}
-	opp_ct = of_property_count_elems_of_size(np, "qcom,ddr-freq",
-						sizeof(u32));
+	freq_np = of_parse_phandle(np, "qcom,freq-table", 0);
+	if (!freq_np) {
+		dev_err(dev, "No DDR frequency\n");
+		ret = -ENODEV;
+		goto err_exit;
+	}
+
+	if (!of_find_property(freq_np, "qcom,freq-tbl", &opp_ct)) {
+		dev_err(dev, "No DDR frequency entries\n");
+		ret = -ENODEV;
+		goto err_exit;
+	}
+
 	if (opp_ct <= 0) {
 		dev_err(dev, "No DDR frequency\n");
 		ret = -ENODEV;
 		goto err_exit;
 	}
+	opp_ct = opp_ct / sizeof(*freq_table);
+
+	/* Add one more entry for 0 or no DDR BW vote */
+	opp_ct++;
 
 	freq_table = devm_kcalloc(dev, opp_ct, sizeof(*freq_table), GFP_KERNEL);
 	if (!freq_table) {
 		ret = -ENOMEM;
 		goto err_exit;
 	}
+	freq_table[0] = 0;
 
-	ret = of_property_read_u32_array(np, "qcom,ddr-freq", freq_table, opp_ct);
+	ret = of_property_read_u32_array(freq_np, "qcom,freq-tbl",
+			&freq_table[1], opp_ct-1);
 	if (ret < 0) {
 		dev_err(dev, "DDR frequency read error:%d\n", ret);
 		goto err_exit;
@@ -165,9 +182,12 @@ static int ddr_cdev_probe(struct platform_device *pdev)
 	}
 	dev_dbg(dev, "Cooling device [%s] registered.\n", cdev_name);
 	dev_set_drvdata(dev, ddr_cdev);
+	of_node_put(freq_np);
 
 	return 0;
 err_exit:
+	if (freq_np)
+		of_node_put(freq_np);
 	icc_put(ddr_cdev->icc_path);
 
 	return ret;

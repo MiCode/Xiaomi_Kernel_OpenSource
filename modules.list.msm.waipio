@@ -183,6 +183,9 @@ kryo_arm64_edac.ko
 msm_rtb.ko
 msm_sysstats.ko
 qcom_tsens.ko
+cpu_voltage_cooling.ko
+ddr_cdev.ko
+msm_lmh_dcvs.ko
 cpu_hotplug.ko
 bcl_soc.ko
 bcl_pmic5.ko
