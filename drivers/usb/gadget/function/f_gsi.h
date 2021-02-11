@@ -202,6 +202,7 @@ struct gsi_ctrl_port {
 	atomic_t ctrl_online;
 
 	bool is_open;
+	bool is_suspended;
 
 	wait_queue_head_t read_wq;
 
@@ -274,6 +275,7 @@ struct f_gsi {
 	/* function suspend status */
 	bool func_is_suspended;
 	bool func_wakeup_allowed;
+	bool func_wakeup_pending;
 
 	const struct usb_endpoint_descriptor *in_ep_desc_backup;
 	const struct usb_endpoint_descriptor *out_ep_desc_backup;
