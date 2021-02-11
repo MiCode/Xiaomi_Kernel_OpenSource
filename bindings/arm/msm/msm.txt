@@ -86,6 +86,9 @@ SoCs:
 - HOLI
   compatible = "qcom,holi"
 
+- WAIPIO
+  compatible = "qcom,waipio"
+
 Generic board variants:
 
 - CDP device:
@@ -239,3 +242,7 @@ compatible = "qcom,holi-mtp"
 compatible = "qcom,holi-cdp"
 compatible = "qcom,holi-qrd"
 compatible = "qcom,holi-atp"
+compatible = "qcom,waipio-rumi"
+compatible = "qcom,waipio-mtp"
+compatible = "qcom,waipio-cdp"
+compatible = "qcom,waipio-qrd"
