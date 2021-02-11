@@ -63,6 +63,7 @@
 			qcom,swr-num-dev = <5>;
 			qcom,swr-clock-stop-mode0 = <1>;
 			qcom,swr-mstr-irq-wakeup-capable = <1>;
+			qcom,is-always-on = <1>;
 			wcd938x_tx_slave: wcd938x-tx-slave {
 				compatible = "qcom,wcd938x-slave";
 				reg = <0x0D 0x01170223>;
