@@ -918,14 +918,14 @@
 		};
 	};
 
-	tpdm_apps: tpdm@13861000 {
+	tpdm_apss: tpdm@13861000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb968>;
 		reg = <0x13861000 0x1000>;
 		reg-names = "tpdm-base";
 
 		atid = <66>;
-		coresight-name = "coresight-tpdm-apps";
+		coresight-name = "coresight-tpdm-apss";
 
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
