@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2008-2018, 2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2008-2018, 2020-2021, The Linux Foundation. All rights reserved. */
 
 #ifndef MDSS_FB_H
 #define MDSS_FB_H
@@ -313,6 +313,7 @@ struct msm_fb_data_type {
 	u32 bl_level_usr;
 	struct mutex bl_lock;
 	struct mutex mdss_sysfs_lock;
+	struct mutex sd_lock;
 	bool ipc_resume;
 
 	struct platform_device *pdev;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2013-2018, 2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2013-2018, 2020-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -50,8 +50,11 @@ int mdss_dsi_check_panel_status(struct mdss_dsi_ctrl_pdata *ctrl, void *arg)
 	 * then no need to fail this function,
 	 * instead return a positive value.
 	 */
-	if (ctrl->check_status)
+	if (ctrl->check_status) {
+		mutex_lock(&mfd->sd_lock);
 		ret = ctrl->check_status(ctrl);
+		mutex_unlock(&mfd->sd_lock);
+	}
 	else
 		ret = 1;
 	mutex_unlock(&ctl->offlock);
