@@ -806,6 +806,9 @@ static int icnss_driver_event_fw_ready_ind(struct icnss_priv *priv, void *data)
 	set_bit(ICNSS_FW_READY, &priv->state);
 	clear_bit(ICNSS_MODE_ON, &priv->state);
 
+	if (priv->device_id == WCN6750_DEVICE_ID)
+		icnss_free_qdss_mem(priv);
+
 	icnss_pr_info("WLAN FW is ready: 0x%lx\n", priv->state);
 
 	icnss_hw_power_off(priv);
