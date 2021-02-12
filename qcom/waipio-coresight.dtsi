@@ -145,7 +145,6 @@
 		reg-names = "tpdm-base";
 
 		coresight-name = "coresight-tpdm-lpass";
-		qcom,msr-fix-req;
 
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
@@ -168,7 +167,6 @@
 		reg-names = "tpdm-base";
 
 		coresight-name = "coresight-tpdm-ddr-ch02";
-		qcom,msr-fix-req;
 
 		atid = <78>;
 		clocks = <&aoss_qmp>;
@@ -192,7 +190,6 @@
 
 		atid = <78>;
 		coresight-name = "coresight-tpdm-ddr-ch13";
-		qcom,msr-fix-req;
 
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
@@ -215,7 +212,6 @@
 
 		atid = <78>;
 		coresight-name = "coresight-tpdm-ddr";
-		qcom,msr-fix-req;
 
 		status = "disabled";
 		clocks = <&aoss_qmp>;
@@ -240,7 +236,6 @@
 		atid = <78>;
 		status = "disabled";
 		coresight-name = "coresight-tpdm-shrm";
-		qcom,msr-fix-req;
 
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
@@ -307,7 +302,6 @@
 
 		atid = <78>;
 		coresight-name = "coresight-tpdm-mm";
-		qcom,msr-fix-req;
 
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
@@ -373,7 +367,6 @@
 		reg-names = "tpdm-base";
 
 		coresight-name = "coresight-tpdm-turing";
-		qcom,msr-fix-req;
 
 		atid = <78>;
 		clocks = <&aoss_qmp>;
@@ -615,7 +608,6 @@
 
 		atid = <71>;
 		coresight-name = "coresight-tpdm-swao-1";
-		qcom,msr-fix-req;
 
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
@@ -824,7 +816,6 @@
 
 		atid = <97>;
 		coresight-name = "coresight-tpdm-dl-north";
-		qcom,msr-fix-req;
 
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
@@ -957,7 +948,6 @@
 
 		atid = <67>;
 		coresight-name = "coresight-tpdm-modem-0";
-		qcom,msr-fix-req;
 
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
@@ -981,7 +971,6 @@
 		status = "disabled";
 		atid = <67>;
 		coresight-name = "coresight-tpdm-modem-1";
-		qcom,msr-fix-req;
 
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
