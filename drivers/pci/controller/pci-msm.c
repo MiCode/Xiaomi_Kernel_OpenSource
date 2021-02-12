@@ -5164,7 +5164,10 @@ static void handle_sbr_func(struct work_struct *work)
 	} else {
 		PCIE_ERR(dev, "PCIe RC%d link initialization failed\n",
 			dev->rc_idx);
+		return;
 	}
+	/* restore BME that gets cleared after link_down reset */
+	msm_pcie_write_mask(dev->dm_core + PCIE20_COMMAND_STATUS, 0, BIT(2));
 }
 
 static irqreturn_t handle_flush_irq(int irq, void *data)
