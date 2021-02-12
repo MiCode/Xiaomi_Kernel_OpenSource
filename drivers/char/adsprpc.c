@@ -53,6 +53,7 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/soc/qcom/pdr.h>
 #include <linux/soc/qcom/qmi.h>
+#include <linux/mem-buf.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/fastrpc.h>
@@ -554,7 +555,6 @@ struct fastrpc_mmap {
 	size_t len;
 	int refs;
 	uintptr_t raddr;
-	int uncached;
 	int secure;
 	uintptr_t attr;
 	struct timespec64 map_start_time;
@@ -1259,7 +1259,6 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 	int cid = fl->cid;
 	struct fastrpc_channel_ctx *chan = NULL;
 	struct fastrpc_mmap *map = NULL;
-	unsigned long flags;
 	int err = 0, vmid, sgl_index = 0;
 	struct scatterlist *sgl = NULL;
 	struct md_region md_entry;
@@ -1312,16 +1311,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 			err = -EBADFD;
 			goto bail;
 		}
-		err = dma_buf_get_flags(map->buf, &flags);
-		if (err) {
-			ADSPRPC_ERR(
-				"dma_buf_get_flags failed for fd %d ret %d\n",
-				fd, err);
-			err = -EFAULT;
-			goto bail;
-		}
-		map->secure = flags & ION_FLAG_SECURE;
-		map->uncached = 1;
+		map->secure = (mem_buf_dma_buf_exclusive_owner(map->buf)) ? 0 : 1;
 		map->va = 0;
 		map->phys = 0;
 
@@ -1378,15 +1368,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 				goto bail;
 			}
 		}
-		err = dma_buf_get_flags(map->buf, &flags);
-		if (err) {
-			ADSPRPC_ERR(
-				"dma_buf_get_flags failed for fd %d ret %d\n",
-				fd, err);
-			err = -EFAULT;
-			goto bail;
-		}
-		map->secure = flags & ION_FLAG_SECURE;
+		map->secure = (mem_buf_dma_buf_exclusive_owner(map->buf)) ? 0 : 1;
 		if (map->secure) {
 			if (!fl->secsctx)
 				err = fastrpc_session_alloc(chan, 1,
@@ -1412,10 +1394,6 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 			goto bail;
 		}
 
-		map->uncached = !(flags & ION_FLAG_CACHED);
-		if (map->attr & FASTRPC_ATTR_NOVA && !sess->smmu.coherent)
-			map->uncached = 1;
-
 		VERIFY(err, !IS_ERR_OR_NULL(map->attach =
 				dma_buf_attach(map->buf, sess->smmu.dev)));
 		if (err) {
@@ -1432,10 +1410,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 
 		/*
 		 * Skip CPU sync if IO Cohernecy is not supported
-		 * or if it is supported but buffer is uncached
 		 */
-		if ((sess->smmu.coherent && map->uncached) ||
-			(!sess->smmu.coherent))
+		if (!sess->smmu.coherent)
 			map->attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
 		VERIFY(err, !IS_ERR_OR_NULL(map->table =
@@ -2522,8 +2498,6 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 
 		if (i+1 > inbufs)	// Avoiding flush for outbufs
 			continue;
-		if (map && map->uncached)
-			continue;
 		if (ctx->fl->sctx && ctx->fl->sctx->smmu.coherent)
 			continue;
 		if (map && (map->attr & FASTRPC_ATTR_FORCE_NOFLUSH))
@@ -2682,9 +2656,6 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 		struct fastrpc_mmap *map = ctx->maps[over];
 
 		if ((over + 1 <= inbufs))
-			continue;
-
-		if (map && map->uncached)
 			continue;
 		if (!rpra[over].buf.len)
 			continue;
@@ -5239,7 +5210,7 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"%-20s|%-20s|%-20s|%-20s\n",
 			"len", "refs",
-			"raddr", "uncached");
+			"raddr");
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"%s%s%s%s%s\n",
 			single_line, single_line, single_line,
@@ -5247,8 +5218,7 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
 			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 				"%-20zu|%-20d|0x%-20lX|%-20d\n\n",
-				map->len, map->refs, map->raddr,
-				map->uncached);
+				map->len, map->refs, map->raddr);
 		}
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"%-20s|%-20s\n", "secure", "attr");
