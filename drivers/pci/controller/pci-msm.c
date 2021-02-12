@@ -637,8 +637,6 @@ struct msm_pcie_device_info {
 	short short_bdf;
 	u32 sid;
 	int domain;
-	struct msm_pcie_register_event *event_reg;
-	bool registered;
 };
 
 /* DRV IPC command type */
@@ -845,9 +843,6 @@ struct msm_pcie_dev_t {
 	uint64_t l23_rdy_poll_timeout;
 	bool suspending;
 	ulong wake_counter;
-	u32 num_active_ep;
-	u32 num_ep;
-	bool pending_ep_reg;
 	struct list_head enum_ep_list;
 	struct list_head susp_ep_list;
 	u32 num_parf_testbus_sel;
@@ -861,7 +856,8 @@ struct msm_pcie_dev_t {
 	u32 rc_shadow[PCIE_CONF_SPACE_DW];
 	bool shadow_en;
 	bool bridge_found;
-	struct msm_pcie_register_event *event_reg;
+	struct list_head event_reg_list;
+	spinlock_t evt_reg_list_lock;
 	bool power_on;
 	void *ipc_log;
 	void *ipc_log_long;
@@ -1645,12 +1641,6 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->aux_clk_freq);
 	PCIE_DBG_FS(dev, "user_suspend is %d\n",
 		dev->user_suspend);
-	PCIE_DBG_FS(dev, "num_ep: %d\n",
-		dev->num_ep);
-	PCIE_DBG_FS(dev, "num_active_ep: %d\n",
-		dev->num_active_ep);
-	PCIE_DBG_FS(dev, "pending_ep_reg: %s\n",
-		dev->pending_ep_reg ? "true" : "false");
 	PCIE_DBG_FS(dev, "num_parf_testbus_sel is 0x%x",
 		dev->num_parf_testbus_sel);
 	PCIE_DBG_FS(dev, "phy_len is %d",
@@ -4794,10 +4784,7 @@ static int msm_pcie_config_device_table(struct pci_dev *pcidev, void *pdev)
 {
 	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *) pdev;
 	struct msm_pcie_device_info *dev_info;
-	int ret = 0;
-	u32 rc_idx = pcie_dev->rc_idx;
-	u32 i;
-	u32 bdf = 0;
+	int ret;
 
 	PCIE_DBG(pcie_dev,
 		"PCI device found: vendor-id:0x%x device-id:0x%x\n",
@@ -4812,53 +4799,29 @@ static int msm_pcie_config_device_table(struct pci_dev *pcidev, void *pdev)
 		list_add_tail(&dev_info->pcidev_node, &pcie_dev->enum_ep_list);
 	}
 
-	if (!pcidev->bus->number)
-		return ret;
-
-	bdf = BDF_OFFSET(pcidev->bus->number, pcidev->devfn);
-
-	for (i = 0; i < MAX_DEVICE_NUM; i++) {
-		struct msm_pcie_device_info *dev_table_t =
-						&pcie_dev->pcidev_table[i];
-
-		if (dev_table_t->bdf != bdf)
-			continue;
-
-		dev_table_t->dev = pcidev;
-		dev_table_t->domain = rc_idx;
-
-		if (pci_pcie_type(pcidev) == PCI_EXP_TYPE_ENDPOINT) {
-			pcie_dev->num_ep++;
-			dev_table_t->registered = false;
+	/* for upstream port of a switch */
+	if (pci_pcie_type(pcidev) == PCI_EXP_TYPE_UPSTREAM) {
+		ret = pci_enable_device(pcidev);
+		if (ret) {
+			PCIE_ERR(pcie_dev,
+				 "PCIe: BDF 0x%04x pci_enable_device failed\n",
+				 PCI_DEVID(pcidev->bus->number, pcidev->devfn));
+			return ret;
 		}
+		pci_set_master(pcidev);
+	}
 
-		if (pci_pcie_type(pcidev) == PCI_EXP_TYPE_UPSTREAM)
-			pci_set_master(pcidev);
-
-		if (pcie_dev->num_ep > 1)
-			pcie_dev->pending_ep_reg = true;
-
-		if (pcie_dev->aer_enable) {
+	if (pcie_dev->aer_enable) {
 #ifdef CONFIG_PCI_QTI
-			if (pci_enable_pcie_error_reporting(pcidev))
-				PCIE_ERR(pcie_dev,
-					 "PCIe: RC%d: PCIE error reporting unavailable on %02x:%02x:%01x\n",
-					 pcie_dev->rc_idx, pcidev->bus->number,
-					 PCI_SLOT(pcidev->devfn), PCI_FUNC(pcidev->devfn));
+		if (pci_enable_pcie_error_reporting(pcidev))
+			PCIE_ERR(pcie_dev,
+				 "PCIe: RC%d: PCIE error reporting unavailable on %02x:%02x:%01x\n",
+				 pcie_dev->rc_idx, pcidev->bus->number,
+				 PCI_SLOT(pcidev->devfn), PCI_FUNC(pcidev->devfn));
 #endif
-		}
-
-		break;
 	}
 
-	if (i == MAX_DEVICE_NUM) {
-		PCIE_ERR(pcie_dev,
-			 "PCIe: RC%d: could not find device in the table: %02x:%02x:%01x\n",
-			 pcie_dev->rc_idx, pcidev->bus->number,
-			 PCI_SLOT(pcidev->devfn), PCI_FUNC(pcidev->devfn));
-		ret = -ENODEV;
-	}
-	return ret;
+	return 0;
 }
 
 static void msm_pcie_config_sid(struct msm_pcie_dev_t *dev)
@@ -5072,37 +5035,38 @@ EXPORT_SYMBOL(msm_pcie_enumerate);
 static void msm_pcie_notify_client(struct msm_pcie_dev_t *dev,
 					enum msm_pcie_event event)
 {
-	if (dev->event_reg && dev->event_reg->callback &&
-		(dev->event_reg->events & event)) {
-		struct msm_pcie_notify *notify = &dev->event_reg->notify;
-		struct msm_pcie_notify client_notify;
+	struct msm_pcie_register_event *reg_itr;
+	struct msm_pcie_notify *notify;
+	struct msm_pcie_notify client_notify;
 
-		client_notify.event = event;
-		client_notify.user = dev->event_reg->user;
-		client_notify.data = notify->data;
-		client_notify.options = notify->options;
-		PCIE_DUMP(dev, "PCIe: callback RC%d for event %d\n",
-			dev->rc_idx, event);
-		dev->event_reg->callback(&client_notify);
+	spin_lock(&dev->evt_reg_list_lock);
+	list_for_each_entry(reg_itr, &dev->event_reg_list, node) {
+		if ((reg_itr->events & event) && reg_itr->callback) {
+			notify = &reg_itr->notify;
+			client_notify.event = event;
+			client_notify.user = reg_itr->user;
+			client_notify.data = notify->data;
+			client_notify.options = notify->options;
+			PCIE_DUMP(dev, "PCIe: callback RC%d for event %d\n",
+				  dev->rc_idx, event);
+			reg_itr->callback(&client_notify);
 
-		if ((dev->event_reg->options & MSM_PCIE_CONFIG_NO_RECOVERY) &&
-				(event == MSM_PCIE_EVENT_LINKDOWN)) {
-			dev->user_suspend = true;
-			PCIE_DBG(dev,
-				"PCIe: Client of RC%d will recover the link later.\n",
-				dev->rc_idx);
-			return;
+			if ((reg_itr->options & MSM_PCIE_CONFIG_NO_RECOVERY) &&
+					(event == MSM_PCIE_EVENT_LINKDOWN)) {
+				dev->user_suspend = true;
+				PCIE_DBG(dev,
+					"PCIe: Client of RC%d will recover the link later.\n",
+					dev->rc_idx);
+			}
+
+			break;
 		}
-	} else {
-		PCIE_DBG2(dev,
-			"PCIe: Client of RC%d does not have registration for event %d\n",
-			dev->rc_idx, event);
 	}
+	spin_unlock(&dev->evt_reg_list_lock);
 }
 
 static void handle_wake_func(struct work_struct *work)
 {
-	int i, ret;
 	struct msm_pcie_dev_t *dev = container_of(work, struct msm_pcie_dev_t,
 					handle_wake_work);
 
@@ -5110,64 +5074,25 @@ static void handle_wake_func(struct work_struct *work)
 
 	mutex_lock(&dev->recovery_lock);
 
-	if (!dev->enumerated) {
-		PCIE_DBG(dev,
-			"PCIe: Start enumeration for RC%d upon the wake from endpoint.\n",
-			dev->rc_idx);
-
-		ret = msm_pcie_enumerate(dev->rc_idx);
-		if (ret) {
-			PCIE_ERR(dev,
-				"PCIe: failed to enable RC%d upon wake request from the device.\n",
-				dev->rc_idx);
-			goto out;
-		}
-
-		if (dev->num_ep > 1) {
-			for (i = 0; i < MAX_DEVICE_NUM; i++) {
-				dev->event_reg = dev->pcidev_table[i].event_reg;
-
-				if ((dev->link_status == MSM_PCIE_LINK_ENABLED)
-					&& dev->event_reg &&
-					dev->event_reg->callback &&
-					(dev->event_reg->events &
-					MSM_PCIE_EVENT_LINKUP)) {
-					struct msm_pcie_notify *notify =
-						&dev->event_reg->notify;
-					notify->event = MSM_PCIE_EVENT_LINKUP;
-					notify->user = dev->event_reg->user;
-					PCIE_DBG(dev,
-						"PCIe: Linkup callback for RC%d after enumeration is successful in wake IRQ handling\n",
-						dev->rc_idx);
-					dev->event_reg->callback(notify);
-				}
-			}
-		} else {
-			if ((dev->link_status == MSM_PCIE_LINK_ENABLED) &&
-				dev->event_reg && dev->event_reg->callback &&
-				(dev->event_reg->events &
-				MSM_PCIE_EVENT_LINKUP)) {
-				struct msm_pcie_notify *notify =
-						&dev->event_reg->notify;
-				notify->event = MSM_PCIE_EVENT_LINKUP;
-				notify->user = dev->event_reg->user;
-				PCIE_DBG(dev,
-					"PCIe: Linkup callback for RC%d after enumeration is successful in wake IRQ handling\n",
-					dev->rc_idx);
-				dev->event_reg->callback(notify);
-			} else {
-				PCIE_DBG(dev,
-					"PCIe: Client of RC%d does not have registration for linkup event.\n",
-					dev->rc_idx);
-			}
-		}
-		goto out;
-	} else {
+	if (dev->enumerated) {
 		PCIE_ERR(dev,
-			"PCIe: The enumeration for RC%d has already been done.\n",
-			dev->rc_idx);
+			 "PCIe: The enumeration for RC%d has already been done.\n",
+			 dev->rc_idx);
 		goto out;
 	}
+
+	PCIE_DBG(dev,
+		 "PCIe: Start enumeration for RC%d upon the wake from endpoint.\n",
+		 dev->rc_idx);
+
+	if (msm_pcie_enumerate(dev->rc_idx)) {
+		PCIE_ERR(dev,
+			 "PCIe: failed to enable RC%d upon wake request from the device.\n",
+			  dev->rc_idx);
+		goto out;
+	}
+
+	msm_pcie_notify_client(dev, MSM_PCIE_EVENT_LINKUP);
 
 out:
 	mutex_unlock(&dev->recovery_lock);
@@ -5327,7 +5252,6 @@ static irqreturn_t handle_wake_irq(int irq, void *data)
 {
 	struct msm_pcie_dev_t *dev = data;
 	unsigned long irqsave_flags;
-	int i;
 
 	spin_lock_irqsave(&dev->irq_lock, irqsave_flags);
 
@@ -5347,23 +5271,14 @@ static irqreturn_t handle_wake_irq(int irq, void *data)
 		__pm_stay_awake(dev->ws);
 		__pm_relax(dev->ws);
 
-		if (dev->num_ep > 1) {
-			for (i = 0; i < MAX_DEVICE_NUM; i++) {
-				dev->event_reg =
-					dev->pcidev_table[i].event_reg;
-				msm_pcie_notify_client(dev,
-					MSM_PCIE_EVENT_WAKEUP);
-			}
-		} else {
-			if (dev->drv_supported && !dev->suspending &&
-			    dev->link_status == MSM_PCIE_LINK_ENABLED) {
-				pcie_phy_dump(dev);
-				pcie_parf_dump(dev);
-				pcie_dm_core_dump(dev);
-			}
-
-			msm_pcie_notify_client(dev, MSM_PCIE_EVENT_WAKEUP);
+		if (dev->drv_supported && !dev->suspending &&
+		    dev->link_status == MSM_PCIE_LINK_ENABLED) {
+			pcie_phy_dump(dev);
+			pcie_parf_dump(dev);
+			pcie_dm_core_dump(dev);
 		}
+
+		msm_pcie_notify_client(dev, MSM_PCIE_EVENT_WAKEUP);
 	}
 
 	spin_unlock_irqrestore(&dev->irq_lock, irqsave_flags);
@@ -5373,8 +5288,6 @@ static irqreturn_t handle_wake_irq(int irq, void *data)
 
 static void msm_pcie_handle_linkdown(struct msm_pcie_dev_t *dev)
 {
-	int i;
-
 	if (dev->link_status == MSM_PCIE_LINK_DOWN)
 		return;
 
@@ -5400,16 +5313,7 @@ static void msm_pcie_handle_linkdown(struct msm_pcie_dev_t *dev)
 	if (dev->linkdown_panic)
 		panic("User has chosen to panic on linkdown\n");
 
-	if (dev->num_ep > 1) {
-		for (i = 0; i < MAX_DEVICE_NUM; i++) {
-			dev->event_reg =
-				dev->pcidev_table[i].event_reg;
-			msm_pcie_notify_client(dev,
-				MSM_PCIE_EVENT_LINKDOWN);
-		}
-	} else {
-		msm_pcie_notify_client(dev, MSM_PCIE_EVENT_LINKDOWN);
-	}
+	msm_pcie_notify_client(dev, MSM_PCIE_EVENT_LINKDOWN);
 }
 
 static irqreturn_t handle_linkdown_irq(int irq, void *data)
@@ -6362,9 +6266,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		pcie_dev->pcidev_table[i].dev = NULL;
 		pcie_dev->pcidev_table[i].short_bdf = 0;
 		pcie_dev->pcidev_table[i].sid = 0;
-		pcie_dev->pcidev_table[i].domain = rc_idx;
-		pcie_dev->pcidev_table[i].event_reg = NULL;
-		pcie_dev->pcidev_table[i].registered = true;
 	}
 
 	dev_set_drvdata(&pdev->dev, pcie_dev);
@@ -6949,17 +6850,12 @@ static void msm_pcie_drv_notify_client(struct pcie_drv_sta *pcie_drv,
 
 	for (i = 0; i < MAX_RC_NUM; i++, pcie_dev++) {
 		struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
-		struct msm_pcie_register_event *event_reg =
-			pcie_dev->event_reg;
 
 		PCIE_DBG(pcie_dev, "PCIe: RC%d: event %d received\n",
 			pcie_dev->rc_idx, event);
 
 		/* does not support DRV or has not been probed yet */
 		if (!drv_info)
-			continue;
-
-		if (!event_reg || !(event_reg->events & event))
 			continue;
 
 		if (drv_info->ep_connected) {
@@ -7132,19 +7028,9 @@ static void msm_pcie_drv_connect_worker(struct work_struct *work)
 
 	for (i = 0; i < MAX_RC_NUM; i++, pcie_dev++) {
 		struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
-		struct msm_pcie_register_event *event_reg =
-			pcie_dev->event_reg;
 
 		/* does not support DRV or has not been probed yet */
 		if (!drv_info || drv_info->ep_connected)
-			continue;
-
-		/* no DRV support over a switch */
-		if (pcie_dev->num_ep != 1)
-			continue;
-
-		if (!event_reg ||
-		    !(event_reg->events & MSM_PCIE_EVENT_DRV_CONNECT))
 			continue;
 
 		msm_pcie_notify_client(pcie_dev,
@@ -7271,6 +7157,7 @@ static int __init pcie_init(void)
 				"PCIe IPC logging %s is enable for RC%d\n",
 				rc_name, i);
 		spin_lock_init(&msm_pcie_dev[i].cfg_lock);
+		spin_lock_init(&msm_pcie_dev[i].evt_reg_list_lock);
 		msm_pcie_dev[i].cfg_access = true;
 		mutex_init(&msm_pcie_dev[i].enumerate_lock);
 		mutex_init(&msm_pcie_dev[i].setup_lock);
@@ -7286,6 +7173,7 @@ static int __init pcie_init(void)
 				msm_pcie_drv_enable_pc);
 		INIT_LIST_HEAD(&msm_pcie_dev[i].enum_ep_list);
 		INIT_LIST_HEAD(&msm_pcie_dev[i].susp_ep_list);
+		INIT_LIST_HEAD(&msm_pcie_dev[i].event_reg_list);
 	}
 
 	if (i2c_add_driver(&pcie_i2c_ctrl_driver))
@@ -8058,8 +7946,8 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 
 		if (pcie_dev->power_on) {
 			PCIE_ERR(pcie_dev,
-				 "PCIe: RC%d: requested to resume when link is already powered on. Number of active EP(s): %d\n",
-				 pcie_dev->rc_idx, pcie_dev->num_active_ep);
+				 "PCIe: RC%d: requested to resume when link is already powered on.\n",
+				 pcie_dev->rc_idx);
 			break;
 		}
 
@@ -8176,8 +8064,10 @@ EXPORT_SYMBOL(msm_pcie_l1ss_timeout_enable);
 
 int msm_pcie_register_event(struct msm_pcie_register_event *reg)
 {
-	int i, ret = 0;
+	int ret = 0;
 	struct msm_pcie_dev_t *pcie_dev;
+	struct msm_pcie_register_event *reg_itr;
+	struct pci_dev *pcidev;
 
 	if (!reg) {
 		pr_err("PCIe: Event registration is NULL\n");
@@ -8192,56 +8082,28 @@ int msm_pcie_register_event(struct msm_pcie_register_event *reg)
 	pcie_dev = PCIE_BUS_PRIV_DATA(((struct pci_dev *)reg->user)->bus);
 
 	if (!pcie_dev) {
-		PCIE_ERR(pcie_dev, "%s",
-			"PCIe: did not find RC for pci endpoint device.\n");
+		pr_err("PCIe: did not find RC for pci endpoint device.\n");
 		return -ENODEV;
 	}
 
-	if (pcie_dev->num_ep > 1) {
-		for (i = 0; i < MAX_DEVICE_NUM; i++) {
-			if (reg->user ==
-				pcie_dev->pcidev_table[i].dev) {
-				pcie_dev->event_reg =
-					pcie_dev->pcidev_table[i].event_reg;
+	pcidev = (struct pci_dev *)reg->user;
 
-				if (!pcie_dev->event_reg) {
-					pcie_dev->pcidev_table[i].registered =
-						true;
-
-					pcie_dev->num_active_ep++;
-					PCIE_DBG(pcie_dev,
-						"PCIe: RC%d: number of active EP(s): %d.\n",
-						pcie_dev->rc_idx,
-						pcie_dev->num_active_ep);
-				}
-
-				pcie_dev->event_reg = reg;
-				pcie_dev->pcidev_table[i].event_reg = reg;
-				PCIE_DBG(pcie_dev,
-					"Event 0x%x is registered for RC %d\n",
-					reg->events,
-					pcie_dev->rc_idx);
-
-				break;
-			}
+	spin_lock(&pcie_dev->evt_reg_list_lock);
+	list_for_each_entry(reg_itr, &pcie_dev->event_reg_list, node) {
+		if (reg_itr->user == reg->user) {
+			PCIE_ERR(pcie_dev,
+				 "PCIe: RC%d: EP BDF 0x%4x already registered\n",
+				 pcie_dev->rc_idx,
+				 PCI_DEVID(pcidev->bus->number, pcidev->devfn));
+			spin_unlock(&pcie_dev->evt_reg_list_lock);
+			return -EEXIST;
 		}
-
-		if (pcie_dev->pending_ep_reg) {
-			for (i = 0; i < MAX_DEVICE_NUM; i++)
-				if (!pcie_dev->pcidev_table[i].registered)
-					break;
-
-			if (i == MAX_DEVICE_NUM)
-				pcie_dev->pending_ep_reg = false;
-		}
-	} else {
-		pcie_dev->event_reg = reg;
-		PCIE_DBG(pcie_dev,
-			"Event 0x%x is registered for RC %d\n", reg->events,
-			pcie_dev->rc_idx);
-
-		schedule_work(&pcie_drv.drv_connect);
 	}
+	list_add_tail(&reg->node, &pcie_dev->event_reg_list);
+	spin_unlock(&pcie_dev->evt_reg_list_lock);
+
+	if (pcie_dev->drv_supported)
+		schedule_work(&pcie_drv.drv_connect);
 
 	return ret;
 }
@@ -8249,8 +8111,9 @@ EXPORT_SYMBOL(msm_pcie_register_event);
 
 int msm_pcie_deregister_event(struct msm_pcie_register_event *reg)
 {
-	int i, ret = 0;
 	struct msm_pcie_dev_t *pcie_dev;
+	struct pci_dev *pcidev;
+	struct msm_pcie_register_event *reg_itr;
 
 	if (!reg) {
 		pr_err("PCIe: Event deregistration is NULL\n");
@@ -8270,33 +8133,28 @@ int msm_pcie_deregister_event(struct msm_pcie_register_event *reg)
 		return -ENODEV;
 	}
 
-	if (pcie_dev->num_ep > 1) {
-		for (i = 0; i < MAX_DEVICE_NUM; i++) {
-			if (reg->user == pcie_dev->pcidev_table[i].dev) {
-				if (pcie_dev->pcidev_table[i].event_reg) {
-					pcie_dev->num_active_ep--;
-					PCIE_DBG(pcie_dev,
-						"PCIe: RC%d: number of active EP(s) left: %d.\n",
-						pcie_dev->rc_idx,
-						pcie_dev->num_active_ep);
-				}
+	pcidev = (struct pci_dev *)reg->user;
 
-				pcie_dev->event_reg = NULL;
-				pcie_dev->pcidev_table[i].event_reg = NULL;
-				PCIE_DBG(pcie_dev,
-					"Event is deregistered for RC %d\n",
-					pcie_dev->rc_idx);
-
-				break;
-			}
+	spin_lock(&pcie_dev->evt_reg_list_lock);
+	list_for_each_entry(reg_itr, &pcie_dev->event_reg_list, node) {
+		if (reg_itr->user == reg->user) {
+			list_del(&reg->node);
+			spin_unlock(&pcie_dev->evt_reg_list_lock);
+			PCIE_DBG(pcie_dev,
+				 "PCIe: RC%d: Event deregistered for BDF 0x%04x\n",
+				 pcie_dev->rc_idx,
+				 PCI_DEVID(pcidev->bus->number, pcidev->devfn));
+			return 0;
 		}
-	} else {
-		pcie_dev->event_reg = NULL;
-		PCIE_DBG(pcie_dev, "Event is deregistered for RC %d\n",
-				pcie_dev->rc_idx);
 	}
+	spin_unlock(&pcie_dev->evt_reg_list_lock);
 
-	return ret;
+	PCIE_DBG(pcie_dev,
+		 "PCIe: RC%d: Failed to deregister event for BDF 0x%04x\n",
+		 pcie_dev->rc_idx,
+		 PCI_DEVID(pcidev->bus->number, pcidev->devfn));
+
+	return -EINVAL;
 }
 EXPORT_SYMBOL(msm_pcie_deregister_event);
 
