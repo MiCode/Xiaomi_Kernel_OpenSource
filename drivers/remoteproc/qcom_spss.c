@@ -45,7 +45,6 @@ struct qcom_spss {
 	struct clk *xo;
 
 	struct reg_info cx;
-	struct reg_info px;
 
 	int pas_id;
 
@@ -330,15 +329,11 @@ static int spss_start(struct rproc *rproc)
 	if (ret)
 		goto disable_xo_clk;
 
-	ret = enable_regulator(&spss->px);
-	if (ret)
-		goto disable_cx_supply;
-
 	ret = qcom_scm_pas_auth_and_reset(spss->pas_id);
 	if (ret) {
 		dev_err(spss->dev,
 			"failed to authenticate image and release reset with error %d\n", ret);
-		goto disable_px_supply;
+		goto disable_cx_supply;
 	}
 
 	unmask_scsr_irqs(spss);
@@ -350,8 +345,6 @@ static int spss_start(struct rproc *rproc)
 	}
 	ret = ret ? 0 : -ETIMEDOUT;
 
-disable_px_supply:
-	disable_regulator(&spss->px);
 disable_cx_supply:
 	disable_regulator(&spss->cx);
 disable_xo_clk:
@@ -422,21 +415,6 @@ static int init_regulator(struct device *dev, struct reg_info *regulator, const 
 		regulator->uV = uv_ua_vals[0];
 	if (uv_ua_vals[1] > 0)
 		regulator->uA = uv_ua_vals[1];
-
-	return 0;
-}
-
-static int spss_init_regulator(struct qcom_spss *spss)
-{
-	int ret;
-
-	ret = init_regulator(spss->dev, &spss->cx, "cx");
-	if (ret)
-		return ret;
-
-	ret = init_regulator(spss->dev, &spss->px, "px");
-	if (ret)
-		return ret;
 
 	return 0;
 }
@@ -580,7 +558,7 @@ static int qcom_spss_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_rproc;
 
-	ret = spss_init_regulator(spss);
+	ret = init_regulator(spss->dev, &spss->cx, "cx");
 	if (ret)
 		goto free_rproc;
 
