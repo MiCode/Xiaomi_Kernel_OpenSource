@@ -2938,6 +2938,26 @@ static void ipa_ready_callback(void *user_data)
 	wake_up_interruptible(&gsi->d_port.wait_for_ipa_ready);
 }
 
+static void gsi_get_ether_addr(const char *str, u8 *dev_addr)
+{
+	if (str) {
+		unsigned int i;
+
+		for (i = 0; i < ETH_ALEN; i++) {
+			unsigned char num;
+
+			if ((*str == '.') || (*str == ':'))
+				str++;
+			num = hex_to_bin(*str++) << 4;
+			num |= hex_to_bin(*str++);
+			dev_addr[i] = num;
+		}
+		if (is_valid_ether_addr(dev_addr))
+			return;
+	}
+	random_ether_addr(dev_addr);
+}
+
 static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct usb_composite_dev *cdev = c->cdev;
@@ -3012,11 +3032,15 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		rndis_set_param_medium(gsi->params, RNDIS_MEDIUM_802_3, 0);
 
 		/* export host's Ethernet address in CDC format */
-		random_ether_addr(gsi->d_port.ipa_init_params.device_ethaddr);
-		random_ether_addr(gsi->d_port.ipa_init_params.host_ethaddr);
+		gsi_get_ether_addr(gsi->dev_addr,
+				   gsi->d_port.ipa_init_params.device_ethaddr);
+
+		gsi_get_ether_addr(gsi->host_addr,
+				   gsi->d_port.ipa_init_params.host_ethaddr);
+
 		log_event_dbg("setting host_ethaddr=%pM, device_ethaddr = %pM",
-		gsi->d_port.ipa_init_params.host_ethaddr,
-		gsi->d_port.ipa_init_params.device_ethaddr);
+				gsi->d_port.ipa_init_params.host_ethaddr,
+				gsi->d_port.ipa_init_params.device_ethaddr);
 		memcpy(gsi->ethaddr, &gsi->d_port.ipa_init_params.host_ethaddr,
 				ETH_ALEN);
 		rndis_set_host_mac(gsi->params, gsi->ethaddr);
@@ -3217,11 +3241,15 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.notify_buf_len = GSI_CTRL_NOTIFY_BUFF_LEN;
 
 		/* export host's Ethernet address in CDC format */
-		random_ether_addr(gsi->d_port.ipa_init_params.device_ethaddr);
-		random_ether_addr(gsi->d_port.ipa_init_params.host_ethaddr);
+		gsi_get_ether_addr(gsi->dev_addr,
+				   gsi->d_port.ipa_init_params.device_ethaddr);
+
+		gsi_get_ether_addr(gsi->host_addr,
+				   gsi->d_port.ipa_init_params.host_ethaddr);
+
 		log_event_dbg("setting host_ethaddr=%pM, device_ethaddr = %pM",
-		gsi->d_port.ipa_init_params.host_ethaddr,
-		gsi->d_port.ipa_init_params.device_ethaddr);
+				gsi->d_port.ipa_init_params.host_ethaddr,
+				gsi->d_port.ipa_init_params.device_ethaddr);
 
 		snprintf(gsi->ethaddr, sizeof(gsi->ethaddr),
 		"%02X%02X%02X%02X%02X%02X",
@@ -3657,15 +3685,71 @@ static ssize_t gsi_rndis_class_id_store(struct config_item *item,
 }
 CONFIGFS_ATTR(gsi_, rndis_class_id);
 
+static ssize_t gsi_host_addr_show(struct config_item *item, char *page)
+{
+	struct f_gsi *gsi = to_gsi_opts(item)->gsi;
+
+	return scnprintf(page, PAGE_SIZE, "%s\n", gsi->host_addr);
+}
+
+static ssize_t gsi_host_addr_store(struct config_item *item,
+			const char *page, size_t len)
+{
+	struct f_gsi *gsi = to_gsi_opts(item)->gsi;
+
+	if (len > GSI_MAX_MAC_ADDR_LEN)
+		return -EINVAL;
+
+	strlcpy(gsi->host_addr, page, GSI_MAX_MAC_ADDR_LEN);
+
+	return len;
+}
+CONFIGFS_ATTR(gsi_, host_addr);
+
+static ssize_t gsi_dev_addr_show(struct config_item *item, char *page)
+{
+	struct f_gsi *gsi = to_gsi_opts(item)->gsi;
+
+	return scnprintf(page, PAGE_SIZE, "%s\n", gsi->dev_addr);
+}
+
+static ssize_t gsi_dev_addr_store(struct config_item *item,
+			const char *page, size_t len)
+{
+	struct f_gsi *gsi = to_gsi_opts(item)->gsi;
+
+	if (len > GSI_MAX_MAC_ADDR_LEN)
+		return -EINVAL;
+
+	strlcpy(gsi->dev_addr, page, GSI_MAX_MAC_ADDR_LEN);
+
+	return len;
+}
+CONFIGFS_ATTR(gsi_, dev_addr);
+
 static struct configfs_attribute *gsi_rndis_attrs[] = {
 	&gsi_attr_info,
 	&gsi_attr_rndis_class_id,
+	&gsi_attr_host_addr,
+	&gsi_attr_dev_addr,
 	NULL,
 };
 
 static struct config_item_type gsi_func_rndis_type = {
 	.ct_item_ops	= &gsi_item_ops,
 	.ct_attrs	= gsi_rndis_attrs,
+	.ct_owner	= THIS_MODULE,
+};
+
+static struct configfs_attribute *gsi_ecm_attrs[] = {
+	&gsi_attr_host_addr,
+	&gsi_attr_dev_addr,
+	NULL,
+};
+
+static struct config_item_type gsi_func_ecm_type = {
+	.ct_item_ops	= &gsi_item_ops,
+	.ct_attrs	= gsi_ecm_attrs,
 	.ct_owner	= THIS_MODULE,
 };
 
@@ -3721,6 +3805,10 @@ static int gsi_set_inst_name(struct usb_function_instance *fi,
 		config_group_init_type_name(&opts->func_inst.group,
 						fi->group.cg_item.ci_name,
 						&gsi_func_rndis_type);
+	if (prot_id == IPA_USB_ECM)
+		config_group_init_type_name(&opts->func_inst.group,
+						fi->group.cg_item.ci_name,
+						&gsi_func_ecm_type);
 
 	gsi = gsi_function_init(prot_id);
 	if (IS_ERR(gsi))

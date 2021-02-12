@@ -28,6 +28,7 @@
 #define GSI_CTRL_NAME_LEN (sizeof(GSI_MBIM_CTRL_NAME)+2)
 #define GSI_MAX_CTRL_PKT_SIZE 8192
 #define GSI_CTRL_DTR (1 << 0)
+#define GSI_MAX_MAC_ADDR_LEN 18
 
 #define GSI_NUM_IN_RNDIS_BUFFERS 50
 #define GSI_NUM_IN_RMNET_BUFFERS 50
@@ -267,6 +268,8 @@ struct f_gsi {
 	u32 vendorID;
 	u8 ethaddr[ETH_ADDR_STR_LEN];
 	const char *manufacturer;
+	char host_addr[GSI_MAX_MAC_ADDR_LEN];
+	char dev_addr[GSI_MAX_MAC_ADDR_LEN];
 	struct rndis_params *params;
 	atomic_t connected;
 	bool data_interface_up;
