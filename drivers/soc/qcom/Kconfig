@@ -1174,5 +1174,13 @@ config RENAME_BLOCK_DEVICE
 	  device names created by default as sda1, sda2 etc. to the
 	  names system is needed.this is applicable for block devices only.
 
+config QCOM_ADSP_MANUAL_VOTE
+	bool "Send commands to ADSP to unvote/vote during Suspend/resume"
+	help
+	  This driver is used to manually release and acquire the ADSP vote from
+	  APPS processor during system suspend and resume.
+          This driver sends message over QMI to the service which is running on
+          ADSP.
+
 source "drivers/soc/qcom/icnss2/Kconfig"
 endmenu
