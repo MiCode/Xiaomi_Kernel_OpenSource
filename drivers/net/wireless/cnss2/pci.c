@@ -3841,8 +3841,8 @@ static int cnss_pci_smmu_fault_handler(struct iommu_domain *domain,
 	cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
 	cnss_force_fw_assert(&pci_priv->pci_dev->dev);
 
-	/* IOMMU driver requires non-zero return value to print debug info. */
-	return -EINVAL;
+	/* IOMMU driver requires -ENOSYS to print debug info. */
+	return -ENOSYS;
 }
 
 static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
