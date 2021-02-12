@@ -403,8 +403,13 @@ static int nf_sip_enqueue_packet(struct nf_queue_entry *entry,
 	return 0;
 }
 
+static void nf_hook_drop_sip(struct net *net)
+{
+}
+
 static const struct nf_queue_handler nf_sip_qh = {
 	.outfn	= &nf_sip_enqueue_packet,
+	.nf_hook_drop	= &nf_hook_drop_sip,
 };
 
 static
