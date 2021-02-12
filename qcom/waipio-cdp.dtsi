@@ -179,6 +179,9 @@
 		"Digital Mic1", "VA MIC BIAS1",
 		"Digital Mic2", "VA MIC BIAS1",
 		"Digital Mic3", "VA MIC BIAS3";
+	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
+	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
+	qcom,cdc-dmic45-gpios = <&cdc_dmic45_gpios>;
 	asoc-codec  = <&stub_codec>, <&lpass_cdc>,
 		      <&wcd938x_codec>, <&swr_haptics>,
 		      <&wsa883x_0221>, <&wsa883x_0222>,
