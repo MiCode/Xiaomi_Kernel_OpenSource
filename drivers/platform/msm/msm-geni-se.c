@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
+#include <linux/console.h>
 #include <linux/dma-mapping.h>
 #include <linux/ipc_logging.h>
 #include <linux/io.h>
@@ -106,6 +107,8 @@ struct geni_se_device {
 	bool vote_for_bw;
 	struct se_geni_rsc wrapper_rsc;
 };
+
+static struct geni_se_device *earlycon_wrapper;
 
 #define HW_VER_MAJOR_MASK GENMASK(31, 28)
 #define HW_VER_MAJOR_SHFT 28
@@ -1639,6 +1642,9 @@ void geni_se_remove_earlycon_icc_vote(struct device *dev)
 	struct geni_se_device *geni_se_dev;
 	int ret;
 
+	if (!earlycon_wrapper)
+		return;
+
 	parent = of_get_next_parent(dev->of_node);
 	for_each_child_of_node(parent, child) {
 		if (!of_device_is_compatible(child, "qcom,qupv3-geni-se"))
@@ -1649,11 +1655,13 @@ void geni_se_remove_earlycon_icc_vote(struct device *dev)
 			continue;
 
 		geni_se_dev = platform_get_drvdata(pdev);
-		ret = geni_se_rmv_ab_ib(geni_se_dev, &geni_se_dev->wrapper_rsc);
+		if (geni_se_dev) {
+			ret = geni_se_rmv_ab_ib(geni_se_dev, &geni_se_dev->wrapper_rsc);
 
-		if (ret)
-			dev_err(dev, "%s: Error %d during bus_bw_update\n", __func__,
-					ret);
+			if (ret)
+				dev_err(dev, "%s: Error %d during bus_bw_update\n", __func__,
+						ret);
+		}
 	}
 	of_node_put(parent);
 }
@@ -1677,6 +1685,8 @@ static int geni_se_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	struct geni_se_device *geni_se_dev;
+	struct console __maybe_unused *bcon;
+	bool __maybe_unused has_earlycon = false;
 
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
 	if (ret) {
@@ -1756,6 +1766,15 @@ static int geni_se_probe(struct platform_device *pdev)
 	 * console UART as dummy consumer of ICC to get rid of this HACK
 	 */
 #if IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE)
+	for_each_console(bcon) {
+		if (!strcmp(bcon->name, "msm_geni_serial")) {
+			has_earlycon = true;
+			break;
+		}
+	}
+	if (!has_earlycon)
+		goto exit;
+
 	geni_se_dev->wrapper_rsc.wrapper_dev = dev;
 	geni_se_dev->wrapper_rsc.ctrl_dev = dev;
 
@@ -1773,6 +1792,11 @@ static int geni_se_probe(struct platform_device *pdev)
 				ret);
 		return ret;
 	}
+
+	if (of_get_compatible_child(pdev->dev.of_node, "qcom,msm-geni-console"))
+		earlycon_wrapper = geni_se_dev;
+	of_node_put(pdev->dev.of_node);
+exit:
 #endif
 
 	ret = of_platform_populate(dev->of_node, geni_se_dt_match, NULL, dev);
