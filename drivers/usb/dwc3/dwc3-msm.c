@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -92,6 +92,9 @@
 
 /* USB DBM Hardware registers */
 #define DBM_REG_OFFSET		0xF8000
+
+/* DBM_GEN_CFG */
+#define DBM_EN_USB3		0x00000001
 
 /* DBM_EP_CFG */
 #define DBM_EN_EP		0x00000001
@@ -1120,7 +1123,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
-	msm_dbm_write_reg(mdwc, DBM_GEN_CFG,
+	msm_dbm_write_reg_field(mdwc, DBM_GEN_CFG, DBM_EN_USB3,
 			dwc3_msm_is_dev_superspeed(mdwc) ? 1 : 0);
 
 	return 0;
