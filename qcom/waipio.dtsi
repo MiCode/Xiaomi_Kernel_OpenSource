@@ -1213,8 +1213,6 @@
 
 		cx-supply = <&VDD_CX_LEVEL>;
 		cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
-		px-supply = <&VDD_MXA_LEVEL>;
-		px-uV = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "xo";
