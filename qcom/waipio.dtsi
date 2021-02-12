@@ -734,6 +734,17 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		status = "ok";
+		ngd@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			/* slimbus child nodes */
+			slimbus: btfmslim-driver {
+				compatible = "slim217,221";
+				reg = <1 0>;
+			};
+		};
 	};
 
 	intc: interrupt-controller@17100000 {
