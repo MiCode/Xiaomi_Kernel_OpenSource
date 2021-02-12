@@ -573,6 +573,7 @@
 #define GENC_DBGC_DBG_LO_HI_GPIO                    0x622
 #define GENC_DBGC_EXT_TRACE_BUS_CNTL                0x623
 #define GENC_DBGC_READ_AHB_THROUGH_DBG              0x624
+#define GENC_DBGC_CFG_DBGBUS_OVER                   0x626
 #define GENC_DBGC_CFG_DBGBUS_TRACE_BUF1             0x62f
 #define GENC_DBGC_CFG_DBGBUS_TRACE_BUF2             0x630
 #define GENC_DBGC_EVT_CFG                           0x640
@@ -849,6 +850,7 @@
 #define GENC_CX_DBGC_DBG_LO_HI_GPIO                     0x18422
 #define GENC_CX_DBGC_EXT_TRACE_BUS_CNTL                 0x18423
 #define GENC_CX_DBGC_READ_AHB_THROUGH_DBG               0x18424
+#define GENC_CX_DBGC_CFG_DBGBUS_OVER                    0x18426
 #define GENC_CX_DBGC_CFG_DBGBUS_TRACE_BUF1              0x1842f
 #define GENC_CX_DBGC_CFG_DBGBUS_TRACE_BUF2              0x18430
 #define GENC_CX_DBGC_EVT_CFG                            0x18440
