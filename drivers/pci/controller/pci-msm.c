@@ -566,6 +566,7 @@ struct msm_pcie_sid_info_t {
 
 /* PCIe device info structure */
 struct msm_pcie_device_info {
+	struct list_head pcidev_node;
 	u32 bdf;
 	struct pci_dev *dev;
 	short short_bdf;
@@ -755,6 +756,8 @@ struct msm_pcie_dev_t {
 	u32 num_active_ep;
 	u32 num_ep;
 	bool pending_ep_reg;
+	struct list_head enum_ep_list;
+	struct list_head susp_ep_list;
 	u32 num_parf_testbus_sel;
 	u32 phy_len;
 	struct msm_pcie_phy_info_t *phy_sequence;
@@ -4247,6 +4250,7 @@ static void msm_pcie_disable(struct msm_pcie_dev_t *dev)
 static int msm_pcie_config_device_table(struct pci_dev *pcidev, void *pdev)
 {
 	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *) pdev;
+	struct msm_pcie_device_info *dev_info;
 	int ret = 0;
 	u32 rc_idx = pcie_dev->rc_idx;
 	u32 i;
@@ -4255,6 +4259,15 @@ static int msm_pcie_config_device_table(struct pci_dev *pcidev, void *pdev)
 	PCIE_DBG(pcie_dev,
 		"PCI device found: vendor-id:0x%x device-id:0x%x\n",
 		pcidev->vendor, pcidev->device);
+
+	if (pci_pcie_type(pcidev) == PCI_EXP_TYPE_ENDPOINT) {
+		dev_info = kzalloc(sizeof(*dev_info), GFP_KERNEL);
+		if (!dev_info)
+			return -ENOMEM;
+
+		dev_info->dev = pcidev;
+		list_add_tail(&dev_info->pcidev_node, &pcie_dev->enum_ep_list);
+	}
 
 	if (!pcidev->bus->number)
 		return ret;
@@ -5847,6 +5860,7 @@ static int msm_pcie_remove(struct platform_device *pdev)
 {
 	int ret = 0;
 	int rc_idx;
+	struct msm_pcie_device_info *dev_info, *temp;
 
 	mutex_lock(&pcie_drv.drv_lock);
 
@@ -5865,6 +5879,20 @@ static int msm_pcie_remove(struct platform_device *pdev)
 	msm_pcie_clk_deinit(&msm_pcie_dev[rc_idx]);
 	msm_pcie_gpio_deinit(&msm_pcie_dev[rc_idx]);
 	msm_pcie_release_resources(&msm_pcie_dev[rc_idx]);
+
+	list_for_each_entry_safe(dev_info, temp,
+				 &msm_pcie_dev[rc_idx].enum_ep_list,
+				 pcidev_node) {
+		list_del(&dev_info->pcidev_node);
+		kfree(dev_info);
+	}
+
+	list_for_each_entry_safe(dev_info, temp,
+				 &msm_pcie_dev[rc_idx].susp_ep_list,
+				 pcidev_node) {
+		list_del(&dev_info->pcidev_node);
+		kfree(dev_info);
+	}
 
 out:
 	mutex_unlock(&pcie_drv.drv_lock);
@@ -6619,6 +6647,8 @@ static int __init pcie_init(void)
 				msm_pcie_drv_disable_pc);
 		INIT_WORK(&msm_pcie_dev[i].drv_enable_pc_work,
 				msm_pcie_drv_enable_pc);
+		INIT_LIST_HEAD(&msm_pcie_dev[i].enum_ep_list);
+		INIT_LIST_HEAD(&msm_pcie_dev[i].susp_ep_list);
 	}
 
 	crc8_populate_msb(msm_pcie_crc8_table, MSM_PCIE_CRC8_POLYNOMIAL);
@@ -7219,6 +7249,8 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 	struct pci_dev *dev;
 	unsigned long flags;
 	struct msm_pcie_dev_t *pcie_dev;
+	struct msm_pcie_device_info *dev_info_itr, *temp, *dev_info = NULL;
+	struct pci_dev *pcidev;
 
 	if (!user) {
 		pr_err("PCIe: endpoint device is NULL\n");
@@ -7241,6 +7273,8 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 	}
 
 	dev = pcie_dev->dev;
+
+	pcidev = (struct pci_dev *)user;
 
 	if (!pcie_dev->drv_ready) {
 		PCIE_ERR(pcie_dev,
@@ -7276,23 +7310,42 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 			break;
 		}
 
-		if (pcie_dev->pending_ep_reg) {
+		mutex_lock(&pcie_dev->recovery_lock);
+		mutex_lock(&pcie_dev->enumerate_lock);
+
+		/*
+		 * Remove current user requesting for suspend from ep list and
+		 * add it to suspend ep list. Reject susp if list is still not
+		 * empty.
+		 */
+		list_for_each_entry_safe(dev_info_itr, temp,
+					 &pcie_dev->enum_ep_list, pcidev_node) {
+			if (dev_info_itr->dev == pcidev) {
+				list_del(&dev_info_itr->pcidev_node);
+				dev_info = dev_info_itr;
+				list_add_tail(&dev_info->pcidev_node,
+					      &pcie_dev->susp_ep_list);
+				break;
+			}
+		}
+
+		if (!dev_info)
+			PCIE_DBG(pcie_dev,
+				 "PCIe: RC%d: ep BDF 0x%04x not in enum list\n",
+				 pcie_dev->rc_idx, PCI_DEVID(
+							pcidev->bus->number,
+							pcidev->devfn));
+
+		if (!list_empty(&pcie_dev->enum_ep_list)) {
 			PCIE_DBG(pcie_dev,
 				 "PCIe: RC%d: request to suspend the link is rejected\n",
 				 pcie_dev->rc_idx);
+			mutex_unlock(&pcie_dev->enumerate_lock);
+			mutex_unlock(&pcie_dev->recovery_lock);
 			break;
 		}
 
-		if (pcie_dev->num_active_ep) {
-			PCIE_DBG(pcie_dev,
-				 "RC%d: an EP requested to suspend the link, but other EPs are still active: %d\n",
-				 pcie_dev->rc_idx, pcie_dev->num_active_ep);
-			return ret;
-		}
-
 		pcie_dev->user_suspend = true;
-
-		mutex_lock(&pcie_dev->recovery_lock);
 
 		ret = msm_pcie_pm_suspend(dev, user, data, options);
 		if (ret) {
@@ -7300,8 +7353,15 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 				 "PCIe: RC%d: user failed to suspend the link.\n",
 				 pcie_dev->rc_idx);
 			pcie_dev->user_suspend = false;
+
+			if (dev_info) {
+				list_del(&dev_info->pcidev_node);
+				list_add_tail(&dev_info->pcidev_node,
+					      &pcie_dev->enum_ep_list);
+			}
 		}
 
+		mutex_unlock(&pcie_dev->enumerate_lock);
 		mutex_unlock(&pcie_dev->recovery_lock);
 		break;
 	case MSM_PCIE_RESUME:
@@ -7315,19 +7375,51 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 			break;
 		}
 
+		mutex_lock(&pcie_dev->recovery_lock);
+
+		/* when link was suspended and link resume is requested */
+		mutex_lock(&pcie_dev->enumerate_lock);
+		list_for_each_entry_safe(dev_info_itr, temp,
+					 &pcie_dev->susp_ep_list, pcidev_node) {
+			if (dev_info_itr->dev == user) {
+				list_del(&dev_info_itr->pcidev_node);
+				dev_info = dev_info_itr;
+				list_add_tail(&dev_info->pcidev_node,
+					      &pcie_dev->enum_ep_list);
+				break;
+			}
+		}
+
+		if (!dev_info) {
+			PCIE_DBG(pcie_dev,
+				 "PCIe: RC%d: ep BDF 0x%04x not in susp list\n",
+				 pcie_dev->rc_idx, PCI_DEVID(
+							pcidev->bus->number,
+							pcidev->devfn));
+		}
+		mutex_unlock(&pcie_dev->enumerate_lock);
+
 		if (pcie_dev->power_on) {
 			PCIE_ERR(pcie_dev,
 				 "PCIe: RC%d: requested to resume when link is already powered on. Number of active EP(s): %d\n",
 				 pcie_dev->rc_idx, pcie_dev->num_active_ep);
+			mutex_unlock(&pcie_dev->recovery_lock);
 			break;
 		}
 
-		mutex_lock(&pcie_dev->recovery_lock);
 		ret = msm_pcie_pm_resume(dev, user, data, options);
 		if (ret) {
 			PCIE_ERR(pcie_dev,
 				 "PCIe: RC%d: user failed to resume the link.\n",
 				 pcie_dev->rc_idx);
+
+			mutex_lock(&pcie_dev->enumerate_lock);
+			if (dev_info) {
+				list_del(&dev_info->pcidev_node);
+				list_add_tail(&dev_info->pcidev_node,
+					      &pcie_dev->susp_ep_list);
+			}
+			mutex_unlock(&pcie_dev->enumerate_lock);
 		} else {
 			PCIE_DBG(pcie_dev,
 				 "PCIe: RC%d: user succeeded to resume the link.\n",
