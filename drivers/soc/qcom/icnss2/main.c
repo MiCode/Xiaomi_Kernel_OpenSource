@@ -573,44 +573,44 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 			goto qmi_registered;
 		}
 		ignore_assert = true;
-		goto clear_server;
+		goto fail;
 	}
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
 		ret = wlfw_host_cap_send_sync(priv);
 		if (ret < 0)
-			goto clear_server;
+			goto fail;
 	}
 
 	if (priv->device_id == ADRASTEA_DEVICE_ID) {
 		if (!priv->msa_va) {
 			icnss_pr_err("Invalid MSA address\n");
 			ret = -EINVAL;
-			goto clear_server;
+			goto fail;
 		}
 
 		ret = wlfw_msa_mem_info_send_sync_msg(priv);
 		if (ret < 0) {
 			ignore_assert = true;
-			goto clear_server;
+			goto fail;
 		}
 
 		ret = wlfw_msa_ready_send_sync_msg(priv);
 		if (ret < 0) {
 			ignore_assert = true;
-			goto clear_server;
+			goto fail;
 		}
 	}
 
 	ret = wlfw_cap_send_sync_msg(priv);
 	if (ret < 0) {
 		ignore_assert = true;
-		goto clear_server;
+		goto fail;
 	}
 
 	ret = icnss_hw_power_on(priv);
 	if (ret)
-		goto clear_server;
+		goto fail;
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
 		ret = wlfw_device_info_send_msg(priv);
@@ -656,8 +656,6 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 
 device_info_failure:
 	icnss_hw_power_off(priv);
-clear_server:
-	icnss_clear_server(priv);
 fail:
 	ICNSS_ASSERT(ignore_assert);
 qmi_registered:
