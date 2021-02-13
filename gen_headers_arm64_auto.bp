@@ -384,7 +384,6 @@ gen_headers_out_arm64 = [
     "linux/msm_ion_ids.h",
     "linux/msm_ipa.h",
     "linux/msm_kgsl.h",
-    "linux/msm_npu.h",
     "linux/msm_rmnet.h",
     "linux/mtio.h",
     "linux/n_r3964.h",
@@ -640,7 +639,6 @@ gen_headers_out_arm64 = [
     "linux/zorro_ids.h",
     "linux/hab_ioctl.h",
     "linux/habmmid.h",
-    "linux/hgsl.h",
     "media/msm_cvp_private.h",
     "media/radio-iris-commands.h",
     "media/radio-iris.h",
@@ -1030,6 +1028,9 @@ gen_headers_out_arm64 = [
     "vidc/media/msm_media_info.h",
     "vidc/media/msm_vidc_utils.h",
     "vidc/media/msm_vidc_private.h",
+    "linux/netfilter_ipv4/ipt_NATTYPE.h",
+    "linux/mhi.h",
+    "linux/esoc_ctrl.h",
 ]
 
 genrule {
