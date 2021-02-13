@@ -624,7 +624,6 @@ static size_t arm_lpae_split_blk_unmap(struct arm_lpae_io_pgtable *data,
 
 		tablep = iopte_deref(pte, data);
 	} else if (unmap_idx >= 0) {
-		io_pgtable_tlb_add_page(&data->iop, gather, iova, size);
 		return size;
 	}
 
@@ -653,9 +652,6 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 		__arm_lpae_set_pte(ptep, 0, &iop->cfg);
 
 		if (!iopte_leaf(pte, lvl, iop->fmt)) {
-			/* Also flush any partial walks */
-			io_pgtable_tlb_flush_walk(iop, iova, size,
-						  ARM_LPAE_GRANULE(data));
 			ptep = iopte_deref(pte, data);
 			__arm_lpae_free_pgtable(data, lvl + 1, ptep);
 		} else if (iop->cfg.quirks & IO_PGTABLE_QUIRK_NON_STRICT) {
@@ -665,8 +661,6 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 			 * has observed it before the TLBIALL can be issued.
 			 */
 			smp_wmb();
-		} else {
-			io_pgtable_tlb_add_page(iop, gather, iova, size);
 		}
 
 		return size;
@@ -679,15 +673,9 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 
 		iopte_tblcnt_sub(ptep, 1);
 		if (!iopte_tblcnt(*ptep)) {
-			size_t blk_size = ARM_LPAE_BLOCK_SIZE(lvl, data);
-
 			/* no valid mappings left under this table. free it. */
 			__arm_lpae_set_pte(ptep, 0, &iop->cfg);
-			io_pgtable_tlb_flush_walk(iop, ALIGN_DOWN(iova, blk_size),
-						  blk_size, ARM_LPAE_GRANULE(data));
 			__arm_lpae_free_pgtable(data, lvl + 1, table);
-		} else {
-			io_pgtable_tlb_add_page(iop, gather, iova, size);
 		}
 
 		return size;

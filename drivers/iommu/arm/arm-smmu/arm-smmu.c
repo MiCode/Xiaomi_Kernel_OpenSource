@@ -2423,7 +2423,7 @@ static void arm_smmu_iotlb_sync(struct iommu_domain *domain,
 	arm_smmu_rpm_get(smmu);
 	if (smmu->version == ARM_SMMU_V2 ||
 	    smmu_domain->stage == ARM_SMMU_DOMAIN_S1)
-		arm_smmu_tlb_sync_context(smmu_domain);
+		arm_smmu_tlb_inv_context_s1(smmu_domain);
 	else
 		arm_smmu_tlb_sync_global(smmu);
 	arm_smmu_rpm_put(smmu);
