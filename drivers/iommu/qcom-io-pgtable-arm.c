@@ -151,6 +151,66 @@ struct arm_lpae_io_pgtable {
 
 typedef u64 arm_lpae_iopte;
 
+/*
+ * We'll use some ignored bits in table entries to keep track of the number
+ * of page mappings beneath the table. The maximum number of entries
+ * beneath any table mapping in armv8 is 8192 (which is possible at the
+ * 2nd and 3rd level when using a 64K granule size). The bits at our
+ * disposal are:
+ *
+ *     4k granule: [54..52], [11..2]
+ *    64k granule: [54..52], [15..2]
+ *
+ * [54..52], [11..2] is enough bits for tracking table mappings at any
+ * level for any granule, so we'll use those.
+ */
+#define BOTTOM_IGNORED_MASK GENMASK(11, 2)
+#define TOP_IGNORED_MASK GENMASK_ULL(54, 52)
+#define IOPTE_RESERVED_MASK (TOP_IGNORED_MASK | BOTTOM_IGNORED_MASK)
+#define BOTTOM_VAL_BITS GENMASK(9, 0)
+#define TOP_VAL_BITS GENMASK(12, 10)
+
+static arm_lpae_iopte iopte_val(arm_lpae_iopte table_pte)
+{
+	return table_pte & ~IOPTE_RESERVED_MASK;
+}
+
+static int iopte_tblcnt(arm_lpae_iopte table_pte)
+{
+	int top_cnt = FIELD_GET(TOP_IGNORED_MASK, table_pte);
+	int bottom_cnt = FIELD_GET(BOTTOM_IGNORED_MASK, table_pte);
+
+	return FIELD_PREP(TOP_VAL_BITS, top_cnt) |
+	       FIELD_PREP(BOTTOM_VAL_BITS, bottom_cnt);
+}
+
+static void iopte_tblcnt_set(arm_lpae_iopte *table_pte, int val)
+{
+	arm_lpae_iopte pte = iopte_val(*table_pte);
+	int top_val = FIELD_GET(TOP_VAL_BITS, val);
+	int bottom_val = FIELD_GET(BOTTOM_VAL_BITS, val);
+
+	pte |= FIELD_PREP(TOP_IGNORED_MASK, top_val) |
+	       FIELD_PREP(BOTTOM_IGNORED_MASK, bottom_val);
+	*table_pte = pte;
+}
+
+static void iopte_tblcnt_sub(arm_lpae_iopte *table_ptep, int cnt)
+{
+	int current_cnt = iopte_tblcnt(*table_ptep);
+
+	current_cnt -= cnt;
+	iopte_tblcnt_set(table_ptep, current_cnt);
+}
+
+static void iopte_tblcnt_add(arm_lpae_iopte *table_ptep, int cnt)
+{
+	int current_cnt = iopte_tblcnt(*table_ptep);
+
+	current_cnt += cnt;
+	iopte_tblcnt_set(table_ptep, current_cnt);
+}
+
 static inline bool iopte_leaf(arm_lpae_iopte pte, int lvl,
 			      enum io_pgtable_fmt fmt)
 {
@@ -172,7 +232,7 @@ static arm_lpae_iopte paddr_to_iopte(phys_addr_t paddr,
 static phys_addr_t iopte_to_paddr(arm_lpae_iopte pte,
 				  struct arm_lpae_io_pgtable *data)
 {
-	u64 paddr = pte & ARM_LPAE_PTE_ADDR_MASK;
+	u64 paddr = iopte_val(pte) & ARM_LPAE_PTE_ADDR_MASK;
 
 	if (ARM_LPAE_GRANULE(data) < SZ_64K)
 		return paddr;
@@ -277,43 +337,36 @@ static void __arm_lpae_init_pte(struct arm_lpae_io_pgtable *data,
 static int arm_lpae_init_pte(struct arm_lpae_io_pgtable *data,
 			     unsigned long iova, phys_addr_t paddr,
 			     arm_lpae_iopte prot, int lvl,
-			     arm_lpae_iopte *ptep)
+			     arm_lpae_iopte *ptep, arm_lpae_iopte *prev_ptep)
 {
 	arm_lpae_iopte pte = *ptep;
 
-	if (iopte_leaf(pte, lvl, data->iop.fmt)) {
+	if (pte & ARM_LPAE_PTE_VALID) {
 		/* We require an unmap first */
 		WARN_ON(!selftest_running);
 		return -EEXIST;
-	} else if (iopte_type(pte, lvl) == ARM_LPAE_PTE_TYPE_TABLE) {
-		/*
-		 * We need to unmap and free the old table before
-		 * overwriting it with a block entry.
-		 */
-		arm_lpae_iopte *tblp;
-		size_t sz = ARM_LPAE_BLOCK_SIZE(lvl, data);
-
-		tblp = ptep - ARM_LPAE_LVL_IDX(iova, lvl, data);
-		if (__arm_lpae_unmap(data, NULL, iova, sz, lvl, tblp) != sz) {
-			WARN_ON(1);
-			return -EINVAL;
-		}
 	}
 
 	__arm_lpae_init_pte(data, paddr, prot, lvl, ptep);
+
+	if (prev_ptep)
+		iopte_tblcnt_add(prev_ptep, 1);
+
 	return 0;
 }
 
 static arm_lpae_iopte arm_lpae_install_table(arm_lpae_iopte *table,
 					     arm_lpae_iopte *ptep,
 					     arm_lpae_iopte curr,
-					     struct io_pgtable_cfg *cfg)
+					     struct io_pgtable_cfg *cfg,
+					     int refcount)
 {
 	arm_lpae_iopte old, new;
 
 	new = __pa(table) | ARM_LPAE_PTE_TYPE_TABLE;
 	if (cfg->quirks & IO_PGTABLE_QUIRK_ARM_NS)
 		new |= ARM_LPAE_PTE_NSTABLE;
+	iopte_tblcnt_set(&new, refcount);
 
 	/*
 	 * Ensure the table itself is visible before its PTE can be.
@@ -337,7 +390,8 @@ static arm_lpae_iopte arm_lpae_install_table(arm_lpae_iopte *table,
 
 static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 			  phys_addr_t paddr, size_t size, arm_lpae_iopte prot,
-			  int lvl, arm_lpae_iopte *ptep, gfp_t gfp)
+			  int lvl, arm_lpae_iopte *ptep, arm_lpae_iopte *prev_ptep,
+			  gfp_t gfp)
 {
 	arm_lpae_iopte *cptep, pte;
 	size_t block_size = ARM_LPAE_BLOCK_SIZE(lvl, data);
@@ -350,7 +404,7 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 
 	/* If we can install a leaf entry at this level, then do so */
 	if (size == block_size)
-		return arm_lpae_init_pte(data, iova, paddr, prot, lvl, ptep);
+		return arm_lpae_init_pte(data, iova, paddr, prot, lvl, ptep, prev_ptep);
 
 	/* We can't allocate tables at the final level */
 	if (WARN_ON(lvl >= ARM_LPAE_MAX_LEVELS - 1))
@@ -363,7 +417,7 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 		if (!cptep)
 			return -ENOMEM;
 
-		pte = arm_lpae_install_table(cptep, ptep, 0, cfg);
+		pte = arm_lpae_install_table(cptep, ptep, 0, cfg, 0);
 		if (pte)
 			__arm_lpae_free_pages(data, cptep, tblsz, cfg, cookie);
 	} else if (!cfg->coherent_walk && !(pte & ARM_LPAE_PTE_SW_SYNC)) {
@@ -379,7 +433,8 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 	}
 
 	/* Rinse, repeat */
-	return __arm_lpae_map(data, iova, paddr, size, prot, lvl + 1, cptep, gfp);
+	return __arm_lpae_map(data, iova, paddr, size, prot, lvl + 1, cptep, ptep,
+			      gfp);
 }
 
 static arm_lpae_iopte arm_lpae_prot_to_pte(struct arm_lpae_io_pgtable *data,
@@ -469,7 +524,7 @@ static int arm_lpae_map(struct io_pgtable_ops *ops, unsigned long iova,
 		return -ERANGE;
 
 	prot = arm_lpae_prot_to_pte(data, iommu_prot);
-	ret = __arm_lpae_map(data, iova, paddr, size, prot, lvl, ptep, gfp);
+	ret = __arm_lpae_map(data, iova, paddr, size, prot, lvl, ptep, NULL, gfp);
 	/*
 	 * Synchronise all PTE updates for the new mapping before there's
 	 * a chance for anything to kick off a table walk for the new iova.
@@ -532,6 +587,7 @@ static size_t arm_lpae_split_blk_unmap(struct arm_lpae_io_pgtable *data,
 	size_t split_sz = ARM_LPAE_BLOCK_SIZE(lvl, data);
 	int i, unmap_idx = -1;
 	void *cookie = data->iop.cookie;
+	int child_cnt = 0;
 
 	if (WARN_ON(lvl == ARM_LPAE_MAX_LEVELS))
 		return 0;
@@ -552,9 +608,10 @@ static size_t arm_lpae_split_blk_unmap(struct arm_lpae_io_pgtable *data,
 			continue;
 
 		__arm_lpae_init_pte(data, blk_paddr, pte, lvl, &tablep[i]);
+		child_cnt++;
 	}
 
-	pte = arm_lpae_install_table(tablep, ptep, blk_pte, cfg);
+	pte = arm_lpae_install_table(tablep, ptep, blk_pte, cfg, child_cnt);
 	if (pte != blk_pte) {
 		__arm_lpae_free_pages(data, tablep, tablesz, cfg, cookie);
 		/*
@@ -608,6 +665,27 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 			 * has observed it before the TLBIALL can be issued.
 			 */
 			smp_wmb();
+		} else {
+			io_pgtable_tlb_add_page(iop, gather, iova, size);
+		}
+
+		return size;
+	} else if ((lvl == ARM_LPAE_MAX_LEVELS - 2) && !iopte_leaf(pte, lvl,
+								   iop->fmt)) {
+		arm_lpae_iopte *table = iopte_deref(pte, data);
+		arm_lpae_iopte *entry = table + ARM_LPAE_LVL_IDX(iova, lvl + 1, data);
+
+		__arm_lpae_set_pte(entry, 0, &iop->cfg);
+
+		iopte_tblcnt_sub(ptep, 1);
+		if (!iopte_tblcnt(*ptep)) {
+			size_t blk_size = ARM_LPAE_BLOCK_SIZE(lvl, data);
+
+			/* no valid mappings left under this table. free it. */
+			__arm_lpae_set_pte(ptep, 0, &iop->cfg);
+			io_pgtable_tlb_flush_walk(iop, ALIGN_DOWN(iova, blk_size),
+						  blk_size, ARM_LPAE_GRANULE(data));
+			__arm_lpae_free_pgtable(data, lvl + 1, table);
 		} else {
 			io_pgtable_tlb_add_page(iop, gather, iova, size);
 		}
