@@ -14,11 +14,11 @@ Properties:
 	Definition: should be "qcom,thermal-pause"
 
 Cooling device node:
-- qcom,mask:
+- qcom,cpus:
 	Usage: required
-	Value type: <u32>
-	Definition: integer to indicate the mask of CPUs that this cooling
-	                device will mitigate. e.g. cpu 0 (0x01) through 7 (0x80)
+	Value type: <list of CPU Phandles>
+	Definition: List of Phandles to the CPUs that should be mitigated as
+			a part of this cooling device.
 
 -#cooling-cells:
 	Usage: required
@@ -32,26 +32,26 @@ Example:
 		compatible = "qcom,thermal-pause";
 
 		/* pause a single cpu, cpu 0 */
-		thermal_pause01: thermal-pause01 {
-			qcom,mask = <0x01>;
+		thermal_pause-01: thermal-pause-01 {
+			qcom,cpus = <&CPU0>;
 			#cooling-cells = <2>;
 		};
 
 		/* pause a group of cpus, cpus 0-3 */
-		thermal_pause0F: thermal-pause0F {
-			qcom,mask = <0x0F>;
+		thermal_pause-0F: thermal-pause-0F {
+			qcom,cpus = <&CPU0 &CPU1 &CPU2 &CPU3>;
 			#cooling-cells = <2>;
 		};
 
 		/* pause a group of cpus, cpus 6-7 */
-		thermal_pauseC0: thermal-pauseC0 {
-			qcom,mask = <0xC0>;
+		thermal_pause-C0: thermal-pause-C0 {
+			qcom,cpus = <&CPU4 &CPU5 &CPU6 &CPU7>;
 			#cooling-cells = <2>;
 		};
 
 		/* pause a single cpu, cpu 7 */
-		thermal_pause80: cpu3_isolate: cpu3-isolate {
-			qcom,cpu = <&CPU3>;
+		thermal_pause-80:  thermal-pause-80 {
+			qcom,cpus = <&CPU7>;
 			#cooling-cells = <2>;
 		};
         };
