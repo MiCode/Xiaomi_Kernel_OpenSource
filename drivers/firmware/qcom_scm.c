@@ -980,6 +980,15 @@ int qcom_scm_request_encrypted_log(phys_addr_t buf, size_t len,
 }
 EXPORT_SYMBOL(qcom_scm_request_encrypted_log);
 
+int qcom_scm_invoke_smc_legacy(phys_addr_t in_buf, size_t in_buf_size,
+		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
+		u64 *response_type, unsigned int *data)
+{
+	return __qcom_scm_invoke_smc_legacy(__scm->dev, in_buf, in_buf_size, out_buf,
+		out_buf_size, result, response_type, data);
+}
+EXPORT_SYMBOL(qcom_scm_invoke_smc_legacy);
+
 int qcom_scm_invoke_smc(phys_addr_t in_buf, size_t in_buf_size,
 		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
 		u64 *response_type, unsigned int *data)

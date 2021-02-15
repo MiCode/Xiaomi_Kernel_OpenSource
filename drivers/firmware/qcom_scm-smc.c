@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2015,2020 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015,2020-2021 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/io.h>
@@ -2018,6 +2018,38 @@ int __qcom_scm_request_encrypted_log(struct device *dev, phys_addr_t buf,
 	ret = qcom_scm_call(dev, &desc);
 
 	return ret ? : desc.res[0];
+}
+
+int __qcom_scm_invoke_smc_legacy(struct device *dev, phys_addr_t in_buf,
+        size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size,
+        int32_t *result, u64 *response_type, unsigned int *data)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_SMCINVOKE,
+		.cmd = QCOM_SCM_SMCINVOKE_INVOKE_LEGACY,
+		.owner = ARM_SMCCC_OWNER_TRUSTED_OS
+	};
+
+	desc.args[0] = in_buf;
+	desc.args[1] = in_buf_size;
+	desc.args[2] = out_buf;
+	desc.args[3] = out_buf_size;
+	desc.arginfo = QCOM_SCM_ARGS(4, QCOM_SCM_RW, QCOM_SCM_VAL, QCOM_SCM_RW,
+					QCOM_SCM_VAL);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	if (result)
+		*result = desc.res[1];
+
+	if (response_type)
+		*response_type = desc.res[0];
+
+	if (data)
+		*data = desc.res[2];
+
+	return ret;
 }
 
 int __qcom_scm_invoke_smc(struct device *dev, phys_addr_t in_buf,
