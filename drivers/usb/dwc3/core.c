@@ -1009,7 +1009,6 @@ int dwc3_core_init(struct dwc3 *dwc)
 		 */
 		if (!dwc3_is_usb31(dwc)) {
 			reg |= DWC3_GUCTL1_PARKMODE_DISABLE_SS;
-			reg |= DWC3_GUCTL1_PARKMODE_DISABLE_HS;
 			reg |= DWC3_GUCTL1_PARKMODE_DISABLE_FSLS;
 		}
 
