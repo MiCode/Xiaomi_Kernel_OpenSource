@@ -51,6 +51,8 @@ struct clk_regmap {
 	struct clk_regmap_ops *ops;
 	struct list_head list_node;
 	struct device *dev;
+#define QCOM_CLK_IS_CRITICAL	BIT(0)
+	unsigned long flags;
 };
 #define to_clk_regmap(_hw) container_of(_hw, struct clk_regmap, hw)
 
