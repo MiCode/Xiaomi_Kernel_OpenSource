@@ -186,6 +186,7 @@ qcom_tsens.ko
 cpu_voltage_cooling.ko
 ddr_cdev.ko
 msm_lmh_dcvs.ko
+thermal_pause.ko
 cpu_hotplug.ko
 bcl_soc.ko
 bcl_pmic5.ko
