@@ -114,6 +114,7 @@
 #define HFI_CTXT_FLAG_PREEMPT_STYLE_ANY		0
 #define HFI_CTXT_FLAG_PREEMPT_STYLE_RB		1
 #define HFI_CTXT_FLAG_PREEMPT_STYLE_FG		2
+#define CMDBATCH_INDIRECT			0x00000200
 
 enum hfi_mem_kind {
 	/** @HFI_MEMKIND_GENERIC: Used for requesting generic memory */
@@ -175,6 +176,8 @@ enum hfi_mem_kind {
 	HFI_MEMKIND_PROFILE,
 	/** @HFI_MEMKIND_USER_PROFILING_IBS: Used for user profiling */
 	HFI_MEMKIND_USER_PROFILE_IBS,
+	/** @MEMKIND_CMD_BUFFER: Used for composing ringbuffer content */
+	HFI_MEMKIND_CMD_BUFFER,
 	HFI_MEMKIND_MAX,
 };
 
@@ -195,6 +198,7 @@ static const char * const hfi_memkind_strings[] = {
 	[HFI_MEMKIND_MMIO_QDSS_STM] = "GMU MMIO QDSS STM",
 	[HFI_MEMKIND_PROFILE] = "GMU KERNEL PROFILING",
 	[HFI_MEMKIND_USER_PROFILE_IBS] = "GMU USER PROFILING",
+	[HFI_MEMKIND_CMD_BUFFER] = "GMU CMD BUFFER",
 };
 
 /* CP/GFX pipeline can access */
@@ -693,6 +697,7 @@ struct hfi_submit_cmd {
 	u32 profile_gpuaddr_lo;
 	u32 profile_gpuaddr_hi;
 	u32 numibs;
+	u32 big_ib_gmu_va;
 } __packed;
 
 struct hfi_log_block {
@@ -730,7 +735,7 @@ static inline int _CMD_MSG_HDR(u32 *hdr, int id, size_t size)
 	_CMD_MSG_HDR(&(cmd).hdr, id, sizeof(cmd))
 
 /* Maximum number of IBs in a submission */
-#define HWSCHED_MAX_NUMIBS \
+#define HWSCHED_MAX_DISPATCH_NUMIBS \
 	((HFI_MAX_MSG_SIZE - offsetof(struct hfi_issue_cmd_cmd, ibs)) \
 		/ sizeof(struct hfi_issue_ib))
 

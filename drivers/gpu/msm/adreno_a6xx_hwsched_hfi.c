@@ -575,7 +575,17 @@ static void init_queues(struct a6xx_hfi *hfi)
 
 int a6xx_hwsched_hfi_init(struct adreno_device *adreno_dev)
 {
+	struct a6xx_hwsched_hfi *hw_hfi = to_a6xx_hwsched_hfi(adreno_dev);
 	struct a6xx_hfi *hfi = to_a6xx_hfi(adreno_dev);
+
+	if (IS_ERR_OR_NULL(hw_hfi->big_ib)) {
+		hw_hfi->big_ib = reserve_gmu_kernel_block(to_a6xx_gmu(adreno_dev),
+				0,
+				HWSCHED_MAX_IBS * sizeof(struct hfi_issue_ib),
+				GMU_NONCACHED_KERNEL);
+		if (IS_ERR(hw_hfi->big_ib))
+			return PTR_ERR(hw_hfi->big_ib);
+	}
 
 	if (IS_ERR_OR_NULL(hfi->hfi_mem)) {
 		hfi->hfi_mem = reserve_gmu_kernel_block(to_a6xx_gmu(adreno_dev),
@@ -1305,6 +1315,34 @@ static int hfi_context_register(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+static void populate_ibs(struct adreno_device *adreno_dev,
+	struct hfi_submit_cmd *cmd, struct kgsl_drawobj_cmd *cmdobj)
+{
+	struct hfi_issue_ib *issue_ib;
+	struct kgsl_memobj_node *ib;
+
+	if (cmdobj->numibs > HWSCHED_MAX_DISPATCH_NUMIBS) {
+		struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+
+		/*
+		 * The dispatcher ensures that there is only one big IB inflight
+		 */
+		cmd->big_ib_gmu_va = hfi->big_ib->gmuaddr;
+		cmd->flags |= CMDBATCH_INDIRECT;
+		issue_ib = hfi->big_ib->hostptr;
+	} else {
+		issue_ib = (struct hfi_issue_ib *)&cmd[1];
+	}
+
+	list_for_each_entry(ib, &cmdobj->cmdlist, node) {
+		issue_ib->addr = ib->gpuaddr;
+		issue_ib->size = ib->size;
+		issue_ib++;
+	}
+
+	cmd->numibs = cmdobj->numibs;
+}
+
 #define HFI_DSP_IRQ_BASE 2
 
 #define DISPQ_IRQ_BIT(_idx) BIT((_idx) + HFI_DSP_IRQ_BASE)
@@ -1313,11 +1351,9 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 	struct kgsl_drawobj_cmd *cmdobj)
 {
 	struct a6xx_hfi *hfi = to_a6xx_hfi(adreno_dev);
-	struct kgsl_memobj_node *ib;
 	int ret = 0;
-	u32 numibs = 0, cmd_sizebytes;
+	u32 cmd_sizebytes;
 	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
-	struct hfi_issue_ib *issue_ib;
 	struct hfi_submit_cmd *cmd;
 	struct adreno_submit_time time = {0};
 
@@ -1325,16 +1361,13 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 	if (ret)
 		return ret;
 
-	/* Get the total IBs in the list */
-	list_for_each_entry(ib, &cmdobj->cmdlist, node)
-		numibs++;
-
-	/* We need to dispatch a marker object but not execute it on the GPU */
-	if (test_bit(CMDOBJ_SKIP, &cmdobj->priv))
-		numibs = 0;
-
 	/* Add a *issue_ib struct for each IB */
-	cmd_sizebytes = sizeof(*cmd) + (sizeof(*issue_ib) * numibs);
+	if (cmdobj->numibs > HWSCHED_MAX_DISPATCH_NUMIBS ||
+		test_bit(CMDOBJ_SKIP, &cmdobj->priv))
+		cmd_sizebytes = sizeof(*cmd);
+	else
+		cmd_sizebytes = sizeof(*cmd) +
+			(sizeof(struct hfi_issue_ib) * cmdobj->numibs);
 
 	if (WARN_ON(cmd_sizebytes > HFI_MAX_MSG_SIZE))
 		return -EMSGSIZE;
@@ -1343,18 +1376,14 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 	if (cmd == NULL)
 		return -ENOMEM;
 
-	cmd->hdr = CREATE_MSG_HDR(H2F_MSG_ISSUE_CMD, cmd_sizebytes,
-			HFI_MSG_CMD);
-	cmd->hdr = MSG_HDR_SET_SEQNUM(cmd->hdr,
-			atomic_inc_return(&hfi->seqnum));
-
 	cmd->ctxt_id = drawobj->context->id;
 	cmd->flags = HFI_CTXT_FLAG_NOTIFY;
 	cmd->ts = drawobj->timestamp;
-	cmd->numibs = numibs;
 
-	if (!numibs)
+	if (test_bit(CMDOBJ_SKIP, &cmdobj->priv))
 		goto skipib;
+
+	populate_ibs(adreno_dev, cmd, cmdobj);
 
 	if ((drawobj->flags & KGSL_DRAWOBJ_PROFILING) &&
 		cmdobj->profiling_buf_entry) {
@@ -1370,16 +1399,13 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 		cmd->flags |= CMDBATCH_PROFILING;
 	}
 
-	issue_ib = (struct hfi_issue_ib *)&cmd[1];
-
-	list_for_each_entry(ib, &cmdobj->cmdlist, node) {
-		issue_ib->addr = ib->gpuaddr;
-		issue_ib->size = ib->size;
-		issue_ib++;
-	}
-
 skipib:
 	adreno_drawobj_set_constraint(KGSL_DEVICE(adreno_dev), drawobj);
+
+	cmd->hdr = CREATE_MSG_HDR(H2F_MSG_ISSUE_CMD, cmd_sizebytes,
+			HFI_MSG_CMD);
+	cmd->hdr = MSG_HDR_SET_SEQNUM(cmd->hdr,
+			atomic_inc_return(&hfi->seqnum));
 
 	ret = a6xx_hfi_queue_write(adreno_dev,
 		HFI_DSP_ID_0 + drawobj->context->gmu_dispatch_queue,

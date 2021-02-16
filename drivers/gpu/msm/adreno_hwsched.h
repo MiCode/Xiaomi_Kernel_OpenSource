@@ -49,7 +49,15 @@ struct adreno_hwsched {
 	void *ctxt_bad;
 	/** @idle_gate: Gate to wait on for hwscheduler to idle */
 	struct completion idle_gate;
+	/** @big_cmdobj = Points to the big IB that is inflight */
+	struct kgsl_drawobj_cmd *big_cmdobj;
 };
+
+/*
+ * This value is based on maximum number of IBs that can fit
+ * in the ringbuffer.
+ */
+#define HWSCHED_MAX_IBS 2000
 
 enum adreno_hwsched_flags {
 	ADRENO_HWSCHED_POWER = 0,
