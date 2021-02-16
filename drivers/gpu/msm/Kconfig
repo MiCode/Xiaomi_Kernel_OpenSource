@@ -54,7 +54,7 @@ config QCOM_KGSL_IOCOHERENCY_DEFAULT
 
 config QCOM_KGSL_IDLE_TIMEOUT
 	int
-	default 100000 if !QGKI
+	depends on QCOM_KGSL
 	default 80
 	help
 	  GPU idle timeout for Adreno GPU. This value decides after how
