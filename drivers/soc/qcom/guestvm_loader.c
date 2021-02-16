@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/completion.h>
@@ -68,9 +68,9 @@ static void guestvm_isolate_cpu(void)
 		cpumask_set_cpu(cpu, &guestvm_isolated_cpus);
 	}
 
-	pr_info("%s: reserved_cpus=%*pbl isolated=%*pbl\n", __func__,
+	pr_info("%s: reserved_cpus=%*pbl online=%*pbl\n", __func__,
 		cpumask_pr_args(&guestvm_isolated_cpus),
-		cpumask_pr_args(cpu_isolated_mask));
+		cpumask_pr_args(cpu_online_mask));
 }
 
 static void guestvm_unisolate_cpu(void)
@@ -88,8 +88,8 @@ static void guestvm_unisolate_cpu(void)
 		cpumask_clear_cpu(i, &guestvm_isolated_cpus);
 	}
 
-	pr_info("%s: isolated mask=%*pbl\n", __func__,
-					cpumask_pr_args(cpu_isolated_mask));
+	pr_info("%s: cpu online mask=%*pbl\n", __func__,
+					cpumask_pr_args(cpu_online_mask));
 	del_timer(&guestvm_cpu_isolate_timer);
 }
 
