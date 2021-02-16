@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -1216,6 +1216,9 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "LE-VM usecase\n");
 	}
 
+	gi2c->i2c_rsc.wrapper_dev = &wrapper_pdev->dev;
+	gi2c->i2c_rsc.ctrl_dev = gi2c->dev;
+
 	/*
 	 * For LE, clocks, gpio and icb voting will be provided by
 	 * by LA. The I2C operates in GSI mode only for LE usecase,
@@ -1223,8 +1226,6 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	 * in I2C LE dt.
 	 */
 	if (!gi2c->is_le_vm) {
-		gi2c->i2c_rsc.wrapper_dev = &wrapper_pdev->dev;
-		gi2c->i2c_rsc.ctrl_dev = gi2c->dev;
 		gi2c->i2c_rsc.se_clk = devm_clk_get(&pdev->dev, "se-clk");
 		if (IS_ERR(gi2c->i2c_rsc.se_clk)) {
 			ret = PTR_ERR(gi2c->i2c_rsc.se_clk);
