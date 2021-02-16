@@ -1798,7 +1798,7 @@ static const struct msm_pingroup yupik_groups[] = {
 	[174] = PINGROUP(174, qdss_gpio15, NA, NA, NA, NA, NA, NA, NA, NA,
 			 0xAF008, 10),
 	[175] = UFS_RESET(ufs_reset, 0x1be000),
-	[176] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1b3000, 15, 0),
+	[176] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1b3004, 0, 0),
 	[177] = SDC_QDSD_PINGROUP(sdc1_clk, 0x1b3000, 13, 6),
 	[178] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x1b3000, 11, 3),
 	[179] = SDC_QDSD_PINGROUP(sdc1_data, 0x1b3000, 9, 0),
