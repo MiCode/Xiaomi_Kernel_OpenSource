@@ -646,15 +646,20 @@ config PSI_DEFAULT_DISABLED
 
 	  Say N if unsure.
 
-config PSI_FTRACE
-	bool "Insert debug hooks for PSI ftrace events"
+config PSI_PER_CGROUP_ACCT
+	bool "Enable per-cgroup pressure stall information tracking"
 	default n
 	depends on PSI
+	depends on CGROUPS
 	help
-	  If not set, PSI ftrace events will be disabled and
-	  will not incur any performance penalty.
-	  If set, PSI ftrace events may be
-	  enabled.
+	  If set, pressure stall information will be tracked for each
+	  individual cgroup. Otherwise, pressure stall information will
+	  be tracked only at the system level under /proc/pressure/.
+
+	  This feature generates overhead that depends on the number of
+	  cgroups in the cgroup v2 hierarchy.
+
+	  Say N if unsure.
 
 endmenu # "CPU/Task time and stats accounting"
 

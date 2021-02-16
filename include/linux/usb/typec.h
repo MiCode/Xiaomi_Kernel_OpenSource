@@ -126,6 +126,7 @@ struct typec_altmode_desc {
 	enum typec_port_data	roles;
 };
 
+void typec_partner_set_pd_revision(struct typec_partner *partner, u16 pd_revision);
 int typec_partner_set_num_altmodes(struct typec_partner *partner, int num_altmodes);
 struct typec_altmode
 *typec_partner_register_altmode(struct typec_partner *partner,
@@ -164,6 +165,7 @@ struct typec_plug_desc {
  * @type: The plug type from USB PD Cable VDO
  * @active: Is the cable active or passive
  * @identity: Result of Discover Identity command
+ * @pd_revision: USB Power Delivery Specification revision if supported
  *
  * Represents USB Type-C Cable attached to USB Type-C port.
  */
@@ -171,6 +173,8 @@ struct typec_cable_desc {
 	enum typec_plug_type	type;
 	unsigned int		active:1;
 	struct usb_pd_identity	*identity;
+	u16			pd_revision; /* 0300H = "3.0" */
+
 };
 
 /*
@@ -178,15 +182,22 @@ struct typec_cable_desc {
  * @usb_pd: USB Power Delivery support
  * @accessory: Audio, Debug or none.
  * @identity: Discover Identity command data
+ * @pd_revision: USB Power Delivery Specification Revision if supported
  *
  * Details about a partner that is attached to USB Type-C port. If @identity
  * member exists when partner is registered, a directory named "identity" is
  * created to sysfs for the partner device.
+ *
+ * @pd_revision is based on the setting of the "Specification Revision" field
+ * in the message header on the initial "Source Capabilities" message received
+ * from the partner, or a "Request" message received from the partner, depending
+ * on whether our port is a Sink or a Source.
  */
 struct typec_partner_desc {
 	unsigned int		usb_pd:1;
 	enum typec_accessory	accessory;
 	struct usb_pd_identity	*identity;
+	u16			pd_revision; /* 0300H = "3.0" */
 };
 
 /**

@@ -1992,21 +1992,6 @@ config BUILD_ARM64_DT_OVERLAY
 	  Enabling this option sets required flags to add DT
 	  overlay in the compilation.
 
-config ASYMMETRIC_AARCH32
-	bool "Allow support for asymmetric AArch32 support"
-	depends on COMPAT && EXPERT
-	help
-	  Enable this option to allow support for asymmetric AArch32 EL0
-	  CPU configurations. Once the AArch32 EL0 support is detected
-	  on a CPU, the feature is made available to user space to allow
-	  the execution of 32-bit (compat) applications by migrating
-	  them to the capable CPUs. You will not be able to offline all
-	  such CPUs to prevent any running 32-bit application from being
-	  killed. I.e: we guarantee there will always be at least one
-	  32-bit capable CPU online.
-
-	  If unsure say N.
-
 config SYSVIPC_COMPAT
 	def_bool y
 	depends on COMPAT && SYSVIPC

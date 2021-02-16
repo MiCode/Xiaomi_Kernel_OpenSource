@@ -26,7 +26,7 @@ static void dump_throttled_rt_tasks(void *unused, int cpu, u64 clock,
 	BUG();
 }
 
-static void android_rvh_schedule_bug(void *unused, void *unused2)
+static void android_rvh_schedule_bug(void *unused, struct task_struct *unused2)
 {
 	BUG();
 }
