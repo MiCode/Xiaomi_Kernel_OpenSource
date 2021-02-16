@@ -2969,9 +2969,8 @@
 
 	wlan: qcom,cnss-qca6490@b0000000 {
 		compatible = "qcom,cnss-qca6490";
-		reg = <0xb0000000 0x10000>,
-		      <0xb2e5510 0x690>;
-		reg-names = "smmu_iova_ipa", "tcs_cmd";
+		reg = <0xb0000000 0x10000>;
+		reg-names = "smmu_iova_ipa";
 		wlan-en-gpio = <&tlmm 80 0>;
 		qcom,bt-en-gpio = <&tlmm 81 0>;
 		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
@@ -2980,8 +2979,6 @@
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x420000>;
 		qcom,wlan-cbc-enabled;
-		/* RPMH_PDC_WLAN_RF_TCS<6>_CMD<2> offset */
-		qcom,tcs_offset_int_pow_amp_vreg = <0x4D0>;
 		use-pm-domain;
 		cnss-enable-self-recovery;
 
