@@ -76,6 +76,7 @@ arch/arm64/include/asm/irq_work.h
 arch/arm64/include/asm/jump_label.h
 arch/arm64/include/asm/kasan.h
 arch/arm64/include/asm/kernel-pgtable.h
+arch/arm64/include/asm/kfence.h
 arch/arm64/include/asm/kgdb.h
 arch/arm64/include/asm/kprobes.h
 arch/arm64/include/asm/kvm_arm.h
@@ -278,10 +279,12 @@ arch/arm64/kvm/hyp/include/hyp/switch.h
 arch/arm64/kvm/hyp/include/hyp/sysreg-sr.h
 arch/arm64/kvm/hyp/include/nvhe/trap_handler.h
 arch/arm64/kvm/hyp/nvhe/debug-sr.c
+arch/arm64/kvm/hyp/nvhe/gen-hyprel.c
 arch/arm64/kvm/hyp/nvhe/host.S
 arch/arm64/kvm/hyp/nvhe/hyp-init.S
 arch/arm64/kvm/hyp/nvhe/hyp.lds.S
 arch/arm64/kvm/hyp/nvhe/hyp-main.c
+arch/arm64/kvm/hyp/nvhe/hyp-reloc.S
 arch/arm64/kvm/hyp/nvhe/hyp-smp.c
 arch/arm64/kvm/hyp/nvhe/psci-relay.c
 arch/arm64/kvm/hyp/nvhe/switch.c
@@ -311,6 +314,7 @@ arch/arm64/kvm/sys_regs.h
 arch/arm64/kvm/trace_arm.h
 arch/arm64/kvm/trace.h
 arch/arm64/kvm/trace_handle_exit.h
+arch/arm64/kvm/trng.c
 arch/arm64/kvm/va_layout.c
 arch/arm64/kvm/vgic-sys-reg-v3.c
 arch/arm64/kvm/vgic/trace.h
@@ -2722,6 +2726,7 @@ include/linux/keyctl.h
 include/linux/key.h
 include/linux/keyslot-manager.h
 include/linux/key-type.h
+include/linux/kfence.h
 include/linux/kfifo.h
 include/linux/kgdb.h
 include/linux/khugepaged.h
@@ -3707,6 +3712,7 @@ include/trace/events/compaction.h
 include/trace/events/cpuhp.h
 include/trace/events/devfreq.h
 include/trace/events/dma_fence.h
+include/trace/events/error_report.h
 include/trace/events/ext4.h
 include/trace/events/f2fs.h
 include/trace/events/fib6.h
@@ -4532,6 +4538,7 @@ kernel/time/vsyscall.c
 kernel/trace/blktrace.c
 kernel/trace/bpf_trace.c
 kernel/trace/bpf_trace.h
+kernel/trace/error_report-traces.c
 kernel/tracepoint.c
 kernel/trace/power-traces.c
 kernel/trace/ring_buffer.c
@@ -4814,6 +4821,9 @@ mm/init-mm.c
 mm/internal.h
 mm/interval_tree.c
 mm/ioremap.c
+mm/kfence/core.c
+mm/kfence/kfence.h
+mm/kfence/report.c
 mm/list_lru.c
 mm/maccess.c
 mm/madvise.c
