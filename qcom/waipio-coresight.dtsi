@@ -3015,7 +3015,7 @@
 		};
 	};
 
-	replicator_swao: tmc@10b06000 {
+	replicator_swao: replicator@10b06000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb909>;
 		reg = <0x10b06000 0x1000>;
@@ -3023,6 +3023,7 @@
 
 		coresight-name = "coresight-replicator_swao";
 
+		qcom,replicator-loses-context;
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
 
@@ -3056,7 +3057,7 @@
 		};
 	};
 
-	replicator_qdss: tmc@10046000 {
+	replicator_qdss: replicator@10046000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb909>;
 		reg = <0x10046000 0x1000>;
@@ -3089,7 +3090,7 @@
 		};
 	};
 
-	replicator_etr: tmc@1004e000 {
+	replicator_etr: replicator@1004e000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb909>;
 		reg = <0x1004e000 0x1000>;
@@ -3203,7 +3204,7 @@
 		};
 	};
 
-	csr: csr@0x10001000 {
+	csr: csr@10001000 {
 		compatible = "qcom,coresight-csr";
 		reg = <0x10001000 0x1000>;
 		reg-names = "csr-base";
