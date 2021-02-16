@@ -370,4 +370,42 @@
 		iommus = <&apps_smmu 0x7E1 0>;
 		dma-coherent;
 	};
+
+	iommu_test_device {
+		compatible = "qcom,iommu-debug-test";
+
+		apps_ecats0 {
+			compatible = "qcom,iommu-debug-usecase";
+			iommus = <&apps_smmu 0x7e0 0>;
+		};
+
+		apps_ecats0_fastmap {
+			compatible = "qcom,iommu-debug-usecase";
+			iommus = <&apps_smmu 0x7e0 0>;
+			qcom,iommu-dma = "fastmap";
+		};
+
+		apps_ecats0_atomic {
+			compatible = "qcom,iommu-debug-usecase";
+			iommus = <&apps_smmu 0x7e0 0>;
+			qcom,iommu-dma = "atomic";
+		};
+
+		apps_ecats1 {
+			compatible = "qcom,iommu-debug-usecase";
+			iommus = <&apps_smmu 0x7e1 0>;
+			dma-coherent;
+		};
+
+		kgsl_ecats0 {
+			compatible = "qcom,iommu-debug-usecase";
+			iommus = <&kgsl_smmu 0x7 0x400>;
+		};
+
+		kgsl_ecats1 {
+			compatible = "qcom,iommu-debug-usecase";
+			iommus = <&kgsl_smmu 0x407 0x400>;
+			dma-coherent;
+		};
+	};
 };
