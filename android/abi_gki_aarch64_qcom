@@ -848,6 +848,7 @@
   free_pages_exact
   free_percpu
   free_percpu_irq
+  freezing_slow_path
   freq_qos_add_request
   freq_qos_remove_request
   freq_qos_update_request
@@ -1139,6 +1140,7 @@
   jiffies
   jiffies_to_msecs
   jiffies_to_usecs
+  kasan_flag_enabled
   kasprintf
   kernel_bind
   kernel_connect
@@ -1748,6 +1750,7 @@
   refcount_dec_and_lock
   refcount_dec_not_one
   refcount_warn_saturate
+  __refrigerator
   regcache_cache_only
   regcache_mark_dirty
   regcache_sync
@@ -2185,6 +2188,7 @@
   sysfs_streq
   sysrq_mask
   system_freezable_wq
+  system_freezing_cnt
   system_highpri_wq
   system_long_wq
   system_power_efficient_wq

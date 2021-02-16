@@ -224,6 +224,7 @@ arch/arm64/kernel/pci.c
 arch/arm64/kernel/perf_callchain.c
 arch/arm64/kernel/perf_event.c
 arch/arm64/kernel/perf_regs.c
+arch/arm64/kernel/pointer_auth.c
 arch/arm64/kernel/probes/decode-insn.c
 arch/arm64/kernel/probes/decode-insn.h
 arch/arm64/kernel/probes/kprobes.c
@@ -365,6 +366,7 @@ arch/arm64/mm/fault.c
 arch/arm64/mm/flush.c
 arch/arm64/mm/init.c
 arch/arm64/mm/ioremap.c
+arch/arm64/mm/kasan_init.c
 arch/arm64/mm/mmap.c
 arch/arm64/mm/mmu.c
 arch/arm64/mm/mteswap.c
@@ -3797,6 +3799,7 @@ include/trace/hooks/ftrace_dump.h
 include/trace/hooks/futex.h
 include/trace/hooks/gic.h
 include/trace/hooks/gic_v3.h
+include/trace/hooks/iommu.h
 include/trace/hooks/mm.h
 include/trace/hooks/mpam.h
 include/trace/hooks/pm_domain.h
@@ -4750,6 +4753,7 @@ lib/sha1.c
 lib/show_mem.c
 lib/siphash.c
 lib/sort.c
+lib/stackdepot.c
 lib/string.c
 lib/string_helpers.c
 lib/strncpy_from_user.c
@@ -4821,6 +4825,11 @@ mm/init-mm.c
 mm/internal.h
 mm/interval_tree.c
 mm/ioremap.c
+mm/kasan/common.c
+mm/kasan/hw_tags.c
+mm/kasan/kasan.h
+mm/kasan/report.c
+mm/kasan/report_hw_tags.c
 mm/kfence/core.c
 mm/kfence/kfence.h
 mm/kfence/report.c
