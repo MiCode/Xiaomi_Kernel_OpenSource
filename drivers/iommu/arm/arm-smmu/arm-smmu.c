@@ -2367,7 +2367,6 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 {
 	size_t ret;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
 	unsigned long flags;
 
@@ -2376,11 +2375,9 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 
 	arm_smmu_secure_domain_lock(smmu_domain);
 
-	arm_smmu_rpm_get(smmu);
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	ret = ops->unmap(ops, iova, size, gather);
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
-	arm_smmu_rpm_put(smmu);
 
 	/*
 	 * While splitting up block mappings, we might allocate page table
