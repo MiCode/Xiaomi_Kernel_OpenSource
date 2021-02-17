@@ -15,6 +15,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/suspend.h>
 #include <linux/thermal.h>
 
 #include "../thermal_core.h"
@@ -881,9 +882,31 @@ static int qpnp_tm_freeze(struct device *dev)
 	return 0;
 }
 
+static int qpnp_tm_suspend(struct device *dev)
+{
+#ifdef CONFIG_DEEPSLEEP
+	if (pm_suspend_via_firmware())
+		return qpnp_tm_freeze(dev);
+#endif
+
+	return 0;
+}
+
+static int qpnp_tm_resume(struct device *dev)
+{
+#ifdef CONFIG_DEEPSLEEP
+	if (pm_suspend_via_firmware())
+		return qpnp_tm_restore(dev);
+#endif
+
+	return 0;
+}
+
 static const struct dev_pm_ops qpnp_tm_pm_ops = {
 	.freeze = qpnp_tm_freeze,
 	.restore = qpnp_tm_restore,
+	.suspend = qpnp_tm_suspend,
+	.resume = qpnp_tm_resume,
 };
 
 static const struct of_device_id qpnp_tm_match_table[] = {
