@@ -1648,6 +1648,7 @@
   pci_device_group
   pci_disable_device
   pci_disable_msi
+  pcie_bus_configure_settings
   pcie_capability_read_word
   pci_enable_device
   pci_find_capability
