@@ -47,9 +47,9 @@
 			qcom,swr_master_id = <3>;
 			qcom,mipi-sdw-block-packing-mode = <1>;
 			swrm-io-base = <0x33b0000 0x0>;
-			interrupts-extended =
-				<&intc GIC_SPI 496 IRQ_TYPE_LEVEL_HIGH>,
-				<&pdc 111 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts =
+				<GIC_SPI 496 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 520 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "swr_master_irq", "swr_wake_irq";
 			qcom,swr-wakeup-required = <1>;
 			qcom,swr-num-ports = <3>;
