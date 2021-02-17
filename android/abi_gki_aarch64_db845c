@@ -1117,6 +1117,7 @@
   capable
   datagram_poll
   idr_alloc
+  idr_alloc_u32
   idr_get_next
   idr_remove
   lock_sock_nested
