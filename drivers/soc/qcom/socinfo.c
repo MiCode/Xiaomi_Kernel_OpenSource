@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2021, The Linux Foundation. All rights reserved.
  * Copyright (c) 2017-2019, Linaro Ltd.
  */
 
@@ -664,6 +664,8 @@ static const struct soc_id soc_id[] = {
 	{ 475, "YUPIK" },
 	{ 484, "SDXNIGHTJAR" },
 	{ 441, "SCUBA" },
+	{ 497, "YUPIK-IOT" },
+	{ 498, "YUPIKP-IOT" },
 	{ 499, "YUPIKP" },
 };
 
