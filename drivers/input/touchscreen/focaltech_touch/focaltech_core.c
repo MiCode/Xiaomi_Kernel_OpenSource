@@ -93,8 +93,6 @@ static struct drm_panel *active_panel;
 /*****************************************************************************
 * Static function prototypes
 *****************************************************************************/
-static int fts_ts_suspend(struct device *dev);
-static int fts_ts_resume(struct device *dev);
 static irqreturn_t fts_irq_handler(int irq, void *data);
 static int fts_ts_probe_delayed(struct fts_ts_data *fts_data);
 
@@ -1742,6 +1740,7 @@ static int fts_pinctrl_select_normal(struct fts_ts_data *ts)
 	return ret;
 }
 
+#if defined(CONFIG_FBI) || defined(CONFIG_HAS_EARLYSUSPEND)
 static int fts_pinctrl_select_suspend(struct fts_ts_data *ts)
 {
 	int ret = 0;
@@ -1755,6 +1754,7 @@ static int fts_pinctrl_select_suspend(struct fts_ts_data *ts)
 
 	return ret;
 }
+#endif
 
 static int fts_pinctrl_select_release(struct fts_ts_data *ts)
 {
@@ -1916,6 +1916,7 @@ static int fts_power_source_exit(struct fts_ts_data *ts_data)
 	return 0;
 }
 
+#if defined(CONFIG_FBI) || defined(CONFIG_HAS_EARLYSUSPEND)
 static int fts_power_source_suspend(struct fts_ts_data *ts_data)
 {
 	int ret = 0;
@@ -1948,6 +1949,7 @@ static int fts_power_source_resume(struct fts_ts_data *ts_data)
 	return ret;
 }
 #endif /* FTS_POWER_SOURCE_CUST_EN */
+#endif
 
 static int fts_gpio_configure(struct fts_ts_data *data)
 {
@@ -2117,61 +2119,10 @@ static int fts_parse_dt(struct device *dev, struct fts_ts_platform_data *pdata)
 	return 0;
 }
 
-#if defined(CONFIG_DRM)
-static void fts_resume_work(struct work_struct *work)
-{
-	struct fts_ts_data *ts_data = container_of(work, struct fts_ts_data,
-					resume_work);
+#if defined(CONFIG_FB)
+static int fts_ts_suspend(struct device *dev);
+static int fts_ts_resume(struct device *dev);
 
-	fts_ts_resume(ts_data->dev);
-}
-
-static int fb_notifier_callback(struct notifier_block *self,
-				unsigned long event, void *data)
-{
-	struct drm_panel_notifier *evdata = data;
-	int *blank = NULL;
-	struct fts_ts_data *ts_data = container_of(self, struct fts_ts_data,
-			fb_notif);
-
-	if (!evdata)
-		return 0;
-
-	if (!(event == DRM_PANEL_EARLY_EVENT_BLANK ||
-		event == DRM_PANEL_EVENT_BLANK)) {
-		FTS_INFO("event(%lu) do not need process\n", event);
-		return 0;
-	}
-
-	blank = evdata->data;
-	FTS_DEBUG("FB event:%lu,blank:%d", event, *blank);
-	switch (*blank) {
-	case DRM_PANEL_BLANK_UNBLANK:
-		if (event == DRM_PANEL_EARLY_EVENT_BLANK) {
-			FTS_DEBUG("resume: event = %lu, not care\n", event);
-		} else if (event == DRM_PANEL_EVENT_BLANK) {
-			queue_work(fts_data->ts_workqueue, &fts_data->resume_work);
-		}
-		break;
-
-	case DRM_PANEL_BLANK_POWERDOWN:
-		if (event == DRM_PANEL_EARLY_EVENT_BLANK) {
-			cancel_work_sync(&fts_data->resume_work);
-			fts_ts_suspend(ts_data->dev);
-		} else if (event == DRM_PANEL_EVENT_BLANK) {
-			FTS_DEBUG("suspend: event = %lu, not care\n", event);
-		}
-		break;
-
-	default:
-		FTS_DEBUG("FB BLANK(%d) do not need process\n", *blank);
-		break;
-	}
-
-	return 0;
-}
-
-#elif defined(CONFIG_FB)
 static void fts_resume_work(struct work_struct *work)
 {
 	struct fts_ts_data *ts_data = container_of(work, struct fts_ts_data,
@@ -2401,18 +2352,7 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 	}
 #endif
 
-#if defined(CONFIG_DRM)
-	if (ts_data->ts_workqueue) {
-		INIT_WORK(&ts_data->resume_work, fts_resume_work);
-	}
-	ts_data->fb_notif.notifier_call = fb_notifier_callback;
-
-	if (active_panel &&
-		drm_panel_notifier_register(active_panel,
-			&ts_data->fb_notif) < 0)
-		FTS_ERROR("register notifier failed!\n");
-
-#elif defined(CONFIG_FB)
+#if defined(CONFIG_FB)
 	if (ts_data->ts_workqueue) {
 		INIT_WORK(&ts_data->resume_work, fts_resume_work);
 	}
@@ -2486,11 +2426,7 @@ static int fts_ts_remove_entry(struct fts_ts_data *ts_data)
 	if (ts_data->ts_workqueue)
 		destroy_workqueue(ts_data->ts_workqueue);
 
-#if defined(CONFIG_DRM)
-	if (active_panel)
-		drm_panel_notifier_unregister(active_panel, &ts_data->fb_notif);
-
-#elif defined(CONFIG_FB)
+#if defined(CONFIG_FB)
 	if (fb_unregister_client(&ts_data->fb_notif))
 		FTS_ERROR("Error occurred while unregistering fb_notifier.");
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
@@ -2518,6 +2454,7 @@ static int fts_ts_remove_entry(struct fts_ts_data *ts_data)
 	return 0;
 }
 
+#if defined(CONFIG_FBI) || defined(CONFIG_HAS_EARLYSUSPEND)
 static int fts_ts_suspend(struct device *dev)
 {
 	int ret = 0;
@@ -2605,6 +2542,7 @@ static int fts_ts_resume(struct device *dev)
 	FTS_FUNC_EXIT();
 	return 0;
 }
+#endif
 
 /*****************************************************************************
 * TP Driver
