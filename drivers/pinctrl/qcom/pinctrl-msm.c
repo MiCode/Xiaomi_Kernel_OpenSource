@@ -894,6 +894,9 @@ static void msm_gpio_irq_enable(struct irq_data *d)
 		irq_chip_enable_parent(d);
 	}
 
+	if (pctrl->mpm_wake_ctl)
+		msm_gpio_mpm_wake_set(d->hwirq, true);
+
 	if (test_bit(d->hwirq, pctrl->skip_wake_irqs))
 		return;
 
@@ -917,6 +920,9 @@ static void msm_gpio_irq_disable(struct irq_data *d)
 		}
 		irq_chip_disable_parent(d);
 	}
+
+	if (pctrl->mpm_wake_ctl)
+		msm_gpio_mpm_wake_set(d->hwirq, false);
 
 	if (test_bit(d->hwirq, pctrl->skip_wake_irqs))
 		return;
@@ -1193,9 +1199,6 @@ static int msm_gpio_irq_set_wake(struct irq_data *d, unsigned int on)
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
 	unsigned long flags;
-
-	if (pctrl->mpm_wake_ctl)
-		msm_gpio_mpm_wake_set(d->hwirq, on);
 
 	if (d->parent_data)
 		irq_chip_set_wake_parent(d, on);
