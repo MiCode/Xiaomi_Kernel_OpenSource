@@ -2362,6 +2362,54 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	return ret;
 }
 
+static int arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
+			   struct scatterlist *sg, unsigned int nents, int prot,
+			   gfp_t gfp, size_t *mapped)
+{
+	int ret, i;
+	unsigned long flags;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct io_pgtable_ops *ops = to_smmu_domain(domain)->pgtbl_ops;
+	size_t size = 0;
+	struct scatterlist *iter;
+	LIST_HEAD(nonsecure_pool);
+
+	if (!ops)
+		return -ENODEV;
+
+	arm_smmu_secure_domain_lock(smmu_domain);
+	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
+	ret = ops->map_sg(ops, iova, sg, nents, prot, gfp, mapped);
+	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
+
+	if (ret == -ENOMEM) {
+		/* unmap any partially mapped iova */
+		if (*mapped) {
+			arm_smmu_secure_domain_unlock(smmu_domain);
+			iommu_unmap(domain, iova, *mapped);
+			*mapped = 0;
+			arm_smmu_secure_domain_lock(smmu_domain);
+		}
+
+		for_each_sg(sg, iter, nents, i)
+			size += sg->length;
+
+		arm_smmu_prealloc_memory(smmu_domain, size, &nonsecure_pool);
+		spin_lock_irqsave(&smmu_domain->cb_lock, flags);
+		list_splice_init(&nonsecure_pool, &smmu_domain->nonsecure_pool);
+		ret = ops->map_sg(ops, iova, sg, nents, prot, gfp, mapped);
+		list_splice_init(&smmu_domain->nonsecure_pool, &nonsecure_pool);
+		spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
+		arm_smmu_release_prealloc_memory(smmu_domain,
+						 &nonsecure_pool);
+	}
+
+	arm_smmu_assign_table(smmu_domain);
+	arm_smmu_secure_domain_unlock(smmu_domain);
+
+	return ret;
+}
+
 static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 			     size_t size, struct iommu_iotlb_gather *gather)
 {
@@ -3100,6 +3148,7 @@ static struct qcom_iommu_ops arm_smmu_ops = {
 		.domain_free		= arm_smmu_domain_free,
 		.attach_dev		= arm_smmu_attach_dev,
 		.map			= arm_smmu_map,
+		.map_sg			= arm_smmu_map_sg,
 		.unmap			= arm_smmu_unmap,
 		.flush_iotlb_all	= arm_smmu_flush_iotlb_all,
 		.iotlb_sync		= arm_smmu_iotlb_sync,
