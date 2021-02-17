@@ -154,7 +154,7 @@ struct genc_cp_smmu_info {
 	 FIELD_PREP(GENMASK(12, 8), ilog2(4)))
 
 /* Size of the CP_INIT pm4 stream in dwords */
-#define GENC_CP_INIT_DWORDS 8
+#define GENC_CP_INIT_DWORDS 10
 
 #define GENC_INT_MASK \
 	((1 << GENC_INT_AHBERROR) |			\
