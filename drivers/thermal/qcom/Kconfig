@@ -62,7 +62,7 @@ config QTI_BCL_SOC_DRIVER
 
 config QTI_QMI_COOLING_DEVICE
 	tristate "QTI QMI cooling devices"
-	depends on QCOM_QMI_HELPERS && THERMAL_OF && QTI_THERMAL
+	depends on QCOM_QMI_HELPERS && THERMAL
 	help
 	   This enables the QTI remote subsystem cooling devices. These cooling
 	   devices will be used by QTI chipset to place various remote
