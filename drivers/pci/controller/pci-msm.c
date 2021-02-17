@@ -7877,7 +7877,6 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 {
 	int ret = 0;
 	struct pci_dev *dev;
-	u32 rc_idx = 0;
 	unsigned long flags;
 	struct msm_pcie_dev_t *pcie_dev;
 
@@ -7890,10 +7889,9 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 	pcie_dev = PCIE_BUS_PRIV_DATA(((struct pci_dev *)user)->bus);
 
 	if (pcie_dev) {
-		rc_idx = pcie_dev->rc_idx;
 		PCIE_DBG(pcie_dev,
-			"PCIe: RC%d: pm_opt:%d;busnr:%d;options:%d\n",
-			rc_idx, pm_opt, busnr, options);
+			 "PCIe: RC%d: pm_opt:%d;busnr:%d;options:%d\n",
+			 pcie_dev->rc_idx, pm_opt, busnr, options);
 	} else {
 		pr_err(
 			"PCIe: did not find RC for pci endpoint device.\n"
@@ -7902,20 +7900,20 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 		goto out;
 	}
 
-	dev = msm_pcie_dev[rc_idx].dev;
+	dev = pcie_dev->dev;
 
-	if (!msm_pcie_dev[rc_idx].drv_ready) {
-		PCIE_ERR(&msm_pcie_dev[rc_idx],
-			"RC%d has not been successfully probed yet\n",
-			rc_idx);
+	if (!pcie_dev->drv_ready) {
+		PCIE_ERR(pcie_dev,
+			 "RC%d has not been successfully probed yet\n",
+			 pcie_dev->rc_idx);
 		return -EPROBE_DEFER;
 	}
 
 	switch (pm_opt) {
 	case MSM_PCIE_DRV_SUSPEND:
 		PCIE_DBG(pcie_dev,
-			"PCIe: RC%d: DRV: user requests for DRV suspend\n",
-			rc_idx);
+			 "PCIe: RC%d: DRV: user requests for DRV suspend\n",
+			 pcie_dev->rc_idx);
 
 		/* make sure disable pc is done before enabling drv */
 		flush_work(&pcie_dev->drv_disable_pc_work);
@@ -7923,51 +7921,53 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 		ret = msm_pcie_drv_suspend(pcie_dev, options);
 		break;
 	case MSM_PCIE_SUSPEND:
-		PCIE_DBG(&msm_pcie_dev[rc_idx],
-			"User of RC%d requests to suspend the link\n", rc_idx);
-		if (msm_pcie_dev[rc_idx].link_status != MSM_PCIE_LINK_ENABLED)
-			PCIE_DBG(&msm_pcie_dev[rc_idx],
-				"PCIe: RC%d: requested to suspend when link is not enabled:%d.\n",
-				rc_idx, msm_pcie_dev[rc_idx].link_status);
+		PCIE_DBG(pcie_dev,
+			 "User of RC%d requests to suspend the link\n",
+			 pcie_dev->rc_idx);
+		if (pcie_dev->link_status != MSM_PCIE_LINK_ENABLED)
+			PCIE_DBG(pcie_dev,
+				 "PCIe: RC%d: requested to suspend when link is not enabled:%d.\n",
+				 pcie_dev->rc_idx, pcie_dev->link_status);
 
-		if (!msm_pcie_dev[rc_idx].power_on) {
-			PCIE_ERR(&msm_pcie_dev[rc_idx],
-				"PCIe: RC%d: requested to suspend when link is powered down:%d.\n",
-				rc_idx, msm_pcie_dev[rc_idx].link_status);
+		if (!pcie_dev->power_on) {
+			PCIE_ERR(pcie_dev,
+				 "PCIe: RC%d: requested to suspend when link is powered down:%d.\n",
+				 pcie_dev->rc_idx, pcie_dev->link_status);
 			break;
 		}
 
-		if (msm_pcie_dev[rc_idx].pending_ep_reg) {
-			PCIE_DBG(&msm_pcie_dev[rc_idx],
-				"PCIe: RC%d: request to suspend the link is rejected\n",
-				rc_idx);
+		if (pcie_dev->pending_ep_reg) {
+			PCIE_DBG(pcie_dev,
+				 "PCIe: RC%d: request to suspend the link is rejected\n",
+				 pcie_dev->rc_idx);
 			break;
 		}
 
 		if (pcie_dev->num_active_ep) {
 			PCIE_DBG(pcie_dev,
-				"RC%d: an EP requested to suspend the link, but other EPs are still active: %d\n",
-				pcie_dev->rc_idx, pcie_dev->num_active_ep);
+				 "RC%d: an EP requested to suspend the link, but other EPs are still active: %d\n",
+				 pcie_dev->rc_idx, pcie_dev->num_active_ep);
 			return ret;
 		}
 
-		msm_pcie_dev[rc_idx].user_suspend = true;
+		pcie_dev->user_suspend = true;
 
-		mutex_lock(&msm_pcie_dev[rc_idx].recovery_lock);
+		mutex_lock(&pcie_dev->recovery_lock);
 
 		ret = msm_pcie_pm_suspend(dev, user, data, options);
 		if (ret) {
-			PCIE_ERR(&msm_pcie_dev[rc_idx],
-				"PCIe: RC%d: user failed to suspend the link.\n",
-				rc_idx);
-			msm_pcie_dev[rc_idx].user_suspend = false;
+			PCIE_ERR(pcie_dev,
+				 "PCIe: RC%d: user failed to suspend the link.\n",
+				 pcie_dev->rc_idx);
+			pcie_dev->user_suspend = false;
 		}
 
-		mutex_unlock(&msm_pcie_dev[rc_idx].recovery_lock);
+		mutex_unlock(&pcie_dev->recovery_lock);
 		break;
 	case MSM_PCIE_RESUME:
-		PCIE_DBG(&msm_pcie_dev[rc_idx],
-			"User of RC%d requests to resume the link\n", rc_idx);
+		PCIE_DBG(pcie_dev,
+			 "User of RC%d requests to resume the link\n",
+			 pcie_dev->rc_idx);
 
 		/* DRV resume */
 		if (pcie_dev->link_status == MSM_PCIE_LINK_DRV) {
@@ -7975,68 +7975,67 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 			break;
 		}
 
-		if (msm_pcie_dev[rc_idx].power_on) {
-			PCIE_ERR(&msm_pcie_dev[rc_idx],
-				"PCIe: RC%d: requested to resume when link is already powered on. Number of active EP(s): %d\n",
-				rc_idx, msm_pcie_dev[rc_idx].num_active_ep);
+		if (pcie_dev->power_on) {
+			PCIE_ERR(pcie_dev,
+				 "PCIe: RC%d: requested to resume when link is already powered on. Number of active EP(s): %d\n",
+				 pcie_dev->rc_idx, pcie_dev->num_active_ep);
 			break;
 		}
 
-		mutex_lock(&msm_pcie_dev[rc_idx].recovery_lock);
+		mutex_lock(&pcie_dev->recovery_lock);
 		ret = msm_pcie_pm_resume(dev, user, data, options);
 		if (ret) {
-			PCIE_ERR(&msm_pcie_dev[rc_idx],
-				"PCIe: RC%d: user failed to resume the link.\n",
-				rc_idx);
+			PCIE_ERR(pcie_dev,
+				 "PCIe: RC%d: user failed to resume the link.\n",
+				 pcie_dev->rc_idx);
 		} else {
-			PCIE_DBG(&msm_pcie_dev[rc_idx],
-				"PCIe: RC%d: user succeeded to resume the link.\n",
-				rc_idx);
+			PCIE_DBG(pcie_dev,
+				 "PCIe: RC%d: user succeeded to resume the link.\n",
+				 pcie_dev->rc_idx);
 
-			msm_pcie_dev[rc_idx].user_suspend = false;
+			pcie_dev->user_suspend = false;
 		}
 
-		mutex_unlock(&msm_pcie_dev[rc_idx].recovery_lock);
+		mutex_unlock(&pcie_dev->recovery_lock);
 
 		break;
 	case MSM_PCIE_DISABLE_PC:
-		PCIE_DBG(&msm_pcie_dev[rc_idx],
-			"User of RC%d requests to keep the link always alive.\n",
-			rc_idx);
-		spin_lock_irqsave(&msm_pcie_dev[rc_idx].cfg_lock,
-				msm_pcie_dev[rc_idx].irqsave_flags);
-		if (msm_pcie_dev[rc_idx].suspending) {
-			PCIE_ERR(&msm_pcie_dev[rc_idx],
-				"PCIe: RC%d Link has been suspended before request\n",
-				rc_idx);
+		PCIE_DBG(pcie_dev,
+			 "User of RC%d requests to keep the link always alive.\n",
+			 pcie_dev->rc_idx);
+		spin_lock_irqsave(&pcie_dev->cfg_lock, pcie_dev->irqsave_flags);
+		if (pcie_dev->suspending) {
+			PCIE_ERR(pcie_dev,
+				 "PCIe: RC%d Link has been suspended before request\n",
+				 pcie_dev->rc_idx);
 			ret = MSM_PCIE_ERROR;
 		} else {
-			msm_pcie_dev[rc_idx].disable_pc = true;
+			pcie_dev->disable_pc = true;
 		}
-		spin_unlock_irqrestore(&msm_pcie_dev[rc_idx].cfg_lock,
-				msm_pcie_dev[rc_idx].irqsave_flags);
+		spin_unlock_irqrestore(&pcie_dev->cfg_lock,
+				       pcie_dev->irqsave_flags);
 		break;
 	case MSM_PCIE_ENABLE_PC:
-		PCIE_DBG(&msm_pcie_dev[rc_idx],
-			"User of RC%d cancels the request of alive link.\n",
-			rc_idx);
-		spin_lock_irqsave(&msm_pcie_dev[rc_idx].cfg_lock,
-				msm_pcie_dev[rc_idx].irqsave_flags);
-		msm_pcie_dev[rc_idx].disable_pc = false;
-		spin_unlock_irqrestore(&msm_pcie_dev[rc_idx].cfg_lock,
-				msm_pcie_dev[rc_idx].irqsave_flags);
+		PCIE_DBG(pcie_dev,
+			 "User of RC%d cancels the request of alive link.\n",
+			 pcie_dev->rc_idx);
+		spin_lock_irqsave(&pcie_dev->cfg_lock, pcie_dev->irqsave_flags);
+		pcie_dev->disable_pc = false;
+		spin_unlock_irqrestore(&pcie_dev->cfg_lock,
+				       pcie_dev->irqsave_flags);
 		break;
 	case MSM_PCIE_HANDLE_LINKDOWN:
-		PCIE_DBG(&msm_pcie_dev[rc_idx],
-			"User of RC%d requests handling link down.\n", rc_idx);
-		spin_lock_irqsave(&msm_pcie_dev[rc_idx].irq_lock, flags);
+		PCIE_DBG(pcie_dev,
+			 "User of RC%d requests handling link down.\n",
+			 pcie_dev->rc_idx);
+		spin_lock_irqsave(&pcie_dev->irq_lock, flags);
 		msm_pcie_handle_linkdown(pcie_dev);
-		spin_unlock_irqrestore(&msm_pcie_dev[rc_idx].irq_lock, flags);
+		spin_unlock_irqrestore(&pcie_dev->irq_lock, flags);
 		break;
 	case MSM_PCIE_DRV_PC_CTRL:
-		PCIE_DBG(&msm_pcie_dev[rc_idx],
-			"User of RC%d requests handling drv pc options %u.\n",
-			rc_idx, options);
+		PCIE_DBG(pcie_dev,
+			 "User of RC%d requests handling drv pc options %u.\n",
+			 pcie_dev->rc_idx, options);
 
 		mutex_lock(&pcie_dev->drv_pc_lock);
 		pcie_dev->drv_disable_pc_vote =
@@ -8058,9 +8057,9 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 		mutex_unlock(&pcie_dev->drv_pc_lock);
 		break;
 	default:
-		PCIE_ERR(&msm_pcie_dev[rc_idx],
-			"PCIe: RC%d: unsupported pm operation:%d.\n",
-			rc_idx, pm_opt);
+		PCIE_ERR(pcie_dev,
+			 "PCIe: RC%d: unsupported pm operation:%d.\n",
+			 pcie_dev->rc_idx, pm_opt);
 		ret = -ENODEV;
 		goto out;
 	}
