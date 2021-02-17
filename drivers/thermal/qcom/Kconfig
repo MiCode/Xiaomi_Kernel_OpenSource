@@ -33,7 +33,7 @@ config QTI_ADC_TM
 
 config QTI_QMI_SENSOR
 	tristate "QTI QMI sensor driver"
-	depends on QCOM_QMI_HELPERS && THERMAL_OF && QTI_THERMAL
+	depends on QCOM_QMI_HELPERS && THERMAL
 	help
 	   This enables to list the QTI remote subsystem temperature sensors.
 	   This driver can read the temperature of the remote sensor.
