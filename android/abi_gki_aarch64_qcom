@@ -2720,6 +2720,7 @@
   vb2_create_bufs
   vb2_create_framevec
   vb2_destroy_framevec
+  vb2_dma_contig_memops
   vb2_dqbuf
   vb2_expbuf
   vb2_fop_mmap
