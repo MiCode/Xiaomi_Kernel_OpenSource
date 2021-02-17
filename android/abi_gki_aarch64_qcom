@@ -210,6 +210,8 @@
   clk_hw_round_rate
   __clk_is_enabled
   __clk_mux_determine_rate_closest
+  clk_notifier_register
+  clk_notifier_unregister
   clk_prepare
   clk_put
   clk_register
