@@ -1811,7 +1811,7 @@ static const struct genc_protected_regs c500_protected_regs[] = {
 	{ GENC_CP_PROTECT_REG + 33, 0x0fc00, 0x11bff, 0 },
 	{ GENC_CP_PROTECT_REG + 34, 0x18400, 0x18453, 1 },
 	{ GENC_CP_PROTECT_REG + 35, 0x18454, 0x18458, 0 },
-	{ GENC_CP_PROTECT_REG + 47, 0x18459, 0x00000, 1 },
+	{ GENC_CP_PROTECT_REG + 47, 0x18459, 0x18459, 1 },
 	{ 0 },
 };
 
