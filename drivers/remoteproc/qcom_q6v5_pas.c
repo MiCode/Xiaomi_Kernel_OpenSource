@@ -312,6 +312,7 @@ static void qcom_pas_handover(struct qcom_q6v5 *q6v5)
 	clk_disable_unprepare(adsp->aggre2_clk);
 	clk_disable_unprepare(adsp->xo);
 	adsp_pds_disable(adsp, adsp->proxy_pds, adsp->proxy_pd_count);
+	do_bus_scaling(adsp, false);
 }
 
 static int adsp_stop(struct rproc *rproc)
