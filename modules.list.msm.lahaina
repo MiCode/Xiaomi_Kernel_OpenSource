@@ -90,3 +90,4 @@ qcom-dload-mode.ko
 qcom-reboot-reason.ko
 hh_virt_wdt.ko
 qcom_wdt_core.ko
+msm_kgsl.ko

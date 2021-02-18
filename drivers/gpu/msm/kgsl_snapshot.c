@@ -522,7 +522,6 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 {
 	struct kgsl_snapshot *snapshot;
 	struct timespec64 boot;
-	phys_addr_t pa;
 
 	set_isdb_breakpoint_registers(device);
 
@@ -596,9 +595,9 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 	snapshot->device = device;
 
 	/* log buffer info to aid in ramdump fault tolerance */
-	pa = __pa(device->snapshot_memory.ptr);
-	dev_err(device->dev, "%s snapshot created at pa %pa++0x%zx\n",
-			gmu_fault ? "GMU" : "GPU", &pa, snapshot->size);
+	dev_err(device->dev, "%s snapshot created at pa %llx++0x%zx\n",
+			gmu_fault ? "GMU" : "GPU", device->snapshot_memory.dma_handle,
+			snapshot->size);
 
 	if (device->skip_ib_capture)
 		BUG_ON(device->force_panic);
@@ -959,9 +958,9 @@ void kgsl_device_snapshot_probe(struct kgsl_device *device, u32 size)
 {
 	device->snapshot_memory.size = size;
 
-	device->snapshot_memory.ptr = devm_kzalloc(&device->pdev->dev,
-		device->snapshot_memory.size, GFP_KERNEL);
-
+	device->snapshot_memory.ptr = dma_alloc_coherent(&device->pdev->dev,
+		device->snapshot_memory.size, &device->snapshot_memory.dma_handle,
+		GFP_KERNEL);
 	/*
 	 * If we fail to allocate more than 1MB for snapshot fall back
 	 * to 1MB

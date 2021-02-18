@@ -220,6 +220,30 @@ void kgsl_regmap_bulk_write(struct kgsl_regmap *regmap, u32 offset,
 	memcpy_toio(region_addr(region, offset), data, dwords << 2);
 }
 
+void kgsl_regmap_bulk_read(struct kgsl_regmap *regmap, u32 offset,
+		const void *data, int dwords)
+{
+	struct kgsl_regmap_region *region = kgsl_regmap_get_region(regmap, offset);
+
+	if (WARN(!region, "Out of bounds register bulk read offset: 0x%x\n", offset))
+		return;
+
+	if (region->ops && region->ops->preaccess)
+		region->ops->preaccess(region);
+
+	/*
+	 * A bulk read operation can only be in one region - it cannot
+	 * cross boundaries
+	 */
+	if (WARN((offset - region->offset) + dwords > region->size,
+		"Out of bounds bulk read size: 0x%x\n", offset + dwords))
+		return;
+
+	memcpy_fromio(region_addr(region, offset), data, dwords << 2);
+
+	/* Make sure the copy is finished before moving on */
+	rmb();
+}
 
 void __iomem *kgsl_regmap_virt(struct kgsl_regmap *regmap, u32 offset)
 {

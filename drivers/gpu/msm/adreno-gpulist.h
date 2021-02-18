@@ -1827,7 +1827,7 @@ static const struct adreno_genc_core adreno_gpu_core_c500 = {
 		.gmem_base = 0,
 		.gmem_size = SZ_2M,
 		.bus_width = 32,
-		.snapshot_size = SZ_2M,
+		.snapshot_size = SZ_4M,
 	},
 	.sqefw_name = "a730_sqe.fw",
 	.gmufw_name = "c500_gmu.bin",

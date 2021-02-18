@@ -193,3 +193,4 @@ qseecom-mod.ko
 smcinvoke.ko
 bcl_soc.ko
 bcl_pmic5.ko
+msm_kgsl.ko

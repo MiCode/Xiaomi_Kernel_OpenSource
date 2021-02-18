@@ -169,6 +169,22 @@ void kgsl_regmap_bulk_write(struct kgsl_regmap *regmap, u32 offset,
 		const void *data, int dwords);
 
 /**
+ * kgsl_regmap_bulk_read - Read an array of values to a I/O region
+ * @regmap: The regmap to read from
+ * @offset: The dword offset to start reading from
+ * @data: The data pointer to read into
+ * @dwords: Number of dwords to read
+ *
+ * Bulk read into @data the I/O region starting at @offset for @dwords.
+ * The read operation must fit fully inside a single region (no crossing the
+ * boundaries). @offset will be indexed against the base
+ * address in the regmap. An offset that falls out of mapped regions will WARN
+ * and skip the operation.
+ */
+void kgsl_regmap_bulk_read(struct kgsl_regmap *regmap, u32 offset,
+		const void *data, int dwords);
+
+/**
  * kgsl_regmap_virt - Return the kernel address for a offset
  * @regmap: The regmap to write to
  * @offset: The dword offset to map to a kernel address
