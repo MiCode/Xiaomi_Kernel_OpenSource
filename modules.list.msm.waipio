@@ -190,5 +190,6 @@ thermal_pause.ko
 cpu_hotplug.ko
 tz_log.ko
 qseecom-mod.ko
+smcinvoke.ko
 bcl_soc.ko
 bcl_pmic5.ko
