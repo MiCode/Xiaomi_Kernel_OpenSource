@@ -1141,6 +1141,7 @@
   jiffies
   jiffies_to_msecs
   jiffies_to_usecs
+  kasan_flag_enabled
   kasprintf
   kernel_bind
   kernel_connect

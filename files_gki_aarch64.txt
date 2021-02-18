@@ -368,6 +368,7 @@ arch/arm64/mm/fault.c
 arch/arm64/mm/flush.c
 arch/arm64/mm/init.c
 arch/arm64/mm/ioremap.c
+arch/arm64/mm/kasan_init.c
 arch/arm64/mm/mmap.c
 arch/arm64/mm/mmu.c
 arch/arm64/mm/mteswap.c
@@ -4758,6 +4759,7 @@ lib/sha1.c
 lib/show_mem.c
 lib/siphash.c
 lib/sort.c
+lib/stackdepot.c
 lib/string.c
 lib/string_helpers.c
 lib/strncpy_from_user.c
@@ -4830,6 +4832,11 @@ mm/init-mm.c
 mm/internal.h
 mm/interval_tree.c
 mm/ioremap.c
+mm/kasan/common.c
+mm/kasan/hw_tags.c
+mm/kasan/kasan.h
+mm/kasan/report.c
+mm/kasan/report_hw_tags.c
 mm/kfence/core.c
 mm/kfence/kfence.h
 mm/kfence/report.c
@@ -4854,8 +4861,10 @@ mm/mremap.c
 mm/msync.c
 mm/oom_kill.c
 mm/page_alloc.c
+mm/page_ext.c
 mm/page_io.c
 mm/page_isolation.c
+mm/page_owner.c
 mm/page_reporting.h
 mm/page_vma_mapped.c
 mm/pagewalk.c

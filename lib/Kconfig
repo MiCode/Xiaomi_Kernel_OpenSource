@@ -651,7 +651,7 @@ config STACKDEPOT
 	bool
 	select STACKTRACE
 
-config STACK_HASH_ORDER_SHIFT
+config STACK_HASH_ORDER
 	int "stack depot hash size (12 => 4KB, 20 => 1024KB)"
 	range 12 20
 	default 20
