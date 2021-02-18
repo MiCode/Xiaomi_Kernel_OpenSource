@@ -19,6 +19,10 @@
 		dma-coherent;
 	};
 
+	msm_audio_ion_cma: qcom,msm-audio-ion-cma {
+		compatible = "qcom,msm-audio-ion-cma";
+	};
+
 	lpass_core_hw_vote: vote_lpass_core_hw {
 		compatible = "qcom,audio-ref-clk";
 		qcom,codec-ext-clk-src = <AUDIO_LPASS_CORE_HW_VOTE>;
