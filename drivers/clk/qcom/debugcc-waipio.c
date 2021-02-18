@@ -486,6 +486,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"ufs_phy_tx_symbol_0_clk",
 	"usb3_phy_wrapper_gcc_usb30_pipe_clk",
 	"video_cc_debug_mux",
+	"mc_cc_debug_mux",
 };
 
 static int gcc_debug_mux_sels[] = {
@@ -615,6 +616,7 @@ static int gcc_debug_mux_sels[] = {
 	0x13E,		/* ufs_phy_tx_symbol_0_clk */
 	0x9D,		/* usb3_phy_wrapper_gcc_usb30_pipe_clk */
 	0x7A,		/* video_cc_debug_mux */
+	0x100,		/* mc_cc_debug_mux or ddrss_gcc_debug_clk */
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
