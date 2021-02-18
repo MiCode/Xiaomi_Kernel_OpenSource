@@ -42,6 +42,13 @@
 #include <dvfsrc-exp.h>
 #endif /* CONFIG_MTK_DVFSRC */
 
+#include <trace/events/power.h>
+#include <linux/tracepoint.h>
+#include <linux/kallsyms.h>
+
+struct delayed_work cm_mgr_work;
+int cm_mgr_cpu_to_dram_opp;
+
 /* FIXME: */
 #define USE_CM_MGR_AT_SSPM
 
@@ -174,7 +181,7 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 
 	if (cm_sspm_ready != 1) {
 		pr_info("#@# %s(%d) sspm not ready(%d) to receive cmd(%d)\n",
-			__func__, __LINE__, cm_sspm_ready, cmd);
+				__func__, __LINE__, cm_sspm_ready, cmd);
 		ret = -1;
 		return ret;
 	}
@@ -207,7 +214,8 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 		cm_mgr_d.cmd = cmd;
 		cm_mgr_d.arg = val;
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_CM,
-		IPI_SEND_POLLING, &cm_mgr_d, CM_MGR_D_LEN, 2000);
+				IPI_SEND_POLLING, &cm_mgr_d, CM_MGR_D_LEN,
+				2000);
 		if (ret != 0) {
 			pr_info("#@# %s(%d) cmd(%d) error, return %d\n",
 					__func__, __LINE__, cmd, ret);
@@ -216,11 +224,11 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 			pr_info("#@# %s(%d) cmd(%d) ack fail %d\n",
 					__func__, __LINE__, cmd, ret);
 		}
-	break;
+		break;
 	default:
 		pr_info("#@# %s(%d) wrong cmd(%d)!!!\n",
-			__func__, __LINE__, cmd);
-	break;
+				__func__, __LINE__, cmd);
+		break;
 	}
 
 	return ret;
@@ -630,8 +638,104 @@ ERROR:
 }
 EXPORT_SYMBOL_GPL(cm_mgr_check_dts_setting);
 
+void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
+{
+	int ret = 0;
+	int dram_opp = 0;
+
+	if (!cm_mgr_cpu_map_dram_enable) {
+		if (cm_mgr_cpu_to_dram_opp != cm_mgr_num_perf) {
+			cm_mgr_cpu_to_dram_opp = cm_mgr_num_perf;
+			ret = schedule_delayed_work(&cm_mgr_work, 1);
+		}
+		return;
+	}
+
+	if ((cpu_opp >= 0) && (cpu_opp < cm_mgr_cpu_opp_size))
+		dram_opp = cm_mgr_cpu_opp_to_dram[cpu_opp];
+
+	if (cm_mgr_cpu_to_dram_opp == dram_opp)
+		return;
+
+	cm_mgr_cpu_to_dram_opp = dram_opp;
+
+	ret = schedule_delayed_work(&cm_mgr_work, 1);
+}
+EXPORT_SYMBOL_GPL(cm_mgr_update_dram_by_cpu_opp);
+
+struct tracepoints_table {
+	const char *name;
+	void *func;
+	struct tracepoint *tp;
+	bool registered;
+};
+
+static void cm_mgr_cpu_frequency_tracer(void *ignore, unsigned int frequency,
+		unsigned int cpu_id)
+{
+	int cpu = 0, cluster = 0;
+	struct cpufreq_policy *policy = NULL;
+	unsigned int idx = 0;
+
+	policy = cpufreq_cpu_get(cpu_id);
+	if (!policy)
+		return;
+	if (cpu_id != cpumask_first(policy->related_cpus))
+		return;
+
+	for_each_possible_cpu(cpu) {
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy)
+			break;
+		cpu = cpumask_first(policy->related_cpus);
+		if (cpu == cpu_id)
+			break;
+		cpu = cpumask_last(policy->related_cpus);
+		cluster++;
+	}
+
+	if (policy) {
+		idx = cpufreq_frequency_table_target(policy, frequency,
+				CPUFREQ_RELATION_L);
+		check_cm_mgr_status(cluster, frequency, idx);
+	}
+}
+
+struct tracepoints_table cm_mgr_tracepoints[] = {
+	{.name = "cpu_frequency", .func = cm_mgr_cpu_frequency_tracer},
+};
+
+#define FOR_EACH_TRACEPOINT(i) \
+	for (i = 0; i < sizeof(cm_mgr_tracepoints) / \
+			sizeof(struct tracepoints_table); i++)
+
+static void lookup_tracepoints(struct tracepoint *tp, void *ignore)
+{
+	int i;
+
+	FOR_EACH_TRACEPOINT(i) {
+		if (strcmp(cm_mgr_tracepoints[i].name, tp->name) == 0)
+			cm_mgr_tracepoints[i].tp = tp;
+	}
+}
+
+void tracepoint_cleanup(void)
+{
+	int i;
+
+	FOR_EACH_TRACEPOINT(i) {
+		if (cm_mgr_tracepoints[i].registered) {
+			tracepoint_probe_unregister(
+					cm_mgr_tracepoints[i].tp,
+					cm_mgr_tracepoints[i].func, NULL);
+			cm_mgr_tracepoints[i].registered = false;
+		}
+	}
+}
+
 int cm_mgr_common_init(void)
 {
+	int i;
 	int ret;
 
 	cm_mgr_kobj = kobject_create_and_add("cm_mgr", kernel_kobj);
@@ -654,7 +758,7 @@ int cm_mgr_common_init(void)
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_V2) && defined(USE_CM_MGR_AT_SSPM)
 	ret = mtk_ipi_register(&sspm_ipidev, IPIS_C_CM, NULL, NULL,
-				(void *) &cm_ipi_ackdata);
+			(void *) &cm_ipi_ackdata);
 	if (ret) {
 		pr_info("[SSPM] IPIS_C_CM ipi_register fail, ret %d\n", ret);
 		cm_sspm_ready = -1;
@@ -663,6 +767,26 @@ int cm_mgr_common_init(void)
 	pr_info("SSPM is ready to service CM IPI\n");
 	cm_sspm_ready = 1;
 #endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
+
+	for_each_kernel_tracepoint(lookup_tracepoints, NULL);
+
+	FOR_EACH_TRACEPOINT(i) {
+		if (cm_mgr_tracepoints[i].tp == NULL) {
+			pr_info("[CM_MGR] Error, %s not found\n",
+					cm_mgr_tracepoints[i].name);
+			tracepoint_cleanup();
+			return -1;
+		}
+	}
+	ret = tracepoint_probe_register(cm_mgr_tracepoints[0].tp,
+			cm_mgr_tracepoints[0].func,  NULL);
+	if (ret) {
+		pr_info("cpu_frequency: Couldn't activate tracepoint\n");
+		goto fail_reg_cpu_frequency_entry;
+	}
+	cm_mgr_tracepoints[0].registered = true;
+
+fail_reg_cpu_frequency_entry:
 
 	cm_mgr_to_sspm_command(IPI_CM_MGR_INIT, 1);
 

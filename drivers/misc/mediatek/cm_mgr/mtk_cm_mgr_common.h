@@ -92,6 +92,9 @@ extern int cm_mgr_cpu_map_emi_opp;
 extern int cm_mgr_cpu_map_skip_cpu_opp;
 extern void cm_mgr_cpu_map_update_table(void);
 
+extern struct delayed_work cm_mgr_work;
+extern int cm_mgr_cpu_to_dram_opp;
+
 /* setting in DTS */
 extern int cm_mgr_use_bcpu_weight;
 extern int cm_mgr_use_cpu_to_dram_map;
@@ -100,6 +103,9 @@ extern int cpu_power_bcpu_weight_max;
 extern int cpu_power_bcpu_weight_min;
 
 /* common api */
+extern void check_cm_mgr_status(unsigned int cluster, unsigned int freq,
+		unsigned int idx);
+extern void cm_mgr_update_dram_by_cpu_opp(int cpu_opp);
 extern void cm_mgr_perf_set_status(int status);
 extern void cm_mgr_perf_set_force_status(int status);
 extern void cm_mgr_enable_fn(int enable);
