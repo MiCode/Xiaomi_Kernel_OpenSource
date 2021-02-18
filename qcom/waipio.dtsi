@@ -307,6 +307,14 @@
 		qcom,dload-mode = <&tcsr 0x13000>;
 	};
 
+	qtee_shmbridge {
+		compatible = "qcom,tee-shared-memory-bridge";
+	};
+
+	qcom_smcinvoke {
+		compatible = "qcom,smcinvoke";
+	};
+
 	android {
 		compatible = "android,firmware";
 		vbmeta {
@@ -1962,6 +1970,22 @@
 		qcom,hyplog-enabled;
 		hyplog-address-offset = <0x410>;
 		hyplog-size-offset = <0x414>;
+	};
+
+	qcom_qseecom: qseecom@c1700000 {
+		compatible = "qcom,qseecom";
+		memory-region = <&qseecom_mem>;
+		qseecom_mem = <&qseecom_mem>;
+		qseecom_ta_mem = <&qseecom_ta_mem>;
+		user_contig_mem = <&user_contig_mem>;
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,no-clock-support;
+		qcom,appsbl-qseecom-support;
+		qcom,commonlib64-loaded-by-uefi;
+		qcom,qsee-reentrancy-support = <2>;
 	};
 
 	smem: qcom,smem {
