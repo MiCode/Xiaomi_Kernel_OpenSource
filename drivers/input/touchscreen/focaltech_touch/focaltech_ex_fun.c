@@ -287,10 +287,9 @@ proc_read_err:
 	return ret;
 }
 
-static const struct file_operations fts_proc_fops = {
-	.owner = THIS_MODULE,
-	.read  = fts_debug_read,
-	.write = fts_debug_write,
+static const struct proc_ops fts_proc_fops = {
+	.proc_read  = fts_debug_read,
+	.proc_write = fts_debug_write,
 };
 #else
 static int fts_debug_write(struct file *filp,
