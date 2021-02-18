@@ -571,6 +571,7 @@ static int adsp_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	rproc->recovery_disabled = true;
 	rproc->auto_boot = desc->auto_boot;
 	rproc_coredump_set_elf_info(rproc, ELFCLASS32, EM_NONE);
 
