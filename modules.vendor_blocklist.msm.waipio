@@ -59,7 +59,6 @@ blocklist vmw_vsock_virtio_transport
 blocklist vmw_vsock_virtio_transport_common
 blocklist vsock_diag
 blocklist vsock
-blocklist qca_cld3_wlan
 blocklist torture
 blocklist locktorture
 blocklist rcutorture
