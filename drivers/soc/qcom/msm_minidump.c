@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "Minidump: " fmt
@@ -16,6 +16,7 @@
 #include <linux/soc/qcom/smem.h>
 #include <soc/qcom/minidump.h>
 #include "minidump_private.h"
+#include "elf.h"
 
 #define MAX_NUM_ENTRIES         (CONFIG_MINIDUMP_MAX_ENTRIES + 1)
 #define MAX_STRTBL_SIZE		(MAX_NUM_ENTRIES * MAX_REGION_NAME_LENGTH)
