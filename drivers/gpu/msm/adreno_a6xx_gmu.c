@@ -1599,7 +1599,7 @@ static void a6xx_gmu_pwrctrl_suspend(struct adreno_device *adreno_dev)
 
 	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
 
-	if (adreno_has_gbif(adreno_dev)) {
+	if (!adreno_is_a630(adreno_dev)) {
 		/* Halt GX traffic */
 		if (a6xx_gmu_gx_is_on(device)) {
 			kgsl_regwrite(device, A6XX_RBBM_GBIF_HALT,

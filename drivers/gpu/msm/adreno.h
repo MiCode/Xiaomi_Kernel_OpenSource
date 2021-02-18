@@ -1481,14 +1481,6 @@ static inline void adreno_perfcntr_active_oob_put(
 	adreno_active_count_put(adreno_dev);
 }
 
-static inline bool adreno_has_gbif(struct adreno_device *adreno_dev)
-{
-	if (!adreno_is_a6xx(adreno_dev) || adreno_is_a630(adreno_dev))
-		return false;
-	else
-		return true;
-}
-
 /**
  * adreno_wait_for_halt_ack - wait for acknowlegement for a bus halt request
  * @ack_reg: register offset to wait for acknowledge

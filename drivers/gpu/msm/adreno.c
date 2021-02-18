@@ -1527,7 +1527,9 @@ void adreno_get_bus_counters(struct adreno_device *adreno_dev)
 		KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 0,
 		&adreno_dev->starved_ram_lo, NULL);
 
-	if (adreno_has_gbif(adreno_dev)) {
+	/* Target has GBIF */
+	if (adreno_is_genc(adreno_dev) ||
+		(adreno_is_a6xx(adreno_dev) && !adreno_is_a630(adreno_dev))) {
 		ret |= adreno_perfcounter_kernel_get(adreno_dev,
 			KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 1,
 			&adreno_dev->starved_ram_lo_ch1, NULL);

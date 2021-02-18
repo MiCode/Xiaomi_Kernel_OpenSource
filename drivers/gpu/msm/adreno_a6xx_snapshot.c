@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -1238,8 +1238,7 @@ static size_t a6xx_snapshot_dbgc_debugbus_block(struct kgsl_device *device,
 	}
 
 	header->id = block->block_id;
-	if ((block->block_id == A6XX_DBGBUS_VBIF) &&
-		adreno_has_gbif(adreno_dev))
+	if ((block->block_id == A6XX_DBGBUS_VBIF) && !adreno_is_a630(adreno_dev))
 		header->id = A6XX_DBGBUS_GBIF_GX;
 	header->count = dwords * 2;
 
@@ -1500,7 +1499,7 @@ static void a6xx_snapshot_debugbus(struct adreno_device *adreno_dev,
 	 * default path if GPU uses GBIF.
 	 * GBIF uses exactly same ID as of VBIF so use it as it is.
 	 */
-	if (adreno_has_gbif(adreno_dev))
+	if (!adreno_is_a630(adreno_dev))
 		kgsl_snapshot_add_section(device,
 			KGSL_SNAPSHOT_SECTION_DEBUGBUS,
 			snapshot, a6xx_snapshot_dbgc_debugbus_block,
@@ -1524,7 +1523,7 @@ static void a6xx_snapshot_debugbus(struct adreno_device *adreno_dev,
 		 * GBIF uses exactly same ID as of VBIF so use
 		 * it as it is.
 		 */
-		if (adreno_has_gbif(adreno_dev))
+		if (!adreno_is_a630(adreno_dev))
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
 				snapshot,
@@ -1779,7 +1778,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		snapshot, a6xx_snapshot_pre_crashdump_regs, NULL);
 
 	/* Dump vbif registers as well which get affected by crash dumper */
-	if (!adreno_has_gbif(adreno_dev))
+	if (adreno_is_a630(adreno_dev))
 		SNAPSHOT_REGISTERS(device, snapshot, a6xx_vbif_registers);
 	else
 		adreno_snapshot_registers(device, snapshot,
