@@ -4,7 +4,7 @@
 
 		coresight-name = "coresight-ssc-etm0";
 		qcom,inst-id = <8>;
-		atid = <35>;
+		atid = <34>;
 
 		out-ports {
 			port {
