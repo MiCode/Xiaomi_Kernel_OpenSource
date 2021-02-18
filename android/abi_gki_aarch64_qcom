@@ -562,6 +562,7 @@
   dma_heap_find
   dma_heap_get_dev
   dma_heap_get_drvdata
+  dma_heap_get_name
   dmam_alloc_attrs
   dma_map_page_attrs
   dma_map_resource
@@ -878,6 +879,7 @@
   free_pages_exact
   free_percpu
   free_percpu_irq
+  freezing_slow_path
   freq_qos_add_request
   freq_qos_remove_request
   freq_qos_update_request
@@ -1794,6 +1796,7 @@
   refcount_dec_and_lock
   refcount_dec_not_one
   refcount_warn_saturate
+  __refrigerator
   regcache_cache_only
   regcache_mark_dirty
   regcache_sync
@@ -2235,6 +2238,7 @@
   sysfs_streq
   sysrq_mask
   system_freezable_wq
+  system_freezing_cnt
   system_highpri_wq
   system_long_wq
   system_power_efficient_wq
