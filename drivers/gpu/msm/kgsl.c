@@ -18,6 +18,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/security.h>
 #include <linux/sort.h>
+#include <soc/qcom/of_common.h>
 
 #include "kgsl_compat.h"
 #include "kgsl_debugfs.h"

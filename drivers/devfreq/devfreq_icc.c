@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2014, 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "devfreq-icc: " fmt
@@ -26,6 +26,7 @@
 #include <linux/platform_device.h>
 #include <linux/interconnect.h>
 #include <soc/qcom/devfreq_icc.h>
+#include <soc/qcom/of_common.h>
 
 /* Has to be ULL to prevent overflow where this macro is used. */
 #define MBYTE (1ULL << 20)
