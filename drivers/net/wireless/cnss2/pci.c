@@ -2646,6 +2646,7 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 	    test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state))
 		goto register_driver;
 
+	pci_priv->driver_ops = driver_ops;
 	/* If Cold Boot Calibration is enabled, it is the 1st step in init
 	 * sequence.CBC is done on file system_ready trigger. Qcacld will be
 	 * loaded from vendor_modprobe.sh at early boot and must be deferred
