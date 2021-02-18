@@ -288,6 +288,12 @@ static int switch_qcom_config_errata(struct pci_dev *pdev)
 	return 0;
 }
 
+static void switch_qcom_pci_remove(struct pci_dev *pdev)
+{
+	pci_clear_master(pdev);
+	pci_disable_device(pdev);
+}
+
 static int switch_qcom_pci_probe(struct pci_dev *pdev,
 			const struct pci_device_id *id)
 {
@@ -297,6 +303,14 @@ static int switch_qcom_pci_probe(struct pci_dev *pdev,
 	if (ret)
 		return ret;
 
+	ret = pci_enable_device(pdev);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable PCIe device\n");
+		return ret;
+	}
+
+	pci_set_master(pdev);
+
 	return 0;
 }
 
@@ -304,6 +318,7 @@ static struct pci_driver switch_qcom_pci_driver = {
 	.name		= "pcie-qcom-switch",
 	.id_table	= switch_qcom_pci_tbl,
 	.probe		= switch_qcom_pci_probe,
+	.remove		= switch_qcom_pci_remove,
 };
 
 static int __init switch_qcom_pci_init(void)
