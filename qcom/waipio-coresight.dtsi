@@ -2246,7 +2246,7 @@
 					<4 32>;
 		qcom,cmb-elem-size = <0 32>,
 				     <1 32>,
-					<3 32>;
+				     <3 64>;
 
 		coresight-name = "coresight-tpda-apss";
 
