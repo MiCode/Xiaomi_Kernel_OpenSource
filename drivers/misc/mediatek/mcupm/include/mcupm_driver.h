@@ -14,6 +14,7 @@
 #define MCUPM_LOGGER_SUPPORT		(1)
 #define MCUPM_COREDUMP_SUPPORT		(1)
 #define MCUPM_ALIVE_THREAD		(0)
+#define EMI_MPU                         (1)
 
 #define MCUPM_MBOX_NO_SUSPEND		4
 
