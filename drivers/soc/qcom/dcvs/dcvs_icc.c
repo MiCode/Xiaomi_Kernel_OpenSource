@@ -44,13 +44,15 @@ static int commit_icc_freq(struct dcvs_path *path, struct dcvs_freq *freqs,
 }
 
 #define ACTIVE_ONLY_TAG	0x3
+#define PERF_MODE_TAG	0x8
 int setup_icc_sp_device(struct device *dev, struct dcvs_hw *hw,
 					struct dcvs_path *path)
 {
 	struct icc_sp_data *sp_data = NULL;
 	int ret = 0;
 
-	if (hw->type != DCVS_DDR && hw->type != DCVS_LLCC)
+	if (hw->type != DCVS_DDR && hw->type != DCVS_LLCC
+					&& hw->type != DCVS_DDRQOS)
 		return -EINVAL;
 
 	sp_data = devm_kzalloc(dev, sizeof(*sp_data), GFP_KERNEL);
@@ -65,6 +67,8 @@ int setup_icc_sp_device(struct device *dev, struct dcvs_hw *hw,
 	}
 	if (hw->type == DCVS_DDR || hw->type == DCVS_LLCC)
 		icc_set_tag(sp_data->icc_path, ACTIVE_ONLY_TAG);
+	else if (hw->type == DCVS_DDRQOS)
+		icc_set_tag(sp_data->icc_path, ACTIVE_ONLY_TAG | PERF_MODE_TAG);
 	path->data = sp_data;
 	path->commit_dcvs_freqs = commit_icc_freq;
 
