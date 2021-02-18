@@ -665,7 +665,7 @@ static bool geni_se_check_bus_bw(struct geni_se_device *geni_se_dev)
 	bool bus_bw_update = false;
 	/* Convert agg ab into bytes per second */
 	unsigned long new_ab_in_hz = DEFAULT_BUS_WIDTH *
-					((2*geni_se_dev->cur_ab)*10000);
+					KHz(geni_se_dev->cur_ab);
 
 	new_bus_bw = max(geni_se_dev->cur_ib, new_ab_in_hz) /
 							DEFAULT_BUS_WIDTH;
