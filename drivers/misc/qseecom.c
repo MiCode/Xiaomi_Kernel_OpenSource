@@ -2,7 +2,7 @@
 /*
  * QTI Secure Execution Environment Communicator (QSEECOM) driver
  *
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "QSEECOM: %s: " fmt, __func__
@@ -9524,70 +9524,57 @@ static int qseecom_create_kthreads(void)
 	return 0;
 }
 
-static int qseecom_register_heap_shmbridge(uint32_t heapid, uint64_t *handle)
+static int qseecom_register_heap_shmbridge(struct platform_device *pdev,
+					   char *heap_mem_region_name,
+					   uint64_t *handle)
 {
 	phys_addr_t heap_pa = 0;
 	size_t heap_size = 0;
-	struct device *ion_dev = NULL;
 	struct device_node *node = NULL;
 	struct reserved_mem *rmem = NULL;
 	uint32_t ns_vmids[] = {VMID_HLOS};
 	uint32_t ns_vm_perms[] = {PERM_READ | PERM_WRITE};
-	int ret = 0;
 
-	ion_dev = msm_ion_heap_device_by_id(heapid);
-	ret = PTR_ERR_OR_ZERO(ion_dev);
-	if (ret) {
-		pr_err("Failed to find node for heap %d, ret = %d\n",
-			heapid, ret);
-		return ret;
-	}
-
-	node = of_parse_phandle(ion_dev->of_node, "memory-region", 0);
+	node = of_parse_phandle(pdev->dev.of_node, heap_mem_region_name, 0);
 	if (!node) {
-		pr_err("unable to parse memory-region of heap %d\n", heapid);
+		pr_err("unable to parse memory-region of heap %d\n", heap_mem_region_name);
 		return -EINVAL;
 	}
 	rmem = of_reserved_mem_lookup(node);
 	if (!rmem) {
-		pr_err("unable to acquire memory-region of heap %d\n", heapid);
+		pr_err("unable to acquire memory-region of heap %d\n", heap_mem_region_name);
 		return -EINVAL;
 	}
-	ret = of_reserved_mem_device_init_by_idx(ion_dev, ion_dev->of_node, 0);
-	of_node_put(node);
-	if (ret) {
-		pr_err("Failed to initialize reserved mem, ret %d\n", ret);
-		return ret;
-	}
+
 	heap_pa = rmem->base;
 	heap_size = (size_t)rmem->size;
 
-	pr_debug("get heap %d info: shmbridge created\n", heapid);
+	pr_debug("get heap %d info: shmbridge created\n", heap_mem_region_name);
 	return qtee_shmbridge_register(heap_pa,
 			heap_size, ns_vmids, ns_vm_perms, 1,
 			PERM_READ | PERM_WRITE, handle);
 }
 
-static int qseecom_register_shmbridge(void)
+static int qseecom_register_shmbridge(struct platform_device *pdev)
 {
 	int ret = 0;
 
 	if (!qtee_shmbridge_is_enabled())
 		return 0;
 
-	ret = qseecom_register_heap_shmbridge(ION_QSECOM_TA_HEAP_ID,
+	ret = qseecom_register_heap_shmbridge(pdev, "qseecom_ta_mem",
 					&qseecom.ta_bridge_handle);
 	if (ret)
 		return ret;
 
-	ret = qseecom_register_heap_shmbridge(ION_QSECOM_HEAP_ID,
+	ret = qseecom_register_heap_shmbridge(pdev, "qseecom_mem",
 					&qseecom.qseecom_bridge_handle);
 	if (ret) {
 		qtee_shmbridge_deregister(qseecom.ta_bridge_handle);
 		return ret;
 	}
 
-	ret = qseecom_register_heap_shmbridge(ION_USER_CONTIG_HEAP_ID,
+	ret = qseecom_register_heap_shmbridge(pdev, "user_contig_mem",
 					&qseecom.user_contig_bridge_handle);
 	if (ret) {
 		qtee_shmbridge_deregister(qseecom.qseecom_bridge_handle);
@@ -9609,7 +9596,7 @@ static int qseecom_probe(struct platform_device *pdev)
 {
 	int rc;
 
-	rc = qseecom_register_shmbridge();
+	rc = qseecom_register_shmbridge(pdev);
 	if (rc)
 		return rc;
 
