@@ -15,6 +15,7 @@
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
+#include <linux/soc/mediatek/infracfg.h>
 
 #include "scpsys.h"
 #include "mtk-scpsys.h"
