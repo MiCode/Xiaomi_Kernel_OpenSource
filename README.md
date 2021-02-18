@@ -7,8 +7,9 @@
  Add the following code before the last line of this file
 
     ```c
-        #define USB_VENDER_ID_TEMP_HHG_AKSY  0x1234
-        #define USB_VENDER_ID_QUALCOMM 	0x1000
+		#define USB_VENDER_ID_QUALCOMM  0x0a12
+		#define USB_VENDER_ID_TEMP_HHG_AKSY 0x1234
+		#define USB_PRODUCT_ID_AKSYS_HHG  0x1000
     ```
 
  3. Merge \${this_project}/drivers/hid/Kconfig into \${your_kernel_root}/drivers/hid/Kconfig :
