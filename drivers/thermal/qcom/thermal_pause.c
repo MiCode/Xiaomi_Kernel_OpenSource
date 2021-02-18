@@ -2,6 +2,9 @@
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
  */
+
+#define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
+
 #include <linux/module.h>
 #include <linux/thermal.h>
 #include <linux/err.h>
@@ -21,18 +24,20 @@ enum thermal_pause_levels {
 
 struct thermal_pause_cdev {
 	struct list_head		node;
-	unsigned long			cpu_mask;
+	cpumask_t			cpu_mask;
 	bool				thermal_pause_level;
 	struct thermal_cooling_device	*cdev;
 	struct device_node		*np;
+	char				cdev_name[THERMAL_NAME_LENGTH];
 	struct work_struct		reg_work;
 };
 
 static DEFINE_MUTEX(cpus_pause_lock);
 static LIST_HEAD(thermal_pause_cdev_list);
-static atomic_t in_suspend;
 static struct cpumask cpus_paused_by_thermal;
 static struct cpumask cpus_in_max_cooling_level;
+static struct cpumask cpus_pending_online;
+static enum cpuhp_state cpu_hp_online;
 
 static BLOCKING_NOTIFIER_HEAD(multi_max_cooling_level_notifer);
 
@@ -51,132 +56,39 @@ const struct cpumask *cpu_cooling_multi_get_max_level_cpumask(void)
 	return &cpus_in_max_cooling_level;
 }
 
-static int thermal_pause_pm_notify_suspend(void)
-{
-	struct thermal_pause_cdev *thermal_pause_cdev;
-	unsigned int cpu;
-	cpumask_var_t cpus_paused;
-
-	if (!zalloc_cpumask_var(&cpus_paused, GFP_KERNEL))
-		return -ENOMEM;
-
-	mutex_lock(&cpus_pause_lock);
-
-	list_for_each_entry(thermal_pause_cdev, &thermal_pause_cdev_list,
-			    node) {
-
-		if (thermal_pause_cdev->thermal_pause_level) {
-
-			for_each_cpu(cpu, to_cpumask(
-				     &thermal_pause_cdev->cpu_mask)) {
-
-				if (cpu_online(cpu) &&
-				    !cpumask_test_and_set_cpu(cpu,
-				      &cpus_paused_by_thermal)) {
-
-					mutex_unlock(&cpus_pause_lock);
-
-					/* need a variable mask, pause_cpus can write */
-					cpumask_set_cpu(cpu, cpus_paused);
-
-					if (pause_cpus(cpus_paused)) {
-						cpumask_clear_cpu(cpu,
-						  &cpus_paused_by_thermal);
-					}
-
-					cpumask_clear(cpus_paused);
-
-					mutex_lock(&cpus_pause_lock);
-				}
-			}
-		}
-	}
-
-	mutex_unlock(&cpus_pause_lock);
-	atomic_set(&in_suspend, 0);
-	free_cpumask_var(cpus_paused);
-
-	return 0;
-}
-
-static int thermal_pause_pm_notify(struct notifier_block *nb,
-				unsigned long mode, void *_unused)
-{
-	int err = 0;
-
-	switch (mode) {
-	case PM_HIBERNATION_PREPARE:
-	case PM_RESTORE_PREPARE:
-	case PM_SUSPEND_PREPARE:
-		atomic_set(&in_suspend, 1);
-		break;
-	case PM_POST_HIBERNATION:
-	case PM_POST_RESTORE:
-	case PM_POST_SUSPEND:
-		err = thermal_pause_pm_notify_suspend();
-		break;
-	default:
-		break;
-	}
-
-	return err;
-}
-
-static struct notifier_block thermal_pause_pm_nb = {
-	.notifier_call = thermal_pause_pm_notify,
-};
-
-static int thermal_pause_hp_offline(unsigned int offline_cpu)
-{
-	struct thermal_pause_cdev *thermal_pause_cdev;
-
-	mutex_lock(&cpus_pause_lock);
-
-	list_for_each_entry(thermal_pause_cdev, &thermal_pause_cdev_list, node) {
-		if (!thermal_pause_cdev->cdev)
-			break;
-
-		if (cpumask_test_cpu(offline_cpu,
-				     to_cpumask(&thermal_pause_cdev->cpu_mask)))
-
-			cpumask_clear_cpu(offline_cpu,
-					  &cpus_paused_by_thermal);
-		break;
-	}
-
-	mutex_unlock(&cpus_pause_lock);
-
-	return 0;
-}
-
 static int thermal_pause_hp_online(unsigned int online_cpu)
 {
 	struct thermal_pause_cdev *thermal_pause_cdev;
 	int ret = 0;
 
-	if (atomic_read(&in_suspend))
-		return 0;
+	pr_debug("online entry CPU:%d. mask:%*pbl pend:%*pbl\n", online_cpu,
+			cpumask_pr_args(&cpus_paused_by_thermal),
+			cpumask_pr_args(&cpus_pending_online));
 
 	mutex_lock(&cpus_pause_lock);
 
+	if (cpumask_test_cpu(online_cpu, &cpus_paused_by_thermal)) {
+		ret = NOTIFY_BAD;
+		cpumask_set_cpu(online_cpu, &cpus_pending_online);
+	}
+
 	list_for_each_entry(thermal_pause_cdev, &thermal_pause_cdev_list, node) {
-		if (thermal_pause_cdev->cdev) {
-			if (thermal_pause_cdev->thermal_pause_level)
-				ret = NOTIFY_BAD;
-		} else {
+		if (cpumask_test_cpu(online_cpu, &thermal_pause_cdev->cpu_mask)
+			&& !thermal_pause_cdev->cdev)
 			queue_work(system_highpri_wq,
 				   &thermal_pause_cdev->reg_work);
-		}
-		break;
 	}
 
 	mutex_unlock(&cpus_pause_lock);
+	pr_debug("online exit CPU:%d. mask:%*pbl pend:%*pbl\n", online_cpu,
+			cpumask_pr_args(&cpus_paused_by_thermal),
+			cpumask_pr_args(&cpus_pending_online));
 
 	return ret;
 }
 
 /**
- * thermal_pause_cpus_locked - function to pause a group of cpus at
+ * thermal_pause_cpus_pause - function to pause a group of cpus at
  *                         the specified level.
  *
  * @thermal_pause_cdev: the pause device
@@ -187,31 +99,31 @@ static int thermal_pause_hp_online(unsigned int online_cpu)
  *
  * Returns 0 if CPUs were paused, error otherwise
  */
-static int thermal_pause_cpus_locked(struct thermal_pause_cdev *thermal_pause_cdev)
+static int thermal_pause_cpus_pause(struct thermal_pause_cdev *thermal_pause_cdev)
 {
 	int cpu = 0;
 	int ret = -ENODEV;
-	cpumask_var_t cpus_paused;
+	cpumask_t cpus_to_pause;
 
-	if (!zalloc_cpumask_var(&cpus_paused, GFP_KERNEL))
-		return -ENOMEM;
+	cpumask_clear(&cpus_to_pause);
+	cpumask_andnot(&cpus_to_pause, &thermal_pause_cdev->cpu_mask,
+			&cpus_paused_by_thermal);
 
-	cpumask_andnot(cpus_paused, to_cpumask(&thermal_pause_cdev->cpu_mask),
-		       &cpus_paused_by_thermal);
+	if (!cpumask_empty(&cpus_to_pause)) {
 
-	if (cpumask_any(cpus_paused) < nr_cpu_ids) {
-
+		cpumask_or(&cpus_paused_by_thermal,
+			   &cpus_paused_by_thermal, &cpus_to_pause);
+		pr_debug("Active req:%*pbl pause:%*pbl mask:%*pbl\n",
+			cpumask_pr_args(&cpus_paused_by_thermal),
+			cpumask_pr_args(&cpus_to_pause),
+			cpumask_pr_args(&thermal_pause_cdev->cpu_mask));
 		mutex_unlock(&cpus_pause_lock);
 
-		if (pause_cpus(cpus_paused) == 0) {
-			cpumask_or(&cpus_paused_by_thermal,
-				   &cpus_paused_by_thermal, cpus_paused);
-			ret = 0;
-		}
+		ret = pause_cpus(&cpus_to_pause);
 
 		mutex_lock(&cpus_pause_lock);
 
-		for_each_cpu(cpu, cpus_paused)
+		for_each_cpu(cpu, &cpus_to_pause)
 			blocking_notifier_call_chain(
 				&multi_max_cooling_level_notifer,
 				1, (void *)(long)cpu);
@@ -219,13 +131,11 @@ static int thermal_pause_cpus_locked(struct thermal_pause_cdev *thermal_pause_cd
 
 	cpumask_copy(&cpus_in_max_cooling_level, &cpus_paused_by_thermal);
 
-	free_cpumask_var(cpus_paused);
-
 	return ret;
 }
 
 /**
- * cpu_unpause_cpus_locked - function to unpause a
+ * thermal_pause_cpus_unpause - function to unpause a
  *       group of cpus in the mask for this cdev
  *
  * @thermal_pause_cdev: the pause device
@@ -234,36 +144,57 @@ static int thermal_pause_cpus_locked(struct thermal_pause_cdev *thermal_pause_cd
  *
  * Returns 0 if CPUs were unpaused,
  */
-static int cpu_unpause_cpus_locked(struct thermal_pause_cdev *thermal_pause_cdev)
+static int thermal_pause_cpus_unpause(struct thermal_pause_cdev *thermal_pause_cdev)
 {
 	int cpu = 0;
 	int ret = -ENODEV;
+	struct thermal_pause_cdev *cdev;
+	cpumask_t cpus_offlined, new_cpu_pause, cpus_to_unpause;
 
-	cpumask_var_t cpus_unpaused;
+	cpumask_clear(&new_cpu_pause);
+	list_for_each_entry(cdev, &thermal_pause_cdev_list, node) {
+		if (!cdev->thermal_pause_level)
+			continue;
+		cpumask_or(&new_cpu_pause, &new_cpu_pause,
+				&cdev->cpu_mask);
+	}
+	cpumask_andnot(&cpus_to_unpause, &cpus_paused_by_thermal,
+		    &new_cpu_pause);
 
-	if (!zalloc_cpumask_var(&cpus_unpaused, GFP_KERNEL))
-		return -ENOMEM;
+	cpumask_and(&cpus_offlined, &cpus_pending_online,
+			&cpus_to_unpause);
 
-	cpumask_and(cpus_unpaused, &cpus_paused_by_thermal,
-		    to_cpumask(&thermal_pause_cdev->cpu_mask));
+	pr_debug("Old req:%*pbl New req:%*pbl Unpause:%*pbl Online:%*pbl\n",
+			cpumask_pr_args(&cpus_paused_by_thermal),
+			cpumask_pr_args(&new_cpu_pause),
+			cpumask_pr_args(&cpus_to_unpause),
+			cpumask_pr_args(&cpus_offlined));
 
-	if (cpumask_any(cpus_unpaused) < nr_cpu_ids) {
+	cpumask_copy(&cpus_in_max_cooling_level, &new_cpu_pause);
+	cpumask_copy(&cpus_paused_by_thermal, &new_cpu_pause);
+
+	if (!cpumask_empty(&cpus_to_unpause)) {
 		mutex_unlock(&cpus_pause_lock);
-		ret = resume_cpus(cpus_unpaused);
+		ret = resume_cpus(&cpus_to_unpause);
+		if (ret)
+			pr_err("Error resuming CPU:%*pbl. err:%d\n",
+					cpumask_pr_args(&cpus_to_unpause), ret);
 		mutex_lock(&cpus_pause_lock);
 	}
 
-	for_each_cpu(cpu, &cpus_paused_by_thermal)
+	for_each_cpu(cpu, &cpus_offlined) {
+		cpumask_clear_cpu(cpu, &cpus_pending_online);
+		mutex_unlock(&cpus_pause_lock);
+		ret = add_cpu(cpu);
+		if (ret)
+			pr_err("Error Adding CPU:%d. err:%d\n", cpu, ret);
+		mutex_lock(&cpus_pause_lock);
+	}
+
+	for_each_cpu(cpu, &cpus_to_unpause)
 		blocking_notifier_call_chain(
 			&multi_max_cooling_level_notifer,
 			0, (void *)(long)cpu);
-
-	cpumask_andnot(&cpus_paused_by_thermal, &cpus_paused_by_thermal,
-		       cpus_unpaused);
-
-	cpumask_clear(&cpus_in_max_cooling_level);
-
-	free_cpumask_var(cpus_unpaused);
 
 	return ret;
 }
@@ -285,7 +216,7 @@ static int thermal_pause_set_cur_state(struct thermal_cooling_device *cdev,
 	struct thermal_pause_cdev *thermal_pause_cdev = cdev->devdata;
 	int ret = 0;
 
-	if (level > MAX_THERMAL_PAUSE_LEVEL - 1)
+	if (level >= MAX_THERMAL_PAUSE_LEVEL)
 		return -EINVAL;
 
 	if (thermal_pause_cdev->thermal_pause_level == level)
@@ -295,10 +226,10 @@ static int thermal_pause_set_cur_state(struct thermal_cooling_device *cdev,
 
 	thermal_pause_cdev->thermal_pause_level = level;
 
-	if (level > THERMAL_NO_CPU_PAUSE && level <= (MAX_THERMAL_PAUSE_LEVEL - 1))
-		ret = thermal_pause_cpus_locked(thermal_pause_cdev);
+	if (level == THERMAL_GROUP_CPU_PAUSE)
+		ret = thermal_pause_cpus_pause(thermal_pause_cdev);
 	else
-		ret = cpu_unpause_cpus_locked(thermal_pause_cdev);
+		ret = thermal_pause_cpus_unpause(thermal_pause_cdev);
 
 	mutex_unlock(&cpus_pause_lock);
 
@@ -353,44 +284,68 @@ static void thermal_pause_register_cdev(struct work_struct *work)
 {
 	struct thermal_pause_cdev *thermal_pause_cdev =
 			container_of(work, struct thermal_pause_cdev, reg_work);
-	char cdev_name[THERMAL_NAME_LENGTH] = "";
 	int ret = 0;
+	cpumask_t cpus_online;
 
-	snprintf(cdev_name, THERMAL_NAME_LENGTH, "thermal-pause%X",
-			thermal_pause_cdev->cpu_mask);
+	cpumask_and(&cpus_online,
+			&thermal_pause_cdev->cpu_mask,
+			cpu_online_mask);
+	if (!cpumask_equal(&thermal_pause_cdev->cpu_mask, &cpus_online))
+		return;
 
 	thermal_pause_cdev->cdev = thermal_of_cooling_device_register(
 					thermal_pause_cdev->np,
-					cdev_name,
+					thermal_pause_cdev->cdev_name,
 					thermal_pause_cdev,
 					&thermal_pause_cooling_ops);
 
 	if (IS_ERR(thermal_pause_cdev->cdev)) {
 		ret = PTR_ERR(thermal_pause_cdev->cdev);
 		pr_err("Cooling register failed for %s, ret:%d\n",
-			cdev_name, ret);
+			thermal_pause_cdev->cdev_name, ret);
 		thermal_pause_cdev->cdev = NULL;
 		return;
 	}
 
-	pr_debug("Cooling device [%s] registered.\n", cdev_name);
+	pr_debug("Cooling device [%s] registered.\n",
+			thermal_pause_cdev->cdev_name);
 }
 
 static int thermal_pause_probe(struct platform_device *pdev)
 {
-	int ret = 0;
-	struct device_node *subsys_np = NULL;
+	int ret = 0, cpu = 0;
+	struct device_node *subsys_np = NULL, *cpu_phandle = NULL;
+	struct device *cpu_dev;
 	struct thermal_pause_cdev *thermal_pause_cdev = NULL;
 	struct device_node *np = pdev->dev.of_node;
-	u32 cpu_mask;
-	char cdev_name[THERMAL_NAME_LENGTH] = "";
+	struct of_phandle_iterator it;
+	cpumask_t cpu_mask;
+	unsigned long mask = 0;
 
 	INIT_LIST_HEAD(&thermal_pause_cdev_list);
+	cpumask_clear(&cpus_in_max_cooling_level);
+	cpumask_clear(&cpus_paused_by_thermal);
+	cpumask_clear(&cpus_pending_online);
 
 	for_each_available_child_of_node(np, subsys_np) {
 
-		/* get the mask of cpus for this cdev */
-		if (of_property_read_u32(subsys_np, "qcom,mask", &cpu_mask))
+		cpumask_clear(&cpu_mask);
+		mask = 0;
+		of_phandle_iterator_init(&it, subsys_np, "qcom,cpus", NULL, 0);
+		while (of_phandle_iterator_next(&it) == 0) {
+			cpu_phandle = it.node;
+			for_each_possible_cpu(cpu) {
+				cpu_dev = get_cpu_device(cpu);
+				if (cpu_dev && cpu_dev->of_node
+						== cpu_phandle) {
+					cpumask_set_cpu(cpu, &cpu_mask);
+					mask = mask | BIT(cpu);
+					break;
+				}
+			}
+		}
+
+		if (cpumask_empty(&cpu_mask))
 			continue;
 
 		thermal_pause_cdev = devm_kzalloc(&pdev->dev,
@@ -401,32 +356,68 @@ static int thermal_pause_probe(struct platform_device *pdev)
 			return -ENOMEM;
 		}
 
+		snprintf(thermal_pause_cdev->cdev_name, THERMAL_NAME_LENGTH,
+				"thermal-pause-%X", mask);
+
 		thermal_pause_cdev->thermal_pause_level = false;
 		thermal_pause_cdev->cdev = NULL;
 		thermal_pause_cdev->np = subsys_np;
-		thermal_pause_cdev->cpu_mask = cpu_mask;
-
-		snprintf(cdev_name, THERMAL_NAME_LENGTH, "thermal-pause%X",
-			 thermal_pause_cdev->cpu_mask);
-
-		thermal_pause_cdev->cdev = thermal_of_cooling_device_register(
-			thermal_pause_cdev->np,
-			cdev_name,
-			thermal_pause_cdev,
-			&thermal_pause_cooling_ops);
+		cpumask_copy(&thermal_pause_cdev->cpu_mask, &cpu_mask);
 
 		INIT_WORK(&thermal_pause_cdev->reg_work,
 				thermal_pause_register_cdev);
 		list_add(&thermal_pause_cdev->node, &thermal_pause_cdev_list);
 	}
 
-	atomic_set(&in_suspend, 0);
 	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "thermal-pause/cdev:online",
-				thermal_pause_hp_online, thermal_pause_hp_offline);
+				thermal_pause_hp_online, NULL);
 	if (ret < 0)
 		return ret;
-	register_pm_notifier(&thermal_pause_pm_nb);
-	cpumask_clear(&cpus_in_max_cooling_level);
+	cpu_hp_online = ret;
+
+	return 0;
+}
+
+static int thermal_pause_remove(struct platform_device *pdev)
+{
+	struct thermal_pause_cdev *thermal_pause_cdev = NULL, *next = NULL;
+	int ret = 0, cpu = 0;
+
+	if (cpu_hp_online) {
+		cpuhp_remove_state_nocalls(cpu_hp_online);
+		cpu_hp_online = 0;
+	}
+
+	mutex_lock(&cpus_pause_lock);
+	list_for_each_entry_safe(thermal_pause_cdev, next,
+			&thermal_pause_cdev_list, node) {
+		if (thermal_pause_cdev->cdev)
+			thermal_cooling_device_unregister(
+					thermal_pause_cdev->cdev);
+		list_del(&thermal_pause_cdev->node);
+	}
+
+	cpumask_andnot(&cpus_paused_by_thermal, &cpus_paused_by_thermal,
+			&cpus_pending_online);
+
+	if (!cpumask_empty(&cpus_paused_by_thermal)) {
+		mutex_unlock(&cpus_pause_lock);
+		ret = resume_cpus(&cpus_paused_by_thermal);
+		if (ret)
+			pr_err("Error resuming CPU:%*pbl. err:%d\n",
+				cpumask_pr_args(&cpus_paused_by_thermal), ret);
+		mutex_lock(&cpus_pause_lock);
+	}
+
+	for_each_cpu(cpu, &cpus_pending_online) {
+		mutex_unlock(&cpus_pause_lock);
+		ret = add_cpu(cpu);
+		if (ret)
+			pr_err("Error Adding CPU:%d. err:%d\n", cpu, ret);
+		mutex_lock(&cpus_pause_lock);
+	}
+
+	mutex_unlock(&cpus_pause_lock);
 
 	return 0;
 }
@@ -438,6 +429,7 @@ static const struct of_device_id thermal_pause_match[] = {
 
 static struct platform_driver thermal_pause_driver = {
 	.probe		= thermal_pause_probe,
+	.remove         = thermal_pause_remove,
 	.driver		= {
 		.name		= KBUILD_MODNAME,
 		.of_match_table = thermal_pause_match,
