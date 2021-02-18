@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "waipio-vm.dtsi"
+#include "waipio-vm-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Waipio SVM RUMI";
+	compatible = "qcom,waipio-rumi", "qcom,waipio", "qcom,rumi";
+	qcom,board-id = <15 0>;
+};

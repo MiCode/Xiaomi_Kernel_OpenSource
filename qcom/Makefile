@@ -198,7 +198,8 @@ ifeq ($(CONFIG_ARCH_WAIPIO), y)
 ifeq ($(CONFIG_ARCH_QTI_VM), y)
 dtb-$(CONFIG_ARCH_QTI_VM) += waipio-vm-mtp.dtb \
 	waipio-vm-cdp.dtb \
-	waipio-vm-qrd.dtb
+	waipio-vm-qrd.dtb \
+        waipio-vm-rumi.dtb
 endif
 endif
 
