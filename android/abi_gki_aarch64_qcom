@@ -1563,6 +1563,7 @@
   phy_power_off
   phy_power_on
   phy_set_mode_ext
+  pick_highest_pushable_task
   pid_nr_ns
   pid_task
   pinconf_generic_dt_node_to_map
@@ -2246,6 +2247,7 @@
   __tracepoint_android_rvh_preempt_disable
   __tracepoint_android_rvh_preempt_enable
   __tracepoint_android_rvh_resume_cpus
+  __tracepoint_android_rvh_sched_balance_rt
   __tracepoint_android_rvh_sched_cpu_dying
   __tracepoint_android_rvh_sched_cpu_starting
   __tracepoint_android_rvh_sched_exec
