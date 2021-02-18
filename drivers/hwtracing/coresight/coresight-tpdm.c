@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -118,7 +118,7 @@ do {									\
 #define TPDM_DSB_MAX_EDCR	16
 #define TPDM_DSB_MAX_LINES	256
 #define TPDM_CMB_PATT_CMP	2
-#define TPDM_CMB_MAX_MSR	128
+#define TPDM_CMB_MAX_MSR	32
 #define TPDM_MCMB_MAX_LANES	8
 
 /* DSB programming modes */
