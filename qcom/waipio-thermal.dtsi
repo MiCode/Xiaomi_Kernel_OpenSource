@@ -21,6 +21,50 @@
 		#thermal-sensor-cells = <1>;
 	};
 
+	qcom,cpu-pause {
+		compatible = "qcom,thermal-pause";
+
+		cpu0_pause: cpu0-pause {
+			qcom,cpus = <&CPU0>;
+			#cooling-cells = <2>;
+		};
+
+		cpu1_pause: cpu1-pause {
+			qcom,cpus = <&CPU1>;
+			#cooling-cells = <2>;
+		};
+
+		cpu2_pause: cpu2-pause {
+			qcom,cpus = <&CPU2>;
+			#cooling-cells = <2>;
+		};
+
+		cpu3_pause: cpu3-pause {
+			qcom,cpus = <&CPU3>;
+			#cooling-cells = <2>;
+		};
+
+		cpu4_pause: cpu4-pause {
+			qcom,cpus = <&CPU4>;
+			#cooling-cells = <2>;
+		};
+
+		cpu5_pause: cpu5-pause {
+			qcom,cpus = <&CPU5>;
+			#cooling-cells = <2>;
+		};
+
+		cpu6_pause: cpu6-pause {
+			qcom,cpus = <&CPU6>;
+			#cooling-cells = <2>;
+		};
+
+		cpu7_pause: cpu7-pause {
+			qcom,cpus = <&CPU7>;
+			#cooling-cells = <2>;
+		};
+	};
+
 	qcom,cpu-hotplug {
 		compatible = "qcom,cpu-hotplug";
 
