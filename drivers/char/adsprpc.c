@@ -6359,14 +6359,14 @@ static int fastrpc_setup_service_locator(struct device *dev,
 			goto bail;
 		/* Register the service locator's callback function */
 		handle = pdr_handle_alloc(fastrpc_pdr_cb, &me->channel[cid].spd[session]);
-		if (!handle) {
-			err = -ENOMEM;
+		if (IS_ERR_OR_NULL(handle)) {
+			err = PTR_ERR(handle);
 			goto bail;
 		}
 		me->channel[cid].spd[session].pdrhandle = handle;
 		service = pdr_add_lookup(handle, service_name, service_path);
-		if (!service) {
-			err = -EPERM;
+		if (IS_ERR_OR_NULL(service)) {
+			err = PTR_ERR(service);
 			goto bail;
 		}
 		pr_info("adsprpc: %s: pdr_add_lookup enabled for %s (%s, %s), DTSI (%s)\n",
@@ -6428,15 +6428,23 @@ static int fastrpc_probe(struct platform_device *pdev)
 	me->legacy_remote_heap = of_property_read_bool(dev->of_node,
 					"qcom,fastrpc-legacy-remote-heap");
 
-	fastrpc_setup_service_locator(dev, AUDIO_PDR_ADSP_DTSI_PROPERTY_NAME,
+	err = fastrpc_setup_service_locator(dev, AUDIO_PDR_ADSP_DTSI_PROPERTY_NAME,
 		AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME,
 		AUDIO_PDR_ADSP_SERVICE_NAME, ADSP_AUDIOPD_NAME);
-	fastrpc_setup_service_locator(dev, SENSORS_PDR_ADSP_DTSI_PROPERTY_NAME,
+	if (err)
+		goto bail;
+
+	err = fastrpc_setup_service_locator(dev, SENSORS_PDR_ADSP_DTSI_PROPERTY_NAME,
 		SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME,
 		SENSORS_PDR_ADSP_SERVICE_NAME, ADSP_SENSORPD_NAME);
-	fastrpc_setup_service_locator(dev, SENSORS_PDR_SLPI_DTSI_PROPERTY_NAME,
+	if (err)
+		goto bail;
+
+	err = fastrpc_setup_service_locator(dev, SENSORS_PDR_SLPI_DTSI_PROPERTY_NAME,
 		SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME,
 		SENSORS_PDR_SLPI_SERVICE_NAME, SLPI_SENSORPD_NAME);
+	if (err)
+		goto bail;
 
 	err = of_platform_populate(pdev->dev.of_node,
 					  fastrpc_match_table,
