@@ -1313,7 +1313,7 @@
 			compatible = "qcom,battery-charger";
 		};
 
-		qcom,ucsi {
+		ucsi: qcom,ucsi {
 			compatible = "qcom,ucsi-glink";
 		};
 
