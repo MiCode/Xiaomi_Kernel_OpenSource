@@ -3211,8 +3211,8 @@
 #include "waipio-audio.dtsi"
 #include "waipio-pcie.dtsi"
 #include "msm-rdbg.dtsi"
-#include "waipio-thermal.dtsi"
 #include "waipio-gpu.dtsi"
+#include "waipio-thermal.dtsi"
 
 &pcie0_rp {
 	#address-cells = <5>;

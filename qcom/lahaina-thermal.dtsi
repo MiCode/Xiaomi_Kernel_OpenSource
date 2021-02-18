@@ -41,63 +41,64 @@
 &cpufreq_hw {
 	qcom,thermal-pause {
 		compatible = "qcom,thermal-pause";
-		thermal_pause01: thermal-pause01 {
-			qcom,mask = <0x01>;
+		thermal_pause01: thermal-pause-0 {
+			qcom,cpus = <&CPU0>;
 			#cooling-cells = <2>;
 		};
 
-		thermal_pause02: thermal-pause02 {
-			qcom,mask = <0x02>;
+		thermal_pause02: thermal-pause-1 {
+			qcom,cpus = <&CPU1>;
 			#cooling-cells = <2>;
 		};
 
-		thermal_pause04: thermal-pause04 {
-			qcom,mask = <0x04>;
+		thermal_pause04: thermal-pause-2 {
+			qcom,cpus = <&CPU2>;
 			#cooling-cells = <2>;
 		};
 
-		thermal_pause08: thermal-pause08 {
-			qcom,mask = <0x08>;
+		thermal_pause08: thermal-pause-3 {
+			qcom,cpus = <&CPU3>;
 			#cooling-cells = <2>;
 		};
 
-		thermal_pause10: thermal-pause10 {
-			qcom,mask = <0x10>;
+		thermal_pause10: thermal-pause-4 {
+			qcom,cpus = <&CPU4>;
 			#cooling-cells = <2>;
 		};
 
-		thermal_pause20: thermal-pause20 {
-			qcom,mask = <0x20>;
+		thermal_pause20: thermal-pause-5 {
+			qcom,cpus = <&CPU5>;
 			#cooling-cells = <2>;
 		};
 
-		thermal_pause40: thermal-pause40 {
-			qcom,mask = <0x40>;
+		thermal_pause40: thermal-pause-6 {
+			qcom,cpus = <&CPU6>;
 			#cooling-cells = <2>;
 		};
 
-		thermal_pause80: thermal-pause80 {
-			qcom,mask = <0x80>;
+		thermal_pause80: thermal-pause-7 {
+			qcom,cpus = <&CPU7>;
 			#cooling-cells = <2>;
 		};
 
 		thermal_pause30: thermal-pause30 {
-			qcom,mask = <0x30>;
+			qcom,cpus = <&CPU4 &CPU5>;
 			#cooling-cells = <2>;
 		};
 
 		thermal_pauseC0: thermal-pauseC0 {
-			qcom,mask = <0xC0>;
+			qcom,cpus = <&CPU6 &CPU7>;
 			#cooling-cells = <2>;
 		};
 
 		thermal_pauseF0: thermal-pauseF0 {
-			qcom,mask = <0xF0>;
+			qcom,cpus = <&CPU4 &CPU5 &CPU6 &CPU7>;
 			#cooling-cells = <2>;
 		};
 
 		thermal_pauseFE: thermal-pauseFE {
-			qcom,mask = <0xFE>;
+			qcom,cpus =
+				<&CPU1 &CPU2 &CPU3 &CPU4 &CPU5 &CPU6 &CPU7>;
 			#cooling-cells = <2>;
 		};
 	};
