@@ -285,7 +285,7 @@ TRACE_EVENT(map_mem_s2,
 #endif /* _TRACE_MEM_BUF_H */
 
 #undef TRACE_INCLUDE_PATH
-#define TRACE_INCLUDE_PATH ../../drivers/soc/qcom/
+#define TRACE_INCLUDE_PATH ../../../drivers/soc/qcom/mem_buf/
 
 #undef TRACE_INCLUDE_FILE
 #define TRACE_INCLUDE_FILE trace-mem-buf
