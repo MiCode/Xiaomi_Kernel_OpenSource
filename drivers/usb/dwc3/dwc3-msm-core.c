@@ -265,6 +265,9 @@ struct dwc3_hw_ep {
 	enum usb_hw_ep_mode	mode;
 	u8 dbm_ep_num;
 	int num_trbs;
+
+	unsigned long flags;
+#define DWC3_MSM_HW_EP_TRANSFER_STARTED BIT(0)
 };
 
 struct dwc3_msm_req_complete {
@@ -1010,7 +1013,8 @@ static int dwc3_core_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned int cmd,
 
 	if (DWC3_DEPCMD_CMD(cmd) == DWC3_DEPCMD_STARTTRANSFER) {
 		if (ret == 0)
-			dep->flags |= DWC3_EP_TRANSFER_STARTED;
+			mdwc->hw_eps[dep->number].flags |=
+						DWC3_MSM_HW_EP_TRANSFER_STARTED;
 
 		if (ret != -ETIMEDOUT) {
 			u32 res_id;
@@ -1033,11 +1037,12 @@ static void dwc3_core_stop_active_transfer(struct dwc3_ep *dep, bool force)
 {
 	struct dwc3 *dwc = dep->dwc;
 	struct dwc3_gadget_ep_cmd_params params;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	u32 cmd;
 	int ret;
 
-	if (!(dep->flags & DWC3_EP_TRANSFER_STARTED) ||
-	    (dep->flags & DWC3_EP_END_TRANSFER_PENDING))
+	if (!(mdwc->hw_eps[dep->number].flags &
+			DWC3_MSM_HW_EP_TRANSFER_STARTED))
 		return;
 
 	dwc3_msm_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER,
@@ -1078,6 +1083,8 @@ static void dwc3_core_stop_active_transfer(struct dwc3_ep *dep, bool force)
 	WARN_ON_ONCE(ret);
 	dep->resource_index = 0;
 
+	if (DWC3_IP_IS(DWC31) || DWC3_VER_IS_PRIOR(DWC3, 310A))
+		udelay(100);
 	/*
 	 * The END_TRANSFER command will cause the controller to generate a
 	 * NoStream Event, and it's not due to the host DP NoStream rejection.
@@ -1086,7 +1093,7 @@ static void dwc3_core_stop_active_transfer(struct dwc3_ep *dep, bool force)
 	if (dep->stream_capable)
 		dep->flags |= DWC3_EP_IGNORE_NEXT_NOSTREAM;
 
-	dep->flags &= ~DWC3_EP_TRANSFER_STARTED;
+	mdwc->hw_eps[dep->number].flags &= ~DWC3_MSM_HW_EP_TRANSFER_STARTED;
 }
 
 #if IS_ENABLED(CONFIG_USB_DWC3_GADGET) || IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
@@ -2555,6 +2562,11 @@ int msm_ep_set_mode(struct usb_ep *ep, enum usb_hw_ep_mode mode)
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3 *dwc = dep->dwc;
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	/* Reset MSM HW ep parameters for subsequent uses */
+	if (mode == USB_EP_NONE)
+		memset(&mdwc->hw_eps[dep->number], 0,
+			sizeof(mdwc->hw_eps[dep->number]));
 
 	mdwc->hw_eps[dep->number].mode = mode;
 
