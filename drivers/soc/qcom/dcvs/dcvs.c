@@ -723,7 +723,7 @@ static int qcom_dcvs_path_probe(struct platform_device *pdev)
 	enum dcvs_path_type path_type = NUM_DCVS_PATHS;
 	struct dcvs_hw *hw = dev_get_drvdata(dev->parent);
 	struct dcvs_path *path = NULL;
-	struct dcvs_freq new_freqs[NUM_DCVS_PATHS];
+	struct dcvs_freq new_freqs[NUM_DCVS_HW_TYPES];
 
 	if (!hw) {
 		dev_err(dev, "QCOM DCVS HW not configured\n");
@@ -746,7 +746,8 @@ static int qcom_dcvs_path_probe(struct platform_device *pdev)
 
 	switch (path_type) {
 	case DCVS_SLOW_PATH:
-		if (hw->type == DCVS_DDR || hw->type == DCVS_LLCC)
+		if (hw->type == DCVS_DDR || hw->type == DCVS_LLCC
+					|| hw->type == DCVS_DDRQOS)
 			ret = setup_icc_sp_device(dev, hw, path);
 		else if (hw->type == DCVS_L3)
 			ret = setup_epss_l3_sp_device(dev, hw, path);
