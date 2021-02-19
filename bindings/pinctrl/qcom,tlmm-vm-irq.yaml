@@ -1,0 +1,35 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/arm/msm/qcom,tlmm-vm-irq.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Qualcomm Technologies, Inc. TLMM VM Irqchip driver binding
+
+maintainers:
+
+description: |+
+  The driver acts as a parent interrupt controller for tlmm driver for VMs.
+
+properties:
+  compatible:
+    const: qcom,tlmm-vm-irq
+
+  reg:
+    items:
+      - description: Base address of TLMM register space
+      - description: Size of TLMM register space
+
+  interrupt-controller: true
+
+  '#interrupt-cells':
+    const: 2
+
+example:
+  - |
+    vm-tlmm-irq@0 {
+	compatible = "qcom,tlmm-vm-irq";
+	reg = <0x0 0x0>;
+	interrupt-controller;
+	#interrupt-cells = <2>;
+    };
+...
