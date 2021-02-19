@@ -26,6 +26,7 @@
 
 #define KV		kimage_vaddr
 #define S_MAX		SZ_64M
+#define S_START_OFFSET	SZ_2M
 #define SM_SIZE		28
 #define TT_SIZE		256
 #define NAME_LEN	128
@@ -82,7 +83,7 @@ static void *mrdump_abt_addr(void *ssa)
 static unsigned long *mrdump_krb_addr(void)
 {
 	void *abt_addr = (void *)KV;
-	void *ssa = (void *)KV;
+	void *ssa = (void *)KV + S_START_OFFSET;
 	unsigned long *pos;
 
 	while ((u64)ssa < KV + S_MAX) {

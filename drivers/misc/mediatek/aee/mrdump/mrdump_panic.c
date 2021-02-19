@@ -312,7 +312,6 @@ static int __init mrdump_panic_init(void)
 {
 	struct mrdump_params mparams = {};
 
-	return 0;
 #ifdef MODULE
 	if (mrdump_ka_init()) {
 		pr_notice("%s: mrdump helper not available\n", __func__);
