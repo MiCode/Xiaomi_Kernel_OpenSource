@@ -5,3 +5,5 @@ obj-$(CONFIG_ARCH_SCUBA) += board-scuba.o
 obj-$(CONFIG_ARCH_SDM660) += board-660.o
 obj-$(CONFIG_ARCH_MSM8917) += board-msm8917.o
 obj-$(CONFIG_ARCH_QM215) += board-qm215.o
+obj-$(CONFIG_ARCH_MSM8953) += board-msm8953.o
+obj-$(CONFIG_ARCH_SDM450) += board-sdm450.o
