@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2013-2015,2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015,2020-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_SNAPSHOT_H
 #define __ADRENO_SNAPSHOT_H
 
 #include "kgsl_snapshot.h"
 
-#define CP_CRASH_DUMPER_TIMEOUT 200
+#define CP_CRASH_DUMPER_TIMEOUT 500
 
 #define DEBUG_SECTION_SZ(_dwords) (((_dwords) * sizeof(unsigned int)) \
 		+ sizeof(struct kgsl_snapshot_debug))
