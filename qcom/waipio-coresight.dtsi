@@ -711,7 +711,7 @@
 		coresight-name = "coresight-turing-etm0";
 		qcom,inst-id = <13>;
 
-		atid = <38>;
+		atid = <38 39>;
 
 		out-ports {
 			port {
@@ -991,7 +991,7 @@
 		coresight-name = "coresight-modem-etm0";
 		qcom,inst-id = <2>;
 
-		atid = <36>;
+		atid = <36 37>;
 		out-ports {
 			port {
 				modem_etm0_out_funnel_modem_q6_dup: endpoint {
