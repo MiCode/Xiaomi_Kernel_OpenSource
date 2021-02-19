@@ -625,7 +625,7 @@ static int __init pbm_module_init(void)
 			}
 
 			pbm_policy->em = em_cpu_get(policy->cpu);
-			pbm_policy->max_cap_state = pbm_policy->em->nr_cap_states;
+			pbm_policy->max_cap_state = pbm_policy->em->nr_perf_states;
 			pbm_policy->policy = policy;
 			pbm_policy->cpu = cpu;
 			pbm_policy->power_weight = DEFAULT_PBM_WEIGHT;
