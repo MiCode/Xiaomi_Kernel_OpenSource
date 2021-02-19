@@ -725,6 +725,7 @@ static void nvt_ts_trusted_touch_abort_pvm(struct nvt_ts_data *ts)
 	case TRUSTED_TOUCH_PVM_INIT:
 	case PVM_I2C_RESOURCE_RELEASED:
 		atomic_set(&ts->trusted_touch_enabled, 0);
+		atomic_set(&ts->trusted_touch_underway, 0);
 	}
 
 	atomic_set(&ts->trusted_touch_abort_status, 0);
@@ -835,6 +836,7 @@ static void nvt_trusted_touch_pvm_vm_mode_disable(struct nvt_ts_data *ts)
 	nvt_ts_trusted_touch_set_pvm_driver_state(ts,
 						TRUSTED_TOUCH_PVM_INIT);
 	atomic_set(&ts->trusted_touch_enabled, 0);
+	atomic_set(&ts->trusted_touch_underway, 0);
 	pr_info("trusted touch disabled\n");
 	return;
 error:
@@ -973,6 +975,7 @@ static int nvt_ts_trusted_touch_pvm_vm_mode_enable(struct nvt_ts_data *ts)
 	int rc = 0;
 	struct trusted_touch_vm_info *vm_info = ts->vm_info;
 
+	atomic_set(&ts->trusted_touch_underway, 1);
 	/* i2c session start and resource acquire */
 	if (nvt_ts_bus_get(ts) < 0) {
 		pr_err("nvt_ts_bus_get failed\n");
@@ -1208,12 +1211,23 @@ static void nvt_irq_enable(bool enable)
 
 	if (enable) {
 		if (!ts->irq_enabled) {
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+			/* trusted_touch_underway is set in LA only */
+			if (atomic_read(&ts->trusted_touch_underway))
+				enable_irq_wake(ts->client->irq);
+#else
 			enable_irq(ts->client->irq);
+#endif
 			ts->irq_enabled = true;
 		}
 	} else {
 		if (ts->irq_enabled) {
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+			if (atomic_read(&ts->trusted_touch_underway))
+				disable_irq_wake(ts->client->irq);
+#else
 			disable_irq(ts->client->irq);
+#endif
 			ts->irq_enabled = false;
 		}
 	}
