@@ -143,11 +143,19 @@
 		"TX DMIC0", "Digital Mic0",
 		"Digital Mic0", "MIC BIAS3",
 		"TX DMIC1", "Digital Mic1",
-		"Digital Mic1", "MIC BIAS1",
+		"Digital Mic1", "MIC BIAS3",
 		"TX DMIC2", "Digital Mic2",
 		"Digital Mic2", "MIC BIAS1",
 		"TX DMIC3", "Digital Mic3",
-		"Digital Mic3", "MIC BIAS3",
+		"Digital Mic3", "MIC BIAS1",
+		"TX DMIC4", "Digital Mic4",
+		"Digital Mic4", "MIC BIAS4",
+		"TX DMIC5", "Digital Mic5",
+		"Digital Mic5", "MIC BIAS4",
+		"TX DMIC6", "Digital Mic6",
+		"Digital Mic6", "MIC BIAS3",
+		"TX DMIC7", "Digital Mic7",
+		"Digital Mic7", "MIC BIAS3",
 		"IN1_HPHL", "HPHL_OUT",
 		"IN2_HPHR", "HPHR_OUT",
 		"IN3_AUX", "AUX_OUT",
@@ -177,12 +185,17 @@
 		"VA DMIC2", "Digital Mic2",
 		"VA DMIC3", "Digital Mic3",
 		"Digital Mic0", "VA MIC BIAS3",
-		"Digital Mic1", "VA MIC BIAS1",
+		"Digital Mic1", "VA MIC BIAS3",
 		"Digital Mic2", "VA MIC BIAS1",
-		"Digital Mic3", "VA MIC BIAS3";
+		"Digital Mic3", "VA MIC BIAS1",
+		"Digital Mic4", "VA MIC BIAS4",
+		"Digital Mic5", "VA MIC BIAS4",
+		"Digital Mic6", "VA MIC BIAS3",
+		"Digital Mic7", "VA MIC BIAS3";
 	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
 	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
 	qcom,cdc-dmic45-gpios = <&cdc_dmic45_gpios>;
+	qcom,cdc-dmic67-gpios = <&cdc_dmic67_gpios>;
 	asoc-codec  = <&stub_codec>, <&lpass_cdc>,
 		      <&wcd938x_codec>, <&swr_haptics>,
 		      <&wsa883x_0221>, <&wsa883x_0222>,
