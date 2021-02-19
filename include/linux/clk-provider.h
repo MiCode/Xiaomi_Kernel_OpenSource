@@ -33,7 +33,6 @@
 /* duty cycle call may be forwarded to the parent clock */
 #define CLK_DUTY_CYCLE_PARENT	BIT(13)
 #define CLK_DONT_HOLD_STATE	BIT(14) /* Don't hold state */
-#define CLK_IS_MEASURE		BIT(15) /* clock used for measurement only */
 
 struct clk;
 struct clk_hw;
@@ -214,10 +213,6 @@ struct clk_duty {
  * @post_rate_change: Optional callback for a clock to clean up any
  *		requirements that were needed while the clock and its tree
  *		was changing states. Returns 0 on success, -EERROR otherwise.
- *
- * @list_rate_vdd_level: Queries the required voltage level for the given rate.
- *		The return value may not represent an exact voltage and instead
- *		may be an abstract index or voltage "corner".
  *
  * The clk_enable/clk_disable and clk_prepare/clk_unprepare pairs allow
  * implementations to split any work between atomic (enable) and sleepable

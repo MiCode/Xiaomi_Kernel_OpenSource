@@ -2574,7 +2574,7 @@ static int clk_core_set_parent_nolock(struct clk_core *core,
 	if (!core)
 		return 0;
 
-	if (core->parent == parent && !(core->flags & CLK_IS_MEASURE))
+	if (core->parent == parent)
 		return 0;
 
 	/* verify ops for multi-parent clks */
@@ -3306,76 +3306,6 @@ static int clk_max_rate_show(struct seq_file *s, void *data)
 }
 DEFINE_SHOW_ATTRIBUTE(clk_max_rate);
 
-static int clock_debug_rate_set(void *data, u64 val)
-{
-	struct clk_core *core = data;
-	int ret;
-
-	ret = clk_set_rate(core->hw->clk, val);
-	if (ret)
-		pr_err("clk_set_rate(%lu) failed (%d)\n",
-				(unsigned long)val, ret);
-
-	return ret;
-}
-
-static int clock_debug_rate_get(void *data, u64 *val)
-{
-	struct clk_core *core = data;
-
-	*val = clk_get_rate(core->hw->clk);
-
-	return 0;
-}
-
-DEFINE_DEBUGFS_ATTRIBUTE(clock_rate_fops, clock_debug_rate_get,
-			clock_debug_rate_set, "%llu\n");
-
-static ssize_t clock_parent_read(struct file *filp, char __user *ubuf,
-		size_t cnt, loff_t *ppos)
-{
-	char name[256] = {0};
-	struct clk_core *core = filp->private_data;
-	struct clk_core *p = core->hw->core->parent;
-
-	snprintf(name, sizeof(name), "%s\n", p ? p->name : "None\n");
-
-	return simple_read_from_buffer(ubuf, cnt, ppos, name, strlen(name));
-}
-
-static const struct file_operations clock_parent_fops = {
-	.open		= simple_open,
-	.read		= clock_parent_read,
-};
-
-static int clock_debug_enable_set(void *data, u64 val)
-{
-	struct clk_core *core = data;
-	int rc = 0;
-
-	if (val)
-		rc = clk_prepare_enable(core->hw->clk);
-	else
-		clk_disable_unprepare(core->hw->clk);
-
-	return rc;
-}
-
-static int clock_debug_enable_get(void *data, u64 *val)
-{
-	struct clk_core *core = data;
-	int enabled = 0;
-
-	enabled = core->enable_count;
-
-	*val = enabled;
-
-	return 0;
-}
-
-DEFINE_DEBUGFS_ATTRIBUTE(clock_enable_fops, clock_debug_enable_get,
-			clock_debug_enable_set, "%lld\n");
-
 static void clk_debug_create_one(struct clk_core *core, struct dentry *pdentry)
 {
 	struct dentry *root;
@@ -3394,8 +3324,7 @@ static void clk_debug_create_one(struct clk_core *core, struct dentry *pdentry)
 	debugfs_create_u32("clk_phase", 0444, root, &core->phase);
 	debugfs_create_file("clk_flags", 0444, root, core, &clk_flags_fops);
 	debugfs_create_u32("clk_prepare_count", 0444, root, &core->prepare_count);
-	debugfs_create_file("clk_enable_count", 0444, root, core,
-			    &clock_enable_fops);
+	debugfs_create_u32("clk_enable_count", 0444, root, &core->enable_count);
 	debugfs_create_u32("clk_protect_count", 0444, root, &core->protect_count);
 	debugfs_create_u32("clk_notifier_count", 0444, root, &core->notifier_count);
 	debugfs_create_file("clk_duty_cycle", 0444, root, core,
@@ -3705,6 +3634,7 @@ static int __clk_core_init(struct clk_core *core)
 
 	clk_core_hold_state(core);
 	clk_core_reparent_orphans_nolock();
+
 
 	kref_init(&core->ref);
 out:
