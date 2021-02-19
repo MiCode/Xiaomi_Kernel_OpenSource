@@ -23,7 +23,36 @@
 	GPIO_FDD_BAND_SUPPORT_DETECT_3RD_PIN = <&pio 65 0>;
 	GPIO_FDD_BAND_SUPPORT_DETECT_4TH_PIN = <&pio 66 0>;
 };
-
+&md_ccci_rtc{
+		status = "disabled";
+};
+&ccifdriver {
+		status = "disabled";
+};
+&cpu1 {
+		status = "disabled";
+};
+&cpu2 {
+		status = "disabled";
+};
+&cpu3 {
+		status = "disabled";
+};
+&cpu4 {
+		status = "disabled";
+};
+&cpu5 {
+		status = "disabled";
+};
+&cpu6 {
+		status = "disabled";
+};
+&cpu7 {
+		status = "disabled";
+};
+&devapc {
+		status = "disabled";
+};
 &gpio{
 	gpio_init_default = <0 0 0 0 1 1 1>,
 		<1 0 0 0 1 0 1>,
