@@ -2337,24 +2337,6 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 	 */
 	if (uart_console(uport))
 		enable_irq(uport->irq);
-
-	if (msm_port->wakeup_irq > 0) {
-		ret = request_irq(msm_port->wakeup_irq, msm_geni_wakeup_isr,
-				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-				"hs_uart_wakeup", uport);
-		if (unlikely(ret)) {
-			dev_err(uport->dev, "%s:Failed to get WakeIRQ ret%d\n",
-								__func__, ret);
-			goto exit_startup;
-		}
-		disable_irq(msm_port->wakeup_irq);
-		ret = irq_set_irq_wake(msm_port->wakeup_irq, 1);
-		if (unlikely(ret)) {
-			dev_err(uport->dev, "%s:Failed to set IRQ wake:%d\n",
-					__func__, ret);
-			goto exit_startup;
-		}
-	}
 exit_startup:
 	if (likely(!uart_console(uport)))
 		msm_geni_serial_power_off(&msm_port->uport);
@@ -2972,6 +2954,25 @@ static int msm_geni_serial_get_irq_pinctrl(struct platform_device *pdev,
 		dev_err(uport->dev, "%s: Failed to get IRQ ret %d\n",
 							__func__, ret);
 		return ret;
+	}
+
+	if (dev_port->wakeup_irq > 0) {
+		irq_set_status_flags(dev_port->wakeup_irq, IRQ_NOAUTOEN);
+		ret = devm_request_irq(uport->dev, dev_port->wakeup_irq,
+					msm_geni_wakeup_isr,
+					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+					"hs_uart_wakeup", uport);
+		if (unlikely(ret)) {
+			dev_err(uport->dev, "%s:Failed to get WakeIRQ ret%d\n",
+								__func__, ret);
+			return ret;
+		}
+		ret = irq_set_irq_wake(dev_port->wakeup_irq, 1);
+		if (unlikely(ret)) {
+			dev_err(uport->dev, "%s:Failed to set IRQ wake:%d\n",
+					__func__, ret);
+			return ret;
+		}
 	}
 
 	return ret;
