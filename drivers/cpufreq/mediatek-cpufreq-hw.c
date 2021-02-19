@@ -81,7 +81,7 @@ mtk_cpufreq_get_cpu_power(unsigned long *power, unsigned long *KHz,
 
 	*KHz = c->table[i].frequency;
 	*power = readl_relaxed(c->reg_bases[REG_EM_POWER_TBL] +
-			    i * LUT_ROW_SIZE) / 1000;
+			    i * LUT_ROW_SIZE) / 10;
 
 	return 0;
 }
