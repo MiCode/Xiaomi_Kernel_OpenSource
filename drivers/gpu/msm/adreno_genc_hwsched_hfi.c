@@ -1360,7 +1360,7 @@ int genc_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 		goto skipib;
 
 	if ((drawobj->flags & KGSL_DRAWOBJ_PROFILING) &&
-		!cmdobj->profiling_buf_entry) {
+		cmdobj->profiling_buf_entry) {
 
 		time.drawobj = drawobj;
 
@@ -1370,7 +1370,7 @@ int genc_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 			upper_32_bits(cmdobj->profiling_buffer_gpuaddr);
 
 		/* Indicate to GMU to do user profiling for this submission */
-		cmd->flags |= BIT(4);
+		cmd->flags |= CMDBATCH_PROFILING;
 	}
 
 	issue_ib = (struct hfi_issue_ib *)&cmd[1];
