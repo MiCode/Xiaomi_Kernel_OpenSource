@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_GCC_YUPIK_H
@@ -174,6 +174,9 @@
 #define GCC_UFS_PHY_ICE_CORE_HW_CTL_CLK				164
 #define GCC_UFS_PHY_PHY_AUX_HW_CTL_CLK				165
 #define GCC_UFS_PHY_UNIPRO_CORE_HW_CTL_CLK			166
+#define GCC_AGGRE_NOC_PCIE_CENTER_SF_AXI_CLK			167
+#define GCC_AGGRE_NOC_PCIE_TBU_CLK				168
+#define GCC_PCIE_CLKREF_EN					169
 
 /* GCC power domains */
 #define GCC_PCIE_0_GDSC						0

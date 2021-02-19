@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -1556,6 +1556,36 @@ static struct clk_branch gcc_aggre_noc_pcie_1_axi_clk = {
 	},
 };
 
+static struct clk_branch gcc_aggre_noc_pcie_center_sf_axi_clk = {
+	.halt_reg = 0x8d088,
+	.halt_check = BRANCH_HALT_SKIP,
+	.hwcg_reg = 0x8d088,
+	.hwcg_bit = 1,
+	.clkr = {
+		.enable_reg = 0x52008,
+		.enable_mask = BIT(28),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_aggre_noc_pcie_center_sf_axi_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_aggre_noc_pcie_tbu_clk = {
+	.halt_reg = 0x90010,
+	.halt_check = BRANCH_HALT_VOTED,
+	.hwcg_reg = 0x90010,
+	.hwcg_bit = 1,
+	.clkr = {
+		.enable_reg = 0x52000,
+		.enable_mask = BIT(18),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_aggre_noc_pcie_tbu_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_aggre_ufs_phy_axi_clk = {
 	.halt_reg = 0x770cc,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -2125,6 +2155,19 @@ static struct clk_branch gcc_pcie_1_slv_q2a_axi_clk = {
 		.enable_mask = BIT(25),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_pcie_1_slv_q2a_axi_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_pcie_clkref_en = {
+	.halt_reg = 0x8c004,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x8c004,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_pcie_clkref_en",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3292,6 +3335,9 @@ static struct clk_branch gcc_video_mvp_throttle_core_clk = {
 static struct clk_regmap *gcc_yupik_clocks[] = {
 	[GCC_AGGRE_NOC_PCIE_0_AXI_CLK] = &gcc_aggre_noc_pcie_0_axi_clk.clkr,
 	[GCC_AGGRE_NOC_PCIE_1_AXI_CLK] = &gcc_aggre_noc_pcie_1_axi_clk.clkr,
+	[GCC_AGGRE_NOC_PCIE_CENTER_SF_AXI_CLK] =
+		&gcc_aggre_noc_pcie_center_sf_axi_clk.clkr,
+	[GCC_AGGRE_NOC_PCIE_TBU_CLK] = &gcc_aggre_noc_pcie_tbu_clk.clkr,
 	[GCC_AGGRE_UFS_PHY_AXI_CLK] = &gcc_aggre_ufs_phy_axi_clk.clkr,
 	[GCC_AGGRE_UFS_PHY_AXI_HW_CTL_CLK] =
 		&gcc_aggre_ufs_phy_axi_hw_ctl_clk.clkr,
@@ -3344,6 +3390,7 @@ static struct clk_regmap *gcc_yupik_clocks[] = {
 	[GCC_PCIE_1_PIPE_CLK_SRC] = &gcc_pcie_1_pipe_clk_src.clkr,
 	[GCC_PCIE_1_SLV_AXI_CLK] = &gcc_pcie_1_slv_axi_clk.clkr,
 	[GCC_PCIE_1_SLV_Q2A_AXI_CLK] = &gcc_pcie_1_slv_q2a_axi_clk.clkr,
+	[GCC_PCIE_CLKREF_EN] = &gcc_pcie_clkref_en.clkr,
 	[GCC_PCIE_THROTTLE_CORE_CLK] = &gcc_pcie_throttle_core_clk.clkr,
 	[GCC_PDM2_CLK] = &gcc_pdm2_clk.clkr,
 	[GCC_PDM2_CLK_SRC] = &gcc_pdm2_clk_src.clkr,
