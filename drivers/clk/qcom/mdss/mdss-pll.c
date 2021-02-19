@@ -395,6 +395,7 @@ static const struct of_device_id mdss_pll_dt_match[] = {
 	{.compatible = "qcom,mdss_dsi_pll_sdm660"},
 	{.compatible = "qcom,mdss_dp_pll_sdm660"},
 	{.compatible = "qcom,mdss_dsi_pll_12nm"},
+	{.compatible = "qcom,mdss_dsi_pll_28lpm"},
 	{}
 };
 
