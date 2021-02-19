@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_PWRCTRL_H
 #define __KGSL_PWRCTRL_H
@@ -129,7 +129,7 @@ struct kgsl_pwrctrl {
 	unsigned int min_pwrlevel;
 	unsigned int num_pwrlevels;
 	unsigned int throttle_mask;
-	unsigned long interval_timeout;
+	u32 interval_timeout;
 	u64 clock_times[KGSL_MAX_PWRLEVELS];
 	struct kgsl_clk_stats clk_stats;
 	bool bus_control;
