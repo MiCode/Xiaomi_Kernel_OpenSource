@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef _QCOM_DMA_HEAP_H
 #define _QCOM_DMA_HEAP_H
@@ -43,7 +43,7 @@
  *
  * Return: 0 on success, a negative error value otherwise.
  */
-int carveout_heap_remove_memory(char *heap_name, struct sg_table *sgt);
+int carveout_heap_add_memory(char *heap_name, struct sg_table *sgt);
 
 
 /**

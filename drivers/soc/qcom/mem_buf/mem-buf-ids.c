@@ -8,7 +8,7 @@
 #include <linux/of.h>
 #include <linux/xarray.h>
 #include <soc/qcom/secure_buffer.h>
-#include "mem-buf-private.h"
+#include "mem-buf-dev.h"
 
 #define DEVNAME "mem_buf_vm"
 #define NUM_MEM_BUF_VM_MINORS 128
@@ -184,6 +184,7 @@ int mem_buf_fd_to_vmid(int fd)
 	fput(file);
 	return ret ? ret : vmid;
 }
+EXPORT_SYMBOL(mem_buf_fd_to_vmid);
 
 static void mem_buf_vm_device_release(struct device *dev)
 {

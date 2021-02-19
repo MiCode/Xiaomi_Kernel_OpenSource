@@ -7,7 +7,7 @@
 
 #include <linux/highmem.h>
 #include <linux/mem-buf-exporter.h>
-#include "mem-buf-private.h"
+#include "mem-buf-dev.h"
 
 struct mem_buf_vmperm {
 	u32 flags;
@@ -193,6 +193,27 @@ static int __mem_buf_vmperm_reclaim(struct mem_buf_vmperm *vmperm)
 	return 0;
 }
 
+static struct hh_sgl_desc *dup_sgt_to_hh_sgl_desc(struct sg_table *sgt)
+{
+	struct hh_sgl_desc *hh_sgl;
+	size_t size;
+	int i;
+	struct scatterlist *sg;
+
+	size = offsetof(struct hh_sgl_desc, sgl_entries[sgt->orig_nents]);
+	hh_sgl = kvmalloc(size, GFP_KERNEL);
+	if (!hh_sgl)
+		return ERR_PTR(-ENOMEM);
+
+	hh_sgl->n_sgl_entries = sgt->orig_nents;
+	for_each_sgtable_sg(sgt, sg, i) {
+		hh_sgl->sgl_entries[i].ipa_base = sg_phys(sg);
+		hh_sgl->sgl_entries[i].size = sg->length;
+	}
+
+	return hh_sgl;
+}
+
 static int mem_buf_vmperm_relinquish(struct mem_buf_vmperm *vmperm)
 {
 	int ret;
@@ -346,334 +367,6 @@ bool mem_buf_vmperm_can_vmap(struct mem_buf_vmperm *vmperm)
 }
 EXPORT_SYMBOL(mem_buf_vmperm_can_vmap);
 
-
-static struct sg_table *dup_sg_table(struct sg_table *table)
-{
-	struct sg_table *new_table;
-	int ret, i;
-	struct scatterlist *sg, *new_sg;
-
-	new_table = kzalloc(sizeof(*new_table), GFP_KERNEL);
-	if (!new_table)
-		return ERR_PTR(-ENOMEM);
-
-	ret = sg_alloc_table(new_table, table->orig_nents, GFP_KERNEL);
-	if (ret) {
-		kfree(new_table);
-		return ERR_PTR(-ENOMEM);
-	}
-
-	new_sg = new_table->sgl;
-	for_each_sgtable_sg(table, sg, i) {
-		sg_set_page(new_sg, sg_page(sg), sg->length, sg->offset);
-		new_sg = sg_next(new_sg);
-	}
-
-	return new_table;
-}
-
-static int qcom_sg_attach(struct dma_buf *dmabuf,
-			      struct dma_buf_attachment *attachment)
-{
-	struct qcom_sg_buffer *buffer = dmabuf->priv;
-	struct dma_heap_attachment *a;
-	struct sg_table *table;
-
-	a = kzalloc(sizeof(*a), GFP_KERNEL);
-	if (!a)
-		return -ENOMEM;
-
-	table = dup_sg_table(buffer->sg_table);
-	if (IS_ERR(table)) {
-		kfree(a);
-		return -ENOMEM;
-	}
-
-	a->table = table;
-	a->dev = attachment->dev;
-	INIT_LIST_HEAD(&a->list);
-	a->mapped = false;
-
-	attachment->priv = a;
-
-	mutex_lock(&buffer->lock);
-	list_add(&a->list, &buffer->attachments);
-	mutex_unlock(&buffer->lock);
-
-	return 0;
-}
-
-static void qcom_sg_detach(struct dma_buf *dmabuf,
-			       struct dma_buf_attachment *attachment)
-{
-	struct qcom_sg_buffer *buffer = dmabuf->priv;
-	struct dma_heap_attachment *a = attachment->priv;
-
-	mutex_lock(&buffer->lock);
-	list_del(&a->list);
-	mutex_unlock(&buffer->lock);
-
-	sg_free_table(a->table);
-	kfree(a->table);
-	kfree(a);
-}
-
-static struct sg_table *qcom_sg_map_dma_buf(struct dma_buf_attachment *attachment,
-						enum dma_data_direction direction)
-{
-	struct dma_heap_attachment *a = attachment->priv;
-	struct sg_table *table = a->table;
-	unsigned long attrs = 0;
-	int ret;
-	struct qcom_sg_buffer *buffer = attachment->dmabuf->priv;
-
-	mutex_lock(&buffer->lock);
-	mem_buf_vmperm_pin(buffer->vmperm);
-
-	if (!mem_buf_vmperm_can_cmo(buffer->vmperm))
-		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
-
-	ret = dma_map_sgtable(attachment->dev, table, direction, attrs);
-	if (ret) {
-		table = ERR_PTR(ret);
-		goto err_map_sgtable;
-	}
-
-	a->mapped = true;
-	mutex_unlock(&buffer->lock);
-	return table;
-
-err_map_sgtable:
-	mem_buf_vmperm_unpin(buffer->vmperm);
-	mutex_unlock(&buffer->lock);
-	return table;
-}
-
-static void qcom_sg_unmap_dma_buf(struct dma_buf_attachment *attachment,
-				      struct sg_table *table,
-				      enum dma_data_direction direction)
-{
-	struct dma_heap_attachment *a = attachment->priv;
-	unsigned long attrs = 0;
-	struct qcom_sg_buffer *buffer = attachment->dmabuf->priv;
-
-	mutex_lock(&buffer->lock);
-	if (!mem_buf_vmperm_can_cmo(buffer->vmperm))
-		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
-	a->mapped = false;
-	dma_unmap_sgtable(attachment->dev, table, direction, attrs);
-	mem_buf_vmperm_unpin(buffer->vmperm);
-	mutex_unlock(&buffer->lock);
-}
-
-static int qcom_sg_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
-						enum dma_data_direction direction)
-{
-	struct qcom_sg_buffer *buffer = dmabuf->priv;
-	struct dma_heap_attachment *a;
-
-	mutex_lock(&buffer->lock);
-	if (!mem_buf_vmperm_can_cmo(buffer->vmperm)) {
-		mutex_unlock(&buffer->lock);
-		return 0;
-	}
-
-	if (buffer->vmap_cnt)
-		invalidate_kernel_vmap_range(buffer->vaddr, buffer->len);
-
-	list_for_each_entry(a, &buffer->attachments, list) {
-		if (!a->mapped)
-			continue;
-		dma_sync_sgtable_for_cpu(a->dev, a->table, direction);
-	}
-	mutex_unlock(&buffer->lock);
-
-	return 0;
-}
-
-static int qcom_sg_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
-					      enum dma_data_direction direction)
-{
-	struct qcom_sg_buffer *buffer = dmabuf->priv;
-	struct dma_heap_attachment *a;
-
-	mutex_lock(&buffer->lock);
-	if (!mem_buf_vmperm_can_cmo(buffer->vmperm)) {
-		mutex_unlock(&buffer->lock);
-		return 0;
-	}
-
-	if (buffer->vmap_cnt)
-		flush_kernel_vmap_range(buffer->vaddr, buffer->len);
-
-	list_for_each_entry(a, &buffer->attachments, list) {
-		if (!a->mapped)
-			continue;
-		dma_sync_sgtable_for_device(a->dev, a->table, direction);
-	}
-	mutex_unlock(&buffer->lock);
-
-	return 0;
-}
-
-static void qcom_sg_vm_ops_open(struct vm_area_struct *vma)
-{
-	struct mem_buf_vmperm *vmperm = vma->vm_private_data;
-
-	mem_buf_vmperm_pin(vmperm);
-}
-
-static void qcom_sg_vm_ops_close(struct vm_area_struct *vma)
-{
-	struct mem_buf_vmperm *vmperm = vma->vm_private_data;
-
-	mem_buf_vmperm_unpin(vmperm);
-}
-
-static const struct vm_operations_struct qcom_sg_vm_ops = {
-	.open = qcom_sg_vm_ops_open,
-	.close = qcom_sg_vm_ops_close,
-};
-
-static int qcom_sg_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
-{
-	struct qcom_sg_buffer *buffer = dmabuf->priv;
-	struct sg_table *table = buffer->sg_table;
-	unsigned long addr = vma->vm_start;
-	struct sg_page_iter piter;
-	int ret;
-
-	mem_buf_vmperm_pin(buffer->vmperm);
-	if (!mem_buf_vmperm_can_mmap(buffer->vmperm, vma)) {
-		mem_buf_vmperm_unpin(buffer->vmperm);
-		return -EPERM;
-	}
-
-	vma->vm_ops = &qcom_sg_vm_ops;
-	vma->vm_private_data = buffer->vmperm;
-
-	for_each_sgtable_page(table, &piter, vma->vm_pgoff) {
-		struct page *page = sg_page_iter_page(&piter);
-
-		ret = remap_pfn_range(vma, addr, page_to_pfn(page), PAGE_SIZE,
-				      vma->vm_page_prot);
-		if (ret) {
-			mem_buf_vmperm_unpin(buffer->vmperm);
-			return ret;
-		}
-		addr += PAGE_SIZE;
-		if (addr >= vma->vm_end)
-			return 0;
-	}
-	return 0;
-}
-
-static void *qcom_sg_do_vmap(struct qcom_sg_buffer *buffer)
-{
-	struct sg_table *table = buffer->sg_table;
-	int npages = PAGE_ALIGN(buffer->len) / PAGE_SIZE;
-	struct page **pages = vmalloc(sizeof(struct page *) * npages);
-	struct page **tmp = pages;
-	struct sg_page_iter piter;
-	void *vaddr;
-
-	if (!pages)
-		return ERR_PTR(-ENOMEM);
-
-	for_each_sgtable_page(table, &piter, 0) {
-		WARN_ON(tmp - pages >= npages);
-		*tmp++ = sg_page_iter_page(&piter);
-	}
-
-	vaddr = vmap(pages, npages, VM_MAP, PAGE_KERNEL);
-	vfree(pages);
-
-	if (!vaddr)
-		return ERR_PTR(-ENOMEM);
-
-	return vaddr;
-}
-
-static void *qcom_sg_vmap(struct dma_buf *dmabuf)
-{
-	struct qcom_sg_buffer *buffer = dmabuf->priv;
-	void *vaddr;
-
-	mem_buf_vmperm_pin(buffer->vmperm);
-	if (!mem_buf_vmperm_can_vmap(buffer->vmperm)) {
-		mem_buf_vmperm_unpin(buffer->vmperm);
-		return ERR_PTR(-EPERM);
-	}
-
-	mutex_lock(&buffer->lock);
-	if (buffer->vmap_cnt) {
-		buffer->vmap_cnt++;
-		vaddr = buffer->vaddr;
-		goto out;
-	}
-
-	vaddr = qcom_sg_do_vmap(buffer);
-	if (IS_ERR(vaddr)) {
-		mem_buf_vmperm_unpin(buffer->vmperm);
-		goto out;
-	}
-
-	buffer->vaddr = vaddr;
-	buffer->vmap_cnt++;
-out:
-	mutex_unlock(&buffer->lock);
-
-	return vaddr;
-}
-
-static void qcom_sg_vunmap(struct dma_buf *dmabuf, void *vaddr)
-{
-	struct qcom_sg_buffer *buffer = dmabuf->priv;
-
-	mutex_lock(&buffer->lock);
-	if (!--buffer->vmap_cnt) {
-		vunmap(buffer->vaddr);
-		buffer->vaddr = NULL;
-	}
-	mutex_unlock(&buffer->lock);
-	mem_buf_vmperm_unpin(buffer->vmperm);
-}
-
-static void qcom_sg_release(struct dma_buf *dmabuf)
-{
-	struct qcom_sg_buffer *buffer = dmabuf->priv;
-	int ret;
-
-	ret = mem_buf_vmperm_release(buffer->vmperm);
-	if (!ret)
-		buffer->free(buffer);
-}
-
-static struct mem_buf_vmperm *qcom_sg_lookup(struct dma_buf *dmabuf)
-{
-	struct qcom_sg_buffer *buffer = dmabuf->priv;
-
-	return buffer->vmperm;
-}
-
-const struct mem_buf_dma_buf_ops mem_buf_dma_buf_ops = {
-	.lookup = qcom_sg_lookup,
-	.attach = qcom_sg_attach,
-	.dma_ops = {
-		.attach = mem_buf_dma_buf_attach,
-		.detach = qcom_sg_detach,
-		.map_dma_buf = qcom_sg_map_dma_buf,
-		.unmap_dma_buf = qcom_sg_unmap_dma_buf,
-		.begin_cpu_access = qcom_sg_dma_buf_begin_cpu_access,
-		.end_cpu_access = qcom_sg_dma_buf_end_cpu_access,
-		.mmap = qcom_sg_mmap,
-		.vmap = qcom_sg_vmap,
-		.vunmap = qcom_sg_vunmap,
-		.release = qcom_sg_release,
-	},
-};
-EXPORT_SYMBOL(mem_buf_dma_buf_ops);
-
 static int validate_lend_vmids(struct mem_buf_lend_kernel_arg *arg,
 				bool is_lend)
 {
@@ -813,7 +506,7 @@ err_resize:
 	mutex_unlock(&vmperm->lock);
 	return ret;
 }
-EXPORT_SYMBOL(mem_buf_lend);
+EXPORT_SYMBOL(mem_buf_lend_internal);
 
 /*
  * Kernel API for Sharing, Lending, Recieving or Reclaiming
@@ -824,6 +517,7 @@ int mem_buf_lend(struct dma_buf *dmabuf,
 {
 	return mem_buf_lend_internal(dmabuf, arg, true);
 }
+EXPORT_SYMBOL(mem_buf_lend);
 
 int mem_buf_share(struct dma_buf *dmabuf,
 			struct mem_buf_lend_kernel_arg *arg)
@@ -831,96 +525,6 @@ int mem_buf_share(struct dma_buf *dmabuf,
 	return mem_buf_lend_internal(dmabuf, arg, false);
 }
 EXPORT_SYMBOL(mem_buf_share);
-
-void mem_buf_retrieve_release(struct qcom_sg_buffer *buffer)
-{
-	sg_free_table(buffer->sg_table);
-	kfree(buffer->sg_table);
-	kfree(buffer);
-}
-
-struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
-{
-	int ret;
-	struct qcom_sg_buffer *buffer;
-	struct hh_acl_desc *acl_desc;
-	struct hh_sgl_desc *sgl_desc;
-	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
-	struct dma_buf *dmabuf;
-	struct sg_table *sgt;
-
-	if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
-		return ERR_PTR(-EOPNOTSUPP);
-
-	if (arg->fd_flags & ~MEM_BUF_VALID_FD_FLAGS)
-		return ERR_PTR(-EINVAL);
-
-	if (!arg->nr_acl_entries || !arg->vmids || !arg->perms)
-		return ERR_PTR(-EINVAL);
-
-	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
-	if (!buffer)
-		return ERR_PTR(-ENOMEM);
-
-	acl_desc = mem_buf_vmid_perm_list_to_hh_acl(arg->vmids, arg->perms,
-				arg->nr_acl_entries);
-	if (IS_ERR(acl_desc)) {
-		ret = PTR_ERR(acl_desc);
-		goto err_hh_acl;
-	}
-
-	sgl_desc = mem_buf_map_mem_s2(arg->memparcel_hdl, acl_desc);
-	if (IS_ERR(sgl_desc)) {
-		ret = PTR_ERR(sgl_desc);
-		goto err_map_s2;
-	}
-
-	ret = mem_buf_map_mem_s1(sgl_desc);
-	if (ret < 0)
-		goto err_map_mem_s1;
-
-	sgt = dup_hh_sgl_desc_to_sgt(sgl_desc);
-	if (IS_ERR(sgt)) {
-		ret = PTR_ERR(sgt);
-		goto err_dup_sgt;
-	}
-
-	INIT_LIST_HEAD(&buffer->attachments);
-	mutex_init(&buffer->lock);
-	buffer->len = mem_buf_get_sgl_buf_size(sgl_desc);
-	buffer->sg_table = sgt;
-	buffer->free = mem_buf_retrieve_release;
-	buffer->vmperm = mem_buf_vmperm_alloc_accept(sgt, arg->memparcel_hdl);
-
-	exp_info.ops = &mem_buf_dma_buf_ops.dma_ops;
-	exp_info.size = buffer->len;
-	exp_info.flags = arg->fd_flags;
-	exp_info.priv = buffer;
-
-	dmabuf = mem_buf_dma_buf_export(&exp_info);
-	if (IS_ERR(dmabuf))
-		goto err_export_dma_buf;
-
-	/* sgt & qcom_sg_buffer will be freed by mem_buf_retrieve_release */
-	kfree(sgl_desc);
-	kfree(acl_desc);
-	return dmabuf;
-
-err_export_dma_buf:
-	sg_free_table(sgt);
-	kfree(sgt);
-err_dup_sgt:
-	mem_buf_unmap_mem_s1(sgl_desc);
-err_map_mem_s1:
-	kfree(sgl_desc);
-	mem_buf_unmap_mem_s2(arg->memparcel_hdl);
-err_map_s2:
-	kfree(acl_desc);
-err_hh_acl:
-	kfree(buffer);
-	return ERR_PTR(ret);
-}
-EXPORT_SYMBOL(mem_buf_retrieve);
 
 int mem_buf_reclaim(struct dma_buf *dmabuf)
 {

@@ -31,6 +31,7 @@ iommu-logger.ko
 msm_dma_iommu_mapping.ko
 qcom_dma_heaps.ko
 mem_buf.ko
+mem_buf_dev.ko
 qcom-arm-smmu-mod.ko
 msm-geni-se.ko
 msm_geni_serial.ko

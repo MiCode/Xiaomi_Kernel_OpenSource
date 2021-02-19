@@ -377,6 +377,7 @@ unlock:
 	up_write(&carveout_heap->mem_sem);
 	return ret;
 }
+EXPORT_SYMBOL(carveout_heap_add_memory);
 
 int carveout_heap_remove_memory(char *heap_name,
 				struct sg_table *sgt)

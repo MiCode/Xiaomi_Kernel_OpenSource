@@ -20,6 +20,7 @@
 extern unsigned char mem_buf_capability;
 extern struct device *mem_buf_dev;
 
+/* Hypervisor Interface */
 int mem_buf_assign_mem(struct sg_table *sgt, int *dst_vmids,
 			      int *dst_perms, unsigned int nr_acl_entries);
 int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
@@ -30,40 +31,11 @@ int mem_buf_retrieve_memparcel_hdl(struct sg_table *sgt,
 					  hh_memparcel_handle_t *memparcel_hdl);
 struct hh_sgl_desc *mem_buf_map_mem_s2(hh_memparcel_handle_t memparcel_hdl,
 					struct hh_acl_desc *acl_desc);
-int mem_buf_map_mem_s1(struct hh_sgl_desc *sgl_desc);
-
 int mem_buf_unmap_mem_s2(hh_memparcel_handle_t memparcel_hdl);
+
+/* Memory Hotplug */
+int mem_buf_map_mem_s1(struct hh_sgl_desc *sgl_desc);
 int mem_buf_unmap_mem_s1(struct hh_sgl_desc *sgl_desc);
-size_t mem_buf_get_sgl_buf_size(struct hh_sgl_desc *sgl_desc);
-struct sg_table *dup_hh_sgl_desc_to_sgt(struct hh_sgl_desc *sgl_desc);
-struct hh_sgl_desc *dup_sgt_to_hh_sgl_desc(struct sg_table *sgt);
-struct hh_acl_desc *mem_buf_vmid_perm_list_to_hh_acl(int *vmids, int *perms,
-		unsigned int nr_acl_entries);
-
-/*
- * Deltas from original qcom_sg_buffer:
- * Removed heap & secure fields
- * Added vmperm
- * Changed sg_tablee to pointer.
- */
-struct qcom_sg_buffer {
-	struct list_head attachments;
-	struct mutex lock;
-	unsigned long len;
-	struct sg_table *sg_table;
-	int vmap_cnt;
-	void *vaddr;
-	void (*free)(struct qcom_sg_buffer *buffer);
-	struct mem_buf_vmperm *vmperm;
-};
-
-struct dma_heap_attachment {
-	struct device *dev;
-	struct sg_table *table;
-	struct list_head list;
-	bool mapped;
-};
-
 
 #define MEM_BUF_API_HYP_ASSIGN BIT(0)
 #define MEM_BUF_API_HAVEN BIT(1)

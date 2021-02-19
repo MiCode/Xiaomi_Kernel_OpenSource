@@ -10,6 +10,7 @@
 #include <linux/errno.h>
 #include <linux/haven/hh_rm_drv.h>
 #include <linux/types.h>
+#include <linux/dma-buf.h>
 #include <uapi/linux/mem-buf.h>
 
 /**
@@ -135,7 +136,8 @@ int mem_buf_dma_buf_copy_vmperm(struct dma_buf *dmabuf, int **vmids, int **perms
 struct mem_buf_allocation_data {
 	size_t size;
 	unsigned int nr_acl_entries;
-	struct acl_entry *acl_list;
+	int *vmids;
+	int *perms;
 	enum mem_buf_mem_type src_mem_type;
 	void *src_data;
 	enum mem_buf_mem_type dst_mem_type;
@@ -168,8 +170,6 @@ int mem_buf_reclaim(struct dma_buf *dmabuf);
 
 #if IS_ENABLED(CONFIG_QCOM_MEM_BUF)
 
-void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data);
-
 int mem_buf_get_fd(void *membuf_desc);
 
 void mem_buf_put(void *membuf_desc);
@@ -177,11 +177,6 @@ void mem_buf_put(void *membuf_desc);
 void *mem_buf_get(int fd);
 
 #else
-
-static inline void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
-{
-	return ERR_PTR(-ENODEV);
-}
 
 static inline int mem_buf_get_fd(void *membuf_desc)
 {
