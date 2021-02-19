@@ -643,8 +643,7 @@ static struct hfi_mem_alloc_entry *lookup_mem_alloc_table(
 		struct hfi_mem_alloc_entry *entry = &hw_hfi->mem_alloc_table[i];
 
 		if ((entry->desc.mem_kind == desc->mem_kind) &&
-		(entry->desc.gmu_mem_handle == desc->gmu_mem_handle) &&
-			entry->gpu_md->gpuaddr)
+			(entry->desc.gmu_mem_handle == desc->gmu_mem_handle))
 			return entry;
 	}
 
@@ -689,6 +688,22 @@ static struct hfi_mem_alloc_entry *get_mem_alloc_entry(
 	if (desc->flags & HFI_MEMFLAG_GFX_SECURE)
 		flags |= KGSL_MEMFLAGS_SECURE;
 
+	if (!(desc->flags & HFI_MEMFLAG_GFX_ACC)) {
+		entry->gmu_md = reserve_gmu_kernel_block(gmu, 0, desc->size,
+				(desc->flags & HFI_MEMFLAG_GMU_CACHEABLE) ?
+				GMU_CACHE : GMU_NONCACHED_KERNEL);
+		if (IS_ERR(entry->gmu_md)) {
+			int ret = PTR_ERR(entry->gmu_md);
+
+			memset(entry, 0, sizeof(*entry));
+			return ERR_PTR(ret);
+		}
+		entry->desc.size = entry->gmu_md->size;
+		entry->desc.gmu_addr = entry->gmu_md->gmuaddr;
+
+		goto done;
+	}
+
 	entry->gpu_md = kgsl_allocate_global(device, desc->size, 0, flags, priv,
 		memkind_string);
 	if (IS_ERR(entry->gpu_md)) {
@@ -713,6 +728,7 @@ static struct hfi_mem_alloc_entry *get_mem_alloc_entry(
 		return ERR_PTR(ret);
 	}
 
+done:
 	hfi->mem_alloc_entries++;
 
 	return entry;
@@ -727,7 +743,8 @@ static int process_mem_alloc(struct adreno_device *adreno_dev,
 	if (IS_ERR(entry))
 		return PTR_ERR(entry);
 
-	mad->gpu_addr = entry->gpu_md->gpuaddr;
+	if (entry->gpu_md)
+		mad->gpu_addr = entry->gpu_md->gpuaddr;
 	mad->gmu_addr = entry->desc.gmu_addr;
 
 	/*
