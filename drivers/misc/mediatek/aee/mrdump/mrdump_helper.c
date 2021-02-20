@@ -452,42 +452,6 @@ struct list_head *aee_get_modules(void)
 }
 #endif
 
-static phys_addr_t *p__cpu_logical_map;
-static phys_addr_t *aee_cpu_logical_map(void)
-{
-	if (p__cpu_logical_map)
-		return p__cpu_logical_map;
-
-	p__cpu_logical_map = (void *)(aee_addr_find("__cpu_logical_map"));
-
-	if (p__cpu_logical_map)
-		return p__cpu_logical_map;
-
-	return NULL;
-}
-
-int get_HW_cpuid(void)
-{
-	u64 mpidr;
-	int cpu;
-
-	if (!aee_cpu_logical_map())
-		return -EINVAL;
-
-	mpidr = read_cpuid_mpidr();
-	/*
-	 * NOTICE: the logic of following code sould be the same with
-	 * get_logical_index() of linux kenrel
-	 */
-	mpidr &= MPIDR_HWID_BITMASK;
-
-	for (cpu = 0; cpu < nr_cpu_ids; cpu++)
-		if (p__cpu_logical_map[cpu] == mpidr)
-			return cpu;
-	return -EINVAL;
-}
-EXPORT_SYMBOL(get_HW_cpuid);
-
 u32 aee_log_buf_len_get(void)
 {
 	u32 log_buf_len = 1 << CONFIG_LOG_BUF_SHIFT;
@@ -777,14 +741,6 @@ struct list_head *aee_get_modules(void)
 	return p_modules;
 }
 #endif
-
-int get_HW_cpuid(void)
-{
-	u64 mpidr;
-
-	mpidr = read_cpuid_mpidr();
-	return get_logical_index(mpidr & MPIDR_HWID_BITMASK);
-}
 
 u32 aee_log_buf_len_get(void)
 {

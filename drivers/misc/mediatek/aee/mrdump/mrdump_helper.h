@@ -28,7 +28,6 @@ extern struct kset *aee_get_module_kset(void);
 extern struct list_head *aee_get_modules(void);
 extern void aee_show_regs(struct pt_regs *regs);
 extern pgd_t *aee_pgd_offset_k(unsigned long addr);
-extern int get_HW_cpuid(void);
 extern unsigned long aee_get_kallsyms_addresses(void);
 extern unsigned long aee_get_kti_addresses(void);
 extern void aee_zap_locks(void);

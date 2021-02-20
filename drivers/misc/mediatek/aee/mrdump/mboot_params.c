@@ -383,7 +383,7 @@ void aee_sram_printk(const char *fmt, ...)
 	va_start(args, fmt);
 
 	preempt_disable();
-	t = cpu_clock(get_HW_cpuid());
+	t = cpu_clock(raw_smp_processor_id());
 	nanosec_rem = do_div(t, 1000000000);
 	tlen = sprintf(sram_printk_buf, ">%5lu.%06lu< ", (unsigned long)t,
 			nanosec_rem / 1000);
