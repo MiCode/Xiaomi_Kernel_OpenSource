@@ -689,6 +689,49 @@ static const struct file_operations dwc3_link_state_fops = {
 	.release		= single_release,
 };
 
+static int dwc3_cp_toggle_open(struct inode *inode, struct file *file)
+{
+	int (*show)(struct seq_file *, void *) = inode->i_private;
+
+	return single_open(file, show, inode->i_private);
+}
+
+static ssize_t dwc3_cp_toggle_write(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file		*s = file->private_data;
+	struct dwc3		*dwc = s->private;
+	u32			reg;
+
+	if (atomic_read(&dwc->in_lpm)) {
+		pr_err("%s: USB device is powered off\n", __func__);
+		return 0;
+	}
+
+	if (dwc3_gadget_get_link_state(dwc) != DWC3_LINK_STATE_CMPLY) {
+		pr_err("%s: USB Device is not in compliance mode\n", __func__);
+		return -EINVAL;
+	}
+
+	reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
+	reg |= DWC3_GUSB3PIPECTL_HSTPRTCMPL;
+	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
+	msleep(200);
+	reg &= ~DWC3_GUSB3PIPECTL_HSTPRTCMPL;
+	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
+	msleep(200);
+
+	return count;
+}
+
+static const struct file_operations dwc3_cp_toggle_fops = {
+	.write			= dwc3_cp_toggle_write,
+	.open			= dwc3_cp_toggle_open,
+	.read			= NULL,
+	.llseek			= seq_lseek,
+	.release		= single_release,
+};
+
 struct dwc3_ep_file_map {
 	const char name[25];
 	const struct file_operations *const fops;
@@ -1224,6 +1267,8 @@ void dwc3_debugfs_init(struct dwc3 *dwc)
 				    &dwc3_testmode_fops);
 		debugfs_create_file("link_state", S_IRUGO | S_IWUSR, root, dwc,
 				    &dwc3_link_state_fops);
+		debugfs_create_file("cp_toggle", 0200, root, dwc,
+				    &dwc3_cp_toggle_fops);
 		dwc3_debugfs_create_endpoint_dirs(dwc, root);
 
 		file = debugfs_create_file("int_events", 0644, root, dwc,
