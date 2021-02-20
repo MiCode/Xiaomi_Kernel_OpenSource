@@ -959,19 +959,25 @@ int mhi_register_controller(struct mhi_controller *mhi_cntrl,
 	}
 
 	/* Read the MHI device info */
-	ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs,
-			   SOC_HW_VERSION_OFFS, &soc_info);
-	if (ret)
-		goto err_destroy_wq;
+	if (mhi_cntrl->regs) {
+		ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs,
+				   SOC_HW_VERSION_OFFS, &soc_info);
+		if (ret)
+			goto err_destroy_wq;
 
-	mhi_cntrl->family_number = (soc_info & SOC_HW_VERSION_FAM_NUM_BMSK) >>
-					SOC_HW_VERSION_FAM_NUM_SHFT;
-	mhi_cntrl->device_number = (soc_info & SOC_HW_VERSION_DEV_NUM_BMSK) >>
-					SOC_HW_VERSION_DEV_NUM_SHFT;
-	mhi_cntrl->major_version = (soc_info & SOC_HW_VERSION_MAJOR_VER_BMSK) >>
-					SOC_HW_VERSION_MAJOR_VER_SHFT;
-	mhi_cntrl->minor_version = (soc_info & SOC_HW_VERSION_MINOR_VER_BMSK) >>
-					SOC_HW_VERSION_MINOR_VER_SHFT;
+		mhi_cntrl->family_number =
+				(soc_info & SOC_HW_VERSION_FAM_NUM_BMSK) >>
+						SOC_HW_VERSION_FAM_NUM_SHFT;
+		mhi_cntrl->device_number =
+				(soc_info & SOC_HW_VERSION_DEV_NUM_BMSK) >>
+						SOC_HW_VERSION_DEV_NUM_SHFT;
+		mhi_cntrl->major_version =
+				(soc_info & SOC_HW_VERSION_MAJOR_VER_BMSK) >>
+						SOC_HW_VERSION_MAJOR_VER_SHFT;
+		mhi_cntrl->minor_version =
+				(soc_info & SOC_HW_VERSION_MINOR_VER_BMSK) >>
+						SOC_HW_VERSION_MINOR_VER_SHFT;
+	}
 
 	mhi_cntrl->index = ida_alloc(&mhi_controller_ida, GFP_KERNEL);
 	if (mhi_cntrl->index < 0) {
