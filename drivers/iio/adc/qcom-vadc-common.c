@@ -513,11 +513,18 @@ static int qcom_vadc_scale_hw_calib_volt(
 				const struct vadc_prescale_ratio *prescale,
 				const struct adc5_data *data,
 				u16 adc_code, int *result_uv);
+/* Current scaling for PMIC7 */
 static int qcom_vadc_scale_hw_calib_current(
 				const struct vadc_prescale_ratio *prescale,
 				const struct adc5_data *data,
 				u16 adc_code, int *result_ua);
+/* Raw current for PMIC7 */
 static int qcom_vadc_scale_hw_calib_current_raw(
+				const struct vadc_prescale_ratio *prescale,
+				const struct adc5_data *data,
+				u16 adc_code, int *result_ua);
+/* Current scaling for PMIC5 */
+static int qcom_vadc5_scale_hw_calib_current(
 				const struct vadc_prescale_ratio *prescale,
 				const struct adc5_data *data,
 				u16 adc_code, int *result_ua);
@@ -553,6 +560,10 @@ static int qcom_vadc_scale_hw_smb1398_temp(
 				const struct vadc_prescale_ratio *prescale,
 				const struct adc5_data *data,
 				u16 adc_code, int *result_mdec);
+static int qcom_vadc_scale_hw_pm2250_s3_die_temp(
+				const struct vadc_prescale_ratio *prescale,
+				const struct adc5_data *data,
+				u16 adc_code, int *result_mdec);
 static int qcom_vadc_scale_hw_chg5_temp(
 				const struct vadc_prescale_ratio *prescale,
 				const struct adc5_data *data,
@@ -574,6 +585,7 @@ static struct qcom_adc5_scale_type scale_adc5_fn[] = {
 	[SCALE_HW_CALIB_DEFAULT] = {qcom_vadc_scale_hw_calib_volt},
 	[SCALE_HW_CALIB_CUR] = {qcom_vadc_scale_hw_calib_current},
 	[SCALE_HW_CALIB_CUR_RAW] = {qcom_vadc_scale_hw_calib_current_raw},
+	[SCALE_HW_CALIB_PM5_CUR] = {qcom_vadc5_scale_hw_calib_current},
 	[SCALE_HW_CALIB_THERM_100K_PULLUP] = {qcom_vadc_scale_hw_calib_therm},
 	[SCALE_HW_CALIB_BATT_THERM_100K] = {
 				qcom_vadc_scale_hw_calib_batt_therm_100},
@@ -590,6 +602,7 @@ static struct qcom_adc5_scale_type scale_adc5_fn[] = {
 	[SCALE_HW_CALIB_PM5_CHG_TEMP] = {qcom_vadc_scale_hw_chg5_temp},
 	[SCALE_HW_CALIB_PM5_SMB_TEMP] = {qcom_vadc_scale_hw_smb_temp},
 	[SCALE_HW_CALIB_PM5_SMB1398_TEMP] = {qcom_vadc_scale_hw_smb1398_temp},
+	[SCALE_HW_CALIB_PM2250_S3_DIE_TEMP] = {qcom_vadc_scale_hw_pm2250_s3_die_temp},
 	[SCALE_HW_CALIB_PM7_SMB_TEMP] = {qcom_vadc_scale_hw_pm7_smb_temp},
 	[SCALE_HW_CALIB_PM7_CHG_TEMP] = {qcom_vadc_scale_hw_pm7_chg_temp},
 };
@@ -830,6 +843,30 @@ static int qcom_vadc_scale_hw_calib_current(
 	return 0;
 }
 
+static int qcom_vadc5_scale_hw_calib_current(
+				const struct vadc_prescale_ratio *prescale,
+				const struct adc5_data *data,
+				u16 adc_code, int *result_ua)
+{
+	s64 voltage = 0, result = 0;
+	bool positive = true;
+
+	if (adc_code & ADC5_USR_DATA_CHECK) {
+		adc_code = ~adc_code + 1;
+		positive = false;
+	}
+
+	voltage = (s64)(s16) adc_code * data->full_scale_code_cur * 1000;
+	voltage = div64_s64(voltage, VADC5_MAX_CODE);
+	result = div64_s64(voltage * prescale->den, prescale->num);
+	*result_ua = result;
+
+	if (!positive)
+		*result_ua = -result;
+
+	return 0;
+}
+
 static int qcom_vadc_scale_hw_calib_volt(
 				const struct vadc_prescale_ratio *prescale,
 				const struct adc5_data *data,
@@ -1029,6 +1066,35 @@ static int qcom_vadc_scale_hw_smb1398_temp(
 	}
 
 	voltage = voltage - PMIC5_SMB1398_TEMP_CONSTANT;
+	*result_mdec = voltage;
+
+	return 0;
+}
+
+static int qcom_vadc_scale_hw_pm2250_s3_die_temp(
+				const struct vadc_prescale_ratio *prescale,
+				const struct adc5_data *data,
+				u16 adc_code, int *result_mdec)
+{
+	s64 voltage = 0, adc_vdd_ref_mv = 1875;
+
+	if (adc_code > VADC5_MAX_CODE)
+		adc_code = 0;
+
+	/* (ADC code * vref_vadc (1.875V)) / full_scale_code */
+	voltage = (s64) adc_code * adc_vdd_ref_mv * 1000;
+	voltage = div64_s64(voltage, data->full_scale_code_volt);
+	if (voltage > 0) {
+		voltage *= prescale->den;
+		voltage = div64_s64(voltage, prescale->num);
+	} else {
+		voltage = 0;
+	}
+
+	voltage = PMIC5_PM2250_S3_DIE_TEMP_CONSTANT - voltage;
+	voltage *= 100000;
+	voltage = div64_s64(voltage, PMIC5_PM2250_S3_DIE_TEMP_SCALE_FACTOR);
+
 	*result_mdec = voltage;
 
 	return 0;

@@ -664,8 +664,8 @@ static const struct adc5_channels adc5_chans_pmic[ADC5_MAX_CHANNEL] = {
 					SCALE_HW_CALIB_THERM_100K_PULLUP)
 	[ADC5_AMUX_THM2]	= ADC5_CHAN_TEMP("amux_thm2", 0,
 					SCALE_HW_CALIB_PM5_SMB_TEMP)
-	[ADC5_PARALLEL_ISENSE]	= ADC5_CHAN_VOLT("parallel_isense", 1,
-					SCALE_HW_CALIB_CUR)
+	[ADC5_PARALLEL_ISENSE]	= ADC5_CHAN_VOLT("parallel_isense", 0,
+					SCALE_HW_CALIB_PM5_CUR)
 	[ADC5_GPIO1_100K_PU]	= ADC5_CHAN_TEMP("gpio1_100k_pu", 0,
 					SCALE_HW_CALIB_THERM_100K_PULLUP)
 	[ADC5_GPIO2_100K_PU]	= ADC5_CHAN_TEMP("gpio2_100k_pu", 0,
@@ -887,6 +887,7 @@ static int adc5_get_dt_channel_data(struct adc5_chip *adc,
 }
 
 static const struct adc5_data adc5_data_pmic = {
+	.name = "pm-adc5",
 	.full_scale_code_volt = 0x70e4,
 	.full_scale_code_cur = 0x2710,
 	.adc_chans = adc5_chans_pmic,
@@ -902,6 +903,7 @@ static const struct adc5_data adc5_data_pmic = {
 };
 
 static const struct adc5_data adc7_data_pmic = {
+	.name = "pm-adc7",
 	.full_scale_code_volt = 0x70e4,
 	.adc_chans = adc7_chans_pmic,
 	.info = &adc7_info,
@@ -914,16 +916,18 @@ static const struct adc5_data adc7_data_pmic = {
 };
 
 static const struct adc5_data adc5_data_pmic5_lite = {
+	.name = "pm-adc5-lite",
 	.full_scale_code_volt = 0x70e4,
 	/* On PMI632, IBAT LSB = 5A/32767 */
 	.full_scale_code_cur = 5000,
 	.adc_chans = adc5_chans_pmic,
 	.decimation = (unsigned int []) {250, 420, 840},
-	.hw_settle_2 = (unsigned int []) {15, 100, 200, 300, 400, 500, 600, 700,
+	.hw_settle_1 = (unsigned int []) {15, 100, 200, 300, 400, 500, 600, 700,
 					800, 900, 1, 2, 4, 6, 8, 10},
 };
 
 static const struct adc5_data adc5_data_pmic_rev2 = {
+	.name = "pm-adc4-rev2",
 	.full_scale_code_volt = 0x4000,
 	.full_scale_code_cur = 0x1800,
 	.adc_chans = adc5_chans_rev2,
@@ -1028,6 +1032,7 @@ static int adc5_probe(struct platform_device *pdev)
 	struct iio_dev *indio_dev;
 	struct adc5_chip *adc;
 	struct regmap *regmap;
+	const char *irq_name;
 	int ret, irq_eoc;
 	u32 reg;
 
@@ -1063,8 +1068,12 @@ static int adc5_probe(struct platform_device *pdev)
 			return irq_eoc;
 		adc->poll_eoc = true;
 	} else {
+		irq_name = "pm-adc5";
+		if (adc->data->name)
+			irq_name = adc->data->name;
+
 		ret = devm_request_irq(dev, irq_eoc, adc5_isr, 0,
-				       "pm-adc5", adc);
+				       irq_name, adc);
 		if (ret)
 			return ret;
 	}
