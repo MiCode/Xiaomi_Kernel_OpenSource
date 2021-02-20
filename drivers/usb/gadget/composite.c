@@ -1990,12 +1990,6 @@ unknown:
 				buf[6] = w_index;
 				/* Number of ext compat interfaces */
 				count = count_ext_compat(os_desc_cfg);
-				/*
-				 * Bailout if device does not
-				 * have ext_compat interfaces.
-				 */
-				if (count == 0)
-					break;
 				buf[8] = count;
 				count *= 24; /* 24 B/ext compat desc */
 				count += 16; /* header */
