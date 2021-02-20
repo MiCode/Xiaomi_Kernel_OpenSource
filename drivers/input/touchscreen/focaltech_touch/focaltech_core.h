@@ -104,6 +104,16 @@
 
 
 /*****************************************************************************
+*  Alternative mode (When something goes wrong, the modules may be able to solve the problem.)
+*****************************************************************************/
+/*
+ * For commnication error in PM(deep sleep) state
+ */
+#define FTS_PATCH_COMERR_PM                     0
+#define FTS_TIMEOUT_COMERR_PM                   700
+
+
+/*****************************************************************************
 * Private enumerations, structures and unions using typedef
 *****************************************************************************/
 struct ftxxxx_proc {
@@ -114,6 +124,7 @@ struct ftxxxx_proc {
 };
 
 struct fts_ts_platform_data {
+	u32 type;
 	u32 irq_gpio;
 	u32 irq_gpio_flags;
 	u32 reset_gpio;
@@ -178,6 +189,7 @@ struct fts_ts_data {
 	struct delayed_work esdcheck_work;
 	struct delayed_work prc_work;
 	struct work_struct resume_work;
+	struct work_struct suspend_work;
 	struct ftxxxx_proc proc;
 	spinlock_t irq_lock;
 	struct mutex report_mutex;
@@ -186,6 +198,10 @@ struct fts_ts_data {
 	int log_level;
 	int fw_is_running;      /* confirm fw is running when using spi:default 0 */
 	int dummy_byte;
+#if defined(CONFIG_PM) && FTS_PATCH_COMERR_PM
+	struct completion pm_completion;
+	bool pm_suspend;
+#endif
 	bool suspended;
 	bool fw_loading;
 	bool irq_disabled;
@@ -199,6 +215,7 @@ struct fts_ts_data {
 	struct ts_event *events;
 	u8 *bus_tx_buf;
 	u8 *bus_rx_buf;
+	int bus_type;
 	u8 *point_buf;
 	int pnt_buf_size;
 	int touchs;
@@ -232,6 +249,13 @@ struct fts_ts_data {
 	atomic_t delayed_vm_probe_pending;
 	atomic_t trusted_touch_mode;
 #endif
+};
+
+enum _FTS_BUS_TYPE {
+	BUS_TYPE_NONE,
+	BUS_TYPE_I2C,
+	BUS_TYPE_SPI,
+	BUS_TYPE_SPI_V2,
 };
 
 /*****************************************************************************
@@ -275,6 +299,11 @@ int fts_esdcheck_suspend(void);
 int fts_esdcheck_resume(void);
 #endif
 
+/* Production test */
+#if FTS_TEST_EN
+int fts_test_init(struct fts_ts_data *ts_data);
+int fts_test_exit(struct fts_ts_data *ts_data);
+#endif
 
 /* Point Report Check*/
 #if FTS_POINT_REPORT_CHECK_EN
@@ -286,7 +315,6 @@ void fts_prc_queue_work(struct fts_ts_data *ts_data);
 /* FW upgrade */
 int fts_fwupg_init(struct fts_ts_data *ts_data);
 int fts_fwupg_exit(struct fts_ts_data *ts_data);
-int fts_upgrade_bin(char *fw_name, bool force);
 int fts_enter_test_environment(bool test_state);
 
 /* Other */

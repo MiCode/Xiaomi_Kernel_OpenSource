@@ -36,7 +36,7 @@
 /*****************************************************************************
 * Macro definitions using #define
 *****************************************************************************/
-#define FTS_DRIVER_VERSION      "Focaltech V3.1 20190807"
+#define FTS_DRIVER_VERSION      "Focaltech V3.2 20200422"
 
 #define BYTE_OFF_0(x)           (u8)((x) & 0xFF)
 #define BYTE_OFF_8(x)           (u8)(((x) >> 8) & 0xFF)
@@ -49,12 +49,10 @@
 #define FLAG_HID_BIT            10
 #define FLAG_IDC_BIT            11
 
-#define IC_SERIALS              (FTS_CHIP_TYPE & FLAGBITS(0, FLAG_ICSERIALS_LEN-1))
+#define IC_SERIALS(type)        ((type) & FLAGBITS(0, FLAG_ICSERIALS_LEN-1))
 #define IC_TO_SERIALS(x)        ((x) & FLAGBITS(0, FLAG_ICSERIALS_LEN-1))
-#define FTS_CHIP_IDC            ((FTS_CHIP_TYPE & FLAGBIT(FLAG_IDC_BIT)) == FLAGBIT(FLAG_IDC_BIT))
-#define FTS_HID_SUPPORTTED      ((FTS_CHIP_TYPE & FLAGBIT(FLAG_HID_BIT)) == FLAGBIT(FLAG_HID_BIT))
-
-#define FTS_CHIP_TYPE_MAPPING {{0x81, 0x54, 0x52, 0x54, 0x52, 0x00, 0x00, 0x54, 0x5C}}
+#define FTS_CHIP_IDC(type)            (((type) & FLAGBIT(FLAG_IDC_BIT)) == FLAGBIT(FLAG_IDC_BIT))
+#define FTS_HID_SUPPORTTED(type)      (((type) & FLAGBIT(FLAG_HID_BIT)) == FLAGBIT(FLAG_HID_BIT))
 
 #define FILE_NAME_LENGTH                    128
 #define ENABLE                              1
@@ -67,6 +65,7 @@
 #define FTS_CMD_READ_ID                     0x90
 #define FTS_CMD_READ_ID_LEN                 4
 #define FTS_CMD_READ_ID_LEN_INCELL          1
+#define FTS_CMD_READ_FW_CONF                0xA8
 /*register address*/
 #define FTS_REG_INT_CNT                     0x8F
 #define FTS_REG_FLOW_WORK_CNT               0x91
