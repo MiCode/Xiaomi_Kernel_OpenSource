@@ -651,6 +651,7 @@ static void diag_rpmsg_notify_rx_work_fn(struct work_struct *work)
 	struct diagfwd_info *fwd_info;
 	void *buf = NULL;
 	unsigned long flags;
+	int err_flag = 0;
 
 	spin_lock_irqsave(&read_work_struct->rx_lock, flags);
 	if (!list_empty(&read_work_struct->rx_list_head)) {
@@ -658,24 +659,29 @@ static void diag_rpmsg_notify_rx_work_fn(struct work_struct *work)
 		rx_item = list_last_entry(&read_work_struct->rx_list_head,
 						struct rx_buff_list, list);
 
-		spin_unlock_irqrestore(&read_work_struct->rx_lock, flags);
-
-		if (!rx_item)
-			return;
+		if (!rx_item) {
+			err_flag = 1;
+			goto err_handling;
+		}
 
 		rpmsg_info = rx_item->rpmsg_info;
-		if (!rpmsg_info)
-			return;
+		if (!rpmsg_info) {
+			err_flag = 1;
+			goto err_handling;
+		}
 
 		fwd_info = rpmsg_info->fwd_ctxt;
-		if (!fwd_info)
-			return;
+		if (!fwd_info) {
+			err_flag = 1;
+			goto err_handling;
+		}
 
 		if (!rpmsg_info->buf1 && !rpmsg_info->buf2) {
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 					"dropping data for %s len %d\n",
 					rpmsg_info->name, rx_item->rx_buf_size);
-			return;
+			err_flag = 1;
+			goto err_handling;
 		}
 
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
@@ -698,24 +704,37 @@ static void diag_rpmsg_notify_rx_work_fn(struct work_struct *work)
 				"Both the rpmsg buffers are busy\n");
 			buf = NULL;
 		}
-		if (!buf)
-			return;
+		if (!buf) {
+			err_flag = 1;
+			goto err_handling;
+		}
 
-		memcpy(buf, rx_item->rpmsg_rx_buf, rx_item->rx_buf_size);
+err_handling:
+		if (!err_flag) {
+			memcpy(buf, rx_item->rpmsg_rx_buf,
+						rx_item->rx_buf_size);
+			list_del(&rx_item->list);
+			spin_unlock_irqrestore(&read_work_struct->rx_lock,
+								flags);
+		} else {
+			spin_unlock_irqrestore(&read_work_struct->rx_lock,
+								flags);
+			goto end;
+		}
+
 		mutex_lock(&driver->diagfwd_channel_mutex[PERI_RPMSG]);
 
 		diagfwd_channel_read_done(rpmsg_info->fwd_ctxt,
 				(unsigned char *)(buf), rx_item->rx_buf_size);
 
 		mutex_unlock(&driver->diagfwd_channel_mutex[PERI_RPMSG]);
-
-		list_del(&rx_item->list);
 		kfree(rx_item->rpmsg_rx_buf);
 		kfree(rx_item);
+
 	} else {
 		spin_unlock_irqrestore(&read_work_struct->rx_lock, flags);
 	}
-
+end:
 	return;
 }
 

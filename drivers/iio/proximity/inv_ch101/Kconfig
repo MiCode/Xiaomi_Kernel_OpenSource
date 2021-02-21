@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config CH101
+	tristate
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+
+config CH101_I2C
+	tristate "Invensense CH-101 devices (I2C)"
+	depends on I2C_MUX
+	select CH101
+	select REGMAP_I2C
+	help
+	  This driver supports the Invensense CH-101 ultra-low power
+	  ultrasonic Time-of-Flight (ToF) range sensor over I2C.
+	  This driver can be built as a module. The module will be called
+	  ch101-i2c

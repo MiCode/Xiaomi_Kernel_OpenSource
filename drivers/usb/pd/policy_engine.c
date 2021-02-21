@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/completion.h>
@@ -381,6 +381,7 @@ struct usbpd {
 	struct workqueue_struct	*wq;
 	struct work_struct	sm_work;
 	struct work_struct	start_periph_work;
+	struct work_struct	restart_host_work;
 	struct hrtimer		timer;
 	bool			sm_queued;
 
@@ -406,6 +407,8 @@ struct usbpd {
 	bool			peer_usb_comm;
 	bool			peer_pr_swap;
 	bool			peer_dr_swap;
+	bool			no_usb3dp_concurrency;
+	bool			pd20_source_only;
 
 	u32			sink_caps[7];
 	int			num_sink_caps;
@@ -472,6 +475,7 @@ struct usbpd {
 	u8			src_cap_ext_db[PD_SRC_CAP_EXT_DB_LEN];
 	bool			send_get_pps_status;
 	u32			pps_status_db;
+	bool			pps_disabled;
 	bool			send_get_status;
 	u8			status_db[PD_STATUS_DB_LEN];
 	bool			send_get_battery_cap;
@@ -607,6 +611,26 @@ static void start_usb_peripheral_work(struct work_struct *w)
 		pd->partner = typec_register_partner(pd->typec_port,
 				&pd->partner_desc);
 	}
+}
+
+static void restart_usb_host_work(struct work_struct *w)
+{
+	struct usbpd *pd = container_of(w, struct usbpd, restart_host_work);
+	int ret;
+
+	if (!pd->no_usb3dp_concurrency)
+		return;
+
+	stop_usb_host(pd);
+
+	/* blocks until USB host is completely stopped */
+	ret = extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST, STOP_USB_HOST);
+	if (ret) {
+		usbpd_err(&pd->dev, "err(%d) stopping host", ret);
+		return;
+	}
+
+	start_usb_host(pd, false);
 }
 
 /**
@@ -1564,6 +1588,7 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 
 		/* Set to USB and DP cocurrency mode */
 		extcon_blocking_sync(pd->extcon, EXTCON_DISP_DP, 2);
+		queue_work(pd->wq, &pd->restart_host_work);
 	}
 
 	/* if it's a supported SVID, pass the message to the handler */
@@ -2106,7 +2131,11 @@ static int usbpd_startup_common(struct usbpd *pd,
 		 * support up to PD 3.0; if peer is 2.0
 		 * phy_msg_received() will handle the downgrade.
 		 */
-		pd->spec_rev = USBPD_REV_30;
+		if ((pd->pd20_source_only) &&
+			pd->current_state == PE_SRC_STARTUP)
+			pd->spec_rev = USBPD_REV_20;
+		else
+			pd->spec_rev = USBPD_REV_30;
 
 		if (pd->pd_phy_opened) {
 			pd_phy_close();
@@ -2234,7 +2263,10 @@ static void handle_state_src_startup_wait_for_vdm_resp(struct usbpd *pd,
 	 * Emarker may have negotiated down to rev 2.0.
 	 * Reset to 3.0 to begin SOP communication with sink
 	 */
-	pd->spec_rev = USBPD_REV_30;
+	if (pd->pd20_source_only)
+		pd->spec_rev = USBPD_REV_20;
+	else
+		pd->spec_rev = USBPD_REV_30;
 
 	pd->current_state = PE_SRC_SEND_CAPABILITIES;
 	kick_sm(pd, ms);
@@ -2669,6 +2701,7 @@ static void handle_state_snk_wait_for_capabilities(struct usbpd *pd,
 	struct rx_msg *rx_msg)
 {
 	union power_supply_propval val = {0};
+	int i;
 
 	pd->in_pr_swap = false;
 	val.intval = 0;
@@ -2687,6 +2720,14 @@ static void handle_state_snk_wait_for_capabilities(struct usbpd *pd,
 		memcpy(&pd->received_pdos, rx_msg->payload,
 				min_t(size_t, rx_msg->data_len,
 					sizeof(pd->received_pdos)));
+		/* if pps is disabled clear all the received pdos */
+		if (pd->pps_disabled) {
+			for (i = 0; i < ARRAY_SIZE(pd->received_pdos); i++)
+				if ((PD_SRC_PDO_TYPE(pd->received_pdos[i]) ==
+						PD_SRC_PDO_TYPE_AUGMENTED))
+					pd->received_pdos[i] = 0x00;
+		}
+
 		pd->src_cap_id++;
 
 		usbpd_set_state(pd, PE_SNK_EVALUATE_CAPABILITY);
@@ -2921,6 +2962,7 @@ static bool handle_ctrl_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 static bool handle_data_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 {
 	u32 ado;
+	int i;
 
 	switch (PD_MSG_HDR_TYPE(rx_msg->hdr)) {
 	case MSG_SOURCE_CAPABILITIES:
@@ -2930,6 +2972,14 @@ static bool handle_data_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		memcpy(&pd->received_pdos, rx_msg->payload,
 				min_t(size_t, rx_msg->data_len,
 					sizeof(pd->received_pdos)));
+		/* if pps is disabled clear all the received pdos */
+		if (pd->pps_disabled) {
+			for (i = 0; i < ARRAY_SIZE(pd->received_pdos); i++)
+				if ((PD_SRC_PDO_TYPE(pd->received_pdos[i]) ==
+						PD_SRC_PDO_TYPE_AUGMENTED))
+					pd->received_pdos[i] = 0x00;
+		}
+
 		pd->src_cap_id++;
 
 		usbpd_set_state(pd, PE_SNK_EVALUATE_CAPABILITY);
@@ -4678,6 +4728,7 @@ struct usbpd *usbpd_create(struct device *parent)
 	}
 	INIT_WORK(&pd->sm_work, usbpd_sm);
 	INIT_WORK(&pd->start_periph_work, start_usb_peripheral_work);
+	INIT_WORK(&pd->restart_host_work, restart_usb_host_work);
 	hrtimer_init(&pd->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	pd->timer.function = pd_timeout;
 	mutex_init(&pd->swap_lock);
@@ -4733,6 +4784,9 @@ struct usbpd *usbpd_create(struct device *parent)
 	extcon_set_property_capability(pd->extcon, EXTCON_USB_HOST,
 			EXTCON_PROP_USB_SS);
 
+	if (device_property_read_bool(parent, "qcom,no-usb3-dp-concurrency"))
+		pd->no_usb3dp_concurrency = true;
+
 	pd->num_sink_caps = device_property_read_u32_array(parent,
 			"qcom,default-sink-caps", NULL, 0);
 	if (pd->num_sink_caps > 0) {
@@ -4771,6 +4825,9 @@ struct usbpd *usbpd_create(struct device *parent)
 		pd->num_sink_caps = ARRAY_SIZE(default_snk_caps);
 	}
 
+	if (device_property_read_bool(parent, "qcom,pd-20-source-only"))
+		pd->pd20_source_only = true;
+
 	/*
 	 * Register a Type-C class instance (/sys/class/typec/portX).
 	 * Note this is different than the /sys/class/usbpd/ created above.
@@ -4797,6 +4854,8 @@ struct usbpd *usbpd_create(struct device *parent)
 		}
 	}
 
+	pd->pps_disabled = device_property_read_bool(parent,
+				"qcom,pps-disabled");
 	pd->current_pr = PR_NONE;
 	pd->current_dr = DR_NONE;
 	list_add_tail(&pd->instance, &_usbpd);
