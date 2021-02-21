@@ -21,6 +21,7 @@
 #include <linux/kref.h>
 #include <linux/signal.h>
 #include <linux/msm_ion.h>
+#include <linux/of_platform.h>
 
 #include <linux/qcom_scm.h>
 #include <asm/cacheflush.h>
@@ -50,6 +51,7 @@
 /* TZ defined values - Start */
 #define SMCINVOKE_INVOKE_PARAM_ID       0x224
 #define SMCINVOKE_CB_RSP_PARAM_ID       0x22
+#define SMCINVOKE_INVOKE_CMD_LEGACY     0x32000600
 #define SMCINVOKE_INVOKE_CMD            0x32000602
 #define SMCINVOKE_CB_RSP_CMD            0x32000601
 #define SMCINVOKE_RESULT_INBOUND_REQ_NEEDED 3
@@ -144,6 +146,7 @@ static uint16_t g_last_cb_server_id = CBOBJ_SERVER_ID_START;
 static uint16_t g_last_mem_rgn_id, g_last_mem_map_obj_id;
 static size_t g_max_cb_buf_size = SMCINVOKE_TZ_MIN_BUF_SIZE;
 static unsigned int cb_reqs_inflight;
+static bool legacy_smc_call;
 
 static long smcinvoke_ioctl(struct file *, unsigned int, unsigned long);
 static int smcinvoke_open(struct inode *, struct file *);
@@ -1228,7 +1231,10 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 	if ((in_buf_len % PAGE_SIZE) != 0 || (out_buf_len % PAGE_SIZE) != 0)
 		return -EINVAL;
 
-	cmd = SMCINVOKE_INVOKE_CMD;
+	if (legacy_smc_call)
+		cmd = SMCINVOKE_INVOKE_CMD_LEGACY;
+	else
+		cmd = SMCINVOKE_INVOKE_CMD;
 	/*
 	 * purpose of lock here is to ensure that any CB obj that may be going
 	 * to user as OO is not released by piggyback message on another invoke
@@ -1241,11 +1247,14 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 	while (1) {
 		mutex_lock(&g_smcinvoke_lock);
 
-		if (cmd == SMCINVOKE_INVOKE_CMD)
+		if (cmd == SMCINVOKE_INVOKE_CMD_LEGACY)
+			ret = qcom_scm_invoke_smc_legacy(in_paddr, in_buf_len,
+					out_paddr, out_buf_len,
+					&req->result, &response_type, &data);
+		else if (cmd == SMCINVOKE_INVOKE_CMD)
 			ret = qcom_scm_invoke_smc(in_paddr, in_buf_len,
-						out_paddr, out_buf_len,
-						&req->result, &response_type,
-						&data);
+					out_paddr, out_buf_len,
+					&req->result, &response_type, &data);
 		else
 			ret = qcom_scm_invoke_callback_response(
 					virt_to_phys(out_buf), out_buf_len,
@@ -2071,6 +2080,8 @@ static int smcinvoke_probe(struct platform_device *pdev)
 		pr_err("dma_set_mask_and_coherent failed %d\n", rc);
 		goto exit_destroy_device;
 	}
+	legacy_smc_call = of_property_read_bool((&pdev->dev)->of_node,
+			"qcom,support-legacy_smc");
 
 	return  0;
 

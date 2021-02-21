@@ -262,7 +262,7 @@ static struct qcom_icc_qosbox qxm_crypto_qos = {
 	.offsets = { 0x1d000 },
 	.config = &(struct qos_config) {
 		.prio = 2,
-		.urg_fwd = 1,
+		.urg_fwd = 0,
 	},
 };
 
@@ -298,35 +298,14 @@ static struct qcom_icc_node qxm_ipa = {
 	.links = { SLAVE_A2NOC_SNOC },
 };
 
-static struct qcom_icc_qosbox xm_pcie3_0_qos = {
-	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
-	.num_ports = 1,
-	.offsets = { 0xd000 },
-	.config = &(struct qos_config) {
-		.prio = 2,
-		.urg_fwd = 0,
-	},
-};
-
 static struct qcom_icc_node xm_pcie3_0 = {
 	.name = "xm_pcie3_0",
 	.id = MASTER_PCIE_0,
 	.channels = 1,
 	.buswidth = 8,
 	.noc_ops = &qcom_qnoc4_ops,
-	.qosbox = &xm_pcie3_0_qos,
 	.num_links = 1,
 	.links = { SLAVE_ANOC_PCIE_GEM_NOC },
-};
-
-static struct qcom_icc_qosbox xm_pcie3_1_qos = {
-	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
-	.num_ports = 1,
-	.offsets = { 0xf000 },
-	.config = &(struct qos_config) {
-		.prio = 2,
-		.urg_fwd = 0,
-	},
 };
 
 static struct qcom_icc_node xm_pcie3_1 = {
@@ -335,7 +314,6 @@ static struct qcom_icc_node xm_pcie3_1 = {
 	.channels = 1,
 	.buswidth = 8,
 	.noc_ops = &qcom_qnoc4_ops,
-	.qosbox = &xm_pcie3_1_qos,
 	.num_links = 1,
 	.links = { SLAVE_ANOC_PCIE_GEM_NOC },
 };
@@ -640,23 +618,12 @@ static struct qcom_icc_node qnm_mnoc_sf = {
 	.links = { SLAVE_GEM_NOC_CNOC, SLAVE_LLCC },
 };
 
-static struct qcom_icc_qosbox qnm_pcie_qos = {
-	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
-	.num_ports = 1,
-	.offsets = { 0xd2000 },
-	.config = &(struct qos_config) {
-		.prio = 2,
-		.urg_fwd = 0,
-	},
-};
-
 static struct qcom_icc_node qnm_pcie = {
 	.name = "qnm_pcie",
 	.id = MASTER_ANOC_PCIE_GEM_NOC,
 	.channels = 1,
 	.buswidth = 16,
 	.noc_ops = &qcom_qnoc4_ops,
-	.qosbox = &qnm_pcie_qos,
 	.num_links = 2,
 	.links = { SLAVE_GEM_NOC_CNOC, SLAVE_LLCC },
 };
@@ -2582,6 +2549,8 @@ static int qnoc_probe(struct platform_device *pdev)
 	if (qp->num_clks < 0)
 		return qp->num_clks;
 
+	ret = clk_bulk_prepare_enable(qp->num_clks, qp->clks);
+
 	for (i = 0; i < num_nodes; i++) {
 		size_t j;
 
@@ -2594,6 +2563,11 @@ static int qnoc_probe(struct platform_device *pdev)
 		if (IS_ERR(node)) {
 			ret = PTR_ERR(node);
 			goto err;
+		}
+
+		if (qnodes[i]->qosbox) {
+			qnodes[i]->noc_ops->set_qos(qnodes[i]);
+			qnodes[i]->qosbox->initialized = true;
 		}
 
 		node->name = qnodes[i]->name;
@@ -2610,6 +2584,8 @@ static int qnoc_probe(struct platform_device *pdev)
 		data->nodes[i] = node;
 	}
 	data->num_nodes = num_nodes;
+
+	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
 
 	for (i = 0; i < qp->num_bcms; i++)
 		qcom_icc_bcm_init(qp->bcms[i], &pdev->dev);

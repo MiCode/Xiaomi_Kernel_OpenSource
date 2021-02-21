@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2014, 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2014, 2016-2021, The Linux Foundation. All rights reserved. */
 
 #ifndef __QCOM_CLK_REGMAP_H__
 #define __QCOM_CLK_REGMAP_H__
@@ -19,12 +19,16 @@ struct regmap;
  * @list_rate:  On success, return the nth supported frequency for a given
  *		clock that is below rate_max. Return -ENXIO in case there is
  *		no frequency table.
+ *
+ * @set_flags: Set custom flags which deal with hardware specifics. Returns 0
+ *		on success, error otherwise.
  */
 struct clk_regmap_ops {
 	void	(*list_registers)(struct seq_file *f,
 				  struct clk_hw *hw);
 	long	(*list_rate)(struct clk_hw *hw, unsigned int n,
 			     unsigned long rate_max);
+	int	(*set_flags)(struct clk_hw *clk, unsigned long flags);
 };
 
 /**
@@ -51,6 +55,8 @@ struct clk_regmap {
 	struct clk_regmap_ops *ops;
 	struct list_head list_node;
 	struct device *dev;
+#define QCOM_CLK_IS_CRITICAL	BIT(0)
+	unsigned long flags;
 };
 #define to_clk_regmap(_hw) container_of(_hw, struct clk_regmap, hw)
 

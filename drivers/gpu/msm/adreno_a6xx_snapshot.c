@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -294,7 +294,7 @@ static const unsigned int a6xx_registers[] = {
 	0xA600, 0xA601, 0xA603, 0xA603, 0xA60A, 0xA60A, 0xA610, 0xA617,
 	0xA630, 0xA630,
 	/* HLSQ */
-	0xD002, 0xD004,
+	0xD002, 0xD003,
 };
 
 static const unsigned int a660_registers[] = {

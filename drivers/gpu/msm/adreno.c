@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
  */
 #include <linux/component.h>
 #include <linux/delay.h>
@@ -2612,8 +2612,13 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
 bool adreno_irq_pending(struct adreno_device *adreno_dev)
 {
 	unsigned int status;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
+	if (gmu_core_isenabled(device))
+		adreno_read_gmureg(adreno_dev,
+			ADRENO_REG_GMU_AO_RBBM_INT_UNMASKED_STATUS, &status);
+	else
+		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
 
 	/*
 	 * IRQ handler clears the RBBM INT0 status register immediately

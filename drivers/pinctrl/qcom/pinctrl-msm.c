@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2013, Sony Mobile Communications AB.
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -46,6 +46,7 @@
  * @restart_nb:     restart notifier block.
  * @irq:            parent irq for the TLMM irq_chip.
  * @n_dir_conns:    The number of pins directly connected to GIC.
+ * @mpm_wake_ctl:   MPM wakeup capability control enable.
  * @lock:           Spinlock to protect register resources as well
  *                  as msm_pinctrl data structures.
  * @enabled_irqs:   Bitmap of currently enabled irqs.
@@ -65,6 +66,7 @@ struct msm_pinctrl {
 	struct irq_chip irq_chip;
 	int irq;
 	int n_dir_conns;
+	bool mpm_wake_ctl;
 
 	raw_spinlock_t lock;
 
@@ -135,8 +137,26 @@ static int msm_pinmux_request(struct pinctrl_dev *pctldev, unsigned offset)
 {
 	struct msm_pinctrl *pctrl = pinctrl_dev_get_drvdata(pctldev);
 	struct gpio_chip *chip = &pctrl->chip;
+	int ret;
 
-	return gpiochip_line_is_valid(chip, offset) ? 0 : -EINVAL;
+	ret = gpiochip_line_is_valid(chip, offset) ? 0 : -EINVAL;
+	if (!ret && pctrl->mpm_wake_ctl)
+		msm_gpio_mpm_wake_set(offset, false);
+
+	return ret;
+}
+
+static int msm_pinmux_free(struct pinctrl_dev *pctldev, unsigned int offset)
+{
+	struct msm_pinctrl *pctrl = pinctrl_dev_get_drvdata(pctldev);
+	struct gpio_chip *chip = &pctrl->chip;
+	int ret;
+
+	ret = gpiochip_line_is_valid(chip, offset) ? 0 : -EINVAL;
+	if (!ret && pctrl->mpm_wake_ctl)
+		msm_gpio_mpm_wake_set(offset, true);
+
+	return ret;
 }
 
 static int msm_get_functions_count(struct pinctrl_dev *pctldev)
@@ -220,6 +240,7 @@ static int msm_pinmux_request_gpio(struct pinctrl_dev *pctldev,
 
 static const struct pinmux_ops msm_pinmux_ops = {
 	.request		= msm_pinmux_request,
+	.free			= msm_pinmux_free,
 	.get_functions_count	= msm_get_functions_count,
 	.get_function_name	= msm_get_function_name,
 	.get_function_groups	= msm_get_function_groups,
@@ -873,6 +894,9 @@ static void msm_gpio_irq_enable(struct irq_data *d)
 		irq_chip_enable_parent(d);
 	}
 
+	if (pctrl->mpm_wake_ctl)
+		msm_gpio_mpm_wake_set(d->hwirq, true);
+
 	if (test_bit(d->hwirq, pctrl->skip_wake_irqs))
 		return;
 
@@ -896,6 +920,9 @@ static void msm_gpio_irq_disable(struct irq_data *d)
 		}
 		irq_chip_disable_parent(d);
 	}
+
+	if (pctrl->mpm_wake_ctl)
+		msm_gpio_mpm_wake_set(d->hwirq, false);
 
 	if (test_bit(d->hwirq, pctrl->skip_wake_irqs))
 		return;
@@ -1529,6 +1556,9 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 		if (IS_ERR(pctrl->regs[0]))
 			return PTR_ERR(pctrl->regs[0]);
 	}
+
+	pctrl->mpm_wake_ctl = of_property_read_bool(pdev->dev.of_node,
+					"qcom,tlmm-mpm-wake-control");
 
 	msm_pinctrl_setup_pm_reset(pctrl);
 

@@ -97,6 +97,9 @@
 /* USB DBM Hardware registers */
 #define DBM_REG_OFFSET		0xF8000
 
+/* DBM_GEN_CFG */
+#define DBM_EN_USB3		0x00000001
+
 /* DBM_EP_CFG */
 #define DBM_EN_EP		0x00000001
 #define USB3_EPNUM		0x0000003E
@@ -1136,7 +1139,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
-	msm_dbm_write_reg(mdwc, DBM_GEN_CFG,
+	msm_dbm_write_reg_field(mdwc, DBM_GEN_CFG, DBM_EN_USB3,
 			dwc3_msm_is_dev_superspeed(mdwc) ? 1 : 0);
 
 	return 0;
@@ -2339,40 +2342,6 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc,
 		if (dwc->retries_on_error < MAX_ERROR_RECOVERY_TRIES)
 			schedule_work(&mdwc->restart_usb_work);
 		break;
-	case DWC3_CONTROLLER_POST_RESET_EVENT:
-		dev_dbg(mdwc->dev,
-				"DWC3_CONTROLLER_POST_RESET_EVENT received\n");
-
-		/*
-		 * Below sequence is used when controller is working without
-		 * having ssphy and only USB high/full speed is supported.
-		 */
-		if (dwc->maximum_speed == USB_SPEED_HIGH ||
-					dwc->maximum_speed == USB_SPEED_FULL) {
-			dwc3_msm_write_reg(mdwc->base, QSCRATCH_GENERAL_CFG,
-				dwc3_msm_read_reg(mdwc->base,
-				QSCRATCH_GENERAL_CFG)
-				| PIPE_UTMI_CLK_DIS);
-
-			usleep_range(2, 5);
-
-
-			dwc3_msm_write_reg(mdwc->base, QSCRATCH_GENERAL_CFG,
-				dwc3_msm_read_reg(mdwc->base,
-				QSCRATCH_GENERAL_CFG)
-				| PIPE_UTMI_CLK_SEL
-				| PIPE3_PHYSTATUS_SW);
-
-			usleep_range(2, 5);
-
-			dwc3_msm_write_reg(mdwc->base, QSCRATCH_GENERAL_CFG,
-				dwc3_msm_read_reg(mdwc->base,
-				QSCRATCH_GENERAL_CFG)
-				& ~PIPE_UTMI_CLK_DIS);
-		}
-
-		dwc->tx_fifo_size = mdwc->tx_fifo_size;
-		break;
 	case DWC3_CONTROLLER_CONNDONE_EVENT:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_CONNDONE_EVENT received\n");
 		/*
@@ -2588,6 +2557,35 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 		clk_disable_unprepare(mdwc->cfg_ahb_clk);
 	}
 
+	/*
+	 * Below sequence is used when controller is working without
+	 * having ssphy and only USB high/full speed is supported.
+	 */
+	if (dwc->maximum_speed == USB_SPEED_HIGH ||
+				dwc->maximum_speed == USB_SPEED_FULL) {
+		dwc3_msm_write_reg(mdwc->base, QSCRATCH_GENERAL_CFG,
+			dwc3_msm_read_reg(mdwc->base,
+			QSCRATCH_GENERAL_CFG)
+			| PIPE_UTMI_CLK_DIS);
+
+		usleep_range(2, 5);
+
+
+		dwc3_msm_write_reg(mdwc->base, QSCRATCH_GENERAL_CFG,
+			dwc3_msm_read_reg(mdwc->base,
+			QSCRATCH_GENERAL_CFG)
+			| PIPE_UTMI_CLK_SEL
+			| PIPE3_PHYSTATUS_SW);
+
+		usleep_range(2, 5);
+
+		dwc3_msm_write_reg(mdwc->base, QSCRATCH_GENERAL_CFG,
+			dwc3_msm_read_reg(mdwc->base,
+			QSCRATCH_GENERAL_CFG)
+			& ~PIPE_UTMI_CLK_DIS);
+	}
+
+	dwc->tx_fifo_size = mdwc->tx_fifo_size;
 	ret = dwc3_core_init(dwc);
 	if (ret)
 		dev_err(mdwc->dev, "%s: dwc3_core init failed (%d)\n",
@@ -2666,7 +2664,7 @@ static void dwc3_set_phy_speed_flags(struct dwc3_msm *mdwc)
 		for (i = 0; i < num_ports; i++) {
 			reg = dwc3_msm_read_reg(mdwc->base,
 					USB3_PORTSC + i*0x10);
-			if (reg & PORT_PE) {
+			if (reg & PORT_CONNECT) {
 				if (DEV_HIGHSPEED(reg) || DEV_FULLSPEED(reg))
 					mdwc->hs_phy->flags |= PHY_HSFS_MODE;
 				else if (DEV_LOWSPEED(reg))

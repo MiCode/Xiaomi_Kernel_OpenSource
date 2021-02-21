@@ -90,6 +90,7 @@ extern int qcom_scm_spin_cpu(void);
 extern void qcom_scm_set_download_mode(enum qcom_download_mode mode,
 				       phys_addr_t tcsr_boot_misc);
 extern int qcom_scm_config_cpu_errata(void);
+extern void qcom_scm_phy_update_scm_level_shifter(u32 val);
 extern bool qcom_scm_pas_supported(u32 peripheral);
 extern int qcom_scm_pas_init_image(u32 peripheral, const void *metadata,
 				   size_t size);
@@ -191,6 +192,9 @@ extern int qcom_scm_register_qsee_log_buf(phys_addr_t buf, size_t len);
 extern int qcom_scm_query_encrypted_log_feature(u64 *enabled);
 extern int qcom_scm_request_encrypted_log(phys_addr_t buf, size_t len,
 						uint32_t log_id);
+extern int qcom_scm_invoke_smc_legacy(phys_addr_t in_buf, size_t in_buf_size,
+		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
+		u64 *response_type, unsigned int *data);
 extern int qcom_scm_invoke_smc(phys_addr_t in_buf, size_t in_buf_size,
 		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
 		u64 *response_type, unsigned int *data);
@@ -219,6 +223,7 @@ static inline void qcom_scm_set_download_mode(enum qcom_download_mode mode,
 		phys_addr_t tcsr_boot_misc) {}
 static inline int qcom_scm_config_cpu_errata(void)
 		{ return -ENODEV; }
+static inline void qcom_scm_phy_update_scm_level_shifter(u32 val) {}
 static inline bool qcom_scm_pas_supported(u32 peripheral) { return false; }
 static inline int qcom_scm_pas_init_image(u32 peripheral, const void *metadata,
 					  size_t size) { return -ENODEV; }
@@ -363,6 +368,9 @@ static inline int qcom_scm_query_encrypted_log_feature(u64 *enabled)
 static inline int qcom_scm_request_encrypted_log(phys_addr_t buf, size_t len,
 						uint32_t log_id)
 		{ return -ENODEV; }
+static inline int qcom_scm_invoke_smc_legacy(phys_addr_t in_buf, size_t in_buf_size,
+		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
+		u64 *request_type, unsigned int *data)  { return -ENODEV; }
 static inline int qcom_scm_invoke_smc(phys_addr_t in_buf, size_t in_buf_size,
 		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
 		u64 *request_type, unsigned int *data)	{ return -ENODEV; }

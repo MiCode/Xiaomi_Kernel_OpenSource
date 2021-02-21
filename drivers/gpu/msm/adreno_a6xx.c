@@ -1250,9 +1250,8 @@ bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
 	}
 
 	gmu_core_regread(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg);
-
 	/* Bit 23 is GPUBUSYIGNAHB */
-	return (reg & BIT(23)) ? false : true;
+	return ((reg & BIT(23)) || adreno_irq_pending(adreno_dev)) ? false : true;
 }
 
 int a6xx_microcode_read(struct adreno_device *adreno_dev)
@@ -2398,6 +2397,8 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A6XX_GMU_AHB_FENCE_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
 				A6XX_GMU_GMU2HOST_INTR_MASK),
+	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_RBBM_INT_UNMASKED_STATUS,
+				A6XX_GMU_RBBM_INT_UNMASKED_STATUS),
 };
 
 static int cpu_gpu_lock(struct cpu_gpu_lock *lock)

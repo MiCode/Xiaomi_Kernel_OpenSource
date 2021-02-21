@@ -232,6 +232,47 @@ static void qcom_cc_drop_protected(struct device *dev, struct qcom_cc *cc)
 	}
 }
 
+/* Set QCOM_CLK_IS_CRITICAL on clocks specified in dt */
+static void qcom_cc_set_critical(struct device *dev, struct qcom_cc *cc)
+{
+	struct of_phandle_args args;
+	struct device_node *np;
+	struct property *prop;
+	const __be32 *p;
+	u32 clock_idx;
+	u32 i;
+	int cnt;
+
+	of_property_for_each_u32(dev->of_node, "qcom,critical-clocks", prop, p, i) {
+		if (i >= cc->num_rclks)
+			continue;
+
+		cc->rclks[i]->flags |= QCOM_CLK_IS_CRITICAL;
+	}
+
+	of_property_for_each_u32(dev->of_node, "qcom,critical-devices", prop, p, i) {
+		np = of_find_node_by_phandle(i);
+		if (!np)
+			continue;
+
+		cnt = of_count_phandle_with_args(np, "clocks", "#clock-cells");
+
+		for (i = 0; i < cnt; i++) {
+			of_parse_phandle_with_args(np, "clocks", "#clock-cells",
+						   i, &args);
+			clock_idx = args.args[0];
+
+			if (args.np != dev->of_node || clock_idx >= cc->num_rclks)
+				continue;
+
+			cc->rclks[clock_idx]->flags |= QCOM_CLK_IS_CRITICAL;
+			of_node_put(args.np);
+		}
+
+		of_node_put(np);
+	}
+}
+
 static struct clk_hw *qcom_cc_clk_hw_get(struct of_phandle_args *clkspec,
 					 void *data)
 {
@@ -310,6 +351,7 @@ int qcom_cc_really_probe(struct platform_device *pdev,
 	cc->num_clk_hws = num_clk_hws;
 
 	qcom_cc_drop_protected(dev, cc);
+	qcom_cc_set_critical(dev, cc);
 
 	for (i = 0; i < num_clk_hws; i++) {
 		if (!clk_hws[i])
@@ -329,6 +371,14 @@ int qcom_cc_really_probe(struct platform_device *pdev,
 			return ret;
 
 		clk_hw_populate_clock_opp_table(dev->of_node, &rclks[i]->hw);
+
+		/*
+		 * Critical clocks are enabled by devm_clk_register_regmap()
+		 * and registration skipped. So remove from rclks so that the
+		 * get() callback returns NULL and client requests are stubbed.
+		 */
+		if (rclks[i]->flags & QCOM_CLK_IS_CRITICAL)
+			rclks[i] = NULL;
 	}
 
 	ret = devm_of_clk_add_hw_provider(dev, qcom_cc_clk_hw_get, cc);
@@ -397,6 +447,29 @@ int qcom_clk_get_voltage(struct clk *clk, unsigned long rate)
 	return rclk->vdd_data.vdd_class->vdd_uv[vdd_level];
 }
 EXPORT_SYMBOL(qcom_clk_get_voltage);
+
+int qcom_clk_set_flags(struct clk *clk, unsigned long flags)
+{
+	struct clk_regmap *rclk;
+	struct clk_hw *hw;
+
+	if (IS_ERR_OR_NULL(clk))
+		return 0;
+
+	hw = __clk_get_hw(clk);
+	if (IS_ERR_OR_NULL(hw))
+		return -EINVAL;
+
+	if (!clk_is_regmap_clk(hw))
+		return -EINVAL;
+
+	rclk = to_clk_regmap(hw);
+	if (rclk->ops && rclk->ops->set_flags)
+		return rclk->ops->set_flags(hw, flags);
+
+	return 0;
+}
+EXPORT_SYMBOL(qcom_clk_set_flags);
 
 int qcom_cc_runtime_init(struct platform_device *pdev,
 			 struct qcom_cc_desc *desc)

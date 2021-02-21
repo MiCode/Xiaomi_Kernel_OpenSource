@@ -7,6 +7,7 @@
 
 #include <linux/gfp.h>
 #include <linux/slab.h>
+#include <linux/pm_wakeup.h>
 
 #include <linux/ipa_eth.h>
 #include <linux/etherdevice.h>
@@ -103,6 +104,7 @@ struct aqo_device {
 	union aqc_ipa_eth_hdr hdr_v4;
 	union aqc_ipa_eth_hdr hdr_v6;
 
+	struct wakeup_source *ws;
 	phys_addr_t mmio_phys_addr;
 	unsigned long long exception_packets;
 };
@@ -250,7 +252,6 @@ static void aqc_ipa_notify_cb(void *priv,
 	struct aqo_device *aqo_dev = priv;
 	struct sk_buff *skb = (struct sk_buff *)data;
 	struct net_device *net_dev = to_ndev(aqo_dev);
-	struct iphdr *ip;
 
 	if (evt != IPA_RECEIVE)
 		return;
@@ -265,14 +266,6 @@ static void aqc_ipa_notify_cb(void *priv,
 	aqo_dev->exception_packets++;
 
 	netif_rx_ni(skb);
-}
-
-static void aqc_ipa_get_ecm_msg(struct ipa_ecm_msg *msg,
-				struct net_device *net_dev)
-
-{
-	strlcpy(msg->name, net_dev->name, IPA_RESOURCE_NAME_MAX);
-	msg->ifindex = net_dev->ifindex;
 }
 
 static int aqc_match_pci(struct device *dev)
@@ -498,7 +491,6 @@ static void aqc_teardown_ring(struct aqo_device *aqo_dev,
 			      struct aqc_ch_info *ch_info)
 {
 	struct atl_fwd_mem_ops *mem_ops = ch_info->ring->mem_ops;
-	struct atl_nic *nic = (struct atl_nic *)dev_get_drvdata(aqo_dev->eth_dev->dev);
 
 	atl_fwd_disable_ring(ch_info->ring);
 	aqc_deinit_pipe_info(&ch_info->pipe_info);
@@ -513,8 +505,6 @@ static int aqc_setup_ring(struct aqo_device *aqo_dev, int ring_flags,
 			  struct aqc_ch_info *ch_info)
 {
 	struct net_device *ndev = to_ndev(aqo_dev);
-	int ret = 0;
-	struct atl_nic *nic = (struct atl_nic *)dev_get_drvdata(aqo_dev->eth_dev->dev);
 	struct atl_fwd_mem_ops *mem_ops = NULL;
 
 	mem_ops = kzalloc(sizeof(*mem_ops), GFP_KERNEL);
@@ -913,7 +903,6 @@ int aqo_netdev_rxflow_reset(struct aqo_device *aqo_dev)
 static int aqc_start_tx(struct ipa_eth_device *eth_dev)
 {
 	struct aqo_device *aqo_dev = eth_dev->od_priv;
-	int ret = 0;
 	struct atl_nic *nic = (struct atl_nic *)dev_get_drvdata(eth_dev->dev);
 
 	if (setup_aqc_rings(aqo_dev)) {
@@ -1010,19 +999,6 @@ static int aqo_clear_stats(struct ipa_eth_device *eth_dev)
 	return 0;
 }
 
-static size_t aqc_regs_save(struct aqo_device *aqo_dev,
-			    struct aqc_regs *regs)
-{
-	regs->begin_ktime = ktime_get();
-
-	regs->end_ktime = ktime_get();
-
-	regs->duration_ns =
-		ktime_to_ns(ktime_sub(regs->end_ktime, regs->begin_ktime));
-
-	return 0;
-}
-
 static int aqo_save_regs(struct ipa_eth_device *eth_dev,
 			 void **regs, size_t *size)
 {
@@ -1035,7 +1011,7 @@ static int atl_ipa_open_device(struct ipa_eth_device *eth_dev)
 	struct atl_nic *nic = (struct atl_nic *)dev_get_drvdata(eth_dev->dev);
 
 	if (!eth_dev || !eth_dev->dev) {
-		aqo_log_err(aqo_dev, "Invalid ethernet device structure");
+		pr_err("%s: Invalid ethernet device structure\n", __func__);
 		return -EFAULT;
 	}
 
@@ -1048,6 +1024,13 @@ static int atl_ipa_open_device(struct ipa_eth_device *eth_dev)
 	if (!aqo_dev)
 		return -ENOMEM;
 
+	aqo_dev->ws = wakeup_source_register(eth_dev->dev, "aqc-ipa");
+	if (!aqo_dev->ws) {
+		aqo_log_err(aqo_dev, "Error in initializing wake up source\n");
+		kfree(aqo_dev);
+		return -ENOMEM;
+	}
+
 	aqo_dev->eth_client.inst_id = AQC_IPA_INST_ID;
 	aqo_dev->eth_client.client_type = IPA_ETH_CLIENT_AQC107;
 	aqo_dev->eth_client.traffic_type = IPA_ETH_PIPE_BEST_EFFORT;
@@ -1057,12 +1040,17 @@ static int atl_ipa_open_device(struct ipa_eth_device *eth_dev)
 	eth_dev->net_dev = nic->ndev;
 	aqo_dev->eth_dev = eth_dev;
 
+	__pm_stay_awake(aqo_dev->ws);
+
 	return 0;
 }
 
 static void atl_ipa_close_device(struct ipa_eth_device *eth_dev)
 {
 	struct aqo_device *aqo_dev = eth_dev->od_priv;
+
+	__pm_relax(aqo_dev->ws);
+	wakeup_source_unregister(aqo_dev->ws);
 
 	eth_dev->od_priv = NULL;
 	eth_dev->net_dev = NULL;

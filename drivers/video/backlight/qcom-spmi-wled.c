@@ -378,15 +378,13 @@ static int wled_sync_toggle(struct wled *wled)
 
 	rc = regmap_update_bits(wled->regmap,
 			wled->sink_addr + WLED_SINK_SYNC,
-			WLED_SINK_SYNC_MASK, WLED_SINK_SYNC_MASK);
+			WLED_SINK_SYNC_MASK, WLED_SINK_SYNC_CLEAR);
 	if (rc < 0)
 		return rc;
 
-	rc = regmap_update_bits(wled->regmap,
+	return regmap_update_bits(wled->regmap,
 			wled->sink_addr + WLED_SINK_SYNC,
-			WLED_SINK_SYNC_MASK, WLED_SINK_SYNC_CLEAR);
-
-	return rc;
+			WLED_SINK_SYNC_MASK, WLED_SINK_SYNC_MASK);
 }
 
 static int wled5_sample_hold_control(struct wled *wled, u16 brightness,
@@ -460,20 +458,19 @@ static int wled5_set_brightness(struct wled *wled, u16 brightness)
 	if (rc < 0)
 		return rc;
 
-	/* Update brightness values to modulator in WLED5 */
-	val = (wled->cfg.mod_sel == MOD_A) ? WLED5_SINK_SYNC_MODA_BIT :
-		WLED5_SINK_SYNC_MODB_BIT;
-	rc = regmap_update_bits(wled->regmap,
-			wled->sink_addr + WLED5_SINK_MOD_SYNC_BIT_REG,
-			WLED5_SINK_SYNC_MASK, val);
-	if (rc < 0)
-		return rc;
-
 	val = 0;
 	rc = regmap_update_bits(wled->regmap,
 			wled->sink_addr + WLED5_SINK_MOD_SYNC_BIT_REG,
 			WLED_SINK_SYNC_MASK, val);
-	return rc;
+	/* Update brightness values to modulator in WLED5 */
+	if (rc < 0)
+		return rc;
+
+	val = (wled->cfg.mod_sel == MOD_A) ? WLED5_SINK_SYNC_MODA_BIT :
+		WLED5_SINK_SYNC_MODB_BIT;
+	return regmap_update_bits(wled->regmap,
+			wled->sink_addr + WLED5_SINK_MOD_SYNC_BIT_REG,
+			WLED5_SINK_SYNC_MASK, val);
 }
 
 static int wled4_set_brightness(struct wled *wled, u16 brightness)

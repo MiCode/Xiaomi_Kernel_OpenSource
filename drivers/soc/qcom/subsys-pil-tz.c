@@ -1440,7 +1440,7 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 		if (IS_ERR(d->rmb_gp_reg)) {
 			dev_err(&pdev->dev, "Invalid resource for rmb_gp_reg\n");
 			rc = PTR_ERR(d->rmb_gp_reg);
-			goto err_ramdump;
+			goto load_from_pil;
 		}
 
 		rmb_gp_reg_val = __raw_readl(d->rmb_gp_reg);
@@ -1455,7 +1455,7 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 			pr_info("spss is brought out of reset by UEFI\n");
 			d->subsys_desc.powerup = subsys_powerup_boot_enabled;
 		}
-
+load_from_pil:
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"sp2soc_irq_status");
 		d->irq_status = devm_ioremap_resource(&pdev->dev, res);

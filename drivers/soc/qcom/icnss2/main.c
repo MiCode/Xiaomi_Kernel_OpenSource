@@ -555,7 +555,7 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 
 	icnss_ignore_fw_timeout(false);
 
-	if (test_bit(ICNSS_WLFW_CONNECTED, &penv->state)) {
+	if (test_bit(ICNSS_WLFW_CONNECTED, &priv->state)) {
 		icnss_pr_err("QMI Server already in Connected State\n");
 		ICNSS_ASSERT(0);
 	}
@@ -573,44 +573,44 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 			goto qmi_registered;
 		}
 		ignore_assert = true;
-		goto clear_server;
+		goto fail;
 	}
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
 		ret = wlfw_host_cap_send_sync(priv);
 		if (ret < 0)
-			goto clear_server;
+			goto fail;
 	}
 
 	if (priv->device_id == ADRASTEA_DEVICE_ID) {
 		if (!priv->msa_va) {
 			icnss_pr_err("Invalid MSA address\n");
 			ret = -EINVAL;
-			goto clear_server;
+			goto fail;
 		}
 
 		ret = wlfw_msa_mem_info_send_sync_msg(priv);
 		if (ret < 0) {
 			ignore_assert = true;
-			goto clear_server;
+			goto fail;
 		}
 
 		ret = wlfw_msa_ready_send_sync_msg(priv);
 		if (ret < 0) {
 			ignore_assert = true;
-			goto clear_server;
+			goto fail;
 		}
 	}
 
 	ret = wlfw_cap_send_sync_msg(priv);
 	if (ret < 0) {
 		ignore_assert = true;
-		goto clear_server;
+		goto fail;
 	}
 
 	ret = icnss_hw_power_on(priv);
 	if (ret)
-		goto clear_server;
+		goto fail;
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
 		ret = wlfw_device_info_send_msg(priv);
@@ -656,8 +656,6 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 
 device_info_failure:
 	icnss_hw_power_off(priv);
-clear_server:
-	icnss_clear_server(priv);
 fail:
 	ICNSS_ASSERT(ignore_assert);
 qmi_registered:
@@ -805,6 +803,9 @@ static int icnss_driver_event_fw_ready_ind(struct icnss_priv *priv, void *data)
 
 	set_bit(ICNSS_FW_READY, &priv->state);
 	clear_bit(ICNSS_MODE_ON, &priv->state);
+
+	if (priv->device_id == WCN6750_DEVICE_ID)
+		icnss_free_qdss_mem(priv);
 
 	icnss_pr_info("WLAN FW is ready: 0x%lx\n", priv->state);
 
@@ -2859,6 +2860,8 @@ int icnss_smmu_map(struct device *dev,
 		   phys_addr_t paddr, uint32_t *iova_addr, size_t size)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int flag = IOMMU_READ | IOMMU_WRITE;
+	bool dma_coherent = false;
 	unsigned long iova;
 	int prop_len = 0;
 	size_t len;
@@ -2888,11 +2891,17 @@ int icnss_smmu_map(struct device *dev,
 		return -ENOMEM;
 	}
 
+	dma_coherent = of_property_read_bool(dev->of_node, "dma-coherent");
+	icnss_pr_dbg("dma-coherent is %s\n",
+		     dma_coherent ? "enabled" : "disabled");
+	if (dma_coherent)
+		flag |= IOMMU_CACHE;
+
 	icnss_pr_dbg("IOMMU Map: iova %lx, len %zu\n", iova, len);
 
 	ret = iommu_map(priv->iommu_domain, iova,
 			rounddown(paddr, PAGE_SIZE), len,
-			IOMMU_READ | IOMMU_WRITE);
+			flag);
 	if (ret) {
 		icnss_pr_err("PA to IOVA mapping failed, ret %d\n", ret);
 		return ret;
