@@ -95,11 +95,11 @@
 };
 
 &lpass_cdc {
-	qcom,num-macros = <5>;
+	qcom,num-macros = <4>;
 };
 
 &wsa2_macro {
-	status = "ok";
+	status = "disabled";
 };
 
 &swr_dmic_01 {
@@ -161,19 +161,14 @@
 		"IN3_AUX", "AUX_OUT",
 		"HAP_IN", "PCM_OUT",
 		"WSA SRC0_INP", "SRC0",
-		"WSA2 SRC0_INP", "SRC0",
 		"WSA_TX DEC0_INP", "TX DEC0 MUX",
 		"WSA_TX DEC1_INP", "TX DEC1 MUX",
-		"WSA2_TX DEC0_INP", "TX DEC0 MUX",
-		"WSA2_TX DEC1_INP", "TX DEC1 MUX",
 		"RX_TX DEC0_INP", "TX DEC0 MUX",
 		"RX_TX DEC1_INP", "TX DEC1 MUX",
 		"RX_TX DEC2_INP", "TX DEC2 MUX",
 		"RX_TX DEC3_INP", "TX DEC3 MUX",
 		"SpkrLeft IN", "WSA_SPK1 OUT",
 		"SpkrRight IN", "WSA_SPK2 OUT",
-		"Spkr2Left IN", "WSA2_SPK1 OUT",
-		"Spkr2Right IN", "WSA2_SPK2 OUT",
 		"TX SWR_INPUT", "WCD_TX_OUTPUT",
 		"VA SWR_INPUT", "VA_SWR_CLK",
 		"VA SWR_INPUT", "WCD_TX_OUTPUT",
@@ -198,13 +193,11 @@
 	qcom,cdc-dmic67-gpios = <&cdc_dmic67_gpios>;
 	asoc-codec  = <&stub_codec>, <&lpass_cdc>,
 		      <&wcd938x_codec>, <&swr_haptics>,
-		      <&wsa883x_0221>, <&wsa883x_0222>,
-		      <&wsa883x_2_0221>, <&wsa883x_2_0222>;
+		      <&wsa883x_0221>, <&wsa883x_0222>;
 	asoc-codec-names = "msm-stub-codec.1", "lpass-cdc",
 			   "wcd938x_codec", "swr-haptics",
-			   "wsa-codec1", "wsa-codec2",
-			   "wsa-codec3", "wsa-codec4";
-	qcom,wsa-max-devs = <4>;
+			   "wsa-codec1", "wsa-codec2";
+	qcom,wsa-max-devs = <2>;
 };
 
 &qupv3_se9_i2c {
