@@ -763,7 +763,7 @@ static int __init initialize_ptr_random(void)
 	return ret;
 }
 early_initcall(initialize_ptr_random);
- 
+
 /* Maps a pointer to a 32 bit unique identifier. */
 static inline int __ptr_to_hashval(const void *ptr, unsigned long *hashval_out)
 {
@@ -2256,8 +2256,6 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 	case 'V':
 		return va_format(buf, end, ptr, spec, fmt);
 	case 'K':
-		if (IS_ENABLED(CONFIG_DEBUG_CONSOLE_UNHASHED_POINTERS))
-			break;
 		return restricted_pointer(buf, end, ptr, spec);
 	case 'N':
 		return netdev_bits(buf, end, ptr, spec, fmt);
@@ -2298,9 +2296,6 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 			return error_string(buf, end, "(einval)", spec);
 		}
 	}
-
-	if (IS_ENABLED(CONFIG_DEBUG_CONSOLE_UNHASHED_POINTERS))
-		return pointer_string(buf, end, ptr, spec);
 
 	/* default is to _not_ leak addresses, hash before printing */
 	return ptr_to_id(buf, end, ptr, spec);

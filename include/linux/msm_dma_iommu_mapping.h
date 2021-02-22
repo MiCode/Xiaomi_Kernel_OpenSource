@@ -10,6 +10,7 @@
 #include <linux/dma-buf.h>
 #include <linux/scatterlist.h>
 #include <linux/dma-mapping.h>
+#include <linux/qcom-dma-mapping.h>
 
 #if IS_ENABLED(CONFIG_QCOM_LAZY_MAPPING)
 /*

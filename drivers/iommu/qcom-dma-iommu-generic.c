@@ -23,6 +23,7 @@
 #include <linux/iova.h>
 #include <linux/dma-map-ops.h>
 #include <linux/dma-mapping.h>
+#include <linux/qcom-dma-mapping.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/iommu.h>
 #include "qcom-dma-iommu-generic.h"

@@ -5,6 +5,7 @@
 
 #include <linux/dma-mapping.h>
 #include <linux/dma-mapping-fast.h>
+#include <linux/qcom-dma-mapping.h>
 #include <linux/dma-map-ops.h>
 #include <linux/io-pgtable-fast.h>
 #include <linux/vmalloc.h>

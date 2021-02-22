@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/msm_rtb.h>
+#include <linux/qcom-dma-mapping.h>
 
 #ifndef _MHI_INT_H
 #define _MHI_INT_H
