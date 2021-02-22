@@ -1081,6 +1081,25 @@ err_destroy_wrkq:
 	return ret;
 }
 
+static int lemur_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
+			  struct platform_device *pdev)
+{
+	int ret;
+
+	/* Same configuration as that of sdx50, except for the name */
+	ret = sdx50m_setup_hw(mdm, ops, pdev);
+	if (ret) {
+		dev_err(mdm->dev, "Hardware setup failed for lemur\n");
+		esoc_mdm_log("Hardware setup failed for lemur\n");
+		return ret;
+	}
+
+	mdm->esoc->name = LEMUR_LABEL;
+	esoc_mdm_log("Hardware setup done for lemur\n");
+
+	return ret;
+}
+
 static struct esoc_clink_ops mdm_cops = {
 	.cmd_exe = mdm_cmd_exe,
 	.get_status = mdm_get_status,
@@ -1106,6 +1125,12 @@ static struct mdm_ops sdx55m_ops = {
 	.pon_ops = &sdx55m_pon_ops,
 };
 
+static struct mdm_ops lemur_ops = {
+	.clink_ops = &mdm_cops,
+	.config_hw = lemur_setup_hw,
+	.pon_ops = &sdx50m_pon_ops,
+};
+
 static const struct of_device_id mdm_dt_match[] = {
 	{ .compatible = "qcom,ext-mdm9x55",
 		.data = &mdm9x55_ops, },
@@ -1113,6 +1138,8 @@ static const struct of_device_id mdm_dt_match[] = {
 		.data = &sdx50m_ops, },
 	{ .compatible = "qcom,ext-sdx55m",
 		.data = &sdx55m_ops, },
+	{ .compatible = "qcom,ext-lemur",
+		.data = &lemur_ops, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, mdm_dt_match);

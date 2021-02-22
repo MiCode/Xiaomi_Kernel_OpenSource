@@ -567,6 +567,10 @@ struct esoc_compat compat_table[] = {
 		.name = "SDX55M",
 		.data = NULL,
 	},
+	{
+		.name = "SDXLEMUR",
+		.data = NULL,
+	},
 };
 
 struct esoc_drv esoc_ssr_drv = {
