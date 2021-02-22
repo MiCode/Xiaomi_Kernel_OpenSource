@@ -3030,8 +3030,11 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc, bool ignore_p3_state)
 	unsigned long timeout;
 	u32 reg = 0;
 
-	if (!ignore_p3_state && ((mdwc->in_host_mode || mdwc->in_device_mode)
-			&& dwc3_msm_is_superspeed(mdwc) && !mdwc->in_restart)) {
+	if (!mdwc->in_host_mode && !mdwc->in_device_mode)
+		return 0;
+
+	if (!ignore_p3_state && (dwc3_msm_is_superspeed(mdwc) &&
+					!mdwc->in_restart)) {
 		if (!atomic_read(&mdwc->in_p3)) {
 			dev_err(mdwc->dev, "Not in P3,aborting LPM sequence\n");
 			return -EBUSY;
