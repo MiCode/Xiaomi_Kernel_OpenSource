@@ -155,8 +155,7 @@ static ssize_t open_timeout_show(struct device *dev,
 	return ret;
 }
 
-static DEVICE_ATTR_RW(open_timeout, 0644, open_timeout_show,
-					open_timeout_store);
+static DEVICE_ATTR(open_timeout, 0664, open_timeout_show, open_timeout_store);
 
 static int smd_pkt_rpdev_probe(struct rpmsg_device *rpdev)
 {
