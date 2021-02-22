@@ -29,8 +29,9 @@
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
-#ifdef mtk09077
-#include <mtk_pbm.h>
+#if IS_ENABLED(CONFIG_MTK_PBM)
+#include "mtk_pbm.h"
+#include "mtk_mdpm.h"
 #endif
 #include "ccci_config.h"
 #include "ccci_common_config.h"
@@ -721,16 +722,20 @@ static void dump_runtime_data_v2_1(struct ccci_modem *md,
 static void md_cd_smem_sub_region_init(struct ccci_modem *md)
 {
 #if (MD_GENERATION < 6297)
-	int __iomem *addr;
 	int i;
+#endif
+#if IS_ENABLED(CONFIG_MTK_PBM) || (MD_GENERATION < 6297)
+	int __iomem *addr;
 	struct ccci_smem_region *dbm =
 		ccci_md_get_smem_by_user_id(md->index, SMEM_USER_RAW_DBM);
 
 	/* Region 0, dbm */
 	addr = (int __iomem *)dbm->base_ap_view_vir;
+#endif
+#if (MD_GENERATION < 6297)
 	addr[0] = 0x44444444; /* Guard pattern 1 header */
 	addr[1] = 0x44444444; /* Guard pattern 2 header */
-#ifdef DISABLE_PBM_FEATURE
+#if !IS_ENABLED(CONFIG_MTK_PBM)
 	for (i = 2; i < (CCCI_SMEM_SIZE_DBM/4+2); i++)
 		addr[i] = 0xFFFFFFFF;
 #else
@@ -741,11 +746,12 @@ static void md_cd_smem_sub_region_init(struct ccci_modem *md)
 	addr[i++] = 0x44444444; /* Guard pattern 2 tail */
 #endif
 
-#ifdef mtk09077_pbm
 	/* Notify PBM */
-#ifndef DISABLE_PBM_FEATURE
-	init_md_section_level(KR_MD1);
+#if IS_ENABLED(CONFIG_MTK_PBM)
+#if (MD_GENERATION < 6297)
+	addr += CCCI_SMEM_SIZE_DBM_GUARD;
 #endif
+	init_md_section_level(KR_MD1, addr);
 #endif
 }
 
