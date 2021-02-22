@@ -5,6 +5,7 @@
  * MSM PCIe endpoint core driver.
  */
 
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <linux/module.h>
 #include <linux/bitops.h>
 #include <linux/clk.h>
@@ -54,7 +55,8 @@ struct ep_pcie_dev_t ep_pcie_dev = {0};
 static struct ep_pcie_vreg_info_t ep_pcie_vreg_info[EP_PCIE_MAX_VREG] = {
 	{NULL, "vreg-1p8", 1200000, 1200000, 3000, true},
 	{NULL, "vreg-0p9", 912000, 912000, 132000, true},
-	{NULL, "vreg-cx", 0, 0, 0, false}
+	{NULL, "vreg-cx", 0, 0, 0, false},
+	{NULL, "vreg-mx", 0, 0, 0, false}
 };
 
 static struct ep_pcie_gpio_info_t ep_pcie_gpio_info[EP_PCIE_MAX_GPIO] = {
@@ -311,8 +313,15 @@ static int ep_pcie_vreg_init(struct ep_pcie_dev_t *dev)
 		while (i--) {
 			struct regulator *hdl = dev->vreg[i].hdl;
 
-			if (hdl)
+			if (hdl) {
 				regulator_disable(hdl);
+				if (!strcmp(dev->vreg[i].name, "vreg-mx")) {
+					EP_PCIE_DBG(dev, "PCIe V%d: Removing vote for %s.\n",
+						dev->rev, dev->vreg[i].name);
+					regulator_set_voltage(hdl, RPMH_REGULATOR_LEVEL_RETENTION,
+						RPMH_REGULATOR_LEVEL_MAX);
+				}
+			}
 		}
 
 	return rc;
@@ -329,6 +338,12 @@ static void ep_pcie_vreg_deinit(struct ep_pcie_dev_t *dev)
 			EP_PCIE_DBG(dev, "Vreg %s is being disabled\n",
 				dev->vreg[i].name);
 			regulator_disable(dev->vreg[i].hdl);
+			if (!strcmp(dev->vreg[i].name, "vreg-mx")) {
+				EP_PCIE_DBG(dev, "PCIe V%d: Removing vote for %s.\n",
+					 dev->rev, dev->vreg[i].name);
+				regulator_set_voltage(dev->vreg[i].hdl,
+					RPMH_REGULATOR_LEVEL_RETENTION, RPMH_REGULATOR_LEVEL_MAX);
+			}
 		}
 	}
 }
