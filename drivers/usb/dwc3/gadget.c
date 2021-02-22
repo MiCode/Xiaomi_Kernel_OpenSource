@@ -313,6 +313,7 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 	spin_lock(&dwc->lock);
 }
 
+#define DWC_CMD_TIMEOUT 3000
 /**
  * dwc3_send_gadget_generic_command - issue a generic command for the controller
  * @dwc: pointer to the controller context
@@ -324,7 +325,7 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
  */
 int dwc3_send_gadget_generic_command(struct dwc3 *dwc, unsigned cmd, u32 param)
 {
-	u32		timeout = 500;
+	u32		timeout = DWC_CMD_TIMEOUT;
 	int		status = 0;
 	int		ret = 0;
 	u32		reg;
@@ -366,7 +367,7 @@ int dwc3_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned cmd,
 {
 	const struct usb_endpoint_descriptor *desc = dep->endpoint.desc;
 	struct dwc3		*dwc = dep->dwc;
-	u32			timeout = 3000;
+	u32			timeout = DWC_CMD_TIMEOUT;
 	u32			saved_config = 0;
 	u32			reg;
 
@@ -799,7 +800,7 @@ static void dwc3_remove_requests(struct dwc3 *dwc, struct dwc3_ep *dep)
 	struct dwc3_request		*req;
 	int ret = -EINVAL;
 
-	if (dep->number == 0 && dwc->ep0state != EP0_SETUP_PHASE) {
+	if (dep->number == 0) {
 		unsigned int dir;
 
 		dbg_log_string("CTRLPEND", dwc->ep0state);
@@ -2105,7 +2106,7 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 	unsigned long	flags;
 
 	spin_lock_irqsave(&dwc->lock, flags);
-	if (!dwc->is_remote_wakeup_enabled) {
+	if (g->speed < USB_SPEED_SUPER && !dwc->is_remote_wakeup_enabled) {
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		dbg_log_string("remote wakeup not supported\n");
 		return -EINVAL;

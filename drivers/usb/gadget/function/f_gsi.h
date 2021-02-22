@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _F_GSI_H
@@ -28,6 +28,7 @@
 #define GSI_CTRL_NAME_LEN (sizeof(GSI_MBIM_CTRL_NAME)+2)
 #define GSI_MAX_CTRL_PKT_SIZE 8192
 #define GSI_CTRL_DTR (1 << 0)
+#define GSI_MAX_MAC_ADDR_LEN 18
 
 #define GSI_NUM_IN_RNDIS_BUFFERS 50
 #define GSI_NUM_IN_RMNET_BUFFERS 50
@@ -202,6 +203,7 @@ struct gsi_ctrl_port {
 	atomic_t ctrl_online;
 
 	bool is_open;
+	bool is_suspended;
 
 	wait_queue_head_t read_wq;
 
@@ -266,6 +268,8 @@ struct f_gsi {
 	u32 vendorID;
 	u8 ethaddr[ETH_ADDR_STR_LEN];
 	const char *manufacturer;
+	char host_addr[GSI_MAX_MAC_ADDR_LEN];
+	char dev_addr[GSI_MAX_MAC_ADDR_LEN];
 	struct rndis_params *params;
 	atomic_t connected;
 	bool data_interface_up;
@@ -274,6 +278,7 @@ struct f_gsi {
 	/* function suspend status */
 	bool func_is_suspended;
 	bool func_wakeup_allowed;
+	bool func_wakeup_pending;
 
 	const struct usb_endpoint_descriptor *in_ep_desc_backup;
 	const struct usb_endpoint_descriptor *out_ep_desc_backup;
@@ -282,6 +287,8 @@ struct f_gsi {
 	struct gsi_ctrl_port c_port;
 	void *ipc_log_ctxt;
 	bool rmnet_dtr_status;
+
+	bool rwake_inprogress;
 
 	/* To test remote wakeup using debugfs */
 	struct timer_list gsi_rw_timer;

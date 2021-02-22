@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013 - 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013 - 2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "rimps-memlat: " fmt
@@ -848,6 +848,8 @@ static int memlat_idle_notif(struct notifier_block *nb,
 			save_cpugrp_pmu_events(cpu_grp, cpu);
 			for (i = 0; i < cpu_grp->num_mons; i++) {
 				mon = &cpu_grp->mons[i];
+				if (!cpumask_test_cpu(cpu, &mon->cpus))
+					continue;
 				save_mon_pmu_events(mon, cpu);
 			}
 			set_pmu_cache_flag(PMU_CACHE_VALID, cpu);

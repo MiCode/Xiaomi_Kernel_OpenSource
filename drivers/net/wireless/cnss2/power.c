@@ -1,18 +1,21 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/of.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/regulator/consumer.h>
+#if IS_ENABLED(CONFIG_QCOM_COMMAND_DB)
 #include <soc/qcom/cmd-db.h>
+#endif
 #include <linux/of_gpio.h>
 
 #include "main.h"
 #include "debug.h"
 #include "bus.h"
 
+#if IS_ENABLED(CONFIG_ARCH_QCOM)
 static struct cnss_vreg_cfg cnss_vreg_list[] = {
 	{"vdd-wlan-core", 1300000, 1300000, 0, 0, 0},
 	{"vdd-wlan-io", 1800000, 1800000, 0, 0, 0},
@@ -34,6 +37,13 @@ static struct cnss_vreg_cfg cnss_vreg_list[] = {
 static struct cnss_clk_cfg cnss_clk_list[] = {
 	{"rf_clk", 0, 0},
 };
+#else
+static struct cnss_vreg_cfg cnss_vreg_list[] = {
+};
+
+static struct cnss_clk_cfg cnss_clk_list[] = {
+};
+#endif
 
 #define CNSS_VREG_INFO_SIZE		ARRAY_SIZE(cnss_vreg_list)
 #define CNSS_CLK_INFO_SIZE		ARRAY_SIZE(cnss_clk_list)
@@ -936,6 +946,30 @@ void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv)
 	plat_priv->pin_result.host_pin_result = pin_status;
 }
 
+#if IS_ENABLED(CONFIG_QCOM_COMMAND_DB)
+static int cnss_cmd_db_ready(struct cnss_plat_data *plat_priv)
+{
+	return cmd_db_ready();
+}
+
+static u32 cnss_cmd_db_read_addr(struct cnss_plat_data *plat_priv,
+				 const char *res_id)
+{
+	return cmd_db_read_addr(res_id);
+}
+#else
+static int cnss_cmd_db_ready(struct cnss_plat_data *plat_priv)
+{
+	return -EOPNOTSUPP;
+}
+
+static u32 cnss_cmd_db_read_addr(struct cnss_plat_data *plat_priv,
+				 const char *res_id)
+{
+	return 0;
+}
+#endif
+
 int cnss_get_tcs_info(struct cnss_plat_data *plat_priv)
 {
 	struct platform_device *plat_dev = plat_priv->plat_dev;
@@ -988,13 +1022,13 @@ int cnss_get_cpr_info(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
-	ret = cmd_db_ready();
+	ret = cnss_cmd_db_ready(plat_priv);
 	if (ret) {
-		cnss_pr_err("CommandDB is not ready\n");
+		cnss_pr_err("CommandDB is not ready, err = %d\n", ret);
 		goto out;
 	}
 
-	cpr_pmic_addr = cmd_db_read_addr(cmd_db_name);
+	cpr_pmic_addr = cnss_cmd_db_read_addr(plat_priv, cmd_db_name);
 	if (cpr_pmic_addr > 0) {
 		cpr_info->cpr_pmic_addr = cpr_pmic_addr;
 		cnss_pr_dbg("Get CPR PMIC address 0x%x from %s\n",

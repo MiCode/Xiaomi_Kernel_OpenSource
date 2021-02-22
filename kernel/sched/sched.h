@@ -99,7 +99,7 @@ struct walt_cpu_load {
 #define DECLARE_BITMAP_ARRAY(name, nr, bits) \
 	unsigned long name[nr][BITS_TO_LONGS(bits)]
 
-extern unsigned int __weak sched_ravg_window;
+extern unsigned int sched_ravg_window;
 
 struct walt_sched_stats {
 	int nr_big_tasks;
@@ -199,7 +199,7 @@ struct walt_sched_cluster {
 	u64			aggr_grp_load;
 };
 
-extern __weak cpumask_t asym_cap_sibling_cpus;
+extern cpumask_t asym_cap_sibling_cpus;
 #endif /* CONFIG_SCHED_WALT */
 
 /* task_struct::on_rq states: */
@@ -2898,9 +2898,9 @@ struct walt_related_thread_group {
 extern struct walt_sched_cluster *sched_cluster[NR_CPUS];
 
 extern unsigned int max_possible_capacity;
-extern unsigned int __weak min_max_possible_capacity;
-extern unsigned int __read_mostly __weak sched_init_task_load_windows;
-extern unsigned int  __read_mostly __weak sched_load_granule;
+extern unsigned int min_max_possible_capacity;
+extern unsigned int __read_mostly sched_init_task_load_windows;
+extern unsigned int  __read_mostly sched_load_granule;
 
 extern int update_preferred_cluster(struct walt_related_thread_group *grp,
 			struct task_struct *p, u32 old_load, bool from_tick);
@@ -3027,13 +3027,13 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 
 #define CPU_RESERVED    1
 
-extern enum sched_boost_policy __weak boost_policy;
+extern enum sched_boost_policy boost_policy;
 static inline enum sched_boost_policy sched_boost_policy(void)
 {
 	return boost_policy;
 }
 
-extern unsigned int __weak sched_boost_type;
+extern unsigned int sched_boost_type;
 static inline int sched_boost(void)
 {
 	return sched_boost_type;

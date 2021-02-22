@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2010-2015,2020 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015,2020-2021 The Linux Foundation. All rights reserved.
  */
 #ifndef __QCOM_SCM_INT_H
 #define __QCOM_SCM_INT_H
@@ -16,6 +16,7 @@
 #define QCOM_SCM_BOOT_SWITCH_MODE		0x0f
 #define QCOM_SCM_BOOT_SET_DLOAD_MODE		0x10
 #define QCOM_SCM_BOOT_CONFIG_CPU_ERRATA		0x12
+#define QCOM_SCM_QUSB2PHY_LVL_SHIFTER_CMD_ID	0x1B
 extern int __qcom_scm_set_cold_boot_addr(struct device *dev, void *entry,
 		const cpumask_t *cpus);
 extern int __qcom_scm_set_warm_boot_addr(struct device *dev, void *entry,
@@ -29,6 +30,7 @@ extern int __qcom_scm_spin_cpu(struct device *dev);
 extern int __qcom_scm_set_dload_mode(struct device *dev,
 				     enum qcom_download_mode mode);
 extern int __qcom_scm_config_cpu_errata(struct device *dev);
+extern void __qcom_scm_phy_update_scm_level_shifter(struct device *dev, u32 val);
 #define QCOM_SCM_FLUSH_FLAG_MASK	0x3
 
 #define QCOM_SCM_SVC_PIL			0x02
@@ -258,8 +260,12 @@ extern int __qcom_scm_request_encrypted_log(struct device *dev, phys_addr_t buf,
 extern int __qcom_scm_ice_restore_cfg(struct device *dev);
 
 #define QCOM_SCM_SVC_SMCINVOKE		0x06
+#define QCOM_SCM_SMCINVOKE_INVOKE_LEGACY   0x00
 #define QCOM_SCM_SMCINVOKE_INVOKE	0x02
 #define QCOM_SCM_SMCINVOKE_CB_RSP	0x01
+extern int __qcom_scm_invoke_smc_legacy(struct device *dev, phys_addr_t in_buf,
+		size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size,
+		int32_t *result, u64 *response_type, unsigned int *data);
 extern int __qcom_scm_invoke_smc(struct device *dev, phys_addr_t in_buf,
 		size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size,
 		int32_t *result, u64 *response_type, unsigned int *data);

@@ -375,6 +375,15 @@ config MSM_BOOT_STATS
 	  This figures are reported in mpm sleep clock cycles and have a
 	  resolution of 31 bits as 1 bit is used as an overflow check.
 
+config MSM_BOOT_TIME_MARKER
+	bool "Use MSM boot time marker reporting"
+	depends on MSM_BOOT_STATS
+	help
+	  Use this to mark msm boot kpi for measurement.
+	  An instrumentation for boot time measurement.
+	  To create an entry, call "place_marker" function.
+	  At userspace, write marker name to "/sys/kernel/boot_kpi/kpi_values"
+
 config QCOM_QMI_HELPERS
 	tristate
 	depends on ARCH_QCOM || COMPILE_TEST
@@ -1155,6 +1164,15 @@ config QCOM_RTIC
 	  This option enables QCOM Real Time Integrity Check feature. This
 	  will trigger RTIC kernel MP.s (measurement parameters) generation
 	  during the kernel build.
+
+config RENAME_BLOCK_DEVICE
+	tristate "Rename block device node in /dev"
+	default n
+	help
+	  Say 'Y' to to rename the block device node assigned by generic
+	  driver to a name that is needed. This is used for rename block
+	  device names created by default as sda1, sda2 etc. to the
+	  names system is needed.this is applicable for block devices only.
 
 source "drivers/soc/qcom/icnss2/Kconfig"
 endmenu

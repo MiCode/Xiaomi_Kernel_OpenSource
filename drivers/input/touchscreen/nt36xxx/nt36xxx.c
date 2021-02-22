@@ -2597,6 +2597,7 @@ static int32_t nvt_ts_late_probe_sub(struct i2c_client *client,
 	ts->input_dev->name = NVT_TS_NAME;
 	ts->input_dev->phys = ts->phys;
 	ts->input_dev->id.bustype = BUS_I2C;
+	ts->input_dev->dev.parent = ts->dev;
 
 	//---register input device---
 	ret = input_register_device(ts->input_dev);
@@ -2811,6 +2812,7 @@ static int32_t nvt_ts_probe(struct i2c_client *client,
 	}
 
 	ts->client = client;
+	ts->dev = &client->dev;
 	i2c_set_clientdata(client, ts);
 
 	//---parse dts---

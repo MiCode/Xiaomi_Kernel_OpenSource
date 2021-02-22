@@ -8,7 +8,7 @@
  * See kernel/stop_machine.c
  */
 #include "sched.h"
-#include "walt.h"
+#include "walt/walt.h"
 
 #ifdef CONFIG_SMP
 static int
