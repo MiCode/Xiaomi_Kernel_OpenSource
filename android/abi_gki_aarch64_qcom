@@ -1797,7 +1797,6 @@
   refcount_dec_and_lock
   refcount_dec_not_one
   refcount_warn_saturate
-  __refrigerator
   regcache_cache_only
   regcache_mark_dirty
   regcache_sync
