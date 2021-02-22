@@ -127,6 +127,7 @@
 				peer-default;
 				vqs-num = <0x1>;
 				push-compatible = "virtio,mmio";
+				dma-coherent;
 				dma_base = <0x0 0x0>;
 				memory {
 					qcom,label = <0x10>;
@@ -141,6 +142,7 @@
 				peer-default;
 				vqs-num = <0x1>;
 				push-compatible = "virtio,mmio";
+				dma-coherent;
 				dma_base = <0x0 0x4000>;
 				memory {
 					qcom,label = <0x11>;
