@@ -2219,7 +2219,6 @@ static int __bus_lookup_iommu_group(struct device *dev, void *priv)
 	}
 
 	data->group = group;
-	iommu_group_put(group);
 	return 1;
 }
 
@@ -2706,6 +2705,9 @@ static struct iommu_group *arm_smmu_device_group(struct device *dev)
 	int i, idx;
 
 	group = of_get_device_group(dev);
+	if (group)
+		goto finish;
+
 	for_each_cfg_sme(cfg, fwspec, i, idx) {
 		if (group && smmu->s2crs[idx].group &&
 		    group != smmu->s2crs[idx].group) {
@@ -2732,6 +2734,7 @@ static struct iommu_group *arm_smmu_device_group(struct device *dev)
 			return NULL;
 	}
 
+finish:
 	if (smmu->impl && smmu->impl->device_group &&
 	    smmu->impl->device_group(dev, group)) {
 		iommu_group_put(group);
