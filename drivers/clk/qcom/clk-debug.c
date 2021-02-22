@@ -13,6 +13,9 @@
 #include <linux/mfd/syscon.h>
 #include <trace/events/power.h>
 
+#define CREATE_TRACE_POINTS
+#include "trace.h"
+
 #include "clk-regmap.h"
 #include "clk-debug.h"
 
@@ -740,6 +743,45 @@ static const struct file_operations clk_enabled_list_fops = {
 	.release	= seq_release,
 };
 
+
+static int clock_debug_trace(struct seq_file *s, void *unused)
+{
+	struct hw_debug_clk *dclk;
+	unsigned long clk_rate;
+	bool clk_prepared, clk_enabled;
+	int vdd_level;
+
+	mutex_lock(&clk_debug_lock);
+
+	list_for_each_entry(dclk, &clk_hw_debug_list, list) {
+
+		clk_enabled = clk_hw_is_enabled(dclk->clk_hw);
+		clk_prepared = clk_hw_is_prepared(dclk->clk_hw);
+		clk_rate = clk_hw_get_rate(dclk->clk_hw);
+		vdd_level = clk_list_rate_vdd_level(dclk->clk_hw, clk_rate);
+
+		trace_clk_state(qcom_clk_hw_get_name(dclk->clk_hw),
+				clk_prepared, clk_enabled,
+				clk_rate, vdd_level);
+	}
+
+	mutex_unlock(&clk_debug_lock);
+
+	return 0;
+}
+
+static int clocks_trace_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, clock_debug_trace, inode->i_private);
+}
+
+static const struct file_operations clk_enabled_trace_fops = {
+	.open		= clocks_trace_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
 static void clk_debug_suspend_trace_probe(void *unused,
 					const char *action, int val, bool start)
 {
@@ -849,6 +891,9 @@ int clk_debug_init(void)
 
 	debugfs_create_file("clk_enabled_list", 0444, rootdir,
 			    &clk_hw_debug_list, &clk_enabled_list_fops);
+
+	debugfs_create_file("trace_clocks", 0444, rootdir,
+			    &clk_hw_debug_list, &clk_enabled_trace_fops);
 
 	clk_debugfs_suspend = debugfs_create_file_unsafe("debug_suspend",
 						0644, rootdir, NULL,
