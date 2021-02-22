@@ -3218,7 +3218,6 @@
 
 		coresight-name = "coresight-csr";
 		qcom,usb-bam-support;
-		qcom,perflsheot-set-support;
 		qcom,hwctrl-set-support;
 		qcom,set-byte-cntr-support;
 
