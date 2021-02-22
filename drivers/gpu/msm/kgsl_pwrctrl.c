@@ -525,9 +525,7 @@ static ssize_t idle_timer_store(struct device *dev, struct device_attribute *att
 		return -EINVAL;
 
 	mutex_lock(&device->mutex);
-	/* Let the timeout be requested in ms, but convert to jiffies. */
 	device->pwrctrl.interval_timeout = val;
-
 	mutex_unlock(&device->mutex);
 
 	return count;
@@ -538,8 +536,7 @@ static ssize_t idle_timer_show(struct device *dev,
 {
 	struct kgsl_device *device = dev_get_drvdata(dev);
 
-	/* Show the idle_timeout converted to msec */
-	return scnprintf(buf, PAGE_SIZE, "%lu\n", device->pwrctrl.interval_timeout);
+	return scnprintf(buf, PAGE_SIZE, "%u\n", device->pwrctrl.interval_timeout);
 }
 
 static ssize_t minbw_timer_store(struct device *dev,
