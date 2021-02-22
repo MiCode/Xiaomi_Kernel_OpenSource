@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -763,9 +763,11 @@ static int msm_ssphy_qmp_notify_disconnect(struct usb_phy *uphy,
 					phy);
 
 	atomic_notifier_call_chain(&uphy->notifier, 0, uphy);
-	writel_relaxed(0x00,
-		phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
-	readl_relaxed(phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
+	if (phy->phy.flags & PHY_HOST_MODE) {
+		writel_relaxed(0x00,
+			phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
+		readl_relaxed(phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
+	}
 
 	dev_dbg(uphy->dev, "QMP phy disconnect notification\n");
 	dev_dbg(uphy->dev, " cable_connected=%d\n", phy->cable_connected);
