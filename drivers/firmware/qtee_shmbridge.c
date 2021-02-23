@@ -2,7 +2,7 @@
 /*
  * QTI TEE shared memory bridge driver
  *
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020,2021 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -436,7 +436,7 @@ static int qtee_shmbridge_init(struct platform_device *pdev)
 	if (ret) {
 		/* keep the mem pool and return if failed to enable bridge */
 		ret = 0;
-		goto exit_shmbridge_enable;
+		goto exit;
 	}
 
 	/*register default bridge*/
@@ -464,7 +464,6 @@ static int qtee_shmbridge_init(struct platform_device *pdev)
 
 exit_deregister_default_bridge:
 	qtee_shmbridge_deregister(default_bridge.handle);
-exit_shmbridge_enable:
 	qtee_shmbridge_enable(false);
 exit_destroy_pool:
 	gen_pool_destroy(default_bridge.genpool);
@@ -474,7 +473,7 @@ exit_unmap:
 exit_freebuf:
 	free_pages((long)default_bridge.vaddr, get_order(default_bridge.size));
 	default_bridge.vaddr = NULL;
-//exit:
+exit:
 	return ret;
 }
 
