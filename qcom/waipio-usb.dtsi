@@ -313,4 +313,12 @@
 			USB3_DP_PCS_USB3_RXEQTRAINING_DFE_TIME_S2 0x07 0
 			0xffffffff 0xffffffff 0x00>;
 	};
+
+	usb_audio_qmi_dev {
+		compatible = "qcom,usb-audio-qmi-dev";
+		iommus = <&apps_smmu 0x180f 0x0>;
+		qcom,iommu-dma = "disabled";
+		qcom,usb-audio-stream-id = <0xf>;
+		qcom,usb-audio-intr-num = <2>;
+	};
 };
