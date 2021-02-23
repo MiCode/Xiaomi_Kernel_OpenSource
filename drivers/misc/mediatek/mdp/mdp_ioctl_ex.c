@@ -220,6 +220,7 @@ static bool mdp_ion_get_dma_buf(struct device *dev, int fd,
 		goto err_map;
 	}
 
+	dma_sync_sg_for_device(dev, sgt->sgl, sgt->nents, DMA_BIDIRECTIONAL);
 	*buf_out = buf;
 	*attach_out = attach;
 	*sgt_out = sgt;
@@ -238,6 +239,8 @@ err:
 static void mdp_ion_free_dma_buf(struct dma_buf *buf,
 	struct dma_buf_attachment *attach, struct sg_table *sgt)
 {
+	if (mdpsys_con_ctx.dev)
+		dma_sync_sg_for_cpu(mdpsys_con_ctx.dev, sgt->sgl, sgt->nents, DMA_BIDIRECTIONAL);
 	dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
 	dma_buf_detach(buf, attach);
 	dma_buf_put(buf);
