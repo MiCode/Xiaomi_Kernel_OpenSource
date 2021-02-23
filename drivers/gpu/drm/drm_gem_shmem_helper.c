@@ -476,15 +476,19 @@ static vm_fault_t drm_gem_shmem_fault(struct vm_fault *vmf)
 	loff_t num_pages = obj->size >> PAGE_SHIFT;
 	vm_fault_t ret;
 	struct page *page;
+	pgoff_t page_offset;
+
+	/* We don't use vmf->pgoff since that has the fake offset */
+	page_offset = (vmf->address - vma->vm_start) >> PAGE_SHIFT;
 
 	mutex_lock(&shmem->pages_lock);
 
-	if (vmf->pgoff >= num_pages ||
+	if (page_offset >= num_pages ||
 	    WARN_ON_ONCE(!shmem->pages) ||
 	    shmem->madv < 0) {
 		ret = VM_FAULT_SIGBUS;
 	} else {
-		page = shmem->pages[vmf->pgoff];
+		page = shmem->pages[page_offset];
 
 		ret = vmf_insert_page(vma, vmf->address, page);
 	}
@@ -558,9 +562,6 @@ int drm_gem_shmem_mmap(struct file *filp, struct vm_area_struct *vma)
 	/* VM_PFNMAP was set by drm_gem_mmap() */
 	vma->vm_flags &= ~VM_PFNMAP;
 	vma->vm_flags |= VM_MIXEDMAP;
-
-	/* Remove the fake offset */
-	vma->vm_pgoff -= drm_vma_node_start(&shmem->base.vma_node);
 
 	return 0;
 }
