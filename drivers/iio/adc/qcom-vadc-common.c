@@ -975,7 +975,7 @@ static int qcom_vadc7_scale_hw_calib_die_temp(
 		return 0;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(adcmap7_die_temp); i++)
+	for (i = 1; i < ARRAY_SIZE(adcmap7_die_temp); i++)
 		if (adcmap7_die_temp[i].x > voltage)
 			break;
 
