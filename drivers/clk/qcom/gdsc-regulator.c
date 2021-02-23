@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -22,6 +22,8 @@
 #include <linux/clk/qcom.h>
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+#include "../../regulator/internal.h"
+#include "gdsc-debug.h"
 
 /* GDSCR */
 #define PWR_ON_MASK		BIT(31)
@@ -615,12 +617,37 @@ static struct regulator_ops gdsc_ops = {
 	.get_mode = gdsc_get_mode,
 };
 
-static const struct regmap_config gdsc_regmap_config = {
+static struct regmap_config gdsc_regmap_config = {
 	.reg_bits   = 32,
 	.reg_stride = 4,
 	.val_bits   = 32,
+	.max_register = 0x8,
 	.fast_io    = true,
 };
+
+void gdsc_debug_print_regs(struct regulator *regulator)
+{
+	struct gdsc *sc = rdev_get_drvdata(regulator->rdev);
+	uint32_t regvals[3] = {0};
+	int ret;
+
+	if (!sc) {
+		pr_err("Failed to get GDSC Handle\n");
+		return;
+	}
+
+	ret = regmap_bulk_read(sc->regmap, REG_OFFSET, regvals,
+			gdsc_regmap_config.max_register ? 3 : 1);
+	if (ret) {
+		pr_err("Failed to read %s registers\n", sc->rdesc.name);
+		return;
+	}
+
+	pr_info("Dumping %s Registers:\n", sc->rdesc.name);
+	pr_info("GDSCR: 0x%.8x CFG: 0x%.8x CFG2: 0x%.8x\n",
+			regvals[0], regvals[1], regvals[2]);
+}
+EXPORT_SYMBOL(gdsc_debug_print_regs);
 
 static int gdsc_parse_dt_data(struct gdsc *sc, struct device *dev,
 				struct regulator_init_data **init_data)
@@ -731,6 +758,9 @@ static int gdsc_get_resources(struct gdsc *sc, struct platform_device *pdev)
 	sc->gdscr = devm_ioremap(dev, res->start, resource_size(res));
 	if (sc->gdscr == NULL)
 		return -ENOMEM;
+
+	if (of_property_read_bool(dev->of_node, "qcom,no-config-gdscr"))
+		gdsc_regmap_config.max_register = 0;
 
 	sc->regmap = devm_regmap_init_mmio(dev, sc->gdscr, &gdsc_regmap_config);
 	if (!sc->regmap) {
