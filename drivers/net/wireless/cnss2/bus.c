@@ -499,7 +499,7 @@ int cnss_bus_recover_link_down(struct cnss_plat_data *plat_priv)
 }
 
 int cnss_bus_debug_reg_read(struct cnss_plat_data *plat_priv, u32 offset,
-			    u32 *val)
+			    u32 *val, bool raw_access)
 {
 	if (!plat_priv)
 		return -ENODEV;
@@ -507,7 +507,7 @@ int cnss_bus_debug_reg_read(struct cnss_plat_data *plat_priv, u32 offset,
 	switch (plat_priv->bus_type) {
 	case CNSS_BUS_PCI:
 		return cnss_pci_debug_reg_read(plat_priv->bus_priv, offset,
-					       val);
+					       val, raw_access);
 	default:
 		cnss_pr_dbg("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);
@@ -516,7 +516,7 @@ int cnss_bus_debug_reg_read(struct cnss_plat_data *plat_priv, u32 offset,
 }
 
 int cnss_bus_debug_reg_write(struct cnss_plat_data *plat_priv, u32 offset,
-			     u32 val)
+			     u32 val, bool raw_access)
 {
 	if (!plat_priv)
 		return -ENODEV;
@@ -524,7 +524,7 @@ int cnss_bus_debug_reg_write(struct cnss_plat_data *plat_priv, u32 offset,
 	switch (plat_priv->bus_type) {
 	case CNSS_BUS_PCI:
 		return cnss_pci_debug_reg_write(plat_priv->bus_priv, offset,
-						val);
+						val, raw_access);
 	default:
 		cnss_pr_dbg("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);

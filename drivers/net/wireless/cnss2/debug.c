@@ -10,6 +10,7 @@
 #include "pci.h"
 
 #define MMIO_REG_ACCESS_MEM_TYPE		0xFF
+#define MMIO_REG_RAW_ACCESS_MEM_TYPE		0xFE
 
 #if IS_ENABLED(CONFIG_IPC_LOGGING)
 void *cnss_ipc_log_context;
@@ -271,6 +272,7 @@ static int cnss_reg_read_debug_show(struct seq_file *s, void *data)
 	if (!plat_priv->diag_reg_read_buf) {
 		seq_puts(s, "\nUsage: echo <mem_type> <offset> <data_len> > <debugfs_path>/cnss/reg_read\n");
 		seq_puts(s, "Use mem_type = 0xff for register read by IO access, data_len will be ignored\n");
+		seq_puts(s, "Use mem_type = 0xfe for register read by raw IO access which skips sanity checks, data_len will be ignored\n");
 		seq_puts(s, "Use other mem_type for register read by QMI\n");
 		mutex_unlock(&plat_priv->dev_lock);
 		return 0;
@@ -342,8 +344,11 @@ static ssize_t cnss_reg_read_debug_write(struct file *fp,
 	if (kstrtou32(token, 0, &data_len))
 		return -EINVAL;
 
-	if (mem_type == MMIO_REG_ACCESS_MEM_TYPE) {
-		ret = cnss_bus_debug_reg_read(plat_priv, reg_offset, &reg_val);
+	if (mem_type == MMIO_REG_ACCESS_MEM_TYPE ||
+	    mem_type == MMIO_REG_RAW_ACCESS_MEM_TYPE) {
+		ret = cnss_bus_debug_reg_read(plat_priv, reg_offset, &reg_val,
+					      mem_type ==
+					      MMIO_REG_RAW_ACCESS_MEM_TYPE);
 		if (ret)
 			return ret;
 		cnss_pr_dbg("Read 0x%x from register offset 0x%x\n", reg_val,
@@ -401,6 +406,7 @@ static int cnss_reg_write_debug_show(struct seq_file *s, void *data)
 {
 	seq_puts(s, "\nUsage: echo <mem_type> <offset> <reg_val> > <debugfs_path>/cnss/reg_write\n");
 	seq_puts(s, "Use mem_type = 0xff for register write by IO access\n");
+	seq_puts(s, "Use mem_type = 0xfe for register write by raw IO access which skips sanity checks\n");
 	seq_puts(s, "Use other mem_type for register write by QMI\n");
 
 	return 0;
@@ -453,8 +459,11 @@ static ssize_t cnss_reg_write_debug_write(struct file *fp,
 	if (kstrtou32(token, 0, &reg_val))
 		return -EINVAL;
 
-	if (mem_type == MMIO_REG_ACCESS_MEM_TYPE) {
-		ret = cnss_bus_debug_reg_write(plat_priv, reg_offset, reg_val);
+	if (mem_type == MMIO_REG_ACCESS_MEM_TYPE ||
+	    mem_type == MMIO_REG_RAW_ACCESS_MEM_TYPE) {
+		ret = cnss_bus_debug_reg_write(plat_priv, reg_offset, reg_val,
+					       mem_type ==
+					       MMIO_REG_RAW_ACCESS_MEM_TYPE);
 		if (ret)
 			return ret;
 		cnss_pr_dbg("Wrote 0x%x to register offset 0x%x\n", reg_val,
