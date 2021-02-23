@@ -1617,7 +1617,7 @@ int mhi_dev_send_event(struct mhi_dev *mhi, int evnt_ring,
 		}
 	}
 
-	mutex_lock(&mhi->mhi_event_lock);
+	mutex_lock(&ring->event_lock);
 	/* add the ring element */
 	mhi_dev_add_element(ring, el, NULL, 0);
 
@@ -1650,7 +1650,6 @@ int mhi_dev_send_event(struct mhi_dev *mhi, int evnt_ring,
 	 */
 	wmb();
 
-	mutex_unlock(&mhi->mhi_event_lock);
 	mhi_log(MHI_MSG_VERBOSE, "event sent:\n");
 	mhi_log(MHI_MSG_VERBOSE, "evnt ptr : 0x%llx\n", el->evt_tr_comp.ptr);
 	mhi_log(MHI_MSG_VERBOSE, "evnt len : 0x%x\n", el->evt_tr_comp.len);
@@ -1663,6 +1662,7 @@ int mhi_dev_send_event(struct mhi_dev *mhi, int evnt_ring,
 	else
 		rc = ep_pcie_trigger_msi(mhi_ctx->phandle, ctx->ev.msivec);
 
+	mutex_unlock(&ring->event_lock);
 	return rc;
 }
 
