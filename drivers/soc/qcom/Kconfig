@@ -931,7 +931,7 @@ config QCOM_GUESTVM
 	   successfully loaded the VM images in the designated memory.
 
 config QCOM_HYP_CORE_CTL
-	bool "CPU reservation scheme for Hypervisor"
+	tristate "CPU reservation scheme for Hypervisor"
 	depends on QCOM_GUESTVM && SCHED_WALT
 	help
 	  This driver reserve the specified CPUS by isolating them. The reserved
