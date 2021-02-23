@@ -336,6 +336,15 @@ static void _llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 			FIELD_PREP(GENMASK(14, 10), gpu_scid));
 }
 
+static void _llc_gpuhtw_slice_activate(struct adreno_device *adreno_dev)
+{
+	if (IS_ERR_OR_NULL(adreno_dev->gpuhtw_llc_slice) ||
+		!adreno_dev->gpuhtw_llc_slice_enable)
+		return;
+
+	llcc_slice_activate(adreno_dev->gpuhtw_llc_slice);
+}
+
 static void _set_secvid(struct kgsl_device *device)
 {
 	kgsl_regwrite(device, GENC_RBBM_SECVID_TSB_CNTL, 0x0);
@@ -445,6 +454,7 @@ int genc_start(struct adreno_device *adreno_dev)
 
 	/* Configure LLCC */
 	_llc_configure_gpu_scid(adreno_dev);
+	_llc_gpuhtw_slice_activate(adreno_dev);
 
 	kgsl_regwrite(device, GENC_CP_APRIV_CNTL, GENC_BR_APRIV_DEFAULT);
 	kgsl_regwrite(device, GENC_CP_BV_APRIV_CNTL, GENC_APRIV_DEFAULT);
@@ -1048,9 +1058,6 @@ int genc_probe_common(struct platform_device *pdev,
 	adreno_dev->preempt.preempt_level = 1;
 	adreno_dev->preempt.skipsaverestore = true;
 	adreno_dev->preempt.usesgmem = true;
-
-	adreno_dev->gpu_llc_slice_enable = true;
-	adreno_dev->gpuhtw_llc_slice_enable = true;
 
 	return adreno_device_probe(pdev, adreno_dev);
 }
