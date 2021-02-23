@@ -155,3 +155,6 @@
   wait_on_page_bit
   writeback_inodes_sb
   write_inode_now
+
+# required by ledtrig_transient.ko
+  led_set_brightness_nosleep
