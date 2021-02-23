@@ -521,7 +521,7 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 	max_memfreq = max(max_memfreq, mon->min_freq);
 	max_memfreq = min(max_memfreq, mon->max_freq);
 
-	if (max_cpufreq) {
+	if (max_cpufreq || mon->cur_freq != mon->min_freq) {
 		stats = per_cpu(sampling_stats, max_cpu);
 		trace_memlat_dev_update(dev_name(mon->dev), max_cpu,
 				stats->prev.common_ctrs[INST_IDX],
