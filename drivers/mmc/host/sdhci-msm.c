@@ -173,6 +173,8 @@
 #define CQHCI_VENDOR_CFG1	0xA00
 #define CQHCI_VENDOR_DIS_RST_ON_CQ_EN	(0x3 << 13)
 
+#define SDHCI_CMD_FLAGS_MASK	0xff
+
 struct sdhci_msm_offset {
 	u32 core_hc_mode;
 	u32 core_mci_data_cnt;
@@ -480,6 +482,7 @@ struct sdhci_msm_host {
 	bool uses_tassadar_dll;
 	u32 dll_config;
 	u32 ddr_config;
+	u16 last_cmd;
 	bool vqmmc_enabled;
 };
 
@@ -2898,6 +2901,19 @@ static int __sdhci_msm_check_write(struct sdhci_host *host, u16 val, int reg)
 		msm_host->transfer_mode = val;
 		break;
 	case SDHCI_COMMAND:
+		/*
+		 * If a command does not have CRC field in its response, as per
+		 * design, host controller shall clear the CRC error flag for
+		 * it, which takes 3 MCLK's, i.e. 7.5us in the case of 400KHz.
+		 * The next command, which requires CRC check to its response,
+		 * should be sent after the CRC error flag of previous command
+		 * gets cleaned.
+		 */
+		if ((val & SDHCI_CMD_CRC) &&
+		    (msm_host->last_cmd & SDHCI_CMD_FLAGS_MASK) &&
+		    !(msm_host->last_cmd & SDHCI_CMD_CRC))
+			udelay(8);
+		msm_host->last_cmd = val;
 		if (!msm_host->use_cdr)
 			break;
 		if ((msm_host->transfer_mode & SDHCI_TRNS_READ) &&
