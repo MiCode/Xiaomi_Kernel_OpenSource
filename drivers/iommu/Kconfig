@@ -515,7 +515,6 @@ config QCOM_IOMMU_LEGACY_DEBUG
 	tristate "Qcom legacy debugfs test interface"
 	depends on QCOM_IOMMU_UTIL
 	depends on DEBUG_FS
-	select IOMMU_DEBUGFS
 	help
 	  This enables the legacy debugfs interface for iommu testing
 	  and it will allow you to run various tests. It should be left
