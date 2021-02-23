@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016, 2019-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016, 2019-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/clk.h>
 #include <linux/export.h>
@@ -29,6 +29,7 @@ struct hw_debug_clk {
 static DEFINE_SPINLOCK(clk_reg_lock);
 static DEFINE_MUTEX(clk_debug_lock);
 static LIST_HEAD(clk_hw_debug_list);
+static LIST_HEAD(clk_hw_debug_mux_list);
 
 #define TCXO_DIV_4_HZ		4800000
 #define SAMPLE_TICKS_1_MS	0x1000
@@ -154,11 +155,34 @@ static unsigned long clk_debug_mux_measure_rate(struct clk_hw *hw)
 	return ret;
 }
 
+/**
+ * clk_is_debug_mux - Checks if clk is a mux clk
+ *
+ * @hw: clk to check on
+ *
+ * Iterate over maintained debug mux clk list to know
+ * if concern clk is a debug mux
+ *
+ * Returns true on success, false otherwise.
+ */
+static bool clk_is_debug_mux(struct clk_hw *hw)
+{
+	struct clk_debug_mux *mux;
+
+	if (hw) {
+		list_for_each_entry(mux, &clk_hw_debug_mux_list, list)
+			if (&mux->hw == hw)
+				return true;
+	}
+
+	return false;
+}
+
 static int clk_find_and_set_parent(struct clk_hw *mux, struct clk_hw *clk)
 {
 	int i;
 
-	if (!clk || !mux || !(clk_hw_get_flags(mux) & CLK_IS_MEASURE))
+	if (!clk || !clk_is_debug_mux(mux))
 		return -EINVAL;
 
 	if (!clk_set_parent(mux->clk, clk->clk))
@@ -231,7 +255,7 @@ static void enable_debug_clks(struct clk_hw *mux)
 	struct clk_debug_mux *meas = to_clk_measure(mux);
 	struct clk_hw *parent;
 
-	if (!mux || !(clk_hw_get_flags(mux) & CLK_IS_MEASURE))
+	if (!clk_is_debug_mux(mux))
 		return;
 
 	parent = clk_hw_get_parent(mux);
@@ -250,7 +274,7 @@ static void disable_debug_clks(struct clk_hw *mux)
 	struct clk_debug_mux *meas = to_clk_measure(mux);
 	struct clk_hw *parent;
 
-	if (!mux || !(clk_hw_get_flags(mux) & CLK_IS_MEASURE))
+	if (!clk_is_debug_mux(mux))
 		return;
 
 	meas->en_mask = meas->en_mask ? meas->en_mask : CBCR_ENA;
@@ -269,7 +293,7 @@ static u32 get_mux_divs(struct clk_hw *mux)
 	struct clk_hw *parent;
 	u32 div_val;
 
-	if (!mux || !(clk_hw_get_flags(mux) & CLK_IS_MEASURE))
+	if (!clk_is_debug_mux(mux))
 		return 1;
 
 	WARN_ON(!meas->post_div_val);
@@ -318,7 +342,7 @@ static int clk_debug_measure_get(void *data, u64 *val)
 
 	mux = to_clk_measure(parent);
 
-	if ((clk_hw_get_flags(parent) & CLK_IS_MEASURE) && !mux->mux_sels) {
+	if (clk_is_debug_mux(parent) && !mux->mux_sels) {
 		regmap_read(mux->regmap, mux->period_offset, &regval);
 		if (!regval) {
 			pr_err("Error reading mccc period register\n");
@@ -350,10 +374,30 @@ void clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry)
 }
 EXPORT_SYMBOL(clk_debug_measure_add);
 
+
+int devm_clk_register_debug_mux(struct device *pdev, struct clk_debug_mux *mux)
+{
+	struct clk *clk;
+
+	if (!mux)
+		return -EINVAL;
+
+	clk = devm_clk_register(pdev, &mux->hw);
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
+
+	mutex_lock(&clk_debug_lock);
+	list_add(&mux->list, &clk_hw_debug_mux_list);
+	mutex_unlock(&clk_debug_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(devm_clk_register_debug_mux);
+
 int clk_debug_measure_register(struct clk_hw *hw)
 {
 	if (IS_ERR_OR_NULL(measure)) {
-		if (clk_hw_get_flags(hw) & CLK_IS_MEASURE) {
+		if (clk_is_debug_mux(hw)) {
 			measure = hw;
 			return 0;
 		}
