@@ -54,6 +54,7 @@ struct hh_rm_connection {
 static struct task_struct *hh_rm_drv_recv_task;
 static struct hh_msgq_desc *hh_rm_msgq_desc;
 static hh_virtio_mmio_cb_t hh_virtio_mmio_fn;
+static hh_vcpu_affinity_cb_t hh_vcpu_affinity_fn;
 
 static DEFINE_MUTEX(hh_rm_call_idr_lock);
 static DEFINE_IDR(hh_rm_call_idr);
@@ -804,8 +805,10 @@ int hh_rm_populate_hyp_res(hh_vmid_t vmid, const char *vm_name)
 					HH_MSGQ_DIRECTION_RX, linux_irq);
 				break;
 			case HH_RM_RES_TYPE_VCPU:
-				ret = hh_vcpu_populate_affinity_info(label,
-									cap_id);
+				if (!hh_vcpu_affinity_fn)
+					break;
+
+				ret = (*hh_vcpu_affinity_fn)(label, cap_id);
 				break;
 			case HH_RM_RES_TYPE_DB_TX:
 				ret = hh_dbl_populate_cap_info(label, cap_id,
@@ -870,6 +873,31 @@ int hh_rm_set_virtio_mmio_cb(hh_virtio_mmio_cb_t fnptr)
 	return 0;
 }
 EXPORT_SYMBOL(hh_rm_set_virtio_mmio_cb);
+
+/**
+ * hh_rm_set_vcpu_affinity_cb: Set callback that handles vcpu affinity
+ * @fnptr: Pointer to callback function
+ *
+ * @fnptr callback is invoked providing details of the vcpu resource.
+ *
+ * This function returns these values:
+ *	0	-> indicates success
+ *	-EINVAL -> Indicates invalid input argument
+ *	-EBUSY	-> Indicates that a callback is already set
+ */
+int hh_rm_set_vcpu_affinity_cb(hh_vcpu_affinity_cb_t fnptr)
+{
+	if (!fnptr)
+		return -EINVAL;
+
+	if (hh_vcpu_affinity_fn)
+		return -EBUSY;
+
+	hh_vcpu_affinity_fn = fnptr;
+
+	return 0;
+}
+EXPORT_SYMBOL(hh_rm_set_vcpu_affinity_cb);
 
 static void hh_rm_get_svm_res_work_fn(struct work_struct *work)
 {

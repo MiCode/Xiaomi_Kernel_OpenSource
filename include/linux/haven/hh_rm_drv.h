@@ -195,6 +195,7 @@ struct notifier_block;
 
 typedef int (*hh_virtio_mmio_cb_t)(hh_vmid_t peer, const char *vm_name,
 	hh_label_t label, hh_capid_t cap_id, int linux_irq, u64 base, u64 size);
+typedef int (*hh_vcpu_affinity_cb_t)(hh_label_t label, hh_capid_t cap_id);
 
 #if IS_ENABLED(CONFIG_HH_RM_DRV)
 /* RM client registration APIs */
@@ -219,6 +220,7 @@ int hh_rm_vm_irq_release_notify(hh_vmid_t vmid, hh_virq_handle_t virq_handle);
 int hh_rm_vm_irq_reclaim(hh_virq_handle_t virq_handle);
 
 int hh_rm_set_virtio_mmio_cb(hh_virtio_mmio_cb_t fnptr);
+int hh_rm_set_vcpu_affinity_cb(hh_vcpu_affinity_cb_t fnptr);
 
 /* Client APIs for VM management */
 int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name);
@@ -431,5 +433,9 @@ static inline int hh_rm_set_virtio_mmio_cb(hh_virtio_mmio_cb_t fnptr)
 	return -EINVAL;
 }
 
+static inline int hh_rm_set_vcpu_affinity_cb(hh_vcpu_affinity_cb fnptr)
+{
+	return -EINVAL;
+}
 #endif
 #endif
