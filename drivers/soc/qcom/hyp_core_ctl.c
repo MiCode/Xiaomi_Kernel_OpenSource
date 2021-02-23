@@ -192,7 +192,7 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 	 * maintained in vcpu_adjust_mask and processed in the 2nd pass.
 	 */
 	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
-		if (hcd->cpumap[i].cap_id == 0)
+		if (hcd->cpumap[i].cap_id == HH_CAPID_INVAL)
 			break;
 
 		orig_cpu = hcd->cpumap[i].pcpu;
@@ -212,7 +212,7 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 			err = hh_hcall_vcpu_affinity_set(hcd->cpumap[i].cap_id,
 								orig_cpu);
 			if (err != HH_ERROR_OK) {
-				pr_err("restore: fail to assign pcpu for vcpu#%d err=%d cap_id=%d cpu=%d\n",
+				pr_err("restore: fail to assign pcpu for vcpu#%d err=%d cap_id=%llu cpu=%d\n",
 					i, err, hcd->cpumap[i].cap_id, orig_cpu);
 				continue;
 			}
@@ -257,7 +257,7 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 		err = hh_hcall_vcpu_affinity_set(hcd->cpumap[i].cap_id,
 							replacement_cpu);
 		if (err != HH_ERROR_OK) {
-			pr_err("adjust: fail to assign pcpu for vcpu#%d err=%d cap_id=%d cpu=%d\n",
+			pr_err("adjust: fail to assign pcpu for vcpu#%d err=%d cap_id=%llu cpu=%d\n",
 				i, err, hcd->cpumap[i].cap_id, replacement_cpu);
 			continue;
 		}
@@ -664,7 +664,7 @@ static void hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
 	cpumask_clear(&hcd->reserve_cpus);
 
 	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
-		if (hh_cpumap[i].cap_id == 0)
+		if (hh_cpumap[i].cap_id == HH_CAPID_INVAL)
 			break;
 
 		hcd->cpumap[i].cap_id = hh_cpumap[i].cap_id;
@@ -812,7 +812,7 @@ static ssize_t status_show(struct device *dev, struct device_attribute *attr,
 			   "Vcpu to Pcpu mappings:\n");
 
 	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
-		if (hcd->cpumap[i].cap_id == 0)
+		if (hcd->cpumap[i].cap_id == HH_CAPID_INVAL)
 			break;
 
 		count += scnprintf(buf + count, PAGE_SIZE - count,
