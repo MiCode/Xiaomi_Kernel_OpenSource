@@ -719,7 +719,7 @@ static const struct adsp_data waipio_adsp_resource = {
 		"load_state",
 		NULL
 	},
-	.ssr_name = "adsp",
+	.ssr_name = "lpass",
 	.sysmon_name = "adsp",
 	.ssctl_id = 0x14,
 };
@@ -833,7 +833,7 @@ static const struct adsp_data waipio_mpss_resource = {
 		"load_state",
 		NULL
 	},
-	.ssr_name = "modem",
+	.ssr_name = "mpss",
 	.sysmon_name = "modem",
 	.ssctl_id = 0x12,
 };
@@ -899,7 +899,7 @@ static const struct adsp_data waipio_slpi_resource = {
 		"load_state",
 		NULL
 	},
-	.ssr_name = "slpi",
+	.ssr_name = "dsps",
 	.sysmon_name = "slpi",
 	.ssctl_id = 0x16,
 };
