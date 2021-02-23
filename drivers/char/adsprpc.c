@@ -6673,12 +6673,11 @@ static int fastrpc_device_create(struct fastrpc_file *fl)
 	frpc_dev->dev.parent = &fastrpc_bus;
 	frpc_dev->dev.bus = &fastrpc_bus_type;
 
-	dev_set_name(&frpc_dev->dev, "%s-%d",
-			dev_name(frpc_dev->dev.parent), fl->tgid);
+	dev_set_name(&frpc_dev->dev, "%s-%d-%d",
+			dev_name(frpc_dev->dev.parent), fl->tgid, fl->cid);
 	frpc_dev->dev.release = fastrpc_dev_release;
 	frpc_dev->fl = fl;
 	frpc_dev->handle = fl->tgid;
-	fl->device = frpc_dev;
 
 	err = device_register(&frpc_dev->dev);
 	if (err) {
@@ -6687,6 +6686,7 @@ static int fastrpc_device_create(struct fastrpc_file *fl)
 			fl->tgid, err);
 		goto bail;
 	}
+	fl->device = frpc_dev;
 	spin_lock(&me->hlock);
 	hlist_add_head(&frpc_dev->hn, &me->frpc_devices);
 	spin_unlock(&me->hlock);
