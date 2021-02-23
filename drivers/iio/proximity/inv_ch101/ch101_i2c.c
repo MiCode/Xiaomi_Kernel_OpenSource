@@ -335,6 +335,7 @@ static int ch101_i2c_probe(struct i2c_client *client,
 	if (!gpio) {
 		dev_err(dev, "Error initializing expander: %s\n",
 			SX1508_DEVICE_ID);
+		return -ENODEV;
 	}
 
 	cbk->read_reg = read_reg;
