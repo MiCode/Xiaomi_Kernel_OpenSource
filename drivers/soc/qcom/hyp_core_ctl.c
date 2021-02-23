@@ -958,7 +958,6 @@ static ssize_t read_reserve_cpus(struct file *file, char __user *ubuf,
 static ssize_t write_reserve_cpus(struct file *file, const char __user *ubuf,
 				  size_t count, loff_t *ppos)
 {
-	char kbuf[CPULIST_SZ];
 	int ret;
 	cpumask_t temp_mask;
 
@@ -969,12 +968,7 @@ static ssize_t write_reserve_cpus(struct file *file, const char __user *ubuf,
 		goto err_out;
 	}
 
-	ret = simple_write_to_buffer(kbuf, CPULIST_SZ - 1, ppos, ubuf, count);
-	if (ret < 0)
-		goto err_out;
-
-	kbuf[ret] = '\0';
-	ret = cpulist_parse(kbuf, &temp_mask);
+	ret = cpumask_parselist_user(ubuf, count, &temp_mask);
 	if (ret < 0)
 		goto err_out;
 
