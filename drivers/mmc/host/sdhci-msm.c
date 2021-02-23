@@ -475,9 +475,6 @@ static void sdhci_msm_bus_voting(struct sdhci_host *host, bool enable);
 static int sdhci_msm_dt_get_array(struct device *dev, const char *prop_name,
 				u32 **bw_vecs, int *len, u32 size);
 
-static unsigned int sdhci_msm_get_sup_clk_rate(struct sdhci_host *host,
-				u32 req_clk);
-
 static const struct sdhci_msm_offset *sdhci_priv_msm_offset(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -835,7 +832,7 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 	const struct sdhci_msm_offset *msm_offset =
 					msm_host->offset;
 
-	dll_clock = sdhci_msm_get_sup_clk_rate(host, host->clock);
+	dll_clock = mmc->actual_clock;
 	spin_lock_irqsave(&host->lock, flags);
 
 	core_vendor_spec = readl_relaxed(host->ioaddr +
@@ -2450,27 +2447,6 @@ static unsigned int sdhci_msm_get_max_clock(struct sdhci_host *host)
 static unsigned int sdhci_msm_get_min_clock(struct sdhci_host *host)
 {
 	return SDHCI_MSM_MIN_CLOCK;
-}
-
-static unsigned int sdhci_msm_get_sup_clk_rate(struct sdhci_host *host,
-						u32 req_clk)
-{
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
-	struct clk *core_clk = msm_host->bulk_clks[0].clk;
-	unsigned int sup_clk = -1;
-
-	if (req_clk < sdhci_msm_get_min_clock(host)) {
-		sup_clk = sdhci_msm_get_min_clock(host);
-		return sup_clk;
-	}
-
-	sup_clk = clk_round_rate(core_clk, clk_get_rate(core_clk));
-
-	if (host->clock != msm_host->clk_rate)
-		sup_clk = sup_clk / 2;
-
-	return sup_clk;
 }
 
 /**
