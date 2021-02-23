@@ -14,6 +14,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/pm_qos.h>
 #include <linux/sched/idle.h>
+#include <linux/sched/walt.h>
 #include <linux/spinlock.h>
 #include <linux/tick.h>
 #include <linux/time64.h>
@@ -41,13 +42,24 @@ DEFINE_PER_CPU(struct lpm_cpu, lpm_cpu_data);
 
 static bool check_cpu_isactive(int cpu)
 {
-	return cpumask_test_cpu((cpu), cpu_active_mask);
+	return cpu_active(cpu);
 }
 
 static bool lpm_disallowed(s64 sleep_ns, int cpu)
 {
-	if (!check_cpu_isactive(cpu) || (sleep_disabled || sleep_ns < 0))
+	struct lpm_cpu *cpu_gov = per_cpu_ptr(&lpm_cpu_data, cpu);
+	uint64_t bias_time = 0;
+
+	if (!check_cpu_isactive(cpu))
+		return false;
+
+	if ((sleep_disabled || sleep_ns < 0))
 		return true;
+
+	if (!sched_lpm_disallowed_time(cpu, &bias_time)) {
+		cpu_gov->bias = bias_time;
+		return true;
+	}
 
 	return false;
 }
@@ -96,6 +108,38 @@ static void histtimer_cancel(void)
 		return;
 
 	hrtimer_try_to_cancel(cpu_histtimer);
+}
+
+static void biastimer_cancel(void)
+{
+	struct lpm_cpu *cpu_gov = this_cpu_ptr(&lpm_cpu_data);
+	struct hrtimer *cpu_biastimer = &cpu_gov->biastimer;
+	ktime_t time_rem;
+
+	if (!cpu_gov->bias)
+		return;
+
+	cpu_gov->bias = 0;
+	time_rem = hrtimer_get_remaining(cpu_biastimer);
+	if (ktime_to_us(time_rem) <= 0)
+		return;
+
+	hrtimer_try_to_cancel(cpu_biastimer);
+}
+
+static enum hrtimer_restart biastimer_fn(struct hrtimer *h)
+{
+	return HRTIMER_NORESTART;
+}
+
+static void biastimer_start(uint32_t time_ns)
+{
+	ktime_t bias_ktime = ns_to_ktime(time_ns);
+	struct lpm_cpu *cpu_gov = this_cpu_ptr(&lpm_cpu_data);
+	struct hrtimer *cpu_biastimer = &cpu_gov->biastimer;
+
+	cpu_biastimer->function = biastimer_fn;
+	hrtimer_start(cpu_biastimer, bias_ktime, HRTIMER_MODE_REL_PINNED);
 }
 
 /**
@@ -491,6 +535,7 @@ static int lpm_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 	cpu_gov->predicted = 0;
 	cpu_gov->now = ktime_get();
 	histtimer_cancel();
+	biastimer_cancel();
 	duration_ns = tick_nohz_get_sleep_length(&delta_tick);
 	update_cpu_history(cpu_gov);
 
@@ -545,6 +590,8 @@ static int lpm_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 	}
 
 done:
+	if ((!cpu_gov->last_idx) && cpu_gov->bias)
+		biastimer_start(cpu_gov->bias);
 
 	trace_lpm_gov_select(i, latency_req, duration_ns, reason);
 	trace_gov_pred_select(cpu_gov->predicted, cpu_gov->predicted, htime);
@@ -561,8 +608,10 @@ static void lpm_reflect(struct cpuidle_device *dev, int state)
 {
 	struct lpm_cpu *cpu_gov = per_cpu_ptr(&lpm_cpu_data, dev->cpu);
 
-	if (cpu_gov->enable)
+	if (cpu_gov->enable) {
 		histtimer_cancel();
+		biastimer_cancel();
+	}
 }
 
 /**
@@ -575,9 +624,11 @@ static int lpm_enable_device(struct cpuidle_driver *drv,
 {
 	struct lpm_cpu *cpu_gov = per_cpu_ptr(&lpm_cpu_data, dev->cpu);
 	struct hrtimer *cpu_histtimer = &cpu_gov->histtimer;
+	struct hrtimer *cpu_biastimer = &cpu_gov->biastimer;
 	int ret;
 
 	hrtimer_init(cpu_histtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	hrtimer_init(cpu_biastimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	if (!traces_registered) {
 		ret = register_trace_ipi_raise(ipi_raise, NULL);
 		if (ret)
