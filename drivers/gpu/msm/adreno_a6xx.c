@@ -10,6 +10,7 @@
 #include <linux/of_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/soc/qcom/llcc-qcom.h>
+#include <soc/qcom/of_common.h>
 
 #include "adreno.h"
 #include "adreno_a6xx.h"

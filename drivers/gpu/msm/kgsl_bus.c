@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/interconnect.h>
 #include <linux/of.h>
+#include <soc/qcom/of_common.h>
 
 #include "kgsl_bus.h"
 #include "kgsl_device.h"
