@@ -1328,16 +1328,6 @@ static void *arm_smmu_alloc_pgtable(void *cookie, gfp_t gfp_mask, int order)
 	struct arm_smmu_domain *smmu_domain = cookie;
 
 	if (!arm_smmu_has_secure_vmid(smmu_domain)) {
-		/* size is expected to be 4K with current configuration */
-		if (size == PAGE_SIZE) {
-			page = list_first_entry_or_null(
-				&smmu_domain->nonsecure_pool, struct page, lru);
-			if (page) {
-				list_del_init(&page->lru);
-				return page_address(page);
-			}
-		}
-
 		page = alloc_pages(gfp_mask, order);
 		if (!page)
 			return NULL;
@@ -1738,7 +1728,6 @@ static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 	INIT_LIST_HEAD(&smmu_domain->unassign_list);
 	mutex_init(&smmu_domain->assign_lock);
 	INIT_LIST_HEAD(&smmu_domain->secure_pool_list);
-	INIT_LIST_HEAD(&smmu_domain->nonsecure_pool);
 	arm_smmu_domain_reinit(smmu_domain);
 
 	return &smmu_domain->domain;
@@ -2056,42 +2045,6 @@ static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain)
 	}
 }
 
-static void arm_smmu_prealloc_memory(struct arm_smmu_domain *smmu_domain,
-					size_t size, struct list_head *pool)
-{
-	int i;
-	u32 nr = 0;
-	struct page *page;
-
-	if (test_bit(DOMAIN_ATTR_ATOMIC, smmu_domain->attributes) ||
-	    arm_smmu_has_secure_vmid(smmu_domain))
-		return;
-
-	/* number of 2nd level pagetable entries */
-	nr += round_up(size, SZ_1G) >> 30;
-	/* number of 3rd level pagetabel entries */
-	nr += round_up(size, SZ_2M) >> 21;
-
-	/* Retry later with atomic allocation on error */
-	for (i = 0; i < nr; i++) {
-		page = alloc_pages(GFP_KERNEL | __GFP_ZERO, 0);
-		if (!page)
-			break;
-		list_add(&page->lru, pool);
-	}
-}
-
-static void arm_smmu_release_prealloc_memory(
-		struct arm_smmu_domain *smmu_domain, struct list_head *list)
-{
-	struct page *page, *tmp;
-
-	list_for_each_entry_safe(page, tmp, list, lru) {
-		list_del(&page->lru);
-		__free_pages(page, 0);
-	}
-}
-
 static struct device_node *arm_iommu_get_of_node(struct device *dev)
 {
 	struct device_node *np;
@@ -2324,6 +2277,18 @@ out_power_off:
 	return ret;
 }
 
+static gfp_t arm_smmu_domain_gfp_flags(struct arm_smmu_domain *smmu_domain)
+{
+	/*
+	 * The dma layer always uses GFP_ATOMIC, which isn't indicative of
+	 * the actual client needs.
+	 */
+	if (test_bit(DOMAIN_ATTR_ATOMIC, smmu_domain->attributes))
+		return GFP_ATOMIC;
+
+	return GFP_KERNEL;
+}
+
 static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 			phys_addr_t paddr, size_t size, int prot, gfp_t gfp)
 {
@@ -2331,35 +2296,39 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = to_smmu_domain(domain)->pgtbl_ops;
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	LIST_HEAD(nonsecure_pool);
 
 	if (!ops)
 		return -ENODEV;
 
+	gfp = arm_smmu_domain_gfp_flags(smmu_domain);
 	arm_smmu_secure_domain_lock(smmu_domain);
-	arm_smmu_rpm_get(smmu);
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	ret = ops->map(ops, iova, paddr, size, prot, gfp);
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
-	arm_smmu_rpm_put(smmu);
 
-	/* if the map call failed due to insufficient memory,
-	 * then retry again with preallocated memory to see
-	 * if the map call succeeds.
-	 */
-	if (ret == -ENOMEM) {
-		arm_smmu_prealloc_memory(smmu_domain, size, &nonsecure_pool);
-		arm_smmu_rpm_get(smmu);
-		spin_lock_irqsave(&smmu_domain->cb_lock, flags);
-		list_splice_init(&nonsecure_pool, &smmu_domain->nonsecure_pool);
-		ret = ops->map(ops, iova, paddr, size, prot, gfp);
-		list_splice_init(&smmu_domain->nonsecure_pool, &nonsecure_pool);
-		spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
-		arm_smmu_rpm_put(smmu);
-		arm_smmu_release_prealloc_memory(smmu_domain, &nonsecure_pool);
+	arm_smmu_assign_table(smmu_domain);
+	arm_smmu_secure_domain_unlock(smmu_domain);
 
-	}
+	return ret;
+}
+
+static int arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
+			   struct scatterlist *sg, unsigned int nents, int prot,
+			   gfp_t gfp, size_t *mapped)
+{
+	int ret;
+	unsigned long flags;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct io_pgtable_ops *ops = to_smmu_domain(domain)->pgtbl_ops;
+
+	if (!ops)
+		return -ENODEV;
+
+	gfp = arm_smmu_domain_gfp_flags(smmu_domain);
+	arm_smmu_secure_domain_lock(smmu_domain);
+	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
+	ret = ops->map_sg(ops, iova, sg, nents, prot, gfp, mapped);
+	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 
 	arm_smmu_assign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
@@ -2372,7 +2341,6 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 {
 	size_t ret;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
 	unsigned long flags;
 
@@ -2381,11 +2349,9 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 
 	arm_smmu_secure_domain_lock(smmu_domain);
 
-	arm_smmu_rpm_get(smmu);
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	ret = ops->unmap(ops, iova, size, gather);
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
-	arm_smmu_rpm_put(smmu);
 
 	/*
 	 * While splitting up block mappings, we might allocate page table
@@ -2423,7 +2389,7 @@ static void arm_smmu_iotlb_sync(struct iommu_domain *domain,
 	arm_smmu_rpm_get(smmu);
 	if (smmu->version == ARM_SMMU_V2 ||
 	    smmu_domain->stage == ARM_SMMU_DOMAIN_S1)
-		arm_smmu_tlb_sync_context(smmu_domain);
+		arm_smmu_tlb_inv_context_s1(smmu_domain);
 	else
 		arm_smmu_tlb_sync_global(smmu);
 	arm_smmu_rpm_put(smmu);
@@ -3108,6 +3074,7 @@ static struct qcom_iommu_ops arm_smmu_ops = {
 		.domain_free		= arm_smmu_domain_free,
 		.attach_dev		= arm_smmu_attach_dev,
 		.map			= arm_smmu_map,
+		.map_sg			= arm_smmu_map_sg,
 		.unmap			= arm_smmu_unmap,
 		.flush_iotlb_all	= arm_smmu_flush_iotlb_all,
 		.iotlb_sync		= arm_smmu_iotlb_sync,
