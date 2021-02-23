@@ -894,11 +894,11 @@ static void msm_gpio_irq_enable(struct irq_data *d)
 		irq_chip_enable_parent(d);
 	}
 
-	if (pctrl->mpm_wake_ctl)
-		msm_gpio_mpm_wake_set(d->hwirq, true);
-
-	if (test_bit(d->hwirq, pctrl->skip_wake_irqs))
+	if (test_bit(d->hwirq, pctrl->skip_wake_irqs)) {
+		if (pctrl->mpm_wake_ctl)
+			msm_gpio_mpm_wake_set(d->hwirq, true);
 		return;
+	}
 
 	msm_gpio_irq_clear_unmask(d, true);
 }
@@ -921,11 +921,11 @@ static void msm_gpio_irq_disable(struct irq_data *d)
 		irq_chip_disable_parent(d);
 	}
 
-	if (pctrl->mpm_wake_ctl)
-		msm_gpio_mpm_wake_set(d->hwirq, false);
-
-	if (test_bit(d->hwirq, pctrl->skip_wake_irqs))
+	if (test_bit(d->hwirq, pctrl->skip_wake_irqs)) {
+		if (pctrl->mpm_wake_ctl)
+			msm_gpio_mpm_wake_set(d->hwirq, false);
 		return;
+	}
 
 	msm_gpio_irq_mask(d);
 }
@@ -1288,6 +1288,9 @@ static int msm_gpio_wakeirq(struct gpio_chip *gc,
 	*parent = GPIO_NO_WAKE_IRQ;
 	*parent_type = IRQ_TYPE_EDGE_RISING;
 
+	if (!test_bit(child, pctrl->skip_wake_irqs))
+		return 0;
+
 	for (i = 0; i < pctrl->soc->nwakeirq_map; i++) {
 		map = &pctrl->soc->wakeirq_map[i];
 		if (map->gpio == child) {
@@ -1357,6 +1360,16 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 		for (i = 0; skip && i < pctrl->soc->nwakeirq_map; i++) {
 			gpio = pctrl->soc->wakeirq_map[i].gpio;
 			set_bit(gpio, pctrl->skip_wake_irqs);
+		}
+
+		if (pctrl->soc->no_wake_gpios) {
+			for (i = 0; i < pctrl->soc->n_no_wake_gpios; i++) {
+				gpio = pctrl->soc->no_wake_gpios[i];
+				if (test_bit(gpio, pctrl->skip_wake_irqs)) {
+					clear_bit(gpio, pctrl->skip_wake_irqs);
+					msm_gpio_mpm_wake_set(gpio, false);
+				}
+			}
 		}
 	}
 

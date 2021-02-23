@@ -1966,7 +1966,7 @@ static const struct msm_gpio_wakeirq_map lahaina_pdc_map[] = {
 	{ 190, 144 }, { 198, 91 }, { 200, 133 }, { 202, 135 },
 };
 
-static const struct msm_pinctrl_soc_data lahaina_pinctrl = {
+static struct msm_pinctrl_soc_data lahaina_pinctrl = {
 	.pins = lahaina_pins,
 	.npins = ARRAY_SIZE(lahaina_pins),
 	.functions = lahaina_functions,
@@ -1995,9 +1995,40 @@ static void lahaina_pinctrl_config_mpm_wake_disable_gpios(void)
 		msm_gpio_mpm_wake_set(config_mpm_wake_disable_gpios[i], false);
 }
 
+static int lahaina_pinctrl_no_wake_probe(struct platform_device *pdev)
+{
+	const __be32 *prop;
+	uint32_t *no_wake_gpios;
+	int i, length;
+
+	prop = of_get_property(pdev->dev.of_node, "no-wake-gpios", &length);
+	if (!prop)
+		return -ENOENT;
+
+	length = length / sizeof(u32);
+
+	no_wake_gpios = devm_kzalloc(&pdev->dev, length * sizeof(uint32_t), GFP_KERNEL);
+	if (!no_wake_gpios)
+		return -ENOMEM;
+
+	for (i = 0; i < length; i++)
+		no_wake_gpios[i] = be32_to_cpu(prop[i]);
+
+	lahaina_pinctrl.no_wake_gpios = no_wake_gpios;
+	lahaina_pinctrl.n_no_wake_gpios = length;
+
+	return 0;
+}
+
 static int lahaina_pinctrl_probe(struct platform_device *pdev)
 {
-	int ret;
+	int length, ret;
+
+	if (of_find_property(pdev->dev.of_node, "no-wake-gpios", &length)) {
+		ret = lahaina_pinctrl_no_wake_probe(pdev);
+		if (ret)
+			return ret;
+	}
 
 	ret = msm_pinctrl_probe(pdev, &lahaina_pinctrl);
 	if (ret)
