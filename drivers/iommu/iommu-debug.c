@@ -859,9 +859,14 @@ static int __check_mapping(struct device *dev, struct iommu_domain *domain,
 	phys_addr_t res, res2;
 	struct qcom_iommu_atos_txn txn;
 
+	fwspec = dev_iommu_fwspec_get(dev);
+	if (!fwspec) {
+		dev_err_ratelimited(dev, "dev_iommu_fwspec_get() failed\n");
+		return -EINVAL;
+	}
+
 	txn.addr = iova;
 	txn.flags = IOMMU_TRANS_DEFAULT;
-	fwspec = dev_iommu_fwspec_get(dev);
 	txn.id = FIELD_GET(ARM_SMMU_SMR_ID, fwspec->ids[0]);
 
 	res = qcom_iommu_iova_to_phys_hard(domain, &txn);
@@ -1093,6 +1098,14 @@ static int __functional_dma_api_basic_test(struct device *dev,
 	phys_addr_t pa, pa2;
 
 	ds_printf(dev, s, "Basic DMA API test");
+
+	fwspec = dev_iommu_fwspec_get(dev);
+	if (!fwspec) {
+		dev_err_ratelimited(dev, "dev_iommu_fwspec_get() failed\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
 	/* Make sure we can allocate and use a buffer */
 	for (i = 0; i < 1000; ++i) {
 		data = kmalloc(size, GFP_KERNEL);
@@ -1105,7 +1118,6 @@ static int __functional_dma_api_basic_test(struct device *dev,
 		iova = dma_map_single(dev, data, size, DMA_TO_DEVICE);
 		txn.addr = iova;
 		txn.flags = IOMMU_TRANS_DEFAULT;
-		fwspec = dev_iommu_fwspec_get(dev);
 		txn.id = FIELD_GET(ARM_SMMU_SMR_ID, fwspec->ids[0]);
 		pa = iommu_iova_to_phys(domain, iova);
 		pa2 = qcom_iommu_iova_to_phys_hard(domain, &txn);
@@ -1159,6 +1171,13 @@ static int __functional_dma_api_map_sg_test(struct device *dev,
 
 	ds_printf(dev, s, "Map SG DMA API test\n");
 
+	fwspec = dev_iommu_fwspec_get(dev);
+	if (!fwspec) {
+		dev_err_ratelimited(dev, "dev_iommu_fwspec_get() failed\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
 	for (sz = sizes; *sz; ++sz) {
 		size_t size = *sz;
 		struct sg_table table;
@@ -1184,7 +1203,6 @@ static int __functional_dma_api_map_sg_test(struct device *dev,
 			iova = sg_dma_address(sg);
 			txn.addr = iova;
 			txn.flags = IOMMU_TRANS_DEFAULT;
-			fwspec = dev_iommu_fwspec_get(dev);
 			txn.id = FIELD_GET(ARM_SMMU_SMR_ID, fwspec->ids[0]);
 			pa = iommu_iova_to_phys(domain, iova);
 			pa2 = qcom_iommu_iova_to_phys_hard(domain, &txn);
@@ -1199,7 +1217,6 @@ static int __functional_dma_api_map_sg_test(struct device *dev,
 			iova += sg_dma_len(sg) - 1;
 			txn.addr = iova;
 			txn.flags = IOMMU_TRANS_DEFAULT;
-			fwspec = dev_iommu_fwspec_get(dev);
 			txn.id = FIELD_GET(ARM_SMMU_SMR_ID, fwspec->ids[0]);
 			pa = iommu_iova_to_phys(domain, iova);
 			pa2 = qcom_iommu_iova_to_phys_hard(domain, &txn);
@@ -1513,10 +1530,17 @@ static ssize_t iommu_debug_atos_read(struct file *file, char __user *ubuf,
 
 	memset(buf, 0, 100);
 
+	fwspec = dev_iommu_fwspec_get(ddev->dev);
+	if (!fwspec) {
+		dev_err_ratelimited(ddev->dev, "dev_iommu_fwspec_get() failed\n");
+		mutex_unlock(&ddev->state_lock);
+		return -EINVAL;
+	}
+
 	txn.addr = ddev->iova;
 	txn.flags = IOMMU_TRANS_DEFAULT;
-	fwspec = dev_iommu_fwspec_get(ddev->dev);
 	txn.id = FIELD_GET(ARM_SMMU_SMR_ID, fwspec->ids[0]);
+
 	phys = qcom_iommu_iova_to_phys_hard(ddev->domain, &txn);
 	if (!phys) {
 		strlcpy(buf, "FAIL\n", 100);
@@ -1557,10 +1581,17 @@ static ssize_t iommu_debug_dma_atos_read(struct file *file, char __user *ubuf,
 
 	memset(buf, 0, sizeof(buf));
 
+	fwspec = dev_iommu_fwspec_get(ddev->dev);
+	if (!fwspec) {
+		dev_err_ratelimited(ddev->dev, "dev_iommu_fwspec_get() failed\n");
+		mutex_unlock(&ddev->state_lock);
+		return -EINVAL;
+	}
+
 	txn.addr = ddev->iova;
 	txn.flags = IOMMU_TRANS_DEFAULT;
-	fwspec = dev_iommu_fwspec_get(ddev->dev);
 	txn.id = FIELD_GET(ARM_SMMU_SMR_ID, fwspec->ids[0]);
+
 	phys = qcom_iommu_iova_to_phys_hard(ddev->domain, &txn);
 	if (!phys)
 		strlcpy(buf, "FAIL\n", sizeof(buf));
