@@ -683,7 +683,7 @@ static void hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
  * Called when vm_status is STATUS_READY, multiple times before status
  * moves to STATUS_RUNNING
  */
-int hh_vcpu_populate_affinity_info(u32 cpu_idx, u64 cap_id)
+static int hh_vcpu_populate_affinity_info(hh_label_t cpu_idx, hh_capid_t cap_id)
 {
 	if (!init_done) {
 		pr_err("Driver probe failed\n");
@@ -1027,9 +1027,17 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 	struct hyp_core_ctl_data *hcd;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
 
-	ret = hh_rm_register_notifier(&hh_vcpu_nb);
-	if (ret)
+	ret = hh_rm_set_vcpu_affinity_cb(&hh_vcpu_populate_affinity_info);
+	if (ret) {
+		pr_err("fail to set the vcpu affinity callback\n");
 		return ret;
+	}
+
+	ret = hh_rm_register_notifier(&hh_vcpu_nb);
+	if (ret) {
+		pr_err("fail to register hh_rm_notifier\n");
+		goto reset_cb;
+	}
 
 	hcd = kzalloc(sizeof(*hcd), GFP_KERNEL);
 	if (!hcd) {
@@ -1074,6 +1082,8 @@ free_hcd:
 	kfree(hcd);
 unregister_rm_notifier:
 	hh_rm_unregister_notifier(&hh_vcpu_nb);
+reset_cb:
+	hh_rm_set_vcpu_affinity_cb(NULL);
 
 	return ret;
 }
