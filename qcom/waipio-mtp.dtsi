@@ -71,6 +71,14 @@
 	};
 };
 
+&cdc_tert_mi2s_gpios {
+	status = "ok";
+};
+
+&waipio_snd {
+	qcom,tert-mi2s-gpios = <&cdc_tert_mi2s_gpios>;
+};
+
 &pm8350b_haptics {
 	status = "ok";
 };

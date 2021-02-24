@@ -423,6 +423,17 @@
 };
 
 &spf_core_platform {
+	cdc_tert_mi2s_gpios: tert_mi2s_pinctrl {
+		status= "disabled";
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&tert_mi2s_sck_active &tert_mi2s_ws_active
+				&tert_mi2s_sd0_active>;
+		pinctrl-1 = <&tert_mi2s_sck_sleep &tert_mi2s_ws_sleep
+				&tert_mi2s_sd0_sleep>;
+		#gpio-cells = <0>;
+	};
+
 	wsa_swr_gpios: wsa_swr_clk_data_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";

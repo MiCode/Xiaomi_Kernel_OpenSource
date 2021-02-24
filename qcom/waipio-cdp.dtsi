@@ -118,6 +118,10 @@
 	status = "ok";
 };
 
+&cdc_tert_mi2s_gpios {
+	status = "ok";
+};
+
 &waipio_snd {
 	qcom,audio-routing =
 		"AMIC1", "Analog Mic1",
@@ -198,6 +202,7 @@
 			   "wcd938x_codec", "swr-haptics",
 			   "wsa-codec1", "wsa-codec2";
 	qcom,wsa-max-devs = <2>;
+	qcom,tert-mi2s-gpios = <&cdc_tert_mi2s_gpios>;
 };
 
 &qupv3_se9_i2c {
