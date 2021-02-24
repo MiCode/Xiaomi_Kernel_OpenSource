@@ -2337,6 +2337,7 @@
   proc_dointvec_minmax
   proc_dostring
   proc_doulongvec_minmax
+  _proc_mkdir
   put_cmsg
   rcu_barrier
   refcount_add_checked
