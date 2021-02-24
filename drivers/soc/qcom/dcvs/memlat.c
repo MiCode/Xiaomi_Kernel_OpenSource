@@ -504,6 +504,9 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 	u32 max_memfreq, max_cpufreq = 0;
 	u32 hw = mon->memlat_grp->hw_type;
 
+	if (hw >= NUM_DCVS_HW_TYPES)
+		return;
+
 	for_each_cpu(cpu, &mon->cpus) {
 		stats = per_cpu(sampling_stats, cpu);
 
