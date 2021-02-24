@@ -4833,7 +4833,9 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 
 		mdwc->host_nb.notifier_call = dwc3_msm_host_notifier;
+#ifdef USB_CONFIG
 		usb_register_notify(&mdwc->host_nb);
+#endif
 
 		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_HOST);
 		if (!dwc->dis_enblslpm_quirk)
@@ -4912,7 +4914,9 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 		mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
 		dwc3_host_exit(dwc);
+#ifdef USB_CONFIG
 		usb_unregister_notify(&mdwc->host_nb);
+#endif
 
 		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 		dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(0),
