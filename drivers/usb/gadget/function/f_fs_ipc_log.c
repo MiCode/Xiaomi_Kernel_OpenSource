@@ -38,14 +38,13 @@ struct ffs_epfile {
 	struct mutex			mutex;
 	struct ffs_data			*ffs;
 	struct ffs_ep			*ep;	/* P: ffs->eps_lock */
-	atomic_t			opened;
 	struct dentry			*dentry;
 	struct ffs_buffer		*read_buffer;
 #define READ_BUFFER_DROP ((struct ffs_buffer *)ERR_PTR(-ESHUTDOWN))
 	char				name[5];
 	unsigned char			in;	/* P: ffs->eps_lock */
 	unsigned char			isoc;	/* P: ffs->eps_lock */
-	bool				invalid;
+	unsigned char			_pad;
 };
 
 /* Copied from f_fs.c */
@@ -453,7 +452,7 @@ static int entry_ffs_epfile_open(struct kretprobe_instance *ri,
 	kprobe_log(context, ri->rp->kp.symbol_name,
 		"%s: state %d setup_state %d flag %lu opened %u",
 		epfile->name, epfile->ffs->state, epfile->ffs->setup_state,
-		epfile->ffs->flags, atomic_read(&epfile->opened));
+		epfile->ffs->flags, atomic_read(&epfile->ffs->opened));
 	return 0;
 }
 
@@ -495,7 +494,7 @@ static int entry_ffs_epfile_release(struct kretprobe_instance *ri,
 	kprobe_log(context, ri->rp->kp.symbol_name,
 		"%s: state %d setup_state %d flag %lu opened %u",
 		epfile->name, epfile->ffs->state, epfile->ffs->setup_state,
-		epfile->ffs->flags, atomic_read(&epfile->opened));
+		epfile->ffs->flags, atomic_read(&epfile->ffs->opened));
 	return 0;
 }
 
