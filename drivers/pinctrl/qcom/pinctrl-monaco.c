@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -119,8 +119,8 @@
 	}
 
 
-#define QUP_I3C_5_MODE_OFFSET	0x85000
-#define QUP_I3C_6_MODE_OFFSET	0x86000
+#define QUP_I3C_5_MODE_OFFSET	0x86000
+#define QUP_I3C_6_MODE_OFFSET	0x87000
 
 static const struct pinctrl_pin_desc monaco_pins[] = {
 	PINCTRL_PIN(0, "GPIO_0"),
@@ -360,9 +360,6 @@ static const unsigned int sdc1_rclk_pins[] = { 112 };
 static const unsigned int sdc1_clk_pins[] = { 113 };
 static const unsigned int sdc1_cmd_pins[] = { 114 };
 static const unsigned int sdc1_data_pins[] = { 115 };
-static const unsigned int sdc2_clk_pins[] = { 116 };
-static const unsigned int sdc2_cmd_pins[] = { 117 };
-static const unsigned int sdc2_data_pins[] = { 118 };
 
 enum monaco_functions {
 	msm_mux_gpio,
@@ -381,7 +378,6 @@ enum monaco_functions {
 	msm_mux_GP_PDM1,
 	msm_mux_GP_PDM2,
 	msm_mux_JITTER_BIST,
-	msm_mux_NAV_GPIO,
 	msm_mux_PA_INDICATOR,
 	msm_mux_PLL_BIST,
 	msm_mux_QUP0_L0,
@@ -453,6 +449,9 @@ enum monaco_functions {
 	msm_mux_m_voc,
 	msm_mux_mdp_vsync,
 	msm_mux_mpm_pwr,
+	msm_mux_nav_gpio0,
+	msm_mux_nav_gpio1,
+	msm_mux_nav_gpio2,
 	msm_mux_pbs0,
 	msm_mux_pbs1,
 	msm_mux_pbs10,
@@ -556,7 +555,7 @@ enum monaco_functions {
 	msm_mux_uim0_data,
 	msm_mux_uim0_present,
 	msm_mux_uim0_reset,
-	msm_mux_usb_phy,
+	msm_mux_usb2phy_ac,
 	msm_mux_vfr_1,
 	msm_mux_vsense_trigger,
 	msm_mux_wci_uart,
@@ -628,10 +627,6 @@ static const char * const GP_PDM2_groups[] = {
 };
 static const char * const JITTER_BIST_groups[] = {
 	"gpio81", "gpio82",
-};
-static const char * const NAV_GPIO_groups[] = {
-	"gpio6", "gpio8", "gpio9", "gpio47", "gpio48", "gpio49", "gpio97",
-	"gpio98", "gpio99",
 };
 static const char * const PA_INDICATOR_groups[] = {
 	"gpio55",
@@ -845,6 +840,15 @@ static const char * const mdp_vsync_groups[] = {
 };
 static const char * const mpm_pwr_groups[] = {
 	"gpio1",
+};
+static const char * const nav_gpio0_groups[] = {
+	"gpio47",
+};
+static const char * const nav_gpio1_groups[] = {
+	"gpio48",
+};
+static const char * const nav_gpio2_groups[] = {
+	"gpio49",
 };
 static const char * const pbs0_groups[] = {
 	"gpio20",
@@ -1156,7 +1160,7 @@ static const char * const uim0_present_groups[] = {
 static const char * const uim0_reset_groups[] = {
 	"gpio71",
 };
-static const char * const usb_phy_groups[] = {
+static const char * const usb2phy_ac_groups[] = {
 	"gpio42",
 };
 static const char * const vfr_1_groups[] = {
@@ -1200,7 +1204,6 @@ static const struct msm_function monaco_functions[] = {
 	FUNCTION(atest_tsens),
 	FUNCTION(CRI_TRNG1),
 	FUNCTION(atest_tsens2),
-	FUNCTION(NAV_GPIO),
 	FUNCTION(mdp_vsync),
 	FUNCTION(GCC_GP2),
 	FUNCTION(qdss_gpio3),
@@ -1321,7 +1324,7 @@ static const struct msm_function monaco_functions[] = {
 	FUNCTION(pwm_2),
 	FUNCTION(phase_flag23),
 	FUNCTION(dac_calib23),
-	FUNCTION(usb_phy),
+	FUNCTION(usb2phy_ac),
 	FUNCTION(pwm_8),
 	FUNCTION(phase_flag24),
 	FUNCTION(dac_calib24),
@@ -1334,6 +1337,9 @@ static const struct msm_function monaco_functions[] = {
 	FUNCTION(pwm_9),
 	FUNCTION(phase_flag26),
 	FUNCTION(atest_char2),
+	FUNCTION(nav_gpio0),
+	FUNCTION(nav_gpio1),
+	FUNCTION(nav_gpio2),
 	FUNCTION(phase_flag27),
 	FUNCTION(atest_char3),
 	FUNCTION(phase_flag28),
@@ -1394,14 +1400,14 @@ static const struct msm_pingroup monaco_groups[] = {
 		       NA, NA, NA, 0x70000, 2),
 	[5] = PINGROUP(5, qup00, CRI_TRNG1, NA, qdss_gpio2, atest_tsens2, NA,
 		       NA, NA, NA, 0, -1),
-	[6] = PINGROUP(6, qup00, NAV_GPIO, mdp_vsync, GCC_GP2, NA, qdss_gpio3,
-		       NA, NA, NA, 0x70000, 3),
+	[6] = PINGROUP(6, qup00, mdp_vsync, GCC_GP2, NA, qdss_gpio3, NA, NA,
+		       NA, NA, 0x70000, 3),
 	[7] = PINGROUP(7, qup00, CCI_TIMER0, cci_async, GCC_GP3, NA,
 		       qdss_gpio4, NA, NA, NA, 0x70000, 4),
-	[8] = PINGROUP(8, qup02, NAV_GPIO, GCC_GP1, NA, phase_flag3,
-		       qdss_gpio3, atest_usb13, ddr_pxi1, NA, 0x70000, 5),
-	[9] = PINGROUP(9, qup02, NAV_GPIO, GP_PDM0, NA, phase_flag4,
-		       qdss_gpio4, atest_usb1, ddr_pxi1, NA, 0x70000, 6),
+	[8] = PINGROUP(8, qup02, GCC_GP1, NA, phase_flag3, qdss_gpio3,
+		       atest_usb13, ddr_pxi1, NA, NA, 0x70000, 5),
+	[9] = PINGROUP(9, qup02, GP_PDM0, NA, phase_flag4, qdss_gpio4,
+		       atest_usb1, ddr_pxi1, NA, NA, 0x70000, 6),
 	[10] = PINGROUP(10, qup01, pll_clk, AGERA_PLL, dac_calib4, NA, NA, NA,
 			NA, NA, 0x70000, 7),
 	[11] = PINGROUP(11, qup01, AGERA_PLL, NA, NA, NA, NA, NA, NA, NA,
@@ -1422,50 +1428,50 @@ static const struct msm_pingroup monaco_groups[] = {
 	[19] = PINGROUP(19, qup03, mdp_vsync, GP_PDM2, qdss_cti, NA, NA, NA,
 			NA, NA, 0x70000, 13),
 	[20] = PINGROUP(20, qup04, NA, pbs0, phase_flag10, qdss_gpio10,
-			dac_calib10, atest_usb20, NA, NA, 0x70010, 1),
+			dac_calib10, atest_usb20, NA, NA, 0x70010, 3),
 	[21] = PINGROUP(21, qup04, NA, pbs1, phase_flag11, qdss_gpio11,
-			dac_calib11, atest_usb21, NA, NA, 0x70010, 2),
+			dac_calib11, atest_usb21, NA, NA, 0x70010, 4),
 	[22] = PINGROUP(22, qup04, NA, pbs2, phase_flag12, qdss_gpio12,
-			dac_calib12, atest_usb22, NA, NA, 0x70010, 3),
+			dac_calib12, atest_usb22, NA, NA, 0x70010, 5),
 	[23] = PINGROUP(23, qup04, NA, pbs3, phase_flag13, qdss_gpio13,
-			dac_calib13, atest_usb23, NA, NA, 0x70010, 4),
+			dac_calib13, atest_usb23, NA, NA, 0x70010, 6),
 	[24] = PINGROUP(24, qup06, pwm_3, NA, pbs4, phase_flag14, qdss_gpio14,
-			atest_usb2, NA, NA, 0x70010, 5),
+			atest_usb2, NA, NA, 0x70010, 7),
 	[25] = PINGROUP(25, qup06, pwm_4, NA, pbs5, phase_flag15, qdss_gpio15,
-			dac_calib15, NA, NA, 0x70010, 6),
+			dac_calib15, NA, NA, 0x70010, 8),
 	[26] = PINGROUP(26, qup05, NA, pbs6, phase_flag16, qdss_gpio9,
-			dac_calib16, NA, NA, NA, 0x70010, 7),
+			dac_calib16, NA, NA, NA, 0x70010, 9),
 	[27] = PINGROUP(27, qup05, NA, pbs7, phase_flag17, qdss_gpio6,
 			dac_calib17, NA, NA, NA, 0, -1),
 	[28] = PINGROUP(28, qup05, NA, pbs8, phase_flag18, qdss_gpio7,
 			dac_calib18, NA, NA, NA, 0, -1),
 	[29] = PINGROUP(29, qup05, NA, pbs9, phase_flag19, qdss_gpio8,
-			dac_calib19, NA, NA, NA, 0x70010, 8),
+			dac_calib19, NA, NA, NA, 0x70010, 10),
 	[30] = PINGROUP(30, qup06, tgu_ch0, NA, pbs10, phase_flag20,
 			qdss_gpio9, dac_calib20, NA, NA, 0, -1),
 	[31] = PINGROUP(31, qup06, tgu_ch1, NA, pbs11, phase_flag21,
-			qdss_gpio10, dac_calib21, NA, NA, 0x70010, 9),
+			qdss_gpio10, dac_calib21, NA, NA, 0x70010, 11),
 	[32] = PINGROUP(32, cam_mclk, NA, pbs12, NA, NA, NA, NA, NA, NA, 0, -1),
 	[33] = PINGROUP(33, cam_mclk, GP_PDM2, adsp_ext, NA, pbs13, dac_calib9,
-			NA, NA, NA, 0x70010, 10),
+			NA, NA, NA, 0x70010, 12),
 	[34] = PINGROUP(34, cam_mclk, CCI_TIMER2, pwm_1, NA, pbs14, NA, NA, NA,
-			NA, 0x70010, 11),
+			NA, 0x70010, 13),
 	[35] = PINGROUP(35, qup05, SDC2_TB, pwm_0, CRI_TRNG, NA, pbs15,
 			qdss_gpio, dac_calib1, NA, 0, -1),
 	[36] = PINGROUP(36, qup05, CCI_TIMER1, SDC1_TB, GCC_GP1, NA, pbs_out,
-			qdss_gpio, NA, NA, 0x70010, 12),
+			qdss_gpio, NA, NA, 0x70010, 14),
 	[37] = PINGROUP(37, cci_i2c, NA, pbs_out, dac_calib14, NA, NA, NA, NA,
 			NA, 0, -1),
 	[38] = PINGROUP(38, cci_i2c, NA, pbs_out, NA, NA, NA, NA, NA, NA,
 			0, -1),
 	[39] = PINGROUP(39, cci_i2c, NA, NA, NA, NA, NA, NA, NA, NA,
-			0x70010, 13),
+			0x70010, 15),
 	[40] = PINGROUP(40, cci_i2c, tgu_ch3, NA, dac_calib6, NA, NA, NA, NA,
-			NA, 0x70010, 14),
+			NA, 0x70014, 0),
 	[41] = PINGROUP(41, NA, CCI_TIMER3, pwm_2, NA, phase_flag23,
 			dac_calib23, NA, NA, NA, 0x7000C, 0),
-	[42] = PINGROUP(42, NA, usb_phy, pwm_8, NA, phase_flag24, dac_calib24,
-			NA, NA, NA, 0x7000C, 1),
+	[42] = PINGROUP(42, NA, usb2phy_ac, NA, pwm_8, NA, phase_flag24,
+			dac_calib24, NA, NA, 0x7000C, 1),
 	[43] = PINGROUP(43, NA, NA, phase_flag25, dac_calib25, atest_char, NA,
 			NA, NA, NA, 0, -1),
 	[44] = PINGROUP(44, NA, atest_char0, NA, NA, NA, NA, NA, NA, NA, 0, -1),
@@ -1473,11 +1479,11 @@ static const struct msm_pingroup monaco_groups[] = {
 			0x7000C, 2),
 	[46] = PINGROUP(46, NA, pwm_9, NA, phase_flag26, atest_char2, NA, NA,
 			NA, NA, 0, -1),
-	[47] = PINGROUP(47, NA, NAV_GPIO, NA, NA, NA, NA, NA, NA, NA,
+	[47] = PINGROUP(47, nav_gpio0, NA, NA, NA, NA, NA, NA, NA, NA,
 			0x7000C, 3),
-	[48] = PINGROUP(48, NA, NAV_GPIO, NA, NA, NA, NA, NA, NA, NA,
+	[48] = PINGROUP(48, nav_gpio1, NA, NA, NA, NA, NA, NA, NA, NA,
 			0x7000C, 4),
-	[49] = PINGROUP(49, NA, NAV_GPIO, NA, NA, NA, NA, NA, NA, NA,
+	[49] = PINGROUP(49, nav_gpio2, NA, NA, NA, NA, NA, NA, NA, NA,
 			0x7000C, 5),
 	[50] = PINGROUP(50, NA, NA, phase_flag27, atest_char3, NA, NA, NA, NA,
 			NA, 0, -1),
@@ -1494,14 +1500,14 @@ static const struct msm_pingroup monaco_groups[] = {
 	[57] = PINGROUP(57, NA, gsm1_tx, prng_rosc0, NA, NA, NA, NA, NA, NA,
 			0, -1),
 	[58] = PINGROUP(58, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[59] = PINGROUP(59, NA, prng_rosc1, NA, NA, NA, NA, NA, NA, NA, 0, -1),
+	[59] = PINGROUP(59, NA, NA, prng_rosc1, NA, NA, NA, NA, NA, NA, 0, -1),
 	[60] = PINGROUP(60, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[61] = PINGROUP(61, NA, prng_rosc2, NA, NA, NA, NA, NA, NA, NA,
 			0x7000C, 9),
 	[62] = PINGROUP(62, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0x7000C, 10),
-	[63] = PINGROUP(63, NA, SSBI_WTR1, prng_rosc3, NA, NA, NA, NA, NA, NA,
+	[63] = PINGROUP(63, NA, NA, SSBI_WTR1, prng_rosc3, NA, NA, NA, NA, NA,
 			0x7000C, 11),
-	[64] = PINGROUP(64, NA, SSBI_WTR1, GCC_GP2, NA, NA, NA, NA, NA, NA,
+	[64] = PINGROUP(64, NA, NA, SSBI_WTR1, GCC_GP2, NA, NA, NA, NA, NA,
 			0x7000C, 12),
 	[65] = PINGROUP(65, NA, GCC_GP3, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[66] = PINGROUP(66, NA, pll_bypassnl, NA, NA, NA, NA, NA, NA, NA,
@@ -1538,9 +1544,9 @@ static const struct msm_pingroup monaco_groups[] = {
 			atest_gpsadc_dtest1_native, wlan1_adc1, NA, NA, NA, NA,
 			0x70004, 5),
 	[83] = PINGROUP(83, NA, atest_bbrx1, NA, NA, NA, NA, NA, NA, NA,
-			0x70010, 15),
+			0x70014, 1),
 	[84] = PINGROUP(84, NA, atest_bbrx0, NA, NA, NA, NA, NA, NA, NA,
-			0x70014, 0),
+			0x70014, 2),
 	[85] = PINGROUP(85, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[86] = PINGROUP(86, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0x70004, 6),
 	[87] = PINGROUP(87, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0x70004, 7),
@@ -1555,11 +1561,11 @@ static const struct msm_pingroup monaco_groups[] = {
 			0x70004, 10),
 	[96] = PINGROUP(96, qdss_cti, NA, NA, NA, NA, NA, NA, NA, NA,
 			0x70004, 11),
-	[97] = PINGROUP(97, NAV_GPIO, qdss_cti, NA, NA, NA, NA, NA, NA, NA,
+	[97] = PINGROUP(97, qdss_cti, NA, NA, NA, NA, NA, NA, NA, NA,
 			0x70004, 12),
-	[98] = PINGROUP(98, NAV_GPIO, qdss_cti, NA, NA, NA, NA, NA, NA, NA,
+	[98] = PINGROUP(98, qdss_cti, NA, NA, NA, NA, NA, NA, NA, NA,
 			0x70004, 13),
-	[99] = PINGROUP(99, NAV_GPIO, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
+	[99] = PINGROUP(99, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[100] = PINGROUP(100, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0x70004, 14),
 	[101] = PINGROUP(101, QUP0_L0, QUP0_L2, qdss_cti, NA, NA, NA, NA, NA,
 			 NA, 0x70004, 15),
@@ -1578,7 +1584,7 @@ static const struct msm_pingroup monaco_groups[] = {
 	[110] = PINGROUP(110, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[111] = PINGROUP(111, qdss_cti, NA, NA, NA, NA, NA, NA, NA, NA,
 			 0x70008, 5),
-	[112] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x75000, 15, 0),
+	[112] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x75004, 0, 0),
 	[113] = SDC_QDSD_PINGROUP(sdc1_clk, 0x75000, 13, 6),
 	[114] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x75000, 11, 3),
 	[115] = SDC_QDSD_PINGROUP(sdc1_data, 0x75000, 9, 0),
