@@ -47,6 +47,7 @@
 #define I2C_RD_TRANAC_VALUE		0x0001
 #define I2C_CHN_CLR_FLAG		0x0000
 #define I2C_SCL_MIS_COMP_VALUE		0x0000
+#define I2C_CHN_CLR_FLAG		0x0000
 
 #define I2C_DMA_CON_TX			0x0000
 #define I2C_DMA_CON_RX			0x0001
@@ -513,8 +514,10 @@ static void mtk_i2c_init_hw(struct mtk_i2c *i2c)
 		udelay(10);
 		writel(I2C_DMA_CLR_FLAG, i2c->pdmabase + OFFSET_RST);
 		udelay(10);
-		writel(I2C_DMA_HANDSHAKE_RST | I2C_DMA_HARD_RST, i2c->pdmabase + OFFSET_RST);
-		mtk_i2c_writew(i2c, I2C_HANDSHAKE_RST | I2C_SOFT_RST, OFFSET_SOFTRESET);
+		writel(I2C_DMA_HANDSHAKE_RST | I2C_DMA_HARD_RST,
+		       i2c->pdmabase + OFFSET_RST);
+		mtk_i2c_writew(i2c, I2C_HANDSHAKE_RST | I2C_SOFT_RST,
+			       OFFSET_SOFTRESET);
 		udelay(10);
 		writel(I2C_DMA_CLR_FLAG, i2c->pdmabase + OFFSET_RST);
 		mtk_i2c_writew(i2c, I2C_CHN_CLR_FLAG, OFFSET_SOFTRESET);
