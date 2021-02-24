@@ -279,9 +279,9 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		mhi_uci_generic_client_cb,
 		NULL,
 		NULL,
-		NULL,
 		false,
-		true
+		true,
+		50
 	},
 	{
 		MHI_CLIENT_ADB_IN,
@@ -291,9 +291,9 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		mhi_uci_generic_client_cb,
 		"android_adb",
 		NULL,
-		NULL,
 		false,
-		false
+		true,
+		50
 	},
 };
 
@@ -935,8 +935,11 @@ static int open_client_mhi_channels(struct uci_client *uci_client)
 {
 	int rc = 0;
 
-	if (!mhi_uci_are_channels_connected(uci_client))
+	if (!mhi_uci_are_channels_connected(uci_client)) {
+		uci_log(UCI_DBG_ERROR, "%s:Channels are not connected\n",
+			__func__);
 		return -ENODEV;
+	}
 
 	uci_log(UCI_DBG_DBG,
 			"Starting channels %d %d.\n",
@@ -1067,11 +1070,19 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 		struct file *file_handle)
 {
 	struct uci_client *uci_handle = file_handle->private_data;
-	int count = 0;
+	const struct chan_attr *in_chan_attr;
+	int count = 0, i;
 	struct mhi_req *ureq;
 
 	if (!uci_handle)
 		return -EINVAL;
+
+	in_chan_attr = uci_handle->in_chan_attr;
+	if (!in_chan_attr) {
+		uci_log(UCI_DBG_ERROR, "Null channel attributes for chan %d\n",
+				uci_handle->in_chan);
+		return -EINVAL;
+	}
 
 	if (atomic_sub_return(1, &uci_handle->ref_count)) {
 		uci_log(UCI_DBG_DBG, "Client close chan %d, ref count 0x%x\n",
@@ -1129,6 +1140,12 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 			uci_log(UCI_DBG_DBG,
 				"Client %d closed with %d transfers pending\n",
 				iminor(mhi_inode), count);
+	}
+
+	for (i = 0; i < (in_chan_attr->nr_trbs); i++) {
+		kfree(uci_handle->in_buf_list[i].addr);
+		uci_handle->in_buf_list[i].addr = NULL;
+		uci_handle->in_buf_list[i].buf_size = 0;
 	}
 
 	atomic_set(&uci_handle->read_data_ready, 0);
@@ -1247,6 +1264,12 @@ static int __mhi_uci_client_read(struct uci_client *uci_handle,
 	int ret_val = 0;
 
 	do {
+		if (!mhi_uci_are_channels_connected(uci_handle)) {
+			uci_log(UCI_DBG_ERROR,
+				"%s:Channels are not connected\n", __func__);
+			return -ENODEV;
+		}
+
 		if (!uci_handle->pkt_loc &&
 			!atomic_read(&uci_ctxt.mhi_disabled)) {
 			ret_val = uci_handle->read(uci_handle, bytes_avail);
@@ -1391,6 +1414,12 @@ static ssize_t mhi_uci_client_write(struct file *file,
 			"Client %d attempted to write while MHI is disabled\n",
 			uci_handle->out_chan);
 		return -EIO;
+	}
+
+	if (!mhi_uci_are_channels_connected(uci_handle)) {
+		uci_log(UCI_DBG_ERROR, "%s:Channels are not connected\n",
+			__func__);
+		return -ENODEV;
 	}
 
 	if (count > TRB_MAX_DATA_SIZE) {
