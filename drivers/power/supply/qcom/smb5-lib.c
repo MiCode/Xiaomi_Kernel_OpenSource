@@ -1358,7 +1358,7 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	smblib_update_usb_type(chg);
 }
 
-void smblib_suspend_on_debug_battery(struct smb_charger *chg)
+void smblib_config_charger_on_debug_battery(struct smb_charger *chg)
 {
 	int rc = 0, val;
 
@@ -1367,6 +1367,8 @@ void smblib_suspend_on_debug_battery(struct smb_charger *chg)
 		smblib_err(chg, "Couldn't get debug battery prop rc=%d\n", rc);
 		return;
 	}
+
+	vote(chg->bat_temp_irq_disable_votable, DEBUG_BOARD_VOTER, val, 0);
 
 	if (chg->suspend_input_on_debug_batt) {
 		vote(chg->usb_icl_votable, DEBUG_BOARD_VOTER, val, 0);
@@ -1850,6 +1852,27 @@ static int smblib_temp_change_irq_disable_vote_callback(struct votable *votable,
 	}
 
 	chg->irq_info[TEMP_CHANGE_IRQ].enabled = !disable;
+
+	return 0;
+}
+
+static int smblib_bat_temp_irq_disable_vote_callback(struct votable *votable,
+				void *data, int disable, const char *client)
+{
+	struct smb_charger *chg = data;
+
+	if (!chg->irq_info[BAT_TEMP_IRQ].irq)
+		return 0;
+
+	if (chg->irq_info[BAT_TEMP_IRQ].enabled && disable) {
+		disable_irq_wake(chg->irq_info[BAT_TEMP_IRQ].irq);
+		disable_irq_nosync(chg->irq_info[BAT_TEMP_IRQ].irq);
+	} else if (!chg->irq_info[BAT_TEMP_IRQ].enabled && !disable) {
+		enable_irq(chg->irq_info[BAT_TEMP_IRQ].irq);
+		enable_irq_wake(chg->irq_info[BAT_TEMP_IRQ].irq);
+	}
+
+	chg->irq_info[BAT_TEMP_IRQ].enabled = !disable;
 
 	return 0;
 }
@@ -7379,7 +7402,7 @@ static void bms_update_work(struct work_struct *work)
 		chg->iio_chan_list_qg = qg_list;
 	}
 
-	smblib_suspend_on_debug_battery(chg);
+	smblib_config_charger_on_debug_battery(chg);
 
 	if (chg->batt_psy)
 		power_supply_changed(chg->batt_psy);
@@ -8173,6 +8196,15 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
+	chg->bat_temp_irq_disable_votable = create_votable(
+			"BAT_TEMP_IRQ_DISABLE", VOTE_SET_ANY,
+			smblib_bat_temp_irq_disable_vote_callback, chg);
+	if (IS_ERR(chg->bat_temp_irq_disable_votable)) {
+		rc = PTR_ERR(chg->bat_temp_irq_disable_votable);
+		chg->bat_temp_irq_disable_votable = NULL;
+		return rc;
+	}
+
 	return rc;
 }
 
@@ -8186,6 +8218,8 @@ static void smblib_destroy_votables(struct smb_charger *chg)
 		destroy_votable(chg->awake_votable);
 	if (chg->chg_disable_votable)
 		destroy_votable(chg->chg_disable_votable);
+	if (chg->bat_temp_irq_disable_votable)
+		destroy_votable(chg->bat_temp_irq_disable_votable);
 }
 
 static void smblib_iio_deinit(struct smb_charger *chg)
