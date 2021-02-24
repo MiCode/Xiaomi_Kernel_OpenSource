@@ -485,6 +485,21 @@ struct ipa_ep_cfg_seq {
 };
 
 /**
+ * struct ipa_ep_cfg_ulso - ULSO configurations
+ * @ipid_min_max_idx: A value in the range [0, 2]. Determines the registers
+ *		pair from which to read the minimum and maximum of IPv4 packets ID. It
+ *		is set to 0 as this range is platform specific and there is no need for
+ *		more than one pair values for this range. The minimum and maximum values
+ *		are taken from the device tree in pre_init and are stored in dedicated
+ *		registers.
+ * @is_ulso_pipe: Indicates whether the pipe is in ulso operation mode.
+ */
+struct ipa_ep_cfg_ulso {
+	int ipid_min_max_idx;
+	bool is_ulso_pipe;
+};
+
+/**
  * struct ipa_ep_cfg - configuration of IPA end-point
  * @nat:		NAT parameters
  * @conn_track:		IPv6CT parameters
@@ -498,6 +513,7 @@ struct ipa_ep_cfg_seq {
  * @metadata_mask:	Hdr metadata mask
  * @meta:		Meta Data
  * @seq:		HPS/DPS sequencers configuration
+ * @ulso:		ULSO configuration
  */
 struct ipa_ep_cfg {
 	struct ipa_ep_cfg_nat nat;
@@ -512,6 +528,7 @@ struct ipa_ep_cfg {
 	struct ipa_ep_cfg_metadata_mask metadata_mask;
 	struct ipa_ep_cfg_metadata meta;
 	struct ipa_ep_cfg_seq seq;
+	struct ipa_ep_cfg_ulso ulso;
 };
 
 /**
