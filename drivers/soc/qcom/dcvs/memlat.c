@@ -896,7 +896,7 @@ static int memlat_dev_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct kobject *dcvs_kobj;
 	struct memlat_dev_data *dev_data;
-	int i, cpu, last_ev, last_cpu, max, ret;
+	int i, cpu, last_ev = 0, last_cpu = 0, max, ret;
 	u32 event_id;
 
 	dev_data = devm_kzalloc(dev, sizeof(*dev_data), GFP_KERNEL);
@@ -986,7 +986,7 @@ static int memlat_grp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct memlat_group *memlat_grp;
-	int i, cpu, last_ev, last_cpu, max, ret;
+	int i, cpu, last_ev = 0, last_cpu = 0, max, ret;
 	u32 event_id, num_mons;
 	u32 hw_type = NUM_DCVS_PATHS, path_type = NUM_DCVS_PATHS;
 	struct device_node *of_node;
