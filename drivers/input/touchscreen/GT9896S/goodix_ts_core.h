@@ -44,9 +44,9 @@
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
-#ifdef CONFIG_FB
-#include <linux/notifier.h>
-#include <linux/fb.h>
+
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+#include "mtk_disp_notify.h"
 #endif
 
 #define GOODIX_FLASH_CONFIG_WITH_ISP	1
@@ -469,8 +469,8 @@ struct gt9896s_ts_core {
 	struct notifier_block ts_notifier;
 	struct gt9896s_ts_esd ts_esd;
 
-#ifdef CONFIG_FB
-	struct notifier_block fb_notifier;
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+	struct notifier_block disp_notifier;
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	struct early_suspend early_suspend;
 #endif
