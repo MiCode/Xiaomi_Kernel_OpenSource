@@ -2981,9 +2981,10 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		vow_service_SetModelStatus(VOW_MODEL_STATUS_STOP, arg);
 		break;
 	case VOW_GET_GOOGLE_ENGINE_VER: {
-		copy_to_user((void __user *)arg,
+		if (copy_to_user((void __user *)arg,
 				 &vowserv.google_engine_version,
-				 sizeof(vowserv.google_engine_version));
+				 sizeof(vowserv.google_engine_version)))
+			ret = -EFAULT;
 	}
 		break;
 	case VOW_GET_GOOGLE_ARCH:
@@ -2991,31 +2992,35 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		struct vow_engine_info_t engine_ver_temp;
 		unsigned int length = VOW_ENGINE_INFO_LENGTH_BYTE;
 
-		copy_from_user((void *)&engine_ver_temp,
+		if (copy_from_user((void *)&engine_ver_temp,
 				 (const void __user *)arg,
-				 sizeof(struct vow_engine_info_t));
+				 sizeof(struct vow_engine_info_t)))
+			ret = -EFAULT;
 		if ((unsigned int)cmd == VOW_GET_ALEXA_ENGINE_VER) {
 			pr_debug("VOW_GET_ALEXA_ENGINE_VER = %s, %lu, %lu, %d",
 					 vowserv.alexa_engine_version,
 					 engine_ver_temp.data_addr,
 					 engine_ver_temp.return_size_addr,
 					 length);
-			copy_to_user((void __user *)engine_ver_temp.data_addr,
+			if (copy_to_user((void __user *)engine_ver_temp.data_addr,
 					 vowserv.alexa_engine_version,
-					 length);
+					 length))
+				ret = -EFAULT;
 		} else if ((unsigned int)cmd == VOW_GET_GOOGLE_ARCH) {
 			pr_debug("VOW_GET_GOOGLE_ARCH = %s, %lu, %lu, %d",
 					 vowserv.google_engine_arch,
 					 engine_ver_temp.data_addr,
 					 engine_ver_temp.return_size_addr,
 					 length);
-			copy_to_user((void __user *)engine_ver_temp.data_addr,
+			if (copy_to_user((void __user *)engine_ver_temp.data_addr,
 					 vowserv.google_engine_arch,
-					 length);
+					 length))
+				ret = -EFAULT;
 		}
-		copy_to_user((void __user *)engine_ver_temp.return_size_addr,
+		if (copy_to_user((void __user *)engine_ver_temp.return_size_addr,
 				 &length,
-				 sizeof(unsigned int));
+				 sizeof(unsigned int)))
+			ret = -EFAULT;
 	}
 		break;
 #if IS_ENABLED(CONFIG_MTK_VOW_1STSTAGE_PCMCALLBACK)
