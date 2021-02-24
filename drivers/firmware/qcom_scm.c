@@ -1213,6 +1213,9 @@ early_initcall(scm_mem_protection_init);
 #if IS_MODULE(CONFIG_QCOM_SCM)
 static void __exit qcom_scm_exit(void)
 {
+#if IS_ENABLED(CONFIG_QCOM_SCM_QCPE)
+	__qcom_scm_qcpe_exit();
+#endif
 	platform_driver_unregister(&qcom_scm_driver);
 	qtee_shmbridge_driver_exit();
 }
