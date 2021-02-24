@@ -32,4 +32,5 @@ ccflags-y += -DCONFIG_MTK_FLASHLIGHT_AW3644
 endif
 subdir-ccflags-y += \
 	-I$(MTK_CUSTOM_PATH)/power_throttling
-
+subdir-ccflags-y += \
+    -I$(MTK_CUSTOM_PATH)/pbm
