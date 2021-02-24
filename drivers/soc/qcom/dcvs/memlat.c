@@ -1004,6 +1004,9 @@ static int memlat_grp_probe(struct platform_device *pdev)
 	}
 
 	memlat_grp = devm_kzalloc(dev, sizeof(*memlat_grp), GFP_KERNEL);
+	if (!memlat_grp)
+		return -ENOMEM;
+
 	memlat_grp->hw_type = hw_type;
 	memlat_grp->dev = dev;
 
