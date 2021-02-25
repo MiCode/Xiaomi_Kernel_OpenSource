@@ -299,6 +299,17 @@ config MSM_SUBSYSTEM_RESTART
 	  Moreover, the framework also notifies userspace of transitions
 	  between these states via sysfs.
 
+config MSM_QUIN_SUBSYSTEM_NOTIF_VIRT
+	tristate "MSM QUIN Subsystem Notif Virt"
+	select MSM_SUBSYSTEM_RESTART
+	help
+	  This option enables the virtual MSM subsystem notification
+	  framework for the QUIN platform.
+
+	  The virtual MSM subsystem notif framework provides support for
+	  a subsystem to notify its clients of its state, when the clients
+	  are in a different virtual machine domain than the subsystem.
+
 config SETUP_SSR_NOTIF_TIMEOUTS
 	bool "Set timeouts on SSR sysmon notifications and notifier callbacks"
 	help
