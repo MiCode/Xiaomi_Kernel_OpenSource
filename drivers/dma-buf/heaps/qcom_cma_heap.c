@@ -30,30 +30,15 @@
 struct cma_heap {
 	struct dma_heap *heap;
 	struct cma *cma;
-	struct list_head list;
 };
-
-LIST_HEAD(cma_heaps);
 
 static void cma_heap_free(struct qcom_sg_buffer *buffer)
 {
 	struct cma_heap *cma_heap;
 	unsigned long nr_pages = buffer->len >> PAGE_SHIFT;
 	struct page *cma_pages = sg_page(buffer->sg_table.sgl);
-	struct list_head *list_pos;
 
-	/*
-	 * We're guaranteed to find our heap in this list.  When
-	 * cma_heap_free() was assigned as this buffer's free function in
-	 * cma_heap_allocate() below, the heap was already in the linked
-	 * list.  So, it will still be in the linked list now.
-	 */
-
-	list_for_each(list_pos, &cma_heaps) {
-		cma_heap = container_of(list_pos, struct cma_heap, list);
-		if (cma_heap->heap == buffer->heap)
-			break;
-	}
+	cma_heap = dma_heap_get_drvdata(buffer->heap);
 
 	/* free page list */
 	sg_free_table(&buffer->sg_table);
@@ -77,21 +62,8 @@ struct dma_buf *cma_heap_allocate(struct dma_heap *heap,
 	unsigned long align = get_order(size);
 	struct dma_buf *dmabuf;
 	int ret = -ENOMEM;
-	struct list_head *list_pos;
 
-	/*
-	 * A temporary workaround until dma_heap_get_drvdata() lands
-	 * in ACK. Note that it's guaranteed that there is one entry in
-	 * the list cma_heaps such that cma_heap->heap == heap.  This
-	 * is because `heap` can be passed to this function only if
-	 * it was created in __add_cma_heap() below - this function
-	 * places `heap` in the linked list.
-	 */
-	list_for_each(list_pos, &cma_heaps) {
-		cma_heap = container_of(list_pos, struct cma_heap, list);
-		if (cma_heap->heap == heap)
-			break;
-	}
+	cma_heap = dma_heap_get_drvdata(heap);
 
 	if (align > CONFIG_CMA_ALIGNMENT)
 		align = CONFIG_CMA_ALIGNMENT;
@@ -183,9 +155,7 @@ static int __add_cma_heap(struct platform_heap *heap_data, void *data)
 
 	exp_info.name = heap_data->name;
 	exp_info.ops = &cma_heap_ops;
-	exp_info.priv = NULL;
-
-	list_add(&cma_heap->list, &cma_heaps);
+	exp_info.priv = cma_heap;
 
 	cma_heap->heap = dma_heap_add(&exp_info);
 	if (IS_ERR(cma_heap->heap)) {
