@@ -4,10 +4,12 @@
  */
 
 #include <linux/blkdev.h>
+#include <linux/compat.h>
 #include <linux/file.h>
 #include <linux/fs.h>
 #include <linux/fs_stack.h>
 #include <linux/fsnotify.h>
+#include <linux/fsverity.h>
 #include <linux/namei.h>
 #include <linux/parser.h>
 #include <linux/seq_file.h>
@@ -20,6 +22,7 @@
 #include "format.h"
 #include "internal.h"
 #include "pseudo_files.h"
+#include "verity.h"
 
 static int incfs_remount_fs(struct super_block *sb, int *flags, char *data);
 
@@ -41,6 +44,11 @@ static int file_open(struct inode *inode, struct file *file);
 static int file_release(struct inode *inode, struct file *file);
 static int read_single_page(struct file *f, struct page *page);
 static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg);
+
+#ifdef CONFIG_COMPAT
+static long incfs_compat_ioctl(struct file *file, unsigned int cmd,
+			 unsigned long arg);
+#endif
 
 static struct inode *alloc_inode(struct super_block *sb);
 static void free_inode(struct inode *inode);
@@ -107,7 +115,9 @@ const struct file_operations incfs_file_ops = {
 	.splice_read = generic_file_splice_read,
 	.llseek = generic_file_llseek,
 	.unlocked_ioctl = dispatch_ioctl,
-	.compat_ioctl = dispatch_ioctl
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = incfs_compat_ioctl,
+#endif
 };
 
 const struct inode_operations incfs_file_inode_ops = {
@@ -149,6 +159,8 @@ struct inode_search {
 	struct dentry *backing_dentry;
 
 	size_t size;
+
+	bool verity;
 };
 
 enum parse_parameter {
@@ -245,6 +257,13 @@ static u64 read_size_attr(struct dentry *backing_dentry)
 	return le64_to_cpu(attr_value);
 }
 
+/* Read verity flag from the attribute. Quicker than reading the header */
+static bool read_verity_attr(struct dentry *backing_dentry)
+{
+	return vfs_getxattr(backing_dentry, INCFS_XATTR_VERITY_NAME, NULL, 0)
+		>= 0;
+}
+
 static int inode_test(struct inode *inode, void *opaque)
 {
 	struct inode_search *search = opaque;
@@ -275,6 +294,8 @@ static int inode_set(struct inode *inode, void *opaque)
 		inode->i_op = &incfs_file_inode_ops;
 		inode->i_fop = &incfs_file_ops;
 		inode->i_mode &= ~0222;
+		if (search->verity)
+			inode_set_flags(inode, S_VERITY, S_VERITY);
 	} else if (S_ISDIR(inode->i_mode)) {
 		inode->i_size = 0;
 		inode->i_blocks = 1;
@@ -309,6 +330,7 @@ static struct inode *fetch_regular_inode(struct super_block *sb,
 		.ino = backing_inode->i_ino,
 		.backing_dentry = backing_dentry,
 		.size = read_size_attr(backing_dentry),
+		.verity = read_verity_attr(backing_dentry),
 	};
 	struct inode *inode = iget5_locked(sb, search.ino, inode_test,
 				inode_set, &search);
@@ -804,6 +826,13 @@ static long ioctl_get_block_count(struct file *f, void __user *arg)
 	return 0;
 }
 
+static int incfs_ioctl_get_flags(struct file *f, void __user *arg)
+{
+	u32 flags = IS_VERITY(file_inode(f)) ? FS_VERITY_FL : 0;
+
+	return put_user(flags, (int __user *) arg);
+}
+
 static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg)
 {
 	switch (req) {
@@ -815,10 +844,38 @@ static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg)
 		return ioctl_get_filled_blocks(f, (void __user *)arg);
 	case INCFS_IOC_GET_BLOCK_COUNT:
 		return ioctl_get_block_count(f, (void __user *)arg);
+	case FS_IOC_ENABLE_VERITY:
+		return incfs_ioctl_enable_verity(f, (const void __user *)arg);
+	case FS_IOC_GETFLAGS:
+		return incfs_ioctl_get_flags(f, (void __user *) arg);
+	case FS_IOC_MEASURE_VERITY:
+		return incfs_ioctl_measure_verity(f, (void __user *)arg);
 	default:
 		return -EINVAL;
 	}
 }
+
+#ifdef CONFIG_COMPAT
+static long incfs_compat_ioctl(struct file *file, unsigned int cmd,
+			       unsigned long arg)
+{
+	switch (cmd) {
+	case FS_IOC32_GETFLAGS:
+		cmd = FS_IOC_GETFLAGS;
+		break;
+	case INCFS_IOC_FILL_BLOCKS:
+	case INCFS_IOC_READ_FILE_SIGNATURE:
+	case INCFS_IOC_GET_FILLED_BLOCKS:
+	case INCFS_IOC_GET_BLOCK_COUNT:
+	case FS_IOC_ENABLE_VERITY:
+	case FS_IOC_MEASURE_VERITY:
+		break;
+	default:
+		return -ENOIOCTLCMD;
+	}
+	return dispatch_ioctl(file, cmd, (unsigned long) compat_ptr(arg));
+}
+#endif
 
 static struct dentry *dir_lookup(struct inode *dir_inode, struct dentry *dentry,
 				 unsigned int flags)
@@ -1328,7 +1385,12 @@ static int file_open(struct inode *inode, struct file *file)
 		file->private_data = fd;
 
 		err = make_inode_ready_for_data_ops(mi, inode, backing_file);
+		if (err)
+			goto out;
 
+		err = incfs_fsverity_file_open(inode, file);
+		if (err)
+			goto out;
 	} else if (S_ISDIR(inode->i_mode)) {
 		struct dir_file *dir = NULL;
 
