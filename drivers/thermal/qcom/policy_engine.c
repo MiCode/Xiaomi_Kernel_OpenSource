@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -80,6 +80,9 @@ static irqreturn_t pe_handle_irq(int irq, void *data)
 	struct pe_sensor_data *pe_sens = (struct pe_sensor_data *)data;
 	int val = 0, ret = 0;
 
+	writel_relaxed(PE_INTR_CLEAR, pe_sens->regmap + PE_INT_STATUS_OFFSET);
+	writel_relaxed(PE_STS_CLEAR, pe_sens->regmap + PE_INT_STATUS1_OFFSET);
+
 	ret = fetch_mitigation_table_idx(pe_sens, &val);
 	if (ret)
 		return IRQ_HANDLED;
@@ -92,8 +95,6 @@ static irqreturn_t pe_handle_irq(int irq, void *data)
 		of_thermal_handle_trip_temp(pe_sens->dev, pe_sens->tz_dev, val);
 	} else
 		mutex_unlock(&pe_sens->mutex);
-	writel_relaxed(PE_INTR_CLEAR, pe_sens->regmap + PE_INT_STATUS_OFFSET);
-	writel_relaxed(PE_STS_CLEAR, pe_sens->regmap + PE_INT_STATUS1_OFFSET);
 
 	return IRQ_HANDLED;
 }
@@ -155,6 +156,8 @@ static int pe_sens_device_probe(struct platform_device *pdev)
 				pe_sens->tz_dev);
 		return ret;
 	}
+	enable_irq_wake(pe_sens->irq_num);
+
 	dev_dbg(dev, "PE sensor register success\n");
 
 	return 0;
