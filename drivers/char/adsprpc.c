@@ -2397,7 +2397,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 				}
 				offset = buf_page_start(buf) - vma->vm_start;
 				up_read(&current->mm->mmap_sem);
-				VERIFY(err, offset < (uintptr_t)map->size);
+				VERIFY(err, offset + len <= (uintptr_t)map->size);
 				if (err) {
 					ADSPRPC_ERR(
 						"buffer address is invalid for the fd passed for %d address 0x%llx and size %zu\n",
