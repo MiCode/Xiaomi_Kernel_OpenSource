@@ -43,7 +43,7 @@
 #if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
 #include "mtk_freqhopping_drv.h"
 #endif
-#if MT_GPUFREQ_KICKER_PBM_READY
+#if MT_GPUFREQ_KICKER_PBM_READY && IS_ENABLED(CONFIG_MTK_PBM)
 #include "mtk_pbm.h"
 #endif
 #if MT_GPUFREQ_STATIC_PWR_READY2USE
@@ -3146,7 +3146,7 @@ static void __mt_gpufreq_kick_pbm(int enable)
 				if (g_power_table[i].gpufreq_vgpu == cur_vgpu) {
 					power = g_power_table[i].gpufreq_power;
 					found = 1;
-#if MT_GPUFREQ_KICKER_PBM_READY
+#if MT_GPUFREQ_KICKER_PBM_READY && IS_ENABLED(CONFIG_MTK_PBM)
 					kicker_pbm_by_gpu(true,
 							power, cur_vgpu / 100);
 #endif
@@ -3163,13 +3163,13 @@ static void __mt_gpufreq_kick_pbm(int enable)
 				 * corresponding power budget
 				 */
 				power = g_power_table[tmp_idx].gpufreq_power;
-#if MT_GPUFREQ_KICKER_PBM_READY
+#if MT_GPUFREQ_KICKER_PBM_READY && IS_ENABLED(CONFIG_MTK_PBM)
 				kicker_pbm_by_gpu(true, power, cur_vgpu / 100);
 #endif
 			}
 		}
 	} else {
-#if MT_GPUFREQ_KICKER_PBM_READY
+#if MT_GPUFREQ_KICKER_PBM_READY && IS_ENABLED(CONFIG_MTK_PBM)
 		kicker_pbm_by_gpu(false, 0, cur_vgpu / 100);
 #endif
 	}
@@ -3548,6 +3548,12 @@ static void __mt_gpufreq_init_power(void)
 			&mt_gpufreq_batt_oc_callback,
 			BATTERY_OC_PRIO_GPU);
 #endif
+
+#if MT_GPUFREQ_KICKER_PBM_READY && IS_ENABLED(CONFIG_MTK_PBM)
+	register_pbm_notify(
+		&mt_gpufreq_set_power_limit_by_pbm, PBM_PRIO_GPU);
+#endif
+
 }
 
 #if MT_GPUFREQ_DFD_DEBUG
