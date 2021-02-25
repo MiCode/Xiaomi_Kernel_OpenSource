@@ -3,6 +3,7 @@
  * ION Memory Allocator
  *
  * Copyright (C) 2011 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  */
@@ -60,6 +61,23 @@ static int ion_alloc_fd(size_t len, unsigned int heap_id_mask,
 		dma_buf_put(dmabuf);
 
 	return fd;
+}
+
+static int ion_alloc_fd_with_caller_pid(size_t len, unsigned int heap_id_mask,
+                        unsigned int flags, int pid_info)
+{
+        int fd;
+        struct dma_buf *dmabuf;
+
+        dmabuf = ion_dmabuf_alloc_with_caller_pid(internal_dev, len, heap_id_mask, flags, pid_info);
+        if (IS_ERR(dmabuf))
+                return PTR_ERR(dmabuf);
+
+        fd = dma_buf_fd(dmabuf, O_CLOEXEC);
+        if (fd < 0)
+                dma_buf_put(dmabuf);
+
+        return fd;
 }
 
 size_t ion_query_heaps_kernel(struct ion_heap_data *hdata, size_t size)
@@ -191,9 +209,17 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	{
 		int fd;
 
-		fd = ion_alloc_fd(data.allocation.len,
-				  data.allocation.heap_id_mask,
-				  data.allocation.flags);
+		if (data.allocation.unused > 0) {
+			fd = ion_alloc_fd_with_caller_pid(
+				data.allocation.len,
+				data.allocation.heap_id_mask,
+				data.allocation.flags, data.allocation.unused);
+		} else {
+			fd = ion_alloc_fd(data.allocation.len,
+					  data.allocation.heap_id_mask,
+					  data.allocation.flags);
+		}
+
 		if (fd < 0)
 			return fd;
 

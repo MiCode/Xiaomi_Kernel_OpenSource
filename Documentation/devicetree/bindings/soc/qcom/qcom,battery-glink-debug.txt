@@ -1,0 +1,26 @@
+QTI battery glink debug binding
+
+This binding describes the Qualcomm Technologies, Inc. battery glink debug
+device. QTI battery glink debug device helps to get logs and debug information
+by communicating with charger firmware running on the remote subsystem
+(e.g. DSP) over PMIC Glink.
+
+Refer to Documentation/devicetree/bindings/soc/qcom/qcom,pmic-glink.txt for
+information on "qcom,pmic_glink_log" device which is used in the example below.
+
+- compatible:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "qcom,battery-debug"
+
+= EXAMPLE
+
+&soc {
+	qcom,pmic_glink_log {
+		...
+		qcom,battery_debug {
+			compatible = "qcom,battery-debug";
+		};
+		...
+	};
+};

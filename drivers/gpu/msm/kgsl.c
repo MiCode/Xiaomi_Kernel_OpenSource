@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <uapi/linux/sched/types.h>
@@ -340,6 +341,7 @@ kgsl_mem_entry_destroy(struct kref *kref)
 
 	/* pull out the memtype before the flags get cleared */
 	memtype = kgsl_memdesc_usermem_type(&entry->memdesc);
+        atomic64_sub(entry->memdesc.size, &entry->priv->stats[memtype].cur);
 
 	atomic64_sub(entry->memdesc.size, &entry->priv->stats[memtype].cur);
 
@@ -4019,6 +4021,9 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 	vma->vm_file = file;
 
 	entry->memdesc.useraddr = vma->vm_start;
+	entry->memdesc.mapsize += entry->memdesc.size;
+
+	atomic64_add(entry->memdesc.mapsize, &entry->priv->gpumem_mapped);
 
 	entry->memdesc.mapsize += entry->memdesc.size;
 	atomic64_add(entry->memdesc.mapsize, &entry->priv->gpumem_mapped);

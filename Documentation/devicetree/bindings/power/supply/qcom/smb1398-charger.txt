@@ -1,0 +1,113 @@
+Qualcomm Technologies, Inc. SMB1398 Charger Specific Bindings
+
+SMB1398 combo charge chip can be working in different modes:
+(1) DIV2 charge pump mode to work as a companion charger that can be paired
+    with Qualcomm Technologies, Inc. family of standalone chargers;
+(2) DIV2 and 3-level buck combo mode to regulate output power from wireless
+    charger receiver and provide input power for downstream chargers.
+
+=======================
+Required Node Structure
+=======================
+
+SMB1398 Charger must be described in two levels of device nodes.
+
+==================================
+First Level Node - SMB1398 Charger
+==================================
+
+Charger specific properties:
+- compatible
+  Usage:      required
+  Value type: <string>
+  Definition: "qcom,smb1396-div2-cp-master" for SMB1396 working in DIV2
+	      mode as a companion master charger.
+	      "qcom,smb1396-div2-cp-slave" for SMB1396 working in DIV2
+	      mode as a companion slave charger.
+	      "qcom,smb1398-pre-regulator" for SMB1398 working in combo
+	      mode (auto transition between DIV2 CP and 3-level buck) as a
+	      pre-regulator stand between wireless receiver and downstream
+	      chargers.
+
+- interrupts
+  Usage:      optional
+  Value type: <prop-encoded-array>
+  Definition: Peripheral interrupt specifier. This is required when SMB1396
+	      working as a DIV2 CP master.
+
+- interrupt-names
+  Usage:      optional
+  Value type: <stringlist>
+  Definition: Interrupt names.  This list must match up 1-to-1 with the
+	      interrupts specified in the 'interrupts' property. This is
+	      required when SMB1396 working as a DIV2 CP master.
+
+- io-channels
+  Usage:      optional
+  Value type: <phandle-array>
+  Definition: IIO channel specifiers for each name in io-channel-names.
+	      For other details about IIO bindings see:
+	             Documentation/devicetree/bindings/iio/iio-bindings.txt
+	      These properties are required when SMB1396 working as a DIV2 CP
+	      master.
+
+- io-channel-names
+  Usage:      optional
+  Value type: <string-array>
+  Definition: Names of the IIO channels that are used by CP master.
+
+- qcom,div2-cp-min-ilim-ua
+  Usage:      optional
+  Value type: <u32>
+  Definition: The minimum ILIM settings to enable SMB1398 working in DIV2 mode.
+	      The switcher is disabled when ILIM is below this value.
+	      If this values is not specified, the default minimum ILIM is 1A.
+	      This is only applicable when SMB1396 working as a DIV2 CP master.
+
+- qcom,max-cutoff-soc
+  Usage:      optional
+  Value type: <u32>
+  Definition: SOC beyond which SMB1398 is kept disabled.
+	      If this value is not specified then default value is 85%.
+	      This is only applicable when SMB1396 working as a DIV2 CP master.
+
+- qcom,ilim-ua-disable-slave
+  Usage:      optional
+  Value type: <u32>
+  Definition: The minimum ILIM setting to disable slave CP after hitting taper.
+	      If this value is not specified, the default value is 3 times of
+	      "qcom,div2-cp-min-ilim-ua". This is only applicable when both
+	      SMB1396 DIV2 CP master and slave are present.
+
+Peripheral specific properties:
+=======
+Example
+=======
+
+smb1398_charger: qcom,combo_charger {
+	compatible = "qcom,smb1396-div2-cp-master";
+	interrupt-parent = <&smb1398>;
+	status = "disabled";
+
+	io-channels = <&smb1396_div2_cp_slave PSY_IIO_CURRENT_CAPABILITY>,
+		     <&pm7250b_charger PSY_IIO_USB_REAL_TYPE>,
+		     <&pm7250b_vadc ADC5_AMUX_THM2>;
+	io-channel-names = "current_capability",
+		     "real_type",
+		     "die_temp";
+
+	interrupts = <0x26 0x1 IRQ_TYPE_EDGE_RISING>,
+		     <0x26 0x3 IRQ_TYPE_EDGE_RISING>,
+		     <0x26 0x5 IRQ_TYPE_EDGE_RISING>,
+		     <0x26 0x7 IRQ_TYPE_EDGE_RISING>,
+		     <0x27 0x5 IRQ_TYPE_EDGE_RISING>,
+		     <0x27 0x6 IRQ_TYPE_EDGE_RISING>,
+		     <0x27 0x7 IRQ_TYPE_EDGE_RISING>;
+	interrupt-names = "temp-shdwn",
+			  "div2-irev",
+			  "usbin-uv",
+			  "usbin-ov",
+			  "div2-ilim",
+			  "div2-win-uv",
+			  "div2-win-ov";
+};

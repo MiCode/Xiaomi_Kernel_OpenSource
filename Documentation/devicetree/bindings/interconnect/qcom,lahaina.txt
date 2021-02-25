@@ -1,0 +1,31 @@
+Qualcomm Technologies, Inc. Lahaina Network-On-Chip interconnect driver binding
+-----------------------------------------------------------
+
+Lahaina interconnect providers support system bandwidth requirements through
+RPMh hardware accelerators known as Bus Clock Manager (BCM). The provider is
+able to communicate with the BCM through the Resource State Coordinator (RSC)
+associated with each execution environment. Provider nodes must point to at
+least one RPMh device child node pertaining to their RSC and each provider
+can map to multiple RPMh resources.
+
+Required properties :
+- compatible : shall contain only one of the following:
+			"qcom,lahaina-aggre1_noc",
+			"qcom,lahaina-aggre2_noc",
+			"qcom,lahaina-clk_virt",
+			"qcom,lahaina-config_noc",
+			"qcom,lahaina-dc_noc",
+			"qcom,lahaina-gem_noc",
+			"qcom,lahaina-lpass_ag_noc",
+			"qcom,lahaina-mc_virt",
+			"qcom,lahaina-mmss_noc",
+			"qcom,lahaina-nsp_noc",
+			"qcom,lahaina-system_noc",
+- #interconnect-cells : should contain 1
+
+Examples:
+
+aggre1_noc: interconnect@16e0000 {
+	compatible = "qcom,lahaina-aggre1_noc";
+	interconnect-cells = <1>;
+};

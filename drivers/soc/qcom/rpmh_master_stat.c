@@ -2,6 +2,7 @@
 
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, KBUILD_MODNAME
@@ -19,6 +20,7 @@
 #include <linux/soc/qcom/smem.h>
 #include <asm/arch_timer.h>
 #include "rpmh_master_stat.h"
+
 
 #define UNIT_DIST 0x14
 #define REG_VALID 0x0
@@ -195,6 +197,8 @@ void msm_rpmh_master_stats_update(void)
 }
 EXPORT_SYMBOL(msm_rpmh_master_stats_update);
 
+
+
 static int msm_rpmh_master_stats_probe(struct platform_device *pdev)
 {
 	struct rpmh_master_stats_prv_data *prvdata = NULL;
@@ -234,6 +238,8 @@ static int msm_rpmh_master_stats_probe(struct platform_device *pdev)
 
 	apss_master_stats.version_id = 0x1;
 	platform_set_drvdata(pdev, prvdata);
+
+
 	return ret;
 
 fail_iomap:

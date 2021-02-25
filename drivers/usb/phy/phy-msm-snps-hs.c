@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -757,6 +758,65 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	if (IS_ERR(phy->phy_reset))
 		return PTR_ERR(phy->phy_reset);
 
+#ifdef CONFIG_FACTORY_BUILD
+	if (of_property_read_bool(dev->of_node, "mi,factory-usb")) {
+		phy->param_override_seq_cnt = of_property_count_elems_of_size(
+				dev->of_node,
+				"qcom,param-override-seq-fac",
+				sizeof(*phy->param_override_seq));
+		if (phy->param_override_seq_cnt > 0) {
+			phy->param_override_seq = devm_kcalloc(dev,
+					phy->param_override_seq_cnt,
+					sizeof(*phy->param_override_seq),
+					GFP_KERNEL);
+			if (!phy->param_override_seq)
+				return -ENOMEM;
+
+			if (phy->param_override_seq_cnt % 2) {
+				dev_err(dev, "invalid param_override_seq_len\n");
+				return -EINVAL;
+			}
+
+			ret = of_property_read_u32_array(dev->of_node,
+					"qcom,param-override-seq-fac",
+					phy->param_override_seq,
+					phy->param_override_seq_cnt);
+			if (ret) {
+				dev_err(dev, "qcom,param-override-seq-fac read failed %d\n",
+						ret);
+				return ret;
+			}
+		}
+	} else {
+		phy->param_override_seq_cnt = of_property_count_elems_of_size(
+				dev->of_node,
+				"qcom,param-override-seq",
+				sizeof(*phy->param_override_seq));
+		if (phy->param_override_seq_cnt > 0) {
+			phy->param_override_seq = devm_kcalloc(dev,
+					phy->param_override_seq_cnt,
+					sizeof(*phy->param_override_seq),
+					GFP_KERNEL);
+			if (!phy->param_override_seq)
+				return -ENOMEM;
+
+			if (phy->param_override_seq_cnt % 2) {
+				dev_err(dev, "invalid param_override_seq_len\n");
+				return -EINVAL;
+			}
+
+			ret = of_property_read_u32_array(dev->of_node,
+					"qcom,param-override-seq",
+					phy->param_override_seq,
+					phy->param_override_seq_cnt);
+			if (ret) {
+				dev_err(dev, "qcom,param-override-seq read failed %d\n",
+						ret);
+				return ret;
+			}
+		}
+	}
+#else
 	phy->param_override_seq_cnt = of_property_count_elems_of_size(
 					dev->of_node,
 					"qcom,param-override-seq",
@@ -784,6 +844,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
+#endif
 
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
 					 (u32 *) phy->vdd_levels,

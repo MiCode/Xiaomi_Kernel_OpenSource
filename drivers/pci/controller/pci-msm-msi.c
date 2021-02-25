@@ -105,6 +105,7 @@ static void msm_msi_snps_handler(struct irq_desc *desc)
 		if (status & 0x1)
 			generic_handle_irq(msi_grp->irqs[i].virq);
 
+
 	chained_irq_exit(chip, desc);
 }
 

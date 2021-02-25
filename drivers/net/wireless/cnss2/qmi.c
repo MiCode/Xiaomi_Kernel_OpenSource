@@ -4,6 +4,7 @@
 #include <linux/firmware.h>
 #include <linux/module.h>
 #include <linux/soc/qcom/qmi.h>
+#include <linux/hwid.h>
 
 #include "bus.h"
 #include "debug.h"
@@ -15,6 +16,13 @@
 #define BDF_FILE_NAME_PREFIX		"bdwlan"
 #define ELF_BDF_FILE_NAME		"bdwlan.elf"
 #define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
+
+#define ELF_BDF_FILE_NAME_K2		 "bd_k2.elf"
+#define ELF_BDF_FILE_NAME_K11            "bd_k11.elf"
+#define ELF_BDF_FILE_NAME_K11_GLOBAL     "bd_k11gl.elf"
+#define ELF_BDF_FILE_NAME_K11_NO_CRYSTAL            "bd_k11_2.elf"
+#define ELF_BDF_FILE_NAME_K11_GLOBAL_NO_CRYSTAL     "bd_k11gl_2.elf"
+
 #define BIN_BDF_FILE_NAME		"bdwlan.bin"
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
 #define REGDB_FILE_NAME			"regdb.bin"
@@ -482,11 +490,36 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 {
 	char filename_tmp[MAX_FIRMWARE_NAME_LEN];
 	int ret = 0;
+	int hw_platform_ver = -1;
+	uint32_t hw_country_ver = 0;
+	uint32_t hw_version_build = 0;
+	uint32_t hw_version_major = 0;
+	uint32_t hw_version_minor = 0;
+	hw_country_ver = get_hw_country_version();
+	hw_platform_ver = get_hw_version_platform();
+	hw_version_build = get_hw_version_build();
+	hw_version_major = get_hw_version_major();
+	hw_version_minor = get_hw_version_minor();
 
 	switch (bdf_type) {
 	case CNSS_BDF_ELF:
-		if (plat_priv->board_info.board_id == 0xFF)
-			snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME);
+		if (plat_priv->board_info.board_id == 0xFF) {
+			if (hw_platform_ver == HARDWARE_PROJECT_K11) {
+				if((uint32_t)CountryGlobal == hw_country_ver){
+					if ((hw_version_build < 2) || ((hw_version_major == 22) && (hw_version_minor == 0)))
+						snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME_K11_GLOBAL);
+					else
+						snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME_K11_GLOBAL_NO_CRYSTAL);
+				} else{
+					if ((hw_version_build < 2) || ((hw_version_major == 2) && (hw_version_minor == 0)))
+						snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME_K11);
+					else
+						snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME_K11_NO_CRYSTAL);
+				}
+			} else {
+				snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME);
+			}
+		}
 		else if (plat_priv->board_info.board_id < 0xFF)
 			snprintf(filename_tmp, filename_len,
 				 ELF_BDF_FILE_NAME_PREFIX "%02x",
@@ -1660,9 +1693,6 @@ int cnss_wlfw_get_info_send_sync(struct cnss_plat_data *plat_priv, int type,
 	struct qmi_txn txn;
 	int ret = 0;
 
-	cnss_pr_buf("Sending get info message, type: %d, cmd length: %d, state: 0x%lx\n",
-		    type, cmd_len, plat_priv->driver_state);
-
 	if (cmd_len > QMI_WLFW_MAX_DATA_SIZE_V01)
 		return -EINVAL;
 
@@ -2015,16 +2045,10 @@ static void cnss_wlfw_respond_get_info_ind_cb(struct qmi_handle *qmi_wlfw,
 		container_of(qmi_wlfw, struct cnss_plat_data, qmi_wlfw);
 	const struct wlfw_respond_get_info_ind_msg_v01 *ind_msg = data;
 
-	cnss_pr_buf("Received QMI WLFW respond get info indication\n");
-
 	if (!txn) {
 		cnss_pr_err("Spurious indication\n");
 		return;
 	}
-
-	cnss_pr_buf("Extract message with event length: %d, type: %d, is last: %d, seq no: %d\n",
-		    ind_msg->data_len, ind_msg->type,
-		    ind_msg->is_last, ind_msg->seq_no);
 
 	if (plat_priv->get_info_cb_ctx && plat_priv->get_info_cb)
 		plat_priv->get_info_cb(plat_priv->get_info_cb_ctx,

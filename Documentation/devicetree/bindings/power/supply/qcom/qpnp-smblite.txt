@@ -1,0 +1,334 @@
+Qualcomm Technologies, Inc. SMBLITE Charger Specific Bindings
+
+SMBLITE Charger is an efficient programmable battery charger capable of charging a
+lithium-ion battery over micro-USB or USB Type-C.
+
+=======================
+Required Node Structure
+=======================
+
+SMBLITE Charger must be described in two levels of devices nodes.
+
+===================================
+First Level Node - SMBLITE Charger
+===================================
+
+Charger specific properties:
+- compatible
+  Usage:      required
+  Value type: <string>
+  Definition: "qcom,qpnp-smblite".
+
+- qcom,pmic-revid
+  Usage:      required
+  Value type: phandle
+  Definition: Should specify the phandle of PMI's revid module. This is used to
+		identify the PMI subtype.
+
+- io-channels
+- io-channel-names
+  Usage:      optional
+  Value type: <phandle>
+  Definition: For details about IIO bindings see:
+		Documentation/devicetree/bindings/iio/iio-bindings.txt
+
+- qcom,batteryless-platform
+  Usage:      optional
+  Value type: <empty>
+  Definition: Boolean flag which indicates that the platform does not have a
+		battery, and therefore charging should be disabled. In
+		addition battery properties will be faked such that the device
+		assumes normal operation.
+
+- qcom,fcc-max-ua
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the maximum fast charge current in micro-amps in
+		battery profile.
+		If the value is not present, 1Amp is used as default.
+
+- qcom,fv-max-uv
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the maximum float voltage in micro-volts in
+		battery profile.
+		If the value is not present, 4.35V is used as default.
+
+- qcom,usb-icl-ua
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the USB input current limit in micro-amps.
+		 If the value is not present, 1.5Amps is used as default.
+
+- qcom,thermal-mitigation
+  Usage:      optional
+  Value type: Array of <u32>
+  Definition: Array of fast charge current limit values for
+		different system thermal mitigation levels.
+		This should be a flat array that denotes the
+		maximum charge current in mA for each thermal
+		level.
+
+- qcom,chg-inhibit-threshold-mv
+  Usage:      optional
+  Value type: <u32>
+  Definition: Charge inhibit threshold in milli-volts. Charging will be
+		inhibited when the battery voltage is within this threshold
+		from Vfloat at charger insertion. If this is not specified
+		then charge inhibit will be disabled by default.
+		Allowed values are: 50, 100, 200, 300.
+
+- qcom,chg-term-src
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specify either the ADC or analog comparators to be used in order
+		to set threshold values for charge termination current.
+		0 - Unspecified
+		1 - Select ADC comparator
+		2 - Select ANALOG comparator
+
+- qcom,chg-term-current-ma
+  Usage:      optional
+  Value type: <u32>
+  Definition: When ADC comparator is selected as qcom,chg-term-src, this
+		parameter should be set to the desired upper threshold.
+
+- qcom,chg-term-base-current-ma
+  Usage:      optional
+  Value type: <u32>
+  Definition: When ADC comparator is selected as qcom,chg-term-src, this
+		parameter should be set to the desired lower threshold.
+
+- qcom,auto-recharge-soc
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the SOC threshold at which the charger will
+		restart charging after termination. The value specified
+		ranges from 0 - 100. The feature is enabled if this
+		property is specified with a valid SOC value.
+
+- qcom,auto-recharge-vbat-mv
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the battery voltage threshold at which the charger
+		will restart charging after termination. The value specified
+		is in milli-volts.
+
+- qcom,suspend-input-on-debug-batt
+  Usage:      optional
+  Value type: <empty>
+  Definition: Boolean flag which when present enables input suspend for
+		debug battery.
+
+- qcom,fake-chg-status-on-debug-batt
+  Usage:      optional
+  Value type: <empty>
+  Definition: Boolean flag which when present shows charging status as
+		unknown for debug battery. This needs to be specified only if
+		the device needs to be kept powered on always with
+		"svc power stayon true".
+
+- qcom,typec-legacy-rp-icl
+  Usage:       optional
+  Value type:  bool
+  Definition:  Boolean property to enable setting ICL based on Rp for
+		Type-C non-compliant legacy cables.
+
+- qcom,wd-bark-time-secs
+  Usage:      optional
+  Value type: <u32>
+  Definition: WD bark-timeout in seconds. The possible values are
+		16, 32, 64, 128. If not defined it defaults to 64.
+
+- qcom,battery-data
+  Usage:      optional
+  Value type: <phandle>
+  Definition: Specifies the phandle of the node which contains the battery
+		profiles supported on the device.
+
+- qcom,flash-derating-soc
+  Usage:      optional
+  Value type: <u32>
+  Definition: SOC threshold in percentage below which hardware will start
+		derating flash. This is only applicable to certain PMICs like
+		PMI632 which has SCHGM_FLASH peripheral.
+
+- qcom,flash-disable-soc
+  Usage:      optional
+  Value type: <u32>
+  Definition: SOC threshold in percentage below which hardware will disable
+		flash. This is only applicable to certain PMICs like PMI632
+		which has SCHGM_FLASH peripheral.
+
+- qcom,headroom-mode
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies flash hardware headroom management policy. The
+		possible values are:
+		<0>: Fixed mode, constant 5V at flash input.
+		<1>: Adaptive mode allows charger output voltage to be
+		dynamically controlled by the flash module based on the
+		required flash headroom.
+		This is only applicable to certain PMICs like PMI632 which
+		has SCHGM_FLASH peripheral.
+
+- qcom,fcc-stepping-enable
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables stepwise change in FCC.
+		The default stepping rate is 100mA/sec.
+
+- qcom,disable-suspend-on-collapse
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present disables suspend on collapse
+		feature of charger hardware.
+
+- qcom,fcc-step-delay-ms
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the delay between each step of FCC stepper algorithm.
+		If left unspecified, the default value is 1 Sec.
+
+- qcom,fcc-step-size-ua
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the step size of each step of FCC stepper algorithm.
+		If left unspecified, the default value is 100mA.
+
+=================================================
+Second Level Nodes - SMBLITE Charger Peripherals
+=================================================
+
+Peripheral specific properties:
+- reg
+  Usage:      required
+  Value type: <prop-encoded-array>
+  Definition: Address and size of the peripheral's register block.
+
+- interrupts
+  Usage:      required
+  Value type: <prop-encoded-array>
+  Definition: Peripheral interrupt specifier.
+
+- interrupt-names
+  Usage:      required
+  Value type: <stringlist>
+  Definition: Interrupt names.  This list must match up 1-to-1 with the
+	      interrupts specified in the 'interrupts' property.
+
+=======
+Example
+=======
+
+pm2250_charger: qcom,qpnp-smblite {
+	compatible = "qcom,qpnp-smblite";
+	#address-cells = <1>;
+	#size-cells = <1>;
+	#cooling-cells = <2>;
+
+	qcom,pmic-revid = <&pm2250_revid>;
+	qcom,chgr@1000 {
+		reg = <0x1000 0x100>;
+		interrupts =
+			<0x0 0x10 0x1 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x10 0x0 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x10 0x4 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x10 0x7 IRQ_TYPE_EDGE_RISING>;
+
+		interrupt-names = "chgr-error",
+			"chg-state-change",
+			"buck-oc",
+			"vph-ov";
+	};
+
+	qcom,dcdc@1100 {
+		reg = <0x1100 0x100>;
+		interrupts =
+			<0x0 0x11 0x0 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x11 0x1 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x11 0x2 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x11 0x6 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x11 0x7 IRQ_TYPE_EDGE_BOTH>;
+
+		interrupt-names = "otg-fail",
+			"otg-fault",
+			"skip-mode",
+			"input-current-limiting",
+			"switcher-power-ok";
+	};
+
+	qcom,batif@1200 {
+		reg = <0x1200 0x100>;
+		interrupts =
+			<0x0 0x12 0x0 IRQ_TYPE_EDGE_BOTH>,
+			<0x0 0x12 0x1 IRQ_TYPE_EDGE_BOTH>,
+			<0x0 0x12 0x2 IRQ_TYPE_EDGE_BOTH>,
+			<0x0 0x12 0x3 IRQ_TYPE_EDGE_BOTH>,
+			<0x0 0x12 0x4 IRQ_TYPE_EDGE_RISING>;
+
+		interrupt-names = "bat-temp",
+			"bat-therm-or-id-missing",
+			"bat-low",
+			"bat-ov",
+			"bsm-active";
+	};
+
+	qcom,usb@1300 {
+		reg = <0x1300 0x100>;
+		interrupts =
+			<0x0 0x13 0x0 IRQ_TYPE_EDGE_BOTH>,
+			<0x0 0x13 0x1 IRQ_TYPE_EDGE_BOTH>,
+			<0x0 0x13 0x2 IRQ_TYPE_EDGE_BOTH>,
+			<0x0 0x13 0x3 IRQ_TYPE_EDGE_BOTH>,
+			<0x0 0x13 0x4 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x13 0x6 IRQ_TYPE_EDGE_RISING>;
+
+		interrupt-names = "usbin-plugin",
+			"usbin-collapse",
+			"usbin-uv",
+			"usbin-ov",
+			"usbin-gtvt",
+			"usbin-icl-change";
+	};
+
+	qcom,typec@1500 {
+		reg = <0x1500 0x100>;
+		interrupts =
+			<0x0 0x15 0x0 IRQ_TYPE_EDGE_BOTH>,
+			<0x0 0x15 0x1 IRQ_TYPE_EDGE_BOTH>,
+			<0x0 0x15 0x2 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x15 0x4 IRQ_TYPE_EDGE_BOTH>,
+			<0x0 0x15 0x5 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x15 0x6 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x15 0x7 IRQ_TYPE_EDGE_RISING>;
+
+		interrupt-names = "typec-or-rid-detect-change",
+			"typec-vpd-detect",
+			"typec-cc-state-change",
+			"typec-vbus-change",
+			"typec-attach-detach",
+			"typec-legacy-cable-detect",
+			"typec-try-snk-src-detect";
+	};
+
+	qcom,misc@1600 {
+		reg = <0x1600 0x100>;
+		interrupts =
+			<0x0 0x16 0x0 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x16 0x1 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x16 0x2 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x16 0x3 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x16 0x4 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x16 0x5 IRQ_TYPE_EDGE_RISING>,
+			<0x0 0x16 0x6 IRQ_TYPE_EDGE_BOTH>;
+
+		interrupt-names = "wdog-snarl",
+			"wdog-bark",
+			"aicl-fail",
+			"aicl-done",
+			"imp-trigger",
+			"all-chnl-cond-done",
+			"temp-change";
+	};
+};

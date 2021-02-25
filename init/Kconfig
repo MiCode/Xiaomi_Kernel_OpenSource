@@ -464,6 +464,17 @@ config SCHED_WALT
 	used to guide task placement as well as task frequency requirements
 	for cpufreq governors.
 
+config OEM_KERNEL
+	bool "Oem kernel code"
+	help
+	  This feature will allow oem to add their own changes in kernel code.
+
+config MIHW
+	bool "MI driver"
+	default n
+	help
+	  Mi driver code
+
 config BSD_PROCESS_ACCT
 	bool "BSD Process Accounting"
 	depends on MULTIUSER

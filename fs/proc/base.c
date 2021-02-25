@@ -772,7 +772,6 @@ static const struct file_operations proc_single_file_operations = {
 	.release	= single_release,
 };
 
-
 struct mm_struct *proc_mem_open(struct inode *inode, unsigned int mode)
 {
 	struct task_struct *task = get_proc_task(inode);

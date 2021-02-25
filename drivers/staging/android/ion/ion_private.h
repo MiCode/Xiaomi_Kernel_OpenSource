@@ -3,6 +3,7 @@
  * ION Memory Allocator - Internal header
  *
  * Copyright (C) 2019 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _ION_PRIVATE_H
@@ -48,6 +49,12 @@ extern void ion_buffer_kmap_put(struct ion_buffer *buffer);
 extern struct dma_buf *ion_dmabuf_alloc(struct ion_device *dev, size_t len,
 					unsigned int heap_id_mask,
 					unsigned int flags);
+
+extern struct dma_buf *ion_dmabuf_alloc_with_caller_pid(struct ion_device *dev, size_t len,
+                                                        unsigned int heap_id_mask,
+                                                        unsigned int flags,
+                                                        int pid_info);
+
 extern int ion_free(struct ion_buffer *buffer);
 
 /* ion heap helpers */

@@ -3,6 +3,7 @@
  * kernel/power/suspend.c - Suspend to RAM and standby functionality.
  *
  * Copyright (c) 2003 Patrick Mochel
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2003 Open Source Development Lab
  * Copyright (c) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
  */
@@ -31,6 +32,7 @@
 #include <linux/compiler.h>
 #include <linux/moduleparam.h>
 #include <linux/wakeup_reason.h>
+
 
 #include "power.h"
 
@@ -88,6 +90,11 @@ static void s2idle_begin(void)
 
 static void s2idle_enter(void)
 {
+#ifdef CONFIG_DEBUG_POWER_MI
+	pm_system_dbg_info_print(DEBUG_INFO_RPM_STATS);
+	pm_system_dbg_info_print(DEBUG_INFO_RPM_MASTER_STATS);
+#endif
+
 	trace_suspend_resume(TPS("machine_suspend"), PM_SUSPEND_TO_IDLE, true);
 
 	raw_spin_lock_irq(&s2idle_lock);
@@ -116,6 +123,11 @@ static void s2idle_enter(void)
 	raw_spin_unlock_irq(&s2idle_lock);
 
 	trace_suspend_resume(TPS("machine_suspend"), PM_SUSPEND_TO_IDLE, false);
+
+#ifdef CONFIG_DEBUG_POWER_MI
+	pm_system_dbg_info_print(DEBUG_INFO_RPM_STATS);
+	pm_system_dbg_info_print(DEBUG_INFO_RPM_MASTER_STATS);
+#endif
 }
 
 static void s2idle_loop(void)
@@ -439,6 +451,7 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 		goto Enable_cpus;
 	}
 
+
 	arch_suspend_disable_irqs();
 	BUG_ON(!irqs_disabled());
 
@@ -617,6 +630,7 @@ static int enter_state(suspend_state_t state)
  * Check if the value of @state represents one of the supported states,
  * execute enter_state() and update system suspend statistics.
  */
+
 int pm_suspend(suspend_state_t state)
 {
 	int error;
@@ -633,6 +647,7 @@ int pm_suspend(suspend_state_t state)
 		suspend_stats.success++;
 	}
 	pr_info("suspend exit\n");
+
 	return error;
 }
 EXPORT_SYMBOL(pm_suspend);

@@ -4,6 +4,7 @@
  * Android IPC Subsystem
  *
  * Copyright (C) 2007-2008 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 /*
@@ -72,6 +73,9 @@
 #include <uapi/linux/android/binderfs.h>
 
 #include <asm/cacheflush.h>
+#ifdef CONFIG_OEM_KERNEL
+#include "binder_oem.h"
+#endif
 
 #include "binder_alloc.h"
 #include "binder_internal.h"
@@ -644,6 +648,33 @@ struct binder_object {
 		struct binder_fd_array_object fdao;
 	};
 };
+
+#ifdef CONFIG_OEM_KERNEL
+struct oem_binder_hook oem_binder_hook_set = {
+	.oem_wahead_thresh = 0,
+	.oem_wahead_space = 0,
+	.oem_reply_hook = NULL,
+	.oem_trans_hook = NULL,
+	.oem_wait4_hook = NULL,
+	.oem_query_st_hook = NULL,
+	.oem_buf_overflow_hook = NULL,
+};
+
+void oem_register_binder_hook(struct oem_binder_hook *set)
+{
+	if (!set)
+		return;
+
+	oem_binder_hook_set.oem_wahead_thresh = set->oem_wahead_thresh;
+	oem_binder_hook_set.oem_wahead_space = set->oem_wahead_space;
+	oem_binder_hook_set.oem_reply_hook = set->oem_reply_hook;
+	oem_binder_hook_set.oem_trans_hook = set->oem_trans_hook;
+	oem_binder_hook_set.oem_wait4_hook = set->oem_wait4_hook;
+	oem_binder_hook_set.oem_query_st_hook = set->oem_query_st_hook;
+	oem_binder_hook_set.oem_buf_overflow_hook = set->oem_buf_overflow_hook;
+}
+EXPORT_SYMBOL(oem_register_binder_hook);
+#endif
 
 /**
  * binder_proc_lock() - Acquire outer lock for given binder_proc
@@ -3086,6 +3117,12 @@ static void binder_transaction(struct binder_proc *proc,
 		target_proc = target_thread->proc;
 		target_proc->tmp_ref++;
 		binder_inner_proc_unlock(target_thread->proc);
+#ifdef CONFIG_OEM_KERNEL
+		if (oem_binder_hook_set.oem_reply_hook && target_proc->tsk)
+			oem_binder_hook_set.oem_reply_hook(target_proc->tsk, proc->tsk,
+					thread->pid, tr->flags & TF_ONE_WAY,
+					tr->code);
+#endif
 	} else {
 		if (tr->target.handle) {
 			struct binder_ref *ref;
@@ -3138,6 +3175,12 @@ static void binder_transaction(struct binder_proc *proc,
 			goto err_dead_binder;
 		}
 		e->to_node = target_node->debug_id;
+#ifdef CONFIG_OEM_KERNEL
+		if (oem_binder_hook_set.oem_trans_hook && target_proc && target_proc->tsk)
+			oem_binder_hook_set.oem_trans_hook(target_proc->tsk, proc->tsk,
+					thread->pid, tr->flags & TF_ONE_WAY,
+					tr->code);
+#endif
 		if (security_binder_transaction(proc->tsk,
 						target_proc->tsk) < 0) {
 			return_error = BR_FAILED_REPLY;
@@ -4255,6 +4298,19 @@ static int binder_wait_for_work(struct binder_thread *thread,
 		prepare_to_wait(&thread->wait, &wait, TASK_INTERRUPTIBLE);
 		if (binder_has_work_ilocked(thread, do_proc_work))
 			break;
+
+#ifdef CONFIG_OEM_KERNEL
+		if (oem_binder_hook_set.oem_wait4_hook
+				&& thread->transaction_stack
+				&& thread->transaction_stack->to_proc
+				&& thread->transaction_stack->to_proc->tsk)
+			oem_binder_hook_set.oem_wait4_hook(thread->transaction_stack->to_proc->tsk,
+					proc->tsk,
+					thread->pid,
+					thread->transaction_stack->flags & TF_ONE_WAY,
+					thread->transaction_stack->code);
+#endif
+
 		if (do_proc_work)
 			list_add(&thread->waiting_thread_node,
 				 &proc->waiting_threads);
@@ -4317,6 +4373,7 @@ static int binder_apply_fd_fixups(struct binder_proc *proc,
 			break;
 		}
 	}
+
 	list_for_each_entry_safe(fixup, tmp, &t->fd_fixups, fixup_entry) {
 		if (fixup->file) {
 			fput(fixup->file);
@@ -5485,6 +5542,108 @@ static int binder_open(struct inode *nodp, struct file *filp)
 
 	return 0;
 }
+
+#ifdef CONFIG_OEM_KERNEL
+static enum BINDER_STAT query_binder_stat(struct binder_proc *proc)
+{
+	struct rb_node *n = NULL;
+	struct binder_thread *thread = NULL;
+	int pid, tid, uid = 0;
+	enum BINDER_STAT stat;
+	struct task_struct *tsk;
+
+	if (!oem_binder_hook_set.oem_query_st_hook)
+		return BINDER_IN_IDLE;
+
+	if (proc->tsk)
+		uid = task_uid(proc->tsk).val;
+	else
+		return BINDER_IN_IDLE;
+
+	binder_inner_proc_lock(proc);
+	if (proc->tsk && !binder_worklist_empty_ilocked(&proc->todo)) {
+		tsk = proc->tsk;
+		tid = tsk->pid;
+		pid = task_pid_nr(tsk);
+		stat = BINDER_PROC_IN_BUSY;
+		goto busy;
+	}
+
+	for (n = rb_first(&proc->threads); n != NULL; n = rb_next(n)) {
+		thread = rb_entry(n, struct binder_thread, rb_node);
+		if (!thread->task)
+			continue;
+
+		if (!binder_worklist_empty_ilocked(&thread->todo)) {
+			tsk = thread->task;
+			pid = task_tgid_nr(tsk);
+			tid = thread->pid;
+			stat = BINDER_THREAD_IN_BUSY;
+			goto busy;
+		}
+
+		if (!thread->transaction_stack)
+			continue;
+
+		spin_lock(&thread->transaction_stack->lock);
+		if (thread->transaction_stack->to_thread == thread) {
+			tsk = thread->task;
+			pid = task_tgid_nr(tsk);
+			tid = thread->pid;
+			stat = BINDER_IN_TRANSACTION;
+			spin_unlock(&thread->transaction_stack->lock);
+			goto busy;
+		}
+		spin_unlock(&thread->transaction_stack->lock);
+	}
+
+	binder_inner_proc_unlock(proc);
+	return BINDER_IN_IDLE;
+busy:
+	binder_inner_proc_unlock(proc);
+	oem_binder_hook_set.oem_query_st_hook(uid, tsk, tid, pid, stat);
+	return stat;
+}
+
+void query_binder_app_stat(int uid)
+{
+	struct binder_proc *proc;
+	bool idle_f = true;
+	enum BINDER_STAT stat;
+
+	if (!oem_binder_hook_set.oem_query_st_hook)
+		return;
+
+	mutex_lock(&binder_procs_lock);
+	hlist_for_each_entry(proc, &binder_procs, proc_node) {
+		if (proc != NULL && proc->tsk
+			&& (task_uid(proc->tsk).val == uid)) {
+			if (query_binder_stat(proc) != BINDER_IN_IDLE)
+				idle_f = false;
+		}
+	}
+
+	if (idle_f)
+		stat = BINDER_IN_IDLE;
+	else
+		stat = BINDER_IN_BUSY;
+
+	oem_binder_hook_set.oem_query_st_hook(uid, current, 0, current->pid, stat);
+	mutex_unlock(&binder_procs_lock);
+}
+EXPORT_SYMBOL(query_binder_app_stat);
+
+struct task_struct *binder_buff_owner(struct binder_alloc *alloc)
+{
+	struct binder_proc *proc = NULL;
+	if (!alloc)
+		return NULL;
+
+	proc = container_of(alloc, struct binder_proc, alloc);
+	return proc->tsk;
+}
+#endif
+
 
 static int binder_flush(struct file *filp, fl_owner_t id)
 {

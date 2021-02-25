@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/of_gpio.h>
@@ -15,6 +16,8 @@ int nfc_parse_dt(struct device *dev, struct platform_gpio *nfc_gpio,
 	struct device_node *np = dev->of_node;
 	int ret;
 
+	pr_debug("nfc_parse_dt() Enter\n");
+
 	if (!np) {
 		pr_err("nfc of_node NULL\n");
 		return -EINVAL;
@@ -26,7 +29,7 @@ int nfc_parse_dt(struct device *dev, struct platform_gpio *nfc_gpio,
 			pr_err("nfc irq gpio invalid %d\n", nfc_gpio->irq);
 			return -EINVAL;
 		}
-		pr_info("%s: irq %d\n", __func__, nfc_gpio->irq);
+		pr_debug("%s: irq %d\n", __func__, nfc_gpio->irq);
 	}
 
 	nfc_gpio->ven = of_get_named_gpio(np, DTS_VEN_GPIO_STR, 0);
@@ -47,7 +50,7 @@ int nfc_parse_dt(struct device *dev, struct platform_gpio *nfc_gpio,
 		return -EINVAL;
 	}
 
-	pr_info("%s: ven %d, dwl req %d, clkreq %d\n", __func__,
+	pr_debug("%s: ven %d, dwl req %d, clkreq %d\n", __func__,
 		nfc_gpio->ven, nfc_gpio->dwl_req, nfc_gpio->clkreq);
 
 	// optional property
@@ -418,6 +421,7 @@ int nfc_ese_pwr(struct nfc_dev *nfc_dev, unsigned long arg)
 {
 	int ret = 0;
 
+	pr_debug("%s: arg = %lu\n", __func__, arg);
 	if (arg == ESE_POWER_ON) {
 		/*
 		 * Let's store the NFC VEN pin state
@@ -428,18 +432,18 @@ int nfc_ese_pwr(struct nfc_dev *nfc_dev, unsigned long arg)
 		 */
 		nfc_dev->nfc_ven_enabled = gpio_get_value(nfc_dev->gpio.ven);
 		if (!nfc_dev->nfc_ven_enabled) {
-			pr_debug("eSE HAL service setting ven HIGH\n");
+			pr_warn("%s: eSE HAL service setting ven HIGH\n", __func__);
 			gpio_set_ven(nfc_dev, 1);
 		} else {
-			pr_debug("ven already HIGH\n");
+			pr_debug("%s: VEN already HIGH\n", __func__);
 		}
 		nfc_dev->is_ese_session_active = true;
 	} else if (arg == ESE_POWER_OFF) {
 		if (!nfc_dev->nfc_ven_enabled) {
-			pr_debug("NFC not enabled, disabling ven\n");
+			pr_warn("%s: NFC not enabled, disabling ven\n", __func__);
 			gpio_set_ven(nfc_dev, 0);
 		} else {
-			pr_debug("keep ven high as NFC is enabled\n");
+			pr_warn("%s: keep VEN high as NFC is enabled\n", __func__);
 		}
 		nfc_dev->is_ese_session_active = false;
 	} else if (arg == ESE_COLD_RESET) {
@@ -527,10 +531,11 @@ static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 		pr_debug("gpio firm disable\n");
 		if (gpio_is_valid(nfc_dev->gpio.dwl_req)) {
 			gpio_set_value(nfc_dev->gpio.dwl_req, 0);
+			pr_warn("%s: arg - NFC_POWER_OFF: set FIRM_REQ to LOW\n", __func__);
 			usleep_range(10000, 10100);
 		}
 
-		pr_debug("Set ven to low\n");
+		pr_warn("%s: arg - NFC_POWER_OFF: set VEN to LOW\n", __func__);
 		gpio_set_ven(nfc_dev, 0);
 
 		nfc_dev->nfc_ven_enabled = false;
@@ -540,8 +545,10 @@ static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 		pr_debug("gpio_set_value enable: %s:\n", __func__);
 		if (gpio_is_valid(nfc_dev->gpio.dwl_req)) {
 			gpio_set_value(nfc_dev->gpio.dwl_req, 0);
+			pr_warn("%s: arg - NFC_POWER_ON: set FIRM_REQ to LOW\n", __func__);
 			usleep_range(10000, 10100);
 		}
+		pr_warn("%s: arg - NFC_POWER_ON: set VEN to HIGH\n", __func__);
 		gpio_set_ven(nfc_dev, 1);
 		nfc_dev->nfc_ven_enabled = true;
 
@@ -554,15 +561,18 @@ static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 		 * in order to set the NFCC in the new mode
 		 */
 
+		pr_warn("%s: arg - NFC_FW_DWL_VEN_TOGGLE: set VEN to HIGH\n", __func__);
 		gpio_set_ven(nfc_dev, 1);
 
 		if (gpio_is_valid(nfc_dev->gpio.dwl_req)) {
 			gpio_set_value(nfc_dev->gpio.dwl_req, 1);
+			pr_warn("%s: arg - NFC_FW_DWL_VEN_TOGGLE: set FIRM_REQ to HIGH\n", __func__);
 			usleep_range(10000, 10100);
 		}
 		if (nfc_dev->interface == PLATFORM_IF_I2C) {
 			gpio_set_ven(nfc_dev, 0);
 			gpio_set_ven(nfc_dev, 1);
+			pr_warn("%s: arg - NFC_FW_DWL_VEN_TOGGLE: VEN forced reset\n", __func__);
 		}
 
 	} else if (arg == NFC_FW_DWL_HIGH) {
@@ -573,6 +583,7 @@ static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 		pr_debug("set fw gpio high\n");
 		if (gpio_is_valid(nfc_dev->gpio.dwl_req)) {
 			gpio_set_value(nfc_dev->gpio.dwl_req, 1);
+			pr_warn("%s: arg - NFC_FW_DWL_HIGH: set FIRM_REQ to HIGH\n", __func__);
 			usleep_range(10000, 10100);
 		} else
 			pr_debug("gpio.dwl_req is invalid\n");
@@ -587,14 +598,14 @@ static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 		usleep_range(10000, 10100);
 		gpio_set_value(nfc_dev->gpio.ven, 1);
 		usleep_range(10000, 10100);
-		pr_info("%s VEN forced reset done\n", __func__);
+		pr_warn("%s: VEN forced reset done\n", __func__);
 
 	} else if (arg == NFC_FW_DWL_LOW) {
 		/*
 		 * Setting firmware download gpio to LOW
 		 * FW download finished
 		 */
-		pr_debug("set fw gpio LOW\n");
+		pr_warn("%s: arg - NFC_FW_DWL_LOW: set FIRM_REQ to LOW\n", __func__);
 		gpio_set_value(nfc_dev->gpio.dwl_req, 0);
 		usleep_range(10000, 10100);
 
@@ -697,6 +708,7 @@ int nfc_dev_open(struct inode *inode, struct file *filp)
 	if (nfc_dev->dev_ref_count == 0) {
 		if (gpio_is_valid(nfc_dev->gpio.dwl_req)) {
 			gpio_set_value(nfc_dev->gpio.dwl_req, 0);
+			pr_warn("%s: set FIRM_REQ to LOW\n", __func__);
 			usleep_range(10000, 10100);
 		}
 		nfc_dev->nfc_enable_intr(nfc_dev);
@@ -726,6 +738,7 @@ int nfc_dev_close(struct inode *inode, struct file *filp)
 
 		if (gpio_is_valid(nfc_dev->gpio.dwl_req)) {
 			gpio_set_value(nfc_dev->gpio.dwl_req, 0);
+			pr_warn("%s: set FIRM_REQ to LOW\n", __func__);
 			usleep_range(10000, 10100);
 		}
 	}
@@ -800,8 +813,15 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 	else {
 		/* making sure that the NFCC starts in a clean state. */
 		gpio_set_ven(nfc_dev, 1);/* HPD : Enable*/
+		/* hardware dependent delay */
+		usleep_range(10000, 10100);
 		gpio_set_ven(nfc_dev, 0);/* ULPM: Disable */
+		/* hardware dependent delay */
+		usleep_range(10000, 10100);
 		gpio_set_ven(nfc_dev, 1);/* HPD : Enable*/
+		/* hardware dependent delay */
+		usleep_range(10000, 10100);
+		pr_warn("%s: VEN forced reset 1 done\n", __func__);
 	}
 
 	nci_reset_cmd[0] = 0x20;
@@ -817,12 +837,16 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 
 		if (gpio_is_valid(nfc_dev->gpio.dwl_req)) {
 			gpio_set_value(nfc_dev->gpio.dwl_req, 1);
+			pr_warn("%s: set FIRM_REQ to HIGH\n", __func__);
 			usleep_range(10000, 10100);
 		}
 
 		if (nfc_dev->interface == PLATFORM_IF_I2C) {
 			gpio_set_ven(nfc_dev, 0);
+			usleep_range(10000, 10100);
 			gpio_set_ven(nfc_dev, 1);
+			usleep_range(10000, 10100);
+			pr_warn("%s: VEN forced reset 2 done\n", __func__);
 		}
 
 		nci_get_version_cmd[0] = 0x00;
@@ -842,6 +866,7 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 			goto err_nfcc_hw_check;
 		}
 
+#ifdef NQ_READ_INT
 		if (nfc_dev->interface == PLATFORM_IF_I2C) {
 			ret = is_data_available_for_read(nfc_dev);
 			if (ret <= 0) {
@@ -851,12 +876,21 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 				goto err_nfcc_hw_check;
 			}
 		}
+#else
+		/* hardware dependent delay */
+		usleep_range(10000, 10100);
+#endif
 
 		ret = nfc_dev->nfc_read(nfc_dev, nci_get_version_rsp,
 					NCI_GET_VERSION_RSP_LEN);
 		if (ret <= 0) {
 			pr_err("%s: - nfc get version rsp error ret %d\n",
 				__func__, ret);
+#ifdef NQ_READ_INT
+			if (nfc_dev->interface == PLATFORM_IF_I2C) {
+				nfc_dev->nfc_disable_intr(nfc_dev);
+			}
+#endif
 			goto err_nfcc_hw_check;
 		} else {
 			nfc_dev->nqx_info.info.chip_type =
@@ -870,10 +904,12 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 		}
 
 		gpio_set_value(nfc_dev->gpio.dwl_req, 0);
+		pr_warn("%s: set FIRM_REQ to LOW\n", __func__);
 
 		goto err_nfcc_reset_failed;
 	}
 
+#ifdef NQ_READ_INT
 	if (nfc_dev->interface == PLATFORM_IF_I2C) {
 		ret = is_data_available_for_read(nfc_dev);
 		if (ret <= 0) {
@@ -884,15 +920,25 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 			goto err_nfcc_hw_check;
 		}
 	}
+#else
+	/* hardware dependent delay */
+	msleep(60);
+#endif
 
 	/* Read Response of RESET command */
 	ret = nfc_dev->nfc_read(nfc_dev, nci_reset_rsp, NCI_RESET_RSP_LEN);
 	if (ret <= 0) {
 		pr_err("%s: - nfc rst rsp read err %d\n", __func__,
 					ret);
+#ifdef NQ_READ_INT
+		if (nfc_dev->interface == PLATFORM_IF_I2C) {
+			nfc_dev->nfc_disable_intr(nfc_dev);
+		}
+#endif
 		goto err_nfcc_hw_check;
 	}
 
+#ifdef NQ_READ_INT
 	if (nfc_dev->interface == PLATFORM_IF_I2C) {
 		ret = is_data_available_for_read(nfc_dev);
 		if (ret <= 0) {
@@ -902,11 +948,20 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 			goto err_nfcc_hw_check;
 		}
 	}
+#else
+	/* hardware dependent delay */
+	msleep(30);
+#endif
 
 	/* Read Notification of RESET command */
 	ret = nfc_dev->nfc_read(nfc_dev, nci_reset_ntf, NCI_RESET_NTF_LEN);
 	if (ret <= 0) {
 		pr_err("%s: nfc nfc read error %d\n", __func__, ret);
+#ifdef NQ_READ_INT
+		if (nfc_dev->interface == PLATFORM_IF_I2C) {
+			nfc_dev->nfc_disable_intr(nfc_dev);
+		}
+#endif
 		goto err_nfcc_hw_check;
 	}
 
@@ -926,9 +981,9 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 		nci_reset_rsp[1], nci_reset_rsp[2]);
 
 err_nfcc_reset_failed:
-	pr_info("NFC chip_type = %x\n",
+	pr_debug("NFC chip_type = %x\n",
 		nfc_dev->nqx_info.info.chip_type);
-	pr_info("NFC fw version = %x.%x.%x\n",
+	pr_warn("NFC fw version = %x.%x.%x\n",
 		nfc_dev->nqx_info.info.rom_version,
 		nfc_dev->nqx_info.info.fw_major,
 		nfc_dev->nqx_info.info.fw_minor);
@@ -936,10 +991,10 @@ err_nfcc_reset_failed:
 	switch (nfc_dev->nqx_info.info.chip_type) {
 	case NFCC_SN100_A:
 	case NFCC_SN100_B:
-		pr_debug("%s: ## NFCC == SN100x ##\n", __func__);
+		pr_info("%s: ## NFCC == SN100x ##\n", __func__);
 		break;
 	default:
-		pr_err("%s: - NFCC HW not Supported\n", __func__);
+		pr_warn("%s: - NFCC HW not Supported\n", __func__);
 		break;
 	}
 
@@ -949,13 +1004,16 @@ err_nfcc_reset_failed:
 	goto disable_i3c_intr;
 
 err_nfcc_hw_check:
-	if (nfc_dev->interface == PLATFORM_IF_I2C)
+	if (nfc_dev->interface == PLATFORM_IF_I2C) {
 		gpio_set_ven(nfc_dev, 0);
+		pr_warn("%s: set VEN to LOW\n", __func__);
+	}
 
 	gpio_set_value(nfc_dev->gpio.dwl_req, 0);
+	pr_warn("%s: set FIRM_REQ to LOW\n", __func__);
 
 	ret = -ENXIO;
-	pr_debug("%s: - NFCC HW not available\n", __func__);
+	pr_err("%s: - NFCC HW not available\n", __func__);
 
 disable_i3c_intr:
 	if (nfc_dev->interface == PLATFORM_IF_I3C)

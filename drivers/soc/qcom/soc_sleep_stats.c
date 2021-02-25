@@ -2,6 +2,7 @@
 
 /*
  * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -14,6 +15,9 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 
+#define BUF_SIZE 200
+char soc_sleep_log_buf[BUF_SIZE];
+int soc_sleep_log_offset;
 #include <clocksource/arm_arch_timer.h>
 
 #ifdef CONFIG_ARM
@@ -39,6 +43,7 @@ struct soc_sleep_stats_data {
 	struct kobj_attribute ka;
 	void __iomem *reg;
 };
+
 
 struct entry {
 	__le32 stat_type;
@@ -175,6 +180,8 @@ static const struct of_device_id soc_sleep_stats_table[] = {
 	{ },
 };
 
+
+
 static int soc_sleep_stats_probe(struct platform_device *pdev)
 {
 	struct soc_sleep_stats_data *drv;
@@ -216,6 +223,8 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, drv);
+
+
 	return 0;
 }
 

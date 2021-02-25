@@ -1,0 +1,9 @@
+* SMCInvoke driver to provide transport between TZ and Linux
+
+Required properties:
+- compatible : Should be "qcom,smcinvoke"
+
+Example:
+	qcom_smcinvoke: smcinvoke@87900000 {
+		compatible = "qcom,smcinvoke";
+	};

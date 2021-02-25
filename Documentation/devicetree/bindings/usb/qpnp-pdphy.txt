@@ -1,0 +1,71 @@
+Qualcomm Technologies, Inc. QPNP PD PHY - USB Power Delivery Physical layer
+
+Required properties:
+- compatible:		Must be "qcom,qpnp-pdphy"
+- reg:			The base address for this peripheral
+- vdd-pdphy-supply:	phandle to the VDD supply regulator node
+- interrupts:		Specifies the interrupt associated with the peripheral.
+- interrupt-names:	Specifies the interrupt names for the peripheral. Every
+			available interrupt needs to have an associated name
+			with it to indentify its purpose.
+
+			The following interrupts are required:
+
+			0: sig-tx
+				Triggers when a signal (HardReset or CableReset)
+				has been sent.
+			1: sig-rx
+				Triggers when a signal has been received.
+			2: msg-tx
+				Triggers when a message has been sent and the
+				related GoodCRC has been received.
+			3: msg-rx
+				Triggers when a message has been received and
+				the related GoodCRC was sent successfully.
+			4: msg-tx-failed
+				Triggers when a message failed all its
+				transmission attempts, either due to a non-idle
+				bus or missing GoodCRC reply.
+			5: msg-tx-discarded
+				Triggers when a message is received while a
+				transmission request was in place. The request
+				itself is discarded.
+			6: msg-rx-discarded
+				Triggers when a message was received but had to
+				be discarded due to the RX buffer still in use
+				by SW.
+
+Optional properties:
+- vbus-supply:		Regulator that enables VBUS source output
+- vconn-supply:		Regulator that enables VCONN source output. This will
+			be supplied on the USB CC line that is not used for
+			communication when Ra resistance is detected.
+- qcom,default-sink-caps: List of 32-bit values representing the nominal sink
+			capabilities in voltage (millivolts) and current
+			(milliamps) pairs.
+
+Example:
+	qcom,qpnp-pdphy@1700 {
+		compatible = "qcom,qpnp-pdphy";
+		reg = <0x1700 0x100>;
+		vdd-pdphy-supply = <&pm8998_l24>;
+		interrupts = <0x2 0x17 0x0 IRQ_TYPE_EDGE_RISING>,
+			     <0x2 0x17 0x1 IRQ_TYPE_EDGE_RISING>,
+			     <0x2 0x17 0x2 IRQ_TYPE_EDGE_RISING>,
+			     <0x2 0x17 0x3 IRQ_TYPE_EDGE_RISING>,
+			     <0x2 0x17 0x4 IRQ_TYPE_EDGE_RISING>,
+			     <0x2 0x17 0x5 IRQ_TYPE_EDGE_RISING>,
+			     <0x2 0x17 0x6 IRQ_TYPE_EDGE_RISING>;
+
+		interrupt-names = "sig-tx",
+				  "sig-rx",
+				  "msg-tx",
+				  "msg-rx",
+				  "msg-tx-failed",
+				  "msg-tx-discarded",
+				  "msg-rx-discarded";
+
+		qcom,default-sink-caps = <5000 3000>, /* 5V @ 3A */
+					 <9000 3000>, /* 9V @ 3A */
+					 <12000 2250>; /* 12V @ 2.25A */
+	};

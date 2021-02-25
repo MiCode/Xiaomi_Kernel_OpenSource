@@ -1,0 +1,35 @@
+Qualcomm Technologies, Inc. CPUCP L3 interconnect driver binding
+-----------------------------------------------------------
+
+The CPUCP L3 Interconnect provider supports the scaling of L3 cache
+performance states of the CPU subsystem.
+
+Required properties :
+- compatible : shall contain only one of the following:
+			"qcom,holi-cpucp-l3-shared",
+			"qcom,holi-cpucp-l3-cpu";
+- reg : Address and length of the register set for the device
+- clock-names: should contain "xo", "alternate"
+- clocks: list of phandle and clock specifier pairs corresponding to
+          entries in the clock-names property.
+- #interconnect-cells : should contain 1
+
+Examples:
+
+cpucp_l3_shared: l3_shared@fd90000 {
+	reg = <0x0fd90000 0x3000>;
+	compatible = "qcom,holi-cpucp-l3-shared";
+	#interconnect-cells = <1>;
+	clock-names = "xo", "alternate";
+	clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>,
+		<&gcc GCC_GPLL0>;
+};
+
+cpucp_l3_cpu: l3_cpu@fd90000{
+	reg = <0x0fd90000 0x3000>;
+	compatible = "qcom,holi-cpucp-l3-cpu";
+	#interconnect-cells = <1>;
+	clock-names = "xo", "alternate";
+	clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>,
+		<&gcc GCC_GPLL0>;
+};

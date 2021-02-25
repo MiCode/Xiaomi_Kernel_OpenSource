@@ -1,0 +1,27 @@
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/soc/qcom/qcom,dload-mode.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Qualcomm Technologies, Inc. Download Mode binding
+
+maintainers:
+  - Elliot Berman <eberman@quicinc.com>
+
+description: |
+  The Download Mode driver is used to manage sending SoC into a dump collection
+  mode after a reboot.
+
+properties:
+  compatible:
+    items:
+      - const: qcom,dload-mode
+
+required:
+  - compatible
+
+examples:
+  - |
+    qcom,dload-mode {
+        compatible = "qcom,dload-mode";
+    };

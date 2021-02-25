@@ -2,6 +2,7 @@
  * cgroup_freezer.c -  control group freezer subsystem
  *
  * Copyright IBM Corporation, 2007
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author : Cedric Le Goater <clg@fr.ibm.com>
  *
@@ -22,6 +23,12 @@
 #include <linux/freezer.h>
 #include <linux/seq_file.h>
 #include <linux/mutex.h>
+
+#ifdef CONFIG_OEM_KERNEL
+#include "cgrp_oem.h"
+
+__weak struct cgroup_subsys oem_cgroup_hook[CGRP_SUBSYS_NUM];
+#endif
 
 /*
  * A cgroup is freezing if any FREEZING flags are set.  FREEZING_SELF is
@@ -450,6 +457,22 @@ static u64 freezer_parent_freezing_read(struct cgroup_subsys_state *css,
 	return (bool)(freezer->state & CGROUP_FREEZING_PARENT);
 }
 
+#ifdef CONFIG_OEM_KERNEL
+static int freezer_can_attach(struct cgroup_taskset *tset)
+{
+	if (oem_cgroup_hook[FREERE_SUBSYS].can_attach)
+		return oem_cgroup_hook[FREERE_SUBSYS].can_attach(tset);
+
+	return 0;
+}
+
+static void freezer_cancel_attach(struct cgroup_taskset *tset)
+{
+	if (oem_cgroup_hook[FREERE_SUBSYS].cancel_attach)
+		return oem_cgroup_hook[FREERE_SUBSYS].cancel_attach(tset);
+}
+#endif
+
 static struct cftype files[] = {
 	{
 		.name = "state",
@@ -475,6 +498,10 @@ struct cgroup_subsys freezer_cgrp_subsys = {
 	.css_online	= freezer_css_online,
 	.css_offline	= freezer_css_offline,
 	.css_free	= freezer_css_free,
+#ifdef CONFIG_OEM_KERNEL
+	.can_attach	= freezer_can_attach,
+	.cancel_attach	= freezer_cancel_attach,
+#endif
 	.attach		= freezer_attach,
 	.fork		= freezer_fork,
 	.legacy_cftypes	= files,

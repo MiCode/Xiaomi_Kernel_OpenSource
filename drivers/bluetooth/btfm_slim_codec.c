@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/init.h>
@@ -13,6 +14,7 @@
 #include <linux/slimbus/slimbus.h>
 #include <linux/ratelimit.h>
 #include <linux/slab.h>
+#include <linux/errno.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
@@ -209,6 +211,12 @@ static int btfm_slim_dai_prepare(struct snd_pcm_substream *substream,
 	/* save the enable channel status */
 	if (ret == 0)
 		bt_soc_enable_status = 1;
+
+	if (ret == -EISCONN) {
+		BTFMSLIM_ERR("channel opened without closing, returning success");
+		ret = 0;
+	}
+
 	return ret;
 }
 
