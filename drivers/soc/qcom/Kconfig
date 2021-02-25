@@ -963,3 +963,5 @@ config ICNSS_QMI
 	  handshake messages to WLAN FW, which includes hardware capabilities
 	  and configurations. It also send WLAN on/off control message to FW
 	  over QMI channel.
+
+source "drivers/soc/qcom/wcnss/Kconfig"
