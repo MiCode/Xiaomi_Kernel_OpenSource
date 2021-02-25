@@ -409,7 +409,7 @@ static struct {
 	struct work_struct wcnssctrl_nvbin_dnld_work;
 	struct work_struct wcnssctrl_rx_work;
 	struct work_struct wcnss_vadc_work;
-	struct wakeup_source wcnss_wake_lock;
+	struct wakeup_source *wcnss_wake_lock;
 	void __iomem *msm_wcnss_base;
 	void __iomem *riva_ccu_base;
 	void __iomem *pronto_a2xb_base;
@@ -2076,14 +2076,14 @@ static int wcnss_wlan_resume_noirq(struct device *dev)
 void wcnss_prevent_suspend(void)
 {
 	if (penv)
-		__pm_stay_awake(&penv->wcnss_wake_lock);
+		__pm_stay_awake(penv->wcnss_wake_lock);
 }
 EXPORT_SYMBOL(wcnss_prevent_suspend);
 
 void wcnss_allow_suspend(void)
 {
 	if (penv)
-		__pm_relax(&penv->wcnss_wake_lock);
+		__pm_relax(penv->wcnss_wake_lock);
 }
 EXPORT_SYMBOL(wcnss_allow_suspend);
 
@@ -3067,7 +3067,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 	INIT_WORK(&penv->wcnssctrl_nvbin_dnld_work, wcnss_nvbin_dnld_main);
 	INIT_DELAYED_WORK(&penv->wcnss_pm_qos_del_req, wcnss_pm_qos_enable_pc);
 
-	wakeup_source_init(&penv->wcnss_wake_lock, "wcnss");
+	penv->wcnss_wake_lock = wakeup_source_register(&pdev->dev, "wcnss");
 	/* Add pm_qos request to disable power collapse for DDR */
 	wcnss_disable_pc_add_req();
 
@@ -3403,7 +3403,7 @@ fail_ioremap2:
 	if (penv->fiq_reg)
 		iounmap(penv->fiq_reg);
 fail_ioremap:
-	wakeup_source_trash(&penv->wcnss_wake_lock);
+	wakeup_source_unregister(penv->wcnss_wake_lock);
 fail_res:
 	if (!has_pronto_hw)
 		wcnss_gpios_config(penv->gpios_5wire, false);
