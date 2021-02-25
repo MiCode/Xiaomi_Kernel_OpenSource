@@ -1779,6 +1779,12 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 			list_for_each_entry_safe(r, t, &dep->started_list, list)
 				dwc3_gadget_move_cancelled_request(r);
 
+			/* If ep isn't started, then there's no end transfer
+			 * pending
+			 */
+			if (!(dep->flags & DWC3_EP_END_TRANSFER_PENDING))
+				dwc3_gadget_ep_cleanup_cancelled_requests(dep);
+
 			goto out;
 		}
 	}
