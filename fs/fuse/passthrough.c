@@ -6,6 +6,9 @@
 #include <linux/idr.h>
 #include <linux/uio.h>
 
+#define PASSTHROUGH_IOCB_MASK                                                  \
+	(IOCB_APPEND | IOCB_DSYNC | IOCB_HIPRI | IOCB_NOWAIT | IOCB_SYNC)
+
 struct fuse_aio_req {
 	struct kiocb iocb;
 	struct kiocb *iocb_fuse;
@@ -17,24 +20,6 @@ static void fuse_copyattr(struct file *dst_file, struct file *src_file)
 	struct inode *src = file_inode(src_file);
 
 	i_size_write(dst, i_size_read(src));
-}
-
-static inline rwf_t iocb_to_rw_flags(int ifl)
-{
-	rwf_t flags = 0;
-
-	if (ifl & IOCB_APPEND)
-		flags |= RWF_APPEND;
-	if (ifl & IOCB_DSYNC)
-		flags |= RWF_DSYNC;
-	if (ifl & IOCB_HIPRI)
-		flags |= RWF_HIPRI;
-	if (ifl & IOCB_NOWAIT)
-		flags |= RWF_NOWAIT;
-	if (ifl & IOCB_SYNC)
-		flags |= RWF_SYNC;
-
-	return flags;
 }
 
 static void fuse_aio_cleanup_handler(struct fuse_aio_req *aio_req)
@@ -78,7 +63,8 @@ ssize_t fuse_passthrough_read_iter(struct kiocb *iocb_fuse,
 	old_cred = override_creds(ff->passthrough.cred);
 	if (is_sync_kiocb(iocb_fuse)) {
 		ret = vfs_iter_read(passthrough_filp, iter, &iocb_fuse->ki_pos,
-				    iocb_to_rw_flags(iocb_fuse->ki_flags));
+				    iocb_to_rw_flags(iocb_fuse->ki_flags,
+						     PASSTHROUGH_IOCB_MASK));
 	} else {
 		struct fuse_aio_req *aio_req;
 
@@ -118,7 +104,8 @@ ssize_t fuse_passthrough_write_iter(struct kiocb *iocb_fuse,
 	if (is_sync_kiocb(iocb_fuse)) {
 		file_start_write(passthrough_filp);
 		ret = vfs_iter_write(passthrough_filp, iter, &iocb_fuse->ki_pos,
-				     iocb_to_rw_flags(iocb_fuse->ki_flags));
+				     iocb_to_rw_flags(iocb_fuse->ki_flags,
+						      PASSTHROUGH_IOCB_MASK));
 		file_end_write(passthrough_filp);
 		if (ret > 0)
 			fuse_copyattr(fuse_filp, passthrough_filp);
@@ -148,12 +135,55 @@ out:
 	return ret;
 }
 
+ssize_t fuse_passthrough_mmap(struct file *file, struct vm_area_struct *vma)
+{
+	int ret;
+	const struct cred *old_cred;
+	struct fuse_file *ff = file->private_data;
+	struct inode *fuse_inode = file_inode(file);
+	struct file *passthrough_filp = ff->passthrough.filp;
+	struct inode *passthrough_inode = file_inode(passthrough_filp);
+
+	if (!passthrough_filp->f_op->mmap)
+		return -ENODEV;
+
+	if (WARN_ON(file != vma->vm_file))
+		return -EIO;
+
+	vma->vm_file = get_file(passthrough_filp);
+
+	old_cred = override_creds(ff->passthrough.cred);
+	ret = call_mmap(vma->vm_file, vma);
+	revert_creds(old_cred);
+
+	if (ret)
+		fput(passthrough_filp);
+	else
+		fput(file);
+
+	if (file->f_flags & O_NOATIME)
+		return ret;
+
+	if ((!timespec64_equal(&fuse_inode->i_mtime,
+			       &passthrough_inode->i_mtime) ||
+	     !timespec64_equal(&fuse_inode->i_ctime,
+			       &passthrough_inode->i_ctime))) {
+		fuse_inode->i_mtime = passthrough_inode->i_mtime;
+		fuse_inode->i_ctime = passthrough_inode->i_ctime;
+	}
+	touch_atime(&file->f_path);
+
+	return ret;
+}
+
 int fuse_passthrough_open(struct fuse_dev *fud,
 			  struct fuse_passthrough_out *pto)
 {
 	int res;
 	struct file *passthrough_filp;
 	struct fuse_conn *fc = fud->fc;
+	struct inode *passthrough_inode;
+	struct super_block *passthrough_sb;
 	struct fuse_passthrough *passthrough;
 
 	if (!fc->passthrough)
@@ -172,12 +202,23 @@ int fuse_passthrough_open(struct fuse_dev *fud,
 	if (!passthrough_filp->f_op->read_iter ||
 	    !passthrough_filp->f_op->write_iter) {
 		pr_err("FUSE: passthrough file misses file operations.\n");
-		return -EBADF;
+		res = -EBADF;
+		goto err_free_file;
+	}
+
+	passthrough_inode = file_inode(passthrough_filp);
+	passthrough_sb = passthrough_inode->i_sb;
+	if (passthrough_sb->s_stack_depth >= FILESYSTEM_MAX_STACK_DEPTH) {
+		pr_err("FUSE: fs stacking depth exceeded for passthrough\n");
+		res = -EINVAL;
+		goto err_free_file;
 	}
 
 	passthrough = kmalloc(sizeof(struct fuse_passthrough), GFP_KERNEL);
-	if (!passthrough)
-		return -ENOMEM;
+	if (!passthrough) {
+		res = -ENOMEM;
+		goto err_free_file;
+	}
 
 	passthrough->filp = passthrough_filp;
 	passthrough->cred = prepare_creds();
@@ -187,10 +228,15 @@ int fuse_passthrough_open(struct fuse_dev *fud,
 	res = idr_alloc(&fc->passthrough_req, passthrough, 1, 0, GFP_ATOMIC);
 	spin_unlock(&fc->passthrough_req_lock);
 	idr_preload_end();
-	if (res <= 0) {
-		fuse_passthrough_release(passthrough);
-		kfree(passthrough);
-	}
+
+	if (res > 0)
+		return res;
+
+	fuse_passthrough_release(passthrough);
+	kfree(passthrough);
+
+err_free_file:
+	fput(passthrough_filp);
 
 	return res;
 }
@@ -198,8 +244,6 @@ int fuse_passthrough_open(struct fuse_dev *fud,
 int fuse_passthrough_setup(struct fuse_conn *fc, struct fuse_file *ff,
 			   struct fuse_open_out *openarg)
 {
-	struct inode *passthrough_inode;
-	struct super_block *passthrough_sb;
 	struct fuse_passthrough *passthrough;
 	int passthrough_fh = openarg->passthrough_fh;
 
@@ -216,15 +260,6 @@ int fuse_passthrough_setup(struct fuse_conn *fc, struct fuse_file *ff,
 
 	if (!passthrough)
 		return -EINVAL;
-
-	passthrough_inode = file_inode(passthrough->filp);
-	passthrough_sb = passthrough_inode->i_sb;
-	if (passthrough_sb->s_stack_depth >= FILESYSTEM_MAX_STACK_DEPTH) {
-		pr_err("FUSE: fs stacking depth exceeded for passthrough\n");
-		fuse_passthrough_release(passthrough);
-		kfree(passthrough);
-		return -EINVAL;
-	}
 
 	ff->passthrough = *passthrough;
 	kfree(passthrough);
