@@ -421,22 +421,31 @@ static int gdsc_enable(struct regulator_dev *rdev)
 static int gdsc_disable(struct regulator_dev *rdev)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
+	struct regulator_dev *parent_rdev;
 	uint32_t regval;
-	int i, ret = 0, parent_enabled;
+	int i, ret = 0;
+	bool lock = false;
 
 	if (rdev->supply) {
-		parent_enabled = regulator_is_enabled(rdev->supply);
-		if (parent_enabled < 0) {
-			ret = parent_enabled;
-			dev_err(&rdev->dev, "%s unable to check parent enable state, ret=%d\n",
-				sc->rdesc.name, ret);
-			return ret;
-		}
+		parent_rdev = rdev->supply->rdev;
 
-		if (!parent_enabled) {
+		/*
+		 * At this point, it can be assumed that parent supply's mutex is always
+		 * locked by regulator framework before calling this callback but there
+		 * are code paths where it isn't locked (e.g regulator_late_cleanup()).
+		 *
+		 * If parent supply is not locked, lock the parent supply mutex before
+		 * checking it's enable count, so it won't get disabled while in the
+		 * middle of GDSC operations
+		 */
+		if (ww_mutex_trylock(&parent_rdev->mutex))
+			lock = true;
+
+		if (!parent_rdev->use_count) {
 			dev_err(&rdev->dev, "%s cannot disable GDSC while parent is disabled\n",
 				sc->rdesc.name);
-			return -EIO;
+			ret = -EIO;
+			goto done;
 		}
 	}
 
@@ -515,6 +524,10 @@ static int gdsc_disable(struct regulator_dev *rdev)
 
 	sc->is_gdsc_enabled = false;
 
+done:
+	if (rdev->supply && lock)
+		ww_mutex_unlock(&parent_rdev->mutex);
+
 	return ret;
 }
 
@@ -549,6 +562,7 @@ static unsigned int gdsc_get_mode(struct regulator_dev *rdev)
 static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
+	struct regulator_dev *parent_rdev;
 	uint32_t regval;
 	int ret = 0;
 
@@ -569,27 +583,27 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 	}
 
 	if (rdev->supply) {
+		parent_rdev = rdev->supply->rdev;
 		/*
 		 * Ensure that the GDSC parent supply is enabled before
 		 * continuing.  This is needed to avoid an unclocked access
 		 * of the GDSC control register for GDSCs whose register access
 		 * is gated by the parent supply enable state in hardware.
 		 */
-		ret = regulator_is_enabled(rdev->supply);
-		if (ret < 0) {
-			dev_err(&rdev->dev, "%s unable to check parent enable state, ret=%d\n",
-				sc->rdesc.name, ret);
-			return ret;
-		} else if (WARN(!ret,
+		ww_mutex_lock(&parent_rdev->mutex, NULL);
+
+		if (!parent_rdev->use_count) {
+			dev_err(&rdev->dev,
 				"%s cannot change GDSC HW/SW control mode while parent is disabled\n",
-				sc->rdesc.name)) {
-			return -EIO;
+				sc->rdesc.name);
+			ret = -EIO;
+			goto done;
 		}
 	}
 
 	ret = regmap_read(sc->regmap, REG_OFFSET, &regval);
 	if (ret < 0)
-		return ret;
+		goto done;
 
 	switch (mode) {
 	case REGULATOR_MODE_FAST:
@@ -597,7 +611,7 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		regval |= HW_CONTROL_MASK;
 		ret = regmap_write(sc->regmap, REG_OFFSET, regval);
 		if (ret < 0)
-			return ret;
+			goto done;
 		/*
 		 * There may be a race with internal HW trigger signal,
 		 * that will result in GDSC going through a power down and
@@ -616,7 +630,7 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		regval &= ~HW_CONTROL_MASK;
 		ret = regmap_write(sc->regmap, REG_OFFSET, regval);
 		if (ret < 0)
-			return ret;
+			goto done;
 		/*
 		 * There may be a race with internal HW trigger signal,
 		 * that will result in GDSC going through a power down and
@@ -636,16 +650,21 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 			if (ret) {
 				dev_err(&rdev->dev, "%s enable timed out\n",
 					sc->rdesc.name);
-				return ret;
+				goto done;
 			}
 		}
 		sc->is_gdsc_hw_ctrl_mode = false;
 		break;
 	default:
-		return -EINVAL;
+		ret = -EINVAL;
+		break;
 	}
 
-	return 0;
+done:
+	if (rdev->supply)
+		ww_mutex_unlock(&parent_rdev->mutex);
+
+	return ret;
 }
 
 static const struct regulator_ops gdsc_ops = {
