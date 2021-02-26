@@ -1892,6 +1892,10 @@ static const struct msm_gpio_wakeirq_map waipio_pdc_map[] = {
 	{ 192, 123 }, { 195, 124 }, { 201, 119 }, { 203, 120 }, { 205, 121 },
 };
 
+static const int waipio_reserved_gpios[] = {
+	28, 29, 30, 31, 36, 37, 38, 39, -1
+};
+
 static const struct msm_pinctrl_soc_data waipio_pinctrl = {
 	.pins = waipio_pins,
 	.npins = ARRAY_SIZE(waipio_pins),
@@ -1899,6 +1903,7 @@ static const struct msm_pinctrl_soc_data waipio_pinctrl = {
 	.nfunctions = ARRAY_SIZE(waipio_functions),
 	.groups = waipio_groups,
 	.ngroups = ARRAY_SIZE(waipio_groups),
+	.reserved_gpios = waipio_reserved_gpios,
 	.ngpios = 211,
 	.wakeirq_map = waipio_pdc_map,
 	.nwakeirq_map = ARRAY_SIZE(waipio_pdc_map),
