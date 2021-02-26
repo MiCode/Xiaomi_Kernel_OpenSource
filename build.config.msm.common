@@ -206,3 +206,25 @@ if [ -n "${EXTRA_CONFIGS}" ]; then
     . ${extra_config}
   done
 fi
+
+################################################################################
+## Copy prebuilt files to ${COMMON_OUT_DIR}/host/bin to be used by CI tools
+DIST_BINS="""
+build/android/merge_dtbs.py
+build/build-tools/path/linux-x86/ufdt_apply_overlay
+"""
+function copy_dist_bins() (
+  set +x
+  set -e
+  mkdir -p ${COMMON_OUT_DIR}/host/bin
+  echo "Copying binaries to host/bin"
+  for FILE in $(ls -1 ${DIST_BINS}); do
+    if [ -f ${ROOT_DIR}/${FILE} ]; then
+      echo "  $FILE"
+      cp -p ${ROOT_DIR}/${FILE} ${COMMON_OUT_DIR}/host/bin/
+    else
+      echo "  $FILE is not a file, skipping"
+    fi
+  done
+)
+append_cmd DIST_CMDS 'copy_dist_bins'
