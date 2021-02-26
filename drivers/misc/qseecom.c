@@ -48,6 +48,7 @@
 #include <linux/interconnect.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/qtee_shmbridge.h>
+#include <linux/mem-buf.h>
 #include "compat_qseecom.h"
 
 #define QSEECOM_DEV			"qseecom"
@@ -1194,21 +1195,12 @@ static int qseecom_dmabuf_cache_operations(struct dma_buf *dmabuf,
 					enum qseecom_cache_ops cache_op)
 {
 	int ret = 0;
-	unsigned long flags = 0;
 
 	if (!dmabuf) {
 		pr_err("dmabuf is NULL\n");
 		ret = -EINVAL;
 		goto exit;
 	}
-
-	ret = dma_buf_get_flags(dmabuf, &flags);
-	if (ret) {
-		pr_err("Failed to get dma buf flags: %d\n", ret);
-		goto exit;
-	}
-	if (!(flags & ION_FLAG_CACHED))
-		goto exit;
 
 	switch (cache_op) {
 	case QSEECOM_CACHE_CLEAN: /* Doing CLEAN and INVALIDATE */
@@ -1259,12 +1251,11 @@ static int qseecom_destroy_bridge_callback(
 static int qseecom_create_bridge_for_secbuf(int ion_fd, struct dma_buf *dmabuf,
 				struct sg_table *sgt)
 {
-	int ret = 0, i;
+	int ret = 0;
 	phys_addr_t phys;
 	size_t size = 0;
 	uint64_t handle = 0;
 	int tz_perm = PERM_READ|PERM_WRITE;
-	unsigned long dma_buf_flags = 0;
 	uint32_t *vmid_list;
 	uint32_t *perms_list;
 	uint32_t nelems = 0;
@@ -1272,18 +1263,6 @@ static int qseecom_create_bridge_for_secbuf(int ion_fd, struct dma_buf *dmabuf,
 
 	if (!qtee_shmbridge_is_enabled())
 		return 0;
-
-	ret = dma_buf_get_flags(dmabuf, &dma_buf_flags);
-	if (ret) {
-		pr_err("failed to get dmabuf flag for fd %d\n",
-				ion_fd);
-		return ret;
-	}
-
-	if (!(dma_buf_flags & ION_FLAG_SECURE) || (sgt->nents != 1)) {
-		pr_debug("just create bridge for contiguous secure buf\n");
-		return 0;
-	}
 
 	phys = sg_phys(sg);
 	size = sg->length;
@@ -1294,34 +1273,17 @@ static int qseecom_create_bridge_for_secbuf(int ion_fd, struct dma_buf *dmabuf,
 		return 0;
 	}
 
-	nelems = ion_get_flags_num_vm_elems(dma_buf_flags);
-	if (nelems == 0) {
-		pr_err("failed to get vm num from flag = %x\n", dma_buf_flags);
-		ret = -EINVAL;
-		goto exit;
+	if (mem_buf_dma_buf_exclusive_owner(dmabuf) || (sgt->nents != 1)) {
+		pr_debug("just create bridge for contiguous secure buf\n");
+		return 0;
 	}
 
-
-	vmid_list = kcalloc(nelems, sizeof(*vmid_list), GFP_KERNEL);
-	if (!vmid_list) {
-		ret = -ENOMEM;
-		goto exit;
+	ret = mem_buf_dma_buf_copy_vmperm(dmabuf, (int **)&vmid_list,
+		(int **)&perms_list, (int *)&nelems);
+	if (ret) {
+		pr_err("mem_buf_dma_buf_copy_vmperm failure, err=%d\n", ret);
+		return ret;
 	}
-
-
-	ret = ion_populate_vm_list(dma_buf_flags, vmid_list, nelems);
-	if (ret)
-		goto exit_free_vmid_list;
-
-
-	perms_list = kcalloc(nelems, sizeof(*perms_list), GFP_KERNEL);
-	if (!perms_list) {
-		ret = -ENOMEM;
-		goto exit_free_vmid_list;
-	}
-
-	for (i = 0; i < nelems; i++)
-		perms_list[i] = msm_secure_get_vmid_perms(vmid_list[i]);
 
 	ret = qtee_shmbridge_register(phys, size, vmid_list, perms_list, nelems,
 				      tz_perm, &handle);
@@ -1329,18 +1291,16 @@ static int qseecom_create_bridge_for_secbuf(int ion_fd, struct dma_buf *dmabuf,
 	if (ret && ret != -EEXIST) {
 		pr_err("creation of shm bridge failed with ret: %d\n",
 		       ret);
-		goto exit_free_perms_list;
+		goto exit;
 	}
 
 	pr_debug("created shm bridge %lld\n", handle);
 	dma_buf_set_destructor(dmabuf, qseecom_destroy_bridge_callback,
 			       (void *)handle);
 
-exit_free_perms_list:
-	kfree(perms_list);
-exit_free_vmid_list:
-	kfree(vmid_list);
 exit:
+	kfree(perms_list);
+	kfree(vmid_list);
 	return ret;
 }
 
