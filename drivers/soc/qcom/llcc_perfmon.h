@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _SOC_QCOM_LLCC_PERFMON_H_
 #define _SOC_QCOM_LLCC_PERFMON_H_
 
-#define LLCC_VER2			(0x21)
+#define LLCC_VER2			(21)
 #define VER_CHK(v)			(v == LLCC_VER2)
 
 /* COMMON */
@@ -62,8 +62,8 @@
 
 #define PERFMON_COUNTER_n_CONFIG(v, n)	((VER_CHK(v) ? 0x36020 : 0x031020) \
 					+ 4 * (n))
-#define PERFMON_MODE			(0x03100C)
-#define PERFMON_DUMP			(0x031010)
+#define PERFMON_MODE(v)			(VER_CHK(v) ? 0x3600C : 0x03100C)
+#define PERFMON_DUMP(v)			(VER_CHK(v) ? 0x36010 : 0x031010)
 #define LLCC_COUNTER_n_VALUE(v, n)	((VER_CHK(v) ? 0x36060 : 0x031060) \
 					+ 4 * (n))
 
