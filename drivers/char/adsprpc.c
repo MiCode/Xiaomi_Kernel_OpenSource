@@ -4383,6 +4383,8 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 				if (ramdump_segments_rh) {
 					ramdump_segments_rh->da =
 					match->phys;
+					ramdump_segments_rh->va =
+					(void *)match->va;
 					ramdump_segments_rh->size = match->size;
 					list_add(&ramdump_segments_rh->node, &head);
 					ret = qcom_elf_dump(&head, me->channel[RH_CID].rh_dump_dev);
