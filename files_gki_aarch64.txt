@@ -467,6 +467,7 @@ crypto/asymmetric_keys/x509_parser.h
 crypto/asymmetric_keys/x509_public_key.c
 crypto/authenc.c
 crypto/authencesn.c
+crypto/blake2b_generic.c
 crypto/cbc.c
 crypto/ccm.c
 crypto/chacha20poly1305.c
@@ -1121,6 +1122,8 @@ drivers/mmc/core/bus.h
 drivers/mmc/core/card.h
 drivers/mmc/core/core.c
 drivers/mmc/core/core.h
+drivers/mmc/core/crypto.c
+drivers/mmc/core/crypto.h
 drivers/mmc/core/debugfs.c
 drivers/mmc/core/host.c
 drivers/mmc/core/host.h
@@ -1810,6 +1813,7 @@ fs/fuse/fuse_i.h
 fs/fuse/inode.c
 fs/fuse/passthrough.c
 fs/fuse/readdir.c
+fs/fuse/virtio_fs.c
 fs/fuse/xattr.c
 fs/incfs/data_mgmt.c
 fs/incfs/data_mgmt.h
@@ -2144,6 +2148,7 @@ include/crypto/algapi.h
 include/crypto/arc4.h
 include/crypto/authenc.h
 include/crypto/b128ops.h
+include/crypto/blake2b.h
 include/crypto/blake2s.h
 include/crypto/chacha20poly1305.h
 include/crypto/chacha.h
@@ -2162,6 +2167,7 @@ include/crypto/hmac.h
 include/crypto/internal/acompress.h
 include/crypto/internal/aead.h
 include/crypto/internal/akcipher.h
+include/crypto/internal/blake2b.h
 include/crypto/internal/blake2s.h
 include/crypto/internal/chacha.h
 include/crypto/internal/geniv.h
@@ -4227,6 +4233,7 @@ include/uapi/linux/vhost.h
 include/uapi/linux/vhost_types.h
 include/uapi/linux/videodev2.h
 include/uapi/linux/virtio_config.h
+include/uapi/linux/virtio_fs.h
 include/uapi/linux/virtio_ids.h
 include/uapi/linux/virtio_net.h
 include/uapi/linux/virtio_ring.h

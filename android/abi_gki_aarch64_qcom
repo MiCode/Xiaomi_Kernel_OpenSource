@@ -50,6 +50,8 @@
   bitmap_allocate_region
   __bitmap_clear
   bitmap_find_next_zero_area_off
+  bitmap_parselist
+  bitmap_parselist_user
   bitmap_print_to_pagebuf
   bitmap_release_region
   __bitmap_set
@@ -367,6 +369,7 @@
   __dev_kfree_skb_any
   devm_add_action
   devm_backlight_device_register
+  devm_blk_ksm_init
   devm_clk_bulk_get
   devm_clk_bulk_get_all
   devm_clk_get
@@ -1061,6 +1064,7 @@
   iommu_fwspec_free
   iommu_get_dma_cookie
   iommu_get_domain_for_dev
+  iommu_get_msi_cookie
   iommu_group_for_each_dev
   iommu_group_get
   iommu_group_get_iommudata
@@ -1566,6 +1570,7 @@
   phy_power_off
   phy_power_on
   phy_set_mode_ext
+  pick_highest_pushable_task
   pid_nr_ns
   pid_task
   pinconf_generic_dt_node_to_map
@@ -1656,6 +1661,7 @@
   proc_dostring
   proc_douintvec_minmax
   proc_mkdir
+  proc_remove
   proc_set_user
   proto_register
   proto_unregister
@@ -2251,6 +2257,7 @@
   __tracepoint_android_rvh_preempt_disable
   __tracepoint_android_rvh_preempt_enable
   __tracepoint_android_rvh_resume_cpus
+  __tracepoint_android_rvh_sched_balance_rt
   __tracepoint_android_rvh_sched_cpu_dying
   __tracepoint_android_rvh_sched_cpu_starting
   __tracepoint_android_rvh_sched_exec
@@ -2280,6 +2287,7 @@
   __tracepoint_android_vh_cpu_idle_exit
   __tracepoint_android_vh_dump_throttled_rt_tasks
   __tracepoint_android_vh_freq_table_limits
+  __tracepoint_android_vh_iommu_setup_dma_ops
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_jiffies_update
   __tracepoint_android_vh_printk_hotplug
