@@ -1225,7 +1225,6 @@ static void print_cfs_group_stats_at_AEE(struct seq_file *m,
 #ifdef CONFIG_SMP
 	P(se->avg.load_avg);
 	P(se->avg.util_avg);
-	P(se->avg.runnable_load_avg);
 #endif
 #undef PN
 #undef P
@@ -1287,12 +1286,8 @@ void print_cfs_rq_at_AEE(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 			"nr_running", cfs_rq->nr_running);
 	SEQ_printf_at_AEE(m, "  .%-30s: %ld\n", "load", cfs_rq->load.weight);
 #ifdef CONFIG_SMP
-	SEQ_printf_at_AEE(m, "  .%-30s: %ld\n", "runnable_weight", cfs_rq->runnable_weight);
-
 	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", "load_avg",
 			cfs_rq->avg.load_avg);
-	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", "runnable_load_avg",
-			cfs_rq->avg.runnable_load_avg);
 	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", "util_avg",
 			cfs_rq->avg.util_avg);
 	SEQ_printf_at_AEE(m, "  .%-30s: %u\n", "util_est_enqueued",
@@ -1301,8 +1296,8 @@ void print_cfs_rq_at_AEE(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 			cfs_rq->removed.load_avg);
 	SEQ_printf_at_AEE(m, "  .%-30s: %ld\n", "removed.util_avg",
 			cfs_rq->removed.util_avg);
-	SEQ_printf_at_AEE(m, "  .%-30s: %ld\n", "removed.runnable_sum",
-			cfs_rq->removed.runnable_sum);
+	SEQ_printf_at_AEE(m, "  .%-30s: %ld\n", "removed.runnable_avg",
+			cfs_rq->removed.runnable_avg);
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", "tg_load_avg_contrib",
@@ -1472,7 +1467,6 @@ do { \
 
 	P(nr_running);
 	P(nr_switches);
-	P(nr_load_updates);
 	P(nr_uninterruptible);
 	PN(next_balance);
 	SEQ_printf_at_AEE(m, "  .%-30s: %ld\n",
