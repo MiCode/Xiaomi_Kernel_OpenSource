@@ -1,0 +1,42 @@
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/iommu/iommu-debug-test.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: IOMMU Debugging and Testing Framework Device Tree Bindings
+
+maintainers:
+  - Georgi Djakov <gdjako@codeaurora.org>
+
+description: |
+  The IOMMU Debugging and Testing Framework is used for collecting information
+  that is useful for debugging/instrumenting the IOMMU framework code, as well
+  as testing various IOMMU related features.
+
+properties:
+  compatible:
+    items:
+      - const: qcom,iommu-debug-test
+
+  child nodes:
+    compatible: : qcom,iommu-debug-usecase
+    iommus:
+      minItems: 1
+      items:
+        - description: IOMMU specifier with a SID and an SMR mask
+      description:
+        IOMMU specifier with a SID and an SMR mask
+
+required:
+  - compatible
+  - iommus
+
+examples:
+  - |
+    iommu_test_device {
+        compatible = "qcom,iommu-debug-test";
+        sample_usecase {
+          compatible = "qcom,iommu-debug-usecase";
+          iommus = <&apps_smmu 0x7e1 0>;
+        }
+    };
