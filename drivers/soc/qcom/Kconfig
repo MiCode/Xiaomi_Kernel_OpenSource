@@ -860,6 +860,17 @@ config QTI_HW_MEMLAT
 	  table, PMU counters and saving the values of PMU counters during LPM and
 	  hotplug.
 
+config QTI_HW_NUM_AMU
+	int
+	default 7 if ARCH_LAHAINA && QTI_HW_MEMLAT
+	default 5 if ARCH_HOLI && QTI_HW_MEMLAT
+	default 5
+
+config QTI_HW_NUM_PMU
+	int
+	default 6 if (ARCH_LAHAINA || ARCH_HOLI) && QTI_HW_MEMLAT
+	default 6
+
 config QTI_HW_MEMLAT_SCMI_CLIENT
 	tristate "Qualcomm Technologies Inc. SCMI client driver for HW MEMLAT"
 	depends on QTI_HW_MEMLAT
