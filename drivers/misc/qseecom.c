@@ -704,7 +704,7 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			qseecom.smcinvoke_support = true;
 			smc_id = TZ_OS_REGISTER_LISTENER_SMCINVOKE_ID;
 			ret = __qseecom_scm_call2_locked(smc_id, &desc);
-			if (ret == -EIO) {
+			if (ret == -EOPNOTSUPP) {
 				/* smcinvoke is not supported */
 				qseecom.smcinvoke_support = false;
 				smc_id = TZ_OS_REGISTER_LISTENER_ID;
