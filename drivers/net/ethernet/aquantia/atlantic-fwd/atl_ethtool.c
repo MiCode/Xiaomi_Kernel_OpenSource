@@ -181,6 +181,7 @@ static int atl_set_fixed_speed(struct atl_hw *hw, unsigned int speed,
 {
 	unsigned int dplx = (duplex == DUPLEX_HALF) ? DUPLEX_HALF : DUPLEX_FULL;
 	struct atl_link_state *lstate = &hw->link_state;
+	__ETHTOOL_DECLARE_LINK_MODE_MASK(link_modes);
 	struct atl_link_type *type;
 	unsigned long tmp;
 	int i;
@@ -197,9 +198,9 @@ static int atl_set_fixed_speed(struct atl_hw *hw, unsigned int speed,
 
 	if (lstate->eee_enabled) {
 		atl_link_to_kernel(lstate->supported >> ATL_EEE_BIT_OFFT,
-				   &tmp, false);
+				   link_modes, false);
 		/* advertize the supported links */
-		tmp = atl_kernel_to_link(&tmp, false);
+		tmp = atl_kernel_to_link(link_modes, false);
 		lstate->advertized |= tmp << ATL_EEE_BIT_OFFT;
 	}
 
@@ -479,6 +480,7 @@ static int atl_set_eee(struct net_device *ndev, struct ethtool_eee *eee)
 	struct atl_nic *nic = netdev_priv(ndev);
 	struct atl_hw *hw = &nic->hw;
 	struct atl_link_state *lstate = &hw->link_state;
+	__ETHTOOL_DECLARE_LINK_MODE_MASK(link_modes);
 	unsigned long tmp = 0;
 
 	if ((hw->chip_id == ATL_ATLANTIC) && (atl_fw_major(hw) < 2))
@@ -491,14 +493,15 @@ static int atl_set_eee(struct net_device *ndev, struct ethtool_eee *eee)
 
 	if (lstate->eee_enabled) {
 		atl_link_to_kernel(lstate->supported >> ATL_EEE_BIT_OFFT,
-				   &tmp, false);
-		if (eee->advertised & ~tmp)
+				   link_modes, false);
+		if (eee->advertised & ~link_modes[0])
 			return -EINVAL;
 
 		/* advertize the requested link or all supported */
 		if (eee->advertised)
-			tmp = eee->advertised;
-		tmp = atl_kernel_to_link(&tmp, false);
+			ethtool_convert_legacy_u32_to_link_mode(link_modes,
+								eee->advertised);
+		tmp = atl_kernel_to_link(link_modes, false);
 	}
 
 	lstate->advertized &= ~ATL_EEE_MASK;
@@ -628,6 +631,8 @@ static const struct atl_stat_desc rx_fwd_stat_descs[] = {
 
 static const struct atl_stat_desc eth_stat_descs[] = {
 	ATL_ETH_STAT(tx_pause, tx_pause),
+	ATL_ETH_STAT(tx_ether_pkts, tx_ether_pkts),
+	ATL_ETH_STAT(tx_ether_octets, tx_ether_octets),
 	ATL_ETH_STAT(rx_pause, rx_pause),
 	ATL_ETH_STAT(rx_ether_drops, rx_ether_drops),
 	ATL_ETH_STAT(rx_ether_octets, rx_ether_octets),
@@ -655,6 +660,7 @@ static const char atl_priv_flags[][ETH_GSTRING_LEN] = {
 	ATL_PRIV_FLAG(ResetStatistics, STATS_RESET),
 	ATL_PRIV_FLAG(StripEtherPadding, STRIP_PAD),
 	ATL_PRIV_FLAG(MediaDetect, MEDIA_DETECT),
+	ATL_PRIV_FLAG(Downshift, DOWNSHIFT),
 };
 
 #if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
@@ -1089,6 +1095,16 @@ int atl_set_media_detect(struct atl_nic *nic, bool on)
 	return ret;
 }
 
+int atl_set_downshift(struct atl_nic *nic, bool on)
+{
+	struct atl_hw *hw = &nic->hw;
+	int ret;
+
+	ret = hw->mcp.ops->set_downshift(hw, on);
+
+	return ret;
+}
+
 static uint32_t atl_get_priv_flags(struct net_device *ndev)
 {
 	struct atl_nic *nic = netdev_priv(ndev);
@@ -1125,6 +1141,13 @@ static int atl_set_priv_flags(struct net_device *ndev, uint32_t flags)
 	if (diff & ATL_PF_BIT(MEDIA_DETECT)) {
 		ret = atl_set_media_detect(nic,
 			!!(flags & ATL_PF_BIT(MEDIA_DETECT)));
+		if (ret)
+			return ret;
+	}
+
+	if (diff & ATL_PF_BIT(DOWNSHIFT)) {
+		ret = atl_set_downshift(nic,
+			!!(flags & ATL_PF_BIT(DOWNSHIFT)));
 		if (ret)
 			return ret;
 	}
