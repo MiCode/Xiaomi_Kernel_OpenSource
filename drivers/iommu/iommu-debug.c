@@ -33,6 +33,7 @@
 #include <linux/dma-map-ops.h>
 #include <soc/qcom/secure_buffer.h>
 #include <linux/dma-mapping.h>
+#include <linux/qcom-dma-mapping.h>
 #include <asm/cacheflush.h>
 #include <linux/dma-mapping-fast.h>
 

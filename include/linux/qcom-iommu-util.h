@@ -41,6 +41,31 @@
 /* Non secure unprivileged Data read operation */
 #define QCOM_IOMMU_ATOS_TRANS_DEFAULT	(0U)
 
+/* Use upstream device's bus attribute */
+#define IOMMU_USE_UPSTREAM_HINT	(1 << 7)
+
+/* Use upstream device's bus attribute with no write-allocate cache policy */
+#define IOMMU_USE_LLC_NWA	(1 << 8)
+
+/* vendor iommu fault flags */
+#define IOMMU_FAULT_TRANSLATION         (1 << 2)
+#define IOMMU_FAULT_PERMISSION          (1 << 3)
+#define IOMMU_FAULT_EXTERNAL            (1 << 4)
+#define IOMMU_FAULT_TRANSACTION_STALLED (1 << 5)
+
+/* iommu transaction flags */
+#define IOMMU_TRANS_WRITE	BIT(0)	/* 1 Write, 0 Read */
+#define IOMMU_TRANS_PRIV	BIT(1)	/* 1 Privileged, 0 Unprivileged */
+#define IOMMU_TRANS_INST	BIT(2)	/* 1 Instruction fetch, 0 Data access */
+#define IOMMU_TRANS_SEC	BIT(3)	/* 1 Secure, 0 Non-secure access*/
+
+/* Non secure unprivileged Data read operation */
+#define IOMMU_TRANS_DEFAULT	(0U)
+
+struct iommu_pgtbl_info {
+	void *ops;
+};
+
 struct qcom_iommu_atos_txn {
 	u64 addr;
 	u32 flags;

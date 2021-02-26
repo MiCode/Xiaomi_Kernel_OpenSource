@@ -12,6 +12,7 @@
 
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
+#include <linux/qcom-dma-mapping.h>
 #include <linux/slab.h>
 #include <linux/completion.h>
 #include <linux/pagemap.h>

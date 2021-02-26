@@ -2,11 +2,12 @@
 /*
  * Qti (or) Qualcomm Technologies Inc CE device driver.
  *
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-iommu.h>
 #include <linux/dma-mapping.h>
+#include <linux/qcom-dma-mapping.h>
 #include <linux/list.h>
 #include <linux/qcedev.h>
 #include "qcedevi.h"

@@ -7,6 +7,7 @@
 #include <linux/dma-direction.h>
 #include <linux/iommu.h>
 #include <linux/msm_dma_iommu_mapping.h>
+#include <linux/qcom-dma-mapping.h>
 #include <linux/ion.h>
 #include <linux/msm_ion.h>
 #include <linux/slab.h>
