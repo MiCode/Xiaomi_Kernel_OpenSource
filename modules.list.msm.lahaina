@@ -94,3 +94,4 @@ qcom_wdt_core.ko
 msm_kgsl.ko
 governor_msm_adreno_tz.ko
 governor_gpubw_mon.ko
+minidump.ko
