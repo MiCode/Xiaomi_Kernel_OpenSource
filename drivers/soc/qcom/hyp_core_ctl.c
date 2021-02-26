@@ -192,7 +192,7 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 	 * maintained in vcpu_adjust_mask and processed in the 2nd pass.
 	 */
 	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
-		if (hcd->cpumap[i].cap_id == 0)
+		if (hcd->cpumap[i].cap_id == HH_CAPID_INVAL)
 			break;
 
 		orig_cpu = hcd->cpumap[i].pcpu;
@@ -212,7 +212,7 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 			err = hh_hcall_vcpu_affinity_set(hcd->cpumap[i].cap_id,
 								orig_cpu);
 			if (err != HH_ERROR_OK) {
-				pr_err("restore: fail to assign pcpu for vcpu#%d err=%d cap_id=%d cpu=%d\n",
+				pr_err("restore: fail to assign pcpu for vcpu#%d err=%d cap_id=%llu cpu=%d\n",
 					i, err, hcd->cpumap[i].cap_id, orig_cpu);
 				continue;
 			}
@@ -257,7 +257,7 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 		err = hh_hcall_vcpu_affinity_set(hcd->cpumap[i].cap_id,
 							replacement_cpu);
 		if (err != HH_ERROR_OK) {
-			pr_err("adjust: fail to assign pcpu for vcpu#%d err=%d cap_id=%d cpu=%d\n",
+			pr_err("adjust: fail to assign pcpu for vcpu#%d err=%d cap_id=%llu cpu=%d\n",
 				i, err, hcd->cpumap[i].cap_id, replacement_cpu);
 			continue;
 		}
@@ -664,7 +664,7 @@ static void hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
 	cpumask_clear(&hcd->reserve_cpus);
 
 	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
-		if (hh_cpumap[i].cap_id == 0)
+		if (hh_cpumap[i].cap_id == HH_CAPID_INVAL)
 			break;
 
 		hcd->cpumap[i].cap_id = hh_cpumap[i].cap_id;
@@ -683,7 +683,7 @@ static void hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
  * Called when vm_status is STATUS_READY, multiple times before status
  * moves to STATUS_RUNNING
  */
-int hh_vcpu_populate_affinity_info(u32 cpu_idx, u64 cap_id)
+static int hh_vcpu_populate_affinity_info(hh_label_t cpu_idx, hh_capid_t cap_id)
 {
 	if (!init_done) {
 		pr_err("Driver probe failed\n");
@@ -812,7 +812,7 @@ static ssize_t status_show(struct device *dev, struct device_attribute *attr,
 			   "Vcpu to Pcpu mappings:\n");
 
 	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
-		if (hcd->cpumap[i].cap_id == 0)
+		if (hcd->cpumap[i].cap_id == HH_CAPID_INVAL)
 			break;
 
 		count += scnprintf(buf + count, PAGE_SIZE - count,
@@ -958,7 +958,6 @@ static ssize_t read_reserve_cpus(struct file *file, char __user *ubuf,
 static ssize_t write_reserve_cpus(struct file *file, const char __user *ubuf,
 				  size_t count, loff_t *ppos)
 {
-	char kbuf[CPULIST_SZ];
 	int ret;
 	cpumask_t temp_mask;
 
@@ -969,12 +968,7 @@ static ssize_t write_reserve_cpus(struct file *file, const char __user *ubuf,
 		goto err_out;
 	}
 
-	ret = simple_write_to_buffer(kbuf, CPULIST_SZ - 1, ppos, ubuf, count);
-	if (ret < 0)
-		goto err_out;
-
-	kbuf[ret] = '\0';
-	ret = cpulist_parse(kbuf, &temp_mask);
+	ret = cpumask_parselist_user(ubuf, count, &temp_mask);
 	if (ret < 0)
 		goto err_out;
 
@@ -1027,9 +1021,17 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 	struct hyp_core_ctl_data *hcd;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
 
-	ret = hh_rm_register_notifier(&hh_vcpu_nb);
-	if (ret)
+	ret = hh_rm_set_vcpu_affinity_cb(&hh_vcpu_populate_affinity_info);
+	if (ret) {
+		pr_err("fail to set the vcpu affinity callback\n");
 		return ret;
+	}
+
+	ret = hh_rm_register_notifier(&hh_vcpu_nb);
+	if (ret) {
+		pr_err("fail to register hh_rm_notifier\n");
+		goto reset_cb;
+	}
 
 	hcd = kzalloc(sizeof(*hcd), GFP_KERNEL);
 	if (!hcd) {
@@ -1074,6 +1076,8 @@ free_hcd:
 	kfree(hcd);
 unregister_rm_notifier:
 	hh_rm_unregister_notifier(&hh_vcpu_nb);
+reset_cb:
+	hh_rm_set_vcpu_affinity_cb(NULL);
 
 	return ret;
 }

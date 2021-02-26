@@ -487,15 +487,6 @@ struct sched_entity {
 #endif
 };
 
-#ifdef CONFIG_QCOM_HYP_CORE_CTL
-extern int hh_vcpu_populate_affinity_info(u32 cpu_index, u64 cap_id);
-#else
-static inline int hh_vcpu_populate_affinity_info(u32 cpu_index, u64 cap_id)
-{
-	return 0;
-}
-#endif /* CONFIG_QCOM_HYP_CORE_CTL */
-
 struct sched_rt_entity {
 	struct list_head		run_list;
 	unsigned long			timeout;
