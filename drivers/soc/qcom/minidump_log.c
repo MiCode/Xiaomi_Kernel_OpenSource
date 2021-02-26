@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/cache.h>
@@ -142,23 +142,24 @@ static DEFINE_SPINLOCK(md_modules_lock);
 #endif	/* CONFIG_MODULES */
 #endif
 
-static void __init register_log_buf(void)
+static void register_log_buf(void)
 {
-	char **log_bufp;
-	uint32_t *log_buf_lenp;
+	char *log_bufp;
+	uint32_t log_buf_len;
 	struct md_region md_entry;
 
-	log_bufp = (char **)kallsyms_lookup_name("log_buf");
-	log_buf_lenp = (uint32_t *)kallsyms_lookup_name("log_buf_len");
-	if (!log_bufp || !log_buf_lenp) {
-		pr_err("Unable to find log_buf by kallsyms!\n");
+	log_bufp = log_buf_addr_get();
+	log_buf_len = log_buf_len_get();
+
+	if (!log_bufp || !log_buf_len) {
+		pr_err("Unable to locate log_buf!\n");
 		return;
 	}
 	/*Register logbuf to minidump, first idx would be from bss section */
 	strlcpy(md_entry.name, "KLOGBUF", sizeof(md_entry.name));
-	md_entry.virt_addr = (uintptr_t) (*log_bufp);
-	md_entry.phys_addr = virt_to_phys(*log_bufp);
-	md_entry.size = *log_buf_lenp;
+	md_entry.virt_addr = (uintptr_t) log_bufp;
+	md_entry.phys_addr = virt_to_phys(log_bufp);
+	md_entry.size = log_buf_len;
 	if (msm_minidump_add_region(&md_entry) < 0)
 		pr_err("Failed to add logbuf in Minidump\n");
 }
@@ -184,7 +185,7 @@ static int register_stack_entry(struct md_region *ksp_entry, u64 sp, u64 size)
 	return entry;
 }
 
-static void __init register_kernel_sections(void)
+static void register_kernel_sections(void)
 {
 	struct md_region ksec_entry;
 	char *data_name = "KDATABSS";
@@ -1319,7 +1320,7 @@ static void md_register_module_data(void)
 #endif	/* CONFIG_MODULES */
 #endif	/* CONFIG_QCOM_MINIDUMP_PANIC_DUMP */
 
-static int __init msm_minidump_log_init(void)
+int msm_minidump_log_init(void)
 {
 	register_kernel_sections();
 	is_vmap_stack = IS_ENABLED(CONFIG_VMAP_STACK);
@@ -1345,4 +1346,3 @@ static int __init msm_minidump_log_init(void)
 #endif
 	return 0;
 }
-late_initcall(msm_minidump_log_init);
