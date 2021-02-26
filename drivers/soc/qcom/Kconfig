@@ -921,7 +921,6 @@ endif # MSM_PM
 
 config QTI_RPM_STATS_LOG
 	tristate "Qualcomm Technologies RPM Stats Driver"
-	depends on QCOM_RPMH
 	help
 	  This option enables a driver which reads RPM messages from a shared
 	  memory location. These messages provide statistical information about
