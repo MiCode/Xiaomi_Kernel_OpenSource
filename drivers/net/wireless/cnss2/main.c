@@ -1466,6 +1466,9 @@ static int cnss_cold_boot_cal_start_hdlr(struct cnss_plat_data *plat_priv)
 	if (test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state)) {
 		cnss_pr_dbg("Calibration complete. Ignore calibration req\n");
 		goto out;
+	} else if (test_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Calibration in progress. Ignore new calibration req\n");
+		goto out;
 	}
 
 	if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
