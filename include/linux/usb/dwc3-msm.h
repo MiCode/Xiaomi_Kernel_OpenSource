@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __LINUX_USB_DWC3_MSM_H
@@ -114,14 +114,6 @@ struct gsi_channel_info {
 	u64 xfer_ring_base_addr;
 	struct usb_gsi_request *ch_req;
 };
-
-#if IS_ENABLED(CONFIG_MSM_QUSB_PHY)
-extern void usb_phy_drive_dp_pulse(void *phy,
-					unsigned int interval_ms);
-#else
-static inline void usb_phy_drive_dp_pulse(void *phy, unsigned int interval_ms)
-{ }
-#endif
 
 #if IS_ENABLED(CONFIG_USB_DWC3_MSM)
 struct usb_ep *usb_ep_autoconfig_by_name(struct usb_gadget *gadget,
