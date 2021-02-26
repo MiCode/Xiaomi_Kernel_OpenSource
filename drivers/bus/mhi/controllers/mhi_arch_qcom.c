@@ -401,8 +401,6 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 
 	if (!arch_info) {
 		struct msm_pcie_register_event *reg_event;
-		struct pci_dev *root_port = pcie_find_root_port(pci_dev);
-		struct device_node *root_ofnode = root_port->dev.of_node;
 
 		arch_info = devm_kzalloc(mhi_cntrl->cntrl_dev,
 					 sizeof(*arch_info), GFP_KERNEL);
@@ -624,7 +622,7 @@ resume_no_pci_lpm:
 
 u64 mhi_arch_time_get(struct mhi_controller *mhi_cntrl)
 {
-	return arch_counter_get_cntvct();
+	return __arch_counter_get_cntvct();
 }
 
 int mhi_arch_link_lpm_disable(struct mhi_controller *mhi_cntrl)
