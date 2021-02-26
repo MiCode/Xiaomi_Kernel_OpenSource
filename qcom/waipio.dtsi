@@ -53,6 +53,7 @@
 		swr2 = &swr2;
 		swr3 = &swr3;
 		pci-domain0 = &pcie0; /* PCIe0 domain */
+		pci-domain1 = &pcie1; /* PCIe1 domain */
 	};
 
 	firmware: firmware { };
