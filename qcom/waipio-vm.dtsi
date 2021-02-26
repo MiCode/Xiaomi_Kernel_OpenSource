@@ -328,3 +328,5 @@
 		qcom,support-hypervisor;
 	};
 };
+
+#include "waipio-vm-dma-heaps.dtsi"
