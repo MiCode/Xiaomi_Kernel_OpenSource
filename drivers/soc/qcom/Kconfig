@@ -654,6 +654,7 @@ config QTI_PMIC_GLINK
 	tristate "Enable support for PMIC GLINK"
 	depends on RPMSG
 	select QCOM_RPROC_COMMON
+	select QCOM_PDR_HELPERS
 	help
 	  The PMIC Glink driver provides the interface for clients to
 	  communicate over GLink for sending and receiving data to charger

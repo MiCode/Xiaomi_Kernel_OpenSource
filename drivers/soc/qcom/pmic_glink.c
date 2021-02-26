@@ -18,8 +18,7 @@
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
 #include <linux/remoteproc/qcom_rproc.h>
-#include <soc/qcom/service-locator.h>
-#include <soc/qcom/service-notifier.h>
+#include <linux/soc/qcom/pdr.h>
 #include <linux/soc/qcom/pmic_glink.h>
 
 /**
@@ -50,8 +49,6 @@
  * @pdr_handle:		handle to PDR notifier
  * @pdr_service_name:	protection domain service name
  * @pdr_path_name:	protection domain path name
- * @serv_loc_nb:	notifier block for service locator
- * @pdr_nb:		notifier block for protection domain restart
  * @pdr_state:		protection domain service state
  */
 struct pmic_glink_dev {
@@ -79,8 +76,6 @@ struct pmic_glink_dev {
 	void			*pdr_handle;
 	const char		*pdr_service_name;
 	const char		*pdr_path_name;
-	struct notifier_block	serv_loc_nb;
-	struct notifier_block	pdr_nb;
 	atomic_t		pdr_state;
 };
 
@@ -162,27 +157,26 @@ static int pmic_glink_ssr_notifier_cb(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
-static int pmic_glink_pdr_notifier_cb(struct notifier_block *nb,
-				unsigned long code, void *data)
+static void pmic_glink_pdr_notifier_cb(int state, char *service_name,
+					void *priv)
 {
-	struct pmic_glink_dev *pgdev = container_of(nb, struct pmic_glink_dev,
-						pdr_nb);
+	struct pmic_glink_dev *pgdev = priv;
 
-	pr_debug("code: %#lx\n", code);
+	pr_debug("PDR state: %x\n", state);
 
-	switch (code) {
-	case SERVREG_NOTIF_SERVICE_STATE_EARLY_DOWN_V01:
+	switch (state) {
+	case SERVREG_SERVICE_STATE_EARLY_DOWN:
 		pr_debug("PD state down for %s\n", pgdev->pdr_service_name);
 		pmic_glink_notify_clients(pgdev, PMIC_GLINK_STATE_DOWN);
-		atomic_set(&pgdev->pdr_state, code);
+		atomic_set(&pgdev->pdr_state, state);
 		break;
-	case SERVREG_NOTIF_SERVICE_STATE_DOWN_V01:
+	case SERVREG_SERVICE_STATE_DOWN:
 		/*
 		 * PMIC Glink clients have been notified already. So do
 		 * nothing here.
 		 */
 		break;
-	case SERVREG_NOTIF_SERVICE_STATE_UP_V01:
+	case SERVREG_SERVICE_STATE_UP:
 		/*
 		 * Do not notify PMIC Glink clients here but rather from
 		 * pmic_glink_init_work which will be run only after rpmsg
@@ -194,65 +188,7 @@ static int pmic_glink_pdr_notifier_cb(struct notifier_block *nb,
 		break;
 	}
 
-	return NOTIFY_DONE;
-}
-
-static void pmic_glink_register_pdr_service(struct pmic_glink_dev *pgdev,
-					struct pd_qmi_client_data *pdr)
-{
-	int i, curr_state;
-
-	if (pgdev->pdr_handle)
-		return;
-
-	for (i = 0; i < pdr->total_domains; i++)
-		if (!strcmp(pdr->domain_list[i].name, pgdev->pdr_path_name))
-			break;
-
-	if (i >= pdr->total_domains) {
-		pr_err("PDR service %s is not available\n",
-			pgdev->pdr_service_name);
-		return;
-	}
-
-	pr_debug("matching domain: %s instance id: %u\n",
-		pdr->domain_list[i].name, pdr->domain_list[i].instance_id);
-	pgdev->pdr_nb.notifier_call = pmic_glink_pdr_notifier_cb;
-	pgdev->pdr_handle = service_notif_register_notifier(
-				pdr->domain_list[i].name,
-				pdr->domain_list[i].instance_id,
-				&pgdev->pdr_nb, &curr_state);
-	if (IS_ERR(pgdev->pdr_handle)) {
-		pr_err("failed to register with service notifier rc=%ld\n",
-			PTR_ERR(pgdev->pdr_handle));
-		pgdev->pdr_handle = NULL;
-		return;
-	}
-
-	atomic_set(&pgdev->pdr_state, curr_state);
-	pr_debug("current PDR state for %s is %d\n", pgdev->pdr_service_name,
-		curr_state);
-}
-
-static int pmic_glink_serv_loc_cb(struct notifier_block *nb,
-				unsigned long code, void *data)
-{
-	struct pmic_glink_dev *pgdev = container_of(nb, struct pmic_glink_dev,
-						serv_loc_nb);
-	struct pd_qmi_client_data *pdr = data;
-
-	pr_debug("code: %#lx\n", code);
-
-	if (code == LOCATOR_DOWN) {
-		pr_warn("PDR service locator for client: %s service: %s is down\n",
-			pdr->client_name, pdr->service_name);
-	} else if (code == LOCATOR_UP) {
-		pr_debug("PDR service locator for client: %s service: %s is up\n",
-			pdr->client_name, pdr->service_name);
-		pmic_glink_register_pdr_service(pgdev, pdr);
-	}
-
-	return NOTIFY_DONE;
+	return;
 }
 
 static struct pmic_glink_dev *get_pmic_glink_from_dev(struct device *dev)
@@ -602,11 +538,10 @@ static void pmic_glink_init_work(struct work_struct *work)
 	int rc;
 
 	if (atomic_read(&pgdev->pdr_state) ==
-	    SERVREG_NOTIF_SERVICE_STATE_EARLY_DOWN_V01 ||
+	    SERVREG_SERVICE_STATE_EARLY_DOWN ||
 	    atomic_read(&pgdev->prev_state) == QCOM_SSR_BEFORE_SHUTDOWN) {
 		pmic_glink_notify_clients(pgdev, PMIC_GLINK_STATE_UP);
-		atomic_set(&pgdev->pdr_state,
-				SERVREG_NOTIF_SERVICE_STATE_UP_V01);
+		atomic_set(&pgdev->pdr_state, SERVREG_SERVICE_STATE_UP);
 		atomic_set(&pgdev->prev_state, QCOM_SSR_AFTER_POWERUP);
 	}
 
@@ -643,6 +578,7 @@ static int pmic_glink_probe(struct platform_device *pdev)
 {
 	struct pmic_glink_dev *pgdev;
 	struct device *dev = &pdev->dev;
+	struct pdr_service *service;
 	int rc;
 
 	pgdev = devm_kzalloc(dev, sizeof(*pgdev), GFP_KERNEL);
@@ -673,7 +609,7 @@ static int pmic_glink_probe(struct platform_device *pdev)
 			pr_err("Failed to get PDR service name rc=%d\n", rc);
 			return rc;
 		} else if (strlen(pgdev->pdr_service_name) >
-				QMI_SERVREG_LOC_NAME_LENGTH_V01) {
+				SERVREG_NAME_LENGTH) {
 			pr_err("PDR service name %s is too long\n",
 				pgdev->pdr_service_name);
 			return -EINVAL;
@@ -686,7 +622,7 @@ static int pmic_glink_probe(struct platform_device *pdev)
 			pr_err("Failed to get PDR path name rc=%d\n", rc);
 			return rc;
 		} else if (strlen(pgdev->pdr_path_name) >
-				QMI_SERVREG_LOC_NAME_LENGTH_V01) {
+				SERVREG_NAME_LENGTH) {
 			pr_err("PDR path name %s is too long\n",
 				pgdev->pdr_path_name);
 			return -EINVAL;
@@ -708,7 +644,7 @@ static int pmic_glink_probe(struct platform_device *pdev)
 	mutex_init(&pgdev->client_lock);
 	idr_init(&pgdev->client_idr);
 	atomic_set(&pgdev->prev_state, QCOM_SSR_BEFORE_POWERUP);
-	atomic_set(&pgdev->pdr_state, SERVREG_NOTIF_SERVICE_STATE_UNINIT_V01);
+	atomic_set(&pgdev->pdr_state, SERVREG_SERVICE_STATE_UNINIT);
 
 	if (pgdev->subsys_name) {
 		pgdev->ssr_nb.notifier_call = pmic_glink_ssr_notifier_cb;
@@ -724,12 +660,22 @@ static int pmic_glink_probe(struct platform_device *pdev)
 	}
 
 	if (pgdev->pdr_service_name) {
-		pgdev->serv_loc_nb.notifier_call = pmic_glink_serv_loc_cb;
-		rc = get_service_location(pgdev->channel_name,
-				pgdev->pdr_service_name, &pgdev->serv_loc_nb);
-		if (rc < 0) {
-			pr_err("Failed in get_service_location rc=%d\n", rc);
+		pgdev->pdr_handle = pdr_handle_alloc(pmic_glink_pdr_notifier_cb,
+						pgdev);
+		if (IS_ERR(pgdev->pdr_handle)) {
+			rc = PTR_ERR(pgdev->pdr_handle);
+			if (rc != -EPROBE_DEFER)
+				pr_err("Failed in pdr_handle_alloc rc=%d\n",
+					rc);
 			goto error_service;
+		}
+
+		service = pdr_add_lookup(pgdev->pdr_handle,
+				pgdev->pdr_service_name, pgdev->pdr_path_name);
+		if (IS_ERR(service) && PTR_ERR(service) != -EALREADY) {
+			rc = PTR_ERR(service);
+			pr_err("Failed in pdr_add_lookup rc=%d\n", rc);
+			goto error_pdr;
 		}
 
 		pr_debug("Registering PDR for path_name: %s service_name: %s\n",
@@ -746,6 +692,8 @@ static int pmic_glink_probe(struct platform_device *pdev)
 	pr_debug("%s probed successfully\n", pgdev->channel_name);
 	return 0;
 
+error_pdr:
+	pdr_handle_release(pgdev->pdr_handle);
 error_service:
 	qcom_unregister_ssr_notifier(pgdev->subsys_handle, &pgdev->ssr_nb);
 error_subsys:
@@ -758,7 +706,7 @@ static int pmic_glink_remove(struct platform_device *pdev)
 {
 	struct pmic_glink_dev *pgdev = dev_get_drvdata(&pdev->dev);
 
-	service_notif_unregister_notifier(pgdev->pdr_handle, &pgdev->pdr_nb);
+	pdr_handle_release(pgdev->pdr_handle);
 	qcom_unregister_ssr_notifier(pgdev->subsys_handle, &pgdev->ssr_nb);
 	device_init_wakeup(pgdev->dev, false);
 	debugfs_remove_recursive(pgdev->debugfs_dir);
