@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2016, 2019-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016, 2019-2021, The Linux Foundation. All rights reserved. */
 
 #ifndef __QCOM_CLK_DEBUG_H__
 #define __QCOM_CLK_DEBUG_H__
@@ -79,6 +79,7 @@ struct clk_debug_mux {
 	u32 post_div_val;
 	u32 period_offset;
 	struct clk_hw hw;
+	struct list_head list;
 };
 
 #define to_clk_measure(_hw) container_of((_hw), struct clk_debug_mux, hw)
@@ -86,6 +87,7 @@ struct clk_debug_mux {
 extern const struct clk_ops clk_debug_mux_ops;
 
 int clk_debug_measure_register(struct clk_hw *hw);
+int devm_clk_register_debug_mux(struct device *pdev, struct clk_debug_mux *mux);
 void clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry);
 int map_debug_bases(struct platform_device *pdev, const char *base,
 		    struct clk_debug_mux *mux);
