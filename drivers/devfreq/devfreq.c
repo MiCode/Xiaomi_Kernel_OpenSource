@@ -732,9 +732,6 @@ static void devfreq_dev_release(struct device *dev)
 		devfreq->profile->exit(devfreq->dev.parent);
 
 	mutex_destroy(&devfreq->lock);
-#ifdef CONFIG_SCHED_WALT
-	event_mutex_destroy(devfreq);
-#endif
 	kfree(devfreq);
 }
 
@@ -777,9 +774,6 @@ struct devfreq *devfreq_add_device(struct device *dev,
 	}
 
 	mutex_init(&devfreq->lock);
-#ifdef CONFIG_SCHED_WALT
-	event_mutex_init(devfreq);
-#endif
 	mutex_lock(&devfreq->lock);
 	devfreq->dev.parent = dev;
 	devfreq->dev.class = devfreq_class;
@@ -1091,14 +1085,8 @@ int devfreq_suspend_device(struct devfreq *devfreq)
 		return 0;
 
 	if (devfreq->governor) {
-#ifdef CONFIG_SCHED_WALT
-		event_mutex_lock(devfreq);
-#endif
 		ret = devfreq->governor->event_handler(devfreq,
 					DEVFREQ_GOV_SUSPEND, NULL);
-#ifdef CONFIG_SCHED_WALT
-		event_mutex_unlock(devfreq);
-#endif
 		if (ret)
 			return ret;
 	}
@@ -1142,14 +1130,8 @@ int devfreq_resume_device(struct devfreq *devfreq)
 	}
 
 	if (devfreq->governor) {
-#ifdef CONFIG_SCHED_WALT
-		event_mutex_lock(devfreq);
-#endif
 		ret = devfreq->governor->event_handler(devfreq,
 					DEVFREQ_GOV_RESUME, NULL);
-#ifdef CONFIG_SCHED_WALT
-		event_mutex_unlock(devfreq);
-#endif
 		if (ret)
 			return ret;
 	}
@@ -1370,18 +1352,11 @@ static ssize_t governor_store(struct device *dev, struct device_attribute *attr,
 		goto out;
 	}
 
-#ifdef CONFIG_SCHED_WALT
-	event_mutex_lock(df);
-#endif
 	ret = df->governor->event_handler(df, DEVFREQ_GOV_STOP, NULL);
 	if (ret) {
 		dev_warn(dev, "%s: Governor %s not stopped(%d)\n",
 			 __func__, df->governor->name, ret);
-#ifdef CONFIG_SCHED_WALT
-		goto gov_stop_out;
-#else
 		goto out;
-#endif
 	}
 
 	prev_governor = df->governor;
@@ -1402,11 +1377,6 @@ static ssize_t governor_store(struct device *dev, struct device_attribute *attr,
 			df->governor = NULL;
 		}
 	}
-
-#ifdef CONFIG_SCHED_WALT
-gov_stop_out:
-	event_mutex_unlock(df);
-#endif
 out:
 	mutex_unlock(&devfreq_list_lock);
 
@@ -1514,14 +1484,8 @@ static ssize_t polling_interval_store(struct device *dev,
 	if (ret != 1)
 		return -EINVAL;
 
-#ifdef CONFIG_SCHED_WALT
-	event_mutex_lock(df);
-#endif
 	df->governor->event_handler(df, DEVFREQ_GOV_UPDATE_INTERVAL, &value);
 	ret = count;
-#ifdef CONFIG_SCHED_WALT
-	event_mutex_unlock(df);
-#endif
 
 	return ret;
 }
