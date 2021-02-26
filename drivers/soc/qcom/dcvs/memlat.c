@@ -504,6 +504,9 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 	u32 max_memfreq, max_cpufreq = 0;
 	u32 hw = mon->memlat_grp->hw_type;
 
+	if (hw >= NUM_DCVS_HW_TYPES)
+		return;
+
 	for_each_cpu(cpu, &mon->cpus) {
 		stats = per_cpu(sampling_stats, cpu);
 
@@ -893,7 +896,7 @@ static int memlat_dev_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct kobject *dcvs_kobj;
 	struct memlat_dev_data *dev_data;
-	int i, cpu, last_ev, last_cpu, max, ret;
+	int i, cpu, last_ev = 0, last_cpu = 0, max, ret;
 	u32 event_id;
 
 	dev_data = devm_kzalloc(dev, sizeof(*dev_data), GFP_KERNEL);
@@ -983,7 +986,7 @@ static int memlat_grp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct memlat_group *memlat_grp;
-	int i, cpu, last_ev, last_cpu, max, ret;
+	int i, cpu, last_ev = 0, last_cpu = 0, max, ret;
 	u32 event_id, num_mons;
 	u32 hw_type = NUM_DCVS_PATHS, path_type = NUM_DCVS_PATHS;
 	struct device_node *of_node;
@@ -1001,6 +1004,9 @@ static int memlat_grp_probe(struct platform_device *pdev)
 	}
 
 	memlat_grp = devm_kzalloc(dev, sizeof(*memlat_grp), GFP_KERNEL);
+	if (!memlat_grp)
+		return -ENOMEM;
+
 	memlat_grp->hw_type = hw_type;
 	memlat_grp->dev = dev;
 

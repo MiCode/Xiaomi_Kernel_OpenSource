@@ -192,6 +192,9 @@ int qcom_pmu_create(u32 event_id, int cpu)
 	struct perf_event_attr *attr = alloc_attr();
 	int i, ret = 0;
 
+	if (!attr)
+		return -ENOMEM;
+
 	if (!qcom_pmu_inited) {
 		ret = -EPROBE_DEFER;
 		goto out;
@@ -216,6 +219,12 @@ int qcom_pmu_create(u32 event_id, int cpu)
 		} else if (!event->event_id && !new_event)
 			new_event = event;
 	}
+
+	if (!new_event) {
+		ret = -ENOSPC;
+		goto unlock_out;
+	}
+
 	new_event->event_id = event_id;
 	ret = set_event(new_event, cpu, attr);
 	if (ret < 0) {
