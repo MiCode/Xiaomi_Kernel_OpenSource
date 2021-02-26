@@ -15,8 +15,8 @@
 #include <net/cnss2.h>
 #include <soc/qcom/memory_dump.h>
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART) || \
-	IS_ENABLED(CONFIG_SUBSYSTEM_RAMDUMP)
-#include <soc/qcom/ramdump.h>
+	IS_ENABLED(CONFIG_QCOM_RAMDUMP)
+#include <soc/qcom/qcom_ramdump.h>
 #endif
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 #include <soc/qcom/subsystem_notif.h>

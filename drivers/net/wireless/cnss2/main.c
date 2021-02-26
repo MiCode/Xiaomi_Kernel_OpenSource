@@ -1887,7 +1887,7 @@ int cnss_do_ramdump(struct cnss_plat_data *plat_priv)
 	segment.v_address = (void __iomem *)ramdump_info->ramdump_va;
 	segment.size = ramdump_info->ramdump_size;
 
-	return do_ramdump(ramdump_info->ramdump_dev, &segment, 1);
+	return qcom_ramdump(ramdump_info->ramdump_dev, &segment, 1);
 }
 
 int cnss_do_elf_ramdump(struct cnss_plat_data *plat_priv)
@@ -1934,8 +1934,8 @@ int cnss_do_elf_ramdump(struct cnss_plat_data *plat_priv)
 	ramdump_segs->v_address = (void __iomem *)(&meta_info);
 	ramdump_segs->size = sizeof(meta_info);
 
-	ret = do_elf_ramdump(info_v2->ramdump_dev, ramdump_segs,
-			     dump_data->nentries + 1);
+	ret = qcom_elf_ramdump(info_v2->ramdump_dev, ramdump_segs,
+			       dump_data->nentries + 1);
 	kfree(ramdump_segs);
 
 	return ret;
@@ -1990,7 +1990,7 @@ static void cnss_destroy_ramdump_device(struct cnss_plat_data *plat_priv,
 {
 }
 
-#if IS_ENABLED(CONFIG_SUBSYSTEM_RAMDUMP)
+#if IS_ENABLED(CONFIG_QCOM_RAMDUMP)
 int cnss_do_ramdump(struct cnss_plat_data *plat_priv)
 {
 	struct cnss_ramdump_info *ramdump_info = &plat_priv->ramdump_info;
@@ -2003,7 +2003,7 @@ int cnss_do_ramdump(struct cnss_plat_data *plat_priv)
 	segment.size = ramdump_info->ramdump_size;
 	list_add(&segment.node, &head);
 
-	return do_dump(&head, ramdump_info->ramdump_dev);
+	return qcom_dump(&head, ramdump_info->ramdump_dev);
 }
 
 int cnss_do_elf_ramdump(struct cnss_plat_data *plat_priv)
@@ -2048,7 +2048,7 @@ int cnss_do_elf_ramdump(struct cnss_plat_data *plat_priv)
 	seg->size = sizeof(meta_info);
 	list_add(&seg->node, &head);
 
-	ret = do_elf_dump(&head, info_v2->ramdump_dev);
+	ret = qcom_elf_dump(&head, info_v2->ramdump_dev);
 
 	while (!list_empty(&head)) {
 		seg = list_first_entry(&head, struct qcom_dump_segment, node);
@@ -2068,7 +2068,7 @@ int cnss_do_elf_ramdump(struct cnss_plat_data *plat_priv)
 {
 	return 0;
 }
-#endif /* CONFIG_SUBSYSTEM_RAMDUMP */
+#endif /* CONFIG_QCOM_RAMDUMP */
 #endif /* CONFIG_MSM_SUBSYSTEM_RESTART */
 
 static int cnss_init_dump_entry(struct cnss_plat_data *plat_priv)
