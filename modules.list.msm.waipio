@@ -188,6 +188,8 @@ cpu_voltage_cooling.ko
 ddr_cdev.ko
 msm_lmh_dcvs.ko
 thermal_pause.ko
+qti_qmi_cdev.ko
+qti_qmi_sensor.ko
 cpu_hotplug.ko
 tz_log.ko
 qseecom-mod.ko
