@@ -2196,6 +2196,7 @@
   strnchr
   strncmp
   strncpy
+  strncpy_from_user
   strnlen
   strnstr
   strpbrk
