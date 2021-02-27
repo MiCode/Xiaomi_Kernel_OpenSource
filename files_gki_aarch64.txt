@@ -3734,6 +3734,7 @@ include/trace/events/filelock.h
 include/trace/events/filemap.h
 include/trace/events/gpio.h
 include/trace/events/gpu_mem.h
+include/trace/events/huge_memory.h
 include/trace/events/i2c.h
 include/trace/events/initcall.h
 include/trace/events/iommu.h
@@ -4835,6 +4836,7 @@ mm/filemap.c
 mm/frame_vector.c
 mm/gup.c
 mm/highmem.c
+mm/huge_memory.c
 mm/init-mm.c
 mm/internal.h
 mm/interval_tree.c
@@ -4847,6 +4849,7 @@ mm/kasan/report_hw_tags.c
 mm/kfence/core.c
 mm/kfence/kfence.h
 mm/kfence/report.c
+mm/khugepaged.c
 mm/list_lru.c
 mm/maccess.c
 mm/madvise.c
