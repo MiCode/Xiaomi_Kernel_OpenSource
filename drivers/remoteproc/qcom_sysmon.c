@@ -395,7 +395,9 @@ static void ssctl_send_event(struct qcom_sysmon *sysmon,
 	if (ret < 0)
 		dev_err(sysmon->dev, "failed receiving QMI response\n");
 	else if (resp.resp.result)
-		dev_err(sysmon->dev, "ssr event send failed\n");
+		dev_err(sysmon->dev, "failed to receive %s ssr %s event. response result: %d\n",
+			event->subsys_name, sysmon_state_string[event->ssr_event],
+			resp.resp.result);
 	else
 		dev_dbg(sysmon->dev, "ssr event send completed\n");
 }
