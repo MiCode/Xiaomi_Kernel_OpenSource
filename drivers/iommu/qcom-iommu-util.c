@@ -337,6 +337,16 @@ int qcom_iommu_get_fault_ids(struct iommu_domain *domain,
 }
 EXPORT_SYMBOL(qcom_iommu_get_fault_ids);
 
+int qcom_iommu_get_msi_size(struct device *dev, u32 *msi_size)
+{
+	struct device_node *np = qcom_iommu_group_parse_phandle(dev);
+
+	if (!np)
+		return -EINVAL;
+
+	return of_property_read_u32(np, "qcom,iommu-msi-size", msi_size);
+}
+
 struct io_pgtable_ops *qcom_alloc_io_pgtable_ops(enum io_pgtable_fmt fmt,
 				struct qcom_io_pgtable_info *pgtbl_info,
 				void *cookie)
