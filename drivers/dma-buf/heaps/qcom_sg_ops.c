@@ -165,6 +165,9 @@ static int qcom_sg_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 	struct qcom_sg_buffer *buffer = dmabuf->priv;
 	struct dma_heap_attachment *a;
 
+	if (buffer->uncached)
+		return 0;
+
 	mutex_lock(&buffer->lock);
 
 	/* Keep the same behavior as ion by returning 0 instead of -EPERM */
@@ -176,13 +179,12 @@ static int qcom_sg_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 	if (buffer->vmap_cnt)
 		invalidate_kernel_vmap_range(buffer->vaddr, buffer->len);
 
-	if (!buffer->uncached) {
-		list_for_each_entry(a, &buffer->attachments, list) {
-			if (!a->mapped)
-				continue;
-			dma_sync_sgtable_for_cpu(a->dev, a->table, direction);
-		}
+	list_for_each_entry(a, &buffer->attachments, list) {
+		if (!a->mapped)
+			continue;
+		dma_sync_sgtable_for_cpu(a->dev, a->table, direction);
 	}
+
 	mutex_unlock(&buffer->lock);
 
 	return 0;
@@ -193,6 +195,9 @@ static int qcom_sg_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 {
 	struct qcom_sg_buffer *buffer = dmabuf->priv;
 	struct dma_heap_attachment *a;
+
+	if (buffer->uncached)
+		return 0;
 
 	mutex_lock(&buffer->lock);
 
@@ -205,16 +210,140 @@ static int qcom_sg_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 	if (buffer->vmap_cnt)
 		flush_kernel_vmap_range(buffer->vaddr, buffer->len);
 
-	if (!buffer->uncached) {
-		list_for_each_entry(a, &buffer->attachments, list) {
-			if (!a->mapped)
-				continue;
-			dma_sync_sgtable_for_device(a->dev, a->table, direction);
-		}
+	list_for_each_entry(a, &buffer->attachments, list) {
+		if (!a->mapped)
+			continue;
+		dma_sync_sgtable_for_device(a->dev, a->table, direction);
 	}
 	mutex_unlock(&buffer->lock);
 
 	return 0;
+}
+
+static int sgl_sync_range(struct device *dev, struct scatterlist *sgl,
+			  unsigned int nents, unsigned long offset,
+			  unsigned long length,
+			  enum dma_data_direction dir, bool for_cpu)
+{
+	int i;
+	struct scatterlist *sg;
+	unsigned int len = 0;
+	dma_addr_t sg_dma_addr;
+
+	for_each_sg(sgl, sg, nents, i) {
+		if (sg_dma_len(sg) == 0)
+			break;
+
+		if (i > 0) {
+			pr_warn_ratelimited("Partial cmo only supported with 1 segment\n"
+				"is dma_set_max_seg_size being set on dev:%s\n",
+				dev_name(dev));
+			return -EINVAL;
+		}
+	}
+
+	for_each_sg(sgl, sg, nents, i) {
+		unsigned int sg_offset, sg_left, size = 0;
+
+		if (i == 0)
+			sg_dma_addr = sg_dma_address(sg);
+
+		len += sg->length;
+		if (len <= offset) {
+			sg_dma_addr += sg->length;
+			continue;
+		}
+
+		sg_left = len - offset;
+		sg_offset = sg->length - sg_left;
+
+		size = (length < sg_left) ? length : sg_left;
+		if (for_cpu)
+			dma_sync_single_range_for_cpu(dev, sg_dma_addr,
+						      sg_offset, size, dir);
+		else
+			dma_sync_single_range_for_device(dev, sg_dma_addr,
+							 sg_offset, size, dir);
+
+		offset += size;
+		length -= size;
+		sg_dma_addr += sg->length;
+
+		if (length == 0)
+			break;
+	}
+
+	return 0;
+}
+
+static int qcom_sg_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
+						    enum dma_data_direction dir,
+						    unsigned int offset,
+						    unsigned int len)
+{
+	struct qcom_sg_buffer *buffer = dmabuf->priv;
+	struct dma_heap_attachment *a;
+	int ret = 0;
+
+	if (buffer->uncached)
+		return 0;
+
+	mutex_lock(&buffer->lock);
+
+	/* Keep the same behavior as ion by returning 0 instead of -EPERM */
+	if (!mem_buf_vmperm_can_cmo(buffer->vmperm)) {
+		mutex_unlock(&buffer->lock);
+		return 0;
+	}
+
+	if (buffer->vmap_cnt)
+		invalidate_kernel_vmap_range(buffer->vaddr + offset, len);
+
+	list_for_each_entry(a, &buffer->attachments, list) {
+		if (!a->mapped)
+			continue;
+
+		ret = sgl_sync_range(a->dev, a->table->sgl, a->table->orig_nents,
+				     offset, len, dir, true);
+	}
+	mutex_unlock(&buffer->lock);
+
+	return ret;
+}
+
+static int qcom_sg_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
+					      enum dma_data_direction direction,
+					      unsigned int offset,
+					      unsigned int len)
+{
+	struct qcom_sg_buffer *buffer = dmabuf->priv;
+	struct dma_heap_attachment *a;
+	int ret = 0;
+
+	if (buffer->uncached)
+		return 0;
+
+	mutex_lock(&buffer->lock);
+
+	/* Keep the same behavior as ion by returning 0 instead of -EPERM */
+	if (!mem_buf_vmperm_can_cmo(buffer->vmperm)) {
+		mutex_unlock(&buffer->lock);
+		return 0;
+	}
+
+	if (buffer->vmap_cnt)
+		flush_kernel_vmap_range(buffer->vaddr + offset, len);
+
+	list_for_each_entry(a, &buffer->attachments, list) {
+		if (!a->mapped)
+			continue;
+
+		ret = sgl_sync_range(a->dev, a->table->sgl, a->table->orig_nents,
+				     offset, len, direction, false);
+	}
+	mutex_unlock(&buffer->lock);
+
+	return ret;
 }
 
 static void qcom_sg_vm_ops_open(struct vm_area_struct *vma)
@@ -373,6 +502,8 @@ const struct mem_buf_dma_buf_ops qcom_sg_buf_ops = {
 		.unmap_dma_buf = qcom_sg_unmap_dma_buf,
 		.begin_cpu_access = qcom_sg_dma_buf_begin_cpu_access,
 		.end_cpu_access = qcom_sg_dma_buf_end_cpu_access,
+		.begin_cpu_access_partial = qcom_sg_dma_buf_begin_cpu_access_partial,
+		.end_cpu_access_partial = qcom_sg_dma_buf_end_cpu_access_partial,
 		.mmap = qcom_sg_mmap,
 		.vmap = qcom_sg_vmap,
 		.vunmap = qcom_sg_vunmap,
