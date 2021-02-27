@@ -2450,15 +2450,6 @@ static int kgsl_setup_anon_useraddr(struct kgsl_pagetable *pagetable,
 }
 
 #ifdef CONFIG_DMA_SHARED_BUFFER
-static int match_file(const void *p, struct file *file, unsigned int fd)
-{
-	/*
-	 * We must return fd + 1 because iterate_fd stops searching on
-	 * non-zero return, but 0 is a valid fd.
-	 */
-	return (p == file) ? (fd + 1) : 0;
-}
-
 static void _setup_cache_mode(struct kgsl_mem_entry *entry,
 		struct vm_area_struct *vma)
 {
@@ -2512,14 +2503,21 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 			return -EFAULT;
 		}
 
-		/* Look for the fd that matches this the vma file */
-		fd = iterate_fd(current->files, 0, match_file, vma->vm_file);
-		if (fd != 0) {
-			dmabuf = dma_buf_get(fd - 1);
-			if (IS_ERR(dmabuf)) {
-				mmap_read_unlock(current->mm);
-				return PTR_ERR(dmabuf);
-			}
+		fd = get_unused_fd_flags(0);
+		if (fd < 0) {
+			mmap_read_unlock(current->mm);
+			return -ENOSPC;
+		}
+
+		fd_install(fd, vma->vm_file);
+
+		dmabuf = dma_buf_get(fd);
+
+		put_unused_fd(fd);
+
+		if (IS_ERR(dmabuf)) {
+			mmap_read_unlock(current->mm);
+			return PTR_ERR(dmabuf);
 		}
 	}
 
