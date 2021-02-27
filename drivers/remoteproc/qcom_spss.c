@@ -186,12 +186,14 @@ static void clear_sw_init_done_error(struct qcom_spss *spss, int err)
 
 static void clear_wdog(struct qcom_spss *spss)
 {
-	/* Check crash status to know if device is restarting*/
-	if (spss->rproc->state == RPROC_RUNNING) {
-		dev_err(spss->dev, "wdog bite received from %s!\n", spss->rproc->name);
-		__raw_writel(BIT(spss->bits_arr[ERR_READY]), spss->irq_clr);
-		rproc_report_crash(spss->rproc, RPROC_WATCHDOG);
+	dev_err(spss->dev, "wdog bite received from %s!\n", spss->rproc->name);
+	if (spss->rproc->recovery_disabled) {
+		spss->rproc->state = RPROC_CRASHED;
+		panic("Panicking, remoterpoc %s crashed\n", spss->rproc->name);
 	}
+
+	__raw_writel(BIT(spss->bits_arr[ERR_READY]), spss->irq_clr);
+	rproc_report_crash(spss->rproc, RPROC_WATCHDOG);
 }
 
 static irqreturn_t spss_generic_handler(int irq, void *dev_id)
