@@ -522,4 +522,14 @@ config QCOM_IOMMU_LEGACY_DEBUG
 
 	  If unsure, say N.
 
+config QCOM_IOMMU_DEBUG
+	tristate "IOMMU debugging and testing"
+	depends on QCOM_IOMMU_UTIL
+	depends on DEBUG_FS
+	help
+	  This option is used to enable profiling and debugging in
+	  the IOMMU framework code. IOMMU profiling and debugging
+	  can be done through the debugfs nodes which this option
+	  makes available.
+
 endif # IOMMU_SUPPORT
