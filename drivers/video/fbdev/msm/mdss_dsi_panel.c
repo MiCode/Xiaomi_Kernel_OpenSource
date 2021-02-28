@@ -38,6 +38,7 @@ void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 	if (ctrl->pwm_bl == NULL || IS_ERR(ctrl->pwm_bl)) {
 		pr_err("%s: Error: lpg_chan=%d pwm request failed\n",
 				__func__, ctrl->pwm_lpg_chan);
+		ctrl->pwm_bl = NULL;
 	}
 	ctrl->pwm_enabled = 0;
 }
