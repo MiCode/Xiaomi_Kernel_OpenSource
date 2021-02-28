@@ -25,6 +25,39 @@ static struct measure_clk_data debug_mux_priv = {
 	.xo_div4_cbcr = 0x30034,
 };
 
+static const char *const apss_cc_debug_mux_parent_names[] = {
+	"pwrcl_clk",
+};
+
+static int apss_cc_debug_mux_sels[] = {
+	0x0,		/* pwrcl_clk */
+};
+
+static int apss_cc_debug_mux_pre_divs[] = {
+	0x1,		/* pwrcl_clk */
+};
+
+static struct clk_debug_mux apss_cc_debug_mux = {
+	.priv = &debug_mux_priv,
+	.debug_offset = 0x0,
+	.post_div_offset = 0x0,
+	.cbcr_offset = U32_MAX,
+	.src_sel_mask = 0x3FF00,
+	.src_sel_shift = 8,
+	.post_div_mask = 0xF0000000,
+	.post_div_shift = 28,
+	.post_div_val = 1,
+	.mux_sels = apss_cc_debug_mux_sels,
+	.pre_div_vals = apss_cc_debug_mux_pre_divs,
+	.hw.init = &(struct clk_init_data){
+		.name = "apss_cc_debug_mux",
+		.ops = &clk_debug_mux_ops,
+		.parent_names = apss_cc_debug_mux_parent_names,
+		.num_parents = ARRAY_SIZE(apss_cc_debug_mux_parent_names),
+		.flags = CLK_IS_MEASURE,
+	},
+};
+
 static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_ahb_clk",
 	"gcc_apss_ahb_clk",
@@ -156,6 +189,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_gtcu_ahb_clk",
 	"gcc_bimc_clk",
 	"gcc_smmu_cfg_clk",
+	"apss_cc_debug_mux",
 };
 
 static int gcc_debug_mux_sels[] = {
@@ -289,6 +323,7 @@ static int gcc_debug_mux_sels[] = {
 	0x58,		/* gcc_gtcu_ahb_clk */
 	0x15A,		/* gcc_bimc_clk */
 	0x5B,		/* gcc_smmu_cfg_clk */
+	0x16A,		/* apss_cc_debug_mux */
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
@@ -312,8 +347,21 @@ static struct clk_debug_mux gcc_debug_mux = {
 	},
 };
 
+static struct clk_dummy pwrcl_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "pwrcl_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+struct clk_hw *debugcc_qm215_hws[] = {
+	&pwrcl_clk.hw,
+};
+
 static struct mux_regmap_names mux_list[] = {
 	{ .mux = &gcc_debug_mux, .regmap_name = "qcom,gcc" },
+	{ .mux = &apss_cc_debug_mux, .regmap_name = "qcom,cpu" },
 };
 
 static const struct of_device_id clk_debug_match_table[] = {
@@ -352,6 +400,15 @@ static int clk_debug_sdm429w_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to register %s, err:(%d)\n",
 				clk_hw_get_name(&mux_list[i].mux->hw),
 				PTR_ERR(clk));
+			return PTR_ERR(clk);
+		}
+	}
+
+	for (i = 0; i < ARRAY_SIZE(debugcc_qm215_hws); i++) {
+		clk = devm_clk_register(&pdev->dev, debugcc_qm215_hws[i]);
+		if (IS_ERR(clk)) {
+			dev_err(&pdev->dev, "Unable to register %s, err:(%d)\n",
+			debugcc_qm215_hws[i]->init->name, PTR_ERR(clk));
 			return PTR_ERR(clk);
 		}
 	}
