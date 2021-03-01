@@ -1,3 +1,4 @@
+arch/arm64/crypto/aes-ce-core.S
 arch/arm64/crypto/aes-ce-glue.c
 arch/arm64/crypto/aes-ce.S
 arch/arm64/crypto/aes-ce-setkey.h
@@ -904,6 +905,7 @@ drivers/hid/hid-picolcd_core.c
 drivers/hid/hid-picolcd_debugfs.c
 drivers/hid/hid-picolcd.h
 drivers/hid/hid-plantronics.c
+drivers/hid/hid-playstation.c
 drivers/hid/hid-prodikeys.c
 drivers/hid/hid-quirks.c
 drivers/hid/hidraw.c
@@ -3823,6 +3825,7 @@ include/trace/hooks/rwsem.h
 include/trace/hooks/sched.h
 include/trace/hooks/softlockup.h
 include/trace/hooks/sysrqcrash.h
+include/trace/hooks/thermal.h
 include/trace/hooks/timer.h
 include/trace/hooks/topology.h
 include/trace/hooks/vendor_hooks.h

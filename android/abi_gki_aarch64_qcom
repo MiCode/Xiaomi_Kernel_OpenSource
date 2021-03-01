@@ -4,6 +4,7 @@
   add_cpu
   add_device_randomness
   add_memory
+  add_memory_subsection
   add_taint
   add_timer
   add_timer_on
@@ -1496,6 +1497,7 @@
   of_phy_simple_xlate
   of_platform_depopulate
   of_platform_device_create
+  of_platform_device_destroy
   of_platform_populate
   of_property_count_elems_of_size
   of_property_match_string
@@ -1869,6 +1871,7 @@
   release_sock
   remap_pfn_range
   remove_cpu
+  remove_memory_subsection
   remove_proc_entry
   remove_wait_queue
   report_iommu_fault
@@ -2014,6 +2017,7 @@
   sg_miter_start
   sg_miter_stop
   sg_next
+  __sg_page_iter_dma_next
   __sg_page_iter_next
   __sg_page_iter_start
   sg_pcopy_from_buffer
