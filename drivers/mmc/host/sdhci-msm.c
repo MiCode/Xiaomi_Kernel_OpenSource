@@ -475,9 +475,6 @@ static void sdhci_msm_bus_voting(struct sdhci_host *host, bool enable);
 static int sdhci_msm_dt_get_array(struct device *dev, const char *prop_name,
 				u32 **bw_vecs, int *len, u32 size);
 
-static unsigned int sdhci_msm_get_sup_clk_rate(struct sdhci_host *host,
-				u32 req_clk);
-
 static const struct sdhci_msm_offset *sdhci_priv_msm_offset(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -520,8 +517,7 @@ static void sdhci_msm_v5_variant_writel_relaxed(u32 val,
 	writel_relaxed(val, host->ioaddr + offset);
 }
 
-static unsigned int msm_get_clock_rate_for_bus_mode(struct sdhci_host *host,
-						    unsigned int clock)
+static unsigned int msm_get_clock_mult_for_bus_mode(struct sdhci_host *host)
 {
 	struct mmc_ios ios = host->mmc->ios;
 	/*
@@ -534,8 +530,8 @@ static unsigned int msm_get_clock_rate_for_bus_mode(struct sdhci_host *host,
 	    ios.timing == MMC_TIMING_MMC_DDR52 ||
 	    ios.timing == MMC_TIMING_MMC_HS400 ||
 	    host->flags & SDHCI_HS400_TUNING)
-		clock *= 2;
-	return clock;
+		return 2;
+	return 1;
 }
 
 #if defined(CONFIG_SDC_QTI)
@@ -560,20 +556,36 @@ static void msm_set_clock_rate_for_bus_mode(struct sdhci_host *host,
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
 	struct mmc_ios curr_ios = host->mmc->ios;
 	struct clk *core_clk = msm_host->bulk_clks[0].clk;
+	unsigned long achieved_rate;
+	unsigned int desired_rate;
+	unsigned int mult;
 	int rc;
 
-	clock = msm_get_clock_rate_for_bus_mode(host, clock);
-	rc = clk_set_rate(core_clk, clock);
+	mult = msm_get_clock_mult_for_bus_mode(host);
+	desired_rate = clock * mult;
+	rc = clk_set_rate(core_clk, desired_rate);
 	if (rc) {
 		pr_err("%s: Failed to set clock at rate %u at timing %d\n",
-		       mmc_hostname(host->mmc), clock,
-		       curr_ios.timing);
+		       mmc_hostname(host->mmc), desired_rate, curr_ios.timing);
 		return;
 	}
-	msm_host->clk_rate = clock;
+
+	/*
+	 * Qualcomm Technologies, Inc. clock drivers by default round
+	 * clock _up_ if they can't make the requested rate.  This is not
+	 * good for SD.  Yell if we encounter it.
+	 */
+	achieved_rate = clk_get_rate(core_clk);
+	if (achieved_rate > desired_rate)
+		pr_debug("%s: Card appears overclocked; req %u Hz, actual %lu Hz\n",
+			mmc_hostname(host->mmc), desired_rate, achieved_rate);
+	host->mmc->actual_clock = achieved_rate / mult;
+
+	/* Stash the rate we requested to use in sdhci_msm_runtime_resume() */
+	msm_host->clk_rate = desired_rate;
+
 	pr_debug("%s: Setting clock at rate %lu at timing %d\n",
-		 mmc_hostname(host->mmc), clk_get_rate(core_clk),
-		 curr_ios.timing);
+		 mmc_hostname(host->mmc), achieved_rate, curr_ios.timing);
 }
 
 /* Platform specific tuning */
@@ -820,7 +832,7 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 	const struct sdhci_msm_offset *msm_offset =
 					msm_host->offset;
 
-	dll_clock = sdhci_msm_get_sup_clk_rate(host, host->clock);
+	dll_clock = mmc->actual_clock;
 	spin_lock_irqsave(&host->lock, flags);
 
 	core_vendor_spec = readl_relaxed(host->ioaddr +
@@ -2437,27 +2449,6 @@ static unsigned int sdhci_msm_get_min_clock(struct sdhci_host *host)
 	return SDHCI_MSM_MIN_CLOCK;
 }
 
-static unsigned int sdhci_msm_get_sup_clk_rate(struct sdhci_host *host,
-						u32 req_clk)
-{
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
-	struct clk *core_clk = msm_host->bulk_clks[0].clk;
-	unsigned int sup_clk = -1;
-
-	if (req_clk < sdhci_msm_get_min_clock(host)) {
-		sup_clk = sdhci_msm_get_min_clock(host);
-		return sup_clk;
-	}
-
-	sup_clk = clk_round_rate(core_clk, clk_get_rate(core_clk));
-
-	if (host->clock != msm_host->clk_rate)
-		sup_clk = sup_clk / 2;
-
-	return sup_clk;
-}
-
 /**
  * __sdhci_msm_set_clock - sdhci_msm clock control.
  *
@@ -2469,13 +2460,6 @@ static unsigned int sdhci_msm_get_sup_clk_rate(struct sdhci_host *host,
 static void __sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 {
 	u16 clk;
-	/*
-	 * Keep actual_clock as zero -
-	 * - since there is no divider used so no need of having actual_clock.
-	 * - MSM controller uses SDCLK for data timeout calculation. If
-	 *   actual_clock is zero, host->clock is taken for calculation.
-	 */
-	host->mmc->actual_clock = 0;
 
 	sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
 
@@ -2498,7 +2482,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
 
 	if (!clock) {
-		msm_host->clk_rate = clock;
+		host->mmc->actual_clock = msm_host->clk_rate = 0;
 		goto out;
 	}
 
