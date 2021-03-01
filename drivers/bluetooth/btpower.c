@@ -830,6 +830,27 @@ static void bt_power_vreg_put(void)
 	}
 }
 
+static int bt_disable_asd(void)
+{
+	int rc = 0;
+	int i;
+	int num_vregs =  bt_power_pdata->num_vregs;
+	struct bt_power_vreg_data *vreg_info = NULL;
+
+	for (i = 0; i < num_vregs; i++) {
+		vreg_info = &bt_power_pdata->vreg_info[i];
+		if (strnstr(vreg_info->name, "bt-vdd-asd", sizeof(vreg_info->name))) {
+			if (vreg_info->reg) {
+				pr_warn("%s: Disabling ASD regulator\n", __func__);
+				rc = bt_vreg_disable(vreg_info);
+			} else {
+				pr_warn("%s: ASD regulator is not configured\n", __func__);
+			}
+			break;
+		}
+	}
+	return rc;
+}
 
 static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 {
@@ -1056,6 +1077,14 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			chipset_version);
 		if (chipset_version) {
 			soc_id = chipset_version;
+			if (soc_id == HASTINGS_SOC_ID_0100 ||
+				soc_id == HASTINGS_SOC_ID_0101 ||
+				soc_id == HASTINGS_SOC_ID_0110 ||
+				soc_id == HASTINGS_SOC_ID_0200) {
+				ret = bt_disable_asd();
+				if (ret >= 0)
+					PWR_SRC_STATUS_SET(BT_VDD_ASD_LDO, PWR_SRC_NOT_AVAILABLE);
+			}
 		} else {
 			pr_err("%s: got invalid soc version\n", __func__);
 			soc_id = 0;

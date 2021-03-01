@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __LINUX_BLUETOOTH_POWER_H
@@ -16,6 +16,14 @@ enum bt_power_modes {
 	BT_POWER_DISABLE = 0,
 	BT_POWER_ENABLE,
 	BT_POWER_RETENTION
+};
+
+/* Hasting chipset version information */
+enum {
+	HASTINGS_SOC_ID_0100 = 0x400A0100,
+	HASTINGS_SOC_ID_0101 = 0x400A0101,
+	HASTINGS_SOC_ID_0110 = 0x400A0110,
+	HASTINGS_SOC_ID_0200 = 0x400A0200,
 };
 
 struct log_index {
