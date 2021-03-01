@@ -1785,6 +1785,8 @@ extern const u32		sched_prio_to_wmult[40];
 #define ENQUEUE_MIGRATED	0x00
 #endif
 
+#define ENQUEUE_WAKEUP_SYNC	0x80
+
 #define RETRY_TASK		((void *)-1UL)
 
 struct sched_class {
@@ -1908,6 +1910,7 @@ extern void trigger_load_balance(struct rq *rq);
 
 extern void set_cpus_allowed_common(struct task_struct *p, const struct cpumask *new_mask);
 
+extern unsigned long __read_mostly max_load_balance_interval;
 #endif
 
 #ifdef CONFIG_CPU_IDLE

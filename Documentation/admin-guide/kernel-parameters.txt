@@ -381,6 +381,12 @@
 	arcrimi=	[HW,NET] ARCnet - "RIM I" (entirely mem-mapped) cards
 			Format: <io>,<irq>,<nodeID>
 
+	arm64.nobti	[ARM64] Unconditionally disable Branch Target
+			Identification support
+
+	arm64.nopauth	[ARM64] Unconditionally disable Pointer Authentication
+			support
+
 	ataflop=	[HW,M68k]
 
 	atarimouse=	[HW,MOUSE] Atari Mouse
@@ -1441,6 +1447,11 @@
 				to enforce probe and suspend/resume ordering.
 			rpm --	Like "on", but also use to order runtime PM.
 
+	fw_devlink.strict=<bool>
+			[KNL] Treat all inferred dependencies as mandatory
+			dependencies. This only applies for fw_devlink=on|rpm.
+			Format: <bool>
+
 	gamecon.map[2|3]=
 			[HW,JOY] Multisystem joystick and NES/SNES/PSX pad
 			support via parallel port (up to 5 devices per port)
@@ -2274,6 +2285,9 @@
 	kvm-arm.mode=
 			[KVM,ARM] Select one of KVM/arm64's modes of operation.
 
+			nvhe: Standard nVHE-based mode, without support for
+			      protected guests.
+
 			protected: nVHE-based mode with support for guests whose
 				   state is kept private from the host.
 				   Not valid if the kernel is running in EL2.
@@ -2962,6 +2976,26 @@
 			firmware feature for updating multiple TCE entries
 			at a time.
 
+	kswapd_per_node=
+			kswapd_per_node allows you to control the number of kswapd threads
+			running on the system. This provides the ability to devote additional
+			CPU resources toward proactive page replacement with the goal of
+			reducing direct reclaims. When direct reclaims are prevented, the CPU
+			consumed by them is prevented as well. Depending on the workload, the
+			result can cause aggregate CPU usage on the system to go up, down or
+			stay the same.
+
+			More aggressive page replacement can reduce direct reclaims which
+			cause latency for tasks and decrease throughput when doing filesystem
+			IO through the pagecache. Direct reclaims are recorded using the
+			allocstall counter in /proc/vmstat.
+
+			The range of acceptible values are 1-16. Always start with lower
+			values in the 2-6 range. Higher values should be justified with
+			testing. If direct reclaims occur in spite of high values, the cost
+			of direct reclaims (in latency) that occur can be higher due to
+			increased lock contention.
+
 	onenand.bdry=	[HW,MTD] Flex-OneNAND Boundary Configuration
 
 			Format: [die0_boundary][,die0_lock][,die1_boundary][,die1_lock]
@@ -3297,6 +3331,21 @@
 			interrupt wake-up latency, which may improve performance
 			in certain environments such as networked servers or
 			real-time systems.
+
+	no_hash_pointers
+			Force pointers printed to the console or buffers to be
+			unhashed.  By default, when a pointer is printed via %p
+			format string, that pointer is "hashed", i.e. obscured
+			by hashing the pointer value.  This is a security feature
+			that hides actual kernel addresses from unprivileged
+			users, but it also makes debugging the kernel more
+			difficult since unequal pointers can no longer be
+			compared.  However, if this command-line option is
+			specified, then all normal pointers will have their true
+			value printed.  Pointers printed via %pK may still be
+			hashed.  This option should only be specified when
+			debugging the kernel.  Please do not use on production
+			kernels.
 
 	nohibernate	[HIBERNATION] Disable hibernation and resume.
 
@@ -5164,6 +5213,12 @@
 			to (for stacks growing down) resp. after (for stacks
 			growing up) the main stack are reserved for no other
 			mapping. Default value is 256 pages.
+
+	stack_depot_disable= [KNL]
+			Setting this to true through kernel command line will
+			disable the stack depot thereby saving the static memory
+			consumed by the stack hash table. By default this is set
+			to false.
 
 	stacktrace	[FTRACE]
 			Enabled the stack tracer on boot up.

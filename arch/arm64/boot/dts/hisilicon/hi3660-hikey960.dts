@@ -10,6 +10,9 @@
 
 #include "hi3660.dtsi"
 #include "hikey960-pinctrl.dtsi"
+#include "hi3660-drm.dtsi"
+#include "hi3660-gpu.dtsi"
+
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/irq.h>
@@ -52,6 +55,14 @@
 			record-size	= <0x00020000>;
 			console-size	= <0x00020000>;
 			ftrace-size	= <0x00020000>;
+		};
+
+		/* global autoconfigured region for contiguous allocations */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x20C00000 0x0 0x4000000>;
+			reusable;
+			linux,cma-default;
 		};
 	};
 
@@ -195,6 +206,56 @@
 		optee {
 			compatible = "linaro,optee-tz";
 			method = "smc";
+		};
+	};
+
+	hisi_hikey_usb: hisi_hikey_usb {
+		compatible = "hisilicon,gpio_hubv1";
+		typec-vbus-gpios = <&gpio25 2 GPIO_ACTIVE_HIGH>;
+		otg-switch-gpios = <&gpio25 6 GPIO_ACTIVE_HIGH>;
+		hub-vdd33-en-gpios = <&gpio5 6 GPIO_ACTIVE_HIGH>;
+		usb-role-switch;
+
+		port {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			hikey_usb_ep0: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&dwc3_role_switch>;
+			};
+			hikey_usb_ep1: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&rt1711h_ep>;
+			};
+		};
+	};
+
+	i2s2: hi3660_i2s {
+		compatible = "hisilicon,hi3660-i2s-1.0";
+		reg = <0x0 0xe804f800 0x0 0x400>,
+			<0x0 0xe804e000 0x0 0x400>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&i2s2_pmx_func &i2s2_cfg_func>;
+		dmas = <&asp_dmac 18 &asp_dmac 19>;
+		dma-names = "rx", "tx";
+		#sound-dai-cells = <0>;
+	};
+
+	sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "hikey-hdmi";
+		simple-audio-card,format = "i2s";
+
+		simple-audio-card,bitclock-master = <&sound_master>;
+		simple-audio-card,frame-master = <&sound_master>;
+
+		sound_master: simple-audio-card,cpu {
+			sound-dai = <&i2s2>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&adv7533>;
 		};
 	};
 };
@@ -564,7 +625,7 @@
 
 			rt1711h_ep: endpoint@0 {
 				reg = <0>;
-				remote-endpoint = <&dwc3_role_switch>;
+				remote-endpoint = <&hikey_usb_ep1>;
 			};
 		};
 	};
@@ -573,18 +634,31 @@
 		status = "okay";
 		compatible = "adi,adv7533";
 		reg = <0x39>;
+		v1p2-supply = <&ldo3>;
+		vdd-supply = <&ldo3>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <1 2>;
+		pd-gpio = <&gpio5 1 0>;
+		sel-gpio = <&gpio2 4 0>;
 		adi,dsi-lanes = <4>;
+		adi,disable-timing-generator;
+		#sound-dai-cells = <0>;
+
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			port@0 {
 				reg = <0>;
+				adv7533_in: endpoint {
+					remote-endpoint = <&dsi_out0>;
+				};
 			};
 			port@1 {
 				reg = <1>;
 			};
 		};
 	};
+
 };
 
 &i2c7 {
@@ -686,7 +760,7 @@
 		#size-cells = <0>;
 		dwc3_role_switch: endpoint@0 {
 			reg = <0>;
-			remote-endpoint = <&rt1711h_ep>;
+			remote-endpoint = <&hikey_usb_ep0>;
 		};
 
 		dwc3_ss: endpoint@1 {
