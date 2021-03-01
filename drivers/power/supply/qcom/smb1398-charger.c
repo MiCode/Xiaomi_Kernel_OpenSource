@@ -184,6 +184,7 @@
 
 #define PERPH0_CFG_SDCDC_REG		0x267A
 #define EN_WIN_UV_BIT			BIT(7)
+#define EN_WIN_OV_RISE_DEB_BIT		BIT(6)
 
 #define PERPH0_SOVP_CFG0_REG		0x2680
 #define CFG_OVP_VSNS_THRESHOLD		BIT(4)
@@ -1944,6 +1945,11 @@ static int _smb1394_update_ovp(struct smb1398_chip *chip)
 		return rc;
 	}
 
+	rc = smb1398_masked_write(chip, PERPH0_CFG_SDCDC_REG,
+		EN_WIN_OV_RISE_DEB_BIT, 0);
+	if (rc < 0)
+		dev_err(chip->dev, "Couldn't set PERPH0_CFG_SDCDC_REG rc=%d\n",
+			rc);
 	return rc;
 }
 
