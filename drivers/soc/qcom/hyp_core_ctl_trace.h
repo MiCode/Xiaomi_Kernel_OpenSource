@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- *Copyright (c) 2018,2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018,2020-2021 The Linux Foundation. All rights reserved.
  */
 
 #undef TRACE_SYSTEM
@@ -61,7 +61,7 @@ TRACE_EVENT(hyp_core_ctl_status,
 		scnprintf(__entry->active, sizeof(__entry->reserve), "%*pbl",
 			  cpumask_pr_args(cpu_active_mask));
 		scnprintf(__entry->thermal, sizeof(__entry->reserve), "%*pbl",
-			  cpumask_pr_args(cpu_cooling_multi_get_max_level_cpumask()));
+			  cpumask_pr_args(thermal_paused_cpumask()));
 	),
 
 	TP_printk("event=%s reserve=%s reserved=%s our_paused=%s online=%s active=%s thermal=%s",

@@ -16,7 +16,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
-#include <linux/cpu_cooling.h>
+#include <linux/thermal_pause.h>
 #include <linux/mutex.h>
 #include <linux/debugfs.h>
 #include <linux/pm_qos.h>
@@ -94,7 +94,7 @@ static inline void hyp_core_ctl_print_status(char *msg)
 		cpumask_pr_args(&the_hcd->our_paused_cpus),
 		cpumask_pr_args(cpu_online_mask),
 		cpumask_pr_args(cpu_active_mask),
-		cpumask_pr_args(cpu_cooling_multi_get_max_level_cpumask()));
+		cpumask_pr_args(thermal_paused_cpumask()));
 }
 
 static inline int pause_cpu(int cpu)
@@ -277,7 +277,7 @@ static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
 {
 	cpumask_t offline_cpus, iter_cpus, temp_reserved_cpus;
 	int i, ret, pause_req, pause_done;
-	const cpumask_t *thermal_cpus = cpu_cooling_multi_get_max_level_cpumask();
+	const cpumask_t *thermal_cpus = thermal_paused_cpumask();
 	struct freq_qos_request *qos_req;
 	unsigned int min_freq;
 
@@ -480,7 +480,7 @@ static void hyp_core_ctl_handle_thermal(struct hyp_core_ctl_data *hcd,
 					int cpu, bool throttled)
 {
 	cpumask_t temp_mask, iter_cpus;
-	const cpumask_t *thermal_cpus = cpu_cooling_multi_get_max_level_cpumask();
+	const cpumask_t *thermal_cpus = thermal_paused_cpumask();
 	bool notify = false;
 	int replacement_cpu;
 
@@ -534,7 +534,7 @@ static int hyp_core_ctl_cpu_cooling_cb(struct notifier_block *nb,
 				       unsigned long val, void *data)
 {
 	int cpu = (long) data;
-	const cpumask_t *thermal_cpus = cpu_cooling_multi_get_max_level_cpumask();
+	const cpumask_t *thermal_cpus = thermal_paused_cpumask();
 	struct freq_qos_request *qos_req;
 	int ret;
 
@@ -806,7 +806,7 @@ static ssize_t status_show(struct device *dev, struct device_attribute *attr,
 
 	count += scnprintf(buf + count, PAGE_SIZE - count,
 			   "thermal_cpus=%*pbl\n",
-			   cpumask_pr_args(cpu_cooling_multi_get_max_level_cpumask()));
+			   cpumask_pr_args(thermal_paused_cpumask()));
 
 	count += scnprintf(buf + count, PAGE_SIZE - count,
 			   "Vcpu to Pcpu mappings:\n");
@@ -1063,7 +1063,7 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 				  hyp_core_ctl_hp_online,
 				  hyp_core_ctl_hp_offline);
 
-	cpu_cooling_multi_max_level_notifier_register(&hyp_core_ctl_nb);
+	thermal_pause_notifier_register(&hyp_core_ctl_nb);
 	hyp_core_ctl_debugfs_init();
 
 	the_hcd = hcd;

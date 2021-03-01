@@ -39,22 +39,25 @@ static struct cpumask cpus_in_max_cooling_level;
 static struct cpumask cpus_pending_online;
 static enum cpuhp_state cpu_hp_online;
 
-static BLOCKING_NOTIFIER_HEAD(multi_max_cooling_level_notifer);
+static BLOCKING_NOTIFIER_HEAD(thermal_pause_notifier);
 
-void cpu_cooling_multi_max_level_notifier_register(struct notifier_block *n)
+void thermal_pause_notifier_register(struct notifier_block *n)
 {
-	blocking_notifier_chain_register(&multi_max_cooling_level_notifer, n);
+	blocking_notifier_chain_register(&thermal_pause_notifier, n);
 }
+EXPORT_SYMBOL(thermal_pause_notifier_register);
 
-void cpu_cooling_multi_max_level_notifier_unregister(struct notifier_block *n)
+void thermal_pause_notifier_unregister(struct notifier_block *n)
 {
-	blocking_notifier_chain_unregister(&multi_max_cooling_level_notifer, n);
+	blocking_notifier_chain_unregister(&thermal_pause_notifier, n);
 }
+EXPORT_SYMBOL(thermal_pause_notifier_unregister);
 
-const struct cpumask *cpu_cooling_multi_get_max_level_cpumask(void)
+const struct cpumask *thermal_paused_cpumask(void)
 {
 	return &cpus_in_max_cooling_level;
 }
+EXPORT_SYMBOL(thermal_paused_cpumask);
 
 static int thermal_pause_hp_online(unsigned int online_cpu)
 {
@@ -124,9 +127,8 @@ static int thermal_pause_cpus_pause(struct thermal_pause_cdev *thermal_pause_cde
 		mutex_lock(&cpus_pause_lock);
 
 		for_each_cpu(cpu, &cpus_to_pause)
-			blocking_notifier_call_chain(
-				&multi_max_cooling_level_notifer,
-				1, (void *)(long)cpu);
+			blocking_notifier_call_chain(&thermal_pause_notifier, 1,
+						(void *)(long)cpu);
 	}
 
 	cpumask_copy(&cpus_in_max_cooling_level, &cpus_paused_by_thermal);
@@ -192,9 +194,8 @@ static int thermal_pause_cpus_unpause(struct thermal_pause_cdev *thermal_pause_c
 	}
 
 	for_each_cpu(cpu, &cpus_to_unpause)
-		blocking_notifier_call_chain(
-			&multi_max_cooling_level_notifer,
-			0, (void *)(long)cpu);
+		blocking_notifier_call_chain(&thermal_pause_notifier, 0,
+					(void *)(long)cpu);
 
 	return ret;
 }
