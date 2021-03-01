@@ -946,7 +946,7 @@ static ssize_t iommu_debug_test_virt_addr_read(struct file *file,
 		test_virt_addr = ERR_PTR(-ENOMEM);
 		len = strscpy(buf, "FAIL\n", sizeof(buf));
 	} else {
-		len = scnprintf(buf, sizeof(buf), "0x%pK\n", test_virt_addr);
+		len = scnprintf(buf, sizeof(buf), "0x%p\n", test_virt_addr);
 	}
 	mutex_unlock(&test_virt_addr_lock);
 
