@@ -1376,6 +1376,8 @@
 		reg-names = "llcc_base", "llcc_broadcast_base";
 		interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH>;
 		cap-based-alloc-and-pwr-collapse;
+		clocks = <&aoss_qmp QDSS_CLK>;
+		clock-names = "qdss_clk";
 	};
 
 	eud: qcom,msm-eud@88e0000 {
