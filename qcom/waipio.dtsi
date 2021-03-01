@@ -2740,7 +2740,7 @@
 
 		qcom,bt-vdd-aon-config = <966000 966000 0 1>;
 		qcom,bt-vdd-dig-config = <966000 966000 0 1>;
-		qcom,bt-vdd-rfa1-config = <1900000 1900000 0 1>;
+		qcom,bt-vdd-rfa1-config = <1900000 2100000 0 1>;
 		qcom,bt-vdd-rfa2-config = <1350000 1350000 0 1>;
 		qcom,bt-vdd-asd-config = <2800000 2800000 0 1>;
 	};
@@ -3085,7 +3085,7 @@
 		vdd-wlan-io-supply = <&S10B>;
 		qcom,vdd-wlan-io-config = <1800000 1800000 0 0 1>;
 		vdd-wlan-rfa1-supply = <&S1C>;
-		qcom,vdd-wlan-rfa1-config = <1900000 1900000 0 0 1>;
+		qcom,vdd-wlan-rfa1-config = <1900000 2100000 0 0 1>;
 		vdd-wlan-rfa2-supply = <&S12B>;
 		qcom,vdd-wlan-rfa2-config = <1350000 1350000 0 0 1>;
 		wlan-ant-switch-supply = <&L7E>;
