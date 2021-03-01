@@ -1540,7 +1540,7 @@ static int mmc_hs200_tuning(struct mmc_card *card)
 }
 
 #if defined(CONFIG_SDC_QTI)
-static int mmc_select_hs_ddr52(struct mmc_host *host)
+static int mmc_select_hs_ddr52(struct mmc_host *host, unsigned long freq)
 {
 	int err;
 
@@ -1553,7 +1553,7 @@ static int mmc_select_hs_ddr52(struct mmc_host *host)
 	}
 
 	err = mmc_select_hs_ddr(host->card);
-	mmc_set_clock(host, MMC_HIGH_52_MAX_DTR);
+	mmc_set_clock(host, freq);
 
 	return err;
 }
@@ -1571,7 +1571,7 @@ static int mmc_scale_low(struct mmc_host *host, unsigned long freq)
 
 	if (host->clk_scaling.lower_bus_speed_mode &
 	    MMC_SCALING_LOWER_DDR52_MODE) {
-		err = mmc_select_hs_ddr52(host);
+		err = mmc_select_hs_ddr52(host, freq);
 		if (err)
 			pr_err("%s: %s: failed to switch to DDR52: err: %d\n",
 			       mmc_hostname(host), __func__, err);
