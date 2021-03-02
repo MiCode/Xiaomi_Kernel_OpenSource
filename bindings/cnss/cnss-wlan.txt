@@ -91,6 +91,11 @@ Optional properties:
   - qcom,bt-en-gpio: QCA6490 requires synchronization for BT and WLAN GPIO
 		enable to resolve PMU power up issues. Provide BT GPIO using
 		this config param.
+  - qcom,same-dt-multi-dev: Boolean property to decide whether it supports
+                            multiple WLAN devices using the same DT node
+                            without sub-nodes.
+  - qcom,converged-dt: Boolean property to decide whether it supports multiple
+                       WLAN devices using the same DT node with sub-nodes.
 
 Example:
 
