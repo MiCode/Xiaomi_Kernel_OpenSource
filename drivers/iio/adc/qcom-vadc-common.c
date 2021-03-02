@@ -651,6 +651,55 @@ static int qcom_vadc_map_voltage_temp(const struct vadc_map_pt *pts,
 	return 0;
 }
 
+static int qcom_vadc_map_temp_voltage(const struct vadc_map_pt *pts,
+		size_t tablesize, int input, int64_t *output)
+{
+	unsigned int i = 0, descending = 1;
+
+	if (!pts)
+		return -EINVAL;
+
+	/* Check if table is descending or ascending */
+	if (tablesize > 1) {
+		if (pts[0].y < pts[1].y)
+			descending = 0;
+	}
+
+	while (i < tablesize) {
+		if (descending && (pts[i].y < input)) {
+			/*
+			 * Table entry is less than measured value.
+			 * Table is descending, stop.
+			 */
+			break;
+		} else if (!descending && (pts[i].y > input)) {
+			/*
+			 * Table entry is greater than measured value.
+			 * Table is ascending, stop.
+			 */
+			break;
+		}
+		i++;
+	}
+
+	if (i == 0) {
+		*output = pts[0].x;
+	} else if (i == tablesize) {
+		*output = pts[tablesize-1].x;
+	} else {
+		/*
+		 * Result is between search_index and search_index-1.
+		 * Interpolate linearly.
+		 */
+		*output = (((int32_t) ((pts[i].x - pts[i-1].x) *
+			(input - pts[i-1].y)) /
+			(pts[i].y - pts[i-1].y)) +
+			pts[i-1].x);
+	}
+
+	return 0;
+}
+
 static void qcom_vadc_scale_calib(const struct vadc_linear_graph *calib_graph,
 				  u16 adc_code,
 				  bool absolute,
@@ -1109,6 +1158,97 @@ static int qcom_vadc_scale_hw_chg5_temp(
 
 	return 0;
 }
+
+void adc_tm_scale_therm_voltage_100k_gen3(struct adc_tm_config *param)
+{
+	int temp, ret;
+	int64_t resistance = 0;
+
+	/*
+	 * High temperature maps to lower threshold voltage.
+	 * Same API can be used for resistance-temperature table
+	 */
+	qcom_vadc_map_temp_voltage(
+		adcmap7_100k,
+		ARRAY_SIZE(adcmap7_100k),
+		param->high_thr_temp, &resistance);
+
+	param->low_thr_voltage = resistance * RATIO_MAX_ADC7;
+	param->low_thr_voltage = div64_s64(param->low_thr_voltage,
+						(resistance + R_PU_100K));
+
+	/*
+	 * low_thr_voltage is ADC raw code corresponding to upper temperature
+	 * threshold.
+	 * Instead of returning the ADC raw code obtained at this point,we first
+	 * do a forward conversion on the (low voltage / high temperature) threshold code,
+	 * to temperature, to check if that code, when read by TM, would translate to
+	 * a temperature greater than or equal to the upper temperature limit (which is
+	 * expected). If it is instead lower than the upper limit (not expected for correct
+	 * TM functionality), we lower the raw code of the threshold written by 1
+	 * to ensure TM does see a violation when it reads raw code corresponding
+	 * to the upper limit temperature specified.
+	 */
+	ret = qcom_vadc7_scale_hw_calib_therm(NULL, NULL, param->low_thr_voltage, &temp);
+	if (ret < 0)
+		return;
+
+	if (temp < param->high_thr_temp)
+		param->low_thr_voltage--;
+
+	/*
+	 * Low temperature maps to higher threshold voltage
+	 * Same API can be used for resistance-temperature table
+	 */
+	qcom_vadc_map_temp_voltage(
+		adcmap7_100k,
+		ARRAY_SIZE(adcmap7_100k),
+		param->low_thr_temp, &resistance);
+
+	param->high_thr_voltage = resistance * RATIO_MAX_ADC7;
+	param->high_thr_voltage = div64_s64(param->high_thr_voltage,
+						(resistance + R_PU_100K));
+
+	/*
+	 * high_thr_voltage is ADC raw code corresponding to upper temperature
+	 * threshold.
+	 * Similar to what is done above for low_thr voltage, we first
+	 * do a forward conversion on the (high voltage / low temperature)threshold code,
+	 * to temperature, to check if that code, when read by TM, would translate to a
+	 * temperature less than or equal to the lower temperature limit (which is expected).
+	 * If it is instead greater than the lower limit (not expected for correct
+	 * TM functionality), we increase the raw code of the threshold written by 1
+	 * to ensure TM does see a violation when it reads raw code corresponding
+	 * to the lower limit temperature specified.
+	 */
+	ret = qcom_vadc7_scale_hw_calib_therm(NULL, NULL, param->high_thr_voltage, &temp);
+	if (ret < 0)
+		return;
+
+	if (temp > param->low_thr_temp)
+		param->high_thr_voltage++;
+}
+EXPORT_SYMBOL(adc_tm_scale_therm_voltage_100k_gen3);
+
+int32_t adc_tm_absolute_rthr_gen3(struct adc_tm_config *tm_config)
+{
+	int64_t low_thr = 0, high_thr = 0;
+
+	low_thr =  tm_config->low_thr_voltage;
+	low_thr *= ADC5_FULL_SCALE_CODE;
+
+	low_thr = div64_s64(low_thr, ADC_VDD_REF);
+	tm_config->low_thr_voltage = low_thr;
+
+	high_thr =  tm_config->high_thr_voltage;
+	high_thr *= ADC5_FULL_SCALE_CODE;
+
+	high_thr = div64_s64(high_thr, ADC_VDD_REF);
+	tm_config->high_thr_voltage = high_thr;
+
+	return 0;
+}
+EXPORT_SYMBOL(adc_tm_absolute_rthr_gen3);
 
 int qcom_vadc_scale(enum vadc_scale_fn_type scaletype,
 		    const struct vadc_linear_graph *calib_graph,
