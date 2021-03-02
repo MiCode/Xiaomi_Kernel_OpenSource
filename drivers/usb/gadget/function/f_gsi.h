@@ -312,6 +312,7 @@ struct f_gsi {
 	struct gsi_ctrl_port c_port;
 	void *ipc_log_ctxt;
 	bool rmnet_dtr_status;
+	bool rmnet_use_tcm_mem;
 
 	bool rwake_inprogress;
 
