@@ -514,22 +514,22 @@
 		};
 
 		llcc_1_dcache {
-			qcom,dump-size = <0x1141c0>;
+			qcom,dump-size = <0x171000>;
 			qcom,dump-id = <0x140>;
 		};
 
 		llcc_2_dcache {
-			qcom,dump-size = <0x1141c0>;
+			qcom,dump-size = <0x171000>;
 			qcom,dump-id = <0x141>;
 		};
 
 		llcc_3_dcache {
-			qcom,dump-size = <0x1141c0>;
+			qcom,dump-size = <0x171000>;
 			qcom,dump-id = <0x142>;
 		};
 
 		llcc_4_dcache {
-			qcom,dump-size = <0x1141c0>;
+			qcom,dump-size = <0x171000>;
 			qcom,dump-id = <0x143>;
 		};
 	};
