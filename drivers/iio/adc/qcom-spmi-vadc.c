@@ -727,6 +727,12 @@ static int vadc_get_dt_channel_data(struct device *dev,
 	else
 		prop->calibration = VADC_CALIB_ABSOLUTE;
 
+	prop->scale_fn_type = -EINVAL;
+	ret = of_property_read_u32(node, "qcom,scale-fn-type", &value);
+
+	if (!ret && value < SCALE_HW_CALIB_MAX)
+		prop->scale_fn_type = value;
+
 	dev_dbg(dev, "%02x name %s\n", chan, name);
 
 	return 0;
@@ -739,6 +745,7 @@ static int vadc_get_dt_data(struct vadc_priv *vadc, struct device_node *node)
 	struct vadc_channel_prop prop;
 	struct device_node *child;
 	unsigned int index = 0;
+	bool scale_fn_type_from_dt = false;
 	int ret;
 
 	vadc->nchannels = of_get_available_child_count(node);
@@ -764,14 +771,24 @@ static int vadc_get_dt_data(struct vadc_priv *vadc, struct device_node *node)
 			return ret;
 		}
 
-		prop.scale_fn_type = vadc_chans[prop.channel].scale_fn_type;
+		if (prop.scale_fn_type == -EINVAL) {
+			prop.scale_fn_type =
+				vadc_chans[prop.channel].scale_fn_type;
+		} else {
+			scale_fn_type_from_dt = true;
+		}
+
 		vadc->chan_props[index] = prop;
 
 		vadc_chan = &vadc_chans[prop.channel];
 
 		iio_chan->channel = prop.channel;
 		iio_chan->datasheet_name = vadc_chan->datasheet_name;
-		iio_chan->info_mask_separate = vadc_chan->info_mask;
+		if (!scale_fn_type_from_dt)
+			iio_chan->info_mask_separate = vadc_chan->info_mask;
+		else
+			iio_chan->info_mask_separate =
+			  vadc_chan->info_mask | BIT(IIO_CHAN_INFO_PROCESSED);
 		iio_chan->type = vadc_chan->type;
 		iio_chan->indexed = 1;
 		iio_chan->address = index++;
