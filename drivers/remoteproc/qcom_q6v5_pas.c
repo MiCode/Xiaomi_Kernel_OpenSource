@@ -199,7 +199,7 @@ static void disable_regulators(struct qcom_adsp *adsp)
 
 static int enable_regulators(struct qcom_adsp *adsp)
 {
-	int i, rc;
+	int i, rc = 0;
 
 	for (i = 0; i < adsp->reg_cnt; i++) {
 		regulator_set_voltage(adsp->regs[i].reg, adsp->regs[i].uV, INT_MAX);
