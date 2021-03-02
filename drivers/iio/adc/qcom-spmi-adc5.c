@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitops.h>
@@ -167,9 +167,8 @@ static const struct vadc_prescale_ratio adc5_prescale_ratios[] = {
 	{.num =  1, .den = 10},
 	{.num =  1, .den = 16},
 	/* Prescale ratios for current channels below */
-	{.num = 32, .den = 100},	/* IIN_FB */
-	{.num = 14, .den = 100},	/* ICHG_SMB */
-	{.num = 28, .den = 100},	/* IIN_SMB */
+	{.num = 32, .den = 100},	/* IIN_FB, IIN_SMB */
+	{.num = 16, .den = 100},	/* ICHG_SMB */
 	{.num = 1000, .den = 305185},	/* ICHG_FB */
 	{.num = 1000, .den = 610370},	/* ICHG_FB_2X */
 };
@@ -722,11 +721,11 @@ static const struct adc5_channels adc7_chans_pmic[ADC5_MAX_CHANNEL] = {
 					SCALE_HW_CALIB_PM7_CHG_TEMP)
 	[ADC7_IIN_FB]		= ADC5_CHAN_CUR("iin_fb", 9,
 					SCALE_HW_CALIB_CUR)
+	[ADC7_IIN_SMB]		= ADC5_CHAN_CUR("iin_smb", 9,
+					SCALE_HW_CALIB_CUR)
 	[ADC7_ICHG_SMB]		= ADC5_CHAN_CUR("ichg_smb", 10,
 					SCALE_HW_CALIB_CUR)
-	[ADC7_IIN_SMB]		= ADC5_CHAN_CUR("iin_smb", 11,
-					SCALE_HW_CALIB_CUR)
-	[ADC7_ICHG_FB]		= ADC5_CHAN_CUR("ichg_fb", 12,
+	[ADC7_ICHG_FB]		= ADC5_CHAN_CUR("ichg_fb", 11,
 					SCALE_HW_CALIB_CUR_RAW)
 	[ADC7_DIE_TEMP]		= ADC5_CHAN_TEMP("die_temp", 0,
 					SCALE_HW_CALIB_PMIC_THERM_PM7)
