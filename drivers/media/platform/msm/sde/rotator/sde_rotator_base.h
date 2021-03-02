@@ -277,6 +277,8 @@ struct sde_rot_data_type {
 	int (*iommu_ctrl)(int enable);
 	int (*secure_session_ctrl)(int enable);
 	int (*wait_for_transition)(int state, int request);
+	void (*vbif_reg_lock)(void);
+	void (*vbif_reg_unlock)(void);
 	struct sde_rot_vbif_debug_bus *nrt_vbif_dbg_bus;
 	u32 nrt_vbif_dbg_bus_size;
 	struct sde_rot_debug_bus *rot_dbg_bus;
