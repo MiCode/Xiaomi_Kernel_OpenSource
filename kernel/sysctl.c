@@ -2522,16 +2522,6 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= &neg_one,
 	},
-	{
-		.procname	= "hung_task_selective_monitoring",
-		.data		= &sysctl_hung_task_selective_monitoring,
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= SYSCTL_ZERO,
-		.extra2		= SYSCTL_ONE,
-	},
-
 #endif
 #ifdef CONFIG_RT_MUTEXES
 	{
@@ -2908,17 +2898,6 @@ static struct ctl_table vm_table[] = {
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= SYSCTL_ZERO,
 	},
-#ifdef CONFIG_MULTIPLE_KSWAPD
-	{
-		.procname	= "kswapd_threads",
-		.data		= &kswapd_threads,
-		.maxlen		= sizeof(kswapd_threads),
-		.mode		= 0644,
-		.proc_handler	= kswapd_threads_sysctl_handler,
-		.extra1		= SYSCTL_ONE,
-		.extra2		= &max_kswapd_threads,
-	},
-#endif
 	{
 		.procname	= "watermark_scale_factor",
 		.data		= &watermark_scale_factor,
