@@ -120,6 +120,25 @@ struct gh_vm_start_resp_payload {
 	u32 response;
 } __packed;
 
+/* Call: VM_SET_STATUS */
+struct gh_vm_set_status_req_payload {
+	u8 vm_status;
+	u8 os_status;
+	u16 app_status;
+} __packed;
+
+/* Call: VM_GET_STATE */
+struct gh_vm_get_state_req_payload {
+	gh_vmid_t vmid;
+	u16 reserved;
+} __packed;
+
+struct gh_vm_get_state_resp_payload {
+	u8 vm_status;
+	u8 os_status;
+	u16 app_status;
+} __packed;
+
 /* Call: CONSOLE_OPEN, CONSOLE_CLOSE, CONSOLE_FLUSH */
 struct gh_vm_console_common_req_payload {
 	gh_vmid_t vmid;

@@ -236,6 +236,17 @@ int gh_rm_get_vm_id_info(enum gh_vm_names vm_name, gh_vmid_t vmid);
 int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name);
 
 /* Client APIs for VM Services */
+struct gh_vm_status {
+	u8 vm_status;
+	u8 os_status;
+	u16 app_status;
+} __packed;
+
+struct gh_vm_status *gh_rm_vm_get_status(gh_vmid_t vmid);
+int gh_rm_vm_set_status(struct gh_vm_status gh_vm_status);
+int gh_rm_vm_set_vm_status(u8 vm_status);
+int gh_rm_vm_set_os_status(u8 os_status);
+int gh_rm_vm_set_app_status(u16 app_status);
 int gh_rm_console_open(gh_vmid_t vmid);
 int gh_rm_console_close(gh_vmid_t vmid);
 int gh_rm_console_write(gh_vmid_t vmid, const char *buf, size_t size);
@@ -368,6 +379,31 @@ static inline int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 }
 
 /* Client APIs for VM Services */
+static inline struct gh_vm_status *gh_rm_vm_get_status(gh_vmid_t vmid)
+{
+	return ERR_PTR(-EINVAL);
+}
+
+static inline int gh_rm_vm_set_status(struct gh_vm_status gh_vm_status)
+{
+	return -EINVAL;
+}
+
+static inline int gh_rm_vm_set_vm_status(u8 vm_status)
+{
+	return -EINVAL;
+}
+
+static inline int gh_rm_vm_set_os_status(u8 os_status)
+{
+	return -EINVAL;
+}
+
+static inline int gh_rm_vm_set_app_status(u16 app_status)
+{
+	return -EINVAL;
+}
+
 static inline int gh_rm_console_open(gh_vmid_t vmid)
 {
 	return -EINVAL;

@@ -191,6 +191,179 @@ out:
 }
 
 /**
+ * gh_rm_vm_get_status: Get the status of a particular VM
+ * @vmid: The vmid of tehe VM. Pass 0 for self.
+ *
+ * The function returns a pointer to gh_vm_status containing
+ * the status of the VM for the requested vmid. The caller
+ * must kfree the memory when done reading the contents.
+ *
+ * The function encodes the error codes via ERR_PTR. Hence, the
+ * caller is responsible to check it with IS_ERR_OR_NULL().
+ */
+struct gh_vm_status *gh_rm_vm_get_status(gh_vmid_t vmid)
+{
+	struct gh_vm_get_state_req_payload req_payload = {
+		.vmid = vmid,
+	};
+	struct gh_vm_get_state_resp_payload *resp_payload;
+	struct gh_vm_status *gh_vm_status;
+	int err, reply_err_code = 0;
+	size_t resp_payload_size;
+
+	resp_payload = gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_GET_STATE,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		err = PTR_ERR(resp_payload);
+		pr_err("%s: Failed to call VM_GET_STATE: %d\n",
+			__func__, err);
+		if (resp_payload) {
+			gh_vm_status = ERR_PTR(err);
+			goto out;
+		}
+		return ERR_PTR(err);
+	}
+
+	if (resp_payload_size != sizeof(*resp_payload)) {
+		pr_err("%s: Invalid size received for VM_GET_STATE: %u\n",
+			__func__, resp_payload_size);
+		gh_vm_status = ERR_PTR(-EINVAL);
+		goto out;
+	}
+
+	gh_vm_status = kmemdup(resp_payload, resp_payload_size, GFP_KERNEL);
+	if (!gh_vm_status)
+		gh_vm_status = ERR_PTR(-ENOMEM);
+
+out:
+	kfree(resp_payload);
+	return gh_vm_status;
+}
+EXPORT_SYMBOL(gh_rm_vm_get_status);
+
+/**
+ * gh_rm_vm_set_status: Set the status of this VM
+ * @gh_vm_status: The status to set
+ *
+ * The function sets this VM's status as per gh_vm_status.
+ * It returns 0 upon success and a negative error code
+ * upon failure.
+ */
+int gh_rm_vm_set_status(struct gh_vm_status gh_vm_status)
+{
+	struct gh_vm_set_status_req_payload req_payload = {
+		.vm_status = gh_vm_status.vm_status,
+		.os_status = gh_vm_status.os_status,
+		.app_status = gh_vm_status.app_status,
+	};
+	size_t resp_payload_size;
+	int reply_err_code = 0;
+	void *resp;
+
+	resp = gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_SET_STATUS,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (IS_ERR(resp)) {
+		pr_err("%s: Failed to call VM_SET_STATUS: %d\n",
+			__func__, PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
+		pr_err("%s: VM_SET_STATUS returned error: %d\n",
+			__func__, reply_err_code);
+		return reply_err_code;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for VM_SET_STATUS: %u\n",
+			__func__, resp_payload_size);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_vm_set_status);
+
+/**
+ * gh_rm_vm_set_vm_status: Set the vm status
+ * @vm_status: The vm_status to set
+ *
+ * The function returns 0 on success and a negative
+ * error code upon failure.
+ */
+int gh_rm_vm_set_vm_status(u8 vm_status)
+{
+	int ret = 0;
+	struct gh_vm_status *gh_vm_status;
+
+	gh_vm_status = gh_rm_vm_get_status(0);
+	if (IS_ERR_OR_NULL(gh_vm_status))
+		return PTR_ERR(gh_vm_status);
+
+	gh_vm_status->vm_status = vm_status;
+	ret = gh_rm_vm_set_status(*gh_vm_status);
+
+	kfree(gh_vm_status);
+
+	return ret;
+}
+EXPORT_SYMBOL(gh_rm_vm_set_vm_status);
+
+/**
+ * gh_rm_vm_set_os_status: Set the OS status. Once the VM starts booting,
+ * there are various stages during the boot up that status of the
+ * Operating System can be set like early_boot, boot, init, run etc.
+ * @os_status: The os_status to set
+ *
+ * The function returns 0 on success and a negative
+ * error code upon failure.
+ */
+int gh_rm_vm_set_os_status(u8 os_status)
+{
+	int ret = 0;
+	struct gh_vm_status *gh_vm_status;
+
+	gh_vm_status = gh_rm_vm_get_status(0);
+	if (IS_ERR_OR_NULL(gh_vm_status))
+		return PTR_ERR(gh_vm_status);
+
+	gh_vm_status->os_status = os_status;
+	ret = gh_rm_vm_set_status(*gh_vm_status);
+
+	kfree(gh_vm_status);
+
+	return ret;
+}
+EXPORT_SYMBOL(gh_rm_vm_set_os_status);
+
+/**
+ * gh_rm_vm_set_app_status: Set the app status
+ * @app_status: The app_status to set
+ *
+ * The function returns 0 on success and a negative
+ * error code upon failure.
+ */
+int gh_rm_vm_set_app_status(u16 app_status)
+{
+	int ret = 0;
+	struct gh_vm_status *gh_vm_status;
+
+	gh_vm_status = gh_rm_vm_get_status(0);
+	if (IS_ERR_OR_NULL(gh_vm_status))
+		return PTR_ERR(gh_vm_status);
+
+	gh_vm_status->app_status = app_status;
+	ret = gh_rm_vm_set_status(*gh_vm_status);
+
+	kfree(gh_vm_status);
+
+	return ret;
+}
+EXPORT_SYMBOL(gh_rm_vm_set_app_status);
+
+/**
  * gh_rm_vm_get_hyp_res: Get info about a series of resources for this VM
  * @vmid: vmid whose info is needed. Pass 0 for self
  * @n_entries: The number of the resource entries that's returned to the caller
