@@ -16,6 +16,7 @@
 #include <linux/soc/qcom/llcc-qcom.h>
 #include <linux/mailbox/qmp.h>
 #include <soc/qcom/cmd-db.h>
+#include <soc/qcom/boot_stats.h>
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
@@ -2971,6 +2972,8 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 	if (test_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags))
 		return a6xx_boot(adreno_dev);
 
+	place_marker("M - DRIVER ADRENO Init");
+
 	ret = adreno_dispatcher_init(adreno_dev);
 	if (ret)
 		return ret;
@@ -3024,6 +3027,7 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 
 	trace_kgsl_pwr_set_state(device, KGSL_STATE_ACTIVE);
 
+	place_marker("M - DRIVER ADRENO Ready");
 
 	return 0;
 }
