@@ -2845,8 +2845,10 @@ static void cnss_get_wlaon_pwr_ctrl_info(struct cnss_plat_data *plat_priv)
 
 static bool cnss_use_fw_path_with_prefix(struct cnss_plat_data *plat_priv)
 {
-	return of_property_read_bool(plat_priv->plat_dev->dev.of_node,
-				     "qcom,converged-dt");
+	return (of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				      "qcom,converged-dt") ||
+	       of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				     "qcom,same-dt-multi-dev"));
 }
 
 static const struct platform_device_id cnss_platform_id_table[] = {
