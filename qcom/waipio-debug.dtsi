@@ -488,6 +488,11 @@
 			qcom,dump-id = <0x102>;
 		};
 
+		etr1_reg {
+			qcom,dump-size = <0x1000>;
+			qcom,dump-id = <0x105>;
+		};
+
 		misc_data {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0xe8>;
