@@ -1,14 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 
 /* This file contain content copied from Synopsis driver,
@@ -303,6 +294,14 @@ struct veth_ipa_client_data {
 
 	/*Dev state*/
 	struct work_struct ntn_ipa_rdy_work;
+	struct work_struct ntn_ipa_uc_rdy_work;
+	struct work_struct ntn_emac_init_rdy_work;
+	struct work_struct ntn_emac_open_rdy_work;
+	struct work_struct ntn_emac_setup_rdy_work;
+	struct work_struct ntn_emac_link_up_rdy_work;
+	struct work_struct ntn_emac_start_offload_rdy_work;
+	struct work_struct ntn_emac_de_init_rdy_work;
+
 	struct mutex ipa_lock;
 	bool vlan_enable;
 	unsigned short vlan_id;
