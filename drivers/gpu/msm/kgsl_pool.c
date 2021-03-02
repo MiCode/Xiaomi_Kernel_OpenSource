@@ -443,8 +443,7 @@ int kgsl_pool_alloc_pages(u64 size, struct page ***pages, struct device *dev)
 {
 	int count = 0;
 	int npages = size >> PAGE_SHIFT;
-	struct page **local = kvcalloc(npages, sizeof(*local),
-		GFP_KERNEL | __GFP_NORETRY | __GFP_NOWARN);
+	struct page **local = kvcalloc(npages, sizeof(*local), GFP_KERNEL);
 	u32 page_size, align;
 	u64 len = size;
 
