@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -458,6 +458,11 @@ static void delayed_deferred_deactivate_work_func(struct work_struct *work)
 
 	dwork = container_of(work, struct delayed_work, work);
 	client = container_of(dwork, struct ipa_pm_client, deactivate_work);
+
+	if (unlikely(client == NULL)) {
+		IPA_PM_ERR("Client already deregistered\n");
+		return;
+	}
 
 	spin_lock_irqsave(&client->state_lock, flags);
 	IPA_PM_DBG_STATE(client->hdl, client->name, client->state);
@@ -1188,6 +1193,8 @@ int ipa_pm_deactivate_sync(u32 hdl)
 	client->state = IPA_PM_DEACTIVATED;
 	IPA_PM_DBG_STATE(hdl, client->name, client->state);
 	spin_unlock_irqrestore(&client->state_lock, flags);
+	/*Check any delayed work queue scheduled*/
+	cancel_delayed_work_sync(&client->deactivate_work);
 	deactivate_client(hdl);
 	do_clk_scaling();
 
