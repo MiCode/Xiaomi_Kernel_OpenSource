@@ -234,6 +234,7 @@ static int mdw_mem_aosp_unmap_iova(struct apusys_kmem *mem)
 static int mdw_mem_aosp_unmap_kva(struct apusys_kmem *mem)
 {
 	int ret = 0;
+	struct dma_buf_map map;
 
 	if (!md.dev)
 		return -ENODEV;
@@ -241,7 +242,8 @@ static int mdw_mem_aosp_unmap_kva(struct apusys_kmem *mem)
 	if (check_arg(mem) || IS_ERR_OR_NULL(mem->d))
 		return -EINVAL;
 
-	dma_buf_vunmap(mem->d, (void *)mem->kva);
+	dma_buf_map_set_vaddr(&map, (void *)mem->kva);
+	dma_buf_vunmap(mem->d, &map);
 
 	ret = dma_buf_end_cpu_access(mem->d, DMA_FROM_DEVICE);
 	if (ret)
