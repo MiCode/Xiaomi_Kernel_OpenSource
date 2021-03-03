@@ -1825,7 +1825,7 @@ void atl_set_intr_mod(struct atl_nic *nic)
 		atl_set_intr_mod_qvec(qvec);
 }
 
-int atl_init_rx_ring(struct atl_desc_ring *rx)
+int atl_init_rx_ring(struct atl_desc_ring *rx, enum atl_queue_type type)
 {
 	struct atl_hw *hw = &rx->nic->hw;
 	struct atl_rxbuf *rxbuf;
@@ -1835,7 +1835,7 @@ int atl_init_rx_ring(struct atl_desc_ring *rx)
 	if (rx->head > 0x1FFF)
 		return -EIO;
 
-	switch (rx->qvec->type) {
+	switch (type) {
 	case ATL_QUEUE_HWTS:
 		ret = atl_fill_hwts_rx(rx, ring_space(rx), false);
 		break;
@@ -1851,7 +1851,7 @@ int atl_init_rx_ring(struct atl_desc_ring *rx)
 	if (ret)
 		return ret;
 
-	if (likely(rx->qvec->type != ATL_QUEUE_HWTS)) {
+	if (likely(type != ATL_QUEUE_HWTS)) {
 		rx->next_to_recycle = rx->tail;
 		/* rxbuf at ->next_to_recycle is always kept empty so that
 		 * atl_maybe_recycle_rxbuf() always have a spot to recycle into
@@ -1962,7 +1962,7 @@ int atl_start_qvec(struct atl_queue_vec *qvec)
 	int intr = atl_qvec_intr(qvec);
 	int ret;
 
-	ret = atl_init_rx_ring(rx);
+	ret = atl_init_rx_ring(rx, qvec->type);
 	if (ret)
 		return ret;
 	if (likely(qvec->type != ATL_QUEUE_HWTS)) {

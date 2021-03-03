@@ -35,16 +35,18 @@ static void add_to_minidump(struct kgsl_device *device)
 	struct md_region md_entry;
 	int ret;
 
-	if (!msm_minidump_enabled())
+	if (!msm_minidump_enabled() || device->snapshot_memory.in_minidump)
 		return;
 
 	scnprintf(md_entry.name, sizeof(md_entry.name), "GPU_SNAPSHOT");
 	md_entry.virt_addr = (u64)(device->snapshot_memory.ptr);
 	md_entry.phys_addr = __pa(device->snapshot_memory.ptr);
-	md_entry.size = device->snapshot->size;
+	md_entry.size = device->snapshot_memory.size;
 	ret = msm_minidump_add_region(&md_entry);
 	if (ret < 0)
 		dev_err(device->dev, "Failed to register snapshot with minidump: %d\n", ret);
+	else
+		device->snapshot_memory.in_minidump = true;
 }
 
 static void obj_itr_init(struct snapshot_obj_itr *itr, u8 *buf,
@@ -1165,6 +1167,7 @@ void kgsl_device_snapshot_probe(struct kgsl_device *device, u32 size)
 		return;
 	}
 
+	device->snapshot_memory.in_minidump = false;
 	device->snapshot = NULL;
 	device->snapshot_faultcount = 0;
 	device->force_panic = false;
@@ -1195,6 +1198,17 @@ void kgsl_device_snapshot_probe(struct kgsl_device *device, u32 size)
  */
 void kgsl_device_snapshot_close(struct kgsl_device *device)
 {
+	if (msm_minidump_enabled() && device->snapshot_memory.in_minidump) {
+		struct md_region md_entry;
+
+		scnprintf(md_entry.name, sizeof(md_entry.name), "GPU_SNAPSHOT");
+		md_entry.virt_addr = (u64)(device->snapshot_memory.ptr);
+		md_entry.phys_addr = __pa(device->snapshot_memory.ptr);
+		md_entry.size = device->snapshot_memory.size;
+		if (msm_minidump_remove_region(&md_entry) < 0)
+			dev_err(device->dev, "Failed to remove snapshot with minidump\n");
+	}
+
 	sysfs_remove_bin_file(&device->snapshot_kobj, &snapshot_attr);
 	sysfs_remove_files(&device->snapshot_kobj, snapshot_attrs);
 
@@ -1331,7 +1345,7 @@ done:
 				snapshot->ib2base);
 
 gmu_only:
-	complete_all(&snapshot->dump_gate);
 	BUG_ON(!snapshot->device->skip_ib_capture &&
 				snapshot->device->force_panic);
+	complete_all(&snapshot->dump_gate);
 }

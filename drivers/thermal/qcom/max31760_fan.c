@@ -302,7 +302,7 @@ static void max31760_shutdown(struct i2c_client *client)
 	max31760_remove(client);
 }
 
-static int max31760_suspend(struct device *dev, pm_message_t state)
+static int max31760_suspend(struct device *dev)
 {
 	struct max31760_data *pdata = dev_get_drvdata(dev);
 
@@ -311,6 +311,8 @@ static int max31760_suspend(struct device *dev, pm_message_t state)
 		atomic_set(&pdata->in_suspend, 1);
 		mutex_lock(&pdata->update_lock);
 		max31760_speed_control(pdata, FAN_SPEED_LEVEL0);
+		max31760_enable_gpio(pdata, 0);
+		regulator_disable(pdata->vdd_reg);
 		mutex_unlock(&pdata->update_lock);
 	}
 
@@ -325,6 +327,11 @@ static int max31760_resume(struct device *dev)
 	if (pdata) {
 		atomic_set(&pdata->in_suspend, 0);
 		mutex_lock(&pdata->update_lock);
+		max31760_enable_gpio(pdata, 1);
+		regulator_enable(pdata->vdd_reg);
+		max31760_write_byte(pdata, MAX31760_CTRL_REG1, 0x19);
+		max31760_write_byte(pdata, MAX31760_CTRL_REG2, 0x11);
+		max31760_write_byte(pdata, MAX31760_CTRL_REG3, 0x31);
 		max31760_set_cur_state_common(pdata, pdata->cur_state);
 		mutex_unlock(&pdata->update_lock);
 	}
@@ -342,6 +349,8 @@ static const struct i2c_device_id max31760_i2c_table[] = {
 	{ },
 };
 
+static SIMPLE_DEV_PM_OPS(max31760_pm_ops, max31760_suspend, max31760_resume);
+
 static struct i2c_driver max31760_i2c_driver = {
 	.probe = max31760_probe,
 	.remove = max31760_remove,
@@ -349,8 +358,7 @@ static struct i2c_driver max31760_i2c_driver = {
 	.driver = {
 		.name = "max31760",
 		.of_match_table = max31760_id_table,
-		.suspend = max31760_suspend,
-		.resume = max31760_resume,
+		.pm = &max31760_pm_ops,
 	},
 	.id_table = max31760_i2c_table,
 };

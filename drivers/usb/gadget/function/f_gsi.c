@@ -1519,8 +1519,10 @@ static long gsi_ctrl_dev_ioctl(struct file *fp, unsigned int cmd,
 	gsi = inst_cur->opts->gsi;
 	c_port = &gsi->c_port;
 
-	if (!atomic_read(&gsi->connected)) {
-		log_event_err("USB cable not connected\n");
+	if (!atomic_read(&gsi->connected) && cmd != QTI_CTRL_GET_LINE_STATE
+			&& cmd != GSI_MBIM_GPS_USB_STATUS) {
+		log_event_err("%s:cmd %u failed, USB not connected\n",
+					__func__, cmd);
 		return -ECONNRESET;
 	}
 
@@ -1569,12 +1571,6 @@ static long gsi_ctrl_dev_ioctl(struct file *fp, unsigned int cmd,
 	case GSI_MBIM_EP_LOOKUP:
 		log_event_dbg("%s: EP_LOOKUP for prot id:%d", __func__,
 							gsi->prot_id);
-		if (!atomic_read(&gsi->connected)) {
-			log_event_dbg("EP_LOOKUP failed: not connected");
-			ret = -EAGAIN;
-			break;
-		}
-
 		if (gsi->prot_id == IPA_USB_DIAG &&
 				(gsi->d_port.in_channel_handle == -EINVAL)) {
 			ret = -EAGAIN;
@@ -2596,6 +2592,11 @@ static void gsi_disable(struct usb_function *f)
 	/* send 0 len pkt to qti/qbi/gps to notify state change */
 	gsi_ctrl_send_cpkt_tomodem(gsi, NULL, 0);
 	gsi->c_port.notify_req_queued = false;
+
+	gsi->func_is_suspended = false;
+	gsi->func_wakeup_allowed = false;
+	gsi->func_wakeup_pending = false;
+
 	/* Disable Data Path  - only if it was initialized already (alt=1) */
 	if (!gsi->data_interface_up) {
 		log_event_dbg("%s: data intf is closed", __func__);
@@ -3009,15 +3010,9 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.ss_desc_hdr = gsi_eth_ss_function;
 		info.in_epname = "gsi-epin";
 		info.out_epname = "gsi-epout";
-#ifdef CONFIG_USB_LOW_MEM_VARIANT
-		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
-		gsi->d_port.in_aggr_size = GSI_IN_LOW_MEM_RNDIS_AGGR_SIZE;
-		info.in_req_num_buf = GSI_NUM_IN_BUFFERS;
-#else
 		info.in_req_buf_len = GSI_IN_RNDIS_BUFF_SIZE;
 		gsi->d_port.in_aggr_size = GSI_IN_RNDIS_AGGR_SIZE;
 		info.in_req_num_buf = GSI_NUM_IN_RNDIS_BUFFERS;
-#endif
 		gsi->d_port.out_aggr_size = GSI_OUT_AGGR_SIZE;
 		info.out_req_buf_len = GSI_OUT_AGGR_SIZE;
 		info.out_req_num_buf = GSI_NUM_OUT_BUFFERS;
@@ -3195,15 +3190,9 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.in_epname = "gsi-epin";
 		info.out_epname = "gsi-epout";
 		gsi->d_port.in_aggr_size = GSI_IN_RMNET_AGGR_SIZE;
-#ifdef CONFIG_USB_LOW_MEM_VARIANT
-		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
-		info.in_req_num_buf = GSI_NUM_IN_BUFFERS;
-		info.out_req_buf_len = GSI_OUT_LOW_MEM_RMNET_BUF_LEN;
-#else
 		info.in_req_buf_len = GSI_IN_RMNET_BUFF_SIZE;
 		info.in_req_num_buf = GSI_NUM_IN_RMNET_BUFFERS;
 		info.out_req_buf_len = GSI_OUT_RMNET_BUF_LEN;
-#endif
 		gsi->d_port.out_aggr_size = GSI_OUT_AGGR_SIZE;
 		info.out_req_num_buf = GSI_NUM_OUT_BUFFERS;
 		info.notify_buf_len = sizeof(struct usb_cdc_notification);

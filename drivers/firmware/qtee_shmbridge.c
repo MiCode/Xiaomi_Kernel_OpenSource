@@ -2,7 +2,7 @@
 /*
  * QTI TEE shared memory bridge driver
  *
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020,2021 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -280,30 +280,6 @@ int32_t qtee_shmbridge_allocate_shm(size_t size, struct qtee_shm *shm)
 	int32_t ret = 0;
 	unsigned long va;
 
-	if (IS_ERR_OR_NULL(shm)) {
-		pr_err("qtee_shm is NULL\n");
-		ret = -EINVAL;
-		goto exit;
-	}
-
-	if (!qtee_shmbridge_is_enabled()) {
-		void *buf = NULL;
-		dma_addr_t coh_pmem;
-
-		pr_err("shmbridge is not enabled, allocating via dma_aloc\n");
-
-		size = (size + PAGE_SIZE) & PAGE_MASK;
-		buf = dma_alloc_coherent(default_bridge.dev, size, &coh_pmem, GFP_KERNEL);
-
-		if (buf == NULL)
-			return -ENOMEM;
-
-		shm->vaddr = buf;
-		shm->paddr = coh_pmem;
-		shm->size = size;
-		goto exit;
-	}
-
 	if (size > DEFAULT_BRIDGE_SIZE) {
 		pr_err("requestd size %zu is larger than bridge size %d\n",
 			size, DEFAULT_BRIDGE_SIZE);
@@ -311,6 +287,11 @@ int32_t qtee_shmbridge_allocate_shm(size_t size, struct qtee_shm *shm)
 		goto exit;
 	}
 
+	if (IS_ERR_OR_NULL(shm)) {
+		pr_err("qtee_shm is NULL\n");
+		ret = -EINVAL;
+		goto exit;
+	}
 	size = roundup(size, 1 << default_bridge.min_alloc_order);
 
 	va = gen_pool_alloc(default_bridge.genpool, size);
@@ -339,19 +320,14 @@ void qtee_shmbridge_free_shm(struct qtee_shm *shm)
 {
 	if (IS_ERR_OR_NULL(shm) || !shm->vaddr)
 		return;
-	if (!qtee_shmbridge_is_enabled())
-		dma_free_coherent(default_bridge.dev, shm->size, shm->vaddr, shm->paddr);
-	else
-		gen_pool_free(default_bridge.genpool, (unsigned long)shm->vaddr,
-		shm->size);
+	gen_pool_free(default_bridge.genpool, (unsigned long)shm->vaddr,
+		      shm->size);
 }
 EXPORT_SYMBOL(qtee_shmbridge_free_shm);
 
 /* cache clean operation for buffer sub-allocated from default bridge */
 void qtee_shmbridge_flush_shm_buf(struct qtee_shm *shm)
 {
-	if (!qtee_shmbridge_is_enabled())
-		return;
 	if (shm)
 		return dma_sync_single_for_device(default_bridge.dev,
 				shm->paddr, shm->size, DMA_TO_DEVICE);
@@ -361,8 +337,6 @@ EXPORT_SYMBOL(qtee_shmbridge_flush_shm_buf);
 /* cache invalidation operation for buffer sub-allocated from default bridge */
 void qtee_shmbridge_inv_shm_buf(struct qtee_shm *shm)
 {
-	if (!qtee_shmbridge_is_enabled())
-		return;
 	if (shm)
 		return dma_sync_single_for_cpu(default_bridge.dev,
 				shm->paddr, shm->size, DMA_FROM_DEVICE);
@@ -436,7 +410,7 @@ static int qtee_shmbridge_init(struct platform_device *pdev)
 	if (ret) {
 		/* keep the mem pool and return if failed to enable bridge */
 		ret = 0;
-		goto exit_shmbridge_enable;
+		goto exit;
 	}
 
 	/*register default bridge*/
@@ -464,7 +438,6 @@ static int qtee_shmbridge_init(struct platform_device *pdev)
 
 exit_deregister_default_bridge:
 	qtee_shmbridge_deregister(default_bridge.handle);
-exit_shmbridge_enable:
 	qtee_shmbridge_enable(false);
 exit_destroy_pool:
 	gen_pool_destroy(default_bridge.genpool);
@@ -474,7 +447,7 @@ exit_unmap:
 exit_freebuf:
 	free_pages((long)default_bridge.vaddr, get_order(default_bridge.size));
 	default_bridge.vaddr = NULL;
-//exit:
+exit:
 	return ret;
 }
 

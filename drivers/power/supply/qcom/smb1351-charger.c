@@ -408,11 +408,6 @@ static char *pm_batt_supplied_to[] = {
 	"bms",
 };
 
-struct smb1351_regulator {
-	struct regulator_desc	rdesc;
-	struct regulator_dev	*rdev;
-};
-
 enum chip_version {
 	SMB_UNKNOWN = 0,
 	SMB1350,
@@ -480,7 +475,6 @@ struct smb1351_charger {
 	struct power_supply_desc	batt_psy_d;
 	struct power_supply	*batt_psy;
 
-	struct smb1351_regulator	otg_vreg;
 	struct mutex		irq_complete;
 
 	struct dentry		*debug_root;
@@ -826,87 +820,6 @@ static int smb1351_iterm_set(struct smb1351_charger *chip, int iterm_ma)
 		return rc;
 	}
 	return 0;
-}
-
-static int smb1351_chg_otg_regulator_enable(struct regulator_dev *rdev)
-{
-	int rc = 0;
-	struct smb1351_charger *chip = rdev_get_drvdata(rdev);
-
-	rc = smb1351_masked_write(chip, CMD_CHG_REG, CMD_OTG_EN_BIT,
-							CMD_OTG_EN_BIT);
-	if (rc)
-		pr_err("Couldn't enable  OTG mode rc=%d\n", rc);
-	return rc;
-}
-
-static int smb1351_chg_otg_regulator_disable(struct regulator_dev *rdev)
-{
-	int rc = 0;
-	struct smb1351_charger *chip = rdev_get_drvdata(rdev);
-
-	rc = smb1351_masked_write(chip, CMD_CHG_REG, CMD_OTG_EN_BIT, 0);
-	if (rc)
-		pr_err("Couldn't disable OTG mode rc=%d\n", rc);
-	return rc;
-}
-
-static int smb1351_chg_otg_regulator_is_enable(struct regulator_dev *rdev)
-{
-	int rc = 0;
-	u8 reg = 0;
-	struct smb1351_charger *chip = rdev_get_drvdata(rdev);
-
-	rc = smb1351_read_reg(chip, CMD_CHG_REG, &reg);
-	if (rc) {
-		pr_err("Couldn't read OTG enable bit rc=%d\n", rc);
-		return rc;
-	}
-
-	return (reg & CMD_OTG_EN_BIT) ? 1 : 0;
-}
-
-static struct regulator_ops smb1351_chg_otg_reg_ops = {
-	.enable		= smb1351_chg_otg_regulator_enable,
-	.disable	= smb1351_chg_otg_regulator_disable,
-	.is_enabled	= smb1351_chg_otg_regulator_is_enable,
-};
-
-static int smb1351_regulator_init(struct smb1351_charger *chip)
-{
-	int rc = 0;
-	struct regulator_config cfg = {};
-	struct regulator_init_data *init_data;
-
-	chip->otg_vreg.rdesc.owner = THIS_MODULE;
-	chip->otg_vreg.rdesc.type = REGULATOR_VOLTAGE;
-	chip->otg_vreg.rdesc.ops = &smb1351_chg_otg_reg_ops;
-	chip->otg_vreg.rdesc.name =
-		chip->dev->of_node->name;
-	chip->otg_vreg.rdesc.of_match =
-		chip->dev->of_node->name;
-
-	init_data = of_get_regulator_init_data(chip->dev, chip->dev->of_node,
-					&chip->otg_vreg.rdesc);
-	if (!init_data) {
-		pr_err("regulator init data is missing\n");
-		return -EINVAL;
-	}
-
-	cfg.dev = chip->dev;
-	cfg.driver_data = chip;
-	cfg.init_data = init_data;
-	cfg.of_node = chip->dev->of_node;
-
-	chip->otg_vreg.rdev = regulator_register(
-					&chip->otg_vreg.rdesc, &cfg);
-	if (IS_ERR(chip->otg_vreg.rdev)) {
-		rc = PTR_ERR(chip->otg_vreg.rdev);
-		chip->otg_vreg.rdev = NULL;
-		if (rc != -EPROBE_DEFER)
-			pr_err("OTG reg failed, rc=%d\n", rc);
-	}
-	return rc;
 }
 
 static int smb_chip_get_version(struct smb1351_charger *chip)
@@ -2648,16 +2561,10 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 
 	dump_regs(chip);
 
-	rc = smb1351_regulator_init(chip);
-	if (rc) {
-		pr_err("Couldn't initialize smb1351 ragulator rc=%d\n", rc);
-		goto fail_smb1351_regulator_init;
-	}
-
 	rc = smb1351_hw_init(chip);
 	if (rc) {
 		pr_err("Couldn't initialize hardware rc=%d\n", rc);
-		goto fail_smb1351_hw_init;
+		return rc;
 	}
 
 	rc = smb1351_init_otg(chip);
@@ -2669,7 +2576,7 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 	rc = smb1351_determine_initial_state(chip);
 	if (rc) {
 		pr_err("Couldn't determine initial state rc=%d\n", rc);
-		goto fail_smb1351_hw_init;
+		return rc;
 	}
 
 	/* STAT irq configuration */
@@ -2681,7 +2588,7 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 		if (rc) {
 			pr_err("Failed STAT irq=%d request rc = %d\n",
 				client->irq, rc);
-			goto fail_smb1351_hw_init;
+			return rc;
 		}
 		enable_irq_wake(client->irq);
 	}
@@ -2711,11 +2618,6 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 			smb1351_get_prop_batt_present(chip),
 			smb1351_version_str[chip->version]);
 	return 0;
-
-fail_smb1351_hw_init:
-	regulator_unregister(chip->otg_vreg.rdev);
-fail_smb1351_regulator_init:
-	return rc;
 }
 
 static int smb1351_charger_probe(struct i2c_client *client,

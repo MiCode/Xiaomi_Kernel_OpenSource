@@ -2,7 +2,7 @@
 /*
  * xHCI secondary ring APIs
  *
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019,2021 The Linux Foundation. All rights reserved.
  */
 
 #ifndef __LINUX_XHCI_SEC_H
@@ -20,7 +20,7 @@ phys_addr_t xhci_get_xfer_ring_phys_addr(struct usb_device *udev,
 int xhci_stop_endpoint(struct usb_device *udev, struct usb_host_endpoint *ep);
 #else
 static inline int xhci_sec_event_ring_setup(struct usb_device *udev,
-		unsigned int intr_num);
+		unsigned int intr_num)
 {
 	return -ENODEV;
 }
@@ -35,13 +35,13 @@ static inline phys_addr_t xhci_get_sec_event_ring_phys_addr(
 		struct usb_device *udev, unsigned int intr_num,
 		dma_addr_t *dma)
 {
-	return NULL;
+	return 0;
 }
 
 static inline phys_addr_t xhci_get_xfer_ring_phys_addr(struct usb_device *udev,
 		struct usb_host_endpoint *ep, dma_addr_t *dma)
 {
-	return NULL;
+	return 0;
 }
 
 static inline int xhci_stop_endpoint(struct usb_device *udev,

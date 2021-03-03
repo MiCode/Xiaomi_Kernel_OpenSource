@@ -133,6 +133,22 @@ config MSM_11AD
 	  If you choose to build it as a module, it will be called
 	  msm_11ad_proxy.
 
+# Ethernet configuration options
+
+config IOSS
+	tristate "IPA Offload Sub-system v2"
+	depends on IPA3
+	help
+	  IPA Offload Sub-system is a generic kernel framework that enables a
+	  third-party ethernet driver to attach an ethernet peripheral to IPA
+	  for hardware offloading of tethered data paths. The framework
+	  provides a generic API interface that ethernet drivers can use to
+	  register their hardware functionality with the sub-system in order
+	  to enable IPA offload.
+
+	  To compile this driver as a module, choose M here. Module will be
+	  called ioss.
+
 config R8125
 	tristate "Realtek R8125 driver"
 	depends on PCI
@@ -143,6 +159,18 @@ config R8125
 	  To compile this driver as a module, choose M here: the module
 	  will be called r8125.
 
+config R8125_IOSS
+	tristate "Realtek R8125 IOSS glue driver"
+	depends on R8125
+	depends on IOSS
+	help
+	  Enables IPA Ethernet Offload path on Realtek R8125 NIC. It is
+	  designed to support generic HW processing of UL/DL IP packets for
+	  various use cases to reduce the CPU load during E2E IP traffic.
+
+	  To compile this driver as a module, choose M here. Module will be
+	  called r8125_ioss. If unsure, say N.
+
 config R8125_IPA_OFFLOAD
 	bool "Enable IPA offload on Realtek R8125 driver"
 	depends on IPA3
@@ -151,6 +179,21 @@ config R8125_IPA_OFFLOAD
 	  designed to support generic HW processing of UL/DL IP packets for
 	  various use cases independent of radio technology. When this is
 	  disabled Realtek R8125 driver switches to embedded software path.
+
+config AQFWD_IOSS
+	tristate "AQC glue driver for IOSS v2"
+	depends on AQFWD
+	depends on IOSS
+	select ATLFWD_FWD
+	help
+	  Enables IPA Ethernet Offload path on atlantic-fwd driver. It is
+	  designed to support generic HW processing of UL/DL IP packets for
+	  various use cases to reduce the cpu load during E2E IP traffic.
+	  When this is disabled, atlantic-fwd driver switches to embedded software path.
+
+	  To compile this driver as a module, choose M here. Module will be called
+	  aqc_ioss.
+	  If unsure, say N.
 
 config IPA_ETH
 	bool "IPA Ethernet Offload Sub-system support"

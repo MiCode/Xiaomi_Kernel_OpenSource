@@ -34,6 +34,12 @@
 #define PTP_4TC_RING_IDX            16
 #define PTP_HWTS_RING_IDX           31
 
+enum ptp_perout_action {
+	ptp_perout_disabled = 0,
+	ptp_perout_enabled,
+	ptp_perout_pps,
+};
+
 enum ptp_speed_offsets {
 	ptp_offset_idx_10 = 0,
 	ptp_offset_idx_100,
@@ -104,6 +110,8 @@ struct ptp_tm_offset {
 };
 
 static struct ptp_tm_offset ptp_offset[6];
+
+static int atl_ptp_pps_reconfigure(struct atl_ptp *ptp);
 
 static int __atl_ptp_skb_put(struct ptp_skb_ring *ring, struct sk_buff *skb)
 {
@@ -309,6 +317,8 @@ static int atl_ptp_adjtime(struct ptp_clock_info *ptp_info, s64 delta)
 	hw_atl_adj_sys_clock(&nic->hw, delta);
 	spin_unlock_irqrestore(&ptp->ptp_lock, flags);
 
+	atl_ptp_pps_reconfigure(ptp);
+
 	return 0;
 }
 
@@ -354,8 +364,9 @@ static int atl_ptp_settime(struct ptp_clock_info *ptp_info,
 	spin_lock_irqsave(&ptp->ptp_lock, flags);
 	hw_atl_get_ptp_ts(&nic->hw, &now);
 	hw_atl_adj_sys_clock(&nic->hw, (s64)ns - (s64)now);
-
 	spin_unlock_irqrestore(&ptp->ptp_lock, flags);
+
+	atl_ptp_pps_reconfigure(ptp);
 
 	return 0;
 }
@@ -418,6 +429,8 @@ static int atl_ptp_perout_pin_configure(struct ptp_clock_info *ptp_clock,
 	start = on ? s->sec * NSEC_PER_SEC + s->nsec : 0;
 
 	atl_ptp_hw_pin_conf(nic, pin_index, start, period);
+	ptp->ptp_info.pin_config[pin_index].rsv[2] = on ? ptp_perout_enabled :
+							  ptp_perout_disabled;
 
 	return 0;
 }
@@ -442,8 +455,33 @@ static int atl_ptp_pps_pin_configure(struct ptp_clock_info *ptp_clock,
 		(rest > 990000000LL ? 2 : 1) : 0;
 
 	atl_ptp_hw_pin_conf(nic, pin_index, start, period);
+	ptp->ptp_info.pin_config[pin_index].rsv[2] = on ? ptp_perout_pps :
+							  ptp_perout_disabled;
 
 	return 0;
+}
+
+static int atl_ptp_pps_reconfigure(struct atl_ptp *ptp)
+{
+	struct atl_nic *nic = ptp->nic;
+	u64 start, period;
+	u32 rest = 0;
+	int i;
+
+	for (i = 0; i < ptp->ptp_info.n_pins; i++)
+		if ((ptp->ptp_info.pin_config[i].func == PTP_PF_PEROUT) &&
+		    (ptp->ptp_info.pin_config[i].rsv[2] == ptp_perout_pps)) {
+
+			hw_atl_get_ptp_ts(&nic->hw, &start);
+			div_u64_rem(start, NSEC_PER_SEC, &rest);
+			period = NSEC_PER_SEC;
+			start = start - rest + NSEC_PER_SEC * (rest > 990000000LL ? 2 : 1);
+
+			atl_ptp_hw_pin_conf(nic, i, start, period);
+		}
+
+	return 0;
+
 }
 
 static void atl_ptp_extts_pin_ctrl(struct atl_ptp *ptp)
@@ -573,21 +611,6 @@ static int atl_ptp_poll(struct napi_struct *napi, int budget)
 	}
 
 	return work_done;
-}
-
-static irqreturn_t atl_ptp_irq(int irq, void *private)
-{
-	struct atl_ptp *ptp = private;
-	int err = 0;
-
-	if (!ptp) {
-		err = -EINVAL;
-		goto err_exit;
-	}
-	napi_schedule_irqoff(ptp->napi);
-
-err_exit:
-	return err >= 0 ? IRQ_HANDLED : IRQ_NONE;
 }
 
 static struct ptp_clock_info atl_ptp_clock = {
@@ -807,6 +830,25 @@ static void atl_ptp_poll_sync_work_cb(struct work_struct *w)
 }
 
 #endif /* IS_REACHABLE(CONFIG_PTP_1588_CLOCK) */
+
+irqreturn_t atl_ptp_irq(int irq, void *private)
+{
+#if IS_REACHABLE(CONFIG_PTP_1588_CLOCK)
+	struct atl_ptp *ptp = private;
+	int err = 0;
+
+	if (!ptp) {
+		err = -EINVAL;
+		goto err_exit;
+	}
+	napi_schedule_irqoff(ptp->napi);
+
+err_exit:
+	return err >= 0 ? IRQ_HANDLED : IRQ_NONE;
+#else
+	return IRQ_NONE;
+#endif
+}
 
 void atl_ptp_tm_offset_set(struct atl_nic *nic, unsigned int mbps)
 {
@@ -1030,7 +1072,7 @@ int atl_ptp_irq_alloc(struct atl_nic *nic)
 				  atl_ptp_irq, 0, nic->ndev->name, ptp);
 	}
 
-	return -EINVAL;
+	return 0;
 #else
 	return 0;
 #endif
@@ -1046,7 +1088,8 @@ void atl_ptp_irq_free(struct atl_nic *nic)
 		return;
 
 	atl_intr_disable(hw, BIT(ptp->idx_vector));
-	free_irq(pci_irq_vector(hw->pdev, ptp->idx_vector), ptp);
+	if (nic->flags & ATL_FL_MULTIPLE_VECTORS)
+		free_irq(pci_irq_vector(hw->pdev, ptp->idx_vector), ptp);
 #endif
 }
 
