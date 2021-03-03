@@ -123,6 +123,7 @@
 };
 
 &waipio_snd {
+	qcom,model = "waipio-cdp-snd-card";
 	qcom,audio-routing =
 		"AMIC1", "Analog Mic1",
 		"AMIC1", "MIC BIAS1",
