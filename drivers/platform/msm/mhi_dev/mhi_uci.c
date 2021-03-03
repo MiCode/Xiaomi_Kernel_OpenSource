@@ -560,15 +560,25 @@ static struct mhi_req *mhi_uci_get_req(struct uci_client *uci_handle)
 	return req;
 }
 
-static void mhi_uci_put_req(struct uci_client *uci_handle, struct mhi_req *req)
+static int mhi_uci_put_req(struct uci_client *uci_handle, struct mhi_req *req)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&uci_handle->req_lock, flags);
+	if (req->is_stale) {
+		uci_log(UCI_DBG_VERBOSE,
+			"Got stale completion for ch %d, ignoring\n",
+			req->chan);
+		spin_unlock_irqrestore(&uci_handle->req_lock, flags);
+		return -EINVAL;
+	}
+
 	/* Remove from in-use list and add back to free list */
 	list_del_init(&req->list);
 	list_add_tail(&req->list, &uci_handle->req_list);
 	spin_unlock_irqrestore(&uci_handle->req_lock, flags);
+
+	return 0;
 }
 
 static void mhi_uci_write_completion_cb(void *req)
@@ -584,17 +594,12 @@ static void mhi_uci_write_completion_cb(void *req)
 	 * the stale flag and return. The ureq was added to
 	 * the free list when client called release function.
 	 */
-	if (ureq->is_stale) {
-		uci_log(UCI_DBG_VERBOSE,
-			"Got stale completion for ch %d\n", ureq->chan);
-		ureq->is_stale = false;
+	if (mhi_uci_put_req(uci_handle, ureq))
 		return;
-	}
 
 	if (uci_handle->write_done)
 		complete(uci_handle->write_done);
 
-	mhi_uci_put_req(uci_handle, ureq);
 	/* Write queue may be waiting for write request structs */
 	wake_up(&uci_handle->write_wq);
 }
@@ -604,19 +609,19 @@ static void mhi_uci_read_completion_cb(void *req)
 	struct mhi_req *ureq = req;
 	struct uci_client *uci_handle;
 
-	if (ureq->is_stale) {
-		uci_log(UCI_DBG_VERBOSE,
-			"Got stale completion for ch %d, ignoring\n",
-			ureq->chan);
-		return;
-	}
-
 	uci_handle = (struct uci_client *)ureq->context;
 
 	uci_handle->pkt_loc = (void *)ureq->buf;
 	uci_handle->pkt_size = ureq->transfer_len;
 
-	mhi_uci_put_req(uci_handle, ureq);
+	 /*
+	  * If this is a delayed read completion, just clear
+	  * the stale flag and return. The ureq was added to
+	  * the free list when client called release function.
+	  */
+	if (mhi_uci_put_req(uci_handle, ureq))
+		return;
+
 	complete(&uci_handle->read_done);
 }
 
@@ -1113,6 +1118,7 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 	const struct chan_attr *in_chan_attr;
 	int count = 0, i;
 	struct mhi_req *ureq;
+	unsigned long flags;
 
 	if (!uci_handle)
 		return -EINVAL;
@@ -1165,6 +1171,8 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 		 * to client if the transfer completes later.
 		 */
 		count = 0;
+
+		spin_lock_irqsave(&uci_handle->req_lock, flags);
 		while (!(list_empty(&uci_handle->in_use_list))) {
 			ureq = container_of(uci_handle->in_use_list.next,
 					struct mhi_req, list);
@@ -1176,6 +1184,7 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 			list_add_tail(&ureq->list, &uci_handle->req_list);
 			count++;
 		}
+		spin_unlock_irqrestore(&uci_handle->req_lock, flags);
 		if (count)
 			uci_log(UCI_DBG_DBG,
 				"Client %d closed with %d transfers pending\n",
