@@ -291,14 +291,15 @@ static void mdw_dbg_test_func(int test, int *arg, int count)
 	}
 }
 
+#define MAX_ARG 2
 static ssize_t mdw_dbg_write_test(struct file *flip,
 		const char __user *buffer,
 		size_t count, loff_t *f_pos)
 {
 	char *tmp, *token, *cursor;
 	int ret, i, test;
-	const int max_arg = 2;
-	unsigned int args[max_arg];
+	const int max_arg = MAX_ARG;
+	unsigned int args[MAX_ARG];
 
 	tmp = kzalloc(count + 1, GFP_KERNEL);
 	if (!tmp)

@@ -644,13 +644,14 @@ out:
 	return ret;
 }
 
+#define MAX_ARG 5
 static ssize_t apupw_dbg_write(struct file *flip, const char __user *buffer,
 			       size_t count, loff_t *f_pos)
 {
 	char *tmp, *token, *cursor;
 	int ret, i, param;
-	const int max_arg = 5;
-	unsigned int args[max_arg];
+	const int max_arg = MAX_ARG;
+	unsigned int args[MAX_ARG];
 
 	tmp = kzalloc(count + 1, GFP_KERNEL);
 	if (!tmp)
