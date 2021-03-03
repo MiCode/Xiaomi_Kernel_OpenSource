@@ -203,7 +203,7 @@ void a6xx_load_rsc_ucode(struct adreno_device *adreno_dev)
 	if (adreno_is_a650_family(adreno_dev))
 		rscc = gmu->rscc_virt;
 	else
-		rscc = kgsl_regmap_virt(&device->regmap, 0x23400);
+		rscc = kgsl_regmap_virt(&device->regmap, 0x23000);
 
 	/* Disable SDE clock gating */
 	_regwrite(rscc, A6XX_GPU_RSCC_RSC_STATUS0_DRV0, BIT(24));
