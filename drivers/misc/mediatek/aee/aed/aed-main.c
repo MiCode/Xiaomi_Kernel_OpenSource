@@ -1768,21 +1768,13 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			}
 			memset(maps, 0, MaxMapsSize);
 			down_read(&task->mm->mmap_lock);
+			task_lock(task);
 			vma = task->mm->mmap;
 			while (vma && (mapcount < task->mm->map_count)) {
 				show_map_vma(maps, &mapsLength, vma);
 				vma = vma->vm_next;
 				mapcount++;
 			}
-
-			if (copy_to_user(thread_info.Userthread_maps,
-				maps, mapsLength)) {
-				vfree(maps);
-				ret = -EFAULT;
-				goto EXIT;
-			}
-			vfree(maps);
-			thread_info.Userthread_mapsLength = mapsLength;
 
 			// 3. get stack
 #ifndef __aarch64__ //K32+U32
@@ -1805,7 +1797,16 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 					break;
 			}
 
+			task_unlock(task);
 			up_read(&task->mm->mmap_lock);
+			if (copy_to_user(thread_info.Userthread_maps,
+				maps, mapsLength)) {
+				vfree(maps);
+				ret = -EFAULT;
+				goto EXIT;
+			}
+			vfree(maps);
+			thread_info.Userthread_mapsLength = mapsLength;
 			if (end == 0) {
 				pr_info("Dump native stack failed:\n");
 				ret = -EFAULT;
