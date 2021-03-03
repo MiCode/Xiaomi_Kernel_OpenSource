@@ -2,7 +2,7 @@
 /*
  * QTI TEE shared memory bridge driver
  *
- * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019,2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
