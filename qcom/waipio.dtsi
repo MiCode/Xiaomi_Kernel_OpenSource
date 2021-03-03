@@ -3152,7 +3152,7 @@
 		qcom,arm-smmu;
 		qcom,smmu-fast-map;
 		qcom,use-64-bit-dma-mask;
-		qcom,ipa-endp-delay-wa;
+		qcom,ipa-endp-delay-wa-v2;
 		qcom,lan-rx-napi;
 		qcom,wan-use-skb-page;
 		qcom,rmnet-ctl-enable;
