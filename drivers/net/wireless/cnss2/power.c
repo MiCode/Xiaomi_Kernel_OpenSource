@@ -491,6 +491,27 @@ int cnss_vreg_unvote_type(struct cnss_plat_data *plat_priv,
 	return ret;
 }
 
+void cnss_disable_redundant_vreg(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_vreg_info *vreg, *vreg_tmp;
+	struct list_head *vreg_list = &plat_priv->vreg_list;
+
+	list_for_each_entry_safe(vreg, vreg_tmp, vreg_list, list) {
+		if (IS_ERR_OR_NULL(vreg->reg))
+			continue;
+
+		if ((!strcmp("wlan-ant-switch", vreg->cfg.name) ||
+		     !strcmp("vdd-wlan-aon", vreg->cfg.name)) &&
+		    vreg->enabled) {
+			cnss_pr_dbg("Disable Regulator %s\n", vreg->cfg.name);
+
+			list_del(&vreg->list);
+			cnss_vreg_off_single(vreg);
+			cnss_put_vreg_single(plat_priv, vreg);
+		}
+	}
+}
+
 static int cnss_get_clk_single(struct cnss_plat_data *plat_priv,
 			       struct cnss_clk_info *clk_info)
 {
