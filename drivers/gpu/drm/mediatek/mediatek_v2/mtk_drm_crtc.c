@@ -5013,13 +5013,14 @@ static int mtk_drm_fake_vsync_kthread(void *data)
 	return 0;
 }
 
+#define LEN 50
 void mtk_drm_fake_vsync_init(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_fake_vsync *fake_vsync =
 		kzalloc(sizeof(struct mtk_drm_fake_vsync), GFP_KERNEL);
-	const int len = 50;
-	char name[len];
+	const int len = LEN;
+	char name[LEN];
 
 	if (drm_crtc_index(crtc) != 0 || mtk_drm_lcm_is_connect() ||
 		!mtk_crtc_is_frame_trigger_mode(crtc)) {

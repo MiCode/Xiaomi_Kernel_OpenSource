@@ -462,12 +462,13 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 	}
 }
 
+#define LEN 1000
 static void dump_disp_trace(struct drm_mtk_layering_info *disp_info)
 {
 	int i, j;
 	struct drm_mtk_layer_config *c;
-	const int len = 1000;
-	char msg[len];
+	const int len = LEN;
+	char msg[LEN];
 	int n = 0;
 
 	for (i = 0; i < HRT_DISP_TYPE_NUM; i++) {

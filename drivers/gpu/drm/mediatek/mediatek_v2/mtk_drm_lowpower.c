@@ -395,6 +395,7 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 	return 0;
 }
 
+#define LEN 50
 int mtk_drm_idlemgr_init(struct drm_crtc *crtc, int index)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -402,8 +403,8 @@ int mtk_drm_idlemgr_init(struct drm_crtc *crtc, int index)
 		kzalloc(sizeof(struct mtk_drm_idlemgr), GFP_KERNEL);
 	struct mtk_drm_idlemgr_context *idlemgr_ctx =
 		kzalloc(sizeof(struct mtk_drm_idlemgr_context), GFP_KERNEL);
-	const int len = 50;
-	char name[len];
+	const int len = LEN;
+	char name[LEN];
 
 	if (!idlemgr) {
 		DDPPR_ERR("struct mtk_drm_idlemgr allocate fail\n");

@@ -441,6 +441,7 @@ int mtk_ovl_layer_num(struct mtk_ddp_comp *comp)
 	return 0;
 }
 
+#define LEN 1000
 static void dump_ovl_layer_trace(struct mtk_drm_crtc *mtk_crtc,
 				 struct mtk_ddp_comp *ovl)
 {
@@ -455,8 +456,8 @@ static void dump_ovl_layer_trace(struct mtk_drm_crtc *mtk_crtc,
 	u32 w = 0, h = 0, size = 0, con = 0, fmt = 0, src = 0;
 
 	struct mtk_drm_private *priv = NULL;
-	const int len = 1000;
-	char msg[len];
+	const int len = LEN;
+	char msg[LEN];
 	int n = 0;
 
 	if (!mtk_crtc)

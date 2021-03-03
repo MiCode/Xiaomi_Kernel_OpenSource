@@ -361,6 +361,7 @@ int mtk_rsz_dump(struct mtk_ddp_comp *comp)
 	return 0;
 }
 
+#define LEN 100
 int mtk_rsz_analysis(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
@@ -372,8 +373,8 @@ int mtk_rsz_analysis(struct mtk_ddp_comp *comp)
 	u32 out_size = 0;
 	u32 in_pos = 0;
 	u32 shadow = 0;
-	const int len = 100;
-	char msg[len];
+	const int len = LEN;
+	char msg[LEN];
 	int n = 0;
 
 	enable = readl(baddr + DISP_REG_RSZ_ENABLE);
