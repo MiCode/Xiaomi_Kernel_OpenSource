@@ -8,6 +8,7 @@
 #include "adreno_snapshot.h"
 #include "adreno_sysfs.h"
 #include "adreno_trace.h"
+#include "kgsl_timeline.h"
 
 /* This structure represents inflight command object */
 struct cmd_list_obj {
@@ -137,6 +138,22 @@ static int _retire_markerobj(struct kgsl_drawobj_cmd *cmdobj,
 	return test_bit(CMDOBJ_SKIP, &cmdobj->priv) ? 1 : -EAGAIN;
 }
 
+static int _retire_timelineobj(struct kgsl_drawobj *drawobj,
+		struct adreno_context *drawctxt)
+{
+	struct kgsl_drawobj_timeline *timelineobj = TIMELINEOBJ(drawobj);
+	int i;
+
+	for (i = 0; i < timelineobj->count; i++)
+		kgsl_timeline_signal(timelineobj->timelines[i].timeline,
+			timelineobj->timelines[i].seqno);
+
+	_pop_drawobj(drawctxt);
+	_retire_timestamp(drawobj);
+
+	return 0;
+}
+
 /*
  * Retires all expired marker and sync objs from the context
  * queue and returns one of the below
@@ -150,6 +167,8 @@ static struct kgsl_drawobj *_process_drawqueue_get_next_drawobj(
 {
 	struct kgsl_drawobj *drawobj;
 	unsigned int i = drawctxt->drawqueue_head;
+	struct kgsl_drawobj_cmd *cmdobj;
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
 	int ret = 0;
 
 	if (drawctxt->drawqueue_head == drawctxt->drawqueue_tail)
@@ -160,12 +179,12 @@ static struct kgsl_drawobj *_process_drawqueue_get_next_drawobj(
 
 		drawobj = drawctxt->drawqueue[i];
 
-		if (drawobj == NULL)
+		if (!drawobj)
 			return NULL;
 
-		if (drawobj->type == CMDOBJ_TYPE) {
-			struct kgsl_drawobj_cmd *cmdobj = CMDOBJ(drawobj);
-			struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+		switch (drawobj->type) {
+		case CMDOBJ_TYPE:
+			cmdobj = CMDOBJ(drawobj);
 
 			/* We only support one big IB inflight */
 			if ((cmdobj->numibs > HWSCHED_MAX_DISPATCH_NUMIBS) &&
@@ -173,19 +192,25 @@ static struct kgsl_drawobj *_process_drawqueue_get_next_drawobj(
 				return ERR_PTR(-ENOSPC);
 
 			return drawobj;
-		} else if (drawobj->type == SYNCOBJ_TYPE) {
+		case SYNCOBJ_TYPE:
 			ret = _retire_syncobj(SYNCOBJ(drawobj), drawctxt);
-		} else if (drawobj->type == MARKEROBJ_TYPE) {
+			break;
+		case MARKEROBJ_TYPE:
 			ret = _retire_markerobj(CMDOBJ(drawobj), drawctxt);
 			/* Special case where marker needs to be sent to GPU */
 			if (ret == 1)
 				return drawobj;
-		} else {
-			return ERR_PTR(-EINVAL);
+			break;
+		case TIMELINEOBJ_TYPE:
+			ret = _retire_timelineobj(drawobj, drawctxt);
+			break;
+		default:
+			ret = -EINVAL;
+			break;
 		}
 
-		if (ret == -EAGAIN)
-			return ERR_PTR(-EAGAIN);
+		if (ret)
+			return ERR_PTR(ret);
 	}
 
 	return NULL;
@@ -811,6 +836,22 @@ static int _queue_markerobj(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+static int _queue_auxobj(struct adreno_device *adreno_dev,
+		struct adreno_context *drawctxt, struct kgsl_drawobj *drawobj,
+		u32 *timestamp, u32 user_ts)
+{
+	int ret;
+
+	ret = get_timestamp(drawctxt, drawobj, timestamp, user_ts);
+	if (ret)
+		return ret;
+
+	drawctxt->queued_timestamp = *timestamp;
+	_queue_drawobj(drawctxt, drawobj);
+
+	return 0;
+}
+
 static int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 	struct kgsl_context *context, struct kgsl_drawobj *drawobj[],
 	u32 count, u32 *timestamp)
@@ -901,6 +942,15 @@ static int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 		case SYNCOBJ_TYPE:
 			_queue_syncobj(drawctxt, SYNCOBJ(drawobj[i]),
 						timestamp);
+			break;
+		case TIMELINEOBJ_TYPE:
+			ret = _queue_auxobj(adreno_dev, drawctxt, drawobj[i],
+				timestamp, user_ts);
+			if (ret) {
+				spin_unlock(&drawctxt->lock);
+				kmem_cache_free(jobs_cache, job);
+				return ret;
+			}
 			break;
 		default:
 			spin_unlock(&drawctxt->lock);
