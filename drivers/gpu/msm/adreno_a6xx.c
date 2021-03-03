@@ -2534,6 +2534,53 @@ static int a6xx_setproperty(struct kgsl_device_private *dev_priv,
 	return 0;
 }
 
+static int a619_holi_sptprac_enable(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	void __iomem *addr = kgsl_regmap_virt(&device->regmap,
+		A6XX_GMU_SPTPRAC_PWR_CLK_STATUS);
+	u32 val;
+
+	if (test_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED, &adreno_dev->priv))
+		return 0;
+
+	kgsl_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
+		SPTPRAC_POWERON_CTRL_MASK);
+
+	if (readl_poll_timeout(addr, val,
+		(val & SPTPRAC_POWERON_STATUS_MASK) ==
+		SPTPRAC_POWERON_STATUS_MASK, 10, 10 * 1000)) {
+		dev_err(device->dev, "power on SPTPRAC fail\n");
+		return -EINVAL;
+	}
+
+	set_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED, &adreno_dev->priv);
+	return 0;
+}
+
+static void a619_holi_sptprac_disable(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	void __iomem *addr = kgsl_regmap_virt(&device->regmap,
+		A6XX_GMU_SPTPRAC_PWR_CLK_STATUS);
+	u32 val;
+
+	if (!test_and_clear_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED,
+		&adreno_dev->priv))
+		return;
+
+	/* Ensure that retention is on */
+	kgsl_regrmw(device, A6XX_GPU_CC_GX_GDSCR, 0,
+		A6XX_RETAIN_FF_ENABLE_ENABLE_MASK);
+
+	kgsl_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
+		SPTPRAC_POWEROFF_CTRL_MASK);
+	if (readl_poll_timeout(addr, val,
+		(val & SPTPRAC_POWEROFF_STATUS_MASK) ==
+		SPTPRAC_POWEROFF_STATUS_MASK, 10, 10 * 1000))
+		dev_err(device->dev, "power off SPTPRAC fail\n");
+}
+
 /* This is a non GMU/RGMU part */
 const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
@@ -2652,8 +2699,8 @@ const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.init = a6xx_nogmu_init,
 	.irq_handler = a6xx_irq_handler,
 	.rb_start = a6xx_rb_start,
-	.regulator_enable = a6xx_sptprac_enable,
-	.regulator_disable = a6xx_sptprac_disable,
+	.regulator_enable = a619_holi_sptprac_enable,
+	.regulator_disable = a619_holi_sptprac_disable,
 	.gpu_keepalive = a6xx_gpu_keepalive,
 	.hw_isidle = a619_holi_hw_isidle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
