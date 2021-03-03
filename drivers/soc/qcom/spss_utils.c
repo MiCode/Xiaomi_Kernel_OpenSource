@@ -66,6 +66,8 @@ static void *iar_notif_handle;
 static struct notifier_block *iar_nb;
 static bool is_iar_active;
 static bool is_ssr_disabled;
+/* To differentiate legacy and new generation of hardware supported features*/
+static bool is_cmac_and_iar_feature_supported = true;
 
 #define CMAC_SIZE_IN_BYTES (128/8) /* 128 bit = 16 bytes */
 #define CMAC_SIZE_IN_DWORDS (CMAC_SIZE_IN_BYTES/sizeof(u32)) /* 4 dwords */
@@ -291,7 +293,11 @@ static int spss_create_sysfs(struct device *dev)
 		goto remove_test_fuse_state;
 	}
 
+	if (!is_cmac_and_iar_feature_supported)
+		goto out;
+
 	ret = device_create_file(dev, &dev_attr_calc_fw_cmac);
+
 	if (ret < 0) {
 		pr_err("failed to create sysfs file for calc_fw_cmac.\n");
 		goto remove_spss_debug_reg;
@@ -303,7 +309,7 @@ static int spss_create_sysfs(struct device *dev)
 		goto remove_calc_fw_cmac;
 	}
 
-
+out:
 	return 0;
 
 remove_calc_fw_cmac:
@@ -320,8 +326,10 @@ remove_firmware_name:
 static void spss_destroy_sysfs(struct device *dev)
 {
 
-	device_remove_file(dev, &dev_attr_calc_apps_cmac);
-	device_remove_file(dev, &dev_attr_calc_fw_cmac);
+	if (is_cmac_and_iar_feature_supported) {
+		device_remove_file(dev, &dev_attr_calc_apps_cmac);
+		device_remove_file(dev, &dev_attr_calc_fw_cmac);
+	}
 	device_remove_file(dev, &dev_attr_spss_debug_reg);
 	device_remove_file(dev, &dev_attr_test_fuse_state);
 	device_remove_file(dev, &dev_attr_firmware_name);
@@ -520,6 +528,11 @@ static long spss_utils_ioctl(struct file *file,
 	switch (cmd) {
 	case SPSS_IOC_SET_FW_AND_APPS_CMAC:
 		pr_debug("ioctl [SPSS_IOC_SET_FW_AND_APPS_CMAC]\n");
+
+		if (!is_cmac_and_iar_feature_supported) {
+			pr_err("legacy SPSS not support cmac,iar feature.\n");
+			return -EINVAL;
+		}
 
 		/* spdaemon uses this ioctl only when IAR is active */
 		is_iar_active = true;
@@ -861,6 +874,10 @@ static int spss_parse_dt(struct device_node *node)
 	}
 	iounmap(spss_emul_type_reg);
 
+	if (!is_cmac_and_iar_feature_supported) {
+		pr_info("legacy SPSS not support cmac & iar feature.\n");
+		goto out;
+	}
 	/* PIL-SPSS area */
 	np = of_parse_phandle(node, "pil-mem", 0);
 	if (!np) {
@@ -898,6 +915,7 @@ static int spss_parse_dt(struct device_node *node)
 	memset(saved_fw_cmac, 0xA5, sizeof(saved_fw_cmac));
 	memset(saved_apps_cmac, 0xA5, sizeof(saved_apps_cmac));
 
+out:
 	return 0;
 }
 
@@ -1071,6 +1089,11 @@ static int spss_utils_pil_callback(struct notifier_block *nb,
 		break;
 	case SUBSYS_BEFORE_POWERUP:
 		pr_info("[SUBSYS_BEFORE_POWERUP] event.\n");
+
+		if (!is_cmac_and_iar_feature_supported) {
+			pr_info("legacy SPSS not support cmac,iar feature.\n");
+			break;
+		}
 		if (is_iar_active && is_ssr_disabled) {
 			pr_err("SPSS SSR disabled, requesting reboot\n");
 			kernel_restart("SPSS SSR disabled, requesting reboot");
@@ -1088,6 +1111,10 @@ static int spss_utils_pil_callback(struct notifier_block *nb,
 		spss_events_signaled[event_id] = false;
 		mutex_unlock(&event_lock);
 
+		if (!is_cmac_and_iar_feature_supported) {
+			pr_info("legacy SPSS not support cmac,iar feature.\n");
+			break;
+		}
 		/*
 		 * For IAR-DB-Recovery, read cmac regadless of is_iar_active.
 		 * please notice that HYP unmap this area, it is a race.
@@ -1114,6 +1141,11 @@ static int spss_utils_pil_callback(struct notifier_block *nb,
 		break;
 	case SUBSYS_BEFORE_AUTH_AND_RESET:
 		pr_debug("[SUBSYS_BEFORE_AUTH_AND_RESET] event.\n");
+
+		if (!is_cmac_and_iar_feature_supported) {
+			pr_info("legacy SPSS not support cmac,iar feature.\n");
+			break;
+		}
 		/* do nothing if IAR is not active */
 		if (!is_iar_active)
 			return NOTIFY_OK;
@@ -1144,6 +1176,14 @@ static int spss_probe(struct platform_device *pdev)
 	spss_dev = dev;
 
 	platform_set_drvdata(pdev, dev);
+	/* Based on flag will differentiate legacy spss
+	 * supported features
+	 */
+	if (of_property_read_bool(pdev->dev.of_node,
+				"qcom,no-cmac-and-iar-feature-support")) {
+		pr_info("legacy SPSS not support cmac & iar feature.\n");
+		is_cmac_and_iar_feature_supported = false;
+	}
 
 	ret = spss_parse_dt(np);
 	if (ret < 0)
