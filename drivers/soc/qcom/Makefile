@@ -103,6 +103,7 @@ obj-$(CONFIG_RMNET_CTL) += rmnet_ctl/
 obj-$(CONFIG_QCOM_CX_IPEAK) += cx_ipeak.o
 obj-$(CONFIG_QTI_L2_REUSE) += l2_reuse.o
 obj-$(CONFIG_ICNSS2) += icnss2/
+obj-$(CONFIG_WCNSS_CORE) += wcnss/
 obj-$(CONFIG_QTI_CRYPTO_COMMON) += crypto-qti-common.o
 obj-$(CONFIG_QTI_CRYPTO_TZ) += crypto-qti-tz.o
 obj-$(CONFIG_QTI_HW_KEY_MANAGER) += hwkm_qti.o
