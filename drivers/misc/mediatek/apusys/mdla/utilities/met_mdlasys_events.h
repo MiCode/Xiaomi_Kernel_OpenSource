@@ -20,7 +20,7 @@ TRACE_EVENT(mdla_polling,
 		u32 *c),
 	TP_ARGS(core_id, c),
 	TP_STRUCT__entry(
-		__field(int, core_id)
+		__field(u32, core_id)
 		__array(u32, c, MDLA_PMU_COUNTERS)
 		),
 	TP_fast_assign(
@@ -52,7 +52,7 @@ TRACE_EVENT(mdla_cmd_enter,
 	TP_ARGS(core_id, vmdla_opp, dsp_freq, ipu_if_freq,
 		mdla_freq),
 	TP_STRUCT__entry(
-		__field(int, core_id)
+		__field(u32, core_id)
 		__field(int, vmdla_opp)
 		__field(int, dsp_freq)
 		__field(int, ipu_if_freq)
@@ -77,7 +77,7 @@ TRACE_EVENT(mdla_cmd_leave,
 	TP_PROTO(u32 core_id, int dummy),
 	TP_ARGS(core_id, dummy),
 	TP_STRUCT__entry(
-		__field(int, core_id)
+		__field(u32, core_id)
 		__field(int, dummy)
 	),
 	TP_fast_assign(

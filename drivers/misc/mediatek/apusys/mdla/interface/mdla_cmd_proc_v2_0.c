@@ -159,7 +159,6 @@ int mdla_cmd_run_sync_v2_0(struct mdla_run_cmd_sync *cmd_data,
 	mdla_cmd_plat_cb()->post_cmd_info(core_id);
 
 	mdla_trace_end(core_id, 0, &ce);
-	mdla_prof_stop(core_id, 1);
 	mdla_util_apu_pmu_update(mdla_info, apusys_hd, 0);
 
 	cd->id = mdla_info->max_cmd_id;
@@ -283,7 +282,6 @@ int mdla_cmd_ut_run_sync_v2_0(void *run_cmd, void *wait_cmd,
 		wt->result = 1;
 	}
 
-	mdla_prof_stop(core_id, 1);
 	mdla_pwr_ops_get()->off_timer_start(core_id);
 
 	ce.wait_t = sched_clock();

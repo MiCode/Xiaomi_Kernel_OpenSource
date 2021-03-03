@@ -7,14 +7,17 @@
 #ifdef RV_COMP
 
 #include <linux/mutex.h>
+#include <linux/mutex.h>
+
+#include <utilities/mdla_debug.h>
 
 #include <apu_ipi_id.h>
 #include <apu_ctrl_rpmsg.h>
 #include <apu_mbox.h>
 
-enum MDLA_DBGFS_DIR_TYPE {
-	MDLA_DBGFS_READ,
-	MDLA_DBGFS_WRITE,
+enum MDLA_IPI_DIR_TYPE {
+	MDLA_IPI_READ,
+	MDLA_IPI_WRITE,
 };
 
 /*
@@ -24,24 +27,30 @@ enum MDLA_DBGFS_DIR_TYPE {
  * data : store data
  */
 
-struct mdla_dbgfs_data {
+struct mdla_ipi_data {
 	u32 type0;
 	u16 type1;
 	u16 dir;
 	u64 data;
 };
 
-static struct mdla_dbgfs_data ipi_cmd_compl_reply;
+static struct mdla_ipi_data ipi_cmd_compl_reply;
 static struct mutex mdla_ipi_mtx;
 
 int mdla_ipi_send(int type_0, int type_1, u64 val)
 {
-	struct mdla_dbgfs_data ipi_cmd_send;
+	struct mdla_ipi_data ipi_cmd_send;
 
 	ipi_cmd_send.type0  = type_0;
 	ipi_cmd_send.type1  = type_1;
-	ipi_cmd_send.dir    = MDLA_DBGFS_WRITE;
+	ipi_cmd_send.dir    = MDLA_IPI_WRITE;
 	ipi_cmd_send.data   = val;
+
+	mdla_verbose("send : %d %d, %d, %llu(0x%llx)\n",
+				ipi_cmd_send.type0,
+				ipi_cmd_send.type1,
+				ipi_cmd_send.dir,
+				ipi_cmd_send.data, ipi_cmd_send.data);
 
 	mutex_lock(&mdla_ipi_mtx);
 	apu_ctrl_send_msg(MDLA_SEND_CMD_COMPL_ID, &ipi_cmd_send,
@@ -53,11 +62,11 @@ int mdla_ipi_send(int type_0, int type_1, u64 val)
 
 int mdla_ipi_recv(int type_0, int type_1, u64 *val)
 {
-	struct mdla_dbgfs_data ipi_cmd_send;
+	struct mdla_ipi_data ipi_cmd_send;
 
 	ipi_cmd_send.type0  = type_0;
 	ipi_cmd_send.type1  = type_1;
-	ipi_cmd_send.dir    = MDLA_DBGFS_READ;
+	ipi_cmd_send.dir    = MDLA_IPI_READ;
 	ipi_cmd_send.data   = 0;
 
 	mutex_lock(&mdla_ipi_mtx);
@@ -65,6 +74,12 @@ int mdla_ipi_recv(int type_0, int type_1, u64 *val)
 				sizeof(ipi_cmd_send), 1000);
 	*val  = (u64)ipi_cmd_compl_reply.data;
 	mutex_unlock(&mdla_ipi_mtx);
+
+	mdla_verbose("recv : %d %d, %d, %llu(0x%llx)\n",
+				ipi_cmd_compl_reply.type0,
+				ipi_cmd_compl_reply.type1,
+				ipi_cmd_compl_reply.dir,
+				ipi_cmd_compl_reply.data, ipi_cmd_compl_reply.data);
 
 	return 0;
 }

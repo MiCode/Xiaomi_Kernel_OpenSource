@@ -42,7 +42,6 @@ static struct mdla_dev *mdla_plat_devices;
 
 static u32 fs_e1_detect_count;
 static u32 fs_e1_detect_timeout_ms = 5;
-static u32 fs_cfg_timer_en;
 
 static int mdla_dbgfs_u64_create[NF_MDLA_DEBUG_FS_U64] = {
 	[FS_CFG_PMU_PERIOD] = 1,
@@ -111,7 +110,7 @@ static unsigned long mdla_plat_get_wait_time(u32 core_id)
 {
 	unsigned long time;
 
-	if (fs_cfg_timer_en)
+	if (mdla_prof_pmu_tmr_en(core_id))
 		time = usecs_to_jiffies(
 				mdla_dbg_read_u64(FS_CFG_PMU_PERIOD));
 	else
@@ -296,14 +295,10 @@ static void mdla_plat_dbgfs_init(struct device *dev, struct dentry *parent)
 	if (!dev || !parent)
 		return;
 
-	debugfs_create_u32("prof_start", 0660,
-			parent, &fs_cfg_timer_en);
 	debugfs_create_u32("e1_detect_count", 0660,
 			parent, &fs_e1_detect_count);
 	debugfs_create_u32("e1_detect_timeout",
 			0660, parent, &fs_e1_detect_timeout_ms);
-
-	mdla_trace_register_cfg_pmu_tmr(&fs_cfg_timer_en);
 }
 
 static int mdla_plat_get_base_addr(struct platform_device *pdev,

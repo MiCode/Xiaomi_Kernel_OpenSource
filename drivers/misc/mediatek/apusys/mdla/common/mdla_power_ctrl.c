@@ -22,6 +22,7 @@
 
 #include <utilities/mdla_util.h>
 #include <utilities/mdla_debug.h>
+#include <utilities/mdla_profile.h>
 
 #define get_pwr_id(core_id) (MDLA0 + core_id)
 
@@ -91,6 +92,9 @@ static void mdla_pwr_off_timer_start(u32 core_id)
 
 	if (mdla_device->cmd_list_cnt > 0)
 		mdla_device->cmd_list_cnt--;
+
+	if (mdla_device->cmd_list_cnt == 0)
+		mdla_prof_stop(core_id, 1);
 
 	if (poweroff_time) {
 		mdla_pwr_debug("%s: MDLA %d start power_timer\n",

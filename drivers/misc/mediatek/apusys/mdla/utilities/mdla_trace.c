@@ -13,8 +13,6 @@
 #define CREATE_TRACE_POINTS
 #include <utilities/met_mdlasys_events.h>
 
-static u32 *cfg_pmu_timer_en;
-
 bool mdla_trace_enable(void)
 {
 	return cfg_apusys_trace;
@@ -65,18 +63,3 @@ void mdla_trace_pmu_polling(u32 core_id, u32 *c)
 	trace_mdla_polling(core_id, c);
 }
 
-void mdla_trace_set_cfg_pmu_tmr_en(int enable)
-{
-	if (cfg_pmu_timer_en)
-		*cfg_pmu_timer_en = enable;
-}
-
-bool mdla_trace_get_cfg_pmu_tmr_en(void)
-{
-	return cfg_pmu_timer_en ? *cfg_pmu_timer_en : false;
-}
-
-void mdla_trace_register_cfg_pmu_tmr(int *timer_en)
-{
-	cfg_pmu_timer_en = timer_en;
-}
