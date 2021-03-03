@@ -145,6 +145,9 @@ int scm_legacy_call(struct device *dev, const struct qcom_scm_desc *desc,
 	__le32 *arg_buf;
 	const __le32 *res_buf;
 
+	if (!dev)
+		return -EPROBE_DEFER;
+
 	cmd = kzalloc(PAGE_ALIGN(alloc_len), GFP_KERNEL);
 	if (!cmd)
 		return -ENOMEM;
