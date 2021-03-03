@@ -15,6 +15,7 @@
 #include <linux/qcom_scm.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
+#include <linux/dma-mapping.h>
 #include <linux/soc/qcom/mdt_loader.h>
 
 static bool mdt_phdr_valid(const struct elf32_phdr *phdr)
@@ -88,8 +89,9 @@ EXPORT_SYMBOL_GPL(qcom_mdt_get_size);
 
 /**
  * qcom_mdt_read_metadata() - read header and metadata from mdt or mbn
- * @fw:		firmware of mdt header or mbn
- * @data_len:	length of the read metadata blob
+ * @fw:			firmware of mdt header or mbn
+ * @data_len:		length of the read metadata blob
+ * @metadata_phys:	phys address for the assigned metadata buffer
  *
  * The mechanism that performs the authentication of the loading firmware
  * expects an ELF header directly followed by the segment of hashes, with no
@@ -104,7 +106,7 @@ EXPORT_SYMBOL_GPL(qcom_mdt_get_size);
  * Return: pointer to data, or ERR_PTR()
  */
 void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw, const char *firmware,
-			     size_t *data_len)
+			     size_t *data_len, dma_addr_t *metadata_phys)
 {
 	const struct elf32_phdr *phdrs;
 	const struct elf32_hdr *ehdr;
@@ -136,7 +138,16 @@ void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw, cons
 	ehdr_size = phdrs[0].p_filesz;
 	hash_size = phdrs[hash_index].p_filesz;
 
-	data = kmalloc(ehdr_size + hash_size, GFP_KERNEL);
+	/*
+	 * During the scm call memory protection will be enabled for the meta
+	 * data blob, so make sure it's physically contiguous, 4K aligned and
+	 * non-cachable to avoid XPU violations.
+	 */
+	if (metadata_phys)
+		data = dma_alloc_coherent(dev, ehdr_size + hash_size, metadata_phys, GFP_KERNEL);
+	else
+		data = kmalloc(ehdr_size + hash_size, GFP_KERNEL);
+
 	if (!data)
 		return ERR_PTR(-ENOMEM);
 
@@ -182,6 +193,7 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw,
 	phys_addr_t mem_reloc;
 	phys_addr_t min_addr = PHYS_ADDR_MAX;
 	phys_addr_t max_addr = 0;
+	dma_addr_t metadata_phys;
 	size_t metadata_len;
 	size_t fw_name_len;
 	ssize_t offset;
@@ -209,15 +221,13 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw,
 		return -ENOMEM;
 
 	if (pas_init) {
-		metadata = qcom_mdt_read_metadata(dev, fw, firmware, &metadata_len);
+		metadata = qcom_mdt_read_metadata(dev, fw, firmware, &metadata_len, &metadata_phys);
 		if (IS_ERR(metadata)) {
 			ret = PTR_ERR(metadata);
 			goto out;
 		}
 
-		ret = qcom_scm_pas_init_image(pas_id, metadata, metadata_len);
-
-		kfree(metadata);
+		ret = qcom_scm_pas_init_image(pas_id, metadata_phys);
 		if (ret) {
 			dev_err(dev, "invalid firmware metadata\n");
 			goto out;
@@ -305,6 +315,7 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw,
 
 out:
 	kfree(fw_name);
+	dma_free_coherent(dev, metadata_len, metadata, metadata_phys);
 
 	return ret;
 }
