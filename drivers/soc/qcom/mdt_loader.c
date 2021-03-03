@@ -181,10 +181,9 @@ void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw, cons
 }
 EXPORT_SYMBOL_GPL(qcom_mdt_read_metadata);
 
-static int __qcom_mdt_load(struct device *dev, const struct firmware *fw,
-			   const char *firmware, int pas_id, void *mem_region,
-			   phys_addr_t mem_phys, size_t mem_size,
-			   phys_addr_t *reloc_base, bool pas_init)
+static int __qcom_mdt_load(struct device *dev, const struct firmware *fw, const char *firmware,
+			   int pas_id, void *mem_region, phys_addr_t mem_phys, size_t mem_size,
+			   phys_addr_t *reloc_base, bool pas_init, struct qcom_mdt_metadata *mdata)
 {
 	const struct elf32_phdr *phdrs;
 	const struct elf32_phdr *phdr;
@@ -227,10 +226,16 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw,
 			goto out;
 		}
 
+		if (mdata) {
+			mdata->buf = metadata;
+			mdata->buf_phys = metadata_phys;
+			mdata->size = metadata_len;
+		}
+
 		ret = qcom_scm_pas_init_image(pas_id, metadata_phys);
 		if (ret) {
 			dev_err(dev, "invalid firmware metadata\n");
-			goto out;
+			goto deinit;
 		}
 	}
 
@@ -256,7 +261,7 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw,
 						     max_addr - min_addr);
 			if (ret) {
 				dev_err(dev, "unable to setup relocation\n");
-				goto out;
+				goto deinit;
 			}
 		}
 
@@ -312,10 +317,14 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw,
 
 	if (reloc_base)
 		*reloc_base = mem_reloc;
-
+deinit:
+	if (ret || !mdata) {
+		if (ret)
+			qcom_scm_pas_shutdown(pas_id);
+		dma_free_coherent(dev, metadata_len, metadata, metadata_phys);
+	}
 out:
 	kfree(fw_name);
-	dma_free_coherent(dev, metadata_len, metadata, metadata_phys);
 
 	return ret;
 }
@@ -339,7 +348,7 @@ int qcom_mdt_load(struct device *dev, const struct firmware *fw,
 		  phys_addr_t *reloc_base)
 {
 	return __qcom_mdt_load(dev, fw, firmware, pas_id, mem_region, mem_phys,
-			       mem_size, reloc_base, true);
+			       mem_size, reloc_base, true, NULL);
 }
 EXPORT_SYMBOL_GPL(qcom_mdt_load);
 
@@ -362,7 +371,7 @@ int qcom_mdt_load_no_init(struct device *dev, const struct firmware *fw,
 			  size_t mem_size, phys_addr_t *reloc_base)
 {
 	return __qcom_mdt_load(dev, fw, firmware, pas_id, mem_region, mem_phys,
-			       mem_size, reloc_base, false);
+			       mem_size, reloc_base, false, NULL);
 }
 EXPORT_SYMBOL_GPL(qcom_mdt_load_no_init);
 

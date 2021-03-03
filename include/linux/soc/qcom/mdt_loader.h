@@ -11,6 +11,12 @@
 struct device;
 struct firmware;
 
+struct qcom_mdt_metadata {
+	void *buf;
+	dma_addr_t buf_phys;
+	size_t size;
+};
+
 ssize_t qcom_mdt_get_size(const struct firmware *fw);
 int qcom_mdt_load(struct device *dev, const struct firmware *fw,
 		  const char *fw_name, int pas_id, void *mem_region,
