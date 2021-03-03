@@ -375,5 +375,51 @@ int qcom_mdt_load_no_init(struct device *dev, const struct firmware *fw,
 }
 EXPORT_SYMBOL_GPL(qcom_mdt_load_no_init);
 
+/**
+ * qcom_mdt_load_no_free() - load the firmware which header is loaded as fw
+ * @dev:	device handle to associate resources with
+ * @fw:		firmware object for the mdt file
+ * @firmware:	name of the firmware, for construction of segment file names
+ * @pas_id:	PAS identifier
+ * @mem_region:	allocated memory region to load firmware into
+ * @mem_phys:	physical address of allocated memory region
+ * @mem_size:	size of the allocated memory region
+ * @reloc_base:	adjusted physical address after relocation
+ *
+ * This function is essentially the same as qcom_mdt_load. The only difference
+ * between the two is that the metadata is not freed at the end of this call.
+ * The client must call qcom_mdt_free_metadata for cleanup.
+ *
+ * Returns 0 on success, negative errno otherwise.
+ */
+int qcom_mdt_load_no_free(struct device *dev, const struct firmware *fw, const char *firmware,
+		  int pas_id, void *mem_region, phys_addr_t mem_phys, size_t mem_size,
+		  phys_addr_t *reloc_base, struct qcom_mdt_metadata *metadata)
+{
+	return __qcom_mdt_load(dev, fw, firmware, pas_id, mem_region, mem_phys,
+			       mem_size, reloc_base, true, metadata);
+}
+EXPORT_SYMBOL(qcom_mdt_load_no_free);
+
+/**
+ * qcom_mdt_free_metadata() - free the firmware metadata
+ * @dev:	device handle to associate resources with
+ * @pas_id:	PAS identifier
+ * @mdata:	reference to metadata region to be freed
+ * @err:	whether this call was made after an error occurred
+ *
+ * Free the metadata that was allocated by mdt loader.
+ *
+ */
+void qcom_mdt_free_metadata(struct device *dev, int pas_id, struct qcom_mdt_metadata *mdata,
+			    int err)
+{
+	if (err)
+		qcom_scm_pas_shutdown(pas_id);
+	if (mdata)
+		dma_free_coherent(dev, mdata->size, mdata->buf, mdata->buf_phys);
+}
+EXPORT_SYMBOL(qcom_mdt_free_metadata);
+
 MODULE_DESCRIPTION("Firmware parser for Qualcomm MDT format");
 MODULE_LICENSE("GPL v2");
