@@ -4,6 +4,7 @@
   add_cpu
   add_device_randomness
   add_memory
+  add_memory_subsection
   add_taint
   add_timer
   add_timer_on
@@ -1111,13 +1112,6 @@
   iommu_put_dma_cookie
   iommu_set_fault_handler
   iommu_unmap
-  ion_alloc
-  ion_buffer_zero
-  __ion_device_add_heap
-  ion_free
-  ion_heap_map_kernel
-  ion_heap_map_user
-  ion_heap_unmap_kernel
   __ioread32_copy
   __ioremap
   iounmap
@@ -1869,6 +1863,7 @@
   release_sock
   remap_pfn_range
   remove_cpu
+  remove_memory_subsection
   remove_proc_entry
   remove_wait_queue
   report_iommu_fault

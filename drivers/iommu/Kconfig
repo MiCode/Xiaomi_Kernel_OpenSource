@@ -407,7 +407,6 @@ config ARM_SMMU_V3_SVA
 
 config QCOM_LAZY_MAPPING
 	tristate "Reference counted iommu-mapping support"
-	depends on ION
 	depends on IOMMU_API
 	help
 	  ION buffers may be shared between several software clients.
