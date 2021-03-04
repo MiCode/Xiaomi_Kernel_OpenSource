@@ -348,7 +348,7 @@ static u32 a6xx_get_alwayson_counter(u32 *cmds, u64 gpuaddr)
 }
 
 #define PROFILE_IB_DWORDS 4
-#define PROFILE_IB_SLOTS (PAGE_SIZE / PROFILE_IB_DWORDS << 2)
+#define PROFILE_IB_SLOTS (PAGE_SIZE / (PROFILE_IB_DWORDS << 2))
 
 static u64 a6xx_get_user_profiling_ib(struct adreno_ringbuffer *rb,
 		struct kgsl_drawobj_cmd *cmdobj, u32 target_offset, u32 *cmds)
