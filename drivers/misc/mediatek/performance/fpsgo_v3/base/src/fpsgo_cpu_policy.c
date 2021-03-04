@@ -52,6 +52,9 @@ void fpsgo_cpu_policy_init(void)
 
 	num = 0;
 	for_each_possible_cpu(cpu) {
+		if (num >= policy_num)
+			break;
+
 		policy = cpufreq_cpu_get(cpu);
 
 		if (!policy)

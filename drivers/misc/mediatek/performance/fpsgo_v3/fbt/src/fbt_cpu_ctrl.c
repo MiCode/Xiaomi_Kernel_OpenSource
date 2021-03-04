@@ -384,7 +384,13 @@ static int fbt_cpu_topo_info(void)
 	num = 0;
 
 	for_each_possible_cpu(cpu) {
+		if (num >= policy_num)
+			break;
+
 		policy = cpufreq_cpu_get(cpu);
+		if (!policy)
+			continue;
+
 		fbt_cpu_policy[num] = policy;
 
 		if (!policy)
@@ -491,6 +497,9 @@ int fbt_cpu_ctrl_init(void)
 	}
 
 	cpu_num = num_possible_cpus();
+	if (cpu_num <= 0)
+		return -EFAULT;
+
 	cur_wall_time  =  kcalloc(cpu_num, sizeof(struct cpu_info), GFP_KERNEL);
 	cur_idle_time  =  kcalloc(cpu_num, sizeof(struct cpu_info), GFP_KERNEL);
 	prev_wall_time  =  kcalloc(cpu_num, sizeof(struct cpu_info), GFP_KERNEL);
