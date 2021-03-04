@@ -144,7 +144,7 @@
 				<1 HPH_R 0x2>, <2 CLSH 0x1>,
 				<3 COMP_L 0x1>, <3 COMP_R 0x2>,
 				<4 LO 0x1>, <5 DSD_L 0x1>,
-				<5 DSD_R 0x2>, <6 PCM_OUT1 0x0F>;
+				<5 DSD_R 0x2>, <6 PCM_OUT1 0x01>;
 			qcom,swr-num-dev = <2>;
 			qcom,swr-clock-stop-mode0 = <1>;
 			swr_haptics: swr_haptics@f0170220 {
