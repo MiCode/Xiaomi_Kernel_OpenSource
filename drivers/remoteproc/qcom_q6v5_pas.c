@@ -276,6 +276,9 @@ static int adsp_start(struct rproc *rproc)
 	}
 	scm_pas_disable_bw();
 
+	/* at this point the subsystem should be in the process of booting up */
+	rproc->state = RPROC_RUNNING;
+
 	if (!timeout_disabled) {
 		ret = qcom_q6v5_wait_for_start(&adsp->q6v5, msecs_to_jiffies(5000));
 		if (ret == -ETIMEDOUT) {

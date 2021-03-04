@@ -336,6 +336,9 @@ static int spss_start(struct rproc *rproc)
 		goto disable_cx_supply;
 	}
 
+	/* at this point the spss should be in the process of booting up */
+	rproc->state = RPROC_RUNNING;
+
 	unmask_scsr_irqs(spss);
 
 	ret = wait_for_completion_timeout(&spss->start_done, msecs_to_jiffies(SPSS_TIMEOUT));
