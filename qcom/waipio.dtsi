@@ -1179,7 +1179,10 @@
 	qcom,guestvm_loader@0xe0b00000 {
 		compatible = "qcom,guestvm-loader";
 		qcom,pas-id = <28>;
+		qcom,isolate-cpus;
 		qcom,firmware-name = "trustedvm";
+		qcom,reserved-cpus = <0x5>, <0x6>;
+		qcom,unisolate-timeout-ms = <8000>;
 		memory-region = <&trust_ui_vm_mem>;
 	};
 
