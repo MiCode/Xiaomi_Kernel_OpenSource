@@ -37,6 +37,7 @@
 
 		qcom,reg-presets = <0xB0088 0x0>;
 		qcom,ipcc-reg = <0x400000 0x100000>;
+		qcom,gcc-reg = <0x110000 0x40000>;
 
 		pas-id = <26>;
 		memory-region = <&cvp_mem>;
