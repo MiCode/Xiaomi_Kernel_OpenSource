@@ -41,6 +41,7 @@
 #define PWR_SRC_NOT_AVAILABLE -2
 #define DEFAULT_INVALID_VALUE -1
 #define PWR_SRC_INIT_STATE_IDX 0
+#define XO_RESET_RETRY_COUNT_MAX 5
 
 #define PWR_SRC_LOG_UNSUPPORTED {DEFAULT_INVALID_VALUE, DEFAULT_INVALID_VALUE}
 
@@ -361,6 +362,7 @@ static int bt_configure_gpios(int on)
 	int bt_debug_gpio  =  bt_power_pdata->bt_gpio_debug;
 	int xo_reset_gpio =  bt_power_pdata->xo_gpio_sys_rst;
 	int assert_dbg_gpio = 0;
+	int retry = 0;
 
 	if (on) {
 		rc = gpio_request(bt_reset_gpio, "bt_sys_rst_n");
@@ -430,9 +432,18 @@ static int bt_configure_gpios(int on)
 		pr_info("xo_reset_gpio(%d)\n", xo_reset_gpio);
 
 		if (xo_reset_gpio > 0) {
+retry_gpio_req:
 			rc = gpio_request(xo_reset_gpio, "xo_reset_gpio_n");
 			if (rc) {
-				pr_err("%s: unable to request gpio %d (%d)\n",
+				if (retry++ < XO_RESET_RETRY_COUNT_MAX) {
+					/* wait for ~(10 - 20) ms */
+					usleep_range(10000, 20000);
+					goto retry_gpio_req;
+				}
+			}
+
+			if (rc) {
+				pr_err("%s: unable to request XO reset gpio %d (%d)\n",
 					__func__, xo_reset_gpio, rc);
 			} else {
 				pr_info("%s: gpio_request for xo_reset_gpio succeed\n",
