@@ -1,0 +1,11 @@
+#include "waipio.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. WaipioP";
+	compatible = "qcom,waipiop";
+	qcom,msm-id = <482 0x10000>;
+};
+
+&ipa_hw {
+	status = "disabled";
+};
