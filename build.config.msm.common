@@ -119,10 +119,11 @@ function check_merged_defconfig() {
   local output=$(mktemp)
   ${KERNEL_DIR}/scripts/diffconfig "${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}" ${OUT_DIR}/.config > $output
   set +x
-  if grep -q -v -E -e "^\+" $output; then
+  # Allow CONFIG_CMDLINE changes
+  if grep -q -v -E -e "^\+" -e "^CMDLINE " $output; then
     echo "========================================================"
     echo "ERROR! Defconfig fragment did not apply as expected"
-    grep -v -E -e "^\+" $output
+    grep -v -E -e "^\+" -e "^CMDLINE " $output
     rm $output
     exit 1
   fi
