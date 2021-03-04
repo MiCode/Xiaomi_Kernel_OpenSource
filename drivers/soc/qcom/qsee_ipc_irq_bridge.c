@@ -13,8 +13,6 @@
 #include <linux/poll.h>
 #include <linux/remoteproc/qcom_rproc.h>
 #include <linux/slab.h>
-#include <soc/qcom/subsystem_notif.h>
-#include <soc/qcom/subsystem_restart.h>
 
 #define MODULE_NAME "qsee_ipc_irq_bridge"
 #define DEVICE_NAME MODULE_NAME
@@ -150,15 +148,15 @@ static int qiib_restart_notifier_cb(struct notifier_block *this,
 {
 	struct qiib_dev *devp = container_of(this, struct qiib_dev, nb);
 
-	if (code == SUBSYS_BEFORE_SHUTDOWN) {
+	if (code == QCOM_SSR_BEFORE_SHUTDOWN) {
 		QIIB_DBG("%s: %s: subsystem restart for %s\n", __func__,
-				"SUBSYS_BEFORE_SHUTDOWN",
+				"QCOM_SSR_BEFORE_SHUTDOWN",
 				devp->ssr_name);
 		devp->in_reset = true;
 		wake_up_interruptible(&devp->poll_wait_queue);
-	} else if (code == SUBSYS_AFTER_POWERUP) {
+	} else if (code == QCOM_SSR_AFTER_POWERUP) {
 		QIIB_DBG("%s: %s: subsystem restart for %s\n", __func__,
-				"SUBSYS_AFTER_POWERUP",
+				"QCOM_SSR_AFTER_POWERUP",
 				devp->ssr_name);
 		devp->in_reset = false;
 	}
