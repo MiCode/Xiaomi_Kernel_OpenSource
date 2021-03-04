@@ -962,8 +962,13 @@ static int adreno_probe_llcc(struct adreno_device *adreno_dev,
 static void adreno_regmap_op_preaccess(struct kgsl_regmap_region *region)
 {
 	struct kgsl_device *device = region->priv;
-
-	if (!in_interrupt())
+	/*
+	 * kgsl panic notifier will be called in atomic context to get
+	 * GPU snapshot. Also panic handler will skip snapshot dumping
+	 * incase GPU is in SLUMBER state. So we can safely ignore the
+	 * kgsl_pre_hwaccess().
+	 */
+	if (!device->snapshot_atomic && !in_interrupt())
 		kgsl_pre_hwaccess(device);
 }
 
