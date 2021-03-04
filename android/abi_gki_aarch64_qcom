@@ -2860,3 +2860,7 @@
   xdp_rxq_info_reg
   xdp_rxq_info_reg_mem_model
   xdp_rxq_info_unreg
+  pci_get_slot
+  pcie_capability_clear_and_set_word
+  pci_device_is_present
+  pci_find_bus
