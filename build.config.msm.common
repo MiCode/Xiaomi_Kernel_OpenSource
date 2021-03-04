@@ -161,7 +161,7 @@ function prepare_vendor_dlkm() {
       module_list_flag="-e ''"
     fi
     (cd "${MODULES_STAGING_DIR}/lib/modules/" && find -type f -name "*.ko" -printf "%f\n") | \
-      grep -v ${module_list_flag} - > ${MODULES_STAGING_DIR}/vendor_dlkm.modules.load
+      grep -w -v ${module_list_flag} - > ${MODULES_STAGING_DIR}/vendor_dlkm.modules.load
 
     VENDOR_DLKM_MODULES_LIST="${MODULES_STAGING_DIR}/vendor_dlkm.modules.load"
   fi
