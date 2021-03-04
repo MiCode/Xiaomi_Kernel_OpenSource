@@ -34,6 +34,7 @@ const static struct {
 } conversion[] = {
 	{HH_PRIMARY_VM, "pvm"},
 	{HH_TRUSTED_VM, "trustedvm"},
+	{HH_CPUSYS_VM, "cpusys_vm"},
 };
 
 static struct kobj_type guestvm_kobj_type = {
@@ -47,6 +48,7 @@ struct guestvm_loader_private {
 	struct device *dev;
 	char vm_name[MAX_LEN];
 	bool vm_loaded;
+	bool iso_needed;
 	int pas_id;
 	int vmid;
 	u8 vm_status;
@@ -129,9 +131,11 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 	if (cmd != HH_RM_NOTIF_VM_STATUS)
 		return NOTIFY_DONE;
 
-	if (priv->vmid != vm_status_payload->vmid)
+	if (priv->vmid != vm_status_payload->vmid) {
 		dev_warn(priv->dev, "Expected a notification from vmid = %d, but received one from vmid = %d\n",
 				priv->vmid, vm_status_payload->vmid);
+		return NOTIFY_DONE;
+	}
 
 	/*
 	 * Listen to STATUS_READY or STATUS_RUNNING notifications from RM.
@@ -146,6 +150,7 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 		if (ret < 0) {
 			dev_err(priv->dev, "Failed to get hyp resources for vmid = %d ret = %d\n",
 				vm_status_payload->vmid, ret);
+			complete_all(&priv->vm_start);
 			return NOTIFY_DONE;
 		}
 		complete_all(&priv->vm_start);
@@ -262,15 +267,21 @@ static ssize_t guestvm_loader_start(struct kobject *kobj,
 		}
 		priv->vm_loaded = true;
 
-		if (wait_for_completion_interruptible(&priv->vm_start))
+		if (wait_for_completion_interruptible(&priv->vm_start)) {
 			dev_err(priv->dev, "VM start completion interrupted\n");
+			return count;
+		}
 
 		priv->vm_status = HH_RM_VM_STATUS_RUNNING;
-		INIT_WORK(&unisolation_work, guestvm_unisolate_work);
-		schedule_work(&unisolation_work);
-		guestvm_isolate_cpu();
-		mod_timer(&guestvm_cpu_isolate_timer,
-			jiffies + msecs_to_jiffies(guestvm_unisolate_timeout));
+
+		if (priv->iso_needed) {
+			INIT_WORK(&unisolation_work, guestvm_unisolate_work);
+			schedule_work(&unisolation_work);
+			guestvm_isolate_cpu();
+			mod_timer(&guestvm_cpu_isolate_timer, jiffies +
+				msecs_to_jiffies(guestvm_unisolate_timeout));
+		}
+
 		ret = hh_rm_vm_start(priv->vmid);
 		if (ret)
 			dev_err(priv->dev, "VM start failed for vmid = %d ret = %d\n",
@@ -312,7 +323,8 @@ static int guestvm_loader_probe(struct platform_device *pdev)
 	strlcpy(priv->vm_name, sub_sys, sizeof(priv->vm_name));
 
 	ret = kobject_init_and_add(&priv->vm_loader_kobj, &guestvm_kobj_type,
-				   kernel_kobj, "load_guestvm");
+			kernel_kobj, "%s_%s", "load_guestvm", priv->vm_name);
+
 	if (ret) {
 		dev_err(&pdev->dev, "sysfs create and add failed\n");
 		ret = -ENOMEM;
@@ -332,6 +344,13 @@ static int guestvm_loader_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	priv->iso_needed = of_property_read_bool(pdev->dev.of_node,
+							"qcom,isolate-cpus");
+	if (!priv->iso_needed) {
+		pr_err("%s: no isolation needed for %s\n", __func__, priv->vm_name);
+		goto no_iso;
+	}
+
 	reserve_cpus_len = of_property_read_variable_u32_array(
 					pdev->dev.of_node,
 					"qcom,reserved-cpus",
@@ -340,17 +359,15 @@ static int guestvm_loader_probe(struct platform_device *pdev)
 		if (reserve_cpus[i] < num_possible_cpus())
 			cpumask_set_cpu(reserve_cpus[i], &guestvm_reserve_cpus);
 
-	/* Default to (4,5) as reserve cpus */
-	if (reserve_cpus_len <= 0) {
-		cpumask_set_cpu(4, &guestvm_reserve_cpus);
-		cpumask_set_cpu(5, &guestvm_reserve_cpus);
-	}
-
 	ret = of_property_read_u32(pdev->dev.of_node, "qcom,unisolate-timeout-ms",
 				&guestvm_unisolate_timeout);
-	if (ret)
+	if (ret) {
+		pr_warn("%s: no unisolate timeout specified\n", __func__);
 		guestvm_unisolate_timeout = DEFAULT_UNISO_TIMEOUT_MS;
+	}
 	timer_setup(&guestvm_cpu_isolate_timer, guestvm_timer_callback, 0);
+
+no_iso:
 	priv->vm_status = HH_RM_VM_STATUS_NO_STATE;
 	return 0;
 
