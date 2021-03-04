@@ -742,6 +742,7 @@ drivers/firmware/arm_scmi/sensors.c
 drivers/firmware/arm_scmi/shmem.c
 drivers/firmware/arm_scmi/smc.c
 drivers/firmware/arm_scmi/system.c
+drivers/firmware/arm_scmi/voltage.c
 drivers/firmware/arm_scpi.c
 drivers/firmware/efi/arm-runtime.c
 drivers/firmware/efi/capsule.c
@@ -4056,7 +4057,9 @@ include/uapi/linux/netfilter/xt_CONNSECMARK.h
 include/uapi/linux/netfilter/xt_conntrack.h
 include/uapi/linux/netfilter/xt_CT.h
 include/uapi/linux/netfilter/xt_dscp.h
+include/uapi/linux/netfilter/xt_DSCP.h
 include/uapi/linux/netfilter/xt_ecn.h
+include/uapi/linux/netfilter/xt_esp.h
 include/uapi/linux/netfilter/xt_hashlimit.h
 include/uapi/linux/netfilter/xt_helper.h
 include/uapi/linux/netfilter/xt_IDLETIMER.h
@@ -4066,6 +4069,7 @@ include/uapi/linux/netfilter/xt_length.h
 include/uapi/linux/netfilter/xt_limit.h
 include/uapi/linux/netfilter/xt_mac.h
 include/uapi/linux/netfilter/xt_mark.h
+include/uapi/linux/netfilter/xt_multiport.h
 include/uapi/linux/netfilter/xt_NFLOG.h
 include/uapi/linux/netfilter/xt_NFQUEUE.h
 include/uapi/linux/netfilter/xt_owner.h
@@ -5370,7 +5374,10 @@ net/netfilter/xt_connmark.c
 net/netfilter/xt_CONNSECMARK.c
 net/netfilter/xt_conntrack.c
 net/netfilter/xt_CT.c
+net/netfilter/xt_dscp.c
+net/netfilter/xt_DSCP.c
 net/netfilter/xt_ecn.c
+net/netfilter/xt_esp.c
 net/netfilter/xt_hashlimit.c
 net/netfilter/xt_helper.c
 net/netfilter/xt_hl.c
@@ -5382,6 +5389,7 @@ net/netfilter/xt_limit.c
 net/netfilter/xt_mac.c
 net/netfilter/xt_mark.c
 net/netfilter/xt_MASQUERADE.c
+net/netfilter/xt_multiport.c
 net/netfilter/xt_nat.c
 net/netfilter/xt_NETMAP.c
 net/netfilter/xt_NFLOG.c
@@ -5416,6 +5424,7 @@ net/rfkill/rfkill.h
 net/sched/act_api.c
 net/sched/cls_api.c
 net/sched/cls_bpf.c
+net/sched/cls_fw.c
 net/sched/cls_u32.c
 net/sched/ematch.c
 net/sched/em_u32.c
@@ -5426,6 +5435,7 @@ net/sched/sch_generic.c
 net/sched/sch_htb.c
 net/sched/sch_ingress.c
 net/sched/sch_mq.c
+net/sched/sch_prio.c
 net/socket.c
 net/sysctl_net.c
 net/tipc/addr.c
