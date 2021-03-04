@@ -1426,15 +1426,6 @@ drivers/staging/android/ashmem.c
 drivers/staging/android/ashmem.h
 drivers/staging/android/debug_kinfo.c
 drivers/staging/android/debug_kinfo.h
-drivers/staging/android/ion/heaps/ion_page_pool.c
-drivers/staging/android/ion/heaps/ion_page_pool.h
-drivers/staging/android/ion/heaps/ion_system_heap.c
-drivers/staging/android/ion/ion_buffer.c
-drivers/staging/android/ion/ion.c
-drivers/staging/android/ion/ion_dma_buf.c
-drivers/staging/android/ion/ion_heap.c
-drivers/staging/android/ion/ion_private.h
-drivers/staging/android/ion/ion_trace.h
 drivers/staging/android/uapi/ashmem.h
 drivers/thermal/cpufreq_cooling.c
 drivers/thermal/devfreq_cooling.c
@@ -1781,7 +1772,6 @@ fs/f2fs/segment.h
 fs/f2fs/shrinker.c
 fs/f2fs/super.c
 fs/f2fs/sysfs.c
-fs/f2fs/trace.h
 fs/f2fs/verity.c
 fs/f2fs/xattr.c
 fs/f2fs/xattr.h
@@ -1827,6 +1817,8 @@ fs/incfs/internal.h
 fs/incfs/main.c
 fs/incfs/pseudo_files.c
 fs/incfs/pseudo_files.h
+fs/incfs/verity.c
+fs/incfs/verity.h
 fs/incfs/vfs.c
 fs/incfs/vfs.h
 fs/init.c
@@ -2023,6 +2015,7 @@ fs/verity/hash_algs.c
 fs/verity/init.c
 fs/verity/measure.c
 fs/verity/open.c
+fs/verity/read_metadata.c
 fs/verity/signature.c
 fs/verity/verify.c
 fs/xattr.c
@@ -2677,7 +2670,6 @@ include/linux/io.h
 include/linux/iomap.h
 include/linux/iommu.h
 include/linux/iommu-helper.h
-include/linux/ion.h
 include/linux/io-pgtable.h
 include/linux/iopoll.h
 include/linux/ioport.h
@@ -3526,9 +3518,11 @@ include/net/neighbour.h
 include/net/netevent.h
 include/net/netfilter/ipv4/nf_conntrack_ipv4.h
 include/net/netfilter/ipv4/nf_defrag_ipv4.h
+include/net/netfilter/ipv4/nf_dup_ipv4.h
 include/net/netfilter/ipv4/nf_reject.h
 include/net/netfilter/ipv6/nf_conntrack_ipv6.h
 include/net/netfilter/ipv6/nf_defrag_ipv6.h
+include/net/netfilter/ipv6/nf_dup_ipv6.h
 include/net/netfilter/ipv6/nf_reject.h
 include/net/netfilter/nf_conntrack_acct.h
 include/net/netfilter/nf_conntrack_bridge.h
@@ -3828,6 +3822,7 @@ include/trace/hooks/sysrqcrash.h
 include/trace/hooks/thermal.h
 include/trace/hooks/timer.h
 include/trace/hooks/topology.h
+include/trace/hooks/ufshcd.h
 include/trace/hooks/vendor_hooks.h
 include/trace/hooks/wqlockup.h
 include/trace/perf.h
@@ -3973,7 +3968,6 @@ include/uapi/linux/input.h
 include/uapi/linux/in_route.h
 include/uapi/linux/ioctl.h
 include/uapi/linux/iommu.h
-include/uapi/linux/ion.h
 include/uapi/linux/io_uring.h
 include/uapi/linux/ip6_tunnel.h
 include/uapi/linux/ipc.h
@@ -4086,6 +4080,7 @@ include/uapi/linux/netfilter/xt_statistic.h
 include/uapi/linux/netfilter/xt_string.h
 include/uapi/linux/netfilter/xt_TCPMSS.h
 include/uapi/linux/netfilter/xt_tcpudp.h
+include/uapi/linux/netfilter/xt_TEE.h
 include/uapi/linux/netfilter/xt_time.h
 include/uapi/linux/netfilter/xt_TPROXY.h
 include/uapi/linux/netfilter/xt_u32.h
@@ -4703,6 +4698,7 @@ lib/logic_pio.c
 lib/lz4/lz4_compress.c
 lib/lz4/lz4_decompress.c
 lib/lz4/lz4defs.h
+lib/lz4/lz4hc_compress.c
 lib/lzo/lzo1x_compress.c
 lib/lzo/lzo1x_decompress_safe.c
 lib/lzo/lzodefs.h
@@ -5114,6 +5110,7 @@ net/ipv4/netfilter/ip_tables.c
 net/ipv4/netfilter/iptable_security.c
 net/ipv4/netfilter/ipt_REJECT.c
 net/ipv4/netfilter/nf_defrag_ipv4.c
+net/ipv4/netfilter/nf_dup_ipv4.c
 net/ipv4/netfilter/nf_nat_h323.c
 net/ipv4/netfilter/nf_nat_pptp.c
 net/ipv4/netfilter/nf_reject_ipv4.c
@@ -5198,6 +5195,7 @@ net/ipv6/netfilter/ip6t_REJECT.c
 net/ipv6/netfilter/ip6t_rpfilter.c
 net/ipv6/netfilter/nf_conntrack_reasm.c
 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
+net/ipv6/netfilter/nf_dup_ipv6.c
 net/ipv6/netfilter/nf_reject_ipv6.c
 net/ipv6/netfilter/nf_socket_ipv6.c
 net/ipv6/netfilter/nf_tproxy_ipv6.c
@@ -5402,6 +5400,7 @@ net/netfilter/xt_statistic.c
 net/netfilter/xt_string.c
 net/netfilter/xt_TCPMSS.c
 net/netfilter/xt_tcpudp.c
+net/netfilter/xt_TEE.c
 net/netfilter/xt_time.c
 net/netfilter/xt_TPROXY.c
 net/netfilter/xt_TRACE.c

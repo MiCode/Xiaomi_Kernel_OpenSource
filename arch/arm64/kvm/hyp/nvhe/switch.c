@@ -95,6 +95,7 @@ static void __deactivate_traps(struct kvm_vcpu *vcpu)
 
 	mdcr_el2 &= MDCR_EL2_HPMN_MASK;
 	mdcr_el2 |= MDCR_EL2_E2PB_MASK << MDCR_EL2_E2PB_SHIFT;
+	mdcr_el2 |= MDCR_EL2_E2TB_MASK << MDCR_EL2_E2TB_SHIFT;
 
 	write_sysreg(mdcr_el2, mdcr_el2);
 	if (is_protected_kvm_enabled())
@@ -192,6 +193,15 @@ int __kvm_vcpu_run(struct kvm_vcpu *vcpu)
 	pmu_switch_needed = __pmu_switch_to_guest(host_ctxt);
 
 	__sysreg_save_state_nvhe(host_ctxt);
+	/*
+	 * For nVHE, we must save and disable any SPE
+	 * buffers, as the translation regime is going
+	 * to be loaded with that of the guest. And we must
+	 * save host context for SPE, before we change the
+	 * ownership to EL2 (via MDCR_EL2_E2PB == 0)  and before
+	 * we load guest Stage1.
+	 */
+	__debug_save_host_buffers_nvhe(vcpu);
 
 	__adjust_pc(vcpu);
 
@@ -234,11 +244,12 @@ int __kvm_vcpu_run(struct kvm_vcpu *vcpu)
 	if (vcpu->arch.flags & KVM_ARM64_FP_ENABLED)
 		__fpsimd_save_fpexc32(vcpu);
 
+	__debug_switch_to_host(vcpu);
 	/*
 	 * This must come after restoring the host sysregs, since a non-VHE
 	 * system may enable SPE here and make use of the TTBRs.
 	 */
-	__debug_switch_to_host(vcpu);
+	__debug_restore_host_buffers_nvhe(vcpu);
 
 	if (pmu_switch_needed)
 		__pmu_switch_to_host(host_ctxt);
