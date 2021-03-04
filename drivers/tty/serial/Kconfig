@@ -971,6 +971,18 @@ config SERIAL_MSM_GENI
 	depends on ARCH_QCOM
 	depends on MSM_GENI_SE
 
+config SERIAL_MSM_GENI_CONSOLE_DEFAULT_ENABLED
+	bool "Enable MSM on-chip GENI serial port for kernel console usage"
+	default y
+	depends on SERIAL_MSM_GENI
+	help
+	  Runtime enablement of serial HW for kernel can be controlled using
+	  msm_geni_serial.con_enabled=1. This is useful for kernels that should
+	  have serial driver compiled, but not used for performance.
+	  This option controls the default value for con_enabled.
+
+	  If unsure, say Y.
+
 config SERIAL_MSM_GENI_EARLY_CONSOLE
 	bool "MSM on-chip GENI HW based early console support"
 	select SERIAL_CORE_CONSOLE
