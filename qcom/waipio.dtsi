@@ -3077,6 +3077,7 @@
 		qcom,wlan-cbc-enabled;
 		use-pm-domain;
 		cnss-enable-self-recovery;
+		qcom,same-dt-multi-dev;
 
 		vdd-wlan-aon-supply = <&S2E>;
 		qcom,vdd-wlan-aon-config = <1012000 1012000 0 0 1>;
