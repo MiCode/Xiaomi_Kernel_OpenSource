@@ -47,6 +47,18 @@ void __icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
 EXPORT_SYMBOL(__icmpv6_send);
 #endif
 
+/*
+ * ANDROID API HACK for android11-5.4 branch only
+ *
+ * Work around loss of icmpv6_send global symbol that got moved to __icmpv6_send
+ * in 5.4.102
+ */
+void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
+{
+	__icmpv6_send(skb, type, code, info, IP6CB(skb));
+}
+EXPORT_SYMBOL(icmpv6_send);
+
 #if IS_ENABLED(CONFIG_NF_NAT)
 #include <net/netfilter/nf_conntrack.h>
 void icmpv6_ndo_send(struct sk_buff *skb_in, u8 type, u8 code, __u32 info)
