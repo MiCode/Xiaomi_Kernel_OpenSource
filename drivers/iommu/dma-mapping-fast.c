@@ -18,6 +18,7 @@
 #include <linux/io-pgtable.h>
 #include <linux/rwlock.h>
 #include <linux/qcom-iommu-util.h>
+#include <trace/hooks/iommu.h>
 #include "qcom-dma-iommu-generic.h"
 
 /* some redundant definitions... :( TODO: move to io-pgtable-fast.h */
@@ -957,12 +958,15 @@ static void fast_smmu_reserve_iommu_regions(struct device *dev,
 		struct dma_fast_smmu_mapping *fast)
 {
 	struct iommu_resv_region *region;
+	unsigned long flags;
+	struct dma_fast_smmu_mapping *mapping = dev_get_mapping(dev);
 	LIST_HEAD(resv_regions);
 
 	if (dev_is_pci(dev))
 		fast_smmu_reserve_pci_windows(dev, fast);
 
 	qcom_iommu_get_resv_regions(dev, &resv_regions);
+	spin_lock_irqsave(&mapping->lock, flags);
 	list_for_each_entry(region, &resv_regions, list) {
 		unsigned long lo, hi;
 
@@ -975,6 +979,7 @@ static void fast_smmu_reserve_iommu_regions(struct device *dev,
 		bitmap_set(fast->bitmap, lo, hi - lo + 1);
 		bitmap_set(fast->clean_bitmap, lo, hi - lo + 1);
 	}
+	spin_unlock_irqrestore(&mapping->lock, flags);
 	qcom_iommu_put_resv_regions(dev, &resv_regions);
 
 	fast_smmu_reserve_msi_iova(dev, fast);
@@ -1004,12 +1009,6 @@ void fast_smmu_put_dma_cookie(struct iommu_domain *domain)
 }
 EXPORT_SYMBOL(fast_smmu_put_dma_cookie);
 
-const struct dma_map_ops *fast_smmu_get_dma_ops(void)
-{
-	return &fast_smmu_dma_ops;
-}
-EXPORT_SYMBOL(fast_smmu_get_dma_ops);
-
 /**
  * fast_smmu_init_mapping
  * @dev: valid struct device pointer
@@ -1025,8 +1024,10 @@ int fast_smmu_init_mapping(struct device *dev, struct iommu_domain *domain,
 	u64 dma_base, dma_end, size;
 	struct dma_fast_smmu_mapping *fast = fast_smmu_lookup_mapping(domain);
 
-	if (fast)
-		goto finish;
+	if (fast) {
+		dev_err(dev, "Iova cookie already present\n");
+		return -EINVAL;
+	}
 
 	if (!pgtable_ops)
 		return -EINVAL;
@@ -1053,8 +1054,54 @@ int fast_smmu_init_mapping(struct device *dev, struct iommu_domain *domain,
 	fast->notifier.notifier_call = fast_smmu_notify;
 	av8l_register_notify(&fast->notifier);
 
-finish:
-	fast_smmu_reserve_iommu_regions(dev, fast);
 	return 0;
 }
 EXPORT_SYMBOL(fast_smmu_init_mapping);
+
+static void __fast_smmu_setup_dma_ops(void *data, struct device *dev,
+					u64 dma_base, u64 size)
+{
+	struct dma_fast_smmu_mapping *fast;
+	struct iommu_domain *domain;
+	int is_fast;
+	int ret;
+
+	domain = iommu_get_domain_for_dev(dev);
+	if (!domain)
+		return;
+
+	ret = iommu_domain_get_attr(domain, DOMAIN_ATTR_FAST, &is_fast);
+	if (ret || !is_fast)
+		return;
+
+	fast = dev_get_mapping(dev);
+	if (!fast) {
+		dev_err(dev, "Missing fastmap iova cookie\n");
+		return;
+	}
+
+	fast_smmu_reserve_iommu_regions(dev, fast);
+	dev->dma_ops = &fast_smmu_dma_ops;
+}
+
+/*
+ * Called by drivers who create their own iommu domains via
+ * iommu_domain_alloc().
+ */
+void fast_smmu_setup_dma_ops(struct device *dev, u64 dma_base, u64 size)
+{
+	__fast_smmu_setup_dma_ops(NULL, dev, dma_base, size);
+}
+EXPORT_SYMBOL(fast_smmu_setup_dma_ops);
+
+int __init dma_mapping_fast_init(void)
+{
+	return register_trace_android_vh_iommu_setup_dma_ops(
+			__fast_smmu_setup_dma_ops, NULL);
+}
+
+void dma_mapping_fast_exit(void)
+{
+	unregister_trace_android_vh_iommu_setup_dma_ops(
+			__fast_smmu_setup_dma_ops, NULL);
+}

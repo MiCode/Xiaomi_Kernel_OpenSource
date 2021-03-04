@@ -11,7 +11,7 @@
  * Based on the ION page pool code
  * Copyright (C) 2011 Google, Inc.
  *
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/list.h>
@@ -284,7 +284,7 @@ void dynamic_page_pool_release_pools(struct dynamic_page_pool **pool_list)
 	kfree(pool_list);
 }
 
-struct shrinker pool_shrinker = {
+static struct shrinker pool_shrinker = {
 	.count_objects = dynamic_page_pool_shrink_count,
 	.scan_objects = dynamic_page_pool_shrink_scan,
 	.seeks = DEFAULT_SEEKS,

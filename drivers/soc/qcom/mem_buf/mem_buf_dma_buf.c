@@ -522,7 +522,53 @@ EXPORT_SYMBOL(mem_buf_lend);
 int mem_buf_share(struct dma_buf *dmabuf,
 			struct mem_buf_lend_kernel_arg *arg)
 {
-	return mem_buf_lend_internal(dmabuf, arg, false);
+	int i, ret, len, found = false;
+	int *orig_vmids, *vmids = NULL;
+	int *orig_perms, *perms = NULL;
+
+	len = arg->nr_acl_entries;
+	for (i = 0; i < len; i++) {
+		if (arg->vmids[i] == current_vmid) {
+			found = true;
+			break;
+		}
+	}
+
+	if (found)
+		return mem_buf_lend_internal(dmabuf, arg, false);
+
+	vmids = kmalloc_array(len + 1, sizeof(*vmids), GFP_KERNEL);
+	if (!vmids)
+		return -ENOMEM;
+
+	perms = kmalloc_array(len + 1, sizeof(*perms), GFP_KERNEL);
+	if (!perms) {
+		kfree(vmids);
+		return -ENOMEM;
+	}
+
+	/* Add current vmid with RWX permissions to the list */
+	memcpy(vmids, arg->vmids, sizeof(*vmids) * len);
+	memcpy(perms, arg->perms, sizeof(*perms) * len);
+	vmids[len] = current_vmid;
+	perms[len] = PERM_READ | PERM_WRITE | PERM_EXEC;
+
+	/* Temporarily switch out the old arrays */
+	orig_vmids = arg->vmids;
+	orig_perms = arg->perms;
+	arg->vmids = vmids;
+	arg->perms = perms;
+	arg->nr_acl_entries += 1;
+
+	ret = mem_buf_lend_internal(dmabuf, arg, false);
+	/* Swap back */
+	arg->vmids = orig_vmids;
+	arg->perms = orig_perms;
+	arg->nr_acl_entries -= 1;
+
+	kfree(vmids);
+	kfree(perms);
+	return ret;
 }
 EXPORT_SYMBOL(mem_buf_share);
 
