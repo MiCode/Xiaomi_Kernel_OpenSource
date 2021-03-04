@@ -1541,7 +1541,6 @@ static int ngd_slim_enable(struct msm_slim_ctrl *dev, bool enable)
 	int ret = 0;
 
 	if (enable) {
-		enable_irq(dev->irq);
 		ret = msm_slim_qmi_init(dev, false);
 		/* controller state should be in sync with framework state */
 		if (!ret) {
@@ -1556,10 +1555,8 @@ static int ngd_slim_enable(struct msm_slim_ctrl *dev, bool enable)
 		} else
 			SLIM_ERR(dev, "qmi init fail, ret:%d, state:%d\n",
 					ret, dev->state);
-	} else {
-		disable_irq(dev->irq);
+	} else
 		msm_slim_qmi_exit(dev);
-	}
 
 	return ret;
 }
@@ -2056,7 +2053,6 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	 * extensive benifits and performance
 	 * improvements.
 	 */
-	irq_set_status_flags(dev->irq, IRQ_NOAUTOEN);
 	ret = devm_request_irq(dev->dev, dev->irq,
 			ngd_slim_interrupt,
 			IRQF_TRIGGER_HIGH,
