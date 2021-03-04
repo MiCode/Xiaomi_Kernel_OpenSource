@@ -2233,7 +2233,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	size_t rlen = 0, copylen = 0, metalen = 0, lrpralen = 0;
 	size_t totallen = 0; //header and non ion copy buf len
 	int i, oix;
-	int err = 0;
+	int err = 0, j = 0;
 	int mflags = 0;
 	uint64_t *fdlist = NULL;
 	uint32_t *crclist = NULL;
@@ -2278,6 +2278,8 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 					FASTRPC_ATTR_NOVA, 0, 0, dmaflags,
 					&ctx->maps[i]);
 		if (err) {
+			for (j = bufs; j < i; j++)
+				fastrpc_mmap_free(ctx->maps[j], 0);
 			mutex_unlock(&ctx->fl->map_mutex);
 			goto bail;
 		}
