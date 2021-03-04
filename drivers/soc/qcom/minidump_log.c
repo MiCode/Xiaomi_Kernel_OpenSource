@@ -45,7 +45,10 @@
 
 #include <linux/module.h>
 #include <linux/cma.h>
-#include <linux/dma-contiguous.h>
+#include <linux/dma-map-ops.h>
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
+#include <trace/hooks/debug.h>
+#endif
 #endif
 
 #ifdef CONFIG_QCOM_DYN_MINIDUMP_STACK
@@ -106,6 +109,7 @@ static md_align_offset;
 
 static int die_cpu = -1;
 static struct seq_buf *md_cntxt_seq_buf;
+static DEFINE_PER_CPU(struct pt_regs, regs_before_stop);
 #endif
 
 /* Modules information */
@@ -868,7 +872,6 @@ static void md_dump_data(unsigned long addr, int nbytes, const char *name)
 	nbytes += (addr & (sizeof(u32) - 1));
 	nlines = (nbytes + 31) / 32;
 
-
 	for (i = 0; i < nlines; i++) {
 		/*
 		 * just display low 16 bits of address to keep
@@ -877,9 +880,9 @@ static void md_dump_data(unsigned long addr, int nbytes, const char *name)
 		seq_buf_printf(md_cntxt_seq_buf, "%04lx ",
 			       (unsigned long)p & 0xffff);
 		for (j = 0; j < 8; j++) {
-			u32	data;
+			u32	data = 0;
 
-			if (probe_kernel_address(p, data))
+			if (get_kernel_nofault(data, p))
 				seq_buf_printf(md_cntxt_seq_buf, " ********");
 			else
 				seq_buf_printf(md_cntxt_seq_buf, " %08x", data);
@@ -961,14 +964,13 @@ static inline void md_dump_panic_regs(void)
 
 static void md_dump_other_cpus_context(void)
 {
-	unsigned long ipi_stop_addr = kallsyms_lookup_name("regs_before_stop");
 	int cpu;
-	struct pt_regs *regs;
+	struct pt_regs regs;
 
 	for_each_possible_cpu(cpu) {
-		regs = (struct pt_regs *)(ipi_stop_addr + per_cpu_offset(cpu));
+		regs = per_cpu(regs_before_stop, cpu);
 		seq_buf_printf(md_cntxt_seq_buf, "\nSTOPPED CPU : %d\n", cpu);
-		md_reg_context_data(regs);
+		md_reg_context_data(&regs);
 	}
 }
 
@@ -995,6 +997,13 @@ static struct notifier_block md_die_context_nb = {
 	.notifier_call = md_die_context_notify,
 	.priority = INT_MAX - 2, /* < msm watchdog die notifier */
 };
+
+static void md_ipi_stop(void *unused, struct pt_regs *regs)
+{
+	unsigned int cpu = smp_processor_id();
+
+	per_cpu(regs_before_stop, cpu) = *regs;
+}
 #endif
 
 #ifdef CONFIG_MODULES
@@ -1101,6 +1110,7 @@ static void md_register_panic_data(void)
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
 	md_register_panic_entries(MD_CPU_CNTXT_PAGES, "KCNTXT",
 				  &md_cntxt_seq_buf);
+	register_trace_android_vh_ipi_stop(md_ipi_stop, NULL);
 #endif
 }
 

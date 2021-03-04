@@ -523,6 +523,16 @@ config QCOM_MINIDUMP_FTRACE
 	  This way ftrace buffer content becomes a part of minidump dump
 	  collection.
 
+config QCOM_MINIDUMP_PANIC_DUMP
+	bool "QCOM Minidump Panic dumps Support"
+	depends on QCOM_MINIDUMP
+	help
+	  This enables collection of debug information like runqueue
+	  statistics etc. on panic in minidump. It dumps current, CFS,
+	  and RT runqueue tasks running on each cpu. This help in
+	  knowing the tasks running, pending, hogging on cpu during
+	  panic.
+
 config QCOM_MINIDUMP_PANIC_CPU_CONTEXT
 	bool "QCOM Minidump Panic dumps Support"
 	depends on ARM64 && QCOM_MINIDUMP_PANIC_DUMP
