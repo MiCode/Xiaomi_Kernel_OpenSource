@@ -220,3 +220,5 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_check_uninterruptible_tasks_dn);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_uclamp_eff_get);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_util_est_update);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_setscheduler_uclamp);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_do_wake_up_sync);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_set_wake_flags);
