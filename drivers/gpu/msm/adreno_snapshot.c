@@ -846,6 +846,9 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 		adreno_snapshot_ringbuffer(device, snapshot,
 			adreno_dev->next_rb);
 
+	if (device->snapshot_atomic)
+		return;
+
 	/* Dump selected global buffers */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 			snapshot, adreno_snapshot_global, device->memstore);
