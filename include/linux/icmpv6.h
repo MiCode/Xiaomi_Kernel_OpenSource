@@ -44,10 +44,7 @@ extern int inet6_register_icmp_sender(ip6_icmp_send_t *fn);
 extern int inet6_unregister_icmp_sender(ip6_icmp_send_t *fn);
 #endif
 
-static inline void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
-{
-	__icmpv6_send(skb, type, code, info, IP6CB(skb));
-}
+void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info);
 
 int ip6_err_gen_icmpv6_unreach(struct sk_buff *skb, int nhs, int type,
 			       unsigned int data_len);
