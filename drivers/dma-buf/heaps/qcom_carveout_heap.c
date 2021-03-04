@@ -36,7 +36,6 @@ struct carveout_heap {
 	struct rw_semaphore mem_sem;
 	struct gen_pool *pool;
 	struct device *dev;
-	struct list_head list;
 	bool is_secure;
 	phys_addr_t base;
 };
@@ -45,9 +44,6 @@ struct secure_carveout_heap {
 	u32 token;
 	struct carveout_heap carveout_heap;
 };
-
-static LIST_HEAD(carveout_heaps);
-static LIST_HEAD(secure_carveout_heaps);
 
 static void sc_heap_free(struct qcom_sg_buffer *buffer);
 
@@ -65,27 +61,6 @@ void pages_sync_for_device(struct device *dev, struct page *page,
 	 */
 	sg_dma_address(&sg) = page_to_phys(page);
 	dma_sync_sg_for_device(dev, &sg, 1, dir);
-}
-
-static struct carveout_heap *get_carveout_heap(char *heap_name, struct list_head list)
-{
-	struct carveout_heap *carveout_heap;
-	struct list_head *list_pos;
-	struct dma_heap *heap;
-
-	heap = dma_heap_find(heap_name);
-	if (!heap)
-		return ERR_PTR(-EINVAL);
-
-	list_for_each(list_pos, &list) {
-		carveout_heap = container_of(list_pos, struct carveout_heap,
-					     list);
-		if (carveout_heap->heap == heap)
-			return carveout_heap;
-	}
-
-	pr_err("%s: %s is not a carveout heap\n", __func__, heap_name);
-	return ERR_PTR(-EINVAL);
 }
 
 static phys_addr_t carveout_allocate(struct carveout_heap *carveout_heap,
@@ -229,19 +204,8 @@ static void carveout_heap_free(struct qcom_sg_buffer *buffer)
 	struct page *page = sg_page(table->sgl);
 	phys_addr_t paddr = page_to_phys(page);
 	struct device *dev;
-	struct list_head *list_pos;
 
-	/*
-	 * This should always succeed, since the heap was added to the
-	 * carveout_heaps list in  qcom_carveout_heap_create() (and we can only
-	 * be in this function if qcom_carveout_heap_create() was called).
-	 */
-	list_for_each(list_pos, &carveout_heaps) {
-		carveout_heap = container_of(list_pos, struct carveout_heap,
-					     list);
-		if (carveout_heap->heap == buffer->heap)
-			break;
-	}
+	carveout_heap = dma_heap_get_drvdata(buffer->heap);
 
 	dev = carveout_heap->dev;
 
@@ -261,20 +225,7 @@ static struct dma_buf *carveout_heap_allocate(struct dma_heap *heap,
 					      unsigned long fd_flags,
 					      unsigned long heap_flags)
 {
-	struct carveout_heap *carveout_heap;
-	struct list_head *list_pos;
-
-	/*
-	 * This should always succeed, since the heap was added to the
-	 * carveout_heaps list in  qcom_carveout_heap_create() (and we can only
-	 * be in this function if qcom_carveout_heap_create() was called).
-	 */
-	list_for_each(list_pos, &carveout_heaps) {
-		carveout_heap = container_of(list_pos, struct carveout_heap,
-					     list);
-		if (carveout_heap->heap == heap)
-			break;
-	}
+	struct carveout_heap *carveout_heap = dma_heap_get_drvdata(heap);
 
 	return __carveout_heap_allocate(carveout_heap, len, fd_flags,
 					heap_flags, carveout_heap_free);
@@ -354,15 +305,18 @@ static int carveout_init_heap_memory(struct carveout_heap *co_heap,
 int carveout_heap_add_memory(char *heap_name,
 			     struct sg_table *sgt)
 {
+	struct dma_heap *heap;
 	struct carveout_heap *carveout_heap;
 	int ret;
 
 	if (!sgt || sgt->nents != 1)
 		return -EINVAL;
 
-	carveout_heap = get_carveout_heap(heap_name, carveout_heaps);
-	if (IS_ERR(carveout_heap))
-		return PTR_ERR(carveout_heap);
+	heap = dma_heap_find(heap_name);
+	if (!heap)
+		return -EINVAL;
+
+	carveout_heap = dma_heap_get_drvdata(heap);
 
 	down_write(&carveout_heap->mem_sem);
 	if (carveout_heap->pool) {
@@ -382,6 +336,7 @@ EXPORT_SYMBOL(carveout_heap_add_memory);
 int carveout_heap_remove_memory(char *heap_name,
 				struct sg_table *sgt)
 {
+	struct dma_heap *heap;
 	struct carveout_heap *carveout_heap;
 	phys_addr_t base;
 	int ret = 0;
@@ -389,9 +344,11 @@ int carveout_heap_remove_memory(char *heap_name,
 	if (!sgt || sgt->nents != 1)
 		return -EINVAL;
 
-	carveout_heap = get_carveout_heap(heap_name, carveout_heaps);
-	if (IS_ERR(carveout_heap))
-		return PTR_ERR(carveout_heap);
+	heap = dma_heap_find(heap_name);
+	if (!heap)
+		return -EINVAL;
+
+	carveout_heap = dma_heap_get_drvdata(heap);
 
 	down_write(&carveout_heap->mem_sem);
 	if (!carveout_heap->pool) {
@@ -462,15 +419,13 @@ int qcom_carveout_heap_create(struct platform_heap *heap_data)
 
 	exp_info.name = heap_data->name;
 	exp_info.ops = &carveout_heap_ops;
-	exp_info.priv = NULL;
+	exp_info.priv = carveout_heap;
 
 	carveout_heap->heap = dma_heap_add(&exp_info);
 	if (IS_ERR(carveout_heap->heap)) {
 		ret = PTR_ERR(carveout_heap->heap);
 		goto destroy_heap;
 	}
-
-	list_add(&carveout_heap->list, &carveout_heaps);
 
 	return 0;
 
@@ -496,61 +451,25 @@ static struct dma_buf *sc_heap_allocate(struct dma_heap *heap,
 					unsigned long fd_flags,
 					unsigned long heap_flags)
 {
-	struct carveout_heap *carveout_heap;
-	struct list_head *list_pos;
-	struct dma_buf *buf;
 	struct secure_carveout_heap *sc_heap;
-	struct qcom_sg_buffer *buffer;
 
-	/*
-	 * This should always succeed, since the heap was added to the
-	 * secure_carveout_heaps list in qcom_secure_carveout_heap_create()
-	 * (and we can only be in this function if
-	 * qcom_secure_carveout_heap_create() was called).
-	 */
-	list_for_each(list_pos, &secure_carveout_heaps) {
-		carveout_heap = container_of(list_pos, struct carveout_heap,
-					     list);
-		if (carveout_heap->heap == heap)
-			break;
-	}
-	sc_heap = container_of(carveout_heap, struct secure_carveout_heap,
-			       carveout_heap);
-
-	buf =  __carveout_heap_allocate(carveout_heap, len, fd_flags,
-					heap_flags, sc_heap_free);
-	buffer = buf->priv;
-
-	return buf;
+	sc_heap = dma_heap_get_drvdata(heap);
+	return  __carveout_heap_allocate(&sc_heap->carveout_heap, len,
+					 fd_flags, heap_flags, sc_heap_free);
 }
 
 static void sc_heap_free(struct qcom_sg_buffer *buffer)
 {
-	struct carveout_heap *carveout_heap;
 	struct secure_carveout_heap *sc_heap;
 	struct sg_table *table = &buffer->sg_table;
 	struct page *page = sg_page(table->sgl);
-	struct list_head *list_pos;
 	phys_addr_t paddr = PFN_PHYS(page_to_pfn(page));
 
-	/*
-	 * This should always succeed, since the heap was added to the
-	 * secure_carveout_heaps list in qcom_secure_carveout_heap_create()
-	 * (and we can only be in this function if
-	 * qcom_secure_carveout_heap_create() was called).
-	 */
-	list_for_each(list_pos, &secure_carveout_heaps) {
-		carveout_heap = container_of(list_pos, struct carveout_heap,
-					     list);
-		if (carveout_heap->heap == buffer->heap)
-			break;
-	}
-	sc_heap = container_of(carveout_heap, struct secure_carveout_heap,
-			       carveout_heap);
+	sc_heap = dma_heap_get_drvdata(buffer->heap);
 
 	if (qcom_is_buffer_hlos_accessible(sc_heap->token))
 		carveout_pages_zero(page, buffer->len, PAGE_KERNEL);
-	carveout_free(carveout_heap, paddr, buffer->len);
+	carveout_free(&sc_heap->carveout_heap, paddr, buffer->len);
 	sg_free_table(table);
 	kfree(buffer);
 }
@@ -586,15 +505,13 @@ int qcom_secure_carveout_heap_create(struct platform_heap *heap_data)
 
 	exp_info.name = heap_data->name;
 	exp_info.ops = &sc_heap_ops;
-	exp_info.priv = NULL;
+	exp_info.priv = sc_heap;
 
 	sc_heap->carveout_heap.heap = dma_heap_add(&exp_info);
 	if (IS_ERR(sc_heap->carveout_heap.heap)) {
 		ret = PTR_ERR(sc_heap->carveout_heap.heap);
 		goto destroy_heap;
 	}
-
-	list_add(&sc_heap->carveout_heap.list, &secure_carveout_heaps);
 
 	return 0;
 

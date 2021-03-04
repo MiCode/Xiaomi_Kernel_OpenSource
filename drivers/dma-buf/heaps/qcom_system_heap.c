@@ -211,8 +211,8 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 	 * unmap it now so we don't get corruption later on.
 	 */
 	if (buffer->uncached) {
-		dma_map_sgtable(sys_heap->dev, table, DMA_BIDIRECTIONAL, 0);
-		dma_unmap_sgtable(sys_heap->dev, table, DMA_BIDIRECTIONAL, 0);
+		dma_map_sgtable(dma_heap_get_dev(heap), table, DMA_BIDIRECTIONAL, 0);
+		dma_unmap_sgtable(dma_heap_get_dev(heap), table, DMA_BIDIRECTIONAL, 0);
 	}
 
 	if (sys_heap->vmid) {
@@ -277,7 +277,6 @@ int qcom_system_heap_create(char *name, bool uncached, int vmid)
 	struct dma_heap_export_info exp_info;
 	struct dma_heap *heap;
 	struct qcom_system_heap *sys_heap;
-	struct device *heap_dev;
 	int ret;
 
 	sys_heap = kzalloc(sizeof(*sys_heap), GFP_KERNEL);
@@ -293,21 +292,10 @@ int qcom_system_heap_create(char *name, bool uncached, int vmid)
 	sys_heap->uncached = uncached;
 	sys_heap->vmid = vmid;
 
-	if (uncached) {
-		heap_dev = kzalloc(sizeof(*heap_dev), __GFP_ZERO);
-		if (!heap_dev) {
-			ret = -ENOMEM;
-			goto free_heap;
-		}
-		heap_dev->coherent_dma_mask = DMA_BIT_MASK(64);
-		heap_dev->dma_mask = &heap_dev->coherent_dma_mask;
-		sys_heap->dev = heap_dev;
-	}
-
 	sys_heap->pool_list = dynamic_page_pool_create_pools();
 	if (IS_ERR(sys_heap->pool_list)) {
 		ret = PTR_ERR(sys_heap->pool_list);
-		goto free_dev;
+		goto free_heap;
 	}
 
 	heap = dma_heap_add(&exp_info);
@@ -316,14 +304,15 @@ int qcom_system_heap_create(char *name, bool uncached, int vmid)
 		goto free_pools;
 	}
 
+	if (uncached)
+		dma_coerce_mask_and_coherent(dma_heap_get_dev(heap),
+					     DMA_BIT_MASK(64));
+
 	pr_info("%s: DMA-BUF Heap: Created '%s'\n", __func__, name);
 	return 0;
 
 free_pools:
 	dynamic_page_pool_release_pools(sys_heap->pool_list);
-
-free_dev:
-	kfree(heap_dev);
 
 free_heap:
 	kfree(sys_heap);
