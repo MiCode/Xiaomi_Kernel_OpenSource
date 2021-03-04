@@ -79,6 +79,13 @@ Bus Scaling Data:
                         qcom,msm-bus,vectors-KBps
 			to be used for keeping all clocks ON in CPU to GPU AHB config path.
 
+- qcom,cpu-to-ahb-path: Container for another set of bus scaling properties
+                        qcom,msm-bus,name
+                        qcom,msm-bus,num-cases
+                        qcom,msm-bus,num-paths
+                        qcom,msm-bus,vectors-KBps
+			to be used for keeping all clocks ON in CPU to GPU AHB config path.
+
 GDSC Oxili Regulators:
 - regulator-names:		List of regulator name strings sorted in power-on order
 - vddcx-supply:			Phandle for vddcx regulator device node.

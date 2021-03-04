@@ -1,4 +1,5 @@
 /* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,18 +41,15 @@ static DECLARE_WAIT_QUEUE_HEAD(avb_class_b_msg_wq);
 
 static int strlcmp(const char *s, const char *t, size_t n)
 {
-	int ret;
-
 	while (n-- && *t != '\0') {
 		if (*s != *t) {
-			ret = ((unsigned char)*s - (unsigned char)*t);
+			return ((unsigned char)*s - (unsigned char)*t);
 			n = 0;
 		} else {
 			++s, ++t;
-			ret = (unsigned char)*s;
 		}
 	}
-	return ret;
+	return (unsigned char)*s;
 }
 
 static void align_target_time_reg(u32 ch, void __iomem *ioaddr,

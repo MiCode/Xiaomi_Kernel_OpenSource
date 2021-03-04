@@ -2,6 +2,7 @@
  * File attributes for Mediated devices
  *
  * Copyright (c) 2016, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *     Author: Neo Jia <cjia@nvidia.com>
  *             Kirti Wankhede <kwankhede@nvidia.com>
  *
@@ -113,7 +114,7 @@ struct mdev_type *add_mdev_supported_type(struct mdev_parent *parent,
 				   "%s-%s", dev_driver_string(parent->dev),
 				   group->name);
 	if (ret) {
-		kfree(type);
+		kobject_put(&type->kobj);
 		return ERR_PTR(ret);
 	}
 

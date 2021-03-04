@@ -1,6 +1,7 @@
 /*
  * ASIX AX88172A based USB 2.0 Ethernet Devices
  * Copyright (C) 2012 OMICRON electronics GmbH
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Supports external PHYs via phylib. Based on the driver for the
  * AX88772. Original copyrights follow:
@@ -210,6 +211,7 @@ static int ax88172a_bind(struct usbnet *dev, struct usb_interface *intf)
 	ret = asix_read_cmd(dev, AX_CMD_READ_NODE_ID, 0, 0, ETH_ALEN, buf, 0);
 	if (ret < ETH_ALEN) {
 		netdev_err(dev->net, "Failed to read MAC address: %d\n", ret);
+		ret = -EIO;
 		goto free;
 	}
 	memcpy(dev->net->dev_addr, buf, ETH_ALEN);

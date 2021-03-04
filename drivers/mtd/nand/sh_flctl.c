@@ -2,6 +2,7 @@
  * SuperH FLCTL nand controller
  *
  * Copyright (c) 2008 Renesas Solutions Corp.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2008 Atom Create Engineering Co., Ltd.
  *
  * Based on fsl_elbc_nand.c, Copyright (c) 2006-2007 Freescale Semiconductor
@@ -1231,7 +1232,7 @@ static int flctl_remove(struct platform_device *pdev)
 	struct sh_flctl *flctl = platform_get_drvdata(pdev);
 
 	flctl_release_dma(flctl);
-	nand_release(nand_to_mtd(&flctl->chip));
+	nand_release(&flctl->chip);
 	pm_runtime_disable(&pdev->dev);
 
 	return 0;

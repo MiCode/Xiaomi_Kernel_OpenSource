@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +17,7 @@
 #include <dt-bindings/sound/audio-codec-port-types.h>
 
 &bolero {
-	qcom,num-macros = <4>;
+	qcom,num-macros = <3>;
 	qcom,va-without-decimation;
 	slew_rate_reg1 = <0x62B6F000 0x0>;
 	slew_rate_reg2 = <0x62B6F004 0x0>;
@@ -89,7 +90,7 @@
 		};
 	};
 
-	wsa_macro: wsa-macro@62f00000 {
+/*	wsa_macro: wsa-macro@62f00000 {
 		compatible = "qcom,wsa-macro";
 		reg = <0x62f00000 0x0>;
 		clock-names = "wsa_core_clk", "wsa_npl_clk";
@@ -142,7 +143,7 @@
 		};
 
 	};
-
+*/
 	va_macro: va-macro@62f20000 {
 		compatible = "qcom,va-macro";
 		reg = <0x62f20000 0x0>;
@@ -184,9 +185,9 @@
 		qcom,cdc-vdd-mic-bias-voltage = <3296000 3296000>;
 		qcom,cdc-vdd-mic-bias-current = <25000>;
 
-		qcom,cdc-micbias1-mv = <1800>;
-		qcom,cdc-micbias2-mv = <1800>;
-		qcom,cdc-micbias3-mv = <1800>;
+		qcom,cdc-micbias1-mv = <2700>;
+		qcom,cdc-micbias2-mv = <2700>;
+		qcom,cdc-micbias3-mv = <2700>;
 
 		qcom,cdc-static-supplies = "cdc-vdd-ldo-rxtx",
 					   "cdc-vddpx-1",
@@ -199,10 +200,14 @@
 &sm6150_snd {
 	qcom,model = "sm6150-idp-snd-card";
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
-	qcom,ext-disp-audio-rx = <1>;
+/*	qcom,ext-disp-audio-rx = <1>;*/
 	qcom,audio-routing =
+		"AMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Analog Mic1",
 		"AMIC2", "MIC BIAS2",
 		"MIC BIAS2", "Analog Mic2",
+		"AMIC3", "MIC BIAS3",
+		"MIC BIAS3", "Analog Mic3",
 		"TX DMIC0", "MIC BIAS1",
 		"MIC BIAS1", "Digital Mic0",
 		"TX DMIC1", "MIC BIAS1",
@@ -243,15 +248,16 @@
 	asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
 	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
 			   "msm-ext-disp-audio-codec-rx";
-	qcom,wsa-max-devs = <2>;
-	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
-			<&wsa881x_0213>, <&wsa881x_0214>;
+	qcom,wsa-max-devs = <0>;
+/*	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
+			<&wsa881x_0213>, <&wsa881x_0214>;*/
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 				  "SpkrLeft", "SpkrRight";
 	qcom,codec-max-aux-devs = <1>;
 	qcom,codec-aux-devs = <&wcd937x_codec>;
 	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>,
 				<&lpi_tlmm>, <&bolero>;
+	qcom,tert-mi2s-gpios = <&cdc_ter_mi2s_gpios>;
 };
 
 &soc {
@@ -271,13 +277,22 @@
 		qcom,lpi-gpios;
 	};
 
-	wsa_swr_gpios: wsa_swr_clk_data_pinctrl {
+	cdc_ter_mi2s_gpios: msm_cdc_pinctrl_ter {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&ter_mi2s_sck_active &ter_mi2s_ws_active
+			    &ter_mi2s_sd0_active &ter_mi2s_sd1_active>;
+		pinctrl-1 = <&ter_mi2s_sck_sleep &ter_mi2s_ws_sleep
+			    &ter_mi2s_sd0_sleep &ter_mi2s_sd1_sleep>;
+	};
+
+/*	wsa_swr_gpios: wsa_swr_clk_data_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&wsa_swr_clk_active &wsa_swr_data_active>;
 		pinctrl-1 = <&wsa_swr_clk_sleep &wsa_swr_data_sleep>;
 	};
-
+*/
 	rx_swr_gpios: rx_swr_clk_data_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
@@ -296,7 +311,7 @@
 		qcom,lpi-gpios;
 	};
 
-	wsa_spkr_en1: wsa_spkr_en1_pinctrl {
+/*	wsa_spkr_en1: wsa_spkr_en1_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&spkr_1_sd_n_active>;
@@ -309,7 +324,7 @@
 		pinctrl-0 = <&spkr_2_sd_n_active>;
 		pinctrl-1 = <&spkr_2_sd_n_sleep>;
 	};
-
+*/
 	wcd9xxx_intc: wcd9xxx-irq {
 		status = "disabled";
 		compatible = "qcom,wcd9xxx-irq";

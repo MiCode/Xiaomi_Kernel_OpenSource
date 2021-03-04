@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +13,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/clock/qcom,gcc-sm6150.h>
 #include "sa6155-cnss.dtsi"
+#include "sa6155-display.dtsi"
 
 &qupv3_2 {
 	status = "ok";
@@ -63,6 +65,9 @@
 			      "csr_hclk";
 		number-of-rate-detectors = <2>;
 		rate-detector-interfaces = <0 1>;
+		iommus = <&apps_smmu 0x035C 0x1>;
+		qcom,smmu-s1-bypass;
+		qcom,iova-mapping = <0x0 0xFFFFFFFF>;
 
 		sdr0: qcom,hs0_i2s {
 			compatible = "qcom,hsi2s-interface";
@@ -74,9 +79,6 @@
 				     &hs0_i2s_data1_sleep>;
 			clocks = <&clock_gcc GCC_SDR_PRI_MI2S_CLK>;
 			clock-names = "pri_mi2s_clk";
-			iommus = <&apps_smmu 0x035C 0x0>;
-			qcom,smmu-s1-bypass;
-			qcom,iova-mapping = <0x0 0xFFFFFFFF>;
 			bit-clock-hz = <12288000>;
 			data-buffer-ms = <10>;
 			bit-depth = <32>;
@@ -106,9 +108,6 @@
 				     &hs1_i2s_data1_sleep>;
 			clocks = <&clock_gcc GCC_SDR_SEC_MI2S_CLK>;
 			clock-names = "sec_mi2s_clk";
-			iommus = <&apps_smmu 0x035D 0x0>;
-			qcom,smmu-s1-bypass;
-			qcom,iova-mapping = <0x0 0xFFFFFFFF>;
 			bit-clock-hz = <12288000>;
 			data-buffer-ms = <10>;
 			bit-depth = <32>;

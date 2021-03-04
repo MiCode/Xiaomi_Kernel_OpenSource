@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -876,8 +877,10 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	if (gpudev->snapshot)
 		gpudev->snapshot(adreno_dev, snapshot);
 
-	if (GMU_DEV_OP_VALID(gmu_dev_ops, gx_is_on))
-		gx_on = gmu_dev_ops->gx_is_on(adreno_dev);
+	/* Dumping these buffers is useless if the GX is not on */
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, gx_is_on) &&
+			!gmu_dev_ops->gx_is_on(adreno_dev))
+		goto out;
 
 	setup_fault_process(device, snapshot,
 			context ? context->proc_priv : NULL);
@@ -997,6 +1000,7 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 		KGSL_CORE_ERR("GPU snapshot froze %zdKb of GPU buffers\n",
 			snapshot_frozen_objsize / 1024);
 
+out:
 	if (device->pwrctrl.ahbpath_pcl)
 		msm_bus_scale_client_update_request(device->pwrctrl.ahbpath_pcl,
 			KGSL_AHB_PATH_LOW);

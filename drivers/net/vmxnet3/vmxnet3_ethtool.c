@@ -2,6 +2,7 @@
  * Linux driver for VMware's vmxnet3 ethernet NIC.
  *
  * Copyright (C) 2008-2016, VMware, Inc. All Rights Reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -691,6 +692,8 @@ vmxnet3_get_rss(struct net_device *netdev, u32 *p, u8 *key, u8 *hfunc)
 	if (hfunc)
 		*hfunc = ETH_RSS_HASH_TOP;
 	if (!p)
+		return 0;
+	if (n > UPT1_RSS_MAX_IND_TABLE_SIZE)
 		return 0;
 	while (n--)
 		p[n] = rssConf->indTable[n];

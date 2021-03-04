@@ -1,4 +1,5 @@
 /* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,7 +66,7 @@
 &soc {
 	qrd_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
-		#include "qg-batterydata-atl466271_3300mAh.dtsi"
+		#include "qg-batterydata-sunwoda_5020mAh.dtsi"
 	};
 
 	fingerprint: fpc1020 {
@@ -130,6 +131,7 @@
 	qcom,fcc-step-size-ua = <100000>;
 	qcom,disable-sw-thermal-regulation;
 	qcom,disable-fcc-restriction;
+	qcom,en-qc3-with-cp;
 	qcom,smb-internal-pull-kohm = <0>;
 };
 
@@ -200,10 +202,10 @@
 
 &qupv3_se9_i2c {
 	status = "ok";
-	#include "smb1390.dtsi"
+	#include "smb1398.dtsi"
 };
 
-&smb1390 {
+&smb1396 {
 	/delete-property/ interrupts;
 	interrupts = <0x0 0xc2 0x0 IRQ_TYPE_LEVEL_LOW>;
 	pinctrl-names = "default";
@@ -211,21 +213,12 @@
 	status = "ok";
 };
 
-&smb1390_charger {
-	compatible = "qcom,smb1390-charger-psy";
+&smb1396_div2_cp_master {
 	io-channels = <&pm6150_vadc ADC_AMUX_THM2>;
-	io-channel-names = "cp_die_temp";
+	io-channel-names = "die_temp";
+	qcom,sec-charger-config = <1>;
 	qcom,parallel-input-mode = <1>; /* USBIN */
 	qcom,parallel-output-mode = <2>; /* VBAT */
-	qcom,min-ilim-ua = <750000>;
-	status = "ok";
-};
-
-&smb1390_slave {
-	status = "ok";
-};
-
-&smb1390_slave_charger {
 	status = "ok";
 };
 

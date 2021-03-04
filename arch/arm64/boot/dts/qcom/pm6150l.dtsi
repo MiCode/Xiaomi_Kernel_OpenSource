@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -144,7 +145,7 @@
 		#size-cells = <1>;
 
 		pm6150l_pwm_1: qcom,pwms@bc00 {
-			status = "disabled";
+			status = "ok";
 			compatible = "qcom,pwm-lpg";
 			reg = <0xbc00 0x100>;
 			reg-names = "lpg-base";
@@ -302,6 +303,20 @@
 				qcom,led-mask = <3>;
 				qcom,default-led-trigger = "switch2_trigger";
 			};
+
+			pm6150l_flashlight: qcom,flashlight {
+				label = "flash";
+				qcom,led-name = "flashlight";
+				qcom,max-current = <750>;
+				qcom,default-led-trigger = "flashlight_trigger";
+				qcom,id = <3>;
+				qcom,current-ma = <500>;
+				qcom,duration-ms = <1280>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
 		};
 
 		pm6150l_wled: qcom,wled@d800 {
@@ -341,8 +356,8 @@
 			reg-names = "lpg-base", "lut-base";
 			#pwm-cells = <2>;
 			qcom,num-lpg-channels = <3>;
-			qcom,lut-patterns = <0 10 20 30 40 50 60 70 80 90 100
-						90 80 70 60 50 40 30 20 10 0>;
+			qcom,lut-patterns = <50 50 49 47 45 42 39 35 31 27 22
+						17 11 6 0 0 0 0 0 0 0>;
 			lpg1 {
 				qcom,lpg-chan-id = <1>;
 				qcom,ramp-step-ms = <100>;

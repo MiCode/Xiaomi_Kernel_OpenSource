@@ -162,6 +162,9 @@ struct cam_cmd_probe {
 	uint32_t    data_mask;
 	uint16_t    camera_id;
 	uint16_t    reserved;
+	#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+	//char	    sensorName[32];
+	#endif
 } __attribute__((packed));
 
 /**
@@ -370,6 +373,7 @@ struct cam_sensor_acquire_dev {
 	uint32_t    handle_type;
 	uint32_t    reserved;
 	uint64_t    info_handle;
+	uint32_t    operation_mode;//xulei16 add for face unlock
 } __attribute__((packed));
 
 /**

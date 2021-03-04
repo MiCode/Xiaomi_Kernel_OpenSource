@@ -2,6 +2,7 @@
  * Greybus Lights protocol driver.
  *
  * Copyright 2015 Google Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2015 Linaro Ltd.
  *
  * Released under the GPLv2 only.
@@ -1033,7 +1034,8 @@ static int gb_lights_light_config(struct gb_lights *glights, u8 id)
 
 	light->channels_count = conf.channel_count;
 	light->name = kstrndup(conf.name, NAMES_MAX, GFP_KERNEL);
-
+	if (!light->name)
+		return -ENOMEM;
 	light->channels = kcalloc(light->channels_count,
 				  sizeof(struct gb_channel), GFP_KERNEL);
 	if (!light->channels)

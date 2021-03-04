@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2013 ARM Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,6 +19,7 @@
 
 #include <linux/init.h>
 #include <linux/threads.h>
+#include <linux/cpu.h>
 
 /**
  * struct cpu_operations - Callback operations for hotplugging CPUs.
@@ -68,7 +70,7 @@ int __init cpu_read_ops(int cpu);
 
 static inline void __init cpu_read_bootcpu_ops(void)
 {
-	cpu_read_ops(0);
+	cpu_read_ops(logical_bootcpu_id);
 }
 
 #endif /* ifndef __ASM_CPU_OPS_H */

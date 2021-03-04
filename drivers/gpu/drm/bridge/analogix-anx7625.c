@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Copyright(c) 2016, Analogix Semiconductor. All rights reserved.
  *
@@ -1289,7 +1290,7 @@ static void anx7625_bridge_enable(struct drm_bridge *bridge)
 #ifdef CONFIG_PM_SLEEP
 	if (anx7625->out_of_hibr) {
 		anx7625->out_of_hibr = false;
-		place_marker("Hiber: Display up");
+		update_marker("Hiber: Display up");
 	}
 #endif
 	if (!anx7625->powered)

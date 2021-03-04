@@ -12,6 +12,7 @@
  * transactions, add PEC support, and general clenaup.
  *
  * Copyright 2003 Intel Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2005 MontaVista Software
  *
  *  This program is free software; you can redistribute it and/or modify it
@@ -1731,7 +1732,9 @@ static int ssif_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
  out:
 	if (rv) {
-		addr_info->client = NULL;
+		if (addr_info)
+			addr_info->client = NULL;
+
 		dev_err(&client->dev, "Unable to start IPMI SSIF: %d\n", rv);
 		kfree(ssif_info);
 	}

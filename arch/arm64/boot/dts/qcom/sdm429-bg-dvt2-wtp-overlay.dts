@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +19,10 @@
 #include "sdm429-bg-dvt2-wtp.dtsi"
 #include "sdm429-mdss-panels.dtsi"
 #include "sdm429-spyro-qrd-evt-audio.dtsi"
+
+&int_codec {
+	qcom,wcn-bt-slim = <1>;
+};
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM429 QRD BG WTP Overlay";

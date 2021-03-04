@@ -249,5 +249,10 @@ config SYSCON_REBOOT_MODE
 	  register, then the bootloader can read it to take different
 	  action according to the mode.
 
+config LAST_LOG_MINIDUMP
+	bool "support last log keep in minidump partition"
+	help
+	  support last dmesg and last logcat keep in minidump partition
+
 endif
 

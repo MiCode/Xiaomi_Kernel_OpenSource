@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016 Endless Computers, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Carlo Caione <carlo@endlessm.com>
  *
  * This file is dual-licensed: you can use it either under the terms
@@ -243,6 +244,11 @@
 		#clock-cells = <1>;
 		reg = <0x0 0x0 0x0 0x3db>;
 	};
+};
+
+&hwrng {
+	clocks = <&clkc CLKID_RNG0>;
+	clock-names = "core";
 };
 
 &i2c_A {

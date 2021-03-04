@@ -2,6 +2,7 @@
  * SAMSUNG EXYNOS USB HOST EHCI Controller
  *
  * Copyright (C) 2011 Samsung Electronics Co.Ltd
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Jingoo Han <jg1.han@samsung.com>
  * Author: Joonyoung Shim <jy0922.shim@samsung.com>
  *
@@ -199,9 +200,8 @@ skip_phy:
 	hcd->rsrc_len = resource_size(res);
 
 	irq = platform_get_irq(pdev, 0);
-	if (!irq) {
-		dev_err(&pdev->dev, "Failed to get IRQ\n");
-		err = -ENODEV;
+	if (irq < 0) {
+		err = irq;
 		goto fail_io;
 	}
 

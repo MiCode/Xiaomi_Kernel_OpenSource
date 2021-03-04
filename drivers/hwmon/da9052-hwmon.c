@@ -2,6 +2,7 @@
  * HWMON Driver for Dialog DA9052
  *
  * Copyright(c) 2012 Dialog Semiconductor Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: David Dajun Chen <dchen@diasemi.com>
  *
@@ -250,9 +251,9 @@ static ssize_t da9052_read_tsi(struct device *dev,
 	int channel = to_sensor_dev_attr(devattr)->index;
 	int ret;
 
-	mutex_lock(&hwmon->hwmon_lock);
+	mutex_lock(&hwmon->da9052->auxadc_lock);
 	ret = __da9052_read_tsi(dev, channel);
-	mutex_unlock(&hwmon->hwmon_lock);
+	mutex_unlock(&hwmon->da9052->auxadc_lock);
 
 	if (ret < 0)
 		return ret;

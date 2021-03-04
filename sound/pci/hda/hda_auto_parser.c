@@ -2,6 +2,7 @@
  * BIOS auto-parser helper functions for HD-audio
  *
  * Copyright (c) 2012 Takashi Iwai <tiwai@suse.de>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This driver is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -75,6 +76,12 @@ static int compare_input_type(const void *ap, const void *bp)
 	const struct auto_pin_cfg_item *b = bp;
 	if (a->type != b->type)
 		return (int)(a->type - b->type);
+
+	/* If has both hs_mic and hp_mic, pick the hs_mic ahead of hp_mic. */
+	if (a->is_headset_mic && b->is_headphone_mic)
+		return -1; /* don't swap */
+	else if (a->is_headphone_mic && b->is_headset_mic)
+		return 1; /* swap */
 
 	/* In case one has boost and the other one has not,
 	   pick the one with boost first. */

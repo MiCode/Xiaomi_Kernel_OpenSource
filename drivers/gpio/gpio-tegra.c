@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/gpio.c
  *
  * Copyright (c) 2010 Google, Inc
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author:
  *	Erik Gilling <konkers@google.com>
@@ -356,6 +357,7 @@ static void tegra_gpio_irq_shutdown(struct irq_data *d)
 	struct tegra_gpio_info *tgi = bank->tgi;
 	unsigned int gpio = d->hwirq;
 
+	tegra_gpio_irq_mask(d);
 	gpiochip_unlock_as_irq(&tgi->gc, gpio);
 }
 

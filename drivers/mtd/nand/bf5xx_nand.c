@@ -1,6 +1,7 @@
 /* linux/drivers/mtd/nand/bf5xx_nand.c
  *
  * Copyright 2006-2008 Analog Devices Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *	http://blackfin.uclinux.org/
  *	Bryan Wu <bryan.wu@analog.com>
  *
@@ -688,7 +689,7 @@ static int bf5xx_nand_remove(struct platform_device *pdev)
 	 * and their partitions, then go through freeing the
 	 * resources used
 	 */
-	nand_release(nand_to_mtd(&info->chip));
+	nand_release(&info->chip);
 
 	peripheral_free_list(bfin_nfc_pin_req);
 	bf5xx_nand_dma_remove(info);

@@ -2,6 +2,7 @@
  * kexec for arm64
  *
  * Copyright (C) Linaro.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) Huawei Futurewei Technologies.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -184,7 +185,8 @@ void machine_kexec(struct kimage *kimage)
 	/* Flush the reboot_code_buffer in preparation for its execution. */
 	__flush_dcache_area(reboot_code_buffer, arm64_relocate_new_kernel_size);
 	flush_icache_range((uintptr_t)reboot_code_buffer,
-		arm64_relocate_new_kernel_size);
+			   (uintptr_t)reboot_code_buffer +
+			   arm64_relocate_new_kernel_size);
 
 	/* Flush the kimage list and its buffers. */
 	kexec_list_flush(kimage);

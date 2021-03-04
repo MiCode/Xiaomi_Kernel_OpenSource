@@ -2,6 +2,7 @@
  * JZ4780 NAND driver
  *
  * Copyright (c) 2015 Imagination Technologies
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Alex Smith <alex.smith@imgtec.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -293,7 +294,7 @@ static int jz4780_nand_init_chip(struct platform_device *pdev,
 
 	ret = mtd_device_register(mtd, NULL, 0);
 	if (ret) {
-		nand_release(mtd);
+		nand_release(chip);
 		return ret;
 	}
 
@@ -308,7 +309,7 @@ static void jz4780_nand_cleanup_chips(struct jz4780_nand_controller *nfc)
 
 	while (!list_empty(&nfc->chips)) {
 		chip = list_first_entry(&nfc->chips, struct jz4780_nand_chip, chip_list);
-		nand_release(nand_to_mtd(&chip->chip));
+		nand_release(&chip->chip);
 		list_del(&chip->chip_list);
 	}
 }

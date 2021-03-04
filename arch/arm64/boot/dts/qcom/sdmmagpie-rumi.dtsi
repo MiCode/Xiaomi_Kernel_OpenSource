@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -153,6 +154,7 @@
 
 &thermal_zones {
 	/delete-node/ aoss-0-lowf;
+	/delete-node/ backlight_therm;
 	/delete-node/ cpu-0-0-lowf;
 	/delete-node/ cpu-1-0-lowf;
 	/delete-node/ gpuss-0-lowf;

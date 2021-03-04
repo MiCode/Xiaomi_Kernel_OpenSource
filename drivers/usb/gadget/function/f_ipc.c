@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -276,7 +277,7 @@ retry_write:
 		/* Notify GPIO driver to wakup the host if host
 		 * is in suspend mode.
 		 */
-		sb_notifier_call_chain(EVT_WAKE_UP, NULL);
+		sb_notifier_call_chain(EVENT_REQUEST_WAKE_UP, NULL);
 		wait_event_interruptible(ipc_dev->state_wq, ipc_dev->online ||
 				ipc_dev->current_state == IPC_DISCONNECTED);
 		pr_debug("%s: Interface ready, Retry IN request\n", __func__);
@@ -298,7 +299,7 @@ retry_write_done:
 	 * completion structure.
 	 */
 	} else if (ipc_dev->connected && !ipc_dev->online) {
-		sb_notifier_call_chain(EVT_WAKE_UP, NULL);
+		sb_notifier_call_chain(EVENT_REQUEST_WAKE_UP, NULL);
 		reinit_completion(&ipc_dev->write_done);
 		goto retry_write_done;
 	}

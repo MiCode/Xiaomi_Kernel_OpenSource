@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2005 Voltaire Inc.  All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2002-2005, Network Appliance, Inc. All rights reserved.
  * Copyright (c) 1999-2005, Mellanox Technologies, Inc. All rights reserved.
  * Copyright (c) 2005 Intel Corporation.  All rights reserved.
@@ -450,16 +451,15 @@ static int addr6_resolve(struct sockaddr_in6 *src_in,
 	struct flowi6 fl6;
 	struct dst_entry *dst;
 	struct rt6_info *rt;
-	int ret;
 
 	memset(&fl6, 0, sizeof fl6);
 	fl6.daddr = dst_in->sin6_addr;
 	fl6.saddr = src_in->sin6_addr;
 	fl6.flowi6_oif = addr->bound_dev_if;
 
-	ret = ipv6_stub->ipv6_dst_lookup(addr->net, NULL, &dst, &fl6);
-	if (ret < 0)
-		return ret;
+	dst = ipv6_stub->ipv6_dst_lookup_flow(addr->net, NULL, &fl6, NULL);
+	if (IS_ERR(dst))
+		return PTR_ERR(dst);
 
 	rt = (struct rt6_info *)dst;
 	if (ipv6_addr_any(&src_in->sin6_addr)) {

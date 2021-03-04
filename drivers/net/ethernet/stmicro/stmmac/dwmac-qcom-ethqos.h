@@ -1,4 +1,5 @@
 /* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -374,9 +375,9 @@ enum current_phy_state {
 #define RGMII_IO_MACRO_CONFIG_RGRD(data)\
 	((data) = (readl_relaxed((RGMII_IO_MACRO_CONFIG_RGOFFADDR))))
 
-#define RGMII_GPIO_CFG_TX_INT_MASK (unsigned long)(0x3)
+#define RGMII_GPIO_CFG_TX_INT_MASK (unsigned long)(0x7)
 
-#define RGMII_GPIO_CFG_TX_INT_WR_MASK (unsigned long)(0xfff9ffff)
+#define RGMII_GPIO_CFG_TX_INT_WR_MASK (unsigned long)(0xfff1ffff)
 
 #define RGMII_GPIO_CFG_TX_INT_UDFWR(data) do {\
 	unsigned long v;\
@@ -388,15 +389,28 @@ enum current_phy_state {
 
 #define RGMII_GPIO_CFG_RX_INT_MASK (unsigned long)(0x3)
 
-#define RGMII_GPIO_CFG_RX_INT_WR_MASK (unsigned long)(0xffe7ffff)
+#define RGMII_GPIO_CFG_RX_INT_WR_MASK (unsigned long)(0xFFCFFFFF)
 
 #define RGMII_GPIO_CFG_RX_INT_UDFWR(data) do {\
 	unsigned long v;\
 	RGMII_IO_MACRO_CONFIG_RGRD(v);\
 	v = ((v & RGMII_GPIO_CFG_RX_INT_WR_MASK) | \
-	((data & RGMII_GPIO_CFG_RX_INT_MASK) << 19));\
+	((data & RGMII_GPIO_CFG_RX_INT_MASK) << 20));\
 	RGMII_IO_MACRO_CONFIG_RGWR(v);\
 } while (0)
+
+enum CV2X_MODE {
+	CV2X_MODE_DISABLE = 0x0,
+	CV2X_MODE_MDM,
+	CV2X_MODE_AP
+};
+
+struct ethqos_vlan_info {
+	u16 vlan_id;
+	u32 vlan_offset;
+	u32 rx_queue;
+	bool available;
+};
 
 struct ethqos_emac_por {
 	unsigned int offset;
@@ -406,6 +420,37 @@ struct ethqos_emac_por {
 struct ethqos_emac_driver_data {
 	struct ethqos_emac_por *por;
 	unsigned int num_por;
+};
+
+struct ethqos_io_macro {
+	bool rx_prog_swap;
+	bool rx_dll_bypass;
+};
+
+struct ethqos_extra_dma_stats {
+	/* DMA status registers for all channels [0-4] */
+	unsigned long dma_ch_status[MTL_MAX_TX_QUEUES];
+	unsigned long dma_ch_intr_enable[MTL_MAX_TX_QUEUES];
+	unsigned long dma_ch_intr_status;
+	unsigned long dma_debug_status0;
+	unsigned long dma_debug_status1;
+
+	/* RX DMA descriptor status registers for all channels [0-4] */
+	unsigned long dma_ch_rx_control[MTL_MAX_RX_QUEUES];
+	unsigned long dma_ch_rxdesc_list_addr[MTL_MAX_RX_QUEUES];
+	unsigned long dma_ch_rxdesc_ring_len[MTL_MAX_RX_QUEUES];
+	unsigned long dma_ch_curr_app_rxdesc[MTL_MAX_RX_QUEUES];
+	unsigned long dma_ch_rxdesc_tail_ptr[MTL_MAX_RX_QUEUES];
+	unsigned long dma_ch_curr_app_rxbuf[MTL_MAX_RX_QUEUES];
+	unsigned long dma_ch_miss_frame_count[MTL_MAX_RX_QUEUES];
+
+	/* TX DMA descriptors status for all channels [0-5] */
+	unsigned long dma_ch_tx_control[MTL_MAX_TX_QUEUES];
+	unsigned long dma_ch_txdesc_list_addr[MTL_MAX_TX_QUEUES];
+	unsigned long dma_ch_txdesc_ring_len[MTL_MAX_TX_QUEUES];
+	unsigned long dma_ch_curr_app_txdesc[MTL_MAX_TX_QUEUES];
+	unsigned long dma_ch_txdesc_tail_ptr[MTL_MAX_TX_QUEUES];
+	unsigned long dma_ch_curr_app_txbuf[MTL_MAX_TX_QUEUES];
 };
 
 struct qcom_ethqos {
@@ -419,6 +464,10 @@ struct qcom_ethqos {
 	struct clk *rgmii_clk;
 	unsigned int speed;
 	unsigned int vote_idx;
+
+	struct iommu_domain *iommu_domain;
+	unsigned int *emac_reg_base_address;
+	unsigned int *rgmii_reg_base_address;
 
 	int gpio_phy_intr_redirect;
 	u32 phy_intr;
@@ -448,6 +497,10 @@ struct qcom_ethqos {
 	dev_t avb_class_b_dev_t;
 	struct cdev *avb_class_b_cdev;
 	struct class *avb_class_b_class;
+
+	dev_t emac_dev_t;
+	struct cdev *emac_cdev;
+	struct class *emac_class;
 
 	unsigned long avb_class_a_intr_cnt;
 	unsigned long avb_class_b_intr_cnt;
@@ -482,6 +535,7 @@ struct qcom_ethqos {
 	bool ipa_enabled;
 	/* Key Performance Indicators */
 	bool print_kpi;
+
 	unsigned int emac_phy_off_suspend;
 	int loopback_speed;
 	enum loopback_mode current_loopback;
@@ -495,6 +549,18 @@ struct qcom_ethqos {
 	int backup_suspend_speed;
 	u32 backup_bmcr;
 	unsigned backup_autoneg:1;
+
+	/* IO Macro parameters */
+	struct ethqos_io_macro io_macro;
+
+	/* QMI over ethernet parameter */
+	u32 qoe_mode;
+	struct ethqos_vlan_info qoe_vlan;
+	u32 cv2x_mode;
+	struct ethqos_vlan_info cv2x_vlan;
+	unsigned char cv2x_dev_addr[ETH_ALEN];
+
+	struct ethqos_extra_dma_stats xstats;
 };
 
 struct pps_cfg {
@@ -566,8 +632,9 @@ u16 dwmac_qcom_select_queue(
 #define PTP_UDP_EV_PORT 0x013F
 #define PTP_UDP_GEN_PORT 0x0140
 
-#define IPA_DMA_TX_CH 0
-#define IPA_DMA_RX_CH 0
+
+#define CV2X_TAG_TX_CHANNEL 3
+#define QMI_TAG_TX_CHANNEL 2
 
 #define VLAN_TAG_UCP_SHIFT 13
 #define CLASS_A_TRAFFIC_UCP 3

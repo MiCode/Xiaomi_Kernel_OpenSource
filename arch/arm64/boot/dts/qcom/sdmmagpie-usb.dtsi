@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -174,8 +175,8 @@
 			    0x21 0x214 /* PWR_CTRL2 */
 			    0x08 0x220 /* IMP_CTRL1 */
 			    0x58 0x224 /* IMP_CTRL2 */
-			    0x45 0x240 /* TUNE1 */
-			    0x29 0x244 /* TUNE2 */
+			    0x77 0x240 /* TUNE1 */
+			    0x7C 0x244 /* TUNE2 */
 			    0xca 0x248 /* TUNE3 */
 			    0x04 0x24c /* TUNE4 */
 			    0x03 0x250 /* TUNE5 */

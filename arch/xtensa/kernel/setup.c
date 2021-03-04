@@ -6,6 +6,7 @@
  * for more details.
  *
  * Copyright (C) 1995  Linus Torvalds
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2001 - 2005  Tensilica Inc.
  * Copyright (C) 2014 - 2016  Cadence Design Systems Inc.
  *
@@ -711,7 +712,8 @@ c_start(struct seq_file *f, loff_t *pos)
 static void *
 c_next(struct seq_file *f, void *v, loff_t *pos)
 {
-	return NULL;
+	++*pos;
+	return c_start(f, pos);
 }
 
 static void

@@ -2,6 +2,7 @@
 /* Atlantic Network Driver
  *
  * Copyright (C) 2017 aQuantia Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2019-2020 Marvell International Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -223,6 +224,7 @@ static int __atl_fw1_get_link_caps(struct atl_hw *hw)
 /* fw lock must be held */
 static int __atl_fw2_get_link_caps(struct atl_hw *hw)
 {
+	struct atl_nic *nic = container_of(hw, struct atl_nic, hw);
 	struct atl_mcp *mcp = &hw->mcp;
 	uint32_t fw_stat_addr = mcp->fw_stat_addr;
 	struct atl_link_type *rate;
@@ -261,6 +263,21 @@ static int __atl_fw2_get_link_caps(struct atl_hw *hw)
 	mcp->req_high_mask = ~mask;
 	hw->link_state.supported = supported;
 	hw->link_state.lp_lowest = fls(supported) - 1;
+
+	nic->rxf_flex.base_index = 0;
+	nic->rxf_flex.available = ATL_FLEX_FLT_NUM;
+	nic->rxf_mac.base_index = 0;
+	nic->rxf_mac.available = ATL_UC_FLT_NUM;
+	nic->rxf_etype.base_index = 0;
+	nic->rxf_etype.available = ATL_ETYPE_FLT_NUM - 1; /* 1 reserved by FW */
+	nic->rxf_vlan.base_index = 0;
+	nic->rxf_vlan.available = ATL_VLAN_FLT_NUM;
+	nic->rxf_ntuple.l3_v4_base_index = 0;
+	nic->rxf_ntuple.l3_v4_available = ATL_NTUPLE_FLT_NUM;
+	nic->rxf_ntuple.l3_v6_base_index = 0;
+	nic->rxf_ntuple.l3_v6_available = ATL_NTUPLE_V6_FLT_NUM;
+	nic->rxf_ntuple.l4_base_index = 0;
+	nic->rxf_ntuple.l4_available = ATL_NTUPLE_FLT_NUM;
 
 	return ret;
 }
@@ -882,6 +899,63 @@ static int atl_fw2_update_thermal(struct atl_hw *hw)
 	return ret;
 }
 
+static int atl_fw2_send_ptp_request(struct atl_hw *hw,
+				    struct ptp_msg_fw_request *msg)
+{
+	size_t size;
+	int ret = 0;
+
+	if (!msg)
+		return -EINVAL;
+
+	size = sizeof(msg->msg_id);
+	switch (msg->msg_id) {
+	case ptp_gpio_ctrl_msg:
+		size += sizeof(msg->gpio_ctrl);
+		break;
+	case ptp_adj_freq_msg:
+		size += sizeof(msg->adj_freq);
+		break;
+	case ptp_adj_clock_msg:
+		size += sizeof(msg->adj_clock);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	atl_lock_fw(hw);
+
+	/* Write macsec request to cfg memory */
+	ret = atl_write_mcp_mem(hw, 0, msg, (size + 3) & ~3, MCP_AREA_CONFIG);
+	if (ret) {
+		atl_dev_err("Failed to upload ptp request: %d\n", ret);
+		goto err_exit;
+	}
+
+	/* Toggle statistics bit for FW to update */
+	ret = atl_fw2_update_statistics(hw);
+
+err_exit:
+	atl_unlock_fw(hw);
+	return ret;
+}
+
+static void atl_fw3_set_ptp(struct atl_hw *hw, bool on)
+{
+	u32 all_ptp_features = atl_fw2_ex_caps_phy_ptp_en | atl_fw2_ex_caps_ptp_gpio_en;
+	u32 ptp_opts;
+
+	atl_lock_fw(hw);
+	ptp_opts = atl_read(hw, ATL_MCP_SCRATCH(FW3_EXT_RES));
+	if (on)
+		ptp_opts |= all_ptp_features;
+	else
+		ptp_opts &= ~all_ptp_features;
+
+	atl_write(hw, ATL_MCP_SCRATCH(FW3_EXT_REQ), ptp_opts);
+	atl_unlock_fw(hw);
+}
+
 static struct atl_fw_ops atl_fw_ops[2] = {
 	[0] = {
 		.__wait_fw_init = __atl_fw1_wait_fw_init,
@@ -921,6 +995,8 @@ static struct atl_fw_ops atl_fw_ops[2] = {
 		.__get_hbeat = __atl_fw2_get_hbeat,
 		.get_mac_addr = atl_fw2_get_mac_addr,
 		.update_thermal = atl_fw2_update_thermal,
+		.send_ptp_req = atl_fw2_send_ptp_request,
+		.set_ptp = atl_fw3_set_ptp,
 		.deinit = atl_fw1_unsupported,
 	},
 };

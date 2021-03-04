@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,7 +81,7 @@
 				"msm-pcm-afe", "msm-lsm-client",
 				"msm-pcm-routing", "msm-compr-dsp",
 				"msm-pcm-dsp-noirq";
-		asoc-cpu = <&dai_dp>,
+		asoc-cpu = 
 				<&dai_mi2s0>, <&dai_mi2s1>,
 				<&dai_mi2s2>, <&dai_mi2s3>,
 				<&dai_mi2s4>, <&dai_pri_auxpcm>,
@@ -108,7 +109,7 @@
 				<&rx_cdc_dma_4_rx>, <&tx_cdc_dma_4_tx>,
 				<&rx_cdc_dma_5_rx>, <&tx_cdc_dma_5_tx>,
 				<&rx_cdc_dma_6_rx>, <&rx_cdc_dma_7_rx>;
-		asoc-cpu-names = "msm-dai-q6-dp.24608",
+		asoc-cpu-names =
 				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
 				"msm-dai-q6-mi2s.4", "msm-dai-q6-auxpcm.1",

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +17,7 @@
 #define _SB_NOTIFICATION_H
 
 /* Indicates a system wake up event */
-#define EVT_WAKE_UP 0x01
+#define EVENT_REQUEST_WAKE_UP 0x01
 
 #ifdef CONFIG_QTI_NOTIFY_SIDEBAND
 /**

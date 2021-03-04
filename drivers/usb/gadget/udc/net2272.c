@@ -2,6 +2,7 @@
  * Driver for PLX NET2272 USB device controller
  *
  * Copyright (C) 2005-2006 PLX Technology, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2006-2011 Analog Devices, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -2666,6 +2667,8 @@ net2272_plat_probe(struct platform_device *pdev)
  err_req:
 	release_mem_region(base, len);
  err:
+	kfree(dev);
+
 	return ret;
 }
 

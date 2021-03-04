@@ -3,6 +3,7 @@
  * driver for Linux.
  *
  * Copyright (c) 2009-2010 Chelsio Communications, Inc. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -714,9 +715,6 @@ static int adapter_up(struct adapter *adapter)
 
 		if (adapter->flags & USING_MSIX)
 			name_msix_vecs(adapter);
-
-		/* Initialize hash mac addr list*/
-		INIT_LIST_HEAD(&adapter->mac_hlist);
 
 		adapter->flags |= FULL_INIT_DONE;
 	}
@@ -2935,6 +2933,9 @@ static int cxgb4vf_pci_probe(struct pci_dev *pdev,
 	err = adap_init0(adapter);
 	if (err)
 		goto err_unmap_bar;
+
+	/* Initialize hash mac addr list */
+	INIT_LIST_HEAD(&adapter->mac_hlist);
 
 	/*
 	 * Allocate our "adapter ports" and stitch everything together.

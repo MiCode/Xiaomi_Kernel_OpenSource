@@ -5,6 +5,7 @@
  *
  * Author: Kieran Bingham, <kieran@bingham.xyz>
  * Copyright (c) 2016 Renesas Electronics Corporation.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This code is developed and inspired from the vim2m, rcar_jpu,
  * m2m-deinterlace, and vsp1 drivers.
@@ -2372,7 +2373,7 @@ static int fdp1_probe(struct platform_device *pdev)
 		dprintk(fdp1, "FDP1 Version R-Car H3\n");
 		break;
 	case FD1_IP_M3N:
-		dprintk(fdp1, "FDP1 Version R-Car M3N\n");
+		dprintk(fdp1, "FDP1 Version R-Car M3-N\n");
 		break;
 	case FD1_IP_E3:
 		dprintk(fdp1, "FDP1 Version R-Car E3\n");

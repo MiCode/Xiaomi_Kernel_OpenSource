@@ -29,6 +29,8 @@ Optional properties:
 - qcom,rt:	Specifies if the framework worker thread for this
 		controller device should have "real-time" priority.
 - qcom,disable-autosuspend: Specifies to disable runtime PM auto suspend.
+- qcom,set-miso-sampling: Specifies to set miso sampling rate.
+- qcom,miso-sampling-ctrl-val: Specifies the value of miso sampling rate.
 
 SPI slave nodes must be children of the SPI master node and can contain
 the following properties.

@@ -1,4 +1,5 @@
 /* Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -411,8 +412,8 @@
 		pinctrl-1 = <&cnss_wlan_en_sleep>;
 
 		chip_cfg@0 {
-			reg = <0x10000000 0x10000000>,
-				<0x20000000 0x10000>;
+			reg = <0xa0000000 0x10000000>,
+				<0xb0000000 0x10000>;
 			reg-names = "smmu_iova_base", "smmu_iova_ipa";
 
 			supported-ids = <0x003e>;

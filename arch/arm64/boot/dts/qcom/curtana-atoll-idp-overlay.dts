@@ -1,0 +1,55 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "atoll-idp.dtsi"
+#include "atoll-wcd937x-idp-audio-overlay.dtsi"
+#include "curtana-atoll-camera-sensor-idp.dtsi"
+
+/ {
+	model = "wcd937x Audio Codec IDP CURTANA";
+	compatible = "qcom,atoll-idp", "qcom,atoll", "qcom,idp";
+	qcom,msm-id = <407 0x0>;
+	qcom,board-id = <0x20022 1>;
+};
+
+&dsi_ft8756_huaxing_video {
+	qcom,dsi-display-active;
+};
+&dsi_nt36675_tianma_video {
+	qcom,dsi-display-active;
+};
+
+&sdhc_2 {
+	cd-gpios = <&tlmm 69 0>;
+};
+
+&pm6150_charger {
+	qcom,fv-max-uv = <4480000>;
+	qcom,fcc-max-ua = <3600000>;
+	qcom,thermal-mitigation = <3600000 3300000 3000000 2500000 2000000 1500000 1000000 800000 500000 100000>;
+	mi,support-ffc;
+};
+&smb1396_div2_cp_master {
+	mi,qc3p5-ffc-batt;
+ };
+
+&pm6150_pdphy {
+	mi,pd_curr_limit = <1>;
+	mi,pd_max_curr_limit = <4000000>;
+	mi,limit_pd_vbus = <1>;
+	mi,pd_vbus_max_limit = <9500000>;
+};

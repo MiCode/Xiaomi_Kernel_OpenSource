@@ -225,4 +225,16 @@ source "drivers/sensors/Kconfig"
 
 source "drivers/esoc/Kconfig"
 
+config TARGET_PROJECT_J6
+	bool "Target Projet J6"
+	default n
+
+config TARGET_PROJECT_J20C
+	bool "Target Projet J20C"
+	default n
+
+config TARGET_PROJECT_K7_CAMERA
+        bool "Target Projet K7 CAMERA"
+        default n
+
 endmenu

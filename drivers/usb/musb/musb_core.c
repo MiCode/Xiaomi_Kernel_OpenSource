@@ -2,6 +2,7 @@
  * MUSB OTG driver core code
  *
  * Copyright 2005 Mentor Graphics Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2005-2006 by Texas Instruments
  * Copyright (C) 2006-2007 Nokia Corporation
  *
@@ -2748,6 +2749,13 @@ static int musb_resume(struct device *dev)
 
 	musb_enable_interrupts(musb);
 	musb_platform_enable(musb);
+
+	/* session might be disabled in suspend */
+	if (musb->port_mode == MUSB_HOST &&
+	    !(musb->ops->quirks & MUSB_PRESERVE_SESSION)) {
+		devctl |= MUSB_DEVCTL_SESSION;
+		musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
+	}
 
 	spin_lock_irqsave(&musb->lock, flags);
 	error = musb_run_resume_work(musb);

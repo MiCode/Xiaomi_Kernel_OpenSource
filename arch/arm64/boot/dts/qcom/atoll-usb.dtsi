@@ -1,4 +1,5 @@
 /* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,7 +89,7 @@
 			compatible = "snps,dwc3";
 			reg = <0x0a600000 0xcd00>;
 			interrupts = <0 133 0>;
-			usb-phy = <&qusb_phy0>, <&usb_qmp_dp_phy>;
+			usb-phy = <&qusb_phy0>, <&usb_nop_phy>;
 			linux,sysdev_is_parent;
 			snps,disable-clk-gating;
 			snps,dis_u2_susphy_quirk;
@@ -98,7 +99,7 @@
 			snps,usb3_lpm_capable;
 			usb-core-id = <0>;
 			tx-fifo-resize;
-			maximum-speed = "super-speed";
+			maximum-speed = "high-speed";
 			dr_mode = "otg";
 		};
 
@@ -170,11 +171,11 @@
 			 0x0a 0x184 /* PLL_LOCK_DELAY */
 			 0x19 0xb4  /* PLL_DIGITAL_TIMERS_TWO */
 			 0x40 0x194 /* PLL_BIAS_CONTROL_1 */
-			 0x22 0x198 /* PLL_BIAS_CONTROL_2 */
+			 0x16 0x198 /* PLL_BIAS_CONTROL_2 */
 			 0x21 0x214 /* PWR_CTRL2 */
 			 0x08 0x220 /* IMP_CTRL1 */
 			 0x58 0x224 /* IMP_CTRL2 */
-			 0x47 0x240 /* TUNE1 */
+			 0x67 0x240 /* TUNE1 */
 			 0x28 0x244 /* TUNE2 */
 			 0xca 0x248 /* TUNE3 */
 			 0x04 0x24c /* TUNE4 */
@@ -212,11 +213,17 @@
 		reset-names = "phy_reset";
 	};
 
+	usb_nop_phy:usb_nop_phy{
+		status = "okay";
+		compatible = "usb-nop-xceiv";
+	};
+
 	/* Primary USB port related QMP USB DP Combo PHY */
 	usb_qmp_dp_phy: ssphy@88e8000 {
 		compatible = "qcom,usb-ssphy-qmp-dp-combo";
 		reg = <0x88e8000 0x3000>;
 		reg-names = "qmp_phy_base";
+		status = "disabled";
 		vdd-supply = <&pm6150_l4>;
 		qcom,vdd-voltage-level = <0 880000 900000>;
 		core-supply = <&pm6150l_l3>;

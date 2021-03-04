@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,11 +97,6 @@ static const char * const gpu_cc_parent_names_1[] = {
 	"core_bi_pll_test_se",
 };
 
-static struct pll_vco gpu_cc_pll_vco[] = {
-	{ 1000000000, 2000000000, 0 },
-	{ 500000000,  1000000000, 2 },
-};
-
 static struct pll_vco gpu_cc_pll0_vco[] = {
 	{ 1000000000, 2000000000, 0 },
 };
@@ -151,8 +147,8 @@ static struct clk_init_data gpu_cc_pll0_out_aux2_sa6155 = {
 
 static struct clk_alpha_pll gpu_cc_pll0_out_aux2 = {
 	.offset = 0x0,
-	.vco_table = gpu_cc_pll_vco,
-	.num_vco = ARRAY_SIZE(gpu_cc_pll_vco),
+	.vco_table = gpu_cc_pll0_vco,
+	.num_vco = ARRAY_SIZE(gpu_cc_pll0_vco),
 	.flags = SUPPORTS_DYNAMIC_UPDATE,
 	.config = &gpu_pll0_config,
 	.clkr = {
@@ -160,7 +156,7 @@ static struct clk_alpha_pll gpu_cc_pll0_out_aux2 = {
 		.name = "gpu_cc_pll0_out_aux2",
 		.parent_names = (const char *[]){ "bi_tcxo" },
 		.num_parents = 1,
-		.ops = &clk_alpha_pll_ops,
+		.ops = &clk_alpha_pll_slew_ops,
 		.vdd_class = &vdd_mx,
 		.num_rate_max = VDD_MX_NUM,
 		.rate_max = (unsigned long[VDD_MX_NUM]) {
@@ -184,8 +180,8 @@ static struct clk_init_data gpu_cc_pll1_out_aux2_sa6155 = {
 
 static struct clk_alpha_pll gpu_cc_pll1_out_aux2 = {
 	.offset = 0x100,
-	.vco_table = gpu_cc_pll_vco,
-	.num_vco = ARRAY_SIZE(gpu_cc_pll_vco),
+	.vco_table = gpu_cc_pll1_vco,
+	.num_vco = ARRAY_SIZE(gpu_cc_pll1_vco),
 	.flags = SUPPORTS_DYNAMIC_UPDATE,
 	.config = &gpu_pll1_config,
 	.clkr = {
@@ -193,7 +189,7 @@ static struct clk_alpha_pll gpu_cc_pll1_out_aux2 = {
 		.name = "gpu_cc_pll1_out_aux2",
 		.parent_names = (const char *[]){ "bi_tcxo" },
 		.num_parents = 1,
-		.ops = &clk_alpha_pll_ops,
+		.ops = &clk_alpha_pll_slew_ops,
 		.vdd_class = &vdd_mx,
 		.num_rate_max = VDD_MX_NUM,
 		.rate_max = (unsigned long[VDD_MX_NUM]) {

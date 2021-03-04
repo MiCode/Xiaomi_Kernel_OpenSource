@@ -2,6 +2,7 @@
  * Freescale UPM NAND driver.
  *
  * Copyright © 2007-2008  MontaVista Software, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Anton Vorontsov <avorontsov@ru.mvista.com>
  *
@@ -326,7 +327,7 @@ static int fun_remove(struct platform_device *ofdev)
 	struct mtd_info *mtd = nand_to_mtd(&fun->chip);
 	int i;
 
-	nand_release(mtd);
+	nand_release(&fun->chip);
 	kfree(mtd->name);
 
 	for (i = 0; i < fun->mchip_count; i++) {

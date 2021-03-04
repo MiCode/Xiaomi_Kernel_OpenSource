@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include "skeleton64.dtsi"
@@ -142,6 +143,10 @@
 		interrupts = <GIC_SPI 267 0>;
 		number-of-rate-detectors = <2>;
 		rate-detector-interfaces = <0 1>;
+		iommus = <&apps_smmu 0x1B5C 0x1>,
+			 <&apps_smmu 0x1B5E 0x0>;
+		qcom,smmu-s1-bypass;
+		qcom,iova-mapping = <0x0 0xFFFFFFFF>;
 
 		sdr0: qcom,hs0_i2s {
 			compatible = "qcom,hsi2s-interface";
@@ -1045,4 +1050,20 @@
 
 &tlmm {
 	dirconn-list = <37 216 1>;
+};
+
+&iommu_qupv3_0_geni_se_cb {
+	iommus = <&apps_smmu 0xd8 0x0>;
+};
+
+&iommu_qupv3_1_geni_se_cb {
+	iommus = <&apps_smmu 0x618 0x0>;
+};
+
+&iommu_qupv3_2_geni_se_cb {
+	iommus = <&apps_smmu 0x7b8 0x0>;
+};
+
+&iommu_qupv3_3_geni_se_cb {
+	iommus = <&apps_smmu 0x4f8 0x0>;
 };

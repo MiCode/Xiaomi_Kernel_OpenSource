@@ -1,5 +1,6 @@
 /*
  * Copyright 2004-2007 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2008 Sascha Hauer, kernel@pengutronix.de
  *
  * This program is free software; you can redistribute it and/or
@@ -1834,7 +1835,7 @@ static int mxcnd_remove(struct platform_device *pdev)
 {
 	struct mxc_nand_host *host = platform_get_drvdata(pdev);
 
-	nand_release(nand_to_mtd(&host->nand));
+	nand_release(&host->nand);
 	if (host->clk_act)
 		clk_disable_unprepare(host->clk);
 

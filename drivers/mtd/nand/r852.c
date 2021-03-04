@@ -1,5 +1,6 @@
 /*
  * Copyright © 2009 - Maxim Levitsky
+ * Copyright (C) 2021 XiaoMi, Inc.
  * driver for Ricoh xD readers
  *
  * This program is free software; you can redistribute it and/or modify
@@ -656,7 +657,7 @@ static int r852_register_nand_device(struct r852_device *dev)
 	dev->card_registred = 1;
 	return 0;
 error3:
-	nand_release(mtd);
+	nand_release(dev->chip);
 error1:
 	/* Force card redetect */
 	dev->card_detected = 0;
@@ -675,7 +676,7 @@ static void r852_unregister_nand_device(struct r852_device *dev)
 		return;
 
 	device_remove_file(&mtd->dev, &dev_attr_media_type);
-	nand_release(mtd);
+	nand_release(dev->chip);
 	r852_engine_disable(dev);
 	dev->card_registred = 0;
 }

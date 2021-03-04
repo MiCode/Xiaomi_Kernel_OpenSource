@@ -1,5 +1,6 @@
 /*
  * Copyright 2004-2008 Freescale Semiconductor, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2009 Semihalf.
  *
  * Approved as OSADL project by a majority of OSADL members and funded
@@ -829,7 +830,7 @@ static int mpc5121_nfc_remove(struct platform_device *op)
 	struct device *dev = &op->dev;
 	struct mtd_info *mtd = dev_get_drvdata(dev);
 
-	nand_release(mtd);
+	nand_release(mtd_to_nand(mtd));
 	mpc5121_nfc_free(dev, mtd);
 
 	return 0;

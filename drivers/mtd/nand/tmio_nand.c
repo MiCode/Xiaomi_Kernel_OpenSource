@@ -4,6 +4,7 @@
  * Slightly murky pre-git history of the driver:
  *
  * Copyright (c) Ian Molton 2004, 2005, 2008
+ * Copyright (C) 2021 XiaoMi, Inc.
  *    Original work, independent of sharps code. Included hardware ECC support.
  *    Hard ECC did not work for writes in the early revisions.
  * Copyright (c) Dirk Opfer 2005.
@@ -448,7 +449,7 @@ static int tmio_probe(struct platform_device *dev)
 	if (!retval)
 		return retval;
 
-	nand_release(mtd);
+	nand_cleanup(nand_chip);
 
 err_irq:
 	tmio_hw_stop(dev, tmio);
@@ -459,7 +460,7 @@ static int tmio_remove(struct platform_device *dev)
 {
 	struct tmio_nand *tmio = platform_get_drvdata(dev);
 
-	nand_release(nand_to_mtd(&tmio->chip));
+	nand_release(&tmio->chip);
 	tmio_hw_stop(dev, tmio);
 	return 0;
 }

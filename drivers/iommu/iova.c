@@ -1,5 +1,6 @@
 /*
  * Copyright © 2006-2009, Intel Corporation.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -479,6 +480,9 @@ retry:
 		flushed_rcache = true;
 		for_each_online_cpu(cpu)
 			free_cpu_cached_iovas(cpu, iovad);
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+		free_global_cached_iovas(iovad);
+#endif
 		goto retry;
 	}
 
@@ -827,11 +831,23 @@ error:
  */
 
 #define IOVA_MAG_SIZE 128
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+#define IOVA_MAG_SIZE_LOW (IOVA_MAG_SIZE/2)
+#define CACHE_INDEX_LIMIT 3
+#endif
 
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+struct iova_magazine {
+	unsigned long size;
+	unsigned long max_size;
+	unsigned long *pfns;
+};
+#else
 struct iova_magazine {
 	unsigned long size;
 	unsigned long pfns[IOVA_MAG_SIZE];
 };
+#endif
 
 struct iova_cpu_rcache {
 	spinlock_t lock;
@@ -839,13 +855,32 @@ struct iova_cpu_rcache {
 	struct iova_magazine *prev;
 };
 
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+static struct iova_magazine *iova_magazine_alloc(unsigned long index,
+						 gfp_t flags)
+{
+	struct iova_magazine *mag;
+
+	mag = kzalloc(sizeof(struct iova_magazine), flags);
+	if (index < CACHE_INDEX_LIMIT)
+		mag->max_size = IOVA_MAG_SIZE_LOW;
+	else
+		mag->max_size = IOVA_MAG_SIZE;
+
+	mag->pfns = kcalloc(mag->max_size, sizeof(unsigned long), flags);
+	return mag;
+}
+#else
 static struct iova_magazine *iova_magazine_alloc(gfp_t flags)
 {
 	return kzalloc(sizeof(struct iova_magazine), flags);
 }
-
+#endif
 static void iova_magazine_free(struct iova_magazine *mag)
 {
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+	kfree(mag->pfns);
+#endif
 	kfree(mag);
 }
 
@@ -874,7 +909,11 @@ iova_magazine_free_pfns(struct iova_magazine *mag, struct iova_domain *iovad)
 
 static bool iova_magazine_full(struct iova_magazine *mag)
 {
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+	return (mag && mag->size == mag->max_size);
+#else
 	return (mag && mag->size == IOVA_MAG_SIZE);
+#endif
 }
 
 static bool iova_magazine_empty(struct iova_magazine *mag)
@@ -917,8 +956,13 @@ static void init_iova_rcaches(struct iova_domain *iovad)
 		for_each_possible_cpu(cpu) {
 			cpu_rcache = per_cpu_ptr(rcache->cpu_rcaches, cpu);
 			spin_lock_init(&cpu_rcache->lock);
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+			cpu_rcache->loaded = iova_magazine_alloc(i, GFP_KERNEL);
+			cpu_rcache->prev = iova_magazine_alloc(i, GFP_KERNEL);
+#else
 			cpu_rcache->loaded = iova_magazine_alloc(GFP_KERNEL);
 			cpu_rcache->prev = iova_magazine_alloc(GFP_KERNEL);
+#endif
 		}
 	}
 }
@@ -929,10 +973,18 @@ static void init_iova_rcaches(struct iova_domain *iovad)
  * space, and free_iova() (our only caller) will then return the IOVA
  * range to the rbtree instead.
  */
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+static bool __iova_rcache_insert(struct iova_domain *iovad,
+				 struct iova_rcache *rcache,
+				 unsigned long iova_pfn,
+				 unsigned long log_size)
+{
+#else
 static bool __iova_rcache_insert(struct iova_domain *iovad,
 				 struct iova_rcache *rcache,
 				 unsigned long iova_pfn)
 {
+#endif
 	struct iova_magazine *mag_to_free = NULL;
 	struct iova_cpu_rcache *cpu_rcache;
 	bool can_insert = false;
@@ -947,8 +999,12 @@ static bool __iova_rcache_insert(struct iova_domain *iovad,
 		swap(cpu_rcache->prev, cpu_rcache->loaded);
 		can_insert = true;
 	} else {
-		struct iova_magazine *new_mag = iova_magazine_alloc(GFP_ATOMIC);
-
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+        struct iova_magazine *new_mag =
+			iova_magazine_alloc(log_size, GFP_ATOMIC);
+#else
+        struct iova_magazine *new_mag = iova_magazine_alloc(GFP_ATOMIC);
+#endif
 		if (new_mag) {
 			spin_lock(&rcache->lock);
 			if (rcache->depot_size < MAX_GLOBAL_MAGS) {
@@ -984,8 +1040,12 @@ static bool iova_rcache_insert(struct iova_domain *iovad, unsigned long pfn,
 
 	if (log_size >= IOVA_RANGE_CACHE_MAX_SIZE)
 		return false;
-
-	return __iova_rcache_insert(iovad, &iovad->rcaches[log_size], pfn);
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+	return __iova_rcache_insert(iovad, &iovad->rcaches[log_size],
+			pfn, log_size);
+#else
+ 	return __iova_rcache_insert(iovad, &iovad->rcaches[log_size], pfn);
+#endif
 }
 
 /*
@@ -1107,6 +1167,27 @@ void free_cpu_cached_iovas(unsigned int cpu, struct iova_domain *iovad)
 		spin_unlock_irqrestore(&cpu_rcache->lock, flags);
 	}
 }
+/*
+ * free all the IOVA ranges of global cache
+ */
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+void free_global_cached_iovas(struct iova_domain *iovad)
+{
+	struct iova_rcache *rcache;
+	int i, j;
 
+	for (i = 0; i < IOVA_RANGE_CACHE_MAX_SIZE; ++i) {
+		rcache = &iovad->rcaches[i];
+		spin_lock(&rcache->lock);
+		for (j = 0; j < rcache->depot_size; ++j) {
+			iova_magazine_free_pfns(rcache->depot[j], iovad);
+			iova_magazine_free(rcache->depot[j]);
+			rcache->depot[j] = NULL;
+		}
+		rcache->depot_size = 0;
+		spin_unlock(&rcache->lock);
+	}
+}
+#endif
 MODULE_AUTHOR("Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>");
 MODULE_LICENSE("GPL");

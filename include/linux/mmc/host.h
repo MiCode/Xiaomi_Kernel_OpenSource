@@ -509,6 +509,7 @@ struct mmc_host {
 	u32			cached_caps2;
 
 #define MMC_CAP2_BOOTPART_NOACC (1 << 0)        /* Boot partition no access */
+#define MMC_CAP2_CRYPTO		(1 << 1)	/* Host supports inline encryption */
 #define MMC_CAP2_FULL_PWR_CYCLE (1 << 2)        /* Can do full power cycle */
 #define MMC_CAP2_HS200_1_8V_SDR (1 << 5)        /* can support */
 #define MMC_CAP2_HS200_1_2V_SDR (1 << 6)        /* can support */
@@ -671,6 +672,10 @@ struct mmc_host {
 	int			cqe_qdepth;
 	bool			cqe_enabled;
 	bool			cqe_on;
+#ifdef CONFIG_MMC_CRYPTO
+	struct keyslot_manager	*ksm;
+	void *crypto_DO_NOT_USE[7];
+#endif /* CONFIG_MMC_CRYPTO */
 
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
 	struct {

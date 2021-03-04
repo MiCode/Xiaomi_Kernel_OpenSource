@@ -2,6 +2,7 @@
 /* Atlantic Network Driver
  *
  * Copyright (C) 2017 aQuantia Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2019-2020 Marvell International Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -15,7 +16,7 @@
 #include <linux/kernel.h>
 
 #if defined(__LITTLE_ENDIAN_BITFIELD)
-struct atl_tx_ctx {
+struct __packed atl_tx_ctx {
 	unsigned long long :40; //0
 	unsigned tun_len:8;     //40
 	unsigned out_len:16;    //48
@@ -27,9 +28,9 @@ struct atl_tx_ctx {
 	unsigned l3_len:9;      //95
 	unsigned l4_len:8;      //104
 	unsigned mss_len:16;    //112
-} __attribute__((packed));
+};
 
-struct atl_tx_desc {
+struct __packed atl_tx_desc {
 	unsigned long long daddr:64; //0
 	unsigned type:3;        //64
 	unsigned :1;            //67
@@ -41,7 +42,7 @@ struct atl_tx_desc {
 	unsigned ct_idx:1;      //108
 	unsigned ct_en:1;       //109
 	unsigned pay_len:18;    //110
-} __attribute__((packed));
+};
 
 #define ATL_DATA_PER_TXD 16384 // despite ->len being 16 bits
 
@@ -65,7 +66,7 @@ enum atl_tx_ctx_cmd {
 	ctx_cmd_tcp = 4,  // TCP / ~UDP
 };
 
-struct atl_rx_desc {
+struct __packed atl_rx_desc {
 	uint64_t daddr;      			//0
 	union {
 		struct {
@@ -74,9 +75,9 @@ struct atl_rx_desc {
 		};
 		uint64_t haddr;
 	};
-} __attribute__((packed));
+};
 
-struct atl_rx_desc_wb {
+struct __packed atl_rx_desc_wb {
 	unsigned rss_type:4;    //0
 	unsigned pkt_type:8;    //4
 	unsigned rdm_err:1;     //12
@@ -93,7 +94,16 @@ struct atl_rx_desc_wb {
 	unsigned pkt_len:16;    //80
 	unsigned next_desp:16;  //96
 	unsigned vlan_tag:16;   //112
-} __attribute__((packed));
+};
+
+struct __packed atl_rx_desc_hwts_wb {
+	u32 sec_hw;
+	u32 ns;
+	u32 dd:1;
+	u32 rsvd:1;
+	u32 sec_lw0:30;
+	u32 sec_lw1;
+};
 
 enum atl_rx_stat {
 	atl_rx_stat_mac_err = 1,
@@ -135,13 +145,16 @@ enum atl_rx_pkt_type {
 #error XXX Fix bigendian bitfields
 #endif // defined(__LITTLE_ENDIAN_BITFIELD)
 
-union atl_desc{
+union __packed atl_desc {
 	struct atl_rx_desc rx;
-	struct atl_rx_desc_wb wb;
+	union {
+		struct atl_rx_desc_wb wb;
+		struct atl_rx_desc_hwts_wb hwts_wb;
+	};
 	struct atl_tx_ctx ctx;
 	struct atl_tx_desc tx;
 	uint8_t raw[16];
-}__attribute__((packed));
+};
 
 
 #endif

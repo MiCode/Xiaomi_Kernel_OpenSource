@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -702,8 +703,6 @@ static void mhi_dev_net_state_cb(struct mhi_dev_client_cb_data *cb_data)
 			mhi_dev_net_free_reqs(&mhi_client->wr_req_buffers);
 			free_netdev(mhi_client->dev);
 			mhi_client->dev = NULL;
-			kfree(mhi_client);
-			kfree(mhi_net_ipc_log);
 		}
 	}
 }

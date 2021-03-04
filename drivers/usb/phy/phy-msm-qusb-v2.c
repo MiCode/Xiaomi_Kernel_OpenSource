@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +28,10 @@
 #include <linux/usb/phy.h>
 #include <linux/reset.h>
 #include <linux/debugfs.h>
+#undef dev_dbg
+#define dev_dbg dev_err
+#undef pr_debug
+#define pr_debug pr_info
 
 /* QUSB2PHY_PWR_CTRL1 register related bits */
 #define PWR_CTRL1_POWR_DOWN		BIT(0)
@@ -379,8 +384,8 @@ static void qusb_phy_get_tune1_param(struct qusb_phy *qphy)
 	bit_mask = (bit_mask << qphy->efuse_num_of_bits) - 1;
 
 	/*
-	 * if efuse reg is updated (i.e non-zero) then use it to program
-	 * tune parameters
+	 * For 8nm zero is treated as a valid efuse value and driver
+	 * should program the tune1 reg based on efuse value
 	 */
 	qphy->tune_val = readl_relaxed(qphy->efuse_reg);
 	pr_debug("%s(): bit_mask:%d efuse based tune1 value:%d\n",
@@ -389,10 +394,8 @@ static void qusb_phy_get_tune1_param(struct qusb_phy *qphy)
 	qphy->tune_val = TUNE_VAL_MASK(qphy->tune_val,
 				qphy->efuse_bit_pos, bit_mask);
 	reg = readb_relaxed(qphy->base + qphy->phy_reg[PORT_TUNE1]);
-	if (qphy->tune_val) {
-		reg = reg & 0x0f;
-		reg |= (qphy->tune_val << 4);
-	}
+	reg = reg & 0x0f;
+	reg |= (qphy->tune_val << 4);
 
 	qphy->tune_val = reg;
 }
@@ -567,7 +570,8 @@ static int qusb_phy_init(struct usb_phy *phy)
 	if (qphy->qusb_phy_init_seq)
 		qusb_phy_write_seq(qphy->base, qphy->qusb_phy_init_seq,
 				qphy->init_seq_len, 0);
-	if (qphy->efuse_reg) {
+	//if (qphy->efuse_reg) {
+	if (0) {
 		if (!qphy->tune_val)
 			qusb_phy_get_tune1_param(qphy);
 
@@ -608,6 +612,10 @@ static int qusb_phy_init(struct usb_phy *phy)
 	/* Require to get phy pll lock successfully */
 	usleep_range(150, 160);
 
+	reg = readb_relaxed(qphy->base + qphy->phy_reg[PORT_TUNE1]);
+	dev_dbg(phy->dev, "tune1= %x\n", reg);
+	reg = readb_relaxed(qphy->base + qphy->phy_reg[BIAS_CTRL_2]);
+	dev_dbg(phy->dev, "bias_ctrl2= %x\n", reg);
 	reg = readb_relaxed(qphy->base + qphy->phy_reg[PLL_COMMON_STATUS_ONE]);
 	dev_dbg(phy->dev, "QUSB2PHY_PLL_COMMON_STATUS_ONE:%x\n", reg);
 	if (!(reg & CORE_READY_STATUS)) {

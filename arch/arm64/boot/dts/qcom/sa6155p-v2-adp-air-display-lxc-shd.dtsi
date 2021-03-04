@@ -1,0 +1,82 @@
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	sde_sh_base0: qcom,shared-display-base@0 {
+		qcom,shared-display-base-intf = <1>;
+	};
+
+	sde_sh_base1: qcom,shared-display-base@1 {
+		qcom,shared-display-base-intf = <0>;
+		qcom,shared-display-base-mst;
+	};
+
+	sde_sh_base2: qcom,shared-display-base@2 {
+		qcom,shared-display-base-intf = <3>;
+		qcom,shared-display-base-mst;
+	};
+
+	sde_sh0: qcom,shared-display@0 {
+		compatible = "qcom,shared-display";
+		qcom,shared-display-base = <&sde_sh_base0>;
+		qcom,blend-stage-range = <0 4>;
+		qcom,shared-display-name = "shared-disp-0";
+		qcom,display-type = "primary";
+	};
+
+	sde_sh1: qcom,shared-display@1 {
+		compatible = "qcom,shared-display";
+		qcom,shared-display-base = <&sde_sh_base1>;
+		qcom,blend-stage-range = <0 4>;
+		qcom,shared-display-name = "shared-disp-1";
+		qcom,display-type = "primary";
+	};
+
+	sde_sh2: qcom,shared-display@2 {
+		compatible = "qcom,shared-display";
+		qcom,shared-display-base = <&sde_sh_base2>;
+		qcom,blend-stage-range = <0 2>;
+		qcom,shared-display-name = "shared-disp-2";
+		qcom,display-type = "primary";
+	};
+
+	sde_card1: qcom,sde-kms-lease@0 {
+		compatible = "qcom,sde-kms-lease";
+		qcom,dev-name = "msm_drm";
+		qcom,lease-connectors = "shared-disp-0";
+		qcom,lease-planes = "plane-0","plane-1","plane-9",
+			"plane-5";
+	};
+
+	sde_card2: qcom,sde-kms-lease@1 {
+		compatible = "qcom,sde-kms-lease";
+		qcom,dev-name = "msm_drm";
+		qcom,lease-connectors = "shared-disp-1";
+		qcom,lease-planes = "plane-2","plane-6","plane-3","plane-7";
+	};
+
+	sde_card3: qcom,sde-kms-lease@2 {
+		compatible = "qcom,sde-kms-lease";
+		qcom,dev-name = "msm_drm";
+		qcom,lease-connectors = "shared-disp-2";
+		qcom,lease-planes = "plane-4","plane-8";
+	};
+};
+
+&mdss_mdp {
+	qcom,sde-reg-dma-version = <0>;
+	qcom,sde-crtc-num-pref = <5>;
+	connectors = <&sde_rscc &dsi_dp1 &sde_wb &sde_dp
+		&sde_sh0 &sde_sh1 &sde_sh2
+		&sde_card1 &sde_card2 &sde_card3>;
+};

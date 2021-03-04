@@ -2,6 +2,7 @@
  * Murata ZPA2326 pressure and temperature sensor IIO driver
  *
  * Copyright (c) 2016 Parrot S.A.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Gregor Boirie <gregor.boirie@parrot.com>
  *
@@ -672,8 +673,10 @@ static int zpa2326_resume(const struct iio_dev *indio_dev)
 	int err;
 
 	err = pm_runtime_get_sync(indio_dev->dev.parent);
-	if (err < 0)
+	if (err < 0) {
+		pm_runtime_put(indio_dev->dev.parent);
 		return err;
+	}
 
 	if (err > 0) {
 		/*

@@ -2,6 +2,7 @@
  * davinci_nand.c - NAND Flash Driver for DaVinci family chips
  *
  * Copyright © 2006 Texas Instruments.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Port to 2.6.23 Copyright © 2008 by:
  *   Sander Huijsen <Shuijsen@optelecom-nkf.com>
@@ -854,7 +855,7 @@ static int nand_davinci_remove(struct platform_device *pdev)
 		ecc4_busy = false;
 	spin_unlock_irq(&davinci_nand_lock);
 
-	nand_release(nand_to_mtd(&info->chip));
+	nand_release(&info->chip);
 
 	clk_disable_unprepare(info->clk);
 

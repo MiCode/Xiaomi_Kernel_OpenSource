@@ -79,12 +79,12 @@ scm_version()
 		# it fails. Note that git-diff-index does not refresh the
 		# index, so it may give misleading results. See
 		# git-update-index(1), git-diff-index(1), and git-status(1).
-		if {
-			git --no-optional-locks status -uno --porcelain 2>/dev/null ||
-			git diff-index --name-only HEAD
-		} | grep -qvE '^(.. )?scripts/package'; then
-			printf '%s' -dirty
-		fi
+		#if {
+		#	git --no-optional-locks status -uno --porcelain 2>/dev/null ||
+		#	git diff-index --name-only HEAD
+		#} | grep -qvE '^(.. )?scripts/package'; then
+		#	printf '%s' -dirty
+		#fi
 
 		# All done with git
 		return

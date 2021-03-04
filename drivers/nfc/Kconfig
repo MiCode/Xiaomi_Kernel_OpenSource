@@ -67,6 +67,13 @@ config NFC_NQ
           This enables the NFC driver for NQx based devices.
           This is for i2c connected version. NCI protocol logic
           resides in the usermode and it has no other NFC dependencies.
+		  
+config ST21NFC
+        bool "ST Microelectronics ST21NFC NFC Controller Driver"
+        depends on I2C
+        help
+           ST Microelectronics ST21NFC Near Field Communication controller
+           support.
 
 config NTAG_NQ
 	tristate "QTI NTAG Driver for NTAG communication"

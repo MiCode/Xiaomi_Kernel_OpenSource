@@ -930,3 +930,9 @@ config MMC_CQ_HCI_CRYPTO_QTI
 	 Enable Vendor Crypto Engine Support in CQHCI
 	 Enabling this allows kernel to use CQHCI crypto operations defined
 	 and implemented by QTI.
+
+config MMC_QTI_NONCMDQ_ICE
+	bool "Vendor support Legacy Inline Crypto Engine"
+	default n
+	help
+	Enable to allow use of Legacy Inline Crypto Engine i.e ICE < 3.0.

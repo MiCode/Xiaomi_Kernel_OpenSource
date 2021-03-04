@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +43,118 @@
 		clocks = <&lpass_core_hw_vote 0>,
 				<&lpass_audio_hw_vote 0>;
 
+		quin_mi2s_sck_active: quin_mi2s_sck_active {
+			mux {
+				pins = "gpio6";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio6";
+				drive-strength = <8>;
+				bias-disable;
+				output-high;
+			};
+		};
+
+		quin_mi2s_sck_sleep: quin_mi2s_sck_sleep {
+			mux {
+				pins = "gpio6";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio6";
+				drive-strength = <2>;   /* 2 mA */
+				bias-pull-down;         /* PULL DOWN */
+				input-enable;
+
+			};
+		};
+
+		quin_mi2s_ws_active: quin_mi2s_ws_active {
+			mux {
+				pins = "gpio7";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio7";
+				drive-strength = <8>;
+				bias-disable;           /* NO PULL */
+				output-high;
+			};
+		};
+
+		quin_mi2s_ws_sleep: quin_mi2s_ws_sleep {
+			mux {
+				pins = "gpio7";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio7";
+				drive-strength = <2>;
+				bias-pull-down;         /* PULL DOWN */
+				input-enable;
+			};
+		};
+
+		quin_mi2s_sd0_active: quin_mi2s_sd0_active {
+			mux {
+				pins = "gpio8";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio8";
+				drive-strength = <8>;
+				bias-disable;           /* NO PULL */
+				output-high;
+			};
+		};
+
+		quin_mi2s_sd0_sleep: quin_mi2s_sd0_sleep {
+			mux {
+				pins = "gpio8";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio8";
+				drive-strength = <2>;
+				bias-pull-down;         /* PULL DOWN */
+				input-enable;
+			};
+		};
+
+		quin_mi2s_sd1_active: quin_mi2s_sd1_active {
+			mux {
+				pins = "gpio9";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio9";
+				drive-strength = <8>;
+				bias-disable;           /* NO PULL */
+				output-high;
+			};
+		};
+
+		quin_mi2s_sd1_sleep: quin_mi2s_sd1_sleep {
+			mux {
+				pins = "gpio9";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio9";
+				drive-strength = <2>;
+				bias-pull-down;         /* PULL DOWN */
+				input-enable;
+			};
+		};
 		cdc_dmic01_clk_active: dmic01_clk_active {
 			mux {
 				pins = "gpio6";

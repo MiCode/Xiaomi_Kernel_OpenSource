@@ -1,0 +1,38 @@
+/*
+ * atoll common setting 
+ */
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/input/qcom,qpnp-power-on.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+
+&spmi_bus {
+	qcom,pm6150@0 {
+		qcom,power-on@800 {
+			qcom,pon_1 {
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <4480>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <PON_POWER_OFF_TYPE_HARD_RESET>;
+			};
+
+			qcom,pon_3 {
+				qcom,pon-type = <3>;
+				qcom,pull-up = <1>;
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <4480>;
+				qcom,s2-timer = <1000>;
+				qcom,s2-type = <PON_POWER_OFF_TYPE_WARM_RESET>;
+			};
+		};
+	};
+	qcom,pm6150l@5 {
+		pm6150l_wled: qcom,wled@d800 {
+			qcom,fs-current-limit = <25000>;
+			qcom,en-cabc;
+			qcom,cabc-sel = <1>;
+			qcom,ovp = <22000>;
+		};
+	};
+};

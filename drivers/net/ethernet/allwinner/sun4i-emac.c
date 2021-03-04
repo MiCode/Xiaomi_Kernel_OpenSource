@@ -2,6 +2,7 @@
  * Allwinner EMAC Fast Ethernet driver for Linux.
  *
  * Copyright 2012-2013 Stefan Roese <sr@denx.de>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2013 Maxime Ripard <maxime.ripard@free-electrons.com>
  *
  * Based on the Linux driver provided by Allwinner:
@@ -433,7 +434,7 @@ static void emac_timeout(struct net_device *dev)
 /* Hardware start transmission.
  * Send a packet to media from the upper layer.
  */
-static int emac_start_xmit(struct sk_buff *skb, struct net_device *dev)
+static netdev_tx_t emac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct emac_board_info *db = netdev_priv(dev);
 	unsigned long channel;
@@ -441,7 +442,7 @@ static int emac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	channel = db->tx_fifo_stat & 3;
 	if (channel == 3)
-		return 1;
+		return NETDEV_TX_BUSY;
 
 	channel = (channel == 1 ? 1 : 0);
 

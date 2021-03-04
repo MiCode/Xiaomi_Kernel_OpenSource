@@ -2,6 +2,7 @@
  * vga_switcheroo.h - Support for laptop with dual GPU using one set of outputs
  *
  * Copyright (c) 2010 Red Hat Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author : Dave Airlie <airlied@redhat.com>
  *
  * Copyright (c) 2015 Lukas Wunner <lukas@wunner.de>
@@ -168,11 +169,8 @@ int vga_switcheroo_process_delayed_switch(void);
 bool vga_switcheroo_client_probe_defer(struct pci_dev *pdev);
 enum vga_switcheroo_state vga_switcheroo_get_client_state(struct pci_dev *dev);
 
-void vga_switcheroo_set_dynamic_switch(struct pci_dev *pdev, enum vga_switcheroo_state dynamic);
-
 int vga_switcheroo_init_domain_pm_ops(struct device *dev, struct dev_pm_domain *domain);
 void vga_switcheroo_fini_domain_pm_ops(struct device *dev);
-int vga_switcheroo_init_domain_pm_optimus_hdmi_audio(struct device *dev, struct dev_pm_domain *domain);
 #else
 
 static inline void vga_switcheroo_unregister_client(struct pci_dev *dev) {}
@@ -192,11 +190,8 @@ static inline int vga_switcheroo_process_delayed_switch(void) { return 0; }
 static inline bool vga_switcheroo_client_probe_defer(struct pci_dev *pdev) { return false; }
 static inline enum vga_switcheroo_state vga_switcheroo_get_client_state(struct pci_dev *dev) { return VGA_SWITCHEROO_ON; }
 
-static inline void vga_switcheroo_set_dynamic_switch(struct pci_dev *pdev, enum vga_switcheroo_state dynamic) {}
-
 static inline int vga_switcheroo_init_domain_pm_ops(struct device *dev, struct dev_pm_domain *domain) { return -EINVAL; }
 static inline void vga_switcheroo_fini_domain_pm_ops(struct device *dev) {}
-static inline int vga_switcheroo_init_domain_pm_optimus_hdmi_audio(struct device *dev, struct dev_pm_domain *domain) { return -EINVAL; }
 
 #endif
 #endif /* _LINUX_VGA_SWITCHEROO_H_ */

@@ -1062,6 +1062,12 @@ static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
 	assert_spin_locked(&t->sighand->siglock);
 
 	result = TRACE_SIGNAL_IGNORED;
+
+	/* Add below log to print the signal sending information while the signal sending. */
+	if (sig == SIGABRT) {
+		printk("Process %d:%s kill sig:%d %d:%s\n", current->pid, current->comm, sig, t->pid, t->comm);
+	}
+
 	if (!prepare_signal(sig, t,
 			from_ancestor_ns || (info == SEND_SIG_PRIV) || (info == SEND_SIG_FORCED)))
 		goto ret;

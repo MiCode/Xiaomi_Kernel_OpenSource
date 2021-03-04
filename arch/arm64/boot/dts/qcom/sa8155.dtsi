@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -411,6 +412,10 @@
 		interrupts = <GIC_SPI 267 0>;
 		number-of-rate-detectors = <2>;
 		rate-detector-interfaces = <0 1>;
+		iommus = <&apps_smmu 0x1B5C 0x1>,
+			 <&apps_smmu 0x1B5E 0x0>;
+		qcom,smmu-s1-bypass;
+		qcom,iova-mapping = <0x0 0xFFFFFFFF>;
 
 		sdr0: qcom,hs0_i2s {
 			compatible = "qcom,hsi2s-interface";
@@ -422,9 +427,6 @@
 			pinctrl-1 = <&hs1_i2s_mclk_sleep &hs1_i2s_sck_sleep
 				     &hs1_i2s_ws_sleep &hs1_i2s_data0_sleep
 				     &hs1_i2s_data1_sleep>;
-			iommus = <&apps_smmu 0x1B5C 0x0>;
-			qcom,smmu-s1-bypass;
-			qcom,iova-mapping = <0x0 0xFFFFFFFF>;
 			bit-clock-hz = <12288000>;
 			data-buffer-ms = <10>;
 			bit-depth = <32>;
@@ -454,9 +456,6 @@
 			pinctrl-1 = <&hs2_i2s_mclk_sleep &hs2_i2s_sck_sleep
 				     &hs2_i2s_ws_sleep &hs2_i2s_data0_sleep
 				     &hs2_i2s_data1_sleep>;
-			iommus = <&apps_smmu 0x1B5D 0x0>;
-			qcom,smmu-s1-bypass;
-			qcom,iova-mapping = <0x0 0xFFFFFFFF>;
 			bit-clock-hz = <12288000>;
 			data-buffer-ms = <10>;
 			bit-depth = <32>;
@@ -486,9 +485,6 @@
 			pinctrl-1 = <&hs3_i2s_mclk_sleep &hs3_i2s_sck_sleep
 				     &hs3_i2s_ws_sleep &hs3_i2s_data0_sleep
 				     &hs3_i2s_data1_sleep>;
-			iommus = <&apps_smmu 0x1B5E 0x0>;
-			qcom,smmu-s1-bypass;
-			qcom,iova-mapping = <0x0 0xFFFFFFFF>;
 			bit-clock-hz = <12288000>;
 			data-buffer-ms = <10>;
 			bit-depth = <32>;
@@ -759,6 +755,10 @@
 
 &ipa_hw {
 	status="disabled";
+};
+
+&kgsl_msm_iommu {
+	qcom,secure-size = <0x20000000>; /* 512MB */
 };
 
 #include "sa8155-audio.dtsi"

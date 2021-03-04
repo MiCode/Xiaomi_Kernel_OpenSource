@@ -2,6 +2,7 @@
  * Broadcom Starfighter 2 DSA switch driver
  *
  * Copyright (C) 2014, Broadcom Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1175,6 +1176,8 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
 	 */
 	set_bit(0, priv->cfp.used);
 
+	/* Balance of_node_put() done by of_find_node_by_name() */
+	of_node_get(dn);
 	ports = of_find_node_by_name(dn, "ports");
 	if (ports) {
 		bcm_sf2_identify_ports(priv, ports);

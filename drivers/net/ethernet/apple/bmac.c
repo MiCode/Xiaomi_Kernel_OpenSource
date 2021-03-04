@@ -3,6 +3,7 @@
  * Apple Powermacs.  Assumes it's under a DBDMA controller.
  *
  * Copyright (C) 1998 Randy Gobbel.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * May 1999, Al Viro: proper release of /proc/net/bmac entry, switched to
  * dynamic procfs inode.
@@ -1187,7 +1188,7 @@ bmac_get_station_address(struct net_device *dev, unsigned char *ea)
 	int i;
 	unsigned short data;
 
-	for (i = 0; i < 6; i++)
+	for (i = 0; i < 3; i++)
 		{
 			reset_and_select_srom(dev);
 			data = read_srom(dev, i + EnetAddressOffset/2, SROMAddressBits);

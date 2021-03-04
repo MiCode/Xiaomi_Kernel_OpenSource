@@ -1,0 +1,50 @@
+/*
+ * TouchScreen Device Tree For Xiaomi K7
+ */
+
+&soc {
+	xiaomi_touch {
+		status = "ok";
+		compatible = "xiaomi-touch";
+		touch,name = "xiaomi-touch";
+	};
+};
+
+&qupv3_se1_i2c {
+	status = "ok";
+
+	touchscreen {
+		status = "ok";
+		compatible = "focaltech,fts";
+		reg = <0x38>;
+
+ 		/* regulator Configuration */
+		//touch_vddio-supply = <&L18A>;
+		//touch_lab-supply = <&lcdb_ldo_vreg>;
+		//touch_ibb-supply = <&lcdb_ncp_vreg>;
+		//vdd-supply=<&L7C>;
+		vcc_i2c-supply=<&L13A>;
+
+		/* Focaltech GPIO Configuration */
+		interrupt-parent = <&tlmm>;
+		interrupts = <89 0x02>;
+		focaltech,avdd-gpio = <&tlmm 96 0>;
+		focaltech,reset-gpio = <&tlmm 88 0x01>;
+		focaltech,irq-gpio = <&tlmm 89 0x02>;
+		focaltech,max-touch-number = <10>;
+		focaltech,display-coords =  <0 0 1080 2400>;
+
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+
+		/*
+		focaltech,have-key;
+		focaltech,key-number = <3>;
+		focaltech,keys = <139 102 158>;
+		focaltech,key-x-coords = <200 600 800>;
+		focaltech,key-y-coords = <2000 2000 2000>;
+		*/
+	};
+};

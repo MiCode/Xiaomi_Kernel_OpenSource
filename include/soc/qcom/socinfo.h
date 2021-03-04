@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,10 +118,10 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm429w")
 #define early_machine_is_sda429w()       \
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sda429w")
-#define early_machine_is_qcm6125()       \
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcm6125")
-#define early_machine_is_qcs6125()       \
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs6125")
+#define early_machine_is_trinket_iot()       \
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,trinket-iot")
+#define early_machine_is_trinketp_iot()       \
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,trinketp-iot")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -168,8 +169,8 @@
 #define early_machine_is_sda660()	0
 #define early_machine_is_sdm429w()	0
 #define early_machine_is_sda429w()	0
-#define early_machine_is_qcm6125()	0
-#define early_machine_is_qcs6125()	0
+#define early_machine_is_trinket_iot()	0
+#define early_machine_is_trinketp_iot()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -220,8 +221,8 @@ enum msm_cpu {
 	MSM_CPU_SDA660,
 	MSM_CPU_SDM429W,
 	MSM_CPU_SDA429W,
-	MSM_CPU_QCM6125,
-	MSM_CPU_QCS6125,
+	MSM_CPU_TRINKET_IOT,
+	MSM_CPU_TRINKETP_IOT,
 };
 
 struct msm_soc_info {

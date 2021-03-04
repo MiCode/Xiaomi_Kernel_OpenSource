@@ -4,6 +4,7 @@
  * for more details.
  *
  * Copyright (C) 1994 - 1999, 2000, 01, 06 Ralf Baechle
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 1995, 1996 Paul M. Antoine
  * Copyright (C) 1998 Ulf Carlsson
  * Copyright (C) 1999 Silicon Graphics, Inc.
@@ -2135,6 +2136,7 @@ static void configure_status(void)
 
 	change_c0_status(ST0_CU|ST0_MX|ST0_RE|ST0_FR|ST0_BEV|ST0_TS|ST0_KX|ST0_SX|ST0_UX,
 			 status_set);
+	back_to_back_c0_hazard();
 }
 
 unsigned int hwrena;

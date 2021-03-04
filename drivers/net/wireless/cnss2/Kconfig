@@ -72,3 +72,9 @@ config CNSS_EMULATION
 	  emulation hardware.
 	  These changes are needed for WLAN drivers to support and meet the
 	  requirement of emulation hardware.
+
+config CNSS_SUPPORT_DUAL_DEV
+       bool "Enable cnss support dual wlan card"
+       ---help---
+         This enables the changes from cnss platform driver to support dual
+         wlan card attach

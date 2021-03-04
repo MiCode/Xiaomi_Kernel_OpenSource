@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -168,10 +169,12 @@ int diag_remote_dev_open(int id)
 	if (id < 0 || id >= NUM_REMOTE_DEV)
 		return -EINVAL;
 	bridge_info[id].inited = 1;
-	if (bridge_info[id].type == DIAG_DATA_TYPE)
+	if (bridge_info[id].type == DIAG_DATA_TYPE) {
+		diag_notify_md_client(BRIDGE_TO_MUX(id), 0, DIAG_STATUS_OPEN);
 		return diag_mux_queue_read(BRIDGE_TO_MUX(id));
-	else if (bridge_info[id].type == DIAG_DCI_TYPE)
+	} else if (bridge_info[id].type == DIAG_DCI_TYPE) {
 		return diag_dci_send_handshake_pkt(bridge_info[id].id);
+	}
 
 	return 0;
 }
@@ -183,6 +186,9 @@ void diag_remote_dev_close(int id)
 		return;
 
 	diag_mux_close_device(BRIDGE_TO_MUX(id));
+
+	if (bridge_info[id].type == DIAG_DATA_TYPE)
+		diag_notify_md_client(BRIDGE_TO_MUX(id), 0, DIAG_STATUS_CLOSED);
 
 }
 

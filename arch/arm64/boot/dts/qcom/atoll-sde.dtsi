@@ -1,4 +1,5 @@
 /* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -504,7 +505,7 @@
 	};
 
 	sde_dp: qcom,dp_display@ae90000 {
-		status = "ok";
+		status = "disabled";
 		cell-index = <0>;
 		compatible = "qcom,dp-display";
 

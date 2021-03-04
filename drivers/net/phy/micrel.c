@@ -6,6 +6,7 @@
  * Author: David J. Choi
  *
  * Copyright (c) 2010-2013 Micrel, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2014 Johan Hovold <johan@kernel.org>
  *
  * This program is free software; you can redistribute  it and/or modify it
@@ -724,8 +725,8 @@ static void kszphy_get_strings(struct phy_device *phydev, u8 *data)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(kszphy_hw_stats); i++) {
-		memcpy(data + i * ETH_GSTRING_LEN,
-		       kszphy_hw_stats[i].string, ETH_GSTRING_LEN);
+		strlcpy(data + i * ETH_GSTRING_LEN,
+			kszphy_hw_stats[i].string, ETH_GSTRING_LEN);
 	}
 }
 

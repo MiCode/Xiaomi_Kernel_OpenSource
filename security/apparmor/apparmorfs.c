@@ -4,6 +4,7 @@
  * This file contains AppArmor /sys/kernel/security/apparmor interface functions
  *
  * Copyright (C) 1998-2008 Novell/SUSE
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2009-2010 Canonical Ltd.
  *
  * This program is free software; you can redistribute it and/or
@@ -426,7 +427,7 @@ static ssize_t policy_update(u32 mask, const char __user *buf, size_t size,
 	 */
 	error = aa_may_manage_policy(label, ns, mask);
 	if (error)
-		return error;
+		goto end_section;
 
 	data = aa_simple_write_to_buffer(buf, size, size, pos);
 	error = PTR_ERR(data);
@@ -434,6 +435,7 @@ static ssize_t policy_update(u32 mask, const char __user *buf, size_t size,
 		error = aa_replace_profiles(ns, label, mask, data);
 		aa_put_loaddata(data);
 	}
+end_section:
 	end_current_label_crit_section(label);
 
 	return error;

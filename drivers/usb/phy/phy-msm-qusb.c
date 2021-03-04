@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -111,6 +112,12 @@
 
 #define HSTX_TRIMSIZE			4
 
+#undef dev_dbg
+#define dev_dbg dev_err
+#undef pr_debug
+#define pr_debug pr_err
+
+
 static unsigned int tune1;
 module_param(tune1, uint, 0644);
 MODULE_PARM_DESC(tune1, "QUSB PHY TUNE1");
@@ -134,7 +141,7 @@ MODULE_PARM_DESC(tune5, "QUSB PHY TUNE5");
 static bool eud_connected;
 module_param(eud_connected, bool, 0644);
 MODULE_PARM_DESC(eud_connected, "EUD_CONNECTED");
-
+unsigned long panel_info = 0;
 struct qusb_phy {
 	struct usb_phy		phy;
 	void __iomem		*base;
@@ -444,6 +451,7 @@ static int qusb_phy_init(struct usb_phy *phy)
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
 	int ret, reset_val = 0;
 	u8 reg;
+	int i;
 	bool pll_lock_fail = false;
 
 	/*
@@ -529,9 +537,14 @@ static int qusb_phy_init(struct usb_phy *phy)
 		reset_val = readl_relaxed(qphy->base + QUSB2PHY_PLL_TEST);
 
 	if (qphy->qusb_phy_init_seq)
+	{
 		qusb_phy_write_seq(qphy->base, qphy->qusb_phy_init_seq,
 				qphy->init_seq_len, 0);
-
+	}
+	for (i = 0; i < qphy->init_seq_len; i = i+2) {
+		//pr_debug("write 0x%02x to 0x%02x\n", qphy->qusb_phy_init_seq[i], qphy->qusb_phy_init_seq[i+1]);
+		pr_err("yangyangyang:write 0x%02x to 0x%02x\n", qphy->qusb_phy_init_seq[i], qphy->qusb_phy_init_seq[i+1]);
+	}
 	/*
 	 * Check for EFUSE value only if tune2_efuse_reg is available
 	 * and try to read EFUSE value only once i.e. not every USB
@@ -1022,7 +1035,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	const char *phy_type;
 	bool hold_phy_reset;
 	u32 temp;
-
+    dev_err(dev, "yangyangyang:phy-msm-qusb probe\n");
 	qphy = devm_kzalloc(dev, sizeof(*qphy), GFP_KERNEL);
 	if (!qphy)
 		return -ENOMEM;
@@ -1113,14 +1126,15 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		ret = of_property_read_u32(dev->of_node, "qcom,usb-hs-ac-value",
 						&qphy->usb_hs_ac_value);
 		if (ret) {
-			dev_err(dev, "usb_hs_ac_value not passed\n");
+			dev_err(dev, "usb_hs_ac_value not passed\n", __func__);
 			return ret;
 		}
 
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"tcsr_conn_box_spare_0");
 		if (!res) {
-			dev_err(dev, "tcsr_conn_box_spare_0 not passed\n");
+			dev_err(dev, "tcsr_conn_box_spare_0 not passed\n",
+								__func__);
 			return -ENOENT;
 		}
 
@@ -1256,7 +1270,11 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	}
 
 	size = 0;
-	of_get_property(dev->of_node, "qcom,qusb-phy-init-seq", &size);
+	pr_info("panel_info %x\n",panel_info);
+	if(panel_info == 1)
+		of_get_property(dev->of_node, "qcom,qusb-phy-init-seq", &size);
+	else if (panel_info == 0)
+		of_get_property(dev->of_node, "qcom,qusb-phy-init-seq-no-panel", &size);
 	if (size) {
 		qphy->qusb_phy_init_seq = devm_kzalloc(dev,
 						size, GFP_KERNEL);
@@ -1267,11 +1285,16 @@ static int qusb_phy_probe(struct platform_device *pdev)
 				dev_err(dev, "invalid init_seq_len\n");
 				return -EINVAL;
 			}
-
-			of_property_read_u32_array(dev->of_node,
-				"qcom,qusb-phy-init-seq",
-				qphy->qusb_phy_init_seq,
-				qphy->init_seq_len);
+			if(panel_info == 1)
+				of_property_read_u32_array(dev->of_node,
+					"qcom,qusb-phy-init-seq",
+					qphy->qusb_phy_init_seq,
+					qphy->init_seq_len);
+			else if (panel_info == 0)
+				of_property_read_u32_array(dev->of_node,
+					"qcom,qusb-phy-init-seq-no-panel",
+					qphy->qusb_phy_init_seq,
+					qphy->init_seq_len);
 		} else {
 			dev_err(dev, "error allocating memory for phy_init_seq\n");
 		}
@@ -1382,6 +1405,19 @@ static int qusb_phy_remove(struct platform_device *pdev)
 
 	return 0;
 }
+
+static int __init parameter_select(char *str){
+	int ret = 0;
+
+	ret = kstrtol(str, 10, &panel_info);
+	if (ret < 0)
+		return ret;
+	if(panel_info > 1)
+		pr_err("can't get panel_info\n");
+	pr_info("get panel_info %x from cmdline\n",panel_info);
+	return 1;
+}
+__setup("panel_info=",parameter_select);
 
 static const struct of_device_id qusb_phy_id_table[] = {
 	{ .compatible = "qcom,qusb2phy", },

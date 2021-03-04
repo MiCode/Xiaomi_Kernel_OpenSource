@@ -132,6 +132,7 @@ config SMB1398_CHARGER
 	  (2) DIV2 and 3-level buck combo mode to regulate the output power from
 	      wireless charger receiver and provide the input for downstream
 	      chargers.
+
 config SMB358_CHARGER
 	tristate "SMB358 Battery Charger"
 	depends on I2C
@@ -142,5 +143,10 @@ config SMB358_CHARGER
 	  The driver supports charger enable/disable.
 	  The driver reports the charger status via the power supply framework.
 	  A charger status change triggers an IRQ via the device STAT pin.
+
+config REVERSE_CHARGE
+        bool  "reverse charge"
+        ---help---
+        This option enables reverse charge.
 
 endmenu

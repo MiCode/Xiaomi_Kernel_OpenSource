@@ -8,6 +8,7 @@
  *         Steve Chen <schen@.mvista.com>
  *
  * Copyright:   (C) 2009 MontaVista Software, Inc., <source@mvista.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright:   (C) 2009  Texas Instruments, India
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1747,8 +1748,10 @@ static int davinci_mcasp_get_dma_type(struct davinci_mcasp *mcasp)
 				PTR_ERR(chan));
 		return PTR_ERR(chan);
 	}
-	if (WARN_ON(!chan->device || !chan->device->dev))
+	if (WARN_ON(!chan->device || !chan->device->dev)) {
+		dma_release_channel(chan);
 		return -EINVAL;
+	}
 
 	if (chan->device->dev->of_node)
 		ret = of_property_read_string(chan->device->dev->of_node,

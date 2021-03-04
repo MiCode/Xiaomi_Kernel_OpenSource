@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013, Sony Mobile Communications AB.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -44,7 +45,8 @@
 #ifdef CONFIG_HIBERNATION
 #include <linux/notifier.h>
 #endif
-
+//2020.08.26 add longcheer wanglirong "recording wakeup reason"
+#include <linux/wakeup_reason.h>
 #define MAX_NR_GPIO 300
 #define PS_HOLD_OFFSET 0x820
 
@@ -2035,6 +2037,8 @@ static void msm_pinctrl_resume(void)
 				name = desc->action->name;
 
 			pr_warn("%s: %d triggered %s\n", __func__, irq, name);
+			//2020.08.26 add longcheer wanglirong "recording wakeup reason"
+			log_irq_wakeup_reason(irq);
 		}
 	}
 	raw_spin_unlock_irqrestore(&pctrl->lock, flags);

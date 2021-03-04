@@ -2,6 +2,7 @@
 /* Atlantic Network Driver
  *
  * Copyright (C) 2019 aQuantia Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2019-2020 Marvell International Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -80,7 +81,6 @@ struct thermal_shutdown_s {
 
 struct mac_address_s {
 	uint8_t mac_address[6];
-	uint16_t rsvd;
 };
 
 struct sleep_proxy_s {
@@ -188,7 +188,7 @@ struct sleep_proxy_s {
 		uint32_t rr__offset;
 	} mdns;
 	/* WARN: where this gap actually is not known */
-	uint32_t reserveFWGAP:16;
+	uint32_t reserve_fw_gap:16;
 };
 
 struct ptp_s {
@@ -472,26 +472,64 @@ struct statistics_s {
 
 		uint32_t tx_good_frames;
 		uint32_t rx_good_frames;
-		uint32_t reserveFWGAP;
+		uint32_t reserve_fw_gap;
 	} msm;
 	uint32_t main_loop_cycles;
+	uint32_t reserve_fw_gap;
 };
 
-struct  filter_caps_s {
-	uint8_t unicast_filters_count;
-	uint8_t multicast_filters_count;
-	uint8_t ethertype_filters_count;
-	uint8_t vlan_filters_count;
-	uint8_t l3_filters_count;
-	uint8_t l4_filters_count;
-	uint8_t l4_flex_filters_count;
-	uint8_t flexible_filters_count;
+struct filter_caps_s {
+	uint8_t l2_filters_base_index:6;
+	uint8_t flexible_filter_mask:2;
+	uint8_t l2_filter_count;
+	uint8_t ethertype_filter_base_index;
+	uint8_t ethertype_filter_count;
+
+	uint8_t vlan_filter_base_index;
+	uint8_t vlan_filter_count;
+	uint8_t l3_ip4_filter_base_index:4;
+	uint8_t l3_ip4_filter_count:4;
+	uint8_t l3_ip6_filter_base_index:4;
+	uint8_t l3_ip6_filter_count:4;
+
+	uint8_t l4_filter_base_index:4;
+	uint8_t l4_filter_count:4;
+	uint8_t l4_flex_filter_base_index:4;
+	uint8_t l4_flex_filter_count:4;
+	uint8_t rslv_tbl_base_index;
+	uint8_t rslv_tbl_count;
+};
+
+struct request_policy_s {
+	struct {
+		uint8_t all:1;
+		uint8_t rsvd:1;
+		uint8_t rx_queue_tc_index:5;
+		uint8_t queue_or_tc:1;
+	} promisc;
+
+	struct {
+		uint8_t accept:1;
+		uint8_t rsvd:1;
+		uint8_t rx_queue_tc_index:5;
+		uint8_t queue_or_tc:1;
+	} bcast;
+
+	struct {
+		uint8_t accept:1;
+		uint8_t promisc:1;
+		uint8_t rx_queue_tc_index:5;
+		uint8_t queue_or_tc:1;
+	} mcast;
+
+	uint8_t rsvd:8;
 };
 
 struct fw_interface_in {
 	uint32_t mtu;
 	uint32_t rsvd1:32;
 	struct mac_address_s mac_address;
+	uint16_t rsvd;
 	struct link_control_s link_control;
 	uint32_t rsvd2:32;
 	struct link_options_s link_options;
@@ -504,11 +542,29 @@ struct fw_interface_in {
 	struct cable_diag_control_s cable_diag_control;
 	uint32_t rsvd6:32;
 	struct data_buffer_status_s data_buffer_status;
+	uint32_t rsvd7:32;
+	struct request_policy_s request_policy;
 };
 
 struct transaction_counter_s {
 	uint32_t transaction_cnt_a:16;
 	uint32_t transaction_cnt_b:16;
+};
+
+struct management_status_s {
+	struct mac_address_s mac_address;
+	uint16_t vlan;
+
+	struct{
+		uint32_t enable : 1;
+		uint32_t rsvd:31;
+	} flags;
+
+	uint32_t rsvd1:32;
+	uint32_t rsvd2:32;
+	uint32_t rsvd3:32;
+	uint32_t rsvd4:32;
+	uint32_t rsvd5:32;
 };
 
 struct fw_interface_out {
@@ -536,11 +592,11 @@ struct fw_interface_out {
 	uint32_t rsvd11:32;
 	struct statistics_s stats;
 	uint32_t rsvd12:32;
-	uint32_t rsvd13:32;
 	struct filter_caps_s filter_caps;
-	uint32_t rsvd14:32;
 	struct device_caps_s device_caps;
-	uint32_t reserve[30];
+	uint32_t rsvd13:32;
+	struct management_status_s management_status;
+	uint32_t reserve[21];
 	struct trace_s trace;
 };
 
@@ -629,6 +685,7 @@ enum ATL2_WAKE_REASON {
 
 int atl2_fw_init(struct atl_hw *hw);
 int atl2_get_fw_version(struct atl_hw *hw, u32 *fw_version);
+int atl2_fw_set_filter_policy(struct atl_hw *hw, bool promisc, bool allmulti);
 
 
 #endif

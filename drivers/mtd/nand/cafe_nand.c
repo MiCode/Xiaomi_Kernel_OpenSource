@@ -5,6 +5,7 @@
  *    http://wiki.laptop.org/go/Datasheets 
  *
  * Copyright © 2006 Red Hat, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright © 2006 David Woodhouse <dwmw2@infradead.org>
  */
 
@@ -826,7 +827,7 @@ static void cafe_nand_remove(struct pci_dev *pdev)
 	/* Disable NAND IRQ in global IRQ mask register */
 	cafe_writel(cafe, ~1 & cafe_readl(cafe, GLOBAL_IRQ_MASK), GLOBAL_IRQ_MASK);
 	free_irq(pdev->irq, mtd);
-	nand_release(mtd);
+	nand_release(chip);
 	free_rs(cafe->rs);
 	pci_iounmap(pdev, cafe->mmio);
 	dma_free_coherent(&cafe->pdev->dev,

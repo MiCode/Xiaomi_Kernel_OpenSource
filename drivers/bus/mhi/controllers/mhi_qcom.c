@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -823,9 +824,6 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	atomic_set(&mhi_cntrl->write_idx, -1);
 
 skip_offload:
-	if (sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj, &mhi_qcom_group))
-		MHI_CNTRL_ERR("Error while creating the sysfs group\n");
-
 	return mhi_cntrl;
 
 error_free_wq:

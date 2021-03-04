@@ -1,6 +1,7 @@
 /* Freescale Enhanced Local Bus Controller NAND driver
  *
  * Copyright © 2006-2007, 2010 Freescale Semiconductor
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors: Nick Spence <nick.spence@freescale.com>,
  *          Scott Wood <scottwood@freescale.com>
@@ -813,7 +814,7 @@ static int fsl_elbc_chip_remove(struct fsl_elbc_mtd *priv)
 	struct fsl_elbc_fcm_ctrl *elbc_fcm_ctrl = priv->ctrl->nand;
 	struct mtd_info *mtd = nand_to_mtd(&priv->chip);
 
-	nand_release(mtd);
+	nand_release(&priv->chip);
 
 	kfree(mtd->name);
 

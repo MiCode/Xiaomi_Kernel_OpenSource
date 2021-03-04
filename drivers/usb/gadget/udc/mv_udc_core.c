@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011 Marvell International Ltd. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Chao Xie <chao.xie@marvell.com>
  *	   Neil Zhang <zhangwm@marvell.com>
  *
@@ -2317,7 +2318,8 @@ static int mv_udc_probe(struct platform_device *pdev)
 	return 0;
 
 err_create_workqueue:
-	destroy_workqueue(udc->qwork);
+	if (udc->qwork)
+		destroy_workqueue(udc->qwork);
 err_destroy_dma:
 	dma_pool_destroy(udc->dtd_pool);
 err_free_dma:

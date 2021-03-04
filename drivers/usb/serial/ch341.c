@@ -1,5 +1,6 @@
 /*
  * Copyright 2007, Frank A Kingswood <frank@kingswood-consulting.co.uk>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2007, Werner Cornelius <werner@cornelius-consult.de>
  * Copyright 2009, Boris Hajduk <boris@hajduk.org>
  *
@@ -84,6 +85,7 @@
 
 static const struct usb_device_id id_table[] = {
 	{ USB_DEVICE(0x4348, 0x5523) },
+	{ USB_DEVICE(0x1a86, 0x7522) },
 	{ USB_DEVICE(0x1a86, 0x7523) },
 	{ USB_DEVICE(0x1a86, 0x5523) },
 	{ },

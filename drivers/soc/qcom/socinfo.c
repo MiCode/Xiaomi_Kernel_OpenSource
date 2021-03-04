@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -451,9 +452,11 @@ static struct msm_soc_info cpu_of_id[] = {
 	[416] = {MSM_CPU_SDM429W, "SDM429W"},
 	[437] = {MSM_CPU_SDA429W, "SDA429W"},
 
-	/* QCM6125 IDs*/
-	[467] = {MSM_CPU_QCM6125, "QCM6125"},
-	[468] = {MSM_CPU_QCS6125, "QCS6125"},
+	/* TRINKET-IOT IDs*/
+	[467] = {MSM_CPU_TRINKET_IOT, "TRINKET-IOT"},
+
+	/* TRINKETP-IOT IDs*/
+	[468] = {MSM_CPU_TRINKETP_IOT, "TRINKETP-IOT"},
 
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
@@ -498,6 +501,7 @@ static char *msm_read_hardware_id(void)
 	static char msm_soc_str[256] = "Qualcomm Technologies, Inc ";
 	static bool string_generated;
 	int ret = 0;
+	char get_soc_info[8] = "";
 
 	if (string_generated)
 		return msm_soc_str;
@@ -506,8 +510,19 @@ static char *msm_read_hardware_id(void)
 	if (!cpu_of_id[socinfo->v0_1.id].soc_id_string)
 		goto err_path;
 
-	ret = strlcat(msm_soc_str, cpu_of_id[socinfo->v0_1.id].soc_id_string,
+	if (strncmp("ATOLL", cpu_of_id[socinfo->v0_1.id].soc_id_string,
+			strlen(cpu_of_id[socinfo->v0_1.id].soc_id_string)) == 0) {
+		strlcpy(get_soc_info, "SM6250", sizeof(get_soc_info));
+		ret = strlcat(msm_soc_str, get_soc_info,sizeof(msm_soc_str));
+	} else if (strncmp("ATOLL-AB", cpu_of_id[socinfo->v0_1.id].soc_id_string,
+			strlen(cpu_of_id[socinfo->v0_1.id].soc_id_string)) == 0) {
+		strlcpy(get_soc_info, "SM7125", sizeof(get_soc_info));
+		ret = strlcat(msm_soc_str, get_soc_info,sizeof(msm_soc_str));
+	} else {
+		ret = strlcat(msm_soc_str, cpu_of_id[socinfo->v0_1.id].soc_id_string,
 			sizeof(msm_soc_str));
+	}
+
 	if (ret > sizeof(msm_soc_str))
 		goto err_path;
 
@@ -1467,13 +1482,13 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 437;
 		strlcpy(dummy_socinfo.build_id, "sda429w - ",
 		sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_qcm6125()) {
+	} else if (early_machine_is_trinket_iot()) {
 		dummy_socinfo.id = 467;
-		strlcpy(dummy_socinfo.build_id, "qcm6125 - ",
+		strlcpy(dummy_socinfo.build_id, "trinket-iot - ",
 		sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_qcs6125()) {
+	} else if (early_machine_is_trinketp_iot()) {
 		dummy_socinfo.id = 468;
-		strlcpy(dummy_socinfo.build_id, "qcm6125 - ",
+		strlcpy(dummy_socinfo.build_id, "trinketp-iot - ",
 		sizeof(dummy_socinfo.build_id));
 	} else
 		strlcat(dummy_socinfo.build_id, "Dummy socinfo",

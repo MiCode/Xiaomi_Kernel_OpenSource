@@ -44,6 +44,7 @@ Optional properties:
 			capabilities in voltage (millivolts) and current
 			(milliamps) pairs.
 - qcom,no-usb3-dp-concurrency: If present, usb3 and dp concurrency is not supported.
+- qcom,pd-20-source-only: If present, only PD2.0 is supported as source.
 
 Example:
 	qcom,qpnp-pdphy@1700 {

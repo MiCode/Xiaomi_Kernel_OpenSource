@@ -1,0 +1,56 @@
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "sa2150p-ccard.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA2150P CCARD EMMC Eth Sw";
+	compatible = "qcom,sa2150p-ccard", "qcom,qcs405", "qcom,sa2150p",
+				"qcom,ccard";
+	qcom,board-id = <0x020019 0>;
+};
+
+&mtl_rx_setup {
+	queue2 {
+		snps,dcb-algorithm;
+	};
+
+	queue3 {
+		snps,dcb-algorithm;
+	};
+};
+
+&mtl_tx_setup {
+	queue2 {
+		snps,dcb-algorithm;
+	};
+
+	queue3 {
+		snps,dcb-algorithm;
+	};
+};
+
+&ethqos_hw {
+	qcom,qoe_mode = <1>;
+	qcom,qoe-queue = <2>;
+	qcom,qoe-vlan-offset = <0>;
+	snps,mtl-rx-config = <&mtl_rx_setup>;
+	snps,mtl-tx-config = <&mtl_tx_setup>;
+	qcom,cv2x_mode = <2>;
+	qcom,cv2x-queue = <3>;
+	qcom,cv2x-vlan-offset = <1>;
+	mac2mac;
+	mac2mac-rgmii-speed = <1000>;
+};

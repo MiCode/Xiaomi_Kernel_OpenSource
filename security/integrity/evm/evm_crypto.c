@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2005-2010 IBM Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors:
  * Mimi Zohar <zohar@us.ibm.com>
@@ -90,7 +91,7 @@ static struct shash_desc *init_desc(char type)
 		algo = evm_hash;
 	}
 
-	if (*tfm == NULL) {
+	if (IS_ERR_OR_NULL(*tfm)) {
 		mutex_lock(&mutex);
 		if (*tfm)
 			goto out;
@@ -240,7 +241,7 @@ static int evm_calc_hmac_or_hash(struct dentry *dentry,
 
 	/* Portable EVM signatures must include an IMA hash */
 	if (type == EVM_XATTR_PORTABLE_DIGSIG && !ima_present)
-		return -EPERM;
+		error = -EPERM;
 out:
 	kfree(xattr_value);
 	kfree(desc);

@@ -2,6 +2,7 @@
  * drivers/mtd/nand/pxa3xx_nand.c
  *
  * Copyright © 2005 Intel Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright © 2006 Marvell International Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1915,7 +1916,7 @@ static int pxa3xx_nand_remove(struct platform_device *pdev)
 	clk_disable_unprepare(info->clk);
 
 	for (cs = 0; cs < pdata->num_cs; cs++)
-		nand_release(nand_to_mtd(&info->host[cs]->chip));
+		nand_release(&info->host[cs]->chip);
 	return 0;
 }
 

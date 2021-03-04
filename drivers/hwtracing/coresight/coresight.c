@@ -1,4 +1,5 @@
 /* Copyright (c) 2012, 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1398,6 +1399,8 @@ struct coresight_device *coresight_register(struct coresight_desc *desc)
 		}
 
 		for (i = 0; i < csdev->nr_outport; i++) {
+			if (desc->pdata->child_names[i] == NULL)
+				continue;
 			conns[i].outport = desc->pdata->outports[i];
 			conns[i].child_name = desc->pdata->child_names[i];
 			conns[i].child_port = desc->pdata->child_ports[i];

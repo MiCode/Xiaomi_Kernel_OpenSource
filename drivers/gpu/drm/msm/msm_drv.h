@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -72,6 +73,9 @@ struct msm_gem_vma;
 #define MAX_CONNECTORS 16
 
 #define TEARDOWN_DEADLOCK_RETRY_MAX 5
+
+extern atomic_t resume_pending;
+extern wait_queue_head_t resume_wait_q;
 
 struct msm_file_private {
 	/* update the refcount when user driver calls power_ctrl IOCTL */

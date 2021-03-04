@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +18,7 @@
 #include <dt-bindings/sound/qcom,bolero-clk-rsc.h>
 
 &bolero {
-	qcom,num-macros = <4>;
+        qcom,num-macros = <3>;
 	bolero-clk-rsc-mngr {
 		compatible = "qcom,bolero-clk-rsc-mngr";
 		qcom,fs-gen-sequence = <0x3000 0x1>, <0x3004 0x1>, <0x3080 0x2>;
@@ -68,11 +69,11 @@
 			qcom,swr-clock-stop-mode0 = <1>;
 			qcom,swr-mstr-irq-wakeup-capable = <1>;
 			wcd938x_tx_slave: wcd938x-tx-slave {
+				status = "disabled";
 				compatible = "qcom,wcd938x-slave";
 				reg = <0x0D 0x01170223>;
 			};
 			wcd937x_tx_slave: wcd937x-tx-slave {
-				status = "disabled";
 				compatible = "qcom,wcd937x-slave";
 				reg = <0x0A 0x01170223>;
 			};
@@ -110,11 +111,11 @@
 			qcom,swr-num-dev = <1>;
 			qcom,swr-clock-stop-mode0 = <1>;
 			wcd938x_rx_slave: wcd938x-rx-slave {
+				status = "disabled";
 				compatible = "qcom,wcd938x-slave";
 				reg = <0x0D 0x01170224>;
 			};
 			wcd937x_rx_slave: wcd937x-rx-slave {
-				status = "disabled";
 				compatible = "qcom,wcd937x-slave";
 				reg = <0x0A 0x01170224>;
 			};
@@ -122,6 +123,7 @@
 	};
 
 	wsa_macro: wsa-macro@62640000 {
+                status = "disabled";
 		compatible = "qcom,wsa-macro";
 		reg = <0x62640000 0x0>;
 		clock-names = "wsa_core_clk", "wsa_npl_clk";
@@ -194,6 +196,7 @@
 	};
 
 	wcd938x_codec: wcd938x-codec {
+		status = "disabled";
 		compatible = "qcom,wcd938x-codec";
 		qcom,split-codec = <1>;
 		qcom,rx_swr_ch_map = <0 HPH_L 0x1 0 HPH_L>,
@@ -241,7 +244,6 @@
 	};
 
 	wcd937x_codec: wcd937x-codec {
-		status = "disabled";
 		compatible = "qcom,wcd937x-codec";
 		qcom,split-codec = <1>;
 		qcom,rx_swr_ch_map = <0 HPH_L 0x1 0 HPH_L>,
@@ -276,9 +278,9 @@
 		qcom,cdc-vdd-mic-bias-voltage = <3300000 3300000>;
 		qcom,cdc-vdd-mic-bias-current = <30000>;
 
-		qcom,cdc-micbias1-mv = <1800>;
-		qcom,cdc-micbias2-mv = <1800>;
-		qcom,cdc-micbias3-mv = <1800>;
+		qcom,cdc-micbias1-mv = <2700>;
+		qcom,cdc-micbias2-mv = <2700>;
+		qcom,cdc-micbias3-mv = <2700>;
 
 		qcom,cdc-static-supplies = "cdc-vdd-ldo-rxtx",
 					   "cdc-vddpx-1",
@@ -378,15 +380,16 @@
 	asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
 	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
 				"msm-ext-disp-audio-codec-rx";
-	qcom,wsa-max-devs = <2>;
+	qcom,wsa-max-devs = <0>;
 	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
 			<&wsa881x_0213>, <&wsa881x_0214>;
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 				  "SpkrLeft", "SpkrRight";
 	qcom,codec-max-aux-devs = <1>;
-	qcom,codec-aux-devs = <&wcd938x_codec>;
+	qcom,codec-aux-devs = <&wcd937x_codec>;
 	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>,
 				  <&lpi_tlmm>, <&bolero>;
+	qcom,tert-mi2s-gpios = <&cdc_tert_mi2s_gpios>;
 };
 
 &q6core {
@@ -415,6 +418,7 @@
 	};
 
 	wsa_swr_gpios: wsa_swr_clk_data_pinctrl {
+                status = "disabled";
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&wsa_swr_clk_active &wsa_swr_data_active>;
@@ -439,10 +443,20 @@
 			    &tx_swr_data1_sleep &tx_swr_data2_sleep>;
 		qcom,lpi-gpios;
 	};
+	cdc_quin_mi2s_gpios: msm_cdc_pinctrl_quin {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&quin_mi2s_sck_active &quin_mi2s_ws_active
+			     &quin_mi2s_sd0_active &quin_mi2s_sd1_active>;
+		pinctrl-1 = <&quin_mi2s_sck_sleep &quin_mi2s_ws_sleep
+			     &quin_mi2s_sd0_sleep &quin_mi2s_sd1_sleep>;
+		qcom,lpi-gpios;
+	};
 };
 
 &soc {
 	wsa_spkr_en1: wsa_spkr_en1_pinctrl {
+		status = "disabled";
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&spkr_1_sd_n_active>;
@@ -450,6 +464,7 @@
 	};
 
 	wsa_spkr_en2: wsa_spkr_en2_pinctrl {
+		status = "disabled";
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&spkr_2_sd_n_active>;
@@ -525,6 +540,14 @@
 		qcom,codec-lpass-ext-clk-freq = <19200000>;
 		qcom,codec-lpass-clk-id = <0x310>;
 		#clock-cells = <1>;
+	};
+         cdc_tert_mi2s_gpios: msm_cdc_pinctrl_pri {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&tert_i2s_sck_active &tert_i2s_ws_active
+				&tert_i2s_data0_active &tert_i2s_data1_active>;
+		pinctrl-1 = <&tert_i2s_sck_sleep &tert_i2s_ws_sleep
+				&tert_i2s_data0_sleep &tert_i2s_data1_sleep>;
 	};
 };
 

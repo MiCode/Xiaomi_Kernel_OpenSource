@@ -121,6 +121,11 @@ Optional properties:
 - qcom,dp-aux-bridge:		phandle for dp aux bridge module, for 3rd party dp bridge only.
 - qcom,dp-aux-bridge-sim:	phandle for dp aux bridge module, for internal mst debug simulation only.
 - qcom,dp-force-bond-mode:	Ignore tile information from EDID and force DP to work in bond mode.
+- qcom,dp-force-connect-mode:	Boolean to specify if dp is in always-connected mode, only set
+				when qcom,dp-aux-bridge is defined. Once set, dp will always
+				report connected state to user. When HPD is high, mode from sink
+				will be reported. When HPD is low, mode from dp-aux-bridge
+				simulator will be reported.
 - qcom,bond-dual-ctrl:		u32 array to specify the cell-index of the two DP controllers that support bond mode.
 				The first controller in the array is the bond master. Driver will switch to bond mode
 				if both DP controllers are connected to the same dual DP input monitor.

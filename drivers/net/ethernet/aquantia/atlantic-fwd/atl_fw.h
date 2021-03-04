@@ -2,6 +2,7 @@
 /* Atlantic Network Driver
  *
  * Copyright (C) 2017 aQuantia Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2019-2020 Marvell International Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -95,6 +96,9 @@ enum atl_fw2_opts {
 };
 
 enum atl_fw2_ex_caps {
+	atl_define_bit(atl_fw2_ex_caps_phy_ptp_en, 16)
+	atl_define_bit(atl_fw2_ex_caps_ptp_gpio_en, 20)
+	atl_define_bit(atl_fw2_ex_caps_phy_ctrl_ts_pin, 22)
 	atl_define_bit(atl_fw2_ex_caps_wol_ex, 23)
 	atl_define_bit(atl_fw2_ex_caps_mac_heartbeat, 25)
 	atl_define_bit(atl_fw2_ex_caps_msm_settings_apply, 26)
@@ -108,10 +112,12 @@ enum atl_fw2_wol_ex {
 enum atl_fw2_stat_offt {
 	atl_fw2_stat_phy_hbeat = 0x4c,
 	atl_fw2_stat_temp = 0x50,
+	atl_fw2_stat_ptp_offset = 0x64,
 	atl_fw2_stat_lcaps = 0x84,
 	atl_fw2_stat_settings_addr = 0x10c,
 	atl_fw2_stat_settings_len = 0x110,
 	atl_fw2_stat_caps_ex = 0x114,
+	atl_fw2_stat_gpio_pin = 0x118,
 };
 
 enum atl_fw2_settings_offt {
@@ -172,6 +178,8 @@ struct atl_link_state{
 	bool autoneg;
 	bool eee;
 	bool eee_enabled;
+	bool ptp_available;
+	bool ptp_datapath_up;
 	struct atl_link_type *link;
 	struct atl_fc_state fc;
 };
@@ -185,23 +193,87 @@ enum macsec_msg_type {
 	macsec_get_stats_msg,
 };
 
-struct macsec_cfg_request {
+struct __packed macsec_cfg_request {
 	u32 enabled;
 	u32 egress_threshold;
 	u32 ingress_threshold;
 	u32 interrupts_enabled;
-} __attribute__((__packed__));
+};
 
-struct macsec_msg_fw_request {
+struct __packed macsec_msg_fw_request {
 	u32 msg_id; /* not used */
 	u32 msg_type;
 
 	struct macsec_cfg_request cfg;
-} __attribute__((__packed__));
+};
 
-struct macsec_msg_fw_response {
+struct __packed macsec_msg_fw_response {
 	u32 result;
-} __attribute__((__packed__));
+};
+
+enum atl_gpio_pin_function {
+	GPIO_PIN_FUNCTION_NC,
+	GPIO_PIN_FUNCTION_VAUX_ENABLE,
+	GPIO_PIN_FUNCTION_EFUSE_BURN_ENABLE,
+	GPIO_PIN_FUNCTION_SFP_PLUS_DETECT,
+	GPIO_PIN_FUNCTION_TX_DISABLE,
+	GPIO_PIN_FUNCTION_RATE_SEL_0,
+	GPIO_PIN_FUNCTION_RATE_SEL_1,
+	GPIO_PIN_FUNCTION_TX_FAULT,
+	GPIO_PIN_FUNCTION_PTP0,
+	GPIO_PIN_FUNCTION_PTP1,
+	GPIO_PIN_FUNCTION_PTP2,
+	GPIO_PIN_FUNCTION_SIZE
+};
+
+struct __packed atl_ptp_offset_info {
+	u16 ingress_100;
+	u16 egress_100;
+	u16 ingress_1000;
+	u16 egress_1000;
+	u16 ingress_2500;
+	u16 egress_2500;
+	u16 ingress_5000;
+	u16 egress_5000;
+	u16 ingress_10000;
+	u16 egress_10000;
+};
+
+enum ptp_msg_type {
+	ptp_gpio_ctrl_msg = 0x11,
+	ptp_adj_freq_msg = 0x12,
+	ptp_adj_clock_msg = 0x13,
+};
+
+struct __packed ptp_gpio_ctrl {
+	u32 index;
+	u32 period;
+	u64 start;
+};
+
+struct __packed ptp_adj_freq {
+	u32 ns_mac;
+	u32 fns_mac;
+	u32 ns_phy;
+	u32 fns_phy;
+	u32 mac_ns_adj;
+	u32 mac_fns_adj;
+};
+
+struct __packed ptp_adj_clock {
+	u32 ns;
+	u32 sec;
+	int sign;
+};
+
+struct __packed ptp_msg_fw_request {
+	u32 msg_id;
+	union {
+		struct ptp_gpio_ctrl gpio_ctrl;
+		struct ptp_adj_freq adj_freq;
+		struct ptp_adj_clock adj_clock;
+	};
+};
 
 struct atl_fw_ops {
 	void (*set_link)(struct atl_hw *hw, bool force);
@@ -223,6 +295,8 @@ struct atl_fw_ops {
 	int (*__get_hbeat)(struct atl_hw *hw, uint16_t *hbeat);
 	int (*get_mac_addr)(struct atl_hw *hw, uint8_t *buf);
 	int (*update_thermal)(struct atl_hw *hw);
+	int (*send_ptp_req)(struct atl_hw *hw, struct ptp_msg_fw_request *msg);
+	void (*set_ptp)(struct atl_hw *hw, bool on);
 	int (*deinit)(struct atl_hw *hw);
 };
 

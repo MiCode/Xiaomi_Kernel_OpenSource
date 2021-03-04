@@ -1,9 +1,26 @@
+Version 1.1.10
+==============
+[ATLDRV-1559] - Add support of icmp proto to the rx filters
+[ATLDRV-1401] - A2: Filtering
+[ATLDRV-1513] - PM runtime failure
+
+Version 1.1.9
+=============
+[ATLDRV-1505] - FWD: New dev ids
+[ATLDRV-1529] - FWD: Segmentation fault occurs for user operations
+[ATLDRV-1542] - FWD: build fails on 5.8-rcX
+[ATLDRV-1552] - Fwd: build fails with old gcc
+[ATLDRV-1553] - Fwd: BUG message when LOCKDEP is enabled
+
+Version 1.1.8
+=============
+[ATLDRV-1438] - Fwd: port PTP from Linux driver
+
 Version 1.1.7
 =============
-
-    [ATLDRV-1469] - AQ083: After suspend resume EAPOL frames is not received
-    [ATLDRV-1497] - Incorrect temperature is displayed in hwmon
-    [ATLDRV-1519] - AQ086: Configuring default ring size
+[ATLDRV-1469] - AQ083: After suspend resume EAPOL frames is not received
+[ATLDRV-1497] - Incorrect temperature is displayed in hwmon
+[ATLDRV-1519] - AQ086: Configuring default ring size
 
 Version 1.1.6
 =============

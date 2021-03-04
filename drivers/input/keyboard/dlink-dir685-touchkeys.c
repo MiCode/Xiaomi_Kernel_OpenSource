@@ -1,6 +1,7 @@
 /*
  * D-Link DIR-685 router I2C-based Touchkeys input driver
  * Copyright (C) 2017 Linus Walleij <linus.walleij@linaro.org>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This is a one-off touchkey controller based on the Cypress Semiconductor
  * CY8C214 MCU with some firmware in its internal 8KB flash. The circuit
@@ -142,7 +143,7 @@ MODULE_DEVICE_TABLE(of, dir685_tk_of_match);
 
 static struct i2c_driver dir685_tk_i2c_driver = {
 	.driver = {
-		.name	= "dlin-dir685-touchkeys",
+		.name	= "dlink-dir685-touchkeys",
 		.of_match_table = of_match_ptr(dir685_tk_of_match),
 	},
 	.probe		= dir685_tk_probe,

@@ -2,6 +2,7 @@
  * Infinity Unlimited USB Phoenix driver
  *
  * Copyright (C) 2010 James Courtier-Dutton (James@superbug.co.uk)
+ * Copyright (C) 2021 XiaoMi, Inc.
 
  * Copyright (C) 2007 Alain Degreffe (eczema@ecze.com)
  *
@@ -704,14 +705,16 @@ static int iuu_uart_write(struct tty_struct *tty, struct usb_serial_port *port,
 	struct iuu_private *priv = usb_get_serial_port_data(port);
 	unsigned long flags;
 
-	if (count > 256)
-		return -ENOMEM;
-
 	spin_lock_irqsave(&priv->lock, flags);
+
+	count = min(count, 256 - priv->writelen);
+	if (count == 0)
+		goto out;
 
 	/* fill the buffer */
 	memcpy(priv->writebuf + priv->writelen, buf, count);
 	priv->writelen += count;
+out:
 	spin_unlock_irqrestore(&priv->lock, flags);
 
 	return count;

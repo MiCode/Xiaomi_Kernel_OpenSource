@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, Linaro Ltd
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1176,8 +1177,11 @@ static int qcom_glink_handle_signals(struct qcom_glink *glink,
 	old = channel->rsigs;
 	channel->rsigs = signals;
 
-	if (channel->ept.sig_cb)
+	if (channel->ept.sig_cb) {
+		dev_err(glink->dev,"~1 channel name=%x, channel->ept=%x, channel->ept.rpdev=%x\n",
+			channel->name, channel->ept, channel->ept.rpdev);
 		channel->ept.sig_cb(channel->ept.rpdev, old, channel->rsigs);
+	}
 
 	CH_INFO(channel, "old:%d new:%d\n", old, channel->rsigs);
 
@@ -2052,6 +2056,10 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 	}
 
 	glink->irq = irq;
+
+	ret = enable_irq_wake(irq);
+	if (ret < 0)
+		dev_err(dev, "enable_irq_wake() failed on %d\n", irq);
 
 	size = of_property_count_u32_elems(dev->of_node, "cpu-affinity");
 	if (size > 0) {

@@ -2,6 +2,7 @@
 /* Atlantic Network Driver
  *
  * Copyright (C) 2017 aQuantia Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2019-2020 Marvell International Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -16,6 +17,7 @@
 #include <linux/rtnetlink.h>
 #include <linux/pm_runtime.h>
 #include "atl_macsec.h"
+#include "atl_ptp.h"
 
 #include "atl_qcom.h"
 
@@ -188,6 +190,90 @@ static int atl_change_mtu(struct net_device *ndev, int mtu)
 
 #endif
 
+static int atl_hwtstamp_config(struct atl_nic *nic, struct hwtstamp_config *config)
+{
+	if (config->flags)
+		return -EINVAL;
+
+	switch (config->tx_type) {
+	case HWTSTAMP_TX_OFF:
+	case HWTSTAMP_TX_ON:
+		break;
+	default:
+		return -ERANGE;
+	}
+
+	switch (config->rx_filter) {
+	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
+	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
+	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
+	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
+	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
+	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
+	case HWTSTAMP_FILTER_PTP_V2_SYNC:
+	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
+		config->rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
+		break;
+	case HWTSTAMP_FILTER_PTP_V2_EVENT:
+	case HWTSTAMP_FILTER_NONE:
+		break;
+	default:
+		return -ERANGE;
+	}
+
+	return atl_ptp_hwtstamp_config_set(nic, config);
+}
+
+static int atl_hwtstamp_set(struct atl_nic *nic, struct ifreq *ifr)
+{
+	struct hwtstamp_config config;
+	int err;
+
+	if (!nic->ptp)
+		return -EOPNOTSUPP;
+
+	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
+		return -EFAULT;
+
+	err = atl_hwtstamp_config(nic, &config);
+	if (err)
+		return err;
+
+	return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?
+	       -EFAULT : 0;
+}
+
+static int atl_hwtstamp_get(struct atl_nic *nic, struct ifreq *ifr)
+{
+	struct hwtstamp_config config;
+
+	if (!nic->ptp)
+		return -EOPNOTSUPP;
+
+	atl_ptp_hwtstamp_config_get(nic, &config);
+	return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?
+	       -EFAULT : 0;
+}
+
+static int atl_ndo_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
+{
+	struct atl_nic *nic = netdev_priv(ndev);
+
+	pm_runtime_get_sync(&nic->hw.pdev->dev);
+
+	switch (cmd) {
+	case SIOCSHWTSTAMP:
+		return atl_hwtstamp_set(nic, ifr);
+
+	case SIOCGHWTSTAMP:
+		return atl_hwtstamp_get(nic, ifr);
+	}
+
+	pm_runtime_put(&nic->hw.pdev->dev);
+
+	return -EOPNOTSUPP;
+}
+
 static int atl_set_mac_address(struct net_device *ndev, void *priv)
 {
 	struct atl_nic *nic = netdev_priv(ndev);
@@ -201,7 +287,7 @@ static int atl_set_mac_address(struct net_device *ndev, void *priv)
 	ether_addr_copy(ndev->dev_addr, addr->sa_data);
 
 	if (netif_running(ndev) && pm_runtime_active(&nic->hw.pdev->dev))
-		atl_set_uc_flt(hw, 0, hw->mac_addr);
+		atl_set_uc_flt(hw, nic->rxf_mac.base_index, hw->mac_addr);
 
 	return 0;
 }
@@ -220,6 +306,7 @@ static const struct net_device_ops atl_ndev_ops = {
 	.ndo_change_mtu = atl_change_mtu,
 #endif
 	.ndo_set_features = atl_set_features,
+	.ndo_do_ioctl = atl_ndo_ioctl,
 	.ndo_set_mac_address = atl_set_mac_address,
 #ifdef ATL_COMPAT_CAST_NDO_GET_STATS64
 	.ndo_get_stats64 = (void *)atl_get_stats64,
@@ -374,6 +461,8 @@ static void atl_work(struct work_struct *work)
 	struct atl_hw *hw = &nic->hw;
 	int ret;
 
+	atl_ptp_work(nic);
+
 	clear_bit(ATL_ST_WORK_SCHED, &hw->state);
 
 	atl_fw_watchdog(hw);
@@ -421,6 +510,8 @@ static const struct pci_device_id atl_pci_tbl[] = {
 	{ PCI_VDEVICE(AQUANTIA, 0x14c0), ATL_ANTIGUA},
 	{ PCI_VDEVICE(AQUANTIA, 0x93c0), ATL_ANTIGUA},
 	{ PCI_VDEVICE(AQUANTIA, 0x94c0), ATL_ANTIGUA},
+	{ PCI_VDEVICE(AQUANTIA, 0x34c0), ATL_ANTIGUA},
+	{ PCI_VDEVICE(AQUANTIA, 0x11c0), ATL_ANTIGUA},
 	{}
 };
 
@@ -456,7 +547,7 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	struct net_device *ndev;
 	struct atl_nic *nic = NULL;
 	struct atl_hw *hw;
-	int disable_needed;
+	int disable_needed = 0;
 
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_forbid(&pdev->dev);
@@ -532,11 +623,19 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	ether_addr_copy(ndev->dev_addr, hw->mac_addr);
 	atl_dev_dbg("got MAC address: %pM\n", hw->mac_addr);
 
+	ret = atl_ptp_init(nic);
+	if (ret)
+		goto err_ptp_init;
+
 	nic->requested_nvecs = atl_max_queues;
 	nic->requested_tx_size = (atl_tx_ring_size & ~7);
 	nic->requested_rx_size = (atl_rx_ring_size & ~7);
 	nic->rx_intr_delay = atl_rx_mod;
 	nic->tx_intr_delay = atl_tx_mod;
+
+	ret = atl_ptp_ring_alloc(nic);
+	if (ret)
+		goto err_ptp_alloc;
 
 	ret = atl_setup_datapath(nic);
 	if (ret)
@@ -583,6 +682,10 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (ret)
 		goto err_register;
 
+	ret = atl_ptp_register(nic);
+	if (ret)
+		goto err_ptp_register;
+
 	pci_set_drvdata(pdev, nic);
 	netif_carrier_off(ndev);
 
@@ -603,7 +706,6 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (hw->mcp.caps_low & atl_fw2_wake_on_link_force)
 		pm_runtime_put_noidle(&pdev->dev);
 
-
 	atl_intr_enable_non_ring(nic);
 	mod_timer(&nic->work_timer, jiffies + HZ);
 
@@ -615,10 +717,15 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 err_hwmon_init:
 	atl_stop(nic, true);
+err_ptp_register:
 	unregister_netdev(nic->ndev);
 err_register:
 	atl_clear_datapath(nic);
 err_datapath:
+	atl_ptp_ring_free(nic);
+err_ptp_alloc:
+	atl_ptp_free(nic);
+err_ptp_init:
 err_hwinit:
 	iounmap(hw->regs);
 err_ioremap:
@@ -653,6 +760,7 @@ static void atl_remove(struct pci_dev *pdev)
 	del_timer_sync(&nic->work_timer);
 	cancel_work_sync(&nic->work);
 	atl_intr_disable_all(&nic->hw);
+	atl_ptp_unregister(nic);
 	unregister_netdev(nic->ndev);
 
 #if IS_ENABLED(CONFIG_ATLFWD_FWD)
@@ -660,6 +768,10 @@ static void atl_remove(struct pci_dev *pdev)
 #endif
 
 	atl_clear_datapath(nic);
+
+	atl_ptp_ring_free(nic);
+	atl_ptp_free(nic);
+
 	iounmap(nic->hw.regs);
 	free_netdev(nic->ndev);
 	pci_release_regions(pdev);
@@ -823,8 +935,12 @@ static int atl_pm_runtime_idle(struct device *dev)
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct atl_nic *nic = pci_get_drvdata(pdev);
 
+	/* pm_runtime_idle may be called during probe */
+	if (!nic || nic->hw.pdev != pdev)
+		return -EBUSY;
+
 	if (!netif_carrier_ok(nic->ndev)) {
-		pm_schedule_suspend(&nic->hw.pdev->dev, atl_sleep_delay);
+		pm_schedule_suspend(dev, atl_sleep_delay);
 	}
 
 	return -EBUSY;

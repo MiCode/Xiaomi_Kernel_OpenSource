@@ -197,6 +197,12 @@ config INPUT_KEYCOMBO
 	---help---
 	  Say Y here if you want to take action when some keys are pressed;
 
+config INPUT_FINGERPRINT
+	bool "fingerprint build"
+	depends on INPUT
+	---help---
+	  Say Y here if you want to build fingerprint driver;
+
 comment "Input Device Drivers"
 
 source "drivers/input/keyboard/Kconfig"
@@ -215,6 +221,9 @@ source "drivers/input/sensors/smi130/Kconfig"
 
 source "drivers/input/rmi4/Kconfig"
 
+source "drivers/input/fingerprint/Kconfig"
+
+source "drivers/input/fingerprint/gf3208/Kconfig"
 endif
 
 menu "Hardware I/O ports"

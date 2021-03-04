@@ -27,6 +27,7 @@
 #include "queue.h"
 #include "block.h"
 #include "core.h"
+#include "crypto.h"
 #include "card.h"
 
 /*
@@ -135,6 +136,10 @@ static int mmc_cmdq_thread(void *d)
 	struct mmc_card *card = mq->card;
 
 	struct mmc_host *host = card->host;
+
+	struct sched_param scheduler_params = {0};
+	scheduler_params.sched_priority = 1;
+	sched_setscheduler(current, SCHED_FIFO, &scheduler_params);
 
 	current->flags |= PF_MEMALLOC;
 	if (card->host->wakeup_on_idle)
@@ -493,6 +498,7 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 		goto cleanup_queue;
 	}
 
+	mmc_crypto_setup_queue(host, mq->queue);
 	return 0;
 
  cleanup_queue:

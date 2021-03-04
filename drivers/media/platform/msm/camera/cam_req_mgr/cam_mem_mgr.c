@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +19,11 @@
 #include <asm/cacheflush.h>
 #include <linux/ion_kernel.h>
 #include <linux/dma-buf.h>
+
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+//xieqi add 2020-04-27
+#include <linux/syscalls.h>
+#endif
 
 #include "cam_req_mgr_util.h"
 #include "cam_mem_mgr.h"
@@ -636,10 +642,17 @@ static int cam_mem_util_map_hw_va(uint32_t flags,
 	return rc;
 multi_map_fail:
 	if (flags & CAM_MEM_FLAG_PROTECTED_MODE)
-		for (--i; i > 0; i--)
+		for (--i; i >= 0; i--)
 			cam_smmu_unmap_stage2_iova(mmu_hdls[i], fd);
 	else
+		// MI change i>0 to i>=0
+		// when i = 1 mean mmu_hdls[0] has map, and it need unmap
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+		for (--i; i >= 0; i--)
+#else
+
 		for (--i; i > 0; i--)
+#endif
 			cam_smmu_unmap_user_iova(mmu_hdls[i],
 				fd,
 				CAM_SMMU_REGION_IO);
@@ -766,8 +779,13 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd *cmd)
 map_kernel_fail:
 	mutex_unlock(&tbl.bufq[idx].q_lock);
 map_hw_fail:
-	cam_mem_put_slot(idx);
+        cam_mem_put_slot(idx);
 slot_fail:
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+//xieqi add start 2020-04-27 for smmu_map_buffer Fail to avoid ion leak
+	sys_close(fd);
+//xieqi add end
+#endif
 	dma_buf_put(dmabuf);
 	return rc;
 }

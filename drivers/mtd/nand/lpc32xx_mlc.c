@@ -4,6 +4,7 @@
  * Author: Roland Stigge <stigge@antcom.de>
  *
  * Copyright © 2011 WORK Microwave GmbH
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright © 2011, 2012 Roland Stigge
  *
  * This program is free software; you can redistribute it and/or modify
@@ -805,7 +806,7 @@ static int lpc32xx_nand_probe(struct platform_device *pdev)
 	if (!res)
 		return res;
 
-	nand_release(mtd);
+	nand_release(nand_chip);
 
 err_exit4:
 	free_irq(host->irq, host);
@@ -829,9 +830,8 @@ err_exit1:
 static int lpc32xx_nand_remove(struct platform_device *pdev)
 {
 	struct lpc32xx_nand_host *host = platform_get_drvdata(pdev);
-	struct mtd_info *mtd = nand_to_mtd(&host->nand_chip);
 
-	nand_release(mtd);
+	nand_release(&host->nand_chip);
 	free_irq(host->irq, host);
 	if (use_dma)
 		dma_release_channel(host->dma_chan);

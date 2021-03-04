@@ -4,6 +4,7 @@
  * Author: Kevin Wells <kevin.wells@nxp.com>
  *
  * Copyright (C) 2010 NXP Semiconductors
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2012 Roland Stigge <stigge@antcom.de>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -845,7 +846,8 @@ static int lpc_mii_init(struct netdata_local *pldat)
 	if (mdiobus_register(pldat->mii_bus))
 		goto err_out_unregister_bus;
 
-	if (lpc_mii_probe(pldat->ndev) != 0)
+	err = lpc_mii_probe(pldat->ndev);
+	if (err)
 		goto err_out_unregister_bus;
 
 	return 0;

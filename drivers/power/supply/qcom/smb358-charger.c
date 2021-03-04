@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2568,7 +2569,9 @@ static int smb358_charger_remove(struct i2c_client *client)
 		regulator_disable(chip->vcc_i2c);
 
 	mutex_destroy(&chip->irq_complete);
+#if defined(CONFIG_DEBUG_FS)
 	debugfs_remove_recursive(chip->debug_root);
+#endif
 	return 0;
 }
 

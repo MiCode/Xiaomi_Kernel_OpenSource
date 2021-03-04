@@ -1,5 +1,6 @@
 /*
  * Copyright 2015 Timesys Corporation.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2015 General Electric Company
  *
  * This file is dual-licensed: you can use it either under the terms
@@ -63,13 +64,6 @@
 			};
 		};
 	};
-};
-
-&clks {
-	assigned-clocks = <&clks IMX6QDL_CLK_LDB_DI0_SEL>,
-			  <&clks IMX6QDL_CLK_LDB_DI1_SEL>;
-	assigned-clock-parents = <&clks IMX6QDL_CLK_PLL3_USB_OTG>,
-				 <&clks IMX6QDL_CLK_PLL3_USB_OTG>;
 };
 
 &ldb {

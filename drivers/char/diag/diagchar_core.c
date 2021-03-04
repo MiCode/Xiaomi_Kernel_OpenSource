@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1968,7 +1969,7 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 				DIAG_LOG(DIAG_DEBUG_USERSPACE,
 					 "not switching modes c: %d n: %d\n",
 					curr_mode, new_mode);
-				return 0;
+				continue;
 			}
 
 			diag_ws_reset(DIAG_WS_MUX);

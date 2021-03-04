@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -882,7 +883,9 @@ static int pdphy_probe(struct platform_device *pdev)
 		__pdphy = NULL;
 		return PTR_ERR(pdphy->usbpd);
 	}
-
+#ifdef CONFIG_TARGET_PROJECT_J20C
+	dev_err(&pdev->dev, "usbpd_create success\n");
+#endif
 	pdphy_create_debugfs_entries(pdphy);
 
 	return 0;

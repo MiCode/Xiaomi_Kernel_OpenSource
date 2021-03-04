@@ -1,0 +1,158 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&mdss_mdp {
+	dsi_k7_38_0c_0a_video: qcom,mdss_dsi_k7_38_0c_0a_video {
+		qcom,mdss-dsi-panel-name = "k7 38 0c 0a video mode fhdp dsi panel";
+		qcom,mdss-dsi-panel-id = <0>;
+		qcom,mdss-dsi-panel-model = "xiaomi 38 0c 0a VIDEO PANEL";
+		qcom,mdss-dsi-panel-type = "dsi_video_mode";
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-h-left-border = <0>;
+		qcom,mdss-dsi-h-right-border = <0>;
+		qcom,mdss-dsi-v-top-border = <0>;
+		qcom,mdss-dsi-v-bottom-border = <0>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-color-order = "rgb_swap_rgb";
+		qcom,mdss-dsi-underflow-color = <0xff>;
+		qcom,mdss-dsi-border-color = <0>;
+		qcom,mdss-dsi-h-sync-pulse = <0>;
+		qcom,mdss-dsi-traffic-mode = "burst_mode";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-tx-eot-append;
+		qcom,mdss-dsi-lane-map = "lane_map_0123";
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-lp11-init;
+		qcom,mdss-dsi-bl-min-level = <1>;
+		qcom,mdss-dsi-bl-max-level = <2047>;
+		qcom,mdss-dsi-bl-inverted-dbv;
+		qcom,mdss-brightness-max-level = <2047>;
+		qcom,mdss-dsi-reset-sequence = <0 1>, <1 5>;
+		qcom,mdss-pan-physical-width-dimension = <67>;
+		qcom,mdss-pan-physical-height-dimension = <149>;
+		qcom,dispparam-enabled;
+
+		qcom,mdss-dsi-display-timings {
+			timing@0 {
+				qcom,mdss-dsi-panel-width = <1080>;
+				qcom,mdss-dsi-panel-height = <2400>;
+				qcom,mdss-dsi-panel-framerate = <60>;
+				qcom,mdss-dsi-h-pulse-width = <16>;
+				qcom,mdss-dsi-h-back-porch = <68>;
+				qcom,mdss-dsi-h-front-porch = <92>;
+				qcom,mdss-dsi-h-sync-skew = <0>;
+				qcom,mdss-dsi-h-sync-pluse = <1>;
+				qcom,mdss-dsi-v-pulse-width = <4>;
+				qcom,mdss-dsi-v-back-porch = <7>;
+				qcom,mdss-dsi-v-front-porch = <21>;
+				qcom,mdss-dsi-on-command = [
+					05 01 00 00 14 00 02 11 00
+					39 00 00 00 00 00 02 35 00
+					39 00 00 00 00 00 03 FC 5A 5A
+					/* FAIL SAFE Setting */
+					39 00 00 00 00 00 03 B0 03 ED
+					39 00 00 00 00 00 0A ED 40 04 08 A8 84 4A 73 02 0A
+					/* Err FG Setting */
+					39 00 00 00 00 00 04 ED 01 CD 00
+					39 00 00 00 00 00 02 E1 93
+					39 00 00 00 00 00 02 E4 08
+					39 00 00 00 00 00 03 FC A5 A5
+					39 00 00 00 00 00 03 F0 5A 5A
+					/* FFC Setting */
+					39 00 00 00 00 00 16 DF 09 30 95 43 99 05 00 27 50 2E 4F 7A 77 10 3D 73 00 FF 01 8B 08
+					/* Fast Discharge Setting */
+					39 00 00 00 00 00 02 B0 03
+					39 00 00 00 00 00 02 CD 04
+					/* Set pin to GND */
+					39 00 00 00 00 00 02 CD 01
+					//Dimming Speed Setting
+					39 00 00 00 00 00 03 B0 06 B3
+					39 00 00 00 00 00 02 B3 10
+					//ELVSS Dim Setting
+					39 00 00 00 00 00 03 B0 05 B3
+					39 00 00 00 00 00 02 B3 93
+					//11Bit Dimming Setting
+					39 00 00 00 00 00 03 B3 11 4F
+					39 00 00 00 00 00 03 F0 A5 A5
+					//HBM Mode OFF
+					39 00 00 00 00 00 02 53 20
+					39 00 00 00 00 00 03 51 00 00
+					//ACL Mode
+					39 00 00 00 00 00 02 55 00
+					//ACL Dimming Speed Setting
+					39 00 00 00 00 00 03 F0 5A 5A
+					39 00 00 00 00 00 03 B0 B1 B5
+					39 00 00 00 00 00 02 B5 00
+					39 01 00 00 64 00 03 F0 A5 A5
+					05 01 00 00 00 00 02 29 00
+				];
+				qcom,mdss-dsi-off-command = [
+					05 01 00 00 00 00 02 28 00
+					05 01 00 00 96 00 02 10 00
+				];
+				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-off-command-state = "dsi_lp_mode";
+
+				qcom,mdss-dsi-doze-hbm-command = [39 01 00 00 00 00 03 51 01 0E];
+				qcom,mdss-dsi-doze-lbm-command = [39 01 00 00 00 00 03 51 00 14];
+				qcom,mdss-dsi-doze-hbm-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-doze-lbm-command-state = "dsi_lp_mode";
+
+				//xy-coordinate,maxbrightness
+				qcom,mdss-dsi-dispparam-xy-coordinate-command = [
+					39 01 00 00 00 00 03 F0 5A 5A
+					06 01 00 01 00 00 01 A1
+				];
+				qcom,mdss-dsi-dispparam-xy-coordinate-command-state = "dsi_lp_mode";
+				//HBM
+				qcom,mdss-dsi-hbm2-on-command = [
+					15 01 00 00 00 00 02 53 E8
+					39 01 00 00 00 00 03 51 07 FF
+				];
+				qcom,mdss-dsi-dispparam-hbm-off-command = [
+					15 01 00 00 00 00 02 53 28
+					39 01 00 00 00 00 03 51 07 FF
+				];
+				qcom,mdss-dsi-hbm2-on-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-dispparam-hbm-off-command-state = "dsi_lp_mode";
+
+				//flatmode
+				qcom,mdss-dsi-flat-on-command = [
+					39 01 00 00 00 00 03 F0 5A 5A
+					39 01 00 00 00 00 03 B0 01 B8
+					39 01 00 00 00 00 02 B8 29
+					39 01 00 00 00 00 03 B0 14 B8
+					39 01 00 00 00 00 03 B8 B8 94
+					39 01 00 00 00 00 03 F0 A5 A5
+				];
+				qcom,mdss-dsi-flat-off-command = [
+					39 01 00 00 00 00 03 F0 5A 5A
+					39 01 00 00 00 00 03 B0 01 B8
+					39 01 00 00 00 00 02 B8 09
+					39 01 00 00 00 00 03 B0 14 B8
+					39 01 00 00 00 00 03 B8 CD B2
+					39 01 00 00 00 00 03 F0 A5 A5
+				];
+				qcom,mdss-dsi-flat-on-command-state = "dsi_hs_mode";
+				qcom,mdss-dsi-flat-off-command-state = "dsi_hs_mode";
+			};
+		};
+	};
+};

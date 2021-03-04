@@ -2,6 +2,7 @@
 /* Atlantic Network Driver
  *
  * Copyright (C) 2019 aQuantia Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2019-2020 Marvell International Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -153,10 +154,56 @@ static inline int atl2_shared_buffer_finish_ack(struct atl_hw *hw)
 	return err;
 }
 
+static int atl2_fw_get_filter_caps(struct atl_hw *hw)
+{
+	struct atl_nic *nic = container_of(hw, struct atl_nic, hw);
+	struct filter_caps_s filter_caps;
+	u32 tag_top;
+	int err;
+
+	err = atl2_shared_buffer_read_safe(hw, filter_caps, &filter_caps);
+	if (err)
+		return err;
+
+	hw->art_base_index = filter_caps.rslv_tbl_base_index * 8;
+	hw->art_available = filter_caps.rslv_tbl_count * 8;
+	if (hw->art_available == 0)
+		hw->art_available = 128;
+	nic->rxf_flex.available = 1;
+	nic->rxf_flex.base_index = filter_caps.flexible_filter_mask >> 1;
+	nic->rxf_mac.base_index = filter_caps.l2_filters_base_index;
+	nic->rxf_mac.available = filter_caps.l2_filter_count;
+	nic->rxf_etype.base_index = filter_caps.ethertype_filter_base_index;
+	nic->rxf_etype.available = filter_caps.ethertype_filter_count;
+	nic->rxf_etype.tag_top =
+		(nic->rxf_etype.available >= ATL2_RPF_ETYPE_TAGS) ?
+		 (ATL2_RPF_ETYPE_TAGS) : (ATL2_RPF_ETYPE_TAGS >> 1);
+	nic->rxf_vlan.base_index = filter_caps.vlan_filter_base_index;
+	/* 0 - no tag, 1 - reserved for vlan-filter-offload filters */
+	tag_top = (filter_caps.vlan_filter_count == ATL_VLAN_FLT_NUM) ?
+		  (ATL_VLAN_FLT_NUM - 2) :
+		  (ATL_VLAN_FLT_NUM / 2 - 2);
+	nic->rxf_vlan.available = min_t(u32, filter_caps.vlan_filter_count - 2,
+					tag_top);
+	nic->rxf_ntuple.l3_v4_base_index = filter_caps.l3_ip4_filter_base_index;
+	nic->rxf_ntuple.l3_v4_available = min_t(u32,
+						filter_caps.l3_ip4_filter_count,
+						ATL_NTUPLE_FLT_NUM - 1);
+	nic->rxf_ntuple.l3_v6_base_index = filter_caps.l3_ip6_filter_base_index;
+	nic->rxf_ntuple.l3_v6_available = filter_caps.l3_ip6_filter_count;
+	nic->rxf_ntuple.l4_base_index = filter_caps.l4_filter_base_index;
+	nic->rxf_ntuple.l4_available = min_t(u32, filter_caps.l4_filter_count,
+						ATL_NTUPLE_FLT_NUM - 1);
+
+	return 0;
+}
+
 static int __atl2_fw_wait_init(struct atl_hw *hw)
 {
+	struct request_policy_s request_policy;
 	struct link_control_s link_control;
 	uint32_t mtu;
+	int err;
 
 	BUILD_BUG_ON_MSG(sizeof(struct link_options_s) != 0x4,
 			 "linkOptions invalid size");
@@ -168,7 +215,7 @@ static int __atl2_fw_wait_init(struct atl_hw *hw)
 			 "pauseQuanta invalid size");
 	BUILD_BUG_ON_MSG(sizeof(struct cable_diag_control_s) != 0x4,
 			 "cableDiagControl invalid size");
-	BUILD_BUG_ON_MSG(sizeof(struct statistics_s) != 0x6C,
+	BUILD_BUG_ON_MSG(sizeof(struct statistics_s) != 0x70,
 			 "statistics_s invalid size");
 
 
@@ -225,8 +272,15 @@ static int __atl2_fw_wait_init(struct atl_hw *hw)
 			 "stats invalid offset");
 	BUILD_BUG_ON_MSG(offsetof(struct fw_interface_out, filter_caps) != 0x774,
 			 "filter_caps invalid offset");
+	BUILD_BUG_ON_MSG(offsetof(struct fw_interface_out,
+				  management_status) != 0x78c,
+			 "management_status invalid offset");
 	BUILD_BUG_ON_MSG(offsetof(struct fw_interface_out, trace) != 0x800,
 			 "trace invalid offset");
+
+	err = atl2_fw_get_filter_caps(hw);
+	if (err)
+		return err;
 
 	atl2_shared_buffer_get(hw, link_control, link_control);
 	link_control.mode = ATL2_HOST_MODE_ACTIVE;
@@ -236,6 +290,30 @@ static int __atl2_fw_wait_init(struct atl_hw *hw)
 	mtu = ATL_MAX_MTU + ETH_FCS_LEN + ETH_HLEN;
 	atl2_shared_buffer_write(hw, mtu, mtu);
 
+	atl2_shared_buffer_get(hw, request_policy, request_policy);
+	request_policy.bcast.accept = 1;
+	request_policy.bcast.queue_or_tc = 1;
+	request_policy.bcast.rx_queue_tc_index = 0;
+	request_policy.mcast.accept = 1;
+	request_policy.mcast.queue_or_tc = 1;
+	request_policy.mcast.rx_queue_tc_index = 0;
+	request_policy.promisc.queue_or_tc = 1;
+	request_policy.promisc.rx_queue_tc_index = 0;
+	atl2_shared_buffer_write(hw, request_policy, request_policy);
+
+	return atl2_shared_buffer_finish_ack(hw);
+}
+
+int atl2_fw_set_filter_policy(struct atl_hw *hw, bool promisc, bool allmulti)
+{
+	struct request_policy_s request_policy;
+
+	atl2_shared_buffer_get(hw, request_policy, request_policy);
+
+	request_policy.promisc.all = promisc;
+	request_policy.mcast.promisc = allmulti;
+
+	atl2_shared_buffer_write(hw, request_policy, request_policy);
 	return atl2_shared_buffer_finish_ack(hw);
 }
 
@@ -498,8 +576,10 @@ static struct atl_link_type *atl2_fw_check_link(struct atl_hw *hw)
 {
 	struct atl_link_type *link;
 	struct atl_link_state *lstate = &hw->link_state;
-	struct phy_health_monitor_s phy_health_monitor = {0};
+	struct phy_health_monitor_s phy_health_monitor;
 	int ret = 0;
+
+	memset(&phy_health_monitor, 0, sizeof(phy_health_monitor));
 
 	atl_lock_fw(hw);
 
@@ -700,9 +780,11 @@ static int atl2_fw_enable_wol(struct atl_hw *hw, unsigned int wol_mode)
 static int atl2_fw_update_thermal(struct atl_hw *hw)
 {
 	bool enable = !!(hw->thermal.flags & atl_thermal_monitor);
-	struct phy_health_monitor_s phy_health_monitor = {0};
+	struct phy_health_monitor_s phy_health_monitor;
 	struct thermal_shutdown_s thermal_shutdown;
 	int ret = 0;
+
+	memset(&phy_health_monitor, 0, sizeof(phy_health_monitor));
 
 	atl_lock_fw(hw);
 

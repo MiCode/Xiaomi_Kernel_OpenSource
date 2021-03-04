@@ -2,6 +2,7 @@
  * TI composite clock support
  *
  * Copyright (C) 2013 Texas Instruments, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Tero Kristo <t-kristo@ti.com>
  *
@@ -240,6 +241,7 @@ cleanup:
 		if (!cclk->comp_clks[i])
 			continue;
 		list_del(&cclk->comp_clks[i]->link);
+		kfree(cclk->comp_clks[i]->parent_names);
 		kfree(cclk->comp_clks[i]);
 	}
 

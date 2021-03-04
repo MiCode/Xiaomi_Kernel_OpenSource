@@ -2,6 +2,7 @@
 /* Atlantic Network Driver
  *
  * Copyright (C) 2017 aQuantia Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2019-2020 Marvell International Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -17,6 +18,7 @@
 #include "atl_common.h"
 #include "atl_desc.h"
 #include "atl_ring_desc.h"
+#include "atl_ptp.h"
 
 //#define ATL_RINGS_IN_UC_MEM
 
@@ -67,13 +69,13 @@
 #define bump_tail(ring, amount) do {					\
 	struct atl_desc_ring *__ring = (ring);				\
 	uint32_t __ptr = READ_ONCE(__ring->tail);			\
-	WRITE_ONCE(__ring->tail, offset_ptr(__ptr, &__ring->hw, amount));\
+	__ring->tail = offset_ptr(__ptr, &__ring->hw, amount);\
 	} while (0)
 
 #define bump_head(ring, amount) do {					\
 	struct atl_desc_ring *__ring = (ring);				\
 	uint32_t __ptr = READ_ONCE(__ring->head);			\
-	WRITE_ONCE(__ring->head, offset_ptr(__ptr, &__ring->hw, amount));\
+	__ring->head = offset_ptr(__ptr, &__ring->hw, amount);\
 	} while (0)
 
 struct atl_rxpage {
@@ -120,6 +122,12 @@ static inline struct legacy_irq_work *to_irq_work(struct work_struct *work)
 	return container_of(work, struct legacy_irq_work, work);
 };
 
+enum atl_queue_type {
+	ATL_QUEUE_REGULAR,
+	ATL_QUEUE_PTP,
+	ATL_QUEUE_HWTS,
+};
+
 struct ____cacheline_aligned atl_queue_vec {
 	struct atl_desc_ring tx;
 	struct atl_desc_ring rx;
@@ -128,6 +136,7 @@ struct ____cacheline_aligned atl_queue_vec {
 	unsigned idx;
 	char name[IFNAMSIZ + 10];
 	cpumask_t affinity_hint;
+	enum atl_queue_type type;
 	struct work_struct *work;
 };
 
@@ -140,8 +149,20 @@ static inline struct atl_hw *ring_hw(struct atl_desc_ring *ring)
 	return &ring->nic->hw;
 }
 
+void atl_init_qvec(struct atl_nic *nic, struct atl_queue_vec *qvec, int idx);
+int atl_alloc_qvec(struct atl_queue_vec *qvec);
+void atl_free_qvec(struct atl_queue_vec *qvec);
+int atl_start_qvec(struct atl_queue_vec *qvec);
+void atl_stop_qvec(struct atl_queue_vec *qvec);
+int atl_poll_qvec(struct atl_queue_vec *qvec, int budget);
+
 static inline int atl_qvec_intr(struct atl_queue_vec *qvec)
 {
+#if IS_REACHABLE(CONFIG_PTP_1588_CLOCK)
+	if (unlikely(qvec->idx >= qvec->nic->nvecs))
+		return atl_ptp_qvec_intr(qvec);
+#endif
+
 	return qvec->idx + ATL_NUM_NON_RING_IRQS;
 }
 
@@ -169,10 +190,14 @@ do {								\
 int atl_init_rx_ring(struct atl_desc_ring *rx);
 int atl_init_tx_ring(struct atl_desc_ring *tx);
 
+netdev_tx_t atl_map_skb(struct sk_buff *skb, struct atl_desc_ring *ring);
+int atl_tx_full(struct atl_desc_ring *ring, int needed);
+
 typedef int (*rx_skb_handler_t)(struct atl_desc_ring *ring,
 				struct sk_buff *skb);
 int atl_clean_rx(struct atl_desc_ring *ring, int budget,
 		 rx_skb_handler_t rx_skb_func);
+int atl_clean_hwts_rx(struct atl_desc_ring *ring, int budget);
 void atl_clear_rx_bufs(struct atl_desc_ring *ring);
 
 #ifdef ATL_RINGS_IN_UC_MEM
@@ -180,7 +205,7 @@ void atl_clear_rx_bufs(struct atl_desc_ring *ring);
 #define DECLARE_SCRATCH_DESC(_name) union atl_desc _name
 #define DESC_PTR(_ring, _idx, _scratch) (&(_scratch))
 #define COMMIT_DESC(_ring, _idx, _scratch)		\
-	WRITE_ONCE((_ring)->hw.descs[_idx], (_scratch))
+	(_ring)->hw.descs[_idx] = (_scratch)
 #define FETCH_DESC(_ring, _idx, _scratch)			\
 do {								\
 	(_scratch) = READ_ONCE((_ring)->hw.descs[_idx]);	\

@@ -1,4 +1,5 @@
 /* Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -176,6 +177,9 @@ struct kgsl_mmu {
 		struct kgsl_iommu iommu;
 	} priv;
 };
+
+/* KGSL MMU FLAGS */
+#define KGSL_MMU_STARTED BIT(0)
 
 #define KGSL_IOMMU_PRIV(_device) (&((_device)->mmu.priv.iommu))
 

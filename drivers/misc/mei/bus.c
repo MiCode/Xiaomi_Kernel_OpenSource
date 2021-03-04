@@ -1,6 +1,7 @@
 /*
  * Intel Management Engine Interface (Intel MEI) Linux driver
  * Copyright (c) 2012-2013, Intel Corporation.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -722,9 +723,8 @@ static int mei_cl_device_remove(struct device *dev)
 	mei_cldev_unregister_callbacks(cldev);
 
 	module_put(THIS_MODULE);
-	dev->driver = NULL;
-	return ret;
 
+	return ret;
 }
 
 static ssize_t name_show(struct device *dev, struct device_attribute *a,

@@ -8,6 +8,7 @@
 #include "configfs.h"
 #include "u_f.h"
 #include "u_os_desc.h"
+#include <linux/power_supply.h>
 
 #ifdef CONFIG_USB_CONFIGFS_UEVENT
 #include <linux/platform_device.h>
@@ -306,6 +307,9 @@ static ssize_t gadget_dev_desc_UDC_store(struct config_item *item,
 	struct gadget_info *gi = to_gadget_info(item);
 	char *name;
 	int ret;
+
+	if (strlen(page) < len)
+		return -EOVERFLOW;
 
 	name = kstrdup(page, GFP_KERNEL);
 	if (!name)
@@ -1281,6 +1285,27 @@ static void purge_configs_funcs(struct gadget_info *gi)
 	}
 }
 
+static int smblib_canncel_recheck(void)
+{
+	union power_supply_propval pval = {0};
+	struct power_supply     *usb_psy = NULL;
+	int rc = 0;
+
+	if (!usb_psy) {
+		usb_psy = power_supply_get_by_name("usb");
+		if (!usb_psy) {
+			pr_err("Could not get usb psy by canncel recheck\n");
+			return -ENODEV;
+		}
+	}
+
+	pval.intval = 0;
+	rc = power_supply_set_property(usb_psy,
+				POWER_SUPPLY_PROP_TYPE_RECHECK, &pval);
+
+	return rc;
+}
+
 static int configfs_composite_bind(struct usb_gadget *gadget,
 		struct usb_gadget_driver *gdriver)
 {
@@ -1423,6 +1448,7 @@ err_comp_cleanup:
 	return ret;
 }
 
+
 #ifdef CONFIG_USB_CONFIGFS_UEVENT
 static void android_work(struct work_struct *data)
 {
@@ -1452,27 +1478,45 @@ static void android_work(struct work_struct *data)
 	if (status[0]) {
 		kobject_uevent_env(&gi->dev->kobj,
 					KOBJ_CHANGE, connected);
+	#ifdef CONFIG_TARGET_PROJECT_J20C
+		pr_err("%s: sent uevent %s\n", __func__, connected[0]);
+	#else
 		pr_info("%s: sent uevent %s\n", __func__, connected[0]);
+	#endif
 		uevent_sent = true;
 	}
 
 	if (status[1]) {
 		kobject_uevent_env(&gi->dev->kobj,
 					KOBJ_CHANGE, configured);
+	#ifdef CONFIG_TARGET_PROJECT_J20C
+		pr_err("%s: sent uevent %s\n", __func__, configured[0]);
+	#else
 		pr_info("%s: sent uevent %s\n", __func__, configured[0]);
+	#endif
+		smblib_canncel_recheck();
 		uevent_sent = true;
 	}
 
 	if (status[2]) {
 		kobject_uevent_env(&gi->dev->kobj,
 					KOBJ_CHANGE, disconnected);
+	#ifdef CONFIG_TARGET_PROJECT_J20C
+		pr_err("%s: sent uevent %s\n", __func__, disconnected[0]);
+	#else
 		pr_info("%s: sent uevent %s\n", __func__, disconnected[0]);
+	#endif
 		uevent_sent = true;
 	}
 
 	if (!uevent_sent) {
-		pr_info("%s: did not send uevent (%d %d %pK)\n", __func__,
+	#ifdef CONFIG_TARGET_PROJECT_J20C
+		pr_err("%s: did not send uevent (%d %d %pK)\n", __func__,
 			gi->connected, gi->sw_connected, cdev->config);
+	#else
+		pr_info("%s: did not send uevent (%d %d %pK)\n", __func__,
+                         gi->connected, gi->sw_connected, cdev->config);
+	#endif
 	}
 }
 #endif

@@ -8,6 +8,7 @@
  * Andy Adamson <andros@umich.edu>
  * Bruce Fields <bfields@umich.edu>
  * Copyright (c) 2000 The Regents of the University of Michigan
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _LINUX_SUNRPC_GSS_API_H
@@ -83,6 +84,7 @@ struct pf_desc {
 	u32	service;
 	char	*name;
 	char	*auth_domain_name;
+	struct auth_domain *domain;
 	bool	datatouch;
 };
 

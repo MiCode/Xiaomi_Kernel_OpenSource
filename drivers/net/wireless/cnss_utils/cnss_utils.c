@@ -1,4 +1,5 @@
 /* Copyright (c) 2017, 2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +32,7 @@
 #define LPASS_PMU_INT_EN0 0xC060084
 #define LPASS_PMU_INT_CLR 0xC060034
 #endif
-#define CNSS_MAX_CH_NUM 45
+#define CNSS_MAX_CH_NUM 157
 struct cnss_unsafe_channel_list {
 	u16 unsafe_ch_count;
 	u16 unsafe_ch_list[CNSS_MAX_CH_NUM];

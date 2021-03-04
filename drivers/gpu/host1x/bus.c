@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Avionic Design GmbH
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2012-2013, NVIDIA Corporation
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -615,7 +616,16 @@ EXPORT_SYMBOL(host1x_driver_register_full);
  */
 void host1x_driver_unregister(struct host1x_driver *driver)
 {
+	struct host1x *host1x;
+
 	driver_unregister(&driver->driver);
+
+	mutex_lock(&devices_lock);
+
+	list_for_each_entry(host1x, &devices, list)
+		host1x_detach_driver(host1x, driver);
+
+	mutex_unlock(&devices_lock);
 
 	mutex_lock(&drivers_lock);
 	list_del_init(&driver->list);

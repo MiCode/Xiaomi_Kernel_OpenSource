@@ -1,6 +1,7 @@
 /*
  * drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
  * Copyright (c) 2016-2017 Mellanox Technologies. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2016 Jiri Pirko <jiri@mellanox.com>
  * Copyright (c) 2016 Ido Schimmel <idosch@mellanox.com>
  * Copyright (c) 2016 Yotam Gigi <yotamg@mellanox.com>
@@ -4932,7 +4933,7 @@ static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
 		return NOTIFY_DONE;
 
 	fib_work = kzalloc(sizeof(*fib_work), GFP_ATOMIC);
-	if (WARN_ON(!fib_work))
+	if (!fib_work)
 		return NOTIFY_BAD;
 
 	router = container_of(nb, struct mlxsw_sp_router, fib_nb);

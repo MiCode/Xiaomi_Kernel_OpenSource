@@ -1,6 +1,7 @@
 /* linux/drivers/mtd/nand/s3c2410.c
  *
  * Copyright © 2004-2008 Simtec Electronics
+ * Copyright (C) 2021 XiaoMi, Inc.
  *	http://armlinux.simtec.co.uk/
  *	Ben Dooks <ben@simtec.co.uk>
  *
@@ -784,7 +785,7 @@ static int s3c24xx_nand_remove(struct platform_device *pdev)
 
 		for (mtdno = 0; mtdno < info->mtd_count; mtdno++, ptr++) {
 			pr_debug("releasing mtd %d (%p)\n", mtdno, ptr);
-			nand_release(nand_to_mtd(&ptr->chip));
+			nand_release(&ptr->chip);
 		}
 	}
 

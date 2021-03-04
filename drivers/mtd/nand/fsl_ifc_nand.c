@@ -2,6 +2,7 @@
  * Freescale Integrated Flash Controller NAND driver
  *
  * Copyright 2011-2012 Freescale Semiconductor, Inc
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Dipen Dudhat <Dipen.Dudhat@freescale.com>
  *
@@ -927,7 +928,7 @@ static int fsl_ifc_chip_remove(struct fsl_ifc_mtd *priv)
 {
 	struct mtd_info *mtd = nand_to_mtd(&priv->chip);
 
-	nand_release(mtd);
+	nand_release(&priv->chip);
 
 	kfree(mtd->name);
 

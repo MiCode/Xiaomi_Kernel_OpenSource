@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Stefan Wahren <stefan.wahren@i2se.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -25,7 +26,7 @@
 
 	leds {
 		act {
-			gpios = <&gpio 47 GPIO_ACTIVE_HIGH>;
+			gpios = <&gpio 47 GPIO_ACTIVE_LOW>;
 		};
 	};
 

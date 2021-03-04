@@ -1,0 +1,39 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "atoll-idp.dtsi"
+#include "atoll-wcd937x-idp-audio-overlay.dtsi"
+#include "joyeuse-atoll-camera-sensor-idp.dtsi"
+#include "j6b-charge-overlay.dtsi"
+
+/ {
+	model = "wcd937x Audio Codec IDP JOYEUSE";
+	compatible = "qcom,atoll-idp", "qcom,atoll", "qcom,idp";
+	qcom,msm-id = <407 0x0>;
+	qcom,board-id = <0x50022 1>;
+};
+
+&dsi_ft8756_huaxing_video {
+	qcom,dsi-display-active;
+};
+&dsi_nt36675_tianma_video {
+	qcom,dsi-display-active;
+};
+
+&sdhc_2 {
+	cd-gpios = <&tlmm 69 0>;
+};

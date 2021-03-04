@@ -3,7 +3,7 @@
 #
 menu "FingerprintCard fingerprint driver"
 config FPR_FPC
-       default n
+       default y
        tristate "FPC_BTP fingerprint sensor support"
        depends on SPI_MASTER
 

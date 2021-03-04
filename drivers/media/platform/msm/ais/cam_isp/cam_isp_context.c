@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2185,7 +2186,7 @@ static int __cam_isp_ctx_dump_req_info(struct cam_context *ctx,
 	uint8_t *dst;
 
 	if (!req || !ctx || !offset || !cpu_addr || !buf_len) {
-		CAM_ERR(CAM_ISP, "Invalid parameters %pK %pK %u %pK %pK %pK ",
+		CAM_ERR(CAM_ISP, "Invalid parameters %pK %pK %pK %lx %zu ",
 			req, ctx, offset, cpu_addr, buf_len);
 		return -EINVAL;
 	}

@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,7 +45,7 @@
 	};
 };
 
-&qupv3_se7_i2c{
+/*&qupv3_se7_i2c{
 	qcom,i2c-touch-active="st,fts";
 	status = "ok";
 	st_fts@49 {
@@ -62,7 +63,7 @@
 		st,regulator_dvdd = "vdd";
 		st,regulator_avdd = "avdd";
 	};
-};
+};*/
 
 &tlmm {
 	pmx_ts_active {

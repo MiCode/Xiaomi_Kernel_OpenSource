@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +37,8 @@
 				CNSS_EVENT_UNINTERRUPTIBLE)
 
 #define CNSS_FW_PATH_MAX_LEN 32
+
+#define CNSS_MAX_DEV_NUM 2
 
 enum cnss_dev_bus_type {
 	CNSS_BUS_NONE = -1,
@@ -267,6 +270,7 @@ enum cnss_ce_index {
 
 struct cnss_plat_data {
 	struct platform_device *plat_dev;
+	enum cnss_driver_mode driver_mode;
 	void *bus_priv;
 	enum cnss_dev_bus_type bus_type;
 	struct list_head vreg_list;
@@ -318,9 +322,22 @@ struct cnss_plat_data {
 	u32 is_converged_dt;
 	struct device_node *dev_node;
 	u8 set_wlaon_pwr_ctrl;
+	bool fw_pcie_gen_switch;
+	u8 pcie_gen_speed;
+	u32 rc_num;
+	char device_name[16];
+	u32 idx;
+	bool enumerate_done;
+	int qrtr_node_id;
+	unsigned int wlfw_service_instance_id;
 };
 
 struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev);
+struct cnss_plat_data *cnss_get_plat_priv_by_rc_num(int rc_num);
+int cnss_get_plat_env_count(void);
+struct cnss_plat_data *cnss_get_plat_env(int index);
+bool cnss_get_dual_wlan(void);
+
 int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
 			   enum cnss_driver_event_type type,
 			   u32 flags, void *data);

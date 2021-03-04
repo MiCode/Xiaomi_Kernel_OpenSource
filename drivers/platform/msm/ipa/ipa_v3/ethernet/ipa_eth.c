@@ -1,4 +1,5 @@
 /* Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -571,9 +572,10 @@ static int ipa_eth_pm_notifier_event_suspend_prepare(
 	 * and reverts the device suspension by aborting the system suspend.
 	 */
 	if (ipa_eth_net_check_active(eth_dev)) {
-		pr_info("%s: %s is active, preventing suspend for some time",
-				IPA_ETH_SUBSYS, eth_dev->net_dev->name);
-		ipa_eth_dev_wakeup_event(eth_dev);
+		pr_info("%s: %s is active, preventing suspend for %u ms",
+				IPA_ETH_SUBSYS, eth_dev->net_dev->name,
+				IPA_ETH_WAKE_TIME_MS);
+		pm_wakeup_dev_event(eth_dev->dev, IPA_ETH_WAKE_TIME_MS, false);
 		return NOTIFY_BAD;
 	}
 

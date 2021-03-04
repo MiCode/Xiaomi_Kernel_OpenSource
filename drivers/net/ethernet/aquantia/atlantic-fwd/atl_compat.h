@@ -2,6 +2,7 @@
 /* Atlantic Network Driver
  *
  * Copyright (C) 2017 aQuantia Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2019-2020 Marvell International Ltd.
  * Portions Copyright (C) various contributors (see specific commit references)
  *
@@ -17,6 +18,12 @@
 
 #include <linux/pci.h>
 #include <linux/msi.h>
+#include <linux/skbuff.h>
+#include <linux/netdevice.h>
+
+#ifndef IS_REACHABLE
+#define IS_REACHABLE defined
+#endif
 
 /* If the kernel is not RHEL / CentOS, then the 2 identifiers below will be
  * undefined. Define them this way to simplify the checks below.
@@ -107,7 +114,7 @@ static inline int skb_xmit_more(struct sk_buff *skb)
 {
 	return 0;
 }
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5,2,0)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0) || RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(8, 2)
 static inline int skb_xmit_more(struct sk_buff *skb)
 {
 	return netdev_xmit_more();

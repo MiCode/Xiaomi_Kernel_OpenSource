@@ -2,6 +2,7 @@
  * Summit Microelectronics SMB347 Battery Charger Driver
  *
  * Copyright (C) 2011, Intel Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors: Bruce E. Robertson <bruce.e.robertson@intel.com>
  *          Mika Westerberg <mika.westerberg@linux.intel.com>
@@ -1141,6 +1142,7 @@ static bool smb347_volatile_reg(struct device *dev, unsigned int reg)
 	switch (reg) {
 	case IRQSTAT_A:
 	case IRQSTAT_C:
+	case IRQSTAT_D:
 	case IRQSTAT_E:
 	case IRQSTAT_F:
 	case STAT_A:

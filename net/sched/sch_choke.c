@@ -2,6 +2,7 @@
  * net/sched/sch_choke.c	CHOKE scheduler
  *
  * Copyright (c) 2011 Stephen Hemminger <shemminger@vyatta.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2011 Eric Dumazet <eric.dumazet@gmail.com>
  *
  * This program is free software; you can redistribute it and/or
@@ -327,7 +328,8 @@ static void choke_reset(struct Qdisc *sch)
 
 	sch->q.qlen = 0;
 	sch->qstats.backlog = 0;
-	memset(q->tab, 0, (q->tab_mask + 1) * sizeof(struct sk_buff *));
+	if (q->tab)
+		memset(q->tab, 0, (q->tab_mask + 1) * sizeof(struct sk_buff *));
 	q->head = q->tail = 0;
 	red_restart(&q->vars);
 }

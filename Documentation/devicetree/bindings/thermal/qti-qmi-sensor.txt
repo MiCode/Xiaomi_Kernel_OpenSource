@@ -57,6 +57,12 @@ Subsystem properties:
 		24. sys_therm1
 		25. sys_therm2
 		26. modem_tsens1
+		27. qfe_ret_pa0_fr1
+		28. qfe_wtr_pa0_fr1
+		29. qfe_wtr_pa1_fr1
+		30. qfe_wtr_pa2_fr1
+		31. qfe_wtr_pa3_fr1
+
 
 Example:
 

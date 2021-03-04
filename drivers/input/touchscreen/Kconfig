@@ -1,6 +1,10 @@
 #
 # Touchscreen driver configuration
 #
+
+source "drivers/input/touchscreen/xiaomi/Kconfig"
+source "drivers/input/touchscreen/ft3418_i2c/Kconfig"
+
 menuconfig INPUT_TOUCHSCREEN
 	bool "Touchscreens"
 	help
@@ -10,6 +14,13 @@ menuconfig INPUT_TOUCHSCREEN
 	  If unsure, say Y.
 
 if INPUT_TOUCHSCREEN
+
+config TOUCHSCREEN_COMMON
+		bool "touchscreen for LCT project"
+		depends on SPI
+		default y
+		help
+			Say Y here if you have lct tp info connected.
 
 config TOUCHSCREEN_PROPERTIES
 	def_tristate INPUT

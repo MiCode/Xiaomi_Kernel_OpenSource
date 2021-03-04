@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -393,12 +394,16 @@ int cam_bps_process_cmd(void *device_priv, uint32_t cmd_type,
 		}
 		break;
 	case CAM_ICP_BPS_CMD_DISABLE_CLK:
+		mutex_lock(&bps_dev->hw_mutex);
 		if (core_info->clk_enable == true)
 			cam_bps_toggle_clk(soc_info, false);
 		core_info->clk_enable = false;
+		mutex_unlock(&bps_dev->hw_mutex);
 		break;
 	case CAM_ICP_BPS_CMD_RESET:
+		mutex_lock(&bps_dev->hw_mutex);
 		rc = cam_bps_cmd_reset(soc_info, core_info);
+		mutex_unlock(&bps_dev->hw_mutex);
 		break;
 	default:
 		CAM_ERR(CAM_ICP, "Invalid Cmd Type:%u", cmd_type);

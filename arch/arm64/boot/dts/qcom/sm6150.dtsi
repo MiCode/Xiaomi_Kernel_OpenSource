@@ -1,4 +1,5 @@
  /* Copyright (c) 2018-2020, The Linux Foundation.All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -514,7 +515,7 @@
 		removed_region: removed_region@86200000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x86200000 0 0x2d00000>;
+			reg = <0 0x86200000 0 0x4900000>;
 		};
 
 		pil_camera_mem: camera_region@8ab00000 {
@@ -550,25 +551,25 @@
 		pil_adsp_mem: pil_adsp_region@95900000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x95900000 0 0x1e00000>;
+			reg = <0 0x95900000 0 0x2200000>;
 		};
 
-		pil_ipa_fw_mem: ips_fw_region@0x97700000 {
+		pil_ipa_fw_mem: ips_fw_region@0x97B00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x97700000 0 0x10000>;
+			reg = <0 0x97B00000 0 0x10000>;
 		};
 
-		pil_ipa_gsi_mem: ipa_gsi_region@0x97710000 {
+		pil_ipa_gsi_mem: ipa_gsi_region@0x97B10000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x97710000 0 0x5000>;
+			reg = <0 0x97B10000 0 0x5000>;
 		};
 
-		pil_gpu_mem: gpu_region@0x97715000 {
+		pil_gpu_mem: gpu_region@0x97B15000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x97715000 0 0x2000>;
+			reg = <0 0x97B15000 0 0x2000>;
 		};
 
 		qseecom_mem: qseecom_region@0x9e400000 {
@@ -654,6 +655,16 @@
 			size = <0 0x2800000>;
 			linux,cma-default;
 		};
+
+                /* reserve for pstore */
+                ramoops_mem: ramoops@9d800000 {
+                        compatible = "ramoops";
+                        reg = <0x0 0x9d800000 0x0 0x00400000>;
+
+                        record-size = <0x80000>;
+                        pmsg-size = <0x200000>;
+                        console-size = <0x100000>;
+                };
 	};
 };
 
@@ -1544,7 +1555,7 @@
 
 	qcom_seecom: qseecom@86d00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x86d00000 0xe00000>;
+		reg = <0x86d00000 0x03E00000>;
 		reg-names = "secapp-region";
 		memory-region = <&qseecom_mem>;
 		qcom,hlos-num-ce-hw-instances = <1>;
@@ -1561,7 +1572,7 @@
 
 	qcom_smcinvoke: smcinvoke@86d00000 {
 		compatible = "qcom,smcinvoke";
-		reg = <0x86d00000 0xe00000>;
+		reg = <0x86d00000 0x03E00000>;
 		reg-names = "secapp-region";
 	};
 
@@ -2427,6 +2438,7 @@
 		qcom,smem-id = <421>;
 		qcom,signal-aop;
 		qcom,minidump-id = <3>;
+		qcom,aux-minidump-ids = <4>;
 		qcom,complete-ramdump;
 
 		/* Inputs from mss */
@@ -2673,7 +2685,7 @@
 
 	qcom,rmtfs_sharedmem@0 {
 		compatible = "qcom,sharedmem-uio";
-		reg = <0x0 0x200000>;
+		reg = <0x0 0x280000>;
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
 		qcom,guard-memory;
@@ -3015,6 +3027,13 @@
 		qcom,pre-scaling = <1 1>;
 	};
 
+	charger_skin_therm {
+		reg = <ADC_AMUX_THM3_PU2>;
+		label = "charger_skin_therm";
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
 	conn_therm {
 		reg = <ADC_AMUX_THM4_PU2>;
 		label = "conn_therm";
@@ -3027,6 +3046,7 @@
 &pm6150_adc_tm {
 	io-channels = <&pm6150_vadc ADC_XO_THERM_PU2>,
 			<&pm6150_vadc ADC_AMUX_THM2_PU2>,
+			<&pm6150_vadc ADC_AMUX_THM3_PU2>,
 			<&pm6150_vadc ADC_AMUX_THM4_PU2>;
 
 	/* Channel nodes */
@@ -3038,6 +3058,12 @@
 
 	sdm_therm {
 		reg = <ADC_AMUX_THM2_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	charger_skin_therm{
+		reg = <ADC_AMUX_THM3_PU2>;
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 	};

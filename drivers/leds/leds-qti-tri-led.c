@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -403,10 +404,41 @@ static const struct attribute *breath_attrs[] = {
 	NULL
 };
 
+#ifdef CONFIG_TARGET_PROJECT_J20C
+static int qpnp_tri_white_led_register(struct qpnp_tri_led_chip *chip)
+{
+  struct qpnp_led_dev *led;
+  int rc;
+
+  dev_err(chip->dev, "enter qpnp_tri_white_led_register\n");
+
+  led = &chip->leds[0];
+  mutex_init(&led->lock);
+  led->cdev.name = "white";
+  led->cdev.max_brightness = LED_FULL;
+  led->cdev.brightness_set_blocking = qpnp_tri_led_set_brightness;
+  led->cdev.brightness_get = qpnp_tri_led_get_brightness;
+  led->cdev.blink_set = qpnp_tri_led_set_blink;
+  led->cdev.default_trigger = led->default_trigger;
+  led->cdev.brightness = LED_OFF;
+  led->cdev.flags |= LED_KEEP_TRIGGER;
+
+  rc = devm_led_classdev_register(chip->dev, &led->cdev);
+  if (rc < 0) {
+    dev_err(chip->dev, "%s led class device registering failed, rc=%d\n",led->label, rc);
+    return rc;
+}
+
+  return 0;
+}
+#endif
+
 static int qpnp_tri_led_register(struct qpnp_tri_led_chip *chip)
 {
 	struct qpnp_led_dev *led;
 	int rc, i, j;
+
+	dev_err(chip->dev, "enter qpnp_tri_led_register\n");
 
 	for (i = 0; i < chip->num_leds; i++) {
 		led = &chip->leds[i];
@@ -438,7 +470,9 @@ static int qpnp_tri_led_register(struct qpnp_tri_led_chip *chip)
 			}
 		}
 	}
-
+#ifdef CONFIG_TARGET_PROJECT_J20C
+	qpnp_tri_white_led_register(chip);
+#endif
 	return 0;
 
 err_out:
@@ -455,6 +489,8 @@ static int qpnp_tri_led_hw_init(struct qpnp_tri_led_chip *chip)
 {
 	int rc = 0;
 	u8 val;
+
+	dev_err(chip->dev, "enter qpnp_tri_led_hw_init\n");
 
 	rc = qpnp_tri_led_read(chip, TRILED_REG_TYPE, &val);
 	if (rc < 0) {

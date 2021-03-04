@@ -2,6 +2,7 @@
  * efi.c - EFI subsystem
  *
  * Copyright (C) 2001,2003,2004 Dell <Matt_Domsch@dell.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2004 Intel Corporation <matthew.e.tolentino@intel.com>
  * Copyright (C) 2013 Tom Gundersen <teg@jklm.no>
  *
@@ -221,7 +222,7 @@ static void generic_ops_unregister(void)
 	efivars_unregister(&generic_efivars);
 }
 
-#if IS_ENABLED(CONFIG_ACPI)
+#ifdef CONFIG_EFI_CUSTOM_SSDT_OVERLAYS
 #define EFIVAR_SSDT_NAME_MAX	16
 static char efivar_ssdt[EFIVAR_SSDT_NAME_MAX] __initdata;
 static int __init efivar_ssdt_setup(char *str)

@@ -1,5 +1,6 @@
 /*
  * Copyright 2009-2015 Freescale Semiconductor, Inc. and others
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Description: MPC5125, VF610, MCF54418 and Kinetis K70 Nand driver.
  * Jason ported to M54418TWR and MVFA5 (VF610).
@@ -794,7 +795,7 @@ static int vf610_nfc_remove(struct platform_device *pdev)
 	struct mtd_info *mtd = platform_get_drvdata(pdev);
 	struct vf610_nfc *nfc = mtd_to_nfc(mtd);
 
-	nand_release(mtd);
+	nand_release(mtd_to_nand(mtd));
 	clk_disable_unprepare(nfc->clk);
 	return 0;
 }

@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1215,8 +1216,10 @@ static void uaudio_qmi_disconnect_work(struct work_struct *w)
 			snd_usb_enable_audio_stream(subs, -EINVAL, 0);
 		}
 		atomic_set(&uadev[idx].in_use, 0);
+		if(chip)
 		mutex_lock(&chip->dev_lock);
 		uaudio_dev_cleanup(&uadev[idx]);
+		if(chip)
 		mutex_unlock(&chip->dev_lock);
 	}
 }

@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +23,7 @@
 #include "cam_trace.h"
 #include "cam_debug_util.h"
 #include "cam_req_mgr_dev.h"
+
 
 static struct cam_req_mgr_core_device *g_crm_core_dev;
 static struct cam_req_mgr_core_link g_links[MAXIMUM_LINKS_PER_SESSION];
@@ -955,6 +957,11 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 	int64_t req_id = 0, sync_req_id = 0;
 	int sync_slot_idx = 0, sync_rd_idx = 0, rc = 0;
 	int32_t sync_num_slots = 0;
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+	int32_t max_idx_diff;
+	uint64_t sof_timestamp_delta = 0;
+	uint64_t master_slave_diff = 0;
+#endif
 	uint64_t sync_frame_duration = 0;
 	bool ready = true, sync_ready = true;
 
@@ -988,6 +995,13 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 			- sync_link->prev_sof_timestamp;
 	else
 		sync_frame_duration = DEFAULT_FRAME_DURATION;
+
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+	sof_timestamp_delta =
+		link->sof_timestamp >= sync_link->sof_timestamp
+		? link->sof_timestamp - sync_link->sof_timestamp
+		: sync_link->sof_timestamp - link->sof_timestamp;
+#endif
 
 	CAM_DBG(CAM_CRM,
 		"sync link %x last frame duration is %d ns",
@@ -1051,12 +1065,28 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 		return -EAGAIN;
 	}
 
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+	/*
+	 * When the status of sync rd slot is APPLIED,
+	 * the maximum diff between sync_slot_idx and
+	 * sync_rd_idx is 1, since the next processed
+	 * req maybe the request in (sync_rd_idx + 1)th
+	 * slot.
+	 */
+	max_idx_diff =
+		(sync_rd_slot->status == CRM_SLOT_STATUS_REQ_APPLIED) ? 1 : 0;
+#endif
+
 	if ((sync_link->req.in_q->slot[sync_slot_idx].status !=
 		CRM_SLOT_STATUS_REQ_APPLIED) &&
 		(((sync_slot_idx - sync_rd_idx + sync_num_slots) %
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+		sync_num_slots) > max_idx_diff)) {
+#else
 		sync_num_slots) >= 1) &&
 		(sync_rd_slot->status !=
 		CRM_SLOT_STATUS_REQ_APPLIED)) {
+#endif
 		CAM_DBG(CAM_CRM,
 			"Req: %lld [other link] not next req to be applied on link: %x",
 			req_id, sync_link->link_hdl);
@@ -1111,12 +1141,19 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 	 * difference of two SOF timestamp less than
 	 * (sync_frame_duration / 5).
 	 */
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+	master_slave_diff = sync_frame_duration;
+	do_div(master_slave_diff, 5);
+	if ((sync_link->sof_timestamp > 0) &&
+		(sof_timestamp_delta < master_slave_diff) &&
+		(sync_rd_slot->sync_mode == CAM_REQ_MGR_SYNC_MODE_SYNC)) {
+#else
 	if ((link->sof_timestamp > sync_link->sof_timestamp) &&
 		(sync_link->sof_timestamp > 0) &&
 		(link->sof_timestamp - sync_link->sof_timestamp <
 		sync_frame_duration / 5) &&
 		(sync_rd_slot->sync_mode == CAM_REQ_MGR_SYNC_MODE_SYNC)) {
-
+#endif
 		/*
 		 * This means current frame should sync with next
 		 * frame of sync link, then the request id of in
@@ -1138,6 +1175,13 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 				sync_link->link_hdl);
 			link->sync_link_sof_skip = true;
 		}
+#ifdef CONFIG_TARGET_PROJECT_K7_CAMERA
+		else if (sync_link->req.in_q->slot[sync_slot_idx].status !=
+			CRM_SLOT_STATUS_REQ_APPLIED) {
+			CAM_DBG(CAM_CRM, "link %x other not applied", link->link_hdl);
+			return -EAGAIN;
+		}
+#endif
 	} else if ((sync_link->sof_timestamp > 0) &&
 		(link->sof_timestamp < sync_link->sof_timestamp) &&
 		(sync_link->sof_timestamp - link->sof_timestamp <

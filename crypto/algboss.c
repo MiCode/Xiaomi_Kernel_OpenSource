@@ -2,6 +2,7 @@
  * Create default crypto algorithm instances.
  *
  * Copyright (c) 2006 Herbert Xu <herbert@gondor.apana.org.au>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -193,8 +194,6 @@ static int cryptomgr_schedule_probe(struct crypto_larval *larval)
 	thread = kthread_run(cryptomgr_probe, param, "cryptomgr_probe");
 	if (IS_ERR(thread))
 		goto err_put_larval;
-
-	wait_for_completion_interruptible(&larval->completion);
 
 	return NOTIFY_STOP;
 

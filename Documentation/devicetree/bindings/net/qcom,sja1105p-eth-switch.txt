@@ -1,0 +1,64 @@
+* NXP SJA1105P 10/100/1000 Ethernet Switch Driver
+
+Required properties:
+### Properties of top level
+- compatible: Should be "qcom,nxp,sja1105p-switch".
+- reg: Should contain SPI chip select.
+- spi-max-frequency: Should contain maximum spi clock frequency
+  for slave device.
+- spi-cpha: SPI configuration to enable shift clock phase (CPHA) mode.
+- switch-speed: Should contain switch ports speed 10/100/1000 Mbps.
+- pinctrl-names : Names corresponding to the numbered pinctrl states
+- pinctrl-<n> : Pinctrl states as described in bindings/pinctrl/pinctrl-bindings.txt
+- qcom,reset-gpio: Reference to the GPIO connected to the reset input.
+
+### Properties of the port-X child node
+- `null-phy`: Determines if the port has a PHY connected to it or not
+- `phy-ref`: _phandle_ to the connected ethernet PHY
+   **NOTE**: Must be `0x00` in case there is no PHY connected to port-X
+   (for example if port-X is a host port or a cascaded port)
+- `logical-port-num`: logical port number, used for the port mapping
+   **NOTE**: Must be `0xff` in case port-X is a cascaded port.
+
+Example:
+
+	sja1105: ethernet-switch@0{
+		compatible = "qcom,nxp,sja1105p-switch";
+		reg = <0>;
+		spi-max-frequency = <12000000>;
+		spi-cpha;
+		switch-speed = <1000>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sja1105_default>;
+		qcom,reset-gpio = <&tlmm 91 0x1>;
+
+		port-0 {
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
+			logical-port-num = < 0 >;
+		};
+
+		port-1 {
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
+			logical-port-num = < 1 >;
+		};
+
+		port-2 {
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
+			logical-port-num = < 2 >;
+		};
+
+		port-3 {
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
+			logical-port-num = < 3 >;
+		};
+
+		port-4 {
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
+			logical-port-num = < 4 >;
+		};
+	};

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author:
  *  Zhigang.Wei <zhigang.wei@mediatek.com>
  *  Chunfeng.Yun <chunfeng.yun@mediatek.com>
@@ -282,6 +283,10 @@ static bool need_bw_sch(struct usb_host_endpoint *ep,
 	 * but need set @bpkts field of endpoint context to 1.
 	 */
 	if (is_fs_or_ls(speed) && !has_tt)
+		return false;
+
+	/* skip endpoint with zero maxpkt */
+	if (usb_endpoint_maxp(&ep->desc) == 0)
 		return false;
 
 	return true;

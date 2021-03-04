@@ -1,4 +1,5 @@
 /* Copyright (c) 2012, 2017-2018, 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Description: CoreSight Trace Memory Controller driver
  *
@@ -187,7 +188,7 @@ static int tmc_read_prepare(struct tmc_drvdata *drvdata)
 {
 	int ret = 0;
 
-	if (!drvdata->enable)
+	if (!drvdata->enable || !drvdata->csdev->enable)
 		return -EPERM;
 
 	switch (drvdata->config_type) {
@@ -211,6 +212,9 @@ static int tmc_read_prepare(struct tmc_drvdata *drvdata)
 static int tmc_read_unprepare(struct tmc_drvdata *drvdata)
 {
 	int ret = 0;
+
+	if (!drvdata->csdev->enable)
+		return -EPERM;
 
 	switch (drvdata->config_type) {
 	case TMC_CONFIG_TYPE_ETB:

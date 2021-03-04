@@ -1,6 +1,7 @@
 /*
  * drivers/net/bond/bond_netlink.c - Netlink interface for bonding
  * Copyright (c) 2013 Jiri Pirko <jiri@resnulli.us>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2013 Scott Feldman <sfeldma@cumulusnetworks.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -451,11 +452,10 @@ static int bond_newlink(struct net *src_net, struct net_device *bond_dev,
 		return err;
 
 	err = register_netdevice(bond_dev);
-
-	netif_carrier_off(bond_dev);
 	if (!err) {
 		struct bonding *bond = netdev_priv(bond_dev);
 
+		netif_carrier_off(bond_dev);
 		bond_work_init_all(bond);
 	}
 

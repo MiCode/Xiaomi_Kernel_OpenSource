@@ -116,6 +116,14 @@ Optional properties:
 		- snps,priority: TX queue priority (Range: 0x0 to 0xF)
 - rx-prog-swap: boolean value to enable RX_PROG_SWAP for 10/100M
 - rx-dll-bypass: boolean value to indicate RX DLL in bypass mode.
+- qcom,qoe_mode: set 1 to enable qmi over ethernet support
+- qcom,qoe-queue: qmi over ethernet receiver traffic queue
+- qcom,qoe-vlan-offset: qmi over ethernet vlan filterin register offset
+- qcom,cv2x_mode: enable cv2x over ethernet:
+	set 1 for driver running in MDM device
+	set 2 for driver running in APQ device
+- qcom,cv2x-queue: cv2x over ethernet receiver traffic queue
+- qcom,cv2x-vlan-offset: cv2x over ethernet vlan filterin register offset
 Examples:
 
 	stmmac_axi_setup: stmmac-axi-config {

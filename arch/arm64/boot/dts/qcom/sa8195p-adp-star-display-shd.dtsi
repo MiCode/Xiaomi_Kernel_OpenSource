@@ -1,0 +1,84 @@
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	sde_sh_base0: qcom,shared-display-base@0 {
+		qcom,shared-display-base-intf = <1>;
+	};
+
+	sde_sh0: qcom,shared-display@0 {
+		compatible = "qcom,shared-display";
+		qcom,shared-display-base = <&sde_sh_base0>;
+		qcom,blend-stage-range = <0 8>;
+		qcom,shared-display-name = "shared-disp-0";
+		qcom,display-type = "primary";
+	};
+
+	sde_sh1: qcom,shared-display@1 {
+		compatible = "qcom,shared-display";
+		qcom,shared-display-base = <&sde_sh_base0>;
+		qcom,blend-stage-range = <8 1>;
+		qcom,shared-display-name = "shared-disp-1";
+	};
+
+	sde_sh2: qcom,shared-display@2 {
+		compatible = "qcom,shared-display";
+		qcom,shared-display-base = <&sde_sh_base0>;
+		qcom,blend-stage-range = <9 1>;
+		qcom,shared-display-name = "shared-disp-2";
+	};
+
+	sde_shp: qcom,sde-shared-plane {
+		compatible = "qcom,sde-shared-plane";
+		qcom,add-planes {
+			plane@0 {
+				qcom,plane-name = "plane-4-splash";
+				qcom,plane-parent = "plane-4";
+				qcom,plane-init-active;
+			};
+			plane@1 {
+				qcom,plane-name = "plane-3-splash";
+				qcom,plane-parent = "plane-3";
+				qcom,plane-init-active;
+				qcom,plane-init-handoff;
+			};
+		};
+	};
+
+	sde_card1: qcom,sde-kms-lease@0 {
+		compatible = "qcom,sde-kms-lease";
+		qcom,dev-name = "msm_drm";
+	};
+
+	sde_card2: qcom,sde-kms-lease@1 {
+		compatible = "qcom,sde-kms-lease";
+		qcom,dev-name = "msm_drm2";
+		qcom,lease-connectors = "shared-disp-2";
+		qcom,lease-planes = "plane-4-splash";
+	};
+
+	sde_card3: qcom,sde-kms-lease@2 {
+		compatible = "qcom,sde-kms-lease";
+		qcom,dev-name = "msm_drm3";
+		qcom,lease-connectors = "shared-disp-1";
+		qcom,lease-planes = "plane-3-splash";
+	};
+};
+
+&mdss_mdp {
+	qcom,sde-crtc-num-pref = <8>;
+	qcom,sde-reg-dma-version = <0>;
+	connectors = <&dsi_dp1 &dsi_dp2 &sde_dp0 &sde_dp1 &sde_edp &sde_wb
+			&sde_sh0 &sde_sh1 &sde_sh2 &sde_shp
+			&sde_card1 &sde_card2 &sde_card3>;
+};

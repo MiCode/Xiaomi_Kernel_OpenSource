@@ -3,6 +3,7 @@
  * 3700.
  *
  * Copyright (C) 2016 Marvell
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Hezi Shahmoon <hezi.shahmoon@marvell.com>
  *
@@ -364,10 +365,6 @@ static void advk_pcie_setup_hw(struct advk_pcie *pcie)
 	advk_writel(pcie, reg, PCIE_CORE_LINK_CTRL_STAT_REG);
 
 	advk_pcie_wait_for_link(pcie);
-
-	reg = PCIE_CORE_LINK_L0S_ENTRY |
-		(1 << PCIE_CORE_LINK_WIDTH_SHIFT);
-	advk_writel(pcie, reg, PCIE_CORE_LINK_CTRL_STAT_REG);
 
 	reg = advk_readl(pcie, PCIE_CORE_CMD_STATUS_REG);
 	reg |= PCIE_CORE_CMD_MEM_ACCESS_EN |

@@ -1,4 +1,5 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +40,12 @@
 #define QMI_SYS_THERM_1		23
 #define QMI_SYS_THERM_2		24
 #define QMI_MODEM_TSENS_1	25
+#define QMI_QFE_RET_PA_0_FR1	26
+#define QMI_QFE_WTR_PA_0_FR1	27
+#define QMI_QFE_WTR_PA_1_FR1	28
+#define QMI_QFE_WTR_PA_2_FR1	29
+#define QMI_QFE_WTR_PA_3_FR1	30
+
 
 #define QMI_MODEM_INST_ID	0x0
 #define QMI_ADSP_INST_ID	0x1

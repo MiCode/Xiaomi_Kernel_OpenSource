@@ -4,6 +4,7 @@
  * Author:		Liam Girdwood
  * Created:		Aug 11th 2005
  * Copyright:	Wolfson Microelectronics. PLC.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -1260,6 +1261,9 @@ struct snd_soc_card {
 	struct dentry *debugfs_pop_time;
 #endif
 	u32 pop_time;
+
+	int aw87xxx_spk_mode;
+	int aw87xxx_rcv_mode;
 
 	void *drvdata;
 };

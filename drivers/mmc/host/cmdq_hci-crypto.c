@@ -1,5 +1,6 @@
 /*
  * Copyright 2020 Google LLC
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Copyright (c) 2020 The Linux Foundation. All rights reserved.
  *
@@ -342,9 +343,10 @@ int cmdq_host_init_crypto_spec(struct cmdq_host *host,
 
 	cmdq_crypto_clear_all_keyslots(host);
 
-	host->ksm = keyslot_manager_create(cmdq_num_keyslots(host), ksm_ops,
-					   BLK_CRYPTO_FEATURE_STANDARD_KEYS,
-					   crypto_modes_supported, host);
+        host->ksm = keyslot_manager_create(host->mmc->parent,
+                                           cmdq_num_keyslots(host), ksm_ops,
+                                           BLK_CRYPTO_FEATURE_STANDARD_KEYS,
+                                           crypto_modes_supported, host);
 
 	if (!host->ksm) {
 		err = -ENOMEM;

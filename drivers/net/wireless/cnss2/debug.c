@@ -1,4 +1,5 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -681,8 +682,14 @@ int cnss_debugfs_create(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
 	struct dentry *root_dentry;
+	char name[15];
 
-	root_dentry = debugfs_create_dir("cnss", 0);
+	if (cnss_get_dual_wlan())
+		snprintf(name, sizeof(name), "cnss_%d", plat_priv->idx);
+	else
+		snprintf(name, sizeof(name), "cnss");
+	root_dentry = debugfs_create_dir(name, NULL);
+
 	if (IS_ERR(root_dentry)) {
 		ret = PTR_ERR(root_dentry);
 		cnss_pr_err("Unable to create debugfs %d\n", ret);

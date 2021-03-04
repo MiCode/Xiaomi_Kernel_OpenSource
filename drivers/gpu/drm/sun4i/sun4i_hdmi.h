@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 Maxime Ripard
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Maxime Ripard <maxime.ripard@free-electrons.com>
  *
@@ -143,7 +144,7 @@
 #define SUN4I_HDMI_DDC_CMD_IMPLICIT_WRITE	3
 
 #define SUN4I_HDMI_DDC_CLK_REG		0x528
-#define SUN4I_HDMI_DDC_CLK_M(m)			(((m) & 0x7) << 3)
+#define SUN4I_HDMI_DDC_CLK_M(m)			(((m) & 0xf) << 3)
 #define SUN4I_HDMI_DDC_CLK_N(n)			((n) & 0x7)
 
 #define SUN4I_HDMI_DDC_LINE_CTRL_REG	0x540

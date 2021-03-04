@@ -1,5 +1,6 @@
 /*
  * Copyright © 2004 Texas Instruments, Jian Zhang <jzhang@ti.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright © 2004 Micron Technology Inc.
  * Copyright © 2004 David Brownell
  *
@@ -2306,7 +2307,7 @@ static int omap_nand_remove(struct platform_device *pdev)
 	}
 	if (info->dma)
 		dma_release_channel(info->dma);
-	nand_release(mtd);
+	nand_release(nand_chip);
 	return 0;
 }
 

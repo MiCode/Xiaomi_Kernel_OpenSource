@@ -31,6 +31,7 @@
  *  Added support for runtime switching of the policy type
  *
  * Copyright (C) 2008, 2009 NEC Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2006, 2007 Hewlett-Packard Development Company, L.P.
  * Copyright (C) 2004-2006 Trusted Computer Solutions, Inc.
  * Copyright (C) 2003 - 2004, 2006 Tresys Technology, LLC
@@ -2877,8 +2878,12 @@ err:
 	if (*names) {
 		for (i = 0; i < *len; i++)
 			kfree((*names)[i]);
+		kfree(*names);
 	}
 	kfree(*values);
+	*len = 0;
+	*names = NULL;
+	*values = NULL;
 	goto out;
 }
 

@@ -2,6 +2,7 @@
  * clk-flexgen.c
  *
  * Copyright (C) ST-Microelectronics SA 2013
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author:  Maxime Coquelin <maxime.coquelin@st.com> for ST-Microelectronics.
  * License terms:  GNU General Public License (GPL), version 2  */
 
@@ -373,6 +374,7 @@ static void __init st_of_flexgen_setup(struct device_node *np)
 			break;
 		}
 
+		flex_flags &= ~CLK_IS_CRITICAL;
 		of_clk_detect_critical(np, i, &flex_flags);
 
 		/*

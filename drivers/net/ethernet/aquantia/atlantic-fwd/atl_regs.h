@@ -2,6 +2,7 @@
 /* Atlantic Network Driver
  *
  * Copyright (C) 2017 aQuantia Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2019-2020 Marvell International Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -74,6 +75,8 @@ enum mcp_scratchpad {
 	FW2_LINK_RES_LOW = 29,	/* 0x370 */
 	FW1_EFUSE_SHADOW = 30,
 	FW2_LINK_RES_HIGH = 30,	/* 0x374 */
+	FW3_EXT_REQ = 31,	/* 0x378 */
+	FW3_EXT_RES = 32,	/* 0x37c */
 	RBL_STS = 35,		/* 0x388 */
 };
 
@@ -100,6 +103,8 @@ enum mcp_scratchpad {
 
 /* RX @ 0x5000 */
 #define ATL_RX_CTRL1 0x5000
+#define ATL_RX_SPARE_CTRL0 0x50A0
+#define ATL_RX_SPARE_CTRL1 0x50A4
 #define ATL2_RX_FLT_L2_BC_TAG 0x50F0
 #define ATL_RX_FLT_CTRL1 0x5100
 #define ATL_RX_FLT_CTRL2 0x5104
@@ -114,13 +119,14 @@ enum mcp_scratchpad {
 #define ATL_RX_VLAN_FLT(idx) ATL_REG_STRIDE(0x5290, 4, idx)
 #define ATL_RX_ETYPE_FLT(idx) ATL_REG_STRIDE(0x5300, 4, idx)
 #define ATL2_RX_ETYPE_TAG(idx) ATL_REG_STRIDE(0x5340, 4, idx)
-#define ATL_ETYPE_FLT_NUM 15
+#define ATL_ETYPE_FLT_NUM 16
 #define ATL_NTUPLE_CTRL(idx) ATL_REG_STRIDE(0x5380, 4, idx)
 #define ATL_NTUPLE_SADDR(idx) ATL_REG_STRIDE(0x53b0, 4, idx)
 #define ATL_NTUPLE_DADDR(idx) ATL_REG_STRIDE(0x53d0, 4, idx)
 #define ATL_NTUPLE_SPORT(idx) ATL_REG_STRIDE(0x5400, 4, idx)
 #define ATL_NTUPLE_DPORT(idx) ATL_REG_STRIDE(0x5420, 4, idx)
 #define ATL_NTUPLE_FLT_NUM 8
+#define ATL_NTUPLE_V6_FLT_NUM 2
 #define ATL_RX_FLEX_FLT_CTRL(idx) ATL_REG_STRIDE(0x5460, 0x20, idx)
 #define ATL_FLEX_FLT_NUM 2
 #define ATL_RX_RSS_CTRL 0x54c0

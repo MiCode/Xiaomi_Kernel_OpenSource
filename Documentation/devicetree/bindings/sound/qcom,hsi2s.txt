@@ -16,6 +16,8 @@ Required properties:
  - interrupts : Interrupt number used by this interface
  - clocks : Core clocks used by this interface
  - clock-names : Clock names for each core clock
+ - iommus: The phandle and stream IDs for the SMMU used by this root
+ - qcom,iova-mapping: Specifies the start address and size of iova space
 
 Optional properties:
 
@@ -26,6 +28,7 @@ Optional properties:
 				  rate detectors
  - rate-detector-interfaces : Specifies the minor number of the interfaces
 			      to have rate detection enabled
+ - qcom,smmu-s1-bypass: Boolean, if present S1 bypass is enabled
 
 * HS-I2S interface nodes
 
@@ -40,14 +43,11 @@ Required properties:
  - clock-names : Clock name for the interface clock
  - pinctrl-names : Pinctrl state names for each pin group configuration
  - pinctrl-x : Defines pinctrl state for each pin group
- - iommus: The phandle and stream IDs for the SMMU used by this root
- - qcom,iova-mapping: Specifies the start address and size of iova space
  - bit-clock-hz : Default bit clock frequency in hertz
  - data-buffer-ms : Default periodic interrupt interval in milliseconds
 
 Optional properties:
 
- - qcom,smmu-s1-bypass: Boolean, if present S1 bypass is enabled
  - bit-depth : Bit depth of the I2S data
 	       Default - 32
  - spkr-channel-count : Number of speaker channels
@@ -125,6 +125,9 @@ hsi2s: qcom,hsi2s {
 		      "csr_hclk";
 	number-of-rate-detectors = <2>;
 	rate-detector-interfaces = <0 1>;
+	iommus = <&apps_smmu 0x035C 0x1>;
+	qcom,smmu-s1-bypass;
+	qcom,iova-mapping = <0x0 0xFFFFFFFF>;
 
 	sdr0: qcom,hs0_i2s {
 		compatible = "qcom,hsi2s-interface";
@@ -136,9 +139,6 @@ hsi2s: qcom,hsi2s {
 			     &hs0_i2s_data1_sleep>;
 		clocks = <&clock_gcc GCC_SDR_PRI_MI2S_CLK>;
 		clock-names = "pri_mi2s_clk";
-		iommus = <&apps_smmu 0x035C 0x0>;
-		qcom,smmu-s1-bypass;
-		qcom,iova-mapping = <0x0 0xFFFFFFFF>;
 		bit-clock-hz = <12288000>;
 		data-buffer-ms = <10>;
 		bit-depth = <32>;
@@ -168,9 +168,6 @@ hsi2s: qcom,hsi2s {
 			     &hs1_i2s_data1_sleep>;
 		clocks = <&clock_gcc GCC_SDR_SEC_MI2S_CLK>;
 		clock-names = "sec_mi2s_clk";
-		iommus = <&apps_smmu 0x035D 0x0>;
-		qcom,smmu-s1-bypass;
-		qcom,iova-mapping = <0x0 0xFFFFFFFF>;
 		bit-clock-hz = <12288000>;
 		data-buffer-ms = <10>;
 		bit-depth = <32>;

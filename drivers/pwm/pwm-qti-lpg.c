@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1197,7 +1198,7 @@ static int qpnp_lpg_pwm_enable(struct pwm_chip *pwm_chip,
 		}
 	}
 
-	rc = qpnp_lpg_set_glitch_removal(lpg, true);
+	rc = qpnp_lpg_set_glitch_removal(lpg, false);
 	if (rc < 0) {
 		dev_err(lpg->chip->dev, "Enable glitch-removal failed, rc=%d\n",
 							rc);

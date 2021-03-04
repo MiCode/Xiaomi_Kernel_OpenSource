@@ -616,6 +616,7 @@ datadir_t acornscsi_datadirection(int command)
 /*
  * Purpose  : provide values for synchronous transfers with 33C93.
  * Copyright: Copyright (c) 1996 John Shifflett, GeoLog Consulting
+ * Copyright (C) 2021 XiaoMi, Inc.
  *	Modified by Russell King for 8MHz WD33C93A
  */
 static struct sync_xfer_tbl {
@@ -2914,8 +2915,10 @@ static int acornscsi_probe(struct expansion_card *ec, const struct ecard_id *id)
 
 	ashost->base = ecardm_iomap(ec, ECARD_RES_MEMC, 0, 0);
 	ashost->fast = ecardm_iomap(ec, ECARD_RES_IOCFAST, 0, 0);
-	if (!ashost->base || !ashost->fast)
+	if (!ashost->base || !ashost->fast) {
+		ret = -ENOMEM;
 		goto out_put;
+	}
 
 	host->irq = ec->irq;
 	ashost->host = host;

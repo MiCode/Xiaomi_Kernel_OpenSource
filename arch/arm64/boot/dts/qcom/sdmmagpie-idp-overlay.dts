@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +19,7 @@
 
 #include "sdmmagpie-idp.dtsi"
 #include "sdmmagpie-audio-overlay.dtsi"
+#include "pm6150-overlay-j20.dtsi"
 
 / {
 	model = "IDP";
@@ -26,6 +28,61 @@
 	qcom,board-id = <34 0>;
 };
 
-&dsi_sw43404_amoled_video_display {
+&dsi_nt36672c_huaxing_fhd_video_display {
 	qcom,dsi-display-active;
 };
+
+&dsi_nt36672c_tianma_fhd_video_display {
+	qcom,dsi-display-active;
+};
+
+&soc {
+	onewire_gpio: onewire_gpio {
+		compatible = "xiaomi,onewire_gpio";
+		label = "xm_onewire";
+		xiaomi,version = <1>;
+		xiaomi,ow_gpio = <&tlmm 6 0x00>;
+		xiaomi,gpio_number = <6>;
+		mi,onewire-gpio-cfg-addr = <0x03906000 0x4>;
+		pinctrl-names = "onewire_active", "onewire_sleep";
+		pinctrl-0 = <&onewire_gpio_active>;
+		pinctrl-1 = <&onewire_gpio_sleep>;
+		status = "ok";
+	};
+
+	maxim_ds28e16: maxim_ds28e16 {
+		compatible = "maxim,ds28e16";
+		label = "max_ds28e16";
+		maxim,version = <1>;
+		status = "ok";
+	};
+};
+
+&tlmm {
+	onewire_gpio_active: onewire_gpio_active {
+		mux {
+			pins = "gpio6";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio6";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+
+	onewire_gpio_sleep: onewire_gpio_sleep {
+		mux {
+			pins = "gpio6";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio6";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+};
+
