@@ -33,7 +33,7 @@
 		resets = <&clock_gcc GCC_VIDEO_AXI1_CLK_ARES>,
 			<&clock_videocc VIDEO_CC_MVS1C_CLK_ARES>;
 		reset-names = "cvp_axi_reset", "cvp_core_reset";
-		reset-power-status = <0x2 0x1>;
+		reset-power-status = <0x2 0x2>;
 
 		qcom,reg-presets = <0xB0088 0x0>;
 		qcom,ipcc-reg = <0x400000 0x100000>;
