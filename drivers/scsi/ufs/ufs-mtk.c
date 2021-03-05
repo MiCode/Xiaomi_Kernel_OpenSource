@@ -2289,7 +2289,8 @@ int ufs_mtk_auto_hiber8_quirk_handler(struct ufs_hba *hba, bool enable)
 	if (hba->quirks & UFSHCD_QUIRK_UFS_HCI_DISABLE_AH8_BEFORE_RDB &&
 		!hba->outstanding_reqs &&
 		!hba->outstanding_tasks &&
-		!hba->pm_op_in_progress) {
+		!hba->pm_op_in_progress &&
+		(hba->ufshcd_state == UFSHCD_STATE_OPERATIONAL)) {
 
 		ufshcd_vops_auto_hibern8(hba, enable);
 	}

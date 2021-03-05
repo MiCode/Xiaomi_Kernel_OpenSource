@@ -566,6 +566,14 @@ struct ufs_stats {
 	struct ufs_err_reg_hist perf_warn;
 };
 
+/* UFSHCD states */
+enum {
+	UFSHCD_STATE_RESET,
+	UFSHCD_STATE_ERROR,
+	UFSHCD_STATE_OPERATIONAL,
+	UFSHCD_STATE_EH_SCHEDULED,
+};
+
 /* MTK PATCH UFS Host Controller debug print bitmask */
 #define UFSHCD_DBG_PRINT_CLK_FREQ_EN		UFS_BIT(0)
 #define UFSHCD_DBG_PRINT_UIC_ERR_HIST_EN	UFS_BIT(1)
