@@ -950,11 +950,17 @@ static int qsmmuv500_device_group(struct device *dev,
 {
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
-	struct arm_smmu_device *smmu = cfg->smmu;
-	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
+	struct arm_smmu_device *smmu;
+	struct qsmmuv500_archdata *data;
 	struct qsmmuv500_group_iommudata *iommudata;
 	u32 actlr, i, j, idx;
 	struct arm_smmu_smr *smr, *smr2;
+
+	if (!fwspec || !cfg)
+		return -EINVAL;
+
+	smmu = cfg->smmu;
+	data = to_qsmmuv500_archdata(smmu);
 
 	iommudata = to_qsmmuv500_group_iommudata(group);
 	if (!iommudata) {
