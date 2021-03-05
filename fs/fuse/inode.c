@@ -984,6 +984,11 @@ static void fuse_send_init(struct fuse_conn *fc, struct fuse_req *req)
 
 static int free_fuse_passthrough(int id, void *p, void *data)
 {
+	struct fuse_passthrough *passthrough = (struct fuse_passthrough *)p;
+
+	fuse_passthrough_release(passthrough);
+	kfree(p);
+
 	return 0;
 }
 
