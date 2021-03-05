@@ -621,6 +621,7 @@ static const struct of_device_id apusys_devapc_of_match[] = {
 	{ .compatible = "mediatek,mt6873-apusys_devapc", &dapc_cfg_mt6873 },
 	{ .compatible = "mediatek,mt6853-apusys_devapc", &dapc_cfg_mt6853 },
 	{ .compatible = "mediatek,mt6893-apusys_devapc", &dapc_cfg_mt6885 },
+	{ .compatible = "mediatek,mt6877-apusys_devapc", &dapc_cfg_mt6877 },
 	{},
 };
 
