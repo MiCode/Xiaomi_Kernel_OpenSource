@@ -625,6 +625,12 @@ enum{
 #define CAM_REG_BPCI_R2_CON3(module)            (isp_devs[module].regs + 0x4320)
 #define CAM_REG_BPCI_R2_CON4(module)            (isp_devs[module].regs + 0x4328)
 
+#define CAM_REG_BPCI_R3_DRS(module)             (isp_devs[module].regs + 0x4338)
+#define CAM_REG_BPCI_R3_CON(module)             (isp_devs[module].regs + 0x4348)
+#define CAM_REG_BPCI_R3_CON2(module)            (isp_devs[module].regs + 0x434C)
+#define CAM_REG_BPCI_R3_CON3(module)            (isp_devs[module].regs + 0x4350)
+#define CAM_REG_BPCI_R3_CON4(module)            (isp_devs[module].regs + 0x4358)
+
 #define CAM_REG_LSCI_DRS(module)                (isp_devs[module].regs + 0x4398)
 #define CAM_REG_LSCI_CON(module)                (isp_devs[module].regs + 0x43A8)
 #define CAM_REG_LSCI_CON2(module)               (isp_devs[module].regs + 0x43AC)
