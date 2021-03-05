@@ -897,6 +897,12 @@ enum ISP_HALT_DMA_ENUM {
 #define COMPAT_ISP_VF_LOG                        \
 	_IOW(ISP_MAGIC, ISP_CMD_VF_LOG, compat_uptr_t)
 
+#define COMPAT_ISP_NOTE_CQTHR0_BASE              \
+	_IOWR(ISP_MAGIC, ISP_CMD_NOTE_CQTHR0_BASE, compat_uptr_t)
+
+#define COMPAT_ISP_SET_VIR_CQCNT                 \
+	_IOWR(ISP_MAGIC, ISP_CMD_SET_VIR_CQCNT, compat_uptr_t)
+
 #define COMPAT_ISP_DUMP_BUFFER                   \
 	_IOWR(ISP_MAGIC,                         \
 	      ISP_CMD_DUMP_BUFFER,               \
