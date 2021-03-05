@@ -85,6 +85,13 @@
                 <sensitive_level>Edge</sensitive_level>
                 <debounce_en>Disable</debounce_en>
             </eint37>
+	    <eint162>
+	    <varName>RT5133_EINT</varName>
+	    <debounce_time>0</debounce_time>
+	    <polarity>Low</polarity>
+	    <sensitive_level>Level</sensitive_level>
+	    <debounce_en>Disable</debounce_en>
+	    </eint162>
         </module>
         <module name="gpio">
             <count>209</count>
@@ -1806,8 +1813,8 @@
                 <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_CAM_PMIC_IRQB_EINT_PIN</varName0>
-                <smt>false</smt>
+		<varName0>GPIO_RT5133_IRQB_EINT_PIN</varName0>
+                <smt>true</smt>
                 <ies>true</ies>
             </gpio163>
             <gpio164>
