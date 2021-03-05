@@ -51,6 +51,16 @@ struct eem_det_ops {
 	int (*eem_2_pmic)(struct eem_det *det, int eev_val);
 };
 
+struct eem_aee_volt_det {
+	unsigned int cur_entry;
+	char volt_entry[AEE_ENTRY_NUM][AEE_PER_ENTRY_LEN];
+	char dumpbuf[PTP_MEM_SIZE];
+};
+
+struct eem_aee_volt_history {
+	struct eem_aee_volt_det aee_v_det[NR_EEM_DET];
+};
+
 struct eem_phase_efuse {
 
 	unsigned int MDES:8;
@@ -160,6 +170,7 @@ struct eem_det {
 	unsigned int disabled:8; /* Disabled by error or sysfs */
 	unsigned int low_temp_off:8;
 	unsigned int high_temp_off:8;
+	unsigned int high_temp85_off:8;
 	unsigned int isTempInv:2;
 	/* unsigned int volt_policy:1; */
 	/* only when init2, eem need to set volt to upower */

@@ -93,7 +93,7 @@ enum {
 enum {
 	EEM_NORMAL_T	= 0,
 	EEM_LOW_T,
-	EEM_EXTRALOW_T,
+	EEM_MID_T,
 	EEM_HIGH_T
 };
 

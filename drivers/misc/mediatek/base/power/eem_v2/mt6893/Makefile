@@ -30,63 +30,27 @@ ccflags-y += \
 	-I$(EEM_ROOT_DIR)/mt6893/inc	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/	\
 
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6885v1_64_alpha_mcl50)
-subdir-ccflags-y += -DMT6885
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6893v1_64_120hz_mcl50)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6889v1_64_mcl50)
-subdir-ccflags-y += -DMT6889
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6891v1_64_mcl50)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6889v1_64_90hz_mcl50)
-subdir-ccflags-y += -DMT6889
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6893v1_64_mcl50)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6885v1_64_alpha_mcl50glt)
-subdir-ccflags-y += -DMT6885
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6893v1_64_144hz_vdo_mcl50)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6889v1_64_mcl50glt)
-subdir-ccflags-y += -DMT6889
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6893v1_64_cmd)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6889v1_64_90hz_mcl50glt)
-subdir-ccflags-y += -DMT6889
-subdir-ccflags-y += -DMC50_LOAD
-endif
-
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6885v1_64_r21)
-subdir-ccflags-y += -DMT6885
-subdir-ccflags-y += -DMC50_LOAD
-endif
-
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6889v1_64_r21)
-subdir-ccflags-y += -DMT6889
-subdir-ccflags-y += -DMC50_LOAD
-endif
-
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6883v1_64_mcl50)
-subdir-ccflags-y += -DMT6885
-subdir-ccflags-y += -DMC50_LOAD
-endif
-
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6883v1_64_mcl50glt)
-subdir-ccflags-y += -DMT6885
-subdir-ccflags-y += -DMC50_LOAD
-endif
-
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6889v1_64_120hz)
-subdir-ccflags-y += -DMT6889
-subdir-ccflags-y += -DMC50_LOAD
-endif
-
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6889v1_64_120hz_vdo)
-subdir-ccflags-y += -DMT6889
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6891v1_64_120hz_mcl50)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 

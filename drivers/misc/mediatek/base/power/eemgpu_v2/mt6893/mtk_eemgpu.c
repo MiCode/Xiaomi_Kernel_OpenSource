@@ -212,7 +212,7 @@ static int get_devinfo(void)
 	}
 
 
-	efuse_val = (get_devinfo_with_index(209)
+	efuse_val = (get_devinfo_with_index(72)
 		>> 21) & 0xf;
 	if (efuse_val && efuse_val <= 6)
 		gpu_vb_volt =
@@ -221,7 +221,7 @@ static int get_devinfo(void)
 		gpu_vb_volt =
 			gpu_opp0_t_volt[0];
 #ifdef MC50_LOAD
-	gpu_vb_volt = gpu_opp0_t_volt[3];
+	gpu_vb_volt = gpu_opp0_t_volt[6];
 	eemg_error("mc50 load setting\n");
 
 #endif
@@ -1036,6 +1036,9 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 
 	ndet = (det->loo_role == HIGH_BANK) ?
 		id_to_eemg_det(det->loo_couple) : det;
+
+	if (ndet == NULL)
+		return;
 #endif
 	eemg_debug("@@! In %s\n", __func__);
 	read_volt_from_VOP(det);
@@ -1351,7 +1354,7 @@ skip_update:
 static int eemg_volt_thread_handler(void *data)
 {
 	struct eemg_ctrl *ctrl = (struct eemg_ctrl *)data;
-	struct eemg_det *det = id_to_eemg_det(ctrl->det_id);
+	struct eemg_det *det;
 #ifdef CONFIG_EEMG_AEE_RR_REC
 	int temp = -1;
 #endif
@@ -1360,6 +1363,13 @@ static int eemg_volt_thread_handler(void *data)
 	/* struct eemg_det *new_det; */
 	/* unsigned int init2chk = 0; */
 #endif
+
+	if (ctrl == NULL)
+		return 0;
+
+	det = id_to_eemg_det(ctrl->det_id);
+	if (det == NULL)
+		return 0;
 
 	FUNC_ENTER(FUNC_LV_HELP);
 	do {
@@ -1603,6 +1613,9 @@ static void eemg_set_eemg_volt(struct eemg_det *det)
 #if SET_PMIC_VOLT
 	struct eemg_ctrl *ctrl = id_to_eemg_ctrl(det->ctrl_id);
 
+	if (ctrl == NULL)
+		return;
+
 	FUNC_ENTER(FUNC_LV_HELP);
 	ctrl->volt_update |= EEMG_VOLT_UPDATE;
 	dsb(sy);
@@ -1815,6 +1828,8 @@ static void read_volt_from_VOP(struct eemg_det *det)
 	/* Check both high/low bank's voltage are ready */
 	if (det->loo_role != 0) {
 		couple_det = id_to_eemg_det(det->loo_couple);
+		if (couple_det == NULL)
+			return;
 		if ((couple_det->init2_done == 0) ||
 			(couple_det->mon_vop30 == 0) ||
 			(couple_det->mon_vop74 == 0))
