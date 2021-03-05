@@ -325,8 +325,9 @@ static int inet6_fill_nora(struct sk_buff *skb, struct inet6_dev *idev,
 	unsigned int flag = 1;
 	struct in6_addr addr;
 
-	if (sysctl_optr == MTK_IPV6_VZW_ALL ||
-	    sysctl_optr == MTK_IPV6_EX_RS_INTERVAL) {
+	if ((sysctl_optr == MTK_IPV6_VZW_ALL ||
+	     sysctl_optr == MTK_IPV6_EX_RS_INTERVAL) &&
+	    (strncmp(idev->dev->name, "ccmni", 2) == 0)) {
 		/*This ifi_flags refers to the dev flag in kernel,
 		 *but hereI use it as a valid flag. When ifi_flags
 		 *is zero , it means RA refesh Fail, And When
@@ -3977,8 +3978,9 @@ static void addrconf_rs_timer(struct timer_list *t)
 				      idev->rs_interval);
 	} else {
 		inet6_no_ra_notify(RTM_DELADDR, idev);
-		if (sysctl_optr == MTK_IPV6_VZW_ALL ||
-		    sysctl_optr == MTK_IPV6_EX_RS_INTERVAL) {
+		if ((sysctl_optr == MTK_IPV6_VZW_ALL ||
+		     sysctl_optr == MTK_IPV6_EX_RS_INTERVAL) &&
+		    (strncmp(dev->name, "ccmni", 2) == 0)) {
 			/*add for VzW feature : remove IF_RS_VZW_SENT flag*/
 			if (idev->if_flags & IF_RS_VZW_SENT)
 				idev->if_flags &= ~IF_RS_VZW_SENT;
@@ -4597,8 +4599,9 @@ restart:
 			u32 min_lft;
 			struct fib6_info *rt = NULL;
 
-			if (sysctl_optr == MTK_IPV6_VZW_ALL ||
-			    sysctl_optr == MTK_IPV6_EX_RS_INTERVAL)
+			if ((sysctl_optr == MTK_IPV6_VZW_ALL ||
+			     sysctl_optr == MTK_IPV6_EX_RS_INTERVAL) &&
+			    (strncmp(ifp->idev->dev->name, "ccmni", 2) == 0))
 				rt = calc_lft_vzw(ifp, &min_lft);
 			/* When setting preferred_lft to a value not zero or
 			 * infinity, while valid_lft is infinity
@@ -4619,8 +4622,9 @@ restart:
 				ipv6_del_addr(ifp);
 				goto restart;
 			} else if (ifp->prefered_lft == INFINITY_LIFE_TIME) {
-				if (sysctl_optr == MTK_IPV6_VZW_ALL ||
-				    sysctl_optr == MTK_IPV6_EX_RS_INTERVAL) {
+				if ((sysctl_optr == MTK_IPV6_VZW_ALL ||
+				     sysctl_optr == MTK_IPV6_EX_RS_INTERVAL) &&
+				    (strncmp(ifp->idev->dev->name, "ccmni", 2) == 0)) {
 					/*Patch for VzW
 					 *prefered_lft is INFINITY scenario
 					 *ccmni interface will send RS when
@@ -4686,8 +4690,9 @@ restart:
 				/* ifp->prefered_lft <= ifp->valid_lft */
 				if (time_before(ifp->tstamp + ifp->prefered_lft * HZ, next))
 					next = ifp->tstamp + ifp->prefered_lft * HZ;
-				if (sysctl_optr == MTK_IPV6_VZW_ALL ||
-				    sysctl_optr == MTK_IPV6_EX_RS_INTERVAL) {
+				if ((sysctl_optr == MTK_IPV6_VZW_ALL ||
+				     sysctl_optr == MTK_IPV6_EX_RS_INTERVAL) &&
+				    (strncmp(ifp->idev->dev->name, "ccmni", 2) == 0)) {
 					/*patch for VzW
 					 *prefered_lft is NOT INFINITY scenario
 					 *ccmni interface will send RS when time
