@@ -2079,10 +2079,12 @@ UINT32 DSI_dcs_read_lcm_reg_v2(enum DISP_MODULE_ENUM module,
 	struct DSI_RX_DATA_REG read_data3;
 	struct DSI_T0_INS t0;
 	struct DSI_T0_INS t1;
+#if 0 // comment the IRQ method to read register
 	static const long WAIT_TIMEOUT = 2 * HZ; /* 2 sec */
 	long ret;
-	unsigned int i;
 	struct t_condition_wq *waitq;
+#endif
+	unsigned int i;
 
 	/* illegal parameters */
 	ASSERT(cmdq == NULL);
@@ -2187,6 +2189,7 @@ UINT32 DSI_dcs_read_lcm_reg_v2(enum DISP_MODULE_ENUM module,
 		DSI_OUTREG32(cmdq, &DSI_REG[d]->DSI_START, 0);
 		DSI_OUTREG32(cmdq, &DSI_REG[d]->DSI_START, 1);
 
+#if 0
 		/*
 		 * the following code is to
 		 * 1: wait read ready
@@ -2211,6 +2214,13 @@ UINT32 DSI_dcs_read_lcm_reg_v2(enum DISP_MODULE_ENUM module,
 				DSI_REG[d]->DSI_INTEN, RD_RDY, 0);
 			return 0;
 		}
+#endif
+		/* Poll the read ready register to confirm successful read */
+		DSI_POLLREG32(cmdq, &DSI_REG[d]->DSI_INTSTA, 0x00000001, 0x1);
+		DSI_OUTREGBIT(cmdq,
+			      struct DSI_INT_STATUS_REG,
+			      DSI_REG[d]->DSI_INTSTA,
+			      RD_RDY, 0x00000000);
 
 		/* read data */
 		DSI_OUTREG32(cmdq, &read_data0,
@@ -2224,6 +2234,7 @@ UINT32 DSI_dcs_read_lcm_reg_v2(enum DISP_MODULE_ENUM module,
 
 		DSI_OUTREGBIT(cmdq, struct DSI_RACK_REG,
 			DSI_REG[d]->DSI_RACK, DSI_RACK, 1);
+#if 0
 		ret = wait_event_timeout(_dsi_context[d].cmddone_wq.wq,
 			!(DSI_REG[d]->DSI_INTSTA.BUSY), WAIT_TIMEOUT);
 		if (ret == 0) {
@@ -2232,7 +2243,8 @@ UINT32 DSI_dcs_read_lcm_reg_v2(enum DISP_MODULE_ENUM module,
 			DSI_DumpRegisters(module, 2);
 			DSI_Reset(module, NULL);
 		}
-
+#endif
+		DSI_POLLREG32(cmdq, &DSI_REG[d]->DSI_INTSTA, 0x80000000, 0);
 		DISPDBG("DSI read begin i = %d --------------------\n",
 			  5 - max_try_count);
 		DISPDBG("DSI_RX_STA     : 0x%08x\n",
