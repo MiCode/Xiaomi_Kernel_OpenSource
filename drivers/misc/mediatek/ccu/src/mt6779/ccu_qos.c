@@ -15,7 +15,7 @@
 #include "ccu_qos.h"
 #include "ccu_cmn.h"
 #include "ccu_hw.h"
-static struct plist_head ccu_request_list;
+static PLIST_HEAD(ccu_request_list);
 static struct mm_qos_request pccu_i_request;
 static struct mm_qos_request pccu_g_request;
 static struct mm_qos_request pccu_o_request;
@@ -38,9 +38,6 @@ void ccu_qos_init(void)
 	mutex_lock(&ccu_qos_mutex);
 
 	LOG_DBG_MUST("ccu qos init+++");
-
-	/*Initialize request list*/
-	plist_head_init(&ccu_request_list);
 
 	/*Add request for dram input, output and single access*/
 	mm_qos_add_request(&ccu_request_list, &pccu_i_request, SMI_PORT_CCUI);
