@@ -155,6 +155,17 @@ static struct snd_soc_dai_driver mtk_dai_dsp_driver[] = {
 				.formats = MTK_I2S_FORMATS,
 			},
 	},
+	{
+		.name = "audio_task_fm_adsp_dai",
+		.id = AUDIO_TASK_FM_ADSP_ID,
+		.playback = {
+				.stream_name = "DSP_Playback_Fm_Adsp",
+				.channels_min = 1,
+				.channels_max = 2,
+				.rates = MTK_I2S_RATES,
+				.formats = MTK_I2S_FORMATS,
+			},
+	},
 };
 
 int dai_dsp_register(struct platform_device *pdev, struct mtk_base_dsp *dsp)

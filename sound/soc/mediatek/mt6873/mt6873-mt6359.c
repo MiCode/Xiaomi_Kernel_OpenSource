@@ -1119,6 +1119,13 @@ static struct snd_soc_dai_link mt6873_mt6359_dai_links[] = {
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
+	{
+		.name = "DSP_Playback_Fm_Adsp",
+		.stream_name = "DSP_Playback_Fm_Adsp",
+		.cpu_dai_name = "audio_task_fm_adsp_dai",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
 #endif
 #ifdef CONFIG_MTK_VOW_SUPPORT
 	{

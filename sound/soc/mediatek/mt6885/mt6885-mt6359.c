@@ -1098,6 +1098,13 @@ static struct snd_soc_dai_link mt6885_mt6359_dai_links[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
 	{
+		.name = "DSP_Playback_Fm_Adsp",
+		.stream_name = "DSP_Playback_Fm_Adsp",
+		.cpu_dai_name = "audio_task_fm_adsp_dai",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
+	{
 		.name = "DSP_Playback_A2DP",
 		.stream_name = "DSP_Playback_A2DP",
 		.cpu_dai_name = "audio_task_a2dp_dai",
