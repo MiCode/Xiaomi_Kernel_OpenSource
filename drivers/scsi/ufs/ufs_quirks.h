@@ -109,6 +109,14 @@ struct ufs_dev_fix {
 #define UFS_DEVICE_QUIRK_DELAY_AFTER_LPM        (1 << 11)
 
 /*
+ * MTK PATCH
+ * Some UFS device need 5ms delay in VCC off. In order to wait VCC discharged
+ * to 0V. Some device may have issue when VCC is not discharged to 0V
+ * and power up.
+ */
+#define UFS_DEVICE_QUIRK_VCC_OFF_DELAY	(1 << 29)
+
+/*
  * Some UFS memory device needs limited RPMB max rw size otherwise
  * device issue, for example, device hang, may happen in some scenarios.
  */
