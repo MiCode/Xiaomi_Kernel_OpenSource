@@ -329,13 +329,13 @@ bool dcm_armcore_is_on(void)
 	bool ret = true;
 
 	ret &= dcm_mp_cpusys_top_bus_pll_div_dcm_is_on();
-#if 0
+#ifndef CONFIG_MACH_MT6893
 	ret &= dcm_mp_cpusys_top_cpu_pll_div_0_dcm_is_on();
+#endif
 	ret &= dcm_mp_cpusys_top_cpu_pll_div_1_dcm_is_on();
 	ret &= dcm_mp_cpusys_top_cpu_pll_div_2_dcm_is_on();
 	ret &= dcm_mp_cpusys_top_cpu_pll_div_3_dcm_is_on();
 	ret &= dcm_mp_cpusys_top_cpu_pll_div_4_dcm_is_on();
-#endif
 
 	return ret;
 }
@@ -343,13 +343,13 @@ bool dcm_armcore_is_on(void)
 int dcm_armcore(int mode)
 {
 	dcm_mp_cpusys_top_bus_pll_div_dcm(mode);
-#if 0
+#ifndef CONFIG_MACH_MT6893
 	dcm_mp_cpusys_top_cpu_pll_div_0_dcm(mode);
+#endif
 	dcm_mp_cpusys_top_cpu_pll_div_1_dcm(mode);
 	dcm_mp_cpusys_top_cpu_pll_div_2_dcm(mode);
 	dcm_mp_cpusys_top_cpu_pll_div_3_dcm(mode);
 	dcm_mp_cpusys_top_cpu_pll_div_4_dcm(mode);
-#endif
 
 	return 0;
 }
@@ -445,23 +445,11 @@ int dcm_dramc_ao(int on)
 
 int dcm_ddrphy(int on)
 {
-	dcm_dramc_ch0_top5_ddrphy(on);
-	dcm_dramc_ch1_top5_ddrphy(on);
-	dcm_dramc_ch2_top5_ddrphy(on);
-	dcm_dramc_ch3_top5_ddrphy(on);
-
 	return 0;
 }
 
 int dcm_emi(int on)
 {
-	dcm_chn0_emi_chn_emi_dcm(on);
-	dcm_chn1_emi_chn_emi_dcm(on);
-	dcm_chn2_emi_chn_emi_dcm(on);
-	dcm_chn3_emi_chn_emi_dcm(on);
-	dcm_emi_emi_dcm(on);
-	dcm_sub_emi_emi_dcm(on);
-
 	return 0;
 }
 
@@ -564,7 +552,7 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .typeid = DDRPHY_DCM_TYPE,
 	 .name = "DDRPHY_DCM",
 	 .func = (DCM_FUNC) dcm_ddrphy,
-	 //.func_is_on = NULL,
+	 .func_is_on = NULL,
 	 .current_state = DDRPHY_DCM_ON,
 	 .default_state = DDRPHY_DCM_ON,
 	 .disable_refcnt = 0,
