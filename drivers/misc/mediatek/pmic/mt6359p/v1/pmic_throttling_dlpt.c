@@ -161,6 +161,10 @@ void exec_low_battery_callback(unsigned int thd)
 			low_battery_level = LOW_BATTERY_LEVEL_1;
 		else if (thd == POWER_INT2_VOLT)
 			low_battery_level = LOW_BATTERY_LEVEL_2;
+#ifdef LOW_BATTERY_PT_SETTING_V2
+		else if (thd == POWER_INT3_VOLT)
+			low_battery_level = LOW_BATTERY_LEVEL_3;
+#endif
 		g_low_battery_level = low_battery_level;
 		for (i = 0; i < ARRAY_SIZE(lbcb_tb); i++) {
 			if (lbcb_tb[i].lbcb != NULL)
@@ -205,7 +209,13 @@ void exec_low_battery_callback_ext(unsigned int thd)
 void low_battery_protect_init(void)
 {
 	int ret = 0;
+#ifdef LOW_BATTERY_PT_SETTING_V2
+	unsigned int volt_arr[4] = {3300, 3100, 2900, 2700};
 
+	ret = lbat_user_register_ext(&lbat_pt, "power throttling",
+				     volt_arr, ARRAY_SIZE(volt_arr),
+				     exec_low_battery_callback);
+#else
 	ret = lbat_user_register(&lbat_pt, "power throttling"
 			, POWER_INT0_VOLT, POWER_INT1_VOLT
 			, POWER_INT2_VOLT, exec_low_battery_callback);
@@ -213,6 +223,7 @@ void low_battery_protect_init(void)
 	ret = lbat_user_register(&lbat_pt_ext, "power throttling ext"
 		, POWER_INT0_VOLT_EXT, POWER_INT1_VOLT_EXT
 		, POWER_INT2_VOLT_EXT, exec_low_battery_callback_ext);
+#endif
 
 #if PMIC_THROTTLING_DLPT_UT
 	ret = lbat_user_register(&lbat_test1, "test1",
