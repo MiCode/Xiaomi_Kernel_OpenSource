@@ -489,7 +489,7 @@ static int vpu_init_bin(void)
 #endif
 
 	/* map vpu firmware to kernel virtual address */
-	vpu_drv->bin_va = ioremap_wc(phy_addr, phy_size);
+	vpu_drv->bin_va = vpu_vmap(phy_addr, phy_size, 0);
 	vpu_drv->bin_pa = phy_addr;
 	vpu_drv->bin_size = phy_size;
 

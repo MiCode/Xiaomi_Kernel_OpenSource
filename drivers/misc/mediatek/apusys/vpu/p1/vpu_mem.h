@@ -51,5 +51,8 @@ void vpu_iova_sync_for_cpu(struct device *dev,
 int vpu_iova_dts(struct platform_device *pdev,
 	const char *name, struct vpu_iova *i);
 
+void *vpu_vmap(phys_addr_t start, size_t size,
+	unsigned int memtype);
+
 #endif
 
