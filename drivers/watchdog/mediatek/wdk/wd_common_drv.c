@@ -414,6 +414,7 @@ void wk_cpu_update_bit_flag(int cpu, int plug_status)
 		spin_lock(&lock);
 		cpus_kick_bit |= (1 << cpu);
 		kick_bit = 0;
+		g_hang_detected = 0;
 		lasthpg_cpu = cpu;
 		lasthpg_act = plug_status;
 		lasthpg_t = sched_clock();
@@ -423,6 +424,7 @@ void wk_cpu_update_bit_flag(int cpu, int plug_status)
 		spin_lock(&lock);
 		cpus_kick_bit &= (~(1 << cpu));
 		kick_bit = 0;
+		g_hang_detected = 0;
 		lasthpg_cpu = cpu;
 		lasthpg_act = plug_status;
 		lasthpg_t = sched_clock();
@@ -539,6 +541,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 		msg_buf[5] = 'k';
 		mtk_wdt_restart(WD_TYPE_NORMAL);/* for KICK external wdt */
 		local_bit = 0;
+		g_hang_detected = 0;
 	}
 
 	kick_bit = local_bit;
