@@ -346,6 +346,7 @@ static struct rt_regmap_properties mt6660_regmap_props = {
 	.rm = mt6660_regmap,
 	.rt_regmap_mode = RT_MULTI_BYTE | RT_DBG_SPECIAL,
 	.aliases = "mt6660",
+	.rt_format = RT_BIG_ENDIAN,
 };
 
 static int mt6660_regmap_read_device(void *client,

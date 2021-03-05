@@ -515,6 +515,7 @@ static struct rt_regmap_properties rt5509_regmap_props = {
 	.rm = rt5509_regmap,
 	.rt_regmap_mode = RT_MULTI_BYTE | RT_CACHE_DISABLE | RT_DBG_SPECIAL,
 	.aliases = "rt5509",
+	.rt_format = RT_BIG_ENDIAN,
 };
 
 #if RT5509_SIMULATE_DEVICE
