@@ -1005,60 +1005,60 @@ page_owner=on loop.max_part=7";
 				method = "fhctl-mcupm";
 				armpll_ll {
 					fh-id = <0>;
-					pll-id = <999>;
+					pll-id = <0>;
 					perms = <0x18>;
 				};
 				armpll_bl0 {
 					fh-id = <1>;
-					pll-id = <999>;
+					pll-id = <1>;
 					perms = <0x18>;
 				};
 				armpll_bl1 {
 					fh-id = <2>;
-					pll-id = <999>;
+					pll-id = <2>;
 					perms = <0x18>;
 				};
 				armpll_bl2 {
 					fh-id = <3>;
-					pll-id = <999>;
+					pll-id = <3>;
 					perms = <0x18>;
 				};
 				npupll {
 					fh-id = <4>;
-					pll-id = <999>;
+					pll-id = <4>;
 				};
 				ccipll {
 					fh-id = <5>;
-					pll-id = <999>;
+					pll-id = <5>;
 					perms = <0x18>;
 				};
 				mfgpll {
 					fh-id = <6>;
-					pll-id = <999>;
+					pll-id = <6>;
 				};
 				mpll {
 					fh-id = <8>;
-					pll-id = <999>;
+					pll-id = <8>;
 				};
 				mmpll {
 					fh-id = <9>;
-					pll-id = <999>;
+					pll-id = <9>;
 				};
 				mainpll {
 					fh-id = <10>;
-					pll-id = <999>;
+					pll-id = <10>;
 				};
 				msdcpll {
 					fh-id = <11>;
-					pll-id = <999>;
+					pll-id = <11>;
 				};
 				adsppll {
 					fh-id = <12>;
-					pll-id = <999>;
+					pll-id = <12>;
 				};
 				tvdpll {
 					fh-id = <14>;
-					pll-id = <999>;
+					pll-id = <14>;
 				};
 			};
 	};

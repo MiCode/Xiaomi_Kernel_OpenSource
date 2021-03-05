@@ -521,37 +521,37 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 			armpll {
 				fh-id = <0>;
-				pll-id = <999>;
+				pll-id = <0>;
 				perms = <0x1>;
 			};
 
 			mainpll {
 				fh-id = <1>;
-				pll-id = <999>;
+				pll-id = <1>;
 				perms = <0x1C>;
 			};
 
 			msdcpll {
 				fh-id = <2>;
-				pll-id = <999>;
+				pll-id = <2>;
 				perms = <0x1C>;
 			};
 
 			mfgpll {
 				fh-id = <3>;
-				pll-id = <999>;
+				pll-id = <3>;
 			};
 
 			mempll {
 				fh-id = <4>;
-				pll-id = <999>;
+				pll-id = <4>;
 				perms = <0x1C>;
 				/* ssc-rate = <8>; */
 			};
 
 			mmpll {
 				fh-id = <5>;
-				pll-id = <999>;
+				pll-id = <5>;
 			};
 		};
 	};
