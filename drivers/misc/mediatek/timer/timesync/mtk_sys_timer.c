@@ -103,9 +103,11 @@ static int sys_timer_mbox_write(unsigned int id, unsigned int val)
 {
 	int res;
 #ifndef SSPM_V2
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	res = sspm_mbox_write(SYS_TIMER_MBOX,
 			      SYS_TIMER_MBOX_OFFSET_BASE + id,
 			      (void *)&val, 1);
+#endif
 #else
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
 	res = mcupm_mbox_write(SYS_TIMER_MCUPM_MBOX,
@@ -121,7 +123,7 @@ static int sys_timer_mbox_write(unsigned int id, unsigned int val)
 	return res;
 }
 
-#ifndef SSPM_V2
+#if !defined(SSPM_V2) && defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 static int sys_timer_mbox_read(unsigned int id, unsigned int *val)
 {
 	return sspm_mbox_read(SYS_TIMER_MBOX, id, val, 1);
@@ -192,6 +194,7 @@ static void sys_timer_timesync_update_sspm(int suspended,
 
 void sys_timer_timesync_verify_sspm(void)
 {
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	struct plt_ipi_data_s ipi_data;
 #ifndef SSPM_V2
 	int ackdata = 0;
@@ -245,6 +248,7 @@ void sys_timer_timesync_verify_sspm(void)
 		pr_info("verify-sspm:ERROR!");
 
 	sys_timer_timesync_print_base();
+#endif
 }
 
 #else
