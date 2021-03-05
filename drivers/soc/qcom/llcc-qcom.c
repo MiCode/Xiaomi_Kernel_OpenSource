@@ -626,6 +626,12 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 	drv_data->num_banks = num_banks;
 
 	cfg = of_device_get_match_data(&pdev->dev);
+	if (!cfg) {
+		dev_err(&pdev->dev, "No matching LLCC configuration found\n");
+		ret = -ENODEV;
+		goto err;
+	}
+
 	llcc_cfg = cfg->sct_data;
 	sz = cfg->size;
 
