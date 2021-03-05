@@ -47,13 +47,16 @@ struct mt6357_regulator_info {
 	u32 modeset_reg;
 	u32 modeset_mask;
 	u32 modeset_shift;
+	u32 maskirq_reg;
+	u32 maskirq_shift;
 };
 
 #define MT6357_BUCK(match, _name, min, max, step, min_sel,	\
 	volt_ranges, _enable_reg, _status_reg,			\
 	_da_vsel_reg, _da_vsel_mask, _da_vsel_shift,		\
 	_vsel_reg, _vsel_mask,					\
-	_modeset_reg, _modeset_shift)				\
+	_modeset_reg, _modeset_shift,				\
+	_maskirq_reg, _maskirq_shift)				\
 [MT6357_ID_##_name] = {						\
 	.desc = {						\
 		.name = #_name,					\
@@ -81,13 +84,16 @@ struct mt6357_regulator_info {
 	.qi = BIT(0),						\
 	.modeset_reg = _modeset_reg,				\
 	.modeset_mask = BIT(_modeset_shift),			\
-	.modeset_shift = _modeset_shift				\
+	.modeset_shift = _modeset_shift,			\
+	.maskirq_reg = _maskirq_reg,				\
+	.maskirq_shift = _maskirq_shift,			\
 }
 
 #define MT6357_LDO_LINEAR(match, _name, min, max, step, min_sel,\
 	volt_ranges, _enable_reg, _status_reg,			\
 	_da_vsel_reg, _da_vsel_mask, _da_vsel_shift,		\
-	_vsel_reg, _vsel_mask)					\
+	_vsel_reg, _vsel_mask,					\
+	_maskirq_reg, _maskirq_shift)				\
 [MT6357_ID_##_name] = {						\
 	.desc = {						\
 		.name = #_name,					\
@@ -111,12 +117,15 @@ struct mt6357_regulator_info {
 	.da_vsel_mask = _da_vsel_mask,				\
 	.da_vsel_shift = _da_vsel_shift,			\
 	.status_reg = _status_reg,				\
+	.maskirq_reg = _maskirq_reg,				\
+	.maskirq_shift = _maskirq_shift,			\
 	.qi = BIT(0),						\
 }
 
 #define MT6357_LDO(match, _name, _volt_table, _index_table,	\
 	_enable_reg, _enable_mask, _status_reg,			\
-	_vsel_reg, _vsel_mask, _vsel_shift)			\
+	_vsel_reg, _vsel_mask, _vsel_shift,			\
+	_maskirq_reg, _maskirq_shift)				\
 [MT6357_ID_##_name] = {						\
 	.desc = {						\
 		.name = #_name,					\
@@ -133,6 +142,8 @@ struct mt6357_regulator_info {
 		.enable_mask = BIT(_enable_mask),		\
 	},							\
 	.status_reg = _status_reg,				\
+	.maskirq_reg = _maskirq_reg,				\
+	.maskirq_shift = _maskirq_shift,			\
 	.qi = BIT(15),						\
 	.index_table = _index_table,				\
 	.n_table = ARRAY_SIZE(_index_table),			\
@@ -140,7 +151,8 @@ struct mt6357_regulator_info {
 }
 
 #define MT6357_REG_FIXED(match, _name, _enable_reg,	\
-	_status_reg, _fixed_volt)			\
+	_status_reg, _fixed_volt,			\
+	_maskirq_reg, _maskirq_shift)			\
 [MT6357_ID_##_name] = {					\
 	.desc = {					\
 		.name = #_name,				\
@@ -155,11 +167,14 @@ struct mt6357_regulator_info {
 		.fixed_uV = (_fixed_volt),		\
 	},						\
 	.status_reg = _status_reg,			\
+	.maskirq_reg = _maskirq_reg,			\
+	.maskirq_shift = _maskirq_shift,		\
 	.qi = BIT(15),					\
 }
 
 #define MT6357_LDO_VMC_DESC(match, _name, volt_ranges,	\
-	_enable_reg, _status_reg, _vsel_reg, _vsel_mask)\
+	_enable_reg, _status_reg, _vsel_reg, _vsel_mask,\
+	_maskirq_reg, _maskirq_shift)			\
 [MT6357_ID_##_name] = {					\
 	.desc = {					\
 		.name = #_name,				\
@@ -177,6 +192,8 @@ struct mt6357_regulator_info {
 		.enable_mask = BIT(0),			\
 	},						\
 	.status_reg = _status_reg,			\
+	.maskirq_reg = _maskirq_reg,			\
+	.maskirq_shift = _maskirq_shift,		\
 	.qi = BIT(15),					\
 }
 
@@ -319,16 +336,36 @@ static const u32 vusb33_idx[] = {
 	3, 4,
 };
 
+static int mt6357_regulator_enable(struct regulator_dev *rdev)
+{
+	struct mt6357_regulator_info *info = rdev_get_drvdata(rdev);
+	int ret = 0, ret2 = 0;
+
+	ret = regulator_enable_regmap(rdev);
+	/* Unmask oc irq after enable regulator */
+	ret2 = regmap_update_bits(rdev->regmap, info->maskirq_reg,
+				 0x1 << info->maskirq_shift,
+				 0 << info->maskirq_shift);
+
+	return ret;
+}
+
 static int mt6357_regulator_disable(struct regulator_dev *rdev)
 {
+	struct mt6357_regulator_info *info = rdev_get_drvdata(rdev);
 	int ret = 0;
 
 	if (rdev->use_count == 0) {
 		dev_notice(&rdev->dev, "%s:%s should not be disable.(use_count=0)\n"
 			   , __func__, rdev->desc->name);
 		ret = -EIO;
-	} else
+	} else {
+		/* Mask oc irq before disable regulator */
+		ret = regmap_update_bits(rdev->regmap, info->maskirq_reg,
+					 0x1 << info->maskirq_shift,
+					 0x1 << info->maskirq_shift);
 		ret = regulator_disable_regmap(rdev);
+	}
 
 	return ret;
 }
@@ -477,7 +514,7 @@ static const struct regulator_ops mt6357_volt_range_ops = {
 	.set_voltage_sel = regulator_set_voltage_sel_regmap,
 	.get_voltage_sel = mt6357_get_linear_voltage_sel,
 	.set_voltage_time_sel = regulator_set_voltage_time_sel,
-	.enable = regulator_enable_regmap,
+	.enable = mt6357_regulator_enable,
 	.disable = mt6357_regulator_disable,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = mt6357_get_status,
@@ -491,14 +528,14 @@ static const struct regulator_ops mt6357_volt_table_ops = {
 	.set_voltage_sel = mt6357_set_voltage_sel,
 	.get_voltage_sel = mt6357_get_voltage_sel,
 	.set_voltage_time_sel = regulator_set_voltage_time_sel,
-	.enable = regulator_enable_regmap,
+	.enable = mt6357_regulator_enable,
 	.disable = mt6357_regulator_disable,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = mt6357_get_status,
 };
 
 static const struct regulator_ops mt6357_volt_fixed_ops = {
-	.enable = regulator_enable_regmap,
+	.enable = mt6357_regulator_enable,
 	.disable = mt6357_regulator_disable,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = mt6357_get_status,
@@ -506,7 +543,7 @@ static const struct regulator_ops mt6357_volt_fixed_ops = {
 
 static const struct regulator_ops mt6357_vmc_ops = {
 	.list_voltage = regulator_list_voltage_linear_range,
-	.enable = regulator_enable_regmap,
+	.enable = mt6357_regulator_enable,
 	.disable = mt6357_regulator_disable,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = mt6357_get_status,
@@ -524,7 +561,8 @@ static struct mt6357_regulator_info mt6357_regulators[] = {
 		    MT6357_RG_BUCK_VS1_VOSEL_ADDR,
 		    MT6357_RG_BUCK_VS1_VOSEL_MASK <<
 		    MT6357_RG_BUCK_VS1_VOSEL_SHIFT,
-		    MT6357_RG_VS1_MODESET_ADDR, MT6357_RG_VS1_MODESET_SHIFT),
+		    MT6357_RG_VS1_MODESET_ADDR, MT6357_RG_VS1_MODESET_SHIFT,
+		    MT6357_RG_INT_MASK_VS1_OC_ADDR, MT6357_RG_INT_MASK_VS1_OC_SHIFT),
 	MT6357_BUCK("buck_vmodem", VMODEM, 500000, 1193750, 6250, 0,
 		    mt_volt_range1, MT6357_RG_BUCK_VMODEM_EN_ADDR,
 		    MT6357_DA_VMODEM_EN_ADDR, MT6357_DA_VMODEM_VOSEL_ADDR,
@@ -532,7 +570,8 @@ static struct mt6357_regulator_info mt6357_regulators[] = {
 		    MT6357_RG_BUCK_VMODEM_VOSEL_ADDR,
 		    MT6357_RG_BUCK_VMODEM_VOSEL_MASK <<
 		    MT6357_RG_BUCK_VMODEM_VOSEL_SHIFT,
-		    MT6357_RG_VMODEM_FPWM_ADDR, MT6357_RG_VMODEM_FPWM_SHIFT),
+		    MT6357_RG_VMODEM_FPWM_ADDR, MT6357_RG_VMODEM_FPWM_SHIFT,
+		    MT6357_RG_INT_MASK_VMODEM_OC_ADDR, MT6357_RG_INT_MASK_VMODEM_OC_SHIFT),
 	MT6357_BUCK("buck_vcore", VCORE, 518750, 1312500, 6250, 0,
 		    mt_volt_range2, MT6357_RG_BUCK_VCORE_EN_ADDR,
 		    MT6357_DA_VCORE_EN_ADDR, MT6357_DA_VCORE_VOSEL_ADDR,
@@ -540,7 +579,8 @@ static struct mt6357_regulator_info mt6357_regulators[] = {
 		    MT6357_RG_BUCK_VCORE_VOSEL_ADDR,
 		    MT6357_RG_BUCK_VCORE_VOSEL_MASK <<
 		    MT6357_RG_BUCK_VCORE_VOSEL_SHIFT,
-		    MT6357_RG_VCORE_FPWM_ADDR, MT6357_RG_VCORE_FPWM_SHIFT),
+		    MT6357_RG_VCORE_FPWM_ADDR, MT6357_RG_VCORE_FPWM_SHIFT,
+		    MT6357_RG_INT_MASK_VCORE_OC_ADDR, MT6357_RG_INT_MASK_VCORE_OC_SHIFT),
 	MT6357_BUCK("buck_vproc", VPROC, 518750, 1312500, 6250, 0,
 		    mt_volt_range2, MT6357_RG_BUCK_VPROC_EN_ADDR,
 		    MT6357_DA_VPROC_EN_ADDR, MT6357_DA_VPROC_VOSEL_ADDR,
@@ -548,7 +588,8 @@ static struct mt6357_regulator_info mt6357_regulators[] = {
 		    MT6357_RG_BUCK_VPROC_VOSEL_ADDR,
 		    MT6357_RG_BUCK_VPROC_VOSEL_MASK <<
 		    MT6357_RG_BUCK_VPROC_VOSEL_SHIFT,
-		    MT6357_RG_VPROC_FPWM_ADDR, MT6357_RG_VPROC_FPWM_SHIFT),
+		    MT6357_RG_VPROC_FPWM_ADDR, MT6357_RG_VPROC_FPWM_SHIFT,
+		    MT6357_RG_INT_MASK_VPROC_OC_ADDR, MT6357_RG_INT_MASK_VPROC_OC_SHIFT),
 	MT6357_BUCK("buck_vpa", VPA, 500000, 3650000, 50000, 0,
 		    mt_volt_range4, MT6357_RG_BUCK_VPA_EN_ADDR,
 		    MT6357_DA_VPA_EN_ADDR, MT6357_DA_VPA_VOSEL_ADDR,
@@ -556,31 +597,38 @@ static struct mt6357_regulator_info mt6357_regulators[] = {
 		    MT6357_RG_BUCK_VPA_VOSEL_ADDR,
 		    MT6357_RG_BUCK_VPA_VOSEL_MASK <<
 		    MT6357_RG_BUCK_VPA_VOSEL_SHIFT,
-		    MT6357_RG_VPA_MODESET_ADDR, MT6357_RG_VPA_MODESET_SHIFT),
+		    MT6357_RG_VPA_MODESET_ADDR, MT6357_RG_VPA_MODESET_SHIFT,
+		    MT6357_RG_INT_MASK_VPA_OC_ADDR, MT6357_RG_INT_MASK_VPA_OC_SHIFT),
 	MT6357_REG_FIXED("ldo_vfe28", VFE28, MT6357_RG_LDO_VFE28_EN_ADDR,
-			 MT6357_DA_VFE28_EN_ADDR, 2800000),
+			 MT6357_DA_VFE28_EN_ADDR, 2800000,
+			 MT6357_RG_INT_MASK_VFE28_OC_ADDR, MT6357_RG_INT_MASK_VFE28_OC_SHIFT),
 	MT6357_LDO("ldo_vxo22", VXO22, vxo22_voltages, vxo22_idx,
 		   MT6357_RG_LDO_VXO22_EN_ADDR, MT6357_RG_LDO_VXO22_EN_SHIFT,
 		   MT6357_DA_VXO22_EN_ADDR, MT6357_RG_VXO22_VOSEL_ADDR,
 		   MT6357_RG_VXO22_VOSEL_MASK << MT6357_RG_VXO22_VOSEL_SHIFT,
-		   MT6357_RG_VXO22_VOSEL_SHIFT),
+		   MT6357_RG_VXO22_VOSEL_SHIFT,
+		   MT6357_RG_INT_MASK_VXO22_OC_ADDR, MT6357_RG_INT_MASK_VXO22_OC_SHIFT),
 	MT6357_REG_FIXED("ldo_vrf18", VRF18, MT6357_RG_LDO_VRF18_EN_ADDR,
-			 MT6357_DA_VRF18_EN_ADDR, 1800000),
+			 MT6357_DA_VRF18_EN_ADDR, 1800000,
+			 MT6357_RG_INT_MASK_VRF18_OC_ADDR, MT6357_RG_INT_MASK_VRF18_OC_SHIFT),
 	MT6357_REG_FIXED("ldo_vrf12", VRF12, MT6357_RG_LDO_VRF12_EN_ADDR,
-			 MT6357_DA_VRF12_EN_ADDR, 1200000),
+			 MT6357_DA_VRF12_EN_ADDR, 1200000,
+			 MT6357_RG_INT_MASK_VRF12_OC_ADDR, MT6357_RG_INT_MASK_VRF12_OC_SHIFT),
 	MT6357_LDO("ldo_vefuse", VEFUSE, vefuse_voltages, vefuse_idx,
 		   MT6357_RG_LDO_VEFUSE_EN_ADDR, MT6357_RG_LDO_VEFUSE_EN_SHIFT,
 		   MT6357_DA_VEFUSE_EN_ADDR, MT6357_RG_VEFUSE_VOSEL_ADDR,
 		   MT6357_RG_VEFUSE_VOSEL_MASK <<
 		   MT6357_RG_VEFUSE_VOSEL_SHIFT,
-		   MT6357_RG_VEFUSE_VOSEL_SHIFT),
+		   MT6357_RG_VEFUSE_VOSEL_SHIFT,
+		   MT6357_RG_INT_MASK_VEFUSE_OC_ADDR, MT6357_RG_INT_MASK_VEFUSE_OC_SHIFT),
 	MT6357_LDO("ldo_vcn33_bt", VCN33_BT, vcn33_bt_voltages, vcn33_bt_idx,
 		   MT6357_RG_LDO_VCN33_EN_0_ADDR,
 		   MT6357_RG_LDO_VCN33_EN_0_SHIFT,
 		   MT6357_DA_VCN33_EN_ADDR, MT6357_RG_VCN33_VOSEL_ADDR,
 		   MT6357_RG_VCN33_VOSEL_MASK <<
 		   MT6357_RG_VCN33_VOSEL_SHIFT,
-		   MT6357_RG_VCN33_VOSEL_SHIFT),
+		   MT6357_RG_VCN33_VOSEL_SHIFT,
+		   MT6357_RG_INT_MASK_VCN33_OC_ADDR, MT6357_RG_INT_MASK_VCN33_OC_SHIFT),
 	MT6357_LDO("ldo_vcn33_wifi", VCN33_WIFI, vcn33_wifi_voltages,
 		   vcn33_wifi_idx, MT6357_RG_LDO_VCN33_EN_1_ADDR,
 		   MT6357_RG_LDO_VCN33_EN_1_SHIFT,
@@ -588,29 +636,36 @@ static struct mt6357_regulator_info mt6357_regulators[] = {
 		   MT6357_RG_VCN33_VOSEL_ADDR,
 		   MT6357_RG_VCN33_VOSEL_MASK <<
 		   MT6357_RG_VCN33_VOSEL_SHIFT,
-		   MT6357_RG_VCN33_VOSEL_SHIFT),
+		   MT6357_RG_VCN33_VOSEL_SHIFT,
+		   MT6357_RG_INT_MASK_VCN33_OC_ADDR, MT6357_RG_INT_MASK_VCN33_OC_SHIFT),
 	MT6357_REG_FIXED("ldo_vcn28", VCN28, MT6357_RG_LDO_VCN28_EN_ADDR,
-			 MT6357_DA_VCN28_EN_ADDR, 2800000),
+			 MT6357_DA_VCN28_EN_ADDR, 2800000,
+			 MT6357_RG_INT_MASK_VCN28_OC_ADDR, MT6357_RG_INT_MASK_VCN28_OC_SHIFT),
 	MT6357_REG_FIXED("ldo_vcn18", VCN18, MT6357_RG_LDO_VCN18_EN_ADDR,
-			 MT6357_DA_VCN18_EN_ADDR, 1800000),
+			 MT6357_DA_VCN18_EN_ADDR, 1800000,
+			 MT6357_RG_INT_MASK_VCN18_OC_ADDR, MT6357_RG_INT_MASK_VCN18_OC_SHIFT),
 	MT6357_LDO("ldo_vcama", VCAMA, vcama_voltages, vcama_idx,
 		   MT6357_RG_LDO_VCAMA_EN_ADDR, MT6357_RG_LDO_VCAMA_EN_SHIFT,
 		   MT6357_DA_VCAMA_EN_ADDR, MT6357_RG_VCAMA_VOSEL_ADDR,
 		   MT6357_RG_VCAMA_VOSEL_MASK << MT6357_RG_VCAMA_VOSEL_SHIFT,
-		   MT6357_RG_VCAMA_VOSEL_SHIFT),
+		   MT6357_RG_VCAMA_VOSEL_SHIFT,
+		   MT6357_RG_INT_MASK_VCAMA_OC_ADDR, MT6357_RG_INT_MASK_VCAMA_OC_SHIFT),
 	MT6357_LDO("ldo_vcamd", VCAMD, vcamd_voltages, vcamd_idx,
 		   MT6357_RG_LDO_VCAMD_EN_ADDR, MT6357_RG_LDO_VCAMD_EN_SHIFT,
 		   MT6357_DA_VCAMD_EN_ADDR, MT6357_RG_VCAMD_VOSEL_ADDR,
 		   MT6357_RG_VCAMD_VOSEL_MASK << MT6357_RG_VCAMD_VOSEL_SHIFT,
-		   MT6357_RG_VCAMD_VOSEL_SHIFT),
+		   MT6357_RG_VCAMD_VOSEL_SHIFT,
+		   MT6357_RG_INT_MASK_VCAMD_OC_ADDR, MT6357_RG_INT_MASK_VCAMD_OC_SHIFT),
 	MT6357_REG_FIXED("ldo_vcamio", VCAMIO, MT6357_RG_LDO_VCAMIO_EN_ADDR,
-			 MT6357_DA_VCAMIO_EN_ADDR, 1800000),
+			 MT6357_DA_VCAMIO_EN_ADDR, 1800000,
+			 MT6357_RG_INT_MASK_VCAMIO_OC_ADDR, MT6357_RG_INT_MASK_VCAMIO_OC_SHIFT),
 	MT6357_LDO("ldo_vldo28", VLDO28, vldo28_voltages, vldo28_idx,
 		   MT6357_RG_LDO_VLDO28_EN_0_ADDR,
 		   MT6357_RG_LDO_VLDO28_EN_1_SHIFT,
 		   MT6357_DA_VLDO28_EN_ADDR, MT6357_RG_VLDO28_VOSEL_ADDR,
 		   MT6357_RG_VLDO28_VOSEL_MASK << MT6357_RG_VLDO28_VOSEL_SHIFT,
-		   MT6357_RG_VLDO28_VOSEL_SHIFT),
+		   MT6357_RG_VLDO28_VOSEL_SHIFT,
+		   MT6357_RG_INT_MASK_VLDO28_OC_ADDR, MT6357_RG_INT_MASK_VLDO28_OC_SHIFT),
 	MT6357_LDO_LINEAR("ldo_vsram_others", VSRAM_OTHERS, 518750, 1312500,
 			  6250, 0, mt_volt_range2,
 			  MT6357_RG_LDO_VSRAM_OTHERS_EN_ADDR,
@@ -620,7 +675,9 @@ static struct mt6357_regulator_info mt6357_regulators[] = {
 			  MT6357_DA_VSRAM_OTHERS_VOSEL_SHIFT,
 			  MT6357_RG_LDO_VSRAM_OTHERS_VOSEL_ADDR,
 			  MT6357_RG_LDO_VSRAM_OTHERS_VOSEL_MASK <<
-			  MT6357_RG_LDO_VSRAM_OTHERS_VOSEL_SHIFT),
+			  MT6357_RG_LDO_VSRAM_OTHERS_VOSEL_SHIFT,
+			  MT6357_RG_INT_MASK_VSRAM_OTHERS_OC_ADDR,
+			  MT6357_RG_INT_MASK_VSRAM_OTHERS_OC_SHIFT),
 	MT6357_LDO_LINEAR("ldo_vsram_proc", VSRAM_PROC, 518750, 1312500, 6250,
 			  0, mt_volt_range2, MT6357_RG_LDO_VSRAM_PROC_EN_ADDR,
 			  MT6357_DA_VSRAM_PROC_EN_ADDR,
@@ -629,53 +686,67 @@ static struct mt6357_regulator_info mt6357_regulators[] = {
 			  MT6357_DA_VSRAM_PROC_VOSEL_SHIFT,
 			  MT6357_RG_LDO_VSRAM_PROC_VOSEL_ADDR,
 			  MT6357_RG_LDO_VSRAM_PROC_VOSEL_MASK <<
-			  MT6357_RG_LDO_VSRAM_PROC_VOSEL_SHIFT),
+			  MT6357_RG_LDO_VSRAM_PROC_VOSEL_SHIFT,
+			  MT6357_RG_INT_MASK_VSRAM_PROC_OC_ADDR,
+			  MT6357_RG_INT_MASK_VSRAM_PROC_OC_SHIFT),
 	MT6357_REG_FIXED("ldo_vaux18", VAUX18, MT6357_RG_LDO_VAUX18_EN_ADDR,
-			 MT6357_DA_VAUX18_EN_ADDR, 1800000),
+			 MT6357_DA_VAUX18_EN_ADDR, 1800000,
+			 MT6357_RG_INT_MASK_VAUX18_OC_ADDR, MT6357_RG_INT_MASK_VAUX18_OC_SHIFT),
 	MT6357_REG_FIXED("ldo_vaud28", VAUD28, MT6357_RG_LDO_VAUD28_EN_ADDR,
-			 MT6357_DA_VAUD28_EN_ADDR, 2800000),
+			 MT6357_DA_VAUD28_EN_ADDR, 2800000,
+			 MT6357_RG_INT_MASK_VAUD28_OC_ADDR, MT6357_RG_INT_MASK_VAUD28_OC_SHIFT),
 	MT6357_REG_FIXED("ldo_vio28", VIO28, MT6357_RG_LDO_VIO28_EN_ADDR,
-			 MT6357_DA_VIO28_EN_ADDR, 2800000),
+			 MT6357_DA_VIO28_EN_ADDR, 2800000,
+			 MT6357_RG_INT_MASK_VIO28_OC_ADDR, MT6357_RG_INT_MASK_VIO28_OC_SHIFT),
 	MT6357_REG_FIXED("ldo_vio18", VIO18, MT6357_RG_LDO_VIO18_EN_ADDR,
-			 MT6357_DA_VIO18_EN_ADDR, 1800000),
+			 MT6357_DA_VIO18_EN_ADDR, 1800000,
+			 MT6357_RG_INT_MASK_VIO18_OC_ADDR, MT6357_RG_INT_MASK_VIO18_OC_SHIFT),
 	MT6357_LDO("ldo_vdram", VDRAM, vdram_voltages, vdram_idx,
 		   MT6357_RG_LDO_VDRAM_EN_ADDR, MT6357_RG_LDO_VDRAM_EN_SHIFT,
 		   MT6357_DA_VDRAM_EN_ADDR, MT6357_RG_VDRAM_VOSEL_ADDR,
 		   MT6357_RG_VDRAM_VOSEL_MASK << MT6357_RG_VDRAM_VOSEL_SHIFT,
-		   MT6357_RG_VDRAM_VOSEL_SHIFT),
+		   MT6357_RG_VDRAM_VOSEL_SHIFT,
+		   MT6357_RG_INT_MASK_VDRAM_OC_ADDR, MT6357_RG_INT_MASK_VDRAM_OC_SHIFT),
 	MT6357_LDO_VMC_DESC("ldo_vmc", VMC, mt_volt_range5, MT6357_RG_LDO_VMC_EN_ADDR,
-			    MT6357_DA_VMC_EN_ADDR, MT6357_RG_VMC_VOSEL_ADDR, 0xFFF),
+			    MT6357_DA_VMC_EN_ADDR, MT6357_RG_VMC_VOSEL_ADDR, 0xFFF,
+			    MT6357_RG_INT_MASK_VMC_OC_ADDR, MT6357_RG_INT_MASK_VMC_OC_SHIFT),
 	MT6357_LDO("ldo_vmch", VMCH, vmch_voltages, vmch_idx,
 		   MT6357_RG_LDO_VMCH_EN_ADDR, MT6357_RG_LDO_VMCH_EN_SHIFT,
 		   MT6357_DA_VMCH_EN_ADDR, MT6357_RG_VMCH_VOSEL_ADDR,
 		   MT6357_RG_VMCH_VOSEL_MASK << MT6357_RG_VMCH_VOSEL_SHIFT,
-		   MT6357_RG_VMCH_VOSEL_SHIFT),
+		   MT6357_RG_VMCH_VOSEL_SHIFT,
+		   MT6357_RG_INT_MASK_VMCH_OC_ADDR, MT6357_RG_INT_MASK_VMCH_OC_SHIFT),
 	MT6357_LDO("ldo_vemc", VEMC, vemc_voltages, vemc_idx,
 		   MT6357_RG_LDO_VEMC_EN_ADDR, MT6357_RG_LDO_VEMC_EN_SHIFT,
 		   MT6357_DA_VEMC_EN_ADDR, MT6357_RG_VEMC_VOSEL_ADDR,
 		   MT6357_RG_VEMC_VOSEL_MASK << MT6357_RG_VEMC_VOSEL_SHIFT,
-		   MT6357_RG_VEMC_VOSEL_SHIFT),
+		   MT6357_RG_VEMC_VOSEL_SHIFT,
+		   MT6357_RG_INT_MASK_VEMC_OC_ADDR, MT6357_RG_INT_MASK_VEMC_OC_SHIFT),
 	MT6357_LDO("ldo_vsim1", VSIM1, vsim1_voltages, vsim1_idx,
 		   MT6357_RG_LDO_VSIM1_EN_ADDR, MT6357_RG_LDO_VSIM1_EN_SHIFT,
 		   MT6357_DA_VSIM1_EN_ADDR, MT6357_RG_VSIM1_VOSEL_ADDR,
 		   MT6357_RG_VSIM1_VOSEL_MASK << MT6357_RG_VSIM1_VOSEL_SHIFT,
-		   MT6357_RG_VSIM1_VOSEL_SHIFT),
+		   MT6357_RG_VSIM1_VOSEL_SHIFT,
+		   MT6357_RG_INT_MASK_VSIM1_OC_ADDR, MT6357_RG_INT_MASK_VSIM1_OC_SHIFT),
 	MT6357_LDO("ldo_vsim2", VSIM2, vsim2_voltages, vsim2_idx,
 		   MT6357_RG_LDO_VSIM2_EN_ADDR, MT6357_RG_LDO_VSIM2_EN_SHIFT,
 		   MT6357_DA_VSIM2_EN_ADDR, MT6357_RG_VSIM2_VOSEL_ADDR,
 		   MT6357_RG_VSIM2_VOSEL_MASK << MT6357_RG_VSIM2_VOSEL_SHIFT,
-		   MT6357_RG_VSIM2_VOSEL_SHIFT),
+		   MT6357_RG_VSIM2_VOSEL_SHIFT,
+		   MT6357_RG_INT_MASK_VSIM2_OC_ADDR, MT6357_RG_INT_MASK_VSIM2_OC_SHIFT),
 	MT6357_LDO("ldo_vibr", VIBR, vibr_voltages, vibr_idx,
 		   MT6357_RG_LDO_VIBR_EN_ADDR, MT6357_RG_LDO_VIBR_EN_SHIFT,
 		   MT6357_DA_VIBR_EN_ADDR, MT6357_RG_VIBR_VOSEL_ADDR,
 		   MT6357_RG_VIBR_VOSEL_MASK << MT6357_RG_VIBR_VOSEL_SHIFT,
-		   MT6357_RG_VIBR_VOSEL_SHIFT),
+		   MT6357_RG_VIBR_VOSEL_SHIFT,
+		   MT6357_RG_INT_MASK_VIBR_OC_ADDR, MT6357_RG_INT_MASK_VIBR_OC_SHIFT),
 	MT6357_LDO("ldo_vusb33", VUSB33, vusb33_voltages, vusb33_idx,
 		   MT6357_RG_LDO_VUSB33_EN_0_ADDR,
 		   MT6357_RG_LDO_VUSB33_EN_0_SHIFT,
 		   MT6357_DA_VUSB33_EN_ADDR, MT6357_RG_VUSB33_VOSEL_ADDR,
 		   MT6357_RG_VUSB33_VOSEL_MASK << MT6357_RG_VUSB33_VOSEL_SHIFT,
-		   MT6357_RG_VUSB33_VOSEL_SHIFT),
+		   MT6357_RG_VUSB33_VOSEL_SHIFT,
+		   MT6357_RG_INT_MASK_VUSB33_OC_ADDR, MT6357_RG_INT_MASK_VUSB33_OC_SHIFT),
 };
 
 static unsigned int is_mt6357_pmic_mrv(struct regmap *regmap)
