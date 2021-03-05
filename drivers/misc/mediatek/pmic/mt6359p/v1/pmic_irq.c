@@ -149,10 +149,14 @@ void PMIC_EINT_SETTING(struct platform_device *pdev)
 {
 	int ret = 0;
 
+#if defined(CONFIG_MACH_MT6877)
+	/* Keep VIO18_PG/OC original setting */
+#else
 	/* MT6359 disable VIO18_PG/OC to debug VIO18 OC, must check!! */
 	pmic_set_register_value(PMIC_RG_LDO_VIO18_OCFB_EN, 0x0);
 	pmic_set_register_value(PMIC_RG_STRUP_VIO18_PG_ENB, 0x1);
 	pmic_set_register_value(PMIC_RG_STRUP_VIO18_OC_ENB, 0x1);
+#endif
 	/* MT6359 set VIO18 OC de-bounce to 120us */
 	pmic_set_register_value(PMIC_RG_LDO_VIO18_OC_TSEL, 0x1);
 
