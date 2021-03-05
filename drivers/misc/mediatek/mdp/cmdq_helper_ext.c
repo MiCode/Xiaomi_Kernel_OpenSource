@@ -4832,9 +4832,12 @@ void cmdq_core_dump_active(void)
 			break;
 
 		CMDQ_LOG(
-			"[warn] waiting task %u cost time:%lluus submit:%llu enging:%#llx caller:%llu-%s\n",
+			"[warn] waiting task %u cost time:%lluus submit:%llu enging:%#llx thd:%d caller:%llu-%s sec:%s handle:%p\n",
 			idx, cost, task->submit, task->engineFlag,
-			(u64)task->caller_pid, task->caller_name);
+			task->thread,
+			(u64)task->caller_pid, task->caller_name,
+			task->secData.is_secure ? "true" : "false",
+			task);
 		idx++;
 	}
 	mutex_unlock(&cmdq_handle_list_mutex);
