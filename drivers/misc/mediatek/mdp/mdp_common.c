@@ -2559,12 +2559,12 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 					pmqos_list_record->mdp_throughput;
 			}
 			CMDQ_LOG_PMQOS(
-				"list[%d] mdp %d pixel %d byte, isp %d pixel %d byte, submit %06ld us end %06ld us, max_tput %d total_pixel %d (%d %d)\n",
+				"list[%d] mdp %u pixel %u byte, isp %u pixel %u byte, submit %06ld us end %06ld us, max_tput %u total_pixel %u (%d %d)\n",
 				i,
-				mdp_list_pmqos->mdp_total_datasize,
 				mdp_list_pmqos->mdp_total_pixel,
-				mdp_list_pmqos->isp_total_datasize,
+				mdp_list_pmqos->mdp_total_datasize,
 				mdp_list_pmqos->isp_total_pixel,
+				mdp_list_pmqos->isp_total_datasize,
 				pmqos_list_record->submit_tm.tv_usec,
 				pmqos_list_record->end_tm.tv_usec,
 				max_throughput, total_pixel,
