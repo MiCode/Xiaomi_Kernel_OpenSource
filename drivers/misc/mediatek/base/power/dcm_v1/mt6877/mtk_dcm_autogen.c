@@ -257,12 +257,9 @@ void dcm_infracfg_ao_peri_bus_dcm(int on)
 	}
 }
 
-#define INFRACFG_AO_PERI_MODULE_DCM_REG0_MASK ((0x1 << 29) | \
-			(0x1 << 31))
-#define INFRACFG_AO_PERI_MODULE_DCM_REG0_ON ((0x1 << 29) | \
-			(0x1 << 31))
-#define INFRACFG_AO_PERI_MODULE_DCM_REG0_OFF ((0x0 << 29) | \
-			(0x0 << 31))
+#define INFRACFG_AO_PERI_MODULE_DCM_REG0_MASK (0x1 << 29)
+#define INFRACFG_AO_PERI_MODULE_DCM_REG0_ON (0x1 << 29)
+#define INFRACFG_AO_PERI_MODULE_DCM_REG0_OFF (0x0 << 29)
 
 bool dcm_infracfg_ao_peri_module_dcm_is_on(void)
 {
