@@ -11,19 +11,25 @@
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
 
-# SW ReadyGo, mt6877 belongs to mt6853 family
+# SW ReadyGo, need to include mt6877/ prior to mt6853/ if mt6877/ exists
+ifeq ($(CONFIG_MACH_MT6877),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/mt6877/inc/mach/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6877/include/mach/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/mt6877/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dbgtop/mt6877/
+endif
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/gpufreq_v1/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/leakage_table_v2/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)/inc/mach/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/$(CONFIG_MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/ged/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dbgtop/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/dbgtop/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/
 
 ccflags-y += -Wno-unused-variable

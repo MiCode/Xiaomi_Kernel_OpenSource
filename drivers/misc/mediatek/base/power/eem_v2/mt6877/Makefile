@@ -40,6 +40,10 @@ obj-y += mtk_eem_platform.o
 obj-y += mtk_eem_internal.o
 obj-y += mtk_eem_api.o
 
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6877v1_64_mcl)
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
 ifeq ($(CONFIG_MTK_BASE_POWER), y)
 obj-y += mtk_picachu.o
 endif

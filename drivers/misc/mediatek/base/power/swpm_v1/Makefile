@@ -37,6 +37,10 @@ else ifeq ($(CONFIG_MACH_MT6893), y)
 ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/base/power/swpm_v1/mt6893/
 	obj-y += $(subst ",,mt6893)/
+else ifeq ($(CONFIG_MACH_MT6877), y)
+ccflags-y += \
+	-I$(srctree)/drivers/misc/mediatek/base/power/swpm_v1/mt6877/
+	obj-y += $(subst ",,mt6877)/
 else
 ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/base/power/swpm_v1/$(CONFIG_MTK_PLATFORM)/

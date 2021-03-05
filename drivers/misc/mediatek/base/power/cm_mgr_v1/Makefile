@@ -78,8 +78,13 @@ ifeq ($(CONFIG_MACH_MT6833),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/cm_mgr_v1/mt6833
 obj-y += mt6833/
 else
+ifeq ($(CONFIG_MACH_MT6877),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/cm_mgr_v1/mt6877
+obj-y += mt6877/
+else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/cm_mgr_v1/$(CONFIG_MTK_PLATFORM)
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+endif
 endif
 endif
 
