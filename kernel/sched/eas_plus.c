@@ -1122,11 +1122,11 @@ static int find_energy_efficient_cpu_enhanced(struct task_struct *p,
 	unsigned long prev_energy = 0;
 	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX;
 	int max_spare_cap_cpu_ls = prev_cpu;
-	unsigned long max_spare_cap_ls = 0, target_cap;
-	unsigned long sys_max_spare_cap = 0;
-	unsigned long cpu_cap, util, wake_util;
+	long max_spare_cap_ls = LONG_MIN;
+	unsigned long target_cap, cpu_cap, util, wake_util;
 	bool boosted, prefer_idle = false;
 	unsigned int min_exit_lat = UINT_MAX;
+	long sys_max_spare_cap = LONG_MIN;
 	int sys_max_spare_cap_cpu = -1;
 	int best_energy_cpu = prev_cpu;
 	struct cpuidle_state *idle;
@@ -1154,8 +1154,8 @@ static int find_energy_efficient_cpu_enhanced(struct task_struct *p,
 	sg = sd->groups;
 	do {
 		unsigned long cur_energy = 0, cur_delta = 0;
-		unsigned long spare_cap, max_spare_cap = 0;
 		unsigned long base_energy_sg;
+		long spare_cap, max_spare_cap = LONG_MIN;
 		int max_spare_cap_cpu = -1, best_idle_cpu = -1;
 		int cpu;
 
