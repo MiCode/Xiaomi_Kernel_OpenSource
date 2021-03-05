@@ -515,7 +515,7 @@ int ufs_mtk_pltfrm_host_sw_rst(struct ufs_hba *hba, u32 target)
 
 	dev_info(hba->dev, "ufs_mtk_host_sw_rst: 0x%x\n", target);
 
-	ufshcd_update_reg_hist(&hba->ufs_stats.sw_reset, (u32)target);
+	ufshcd_update_evt_hist(hba, UFS_EVT_SW_RESET, (u32)target);
 
 	if (target & SW_RST_TARGET_UFSHCI) {
 		/* reset HCI */

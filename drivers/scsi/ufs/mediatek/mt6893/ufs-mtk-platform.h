@@ -15,6 +15,13 @@
 #include "ufs.h"
 #include "ufshcd.h"
 
+/*
+ * Platform dependent quirks
+ */
+
+#define UFS_MTK_PLATFORM_UFS_HCI_PERF_HEURISTIC
+#define UFS_MTK_PLATFORM_VCC_ALWAYS_ON
+
 #ifndef CONFIG_FPGA_EARLY_PORTING
 /* If UPMU function not ready, comment this define */
 #define UPMU_READY
@@ -22,6 +29,7 @@
 
 #define UFS_REF_CLK_CTRL_BY_UFSHCI
 #define HIE_CHANGE_KEY_IN_NORMAL_WORLD
+#define UFS_HOST_TACITVATE_NOT_CHANGE_FOR_SAMSUNG
 
 /*
  * Platform dependent quirks

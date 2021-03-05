@@ -127,12 +127,10 @@ void ufs_mtk_dbg_add_trace(struct ufs_hba *hba,
 	ufs_cmd_hlist[ptr].duration = 0;
 	ufs_cmd_hlist[ptr].rq = NULL;
 	ufs_cmd_hlist[ptr].cpu = smp_processor_id();
-#if defined(CONFIG_UFSHPB)
 	ufs_cmd_hlist[ptr].ppn = ppn;
 	ufs_cmd_hlist[ptr].region = region;
 	ufs_cmd_hlist[ptr].subregion = subregion;
 	ufs_cmd_hlist[ptr].resv = resv;
-#endif
 
 	/* keep request pointer to dig out block layer status */
 	if (((event == UFS_TRACE_SEND) || (event == UFS_TRACE_COMPLETED) ||
@@ -182,7 +180,7 @@ void ufs_mtk_dbg_add_trace(struct ufs_hba *hba,
 			 * length(4KB)[23:16]
 			 * duration(ms)[15:0]
 			 */
-			ufshcd_update_reg_hist(&hba->ufs_stats.perf_warn,
+			ufshcd_update_evt_hist(hba, UFS_EVT_PERF_WARN,
 			    (u32) ((opcode << 24) |
 			    (((transfer_len >> 12) & 0xFF) << 16) |
 			    (ufs_cmd_hlist[ufs_cmd_ptr].duration / 1000000)));
@@ -292,7 +290,7 @@ void ufs_mtk_dbg_dump_trace(char **buff, unsigned long *size,
 		} else if (ufs_cmd_hlist[ptr].event == UFS_TRACE_GENERIC) {
 
 			SPREAD_PRINTF(buff, size, m,
-				"%3d-G(%d),%5d,%2d,0x%2x,t=%2d,lba=0x%llx,len=%6d,arg1=0x%X,arg2=%d,arg3=%d,%llu\n",
+				"%3d-G(%d),%5d,%2d,0x%2x,t=%2d,lba=0x%llx,len=%6d,cmd(req)=0x%X,err(time)=%d,line=%d,%llu\n",
 				ptr,
 				ufs_cmd_hlist[ptr].cpu,
 				ufs_cmd_hlist[ptr].pid,
@@ -396,7 +394,7 @@ void ufs_mtk_dbg_hang_detect_dump(void)
 	ufs_mtk_dbg_dump_trace(NULL, NULL,
 		ufs_mtk_hba->nutrs + ufs_mtk_hba->nutrs / 2, NULL);
 
-	ufshcd_print_all_err_hist(ufs_mtk_hba, NULL, NULL, NULL);
+	ufshcd_print_all_evt_hist(ufs_mtk_hba, NULL, NULL, NULL);
 #endif
 }
 
@@ -417,7 +415,7 @@ void ufs_mtk_dbg_proc_dump(struct seq_file *m)
 	ufs_mtk_dbg_dump_trace(NULL, NULL,
 		MAX_UFS_CMD_HLIST_ENTRY_CNT, m);
 
-	ufshcd_print_all_err_hist(ufs_mtk_hba, m, NULL, NULL);
+	ufshcd_print_all_evt_hist(ufs_mtk_hba, m, NULL, NULL);
 #endif
 }
 
@@ -437,7 +435,7 @@ void get_ufs_aee_buffer(unsigned long *vaddr, unsigned long *size)
 	ufs_mtk_dbg_dump_trace(&buff, &free_size,
 		MAX_UFS_CMD_HLIST_ENTRY_CNT, NULL);
 
-	ufshcd_print_all_err_hist(ufs_mtk_hba,
+	ufshcd_print_all_evt_hist(ufs_mtk_hba,
 		NULL, &buff, &free_size);
 
 	/* retrun start location */

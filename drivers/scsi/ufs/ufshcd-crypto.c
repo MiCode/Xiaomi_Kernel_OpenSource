@@ -379,6 +379,8 @@ int ufshcd_prepare_lrbp_crypto_spec(struct ufs_hba *hba,
 				    struct ufshcd_lrb *lrbp)
 {
 	struct bio_crypt_ctx *bc;
+	unsigned long flags;
+	int ret;
 
 	if (!bio_crypt_should_process(cmd->request)) {
 		lrbp->crypto_enable = false;
@@ -386,13 +388,27 @@ int ufshcd_prepare_lrbp_crypto_spec(struct ufs_hba *hba,
 	}
 	bc = cmd->request->bio->bi_crypt_context;
 
-	if (WARN_ON(!ufshcd_is_crypto_enabled(hba))) {
+	if (!ufshcd_is_crypto_enabled(hba)) {
 		/*
 		 * Upper layer asked us to do inline encryption
 		 * but that isn't enabled, so we fail this request.
 		 */
-		return -EINVAL;
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		if (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL)
+			ret = SCSI_MLQUEUE_HOST_BUSY;
+		else if (ufshcd_is_crypto_enabled(hba))
+			ret = 0;
+		else
+			ret = -EINVAL;
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+		if (ret == 0)
+			goto cont;
+		if (ret == -EINVAL)
+			WARN_ON(1);
+		return ret;
 	}
+cont:
 	if (!ufshcd_keyslot_valid(hba, bc->bc_keyslot))
 		return -EINVAL;
 
