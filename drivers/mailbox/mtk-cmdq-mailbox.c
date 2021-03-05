@@ -2421,6 +2421,13 @@ void cmdq_event_verify(void *chan, u16 event_id)
 }
 EXPORT_SYMBOL(cmdq_event_verify);
 
+void tracing_mark_write(const char *buf)
+{
+	preempt_disable();
+	trace_puts(buf);
+	preempt_enable();
+}
+
 unsigned long cmdq_get_tracing_mark(void)
 {
 	static unsigned long __read_mostly tracing_mark_write_addr;

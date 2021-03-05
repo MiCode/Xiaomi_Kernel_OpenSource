@@ -183,41 +183,36 @@ do { \
 
 /* CMDQ FTRACE */
 #define cmdq_trace_begin(fmt, args...) do { \
-	preempt_disable(); \
-	event_trace_printk(cmdq_get_tracing_mark(), \
-		"B|%d|"fmt"\n", current->tgid, ##args); \
-	preempt_enable();\
+	char buf[MAX_INPUT]; \
+	s32 len = snprintf( \
+		buf, sizeof(buf), "B|%d|"fmt"\n", current->tgid, ##args); \
+	if (len >= MAX_INPUT) \
+		buf[MAX_INPUT - 1] = '\n'; \
+	tracing_mark_write(buf); \
 } while (0)
 
 #define cmdq_trace_end() do { \
-	preempt_disable(); \
-	event_trace_printk(cmdq_get_tracing_mark(), "E\n"); \
-	preempt_enable(); \
+	tracing_mark_write("E\n"); \
+} while (0)
+
+#define cmdq_trace_c(fmt, args...) do { \
+	char buf[MAX_INPUT]; \
+	s32 len = snprintf( \
+		buf, sizeof(buf), "C|"fmt, ##args); \
+	if (len >= MAX_INPUT) \
+		buf[MAX_INPUT - 1] = '\n'; \
+	tracing_mark_write(buf); \
 } while (0)
 
 extern int cmdq_trace;
 #define cmdq_trace_ex_begin(fmt, args...) do { \
-	if (cmdq_trace) { \
-		preempt_disable(); \
-		event_trace_printk(cmdq_get_tracing_mark(), \
-			"B|%d|"fmt"\n", current->tgid, ##args); \
-		preempt_enable();\
-	} \
+	if (cmdq_trace) \
+		cmdq_trace_begin(fmt, ##args); \
 } while (0)
 
-#define cmdq_trace_ex_end() do { \
-	if (cmdq_trace) { \
-		preempt_disable(); \
-		event_trace_printk(cmdq_get_tracing_mark(), "E\n"); \
-		preempt_enable(); \
-	} \
-} while (0)
-
-#define cmdq_trace_c(fmt, args...) do { \
-	preempt_disable(); \
-	event_trace_printk(cmdq_get_tracing_mark(), \
-		"C|"fmt, ##args); \
-	preempt_enable(); \
+#define cmdq_trace_ex_end(fmt, args...) do { \
+	if (cmdq_trace) \
+		cmdq_trace_end(fmt, ##args); \
 } while (0)
 
 dma_addr_t cmdq_thread_get_pc(struct cmdq_thread *thread);
@@ -259,6 +254,7 @@ void cmdq_set_event(void *chan, u16 event_id);
 void cmdq_clear_event(void *chan, u16 event_id);
 u32 cmdq_get_event(void *chan, u16 event_id);
 void cmdq_event_verify(void *chan, u16 event_id);
+void tracing_mark_write(const char *buf);
 unsigned long cmdq_get_tracing_mark(void);
 u32 cmdq_thread_timeout_backup(struct cmdq_thread *thread, const u32 ms);
 void cmdq_thread_timeout_restore(struct cmdq_thread *thread, const u32 ms);
