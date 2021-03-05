@@ -380,12 +380,21 @@ static unsigned long atm_hrtimer_polling_delay =
 	 * use interval*polling_factor1
 	 * else, use interval*polling_factor2
 	 */
+#ifdef CLATM_CONFIGURABLE_TIMER
+	static int polling_trip_temp0 = POLLING_TRIP_TEMP0;
+	static int polling_trip_temp1 = POLLING_TRIP_TEMP1;
+	static int polling_trip_temp2 = POLLING_TRIP_TEMP2;
+	static int polling_factor0 = POLLING_FACTOR0;
+	static int polling_factor1 = POLLING_FACTOR1;
+	static int polling_factor2 = POLLING_FACTOR2;
+#else
 	static int polling_trip_temp0 = 75000;
 	static int polling_trip_temp1 = 65000;
 	static int polling_trip_temp2 = 40000;
 	static int polling_factor0 = 10;
 	static int polling_factor1 = 2;
 	static int polling_factor2 = 4;
+#endif
 #endif
 static int atm_curr_maxtj;
 static int atm_prev_maxtj;
@@ -512,6 +521,11 @@ set_uartlog_status(bool value)
 
 bool  __attribute__ ((weak))
 mt_get_uartlog_status(void)
+{
+	return 0;
+}
+int  __attribute__ ((weak))
+ppm_find_pwr_idx(struct ppm_cluster_status *cluster_status)
 {
 	return 0;
 }

@@ -1563,6 +1563,7 @@ static void check_temp_range(void)
 				g_is_TempOutsideNormalRange |= (j << 8);
 				tscpu_printk(TSCPU_LOG_TAG"ONRT=%d,0x%x\n",
 					temp, g_is_TempOutsideNormalRange);
+				dump_lvts_error_info();
 			}
 
 			if (temp <= -30000) {
@@ -2571,9 +2572,10 @@ static void init_thermal(void)
 	lvts_enable_all_sensing_points();
 
 	read_all_tc_temperature();
-
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 #if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
 	lvts_ipi_send_efuse_data();
+#endif
 #endif
 #endif
 }
