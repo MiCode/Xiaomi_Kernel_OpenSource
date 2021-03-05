@@ -1204,8 +1204,8 @@
 		mediatek,kick_off = <0xb4>;
 	};
 
-	sej@1000a000 {
-		compatible = "mediatek,sej";
+	hacc@1000a000 {
+		compatible = "mediatek,hacc";
 		reg = <0 0x1000a000 0 0x1000>;
 		interrupts = <GIC_SPI 274 IRQ_TYPE_LEVEL_HIGH>;
 	};
