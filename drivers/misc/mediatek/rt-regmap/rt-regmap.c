@@ -21,7 +21,7 @@
 #include <linux/workqueue.h>
 
 #include <mt-plat/rt-regmap.h>
-#define RT_REGMAP_VERSION	"1.2.0_G"
+#define RT_REGMAP_VERSION	"1.2.1_G"
 
 #define ERR_MSG_SIZE		128
 #define MAX_BYTE_SIZE		32
@@ -442,10 +442,9 @@ static int rt_asyn_cache_block_write(struct rt_regmap_device *rd, u32 reg,
 {
 	int ret = 0;
 
-	cancel_delayed_work_sync(&rd->rt_work);
 	ret = _rt_cache_block_write(rd, reg, bytes, src, true);
 	if (ret >= 0)
-		schedule_delayed_work(&rd->rt_work, msecs_to_jiffies(1));
+		mod_delayed_work(system_wq, &rd->rt_work, msecs_to_jiffies(1));
 	return ret;
 }
 
@@ -1633,6 +1632,9 @@ MODULE_VERSION(RT_REGMAP_VERSION);
 MODULE_LICENSE("GPL");
 
 /* Release Note
+ * 1.2.1
+ *	Fix the deadlock in rt_asyn_cache_block_write()
+ *
  * 1.2.0
  *	Revise memory allocation, code flow, and error handling
  *
