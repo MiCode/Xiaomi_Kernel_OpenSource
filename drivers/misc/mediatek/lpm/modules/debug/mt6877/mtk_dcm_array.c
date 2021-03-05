@@ -177,9 +177,9 @@ const unsigned int AP_DCM_Golden_Setting_tcl_gs_dpidle_data[] = {
 const unsigned int *AP_DCM_Golden_Setting_tcl_gs_dpidle =
 		AP_DCM_Golden_Setting_tcl_gs_dpidle_data;
 
-unsigned int _DCM_Golden_Setting_tcl_gs_dpidle_len = 459;
+unsigned int AP_DCM_Golden_Setting_tcl_gs_dpidle_len = 459;
 
-const unsigned int _DCM_Golden_Setting_tcl_gs_suspend_data[] = {
+const unsigned int AP_DCM_Golden_Setting_tcl_gs_suspend_data[] = {
 /*  Address	 Mask		Golden Setting Value */
 	0xC53A2A0, 0x3000000, 0x3000000,/* CPU_PLLDIV_CFG0 */
 	0xC53A2A0, 0x3000000, 0x3000000,/* CPU_PLLDIV_CFG0 */

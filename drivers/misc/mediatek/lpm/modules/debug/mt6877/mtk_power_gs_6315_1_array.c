@@ -75,7 +75,7 @@ const unsigned int  AP_PMIC_REG_MT6315_1_gs_deepidle___lp_mp3_32kless_data[] = {
 const unsigned int *AP_PMIC_REG_MT6315_1_gs_deepidle___lp_mp3_32kless =
 		AP_PMIC_REG_MT6315_1_gs_deepidle___lp_mp3_32kless_data;
 unsigned int AP_PMIC_REG_MT6315_1_gs_deepidle___lp_mp3_32kless_len = 66;
-const unsigned int  AP_PMIC_REG_MT6315_gs_sodi3p0_32kless_data[] = {
+const unsigned int  AP_PMIC_REG_MT6315_1_gs_sodi3p0_32kless_data[] = {
 /*  Address	 Mask		Golden Setting Value */
 	0x13, 0x2, 0x2,/* TOP_CON */
 	0x15, 0x1F, 0x1F,/* TEST_CON0 */
