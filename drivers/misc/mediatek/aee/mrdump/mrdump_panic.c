@@ -34,6 +34,10 @@
 #include "mrdump_mini.h"
 #include <mt-plat/mtk_ram_console.h>
 
+/* for arm_smccc_smc */
+#include <linux/arm-smccc.h>
+#include <uapi/linux/psci.h>
+
 static char mrdump_lk[12];
 bool mrdump_ddr_reserve_ready;
 
@@ -52,31 +56,23 @@ static inline unsigned long get_linear_memory_size(void)
 	return (unsigned long)high_memory - PAGE_OFFSET;
 }
 
-
 /* no export symbol to aee_exception_reboot, only used in exception flow */
+/* PSCI v1.1 extended power state encoding for SYSTEM_RESET2 function */
+#define PSCI_1_1_FN_SYSTEM_RESET2       0x84000012
+#define PSCI_1_1_RESET2_TYPE_VENDOR_SHIFT   31
+#define PSCI_1_1_RESET2_TYPE_VENDOR     \
+	(1 << PSCI_1_1_RESET2_TYPE_VENDOR_SHIFT)
+
 static void aee_exception_reboot(void)
 {
-#ifdef CONFIG_MTK_WATCHDOG
-	int res;
-	struct wd_api *wd_api = NULL;
+	struct arm_smccc_res res;
+	int opt1 = 1, opt2 = 0;
 
-	/* config reset mode */
-	int mode = WD_SW_RESET_BYPASS_PWR_KEY;
-
-	res = get_wd_api(&wd_api);
-	if (res < 0) {
-		pr_info("arch_reset, get wd api error %d\n", res);
-		while (1)
-			cpu_relax();
-	} else {
-		pr_info("exception reboot\n");
-		mode += WD_SW_RESET_KEEP_DDR_RESERVE;
-		wd_api->wd_sw_reset(mode);
-	}
-#else
-	emergency_restart();
-#endif
+	arm_smccc_smc(PSCI_1_1_FN_SYSTEM_RESET2,
+		PSCI_1_1_RESET2_TYPE_VENDOR | opt1,
+		opt2, 0, 0, 0, 0, 0, &res);
 }
+
 
 /*save stack as binary into buf,
  *return value
