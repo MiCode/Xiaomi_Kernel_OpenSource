@@ -7,6 +7,7 @@
 #include <linux/cpuidle.h>
 
 #include <mtk_lp_plat_reg.h>
+#include <mtk_lpm.h>
 
 #include "mtk_cpupm_dbg.h"
 #include "mtk_cpuidle_status.h"
@@ -68,6 +69,7 @@ static int idle_proc_enable_show(struct seq_file *m, void *v)
 {
 	struct cpuidle_driver *drv;
 	int i, cpu, en = 0;
+	int suspend_type = mtk_lpm_suspend_type_get();
 
 	for_each_possible_cpu(cpu) {
 
@@ -75,12 +77,17 @@ static int idle_proc_enable_show(struct seq_file *m, void *v)
 		if (!drv)
 			continue;
 
-		for (i = 1; i < drv->state_count; i++)
+		for (i = 1; i < drv->state_count; i++) {
+			if ((suspend_type == MTK_LPM_SUSPEND_S2IDLE) &&
+				!strcmp(drv->states[i].name, S2IDLE_STATE_NAME))
+				continue;
 			en += mtk_cpuidle_get_param(drv, i, IDLE_PARAM_EN);
+		}
 	}
 
 	if (en == 0) {
-		seq_puts(m, "MCDI: Disable\n");
+		seq_printf(m, "MCDI: Disable, %llu ms\n",
+			   mtk_cpuidle_state_last_dis_ms());
 	} else {
 		seq_puts(m, "MCDI: Enable\n");
 		seq_puts(m,
