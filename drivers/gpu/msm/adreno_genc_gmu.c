@@ -2582,6 +2582,8 @@ int genc_gmu_restart(struct kgsl_device *device)
 	/* Hard reset the gmu and gpu */
 	genc_gmu_suspend(adreno_dev);
 
+	genc_reset_preempt_records(adreno_dev);
+
 	clear_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
 
 	/* Attempt to reboot the gmu and gpu */

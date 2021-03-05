@@ -465,4 +465,11 @@ to_a6xx_gpudev(const struct adreno_gpudev *gpudev)
 	return container_of(gpudev, struct a6xx_gpudev, base);
 }
 
+/**
+ * a6xx_reset_preempt_records - Reset the preemption buffers
+ * @adreno_dev: Handle to the adreno device
+ *
+ * Reset the preemption records at the time of hard reset
+ */
+void a6xx_reset_preempt_records(struct adreno_device *adreno_dev);
 #endif

@@ -438,4 +438,12 @@ to_genc_gpudev(const struct adreno_gpudev *gpudev)
 {
 	return container_of(gpudev, struct genc_gpudev, base);
 }
+
+/**
+ * genc_reset_preempt_records - Reset the preemption buffers
+ * @adreno_dev: Handle to the adreno device
+ *
+ * Reset the preemption records at the time of hard reset
+ */
+void genc_reset_preempt_records(struct adreno_device *adreno_dev);
 #endif

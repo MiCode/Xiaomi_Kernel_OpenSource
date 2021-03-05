@@ -602,13 +602,41 @@ void genc_preemption_start(struct adreno_device *adreno_dev)
 	}
 }
 
+static void reset_rb_preempt_record(struct adreno_device *adreno_dev,
+	struct adreno_ringbuffer *rb)
+{
+	memset(rb->preemption_desc->hostptr, 0x0, rb->preemption_desc->size);
+
+	kgsl_sharedmem_writel(rb->preemption_desc,
+		PREEMPT_RECORD(magic), GENC_CP_CTXRECORD_MAGIC_REF);
+	kgsl_sharedmem_writel(rb->preemption_desc,
+		PREEMPT_RECORD(cntl), GENC_CP_RB_CNTL_DEFAULT);
+	kgsl_sharedmem_writeq(rb->preemption_desc,
+		PREEMPT_RECORD(rptr_addr), SCRATCH_RPTR_GPU_ADDR(
+		KGSL_DEVICE(adreno_dev), rb->id));
+	kgsl_sharedmem_writeq(rb->preemption_desc,
+		PREEMPT_RECORD(rbase), rb->buffer_desc->gpuaddr);
+}
+
+void genc_reset_preempt_records(struct adreno_device *adreno_dev)
+{
+	int i;
+	struct adreno_ringbuffer *rb;
+
+	if (!adreno_is_preemption_enabled(adreno_dev))
+		return;
+
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		reset_rb_preempt_record(adreno_dev, rb);
+	}
+}
+
 static int genc_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 	struct adreno_ringbuffer *rb)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_genc_core *genc_core = to_genc_core(adreno_dev);
 	u64 ctxt_record_size = GENC_CP_CTXRECORD_SIZE_IN_BYTES;
-	u32 cp_rb_cntl = GENC_CP_RB_CNTL_DEFAULT;
 	int ret;
 
 	if (genc_core->ctxt_record_size)
@@ -634,25 +662,7 @@ static int genc_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 	if (ret)
 		return ret;
 
-	kgsl_sharedmem_writel(rb->preemption_desc,
-		PREEMPT_RECORD(magic), GENC_CP_CTXRECORD_MAGIC_REF);
-	kgsl_sharedmem_writel(rb->preemption_desc,
-		PREEMPT_RECORD(info), 0);
-	kgsl_sharedmem_writel(rb->preemption_desc,
-		PREEMPT_RECORD(data), 0);
-	kgsl_sharedmem_writel(rb->preemption_desc,
-		PREEMPT_RECORD(cntl), cp_rb_cntl);
-	kgsl_sharedmem_writel(rb->preemption_desc,
-		PREEMPT_RECORD(rptr), 0);
-	kgsl_sharedmem_writel(rb->preemption_desc,
-		PREEMPT_RECORD(wptr), 0);
-	kgsl_sharedmem_writeq(rb->preemption_desc,
-		PREEMPT_RECORD(rptr_addr), SCRATCH_RPTR_GPU_ADDR(device,
-		rb->id));
-	kgsl_sharedmem_writeq(rb->preemption_desc,
-		PREEMPT_RECORD(rbase), rb->buffer_desc->gpuaddr);
-	kgsl_sharedmem_writeq(rb->preemption_desc,
-		PREEMPT_RECORD(counter), 0);
+	reset_rb_preempt_record(adreno_dev, rb);
 
 	return 0;
 }

@@ -1358,6 +1358,8 @@ static int a6xx_reset(struct kgsl_device *device)
 	/* since device is officially off now clear start bit */
 	clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 
+	a6xx_reset_preempt_records(adreno_dev);
+
 	ret = adreno_start(device, 0);
 	if (ret)
 		return ret;
