@@ -66,6 +66,7 @@ static int g_dvfs_skip_round;
 static unsigned int gpu_power;
 static unsigned int gpu_dvfs_enable;
 static unsigned int gpu_debug_enable;
+static unsigned int g_lb_down_count = 1;
 #ifdef CONFIG_MTK_GPU_OPP_STATS_SUPPORT
 static struct GED_DVFS_OPP_STAT *g_aOppStat;
 static int g_num;
@@ -981,6 +982,7 @@ static void ged_dvfs_trigger_fb_dvfs(void)
 	is_fb_dvfs_triggered = 1;
 }
 /*
+ *  frame-based entry point
  *	t_gpu, t_gpu_target in ms * 10
  */
 static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
@@ -1014,6 +1016,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 		force_fallback_pre = force_fallback;
 #ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 		if (force_fallback == 1) {
+			g_lb_down_count = 1;
 			int i32NewFreqID =
 			(int) mt_gpufreq_get_cur_freq_index();
 
@@ -1232,6 +1235,7 @@ static int _loading_avg(int ui32loading)
 	return sum / ARRAY_SIZE(data);
 }
 
+/* loading-based entry point*/
 static bool ged_dvfs_policy(
 		unsigned int ui32GPULoading, unsigned int *pui32NewFreqID,
 		unsigned long t, long phase, unsigned long ul3DFenceDoneTime,
@@ -1429,7 +1433,9 @@ static bool ged_dvfs_policy(
 #endif
 
 		ui32GPULoading_avg = _loading_avg(ui32GPULoading);
-		if (ui32GPULoading >= 110 - gx_tb_dvfs_margin_cur) {
+		if (ui32GPULoading >= 110 - gx_tb_dvfs_margin_cur
+		 || ui32GPULoading >= 96) {
+
 #ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 			if (dvfs_step_mode == 0)
 				i32NewFreqID = 0;
@@ -1444,9 +1450,14 @@ static bool ged_dvfs_policy(
 		} else if (ui32GPULoading_avg >=
 			loading_ud_table[ui32GPUFreq].up) {
 			i32NewFreqID -= 1;
+			if (g_lb_down_count != 1)
+				g_lb_down_count = 1;
 		} else if (ui32GPULoading_avg <=
 			loading_ud_table[ui32GPUFreq].down) {
-			i32NewFreqID += 1;
+			i32NewFreqID += g_lb_down_count;
+			g_lb_down_count *= 2;
+			if (g_lb_down_count >= 4)
+				g_lb_down_count = 4;
 		}
 #ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 		ged_log_buf_print(ghLogBuf_DVFS,
