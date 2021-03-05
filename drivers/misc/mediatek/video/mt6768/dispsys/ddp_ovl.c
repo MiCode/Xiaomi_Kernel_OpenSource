@@ -962,6 +962,7 @@ static inline int ovl_switch_to_sec(enum DISP_MODULE_ENUM module, void *handle)
 int ovl_switch_to_nonsec(enum DISP_MODULE_ENUM module, void *handle)
 {
 	unsigned int ovl_idx = ovl_to_index(module);
+#if 0
 	enum CMDQ_ENG_ENUM cmdq_engine;
 	enum CMDQ_EVENT_ENUM cmdq_event_nonsec_end;
 
@@ -1024,6 +1025,7 @@ int ovl_switch_to_nonsec(enum DISP_MODULE_ENUM module, void *handle)
 		mmprofile_log_ex(ddp_mmp_get_events()->svp_module[module],
 				 MMPROFILE_FLAG_END, 0, 0);
 	}
+#endif
 	ovl_is_sec[ovl_idx] = 0;
 
 	return 0;
@@ -1054,8 +1056,8 @@ static int setup_ovl_sec(enum DISP_MODULE_ENUM module,
 
 	if (has_sec_layer == 1)
 		ret = ovl_switch_to_sec(module, handle);
-	//else
-		//ret = ovl_switch_to_nonsec(module, NULL);
+	else
+		ret = ovl_switch_to_nonsec(module, NULL);
 
 	if (ret)
 		DDPAEE("[SVP]fail to %s ret=%d\n",
