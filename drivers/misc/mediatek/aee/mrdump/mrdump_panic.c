@@ -294,6 +294,11 @@ static int __init mrdump_panic_init(void)
 {
 	struct mrdump_params mparams = {};
 
+	if (!aee_is_enable()) {
+		pr_notice("%s: ipanic: mrdump is disable\n", __func__);
+		return 0;
+	}
+
 	mrdump_parse_chosen(&mparams);
 #ifdef MODULE
 	mrdump_module_init_mboot_params();

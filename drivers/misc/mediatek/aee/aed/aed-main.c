@@ -2665,6 +2665,11 @@ static int __init aed_init(void)
 {
 	int err;
 
+	if (!aee_is_enable()) {
+		pr_info("%s: aee is disable\n", __func__);
+		return 0;
+	}
+
 	err = aed_proc_init();
 	if (err != 0)
 		return err;

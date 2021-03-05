@@ -296,6 +296,9 @@ void sram_log_save(const char *msg, int count)
 {
 	int rem;
 
+	if (!mbootlog_buf)
+		return;
+
 	/* count >= buffer_size, full the buffer */
 	if (count >= mbootlog_buf_len) {
 		memcpy(mbootlog_buf, msg + (count - mbootlog_buf_len),
@@ -352,6 +355,8 @@ void aee_sram_fiq_log(const char *msg)
 	unsigned int count = strlen(msg);
 	int delay = 100;
 
+	if (!mbootlog_buf)
+		return;
 	if (FIQ_log_size + count > mbootlog_buf_len)
 		return;
 
@@ -372,6 +377,8 @@ static void mboot_params_write(struct console *console, const char *s,
 {
 	unsigned long flags;
 
+	if (!mbootlog_buf)
+		return;
 	if (atomic_read(&mp_in_fiq))
 		return;
 
@@ -397,6 +404,8 @@ void aee_sram_printk(const char *fmt, ...)
 	int r, tlen;
 	char sram_printk_buf[256];
 
+	if (!mbootlog_buf)
+		return;
 	va_start(args, fmt);
 
 	preempt_disable();
@@ -413,6 +422,29 @@ void aee_sram_printk(const char *fmt, ...)
 	va_end(args);
 }
 EXPORT_SYMBOL(aee_sram_printk);
+
+int aee_is_enable(void)
+{
+	struct device_node *node;
+	const char *aee_enable;
+	int ret = 0;
+
+	node = of_find_node_by_path("/chosen");
+	if (node) {
+		if (of_property_read_string(node, "aee,enable", &aee_enable) == 0) {
+			if (strnstr(aee_enable, "mini", 4))
+				ret = 1;
+			else if (strnstr(aee_enable, "full", 4))
+				ret = 2;
+		}
+		of_node_put(node);
+	} else {
+		pr_notice("%s: Can't find chosen node\n", __func__);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(aee_is_enable);
 
 void mboot_params_enable_console(int enabled)
 {

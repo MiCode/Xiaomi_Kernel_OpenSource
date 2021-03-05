@@ -2027,6 +2027,9 @@ static int __init monitor_hang_init(void)
 {
 	int err = 0;
 
+	if (!aee_is_enable())
+		return err;
+
 #ifdef MODULE
 	if (module_fun_init() == 1)
 		return 1;
@@ -2055,6 +2058,9 @@ static int __init monitor_hang_init(void)
 
 static void __exit monitor_hang_exit(void)
 {
+	if (!aee_is_enable())
+		return;
+
 	misc_deregister(&Hang_Monitor_dev);
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 	/* kfree(NULL) is safe */
