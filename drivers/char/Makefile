@@ -62,3 +62,4 @@ obj-$(CONFIG_MSM_ADSPRPC)	+= frpc-adsprpc.o
 obj-$(CONFIG_ADI)		+= adi.o
 obj-$(CONFIG_MSM_RDBG)		+= rdbg.o
 obj-$(CONFIG_MSM_FASTCVPD)	+= fastcvpd.o
+obj-$(CONFIG_VIRTIO_EAVB)       += virtio_eavb/
