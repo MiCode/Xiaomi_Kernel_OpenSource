@@ -1573,6 +1573,24 @@ int ccci_port_check_critical_user(int md_id)
 	return proxy_check_critical_user(proxy_p);
 }
 
+int ccci_port_critical_user_only_fsd(int md_id)
+{
+	struct port_proxy *proxy_p;
+
+	if (md_id < 0 || md_id >= MAX_MD_NUM)
+		return 0;
+
+	proxy_p = GET_PORT_PROXY(md_id);
+	if (!proxy_p)
+		return 0;
+
+	if (proxy_p->critical_user_active == (1 << CRIT_USR_FS))
+		return 1;
+
+	return 0;
+}
+
+
 /*
  * This API is called by ccci fsm,
  * and used to get critical user status.

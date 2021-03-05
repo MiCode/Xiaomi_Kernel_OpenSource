@@ -53,6 +53,13 @@ int ccci_port_recv_skb(int md_id, int hif_id, struct sk_buff *skb,
  * and used to check whether all critical user exited.
  */
 int ccci_port_check_critical_user(int md_id);
+
+/*
+ * This API is called by ccci fsm,
+ * and used to check critical user only ccci_fsd exited.
+ */
+int ccci_port_critical_user_only_fsd(int md_id);
+
 /*
  * This API is called by ccci fsm,
  * and used to get critical user status.

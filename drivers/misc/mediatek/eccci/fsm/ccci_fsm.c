@@ -275,7 +275,8 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 	__pm_stay_awake(ctl->wakelock);
 	/* 2. poll for critical users exit */
 	while (count < BOOT_TIMEOUT/EVENT_POLL_INTEVAL && !needforcestop) {
-		if (ccci_port_check_critical_user(ctl->md_id) == 0) {
+		if ((ccci_port_check_critical_user(ctl->md_id) == 0) ||
+			ccci_port_critical_user_only_fsd(ctl->md_id)) {
 			user_exit = 1;
 			break;
 		}
