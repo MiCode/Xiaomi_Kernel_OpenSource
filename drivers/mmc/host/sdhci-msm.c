@@ -3741,8 +3741,10 @@ static int sdhci_msm_setup_qos(struct sdhci_msm_host *msm_host)
 	if (!msm_host->sdhci_qos)
 		return 0;
 
-	/* Affine irq to first set of mask */
+#ifdef CONFIG_SMP
+	/* Affine irq to first set of mask for multiple CPU's*/
 	WARN_ON(irq_set_affinity_hint(host->irq, &qcg->mask));
+#endif
 
 	/* Setup notifier for case of affinity change/migration */
 	msm_host->affinity_notify.notify = sdhci_msm_irq_affinity_notify;
