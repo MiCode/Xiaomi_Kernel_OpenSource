@@ -1711,13 +1711,6 @@ static int mt_i2c_probe(struct platform_device *pdev)
 		return -EINVAL;
 	init_waitqueue_head(&i2c->wait);
 
-	ret = devm_request_irq(&pdev->dev, i2c->irqnr, mt_i2c_irq,
-		IRQF_NO_SUSPEND | IRQF_TRIGGER_NONE, I2C_DRV_NAME, i2c);
-	if (ret < 0) {
-		dev_info(&pdev->dev,
-			"Request I2C IRQ %d fail\n", i2c->irqnr);
-		return ret;
-	}
 	of_id = of_match_node(mtk_i2c_of_match, pdev->dev.of_node);
 	if (!of_id)
 		return -EINVAL;
@@ -1836,6 +1829,15 @@ static int mt_i2c_probe(struct platform_device *pdev)
 	mt_i2c_init_hw(i2c);
 
 	mt_i2c_clock_disable(i2c);
+
+	ret = devm_request_irq(&pdev->dev, i2c->irqnr, mt_i2c_irq,
+		IRQF_NO_SUSPEND | IRQF_TRIGGER_NONE, I2C_DRV_NAME, i2c);
+	if (ret < 0) {
+		dev_info(&pdev->dev,
+			"Request I2C IRQ %d fail\n", i2c->irqnr);
+		return ret;
+	}
+
 	if (i2c->ch_offset_default)
 		i2c->dma_buf.vaddr = dma_alloc_coherent(&pdev->dev,
 			(PAGE_SIZE * 2), &i2c->dma_buf.paddr, GFP_KERNEL);
