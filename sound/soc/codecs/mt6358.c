@@ -6678,7 +6678,7 @@ static int dmic_used_get(struct snd_kcontrol *kcontrol,
 			 struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
 	ucontrol->value.integer.value[0] =
 		priv->mux_select[MUX_MIC_TYPE] == MIC_TYPE_MUX_DMIC;
