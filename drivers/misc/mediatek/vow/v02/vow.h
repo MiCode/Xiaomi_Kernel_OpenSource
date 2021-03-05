@@ -93,7 +93,7 @@
 #define RECOG_DUMP_TOTAL_BYTE_CNT      (RECOG_DUMP_BYTE_CNT * VOW_MAX_MIC_NUM)
 #define VFFP_DUMP_SMPL_CNT             (VOW_FRM_LEN * 16)
 #define VFFP_DUMP_BYTE_CNT             (VFFP_DUMP_SMPL_CNT * sizeof(short))
-#define VFFP_DUMP_TOTAL_BYTE_CNT       (VFFP_DUMP_BYTE_CNT)
+#define VFFP_DUMP_TOTAL_BYTE_CNT       (VFFP_DUMP_BYTE_CNT * 2)  /* 2 = 2ch */
 #define BARGEIN_DUMP_SMPL_CNT_MIC      (VOW_FRM_LEN * 16)
 #define BARGEIN_DUMP_BYTE_CNT_MIC      (BARGEIN_DUMP_SMPL_CNT_MIC * sizeof(short))
 #define BARGEIN_DUMP_SMPL_CNT_ECHO     (VOW_FRM_LEN * 16)
@@ -159,8 +159,10 @@ struct dump_package_t {
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 	uint32_t echo_offset;
 	uint32_t echo_data_size;
-	uint32_t vffp_data_offset;
-	uint32_t vffp_data_size;
+	uint32_t vffp_data_offset_1st_ch;
+	uint32_t vffp_data_size_1st_ch;
+	uint32_t vffp_data_offset_2nd_ch;
+	uint32_t vffp_data_size_2nd_ch;
 };
 
 struct dump_queue_t {
@@ -183,8 +185,10 @@ struct dump_work_t {
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 	uint32_t echo_offset;
 	uint32_t echo_data_size;
-	uint32_t vffp_data_offset;
-	uint32_t vffp_data_size;
+	uint32_t vffp_data_offset_1st_ch;
+	uint32_t vffp_data_size_1st_ch;
+	uint32_t vffp_data_offset_2nd_ch;
+	uint32_t vffp_data_size_2nd_ch;
 };
 
 enum { /* dump_data_t */
@@ -508,6 +512,7 @@ struct vow_ipi_combined_info_t {
 	unsigned int payloaddump_len;
 	unsigned int vffp_dump_size;
 	unsigned int vffp_dump_offset;
+	unsigned int vffp_dump_offset_2nd_ch;
 };
 
 
