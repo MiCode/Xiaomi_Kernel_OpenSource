@@ -330,17 +330,15 @@ static void mdm_get_restart_reason(struct work_struct *work)
 	int ret = 0;
 	int ntries = 0;
 	char sfr_buf[RD_BUF_SIZE];
-	struct mdm_ctrl *mdm =
-		container_of(work, struct mdm_ctrl, restart_reason_work);
+	struct mdm_ctrl *mdm = container_of(work, struct mdm_ctrl, restart_reason_work);
 	struct device *dev = mdm->dev;
 
 	do {
-		sysmon_get_reason(&mdm->esoc->subsys, sfr_buf,
-							sizeof(sfr_buf));
+		qcom_sysmon_get_reason(mdm->esoc->rproc_sysmon, sfr_buf, sizeof(sfr_buf));
 		if (!ret) {
 			esoc_mdm_log("restart reason is %s\n", sfr_buf);
 			dev_err(dev, "mdm restart reason is %s\n", sfr_buf);
-		break;
+			break;
 		}
 		msleep(SFR_RETRY_INTERVAL);
 	} while (++ntries < SFR_MAX_RETRIES);

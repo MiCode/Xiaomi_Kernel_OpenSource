@@ -17,6 +17,8 @@
 #include <linux/remoteproc.h>
 #include <linux/ipc_logging.h>
 
+#include "qcom_common.h"
+
 #define ESOC_MDM_IPC_PAGES	10
 
 extern void *ipc_log;
@@ -86,6 +88,7 @@ struct esoc_clink {
 	void *compat_data;
 	struct rproc *rproc;
 	struct rproc_ops ops;
+	struct qcom_sysmon *rproc_sysmon;
 	struct device_node *np;
 	bool auto_boot;
 	bool primary;

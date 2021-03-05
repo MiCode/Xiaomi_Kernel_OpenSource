@@ -6,7 +6,6 @@
 #include <linux/idr.h>
 #include <linux/slab.h>
 #include "esoc.h"
-#include "qcom_common.h"
 
 static DEFINE_IDA(esoc_ida);
 
@@ -169,7 +168,6 @@ int esoc_clink_register_rproc(struct esoc_clink *esoc_clink)
 	int ret;
 	int len;
 	char *rproc_name;
-	struct qcom_sysmon *sysmon;
 
 	len = strlen("esoc") + sizeof(esoc_clink->id);
 	rproc_name = kzalloc(len, GFP_KERNEL);
@@ -188,22 +186,25 @@ int esoc_clink_register_rproc(struct esoc_clink *esoc_clink)
 
 	esoc_clink->rproc->recovery_disabled = true;
 	esoc_clink->rproc->auto_boot = false;
-	sysmon = qcom_add_sysmon_subdev(esoc_clink->rproc, esoc_clink->sysmon_name,
-					esoc_clink->ssctl_id);
-	if (IS_ERR(sysmon)) {
+	esoc_clink->rproc_sysmon = qcom_add_sysmon_subdev(esoc_clink->rproc,
+							  esoc_clink->sysmon_name,
+							  esoc_clink->ssctl_id);
+	if (IS_ERR(esoc_clink->rproc_sysmon)) {
 		dev_err(&esoc_clink->dev, "Failed to register sysmon\n");
-		ret = PTR_ERR(sysmon);
+		ret = PTR_ERR(esoc_clink->rproc_sysmon);
 		goto rproc_err;
 	}
 
 	ret = rproc_add(esoc_clink->rproc);
 	if (ret) {
 		dev_err(&esoc_clink->dev, "unable to add remoteproc\n");
-		goto rproc_err;
+		goto remove_subdev;
 	}
 
 	return 0;
 
+remove_subdev:
+	qcom_remove_sysmon_subdev(esoc_clink->rproc_sysmon);
 rproc_err:
 	kfree(rproc_name);
 	return ret;
@@ -212,6 +213,7 @@ rproc_err:
 void esoc_clink_unregister_rproc(struct esoc_clink *esoc_clink)
 {
 	rproc_del(esoc_clink->rproc);
+	qcom_remove_sysmon_subdev(esoc_clink->rproc_sysmon);
 	rproc_free(esoc_clink->rproc);
 }
 
