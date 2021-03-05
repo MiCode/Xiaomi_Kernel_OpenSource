@@ -820,6 +820,12 @@ static inline void smi_larb_port_set(const struct mtk_smi_dev *smi)
 		i < smi_larb_cmd_gp_en_port[smi->id][1]; i++)
 		writel(readl(smi->base + SMI_LARB_NON_SEC_CON(i)) | 0x2,
 			smi->base + SMI_LARB_NON_SEC_CON(i));
+#if IS_ENABLED(CONFIG_MACH_MT6877)
+	/* Set grouping for larb 1 port 6 because larb 1 port 1 set previously */
+	if (smi->id == 1)
+		writel(readl(smi->base + SMI_LARB_NON_SEC_CON(6)) | 0x2,
+			smi->base + SMI_LARB_NON_SEC_CON(6));
+#endif
 
 	for (i = smi_larb_bw_thrt_en_port[smi->id][0];
 		i < smi_larb_bw_thrt_en_port[smi->id][1]; i++)

@@ -11,18 +11,25 @@
 # GNU General Public License for more details.
 #
 
+ifeq ($(CONFIG_MACH_MT6833),y)
+SMI_PLATFORM := "mt6833"
+else ifeq ($(CONFIG_MACH_MT6877),y)
+SMI_PLATFORM := "mt6877"
+else
+SMI_PLATFORM := $(CONFIG_MTK_PLATFORM)
+endif
+
 ifeq ($(CONFIG_MTK_SMI_EXT), y)
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(SMI_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi_bwl/$(MTK_PLATFORM)/
 ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/iommu/
 ccflags-$(CONFIG_MTK_M4U) += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)/
-
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/$(SMI_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/ # qos/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
@@ -61,7 +68,7 @@ ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873" "mt6885"))
 ccflags-y += -DSMI_5G
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873" "mt6885" "mt6853"))
+ifneq (,$(filter $(SMI_PLATFORM), "mt6873" "mt6885" "mt6853" "mt6833" "mt6877"))
 ccflags-y += -DSMI_SSPM
 ccflags-y += -DPMQOS_USE_IOMMU_PORT
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
