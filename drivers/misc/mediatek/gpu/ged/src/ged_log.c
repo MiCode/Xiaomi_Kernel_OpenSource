@@ -225,8 +225,6 @@ GED_ERROR __ged_log_buf_vprint(struct GED_LOG_BUF *psGEDLogBuf,
 		len -= 1;
 	}
 
-	buf_n -= len;
-
 	if (attrs & GED_LOG_ATTR_RINGBUFFER) {
 		int i;
 		int check = 10 + 1; /* we check the following 10 items. */
@@ -289,7 +287,10 @@ static int __ged_log_buf_write(struct GED_LOG_BUF *psGEDLogBuf,
 
 	cnt = (i32Count >= 256) ? 255 : i32Count;
 
-	ged_copy_from_user(buf, pszBuffer, cnt);
+	if (ged_copy_from_user(buf, pszBuffer, cnt) != 0) {
+		GED_LOGE("Fail to ged_copy_from_user\n");
+		return 0;
+	}
 
 	buf[cnt] = 0;
 

@@ -134,7 +134,8 @@ static int ged_dvfs_opp_cost_seq_show(struct seq_file *psSeqFile,
 	if (pvData != NULL) {
 		int i, j;
 		int cur_idx;
-		unsigned int ui32FqCount, ui32TotalTrans;
+		unsigned int ui32FqCount = 0;
+		unsigned int ui32TotalTrans;
 		struct GED_DVFS_OPP_STAT *report;
 
 		mtk_custom_get_gpu_freq_level_count(&ui32FqCount);
@@ -221,7 +222,7 @@ static ssize_t opp_logs_show(struct kobject *kobj,
 	int len;
 	int i, j;
 	int cur_idx;
-	unsigned int ui32FqCount;
+	unsigned int ui32FqCount = 0;
 	struct GED_DVFS_OPP_STAT *report;
 
 	mtk_custom_get_gpu_freq_level_count(&ui32FqCount);
@@ -245,7 +246,7 @@ static ssize_t opp_logs_show(struct kobject *kobj,
 				len += sprintf(buf + len, "*");
 			else
 				len += sprintf(buf + len, " ");
-			len += sprintf(buf + len, "%10lu",
+			len += sprintf(buf + len, "%10u",
 				1000 * mt_gpufreq_get_freq_by_idx(i));
 
 			/* truncate to ms */

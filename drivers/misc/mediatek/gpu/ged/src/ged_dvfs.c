@@ -543,8 +543,6 @@ unsigned int ged_dvfs_vcore(unsigned int prev_freq_khz,
 			bFB, cur_freq_mhz,
 		prev_freq_mhz, g_ui32NextMaxBW, g_ui32CurMaxBW);
 
-	prev_freq_mhz = cur_freq_mhz;
-
 	if (gpu_bw_ratio)
 		return (g_ui32NextMaxBW * gpu_bw_ratio) / 100;
 	else
@@ -2111,7 +2109,6 @@ GED_ERROR ged_dvfs_probe_signal(int signo)
 	info.si_int = 1234;
 
 	if (cache_pid != g_probe_pid) {
-		cache_pid = g_probe_pid;
 		if (g_probe_pid == GED_NO_UM_SERVICE)
 			t = NULL;
 		else {
