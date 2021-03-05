@@ -46,7 +46,7 @@ static inline void ipv6_addr_copy(
 	memcpy(a1, a2, sizeof(struct in6_addr));
 }
 
-static int mddp_f_max_router = MD_DIRECT_TETHERING_RULE_NUM;
+static int mddp_f_max_router = 10 * MD_DIRECT_TETHERING_RULE_NUM;
 static struct kmem_cache *mddp_f_router_tuple_cache;
 
 static spinlock_t mddp_f_router_tuple_lock;
@@ -127,6 +127,7 @@ static void mddp_f_timeout_router_tuple(unsigned long data)
 		mddp_f_del_router_tuple_w_unlock(t, flag);
 	else {
 		t->is_need_tag = true;
+		t->last_cnt = t->curr_cnt;
 
 		MDDP_F_ROUTER_TUPLE_UNLOCK(&mddp_f_router_tuple_lock, flag);
 
