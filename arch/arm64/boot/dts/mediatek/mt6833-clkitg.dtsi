@@ -20,10 +20,6 @@
 		clocks =
 			/* MTCMOS */
 			<&clk26m>,
-			<&scpsys SCP_SYS_MFG0>,
-			<&scpsys SCP_SYS_MFG1>,
-			<&scpsys SCP_SYS_MFG2>,
-			<&scpsys SCP_SYS_MFG3>,
 			<&scpsys SCP_SYS_ISP>,
 			<&scpsys SCP_SYS_ISP2>,
 			<&scpsys SCP_SYS_IPE>,
