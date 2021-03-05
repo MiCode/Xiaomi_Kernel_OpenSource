@@ -16,10 +16,10 @@ ccflags-y += -I$(srctree)/drivers/devfreq
 ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/swpm_v1/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/$(MTK_PLATFORM)/
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 ccflags-${CONFIG_MACH_MT6833} += -I$(srctree)/drivers/misc/mediatek/smi/mt6833/
+ccflags-${CONFIG_MACH_MT6877} += -I$(srctree)/drivers/misc/mediatek/smi/mt6877/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)/
 
 obj-y += swpm_me.o
@@ -79,7 +79,7 @@ ccflags-y += -DPMQOS_USE_IOMMU_PORT
 FORCE_STEP0 := false
 ccflags-y += -DCHECK_VOLTAGE
 ccflags-y += -DCHECK_OSTD_UPDATE
-ccflags-y += -DPLL_HOPPING_READY
+MTK_FREQ_HOPPING := true
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6853"))
 BUILD_MMDVFS := true
 SUPPORT_MMP := true
@@ -91,15 +91,16 @@ BLOCKING_MECHANISM := true
 SKIP_SMI_CONFIG := false
 QOS_BOUND_DETECT := true
 ccflags-y += -DCHECK_OSTD_UPDATE
-ccflags-y += -DPLL_HOPPING_READY
+MTK_FREQ_HOPPING := true
 endif
 
 MMDVFS_PLATFORM_DIR=$(srctree)/drivers/misc/mediatek/mmdvfs/$(MTK_PLATFORM)
 platformdir_exists=$(shell if [ -d $(MMDVFS_PLATFORM_DIR) ]; then echo "y"; else echo "n"; fi;)
 
 ifeq (true, $(BUILD_MMDVFS))
-obj-y += mmdvfs_pmqos.o
+ccflags-y += -DBUILD_MMDVFS
 endif
+obj-y += mmdvfs_pmqos.o
 ifeq (true, $(FORCE_STEP0))
 ccflags-y += -DMMDVFS_FORCE_STEP0
 endif
@@ -159,3 +160,10 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/submodule/
 endif
 
+ifeq ($(CONFIG_MTK_FREQ_HOPPING),y)
+ifeq (true, $(MTK_FREQ_HOPPING))
+ccflags-y += -DPLL_HOPPING_READY
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/$(MTK_PLATFORM)/
+endif
+endif
