@@ -129,8 +129,6 @@ static struct dts_predef clkbuf_dts[DTS_NUM] = {
 	[XO_HW_SEL] = {"pmic-xo-mode", 7, 0, 0x3, 0},
 
 	[BBL_SW_EN] = {"pmic-bblpm-sw", 1, 0, 0x1, 0},
-	[DEF_CAP_ID] = {"pmic-default-capid", 1, 0, 0xff, 0},
-
 	[MISC_SRCLKENI_EN] = {"pmic-srclkeni3", 1, 0, 0x1, 0},
 
 	[PWRAP_DCXO_EN] = {"pwrap-dcxo-en", 1, 0, 0xffff, 0},
@@ -1026,10 +1024,13 @@ static ssize_t clk_buf_capid_store(struct kobject *kobj,
 
 	pr_info("cap id input (%d)\n", cap_id);
 	if (cap_id < 256) {
-		if (default_cap_id == 0x55)
-			clkbuf_read(DEF_CAP_ID, 0, &default_cap_id);
-
-		clkbuf_update(DEF_CAP_ID, 0, cap_id);
+		if (default_cap_id == 0x55) {
+			if (check_pmic_clkbuf_op())
+				pmic_op->pmic_clk_buf_get_cap_id(
+					&default_cap_id);
+		}
+		if (check_pmic_clkbuf_op())
+			pmic_op->pmic_clk_buf_set_cap_id(cap_id);
 	} else {
 		return -EPERM;
 	}
@@ -1043,7 +1044,8 @@ static ssize_t clk_buf_capid_show(struct kobject *kobj,
 	u32 cap_id = 0;
 	int len = 0;
 
-	clkbuf_read(DEF_CAP_ID, 0, &cap_id);
+	if (check_pmic_clkbuf_op())
+		pmic_op->pmic_clk_buf_get_cap_id(&cap_id);
 	pr_info("default cap id(%#x), cap id(%#x)\n", default_cap_id, cap_id);
 	len = snprintf(buf, PAGE_SIZE, "default cap id(%#x), cap id(%#x)\n",
 		default_cap_id, cap_id);
