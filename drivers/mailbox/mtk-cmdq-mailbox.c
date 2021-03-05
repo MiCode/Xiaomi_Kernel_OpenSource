@@ -225,6 +225,7 @@ static inline void cmdq_mmp_init(void)
 	cmdq_mmp.submit = mmprofile_register_event(cmdq_mmp.cmdq, "submit");
 	cmdq_mmp.wait = mmprofile_register_event(cmdq_mmp.cmdq, "wait");
 	cmdq_mmp.warning = mmprofile_register_event(cmdq_mmp.cmdq, "warning");
+	mmprofile_enable_event_recursive(cmdq_mmp.cmdq, 1);
 	mmprofile_start(1);
 #endif
 }
