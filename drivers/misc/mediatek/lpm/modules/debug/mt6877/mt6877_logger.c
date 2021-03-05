@@ -68,7 +68,8 @@ struct mt6877_log_helper mt6877_logger_help = {
 };
 
 static char *mt6877_spm_cond_cg_str[PLAT_SPM_COND_MAX] = {
-	[PLAT_SPM_COND_MTCMOS_0]	= "MTCMOS_0",
+	[PLAT_SPM_COND_MTCMOS_1]	= "MTCMOS_1",
+	[PLAT_SPM_COND_MTCMOS_2]	= "MTCMOS_2",
 	[PLAT_SPM_COND_CG_INFRA_0]	= "INFRA_0",
 	[PLAT_SPM_COND_CG_INFRA_1]	= "INFRA_1",
 	[PLAT_SPM_COND_CG_INFRA_2]	= "INFRA_2",
@@ -78,6 +79,11 @@ static char *mt6877_spm_cond_cg_str[PLAT_SPM_COND_MAX] = {
 	[PLAT_SPM_COND_CG_MMSYS_0]	= "MMSYS_0",
 	[PLAT_SPM_COND_CG_MMSYS_1]	= "MMSYS_1",
 	[PLAT_SPM_COND_CG_MMSYS_2]	= "MMSYS_2",
+	[PLAT_SPM_COND_CG_MMSYS_2]      = "MMSYS_3",
+	[PLAT_SPM_COND_CG_MMSYS_4]	= "MMSYS_4",
+	[PLAT_SPM_COND_CG_MMSYS_5]	= "MMSYS_5",
+	[PLAT_SPM_COND_CG_MMSYS_6]	= "MMSYS_6",
+	[PLAT_SPM_COND_CG_MMSYS_7]	= "MMSYS_7",
 };
 
 const char *mt6877_wakesrc_str[32] = {
