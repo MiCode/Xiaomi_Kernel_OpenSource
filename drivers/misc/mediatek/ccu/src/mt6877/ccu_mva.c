@@ -177,6 +177,18 @@ int ccu_allocate_mem(struct CcuMemHandle *memHandle, int size, bool cached)
 	LOG_DBG_MUST("_ccuAllocMem+\n");
 	LOG_DBG_MUST("size(%d) cached(%d) memHandle->ionHandleKd(%d)\n",
 		size, cached, memHandle->ionHandleKd);
+
+	if (_ccu_ion_client == NULL) {
+		LOG_ERR("%s: _ccu_ion_client is null!\n", __func__);
+		return -EINVAL;
+	}
+
+	if (ccu_buffer_handle[cached].ionHandleKd != NULL) {
+		LOG_ERR("idx %d handle %p is not empty\n", cached,
+		ccu_buffer_handle[cached].ionHandleKd);
+		return -EINVAL;
+	}
+
 	//allocate ion buffer handle
 	memHandle->ionHandleKd = _ccu_ion_alloc(_ccu_ion_client,
 		ION_HEAP_MULTIMEDIA_MASK,
