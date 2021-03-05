@@ -1057,10 +1057,10 @@ static bool vow_service_SetVBufAddr(unsigned long arg)
 		    vmalloc(vowserv.voicedata_user_size);
 		mutex_unlock(&vow_vmalloc_lock);
 		return true;
-	} else {
-		mutex_unlock(&vow_vmalloc_lock);
-		return false;
 	}
+
+	mutex_unlock(&vow_vmalloc_lock);
+	return false;
 }
 
 static bool vow_service_Enable(void)

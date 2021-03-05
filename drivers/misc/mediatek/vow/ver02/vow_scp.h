@@ -1,18 +1,13 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2020 MediaTek Inc.
+ * vow_scp.h  --  VoW SCP definition
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * Copyright (c) 2020 MediaTek Inc.
+ * Author: Michael Hsiao <michael.hsiao@mediatek.com>
  */
 
-#ifndef __VOW_HW_H__
-#define __VOW_HW_H__
+#ifndef __VOW_SCP_H__
+#define __VOW_SCP_H__
 
 #include <linux/types.h>
 
@@ -72,4 +67,4 @@ bool vow_ipi_send(unsigned int msg_id,
 		  unsigned int *payload,
 		  unsigned int need_ack);
 
-#endif /*__VOW_HW_H__ */
+#endif /*__VOW_SCP_H__ */

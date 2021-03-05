@@ -60,3 +60,10 @@ config MTK_VOW_PCMCALLBACK_SUPPORT
 	  support transferring voice data since passing phase2
 	  recognition in SCP. This feature need to work
 	  with MTK_VOW_SUPPORT.
+
+config MTK_VOW_DSP_VERSION
+	string "MediaTek VOW DSP Version"
+	help
+	  For VOW kernel driver config. This config can
+	  indicate DSP version. This feature need to work
+	  with MTK_VOW_SUPPORT.

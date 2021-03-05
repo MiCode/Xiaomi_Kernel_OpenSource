@@ -64,7 +64,7 @@
 #include "audio_ipi_queue.h"
 #endif  /* #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT */
 #include "vow.h"
-#include "vow_hw.h"
+#include "vow_scp.h"
 #include "vow_assert.h"
 
 
@@ -1003,10 +1003,10 @@ static bool vow_service_SetVBufAddr(unsigned long arg)
 		    vmalloc(vowserv.voicedata_user_size);
 		mutex_unlock(&vow_vmalloc_lock);
 		return true;
-	} else {
-		mutex_unlock(&vow_vmalloc_lock);
-		return false;
 	}
+
+	mutex_unlock(&vow_vmalloc_lock);
+	return false;
 }
 
 static bool vow_service_Enable(void)
