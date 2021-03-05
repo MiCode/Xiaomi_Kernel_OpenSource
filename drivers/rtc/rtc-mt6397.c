@@ -630,6 +630,10 @@ static void mtk_rtc_reset_bbpu_alarm_status(struct mt6397_rtc *rtc)
 	u32 bbpu;
 	int ret;
 
+	if (rtc->dev_comp->eosc_cali_version == EOSC_CALI_MT6357_SERIES ||
+		rtc->dev_comp->eosc_cali_version == EOSC_CALI_MT6358_SERIES)
+		return;
+
 	bbpu = RTC_BBPU_KEY | RTC_BBPU_PWREN | RTC_BBPU_RESET_AL;
 	ret = regmap_write(rtc->regmap, rtc->addr_base + RTC_BBPU, bbpu);
 	if (ret < 0)
@@ -957,11 +961,16 @@ static int mtk_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	time64_t time;
 	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
 	int days, sec, ret;
+	unsigned long long timeout = sched_clock() + 500000000;
 
 	do {
 		ret = __mtk_rtc_read_time(rtc, tm, &sec);
 		if (ret < 0)
 			goto exit;
+		if (sched_clock() > timeout) {
+			pr_notice("%s, time out\n", __func__);
+			break;
+		}
 	} while (sec < tm->tm_sec);
 
 	/* HW register use 7 bits to store year data, minus
@@ -1564,6 +1573,39 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 	if (IS_ERR(rtc->rtc_dev))
 		return PTR_ERR(rtc->rtc_dev);
 
+	/* KPOC alarm related setting */
+	mt6397_rtc_suspend_lock =
+		wakeup_source_register(NULL, "mt6397-rtc suspend wakelock");
+
+	boot_node = of_parse_phandle(pdev->dev.of_node, "bootmode", 0);
+	if (!boot_node) {
+		dev_err(&pdev->dev,
+			"%s: failed to get boot mode phandle\n", __func__);
+	} else {
+		tag = (struct tag_bootmode *)of_get_property(
+			boot_node, "atag,boot", NULL);
+		if (!tag)
+			dev_err(&pdev->dev,
+				"%s: failed to get atag,boot\n", __func__);
+		else {
+			dev_notice(&pdev->dev,
+				"%s, bootmode:%d\n", __func__, tag->bootmode);
+			bootmode = tag->bootmode;
+		}
+	}
+
+#ifdef CONFIG_PM
+	rtc->pm_nb.notifier_call = rtc_pm_event;
+	rtc->pm_nb.priority = 0;
+	if (register_pm_notifier(&rtc->pm_nb))
+		pr_notice("rtc pm failed\n");
+	else
+		rtc_pm_notifier_registered = true;
+#endif /* CONFIG_PM */
+
+	INIT_WORK(&rtc->work, mtk_rtc_work_queue);
+	/* KPOC alarm related setting */
+
 	ret = request_threaded_irq(rtc->irq, NULL,
 				   mtk_rtc_irq_handler_thread,
 				   IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
@@ -1575,9 +1617,6 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(&pdev->dev, 1);
-
-	mt6397_rtc_suspend_lock =
-		wakeup_source_register(NULL, "mt6397-rtc suspend wakelock");
 
 	rtc->rtc_dev->ops = &mtk_rtc_ops;
 
@@ -1601,23 +1640,6 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 
 	mtk_rtc_set_lp_irq(rtc);
 
-	boot_node = of_parse_phandle(pdev->dev.of_node, "bootmode", 0);
-	if (!boot_node) {
-		dev_err(&pdev->dev,
-			"%s: failed to get boot mode phandle\n", __func__);
-	} else {
-		tag = (struct tag_bootmode *)of_get_property(
-			boot_node, "atag,boot", NULL);
-		if (!tag)
-			dev_err(&pdev->dev,
-				"%s: failed to get atag,boot\n", __func__);
-		else {
-			dev_notice(&pdev->dev,
-				"%s, bootmode:%d\n", __func__, tag->bootmode);
-			bootmode = tag->bootmode;
-		}
-	}
-
 	mtk_rtc_dir = debugfs_create_dir("mtk_rtc", NULL);
 	if (!mtk_rtc_dir) {
 		dev_err(&pdev->dev,
@@ -1631,17 +1653,6 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 				"create /sys/kernel/debug/mtk_rtc/mtk_rtc failed\n");
 		}
 	}
-
-#ifdef CONFIG_PM
-	rtc->pm_nb.notifier_call = rtc_pm_event;
-	rtc->pm_nb.priority = 0;
-	if (register_pm_notifier(&rtc->pm_nb))
-		pr_notice("rtc pm failed\n");
-	else
-		rtc_pm_notifier_registered = true;
-#endif /* CONFIG_PM */
-
-	INIT_WORK(&rtc->work, mtk_rtc_work_queue);
 
 	return 0;
 
