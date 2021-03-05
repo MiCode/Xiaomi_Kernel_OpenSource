@@ -27,7 +27,7 @@
 #endif
 #include <mt-plat/mtk_ccci_common.h>
 
-#define MTK_DGB_SUSP_NODE	"/sys/kernel/debug/suspend/suspend_state"
+#define MTK_DGB_SUSP_NODE	"/proc/mtk_lpm/suspend/suspend_state"
 
 #undef mtk_dbg_log
 #define mtk_dbg_log(fmt, args...) \
