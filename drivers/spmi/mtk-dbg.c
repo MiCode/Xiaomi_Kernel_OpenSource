@@ -287,7 +287,15 @@ enum pmif_dbg_regs {
 	PMIF_ACC_VIO_INFO_2,
 	/* MT6853 new register */
 	PMIC_ALL_ACC_VIO_INFO_0,
-	PMIC_ALL_ACC_VIO_INFO_1
+	PMIC_ALL_ACC_VIO_INFO_1,
+	/* MT6833/MT6877 new register */
+	PMIC_ACC_SSPM_VIO_INFO_0,
+	PMIC_ACC_SSPM_VIO_INFO_1,
+	PMIC_ACC_SSPM_VIO_INFO_2,
+	PMIC_ACC_SSPM_VIO_INFO_3,
+	PMIC_ACC_SSPM_VIO_INFO_4,
+	PMIC_ACC_SSPM_VIO_INFO_5,
+	PMIC_ALL_ACC_VIO_INFO_2
 
 };
 
@@ -801,8 +809,15 @@ static const u32 mt6833_pmif_dbg_regs[] = {
 	[PMIF_ACC_VIO_INFO_0] =			0x0980,
 	[PMIF_ACC_VIO_INFO_1] =			0x0984,
 	[PMIF_ACC_VIO_INFO_2] =			0x0988,
+	[PMIC_ACC_SSPM_VIO_INFO_0] =		0x098C,
+	[PMIC_ACC_SSPM_VIO_INFO_1] =		0x0990,
+	[PMIC_ACC_SSPM_VIO_INFO_2] =		0x0994,
+	[PMIC_ACC_SSPM_VIO_INFO_3] =		0x0998,
+	[PMIC_ACC_SSPM_VIO_INFO_4] =		0x099C,
+	[PMIC_ACC_SSPM_VIO_INFO_5] =		0x09A0,
 	[PMIC_ALL_ACC_VIO_INFO_0] =		0x09A4,
 	[PMIC_ALL_ACC_VIO_INFO_1] =		0x09A8,
+	[PMIC_ALL_ACC_VIO_INFO_2] =		0x09AC,
 };
 
 static const u32 mt6853_pmif_dbg_regs[] = {
@@ -1379,12 +1394,16 @@ void spmi_dump_pmif_acc_vio_reg(void)
 	unsigned int offset, tmp_dat;
 	unsigned int start, end, log_size = 0;
 
-	start = arb->dbgregs[PMIF_ACC_VIO_INFO_0];
-	if (arb->dbgver == 2)
+	if (arb->dbgver == 2) {
+		start = arb->dbgregs[PMIC_ALL_ACC_VIO_INFO_0];
 		end = arb->dbgregs[PMIC_ALL_ACC_VIO_INFO_1];
-	else
+	} else if (arb->dbgver == 3) {
+		start = arb->dbgregs[PMIC_ALL_ACC_VIO_INFO_0];
+		end = arb->dbgregs[PMIC_ALL_ACC_VIO_INFO_2];
+	} else {
+		start = arb->dbgregs[PMIF_ACC_VIO_INFO_0];
 		end = arb->dbgregs[PMIF_ACC_VIO_INFO_2];
-
+	}
 	log_size += sprintf(wp, "");
 	for (offset = start; offset <= end; offset += 4) {
 		tmp_dat = readl(arb->base + offset);
@@ -1607,7 +1626,7 @@ void spmi_dump_pmif_record_reg(void)
 	for (i = 0; i < 32; i++) {
 		offset = arb->dbgregs[PMIF_MONITOR_RECORD_0_0] + i * step;
 		tmp_dat = readl(arb->base + offset);
-		chan = (tmp_dat & (0xf8 << 27)) >> 27;
+		chan = (tmp_dat & (0xf8000000)) >> 27;
 		cmd = (tmp_dat & (0x3 << 25)) >> 25;
 		is_write = (tmp_dat & (0x1 << 24)) >> 24;
 		slvid = (tmp_dat & (0xf << 20)) >> 20;
@@ -1644,7 +1663,7 @@ static void spmi_dump_pmif_record_reg_d(struct seq_file *m)
 	for (i = 0; i < 32; i++) {
 		offset = arb->dbgregs[PMIF_MONITOR_RECORD_0_0] + i * step;
 		tmp_dat = readl(arb->base + offset);
-		chan = (tmp_dat & (0xf8 << 27)) >> 27;
+		chan = (tmp_dat & (0xf8000000)) >> 27;
 		cmd = (tmp_dat & (0x3 << 25)) >> 25;
 		is_write = (tmp_dat & (0x1 << 24)) >> 24;
 		slvid = (tmp_dat & (0xf << 20)) >> 20;
@@ -1960,7 +1979,7 @@ int spmi_pmif_dbg_init(struct spmi_controller *ctrl)
 	} else if (of_device_is_compatible(ctrl->dev.parent->of_node,
 				    "mediatek,mt6833-pmif-m")) {
 		arb->dbgregs = mt6833_pmif_dbg_regs;
-		arb->dbgver = 2;
+		arb->dbgver = 3;
 	} else if (of_device_is_compatible(ctrl->dev.parent->of_node,
 				    "mediatek,mt6853-pmif-m")) {
 		arb->dbgregs = mt6853_pmif_dbg_regs;
@@ -1969,6 +1988,10 @@ int spmi_pmif_dbg_init(struct spmi_controller *ctrl)
 				    "mediatek,mt6853-pmif-p")) {
 		arb->dbgregs = mt6853_pmif_dbg_regs;
 		arb->dbgver = 2;
+	} else if (of_device_is_compatible(ctrl->dev.parent->of_node,
+				    "mediatek,mt6877-pmif-m")) {
+		arb->dbgregs = mt6833_pmif_dbg_regs;
+		arb->dbgver = 3;
 	} else {
 		arb->dbgregs = mt6xxx_pmif_dbg_regs;
 		arb->dbgver = 1;

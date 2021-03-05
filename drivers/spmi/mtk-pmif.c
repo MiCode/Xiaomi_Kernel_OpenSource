@@ -369,6 +369,10 @@ enum {
 	IRQ_HW_MONITOR_V2 = 18,
 	IRQ_WDT_V2 = 19,
 	IRQ_ALL_PMIC_MPU_VIO_V2 = 20,
+	/* MT6833/MT6877 series */
+	IRQ_HW_MONITOR_V3 = 12,
+	IRQ_WDT_V3 = 13,
+	IRQ_ALL_PMIC_MPU_VIO_V3 = 14,
 };
 struct pmif_irq_desc {
 	const char *name;
@@ -551,6 +555,9 @@ static const struct of_device_id pmif_match_table[] = {
 	}, {
 		.compatible = "mediatek,mt6853-pmif-p",
 		.data = &mt6xxx_pmif_p_arb,
+	}, {
+		.compatible = "mediatek,mt6877-pmif-m",
+		.data = &mt6xxx_pmif_m_arb_v2,
 	}, {
 		.compatible = "mediatek,mt6885-pmif",
 		.data = &mt6xxx_pmif_arb,
@@ -1241,16 +1248,19 @@ static irqreturn_t pmif_event_3_irq_handler(int irq, void *data)
 			break;
 			case IRQ_HW_MONITOR:
 			case IRQ_HW_MONITOR_V2:
+			case IRQ_HW_MONITOR_V3:
 				pmif_hw_monitor_irq_handler(irq, data);
 			break;
 			case IRQ_WDT:
 			case IRQ_WDT_V2:
+			case IRQ_WDT_V3:
 				pmif_wdt_irq_handler(irq, data);
 			break;
 			case IRQ_PMIC_ACC_VIO_V2:
 				pmif_pmic_acc_vio_irq_handler(irq, data);
 			break;
 			case IRQ_ALL_PMIC_MPU_VIO_V2:
+			case IRQ_ALL_PMIC_MPU_VIO_V3:
 				pmif_pmif_acc_vio_irq_handler(irq, data);
 			break;
 			default:
