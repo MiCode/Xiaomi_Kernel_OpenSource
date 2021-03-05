@@ -3,6 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <linux/atomic.h>
 #include <linux/cpuidle.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -14,8 +15,16 @@
 #include <linux/syscore_ops.h>
 #include <linux/suspend.h>
 #include <linux/rtc.h>
+#include <linux/hrtimer.h>
+#include <linux/timer.h>
+#include <linux/completion.h>
+#include <linux/jiffies.h>
 #include <asm/cpuidle.h>
 #include <asm/suspend.h>
+
+#include <linux/sched.h>
+#include <linux/kthread.h>
+
 
 #include <mtk_lpm.h>
 #include <mtk_lpm_module.h>
@@ -24,7 +33,7 @@
 #include <mtk_lpm_call_type.h>
 #include <mtk_dbg_common_v1.h>
 #include <mt-plat/mtk_ccci_common.h>
-
+#include <uapi/linux/sched/types.h>
 #include "mt6877.h"
 #include "mt6877_suspend.h"
 
@@ -296,11 +305,29 @@ struct mtk_lpm_model mt6877_model_suspend = {
 };
 
 #ifdef CONFIG_PM
+#define CPU_NUMBER (8)
+static atomic_t in_sleep;
+static struct hrtimer mtk_lpm_wakeup_timer[CPU_NUMBER];
+struct completion mtk_lpm_suspend_completion[CPU_NUMBER];
+static enum hrtimer_restart mtk_lpm_wakeup_func(struct hrtimer *timer)
+{
+	int i;
+
+	i = atomic_read(&in_sleep);
+	if (i) {
+		atomic_set(&in_sleep, 0);
+		pr_info("[name:spm&][LPM] wakeup system due to not entering suspend.\n");
+		pm_system_wakeup();
+	}
+
+	return HRTIMER_NORESTART;
+}
 static int mt6877_spm_suspend_pm_event(struct notifier_block *notifier,
 			unsigned long pm_event, void *unused)
 {
 	struct timespec ts;
 	struct rtc_time tm;
+	int i;
 
 	getnstimeofday(&ts);
 	rtc_time_to_tm(ts.tv_sec, &tm);
@@ -317,14 +344,18 @@ static int mt6877_spm_suspend_pm_event(struct notifier_block *notifier,
 		"[name:spm&][SPM] PM: suspend entry %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
-
+		atomic_set(&in_sleep, 1);
+		for (i = 0; i < CPU_NUMBER; i++)
+			complete(&mtk_lpm_suspend_completion[i]);
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
+		for (i = 0 ; i < CPU_NUMBER; i++)
+			hrtimer_cancel(&mtk_lpm_wakeup_timer[i]);
 		printk_deferred(
 		"[name:spm&][SPM] PM: suspend exit %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
-
+		atomic_set(&in_sleep, 0);
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_OK;
@@ -336,11 +367,33 @@ static struct notifier_block mt6877_spm_suspend_pm_notifier_func = {
 };
 #endif
 
+static struct task_struct *lpm_ts[CPU_NUMBER];
+static int mtk_lpm_monitor_thread(void *not_used)
+{
+	struct sched_param param = {.sched_priority = 99 };
+	int cpu;
+
+	sched_setscheduler(current, SCHED_FIFO, &param);
+	cpu = smp_processor_id();
+	for (;;) {
+
+		if (kthread_should_stop()) {
+			pr_info("[name:spm&][LPM] stop thread!!\n");
+			break;
+		}
+		wait_for_completion(&mtk_lpm_suspend_completion[cpu]);
+		hrtimer_start(&mtk_lpm_wakeup_timer[cpu], ktime_set(5, 0), HRTIMER_MODE_REL);
+		init_completion(&mtk_lpm_suspend_completion[cpu]);
+	}
+	return 0;
+}
+
 int __init mt6877_model_suspend_init(void)
 {
 	int ret;
 
 	int suspend_type = mtk_lpm_suspend_type_get();
+	int i;
 
 	if (suspend_type == MTK_LPM_SUSPEND_S2IDLE) {
 		MT6877_SUSPEND_OP_INIT(mt6877_suspend_s2idle_prompt,
@@ -364,6 +417,20 @@ int __init mt6877_model_suspend_init(void)
 	if (ret) {
 		pr_debug("[name:spm&][SPM] Failed to register PM notifier.\n");
 		return ret;
+	}
+
+	for (i = 0; i < CPU_NUMBER; i++) {
+		lpm_ts[i] = kthread_create(mtk_lpm_monitor_thread, NULL, "LPM-%d", i);
+		if (!lpm_ts[i]) {
+			pr_info("[name:spm&][SPM] create threads fail\n");
+			break;
+		}
+		hrtimer_init(&mtk_lpm_wakeup_timer[i], CLOCK_MONOTONIC,
+			HRTIMER_MODE_ABS);
+		mtk_lpm_wakeup_timer[i].function = mtk_lpm_wakeup_func;
+		init_completion(&mtk_lpm_suspend_completion[i]);
+		kthread_bind(lpm_ts[i], i);
+		wake_up_process(lpm_ts[i]);
 	}
 #endif /* CONFIG_PM */
 
