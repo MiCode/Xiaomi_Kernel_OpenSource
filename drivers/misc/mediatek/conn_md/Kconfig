@@ -2,6 +2,7 @@ config MTK_CONN_MD
 	bool "Support mtk connsys modem config"
 	default n if MTK_COMBO_CHIP_CONSYS_6885
 	default n if MTK_COMBO_CHIP_CONSYS_6893
+	default n if MTK_COMBO_CHIP_CONSYS_6877
 	default y if MTK_CONN_LTE_IDC_SUPPORT
 	help
 	  It is used to config whether IDC feature
