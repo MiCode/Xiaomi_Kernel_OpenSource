@@ -546,6 +546,7 @@ static struct snd_pcm_ops mtk_deep_buffer_dl_ops = {
 	.trigger = mtk_deep_buffer_dl_trigger,
 	.pointer = mtk_deep_buffer_dl_pointer,
 	.page = mtk_deep_buffer_dl_page,
+	.copy_user = mtk_afe_pcm_copy,
 	.ack = mtk_deep_buffer_dl_ack,
 };
 

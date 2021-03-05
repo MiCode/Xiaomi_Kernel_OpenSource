@@ -392,6 +392,7 @@ static struct snd_pcm_ops mtk_usb_echoref_ops = {
 	.prepare = mtk_usb_echoref_prepare,
 	.trigger = mtk_usb_echoref_trigger,
 	.pointer = mtk_usb_echoref_pointer,
+	.copy_user = mtk_afe_pcm_copy,
 };
 
 static int mtk_usb_echoref_component_probe(struct snd_soc_component *component)

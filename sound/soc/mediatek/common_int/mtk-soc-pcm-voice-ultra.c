@@ -595,6 +595,7 @@ static struct snd_pcm_ops mtk_voice_ultra_ops = {
 	.hw_params = mtk_voice_ultra_hw_params,
 	.hw_free = mtk_voice_ultra_hw_free,
 	.prepare = mtk_voice_ultra_prepare,
+	.copy_user = mtk_afe_pcm_copy,
 };
 
 static int mtk_voice_ultra_component_probe(struct snd_soc_component *component)

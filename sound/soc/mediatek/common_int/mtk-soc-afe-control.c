@@ -5093,3 +5093,51 @@ int mtk_pcm_mmap(struct snd_pcm_substream *substream,
 				 runtime->dma_area, runtime->dma_addr,
 				 runtime->dma_bytes);
 }
+
+/* calculate the target DMA-buffer position to be written/read */
+static void *get_dma_ptr(struct snd_pcm_runtime *runtime,
+			 int channel, unsigned long hwoff)
+{
+	return runtime->dma_area + hwoff +
+		channel * (runtime->dma_bytes / runtime->channels);
+}
+
+/* default copy_user ops for write; used for both interleaved and non- modes */
+static int default_write_copy(struct snd_pcm_substream *substream,
+			      int channel, unsigned long hwoff,
+			      void *buf, unsigned long bytes)
+{
+	if (copy_from_user(get_dma_ptr(substream->runtime, channel, hwoff),
+			   (void __user *)buf, bytes))
+		return -EFAULT;
+	return 0;
+}
+
+/* default copy_user ops for read; used for both interleaved and non- modes */
+static int default_read_copy(struct snd_pcm_substream *substream,
+			     int channel, unsigned long hwoff,
+			     void *buf, unsigned long bytes)
+{
+	if (copy_to_user((void __user *)buf,
+			 get_dma_ptr(substream->runtime, channel, hwoff),
+			 bytes))
+		return -EFAULT;
+	return 0;
+}
+
+int mtk_afe_pcm_copy(struct snd_pcm_substream *substream,
+		     int channel, unsigned long hwoff,
+		     void *buf, unsigned long bytes)
+{
+	int (*sp_copy)(struct snd_pcm_substream *substream,
+		       int channel, unsigned long hwoff,
+		       void *buf, unsigned long bytes) = NULL;
+	int is_playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+
+	sp_copy = is_playback ? default_write_copy : default_read_copy;
+	sp_copy(substream, channel, hwoff,
+		(void __user *)buf, bytes);
+
+	return 0;
+}
+

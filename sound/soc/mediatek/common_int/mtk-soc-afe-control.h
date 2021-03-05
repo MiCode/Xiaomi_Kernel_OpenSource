@@ -384,4 +384,8 @@ int get_usage_digital_block_io(enum audio_usage_id id);
 int mtk_pcm_mmap(struct snd_pcm_substream *substream,
 		 struct vm_area_struct *vma);
 
+int mtk_afe_pcm_copy(struct snd_pcm_substream *substream,
+		     int channel, unsigned long hwoff,
+		     void *buf, unsigned long bytes);
+
 #endif
