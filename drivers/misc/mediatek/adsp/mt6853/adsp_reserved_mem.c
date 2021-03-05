@@ -8,7 +8,9 @@
 #include <linux/of.h>
 #include <linux/of_reserved_mem.h>
 #endif
+#if defined(CONFIG_MEDIATEK_EMI)
 #include <memory/mediatek/emi.h>
+#endif
 #include "adsp_reserved_mem.h"
 #include "adsp_feature_define.h"
 #include "adsp_platform.h"
@@ -75,7 +77,7 @@ size_t adsp_get_reserve_mem_size(enum adsp_reserve_mem_id_t id)
 
 void adsp_set_emimpu_shared_region(void)
 {
-#if ADSP_EMI_PROTECTION_ENABLE
+#if defined(CONFIG_MEDIATEK_EMI)
 	struct emimpu_region_t adsp_region;
 	struct adsp_reserve_mblock *mem = &adsp_reserve_mem;
 	int ret = 0;
@@ -94,6 +96,8 @@ void adsp_set_emimpu_shared_region(void)
 	if (ret < 0)
 		pr_info("%s fail to set emimpu protection\n", __func__);
 	mtk_emimpu_free_region(&adsp_region);
+#else
+	pr_info("%s(), emi config not enable", __func__);
 #endif
 }
 
