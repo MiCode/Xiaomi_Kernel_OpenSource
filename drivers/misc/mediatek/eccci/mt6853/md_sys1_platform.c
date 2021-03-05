@@ -477,6 +477,9 @@ void md_cd_lock_modem_clock_src(int locked)
 		int settle = mt_secure_call(MD_CLOCK_REQUEST,
 				MD_REG_AP_MDSRC_SETTLE, 0, 0, 0, 0, 0);
 
+		if (!(settle > 0 && settle < 10))
+			settle = 3;
+
 		mdelay(settle);
 		ret = mt_secure_call(MD_CLOCK_REQUEST,
 				MD_REG_AP_MDSRC_ACK, 0, 0, 0, 0, 0);
