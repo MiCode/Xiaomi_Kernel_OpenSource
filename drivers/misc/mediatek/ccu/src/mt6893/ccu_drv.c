@@ -1070,7 +1070,7 @@ static int ccu_release(struct inode *inode, struct file *flip)
 {
 	struct ccu_user_s *user = flip->private_data;
 	int i = 0;
-	struct CcuMemHandle handle;
+	struct CcuMemHandle handle = {0};
 
 	mutex_lock(&g_ccu_device->dev_mutex);
 
