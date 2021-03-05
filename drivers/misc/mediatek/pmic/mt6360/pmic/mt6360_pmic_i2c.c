@@ -31,6 +31,9 @@
 #include "../inc/mt6360_pmic.h"
 #include <mt-plat/charger_class.h>
 
+#if defined(CONFIG_MACH_MT6877)
+static unsigned int pmu_id;
+#endif
 static bool dbg_log_en; /* module param to enable/disable debug log */
 module_param(dbg_log_en, bool, 0644);
 
@@ -719,8 +722,11 @@ static int mt6360_pmic_parse_dt_data(struct device *dev,
 	ret = of_irq_to_resource_table(np, res, res_cnt);
 	pdata->irq_res = res;
 	pdata->irq_res_cnt = ret;
-	of_property_read_u8_array(np, "pwr_off_seq",
-				  pdata->pwr_off_seq, MT6360_PMIC_MAX);
+#if defined(CONFIG_MACH_MT6877)
+	if (pmu_id == 2)
+#endif
+		of_property_read_u8_array(np, "pwr_off_seq",
+					  pdata->pwr_off_seq, MT6360_PMIC_MAX);
 bypass_irq_res:
 	dev_dbg(dev, "%s --\n", __func__);
 	return 0;
@@ -738,6 +744,18 @@ static inline int mt6360_ldo_chip_id_check(struct i2c_client *i2c)
 		return ret;
 	if (((u8)ret & 0xf0) != 0x50)
 		return -ENODEV;
+
+#if defined(CONFIG_MACH_MT6877)
+	pmu_id = i2c_smbus_read_byte_data(&pmu_client, 0x0f);
+	if ((pmu_id & 0x60) == 0x40) // LP5
+		pmu_id = 1;
+	else if ((pmu_id & 0x60) == 0) // LP4
+		pmu_id = 2;
+	else if ((pmu_id & 0x60) == 0x60) // LP5-2
+		pmu_id = 3;
+	else
+		pmu_id = 0;
+#endif
 	return ((u8)ret & 0x0f);
 }
 
