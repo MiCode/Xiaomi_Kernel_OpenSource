@@ -67,11 +67,7 @@ static void __iomem *gpio_base;
 #endif	/* CONFIG_OF */
 
 /* TODO: marked this after driver is ready */
-#if defined(CONFIG_MACH_MT6833)
-#define SRCLKEN_RC_BRINGUP			1
-#else
 #define SRCLKEN_RC_BRINGUP			0
-#endif /* defined(CONFIG_MACH_MT6833) */
 /* Pwrap Register */
 #define SRCLKEN_RCINF_STA_0			(0x1C4)
 #define SRCLKEN_RCINF_STA_1			(0x1C8)
@@ -97,6 +93,14 @@ static void __iomem *gpio_base;
 #endif
 
 #define TRACE_NUM				8
+
+#if defined(CONFIG_MACH_MT6833)
+#define PWRAP_DTS_NODE_NAME			"mediatek,mt6833-pwrap"
+#define SCPSYS_DTS_NODE_NAME			"mediatek,mt6833-scpsys"
+#else
+#define PWRAP_DTS_NODE_NAME			"mediatek,mt6853-pwrap"
+#define SCPSYS_DTS_NODE_NAME			"mediatek,mt6853-scpsys"
+#endif /* defined(CONFIG_MT6833) */
 
 static bool srclken_debug;
 static bool rc_dts_init_done;
@@ -973,7 +977,7 @@ int srclken_dts_map(void)
 		return -1;
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6853-pwrap");
+	node = of_find_compatible_node(NULL, NULL, PWRAP_DTS_NODE_NAME);
 	if (node) {
 		pwrap_base = of_iomap(node, 0);
 		if (!pwrap_base) {
@@ -987,7 +991,7 @@ int srclken_dts_map(void)
 		return -1;
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6853-scpsys");
+	node = of_find_compatible_node(NULL, NULL, SCPSYS_DTS_NODE_NAME);
 	if (node) {
 		scp_base = of_iomap(node, 2);
 		if (!scp_base) {
