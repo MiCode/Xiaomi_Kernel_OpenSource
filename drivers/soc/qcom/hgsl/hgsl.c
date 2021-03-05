@@ -289,6 +289,9 @@ struct qcom_hgsl {
 
 	struct doorbell_queue dbq[MAX_DB_QUEUE];
 
+	/* Could disable db and use isync only */
+	bool db_off;
+
 	/* global doorbell tcsr */
 	struct hgsl_tcsr *tcsr[HGSL_TCSR_NUM][HGSL_TCSR_ROLE_MAX];
 	int tcsr_idx;
@@ -550,6 +553,11 @@ static int hgsl_cmdstream_db_issueib(struct file *filep,
 	int idx;
 	int ret = 0;
 
+	if (hgsl->db_off) {
+		dev_err(hgsl->dev, "Doorbell not open\n");
+		return -EPERM;
+	}
+
 	copy_from_user(&submit_info, USRPTR(arg), sizeof(submit_info));
 
 	if (!hgsl_ctx_dbq_ready(priv)) {
@@ -664,6 +672,11 @@ static int hgsl_dbq_assign(struct file *filep, unsigned long arg)
 	struct qcom_hgsl *hgsl = priv->dev;
 	struct doorbell_queue *dbq;
 	unsigned int dbq_idx;
+
+	if (hgsl->db_off) {
+		dev_err(hgsl->dev, "Doorbell not open\n");
+		return -EPERM;
+	}
 
 	if (copy_from_user(&dbq_idx, USRPTR(arg), sizeof(dbq_idx)))
 		return -EFAULT;
@@ -875,6 +888,11 @@ static int hgsl_dbq_init(struct file *filep, unsigned long arg)
 	int tcsr_idx;
 	int ret;
 
+	if (hgsl->db_off) {
+		dev_err(hgsl->dev, "Doorbell not open\n");
+		return -EPERM;
+	}
+
 	copy_from_user(&param, USRPTR(arg), sizeof(param));
 	if (param.fd < 0) {
 		dev_err(hgsl->dev, "Invalid dbq fd\n");
@@ -968,6 +986,11 @@ static int hgsl_context_create(struct file *filep, unsigned long arg)
 	void *vbase;
 	struct hgsl_context *ctxt;
 	int ret = 0;
+
+	if (hgsl->db_off) {
+		dev_err(hgsl->dev, "Doorbell not open\n");
+		return -EPERM;
+	}
 
 	if (!hgsl->contexts) {
 		dev_err(hgsl->dev, "DBQ not initialized propertily\n");
@@ -1068,6 +1091,11 @@ static int hgsl_context_destroy(struct file *filep, unsigned long arg,
 	uint32_t context_id;
 	struct hgsl_context *ctxt;
 
+	if (hgsl->db_off) {
+		dev_err(hgsl->dev, "Doorbell not open\n");
+		return -EPERM;
+	}
+
 	if (!is_global_db(hgsl->tcsr_idx)) {
 		dev_err(hgsl->dev, "Global doorbell not supported for this process\n");
 		return -ENODEV;
@@ -1119,6 +1147,11 @@ static int hgsl_wait_timestamp(struct file *filep, unsigned long arg)
 	struct hgsl_context *ctxt;
 	unsigned int timestamp;
 	int ret;
+
+	if (hgsl->db_off) {
+		dev_err(hgsl->dev, "Doorbell not open\n");
+		return -EPERM;
+	}
 
 	if (!is_global_db(hgsl->tcsr_idx)) {
 		dev_err(hgsl->dev, "Global doorbell not supported for this process\n");
@@ -1192,6 +1225,11 @@ static int hgsl_dbq_release(struct file *filep, unsigned long arg,
 	struct doorbell_queue *dbq;
 	struct hgsl_dbq_release_info rel_info;
 	int ret = 0;
+
+	if (hgsl->db_off) {
+		dev_err(hgsl->dev, "Doorbell not open\n");
+		return -EPERM;
+	}
 
 	if (!force_cleanup)
 		ret = copy_from_user(&rel_info, USRPTR(arg),
@@ -1272,10 +1310,13 @@ static ssize_t hgsl_read(struct file *filep, char __user *buf, size_t count,
 	uint32_t release = 0;
 	char buff[100];
 
-	hgsl_reg_read(&hgsl->reg_ver, 0, &version);
-	hgsl_reg_read(&hgsl->reg_ver, 4, &release);
-	snprintf(buff, 100, "gpu HW Version:%x HW Release:%x\n",
+	if (!hgsl->db_off) {
+		hgsl_reg_read(&hgsl->reg_ver, 0, &version);
+		hgsl_reg_read(&hgsl->reg_ver, 4, &release);
+		snprintf(buff, 100, "gpu HW Version:%x HW Release:%x\n",
 							version, release);
+	} else
+		snprintf(buff, 100, "Doorbell closed\n");
 
 	return simple_read_from_buffer(buf, count, pos,
 			buff, strlen(buff) + 1);
@@ -1289,6 +1330,11 @@ static int hgsl_ioctl_hsync_fence_create(struct file *filep,
 	struct hgsl_hsync_fence_create param;
 	struct hgsl_context *ctxt;
 	int ret = 0;
+
+	if (hgsl->db_off) {
+		dev_err(hgsl->dev, "Doorbell not open\n");
+		return -EPERM;
+	}
 
 	copy_from_user(&param, USRPTR(arg), sizeof(param));
 
@@ -1529,6 +1575,18 @@ static void qcom_hgsl_deregister(struct platform_device *pdev)
 	unregister_chrdev_region(hgsl_dev->device_no, HGSL_DEV_NUM);
 }
 
+static bool hgsl_is_db_off(struct platform_device *pdev)
+{
+	uint32_t db_off = 0;
+
+	if (pdev == NULL)
+		return true;
+
+	of_property_read_u32(pdev->dev.of_node, "db-off", &db_off);
+
+	return db_off == 1 ? true : false;
+}
+
 static int hgsl_reg_map(struct platform_device *pdev,
 			char *res_name, struct reg *reg)
 {
@@ -1600,12 +1658,18 @@ static int qcom_hgsl_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = hgsl_reg_map(pdev, IORESOURCE_HWINF, &hgsl_dev->reg_ver);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Unable to map resource:%s\n",
-							   IORESOURCE_HWINF);
-		goto exit_dereg;
+	hgsl_dev->db_off = hgsl_is_db_off(pdev);
+
+	if (!hgsl_dev->db_off) {
+		ret = hgsl_reg_map(pdev, IORESOURCE_HWINF,
+						&hgsl_dev->reg_ver);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "Unable to map resource:%s\n",
+							IORESOURCE_HWINF);
+			goto exit_dereg;
+		}
 	}
+
 
 	for (i = 0; i < MAX_DB_QUEUE; i++) {
 		mutex_init(&hgsl_dev->dbq[i].lock);
