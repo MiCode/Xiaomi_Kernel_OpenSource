@@ -18,7 +18,7 @@
 #include <mt-plat/devapc_public.h>
 #endif
 #include "clkdbg.h"
-//#include "clk-mt6785-pg.h"
+#include "clkchk.h"
 
 #define ALL_CLK_ON		0
 #define DUMP_INIT_STATE		0

@@ -19,36 +19,14 @@ struct seq_file;
 #define clk_setl(addr, val)	clk_writel(addr, clk_readl(addr) | (val))
 #define clk_clrl(addr, val)	clk_writel(addr, clk_readl(addr) & ~(val))
 
-enum FMETER_TYPE {
-	FT_NULL,
-	ABIST,
-	CKGEN,
-	ABIST_2,
+enum PWR_STA_TYPE {
+	PWR_STA,
+	PWR_STA2,
+	XPU_PWR_STA,
+	XPU_PWR_STA2,
+	OTHER_PWR_STA,
+	STA_NUM,
 };
-
-struct fmeter_clk {
-	enum FMETER_TYPE type;
-	u32 id;
-	const char *name;
-	u32 ofs;
-	u32 pdn;
-};
-
-struct regbase {
-	u32 phys;
-	void __iomem *virt;
-	const char *name;
-	const char *pg;
-};
-
-struct regname {
-	struct regbase *base;
-	u32 ofs;
-	const char *name;
-};
-
-#define ADDR(rn)	(rn->base->virt + rn->ofs)
-#define PHYSADDR(rn)	(rn->base->phys + rn->ofs)
 
 struct cmd_fn {
 	const char	*cmd;
@@ -65,6 +43,7 @@ struct provider_clk {
 	u32 idx;
 	struct clk *ck;
 	u32 pwr_mask;
+	u32 sta_type;
 };
 
 struct clkdbg_ops {
@@ -77,6 +56,7 @@ struct clkdbg_ops {
 	const char * const *(*get_pwr_names)(void);
 	void (*setup_provider_clk)(struct provider_clk *pvdck);
 	u32 (*get_spm_pwr_status)(void);
+	u32 *(*get_spm_pwr_status_array)(void);
 	bool (*is_pwr_on)(struct provider_clk *pvdck);
 };
 

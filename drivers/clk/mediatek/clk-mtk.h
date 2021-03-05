@@ -188,6 +188,18 @@ void mtk_clk_register_composites(const struct mtk_composite *mcs,
 		int num, void __iomem *base, spinlock_t *lock,
 		struct clk_onecell_data *clk_data);
 
+/*
+ * define pwr status information.
+ * including offsets/mask.
+ */
+struct pwr_status {
+	s32 pwr_ofs;
+	s32 pwr2_ofs;
+	s32 other_ofs;
+	u32 mask;
+	u32 val;
+};
+
 struct mtk_gate_regs {
 	u32 sta_ofs;
 	u32 clr_ofs;
@@ -278,6 +290,7 @@ struct mtk_pll_data {
 	int pcw_shift;
 	const struct mtk_pll_div_table *div_table;
 	const char *parent_name;
+	struct pwr_status *pwr_stat;
 };
 
 void mtk_clk_register_plls(struct device_node *node,

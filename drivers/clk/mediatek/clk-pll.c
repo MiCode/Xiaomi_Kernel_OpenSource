@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/clkdev.h>
 #include <linux/delay.h>
+#include <linux/mfd/syscon.h>
 
 #include "clk-mtk.h"
 
@@ -33,6 +34,7 @@
 
 #define POSTDIV_MASK		0x7
 #define INTEGER_BITS		7
+#define INV_OFS		-1
 
 /*
  * MediaTek PLLs are configured through their pcw value. The pcw value describes
@@ -55,6 +57,8 @@ struct mtk_clk_pll {
 	uint32_t	en_mask;
 	uint32_t	iso_mask;
 	uint32_t	pwron_mask;
+	struct pwr_status	*pwr_stat;
+	struct regmap	*pwr_regmap;
 };
 
 static inline struct mtk_clk_pll *to_mtk_clk_pll(struct clk_hw *hw)
@@ -62,11 +66,38 @@ static inline struct mtk_clk_pll *to_mtk_clk_pll(struct clk_hw *hw)
 	return container_of(hw, struct mtk_clk_pll, hw);
 }
 
+static int is_subsys_pwr_on(struct mtk_clk_pll *pll)
+{
+	struct pwr_status *pwr = pll->pwr_stat;
+	u32 val = 0, val2 = 0;
+
+	if (pwr != NULL && pll->pwr_regmap != NULL) {
+		if (pwr->pwr_ofs != INV_OFS && pwr->pwr2_ofs != INV_OFS) {
+			regmap_read(pll->pwr_regmap, pwr->pwr_ofs, &val);
+			regmap_read(pll->pwr_regmap, pwr->pwr2_ofs, &val2);
+
+			pr_notice("stat: 0x%x, msk: 0x%x\n", val, pwr->mask);
+			if ((val & pwr->mask) != pwr->val &&
+					(val2 & pwr->mask) != pwr->val)
+				return false;
+		} else if (pwr->other_ofs != INV_OFS) {
+			regmap_read(pll->pwr_regmap, pwr->other_ofs, &val);
+			if ((val & pwr->mask) != pwr->val)
+				return false;
+		}
+	}
+
+	return true;
+}
+
 static int mtk_pll_is_prepared(struct clk_hw *hw)
 {
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
 
-	return (readl(pll->en_addr) & pll->data->en_mask) != 0;
+	if (is_subsys_pwr_on(pll))
+		return (readl(pll->en_addr) & pll->data->en_mask) != 0;
+
+	return false;
 }
 
 static unsigned long __mtk_pll_recalc_rate(struct mtk_clk_pll *pll, u32 fin,
@@ -365,7 +396,8 @@ static const struct clk_ops mtk_pll_ops = {
 #endif
 
 static struct clk *mtk_clk_register_pll(const struct mtk_pll_data *data,
-		void __iomem *base)
+		void __iomem *base,
+		struct regmap *pwr_regmap)
 {
 	struct mtk_clk_pll *pll;
 	struct clk_init_data init = {};
@@ -404,6 +436,13 @@ static struct clk *mtk_clk_register_pll(const struct mtk_pll_data *data,
 		pll->pwron_mask = data->pwron_mask;
 	else
 		pll->pwron_mask = CON0_PWR_ON;
+
+	if (data->pwr_stat)
+		pll->pwr_stat = data->pwr_stat;
+	else
+		pll->pwr_stat = NULL;
+	pll->pwr_regmap = pwr_regmap;
+
 	pll->hw.init = &init;
 	pll->data = data;
 
@@ -431,6 +470,7 @@ void mtk_clk_register_plls(struct device_node *node,
 	void __iomem *base;
 	int i;
 	struct clk *clk;
+	struct regmap *pwr_regmap;
 
 	base = of_iomap(node, 0);
 	if (!base) {
@@ -438,10 +478,14 @@ void mtk_clk_register_plls(struct device_node *node,
 		return;
 	}
 
+	pwr_regmap = syscon_regmap_lookup_by_phandle(node, "pwr-regmap");
+	if (IS_ERR(pwr_regmap))
+		pwr_regmap = NULL;
+
 	for (i = 0; i < num_plls; i++) {
 		const struct mtk_pll_data *pll = &plls[i];
 
-		clk = mtk_clk_register_pll(pll, base);
+		clk = mtk_clk_register_pll(pll, base, pwr_regmap);
 
 		if (IS_ERR(clk)) {
 			pr_err("Failed to register clk %s: %ld\n",

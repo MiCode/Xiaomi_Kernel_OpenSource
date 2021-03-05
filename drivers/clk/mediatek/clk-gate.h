@@ -20,18 +20,6 @@
 
 struct clk;
 
-/*
- * define pwr status information.
- * including offsets/mask.
- */
-struct pwr_status {
-	s32 pwr_ofs;
-	s32 pwr2_ofs;
-	s32 other_ofs;
-	u32 mask;
-	u32 val;
-};
-
 struct mtk_clk_gate {
 	struct clk_hw	hw;
 	struct regmap	*regmap;

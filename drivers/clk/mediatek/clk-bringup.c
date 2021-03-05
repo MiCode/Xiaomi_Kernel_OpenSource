@@ -52,7 +52,6 @@ static int bring_up_probe(struct platform_device *pdev)
 			ret = clk_prepare_enable(clk);
 			if (ret) {
 				pr_err("cannot force-on bringup clk node\n");
-				goto fail;
 			}
 		}
 	}

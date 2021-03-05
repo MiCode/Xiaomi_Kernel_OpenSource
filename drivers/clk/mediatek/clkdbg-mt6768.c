@@ -18,6 +18,7 @@
 #include <mt-plat/devapc_public.h>
 
 #include "clkdbg.h"
+#include "clkchk.h"
 #include "clkchk-mt6768.h"
 
 #define DUMP_INIT_STATE		0

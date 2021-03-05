@@ -14,7 +14,7 @@
 #include <linux/delay.h>
 #include <linux/of_address.h>
 
-#include "clkdbg.h"
+#include "clkchk.h"
 #include "clk-fmeter.h"
 
 static DEFINE_SPINLOCK(meter_lock);
