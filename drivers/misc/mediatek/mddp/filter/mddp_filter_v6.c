@@ -976,12 +976,6 @@ out:
 static uint32_t mddp_nfhook_prerouting_v6
 (void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {
-	if (mddp_f_suspend_s == 1)
-		return NF_ACCEPT;
-
-	if (!mddp_is_acted_state(MDDP_APP_TYPE_ALL))
-		return NF_ACCEPT;
-
 	if (unlikely(!state->in || !skb->dev || !skb_mac_header_was_set(skb))) {
 		MDDP_F_LOG(MDDP_LL_DEBUG,
 			"%s: Invalid param, in(%p), dev(%p), mac(%d)!\n",
@@ -1013,9 +1007,6 @@ static uint32_t mddp_nfhook_prerouting_v6
 static uint32_t mddp_nfhook_postrouting_v6
 (void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {
-	if (!mddp_is_acted_state(MDDP_APP_TYPE_ALL))
-		return NF_ACCEPT;
-
 	if (unlikely(!state->out || !skb->dev ||
 				(skb_headroom(skb) < ETH_HLEN))) {
 		MDDP_F_LOG(MDDP_LL_DEBUG,
