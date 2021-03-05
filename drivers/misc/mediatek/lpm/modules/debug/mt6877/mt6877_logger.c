@@ -79,7 +79,7 @@ static char *mt6877_spm_cond_cg_str[PLAT_SPM_COND_MAX] = {
 	[PLAT_SPM_COND_CG_MMSYS_0]	= "MMSYS_0",
 	[PLAT_SPM_COND_CG_MMSYS_1]	= "MMSYS_1",
 	[PLAT_SPM_COND_CG_MMSYS_2]	= "MMSYS_2",
-	[PLAT_SPM_COND_CG_MMSYS_2]      = "MMSYS_3",
+	[PLAT_SPM_COND_CG_MMSYS_2]	= "MMSYS_3",
 	[PLAT_SPM_COND_CG_MMSYS_4]	= "MMSYS_4",
 	[PLAT_SPM_COND_CG_MMSYS_5]	= "MMSYS_5",
 	[PLAT_SPM_COND_CG_MMSYS_6]	= "MMSYS_6",
@@ -131,9 +131,7 @@ struct spm_wakesrc_irq_list mt6877_spm_wakesrc_irqs[] = {
 	/* wf_hif_int */
 	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,wifi", 0, 0},
 	/* conn2ap_btif_wakeup_out */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6877-consys", 0, 0},
-	/* conn2ap_sw_irq */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6877-consys", 2, 0},
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,bt", 0, 0},
 	/* CCIF_AP_DATA */
 	{ WAKE_SRC_STA1_CCIF0_EVENT_B, "mediatek,ap_ccif0", 0, 0},
 	/* SCP IPC0 */
@@ -152,8 +150,6 @@ struct spm_wakesrc_irq_list mt6877_spm_wakesrc_irqs[] = {
 	{ WAKE_SRC_STA1_SC_SCP2SPM_WAKEUP_B, "mediatek,scp", 6, 0},
 	/* ADSP_A_AUD */
 	{ WAKE_SRC_STA1_SC_ADSP2SPM_WAKEUP_B, "mediatek,adsp_core_0", 2, 0},
-	/* ADSP_B_AUD */
-	{ WAKE_SRC_STA1_SC_ADSP2SPM_WAKEUP_B, "mediatek,adsp_core_1", 2, 0},
 	/* CCIF0_AP */
 	{ WAKE_SRC_STA1_MD1_WDT_B, "mediatek,mddriver", 2, 0},
 	/* DPMAIF_AP */
@@ -387,7 +383,7 @@ static u32 is_blocked_cnt;
 	char log_buf[LOG_BUF_SIZE] = { 0 };
 	int log_size = 0;
 	u32 is_no_blocked = 0;
-	u32 req_sta_0, req_sta_1, req_sta_2, req_sta_3, req_sta_4, req_sta_5;
+	u32 req_sta_0, req_sta_1, req_sat_ccif, req_sta_2, req_sta_3, req_sta_4, req_sta_5;
 	u32 src_req;
 
 	if (is_blocked_cnt >= AVOID_OVERFLOW)
@@ -425,7 +421,8 @@ static u32 is_blocked_cnt;
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_SIZE - log_size, "adsp ");
 
-	if ((req_sta_0 & (0x1 << 15)) || (req_sta_1 & (0xFFFF)))
+	req_sat_ccif = req_sta_1 & 0xFFF;
+	if (req_sat_ccif < 0xFFF)
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_SIZE - log_size, "ccif ");
 
@@ -440,10 +437,6 @@ static u32 is_blocked_cnt;
 	if (req_sta_2 & (0x1F << 15))
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_SIZE - log_size, "dpmaif ");
-
-	if (req_sta_2 & (0x3F << 20))
-		log_size += scnprintf(log_buf + log_size,
-			LOG_BUF_SIZE - log_size, "dram ");
 
 	if (req_sta_2 & (0xF << 27))
 		log_size += scnprintf(log_buf + log_size,
