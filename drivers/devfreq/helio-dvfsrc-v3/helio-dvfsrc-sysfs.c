@@ -312,7 +312,7 @@ int helio_dvfsrc_add_interface(struct device *dev)
 	pm_qos_add_request(&dvfsrc_ddr_opp_req, PM_QOS_DDR_OPP,
 			PM_QOS_DDR_OPP_DEFAULT_VALUE);
 	pm_qos_add_request(&dvfsrc_vcore_opp_req, PM_QOS_VCORE_OPP,
-			PM_QOS_VCORE_OPP_DEFAULT_VALUE);
+			0);
 	pm_qos_add_request(&dvfsrc_scp_vcore_req, PM_QOS_SCP_VCORE_REQUEST,
 			PM_QOS_SCP_VCORE_REQUEST_DEFAULT_VALUE);
 	pm_qos_add_request(&dvfsrc_power_model_ddr_req,
@@ -329,6 +329,11 @@ int helio_dvfsrc_add_interface(struct device *dev)
 			PM_QOS_ISP_HRT_BANDWIDTH_DEFAULT_VALUE);
 
 	return sysfs_create_group(&dev->kobj, &helio_dvfsrc_attr_group);
+}
+
+void helio_dvfsrc_qos_init_done(void)
+{
+	pm_qos_update_request(&dvfsrc_vcore_opp_req, PM_QOS_VCORE_OPP_DEFAULT_VALUE);
 }
 
 void helio_dvfsrc_remove_interface(struct device *dev)
