@@ -2009,6 +2009,7 @@ fs/unicode/utf8-core.c
 fs/unicode/utf8data.h
 fs/unicode/utf8n.h
 fs/unicode/utf8-norm.c
+fs/userfaultfd.c
 fs/utimes.c
 fs/verity/enable.c
 fs/verity/fsverity_private.h
@@ -4221,6 +4222,7 @@ include/uapi/linux/usb/f_accessory.h
 include/uapi/linux/usb/functionfs.h
 include/uapi/linux/usb/midi.h
 include/uapi/linux/usb/video.h
+include/uapi/linux/userfaultfd.h
 include/uapi/linux/utime.h
 include/uapi/linux/utsname.h
 include/uapi/linux/uuid.h
@@ -4904,6 +4906,7 @@ mm/swap_slots.c
 mm/swap_state.c
 mm/truncate.c
 mm/usercopy.c
+mm/userfaultfd.c
 mm/util.c
 mm/vmacache.c
 mm/vmalloc.c
