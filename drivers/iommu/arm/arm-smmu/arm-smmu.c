@@ -3103,10 +3103,14 @@ static int __arm_smmu_sid_switch(struct device *dev, void *data)
 {
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
-	struct arm_smmu_device *smmu = cfg->smmu;
+	struct arm_smmu_device *smmu;
 	enum sid_switch_direction dir = (typeof(dir))data;
 	int i, idx;
 
+	if (!fwspec || !cfg)
+		return 0;
+
+	smmu = cfg->smmu;
 	for_each_cfg_sme(cfg, fwspec, i, idx) {
 		if (dir == SID_SWITCH_HLOS_TO_SECURE) {
 			arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_SMR(idx), 0);
