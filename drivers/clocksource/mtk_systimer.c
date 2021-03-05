@@ -162,7 +162,6 @@ void mtk_timer_clkevt_aee_dump(void)
 	 * Notice: print function cannot be used during AEE
 	 * flow to avoid lock issues.
 	 */
-	int cpu_bound;
 	struct mtk_stmr_device *dev =
 		mtk_stmr_id_to_dev(STMR_CLKEVT_ID);
 
@@ -200,10 +199,8 @@ void mtk_timer_clkevt_aee_dump(void)
 	aee_log("VAL: 0x%x\n",
 		__raw_readl(dev->base_addr + STMR_VAL));
 
-	cpu_bound = mt_irq_dump_cpu(mtk_stmr_clkevt.irq);
-
-	aee_log("irq affinity (bc, gic): %d, %d\n",
-		mtk_stmr_clkevt.irq_affinity_on, cpu_bound);
+	aee_log("irq affinity (bc): %d\n",
+		mtk_stmr_clkevt.irq_affinity_on);
 #endif
 }
 
