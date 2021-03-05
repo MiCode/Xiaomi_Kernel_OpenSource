@@ -1043,6 +1043,12 @@ s32 mdp_ioctl_simulate(unsigned long param)
 		goto done;
 	}
 
+	if (user_job.command_size > CMDQ_MAX_SIMULATE_COMMAND_SIZE) {
+		CMDQ_ERR("%s simulate command is too much\n", __func__);
+		status = -EFAULT;
+		goto done;
+	}
+
 	submit.metas = user_job.metas;
 	submit.meta_count = user_job.meta_count;
 

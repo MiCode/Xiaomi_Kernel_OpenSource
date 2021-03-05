@@ -46,6 +46,7 @@ enum TASK_STATE_ENUM {
 
 /* max count of input */
 #define CMDQ_MAX_COMMAND_SIZE		(0x80000000)
+#define CMDQ_MAX_SIMULATE_COMMAND_SIZE	(0x80000)
 #define CMDQ_MAX_DUMP_REG_COUNT		(2048)
 #define CMDQ_MAX_WRITE_ADDR_COUNT	(PAGE_SIZE / sizeof(u32))
 #define CMDQ_MAX_DBG_STR_LEN		(1024)
