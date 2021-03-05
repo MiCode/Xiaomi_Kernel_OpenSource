@@ -351,8 +351,13 @@ void scp_aed(enum SCP_RESET_TYPE type, enum scp_core_id id)
 	scp_get_log(id);
 	/*print scp message*/
 	pr_debug("scp_aed_title=%s\n", scp_aed_title);
+	if (scp_dump.ramdump == NULL)
+		scp_dump.ramdump = vmalloc(sizeof(struct MemoryDump));
 
-	scp_prepare_aed_dump(scp_aed_title, id);
+	if (scp_dump.ramdump != NULL)
+		scp_prepare_aed_dump(scp_aed_title, id);
+	else
+		pr_notice("[SCP] ramdump malloc fail\n");
 
 	/* scp aed api, only detail information available*/
 	aed_common_exception_api("scp", NULL, 0, NULL, 0,
@@ -416,9 +421,7 @@ int scp_excep_init(void)
 	if ((int)(scp_region_info->ap_dram_size) > 0)
 		dram_size = scp_region_info->ap_dram_size;
 
-	scp_dump.ramdump = vmalloc(sizeof(struct MemoryDump));
-	if (!scp_dump.ramdump)
-		return -1;
+	scp_dump.ramdump = NULL;
 
 	/* init global values */
 	scp_dump.ramdump_length = 0;
