@@ -159,19 +159,6 @@ struct mem_buf_desc {
 	struct list_head entry;
 };
 
-/**
- * struct mem_buf_xfer_ion_mem: Data specific to memory buffers allocated
- * through ION and have been transferred to another VM.
- * @heap_id: ID of the heap from which the allocation was performed from
- * @dmabuf: dmabuf associated with the memory buffer
- * @attachment: dmabuf attachment associated with the memory buffer
- */
-struct mem_buf_xfer_ion_mem {
-	u32 heap_id;
-	struct dma_buf *dmabuf;
-	struct dma_buf_attachment *attachment;
-};
-
 struct mem_buf_xfer_dmaheap_mem {
 	char name[MEM_BUF_MAX_DMAHEAP_NAME_LEN];
 	struct dma_buf *dmabuf;
@@ -237,64 +224,6 @@ static void mem_buf_destroy_txn(struct mem_buf_txn *txn)
 }
 
 /* Functions invoked when treating allocation requests from other VMs. */
-static int mem_buf_rmt_alloc_ion_mem(struct mem_buf_xfer_mem *xfer_mem)
-{
-	unsigned int i;
-	struct dma_buf *dmabuf;
-	struct dma_buf_attachment *attachment;
-	struct sg_table *mem_sgt;
-	struct mem_buf_xfer_ion_mem *ion_mem_data = xfer_mem->mem_type_data;
-	int ion_flags = 0, flag;
-	int heap_id = ion_mem_data->heap_id;
-	u32 nr_acl_entries = xfer_mem->nr_acl_entries;
-
-	pr_debug("%s: Starting ION allocation\n", __func__);
-	if (msm_ion_heap_is_secure(heap_id)) {
-		xfer_mem->secure_alloc = true;
-		ion_flags |= ION_FLAG_SECURE;
-		for (i = 0; i < nr_acl_entries; i++) {
-			flag = get_ion_flags(xfer_mem->dst_vmids[i]);
-			if (flag < 0)
-				return flag;
-			ion_flags |= flag;
-		}
-	} else {
-		xfer_mem->secure_alloc = false;
-	}
-
-	dmabuf = ion_alloc(xfer_mem->size, heap_id, ion_flags);
-	if (IS_ERR(dmabuf)) {
-		pr_err("%s ion_alloc failure sz: 0x%x heap_id: %d flags: 0x%x rc: %d\n",
-		       __func__, xfer_mem->size, heap_id, ion_flags,
-		       PTR_ERR(dmabuf));
-		return PTR_ERR(dmabuf);
-	}
-
-	attachment = dma_buf_attach(dmabuf, mem_buf_dev);
-	if (IS_ERR(attachment)) {
-		pr_err("%s dma_buf_attach failure rc: %d\n",  __func__,
-		       PTR_ERR(attachment));
-		dma_buf_put(dmabuf);
-		return PTR_ERR(attachment);
-	}
-
-	mem_sgt = dma_buf_map_attachment(attachment, DMA_BIDIRECTIONAL);
-	if (IS_ERR(mem_sgt)) {
-		pr_err("%s dma_buf_map_attachment failure rc: %d\n", __func__,
-		       PTR_ERR(mem_sgt));
-		dma_buf_detach(dmabuf, attachment);
-		dma_buf_put(dmabuf);
-		return PTR_ERR(mem_sgt);
-	}
-
-	ion_mem_data->dmabuf = dmabuf;
-	ion_mem_data->attachment = attachment;
-	xfer_mem->mem_sgt = mem_sgt;
-
-	pr_debug("%s: ION allocation complete\n", __func__);
-	return 0;
-}
-
 static int mem_buf_rmt_alloc_dmaheap_mem(struct mem_buf_xfer_mem *xfer_mem)
 {
 	struct dma_buf *dmabuf;
@@ -350,26 +279,10 @@ static int mem_buf_rmt_alloc_mem(struct mem_buf_xfer_mem *xfer_mem)
 {
 	int ret = -EINVAL;
 
-	if (xfer_mem->mem_type == MEM_BUF_ION_MEM_TYPE)
-		ret = mem_buf_rmt_alloc_ion_mem(xfer_mem);
-	else if (xfer_mem->mem_type == MEM_BUF_DMAHEAP_MEM_TYPE)
+	if (xfer_mem->mem_type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		ret = mem_buf_rmt_alloc_dmaheap_mem(xfer_mem);
 
 	return ret;
-}
-
-static void mem_buf_rmt_free_ion_mem(struct mem_buf_xfer_mem *xfer_mem)
-{
-	struct mem_buf_xfer_ion_mem *ion_mem_data = xfer_mem->mem_type_data;
-	struct dma_buf *dmabuf = ion_mem_data->dmabuf;
-	struct dma_buf_attachment *attachment = ion_mem_data->attachment;
-	struct sg_table *mem_sgt = xfer_mem->mem_sgt;
-
-	pr_debug("%s: Freeing ION memory\n", __func__);
-	dma_buf_unmap_attachment(attachment, mem_sgt, DMA_BIDIRECTIONAL);
-	dma_buf_detach(dmabuf, attachment);
-	dma_buf_put(ion_mem_data->dmabuf);
-	pr_debug("%s: ION memory freed\n", __func__);
 }
 
 static void mem_buf_rmt_free_dmaheap_mem(struct mem_buf_xfer_mem *xfer_mem)
@@ -388,9 +301,7 @@ static void mem_buf_rmt_free_dmaheap_mem(struct mem_buf_xfer_mem *xfer_mem)
 
 static void mem_buf_rmt_free_mem(struct mem_buf_xfer_mem *xfer_mem)
 {
-	if (xfer_mem->mem_type == MEM_BUF_ION_MEM_TYPE)
-		mem_buf_rmt_free_ion_mem(xfer_mem);
-	else if (xfer_mem->mem_type == MEM_BUF_DMAHEAP_MEM_TYPE)
+	if (xfer_mem->mem_type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		mem_buf_rmt_free_dmaheap_mem(xfer_mem);
 }
 
@@ -449,23 +360,6 @@ static struct hh_acl_desc *mem_buf_vmid_perm_list_to_hh_acl(int *vmids, int *per
 }
 
 static
-struct mem_buf_xfer_ion_mem *mem_buf_alloc_ion_xfer_mem_type_data(
-								void *rmt_data)
-{
-	struct mem_buf_xfer_ion_mem *xfer_ion_mem;
-	struct mem_buf_ion_alloc_data *ion_data = rmt_data;
-
-	xfer_ion_mem = kmalloc(sizeof(*xfer_ion_mem), GFP_KERNEL);
-	if (!xfer_ion_mem)
-		return ERR_PTR(-ENOMEM);
-
-	xfer_ion_mem->heap_id = ion_data->heap_id;
-	pr_debug("%s: ION source heap ID: 0x%x\n", __func__,
-		 xfer_ion_mem->heap_id);
-	return xfer_ion_mem;
-}
-
-static
 struct mem_buf_xfer_dmaheap_mem *mem_buf_alloc_dmaheap_xfer_mem_type_data(
 								void *rmt_data)
 {
@@ -487,18 +381,10 @@ static void *mem_buf_alloc_xfer_mem_type_data(enum mem_buf_mem_type type,
 {
 	void *data = ERR_PTR(-EINVAL);
 
-	if (type == MEM_BUF_ION_MEM_TYPE)
-		data = mem_buf_alloc_ion_xfer_mem_type_data(rmt_data);
-	else if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
+	if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		data = mem_buf_alloc_dmaheap_xfer_mem_type_data(rmt_data);
 
 	return data;
-}
-
-static
-void mem_buf_free_ion_xfer_mem_type_data(struct mem_buf_xfer_ion_mem *mem)
-{
-	kfree(mem);
 }
 
 static
@@ -510,9 +396,7 @@ void mem_buf_free_dmaheap_xfer_mem_type_data(struct mem_buf_xfer_dmaheap_mem *me
 static void mem_buf_free_xfer_mem_type_data(enum mem_buf_mem_type type,
 					    void *data)
 {
-	if (type == MEM_BUF_ION_MEM_TYPE)
-		mem_buf_free_ion_xfer_mem_type_data(data);
-	else if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
+	if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		mem_buf_free_dmaheap_xfer_mem_type_data(data);
 }
 
@@ -827,9 +711,7 @@ static int mem_buf_msgq_recv_fn(void *unused)
 /* Functions invoked when treating allocation requests to other VMs. */
 static size_t mem_buf_get_mem_type_alloc_req_size(enum mem_buf_mem_type type)
 {
-	if (type == MEM_BUF_ION_MEM_TYPE)
-		return sizeof(struct mem_buf_ion_alloc_data);
-	else if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
+	if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		return MEM_BUF_MAX_DMAHEAP_NAME_LEN;
 
 	return 0;
@@ -838,16 +720,8 @@ static size_t mem_buf_get_mem_type_alloc_req_size(enum mem_buf_mem_type type)
 static void mem_buf_populate_alloc_req_arb_payload(void *dst, void *src,
 						   enum mem_buf_mem_type type)
 {
-	struct mem_buf_ion_alloc_data *alloc_req_data;
-	struct mem_buf_ion_data *src_ion_data;
-
-	if (type == MEM_BUF_ION_MEM_TYPE) {
-		alloc_req_data = dst;
-		src_ion_data = src;
-		alloc_req_data->heap_id = src_ion_data->heap_id;
-	} else if (type == MEM_BUF_DMAHEAP_MEM_TYPE) {
+	if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		strlcpy(dst, src, MEM_BUF_MAX_DMAHEAP_NAME_LEN);
-	}
 }
 
 static void *mem_buf_construct_alloc_req(struct mem_buf_desc *membuf,
@@ -955,13 +829,6 @@ static void mem_buf_relinquish_mem(u32 memparcel_hdl)
 		pr_debug("%s: allocation relinquish message sent\n", __func__);
 }
 
-static int mem_buf_add_ion_mem(struct sg_table *sgt, void *dst_data)
-{
-	struct mem_buf_ion_data *dst_ion_data = dst_data;
-
-	return msm_ion_heap_add_memory(dst_ion_data->heap_id, sgt);
-}
-
 static int mem_buf_add_dmaheap_mem(struct sg_table *sgt, void *dst_data)
 {
 	char *heap_name = dst_data;
@@ -972,9 +839,7 @@ static int mem_buf_add_dmaheap_mem(struct sg_table *sgt, void *dst_data)
 static int mem_buf_add_mem_type(enum mem_buf_mem_type type, void *dst_data,
 				struct sg_table *sgt)
 {
-	if (type == MEM_BUF_ION_MEM_TYPE)
-		return mem_buf_add_ion_mem(sgt, dst_data);
-	else if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
+	if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		return mem_buf_add_dmaheap_mem(sgt, dst_data);
 
 	return -EINVAL;
@@ -1011,13 +876,6 @@ static int mem_buf_add_mem(struct mem_buf_desc *membuf)
 	return ret;
 }
 
-static int mem_buf_remove_ion_mem(struct sg_table *sgt, void *dst_data)
-{
-	struct mem_buf_ion_data *dst_ion_data = dst_data;
-
-	return msm_ion_heap_remove_memory(dst_ion_data->heap_id, sgt);
-}
-
 static int mem_buf_remove_dmaheap_mem(struct sg_table *sgt, void *dst_data)
 {
 	char *heap_name = dst_data;
@@ -1028,9 +886,7 @@ static int mem_buf_remove_dmaheap_mem(struct sg_table *sgt, void *dst_data)
 static int mem_buf_remove_mem_type(enum mem_buf_mem_type type, void *dst_data,
 				   struct sg_table *sgt)
 {
-	if (type == MEM_BUF_ION_MEM_TYPE)
-		return mem_buf_remove_ion_mem(sgt, dst_data);
-	else if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
+	if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		return mem_buf_remove_dmaheap_mem(sgt, dst_data);
 
 	return -EINVAL;
@@ -1126,13 +982,6 @@ static int mem_buf_perms_to_perms(u32 mem_buf_perms)
 	return perms;
 }
 
-static void *mem_buf_retrieve_ion_mem_type_data_user(
-				struct mem_buf_ion_data __user *mem_type_data)
-{
-	return memdup_user((const void __user *)mem_type_data,
-			   sizeof(*mem_type_data));
-}
-
 static void *mem_buf_retrieve_dmaheap_mem_type_data_user(
 				struct mem_buf_dmaheap_data __user *data)
 {
@@ -1157,19 +1006,10 @@ static void *mem_buf_retrieve_mem_type_data_user(enum mem_buf_mem_type mem_type,
 {
 	void *data = ERR_PTR(-EINVAL);
 
-	if (mem_type == MEM_BUF_ION_MEM_TYPE)
-		data = mem_buf_retrieve_ion_mem_type_data_user(mem_type_data);
-	else if (mem_type == MEM_BUF_DMAHEAP_MEM_TYPE)
+	if (mem_type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		data = mem_buf_retrieve_dmaheap_mem_type_data_user(mem_type_data);
 
 	return data;
-}
-
-static void *mem_buf_retrieve_ion_mem_type_data(
-					struct mem_buf_ion_data *mem_type_data)
-{
-	pr_debug("%s: ION heap ID: 0x%x\n", __func__, mem_type_data->heap_id);
-	return kmemdup(mem_type_data, sizeof(*mem_type_data), GFP_KERNEL);
 }
 
 static void *mem_buf_retrieve_dmaheap_mem_type_data(char *dmaheap_name)
@@ -1182,17 +1022,10 @@ static void *mem_buf_retrieve_mem_type_data(enum mem_buf_mem_type mem_type,
 {
 	void *data = ERR_PTR(-EINVAL);
 
-	if (mem_type == MEM_BUF_ION_MEM_TYPE)
-		data = mem_buf_retrieve_ion_mem_type_data(mem_type_data);
-	else if (mem_type == MEM_BUF_DMAHEAP_MEM_TYPE)
+	if (mem_type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		data = mem_buf_retrieve_dmaheap_mem_type_data(mem_type_data);
 
 	return data;
-}
-
-static void mem_buf_free_ion_mem_type_data(struct mem_buf_ion_data *ion_data)
-{
-	kfree(ion_data);
 }
 
 static void mem_buf_free_dmaheap_mem_type_data(char *dmaheap_name)
@@ -1203,9 +1036,7 @@ static void mem_buf_free_dmaheap_mem_type_data(char *dmaheap_name)
 static void mem_buf_free_mem_type_data(enum mem_buf_mem_type mem_type,
 				       void *mem_type_data)
 {
-	if (mem_type == MEM_BUF_ION_MEM_TYPE)
-		mem_buf_free_ion_mem_type_data(mem_type_data);
-	else if (mem_type == MEM_BUF_DMAHEAP_MEM_TYPE)
+	if (mem_type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		mem_buf_free_dmaheap_mem_type_data(mem_type_data);
 }
 
@@ -1247,8 +1078,7 @@ static const struct file_operations mem_buf_fops = {
 
 static bool is_valid_mem_type(enum mem_buf_mem_type mem_type)
 {
-	return mem_type == MEM_BUF_ION_MEM_TYPE ||
-		mem_type == MEM_BUF_DMAHEAP_MEM_TYPE;
+	return mem_type == MEM_BUF_DMAHEAP_MEM_TYPE;
 }
 
 static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
