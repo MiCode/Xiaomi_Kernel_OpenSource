@@ -34,7 +34,7 @@ void pe_snk_startup_entry(struct pd_port *pd_port)
 
 	pd_reset_protocol_layer(pd_port, false);
 
-	switch (pd_port->tcpc_dev->typec_remote_rp_level) {
+	switch (pd_port->tcpc->typec_remote_rp_level) {
 	case TYPEC_CC_VOLT_SNK_DFT:
 		opmode = TYPEC_PWR_MODE_USB;
 		break;
@@ -48,7 +48,7 @@ void pe_snk_startup_entry(struct pd_port *pd_port)
 		opmode = TYPEC_PWR_MODE_USB;
 		break;
 	}
-	typec_set_pwr_opmode(pd_port->tcpc_dev->typec_port, opmode);
+	typec_set_pwr_opmode(pd_port->tcpc->typec_port, opmode);
 
 	if (pr_swap) {
 		/*
@@ -109,6 +109,7 @@ void pe_snk_evaluate_capability_entry(struct pd_port *pd_port)
 void pe_snk_select_capability_entry(struct pd_port *pd_port)
 {
 	struct pd_event *pd_event = pd_get_curr_pd_event(pd_port);
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	PE_STATE_WAIT_MSG_HRESET_IF_TOUT(pd_port);
 
@@ -130,6 +131,10 @@ void pe_snk_select_capability_entry(struct pd_port *pd_port)
 
 void pe_snk_select_capability_exit(struct pd_port *pd_port)
 {
+#ifdef CONFIG_USB_PD_RENEGOTIATION_COUNTER
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+#endif /* CONFIG_USB_PD_RENEGOTIATION_COUNTER */
+
 	if (pd_check_ctrl_msg_event(pd_port, PD_CTRL_ACCEPT)) {
 		pd_port->pe_data.remote_selected_cap =
 					RDO_POS(pd_port->last_rdo);
@@ -171,8 +176,8 @@ void pe_snk_ready_entry(struct pd_port *pd_port)
 
 	pd_notify_pe_snk_explicit_contract(pd_port);
 	pe_power_ready_entry(pd_port);
-	pd_port->tcpc_dev->typec_caps.type = TYPEC_PORT_DRP;
-	typec_set_pwr_opmode(pd_port->tcpc_dev->typec_port, TYPEC_PWR_MODE_PD);
+	pd_port->tcpc->typec_caps.type = TYPEC_PORT_DRP;
+	typec_set_pwr_opmode(pd_port->tcpc->typec_port, TYPEC_PWR_MODE_PD);
 }
 
 void pe_snk_hard_reset_entry(struct pd_port *pd_port)
