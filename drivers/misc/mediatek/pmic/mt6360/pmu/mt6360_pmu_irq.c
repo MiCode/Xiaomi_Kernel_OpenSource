@@ -45,7 +45,7 @@ static irqreturn_t mt6360_pmu_irq_handler(int irq, void *data)
 	for (i = 0; i < MT6360_PMU_IRQ_REGNUM; i++) {
 		irq_events[i] &= ~irq_masks[i];
 		for (j = 0; j < 8; j++) {
-			if (!(irq_events[i] & (1 << j)))
+			if (!(irq_events[i] & (1 << (u32)j)))
 				continue;
 			ret = irq_find_mapping(mpi->irq_domain, i * 8 + j);
 			if (ret) {
@@ -95,7 +95,7 @@ static void mt6360_pmu_irq_bus_sync_unlock(struct irq_data *data)
 
 	/* force clear current irq event */
 	ret = mt6360_pmu_reg_write(mpi, MT6360_PMU_CHG_IRQ1 + offset / 8,
-				   1 << (offset % 8));
+				   1 << (u32)(offset % 8));
 	if (ret < 0)
 		dev_err(mpi->dev, "%s: fail to write clr irq\n", __func__);
 	/* unmask current irq */

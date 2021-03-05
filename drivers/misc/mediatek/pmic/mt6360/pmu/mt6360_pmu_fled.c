@@ -45,7 +45,7 @@ struct mt6360_pmu_fled_info {
 	struct rt_fled_dev base;
 	struct device *dev;
 	struct mt6360_pmu_info *mpi;
-	int id;
+	u8 id;
 	struct platform_device *fled_dev[MT6360_FLED_NUM];
 	struct platform_device *mt_flash_dev;
 };
@@ -200,7 +200,7 @@ static struct mt6360_pmu_irq_desc mt6360_pmu_fled_irq_desc[] = {
 
 static void mt6360_pmu_fled_irq_register(struct platform_device *pdev)
 {
-	struct mt6360_pmu_irq_desc *irq_desc;
+	struct mt6360_pmu_irq_desc *irq_desc = NULL;
 	int i, ret;
 
 	for (i = 0; i < ARRAY_SIZE(mt6360_pmu_fled_irq_desc); i++) {
@@ -224,7 +224,7 @@ static void mt6360_pmu_fled_irq_register(struct platform_device *pdev)
 
 static inline u32 mt6360_closest_reg(u32 min, u32 max, u32 step, u32 target)
 {
-	if (target < min)
+	if (target < min || step == 0)
 		return 0;
 	if (target >= max)
 		return (max - min) / step;
@@ -352,7 +352,7 @@ static inline int mt6360_pmu_reg_test_bit(struct mt6360_pmu_info *mpi,
 		return ret;
 	}
 
-	data = ret & (1 << shift);
+	data = (u32)ret & (1 << shift);
 	*is_one = (data == 0 ? false : true);
 
 	return 0;
@@ -520,7 +520,7 @@ static int mt6360_fled_get_mode(struct rt_fled_dev *fled)
 	if (ret < 0)
 		return -EINVAL;
 
-	if (ret & MT6360_FL_STROBE_MASK)
+	if ((u8)ret & MT6360_FL_STROBE_MASK)
 		return FLASHLIGHT_MODE_FLASH;
 	if (ret & MT6360_FL_TORCH_MASK)
 		return FLASHLIGHT_MODE_TORCH;
@@ -578,7 +578,7 @@ static int mt6360_fled_set_torch_current_sel(struct rt_fled_dev *fled,
 					  MT6360_PMU_FLED1_TOR_CTRL :
 					  MT6360_PMU_FLED2_TOR_CTRL,
 					  MT6360_ITOR_MASK,
-					  selector << MT6360_ITOR_SHIFT);
+					  (u8)selector << MT6360_ITOR_SHIFT);
 }
 
 static int mt6360_fled_set_strobe_current_sel(struct rt_fled_dev *fled,
@@ -590,8 +590,10 @@ static int mt6360_fled_set_strobe_current_sel(struct rt_fled_dev *fled,
 			   MT6360_PMU_FLED1_STRB_CTRL2 :
 			   MT6360_PMU_FLED2_STRB_CTRL2);
 
-	if (selector > 177 || selector < 0)
-		return -EINVAL;
+	if (selector > 177 || selector < 0) {
+		ret = -EINVAL;
+		return ret;
+	}
 
 	if (selector < 117) /* 25 ~ 750mA */
 		ret = mt6360_pmu_reg_set_bits(fi->mpi, reg_strb_cur,
@@ -604,7 +606,7 @@ static int mt6360_fled_set_strobe_current_sel(struct rt_fled_dev *fled,
 
 	return mt6360_pmu_reg_update_bits(fi->mpi, reg_strb_cur,
 					  MT6360_ISTRB_MASK,
-					  selector << MT6360_ISTRB_SHIFT);
+					  (u8)selector << MT6360_ISTRB_SHIFT);
 }
 
 static int mt6360_fled_set_timeout_level_sel(struct rt_fled_dev *fled,
@@ -616,7 +618,7 @@ static int mt6360_fled_set_timeout_level_sel(struct rt_fled_dev *fled,
 					  MT6360_PMU_FLED1_CTRL :
 					  MT6360_PMU_FLED2_CTRL,
 					  MT6360_TCL_MASK,
-					  selector << MT6360_TCL_SHIFT);
+					  (u8)selector << MT6360_TCL_SHIFT);
 }
 
 static int mt6360_fled_set_strobe_timeout_sel(struct rt_fled_dev *fled,
@@ -631,7 +633,8 @@ static int mt6360_fled_set_strobe_timeout_sel(struct rt_fled_dev *fled,
 	}
 	return mt6360_pmu_reg_update_bits(fi->mpi, MT6360_PMU_FLED_STRB_CTRL,
 					  MT6360_STRB_TO_MASK,
-					  selector << MT6360_STRB_TO_SHIFT);
+					  (u32)selector <<
+					  MT6360_STRB_TO_SHIFT);
 }
 
 static int mt6360_fled_get_torch_current_sel(struct rt_fled_dev *fled)
@@ -647,7 +650,7 @@ static int mt6360_fled_get_torch_current_sel(struct rt_fled_dev *fled)
 		return ret;
 	}
 
-	return (ret & MT6360_ITOR_MASK) >> MT6360_ITOR_SHIFT;
+	return ((u8)ret & MT6360_ITOR_MASK) >> MT6360_ITOR_SHIFT;
 }
 
 static int mt6360_fled_get_strobe_current_sel(struct rt_fled_dev *fled)
@@ -663,7 +666,7 @@ static int mt6360_fled_get_strobe_current_sel(struct rt_fled_dev *fled)
 		return ret;
 	}
 
-	return (ret & MT6360_ISTRB_MASK) >> MT6360_ISTRB_SHIFT;
+	return ((u32)ret & MT6360_ISTRB_MASK) >> MT6360_ISTRB_SHIFT;
 }
 
 static int mt6360_fled_get_timeout_level_sel(struct rt_fled_dev *fled)
@@ -679,7 +682,7 @@ static int mt6360_fled_get_timeout_level_sel(struct rt_fled_dev *fled)
 		return ret;
 	}
 
-	return (ret & MT6360_TCL_MASK) >> MT6360_TCL_SHIFT;
+	return ((u8)ret & MT6360_TCL_MASK) >> MT6360_TCL_SHIFT;
 }
 
 static int mt6360_fled_get_strobe_timeout_sel(struct rt_fled_dev *fled)
@@ -693,7 +696,7 @@ static int mt6360_fled_get_strobe_timeout_sel(struct rt_fled_dev *fled)
 		return ret;
 	}
 
-	return (ret & MT6360_STRB_TO_MASK) >> MT6360_STRB_TO_SHIFT;
+	return ((u8)ret & MT6360_STRB_TO_MASK) >> MT6360_STRB_TO_SHIFT;
 }
 
 static void mt6360_fled_shutdown(struct rt_fled_dev *fled)
@@ -716,7 +719,7 @@ static int mt6360_fled_is_ready(struct rt_fled_dev *fled)
 	 * CHG_STAT2 bit[3] FLED_CHG_VINOVP,
 	 * if OVP = 0 --> V < 5.3, if OVP = 1, V > 5.6
 	 */
-	return ret & MT6360_FLED_CHG_VINOVP ? 0 : 1;
+	return (u32)ret & MT6360_FLED_CHG_VINOVP ? 0 : 1;
 }
 
 static struct rt_fled_hal mt6360_fled_hal = {
@@ -755,7 +758,7 @@ static struct rt_fled_hal mt6360_fled_hal = {
 static int mt6360_pmu_fled_probe(struct platform_device *pdev)
 {
 	struct mt6360_fled_platform_data *pdata = dev_get_platdata(&pdev->dev);
-	struct mt6360_pmu_fled_info *mpfi;
+	struct mt6360_pmu_fled_info *mpfi = NULL;
 	bool use_dt = pdev->dev.of_node;
 	int ret, i;
 

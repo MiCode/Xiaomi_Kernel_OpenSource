@@ -123,7 +123,7 @@ static struct mt6360_pmu_irq_desc mt6360_pmu_core_irq_desc[] = {
 
 static void mt6360_pmu_core_irq_register(struct platform_device *pdev)
 {
-	struct mt6360_pmu_irq_desc *irq_desc;
+	struct mt6360_pmu_irq_desc *irq_desc = NULL;
 	int i, ret;
 
 	for (i = 0; i < ARRAY_SIZE(mt6360_pmu_core_irq_desc); i++) {
@@ -248,7 +248,7 @@ static int mt6360_core_parse_dt_data(struct device *dev,
 static int mt6360_pmu_core_probe(struct platform_device *pdev)
 {
 	struct mt6360_core_platform_data *pdata = dev_get_platdata(&pdev->dev);
-	struct mt6360_pmu_core_info *mpci;
+	struct mt6360_pmu_core_info *mpci = NULL;
 	bool use_dt = pdev->dev.of_node;
 	int ret;
 

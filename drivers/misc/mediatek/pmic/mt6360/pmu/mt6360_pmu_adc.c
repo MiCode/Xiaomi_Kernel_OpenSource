@@ -77,7 +77,7 @@ static int mt6360_adc_get_process_val(struct mt6360_pmu_adc_info *info,
 		ret = mt6360_pmu_reg_read(info->mpi, MT6360_PMU_CHG_CTRL3);
 		if (ret < 0)
 			return ret;
-		if (((ret & 0xfc) >> 2) < 0x6)
+		if ((((u32)ret & 0xfc) >> 2) < 0x6)
 			*val *= 1900;
 		else
 			*val *= 2500;
@@ -102,10 +102,12 @@ static int mt6360_adc_read_raw(struct iio_dev *iio_dev,
 	int retry_cnt = 0, ret;
 
 	mt_dbg(&iio_dev->dev, "%s: channel [%d] s\n", __func__, chan->channel);
+	if (chan->channel < 0 || chan->channel >= MAX_CHANNEL)
+		return -EINVAL;
 	mutex_lock(&mpai->adc_lock);
 	/* select preferred channel that we want */
 	ret = mt6360_pmu_reg_update_bits(mpai->mpi, MT6360_PMU_ADC_RPT_1,
-					 0xf0, chan->channel << 4);
+					 0xf0, (u8)chan->channel << 4);
 	if (ret < 0)
 		goto err_adc_init;
 	/* enable adc channel we want and adc_en */
@@ -217,7 +219,7 @@ static const struct iio_chan_spec mt6360_adc_channels[] = {
 	IIO_CHAN_SOFT_TIMESTAMP(MAX_CHANNEL),
 };
 
-static irqreturn_t mt6360_pmu_bat_ovp_adc_evt_handler(int irq, void *data)
+static irqreturn_t mt6360_pmu_bat_ovp_adc_evt_handler(int irq, void *const data)
 {
 	struct mt6360_pmu_adc_info *mpai = iio_priv(data);
 
@@ -233,7 +235,7 @@ static irqreturn_t mt6360_pmu_adc_wakeup_evt_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t mt6360_pmu_adc_donei_handler(int irq, void *data)
+static irqreturn_t mt6360_pmu_adc_donei_handler(int irq, void *const data)
 {
 	struct mt6360_pmu_adc_info *mpai = iio_priv(data);
 
@@ -250,7 +252,7 @@ static struct mt6360_pmu_irq_desc mt6360_pmu_adc_irq_desc[] = {
 
 static void mt6360_pmu_adc_irq_enable(const char *name, int en)
 {
-	struct mt6360_pmu_irq_desc *irq_desc;
+	struct mt6360_pmu_irq_desc *irq_desc = mt6360_pmu_adc_irq_desc;
 	int i = 0;
 
 	if (unlikely(!name))
@@ -271,7 +273,7 @@ static void mt6360_pmu_adc_irq_enable(const char *name, int en)
 
 static void mt6360_pmu_adc_irq_register(struct platform_device *pdev)
 {
-	struct mt6360_pmu_irq_desc *irq_desc;
+	struct mt6360_pmu_irq_desc *irq_desc = mt6360_pmu_adc_irq_desc;
 	int i, ret;
 
 	for (i = 0; i < ARRAY_SIZE(mt6360_pmu_adc_irq_desc); i++) {
@@ -333,15 +335,17 @@ static int mt6360_adc_scan_task_threadfn(void *data)
 
 static int mt6360_adc_iio_post_enable(struct iio_dev *iio_dev)
 {
-	char *p;
 	struct mt6360_pmu_adc_info *mpai = iio_priv(iio_dev);
+	char *name = NULL;
 
 	dev_dbg(&iio_dev->dev, "%s ++\n", __func__);
-	p = devm_kasprintf(mpai->dev, GFP_KERNEL,
-				"scan_thread.%s", dev_name(mpai->dev));
-	if (IS_ERR_OR_NULL(p))
-		return -EINVAL;
-	mpai->scan_task = kthread_run(mt6360_adc_scan_task_threadfn, mpai, p);
+	name = devm_kasprintf(mpai->dev, GFP_KERNEL,
+			      "scan_thread.%s", dev_name(mpai->dev));
+	if (!name)
+		return -ENOMEM;
+	mpai->scan_task = kthread_run(mt6360_adc_scan_task_threadfn, mpai,
+				      name);
+
 	dev_dbg(&iio_dev->dev, "%s --\n", __func__);
 	return PTR_ERR_OR_ZERO(mpai->scan_task);
 }
@@ -367,7 +371,7 @@ static const struct iio_buffer_setup_ops mt6360_adc_iio_setup_ops = {
 static int mt6360_adc_iio_device_register(struct iio_dev *indio_dev)
 {
 	struct mt6360_pmu_adc_info *mpai = iio_priv(indio_dev);
-	struct iio_buffer *buffer;
+	struct iio_buffer *buffer = NULL;
 	int ret;
 
 	dev_dbg(mpai->dev, "%s ++\n", __func__);
@@ -445,8 +449,8 @@ static int mt6360_adc_parse_dt_data(struct device *dev,
 static int mt6360_pmu_adc_probe(struct platform_device *pdev)
 {
 	struct mt6360_adc_platform_data *pdata = dev_get_platdata(&pdev->dev);
-	struct mt6360_pmu_adc_info *mpai;
-	struct iio_dev *indio_dev;
+	struct mt6360_pmu_adc_info *mpai = NULL;
+	struct iio_dev *indio_dev = NULL;
 	bool use_dt = pdev->dev.of_node;
 	int ret;
 

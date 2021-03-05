@@ -52,9 +52,9 @@ static struct mfd_cell mt6360_pmu_subdevs[MT6360_PMUDEV_MAX] = {
 
 static int mt6360_pmu_init_of_subdevs(struct mt6360_pmu_info *mpi)
 {
-	struct mfd_cell *cell;
-	struct device_node *np;
-	struct resource *irq_res;
+	struct mfd_cell *cell = NULL;
+	struct device_node *np = NULL;
+	struct resource *irq_res = NULL;
 	int i, irq_cnt, ret;
 
 	for (i = 0; i < MT6360_PMUDEV_MAX; i++) {
@@ -83,8 +83,8 @@ static int mt6360_pmu_init_of_subdevs(struct mt6360_pmu_info *mpi)
 static int mt6360_pmu_init_nonof_subdevs(struct mt6360_pmu_info *mpi)
 {
 	struct mt6360_pmu_platform_data *pdata = dev_get_platdata(mpi->dev);
-	struct mfd_cell *cell;
-	struct resource *res;
+	struct mfd_cell *cell = NULL;
+	struct resource *res = NULL;
 	int i, j, ret;
 
 	for (i = 0; i < MT6360_PMUDEV_MAX; i++) {

@@ -33,12 +33,13 @@ static const struct mt6360_pmu_platform_data def_platform_data = {
 	.disable_lpsd = false,
 };
 
-static int mt6360_pmu_read_device(void *client, u32 addr, int len, void *dst)
+static int mt6360_pmu_read_device(void *const client, u32 addr, int len,
+				  void *dst)
 {
 	return i2c_smbus_read_i2c_block_data(client, addr, len, dst);
 }
 
-static int mt6360_pmu_write_device(void *client, u32 addr,
+static int mt6360_pmu_write_device(void *const client, u32 addr,
 				   int len, const void *src)
 {
 	return i2c_smbus_write_i2c_block_data(client, addr, len, src);
@@ -240,9 +241,9 @@ static inline int mt6360_pmu_chip_id_check(struct i2c_client *i2c)
 	ret = i2c_smbus_read_byte_data(i2c, MT6360_PMU_DEV_INFO);
 	if (ret < 0)
 		return ret;
-	if ((ret & 0xf0) != 0x50)
+	if (((u32)ret & 0xf0) != 0x50)
 		return -ENODEV;
-	return (ret & 0x0f);
+	return ((u32)ret & 0x0f);
 }
 
 static inline void mt6360_config_of_node(struct device *dev, const char *name)
@@ -262,7 +263,7 @@ static int mt6360_pmu_i2c_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
 	struct mt6360_pmu_platform_data *pdata = dev_get_platdata(&client->dev);
-	struct mt6360_pmu_info *mpi;
+	struct mt6360_pmu_info *mpi = NULL;
 	bool use_dt = client->dev.of_node;
 	u8 chip_rev;
 	int ret;
