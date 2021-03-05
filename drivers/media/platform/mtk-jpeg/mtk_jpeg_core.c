@@ -244,9 +244,9 @@ void mtk_jpeg_unprepare_dvfs(void)
 
 void mtk_jpeg_start_dvfs(void)
 {
-	if (g_freq_steps[1] != 0) {
-		pr_info("highest freq 0x%x", g_freq_steps[1]);
-		pm_qos_update_request(&jpeg_qos_request,  g_freq_steps[1]);
+	if (g_freq_steps[0] != 0) {
+		pr_info("highest freq 0x%x", g_freq_steps[0]);
+		pm_qos_update_request(&jpeg_qos_request,  g_freq_steps[0]);
 	}
 }
 
