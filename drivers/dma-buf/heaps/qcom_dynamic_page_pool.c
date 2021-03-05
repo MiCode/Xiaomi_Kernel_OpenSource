@@ -293,5 +293,16 @@ static struct shrinker pool_shrinker = {
 
 int dynamic_page_pool_init_shrinker(void)
 {
-	return register_shrinker(&pool_shrinker);
+	int ret;
+	static bool registered;
+
+	if (registered)
+		return 0;
+
+	ret = register_shrinker(&pool_shrinker);
+	if (ret)
+		return ret;
+
+	registered = true;
+	return 0;
 }
