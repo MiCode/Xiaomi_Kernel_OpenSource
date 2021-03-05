@@ -10,8 +10,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
-
-
 ifeq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),y)
 
 PCMCALLBACK_TYPE := $(subst ",,$(CONFIG_MTK_VOW_PCMCALLBACK_SUPPORT))
@@ -28,6 +26,10 @@ endif
 
 DSP_VERSION := $(subst ",,$(CONFIG_MTK_VOW_DSP_VERSION))
 
+ifneq ($(DSP_VERSION), )
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/vow/$(DSP_VERSION)
 
 obj-$(CONFIG_MTK_VOW_SUPPORT) += $(DSP_VERSION)/
+
+endif
