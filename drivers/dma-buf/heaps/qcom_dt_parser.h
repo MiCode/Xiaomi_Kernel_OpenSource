@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _QCOM_DT_PARSER_H
@@ -44,19 +44,7 @@ struct platform_data {
 	struct platform_heap *heaps;
 };
 
-#ifdef CONFIG_QCOM_DMABUF_HEAPS_CMA
 struct platform_data *parse_heap_dt(struct platform_device *pdev);
 void free_pdata(const struct platform_data *pdata);
-#else
-static struct platform_data *parse_heap_dt(struct platform_device *pdev)
-{
-	return NULL;
-}
-static void free_pdata(const struct platform_data *pdata)
-{
-
-}
-#endif
-
 
 #endif /* _QCOM_DT_PARSER_H */
