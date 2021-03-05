@@ -1433,6 +1433,10 @@ static int mt6853_regs1[] = {
 	[PMICSPI_MST_SPIWRAP_EN] =		0x14,
 };
 
+static int mt6833_regs1[] = {
+	[PMICSPI_MST_SPIWRAP_EN] =		0x14,
+};
+
 static int mt6885_regs[] = {
 	[PMIF_SPI_PMIF_INIT_DONE] =		0x0,
 	[PMIF_SPI_PMIF_STAUPD_CTRL] =		0x4C,
@@ -3815,6 +3819,7 @@ static struct pmic_wrapper_type pwrap_mt6785 = {
 
 static struct pmic_wrapper_type pwrap_mt6833 = {
 	.regs = mt6833_regs,
+	.regs1 = mt6833_regs1,
 	.type = PWRAP_MT6833,
 	.arb_en_all = 0x777f,
 	.int_en_all = 0x180000,
