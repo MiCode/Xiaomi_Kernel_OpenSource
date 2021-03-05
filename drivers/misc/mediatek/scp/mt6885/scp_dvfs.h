@@ -31,6 +31,15 @@
 
 #define ULPOSC_CALI_BY_AP
 
+#define APSRC_CNT_MASK			(0x7FFF)
+#define APSRC_CNT_SHIFT			(17)
+#define APSRC_ON_MASK			(0x1)
+#define APSRC_ON_SHIFT			(16)
+#define INFRA_CNT_MASK			(0x7FFF)
+#define INFRA_CNT_SHIFT			(1)
+#define INFRA_ON_MASK			(0x1)
+#define INFRA_ON_SHIFT			(0)
+
 enum scp_state_enum {
 	IN_DEBUG_IDLE = 1,
 	ENTERING_SLEEP = 2,
@@ -73,6 +82,9 @@ enum {
 	SLP_DBG_CMD_GET_CNT,
 	SLP_DBG_CMD_RESET,
 	SLP_DBG_CMD_ULPOSC_CALI_VAL,
+	SLP_DBG_CMD_RES_ON_CNT_GET,
+	SLP_DBG_CMD_APSRC_MAX_TIME_GET,
+	SLP_DBG_CMD_INFRA_MAX_TIME_GET,
 };
 
 struct mt_scp_pll_t {
