@@ -19,6 +19,11 @@
 #
 #
 
+# *** MTK ***
+include $(src)/Kbuild-mtk-custom-env
+include $(src)/platform/mtk_platform_common/Kbuild
+ccflags-y += -I$(src)/include
+subdir-ccflags-y += -I$(src)/include
 
 # Driver version string which is returned to userspace via an ioctl
 MALI_RELEASE_NAME ?= "r30p0-00cet0"
@@ -36,7 +41,9 @@ MALI_CUSTOMER_RELEASE ?= 1
 MALI_UNIT_TEST ?= 0
 MALI_KERNEL_TEST_API ?= 0
 MALI_COVERAGE ?= 0
-CONFIG_MALI_PLATFORM_NAME ?= "devicetree"
+#CONFIG_MALI_PLATFORM_NAME ?= "devicetree"
+# *** MTK ***
+CONFIG_MALI_PLATFORM_NAME ?= $(CONFIG_MALI_PLATFORM_THIRDPARTY_NAME)
 # Experimental features (corresponding -D definition should be appended to
 # DEFINES below, e.g. for MALI_EXPERIMENTAL_FEATURE,
 # -DMALI_EXPERIMENTAL_FEATURE=$(MALI_EXPERIMENTAL_FEATURE) should be appended)
