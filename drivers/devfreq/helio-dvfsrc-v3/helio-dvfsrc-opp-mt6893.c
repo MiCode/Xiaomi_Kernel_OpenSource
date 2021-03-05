@@ -30,6 +30,7 @@
 #define VCORE_VB_TYPEC_EN_SHIFT 10
 #define VCORE_VB_750_EN_SHIFT 12
 #define VCORE_VB_575_EN_SHIFT 13
+#define VCORE_VB_750_EN_V2_SHIFT 14
 
 static int dvfsrc_rsrv;
 
@@ -133,32 +134,36 @@ static int get_vb_volt(int vcore_opp, int info_mode)
 	pr_info("%s: PTPOD: 0x%x, 0x%x\n", __func__, info, ptpod);
 	info = (info >> 28) & 0xF;
 
-	if (vcore_opp == VCORE_OPP_0)
+	if (info_mode & (1 << V_CT_TEST_SHIFT))
+		info = 1;
+
+	if (vcore_opp == VCORE_OPP_0) {
 		ptpod = (ptpod >> 8) & 0xF;
-	else if (vcore_opp == VCORE_OPP_4)
-		ptpod = (ptpod >> 24) & 0xF;
-	else
-		ptpod = 0;
-
-	info = 3;
-	ptpod = 5;
-
-	if ((info > 0) && (info <= 4) && (info_mode & (1 << VCORE_VB_TYPEA_EN_SHIFT))) {
-		if (vcore_opp == VCORE_OPP_0)
+		if ((info > 0) && (info <= 4) && (info_mode & (1 << VCORE_VB_TYPEA_EN_SHIFT)))
 			ret = (ptpod <= 3) ? ptpod : 3;
-		else if (vcore_opp == VCORE_OPP_4)
-			ret = (ptpod <= 4) ? ptpod : 4;
-	} else if ((info > 4) && (info <= 10) && (info_mode & (1 << VCORE_VB_TYPEB_EN_SHIFT))) {
-		if (vcore_opp == VCORE_OPP_0)
+		else if ((info > 4) && (info <= 10) && (info_mode & (1 << VCORE_VB_TYPEB_EN_SHIFT)))
 			ret = (ptpod <= 2) ? ptpod : 2;
-		else if (vcore_opp == VCORE_OPP_4)
-			ret = (ptpod <= 2) ? ptpod : 2;
-	} else if ((info > 10) && (info_mode & (1 << VCORE_VB_TYPEC_EN_SHIFT))) {
-		if (vcore_opp == VCORE_OPP_0)
+		else if ((info > 10) && (info_mode & (1 << VCORE_VB_TYPEC_EN_SHIFT)))
 			ret = (ptpod <= 1) ? ptpod : 1;
-		else if (vcore_opp == VCORE_OPP_4)
-			ret = (ptpod <= 1) ? ptpod : 1;
+
+		if (info_mode & (1 << VCORE_VB_750_EN_V2_SHIFT)) {
+			if (ret > 0)
+				ret += 5;
+		}
 	}
+
+	if (vcore_opp == VCORE_OPP_4) {
+		ptpod = (ptpod >> 24) & 0xF;
+		if (ptpod <= 1)
+			ret = 0;
+		else if ((info > 0) && (info <= 5) && (info_mode & (1 << VCORE_VB_TYPEA_EN_SHIFT)))
+			ret = (ptpod <= 4) ? ptpod : 4;
+		else if ((info > 5) && (info <= 10) && (info_mode & (1 << VCORE_VB_TYPEB_EN_SHIFT)))
+			ret = (ptpod <= 2) ? ptpod : 2;
+		else if ((info > 10) && (info_mode & (1 << VCORE_VB_TYPEC_EN_SHIFT)))
+			ret = 0;
+	}
+
 	pr_info("%s: OPP = %d %d %d\n", __func__, vcore_opp, ptpod, ret);
 
 	return ret * 6250;
@@ -216,8 +221,10 @@ static int __init dvfsrc_opp_init(void)
 	vcore_opp_4_uv = vcore_opp_4_uv + rising_idx * 25000;
 
 	if (is_vcore_ct && (rising_idx == 0)) {
-		if (vb_750_en)
+		if (vb_750_en) {
 			vcore_opp_0_uv -= get_vb_volt(VCORE_OPP_0, dvfsrc_rsrv);
+			vcore_opp_1_uv = min(vcore_opp_0_uv, vcore_opp_1_uv);
+		}
 		if (vb_575_en)
 			vcore_opp_4_uv -= get_vb_volt(VCORE_OPP_4, dvfsrc_rsrv);
 	}
