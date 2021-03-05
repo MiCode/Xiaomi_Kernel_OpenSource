@@ -668,10 +668,10 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 	 * line has been asserted and clears it if so */
 	IMG_BOOL (*pfnRGXAckIrq) (struct _PVRSRV_RGXDEV_INFO_ *psDevInfo);
 
-#ifndef ENABLE_COMMON_DVFS
-	POS_LOCK				hGPUUtilLock;
-#else
+#if defined(ENABLE_COMMON_DVFS)
 	spinlock_t				sGPUUtilLock;
+#else
+	POS_LOCK				hGPUUtilLock;
 #endif
 
 	/* Register configuration */

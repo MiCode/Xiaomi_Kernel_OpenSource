@@ -84,7 +84,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "info_page.h"
 #include "rgx_bvnc_defs_km.h"
 
+#if defined(MTK_FULL_PORTING)
 #include "mtk_version.h"
+#endif
 
 #define PVR_DUMP_FIRMWARE_INFO(x)														\
 	PVR_DUMPDEBUG_LOG("FW info: %d.%d @ %8d (%s) build options: 0x%08x",				\
@@ -5481,7 +5483,9 @@ void RGXDebugRequestProcess(DUMPDEBUG_PRINTF_FUNC *pfnDumpDebugPrintf,
 	bRGXPoweredON = (ePowerState == PVRSRV_DEV_POWER_STATE_ON);
 
 	PVR_DUMPDEBUG_LOG("------[ RGX Info ]------");
+#if defined(MTK_FULL_PORTING)
 	PVR_DUMPDEBUG_LOG("MTK Version String: %s", MTK_DEBUG_VERSION_STR);
+#endif
 	PVR_DUMPDEBUG_LOG("RGX BVNC: %d.%d.%d.%d (%s)", psDevInfo->sDevFeatureCfg.ui32B, \
 											   psDevInfo->sDevFeatureCfg.ui32V,	\
 											   psDevInfo->sDevFeatureCfg.ui32N, \

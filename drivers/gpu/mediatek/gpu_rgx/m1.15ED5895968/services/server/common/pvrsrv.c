@@ -1835,7 +1835,6 @@ PVRSRV_ERROR PVRSRVCommonDeviceCreate(void *pvOSDevice,
 #if defined(PVRSRV_ENABLE_PROCESS_STATS) && !defined(PVRSRV_DEBUG_LINUX_MEMORY_STATS)
 	IMG_HANDLE				hProcessStats;
 #endif
-	IMG_UINT32				loop;
 
 	/* Read driver mode (i.e. native, host or guest) AppHint early as it is
 	   required by SysDevInit */
@@ -1860,9 +1859,6 @@ PVRSRV_ERROR PVRSRVCommonDeviceCreate(void *pvOSDevice,
 	psDeviceNode->sDevId.i32UMIdentifier = i32UMIdentifier;
 
 	eError = SysDevInit(pvOSDevice, &psDevConfig);
-	for (loop = 0; loop < 10; ++loop){
-		printk("[TIM] %s SysDevInit err(%d)", __func__, eError);
-	}
 	PVR_LOG_GOTO_IF_ERROR(eError, "SysDevInit", ErrorDeregisterStats);
 
 	PVR_ASSERT(psDevConfig);

@@ -644,7 +644,7 @@ static PVRSRV_ERROR RGXGetGpuUtilStats(PVRSRV_DEVICE_NODE *psDeviceNode,
 	IMG_UINT32 ui32Attempts;
 	IMG_UINT32 ui32Remainder;
 
-#ifdef ENABLE_COMMON_DVFS
+#if defined(ENABLE_COMMON_DVFS)
 	unsigned long uLockFlags;
 #endif
 
@@ -673,10 +673,10 @@ static PVRSRV_ERROR RGXGetGpuUtilStats(PVRSRV_DEVICE_NODE *psDeviceNode,
 
 		/***** (2) Get latest data from shared area *****/
 
-#ifndef ENABLE_COMMON_DVFS
-		OSLockAcquire(psDevInfo->hGPUUtilLock);
-#else
+#if defined(ENABLE_COMMON_DVFS)
 		spin_lock_irqsave(&psDevInfo->sGPUUtilLock, uLockFlags);
+#else
+		OSLockAcquire(psDevInfo->hGPUUtilLock);
 #endif
 
 		/*
@@ -696,10 +696,10 @@ static PVRSRV_ERROR RGXGetGpuUtilStats(PVRSRV_DEVICE_NODE *psDeviceNode,
 			i++;
 		}
 
-#ifndef ENABLE_COMMON_DVFS
-		OSLockRelease(psDevInfo->hGPUUtilLock);
-#else
+#if defined(ENABLE_COMMON_DVFS)
 		spin_unlock_irqrestore(&psDevInfo->sGPUUtilLock, uLockFlags);
+#else
+		OSLockRelease(psDevInfo->hGPUUtilLock);
 #endif
 
 		if (i == MAX_ITERATIONS)
@@ -1310,11 +1310,11 @@ PVRSRV_ERROR RGXInitDevPart2(PVRSRV_DEVICE_NODE	*psDeviceNode,
 	}
 
 	/* Setup GPU utilisation stats update callback */
-#ifndef ENABLE_COMMON_DVFS
+#if defined(ENABLE_COMMON_DVFS)
+	spin_lock_init(&psDevInfo->sGPUUtilLock);
+#else
 	eError = OSLockCreate(&psDevInfo->hGPUUtilLock);
 	PVR_ASSERT(eError == PVRSRV_OK);
-#else
-	spin_lock_init(&psDevInfo->sGPUUtilLock);
 #endif
 #if !defined(NO_HARDWARE)
 	psDevInfo->pfnGetGpuUtilStats = RGXGetGpuUtilStats;
@@ -3681,7 +3681,7 @@ PVRSRV_ERROR DevDeInitRGX(PVRSRV_DEVICE_NODE *psDeviceNode)
 		}
 
 		psDevInfo->pfnGetGpuUtilStats = NULL;
-#ifndef ENABLE_COMMON_DVFS
+#if !defined(ENABLE_COMMON_DVFS)
 		OSLockDestroy(psDevInfo->hGPUUtilLock);
 #endif
 

@@ -107,7 +107,7 @@ int pvr_drm_load(struct drm_device *ddev, unsigned long flags)
 {
 	struct pvr_drm_private *priv;
 	enum PVRSRV_ERROR_TAG srv_err;
-	int err, deviceId, loop;
+	int err, deviceId;
 
 	DRM_DEBUG_DRIVER("device %p\n", ddev->dev);
 
@@ -125,10 +125,6 @@ int pvr_drm_load(struct drm_device *ddev, unsigned long flags)
 	else /* when render node is NULL, fallback to primary node */
 		deviceId = ddev->primary->index;
 #endif
-
-	for (loop = 0; loop < 10; ++loop){
-		printk("[TIM] %s deviceId(%d)", __func__, deviceId);
-	}
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
@@ -151,9 +147,6 @@ int pvr_drm_load(struct drm_device *ddev, unsigned long flags)
 #endif
 
 	srv_err = PVRSRVCommonDeviceCreate(ddev->dev, deviceId, &priv->dev_node);
-	for (loop = 0; loop < 10; ++loop){
-		printk("[TIM] %s srv_err(%d)", __func__, srv_err);
-	}
 	if (srv_err != PVRSRV_OK) {
 		DRM_ERROR("failed to create device node for device %p (%s)\n",
 			  ddev->dev, PVRSRVGetErrorString(srv_err));
