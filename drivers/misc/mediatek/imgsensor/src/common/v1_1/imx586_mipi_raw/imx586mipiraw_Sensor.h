@@ -155,6 +155,12 @@ struct imgsensor_info_struct {
 	kal_uint8 i2c_addr_table[5];
 };
 
+struct SEAMLESS_SYS_DELAY {
+	uint32_t source_scenario;
+	uint32_t target_scenario;
+	uint32_t sys_delay;
+};
+
 /* SENSOR READ/WRITE ID */
 /* #define IMGSENSOR_WRITE_ID_1 (0x6c) */
 /* #define IMGSENSOR_READ_ID_1  (0x6d) */
