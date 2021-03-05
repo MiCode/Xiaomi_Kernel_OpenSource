@@ -516,7 +516,7 @@ static int rt5509_adap_coefficent_fix(struct snd_soc_codec *codec)
 	ret = snd_soc_read(codec, RT5509_REG_CALIB_DCR);
 	ret &= 0xffffff;
 	dev_info(codec->dev, "dcr otp -> 0x%08x\n", ret);
-	if (ret == 0xffffff)
+	if (ret == 0xffffff || ret == 0)
 		ret = 0x800000;
 	/* rspk otp value */
 	w = ret;
@@ -2216,4 +2216,8 @@ module_exit(rt5509_driver_exit);
 MODULE_AUTHOR("CY_Huang <cy_huang@richtek.com>");
 MODULE_DESCRIPTION("RT5509 SPKAMP Driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION(RT5509_DRV_VER);
+MODULE_VERSION("1.0.16_M");
+/*
+ * 1.0.16_M
+ *	fix div 0 issue
+ */
