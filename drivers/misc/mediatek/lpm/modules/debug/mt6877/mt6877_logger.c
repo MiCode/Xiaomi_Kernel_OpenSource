@@ -3,7 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-
+#include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/of.h>
@@ -132,6 +132,8 @@ struct spm_wakesrc_irq_list mt6877_spm_wakesrc_irqs[] = {
 	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,wifi", 0, 0},
 	/* conn2ap_btif_wakeup_out */
 	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,bt", 0, 0},
+	/* conn2ap_sw_irq */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,bt", 1, 0},
 	/* CCIF_AP_DATA */
 	{ WAKE_SRC_STA1_CCIF0_EVENT_B, "mediatek,ap_ccif0", 0, 0},
 	/* SCP IPC0 */
@@ -317,9 +319,9 @@ static void mt6877_save_sleep_info(void)
 static void mt6877_suspend_show_detailed_wakeup_reason
 	(struct mt6877_spm_wake_status *wakesta)
 {
-	int i;
+	int i, ret;
 	unsigned int irq_no;
-
+	bool state;
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 #ifdef CONFIG_MTK_CCCI_DEVICES
@@ -349,7 +351,13 @@ static void mt6877_suspend_show_detailed_wakeup_reason
 			continue;
 		if (mt6877_spm_wakesrc_irqs[i].wakesrc & wakesta->r12) {
 			irq_no = mt6877_spm_wakesrc_irqs[i].irq_no;
-			if (mt_irq_get_pending(irq_no))
+			ret = irq_get_irqchip_state(irq_no, IRQCHIP_STATE_PENDING, &state);
+
+			if (ret < 0) {
+				printk_deferred("failed to read irq pending\n");
+				continue;
+			}
+			if (state)
 				log_irq_wakeup_reason(irq_no);
 		}
 	}
