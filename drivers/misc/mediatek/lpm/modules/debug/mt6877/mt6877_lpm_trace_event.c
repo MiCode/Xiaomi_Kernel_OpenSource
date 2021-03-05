@@ -20,36 +20,34 @@ u32 spm_resource_req_timer_ms;
 
 static void spm_resource_req_timer_fn(unsigned long data)
 {
-	u32 req_sta_0, req_sta_1, req_sta_4;
-	u32 src_req;
+	u32 req_sta_0, req_sta_2, req_sta_3, req_sta_4, req_sta_5;
 	u32 md = 0, conn = 0, scp = 0, adsp = 0;
 	u32 ufs = 0, msdc = 0, disp = 0, apu = 0;
 	u32 spm = 0;
 
-	req_sta_0 = plat_mmio_read(SRC_REQ_STA_0);
-	if (req_sta_0 & 0xFFF)
-		md = 1;
-	if (req_sta_0 & (0x3F << 12))
-		conn = 1;
-	if (req_sta_0 & (0xF << 26))
-		disp = 1;
+	req_sta_0 = plat_mmio_read(SPM_REQ_STA_0);
+	req_sta_2 = plat_mmio_read(SPM_REQ_STA_2);
+	req_sta_3 = plat_mmio_read(SPM_REQ_STA_3);
+	req_sta_4 = plat_mmio_read(SPM_REQ_STA_4);
+	req_sta_5 = plat_mmio_read(SPM_REQ_STA_5);
 
-	req_sta_1 = plat_mmio_read(SRC_REQ_STA_1);
-	if (req_sta_1 & 0x1F)
-		scp = 1;
-	if (req_sta_1 & (0x1F << 5))
+	if (req_sta_0 & (0x1F << 10))
 		adsp = 1;
-	if (req_sta_1 & (0x1F << 10))
-		ufs = 1;
-	if (req_sta_1 & (0x3FF << 21))
-		msdc = 1;
-
-	req_sta_4 = plat_mmio_read(SRC_REQ_STA_4);
-	if (req_sta_4 & 0x1F)
+	if (req_sta_0 & (0x1F << 5))
 		apu = 1;
-
-	src_req = plat_mmio_read(SPM_SRC_REQ);
-	if (src_req & 0x19B)
+	if (req_sta_2 & (0x3F << 5))
+		conn = 1;
+	if (req_sta_2 & (0xF << 11))
+		disp = 1;
+	if ((req_sta_3 & (0x1 << 31)) || (req_sta_4 & 0x1F))
+		md = 1;
+	if (req_sta_4 & (0x7FFF << 8))
+		msdc = 1;
+	if ((req_sta_4 & (0xF << 28)) || req_sta_5 & 0x1)
+		scp = 1;
+	if (req_sta_5 & (0x3 << 18))
+		ufs = 1;
+	if (req_sta_5 & (0x1F << 1))
 		spm = 1;
 
 	trace_SPM__resource_req_0(
@@ -123,7 +121,8 @@ static const struct mtk_lp_sysfs_op spm_resource_req_timer_enable_fops = {
 
 bool spm_is_md1_sleep(void)
 {
-	return !(plat_mmio_read(SRC_REQ_STA_0) & 0x3F);
+	return !((plat_mmio_read(SPM_REQ_STA_4) & 0x1F) ||
+		 (plat_mmio_read(SPM_REQ_STA_3) & (0x1 << 31)));
 }
 EXPORT_SYMBOL(spm_is_md1_sleep);
 
