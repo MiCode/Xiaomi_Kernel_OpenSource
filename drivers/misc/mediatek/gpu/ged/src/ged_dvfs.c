@@ -1447,17 +1447,19 @@ static bool ged_dvfs_policy(
 #else
 			i32NewFreqID = 0;
 #endif
-		} else if (ui32GPULoading_avg >=
-			loading_ud_table[ui32GPUFreq].up) {
-			i32NewFreqID -= 1;
-			if (g_lb_down_count != 1)
-				g_lb_down_count = 1;
-		} else if (ui32GPULoading_avg <=
-			loading_ud_table[ui32GPUFreq].down) {
+			g_lb_down_count = 1;
+		} else if (ui32GPULoading < 15) {
 			i32NewFreqID += g_lb_down_count;
 			g_lb_down_count *= 2;
 			if (g_lb_down_count >= 4)
 				g_lb_down_count = 4;
+		} else if (ui32GPULoading_avg >=
+			loading_ud_table[ui32GPUFreq].up) {
+			i32NewFreqID -= 1;
+			g_lb_down_count = 1;
+		} else if (ui32GPULoading_avg <=
+			loading_ud_table[ui32GPUFreq].down) {
+			i32NewFreqID += 1;
 		}
 #ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 		ged_log_buf_print(ghLogBuf_DVFS,
