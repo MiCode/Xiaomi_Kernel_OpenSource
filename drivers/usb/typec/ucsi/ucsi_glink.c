@@ -288,6 +288,9 @@ static int ucsi_qti_glink_write(struct ucsi_dev *udev, unsigned int offset,
 		reinit_completion(&udev->sync_write_ack);
 	}
 
+	ucsi_log(sync ? "sync_write:" : "async_write:", offset,
+			(u8 *)val, val_len);
+
 	rc = pmic_glink_write(udev->client, &ucsi_buf,
 					sizeof(ucsi_buf));
 	if (rc < 0) {
@@ -318,9 +321,6 @@ static int ucsi_qti_glink_write(struct ucsi_dev *udev, unsigned int offset,
 			rc = 0;
 		}
 	}
-
-	ucsi_log(sync ? "sync_write:" : "async_write:", offset,
-			(u8 *)val, val_len);
 
 	if (((u8 *)val)[0] == UCSI_GET_CONNECTOR_STATUS) {
 		mutex_lock(&udev->notify_lock);
