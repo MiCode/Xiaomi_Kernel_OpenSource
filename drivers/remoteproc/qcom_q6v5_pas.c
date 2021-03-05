@@ -43,6 +43,7 @@ struct adsp_data {
 	int crash_reason_smem;
 	const char *firmware_name;
 	int pas_id;
+	bool free_after_auth_reset;
 	bool has_aggre2_clk;
 	bool auto_boot;
 
@@ -73,6 +74,7 @@ struct qcom_adsp {
 	int proxy_pd_count;
 
 	int pas_id;
+	struct qcom_mdt_metadata *mdata;
 	struct icc_path *bus_client;
 	int crash_reason_smem;
 	bool has_aggre2_clk;
@@ -174,9 +176,9 @@ static int adsp_load(struct rproc *rproc, const struct firmware *fw)
 	int ret;
 
 	scm_pas_enable_bw();
-	ret = qcom_mdt_load(adsp->dev, fw, rproc->firmware, adsp->pas_id,
+	ret = qcom_mdt_load_no_free(adsp->dev, fw, rproc->firmware, adsp->pas_id,
 			    adsp->mem_region, adsp->mem_phys, adsp->mem_size,
-			    &adsp->mem_reloc);
+			    &adsp->mem_reloc, adsp->mdata);
 	scm_pas_disable_bw();
 	if (ret)
 		return ret;
@@ -285,7 +287,7 @@ static int adsp_start(struct rproc *rproc)
 		}
 	}
 
-	return 0;
+	goto free_metadata;
 
 disable_regs:
 	disable_regulators(adsp);
@@ -301,6 +303,8 @@ unscale_bus:
 	do_bus_scaling(adsp, false);
 disable_irqs:
 	qcom_q6v5_unprepare(&adsp->q6v5);
+free_metadata:
+	qcom_mdt_free_metadata(adsp->dev, adsp->pas_id, adsp->mdata, ret);
 	return ret;
 }
 
@@ -582,6 +586,9 @@ static int adsp_probe(struct platform_device *pdev)
 	adsp->pas_id = desc->pas_id;
 	adsp->has_aggre2_clk = desc->has_aggre2_clk;
 	adsp->info_name = desc->sysmon_name;
+
+	if (desc->free_after_auth_reset)
+		adsp->mdata = devm_kzalloc(adsp->dev, sizeof(struct qcom_mdt_metadata), GFP_KERNEL);
 	platform_set_drvdata(pdev, adsp);
 
 	device_wakeup_enable(adsp->dev);
@@ -828,6 +835,7 @@ static const struct adsp_data waipio_mpss_resource = {
 	.crash_reason_smem = 421,
 	.firmware_name = "modem.mdt",
 	.pas_id = 4,
+	.free_after_auth_reset = true,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
 	.active_pd_names = (char*[]){
