@@ -1069,10 +1069,10 @@
 		pinctrl-names = "default", "active", "sleep";
 		pinctrl-0 = <&qupv3_se20_default_cts>,
 			<&qupv3_se20_default_rtsrx>, <&qupv3_se20_default_tx>;
-		pinctrl-1 = <&qupv3_se20_ctsrx>, <&qupv3_se20_rts>,
-						<&qupv3_se20_tx>;
-		pinctrl-2 = <&qupv3_se20_ctsrx>, <&qupv3_se20_rts>,
-						<&qupv3_se20_tx>;
+		pinctrl-1 = <&qupv3_se20_cts>, <&qupv3_se20_rts>,
+			<&qupv3_se20_tx>, <&qupv3_se20_rx_active>;
+		pinctrl-2 = <&qupv3_se20_cts>, <&qupv3_se20_rts>,
+			<&qupv3_se20_tx>, <&qupv3_se20_rx_wake>;
 		qcom,wakeup-byte = <0xFD>;
 		qcom,wrapper-core = <&qupv3_2>;
 		status = "disabled";
