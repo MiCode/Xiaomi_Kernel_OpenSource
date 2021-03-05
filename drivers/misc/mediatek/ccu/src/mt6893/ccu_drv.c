@@ -49,7 +49,7 @@
 
 #ifdef CONFIG_MTK_IOMMU_V2
 #include "mtk_iommu.h"
-#include <dt-bindings/memory/mt6873-larb-port.h>
+#include <dt-bindings/memory/mt6885-larb-port.h>
 #else
 #include "m4u.h"
 #endif
@@ -1069,7 +1069,7 @@ static int ccu_release(struct inode *inode, struct file *flip)
 {
 	struct ccu_user_s *user = flip->private_data;
 	int i = 0;
-	struct CcuMemHandle handle = {0};
+	struct CcuMemHandle handle;
 
 	mutex_lock(&g_ccu_device->dev_mutex);
 

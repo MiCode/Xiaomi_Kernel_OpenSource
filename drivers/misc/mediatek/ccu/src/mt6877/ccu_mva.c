@@ -145,27 +145,25 @@ int ccu_config_m4u_port(void)
 	#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_IOMMU_V2)
 	struct M4U_PORT_STRUCT port;
 
-	port.ePortID = M4U_PORT_L13_CAM_CCUI_MDP;
+	port.ePortID = M4U_PORT_L13_CAM_CCUI;
 	port.Virtuality = 1;
 	port.Security = 0;
 	port.domain = 2;
 	port.Distance = 1;
 	port.Direction = 0;
 	strncpy(port.name, "L13_CAM_CCUI_MDP", sizeof(port.name));
-	LOG_DBG_MUST("ioctl MTK_M4U_T_CONFIG_PORT L13_CAM_CCUI_MDP, %d\n",
-		M4U_PORT_L13_CAM_CCUI_MDP);
+	LOG_DBG_MUST("ioctl MTK_M4U_T_CONFIG_PORT L13_CAM_CCUI_MDP, %d\n", M4U_PORT_L13_CAM_CCUI);
 
 	ret = m4u_config_port(&port);
 
-	port.ePortID = M4U_PORT_L13_CAM_CCUO_MDP;
+	port.ePortID = M4U_PORT_L13_CAM_CCUO;
 	port.Virtuality = 1;
 	port.Security = 0;
 	port.domain = 2;
 	port.Distance = 1;
 	port.Direction = 0;
 	strncpy(port.name, "L13_CAM_CCUO_MDP", sizeof(port.name));
-	LOG_DBG_MUST("ioctl MTK_M4U_T_CONFIG_PORT L13_CAM_CCUO_MDP, %d\n",
-		M4U_PORT_L13_CAM_CCUO_MDP);
+	LOG_DBG_MUST("ioctl MTK_M4U_T_CONFIG_PORT L13_CAM_CCUO_MDP, %d\n", M4U_PORT_L13_CAM_CCUO);
 
 	ret = m4u_config_port(&port);
 	#endif
@@ -257,12 +255,11 @@ static struct ion_handle *_ccu_ion_alloc(struct ion_client *client,
 	if (IS_ERR(disp_handle)) {
 		LOG_ERR("disp_ion_alloc 1error %p\n", disp_handle);
 		return NULL;
-	} else {
-		if ((ion_log) && (size > ION_LOG_SIZE)) { //10M
-			ts_end = get_ns_systemtime();
-			LOG_INF_MUST("ion alloc size = %d, caller = CCU, costTime = %lu ns\n",
-				size, (unsigned long)(ts_end-ts_start));
-		}
+	}
+	if ((ion_log) && (size > ION_LOG_SIZE)) { //10M
+		ts_end = get_ns_systemtime();
+		LOG_INF_MUST("ion alloc size = %d, caller = CCU, costTime = %lu ns\n",
+			size, (unsigned long)(ts_end-ts_start));
 	}
 
 	LOG_DBG("disp_ion_alloc 1 %p\n", disp_handle);
@@ -286,15 +283,15 @@ static int _ccu_ion_get_mva(struct ion_client *client,
 	mm_data.config_buffer_param.security    = 0;
 	mm_data.config_buffer_param.coherent    = 1;
 	if (cached == false) {
-		port = M4U_PORT_L23_CCU_MDP;
-		mm_data.config_buffer_param.module_id = M4U_PORT_L23_CCU_MDP;
+		port = M4U_PORT_L22_CCU0;
+		mm_data.config_buffer_param.module_id = M4U_PORT_L22_CCU0;
 		mm_data.config_buffer_param.reserve_iova_start =
 		CCU_DDR_BUF_MVA_LOWER_BOUND;
 		mm_data.config_buffer_param.reserve_iova_end =
 		CCU_DDR_BUF_MVA_UPPER_BOUND;
 	} else if (cached == true) {
-		port = M4U_PORT_L22_CCU_DISP;
-		mm_data.config_buffer_param.module_id   = M4U_PORT_L22_CCU_DISP;
+		port = M4U_PORT_L23_CCU1;
+		mm_data.config_buffer_param.module_id   = M4U_PORT_L23_CCU1;
 		mm_data.config_buffer_param.reserve_iova_start =
 		CCU_CTRL_BUFS_LOWER_BOUND;
 		mm_data.config_buffer_param.reserve_iova_end =

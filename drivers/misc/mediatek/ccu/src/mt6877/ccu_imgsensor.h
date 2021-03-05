@@ -11,17 +11,13 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __CCU_N3D_A_H__
-#define __CCU_N3D_A_H__
+#ifndef _CCU_IMGSENSOR_H_
+#define _CCU_IMGSENSOR_H_
 
-enum N3DA_REGS_OFFSET {
-	OFFSET_CTL = 0x100,
-	OFFSET_TRIG = 0x108,
-	OFFSET_INT = 0x10C,
-};
+void ccu_get_current_fps(int32_t *current_fps_list);
 
-extern u32 n3d_a_readw(unsigned long n3d_a_base, u32 offset);
-extern void n3d_a_writew(u32 value, unsigned long n3d_a_base, u32 offset);
+void ccu_get_sensor_i2c_slave_addr(int32_t *sensorI2cSlaveAddr);
 
+void ccu_get_sensor_name(char **sensor_name);
 
 #endif

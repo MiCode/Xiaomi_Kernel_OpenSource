@@ -22,7 +22,7 @@
 #include "mach/pseudo_m4u.h"
 #elif defined(CONFIG_MTK_IOMMU)
 #include "mtk_iommu.h"
-#include <dt-bindings/memory/mt6885-larb-port.h>
+#include <dt-bindings/memory/mt6853-larb-port.h>
 #else
 #include "m4u.h"
 #endif

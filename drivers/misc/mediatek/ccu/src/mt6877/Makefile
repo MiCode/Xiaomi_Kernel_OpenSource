@@ -18,8 +18,8 @@ ccflags-y += -I$(srctree)/drivers/staging/android/ion \
 #for sensorType in ccu_set_sensor_info
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/imgsensor/inc
 #
-ifeq ($(CONFIG_MACH_MT6893),y)
-    platform = mt6893
+ifeq ($(CONFIG_MACH_MT6877),y)
+    platform = mt6877
 else
     platform = $(subst ",,$(CONFIG_MTK_PLATFORM))
 endif

@@ -119,7 +119,6 @@ int ccu_allocate_mva(uint32_t *mva, void *va,
 	// ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
 	// (unsigned long)va, buffer_size, false, false);
 
-
 	/*i2c dma buffer is PAGE_SIZE(4096B)*/
 
 	if (!(*handle)) {
@@ -241,6 +240,8 @@ int ccu_deallocate_mem(struct CcuMemHandle *memHandle)
 	return 0;
 }
 
+#define ION_FLAG_FREE_WITHOUT_DEFER (4)
+
 static struct ion_handle *_ccu_ion_alloc(struct ion_client *client,
 	unsigned int heap_id_mask, size_t align, unsigned int size, bool cached, bool ion_log)
 {
@@ -250,7 +251,7 @@ static struct ion_handle *_ccu_ion_alloc(struct ion_client *client,
 	if (ion_log)
 		ts_start = get_ns_systemtime();
 	disp_handle = ion_alloc(client, size, align,
-		heap_id_mask, (cached)?3:0);
+		heap_id_mask, ((cached)?3:0) | ION_FLAG_FREE_WITHOUT_DEFER);
 	if (IS_ERR(disp_handle)) {
 		LOG_ERR("disp_ion_alloc 1error %p\n", disp_handle);
 		return NULL;
