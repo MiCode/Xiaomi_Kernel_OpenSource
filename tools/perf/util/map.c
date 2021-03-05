@@ -88,8 +88,7 @@ static inline bool replace_android_lib(const char *filename, char *newfilename)
 	if (!strncmp(filename, "/system/lib/", 12)) {
 		char *ndk, *app;
 		const char *arch;
-		size_t ndk_length;
-		size_t app_length;
+		int ndk_length, app_length;
 
 		ndk = getenv("NDK_ROOT");
 		app = getenv("APP_PLATFORM");
@@ -117,8 +116,8 @@ static inline bool replace_android_lib(const char *filename, char *newfilename)
 		if (new_length > PATH_MAX)
 			return false;
 		snprintf(newfilename, new_length,
-			"%s/platforms/%s/arch-%s/usr/lib/%s",
-			ndk, app, arch, libname);
+			"%.*s/platforms/%.*s/arch-%s/usr/lib/%s",
+			ndk_length, ndk, app_length, app, arch, libname);
 
 		return true;
 	}
