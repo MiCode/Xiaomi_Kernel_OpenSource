@@ -51,8 +51,10 @@ void sspm_ipi_timeout_cb(int ipi_id)
 
 	ipi_monitor_dump(&sspm_ipidev);
 
+#ifdef CONFIG_MEDIATEK_EMI
 	/* for emi debug dump */
 	mtk_emidbg_dump();
+#endif
 	/* for debug CCCI */
 	ccci_md_debug_dump("sspm");
 
