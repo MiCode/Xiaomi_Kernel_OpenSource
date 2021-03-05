@@ -31,6 +31,8 @@
 #include <linux/debugfs.h>
 #endif /* GENERIC_DEBUGFS */
 
+#define RT5133_DRV_VERSION	"1.0.1_MTK"
+
 #define RT5133_REG_CHIP_INFO		0x00
 #define RT5133_REG_RST_CTRL		0x06
 #define RT5133_REG_BASE_CTRL		0x09
@@ -744,9 +746,7 @@ static int rt5133_chip_reset(struct rt5133_priv *priv)
 	/* Wait for register reset to take effect */
 	udelay(2);
 
-	/* Default to disable base current */
-	return regmap_update_bits(priv->regmap, RT5133_REG_BASE_CTRL,
-				  RT5133_FOFF_BASE_MASK, RT5133_FOFF_BASE_MASK);
+	return 0;
 }
 
 static int rt5133_validate_vendor_info(struct rt5133_priv *priv)
@@ -860,7 +860,7 @@ static int rt5133_probe(struct i2c_client *i2c)
 	struct regulator_config config = {0};
 	int i, ret;
 
-	dev_info(&i2c->dev, "%s\n", __func__);
+	dev_info(&i2c->dev, "%s start(%s)\n", __func__, RT5133_DRV_VERSION);
 	priv = devm_kzalloc(&i2c->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
@@ -972,3 +972,13 @@ module_i2c_driver(rt5133_driver);
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
 MODULE_DESCRIPTION("RT5133 Regulator Driver");
 MODULE_LICENSE("GPL v2");
+MODULE_VERSION(RT5133_DRV_VERSION)
+/*
+ * Release Note
+ * 1.0.1
+ * (1) Add driver version description
+ * (2) Remove the force disabling of Base current at initialization
+ *
+ * 1.0.0
+ * (1) Initial released
+ */
