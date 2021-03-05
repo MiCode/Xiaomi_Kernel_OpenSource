@@ -19,6 +19,7 @@
 
 #include <helio-dvfsrc-qos.h>
 #include <helio-dvfsrc-opp.h>
+#include "helio-dvfsrc-ip-v2.h"
 
 static struct pm_qos_request dvfsrc_memory_bw_req;
 static struct pm_qos_request dvfsrc_ddr_opp_req;
@@ -278,8 +279,32 @@ static ssize_t dvfsrc_num_opps_show(struct device *dev,
 {
 	return sprintf(buf, "%d\n", VCORE_DVFS_OPP_NUM);
 }
-
 static DEVICE_ATTR(dvfsrc_num_opps, 0444, dvfsrc_num_opps_show, NULL);
+
+static ssize_t dvfsrc_get_dvfs_time_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	u32 last;
+	u64 time_1, time_2;
+	u64 dvfs_time_us;
+
+	if (!(dvfsrc_read(DVFSRC_BASIC_CONTROL) & (1 << FORCE_EN_TAR_SHIFT)))
+		return sprintf(buf, "Not in force mode\n");
+
+	last = dvfsrc_read(DVFSRC_LAST);
+	time_1 = dvfsrc_read(DVFSRC_RECORD_0_1 + RECORD_SHIFT * last);
+	time_1 = time_1 << 32;
+	time_1 = dvfsrc_read(DVFSRC_RECORD_0_0 + RECORD_SHIFT * last) + time_1;
+	last = (last + 7) % 8;
+	time_2 = dvfsrc_read(DVFSRC_RECORD_0_1 + RECORD_SHIFT * last);
+	time_2 = time_2 << 32;
+	time_2 = dvfsrc_read(DVFSRC_RECORD_0_0 + RECORD_SHIFT * last) + time_2;
+	dvfs_time_us = (time_1 - time_2) / 13;
+
+	return sprintf(buf, "dvfs_time = %llu us\n", dvfs_time_us);
+}
+static DEVICE_ATTR(dvfsrc_get_dvfs_time, 0444,
+		dvfsrc_get_dvfs_time_show, NULL);
 
 static struct attribute *helio_dvfsrc_attrs[] = {
 	&dev_attr_dvfsrc_enable.attr,
@@ -297,6 +322,7 @@ static struct attribute *helio_dvfsrc_attrs[] = {
 	&dev_attr_dvfsrc_level_intr_log.attr,
 	&dev_attr_dvfsrc_req_isphrt_bw.attr,
 	&dev_attr_dvfsrc_num_opps.attr,
+	&dev_attr_dvfsrc_get_dvfs_time.attr,
 	NULL,
 };
 
