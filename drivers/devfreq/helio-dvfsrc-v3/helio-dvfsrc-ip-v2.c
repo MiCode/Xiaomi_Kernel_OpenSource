@@ -474,7 +474,7 @@ int get_sw_req_vcore_opp(void)
 {
 	int opp = -1;
 	int sw_req = -1;
-	int scp_req = -1;
+	int scp_req = VCORE_OPP_NUM - 1;
 
 	/* return opp 0, if dvfsrc not enable */
 	if (!is_dvfsrc_enabled())
