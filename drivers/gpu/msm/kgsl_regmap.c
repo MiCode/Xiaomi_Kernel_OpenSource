@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/io.h>
@@ -282,6 +282,34 @@ void kgsl_regmap_read_indexed(struct kgsl_regmap *regmap, u32 addr,
 
 	/* Do one barrier at the end to make sure all the data is posted */
 	rmb();
+}
+
+void kgsl_regmap_read_indexed_interleaved(struct kgsl_regmap *regmap, u32 addr,
+		u32 data, u32 *dest, u32 start, int count)
+{
+	struct kgsl_regmap_region *region = kgsl_regmap_get_region(regmap, addr);
+	int i;
+
+	if (!region)
+		return;
+
+	/* Make sure the offset is in the same region */
+	if (kgsl_regmap_get_region(regmap, data) != region)
+		return;
+
+	if (region->ops && region->ops->preaccess)
+		region->ops->preaccess(region);
+
+	for (i = 0; i < count; i++) {
+		/* Write the address register */
+		writel_relaxed(start + i, region_addr(region, addr));
+		/* Make sure the write finishes */
+		wmb();
+
+		dest[i] = readl_relaxed(region_addr(region, data));
+		/* Make sure the read finishes */
+		rmb();
+	}
 }
 
 /* A special helper function to work with read_poll_timeout */
