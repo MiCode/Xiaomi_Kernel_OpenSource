@@ -383,8 +383,12 @@ int pdc_check_leave(void)
 		__func__, max_mv, vbus, ibus, pd->pd_idx,
 		PD_MIN_WATT, mivr1 / 1000, mivr_state);
 
-	if (max_mv * ibus <= PD_MIN_WATT)
+	if (max_mv * ibus <= PD_MIN_WATT) {
+		if (mivr_state)
+			chr_err("[%s] MIVR occurred, ibus can't draw much higher current",
+				__func__);
 		goto leave;
+	}
 
 	return 0;
 
