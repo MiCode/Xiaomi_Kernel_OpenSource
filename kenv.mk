@@ -38,38 +38,37 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
   endif
 
   ARGS := CROSS_COMPILE=$(CROSS_COMPILE)
-  ifneq ($(CLANG_TRIPLE),)
-    ARGS += CLANG_TRIPLE=$(CLANG_TRIPLE)
-  endif
-  ifneq ($(LD),)
-    ARGS += LD=$(LD)
-  endif
-  ifneq ($(LD_LIBRARY_PATH),)
-    ARGS += LD_LIBRARY_PATH=$(KERNEL_ROOT_DIR)/$(LD_LIBRARY_PATH)
-  endif
-  ifneq ($(NM),)
-    ARGS += NM=$(NM)
-  endif
-  ifneq ($(OBJCOPY),)
-    ARGS += OBJCOPY=$(OBJCOPY)
-  endif
-  ifeq ("$(CC)", "gcc")
-    CC :=
-  endif
-
-  ifneq ($(filter-out false,$(USE_CCACHE)),)
-    CCACHE_EXEC ?= /usr/bin/ccache
-    CCACHE_EXEC := $(abspath $(wildcard $(CCACHE_EXEC)))
-  else
-    CCACHE_EXEC :=
-  endif
-  ifneq ($(CCACHE_EXEC),)
-    ifneq ($(CC),)
-      ARGS += CCACHE_CPP2=yes CC='$(CCACHE_EXEC) $(CC)'
+  ifneq ($(LLVM),)
+    ARGS += LLVM=1
+    ifneq ($(filter-out false,$(USE_CCACHE)),)
+      CCACHE_EXEC ?= /usr/bin/ccache
+      CCACHE_EXEC := $(abspath $(wildcard $(CCACHE_EXEC)))
+    else
+      CCACHE_EXEC :=
     endif
-  else
-    ifneq ($(CC),)
-      ARGS += CC=$(CC)
+    ifneq ($(CCACHE_EXEC),)
+      ARGS += CCACHE_CPP2=yes CC='$(CCACHE_EXEC) clang'
+    else
+      ARGS += CC=clang
+    endif
+    ifneq ($(LLVM_IAS),)
+      ARGS += LLVM_IAS=$(LLVM_IAS)
+    endif
+    ifeq ($(HOSTCC),)
+      ifneq ($(CC),)
+        ARGS += HOSTCC=$(CC)
+      endif
+    else
+      ARGS += HOSTCC=$(HOSTCC)
+    endif
+    ifneq ($(LD),)
+      ARGS += LD=$(LD) HOSTLD=$(LD)
+      ifneq ($(suffix $(LD)),)
+        ARGS += HOSTLDFLAGS=-fuse-ld=$(subst .,,$(suffix $(LD)))
+      endif
+    endif
+    ifneq ($(LD_LIBRARY_PATH),)
+      ARGS += LD_LIBRARY_PATH=$(KERNEL_ROOT_DIR)/$(LD_LIBRARY_PATH)
     endif
   endif
 
