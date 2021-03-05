@@ -1029,6 +1029,9 @@ static int ufs_mtk_pre_pwr_change(struct ufs_hba *hba,
 	final->gear_rx = desired->gear_rx;
 	final->gear_tx = desired->gear_tx;
 
+	final->gear_rx = min_t(u32, final->gear_rx, final->gear_tx);
+	final->gear_tx = final->gear_rx;
+
 	if (ufs_mtk_hs_gear == UFS_HS_G4) {
 		if ((desired->gear_rx == UFS_HS_G4) &&
 			(desired->gear_tx == UFS_HS_G4)) {
