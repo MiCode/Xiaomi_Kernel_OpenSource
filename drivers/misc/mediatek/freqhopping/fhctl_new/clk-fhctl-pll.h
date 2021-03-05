@@ -63,7 +63,7 @@ struct fh_pll_domain {
 		void __iomem *apmixed_base);
 };
 extern struct fh_pll_domain *get_fh_domain(const char *name);
-extern void init_fh_domain(char *domain_name,
+extern void init_fh_domain(const char *domain_name,
 		char *comp_name,
 		void __iomem *fhctl_base,
 		void __iomem *apmixed_base);

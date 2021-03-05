@@ -268,8 +268,7 @@ static const struct file_operations dumpregs_fops = {
 	.release = single_release,
 };
 
-int fhctl_debugfs_init(struct platform_device *pdev,
-		struct pll_dts *array)
+int fhctl_debugfs_init(struct pll_dts *array)
 {
 	struct dentry *root;
 	struct dentry *fh_dumpregs_dir;

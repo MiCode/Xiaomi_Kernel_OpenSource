@@ -66,12 +66,13 @@ static int init_v1(struct fh_pll_domain *d,
 		regs->reg_con_pcw = REG_ADDR(apmixed_base,
 				offset->offset_con_pcw);
 
-		FHDBG("pll<%s>, dds_mask<%d>\n",
-				data->name, data->dds_mask);
+		FHDBG("pll<%s>, dds_mask<%d>, data<%x> offset<%x> regs<%x>\n",
+				data->name, data->dds_mask, data, offset, regs);
 		data++;
 		offset++;
 		regs++;
 	}
+
 	return 0;
 }
 
@@ -117,7 +118,7 @@ static struct fh_pll_data mt6853_top_data[] = {
 #define OFFSET_6853_TOP(_fhctl, _con_pcw) {	\
 		.offset_fhctl = _fhctl,				\
 		.offset_con_pcw = _con_pcw,			\
-		.offset_hp_en = 0x4,				\
+		.offset_hp_en = 0x0,				\
 		.offset_clk_con = 0x8,				\
 		.offset_rst_con = 0xc,				\
 		.offset_slope0 = 0x10,				\
@@ -160,9 +161,117 @@ static struct fh_pll_domain *mt6853_domain[] = {
 };
 static struct match mt6853_match = {
 	.compatible = "mediatek,mt6853-fhctl",
-	.domain_list = (struct fh_pll_domain **)&mt6853_domain,
+	.domain_list = (struct fh_pll_domain **)mt6853_domain,
 };
 /* 6853 end */
+
+/* 6877 begin */
+#define SIZE_6877_TOP (sizeof(mt6877_top_data)\
+	/sizeof(struct fh_pll_data))
+
+static struct fh_pll_data mt6877_top_data[] = {
+	DATA_6853_TOP("armpll_ll"),
+	DATA_6853_TOP("armpll_bl0"),
+	DATA_6853_TOP("armpll_b"),
+	DATA_6853_TOP("ccipll"),
+	DATA_6853_TOP("mempll"),
+	DATA_6853_TOP("emipll"),
+	DATA_6853_TOP("mpll"),
+	DATA_6853_TOP("mmpll"),
+	DATA_6853_TOP("mainpll"),
+	DATA_6853_TOP("msdcpll"),
+	DATA_6853_TOP("adsppll"),
+	DATA_6853_TOP("imgpll"),
+	DATA_6853_TOP("tvdpll"),
+	{}
+};
+static struct fh_pll_offset mt6877_top_offset[] = {
+	OFFSET_6853_TOP(0x003C, 0x020C),  // FHCTL0_CFG, ARMPLL_LL_CON1
+	OFFSET_6853_TOP(0x0050, 0x021C),  // FHCTL1_CFG, ARMPLL_BL_CON1
+	OFFSET_6853_TOP(0x0064, 0x022C),  // FHCTL2_CFG, ARMPLL_B_CON1
+	OFFSET_6853_TOP(0x0078, 0x023C),  // FHCTL3_CFG, CCIPLL_CON1
+	OFFSET_6853_TOP(0x008C, 0xffff),  // FHCTL4_CFG,
+	OFFSET_6853_TOP(0x00A0, 0x03B4),  // FHCTL5_CFG, EMIPLL_CON1
+	OFFSET_6853_TOP(0x00B4, 0x0394),  // FHCTL6_CFG, MPLL_CON1
+	OFFSET_6853_TOP(0x00C8, 0x03A4),  // FHCTL7_CFG, MMPLL_CON1
+	OFFSET_6853_TOP(0x00DC, 0x0354),  // FHCTL8_CFG, MAINPLL_CON1
+	OFFSET_6853_TOP(0x00F0, 0x0364),  // FHCTL9_CFG, MSDCPLL_CON1
+	OFFSET_6853_TOP(0x0104, 0x0384),  // FHCTL10_CFG, ADSPPLL_CON1
+	OFFSET_6853_TOP(0x0118, 0x0374),  // FHCTL11_CFG, IMGPLL_CON1
+	OFFSET_6853_TOP(0x012c, 0x024c),  // FHCTL12_CFG, TVDPLL_CON1
+	{}
+};
+
+#define SIZE_6877_GPU (sizeof(mt6877_gpu_data)\
+	/sizeof(struct fh_pll_data))
+
+static struct fh_pll_data mt6877_gpu_data[] = {
+	DATA_6853_TOP("mfgpll1"),
+	DATA_6853_TOP("mfgpll2"),
+	DATA_6853_TOP("mfgpll3"),
+	DATA_6853_TOP("mfgpll4"),
+	{}
+};
+static struct fh_pll_offset mt6877_gpu_offset[] = {
+	OFFSET_6853_TOP(0x0E3C, 0x000C),  // PLL4H_FHCTL0_CFG, PLL4H_PLL1_CON1
+	OFFSET_6853_TOP(0x0E50, 0x001C),  // PLL4HPLL_FHCTL1_CFG, PLL4H_PLL2_CON1
+	OFFSET_6853_TOP(0x0E64, 0x002C),  // PLL4HPLL_FHCTL2_CFG, PLL4H_PLL3_CON1
+	OFFSET_6853_TOP(0x0E78, 0x003C),  // PLL4HPLL_FHCTL3_CFG, PLL4H_PLL4_CON1
+	{}
+};
+
+#define SIZE_6877_APU (sizeof(mt6877_apu_data)\
+	/sizeof(struct fh_pll_data))
+
+static struct fh_pll_data mt6877_apu_data[] = {
+	DATA_6853_TOP("apupll"),
+	DATA_6853_TOP("npupll"),
+	DATA_6853_TOP("apupll1"),
+	DATA_6853_TOP("apupll2"),
+	{}
+};
+static struct fh_pll_offset mt6877_apu_offset[] = {
+	OFFSET_6853_TOP(0x0E3C, 0x000C),  // PLL4HPLL_FHCTL0_CFG, PLL4H_PLL1_CON1
+	OFFSET_6853_TOP(0x0E50, 0x001C),  // PLL4HPLL_FHCTL1_CFG, PLL4H_PLL2_CON1
+	OFFSET_6853_TOP(0x0E64, 0x002C),  // PLL4HPLL_FHCTL2_CFG, PLL4H_PLL3_CON1
+	OFFSET_6853_TOP(0x0E78, 0x003C),  // PLL4HPLL_FHCTL3_CFG, PLL4H_PLL4_CON1
+	{}
+};
+static struct fh_pll_regs mt6877_top_regs[SIZE_6877_TOP];
+static struct fh_pll_regs mt6877_gpu_regs[SIZE_6877_GPU];
+static struct fh_pll_regs mt6877_apu_regs[SIZE_6877_APU];
+static struct fh_pll_domain mt6877_top = {
+	.name = "top",
+	.data = (struct fh_pll_data *)&mt6877_top_data,
+	.offset = (struct fh_pll_offset *)&mt6877_top_offset,
+	.regs = (struct fh_pll_regs *)&mt6877_top_regs,
+	.init = &init_v1,
+};
+static struct fh_pll_domain mt6877_gpu = {
+	.name = "gpu",
+	.data = (struct fh_pll_data *)&mt6877_gpu_data,
+	.offset = (struct fh_pll_offset *)&mt6877_gpu_offset,
+	.regs = (struct fh_pll_regs *)&mt6877_gpu_regs,
+	.init = &init_v1,
+};
+static struct fh_pll_domain mt6877_apu = {
+	.name = "apu",
+	.data = (struct fh_pll_data *)&mt6877_apu_data,
+	.offset = (struct fh_pll_offset *)&mt6877_apu_offset,
+	.regs = (struct fh_pll_regs *)&mt6877_apu_regs,
+	.init = &init_v1,
+};
+static struct fh_pll_domain *mt6877_domain[] = {
+	&mt6877_top,
+	&mt6877_gpu,
+	&mt6877_apu,
+	NULL,
+};
+static struct match mt6877_match = {
+	.compatible = "mediatek,mt6877-fhctl",
+	.domain_list = (struct fh_pll_domain **)mt6877_domain,
+};
+/* 6877 end */
 
 /* 6739 begin */
 #define SIZE_6739_TOP (sizeof(mt6739_top_data)\
@@ -231,12 +340,13 @@ static struct fh_pll_domain *mt6739_domain[] = {
 };
 static struct match mt6739_match = {
 	.compatible = "mediatek,mt6739-fhctl",
-	.domain_list = (struct fh_pll_domain **)&mt6739_domain,
+	.domain_list = (struct fh_pll_domain **)mt6739_domain,
 };
 /* 6739 end */
 /* platform data end */
 
 static const struct match *matchs[] = {
+	&mt6877_match,
 	&mt6853_match,
 	&mt6739_match,
 	NULL
@@ -263,7 +373,7 @@ static struct fh_pll_domain **get_list(char *comp)
 	}
 	return list;
 }
-void init_fh_domain(char *domain,
+void init_fh_domain(const char *domain,
 		char *comp,
 		void __iomem *fhctl_base,
 		void __iomem *apmixed_base)

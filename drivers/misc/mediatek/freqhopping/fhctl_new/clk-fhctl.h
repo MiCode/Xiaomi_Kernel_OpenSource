@@ -43,10 +43,7 @@ struct pll_dts {
 #define FHCTL_AP "fhctl-ap"
 #define FHCTL_MCUPM "fhctl-mcupm"
 
-extern int fhctl_ap_init(struct platform_device *pdev,
-		struct pll_dts *array);
-extern int fhctl_mcupm_init(struct platform_device *pdev,
-		struct pll_dts *array);
-extern int fhctl_debugfs_init(struct platform_device *pdev,
-		struct pll_dts *array);
+extern int fhctl_ap_init(struct pll_dts *array);
+extern int fhctl_mcupm_init(struct pll_dts *array);
+extern int fhctl_debugfs_init(struct pll_dts *array);
 #endif

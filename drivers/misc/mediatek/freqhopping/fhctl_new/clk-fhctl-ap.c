@@ -514,6 +514,8 @@ static int ap_hopping_v1(void *priv_data, char *domain_name, int fh_id,
 
 	mutex_lock(lock);
 
+	FHDBG("id<%d>\n", fh_id);
+
 	domain = d->domain;
 	regs = &domain->regs[fh_id];
 	data = &domain->data[fh_id];
@@ -589,7 +591,7 @@ static int ap_ssc_enable_v1(void *priv_data,
 
 	mutex_lock(lock);
 
-	FHDBG("rate<%d>\n", rate);
+	FHDBG("id<%d>, rate<%d>\n", fh_id, rate);
 
 	domain = d->domain;
 	regs = &domain->regs[fh_id];
@@ -615,7 +617,7 @@ static int ap_ssc_disable_v1(void *priv_data,
 
 	mutex_lock(lock);
 
-	FHDBG("\n");
+	FHDBG("id<%d>\n", fh_id);
 
 	domain = d->domain;
 	regs = &domain->regs[fh_id];
@@ -634,11 +636,17 @@ static int ap_init_v1(struct pll_dts *array, struct match *match)
 	static DEFINE_MUTEX(lock);
 	struct hdlr_data_v1 *priv_data;
 	struct fh_hdlr *hdlr;
+	struct fh_pll_domain *domain;
+	int fh_id = array->fh_id;
+	struct fh_pll_regs *regs;
+	struct fh_pll_data *data;
+	int mask = BIT(fh_id);
 
-	FHDBG("array<%x>,%s %s\n",
+	FHDBG("array<%x>,%s %s, id<%d>\n",
 			array,
 			array->pll_name,
-			array->domain);
+			array->domain,
+			fh_id);
 
 	priv_data = kzalloc(sizeof(*priv_data), GFP_KERNEL);
 	hdlr = kzalloc(sizeof(*hdlr), GFP_KERNEL);
@@ -650,6 +658,17 @@ static int ap_init_v1(struct pll_dts *array, struct match *match)
 	priv_data->array = array;
 	priv_data->lock = &lock;
 	priv_data->domain = get_fh_domain(array->domain);
+
+	/* do HW init */
+	domain = priv_data->domain;
+	regs = &domain->regs[fh_id];
+	data = &domain->data[fh_id];
+	fh_set_field(regs->reg_clk_con, mask, 1);
+	fh_set_field(regs->reg_rst_con, mask, 0);
+	fh_set_field(regs->reg_rst_con, mask, 1);
+	writel(0x0, regs->reg_cfg);
+	writel(0x0, regs->reg_updnlmt);
+	writel(0x0, regs->reg_dds);
 
 	/* hook to array */
 	hdlr->data = priv_data;
@@ -680,6 +699,11 @@ static struct fh_operation ap_ops_v1 = {
 static struct fh_hdlr ap_hdlr_v1 = {
 	.ops = &ap_ops_v1,
 };
+static struct match mt6877_match = {
+	.name = "mediatek,mt6877-fhctl",
+	.hdlr = &ap_hdlr_v1,
+	.init = &ap_init_v1,
+};
 static struct match mt6853_match = {
 	.name = "mediatek,mt6853-fhctl",
 	.hdlr = &ap_hdlr_v1,
@@ -699,13 +723,13 @@ static struct match mt6739_match = {
 	.init = &ap_init_6739,
 };
 static struct match *matches[] = {
+	&mt6877_match,
 	&mt6853_match,
 	&mt6739_match,
 	NULL,
 };
 
-int fhctl_ap_init(struct platform_device *pdev,
-		struct pll_dts *array)
+int fhctl_ap_init(struct pll_dts *array)
 {
 	int i;
 	int num_pll;
