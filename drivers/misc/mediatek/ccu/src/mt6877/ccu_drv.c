@@ -321,6 +321,7 @@ static int ccu_open(struct inode *inode, struct file *flip)
 	int ret = 0, i;
 
 	struct ccu_user_s *user;
+	struct CcuMemHandle handle = {0};
 
 	mutex_lock(&g_ccu_device->dev_mutex);
 
@@ -352,6 +353,11 @@ static int ccu_open(struct inode *inode, struct file *flip)
 			ccu_ion_free_import_handle(
 				import_buffer_handle[i]);/*can't in spin_lock*/
 		}
+
+		handle.meminfo.cached = 0;
+		ccu_deallocate_mem(&handle);
+		handle.meminfo.cached = 1;
+		ccu_deallocate_mem(&handle);
 
 		ccu_ion_uninit();
 	}
