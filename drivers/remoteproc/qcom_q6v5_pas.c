@@ -278,11 +278,16 @@ static int adsp_start(struct rproc *rproc)
 	}
 	scm_pas_disable_bw();
 
+	/* at this point the subsystem should be in the process of booting up */
+	rproc->state = RPROC_RUNNING;
+
 	if (!timeout_disabled) {
 		ret = qcom_q6v5_wait_for_start(&adsp->q6v5, msecs_to_jiffies(5000));
-		if (ret == -ETIMEDOUT) {
+		if (rproc->recovery_disabled && ret) {
+			panic("Panicking, remoteproc %s failed to bootup.\n", adsp->rproc->name);
+		} else if (ret == -ETIMEDOUT) {
 			dev_err(adsp->dev, "start timed out\n");
-			qcom_scm_pas_shutdown(adsp->pas_id);
+			rproc_report_crash(rproc, RPROC_WATCHDOG);
 			goto disable_regs;
 		}
 	}
