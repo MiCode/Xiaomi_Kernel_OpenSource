@@ -142,6 +142,8 @@ enum {
 	DMA_HW_VERSION1 = 1,
 	MDA_SUPPORT_8G  = 2,
 	DMA_SUPPORT_64G = 3,
+	FIFO_SUPPORT_WIDTH_8BIT = 0, /* 0 : FIFO width 8bit supprot */
+	FIFO_SUPPORT_WIDTH_64BIT = 1, /* 1 : FIFO width 64bit support */
 };
 
 enum DMA_REGS_OFFSET {
@@ -204,7 +206,7 @@ enum mt_trans_op {
 
 enum I2C_REGS_OFFSET {
 	OFFSET_DATA_PORT = 0x0,
-	OFFSET_SLAVE_ADDR = 0x04,
+	OFFSET_SLAVE_ADDR = 0x04,/* only support for FIFO width 8bit */
 	OFFSET_INTR_MASK = 0x08,
 	OFFSET_INTR_STAT = 0x0c,
 	OFFSET_CONTROL = 0x10,
@@ -230,6 +232,7 @@ enum I2C_REGS_OFFSET {
 	OFFSET_CLOCK_DIV = 0x70,
 
 	/* v2 add */
+	OFFSET_SLAVE_ADDR1 = 0x94,/* only support for FIFO width 64bit */
 	OFFSET_HW_TIMEOUT = 0xfff,
 	OFFSET_MCU_INTR = 0xfff,
 	OFFSET_TRAFFIC = 0xfff,
@@ -253,6 +256,7 @@ enum I2C_REGS_OFFSET {
 enum I2C_REGS_OFFSET_V2 {
 	V2_OFFSET_DATA_PORT = 0x0,
 	V2_OFFSET_SLAVE_ADDR = 0x04,
+	V2_OFFSET_SLAVE_ADDR1 = 0x94,
 	V2_OFFSET_INTR_MASK = 0x08,
 	V2_OFFSET_INTR_STAT = 0x0c,
 	V2_OFFSET_CONTROL = 0x10,
@@ -340,6 +344,8 @@ struct mt_i2c_ext {
 struct mtk_i2c_compatible {
 	unsigned char dma_support;
 	/* 0 : original; 1: 4gb  support 2: 33bit support; 3: 36 bit support */
+	unsigned char fifo_support;
+	/* 0 : FIFO width 8bit supprot; 1 : FIFO width 64bit support */
 	unsigned char idvfs_i2c;
 	/* compatible before chip, set 1 if no TRANSFER_LEN_AUX */
 	unsigned char set_dt_div;/* use dt to set div */
