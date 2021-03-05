@@ -180,6 +180,8 @@ static int read_config(struct neuron_mq_data_priv *priv)
 	msgq->message_alignment = hdr->message_alignment;
 	/* Get ring_buffer_len value. */
 	msgq->ring_buffer_len = hdr->ring_buffer_len;
+	if (msgq->ring_buffer_len > resource_size(&priv->buffer))
+		return -ECONNRESET;
 	/* Get tail_offset, making sure the value is valid. */
 	offset = hdr->tail_offset;
 	if (offset > resource_size(&priv->buffer))
