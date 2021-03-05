@@ -237,6 +237,8 @@ void lockdep_test_held_lock_freed(void)
 	spinlock_t *lockE;
 
 	lockE = kmalloc(sizeof(spinlock_t), GFP_KERNEL);
+	if (lockE == NULL)
+		return;
 	spin_lock_init(lockE);
 	spin_lock(lockE);
 	kfree(lockE);
