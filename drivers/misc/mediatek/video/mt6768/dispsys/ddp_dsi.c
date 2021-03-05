@@ -2216,7 +2216,7 @@ UINT32 DSI_dcs_read_lcm_reg_v2(enum DISP_MODULE_ENUM module,
 		}
 #endif
 		/* Poll the read ready register to confirm successful read */
-		DSI_POLLREG32(cmdq, &DSI_REG[d]->DSI_INTSTA, 0x00000001, 0x1);
+		DISP_REG_CMDQ_POLLING_TIMEOUT(cmdq, &DSI_REG[d]->DSI_INTSTA, 0x00000001, 0x1, 500);
 		DSI_OUTREGBIT(cmdq,
 			      struct DSI_INT_STATUS_REG,
 			      DSI_REG[d]->DSI_INTSTA,
@@ -2244,7 +2244,7 @@ UINT32 DSI_dcs_read_lcm_reg_v2(enum DISP_MODULE_ENUM module,
 			DSI_Reset(module, NULL);
 		}
 #endif
-		DSI_POLLREG32(cmdq, &DSI_REG[d]->DSI_INTSTA, 0x80000000, 0);
+		DISP_REG_CMDQ_POLLING_TIMEOUT(cmdq, &DSI_REG[d]->DSI_INTSTA, 0x80000000, 0, 500);
 		DISPDBG("DSI read begin i = %d --------------------\n",
 			  5 - max_try_count);
 		DISPDBG("DSI_RX_STA     : 0x%08x\n",

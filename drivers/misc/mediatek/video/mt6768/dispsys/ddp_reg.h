@@ -241,6 +241,25 @@ static inline unsigned long disp_addr_convert(unsigned long va)
 		}  \
 	} while (0)
 
+#define DISP_REG_CMDQ_POLLING_TIMEOUT(handle, reg32, val, mask, timeout) \
+	do { \
+		int i = 0; \
+		if (handle == NULL) { \
+			while ((DISP_REG_GET(reg32) & (mask)) \
+				!= ((val) & (mask)))\
+				if (i < timeout) {  \
+					i++; \
+				} \
+				else { \
+					break; \
+				} \
+		} else { \
+			cmdqRecPoll(handle, \
+				disp_addr_convert((unsigned long)(reg32)), \
+				val, mask); \
+		}  \
+	} while (0)
+
 #define DISP_REG_BACKUP(handle, hSlot, idx, reg32) \
 	do { \
 		if (handle != NULL) { \
