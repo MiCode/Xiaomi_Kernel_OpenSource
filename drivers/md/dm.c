@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2001, 2002 Sistina Software (UK) Limited.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2004-2008 Red Hat, Inc. All rights reserved.
  *
  * This file is released under the GPL.
@@ -440,7 +441,7 @@ retry:
 		goto out;
 	}
 
-	r = tgt->type->prepare_ioctl(tgt, bdev, mode);
+	r = tgt->type->prepare_ioctl(tgt, bdev);
 	if (r < 0)
 		goto out;
 

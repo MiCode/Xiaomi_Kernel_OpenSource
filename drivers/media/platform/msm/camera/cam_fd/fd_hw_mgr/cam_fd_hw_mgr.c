@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -910,7 +911,6 @@ static int cam_fd_mgr_util_submit_frame(void *priv, void *data)
 	hw_device->req_id = frame_req->request_id;
 	mutex_unlock(&hw_device->lock);
 
-	cam_common_util_get_curr_timestamp(&frame_req->submit_timestamp);
 	rc = cam_fd_mgr_util_put_frame_req(
 		&hw_mgr->frame_processing_list, &frame_req);
 	if (rc) {
@@ -1270,6 +1270,8 @@ static int cam_fd_mgr_hw_start(void *hw_mgr_priv, void *mgr_start_args)
 	struct cam_fd_hw_mgr_ctx *hw_ctx;
 	struct cam_fd_device *hw_device;
 	struct cam_fd_hw_init_args hw_init_args;
+	struct cam_hw_info *fd_hw;
+	struct cam_fd_core *fd_core;
 
 	if (!hw_mgr_priv || !hw_mgr_start_args) {
 		CAM_ERR(CAM_FD, "Invalid arguments %pK %pK",
@@ -1292,9 +1294,17 @@ static int cam_fd_mgr_hw_start(void *hw_mgr_priv, void *mgr_start_args)
 		return rc;
 	}
 
+	fd_hw = (struct cam_hw_info *)hw_device->hw_intf->hw_priv;
+	fd_core = (struct cam_fd_core *)fd_hw->core_info;
+
 	if (hw_device->hw_intf->hw_ops.init) {
 		hw_init_args.hw_ctx = hw_ctx;
 		hw_init_args.ctx_hw_private = hw_ctx->ctx_hw_private;
+		if (fd_core->hw_static_info->enable_errata_wa.skip_reset)
+			hw_init_args.reset_required = false;
+		else
+			hw_init_args.reset_required = true;
+
 		rc = hw_device->hw_intf->hw_ops.init(
 			hw_device->hw_intf->hw_priv, &hw_init_args,
 			sizeof(hw_init_args));
@@ -1531,111 +1541,6 @@ static int cam_fd_mgr_hw_flush(void *hw_mgr_priv,
 	return rc;
 }
 
-static int cam_fd_mgr_hw_dump(void *hw_mgr_priv,
-	void *hw_dump_args)
-{
-	struct cam_fd_hw_mgr *hw_mgr = (struct cam_fd_hw_mgr *)hw_mgr_priv;
-	struct cam_hw_dump_args *dump_args = hw_dump_args;
-	struct cam_fd_mgr_frame_request *frame_req, *req_temp;
-	uint64_t diff;
-	struct timeval cur_time;
-	int rc = 0;
-	struct cam_fd_hw_mgr_ctx *hw_ctx =
-		(struct cam_fd_hw_mgr_ctx *)dump_args->ctxt_to_hw_map;
-	struct cam_fd_device *hw_device;
-	char *dst;
-	struct cam_fd_hw_dump_args fd_dump_args;
-	struct cam_fd_hw_dump_header *hdr;
-	uint64_t *addr, *start;
-	uint32_t min_len, remain_len;
-
-	rc = cam_fd_mgr_util_get_device(hw_mgr, hw_ctx, &hw_device);
-	if (rc) {
-		CAM_ERR(CAM_FD, "Error in getting device %d", rc);
-		return rc;
-	}
-	list_for_each_entry_safe(frame_req, req_temp,
-		&hw_mgr->frame_processing_list, list) {
-		if (frame_req->request_id == dump_args->request_id)
-			goto hw_dump;
-	}
-	return rc;
-hw_dump:
-	cam_common_util_get_curr_timestamp(&cur_time);
-	diff = cam_common_util_get_time_diff(&cur_time,
-		&frame_req->submit_timestamp);
-	if (diff < CAM_FD_RESPONSE_TIME_THRESHOLD) {
-		CAM_INFO(CAM_FD, "No Error req %lld %ld:%06ld %ld:%06ld",
-			dump_args->request_id,
-			frame_req->submit_timestamp.tv_sec,
-			frame_req->submit_timestamp.tv_usec,
-			cur_time.tv_sec,
-			cur_time.tv_usec);
-		return 0;
-	}
-	CAM_INFO(CAM_FD, "Error req %lld %ld:%06ld %ld:%06ld",
-		dump_args->request_id,
-		frame_req->submit_timestamp.tv_sec,
-		frame_req->submit_timestamp.tv_usec,
-		cur_time.tv_sec,
-		cur_time.tv_usec);
-	memset(&fd_dump_args, 0, sizeof(fd_dump_args));
-	rc  = cam_mem_get_cpu_buf(dump_args->buf_handle,
-		&fd_dump_args.cpu_addr, &fd_dump_args.buf_len);
-	if (!fd_dump_args.cpu_addr || !fd_dump_args.buf_len || rc) {
-		CAM_ERR(CAM_FD,
-			"lnvalid addr %u len %zu rc %d",
-			dump_args->buf_handle, fd_dump_args.buf_len, rc);
-		return rc;
-	}
-	remain_len = fd_dump_args.buf_len - dump_args->offset;
-	min_len =  2 * (sizeof(struct cam_fd_hw_dump_header) +
-		    CAM_FD_HW_DUMP_TAG_MAX_LEN);
-	if (remain_len < min_len) {
-		CAM_ERR(CAM_FD, "dump buffer exhaust %d %d",
-			remain_len, min_len);
-		goto end;
-	}
-	dst = (char *)fd_dump_args.cpu_addr + dump_args->offset;
-	hdr = (struct cam_fd_hw_dump_header *)dst;
-	snprintf(hdr->tag, CAM_FD_HW_DUMP_TAG_MAX_LEN,
-		"FD_REQ:");
-	hdr->word_size = sizeof(uint64_t);
-	addr = (uint64_t *)(dst + sizeof(struct cam_fd_hw_dump_header));
-	start = addr;
-	*addr++ = frame_req->request_id;
-	*addr++ = frame_req->submit_timestamp.tv_sec;
-	*addr++ = frame_req->submit_timestamp.tv_usec;
-	*addr++ = cur_time.tv_sec;
-	*addr++ = cur_time.tv_usec;
-	hdr->size = hdr->word_size * (addr - start);
-	dump_args->offset += hdr->size +
-		sizeof(struct cam_fd_hw_dump_header);
-
-	fd_dump_args.request_id = dump_args->request_id;
-	fd_dump_args.offset = dump_args->offset;
-	if (hw_device->hw_intf->hw_ops.process_cmd) {
-		rc = hw_device->hw_intf->hw_ops.process_cmd(
-			hw_device->hw_intf->hw_priv,
-			CAM_FD_HW_CMD_HW_DUMP,
-			&fd_dump_args,
-			sizeof(struct
-			cam_fd_hw_dump_args));
-		if (rc) {
-			CAM_ERR(CAM_FD, "Hw Dump cmd fails req %lld rc %d",
-				frame_req->request_id, rc);
-			goto end;
-		}
-	}
-	dump_args->offset = fd_dump_args.offset;
-end:
-	rc  = cam_mem_put_cpu_buf(dump_args->buf_handle);
-	if (rc)
-		CAM_ERR(CAM_FD, "Cpu put failed handle %u",
-			dump_args->buf_handle);
-	return rc;
-}
-
 static int cam_fd_mgr_hw_stop(void *hw_mgr_priv, void *mgr_stop_args)
 {
 	struct cam_fd_hw_mgr *hw_mgr = (struct cam_fd_hw_mgr *)hw_mgr_priv;
@@ -1735,7 +1640,7 @@ static int cam_fd_mgr_hw_prepare_update(void *hw_mgr_priv,
 
 	/* We do not expect any patching, but just do it anyway */
 	rc = cam_packet_util_process_patches(prepare->packet,
-		hw_mgr->device_iommu.non_secure, -1, 0);
+		hw_mgr->device_iommu.non_secure, -1);
 	if (rc) {
 		CAM_ERR(CAM_FD, "Patch FD packet failed, rc=%d", rc);
 		return rc;
@@ -2083,7 +1988,6 @@ int cam_fd_hw_mgr_init(struct device_node *of_node,
 	hw_mgr_intf->hw_write = NULL;
 	hw_mgr_intf->hw_close = NULL;
 	hw_mgr_intf->hw_flush = cam_fd_mgr_hw_flush;
-	hw_mgr_intf->hw_dump = cam_fd_mgr_hw_dump;
 
 	return rc;
 

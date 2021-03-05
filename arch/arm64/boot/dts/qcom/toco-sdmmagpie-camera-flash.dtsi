@@ -1,0 +1,74 @@
+/* F4L Camera Flash*/
+&soc {
+	cam_flash_regulator: gpio-regulator@6 {
+		compatible = "regulator-fixed";
+		reg = <0x06 0x00>;
+		regulator-name = "cam_flash_regulator";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-enable-ramp-delay = <135>;
+		enable-active-high;
+		gpio = <&pm6150l_gpios 12 0>;
+		};
+};
+
+&qupv3_se4_i2c {
+
+	status = "ok";
+	aw3644@63 {
+		compatible = "leds-aw3644";
+		reg = <0x63>;
+		aw3644,hwen-gpio = <&pm6150l_gpios 12 0x00>;
+	};
+
+	/*address 0x64 is dummy address*/
+	led_flash_aw3644: i2c_flash@64 {
+		compatible = "i2c_flash";
+		reg = <0x64>;
+		cell-index = <0x5>;
+		cam_vana-supply = <&cam_flash_regulator>;
+		regulator-names = "cam_vana";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <1800000>;
+		rgltr-max-voltage = <1800000>;
+		rgltr-load-current = <180000>;
+
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&aw3644_led_active &aw3644_led_hwen_active &aw3644_pwm_default>;
+		pinctrl-1 = <&aw3644_led_suspend &aw3644_led_hwen_suspend &aw3644_pwm_default>;
+		};
+
+	/*address 0x65 is dummy address*/
+	led_flash_aw3644_1: i2c_flash@65 {
+		compatible = "i2c_flash";
+		reg = <0x65>;
+		cell-index = <0x6>;
+		cam_vana-supply = <&cam_flash_regulator>;
+		regulator-names = "cam_vana";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <1800000>;
+		rgltr-max-voltage = <1800000>;
+		rgltr-load-current = <180000>;
+
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&aw3644_led_active &aw3644_led_hwen_active &aw3644_pwm_default>;
+		pinctrl-1 = <&aw3644_led_suspend &aw3644_led_hwen_suspend &aw3644_pwm_default>;
+		};
+
+	/*address 0x66 is dummy address*/
+	led_flash_aw3644_2: i2c_flash@66 {
+		compatible = "i2c_flash";
+		reg = <0x66>;
+		cell-index = <0x7>;
+		cam_vana-supply = <&cam_flash_regulator>;
+		regulator-names = "cam_vana";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <1800000>;
+		rgltr-max-voltage = <1800000>;
+		rgltr-load-current = <180000>;
+
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&aw3644_led_active &aw3644_led_hwen_active &aw3644_pwm_default>;
+		pinctrl-1 = <&aw3644_led_suspend &aw3644_led_hwen_suspend &aw3644_pwm_default>;
+		};
+};

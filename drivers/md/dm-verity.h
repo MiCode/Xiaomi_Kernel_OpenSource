@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Red Hat, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2015 Google, Inc.
  *
  * Author: Mikulas Patocka <mpatocka@redhat.com>
@@ -134,8 +135,7 @@ extern int verity_hash_for_block(struct dm_verity *v, struct dm_verity_io *io,
 
 extern void verity_status(struct dm_target *ti, status_type_t type,
 			unsigned status_flags, char *result, unsigned maxlen);
-extern int verity_prepare_ioctl(struct dm_target *ti,
-                struct block_device **bdev, fmode_t *mode);
+extern int verity_prepare_ioctl(struct dm_target *ti, struct block_device **bdev);
 extern int verity_iterate_devices(struct dm_target *ti,
 				iterate_devices_callout_fn fn, void *data);
 extern void verity_io_hints(struct dm_target *ti, struct queue_limits *limits);

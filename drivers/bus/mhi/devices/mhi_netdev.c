@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -890,9 +891,6 @@ static int mhi_netdev_debugfs_chain(void *data, u64 val)
 
 	return 0;
 }
-
-DEFINE_DEBUGFS_ATTRIBUTE(debugfs_chain, NULL,
-			 mhi_netdev_debugfs_chain, "%llu\n");
 
 static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 {

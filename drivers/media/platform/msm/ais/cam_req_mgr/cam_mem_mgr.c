@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -159,6 +160,7 @@ static int32_t cam_mem_get_slot(void)
 	mutex_lock(&tbl.m_lock);
 	idx = find_first_zero_bit(tbl.bitmap, tbl.bits);
 	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0) {
+		CAM_ERR(CAM_MEM, "find_first_zero_bit failed, idx=%d", idx);
 		mutex_unlock(&tbl.m_lock);
 		return -ENOMEM;
 	}

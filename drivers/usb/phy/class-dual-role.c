@@ -2,6 +2,7 @@
  * class-dual-role.c
  *
  * Copyright (C) 2015 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -388,6 +389,7 @@ static ssize_t dual_role_store_property(struct device *dev,
 
 setprop:
 	ret = dual_role->desc->set_property(dual_role, off, &value);
+
 
 error:
 	kfree(dup_buf);

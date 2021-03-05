@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -352,12 +353,43 @@ int qg_write_monotonic_soc(struct qpnp_qg *chip, int msoc)
 	return rc;
 }
 
+static int handle_temp_comp_config(struct qpnp_qg *chip)
+{
+	int rc = 0;
+	int temp_comp_value = 0;
+	int ibat = 0;
+
+	if ((chip->real_temp > NTC_COMP_HIGH_TEMP) || (chip->real_temp < NTC_COMP_LOW_TEMP))
+		return 0;
+
+	ibat = -1 * (chip->last_ibat / 1000);
+	if (ibat <= 0)
+		return 0;
+
+	rc = get_val(chip->temp_comp_cfg, chip->temp_comp_hysteresis,
+			chip->step_index, ibat,
+			&chip->step_index, &temp_comp_value);
+
+	if (rc < 0)
+		return 0;
+
+	return temp_comp_value;
+}
+
 int qg_get_battery_temp(struct qpnp_qg *chip, int *temp)
 {
 	int rc = 0;
+	int last_temp = 0;
+	struct timespec now_time;
+	static struct timespec last_update_time;
 
 	if (chip->battery_missing) {
 		*temp = 250;
+		return 0;
+	}
+
+	if (chip->batt_fake_temp != -1) {
+		*temp = chip->batt_fake_temp;
 		return 0;
 	}
 
@@ -366,7 +398,58 @@ int qg_get_battery_temp(struct qpnp_qg *chip, int *temp)
 		pr_err("Failed reading BAT_TEMP over ADC rc=%d\n", rc);
 		return rc;
 	}
-	pr_debug("batt_temp = %d\n", *temp);
+
+	last_temp = *temp;
+	rc = iio_read_channel_processed(chip->batt_therm_chan, temp);
+	if (rc < 0) {
+		pr_err("Failed reading BAT_TEMP over ADC rc=%d\n", rc);
+		return rc;
+	}
+	if (abs(last_temp - *temp) > 50) {
+		rc = iio_read_channel_processed(chip->batt_therm_chan, temp);
+		if (rc < 0) {
+			pr_err("Failed reading BAT_TEMP over ADC rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (chip->temp_comp_enable) {
+		/* for F4 P0 & P0.1 */
+		if (*temp < -300) {
+			*temp = 250;
+			return 0;
+		}
+
+		chip->real_temp = *temp;
+		chip->batt_ntc_comp = handle_temp_comp_config(chip);
+
+		if (chip->charge_status != POWER_SUPPLY_STATUS_CHARGING)
+			chip->batt_ntc_comp = NTC_NO_COMP;
+
+		if (chip->report_temp == INT_MIN)
+			chip->report_temp = chip->real_temp;
+
+		chip->obj_temp = chip->real_temp - chip->batt_ntc_comp * 10;
+		get_monotonic_boottime(&now_time);
+
+		if (abs(chip->obj_temp - chip->report_temp) < 5) {
+			chip->report_temp = chip->obj_temp;
+		} else if (now_time.tv_sec - last_update_time.tv_sec > TEMP_COMP_TIME) {
+			if (chip->report_temp > chip->obj_temp) {
+				chip->report_temp = chip->report_temp - 10;
+				get_monotonic_boottime(&last_update_time);
+			} else if (chip->report_temp < chip->obj_temp) {
+				chip->report_temp = chip->report_temp + 10;
+				get_monotonic_boottime(&last_update_time);
+			}
+		}
+
+		*temp = chip->report_temp;
+		pr_debug("obj_temp[%d] report_temp[%d] real_temp[%d] ntc_comp[%d]\n",
+				chip->obj_temp, chip->report_temp, chip->real_temp, chip->batt_ntc_comp);
+	} else {
+		pr_debug("batt_temp = %d\n", *temp);
+	}
 
 	return 0;
 }
@@ -398,6 +481,12 @@ int qg_get_battery_current(struct qpnp_qg *chip, int *ibat_ua)
 
 	last_ibat = sign_extend32(last_ibat, 15);
 	*ibat_ua = qg_iraw_to_ua(chip, last_ibat);
+	chip->last_ibat = *ibat_ua;
+	if (*ibat_ua < 0) {
+		pr_err("ibat_ua =%d", *ibat_ua);
+		chip->sdam_data[SDAM_IBAT_UA] = 0;
+	} else
+		chip->sdam_data[SDAM_IBAT_UA] =  (chip->sdam_data[SDAM_IBAT_UA] != 0) ? (chip->sdam_data[SDAM_IBAT_UA] * 9 + *ibat_ua) / 10 :  *ibat_ua;
 
 release:
 	/* release */

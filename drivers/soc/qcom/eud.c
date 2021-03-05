@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -232,6 +233,7 @@ static void eud_event_notifier(struct work_struct *eud_work)
 			pval.intval = !chip->chgr_enable;
 			power_supply_set_property(chip->batt_psy,
 				POWER_SUPPLY_PROP_INPUT_SUSPEND, &pval);
+			printk("eud_event_notifier vote POWER_SUPPLY_PROP_INPUT_SUSPEND!!!\n");
 		}
 	}
 }

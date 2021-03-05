@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Red Hat, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Mikulas Patocka <mpatocka@redhat.com>
  *
@@ -786,8 +787,7 @@ void verity_status(struct dm_target *ti, status_type_t type,
 }
 EXPORT_SYMBOL_GPL(verity_status);
 
-int verity_prepare_ioctl(struct dm_target *ti,
-		struct block_device **bdev, fmode_t *mode)
+int verity_prepare_ioctl(struct dm_target *ti, struct block_device **bdev)
 {
 	struct dm_verity *v = ti->private;
 

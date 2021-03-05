@@ -557,6 +557,12 @@ extern void sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin,
 extern int sched_set_boost(int enable);
 extern void free_task_load_ptrs(struct task_struct *p);
 
+extern bool sched_prefer_idle_on_input;
+static inline void sched_set_prefer_idle(bool enable)
+{
+	sched_prefer_idle_on_input = enable;
+}
+
 #define RAVG_HIST_SIZE_MAX  5
 #define NUM_BUSY_BUCKETS 10
 
@@ -620,6 +626,7 @@ static inline int sched_set_boost(int enable)
 {
 	return -EINVAL;
 }
+static inline void sched_set_prefer_idle(bool enable) {};
 static inline void free_task_load_ptrs(struct task_struct *p) { }
 
 static inline void sched_update_cpu_freq_min_max(const cpumask_t *cpus,
@@ -1266,6 +1273,8 @@ struct task_struct {
 	 */
 	u64				timer_slack_ns;
 	u64				default_timer_slack_ns;
+	unsigned int top_app;
+	unsigned int woken_by_top_app;
 
 #ifdef CONFIG_KASAN
 	unsigned int			kasan_depth;

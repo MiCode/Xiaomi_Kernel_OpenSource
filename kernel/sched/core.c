@@ -2082,6 +2082,7 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,
 {
 	unsigned long flags;
 	int cpu, success = 0;
+	struct rq *rq;
 
 	/*
 	 * If we are going to wake up a thread waiting for CONDITION we
@@ -2157,6 +2158,15 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,
 	smp_cond_load_acquire(&p->on_cpu, !VAL);
 
 	walt_try_to_wake_up(p);
+
+	rq = cpu_rq(task_cpu(p));
+	// Strictly speaking we should use current
+	if (sched_boost_top_app() && rq->curr != NULL &&
+		(rq->curr->top_app || rq->curr->woken_by_top_app))
+		p->woken_by_top_app = 1;
+	else
+		p->woken_by_top_app = 0;
+
 
 	p->sched_contributes_to_load = !!task_contributes_to_load(p);
 	p->state = TASK_WAKING;
@@ -2296,6 +2306,8 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->se.nr_migrations		= 0;
 	p->se.vruntime			= 0;
 	p->last_sleep_ts		= 0;
+	p->top_app		= 0;
+	p->woken_by_top_app		= 0;
 	p->boost                = 0;
 	p->boost_expires        = 0;
 	p->boost_period         = 0;
@@ -5510,6 +5522,34 @@ void show_state_filter(unsigned long state_filter)
 	 */
 	if (!state_filter)
 		debug_show_all_locks();
+}
+
+void show_state_filter_single(unsigned long state_filter)
+{
+	struct task_struct *g, *p;
+
+#if BITS_PER_LONG == 32
+	printk(KERN_INFO
+		"  task                PC stack   pid father\n");
+#else
+	printk(KERN_INFO
+		"  task                        PC stack   pid father\n");
+#endif
+	rcu_read_lock();
+	for_each_process_thread(g, p) {
+		/*
+		 * reset the NMI-timeout, listing all files on a slow
+		 * console might take a lot of time:
+		 * Also, reset softlockup watchdogs on all CPUs, because
+		 * another CPU might be blocked waiting for us to process
+		 * an IPI.
+		 */
+		touch_nmi_watchdog();
+		touch_all_softlockup_watchdogs();
+		if (p->state == state_filter)
+			sched_show_task(p);
+	}
+	rcu_read_unlock();
 }
 
 /**

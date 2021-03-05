@@ -1,0 +1,45 @@
+#
+# Goodix touchscreen driver configuration
+#
+config TOUCHSCREEN_GOODIX_GTX9896_I2C
+	bool "Goodix GTx8 touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have a Goodix GTX9896 touch controller
+	  to your system.
+
+	  If unsure, say N.
+
+if TOUCHSCREEN_GOODIX_GTX9896_I2C
+
+config TOUCHSCREEN_GOODIX_GTX9896_UPDATE
+	tristate "Goodix GTx9896 firmware update module"
+	default y
+	help
+	  Say Y here to enable support for doing firmware update.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.
+
+config TOUCHSCREEN_GOODIX_GTX9896_GESTURE
+	tristate "Goodix GTx9896 gesture wakeup feature"
+	default y
+	help
+	  Say Y here to enable support for gesture wakeup feature..
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.
+
+config TOUCHSCREEN_GOODIX_GTX9896_TOOLS
+	tristate "Goodix touch tools support"
+	default y
+	help
+	  Say Y here to enable debug tools.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.
+
+endif

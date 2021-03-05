@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2100,6 +2101,11 @@ static inline int gsi_alloc_channel_ee(unsigned int chan_idx, unsigned int ee,
 }
 
 static inline int gsi_chk_intset_value(void)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+static inline int gsi_enable_flow_control_ee(unsigned int chan_idx,
+			unsigned int ee, int *code)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }

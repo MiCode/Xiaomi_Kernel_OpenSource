@@ -357,7 +357,6 @@ static int scsi_vpd_inquiry(struct scsi_device *sdev, unsigned char *buffer,
 
 	return get_unaligned_be16(&buffer[2]) + 4;
 }
-
 /**
  * scsi_get_vpd_page - Get Vital Product Data from a SCSI device
  * @sdev: The device to ask
