@@ -109,6 +109,12 @@ static bool is_rsz_valid(struct layer_config *c)
 	if (c->src_width > c->dst_width ||
 	    c->src_height > c->dst_height)
 		return false;
+
+	/* hw requirement: 4x4 < input resolution <= 1088x8192 */
+	if (c->src_width <= 4   || c->src_height <= 4 ||
+	    c->src_width > 1088 || c->src_height > 8192)
+		return false;
+
 	/*
 	 * HWC adjusts MDP layer alignment after query_valid_layer.
 	 * This makes the decision of layering rule unreliable. Thus we
