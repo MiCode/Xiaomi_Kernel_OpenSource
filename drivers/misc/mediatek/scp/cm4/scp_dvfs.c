@@ -71,7 +71,6 @@ static struct mt_scp_pll_t *mt_scp_pll;
 static struct wakeup_source *scp_suspend_lock;
 static int g_scp_dvfs_init_flag = -1;
 
-static struct regulator *dvfsrc_vscp_power;
 static struct dvfs_data *dvfs;
 
 static struct regulator *reg_vcore, *reg_vsram;
@@ -80,13 +79,13 @@ static struct mtk_pm_qos_request dvfsrc_scp_vcore_req;
 
 static struct subsys_data *sd;
 
-const char *sub_feature_name[SUB_FEATURE_NUM] = {
+const char sub_feature_name[SUB_FEATURE_NUM][15] = {
 	"gpio-mode",
 	"pmic-vow-lp",
 	"pmic-pmrc",
 };
 
-const char *subsys_name[SYS_NUM] = {
+const char subsys_name[SYS_NUM][15] = {
 	"gpio",
 	"pmic",
 };
@@ -284,7 +283,7 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 			vcore = dvfs->opp[idx].vcore;
 
 		/* vcore MAX_uV set to highest opp + 100mV */
-		ret_vc = regulator_set_voltage(dvfsrc_vscp_power, vcore,
+		ret_vc = regulator_set_voltage(reg_vcore, vcore,
 				max_vcore);
 
 		ret_vs = regulator_set_voltage(reg_vsram, dvfs->opp[idx].vsram,
@@ -510,20 +509,20 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 
 	pr_debug("%s(%d, %d)\n", __func__, pll_ctrl_flag, pll_sel);
 
-	idx = scp_get_freq_idx(pll_sel);
-	if (idx < 0 && pll_sel != CLK_26M) {
-		pr_notice("invalid idx %d\n", idx);
-		WARN_ON(1);
-		return -EINVAL;
-	}
+	if (pll_sel != CLK_26M) {
+		idx = scp_get_freq_idx(pll_sel);
+		if (idx < 0) {
+			pr_notice("invalid idx %d\n", idx);
+			WARN_ON(1);
+			return -EINVAL;
+		}
 
-	if (pll_sel != CLK_26M)
 		mux_idx = dvfs->opp[idx].clk_mux;
-
-	if (mux_idx < 0 && pll_sel != CLK_26M) {
-		pr_notice("invalid mux_idx %d\n", mux_idx);
-		WARN_ON(1);
-		return -EINVAL;
+		if (mux_idx < 0) {
+			pr_notice("invalid mux_idx %d\n", mux_idx);
+			WARN_ON(1);
+			return -EINVAL;
+		}
 	}
 
 	if (pll_ctrl_flag == PLL_ENABLE) {
@@ -1052,7 +1051,7 @@ static  int __init mt_scp_sub_feature_init_internal(struct device_node *node,
 
 	cfg_num = of_property_count_u32_elems(node, buf) / 2;
 	if (cfg_num != fd->num) {
-		pr_notice("cfg number is not matched(%d)\n", cfg_num);
+		pr_debug("cfg number is not matched(%d)\n", cfg_num);
 		goto pass;
 	}
 
@@ -1245,6 +1244,7 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	/* get scp dvfs opp count */
 	ret = of_property_count_u32_elems(node, "dvfs-opp") / 7;
 	if (ret <= 0) {
+		kfree(dvfs);
 		kfree(buf);
 		kfree(sd);
 		return ret;
@@ -1300,10 +1300,10 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 			dev_notice(&pdev->dev,
 					"cannot get %dst clock parent\n",
 					i);
-			mt_scp_pll->pll_num = i;
 			break;
 		}
 	}
+	mt_scp_pll->pll_num = i;
 
 	/* check if GPIO is configured correctly for SCP VREQ */
 	if (scp_get_sub_feature_onoff(SYS_GPIO, GPIO_MODE)) {
@@ -1388,9 +1388,6 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 		goto pmic_cfg;
 	}
 
-	/* get dvfsrc regulator */
-	dvfsrc_vscp_power = regulator_get(&pdev->dev, "dvfsrc-vscp");
-
 pmic_cfg:
 	/* get Vcore/Vsram Regulator */
 	reg_vcore = devm_regulator_get_optional(&pdev->dev, "sshub-vcore");
@@ -1415,9 +1412,10 @@ pass:
 
 	return 0;
 fail:
+	kfree(mt_scp_pll);
+	kfree(opp);
 	kfree(dvfs);
 	kfree(buf);
-	kfree(opp);
 	kfree(sd);
 	WARN_ON(1);
 
