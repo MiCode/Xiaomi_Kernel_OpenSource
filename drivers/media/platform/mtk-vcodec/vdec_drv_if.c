@@ -81,15 +81,7 @@ int vdec_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 		return -EINVAL;
 	}
 #endif
-	if (!ctx->user_lock_hw) {
-		mtk_vdec_lock(ctx, MTK_VDEC_CORE);
-		mtk_vcodec_dec_clock_on(&ctx->dev->pm, MTK_VDEC_CORE);
-	}
 	ret = ctx->dec_if->init(ctx, &ctx->drv_handle);
-	if (!ctx->user_lock_hw) {
-		mtk_vcodec_dec_clock_off(&ctx->dev->pm, MTK_VDEC_CORE);
-		mtk_vdec_unlock(ctx, MTK_VDEC_CORE);
-	}
 
 	return ret;
 }
@@ -118,13 +110,8 @@ int vdec_if_decode(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_mem *bs,
 
 	if (ctx->drv_handle == 0)
 		return -EIO;
-	if (!ctx->user_lock_hw)
-		vdec_decode_prepare(ctx, MTK_VDEC_CORE);
 
 	ret = ctx->dec_if->decode(ctx->drv_handle, bs, fb, src_chg);
-
-	if (!ctx->user_lock_hw)
-		vdec_decode_unprepare(ctx, MTK_VDEC_CORE);
 
 	return ret;
 }
@@ -174,13 +161,8 @@ void vdec_if_deinit(struct mtk_vcodec_ctx *ctx)
 {
 	if (ctx->drv_handle == 0)
 		return;
-	if (!ctx->user_lock_hw)
-		vdec_decode_prepare(ctx, MTK_VDEC_CORE);
 
 	ctx->dec_if->deinit(ctx->drv_handle);
-
-	if (!ctx->user_lock_hw)
-		vdec_decode_unprepare(ctx, MTK_VDEC_CORE);
 
 	ctx->drv_handle = 0;
 }
