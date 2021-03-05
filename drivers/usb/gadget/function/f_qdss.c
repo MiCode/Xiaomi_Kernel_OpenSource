@@ -2,7 +2,7 @@
 /*
  * f_qdss.c -- QDSS function Driver
  *
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -591,8 +591,8 @@ static void usb_qdss_connect_work(struct work_struct *work)
 
 	qdss = container_of(work, struct f_qdss, connect_w);
 
-	/* If cable is already removed, discard connect_work */
-	if (qdss->usb_connected == 0) {
+	/* If qdss is closed or cable is removed, discard connect_work */
+	if (qdss->qdss_close || qdss->usb_connected == 0) {
 		cancel_work_sync(&qdss->disconnect_w);
 		return;
 	}
