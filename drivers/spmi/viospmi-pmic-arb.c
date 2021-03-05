@@ -838,8 +838,6 @@ err_init_vq:
 
 static void virtio_spmi_remove(struct virtio_device *vdev)
 {
-	struct virtio_spmi *vs = vdev->priv;
-
 	vdev->config->reset(vdev);
 	vdev->config->del_vqs(vdev);
 }
