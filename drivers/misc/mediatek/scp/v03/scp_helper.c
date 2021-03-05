@@ -127,7 +127,9 @@ static struct timer_list scp_ready_timer[SCP_CORE_TOTAL];
 #endif
 static struct scp_work_struct scp_A_notify_work;
 
+#if SCP_BOOT_TIME_OUT_MONITOR
 static unsigned int scp_timeout_times;
+#endif
 
 static DEFINE_MUTEX(scp_A_notify_mutex);
 static DEFINE_MUTEX(scp_feature_mutex);
