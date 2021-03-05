@@ -186,6 +186,124 @@ static void mtk_atomic_wait_for_fences(struct drm_atomic_state *state)
 		mtk_fb_wait(plane->state->fb);
 }
 
+#define UNIT 32768
+static void mtk_atomic_rsz_calc_dual_params(
+	struct drm_crtc *crtc, struct mtk_rect *src_roi,
+	struct mtk_rect *dst_roi,
+	struct mtk_rsz_param param[])
+{
+	int left = dst_roi->x;
+	int right = dst_roi->x + dst_roi->width - 1;
+	int tile_idx = 0;
+	int tile_loss = 4;
+	u32 step = 0;
+	s32 init_phase = 0;
+	s32 offset[2] = {0};
+	s32 int_offset[2] = {0};
+	s32 sub_offset[2] = {0};
+	u32 tile_in_len[2] = {0};
+	u32 tile_out_len[2] = {0};
+	u32 out_x[2] = {0};
+	bool is_dual = true;
+	int width = crtc->state->adjusted_mode.hdisplay;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *output_comp;
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (output_comp && drm_crtc_index(crtc) == 0)
+		width = mtk_ddp_comp_io_cmd(
+				output_comp, NULL,
+				DSI_GET_VIRTUAL_WIDTH, NULL);
+
+	if (right < width / 2)
+		tile_idx = 0;
+	else if (left >= width / 2)
+		tile_idx = 1;
+	else
+		is_dual = true;
+
+	step = (UNIT * (src_roi->width - 1) + (dst_roi->width - 2)) /
+			(dst_roi->width - 1);
+
+	offset[0] = (step * (dst_roi->width - 1) -
+		UNIT * (src_roi->width - 1)) / 2;
+	init_phase = UNIT - offset[0];
+	sub_offset[0] = -offset[0];
+	if (sub_offset[0] < 0) {
+		int_offset[0]--;
+		sub_offset[0] = UNIT + sub_offset[0];
+	}
+	if (sub_offset[0] >= UNIT) {
+		int_offset[0]++;
+		sub_offset[0] = sub_offset[0] - UNIT;
+	}
+	if (is_dual) {
+		/*left side*/
+		tile_in_len[0] = (((width / 2) * src_roi->width * 10) /
+			dst_roi->width + 5) / 10 - src_roi->x + tile_loss;
+		tile_out_len[0] = width / 2 - dst_roi->x;
+		out_x[0] = dst_roi->x;
+	} else {
+		tile_in_len[0] = src_roi->width;
+		tile_out_len[0] = dst_roi->width;
+		if (tile_idx == 0)
+			out_x[0] = dst_roi->x;
+		else
+			out_x[0] = dst_roi->x - width / 2;
+	}
+
+	param[tile_idx].out_x = out_x[0];
+	param[tile_idx].step = step;
+	param[tile_idx].int_offset = (u32)(int_offset[0] & 0xffff);
+	param[tile_idx].sub_offset = (u32)(sub_offset[0] & 0x1fffff);
+	param[tile_idx].in_len = tile_in_len[0];
+	param[tile_idx].out_len = tile_out_len[0];
+	DDPINFO("%s:%s:step:%u,offset:%u.%u,len:%u->%u,out_x:%u\n", __func__,
+	       is_dual ? "dual" : "single",
+	       param[0].step,
+	       param[0].int_offset,
+	       param[0].sub_offset,
+	       param[0].in_len,
+	       param[0].out_len,
+	       param[0].out_x);
+
+	if (!is_dual)
+		return;
+
+	/* right half */
+	offset[1] =
+		(init_phase + dst_roi->width / 2 * step) -
+		(src_roi->width / 2 - tile_loss - (offset[0] ? 1 : 0) + 1) * UNIT +
+		UNIT;
+	int_offset[1] = offset[1] / UNIT;
+	sub_offset[1] = offset[1] - UNIT * int_offset[1];
+	tile_out_len[1] = dst_roi->x + dst_roi->width - width / 2;
+	tile_in_len[1] = ((tile_out_len[1] * src_roi->width * 10) /
+			dst_roi->width + 5) / 10 + tile_loss + (offset[0] ? 1 : 0);
+
+	if (int_offset[1] & 0x1) {
+		int_offset[1]++;
+		tile_in_len[1]++;
+		DDPMSG("right tile int_offset: make odd to even\n");
+	}
+
+	param[1].step = step;
+	param[1].out_x = 0;
+	param[1].int_offset = (u32)(int_offset[1] & 0xffff);
+	param[1].sub_offset = (u32)(sub_offset[1] & 0x1fffff);
+	param[1].in_len = tile_in_len[1];
+	param[1].out_len = tile_out_len[1];
+
+	DDPINFO("%s:%s:step:%u,offset:%u.%u,len:%u->%u,out_x:%u\n", __func__,
+	       is_dual ? "dual" : "single",
+	       param[1].step,
+	       param[1].int_offset,
+	       param[1].sub_offset,
+	       param[1].in_len,
+	       param[1].out_len,
+	       param[1].out_x);
+}
+
 static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 				    struct drm_atomic_state *old_state)
 {
@@ -276,6 +394,11 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 		}
 		state->rsz_src_roi = src_total_roi[i];
 		state->rsz_dst_roi = dst_total_roi[i];
+		if (mtk_crtc->is_dual_pipe && rsz_enable[i])
+			mtk_atomic_rsz_calc_dual_params(crtc,
+				&state->rsz_src_roi,
+				&state->rsz_dst_roi,
+				state->rsz_param);
 		DDPINFO("[RPO] crtc[%d] (%d,%d,%d,%d)->(%d,%d,%d,%d)\n",
 			drm_crtc_index(crtc), src_total_roi[i].x,
 			src_total_roi[i].y, src_total_roi[i].width,
@@ -544,7 +667,11 @@ static bool mtk_drm_is_enable_from_lk(struct drm_crtc *crtc)
 {
 	/* TODO: check if target CRTC has been turn on in LK */
 	if (drm_crtc_index(crtc) == 0)
+	#ifndef CONFIG_MTK_DISP_NO_LK
 		return true;
+	#else
+		return false;
+	#endif
 	return false;
 }
 
@@ -942,6 +1069,18 @@ static const enum mtk_ddp_comp_id mt6885_mtk_ddp_main[] = {
 	DDP_COMPONENT_DSI0,		DDP_COMPONENT_PWM0,
 };
 
+static const enum mtk_ddp_comp_id mt6885_mtk_ddp_dual_main[] = {
+	DDP_COMPONENT_OVL1_2L,		DDP_COMPONENT_OVL1,
+	DDP_COMPONENT_OVL1_VIRTUAL0,	DDP_COMPONENT_RDMA1,
+	DDP_COMPONENT_RDMA1_VIRTUAL0, DDP_COMPONENT_COLOR1,
+	DDP_COMPONENT_CCORR1,
+#ifdef CONFIG_MTK_DRE30_SUPPORT
+	DDP_COMPONENT_DMDP_AAL1,
+#endif
+	DDP_COMPONENT_AAL1,		DDP_COMPONENT_GAMMA1,
+	DDP_COMPONENT_POSTMASK1,	DDP_COMPONENT_DITHER1,
+};
+
 static const enum mtk_ddp_comp_id mt6885_mtk_ddp_main_wb_path[] = {
 	DDP_COMPONENT_OVL0,	DDP_COMPONENT_OVL0_VIRTUAL0,
 	DDP_COMPONENT_WDMA0,
@@ -978,8 +1117,7 @@ static const enum mtk_ddp_comp_id mt6885_dual_data_ext[] = {
 	DDP_COMPONENT_DSC0,
 };
 static const enum mtk_ddp_comp_id mt6885_mtk_ddp_third[] = {
-	DDP_COMPONENT_OVL1_2L, DDP_COMPONENT_OVL1_2L_VIRTUAL0,
-	DDP_COMPONENT_WDMA1,
+	DDP_COMPONENT_OVL2_2L, DDP_COMPONENT_WDMA0,
 };
 
 static const struct mtk_addon_module_data addon_rsz_data[] = {
@@ -988,6 +1126,9 @@ static const struct mtk_addon_module_data addon_rsz_data[] = {
 
 static const struct mtk_addon_module_data addon_rsz_data_v2[] = {
 	{DISP_RSZ_v2, ADDON_BETWEEN, DDP_COMPONENT_OVL0_2L},
+};
+static const struct mtk_addon_module_data addon_rsz_data_v3[] = {
+	{DISP_RSZ_v3, ADDON_BETWEEN, DDP_COMPONENT_OVL1_2L},
 };
 
 static const struct mtk_addon_scenario_data mt6779_addon_main[ADDON_SCN_NR] = {
@@ -1037,6 +1178,24 @@ static const struct mtk_addon_scenario_data mt6885_addon_main[ADDON_SCN_NR] = {
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 };
+
+static const struct mtk_addon_scenario_data mt6885_addon_main_dual[ADDON_SCN_NR] = {
+		[NONE] = {
+				.module_num = 0,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+		[ONE_SCALING] = {
+				.module_num = ARRAY_SIZE(addon_rsz_data_v3),
+				.module_data = addon_rsz_data_v3,
+				.hrt_type = HRT_TB_TYPE_RPO_L0,
+			},
+		[TWO_SCALING] = {
+				.module_num = ARRAY_SIZE(addon_rsz_data_v3),
+				.module_data = addon_rsz_data_v3,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+};
+
 
 static const struct mtk_addon_scenario_data mt6885_addon_ext[ADDON_SCN_NR] = {
 	[NONE] = {
@@ -1279,6 +1438,8 @@ static const struct mtk_crtc_path_data mt6885_mtk_main_path_data = {
 	.path[DDP_MAJOR][0] = mt6885_mtk_ddp_main,
 	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6885_mtk_ddp_main),
 	.path_req_hrt[DDP_MAJOR][0] = true,
+	.dual_path[0] = mt6885_mtk_ddp_dual_main,
+	.dual_path_len[0] = ARRAY_SIZE(mt6885_mtk_ddp_dual_main),
 	.wb_path[DDP_MAJOR] = mt6885_mtk_ddp_main_wb_path,
 	.wb_path_len[DDP_MAJOR] = ARRAY_SIZE(mt6885_mtk_ddp_main_wb_path),
 	.path[DDP_MINOR][0] = mt6885_mtk_ddp_main_minor,
@@ -1288,6 +1449,7 @@ static const struct mtk_crtc_path_data mt6885_mtk_main_path_data = {
 	.path_len[DDP_MINOR][1] = ARRAY_SIZE(mt6885_mtk_ddp_main_minor_sub),
 	.path_req_hrt[DDP_MINOR][1] = true,
 	.addon_data = mt6885_addon_main,
+	.addon_data_dual = mt6885_addon_main_dual,
 };
 
 static const struct mtk_crtc_path_data mt6885_mtk_ext_path_data = {
@@ -1904,6 +2066,8 @@ static void mtk_drm_first_enable(struct drm_device *drm)
 	drm_for_each_crtc(crtc, drm) {
 		if (mtk_drm_is_enable_from_lk(crtc))
 			mtk_drm_crtc_first_enable(crtc);
+		else
+			mtk_drm_crtc_init_para(crtc);
 		lcm_fps_ctx_init(crtc);
 	}
 }
@@ -3192,11 +3356,11 @@ static struct platform_driver *const mtk_drm_drivers[] = {
 	&mtk_disp_rdma_driver,
 	&mtk_disp_wdma_driver,
 	&mtk_disp_rsz_driver,
+	&mtk_mipi_tx_driver,
 	&mtk_dsi_driver,
 #ifdef CONFIG_MTK_HDMI_SUPPORT
 	&mtk_dp_intf_driver,
 #endif
-	&mtk_mipi_tx_driver,
 #ifdef CONFIG_DRM_MEDIATEK_HDMI
 	&mtk_dpi_driver,
 	&mtk_lvds_driver,

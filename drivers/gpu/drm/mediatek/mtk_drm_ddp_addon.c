@@ -27,6 +27,11 @@ static const int disp_rsz_path_v2[] = {
 	DDP_COMPONENT_RSZ0,
 };
 
+static const int disp_rsz_path_v3[] = {
+	DDP_COMPONENT_OVL1_2L_VIRTUAL0,
+	DDP_COMPONENT_RSZ1,
+};
+
 static const int dmdp_pq_with_rdma_path[] = {
 	DDP_COMPONENT_DMDP_RDMA0,  DDP_COMPONENT_DMDP_HDR0,
 	DDP_COMPONENT_DMDP_AAL0,   DDP_COMPONENT_DMDP_RSZ0,
@@ -41,6 +46,10 @@ static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 		[DISP_RSZ_v2] = {
 				.path = disp_rsz_path_v2,
 				.path_len = ARRAY_SIZE(disp_rsz_path_v2),
+			},
+		[DISP_RSZ_v3] = {
+				.path = disp_rsz_path_v3,
+				.path_len = ARRAY_SIZE(disp_rsz_path_v3),
 			},
 		[DMDP_PQ_WITH_RDMA] = {
 
@@ -70,6 +79,25 @@ mtk_addon_get_scenario_data(const char *source, struct drm_crtc *crtc,
 err:
 	DDPPR_ERR("[%s] crtc%d cannot get addon data scn[%u]\n", source,
 		  drm_crtc_index(crtc), scn);
+	return NULL;
+}
+const struct mtk_addon_scenario_data *
+mtk_addon_get_scenario_data_dual(const char *source, struct drm_crtc *crtc,
+			    enum addon_scenario scn)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	if ((scn < NONE) || (scn > TRIPLE_DISP)) {
+		DDPPR_ERR("[%s] crtc%d scn is wrong\n", source,
+				drm_crtc_index(crtc));
+		return NULL;
+	}
+
+	if (mtk_crtc->path_data && mtk_crtc->path_data->addon_data_dual)
+		return &mtk_crtc->path_data->addon_data_dual[scn];
+
+	DDPPR_ERR("[%s] crtc%d cannot get addon data\n", source,
+		  drm_crtc_index(crtc));
 	return NULL;
 }
 
@@ -260,6 +288,7 @@ void mtk_addon_connect_between(struct drm_crtc *crtc, unsigned int ddp_mode,
 		comp = priv->ddp_comp[path_data->path[i]];
 		prev_comp_id = cur_comp_id;
 		cur_comp_id = comp->id;
+		comp->mtk_crtc = mtk_crtc;
 
 		for (j = i + 1; j < path_data->path_len; j++)
 			if (mtk_ddp_comp_get_type(path_data->path[j]) !=

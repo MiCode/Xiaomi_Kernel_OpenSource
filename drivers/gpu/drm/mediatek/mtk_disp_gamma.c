@@ -73,9 +73,16 @@ struct mtk_disp_gamma {
 static void mtk_gamma_init(struct mtk_ddp_comp *comp,
 	struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
 {
+	unsigned int width;
+
+	if (comp->mtk_crtc->is_dual_pipe)
+		width = cfg->w / 2;
+	else
+		width = cfg->w;
+
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_GAMMA_SIZE,
-		(cfg->w << 16) | cfg->h, ~0);
+		(width << 16) | cfg->h, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_GAMMA_EN, GAMMA_EN, ~0);
 
@@ -292,6 +299,17 @@ static int mtk_gamma_user_cmd(struct mtk_ddp_comp *comp,
 		if (mtk_gamma_set_lut(comp, handle, config) < 0) {
 			DDPPR_ERR("%s: failed\n", __func__);
 			return -EFAULT;
+		}
+		if (comp->mtk_crtc->is_dual_pipe) {
+			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+			struct drm_crtc *crtc = &mtk_crtc->base;
+			struct mtk_drm_private *priv = crtc->dev->dev_private;
+			struct mtk_ddp_comp *comp_gamma1 = priv->ddp_comp[DDP_COMPONENT_GAMMA1];
+
+			if (mtk_gamma_set_lut(comp_gamma1, handle, config) < 0) {
+				DDPPR_ERR("%s: comp_gamma1 failed\n", __func__);
+				return -EFAULT;
+			}
 		}
 	}
 	break;

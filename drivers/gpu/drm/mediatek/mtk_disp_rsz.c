@@ -301,8 +301,21 @@ static void mtk_rsz_addon_config(struct mtk_ddp_comp *comp,
 		return;
 	}
 
-	mtk_rsz_calc_tile_params(rsz_config->frm_in_w, rsz_config->frm_out_w,
-				 tile_mode, rsz_config->tw);
+	if (comp->mtk_crtc->is_dual_pipe) {
+		rsz_config->tw[tile_idx].in_len =
+			addon_config->addon_rsz_config.rsz_param.in_len;
+		rsz_config->tw[tile_idx].out_len =
+			addon_config->addon_rsz_config.rsz_param.out_len;
+		rsz_config->tw[tile_idx].step =
+			addon_config->addon_rsz_config.rsz_param.step;
+		rsz_config->tw[tile_idx].int_offset =
+			addon_config->addon_rsz_config.rsz_param.int_offset;
+		rsz_config->tw[tile_idx].sub_offset =
+			addon_config->addon_rsz_config.rsz_param.sub_offset;
+	} else {
+		mtk_rsz_calc_tile_params(rsz_config->frm_in_w, rsz_config->frm_out_w,
+					 tile_mode, rsz_config->tw);
+	}
 	mtk_rsz_calc_tile_params(rsz_config->frm_in_h, rsz_config->frm_out_h,
 				 tile_mode, rsz_config->th);
 

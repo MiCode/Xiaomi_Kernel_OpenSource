@@ -32,6 +32,7 @@ enum addon_scenario {
 enum addon_module {
 	DISP_RSZ,
 	DISP_RSZ_v2,
+	DISP_RSZ_v3,
 	DMDP_PQ_WITH_RDMA,
 	ADDON_MODULE_NUM,
 };
@@ -69,10 +70,21 @@ struct mtk_addon_config_type {
 	enum addon_type type;
 };
 
+struct mtk_rsz_param {
+	u32 in_x;
+	u32 out_x;
+	u32 step;
+	u32 int_offset;
+	u32 sub_offset;
+	u32 in_len;
+	u32 out_len;
+};
+
 struct mtk_addon_rsz_config {
 	struct mtk_addon_config_type config_type;
 	struct mtk_rect rsz_src_roi;
 	struct mtk_rect rsz_dst_roi;
+	struct mtk_rsz_param rsz_param;
 	uint8_t lc_tgt_layer;
 };
 
@@ -85,6 +97,9 @@ const struct mtk_addon_path_data *
 mtk_addon_module_get_path(enum addon_module module);
 const struct mtk_addon_scenario_data *
 mtk_addon_get_scenario_data(const char *source, struct drm_crtc *crtc,
+			    enum addon_scenario scn);
+const struct mtk_addon_scenario_data *
+mtk_addon_get_scenario_data_dual(const char *source, struct drm_crtc *crtc,
 			    enum addon_scenario scn);
 bool mtk_addon_scenario_support(struct drm_crtc *crtc, enum addon_scenario scn);
 void mtk_addon_connect_between(struct drm_crtc *crtc, unsigned int ddp_mode,

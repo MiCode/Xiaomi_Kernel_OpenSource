@@ -331,7 +331,8 @@ int mtk_mipi_tx_dump(struct phy *phy)
 }
 
 int mtk_mipi_tx_cphy_lane_config(struct phy *phy,
-						struct mtk_panel_ext *mtk_panel)
+				 struct mtk_panel_ext *mtk_panel,
+				 bool is_master)
 {
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
 	struct mtk_panel_params *params = mtk_panel->params;
@@ -458,7 +459,8 @@ int mtk_mipi_tx_cphy_lane_config(struct phy *phy,
 
 
 int mtk_mipi_tx_dphy_lane_config(struct phy *phy,
-						struct mtk_panel_ext *mtk_panel)
+				 struct mtk_panel_ext *mtk_panel,
+				 bool is_master)
 {
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
 	struct mtk_panel_params *params = mtk_panel->params;
@@ -475,7 +477,10 @@ int mtk_mipi_tx_dphy_lane_config(struct phy *phy,
 	}
 
 	/* TODO: support dual port MIPI lane_swap */
-	swap_base = params->lane_swap[i];
+	if (is_master)
+		swap_base = params->lane_swap[MIPITX_PHY_PORT_0];
+	else
+		swap_base = params->lane_swap[MIPITX_PHY_PORT_1];
 	DDPDBG("MIPITX Lane Swap Enabled for DSI Port %d\n", i);
 	DDPDBG("MIPITX Lane Swap mapping: %d|%d|%d|%d|%d|%d\n",
 			swap_base[MIPITX_PHY_LANE_0],
@@ -549,10 +554,10 @@ int mtk_mipi_tx_dphy_lane_config(struct phy *phy,
 	/* CK_LANE */
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PHY_SEL0,
 		FLD_MIPI_TX_PHYC_SEL,
-		(pad_mapping[swap_base[MIPITX_PHY_LANE_0]]) << 20);
+		(pad_mapping[swap_base[MIPITX_PHY_LANE_CK]]) << 20);
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PHY_SEL0,
 		FLD_MIPI_TX_CPHY1CA_SEL,
-		(pad_mapping[swap_base[MIPITX_PHY_LANE_0]] + 1) << 24);
+		(pad_mapping[swap_base[MIPITX_PHY_LANE_CK]] + 1) << 24);
 
 	/* LPRX SETTING */
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PHY_SEL1,
@@ -1552,8 +1557,6 @@ void mtk_mipi_tx_pll_rate_switch_gce(struct phy *phy,
 			mipi_tx->regs_pa + MIPITX_PLL_CON1, reg_val, ~0);
 
 	DDPDBG("%s-\n", __func__);
-
-	return;
 }
 
 static long mtk_mipi_tx_pll_round_rate(struct clk_hw *hw, unsigned long rate,

@@ -196,8 +196,18 @@ static void mtk_postmask_config(struct mtk_ddp_comp *comp,
 	unsigned int num = 0;
 #else
 	struct mtk_drm_gem_obj *gem;
+	unsigned int size = 0;
+	unsigned int addr = 0;
+	unsigned int force_relay = 0;
 #endif
 #endif
+	unsigned int width;
+
+	if (comp->mtk_crtc->is_dual_pipe)
+		width = cfg->w / 2;
+	else
+		width = cfg->w;
+
 	value = (REG_FLD_VAL((BLEND_CFG_FLD_A_EN), 1) |
 		 REG_FLD_VAL((BLEND_CFG_FLD_PARGB_BLD), 0) |
 		 REG_FLD_VAL((BLEND_CFG_FLD_CONST_BLD), 0));
@@ -207,7 +217,7 @@ static void mtk_postmask_config(struct mtk_ddp_comp *comp,
 			      handle);
 	mtk_ddp_write_relaxed(comp, 0xff000000, DISP_POSTMASK_MASK_CLR, handle);
 
-	value = (cfg->w << 16) + cfg->h;
+	value = (width << 16) + cfg->h;
 	mtk_ddp_write_relaxed(comp, value, DISP_POSTMASK_SIZE, handle);
 
 	if (!panel_ext)
@@ -273,20 +283,43 @@ static void mtk_postmask_config(struct mtk_ddp_comp *comp,
 				      DISP_POSTMASK_RDMA_BUF_HIGH_TH, handle);
 
 #ifdef POSTMASK_DRAM_MODE
-		value = (REG_FLD_VAL((CFG_FLD_RELAY_MODE), 0) |
+		if (comp->mtk_crtc->is_dual_pipe) {
+			if (comp->id == DDP_COMPONENT_POSTMASK0 &&
+			    comp->mtk_crtc->round_corner_gem_l &&
+			    panel_ext->corner_pattern_tp_size_l) {
+				gem = comp->mtk_crtc->round_corner_gem_l;
+				addr = (unsigned int)gem->dma_addr;
+				size = panel_ext->corner_pattern_tp_size_l;
+			} else if (comp->id == DDP_COMPONENT_POSTMASK1 &&
+			    comp->mtk_crtc->round_corner_gem_r &&
+			    panel_ext->corner_pattern_tp_size_r) {
+				gem = comp->mtk_crtc->round_corner_gem_r;
+				addr = (unsigned int)gem->dma_addr;
+				size = panel_ext->corner_pattern_tp_size_r;
+			}
+		} else if (comp->mtk_crtc->round_corner_gem &&
+			   panel_ext->corner_pattern_tp_size) {
+			gem = comp->mtk_crtc->round_corner_gem;
+			addr = (unsigned int)gem->dma_addr;
+			size = panel_ext->corner_pattern_tp_size;
+		}
+
+		if (addr == 0 || size == 0) {
+			DDPPR_ERR("invalid postmaks addr/size\n");
+			force_relay = 1;
+		}
+		value = (REG_FLD_VAL((CFG_FLD_RELAY_MODE), force_relay) |
 			 REG_FLD_VAL((CFG_FLD_DRAM_MODE), 1) |
 			 REG_FLD_VAL((CFG_FLD_BGCLR_IN_SEL), 1) |
 			 REG_FLD_VAL((CFG_FLD_GCLAST_EN), 1) |
 			 REG_FLD_VAL((CFG_FLD_STALL_CG_ON), 1));
 		mtk_ddp_write_relaxed(comp, value, DISP_POSTMASK_CFG, handle);
 
-		gem = comp->mtk_crtc->round_corner_gem;
-		value = (unsigned int)gem->dma_addr;
-		mtk_ddp_write_relaxed(comp, value, DISP_POSTMASK_MEM_ADDR,
+		mtk_ddp_write_relaxed(comp, addr, DISP_POSTMASK_MEM_ADDR,
 				      handle);
 
-		mtk_ddp_write_relaxed(comp, panel_ext->corner_pattern_tp_size,
-				      DISP_POSTMASK_MEM_LENGTH, handle);
+		mtk_ddp_write_relaxed(comp, size, DISP_POSTMASK_MEM_LENGTH,
+				      handle);
 #else
 		value = (REG_FLD_VAL((CFG_FLD_RELAY_MODE), 0) |
 			 REG_FLD_VAL((CFG_FLD_DRAM_MODE), 0) |

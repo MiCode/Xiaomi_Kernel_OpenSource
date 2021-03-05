@@ -86,6 +86,12 @@ static void mtk_dither_config(struct mtk_ddp_comp *comp,
 	struct mtk_disp_dither *priv = dev_get_drvdata(comp->dev);
 
 	unsigned int enable = 1;
+	unsigned int width;
+
+	if (comp->mtk_crtc->is_dual_pipe)
+		width = cfg->w / 2;
+	else
+		width = cfg->w;
 
 	DDPINFO("%s: bbp = %u\n", __func__, cfg->bpc);
 	DDPINFO("%s: width = %u height = %u\n", __func__, cfg->w, cfg->h);
@@ -174,7 +180,7 @@ static void mtk_dither_config(struct mtk_ddp_comp *comp,
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_REG_DITHER_SIZE,
-		cfg->w << 16 | cfg->h, ~0);
+		width << 16 | cfg->h, ~0);
 
 }
 

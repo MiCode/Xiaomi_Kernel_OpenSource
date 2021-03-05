@@ -105,7 +105,7 @@ static void mtk_dmdp_aal_bypass(struct mtk_ddp_comp *comp, int bypass,
 static void mtk_dmdp_aal_config(struct mtk_ddp_comp *comp,
 			   struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
 {
-	unsigned int val = (cfg->w << 16) | (cfg->h);
+	unsigned int val = ((cfg->w << 16) / 2) | (cfg->h);
 
 	DDPINFO("%s: 0x%08x\n", __func__, val);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_CFG,

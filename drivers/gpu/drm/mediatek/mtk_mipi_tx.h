@@ -22,9 +22,9 @@ extern unsigned int mipi_volt;
 int mtk_mipi_tx_dump(struct phy *phy);
 unsigned int mtk_mipi_tx_pll_get_rate(struct phy *phy);
 int mtk_mipi_tx_dphy_lane_config(struct phy *phy,
-	struct mtk_panel_ext *mtk_panel);
+	struct mtk_panel_ext *mtk_panel, bool is_master);
 int mtk_mipi_tx_cphy_lane_config(struct phy *phy,
-	struct mtk_panel_ext *mtk_panel);
+	struct mtk_panel_ext *mtk_panel, bool is_master);
 void mtk_mipi_tx_pll_rate_set_adpt(struct phy *phy, unsigned long rate);
 void mtk_mipi_tx_pll_rate_switch_gce(struct phy *phy,
 	void *handle, unsigned long rate);

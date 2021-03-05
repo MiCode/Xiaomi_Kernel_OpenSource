@@ -266,6 +266,9 @@ bool mtk_drm_lcm_is_connect(void)
 int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 			unsigned int *fps)
 {
+#ifdef CONFIG_MTK_DISP_NO_LK
+		return -1;
+#else
 	struct device_node *chosen_node;
 
 	*fps = 6000;
@@ -299,6 +302,7 @@ found:
 	DDPINFO("[DT][videolfb] fps	   = %d\n", *fps);
 
 	return 0;
+#endif
 }
 
 int free_fb_buf(void)
