@@ -103,6 +103,7 @@
 
 #define VOW_PCM_DUMP_BYTE_SIZE         0xA00 /* 320 * 8 */
 #define VOW_EXTRA_DATA_SIZE            0x100 /* 256 */
+#define VOW_CUSTOM_MODEL_SIZE          0x2800 // 10KB = 0x2800
 
 #define VOW_ENGINE_INFO_LENGTH_BYTE    32
 
@@ -113,6 +114,7 @@
 #endif
 #define VOW_VFFPDATA_OFFSET           (VOW_RECOGDATA_OFFSET + RECOG_DUMP_TOTAL_BYTE_CNT)
 #define VOW_EXTRA_DATA_OFFSET         (VOW_VFFPDATA_OFFSET + VFFP_DUMP_TOTAL_BYTE_CNT)
+#define VOW_CUSTOM_MODEL_OFFSET       (VOW_EXTRA_DATA_OFFSET + VOW_EXTRA_DATA_SIZE)
 
 /* below is control message */
 #define VOW_SET_CONTROL               _IOW(VOW_IOC_MAGIC, 0x03, unsigned int)
@@ -129,6 +131,7 @@
 #define VOW_GET_ALEXA_ENGINE_VER      _IOW(VOW_IOC_MAGIC, 0x11, unsigned int)
 #define VOW_GET_GOOGLE_ENGINE_VER     _IOW(VOW_IOC_MAGIC, 0x12, unsigned int)
 #define VOW_GET_GOOGLE_ARCH           _IOW(VOW_IOC_MAGIC, 0x13, unsigned int)
+#define VOW_SET_DSP_AEC_PARAMETER     _IOW(VOW_IOC_MAGIC, 0x14, unsigned int)
 #define VOW_SET_PAYLOADDUMP_INFO      _IOW(VOW_IOC_MAGIC, 0x16, unsigned int)
 
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
@@ -142,7 +145,7 @@
 #define VOW_BARGEIN_IRQ_MAX_NUM       32
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
-#define KERNEL_VOW_DRV_VER              "2.0.13"
+#define KERNEL_VOW_DRV_VER              "2.0.14"
 #define DEFAULT_GOOGLE_ENGINE_VER       2147483647
 
 struct dump_package_t {
@@ -240,7 +243,8 @@ enum vow_ipi_msgid_t {
 	IPIMSG_VOW_GET_GOOGLE_ARCH = 24,
 	IPIMSG_VOW_ALEXA_ENGINE_VER = 25,
 	IPIMSG_VOW_GOOGLE_ENGINE_VER = 26,
-	IPIMSG_VOW_GOOGLE_ARCH = 27
+	IPIMSG_VOW_GOOGLE_ARCH = 27,
+	IPIMSG_VOW_SET_CUSTOM_MODEL = 28
 };
 
 enum vow_eint_status_t {

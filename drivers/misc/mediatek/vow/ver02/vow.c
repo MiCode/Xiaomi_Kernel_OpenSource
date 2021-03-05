@@ -895,6 +895,55 @@ static bool vow_service_SetSpeakerModel(unsigned long arg)
 	return ret;
 }
 
+static bool vow_service_SetCustomModel(unsigned long arg)
+{
+	bool ret = false;
+	struct vow_engine_info_t info;
+	struct vow_engine_info_t *p_info = &info;
+#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+	phys_addr_t p_virt;
+	phys_addr_t p_phys;
+	phys_addr_t p_mdl_v;
+	phys_addr_t p_mdl_p;
+	uint32_t data_size = 0;
+	unsigned int vow_ipi_buf[2];
+#endif
+
+	if (copy_from_user((void *)&info,
+			   (const void __user *)arg,
+			   sizeof(struct vow_engine_info_t))) {
+		VOWDRV_DEBUG("vow get cust info fail\n");
+		return false;
+	}
+#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+	p_virt = scp_get_reserve_mem_virt(VOW_MEM_ID);
+	p_phys = scp_get_reserve_mem_phys(VOW_MEM_ID);
+	p_mdl_v = p_virt + VOW_CUSTOM_MODEL_OFFSET;
+	p_mdl_p = p_phys + VOW_CUSTOM_MODEL_OFFSET;
+	if (copy_from_user((void *)&data_size,
+			   (const void __user *)p_info->return_size_addr,
+			   sizeof(uint32_t))) {
+		VOWDRV_DEBUG("vow get cust size fail\n");
+		return false;
+	}
+	VOWDRV_DEBUG("vow set cust model, size %d\n", data_size);
+	if (copy_from_user((void *)p_mdl_v,
+			   (const void __user *)p_info->data_addr,
+			   data_size)) {
+		VOWDRV_DEBUG("vow copy cust model fail\n");
+		return false;
+	}
+	vow_ipi_buf[0] = (unsigned int)p_mdl_p;
+	vow_ipi_buf[1] = (unsigned long)data_size;
+	ret = vow_ipi_send(IPIMSG_VOW_SET_CUSTOM_MODEL,
+			   2,
+			   &vow_ipi_buf[0],
+			   VOW_IPI_BYPASS_ACK);
+#else
+	VOWDRV_DEBUG("vow SCP is not supported\n");
+#endif
+	return ret;
+}
 static bool vow_service_SendModelStatus(int slot, bool enable)
 {
 	bool ret = false;
@@ -2940,6 +2989,11 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		if (!vow_service_ReleaseSpeakerModel((int)arg))
 			ret = -EFAULT;
 		break;
+	case VOW_SET_DSP_AEC_PARAMETER:
+		VOWDRV_DEBUG("VOW_SET_DSP_AEC_PARAMETER(%lu)", arg);
+		if (!vow_service_SetCustomModel(arg))
+			ret = -EFAULT;
+		break;
 	case VOW_SET_APREG_INFO:
 		VOWDRV_DEBUG("VOW_SET_APREG_INFO(%lu)", arg);
 		if (!vow_service_SetVBufAddr(arg))
@@ -3142,6 +3196,7 @@ static long VowDrv_compat_ioctl(struct file *fp,
 		ret = fp->f_op->unlocked_ioctl(fp, cmd, (unsigned long)data);
 	}
 		break;
+	case VOW_SET_DSP_AEC_PARAMETER:
 	case VOW_GET_GOOGLE_ARCH:
 	case VOW_GET_ALEXA_ENGINE_VER: {
 		struct vow_engine_info_kernel_t __user *data32;
