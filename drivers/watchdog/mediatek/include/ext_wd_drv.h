@@ -67,6 +67,7 @@ void mtk_wdt_restart(enum wd_restart_type type);
 void mtk_wdt_set_time_out_value(unsigned int value);
 int  mtk_wdt_swsysret_config(int bit, int set_value);
 void __iomem *mtk_wdt_apxgpt_base(void);
+u32 mtk_wdt_kick_dbg_off(void);
 /* direct api */
 int mpcore_wk_wdt_config(int reserved, int reserved2, int timeout_val);
 int mpcore_wdt_restart(enum wd_restart_type type);

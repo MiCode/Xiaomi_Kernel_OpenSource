@@ -61,6 +61,7 @@ int wdt_sspm_irq_id;
 int ext_debugkey_io_eint = -1;
 static int g_apwdt_en_doe = 1;
 static void __iomem *apxgpt_base;
+static u32 kick_dbg_off;
 
 static const struct of_device_id rgu_of_match[] = {
 	{ .compatible = "mediatek,toprgu", },
@@ -1185,6 +1186,11 @@ void __iomem *mtk_wdt_apxgpt_base(void)
 	return apxgpt_base;
 }
 
+u32 mtk_wdt_kick_dbg_off(void)
+{
+	return kick_dbg_off;
+}
+
 #ifndef CONFIG_FIQ_GLUE
 static void wdt_report_info(void)
 {
@@ -1298,6 +1304,7 @@ int mtk_wdt_dfd_thermal1_dis(int value) {return 0; }
 int mtk_wdt_dfd_thermal2_dis(int value) {return 0; }
 int mtk_wdt_dfd_timeout(int value) {return 0; }
 void __iomem *mtk_wdt_apxgpt_base(void) {return 0; }
+u32 mtk_wdt_kick_dbg_off(void) {return 0; }
 #endif /* #ifndef __USING_DUMMY_WDT_DRV__ */
 
 static const struct of_device_id apxgpt_of_match[] = {
@@ -1465,6 +1472,12 @@ static int mtk_wdt_probe(struct platform_device *dev)
 	apxgpt_base = of_iomap(np_apxgpt, 0);
 	if (!apxgpt_base)
 		pr_debug("apxgpt iomap failed\n");
+	else {
+		ret = of_property_read_u32(np_apxgpt, "mediatek,kick_off",
+					   &kick_dbg_off);
+		if (ret)
+			kick_dbg_off = 0;
+	}
 
 	return ret;
 }
