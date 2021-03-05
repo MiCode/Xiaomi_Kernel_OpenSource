@@ -386,8 +386,6 @@ static long ccu_compat_ioctl(struct file *flip,
 	int ret = 0;
 	struct ccu_user_s *user = flip->private_data;
 
-	mutex_lock(&g_ccu_device->dev_mutex);
-
 	LOG_DBG("+, cmd: %d\n", cmd);
 
 	switch (cmd) {
@@ -410,7 +408,6 @@ static long ccu_compat_ioctl(struct file *flip,
 		ptr_power32 = compat_ptr(arg);
 		ptr_power64 = compat_alloc_user_space(sizeof(*ptr_power64));
 		if (ptr_power64 == NULL) {
-			mutex_unlock(&g_ccu_device->dev_mutex);
 			return -EFAULT;
 		}
 
@@ -469,8 +466,6 @@ static long ccu_compat_ioctl(struct file *flip,
 		LOG_ERR("(process, pid, tgid)=(%s, %d, %d)\n",
 			current->comm, current->pid, current->tgid);
 	}
-
-	mutex_unlock(&g_ccu_device->dev_mutex);
 
 	return ret;
 }
