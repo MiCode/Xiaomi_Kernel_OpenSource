@@ -414,6 +414,10 @@ static int __init monitor_hang_init(void)
 #ifdef CONFIG_MTK_ENG_BUILD
 	struct proc_dir_entry *pe;
 #endif
+
+	if (!aee_is_enable())
+		return err;
+
 	/* bleow code is added by QHQ  for hang detect */
 	err = misc_register(&aed_wdt_RT_Monitor_dev);
 	if (unlikely(err)) {
@@ -433,6 +437,9 @@ static int __init monitor_hang_init(void)
 
 static void __exit monitor_hang_exit(void)
 {
+	if (!aee_is_enable())
+		return;
+
 	misc_deregister(&aed_wdt_RT_Monitor_dev);
 }
 

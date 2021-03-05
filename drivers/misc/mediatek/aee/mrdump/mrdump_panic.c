@@ -287,6 +287,11 @@ static struct notifier_block mrdump_module_nb = {
 
 static int __init mrdump_panic_init(void)
 {
+	if (!aee_is_enable()) {
+		pr_notice("%s: ipanic: mrdump is disable\n", __func__);
+		return 0;
+	}
+
 	mrdump_parse_chosen();
 
 	mrdump_hw_init();

@@ -48,7 +48,7 @@ extern const unsigned long kallsyms_markers[] __weak;
 extern const unsigned long kallsyms_num_syms
 __attribute__((weak, section(".rodata")));
 
-
+int aee_is_enable(void);
 int mrdump_hw_init(void);
 void mrdump_cblock_init(void);
 int mrdump_full_init(void);

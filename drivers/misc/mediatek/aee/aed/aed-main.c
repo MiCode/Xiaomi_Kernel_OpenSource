@@ -44,6 +44,7 @@
 #include <linux/rtc.h>
 #include "aed.h"
 #include <linux/highmem.h>
+#include "../mrdump/mrdump_private.h"
 
 struct aee_req_queue {
 	struct list_head list;
@@ -2621,6 +2622,11 @@ static struct miscdevice aed_ke_dev = {
 static int __init aed_init(void)
 {
 	int err = 0;
+
+	if (!aee_is_enable()) {
+		pr_info("%s: aee is disable\n", __func__);
+		return 0;
+	}
 
 	err = aed_proc_init();
 	if (err != 0)
