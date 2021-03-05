@@ -87,6 +87,9 @@ ifeq ($(CONFIG_MTK_IOMMU_V2),y)
 ifeq ($(CONFIG_MACH_MT6833),y)
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6833/include
 endif
+ifeq ($(CONFIG_MACH_MT6877),y)
+	ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6877/include
+endif
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 endif
 

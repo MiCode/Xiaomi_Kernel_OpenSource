@@ -1218,6 +1218,7 @@ void MTK_kbasep_vinstr_hwcnt_release(void)
 		gpu_ptr->gpu_enable = 0;
 		MTK_reset_urate();
 #endif
+		mtk_cli->vctx->suspend_count = 0;
 		mtk_cli->vctx->client_count--;
 		list_del(&mtk_cli->node);
 		mutex_unlock(&mtk_cli->vctx->lock);
@@ -1311,14 +1312,14 @@ void MTK_update_gpu_LTR(void)
 	gpu_perf_counter.counter[VINSTR_GPU_FREQ] = mt_gpufreq_get_cur_freq();
 	gpu_perf_counter.counter[VINSTR_GPU_VOLT] = mt_gpufreq_get_cur_volt();
 	gpu_perf_counter.counter[VINSTR_GPU_LOADING] = pm_gpu_loading;
-#if defined(CONFIG_MACH_MT6853)
+#if defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833)
 	gpu_perf_counter.counter[VINSTR_GPU_ACTIVE] = kernel_dump[6];
 	gpu_perf_counter.counter[VINSTR_EXEC_INSTR_FMA] = kernel_dump[219];
 	gpu_perf_counter.counter[VINSTR_EXEC_INSTR_CVT] = kernel_dump[220];
 	gpu_perf_counter.counter[VINSTR_EXEC_INSTR_SFU] = kernel_dump[221];
 	gpu_perf_counter.counter[VINSTR_EXEC_INSTR_MSG] = kernel_dump[222];
-	gpu_perf_counter.counter[VINSTR_EXEC_CORE_ACTIVE] = kernel_dump[346];
-	gpu_perf_counter.counter[VINSTR_FRAG_ACTIVE] = kernel_dump[388];
+	gpu_perf_counter.counter[VINSTR_EXEC_CORE_ACTIVE] = kernel_dump[218];
+	gpu_perf_counter.counter[VINSTR_FRAG_ACTIVE] = kernel_dump[196];
 	gpu_perf_counter.counter[VINSTR_TILER_ACTIVE] = kernel_dump[68];
 	gpu_perf_counter.counter[VINSTR_VARY_SLOT_32] = kernel_dump[242];
 	gpu_perf_counter.counter[VINSTR_VARY_SLOT_16] = kernel_dump[243];

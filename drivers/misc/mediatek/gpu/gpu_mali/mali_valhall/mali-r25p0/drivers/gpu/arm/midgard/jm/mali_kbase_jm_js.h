@@ -584,7 +584,6 @@ void kbase_js_set_timeouts(struct kbase_device *kbdev);
  */
 void kbase_js_set_ctx_priority(struct kbase_context *kctx, int new_priority);
 
-
 /**
  * kbase_js_update_ctx_priority - update the context priority
  *
