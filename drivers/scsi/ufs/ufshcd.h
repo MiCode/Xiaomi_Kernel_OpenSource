@@ -1232,6 +1232,7 @@ u32 ufshcd_get_local_unipro_ver(struct ufs_hba *hba);
  */
 int ufshcd_clock_scaling_prepare(struct ufs_hba *hba);
 void ufshcd_clock_scaling_unprepare(struct ufs_hba *hba);
+int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up);
 void ufshcd_enable_intr(struct ufs_hba *hba, u32 intrs);
 void ufshcd_disable_intr(struct ufs_hba *hba, u32 intrs);
 int ufshcd_hba_enable(struct ufs_hba *hba);

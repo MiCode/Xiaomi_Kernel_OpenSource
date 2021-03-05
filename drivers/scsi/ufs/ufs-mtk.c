@@ -839,6 +839,40 @@ static void ufs_mtk_set_caps(struct ufs_hba *hba)
 	hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
 }
 
+#if !defined(DISABLE_LOW_BATTERY_PROTECT) && defined(LOW_BATTERY_PT_SETTING_V2)
+static void ufs_mtk_low_batt_callback(LOW_BATTERY_LEVEL level)
+{
+	struct ufs_hba *hba = ufs_mtk_hba;
+	bool scale = false;
+	bool up;
+
+	if (!hba)
+		return;
+
+	if (level > LOW_BATTERY_LEVEL_2) {
+		if (hba->pwr_info.gear_rx > 1 ||
+			hba->pwr_info.gear_tx > 1) {
+			scale = true;
+			up = false;
+		}
+	} else {
+		if (hba->pwr_info.gear_rx <= 1 ||
+			hba->pwr_info.gear_tx <= 1) {
+			scale = true;
+			up = true;
+		}
+	}
+
+	if (scale) {
+		pm_runtime_get_sync(hba->dev);
+		ufshcd_devfreq_scale(hba, up);
+		pm_runtime_put_sync(hba->dev);
+	} else {
+		dev_info(hba->dev, "%s: skip scaling gear\n", __func__);
+	}
+}
+#endif
+
 /**
  * ufs_mtk_init - find other essential mmio bases
  * @hba: host controller instance
@@ -933,6 +967,10 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 
 	host->pm_qos_init = true;
 
+#if !defined(DISABLE_LOW_BATTERY_PROTECT) && defined(LOW_BATTERY_PT_SETTING_V2)
+	register_low_battery_notify(&ufs_mtk_low_batt_callback,
+		LOW_BATTERY_PRIO_UFS);
+#endif
 out:
 	return err;
 }
@@ -988,26 +1026,22 @@ static int ufs_mtk_pre_pwr_change(struct ufs_hba *hba,
 
 /* HSG3B as default power mode, only use HSG1B at FPGA */
 #ifndef CONFIG_FPGA_EARLY_PORTING
+	final->gear_rx = desired->gear_rx;
+	final->gear_tx = desired->gear_tx;
+
 	if (ufs_mtk_hs_gear == UFS_HS_G4) {
 		if ((desired->gear_rx == UFS_HS_G4) &&
 			(desired->gear_tx == UFS_HS_G4)) {
-			final->gear_rx = UFS_HS_G4;
-			final->gear_tx = UFS_HS_G4;
 			/* INITIAL ADAPT */
 			ufshcd_dme_set(hba,
 				       UIC_ARG_MIB(PA_TXHSADAPTTYPE),
 				       PA_INITIAL_ADAPT);
 		} else {
-			final->gear_rx = UFS_HS_G3;
-			final->gear_tx = UFS_HS_G3;
 			/* NO ADAPT */
 			ufshcd_dme_set(hba,
 				       UIC_ARG_MIB(PA_TXHSADAPTTYPE),
 				       PA_NO_ADAPT);
 		}
-	} else {
-		final->gear_rx = UFS_HS_G3;
-		final->gear_tx = UFS_HS_G3;
 	}
 #else
 	final->gear_rx = UFS_HS_G1;
@@ -1021,11 +1055,9 @@ static int ufs_mtk_pre_pwr_change(struct ufs_hba *hba,
 		final->lane_rx = 1;
 		final->lane_tx = 1;
 	}
-	final->hs_rate = PA_HS_MODE_B;
-	final->pwr_rx = FAST_MODE;
-	final->pwr_tx = FAST_MODE;
-
-	ufs_mtk_pltfrm_pwr_change_final_gear(hba, final);
+	final->hs_rate = desired->hs_rate;
+	final->pwr_rx = desired->pwr_rx;
+	final->pwr_tx = desired->pwr_tx;
 
 	/* Set PAPowerModeUserData[0~5] = 0xffff, default is 0 */
 	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_PWRMODEUSERDATA0), 0x1fff);

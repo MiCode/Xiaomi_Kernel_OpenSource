@@ -1240,6 +1240,8 @@ static int ufshcd_scale_clks(struct ufs_hba *hba, bool scale_up)
 	ktime_t start = ktime_get();
 	bool clk_state_changed = false;
 
+	return 0;
+
 	if (list_empty(head))
 		goto out;
 
@@ -1438,8 +1440,7 @@ static int ufshcd_scale_gear(struct ufs_hba *hba, bool scale_up)
 	}
 
 	/* check if the power mode needs to be changed or not? */
-	ret = ufshcd_change_power_mode(hba, &new_pwr_info);
-
+	ret = ufshcd_config_pwr_mode(hba, &new_pwr_info);
 	if (ret)
 		dev_err(hba->dev, "%s: failed err %d, old gear: (tx %d rx %d), new gear: (tx %d rx %d)",
 			__func__, ret,
@@ -1484,9 +1485,11 @@ void ufshcd_clock_scaling_unprepare(struct ufs_hba *hba)
  * Returns -EBUSY if scaling can't happen at this time
  * Returns non-zero for any other errors
  */
-static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
+int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 {
 	int ret = 0;
+
+	dev_info(hba->dev, "%s: scale_up: %d\n", __func__, scale_up);
 
 	/* let's not get into low power until clock scaling is completed */
 	ufshcd_hold(hba, false);
@@ -4697,7 +4700,6 @@ static int ufshcd_change_power_mode(struct ufs_hba *hba,
 	    pwr_mode->pwr_tx == FAST_MODE)
 		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HSSERIES),
 						pwr_mode->hs_rate);
-
 	ret = ufshcd_uic_change_pwr_mode(hba, pwr_mode->pwr_rx << 4
 			| pwr_mode->pwr_tx);
 
@@ -8223,11 +8225,11 @@ _link_retry:
 			goto out;
 
 		/* Initialize devfreq after UFS device is detected */
+		memcpy(&hba->clk_scaling.saved_pwr_info.info,
+			&hba->pwr_info,
+			sizeof(struct ufs_pa_layer_attr));
+		hba->clk_scaling.saved_pwr_info.is_valid = true;
 		if (ufshcd_is_clkscaling_supported(hba)) {
-			memcpy(&hba->clk_scaling.saved_pwr_info.info,
-				&hba->pwr_info,
-				sizeof(struct ufs_pa_layer_attr));
-			hba->clk_scaling.saved_pwr_info.is_valid = true;
 			if (!hba->devfreq) {
 				hba->devfreq = devm_devfreq_add_device(hba->dev,
 							&ufs_devfreq_profile,
@@ -9386,10 +9388,10 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	int ret;
 	enum uic_link_state old_link_state;
 	int retry = 3;
+	enum ufs_dev_pwr_mode old_pwr_mode;
 
 	/* MTK PATCH: Lock deepidle/SODI @enter UFS resume callback */
 	ufshcd_vops_deepidle_lock(hba, true);
-	enum ufs_dev_pwr_mode old_pwr_mode;
 
 	hba->pm_op_in_progress = 1;
 	old_link_state = hba->uic_link_state;
