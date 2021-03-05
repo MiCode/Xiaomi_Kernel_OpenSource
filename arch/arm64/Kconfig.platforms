@@ -636,6 +636,70 @@ config MACH_MT6833
 	  Support for fpga6833 related projects
 	  Support for mt6833 related projects
 
+config MACH_MT6877
+	bool "MediaTek MT6877"
+	select ARM_MTK_NEW_ARCH_CPUIDLE
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARM_AMBA
+	select ARM_DSU_PMU
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG if IRQ_DOMAIN && DEBUG_FS
+	select MTK_GIC_TARGET_ALL
+	select MTK_CACHE_PARITY_CHECK
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select PINCTRL
+	select PINCTRL_MT6877
+	select CPU_IDLE
+	select MTK_BASE_POWER
+	select ARM64_CRYPTO
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	select MFD_SYSCON
+	select MEDIATEK_MC if MEMORY
+	select MTK_LPM
+	select MTK_LOW_POWER_MODULE
+	select MTK_PID_MAP
+	select MTK_TIMER_SYSTIMER
+	select MTK_LPM_MT6877
+	select OVERLAY_FS
+	select EXT4_FS
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select F2FS_FS
+	select F2FS_FS_ENCRYPTION
+	select F2FS_FS_SECURITY
+	select F2FS_FS_XATTR
+	select DM_BOW
+	select MTK_CPU_MSSV
+	select HW_RANDOM
+	select HW_RANDOM_MT67XX
+	select PM_DEVFREQ
+	select DEVAPC_MT6877
+	select MTK_CPU_KORO
+	select MTK_UNIFIED_DEBUG_INTERFACE
+	select MTK_DBGTOP
+	select MTK_DEBUG_LATCH
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_CM_MGR
+        select MTK_SYSTRACKER_V2
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_DEBUG_TRACER
+	select MTK_BUS_TRACER
+	select MTK_SDA
+	select MTK_BUS_PARITY_CHECK
+	select DEVMPU_MT6877
+	help
+	  This enables support for MediaTek MT6877
+	  Support for aarch64 Architecture
+	  Support for fpga6877 related projects
+	  Support for mt6877 related projects
+
 config MACH_MT6853
 	bool "MediaTek MT6853"
 	select ARM_MTK_NEW_ARCH_CPUIDLE
