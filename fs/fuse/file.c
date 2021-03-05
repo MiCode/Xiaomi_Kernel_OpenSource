@@ -1426,11 +1426,14 @@ static ssize_t __fuse_direct_read(struct fuse_io_priv *io,
 {
 	ssize_t res;
 	struct inode *inode = file_inode(io->iocb->ki_filp);
+	struct fuse_file *ff = io->iocb->ki_filp->private_data;
 
 	if (is_bad_inode(inode))
 		return -EIO;
-
-	res = fuse_direct_io(io, iter, ppos, 0);
+	if (ff->passthrough.filp)
+		res = fuse_passthrough_read_iter(io->iocb, iter);
+	else
+		res = fuse_direct_io(io, iter, ppos, 0);
 
 	fuse_invalidate_attr(inode);
 
@@ -1446,11 +1449,18 @@ static ssize_t fuse_direct_read_iter(struct kiocb *iocb, struct iov_iter *to)
 static ssize_t fuse_direct_write_iter(struct kiocb *iocb, struct iov_iter *from)
 {
 	struct inode *inode = file_inode(iocb->ki_filp);
+	struct fuse_file *ff = iocb->ki_filp->private_data;
 	struct fuse_io_priv io = FUSE_IO_PRIV_SYNC(iocb);
 	ssize_t res;
 
 	if (is_bad_inode(inode))
 		return -EIO;
+
+	if (ff->passthrough.filp) {
+		res = fuse_passthrough_write_iter(iocb, from);
+		fuse_invalidate_attr(inode);
+		return res;
+	}
 
 	/* Don't allow parallel writes to the same file */
 	inode_lock(inode);
@@ -2105,6 +2115,11 @@ static int fuse_file_mmap(struct file *file, struct vm_area_struct *vma)
 
 static int fuse_direct_mmap(struct file *file, struct vm_area_struct *vma)
 {
+	struct fuse_file *ff = file->private_data;
+
+	if (ff->passthrough.filp)
+		return fuse_passthrough_mmap(file, vma);
+
 	/* Can't provide the coherency needed for MAP_SHARED */
 	if (vma->vm_flags & VM_MAYSHARE)
 		return -ENODEV;
