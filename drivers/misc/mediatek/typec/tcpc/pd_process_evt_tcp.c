@@ -108,10 +108,8 @@ static inline int pd_handle_tcp_event_cable_softreset(struct pd_port *pd_port)
 
 	role_check = pd_port->data_role == PD_ROLE_DFP;
 
-#ifdef CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port))
 		role_check = pd_port->vconn_role;
-#endif	/* CONFIG_USB_PD_REV30 */
 
 	if (!role_check)
 		return TCP_DPM_RET_DENIED_WRONG_DATA_ROLE;

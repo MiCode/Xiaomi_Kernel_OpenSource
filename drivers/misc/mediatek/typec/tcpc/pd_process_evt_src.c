@@ -96,6 +96,8 @@ static inline bool pd_process_ctrl_msg(
 
 {
 #ifdef CONFIG_USB_PD_PARTNER_CTRL_MSG_FIRST
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
 	switch (pd_port->pe_state_curr) {
 	case PE_SRC_GET_SINK_CAP:
 
@@ -230,13 +232,13 @@ static inline bool pd_process_ext_msg(
 {
 	switch (pd_event->msg) {
 
-#ifdef CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL
+#ifdef CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE
 	case PD_EXT_SOURCE_CAP_EXT:
 		if (PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_DR_SRC_GET_SOURCE_CAP_EXT, PE_SRC_READY))
 			return true;
 		break;
-#endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL */
+#endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE */
 
 #ifdef CONFIG_USB_PD_REV30_STATUS_LOCAL
 	case PD_EXT_STATUS:
@@ -304,6 +306,7 @@ static inline bool pd_process_hw_msg_tx_failed(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
 	struct pe_data *pe_data = &pd_port->pe_data;
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	if (pd_port->pe_state_curr == PE_SRC_SEND_CAPABILITIES) {
 		if (pe_data->pd_connected) {

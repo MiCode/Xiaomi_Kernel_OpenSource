@@ -30,40 +30,40 @@ struct pd_event {
 	struct pd_msg *pd_msg;
 };
 
-struct pd_msg *pd_alloc_msg(struct tcpc_device *tcpc_dev);
-void pd_free_msg(struct tcpc_device *tcpc_dev, struct pd_msg *pd_msg);
+struct pd_msg *pd_alloc_msg(struct tcpc_device *tcpc);
+void pd_free_msg(struct tcpc_device *tcpc, struct pd_msg *pd_msg);
 
-bool pd_get_event(struct tcpc_device *tcpc_dev, struct pd_event *pd_event);
-bool pd_put_event(struct tcpc_device *tcpc_dev,
+bool pd_get_event(struct tcpc_device *tcpc, struct pd_event *pd_event);
+bool pd_put_event(struct tcpc_device *tcpc,
 		const struct pd_event *pd_event, bool from_port_partner);
-void pd_free_event(struct tcpc_device *tcpc_dev, struct pd_event *pd_event);
+void pd_free_event(struct tcpc_device *tcpc, struct pd_event *pd_event);
 
-bool pd_get_vdm_event(struct tcpc_device *tcpc_dev, struct pd_event *pd_event);
-bool pd_put_vdm_event(struct tcpc_device *tcpc_dev,
+bool pd_get_vdm_event(struct tcpc_device *tcpc, struct pd_event *pd_event);
+bool pd_put_vdm_event(struct tcpc_device *tcpc,
 			struct pd_event *pd_event, bool from_port_partner);
 
-bool pd_put_last_vdm_event(struct tcpc_device *tcpc_dev);
+bool pd_put_last_vdm_event(struct tcpc_device *tcpc);
 
 bool pd_get_deferred_tcp_event(
-	struct tcpc_device *tcpc_dev, struct tcp_dpm_event *tcp_event);
+	struct tcpc_device *tcpc, struct tcp_dpm_event *tcp_event);
 bool pd_put_deferred_tcp_event(
-	struct tcpc_device *tcpc_dev, const struct tcp_dpm_event *tcp_event);
+	struct tcpc_device *tcpc, const struct tcp_dpm_event *tcp_event);
 
-extern int tcpci_event_init(struct tcpc_device *tcpc_dev);
-extern int tcpci_event_deinit(struct tcpc_device *tcpc_dev);
-extern void pd_event_buf_reset(struct tcpc_device *tcpc_dev);
+extern int tcpci_event_init(struct tcpc_device *tcpc);
+extern int tcpci_event_deinit(struct tcpc_device *tcpc);
+extern void pd_event_buf_reset(struct tcpc_device *tcpc);
 
-bool __pd_put_cc_attached_event(struct tcpc_device *tcpc_dev, uint8_t type);
-bool pd_put_cc_attached_event(struct tcpc_device *tcpc_dev, uint8_t type);
-void pd_put_cc_detached_event(struct tcpc_device *tcpc_dev);
-void pd_put_recv_hard_reset_event(struct tcpc_device *tcpc_dev);
-void pd_put_sent_hard_reset_event(struct tcpc_device *tcpc_dev);
-bool pd_put_pd_msg_event(struct tcpc_device *tcpc_dev, struct pd_msg *pd_msg);
-void pd_put_hard_reset_completed_event(struct tcpc_device *tcpc_dev);
-void pd_put_vbus_changed_event(struct tcpc_device *tcpc_dev, bool from_ic);
-void pd_put_vbus_safe0v_event(struct tcpc_device *tcpc_dev);
-void pd_put_vbus_stable_event(struct tcpc_device *tcpc_dev);
-void pd_put_vbus_present_event(struct tcpc_device *tcpc_dev);
+bool __pd_put_cc_attached_event(struct tcpc_device *tcpc, uint8_t type);
+bool pd_put_cc_attached_event(struct tcpc_device *tcpc, uint8_t type);
+void pd_put_cc_detached_event(struct tcpc_device *tcpc);
+void pd_put_recv_hard_reset_event(struct tcpc_device *tcpc);
+void pd_put_sent_hard_reset_event(struct tcpc_device *tcpc);
+bool pd_put_pd_msg_event(struct tcpc_device *tcpc, struct pd_msg *pd_msg);
+void pd_put_hard_reset_completed_event(struct tcpc_device *tcpc);
+void pd_put_vbus_changed_event(struct tcpc_device *tcpc, bool from_ic);
+void pd_put_vbus_safe0v_event(struct tcpc_device *tcpc);
+void pd_put_vbus_stable_event(struct tcpc_device *tcpc);
+void pd_put_vbus_present_event(struct tcpc_device *tcpc);
 
 enum pd_event_type {
 	PD_EVT_PD_MSG = 0,	/* either ctrl msg or data msg */

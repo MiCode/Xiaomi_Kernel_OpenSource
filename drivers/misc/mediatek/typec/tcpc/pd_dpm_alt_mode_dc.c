@@ -158,6 +158,8 @@ static const char * const dc_dfp_state_name[] = {
 
 void dc_dfp_set_state(struct pd_port *pd_port, uint8_t state)
 {
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
 	pd_port->dc_dfp_state = state;
 
 	if (pd_port->dc_dfp_state < DC_DFP_STATE_NR)
@@ -169,6 +171,7 @@ void dc_dfp_set_state(struct pd_port *pd_port, uint8_t state)
 bool dc_dfp_start_en_unlock1(struct pd_port *pd_port)
 {
 	uint32_t rn_code[2];
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	rn_code[0] = dc_get_random_code();
 	rn_code[1] = dc_get_random_code();
@@ -192,6 +195,7 @@ bool dc_dfp_start_en_unlock1(struct pd_port *pd_port)
 bool dc_dfp_verify_en_unlock1(struct pd_port *pd_port)
 {
 	uint32_t resp_cmd, expect_resp;
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	expect_resp = RTDC_UVDM_RECV_EN_UNLOCK;
 	resp_cmd = PD_UVDM_HDR_CMD(pd_port->uvdm_data[0]);
@@ -224,6 +228,7 @@ bool dc_dfp_verify_en_unlock1(struct pd_port *pd_port)
 bool dc_dfp_start_en_unlock2(struct pd_port *pd_port)
 {
 	uint32_t rn_code = dc_get_random_code();
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	pd_port->dc_pass_code =
 		dc_get_authorization_code(pd_port->uvdm_data[2]);
@@ -241,6 +246,7 @@ bool dc_dfp_start_en_unlock2(struct pd_port *pd_port)
 bool dc_dfp_verify_en_unlock2(struct pd_port *pd_port)
 {
 	uint32_t resp_cmd, expect_resp;
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	expect_resp = RTDC_UVDM_RECV_EN_UNLOCK;
 	resp_cmd = PD_UVDM_HDR_CMD(pd_port->uvdm_data[0]);
@@ -287,6 +293,10 @@ bool dc_dfp_notify_pe_startup(
 int dc_dfp_notify_pe_ready(struct pd_port *pd_port,
 		struct svdm_svid_data *svid_data)
 {
+#ifdef CONFIG_USB_PD_REV30_PPS_SINK
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+#endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
+
 #ifdef RTDC_TA_EMULATE
 	if (pd_port->data_role == PD_ROLE_DFP && svid_data->exist) {
 		pd_put_tcp_pd_event(pd_port, TCP_DPM_EVT_DR_SWAP_AS_UFP);
@@ -477,7 +487,7 @@ static inline bool dc_dfp_notify_en_unlock2(struct pd_port *pd_port,
 		return true;
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
-	tcpci_dc_notify_en_unlock(pd_port->tcpc_dev);
+	tcpci_dc_notify_en_unlock(pd_port->tcpc);
 	return true;
 }
 

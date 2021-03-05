@@ -126,7 +126,6 @@ void pe_bist_carrier_mode_2_exit(struct pd_port *pd_port)
  * Policy Engine Share State Activity
  */
 
-#ifdef CONFIG_USB_PD_REV30
 static inline uint8_t pe30_power_ready_entry(struct pd_port *pd_port)
 {
 	uint8_t rx_cap = PD_RX_CAP_PE_READY_UFP;
@@ -142,7 +141,6 @@ static inline uint8_t pe30_power_ready_entry(struct pd_port *pd_port)
 
 	return rx_cap;
 }
-#endif	/* CONFIG_USB_PD_REV30 */
 
 static inline uint8_t pe20_power_ready_entry(struct pd_port *pd_port)
 {
@@ -170,11 +168,9 @@ void pe_power_ready_entry(struct pd_port *pd_port)
 	pd_port->pe_data.renegotiation_count = 0;
 #endif	/* CONFIG_USB_PD_RENEGOTIATION_COUNTER */
 
-#ifdef CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port))
 		rx_cap = pe30_power_ready_entry(pd_port);
 	else
-#endif	/* CONFIG_USB_PD_REV30 */
 		rx_cap = pe20_power_ready_entry(pd_port);
 
 	pd_set_rx_enable(pd_port, rx_cap);

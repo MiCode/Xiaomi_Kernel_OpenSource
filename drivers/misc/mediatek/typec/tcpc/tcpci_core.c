@@ -23,7 +23,7 @@
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
-#define TCPC_CORE_VERSION		"2.0.12_MTK"
+#define TCPC_CORE_VERSION		"2.0.13_MTK"
 
 static ssize_t tcpc_show_property(struct device *dev,
 				  struct device_attribute *attr, char *buf);
@@ -373,16 +373,16 @@ struct tcpc_device *tcpc_dev_get_by_name(const char *name)
 
 static void tcpc_device_release(struct device *dev)
 {
-	struct tcpc_device *tcpc_dev = to_tcpc_device(dev);
+	struct tcpc_device *tcpc = to_tcpc_device(dev);
 
 	pr_info("%s : %s device release\n", __func__, dev_name(dev));
-	PD_BUG_ON(tcpc_dev == NULL);
+	PD_BUG_ON(tcpc == NULL);
 	/* Un-init pe thread */
 #ifdef CONFIG_USB_POWER_DELIVERY
-	tcpci_event_deinit(tcpc_dev);
+	tcpci_event_deinit(tcpc);
 #endif /* CONFIG_USB_POWER_DELIVERY */
 	/* Un-init timer thread */
-	tcpci_timer_deinit(tcpc_dev);
+	tcpci_timer_deinit(tcpc);
 	/* Un-init Mutex */
 	/* Do initialization */
 }
@@ -564,6 +564,7 @@ static void tcpc_event_init_work(struct work_struct *work)
 	tcpc->chg_psy = devm_power_supply_get_by_phandle(
 		tcpc->dev.parent, "charger");
 	if (IS_ERR_OR_NULL(tcpc->chg_psy)) {
+		tcpci_unlock_typec(tcpc);
 		TCPC_ERR("%s get charger psy fail\n", __func__);
 		return;
 	}
@@ -897,11 +898,11 @@ static int fg_bat_notifier_call(struct notifier_block *nb,
 				unsigned long event, void *data)
 {
 	struct pd_port *pd_port = container_of(nb, struct pd_port, fg_bat_nb);
-	struct tcpc_device *tcpc_dev = pd_port->tcpc_dev;
+	struct tcpc_device *tcpc = pd_port->tcpc;
 
 	switch (event) {
 	case EVENT_BATTERY_PLUG_OUT:
-		dev_info(&tcpc_dev->dev, "%s: fg battery absent\n", __func__);
+		dev_info(&tcpc->dev, "%s: fg battery absent\n", __func__);
 		schedule_work(&pd_port->fg_bat_work);
 		break;
 	default:
@@ -962,6 +963,33 @@ MODULE_VERSION(TCPC_CORE_VERSION);
 MODULE_LICENSE("GPL");
 
 /* Release Version
+ * 2.0.13_MTK
+ * (1) Add TCPC flags for VCONN_SAFE5V_ONLY
+ * (2) Add boolean property attemp_discover_svid in dts/dtsi
+ * (3) Add a TCPM API for postponing Type-C role change until unattached
+ * (4) Update VDOs according new PD spec
+ * (5) Add an option for enabling/disabling the support of DebugAccessory.SRC
+ * (6) Add the workaround for delayed ps_change related to PS_RDY
+ *     during PR_SWAP
+ * (7) Always Back to PE ready state in pd_dpm_dfp_inform_id() and
+ *     pd_dpm_dfp_inform_svids()
+ * (8) Re-fetch triggered_timer and enable_mask after lock acquisition
+ * (9) Leave low power mode only when CC is detached
+ * (10) Revise code related to pd_check_rev30()
+ * (11) Bypass BC1.2 for PR_SWAP from Source to Sink
+ * (12) Support charging icon for AudioAccessory
+ * (13) Replace tcpc_dev with tcpc
+ * (14) TCPCI Alert V10 and V20 co-exist
+ * (15) Resolve DP Source/Sink Both Connected when acting as DFP_U
+ * (16) Change CONFIG_TYPEC_SNK_CURR_DFT from 150 to 100 (mA)
+ * (17) Define CONFIG_USB_PD_PR_SWAP_ERROR_RECOVERY by default
+ * (18) Add an option for TCPC log with port name
+ * (19) USB-C states go from ErrorRecovery to Unattached.SRC with Try.SRC role
+ * (20) Revise dts/dtsi value for DisplayPort Alternative Mode
+ * (21) Mask vSafe0V IRQ before entering low power mode
+ * (22) Disable auto idle mode before entering low power mode
+ * (23) Reset Protocol FSM and clear RX alerts twice before clock gating
+ *
  * 2.0.12_MTK
  * (1) Fix voltage/current steps of RDO for APDO
  * (2) Non-blocking TCPC notification by default

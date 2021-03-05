@@ -125,6 +125,16 @@ int tcpci_fault_status_clear(
 	return tcpc->ops->fault_status_clear(tcpc, status);
 }
 
+int tcpci_set_alert_mask(struct tcpc_device *tcpc, uint32_t mask)
+{
+	int rv = 0;
+
+	if (tcpc->ops->set_alert_mask)
+		return tcpc->ops->set_alert_mask(tcpc, mask);
+
+	return rv;
+}
+
 int tcpci_get_alert_mask(
 	struct tcpc_device *tcpc, uint32_t *mask)
 {
@@ -182,9 +192,9 @@ int tcpci_init(struct tcpc_device *tcpc, bool sw_reset)
 
 int tcpci_init_alert_mask(struct tcpc_device *tcpc)
 {
-	PD_BUG_ON(tcpc->ops->init_alert_mask == NULL);
-
-	return tcpc->ops->init_alert_mask(tcpc);
+	if (tcpc->ops->init_alert_mask)
+		return tcpc->ops->init_alert_mask(tcpc);
+	return 0;
 }
 
 int tcpci_get_cc(struct tcpc_device *tcpc)
@@ -304,41 +314,6 @@ int tcpci_set_low_power_mode(
 	if (tcpc->ops->set_low_power_mode)
 		rv = tcpc->ops->set_low_power_mode(tcpc, en, pull);
 #endif	/* CONFIG_TCPC_LOW_POWER_MODE */
-
-	return rv;
-}
-
-int tcpci_idle_poll_ctrl(
-	struct tcpc_device *tcpc, bool en, bool lock)
-{
-	int rv = 0;
-
-#ifdef CONFIG_TCPC_IDLE_MODE
-	bool update_mode = false;
-
-	if (lock)
-		mutex_lock(&tcpc->access_lock);
-
-	if (en) {
-		if (tcpc->tcpc_busy_cnt == 0)
-			update_mode = true;
-		tcpc->tcpc_busy_cnt++;
-	} else {	/* idle mode */
-		if (tcpc->tcpc_busy_cnt <= 0)
-			TCPC_DBG2("tcpc_busy_cnt<=0\r\n");
-		else
-			tcpc->tcpc_busy_cnt--;
-
-		if (tcpc->tcpc_busy_cnt == 0)
-			update_mode = true;
-	}
-
-	if (lock)
-		mutex_unlock(&tcpc->access_lock);
-
-	if (update_mode && tcpc->ops->set_idle_mode)
-		rv = tcpc->ops->set_idle_mode(tcpc, !en);
-#endif
 
 	return rv;
 }

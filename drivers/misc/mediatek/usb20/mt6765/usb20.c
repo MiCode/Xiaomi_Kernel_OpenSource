@@ -186,10 +186,24 @@ static int mt_usb_psy_notifier(struct notifier_block *nb,
 {
 	struct musb *musb = container_of(nb, struct musb, psy_nb);
 	struct power_supply *psy = ptr;
+	union power_supply_propval ival;
+	int ret;
 
 	if (event == PSY_EVENT_PROP_CHANGED && psy == musb->usb_psy) {
 
 		DBG(0, "psy=%s, event=%d", psy->desc->name, event);
+
+		ret = power_supply_get_property(psy,
+					POWER_SUPPLY_PROP_AUTHENTIC, &ival);
+		if (ret != 0) {
+			DBG(0, "failed to get psy prop, ret=%d\n", ret);
+			ival.intval = 0;
+		}
+
+		DBG(0, "ignore_usb=%d\n", ival.intval);
+
+		if (ival.intval)
+			return NOTIFY_DONE;
 
 		if (usb_cable_connected(musb))
 			mt_usb_connect();

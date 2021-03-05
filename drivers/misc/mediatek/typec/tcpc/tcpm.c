@@ -73,46 +73,46 @@ unlock_pd_out:
 
 /* Inquire TCPC status */
 
-int tcpm_shutdown(struct tcpc_device *tcpc_dev)
+int tcpm_shutdown(struct tcpc_device *tcpc)
 {
 #ifdef CONFIG_TCPC_SHUTDOWN_VBUS_DISABLE
-	if (tcpc_dev->typec_power_ctrl)
-		tcpci_disable_vbus_control(tcpc_dev);
+	if (tcpc->typec_power_ctrl)
+		tcpci_disable_vbus_control(tcpc);
 #endif	/* CONFIG_TCPC_SHUTDOWN_VBUS_DISABLE */
 
-	if (tcpc_dev->ops->deinit)
-		tcpc_dev->ops->deinit(tcpc_dev);
+	if (tcpc->ops->deinit)
+		tcpc->ops->deinit(tcpc);
 
 	return 0;
 }
 
-int tcpm_inquire_remote_cc(struct tcpc_device *tcpc_dev,
+int tcpm_inquire_remote_cc(struct tcpc_device *tcpc,
 	uint8_t *cc1, uint8_t *cc2, bool from_ic)
 {
 	int rv = 0;
 
-	tcpci_lock_typec(tcpc_dev);
+	tcpci_lock_typec(tcpc);
 	if (from_ic) {
-		rv = tcpci_get_cc(tcpc_dev);
+		rv = tcpci_get_cc(tcpc);
 		if (rv < 0)
 			goto out;
 	}
 
-	*cc1 = tcpc_dev->typec_remote_cc[0];
-	*cc2 = tcpc_dev->typec_remote_cc[1];
+	*cc1 = tcpc->typec_remote_cc[0];
+	*cc2 = tcpc->typec_remote_cc[1];
 out:
-	tcpci_unlock_typec(tcpc_dev);
+	tcpci_unlock_typec(tcpc);
 	return rv;
 }
 
-int tcpm_inquire_typec_remote_rp_curr(struct tcpc_device *tcpc_dev)
+int tcpm_inquire_typec_remote_rp_curr(struct tcpc_device *tcpc)
 {
 	int rp_lvl, ret = 0;
 
-	if (tcpm_check_typec_attached(tcpc_dev))
+	if (tcpm_check_typec_attached(tcpc))
 		return 0;
 
-	rp_lvl = tcpc_dev->typec_remote_rp_level;
+	rp_lvl = tcpc->typec_remote_rp_level;
 	switch (rp_lvl) {
 	case TYPEC_CC_VOLT_SNK_DFT:
 		ret = 500;
@@ -131,44 +131,44 @@ int tcpm_inquire_typec_remote_rp_curr(struct tcpc_device *tcpc_dev)
 }
 
 int tcpm_inquire_vbus_level(
-	struct tcpc_device *tcpc_dev, bool from_ic)
+	struct tcpc_device *tcpc, bool from_ic)
 {
 	int rv = 0;
 	uint16_t power_status = 0;
 
 	if (from_ic) {
-		rv = tcpci_get_power_status(tcpc_dev, &power_status);
+		rv = tcpci_get_power_status(tcpc, &power_status);
 		if (rv < 0)
 			return rv;
 	}
 
-	return tcpc_dev->vbus_level;
+	return tcpc->vbus_level;
 }
 
 bool tcpm_inquire_cc_polarity(
-	struct tcpc_device *tcpc_dev)
+	struct tcpc_device *tcpc)
 {
-	return tcpc_dev->typec_polarity;
+	return tcpc->typec_polarity;
 }
 
 uint8_t tcpm_inquire_typec_attach_state(
-	struct tcpc_device *tcpc_dev)
+	struct tcpc_device *tcpc)
 {
-	return tcpc_dev->typec_attach_new;
+	return tcpc->typec_attach_new;
 }
 
 uint8_t tcpm_inquire_typec_role(
-	struct tcpc_device *tcpc_dev)
+	struct tcpc_device *tcpc)
 {
-	return tcpc_dev->typec_role;
+	return tcpc->typec_role;
 }
 
 uint8_t tcpm_inquire_typec_local_rp(
-	struct tcpc_device *tcpc_dev)
+	struct tcpc_device *tcpc)
 {
 	uint8_t level;
 
-	switch (tcpc_dev->typec_local_rp_level) {
+	switch (tcpc->typec_local_rp_level) {
 	case TYPEC_CC_RP_1_5:
 		level = 1;
 		break;
@@ -199,34 +199,34 @@ int tcpm_typec_set_wake_lock(
 }
 
 int tcpm_typec_set_usb_sink_curr(
-	struct tcpc_device *tcpc_dev, int curr)
+	struct tcpc_device *tcpc, int curr)
 {
 	bool force_sink_vbus = true;
 
 #ifdef CONFIG_USB_POWER_DELIVERY
-	struct pd_port *pd_port = &tcpc_dev->pd_port;
+	struct pd_port *pd_port = &tcpc->pd_port;
 
 	if (pd_port->pe_data.pd_prev_connected)
 		force_sink_vbus = false;
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 
-	tcpci_lock_typec(tcpc_dev);
-	tcpc_dev->typec_usb_sink_curr = curr;
+	tcpci_lock_typec(tcpc);
+	tcpc->typec_usb_sink_curr = curr;
 
-	if (tcpc_dev->typec_remote_rp_level != TYPEC_CC_VOLT_SNK_DFT)
+	if (tcpc->typec_remote_rp_level != TYPEC_CC_VOLT_SNK_DFT)
 		force_sink_vbus = false;
 
 	if (force_sink_vbus) {
-		tcpci_sink_vbus(tcpc_dev,
+		tcpci_sink_vbus(tcpc,
 			TCP_VBUS_CTRL_TYPEC, TCPC_VBUS_SINK_5V, -1);
 	}
-	tcpci_unlock_typec(tcpc_dev);
+	tcpci_unlock_typec(tcpc);
 
 	return 0;
 }
 
 int tcpm_typec_set_rp_level(
-	struct tcpc_device *tcpc_dev, uint8_t level)
+	struct tcpc_device *tcpc, uint8_t level)
 {
 	int ret = 0;
 	uint8_t res;
@@ -238,9 +238,9 @@ int tcpm_typec_set_rp_level(
 	else
 		res = TYPEC_CC_RP_DFT;
 
-	tcpci_lock_typec(tcpc_dev);
-	ret = tcpc_typec_set_rp_level(tcpc_dev, res);
-	tcpci_unlock_typec(tcpc_dev);
+	tcpci_lock_typec(tcpc);
+	ret = tcpc_typec_set_rp_level(tcpc, res);
+	tcpci_unlock_typec(tcpc);
 
 	return ret;
 }
@@ -253,9 +253,9 @@ int tcpm_typec_set_custom_hv(struct tcpc_device *tcpc, bool en)
 	if (ret != TCPM_SUCCESS)
 		return ret;
 
-	tcpci_lock_typec(tcpc_dev);
+	tcpci_lock_typec(tcpc);
 	tcpc->typec_during_custom_hv = en;
-	tcpci_unlock_typec(tcpc_dev);
+	tcpci_unlock_typec(tcpc);
 
 	return ret;
 #else
@@ -263,17 +263,17 @@ int tcpm_typec_set_custom_hv(struct tcpc_device *tcpc, bool en)
 #endif	/* CONFIG_TYPEC_CAP_CUSTOM_HV */
 }
 
-int tcpm_typec_role_swap(struct tcpc_device *tcpc_dev)
+int tcpm_typec_role_swap(struct tcpc_device *tcpc)
 {
 #ifdef CONFIG_TYPEC_CAP_ROLE_SWAP
-	int ret = tcpm_check_typec_attached(tcpc_dev);
+	int ret = tcpm_check_typec_attached(tcpc);
 
 	if (ret != TCPM_SUCCESS)
 		return ret;
 
-	tcpci_lock_typec(tcpc_dev);
-	ret = tcpc_typec_swap_role(tcpc_dev);
-	tcpci_unlock_typec(tcpc_dev);
+	tcpci_lock_typec(tcpc);
+	ret = tcpc_typec_swap_role(tcpc);
+	tcpci_unlock_typec(tcpc);
 
 	return ret;
 #else
@@ -282,36 +282,49 @@ int tcpm_typec_role_swap(struct tcpc_device *tcpc_dev)
 }
 
 int tcpm_typec_change_role(
-	struct tcpc_device *tcpc_dev, uint8_t typec_role)
+	struct tcpc_device *tcpc, uint8_t typec_role)
 {
 	int ret = 0;
 
-	tcpci_lock_typec(tcpc_dev);
-	ret = tcpc_typec_change_role(tcpc_dev, typec_role);
-	tcpci_unlock_typec(tcpc_dev);
+	tcpci_lock_typec(tcpc);
+	ret = tcpc_typec_change_role(tcpc, typec_role, false);
+	tcpci_unlock_typec(tcpc);
 
 	return ret;
 }
 
-int tcpm_typec_error_recovery(struct tcpc_device *tcpc_dev)
+/* @postpone: whether to postpone Type-C role change until unattached */
+int tcpm_typec_change_role_postpone(
+	struct tcpc_device *tcpc, uint8_t typec_role, bool postpone)
 {
 	int ret = 0;
 
-	tcpci_lock_typec(tcpc_dev);
-	ret = tcpc_typec_error_recovery(tcpc_dev);
-	tcpci_unlock_typec(tcpc_dev);
+	tcpci_lock_typec(tcpc);
+	ret = tcpc_typec_change_role(tcpc, typec_role, postpone);
+	tcpci_unlock_typec(tcpc);
+
+	return ret;
+}
+
+int tcpm_typec_error_recovery(struct tcpc_device *tcpc)
+{
+	int ret = 0;
+
+	tcpci_lock_typec(tcpc);
+	ret = tcpc_typec_error_recovery(tcpc);
+	tcpci_unlock_typec(tcpc);
 
 	return ret;
 }
 
 int tcpm_typec_disable_function(
-	struct tcpc_device *tcpc_dev, bool disable)
+	struct tcpc_device *tcpc, bool disable)
 {
 	int ret = 0;
 
-	tcpci_lock_typec(tcpc_dev);
-	ret = (disable ? tcpc_typec_disable : tcpc_typec_enable)(tcpc_dev);
-	tcpci_unlock_typec(tcpc_dev);
+	tcpci_lock_typec(tcpc);
+	ret = (disable ? tcpc_typec_disable : tcpc_typec_enable)(tcpc);
+	tcpci_unlock_typec(tcpc);
 
 	return ret;
 }
@@ -319,57 +332,57 @@ int tcpm_typec_disable_function(
 #ifdef CONFIG_USB_POWER_DELIVERY
 
 bool tcpm_inquire_pd_connected(
-	struct tcpc_device *tcpc_dev)
+	struct tcpc_device *tcpc)
 {
-	struct pd_port *pd_port = &tcpc_dev->pd_port;
+	struct pd_port *pd_port = &tcpc->pd_port;
 
 	return pd_port->pe_data.pd_connected;
 }
 
 bool tcpm_inquire_pd_prev_connected(
-	struct tcpc_device *tcpc_dev)
+	struct tcpc_device *tcpc)
 {
-	struct pd_port *pd_port = &tcpc_dev->pd_port;
+	struct pd_port *pd_port = &tcpc->pd_port;
 
 	return pd_port->pe_data.pd_prev_connected;
 }
 
 uint8_t tcpm_inquire_pd_data_role(
-	struct tcpc_device *tcpc_dev)
+	struct tcpc_device *tcpc)
 {
-	struct pd_port *pd_port = &tcpc_dev->pd_port;
+	struct pd_port *pd_port = &tcpc->pd_port;
 
 	return pd_port->data_role;
 }
 
 uint8_t tcpm_inquire_pd_power_role(
-	struct tcpc_device *tcpc_dev)
+	struct tcpc_device *tcpc)
 {
-	struct pd_port *pd_port = &tcpc_dev->pd_port;
+	struct pd_port *pd_port = &tcpc->pd_port;
 
 	return pd_port->power_role;
 }
 
 uint8_t tcpm_inquire_pd_vconn_role(
-	struct tcpc_device *tcpc_dev)
+	struct tcpc_device *tcpc)
 {
-	struct pd_port *pd_port = &tcpc_dev->pd_port;
+	struct pd_port *pd_port = &tcpc->pd_port;
 
 	return pd_port->vconn_role;
 }
 
 uint8_t tcpm_inquire_pd_pe_ready(
-	struct tcpc_device *tcpc_dev)
+	struct tcpc_device *tcpc)
 {
-	struct pd_port *pd_port = &tcpc_dev->pd_port;
+	struct pd_port *pd_port = &tcpc->pd_port;
 
 	return pd_port->pe_data.pe_ready;
 }
 
 uint8_t tcpm_inquire_cable_current(
-	struct tcpc_device *tcpc_dev)
+	struct tcpc_device *tcpc)
 {
-	struct pd_port *pd_port = &tcpc_dev->pd_port;
+	struct pd_port *pd_port = &tcpc->pd_port;
 
 	if (pd_port->pe_data.power_cable_present)
 		return pd_get_cable_curr_lvl(pd_port)+1;
@@ -377,23 +390,23 @@ uint8_t tcpm_inquire_cable_current(
 	return PD_CABLE_CURR_UNKNOWN;
 }
 
-uint32_t tcpm_inquire_dpm_flags(struct tcpc_device *tcpc_dev)
+uint32_t tcpm_inquire_dpm_flags(struct tcpc_device *tcpc)
 {
-	struct pd_port *pd_port = &tcpc_dev->pd_port;
+	struct pd_port *pd_port = &tcpc->pd_port;
 
 	return pd_port->pe_data.dpm_flags;
 }
 
-uint32_t tcpm_inquire_dpm_caps(struct tcpc_device *tcpc_dev)
+uint32_t tcpm_inquire_dpm_caps(struct tcpc_device *tcpc)
 {
-	struct pd_port *pd_port = &tcpc_dev->pd_port;
+	struct pd_port *pd_port = &tcpc->pd_port;
 
 	return pd_port->dpm_caps;
 }
 
-void tcpm_set_dpm_caps(struct tcpc_device *tcpc_dev, uint32_t caps)
+void tcpm_set_dpm_caps(struct tcpc_device *tcpc, uint32_t caps)
 {
-	struct pd_port *pd_port = &tcpc_dev->pd_port;
+	struct pd_port *pd_port = &tcpc->pd_port;
 
 	mutex_lock(&pd_port->pd_lock);
 	pd_port->dpm_caps = caps;
@@ -514,7 +527,7 @@ int tcpm_inquire_pd_partner_modes(
 {
 #ifdef CONFIG_USB_PD_ALT_MODE
 	int ret = TCPM_SUCCESS;
-	struct svdm_svid_data *svid_data;
+	struct svdm_svid_data *svid_data = NULL;
 	struct pd_port *pd_port = &tcpc->pd_port;
 
 	mutex_lock(&pd_port->pd_lock);
@@ -632,20 +645,20 @@ extern bool tcpm_extract_power_cap_list(
 	return true;
 }
 
-int tcpm_get_remote_power_cap(struct tcpc_device *tcpc_dev,
+int tcpm_get_remote_power_cap(struct tcpc_device *tcpc,
 		struct tcpm_remote_power_cap *remote_cap)
 {
-	struct pd_port *pd_port = &tcpc_dev->pd_port;
+	struct pd_port *pd_port = &tcpc->pd_port;
 	struct tcpm_power_cap_val cap;
 	int i;
 
 	mutex_lock(&pd_port->pd_lock);
 	remote_cap->selected_cap_idx =
-		tcpc_dev->pd_port.pe_data.remote_selected_cap;
-	remote_cap->nr = tcpc_dev->pd_port.pe_data.remote_src_cap.nr;
+		tcpc->pd_port.pe_data.remote_selected_cap;
+	remote_cap->nr = tcpc->pd_port.pe_data.remote_src_cap.nr;
 	for (i = 0; i < remote_cap->nr; i++) {
 		tcpm_extract_power_cap_val(
-			tcpc_dev->pd_port.pe_data.remote_src_cap.pdos[i], &cap);
+			tcpc->pd_port.pe_data.remote_src_cap.pdos[i], &cap);
 		remote_cap->max_mv[i] = cap.max_mv;
 		remote_cap->min_mv[i] = cap.min_mv;
 		remote_cap->ma[i] = cap.ma;
@@ -656,10 +669,10 @@ int tcpm_get_remote_power_cap(struct tcpc_device *tcpc_dev,
 	return TCPM_SUCCESS;
 }
 
-int tcpm_set_remote_power_cap(struct tcpc_device *tcpc_dev,
+int tcpm_set_remote_power_cap(struct tcpc_device *tcpc,
 				int mv, int ma)
 {
-	return tcpm_dpm_pd_request(tcpc_dev, mv, ma, NULL);
+	return tcpm_dpm_pd_request(tcpc, mv, ma, NULL);
 }
 
 static inline int __tcpm_inquire_select_source_cap(
@@ -1343,13 +1356,13 @@ int tcpm_put_tcp_dpm_event(
 }
 
 int tcpm_notify_vbus_stable(
-	struct tcpc_device *tcpc_dev)
+	struct tcpc_device *tcpc)
 {
 #if CONFIG_USB_PD_VBUS_STABLE_TOUT
-	tcpc_disable_timer(tcpc_dev, PD_TIMER_VBUS_STABLE);
+	tcpc_disable_timer(tcpc, PD_TIMER_VBUS_STABLE);
 #endif
 
-	pd_put_vbus_stable_event(tcpc_dev);
+	pd_put_vbus_stable_event(tcpc);
 	return TCPM_SUCCESS;
 }
 
@@ -1817,6 +1830,7 @@ int tcpm_update_pd_status_event(
 
 #ifdef CONFIG_USB_PD_BLOCK_TCPM
 
+#if TCPM_DBG_ENABLE
 static const char * const bk_event_ret_name[] = {
 	"OK",
 	"Unknown",	/* or not support by TCPM */
@@ -1847,6 +1861,7 @@ static const char * const bk_event_ret_name[] = {
 	"BKTOUT",
 	"NoResponse",
 };
+#endif /* TCPM_DBG_ENABLE */
 
 #ifdef CONFIG_USB_PD_TCPM_CB_2ND
 static inline void tcpm_dpm_bk_copy_data(struct pd_port *pd_port)
@@ -1913,9 +1928,13 @@ static inline int __tcpm_dpm_wait_bk_event(
 int tcpm_dpm_wait_bk_event(struct pd_port *pd_port, uint32_t tout_ms)
 {
 	int ret = __tcpm_dpm_wait_bk_event(pd_port, tout_ms);
+#if TCPM_DBG_ENABLE
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
-	if (ret < TCP_DPM_RET_NR)
+	if (ret < TCP_DPM_RET_NR && ret >= 0
+		&& ret < ARRAY_SIZE(bk_event_ret_name))
 		TCPM_DBG("bk_event_cb -> %s\r\n", bk_event_ret_name[ret]);
+#endif /* TCPM_DBG_ENABLE */
 
 	return ret;
 }

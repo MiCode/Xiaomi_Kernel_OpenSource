@@ -122,7 +122,7 @@ enum pd_pe_state_machine {
 
 static inline bool pd_check_pe_during_hard_reset(struct pd_port *pd_port)
 {
-	return pd_port->tcpc_dev->pd_wait_hard_reset_complete;
+	return pd_port->tcpc->pd_wait_hard_reset_complete;
 }
 
 enum pd_pe_state {
@@ -417,7 +417,7 @@ enum pd_pe_state {
  * Returns Negative Value if an error occurs.
  */
 
-int pd_policy_engine_run(struct tcpc_device *tcpc_dev);
+int pd_policy_engine_run(struct tcpc_device *tcpc);
 
 
 /* ---- Policy Engine (General) ---- */

@@ -15,6 +15,7 @@
 #define CONFIG_TYPEC_CAP_TRY_SOURCE
 #define CONFIG_TYPEC_CAP_TRY_SINK
 
+#define CONFIG_TYPEC_CAP_DBGACC
 /* #define CONFIG_TYPEC_CAP_DBGACC_SNK */
 #define CONFIG_TYPEC_CAP_CUSTOM_SRC
 #define CONFIG_TYPEC_CAP_NORP_SRC
@@ -55,7 +56,13 @@
 
 #define CONFIG_TCPC_ATTACH_WAKE_LOCK_TOUT	5000
 
+/* #define CONFIG_TCPC_LOG_WITH_PORT_NAME */
+
+#ifdef CONFIG_TCPC_LOG_WITH_PORT_NAME
+#define CONFIG_TCPC_DBG_PRESTR		"{%s}TCPC-"
+#else
 #define CONFIG_TCPC_DBG_PRESTR		"TCPC-"
+#endif /* CONFIG_TCPC_LOG_WITH_PORT_NAME */
 
 /*
  * USB 2.0 & 3.0 current
@@ -64,7 +71,7 @@
  * http://www.testusb.com/power_issue.htm
  */
 
-#define CONFIG_TYPEC_SNK_CURR_DFT		150
+#define CONFIG_TYPEC_SNK_CURR_DFT		100
 #define CONFIG_TYPEC_SRC_CURR_DFT		500
 #define CONFIG_TYPEC_SNK_CURR_LIMIT		0
 
@@ -85,7 +92,6 @@
 #define CONFIG_TCPC_LPM_POSTPONE
 
 #define CONFIG_TCPC_LOW_POWER_MODE
-/* #define CONFIG_TCPC_IDLE_MODE */
 #define CONFIG_TCPC_CLOCK_GATING
 
 /* #define CONFIG_TCPC_WATCHDOG_EN */
@@ -126,9 +132,10 @@
 #define CONFIG_USB_PD_ATTEMP_ENTER_MODE
 
 #define CONFIG_USB_PD_ALT_MODE
+#ifdef CONFIG_USB_PD_ALT_MODE
 #define CONFIG_USB_PD_ALT_MODE_DFP
-
 #define CONFIG_USB_PD_ALT_MODE_RTDC
+#endif	/* CONFIG_USB_PD_ALT_MODE */
 
 /* #define CONFIG_USB_PD_DP_CHECK_CABLE */
 /* #define CONFIG_USB_PD_RTDC_CHECK_CABLE */
@@ -262,7 +269,7 @@
 #define CONFIG_USB_PD_DISCOVER_CABLE_REQUEST_VCONN
 #define CONFIG_USB_PD_DISCOVER_CABLE_RETURN_VCONN
 
-/* #define CONFIG_USB_PD_PR_SWAP_ERROR_RECOVERY */
+#define CONFIG_USB_PD_PR_SWAP_ERROR_RECOVERY
 
 #define CONFIG_USB_PD_CUSTOM_VDM
 
@@ -273,14 +280,17 @@
 
 /* #define CONFIG_USB_PD_CUSTOM_DBGACC */
 
-/* S/W Patch for Huawei ESD issue :repeat HReset Alert */
+/* S/W patch for ESD issue: repeat HReset Alert */
 /* #define CONFIG_USB_PD_RECV_HRESET_COUNTER */
 
 /* S/W patch for NoGoodCRC if SNK_DFT */
 #define CONFIG_USB_PD_SNK_DFT_NO_GOOD_CRC
 
-/* S/W patch for NoGoodCRC after PR_SWAP (repeat PS_RDY)*/
+/* S/W patch for NoGoodCRC after PR_SWAP (repeat PS_RDY) */
 #define CONFIG_USB_PD_IGNORE_PS_RDY_AFTER_PR_SWAP
+
+/* S/W patch for delayed ps_change related to PS_RDY during PR_SWAP */
+#define CONFIG_USB_PD_VBUS_DETECTION_DURING_PR_SWAP
 
 /*
  * S/W patch for INT handler was stuck by other task (system busy)

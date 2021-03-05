@@ -107,11 +107,13 @@ static inline bool pd_process_ctrl_msg_vconn_swap(
 	}
 #endif	/* CONFIG_USB_PD_VCONN_SWAP */
 
+#ifdef CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port)) {
 		PE_TRANSIT_STATE(pd_port,
 			(pd_port->power_role == PD_ROLE_SINK) ?
 			PE_SNK_SEND_NOT_SUPPORTED : PE_SRC_SEND_NOT_SUPPORTED);
 	} else
+#endif	/* CONFIG_USB_PD_REV30 */
 		PE_TRANSIT_STATE(pd_port, PE_REJECT);
 
 	return true;
@@ -124,6 +126,8 @@ static inline bool pd_process_ctrl_msg_vconn_swap(
 static inline bool pd_process_data_msg_bist(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
 	if (pd_port->request_v > 5000) {
 		PE_INFO("bist_not_vsafe5v\r\n");
 		return false;
@@ -274,7 +278,7 @@ static inline bool pd_process_ctrl_msg(
 			return true;
 		} else if (pd_port->pe_data.vdm_state_timer) {
 			vdm_put_pe_event(
-				pd_port->tcpc_dev, PD_PE_VDM_NOT_SUPPORT);
+				pd_port->tcpc, PD_PE_VDM_NOT_SUPPORT);
 		}
 		break;
 #endif	/* CONFIG_USB_PD_REV30 */
@@ -302,7 +306,6 @@ static inline bool pd_process_data_msg(
 #endif	/* CONFIG_USB_PD_REV30 */
 
 	switch (pd_event->msg) {
-
 	case PD_DATA_BIST:
 		if (pd_port->pe_state_curr == ready_state)
 			ret = pd_process_data_msg_bist(pd_port, pd_event);
@@ -341,23 +344,18 @@ static inline bool pd_process_ext_msg(
 	bool ret = false;
 	uint8_t ready_state = pe_get_curr_ready_state(pd_port);
 
-#ifdef CONFIG_USB_PD_REV30
 	if (!pd_check_rev30(pd_port)) {
 		pd_event->msg = PD_DATA_MSG_NR;
 		return false;
 	}
-#endif	/* CONFIG_USB_PD_REV30 */
 
-#ifdef CONFIG_USB_PD_REV30
 #ifndef CONFIG_USB_PD_REV30_CHUNKING_BY_PE
 	if (pd_port->pe_state_curr == ready_state &&
-		pd_check_rev30(pd_port) &&
 		pd_is_multi_chunk_msg(pd_port)) {
 		pd_port->curr_unsupported_msg = true;
 		return pd_process_protocol_error(pd_port, pd_event);
 	}
 #endif	/* CONFIG_USB_PD_REV30_CHUNKING_BY_PE */
-#endif	/* CONFIG_USB_PD_REV30 */
 
 	switch (pd_event->msg) {
 
@@ -479,6 +477,8 @@ static inline bool pd_process_hw_msg_tx_failed(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
 #ifdef CONFIG_USB_PD_RENEGOTIATION_COUNTER
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
 	if (pd_port->pe_data.renegotiation_count > PD_HARD_RESET_COUNT) {
 		PE_INFO("renegotiation failed\r\n");
 		PE_TRANSIT_STATE(pd_port, PE_ERROR_RECOVERY);
@@ -524,8 +524,9 @@ static inline bool pd_process_hw_msg(
 static inline bool pd_check_rx_pending(struct pd_port *pd_port)
 {
 	uint32_t alert;
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
-	if (tcpci_get_alert_status(pd_port->tcpc_dev, &alert))
+	if (tcpci_get_alert_status(tcpc, &alert))
 		return false;
 
 	if (alert & TCPC_REG_ALERT_RX_STATUS) {

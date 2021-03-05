@@ -141,12 +141,14 @@ struct mt6370_pmu_charger_data {
 	atomic_t tcpc_usb_connected;
 
 	struct power_supply *chg_psy;
-	struct tcpc_device *tcpc_dev;
+	struct tcpc_device *tcpc;
 	struct notifier_block pd_nb;
 	struct completion chrdet_start;
 	struct task_struct *attach_task;
 	struct mutex attach_lock;
-	bool attach;
+	bool typec_attach;
+	bool ignore_usb;
+	bool bypass_chgdet;
 	bool tcpc_kpoc;
 #else
 	struct work_struct chgdet_work;
@@ -4097,7 +4099,7 @@ static int mt6370_charger_get_online(struct mt6370_pmu_charger_data *chg_data,
 
 #ifdef CONFIG_TCPC_CLASS
 	mutex_lock(&chg_data->attach_lock);
-	pwr_rdy = chg_data->attach;
+	pwr_rdy = chg_data->typec_attach;
 	mutex_unlock(&chg_data->attach_lock);
 #else
 	ret = mt6370_pmu_reg_test_bit(chg_data->chip,
@@ -4136,6 +4138,9 @@ static int mt6370_charger_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		ret = mt6370_charger_get_online(chg_data, &pwr_rdy);
 		val->intval = pwr_rdy;
+		break;
+	case POWER_SUPPLY_PROP_AUTHENTIC:
+		val->intval = chg_data->ignore_usb;
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
 		ret = mt6370_charger_get_online(chg_data, &pwr_rdy);
@@ -4218,6 +4223,7 @@ static int mt6370_charger_property_is_writeable(struct power_supply *psy,
 
 static enum power_supply_property mt6370_charger_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_AUTHENTIC,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_USB_TYPE,
@@ -4404,46 +4410,84 @@ static int mt6370_get_charger_type(struct mt6370_pmu_charger_data *chg_data,
 static int typec_attach_thread(void *data)
 {
 	struct mt6370_pmu_charger_data *chg_data = data;
+	struct mt6370_pmu_charger_desc *chg_desc = chg_data->chg_desc;
 	int ret = 0;
-	bool attach;
-	union power_supply_propval val;
+	bool typec_attach = false, ignore_usb = false;
+	union power_supply_propval val = {.intval = 0};
 
 	pr_info("%s: ++\n", __func__);
 	while (!kthread_should_stop()) {
 		wait_for_completion(&chg_data->chrdet_start);
+
 		mutex_lock(&chg_data->attach_lock);
-		attach = chg_data->attach;
+		typec_attach = chg_data->typec_attach;
+		ignore_usb = chg_data->ignore_usb;
 		mutex_unlock(&chg_data->attach_lock);
-		val.intval = attach;
-		pr_notice("%s bc12_sel:%d\n", __func__,
-				chg_data->chg_desc->bc12_sel);
-		if (chg_data->chg_desc->bc12_sel == 0)
+
+		pr_notice("%s bc12_sel:%d typec_attach:%d ignore_usb:%d\n",
+			  __func__, chg_desc->bc12_sel,
+			  typec_attach, ignore_usb);
+
+		if (typec_attach && ignore_usb) {
+			chg_data->bypass_chgdet = true;
+			goto bypass_chgdet;
+		} else if (!typec_attach && chg_data->bypass_chgdet) {
+			chg_data->bypass_chgdet = false;
+			goto bypass_chgdet;
+		}
+
+		val.intval = typec_attach;
+		if (chg_desc->bc12_sel == 0)
 			power_supply_set_property(chg_data->chg_psy,
 						POWER_SUPPLY_PROP_ONLINE, &val);
 		else
-			mt6370_get_charger_type(chg_data, attach);
+			mt6370_get_charger_type(chg_data, typec_attach);
+		continue;
+bypass_chgdet:
+		mutex_lock(&chg_data->bc12_access_lock);
+		if (typec_attach) {
+			chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB;
+			if (tcpm_inquire_typec_attach_state(chg_data->tcpc) ==
+						   TYPEC_ATTACHED_AUDIO)
+				chg_data->psy_usb_type =
+					POWER_SUPPLY_USB_TYPE_DCP;
+			else
+				chg_data->psy_usb_type =
+					POWER_SUPPLY_USB_TYPE_SDP;
+		} else {
+			chg_data->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
+			chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+		}
+		mutex_unlock(&chg_data->bc12_access_lock);
+		power_supply_changed(chg_data->psy);
 	}
 	return ret;
 }
 
 static void handle_typec_attach(struct mt6370_pmu_charger_data *chg_data,
-				bool en)
+				bool attach, bool ignore)
 {
 	mutex_lock(&chg_data->attach_lock);
-	chg_data->attach = en;
-	complete(&chg_data->chrdet_start);
+	chg_data->typec_attach = attach;
+	chg_data->ignore_usb = ignore;
 	mutex_unlock(&chg_data->attach_lock);
+	complete(&chg_data->chrdet_start);
 }
 
 static int pd_tcp_notifier_call(struct notifier_block *nb,
 				unsigned long event, void *data)
 {
 	struct tcp_notify *noti = data;
-	struct mt6370_pmu_charger_data *chg_data =
-		(struct mt6370_pmu_charger_data *)container_of(nb,
+	struct mt6370_pmu_charger_data *chg_data = container_of(nb,
 		struct mt6370_pmu_charger_data, pd_nb);
 
 	switch (event) {
+	case TCP_NOTIFY_SINK_VBUS:
+		if (tcpm_inquire_typec_attach_state(chg_data->tcpc) ==
+						   TYPEC_ATTACHED_AUDIO)
+			handle_typec_attach(chg_data, !!noti->vbus_state.mv,
+					    true);
+		break;
 	case TCP_NOTIFY_TYPEC_STATE:
 		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
 		    (noti->typec_state.new_state == TYPEC_ATTACHED_SNK ||
@@ -4451,10 +4495,11 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		    noti->typec_state.new_state == TYPEC_ATTACHED_NORP_SRC)) {
 			pr_info("%s USB Plug in, pol = %d\n", __func__,
 					noti->typec_state.polarity);
-			handle_typec_attach(chg_data, true);
+			handle_typec_attach(chg_data, true, false);
 		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SNK ||
 		    noti->typec_state.old_state == TYPEC_ATTACHED_CUSTOM_SRC ||
-			noti->typec_state.old_state == TYPEC_ATTACHED_NORP_SRC)
+		    noti->typec_state.old_state == TYPEC_ATTACHED_NORP_SRC ||
+		    noti->typec_state.old_state == TYPEC_ATTACHED_AUDIO)
 			&& noti->typec_state.new_state == TYPEC_UNATTACHED) {
 			pr_info("%s USB Plug out\n", __func__);
 			if (chg_data->tcpc_kpoc) {
@@ -4464,15 +4509,15 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 				kernel_power_off();
 #endif
 			}
-			handle_typec_attach(chg_data, false);
+			handle_typec_attach(chg_data, false, false);
 		} else if (noti->typec_state.old_state == TYPEC_ATTACHED_SRC &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SNK) {
 			pr_info("%s Source_to_Sink\n", __func__);
-			handle_typec_attach(chg_data, true);
+			handle_typec_attach(chg_data, true, true);
 		}  else if (noti->typec_state.old_state == TYPEC_ATTACHED_SNK &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
 			pr_info("%s Sink_to_Source\n", __func__);
-			handle_typec_attach(chg_data, false);
+			handle_typec_attach(chg_data, false, true);
 		}
 		break;
 	default:
@@ -4636,14 +4681,14 @@ static int mt6370_pmu_charger_probe(struct platform_device *pdev)
 		goto err_attach_task;
 	}
 
-	chg_data->tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
-	if (!chg_data->tcpc_dev) {
+	chg_data->tcpc = tcpc_dev_get_by_name("type_c_port0");
+	if (!chg_data->tcpc) {
 		pr_notice("%s get tcpc device type_c_port0 fail\n", __func__);
 		ret = -ENODEV;
 		goto err_get_tcpcdev;
 	}
 	chg_data->pd_nb.notifier_call = pd_tcp_notifier_call;
-	ret = register_tcp_dev_notifier(chg_data->tcpc_dev, &chg_data->pd_nb,
+	ret = register_tcp_dev_notifier(chg_data->tcpc, &chg_data->pd_nb,
 					TCP_NOTIFY_TYPE_ALL);
 	if (ret < 0) {
 		pr_notice("%s: register tcpc notifer fail\n", __func__);

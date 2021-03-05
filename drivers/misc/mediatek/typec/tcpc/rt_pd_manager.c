@@ -28,9 +28,11 @@
 #define RT_PD_MANAGER_VERSION	"1.0.7_MTK"
 
 struct rt_pd_manager_data {
+#ifdef CONFIG_MTK_CHARGER
 	struct charger_device *chg_dev;
 	struct power_supply *chg_psy;
-	struct tcpc_device *tcpc_dev;
+#endif
+	struct tcpc_device *tcpc;
 	struct notifier_block pd_nb;
 	struct mutex param_lock;
 	bool tcpc_kpoc;
@@ -166,6 +168,8 @@ static int rt_pd_manager_probe(struct platform_device *pdev)
 
 	mutex_init(&rpmd->param_lock);
 	rpmd->tcpc_kpoc = false;
+	rpmd->sink_mv_old = -1;
+	rpmd->sink_ma_old = -1;
 	platform_set_drvdata(pdev, rpmd);
 
 #ifdef CONFIG_MTK_BOOT
@@ -193,14 +197,14 @@ static int rt_pd_manager_probe(struct platform_device *pdev)
 	}
 #endif
 
-	rpmd->tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
-	if (!rpmd->tcpc_dev) {
+	rpmd->tcpc = tcpc_dev_get_by_name("type_c_port0");
+	if (!rpmd->tcpc) {
 		pr_err("%s get tcpc device type_c_port0 fail\n", __func__);
 		ret = -ENODEV;
 		goto err_mutex;
 	}
 	rpmd->pd_nb.notifier_call = pd_tcp_notifier_call;
-	ret = register_tcp_dev_notifier(rpmd->tcpc_dev, &rpmd->pd_nb,
+	ret = register_tcp_dev_notifier(rpmd->tcpc, &rpmd->pd_nb,
 					TCP_NOTIFY_TYPE_ALL);
 	if (ret < 0) {
 		pr_err("%s: register tcpc notifer fail\n", __func__);

@@ -76,12 +76,12 @@
 #define PDO_TYPE_APDO	(3 << 30)
 #define PDO_TYPE_MASK     (3 << 30)
 
-#define PDO_FIXED_DUAL_ROLE (1 << 29) /* Dual role device */
-#define PDO_FIXED_SUSPEND   (1 << 28) /* USB Suspend supported (SRC)*/
-#define PDO_FIXED_HIGH_CAP	(1 << 28) /* Higher Capability (SNK )*/
-#define PDO_FIXED_EXTERNAL  (1 << 27) /* Externally powered */
-#define PDO_FIXED_COMM_CAP  (1 << 26) /* USB Communications Capable */
-#define PDO_FIXED_DATA_SWAP (1 << 25) /* Data role swap command supported */
+#define PDO_FIXED_DUAL_ROLE	(1 << 29) /* Dual role device */
+#define PDO_FIXED_SUSPEND	(1 << 28) /* USB Suspend supported (SRC) */
+#define PDO_FIXED_HIGH_CAP	(1 << 28) /* Higher Capability (SNK) */
+#define PDO_FIXED_EXTERNAL	(1 << 27) /* Externally powered */
+#define PDO_FIXED_COMM_CAP	(1 << 26) /* USB Communications Capable */
+#define PDO_FIXED_DATA_SWAP	(1 << 25) /* Data role swap command supported */
 
 #define PDO_FIXED_PEAK_CURR(i) \
 	((i & 0x03) << 20) /* [21..20] Peak current */
@@ -236,8 +236,8 @@
 #define SVID_DISCOVERY_MAX 16
 
 /* Protocol revision */
-#define PD_REV10 0
-#define PD_REV20 1
+#define PD_REV10	0
+#define PD_REV20	1
 #define PD_REV30	2
 
 #define MAX_EXTENDED_MSG_CHUNK_LEN	26
@@ -841,7 +841,7 @@ struct pd_country_authority {
 #endif /* CONFIG_USB_PD_REV30_COUNTRY_AUTHORITY */
 
 struct pd_port {
-	struct tcpc_device *tcpc_dev;
+	struct tcpc_device *tcpc;
 	struct mutex pd_lock;
 
 	/* PD */
@@ -886,9 +886,7 @@ struct pd_port {
 	uint8_t id_vdo_nr;
 	uint32_t id_vdos[VDO_MAX_NR];
 
-#ifdef CONFIG_USB_PD_REV30
 	uint32_t id_header;
-#endif	/* CONFIG_USB_PD_REV30 */
 
 	uint8_t svid_data_cnt;
 	struct svdm_svid_data *svid_data;
@@ -1037,7 +1035,7 @@ static inline struct dp_data *pd_get_dp_data(struct pd_port *pd_port)
 }
 #endif	/* CONFIG_USB_PD_ALT_MODE */
 
-extern int pd_core_init(struct tcpc_device *tcpc_dev);
+extern int pd_core_init(struct tcpc_device *tcpc);
 
 static inline void *pd_get_msg_data_payload(struct pd_port *pd_port)
 {
@@ -1127,19 +1125,6 @@ static inline bool pd_check_timer_msg_event(
 		pd_get_curr_pd_event(pd_port), msg);
 }
 
-#ifdef CONFIG_USB_PD_REV30
-
-static inline bool pd_check_rev30(struct pd_port *pd_port)
-{
-#ifdef CONFIG_USB_PD_REV30_SYNC_SPEC_REV
-	return pd_port->pd_revision[0] >= PD_REV30;
-#else
-	return false;
-#endif /* CONFIG_USB_PD_REV30_SYNC_SPEC_REV */
-}
-
-#endif	/* CONFIG_USB_PD_REV30 */
-
 extern bool pd_is_reset_cable(struct pd_port *pd_port);
 extern bool pd_is_discover_cable(struct pd_port *pd_port);
 
@@ -1204,7 +1189,8 @@ int pd_enable_vbus_valid_detection(struct pd_port *pd_port, bool wait_valid);
 int pd_enable_vbus_safe0v_detection(struct pd_port *pd_port);
 int pd_enable_vbus_stable_detection(struct pd_port *pd_port);
 
-uint32_t pd_reset_pdo_power(uint32_t pdo, uint32_t imax);
+uint32_t pd_reset_pdo_power(struct tcpc_device *tcpc,
+			uint32_t pdo, uint32_t imax);
 
 void pd_extract_rdo_power(
 	uint32_t rdo, uint32_t pdo, uint32_t *op_curr, uint32_t *max_curr);
@@ -1268,12 +1254,12 @@ extern void pd_notify_tcp_vdm_event_2nd_result(
 
 static inline void pd_restart_timer(struct pd_port *pd_port, uint32_t timer_id)
 {
-	return tcpc_restart_timer(pd_port->tcpc_dev, timer_id);
+	return tcpc_restart_timer(pd_port->tcpc, timer_id);
 }
 
 static inline void pd_enable_timer(struct pd_port *pd_port, uint32_t timer_id)
 {
-	return tcpc_enable_timer(pd_port->tcpc_dev, timer_id);
+	return tcpc_enable_timer(pd_port->tcpc, timer_id);
 }
 
 static inline void pd_enable_pe_state_timer(
@@ -1295,7 +1281,7 @@ static inline void pd_enable_vdm_state_timer(
 
 static inline void pd_disable_timer(struct pd_port *pd_port, uint32_t timer_id)
 {
-	return tcpc_disable_timer(pd_port->tcpc_dev, timer_id);
+	return tcpc_disable_timer(pd_port->tcpc, timer_id);
 }
 
 void pd_reset_pe_timer(struct pd_port *pd_port);
@@ -1310,7 +1296,7 @@ static inline bool pd_put_pe_event(struct pd_port *pd_port, uint8_t pe_event)
 		.pd_msg = NULL,
 	};
 
-	return pd_put_event(pd_port->tcpc_dev, &evt, false);
+	return pd_put_event(pd_port->tcpc, &evt, false);
 }
 
 static inline bool pd_put_dpm_notify_event(
@@ -1323,7 +1309,7 @@ static inline bool pd_put_dpm_notify_event(
 		.pd_msg = NULL,
 	};
 
-	return pd_put_event(pd_port->tcpc_dev, &evt, false);
+	return pd_put_event(pd_port->tcpc, &evt, false);
 }
 
 static inline bool pd_put_dpm_ack_event(struct pd_port *pd_port)
@@ -1334,7 +1320,7 @@ static inline bool pd_put_dpm_ack_event(struct pd_port *pd_port)
 		.pd_msg = NULL,
 	};
 
-	return pd_put_event(pd_port->tcpc_dev, &evt, false);
+	return pd_put_event(pd_port->tcpc, &evt, false);
 }
 
 static inline bool pd_put_dpm_nak_event(struct pd_port *pd_port, uint8_t notify)
@@ -1346,7 +1332,7 @@ static inline bool pd_put_dpm_nak_event(struct pd_port *pd_port, uint8_t notify)
 		.pd_msg = NULL,
 	};
 
-	return pd_put_event(pd_port->tcpc_dev, &evt, false);
+	return pd_put_event(pd_port->tcpc, &evt, false);
 }
 
 static inline bool pd_put_dpm_event(struct pd_port *pd_port, uint8_t msg)
@@ -1357,7 +1343,7 @@ static inline bool pd_put_dpm_event(struct pd_port *pd_port, uint8_t msg)
 		.pd_msg = NULL,
 	};
 
-	return pd_put_event(pd_port->tcpc_dev, &evt, false);
+	return pd_put_event(pd_port->tcpc, &evt, false);
 }
 
 static inline bool pd_put_tcp_pd_event(struct pd_port *pd_port, uint8_t event)
@@ -1369,7 +1355,7 @@ static inline bool pd_put_tcp_pd_event(struct pd_port *pd_port, uint8_t event)
 		.pd_msg = NULL,
 	};
 
-	return pd_put_event(pd_port->tcpc_dev, &evt, false);
+	return pd_put_event(pd_port->tcpc, &evt, false);
 };
 
 static inline bool pd_put_tcp_vdm_event(struct pd_port *pd_port, uint8_t event)
@@ -1381,11 +1367,11 @@ static inline bool pd_put_tcp_vdm_event(struct pd_port *pd_port, uint8_t event)
 		.pd_msg = NULL,
 	};
 
-	return pd_put_vdm_event(pd_port->tcpc_dev, &evt, false);
+	return pd_put_vdm_event(pd_port->tcpc, &evt, false);
 };
 
 static inline bool vdm_put_hw_event(
-	struct tcpc_device *tcpc_dev, uint8_t hw_event)
+	struct tcpc_device *tcpc, uint8_t hw_event)
 {
 	struct pd_event evt = {
 		.event_type = PD_EVT_HW_MSG,
@@ -1393,11 +1379,11 @@ static inline bool vdm_put_hw_event(
 		.pd_msg = NULL,
 	};
 
-	return pd_put_vdm_event(tcpc_dev, &evt, false);
+	return pd_put_vdm_event(tcpc, &evt, false);
 }
 
 static inline bool vdm_put_pe_event(
-	struct tcpc_device *tcpc_dev, uint8_t pe_event)
+	struct tcpc_device *tcpc, uint8_t pe_event)
 {
 	struct pd_event evt = {
 		.event_type = PD_EVT_PE_MSG,
@@ -1405,7 +1391,7 @@ static inline bool vdm_put_pe_event(
 		.pd_msg = NULL,
 	};
 
-	return pd_put_vdm_event(tcpc_dev, &evt, false);
+	return pd_put_vdm_event(tcpc, &evt, false);
 }
 
 static inline bool vdm_put_dpm_discover_cable_event(struct pd_port *pd_port)
@@ -1415,7 +1401,7 @@ static inline bool vdm_put_dpm_discover_cable_event(struct pd_port *pd_port)
 }
 
 static inline bool pd_put_hw_event(
-	struct tcpc_device *tcpc_dev, uint8_t hw_event)
+	struct tcpc_device *tcpc, uint8_t hw_event)
 {
 	struct pd_event evt = {
 		.event_type = PD_EVT_HW_MSG,
@@ -1423,11 +1409,11 @@ static inline bool pd_put_hw_event(
 		.pd_msg = NULL,
 	};
 
-	return pd_put_event(tcpc_dev, &evt, false);
+	return pd_put_event(tcpc, &evt, false);
 }
 
 static inline bool pd_put_sink_tx_event(
-		struct tcpc_device *tcpc_dev, uint8_t cc_res)
+		struct tcpc_device *tcpc, uint8_t cc_res)
 {
 #ifdef CONFIG_USB_PD_REV30_COLLISION_AVOID
 	struct pd_event evt = {
@@ -1437,7 +1423,7 @@ static inline bool pd_put_sink_tx_event(
 	};
 
 	evt.msg_sec = cc_res == TYPEC_CC_VOLT_SNK_3_0;
-	return pd_put_event(tcpc_dev, &evt, false);
+	return pd_put_event(tcpc, &evt, false);
 #endif	/* CONFIG_USB_PD_REV30_COLLISION_AVOID */
 
 	return true;

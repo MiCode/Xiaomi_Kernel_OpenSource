@@ -124,6 +124,8 @@ static const struct vdm_state_transition pe_vdm_state_reactions[] = {
 static inline bool pd_vdm_state_transit_rx(struct pd_port *pd_port,
 	const struct vdm_state_transition *state_transition)
 {
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
 	if (!pd_check_pe_state_ready(pd_port)) {
 		PE_DBG("670 : invalid, current status\r\n");
 		return false;
@@ -170,12 +172,10 @@ bool vdm_is_state_transition_available(struct pd_port *pd_port,
 	uint8_t shift = 1;
 	uint8_t vdm_cmd_flags = state_transition->vdm_cmd_flags;
 
-#ifdef CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port) &&
 		(vdm_cmd_flags & VDM_CMD_FLAG_PD30_DUPLEX)) {
 		return true;
 	}
-#endif	/* CONFIG_USB_PD_REV30 */
 
 	if (pd_port->data_role == PD_ROLE_DFP)
 		shift += 1;
@@ -431,10 +431,8 @@ bool pd_process_custom_vdm(struct pd_port *pd_port, bool svdm)
 	if (pd_port->data_role == PD_ROLE_UFP)
 		recv = true;
 
-#ifdef CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port) && svdm)
 		recv = true;
-#endif	/* CONFIG_USB_PD_REV30 */
 
 	if (pd_check_pe_state_ready(pd_port)) {
 		if (recv) {
@@ -455,6 +453,8 @@ bool pd_process_custom_vdm(struct pd_port *pd_port, bool svdm)
 static inline bool pd_process_uvdm(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
 #ifdef CONFIG_USB_PD_UVDM
 	/* support sop only */
 	if (pd_event->pd_msg->frame_type != TCPC_TX_SOP)
@@ -490,12 +490,14 @@ static const char *const pe_vdm_dp_cmd_name[] = {
 	"DPConfig",
 };
 
+#if PE_INFO_ENABLE
 static const char *const pe_vdm_cmd_type_name[] = {
 	"INIT",
 	"ACK",
 	"NACK",
 	"BUSY",
 };
+#endif /* PE_INFO_ENABLE */
 
 static inline const char *assign_vdm_cmd_name(uint8_t cmd)
 {
@@ -531,6 +533,7 @@ static inline void print_vdm_msg(
 	uint16_t svid;
 	const char *name = NULL;
 	uint32_t vdm_hdr = pd_port->curr_vdm_hdr;
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	cmd = PD_VDO_CMD(vdm_hdr);
 	cmd_type = PD_VDO_CMDT(vdm_hdr);
@@ -546,10 +549,12 @@ static inline void print_vdm_msg(
 	if (name == NULL)
 		return;
 
+#if PE_INFO_ENABLE
 	if (cmd_type >= ARRAY_SIZE(pe_vdm_cmd_type_name))
 		return;
 
 	PE_INFO("%s:%s\r\n", name, pe_vdm_cmd_type_name[cmd_type]);
+#endif /* PE_INFO_ENABLE */
 
 #endif	/* PE_EVT_INFO_VDM_DIS */
 }
@@ -557,6 +562,8 @@ static inline void print_vdm_msg(
 static inline bool pd_process_sop_vdm(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
 	if (pd_make_vdm_state_transit_sop(pd_port))
 		return true;
 
@@ -640,6 +647,7 @@ static inline bool pd_process_hw_msg(
 		struct pd_port *pd_port, struct pd_event *pd_event)
 {
 	struct pe_data *pe_data = &pd_port->pe_data;
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	if (pd_event->msg == PD_HW_TX_DISCARD &&
 		(pe_data->vdm_discard_retry_count < 10)) {
@@ -737,10 +745,8 @@ static inline bool pd_process_tcp_cable_event(
 #ifdef CONFIG_PD_DISCOVER_CABLE_ID
 	bool role_check = true;
 
-#ifdef CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port))
 		role_check = pd_port->vconn_role;
-#endif	/* CONFIG_USB_PD_REV30 */
 
 	if (role_check) {
 		ret = PE_MAKE_STATE_TRANSIT(PD_DPM_MSG_DISCOVER_CABLE);
@@ -816,11 +822,9 @@ static inline void pd_parse_tcp_dpm_evt_uvdm(struct pd_port *pd_port)
 		vdm_data->vdos, sizeof(uint32_t) * vdm_data->cnt);
 
 #ifdef CONFIG_USB_PD_SVDM
-#ifdef CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port) &&
 		(pd_port->uvdm_data[0] & VDO_SVDM_TYPE))
 		pd_port->uvdm_data[0] |= VDO_SVDM_VERS(SVDM_REV20);
-#endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_SVDM */
 }
 #endif	/* CONFIG_USB_PD_CUSTOM_VDM */
@@ -846,7 +850,6 @@ static inline void pd_parse_tcp_dpm_evt_from_tcpm(
 	case TCP_DPM_EVT_DP_ATTENTION:
 		pd_parse_tcp_dpm_evt_dp_status(pd_port);
 		break;
-#endif	/* CONFIG_USB_PD_ALT_MODE */
 
 #ifdef CONFIG_USB_PD_ALT_MODE_DFP
 	case TCP_DPM_EVT_DP_STATUS_UPDATE:
@@ -856,6 +859,7 @@ static inline void pd_parse_tcp_dpm_evt_from_tcpm(
 		pd_parse_tcp_dpm_evt_dp_config(pd_port);
 		break;
 #endif	/* CONFIG_USB_PD_ALT_MODE_DFP */
+#endif	/* CONFIG_USB_PD_ALT_MODE */
 
 #ifdef CONFIG_USB_PD_CUSTOM_VDM
 	case TCP_DPM_EVT_UVDM:
@@ -875,6 +879,7 @@ static inline bool pd_process_tcp_msg(
 		struct pd_port *pd_port, struct pd_event *pd_event)
 {
 	uint8_t new_state;
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	if (pd_event->msg == TCP_DPM_EVT_DISCOVER_CABLE)
 		return pd_process_tcp_cable_event(pd_port, pd_event);

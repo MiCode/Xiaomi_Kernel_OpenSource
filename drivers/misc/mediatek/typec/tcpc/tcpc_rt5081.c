@@ -633,7 +633,7 @@ int rt5081_alert_status_clear(struct tcpc_device *tcpc, uint32_t mask)
 	return 0;
 }
 
-static int rt5081_set_clock_gating(struct tcpc_device *tcpc_dev,
+static int rt5081_set_clock_gating(struct tcpc_device *tcpc,
 									bool en)
 {
 	int ret = 0;
@@ -652,16 +652,16 @@ static int rt5081_set_clock_gating(struct tcpc_device *tcpc_dev,
 	}
 
 	if (en) {
-		ret = rt5081_alert_status_clear(tcpc_dev,
+		ret = rt5081_alert_status_clear(tcpc,
 			TCPC_REG_ALERT_RX_STATUS |
 			TCPC_REG_ALERT_RX_HARD_RST |
 			TCPC_REG_ALERT_RX_BUF_OVF);
 	}
 
 	if (ret == 0)
-		ret = rt5081_i2c_write8(tcpc_dev, RT5081_REG_CLK_CTRL2, clk2);
+		ret = rt5081_i2c_write8(tcpc, RT5081_REG_CLK_CTRL2, clk2);
 	if (ret == 0)
-		ret = rt5081_i2c_write8(tcpc_dev, RT5081_REG_CLK_CTRL3, clk3);
+		ret = rt5081_i2c_write8(tcpc, RT5081_REG_CLK_CTRL3, clk3);
 #endif	/* CONFIG_TCPC_CLOCK_GATING */
 
 	return ret;
@@ -1000,9 +1000,9 @@ static int rt5081_set_vconn(struct tcpc_device *tcpc, int enable)
 }
 
 #ifdef CONFIG_TCPC_LOW_POWER_MODE
-static int rt5081_is_low_power_mode(struct tcpc_device *tcpc_dev)
+static int rt5081_is_low_power_mode(struct tcpc_device *tcpc)
 {
-	int rv = rt5081_i2c_read8(tcpc_dev, RT5081_REG_BMC_CTRL);
+	int rv = rt5081_i2c_read8(tcpc, RT5081_REG_BMC_CTRL);
 
 	if (rv < 0)
 		return rv;
@@ -1011,7 +1011,7 @@ static int rt5081_is_low_power_mode(struct tcpc_device *tcpc_dev)
 }
 
 static int rt5081_set_low_power_mode(
-		struct tcpc_device *tcpc_dev, bool en, int pull)
+		struct tcpc_device *tcpc, bool en, int pull)
 {
 	int rv = 0;
 	uint8_t data;
@@ -1025,44 +1025,44 @@ static int rt5081_set_low_power_mode(
 		data = RT5081_REG_BMCIO_BG_EN |
 			RT5081_REG_VBUS_DET_EN | RT5081_REG_BMCIO_OSC_EN;
 
-	rv = rt5081_i2c_write8(tcpc_dev, RT5081_REG_BMC_CTRL, data);
+	rv = rt5081_i2c_write8(tcpc, RT5081_REG_BMC_CTRL, data);
 	return rv;
 }
 #endif	/* CONFIG_TCPC_LOW_POWER_MODE */
 
 #ifdef CONFIG_TCPC_WATCHDOG_EN
-int rt5081_set_watchdog(struct tcpc_device *tcpc_dev, bool en)
+int rt5081_set_watchdog(struct tcpc_device *tcpc, bool en)
 {
 	uint8_t data = RT5081_REG_WATCHDOG_CTRL_SET(en, 7);
 
-	return rt5081_i2c_write8(tcpc_dev,
+	return rt5081_i2c_write8(tcpc,
 		RT5081_REG_WATCHDOG_CTRL, data);
 }
 #endif	/* CONFIG_TCPC_WATCHDOG_EN */
 
 #ifdef CONFIG_TCPC_INTRST_EN
-int rt5081_set_intrst(struct tcpc_device *tcpc_dev, bool en)
+int rt5081_set_intrst(struct tcpc_device *tcpc, bool en)
 {
-	return rt5081_i2c_write8(tcpc_dev,
+	return rt5081_i2c_write8(tcpc,
 		RT5081_REG_INTRST_CTRL, RT5081_REG_INTRST_SET(en, 3));
 }
 #endif	/* CONFIG_TCPC_INTRST_EN */
 
-static int rt5081_tcpc_deinit(struct tcpc_device *tcpc_dev)
+static int rt5081_tcpc_deinit(struct tcpc_device *tcpc)
 {
 #ifdef CONFIG_TCPC_SHUTDOWN_CC_DETACH
-	rt5081_set_cc(tcpc_dev, TYPEC_CC_DRP);
-	rt5081_set_cc(tcpc_dev, TYPEC_CC_OPEN);
+	rt5081_set_cc(tcpc, TYPEC_CC_DRP);
+	rt5081_set_cc(tcpc, TYPEC_CC_OPEN);
 
-	rt5081_i2c_write8(tcpc_dev,
+	rt5081_i2c_write8(tcpc,
 		RT5081_REG_I2CRST_CTRL,
 		RT5081_REG_I2CRST_SET(true, 4));
 
-	rt5081_i2c_write8(tcpc_dev,
+	rt5081_i2c_write8(tcpc,
 		RT5081_REG_INTRST_CTRL,
 		RT5081_REG_INTRST_SET(true, 0));
 #else
-	rt5081_i2c_write8(tcpc_dev, RT5081_REG_SWRESET, 1);
+	rt5081_i2c_write8(tcpc, RT5081_REG_SWRESET, 1);
 #endif	/* CONFIG_TCPC_SHUTDOWN_CC_DETACH */
 
 	return 0;
@@ -1079,11 +1079,11 @@ static int rt5081_set_msg_header(
 		tcpc, TCPC_V10_REG_MSG_HDR_INFO, msg_hdr);
 }
 
-static int rt5081_protocol_reset(struct tcpc_device *tcpc_dev)
+static int rt5081_protocol_reset(struct tcpc_device *tcpc)
 {
-	rt5081_i2c_write8(tcpc_dev, RT5081_REG_PRL_FSM_RESET, 0);
+	rt5081_i2c_write8(tcpc, RT5081_REG_PRL_FSM_RESET, 0);
 	mdelay(1);
-	rt5081_i2c_write8(tcpc_dev, RT5081_REG_PRL_FSM_RESET, 1);
+	rt5081_i2c_write8(tcpc, RT5081_REG_PRL_FSM_RESET, 1);
 	return 0;
 }
 

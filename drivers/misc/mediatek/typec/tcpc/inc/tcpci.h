@@ -64,6 +64,7 @@ int tcpci_check_vbus_valid_from_ic(struct tcpc_device *tcpc);
 int tcpci_check_vsafe0v(struct tcpc_device *tcpc, bool detect_en);
 int tcpci_alert_status_clear(struct tcpc_device *tcpc, uint32_t mask);
 int tcpci_fault_status_clear(struct tcpc_device *tcpc, uint8_t status);
+int tcpci_set_alert_mask(struct tcpc_device *tcpc, uint32_t mask);
 int tcpci_get_alert_mask(struct tcpc_device *tcpc, uint32_t *mask);
 int tcpci_get_alert_status(struct tcpc_device *tcpc, uint32_t *alert);
 int tcpci_get_fault_status(struct tcpc_device *tcpc, uint8_t *fault);

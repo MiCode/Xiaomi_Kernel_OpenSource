@@ -40,7 +40,7 @@ static const char * const pd_ctrl_msg_name[] = {
 #endif	/* CONFIG_USB_PD_REV30 */
 };
 
-static inline void print_ctrl_msg_event(uint8_t msg)
+static inline void print_ctrl_msg_event(struct tcpc_device *tcpc, uint8_t msg)
 {
 	if (msg < PD_CTRL_MSG_NR)
 		PE_EVT_INFO("%s\r\n", pd_ctrl_msg_name[msg]);
@@ -71,7 +71,7 @@ static const char * const pd_data_msg_name[] = {
 	"vdm",
 };
 
-static inline void print_data_msg_event(uint8_t msg)
+static inline void print_data_msg_event(struct tcpc_device *tcpc, uint8_t msg)
 {
 	if (msg < PD_DATA_MSG_NR)
 		PE_EVT_INFO("%s\r\n", pd_data_msg_name[msg]);
@@ -97,7 +97,7 @@ static const char *const pd_ext_msg_name[] = {
 	"cc",
 };
 
-static inline void print_ext_msg_event(uint8_t msg)
+static inline void print_ext_msg_event(struct tcpc_device *tcpc, uint8_t msg)
 {
 	if (msg < PD_EXT_MSG_NR)
 		PE_EVT_INFO("%s\r\n", pd_ext_msg_name[msg]);
@@ -122,7 +122,7 @@ static const char *const pd_hw_msg_name[] = {
 #endif	/* CONFIG_USB_PD_REV30_COLLISION_AVOID */
 };
 
-static inline void print_hw_msg_event(uint8_t msg)
+static inline void print_hw_msg_event(struct tcpc_device *tcpc, uint8_t msg)
 {
 	if (msg < PD_HW_MSG_NR)
 		PE_EVT_INFO("%s\r\n", pd_hw_msg_name[msg]);
@@ -137,7 +137,7 @@ static const char *const pd_pe_msg_name[] = {
 	"vdm_not_support",
 };
 
-static inline void print_pe_msg_event(uint8_t msg)
+static inline void print_pe_msg_event(struct tcpc_device *tcpc, uint8_t msg)
 {
 	if (msg < PD_PE_MSG_NR)
 		PE_EVT_INFO("%s\r\n", pd_pe_msg_name[msg]);
@@ -150,7 +150,7 @@ static const char * const pd_dpm_msg_name[] = {
 	"not_support",
 };
 
-static inline void print_dpm_msg_event(uint8_t msg)
+static inline void print_dpm_msg_event(struct tcpc_device *tcpc, uint8_t msg)
 {
 	if (msg < PD_DPM_MSG_NR)
 		PE_EVT_INFO("dpm_%s\r\n", pd_dpm_msg_name[msg]);
@@ -219,7 +219,7 @@ static const char *const tcp_dpm_evt_name[] = {
 	"error_recovery",
 };
 
-static inline void print_tcp_event(uint8_t msg)
+static inline void print_tcp_event(struct tcpc_device *tcpc, uint8_t msg)
 {
 	if (msg < TCP_DPM_EVT_NR)
 		PE_EVT_INFO("tcp_event(%s), %d\r\n",
@@ -231,31 +231,33 @@ static inline void print_event(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
 #if PE_EVENT_DBG_ENABLE
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
 	switch (pd_event->event_type) {
 	case PD_EVT_CTRL_MSG:
-		print_ctrl_msg_event(pd_event->msg);
+		print_ctrl_msg_event(tcpc, pd_event->msg);
 		break;
 
 	case PD_EVT_DATA_MSG:
-		print_data_msg_event(pd_event->msg);
+		print_data_msg_event(tcpc, pd_event->msg);
 		break;
 
 #ifdef CONFIG_USB_PD_REV30
 	case PD_EVT_EXT_MSG:
-		print_ext_msg_event(pd_event->msg);
+		print_ext_msg_event(tcpc, pd_event->msg);
 		break;
 #endif	/* CONFIG_USB_PD_REV30 */
 
 	case PD_EVT_DPM_MSG:
-		print_dpm_msg_event(pd_event->msg);
+		print_dpm_msg_event(tcpc, pd_event->msg);
 		break;
 
 	case PD_EVT_HW_MSG:
-		print_hw_msg_event(pd_event->msg);
+		print_hw_msg_event(tcpc, pd_event->msg);
 		break;
 
 	case PD_EVT_PE_MSG:
-		print_pe_msg_event(pd_event->msg);
+		print_pe_msg_event(tcpc, pd_event->msg);
 		break;
 
 	case PD_EVT_TIMER_MSG:
@@ -263,7 +265,7 @@ static inline void print_event(
 		break;
 
 	case PD_EVT_TCP_MSG:
-		print_tcp_event(pd_event->msg);
+		print_tcp_event(tcpc, pd_event->msg);
 		break;
 	}
 #endif
@@ -323,12 +325,12 @@ bool pd_process_protocol_error(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
 	bool power_change = false;
-
 #if PE_INFO_ENABLE
 	uint8_t event_type = pd_event->event_type;
 	uint8_t msg_id = pd_get_msg_hdr_id(pd_port);
 	uint8_t msg_type = pd_event->msg;
 #endif
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	switch (pd_port->pe_state_curr) {
 	case PE_SNK_TRANSITION_SINK:
@@ -396,6 +398,8 @@ bool pd_process_protocol_error(
 
 bool pd_process_tx_failed(struct pd_port *pd_port)
 {
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
 	if (pd_check_pe_state_ready(pd_port) ||
 		pd_check_pe_during_hard_reset(pd_port)) {
 		PE_DBG("Ignore tx_failed\r\n");
@@ -434,6 +438,7 @@ static inline bool pd_process_event_cable(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
 	bool ret = false;
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 #ifdef CONFIG_USB_PD_RESET_CABLE
 	if (pd_event->msg == PD_CTRL_ACCEPT)
@@ -509,6 +514,7 @@ static inline bool pe_is_valid_pd_msg_id(struct pd_port *pd_port,
 {
 	uint8_t sop_type = pd_msg->frame_type;
 	uint8_t msg_id = pd_get_msg_hdr_id(pd_port);
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	if (pd_port->pe_state_curr == PE_BIST_TEST_DATA)
 		return false;
@@ -554,6 +560,7 @@ static inline bool pe_is_valid_pd_msg_role(struct pd_port *pd_port,
 {
 	bool ret = true;
 	uint8_t msg_pr, msg_dr;
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	if (pd_msg == NULL)	/* Good-CRC */
 		return true;
@@ -680,6 +687,8 @@ enum {
 static inline uint8_t pe_check_trap_in_idle_state(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
 	switch (pd_port->pe_pd_state) {
 	case PE_IDLE1:
 	case PE_ERROR_RECOVERY:
@@ -751,7 +760,7 @@ bool pd_process_event(
 		pe_translate_pd_msg_event(pd_port, pd_event, pd_msg);
 
 #if PE_EVT_INFO_VDM_DIS
-	if (!vdm_evt)
+	if (!pd_curr_is_vdm_evt(pd_port))
 #endif
 		print_event(pd_port, pd_event);
 

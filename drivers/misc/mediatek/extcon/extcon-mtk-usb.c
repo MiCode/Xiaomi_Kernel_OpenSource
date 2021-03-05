@@ -114,6 +114,7 @@ static int mtk_usb_extcon_psy_notifier(struct notifier_block *nb,
 	struct mtk_extcon_info *extcon = container_of(nb,
 					struct mtk_extcon_info, psy_nb);
 	union power_supply_propval pval;
+	union power_supply_propval ival;
 	union power_supply_propval tval;
 	int ret;
 
@@ -128,13 +129,24 @@ static int mtk_usb_extcon_psy_notifier(struct notifier_block *nb,
 	}
 
 	ret = power_supply_get_property(psy,
+				POWER_SUPPLY_PROP_AUTHENTIC, &ival);
+	if (ret < 0) {
+		dev_info(extcon->dev, "failed to get authentic prop\n");
+		ival.intval = 0;
+	}
+
+	ret = power_supply_get_property(psy,
 				POWER_SUPPLY_PROP_USB_TYPE, &tval);
 	if (ret < 0) {
 		dev_info(extcon->dev, "failed to get usb type\n");
 		return NOTIFY_DONE;
 	}
 
-	dev_info(extcon->dev, "online=%d, type=%d\n", pval.intval, tval.intval);
+	dev_info(extcon->dev, "online=%d, ignore_usb=%d, type=%d\n",
+				pval.intval, ival.intval, tval.intval);
+
+	if (ival.intval)
+		return NOTIFY_DONE;
 
 	if (pval.intval && (tval.intval == POWER_SUPPLY_USB_TYPE_SDP ||
 			tval.intval == POWER_SUPPLY_USB_TYPE_CDP))
