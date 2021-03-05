@@ -15,6 +15,8 @@
 #define __SSPM_RESERVED_H__
 
 #include <linux/types.h>
+#include <linux/device.h>
+#include <linux/platform_device.h>
 #include "sspm_define.h"
 
 struct sspm_reserve_mblock {
@@ -27,7 +29,7 @@ struct sspm_reserve_mblock {
 phys_addr_t sspm_reserve_mem_get_phys(unsigned int id);
 phys_addr_t sspm_reserve_mem_get_virt(unsigned int id);
 phys_addr_t sspm_reserve_mem_get_size(unsigned int id);
-int sspm_reserve_memory_init(void);
+int sspm_reserve_memory_init(struct platform_device *pdev);
 void sspm_set_emi_mpu(phys_addr_t base, phys_addr_t size);
 void sspm_lock_emi_mpu(void);
 

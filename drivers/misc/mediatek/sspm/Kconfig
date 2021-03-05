@@ -18,3 +18,10 @@ config MTK_TINYSYS_SSPM_PLT_SUPPORT
 
 config MTK_MET_MEM_ALLOC
 	bool "Using dynamic allocate memory for MET"
+
+config MTK_TINYSYS_SSPM_VERSION
+	string "Support MTK SSPM Driver Version"
+	depends on MTK_TINYSYS_SSPM_SUPPORT
+	default ""
+	help
+		MTK_TINYSYS_SSPM_VERSION define which sspm version will be used

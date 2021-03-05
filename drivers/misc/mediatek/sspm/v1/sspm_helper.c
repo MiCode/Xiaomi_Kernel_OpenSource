@@ -209,7 +209,13 @@ static int sspm_device_probe(struct platform_device *pdev)
 	}
 
 	pr_info("SSPM is ready to service IPI\n");
-
+#ifdef CONFIG_OF_RESERVED_MEM
+	if (sspm_reserve_memory_init(sspm_pdev)) {
+		pr_err("[SSPM] Reserved Memory Failed\n");
+		atomic_set(&sspm_inited, 1);
+		return -1;
+	}
+#endif
 #ifdef SSPM_SHARE_BUFFER_SUPPORT
 	if (sspm_sbuf_init()) {
 		pr_err("[SSPM] Shared Buffer Init Failed\n");
@@ -266,14 +272,6 @@ static int __init sspm_init(void)
 		pr_err("[SSPM] Device Init Failed\n");
 		goto error;
 	}
-
-#ifdef CONFIG_OF_RESERVED_MEM
-	if (sspm_reserve_memory_init()) {
-		pr_err("[SSPM] Reserved Memory Failed\n");
-		goto error;
-	}
-#endif
-
 	pr_debug("[SSPM] Helper Init\n");
 
 	sspm_ready = 1;
