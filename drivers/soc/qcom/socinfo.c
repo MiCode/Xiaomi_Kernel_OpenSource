@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2021, The Linux Foundation. All rights reserved.
  * Copyright (c) 2017-2019, Linaro Ltd.
  */
 
@@ -671,6 +671,7 @@ static const struct soc_id soc_id[] = {
 	{ 454, "HOLI" },
 	{ 457, "WAIPIO" },
 	{ 458, "SDXLEMUR" },
+	{ 482, "WAIPIOP" },
 };
 
 static struct qcom_socinfo *qsocinfo;
