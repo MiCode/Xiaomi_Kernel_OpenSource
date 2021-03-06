@@ -938,6 +938,7 @@
   get_unused_fd_flags
   get_user_pages
   get_zeroed_page
+  gfp_zone
   gic_nonsecure_priorities
   gov_attr_set_init
   gov_attr_set_put
@@ -1321,6 +1322,12 @@
   memory_block_size_bytes
   memory_read_from_buffer
   memparse
+  mempool_alloc
+  mempool_alloc_slab
+  mempool_create
+  mempool_destroy
+  mempool_free
+  mempool_free_slab
   memremap
   memset
   memset64
@@ -1385,6 +1392,7 @@
   __netlink_kernel_create
   netlink_kernel_release
   netlink_unicast
+  __next_zones_zonelist
   nla_find
   nla_memcpy
   __nla_parse
@@ -2288,6 +2296,7 @@
   __tracepoint_android_rvh_account_irq
   __tracepoint_android_rvh_build_perf_domains
   __tracepoint_android_rvh_can_migrate_task
+  __tracepoint_android_rvh_check_preempt_wakeup
   __tracepoint_android_rvh_cpu_cgroup_attach
   __tracepoint_android_rvh_dequeue_task
   __tracepoint_android_rvh_enqueue_task
@@ -2298,6 +2307,7 @@
   __tracepoint_android_rvh_irqs_enable
   __tracepoint_android_rvh_migrate_queued_task
   __tracepoint_android_rvh_new_task_stats
+  __tracepoint_android_rvh_pick_next_entity
   __tracepoint_android_rvh_place_entity
   __tracepoint_android_rvh_preempt_disable
   __tracepoint_android_rvh_preempt_enable
@@ -2648,3 +2658,5 @@
   xa_find_after
   xa_load
   xa_store
+  zone_watermark_ok
+  zone_watermark_ok_safe
