@@ -1454,7 +1454,7 @@ dm9000_probe(struct platform_device *pdev)
 		if (ret) {
 			dev_err(dev, "failed to request reset gpio %d: %d\n",
 				reset_gpios, ret);
-			return -ENODEV;
+			goto out_regulator_disable;
 		}
 
 		/* According to manual PWRST# Low Period Min 1ms */
@@ -1466,8 +1466,10 @@ dm9000_probe(struct platform_device *pdev)
 
 	if (!pdata) {
 		pdata = dm9000_parse_dt(&pdev->dev);
-		if (IS_ERR(pdata))
-			return PTR_ERR(pdata);
+		if (IS_ERR(pdata)) {
+			ret = PTR_ERR(pdata);
+			goto out_regulator_disable;
+		}
 	}
 
 	/* Init network device */
@@ -1707,6 +1709,10 @@ out:
 
 	dm9000_release_board(pdev, db);
 	free_netdev(ndev);
+
+out_regulator_disable:
+	if (!IS_ERR(power))
+		regulator_disable(power);
 
 	return ret;
 }
