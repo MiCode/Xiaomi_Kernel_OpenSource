@@ -636,7 +636,7 @@ static struct fastrpc_apps gfa;
 static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 	{
 		.name = "adsprpc-smd",
-		.subsys = "adsp",
+		.subsys = "lpass",
 		.spd = {
 			{
 				.servloc_name =
@@ -656,7 +656,7 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 	},
 	{
 		.name = "mdsprpc-smd",
-		.subsys = "modem",
+		.subsys = "mpss",
 		.spd = {
 			{
 				.cid = MDSP_DOMAIN_ID,
@@ -667,7 +667,7 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 	},
 	{
 		.name = "sdsprpc-smd",
-		.subsys = "slpi",
+		.subsys = "dsps",
 		.spd = {
 			{
 				.servloc_name =
