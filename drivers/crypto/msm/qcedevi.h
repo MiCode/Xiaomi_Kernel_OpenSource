@@ -2,7 +2,7 @@
 /*
  * QTI crypto Driver
  *
- * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __CRYPTO_MSM_QCEDEVI_H
@@ -28,7 +28,7 @@ enum qcedev_crypto_oper_type {
 struct qcedev_handle;
 
 struct qcedev_cipher_req {
-	struct ablkcipher_request creq;
+	struct skcipher_request creq;
 	void *cookie;
 };
 
