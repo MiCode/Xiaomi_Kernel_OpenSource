@@ -471,7 +471,7 @@ int __init lpm_model_suspend_init(void)
 		return ret;
 	}
 
-	for (i = 0; i < CPU_NUMBER; i++) {
+	for_each_online_cpu(i) {
 		lpm_ts[i] = kthread_create(mtk_lpm_monitor_thread, NULL, "LPM-%d", i);
 		if (!lpm_ts[i]) {
 			pr_info("[name:spm&][SPM] create threads fail\n");
