@@ -12,6 +12,7 @@
 #include <linux/usb/ch9.h>
 #include <linux/sysfs.h>
 #include <linux/kthread.h>
+#include <linux/file.h>
 #include <linux/byteorder/generic.h>
 
 #include "usbip_common.h"
@@ -138,6 +139,13 @@ static ssize_t usbip_sockfd_store(struct device *dev, struct device_attribute *a
 			goto unlock_ud;
 		}
 
+		if (socket->type != SOCK_STREAM) {
+			dev_err(dev, "Expecting SOCK_STREAM - found %d",
+				socket->type);
+			ret = -EINVAL;
+			goto sock_err;
+		}
+
 		udc->ud.tcp_socket = socket;
 
 		spin_unlock_irq(&udc->ud.lock);
@@ -177,6 +185,8 @@ static ssize_t usbip_sockfd_store(struct device *dev, struct device_attribute *a
 
 	return count;
 
+sock_err:
+	sockfd_put(socket);
 unlock_ud:
 	spin_unlock_irq(&udc->ud.lock);
 unlock:
