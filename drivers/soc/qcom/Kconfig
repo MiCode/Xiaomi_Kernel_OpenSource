@@ -221,6 +221,15 @@ config QCOM_SDMSHRIKE_LLCC
 	  can start using the LLCC slices.
 	  If unsure, say n.
 
+config QCOM_SM6150_LLCC
+	tristate "Qualcomm Technologies, Inc. SM6150 LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  Say yes here to enable the LLCC driver for SM6150. This is provides
+	  data required to configure LLCC so that clients can start using the
+	  LLCC slices.
+	  If unsure, say n.
+
 config QCOM_SDM845_LLCC
 	tristate "Qualcomm Technologies, Inc. SDM845 LLCC driver"
 	depends on QCOM_LLCC
@@ -289,6 +298,17 @@ config MSM_SUBSYSTEM_RESTART
 	  or passing commands.
 	  Moreover, the framework also notifies userspace of transitions
 	  between these states via sysfs.
+
+config MSM_QUIN_SUBSYSTEM_NOTIF_VIRT
+	tristate "MSM QUIN Subsystem Notif Virt"
+	select MSM_SUBSYSTEM_RESTART
+	help
+	  This option enables the virtual MSM subsystem notification
+	  framework for the QUIN platform.
+
+	  The virtual MSM subsystem notif framework provides support for
+	  a subsystem to notify its clients of its state, when the clients
+	  are in a different virtual machine domain than the subsystem.
 
 config SETUP_SSR_NOTIF_TIMEOUTS
 	bool "Set timeouts on SSR sysmon notifications and notifier callbacks"
@@ -638,6 +658,7 @@ config QCOM_GLINK_PKT
 	  some glink packets channel.
 
 source "drivers/soc/qcom/hab/Kconfig"
+source "drivers/soc/qcom/hgsl/Kconfig"
 
 config MSM_PERFORMANCE
         tristate "msm performance driver to support userspace fmin/fmax request"
@@ -839,6 +860,17 @@ config QTI_HW_MEMLAT
 	  table, PMU counters and saving the values of PMU counters during LPM and
 	  hotplug.
 
+config QTI_HW_NUM_AMU
+	int
+	default 7 if ARCH_LAHAINA && QTI_HW_MEMLAT
+	default 5 if ARCH_HOLI && QTI_HW_MEMLAT
+	default 5
+
+config QTI_HW_NUM_PMU
+	int
+	default 6 if (ARCH_LAHAINA || ARCH_HOLI) && QTI_HW_MEMLAT
+	default 6
+
 config QTI_HW_MEMLAT_SCMI_CLIENT
 	tristate "Qualcomm Technologies Inc. SCMI client driver for HW MEMLAT"
 	depends on QTI_HW_MEMLAT
@@ -900,7 +932,6 @@ endif # MSM_PM
 
 config QTI_RPM_STATS_LOG
 	tristate "Qualcomm Technologies RPM Stats Driver"
-	depends on QCOM_RPMH
 	help
 	  This option enables a driver which reads RPM messages from a shared
 	  memory location. These messages provide statistical information about
@@ -1173,6 +1204,22 @@ config RENAME_BLOCK_DEVICE
 	  driver to a name that is needed. This is used for rename block
 	  device names created by default as sda1, sda2 etc. to the
 	  names system is needed.this is applicable for block devices only.
+
+config QCOM_ADSP_MANUAL_VOTE
+	bool "Send commands to ADSP to unvote/vote during Suspend/resume"
+	help
+	  This driver is used to manually release and acquire the ADSP vote from
+	  APPS processor during system suspend and resume.
+          This driver sends message over QMI to the service which is running on
+          ADSP.
+
+config MSM_SLATECOM
+	bool "Provide APIs to communicate with Slate chipset"
+	help
+		SLATECOM is a thin layer above SPI. It is used whithin a SoC for
+		communication between G-Link/slate_com_dev and Slate processor over SPI.
+		This handle the interrupts raised by BG and notify the G-link with
+		interrupt event and event data.
 
 source "drivers/soc/qcom/icnss2/Kconfig"
 endmenu

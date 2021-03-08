@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 
@@ -359,10 +359,8 @@ static int setup_fifo_params(struct spi_device *spi_slv,
 	if (mode & SPI_CPOL)
 		cpol |= CPOL;
 
-	if (!spi->slave) {
-		if (mode & SPI_CPHA)
-			cpha |= CPHA;
-	}
+	if (mode & SPI_CPHA)
+		cpha |= CPHA;
 
 	/* SPI slave supports only mode 1, log unsuppoted mode and exit */
 	if (spi->slave && !(cpol == 0 && cpha == 1)) {

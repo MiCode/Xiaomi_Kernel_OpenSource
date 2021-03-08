@@ -42,7 +42,7 @@ static int config_port_arbitration(struct device *dev, int parb_select,
 	struct pci_dev *pcidev = to_pci_dev(dev);
 	int i, pos, size;
 	int timeout = 100;
-	u32 parb_offset, parb_phase, parb_size;
+	u32 parb_offset, parb_phase = 0, parb_size;
 	u32 val;
 	u16 status;
 

@@ -80,6 +80,82 @@ struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev)
 	return plat_env;
 }
 
+/**
+ * cnss_get_mem_seg_count - Get segment count of memory
+ * @type: memory type
+ * @seg: segment count
+ *
+ * Return: 0 on success, negative value on failure
+ */
+int cnss_get_mem_seg_count(enum cnss_remote_mem_type type, u32 *seg)
+{
+	struct cnss_plat_data *plat_priv;
+
+	plat_priv = cnss_get_plat_priv(NULL);
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (type) {
+	case CNSS_REMOTE_MEM_TYPE_FW:
+		*seg = plat_priv->fw_mem_seg_len;
+		break;
+	case CNSS_REMOTE_MEM_TYPE_QDSS:
+		*seg = plat_priv->qdss_mem_seg_len;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_get_mem_seg_count);
+
+/**
+ * cnss_get_mem_segment_info - Get memory info of different type
+ * @type: memory type
+ * @segment: array to save the segment info
+ * @seg: segment count
+ *
+ * Return: 0 on success, negative value on failure
+ */
+int cnss_get_mem_segment_info(enum cnss_remote_mem_type type,
+			      struct cnss_mem_segment segment[],
+			      u32 segment_count)
+{
+	struct cnss_plat_data *plat_priv;
+	u32 i;
+
+	plat_priv = cnss_get_plat_priv(NULL);
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (type) {
+	case CNSS_REMOTE_MEM_TYPE_FW:
+		if (segment_count > plat_priv->fw_mem_seg_len)
+			segment_count = plat_priv->fw_mem_seg_len;
+		for (i = 0; i < segment_count; i++) {
+			segment[i].size = plat_priv->fw_mem[i].size;
+			segment[i].va = plat_priv->fw_mem[i].va;
+			segment[i].pa = plat_priv->fw_mem[i].pa;
+		}
+		break;
+	case CNSS_REMOTE_MEM_TYPE_QDSS:
+		if (segment_count > plat_priv->qdss_mem_seg_len)
+			segment_count = plat_priv->qdss_mem_seg_len;
+		for (i = 0; i < segment_count; i++) {
+			segment[i].size = plat_priv->qdss_mem[i].size;
+			segment[i].va = plat_priv->qdss_mem[i].va;
+			segment[i].pa = plat_priv->qdss_mem[i].pa;
+		}
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_get_mem_segment_info);
+
 static int cnss_pm_notify(struct notifier_block *b,
 			  unsigned long event, void *p)
 {

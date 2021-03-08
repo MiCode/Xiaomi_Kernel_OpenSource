@@ -102,7 +102,8 @@ struct core_dev_map {
 struct cpu_pmu_ctrs {
 	uint32_t ccntr_lo;
 	uint32_t ccntr_hi;
-	uint32_t evcntr[MAX_EVCNTRS];
+	uint32_t evcntr[CONFIG_QTI_HW_NUM_PMU];
+	uint32_t amu_evcntr[CONFIG_QTI_HW_NUM_AMU * 2];
 	uint32_t valid;
 	uint32_t unused0;
 };

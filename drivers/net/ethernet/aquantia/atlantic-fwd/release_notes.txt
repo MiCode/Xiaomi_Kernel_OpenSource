@@ -1,3 +1,24 @@
+Version 1.1.15
+==============
+[ATLDRV-1613] - Atlantic_fwd driver hitting NULL pointer dereference at 0000000000000678 while requesting rx rings
+
+Version 1.1.14
+==============
+[ATLDRV-1609] - Facing failure for the DMA Network Loopback Test
+[ATLDRV-1605] - AQC107 GPIO_0 PPS alignment
+[ATLDRV-1614] - probe of 0000:02:00.0 failed with error -22 after loading driver with "msi=N max_queues_non_msi=4"
+
+Version 1.1.13
+==============
+[ATLDRV-1581] - AQ091: AQC DMA stats in Ethtool
+A2: report FW bundle ver instead of mac FW ver
+
+Version 1.1.12
+==============
+[ATLDRV-1573] - Crash on enable EEE
+[ATLDRV-1576] - FWD: Add support of Antigua B0 statistics
+[ATLDRV-1577] - Add Downshift feature
+
 Version 1.1.11
 ==============
 [ATLDRV-1567] - forwarding driver issue with adj_freq

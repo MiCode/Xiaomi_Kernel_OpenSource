@@ -83,6 +83,11 @@
 #define PCIE20_LINK_DOWN_AXI_ECAM_BLOCK_STATUS (0x630)
 #define PCIE20_PARF_STATUS (0x230)
 
+#define PCIE20_PARF_DEBUG_CNT_IN_L0S (0xc10)
+#define PCIE20_PARF_DEBUG_CNT_IN_L1 (0xc0c)
+#define PCIE20_PARF_DEBUG_CNT_IN_L1SUB_L1 (0xc84)
+#define PCIE20_PARF_DEBUG_CNT_IN_L1SUB_L2 (0xc88)
+
 #define PCIE20_PARF_CLKREQ_OVERRIDE (0x2b0)
 #define PCIE20_PARF_CLKREQ_IN_VALUE (BIT(3))
 #define PCIE20_PARF_CLKREQ_IN_ENABLE (BIT(1))
@@ -187,9 +192,9 @@
 #define MAX_RC_NAME_LEN (15)
 #define MSM_PCIE_MAX_VREG (5)
 #define MSM_PCIE_VREG_0P9 (2)
-#define MSM_PCIE_MAX_CLK (18)
+#define MSM_PCIE_MAX_CLK (21)
 #define MSM_PCIE_MAX_PIPE_CLK (1)
-#define MAX_RC_NUM (4)
+#define MAX_RC_NUM (5)
 #define MAX_DEVICE_NUM (20)
 #define PCIE_TLP_RD_SIZE (0x5)
 #define PCIE_LOG_PAGES (50)
@@ -332,6 +337,7 @@ enum msm_pcie_res {
 	MSM_PCIE_RES_ELBI,
 	MSM_PCIE_RES_IATU,
 	MSM_PCIE_RES_CONF,
+	MSM_PCIE_RES_MHI,
 	MSM_PCIE_RES_TCSR,
 	MSM_PCIE_RES_RUMI,
 	MSM_PCIE_MAX_RES,
@@ -710,6 +716,7 @@ struct msm_pcie_dev_t {
 	void __iomem *iatu;
 	void __iomem *dm_core;
 	void __iomem *conf;
+	void __iomem *mhi;
 	void __iomem *tcsr;
 	void __iomem *rumi;
 
@@ -867,10 +874,6 @@ static u32 corr_counter_limit = 5;
 /* CRC8 table for BDF to SID translation */
 static u8 msm_pcie_crc8_table[CRC8_TABLE_SIZE];
 
-/* Table to track info of PCIe devices */
-static struct msm_pcie_device_info
-	msm_pcie_dev_tbl[MAX_RC_NUM * MAX_DEVICE_NUM];
-
 /* PCIe driver state */
 static struct pcie_drv_sta {
 	u32 rc_num;
@@ -933,6 +936,13 @@ msm_pcie_reset_info[MAX_RC_NUM][MSM_PCIE_MAX_RESET] = {
 		{NULL, "pcie_phy_com_reset", false},
 		{NULL, "pcie_phy_nocsr_com_phy_reset", false},
 		{NULL, "pcie_3_phy_reset", false}
+	},
+	{
+		{NULL, "pcie_4_core_reset", false},
+		{NULL, "pcie_phy_reset", false},
+		{NULL, "pcie_phy_com_reset", false},
+		{NULL, "pcie_phy_nocsr_com_phy_reset", false},
+		{NULL, "pcie_4_phy_reset", false}
 	}
 };
 
@@ -950,6 +960,9 @@ msm_pcie_pipe_reset_info[MAX_RC_NUM][MSM_PCIE_MAX_PIPE_RESET] = {
 	},
 	{
 		{NULL, "pcie_3_phy_pipe_reset", false}
+	},
+	{
+		{NULL, "pcie_4_phy_pipe_reset", false}
 	}
 };
 
@@ -974,7 +987,10 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
 	{NULL, "pcie_phy_aux_clk", 0, false, false},
 	{NULL, "pcie_pipe_clk_mux", 0, false, false},
-	{NULL, "pcie_pipe_clk_ext_src", 0, false, false}
+	{NULL, "pcie_pipe_clk_ext_src", 0, false, false},
+	{NULL, "pcie_aggre_noc_south_sf_axi_clk", 0, false, false},
+	{NULL, "pcie_aggre_noc_4_axi_clk", 0, false, false},
+	{NULL, "pcie_0_pipediv2_clk", 0, false, false}
 	},
 	{
 	{NULL, "pcie_1_ref_clk_src", 0, false, false},
@@ -994,7 +1010,10 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
 	{NULL, "pcie_phy_aux_clk", 0, false, false},
 	{NULL, "pcie_pipe_clk_mux", 0, false, false},
-	{NULL, "pcie_pipe_clk_ext_src", 0, false, false}
+	{NULL, "pcie_pipe_clk_ext_src", 0, false, false},
+	{NULL, "pcie_aggre_noc_south_sf_axi_clk", 0, false, false},
+	{NULL, "pcie_aggre_noc_4_axi_clk", 0, false, false},
+	{NULL, "pcie_1_pipediv2_clk", 0, false, false}
 	},
 	{
 	{NULL, "pcie_2_ref_clk_src", 0, false, false},
@@ -1014,7 +1033,10 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
 	{NULL, "pcie_phy_aux_clk", 0, false, false},
 	{NULL, "pcie_pipe_clk_mux", 0, false, false},
-	{NULL, "pcie_pipe_clk_ext_src", 0, false, false}
+	{NULL, "pcie_pipe_clk_ext_src", 0, false, false},
+	{NULL, "pcie_aggre_noc_south_sf_axi_clk", 0, false, false},
+	{NULL, "pcie_aggre_noc_4_axi_clk", 0, false, false},
+	{NULL, "pcie_2_pipediv2_clk", 0, false, false}
 	},
 	{
 	{NULL, "pcie_3_ref_clk_src", 0, false, false},
@@ -1034,7 +1056,33 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
 	{NULL, "pcie_phy_aux_clk", 0, false, false},
 	{NULL, "pcie_pipe_clk_mux", 0, false, false},
-	{NULL, "pcie_pipe_clk_ext_src", 0, false, false}
+	{NULL, "pcie_pipe_clk_ext_src", 0, false, false},
+	{NULL, "pcie_aggre_noc_south_sf_axi_clk", 0, false, false},
+	{NULL, "pcie_aggre_noc_4_axi_clk", 0, false, false},
+	{NULL, "pcie_3_pipediv2_clk", 0, false, false}
+	},
+	{
+	{NULL, "pcie_4_ref_clk_src", 0, false, false},
+	{NULL, "pcie_4_aux_clk", 1010000, true, false},
+	{NULL, "pcie_4_cfg_ahb_clk", 0, true, false},
+	{NULL, "pcie_4_mstr_axi_clk", 0, true, false},
+	{NULL, "pcie_4_slv_axi_clk", 0, true, false},
+	{NULL, "pcie_4_ldo", 0, true, true},
+	{NULL, "pcie_4_smmu_clk", 0, false, false},
+	{NULL, "pcie_4_slv_q2a_axi_clk", 0, false, false},
+	{NULL, "pcie_4_sleep_clk", 0, false, false},
+	{NULL, "pcie_phy_refgen_clk", 0, false, false},
+	{NULL, "pcie_tbu_clk", 0, false, false},
+	{NULL, "pcie_ddrss_sf_tbu_clk", 0, false, false},
+	{NULL, "pcie_aggre_noc_0_axi_clk", 0, false, false},
+	{NULL, "pcie_aggre_noc_1_axi_clk", 0, false, false},
+	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
+	{NULL, "pcie_phy_aux_clk", 0, false, false},
+	{NULL, "pcie_pipe_clk_mux", 0, false, false},
+	{NULL, "pcie_pipe_clk_ext_src", 0, false, false},
+	{NULL, "pcie_aggre_noc_south_sf_axi_clk", 0, false, false},
+	{NULL, "pcie_aggre_noc_4_axi_clk", 0, false, false},
+	{NULL, "pcie_4_pipediv2_clk", 0, false, false}
 	}
 };
 
@@ -1052,6 +1100,9 @@ static struct msm_pcie_clk_info_t
 	},
 	{
 	{NULL, "pcie_3_pipe_clk", 125000000, true, false},
+	},
+	{
+	{NULL, "pcie_4_pipe_clk", 125000000, true, false},
 	}
 };
 
@@ -1063,6 +1114,7 @@ static const struct msm_pcie_res_info_t msm_pcie_res_info[MSM_PCIE_MAX_RES] = {
 	{"elbi", NULL, NULL},
 	{"iatu", NULL, NULL},
 	{"conf", NULL, NULL},
+	{"mhi", NULL, NULL},
 	{"tcsr", NULL, NULL},
 	{"rumi", NULL, NULL}
 };
@@ -2133,6 +2185,36 @@ static ssize_t enumerate_store(struct device *dev,
 }
 static DEVICE_ATTR_WO(enumerate);
 
+static ssize_t aspm_stat_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct msm_pcie_dev_t *pcie_dev = dev_get_drvdata(dev);
+
+	if (!pcie_dev->mhi)
+		return scnprintf(buf, PAGE_SIZE,
+				 "PCIe: RC%d: No dev or MHI space found\n",
+				 pcie_dev->rc_idx);
+
+	if (pcie_dev->link_status != MSM_PCIE_LINK_ENABLED)
+		return scnprintf(buf, PAGE_SIZE,
+				 "PCIe: RC%d: registers are not accessible\n",
+				 pcie_dev->rc_idx);
+
+	return scnprintf(buf, PAGE_SIZE,
+			 "PCIe: RC%d: L0s: %u L1: %u L1.1: %u L1.2: %u\n",
+			 pcie_dev->rc_idx,
+			 readl_relaxed(pcie_dev->mhi +
+				       PCIE20_PARF_DEBUG_CNT_IN_L0S),
+			 readl_relaxed(pcie_dev->mhi +
+				       PCIE20_PARF_DEBUG_CNT_IN_L1),
+			 readl_relaxed(pcie_dev->mhi +
+				       PCIE20_PARF_DEBUG_CNT_IN_L1SUB_L1),
+			 readl_relaxed(pcie_dev->mhi +
+				       PCIE20_PARF_DEBUG_CNT_IN_L1SUB_L2));
+}
+static DEVICE_ATTR_RO(aspm_stat);
+
 static ssize_t l23_rdy_poll_timeout_show(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
@@ -2167,6 +2249,7 @@ static DEVICE_ATTR_RW(l23_rdy_poll_timeout);
 static struct attribute *msm_pcie_debug_attrs[] = {
 	&dev_attr_link_check_max_count.attr,
 	&dev_attr_enumerate.attr,
+	&dev_attr_aspm_stat.attr,
 	&dev_attr_l23_rdy_poll_timeout.attr,
 	NULL,
 };
@@ -2894,20 +2977,13 @@ static void msm_pcie_save_shadow(struct msm_pcie_dev_t *dev,
 					u32 word_offset, u32 wr_val,
 					u32 bdf, bool rc)
 {
-	int i, j;
-	u32 max_dev = MAX_RC_NUM * MAX_DEVICE_NUM;
+	int i;
 
 	if (rc) {
 		dev->rc_shadow[word_offset / 4] = wr_val;
 	} else {
 		for (i = 0; i < MAX_DEVICE_NUM; i++) {
 			if (!dev->pcidev_table[i].bdf) {
-				for (j = 0; j < max_dev; j++) {
-					if (!msm_pcie_dev_tbl[j].bdf) {
-						msm_pcie_dev_tbl[j].bdf = bdf;
-						break;
-					}
-				}
 				dev->pcidev_table[i].bdf = bdf;
 				if ((!dev->bridge_found) && (i > 0))
 					dev->bridge_found = true;
@@ -4066,6 +4142,7 @@ static int msm_pcie_get_reg(struct msm_pcie_dev_t *pcie_dev)
 	pcie_dev->iatu = pcie_dev->res[MSM_PCIE_RES_IATU].base;
 	pcie_dev->dm_core = pcie_dev->res[MSM_PCIE_RES_DM_CORE].base;
 	pcie_dev->conf = pcie_dev->res[MSM_PCIE_RES_CONF].base;
+	pcie_dev->mhi = pcie_dev->res[MSM_PCIE_RES_MHI].base;
 	pcie_dev->tcsr = pcie_dev->res[MSM_PCIE_RES_TCSR].base;
 	pcie_dev->rumi = pcie_dev->res[MSM_PCIE_RES_RUMI].base;
 
@@ -4182,6 +4259,7 @@ static void msm_pcie_release_resources(struct msm_pcie_dev_t *dev)
 	dev->iatu = NULL;
 	dev->dm_core = NULL;
 	dev->conf = NULL;
+	dev->mhi = NULL;
 	dev->tcsr = NULL;
 	dev->rumi = NULL;
 }
@@ -4576,26 +4654,17 @@ static void msm_pcie_config_ep_aer(struct msm_pcie_dev_t *dev,
 		readl_relaxed(ep_base + ep_dev_info->dev_ctrlstts_offset));
 }
 
-static int msm_pcie_config_device_table(struct device *dev, void *pdev)
+static int msm_pcie_config_device_table(struct pci_dev *pcidev, void *pdev)
 {
-	struct pci_dev *pcidev = to_pci_dev(dev);
 	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *) pdev;
-	struct msm_pcie_device_info *dev_table_t = pcie_dev->pcidev_table;
 	struct resource *axi_conf = pcie_dev->res[MSM_PCIE_RES_CONF].resource;
 	int ret = 0;
 	u32 rc_idx = pcie_dev->rc_idx;
-	u32 i, index;
+	u32 i;
 	u32 bdf = 0;
 	u8 type;
 	u32 h_type;
 	u32 bme;
-
-	if (!pcidev) {
-		PCIE_ERR(pcie_dev,
-			"PCIe: Did not find PCI device in list for RC%d.\n",
-			pcie_dev->rc_idx);
-		return -ENODEV;
-	}
 
 	PCIE_DBG(pcie_dev,
 		"PCI device found: vendor-id:0x%x device-id:0x%x\n",
@@ -4608,81 +4677,51 @@ static int msm_pcie_config_device_table(struct device *dev, void *pdev)
 	type = pcidev->bus->number == 1 ?
 		PCIE20_CTRL1_TYPE_CFG0 : PCIE20_CTRL1_TYPE_CFG1;
 
-	for (i = 0; i < (MAX_RC_NUM * MAX_DEVICE_NUM); i++) {
-		if (msm_pcie_dev_tbl[i].bdf == bdf &&
-			!msm_pcie_dev_tbl[i].dev) {
-			for (index = 0; index < MAX_DEVICE_NUM; index++) {
-				if (dev_table_t[index].bdf == bdf) {
-					msm_pcie_dev_tbl[i].dev = pcidev;
-					msm_pcie_dev_tbl[i].domain = rc_idx;
-					msm_pcie_dev_tbl[i].conf_base =
-						pcie_dev->conf + index * SZ_4K;
-					msm_pcie_dev_tbl[i].phy_address =
-						axi_conf->start + index * SZ_4K;
+	for (i = 0; i < MAX_DEVICE_NUM; i++) {
+		struct msm_pcie_device_info *dev_table_t =
+						&pcie_dev->pcidev_table[i];
 
-					dev_table_t[index].dev = pcidev;
-					dev_table_t[index].domain = rc_idx;
-					dev_table_t[index].conf_base =
-						pcie_dev->conf + index * SZ_4K;
-					dev_table_t[index].phy_address =
-						axi_conf->start + index * SZ_4K;
+		if (dev_table_t->bdf != bdf)
+			continue;
 
-					msm_pcie_iatu_config(pcie_dev, index,
-						type,
-						dev_table_t[index].phy_address,
-						dev_table_t[index].phy_address
-						+ SZ_4K - 1,
-						bdf);
+		dev_table_t->dev = pcidev;
+		dev_table_t->domain = rc_idx;
+		dev_table_t->conf_base = pcie_dev->conf + i * SZ_4K;
+		dev_table_t->phy_address = axi_conf->start + i * SZ_4K;
 
-					h_type = readl_relaxed(
-						dev_table_t[index].conf_base +
-						PCIE20_HEADER_TYPE);
+		msm_pcie_iatu_config(pcie_dev, i, type,
+				     dev_table_t->phy_address,
+				     dev_table_t->phy_address + SZ_4K - 1, bdf);
 
-					bme = readl_relaxed(
-						dev_table_t[index].conf_base +
-						PCIE20_COMMAND_STATUS);
+		h_type = readl_relaxed(dev_table_t->conf_base +
+				       PCIE20_HEADER_TYPE);
 
-					if (h_type & (1 << 16)) {
-						pci_write_config_dword(pcidev,
-							PCIE20_COMMAND_STATUS,
-							bme | 0x06);
-					} else {
-						pcie_dev->num_ep++;
-						dev_table_t[index].registered =
-							false;
-					}
+		bme = readl_relaxed(dev_table_t->conf_base +
+				    PCIE20_COMMAND_STATUS);
 
-					if (pcie_dev->num_ep > 1)
-						pcie_dev->pending_ep_reg = true;
-
-					if (pcie_dev->aer_enable)
-						msm_pcie_config_ep_aer(pcie_dev,
-							&dev_table_t[index]);
-
-					break;
-				}
-			}
-			if (index == MAX_DEVICE_NUM) {
-				PCIE_ERR(pcie_dev,
-					"RC%d PCI device table is full.\n",
-					rc_idx);
-				ret = index;
-			} else {
-				break;
-			}
-		} else if (msm_pcie_dev_tbl[i].bdf == bdf &&
-			pcidev == msm_pcie_dev_tbl[i].dev) {
-			break;
+		if (h_type & (1 << 16)) {
+			pci_write_config_dword(pcidev, PCIE20_COMMAND_STATUS,
+					       bme | 0x06);
+		} else {
+			pcie_dev->num_ep++;
+			dev_table_t->registered = false;
 		}
+
+		if (pcie_dev->num_ep > 1)
+			pcie_dev->pending_ep_reg = true;
+
+		if (pcie_dev->aer_enable)
+			msm_pcie_config_ep_aer(pcie_dev, dev_table_t);
+
+		break;
 	}
-	if (i == MAX_RC_NUM * MAX_DEVICE_NUM) {
+
+	if (i == MAX_DEVICE_NUM) {
 		PCIE_ERR(pcie_dev,
-			"Global PCI device table is full: %d elements.\n",
-			i);
-		PCIE_ERR(pcie_dev,
-			"Bus number is 0x%x\nDevice number is 0x%x\n",
-			pcidev->bus->number, pcidev->devfn);
-		ret = i;
+			 "PCIe: RC%d: could not find device in the table: %02x:%02x:%01x\n",
+			 pcie_dev->rc_idx, pcidev->bus->number,
+			 PCI_SLOT(pcidev->devfn), PCI_FUNC(pcidev->devfn));
+		ret = -ENODEV;
 	}
 	return ret;
 }
@@ -4762,7 +4801,7 @@ static void msm_pcie_config_sid(struct msm_pcie_dev_t *dev)
 
 int msm_pcie_enumerate(u32 rc_idx)
 {
-	int ret = 0, bus_ret = 0;
+	int ret = 0;
 	struct msm_pcie_dev_t *dev = &msm_pcie_dev[rc_idx];
 	struct pci_dev *pcidev = NULL;
 	struct pci_host_bridge *bridge;
@@ -4884,14 +4923,7 @@ int msm_pcie_enumerate(u32 rc_idx)
 		goto out;
 	}
 
-	bus_ret = bus_for_each_dev(&pci_bus_type, NULL, dev,
-			&msm_pcie_config_device_table);
-	if (bus_ret) {
-		PCIE_ERR(dev, "PCIe: RC%d: Failed to set up device table\n",
-			dev->rc_idx);
-		ret = -ENODEV;
-		goto out;
-	}
+	pci_walk_bus(dev->dev->bus, msm_pcie_config_device_table, dev);
 
 	msm_pcie_check_l1ss_support_all(dev);
 	msm_pcie_config_link_pm(dev, true);
@@ -6968,18 +7000,6 @@ static int __init pcie_init(void)
 				msm_pcie_drv_disable_pc);
 		INIT_WORK(&msm_pcie_dev[i].drv_enable_pc_work,
 				msm_pcie_drv_enable_pc);
-	}
-	for (i = 0; i < MAX_RC_NUM * MAX_DEVICE_NUM; i++) {
-		msm_pcie_dev_tbl[i].bdf = 0;
-		msm_pcie_dev_tbl[i].dev = NULL;
-		msm_pcie_dev_tbl[i].short_bdf = 0;
-		msm_pcie_dev_tbl[i].sid = 0;
-		msm_pcie_dev_tbl[i].domain = -1;
-		msm_pcie_dev_tbl[i].conf_base = NULL;
-		msm_pcie_dev_tbl[i].phy_address = 0;
-		msm_pcie_dev_tbl[i].dev_ctrlstts_offset = 0;
-		msm_pcie_dev_tbl[i].event_reg = NULL;
-		msm_pcie_dev_tbl[i].registered = true;
 	}
 
 	crc8_populate_msb(msm_pcie_crc8_table, MSM_PCIE_CRC8_POLYNOMIAL);

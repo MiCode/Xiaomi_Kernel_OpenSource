@@ -146,6 +146,7 @@ enum pas_id {
 static struct icc_path *scm_perf_client;
 static int scm_pas_bw_count;
 static DEFINE_MUTEX(scm_pas_bw_mutex);
+static int is_inited;
 
 static void subsys_disable_all_irqs(struct pil_tz_data *d);
 static void subsys_enable_all_irqs(struct pil_tz_data *d);
@@ -180,7 +181,7 @@ static int scm_pas_enable_bw(void)
 {
 	int ret = 0;
 
-	if (!scm_perf_client)
+	if (IS_ERR(scm_perf_client))
 		return -EINVAL;
 
 	mutex_lock(&scm_pas_bw_mutex);
@@ -1344,7 +1345,7 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 	 * is not yet registered. Return error if that driver returns with
 	 * any error other than EPROBE_DEFER.
 	 */
-	if (!scm_perf_client)
+	if (!is_inited)
 		return -EPROBE_DEFER;
 	if (IS_ERR(scm_perf_client))
 		return PTR_ERR(scm_perf_client);
@@ -1582,6 +1583,7 @@ static int pil_tz_scm_pas_probe(struct platform_device *pdev)
 		ret = PTR_ERR(scm_perf_client);
 		pr_err("scm-pas: Unable to register bus client: %d\n", ret);
 	}
+	is_inited = 1;
 
 	return ret;
 }

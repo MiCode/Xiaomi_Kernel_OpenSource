@@ -1178,7 +1178,7 @@ static int request_ring(struct net_device *ndev, struct genl_info *info)
 			goto err_relring;
 		}
 
-		result = atl_init_rx_ring(ring_desc);
+		result = atl_init_rx_ring(ring_desc, ATL_QUEUE_REGULAR);
 	}
 	if (result)
 		goto err_relring;

@@ -1647,7 +1647,9 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 		}
 	}
 
-	return __dwc3_gadget_kick_transfer(dep);
+	__dwc3_gadget_kick_transfer(dep);
+
+	return 0;
 }
 
 static bool dwc3_gadget_is_suspended(struct dwc3 *dwc)
@@ -3062,7 +3064,8 @@ static int dwc3_gadget_ep_reclaim_completed_trb(struct dwc3_ep *dep,
 
 	if (req->needs_extra_trb && !(trb->ctrl & DWC3_TRB_CTRL_CHN)) {
 		trb->ctrl &= ~DWC3_TRB_CTRL_HWO;
-		return 1;
+		return (((event->status & DEPEVT_STATUS_IOC) &&
+				(trb->ctrl & DWC3_TRB_CTRL_IOC)) ? 1 : 0);
 	}
 
 	count = trb->size & DWC3_TRB_SIZE_MASK;

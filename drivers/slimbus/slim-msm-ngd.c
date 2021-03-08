@@ -1541,10 +1541,10 @@ static int ngd_slim_enable(struct msm_slim_ctrl *dev, bool enable)
 	int ret = 0;
 
 	if (enable) {
+		enable_irq(dev->irq);
 		ret = msm_slim_qmi_init(dev, false);
 		/* controller state should be in sync with framework state */
 		if (!ret) {
-			enable_irq(dev->irq);
 			complete(&dev->qmi.qmi_comp);
 			if (!pm_runtime_enabled(dev->dev) ||
 					!pm_runtime_suspended(dev->dev))

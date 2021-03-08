@@ -212,7 +212,7 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 	enum mhi_ee ee;
 	const u32 delayms = 5;
 	u32 retry = (mhi_cntrl->timeout_ms) / delayms;
-	const u32 rddm_timeout_ms = 200;
+	const u32 rddm_timeout_ms = 250;
 	int rddm_retry = rddm_timeout_ms / delayms; /* time to enter rddm */
 	void __iomem *base = mhi_cntrl->bhie;
 

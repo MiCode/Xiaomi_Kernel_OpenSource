@@ -202,6 +202,7 @@ struct nvt_ts_data {
 	struct clk *iface_clk;
 	atomic_t trusted_touch_initialized;
 	atomic_t trusted_touch_enabled;
+	atomic_t trusted_touch_underway;
 	atomic_t trusted_touch_event;
 	atomic_t trusted_touch_abort_status;
 	atomic_t delayed_vm_probe_pending;

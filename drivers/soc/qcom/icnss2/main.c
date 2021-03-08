@@ -2124,9 +2124,9 @@ static int icnss_trigger_ssr_smp2p(struct icnss_priv *priv)
 			ICNSS_SMEM_VALUE_MASK,
 			value);
 	if (ret)
-		icnss_pr_dbg("Error in SMP2P sent ret: %d\n", ret);
+		icnss_pr_vdbg1("Error in SMP2P sent ret: %d\n", ret);
 
-	icnss_pr_dbg("Initiate Root PD restart. SMP2P sent value: 0x%X\n",
+	icnss_pr_vdbg1("Initiate Root PD restart. SMP2P sent value: 0x%X\n",
 		     value);
 	set_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
 	return ret;
@@ -3064,7 +3064,7 @@ int icnss_exit_power_save(struct device *dev)
 	unsigned int value = 0;
 	int ret;
 
-	icnss_pr_dbg("Calling Exit Power Save\n");
+	icnss_pr_vdbg1("Calling Exit Power Save\n");
 
 	if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
 	    !test_bit(ICNSS_MODE_ON, &priv->state))
@@ -3078,9 +3078,9 @@ int icnss_exit_power_save(struct device *dev)
 			ICNSS_SMEM_VALUE_MASK,
 			value);
 	if (ret)
-		icnss_pr_dbg("Error in SMP2P sent ret: %d\n", ret);
+		icnss_pr_vdbg1("Error in SMP2P sent ret: %d\n", ret);
 
-	icnss_pr_dbg("SMP2P sent value: 0x%X\n", value);
+	icnss_pr_vdbg1("SMP2P sent value: 0x%X\n", value);
 	return ret;
 }
 EXPORT_SYMBOL(icnss_exit_power_save);
@@ -3530,6 +3530,32 @@ out:
 	return ret;
 }
 
+static int icnss_smmu_fault_handler(struct iommu_domain *domain,
+				    struct device *dev, unsigned long iova,
+				    int flags, void *handler_token)
+{
+	struct icnss_priv *priv = handler_token;
+	struct icnss_uevent_fw_down_data fw_down_data = {0};
+
+	icnss_fatal_err("SMMU fault happened with IOVA 0x%lx\n", iova);
+
+	if (!priv) {
+		icnss_pr_err("priv is NULL\n");
+		return -ENODEV;
+	}
+
+	if (test_bit(ICNSS_FW_READY, &priv->state)) {
+		fw_down_data.crashed = true;
+		icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN,
+					 &fw_down_data);
+	}
+
+	icnss_trigger_recovery(&priv->pdev->dev);
+
+	/* IOMMU driver requires non-zero return value to print debug info. */
+	return -EINVAL;
+}
+
 static int icnss_smmu_dt_parse(struct icnss_priv *priv)
 {
 	int ret = 0;
@@ -3561,6 +3587,10 @@ static int icnss_smmu_dt_parse(struct icnss_priv *priv)
 		if (!ret && !strcmp("fastmap", iommu_dma_type)) {
 			icnss_pr_dbg("SMMU S1 stage enabled\n");
 			priv->smmu_s1_enable = true;
+			if (priv->device_id == WCN6750_DEVICE_ID)
+				iommu_set_fault_handler(priv->iommu_domain,
+						icnss_smmu_fault_handler,
+						priv);
 		}
 
 		res = platform_get_resource_byname(pdev,
@@ -3664,7 +3694,7 @@ static inline void  icnss_get_smp2p_info(struct icnss_priv *priv)
 					    "wlan-smp2p-out",
 					    &priv->smp2p_info.smem_bit);
 	if (IS_ERR(priv->smp2p_info.smem_state)) {
-		icnss_pr_dbg("Failed to get smem state %d",
+		icnss_pr_vdbg1("Failed to get smem state %d",
 			     PTR_ERR(priv->smp2p_info.smem_state));
 	}
 
@@ -3904,10 +3934,10 @@ static int icnss_pm_suspend(struct device *dev)
 				ICNSS_SMEM_VALUE_MASK,
 				value);
 			if (ret)
-				icnss_pr_dbg("Error in SMP2P sent ret: %d\n",
+				icnss_pr_vdbg1("Error in SMP2P sent ret: %d\n",
 					     ret);
 
-			icnss_pr_dbg("SMP2P sent value: 0x%X\n", value);
+			icnss_pr_vdbg1("SMP2P sent value: 0x%X\n", value);
 		}
 		priv->stats.pm_suspend++;
 		set_bit(ICNSS_PM_SUSPEND, &priv->state);
@@ -4042,9 +4072,9 @@ static int icnss_pm_runtime_suspend(struct device *dev)
 				ICNSS_SMEM_VALUE_MASK,
 				value);
 		if (ret)
-			icnss_pr_dbg("Error in SMP2P sent ret: %d\n", ret);
+			icnss_pr_vdbg1("Error in SMP2P sent ret: %d\n", ret);
 
-		icnss_pr_dbg("SMP2P sent value: 0x%X\n", value);
+		icnss_pr_vdbg1("SMP2P sent value: 0x%X\n", value);
 	}
 out:
 	return ret;

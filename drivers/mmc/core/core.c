@@ -3154,11 +3154,6 @@ void mmc_rescan(struct work_struct *work)
 	if (host->bus_ops && !host->bus_dead)
 		host->bus_ops->detect(host);
 
-#if defined(CONFIG_SDC_QTI)
-	if (host->corrupted_card)
-		return;
-#endif
-
 	host->detect_change = 0;
 
 	/*
@@ -3179,6 +3174,11 @@ void mmc_rescan(struct work_struct *work)
 	 * release the lock here.
 	 */
 	mmc_bus_put(host);
+
+#if defined(CONFIG_SDC_QTI)
+	if (host->corrupted_card)
+		goto out;
+#endif
 
 	mmc_claim_host(host);
 	if (mmc_card_is_removable(host) && host->ops->get_cd &&

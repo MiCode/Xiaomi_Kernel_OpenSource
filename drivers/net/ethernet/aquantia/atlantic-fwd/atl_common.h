@@ -20,7 +20,7 @@
 #include <linux/netdevice.h>
 #include <linux/moduleparam.h>
 
-#define ATL_VERSION "1.1.11"
+#define ATL_VERSION "1.1.15"
 
 struct atl_nic;
 
@@ -315,6 +315,7 @@ enum atl_priv_flags {
 	ATL_PF_STATS_RESET,
 	ATL_PF_STRIP_PAD,
 	ATL_PF_MEDIA_DETECT,
+	ATL_PF_DOWNSHIFT,
 };
 
 enum atl_priv_flag_bits {
@@ -339,9 +340,11 @@ enum atl_priv_flag_bits {
 
 	ATL_DEF_PF_BIT(STRIP_PAD),
 	ATL_DEF_PF_BIT(MEDIA_DETECT),
+	ATL_DEF_PF_BIT(DOWNSHIFT),
 
 	ATL_PF_RW_MASK = ATL_PF_LPB_MASK | ATL_PF_BIT(STATS_RESET) |
-		ATL_PF_BIT(STRIP_PAD) | ATL_PF_BIT(MEDIA_DETECT),
+		ATL_PF_BIT(STRIP_PAD) | ATL_PF_BIT(MEDIA_DETECT) |
+		ATL_PF_BIT(DOWNSHIFT),
 	ATL_PF_RO_MASK = ATL_PF_LPI_MASK,
 };
 
@@ -397,6 +400,7 @@ void atl_clear_tdm_cache(struct atl_nic *nic);
 int atl_alloc_rings(struct atl_nic *nic);
 void atl_free_rings(struct atl_nic *nic);
 irqreturn_t atl_ring_irq(int irq, void *priv);
+irqreturn_t atl_ptp_irq(int irq, void *private);
 void atl_ring_work(struct work_struct *work);
 void atl_start_hw_global(struct atl_nic *nic);
 int atl_intr_init(struct atl_nic *nic);

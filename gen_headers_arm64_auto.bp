@@ -639,6 +639,7 @@ gen_headers_out_arm64 = [
     "linux/zorro_ids.h",
     "linux/hab_ioctl.h",
     "linux/habmmid.h",
+    "linux/hgsl.h",
     "media/msm_cvp_private.h",
     "media/radio-iris-commands.h",
     "media/radio-iris.h",

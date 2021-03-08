@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SMB5_CHARGER_H
@@ -456,6 +456,7 @@ struct smb_charger {
 	struct votable		*limited_irq_disable_votable;
 	struct votable		*hdc_irq_disable_votable;
 	struct votable		*temp_change_irq_disable_votable;
+	struct votable		*bat_temp_irq_disable_votable;
 	struct votable		*qnovo_disable_votable;
 
 	/* work */
@@ -795,7 +796,7 @@ int smblib_set_prop_ship_mode(struct smb_charger *chg,
 				int val);
 int smblib_set_prop_rechg_soc_thresh(struct smb_charger *chg,
 				int val);
-void smblib_suspend_on_debug_battery(struct smb_charger *chg);
+void smblib_config_charger_on_debug_battery(struct smb_charger *chg);
 int smblib_rerun_apsd_if_required(struct smb_charger *chg);
 void smblib_rerun_apsd(struct smb_charger *chg);
 int smblib_get_prop_fcc_delta(struct smb_charger *chg,

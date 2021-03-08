@@ -2340,7 +2340,7 @@ static int smb5_determine_initial_status(struct smb5 *chip)
 	chg->early_usb_attach = val.intval;
 
 	if (chg->iio_chan_list_qg)
-		smblib_suspend_on_debug_battery(chg);
+		smblib_config_charger_on_debug_battery(chg);
 
 	smb5_usb_plugin_irq_handler(0, &irq_data);
 	smb5_dc_plugin_irq_handler(0, &irq_data);

@@ -1843,7 +1843,7 @@ static const struct msm_pingroup shima_groups[] = {
 	[203] = PINGROUP(203, NA, NA, NA, NA, NA, NA, NA, NA, NA,
 			 0, -1),
 	[204] = UFS_RESET(ufs_reset, 0x1db000),
-	[205] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1d0000, 15, 0),
+	[205] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1d0004, 0, 0),
 	[206] = SDC_QDSD_PINGROUP(sdc1_clk, 0x1d0000, 13, 6),
 	[207] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x1d0000, 11, 3),
 	[208] = SDC_QDSD_PINGROUP(sdc1_data, 0x1d0000, 9, 0),

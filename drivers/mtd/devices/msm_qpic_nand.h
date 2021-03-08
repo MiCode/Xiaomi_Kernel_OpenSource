@@ -270,7 +270,8 @@ struct msm_nand_chip {
 	uint32_t ecc_buf_cfg;
 	uint32_t ecc_bch_cfg;
 	uint32_t ecc_cfg_raw;
-	uint32_t qpic_version; /* To store the qpic controller version */
+	uint32_t qpic_version; /* To store the qpic controller major version */
+	uint16_t qpic_min_version; /* To store the qpic controller minor version */
 	uint32_t caps; /* General host capabilities */
 #define MSM_NAND_CAP_PAGE_SCOPE_READ   BIT(0)
 #define MSM_NAND_CAP_MULTI_PAGE_READ   BIT(1)

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/ipa_fmwk.h>
@@ -203,6 +203,14 @@ struct ipa_fmwk_contex {
 
 	int (*ipa_unregister_rmnet_ctl_cb)(void);
 
+	int (*ipa_add_hdr)(struct ipa_ioc_add_hdr *hdrs);
+
+	int (*ipa_del_hdr)(struct ipa_ioc_del_hdr *hdls);
+
+	int (*ipa_get_hdr)(struct ipa_ioc_get_hdr *lookup);
+
+	int (*ipa_deregister_intf)(const char *name);
+
 	/* ipa_usb APIs */
 	int (*ipa_usb_init_teth_prot)(enum ipa_usb_teth_prot teth_prot,
 		struct ipa_usb_teth_params *teth_params,
@@ -269,6 +277,23 @@ struct ipa_fmwk_contex {
 	int (*ipa_wdi_sw_stats)(struct ipa_wdi_tx_info *info);
 
 	int (*ipa_get_wdi_version)(void);
+
+	int (*ipa_enable_wdi_pipe)(u32 clnt_hdl);
+
+	int (*ipa_disable_wdi_pipe)(u32 clnt_hdl);
+
+	int (*ipa_resume_wdi_pipe)(u32 clnt_hdl);
+
+	int (*ipa_suspend_wdi_pipe)(u32 clnt_hdl);
+
+	int (*ipa_connect_wdi_pipe)(struct ipa_wdi_in_params *in,
+			struct ipa_wdi_out_params *out);
+
+	int (*ipa_disconnect_wdi_pipe)(u32 clnt_hdl);
+
+	int (*ipa_reg_uc_rdyCB)(struct ipa_wdi_uc_ready_params *param);
+
+	int (*ipa_dereg_uc_rdyCB)(void);
 
 	/* ipa_gsb APIs*/
 	int (*ipa_bridge_init)(struct ipa_bridge_init_params *params, u32 *hdl);
@@ -475,6 +500,10 @@ int ipa_fmwk_register_ipa(const struct ipa_core_data *in)
 	ipa_fmwk_ctx->ipa_add_rt_rule = in->ipa_add_rt_rule;
 	ipa_fmwk_ctx->ipa_put_rt_tbl = in->ipa_put_rt_tbl;
 	ipa_fmwk_ctx->ipa_register_intf = in->ipa_register_intf;
+	ipa_fmwk_ctx->ipa_deregister_intf = in->ipa_deregister_intf;
+	ipa_fmwk_ctx->ipa_add_hdr = in->ipa_add_hdr;
+	ipa_fmwk_ctx->ipa_del_hdr = in->ipa_del_hdr;
+	ipa_fmwk_ctx->ipa_get_hdr = in->ipa_get_hdr;
 	ipa_fmwk_ctx->ipa_set_aggr_mode = in->ipa_set_aggr_mode;
 	ipa_fmwk_ctx->ipa_set_qcncm_ndp_sig = in->ipa_set_qcncm_ndp_sig;
 	ipa_fmwk_ctx->ipa_set_single_ndp_per_mbim =
@@ -489,6 +518,14 @@ int ipa_fmwk_register_ipa(const struct ipa_core_data *in)
 	ipa_fmwk_ctx->ipa_unregister_rmnet_ctl_cb =
 		in->ipa_unregister_rmnet_ctl_cb;
 	ipa_fmwk_ctx->ipa_get_default_aggr_time_limit = in->ipa_get_default_aggr_time_limit;
+	ipa_fmwk_ctx->ipa_enable_wdi_pipe = in->ipa_enable_wdi_pipe;
+	ipa_fmwk_ctx->ipa_disable_wdi_pipe = in->ipa_disable_wdi_pipe;
+	ipa_fmwk_ctx->ipa_resume_wdi_pipe = in->ipa_resume_wdi_pipe;
+	ipa_fmwk_ctx->ipa_suspend_wdi_pipe = in->ipa_suspend_wdi_pipe;
+	ipa_fmwk_ctx->ipa_connect_wdi_pipe = in->ipa_connect_wdi_pipe;
+	ipa_fmwk_ctx->ipa_disconnect_wdi_pipe = in->ipa_disconnect_wdi_pipe;
+	ipa_fmwk_ctx->ipa_reg_uc_rdyCB = in->ipa_uc_reg_rdyCB;
+	ipa_fmwk_ctx->ipa_dereg_uc_rdyCB = in->ipa_uc_dereg_rdyCB;
 
 	ipa_fmwk_ctx->ipa_ready = true;
 	ipa_trigger_ipa_ready_cbs();
@@ -792,6 +829,46 @@ int ipa_register_intf(const char *name,
 	return ret;
 }
 EXPORT_SYMBOL(ipa_register_intf);
+
+int ipa_deregister_intf(const char *name)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_deregister_intf, name);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_deregister_intf);
+
+int ipa_add_hdr(struct ipa_ioc_add_hdr *hdrs)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_add_hdr, hdrs);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_add_hdr);
+
+int ipa_del_hdr(struct ipa_ioc_del_hdr *hdls)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_del_hdr, hdls);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_del_hdr);
+
+int ipa_get_hdr(struct ipa_ioc_get_hdr *lookup)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_get_hdr, lookup);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_hdr);
 
 int ipa_set_aggr_mode(enum ipa_aggr_mode mode)
 {
@@ -1211,6 +1288,87 @@ int ipa_get_wdi_version(void)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_get_wdi_version);
+
+int ipa_enable_wdi_pipe(u32 clnt_hdl)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_enable_wdi_pipe, clnt_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_enable_wdi_pipe);
+
+int ipa_disable_wdi_pipe(u32 clnt_hdl)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_disable_wdi_pipe, clnt_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_disable_wdi_pipe);
+
+int ipa_resume_wdi_pipe(u32 clnt_hdl)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_resume_wdi_pipe, clnt_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_resume_wdi_pipe);
+
+int ipa_suspend_wdi_pipe(u32 clnt_hdl)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_suspend_wdi_pipe, clnt_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_suspend_wdi_pipe);
+
+int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
+		struct ipa_wdi_out_params *out)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_connect_wdi_pipe, in, out);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_connect_wdi_pipe);
+
+int ipa_disconnect_wdi_pipe(u32 clnt_hdl)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_disconnect_wdi_pipe, clnt_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_disconnect_wdi_pipe);
+
+int ipa_reg_uc_rdyCB(struct ipa_wdi_uc_ready_params *param)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_reg_uc_rdyCB, param);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_reg_uc_rdyCB);
+
+int ipa_dereg_uc_rdyCB(void)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_dereg_uc_rdyCB);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_dereg_uc_rdyCB);
 
 int ipa_wdi_bw_monitor(struct ipa_wdi_bw_info *info)
 {

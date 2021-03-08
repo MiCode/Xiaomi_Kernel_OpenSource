@@ -2888,6 +2888,14 @@ int mhi_dev_read_channel(struct mhi_req *mreq)
 	mutex_lock(&ch->ch_lock);
 
 	do {
+		if (ch->state == MHI_DEV_CH_STOPPED) {
+			mhi_log(MHI_MSG_VERBOSE,
+				"channel (%d) already stopped\n",
+				mreq->chan);
+			bytes_read = -1;
+			goto exit;
+		}
+
 		el = &ring->ring_cache[ring->rd_offset];
 		mhi_log(MHI_MSG_VERBOSE, "evtptr : 0x%llx\n",
 						el->tre.data_buf_ptr);
@@ -2909,13 +2917,6 @@ int mhi_dev_read_channel(struct mhi_req *mreq)
 				goto exit;
 			}
 
-			if (ch->state == MHI_DEV_CH_STOPPED) {
-				mhi_log(MHI_MSG_VERBOSE,
-					"channel (%d) already stopped\n",
-					mreq->chan);
-				bytes_read = -1;
-				goto exit;
-			}
 
 			ch->tre_loc = el->tre.data_buf_ptr;
 			ch->tre_size = el->tre.len;
