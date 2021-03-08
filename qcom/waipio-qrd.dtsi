@@ -48,6 +48,8 @@
 	pinctrl-1 = <&sdc2_off>;
 
 	cd-gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
+
+	status = "ok";
 };
 
 &qupv3_se5_i2c {
