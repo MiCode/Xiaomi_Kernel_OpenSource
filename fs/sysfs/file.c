@@ -15,7 +15,9 @@
 #include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/seq_file.h>
+#ifndef __GENKSYMS__
 #include <linux/mm.h>
+#endif
 
 #include "sysfs.h"
 #include "../kernfs/kernfs-internal.h"
