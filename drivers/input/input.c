@@ -2,6 +2,7 @@
  * The input core
  *
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 /*

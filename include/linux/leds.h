@@ -2,6 +2,7 @@
  * Driver model for leds and led triggers
  *
  * Copyright (C) 2005 John Lenz <lenz@cs.wisc.edu>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2005 Richard Purdie <rpurdie@openedhand.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -37,6 +38,7 @@ struct led_classdev {
 	const char		*name;
 	enum led_brightness	 brightness;
 	enum led_brightness	 max_brightness;
+	enum led_brightness	 usr_brightness_req;
 	int			 flags;
 
 	/* Lower 16 bits reflect status */

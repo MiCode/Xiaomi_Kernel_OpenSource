@@ -3,6 +3,7 @@
  * Android IPC Subsystem
  *
  * Copyright (C) 2007-2008 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -71,7 +72,6 @@
 #include <linux/security.h>
 #include <linux/spinlock.h>
 #include <linux/ratelimit.h>
-
 #include <uapi/linux/android/binder.h>
 #include <uapi/linux/sched/types.h>
 
@@ -237,7 +237,7 @@ static struct binder_transaction_log_entry *binder_transaction_log_add(
 struct binder_work {
 	struct list_head entry;
 
-	enum {
+	enum binder_work_type {
 		BINDER_WORK_TRANSACTION = 1,
 		BINDER_WORK_TRANSACTION_COMPLETE,
 		BINDER_WORK_RETURN_ERROR,
@@ -894,27 +894,6 @@ static struct binder_work *binder_dequeue_work_head_ilocked(
 	w = list_first_entry_or_null(list, struct binder_work, entry);
 	if (w)
 		list_del_init(&w->entry);
-	return w;
-}
-
-/**
- * binder_dequeue_work_head() - Dequeues the item at head of list
- * @proc:         binder_proc associated with list
- * @list:         list to dequeue head
- *
- * Removes the head of the list if there are items on the list
- *
- * Return: pointer dequeued binder_work, NULL if list was empty
- */
-static struct binder_work *binder_dequeue_work_head(
-					struct binder_proc *proc,
-					struct list_head *list)
-{
-	struct binder_work *w;
-
-	binder_inner_proc_lock(proc);
-	w = binder_dequeue_work_head_ilocked(list);
-	binder_inner_proc_unlock(proc);
 	return w;
 }
 
@@ -2837,6 +2816,35 @@ static int binder_fixup_parent(struct binder_transaction *t,
 	return 0;
 }
 
+#ifdef CONFIG_BINDER_OPT
+static inline void binder_thread_set_inherit_top_app(
+		struct binder_thread *thread, struct binder_thread *from)
+{
+	if (from && is_critical_task(from->task)) {
+		set_inherit_top_app(thread->task, from->task);
+	}
+}
+
+static inline void binder_thread_restore_inherit_top_app(struct binder_thread *thread)
+{
+	if (thread) {
+		restore_inherit_top_app(thread->task);
+	}
+}
+#else
+static inline void binder_thread_set_inherit_top_app(
+		struct binder_thread *thread, struct binder_thread *from)
+{
+	// Do nothing.
+}
+
+static inline void binder_thread_restore_inherit_top_app(struct binder_thread *thread)
+{
+	// Do nothing.
+}
+
+#endif
+
 /**
  * binder_proc_transaction() - sends a transaction to a process and wakes it up
  * @t:		transaction to send
@@ -2889,6 +2897,9 @@ static bool binder_proc_transaction(struct binder_transaction *t,
 		thread = binder_select_thread_ilocked(proc);
 
 	if (thread) {
+	    if (!oneway) {
+    			binder_thread_set_inherit_top_app(thread, t->from);
+    	}
 		binder_transaction_priority(thread->task, t, node_prio,
 					    node->inherit_rt);
 		binder_enqueue_thread_work_ilocked(thread, &t->work);
@@ -3537,6 +3548,7 @@ static void binder_transaction(struct binder_proc *proc,
 		}
 #endif
 		wake_up_interruptible_sync(&target_thread->wait);
+		binder_thread_restore_inherit_top_app(thread);
 		binder_restore_priority(current, in_reply_to->saved_priority);
 		binder_free_transaction(in_reply_to);
 	} else if (!(t->flags & TF_ONE_WAY)) {
@@ -4573,13 +4585,17 @@ static void binder_release_work(struct binder_proc *proc,
 				struct list_head *list)
 {
 	struct binder_work *w;
+	enum binder_work_type wtype;
 
 	while (1) {
-		w = binder_dequeue_work_head(proc, list);
+		binder_inner_proc_lock(proc);
+		w = binder_dequeue_work_head_ilocked(list);
+		wtype = w ? w->type : 0;
+		binder_inner_proc_unlock(proc);
 		if (!w)
 			return;
 
-		switch (w->type) {
+		switch (wtype) {
 		case BINDER_WORK_TRANSACTION: {
 			struct binder_transaction *t;
 
@@ -4613,9 +4629,11 @@ static void binder_release_work(struct binder_proc *proc,
 			kfree(death);
 			binder_stats_deleted(BINDER_STAT_DEATH);
 		} break;
+		case BINDER_WORK_NODE:
+			break;
 		default:
 			pr_err("unexpected work type, %d, not freed\n",
-			       w->type);
+			       wtype);
 			break;
 		}
 	}

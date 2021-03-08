@@ -3,6 +3,7 @@
  *	    for Non-CPU Devices.
  *
  * Copyright (C) 2011 Samsung Electronics
+ * Copyright (C) 2021 XiaoMi, Inc.
  *	MyungJoo Ham <myungjoo.ham@samsung.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -173,7 +174,6 @@ struct devfreq {
 	unsigned int *trans_table;
 	unsigned long *time_in_state;
 	unsigned long last_stat_updated;
-
 	struct srcu_notifier_head transition_notifier_list;
 	bool dev_suspended;
 };

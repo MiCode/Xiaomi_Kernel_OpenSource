@@ -1,0 +1,173 @@
+* MSM Subsystem Power Manager (spm-v2)
+
+S4 generation of MSMs have SPM hardware blocks to control the Application
+Processor Sub-System power. These SPM blocks run individual state machine
+to determine what the core (L2 or Krait/Scorpion) would do when the WFI
+instruction is executed by the core. The SAW hardware block handles SPM and
+AVS functionality for the cores.
+
+The devicetree representation of the SPM block should be:
+
+Required properties
+
+- compatible: "qcom,spm-v2"
+- reg: The physical address and the size of the SPM's memory mapped registers
+- qcom,cpu: phandle for the CPU that the SPM block is attached to.  This field
+is required on only for SPMs that control the CPU. This field is not required
+for SPMs that control L2/CCI/L3
+- qcom,saw2-ver-reg: The location of the version register
+- qcom,name: The name with which a SPM device is identified by the power
+management code.
+
+----------------------------------------------------
+Non-PSCI targets should follow the rules shown below
+----------------------------------------------------
+Required properties for only Non-PSCI targets:
+
+- qcom,saw2-cfg: SAW2 configuration register
+- qcom,saw2-spm-ctl: The SPM control register
+- qcom,saw2-spm-dly: Provides the values for the SPM delay command in the SPM
+	sequence
+
+Optional properties for only Non-PSCI targets
+- reg-names: Register names for the physical address required if spm device
+        has more than one physical addressed to be mapped. Allowed register
+        names are: "saw-base", "q2s", "hw-flush", "slpreq"
+- qcom,saw2-avs-ctl: The AVS control register
+- qcom,saw2-avs-hysterisis: The AVS hysterisis register to delay the AVS
+	controller requests
+- qcom,vctl-timeout-us: The timeout value in us to wait for voltage to change
+	after sending the voltage command to the PMIC
+- qcom,saw2-avs-limit: The AVS limit register
+- qcom,saw2-avs-dly: The AVS delay register is used to specify the delay values
+	between AVS controller requests
+- qcom,saw2-pmic-data0..7: Specify the pmic data value and the associated FTS
+	index to send the PMIC data to
+- qcom,vctl-port: The PVC (PMIC Virtual Channel) port used for changing
+	voltage
+- qcom,vctl-port-ub: The PVC (PMIC Virtual Channel) port used for changing
+	voltage
+- qcom,phase-port: The PVC port used for changing the number of phases
+- qcom,pfm-port: The PVC port used for enabling PWM/PFM modes
+- qcom,cpu-vctl-mask: Mask of cpus, whose voltage the spm device can control.
+	Depricated: Replaced with cpu-vctl-list when cpu phandles are available.
+- qcom,cpu-vctl-list: List of cpu node phandles, whose voltage the spm device
+	can control.
+- qcom,use-qchannel-for-pc: Boolean property to specify if qchannel should be
+	ignored when entering power collapse. If this property is set qchannel
+	will not be ignored in power collapse.
+- qcom,supports-rpm-hs: Indicates that this SPM instance allow handshake with
+RPM processor when executing the sleep command in the SPM sequence. Supported
+only on SAW2 v3.0 and above.
+- qcom,use-spm-clock-gating: This boolean property is used to indicate that
+	the SPM needs to be used for clock gating. Using the SPM for clock
+	gating would result in auto clock gating being disabled. Use this on
+	targets that do not support or do not use auto clock gating.
+- qcom,use-qchannel-for-wfi: This boolean property is used to indicate
+	that the SPM gets triggerd by the qchannel and not by means of
+	wfi. So a wfe could trigger a spm for clock gating as well.
+- modes: Lists all the available low power modes for the device
+
+Second level properties for modes
+
+Required properties (if modes node is available)
+- qcom,label: Specifies the mode name such as:
+            qcom,saw2-spm-cmd-wfi: WFI mode
+            qcom,saw2-spm-cmd-ret: Retention mode
+            qcom,saw2-spm-cmd-spc: Standalone PC mode
+            qcom,saw2-spm-cmd-pc: Power Collapse mode
+            qcom,saw2-spm-cmd-gdhs: GDHS mode
+- qcom,sequence: Specifies sequence for the low power mode
+Optional properties
+- qcom,pc_mode: Specifies pc_mode bit should be set in the SPM control register
+- qcom,ret_mode: Specifies ret_mode bit should be set in the SPM control register
+- qcom,spm_en: Specifies spm_en bit should be set in the SPM control register
+- qcom,isar: Specifies isar bit should be set in the SPM control register
+	Specify this property only if SPM should retain its start address at
+	the end of the program.
+- qcom,slp_cmd_mode: Specifies slp_cmd_mode bit should be set in SPM control register.
+	Adding this property results in SPM handshaking with RPM. Please remove
+	the RPM handshake command from the sleep sequence, replace that with
+	Sleep without RPM handshake command.
+- qcom,event_sync: Specifies event_sync byte should be set in SPM control
+	register.
+
+----------------------------------------------------
+PSCI targets should follow the rules shown below
+----------------------------------------------------
+Optional properties for only PSCI targets:
+
+- qcom,saw2-avs-ctl: The AVS control register
+- qcom,saw2-avs-hysterisis: The AVS hysterisis register to delay the AVS
+	controller requests
+- qcom,vctl-timeout-us: The timeout value in us to wait for voltage to change
+	after sending the voltage command to the PMIC
+- qcom,saw2-avs-limit: The AVS limit register
+- qcom,saw2-avs-dly: The AVS delay register is used to specify the delay values
+	between AVS controller requests
+- qcom,vctl-port: The PVC (PMIC Virtual Channel) port used for changing
+	voltage
+- qcom,vctl-port-ub: The PVC (PMIC Virtual Channel) port used for changing
+	voltage
+- qcom,phase-port: The PVC port used for changing the number of phases
+- qcom,pfm-port: The PVC port used for enabling PWM/PFM modes
+- qcom,cpu-vctl-list: List of cpu node phandles, whose voltage the spm device
+	can control.
+
+
+Example 1:
+	qcom,spm@f9089000 {
+		compatible = "qcom,spm-v2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0xf9089000 0x1000>;
+		qcom,cpu = <&CPU0>;
+		qcom,saw2-ver-reg = <0xfd0>;
+		qcom,saw2-cfg = <0x1b>;
+		qcom,saw2-avs-ctl = <0>;
+		qcom,saw2-avs-hysteresis = <0>;
+		qcom,saw2-avs-limit = <0>;
+		qcom,saw2-avs-dly= <0>;
+		qcom,saw2-spm-dly= <0x20000400>;
+		qcom,saw2-spm-ctl = <0x1>;
+		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,mode0 {
+			qcom,label = "qcom,saw2-spm-cmd-wfi";
+			qcom,sequence = [03 0b 0f];
+			qcom,spm_en;
+		};
+
+		qcom,mode1 {
+			qcom,label = "qcom,saw2-spm-cmd-spc";
+			qcom,sequence = [00 20 50 80 60 70 10 92
+				a0 b0 03 68 70 3b 92 a0 b0
+				82 2b 50 10 30 02 22 30 0f];
+			qcom,spm_en;
+			qcom,pc_mode;
+		};
+
+		qcom,mode2 {
+			qcom,label = "qcom,saw2-spm-cmd-pc";
+			qcom,sequence = [00 20 10 92 a0 b0 07 3b 92
+				a0 b0 82 10 30 02 22 30 0f];
+			qcom,spm_en;
+			qcom,pc_mode;
+		};
+	};
+
+Example 2:
+	qcom,spm@9A10000 {
+		compatible = "qcom,spm-v2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x9A10000 0x1000>;
+		qcom,name = "system-cbf"; /* CBF SAW */
+		qcom,saw2-ver-reg = <0xFD0>;
+		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,vctl-timeout-us = <50>;
+		qcom,vctl-port = <0x0>;
+		qcom,phase-port = <0x1>;
+		qcom,saw2-avs-ctl = <0x1100>;
+		qcom,pfm-port = <0x2>;
+};
+

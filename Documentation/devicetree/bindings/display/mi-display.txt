@@ -1,0 +1,53 @@
+xiaomi mi-display
+==========================================
+
+Required properties:
+- mi,feature-enabled:                 Boolean to enable xiaomi display features.
+
+Optional properties:
+- mi,mdss-dsi-bl-dcs-big-endian-type: Boolean to indicate that backlight brightness dcs command sent high byte to 1st parameter, low byte to 2st parameter
+- mi,mdss-panel-on-dimming-delay:     A 32 bit value specifies the panel backlight dimming in millisecond(ms).
+- mi,esd-err-irq-gpio:                A gpio binding to esd error
+
+- mi,mdss-dsi-doze-hbm-command:       An optional byte stream to request AOD high brightness mode on a panel
+- mi,mdss-dsi-doze-hbm-command-state: String that specifies the ctrl state for setting the panel power mode.
+                                          "dsi_lp_mode" = DSI low power mode
+                                          "dsi_hs_mode" = DSI high speed mode
+- mi,mdss-dsi-doze-lbh-command:       An optional byte stream to request AOD low brightness mode on a panel
+- mi,mdss-dsi-doze-lbh-command-state: String that specifies the ctrl state for setting the panel power mode.
+                                          "dsi_lp_mode" = DSI low power mode
+                                          "dsi_hs_mode" = DSI high speed mode
+
+Example:
+&mdss_mdp {
+	dsi_j2_38_0c_0a_dsc_cmd: qcom,mdss_dsi_j2_38_0c_0a_dsc_cmd {
+	...
+		mi,feature-enabled;
+		mi,mdss-dsi-bl-dcs-big-endian-type;
+		mi,mdss-panel-on-dimming-delay = <120>;
+		/* IRQF_ONESHOT | IRQF_TRIGGER_RISING */
+		mi,esd-err-irq-gpio = <&tlmm 27 0x2001>;
+
+		qcom,mdss-dsi-display-timings {
+			timing@0{
+				mi,mdss-dsi-doze-hbm-command = [
+					/* AOD Mode Brightness 60nit */
+					15 00 00 00 00 00 02 FE 72
+					15 01 00 00 00 00 02 69 FF
+					/* Enter AOD mode */
+					15 00 00 00 00 00 02 FE 00
+					15 01 00 00 00 00 02 39 00];
+				mi,mdss-dsi-doze-hbm-command-state = "dsi_lp_mode";
+
+				mi,mdss-dsi-doze-lbh-command = [
+					/* AOD Mode Brightness 5nit */
+					15 00 00 00 00 00 02 FE 72
+					15 01 00 00 00 00 02 69 15
+					/* Enter AOD mode */
+					15 00 00 00 00 00 02 FE 00
+					15 01 00 00 00 00 02 39 00];
+				mi,mdss-dsi-doze-lbh-command-state = "dsi_lp_mode";
+			};
+		};
+	};
+};

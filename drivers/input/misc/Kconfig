@@ -885,4 +885,6 @@ config INPUT_SC27XX_VIBRA
 	  To compile this driver as a module, choose M here. The module will
 	  be called sc27xx_vibra.
 
+source "drivers/input/misc/aw8697_haptic/Kconfig"
+
 endif

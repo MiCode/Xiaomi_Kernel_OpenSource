@@ -1,0 +1,14 @@
+===============================================================================
+QTI Limits cdsp isense driver:
+===============================================================================
+Limits cdsp isense driver reads cdsp isense calibration data from shared memory
+and enables sysfs file support to access the data read from shared memory.
+
+Required Parameters:
+- compatible: must be 'qcom,msm-limits-cdsp' for limits cdsp isense driver.
+
+Optional Parameters:
+
+		lmh_isense_cdsp {
+			compatible = "qcom,msm-limits-cdsp";
+		};

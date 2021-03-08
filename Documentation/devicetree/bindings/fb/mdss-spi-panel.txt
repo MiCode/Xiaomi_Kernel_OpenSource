@@ -1,0 +1,204 @@
+Qualcomm Technologies, Inc. mdss-spi-panel
+
+mdss-spi-panel is a spi panel device which supports panels that
+are compatible with display serial interface specification.
+
+Required properties:
+- qcom,mdss-spi-panel-controller:	Specifies the phandle for the SPI controller that
+					this panel will be mapped to.
+- qcom,mdss-spi-panel-width:		Specifies panel width in pixels.
+- qcom,mdss-spi-panel-height:		Specifies panel height in pixels.
+- qcom,mdss-spi-bpp:			Specifies the panel bits per pixels.
+					3  = for rgb111
+					8  = for rgb332
+					12 = for rgb444
+					16 = for rgb565
+					18 = for rgb666
+					24 = for rgb888
+- qcom,mdss-spi-panel-destination:	A string that specifies the destination display for the panel.
+					"display_1" = DISPLAY_1
+					"display_2" = DISPLAY_2
+- qcom,mdss-spi-on-command:		A byte stream formed by multiple packets
+					byte 0: wait number of specified ms after command
+						 transmitted
+					byte 1: 8 bits length in network byte order
+					byte 3 and beyond: number byte of payload
+- qcom,mdss-spi-off-command:		A byte stream formed by multiple packets
+					byte 0: wait number of specified ms after command
+						 transmitted
+					byte 1: 8 bits length in network byte order
+					byte 3 and beyond: number byte of payload
+Optional properties:
+- qcom,mdss-spi-panel-name:		A string used as a descriptive name of the panel
+- qcom,cont-splash-enabled:		Boolean used to enable continuous splash mode.
+					If this property is specified, it is required to
+					to specify the memory reserved for the splash
+					screen using the qcom,memblock-reserve binding
+					for the framebuffer device attached to the panel.
+- qcom,mdss-spi-h-back-porch:		Horizontal back porch value in pixels.
+					6 = default value.
+- qcom,mdss-spi-h-front-porch:		Horizontal front porch value in pixels.
+					6 = default value.
+- qcom,mdss-spi-h-pulse-width:		Horizontal pulse width.
+					2 = default value.
+- qcom,mdss-spi-h-sync-skew:		Horizontal sync skew value.
+					0 = default value.
+- qcom,mdss-spi-v-back-porch:		Vertical back porch value in pixels.
+					6 = default value.
+- qcom,mdss-spi-v-front-porch:		Vertical front porch value in pixels.
+					6 = default value.
+- qcom,mdss-spi-v-pulse-width:		Vertical pulse width.
+					2 = default value.
+- qcom,mdss-spi-bl-pmic-control-type:	A string that specifies the implementation of backlight
+					control for this panel.
+					"bl_ctrl_pwm" = Backlight controlled by PWM gpio.
+					"bl_ctrl_wled" = Backlight controlled by WLED.
+					other: Unknown backlight control. (default)
+- qcom,mdss-spi-bl-min-level:		Specifies the min backlight level supported by the panel.
+					0 = default value.
+- qcom,mdss-spi-bl-max-level:		Specifies the max backlight level supported by the panel.
+					255 = default value.
+- qcom,mdss-spi-panel-framerate:	Specifies the frame rate for the panel.
+- qcom,mdss-spi-panel-vsync-per-te:	Specifies the number of how many TE will trigger a VSYNC.
+- qcom,esd-check-enabled:		Boolean used to enable ESD recovery feature.
+- qcom,mdss-spi-panel-status-check-mode:Specifies the panel status check method for ESD recovery.
+					"send_init_command" = Regardless of panel status, direct send the panel
+					initial code to recover panel status
+					"reg_read" = Reads panel status register to check the panel status
+- qcom,mdss-spi-panel-status-reg:	Unsigned 8bits integer value that specifies the value of panel status register address.
+- qcom,mdss-spi-panel-status-read-length:
+					Unsigned 8bits integer value that specifies the expected read-back length of the
+					panel register.
+- qcom,mdss-spi-panel-status-value:	An unsigned 8bits integer araray that specifies the values of the panel status register
+					which is used to check the panel status. The size of this array
+					is specified by qcom,mdss-dsi-panel-status-read-length.
+Example:
+&mdss_spi_display {
+	spi_gc9305_qvga_cmd: qcom,mdss_spi_gc9305_qvga_cmd {
+		qcom,mdss-spi-panel-name = "gc9305 qvga command mode spi panel";
+		qcom,mdss-spi-panel-destination = "display_1";
+		qcom,mdss-spi-panel-controller = <&mdss_spi>;
+		qcom,mdss-spi-panel-framerate = <30>;
+		qcom,mdss-spi-panel-width = <240>;
+		qcom,mdss-spi-panel-height = <320>;
+		qcom,mdss-spi-h-front-porch = <79>;
+		qcom,mdss-spi-h-back-porch = <59>;
+		qcom,mdss-spi-h-pulse-width = <60>;
+		qcom,mdss-spi-v-back-porch = <10>;
+		qcom,mdss-spi-v-front-porch = <7>;
+		qcom,mdss-spi-v-pulse-width = <2>;
+		qcom,mdss-spi-h-left-border = <0>;
+		qcom,mdss-spi-h-right-border = <0>;
+		qcom,mdss-spi-v-top-border = <0>;
+		qcom,mdss-spi-v-bottom-border = <0>;
+		qcom,mdss-spi-bpp = <16>;
+		qcom,mdss-spi-on-command = [00 01 FE
+			00 01 EF
+			00 02 36 48
+			00 02 3A 05
+			00 02 35 00
+			00 03 A4 44 44
+			00 03 A5 42 42
+			00 03 AA 88 88
+			00 03 E8 12 40
+			00 03 E3 01 10
+			00 02 FF 61
+			00 02 AC 00
+			00 03 A6 2A 2A
+			00 03 A7 2B 2B
+			00 03 A8 18 18
+			00 03 A9 2A 2A
+			00 02 AD 33
+			00 02 AF 55
+			00 02 AE 2B
+			00 05 2A 00 00 00 EF
+			00 05 2B 00 00 01 3F
+			00 01 2C
+			00 07 F0 02 02 00 08 0C 10
+			00 07 F1 01 00 00 14 1D 0E
+			00 07 F2 10 09 37 04 04 48
+			00 07 F3 10 0B 3F 05 05 4E
+			00 07 F4 0D 19 17 1D 1E 0F
+			00 07 F5 06 12 13 1A 1B 0F
+			78 01 11
+			00 01 29
+			00 01 2C];
+		qcom,mdss-spi-off-command = [20 01 28
+			20 01 10];
+		qcom,mdss-spi-bl-min-level = <1>;
+		qcom,mdss-spi-bl-max-level = <4095>;
+		qcom,esd-check-enabled;
+		qcom,mdss-spi-panel-status-check-mode = "reg_read";
+		qcom,mdss-spi-panel-status-reg = /bits/ 8 <0x09>;
+		qcom,mdss-spi-panel-status-read-length = <4>;
+		qcom,mdss-spi-panel-status-value = /bits/ 8 <0x52 0x29 0x83 0x00>;
+	};
+};
+
+mdss-spi-panel is a SPI interface panel which uses SPI protocol for data
+receive and send.
+
+Required properties:
+- compatible: Must be "qcom,mdss-spi-panel"
+- vdd-supply: Phandle for vdd regulator device node.
+- vddio-supply: Phandle for vdd-io regulator device node.
+- qcom,panel-supply-entries: A node that lists the elements of the supply used to
+			    power the DSI panel. There can be more than one instance
+			    of this binding, in which case the entry would be appended
+			    with the supply entry index. For a detailed description of
+			    fields in the supply entry, refer to the qcom,ctrl-supply-entries
+			    binding above.
+
+Optional properties:
+- pwms:
+    Value type: <prop-encoded-array>
+    Definition: The PWM device (phandle) used for controlling backlight.
+- qcom,platform-spi-dc-gpio: Pull down this gpio indicate current package is command,
+        Pull up this gpio indicate current package is parameter or pixels.
+- qcom,platform-reset-gpio:             Specifies the panel reset gpio.
+- qcom,platform-te-gpio:                Specifies the gpio used for TE.
+- label: A string used to describe the controller used.
+	-- qcom,supply-name: name of the supply (vdd/vdda/vddio)
+	-- qcom,supply-min-voltage: minimum voltage level (uV)
+	-- qcom,supply-max-voltage: maximum voltage level (uV)
+	-- qcom,supply-enable-load: load drawn (uA) from enabled supply
+	-- qcom,supply-disable-load: load drawn (uA) from disabled supply
+	-- qcom,supply-pre-on-sleep: time to sleep (ms) before turning on
+	-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
+	-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
+	-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
+Example:
+	mdss_spi_panel: qcom,mdss_spi_panel {
+		compatible = "qcom,mdss-spi-panel";
+		label = "mdss spi panel";
+
+		vdd-supply = <&pms405_l1>;
+		vddio-supply = <&pms405_l6>;
+		qcom,platform-te-gpio = <&tlmm 57 0>;
+		qcom,platform-reset-gpio = <&tlmm 42 0>;
+		qcom,platform-spi-dc-gpio = <&tlmm 39 0>;
+		pwms = <&pms405_l1 0 1000000>;
+
+		qcom,panel-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,panel-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdd";
+				qcom,supply-min-voltage = <2850000>;
+				qcom,supply-max-voltage = <2850000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+			};
+
+			qcom,panel-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+			};
+		};
+	};

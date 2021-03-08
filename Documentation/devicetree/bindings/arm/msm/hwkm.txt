@@ -1,0 +1,28 @@
+HWKM (Hardware Key Manager)
+
+The HWKM driver is a platform device driver that helps
+communicating with both the master and slave blocks of the
+hardware key manager to issue commands to perform key operations
+mainly required for storage encryption.
+
+Required properties:
+- compatible : Should be "qcom,hwkm".
+- reg: Register set for both master and slaves.
+- reg-names : Identifiers for parsing master and slave regs.
+- clocks : clocks needed for operating master and the slave.
+- clock-names : name identifiers corresponding to the clocks.
+- qcom,enable-hwkm-clk: to ensure clocks can be handled by HLOS.
+- qcom,op-freq-hz: Max frequency of the listed clocks.
+
+Example:
+
+	qcom_hwkm: hwkm@10c0000 {
+		compatible = "qcom,hwkm";
+		reg = <0x10c0000 0x9000>, <0x1d90000 0x9000>;
+		reg-names = "km_master", "ice_slave";
+		qcom,enable-hwkm-clk;
+
+		clock-names = "km_clk_src";
+		clocks = <&clock_rpmh RPMH_HWKM_CLK>;
+		qcom,op-freq-hz = <75000000>;
+	};

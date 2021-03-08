@@ -128,6 +128,11 @@ struct psi_trigger {
 	/* Task that created the trigger */
 	char comm[TASK_COMM_LEN];
 	struct timer_list wdog_timer;
+
+	/*
+	 * Stall time growth for the last event in ns.
+	 */
+	u64 last_event_growth;
 };
 
 struct psi_group {

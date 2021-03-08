@@ -1891,7 +1891,6 @@ static __latent_entropy struct task_struct *copy_process(
 		goto fork_out;
 
 	cpufreq_task_times_init(p);
-
 	/*
 	 * This _must_ happen before we call free_task(), i.e. before we jump
 	 * to any of the bad_fork_* labels. This is to avoid freeing
@@ -2019,6 +2018,10 @@ static __latent_entropy struct task_struct *copy_process(
 #ifdef CONFIG_BCACHE
 	p->sequential_io	= 0;
 	p->sequential_io_avg	= 0;
+#endif
+#ifdef CONFIG_KPERFEVENTS
+	rwlock_init(&p->kperfevents_lock);
+	p->kperfevents = NULL;
 #endif
 
 	/* Perform scheduler related setup. Assign this task to a CPU. */
@@ -2410,6 +2413,11 @@ long _do_fork(unsigned long clone_flags,
 		get_task_struct(p);
 	}
 
+	p->top_app = 0;
+	p->inherit_top_app = 0;
+#ifdef CONFIG_PERF_HUMANTASK
+        p->human_task = 0;
+#endif
 	wake_up_new_task(p);
 
 	/* forking complete and child started to run, tell ptracer */

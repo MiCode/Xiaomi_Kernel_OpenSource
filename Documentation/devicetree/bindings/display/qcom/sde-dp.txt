@@ -1,0 +1,237 @@
+Qualcomm Technologies, Inc.
+sde-dp is the master Display Port device which supports DP host controllers that are compatible with VESA Display Port interface specification.
+DP Controller: Required properties:
+- compatible:           Should be "qcom,dp-display".
+- reg:                  Base address and length of DP hardware's memory mapped regions.
+- reg-names:            A list of strings that name the list of regs. "dp_ctrl" - DP controller memory region.
+			"dp_phy" - DP PHY memory region.
+			"dp_ln_tx0" - USB3 DP PHY combo TX-0 lane memory region.
+			"dp_ln_tx1" - USB3 DP PHY combo TX-1 lane memory region.
+			"dp_mmss_cc" - Display Clock Control memory region.
+			"qfprom_physical" - QFPROM Phys memory region.
+			"dp_pll" - USB3 DP combo PLL memory region.
+			"usb3_dp_com" - USB3 DP PHY combo memory region.
+			"hdcp_physical" - DP HDCP memory region.
+- cell-index:           Specifies the controller instance.
+- clocks:               Clocks required for Display Port operation.
+- clock-names:          Names of the clocks corresponding to handles. Following clocks are required:
+			"core_aux_clk", "core_usb_ref_clk_src","core_usb_ref_clk", "core_usb_cfg_ahb_clk",
+			"core_usb_pipe_clk", "ctrl_link_clk", "ctrl_link_iface_clk", "ctrl_crypto_clk",
+			"ctrl_pixel_clk", "pixel_clk_rcg", "pixel_parent".
+- gdsc-supply:		phandle to gdsc regulator node.
+- vdda-1p2-supply:		phandle to vdda 1.2V regulator node.
+- vdda-0p9-supply:		phandle to vdda 0.9V regulator node.
+- interrupt-parent	phandle to the interrupt parent device node.
+- interrupts:		The interrupt signal from the DSI block.
+- qcom,aux-en-gpio:			Specifies the aux-channel enable gpio.
+- qcom,aux-sel-gpio:		Specifies the aux-channel select gpio.
+- qcom,usbplug-cc-gpio:		Specifies the usbplug orientation gpio.
+- qcom,aux-cfg0-settings:		Specifies the DP AUX configuration 0 settings. The first
+					entry in this array corresponds to the register offset
+					within DP AUX, while the remaining entries indicate the
+					programmable values.
+- qcom,aux-cfg1-settings:		Specifies the DP AUX configuration 1 settings. The first
+					entry in this array corresponds to the register offset
+					within DP AUX, while the remaining entries indicate the
+					programmable values.
+- qcom,aux-cfg2-settings:		Specifies the DP AUX configuration 2 settings. The first
+					entry in this array corresponds to the register offset
+					within DP AUX, while the remaining entries indicate the
+					programmable values.
+- qcom,aux-cfg3-settings:		Specifies the DP AUX configuration 3 settings. The first
+					entry in this array corresponds to the register offset
+					within DP AUX, while the remaining entries indicate the
+					programmable values.
+- qcom,aux-cfg4-settings:		Specifies the DP AUX configuration 4 settings. The first
+					entry in this array corresponds to the register offset
+					within DP AUX, while the remaining entries indicate the
+					programmable values.
+- qcom,aux-cfg5-settings:		Specifies the DP AUX configuration 5 settings. The first
+					entry in this array corresponds to the register offset
+					within DP AUX, while the remaining entries indicate the
+					programmable values.
+- qcom,aux-cfg6-settings:		Specifies the DP AUX configuration 6 settings. The first
+					entry in this array corresponds to the register offset
+					within DP AUX, while the remaining entries indicate the
+					programmable values.
+- qcom,aux-cfg7-settings:		Specifies the DP AUX configuration 7 settings. The first
+					entry in this array corresponds to the register offset
+					within DP AUX, while the remaining entries indicate the
+					programmable values.
+- qcom,aux-cfg8-settings:		Specifies the DP AUX configuration 8 settings. The first
+					entry in this array corresponds to the register offset
+					within DP AUX, while the remaining entries indicate the
+					programmable values.
+- qcom,aux-cfg9-settings:		Specifies the DP AUX configuration 9 settings. The first
+					entry in this array corresponds to the register offset
+					within DP AUX, while the remaining entries indicate the
+					programmable values.
+- qcom,max-pclk-frequency-khz:	An integer specifying the max. pixel clock in KHz supported by Display Port.
+- qcom,mst-enable:		MST feature enable control node.
+- qcom,dsc-feature-enable:	DSC feature enable control node.
+- qcom,fec-feature-enable:	FEC feature enable control node.
+- qcom,max-dp-dsc-blks:		An integer specifying the max. DSC blocks available for Display port.
+- qcom,max-dp-dsc-input-width-pixs: An integer specifying the max. input width of pixels for each DSC block.
+- qcom,dp-usbpd-detection:	Phandle for the PMI regulator node for USB PHY PD detection.
+- qcom,dp-aux-switch:		Phandle for the driver used to program the AUX switch for Display Port orientation.
+- qcom,dp-hpd-gpio:		HPD gpio for direct DP connector without USB PHY or AUX switch.
+- qcom,dp-gpio-aux-switch:      Gpio DP AUX switch chipset support.
+- qcom,<type>-supply-entries:		A node that lists the elements of the supply used by the a particular "type" of DSI module. The module "types"
+					can be "core", "ctrl", and "phy". Within the same type,
+					there can be more than one instance of this binding,
+					in which case the entry would be appended with the
+					supply entry index.
+					e.g. qcom,ctrl-supply-entry@0
+					-- qcom,supply-name: name of the supply (vdd/vdda/vddio)
+					-- qcom,supply-min-voltage: minimum voltage level (uV)
+					-- qcom,supply-max-voltage: maximum voltage level (uV)
+					-- qcom,supply-enable-load: load drawn (uA) from enabled supply
+					-- qcom,supply-disable-load: load drawn (uA) from disabled supply
+					-- qcom,supply-pre-on-sleep: time to sleep (ms) before turning on
+					-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
+					-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
+					-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
+
+msm_ext_disp is a device which manages the interaction between external
+display interfaces, e.g. Display Port, and the audio subsystem.
+
+Optional properties:
+- qcom,ext-disp:		phandle for msm-ext-display module
+- compatible:			Must be "qcom,msm-ext-disp"
+- qcom,dp-low-power-hw-hpd:	Low power hardware HPD feature enable control node
+- qcom,phy-version:		Phy version
+- qcom,pn-swap-lane-map:	P/N swap configuration of each lane
+- pinctrl-names:		List of names to assign mdss pin states defined in pinctrl device node
+				Refer to pinctrl-bindings.txt
+- pinctrl-<0..n>:		Lists phandles each pointing to the pin configuration node within a pin
+				controller. These pin configurations are installed in the pinctrl
+				device node. Refer to pinctrl-bindings.txt
+- qcom,max-lclk-frequency-khz:	An integer specifying the max. link clock in KHz supported by Display Port.
+- qcom,mst-fixed-topology-ports: u32 values of which MST output port to reserve, start from one
+
+[Optional child nodes]: These nodes are for devices which are
+dependent on msm_ext_disp. If msm_ext_disp is disabled then
+these devices will be disabled as well. Ex. Audio Codec device.
+
+- ext_disp_audio_codec: Node for Audio Codec.
+- compatible : "qcom,msm-ext-disp-audio-codec-rx";
+
+Example:
+	ext_disp: qcom,msm-ext-disp {
+		compatible = "qcom,msm-ext-disp";
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+		};
+	};
+
+	sde_dp: qcom,dp_display@0{
+		cell-index = <0>;
+		compatible = "qcom,dp-display";
+
+		gdsc-supply = <&mdss_core_gdsc>;
+		vdda-1p2-supply = <&pm8998_l26>;
+		vdda-0p9-supply = <&pm8998_l1>;
+
+		reg =	<0xae90000 0xa84>,
+			<0x88eaa00 0x200>,
+			<0x88ea200 0x200>,
+			<0x88ea600 0x200>,
+			<0xaf02000 0x1a0>,
+			<0x780000 0x621c>,
+			<0x88ea030 0x10>,
+			<0x88e8000 0x621c>,
+			<0x0aee1000 0x034>;
+		reg-names = "dp_ctrl", "dp_phy", "dp_ln_tx0", "dp_ln_tx1",
+			"dp_mmss_cc", "qfprom_physical", "dp_pll",
+			"usb3_dp_com", "hdcp_physical";
+
+		interrupt-parent = <&mdss_mdp>;
+		interrupts = <12 0>;
+
+		clocks =  <&clock_dispcc DISP_CC_MDSS_DP_AUX_CLK>,
+			 <&clock_rpmh RPMH_CXO_CLK>,
+			 <&clock_gcc GCC_USB3_PRIM_CLKREF_CLK>,
+			 <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>,
+			 <&clock_gcc GCC_USB3_PRIM_PHY_PIPE_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_LINK_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_LINK_INTF_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_CRYPTO_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK_SRC>,
+			 <&mdss_dp_pll DP_VCO_DIVIDED_CLK_SRC_MUX>;
+		clock-names = "core_aux_clk", "core_usb_ref_clk_src",
+			"core_usb_ref_clk", "core_usb_cfg_ahb_clk",
+			"core_usb_pipe_clk", "ctrl_link_clk",
+			"ctrl_link_iface_clk", "ctrl_crypto_clk",
+			"ctrl_pixel_clk", "pixel_clk_rcg", "pixel_parent";
+
+		qcom,dp-usbpd-detection = <&pm8150b_pdphy>;
+		qcom,ext-disp = <&ext_disp>;
+		qcom,phy-version = <0x420>;
+		qcom,dp-aux-switch = <&fsa4480>;
+
+		qcom,aux-cfg0-settings = [1c 00];
+		qcom,aux-cfg1-settings = [20 13 23 1d];
+		qcom,aux-cfg2-settings = [24 00];
+		qcom,aux-cfg3-settings = [28 00];
+		qcom,aux-cfg4-settings = [2c 0a];
+		qcom,aux-cfg5-settings = [30 26];
+		qcom,aux-cfg6-settings = [34 0a];
+		qcom,aux-cfg7-settings = [38 03];
+		qcom,aux-cfg8-settings = [3c bb];
+		qcom,aux-cfg9-settings = [40 03];
+		qcom,max-pclk-frequency-khz = <593470>;
+		qcom,mst-enable;
+		qcom,dsc-feature-enable;
+		qcom,fec-feature-enable;
+		qcom,max-dp-dsc-blks = <2>;
+		qcom,max-dp-dsc-input-width-pixs = <2048>;
+		pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
+		pinctrl-0 = <&sde_dp_aux_active &sde_dp_usbplug_cc_active>;
+		pinctrl-1 = <&sde_dp_aux_suspend &sde_dp_usbplug_cc_suspend>;
+		qcom,aux-en-gpio = <&tlmm 43 0>;
+		qcom,aux-sel-gpio = <&tlmm 51 0>;
+		qcom,usbplug-cc-gpio = <&tlmm 38 0>;
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+
+		qcom,ctrl-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,ctrl-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda-1p2";
+				qcom,supply-min-voltage = <1200000>;
+				qcom,supply-max-voltage = <1200000>;
+				qcom,supply-enable-load = <21800>;
+				qcom,supply-disable-load = <4>;
+			};
+		};
+
+		qcom,phy-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,phy-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda-0p9";
+				qcom,supply-min-voltage = <880000>;
+				qcom,supply-max-voltage = <880000>;
+				qcom,supply-enable-load = <36000>;
+				qcom,supply-disable-load = <32>;
+			};
+		};
+	};
+};

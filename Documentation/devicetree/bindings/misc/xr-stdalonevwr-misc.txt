@@ -1,0 +1,10 @@
+XR-STDALONEVWR-MISC provides a way to configure xrstdalonevwr-misc driver.
+
+Required properties:
+- compatible : should be "qcom,xr-stdalonevwr-misc"
+
+Optional properties:
+Example:
+	qcom,xr-stdalonevwr-misc {
+		compatible = "qcom,xr-stdalonevwr-misc";
+	};

@@ -1336,7 +1336,6 @@ again:
 		pte_t ptent = *pte;
 		if (pte_none(ptent))
 			continue;
-
 		if (need_resched())
 			break;
 

@@ -1,0 +1,78 @@
+Qualcomm Technologies, Inc. SPMI Debug Controller (PMIC Arbiter)
+
+The SPMI PMIC Arbiter is found on various QTI chips.  It is an SPMI controller
+with wrapping arbitration logic to allow for multiple on-chip devices to control
+a single SPMI master.
+
+The PMIC Arbiter debug bus is present starting at arbiter version 5.  It has
+read and write access to all PMIC peripherals regardless of ownership
+configurations.  It cannot be used on production devices because it is disabled
+by an eFuse.
+
+See spmi.txt for the generic SPMI controller binding requirements for child
+nodes.
+
+Supported Properties:
+
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: Must be "qcom,spmi-pmic-arb-debug".
+
+- reg
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: List of address and size pairs.  The address of the PMIC
+		    arbiter module is required.  The address of the debug bus
+		    disabling fuse is optional.
+
+- reg-names
+	Usage:      required
+	Value type: <stringlist>
+	Definition: Address names. Must include "core" for the PMIC arbiter
+		    module and may include "fuse" for the debug bus disabling
+		    fuse.  The strings must be specified in the same order as
+		    the corresponding addresses are specified in the reg
+		    property.
+
+- clocks
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Clock tuple consisting of a phandle to a clock controller
+		    device and the clock ID number for the SPMI debug controller
+		    clock.
+
+- clock-names
+	Usage:      required if clocks property is specified
+	Value type: <string>
+	Definition: Defines the name of the clock defined in the "clocks"
+		    property.  This must be "core_clk".
+
+- #address-cells
+	Usage:      required
+	Value type: <u32>
+	Definition: Must be 2.
+
+- #size-cells
+	Usage:      required
+	Value type: <u32>
+	Definition: Must be 0.
+
+- qcom,fuse-disable-bit
+	Usage:      required if "fuse" is listed in reg-names property
+	Value type: <u32>
+	Definition: The bit within the fuse register which is set when the debug
+		    bus is not available.  Supported values are 0 to 31.
+
+Example:
+
+qcom,spmi-debug@6b22000 {
+	compatible = "qcom,spmi-pmic-arb-debug";
+	reg = <0x6b22000 0x60>, <0x7820a8 4>;
+	reg-names = "core", "fuse";
+	clocks = <&clock_aop QDSS_CLK>;
+	clock-names = "core_clk";
+	qcom,fuse-disable-bit = <12>;
+	#address-cells = <2>;
+	#size-cells = <0>;
+};

@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note
+
+header-y += cam_cpas.h
+header-y += cam_defs.h
+header-y += cam_fd.h
+header-y += cam_icp.h
+header-y += cam_isp.h
+header-y += cam_isp_vfe.h
+header-y += cam_isp_ife.h
+header-y += cam_jpeg.h
+header-y += cam_req_mgr.h
+header-y += cam_sensor.h
+header-y += cam_sync.h
+header-y += cam_lrme.h

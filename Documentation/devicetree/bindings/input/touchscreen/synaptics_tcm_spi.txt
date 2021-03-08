@@ -1,0 +1,86 @@
+Synaptics TCM SPI touchscreen controller
+
+Required properties:
+ - compatible:
+		should be "synaptics,tcm-spi"
+ - reg:
+		should be 0
+ - spi-max-frequency:
+		maximum spi clock frequency
+ - interrupt-parent:
+		hardware controller of interrupt signal
+ - interrupts:
+		gpio number and flags of interrupt signal
+ - vdd-supply:
+		digital power source
+ - avdd-supply:
+		analog power source
+ - pinctrl-names:
+ - pinctrl-0:
+ - pinctrl-1:
+		should be defined if using pinctrl framework
+		"pmx_ts_active": active configuration of pins
+		"pmx_ts_suspend": disabled configuration of pins
+ - synaptics,bus-reg-name:
+		name of digital power source regulator
+ - synaptics,pwr-reg-name:
+		name of analog power source regulator
+ - synaptics,irq-gpio:
+		interrupt hardware controller, gpio number, and flags
+ - synaptics,irq-on-state:
+		active state of interrupt signal
+
+Optional properties:
+ - synaptics,spi-mode:
+		spi mode
+ - synaptics,byte-delay-us:
+		inter-byte delay time in us
+ - synaptics,block-delay-us:
+		inter-block delay time in us
+ - synaptics,power-gpio:
+		hardware controller and gpio number of power control signal
+ - synaptics,power-delay-ms:
+		delay time in ms after powering on device
+ - synaptics,reset-gpio:
+		hardware controller and gpio number of reset signal
+ - synaptics,reset-delay-ms:
+		delay time in ms after issuing reset to device
+ - synaptics,reset-on-state:
+		active state of reset signal
+ - synaptics,reset-active-ms:
+		active duration in ms of reset signal
+ - synaptics,x-flip:
+		flip x axis
+ - synaptics,y-flip:
+		flip y axis
+ - synaptics,swap-axes:
+		swap x and y axes
+ - synaptics,ubl-max-freq:
+		maximum spi clock frequency for microbootloader mode
+ - synaptics,ubl-byte-delay-us:
+		inter-byte delay time in us for microbootloader mode
+
+Example:
+	synaptics_tcm@0 {
+			compatible = "synaptics,tcm-spi";
+			reg = <0>;
+			spi-max-frequency = <10000000>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <65 0x2008>;
+			vdd-supply = <&pm8994_lvs2>;
+			avdd-supply = <&pm8994_l22>;
+			pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+			pinctrl-0 = <&ts_active>;
+			pinctrl-1 = <&ts_suspend>;
+			synaptics,bus-reg-name = "vdd";
+			synaptics,pwr-reg-name = "avdd";
+			synaptics,irq-gpio = <&msm_gpio 65 0x2008>;
+			synaptics,irq-on-state = <0>;
+			synaptics,spi-mode = <3>;
+			synaptics,byte-delay-us = <0>;
+			synaptics,block-delay-us = <0>;
+			synaptics,power-delay-ms = <200>;
+			synaptics,reset-delay-ms = <200>;
+			synaptics,ubl-max-freq = <5000000>;
+			synaptics,ubl-byte-delay-us = <20>;
+	};

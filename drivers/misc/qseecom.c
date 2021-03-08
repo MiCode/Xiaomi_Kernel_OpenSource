@@ -3,6 +3,7 @@
  * QTI Secure Execution Environment Communicator (QSEECOM) driver
  *
  * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "QSEECOM: %s: " fmt, __func__
@@ -506,6 +507,11 @@ static void __qseecom_free_tzbuf(struct qtee_shm *shm)
 {
 	qtee_shmbridge_free_shm(shm);
 }
+#ifdef CONFIG_DEBUG_FS
+extern void read_qseelog_wakeup(void);
+#elif CONFIG_MSM_TZ_LOG
+extern void read_qseelog_wakeup(void);
+#endif
 
 static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			const void *req_buf, void *resp_buf)
@@ -1166,6 +1172,11 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 		svc_id, tz_cmd_id, qseos_cmd_id, smc_id, desc.arginfo);
 	pr_debug("scm_resp->result = 0x%x, scm_resp->resp_type = 0x%x, scm_resp->data = 0x%x\n",
 		scm_resp->result, scm_resp->resp_type, scm_resp->data);
+#ifdef CONFIG_DEBUG_FS
+        read_qseelog_wakeup();
+#elif CONFIG_MSM_TZ_LOG
+        read_qseelog_wakeup();
+#endif
 	return ret;
 }
 
@@ -3037,8 +3048,8 @@ static int __qseecom_unload_app(struct qseecom_dev_handle *data,
 			sizeof(struct qseecom_unload_app_ireq),
 			&resp, sizeof(resp));
 	if (ret) {
-		pr_err("scm_call to unload app (id = %d) failed\n", app_id);
-		return -EFAULT;
+		pr_err("scm_call to unload app (id = %d) failed ret: %d\n", app_id, ret);
+		return ret;
 	}
 	switch (resp.result) {
 	case QSEOS_RESULT_SUCCESS:

@@ -490,6 +490,12 @@ config BACKLIGHT_RAVE_SP
 	help
 	  Support for backlight control on RAVE SP device.
 
+config THERMAL_DIMMING
+	bool "thermal dimming enabled"
+	default n
+	help
+	  Support for thermal backlight dimming on J1S.
+
 endif # BACKLIGHT_CLASS_DEVICE
 
 endif # BACKLIGHT_LCD_SUPPORT

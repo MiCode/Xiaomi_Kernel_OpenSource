@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _USBPD_H
@@ -64,6 +65,19 @@ struct pd_phy_params {
 	u8		frame_filter_val;
 };
 
+
+struct usbpd_pdo {
+	bool pps;
+	int type;
+	int max_volt_mv;
+	int min_volt_mv;
+	int curr_ma;
+	int pos;
+};
+
+int usbpd_get_pps_status(struct usbpd *pd, u32 *status);
+int usbpd_fetch_pdo(struct usbpd *pd, struct usbpd_pdo *pdos);
+
 #if IS_ENABLED(CONFIG_QPNP_USB_PDPHY)
 int pd_phy_open(struct pd_phy_params *params);
 int pd_phy_signal(enum pd_sig_type sig);
@@ -103,4 +117,59 @@ static inline void pd_phy_close(void)
 {
 }
 #endif
+
+enum uvdm_state {
+	USBPD_UVDM_DISCONNECT,
+	USBPD_UVDM_CHARGER_VERSION,
+	USBPD_UVDM_CHARGER_VOLTAGE,
+	USBPD_UVDM_CHARGER_TEMP,
+	USBPD_UVDM_SESSION_SEED,
+	USBPD_UVDM_AUTHENTICATION,
+	USBPD_UVDM_VERIFIED,
+	USBPD_UVDM_REMOVE_COMPENSATION,
+	USBPD_UVDM_REVERSE_AUTHEN,
+	USBPD_UVDM_CONNECT,
+	USBPD_UVDM_NAN_ACK,
+};
+
+#define USB_PD_MI_SVID			0x2717
+#define USBPD_UVDM_SS_LEN		4
+#define USBPD_UVDM_VERIFIED_LEN		1
+
+#define VDM_HDR(svid, cmd0, cmd1) \
+       (((svid) << 16) | (0 << 15) | ((cmd0) << 8) \
+       | (cmd1))
+#define UVDM_HDR_CMD(hdr)	((hdr) & 0xFF)
+
+#define USBPD_VDM_RANDOM_NUM		4
+#define USBPD_VDM_REQUEST		0x1
+#define USBPD_ACK			0x2
+
+struct usbpd_vdm_data {
+	int ta_version;
+	int ta_temp;
+	int ta_voltage;
+	bool reauth;
+	unsigned long s_secert[USBPD_UVDM_SS_LEN];
+	unsigned long digest[USBPD_UVDM_SS_LEN];
+};
+
+enum quick_charge_type {
+	QUICK_CHARGE_NORMAL = 0,
+	QUICK_CHARGE_FAST,
+	QUICK_CHARGE_FLASH,
+	QUICK_CHARGE_TURBE,
+	QUICK_CHARGE_SUPER,
+	QUICK_CHARGE_MAX,
+};
+
+#define USBPD_VOTER			"USBPD_VOTER"
+#define USBPD_DR_SWAP_VOTER		"USBPD_DR_SWAP_VOTER"
+#define USBPD_INIT_VOTER		"USBPD_INIT_VOTER"
+#define USBPD_WEAK_PPS_POWER            22000000
+#define USBPD_LOW_PPS_POWER		45000000
+#define USBPD_SUPER_PPS_POWER		120000000
+#define USBPD_WAKK_PPS_CURR_LIMIT       1800000
+#define PD_UNVERIFY_PASSTHROUGH_CURR	3000
+
 #endif /* _USBPD_H */

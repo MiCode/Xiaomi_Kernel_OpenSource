@@ -2,6 +2,7 @@
 
 /*
  * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -271,7 +272,6 @@ static int msm_rpmstats_probe(struct platform_device *pdev)
 		pdata->num_records = RPM_STATS_NUM_REC;
 
 	msm_rpmstats_create_sysfs(pdev, pdata);
-
 	return 0;
 }
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <soc/qcom/qmi_rmnet.h>
@@ -822,7 +823,7 @@ void qmi_rmnet_enable_all_flows(struct net_device *dev)
 		do_wake = !bearer->grant_size;
 		bearer->grant_size = DEFAULT_GRANT;
 		bearer->grant_thresh = qmi_rmnet_grant_per(DEFAULT_GRANT);
-
+		bearer->bytes_in_flight = 0;
 		if (do_wake)
 			dfc_bearer_flow_ctl(dev, bearer, qos);
 	}

@@ -1915,6 +1915,7 @@ static int diagfwd_mux_write_done(unsigned char *buf, int len, int buf_ctxt,
 				  int ctxt)
 {
 	unsigned long flags;
+
 	int peripheral = -1, type = -1;
 	int num = -1, hdlc_ctxt = -1;
 	struct diag_apps_data_t *temp = NULL;

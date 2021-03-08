@@ -3,6 +3,7 @@
  * Android IPC Subsystem
  *
  * Copyright (C) 2007-2017 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -33,7 +34,6 @@
 #include <linux/highmem.h>
 #include "binder_alloc.h"
 #include "binder_trace.h"
-
 struct list_lru binder_alloc_lru;
 
 static DEFINE_MUTEX(binder_alloc_mmap_lock);

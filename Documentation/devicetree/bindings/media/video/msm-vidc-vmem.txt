@@ -1,0 +1,42 @@
+* Qualcomm Technologies Inc MSM VIDC VMEM
+
+Required properties:
+- compatible : "qcom,msm-vmem"
+- interrupts : Contains the interrupt that maps to the VMEM module
+- reg : A set of 2 start address and size pairs that describe the hardware
+register address space and mappable memory address space.
+- reg-names : Strings that describe the pairs in "reg".  The register address
+space should be called "reg-base" and the memory space should be called "mem-base".
+- clocks : A set of clocks that correspond to the AHB and MAXI clocks that the
+hardware uses.
+- clock-names : A string that describes the "clocks" property.  The AHB clock
+should be named "ahb" and the MAXI clock should be named "maxi".
+- qcom,bank-size : The size of each memory bank, in bytes.
+- vdd-supply: phandle to a regulator that is considered to be the footswitch for vmem.
+- qcom,msm-bus,(name|num-cases,num-paths,vectors-KBps) - Bus to be voted for prior to
+  issuing any IO transactions to vmem.  Refer to Documentation/devicetree/bindings/arm/\
+  msm/msm_bus_adhoc.txt for further details.
+
+Example:
+
+qcom,vmem@880000 {
+	compatible = "qcom,msm-vmem";
+	interrupts = <0 429 0>;
+	reg = <0x880000 0x800>,
+	    <0x6800000 0x100000>;
+	reg-names = "reg-base", "mem-base";
+
+	vdd-supply = <&gdsc_mmagic_video>;
+	clocks = <&clock_mmss clk_vmem_ahb_clk>,
+	       <&clock_mmss clk_vmem_maxi_clk>;
+	clock-names = "ahb", "maxi";
+
+	qcom,bank-size = <131072>;
+
+	qcom,msm-bus,name = "vmem";
+	qcom,msm-bus,num-cases = <2>;
+	qcom,msm-bus,num-paths = <1>;
+	qcom,msm-bus,vectors-KBps =
+	        <MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VMEM_CFG   0   0>,
+	        <MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VMEM_CFG 500 800>;
+};

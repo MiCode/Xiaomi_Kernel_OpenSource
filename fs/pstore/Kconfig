@@ -153,3 +153,11 @@ config PSTORE_RAM
 	  "ramoops.ko".
 
 	  For more information, see Documentation/admin-guide/ramoops.rst.
+
+config PSTORE_LAST_KMSG
+	bool "export /proc/last_kmsg"
+	default n
+	depends on PSTORE
+	help
+	  When the option is enabled, pstore will export a proc filesystem
+	  interface /proc/last_kmsg.

@@ -569,7 +569,6 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 			mhi_runtime_resume(dev);
 		}
 		pm_runtime_put(dev);
-		mhi_arch_mission_mode_enter(mhi_cntrl);
 		break;
 	default:
 		MHI_CNTRL_LOG("Unhandled cb:0x%x\n", reason);

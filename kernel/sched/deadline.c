@@ -11,6 +11,7 @@
  * miss some of their deadlines), and won't affect any other task.
  *
  * Copyright (C) 2012 Dario Faggioli <raistlin@linux.it>,
+ * Copyright (C) 2021 XiaoMi, Inc.
  *                    Juri Lelli <juri.lelli@gmail.com>,
  *                    Michael Trimarchi <michael@amarulasolutions.com>,
  *                    Fabio Checconi <fchecconi@gmail.com>
@@ -1209,7 +1210,6 @@ static void update_curr_dl(struct rq *rq)
 
 	curr->se.sum_exec_runtime += delta_exec;
 	account_group_exec_runtime(curr, delta_exec);
-
 	curr->se.exec_start = now;
 	cgroup_account_cputime(curr, delta_exec);
 

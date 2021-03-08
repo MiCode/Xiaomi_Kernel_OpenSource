@@ -1,0 +1,32 @@
+* Novatek nt36xxx touch controller
+
+Please add this description here: The Novatek Touch controller is connected to the
+host processor via I2C. The controller generates interrupts when the user touches
+the panel. The host controller is expected to read the touch coordinates over I2C and
+pass the coordinates to the rest of the system.
+
+Required properties:
+ - compatible           : should be "novatek,NVT-ts"
+ - reg                  : i2c slave address of the device.
+ - vdd-supply           : digital voltage power supply needed to power device.
+ - avdd-supply          : analog voltage power supply needed to power device.
+ - novatek,reset-gpio 	: reset gpio.
+ - novatek,irq-gpio     : irq gpio.
+
+Example:
+	&i2c_1 {
+		status = "ok";
+
+		/* Novatek device tree node */
+		novatek@62 {
+			compatible = "novatek,NVT-ts";
+			reg = <0x62>;
+			status = "ok";
+
+			vdd-supply = <&pm8994_lvs2>;
+			avdd-supply = <&pm8994_l22>;
+
+			novatek,reset-gpio = <&msm_gpio 102 0x00>;
+			novatek,irq-gpio = <&msm_gpio 65 0x2001>;
+		};
+	};

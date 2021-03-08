@@ -3,6 +3,7 @@
  * Backlight Lowlevel Control Abstraction
  *
  * Copyright (C) 2003,2004 Hewlett-Packard Company
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  */
 
@@ -69,6 +70,8 @@ struct backlight_ops {
 struct backlight_properties {
 	/* Current User requested brightness (0 - max_brightness) */
 	int brightness;
+	int brightness_clone;
+	int brightness_clone_backup;
 	/* Maximal value for brightness (read-only) */
 	int max_brightness;
 	/* Current FB Power mode (0: full on, 1..3: power saving
@@ -111,6 +114,8 @@ struct backlight_device {
 	struct thermal_cooling_device *cdev;
 	/* Thermally limited max brightness */
 	int thermal_brightness_limit;
+        /* Thermally limited max brightness clone for 8192 hbm*/
+        int thermal_brightness_clone_limit;
 	/* User brightness request */
 	int usr_brightness_req;
 

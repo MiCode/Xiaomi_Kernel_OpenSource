@@ -1,0 +1,121 @@
+* Qualcomm Technologies, Inc. MSM HSUART
+
+Required properties:
+- compatible :
+	- "qcom,msm-hsuart-v14" to be used for UARTDM Core v1.4
+- reg : offset and length of the register set for both the device,
+	uart core and bam core
+- reg-names :
+	- "core_mem" to be used as name of the uart core
+	- "bam_mem" to be used as name of the bam core
+- interrupts : interrupts for both the device,uart core and bam core
+- interrupt-names :
+	- "core_irq" to be used as uart irq
+	- "bam irq" to be used as bam irq
+- #interrupt-cells: Specifies the number of cells needed to encode an interrupt
+		source. The type shall be a <u32> and the value shall be 1
+- #address-cells: Specifies the number of cells needed to encode an address.
+		The type shall be <u32> and the value shall be 0
+- interrupt-parent = It is needed for interrupt mapping
+- bam-tx-ep-pipe-index : BAM TX Endpoint Pipe Index for HSUART
+- bam-rx-ep-pipe-index : BAM RX Endpoint Pipe Index for HSUART
+
+BLSP has a static pipe allocation and assumes a pair-pipe for each uart core.
+Pipes [2*i : 2*i+1] are allocated for UART cores where i = [0 : 5].
+Hence, Minimum and Maximum permitted value of endpoint pipe index to be used
+with uart core is 0 and 11 respectively.
+
+There is one HSUART block used in MSM devices,
+"qcom,msm-hsuart-v14". The msm-serial-hs driver is
+able to handle this, and matches against the "qcom,msm-hsuart-v14"
+as the compatibility.
+
+The registers for the "qcom,msm-hsuart-v14" device need to specify both
+register blocks - uart core and bam core.
+
+Example:
+
+	uart7: uart@f995d000 {
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0xf995d000 0x1000>,
+		      <0xf9944000 0x5000>;
+		reg-names = "core_mem", "bam_mem";
+		interrupt-names = "core_irq", "bam_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&uart7>;
+		interrupts = <0 1>;
+		#interrupt-cells = <1>;
+		interrupt-map = <0 &intc 0 113 0
+				1 &intc 0 239 0>
+		qcom,bam-tx-ep-pipe-index = <0>;
+		qcom,bam-rx-ep-pipe-index = <1>;
+	};
+
+Optional properties:
+- qcom,<gpio-name>-gpio : handle to the GPIO node, see "gpios property" in
+Documentation/devicetree/bindings/gpio/gpio.txt.
+"gpio-name" can be "tx", "rx", "cts" and "rfr" based on number of UART GPIOs
+need to configured.
+Gpio's are optional if it is required to be not configured by UART driver or
+case where there is nothing connected and we want to use internal loopback mode
+for uart.
+- qcom, wakeup_irq : UART RX GPIO IRQ line to be configured as wakeup source.
+- qcom,inject-rx-on-wakeup : inject_rx_on_wakeup enables feature where on
+receiving interrupt with UART RX GPIO IRQ line (i.e. above wakeup_irq property),
+HSUART driver injects provided character with property rx_to_inject.
+- qcom, rx-char-to-inject : The character to be inserted on wakeup.
+- qcom, no-suspend-delay : This decides system to go to suspend immediately
+or not
+
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+below optional properties:
+    - qcom,msm_bus,name
+    - qcom,msm_bus,num_cases
+    - qcom,msm_bus,active_only
+    - qcom,msm_bus,num_paths
+    - qcom,msm_bus,vectors
+
+Aliases :
+An alias may be optionally used to bind the UART device to a TTY device
+(ttyHS<alias_num>) with a given alias number. Aliases are of the form
+uart<n> where <n> is an integer representing the alias number to use.
+On systems with multiple UART devices present, an alias may optionally be
+defined for such devices. The alias value should be from 0 to 255.
+
+Example:
+
+	aliases {
+		uart4 = &uart7; // This device will be enumerated as ttyHS4
+	};
+
+	uart7: uart@f995d000 {
+		compatible = "qcom,msm-hsuart-v14"
+		reg = <0x19c40000 0x1000">,
+		      <0xf9944000 0x5000>;
+		reg-names = "core_mem", "bam_mem";
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&uart7>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 113 0
+				1 &intc 0 239 0
+				2 &msmgpio 42 0>;
+		qcom,tx-gpio = <&msmgpio 41 0x00>;
+		qcom,rx-gpio = <&msmgpio 42 0x00>;
+		qcom,cts-gpio = <&msmgpio 43 0x00>;
+		qcom,rfr-gpio = <&msmgpio 44 0x00>;
+		qcom,inject-rx-on-wakeup = <1>;
+		qcom,rx-char-to-inject = <0xFD>;
+
+		qcom,bam-tx-ep-pipe-index = <0>;
+		qcom,bam-rx-ep-pipe-index = <1>;
+
+		qcom,msm-bus,name = "uart7";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<84 512 0 0>,
+				<84 512 500 800>;
+	};

@@ -1,0 +1,247 @@
+Qualcomm Technologies, Inc. QPNP Power-on PMIC Peripheral Device Tree Bindings
+
+qpnp-power-on devices support the power-on (PON) peripheral of Qualcomm
+Technologies, Inc. PMICs. The supported functionality includes power on/off
+reason, key press/release detection, PMIC reset configurations and other PON
+specific features. The PON module supports multiple physical power-on (KPDPWR_N,
+CBLPWR) and reset (KPDPWR_N, RESIN, KPDPWR+RESIN) sources. This peripheral is
+connected to the host processor via the SPMI interface.
+
+Required properties:
+- compatible:			Must be "qcom,qpnp-power-on"
+- reg:				Specifies the SPMI address and size for this PON
+				(power-on) peripheral.
+
+Optional properties:
+- interrupts:			Specifies the interrupts associated with PON.
+- interrupt-names:		Specifies the interrupt names associated with
+				the interrupts property. Must be a subset of
+				"kpdpwr", "kpdpwr-bark", "resin", "resin-bark",
+				"cblpwr", "kpdpwr-resin-bark", and
+				"pmic-wd-bark". Bark interrupts are associated
+				with system reset configuration to allow default
+				reset configuration to be activated. If system
+				reset configuration is not supported then bark
+				interrupts are nops. Additionally, the
+				"pmic-wd-bark" interrupt can be added if the
+				system needs to handle PMIC watchdog barks.
+- qcom,pon-dbc-delay:		The debounce delay for the power-key interrupt
+				specified in us.
+				Possible values for GEN1 PON are:
+				15625, 31250, 62500, 125000, 250000, 500000,
+				1000000 and 2000000.
+				Possible values for GEN2 PON are:
+				62, 123, 245, 489, 977, 1954, 3907, 7813,
+				15625, 31250, 62500, 125000 and 250000.
+				Intermediate value is rounded down to the
+				nearest valid value.
+- qcom,system-reset:		Boolean which specifies that this PON peripheral
+				can be used to reset the system. This property
+				can only be used by one device on the system. It
+				is an error to include it more than once.
+- qcom,modem-reset:		Boolean which specifies that this PON peripheral
+				can be used to reset the attached modem chip.
+				This property can only be used by one PON device
+				on the system. qcom,modem-reset and
+				qcom,system-reset cannot be specified for the
+				same PON device.
+- qcom,s3-debounce:		The debounce delay for stage 3 reset trigger in
+				secs. The values range from 0 to 128.
+- qcom,s3-src:			The source for stage 3 reset. It can be one of
+				"kpdpwr", "resin", "kpdpwr-or-resin" or
+				"kpdpwr-and-resin".
+- qcom,uvlo-panic:		Boolean indicating that the device should
+				trigger a controlled panic shutdown if a restart
+				was caused by under voltage lock-out (UVLO).
+- qcom,clear-warm-reset:	Boolean which specifies that the WARM_RESET
+				reason registers need to be cleared for this
+				target. The property is used for the targets
+				which have a hardware feature to catch resets
+				which aren't triggered by the application
+				processor. In such cases clearing WARM_REASON
+				registers across processor resets keeps the
+				registers in a useful state.
+- qcom,secondary-pon-reset:	Boolean property which indicates that the PON
+				peripheral is a secondary PON device which
+				needs to be configured during reset in addition
+				to the primary PON device that is configured
+				for system reset through qcom,system-reset
+				property.
+				This should not be defined along with the
+				qcom,system-reset or qcom,modem-reset property.
+- qcom,store-hard-reset-reason:	Boolean property which if set will store the
+				hardware reset reason to SOFT_RB_SPARE register
+				of the core PMIC PON peripheral.
+- qcom,warm-reset-poweroff-type:	Poweroff type required to be configured
+				on PS_HOLD reset control register when the
+				system goes for warm reset. If this property is
+				not specified, then the default type, warm reset
+				will be configured to PS_HOLD reset control
+				register.
+				Supported values: PON_POWER_OFF_TYPE_* found in
+				include/dt-bindings/input/qcom,qpnp-power-on.h
+- qcom,hard-reset-poweroff-type:	Same description as
+				qcom,warm-reset-poweroff-type but this applies
+				for the system hard reset case.
+- qcom,shutdown-poweroff-type:	Same description as qcom,warm-reset-poweroff-
+				type but this applies for the system shutdown
+				case.
+- qcom,kpdpwr-sw-debounce:	Boolean property to enable the debounce logic
+				on the KPDPWR_N rising edge.
+- qcom,resin-pon-reset:		Boolean property which indicates that resin
+				needs to be configured during reset in addition
+				to the primary PON device that is configured
+				for system reset through qcom,system-reset
+				property.
+- qcom,resin-warm-reset-type: 	Poweroff type required to be configured on
+				RESIN reset control register when the system
+				initiates warm reset. If this property is not
+				specified, then the default type, warm reset
+				will be configured to RESIN reset control
+				register. This property is effective only if
+				qcom,resin-pon-reset is defined.
+				Supported values: PON_POWER_OFF_TYPE_* found in
+				include/dt-bindings/input/qcom,qpnp-power-on.h
+- qcom,resin-hard-reset-type: 	Same description as qcom,resin-warm-reset-type
+				but this applies for the system hard reset case.
+- qcom,resin-shutdown-type:   	Same description as qcom,resin-warm-reset-type
+				but this applies for the system shutdown case.
+- qcom,resin-shutdown-disable:	Boolean property to disable RESIN power off
+				trigger during system shutdown case.
+				This property is effective only if
+				qcom,resin-pon-reset is defined.
+- qcom,resin-hard-reset-disable:	Boolean property to disable RESIN power
+	                        off trigger during system hard reset case.
+				This property is effective only if
+				qcom,resin-pon-reset is defined.
+- qcom,ps-hold-shutdown-disable:	Boolean property to disable PS_HOLD
+				power off trigger during system shutdown case.
+- qcom,ps-hold-hard-reset-disable:	Boolean property to disable PS_HOLD
+				power off trigger during system hard reset case.
+
+Optional Sub-nodes:
+- qcom,pon_1 ... qcom,pon_n:	These PON child nodes correspond to features
+				supported by the PON peripheral including reset
+				configurations, pushbutton keys, and regulators.
+
+Sub-node properties:
+
+Sub-nodes (if defined) should belong to either a PON configuration or a
+regulator configuration.
+
+Regulator sub-node required properties:
+- regulator-name:		Regulator name for the PON regulator that is
+				being configured.
+- qcom,pon-spare-reg-addr:	Register offset from the base address of the
+				PON peripheral that needs to be configured for
+				the regulator being controlled.
+- qcom,pon-spare-reg-bit:	Bit position in the specified register that
+				needs to be configured for the regulator being
+				controlled.
+
+PON sub-node required properties:
+- qcom,pon-type:		The type of PON/RESET source. Supported values:
+				0 = KPDPWR
+				1 = RESIN
+				2 = CBLPWR
+				3 = KPDPWR_RESIN
+				These values are PON_POWER_ON_TYPE_* found in
+				include/dt-bindings/input/qcom,qpnp-power-on.h
+
+PON sub-node optional properties:
+- qcom,pull-up:			Boolean flag indicating if a pull-up resistor
+				should be enabled for the input.
+- qcom,support-reset:		Indicates if this PON source supports
+				reset functionality.
+				0 = Not supported
+				1 = Supported
+				If this property is not defined, then default S2
+				reset configurations should not be modified.
+- qcom,use-bark:		Specify if this PON type needs to handle a bark
+				interrupt.
+- linux,code:			The input key-code associated with the reset
+				source. The reset source in its default
+				configuration can be used to support standard
+				keys.
+
+The below mentioned properties are required only when qcom,support-reset DT
+property is defined and is set to 1.
+
+- qcom,s1-timer:		The debounce timer for the BARK interrupt for
+				the reset source. Value is specified in ms.
+				Supported values are:
+				0, 32, 56, 80, 128, 184, 272, 408, 608, 904,
+				1352, 2048, 3072, 4480, 6720, 10256
+- qcom,s2-timer:		The debounce timer for the S2 reset specified
+				in ms. On the expiry of this timer, the PMIC
+				executes the reset sequence.
+				Supported values are:
+				0, 10, 50, 100, 250, 500, 1000, 2000
+- qcom,s2-type:			The type of reset associated with this source.
+				Supported values:
+				0 = SOFT_RESET (legacy)
+				1 = WARM_RESET
+				4 = SHUTDOWN
+				5 = DVDD_SHUTDOWN
+				7 = HARD_RESET
+				8 = DVDD_HARD_RESET
+				These values are PON_POWER_OFF_TYPE_* found in
+				include/dt-bindings/input/qcom,qpnp-power-on.h
+
+Examples:
+	qcom,power-on@800 {
+		compatible = "qcom,qpnp-power-on";
+		reg = <0x800 0x100>;
+		interrupts = <0x0 0x8 0x0 IRQ_TYPE_EDGE_BOTH>,
+			     <0x0 0x8 0x1 IRQ_TYPE_EDGE_BOTH>,
+			     <0x0 0x8 0x4 IRQ_TYPE_EDGE_RISING>,
+			     <0x0 0x8 0x5 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "kpdpwr", "resin", "resin-bark",
+				  "kpdpwr-resin-bark";
+		qcom,pon-dbc-delay = <15625>;
+		qcom,system-reset;
+		qcom,s3-debounce = <32>;
+		qcom,s3-src = "resin";
+		qcom,clear-warm-reset;
+		qcom,store-hard-reset-reason;
+
+		qcom,pon_1 {
+			qcom,pon-type = <PON_POWER_ON_TYPE_KPDPWR>;
+			qcom,pull-up;
+			linux,code = <KEY_POWER>;
+		};
+
+		qcom,pon_2 {
+			qcom,pon-type = <PON_POWER_ON_TYPE_RESIN>;
+			qcom,support-reset = <1>;
+			qcom,pull-up;
+			qcom,s1-timer = <0>;
+			qcom,s2-timer = <2000>;
+			qcom,s2-type = <PON_POWER_OFF_TYPE_WARM_RESET>;
+			linux,code = <KEY_VOLUMEDOWN>;
+			qcom,use-bark;
+		};
+
+		qcom,pon_3 {
+			qcom,pon-type = <PON_POWER_ON_TYPE_KPDPWR_RESIN>;
+			qcom,support-reset = <1>;
+			qcom,s1-timer = <6720>;
+			qcom,s2-timer = <2000>;
+			qcom,s2-type = <PON_POWER_OFF_TYPE_HARD_RESET>;
+			qcom,pull-up;
+			qcom,use-bark;
+		};
+	};
+
+	qcom,power-on@800 {
+		compatible = "qcom,qpnp-power-on";
+		reg = <0x800 0x100>;
+		qcom,secondary-pon-reset;
+		qcom,hard-reset-poweroff-type = <PON_POWER_OFF_TYPE_SHUTDOWN>;
+
+		pon_perph_reg: qcom,pon_perph_reg {
+			regulator-name = "pon_spare_reg";
+			qcom,pon-spare-reg-addr = <0x8c>;
+			qcom,pon-spare-reg-bit = <1>;
+		};
+	};

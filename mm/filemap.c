@@ -2,6 +2,7 @@
  *	linux/mm/filemap.c
  *
  * Copyright (C) 1994-1999  Linus Torvalds
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 /*
@@ -931,6 +932,13 @@ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
 	int ret;
 
 	__SetPageLocked(page);
+#ifdef CONFIG_PERF_HUMANTASK
+	//page->_kworker = current->tgid ;
+	if(current->human_task){
+		//trace_filemap_debug_einfo(page,current,"page_cache_lru",0);
+	}
+#endif
+
 	ret = __add_to_page_cache_locked(page, mapping, offset,
 					 gfp_mask, &shadow);
 	if (unlikely(ret))
@@ -1306,6 +1314,11 @@ void unlock_page(struct page *page)
 	VM_BUG_ON_PAGE(!PageLocked(page), page);
 	if (clear_bit_unlock_is_negative_byte(PG_locked, &page->flags))
 		wake_up_page_bit(page, PG_locked);
+#ifdef CONFIG_PERF_HUMANTASK
+	if(current->human_task) {
+		//trace_filemap_debug_einfo(page,current,"unlock_page",0);
+	}
+#endif
 }
 EXPORT_SYMBOL(unlock_page);
 
@@ -1408,10 +1421,16 @@ int __lock_page_or_retry(struct page *page, struct mm_struct *mm,
 			return 0;
 
 		up_read(&mm->mmap_sem);
-		if (flags & FAULT_FLAG_KILLABLE)
+		if (flags & FAULT_FLAG_KILLABLE){
+#ifdef CONFIG_PERF_HUMANTASK
+			if(current->human_task){
+				//trace_filemap_debug_einfo(page,current,"locked_killable",0);
+			}
+#endif
 			wait_on_page_locked_killable(page);
-		else
+		}else{
 			wait_on_page_locked(page);
+		}
 		return 0;
 	} else {
 		if (flags & FAULT_FLAG_KILLABLE) {

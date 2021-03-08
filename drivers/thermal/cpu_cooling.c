@@ -35,6 +35,8 @@
 
 #include <trace/events/thermal.h>
 
+#define USE_LMH_DEV    0
+
 /*
  * Cooling state <-> CPUFreq frequency
  *
@@ -125,7 +127,7 @@ static int cpufreq_thermal_notifier(struct notifier_block *nb,
 	unsigned long clipped_freq = ULONG_MAX, floor_freq = 0;
 	struct cpufreq_cooling_device *cpufreq_cdev;
 
-	if (event != CPUFREQ_INCOMPATIBLE)
+	if (event != CPUFREQ_ADJUST)
 		return NOTIFY_DONE;
 
 	mutex_lock(&cooling_list_lock);
@@ -158,7 +160,6 @@ static int cpufreq_thermal_notifier(struct notifier_block *nb,
 							clipped_freq);
 		break;
 	}
-
 	mutex_unlock(&cooling_list_lock);
 
 	return NOTIFY_OK;
@@ -425,7 +426,6 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 							clip_freq);
 	else
 		cpufreq_update_policy(cpufreq_cdev->policy->cpu);
-
 	return 0;
 }
 

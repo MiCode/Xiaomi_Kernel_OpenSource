@@ -2,6 +2,7 @@
  * CPUFreq governor based on scheduler-provided CPU utilization data.
  *
  * Copyright (C) 2016, Intel Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -922,7 +923,6 @@ static ssize_t down_rate_limit_us_store(struct gov_attr_set *attr_set,
 		return -EINVAL;
 
 	tunables->down_rate_limit_us = rate_limit_us;
-
 	list_for_each_entry(sg_policy, &attr_set->policy_list, tunables_hook) {
 		sg_policy->down_rate_delay_ns = rate_limit_us * NSEC_PER_USEC;
 		update_min_rate_limit_ns(sg_policy);
