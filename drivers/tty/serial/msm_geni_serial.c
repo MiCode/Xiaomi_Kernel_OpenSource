@@ -28,7 +28,7 @@
 #include <linux/dma-mapping.h>
 #include <uapi/linux/msm_geni_serial.h>
 
-static bool con_enabled = true;
+static bool con_enabled = IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE_DEFAULT_ENABLED);
 module_param(con_enabled, bool, 0644);
 
 /* UART specific GENI registers */
