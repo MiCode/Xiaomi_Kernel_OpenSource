@@ -1023,6 +1023,8 @@ int cnss_pci_recover_link_down(struct cnss_pci_data *pci_priv)
 	 */
 	msleep(WAKE_EVENT_TIMEOUT);
 
+	/* Always do PCIe L2 suspend/resume during link down recovery */
+	pci_priv->drv_connected_last = 0;
 	ret = cnss_suspend_pci_link(pci_priv);
 	if (ret)
 		cnss_pr_err("Failed to suspend PCI link, err = %d\n", ret);
@@ -1958,6 +1960,8 @@ int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv)
 		if (ret) {
 			cnss_pr_err("Failed to idle restart host driver, err = %d\n",
 				    ret);
+			plat_priv->power_up_error = ret;
+			complete_all(&plat_priv->power_up_complete);
 			goto out;
 		}
 		clear_bit(CNSS_DRIVER_IDLE_RESTART, &plat_priv->driver_state);
@@ -2176,18 +2180,6 @@ force_wake_put:
 		cnss_pci_force_wake_put(pci_priv);
 }
 
-#ifdef CONFIG_CNSS2_DEBUG
-static void cnss_pci_collect_dump(struct cnss_pci_data *pci_priv)
-{
-	cnss_pci_collect_dump_info(pci_priv, false);
-	CNSS_ASSERT(0);
-}
-#else
-static void cnss_pci_collect_dump(struct cnss_pci_data *pci_priv)
-{
-}
-#endif
-
 static int cnss_qca6174_powerup(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -2283,6 +2275,7 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 	/* Clear QMI send usage count during every power up */
 	pci_priv->qmi_send_usage_count = 0;
 
+	plat_priv->power_up_error = 0;
 retry:
 	ret = cnss_power_on_device(plat_priv);
 	if (ret) {
@@ -2383,7 +2376,8 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 	     test_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state)) &&
 	    test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state)) {
 		del_timer(&pci_priv->dev_rddm_timer);
-		cnss_pci_collect_dump(pci_priv);
+		cnss_pci_collect_dump_info(pci_priv, false);
+		CNSS_ASSERT(0);
 	}
 
 	if (!cnss_is_device_powered_on(plat_priv)) {

@@ -482,6 +482,7 @@ struct cnss_plat_data {
 	bool fw_pcie_gen_switch;
 	u8 pcie_gen_speed;
 	struct cnss_dms_data dms;
+	int power_up_error;
 	u32 hw_trc_override;
 };
 
