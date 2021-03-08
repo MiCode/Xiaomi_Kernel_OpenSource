@@ -509,6 +509,13 @@ int qcom_scm_iommu_secure_unmap(u64 sec_id, int cbndx, unsigned long iova,
 }
 EXPORT_SYMBOL(qcom_scm_iommu_secure_unmap);
 
+int qcom_scm_mem_protect_audio(phys_addr_t paddr, size_t size)
+{
+	return __qcom_scm_mem_protect_audio(__scm ? __scm->dev : NULL,
+								paddr, size);
+}
+EXPORT_SYMBOL(qcom_scm_mem_protect_audio);
+
 /**
  * qcom_scm_assign_mem_regions() - Make a secure call to reassign memory
  *				   ownership of several memory regions
