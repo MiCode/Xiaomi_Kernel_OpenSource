@@ -2,7 +2,7 @@
 /*
  * f_qdss.c -- QDSS function Driver
  *
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -899,16 +899,20 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	qdss_log("channel:%s\n", ch->name);
 	qdss = ch->priv_usb;
 	qdss->qdss_close = true;
+	spin_lock(&qdss->lock);
 	while (!list_empty(&qdss->queued_data_pool)) {
 		qreq = list_first_entry(&qdss->queued_data_pool,
 				struct qdss_req, list);
+		spin_unlock(&qdss->lock);
 		spin_unlock_irqrestore(&channel_lock, flags);
 		qdss_log("dequeue req:%pK\n", qreq->usb_req);
-		usb_ep_dequeue(qdss->port.data, qreq->usb_req);
-		wait_for_completion(&qreq->write_done);
+		if (!usb_ep_dequeue(qdss->port.data, qreq->usb_req))
+			wait_for_completion(&qreq->write_done);
 		spin_lock_irqsave(&channel_lock, flags);
+		spin_lock(&qdss->lock);
 	}
 
+	spin_unlock(&qdss->lock);
 	spin_unlock_irqrestore(&channel_lock, flags);
 	usb_qdss_free_req(ch);
 	spin_lock_irqsave(&channel_lock, flags);
