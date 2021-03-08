@@ -57,6 +57,7 @@
 #define EMULATION_HW			0
 #endif
 
+#define RAMDUMP_SIZE_DEFAULT		0x420000
 #define DEVICE_RDDM_COOKIE		0xCAFECACE
 
 static DEFINE_SPINLOCK(pci_link_down_lock);
@@ -1642,11 +1643,16 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 
 	pci_priv->mhi_ctrl->timeout_ms = timeout;
 
-	/* -ETIMEDOUT means MHI power on has succeeded but timed out
-	 * for firmware mission mode event, so handle it properly.
-	 */
-	if (ret == -ETIMEDOUT)
+	if (ret == -ETIMEDOUT) {
+		/* This is a special case needs to be handled that if MHI
+		 * power on returns -ETIMEDOUT, controller needs to take care
+		 * the cleanup by calling MHI power down. Force to set the bit
+		 * for driver internal MHI state to make sure it can be handled
+		 * properly later.
+		 */
+		set_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state);
 		ret = cnss_pci_handle_mhi_poweron_timeout(pci_priv);
+	}
 
 	return ret;
 }
@@ -4224,13 +4230,16 @@ void cnss_get_msi_address(struct device *dev, u32 *msi_addr_low,
 			     &control);
 	pci_read_config_dword(pci_dev, pci_dev->msi_cap + PCI_MSI_ADDRESS_LO,
 			      msi_addr_low);
-	/*return msi high addr only when device support 64 BIT MSI */
+	/* Return MSI high address only when device supports 64-bit MSI */
 	if (control & PCI_MSI_FLAGS_64BIT)
 		pci_read_config_dword(pci_dev,
 				      pci_dev->msi_cap + PCI_MSI_ADDRESS_HI,
 				      msi_addr_high);
 	else
 		*msi_addr_high = 0;
+
+	cnss_pr_dbg("Get MSI low addr = 0x%x, high addr = 0x%x\n",
+		    *msi_addr_low, *msi_addr_high);
 }
 EXPORT_SYMBOL(cnss_get_msi_address);
 
@@ -5094,6 +5103,8 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	mhi_ctrl->write_reg = cnss_mhi_write_reg;
 
 	mhi_ctrl->rddm_size = pci_priv->plat_priv->ramdump_info_v2.ramdump_size;
+	if (!mhi_ctrl->rddm_size)
+		mhi_ctrl->rddm_size = RAMDUMP_SIZE_DEFAULT;
 	mhi_ctrl->sbl_size = SZ_512K;
 	mhi_ctrl->seg_len = SZ_512K;
 	mhi_ctrl->fbc_download = true;
