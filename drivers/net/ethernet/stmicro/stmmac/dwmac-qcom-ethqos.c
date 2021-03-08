@@ -16,6 +16,9 @@
 #include <linux/ipc_logging.h>
 #include <linux/poll.h>
 #include <linux/debugfs.h>
+#include <linux/dma-iommu.h>
+#include <linux/iommu.h>
+
 
 #include "stmmac.h"
 #include "stmmac_platform.h"
@@ -100,6 +103,8 @@
 #define LINK_UP_STATE 0x400
 
 bool phy_intr_en;
+
+struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx = {0};
 
 static int rgmii_readl(struct qcom_ethqos *ethqos, unsigned int offset)
 {
@@ -598,6 +603,64 @@ static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
 	return ret;
 }
 
+static const struct of_device_id qcom_ethqos_match[] = {
+	{ .compatible = "qcom,qcs404-ethqos", .data = &emac_v2_3_0_por},
+	{ .compatible = "qcom,sdxprairie-ethqos", .data = &emac_v2_3_2_por},
+	{ .compatible = "qcom,stmmac-ethqos", },
+	{ .compatible = "qcom,emac-smmu-embedded", },
+	{ }
+};
+
+static void emac_emb_smmu_exit(void)
+{
+	emac_emb_smmu_ctx.valid = false;
+	emac_emb_smmu_ctx.pdev_master = NULL;
+	emac_emb_smmu_ctx.smmu_pdev = NULL;
+	emac_emb_smmu_ctx.iommu_domain = NULL;
+}
+
+static int emac_emb_smmu_cb_probe(struct platform_device *pdev)
+{
+	int result = 0;
+	u32 iova_ap_mapping[2];
+	struct device *dev = &pdev->dev;
+	int atomic_ctx = 1;
+	int fast = 1;
+	int bypass = 1;
+
+	ETHQOSDBG("EMAC EMB SMMU CB probe: smmu pdev=%p\n", pdev);
+
+	result = of_property_read_u32_array(dev->of_node,
+					    "qcom,iommu-dma-addr-pool",
+					    iova_ap_mapping,
+					    ARRAY_SIZE(iova_ap_mapping));
+	if (result) {
+		ETHQOSERR("Failed to read EMB start/size iova addresses\n");
+		return result;
+	}
+
+	emac_emb_smmu_ctx.smmu_pdev = pdev;
+
+	if (dma_set_mask(dev, DMA_BIT_MASK(32)) ||
+	    dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
+		ETHQOSERR("DMA set 32bit mask failed\n");
+		return -EOPNOTSUPP;
+	}
+
+	emac_emb_smmu_ctx.valid = true;
+
+	emac_emb_smmu_ctx.iommu_domain =
+		iommu_get_domain_for_dev(&emac_emb_smmu_ctx.smmu_pdev->dev);
+
+	ETHQOSINFO("Successfully attached to IOMMU\n");
+	if (emac_emb_smmu_ctx.pdev_master)
+		goto smmu_probe_done;
+
+smmu_probe_done:
+	emac_emb_smmu_ctx.ret = result;
+	return result;
+}
+
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -608,6 +671,9 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret;
 
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "qcom,emac-smmu-embedded"))
+		return emac_emb_smmu_cb_probe(pdev);
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
 	if (ret)
 		return ret;
@@ -678,6 +744,20 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	}
 	ETHQOSDBG(": emac_core_version = %d\n", ethqos->emac_ver);
 
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,arm-smmu")) {
+		emac_emb_smmu_ctx.pdev_master = pdev;
+		ret = of_platform_populate(pdev->dev.of_node,
+					   qcom_ethqos_match, NULL, &pdev->dev);
+		if (ret)
+			ETHQOSERR("Failed to populate EMAC platform\n");
+		if (emac_emb_smmu_ctx.ret) {
+			ETHQOSERR("smmu probe failed\n");
+			of_platform_depopulate(&pdev->dev);
+			ret = emac_emb_smmu_ctx.ret;
+			emac_emb_smmu_ctx.ret = 0;
+		}
+	}
+
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
 	if (ret)
 		goto err_clk;
@@ -711,17 +791,12 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 
 	if (phy_intr_en)
 		free_irq(ethqos->phy_intr, ethqos);
+	emac_emb_smmu_exit();
 	ethqos_disable_regulators(ethqos);
 
 	return ret;
 }
 
-static const struct of_device_id qcom_ethqos_match[] = {
-	{ .compatible = "qcom,qcs404-ethqos", .data = &emac_v2_3_0_por},
-	{ .compatible = "qcom,sdxprairie-ethqos", .data = &emac_v2_3_2_por},
-	{ .compatible = "qcom,stmmac-ethqos", },
-	{ }
-};
 MODULE_DEVICE_TABLE(of, qcom_ethqos_match);
 
 static struct platform_driver qcom_ethqos_driver = {
