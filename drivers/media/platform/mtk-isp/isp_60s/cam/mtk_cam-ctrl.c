@@ -90,7 +90,7 @@ static void state_transition(struct mtk_camsys_ctrl_state *state_entry,
 static void mtk_cam_event_eos(struct mtk_raw_pipeline *pipeline)
 {
 	struct v4l2_event event = {
-		.type = V4L2_EVENT_MTK_CAMSYS_EOS,
+		.type = V4L2_EVENT_EOS,
 	};
 	v4l2_event_queue(pipeline->subdev.devnode, &event);
 }
