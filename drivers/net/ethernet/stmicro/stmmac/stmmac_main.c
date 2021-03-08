@@ -117,6 +117,11 @@ module_param(eee_timer, int, 0644);
 MODULE_PARM_DESC(eee_timer, "LPI tx expiration time in msec");
 #define STMMAC_LPI_T(x) (jiffies + usecs_to_jiffies(x))
 
+#define DWC_ETH_QOS_MICREL_PHY_CTL 0x1f
+#define DWC_ETH_QOS_MICREL_INTR_LEVEL 0x4000
+#define PHY_ID_KSZ9031		0x00221620
+#define MICREL_PHY_ID PHY_ID_KSZ9031
+
 /* By default the driver will use the ring mode to manage tx and rx descriptors,
  * but allow user to force to use the chain instead of the ring
  */
@@ -1238,27 +1243,27 @@ static int stmmac_init_phy(struct net_device *dev)
 	 */
 	if (!node || ret) {
 		int addr = priv->plat->phy_addr;
-		struct phy_device *phydev;
 
-		phydev = mdiobus_get_phy(priv->mii, addr);
-		if (!phydev) {
+		priv->phydev = mdiobus_get_phy(priv->mii, addr);
+		if (!priv->phydev) {
 			netdev_err(priv->dev, "no phy at addr %d\n", addr);
 			return -ENODEV;
 		}
+		ret = phylink_connect_phy(priv->phylink, priv->phydev);
 		if (phy_intr_en) {
-			phydev->irq = PHY_MAC_INTERRUPT;
-			phydev->interrupts =  PHY_INTERRUPT_ENABLED;
+			priv->phydev->irq = PHY_MAC_INTERRUPT;
+			priv->phydev->interrupts =  PHY_INTERRUPT_ENABLED;
 
-			if (phydev->drv && phydev->drv->config_intr &&
-			    !phydev->drv->config_intr(phydev)) {
-				pr_debug(" qcom-ethqos: %s config_phy_intr successful\n",
-					 __func__);
+			if (priv->phydev->drv &&
+			    priv->phydev->drv->config_intr &&
+			    !priv->phydev->drv->config_intr(priv->phydev)) {
+				pr_err(" qcom-ethqos: %s config_phy_intr successful aftre connect\n",
+				       __func__);
+			}
+		} else {
+			pr_info("stmmac phy polling mode\n");
+			priv->phydev->irq = PHY_POLL;
 		}
-	} else {
-		pr_err("stmmac phy polling mode\n");
-		phydev->irq = PHY_POLL;
-	}
-		ret = phylink_connect_phy(priv->phylink, phydev);
 	}
 
 	if (!priv->plat->pmt) {
