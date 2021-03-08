@@ -4183,6 +4183,11 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	 */
 	var_info = of_device_get_match_data(&pdev->dev);
 
+	if (!var_info) {
+		dev_err(&pdev->dev, "Compatible string not found\n");
+		goto pltfm_free;
+	}
+
 	msm_host->mci_removed = var_info->mci_removed;
 	msm_host->restore_dll_config = var_info->restore_dll_config;
 	msm_host->var_ops = var_info->var_ops;
