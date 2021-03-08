@@ -898,7 +898,7 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 	else
 		ddr_cfg_offset = msm_offset->core_ddr_config_old;
 
-	if (msm_host->dll_hsr->ddr_config)
+	if (msm_host->dll_hsr && msm_host->dll_hsr->ddr_config)
 		writel_relaxed(msm_host->dll_hsr->ddr_config, host->ioaddr +
 			ddr_cfg_offset);
 	else
