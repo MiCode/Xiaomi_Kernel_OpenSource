@@ -635,6 +635,8 @@
   drm_atomic_helper_wait_for_vblanks
   drm_atomic_private_obj_init
   drm_atomic_set_crtc_for_connector
+  drm_atomic_set_crtc_for_plane
+  drm_atomic_set_fb_for_plane
   drm_atomic_set_fence_for_plane
   drm_atomic_set_mode_for_crtc
   drm_atomic_state_alloc
@@ -663,6 +665,7 @@
   drm_connector_list_iter_begin
   drm_connector_list_iter_end
   drm_connector_list_iter_next
+  drm_connector_list_update
   drm_connector_register
   drm_connector_set_tile_property
   drm_connector_unregister
@@ -673,9 +676,12 @@
   drm_crtc_init_with_planes
   drm_crtc_send_vblank_event
   drm_crtc_set_max_vblank_count
+  drm_crtc_vblank_get
   drm_crtc_vblank_off
   drm_crtc_vblank_on
+  drm_crtc_vblank_put
   drm_crtc_vblank_reset
+  drm_crtc_vblank_waitqueue
   drm_crtc_wait_one_vblank
   drm_cvt_mode
   drm_dbg
@@ -713,8 +719,10 @@
   drm_dp_link_train_channel_eq_delay
   drm_dp_link_train_clock_recovery_delay
   drm_dp_mst_allocate_vcpi
+  drm_dp_mst_atomic_check
   drm_dp_mst_deallocate_vcpi
   drm_dp_mst_detect_port
+  drm_dp_mst_dump_topology
   drm_dp_mst_get_edid
   drm_dp_mst_get_port_malloc
   drm_dp_mst_hpd_irq
@@ -733,6 +741,7 @@
   drm_err
   drm_event_reserve_init_locked
   drm_format_info
+  drm_framebuffer_cleanup
   drm_framebuffer_init
   drm_framebuffer_lookup
   drm_framebuffer_remove
@@ -768,11 +777,14 @@
   drm_ioctl
   drm_irq_install
   drm_irq_uninstall
+  drm_is_current_master
   drm_kms_helper_hotplug_event
   drm_kms_helper_poll_disable
   drm_kms_helper_poll_enable
   drm_kms_helper_poll_fini
   drm_kms_helper_poll_init
+  drm_master_get
+  drm_master_put
   drm_match_cea_mode
   drm_mm_init
   drm_mm_insert_node_in_range
@@ -788,6 +800,7 @@
   drm_mode_create_dp_colorspace_property
   drm_mode_create_tile_group
   drm_mode_debug_printmodeline
+  drm_mode_destroy
   drm_mode_duplicate
   drm_mode_equal
   drm_mode_get_tile_group
@@ -795,6 +808,7 @@
   drm_mode_object_get
   drm_mode_object_put
   drm_mode_probed_add
+  drm_mode_prune_invalid
   drm_modeset_acquire_fini
   drm_modeset_acquire_init
   drm_modeset_backoff
@@ -805,6 +819,7 @@
   drm_modeset_lock_all_ctx
   drm_mode_set_name
   drm_modeset_unlock_all
+  drm_mode_sort
   drm_mode_vrefresh
   drm_object_attach_property
   drm_object_property_set_value
@@ -833,6 +848,7 @@
   drm_property_lookup_blob
   drm_put_dev
   drm_read
+  drm_rect_rotate
   drm_release
   drm_rotation_simplify
   drm_send_event_locked
@@ -1581,6 +1597,7 @@
   of_property_read_u64_index
   of_property_read_variable_u16_array
   of_property_read_variable_u32_array
+  of_property_read_variable_u64_array
   of_property_read_variable_u8_array
   of_prop_next_string
   of_prop_next_u32
@@ -2403,6 +2420,7 @@
   trace_event_reg
   trace_handle_return
   __tracepoint_dma_fence_emit
+  __tracepoint_gpu_mem_total
   __tracepoint_xdp_exception
   trace_print_array_seq
   trace_print_flags_seq

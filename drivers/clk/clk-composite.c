@@ -311,6 +311,7 @@ err:
 	kfree(composite);
 	return hw;
 }
+EXPORT_SYMBOL_GPL(clk_hw_register_composite);
 
 struct clk *clk_register_composite(struct device *dev, const char *name,
 			const char * const *parent_names, int num_parents,
