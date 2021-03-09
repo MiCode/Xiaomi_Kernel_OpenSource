@@ -87,11 +87,13 @@ int ged_bridge_ge_alloc(
 
 int ged_bridge_ge_get(
 	struct GED_BRIDGE_IN_GE_GET *psGET_IN,
-	struct GED_BRIDGE_OUT_GE_GET *psGET_OUT);
+	struct GED_BRIDGE_OUT_GE_GET *psGET_OUT,
+	int output_package_size);
 
 int ged_bridge_ge_set(
 	struct GED_BRIDGE_IN_GE_SET *psSET_IN,
-	struct GED_BRIDGE_OUT_GE_SET *psSET_OUT);
+	struct GED_BRIDGE_OUT_GE_SET *psSET_OUT,
+	int input_package_size);
 
 int ged_bridge_ge_info(
 	struct GED_BRIDGE_IN_GE_INFO *psINFO_IN,
