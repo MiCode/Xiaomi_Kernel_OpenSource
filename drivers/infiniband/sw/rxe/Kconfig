@@ -4,6 +4,7 @@ config RDMA_RXE
 	depends on INET && PCI && INFINIBAND
 	depends on INFINIBAND_VIRT_DMA
 	select NET_UDP_TUNNEL
+	select CRYPTO
 	select CRYPTO_CRC32
 	select DMA_VIRT_OPS
 	---help---
