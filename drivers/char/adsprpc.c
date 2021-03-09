@@ -5500,27 +5500,57 @@ static int fastrpc_set_process_info(struct fastrpc_file *fl)
 	return err;
 }
 
+static bool fastrpc_session_exists(struct fastrpc_apps *me, uint32_t cid, int tgid)
+{
+	struct fastrpc_file *fl;
+	struct hlist_node *n;
+	bool session_found = false;
+
+	spin_lock(&me->hlock);
+	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
+		if (fl->tgid == tgid && fl->cid == cid) {
+			session_found = true;
+			break;
+		}
+	}
+	spin_unlock(&me->hlock);
+	if (session_found)
+		ADSPRPC_ERR(
+			"trying to open a session that already exists for tgid %d, channel ID %u\n",
+			tgid, cid);
+
+	return session_found;
+}
+
 static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 {
 	int err = 0;
-	uint32_t cid;
+	uint32_t cid = *info;
 	struct fastrpc_apps *me = &gfa;
 
 	VERIFY(err, fl != NULL);
 	if (err)
 		goto bail;
+
 	fastrpc_get_process_gids(&fl->gidlist);
 	err = fastrpc_set_process_info(fl);
 	if (err)
 		goto bail;
-	cid = *info;
+
+	VERIFY(err, !fastrpc_session_exists(me, cid, fl->tgid));
+	if (err) {
+		err = -EEXIST;
+		goto bail;
+	}
+
 	if (fl->cid == -1) {
-		struct fastrpc_channel_ctx *chan = &me->channel[cid];
+		struct fastrpc_channel_ctx *chan = NULL;
 		VERIFY(err, cid < NUM_CHANNELS);
 		if (err) {
 			err = -ECHRNG;
 			goto bail;
 		}
+		chan = &me->channel[cid];
 		/* Check to see if the device node is non-secure */
 		if (fl->dev_minor == MINOR_NUM_DEV) {
 			/*
