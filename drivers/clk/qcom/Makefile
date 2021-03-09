@@ -89,6 +89,7 @@ obj-$(CONFIG_SM_DISPCC_SHIMA) += dispcc-shima.o
 obj-$(CONFIG_SM_DISPCC_YUPIK) += dispcc-yupik.o
 obj-$(CONFIG_SM_GCC_6150) += gcc-sm6150.o
 obj-$(CONFIG_SM_GCC_8150) += gcc-sm8150.o
+obj-$(CONFIG_SM_GCC_BLAIR) += gcc-blair.o
 obj-$(CONFIG_SM_GCC_HOLI) += gcc-holi.o
 obj-$(CONFIG_SM_GCC_SHIMA) += gcc-shima.o
 obj-$(CONFIG_SM_GCC_YUPIK) += gcc-yupik.o
