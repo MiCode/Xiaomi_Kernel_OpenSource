@@ -69,6 +69,7 @@
 #endif
 #include "layering_rule.h"
 #include "ddp_clkmgr.h"
+#include "ddp_disp_bdg.h"
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 static struct dentry *mtkfb_dbgfs;
@@ -79,7 +80,7 @@ static struct proc_dir_entry *mtkfb_procfs;
 static struct proc_dir_entry *disp_lowpower_proc;
 #endif
 
-unsigned int g_mobilelog;
+unsigned int g_mobilelog = 1;
 int bypass_blank;
 int lcm_mode_status;
 int layer_layout_allow_non_continuous;
@@ -955,6 +956,166 @@ static void process_dbg_opt(const char *opt)
 			primary_display_manual_unlock();
 			return;
 		}
+
+	} else if (strncmp(opt, "set_data_rate:", 14) == 0) {
+		unsigned int data_rate = 0;
+		int ret = -1;
+
+		ret = sscanf(opt, "set_data_rate:%d\n",
+			&data_rate);
+		if (ret != 1) {
+			DISPERR("%d error to parse set_data_rate cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		set_bdg_data_rate(data_rate);
+
+	} else if (strncmp(opt, "6382_rst_test_0:", 16) == 0) {
+		bdg_tx_set_6382_reset_pin(0);
+	} else if (strncmp(opt, "6382_rst_test_1:", 16) == 0) {
+		bdg_tx_set_6382_reset_pin(1);
+	} else if (strncmp(opt, "dsi_enable:", 11) == 0) {
+		struct LCM_PARAMS *lcm_param = NULL;
+		struct disp_ddp_path_config *data_config;
+		unsigned int dsi_on = 0;
+		int ret = -1;
+
+		ret = sscanf(opt, "dsi_enable:%d\n",
+			&dsi_on);
+		if (ret != 1) {
+			DISPERR("%d error to parse dsi_enable cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		lcm_param = disp_lcm_get_params(pgc->plcm);
+
+		if (!lcm_param) {
+			DISPMSG("lcm_param is null\n");
+			return;
+		}
+
+		data_config = dpmgr_path_get_last_config(pgc->dpmgr_handle);
+		memcpy(&(data_config->dispif_config), lcm_param,
+		       sizeof(struct LCM_PARAMS));
+
+		if (dsi_on) {
+			bdg_tx_init(DISP_BDG_DSI0, data_config, NULL);
+			bdg_tx_bist_pattern(DISP_BDG_DSI0, NULL, TRUE, 0, 0x3ff, 0, 0);
+//			dsi_set_cksm(module, NULL, TRUE);
+			bdg_tx_start(DISP_BDG_DSI0, NULL);
+//			mdelay(2000);
+//			dsi_get_cksm(module);
+		} else {
+			bdg_tx_stop(DISP_BDG_DSI0, NULL);
+			bdg_tx_wait_for_idle(DISP_BDG_DSI0);
+			bdg_tx_bist_pattern(DISP_BDG_DSI0, NULL, FALSE, 0, 0, 0, 0);
+			bdg_tx_deinit(DISP_BDG_DSI0, NULL);
+		}
+
+	} else if (strncmp(opt, "dump", 4) == 0) {
+
+		DSI_DumpRegisters(DISP_MODULE_DSI0, 1);
+
+	} else if (strncmp(opt, "xdump", 5) == 0) {
+
+		bdg_dsi_dump_reg(DISP_BDG_DSI0);
+
+	} else if (strncmp(opt, "bdg_int", 7) == 0) {
+		struct LCM_PARAMS *lcm_param = NULL;
+		struct disp_ddp_path_config *data_config;
+
+		lcm_param = disp_lcm_get_params(pgc->plcm);
+
+		if (!lcm_param)
+			DISPMSG("lcm_param is null\n");
+
+		data_config = dpmgr_path_get_last_config(pgc->dpmgr_handle);
+		memcpy(&(data_config->dispif_config), lcm_param,
+		       sizeof(struct LCM_PARAMS));
+
+		bdg_common_init(DISP_BDG_DSI0, data_config, NULL);
+		mipi_dsi_rx_mac_init(DISP_BDG_DSI0, data_config, NULL);
+	} else if (strncmp(opt, "xbdg_int", 8) == 0) {
+		struct LCM_PARAMS *lcm_param = NULL;
+		struct disp_ddp_path_config *data_config;
+
+		lcm_param = disp_lcm_get_params(pgc->plcm);
+
+		if (!lcm_param)
+			DISPMSG("lcm_param is null\n");
+
+		data_config = dpmgr_path_get_last_config(pgc->dpmgr_handle);
+		memcpy(&(data_config->dispif_config), lcm_param,
+		       sizeof(struct LCM_PARAMS));
+
+		bdg_common_init_for_rx_pat(DISP_BDG_DSI0, data_config, NULL);
+
+	} else if (!strncmp(opt, "set_mask_spi:", 13)) {
+		unsigned int addr = 0, val = 0, mask = 0;
+		int ret = -1;
+
+		ret = sscanf(opt, "set_mask_spi:addr=0x%x,mask=0x%x,val=0x%x\n",
+			&addr, &mask, &val);
+		if (ret != 3) {
+			DISPERR("%d error to parse set_mt6382_spi cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		ret = mtk_spi_mask_write(addr, mask, val);
+		if (ret < 0) {
+			DISPERR("write mt6382 fail,addr:0x%x, val:0x%x\n",
+				addr, val);
+			return;
+		}
+
+	} else if (!strncmp(opt, "set_mt6382_spi:", 15)) {
+		unsigned int addr = 0, val = 0;
+		int ret = -1;
+
+		ret = sscanf(opt, "set_mt6382_spi:addr=0x%x,val=0x%x\n",
+			&addr, &val);
+		if (ret != 2) {
+			DISPERR("%d error to parse set_mt6382_spi cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		ret = mtk_spi_write(addr, val);
+//		ret = dsp_spi_write_ex(addr, &val, 4, speed);
+		if (ret < 0) {
+			DISPERR("write mt6382 fail,addr:0x%x, val:0x%x\n",
+				addr, val);
+			return;
+		}
+
+	} else if (!strncmp(opt, "read_mt6382_spi:", 16)) {
+		unsigned int addr = 0, val = 0;
+
+		ret = sscanf(opt, "read_mt6382_spi:addr=0x%x\n", &addr);
+		if (ret != 1) {
+			DISPERR("%d error to parse read_mt6382_spi cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		val = mtk_spi_read(addr);
+//		ret = dsp_spi_read_ex(addr, &val, 4, speed);
+//		if (ret < 0) {
+//			DISPERR("read mt6382 fail,addr:0x%x\n",
+//				addr);
+//			return;
+//		}
+		DISPMSG("mt6382 read addr:0x%08x, val:0x%08x\n", addr, val);
+
+	} else if (strncmp(opt, "check", 5) == 0) {
+		if (check_stopstate(NULL) == 0)
+			bdg_tx_start(DISP_BDG_DSI0, NULL);
+		mdelay(100);
+		return;
+
 	} else if (strncmp(opt, "mobile:", 7) == 0) {
 		if (strncmp(opt + 7, "on", 2) == 0)
 			g_mobilelog = 1;

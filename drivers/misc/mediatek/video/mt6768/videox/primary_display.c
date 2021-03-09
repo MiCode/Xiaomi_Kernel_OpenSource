@@ -85,6 +85,7 @@
 #include "mtk_vcorefs_manager.h"
 #endif
 
+#include "ddp_disp_bdg.h"
 #include "disp_lowpower.h"
 #include "disp_recovery.h"
 /* #include "mt_spm_sodi_cmdq.h" */
@@ -3719,6 +3720,7 @@ static void replace_fb_addr_to_mva(void)
 #if (defined CONFIG_MTK_M4U)
 	struct ddp_fb_info fb_info;
 	int i;
+
 	fb_info.fb_mva = pgc->framebuffer_mva;
 	fb_info.fb_pa = pgc->framebuffer_pa;
 	fb_info.fb_size = DISP_GetFBRamSize();
@@ -3742,7 +3744,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 
 	DISPCHECK("primary_display_init begin lcm=%s, inited=%d\n",
 		lcm_name, is_lcm_inited);
-
+	bdg_tx_pull_6382_reset_pin();
 	dprec_init();
 	dpmgr_init();
 
@@ -3960,6 +3962,10 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 
 	data_config->fps = lcm_fps;
 	data_config->dst_dirty = 1;
+
+//	bdg_common_init(DISP_BDG_DSI0, data_config, NULL);
+//	mipi_dsi_rx_mac_init(DISP_BDG_DSI0, data_config, NULL);
+
 	ret = dpmgr_path_config(pgc->dpmgr_handle, data_config,
 		pgc->cmdq_handle_config);
 
@@ -3986,8 +3992,8 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 			_cmdq_flush_config_handle(1, NULL, 0);
 			_cmdq_reset_config_handle();
 		}
-
-		ret = disp_lcm_init(pgc->plcm, 1);
+//FIXME[MT6382]
+		//ret = disp_lcm_init(pgc->plcm, 1);
 	}
 	if (!ret)
 		primary_display_set_lcm_power_state_nolock(LCM_ON);
@@ -4472,8 +4478,8 @@ int primary_display_wait_for_vsync(void *config)
 #endif
 
 	if (!islcmconnected || !has_vsync) {
-		DISPCHECK("use fake vsync: lcm_connect=%d, has_vsync=%d\n",
-			  islcmconnected, has_vsync);
+//		DISPCHECK("use fake vsync: lcm_connect=%d, has_vsync=%d\n",
+//			  islcmconnected, has_vsync);
 		msleep(20);
 		return 0;
 	}
@@ -4876,6 +4882,7 @@ int primary_display_resume(void)
 	enum DISP_STATUS ret = DISP_STATUS_OK;
 	struct ddp_io_golden_setting_arg gset_arg;
 	int i, skip_update = 0;
+	struct disp_ddp_path_config *data_config;
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	unsigned long long bandwidth;
 	unsigned int in_fps = 60;
@@ -4885,7 +4892,7 @@ int primary_display_resume(void)
 	DISPCHECK("primary_display_resume begin\n");
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
 		MMPROFILE_FLAG_START, 0, 0);
-
+	bdg_tx_pull_6382_reset_pin();
 	_primary_path_lock(__func__);
 	if (pgc->state == DISP_ALIVE) {
 		primary_display_lcm_power_on_state(1);
@@ -4919,6 +4926,11 @@ int primary_display_resume(void)
 		if (dsi_force_config)
 			DSI_ForceConfig(1);
 	}
+//FIXME[MT6382]
+	data_config = dpmgr_path_get_last_config(pgc->dpmgr_handle);
+	DISPERR("[DENNIS][%s][%d]\n", __func__, __LINE__);
+	bdg_common_init(DISP_BDG_DSI0, data_config, NULL);
+	mipi_dsi_rx_mac_init(DISP_BDG_DSI0, data_config, NULL);
 
 	DISPDBG("dpmanager path power on[begin]\n");
 	dpmgr_path_power_on(pgc->dpmgr_handle, CMDQ_DISABLE);

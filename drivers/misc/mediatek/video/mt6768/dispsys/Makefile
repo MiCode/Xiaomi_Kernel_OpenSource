@@ -86,7 +86,7 @@ obj-y += ddp_irq.o
 obj-y += ddp_info.o
 obj-y += ddp_color_format.o
 obj-y += ddp_pwm_mux.o
-
+obj-y += ddp_disp_bdg.o
 
 ifeq ($(CONFIG_MMPROFILE), y)
 obj-y += ddp_mmp.o

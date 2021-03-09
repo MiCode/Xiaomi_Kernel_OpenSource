@@ -368,6 +368,7 @@ int do_lcm_vdo_lp_read(struct ddp_lcm_read_cmd_table *read_table)
 	int ret = 0;
 	int i = 0;
 	struct cmdqRecStruct *handle;
+
 	static cmdqBackupSlotHandle read_Slot[2] = {0, 0};
 	int h = 0;
 

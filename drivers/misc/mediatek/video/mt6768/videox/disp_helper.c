@@ -145,6 +145,7 @@ static struct {
 	{DISP_OPT_OVL_SBCH, 0, "DISP_OPT_OVL_SBCH"},
 	{DISP_OPT_GMO_OPTIMIZE, 0, "DISP_OPT_GMO_OPTIMIZE"},
 	{DISP_OPT_TUI_MODE, 0, "DISP_OPT_TUI_MODE"},
+	{DISP_OPT_6382_DBG, 0, "DISP_OPT_6382_DBG"},
 };
 
 const char *disp_helper_option_spy(enum DISP_HELPER_OPT option)
