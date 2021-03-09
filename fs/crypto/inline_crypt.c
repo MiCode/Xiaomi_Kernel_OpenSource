@@ -166,6 +166,11 @@ int fscrypt_prepare_inline_crypt_key(struct fscrypt_prepared_key *prep_key,
 		goto fail;
 	}
 
+	/* A flag which will set eMMC crypto data unit size as 512 or 4096 */
+	if (ci->ci_policy.version == FSCRYPT_POLICY_V2 &&
+		S_ISREG(inode->i_mode))
+		blk_key->base.hie_duint_size = 4096;
+
 	/*
 	 * We have to start using blk-crypto on all the filesystem's devices.
 	 * We also have to save all the request_queue's for later so that the
@@ -212,6 +217,7 @@ void fscrypt_destroy_inline_crypt_key(struct fscrypt_prepared_key *prep_key)
 
 	if (blk_key) {
 		for (i = 0; i < blk_key->num_devs; i++) {
+			blk_key->base.hie_duint_size = 0;
 			blk_crypto_evict_key(blk_key->devs[i], &blk_key->base);
 			blk_put_queue(blk_key->devs[i]);
 		}
