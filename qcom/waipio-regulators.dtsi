@@ -203,6 +203,20 @@
 			qcom,init-voltage-level =
 				<RPMH_REGULATOR_LEVEL_MIN_SVS>;
 		};
+
+		VDD_MXC_GFX_VOTER_LEVEL: VDD_GFX_MXC_VOTER_LEVEL:
+		regulator-pm8350c-s2-gfx-voter-level {
+			regulator-name = "pm8350c_s2_gfx_voter_level";
+			pm8350c_s2_gfx_voter_level-parent-supply =
+				<&VDD_GFX_LEVEL>;
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt =
+				<RPMH_REGULATOR_LEVEL_MIN_SVS>;
+			regulator-max-microvolt =
+				<RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level =
+				<RPMH_REGULATOR_LEVEL_MIN_SVS>;
+		};
 	};
 
 	rpmh-regulator-mxlvl {
