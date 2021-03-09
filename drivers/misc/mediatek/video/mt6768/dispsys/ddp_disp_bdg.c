@@ -162,13 +162,13 @@ do { \
 
 #define DSI_OUTREG32(cmdq, addr, val) \
 do { \
-	DDPDBG("%s\n", __func__); \
+	DISPDBG("%s\n", __func__); \
 	mtk_spi_write((unsigned long)(&addr), val); \
 } while (0)
 
 #define DSI_MASKREG32(cmdq, addr, mask, val) \
 do { \
-	DDPDBG("%s\n", __func__); \
+	DISPDBG("%s\n", __func__); \
 	mtk_spi_mask_write((unsigned long)(addr), mask, val); \
 } while (0)
 #else
