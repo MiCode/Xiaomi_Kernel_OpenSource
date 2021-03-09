@@ -1334,10 +1334,6 @@
 		qcom,spss-fuse1-bit = <8>;
 		qcom,spss-fuse2-addr = <0x221C22EC>;
 		qcom,spss-fuse2-bit = <7>;
-		qcom,spss-fuse3-addr = <0x221C2238>; // IAR_FEATURE_ENABLED fuse
-		qcom,spss-fuse3-bit = <10>;
-		qcom,spss-fuse4-addr = <0x221C22EC>; // IAR_STATE fuse
-		qcom,spss-fuse4-bit = <21>; // 0x221C22EC bits 21-23
 		qcom,spss-dev-firmware-name  = "spss1d.mdt";  /* 8 chars max */
 		qcom,spss-test-firmware-name = "spss1t.mdt";  /* 8 chars max */
 		qcom,spss-prod-firmware-name = "spss1p.mdt";  /* 8 chars max */
