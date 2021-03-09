@@ -712,6 +712,11 @@ static long teei_config_ioctl(struct file *file,
 			teei_flags = 1;
 
 			TEEI_BOOT_FOOTPRINT("TEEI start to load driver TAs");
+			if (param.uuid_count > MAX_DRV_UUIDS) {
+				IMSG_ERROR("TEEI uuid_count is invalid(%u)!\n",
+					(unsigned int)(param.uuid_count));
+				return -EINVAL;
+			}
 
 			teei_ta_flags = param.flag;
 			for (i = 0; i < param.uuid_count; i++) {
