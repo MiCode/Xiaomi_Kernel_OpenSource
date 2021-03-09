@@ -337,6 +337,11 @@ int ccu_i2c_set_channel(enum CCU_I2C_CHANNEL channel)
 int ccu_i2c_controller_init(enum CCU_I2C_CHANNEL
 			    i2c_controller_id)
 {
+	if (i2c_controller_id >= CCU_I2C_CHANNEL_MAX) {
+		LOG_ERR("i2c_id %d is invalid\n", i2c_controller_id);
+		return -EINVAL;
+	}
+
 	if (ccu_i2c_initialized[i2c_controller_id] == MTRUE) {
 	/*if not first time init, release mutex first to avoid deadlock*/
 		LOG_DBG_MUST("reinit, temporily release mutex.\n");
