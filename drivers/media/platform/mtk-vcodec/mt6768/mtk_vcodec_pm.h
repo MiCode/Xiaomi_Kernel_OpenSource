@@ -51,6 +51,7 @@ struct mtk_vcodec_pm {
 
 enum mtk_dec_dtsi_reg_idx {
 	VDEC_SYS,
+	VDEC_VLD,
 	VDEC_MISC,
 	NUM_MAX_VDEC_REG_BASE,
 };

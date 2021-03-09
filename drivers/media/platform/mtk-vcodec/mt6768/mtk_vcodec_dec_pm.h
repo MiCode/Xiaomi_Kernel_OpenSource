@@ -28,6 +28,7 @@ void mtk_vcodec_dec_pw_on(struct mtk_vcodec_pm *pm, int hw_id);
 void mtk_vcodec_dec_pw_off(struct mtk_vcodec_pm *pm, int hw_id);
 void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id);
 void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id);
+void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id);
 
 void mtk_prepare_vdec_dvfs(void);
 void mtk_unprepare_vdec_dvfs(void);
