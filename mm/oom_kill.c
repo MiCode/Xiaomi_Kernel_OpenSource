@@ -372,6 +372,7 @@ abort:
 		put_task_struct(oc->chosen_non_negative_adj);
 	if (oc->chosen)
 		put_task_struct(oc->chosen);
+	oc->chosen_non_negative_adj = NULL;
 	oc->chosen = (void *)-1UL;
 	return 1;
 }

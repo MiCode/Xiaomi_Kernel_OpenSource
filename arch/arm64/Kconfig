@@ -127,6 +127,7 @@ config ARM64
 	select HANDLE_DOMAIN_IRQ
 	select HARDIRQS_SW_RESEND
 	select HAVE_MOVE_PMD
+	select HAVE_MOVE_PUD
 	select HAVE_PCI
 	select HAVE_ACPI_APEI if (ACPI && EFI)
 	select HAVE_ALIGNED_STRUCT_PAGE if SLUB
@@ -139,6 +140,7 @@ config ARM64
 	select HAVE_ARCH_KASAN if !(ARM64_16K_PAGES && ARM64_VA_BITS_48)
 	select HAVE_ARCH_KASAN_SW_TAGS if HAVE_ARCH_KASAN
 	select HAVE_ARCH_KASAN_HW_TAGS if (HAVE_ARCH_KASAN && ARM64_MTE)
+	select HAVE_ARCH_KFENCE
 	select HAVE_ARCH_KGDB
 	select HAVE_ARCH_MMAP_RND_BITS
 	select HAVE_ARCH_MMAP_RND_COMPAT_BITS if COMPAT
@@ -1395,6 +1397,9 @@ config ARM64_PAN
 	 The feature is detected at runtime, and will remain as a 'nop'
 	 instruction if the cpu does not implement the feature.
 
+config AS_HAS_LDAPR
+	def_bool $(as-instr,.arch_extension rcpc)
+
 config ARM64_LSE_ATOMICS
 	bool
 	default ARM64_USE_LSE_ATOMICS
@@ -1864,6 +1869,9 @@ config CMDLINE
 choice
 	prompt "Kernel command line type" if CMDLINE != ""
 	default CMDLINE_FROM_BOOTLOADER
+	help
+	  Choose how the kernel will handle the provided default kernel
+	  command line string.
 
 config CMDLINE_FROM_BOOTLOADER
 	bool "Use bootloader kernel arguments if available"
@@ -1880,12 +1888,12 @@ config CMDLINE_EXTEND
 
 config CMDLINE_FORCE
 	bool "Always use the default kernel command string"
-	depends on CMDLINE != ""
 	help
 	  Always use the default kernel command string, even if the boot
 	  loader passes other arguments to the kernel.
 	  This is useful if you cannot or don't want to change the
 	  command-line options your boot loader passes to the kernel.
+
 endchoice
 
 config EFI_STUB
@@ -1922,21 +1930,6 @@ config DMI
 	  continue to boot on existing non-UEFI platforms.
 
 endmenu
-
-config ASYMMETRIC_AARCH32
-	bool "Allow support for asymmetric AArch32 support"
-	depends on COMPAT && EXPERT
-	help
-	  Enable this option to allow support for asymmetric AArch32 EL0
-	  CPU configurations. Once the AArch32 EL0 support is detected
-	  on a CPU, the feature is made available to user space to allow
-	  the execution of 32-bit (compat) applications by migrating
-	  them to the capable CPUs. You will not be able to offline all
-	  such CPUs to prevent any running 32-bit application from being
-	  killed. I.e: we guarantee there will always be at least one
-	  32-bit capable CPU online.
-
-	  If unsure say N.
 
 config SYSVIPC_COMPAT
 	def_bool y

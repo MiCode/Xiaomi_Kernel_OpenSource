@@ -611,8 +611,7 @@ bool fscrypt_mergeable_bio_bh(struct bio *bio,
 
 bool fscrypt_dio_supported(struct kiocb *iocb, struct iov_iter *iter);
 
-int fscrypt_limit_dio_pages(const struct inode *inode, loff_t pos,
-			    int nr_pages);
+u64 fscrypt_limit_io_blocks(const struct inode *inode, u64 lblk, u64 nr_blocks);
 
 #else /* CONFIG_FS_ENCRYPTION_INLINE_CRYPT */
 
@@ -651,10 +650,10 @@ static inline bool fscrypt_dio_supported(struct kiocb *iocb,
 	return !fscrypt_needs_contents_encryption(inode);
 }
 
-static inline int fscrypt_limit_dio_pages(const struct inode *inode, loff_t pos,
-					  int nr_pages)
+static inline u64 fscrypt_limit_io_blocks(const struct inode *inode, u64 lblk,
+					  u64 nr_blocks)
 {
-	return nr_pages;
+	return nr_blocks;
 }
 #endif /* !CONFIG_FS_ENCRYPTION_INLINE_CRYPT */
 

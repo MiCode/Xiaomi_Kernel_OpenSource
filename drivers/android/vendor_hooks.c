@@ -9,6 +9,7 @@
 #define CREATE_TRACE_POINTS
 #include <trace/hooks/vendor_hooks.h>
 #include <trace/hooks/sched.h>
+#include <trace/hooks/cpu.h>
 #include <trace/hooks/fpsimd.h>
 #include <trace/hooks/binder.h>
 #include <trace/hooks/rwsem.h>
@@ -30,6 +31,12 @@
 #include <trace/hooks/ftrace_dump.h>
 #include <trace/hooks/pm_domain.h>
 #include <trace/hooks/bug.h>
+#include <trace/hooks/timer.h>
+#include <trace/hooks/softlockup.h>
+#include <trace/hooks/power.h>
+#include <trace/hooks/fault.h>
+#include <trace/hooks/iommu.h>
+#include <trace/hooks/thermal.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -93,6 +100,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_find_energy_efficient_cpu);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_set_sugov_sched_attr);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_iowait);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_sugov_update);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_cpu_overutilized);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_sched_setaffinity);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_update_cpus_allowed);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_skip_swapcache_flags);
@@ -133,3 +141,21 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_allow_domain_state);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_map_util_freq);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_report_bug);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_em_cpu_energy);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cpu_up);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cpu_down);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_sched_balance_rt);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_timer_calc_index);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_watchdog_timer_softlockup);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_try_to_freeze_todo);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_try_to_freeze_todo_unfrozen);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_dequeue_task_idle);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_die_kernel_fault);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_do_sea);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_do_mem_abort);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_do_sp_pc_abort);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_iommu_setup_dma_ops);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_pick_next_entity);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_check_preempt_wakeup);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rmqueue);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_pagecache_get_page);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_enable_thermal_genl_check);

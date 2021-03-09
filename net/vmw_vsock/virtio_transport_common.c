@@ -26,6 +26,10 @@
 /* Threshold for detecting small packets to copy */
 #define GOOD_COPY_LEN  128
 
+uint virtio_transport_max_vsock_pkt_buf_size = 64 * 1024;
+module_param(virtio_transport_max_vsock_pkt_buf_size, uint, 0444);
+EXPORT_SYMBOL_GPL(virtio_transport_max_vsock_pkt_buf_size);
+
 static const struct virtio_transport *
 virtio_transport_get_ops(struct vsock_sock *vsk)
 {
@@ -1130,8 +1134,6 @@ void virtio_transport_recv_pkt(struct virtio_transport *t,
 
 	vsk = vsock_sk(sk);
 
-	space_available = virtio_transport_space_update(sk, pkt);
-
 	lock_sock(sk);
 
 	/* Check if sk has been closed before lock_sock */
@@ -1141,6 +1143,8 @@ void virtio_transport_recv_pkt(struct virtio_transport *t,
 		sock_put(sk);
 		goto free_pkt;
 	}
+
+	space_available = virtio_transport_space_update(sk, pkt);
 
 	/* Update CID in case it has changed after a transport reset event */
 	vsk->local_addr.svm_cid = dst.svm_cid;

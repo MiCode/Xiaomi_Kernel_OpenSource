@@ -926,10 +926,12 @@ static int vsock_shutdown(struct socket *sock, int mode)
 	 */
 
 	sk = sock->sk;
+
+	lock_sock(sk);
 	if (sock->state == SS_UNCONNECTED) {
 		err = -ENOTCONN;
 		if (sk->sk_type == SOCK_STREAM)
-			return err;
+			goto out;
 	} else {
 		sock->state = SS_DISCONNECTING;
 		err = 0;
@@ -938,10 +940,8 @@ static int vsock_shutdown(struct socket *sock, int mode)
 	/* Receive and send shutdowns are treated alike. */
 	mode = mode & (RCV_SHUTDOWN | SEND_SHUTDOWN);
 	if (mode) {
-		lock_sock(sk);
 		sk->sk_shutdown |= mode;
 		sk->sk_state_change(sk);
-		release_sock(sk);
 
 		if (sk->sk_type == SOCK_STREAM) {
 			sock_reset_flag(sk, SOCK_DONE);
@@ -949,6 +949,8 @@ static int vsock_shutdown(struct socket *sock, int mode)
 		}
 	}
 
+out:
+	release_sock(sk);
 	return err;
 }
 
@@ -997,8 +999,11 @@ static __poll_t vsock_poll(struct file *file, struct socket *sock,
 			mask |= EPOLLOUT | EPOLLWRNORM | EPOLLWRBAND;
 
 	} else if (sock->type == SOCK_STREAM) {
-		const struct vsock_transport *transport = vsk->transport;
+		const struct vsock_transport *transport;
+
 		lock_sock(sk);
+
+		transport = vsk->transport;
 
 		/* Listening sockets that have connections in their accept
 		 * queue can be read.
@@ -1082,9 +1087,10 @@ static int vsock_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
 	err = 0;
 	sk = sock->sk;
 	vsk = vsock_sk(sk);
-	transport = vsk->transport;
 
 	lock_sock(sk);
+
+	transport = vsk->transport;
 
 	err = vsock_auto_bind(vsk);
 	if (err)
@@ -1212,7 +1218,7 @@ static int vsock_transport_cancel_pkt(struct vsock_sock *vsk)
 {
 	const struct vsock_transport *transport = vsk->transport;
 
-	if (!transport->cancel_pkt)
+	if (!transport || !transport->cancel_pkt)
 		return -EOPNOTSUPP;
 
 	return transport->cancel_pkt(vsk);
@@ -1222,7 +1228,6 @@ static void vsock_connect_timeout(struct work_struct *work)
 {
 	struct sock *sk;
 	struct vsock_sock *vsk;
-	int cancel = 0;
 
 	vsk = container_of(work, struct vsock_sock, connect_work.work);
 	sk = sk_vsock(vsk);
@@ -1233,11 +1238,9 @@ static void vsock_connect_timeout(struct work_struct *work)
 		sk->sk_state = TCP_CLOSE;
 		sk->sk_err = ETIMEDOUT;
 		sk->sk_error_report(sk);
-		cancel = 1;
+		vsock_transport_cancel_pkt(vsk);
 	}
 	release_sock(sk);
-	if (cancel)
-		vsock_transport_cancel_pkt(vsk);
 
 	sock_put(sk);
 }
@@ -1544,9 +1547,10 @@ static int vsock_stream_setsockopt(struct socket *sock,
 	err = 0;
 	sk = sock->sk;
 	vsk = vsock_sk(sk);
-	transport = vsk->transport;
 
 	lock_sock(sk);
+
+	transport = vsk->transport;
 
 	switch (optname) {
 	case SO_VM_SOCKETS_BUFFER_SIZE:
@@ -1680,7 +1684,6 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
 
 	sk = sock->sk;
 	vsk = vsock_sk(sk);
-	transport = vsk->transport;
 	total_written = 0;
 	err = 0;
 
@@ -1688,6 +1691,8 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
 		return -EOPNOTSUPP;
 
 	lock_sock(sk);
+
+	transport = vsk->transport;
 
 	/* Callers should not provide a destination with stream sockets. */
 	if (msg->msg_namelen) {
@@ -1823,10 +1828,11 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
 
 	sk = sock->sk;
 	vsk = vsock_sk(sk);
-	transport = vsk->transport;
 	err = 0;
 
 	lock_sock(sk);
+
+	transport = vsk->transport;
 
 	if (!transport || sk->sk_state != TCP_ESTABLISHED) {
 		/* Recvmsg is supposed to return 0 if a peer performs an
