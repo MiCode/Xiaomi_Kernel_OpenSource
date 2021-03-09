@@ -161,7 +161,6 @@ int a6xx_fenced_write(struct adreno_device *adreno_dev, u32 offset,
 int a6xx_init(struct adreno_device *adreno_dev)
 {
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
-	int ret;
 
 	adreno_dev->highest_bank_bit = a6xx_core->highest_bank_bit;
 
@@ -180,13 +179,10 @@ int a6xx_init(struct adreno_device *adreno_dev)
 
 	a6xx_crashdump_init(adreno_dev);
 
-	ret = adreno_allocate_global(KGSL_DEVICE(adreno_dev), &adreno_dev->pwrup_reglist,
-		PAGE_SIZE, 0, 0, KGSL_MEMDESC_PRIVILEGED, "powerup_register_list");
-	if (ret)
-		return ret;
-
-	adreno_create_profile_buffer(adreno_dev);
-	return 0;
+	return adreno_allocate_global(KGSL_DEVICE(adreno_dev),
+		&adreno_dev->pwrup_reglist,
+		PAGE_SIZE, 0, 0, KGSL_MEMDESC_PRIVILEGED,
+		"powerup_register_list");
 }
 
 static int a6xx_nogmu_init(struct adreno_device *adreno_dev)
@@ -211,6 +207,8 @@ static int a6xx_nogmu_init(struct adreno_device *adreno_dev)
 		"gmu_wrapper", NULL, NULL);
 	if (ret && ret != -ENODEV)
 		dev_err(device->dev, "Couldn't map the GMU wrapper registers\n");
+
+	adreno_create_profile_buffer(adreno_dev);
 
 	return a6xx_init(adreno_dev);
 }
