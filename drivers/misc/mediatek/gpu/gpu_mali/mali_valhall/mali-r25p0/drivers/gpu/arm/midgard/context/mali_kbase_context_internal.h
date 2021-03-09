@@ -58,3 +58,6 @@ int kbase_context_mem_alloc_page(struct kbase_context *kctx);
 void kbase_context_mem_pool_free(struct kbase_context *kctx);
 
 void kbase_context_sticky_resource_term(struct kbase_context *kctx);
+
+int kbase_context_add_to_dev_list(struct kbase_context *kctx);
+void kbase_context_remove_from_dev_list(struct kbase_context *kctx);
