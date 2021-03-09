@@ -105,7 +105,7 @@
 &accdet {
 	/* accdet micbias voltage: 0x07,2.7v;0x05,2.5v;0x02,1.9v */
 	accdet-mic-vol = <6>;
-	headset-mode-setting = <0x500 0x500 1 0x1f0 0x800 0x800 0x20 0x44>;
+	headset-mode-setting = <0x500 0x500 1 0x1f0 0x800 0x1000 0x20 0x44>;
 	accdet-plugout-debounce = <1>;
 	/*1:ACC mode, 2:low cost without in bias, 6:low cost with in bias*/
 	accdet-mic-mode = <1>;
@@ -262,11 +262,9 @@
 		status = "okay";
 	};
 };
-
 /* DISPSYS GPIO standardization end*/
 
-#include <k69v1_64/cust.dtsi>
+#include <k69v1_64_6382/cust.dtsi>
 #include "mediatek/cust_mt6768_camera.dtsi"
 #include "mediatek/cust_mt6768_touch_1080x2160.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
-
