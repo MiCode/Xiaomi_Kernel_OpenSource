@@ -334,11 +334,11 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE:
 		atomic_set(&in_sleep, 1);
-		for (i = 0; i < CPU_NUMBER; i++)
+		for_each_online_cpu(i)
 			complete(&mtk_lpm_suspend_completion[i]);
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
-		for (i = 0 ; i < CPU_NUMBER; i++)
+		for_each_online_cpu(i)
 			hrtimer_cancel(&mtk_lpm_wakeup_timer[i]);
 		atomic_set(&in_sleep, 0);
 		return NOTIFY_DONE;
