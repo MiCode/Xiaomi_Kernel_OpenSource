@@ -42,7 +42,7 @@
 #include <net/flow.h>
 
 
-#define NET_RX_BATCH_SOLUTION 1
+/* #define NET_RX_BATCH_SOLUTION 1 */
 
 
 /* The interface for checksum offload between the stack and networking drivers
