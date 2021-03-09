@@ -565,10 +565,6 @@ static int genc_hwsched_first_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	ret = adreno_hwsched_init(adreno_dev);
-	if (ret)
-		return ret;
-
 	adreno_hwsched_start(adreno_dev);
 
 	adreno_get_bus_counters(adreno_dev);
@@ -1020,5 +1016,5 @@ int genc_hwsched_probe(struct platform_device *pdev,
 
 	adreno_dev->irq_mask = GENC_HWSCHED_INT_MASK;
 
-	return 0;
+	return adreno_hwsched_init(adreno_dev);
 }
