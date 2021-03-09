@@ -170,7 +170,7 @@
 #define GEN2_U3_EXIT_RSP_RX_CLK_MASK	GEN2_U3_EXIT_RSP_RX_CLK(0xff)
 #define GEN1_U3_EXIT_RSP_RX_CLK(n)	(n)
 #define GEN1_U3_EXIT_RSP_RX_CLK_MASK	GEN1_U3_EXIT_RSP_RX_CLK(0xff)
-#define DWC31_LINK_GDBGLTSSM	0xd050
+#define DWC31_LINK_GDBGLTSSM(n)		(0xd050 + ((n) * 0x80))
 
 /* DWC 3.1 Tx De-emphasis Registers */
 #define DWC31_LCSR_TX_DEEMPH(n)	(0xd060 + ((n) * 0x80))
@@ -1056,8 +1056,10 @@ struct dwc3_scratchpad_array {
  * @role_sw: usb_role_switch handle
  * @role_switch_default_mode: default operation mode of controller while
  *			usb role is USB_ROLE_NONE.
- * @usb2_phy: pointer to USB2 PHY
- * @usb3_phy: pointer to USB3 PHY
+ * @usb2_phy: pointer to USB2 PHY 0
+ * @usb2_phy1: pointer to USB2 PHY 1
+ * @usb3_phy: pointer to USB3 PHY 0
+ * @usb3_phy: pointer to USB3 PHY 1
  * @usb2_generic_phy: pointer to USB2 PHY
  * @usb3_generic_phy: pointer to USB3 PHY
  * @phys_ready: flag to indicate that PHYs are ready
@@ -1161,6 +1163,7 @@ struct dwc3_scratchpad_array {
  * @is_remote_wakeup_enabled: remote wakeup status from host perspective
  * @wait_linkstate: waitqueue for waiting LINK to move into required state
  * @remote_wakeup_work: use to perform remote wakeup from this context
+ * @dual_port: If true, this core supports two ports
  */
 struct dwc3 {
 	struct work_struct	drd_work;
@@ -1194,8 +1197,8 @@ struct dwc3 {
 
 	struct reset_control	*reset;
 
-	struct usb_phy		*usb2_phy;
-	struct usb_phy		*usb3_phy;
+	struct usb_phy		*usb2_phy, *usb2_phy1;
+	struct usb_phy		*usb3_phy, *usb3_phy1;
 
 	struct phy		*usb2_generic_phy;
 	struct phy		*usb3_generic_phy;
@@ -1412,6 +1415,7 @@ struct dwc3 {
 	bool			is_remote_wakeup_enabled;
 	wait_queue_head_t	wait_linkstate;
 	struct work_struct	remote_wakeup_work;
+	bool			dual_port;
 };
 
 #define INCRX_BURST_MODE 0
