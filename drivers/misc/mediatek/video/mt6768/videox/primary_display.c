@@ -3716,7 +3716,7 @@ static int update_primary_intferface_module(void)
 
 static void replace_fb_addr_to_mva(void)
 {
-#if (defined CONFIG_MTK_M4U) || (defined CONFIG_MTK_IOMMU_V2)
+#if (defined CONFIG_MTK_M4U)
 	struct ddp_fb_info fb_info;
 	int i;
 	fb_info.fb_mva = pgc->framebuffer_mva;
@@ -8451,78 +8451,6 @@ static int _screen_cap_by_cpu(unsigned int mva, enum UNIFIED_COLOR_FMT ufmt,
 	return 0;
 }
 
-#ifdef CONFIG_MTK_IOMMU_V2
-int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
-	enum UNIFIED_COLOR_FMT ufmt)
-{
-	int ret = 0;
-	struct ion_client *ion_display_client = NULL;
-	struct ion_handle *ion_display_handle = NULL;
-	unsigned long mva = 0;
-	unsigned int w_xres = primary_display_get_width();
-	unsigned int h_yres = primary_display_get_height();
-	unsigned int pixel_byte = primary_display_get_bpp() / 8;
-	int buffer_size = h_yres * w_xres * pixel_byte;
-	enum DISP_MODULE_ENUM after_eng = DISP_MODULE_OVL0;
-	int tmp;
-
-	DISPMSG("primary capture: begin\n");
-
-	disp_sw_mutex_lock(&(pgc->capture_lock));
-
-	if (primary_display_is_sleepd()) {
-		memset((void *)pbuf, 0, buffer_size);
-		DISPMSG("primary capture: Fail black End\n");
-		goto out;
-	}
-
-	ion_display_client = disp_ion_create("disp_cap_ovl");
-	if (ion_display_client == NULL) {
-		DISPMSG("primary capture:Fail to create ion\n");
-		ret = -1;
-		goto out;
-	}
-
-	ion_display_handle = disp_ion_alloc(ion_display_client,
-					    ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
-					    pbuf, buffer_size);
-	if (!ion_display_handle) {
-		DISPMSG("primary capture:Fail to allocate buffer\n");
-		ret = -1;
-		goto out;
-	}
-
-	disp_ion_get_mva(ion_display_client, ion_display_handle,
-		&mva, 0, DISP_M4U_PORT_DISP_WDMA0);
-	disp_ion_cache_flush(ion_display_client, ion_display_handle,
-		ION_CACHE_INVALID_BY_RANGE);
-
-	tmp = disp_helper_get_option(DISP_OPT_SCREEN_CAP_FROM_DITHER);
-	if (tmp == 0)
-		after_eng = DISP_MODULE_OVL0;
-
-	if (primary_display_cmdq_enabled())
-		_screen_cap_by_cmdq((unsigned int)mva, ufmt, after_eng);
-	else
-		_screen_cap_by_cpu((unsigned int)mva, ufmt, after_eng);
-
-	disp_ion_cache_flush(ion_display_client, ion_display_handle,
-		ION_CACHE_INVALID_BY_RANGE);
-
-out:
-	if (ion_display_client)
-		disp_ion_free_handle(ion_display_client, ion_display_handle);
-
-	if (ion_display_client)
-		disp_ion_destroy(ion_display_client);
-
-	disp_sw_mutex_unlock(&(pgc->capture_lock));
-	DISPMSG("primary capture: end\n");
-	return ret;
-}
-
-#else
-
 int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
 	enum UNIFIED_COLOR_FMT ufmt)
 {
@@ -8594,7 +8522,6 @@ out:
 	DISPMSG("primary capture: end\n");
 	return ret;
 }
-#endif
 
 int primary_display_capture_framebuffer(unsigned long pbuf)
 {
