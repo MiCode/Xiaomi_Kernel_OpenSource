@@ -37,13 +37,11 @@ struct BDG_GCE_REGS *GCE_REG;			/* 0x00010000 */
 struct BDG_OCLA_REGS *OCLA_REG;			/* 0x00014000 */
 struct BDG_DISP_DSC_REGS *DSC_REG;		/* 0x00020000 */
 struct BDG_TX_REGS *TX_REG[HW_NUM];		/* 0x00021000 */
+struct DSI_TX_CMDQ_REGS *TX_CMDQ_REG[HW_NUM];	/* 0x00021d00 */
 struct BDG_MIPI_TX_REGS *MIPI_TX_REG;		/* 0x00022000 */
 struct BDG_DISPSYS_CONFIG_REGS *DISPSYS_REG;	/* 0x00023000 */
 struct BDG_RDMA0_REGS *RDMA_REG;		/* 0x00024000 */
 struct BDG_MUTEX_REGS *MUTEX_REG;		/* 0x00025000 */
-//struct MIPI_PHY_REGS *MIPI_PHY_REG[DSI_CORE_NUM];
-//struct dsi_cmdq_regs *DSI_CMDQ_REG[DSI_CORE_NUM];
-//struct dsi_vm_cmdq_regs *DSI_VM_CMD_REG[DSI_CORE_NUM];
 struct DSI_TX_PHY_TIMCON0_REG timcon0;
 struct DSI_TX_PHY_TIMCON1_REG timcon1;
 struct DSI_TX_PHY_TIMCON2_REG timcon2;
@@ -52,7 +50,7 @@ unsigned int bg_tx_data_phy_cycle = 0, tx_data_rate = 0, ap_tx_data_rate = 0;
 //unsigned int ap_tx_data_phy_cycle = 0;
 unsigned int hsa_byte = 0, hbp_byte = 0, hfp_byte = 0, bllp_byte = 0, bg_tx_line_cycle = 0;
 //unsigned int ap_tx_hsa_wc = 0, ap_tx_hbp_wc = 0, ap_tx_hfp_wc = 0, ap_tx_bllp_wc = 0;
-bool dsc_en;
+unsigned int dsc_en;
 
 #define T_DCO		5  // nominal: 200MHz
 int hsrx_clk_div;
@@ -63,6 +61,17 @@ int post_rcvd_rst_val, post_det_dly_thresh_val;
 unsigned int post_rcvd_rst_reg, post_det_dly_thresh_reg;
 unsigned int ddl_cntr_ref_reg;
 
+#define REGFLAG_DELAY		0xFFFC
+#define REGFLAG_UDELAY		0xFFFB
+#define REGFLAG_END_OF_TABLE	0xFFFD
+#define REGFLAG_RESET_LOW	0xFFFE
+#define REGFLAG_RESET_HIGH	0xFFFF
+
+struct lcm_setting_table {
+	unsigned int cmd;
+	unsigned char count;
+	unsigned char para_list[64];
+};
 
 #define MM_CLK			546 //fpga=26
 #define NS_TO_CYCLE(n, c)	((n) / (c) + (((n) % (c)) ? 1 : 0))
@@ -70,10 +79,6 @@ unsigned int ddl_cntr_ref_reg;
 #define DSI_MODULE_to_ID(x)	(x == DISP_BDG_DSI0 ? 0 : 1)
 #define DSI_MODULE_BEGIN(x)	(x == DISP_BDG_DSIDUAL ? 0 : DSI_MODULE_to_ID(x))
 #define DSI_MODULE_END(x)	(x == DISP_BDG_DSIDUAL ? 1 : DSI_MODULE_to_ID(x))
-
-//#define DSI_MODULE_to_ID(x)	(0)
-//#define DSI_MODULE_BEGIN(x)	(0)
-//#define DSI_MODULE_END(x)	(0)
 
 #define DSI_SET_VAL(cmdq, addr, val) \
 			((*(volatile unsigned int *)(addr)) = (unsigned int)val)
@@ -94,13 +99,12 @@ unsigned int mtk_spi_read(u32 addr)
 
 int mtk_spi_write(u32 addr, unsigned int regval)
 {
+	unsigned int value = regval;
 	int ret = 0;
 
 //	DISPMSG("mt6382, %s, addr=0x%08x, value=0x%x\n", __func__, addr, value);
 #ifdef SW_EARLY_PORTING
 #else
-	unsigned int value = regval;
-
 	ret = dsp_spi_write_ex(addr, &value, 4, SPI_SPEED);
 #endif
 	return ret;
@@ -155,6 +159,18 @@ do { \
 	r.bit = ~(r.bit); \
 	mtk_spi_mask_write((unsigned long)(&REG), AS_UINT32(&r), value); \
 } while (0)
+
+#define DSI_OUTREG32(cmdq, addr, val) \
+do { \
+	DDPDBG("%s\n", __func__); \
+	mtk_spi_write((unsigned long)(&addr), val); \
+} while (0)
+
+#define DSI_MASKREG32(cmdq, addr, mask, val) \
+do { \
+	DDPDBG("%s\n", __func__); \
+	mtk_spi_mask_write((unsigned long)(addr), mask, val); \
+} while (0)
 #else
 #define DSI_OUTREGBIT(spi_en, cmdq, TYPE, REG, bit, value) \
 do { \
@@ -179,15 +195,7 @@ do { \
 		} \
 	} \
 } while (0)
-#endif
 
-#ifdef SPI_EN
-#define DSI_OUTREG32(cmdq, addr, val) \
-do { \
-	DDPDBG("%s\n", __func__); \
-	mtk_spi_write((unsigned long)(&addr), val); \
-} while (0)
-#else
 #define DSI_OUTREG32(spi_en, cmdq, addr, val) \
 do { \
 	if (spi_en) { \
@@ -197,7 +205,18 @@ do { \
 		DISP_REG_SET(cmdq, addr, val); \
 	} \
 } while (0)
+
+#define DSI_MASKREG32(spi_en, cmdq, addr, mask, val) \
+do { \
+	if (spi_en) { \
+		mtk_spi_mask_write((unsigned long)(addr), mask, val); \
+	} \
+	else { \
+		DISP_REG_SET(cmdq, addr, val); \
+	} \
+} while (0)
 #endif
+
 void bdg_tx_pull_6382_reset_pin(void)
 {
 	bdg_tx_set_6382_reset_pin(1);
@@ -223,6 +242,404 @@ void bdg_tx_set_test_pattern(void)
 	//[DENNIS] TEST PATTERN
 
 }
+
+struct lcm_setting_table nt36672c_60hz[] = {
+	{0xFF, 1, {0x10} },
+	{0xFB, 1, {0x01} },
+	//DSC on
+	{0xC0, 1, {0x03} },
+	{0xC1, 16, {0x89, 0x28, 0x00, 0x08, 0x00,
+		0xAA, 0x02, 0x0E, 0x00, 0x2B,
+		0x00, 0x07, 0x0D, 0xB7, 0x0C,
+		0xB7} },
+	{0xC2, 2, {0x1B, 0xA0} },
+
+	{0xFF, 1, {0x20} },
+	{0xFB, 1, {0x01} },
+	{0x01, 1, {0x66} },
+	{0x32, 1, {0x4D} },
+	{0x69, 1, {0xD1} },
+	{0xF2, 1, {0x64} },
+	{0xF4, 1, {0x64} },
+	{0xF6, 1, {0x64} },
+	{0xF9, 1, {0x64} },
+
+	{0xFF, 1, {0x26} },
+	{0xFB, 1, {0x01} },
+	{0x81, 1, {0x0E} },
+	{0x84, 1, {0x03} },
+	{0x86, 1, {0x03} },
+	{0x88, 1, {0x07} },
+
+	{0xFF, 1, {0x27} },
+	{0xFB, 1, {0x01} },
+	{0xE3, 1, {0x01} },
+	{0xE4, 1, {0xEC} },
+	{0xE5, 1, {0x02} },
+	{0xE6, 1, {0xE3} },
+	{0xE7, 1, {0x01} },
+	{0xE8, 1, {0xEC} },
+	{0xE9, 1, {0x02} },
+	{0xEA, 1, {0x22} },
+	{0xEB, 1, {0x03} },
+	{0xEC, 1, {0x32} },
+	{0xED, 1, {0x02} },
+	{0xEE, 1, {0x22} },
+
+	{0xFF, 1, {0x2A} },
+	{0xFB, 1, {0x01} },
+	{0x0C, 1, {0x04} },
+	{0x0F, 1, {0x01} },
+	{0x11, 1, {0xE0} },
+	{0x15, 1, {0x0E} },
+	{0x16, 1, {0x78} },
+	{0x19, 1, {0x0D} },
+	{0x1A, 1, {0xF4} },
+	{0x37, 1, {0X6E} },
+	{0x88, 1, {0X76} },
+
+	{0xFF, 1, {0x2C} },
+	{0xFB, 1, {0x01} },
+	{0x4D, 1, {0x1E} },
+	{0x4E, 1, {0x04} },
+	{0x4F, 1, {0X00} },
+	{0x9D, 1, {0X1E} },
+	{0x9E, 1, {0X04} },
+
+	{0xFF, 1, {0xF0} },
+	{0xFB, 1, {0x01} },
+	{0x5A, 1, {0x00} },
+
+	{0xFF, 1, {0xE0} },
+	{0xFB, 1, {0x01} },
+	{0x25, 1, {0x02} },
+	{0x4E, 1, {0x02} },
+	{0x85, 1, {0x02} },
+
+	{0xFF, 1, {0XD0} },
+	{0xFB, 1, {0x01} },
+	{0X09, 1, {0XAD} },
+
+	{0xFF, 1, {0X20} },
+	{0xFB, 1, {0x01} },
+	{0XF8, 1, {0X64} },
+
+	{0xFF, 1, {0X2A} },
+	{0xFB, 1, {0x01} },
+	{0X1A, 1, {0XF0} },
+	{0x30, 1, {0x5E} },
+	{0x31, 1, {0xCA} },
+	{0x34, 1, {0xFE} },
+	{0x35, 1, {0x35} },
+	{0x36, 1, {0xA2} },
+	{0x37, 1, {0xF8} },
+	{0x38, 1, {0x37} },
+	{0x39, 1, {0xA0} },
+	{0x3A, 1, {0x5E} },
+	{0x53, 1, {0xD7} },
+	{0x88, 1, {0x72} },
+	{0x88, 1, {0x72} },
+
+	{0xFF, 1, {0x24} },
+	{0xFB, 1, {0x01} },
+	{0xC6, 1, {0xC0} },
+
+	{0xFF, 1, {0xE0} },
+	{0xFB, 1, {0x01} },
+	{0x25, 1, {0x00} },
+	{0x4E, 1, {0x02} },
+	{0x35, 1, {0x82} },
+
+	{0xFF, 1, {0xC0} },
+	{0xFB, 1, {0x01} },
+	{0x9C, 1, {0x11} },
+	{0x9D, 1, {0x11} },
+	//60HZ VESA DSC
+	{0xFF, 1, {0x25} },
+	{0xFB, 1, {0x01} },
+	{0x18, 1, {0x22} },
+
+	//CCMRUN
+	{0xFF, 1, {0x10} },
+	{0xFB, 1, {0x01} },
+	{0xC0, 1, {0x03} },
+	{0x51, 1, {0x00} },
+	{0x35, 1, {0x00} },
+	{0x53, 1, {0x24} },
+	{0x55, 1, {0x00} },
+	{0xFF, 1, {0x10} },
+	{0x11, 0, {} },
+#ifndef LCM_SET_DISPLAY_ON_DELAY
+	{REGFLAG_DELAY, 120, {} },
+	/* Display On*/
+	{0x29, 0, {} },
+#endif
+};
+
+struct lcm_setting_table nt36672c_90hz[] = {
+	{0xFF, 1, {0x10} },
+	{0xFB, 1, {0x01} },
+	//DSC on
+	{0xC0, 1, {0x03} },
+	{0xC1, 16, {0x89, 0x28, 0x00, 0x08, 0x00, 0xAA,
+		0x02, 0x0E, 0x00, 0x2B, 0x00, 0x07,
+		0x0D, 0xB7, 0x0C, 0xB7} },
+	{0xC2, 2, {0x1B, 0xA0} },
+
+	{0xFF, 1, {0x20} },
+	{0xFB, 1, {0x01} },
+	{0x01, 1, {0x66} },
+	{0x32, 1, {0x4D} },
+	{0x69, 1, {0xD1} },
+	{0xF2, 1, {0x64} },
+	{0xF4, 1, {0x64} },
+	{0xF6, 1, {0x64} },
+	{0xF9, 1, {0x64} },
+
+	{0xFF, 1, {0x26} },
+	{0xFB, 1, {0x01} },
+	{0x81, 1, {0x0E} },
+	{0x84, 1, {0x03} },
+	{0x86, 1, {0x03} },
+	{0x88, 1, {0x07} },
+
+	{0xFF, 1, {0x27} },
+	{0xFB, 1, {0x01} },
+	{0xE3, 1, {0x01} },
+	{0xE4, 1, {0xEC} },
+	{0xE5, 1, {0x02} },
+	{0xE6, 1, {0xE3} },
+	{0xE7, 1, {0x01} },
+	{0xE8, 1, {0xEC} },
+	{0xE9, 1, {0x02} },
+	{0xEA, 1, {0x22} },
+	{0xEB, 1, {0x03} },
+	{0xEC, 1, {0x32} },
+	{0xED, 1, {0x02} },
+	{0xEE, 1, {0x22} },
+
+	{0xFF, 1, {0x2A} },
+	{0xFB, 1, {0x01} },
+	{0x0C, 1, {0x04} },
+	{0x0F, 1, {0x01} },
+	{0x11, 1, {0xE0} },
+	{0x15, 1, {0x0E} },
+	{0x16, 1, {0x78} },
+	{0x19, 1, {0x0D} },
+	{0x1A, 1, {0xF4} },
+	{0x37, 1, {0X6E} },
+	{0x88, 1, {0X76} },
+
+	{0xFF, 1, {0x2C} },
+	{0xFB, 1, {0x01} },
+	{0x4D, 1, {0x1E} },
+	{0x4E, 1, {0x04} },
+	{0x4F, 1, {0X00} },
+	{0x9D, 1, {0X1E} },
+	{0x9E, 1, {0X04} },
+
+	{0xFF, 1, {0xF0} },
+	{0xFB, 1, {0x01} },
+	{0x5A, 1, {0x00} },
+
+	{0xFF, 1, {0xE0} },
+	{0xFB, 1, {0x01} },
+	{0x25, 1, {0x02} },
+	{0x4E, 1, {0x02} },
+	{0x85, 1, {0x02} },
+
+	{0xFF, 1, {0XD0} },
+	{0xFB, 1, {0x01} },
+	{0X09, 1, {0XAD} },
+
+	{0xFF, 1, {0X20} },
+	{0xFB, 1, {0x01} },
+	{0XF8, 1, {0X64} },
+
+	{0xFF, 1, {0X2A} },
+	{0xFB, 1, {0x01} },
+	{0X1A, 1, {0XF0} },
+	{0x30, 1, {0x5E} },
+	{0x31, 1, {0xCA} },
+	{0x34, 1, {0xFE} },
+	{0x35, 1, {0x35} },
+	{0x36, 1, {0xA2} },
+	{0x37, 1, {0xF8} },
+	{0x38, 1, {0x37} },
+	{0x39, 1, {0xA0} },
+	{0x3A, 1, {0x5E} },
+	{0x53, 1, {0xD7} },
+	{0x88, 1, {0x72} },
+	{0x88, 1, {0x72} },
+
+	{0xFF, 1, {0x24} },
+	{0xFB, 1, {0x01} },
+	{0xC6, 1, {0xC0} },
+
+	{0xFF, 1, {0xE0} },
+	{0xFB, 1, {0x01} },
+	{0x25, 1, {0x00} },
+	{0x4E, 1, {0x02} },
+	{0x35, 1, {0x82} },
+
+	{0xFF, 1, {0xC0} },
+	{0xFB, 1, {0x01} },
+	{0x9C, 1, {0x11} },
+	{0x9D, 1, {0x11} },
+	//90HZ VESA DSC
+	{0xFF, 1, {0x25} },
+	{0xFB, 1, {0x01} },
+	{0x18, 1, {0x21} },
+
+	//CCMRUN
+	{0xFF, 1, {0x10} },
+	{0xFB, 1, {0x01} },
+	{0xC0, 1, {0x03} },
+	{0x51, 1, {0x00} },
+	{0x35, 1, {0x00} },
+	{0x53, 1, {0x24} },
+	{0x55, 1, {0x00} },
+	{0xFF, 1, {0x10} },
+	{0x11, 0, {} },
+#ifndef LCM_SET_DISPLAY_ON_DELAY
+	{REGFLAG_DELAY, 120, {} },
+	/* Display On*/
+	{0x29, 0, {} },
+#endif
+};
+
+struct lcm_setting_table nt36672c_120hz[] = {
+	{0xFF, 1, {0x10} },
+	{0xFB, 1, {0x01} },
+	//DSC on
+	{0xC0, 1, {0x03} },
+	{0xC1, 16, {0x89, 0x28, 0x00, 0x08, 0x00, 0xAA,
+		0x02, 0x0E, 0x00, 0x2B, 0x00, 0x07,
+		0x0D, 0xB7, 0x0C, 0xB7} },
+	{0xC2, 2, {0x1B, 0xA0} },
+
+	{0xFF, 1, {0x20} },
+	{0xFB, 1, {0x01} },
+	{0x01, 1, {0x66} },
+	{0x32, 1, {0x4D} },
+	{0x69, 1, {0xD1} },
+	{0xF2, 1, {0x64} },
+	{0xF4, 1, {0x64} },
+	{0xF6, 1, {0x64} },
+	{0xF9, 1, {0x64} },
+
+	{0xFF, 1, {0x26} },
+	{0xFB, 1, {0x01} },
+	{0x81, 1, {0x0E} },
+	{0x84, 1, {0x03} },
+	{0x86, 1, {0x03} },
+	{0x88, 1, {0x07} },
+
+	{0xFF, 1, {0x27} },
+	{0xFB, 1, {0x01} },
+	{0xE3, 1, {0x01} },
+	{0xE4, 1, {0xEC} },
+	{0xE5, 1, {0x02} },
+	{0xE6, 1, {0xE3} },
+	{0xE7, 1, {0x01} },
+	{0xE8, 1, {0xEC} },
+	{0xE9, 1, {0x02} },
+	{0xEA, 1, {0x22} },
+	{0xEB, 1, {0x03} },
+	{0xEC, 1, {0x32} },
+	{0xED, 1, {0x02} },
+	{0xEE, 1, {0x22} },
+
+	{0xFF, 1, {0x2A} },
+	{0xFB, 1, {0x01} },
+	{0x0C, 1, {0x04} },
+	{0x0F, 1, {0x01} },
+	{0x11, 1, {0xE0} },
+	{0x15, 1, {0x0E} },
+	{0x16, 1, {0x78} },
+	{0x19, 1, {0x0D} },
+	{0x1A, 1, {0xF4} },
+	{0x37, 1, {0X6E} },
+	{0x88, 1, {0X76} },
+
+	{0xFF, 1, {0x2C} },
+	{0xFB, 1, {0x01} },
+	{0x4D, 1, {0x1E} },
+	{0x4E, 1, {0x04} },
+	{0x4F, 1, {0X00} },
+	{0x9D, 1, {0X1E} },
+	{0x9E, 1, {0X04} },
+
+	{0xFF, 1, {0xF0} },
+	{0xFB, 1, {0x01} },
+	{0x5A, 1, {0x00} },
+
+	{0xFF, 1, {0xE0} },
+	{0xFB, 1, {0x01} },
+	{0x25, 1, {0x02} },
+	{0x4E, 1, {0x02} },
+	{0x85, 1, {0x02} },
+
+	{0xFF, 1, {0XD0} },
+	{0xFB, 1, {0x01} },
+	{0X09, 1, {0XAD} },
+
+	{0xFF, 1, {0X20} },
+	{0xFB, 1, {0x01} },
+	{0XF8, 1, {0X64} },
+
+	{0xFF, 1, {0X2A} },
+	{0xFB, 1, {0x01} },
+	{0X1A, 1, {0XF0} },
+	{0x30, 1, {0x5E} },
+	{0x31, 1, {0xCA} },
+	{0x34, 1, {0xFE} },
+	{0x35, 1, {0x35} },
+	{0x36, 1, {0xA2} },
+	{0x37, 1, {0xF8} },
+	{0x38, 1, {0x37} },
+	{0x39, 1, {0xA0} },
+	{0x3A, 1, {0x5E} },
+	{0x53, 1, {0xD7} },
+	{0x88, 1, {0x72} },
+	{0x88, 1, {0x72} },
+
+	{0xFF, 1, {0x24} },
+	{0xFB, 1, {0x01} },
+	{0xC6, 1, {0xC0} },
+
+	{0xFF, 1, {0xE0} },
+	{0xFB, 1, {0x01} },
+	{0x25, 1, {0x00} },
+	{0x4E, 1, {0x02} },
+	{0x35, 1, {0x82} },
+
+	{0xFF, 1, {0xC0} },
+	{0xFB, 1, {0x01} },
+	{0x9C, 1, {0x11} },
+	{0x9D, 1, {0x11} },
+
+	//CCMRUN
+	{0xFF, 1, {0x10} },
+	{0xFB, 1, {0x01} },
+	{0xC0, 1, {0x03} },
+	{0x51, 1, {0x00} },
+	{0x35, 1, {0x00} },
+	{0x53, 1, {0x24} },
+	{0x55, 1, {0x00} },
+	{0xFF, 1, {0x10} },
+	{0x11, 0, {} },
+#ifndef LCM_SET_DISPLAY_ON_DELAY
+	{REGFLAG_DELAY, 120, {} },
+	/* Display On*/
+	{0x29, 0, {} },
+#endif
+};
+
+struct lcm_setting_table nt36672c_wo_dsc[] = {
+	{0xC0, 1, {0x00} },
+};
+
 void set_LDO_on(void *cmdq)
 {
 	DISPFUNCSTART();
@@ -234,7 +651,7 @@ void set_LDO_on(void *cmdq)
 	DSI_OUTREGBIT(cmdq, struct SYSREG_LDO_CTRL1_REG,
 			SYS_REG->SYSREG_LDO_CTRL1, RG_PHYLDO2_EN, 1);
 	udelay(400);
-	DISPMSG("mt6382, %s, delay 400us\n", __func__);
+//	DISPMSG("mt6382, %s, delay 400us\n", __func__);
 	DISPFUNCEND();
 }
 
@@ -246,6 +663,7 @@ void set_LDO_off(void *cmdq)
 			SYS_REG->SYSREG_LDO_CTRL1, RG_PHYLDO2_EN, 0);
 	DSI_OUTREGBIT(cmdq, struct SYSREG_LDO_CTRL1_REG,
 			SYS_REG->SYSREG_LDO_CTRL1, RG_PHYLDO1_LP_EN, 1);
+	DISPFUNCEND();
 }
 
 void set_mtcmos_on(void *cmdq)
@@ -273,19 +691,6 @@ void set_mtcmos_on(void *cmdq)
 	reg = reg | 0x00880000;
 	reg = reg & 0xffbbefff;
 	DSI_OUTREG32(cmdq, SYS_REG->SYSREG_PWR_CTRL, reg);
-
-#if 0
-	DSI_OUTREGBIT(cmdq, struct SYSREG_PWR_CTRL_REG,
-			SYS_REG->SYSREG_PWR_CTRL, REG_SYSBUF_SRAM_ISOINT_B, 1);
-	DSI_OUTREGBIT(cmdq, struct SYSREG_PWR_CTRL_REG,
-			SYS_REG->SYSREG_PWR_CTRL, REG_SYSBUF_SRAM_CKISO, 0);
-	DSI_OUTREGBIT(cmdq, struct SYSREG_PWR_CTRL_REG,
-			SYS_REG->SYSREG_PWR_CTRL, REG_GCE_SRAM_ISOINT_B, 1);
-	DSI_OUTREGBIT(cmdq, struct SYSREG_PWR_CTRL_REG,
-			SYS_REG->SYSREG_PWR_CTRL, REG_GCE_SRAM_CKISO, 0);
-	DSI_OUTREGBIT(cmdq, struct SYSREG_PWR_CTRL_REG,
-			SYS_REG->SYSREG_PWR_CTRL, REG_DISP_SRAM_PDN, 0);
-#endif
 
 	DISPFUNCEND();
 }
@@ -315,17 +720,16 @@ void set_mtcmos_off(void *cmdq)
 			SYS_REG->SYSREG_PWR_CTRL, REG_PWR_ON_2ND, 0);
 	DSI_OUTREGBIT(cmdq, struct SYSREG_PWR_CTRL_REG,
 			SYS_REG->SYSREG_PWR_CTRL, REG_PWR_ON, 0);
+	DISPFUNCEND();
 }
 
 void set_pll_on(void *cmdq)
 {
-//	unsigned int reg = 0;
 	DISPFUNCSTART();
 }
 
 void set_pll_off(void *cmdq)
 {
-//	unsigned int reg = 0;
 	DISPFUNCSTART();
 }
 
@@ -337,17 +741,17 @@ void ana_macro_on(void *cmdq)
 	//select pll power on `MAINPLL_CON3
 	DSI_OUTREG32(cmdq, APMIXEDSYS->MAINPLL_CON3, 3);
 	udelay(1);
-	DISPMSG("mt6382, %s, delay 1us\n", __func__);
+//	DISPMSG("mt6382, %s, delay 1us\n", __func__);
 	//select pll iso enable `MAINPLL_CON3
 	DSI_OUTREG32(cmdq, APMIXEDSYS->MAINPLL_CON3, 1);
 	DSI_OUTREG32(cmdq, APMIXEDSYS->MAINPLL_CON0, 0xff000000);
 	DSI_OUTREG32(cmdq, APMIXEDSYS->MAINPLL_CON1, 0x000fc000);
 	udelay(2);
-	DISPMSG("mt6382, %s, delay 2us\n", __func__);
+//	DISPMSG("mt6382, %s, delay 2us\n", __func__);
 	//reset setting `MAINPLL_CON0
 	DSI_OUTREG32(cmdq, APMIXEDSYS->MAINPLL_CON0, 0xff000001);
 	udelay(25);
-	DISPMSG("mt6382, %s, delay 25us\n", __func__);
+//	DISPMSG("mt6382, %s, delay 25us\n", __func__);
 	DSI_OUTREG32(cmdq, APMIXEDSYS->MAINPLL_CON0, 0xff800001);
 
 	DSI_OUTREG32(cmdq, TOPCKGEN->CLK_CFG_0_CLR, 0xffffffff);
@@ -359,7 +763,7 @@ void ana_macro_on(void *cmdq)
 	DSI_OUTREG32(cmdq, TOPCKGEN->CLK_CFG_UPDATE, reg);
 
 	udelay(6);
-	DISPMSG("mt6382, %s, delay 6us\n", __func__);
+//	DISPMSG("mt6382, %s, delay 6us\n", __func__);
 	DISPFUNCEND();
 }
 
@@ -379,7 +783,7 @@ void ana_macro_off(void *cmdq)
 //	#5000ns; //wait clk mux stable
 	udelay(6);
 //	spis_low_speed_cfg();
-	DISPMSG("mt6382, %s, delay 6us\n", __func__);
+//	DISPMSG("mt6382, %s, delay 6us\n", __func__);
 	set_pll_off(cmdq);
 }
 
@@ -412,9 +816,9 @@ void set_topck_off(void *cmdq)
 
 //	#5000ns; //wait clk mux stable
 	udelay(6);
-	DISPMSG("mt6382, %s, delay 6us\n", __func__);
+//	DISPMSG("mt6382, %s, delay 6us\n", __func__);
 //	spis_low_speed_cfg();
-	set_pll_off(cmdq);
+//	set_pll_off(cmdq);
 
 	DSI_OUTREG32(cmdq, TOPCKGEN->CLK_CFG_0_CLR, 0x00808080);
 	DSI_OUTREG32(cmdq, TOPCKGEN->CLK_CFG_0_SET, 0x00808080);
@@ -521,14 +925,6 @@ int bdg_mipi_tx_dphy_clk_setting(enum DISP_BDG_ENUM module,
 
 	DISPFUNCSTART();
 
-#if 0
-	data_Rate = (mipi_clk_change_sta == 0) ?
-		dsi_params->data_rate : dsi_params->data_rate_dyn;
-	pll_clock = (mipi_clk_change_sta == 0) ?
-		dsi_params->PLL_CLOCK : dsi_params->PLL_CLOCK_dyn;
-	data_Rate = data_Rate != 0 ? data_Rate : pll_clock * 2;
-#endif
-
 	if (dsi_params->data_rate != 0) {
 		data_Rate = dsi_params->data_rate;
 	} else if (dsi_params->PLL_CLOCK) {
@@ -576,33 +972,21 @@ int bdg_mipi_tx_dphy_clk_setting(enum DISP_BDG_ENUM module,
 			}
 			switch (j) {
 			case MIPITX_PHY_LANE_0:
-//				MIPITX_OUTREGBIT(MIPI_TX_REG +
-//						 MIPITX_D0_CKMODE_EN,
-//						 FLD_DSI_D0_CKMODE_EN, 1);
 				DSI_OUTREGBIT(cmdq, struct MIPI_TX_CKMODE_EN_REG,
 						MIPI_TX_REG->MIPI_TX_D0_CKMODE_EN,
 						DSI_CKMODE_EN, 1);
 				break;
 			case MIPITX_PHY_LANE_1:
-//				MIPITX_OUTREGBIT(MIPI_TX_REG +
-//						 MIPITX_D1_CKMODE_EN,
-//						 FLD_DSI_D1_CKMODE_EN, 1);
 				DSI_OUTREGBIT(cmdq, struct MIPI_TX_CKMODE_EN_REG,
 						MIPI_TX_REG->MIPI_TX_D1_CKMODE_EN,
 						DSI_CKMODE_EN, 1);
 				break;
 			case MIPITX_PHY_LANE_2:
-//				MIPITX_OUTREGBIT(MIPI_TX_REG +
-//						 MIPITX_D2_CKMODE_EN,
-//						 FLD_DSI_D2_CKMODE_EN, 1);
 				DSI_OUTREGBIT(cmdq, struct MIPI_TX_CKMODE_EN_REG,
 						MIPI_TX_REG->MIPI_TX_D2_CKMODE_EN,
 						DSI_CKMODE_EN, 1);
 				break;
 			case MIPITX_PHY_LANE_3:
-//				MIPITX_OUTREGBIT(MIPI_TX_REG +
-//						 MIPITX_D3_CKMODE_EN,
-//						 FLD_DSI_D3_CKMODE_EN, 1);
 				DSI_OUTREGBIT(cmdq, struct MIPI_TX_CKMODE_EN_REG,
 						MIPI_TX_REG->MIPI_TX_D3_CKMODE_EN,
 						DSI_CKMODE_EN, 1);
@@ -617,133 +1001,82 @@ int bdg_mipi_tx_dphy_clk_setting(enum DISP_BDG_ENUM module,
 			}
 
 			/* LANE_0 */
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL0,
-//				FLD_MIPI_TX_PHY0_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_0]]);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL0_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL0,
 					MIPI_TX_PHY0_SEL,
 					pad_mapping[swap_base[MIPITX_PHY_LANE_0]]);
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL0,
-//				FLD_MIPI_TX_PHY1AB_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_0]] + 1);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL0_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL0,
 					MIPI_TX_PHY1AB_SEL,
 					pad_mapping[swap_base[MIPITX_PHY_LANE_0]] + 1);
 
 			/* LANE_1 */
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL0,
-//				FLD_MIPI_TX_PHY1_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_1]]);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL0_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL0,
 					MIPI_TX_PHY1_SEL,
 					pad_mapping[swap_base[MIPITX_PHY_LANE_1]]);
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL1,
-//				FLD_MIPI_TX_PHY2BC_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_1]] + 1);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL1_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL1,
 					MIPI_TX_PHY2BC_SEL,
 					pad_mapping[swap_base[MIPITX_PHY_LANE_1]] + 1);
 
 			/* LANE_2 */
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL0,
-//				FLD_MIPI_TX_PHY2_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_2]]);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL0_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL0,
 					MIPI_TX_PHY2_SEL,
 					pad_mapping[swap_base[MIPITX_PHY_LANE_2]]);
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL0,
-//				FLD_MIPI_TX_CPHY0BC_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_2]] + 1);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL0_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL0,
 					MIPI_TX_CPHY0BC_SEL,
 					pad_mapping[swap_base[MIPITX_PHY_LANE_2]] + 1);
 
 			/* LANE_3 */
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL1,
-//				FLD_MIPI_TX_PHY3_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_3]]);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL1_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL1,
 					MIPI_TX_PHY3_SEL,
 					pad_mapping[swap_base[MIPITX_PHY_LANE_3]]);
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL1,
-//				FLD_MIPI_TX_CPHYXXX_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_3]] + 1);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL1_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL1,
 					MIPI_TX_CPHYXXX_SEL,
 					pad_mapping[swap_base[MIPITX_PHY_LANE_3]] + 1);
 
 			/* CK LANE */
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL0,
-//				FLD_MIPI_TX_PHYC_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_CK]]);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL0_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL0,
 					MIPI_TX_PHYC_SEL,
 					pad_mapping[swap_base[MIPITX_PHY_LANE_CK]]);
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL0,
-//				FLD_MIPI_TX_CPHY1CA_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_CK]] + 1);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL0_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL0,
 					MIPI_TX_CPHY1CA_SEL,
 					pad_mapping[swap_base[MIPITX_PHY_LANE_CK]] + 1);
 
 			/* LPRX SETTING */
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL1,
-//				FLD_MIPI_TX_LPRX0AB_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_RX]]);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL1_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL1,
 					MIPI_TX_LPRX0AB_SEL,
 					pad_mapping[swap_base[MIPITX_PHY_LANE_RX]]);
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL1,
-//				FLD_MIPI_TX_LPRX0BC_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_RX]] + 1);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL1_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL1,
 					MIPI_TX_LPRX0BC_SEL,
 					pad_mapping[swap_base[MIPITX_PHY_LANE_RX]] + 1);
 
 			/* HS_DATA SETTING */
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL2,
-//				FLD_MIPI_TX_PHY2_HSDATA_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_2]]);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL2_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL2,
 					MIPI_TX_PHY2_HSDATA_SEL,
 					pad_mapping[swap_base[MIPITX_PHY_LANE_2]]);
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL2,
-//				FLD_MIPI_TX_PHY0_HSDATA_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_0]]);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL2_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL2,
 					MIPI_TX_PHY0_HSDATA_SEL,
 					pad_mapping[swap_base[MIPITX_PHY_LANE_0]]);
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL2,
-//				FLD_MIPI_TX_PHYC_HSDATA_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_CK]]);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL2_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL2,
 					MIPI_TX_PHYC_HSDATA_SEL,
 					pad_mapping[swap_base[MIPITX_PHY_LANE_CK]]);
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL2,
-//				FLD_MIPI_TX_PHY1_HSDATA_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_1]]);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL2_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL2,
 					MIPI_TX_PHY1_HSDATA_SEL,
 					pad_mapping[swap_base[MIPITX_PHY_LANE_1]]);
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PHY_SEL3,
-//				FLD_MIPI_TX_PHY3_HSDATA_SEL,
-//				pad_mapping[swap_base[MIPITX_PHY_LANE_3]]);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PHY_SEL3_REG,
 					MIPI_TX_REG->MIPI_TX_PHY_SEL3,
 					MIPI_TX_PHY3_HSDATA_SEL,
@@ -761,53 +1094,36 @@ int bdg_mipi_tx_dphy_clk_setting(enum DISP_BDG_ENUM module,
 		unsigned int tmp = 0;
 
 		/* step 0: RG_DSI0_PLL_IBIAS = 0*/
-//		MIPITX_OUTREG32(MIPI_TX_REG + MIPITX_PLL_CON4, 0x00FF12E0);
 		DSI_OUTREG32(cmdq, MIPI_TX_REG->MIPI_TX_PLL_CON4, 0x00FF12E0);
 		/* BG_LPF_EN / BG_CORE_EN */
-//		MIPITX_OUTREG32(MIPI_TX_REG + MIPITX_LANE_CON, 0x3FFF0180);
 		DSI_OUTREG32(cmdq, MIPI_TX_REG->MIPI_TX_LANE_CON, 0x3FFF0180);
 		udelay(2);
 		/* BG_LPF_EN=1,TIEL_SEL=0 */
-//		MIPITX_OUTREG32(MIPI_TX_REG + MIPITX_LANE_CON, 0x3FFF0080);
 		DSI_OUTREG32(cmdq, MIPI_TX_REG->MIPI_TX_LANE_CON, 0x3FFF0080);
 //		if (atomic_read(&dsi_idle_flg) == 0) {
 			/* Switch OFF each Lane */
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_D0_SW_CTL_EN,
-//				FLD_DSI_D0_SW_CTL_EN, 0);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_SW_CTL_EN_REG,
 					MIPI_TX_REG->MIPI_TX_D0_SW_CTL_EN,
 					DSI_SW_CTL_EN, 0);
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_D1_SW_CTL_EN,
-//				FLD_DSI_D1_SW_CTL_EN, 0);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_SW_CTL_EN_REG,
 					MIPI_TX_REG->MIPI_TX_D1_SW_CTL_EN,
 					DSI_SW_CTL_EN, 0);
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_D2_SW_CTL_EN,
-//				FLD_DSI_D2_SW_CTL_EN, 0);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_SW_CTL_EN_REG,
 					MIPI_TX_REG->MIPI_TX_D2_SW_CTL_EN,
 					DSI_SW_CTL_EN, 0);
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_D3_SW_CTL_EN,
-//				FLD_DSI_D3_SW_CTL_EN, 0);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_SW_CTL_EN_REG,
 					MIPI_TX_REG->MIPI_TX_D3_SW_CTL_EN,
 					DSI_SW_CTL_EN, 0);
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_CK_SW_CTL_EN,
-//				FLD_DSI_CK_SW_CTL_EN, 0);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_SW_CTL_EN_REG,
 					MIPI_TX_REG->MIPI_TX_CK_SW_CTL_EN,
 					DSI_SW_CTL_EN, 0);
 //		}
 
 		/* step 1: SDM_RWR_ON / SDM_ISO_EN */
-//		MIPITX_OUTREGBIT(MIPI_TX_REG+MIPITX_PLL_PWR,
-//				 FLD_AD_DSI_PLL_SDM_PWR_ON, 1);
 		DSI_OUTREGBIT(cmdq, struct MIPI_TX_PLL_PWR_REG,
 				MIPI_TX_REG->MIPI_TX_PLL_PWR,
 				AD_DSI_PLL_SDM_PWR_ON, 1);
 		udelay(2); /* 1us */
-//		MIPITX_OUTREGBIT(MIPI_TX_REG+MIPITX_PLL_PWR,
-//				 FLD_AD_DSI_PLL_SDM_ISO_EN, 0);
 		DSI_OUTREGBIT(cmdq, struct MIPI_TX_PLL_PWR_REG,
 				MIPI_TX_REG->MIPI_TX_PLL_PWR,
 				AD_DSI_PLL_SDM_ISO_EN, 0);
@@ -846,23 +1162,16 @@ int bdg_mipi_tx_dphy_clk_setting(enum DISP_BDG_ENUM module,
 		/* step 3 */
 		/* PLL PCW config */
 		tmp = dsi_get_pcw(data_Rate, pcw_ratio);
-//		MIPITX_OUTREG32(MIPI_TX_REG + MIPITX_PLL_CON0, tmp);
 		DSI_OUTREG32(cmdq, MIPI_TX_REG->MIPI_TX_PLL_CON0, tmp);
-//		MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PLL_CON1,
-//				 FLD_RG_DSI_PLL_POSDIV, posdiv);
 		DSI_OUTREGBIT(cmdq, struct MIPI_TX_PLL_CON1_REG,
 				MIPI_TX_REG->MIPI_TX_PLL_CON1,
 				RG_DSI_PLL_POSDIV, posdiv);
 
 		/* SSC config */
-		if (dsi_params->ssc_disable != 1) {
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PLL_CON2,
-//					 FLD_RG_DSI_PLL_SDM_SSC_PH_INIT, 1);
+		if (dsi_params->bdg_ssc_disable != 1) {
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PLL_CON2_REG,
 					MIPI_TX_REG->MIPI_TX_PLL_CON2,
 					RG_DSI_PLL_SDM_SSC_PH_INIT, 1);
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PLL_CON2,
-//					 FLD_RG_DSI_PLL_SDM_SSC_PRD, 0x1B1);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PLL_CON2_REG,
 					MIPI_TX_REG->MIPI_TX_PLL_CON2,
 					RG_DSI_PLL_SDM_SSC_PRD, 0x1B1);
@@ -873,14 +1182,9 @@ int bdg_mipi_tx_dphy_clk_setting(enum DISP_BDG_ENUM module,
 			pdelta1 = (delta1 * (data_Rate / 2) * pcw_ratio *
 				   262144 + 281664) / 563329;
 
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PLL_CON3,
-//					 FLD_RG_DSI_PLL_SDM_SSC_DELTA, pdelta1);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PLL_CON3_REG,
 					MIPI_TX_REG->MIPI_TX_PLL_CON3,
 					RG_DSI_PLL_SDM_SSC_DELTA, pdelta1);
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PLL_CON3,
-//					 FLD_RG_DSI_PLL_SDM_SSC_DELTA1,
-//					 pdelta1);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PLL_CON3_REG,
 					MIPI_TX_REG->MIPI_TX_PLL_CON3,
 					RG_DSI_PLL_SDM_SSC_DELTA1, pdelta1);
@@ -891,15 +1195,11 @@ int bdg_mipi_tx_dphy_clk_setting(enum DISP_BDG_ENUM module,
 	}
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
-		if (0)//data_Rate && (dsi_params->ssc_disable != 1))
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PLL_CON2,
-//					 FLD_RG_DSI_PLL_SDM_SSC_EN, 1);
+		if (data_Rate && (dsi_params->bdg_ssc_disable != 1))
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PLL_CON2_REG,
 					MIPI_TX_REG->MIPI_TX_PLL_CON2,
 					RG_DSI_PLL_SDM_SSC_EN, 1);
 		else
-//			MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PLL_CON2,
-//					 FLD_RG_DSI_PLL_SDM_SSC_EN, 0);
 			DSI_OUTREGBIT(cmdq, struct MIPI_TX_PLL_CON2_REG,
 					MIPI_TX_REG->MIPI_TX_PLL_CON2,
 					RG_DSI_PLL_SDM_SSC_EN, 0);
@@ -907,15 +1207,11 @@ int bdg_mipi_tx_dphy_clk_setting(enum DISP_BDG_ENUM module,
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		/* PLL EN */
-//		MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_PLL_CON1,
-//				 FLD_RG_DSI_PLL_EN, 1);
 		DSI_OUTREGBIT(cmdq, struct MIPI_TX_PLL_CON1_REG,
 				MIPI_TX_REG->MIPI_TX_PLL_CON1,
 				RG_DSI_PLL_EN, 1);
 
 		udelay(50);
-//		MIPITX_OUTREGBIT(MIPI_TX_REG + MIPITX_SW_CTRL_CON4,
-//				 FLD_MIPI_TX_SW_ANA_CK_EN, 1);
 		DSI_OUTREGBIT(cmdq, struct MIPI_TX_SW_CTRL_CON4_REG,
 				MIPI_TX_REG->MIPI_TX_SW_CTRL_CON4,
 				MIPI_TX_SW_ANA_CK_EN, 1);
@@ -936,12 +1232,12 @@ int bdg_tx_phy_config(enum DISP_BDG_ENUM module,
 	DISPFUNCSTART();
 
 	if (tx_params->data_rate != 0) {
-		ui = 1000 / tx_params->data_rate;
-		cycle_time = 8000 / tx_params->data_rate;
+		ui = 1000 / tx_params->data_rate + 0x01;
+		cycle_time = 8000 / tx_params->data_rate + 0x01;
 		tx_data_rate = tx_params->data_rate;
 	} else if (tx_params->PLL_CLOCK) {
-		ui = 1000 / (tx_params->PLL_CLOCK * 2);
-		cycle_time = 8000 / (tx_params->PLL_CLOCK * 2);
+		ui = 1000 / (tx_params->PLL_CLOCK * 2) + 0x01;
+		cycle_time = 8000 / (tx_params->PLL_CLOCK * 2) + 0x01;
 		tx_data_rate = tx_params->PLL_CLOCK * 2;
 	} else {
 		DISPMSG("PLL clock should not be 0!!!\n");
@@ -951,7 +1247,7 @@ int bdg_tx_phy_config(enum DISP_BDG_ENUM module,
 		"%s, tx_data_rate=%d, cycle_time=%d, ui=%d\n",
 		__func__, tx_data_rate, cycle_time, ui);
 
-#if 1//def xxx
+#if 1
 	/* lpx >= 50ns (spec) */
 	/* lpx = 60ns */
 	timcon0.LPX = NS_TO_CYCLE(60, cycle_time);
@@ -1145,7 +1441,6 @@ int bdg_tx_phy_config(enum DISP_BDG_ENUM module,
 
 		DISPINFO("%s, PHY_TIMECON0=0x%08x,PHY_TIMECON1=0x%08x\n",
 			__func__,
-//			READREG32(&TX_REG[i]->DSI_PHY_TIMECON0),
 			mtk_spi_read((unsigned long)(&TX_REG[i]->DSI_TX_PHY_TIMECON0)),
 			mtk_spi_read((unsigned long)(&TX_REG[i]->DSI_TX_PHY_TIMECON1)));
 		DISPINFO("%s, PHY_TIMECON2=0x%08x,PHY_TIMECON3=0x%08x\n",
@@ -1328,21 +1623,13 @@ int bdg_tx_vdo_timing_set(enum DISP_BDG_ENUM module,
 			break;
 		}
 
-		bllp_byte = 16 * tx_params->LANE_NUM;
+		bllp_byte = tx_params->horizontal_bllp * dsi_buf_bpp / 8;
 	}
 
 	if (hsa_byte < 0) {
 		DISPMSG("error!hsa = %d < 0!\n", hsa_byte);
 		hsa_byte = 0;
 		return -1;
-	}
-
-	if (hfp_byte > data_init_byte) {
-		hfp_byte -= data_init_byte;
-	} else {
-		hfp_byte = 4;
-		DISPMSG("hfp is too short!\n");
-		return -2;
 	}
 
 	DISPINFO(
@@ -1517,8 +1804,8 @@ int bdg_tx_start(enum DISP_BDG_ENUM module, void *cmdq)
 	int i;
 
 	DISPFUNCSTART();
-	DISPINFO("%s, DSI_TX_START=0x%08x\n", __func__,
-	mtk_spi_read((unsigned long)(&TX_REG[0]->DSI_TX_START)));
+//	DISPINFO("%s, DSI_TX_START=0x%08x\n",__func__,
+//	mtk_spi_read((unsigned long)(&TX_REG[0]->DSI_TX_START)));
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		DSI_OUTREGBIT(cmdq, struct DSI_TX_START_REG,
@@ -1616,12 +1903,12 @@ int bdg_dsi_dump_reg(enum DISP_BDG_ENUM module)
 int bdg_tx_wait_for_idle(enum DISP_BDG_ENUM module)
 {
 	int i;
-	unsigned int timeout = 500000; /* unit: msec */
+	unsigned int timeout = 5000; /* unit: usec */
 	unsigned int status;
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		while (timeout) {
-			udelay(10);
+			udelay(1);
 			status = mtk_spi_read((unsigned long)(&TX_REG[i]->DSI_TX_INTSTA));
 
 			if (!(status & 0x80000000))
@@ -1629,9 +1916,11 @@ int bdg_tx_wait_for_idle(enum DISP_BDG_ENUM module)
 			timeout--;
 		}
 	}
-	if (timeout == 0)
+	if (timeout == 0) {
 //		dsi_dump_reg(module, 0);
+		DISPMSG("%s, wait timeout!\n", __func__);
 		return -1;
+	}
 
 	return 0;
 }
@@ -1826,14 +2115,14 @@ unsigned int get_bdg_line_cycle(void)
 	return bg_tx_line_cycle;
 }
 
-bool get_dsc_state(void)
+unsigned int get_dsc_state(void)
 {
 	DISPMSG("%s, dsc_en=%d\n", __func__, dsc_en);
 
 	return dsc_en;
 }
 
-#define DELAY_MS 1
+#define DELAY_US 1
 void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 {
 	DISPFUNCSTART();
@@ -1843,7 +2132,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -1854,24 +2143,38 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
 
+	DISPMSG("%s, dsc_en=%d, tx_data_rate=%d\n", __func__, dsc_on, tx_data_rate);
 	//DSC ON && set PPS
-	if (dsc_on) {
-		DISPMSG("%s, dsc_en=%d\n", __func__, dsc_on);
+	if (1) {
 		//lcm_dcs_write_seq_static(ctx, 0xC0, 0x03);
 		mtk_spi_write(0x00021d00, 0x03c02300);
 		mtk_spi_write(0x00021060, 0x00000001); //DSI_CMDQ_CON
 		mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 		mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 		while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-			udelay(DELAY_MS);
+			DISPMSG("%s, status=0x%x\n",
+				__func__, mtk_spi_read((unsigned long)(&TX_REG[0]->DSI_TX_INTSTA)));
+			udelay(DELAY_US);
 		}
 		mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
-		udelay(10);
+		udelay(0);
+	} else {
+		//lcm_dcs_write_seq_static(ctx, 0xC0, 0x00);
+		mtk_spi_write(0x00021d00, 0x00c02300);
+		mtk_spi_write(0x00021060, 0x00000001); //DSI_CMDQ_CON
+		mtk_spi_write(0x00021000, 0x00000000); //DSI_START
+		mtk_spi_write(0x00021000, 0x00000001); //DSI_START
+		while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
+			udelay(DELAY_US);
+		}
+		mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
+		udelay(0);
+	}
 
 		//lcm_dcs_write_seq_static(ctx, 0xC1, 0x89, 0x28, 0x00, 0x08, 0x00, 0xAA,
 		//0x02, 0x0E, 0x00, 0x2B, 0x00, 0x07, 0x0D, 0xB7,
@@ -1886,10 +2189,9 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 		mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 		mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 		while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-			udelay(DELAY_MS);
+			udelay(DELAY_US);
 		}
 		mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
-		udelay(10);
 
 		//lcm_dcs_write_seq_static(ctx, 0xC2, 0x1B, 0XA0);
 		mtk_spi_write(0x00021d00, 0x00032902);
@@ -1898,67 +2200,18 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 		mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 		mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 		while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-			udelay(DELAY_MS);
+			udelay(DELAY_US);
 		}
 		mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
-		udelay(10);
-	} else {
-		DISPMSG("%s, dsc_en=%d\n", __func__, dsc_on);
-		//lcm_dcs_write_seq_static(ctx, 0xC0, 0x03);
-	//	mtk_spi_write(0x00021d00, 0x03c02300);
-		mtk_spi_write(0x00021d00, 0x00c02300);
-		mtk_spi_write(0x00021060, 0x00000001); //DSI_CMDQ_CON
-		mtk_spi_write(0x00021000, 0x00000000); //DSI_START
-		mtk_spi_write(0x00021000, 0x00000001); //DSI_START
-		while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-			udelay(DELAY_MS);
-		}
-		mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
-		udelay(10);
+	udelay(0);
 
-		//lcm_dcs_write_seq_static(ctx, 0xC1, 0x89, 0x28, 0x00, 0x08, 0x00, 0xAA,
-		//0x02, 0x0E, 0x00, 0x2B, 0x00, 0x07, 0x0D, 0xB7,
-		//0x0C, 0xB7);
-		mtk_spi_write(0x00021d00, 0x00112902);
-	//	mtk_spi_write(0x00021d04, 0x002889c1);
-	//	mtk_spi_write(0x00021d08, 0x02aa0008);
-	//	mtk_spi_write(0x00021d0c, 0x002b000e);
-	//	mtk_spi_write(0x00021d10, 0x0cb70d07);
-	//	mtk_spi_write(0x00021d14, 0x000000b7);
-		mtk_spi_write(0x00021d04, 0);
-		mtk_spi_write(0x00021d08, 0);
-		mtk_spi_write(0x00021d0c, 0);
-		mtk_spi_write(0x00021d10, 0);
-		mtk_spi_write(0x00021d14, 0);
-		mtk_spi_write(0x00021060, 0x00000006); //DSI_CMDQ_CON
-		mtk_spi_write(0x00021000, 0x00000000); //DSI_START
-		mtk_spi_write(0x00021000, 0x00000001); //DSI_START
-		while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-			udelay(DELAY_MS);
-		}
-		mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
-		udelay(10);
-
-		//lcm_dcs_write_seq_static(ctx, 0xC2, 0x1B, 0XA0);
-		mtk_spi_write(0x00021d00, 0x00032902);
-//		mtk_spi_write(0x00021d04, 0x00a01bc2);
-		mtk_spi_write(0x00021d04, 0x00000000);
-		mtk_spi_write(0x00021060, 0x00000002); //DSI_CMDQ_CON
-		mtk_spi_write(0x00021000, 0x00000000); //DSI_START
-		mtk_spi_write(0x00021000, 0x00000001); //DSI_START
-		while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-			udelay(DELAY_MS);
-		}
-		mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
-		udelay(10);
-	}
 	//lcm_dcs_write_seq_static(ctx, 0xFF, 0X20);
 	mtk_spi_write(0x00021d00, 0x20ff2300);
 	mtk_spi_write(0x00021060, 0x00000001); //DSI_CMDQ_CON
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -1969,7 +2222,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -1980,7 +2233,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -1991,7 +2244,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2002,7 +2255,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2013,7 +2266,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2024,7 +2277,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2035,7 +2288,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2046,7 +2299,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2057,7 +2310,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2068,7 +2321,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2079,7 +2332,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2090,7 +2343,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2101,7 +2354,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2112,7 +2365,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2123,7 +2376,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2134,7 +2387,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2145,7 +2398,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2156,7 +2409,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2167,7 +2420,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2178,7 +2431,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2189,7 +2442,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2200,7 +2453,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2211,7 +2464,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2222,7 +2475,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2233,7 +2486,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2244,7 +2497,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2255,7 +2508,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2266,7 +2519,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2277,7 +2530,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2288,7 +2541,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2299,7 +2552,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2310,7 +2563,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2321,7 +2574,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2332,7 +2585,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2343,7 +2596,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2354,7 +2607,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2365,7 +2618,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2376,7 +2629,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2387,7 +2640,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2398,7 +2651,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2409,7 +2662,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2420,7 +2673,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2431,7 +2684,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2442,7 +2695,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2453,7 +2706,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2464,7 +2717,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2475,7 +2728,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2486,7 +2739,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2497,7 +2750,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2508,7 +2761,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2519,7 +2772,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2530,7 +2783,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2541,7 +2794,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2552,7 +2805,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2563,7 +2816,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2574,7 +2827,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2585,7 +2838,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2596,7 +2849,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2607,7 +2860,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2618,7 +2871,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2629,7 +2882,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2640,7 +2893,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2651,7 +2904,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2662,7 +2915,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2672,7 +2925,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2683,7 +2936,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2694,7 +2947,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2705,7 +2958,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2716,7 +2969,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2727,7 +2980,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2738,7 +2991,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2749,7 +3002,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2760,7 +3013,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2771,7 +3024,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2782,7 +3035,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2793,7 +3046,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2804,7 +3057,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2815,7 +3068,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2826,7 +3079,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2837,7 +3090,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2848,7 +3101,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2859,7 +3112,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2870,7 +3123,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2881,7 +3134,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2892,7 +3145,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2903,7 +3156,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2914,7 +3167,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2925,7 +3178,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -2939,7 +3192,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 			mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 			mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 			while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-				udelay(DELAY_MS);
+				udelay(DELAY_US);
 			}
 			mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 			udelay(10);
@@ -2950,7 +3203,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 			mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 			mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 			while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-				udelay(DELAY_MS);
+				udelay(DELAY_US);
 			}
 			mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 			udelay(10);
@@ -2961,7 +3214,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 			mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 			mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 			while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-				udelay(DELAY_MS);
+				udelay(DELAY_US);
 			}
 			mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 			udelay(10);
@@ -2973,7 +3226,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 			mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 			mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 			while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-				udelay(DELAY_MS);
+				udelay(DELAY_US);
 			}
 			mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 			udelay(10);
@@ -2984,7 +3237,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 			mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 			mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 			while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-				udelay(DELAY_MS);
+				udelay(DELAY_US);
 			}
 			mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 			udelay(10);
@@ -2995,7 +3248,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 			mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 			mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 			while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-				udelay(DELAY_MS);
+				udelay(DELAY_US);
 			}
 			mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 			udelay(10);
@@ -3008,7 +3261,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 		mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 		mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 		while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-			udelay(DELAY_MS);
+			udelay(DELAY_US);
 		}
 		mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 		udelay(10);
@@ -3019,7 +3272,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 		mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 		mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 		while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-			udelay(DELAY_MS);
+			udelay(DELAY_US);
 		}
 		mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 		udelay(10);
@@ -3030,7 +3283,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 		mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 		mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 		while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-			udelay(DELAY_MS);
+			udelay(DELAY_US);
 		}
 		mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 		udelay(10);
@@ -3043,7 +3296,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -3054,7 +3307,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -3069,7 +3322,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -3080,7 +3333,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -3091,7 +3344,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -3102,7 +3355,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -3113,7 +3366,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -3124,7 +3377,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -3135,7 +3388,7 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
@@ -3147,14 +3400,149 @@ void mt6382_nt36672c_fhd_vdo_init(bool dsc_on)
 	mtk_spi_write(0x00021000, 0x00000000); //DSI_START
 	mtk_spi_write(0x00021000, 0x00000001); //DSI_START
 	while ((mtk_spi_read(0x0002100c) & 0x2) != 0x2) { //wait dsi is not busy
-		udelay(DELAY_MS);
+		udelay(DELAY_US);
 	}
 	mtk_spi_write(0x0002100c, 0xfffd); //write 0 clear
 	udelay(10);
 	DISPFUNCEND();
 }
 
+void dsi_set_cmdq_v2(enum DISP_BDG_ENUM module, void *cmdq,
+			unsigned int cmd, unsigned char count,
+		     unsigned char *para_list, unsigned char force_update)
+{
+	UINT32 i = 0;
+	unsigned long goto_addr, mask_para, set_para;
+	struct DSI_TX_T0_INS t0;
+	struct DSI_TX_T2_INS t2;
+	struct DSI_TX_CMDQ *tx_cmdq;
 
+	memset(&t0, 0, sizeof(struct DSI_TX_T0_INS));
+	memset(&t2, 0, sizeof(struct DSI_TX_T2_INS));
+
+	tx_cmdq = TX_CMDQ_REG[0]->data;
+
+	bdg_tx_wait_for_idle(module);
+
+	if (count > 1) {
+		t2.CONFG = 2;
+		if (cmd < 0xB0)
+			t2.Data_ID = TX_DCS_LONG_PACKET_ID;
+		else
+			t2.Data_ID = TX_GERNERIC_LONG_PACKET_ID;
+		t2.WC16 = count + 1;
+
+		DSI_OUTREG32(cmdq, tx_cmdq[0], AS_UINT32(&t2));
+
+		goto_addr = (unsigned long)(&tx_cmdq[1].byte0);
+		mask_para = (0xFFu << ((goto_addr & 0x3u) * 8));
+		set_para = cmd;
+		goto_addr = (goto_addr & (~0x3UL));
+
+//		DISPMSG("[%s][%d]goto_addr=0x%x, mask_para=0x%x, set_para=0x%x\n",
+//			__func__, __LINE__, goto_addr, mask_para, set_para);
+
+		DSI_MASKREG32(cmdq, goto_addr, mask_para, set_para);
+
+		for (i = 0; i < count; i++) {
+			goto_addr = (unsigned long)(&tx_cmdq[1].byte1) + i;
+			mask_para = (0xFFu << ((goto_addr & 0x3u) * 8));
+			set_para = (unsigned long)para_list[i];
+			goto_addr = (goto_addr & (~0x3UL));
+
+//			DISPMSG("[%s][%d]i=%d, goto_addr=0x%x, mask_para=0x%x, set_para=0x%x\n",
+//				__func__, __LINE__, i, goto_addr, mask_para, set_para);
+
+			DSI_MASKREG32(cmdq, goto_addr, mask_para, set_para);
+		}
+
+		DSI_OUTREG32(cmdq, TX_REG[0]->DSI_TX_CMDQ_CON,
+				(1 << 15) | (2 + (count) / 4));
+	} else {
+		t0.CONFG = 0;
+		t0.Data0 = cmd;
+		if (count) {
+			if (cmd < 0xB0)
+				t0.Data_ID = TX_DCS_SHORT_PACKET_ID_1;
+			else
+				t0.Data_ID = TX_GERNERIC_SHORT_PACKET_ID_2;
+			t0.Data1 = para_list[0];
+		} else {
+			if (cmd < 0xB0)
+				t0.Data_ID = TX_DCS_SHORT_PACKET_ID_0;
+			else
+				t0.Data_ID = TX_GERNERIC_SHORT_PACKET_ID_1;
+			t0.Data1 = 0;
+		}
+
+		DSI_OUTREG32(cmdq, tx_cmdq[0], AS_UINT32(&t0));
+		DSI_OUTREG32(cmdq, TX_REG[0]->DSI_TX_CMDQ_CON, 1);
+	}
+
+	if (force_update) {
+		bdg_tx_start(module, cmdq);
+		bdg_tx_wait_for_idle(module);
+	}
+}
+
+void push_table(struct lcm_setting_table *table, unsigned int count,
+			unsigned char force_update)
+{
+	unsigned int i, cmd;
+
+	DISPFUNC();
+	for (i = 0; i < count; i++) {
+		cmd = table[i].cmd;
+
+		switch (cmd) {
+		case REGFLAG_DELAY:
+			if (table[i].count <= 10)
+				mdelay(table[i].count);
+			else
+				mdelay(table[i].count);
+			break;
+		case REGFLAG_UDELAY:
+			udelay(table[i].count);
+			break;
+		case REGFLAG_END_OF_TABLE:
+			break;
+		default:
+			dsi_set_cmdq_v2(DISP_BDG_DSI0, NULL, cmd,
+				table[i].count, table[i].para_list,
+				force_update);
+			break;
+		}
+	}
+}
+
+
+int lcm_init(enum DISP_BDG_ENUM module)
+{
+	DISPFUNCSTART();
+
+//	mt6382_nt36672c_fhd_vdo_init(dsc_en);
+
+	if (dsc_en) {
+		if (tx_data_rate < 600)
+			push_table(nt36672c_60hz, sizeof(nt36672c_60hz) /
+				sizeof(struct lcm_setting_table), 1);
+		else if (tx_data_rate < 900)
+			push_table(nt36672c_90hz, sizeof(nt36672c_90hz) /
+				sizeof(struct lcm_setting_table), 1);
+		else
+			push_table(nt36672c_120hz, sizeof(nt36672c_120hz) /
+				sizeof(struct lcm_setting_table), 1);
+	} else {
+		push_table(nt36672c_60hz, sizeof(nt36672c_60hz) /
+			sizeof(struct lcm_setting_table), 1);
+		push_table(nt36672c_wo_dsc, sizeof(nt36672c_wo_dsc) /
+			sizeof(struct lcm_setting_table), 1);
+	}
+
+	DISPFUNCEND();
+
+	return 0;
+}
 int bdg_tx_init(enum DISP_BDG_ENUM module,
 		   struct disp_ddp_path_config *config, void *cmdq)
 {
@@ -3162,25 +3550,14 @@ int bdg_tx_init(enum DISP_BDG_ENUM module,
 	struct LCM_DSI_PARAMS *tx_params;
 
 	DISPFUNCSTART();
-//	DSI_CMDQ_REG[0] = (struct dsi_cmdq_regs *)(DISPSYS_BDG_DSI0_BASE + 0x200);
-//	DSI_VM_CMD_REG[0] = (struct dsi_vm_cmdq_regs *)
-//				(DISPSYS_BDG_DSI0_BASE + 0x134);
 
 	tx_params = &(config->dispif_config.dsi);
-
-#if 0
-	mipitx_impedance_config(module, cmdq);
-	mipitx_dphy_lane_config(module, cmdq);
-	mipitx_pll_init(module, cmdq, tx_params->data_rate);
-
-	if (module == DISP_MODULE_DSIDUAL)
-		dsi_irq_init();
-#endif
-//	tx_data_rate = 500;
-
 	tx_params->data_rate = tx_data_rate > 0 ?
 				tx_data_rate : tx_params->data_rate;
-	DISPMSG("%s, tx_data_rate=%d\n", __func__, tx_data_rate);
+	dsc_en = tx_params->bdg_dsc_enable;
+
+	DISPMSG("%s, tx_data_rate=%d, bdg_ssc_disable=%d, ssc_disable=%d, dsc_enable=%d\n",
+		__func__, tx_data_rate, tx_params->bdg_ssc_disable, tx_params->ssc_disable, dsc_en);
 
 	ret |= bdg_mipi_tx_dphy_clk_setting(module, cmdq, tx_params);
 	udelay(20);
@@ -3195,14 +3572,10 @@ int bdg_tx_init(enum DISP_BDG_ENUM module,
 	ret |= bdg_dsi_line_timing_dphy_setting(module, cmdq, tx_params);
 
 	/* panel init*/
-
-	mt6382_nt36672c_fhd_vdo_init(dsc_en);
+	lcm_init(module);
 
 	ret |= bdg_tx_set_mode(module, cmdq, tx_params->mode);
 
-#ifdef xxx
-
-#endif
 	DISPFUNCEND();
 	return ret;
 }
@@ -3400,9 +3773,6 @@ void mipi_rx_set_forcerxmode(void *cmdq)
 			OCLA_REG->OCLA_LANE2_CON, FORCE_RX_MODE, 1);
 	DSI_OUTREGBIT(cmdq, struct OCLA_LANE_CON_REG,
 			OCLA_REG->OCLA_LANE3_CON, FORCE_RX_MODE, 1);
-
-//	DISPMSG("mipi_rx_set_forcerxmode, OCLA_LANEC_CON=0x%08x\n",
-mt6382_spi_read(OCLA_LANEC_CON));
 }
 
 void startup_seq_common(void *cmdq)
@@ -3471,7 +3841,7 @@ void startup_seq_common(void *cmdq)
 
 int check_stopstate(void *cmdq)
 {
-	unsigned int timeout = 200;
+	unsigned int timeout = 50000;
 	unsigned int stop_state = 0, count = 0;
 
 	DISPFUNCSTART();
@@ -3486,7 +3856,7 @@ int check_stopstate(void *cmdq)
 		if (count > 5)
 			break;
 
-		udelay(10);
+		udelay(1);
 		timeout--;
 	}
 
@@ -3511,15 +3881,14 @@ int bdg_dsc_init(enum DISP_BDG_ENUM module,
 	height = tx_params->vertical_active_line;
 
 #ifdef _n36672c_
-
-#if 0
+/*
 Resolution = 1080x2400
 Slice width = 540
 Slice height = 8
 Format = RGB888
 DSC version = v1.1
 Compression rate = 1/3
-#endif
+*/
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PIC_W, 0x01670438);
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PIC_H, 0x095f095f);
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_SLICE_W, 0x00b3021c);
@@ -3554,14 +3923,14 @@ Compression rate = 1/3
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PPS[19], 0x0000d1ed);
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_SHADOW, 0x00000020);
 #else
-#if 0
+/*
 Resolution = 1080x2160
 Slice width = 1080
 Slice height = 20
 Format = RGB888
 DSC version = v1.2
 Compression rate = 1/3
-#endif
+*/
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PIC_W, 0x01670438);
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_PIC_H, 0x086F086F);
 	DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_SLICE_W, 0x01670438);
@@ -3611,6 +3980,7 @@ int mipi_dsi_rx_mac_init(enum DISP_BDG_ENUM module,
 	/* bit2: HSRX EoTp enable, bit1: LPTX EoTp enable, */
 	/*bit0: LPRX EoTp enable unsigned int timeout = 200;*/
 	unsigned int eotp_cfg = 4;
+	unsigned int timeout = 5000;
 	unsigned int phy_ready = 0, count = 0;
 	struct LCM_DSI_PARAMS *tx_params;
 
@@ -3755,7 +4125,7 @@ int mipi_dsi_rx_mac_init(enum DISP_BDG_ENUM module,
 		if (count > 5)
 			break;
 
-		udelay(2);
+		udelay(1);
 		timeout--;
 	}
 
@@ -3767,52 +4137,6 @@ int mipi_dsi_rx_mac_init(enum DISP_BDG_ENUM module,
 	DISPFUNCEND();
 	return ret;
 }
-
-#if 0
-void phy_dtb_init(void *cmdq)
-{
-	DISPFUNCSTART();
-
-	//Power-Up and Reset the PHY using "PHY_SHUTDOWNZ" and "PHY_RSTZ" registers
-	DSI_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_PHY_SHUTDOWNZ_OS, 0);
-	DSI_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_PHY_RSTZ_OS, 0);
-
-	//set phy_mode as d-phy
-	DSI_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_PHY_MODE_OS, 0);
-
-	//reset preset_n
-	DSI_OUTREGBIT(cmdq, struct RST_CLR_SET_REG,
-			SYS_REG->RST_SET, REG_07, 1);
-
-	//release preset_n
-	DSI_OUTREGBIT(cmdq, struct RST_CLR_SET_REG,
-			SYS_REG->RST_CLR, REG_07, 1);
-
-	//clk non-inverse
-//	mt6382_spi_mask_write(0x00023408, 0x00000010, 0x00000010);
-	//wa:rst_n
-	mtk_spi_write(MIPI_RX_PHY_BASE + 0x8083 * 4, 0x00000002);
-	udelay(10);
-	mtk_spi_write(MIPI_RX_PHY_BASE + 0x8083 * 4, 0x00000003);
-
-	//enable lanes => startup_seq_common
-	mipi_rx_enable(cmdq);
-	mipi_rx_set_forcerxmode(cmdq);
-
-	//rx static input config.
-	//core parameters control
-	mtk_spi_write(MIPI_RX_PHY_BASE + 0x7000 * 4, 0x00000ff2);
-	mtk_spi_write(MIPI_RX_PHY_BASE + 0x7003 * 4, 0x00001111);
-//	DISPMSG("phy_dtb_init, 0x7000=0x%08x\n", mt6382_spi_read(MIPI_RX_PHY_BASE + 0x7000 * 4));
-//	DISPMSG("phy_dtb_init, 0x7003=0x%08x\n", mt6382_spi_read(MIPI_RX_PHY_BASE + 0x7003 * 4));
-
-	//test chip
-	mtk_spi_write(MIPI_RX_PHY_BASE + 0x7200 * 4, 0x000000a1);
-	mtk_spi_write(MIPI_RX_PHY_BASE + 0x7201 * 4, 0x00000000);
-//	DISPMSG("phy_dtb_init, 0x7200=0x%08x\n", mt6382_spi_read(MIPI_RX_PHY_BASE + 0x7200 * 4));
-//	DISPMSG("phy_dtb_init, 0x7201=0x%08x\n", mt6382_spi_read(MIPI_RX_PHY_BASE + 0x7201 * 4));
-}
-#endif
 
 void startup_seq_dphy_specific(unsigned int data_rate)
 {
@@ -4440,6 +4764,7 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 
 	mtk_spi_write(MIPI_RX_PHY_BASE + CORE_DIG_COMMON_RW_DESKEW_FINE_MEM * 4, 0x07FC);
 /* force delay en */
+/*
 	mtk_spi_write(0x000440B0, 0x00000A00);
 	mtk_spi_write(0x000448B0, 0x00000A00);
 	mtk_spi_write(0x000450B0, 0x00000A00);
@@ -4451,14 +4776,55 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 	mtk_spi_write(0x000450B4, 0x00000000);
 	mtk_spi_write(0x000458B4, 0x00000100);
 	mtk_spi_write(0x000460B4, 0x00000100);
-
+*/
 	DISPFUNCEND();
 }
 
-void startup_seq_cphy_specific(unsigned int data_rate)
+/* for debug use */
+void output_debug_signal(void)
 {
-	DISPMSG("%s, data_rate=%d\n", __func__, data_rate);
+	//Mutex thread 0 remove mod_sof[1]
+	mtk_spi_write(0x00025030, 0x0000001D);
+
+	//Mutex thread 1 use IPI_VSYNC falling and mod_sof[1]
+	mtk_spi_write(0x00025050, 0x00000002);
+	mtk_spi_write(0x0002504C, 0x0000004a);
+	mtk_spi_write(0x00025040, 0x00000001);
+
+	//DSI DBG Setting
+	mtk_spi_write(0x00021170, 0x00001001);
+
+	//MM DBG Setting
+	mtk_spi_write(0x00023300, 0x00000003);
+	mtk_spi_write(0x000231a8, 0x00000021);
+
+	//DBGSYS Setting
+	mtk_spi_write(0x000076d0, 0x00000001);
+
+	//GPIO Mode
+	mtk_spi_write(0x00007310, 0x17711111);
+	mtk_spi_write(0x00007300, 0x77701111);
 }
+
+int bdg_common_deinit(enum DISP_BDG_ENUM module, void *cmdq)
+{
+	int ret = 0;
+
+	DISPFUNCSTART();
+
+	// DSI-TX setting
+	bdg_tx_deinit(module, NULL);
+
+	set_subsys_off(cmdq);
+	ana_macro_off(cmdq);
+	set_mtcmos_off(cmdq);
+	set_LDO_off(cmdq);
+
+	DISPFUNCEND();
+
+	return ret;
+}
+
 
 int bdg_common_init(enum DISP_BDG_ENUM module,
 			struct disp_ddp_path_config *config, void *cmdq)
@@ -4482,6 +4848,7 @@ int bdg_common_init(enum DISP_BDG_ENUM module,
 	GCE_REG = (struct BDG_GCE_REGS *)DISPSYS_BDG_GCE_BASE;
 	EFUSE = (struct BDG_EFUSE_REGS *)DISPSYS_BDG_EFUSE_BASE;
 	GPIO = (struct BDG_GPIO_REGS *)DISPSYS_BDG_GPIO_BASE;
+	TX_CMDQ_REG[0] = (struct DSI_TX_CMDQ_REGS *)(DISPSYS_BDG_TX_DSI0_BASE + 0xd00);
 
 	set_LDO_on(cmdq);
 	set_mtcmos_on(cmdq);
@@ -4507,17 +4874,6 @@ int bdg_common_init(enum DISP_BDG_ENUM module,
 	else
 		DSI_OUTREGBIT(cmdq, struct MIPI_RX_POST_CTRL_REG,
 				DISPSYS_REG->MIPI_RX_POST_CTRL, MIPI_RX_MODE_SEL, 1);
-	// DSC setting
-	if (dsc_en) {
-		bdg_dsc_init(module, cmdq, tx_params);
-		DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
-				DSC_REG->DISP_DSC_CON, DSC_PT_MEM_EN, 1);
-		DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
-				DSC_REG->DISP_DSC_CON, DSC_EN, 1);
-//		DSI_OUTREG32(cmdq, DSC_REG->DISP_DSC_CON, 0x00014081);
-	} else
-		DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
-				DSC_REG->DISP_DSC_CON, DSC_ALL_BYPASS, 1);
 
 	// RDMA setting
 	DSI_OUTREG32(cmdq, RDMA_REG->DISP_RDMA_SIZE_CON_0,
@@ -4548,12 +4904,34 @@ int bdg_common_init(enum DISP_BDG_ENUM module,
 	bdg_tx_init(module, config, NULL);
 	DSI_OUTREG32(cmdq, TX_REG[0]->DSI_RESYNC_CON, 0x50007);
 
+	// DSC setting
+	if (dsc_en) {
+		bdg_dsc_init(module, cmdq, tx_params);
+		DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
+				DSC_REG->DISP_DSC_CON, DSC_PT_MEM_EN, 1);
+		DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
+				DSC_REG->DISP_DSC_CON, DSC_EN, 1);
+	} else {
+	#ifdef DSC_RELAY_MODE_EN
+		bdg_dsc_init(module, cmdq, tx_params);
+		DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
+				DSC_REG->DISP_DSC_CON, DSC_PT_MEM_EN, 1);
+		DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
+				DSC_REG->DISP_DSC_CON, DSC_RELAY, 1);
+		DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
+				DSC_REG->DISP_DSC_CON, DSC_EN, 1);
+	#else
+		DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
+				DSC_REG->DISP_DSC_CON, DSC_ALL_BYPASS, 1);
+	#endif
+	}
+
 	calculate_datarate_cfgs_rx(ap_tx_data_rate);
 	startup_seq_common(cmdq);
 
-	if (tx_params->IsCphy)
-		startup_seq_cphy_specific(ap_tx_data_rate);
-	else
+//	if (tx_params->IsCphy)
+//		startup_seq_cphy_specific();
+//	else
 		startup_seq_dphy_specific(ap_tx_data_rate);
 
 	DISPFUNCEND();
@@ -4583,6 +4961,7 @@ int bdg_common_init_for_rx_pat(enum DISP_BDG_ENUM module,
 	GCE_REG = (struct BDG_GCE_REGS *)DISPSYS_BDG_GCE_BASE;
 	EFUSE = (struct BDG_EFUSE_REGS *)DISPSYS_BDG_EFUSE_BASE;
 	GPIO = (struct BDG_GPIO_REGS *)DISPSYS_BDG_GPIO_BASE;
+	TX_CMDQ_REG[0] = (struct DSI_TX_CMDQ_REGS *)(DISPSYS_BDG_TX_DSI0_BASE + 0xd00);
 
 	set_LDO_on(cmdq);
 	set_mtcmos_on(cmdq);
@@ -4608,17 +4987,6 @@ int bdg_common_init_for_rx_pat(enum DISP_BDG_ENUM module,
 	else
 		DSI_OUTREGBIT(cmdq, struct MIPI_RX_POST_CTRL_REG,
 				DISPSYS_REG->MIPI_RX_POST_CTRL, MIPI_RX_MODE_SEL, 1);
-
-	// DSC setting
-	if (dsc_en) {
-		bdg_dsc_init(module, cmdq, tx_params);
-		DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
-				DSC_REG->DISP_DSC_CON, DSC_PT_MEM_EN, 1);
-		DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
-				DSC_REG->DISP_DSC_CON, DSC_EN, 1);
-	} else
-		DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
-				DSC_REG->DISP_DSC_CON, DSC_ALL_BYPASS, 1);
 
 	// RDMA setting
 	DSI_OUTREG32(cmdq, RDMA_REG->DISP_RDMA_SIZE_CON_0,
@@ -4648,6 +5016,17 @@ int bdg_common_init_for_rx_pat(enum DISP_BDG_ENUM module,
 	// DSI-TX setting
 	bdg_tx_init(module, config, NULL);
 	DSI_OUTREG32(cmdq, TX_REG[0]->DSI_RESYNC_CON, 0x50007);
+
+	// DSC setting
+	if (dsc_en) {
+		bdg_dsc_init(module, cmdq, tx_params);
+		DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
+				DSC_REG->DISP_DSC_CON, DSC_PT_MEM_EN, 1);
+		DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
+				DSC_REG->DISP_DSC_CON, DSC_EN, 1);
+	} else
+		DSI_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
+				DSC_REG->DISP_DSC_CON, DSC_ALL_BYPASS, 1);
 
 	bdg_tx_start(DISP_BDG_DSI0, NULL);
 

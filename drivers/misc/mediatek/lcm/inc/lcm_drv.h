@@ -679,6 +679,8 @@ struct LCM_DSI_PARAMS {
 	unsigned int cont_clock;
 	unsigned int ufoe_enable;
 	unsigned int dsc_enable;
+	unsigned int bdg_dsc_enable;
+	unsigned int bdg_ssc_disable;
 	struct LCM_UFOE_CONFIG_PARAMS ufoe_params;
 	struct LCM_DSC_CONFIG_PARAMS dsc_params;
 	unsigned int edp_panel;

@@ -19,8 +19,7 @@
 #include "ddp_info.h"
 #include "lcm_drv.h"
 
-
-#define SPI_SPEED		(1000000)
+#define SPI_SPEED		(10000000)
 #define HW_NUM			(1)
 
 enum DISP_BDG_ENUM {
@@ -44,90 +43,22 @@ enum MIPI_TX_PAD_VALUE {
 	PAD_MAX_NUM
 };
 
+#define	TX_DCS_SHORT_PACKET_ID_0			(0x05)
+#define	TX_DCS_SHORT_PACKET_ID_1			(0x15)
+#define	TX_DCS_LONG_PACKET_ID				(0x39)
+#define	TX_DCS_READ_PACKET_ID				(0x06)
+#define	TX_GERNERIC_SHORT_PACKET_ID_1			(0x13)
+#define	TX_GERNERIC_SHORT_PACKET_ID_2			(0x23)
+#define	TX_GERNERIC_LONG_PACKET_ID			(0x29)
+#define	TX_GERNERIC_READ_LONG_PACKET_ID			(0x14)
 
-#define BDG_ENABLE
-#define SPI_EN
+#define REG_FLAG_ESCAPE_ID				(0x00)
+#define REG_FLAG_DELAY_MS_V3				(0xFF)
 
-/*==================== DEFINE MACRO HERE ====================*/
-#ifdef SPI_EN
-#define BDG_DSI_OUTREGBIT(cmdq, TYPE, REG, bit, value) \
-do { \
-	TYPE r; \
-	*(unsigned int *)(&r) = (0x00000000); \
-	r.bit = ~(r.bit); \
-	mtk_spi_mask_write((unsigned long)(&REG), AS_UINT32(&r), value); \
-} while (0)
-#else
-#define BDG_DSI_OUTREGBIT(spi_en, cmdq, TYPE, REG, bit, value) \
-do { \
-	TYPE r; \
-	TYPE v; \
-	if (spi_en) { \
-		*(unsigned int *)(&r) = (0x00000000); \
-		r.bit = ~(r.bit); \
-		mtk_spi_mask_write((unsigned long)(&REG), AS_UINT32(&r), value); \
-	} \
-	else { \
-		if (cmdq) { \
-			*(unsigned int *)(&r) = (0x00000000); \
-			r.bit = ~(r.bit);  \
-			*(unsigned int *)(&v) = (0x00000000); \
-			v.bit = value; \
-			DISP_REG_MASK(cmdq, &REG, AS_UINT32(&v), AS_UINT32(&r)); \
-		} else { \
-			DSI_SET_VAL(NULL, &r, INREG32(&REG)); \
-			r.bit = (value); \
-			DISP_REG_SET(cmdq, &REG, DSI_GET_VAL(&r)); \
-		} \
-	} \
-} while (0)
-#endif
-
-#ifdef SPI_EN
-#define BDG_DSI_OUTREG32(cmdq, addr, val) \
-do { \
-	DDPDBG("%s\n", __func__); \
-	mtk_spi_write((unsigned long)(&addr), val); \
-} while (0)
-#else
-#define BDG_DSI_OUTREG32(spi_en, cmdq, addr, val) \
-do { \
-	if (spi_en) { \
-		mtk_spi_write((unsigned long)(&addr), val); \
-	} \
-	else { \
-		DISP_REG_SET(cmdq, addr, val); \
-	} \
-} while (0)
-#endif
-
-#ifdef SPI_EN
-#define BDG_DSI_MASKREG32(cmdq, addr, mask, val) \
-do { \
-	DDPDBG("%s\n", __func__); \
-	mtk_spi_mask_write((unsigned long)(addr), mask, val); \
-} while (0)
-#else
-#define BDG_DSI_MASKREG32(spi_en, cmdq, addr, mask, val) \
-do { \
-	if (spi_en) { \
-		mtk_spi_mask_write((unsigned long)(addr), mask, val); \
-	} \
-	else { \
-		DISP_REG_SET(cmdq, addr, val); \
-	} \
-} while (0)
-#endif
-/*==================== DEFINE MACRO HERE ====================*/
-int mtk_spi_mask_write(u32 addr, u32 mask, u32 value);
-int mtk_spi_write(u32 addr, unsigned int regval);
-
-
-//int bdg_tx_init(enum DISP_MODULE_ENUM module,
-//		   struct disp_ddp_path_config *config, void *cmdq);
 int bdg_tx_init(enum DISP_BDG_ENUM module,
 		   struct disp_ddp_path_config *config, void *cmdq);
 int bdg_tx_deinit(enum DISP_BDG_ENUM module, void *cmdq);
+int bdg_common_deinit(enum DISP_BDG_ENUM module, void *cmdq);
 int bdg_common_init(enum DISP_BDG_ENUM module,
 			struct disp_ddp_path_config *config, void *cmdq);
 int bdg_common_init_for_rx_pat(enum DISP_BDG_ENUM module,
@@ -153,7 +84,7 @@ unsigned int get_ap_data_rate(void);
 unsigned int get_bdg_data_rate(void);
 int set_bdg_data_rate(unsigned int data_rate);
 unsigned int get_bdg_line_cycle(void);
-bool get_dsc_state(void);
+unsigned int get_dsc_state(void);
 int check_stopstate(void *cmdq);
 
 unsigned int mtk_spi_read(u32 addr);
@@ -161,3 +92,4 @@ int mtk_spi_write(u32 addr, unsigned int regval);
 int mtk_spi_mask_write(u32 addr, u32 msk, u32 value);
 
 #endif
+

@@ -533,7 +533,7 @@ int spi_multipin_loopback_transfer(int len, int xfer_speed)
 		}
 	}
 	pr_debug("total length %d bytes, err %d bytes.\n", len, err);
-	pr_info("%s quit...\n", _func__);
+	pr_info("%s quit...\n", __func__);
 tail:
 	kfree(tx_buf);
 	kfree(rx_buf);
