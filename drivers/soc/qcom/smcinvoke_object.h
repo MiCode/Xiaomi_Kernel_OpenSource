@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __SMCINVOKE_OBJECT_H
 #define __SMCINVOKE_OBJECT_H
@@ -79,5 +79,6 @@
 #define OBJECT_ERROR_KMEM        -97   /* kernel out of memory */
 #define OBJECT_ERROR_REMOTE      -98   /* local method sent to remote object */
 #define OBJECT_ERROR_BUSY        -99   /* Object is busy */
+#define Object_ERROR_TIMEOUT     -103  /* Call Back Object invocation timed out. */
 
 #endif /* __SMCINVOKE_OBJECT_H */
