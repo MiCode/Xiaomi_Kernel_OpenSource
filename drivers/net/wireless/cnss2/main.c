@@ -3049,6 +3049,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	cnss_get_wlaon_pwr_ctrl_info(plat_priv);
 	cnss_get_tcs_info(plat_priv);
 	cnss_get_cpr_info(plat_priv);
+	cnss_aop_mbox_init(plat_priv);
 	cnss_init_control_params(plat_priv);
 
 	ret = cnss_get_resources(plat_priv);

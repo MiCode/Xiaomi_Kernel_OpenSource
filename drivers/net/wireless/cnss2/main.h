@@ -12,6 +12,7 @@
 #if IS_ENABLED(CONFIG_INTERCONNECT)
 #include <linux/interconnect.h>
 #endif
+#include <linux/mailbox_client.h>
 #include <linux/pm_qos.h>
 #include <linux/platform_device.h>
 #include <net/cnss2.h>
@@ -493,6 +494,9 @@ struct cnss_plat_data {
 	struct cnss_dms_data dms;
 	int power_up_error;
 	u32 hw_trc_override;
+	struct mbox_client mbox_client_data;
+	struct mbox_chan *mbox_chan;
+	const char *vreg_ol_cpr, *vreg_ipa;
 };
 
 #ifdef CONFIG_ARCH_QCOM
@@ -558,5 +562,6 @@ int cnss_enable_int_pow_amp_vreg(struct cnss_plat_data *plat_priv);
 int cnss_get_tcs_info(struct cnss_plat_data *plat_priv);
 unsigned int cnss_get_timeout(struct cnss_plat_data *plat_priv,
 			      enum cnss_timeout_type);
+int cnss_aop_mbox_init(struct cnss_plat_data *plat_priv);
 
 #endif /* _CNSS_MAIN_H */

@@ -10,6 +10,7 @@
 #include <soc/qcom/cmd-db.h>
 #endif
 #include <linux/of_gpio.h>
+#include <linux/mailbox/qmp.h>
 
 #include "main.h"
 #include "debug.h"
@@ -65,6 +66,33 @@ static struct cnss_clk_cfg cnss_clk_list[] = {
 #define MAX_TCS_NUM			8
 #define MAX_TCS_CMD_NUM			5
 #define BT_CXMX_VOLTAGE_MV		950
+#define CNSS_MBOX_MSG_MAX_LEN 64
+#define CNSS_MBOX_TIMEOUT_MS 1000
+
+/**
+ * enum cnss_vreg_param: Voltage regulator TCS param
+ * @CNSS_VREG_VOLTAGE: Provides voltage level to be configured in TCS
+ * @CNSS_VREG_MODE: Regulator mode
+ * @CNSS_VREG_TCS_ENABLE: Set Voltage regulator enable config in TCS
+ */
+enum cnss_vreg_param {
+	CNSS_VREG_VOLTAGE,
+	CNSS_VREG_MODE,
+	CNSS_VREG_ENABLE,
+};
+
+/**
+ * enum cnss_tcs_seq: TCS sequence ID for trigger
+ * CNSS_TCS_UP_SEQ: TCS Sequence based on up trigger / Wake TCS
+ * CNSS_TCS_DOWN_SEQ: TCS Sequence based on down trigger / Sleep TCS
+ * CNSS_TCS_ALL_SEQ: Update for both up and down triggers
+ */
+enum cnss_tcs_seq {
+	CNSS_TCS_UP_SEQ,
+	CNSS_TCS_DOWN_SEQ,
+	CNSS_TCS_ALL_SEQ,
+};
+
 
 static int cnss_get_vreg_single(struct cnss_plat_data *plat_priv,
 				struct cnss_vreg_info *vreg)
@@ -996,6 +1024,76 @@ out:
 	return ret;
 }
 
+int cnss_aop_mbox_init(struct cnss_plat_data *plat_priv)
+{
+	struct mbox_client *mbox = &plat_priv->mbox_client_data;
+	struct mbox_chan *chan;
+	int ret = 0;
+
+	mbox->dev = &plat_priv->plat_dev->dev;
+	mbox->tx_block = true;
+	mbox->tx_tout = CNSS_MBOX_TIMEOUT_MS;
+	mbox->knows_txdone = false;
+
+	plat_priv->mbox_chan = NULL;
+	chan = mbox_request_channel(mbox, 0);
+	if (IS_ERR(chan)) {
+		cnss_pr_err("Failed to get mbox channel\n");
+		return PTR_ERR(chan);
+	}
+	plat_priv->mbox_chan = chan;
+
+	ret = of_property_read_string(plat_priv->plat_dev->dev.of_node,
+				      "qcom,vreg_ol_cpr",
+				      &plat_priv->vreg_ol_cpr);
+	if (ret) {
+		cnss_pr_dbg("Vreg for OL CPR not configured\n");
+		goto out;
+	}
+
+	ret = of_property_read_string(plat_priv->plat_dev->dev.of_node,
+				      "qcom,vreg_ipa",
+				      &plat_priv->vreg_ipa);
+	if (ret) {
+		cnss_pr_dbg("Volt regulator for Int Power Amp not configured\n");
+		goto out;
+	}
+out:
+	cnss_pr_dbg("Mbox channel initialized\n");
+	return 0;
+}
+
+static int cnss_aop_set_vreg_param(struct cnss_plat_data *plat_priv,
+				   const char *vreg_name,
+				   enum cnss_vreg_param param,
+				   enum cnss_tcs_seq seq, int val)
+{
+	struct qmp_pkt pkt;
+	char mbox_msg[CNSS_MBOX_MSG_MAX_LEN];
+	static const char * const vreg_param_str[] = {"v", "m", "e"};
+	static const char *const tcs_seq_str[] = {"upval", "dwnval", "enable"};
+	int ret = 0;
+
+	if (param > CNSS_VREG_ENABLE || seq > CNSS_TCS_ALL_SEQ || !vreg_name)
+		return -EINVAL;
+
+	snprintf(mbox_msg, CNSS_MBOX_MSG_MAX_LEN,
+		 "{class: wlan_pdc, res: %s.%s, %s: %d}", vreg_name,
+		 vreg_param_str[param], tcs_seq_str[seq], val);
+
+	cnss_pr_dbg("Sending AOP Mbox msg: %s\n", mbox_msg);
+	pkt.size = CNSS_MBOX_MSG_MAX_LEN;
+	pkt.data = mbox_msg;
+
+	ret = mbox_send_message(plat_priv->mbox_chan, &pkt);
+	if (ret < 0)
+		cnss_pr_err("Failed to send AOP mbox msg: %s\n", mbox_msg);
+	else
+		ret = 0;
+
+	return ret;
+}
+
 int cnss_update_cpr_info(struct cnss_plat_data *plat_priv)
 {
 	struct cnss_cpr_info *cpr_info = &plat_priv->cpr_info;
@@ -1003,14 +1101,30 @@ int cnss_update_cpr_info(struct cnss_plat_data *plat_priv)
 	void __iomem *tcs_cmd_addr, *tcs_cmd_data_addr;
 	int i, j;
 
+	if (cpr_info->voltage == 0) {
+		cnss_pr_err("OL CPR Voltage %dm is not valid\n",
+			    cpr_info->voltage);
+		return -EINVAL;
+	}
+
+	if (!plat_priv->vreg_ol_cpr || !plat_priv->mbox_chan) {
+		cnss_pr_dbg("Mbox channel / OL CPR Vreg not configured\n");
+	} else {
+		return cnss_aop_set_vreg_param(plat_priv,
+					       plat_priv->vreg_ol_cpr,
+					       CNSS_VREG_VOLTAGE,
+					       CNSS_TCS_UP_SEQ,
+					       cpr_info->voltage);
+	}
+
 	if (plat_priv->tcs_info.cmd_base_addr == 0) {
-		cnss_pr_dbg("TCS CMD not configured\n");
+		cnss_pr_dbg("TCS CMD not configured for OL CPR update\n");
 		return 0;
 	}
 
-	if (cpr_info->voltage == 0 || cpr_info->cpr_pmic_addr == 0) {
-		cnss_pr_err("Voltage %dmV or PMIC address 0x%x is not valid\n",
-			    cpr_info->voltage, cpr_info->cpr_pmic_addr);
+	if (cpr_info->cpr_pmic_addr == 0) {
+		cnss_pr_err("PMIC address 0x%x is not valid\n",
+			    cpr_info->cpr_pmic_addr);
 		return -EINVAL;
 	}
 
@@ -1063,14 +1177,32 @@ int cnss_enable_int_pow_amp_vreg(struct cnss_plat_data *plat_priv)
 	u32 offset, addr_val, data_val;
 	void __iomem *tcs_cmd;
 	int ret;
-
-	if (!plat_priv->tcs_info.cmd_base_addr_io) {
-		cnss_pr_err("TCS CMD not configured\n");
-		return -EINVAL;
-	}
+	static bool config_done;
 
 	if (plat_priv->device_id != QCA6490_DEVICE_ID)
 		return -EINVAL;
+
+	if (config_done) {
+		cnss_pr_dbg("IPA Vreg already configured\n");
+		return 0;
+	}
+
+	if (!plat_priv->vreg_ipa || !plat_priv->mbox_chan) {
+		cnss_pr_dbg("Mbox channel / IPA Vreg not configured\n");
+	} else {
+		ret = cnss_aop_set_vreg_param(plat_priv,
+					      plat_priv->vreg_ipa,
+					      CNSS_VREG_ENABLE,
+					      CNSS_TCS_ALL_SEQ, 1);
+		if (ret == 0)
+			config_done = true;
+		return ret;
+	}
+
+	if (!plat_priv->tcs_info.cmd_base_addr_io) {
+		cnss_pr_err("TCS CMD not configured for IPA Vreg enable\n");
+		return -EINVAL;
+	}
 
 	ret = of_property_read_u32(plat_dev->dev.of_node,
 				   "qcom,tcs_offset_int_pow_amp_vreg",
@@ -1088,5 +1220,7 @@ int cnss_enable_int_pow_amp_vreg(struct cnss_plat_data *plat_priv)
 
 	data_val = readl_relaxed(tcs_cmd);
 	cnss_pr_dbg("Setup S3E TCS Addr: %x Data: %d\n", addr_val, data_val);
+	config_done = true;
+
 	return 0;
 }
