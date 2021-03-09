@@ -565,11 +565,7 @@ struct msm_pcie_sid_info_t {
 /* PCIe device info structure */
 struct msm_pcie_device_info {
 	struct list_head pcidev_node;
-	u32 bdf;
 	struct pci_dev *dev;
-	short short_bdf;
-	u32 sid;
-	int domain;
 };
 
 /* DRV IPC command type */
@@ -769,7 +765,6 @@ struct msm_pcie_dev_t {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
-	struct msm_pcie_device_info pcidev_table[MAX_DEVICE_NUM];
 
 	struct msm_pcie_drv_info *drv_info;
 	struct work_struct drv_enable_pc_work;
@@ -4047,7 +4042,7 @@ static void msm_pcie_disable(struct msm_pcie_dev_t *dev)
 	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
 }
 
-static int msm_pcie_config_device_table(struct pci_dev *pcidev, void *pdev)
+static int msm_pcie_config_device_info(struct pci_dev *pcidev, void *pdev)
 {
 	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *) pdev;
 	struct msm_pcie_device_info *dev_info;
@@ -4247,7 +4242,7 @@ int msm_pcie_enumerate(u32 rc_idx)
 		goto out;
 	}
 
-	pci_walk_bus(dev->dev->bus, msm_pcie_config_device_table, dev);
+	pci_walk_bus(dev->dev->bus, msm_pcie_config_device_info, dev);
 
 	msm_pcie_check_l1ss_support_all(dev);
 	msm_pcie_config_link_pm(dev, true);
@@ -5219,7 +5214,7 @@ static int msm_pcie_setup_drv(struct msm_pcie_dev_t *pcie_dev,
 
 static int msm_pcie_probe(struct platform_device *pdev)
 {
-	int i, ret = 0;
+	int ret = 0;
 	int rc_idx = -1;
 	struct msm_pcie_dev_t *pcie_dev;
 	struct device_node *of_node;
@@ -5449,12 +5444,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	memcpy(pcie_dev->pipe_reset, msm_pcie_pipe_reset_info[rc_idx],
 		sizeof(msm_pcie_pipe_reset_info[rc_idx]));
 
-	for (i = 0; i < MAX_DEVICE_NUM; i++) {
-		pcie_dev->pcidev_table[i].bdf = 0;
-		pcie_dev->pcidev_table[i].dev = NULL;
-		pcie_dev->pcidev_table[i].short_bdf = 0;
-		pcie_dev->pcidev_table[i].sid = 0;
-	}
 	init_completion(&pcie_dev->speed_change_completion);
 
 	dev_set_drvdata(&pdev->dev, pcie_dev);
