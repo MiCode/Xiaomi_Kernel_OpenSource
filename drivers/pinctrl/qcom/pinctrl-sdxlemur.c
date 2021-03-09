@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -440,6 +440,7 @@ enum sdxlemur_functions {
 	msm_mux_qlink2_req,
 	msm_mux_spmi_vgi,
 	msm_mux_gcc_plltest,
+	msm_mux_ebi2_a,
 	msm_mux_ebi2_lcd,
 	msm_mux_usb2phy_ac,
 	msm_mux_sdc1_tb,
@@ -764,7 +765,10 @@ static const char * const gcc_plltest_groups[] = {
 	"gpio81", "gpio82",
 };
 static const char * const ebi2_lcd_groups[] = {
-	"gpio84", "gpio85",
+	"gpio84", "gpio85", "gpio90",
+};
+static const char * const ebi2_a_groups[] = {
+	"gpio89",
 };
 static const char * const usb2phy_ac_groups[] = {
 	"gpio93",
@@ -873,6 +877,7 @@ static const struct msm_function sdxlemur_functions[] = {
 	FUNCTION(qlink2_req),
 	FUNCTION(spmi_vgi),
 	FUNCTION(gcc_plltest),
+	FUNCTION(ebi2_a),
 	FUNCTION(ebi2_lcd),
 	FUNCTION(usb2phy_ac),
 	FUNCTION(sdc1_tb),
@@ -1009,8 +1014,8 @@ static const struct msm_pingroup sdxlemur_groups[] = {
 	[86] = PINGROUP(86, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[87] = PINGROUP(87, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[88] = PINGROUP(88, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[89] = PINGROUP(89, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[90] = PINGROUP(90, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[89] = PINGROUP(89, NA, NA, NA, NA, ebi2_a, NA, NA, NA, NA),
+	[90] = PINGROUP(90, NA, NA, NA, NA, ebi2_lcd, NA, NA, NA, NA),
 	[91] = PINGROUP(91, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[92] = PINGROUP(92, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[93] = PINGROUP(93, NA, NA, usb2phy_ac, NA, NA, NA, NA, NA, NA),
