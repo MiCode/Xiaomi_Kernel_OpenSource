@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 #include "hab.h"
 #include "hab_pipe.h"
@@ -148,7 +148,7 @@ uint32_t hab_pipe_read(struct hab_pipe_endpoint *ep,
 retry:
 
 			if (unlikely(head->signature != 0xBEE1BEE1)) {
-				pr_err("hab head corruption detected at %pK buf %pK %08X %08X %08X %08X rd %d wr %d index %X saved %X retry %d\n",
+				pr_debug("hab head corruption detected at %pK buf %pK %08X %08X %08X %08X rd %d wr %d index %X saved %X retry %d\n",
 					head, &sh_buf->data[0],
 					head->id_type_size, head->session_id,
 					head->signature, head->sequence,
