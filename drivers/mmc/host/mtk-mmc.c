@@ -1885,6 +1885,26 @@ void msdc_cqe_disable(struct mmc_host *mmc, bool recovery)
 	}
 }
 
+static void msdc_cqe_pre_enable(struct mmc_host *mmc)
+{
+	struct cqhci_host *cq_host = mmc->cqe_private;
+	u32 reg;
+
+	reg = cqhci_readl(cq_host, CQHCI_CFG);
+	reg |= CQHCI_ENABLE;
+	cqhci_writel(cq_host, reg, CQHCI_CFG);
+}
+
+static void msdc_cqe_post_disable(struct mmc_host *mmc)
+{
+	struct cqhci_host *cq_host = mmc->cqe_private;
+	u32 reg;
+
+	reg = cqhci_readl(cq_host, CQHCI_CFG);
+	reg &= ~CQHCI_ENABLE;
+	cqhci_writel(cq_host, reg, CQHCI_CFG);
+}
+
 static const struct mmc_host_ops mt_msdc_ops = {
 	.post_req = msdc_post_req,
 	.pre_req = msdc_pre_req,
@@ -1904,6 +1924,8 @@ static const struct mmc_host_ops mt_msdc_ops = {
 static const struct cqhci_host_ops msdc_cmdq_ops = {
 	.enable         = msdc_cqe_enable,
 	.disable        = msdc_cqe_disable,
+	.pre_enable	= msdc_cqe_pre_enable,
+	.post_disable	= msdc_cqe_post_disable,
 };
 
 static void msdc_of_property_parse(struct platform_device *pdev,
@@ -2092,7 +2114,6 @@ static int msdc_drv_probe(struct platform_device *pdev)
 			goto host_free;
 		}
 		host->cq_host->caps |= CQHCI_TASK_DESC_SZ_128;
-		host->cq_host->quirks |= CQHCI_QUIRK_DIS_BEFORE_NON_CQ_CMD;
 		host->cq_host->mmio = host->base + 0x800;
 		host->cq_host->ops = &msdc_cmdq_ops;
 		ret = cqhci_init(host->cq_host, mmc, true);

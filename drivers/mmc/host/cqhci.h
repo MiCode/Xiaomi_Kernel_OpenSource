@@ -164,7 +164,6 @@ struct cqhci_host {
 
 	u32 quirks;
 #define CQHCI_QUIRK_SHORT_TXFR_DESC_SZ	0x1
-#define CQHCI_QUIRK_DIS_BEFORE_NON_CQ_CMD	(1 << 1)
 
 	bool enabled;
 	bool halted;
