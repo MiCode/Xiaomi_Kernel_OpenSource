@@ -1848,6 +1848,7 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 		UFSHCD_CAP_RPM_AUTOSUSPEND;
 		hba->caps |= UFSHCD_CAP_WB_EN;
 		hba->caps |= UFSHCD_CAP_CRYPTO;
+		hba->caps |= UFSHCD_CAP_AGGR_POWER_COLLAPSE;
 	}
 
 	if (host->hw_ver.major >= 0x2)
