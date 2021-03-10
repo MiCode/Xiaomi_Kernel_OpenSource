@@ -156,10 +156,11 @@ static int _iopgtbl_unmap(struct kgsl_iommu_pt *pt, u64 gpuaddr, size_t size)
 {
 	struct kgsl_iommu *iommu = &pt->base.mmu->iommu;
 	struct io_pgtable_ops *ops = pt->pgtbl_ops;
-	size_t unmapped = 0;
 
 	while (size) {
-		unmapped += ops->unmap(ops, gpuaddr, PAGE_SIZE, NULL);
+		if ((ops->unmap(ops, gpuaddr, PAGE_SIZE, NULL)) != PAGE_SIZE)
+			return -EINVAL;
+
 		gpuaddr += PAGE_SIZE;
 		size -= PAGE_SIZE;
 	}
@@ -167,7 +168,7 @@ static int _iopgtbl_unmap(struct kgsl_iommu_pt *pt, u64 gpuaddr, size_t size)
 	iommu_flush_iotlb_all(to_iommu_domain(&iommu->user_context));
 	iommu_flush_iotlb_all(to_iommu_domain(&iommu->lpac_context));
 
-	return (unmapped == size) ? 0 : -EINVAL;
+	return 0;
 }
 
 static size_t _iopgtbl_map_pages(struct kgsl_iommu_pt *pt, u64 gpuaddr,
