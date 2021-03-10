@@ -62,6 +62,7 @@ struct hgsl_hsync_fence *hgsl_hsync_fence_create(
 			&timeline->lock, timeline->fence_context, ts);
 
 	fence->sync_file = sync_file_create(&fence->fence);
+	dma_fence_put(&fence->fence);
 	if (fence->sync_file == NULL) {
 		hgsl_hsync_timeline_put(timeline);
 		kfree(fence);
@@ -264,6 +265,7 @@ int hgsl_isync_timeline_create(struct hgsl_priv *priv,
 		return -ENOMEM;
 
 	kref_init(&timeline->kref);
+	timeline->context = dma_fence_context_alloc(1);
 	INIT_LIST_HEAD(&timeline->fence_list);
 	spin_lock_init(&timeline->lock);
 
@@ -316,7 +318,7 @@ int hgsl_isync_fence_create(struct hgsl_priv *priv, uint32_t timeline_id,
 
 	dma_fence_init(&fence->fence, &hgsl_isync_fence_ops,
 						&timeline->lock,
-						dma_fence_context_alloc(1),
+						timeline->context,
 						ts);
 
 	sync_file = sync_file_create(&fence->fence);
@@ -325,6 +327,8 @@ int hgsl_isync_fence_create(struct hgsl_priv *priv, uint32_t timeline_id,
 		ret = -ENOMEM;
 		goto out;
 	}
+
+	dma_fence_put(&fence->fence);
 
 	*fence_fd = get_unused_fd_flags(0);
 	if (*fence_fd < 0) {
@@ -342,9 +346,6 @@ out:
 	if (ret) {
 		if (sync_file)
 			fput(sync_file->file);
-
-		if (fence)
-			dma_fence_put(&fence->fence);
 
 		if (timeline)
 			hgsl_isync_timeline_put(timeline);
