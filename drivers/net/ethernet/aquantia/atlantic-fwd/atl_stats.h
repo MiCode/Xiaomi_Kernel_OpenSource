@@ -39,7 +39,7 @@ struct atl_rx_fwd_ring_stats {
 struct atl_tx_ring_stats {
 	uint64_t packets;
 	uint64_t bytes;
-	uint64_t tx_busy;
+	uint64_t tx_busy;       /* number of times ring was full and tx failed */
 	uint64_t tx_restart;
 	uint64_t dma_map_failed;
 };
@@ -55,8 +55,8 @@ struct atl_ether_stats {
 	uint64_t tx_pause;
 	uint64_t tx_ether_pkts;
 	uint64_t tx_ether_octets;
+	uint64_t tx_errors; /* from MSM block */
 	uint64_t rx_pause;
-	uint64_t rx_ether_drops;
 	uint64_t rx_ether_octets;
 	uint64_t rx_ether_pkts;
 	uint64_t rx_ether_broacasts;
@@ -64,6 +64,13 @@ struct atl_ether_stats {
 	uint64_t rx_ether_crc_align_errs;
 	uint64_t rx_filter_host;
 	uint64_t rx_filter_lost;
+	uint64_t rx_errors; /* from MSM block */
+	uint64_t rx_drops;  /* from MSM block */
+	uint64_t rx_dma_packets;
+	uint64_t rx_dma_octets;
+	uint64_t rx_dma_drops;   /* DMA level RX drops */
+	uint64_t tx_dma_packets;
+	uint64_t tx_dma_octets;
 };
 
 struct atl_global_stats {

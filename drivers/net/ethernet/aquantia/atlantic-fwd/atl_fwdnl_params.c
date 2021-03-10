@@ -13,6 +13,7 @@
 #include <linux/workqueue.h>
 
 #include "atl_common.h"
+#include "atl_fwd.h"
 
 unsigned int atlfwd_nl_tx_clean_threshold_msec = 200;
 unsigned int atlfwd_nl_tx_clean_threshold_frac = 8;
