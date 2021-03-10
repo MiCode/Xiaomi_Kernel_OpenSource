@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __LINUX_BLUETOOTH_POWER_H
 #define __LINUX_BLUETOOTH_POWER_H
 
 #include <linux/types.h>
+#include <linux/mailbox_client.h>
+#include <linux/mailbox/qmp.h>
 
 /*
  * voltage regulator information required for configuring the
@@ -46,14 +48,11 @@ struct bt_power_clk_data {
 	bool is_enabled;  /* is this clock enabled? */
 };
 
-struct btpower_tcs_table_info {
-	resource_size_t tcs_cmd_base_addr;
-	void __iomem *tcs_cmd_base_addr_io;
-};
 /*
  * Platform data for the bluetooth power driver.
  */
-struct bluetooth_power_platform_data {
+struct btpower_platform_data {
+	struct platform_device *pdev;
 	int bt_gpio_sys_rst;                   /* Bluetooth reset gpio */
 	int wl_gpio_sys_rst;                   /* Wlan reset gpio */
 	int bt_gpio_sw_ctrl;                   /* Bluetooth sw_ctrl gpio */
@@ -64,11 +63,14 @@ struct bluetooth_power_platform_data {
 	int (*bt_power_setup)(int id); /* Bluetooth power setup function */
 	char compatible[32]; /*Bluetooth SoC name */
 	int num_vregs;
-	struct btpower_tcs_table_info tcs_table_info;
+	struct mbox_client mbox_client_data;
+	struct mbox_chan *mbox_chan;
+	const char *vreg_ipa;
 };
 
 int btpower_register_slimdev(struct device *dev);
 int btpower_get_chipset_version(void);
+int btpower_aop_mbox_init(struct btpower_platform_data *pdata);
 
 #define BT_CMD_SLIM_TEST		0xbfac
 #define BT_CMD_PWR_CTRL			0xbfad
@@ -77,8 +79,6 @@ int btpower_get_chipset_version(void);
 #define BT_CMD_CHECK_SW_CTRL	0xbfb0
 #define BT_CMD_GETVAL_POWER_SRCS	0xbfb1
 #define BT_CMD_SET_IPA_TCS_INFO  0xbfc0
-
-#define TCS_CMD_IO_ADDR_OFFSET 0x4
 
 /* total number of power src */
 #define BT_POWER_SRC_SIZE           28
