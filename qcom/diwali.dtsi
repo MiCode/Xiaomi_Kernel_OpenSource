@@ -1296,6 +1296,7 @@
 #include "diwali-dma-heaps.dtsi"
 #include "diwali-gdsc.dtsi"
 #include "ipcc-test-diwali.dtsi"
+#include "msm-arm-smmu-diwali.dtsi"
 
 &qupv3_se5_2uart {
 	status = "ok";
