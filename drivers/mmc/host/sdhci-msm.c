@@ -2338,7 +2338,7 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
 	struct mmc_host *mmc = host->mmc;
 	u32 irq_status, irq_ack = 0;
-	int retry = 10, ret;
+	int retry = 10, ret = 0;
 	u32 pwr_state = 0, io_level = 0;
 	u32 config;
 	const struct sdhci_msm_offset *msm_offset = msm_host->offset;
