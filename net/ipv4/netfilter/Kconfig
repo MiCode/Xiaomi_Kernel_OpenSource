@@ -241,6 +241,18 @@ config IP_NF_TARGET_NATTYPE_MODULE
 
 	  To compile it as a module, choose M here.  If unsure, say N.
 
+config IP_NF_TARGET_TRIGGER_MODULE
+	tristate "TRIGGER target support"
+	depends on NF_NAT && QGKI
+	default m if NETFILTER_ADVANCED=n
+	help
+	  TRIGGER is a special case of NAT: used to support Port Triggering
+	  Feature in kernel. All the incoming connections are allowed on the
+	  forward port/port range if there is a corresponding outgoing
+	  connection on the trigger port/port range.
+
+	  To compile it as a module, choose M here.  If unsure, say N.
+
 config IP_NF_TARGET_NETMAP
 	tristate "NETMAP target support"
 	depends on NETFILTER_ADVANCED
