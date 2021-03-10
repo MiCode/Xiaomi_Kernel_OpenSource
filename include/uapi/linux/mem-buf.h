@@ -56,7 +56,7 @@ struct mem_buf_ion_data {
 	__u32 heap_id;
 };
 
-#define MEM_BUF_MAX_DMAHEAP_NAME_LEN 256
+#define MEM_BUF_MAX_DMAHEAP_NAME_LEN 128
 /**
  * struct mem_buf_dmaheap_data: Data that is unique to memory that is of type
  * MEM_BUF_DMAHEAP_MEM_TYPE.
