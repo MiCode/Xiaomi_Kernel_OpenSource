@@ -23,7 +23,6 @@
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
 #define BIN_BDF_FILE_NAME_GF_PREFIX	"bdwlang.b"
 #define REGDB_FILE_NAME			"regdb.bin"
-#define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
 #define CHIP_ID_GF_MASK			0x10
 
 #define QDSS_TRACE_CONFIG_FILE		"qdss_trace_config"
@@ -548,11 +547,6 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 	case CNSS_BDF_REGDB:
 		snprintf(filename_tmp, filename_len, REGDB_FILE_NAME);
 		break;
-	case CNSS_BDF_DUMMY:
-		cnss_pr_dbg("CNSS_BDF_DUMMY is set, sending dummy BDF\n");
-		snprintf(filename_tmp, filename_len, DUMMY_BDF_FILE_NAME);
-		ret = MAX_FIRMWARE_NAME_LEN;
-		break;
 	default:
 		cnss_pr_err("Invalid BDF type: %d\n",
 			    plat_priv->ctrl_params.bdf_type);
@@ -560,7 +554,7 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 		break;
 	}
 
-	if (ret >= 0)
+	if (!ret)
 		cnss_bus_add_fw_prefix_name(plat_priv, filename, filename_tmp);
 
 	return ret;
@@ -593,13 +587,8 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 
 	ret = cnss_get_bdf_file_name(plat_priv, bdf_type,
 				     filename, sizeof(filename));
-	if (ret > 0) {
-		temp = DUMMY_BDF_FILE_NAME;
-		remaining = MAX_FIRMWARE_NAME_LEN;
-		goto bypass_bdf;
-	} else if (ret < 0) {
+	if (ret)
 		goto err_req_fw;
-	}
 
 	ret = request_firmware(&fw_entry, filename, &plat_priv->plat_dev->dev);
 	if (ret) {
@@ -610,7 +599,6 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 	temp = fw_entry->data;
 	remaining = fw_entry->size;
 
-bypass_bdf:
 	cnss_pr_dbg("Downloading BDF: %s, size: %u\n", filename, remaining);
 
 	while (remaining) {
@@ -673,8 +661,7 @@ bypass_bdf:
 		req->seg_id++;
 	}
 
-	if (bdf_type != CNSS_BDF_DUMMY)
-		release_firmware(fw_entry);
+	release_firmware(fw_entry);
 
 	/* QCA6490 enable S3E regulator for IPA configuration only */
 	if (resp->host_bdf_data_valid) {
@@ -687,8 +674,7 @@ bypass_bdf:
 	return 0;
 
 err_send:
-	if (bdf_type != CNSS_BDF_DUMMY)
-		release_firmware(fw_entry);
+	release_firmware(fw_entry);
 err_req_fw:
 	if (!(bdf_type == CNSS_BDF_REGDB ||
 	      test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state) ||
