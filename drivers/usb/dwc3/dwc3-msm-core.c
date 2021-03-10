@@ -284,7 +284,6 @@ enum dwc3_drd_state {
 	DRD_STATE_PERIPHERAL,
 	DRD_STATE_PERIPHERAL_SUSPEND,
 
-	DRD_STATE_HOST_IDLE,
 	DRD_STATE_HOST,
 };
 
@@ -293,7 +292,6 @@ static const char *const state_names[] = {
 	[DRD_STATE_IDLE] = "idle",
 	[DRD_STATE_PERIPHERAL] = "peripheral",
 	[DRD_STATE_PERIPHERAL_SUSPEND] = "peripheral_suspend",
-	[DRD_STATE_HOST_IDLE] = "host_idle",
 	[DRD_STATE_HOST] = "host",
 };
 
@@ -465,9 +463,6 @@ struct dwc3_msm {
 	int			dbm_num_eps;
 	bool			dbm_is_1p4;
 
-	/* VBUS regulator for host mode */
-	struct regulator	*vbus_reg;
-	int			vbus_retry_count;
 	bool			resume_pending;
 	atomic_t                pm_suspended;
 	struct usb_irq		wakeup_irq[USB_MAX_IRQ];
@@ -562,7 +557,6 @@ struct dwc3_msm {
 
 static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
 static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA);
-static int dwc3_msm_core_init(struct dwc3_msm *mdwc);
 
 static inline void dwc3_msm_ep_writel(void __iomem *base, u32 offset, u32 value)
 {
@@ -5026,9 +5020,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	for (i = 0; i < ARRAY_SIZE(mdwc->icc_paths); i++)
 		icc_put(mdwc->icc_paths[i]);
 
-	if (!IS_ERR_OR_NULL(mdwc->vbus_reg))
-		regulator_disable(mdwc->vbus_reg);
-
 	if (mdwc->wakeup_irq[HS_PHY_IRQ].irq)
 		disable_irq(mdwc->wakeup_irq[HS_PHY_IRQ].irq);
 	if (mdwc->wakeup_irq[DP_HS_PHY_IRQ].irq)
@@ -5145,8 +5136,6 @@ static void msm_dwc3_perf_vote_work(struct work_struct *w)
 			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
 }
 
-#define VBUS_REG_CHECK_DELAY	(msecs_to_jiffies(1000))
-
 /**
  * dwc3_otg_start_host -  helper function for starting/stopping the host
  * controller driver.
@@ -5159,24 +5148,6 @@ static void msm_dwc3_perf_vote_work(struct work_struct *w)
 static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 {
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	int ret = 0;
-
-	/*
-	 * The vbus_reg pointer could have multiple values
-	 * NULL: regulator_get() hasn't been called, or was previously deferred
-	 * IS_ERR: regulator could not be obtained, so skip using it
-	 * Valid pointer otherwise
-	 */
-	if (!mdwc->vbus_reg) {
-		mdwc->vbus_reg = devm_regulator_get_optional(mdwc->dev,
-					"vbus_dwc3");
-		if (IS_ERR(mdwc->vbus_reg) &&
-				PTR_ERR(mdwc->vbus_reg) == -EPROBE_DEFER) {
-			/* regulators may not be ready, so retry again later */
-			mdwc->vbus_reg = NULL;
-			return -EPROBE_DEFER;
-		}
-	}
 
 	if (on) {
 		dev_dbg(mdwc->dev, "%s: turn on host\n", __func__);
@@ -5192,19 +5163,6 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		}
 
 		usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
-		if (!IS_ERR_OR_NULL(mdwc->vbus_reg))
-			ret = regulator_enable(mdwc->vbus_reg);
-		if (ret) {
-			dev_err(mdwc->dev, "unable to enable vbus_reg\n");
-			mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
-			mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
-			pm_runtime_put_sync(mdwc->dev);
-			dbg_event(0xFF, "vregerr psync",
-				atomic_read(&mdwc->dev->power.usage_count));
-			return ret;
-		}
-
-
 		mdwc->host_nb.notifier_call = dwc3_msm_host_notifier;
 		usb_register_notify(&mdwc->host_nb);
 
@@ -5245,13 +5203,6 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 				msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
 	} else {
 		dev_dbg(mdwc->dev, "%s: turn off host\n", __func__);
-
-		if (!IS_ERR_OR_NULL(mdwc->vbus_reg))
-			ret = regulator_disable(mdwc->vbus_reg);
-		if (ret) {
-			dev_err(mdwc->dev, "unable to disable vbus_reg\n");
-			return ret;
-		}
 
 		cancel_delayed_work_sync(&mdwc->perf_vote_work);
 		msm_dwc3_perf_vote_update(mdwc, false);
@@ -5462,26 +5413,38 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			mdwc->dpdm_nb.notifier_call = NULL;
 		}
 
+		pm_runtime_enable(mdwc->dev);
+		pm_runtime_get_sync(mdwc->dev);
+		ret = dwc3_msm_core_init(mdwc);
+		if (ret) {
+			dbg_event(0xFF, "core_init failed", ret);
+			pm_runtime_put_sync(mdwc->dev);
+			pm_runtime_disable(mdwc->dev);
+			break;
+		}
+
+		mdwc->drd_state = DRD_STATE_IDLE;
+
 		/* put controller and phy in suspend if no cable connected */
 		if (test_bit(ID, &mdwc->inputs) &&
 				!test_bit(B_SESS_VLD, &mdwc->inputs)) {
 			dbg_event(0xFF, "undef_id_!bsv", 0);
-			pm_runtime_set_active(mdwc->dev);
-			pm_runtime_enable(mdwc->dev);
-			pm_runtime_get_noresume(mdwc->dev);
-			dwc3_msm_resume(mdwc);
-			dwc3_msm_core_init(mdwc);
+			/*
+			 * might not suspend immediately if dwc child has a
+			 * pending autosuspend timer
+			 */
 			pm_runtime_put_sync(mdwc->dev);
 			dbg_event(0xFF, "Undef NoUSB",
 				atomic_read(&mdwc->dev->power.usage_count));
-			mdwc->drd_state = DRD_STATE_IDLE;
 			break;
 		}
 
+		/*
+		 * decrement runtime PM refcount as start_peripheral() and
+		 * start_host() below each call get_sync() again
+		 */
+		pm_runtime_put_noidle(mdwc->dev);
 		dbg_event(0xFF, "Exit UNDEF", 0);
-		mdwc->drd_state = DRD_STATE_IDLE;
-		pm_runtime_set_suspended(mdwc->dev);
-		pm_runtime_enable(mdwc->dev);
 		/* fall-through */
 	case DRD_STATE_IDLE:
 		if (test_bit(WAIT_FOR_LPM, &mdwc->inputs)) {
@@ -5491,8 +5454,14 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 
 		if (!test_bit(ID, &mdwc->inputs)) {
 			dev_dbg(mdwc->dev, "!id\n");
-			mdwc->drd_state = DRD_STATE_HOST_IDLE;
-			work = true;
+			mdwc->drd_state = DRD_STATE_HOST;
+
+			ret = dwc3_otg_start_host(mdwc, 1);
+			if (ret) {
+				dev_err(mdwc->dev, "unable to start host\n");
+				mdwc->drd_state = DRD_STATE_IDLE;
+				goto ret;
+			}
 		} else if (test_bit(B_SESS_VLD, &mdwc->inputs)) {
 			dev_dbg(mdwc->dev, "b_sess_vld\n");
 			/*
@@ -5503,14 +5472,9 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			pm_runtime_get_sync(mdwc->dev);
 			dbg_event(0xFF, "BIDLE gsync",
 				atomic_read(&mdwc->dev->power.usage_count));
-			ret = dwc3_msm_core_init(mdwc);
-			if (!ret) {
-				dwc3_otg_start_peripheral(mdwc, 1);
-				mdwc->drd_state = DRD_STATE_PERIPHERAL;
-				work = true;
-			} else {
-				pm_runtime_put_sync_suspend(mdwc->dev);
-			}
+			dwc3_otg_start_peripheral(mdwc, 1);
+			mdwc->drd_state = DRD_STATE_PERIPHERAL;
+			work = true;
 		} else {
 			dwc3_msm_gadget_vbus_draw(mdwc, 0);
 			dev_dbg(mdwc->dev, "Cable disconnected\n");
@@ -5570,42 +5534,11 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		}
 		break;
 
-	case DRD_STATE_HOST_IDLE:
-		/* Switch to A-Device*/
-		if (test_bit(ID, &mdwc->inputs)) {
-			dev_dbg(mdwc->dev, "id\n");
-			mdwc->drd_state = DRD_STATE_IDLE;
-			mdwc->vbus_retry_count = 0;
-			work = true;
-		} else {
-			mdwc->drd_state = DRD_STATE_HOST;
-
-			ret = dwc3_otg_start_host(mdwc, 1);
-			if ((ret == -EPROBE_DEFER) &&
-						mdwc->vbus_retry_count < 3) {
-				/*
-				 * Get regulator failed as regulator driver is
-				 * not up yet. Will try to start host after 1sec
-				 */
-				mdwc->drd_state = DRD_STATE_HOST_IDLE;
-				dev_dbg(mdwc->dev, "Unable to get vbus regulator. Retrying...\n");
-				delay = VBUS_REG_CHECK_DELAY;
-				work = true;
-				mdwc->vbus_retry_count++;
-			} else if (ret) {
-				dev_err(mdwc->dev, "unable to start host\n");
-				mdwc->drd_state = DRD_STATE_HOST_IDLE;
-				goto ret;
-			}
-		}
-		break;
-
 	case DRD_STATE_HOST:
 		if (test_bit(ID, &mdwc->inputs)) {
 			dev_dbg(mdwc->dev, "id\n");
 			dwc3_otg_start_host(mdwc, 0);
 			mdwc->drd_state = DRD_STATE_IDLE;
-			mdwc->vbus_retry_count = 0;
 			work = true;
 		} else {
 			dev_dbg(mdwc->dev, "still in a_host state. Resuming root hub.\n");
