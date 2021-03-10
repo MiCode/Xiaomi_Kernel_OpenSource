@@ -31,6 +31,10 @@ Optional properties:
                           in pairs (min, max), units uV.  There can be optional
                           load in curr, unit uA. Last entry specifies if the retention
                           mode is supported for the regulator.
+  - mboxes: Specifies mbox channel data for AOP messaging
+  - qcom,vreg_ipa: Specifies Voltage regulator used for QCA6490 Internal Power
+                   Amp config
+
 Example:
 	bluetooth: bt_qca6490 {
 		compatible = "qcom,qca6390", "qcom,qca6490";
