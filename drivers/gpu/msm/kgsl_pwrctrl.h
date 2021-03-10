@@ -159,6 +159,10 @@ struct kgsl_pwrctrl {
 	u32 minbw_timeout;
 	/** @sysfs_thermal_req - PM QoS maximum frequency request from user (via sysfs) */
 	struct dev_pm_qos_request sysfs_thermal_req;
+	/** @time_in_pwrlevel: Each pwrlevel active duration in usec */
+	u64 time_in_pwrlevel[KGSL_MAX_PWRLEVELS];
+	/** @last_stat_updated: The last time stats were updated */
+	ktime_t last_stat_updated;
 };
 
 int kgsl_pwrctrl_init(struct kgsl_device *device);
