@@ -183,7 +183,7 @@ bool is_recovery_mode(void)
 	struct mtk_battery *gm;
 
 	gm = get_mtk_battery();
-	bm_debug("%s, bootmdoe = %d\n", gm->bootmode);
+	bm_err("%s, bootmdoe = %d\n", gm->bootmode);
 
 	/* RECOVERY_BOOT */
 	if (gm->bootmode == 2)
@@ -315,7 +315,8 @@ static int battery_psy_get_property(struct power_supply *psy,
 		val->intval = bs_data->bat_batt_vol * 1000;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		val->intval = force_get_tbat(gm, true) * 10;
+		force_get_tbat(gm, true);
+		val->intval = gm->tbat_precise;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
 		val->intval = check_cap_level(bs_data->bat_capacity);
@@ -481,14 +482,14 @@ int adc_battemp(struct mtk_battery *gm, int res)
 {
 	int i = 0;
 	int res1 = 0, res2 = 0;
-	int tbatt_value = -200, tmp1 = 0, tmp2 = 0;
+	int tbatt_value = -2000, tmp1 = 0, tmp2 = 0;
 	struct fg_temp *ptable;
 
 	ptable = gm->tmp_table;
 	if (res >= ptable[0].TemperatureR) {
-		tbatt_value = -40;
+		tbatt_value = -400;
 	} else if (res <= ptable[20].TemperatureR) {
-		tbatt_value = 60;
+		tbatt_value = 600;
 	} else {
 		res1 = ptable[0].TemperatureR;
 		tmp1 = ptable[0].BatteryTemp;
@@ -506,7 +507,7 @@ int adc_battemp(struct mtk_battery *gm, int res)
 		}
 
 		tbatt_value = (((res - res2) * tmp1) +
-			((res1 - res) * tmp2)) / (res1 - res2);
+			((res1 - res) * tmp2)) * 10 / (res1 - res2);
 	}
 	bm_debug("[%s] %d %d %d %d %d %d\n",
 		__func__,
@@ -657,8 +658,8 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 
 			if (((tmp_time.tv_sec <= 20) &&
 				(abs(pre_bat_temperature_val2 -
-				bat_temperature_val) >= 5)) ||
-				bat_temperature_val >= 58) {
+				bat_temperature_val) >= 50)) ||
+				bat_temperature_val >= 580) {
 				bm_err("[%s][err] current:%d,%d,%d,%d,%d,%d pre:%d,%d,%d,%d,%d,%d\n",
 					__func__,
 					bat_temperature_volt_temp,
@@ -703,7 +704,9 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 		bat_temperature_val = pre_bat_temperature_val;
 	}
 
-	return bat_temperature_val;
+	gm->tbat_precise = bat_temperature_val;
+
+	return bat_temperature_val / 10;
 }
 
 int force_get_tbat(struct mtk_battery *gm, bool update)
@@ -711,12 +714,14 @@ int force_get_tbat(struct mtk_battery *gm, bool update)
 	int bat_temperature_val = 0;
 
 	if (gm->is_probe_done == false) {
+		gm->tbat_precise = 250;
 		gm->cur_bat_temp = 25;
 		return 25;
 	}
 
 	if (gm->fixed_bat_tmp != 0xffff) {
 		gm->cur_bat_temp = gm->fixed_bat_tmp;
+		gm->tbat_precise = gm->fixed_bat_tmp * 10;
 		return gm->fixed_bat_tmp;
 	}
 
@@ -1278,10 +1283,6 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 		of_property_read_bool(np, "DISABLE_NAFG");
 	bm_err("disable_nafg:%d\n",
 		fg_cust_data->disable_nafg);
-
-	fg_read_dts_val(np, "fg_swocv_v", &gm->ptim_lk_v, 1);
-	fg_read_dts_val(np, "fg_swocv_i", &gm->ptim_lk_i, 1);
-	fg_read_dts_val(np, "shutdown_time", &gm->pl_shutdown_time, 1);
 
 	bm_err("swocv_v:%d swocv_i:%d shutdown_time:%d\n",
 		gm->ptim_lk_v, gm->ptim_lk_i, gm->pl_shutdown_time);
@@ -3034,6 +3035,59 @@ void fg_check_bootmode(struct device *dev,
 	}
 }
 
+void fg_check_lk_swocv(struct device *dev,
+	struct mtk_battery *gm)
+{
+	struct device_node *boot_node = NULL;
+	int len = 0;
+	char temp[10];
+	int *prop;
+
+	boot_node = of_parse_phandle(dev->of_node, "bootmode", 0);
+	if (!boot_node)
+		bm_err("%s: failed to get boot mode phandle\n", __func__);
+	else {
+		prop = (void *)of_get_property(
+			boot_node, "atag,fg_swocv_v", &len);
+
+		if (prop == NULL) {
+			bm_err("fg_swocv_v prop == NULL, len=%d\n", len);
+		} else {
+			snprintf(temp, (len + 1), "%s", prop);
+			kstrtoint(temp, 10, &gm->ptim_lk_v);
+			bm_err("temp %s gm->ptim_lk_v=%d\n",
+				temp, gm->ptim_lk_v);
+		}
+
+		prop = (void *)of_get_property(
+			boot_node, "atag,fg_swocv_i", &len);
+
+		if (prop == NULL) {
+			bm_err("fg_swocv_i prop == NULL, len=%d\n", len);
+		} else {
+			snprintf(temp, (len + 1), "%s", prop);
+			kstrtoint(temp, 10, &gm->ptim_lk_i);
+			bm_err("temp %s gm->ptim_lk_i=%d\n",
+				temp, gm->ptim_lk_i);
+		}
+		prop = (void *)of_get_property(
+			boot_node, "atag,shutdown_time", &len);
+
+		if (prop == NULL) {
+			bm_err("shutdown_time prop == NULL, len=%d\n", len);
+		} else {
+			snprintf(temp, (len + 1), "%s", prop);
+			kstrtoint(temp, 10, &gm->pl_shutdown_time);
+			bm_err("temp %s gm->pl_shutdown_time=%d\n",
+				temp, gm->pl_shutdown_time);
+		}
+	}
+
+	bm_err("swocv_v:%d swocv_i:%d shutdown_time:%d\n",
+		gm->ptim_lk_v, gm->ptim_lk_i, gm->pl_shutdown_time);
+}
+
+
 int battery_init(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -3051,8 +3105,10 @@ int battery_init(struct platform_device *pdev)
 	init_waitqueue_head(&gm->wait_que);
 
 	fg_check_bootmode(&pdev->dev, gm);
+	fg_check_lk_swocv(&pdev->dev, gm);
 	fg_custom_init_from_header(gm);
 	fg_custom_init_from_dts(pdev, gm);
+
 	gauge_coulomb_service_init(gm);
 	gm->coulomb_plus.callback = fg_coulomb_int_h_handler;
 	gauge_coulomb_consumer_init(&gm->coulomb_plus, &pdev->dev, "car+1%");
@@ -3091,7 +3147,8 @@ int battery_init(struct platform_device *pdev)
 	b_recovery_mode = is_recovery_mode();
 
 	if (ret == 0 && b_recovery_mode == 0)
-		bm_err("[%s]: daemon mode DONE\n", __func__);
+		bm_err("[%s]: daemon mode DONE, recovery_mode:%d\n",
+			__func__, b_recovery_mode);
 	else {
 		gm->algo.active = true;
 		battery_algo_init(gm);
