@@ -1061,7 +1061,8 @@ void __qcom_scm_phy_update_scm_level_shifter(struct device *dev, u32 val)
 	};
 
 	desc.args[0] = val;
-	desc.arginfo = QCOM_SCM_ARGS(1);
+	desc.args[1] = 0;
+	desc.arginfo = QCOM_SCM_ARGS(2);
 
 	ret = qcom_scm_call(dev, &desc);
 	if (ret)
