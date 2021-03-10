@@ -587,6 +587,13 @@ long hab_vchan_send(struct uhab_context *ctx,
 
 		schedule();
 	}
+
+	/*
+	 * The ret here as 0 indicates the message was already sent out
+	 * from the hab_vchan_send()'s perspective.
+	 */
+	if (!ret)
+		vchan->tx_cnt++;
 err:
 	if (vchan)
 		hab_vchan_put(vchan);
@@ -611,6 +618,8 @@ int hab_vchan_recv(struct uhab_context *ctx,
 		return -ENODEV;
 	}
 
+	vchan->rx_inflight = 1;
+
 	if (nonblocking_flag) {
 		/*
 		 * Try to pull data from the ring in this context instead of
@@ -628,7 +637,16 @@ int hab_vchan_recv(struct uhab_context *ctx,
 			ret = -ENODEV;
 		else if (ret == -ERESTARTSYS)
 			ret = -EINTR;
+	} else if (!ret) {
+		/*
+		 * Here, it is for sure that a message was received from the
+		 * hab_vchan_recv()'s view w/ the ret as 0 and *message as
+		 * non-zero.
+		 */
+		vchan->rx_cnt++;
 	}
+
+	vchan->rx_inflight = 0;
 
 	hab_vchan_put(vchan);
 	return ret;
