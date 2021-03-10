@@ -109,4 +109,14 @@ config GH_GUEST_POPS
 	  one, it'll emulate a power key press action by sending an input
 	  notification to user-space.
 
+config GH_VM_LOADER
+	tristate "Gunyah Virtual Machine Loader Driver"
+	depends on GH_RM_DRV
+	help
+	  This driver provides an interface to manage the virtual machines
+	  that run on top of Gunyah hypervisor. The operations include, loading
+	  the VM binary, powering up of a VM, shutting down a VM, handing the
+	  crash of a VM, and so on. The management APIs are exposed to the
+	  user-space and can be controlled via IOCTLs.
+
 endif
