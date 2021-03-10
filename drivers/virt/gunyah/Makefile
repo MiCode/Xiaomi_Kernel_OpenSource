@@ -10,4 +10,4 @@ obj-$(CONFIG_GH_VIRT_WATCHDOG)+= gh_virt_wdt.o
 obj-$(CONFIG_GH_VIRTIO_BACKEND) += gh_virtio_backend.o
 obj-$(CONFIG_GH_GUEST_POPS)	+= gh_guest_pops.o
 obj-$(CONFIG_GH_VM_LOADER)	+= gh_vm_loader.o
-gh_vm_loader-y			:= gh_vm_loader_core.o
+gh_vm_loader-y			:= gh_vm_loader_core.o gh_vm_loader_sec.o
