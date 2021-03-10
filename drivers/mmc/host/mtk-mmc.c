@@ -3,7 +3,7 @@
  * Copyright (c) 2014-2015 MediaTek Inc.
  * Author: Chaotian.Jing <chaotian.jing@mediatek.com>
  */
-
+#include "mtk-dbg.h"
 #include "mtk-mmc.h"
 
 static int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode);
@@ -1756,6 +1756,10 @@ static int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	else if (host->id == MSDC_SD)
 		ret = sd_execute_autok(host, opcode);
 	host->tuning_in_progress = false;
+#if IS_ENABLED(CONFIG_MMC_DEBUG)
+	if (ret)
+		msdc_dump_info(NULL, 0, NULL, host);
+#endif
 #else
 	u32 tune_reg = host->dev_comp->pad_tune_reg;
 
