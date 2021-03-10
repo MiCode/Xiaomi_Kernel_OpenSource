@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+#include "waipio-atp.dtsi"
+#include "waipio-pm8008.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Waipio ATP with PM8008";
+	compatible = "qcom,waipio-atp", "qcom,waipio", "qcom,atp";
+	qcom,msm-id = <457 0x10000>, <482 0x10000>;
+	qcom,board-id = <0x10021 0>;
+};
