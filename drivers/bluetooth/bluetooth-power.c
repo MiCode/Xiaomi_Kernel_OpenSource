@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -388,6 +388,7 @@ static int bt_configure_gpios(int on)
 		if (rc) {
 			BT_PWR_ERR("%s:bt_enable_bt_reset_gpios_safely failed",
 				__func__);
+			return rc;
 		}
 
 		msleep(50);
