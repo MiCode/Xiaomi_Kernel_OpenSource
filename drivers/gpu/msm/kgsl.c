@@ -2509,6 +2509,11 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 			return -EFAULT;
 		}
 
+		if (!is_dma_buf_file(vma->vm_file)) {
+			mmap_read_unlock(current->mm);
+			return -ENODEV;
+		}
+
 		fd = get_unused_fd_flags(0);
 		if (fd < 0) {
 			mmap_read_unlock(current->mm);
