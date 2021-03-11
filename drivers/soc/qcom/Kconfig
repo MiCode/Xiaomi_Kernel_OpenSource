@@ -1186,6 +1186,15 @@ config QTI_CRYPTO_TZ
 	 programmed and managed through SCM calls to TZ where ICE driver
 	 will configure keys.
 
+config QTI_CRYPTO_FDE
+	tristate "Enable common crypto functionality used for FDE"
+	depends on QTI_CRYPTO_COMMON
+	help
+	 Say 'Y' to enable hardware Full Disk Encryption implementation to be used by
+	 different storage layers such as UFS. Enabling the FDE will reserve one slot
+	 of KSM(Key Slot Manager) for the FDE. Making one less slot available for FBE
+	 (File based encryption) in case both encryption mechanism are enabled on device.
+
 config QTI_HW_KEY_MANAGER
 	tristate "Enable QTI Hardware Key Manager for storage encryption"
 	default n

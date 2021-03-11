@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CRYPTO_INLINE_CRYPTO_ENGINE_REGS_H_
@@ -152,5 +152,12 @@
 	writel_relaxed((val), (ice_entry)->icemmio_base + (reg))
 #define ice_readl(ice_entry, reg)	\
 	readl_relaxed((ice_entry)->icemmio_base + (reg))
+
+#if IS_ENABLED(CONFIG_QTI_CRYPTO_FDE)
+#define crypto_qti_ice_writel(ice, val, reg)	\
+	writel_relaxed((val), (ice)->mmio + (reg))
+#define crypto_qti_ice_readl(ice, reg)	\
+	readl_relaxed((ice)->mmio + (reg))
+#endif //CONFIG_QTI_CRYPTO_FDE
 
 #endif /* _CRYPTO_INLINE_CRYPTO_ENGINE_REGS_H_ */

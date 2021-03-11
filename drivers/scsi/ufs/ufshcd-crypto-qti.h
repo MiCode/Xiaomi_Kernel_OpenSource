@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _UFSHCD_CRYPTO_QTI_H
@@ -33,6 +33,12 @@ int ufshcd_crypto_qti_debug(struct ufs_hba *hba);
 int ufshcd_crypto_qti_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op);
 
 int ufshcd_crypto_qti_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op);
+
+#if IS_ENABLED(CONFIG_QTI_CRYPTO_FDE)
+int ufshcd_crypto_qti_prep_lrbp_crypto(struct ufs_hba *hba,
+				       struct scsi_cmnd *cmd,
+				       struct ufshcd_lrb *lrbp);
+#endif
 
 #if IS_ENABLED(CONFIG_SCSI_UFS_CRYPTO_QTI)
 void ufshcd_crypto_qti_set_vops(struct ufs_hba *hba);
