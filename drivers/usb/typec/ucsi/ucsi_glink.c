@@ -28,8 +28,7 @@
 #define UC_UCSI_USBC_NOTIFY_IND		0x13
 
 /* Generic definitions */
-#define CMD_PENDING			BIT(0)
-#define WRITE_PENDING			BIT(1)
+#define CMD_PENDING			1
 #define UCSI_LOG_BUF_SIZE		256
 #define NUM_LOG_PAGES			10
 #define UCSI_WAIT_TIME_MS		5000
@@ -207,8 +206,7 @@ static int handle_ucsi_notify(struct ucsi_dev *udev, void *data, size_t len)
 	ucsi_log("notify:", UCSI_CCI, (u8 *)&cci, sizeof(cci));
 
 	if (test_bit(CMD_PENDING, &udev->flags) &&
-	    !test_bit(WRITE_PENDING, &udev->flags) &&
-	    cci & (UCSI_CCI_ACK_COMPLETE | UCSI_CCI_COMMAND_COMPLETE)) {
+		cci & (UCSI_CCI_ACK_COMPLETE | UCSI_CCI_COMMAND_COMPLETE)) {
 		pr_debug("received ack\n");
 		complete(&udev->sync_write_ack);
 	}
@@ -281,7 +279,6 @@ static int ucsi_qti_glink_write(struct ucsi_dev *udev, unsigned int offset,
 	mutex_lock(&udev->write_lock);
 	pr_debug("%s write\n", sync ? "sync" : "async");
 	reinit_completion(&udev->write_ack);
-	set_bit(WRITE_PENDING, &udev->flags);
 
 	if (sync) {
 		set_bit(CMD_PENDING, &udev->flags);
@@ -295,13 +292,11 @@ static int ucsi_qti_glink_write(struct ucsi_dev *udev, unsigned int offset,
 					sizeof(ucsi_buf));
 	if (rc < 0) {
 		pr_err("Error in sending message rc=%d\n", rc);
-		clear_bit(WRITE_PENDING, &udev->flags);
 		goto out;
 	}
 
 	rc = wait_for_completion_timeout(&udev->write_ack,
 				msecs_to_jiffies(UCSI_WAIT_TIME_MS));
-	clear_bit(WRITE_PENDING, &udev->flags);
 	if (!rc) {
 		pr_err("timed out\n");
 		rc = -ETIMEDOUT;
