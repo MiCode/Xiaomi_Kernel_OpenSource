@@ -622,12 +622,12 @@ static irqreturn_t ETHQOS_PHY_ISR(int irq, void *dev_data)
 	struct qcom_ethqos *ethqos = (struct qcom_ethqos *)dev_data;
 
 	queue_work(system_wq, &ethqos->emac_phy_work);
+	return IRQ_HANDLED;
 }
 
 static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
 {
 	int ret = 0;
-	struct net_device *dev = platform_get_drvdata(ethqos->pdev);
 
 	INIT_WORK(&ethqos->emac_phy_work, ethqos_defer_phy_isr_work);
 	ret = request_irq(ethqos->phy_intr, ETHQOS_PHY_ISR,
@@ -662,9 +662,6 @@ static int emac_emb_smmu_cb_probe(struct platform_device *pdev)
 	int result = 0;
 	u32 iova_ap_mapping[2];
 	struct device *dev = &pdev->dev;
-	int atomic_ctx = 1;
-	int fast = 1;
-	int bypass = 1;
 
 	ETHQOSDBG("EMAC EMB SMMU CB probe: smmu pdev=%p\n", pdev);
 
@@ -702,11 +699,10 @@ smmu_probe_done:
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
-	struct plat_stmmacenet_data *plat_dat;
+	struct plat_stmmacenet_data *plat_dat = NULL;
 	struct stmmac_resources stmmac_res;
-	const struct ethqos_emac_driver_data *data;
-	struct qcom_ethqos *ethqos;
-	struct resource *res;
+	struct qcom_ethqos *ethqos = NULL;
+	struct resource *res = NULL;
 	int ret;
 
 	if (of_device_is_compatible(pdev->dev.of_node,
@@ -741,15 +737,13 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		goto err_mem;
 	}
 
-	data = of_device_get_match_data(&pdev->dev);
-	ethqos->por = data->por;
-	ethqos->num_por = data->num_por;
-
 	ethqos->rgmii_clk = devm_clk_get(&pdev->dev, "rgmii");
 	if (IS_ERR(ethqos->rgmii_clk)) {
 		ret = PTR_ERR(ethqos->rgmii_clk);
 		goto err_mem;
 	}
+
+	ethqos->por = of_device_get_match_data(&pdev->dev);
 
 	ret = clk_prepare_enable(ethqos->rgmii_clk);
 	if (ret)
