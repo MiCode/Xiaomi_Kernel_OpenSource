@@ -22,6 +22,7 @@
 #include <linux/virtio.h>
 #include <linux/virtio_config.h>
 #include <linux/uaccess.h>
+#include <linux/suspend.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/subsystem_restart.h>
 #include "adsprpc_compat.h"
@@ -787,6 +788,9 @@ static int virt_fastrpc_invoke(struct fastrpc_file *fl, uint32_t kernel,
 	wait_for_completion(&msg->work);
 
 	rsp = msg->rxbuf;
+	if (!rsp)
+		goto bail;
+
 	err = rsp->hdr.result;
 	if (err)
 		goto bail;
@@ -1343,6 +1347,9 @@ static int virt_fastrpc_munmap(struct fastrpc_file *fl, uintptr_t raddr,
 	wait_for_completion(&msg->work);
 
 	rsp = msg->rxbuf;
+	if (!rsp)
+		goto bail;
+
 	err = rsp->hdr.result;
 bail:
 	if (rsp) {
@@ -1516,6 +1523,9 @@ static int virt_fastrpc_mmap(struct fastrpc_file *fl, uint32_t flags,
 	wait_for_completion(&msg->work);
 
 	rsp = msg->rxbuf;
+	if (!rsp)
+		goto bail;
+
 	err = rsp->hdr.result;
 	if (err)
 		goto bail;
@@ -1646,6 +1656,9 @@ static int virt_fastrpc_control(struct fastrpc_file *fl,
 	wait_for_completion(&msg->work);
 
 	rsp = msg->rxbuf;
+	if (!rsp)
+		goto bail;
+
 	err = rsp->hdr.result;
 bail:
 	if (rsp) {
@@ -1760,6 +1773,9 @@ static int virt_fastrpc_open(struct fastrpc_file *fl)
 	wait_for_completion(&msg->work);
 
 	rsp = msg->rxbuf;
+	if (!rsp)
+		goto bail;
+
 	err = rsp->hdr.result;
 	if (err)
 		goto bail;
@@ -1831,6 +1847,9 @@ static int virt_fastrpc_close(struct fastrpc_file *fl)
 	wait_for_completion(&msg->work);
 
 	rsp = msg->rxbuf;
+	if (!rsp)
+		goto bail;
+
 	err = rsp->result;
 bail:
 	if (rsp) {
@@ -2221,6 +2240,40 @@ vqs_del:
 	return err;
 }
 
+/**
+ ** virtio_fastrpc_pm_notifier() - PM notifier callback function.
+ ** @nb:                Pointer to the notifier block.
+ ** @event:        Suspend state event from PM module.
+ ** @unused:        Null pointer from PM module.
+ **
+ ** This function is register as callback function to get notifications
+ ** from the PM module on the system suspend state.
+ **/
+static int virtio_fastrpc_pm_notifier(struct notifier_block *nb,
+					unsigned long event, void *unused)
+{
+	struct fastrpc_apps *me = &gfa;
+	unsigned long flags;
+	int i = 0;
+	struct virt_fastrpc_msg *msg;
+
+	if (event == PM_SUSPEND_PREPARE) {
+		spin_lock_irqsave(&me->msglock, flags);
+		for (i = 0; i < FASTRPC_MSG_MAX; i++) {
+			if (me->msgtable[i]) {
+				msg = me->msgtable[i];
+				complete(&msg->work);
+			}
+		}
+		spin_unlock_irqrestore(&me->msglock, flags);
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block virtio_fastrpc_pm_nb = {
+		.notifier_call = virtio_fastrpc_pm_notifier,
+};
+
 static int virt_fastrpc_probe(struct virtio_device *vdev)
 {
 	struct fastrpc_apps *me = &gfa;
@@ -2368,11 +2421,18 @@ static struct virtio_driver virtio_fastrpc_driver = {
 
 static int __init virtio_fastrpc_init(void)
 {
+	int ret;
+
+	ret = register_pm_notifier(&virtio_fastrpc_pm_nb);
+	if (ret)
+		pr_err("virtio_fastrpc: power state notif error\n");
+
 	return register_virtio_driver(&virtio_fastrpc_driver);
 }
 
 static void __exit virtio_fastrpc_exit(void)
 {
+	unregister_pm_notifier(&virtio_fastrpc_pm_nb);
 	unregister_virtio_driver(&virtio_fastrpc_driver);
 }
 module_init(virtio_fastrpc_init);
