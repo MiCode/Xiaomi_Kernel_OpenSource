@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -42,12 +42,16 @@ int hh_update_vm_prop_table(enum hh_vm_names vm_name,
  * @vm_name: VM name to lookup
  * @vmid: out pointer to store found vmid if VM is ofund
  *
- * If no VM is known to RM with the supplied name, -EINVAL is returned.
- * 0 otherwise.
+ * If hh_rm_core has not yet probed, returns -EPROBE_DEFER.
+ * If no VM is known to RM with the supplied name, returns -EINVAL.
+ * Returns 0 on success.
  */
 int hh_rm_get_vmid(enum hh_vm_names vm_name, hh_vmid_t *vmid)
 {
 	hh_vmid_t _vmid = hh_vm_table[vm_name].vmid;
+
+	if (!hh_rm_core_initialized)
+		return -EPROBE_DEFER;
 
 	if (!_vmid && vm_name != HH_SELF_VM)
 		return -EINVAL;

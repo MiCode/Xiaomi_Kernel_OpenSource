@@ -68,6 +68,9 @@ static u32 hh_rm_base_virq;
 
 SRCU_NOTIFIER_HEAD_STATIC(hh_rm_notifier);
 
+/* non-static: used by hh_rm_iface */
+bool hh_rm_core_initialized;
+
 static void hh_rm_get_svm_res_work_fn(struct work_struct *work);
 static DECLARE_WORK(hh_rm_get_svm_res_work, hh_rm_get_svm_res_work_fn);
 
@@ -1002,6 +1005,7 @@ static int hh_rm_drv_probe(struct platform_device *pdev)
 	if (ret < 0 && ret != -ENODEV)
 		goto err_recv_task;
 
+	hh_rm_core_initialized = true;
 	return 0;
 
 err_recv_task:
