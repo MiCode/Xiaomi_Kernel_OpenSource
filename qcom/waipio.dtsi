@@ -263,8 +263,8 @@
 		SILVER_OFF: silver-c4 {  /* C4 */
 			compatible = "arm,idle-state";
 			idle-state-name = "rail-pc";
-			entry-latency-us = <360>;
-			exit-latency-us = <531>;
+			entry-latency-us = <274>;
+			exit-latency-us = <480>;
 			min-residency-us = <3934>;
 			arm,psci-suspend-param = <0x40000004>;
 			local-timer-stop;
@@ -273,8 +273,8 @@
 		GOLD_OFF: gold-c4 {  /* C4 */
 			compatible = "arm,idle-state";
 			idle-state-name = "rail-pc";
-			entry-latency-us = <702>;
-			exit-latency-us = <1061>;
+			entry-latency-us = <327>;
+			exit-latency-us = <1502>;
 			min-residency-us = <4488>;
 			arm,psci-suspend-param = <0x40000004>;
 			local-timer-stop;
@@ -283,8 +283,8 @@
 		CLUSTER_PWR_DN: cluster-d4 { /* D4 */
 			compatible = "domain-idle-state";
 			idle-state-name = "l3-off";
-			entry-latency-us = <2752>;
-			exit-latency-us = <3048>;
+			entry-latency-us = <584>;
+			exit-latency-us = <2332>;
 			min-residency-us = <6118>;
 			arm,psci-suspend-param = <0x41000044>;
 		};
@@ -292,8 +292,8 @@
 		APSS_OFF: cluster-e3 { /* E3 */
 			compatible = "domain-idle-state";
 			idle-state-name = "llcc-off";
-			entry-latency-us = <3263>;
-			exit-latency-us = <6562>;
+			entry-latency-us = <2893>;
+			exit-latency-us = <4023>;
 			min-residency-us = <9987>;
 			arm,psci-suspend-param = <0x4100c344>;
 		};
