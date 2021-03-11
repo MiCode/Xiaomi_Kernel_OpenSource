@@ -7,6 +7,7 @@
 #include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/msi.h>
+#include <linux/of_address.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/of_reserved_mem.h>
@@ -43,6 +44,7 @@
 #define QCA6390_PATH_PREFIX		"qca6390/"
 #define QCA6490_PATH_PREFIX		"qca6490/"
 #define WCN7850_PATH_PREFIX		"wcn7850/"
+#define QCN7605_PATH_PREFIX		"qcn7605/"
 #define DEFAULT_M3_FILE_NAME		"m3.bin"
 #define DEFAULT_FW_FILE_NAME		"amss.bin"
 #define FW_V2_FILE_NAME			"amss20.bin"
@@ -2594,6 +2596,7 @@ int cnss_pci_dev_powerup(struct cnss_pci_data *pci_priv)
 		break;
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+	case QCN7605_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
 	case WCN7850_DEVICE_ID:
 		ret = cnss_qca6290_powerup(pci_priv);
@@ -2622,6 +2625,7 @@ int cnss_pci_dev_shutdown(struct cnss_pci_data *pci_priv)
 		break;
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+	case QCN7605_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
 	case WCN7850_DEVICE_ID:
 		ret = cnss_qca6290_shutdown(pci_priv);
@@ -2650,6 +2654,7 @@ int cnss_pci_dev_crash_shutdown(struct cnss_pci_data *pci_priv)
 		break;
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+	case QCN7605_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
 	case WCN7850_DEVICE_ID:
 		cnss_qca6290_crash_shutdown(pci_priv);
@@ -2678,6 +2683,7 @@ int cnss_pci_dev_ramdump(struct cnss_pci_data *pci_priv)
 		break;
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+	case QCN7605_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
 	case WCN7850_DEVICE_ID:
 		ret = cnss_qca6290_ramdump(pci_priv);
@@ -3980,18 +3986,24 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 	struct device_node *of_node;
+	struct resource res_tmp;
 	struct resource *res;
 	const char *iommu_dma_type;
 	u32 addr_win[2];
 	int ret = 0;
+	int index;
 
 	of_node = of_parse_phandle(pci_dev->dev.of_node, "qcom,iommu-group", 0);
-	if (!of_node)
+	if (!of_node) {
+		cnss_pr_err("No iommu group configuration\n");
 		return ret;
+	}
 
 	cnss_pr_dbg("Initializing SMMU\n");
 
 	pci_priv->iommu_domain = iommu_get_domain_for_dev(&pci_dev->dev);
+	if (!pci_priv->iommu_domain)
+		cnss_pr_err("No iommu domain found\n");
 	ret = of_property_read_string(of_node, "qcom,iommu-dma",
 				      &iommu_dma_type);
 	if (!ret && !strcmp("fastmap", iommu_dma_type)) {
@@ -4005,8 +4017,7 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 					 addr_win, ARRAY_SIZE(addr_win));
 	if (ret) {
 		cnss_pr_err("Invalid SMMU size window, err = %d\n", ret);
-		of_node_put(of_node);
-		return ret;
+		goto out;
 	}
 
 	pci_priv->smmu_iova_start = addr_win[0];
@@ -4015,8 +4026,28 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 		    &pci_priv->smmu_iova_start,
 		    pci_priv->smmu_iova_len);
 
-	res = platform_get_resource_byname(plat_priv->plat_dev, IORESOURCE_MEM,
-					   "smmu_iova_ipa");
+	if (plat_priv->is_converged_dt) {
+		index = of_property_match_string(plat_priv->dev_node, "reg-names",
+						 "smmu_iova_ipa");
+		if (index < 0) {
+			cnss_pr_err("failed to find reg smmu_iova_ipa\n");
+			ret = index;
+			goto out;
+		}
+
+		ret = of_address_to_resource(plat_priv->dev_node, index, &res_tmp);
+		if (ret) {
+			cnss_pr_err("failed to get resource\n");
+			goto out;
+		}
+
+		res = &res_tmp;
+	} else {
+		res = platform_get_resource_byname(plat_priv->plat_dev,
+						   IORESOURCE_MEM,
+						   "smmu_iova_ipa");
+	}
+
 	if (res) {
 		pci_priv->smmu_iova_ipa_start = res->start;
 		pci_priv->smmu_iova_ipa_current = res->start;
@@ -4029,10 +4060,10 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 	pci_priv->iommu_geometry = of_property_read_bool(of_node,
 							 "qcom,iommu-geometry");
 	cnss_pr_dbg("iommu_geometry: %d\n", pci_priv->iommu_geometry);
-
+out:
 	of_node_put(of_node);
 
-	return 0;
+	return ret;
 }
 
 static void cnss_pci_deinit_smmu(struct cnss_pci_data *pci_priv)
@@ -4299,6 +4330,19 @@ static void cnss_pci_disable_msi(struct cnss_pci_data *pci_priv)
 	pci_free_irq_vectors(pci_priv->pci_dev);
 }
 
+int cnss_pci_get_user_msi_assignment(struct cnss_pci_data *pci_priv,
+				     char *user_name,
+				     int *num_vectors,
+				     u32 *user_base_data,
+				     u32 *base_vector)
+{
+	return cnss_get_user_msi_assignment(&pci_priv->pci_dev->dev,
+					    user_name,
+					    num_vectors,
+					    user_base_data,
+					    base_vector);
+}
+
 int cnss_get_user_msi_assignment(struct device *dev, char *user_name,
 				 int *num_vectors, u32 *user_base_data,
 				 u32 *base_vector)
@@ -4380,9 +4424,9 @@ u32 cnss_pci_get_wake_msi(struct cnss_pci_data *pci_priv)
 	if (!pci_priv)
 		return -ENODEV;
 
-	ret = cnss_get_user_msi_assignment(&pci_priv->pci_dev->dev,
-					   WAKE_MSI_NAME, &num_vectors,
-					   &user_base_data, &base_vector);
+	ret = cnss_pci_get_user_msi_assignment(pci_priv,
+					       WAKE_MSI_NAME, &num_vectors,
+					       &user_base_data, &base_vector);
 	if (ret) {
 		cnss_pr_err("WAKE MSI is not valid\n");
 		return 0;
@@ -4930,6 +4974,10 @@ void cnss_pci_add_fw_prefix_name(struct cnss_pci_data *pci_priv,
 	}
 
 	switch (pci_priv->device_id) {
+	case QCN7605_DEVICE_ID:
+		scnprintf(prefix_name, MAX_FIRMWARE_NAME_LEN,
+			  QCN7605_PATH_PREFIX "%s", name);
+		break;
 	case QCA6390_DEVICE_ID:
 		scnprintf(prefix_name, MAX_FIRMWARE_NAME_LEN,
 			  QCA6390_PATH_PREFIX "%s", name);
@@ -5129,9 +5177,9 @@ static int cnss_pci_get_mhi_msi(struct cnss_pci_data *pci_priv)
 	u32 user_base_data, base_vector;
 	int *irq;
 
-	ret = cnss_get_user_msi_assignment(&pci_priv->pci_dev->dev,
-					   MHI_MSI_NAME, &num_vectors,
-					   &user_base_data, &base_vector);
+	ret = cnss_pci_get_user_msi_assignment(pci_priv,
+					       MHI_MSI_NAME, &num_vectors,
+					       &user_base_data, &base_vector);
 	if (ret)
 		return ret;
 
@@ -5245,7 +5293,7 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 
 	mhi_ctrl->priv_data = pci_priv;
 	mhi_ctrl->dev = &pci_dev->dev;
-	mhi_ctrl->of_node = (&plat_priv->plat_dev->dev)->of_node;
+	mhi_ctrl->of_node = plat_priv->dev_node;
 	mhi_ctrl->dev_id = pci_priv->device_id;
 	mhi_ctrl->domain = pci_domain_nr(pci_dev->bus);
 	mhi_ctrl->bus = pci_dev->bus->number;
@@ -5284,7 +5332,12 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	mhi_ctrl->rddm_size = pci_priv->plat_priv->ramdump_info_v2.ramdump_size;
 	if (!mhi_ctrl->rddm_size)
 		mhi_ctrl->rddm_size = RAMDUMP_SIZE_DEFAULT;
-	mhi_ctrl->sbl_size = SZ_512K;
+
+	if (pci_priv->device_id == QCN7605_DEVICE_ID)
+		mhi_ctrl->sbl_size = SZ_256K;
+	else
+		mhi_ctrl->sbl_size = SZ_512K;
+
 	mhi_ctrl->seg_len = SZ_512K;
 	mhi_ctrl->fbc_download = true;
 	mhi_ctrl->rddm_supported = true;
@@ -5512,6 +5565,52 @@ static struct dev_pm_domain cnss_pm_domain = {
 	}
 };
 
+static int cnss_pci_get_dev_cfg_node(struct cnss_plat_data *plat_priv)
+{
+	struct device_node *child;
+	u32 id, i;
+	int id_n, ret;
+
+	if (!plat_priv->is_converged_dt)
+		return 0;
+
+	if (!plat_priv->device_id) {
+		cnss_pr_err("Invalid device id\n");
+		return -EINVAL;
+	}
+
+	for_each_available_child_of_node(plat_priv->plat_dev->dev.of_node,
+					 child) {
+		if (strcmp(child->name, "chip_cfg"))
+			continue;
+
+		id_n = of_property_count_u32_elems(child, "supported-ids");
+		if (id_n <= 0) {
+			cnss_pr_err("Device id is NOT set\n");
+			return -EINVAL;
+		}
+
+		for (i = 0; i < id_n; i++) {
+			ret = of_property_read_u32_index(child,
+							 "supported-ids",
+							 i, &id);
+			if (ret) {
+				cnss_pr_err("Failed to read supported ids\n");
+				return -EINVAL;
+			}
+
+			if (id == plat_priv->device_id) {
+				plat_priv->dev_node = child;
+				cnss_pr_dbg("got node[%s@%d] for device[0x%x]\n",
+					    child->name, i, id);
+				return 0;
+			}
+		}
+	}
+
+	return -EINVAL;
+}
+
 static int cnss_pci_probe(struct pci_dev *pci_dev,
 			  const struct pci_device_id *id)
 {
@@ -5543,6 +5642,16 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	mutex_init(&pci_priv->bus_lock);
 	if (plat_priv->use_pm_domain)
 		dev->pm_domain = &cnss_pm_domain;
+
+	ret = cnss_pci_get_dev_cfg_node(plat_priv);
+	if (ret) {
+		cnss_pr_err("Failed to get device cfg node, err = %d\n", ret);
+		goto reset_ctx;
+	}
+
+	ret = cnss_dev_specific_power_on(plat_priv);
+	if (ret)
+		goto reset_ctx;
 
 	cnss_pci_of_reserved_mem_device_init(pci_priv);
 
@@ -5583,6 +5692,7 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 		break;
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+	case QCN7605_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
 	case WCN7850_DEVICE_ID:
 		cnss_pci_set_wlaon_pwr_ctrl(pci_priv, false, false, false);
@@ -5671,6 +5781,7 @@ static const struct pci_device_id cnss_pci_id_table[] = {
 	{ QCA6174_VENDOR_ID, QCA6174_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
 	{ QCA6290_VENDOR_ID, QCA6290_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
 	{ QCA6390_VENDOR_ID, QCA6390_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
+	{ QCN7605_VENDOR_ID, QCN7605_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID},
 	{ QCA6490_VENDOR_ID, QCA6490_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
 	{ WCN7850_VENDOR_ID, WCN7850_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
 	{ 0 }
