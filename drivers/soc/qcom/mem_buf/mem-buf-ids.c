@@ -112,7 +112,10 @@ static struct mem_buf_vm *find_vm_by_vmid(int vmid)
 
 	for (vm_name = HH_PRIMARY_VM; vm_name < HH_VM_MAX; vm_name++) {
 		ret = hh_rm_get_vmid(vm_name, &hh_vmid);
-		if (!ret && hh_vmid == vmid)
+		if (ret)
+			return ERR_PTR(ret);
+
+		if (hh_vmid == vmid)
 			break;
 	}
 
