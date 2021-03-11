@@ -2101,10 +2101,18 @@
 
 		lanes-per-direction = <2>;
 		clock-names = "ref_clk_src",
-			"ref_aux_clk", "qref_clk";
+			"ref_aux_clk", "qref_clk",
+			"rx_sym0_mux_clk", "rx_sym1_mux_clk", "tx_sym0_mux_clk",
+			"rx_sym0_phy_clk", "rx_sym1_phy_clk", "tx_sym0_phy_clk";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>,
 			<&clock_gcc GCC_UFS_PHY_PHY_AUX_CLK>,
-			<&clock_gcc GCC_UFS_0_CLKREF_EN>;
+			<&clock_gcc GCC_UFS_0_CLKREF_EN>,
+			<&clock_gcc GCC_UFS_PHY_RX_SYMBOL_0_CLK_SRC>,
+			<&clock_gcc GCC_UFS_PHY_RX_SYMBOL_1_CLK_SRC>,
+			<&clock_gcc GCC_UFS_PHY_TX_SYMBOL_0_CLK_SRC>,
+			<&clock_gcc UFS_PHY_RX_SYMBOL_0_CLK>,
+			<&clock_gcc UFS_PHY_RX_SYMBOL_1_CLK>,
+			<&clock_gcc UFS_PHY_TX_SYMBOL_0_CLK>;
 		resets = <&ufshc_mem 0>;
 		status = "disabled";
 	};
