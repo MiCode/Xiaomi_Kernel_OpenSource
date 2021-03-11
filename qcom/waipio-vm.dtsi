@@ -59,8 +59,8 @@
 		CPU_PWR_DWN: c4 {  /* Using Gold C4 latencies */
 			compatible = "arm,idle-state";
 			idle-state-name = "rail-pc";
-			entry-latency-us = <702>;
-			exit-latency-us = <1061>;
+			entry-latency-us = <369>;
+			exit-latency-us = <1502>;
 			min-residency-us = <4488>;
 			arm,psci-suspend-param = <0x40000004>;
 			local-timer-stop;
@@ -70,8 +70,8 @@
 		CLUSTER_PWR_DWN: d4 { /* C4+D4 */
 			compatible = "arm,idle-state";
 			idle-state-name = "l3-pc";
-			entry-latency-us = <2752>;
-			exit-latency-us = <3048>;
+			entry-latency-us = <584>;
+			exit-latency-us = <2332>;
 			min-residency-us = <6118>;
 			arm,psci-suspend-param = <0x40000044>;
 			local-timer-stop;
