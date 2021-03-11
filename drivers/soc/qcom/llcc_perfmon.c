@@ -1297,14 +1297,6 @@ static int llcc_perfmon_probe(struct platform_device *pdev)
 	for (val = 0; val < llcc_priv->num_banks; val++)
 		llcc_priv->bank_off[val] = llcc_driv_data->offsets[val];
 
-	llcc_priv->version = REV_0;
-	offset = LLCC_COMMON_HW_INFO(llcc_priv->version);
-	llcc_bcast_read(llcc_priv, offset, &val);
-	if (val == LLCC_VERSION_1)
-		llcc_priv->version = REV_1;
-	else if ((val & MAJOR_VER_MASK) == LLCC_VERSION_2)
-		llcc_priv->version = REV_2;
-
 	llcc_priv->clock = devm_clk_get(pdev->dev.parent, "qdss_clk");
 	if (IS_ERR_OR_NULL(llcc_priv->clock)) {
 		pr_err("failed to get clock node\n");
@@ -1330,8 +1322,19 @@ static int llcc_perfmon_probe(struct platform_device *pdev)
 	hrtimer_init(&llcc_priv->hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	llcc_priv->hrtimer.function = llcc_perfmon_timer_handler;
 	llcc_priv->expires = 0;
-	pr_info("Revision %d, has %d memory controllers connected with LLCC\n",
-			llcc_priv->version, llcc_priv->num_mc);
+	offset = LLCC_COMMON_HW_INFO(llcc_priv->drv_ver);
+	llcc_bcast_read(llcc_priv, offset, &val);
+	llcc_priv->version = REV_0;
+	if (val == LLCC_VERSION_1)
+		llcc_priv->version = REV_1;
+	else if ((val & MAJOR_VER_MASK) == LLCC_VERSION_2)
+		llcc_priv->version = REV_2;
+	else if ((val & MAJOR_VER_MASK) == LLCC_VERSION_3)
+		llcc_priv->version = REV_2;
+	pr_info("Revision <%x.%x.%x>, %d MEMORY CNTRLRS connected with LLCC\n",
+			MAJOR_REV_NO(val), BRANCH_NO(val), MINOR_NO(val),
+			llcc_priv->num_mc);
+
 	return 0;
 }
 
