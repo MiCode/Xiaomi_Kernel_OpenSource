@@ -18,21 +18,14 @@ struct kprobe_data {
 static int entry_dwc3_gadget_run_stop(struct kretprobe_instance *ri,
 				   struct pt_regs *regs)
 {
-	struct kprobe_data *data = (struct kprobe_data *)ri->data;
 	struct dwc3 *dwc = (struct dwc3 *)regs->regs[0];
+	int		is_on = (int)regs->regs[1];
 
-	data->x0 = dwc;
-	return 0;
-}
-
-static int exit_dwc3_gadget_run_stop(struct kretprobe_instance *ri,
-				   struct pt_regs *regs)
-{
-	struct kprobe_data *data = (struct kprobe_data *)ri->data;
-	struct dwc3 *dwc = (struct dwc3 *)data->x0;
-
-	if (!dwc->pullups_connected)
+	if (!is_on) {
+		dwc3_core_stop_hw_active_transfers(dwc);
+		dwc3_msm_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEAR, 0);
 		dwc3_msm_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_CLEAR_DB, 0);
+	}
 
 	return 0;
 }
@@ -98,7 +91,7 @@ static int exit_dwc3_gadget_conndone_interrupt(struct kretprobe_instance *ri,
 }
 
 static struct kretprobe dwc3_msm_probes[] = {
-	ENTRY_EXIT(dwc3_gadget_run_stop),
+	ENTRY(dwc3_gadget_run_stop),
 	ENTRY(dwc3_send_gadget_ep_cmd),
 	ENTRY(dwc3_gadget_reset_interrupt),
 	ENTRY_EXIT(dwc3_gadget_conndone_interrupt),
