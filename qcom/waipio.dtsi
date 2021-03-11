@@ -1330,9 +1330,9 @@
 		compatible = "qcom,spss-utils";
 		/* spss fuses physical address */
 		qcom,rproc-handle = <&spss_pas>;
-		qcom,spss-fuse1-addr = <0x221C22EC>;
+		qcom,spss-fuse1-addr = <0x221C8214>;
 		qcom,spss-fuse1-bit = <8>;
-		qcom,spss-fuse2-addr = <0x221C22EC>;
+		qcom,spss-fuse2-addr = <0x221C8214>;
 		qcom,spss-fuse2-bit = <7>;
 		qcom,spss-dev-firmware-name  = "spss1d.mdt";  /* 8 chars max */
 		qcom,spss-test-firmware-name = "spss1t.mdt";  /* 8 chars max */
