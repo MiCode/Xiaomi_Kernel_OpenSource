@@ -3054,9 +3054,9 @@ void fg_check_lk_swocv(struct device *dev,
 			bm_err("fg_swocv_v prop == NULL, len=%d\n", len);
 		} else {
 			snprintf(temp, (len + 1), "%s", prop);
-			kstrtoint(temp, 10, &gm->ptim_lk_v);
-			bm_err("temp %s gm->ptim_lk_v=%d\n",
-				temp, gm->ptim_lk_v);
+			if (!kstrtoint(temp, 10, &gm->ptim_lk_v))
+				bm_err("temp %s gm->ptim_lk_v=%d\n",
+					temp, gm->ptim_lk_v);
 		}
 
 		prop = (void *)of_get_property(
@@ -3066,9 +3066,9 @@ void fg_check_lk_swocv(struct device *dev,
 			bm_err("fg_swocv_i prop == NULL, len=%d\n", len);
 		} else {
 			snprintf(temp, (len + 1), "%s", prop);
-			kstrtoint(temp, 10, &gm->ptim_lk_i);
-			bm_err("temp %s gm->ptim_lk_i=%d\n",
-				temp, gm->ptim_lk_i);
+			if (!kstrtoint(temp, 10, &gm->ptim_lk_i))
+				bm_err("temp %s gm->ptim_lk_i=%d\n",
+					temp, gm->ptim_lk_i);
 		}
 		prop = (void *)of_get_property(
 			boot_node, "atag,shutdown_time", &len);
@@ -3077,9 +3077,9 @@ void fg_check_lk_swocv(struct device *dev,
 			bm_err("shutdown_time prop == NULL, len=%d\n", len);
 		} else {
 			snprintf(temp, (len + 1), "%s", prop);
-			kstrtoint(temp, 10, &gm->pl_shutdown_time);
-			bm_err("temp %s gm->pl_shutdown_time=%d\n",
-				temp, gm->pl_shutdown_time);
+			if (!kstrtoint(temp, 10, &gm->pl_shutdown_time))
+				bm_err("temp %s gm->pl_shutdown_time=%d\n",
+					temp, gm->pl_shutdown_time);
 		}
 	}
 
