@@ -143,7 +143,7 @@ mtk_get_pdata(struct platform_device *pdev,
 
 		pr_info("rem %p, name %s, full_name %s\n",
 				rem, rem->name, rem->full_name);
-		pfdev->asd[i] = v4l2_async_notifier_add_fwnode_subdev(notifier,
+		pfdev->asd[i] = __v4l2_async_notifier_add_fwnode_subdev(notifier,
 				of_fwnode_handle(rem),
 				sizeof(struct v4l2_async_subdev));
 		of_node_put(rem);
