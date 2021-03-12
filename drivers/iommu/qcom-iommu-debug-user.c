@@ -243,6 +243,229 @@ const struct file_operations iommu_debug_unmap_fops = {
 	.write	= iommu_debug_unmap_write,
 };
 
+/*
+ * Performs DMA mapping of a given virtual address and size to an iova address.
+ * User input format: (addr,len,dma attr) where dma attr is:
+ *				0: normal mapping
+ *				1: force coherent mapping
+ *				2: force non-cohernet mapping
+ *				3: use system cache
+ */
+static ssize_t iommu_debug_dma_map_write(struct file *file,
+					 const char __user *ubuf, size_t count, loff_t *offset)
+{
+	ssize_t retval = -EINVAL;
+	int ret;
+	char *comma1, *comma2;
+	char buf[100] = {0};
+	unsigned long addr;
+	void *v_addr;
+	dma_addr_t iova;
+	size_t size;
+	unsigned int attr;
+	unsigned long dma_attrs;
+	struct iommu_debug_device *ddev = file->private_data;
+	struct device *dev = ddev->test_dev;
+
+	if (count >= sizeof(buf)) {
+		pr_err_ratelimited("Value too large\n");
+		return -EINVAL;
+	}
+
+	if (copy_from_user(buf, ubuf, count)) {
+		pr_err_ratelimited("Couldn't copy from user\n");
+		return -EFAULT;
+	}
+
+	comma1 = strnchr(buf, count, ',');
+	if (!comma1)
+		goto invalid_format;
+
+	comma2 = strnchr(comma1 + 1, count, ',');
+	if (!comma2)
+		goto invalid_format;
+
+	*comma1 = *comma2 = '\0';
+
+	if (kstrtoul(buf, 0, &addr))
+		goto invalid_format;
+
+	v_addr = (void *)addr;
+
+	if (kstrtosize_t(comma1 + 1, 0, &size))
+		goto invalid_format;
+
+	if (kstrtouint(comma2 + 1, 0, &attr))
+		goto invalid_format;
+
+	mutex_lock(&test_virt_addr_lock);
+	if (IS_ERR(test_virt_addr)) {
+		mutex_unlock(&test_virt_addr_lock);
+		goto allocation_failure;
+	}
+
+	if (!test_virt_addr) {
+		mutex_unlock(&test_virt_addr_lock);
+		goto missing_allocation;
+	}
+	mutex_unlock(&test_virt_addr_lock);
+
+	if (v_addr < test_virt_addr || v_addr + size > test_virt_addr + SZ_1M)
+		goto invalid_addr;
+
+	if (attr == 0)
+		dma_attrs = 0;
+	else if (attr == 1)
+		dma_attrs = DMA_ATTR_FORCE_COHERENT;
+	else if (attr == 2)
+		dma_attrs = DMA_ATTR_FORCE_NON_COHERENT;
+	else if (attr == 3)
+		dma_attrs = DMA_ATTR_SYS_CACHE_ONLY;
+	else
+		goto invalid_format;
+
+	mutex_lock(&ddev->state_lock);
+	if (!ddev->domain) {
+		pr_err_ratelimited("%s: No domain. Have you selected a usecase?\n", __func__);
+		mutex_unlock(&ddev->state_lock);
+		return -EINVAL;
+	}
+
+	iova = dma_map_single_attrs(dev, v_addr, size, DMA_TO_DEVICE, dma_attrs);
+
+	if (dma_mapping_error(dev, iova)) {
+		pr_err_ratelimited("Failed to perform dma_map_single\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	retval = count;
+	pr_err_ratelimited("Mapped 0x%p to %pa (len=0x%zx)\n", v_addr, &iova, size);
+	ddev->iova = iova;
+	pr_err_ratelimited("Saved iova=%pa for future PTE commands\n", &iova);
+
+out:
+	mutex_unlock(&ddev->state_lock);
+	return retval;
+
+invalid_format:
+	pr_err_ratelimited("Invalid format. Expected: addr,len,dma attr where 'dma attr' is\n0: normal mapping\n1: force coherent\n2: force non-cohernet\n3: use system cache\n");
+	return retval;
+
+invalid_addr:
+	pr_err_ratelimited("Invalid addr given (0x%p)! Address should be within 1MB size from start addr returned by doing 'cat test_virt_addr'.\n",
+			   v_addr);
+	return retval;
+
+allocation_failure:
+	pr_err_ratelimited("Allocation of test_virt_addr failed.\n");
+	return -ENOMEM;
+
+missing_allocation:
+	pr_err_ratelimited("Please attempt to do 'cat test_virt_addr'.\n");
+	return retval;
+}
+
+static ssize_t iommu_debug_dma_map_read(struct file *file, char __user *ubuf,
+					size_t count, loff_t *offset)
+{
+	struct iommu_debug_device *ddev = file->private_data;
+	char buf[100] = {};
+	dma_addr_t iova;
+	int len;
+
+	if (*offset)
+		return 0;
+
+	iova = ddev->iova;
+	len = scnprintf(buf, sizeof(buf), "%pa\n", &iova);
+	return simple_read_from_buffer(ubuf, count, offset, buf, len);
+}
+
+const struct file_operations iommu_debug_dma_map_fops = {
+	.open	= simple_open,
+	.read	= iommu_debug_dma_map_read,
+	.write	= iommu_debug_dma_map_write,
+};
+
+static ssize_t iommu_debug_dma_unmap_write(struct file *file, const char __user *ubuf,
+					   size_t count, loff_t *offset)
+{
+	ssize_t retval = 0;
+	char *comma1, *comma2;
+	char buf[100] = {};
+	size_t size;
+	unsigned int attr;
+	dma_addr_t iova;
+	unsigned long dma_attrs;
+	struct iommu_debug_device *ddev = file->private_data;
+	struct device *dev = ddev->test_dev;
+
+	if (count >= sizeof(buf)) {
+		pr_err_ratelimited("Value too large\n");
+		return -EINVAL;
+	}
+
+	if (copy_from_user(buf, ubuf, count)) {
+		pr_err_ratelimited("Couldn't copy from user\n");
+		retval = -EFAULT;
+		goto out;
+	}
+
+	comma1 = strnchr(buf, count, ',');
+	if (!comma1)
+		goto invalid_format;
+
+	comma2 = strnchr(comma1 + 1, count, ',');
+	if (!comma2)
+		goto invalid_format;
+
+	*comma1 = *comma2 = '\0';
+
+	if (kstrtoux(buf, 0, &iova))
+		goto invalid_format;
+
+	if (kstrtosize_t(comma1 + 1, 0, &size))
+		goto invalid_format;
+
+	if (kstrtouint(comma2 + 1, 0, &attr))
+		goto invalid_format;
+
+	if (attr == 0)
+		dma_attrs = 0;
+	else if (attr == 1)
+		dma_attrs = DMA_ATTR_FORCE_COHERENT;
+	else if (attr == 2)
+		dma_attrs = DMA_ATTR_FORCE_NON_COHERENT;
+	else if (attr == 3)
+		dma_attrs = DMA_ATTR_SYS_CACHE_ONLY;
+	else
+		goto invalid_format;
+
+	mutex_lock(&ddev->state_lock);
+	if (!ddev->domain) {
+		pr_err_ratelimited("%s: No domain. Have you selected a usecase?\n", __func__);
+		mutex_unlock(&ddev->state_lock);
+		return -EINVAL;
+	}
+	dma_unmap_single_attrs(dev, iova, size, DMA_TO_DEVICE, dma_attrs);
+
+	retval = count;
+	pr_err_ratelimited("Unmapped %pa (len=0x%zx)\n", &iova, size);
+out:
+	mutex_unlock(&ddev->state_lock);
+	return retval;
+
+invalid_format:
+	pr_err_ratelimited("Invalid format. Expected: iova,len, dma attr\n");
+	return -EINVAL;
+}
+
+const struct file_operations iommu_debug_dma_unmap_fops = {
+	.open	= simple_open,
+	.write	= iommu_debug_dma_unmap_write,
+};
+
 static int iommu_debug_build_phoney_sg_table(struct device *dev,
 					     struct sg_table *table,
 					     unsigned long total_size,

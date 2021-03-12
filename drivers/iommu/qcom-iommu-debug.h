@@ -67,6 +67,8 @@ extern const struct file_operations iommu_debug_functional_fast_dma_api_fops;
 extern const struct file_operations iommu_debug_atos_fops;
 extern const struct file_operations iommu_debug_map_fops;
 extern const struct file_operations iommu_debug_unmap_fops;
+extern const struct file_operations iommu_debug_dma_map_fops;
+extern const struct file_operations iommu_debug_dma_unmap_fops;
 extern const struct file_operations iommu_debug_test_virt_addr_fops;
 extern const struct file_operations iommu_debug_profiling_fops;
 
