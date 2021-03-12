@@ -19,6 +19,16 @@
 #include <linux/mhi_misc.h>
 #include "mhi_qcom.h"
 
+/**
+ * struct mhi_bus_bw_cfg - Interconnect vote data
+ * @avg_bw: Vote for average bandwidth
+ * @peak_bw: Vote for peak bandwidth
+ */
+struct mhi_bus_bw_cfg {
+	u32 avg_bw;
+	u32 peak_bw;
+};
+
 struct arch_info {
 	struct mhi_qcom_priv *mhi_priv;
 	struct esoc_desc *esoc_client;
@@ -27,6 +37,9 @@ struct arch_info {
 	struct pci_saved_state *pcie_state;
 	struct notifier_block pm_notifier;
 	struct completion pm_completion;
+	struct icc_path *icc_path;
+	const char *icc_name;
+	struct mhi_bus_bw_cfg *bw_cfg_table;
 	/* bootup logger */
 	void *boot_ipc_log;
 	struct mhi_device *boot_dev;
@@ -39,6 +52,8 @@ struct arch_info {
 
 #define MHI_BOOT_LOG_PAGES (25)
 #define MHI_BOOT_DEFAULT_RX_LEN (0x1000)
+
+#define MHI_BUS_BW_CFG_COUNT (5)
 
 static int mhi_arch_pm_notifier(struct notifier_block *nb,
 				unsigned long event, void *unused)
@@ -61,7 +76,23 @@ static int mhi_arch_pm_notifier(struct notifier_block *nb,
 
 static int mhi_arch_set_bus_request(struct mhi_controller *mhi_cntrl, int index)
 {
-	/* default return success */
+	struct mhi_qcom_priv *mhi_priv = mhi_controller_get_privdata(mhi_cntrl);
+	struct arch_info *arch_info = mhi_priv->arch_info;
+	int ret;
+
+	if (index >= MHI_BUS_BW_CFG_COUNT)
+		return -EINVAL;
+
+	ret = icc_set_bw(arch_info->icc_path,
+			 arch_info->bw_cfg_table[index].avg_bw,
+			 arch_info->bw_cfg_table[index].peak_bw);
+	if (ret) {
+		MHI_CNTRL_ERR("Could not set BW cfg: %d (%d %d), ret: %d\n",
+			      index, arch_info->bw_cfg_table[index].avg_bw,
+			      arch_info->bw_cfg_table[index].peak_bw, ret);
+		return ret;
+	}
+
 	return 0;
 }
 
@@ -401,6 +432,7 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 
 	if (!arch_info) {
 		struct msm_pcie_register_event *reg_event;
+		struct device_node *of_node = pci_dev->dev.of_node;
 
 		arch_info = devm_kzalloc(mhi_cntrl->cntrl_dev,
 					 sizeof(*arch_info), GFP_KERNEL);
@@ -409,6 +441,35 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 
 		mhi_priv->arch_info = arch_info;
 		arch_info->mhi_priv = mhi_priv;
+
+		ret = of_property_read_string(of_node, "interconnect-names",
+					      &arch_info->icc_name);
+		if (ret) {
+			MHI_CNTRL_ERR("No interconnect name specified\n");
+			return -ENOENT;
+		}
+
+		arch_info->icc_path = of_icc_get(mhi_cntrl->cntrl_dev,
+						 arch_info->icc_name);
+		if (IS_ERR(arch_info->icc_path))  {
+			ret = PTR_ERR(arch_info->icc_path);
+			MHI_CNTRL_ERR("Interconnect path for %s not found, ret: %d\n",
+				      arch_info->icc_name, ret);
+			return ret;
+		}
+
+		arch_info->bw_cfg_table = devm_kzalloc(mhi_cntrl->cntrl_dev,
+						sizeof(*arch_info->bw_cfg_table)
+						* MHI_BUS_BW_CFG_COUNT,
+						GFP_KERNEL);
+
+		ret = of_property_read_u32_array(of_node, "qcom,mhi-bus-bw-cfg",
+						 (u32 *)arch_info->bw_cfg_table,
+						 MHI_BUS_BW_CFG_COUNT * 2);
+		if (ret) {
+			MHI_CNTRL_ERR("Invalid bus BW config table\n");
+			return ret;
+		}
 
 		/* register with pcie rc for WAKE# or link state events */
 		reg_event = &arch_info->pcie_reg_event;
