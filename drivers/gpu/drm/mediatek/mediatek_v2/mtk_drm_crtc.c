@@ -4713,7 +4713,6 @@ static const struct drm_crtc_funcs mtk_crtc_funcs = {
 	.atomic_destroy_state = mtk_drm_crtc_destroy_state,
 	.atomic_set_property = mtk_drm_crtc_set_property,
 	.atomic_get_property = mtk_drm_crtc_get_property,
-	.gamma_set = drm_atomic_helper_legacy_gamma_set,
 	.enable_vblank = mtk_drm_crtc_enable_vblank,
 	.disable_vblank = mtk_drm_crtc_disable_vblank,
 	.get_vblank_timestamp = mtk_crtc_get_vblank_timestamp,
