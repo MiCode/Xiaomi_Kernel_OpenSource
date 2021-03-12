@@ -59,10 +59,13 @@
 #define PCIE_GEN3_EQ_FMDC_T_MIN_PHASE23_MASK (0x1f)
 
 #define PCIE_GEN3_MISC_CONTROL (0x08bc)
+#define DBI_RO_WR_EN (BIT(0))
 
 #define PCIE_PL_16GT_CAP (0x168)
 
 #define PCIE20_PARF_SYS_CTRL (0x00)
+#define CORE_CLK_2AUX_CLK_MUX_DIS (BIT(3))
+
 #define PCIE20_PARF_PM_CTRL (0x20)
 #define PCIE20_PARF_PM_STTS (0x24)
 #define PCIE20_PARF_PHY_CTRL (0x40)
@@ -102,6 +105,10 @@
 #define PCIE20_CAP_DEVCTRLSTATUS (PCIE20_CAP + 0x08)
 #define PCIE20_CAP_LINKCTRLSTATUS (PCIE20_CAP + 0x10)
 #define PCIE_CAP_DLL_ACTIVE BIT(29)
+
+#define PCIE20_CAP_LINKCAP (PCIE20_CAP + 0xc)
+#define PCIE_CAP_ASPM_L0S (BIT(10))
+#define PCIE_CAP_ASPM_L1 (BIT(11))
 
 #define PCIE20_COMMAND_STATUS (0x04)
 #define PCIE20_HEADER_TYPE (0x0c)
@@ -793,6 +800,8 @@ struct msm_pcie_dev_t {
 	bool l1_2_aspm_supported;
 	uint32_t l1_2_th_scale;
 	uint32_t l1_2_th_value;
+	uint32_t t_pwr_on_val;
+	uint32_t t_pwr_on_scale;
 	bool common_clk_en;
 	bool clk_power_manage_en;
 	bool aux_clk_sync;
@@ -1287,7 +1296,7 @@ static void msm_pcie_config_l1ss_enable_all(struct msm_pcie_dev_t *dev);
 
 static void msm_pcie_check_l1ss_support_all(struct msm_pcie_dev_t *dev);
 
-static void msm_pcie_config_link_pm(struct msm_pcie_dev_t *dev, bool enable);
+static void msm_pcie_config_aspm(struct msm_pcie_dev_t *dev);
 
 static u32 msm_pcie_reg_copy(struct msm_pcie_dev_t *pcie_dev,
 		u8 *buf, u32 size, void __iomem *base,
@@ -1665,6 +1674,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->l1_2_th_scale);
 	PCIE_DBG_FS(dev, "l1_2_th_value is %d\n",
 		dev->l1_2_th_value);
+	PCIE_DBG_FS(dev, "t_pwr_on_scale is %u\n", dev->t_pwr_on_scale);
+	PCIE_DBG_FS(dev, "t_pwr_on_val is %u\n", dev->t_pwr_on_val);
 	PCIE_DBG_FS(dev, "common_clk_en is %d\n",
 		dev->common_clk_en);
 	PCIE_DBG_FS(dev, "clk_power_manage_en is %d\n",
@@ -3653,6 +3664,126 @@ static void msm_pcie_config_controller_phy(struct msm_pcie_dev_t *pcie_dev)
 	}
 }
 
+static u32 msm_pcie_find_ext_capability(struct msm_pcie_dev_t *pcie_dev,
+						u32 cap_id)
+{
+	int total;
+	u32 header;
+	int pos = PCI_CFG_SPACE_SIZE;
+
+	total = (PCI_CFG_SPACE_EXP_SIZE - PCI_CFG_SPACE_SIZE) / 8;
+
+	header = readl_relaxed(pcie_dev->dm_core + PCIE_EXT_CAP_OFFSET);
+	if (!header)
+		return 0;
+
+	while (total-- > 0) {
+		if (PCI_EXT_CAP_ID(header) == cap_id && pos != 0)
+			return pos;
+
+		pos = PCI_EXT_CAP_NEXT(header);
+		if (pos < PCI_CFG_SPACE_SIZE)
+			break;
+
+		header = readl_relaxed(pcie_dev->dm_core + pos);
+	}
+
+	return 0;
+}
+
+static void msm_pcie_config_aspm(struct msm_pcie_dev_t *pcie_dev)
+{
+	u32 reg;
+	u32 l1ss_cap_id_offset, l1ss_cap_offset;
+
+	/* enable write access to RO register */
+	msm_pcie_write_mask(pcie_dev->dm_core + PCIE_GEN3_MISC_CONTROL, 0,
+			    DBI_RO_WR_EN);
+
+	reg = readl_relaxed(pcie_dev->dm_core + PCIE20_CAP_LINKCAP);
+	reg >>= 10;
+
+	if (pcie_dev->l0s_supported) {
+		if (!(reg & PCI_EXP_LNKCTL_ASPM_L0S)) {
+			PCIE_ERR(pcie_dev, "PCIe: RC%d: L0s not supported\n",
+				 pcie_dev->rc_idx);
+			pcie_dev->l0s_supported = false;
+		}
+	} else {
+		if (reg & PCI_EXP_LNKCTL_ASPM_L0S)
+			msm_pcie_write_mask(pcie_dev->dm_core + PCIE20_CAP_LINKCAP,
+					    PCIE_CAP_ASPM_L0S, 0);
+	}
+
+	if (pcie_dev->l1_supported) {
+		if (!(reg & PCI_EXP_LNKCTL_ASPM_L1)) {
+			PCIE_ERR(pcie_dev, "PCIe: RC%d: L1 not supported\n",
+				 pcie_dev->rc_idx);
+			pcie_dev->l1_supported = false;
+			goto done;
+		}
+	} else {
+		if (reg & PCI_EXP_LNKCTL_ASPM_L1)
+			msm_pcie_write_mask(
+					pcie_dev->dm_core + PCIE20_CAP_LINKCAP,
+					PCIE_CAP_ASPM_L1, 0);
+	}
+
+	l1ss_cap_id_offset = msm_pcie_find_ext_capability(pcie_dev,
+							  PCI_EXT_CAP_ID_L1SS);
+	if (!l1ss_cap_id_offset) {
+		PCIE_DBG(pcie_dev,
+			 "PCIe: RC%d: L1ss capability register not found\n",
+			 pcie_dev->rc_idx);
+		pcie_dev->l1ss_supported = false;
+		goto done;
+	}
+
+	l1ss_cap_offset = l1ss_cap_id_offset + PCI_L1SS_CAP;
+
+	reg = readl_relaxed(pcie_dev->dm_core + l1ss_cap_offset);
+	if (pcie_dev->l1ss_supported) {
+		if (!(reg & PCI_L1SS_CAP_PCIPM_L1_2) &&
+		    !(reg & PCI_L1SS_CAP_PCIPM_L1_1) &&
+		    !(reg & PCI_L1SS_CAP_ASPM_L1_2) &&
+		    !(reg & PCI_L1SS_CAP_ASPM_L1_1)) {
+			PCIE_ERR(pcie_dev, "PCIe: RC%d: L1ss not supported\n",
+				 pcie_dev->rc_idx);
+			pcie_dev->l1ss_supported = false;
+			goto done;
+		}
+
+		if (pcie_dev->t_pwr_on_scale <= 0x3 &&
+		    pcie_dev->t_pwr_on_val <= 0x1f) {
+			reg |= (pcie_dev->t_pwr_on_scale << 16) |
+				pcie_dev->t_pwr_on_val << 19;
+			writel_relaxed(reg,
+				       pcie_dev->dm_core + l1ss_cap_offset);
+		}
+
+		/* Enable AUX clk and Core clk async for L1SS */
+		if (!pcie_dev->aux_clk_sync)
+			msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_SYS_CTRL,
+					    CORE_CLK_2AUX_CLK_MUX_DIS, 0);
+	} else {
+		msm_pcie_write_mask(pcie_dev->dm_core + l1ss_cap_offset,
+				    PCI_L1SS_CTL1_PCIPM_L1_1 |
+				    PCI_L1SS_CTL1_PCIPM_L1_2 |
+				    PCI_L1SS_CTL1_ASPM_L1_1 |
+				    PCI_L1SS_CTL1_ASPM_L1_2, 0);
+
+		/* Disable AUX clk and Core Clock async - L1SS disabled */
+		if (!pcie_dev->aux_clk_sync)
+			msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_SYS_CTRL, 0,
+					    CORE_CLK_2AUX_CLK_MUX_DIS);
+	}
+
+done:
+	/* disable write access to RO register */
+	msm_pcie_write_mask(pcie_dev->dm_core + PCIE_GEN3_MISC_CONTROL,
+			    DBI_RO_WR_EN, 0);
+}
+
 static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 {
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
@@ -3705,6 +3836,8 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 		PCIE_DBG(dev, "RC's PCIE20_CAP_DEVCTRLSTATUS:0x%x\n",
 			readl_relaxed(dev->dm_core + PCIE20_CAP_DEVCTRLSTATUS));
 	}
+
+	msm_pcie_config_aspm(dev);
 }
 
 static int msm_pcie_get_clk(struct msm_pcie_dev_t *pcie_dev)
@@ -4611,6 +4744,9 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 
 	ep_up_timeout = jiffies + usecs_to_jiffies(EP_UP_TIMEOUT_US);
 
+	msm_pcie_config_sid(dev);
+	msm_pcie_config_controller(dev);
+
 	ret = msm_pcie_link_train(dev);
 	if (ret)
 		goto link_fail;
@@ -4629,9 +4765,6 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 		else
 			msleep(dev->switch_latency);
 	}
-
-	msm_pcie_config_sid(dev);
-	msm_pcie_config_controller(dev);
 
 	/* check endpoint configuration space is accessible */
 	while (time_before(jiffies, ep_up_timeout)) {
@@ -4655,10 +4788,8 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 		goto link_fail;
 	}
 
-	if (dev->enumerated) {
+	if (dev->enumerated)
 		msm_msi_config(dev_get_msi_domain(&dev->dev->dev));
-		msm_pcie_config_link_pm(dev, true);
-	}
 
 	/* bring eps out of reset */
 	if (dev->i2c_ctrl.client && dev->i2c_ctrl.client_i2c_reset)
@@ -4981,8 +5112,6 @@ int msm_pcie_enumerate(u32 rc_idx)
 
 	pci_walk_bus(dev->dev->bus, msm_pcie_config_device_table, dev);
 
-	msm_pcie_check_l1ss_support_all(dev);
-	msm_pcie_config_link_pm(dev, true);
 out:
 	mutex_unlock(&dev->enumerate_lock);
 
@@ -5546,64 +5675,6 @@ static int msm_pcie_check_l1ss_support(struct pci_dev *pdev, void *dev)
 	return 0;
 }
 
-static int msm_pcie_config_common_clock_enable(struct pci_dev *pdev,
-							void *dev)
-{
-	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)dev;
-
-	PCIE_DBG(pcie_dev, "PCIe: RC%d: PCI device %02x:%02x.%01x\n",
-		pcie_dev->rc_idx, pdev->bus->number, PCI_SLOT(pdev->devfn),
-		PCI_FUNC(pdev->devfn));
-
-	msm_pcie_config_clear_set_dword(pdev, pdev->pcie_cap + PCI_EXP_LNKCTL,
-					0, PCI_EXP_LNKCTL_CCC);
-
-	return 0;
-}
-
-static void msm_pcie_config_common_clock_enable_all(struct msm_pcie_dev_t *dev)
-{
-	if (dev->common_clk_en)
-		pci_walk_bus(dev->dev->bus,
-			msm_pcie_config_common_clock_enable, dev);
-}
-
-static int msm_pcie_config_clock_power_management_enable(struct pci_dev *pdev,
-							void *dev)
-{
-	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)dev;
-	u32 val;
-
-	/* enable only for upstream ports */
-	if (pci_is_root_bus(pdev->bus))
-		return 0;
-
-	PCIE_DBG(pcie_dev, "PCIe: RC%d: PCI device %02x:%02x.%01x\n",
-		pcie_dev->rc_idx, pdev->bus->number, PCI_SLOT(pdev->devfn),
-		PCI_FUNC(pdev->devfn));
-
-	pci_read_config_dword(pdev, pdev->pcie_cap + PCI_EXP_LNKCAP, &val);
-	if (val & PCI_EXP_LNKCAP_CLKPM)
-		msm_pcie_config_clear_set_dword(pdev,
-			pdev->pcie_cap + PCI_EXP_LNKCTL, 0,
-			PCI_EXP_LNKCTL_CLKREQ_EN);
-	else
-		PCIE_DBG(pcie_dev,
-			"PCIe: RC%d: PCI device %02x:%02x.%01x does not support clock power management\n",
-			pcie_dev->rc_idx, pdev->bus->number,
-			PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
-
-	return 0;
-}
-
-static void msm_pcie_config_clock_power_management_enable_all(
-						struct msm_pcie_dev_t *dev)
-{
-	if (dev->clk_power_manage_en)
-		pci_walk_bus(dev->dev->bus,
-			msm_pcie_config_clock_power_management_enable, dev);
-}
-
 static void msm_pcie_config_l0s(struct msm_pcie_dev_t *dev,
 				struct pci_dev *pdev, bool enable)
 {
@@ -5854,23 +5925,6 @@ static void msm_pcie_config_l1ss_enable_all(struct msm_pcie_dev_t *dev)
 	}
 }
 
-static void msm_pcie_config_link_pm(struct msm_pcie_dev_t *dev, bool enable)
-{
-	struct pci_bus *bus = dev->dev->bus;
-
-	if (enable) {
-		msm_pcie_config_common_clock_enable_all(dev);
-		msm_pcie_config_clock_power_management_enable_all(dev);
-		msm_pcie_config_l1ss_enable_all(dev);
-		msm_pcie_config_l1_enable_all(dev);
-		msm_pcie_config_l0s_enable_all(dev);
-	} else {
-		msm_pcie_config_l0s_disable_all(dev, bus);
-		msm_pcie_config_l1_disable_all(dev, bus);
-		msm_pcie_config_l1ss_disable_all(dev, bus);
-	}
-}
-
 static void msm_pcie_check_l1ss_support_all(struct msm_pcie_dev_t *dev)
 {
 	pci_walk_bus(dev->dev->bus, msm_pcie_check_l1ss_support, dev);
@@ -6054,6 +6108,14 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	PCIE_DBG(pcie_dev, "PCIe: RC%d: L1.2 threshold scale: %d value: %d.\n",
 		pcie_dev->rc_idx, pcie_dev->l1_2_th_scale,
 		pcie_dev->l1_2_th_value);
+
+	of_property_read_u32(of_node, "qcom,tpwr-on-scale",
+			     &pcie_dev->t_pwr_on_scale);
+	of_property_read_u32(of_node, "qcom,tpwr-on-value",
+			     &pcie_dev->t_pwr_on_val);
+	PCIE_DBG(pcie_dev, "PCIe: RC%d: t_power on scale: %u value: %u.\n",
+		 pcie_dev->rc_idx, pcie_dev->t_pwr_on_scale,
+		 pcie_dev->t_pwr_on_val);
 
 	pcie_dev->common_clk_en = of_property_read_bool(of_node,
 				"qcom,common-clk-en");
