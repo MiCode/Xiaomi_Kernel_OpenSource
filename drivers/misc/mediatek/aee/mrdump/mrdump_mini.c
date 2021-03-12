@@ -361,9 +361,8 @@ static void fill_prstatus(struct elf_prstatus *prstatus, struct pt_regs *regs,
 			  struct task_struct *p, unsigned long pid)
 {
 	elf_core_copy_regs(&prstatus->pr_reg, regs);
-	prstatus->pr_pid = pid;
-	prstatus->pr_ppid = nr_cpu_ids;
-	prstatus->pr_sigpend = (uintptr_t)p;
+	prstatus->common.pr_pid = pid;
+	prstatus->common.pr_ppid = nr_cpu_ids;
 }
 
 static int fill_psinfo(struct elf_prpsinfo *psinfo)
