@@ -591,9 +591,11 @@ enum blair_functions {
 	msm_mux_qup01,
 	msm_mux_qup02,
 	msm_mux_qup10,
-	msm_mux_qup11,
+	msm_mux_qup11_f1,
+	msm_mux_qup11_f2,
 	msm_mux_qup12,
-	msm_mux_qup13,
+	msm_mux_qup13_f1,
+	msm_mux_qup13_f2,
 	msm_mux_qup14,
 	msm_mux_sd_write,
 	msm_mux_sdc1_tb,
@@ -1047,14 +1049,21 @@ static const char * const qup02_groups[] = {
 static const char * const qup10_groups[] = {
 	"gpio13", "gpio14", "gpio15", "gpio16", "gpio17",
 };
-static const char * const qup11_groups[] = {
-	"gpio27", "gpio27", "gpio28", "gpio28",
+static const char * const qup11_f1_groups[] = {
+	"gpio27", "gpio28",
 };
+static const char * const qup11_f2_groups[] = {
+	"gpio27", "gpio28",
+};
+
 static const char * const qup12_groups[] = {
 	"gpio19", "gpio19", "gpio20", "gpio20",
 };
-static const char * const qup13_groups[] = {
-	"gpio25", "gpio25", "gpio26", "gpio26",
+static const char * const qup13_f1_groups[] = {
+	"gpio25", "gpio26",
+};
+static const char * const qup13_f2_groups[] = {
+	"gpio25", "gpio26",
 };
 static const char * const qup14_groups[] = {
 	"gpio4", "gpio4", "gpio5", "gpio5",
@@ -1163,8 +1172,10 @@ static const struct msm_function blair_functions[] = {
 	FUNCTION(gcc_gp2),
 	FUNCTION(gcc_gp3),
 	FUNCTION(edp_lcd),
-	FUNCTION(qup13),
-	FUNCTION(qup11),
+	FUNCTION(qup13_f1),
+	FUNCTION(qup13_f2),
+	FUNCTION(qup11_f1),
+	FUNCTION(qup11_f2),
 	FUNCTION(PLL_BIST),
 	FUNCTION(qdss_gpio14),
 	FUNCTION(qdss_gpio15),
@@ -1351,12 +1362,12 @@ static const struct msm_pingroup blair_groups[] = {
 			0x9C00C, 13),
 	[24] = PINGROUP(24, MDP_VSYNC, NA, NA, NA, NA, NA, NA, NA, NA,
 			0x9C00C, 14),
-	[25] = PINGROUP(25, qup13, qup13, NA, NA, NA, NA, NA, NA, NA,
+	[25] = PINGROUP(25, qup13_f1, qup13_f2, NA, NA, NA, NA, NA, NA, NA,
 			0x9C00C, 15),
-	[26] = PINGROUP(26, qup13, qup13, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[27] = PINGROUP(27, qup11, qup11, MDP_VSYNC, PLL_BIST, NA, qdss_gpio14,
+	[26] = PINGROUP(26, qup13_f1, qup13_f2, NA, NA, NA, NA, NA, NA, NA, 0, -1),
+	[27] = PINGROUP(27, qup11_f1, qup11_f2, MDP_VSYNC, PLL_BIST, NA, qdss_gpio14,
 			NA, NA, NA, 0x9C010, 0),
-	[28] = PINGROUP(28, qup11, qup11, MDP_VSYNC, NA, qdss_gpio15, NA, NA,
+	[28] = PINGROUP(28, qup11_f2, qup11_f2, MDP_VSYNC, NA, qdss_gpio15, NA, NA,
 			NA, NA, 0x9C010, 1),
 	[29] = PINGROUP(29, cam_mclk, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[30] = PINGROUP(30, cam_mclk, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
