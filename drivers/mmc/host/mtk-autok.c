@@ -2905,7 +2905,12 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 		pBdInfo->opt_dly_cnt, p_autok_tune_res);
 
 	/* DLY3 keep default value */
-	p_autok_tune_res[EMMC50_DS_ZDLY_DLY] = platform_para_rx.ds_dly3_hs400;
+	if (host->hs400_ds_delay)
+		p_autok_tune_res[EMMC50_DS_ZDLY_DLY] =
+			host->hs400_ds_delay & 0xff;
+	else
+		p_autok_tune_res[EMMC50_DS_ZDLY_DLY] =
+			platform_para_rx.ds_dly3_hs400;
 	cycle_value = pBdInfo->cycle_cnt;
 	/* Step2 : Tuning DS Clk Path-ZCLK only tune DLY1 */
 #ifdef CMDQ
