@@ -195,9 +195,9 @@ static struct snd_soc_dai_driver mtk_dai_gain_driver[] = {
 			.formats = MTK_HW_GAIN_FORMATS,
 		},
 		.ops = &mtk_dai_gain_ops,
-		.symmetric_rates = 1,
+		.symmetric_rate = 1,
 		.symmetric_channels = 1,
-		.symmetric_samplebits = 1,
+		.symmetric_sample_bits = 1,
 	},
 	{
 		.name = "HW Gain 2",
@@ -217,9 +217,9 @@ static struct snd_soc_dai_driver mtk_dai_gain_driver[] = {
 			.formats = MTK_HW_GAIN_FORMATS,
 		},
 		.ops = &mtk_dai_gain_ops,
-		.symmetric_rates = 1,
+		.symmetric_rate = 1,
 		.symmetric_channels = 1,
-		.symmetric_samplebits = 1,
+		.symmetric_sample_bits = 1,
 	},
 };
 
