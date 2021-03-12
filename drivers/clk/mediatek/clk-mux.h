@@ -74,8 +74,7 @@ struct mtk_mux {
 			_upd_ofs, _upd, _flags)				\
 		GATE_CLR_SET_UPD_FLAGS(_id, _name, _parents, _mux_ofs,	\
 			_mux_set_ofs, _mux_clr_ofs, _shift, _width,	\
-			0, _upd_ofs, _upd, _flags,			\
-			mtk_mux_clr_set_upd_ops)
+			0, _upd_ofs, _upd, _flags)
 
 #define MUX_CLR_SET_UPD(_id, _name, _parents, _mux_ofs,			\
 			_mux_set_ofs, _mux_clr_ofs, _shift, _width,	\
