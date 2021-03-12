@@ -4029,7 +4029,7 @@ int snd_hda_gen_add_micmute_led(struct hda_codec *codec,
 
 	spec->micmute_led.led_mode = MICMUTE_LED_FOLLOW_MUTE;
 	spec->micmute_led.capture = 0;
-	spec->micmute_led.led_value = 0;
+	spec->micmute_led.led_value = -1;
 	spec->micmute_led.old_hook = spec->cap_sync_hook;
 	spec->micmute_led.update = hook;
 	spec->cap_sync_hook = update_micmute_led;
