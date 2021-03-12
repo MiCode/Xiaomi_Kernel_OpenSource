@@ -1356,6 +1356,9 @@ static void __coresight_disable(struct coresight_device *csdev)
 	if (ret)
 		return;
 
+	if (csdev->def_sink)
+		csdev->def_sink = NULL;
+
 	if (!csdev->enable || !coresight_disable_source(csdev))
 		return;
 
