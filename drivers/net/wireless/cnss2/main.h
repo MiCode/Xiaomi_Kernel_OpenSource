@@ -562,4 +562,7 @@ int cnss_get_tcs_info(struct cnss_plat_data *plat_priv);
 unsigned int cnss_get_timeout(struct cnss_plat_data *plat_priv,
 			      enum cnss_timeout_type);
 int cnss_dev_specific_power_on(struct cnss_plat_data *plat_priv);
+int cnss_request_firmware_direct(struct cnss_plat_data *plat_priv,
+				 const struct firmware **fw_entry,
+				 const char *filename);
 #endif /* _CNSS_MAIN_H */
