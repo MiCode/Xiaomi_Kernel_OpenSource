@@ -146,6 +146,7 @@ struct mdss_pll_resources {
 	 * feature is disabled.
 	 */
 	bool		handoff_resources;
+	bool		cont_splash_enabled;
 
 	/*
 	 * caching the pll trim codes in the case of dynamic refresh
