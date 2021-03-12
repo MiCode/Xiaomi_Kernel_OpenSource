@@ -7,6 +7,7 @@
  ********************************************/
 #include <dt-bindings/gpio/gpio.h>
 &mmc0 {
+	host-index = <0>;
 	status = "okay";
 	pinctrl-names = "default", "state_uhs";
 	pinctrl-0 = <&mmc0_pins_default>;
@@ -19,7 +20,7 @@
 	cap-mmc-hw-reset;
 	no-sdio;
 	no-sd;
-	hs400-ds-delay = <0x12814>;
+	hs400-ds-delay = <0x12800>;
 	vmmc-supply = <&mt6359p_vemc_reg>;
 	non-removable;
 	supports-cqe;
@@ -38,12 +39,18 @@
 				 <PINMUX_GPIO76__FUNC_MSDC0_DAT7>,
 				 <PINMUX_GPIO67__FUNC_MSDC0_CMD>;
 			input-enable;
+			drive-strength = <4>;
+			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_01>;
 		};
 		pins_clk {
 			pinmux = <PINMUX_GPIO66__FUNC_MSDC0_CLK>;
+			drive-strength = <4>;
+			mediatek,pull-down-adv = <MTK_PUPD_SET_R1R0_10>;
 		};
 		pins_rst {
 			pinmux = <PINMUX_GPIO68__FUNC_MSDC0_RSTB>;
+			drive-strength = <4>;
+			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_00>;
 		};
 	};
 	mmc0_pins_uhs: mmc0@0{
@@ -59,23 +66,28 @@
 				 <PINMUX_GPIO67__FUNC_MSDC0_CMD>;
 			input-enable;
 			drive-strength = <4>;
+			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_01>;
 		};
 		pins_clk {
 			pinmux = <PINMUX_GPIO66__FUNC_MSDC0_CLK>;
 			drive-strength = <4>;
+			mediatek,pull-down-adv = <MTK_PUPD_SET_R1R0_10>;
 		};
 		pins_ds {
 			pinmux = <PINMUX_GPIO65__FUNC_MSDC0_DSL>;
 			drive-strength = <4>;
+			mediatek,pull-down-adv = <MTK_PUPD_SET_R1R0_10>;
 		};
 		pins_rst {
 			pinmux = <PINMUX_GPIO68__FUNC_MSDC0_RSTB>;
 			drive-strength = <4>;
+			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_00>;
 		};
 	};
 };
 
 &mmc1 {
+	host-index = <1>;
 	status = "okay";
 	pinctrl-names = "default", "state_uhs";
 	pinctrl-0 = <&mmc1_pins_default>;
