@@ -189,9 +189,9 @@ EXPORT_SYMBOL_GPL(mtk_mq_btag_pidlog_insert);
 static void mtk_btag_pidlog_add(struct request_queue *q, struct bio *bio,
 	unsigned short pid, __u32 len)
 {
-	int major = bio->bi_disk ? MAJOR(bio_dev(bio)) : 0;
+	int major = bio->bi_bdev->bd_disk ? MAJOR(bio_dev(bio)) : 0;
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER_MMC)
-	int minor = bio->bi_disk ? MINOR(bio_dev(bio)) : 0;
+	int minor = bio->bi_bdev->bd_disk ? MINOR(bio_dev(bio)) : 0;
 #endif
 
 	if (pid != 0xFFFF && major) {
