@@ -11,7 +11,9 @@
 #include <linux/rwsem.h>
 #include <linux/suspend.h>
 #include <linux/timer.h>
+#if IS_ENABLED(CONFIG_QCOM_MINIDUMP)
 #include <soc/qcom/minidump.h>
+#endif
 
 #include "main.h"
 #include "bus.h"
@@ -1990,6 +1992,7 @@ void cnss_unregister_subsys(struct cnss_plat_data *plat_priv)
 		cnss_pr_err("Failed to unregister panic handler\n");
 }
 
+#if IS_ENABLED(CONFIG_QCOM_MEMORY_DUMP_V2)
 static void *cnss_create_ramdump_device(struct cnss_plat_data *plat_priv)
 {
 	return &plat_priv->plat_dev->dev;
@@ -1999,6 +2002,7 @@ static void cnss_destroy_ramdump_device(struct cnss_plat_data *plat_priv,
 					void *ramdump_dev)
 {
 }
+#endif
 
 #if IS_ENABLED(CONFIG_QCOM_RAMDUMP)
 int cnss_do_ramdump(struct cnss_plat_data *plat_priv)
@@ -2081,6 +2085,7 @@ int cnss_do_elf_ramdump(struct cnss_plat_data *plat_priv)
 #endif /* CONFIG_QCOM_RAMDUMP */
 #endif /* CONFIG_MSM_SUBSYSTEM_RESTART */
 
+#if IS_ENABLED(CONFIG_QCOM_MEMORY_DUMP_V2)
 static int cnss_init_dump_entry(struct cnss_plat_data *plat_priv)
 {
 	struct cnss_ramdump_info *ramdump_info;
@@ -2177,17 +2182,10 @@ static void cnss_unregister_ramdump_v1(struct cnss_plat_data *plat_priv)
  *
  * Return: Same given error code if mem dump feature enabled, 0 otherwise
  */
-#ifdef CONFIG_QCOM_MEMORY_DUMP_V2
 static int cnss_ignore_dump_data_reg_fail(int ret)
 {
 	return ret;
 }
-#else
-static int cnss_ignore_dump_data_reg_fail(int ret)
-{
-	return 0;
-}
-#endif
 
 static int cnss_register_ramdump_v2(struct cnss_plat_data *plat_priv)
 {
@@ -2297,7 +2295,16 @@ void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv)
 		break;
 	}
 }
+#else
+int cnss_register_ramdump(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
 
+void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv) {}
+#endif /* CONFIG_QCOM_MEMORY_DUMP_V2 */
+
+#if IS_ENABLED(CONFIG_QCOM_MINIDUMP)
 int cnss_minidump_add_region(struct cnss_plat_data *plat_priv,
 			     enum cnss_fw_dump_type type, int seg_no,
 			     void *va, phys_addr_t pa, size_t size)
@@ -2378,6 +2385,21 @@ int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
 
 	return ret;
 }
+#else
+int cnss_minidump_add_region(struct cnss_plat_data *plat_priv,
+			     enum cnss_fw_dump_type type, int seg_no,
+			     void *va, phys_addr_t pa, size_t size)
+{
+	return 0;
+}
+
+int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
+				enum cnss_fw_dump_type type, int seg_no,
+				void *va, phys_addr_t pa, size_t size)
+{
+	return 0;
+}
+#endif /* CONFIG_QCOM_MINIDUMP */
 
 /**
  * cnss_register_bus_scale() - Setup interconnect voting data
