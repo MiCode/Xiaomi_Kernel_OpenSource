@@ -9,7 +9,9 @@
 #include <linux/esoc_client.h>
 #endif
 #include <linux/etherdevice.h>
+#if IS_ENABLED(CONFIG_INTERCONNECT)
 #include <linux/interconnect.h>
+#endif
 #include <linux/pm_qos.h>
 #include <linux/platform_device.h>
 #include <net/cnss2.h>
@@ -146,6 +148,7 @@ struct cnss_esoc_info {
 };
 #endif
 
+#if IS_ENABLED(CONFIG_INTERCONNECT)
 /**
  * struct cnss_bus_bw_cfg - Interconnect vote data
  * @avg_bw: Vote for average bandwidth
@@ -172,6 +175,7 @@ struct cnss_bus_bw_info {
 	struct icc_path *icc_path;
 	struct cnss_bus_bw_cfg *cfg_table;
 };
+#endif
 
 /**
  * struct cnss_interconnect_cfg - CNSS platform interconnect config
@@ -422,6 +426,7 @@ struct cnss_plat_data {
 	struct cnss_platform_cap cap;
 	struct pm_qos_request qos_request;
 	struct cnss_device_version device_version;
+	u32 rc_num;
 	unsigned long device_id;
 	enum cnss_driver_status driver_status;
 	u32 recovery_count;
@@ -511,6 +516,8 @@ static inline u64 cnss_get_host_timestamp(struct cnss_plat_data *plat_priv)
 #endif
 
 struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev);
+void cnss_pm_stay_awake(struct cnss_plat_data *plat_priv);
+void cnss_pm_relax(struct cnss_plat_data *plat_priv);
 int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
 			   enum cnss_driver_event_type type,
 			   u32 flags, void *data);

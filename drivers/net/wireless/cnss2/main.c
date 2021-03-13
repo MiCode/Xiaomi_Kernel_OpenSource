@@ -99,7 +99,7 @@ static struct notifier_block cnss_pm_notifier = {
 	.notifier_call = cnss_pm_notify,
 };
 
-static void cnss_pm_stay_awake(struct cnss_plat_data *plat_priv)
+void cnss_pm_stay_awake(struct cnss_plat_data *plat_priv)
 {
 	if (atomic_inc_return(&plat_priv->pm_count) != 1)
 		return;
@@ -110,7 +110,7 @@ static void cnss_pm_stay_awake(struct cnss_plat_data *plat_priv)
 	pm_stay_awake(&plat_priv->plat_dev->dev);
 }
 
-static void cnss_pm_relax(struct cnss_plat_data *plat_priv)
+void cnss_pm_relax(struct cnss_plat_data *plat_priv)
 {
 	int r = atomic_dec_return(&plat_priv->pm_count);
 
@@ -2401,6 +2401,7 @@ int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
 }
 #endif /* CONFIG_QCOM_MINIDUMP */
 
+#if IS_ENABLED(CONFIG_INTERCONNECT)
 /**
  * cnss_register_bus_scale() - Setup interconnect voting data
  * @plat_priv: Platform data structure
@@ -2526,6 +2527,14 @@ static void cnss_unregister_bus_scale(struct cnss_plat_data *plat_priv)
 	}
 	memset(&plat_priv->icc, 0, sizeof(plat_priv->icc));
 }
+#else
+static int cnss_register_bus_scale(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+static void cnss_unregister_bus_scale(struct cnss_plat_data *plat_priv) {}
+#endif /* CONFIG_INTERCONNECT */
 
 static ssize_t recovery_store(struct device *dev,
 			      struct device_attribute *attr,

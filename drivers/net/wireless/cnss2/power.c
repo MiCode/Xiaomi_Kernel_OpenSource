@@ -6,7 +6,9 @@
 #include <linux/of.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/regulator/consumer.h>
+#if IS_ENABLED(CONFIG_QCOM_COMMAND_DB)
 #include <soc/qcom/cmd-db.h>
+#endif
 #include <linux/of_gpio.h>
 
 #include "main.h"
@@ -896,6 +898,30 @@ void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv)
 	plat_priv->pin_result.host_pin_result = pin_status;
 }
 
+#if IS_ENABLED(CONFIG_QCOM_COMMAND_DB)
+static int cnss_cmd_db_ready(struct cnss_plat_data *plat_priv)
+{
+	return cmd_db_ready();
+}
+
+static u32 cnss_cmd_db_read_addr(struct cnss_plat_data *plat_priv,
+				 const char *res_id)
+{
+	return cmd_db_read_addr(res_id);
+}
+#else
+static int cnss_cmd_db_ready(struct cnss_plat_data *plat_priv)
+{
+	return -EOPNOTSUPP;
+}
+
+static u32 cnss_cmd_db_read_addr(struct cnss_plat_data *plat_priv,
+				 const char *res_id)
+{
+	return 0;
+}
+#endif
+
 int cnss_get_tcs_info(struct cnss_plat_data *plat_priv)
 {
 	struct platform_device *plat_dev = plat_priv->plat_dev;
@@ -948,13 +974,13 @@ int cnss_get_cpr_info(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
-	ret = cmd_db_ready();
+	ret = cnss_cmd_db_ready(plat_priv);
 	if (ret) {
-		cnss_pr_err("CommandDB is not ready\n");
+		cnss_pr_err("CommandDB is not ready, err = %d\n", ret);
 		goto out;
 	}
 
-	cpr_pmic_addr = cmd_db_read_addr(cmd_db_name);
+	cpr_pmic_addr = cnss_cmd_db_read_addr(plat_priv, cmd_db_name);
 	if (cpr_pmic_addr > 0) {
 		cpr_info->cpr_pmic_addr = cpr_pmic_addr;
 		cnss_pr_dbg("Get CPR PMIC address 0x%x from %s\n",
