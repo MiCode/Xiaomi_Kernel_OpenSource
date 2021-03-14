@@ -40,6 +40,7 @@
 #include <linux/of_irq.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <linux/of_irq.h>
+#include <linux/soc/qcom/panel_event_notifier.h>
 #if defined(CONFIG_DRM)
 #include <drm/drm_panel.h>
 #elif defined(CONFIG_FB)
@@ -88,6 +89,8 @@ struct fts_ts_data *fts_data;
 
 #if defined(CONFIG_DRM)
 static struct drm_panel *active_panel;
+static void fts_ts_panel_notifier_callback(enum panel_event_notifier_tag tag,
+		 struct panel_event_notification *event, void *client_data);
 #endif
 
 static struct ft_chip_t ctype[] = {
@@ -98,8 +101,43 @@ static struct ft_chip_t ctype[] = {
 /*****************************************************************************
 * Static function prototypes
 *****************************************************************************/
+static int fts_ts_suspend(struct device *dev);
+static int fts_ts_resume(struct device *dev);
 static irqreturn_t fts_irq_handler(int irq, void *data);
 static int fts_ts_probe_delayed(struct fts_ts_data *fts_data);
+
+static void fts_ts_register_for_panel_events(struct device_node *dp,
+					struct fts_ts_data *ts_data)
+{
+	const char *touch_type;
+	int rc = 0;
+	void *cookie = NULL;
+
+	rc = of_property_read_string(dp, "focaltech,touch-type",
+						&touch_type);
+	if (rc) {
+		dev_warn(&fts_data->client->dev,
+			"%s: No touch type\n", __func__);
+		return;
+	}
+	if (strcmp(touch_type, "primary")) {
+		pr_err("Invalid touch type\n");
+		return;
+	}
+
+	cookie = panel_event_notifier_register(PANEL_EVENT_NOTIFICATION_PRIMARY,
+			PANEL_EVENT_NOTIFIER_CLIENT_PRIMARY_TOUCH, active_panel,
+			&fts_ts_panel_notifier_callback, ts_data);
+	if (!cookie) {
+		pr_err("Failed to register for panel events\n");
+		return;
+	}
+
+	FTS_DEBUG("registered for panel notifications panel: 0x%x\n",
+			active_panel);
+
+	ts_data->notifier_cookie = cookie;
+}
 
 #ifdef CONFIG_FTS_TRUSTED_TOUCH
 
@@ -1749,7 +1787,6 @@ static int fts_pinctrl_select_normal(struct fts_ts_data *ts)
 	return ret;
 }
 
-#if defined(CONFIG_FBI) || defined(CONFIG_HAS_EARLYSUSPEND)
 static int fts_pinctrl_select_suspend(struct fts_ts_data *ts)
 {
 	int ret = 0;
@@ -1763,7 +1800,6 @@ static int fts_pinctrl_select_suspend(struct fts_ts_data *ts)
 
 	return ret;
 }
-#endif
 
 static int fts_pinctrl_select_release(struct fts_ts_data *ts)
 {
@@ -1925,7 +1961,6 @@ static int fts_power_source_exit(struct fts_ts_data *ts_data)
 	return 0;
 }
 
-#if defined(CONFIG_FBI) || defined(CONFIG_HAS_EARLYSUSPEND)
 static int fts_power_source_suspend(struct fts_ts_data *ts_data)
 {
 	int ret = 0;
@@ -1958,7 +1993,6 @@ static int fts_power_source_resume(struct fts_ts_data *ts_data)
 	return ret;
 }
 #endif /* FTS_POWER_SOURCE_CUST_EN */
-#endif
 
 static int fts_gpio_configure(struct fts_ts_data *data)
 {
@@ -2134,10 +2168,59 @@ static int fts_parse_dt(struct device *dev, struct fts_ts_platform_data *pdata)
 	return 0;
 }
 
-#if defined(CONFIG_FB)
-static int fts_ts_suspend(struct device *dev);
-static int fts_ts_resume(struct device *dev);
+#if defined(CONFIG_DRM)
+static void fts_resume_work(struct work_struct *work)
+{
+	struct fts_ts_data *ts_data = container_of(work, struct fts_ts_data,
+					resume_work);
 
+	fts_ts_resume(ts_data->dev);
+}
+
+static void fts_ts_panel_notifier_callback(enum panel_event_notifier_tag tag,
+		 struct panel_event_notification *notification, void *client_data)
+{
+	struct fts_ts_data *ts_data = client_data;
+
+	if (!notification) {
+		pr_err("Invalid notification\n");
+		return;
+	}
+
+	FTS_DEBUG("Notification type:%d, early_trigger:%d",
+			notification->notif_type,
+			notification->notif_data.early_trigger);
+	switch (notification->notif_type) {
+	case DRM_PANEL_EVENT_UNBLANK:
+		if (notification->notif_data.early_trigger)
+			FTS_DEBUG("resume notification pre commit\n");
+		else
+			queue_work(fts_data->ts_workqueue, &fts_data->resume_work);
+		break;
+	case DRM_PANEL_EVENT_BLANK:
+		if (notification->notif_data.early_trigger) {
+			cancel_work_sync(&fts_data->resume_work);
+			fts_ts_suspend(ts_data->dev);
+		} else {
+			FTS_DEBUG("suspend notification post commit\n");
+		}
+		break;
+	case DRM_PANEL_EVENT_BLANK_LP:
+		FTS_DEBUG("received lp event\n");
+		break;
+	case DRM_PANEL_EVENT_FPS_CHANGE:
+		FTS_DEBUG("shashank:Received fps change old fps:%d new fps:%d\n",
+				notification->notif_data.old_fps,
+				notification->notif_data.new_fps);
+		break;
+	default:
+		FTS_DEBUG("notification serviced :%d\n",
+				notification->notif_type);
+		break;
+	}
+}
+
+#elif defined(CONFIG_FB)
 static void fts_resume_work(struct work_struct *work)
 {
 	struct fts_ts_data *ts_data = container_of(work, struct fts_ts_data,
@@ -2366,7 +2449,11 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 	}
 #endif
 
-#if defined(CONFIG_FB)
+#if defined(CONFIG_DRM)
+	if (ts_data->ts_workqueue)
+		INIT_WORK(&ts_data->resume_work, fts_resume_work);
+
+#elif defined(CONFIG_FB)
 	if (ts_data->ts_workqueue) {
 		INIT_WORK(&ts_data->resume_work, fts_resume_work);
 	}
@@ -2440,7 +2527,11 @@ static int fts_ts_remove_entry(struct fts_ts_data *ts_data)
 	if (ts_data->ts_workqueue)
 		destroy_workqueue(ts_data->ts_workqueue);
 
-#if defined(CONFIG_FB)
+#if defined(CONFIG_DRM)
+	if (active_panel && ts_data->notifier_cookie)
+		panel_event_notifier_unregister(ts_data->notifier_cookie);
+
+#elif defined(CONFIG_FB)
 	if (fb_unregister_client(&ts_data->fb_notif))
 		FTS_ERROR("Error occurred while unregistering fb_notifier.");
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
@@ -2468,7 +2559,6 @@ static int fts_ts_remove_entry(struct fts_ts_data *ts_data)
 	return 0;
 }
 
-#if defined(CONFIG_FBI) || defined(CONFIG_HAS_EARLYSUSPEND)
 static int fts_ts_suspend(struct device *dev)
 {
 	int ret = 0;
@@ -2556,11 +2646,11 @@ static int fts_ts_resume(struct device *dev)
 	FTS_FUNC_EXIT();
 	return 0;
 }
-#endif
 
 /*****************************************************************************
 * TP Driver
 *****************************************************************************/
+
 static int fts_ts_check_dt(struct device_node *np)
 {
 	int i;
@@ -2677,6 +2767,9 @@ static int fts_ts_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 		return ret;
 	}
 
+#if defined(CONFIG_DRM)
+	fts_ts_register_for_panel_events(dp, ts_data);
+#endif
 	FTS_INFO("Touch Screen(I2C BUS) driver prboe successfully");
 	return 0;
 }

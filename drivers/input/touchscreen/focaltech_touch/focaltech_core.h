@@ -217,6 +217,7 @@ struct fts_ts_data {
 	u8 *bus_rx_buf;
 	int bus_type;
 	u8 *point_buf;
+	void *notifier_cookie;
 	int pnt_buf_size;
 	int touchs;
 	int key_state;
