@@ -105,6 +105,7 @@ static void mrdump_cblock_update(enum AEE_REBOOT_MODE reboot_mode,
 	void *creg;
 	int cpu;
 	size_t msg_count;
+	elf_gregset_t *reg;
 
 	local_irq_disable();
 
@@ -127,16 +128,24 @@ static void mrdump_cblock_update(enum AEE_REBOOT_MODE reboot_mode,
 		crash_record = &mrdump_cblock->crash_record;
 
 		cpu = raw_smp_processor_id();
+
+		switch (sizeof(unsigned long)) {
+		case 4:
+			reg = (elf_gregset_t *)&crash_record->cpu_reg[cpu].arm32_reg.arm32_regs;
+			creg = (void *)&crash_record->cpu_reg[cpu].arm32_reg.arm32_creg;
+			break;
+		case 8:
+			reg = (elf_gregset_t *)&crash_record->cpu_reg[cpu].arm64_reg.arm64_regs;
+			creg = (void *)&crash_record->cpu_reg[cpu].arm64_reg.arm64_creg;
+			break;
+		default:
+			BUILD_BUG();
+		}
+
 		if (cpu >= 0 && cpu < nr_cpu_ids) {
 			/* null regs, no register dump */
-			if (regs) {
-				elf_core_copy_kernel_regs(
-					(elf_gregset_t *)
-					&crash_record->cpu_regs[cpu],
-					regs);
-			}
-
-			creg = (void *)&crash_record->cpu_creg[cpu];
+			if (regs)
+				elf_core_copy_kernel_regs(reg, regs);
 			mrdump_save_control_register(creg);
 		}
 		msg_count = strlen(msg);
