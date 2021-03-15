@@ -35,8 +35,6 @@ static int do_vm_restart(struct notifier_block *unused, unsigned long action,
 {
 	pr_notice("Going down for vm restart now\n");
 
-	flush_cache_all();
-
 	/*outer_flush_all is not supported by 64bit kernel*/
 #ifndef CONFIG_ARM64
 	outer_flush_all();
