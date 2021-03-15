@@ -448,6 +448,11 @@ static int mcupm_device_probe(struct platform_device *pdev)
 #endif
 #endif
 
+#ifdef EMI_MPU
+	mcupm_lock_emi_mpu();
+	mcupm_init_emi_mpu();
+#endif
+
 	ret = mtk_ipi_init(pdev);
 	if (ret) {
 		pr_debug("[MCUPM] ipi interface init fail, ret %d\n", ret);
@@ -465,11 +470,6 @@ static int mcupm_device_probe(struct platform_device *pdev)
 		pr_debug("[MCUPM] plt module init fail, ret %d\n", ret);
 		return ret;
 	}
-
-#ifdef EMI_MPU
-	mcupm_lock_emi_mpu();
-	mcupm_init_emi_mpu();
-#endif
 
 	return 0;
 }
