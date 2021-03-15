@@ -574,6 +574,9 @@ static int coresight_set_csr_atid(struct list_head *path,
 		return num;
 
 	atid = kcalloc(num, sizeof(*atid), GFP_KERNEL);
+	if (!atid)
+		return -ENOMEM;
+
 	ret = of_coresight_get_atid(src_csdev, atid, num);
 	if (ret < 0) {
 		kfree(atid);
@@ -1484,6 +1487,8 @@ static ssize_t sink_name_store(struct device *dev,
 	}
 
 	sink_name = kstrdup(buf, GFP_KERNEL);
+	if (!sink_name)
+		return -ENOMEM;
 	sink_name[size-1] = 0;
 
 	hash = hashlen_hash(hashlen_string(NULL, sink_name));
