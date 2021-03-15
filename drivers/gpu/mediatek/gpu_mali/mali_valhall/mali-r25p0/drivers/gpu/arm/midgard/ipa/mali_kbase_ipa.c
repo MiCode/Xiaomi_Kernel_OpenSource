@@ -583,13 +583,13 @@ unsigned long model_static_power(struct devfreq *devfreq,
 		unsigned long voltage_mv)
 {
 	(void)(voltage_mv);
-	return mt_gpufreq_get_leakage_mw();
+	return mt_gpufreq_get_leakage_mw() * 100;
 }
 
 unsigned long model_dynamic_power(struct devfreq *devfreq,
 		unsigned long freqHz,	unsigned long voltage_mv)
 {
-	return mt_gpufreq_get_dyn_power(freqHz/1000, voltage_mv * 100);
+	return mt_gpufreq_get_dyn_power(freqHz/1000, voltage_mv * 100) * 100;
 }
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
