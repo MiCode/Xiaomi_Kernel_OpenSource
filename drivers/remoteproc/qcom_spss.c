@@ -44,8 +44,7 @@ struct qcom_spss {
 
 	struct clk *xo;
 
-	struct regulator *cx_supply;
-	struct regulator *px_supply;
+	struct reg_info cx;
 
 	int pas_id;
 
@@ -64,6 +63,7 @@ struct qcom_spss {
 	void __iomem *irq_mask;
 	void __iomem *err_status;
 	void __iomem *err_status_spare;
+	void __iomem *rmb_gpm;
 	u32 bits_arr[2];
 };
 
@@ -243,8 +243,9 @@ static bool check_status(struct qcom_spss *spss)
 	err_value =  __raw_readl(spss->err_status_spare);
 	status_val = __raw_readl(spss->irq_status);
 
-	if ((status_val & BIT(spss->bits_arr[ERR_READY])) && err_value) {
-		dev_err(spss->dev, "SPSS crashed before booting\n");
+	if ((status_val & BIT(spss->bits_arr[ERR_READY])) && err_value == SPSS_WDOG_ERR) {
+		dev_err(spss->dev, "wdog bite is pending\n");
+		__raw_writel(BIT(spss->bits_arr[ERR_READY]), spss->irq_clr);
 		return true;
 	}
 	return false;
@@ -301,6 +302,20 @@ static int spss_attach(struct rproc *rproc)
 	return ret;
 }
 
+static inline void disable_regulator(struct reg_info *regulator)
+{
+	regulator_set_voltage(regulator->reg, 0, INT_MAX);
+	regulator_set_load(regulator->reg, 0);
+	regulator_disable(regulator->reg);
+}
+
+static inline int enable_regulator(struct reg_info *regulator)
+{
+	regulator_set_voltage(regulator->reg, regulator->uV, INT_MAX);
+	regulator_set_load(regulator->reg, regulator->uA);
+	return regulator_enable(regulator->reg);
+}
+
 static int spss_start(struct rproc *rproc)
 {
 	struct qcom_spss *spss = (struct qcom_spss *)rproc->priv;
@@ -310,19 +325,15 @@ static int spss_start(struct rproc *rproc)
 	if (ret)
 		return ret;
 
-	ret = regulator_enable(spss->cx_supply);
+	ret = enable_regulator(&spss->cx);
 	if (ret)
 		goto disable_xo_clk;
-
-	ret = regulator_enable(spss->px_supply);
-	if (ret)
-		goto disable_cx_supply;
 
 	ret = qcom_scm_pas_auth_and_reset(spss->pas_id);
 	if (ret) {
 		dev_err(spss->dev,
 			"failed to authenticate image and release reset with error %d\n", ret);
-		goto disable_px_supply;
+		goto disable_cx_supply;
 	}
 
 	unmask_scsr_irqs(spss);
@@ -334,10 +345,8 @@ static int spss_start(struct rproc *rproc)
 	}
 	ret = ret ? 0 : -ETIMEDOUT;
 
-disable_px_supply:
-	regulator_disable(spss->px_supply);
 disable_cx_supply:
-	regulator_disable(spss->cx_supply);
+	disable_regulator(&spss->cx);
 disable_xo_clk:
 	clk_disable_unprepare(spss->xo);
 	return ret;
@@ -381,17 +390,31 @@ static int spss_init_clock(struct qcom_spss *spss)
 	return 0;
 }
 
-static int spss_init_regulator(struct qcom_spss *spss)
+static int init_regulator(struct device *dev, struct reg_info *regulator, const char *reg_name)
 {
-	spss->cx_supply = devm_regulator_get(spss->dev, "cx");
-	if (IS_ERR(spss->cx_supply))
-		return PTR_ERR(spss->cx_supply);
-	regulator_set_load(spss->cx_supply, 100000);
+	int len, rc;
+	char uv_ua[50];
+	u32 uv_ua_vals[2];
 
-	spss->px_supply = devm_regulator_get(spss->dev, "px");
-	if (IS_ERR(spss->px_supply))
-		return PTR_ERR(spss->px_supply);
-	regulator_set_load(spss->px_supply, 100000);
+	regulator->reg = devm_regulator_get(dev, reg_name);
+	if (IS_ERR(regulator->reg))
+		return PTR_ERR(regulator->reg);
+
+	snprintf(uv_ua, sizeof(uv_ua), "%s-uV-uA", reg_name);
+	if (!of_find_property(dev->of_node, uv_ua, &len))
+		return -EINVAL;
+
+	rc = of_property_read_u32_array(dev->of_node, uv_ua,
+					uv_ua_vals,
+					ARRAY_SIZE(uv_ua_vals));
+	if (rc) {
+		dev_err(dev, "Failed to read uV-uA value(rc:%d)\n", rc);
+		return rc;
+	}
+	if (uv_ua_vals[0] > 0)
+		regulator->uV = uv_ua_vals[0];
+	if (uv_ua_vals[1] > 0)
+		regulator->uA = uv_ua_vals[1];
 
 	return 0;
 }
@@ -430,6 +453,11 @@ static int qcom_spss_init_mmio(struct platform_device *pdev, struct qcom_spss *s
 {
 	struct resource *res;
 	int ret;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rmb_general_purpose");
+	spss->rmb_gpm = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(spss->rmb_gpm))
+		return PTR_ERR(spss->rmb_gpm);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "sp2soc_irq_status");
 	spss->irq_status = devm_ioremap_resource(&pdev->dev, res);
@@ -510,13 +538,18 @@ static int qcom_spss_probe(struct platform_device *pdev)
 	spss->pas_id = desc->pas_id;
 	init_completion(&spss->start_done);
 	platform_set_drvdata(pdev, spss);
-	rproc->state = RPROC_DETACHED;
 	rproc->auto_boot = desc->auto_boot;
+	rproc->recovery_disabled = true;
 	rproc_coredump_set_elf_info(rproc, ELFCLASS32, EM_NONE);
 
 	ret = qcom_spss_init_mmio(pdev, spss);
 	if (ret)
 		goto free_rproc;
+
+	if (!(__raw_readl(spss->rmb_gpm) & BIT(0)))
+		rproc->state = RPROC_DETACHED;
+	else
+		rproc->state = RPROC_OFFLINE;
 
 	ret = spss_alloc_memory_region(spss);
 	if (ret)
@@ -526,7 +559,7 @@ static int qcom_spss_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_rproc;
 
-	ret = spss_init_regulator(spss);
+	ret = init_regulator(spss->dev, &spss->cx, "cx");
 	if (ret)
 		goto free_rproc;
 

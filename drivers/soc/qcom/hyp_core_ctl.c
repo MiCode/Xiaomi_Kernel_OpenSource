@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"hyp_core_ctl: " fmt
@@ -16,11 +16,12 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
-#include <linux/cpu_cooling.h>
+#include <linux/thermal_pause.h>
 #include <linux/mutex.h>
 #include <linux/debugfs.h>
 #include <linux/pm_qos.h>
 #include <linux/cpufreq.h>
+#include <linux/cpu.h>
 
 #include <linux/haven/hcall.h>
 #include <linux/haven/hh_errno.h>
@@ -57,7 +58,7 @@ struct hyp_core_ctl_cpu_map {
  *                     during thermal conditions while reservation is
  *                     not enabled. So this synchronization is needed.
  * @reserve_cpus: The CPUs to be reserved. input.
- * @our_isolated_cpus: The CPUs isolated by hyp_core_ctl driver. output.
+ * @our_paused_cpus: The CPUs paused by hyp_core_ctl driver. output.
  * @final_reserved_cpus: The CPUs reserved for the Hypervisor. output.
  * @cpumap: The vcpu to pcpu mapping table
  */
@@ -68,7 +69,7 @@ struct hyp_core_ctl_data {
 	bool reservation_enabled;
 	struct mutex reservation_mutex;
 	cpumask_t reserve_cpus;
-	cpumask_t our_isolated_cpus;
+	cpumask_t our_paused_cpus;
 	cpumask_t final_reserved_cpus;
 	struct hyp_core_ctl_cpu_map cpumap[NR_CPUS];
 };
@@ -87,17 +88,39 @@ static inline void hyp_core_ctl_print_status(char *msg)
 {
 	trace_hyp_core_ctl_status(the_hcd, msg);
 
-	pr_debug("%s: reserve=%*pbl reserved=%*pbl our_isolated=%*pbl online=%*pbl isolated=%*pbl thermal=%*pbl\n",
+	pr_debug("%s: reserve=%*pbl reserved=%*pbl our_paused=%*pbl online=%*pbl active=%*pbl thermal=%*pbl\n",
 		msg, cpumask_pr_args(&the_hcd->reserve_cpus),
 		cpumask_pr_args(&the_hcd->final_reserved_cpus),
-		cpumask_pr_args(&the_hcd->our_isolated_cpus),
+		cpumask_pr_args(&the_hcd->our_paused_cpus),
 		cpumask_pr_args(cpu_online_mask),
-#ifdef CONFIG_SCHED_WALT
-		cpumask_pr_args(cpu_isolated_mask),
-#else
-		0,
-#endif
-		cpumask_pr_args(cpu_cooling_get_max_level_cpumask()));
+		cpumask_pr_args(cpu_active_mask),
+		cpumask_pr_args(thermal_paused_cpumask()));
+}
+
+static inline int pause_cpu(int cpu)
+{
+	cpumask_t cpus_to_pause;
+	int ret;
+
+	cpumask_clear(&cpus_to_pause);
+	cpumask_set_cpu(cpu, &cpus_to_pause);
+
+	ret = pause_cpus(&cpus_to_pause);
+
+	return ret;
+}
+
+static inline int resume_cpu(int cpu)
+{
+	cpumask_t cpus_to_resume;
+	int ret;
+
+	cpumask_clear(&cpus_to_resume);
+	cpumask_set_cpu(cpu, &cpus_to_resume);
+
+	ret = resume_cpus(&cpus_to_resume);
+
+	return ret;
 }
 
 static void hyp_core_ctl_undo_reservation(struct hyp_core_ctl_data *hcd)
@@ -107,14 +130,14 @@ static void hyp_core_ctl_undo_reservation(struct hyp_core_ctl_data *hcd)
 
 	hyp_core_ctl_print_status("undo_reservation_start");
 
-	for_each_cpu(cpu, &hcd->our_isolated_cpus) {
-		ret = sched_unisolate_cpu(cpu);
+	for_each_cpu(cpu, &hcd->our_paused_cpus) {
+		ret = resume_cpu(cpu);
 		if (ret < 0) {
-			pr_err("fail to un-isolate CPU%d. ret=%d\n", cpu, ret);
+			pr_err("fail to un-pause CPU%d. ret=%d\n", cpu, ret);
 			continue;
 		}
 
-		cpumask_clear_cpu(cpu, &hcd->our_isolated_cpus);
+		cpumask_clear_cpu(cpu, &hcd->our_paused_cpus);
 
 		if (freq_qos_init_done) {
 			qos_req = &per_cpu(qos_min_req, cpu);
@@ -147,7 +170,7 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 	 * don't change the existing scheme. We can't assign the
 	 * same physical CPU to multiple virtual CPUs.
 	 *
-	 * This may only happen when thermal isolate more CPUs.
+	 * This may only happen when thermal pause more CPUs.
 	 */
 	if (cpumask_weight(temp) < cpumask_weight(&hcd->reserve_cpus)) {
 		pr_debug("Fail to reserve some CPUs\n");
@@ -169,7 +192,7 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 	 * maintained in vcpu_adjust_mask and processed in the 2nd pass.
 	 */
 	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
-		if (hcd->cpumap[i].cap_id == 0)
+		if (hcd->cpumap[i].cap_id == HH_CAPID_INVAL)
 			break;
 
 		orig_cpu = hcd->cpumap[i].pcpu;
@@ -189,7 +212,7 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 			err = hh_hcall_vcpu_affinity_set(hcd->cpumap[i].cap_id,
 								orig_cpu);
 			if (err != HH_ERROR_OK) {
-				pr_err("restore: fail to assign pcpu for vcpu#%d err=%d cap_id=%d cpu=%d\n",
+				pr_err("restore: fail to assign pcpu for vcpu#%d err=%d cap_id=%llu cpu=%d\n",
 					i, err, hcd->cpumap[i].cap_id, orig_cpu);
 				continue;
 			}
@@ -234,7 +257,7 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 		err = hh_hcall_vcpu_affinity_set(hcd->cpumap[i].cap_id,
 							replacement_cpu);
 		if (err != HH_ERROR_OK) {
-			pr_err("adjust: fail to assign pcpu for vcpu#%d err=%d cap_id=%d cpu=%d\n",
+			pr_err("adjust: fail to assign pcpu for vcpu#%d err=%d cap_id=%llu cpu=%d\n",
 				i, err, hcd->cpumap[i].cap_id, replacement_cpu);
 			continue;
 		}
@@ -253,8 +276,8 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
 {
 	cpumask_t offline_cpus, iter_cpus, temp_reserved_cpus;
-	int i, ret, iso_required, iso_done;
-	const cpumask_t *thermal_cpus = cpu_cooling_get_max_level_cpumask();
+	int i, ret, pause_req, pause_done;
+	const cpumask_t *thermal_cpus = thermal_paused_cpumask();
 	struct freq_qos_request *qos_req;
 	unsigned int min_freq;
 
@@ -264,12 +287,12 @@ static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
 	hyp_core_ctl_print_status("reservation_start");
 
 	/*
-	 * Iterate all reserve CPUs and isolate them if not done already.
-	 * The offline CPUs can't be isolated but they are considered
+	 * Iterate all reserve CPUs and pause them if not done already.
+	 * The offline CPUs can't be paused but they are considered
 	 * reserved. When an offline and reserved CPU comes online, it
-	 * will be isolated to honor the reservation.
+	 * will be paused to honor the reservation.
 	 */
-	cpumask_andnot(&iter_cpus, &hcd->reserve_cpus, &hcd->our_isolated_cpus);
+	cpumask_andnot(&iter_cpus, &hcd->reserve_cpus, &hcd->our_paused_cpus);
 	cpumask_andnot(&iter_cpus, &iter_cpus, thermal_cpus);
 
 	for_each_cpu(i, &iter_cpus) {
@@ -278,13 +301,13 @@ static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
 			continue;
 		}
 
-		ret = sched_isolate_cpu(i);
+		ret = pause_cpu(i);
 		if (ret < 0) {
-			pr_debug("fail to isolate CPU%d. ret=%d\n", i, ret);
+			pr_debug("fail to pause CPU%d. ret=%d\n", i, ret);
 			continue;
 		}
 
-		cpumask_set_cpu(i, &hcd->our_isolated_cpus);
+		cpumask_set_cpu(i, &hcd->our_paused_cpus);
 
 		min_freq = per_cpu(qos_min_freq, i);
 		if (min_freq && freq_qos_init_done) {
@@ -297,28 +320,28 @@ static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
 	}
 
 	cpumask_andnot(&iter_cpus, &hcd->reserve_cpus, &offline_cpus);
-	iso_required = cpumask_weight(&iter_cpus);
-	iso_done = cpumask_weight(&hcd->our_isolated_cpus);
+	pause_req = cpumask_weight(&iter_cpus);
+	pause_done = cpumask_weight(&hcd->our_paused_cpus);
 
-	if (iso_done < iso_required) {
-		int isolate_need;
+	if (pause_done < pause_req) {
+		int pause_need;
 
 		/*
-		 * We have isolated fewer CPUs than required. This happens
+		 * We have paused fewer CPUs than required. This happens
 		 * when some of the CPUs from the reserved_cpus mask
 		 * are managed by thermal. Find the replacement CPUs and
-		 * isolate them.
+		 * pause them.
 		 */
-		isolate_need = iso_required - iso_done;
+		pause_need = pause_req - pause_done;
 
 		/*
 		 * Create a cpumask from which replacement CPUs can be
-		 * picked. Exclude our isolated CPUs, thermal managed
+		 * picked. Exclude our paused CPUs, thermal managed
 		 * CPUs and offline CPUs, which are already considered
 		 * as reserved.
 		 */
 		cpumask_andnot(&iter_cpus, cpu_possible_mask,
-			       &hcd->our_isolated_cpus);
+			       &hcd->our_paused_cpus);
 		cpumask_andnot(&iter_cpus, &iter_cpus, thermal_cpus);
 		cpumask_andnot(&iter_cpus, &iter_cpus, &offline_cpus);
 
@@ -329,7 +352,7 @@ static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
 		for_each_cpu(i, &iter_cpus) {
 			if (!cpu_online(i)) {
 				cpumask_set_cpu(i, &offline_cpus);
-				if (--isolate_need == 0)
+				if (--pause_need == 0)
 					goto done;
 			}
 		}
@@ -337,14 +360,14 @@ static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
 		cpumask_andnot(&iter_cpus, &iter_cpus, &offline_cpus);
 
 		for_each_cpu(i, &iter_cpus) {
-			ret = sched_isolate_cpu(i);
+			ret = pause_cpu(i);
 			if (ret < 0) {
-				pr_debug("fail to isolate CPU%d. ret=%d\n",
+				pr_debug("fail to pause CPU%d. ret=%d\n",
 						i, ret);
 				continue;
 			}
 
-			cpumask_set_cpu(i, &hcd->our_isolated_cpus);
+			cpumask_set_cpu(i, &hcd->our_paused_cpus);
 
 			min_freq = per_cpu(qos_min_freq, i);
 			if (min_freq && freq_qos_init_done) {
@@ -356,42 +379,42 @@ static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
 								i, ret);
 			}
 
-			if (--isolate_need == 0)
+			if (--pause_need == 0)
 				break;
 		}
-	} else if (iso_done > iso_required) {
-		int unisolate_need;
+	} else if (pause_done > pause_req) {
+		int unpause_need;
 
 		/*
-		 * We have isolated more CPUs than required. Un-isolate
+		 * We have paused more CPUs than required. Un-pause
 		 * the additional CPUs which are not part of the
 		 * reserve_cpus mask.
 		 *
 		 * This happens in the following scenario.
 		 *
 		 * - Lets say reserve CPUs are CPU4 and CPU5. They are
-		 *   isolated.
-		 * - CPU4 is isolated by thermal. We found CPU0 as the
-		 *   replacement CPU. Now CPU0 and CPU5 are isolated by
+		 *   paused.
+		 * - CPU4 is paused by thermal. We found CPU0 as the
+		 *   replacement CPU. Now CPU0 and CPU5 are paused by
 		 *   us.
-		 * - CPU4 is un-isolated by thermal. We first isolate CPU4
+		 * - CPU4 is un-paused by thermal. We first pause CPU4
 		 *   since it is part of our reserve CPUs. Now CPU0, CPU4
-		 *   and CPU5 are isolated by us.
-		 * - Since iso_done (3) > iso_required (2), un-isolate
+		 *   and CPU5 are paused by us.
+		 * - Since pause_done (3) > pause_req (2), un-pause
 		 *   a CPU which is not part of the reserve CPU. i.e CPU0.
 		 */
-		unisolate_need = iso_done - iso_required;
-		cpumask_andnot(&iter_cpus, &hcd->our_isolated_cpus,
+		unpause_need = pause_done - pause_req;
+		cpumask_andnot(&iter_cpus, &hcd->our_paused_cpus,
 			       &hcd->reserve_cpus);
 		for_each_cpu(i, &iter_cpus) {
-			ret = sched_unisolate_cpu(i);
+			ret = resume_cpu(i);
 			if (ret < 0) {
-				pr_err("fail to unisolate CPU%d. ret=%d\n",
+				pr_err("fail to unpause CPU%d. ret=%d\n",
 				       i, ret);
 				continue;
 			}
 
-			cpumask_clear_cpu(i, &hcd->our_isolated_cpus);
+			cpumask_clear_cpu(i, &hcd->our_paused_cpus);
 
 			if (freq_qos_init_done) {
 				qos_req = &per_cpu(qos_min_req, i);
@@ -402,13 +425,13 @@ static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
 								i, ret);
 			}
 
-			if (--unisolate_need == 0)
+			if (--unpause_need == 0)
 				break;
 		}
 	}
 
 done:
-	cpumask_or(&temp_reserved_cpus, &hcd->our_isolated_cpus, &offline_cpus);
+	cpumask_or(&temp_reserved_cpus, &hcd->our_paused_cpus, &offline_cpus);
 	finalize_reservation(hcd, &temp_reserved_cpus);
 
 	hyp_core_ctl_print_status("reservation_end");
@@ -457,7 +480,7 @@ static void hyp_core_ctl_handle_thermal(struct hyp_core_ctl_data *hcd,
 					int cpu, bool throttled)
 {
 	cpumask_t temp_mask, iter_cpus;
-	const cpumask_t *thermal_cpus = cpu_cooling_get_max_level_cpumask();
+	const cpumask_t *thermal_cpus = thermal_paused_cpumask();
 	bool notify = false;
 	int replacement_cpu;
 
@@ -511,7 +534,7 @@ static int hyp_core_ctl_cpu_cooling_cb(struct notifier_block *nb,
 				       unsigned long val, void *data)
 {
 	int cpu = (long) data;
-	const cpumask_t *thermal_cpus = cpu_cooling_get_max_level_cpumask();
+	const cpumask_t *thermal_cpus = thermal_paused_cpumask();
 	struct freq_qos_request *qos_req;
 	int ret;
 
@@ -534,13 +557,13 @@ static int hyp_core_ctl_cpu_cooling_cb(struct notifier_block *nb,
 		/*
 		 * The thermal mitigated CPU is part of our reserved CPUs.
 		 *
-		 * If it is isolated by us, unisolate it. If it is not
-		 * isolated, probably it is offline. In both cases, kick
+		 * If it is paused by us, unpause it. If it is not
+		 * paused, probably it is offline. In both cases, kick
 		 * the state machine to find a replacement CPU.
 		 */
-		if (cpumask_test_cpu(cpu, &the_hcd->our_isolated_cpus)) {
-			sched_unisolate_cpu(cpu);
-			cpumask_clear_cpu(cpu, &the_hcd->our_isolated_cpus);
+		if (cpumask_test_cpu(cpu, &the_hcd->our_paused_cpus)) {
+			resume_cpu(cpu);
+			cpumask_clear_cpu(cpu, &the_hcd->our_paused_cpus);
 			if (freq_qos_init_done) {
 				qos_req = &per_cpu(qos_min_req, cpu);
 				ret = freq_qos_update_request(qos_req,
@@ -600,14 +623,7 @@ static int hyp_core_ctl_hp_offline(unsigned int cpu)
 	if (!the_hcd || !the_hcd->reservation_enabled)
 		return 0;
 
-	/*
-	 * A CPU can't be left in isolated state while it is
-	 * going offline. So unisolate the CPU if it is
-	 * isolated by us. An offline CPU is considered
-	 * as reserved. So no further action is needed.
-	 */
-	if (cpumask_test_and_clear_cpu(cpu, &the_hcd->our_isolated_cpus)) {
-		sched_unisolate_cpu_unlocked(cpu);
+	if (cpumask_test_and_clear_cpu(cpu, &the_hcd->our_paused_cpus)) {
 		if (freq_qos_init_done) {
 			qos_req = &per_cpu(qos_min_req, cpu);
 			ret = freq_qos_update_request(qos_req,
@@ -627,7 +643,7 @@ static int hyp_core_ctl_hp_online(unsigned int cpu)
 		return 0;
 
 	/*
-	 * A reserved CPU is coming online. It should be isolated
+	 * A reserved CPU is coming online. It should be paused
 	 * to honor the reservation. So kick the state machine.
 	 */
 	spin_lock(&the_hcd->lock);
@@ -648,7 +664,7 @@ static void hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
 	cpumask_clear(&hcd->reserve_cpus);
 
 	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
-		if (hh_cpumap[i].cap_id == 0)
+		if (hh_cpumap[i].cap_id == HH_CAPID_INVAL)
 			break;
 
 		hcd->cpumap[i].cap_id = hh_cpumap[i].cap_id;
@@ -667,7 +683,7 @@ static void hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
  * Called when vm_status is STATUS_READY, multiple times before status
  * moves to STATUS_RUNNING
  */
-int hh_vcpu_populate_affinity_info(u32 cpu_idx, u64 cap_id)
+static int hh_vcpu_populate_affinity_info(hh_label_t cpu_idx, hh_capid_t cap_id)
 {
 	if (!init_done) {
 		pr_err("Driver probe failed\n");
@@ -777,27 +793,26 @@ static ssize_t status_show(struct device *dev, struct device_attribute *attr,
 			   cpumask_pr_args(&hcd->final_reserved_cpus));
 
 	count += scnprintf(buf + count, PAGE_SIZE - count,
-			   "our_isolated_cpus=%*pbl\n",
-			   cpumask_pr_args(&hcd->our_isolated_cpus));
+			   "our_paused_cpus=%*pbl\n",
+			   cpumask_pr_args(&hcd->our_paused_cpus));
 
 	count += scnprintf(buf + count, PAGE_SIZE - count,
 			   "online_cpus=%*pbl\n",
 			   cpumask_pr_args(cpu_online_mask));
 
-#ifdef CONFIG_SCHED_WALT
 	count += scnprintf(buf + count, PAGE_SIZE - count,
-			   "isolated_cpus=%*pbl\n",
-			   cpumask_pr_args(cpu_isolated_mask));
-#endif
+			   "active_cpus=%*pbl\n",
+			   cpumask_pr_args(cpu_active_mask));
+
 	count += scnprintf(buf + count, PAGE_SIZE - count,
-		   "thermal_cpus=%*pbl\n",
-		   cpumask_pr_args(cpu_cooling_get_max_level_cpumask()));
+			   "thermal_cpus=%*pbl\n",
+			   cpumask_pr_args(thermal_paused_cpumask()));
 
 	count += scnprintf(buf + count, PAGE_SIZE - count,
 			   "Vcpu to Pcpu mappings:\n");
 
 	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
-		if (hcd->cpumap[i].cap_id == 0)
+		if (hcd->cpumap[i].cap_id == HH_CAPID_INVAL)
 			break;
 
 		count += scnprintf(buf + count, PAGE_SIZE - count,
@@ -943,7 +958,6 @@ static ssize_t read_reserve_cpus(struct file *file, char __user *ubuf,
 static ssize_t write_reserve_cpus(struct file *file, const char __user *ubuf,
 				  size_t count, loff_t *ppos)
 {
-	char kbuf[CPULIST_SZ];
 	int ret;
 	cpumask_t temp_mask;
 
@@ -954,12 +968,7 @@ static ssize_t write_reserve_cpus(struct file *file, const char __user *ubuf,
 		goto err_out;
 	}
 
-	ret = simple_write_to_buffer(kbuf, CPULIST_SZ - 1, ppos, ubuf, count);
-	if (ret < 0)
-		goto err_out;
-
-	kbuf[ret] = '\0';
-	ret = cpulist_parse(kbuf, &temp_mask);
+	ret = cpumask_parselist_user(ubuf, count, &temp_mask);
 	if (ret < 0)
 		goto err_out;
 
@@ -1012,9 +1021,17 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 	struct hyp_core_ctl_data *hcd;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
 
-	ret = hh_rm_register_notifier(&hh_vcpu_nb);
-	if (ret)
+	ret = hh_rm_set_vcpu_affinity_cb(&hh_vcpu_populate_affinity_info);
+	if (ret) {
+		pr_err("fail to set the vcpu affinity callback\n");
 		return ret;
+	}
+
+	ret = hh_rm_register_notifier(&hh_vcpu_nb);
+	if (ret) {
+		pr_err("fail to register hh_rm_notifier\n");
+		goto reset_cb;
+	}
 
 	hcd = kzalloc(sizeof(*hcd), GFP_KERNEL);
 	if (!hcd) {
@@ -1041,15 +1058,12 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 		goto stop_task;
 	}
 
-	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
+	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN_END,
 				  "qcom/hyp_core_ctl:online",
-				  hyp_core_ctl_hp_online, NULL);
+				  hyp_core_ctl_hp_online,
+				  hyp_core_ctl_hp_offline);
 
-	cpuhp_setup_state_nocalls(CPUHP_HYP_CORE_CTL_ISOLATION_DEAD,
-				  "qcom/hyp_core_ctl:dead",
-				  NULL, hyp_core_ctl_hp_offline);
-
-	cpu_cooling_max_level_notifier_register(&hyp_core_ctl_nb);
+	thermal_pause_notifier_register(&hyp_core_ctl_nb);
 	hyp_core_ctl_debugfs_init();
 
 	the_hcd = hcd;
@@ -1062,6 +1076,8 @@ free_hcd:
 	kfree(hcd);
 unregister_rm_notifier:
 	hh_rm_unregister_notifier(&hh_vcpu_nb);
+reset_cb:
+	hh_rm_set_vcpu_affinity_cb(NULL);
 
 	return ret;
 }

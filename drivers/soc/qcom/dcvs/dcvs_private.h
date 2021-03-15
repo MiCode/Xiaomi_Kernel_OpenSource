@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _QCOM_DCVS_PRIVATE_H
@@ -37,8 +37,7 @@ struct dcvs_hw {
 	u32			width;
 	u32			hw_min_freq;
 	u32			hw_max_freq;
-	u32			user_min_freq;
-	u32			user_max_freq;
+	u32			boost_freq;
 	struct dcvs_path	*dcvs_paths[NUM_DCVS_PATHS];
 	u32			num_paths;
 	u32			num_inited_paths;

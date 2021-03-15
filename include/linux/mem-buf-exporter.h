@@ -28,7 +28,6 @@ struct mem_buf_dma_buf_ops {
 	int (*attach)(struct dma_buf *dmabuf, struct dma_buf_attachment *a);
 	struct dma_buf_ops dma_ops;
 };
-extern const struct mem_buf_dma_buf_ops mem_buf_dma_buf_ops;
 
 struct dma_buf *
 mem_buf_dma_buf_export(const struct dma_buf_export_info *exp_info);

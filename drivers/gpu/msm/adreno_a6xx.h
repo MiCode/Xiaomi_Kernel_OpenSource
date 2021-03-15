@@ -20,6 +20,16 @@ extern const struct adreno_power_ops a6xx_rgmu_power_ops;
 extern const struct adreno_power_ops a630_gmu_power_ops;
 extern const struct adreno_power_ops a6xx_hwsched_power_ops;
 
+struct a6xx_gpudev {
+	struct adreno_gpudev base;
+	int (*hfi_probe)(struct adreno_device *adreno_dev);
+	void (*handle_watchdog)(struct adreno_device *adreno_dev);
+};
+
+extern const struct a6xx_gpudev adreno_a630_gpudev;
+extern const struct a6xx_gpudev adreno_a6xx_gmu_gpudev;
+extern const struct a6xx_gpudev adreno_a6xx_hwsched_gpudev;
+
 /**
  * struct a6xx_device - Container for the a6xx_device
  */
@@ -51,11 +61,11 @@ struct adreno_a6xx_core {
 	/** @zap_name: Name of the CPZ zap file */
 	const char *zap_name;
 	/** @hwcg: List of registers and values to write for HWCG */
-	const struct adreno_reglist *hwcg;
+	const struct kgsl_regmap_list *hwcg;
 	/** @hwcg_count: Number of registers in @hwcg */
 	u32 hwcg_count;
 	/** @vbif: List of registers and values to write for VBIF */
-	const struct adreno_reglist *vbif;
+	const struct kgsl_regmap_list *vbif;
 	/** @vbif_count: Number of registers in @vbif */
 	u32 vbif_count;
 	/** @veto_fal10: veto status for fal10 feature */
@@ -216,8 +226,12 @@ static inline bool a6xx_is_smmu_stalled(struct kgsl_device *device)
  *
  * Return: True if the regulator was disabled or false if it timed out
  */
-bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
-				struct kgsl_device *device, u32 timeout);
+static inline bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
+				struct kgsl_device *device, u32 timeout)
+{
+	return adreno_regulator_disable_poll(device, reg,
+		A6XX_GPU_CC_CX_GDSCR, timeout);
+}
 
 /* Preemption functions */
 void a6xx_preemption_trigger(struct adreno_device *adreno_dev);
@@ -434,4 +448,15 @@ int a6xx_fenced_write(struct adreno_device *adreno_dev, u32 offset,
 
 int a6xx_ringbuffer_submit(struct adreno_ringbuffer *rb,
 		struct adreno_submit_time *time, bool sync);
+
+void a6xx_cp_init_cmds(struct adreno_device *adreno_dev, u32 *cmds);
+
+int a6xx_gmu_hfi_probe(struct adreno_device *adreno_dev);
+
+static inline const struct a6xx_gpudev *
+to_a6xx_gpudev(const struct adreno_gpudev *gpudev)
+{
+	return container_of(gpudev, struct a6xx_gpudev, base);
+}
+
 #endif

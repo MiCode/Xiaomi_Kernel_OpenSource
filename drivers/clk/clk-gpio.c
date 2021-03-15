@@ -166,7 +166,6 @@ static struct clk_hw *clk_register_gpio(struct device *dev, u8 num_parents,
 	err = devm_clk_hw_register(dev, hw);
 	if (err)
 		return ERR_PTR(err);
-	hw->init = NULL;
 
 	return hw;
 }

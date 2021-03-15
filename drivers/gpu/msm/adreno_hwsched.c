@@ -212,8 +212,7 @@ static inline int hwsched_dispatcher_requeue_cmdobj(
 
 	spin_lock(&drawctxt->lock);
 
-	if (kgsl_context_detached(&drawctxt->base) ||
-		kgsl_context_invalid(&drawctxt->base)) {
+	if (kgsl_context_is_bad(&drawctxt->base)) {
 		spin_unlock(&drawctxt->lock);
 		/* get rid of this drawobj since the context is bad */
 		kgsl_drawobj_destroy(drawobj);
@@ -272,6 +271,13 @@ static int hwsched_queue_context(struct adreno_device *adreno_dev,
 	llist_add(&job->node, &hwsched->jobs[drawctxt->base.priority]);
 
 	return 0;
+}
+
+void adreno_hwsched_flush(struct adreno_device *adreno_dev)
+{
+	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
+
+	kthread_flush_worker(hwsched->worker);
 }
 
 void adreno_hwsched_set_fault(struct adreno_device *adreno_dev)
@@ -464,13 +470,6 @@ static int hwsched_sendcmds(struct adreno_device *adreno_dev,
 	return ret;
 }
 
-static bool adreno_drawctxt_bad(struct adreno_context *drawctxt)
-{
-	return (kgsl_context_detached(&drawctxt->base) ||
-		kgsl_context_invalid(&drawctxt->base));
-}
-
-
 static void hwsched_handle_jobs_list(struct adreno_device *adreno_dev,
 	int id, unsigned long *map, struct llist_node *list)
 {
@@ -486,7 +485,7 @@ static void hwsched_handle_jobs_list(struct adreno_device *adreno_dev,
 	llist_for_each_entry_safe(job, next, list, node) {
 		int ret;
 
-		if (adreno_drawctxt_bad(job->drawctxt)) {
+		if (kgsl_context_is_bad(&job->drawctxt->base)) {
 			kgsl_context_put(&job->drawctxt->base);
 			kmem_cache_free(jobs_cache, job);
 			continue;
@@ -566,7 +565,7 @@ void adreno_hwsched_trigger(struct adreno_device *adreno_dev)
 {
 	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
 
-	kthread_queue_work(&kgsl_driver.worker, &hwsched->work);
+	kthread_queue_work(hwsched->worker, &hwsched->work);
 }
 
 /**
@@ -680,7 +679,7 @@ static inline int _verify_cmdobj(struct kgsl_device_private *dev_priv,
 			 * been submitted since the last time we set it.
 			 * But only clear it when we have rendering commands.
 			 */
-			device->flags &= ~KGSL_FLAG_WAKE_ON_TOUCH;
+			ADRENO_DEVICE(device)->wake_on_touch = false;
 		}
 	}
 
@@ -824,7 +823,7 @@ static int _queue_markerobj(struct adreno_device *adreno_dev,
 	return 0;
 }
 
-int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
+static int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 	struct kgsl_context *context, struct kgsl_drawobj *drawobj[],
 	u32 count, u32 *timestamp)
 
@@ -1005,11 +1004,9 @@ static void hwsched_power_down(struct adreno_device *adreno_dev)
 	mutex_unlock(&device->mutex);
 }
 
-void adreno_hwsched_queue_context(struct kgsl_device *device,
+static void adreno_hwsched_queue_context(struct adreno_device *adreno_dev,
 	struct adreno_context *drawctxt)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
 	hwsched_queue_context(adreno_dev, drawctxt);
 	adreno_hwsched_trigger(adreno_dev);
 }
@@ -1080,9 +1077,7 @@ static bool _preemption_show(struct adreno_device *adreno_dev)
 
 static unsigned int _preempt_count_show(struct adreno_device *adreno_dev)
 {
-	int count = a6xx_hwsched_preempt_count_get(adreno_dev);
-
-	return count < 0 ? 0 : count;
+	return a6xx_hwsched_preempt_count_get(adreno_dev);
 }
 
 static int _gmu_log_stream_enable_store(struct adreno_device *adreno_dev,
@@ -1120,9 +1115,15 @@ static const struct attribute *_hwsched_attr_list[] = {
 	NULL,
 };
 
-void adreno_hwsched_dispatcher_close(struct adreno_device *adreno_dev)
+static void adreno_hwsched_dispatcher_close(struct adreno_device *adreno_dev)
 {
+	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (!IS_ERR_OR_NULL(hwsched->worker))
+		kthread_destroy_worker(hwsched->worker);
+
+	adreno_set_dispatch_ops(adreno_dev, NULL);
 
 	kmem_cache_destroy(jobs_cache);
 	kmem_cache_destroy(obj_cache);
@@ -1170,8 +1171,7 @@ static void adreno_hwsched_complete_replay(struct adreno_device *adreno_dev)
 		 * or invalidated contexts
 		 */
 		if ((kgsl_check_timestamp(device, context, drawobj->timestamp))
-			|| kgsl_context_invalid(context)
-			|| kgsl_context_detached(context)) {
+			|| kgsl_context_is_bad(context)) {
 
 			retire_cmdobj(cmdobj);
 			retired++;
@@ -1275,10 +1275,8 @@ static void reset_and_snapshot(struct adreno_device *adreno_dev)
 
 	force_retire_timestamp(device, drawobj);
 
-	if (context->flags & KGSL_CONTEXT_INVALIDATE_ON_FAULT) {
-		adreno_mark_guilty_context(device, context->id);
-		adreno_drawctxt_invalidate(device, context);
-	}
+	if (context->flags & KGSL_CONTEXT_INVALIDATE_ON_FAULT)
+		adreno_drawctxt_set_guilty(device, context);
 
 	/* This must always happen after taking snapshot */
 	clear_bit(CMDOBJ_FAULT, &obj->cmdobj->priv);
@@ -1349,7 +1347,21 @@ static void adreno_hwsched_work(struct kthread_work *work)
 	mutex_unlock(&hwsched->mutex);
 }
 
-void adreno_hwsched_init(struct adreno_device *adreno_dev)
+static void adreno_hwsched_fault(struct adreno_device *adreno_dev,
+		u32 fault)
+{
+	adreno_get_gpu_halt(adreno_dev);
+	adreno_hwsched_set_fault(adreno_dev);
+}
+
+static const struct adreno_dispatch_ops hwsched_ops = {
+	.close = adreno_hwsched_dispatcher_close,
+	.queue_cmds = adreno_hwsched_queue_cmds,
+	.queue_context = adreno_hwsched_queue_context,
+	.fault = adreno_hwsched_fault,
+};
+
+int adreno_hwsched_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
@@ -1371,7 +1383,15 @@ void adreno_hwsched_init(struct adreno_device *adreno_dev)
 		init_llist_head(&hwsched->requeue[i]);
 	}
 
+	hwsched->worker = kthread_create_worker(0, "kgsl_hwsched");
+	if (IS_ERR(hwsched->worker))
+		return PTR_ERR(hwsched->worker);
+
+	sched_set_fifo(hwsched->worker->task);
+
 	sysfs_create_files(&device->dev->kobj, _hwsched_attr_list);
+	adreno_set_dispatch_ops(adreno_dev, &hwsched_ops);
+	return 0;
 }
 
 void adreno_hwsched_mark_drawobj(struct adreno_device *adreno_dev,

@@ -55,6 +55,9 @@
 #define _FT8656             0x86560818
 #define _FT8006S_AA         0x86320819
 #define _FT7250             0x7250081A
+#define _FT7120             0x7120081B
+#define _FT8720             0x8720081C
+#define _FT8016             0x8016081D
 
 
 #define _FT5416             0x54160402
@@ -77,6 +80,7 @@
 #define _FT3327             0x33270402
 #define _FT3427             0x34270402
 #define _FT7311             0x73110402
+#define _FT5526_V00         0x5526C402
 
 #define _FT5626             0x56260401
 #define _FT5726             0x57260401
@@ -93,6 +97,7 @@
 #define _FT6336G            0x6336A003
 #define _FT6336U            0x6336D003
 #define _FT6436U            0x6436D003
+#define _FT6436T            0x6436E003
 
 #define _FT3267             0x32670004
 #define _FT3367             0x33670004
@@ -100,10 +105,21 @@
 #define _FT3327DQQ_XXX      0x3327D482
 #define _FT5446DQS_XXX      0x5446D482
 
+#define _FT3427_003         0x3427D482
+#define _FT3427G_003        0x3427A482
+#define _FT5446_003         0x5446D482
+#define _FT5446_Q03         0x5446C482
+#define _FT5446_P03         0x5446A481
+#define _FT5426_003         0x5426D482
+#define _FT5526_003         0x5526D482
+
 #define _FT3518             0x35180481
+#define _FT3518U            0x3518D481
 #define _FT3558             0x35580481
 #define _FT3528             0x35280481
 #define _FT5536             0x55360481
+#define _FT5536L            0x5536E481
+#define _FT3418             0x34180481
 
 #define _FT5446U            0x5446D083
 #define _FT5456U            0x5456D083
@@ -115,6 +131,7 @@
 #define _FT7302             0x73020084
 #define _FT7202             0x72020084
 #define _FT3308             0x33080084
+#define _FT6446             0x64460084
 
 #define _FT6346U            0x6346D085
 #define _FT6346G            0x6346A085
@@ -122,13 +139,26 @@
 #define _FT3068             0x30680085
 #define _FT3168             0x31680085
 #define _FT3268             0x32680085
+#define _FT6146             0x61460085
 
-/*************************************************/
+#define _FT5726_003         0x5726D486
+#define _FT5726_V03         0x5726C486
 
-/*
- * choose your ic chip type of focaltech
- */
-#define FTS_CHIP_TYPE   _FT3518
+#define _FT3618             0x36180487
+#define _FT5646             0x56460487
+#define _FT3A58             0x3A580487
+#define _FT3B58             0x3B580487
+#define _FT3D58             0x3D580487
+#define _FT5936             0x59360487
+#define _FT5A36             0x5A360487
+#define _FT5B36             0x5B360487
+#define _FT5D36             0x5D360487
+#define _FT5946             0x59460487
+#define _FT5A46             0x5A460487
+#define _FT5B46             0x5B460487
+#define _FT5D46             0x5D460487
+
+#define _FT3658U            0x3658D488
 
 /******************* Enables *********************/
 /*********** 1 to enable, 0 to disable ***********/
@@ -163,6 +193,11 @@
  */
 #define FTS_ESDCHECK_EN                         0
 
+/*
+ * Production test enable
+ * 1: enable, 0:disable(default)
+ */
+#define FTS_TEST_EN                             0
 
 /*
  * Pinctrl enable

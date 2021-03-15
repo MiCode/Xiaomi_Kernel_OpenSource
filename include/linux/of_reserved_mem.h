@@ -39,15 +39,6 @@ int of_reserved_mem_device_init_by_name(struct device *dev,
 					const char *name);
 void of_reserved_mem_device_release(struct device *dev);
 
-#ifdef CONFIG_OF_RESERVED_MEM_CHECK
-bool of_reserved_mem_device_is_init(struct device *dev);
-#else /* !CONFIG_OF_RESERVED_MEM_CHECK */
-static inline bool of_reserved_mem_device_is_init(struct device *dev)
-{
-	return true;
-}
-#endif /* CONFIG_OF_RESERVED_MEM_CHECK */
-
 void fdt_init_reserved_mem(void);
 void fdt_reserved_mem_save_node(unsigned long node, const char *uname,
 			       phys_addr_t base, phys_addr_t size);

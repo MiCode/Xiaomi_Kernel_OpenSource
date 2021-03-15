@@ -413,56 +413,6 @@ void of_reserved_mem_device_release(struct device *dev)
 }
 EXPORT_SYMBOL_GPL(of_reserved_mem_device_release);
 
-#ifdef CONFIG_OF_RESERVED_MEM_CHECK
-/**
- * of_reserved_mem_device_is_init() - test if a device's reserved memory
- *				      will be used in DMA allocations
- * @dev: device we want to perform test on
- *
- * Check if a device and its reserved memory region (if it has one) have
- * been associated with one another through a call to
- * of_reserved_mem_device_init_by_idx().
- *
- * Return false if the device has reserved memory and it's not in use, true
- * otherwise.
- */
-bool of_reserved_mem_device_is_init(struct device *dev)
-{
-	struct device_node *mem_dev_node;
-	struct rmem_assigned_device *rd;
-	struct reserved_mem *rmem;
-	bool ret = false;
-
-	if (!dev->of_node)
-		return true;
-
-	mem_dev_node = of_parse_phandle(dev->of_node, "memory-region", 0);
-	if (!mem_dev_node)
-		return true;
-
-	if (!of_device_is_available(mem_dev_node))
-		goto exit;
-
-	rmem = __find_rmem(mem_dev_node);
-	if (!rmem || !rmem->ops)
-		goto exit;
-	of_node_put(mem_dev_node);
-
-	mutex_lock(&of_rmem_assigned_device_mutex);
-	list_for_each_entry(rd, &of_rmem_assigned_device_list, list) {
-		if (rd->dev == dev) {
-			ret = true;
-			break;
-		}
-	}
-	mutex_unlock(&of_rmem_assigned_device_mutex);
-	return ret;
-exit:
-	of_node_put(mem_dev_node);
-	return true;
-}
-#endif /* CONFIG_OF_RESERVED_MEM_CHECK */
-
 /**
  * of_reserved_mem_lookup() - acquire reserved_mem from a device node
  * @np:		node pointer of the desired reserved-memory region

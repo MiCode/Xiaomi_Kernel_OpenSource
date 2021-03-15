@@ -25,7 +25,6 @@ struct clk_hw *clk_find_hw(const char *dev_id, const char *con_id);
 struct clk *clk_hw_create_clk(struct device *dev, struct clk_hw *hw,
 			      const char *dev_id, const char *con_id);
 void __clk_put(struct clk *clk);
-
 #else
 /* All these casts to avoid ifdefs in clkdev... */
 static inline struct clk *

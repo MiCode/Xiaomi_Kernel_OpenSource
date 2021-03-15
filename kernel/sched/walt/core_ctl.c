@@ -14,7 +14,6 @@
 #include <linux/sched/rt.h>
 #include <linux/syscore_ops.h>
 #include <uapi/linux/sched/types.h>
-#include <linux/sched/core_ctl.h>
 
 #include "walt.h"
 #include "trace.h"
@@ -54,6 +53,7 @@ struct cpu_data {
 	struct cluster_data	*cluster;
 	struct list_head	sib;
 	bool			paused_by_us;
+	bool			disabled;
 };
 
 static DEFINE_PER_CPU(struct cpu_data, cpu_state);
@@ -752,8 +752,10 @@ static unsigned int apply_limits(const struct cluster_data *cluster,
 
 static unsigned int get_active_cpu_count(const struct cluster_data *cluster)
 {
-	return cluster->num_cpus -
-				 sched_pause_count(&cluster->cpu_mask, true);
+	cpumask_t cpus;
+
+	cpumask_and(&cpus, &cluster->cpu_mask, cpu_active_mask);
+	return cpumask_weight(&cpus);
 }
 
 static bool is_active(const struct cpu_data *state)
@@ -909,11 +911,13 @@ void core_ctl_notifier_register(struct notifier_block *n)
 {
 	atomic_notifier_chain_register(&core_ctl_notifier, n);
 }
+EXPORT_SYMBOL(core_ctl_notifier_register);
 
 void core_ctl_notifier_unregister(struct notifier_block *n)
 {
 	atomic_notifier_chain_unregister(&core_ctl_notifier, n);
 }
+EXPORT_SYMBOL(core_ctl_notifier_unregister);
 
 static void core_ctl_call_notifier(void)
 {
@@ -946,6 +950,7 @@ void core_ctl_check(u64 window_start)
 	struct cluster_data *cluster;
 	unsigned int index = 0;
 	unsigned long flags;
+	unsigned int wakeup = 0;
 
 	if (unlikely(!initialized))
 		return;
@@ -970,27 +975,19 @@ void core_ctl_check(u64 window_start)
 
 	update_running_avg();
 
-	for_each_cluster(cluster, index) {
-		if (eval_need(cluster))
-			wake_up_core_ctl_thread();
-	}
+	for_each_cluster(cluster, index)
+		wakeup |= eval_need(cluster);
 
+	if (wakeup)
+		wake_up_core_ctl_thread();
 	core_ctl_call_notifier();
 }
 
+/* must be called with state_lock held */
 static void move_cpu_lru(struct cpu_data *cpu_data)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&state_lock, flags);
 	list_del(&cpu_data->sib);
 	list_add_tail(&cpu_data->sib, &cpu_data->cluster->lru);
-	spin_unlock_irqrestore(&state_lock, flags);
-}
-
-static bool should_we_pause(int cpu, struct cluster_data *cluster)
-{
-	return true;
 }
 
 static void try_to_pause(struct cluster_data *cluster, unsigned int need,
@@ -999,7 +996,7 @@ static void try_to_pause(struct cluster_data *cluster, unsigned int need,
 	struct cpu_data *c, *tmp;
 	unsigned long flags;
 	unsigned int num_cpus = cluster->num_cpus;
-	unsigned int nr_paused = 0;
+	unsigned int nr_pending = 0, active_cpus = cluster->active_cpus;
 	bool first_pass = cluster->nr_not_preferred_cpus;
 
 	/*
@@ -1011,9 +1008,11 @@ static void try_to_pause(struct cluster_data *cluster, unsigned int need,
 		if (!num_cpus--)
 			break;
 
+		if (c->disabled)
+			continue;
 		if (!is_active(c))
 			continue;
-		if (cluster->active_cpus == need)
+		if (active_cpus - nr_pending == need)
 			break;
 		/* Don't pause busy CPUs. */
 		if (c->is_busy)
@@ -1026,78 +1025,59 @@ static void try_to_pause(struct cluster_data *cluster, unsigned int need,
 		if (cluster->nr_not_preferred_cpus && !c->not_preferred)
 			continue;
 
-		if (!should_we_pause(c->cpu, cluster))
-			continue;
-
-		spin_unlock_irqrestore(&state_lock, flags);
-
 		pr_debug("Trying to pause CPU%u\n", c->cpu);
-
 		cpumask_set_cpu(c->cpu, pause_cpus);
-		sched_pause_pending(c->cpu);
-
+		nr_pending++;
 		c->paused_by_us = true;
+		cluster->nr_paused_cpus++;
 		move_cpu_lru(c);
-		nr_paused++;
-
-		cluster->active_cpus = get_active_cpu_count(cluster);
-		spin_lock_irqsave(&state_lock, flags);
 	}
-	cluster->nr_paused_cpus += nr_paused;
-	spin_unlock_irqrestore(&state_lock, flags);
 
 again:
 	/*
 	 * If the number of active CPUs is within the limits, then
 	 * don't force pause of any busy CPUs.
 	 */
-	if (cluster->active_cpus <= cluster->max_cpus)
-		return;
+	if (active_cpus - nr_pending <= cluster->max_cpus)
+		goto unlock;
 
-	nr_paused = 0;
 	num_cpus = cluster->num_cpus;
-	spin_lock_irqsave(&state_lock, flags);
 	list_for_each_entry_safe(c, tmp, &cluster->lru, sib) {
 		if (!num_cpus--)
 			break;
 
+		if (c->disabled)
+			continue;
 		if (!is_active(c))
 			continue;
-		if (cluster->active_cpus <= cluster->max_cpus)
+		if (active_cpus - nr_pending <= cluster->max_cpus)
 			break;
 
 		if (first_pass && !c->not_preferred)
 			continue;
 
-		spin_unlock_irqrestore(&state_lock, flags);
-
 		cpumask_set_cpu(c->cpu, pause_cpus);
-		sched_pause_pending(c->cpu);
-
+		nr_pending++;
 		c->paused_by_us = true;
+		cluster->nr_paused_cpus++;
 		move_cpu_lru(c);
-		nr_paused++;
-
-		cluster->active_cpus = get_active_cpu_count(cluster);
-		spin_lock_irqsave(&state_lock, flags);
 	}
 
-	cluster->nr_paused_cpus += nr_paused;
-	spin_unlock_irqrestore(&state_lock, flags);
-
-	if (first_pass && cluster->active_cpus > cluster->max_cpus) {
+	if (first_pass && active_cpus - nr_pending > cluster->max_cpus) {
 		first_pass = false;
 		goto again;
 	}
+unlock:
+	spin_unlock_irqrestore(&state_lock, flags);
 }
 
-static void __try_to_resume(struct cluster_data *cluster,
-			       unsigned int need, bool force, struct cpumask *unpause_cpus)
+static int __try_to_resume(struct cluster_data *cluster, unsigned int need,
+			   bool force, struct cpumask *unpause_cpus)
 {
 	struct cpu_data *c, *tmp;
 	unsigned long flags;
 	unsigned int num_cpus = cluster->num_cpus;
-	unsigned int nr_unpaused = 0;
+	unsigned int nr_pending = 0, active_cpus = cluster->active_cpus;
 
 	/*
 	 * Protect against entry being removed (and added at tail) by other
@@ -1113,35 +1093,38 @@ static void __try_to_resume(struct cluster_data *cluster,
 		if ((cpu_online(c->cpu) && cpu_active(c->cpu)) ||
 			(!force && c->not_preferred))
 			continue;
-		if (cluster->active_cpus == need)
+		if (active_cpus + nr_pending == need)
 			break;
-
-		spin_unlock_irqrestore(&state_lock, flags);
 
 		pr_debug("Trying to resume CPU%u\n", c->cpu);
 
 		cpumask_set_cpu(c->cpu, unpause_cpus);
-		sched_unpause_pending(c->cpu);
-
+		nr_pending++;
 		c->paused_by_us = false;
+		cluster->nr_paused_cpus--;
 		move_cpu_lru(c);
-		nr_unpaused++;
-
-		cluster->active_cpus = get_active_cpu_count(cluster);
-		spin_lock_irqsave(&state_lock, flags);
 	}
-	cluster->nr_paused_cpus -= nr_unpaused;
+
 	spin_unlock_irqrestore(&state_lock, flags);
+
+	return nr_pending;
 }
 
 static void try_to_resume(struct cluster_data *cluster, unsigned int need,
 			  struct cpumask *unpause_cpus)
 {
 	bool force_use_non_preferred = false;
+	unsigned int nr_pending;
 
-	__try_to_resume(cluster, need, force_use_non_preferred, unpause_cpus);
+	/*
+	 * __try_to_resume() marks the CPUs to be resumed but active_cpus
+	 * won't be reflected yet. So use the nr_pending to adjust active
+	 * count.
+	 */
+	nr_pending = __try_to_resume(cluster, need, force_use_non_preferred,
+				     unpause_cpus);
 
-	if (cluster->active_cpus == need)
+	if (cluster->active_cpus + nr_pending == need)
 		return;
 
 	force_use_non_preferred = true;
@@ -1158,8 +1141,7 @@ static void __ref do_core_ctl(void)
 
 	for_each_cluster(cluster, index) {
 
-		eval_need(cluster);
-
+		cluster->active_cpus = get_active_cpu_count(cluster);
 		need = apply_limits(cluster, cluster->need_cpus);
 
 		if (adjustment_possible(cluster, need)) {
@@ -1269,6 +1251,8 @@ static int cluster_init(const struct cpumask *mask)
 		state = &per_cpu(cpu_state, cpu);
 		state->cluster = cluster;
 		state->cpu = cpu;
+		state->disabled = get_cpu_device(cpu) &&
+				get_cpu_device(cpu)->offline_disabled;
 		list_add_tail(&state->sib, &cluster->lru);
 	}
 	cluster->active_cpus = get_active_cpu_count(cluster);

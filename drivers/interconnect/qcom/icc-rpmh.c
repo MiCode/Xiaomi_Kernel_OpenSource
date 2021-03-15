@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -133,6 +133,15 @@ int qcom_icc_set_stub(struct icc_node *src, struct icc_node *dst)
 	return 0;
 }
 EXPORT_SYMBOL(qcom_icc_set_stub);
+
+int qcom_icc_get_bw_stub(struct icc_node *node, u32 *avg, u32 *peak)
+{
+	*avg = 0;
+	*peak = 0;
+
+	return 0;
+}
+EXPORT_SYMBOL(qcom_icc_get_bw_stub);
 
 struct icc_node_data *qcom_icc_xlate_extended(struct of_phandle_args *spec, void *data)
 {

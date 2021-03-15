@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_H
 #define __KGSL_H
@@ -70,6 +70,9 @@
 #define SCRATCH_RPTR_OFFSET(id) ((id) * sizeof(unsigned int))
 #define SCRATCH_RPTR_GPU_ADDR(dev, id) \
 	((dev)->scratch->gpuaddr + SCRATCH_RPTR_OFFSET(id))
+#define SCRATCH_BV_RPTR_OFFSET(id) (0x40 + (id) * sizeof(unsigned int))
+#define SCRATCH_BV_RPTR_GPU_ADDR(dev, id) \
+	((dev)->scratch->gpuaddr + SCRATCH_BV_RPTR_OFFSET(id))
 
 /* Timestamp window used to detect rollovers (half of integer range) */
 #define KGSL_TIMESTAMP_WINDOW 0x80000000
@@ -142,8 +145,8 @@ struct kgsl_driver {
 	unsigned int full_cache_threshold;
 	struct workqueue_struct *workqueue;
 	struct workqueue_struct *mem_workqueue;
-	struct kthread_worker worker;
-	struct task_struct *worker_thread;
+	/** @debugfs_debug_dir - Pointer to the debugfs/debug directory */
+	struct dentry *debugfs_debug_dir;
 };
 
 extern struct kgsl_driver kgsl_driver;
@@ -582,41 +585,6 @@ static inline bool kgsl_addr_range_overlap(uint64_t gpuaddr1,
 	return !(((gpuaddr1 + size1) <= gpuaddr2) ||
 		(gpuaddr1 >= (gpuaddr2 + size2)));
 }
-
-static inline int kgsl_copy_from_user(void *dest, void __user *src,
-		unsigned int ksize, unsigned int usize)
-{
-	unsigned int copy = ksize < usize ? ksize : usize;
-
-	if (copy == 0)
-		return -EINVAL;
-
-	return copy_from_user(dest, src, copy) ? -EFAULT : 0;
-}
-
-#ifndef MODULE
-static inline void kgsl_gpu_sysfs_add_link(struct kobject *dst,
-			struct kobject *src, const char *src_name,
-			const char *dst_name)
-{
-	struct kernfs_node *old;
-
-	if (dst == NULL || src == NULL)
-		return;
-
-	old = sysfs_get_dirent(src->sd, src_name);
-	if (IS_ERR_OR_NULL(old))
-		return;
-
-	kernfs_create_link(dst->sd, dst_name, old);
-}
-#else
-static inline void kgsl_gpu_sysfs_add_link(struct kobject *dst,
-			struct kobject *src, const char *src_name,
-			const char *dst_name)
-{
-}
-#endif
 
 static inline bool kgsl_is_compat_task(void)
 {

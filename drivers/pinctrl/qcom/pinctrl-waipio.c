@@ -1873,6 +1873,29 @@ static struct pinctrl_qup waipio_qup_regs[] = {
 	QUP_I3C(15, QUP_I3C_15_MODE_OFFSET),
 };
 
+static const struct msm_gpio_wakeirq_map waipio_pdc_map[] = {
+	{ 2, 70 }, { 3, 77 }, { 7, 52 }, { 8, 108 }, { 10, 128 }, { 11, 53 },
+	{ 12, 129 }, { 13, 130 }, { 14, 131 }, { 15, 67 }, { 19, 69 }, { 21, 132 },
+	{ 23, 54 }, { 26, 56 }, { 27, 71 }, { 28, 57 }, { 31, 55 }, { 32, 58 },
+	{ 34, 72 }, { 35, 43 }, { 36, 78 }, { 38, 79 }, { 39, 62 }, { 40, 80 },
+	{ 41, 133 }, { 43, 81 }, { 44, 87 }, { 45, 134 }, { 46, 66 }, { 47, 63 },
+	{ 50, 88 }, { 51, 89 }, { 55, 90 }, { 56, 59 }, { 59, 82 }, { 60, 60 },
+	{ 62, 135 }, { 63, 91 }, { 66, 136 }, { 67, 44 }, { 69, 137 }, { 71, 97 },
+	{ 75, 73 }, { 79, 74 }, { 80, 96 }, { 81, 98 }, { 82, 45 }, { 83, 99 },
+	{ 84, 94 }, { 85, 100 }, { 86, 101 }, { 87, 102 }, { 88, 92 }, { 89, 83 },
+	{ 90, 84 }, { 91, 85 }, { 92, 46 }, { 95, 103 }, { 96, 104 }, { 98, 105 },
+	{ 99, 106 }, { 115, 95 }, { 116, 76 }, { 117, 75 }, { 118, 86 }, { 119, 93 },
+	{ 133, 47 }, { 137, 42 }, { 148, 61 }, { 150, 68 }, { 153, 65 }, { 154, 48 },
+	{ 155, 49 }, { 156, 64 }, { 159, 50 }, { 162, 51 }, { 166, 40 }, { 169, 114 },
+	{ 171, 115 }, { 172, 116 }, { 174, 117 }, { 176, 107 }, { 181, 109 },
+	{ 182, 110 }, { 185, 112 }, { 187, 113 }, { 188, 118 }, { 190, 122 },
+	{ 192, 123 }, { 195, 124 }, { 201, 119 }, { 203, 120 }, { 205, 121 },
+};
+
+static const int waipio_reserved_gpios[] = {
+	28, 29, 30, 31, 36, 37, 38, 39, -1
+};
+
 static const struct msm_pinctrl_soc_data waipio_pinctrl = {
 	.pins = waipio_pins,
 	.npins = ARRAY_SIZE(waipio_pins),
@@ -1880,7 +1903,10 @@ static const struct msm_pinctrl_soc_data waipio_pinctrl = {
 	.nfunctions = ARRAY_SIZE(waipio_functions),
 	.groups = waipio_groups,
 	.ngroups = ARRAY_SIZE(waipio_groups),
+	.reserved_gpios = waipio_reserved_gpios,
 	.ngpios = 211,
+	.wakeirq_map = waipio_pdc_map,
+	.nwakeirq_map = ARRAY_SIZE(waipio_pdc_map),
 	.qup_regs = waipio_qup_regs,
 	.nqup_regs = ARRAY_SIZE(waipio_qup_regs),
 };

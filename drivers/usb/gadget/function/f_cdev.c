@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011, 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013-2021, The Linux Foundation. All rights reserved.
  * Linux Foundation chooses to take subject only to the GPLv2 license terms,
  * and distributes only under these terms.
  *
@@ -949,6 +949,7 @@ static void usb_cser_read_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_cdev *port = ep->driver_data;
 	unsigned long flags;
+	int ret;
 
 	pr_debug("ep:(%pK)(%s) port:%p req_status:%d req->actual:%u\n",
 			ep, ep->name, port, req->status, req->actual);
@@ -958,7 +959,25 @@ static void usb_cser_read_complete(struct usb_ep *ep, struct usb_request *req)
 	}
 
 	spin_lock_irqsave(&port->port_lock, flags);
-	if (!port->port_open || req->status || !req->actual) {
+	if (!port->port_open) {
+		list_add_tail(&req->list, &port->read_pool);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return;
+	}
+
+	if (req->status || !req->actual) {
+		/*
+		 * ECONNRESET can be returned when host issues clear EP halt,
+		 * restart OUT requests if so.
+		 */
+		if (req->status == -ECONNRESET) {
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			ret = usb_ep_queue(ep, req, GFP_KERNEL);
+			if (!ret)
+				return;
+			spin_lock_irqsave(&port->port_lock, flags);
+		}
+
 		list_add_tail(&req->list, &port->read_pool);
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		return;

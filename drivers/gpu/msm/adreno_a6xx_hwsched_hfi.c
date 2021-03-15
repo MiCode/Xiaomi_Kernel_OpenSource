@@ -445,11 +445,10 @@ static int gmu_import_buffer(struct adreno_device *adreno_dev,
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	int attrs = get_attrs(flags);
-	struct sg_table *sgt;
 	struct kgsl_memdesc *gpu_md = entry->gpu_md;
-	int mapped = 0;
 	struct gmu_vma_entry *vma = &gmu->vma[GMU_NONCACHED_KERNEL];
 	struct hfi_mem_alloc_desc *desc = &entry->desc;
+	int ret;
 
 	if (flags & HFI_MEMFLAG_GMU_CACHEABLE)
 		vma = &gmu->vma[GMU_CACHE];
@@ -461,29 +460,17 @@ static int gmu_import_buffer(struct adreno_device *adreno_dev,
 		return -ENOMEM;
 	}
 
-	/* Alloc sgt for map and then free it */
-	if (gpu_md->pages != NULL)
-		sgt = kgsl_alloc_sgt_from_pages(gpu_md);
-	else
-		sgt = gpu_md->sgt;
-
-	if (IS_ERR(sgt))
-		return -ENOMEM;
-
 	desc->gmu_addr = vma->next_va;
 
-	mapped = iommu_map_sg(gmu->domain,
-			desc->gmu_addr, sgt->sgl, sgt->nents, attrs);
-	if (mapped == 0)
-		dev_err(&gmu->pdev->dev, "gmu map sg err: 0x%08x, %d, %x, %d\n",
-			desc->gmu_addr, sgt->nents, attrs, mapped);
-	else
-		vma->next_va += desc->size;
+	ret = gmu_core_map_memdesc(gmu->domain, gpu_md, desc->gmu_addr, attrs);
+	if (ret) {
+		dev_err(&gmu->pdev->dev, "gmu map err: 0x%08x, %x\n",
+			desc->gmu_addr, attrs);
+		return ret;
+	}
 
-	if (gpu_md->pages != NULL)
-		kgsl_free_sgt(sgt);
-
-	return ((mapped == 0) ? -ENOMEM : 0);
+	vma->next_va += desc->size;
+	return 0;
 }
 
 static struct hfi_mem_alloc_entry *lookup_mem_alloc_table(
@@ -713,7 +700,7 @@ void a6xx_hwsched_hfi_stop(struct adreno_device *adreno_dev)
 
 	reset_hfi_queues(adreno_dev);
 
-	kgsl_pwrctrl_axi(KGSL_DEVICE(adreno_dev), KGSL_PWRFLAGS_OFF);
+	kgsl_pwrctrl_axi(KGSL_DEVICE(adreno_dev), false);
 
 	clear_bit(GMU_PRIV_HFI_STARTED, &gmu->flags);
 
@@ -813,7 +800,7 @@ int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
 		goto err;
 
 	/* Request default BW vote */
-	ret = kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
+	ret = kgsl_pwrctrl_axi(device, true);
 
 err:
 	if (ret)
@@ -846,7 +833,7 @@ static int cp_init(struct adreno_device *adreno_dev)
 	cmds[0] = CREATE_MSG_HDR(H2F_MSG_ISSUE_CMD_RAW,
 		(A6XX_CP_INIT_DWORDS + 1) << 2, HFI_MSG_CMD);
 
-	memcpy(&cmds[1], adreno_dev->cp_init_cmds, A6XX_CP_INIT_DWORDS << 2);
+	a6xx_cp_init_cmds(adreno_dev, &cmds[1]);
 
 	return submit_raw_cmds(adreno_dev, cmds,
 			"CP initialization failed to idle\n");
@@ -981,8 +968,6 @@ int a6xx_hwsched_hfi_probe(struct adreno_device *adreno_dev)
 
 	hw_hfi->irq_mask = HFI_IRQ_MASK;
 
-	disable_irq(gmu->hfi.irq);
-
 	rwlock_init(&hw_hfi->msglock);
 
 	INIT_LIST_HEAD(&hw_hfi->msglist);
@@ -1077,7 +1062,7 @@ static int send_context_register(struct adreno_device *adreno_dev,
 	cmd.ctxt_id = context->id;
 	cmd.flags = HFI_CTXT_FLAG_NOTIFY | context->flags;
 	cmd.pt_addr = kgsl_mmu_pagetable_get_ttbr0(pt);
-	cmd.ctxt_idr = kgsl_mmu_pagetable_get_contextidr(pt);
+	cmd.ctxt_idr = pid_nr(context->proc_priv->pid);
 	cmd.ctxt_bank = kgsl_mmu_pagetable_get_context_bank(pt);
 
 	return a6xx_hfi_send_cmd_async(adreno_dev, &cmd);
@@ -1287,9 +1272,7 @@ static int send_context_unregister_hfi(struct adreno_device *adreno_dev,
 		 * context so that any un-finished inflight submissions are not
 		 * replayed after recovery.
 		 */
-		adreno_mark_guilty_context(device, context->id);
-
-		adreno_drawctxt_invalidate(device, context);
+		adreno_drawctxt_set_guilty(device, context);
 
 		adreno_get_gpu_halt(adreno_dev);
 
@@ -1340,7 +1323,7 @@ void a6xx_hwsched_context_detach(struct adreno_context *drawctxt)
 	mutex_unlock(&device->mutex);
 }
 
-int a6xx_hwsched_preempt_count_get(struct adreno_device *adreno_dev)
+u32 a6xx_hwsched_preempt_count_get(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct hfi_get_value_cmd cmd;
@@ -1355,7 +1338,7 @@ int a6xx_hwsched_preempt_count_get(struct adreno_device *adreno_dev)
 
 	rc = CMD_MSG_HDR(cmd, H2F_MSG_GET_VALUE);
 	if (rc)
-		return rc;
+		return 0;
 
 	cmd.hdr = MSG_HDR_SET_SEQNUM(cmd.hdr, seqnum);
 	cmd.type = HFI_VALUE_PREEMPT_COUNT;
@@ -1376,5 +1359,5 @@ int a6xx_hwsched_preempt_count_get(struct adreno_device *adreno_dev)
 done:
 	del_waiter(hfi, &pending_ack);
 
-	return rc ? rc : pending_ack.results[2];
+	return rc ? 0 : pending_ack.results[2];
 }

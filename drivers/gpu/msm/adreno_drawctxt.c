@@ -20,7 +20,7 @@ static int _check_context_timestamp(struct kgsl_device *device,
 		struct kgsl_context *context, unsigned int timestamp)
 {
 	/* Bail if the drawctxt has been invalidated or destroyed */
-	if (kgsl_context_detached(context) || kgsl_context_invalid(context))
+	if (kgsl_context_is_bad(context))
 		return 1;
 
 	return kgsl_check_timestamp(device, context, timestamp);
@@ -294,6 +294,17 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 	wake_up_all(&drawctxt->timeout);
 }
 
+void adreno_drawctxt_set_guilty(struct kgsl_device *device,
+		struct kgsl_context *context)
+{
+	if (!context)
+		return;
+
+	context->reset_status = KGSL_CTX_STAT_GUILTY_CONTEXT_RESET_EXT;
+
+	adreno_drawctxt_invalidate(device, context);
+}
+
 #define KGSL_CONTEXT_PRIORITY_MED	0x8
 
 /**
@@ -400,12 +411,10 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 
 	adreno_context_debugfs_init(ADRENO_DEVICE(device), drawctxt);
 
-	if (!test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
-		/* set the context ringbuffer */
-		drawctxt->rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
+	INIT_LIST_HEAD(&drawctxt->active_node);
 
-		INIT_LIST_HEAD(&drawctxt->active_node);
-	}
+	if (adreno_dev->dispatch_ops && adreno_dev->dispatch_ops->setup_context)
+		adreno_dev->dispatch_ops->setup_context(adreno_dev, drawctxt);
 
 	if (gpudev->preemption_context_init) {
 		ret = gpudev->preemption_context_init(&drawctxt->base);
@@ -505,11 +514,9 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 
 	spin_lock(&drawctxt->lock);
 
-	if (!test_bit(GMU_DISPATCH, &device->gmu_core.flags)) {
-		spin_lock(&adreno_dev->active_list_lock);
-		list_del_init(&drawctxt->active_node);
-		spin_unlock(&adreno_dev->active_list_lock);
-	}
+	spin_lock(&adreno_dev->active_list_lock);
+	list_del_init(&drawctxt->active_node);
+	spin_unlock(&adreno_dev->active_list_lock);
 
 	count = drawctxt_detach_drawobjs(drawctxt, list);
 	spin_unlock(&drawctxt->lock);

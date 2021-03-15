@@ -563,11 +563,24 @@ out:
 
 static DEVICE_ATTR_RW(flushperiod);
 
-static struct attribute *csr_attrs[] = {
+static struct attribute *swao_csr_attrs[] = {
 	&dev_attr_timestamp.attr,
-	&dev_attr_flushperiod.attr,
 	&dev_attr_msr.attr,
 	&dev_attr_msr_reset.attr,
+	NULL,
+};
+
+static struct attribute_group swao_csr_attr_grp = {
+	.attrs = swao_csr_attrs,
+};
+
+static const struct attribute_group *swao_csr_attr_grps[] = {
+	&swao_csr_attr_grp,
+	NULL,
+};
+
+static struct attribute *csr_attrs[] = {
+	&dev_attr_flushperiod.attr,
 	NULL,
 };
 
@@ -656,10 +669,8 @@ static int csr_probe(struct platform_device *pdev)
 	else
 		dev_dbg(dev, "perflsheot_set_support operation supported\n");
 
-	if (drvdata->perflsheot_set_support)
+	if (drvdata->usb_bam_support)
 		drvdata->flushperiod = FLUSHPERIOD_1;
-	else if (drvdata->usb_bam_support)
-		drvdata->flushperiod = FLUSHPERIOD_2048;
 	drvdata->msr_support = of_property_read_bool(pdev->dev.of_node,
 						"qcom,msr-support");
 	if (!drvdata->msr_support) {
@@ -689,6 +700,8 @@ static int csr_probe(struct platform_device *pdev)
 	desc.pdata = pdev->dev.platform_data;
 	desc.dev = &pdev->dev;
 	if (drvdata->timestamp_support || drvdata->msr_support)
+		desc.groups = swao_csr_attr_grps;
+	else if (drvdata->usb_bam_support)
 		desc.groups = csr_attr_grps;
 
 	drvdata->csdev = coresight_register(&desc);

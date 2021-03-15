@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, 2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-map-ops.h>
@@ -14,6 +14,7 @@
 #include <asm/barrier.h>
 
 #include <linux/msm_dma_iommu_mapping.h>
+#include <linux/qcom-dma-mapping.h>
 
 /**
  * struct msm_iommu_map - represents a mapping of an ion buffer to an iommu

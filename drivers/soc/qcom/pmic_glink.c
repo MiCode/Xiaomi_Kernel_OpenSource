@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"PMIC_GLINK: %s: " fmt, __func__
@@ -474,15 +474,17 @@ static void pmic_glink_rx_work(struct work_struct *work)
 	struct pmic_glink_buf *pbuf, *tmp;
 	unsigned long flags;
 
+	spin_lock_irqsave(&pdev->rx_lock, flags);
 	if (!list_empty(&pdev->rx_list)) {
 		list_for_each_entry_safe(pbuf, tmp, &pdev->rx_list, node) {
+			spin_unlock_irqrestore(&pdev->rx_lock, flags);
 			pmic_glink_rx_callback(pdev, pbuf);
 			spin_lock_irqsave(&pdev->rx_lock, flags);
 			list_del(&pbuf->node);
-			spin_unlock_irqrestore(&pdev->rx_lock, flags);
 			kfree(pbuf);
 		}
 	}
+	spin_unlock_irqrestore(&pdev->rx_lock, flags);
 }
 
 static int pmic_glink_rpmsg_callback(struct rpmsg_device *rpdev, void *data,

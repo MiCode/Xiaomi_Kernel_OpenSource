@@ -18,28 +18,6 @@ unsigned int sched_capacity_margin_down[WALT_NR_CPUS] = {
 			[0 ... WALT_NR_CPUS-1] = 1205 /* ~15% margin */
 };
 
-__read_mostly unsigned int sysctl_sched_prefer_spread;
-unsigned int sysctl_walt_rtg_cfs_boost_prio = 99; /* disabled by default */
-unsigned int sched_small_task_threshold = 102;
-__read_mostly unsigned int sysctl_sched_force_lb_enable = 1;
-unsigned int capacity_margin_freq = 1280; /* ~20% margin */
-
-static inline bool prefer_spread_on_idle(int cpu, bool new_ilb)
-{
-	switch (sysctl_sched_prefer_spread) {
-	case 1:
-		return is_min_capacity_cpu(cpu);
-	case 2:
-		return true;
-	case 3:
-		return (new_ilb && is_min_capacity_cpu(cpu));
-	case 4:
-		return new_ilb;
-	default:
-		return false;
-	}
-}
-
 static inline bool
 bias_to_this_cpu(struct task_struct *p, int cpu, int start_cpu)
 {
@@ -209,21 +187,29 @@ static void walt_find_best_target(struct sched_domain *sd,
 	int prev_cpu = task_cpu(p);
 	int active_candidate = -1;
 	int order_index = fbt_env->order_index, end_index = fbt_env->end_index;
+	int stop_index = INT_MAX;
 	int cluster;
 	unsigned int target_nr_rtg_high_prio = UINT_MAX;
 	bool rtg_high_prio_task = task_rtg_high_prio(p);
 	cpumask_t visit_cpus;
-	bool io_task_pack = (order_index > 0 && p->in_iowait);
-	struct cfs_rq *cfs_rq;
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
 
-	if (fbt_env->strict_max || io_task_pack)
-		target_max_spare_cap = LONG_MIN;
+	/*
+	 * For higher capacity worth I/O tasks, stop the search
+	 * at the end of higher capacity cluster(s).
+	 */
+	if (order_index > 0 && wts->iowaited) {
+		stop_index = num_sched_clusters - 2;
+		most_spare_wake_cap = LONG_MIN;
+	}
 
-	if (p->state == TASK_RUNNING)
-		most_spare_wake_cap = ULONG_MAX;
+	if (fbt_env->strict_max) {
+		stop_index = 0;
+		most_spare_wake_cap = LONG_MIN;
+	}
 
 	/* fast path for prev_cpu */
 	if (((capacity_orig_of(prev_cpu) == capacity_orig_of(start_cpu)) ||
@@ -280,14 +266,9 @@ static void walt_find_best_target(struct sched_domain *sd,
 				most_spare_cap_cpu = i;
 			}
 
-			if ((per_task_boost(cpu_rq(i)->curr) ==
-					TASK_BOOST_STRICT_MAX) &&
-					!fbt_env->strict_max)
+			if (per_task_boost(cpu_rq(i)->curr) ==
+					TASK_BOOST_STRICT_MAX)
 				continue;
-
-			/* get rq's utilization with this task included */
-			cfs_rq = &cpu_rq(i)->cfs;
-			new_util_cuml = READ_ONCE(cfs_rq->avg.util_avg) + min_util;
 
 			/*
 			 * Ensure minimum capacity to grant the required boost.
@@ -295,8 +276,7 @@ static void walt_find_best_target(struct sched_domain *sd,
 			 * than the one required to boost the task.
 			 */
 			new_util = max(min_util, new_util);
-			if (!(fbt_env->strict_max || io_task_pack) &&
-					new_util > capacity_orig)
+			if (new_util > capacity_orig)
 				continue;
 
 			/*
@@ -335,6 +315,8 @@ static void walt_find_best_target(struct sched_domain *sd,
 				 */
 				if (idle_exit_latency > min_exit_latency)
 					continue;
+
+				new_util_cuml = cpu_util_cum(i);
 				if (min_exit_latency == idle_exit_latency &&
 					(best_idle_cpu == prev_cpu ||
 					(i != prev_cpu &&
@@ -346,12 +328,6 @@ static void walt_find_best_target(struct sched_domain *sd,
 				best_idle_cpu = i;
 				continue;
 			}
-
-			/*
-			 * Consider only idle CPUs for active migration.
-			 */
-			if (p->state == TASK_RUNNING)
-				continue;
 
 			/*
 			 * Try to spread the rtg high prio tasks so that they
@@ -385,6 +361,9 @@ static void walt_find_best_target(struct sched_domain *sd,
 		if ((cluster >= end_index) && (target_cpu != -1) &&
 			walt_target_ok(target_cpu, order_index))
 			break;
+
+		if (most_spare_cap_cpu != -1 && cluster >= stop_index)
+			break;
 	}
 
 	if (best_idle_cpu != -1)
@@ -414,7 +393,7 @@ out:
 	trace_sched_find_best_target(p, min_util, start_cpu,
 			     best_idle_cpu, most_spare_cap_cpu,
 			     target_cpu, order_index, end_index,
-			     fbt_env->skip_cpu, p->state == TASK_RUNNING);
+			     fbt_env->skip_cpu, task_on_rq_queued(p));
 }
 
 static inline unsigned long
@@ -539,7 +518,7 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 				     int sync, int sibling_count_hint)
 {
 	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX;
-	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
+	struct root_domain *rd = cpu_rq(cpumask_first(cpu_active_mask))->rd;
 	int weight, cpu = smp_processor_id(), best_energy_cpu = prev_cpu;
 	struct perf_domain *pd;
 	unsigned long cur_energy;
@@ -684,53 +663,13 @@ walt_select_task_rq_fair(void *unused, struct task_struct *p, int prev_cpu,
 				int sd_flag, int wake_flags, int *target_cpu)
 {
 	int sync = (wake_flags & WF_SYNC) && !(current->flags & PF_EXITING);
-	int sibling_count_hint = p->wake_q_head ? p->wake_q_head->count : 1;
+	int sibling_count_hint = 1;
 
 	if (static_branch_unlikely(&walt_disabled))
 		return;
 	*target_cpu = walt_find_energy_efficient_cpu(p, prev_cpu, sync, sibling_count_hint);
 	if (unlikely(*target_cpu < 0))
 		*target_cpu = prev_cpu;
-}
-
-#ifdef CONFIG_FAIR_GROUP_SCHED
-static unsigned long task_h_load(struct task_struct *p)
-{
-	struct cfs_rq *cfs_rq = task_cfs_rq(p);
-
-	update_cfs_rq_h_load(cfs_rq);
-	return div64_ul(p->se.avg.load_avg * cfs_rq->h_load,
-			cfs_rq_load_avg(cfs_rq) + 1);
-}
-#else
-static unsigned long task_h_load(struct task_struct *p)
-{
-	return p->se.avg.load_avg;
-}
-#endif
-
-static void walt_update_misfit_status(void *unused, struct task_struct *p,
-					struct rq *rq, bool *need_update)
-{
-	if (static_branch_unlikely(&walt_disabled))
-		return;
-	*need_update = false;
-
-	if (!p) {
-		rq->misfit_task_load = 0;
-		return;
-	}
-
-	if (task_fits_max(p, cpu_of(rq))) {
-		rq->misfit_task_load = 0;
-		return;
-	}
-
-	/*
-	 * Make sure that misfit_task_load will not be null even if
-	 * task_h_load() returns 0.
-	 */
-	rq->misfit_task_load = max_t(unsigned long, task_h_load(p), 1);
 }
 
 static inline struct task_struct *task_of(struct sched_entity *se)
@@ -770,8 +709,9 @@ static void walt_binder_low_latency_set(void *unused, struct task_struct *task)
 		return;
 	if (task && current->signal &&
 			(current->signal->oom_score_adj == 0) &&
-			(current->prio < DEFAULT_PRIO))
-		wts->low_latency = true;
+			((current->prio < DEFAULT_PRIO) ||
+			(task->group_leader->prio < MAX_RT_PRIO)))
+		wts->low_latency |= WALT_LOW_LATENCY_BINDER;
 }
 
 static void walt_binder_low_latency_clear(void *unused, struct binder_transaction *t)
@@ -780,14 +720,13 @@ static void walt_binder_low_latency_clear(void *unused, struct binder_transactio
 
 	if (static_branch_unlikely(&walt_disabled))
 		return;
-	if (wts->low_latency)
-		wts->low_latency = false;
+	if (wts->low_latency & WALT_LOW_LATENCY_BINDER)
+		wts->low_latency &= ~WALT_LOW_LATENCY_BINDER;
 }
 
 void walt_cfs_init(void)
 {
 	register_trace_android_rvh_select_task_rq_fair(walt_select_task_rq_fair, NULL);
-	register_trace_android_rvh_update_misfit_status(walt_update_misfit_status, NULL);
 	register_trace_android_rvh_place_entity(walt_place_entity, NULL);
 
 	register_trace_android_vh_binder_wakeup_ilocked(walt_binder_low_latency_set, NULL);

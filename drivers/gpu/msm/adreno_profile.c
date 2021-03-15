@@ -939,7 +939,7 @@ static ssize_t profile_pipe_print(struct file *filep, char __user *ubuf,
 	return status;
 }
 
-static int profile_groups_print(struct seq_file *s, void *unused)
+static int profile_groups_show(struct seq_file *s, void *unused)
 {
 	struct kgsl_device *device = (struct kgsl_device *) s->private;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -969,18 +969,7 @@ static int profile_groups_print(struct seq_file *s, void *unused)
 	return 0;
 }
 
-static int profile_groups_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, profile_groups_print, inode->i_private);
-}
-
-static const struct file_operations profile_groups_fops = {
-	.owner = THIS_MODULE,
-	.open = profile_groups_open,
-	.read = seq_read,
-	.llseek = noop_llseek,
-	.release = single_release,
-};
+DEFINE_SHOW_ATTRIBUTE(profile_groups);
 
 static const struct file_operations profile_pipe_fops = {
 	.owner = THIS_MODULE,

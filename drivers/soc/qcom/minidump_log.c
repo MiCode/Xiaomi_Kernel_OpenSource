@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/cache.h>
@@ -27,6 +27,7 @@
 #include <linux/sched/task.h>
 #include <linux/suspend.h>
 #include <linux/vmalloc.h>
+#include <linux/android_debug_symbols.h>
 
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
 #include <linux/bits.h>
@@ -142,23 +143,24 @@ static DEFINE_SPINLOCK(md_modules_lock);
 #endif	/* CONFIG_MODULES */
 #endif
 
-static void __init register_log_buf(void)
+static void register_log_buf(void)
 {
-	char **log_bufp;
-	uint32_t *log_buf_lenp;
+	char *log_bufp;
+	uint32_t log_buf_len;
 	struct md_region md_entry;
 
-	log_bufp = (char **)kallsyms_lookup_name("log_buf");
-	log_buf_lenp = (uint32_t *)kallsyms_lookup_name("log_buf_len");
-	if (!log_bufp || !log_buf_lenp) {
-		pr_err("Unable to find log_buf by kallsyms!\n");
+	log_bufp = log_buf_addr_get();
+	log_buf_len = log_buf_len_get();
+
+	if (!log_bufp || !log_buf_len) {
+		pr_err("Unable to locate log_buf!\n");
 		return;
 	}
 	/*Register logbuf to minidump, first idx would be from bss section */
 	strlcpy(md_entry.name, "KLOGBUF", sizeof(md_entry.name));
-	md_entry.virt_addr = (uintptr_t) (*log_bufp);
-	md_entry.phys_addr = virt_to_phys(*log_bufp);
-	md_entry.size = *log_buf_lenp;
+	md_entry.virt_addr = (uintptr_t) log_bufp;
+	md_entry.phys_addr = virt_to_phys(log_bufp);
+	md_entry.size = log_buf_len;
 	if (msm_minidump_add_region(&md_entry) < 0)
 		pr_err("Failed to add logbuf in Minidump\n");
 }
@@ -184,16 +186,22 @@ static int register_stack_entry(struct md_region *ksp_entry, u64 sp, u64 size)
 	return entry;
 }
 
-static void __init register_kernel_sections(void)
+static void register_kernel_sections(void)
 {
 	struct md_region ksec_entry;
 	char *data_name = "KDATABSS";
-	const size_t static_size = __per_cpu_end - __per_cpu_start;
-	void __percpu *base = (void __percpu *)__per_cpu_start;
+	size_t static_size;
+	void __percpu *base;
 	unsigned int cpu;
+	void *_sdata, *__bss_stop;
+
+	_sdata = android_debug_symbol(ADS_SDATA);
+	__bss_stop = android_debug_symbol(ADS_BSS_END);
+	base = android_debug_symbol(ADS_PER_CPU_START);
+	static_size = (size_t)(android_debug_symbol(ADS_PER_CPU_END) - base);
 
 	strlcpy(ksec_entry.name, data_name, sizeof(ksec_entry.name));
-	ksec_entry.virt_addr = (uintptr_t)_sdata;
+	ksec_entry.virt_addr = (u64)_sdata;
 	ksec_entry.phys_addr = virt_to_phys(_sdata);
 	ksec_entry.size = roundup((__bss_stop - _sdata), 4);
 	if (msm_minidump_add_region(&ksec_entry) < 0)
@@ -551,9 +559,10 @@ static void register_irq_stack(void)
 	u64 irq_stack_base;
 	struct md_region irq_sp_entry;
 	u64 sp;
+	u64 *irq_stack_ptr = android_debug_per_cpu_symbol(ADS_IRQ_STACK_PTR);
 
 	for_each_possible_cpu(cpu) {
-		irq_stack_base = (u64)per_cpu(irq_stack_ptr, cpu);
+		irq_stack_base = (u64)per_cpu_ptr((void *)irq_stack_ptr, cpu);
 		if (is_vmap_stack) {
 			irq_stack_pages_count = IRQ_STACK_SIZE / PAGE_SIZE;
 			sp = irq_stack_base & ~(PAGE_SIZE - 1);
@@ -598,7 +607,7 @@ static void md_register_trace_buf(void)
 	struct md_region md_entry;
 	void *buffer_start;
 
-	buffer_start = kmalloc(MD_FTRACE_BUF_SIZE, GFP_KERNEL);
+	buffer_start = kzalloc(MD_FTRACE_BUF_SIZE, GFP_KERNEL);
 
 	if (!buffer_start)
 		return;
@@ -944,7 +953,7 @@ static int md_die_context_notify(struct notifier_block *self,
 
 static struct notifier_block md_die_context_nb = {
 	.notifier_call = md_die_context_notify,
-	.priority = INT_MAX
+	.priority = INT_MAX - 2, /* < msm watchdog die notifier */
 };
 #endif
 
@@ -1004,7 +1013,7 @@ dump_rq:
 
 static struct notifier_block md_panic_blk = {
 	.notifier_call = md_panic_handler,
-	.priority = INT_MAX,
+	.priority = INT_MAX - 2, /* < msm watchdog panic notifier */
 };
 
 static int md_register_minidump_entry(char *name, u64 virt_addr,
@@ -1319,7 +1328,7 @@ static void md_register_module_data(void)
 #endif	/* CONFIG_MODULES */
 #endif	/* CONFIG_QCOM_MINIDUMP_PANIC_DUMP */
 
-static int __init msm_minidump_log_init(void)
+int msm_minidump_log_init(void)
 {
 	register_kernel_sections();
 	is_vmap_stack = IS_ENABLED(CONFIG_VMAP_STACK);
@@ -1345,4 +1354,3 @@ static int __init msm_minidump_log_init(void)
 #endif
 	return 0;
 }
-late_initcall(msm_minidump_log_init);

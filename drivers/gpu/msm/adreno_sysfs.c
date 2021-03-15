@@ -7,6 +7,30 @@
 
 #include "adreno.h"
 #include "adreno_sysfs.h"
+#include "kgsl_sysfs.h"
+
+static ssize_t _gpu_model_show(struct kgsl_device *device, char *buf)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	if (gpudev->gpu_model)
+		return gpudev->gpu_model(adreno_dev, buf, PAGE_SIZE);
+
+	return scnprintf(buf, PAGE_SIZE, "Adreno%lx%ld%lxv%ld\n",
+			ADRENO_CHIPID_CORE(adreno_dev->chipid),
+			 ADRENO_CHIPID_MAJOR(adreno_dev->chipid),
+			 ADRENO_CHIPID_MINOR(adreno_dev->chipid),
+			 ADRENO_CHIPID_PATCH(adreno_dev->chipid) + 1);
+}
+
+static ssize_t gpu_model_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct kgsl_device *device = dev_get_drvdata(dev);
+
+	return _gpu_model_show(device, buf);
+}
 
 static int _ft_policy_store(struct adreno_device *adreno_dev,
 		unsigned int val)
@@ -34,7 +58,7 @@ static int _ft_pagefault_policy_store(struct adreno_device *adreno_dev,
 			(unsigned long) val);
 
 	if (ret == 0)
-		adreno_dev->ft_pf_policy = val;
+		device->mmu.pfpolicy = val;
 
 	mutex_unlock(&device->mutex);
 
@@ -43,7 +67,9 @@ static int _ft_pagefault_policy_store(struct adreno_device *adreno_dev,
 
 static unsigned int _ft_pagefault_policy_show(struct adreno_device *adreno_dev)
 {
-	return adreno_dev->ft_pf_policy;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	return device->mmu.pfpolicy;
 }
 
 static int _gpu_llc_slice_enable_store(struct adreno_device *adreno_dev,
@@ -267,6 +293,7 @@ static ADRENO_SYSFS_RO_U32(ifpc_count);
 static ADRENO_SYSFS_BOOL(acd);
 static ADRENO_SYSFS_BOOL(bcl);
 
+static DEVICE_ATTR_RO(gpu_model);
 
 static const struct attribute *_attr_list[] = {
 	&adreno_attr_ft_policy.attr.attr,
@@ -285,21 +312,11 @@ static const struct attribute *_attr_list[] = {
 	&adreno_attr_ifpc_count.attr.attr,
 	&adreno_attr_acd.attr.attr,
 	&adreno_attr_bcl.attr.attr,
+	&dev_attr_gpu_model.attr,
 	NULL,
 };
 
-/**
- * adreno_sysfs_close() - Take down the adreno sysfs files
- * @adreno_dev: Pointer to the adreno device
- *
- * Take down the sysfs files on when the device goes away
- */
-void adreno_sysfs_close(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	sysfs_remove_files(&device->dev->kobj, _attr_list);
-}
+static GPU_SYSFS_ATTR(gpu_model, 0444, _gpu_model_show, NULL);
 
 /**
  * adreno_sysfs_init() - Initialize adreno sysfs files
@@ -311,7 +328,14 @@ void adreno_sysfs_close(struct adreno_device *adreno_dev)
 int adreno_sysfs_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int ret;
 
-	return sysfs_create_files(&device->dev->kobj, _attr_list);
+	ret = sysfs_create_files(&device->dev->kobj, _attr_list);
+
+	if (!ret)
+		ret = sysfs_create_file(&device->gpu_sysfs_kobj,
+			&gpu_sysfs_attr_gpu_model.attr);
+
+	return ret;
 }
 

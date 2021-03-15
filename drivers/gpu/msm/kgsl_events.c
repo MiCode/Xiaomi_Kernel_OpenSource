@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -372,7 +372,7 @@ static void events_debugfs_print_group(struct seq_file *s,
 	spin_unlock(&group->lock);
 }
 
-static int events_debugfs_print(struct seq_file *s, void *unused)
+static int events_show(struct seq_file *s, void *unused)
 {
 	struct kgsl_device *device = s->private;
 	struct kgsl_event_group *group;
@@ -390,17 +390,7 @@ static int events_debugfs_print(struct seq_file *s, void *unused)
 	return 0;
 }
 
-static int events_debugfs_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, events_debugfs_print, inode->i_private);
-}
-
-static const struct file_operations events_fops = {
-	.open = events_debugfs_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
+DEFINE_SHOW_ATTRIBUTE(events);
 
 void kgsl_device_events_remove(struct kgsl_device *device)
 {

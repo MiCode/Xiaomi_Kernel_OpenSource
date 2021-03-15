@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -1238,8 +1238,7 @@ static size_t a6xx_snapshot_dbgc_debugbus_block(struct kgsl_device *device,
 	}
 
 	header->id = block->block_id;
-	if ((block->block_id == A6XX_DBGBUS_VBIF) &&
-		adreno_has_gbif(adreno_dev))
+	if ((block->block_id == A6XX_DBGBUS_VBIF) && !adreno_is_a630(adreno_dev))
 		header->id = A6XX_DBGBUS_GBIF_GX;
 	header->count = dwords * 2;
 
@@ -1500,7 +1499,7 @@ static void a6xx_snapshot_debugbus(struct adreno_device *adreno_dev,
 	 * default path if GPU uses GBIF.
 	 * GBIF uses exactly same ID as of VBIF so use it as it is.
 	 */
-	if (adreno_has_gbif(adreno_dev))
+	if (!adreno_is_a630(adreno_dev))
 		kgsl_snapshot_add_section(device,
 			KGSL_SNAPSHOT_SECTION_DEBUGBUS,
 			snapshot, a6xx_snapshot_dbgc_debugbus_block,
@@ -1524,7 +1523,7 @@ static void a6xx_snapshot_debugbus(struct adreno_device *adreno_dev,
 		 * GBIF uses exactly same ID as of VBIF so use
 		 * it as it is.
 		 */
-		if (adreno_has_gbif(adreno_dev))
+		if (!adreno_is_a630(adreno_dev))
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
 				snapshot,
@@ -1658,50 +1657,6 @@ static size_t a6xx_snapshot_isense_registers(struct kgsl_device *device,
 	return (count * 8) + sizeof(*header);
 }
 
-/* Snapshot gmu wrapper registers */
-static size_t a6xx_snapshot_gmu_wrapper_registers(struct kgsl_device *device,
-		u8 *buf, size_t remain, void *priv)
-{
-	struct kgsl_snapshot_regs *header = (struct kgsl_snapshot_regs *)buf;
-	struct kgsl_snapshot_registers *regs = priv;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int count = 0, j, k;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
-	/* Figure out how many registers we are going to dump */
-
-	for (j = 0; j < regs->count; j++) {
-		int start = regs->regs[j * 2];
-		int end = regs->regs[j * 2 + 1];
-
-		count += (end - start + 1);
-	}
-
-	if (remain < (count * 8) + sizeof(*header)) {
-		SNAPSHOT_ERR_NOMEM(device, "GMU WRAPPER REGS");
-		return 0;
-	}
-
-	for (j = 0; j < regs->count; j++) {
-		unsigned int start = regs->regs[j * 2];
-		unsigned int end = regs->regs[j * 2 + 1];
-
-		for (k = start; k <= end; k++) {
-			unsigned int val;
-
-			adreno_read_gmu_wrapper(adreno_dev, k, &val);
-			*data++ = k;
-			*data++ = val;
-		}
-	}
-
-	header->count = count;
-
-	/* Return the size of the section */
-	return (count * 8) + sizeof(*header);
-}
-
-
 /* Snapshot the preemption related buffers */
 static size_t snapshot_preemption_record(struct kgsl_device *device,
 	u8 *buf, size_t remain, void *priv)
@@ -1790,15 +1745,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 			snapshot, a6xx_snapshot_isense_registers, &r);
 	}
 
-	if (adreno_is_a619_holi(adreno_dev)) {
-		struct kgsl_snapshot_registers r;
-
-		r.regs = a6xx_gmu_wrapper_registers;
-		r.count = ARRAY_SIZE(a6xx_gmu_wrapper_registers) / 2;
-
-		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
-			snapshot, a6xx_snapshot_gmu_wrapper_registers, &r);
-	} else if (!gmu_core_isenabled(device)) {
+	if (!gmu_core_isenabled(device)) {
 		adreno_snapshot_registers(device, snapshot,
 				a6xx_gmu_wrapper_registers,
 				ARRAY_SIZE(a6xx_gmu_wrapper_registers) / 2);
@@ -1831,7 +1778,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		snapshot, a6xx_snapshot_pre_crashdump_regs, NULL);
 
 	/* Dump vbif registers as well which get affected by crash dumper */
-	if (!adreno_has_gbif(adreno_dev))
+	if (adreno_is_a630(adreno_dev))
 		SNAPSHOT_REGISTERS(device, snapshot, a6xx_vbif_registers);
 	else
 		adreno_snapshot_registers(device, snapshot,
@@ -2109,7 +2056,7 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int script_size = 0;
 	unsigned int data_size = 0;
-	unsigned int i, j, k;
+	unsigned int i, j, k, ret;
 	uint64_t *ptr;
 	uint64_t offset = 0;
 
@@ -2237,20 +2184,16 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	/* Now allocate the script and data buffers */
 
 	/* The script buffers needs 2 extra qwords on the end */
-	if (IS_ERR_OR_NULL(a6xx_capturescript))
-		a6xx_capturescript = kgsl_allocate_global(device,
-			script_size + 16, 0, KGSL_MEMFLAGS_GPUREADONLY,
-			KGSL_MEMDESC_PRIVILEGED, "capturescript");
-
-	if (IS_ERR(a6xx_capturescript))
+	ret = adreno_allocate_global(device, &a6xx_capturescript,
+		script_size + 16, 0, KGSL_MEMFLAGS_GPUREADONLY,
+		KGSL_MEMDESC_PRIVILEGED, "capturescript");
+	if (ret)
 		return;
 
-	if (IS_ERR_OR_NULL(a6xx_crashdump_registers))
-		a6xx_crashdump_registers = kgsl_allocate_global(device,
-			data_size, 0, 0, KGSL_MEMDESC_PRIVILEGED,
-			"capturescript_regs");
-
-	if (IS_ERR(a6xx_crashdump_registers))
+	ret = adreno_allocate_global(device, &a6xx_crashdump_registers,
+		data_size, 0, 0, KGSL_MEMDESC_PRIVILEGED,
+		"capturescript_regs");
+	if (ret)
 		return;
 
 	/* Build the crash script */

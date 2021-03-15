@@ -533,7 +533,6 @@ static struct clk_rcg2 gcc_gp3_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gcc_pcie_0_aux_clk_src[] = {
-	F(9600000, P_BI_TCXO, 2, 0, 0),
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	{ }
 };
@@ -558,8 +557,7 @@ static struct clk_rcg2 gcc_pcie_0_aux_clk_src = {
 		.num_vdd_classes = ARRAY_SIZE(gcc_waipio_regulators),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 9600000,
-			[VDD_LOW] = 19200000},
+			[VDD_LOWER] = 19200000},
 	},
 };
 
@@ -613,8 +611,7 @@ static struct clk_rcg2 gcc_pcie_1_aux_clk_src = {
 		.num_vdd_classes = ARRAY_SIZE(gcc_waipio_regulators),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 9600000,
-			[VDD_LOW] = 19200000},
+			[VDD_LOWER] = 19200000},
 	},
 };
 
@@ -1442,12 +1439,18 @@ static struct clk_rcg2 gcc_ufs_phy_ice_core_clk_src = {
 	},
 };
 
+static const struct freq_tbl ftbl_gcc_ufs_phy_phy_aux_clk_src[] = {
+	F(9600000, P_BI_TCXO, 2, 0, 0),
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 gcc_ufs_phy_phy_aux_clk_src = {
 	.cmd_rcgr = 0x870a8,
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_3,
-	.freq_tbl = ftbl_gcc_pcie_0_aux_clk_src,
+	.freq_tbl = ftbl_gcc_ufs_phy_phy_aux_clk_src,
 	.enable_safe_config = true,
 	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &(struct clk_init_data){
@@ -1526,17 +1529,12 @@ static struct clk_rcg2 gcc_usb30_prim_master_clk_src = {
 	},
 };
 
-static const struct freq_tbl ftbl_gcc_usb30_prim_mock_utmi_clk_src[] = {
-	F(19200000, P_BI_TCXO, 1, 0, 0),
-	{ }
-};
-
 static struct clk_rcg2 gcc_usb30_prim_mock_utmi_clk_src = {
 	.cmd_rcgr = 0x49040,
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_0,
-	.freq_tbl = ftbl_gcc_usb30_prim_mock_utmi_clk_src,
+	.freq_tbl = ftbl_gcc_pcie_0_aux_clk_src,
 	.enable_safe_config = true,
 	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &(struct clk_init_data){
@@ -1559,7 +1557,7 @@ static struct clk_rcg2 gcc_usb3_prim_phy_aux_clk_src = {
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_2,
-	.freq_tbl = ftbl_gcc_usb30_prim_mock_utmi_clk_src,
+	.freq_tbl = ftbl_gcc_pcie_0_aux_clk_src,
 	.enable_safe_config = true,
 	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &(struct clk_init_data){

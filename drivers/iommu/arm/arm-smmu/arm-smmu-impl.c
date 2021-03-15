@@ -205,8 +205,6 @@ struct arm_smmu_device *arm_smmu_impl_init(struct arm_smmu_device *smmu)
 		break;
 	case CAVIUM_SMMUV2:
 		return cavium_smmu_impl_init(smmu);
-	case QCOM_SMMUV500:
-		return qsmmuv500_impl_init(smmu);
 	default:
 		break;
 	}
@@ -223,6 +221,9 @@ struct arm_smmu_device *arm_smmu_impl_init(struct arm_smmu_device *smmu)
 	    of_device_is_compatible(np, "qcom,sm8150-smmu-500") ||
 	    of_device_is_compatible(np, "qcom,sm8250-smmu-500"))
 		return qcom_smmu_impl_init(smmu);
+
+	if (of_device_is_compatible(smmu->dev->of_node, "qcom,qsmmu-v500"))
+		return qsmmuv500_impl_init(smmu);
 
 	if (of_device_is_compatible(smmu->dev->of_node, "qcom,adreno-smmu"))
 		return qcom_adreno_smmu_impl_init(smmu);

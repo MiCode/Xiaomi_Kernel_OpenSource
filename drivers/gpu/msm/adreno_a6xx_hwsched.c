@@ -562,6 +562,9 @@ static int a6xx_hwsched_first_boot(struct adreno_device *adreno_dev)
 	if (test_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags))
 		return a6xx_hwsched_boot(adreno_dev);
 
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+		set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
+
 	adreno_hwsched_start(adreno_dev);
 
 	ret = a6xx_microcode_read(adreno_dev);
@@ -637,7 +640,7 @@ static int a6xx_hwsched_power_off(struct adreno_device *adreno_dev)
 	a6xx_gmu_oob_clear(device, oob_gpu);
 
 no_gx_power:
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+	kgsl_pwrctrl_irq(device, false);
 
 	a6xx_hwsched_gmu_power_off(adreno_dev);
 
@@ -849,12 +852,12 @@ static int a6xx_hwsched_pm_suspend(struct adreno_device *adreno_dev)
 	mutex_unlock(&device->mutex);
 
 	/* Flush any currently running instances of the dispatcher */
-	kthread_flush_worker(&kgsl_driver.worker);
+	adreno_hwsched_flush(adreno_dev);
 
 	mutex_lock(&device->mutex);
 
 	/* This ensures that dispatcher doesn't submit any new work */
-	adreno_dispatcher_halt(device);
+	adreno_get_gpu_halt(adreno_dev);
 
 	/**
 	 * Wait for the dispatcher to retire everything by waiting
@@ -891,22 +894,57 @@ static int a6xx_hwsched_pm_suspend(struct adreno_device *adreno_dev)
 	return 0;
 
 err:
-	adreno_dispatcher_unhalt(device);
+	adreno_put_gpu_halt(adreno_dev);
 	adreno_hwsched_start(adreno_dev);
 
 	return ret;
 }
 
+void a6xx_hwsched_handle_watchdog(struct adreno_device *adreno_dev)
+{
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 mask;
+
+	/* Temporarily mask the watchdog interrupt to prevent a storm */
+	gmu_core_regread(device, A6XX_GMU_AO_HOST_INTERRUPT_MASK,
+		&mask);
+	gmu_core_regwrite(device, A6XX_GMU_AO_HOST_INTERRUPT_MASK,
+			(mask | GMU_INT_WDOG_BITE));
+
+	/* make sure we're reading the latest cm3_fault */
+	smp_rmb();
+
+	/*
+	 * We should not send NMI if there was a CM3 fault reported
+	 * because we don't want to overwrite the critical CM3 state
+	 * captured by gmu before it sent the CM3 fault interrupt.
+	 */
+	if (!atomic_read(&gmu->cm3_fault))
+		a6xx_gmu_send_nmi(adreno_dev);
+
+	/*
+	 * There is sufficient delay for the GMU to have finished
+	 * handling the NMI before snapshot is taken, as the fault
+	 * worker is scheduled below.
+	 */
+
+	dev_err_ratelimited(&gmu->pdev->dev,
+			"GMU watchdog expired interrupt received\n");
+
+	adreno_get_gpu_halt(adreno_dev);
+	adreno_hwsched_set_fault(adreno_dev);
+}
+
 static void a6xx_hwsched_pm_resume(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 
 	if (WARN(!test_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags),
 		"resume invoked without a suspend\n"))
 		return;
 
-	adreno_dispatcher_unhalt(device);
+	adreno_put_gpu_halt(adreno_dev);
 
 	adreno_hwsched_start(adreno_dev);
 
@@ -1002,75 +1040,5 @@ int a6xx_hwsched_probe(struct platform_device *pdev,
 
 	adreno_dev->irq_mask = A6XX_HWSCHED_INT_MASK;
 
-	adreno_hwsched_init(adreno_dev);
-
-	return 0;
+	return adreno_hwsched_init(adreno_dev);
 }
-
-static int a6xx_hwsched_bind(struct device *dev, struct device *master,
-	void *data)
-{
-	struct kgsl_device *device = dev_get_drvdata(master);
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	int ret;
-
-	ret = a6xx_gmu_probe(device, to_platform_device(dev));
-	if (ret)
-		goto error;
-
-	ret = a6xx_hwsched_hfi_probe(adreno_dev);
-	if (ret)
-		goto error;
-
-	set_bit(GMU_DISPATCH, &device->gmu_core.flags);
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
-		set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
-
-	return 0;
-
-error:
-	a6xx_gmu_remove(device);
-
-	return ret;
-}
-
-static void a6xx_hwsched_unbind(struct device *dev, struct device *master,
-		void *data)
-{
-	struct kgsl_device *device = dev_get_drvdata(master);
-
-	a6xx_gmu_remove(device);
-
-	adreno_hwsched_dispatcher_close(ADRENO_DEVICE(device));
-}
-
-static const struct component_ops a6xx_hwsched_component_ops = {
-	.bind = a6xx_hwsched_bind,
-	.unbind = a6xx_hwsched_unbind,
-};
-
-static int a6xx_hwsched_probe_dev(struct platform_device *pdev)
-{
-	return component_add(&pdev->dev, &a6xx_hwsched_component_ops);
-}
-
-static int a6xx_hwsched_remove_dev(struct platform_device *pdev)
-{
-	component_del(&pdev->dev, &a6xx_hwsched_component_ops);
-	return 0;
-}
-
-static const struct of_device_id a6xx_gmu_match_table[] = {
-	{ .compatible = "qcom,gpu-gmu" },
-	{ },
-};
-
-struct platform_driver a6xx_hwsched_driver = {
-	.probe = a6xx_hwsched_probe_dev,
-	.remove = a6xx_hwsched_remove_dev,
-	.driver = {
-		.name = "adreno-a6xx-gmu",
-		.of_match_table = a6xx_gmu_match_table,
-	},
-};

@@ -45,7 +45,6 @@
 #define DEFAULT_M3_FILE_NAME		"m3.bin"
 #define DEFAULT_FW_FILE_NAME		"amss.bin"
 #define FW_V2_FILE_NAME			"amss20.bin"
-#define FW_V2_NUMBER			2
 
 #define WAKE_MSI_NAME			"WAKE"
 
@@ -2647,6 +2646,7 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 	    test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state))
 		goto register_driver;
 
+	pci_priv->driver_ops = driver_ops;
 	/* If Cold Boot Calibration is enabled, it is the 1st step in init
 	 * sequence.CBC is done on file system_ready trigger. Qcacld will be
 	 * loaded from vendor_modprobe.sh at early boot and must be deferred
@@ -3842,8 +3842,8 @@ static int cnss_pci_smmu_fault_handler(struct iommu_domain *domain,
 	cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
 	cnss_force_fw_assert(&pci_priv->pci_dev->dev);
 
-	/* IOMMU driver requires non-zero return value to print debug info. */
-	return -EINVAL;
+	/* IOMMU driver requires -ENOSYS to print debug info. */
+	return -ENOSYS;
 }
 
 static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)

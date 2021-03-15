@@ -90,11 +90,14 @@ struct fts_ts_data *fts_data;
 static struct drm_panel *active_panel;
 #endif
 
+static struct ft_chip_t ctype[] = {
+	{0x88, 0x56, 0x52, 0x00, 0x00, 0x00, 0x00, 0x56, 0xB2},
+	{0x81, 0x54, 0x52, 0x54, 0x52, 0x00, 0x00, 0x54, 0x5C},
+};
+
 /*****************************************************************************
 * Static function prototypes
 *****************************************************************************/
-static int fts_ts_suspend(struct device *dev);
-static int fts_ts_resume(struct device *dev);
 static irqreturn_t fts_irq_handler(int irq, void *data);
 static int fts_ts_probe_delayed(struct fts_ts_data *fts_data);
 
@@ -1029,22 +1032,24 @@ void fts_hid2std(void)
 	int ret = 0;
 	u8 buf[3] = {0xEB, 0xAA, 0x09};
 
+	if (fts_data->bus_type != BUS_TYPE_I2C)
+		return;
+
 	ret = fts_write(buf, 3);
 	if (ret < 0) {
 		FTS_ERROR("hid2std cmd write fail");
 		return;
 	}
 
-	msleep(10);
+	msleep(20);
 	buf[0] = buf[1] = buf[2] = 0;
 	ret = fts_read(NULL, 0, buf, 3);
-	if (ret < 0) {
+	if (ret < 0)
 		FTS_ERROR("hid2std cmd read fail");
-	} else if ((0xEB == buf[0]) && (0xAA == buf[1]) && (0x08 == buf[2])) {
+	else if ((buf[0] == 0xEB) && (buf[1] == 0xAA) && (buf[2] == 0x08))
 		FTS_DEBUG("hidi2c change to stdi2c successful");
-	} else {
+	else
 		FTS_DEBUG("hidi2c change to stdi2c not support or fail");
-	}
 
 }
 
@@ -1053,7 +1058,6 @@ static int fts_get_chip_types(
 	u8 id_h, u8 id_l, bool fw_valid)
 {
 	int i = 0;
-	struct ft_chip_t ctype[] = FTS_CHIP_TYPE_MAPPING;
 	u32 ctype_entries = sizeof(ctype) / sizeof(struct ft_chip_t);
 
 	if ((0x0 == id_h) || (0x0 == id_l)) {
@@ -1129,9 +1133,10 @@ static int fts_get_ic_information(struct fts_ts_data *ts_data)
 	int ret = 0;
 	int cnt = 0;
 	u8 chip_id[2] = { 0 };
+	u32 type = ts_data->pdata->type;
 
-	ts_data->ic_info.is_incell = FTS_CHIP_IDC;
-	ts_data->ic_info.hid_supported = FTS_HID_SUPPORTTED;
+	ts_data->ic_info.is_incell = FTS_CHIP_IDC(type);
+	ts_data->ic_info.hid_supported = FTS_HID_SUPPORTTED(type);
 
 	do {
 		ret = fts_read_reg(FTS_REG_CHIP_ID, &chip_id[0]);
@@ -1143,9 +1148,9 @@ static int fts_get_ic_information(struct fts_ts_data *ts_data)
 			ret = fts_get_chip_types(ts_data, chip_id[0], chip_id[1], VALID);
 			if (!ret)
 				break;
-            else
-                FTS_DEBUG("TP not ready, read:0x%02x%02x",
-                          chip_id[0], chip_id[1]);
+			else
+				FTS_DEBUG("TP not ready, read:0x%02x%02x",
+						chip_id[0], chip_id[1]);
 		}
 
 		cnt++;
@@ -1610,8 +1615,10 @@ static int fts_input_init(struct fts_ts_data *ts_data)
 
 	/* Init and register Input device */
 	input_dev->name = FTS_DRIVER_NAME;
-
-	input_dev->id.bustype = BUS_I2C;
+	if (ts_data->bus_type == BUS_TYPE_I2C)
+		input_dev->id.bustype = BUS_I2C;
+	else
+		input_dev->id.bustype = BUS_SPI;
 	input_dev->dev.parent = ts_data->dev;
 
 	input_set_drvdata(input_dev, ts_data);
@@ -1660,8 +1667,8 @@ static int fts_report_buffer_init(struct fts_ts_data *ts_data)
 	int point_num = 0;
 	int events_num = 0;
 
-	point_num = ts_data->pdata->max_touch_number;
-	ts_data->pnt_buf_size = point_num * FTS_ONE_TCH_LEN + 3;
+	point_num = FTS_MAX_POINTS_SUPPORT;
+	ts_data->pnt_buf_size = FTS_TOUCH_DATA_LEN + FTS_GESTURE_DATA_LEN;
 	ts_data->point_buf = (u8 *)kzalloc(ts_data->pnt_buf_size + 1, GFP_KERNEL);
 	if (!ts_data->point_buf) {
 		FTS_ERROR("failed to alloc memory for point buf");
@@ -1742,6 +1749,7 @@ static int fts_pinctrl_select_normal(struct fts_ts_data *ts)
 	return ret;
 }
 
+#if defined(CONFIG_FBI) || defined(CONFIG_HAS_EARLYSUSPEND)
 static int fts_pinctrl_select_suspend(struct fts_ts_data *ts)
 {
 	int ret = 0;
@@ -1755,6 +1763,7 @@ static int fts_pinctrl_select_suspend(struct fts_ts_data *ts)
 
 	return ret;
 }
+#endif
 
 static int fts_pinctrl_select_release(struct fts_ts_data *ts)
 {
@@ -1916,6 +1925,7 @@ static int fts_power_source_exit(struct fts_ts_data *ts_data)
 	return 0;
 }
 
+#if defined(CONFIG_FBI) || defined(CONFIG_HAS_EARLYSUSPEND)
 static int fts_power_source_suspend(struct fts_ts_data *ts_data)
 {
 	int ret = 0;
@@ -1948,6 +1958,7 @@ static int fts_power_source_resume(struct fts_ts_data *ts_data)
 	return ret;
 }
 #endif /* FTS_POWER_SOURCE_CUST_EN */
+#endif
 
 static int fts_gpio_configure(struct fts_ts_data *data)
 {
@@ -2113,65 +2124,20 @@ static int fts_parse_dt(struct device *dev, struct fts_ts_platform_data *pdata)
 	FTS_INFO("max touch number:%d, irq gpio:%d, reset gpio:%d",
 		pdata->max_touch_number, pdata->irq_gpio, pdata->reset_gpio);
 
+	ret = of_property_read_u32(np, "focaltech,ic-type", &temp_val);
+	if (ret < 0)
+		pdata->type = _FT3518;
+	else
+		pdata->type = temp_val;
+
 	FTS_FUNC_EXIT();
 	return 0;
 }
 
-#if defined(CONFIG_DRM)
-static void fts_resume_work(struct work_struct *work)
-{
-	struct fts_ts_data *ts_data = container_of(work, struct fts_ts_data,
-					resume_work);
+#if defined(CONFIG_FB)
+static int fts_ts_suspend(struct device *dev);
+static int fts_ts_resume(struct device *dev);
 
-	fts_ts_resume(ts_data->dev);
-}
-
-static int fb_notifier_callback(struct notifier_block *self,
-				unsigned long event, void *data)
-{
-	struct drm_panel_notifier *evdata = data;
-	int *blank = NULL;
-	struct fts_ts_data *ts_data = container_of(self, struct fts_ts_data,
-			fb_notif);
-
-	if (!evdata)
-		return 0;
-
-	if (!(event == DRM_PANEL_EARLY_EVENT_BLANK ||
-		event == DRM_PANEL_EVENT_BLANK)) {
-		FTS_INFO("event(%lu) do not need process\n", event);
-		return 0;
-	}
-
-	blank = evdata->data;
-	FTS_DEBUG("FB event:%lu,blank:%d", event, *blank);
-	switch (*blank) {
-	case DRM_PANEL_BLANK_UNBLANK:
-		if (event == DRM_PANEL_EARLY_EVENT_BLANK) {
-			FTS_DEBUG("resume: event = %lu, not care\n", event);
-		} else if (event == DRM_PANEL_EVENT_BLANK) {
-			queue_work(fts_data->ts_workqueue, &fts_data->resume_work);
-		}
-		break;
-
-	case DRM_PANEL_BLANK_POWERDOWN:
-		if (event == DRM_PANEL_EARLY_EVENT_BLANK) {
-			cancel_work_sync(&fts_data->resume_work);
-			fts_ts_suspend(ts_data->dev);
-		} else if (event == DRM_PANEL_EVENT_BLANK) {
-			FTS_DEBUG("suspend: event = %lu, not care\n", event);
-		}
-		break;
-
-	default:
-		FTS_DEBUG("FB BLANK(%d) do not need process\n", *blank);
-		break;
-	}
-
-	return 0;
-}
-
-#elif defined(CONFIG_FB)
 static void fts_resume_work(struct work_struct *work)
 {
 	struct fts_ts_data *ts_data = container_of(work, struct fts_ts_data,
@@ -2267,9 +2233,8 @@ static int fts_ts_probe_delayed(struct fts_ts_data *fts_data)
 	}
 #endif
 
-#if (!FTS_CHIP_IDC)
-	fts_reset_proc(200);
-#endif
+	if (!FTS_CHIP_IDC(fts_data->pdata->type))
+		fts_reset_proc(200);
 
 	ret = fts_get_ic_information(fts_data);
 	if (ret) {
@@ -2401,18 +2366,7 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 	}
 #endif
 
-#if defined(CONFIG_DRM)
-	if (ts_data->ts_workqueue) {
-		INIT_WORK(&ts_data->resume_work, fts_resume_work);
-	}
-	ts_data->fb_notif.notifier_call = fb_notifier_callback;
-
-	if (active_panel &&
-		drm_panel_notifier_register(active_panel,
-			&ts_data->fb_notif) < 0)
-		FTS_ERROR("register notifier failed!\n");
-
-#elif defined(CONFIG_FB)
+#if defined(CONFIG_FB)
 	if (ts_data->ts_workqueue) {
 		INIT_WORK(&ts_data->resume_work, fts_resume_work);
 	}
@@ -2486,11 +2440,7 @@ static int fts_ts_remove_entry(struct fts_ts_data *ts_data)
 	if (ts_data->ts_workqueue)
 		destroy_workqueue(ts_data->ts_workqueue);
 
-#if defined(CONFIG_DRM)
-	if (active_panel)
-		drm_panel_notifier_unregister(active_panel, &ts_data->fb_notif);
-
-#elif defined(CONFIG_FB)
+#if defined(CONFIG_FB)
 	if (fb_unregister_client(&ts_data->fb_notif))
 		FTS_ERROR("Error occurred while unregistering fb_notifier.");
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
@@ -2518,6 +2468,7 @@ static int fts_ts_remove_entry(struct fts_ts_data *ts_data)
 	return 0;
 }
 
+#if defined(CONFIG_FBI) || defined(CONFIG_HAS_EARLYSUSPEND)
 static int fts_ts_suspend(struct device *dev)
 {
 	int ret = 0;
@@ -2605,6 +2556,7 @@ static int fts_ts_resume(struct device *dev)
 	FTS_FUNC_EXIT();
 	return 0;
 }
+#endif
 
 /*****************************************************************************
 * TP Driver
@@ -2678,7 +2630,7 @@ out:
 	return ret;
 }
 
-static int fts_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
+static int fts_ts_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int ret = 0;
 	struct fts_ts_data *ts_data = NULL;
@@ -2715,6 +2667,7 @@ static int fts_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 	ts_data->dev = &client->dev;
 	ts_data->log_level = 1;
 	ts_data->fw_is_running = 0;
+	ts_data->bus_type = BUS_TYPE_I2C;
 	i2c_set_clientdata(client, ts_data);
 
 	ret = fts_ts_probe_entry(ts_data);
@@ -2728,49 +2681,166 @@ static int fts_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 	return 0;
 }
 
-static int fts_ts_remove(struct i2c_client *client)
+static int fts_ts_i2c_remove(struct i2c_client *client)
 {
 	return fts_ts_remove_entry(i2c_get_clientdata(client));
 }
 
-static const struct i2c_device_id fts_ts_id[] = {
+static const struct i2c_device_id fts_ts_i2c_id[] = {
 	{FTS_DRIVER_NAME, 0},
 	{},
 };
 static const struct of_device_id fts_dt_match[] = {
-    {.compatible = "focaltech,fts_ts", },
-    {},
+	{.compatible = "focaltech,fts_ts", },
+	{},
 };
 MODULE_DEVICE_TABLE(of, fts_dt_match);
 
-static struct i2c_driver fts_ts_driver = {
-	.probe = fts_ts_probe,
-	.remove = fts_ts_remove,
+static struct i2c_driver fts_ts_i2c_driver = {
+	.probe = fts_ts_i2c_probe,
+	.remove = fts_ts_i2c_remove,
 	.driver = {
 		.name = FTS_DRIVER_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = of_match_ptr(fts_dt_match),
 	},
-	.id_table = fts_ts_id,
+	.id_table = fts_ts_i2c_id,
 };
+
+static int __init fts_ts_i2c_init(void)
+{
+	int ret = 0;
+
+	FTS_FUNC_ENTER();
+	ret = i2c_add_driver(&fts_ts_i2c_driver);
+	if (ret != 0)
+		FTS_ERROR("Focaltech touch screen driver init failed!");
+
+	FTS_FUNC_EXIT();
+	return ret;
+}
+
+static void __exit fts_ts_i2c_exit(void)
+{
+	i2c_del_driver(&fts_ts_i2c_driver);
+}
+
+
+static int fts_ts_spi_probe(struct spi_device *spi)
+{
+	int ret = 0;
+	struct fts_ts_data *ts_data = NULL;
+	struct device_node *dp = spi->dev.of_node;
+
+	FTS_INFO("Touch Screen(SPI BUS) driver prboe...");
+
+	ret = fts_ts_check_dt(dp);
+	if (ret == -EPROBE_DEFER)
+		return ret;
+
+	if (ret) {
+		if (!fts_ts_check_default_tp(dp, "qcom,spi-touch-active"))
+			ret = -EPROBE_DEFER;
+		else
+			ret = -ENODEV;
+
+		return ret;
+	}
+
+	spi->mode = SPI_MODE_0;
+	spi->bits_per_word = 8;
+	ret = spi_setup(spi);
+	if (ret) {
+		FTS_ERROR("spi setup fail");
+		return ret;
+	}
+
+	/* malloc memory for global struct variable */
+	ts_data = kzalloc(sizeof(*ts_data), GFP_KERNEL);
+	if (!ts_data) {
+		FTS_ERROR("allocate memory for fts_data fail");
+		return -ENOMEM;
+	}
+
+	fts_data = ts_data;
+	ts_data->spi = spi;
+	ts_data->dev = &spi->dev;
+	ts_data->log_level = 1;
+
+	ts_data->bus_type = BUS_TYPE_SPI_V2;
+	spi_set_drvdata(spi, ts_data);
+
+	ret = fts_ts_probe_entry(ts_data);
+	if (ret) {
+		FTS_ERROR("Touch Screen(SPI BUS) driver probe fail");
+		kfree_safe(ts_data);
+		return ret;
+	}
+
+	FTS_INFO("Touch Screen(SPI BUS) driver prboe successfully");
+	return 0;
+}
+
+static int fts_ts_spi_remove(struct spi_device *spi)
+{
+	return fts_ts_remove_entry(spi_get_drvdata(spi));
+}
+
+static const struct spi_device_id fts_ts_spi_id[] = {
+	{FTS_DRIVER_NAME, 0},
+	{},
+};
+
+static struct spi_driver fts_ts_spi_driver = {
+	.probe = fts_ts_spi_probe,
+	.remove = fts_ts_spi_remove,
+	.driver = {
+		.name = FTS_DRIVER_NAME,
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(fts_dt_match),
+	},
+	.id_table = fts_ts_spi_id,
+};
+
+static int __init fts_ts_spi_init(void)
+{
+	int ret = 0;
+
+	FTS_FUNC_ENTER();
+	ret = spi_register_driver(&fts_ts_spi_driver);
+	if (ret != 0)
+		FTS_ERROR("Focaltech touch screen driver init failed!");
+
+	FTS_FUNC_EXIT();
+	return ret;
+}
+
+static void __exit fts_ts_spi_exit(void)
+{
+	spi_unregister_driver(&fts_ts_spi_driver);
+}
 
 static int __init fts_ts_init(void)
 {
 	int ret = 0;
 
-	FTS_FUNC_ENTER();
-	ret = i2c_add_driver(&fts_ts_driver);
-	if ( ret != 0 ) {
-		FTS_ERROR("Focaltech touch screen driver init failed!");
-	}
-	FTS_FUNC_EXIT();
+	ret = fts_ts_i2c_init();
+	if (ret)
+		FTS_ERROR("Focaltech I2C driver init failed!");
+
+	ret = fts_ts_spi_init();
+	if (ret)
+		FTS_ERROR("Focaltech SPI driver init failed!");
+
 	return ret;
 }
 
 static void __exit fts_ts_exit(void)
 {
-	i2c_del_driver(&fts_ts_driver);
+	fts_ts_i2c_exit();
+	fts_ts_spi_exit();
 }
+
 #ifdef CONFIG_ARCH_QTI_VM
 module_init(fts_ts_init);
 #else

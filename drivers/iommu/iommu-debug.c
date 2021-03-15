@@ -19,84 +19,28 @@
 #include <linux/device.h>
 #include <linux/dma-iommu.h>
 #include <linux/iommu.h>
+#include <linux/kernel.h>
 #include <linux/ktime.h>
+#include <linux/of_device.h>
 #include <linux/of_iommu.h>
 #include <linux/of_address.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/qcom-iommu-util.h>
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/uaccess.h>
 #include <linux/dma-map-ops.h>
 #include <soc/qcom/secure_buffer.h>
 #include <linux/dma-mapping.h>
+#include <linux/qcom-dma-mapping.h>
 #include <asm/cacheflush.h>
 #include <linux/dma-mapping-fast.h>
 
-#ifdef CONFIG_ARM64_PTDUMP_CORE
-#include <asm/ptdump.h>
-#endif
-
-#if defined(CONFIG_IOMMU_TESTS)
-
-static const char *iommu_debug_attr_to_string(enum iommu_attr attr)
-{
-	unsigned long iommu_attr = (unsigned long)attr;
-
-	switch (iommu_attr) {
-	case DOMAIN_ATTR_GEOMETRY:
-		return "DOMAIN_ATTR_GEOMETRY";
-	case DOMAIN_ATTR_PAGING:
-		return "DOMAIN_ATTR_PAGING";
-	case DOMAIN_ATTR_WINDOWS:
-		return "DOMAIN_ATTR_WINDOWS";
-	case DOMAIN_ATTR_FSL_PAMU_STASH:
-		return "DOMAIN_ATTR_FSL_PAMU_STASH";
-	case DOMAIN_ATTR_FSL_PAMU_ENABLE:
-		return "DOMAIN_ATTR_FSL_PAMU_ENABLE";
-	case DOMAIN_ATTR_FSL_PAMUV1:
-		return "DOMAIN_ATTR_FSL_PAMUV1";
-	case DOMAIN_ATTR_NESTING:
-		return "DOMAIN_ATTR_NESTING";
-	case DOMAIN_ATTR_PT_BASE_ADDR:
-		return "DOMAIN_ATTR_PT_BASE_ADDR";
-	case DOMAIN_ATTR_SECURE_VMID:
-		return "DOMAIN_ATTR_SECURE_VMID";
-	case DOMAIN_ATTR_ATOMIC:
-		return "DOMAIN_ATTR_ATOMIC";
-	case DOMAIN_ATTR_CONTEXT_BANK:
-		return "DOMAIN_ATTR_CONTEXT_BANK";
-	case DOMAIN_ATTR_TTBR0:
-		return "DOMAIN_ATTR_TTBR0";
-	case DOMAIN_ATTR_CONTEXTIDR:
-		return "DOMAIN_ATTR_CONTEXTIDR";
-	case DOMAIN_ATTR_PROCID:
-		return "DOMAIN_ATTR_PROCID";
-	case DOMAIN_ATTR_DYNAMIC:
-		return "DOMAIN_ATTR_DYNAMIC";
-	case DOMAIN_ATTR_NON_FATAL_FAULTS:
-		return "DOMAIN_ATTR_NON_FATAL_FAULTS";
-	case DOMAIN_ATTR_S1_BYPASS:
-		return "DOMAIN_ATTR_S1_BYPASS";
-	case DOMAIN_ATTR_FAST:
-		return "DOMAIN_ATTR_FAST";
-	case DOMAIN_ATTR_EARLY_MAP:
-		return "DOMAIN_ATTR_EARLY_MAP";
-	case DOMAIN_ATTR_SPLIT_TABLES:
-		return "DOMAIN_ATTR_SPLIT_TABLES";
-	case DOMAIN_ATTR_FAULT_MODEL_NO_CFRE:
-		return "DOMAIN_ATTR_FAULT_MODEL_NO_CFRE";
-	case DOMAIN_ATTR_FAULT_MODEL_NO_STALL:
-		return "DOMAIN_ATTR_FAULT_MODEL_NO_STALL";
-	case DOMAIN_ATTR_FAULT_MODEL_HUPCF:
-		return "DOMAIN_ATTR_FAULT_MODEL_HUPCF";
-	default:
-		return "Unknown attr!";
-	}
-}
-#endif
-
-#ifdef CONFIG_IOMMU_TESTS
+#define MSI_IOVA_BASE			0x8000000
+#define MSI_IOVA_LENGTH			0x100000
+#define DOMAIN_ATTR_PT_BASE_ADDR	(EXTENDED_ATTR_BASE + 0)
+#define ARM_SMMU_SMR_ID			GENMASK(15, 0)
 
 #ifdef CONFIG_64BIT
 
@@ -128,9 +72,6 @@ struct iommu_debug_device {
 	struct list_head list;
 	/* Protects domain */
 	struct mutex state_lock;
-#ifdef CONFIG_ARM64_PTDUMP_CORE
-	struct ptdump_info pt_info;
-#endif
 };
 
 static int __apply_to_new_mapping(struct seq_file *s,
@@ -223,18 +164,6 @@ static int iommu_debug_set_attrs(struct iommu_debug_device *ddev,
 	return 0;
 }
 
-static void iommu_debug_print_attrs(struct seq_file *s,
-				    struct iommu_debug_attr *attrs)
-{
-	seq_puts(s, "Attributes:\n");
-	if (attrs->dma_type == DOMAIN_ATTR_FAST)
-		seq_printf(s, "%s\n",
-			   iommu_debug_attr_to_string(attrs->dma_type));
-
-	if (attrs->vmid != 0)
-		seq_printf(s, "SECURE_VMID=%d\n", attrs->vmid);
-}
-
 /*
  * Set up a new dma allocator for dev
  * Caller should hold state_lock
@@ -243,12 +172,10 @@ static int iommu_debug_dma_reconfigure(struct iommu_debug_device *ddev,
 					struct iommu_debug_attr *attrs,
 					u64 dma_base, u64 size)
 {
-
-	const struct iommu_ops *iommu;
 	struct iommu_domain *domain;
-	struct msm_iommu_domain *msm_domain;
 	struct device *dev = ddev->dev;
 	int is_fast;
+	int ret;
 	bool coherent;
 	struct iommu_pgtbl_info info;
 
@@ -257,10 +184,10 @@ static int iommu_debug_dma_reconfigure(struct iommu_debug_device *ddev,
 		return -EBUSY;
 	}
 
-	iommu = of_iommu_configure(dev, dev->of_node);
-	if (!iommu) {
-		dev_err_ratelimited(dev, "Is not associated with an iommu\n");
-		return -EINVAL;
+	ret = of_dma_configure_id(dev, dev->of_node, false, 0);
+	if (ret) {
+		dev_err_ratelimited(dev, "of_dma_configure_id failed: %d\n", ret);
+		return ret;
 	}
 
 	coherent = of_dma_is_coherent(dev->of_node);
@@ -286,9 +213,6 @@ static int iommu_debug_dma_reconfigure(struct iommu_debug_device *ddev,
 		return -EINVAL;
 	}
 
-	msm_domain = to_msm_iommu_domain(domain);
-	msm_domain->is_debug_domain = true;
-
 	if (iommu_debug_set_attrs(ddev, domain, attrs)) {
 		dev_err_ratelimited(dev, "Setting attrs failed\n");
 		goto out_free_domain;
@@ -312,17 +236,6 @@ static int iommu_debug_dma_reconfigure(struct iommu_debug_device *ddev,
 			dev_err_ratelimited(dev, "iommu get dma cookie failed\n");
 			goto out_detach_group;
 		}
-	}
-
-	/*
-	 * Since arch_setup_dma_ops is void, interpret non-null dma-ops
-	 * as success.
-	 */
-	set_dma_ops(dev, NULL);
-	arch_setup_dma_ops(dev, dma_base, size, iommu, coherent);
-	if (!get_dma_ops(dev)) {
-		dev_err_ratelimited(dev, "arch_setup_dma_ops failed, dma ops are null.\n");
-		goto out_detach_group;
 	}
 
 	ddev->domain = domain;
@@ -353,7 +266,6 @@ static void iommu_debug_dma_deconfigure(struct iommu_debug_device *ddev)
 	}
 
 
-	arch_teardown_dma_ops(dev);
 	iommu_detach_group(domain, dev->iommu_group);
 	iommu_domain_free(domain);
 
@@ -423,7 +335,7 @@ static void iommu_debug_device_profiling(struct seq_file *s,
 		return;
 	domain = ddev->domain;
 
-	iommu_debug_print_attrs(s, attrs);
+	//iommu_debug_print_attrs(s, attrs);
 
 	seq_printf(s, "(average over %d iterations)\n", iters_per_op);
 	seq_printf(s, "%8s %19s %16s\n", "size", "iommu_map", "iommu_unmap");
@@ -647,7 +559,7 @@ static int iommu_debug_profiling_fast_dma_api_show(struct seq_file *s,
 		goto out;
 
 	if (iommu_debug_dma_reconfigure(ddev, &fastmap_attr, 0, SZ_1G * 4ULL)) {
-		seq_puts(s, "setup failed\n");
+		seq_puts(s, "iommu_debug_dma_reconfigure failed\n");
 		goto out_kfree;
 	}
 	domain = ddev->domain;
@@ -745,6 +657,11 @@ static int __tlb_stress_sweep(struct device *dev, struct seq_file *s,
 
 	/* fill the whole 4GB space */
 	for (iova = 0, i = 0; iova < max; iova += SZ_8K, ++i) {
+		if (iova == MSI_IOVA_BASE) {
+			iova = MSI_IOVA_BASE + MSI_IOVA_LENGTH - SZ_8K;
+			continue;
+		}
+
 		dma_addr = dma_map_single(dev, virt, SZ_8K, DMA_TO_DEVICE);
 		if (dma_addr == DMA_MAPPING_ERROR) {
 			dev_err_ratelimited(dev, "Failed map on iter %d\n", i);
@@ -803,8 +720,13 @@ static int __tlb_stress_sweep(struct device *dev, struct seq_file *s,
 	}
 
 	/* we're all full again. unmap everything. */
-	for (iova = 0; iova < max; iova += SZ_8K)
+	for (iova = 0; iova < max; iova += SZ_8K) {
+		if (iova == MSI_IOVA_BASE) {
+			iova = MSI_IOVA_BASE + MSI_IOVA_LENGTH - SZ_8K;
+			continue;
+		}
 		dma_unmap_single(dev, (dma_addr_t)iova, SZ_8K, DMA_TO_DEVICE);
+	}
 
 out:
 	free_pages((unsigned long)virt, get_order(SZ_8K));
@@ -857,6 +779,11 @@ static int __rand_va_sweep(struct device *dev, struct seq_file *s,
 
 	/* fill the whole 4GB space */
 	for (iova = 0, i = 0; iova < max; iova += size, ++i) {
+		if (iova == MSI_IOVA_BASE) {
+			iova = MSI_IOVA_BASE + MSI_IOVA_LENGTH - size;
+			continue;
+		}
+
 		dma_addr = dma_map_single(dev, virt, size, DMA_TO_DEVICE);
 		if (dma_addr == DMA_MAPPING_ERROR) {
 			dev_err_ratelimited(dev, "Failed map on iter %d\n", i);
@@ -879,13 +806,28 @@ static int __rand_va_sweep(struct device *dev, struct seq_file *s,
 			__func__);
 			return -EINVAL;
 		}
-		dma_unmap_single(dev, dma_addr, size, DMA_TO_DEVICE);
-		dma_unmap_single(dev, dma_addr2, size, DMA_TO_DEVICE);
+		if (!(MSI_IOVA_BASE <= dma_addr && MSI_IOVA_BASE + MSI_IOVA_LENGTH > dma_addr))
+			dma_unmap_single(dev, dma_addr, size, DMA_TO_DEVICE);
+
+		if (!(MSI_IOVA_BASE <= dma_addr2 && MSI_IOVA_BASE + MSI_IOVA_LENGTH > dma_addr2))
+			dma_unmap_single(dev, dma_addr2, size, DMA_TO_DEVICE);
+
 		unmapped += 2;
 	}
 
 	/* and map until everything fills back up */
 	for (remapped = 0; ; ++remapped) {
+		dma_addr = dma_map_single(dev, virt, size, DMA_TO_DEVICE);
+		if (dma_addr == DMA_MAPPING_ERROR)
+			break;
+	}
+
+	for (iova = 0, i = 0; iova < max; iova += size, ++i) {
+		if (iova == MSI_IOVA_BASE) {
+			iova = MSI_IOVA_BASE + MSI_IOVA_LENGTH - size;
+			continue;
+		}
+
 		dma_addr = dma_map_single(dev, virt, size, DMA_TO_DEVICE);
 		if (dma_addr == DMA_MAPPING_ERROR)
 			break;
@@ -898,8 +840,13 @@ static int __rand_va_sweep(struct device *dev, struct seq_file *s,
 		ret = -EINVAL;
 	}
 
-	for (iova = 0; iova < max; iova += size)
+	for (iova = 0; iova < max; iova += size) {
+		if (iova == MSI_IOVA_BASE) {
+			iova = MSI_IOVA_BASE + MSI_IOVA_LENGTH - size;
+			continue;
+		}
 		dma_unmap_single(dev, (dma_addr_t)iova, size, DMA_TO_DEVICE);
+	}
 
 out:
 	free_pages((unsigned long)virt, get_order(size));
@@ -909,9 +856,22 @@ out:
 static int __check_mapping(struct device *dev, struct iommu_domain *domain,
 			   dma_addr_t iova, phys_addr_t expected)
 {
-	phys_addr_t res = iommu_iova_to_phys_hard(domain, iova,
-						  IOMMU_TRANS_DEFAULT);
-	phys_addr_t res2 = iommu_iova_to_phys(domain, iova);
+	struct iommu_fwspec *fwspec;
+	phys_addr_t res, res2;
+	struct qcom_iommu_atos_txn txn;
+
+	fwspec = dev_iommu_fwspec_get(dev);
+	if (!fwspec) {
+		dev_err_ratelimited(dev, "dev_iommu_fwspec_get() failed\n");
+		return -EINVAL;
+	}
+
+	txn.addr = iova;
+	txn.flags = IOMMU_TRANS_DEFAULT;
+	txn.id = FIELD_GET(ARM_SMMU_SMR_ID, fwspec->ids[0]);
+
+	res = qcom_iommu_iova_to_phys_hard(domain, &txn);
+	res2 = iommu_iova_to_phys(domain, iova);
 
 	WARN(res != res2, "hard/soft iova_to_phys fns don't agree...");
 
@@ -935,6 +895,7 @@ static int __full_va_sweep(struct device *dev, struct seq_file *s,
 	const u64 max = SZ_1G * 4ULL - 1;
 	int ret = 0, i;
 	const size_t size = (size_t)priv;
+	unsigned long theiova;
 
 	virt = (void *)__get_free_pages(GFP_KERNEL, get_order(size));
 	if (!virt) {
@@ -950,6 +911,11 @@ static int __full_va_sweep(struct device *dev, struct seq_file *s,
 
 	for (iova = 0, i = 0; iova < max; iova += size, ++i) {
 		unsigned long expected = iova;
+
+		if (iova == MSI_IOVA_BASE) {
+			iova = MSI_IOVA_BASE + MSI_IOVA_LENGTH - size;
+			continue;
+		}
 
 		dma_addr = dma_map_single(dev, virt, size, DMA_TO_DEVICE);
 		if (dma_addr != expected) {
@@ -976,7 +942,12 @@ static int __full_va_sweep(struct device *dev, struct seq_file *s,
 		/* and from 4G..4G-6M */
 		for (iova = 0, i = 0; iova < SZ_2M * 3; iova += size, ++i) {
 			phys_addr_t expected = phys;
-			unsigned long theiova = ((SZ_1G * 4ULL) - size) - iova;
+			if (iova == MSI_IOVA_BASE) {
+				iova = MSI_IOVA_BASE + MSI_IOVA_LENGTH - size;
+				continue;
+			}
+
+			theiova = ((SZ_1G * 4ULL) - size) - iova;
 
 			if (__check_mapping(dev, domain, theiova, expected)) {
 				dev_err_ratelimited(dev, "iter: %d\n", i);
@@ -996,8 +967,13 @@ static int __full_va_sweep(struct device *dev, struct seq_file *s,
 	}
 
 out:
-	for (iova = 0; iova < max; iova += size)
+	for (iova = 0; iova < max; iova += size) {
+		if (iova == MSI_IOVA_BASE) {
+			iova = MSI_IOVA_BASE + MSI_IOVA_LENGTH - size;
+			continue;
+		}
 		dma_unmap_single(dev, (dma_addr_t)iova, size, DMA_TO_DEVICE);
+	}
 
 	free_pages((unsigned long)virt, get_order(size));
 	return ret;
@@ -1114,6 +1090,8 @@ static int __functional_dma_api_basic_test(struct device *dev,
 					   struct iommu_domain *domain,
 					   void *ignored)
 {
+	struct qcom_iommu_atos_txn txn;
+	struct iommu_fwspec *fwspec;
 	size_t size = 1518;
 	int i, j, ret = 0;
 	u8 *data;
@@ -1121,6 +1099,14 @@ static int __functional_dma_api_basic_test(struct device *dev,
 	phys_addr_t pa, pa2;
 
 	ds_printf(dev, s, "Basic DMA API test");
+
+	fwspec = dev_iommu_fwspec_get(dev);
+	if (!fwspec) {
+		dev_err_ratelimited(dev, "dev_iommu_fwspec_get() failed\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
 	/* Make sure we can allocate and use a buffer */
 	for (i = 0; i < 1000; ++i) {
 		data = kmalloc(size, GFP_KERNEL);
@@ -1131,9 +1117,11 @@ static int __functional_dma_api_basic_test(struct device *dev,
 		}
 		memset(data, 0xa5, size);
 		iova = dma_map_single(dev, data, size, DMA_TO_DEVICE);
+		txn.addr = iova;
+		txn.flags = IOMMU_TRANS_DEFAULT;
+		txn.id = FIELD_GET(ARM_SMMU_SMR_ID, fwspec->ids[0]);
 		pa = iommu_iova_to_phys(domain, iova);
-		pa2 = iommu_iova_to_phys_hard(domain, iova,
-					      IOMMU_TRANS_DEFAULT);
+		pa2 = qcom_iommu_iova_to_phys_hard(domain, &txn);
 		if (pa != pa2) {
 			dev_err_ratelimited(dev,
 				"iova_to_phys doesn't match iova_to_phys_hard: %pa != %pa\n",
@@ -1175,12 +1163,21 @@ static int __functional_dma_api_map_sg_test(struct device *dev,
 					   struct iommu_domain *domain,
 					   size_t sizes[])
 {
+	struct qcom_iommu_atos_txn txn;
+	struct iommu_fwspec *fwspec;
 	const size_t *sz;
 	int i, ret = 0, count = 0;
 	dma_addr_t iova;
 	phys_addr_t pa, pa2;
 
 	ds_printf(dev, s, "Map SG DMA API test\n");
+
+	fwspec = dev_iommu_fwspec_get(dev);
+	if (!fwspec) {
+		dev_err_ratelimited(dev, "dev_iommu_fwspec_get() failed\n");
+		ret = -EINVAL;
+		goto out;
+	}
 
 	for (sz = sizes; *sz; ++sz) {
 		size_t size = *sz;
@@ -1205,9 +1202,11 @@ static int __functional_dma_api_map_sg_test(struct device *dev,
 		/* Check mappings... */
 		for_each_sg(table.sgl, sg, count, i) {
 			iova = sg_dma_address(sg);
+			txn.addr = iova;
+			txn.flags = IOMMU_TRANS_DEFAULT;
+			txn.id = FIELD_GET(ARM_SMMU_SMR_ID, fwspec->ids[0]);
 			pa = iommu_iova_to_phys(domain, iova);
-			pa2 = iommu_iova_to_phys_hard(domain, iova,
-						      IOMMU_TRANS_DEFAULT);
+			pa2 = qcom_iommu_iova_to_phys_hard(domain, &txn);
 			if (pa != pa2) {
 				dev_err_ratelimited(dev,
 					"iova_to_phys doesn't match iova_to_phys_hard: %pa != %pa\n",
@@ -1217,9 +1216,11 @@ static int __functional_dma_api_map_sg_test(struct device *dev,
 			}
 			/* check mappings at end of buffer */
 			iova += sg_dma_len(sg) - 1;
+			txn.addr = iova;
+			txn.flags = IOMMU_TRANS_DEFAULT;
+			txn.id = FIELD_GET(ARM_SMMU_SMR_ID, fwspec->ids[0]);
 			pa = iommu_iova_to_phys(domain, iova);
-			pa2 = iommu_iova_to_phys_hard(domain, iova,
-						      IOMMU_TRANS_DEFAULT);
+			pa2 = qcom_iommu_iova_to_phys_hard(domain, &txn);
 			if (pa != pa2) {
 				dev_err_ratelimited(dev,
 					"iova_to_phys doesn't match iova_to_phys_hard: %pa != %pa\n",
@@ -1258,7 +1259,7 @@ static int __apply_to_new_mapping(struct seq_file *s,
 
 	mutex_lock(&ddev->state_lock);
 	if (iommu_debug_dma_reconfigure(ddev, &fastmap_attr, 0, SZ_1G * 4ULL)) {
-		seq_puts(s, "setup failed\n");
+		seq_puts(s, "iommu_debug_dma_reconfigure failed\n");
 		goto out;
 	}
 	domain = ddev->domain;
@@ -1314,8 +1315,10 @@ static int iommu_debug_functional_arm_dma_api_show(struct seq_file *s,
 	int ret = -EINVAL;
 
 	mutex_lock(&ddev->state_lock);
-	if (iommu_debug_dma_reconfigure(ddev, &fastmap_attr, 0, SZ_1G * 4ULL))
+	if (iommu_debug_dma_reconfigure(ddev, &fastmap_attr, 0, SZ_1G * 4ULL)) {
+		seq_puts(s, "iommu_debug_dma_reconfigure failed\n");
 		goto out;
+	}
 
 	ret = __functional_dma_api_alloc_test(dev, s, ddev->domain, sizes);
 	ret |= __functional_dma_api_basic_test(dev, s, ddev->domain, sizes);
@@ -1467,35 +1470,11 @@ static ssize_t iommu_debug_pte_write(struct file *file,
 static ssize_t iommu_debug_pte_read(struct file *file, char __user *ubuf,
 				     size_t count, loff_t *offset)
 {
-	struct iommu_debug_device *ddev = file->private_data;
-	uint64_t pte;
-	char buf[100];
-
-	if (kptr_restrict != 0) {
-		pr_err_ratelimited("kptr_restrict needs to be disabled.\n");
-		return -EPERM;
-	}
-
-	if (*offset)
-		return 0;
-
-	mutex_lock(&ddev->state_lock);
-	if (!ddev->domain) {
-		pr_err_ratelimited("No domain. Did you already attach?\n");
-		mutex_unlock(&ddev->state_lock);
-		return -EINVAL;
-	}
-
-	memset(buf, 0, sizeof(buf));
-
-	pte = iommu_iova_to_pte(ddev->domain, ddev->iova);
-
-	if (!pte)
-		strlcpy(buf, "FAIL\n", sizeof(buf));
-	else
-		snprintf(buf, sizeof(buf), "pte=%016llx\n", pte);
-	mutex_unlock(&ddev->state_lock);
-	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
+	(void)file;
+	(void)ubuf;
+	(void)count;
+	(void)offset;
+	return 0;
 }
 
 static const struct file_operations iommu_debug_pte_fops = {
@@ -1535,13 +1514,10 @@ static ssize_t iommu_debug_atos_read(struct file *file, char __user *ubuf,
 				     size_t count, loff_t *offset)
 {
 	struct iommu_debug_device *ddev = file->private_data;
+	struct iommu_fwspec *fwspec;
+	struct qcom_iommu_atos_txn txn;
 	phys_addr_t phys;
 	char buf[100];
-
-	if (kptr_restrict != 0) {
-		pr_err_ratelimited("kptr_restrict needs to be disabled.\n");
-		return -EPERM;
-	}
 
 	if (*offset)
 		return 0;
@@ -1555,8 +1531,18 @@ static ssize_t iommu_debug_atos_read(struct file *file, char __user *ubuf,
 
 	memset(buf, 0, 100);
 
-	phys = iommu_iova_to_phys_hard(ddev->domain, ddev->iova,
-				       IOMMU_TRANS_DEFAULT);
+	fwspec = dev_iommu_fwspec_get(ddev->dev);
+	if (!fwspec) {
+		dev_err_ratelimited(ddev->dev, "dev_iommu_fwspec_get() failed\n");
+		mutex_unlock(&ddev->state_lock);
+		return -EINVAL;
+	}
+
+	txn.addr = ddev->iova;
+	txn.flags = IOMMU_TRANS_DEFAULT;
+	txn.id = FIELD_GET(ARM_SMMU_SMR_ID, fwspec->ids[0]);
+
+	phys = qcom_iommu_iova_to_phys_hard(ddev->domain, &txn);
 	if (!phys) {
 		strlcpy(buf, "FAIL\n", 100);
 		phys = iommu_iova_to_phys(ddev->domain, ddev->iova);
@@ -1579,13 +1565,11 @@ static ssize_t iommu_debug_dma_atos_read(struct file *file, char __user *ubuf,
 				     size_t count, loff_t *offset)
 {
 	struct iommu_debug_device *ddev = file->private_data;
+	struct qcom_iommu_atos_txn txn;
+	struct iommu_fwspec *fwspec;
 	phys_addr_t phys;
 	char buf[100];
 
-	if (kptr_restrict != 0) {
-		pr_err_ratelimited("kptr_restrict needs to be disabled.\n");
-		return -EPERM;
-	}
 	if (*offset)
 		return 0;
 
@@ -1598,8 +1582,18 @@ static ssize_t iommu_debug_dma_atos_read(struct file *file, char __user *ubuf,
 
 	memset(buf, 0, sizeof(buf));
 
-	phys = iommu_iova_to_phys_hard(ddev->domain,
-			ddev->iova, IOMMU_TRANS_DEFAULT);
+	fwspec = dev_iommu_fwspec_get(ddev->dev);
+	if (!fwspec) {
+		dev_err_ratelimited(ddev->dev, "dev_iommu_fwspec_get() failed\n");
+		mutex_unlock(&ddev->state_lock);
+		return -EINVAL;
+	}
+
+	txn.addr = ddev->iova;
+	txn.flags = IOMMU_TRANS_DEFAULT;
+	txn.id = FIELD_GET(ARM_SMMU_SMR_ID, fwspec->ids[0]);
+
+	phys = qcom_iommu_iova_to_phys_hard(ddev->domain, &txn);
 	if (!phys)
 		strlcpy(buf, "FAIL\n", sizeof(buf));
 	else
@@ -2000,44 +1994,6 @@ static const struct file_operations iommu_debug_dma_unmap_fops = {
 	.write	= iommu_debug_dma_unmap_write,
 };
 
-#ifdef CONFIG_ARM64_PTDUMP_CORE
-static int ptdump_show(struct seq_file *s, void *v)
-{
-	struct iommu_debug_device *ddev = s->private;
-	struct ptdump_info *info = &(ddev->pt_info);
-	struct mm_struct		mm;
-	phys_addr_t phys;
-
-	info->markers = (struct addr_marker[]){
-		{ 0,		"start" },
-		{ -1,		NULL},
-	};
-	info->base_addr	= 0;
-	info->mm = &mm;
-
-	if (ddev->domain) {
-		iommu_domain_get_attr(ddev->domain, DOMAIN_ATTR_PT_BASE_ADDR,
-			  &(phys));
-
-		info->mm->pgd = (pgd_t *)phys_to_virt(phys);
-		ptdump_walk_pgd(s, info);
-	}
-	return 0;
-}
-
-static int ptdump_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, ptdump_show, inode->i_private);
-}
-
-static const struct file_operations ptdump_fops = {
-	.open		= ptdump_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= single_release,
-};
-#endif
-
 /*
  * The following will only work for drivers that implement the generic
  * device tree bindings described in
@@ -2194,15 +2150,6 @@ static int iommu_debug_device_setup(struct device *dev)
 		goto err_rmdir;
 	}
 
-#ifdef CONFIG_ARM64_PTDUMP_CORE
-	if (!debugfs_create_file("iommu_page_tables", 0200, dir, ddev,
-			   &ptdump_fops)) {
-		pr_err_ratelimited("Couldn't create iommu/devices/%s/iommu_page_tables debugfs file\n",
-		       dev_name(dev));
-		goto err_rmdir;
-	}
-#endif
-
 	list_add(&ddev->list, &iommu_debug_devices);
 	return 0;
 
@@ -2215,7 +2162,7 @@ err:
 
 static int iommu_debug_init_tests(void)
 {
-	debugfs_tests_dir = debugfs_create_dir("tests", iommu_debugfs_dir);
+	debugfs_tests_dir = debugfs_create_dir("qti-iommu-tests", NULL);
 	if (!debugfs_tests_dir) {
 		pr_err_ratelimited("Couldn't create iommu/tests debugfs directory\n");
 		return -ENODEV;
@@ -2228,10 +2175,6 @@ static void iommu_debug_destroy_tests(void)
 {
 	debugfs_remove_recursive(debugfs_tests_dir);
 }
-#else
-static inline int iommu_debug_init_tests(void) { return 0; }
-static inline void iommu_debug_destroy_tests(void) { }
-#endif
 
 /*
  * This isn't really a "driver", we just need something in the device tree
@@ -2288,3 +2231,4 @@ static void iommu_debug_exit(void)
 
 module_init(iommu_debug_init);
 module_exit(iommu_debug_exit);
+MODULE_LICENSE("GPL v2");

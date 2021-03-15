@@ -567,6 +567,16 @@ config TASKSTATS
 
 	  Say N if unsure.
 
+config MSM_SYSSTATS
+	tristate "Export system/task statistics through netlink"
+	depends on NET
+	depends on MULTIUSER
+	help
+	  Export system and task statistics through generic netlink
+	  interface. Userspace can retrieve these statistics via netlink
+	  socket.
+	  If unsure, say N
+
 config TASK_DELAY_ACCT
 	bool "Enable per-task delay accounting"
 	depends on TASKSTATS
@@ -636,15 +646,20 @@ config PSI_DEFAULT_DISABLED
 
 	  Say N if unsure.
 
-config PSI_FTRACE
-	bool "Insert debug hooks for PSI ftrace events"
+config PSI_PER_CGROUP_ACCT
+	bool "Enable per-cgroup pressure stall information tracking"
 	default n
 	depends on PSI
+	depends on CGROUPS
 	help
-	  If not set, PSI ftrace events will be disabled and
-	  will not incur any performance penalty.
-	  If set, PSI ftrace events may be
-	  enabled.
+	  If set, pressure stall information will be tracked for each
+	  individual cgroup. Otherwise, pressure stall information will
+	  be tracked only at the system level under /proc/pressure/.
+
+	  This feature generates overhead that depends on the number of
+	  cgroups in the cgroup v2 hierarchy.
+
+	  Say N if unsure.
 
 endmenu # "CPU/Task time and stats accounting"
 
@@ -2183,6 +2198,20 @@ config MODULE_SRCVERSION_ALL
 	  others sometimes change the module source without updating
 	  the version).  With this option, such a "srcversion" field
 	  will be created for all modules.  If unsure, say N.
+
+config MODULE_SCMVERSION
+	bool "SCM version for modules"
+	depends on LOCALVERSION_AUTO
+	help
+	  This enables the module attribute "scmversion" which can be used
+	  by developers to identify the SCM version of a given module, e.g.
+	  git sha1 or hg sha1. The SCM version can be queried by modinfo or
+	  via the sysfs node: /sys/modules/MODULENAME/scmversion. This is
+	  useful when the kernel or kernel modules are updated separately
+	  since that causes the vermagic of the kernel and the module to
+	  differ.
+
+	  If unsure, say N.
 
 config MODULE_SIG
 	bool "Module signature verification"

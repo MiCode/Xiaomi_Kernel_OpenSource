@@ -42,7 +42,6 @@ blocklist e4000
 blocklist tea5761
 blocklist tda18271
 blocklist mxl5005s
-blocklist radio-i2c-rtc6226-qca
 blocklist dummy-cpufreq
 blocklist dummy_hcd
 blocklist kheaders
@@ -60,7 +59,6 @@ blocklist vmw_vsock_virtio_transport
 blocklist vmw_vsock_virtio_transport_common
 blocklist vsock_diag
 blocklist vsock
-blocklist qca_cld3_wlan
 blocklist torture
 blocklist locktorture
 blocklist rcutorture

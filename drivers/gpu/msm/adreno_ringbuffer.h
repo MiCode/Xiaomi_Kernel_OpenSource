@@ -188,17 +188,6 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 void adreno_ringbuffer_stop(struct adreno_device *adreno_dev);
 
-/**
- * adreno_ringbuffer_issue_internal_cmds - Send a command packet from the kernel
- * @rb: Pointer to the ringbuffer to send on
- * @cmds: Pointer to an array of opcodes to send
- * @sizedwords: Size of @cmdaddr in dwords
- *
- * Return: 0 on success or negative on failure
- */
-int adreno_ringbuffer_issue_internal_cmds(struct adreno_ringbuffer *rb,
-		u32 *cmds, u32 sizedwords);
-
 void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb,
 		struct adreno_submit_time *time);
 

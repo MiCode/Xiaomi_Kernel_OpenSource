@@ -177,10 +177,10 @@ long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	 */
 
 	if (ret == -ENOIOCTLCMD) {
-		if (is_compat_task() && device->ftbl->compat_ioctl != NULL)
+		if (is_compat_task())
 			return device->ftbl->compat_ioctl(dev_priv, cmd, arg);
-		else if (device->ftbl->ioctl != NULL)
-			return device->ftbl->ioctl(dev_priv, cmd, arg);
+
+		return device->ftbl->ioctl(dev_priv, cmd, arg);
 
 		dev_err(device->dev, "invalid ioctl code 0x%08X\n", cmd);
 	}

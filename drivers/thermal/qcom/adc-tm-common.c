@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -311,6 +311,8 @@ static void adc_tm_map_temp_voltage(const struct adc_tm_map_pt *pts,
 /* Used by thermal clients to read ADC channel temperature*/
 int adc_tm_get_temp_vadc(struct adc_tm_sensor *sensor, int *temp)
 {
+	int rc;
+
 	if (!sensor || !sensor->adc)
 		return -EINVAL;
 
@@ -321,7 +323,11 @@ int adc_tm_get_temp_vadc(struct adc_tm_sensor *sensor, int *temp)
 		return 0;
 	}
 
-	return iio_read_channel_processed(sensor->adc, temp);
+	rc = iio_read_channel_processed(sensor->adc, temp);
+	if (rc < 0)
+		return rc;
+
+	return 0;
 }
 
 int32_t adc_tm_read_reg(struct adc_tm_chip *chip,

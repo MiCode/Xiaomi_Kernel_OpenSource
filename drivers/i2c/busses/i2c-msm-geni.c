@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -695,11 +695,11 @@ static int geni_i2c_lock_bus(struct geni_i2c_dev *gi2c)
 		goto geni_i2c_err_lock_bus;
 	}
 
+	reinit_completion(&gi2c->xfer);
 	/* Issue TX */
 	tx_cookie = dmaengine_submit(gi2c->tx_desc);
 	dma_async_issue_pending(gi2c->tx_c);
 
-	reinit_completion(&gi2c->xfer);
 	timeout = wait_for_completion_timeout(&gi2c->xfer, HZ);
 	if (!timeout) {
 		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
@@ -740,11 +740,11 @@ static void geni_i2c_unlock_bus(struct geni_i2c_dev *gi2c)
 		goto geni_i2c_err_unlock_bus;
 	}
 
+	reinit_completion(&gi2c->xfer);
 	/* Issue TX */
 	tx_cookie = dmaengine_submit(gi2c->tx_desc);
 	dma_async_issue_pending(gi2c->tx_c);
 
-	reinit_completion(&gi2c->xfer);
 	timeout = wait_for_completion_timeout(&gi2c->xfer, HZ);
 	if (!timeout) {
 		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
@@ -1216,6 +1216,9 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "LE-VM usecase\n");
 	}
 
+	gi2c->i2c_rsc.wrapper_dev = &wrapper_pdev->dev;
+	gi2c->i2c_rsc.ctrl_dev = gi2c->dev;
+
 	/*
 	 * For LE, clocks, gpio and icb voting will be provided by
 	 * by LA. The I2C operates in GSI mode only for LE usecase,
@@ -1223,8 +1226,6 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	 * in I2C LE dt.
 	 */
 	if (!gi2c->is_le_vm) {
-		gi2c->i2c_rsc.wrapper_dev = &wrapper_pdev->dev;
-		gi2c->i2c_rsc.ctrl_dev = gi2c->dev;
 		gi2c->i2c_rsc.se_clk = devm_clk_get(&pdev->dev, "se-clk");
 		if (IS_ERR(gi2c->i2c_rsc.se_clk)) {
 			ret = PTR_ERR(gi2c->i2c_rsc.se_clk);
@@ -1359,7 +1360,7 @@ static int geni_i2c_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int geni_i2c_resume_noirq(struct device *device)
+static int geni_i2c_resume_early(struct device *device)
 {
 	struct geni_i2c_dev *gi2c = dev_get_drvdata(device);
 
@@ -1448,11 +1449,12 @@ static int geni_i2c_runtime_resume(struct device *dev)
 	return 0;
 }
 
-static int geni_i2c_suspend_noirq(struct device *device)
+static int geni_i2c_suspend_late(struct device *device)
 {
 	struct geni_i2c_dev *gi2c = dev_get_drvdata(device);
 	int ret;
 
+	GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev, "%s\n", __func__);
 	/* Make sure no transactions are pending */
 	ret = i2c_trylock_bus(&gi2c->adap, I2C_LOCK_SEGMENT);
 	if (!ret) {
@@ -1462,7 +1464,7 @@ static int geni_i2c_suspend_noirq(struct device *device)
 	}
 	if (!pm_runtime_status_suspended(device)) {
 		GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
-			"%s\n", __func__);
+			"%s: Force suspend\n", __func__);
 		geni_i2c_runtime_suspend(device);
 		pm_runtime_disable(device);
 		pm_runtime_set_suspended(device);
@@ -1482,15 +1484,15 @@ static int geni_i2c_runtime_resume(struct device *dev)
 	return 0;
 }
 
-static int geni_i2c_suspend_noirq(struct device *device)
+static int geni_i2c_suspend_late(struct device *device)
 {
 	return 0;
 }
 #endif
 
 static const struct dev_pm_ops geni_i2c_pm_ops = {
-	.suspend_noirq		= geni_i2c_suspend_noirq,
-	.resume_noirq		= geni_i2c_resume_noirq,
+	.suspend_late		= geni_i2c_suspend_late,
+	.resume_early		= geni_i2c_resume_early,
 	.runtime_suspend	= geni_i2c_runtime_suspend,
 	.runtime_resume		= geni_i2c_runtime_resume,
 };

@@ -1057,6 +1057,7 @@ static int spi_geni_mas_setup(struct spi_master *spi)
 	unsigned int minor;
 	unsigned int step;
 	int hw_ver;
+	int ret = 0;
 
 	if (unlikely(proto != SPI)) {
 		dev_err(mas->dev, "Invalid proto %d\n", proto);
@@ -1120,16 +1121,18 @@ static int spi_geni_mas_setup(struct spi_master *spi)
 		mas->rx_event.init.cb_param = spi;
 		mas->rx_event.cmd = MSM_GPI_INIT;
 		mas->rx->private = &mas->rx_event;
-		if (dmaengine_slave_config(mas->tx, NULL)) {
-			dev_err(mas->dev, "Failed to Config Tx\n");
+		ret = dmaengine_slave_config(mas->tx, NULL);
+		if (ret) {
+			dev_err(mas->dev, "Failed to Config Tx, ret:%d\n", ret);
 			dma_release_channel(mas->tx);
 			dma_release_channel(mas->rx);
 			mas->tx = NULL;
 			mas->rx = NULL;
 			goto setup_ipc;
 		}
-		if (dmaengine_slave_config(mas->rx, NULL)) {
-			dev_err(mas->dev, "Failed to Config Rx\n");
+		ret = dmaengine_slave_config(mas->rx, NULL);
+		if (ret) {
+			dev_err(mas->dev, "Failed to Config Rx, ret:%d\n", ret);
 			dma_release_channel(mas->tx);
 			dma_release_channel(mas->rx);
 			mas->tx = NULL;
@@ -1162,7 +1165,7 @@ setup_ipc:
 	if (mas->dis_autosuspend)
 		GENI_SE_DBG(mas->ipc, false, mas->dev,
 				"Auto Suspend is disabled\n");
-	return 0;
+	return ret;
 }
 
 static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
@@ -2024,6 +2027,8 @@ static int spi_geni_runtime_resume(struct device *dev)
 				"%s lock_bus failed: %d\n", __func__, ret);
 			return ret;
 		}
+		/* Return here as LE VM doesn't need resourc/clock management */
+		return ret;
 	}
 
 	if (geni_mas->shared_ee)

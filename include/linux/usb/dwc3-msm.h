@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __LINUX_USB_DWC3_MSM_H
@@ -50,6 +50,33 @@ enum gsi_ep_op {
 	GSI_EP_OP_SET_CLR_BLOCK_DBL,
 	GSI_EP_OP_CHECK_FOR_SUSPEND,
 	GSI_EP_OP_DISABLE,
+};
+
+enum usb_hw_ep_mode {
+	USB_EP_NONE,
+	USB_EP_BAM,
+	USB_EP_GSI,
+};
+
+enum dwc3_notify_event {
+	DWC3_CONTROLLER_ERROR_EVENT,
+	DWC3_CONTROLLER_RESET_EVENT,
+	DWC3_CONTROLLER_POST_RESET_EVENT,
+	DWC3_CORE_PM_SUSPEND_EVENT,
+	DWC3_CORE_PM_RESUME_EVENT,
+	DWC3_CONTROLLER_CONNDONE_EVENT,
+	DWC3_CONTROLLER_NOTIFY_OTG_EVENT,
+	DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT,
+	DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER,
+	DWC3_CONTROLLER_PULLUP,
+
+	/* USB GSI event buffer related notification */
+	DWC3_GSI_EVT_BUF_ALLOC,
+	DWC3_GSI_EVT_BUF_SETUP,
+	DWC3_GSI_EVT_BUF_CLEANUP,
+	DWC3_GSI_EVT_BUF_CLEAR,
+	DWC3_GSI_EVT_BUF_FREE,
+	DWC3_CONTROLLER_NOTIFY_CLEAR_DB,
 };
 
 /*
@@ -111,13 +138,14 @@ struct gsi_channel_info {
 	struct usb_gsi_request *ch_req;
 };
 
+struct dwc3;
+
 #if IS_ENABLED(CONFIG_USB_DWC3_MSM)
-struct usb_ep *usb_ep_autoconfig_by_name(struct usb_gadget *gadget,
-		struct usb_endpoint_descriptor *desc, const char *ep_name);
+void dwc3_msm_notify_event(struct dwc3 *dwc,
+		enum dwc3_notify_event event, unsigned int value);
 int usb_gsi_ep_op(struct usb_ep *ep, void *op_data, enum gsi_ep_op op);
 int msm_ep_config(struct usb_ep *ep, struct usb_request *request, u32 bam_opts);
 int msm_ep_unconfig(struct usb_ep *ep);
-void msm_ep_set_endless(struct usb_ep *ep, bool set_clear);
 void dwc3_tx_fifo_resize_request(struct usb_ep *ep, bool qdss_enable);
 int msm_data_fifo_config(struct usb_ep *ep, unsigned long addr, u32 size,
 	u8 dst_pipe_idx);
@@ -125,11 +153,13 @@ int msm_dwc3_reset_dbm_ep(struct usb_ep *ep);
 int dwc3_msm_release_ss_lane(struct device *dev);
 int msm_ep_update_ops(struct usb_ep *ep);
 int msm_ep_clear_ops(struct usb_ep *ep);
+int msm_ep_set_mode(struct usb_ep *ep, enum usb_hw_ep_mode mode);
+int dwc3_msm_kretprobe_init(void);
+void dwc3_msm_kretprobe_exit(void);
 #else
-static inline struct usb_ep *usb_ep_autoconfig_by_name(
-		struct usb_gadget *gadget, struct usb_endpoint_descriptor *desc,
-		const char *ep_name)
-{ return NULL; }
+void dwc3_msm_notify_event(struct dwc3 *dwc,
+		enum dwc3_notify_event event, unsigned int value)
+{ }
 static inline int usb_gsi_ep_op(struct usb_ep *ep, void *op_data,
 		enum gsi_ep_op op)
 { return 0; }
@@ -141,8 +171,6 @@ static inline int msm_ep_config(struct usb_ep *ep, struct usb_request *request,
 { return -ENODEV; }
 static inline int msm_ep_unconfig(struct usb_ep *ep)
 { return -ENODEV; }
-static inline void msm_ep_set_endless(struct usb_ep *ep, bool set_clear)
-{ }
 static inline void dwc3_tx_fifo_resize_request(struct usb_ep *ep,
 	bool qdss_enable)
 { }
@@ -154,6 +182,12 @@ int msm_ep_update_ops(struct usb_ep *ep)
 { return -ENODEV; }
 int msm_ep_clear_ops(struct usb_ep *ep)
 { return -ENODEV; }
+int msm_ep_set_mode(struct usb_ep *ep, enum usb_hw_ep_mode mode)
+{ return -ENODEV; }
+int dwc3_msm_kretprobe_init(void)
+{ return 0; }
+void dwc3_msm_kretprobe_exit(void)
+{ }
 #endif
 
 #endif /* __LINUX_USB_DWC3_MSM_H */

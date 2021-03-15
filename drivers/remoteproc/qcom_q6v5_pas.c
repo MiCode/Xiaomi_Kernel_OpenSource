@@ -63,7 +63,7 @@ struct qcom_adsp {
 	struct clk *xo;
 	struct clk *aggre2_clk;
 
-	struct regulator **regs;
+	struct reg_info *regs;
 	int reg_cnt;
 
 	struct device *active_pds[1];
@@ -190,8 +190,11 @@ static void disable_regulators(struct qcom_adsp *adsp)
 {
 	int i;
 
-	for (i = 0; i < adsp->reg_cnt; i++)
-		regulator_disable(adsp->regs[i]);
+	for (i = 0; i < adsp->reg_cnt; i++) {
+		regulator_set_voltage(adsp->regs[i].reg, 0, INT_MAX);
+		regulator_set_load(adsp->regs[i].reg, 0);
+		regulator_disable(adsp->regs[i].reg);
+	}
 }
 
 static int enable_regulators(struct qcom_adsp *adsp)
@@ -199,7 +202,9 @@ static int enable_regulators(struct qcom_adsp *adsp)
 	int i, rc;
 
 	for (i = 0; i < adsp->reg_cnt; i++) {
-		rc = regulator_enable(adsp->regs[i]);
+		regulator_set_voltage(adsp->regs[i].reg, adsp->regs[i].uV, INT_MAX);
+		regulator_set_load(adsp->regs[i].reg, adsp->regs[i].uA);
+		rc = regulator_enable(adsp->regs[i].reg);
 		if (rc) {
 			dev_err(adsp->dev, "Regulator enable failed(rc:%d)\n",
 				rc);
@@ -209,8 +214,7 @@ static int enable_regulators(struct qcom_adsp *adsp)
 	return rc;
 
 err_enable:
-	for (i--; i >= 0; i--)
-		regulator_disable(adsp->regs[i]);
+	disable_regulators(adsp);
 	return rc;
 }
 
@@ -308,6 +312,7 @@ static void qcom_pas_handover(struct qcom_q6v5 *q6v5)
 	clk_disable_unprepare(adsp->aggre2_clk);
 	clk_disable_unprepare(adsp->xo);
 	adsp_pds_disable(adsp, adsp->proxy_pds, adsp->proxy_pd_count);
+	do_bus_scaling(adsp, false);
 }
 
 static int adsp_stop(struct rproc *rproc)
@@ -402,7 +407,7 @@ static int adsp_init_regulator(struct qcom_adsp *adsp)
 	}
 
 	adsp->regs = devm_kzalloc(adsp->dev,
-				  sizeof(struct regulator *) * adsp->reg_cnt,
+				  sizeof(struct reg_info) * adsp->reg_cnt,
 				  GFP_KERNEL);
 	if (!adsp->regs)
 		return -ENOMEM;
@@ -411,10 +416,10 @@ static int adsp_init_regulator(struct qcom_adsp *adsp)
 		of_property_read_string_index(adsp->dev->of_node, "reg-names",
 					      i, &reg_name);
 
-		adsp->regs[i] = devm_regulator_get(adsp->dev, reg_name);
-		if (IS_ERR(adsp->regs[i])) {
+		adsp->regs[i].reg = devm_regulator_get(adsp->dev, reg_name);
+		if (IS_ERR(adsp->regs[i].reg)) {
 			dev_err(adsp->dev, "failed to get %s reg\n", reg_name);
-			return PTR_ERR(adsp->regs[i]);
+			return PTR_ERR(adsp->regs[i].reg);
 		}
 
 		/* Read current(uA) and voltage(uV) value */
@@ -430,11 +435,11 @@ static int adsp_init_regulator(struct qcom_adsp *adsp)
 				rc);
 			return rc;
 		}
+
 		if (uv_ua_vals[0] > 0)
-			regulator_set_voltage(adsp->regs[i], uv_ua_vals[0],
-					      INT_MAX);
+			adsp->regs[i].uV = uv_ua_vals[0];
 		if (uv_ua_vals[1] > 0)
-			regulator_set_load(adsp->regs[i], uv_ua_vals[1]);
+			adsp->regs[i].uA = uv_ua_vals[1];
 	}
 	return 0;
 }
@@ -567,6 +572,7 @@ static int adsp_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	rproc->recovery_disabled = true;
 	rproc->auto_boot = desc->auto_boot;
 	rproc_coredump_set_elf_info(rproc, ELFCLASS32, EM_NONE);
 
@@ -710,7 +716,11 @@ static const struct adsp_data waipio_adsp_resource = {
 	.pas_id = 1,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
-	.ssr_name = "adsp",
+	.active_pd_names = (char*[]){
+		"load_state",
+		NULL
+	},
+	.ssr_name = "lpass",
 	.sysmon_name = "adsp",
 	.ssctl_id = 0x14,
 };
@@ -785,6 +795,10 @@ static const struct adsp_data waipio_cdsp_resource = {
 	.pas_id = 18,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
+	.active_pd_names = (char*[]){
+		"load_state",
+		NULL
+	},
 	.ssr_name = "cdsp",
 	.sysmon_name = "cdsp",
 	.ssctl_id = 0x17,
@@ -816,7 +830,11 @@ static const struct adsp_data waipio_mpss_resource = {
 	.pas_id = 4,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
-	.ssr_name = "modem",
+	.active_pd_names = (char*[]){
+		"load_state",
+		NULL
+	},
+	.ssr_name = "mpss",
 	.sysmon_name = "modem",
 	.ssctl_id = 0x12,
 };
@@ -878,7 +896,11 @@ static const struct adsp_data waipio_slpi_resource = {
 	.pas_id = 12,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
-	.ssr_name = "slpi",
+	.active_pd_names = (char*[]){
+		"load_state",
+		NULL
+	},
+	.ssr_name = "dsps",
 	.sysmon_name = "slpi",
 	.ssctl_id = 0x16,
 };

@@ -12,45 +12,6 @@
 #define __DWC3_DEBUG_H
 
 #include "core.h"
-#include <linux/ipc_logging.h>
-
-/*
- * NOTE: Make sure to have dwc as local variable in function before using
- * below macros.
- */
-#define dbg_event(ep_num, name, status) \
-	dwc3_dbg_print(dwc, ep_num, name, status, "")
-
-#define dbg_print(ep_num, name, status, extra) \
-	dwc3_dbg_print(dwc, ep_num, name, status, extra)
-
-#define dbg_print_reg(name, reg) \
-	dwc3_dbg_print_reg(dwc, name, reg)
-
-#define dbg_done(ep_num, count, status) \
-	dwc3_dbg_done(dwc, ep_num, count, status)
-
-#define dbg_queue(ep_num, req, status) \
-	dwc3_dbg_queue(dwc, ep_num, req, status)
-
-#define dbg_setup(ep_num, req) \
-	dwc3_dbg_setup(dwc, ep_num, req)
-
-#define dbg_ep_queue(ep_num, req) \
-	dwc3_dbg_dma_queue(dwc, ep_num, req)
-
-#define dbg_ep_dequeue(ep_num, req) \
-	dwc3_dbg_dma_dequeue(dwc, ep_num, req)
-
-#define dbg_ep_unmap(ep_num, req) \
-	dwc3_dbg_dma_unmap(dwc, ep_num, req)
-
-#define dbg_ep_map(ep_num, req) \
-	dwc3_dbg_dma_map(dwc, ep_num, req)
-
-#define dbg_log_string(fmt, ...) \
-	ipc_log_string(dwc->dwc_ipc_log_ctxt,\
-			"%s: " fmt, __func__, ##__VA_ARGS__)
 
 /**
  * dwc3_gadget_ep_cmd_string - returns endpoint command string
@@ -450,26 +411,6 @@ static inline const char *dwc3_gadget_generic_cmd_status_string(int status)
 	}
 }
 
-void dwc3_dbg_print(struct dwc3 *dwc, u8 ep_num,
-		const char *name, int status, const char *extra);
-void dwc3_dbg_done(struct dwc3 *dwc, u8 ep_num,
-		const u32 count, int status);
-void dwc3_dbg_event(struct dwc3 *dwc, u8 ep_num,
-		const char *name, int status);
-void dwc3_dbg_queue(struct dwc3 *dwc, u8 ep_num,
-		const struct usb_request *req, int status);
-void dwc3_dbg_setup(struct dwc3 *dwc, u8 ep_num,
-		const struct usb_ctrlrequest *req);
-void dwc3_dbg_print_reg(struct dwc3 *dwc,
-		const char *name, int reg);
-void dwc3_dbg_dma_queue(struct dwc3 *dwc, u8 ep_num,
-			struct dwc3_request *req);
-void dwc3_dbg_dma_dequeue(struct dwc3 *dwc, u8 ep_num,
-			struct dwc3_request *req);
-void dwc3_dbg_dma_map(struct dwc3 *dwc, u8 ep_num,
-			struct dwc3_request *req);
-void dwc3_dbg_dma_unmap(struct dwc3 *dwc, u8 ep_num,
-			struct dwc3_request *req);
 
 #ifdef CONFIG_DEBUG_FS
 extern void dwc3_debugfs_init(struct dwc3 *d);

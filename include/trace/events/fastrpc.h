@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #undef TRACE_SYSTEM
@@ -309,6 +309,54 @@ TRACE_EVENT(fastrpc_context_free,
 
 	TP_printk("for: smq_ctx 0x%llx, ctx 0x%llx, handle 0x%x, sc 0x%x",
 		__entry->smq_ctx, __entry->ctx, __entry->handle, __entry->sc)
+);
+
+TRACE_EVENT(fastrpc_perf_counters,
+
+	TP_PROTO(uint32_t handle, uint32_t sc,
+		uint64_t count, uint64_t flush, uint64_t map,
+		uint64_t copy, uint64_t link, uint64_t getargs,
+		uint64_t putargs, uint64_t invargs, uint64_t invoke,
+		uint64_t tid),
+
+	TP_ARGS(handle, sc, count, flush, map, copy, link, getargs,
+		putargs, invargs, invoke, tid),
+
+	TP_STRUCT__entry(
+		__field(u32, handle)
+		__field(u32, sc)
+		__field(u64, count)
+		__field(u64, flush)
+		__field(u64, map)
+		__field(u64, copy)
+		__field(u64, link)
+		__field(u64, getargs)
+		__field(u64, putargs)
+		__field(u64, invargs)
+		__field(u64, invoke)
+		__field(u64, tid)
+	),
+
+	TP_fast_assign(
+		__entry->handle = handle;
+		__entry->sc = sc;
+		__entry->count = count;
+		__entry->flush = flush;
+		__entry->map = map;
+		__entry->copy = copy;
+		__entry->link = link;
+		__entry->getargs = getargs;
+		__entry->putargs = putargs;
+		__entry->invargs = invargs;
+		__entry->invoke = invoke;
+		__entry->tid = tid;
+	),
+
+	TP_printk("for: handle 0x%x, sc 0x%x, count %lld, flush %lld ns, map %lld ns, copy %lld ns, link %lld ns, getargs %lld ns, putargs %lld ns, invargs %lld ns, invoke %lld ns, tid %lld",
+		__entry->handle, __entry->sc, __entry->count,
+		__entry->flush, __entry->map, __entry->copy, __entry->link,
+		__entry->getargs, __entry->putargs, __entry->invargs,
+		__entry->invoke, __entry->tid)
 );
 
 #endif

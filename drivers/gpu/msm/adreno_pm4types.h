@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_PM4TYPES_H
 #define __ADRENO_PM4TYPES_H
@@ -159,6 +159,15 @@
 
 /* This is a commonly used CP_EVENT_WRITE */
 #define CACHE_FLUSH_TS 4
+#define CACHE_CLEAN 0x31
+
+/* Controls which threads execute the PM4 commands the follow this packet */
+#define CP_THREAD_CONTROL 0x17
+
+#define CP_SET_THREAD_BR FIELD_PREP(GENMASK(1, 0), 1)
+#define CP_SET_THREAD_BOTH FIELD_PREP(GENMASK(1, 0), 3)
+#define CP_SYNC_THREADS BIT(31)
+#define CP_CONCURRENT_BIN_DISABLE BIT(27)
 
 static inline uint pm4_calc_odd_parity_bit(uint val)
 {

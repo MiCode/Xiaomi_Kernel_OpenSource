@@ -66,15 +66,7 @@ config OVERRIDE_MEMORY_LIMIT
 	  hot-plugging.
 	  If unsure, say N
 
-config QCOM_MEM_BUF
-	tristate "Qualcomm Technologies, Inc. Memory Buffer Sharing Driver"
-	depends on HH_MSGQ && HH_RM_DRV
-	help
-	  Add support for lending memory from one virtual machine to another.
-	  This driver communicates with the hypervisor, as well as other
-	  virtual machines, to request and lend memory from and to VMs
-	  respectively.
-	  If unsure, say N
+source "drivers/soc/qcom/mem_buf/Kconfig"
 
 config QCOM_CPR
 	tristate "QCOM Core Power Reduction (CPR) support"
@@ -506,7 +498,7 @@ config QCOM_DCC_V2
 
 config QCOM_MINIDUMP
 	tristate "QCOM Minidump Support"
-	depends on QCOM_SMEM && POWER_RESET_MSM
+	depends on QCOM_SMEM
 	help
 	  This enables minidump feature. It allows various clients to
 	  register to dump their state at system bad state (panic/WDT,etc.,).
@@ -939,7 +931,7 @@ config QCOM_GUESTVM
 	   successfully loaded the VM images in the designated memory.
 
 config QCOM_HYP_CORE_CTL
-	bool "CPU reservation scheme for Hypervisor"
+	tristate "CPU reservation scheme for Hypervisor"
 	depends on QCOM_GUESTVM && SCHED_WALT
 	help
 	  This driver reserve the specified CPUS by isolating them. The reserved
@@ -975,7 +967,7 @@ config QTI_HW_KEY_MANAGER
 	 be used for storage encryption.
 
 config MSM_EXT_DISPLAY
-	bool "MSM External Display Driver"
+	tristate "MSM External Display Driver"
 	depends on DRM
 	help
 	  Enabling this option adds MSM External Display Driver.

@@ -11,12 +11,11 @@ genrule {
     srcs: ["scripts/headers_install.sh"],
     tools: ["unifdef"],
     out: ["headers_install.sh"],
-    cmd: "sed 's+scripts/unifdef+$(location unifdef)+g' $(in) > $(out)",
+    cmd: "sed 's+scripts/unifdef+$${LOC_UNIFDEF:-$$(dirname $$0)/unifdef}+g' $(in) > $(out)",
 }
 
-cc_prebuilt_binary {
+sh_binary_host {
     name: "headers_install.sh",
-    device_supported: false,
-    host_supported: true,
-    srcs: [":gen-headers_install.sh"],
+    src: ":gen-headers_install.sh",
+    required: ["unifdef"],
 }

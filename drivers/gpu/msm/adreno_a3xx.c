@@ -126,8 +126,6 @@ static const unsigned int _a3xx_pwron_fixup_fs_instructions[] = {
 	0x00000000, 0x03000000, 0x00000000, 0x00000000,
 };
 
-static int a3xx_get_cp_init_cmds(struct adreno_device *adreno_dev);
-
 /**
  * _a3xx_pwron_fixup() - Initialize a special command buffer to run a
  * post-power collapse shader workaround
@@ -605,10 +603,29 @@ static int a3xx_send_me_init(struct adreno_device *adreno_dev,
 	cmds = adreno_ringbuffer_allocspace(rb, 18);
 	if (IS_ERR(cmds))
 		return PTR_ERR(cmds);
-	if (cmds == NULL)
-		return -ENOSPC;
 
-	memcpy(cmds, adreno_dev->cp_init_cmds, 18 << 2);
+	*cmds++ = cp_type3_packet(CP_ME_INIT, 17);
+
+	*cmds++ = 0x000003f7;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000080;
+	*cmds++ = 0x00000100;
+	*cmds++ = 0x00000180;
+	*cmds++ = 0x00006600;
+	*cmds++ = 0x00000150;
+	*cmds++ = 0x0000014e;
+	*cmds++ = 0x00000154;
+	*cmds++ = 0x00000001;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
+
+	/* Enable protected mode registers for A3XX */
+	*cmds++ = 0x20000000;
+
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
 
 	/* Submit the command to the ringbuffer */
 	kgsl_pwrscale_busy(device);
@@ -657,47 +674,6 @@ static int a3xx_rb_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A3XX_CP_ME_CNTL, 0);
 
 	return a3xx_send_me_init(adreno_dev, rb);
-}
-
-static int a3xx_get_cp_init_cmds(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	u32 *cmds;
-
-	if (adreno_dev->cp_init_cmds)
-		return 0;
-
-	adreno_dev->cp_init_cmds = devm_kzalloc(&device->pdev->dev, 18 << 2,
-			GFP_KERNEL);
-	if (!adreno_dev->cp_init_cmds)
-		return -ENOMEM;
-
-	cmds = (u32 *)adreno_dev->cp_init_cmds;
-
-	*cmds++ = cp_type3_packet(CP_ME_INIT, 17);
-
-	*cmds++ = 0x000003f7;
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000080;
-	*cmds++ = 0x00000100;
-	*cmds++ = 0x00000180;
-	*cmds++ = 0x00006600;
-	*cmds++ = 0x00000150;
-	*cmds++ = 0x0000014e;
-	*cmds++ = 0x00000154;
-	*cmds++ = 0x00000001;
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000000;
-
-	/* Enable protected mode registers for A3XX */
-	*cmds++ = 0x20000000;
-
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000000;
-
-	return 0;
 }
 
 /*
@@ -928,7 +904,7 @@ static int a3xx_microcode_read(struct adreno_device *adreno_dev);
 static int a3xx_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+	struct kgsl_iommu *iommu = KGSL_IOMMU(device);
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	int ret;
 
@@ -953,14 +929,13 @@ static int a3xx_init(struct adreno_device *adreno_dev)
 
 	_a3xx_pwron_fixup(adreno_dev);
 
-	if (IS_ERR_OR_NULL(iommu->setstate)) {
-		iommu->setstate = kgsl_allocate_global(device, PAGE_SIZE,
+	ret = adreno_allocate_global(device, &iommu->setstate, PAGE_SIZE,
 			0, KGSL_MEMFLAGS_GPUREADONLY, 0, "setstate");
 
+	if (!ret)
 		kgsl_sharedmem_writel(iommu->setstate,
 			KGSL_IOMMU_SETSTATE_NOP_OFFSET,
 			cp_type3_packet(CP_NOP, 1));
-	}
 
 	kgsl_mmu_set_feature(device, KGSL_MMU_NEED_GUARD_PAGE);
 
@@ -972,8 +947,7 @@ static int a3xx_init(struct adreno_device *adreno_dev)
 	a3xx_soft_fault_detect_init(adreno_dev);
 
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
-
-	return a3xx_get_cp_init_cmds(adreno_dev);
+	return 0;
 }
 
 /*
@@ -1159,7 +1133,7 @@ static int a3xx_start(struct adreno_device *adreno_dev)
 	adreno_dev->irq_mask = A3XX_INT_MASK;
 
 	/* Set up VBIF registers from the GPU core definition */
-	adreno_reglist_write(adreno_dev, a3xx_core->vbif,
+	kgsl_regmap_multi_write(&device->regmap, a3xx_core->vbif,
 		a3xx_core->vbif_count);
 
 	/* Make all blocks contribute to the GPU BUSY perf counter */
@@ -1309,18 +1283,14 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 		return ret;
 	}
 
-	if (fw)
-		*buf = kmalloc(fw->size, GFP_KERNEL);
-	else
+	if (!fw)
 		return -EINVAL;
 
-	if (*buf) {
-		memcpy(*buf, fw->data, fw->size);
-		*len = fw->size;
-	}
+	*buf = devm_kmemdup(&device->pdev->dev, fw->data, fw->size, GFP_KERNEL);
+	*len = fw->size;
 
 	release_firmware(fw);
-	return (*buf != NULL) ? 0 : -ENOMEM;
+	return (*buf) ? 0 : -ENOMEM;
 }
 
 static int a3xx_microcode_read(struct adreno_device *adreno_dev)
@@ -1391,26 +1361,24 @@ static void a3xx_microcode_load(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	size_t pm4_size = adreno_dev->fw[ADRENO_FW_PM4].size;
 	size_t pfp_size = adreno_dev->fw[ADRENO_FW_PFP].size;
-	int i;
 
 	/* load the CP ucode using AHB writes */
 	kgsl_regwrite(device, A3XX_CP_ME_RAM_WADDR, 0);
 
-	for (i = 1; i < pm4_size; i++)
-		kgsl_regwrite(device, A3XX_CP_ME_RAM_DATA,
-			adreno_dev->fw[ADRENO_FW_PM4].fwvirt[i]);
+	kgsl_regmap_bulk_write(&device->regmap, A3XX_CP_ME_RAM_DATA,
+		adreno_dev->fw[ADRENO_FW_PM4].fwvirt, pm4_size);
 
 	kgsl_regwrite(device, A3XX_CP_PFP_UCODE_ADDR, 0);
-	for (i = 1; i < pfp_size; i++)
-		kgsl_regwrite(device, A3XX_CP_PFP_UCODE_DATA,
-			adreno_dev->fw[ADRENO_FW_PFP].fwvirt[i]);
+
+	kgsl_regmap_bulk_write(&device->regmap, A3XX_CP_PFP_UCODE_DATA,
+		adreno_dev->fw[ADRENO_FW_PFP].fwvirt, pfp_size);
 }
 
 #if IS_ENABLED(CONFIG_COMMON_CLK_QCOM)
 static void a3xx_clk_set_options(struct adreno_device *adreno_dev,
 	const char *name, struct clk *clk, bool on)
 {
-	if (!adreno_is_a306a(adreno_dev))
+	if (!clk || !adreno_is_a306a(adreno_dev))
 		return;
 
 	/* Handle clock settings for GFX PSCBCs */

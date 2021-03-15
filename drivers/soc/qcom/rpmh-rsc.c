@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s " fmt, KBUILD_MODNAME
@@ -421,10 +421,9 @@ static void enable_tcs_irq(struct rsc_drv *drv, int tcs_id, bool enable)
 static irqreturn_t tcs_tx_done(int irq, void *p)
 {
 	struct rsc_drv *drv = p;
-	int i, j, err = 0;
+	int i;
 	unsigned long irq_status;
 	const struct tcs_request *req;
-	struct tcs_cmd *cmd;
 
 	irq_status = readl_relaxed(drv->tcs_base + RSC_DRV_IRQ_STATUS);
 
@@ -435,23 +434,8 @@ static irqreturn_t tcs_tx_done(int irq, void *p)
 			goto skip;
 		}
 
-		err = 0;
-		for (j = 0; j < req->num_cmds; j++) {
-			u32 sts;
-
-			cmd = &req->cmds[j];
-			sts = read_tcs_cmd(drv, RSC_DRV_CMD_STATUS, i, j);
-			if (!(sts & CMD_STATUS_ISSUED) ||
-			   (cmd->wait && !(sts & CMD_STATUS_COMPL))) {
-				pr_err("Incomplete request: %s: addr=%#x data=%#x",
-				       drv->name, cmd->addr, cmd->data);
-				err = -EIO;
-			}
-		}
-
-		trace_rpmh_tx_done(drv, i, req, err);
-		ipc_log_string(drv->ipc_log_ctx, "IRQ response: m=%d err=%d",
-			       i, err);
+		trace_rpmh_tx_done(drv, i, req);
+		ipc_log_string(drv->ipc_log_ctx, "IRQ response: m=%d", i);
 
 		/*
 		 * If wake tcs was re-purposed for sending active
@@ -476,7 +460,7 @@ skip:
 		spin_unlock(&drv->lock);
 		wake_up(&drv->tcs_wait);
 		if (req)
-			rpmh_tx_done(req, err);
+			rpmh_tx_done(req);
 	}
 
 	return IRQ_HANDLED;
@@ -1096,7 +1080,6 @@ int rpmh_rsc_update_fast_path(struct rsc_drv *drv,
 				return -EBUSY;
 			}
 			udelay(1);
-			mb(); /* Ensure the data is read again */
 		}
 	} while (!sts);
 

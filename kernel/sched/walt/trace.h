@@ -589,43 +589,6 @@ TRACE_EVENT(sched_get_nr_running_avg,
 		__entry->nr_scaled)
 );
 
-/*
- * sched_pause - called when cores are paused/unpaused
- *
- * @start: 1 if start of pause/resume op, 0 otherwise
- * @requested_cpus: mask of cpus requested in this op
- * @active_cpus: mask of currently active cpus
- * @start_time: time of the start of the operation
- * @pause: 1 if pausing, 0 if resuming
- */
-TRACE_EVENT(sched_pause,
-
-	TP_PROTO(unsigned int start, unsigned int requested_cpus, unsigned int active_cpus,
-		     u64 start_time, unsigned char pause),
-
-	TP_ARGS(start, requested_cpus, active_cpus, start_time, pause),
-
-	TP_STRUCT__entry(
-		    __field(u32, start)
-		    __field(u32, requested_cpus)
-		    __field(u32, active_cpus)
-		    __field(u32, time)
-		    __field(unsigned char, pause)
-		    ),
-
-	TP_fast_assign(
-		    __entry->start		= start;
-		    __entry->requested_cpus	= requested_cpus;
-		    __entry->active_cpus	= active_cpus;
-		    __entry->time		= div64_u64(sched_clock() - start_time, 1000);
-		    __entry->pause		= pause;
-		    ),
-
-	TP_printk("start=%d req cpus=0x%x act cpus=0x%x time=%u us paused=%d",
-		      __entry->start, __entry->requested_cpus, __entry->active_cpus,
-		      __entry->time, __entry->pause)
-);
-
 TRACE_EVENT(sched_ravg_window_change,
 
 	TP_PROTO(unsigned int sched_ravg_window, unsigned int new_sched_ravg_window
@@ -778,27 +741,42 @@ TRACE_EVENT(walt_nohz_balance_kick,
 
 TRACE_EVENT(walt_newidle_balance,
 
-	TP_PROTO(int this_cpu, int busy_cpu, int pulled),
+	TP_PROTO(int this_cpu, int busy_cpu, int pulled, bool help_min_cap, bool enough_idle),
 
-	TP_ARGS(this_cpu, busy_cpu, pulled),
+	TP_ARGS(this_cpu, busy_cpu, pulled, help_min_cap, enough_idle),
 
 	TP_STRUCT__entry(
-		__field(int, this_cpu)
+		__field(int, cpu)
 		__field(int, busy_cpu)
 		__field(int, pulled)
-		__field(unsigned int, this_nr_running)
+		__field(unsigned int, nr_running)
+		__field(unsigned int, rt_nr_running)
+		__field(int, nr_iowait)
+		__field(bool, help_min_cap)
+		__field(u64, avg_idle)
+		__field(bool, enough_idle)
+		__field(int, overload)
 	),
 
 	TP_fast_assign(
-		__entry->this_cpu		= this_cpu;
-		__entry->busy_cpu		= busy_cpu;
-		__entry->pulled			= pulled;
-		__entry->this_nr_running	= cpu_rq(this_cpu)->nr_running;
+		__entry->cpu		= this_cpu;
+		__entry->busy_cpu	= busy_cpu;
+		__entry->pulled		= pulled;
+		__entry->nr_running	= cpu_rq(this_cpu)->nr_running;
+		__entry->rt_nr_running	= cpu_rq(this_cpu)->rt.rt_nr_running;
+		__entry->nr_iowait	= atomic_read(&(cpu_rq(this_cpu)->nr_iowait));
+		__entry->help_min_cap	= help_min_cap;
+		__entry->avg_idle	= cpu_rq(this_cpu)->avg_idle;
+		__entry->enough_idle	= enough_idle;
+		__entry->overload	= cpu_rq(this_cpu)->rd->overload;
 	),
 
-	TP_printk("this_cpu=%d busy_cpu=%d pulled=%d this_nr_running=%u\n",
-			__entry->this_cpu, __entry->busy_cpu, __entry->pulled,
-			__entry->this_nr_running)
+	TP_printk("cpu=%d busy_cpu=%d pulled=%d nr_running=%u rt_nr_running=%u nr_iowait=%d help_min_cap=%d avg_idle=%llu enough_idle=%d overload=%d\n",
+			__entry->cpu, __entry->busy_cpu, __entry->pulled,
+			__entry->nr_running, __entry->rt_nr_running,
+			__entry->nr_iowait, __entry->help_min_cap,
+			__entry->avg_idle, __entry->enough_idle,
+			__entry->overload)
 );
 
 TRACE_EVENT(walt_lb_cpu_util,
@@ -860,7 +838,7 @@ TRACE_EVENT(sched_cpu_util,
 		__entry->cpu		= cpu;
 		__entry->nr_running	= cpu_rq(cpu)->nr_running;
 		__entry->cpu_util	= cpu_util(cpu);
-		__entry->cpu_util_cum	= cpu_util_cum(cpu, 0);
+		__entry->cpu_util_cum	= cpu_util_cum(cpu);
 		__entry->capacity_curr	= capacity_curr_of(cpu);
 		__entry->capacity	= capacity_of(cpu);
 		__entry->capacity_orig	= capacity_orig_of(cpu);
@@ -1064,6 +1042,7 @@ TRACE_EVENT(sched_enq_deq_task,
 		__field(unsigned int,	cpus_allowed)
 		__field(unsigned int,	demand)
 		__field(unsigned int,	pred_demand)
+		__field(bool,		 compat_thread)
 	),
 
 	TP_fast_assign(
@@ -1077,16 +1056,35 @@ TRACE_EVENT(sched_enq_deq_task,
 		__entry->cpus_allowed	= cpus_allowed;
 		__entry->demand		= task_load(p);
 		__entry->pred_demand	= task_pl(p);
+		__entry->compat_thread	= is_compat_thread(task_thread_info(p));
 	),
 
-	TP_printk("cpu=%d %s comm=%s pid=%d prio=%d nr_running=%u rt_nr_running=%u affine=%x demand=%u pred_demand=%u",
+	TP_printk("cpu=%d %s comm=%s pid=%d prio=%d nr_running=%u rt_nr_running=%u affine=%x demand=%u pred_demand=%u is_compat_t=%d",
 			__entry->cpu,
 			__entry->enqueue ? "enqueue" : "dequeue",
 			__entry->comm, __entry->pid,
 			__entry->prio, __entry->nr_running,
 			__entry->rt_nr_running,
 			__entry->cpus_allowed, __entry->demand,
-			__entry->pred_demand)
+			__entry->pred_demand,
+			__entry->compat_thread)
+);
+
+TRACE_EVENT(walt_window_rollover,
+
+	TP_PROTO(u64 window_start),
+
+	TP_ARGS(window_start),
+
+	TP_STRUCT__entry(
+		__field(u64, window_start)
+	),
+
+	TP_fast_assign(
+		__entry->window_start = window_start;
+	),
+
+	TP_printk("window_start=%llu", __entry->window_start)
 );
 #endif /* _TRACE_WALT_H */
 

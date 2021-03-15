@@ -187,13 +187,13 @@ TRACE_EVENT(kgsl_waittimestamp_exit,
 );
 
 DECLARE_EVENT_CLASS(kgsl_pwr_template,
-	TP_PROTO(struct kgsl_device *device, int on),
+	TP_PROTO(struct kgsl_device *device, bool on),
 
 	TP_ARGS(device, on),
 
 	TP_STRUCT__entry(
 		__string(device_name, device->name)
-		__field(int, on)
+		__field(bool, on)
 	),
 
 	TP_fast_assign(
@@ -209,30 +209,30 @@ DECLARE_EVENT_CLASS(kgsl_pwr_template,
 );
 
 DEFINE_EVENT(kgsl_pwr_template, kgsl_irq,
-	TP_PROTO(struct kgsl_device *device, int on),
+	TP_PROTO(struct kgsl_device *device, bool on),
 	TP_ARGS(device, on)
 );
 
 DEFINE_EVENT(kgsl_pwr_template, kgsl_bus,
-	TP_PROTO(struct kgsl_device *device, int on),
+	TP_PROTO(struct kgsl_device *device, bool on),
 	TP_ARGS(device, on)
 );
 
 DEFINE_EVENT(kgsl_pwr_template, kgsl_rail,
-	TP_PROTO(struct kgsl_device *device, int on),
+	TP_PROTO(struct kgsl_device *device, bool on),
 	TP_ARGS(device, on)
 );
 
 TRACE_EVENT(kgsl_clk,
 
-	TP_PROTO(struct kgsl_device *device, unsigned int on,
+	TP_PROTO(struct kgsl_device *device, bool on,
 		unsigned int freq),
 
 	TP_ARGS(device, on, freq),
 
 	TP_STRUCT__entry(
 		__string(device_name, device->name)
-		__field(int, on)
+		__field(bool, on)
 		__field(unsigned int, freq)
 	),
 
@@ -875,19 +875,18 @@ TRACE_EVENT(kgsl_mmu_pagefault,
 
 TRACE_EVENT(kgsl_regwrite,
 
-	TP_PROTO(struct kgsl_device *device, unsigned int offset,
-		unsigned int value),
+	TP_PROTO(unsigned int offset, unsigned int value),
 
-	TP_ARGS(device, offset, value),
+	TP_ARGS(offset, value),
 
 	TP_STRUCT__entry(
-		__string(device_name, device->name)
+		__string(device_name, "kgsl-3d0")
 		__field(unsigned int, offset)
 		__field(unsigned int, value)
 	),
 
 	TP_fast_assign(
-		__assign_str(device_name, device->name);
+		__assign_str(device_name, "kgsl-3d0");
 		__entry->offset = offset;
 		__entry->value = value;
 	),

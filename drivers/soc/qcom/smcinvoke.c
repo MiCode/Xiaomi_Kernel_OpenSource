@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "smcinvoke: %s: " fmt, __func__
@@ -21,6 +21,7 @@
 #include <linux/kref.h>
 #include <linux/signal.h>
 #include <linux/msm_ion.h>
+#include <linux/mem-buf.h>
 
 #include <linux/qcom_scm.h>
 #include <asm/cacheflush.h>
@@ -770,12 +771,9 @@ static int get_uhandle_from_tzhandle(int32_t tzhandle, int32_t srvr_id,
 						SMCINVOKE_MEM_RGN_OBJ);
 
 		if (mem_obj != NULL) {
-			unsigned long flags = 0;
 			int fd;
 
-			if (dma_buf_get_flags(mem_obj->dma_buf, &flags))
-				goto exit_lock;
-			fd = dma_buf_fd(mem_obj->dma_buf, flags);
+			fd = dma_buf_fd(mem_obj->dma_buf, O_CLOEXEC);
 
 			if (fd < 0)
 				goto exit_lock;
@@ -795,12 +793,11 @@ out:
 
 static int smcinvoke_create_bridge(struct smcinvoke_mem_obj *mem_obj)
 {
-	int ret = 0, i;
+	int ret = 0;
 	int tz_perm = PERM_READ|PERM_WRITE;
 	uint32_t *vmid_list;
 	uint32_t *perms_list;
 	uint32_t nelems = 0;
-	unsigned long dma_buf_flags = 0;
 	struct dma_buf *dmabuf = mem_obj->dma_buf;
 	phys_addr_t phys = mem_obj->p_addr;
 	size_t size = mem_obj->p_addr_len;
@@ -808,41 +805,15 @@ static int smcinvoke_create_bridge(struct smcinvoke_mem_obj *mem_obj)
 	if (!qtee_shmbridge_is_enabled())
 		return 0;
 
-	ret = dma_buf_get_flags(dmabuf, &dma_buf_flags);
+	ret = mem_buf_dma_buf_copy_vmperm(dmabuf, (int **)&vmid_list,
+		(int **)&perms_list, (int *)&nelems);
 	if (ret) {
-		pr_err("failed to get dmabuf flag for mem_region_id %d\n",
-				mem_obj->mem_region_id);
+		pr_err("mem_buf_dma_buf_copy_vmperm failure, err=%d\n", ret);
 		return ret;
 	}
 
-	if (dma_buf_flags & ION_FLAG_SECURE)
-		nelems = ion_get_flags_num_vm_elems(dma_buf_flags);
-	else
-		nelems = 1;
-
-	vmid_list = kcalloc(nelems, sizeof(*vmid_list), GFP_KERNEL);
-	if (!vmid_list) {
-		ret = -ENOMEM;
-		goto exit;
-	}
-
-	perms_list = kcalloc(nelems, sizeof(*perms_list), GFP_KERNEL);
-	if (!perms_list) {
-		ret = -ENOMEM;
-		goto exit_free_vmid_list;
-	}
-
-	if (dma_buf_flags & ION_FLAG_SECURE) {
-		ret = ion_populate_vm_list(dma_buf_flags, vmid_list, nelems);
-		if (ret)
-			goto exit_free_vmid_list;
-
-		for (i = 0; i < nelems; i++)
-			perms_list[i] = msm_secure_get_vmid_perms(vmid_list[i]);
-	} else {
-		vmid_list[0] = VMID_HLOS;
+	if (mem_buf_dma_buf_exclusive_owner(dmabuf))
 		perms_list[0] = PERM_READ | PERM_WRITE;
-	}
 
 	ret = qtee_shmbridge_register(phys, size, vmid_list, perms_list, nelems,
 				      tz_perm, &mem_obj->shmbridge_handle);
@@ -850,7 +821,7 @@ static int smcinvoke_create_bridge(struct smcinvoke_mem_obj *mem_obj)
 	if (ret && ret != -EEXIST) {
 		pr_err("creation of shm bridge for mem_region_id %d failed ret %d\n",
 		       mem_obj->mem_region_id, ret);
-		goto exit_free_perms_list;
+		goto exit;
 	}
 
 	if (ret == -EEXIST) {
@@ -861,11 +832,9 @@ static int smcinvoke_create_bridge(struct smcinvoke_mem_obj *mem_obj)
 	pr_debug("created shm bridge handle %lld for mem_region_id %d\n",
 			mem_obj->shmbridge_handle, mem_obj->mem_region_id);
 
-exit_free_perms_list:
-	kfree(perms_list);
-exit_free_vmid_list:
-	kfree(vmid_list);
 exit:
+	kfree(perms_list);
+	kfree(vmid_list);
 	return ret;
 }
 

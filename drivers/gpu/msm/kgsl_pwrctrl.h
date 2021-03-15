@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_PWRCTRL_H
 #define __KGSL_PWRCTRL_H
@@ -10,13 +10,6 @@
 /*****************************************************************************
  * power flags
  ****************************************************************************/
-#define KGSL_PWRFLAGS_ON   1
-#define KGSL_PWRFLAGS_OFF  0
-
-#define KGSL_PWRLEVEL_TURBO 0
-
-#define KGSL_PWR_ON	0xFFFF
-
 #define KGSL_MAX_CLKS 18
 
 #define KGSL_MAX_PWRLEVELS 16
@@ -27,18 +20,14 @@
 #define KGSL_PWRFLAGS_IRQ_ON   3
 #define KGSL_PWRFLAGS_NAP_OFF  5
 
+/* Use to enable all the force power on states at once */
+#define KGSL_PWR_ON GENMASK(5, 0)
+
 /* Only two supported levels, min & max */
 #define KGSL_CONSTRAINT_PWR_MAXLEVELS 2
 
 #define KGSL_XO_CLK_FREQ	19200000
-#define KGSL_RBBMTIMER_CLK_FREQ	KGSL_XO_CLK_FREQ
 #define KGSL_ISENSE_CLK_FREQ	200000000
-
-#define KGSL_PWRLEVEL_OFF -1
-
-enum kgsl_pwrctrl_timer_type {
-	KGSL_PWR_IDLE_TIMER,
-};
 
 struct platform_device;
 struct icc_path;
@@ -140,10 +129,9 @@ struct kgsl_pwrctrl {
 	unsigned int min_pwrlevel;
 	unsigned int num_pwrlevels;
 	unsigned int throttle_mask;
-	unsigned long interval_timeout;
+	u32 interval_timeout;
 	u64 clock_times[KGSL_MAX_PWRLEVELS];
 	struct kgsl_clk_stats clk_stats;
-	bool input_disable;
 	bool bus_control;
 	int bus_mod;
 	unsigned int bus_percent_ab;
@@ -182,11 +170,6 @@ int kgsl_pwrctrl_change_state(struct kgsl_device *device, int state);
 
 unsigned int kgsl_pwrctrl_adjust_pwrlevel(struct kgsl_device *device,
 	unsigned int new_level);
-
-static inline unsigned long kgsl_get_clkrate(struct clk *clk)
-{
-	return (clk != NULL) ? clk_get_rate(clk) : 0;
-}
 
 /*
  * kgsl_pwrctrl_active_freq - get currently configured frequency
@@ -232,7 +215,7 @@ void kgsl_pwrctrl_request_state(struct kgsl_device *device, u32 state);
  *
  * Return: 0 on success or negative error on failure
  */
-int kgsl_pwrctrl_axi(struct kgsl_device *device, int state);
+int kgsl_pwrctrl_axi(struct kgsl_device *device, bool state);
 
 /**
  * kgsl_idle_check - kgsl idle function
@@ -250,5 +233,5 @@ void kgsl_idle_check(struct work_struct *work);
  * @state: Variable to decide whether interrupts need to be enabled or disabled
  *
  */
-void kgsl_pwrctrl_irq(struct kgsl_device *device, int state);
+void kgsl_pwrctrl_irq(struct kgsl_device *device, bool state);
 #endif /* __KGSL_PWRCTRL_H */

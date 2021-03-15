@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, 2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __MINIDUMP_PRIVATE_H
@@ -75,5 +75,7 @@ struct md_global_toc {
 	u32			md_enable_status;
 	struct md_ss_toc	md_ss_toc[MAX_NUM_OF_SS];
 };
+
+int msm_minidump_log_init(void);
 
 #endif

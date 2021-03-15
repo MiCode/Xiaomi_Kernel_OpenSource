@@ -1,3 +1,4 @@
+qcom_cpu_vendor_hooks.ko
 clk-dummy.ko
 clk-qcom.ko
 cqhci.ko
@@ -24,6 +25,8 @@ dwc3-msm.ko
 phy-generic.ko
 mem-offline.ko
 phy-qcom-emu.ko
+phy-msm-ssusb-qmp.ko
+phy-msm-snps-hs.ko
 arm_smmu.ko
 qcom_iommu_util.ko
 iommu-logger.ko
@@ -75,11 +78,13 @@ pdr_interface.ko
 msm_sharedmem.ko
 phy-qcom-ufs.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
+phy-qcom-ufs-qmp-v4-lahaina.ko
 ufs_qcom.ko
 usb_f_cdev.ko
 usb_f_diag.ko
 usb_f_mass_storage.ko
 usb_f_qdss.ko
+pci-msm-drv.ko
 sps_drv.ko
 usb_bam.ko
 dcc_v2.ko
@@ -89,6 +94,7 @@ msm_dma_iommu_mapping.ko
 system_heap.ko
 qcom_dma_heaps.ko
 mem_buf.ko
+mem_buf_dev.ko
 qcom_smem.ko
 qcom_smd.ko
 mdt_loader.ko
@@ -133,6 +139,8 @@ qcom_ipcc.ko
 qcom_edac.ko
 qcom-cpufreq-hw.ko
 qcom-cpufreq-hw-debug.ko
+sched-walt.ko
+msm_performance.ko
 soc_sleep_stats.ko
 sensors_ssc.ko
 sys_pm_vx.ko
@@ -173,3 +181,22 @@ memory_dump_v2.ko
 glink_pkt.ko
 qsee_ipc_irq_bridge.ko
 kryo_arm64_edac.ko
+msm_rtb.ko
+msm_sysstats.ko
+qcom_tsens.ko
+cpu_voltage_cooling.ko
+ddr_cdev.ko
+msm_lmh_dcvs.ko
+thermal_pause.ko
+qti_qmi_cdev.ko
+qti_qmi_sensor.ko
+cpu_hotplug.ko
+tz_log.ko
+qseecom-mod.ko
+smcinvoke.ko
+bcl_soc.ko
+bcl_pmic5.ko
+msm_kgsl.ko
+governor_msm_adreno_tz.ko
+governor_gpubw_mon.ko
+minidump.ko

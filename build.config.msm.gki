@@ -17,6 +17,7 @@ TRIM_NONLISTED_KMI=1
 KMI_SYMBOL_LIST_STRICT_MODE=1
 KMI_SYMBOL_LIST_MODULE_GROUPING=0
 KMI_SYMBOL_LIST_ADD_ONLY=1
+KMI_ENFORCED=1
 
 function build_defconfig_fragments() {
 	if [[ "${VARIANT}" =~ ^(gki|consolidate)$ ]]; then

@@ -879,7 +879,6 @@ static size_t a5xx_snapshot_cp_roq(struct kgsl_device *device, u8 *buf,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *) buf;
 	u32 size, *data = (u32 *) (buf + sizeof(*header));
-	int i;
 
 	if (adreno_is_a505_or_a506(adreno_dev) || adreno_is_a508(adreno_dev) ||
 		adreno_is_a510(adreno_dev))
@@ -895,9 +894,8 @@ static size_t a5xx_snapshot_cp_roq(struct kgsl_device *device, u8 *buf,
 	header->type = SNAPSHOT_DEBUG_CP_ROQ;
 	header->size = size;
 
-	kgsl_regwrite(device, A5XX_CP_ROQ_DBG_ADDR, 0x0);
-	for (i = 0; i < size; i++)
-		kgsl_regread(device, A5XX_CP_ROQ_DBG_DATA, &data[i]);
+	kgsl_regmap_read_indexed(&device->regmap, A5XX_CP_ROQ_DBG_ADDR,
+		A5XX_CP_ROQ_DBG_DATA, data, size);
 
 	return DEBUG_SECTION_SZ(size);
 }
@@ -908,7 +906,6 @@ static size_t a5xx_snapshot_cp_meq(struct kgsl_device *device, u8 *buf,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *) buf;
 	u32 size, *data = (u32 *) (buf + sizeof(*header));
-	int i;
 
 	if (adreno_is_a505_or_a506(adreno_dev) || adreno_is_a508(adreno_dev) ||
 		adreno_is_a510(adreno_dev))
@@ -924,9 +921,8 @@ static size_t a5xx_snapshot_cp_meq(struct kgsl_device *device, u8 *buf,
 	header->type = SNAPSHOT_DEBUG_CP_MEQ;
 	header->size = size;
 
-	kgsl_regwrite(device, A5XX_CP_MEQ_DBG_ADDR, 0x0);
-	for (i = 0; i < size; i++)
-		kgsl_regread(device, A5XX_CP_MEQ_DBG_DATA, &data[i]);
+	kgsl_regmap_read_indexed(&device->regmap, A5XX_CP_MEQ_DBG_ADDR,
+		A5XX_CP_MEQ_DBG_DATA, data, size);
 
 	return DEBUG_SECTION_SZ(size);
 }
@@ -981,7 +977,7 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS, snapshot,
 			a5xx_snapshot_registers, &regs);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU)) {
+	if (a5xx_has_gpmu(adreno_dev)) {
 		regs.regs = a5xx_gpmu_registers;
 		regs.size = ARRAY_SIZE(a5xx_gpmu_registers);
 
@@ -1140,7 +1136,7 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev)
 		data_size += REG_PAIR_COUNT(a5xx_registers, j) *
 			sizeof(unsigned int);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU)) {
+	if (a5xx_has_gpmu(adreno_dev)) {
 		/* Each pair needs 16 bytes (2 qwords) */
 		script_size += (ARRAY_SIZE(a5xx_gpmu_registers) / 2) * 16;
 
@@ -1199,7 +1195,7 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev)
 		offset += r * sizeof(unsigned int);
 	}
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU)) {
+	if (a5xx_has_gpmu(adreno_dev)) {
 		for (j = 0; j < ARRAY_SIZE(a5xx_gpmu_registers) / 2; j++) {
 			unsigned int r = REG_PAIR_COUNT(a5xx_gpmu_registers, j);
 			*ptr++ = registers->gpuaddr + offset;

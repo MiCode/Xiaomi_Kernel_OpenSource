@@ -15,8 +15,8 @@
 #include <net/cnss2.h>
 #include <soc/qcom/memory_dump.h>
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART) || \
-	IS_ENABLED(CONFIG_SUBSYSTEM_RAMDUMP)
-#include <soc/qcom/ramdump.h>
+	IS_ENABLED(CONFIG_QCOM_RAMDUMP)
+#include <soc/qcom/qcom_ramdump.h>
 #endif
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 #include <soc/qcom/subsystem_notif.h>
@@ -37,7 +37,8 @@
 #define TIME_CLOCK_FREQ_HZ		19200000
 #define CNSS_RAMDUMP_MAGIC		0x574C414E
 #define CNSS_RAMDUMP_VERSION		0
-#define MAX_FIRMWARE_NAME_LEN		20
+#define MAX_FIRMWARE_NAME_LEN		40
+#define FW_V2_NUMBER                    2
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)

@@ -166,4 +166,13 @@ adreno_drawctxt_get_pagetable(struct adreno_context *drawctxt)
 	return NULL;
 }
 
+/**
+ * adreno_drawctxt_set_guilty - Mark a context as guilty and invalidate it
+ * @device: Pointer to a GPU device handle
+ * @context: Poniter to the context to invalidate
+ *
+ * Mark the specified context as guilty and invalidate it
+ */
+void adreno_drawctxt_set_guilty(struct kgsl_device *device,
+		struct kgsl_context *context);
 #endif  /* __ADRENO_DRAWCTXT_H */

@@ -8,7 +8,13 @@
 #include "walt.h"
 #include "trace.h"
 
-extern u64 sched_ktime_clock(void); // TODO
+static inline unsigned long walt_lb_cpu_util(int cpu)
+{
+	struct walt_rq *wrq = (struct walt_rq *) cpu_rq(cpu)->android_vendor_data1;
+
+	return wrq->walt_stats.cumulative_runnable_avg_scaled;
+}
+
 static void walt_detach_task(struct task_struct *p, struct rq *src_rq,
 			     struct rq *dst_rq)
 {
@@ -138,7 +144,7 @@ static void walt_lb_check_for_rotation(struct rq *src_rq)
 		if (is_reserved(i))
 			continue;
 
-		if (!rq->misfit_task_load)
+		if (!rq->misfit_task_load || !walt_fair_task(rq->curr))
 			continue;
 
 		wts = (struct walt_task_struct *) rq->curr->android_vendor_data1;
@@ -161,7 +167,7 @@ static void walt_lb_check_for_rotation(struct rq *src_rq)
 		if (is_reserved(i))
 			continue;
 
-		if (rq->curr->prio < MAX_RT_PRIO)
+		if (!walt_fair_task(rq->curr))
 			continue;
 
 		if (rq->nr_running > 1)
@@ -185,8 +191,7 @@ static void walt_lb_check_for_rotation(struct rq *src_rq)
 	dst_rq = cpu_rq(dst_cpu);
 
 	double_rq_lock(src_rq, dst_rq);
-	if (dst_rq->curr->prio >= MAX_RT_PRIO && dst_rq->curr != dst_rq->idle &&
-		src_rq->curr->prio >= MAX_RT_PRIO && src_rq->curr != src_rq->idle) {
+	if (walt_fair_task(dst_rq->curr)) {
 		get_task_struct(src_rq->curr);
 		get_task_struct(dst_rq->curr);
 
@@ -210,9 +215,10 @@ static inline bool _walt_can_migrate_task(struct task_struct *p, int dst_cpu,
 					  bool to_lower)
 {
 	struct walt_rq *wrq = (struct walt_rq *) task_rq(p)->android_vendor_data1;
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	if (to_lower) {
-		if (p->in_iowait)
+		if (wts->iowaited)
 			return false;
 		if (per_task_boost(p) == TASK_BOOST_STRICT_MAX &&
 				task_in_related_thread_group(p))
@@ -316,7 +322,6 @@ static int walt_lb_find_busiest_similar_cap_cpu(int dst_cpu, const cpumask_t *sr
 {
 	int i;
 	int busiest_cpu = -1;
-	int busiest_nr = 1; /* we need atleast 2 */
 	unsigned long util, busiest_util = 0;
 	struct walt_rq *wrq;
 
@@ -324,14 +329,13 @@ static int walt_lb_find_busiest_similar_cap_cpu(int dst_cpu, const cpumask_t *sr
 		wrq = (struct walt_rq *) cpu_rq(i)->android_vendor_data1;
 		trace_walt_lb_cpu_util(i, wrq);
 
-		if (cpu_rq(i)->cfs.h_nr_running < 2)
+		if (cpu_rq(i)->nr_running < 2 || !cpu_rq(i)->cfs.h_nr_running)
 			continue;
 
-		util = cpu_util(i);
+		util = walt_lb_cpu_util(i);
 		if (util < busiest_util)
 			continue;
 
-		busiest_nr = cpu_rq(i)->cfs.h_nr_running;
 		busiest_util = util;
 		busiest_cpu = i;
 	}
@@ -344,7 +348,6 @@ static int walt_lb_find_busiest_higher_cap_cpu(int dst_cpu, const cpumask_t *src
 {
 	int i;
 	int busiest_cpu = -1;
-	int busiest_nr = 1; /* we need atleast 2 */
 	unsigned long util, busiest_util = 0;
 	unsigned long total_capacity = 0, total_util = 0, total_nr = 0;
 	int total_cpus = 0;
@@ -358,7 +361,7 @@ static int walt_lb_find_busiest_higher_cap_cpu(int dst_cpu, const cpumask_t *src
 		wrq = (struct walt_rq *) cpu_rq(i)->android_vendor_data1;
 		trace_walt_lb_cpu_util(i, wrq);
 
-		util = cpu_util(i);
+		util = walt_lb_cpu_util(i);
 		total_cpus += 1;
 		total_util += util;
 		total_capacity += capacity_orig_of(i);
@@ -383,7 +386,6 @@ static int walt_lb_find_busiest_higher_cap_cpu(int dst_cpu, const cpumask_t *src
 		if (util < busiest_util)
 			continue;
 
-		busiest_nr = cpu_rq(i)->cfs.h_nr_running;
 		busiest_util = util;
 		busiest_cpu = i;
 	}
@@ -404,7 +406,6 @@ static int walt_lb_find_busiest_lower_cap_cpu(int dst_cpu, const cpumask_t *src_
 {
 	int i;
 	int busiest_cpu = -1;
-	int busiest_nr = 1; /* we need atleast 2 */
 	unsigned long util, busiest_util = 0;
 	unsigned long total_capacity = 0, total_util = 0, total_nr = 0;
 	int total_cpus = 0;
@@ -426,7 +427,7 @@ static int walt_lb_find_busiest_lower_cap_cpu(int dst_cpu, const cpumask_t *src_
 
 		trace_walt_lb_cpu_util(i, wrq);
 
-		util = cpu_util(i);
+		util = walt_lb_cpu_util(i);
 		total_cpus += 1;
 		total_util += util;
 		total_capacity += capacity_orig_of(i);
@@ -439,7 +440,9 @@ static int walt_lb_find_busiest_lower_cap_cpu(int dst_cpu, const cpumask_t *src_
 		if (cpu_rq(i)->active_balance)
 			continue;
 
-		if (cpu_rq(i)->cfs.h_nr_running < 2 && !wrq->walt_stats.nr_big_tasks)
+		/* active migration is allowed only to idle cpu */
+		if (cpu_rq(i)->cfs.h_nr_running < 2 &&
+			(!wrq->walt_stats.nr_big_tasks || !available_idle_cpu(dst_cpu)))
 			continue;
 
 		if (!walt_rotation_enabled && !cpu_overutilized(i))
@@ -448,7 +451,6 @@ static int walt_lb_find_busiest_lower_cap_cpu(int dst_cpu, const cpumask_t *src_
 		if (util < busiest_util)
 			continue;
 
-		busiest_nr = cpu_rq(i)->cfs.h_nr_running;
 		busiest_util = util;
 		busiest_cpu = i;
 		busy_nr_big_tasks = wrq->walt_stats.nr_big_tasks;
@@ -470,7 +472,7 @@ static int walt_lb_find_busiest_cpu(int dst_cpu, const cpumask_t *src_mask)
 	if (capacity_orig_of(dst_cpu) == capacity_orig_of(fsrc_cpu))
 		busiest_cpu = walt_lb_find_busiest_similar_cap_cpu(dst_cpu,
 								src_mask);
-	else if (capacity_orig_of(dst_cpu) < capacity_orig_of(fsrc_cpu))
+	else if (capacity_orig_of(dst_cpu) > capacity_orig_of(fsrc_cpu))
 		busiest_cpu = walt_lb_find_busiest_lower_cap_cpu(dst_cpu,
 								src_mask);
 	else
@@ -491,7 +493,7 @@ static void walt_lb_tick(void *unused, struct rq *rq)
 
 	if (static_branch_unlikely(&walt_disabled))
 		return;
-	if (!rq->misfit_task_load)
+	if (!rq->misfit_task_load || !walt_fair_task(p))
 		return;
 
 	if (p->state != TASK_RUNNING || p->nr_cpus_allowed == 1)
@@ -508,7 +510,9 @@ static void walt_lb_tick(void *unused, struct rq *rq)
 	new_cpu = walt_find_energy_efficient_cpu(p, prev_cpu, 0, 1);
 	rcu_read_unlock();
 
-	if (new_cpu < 0 || same_cluster(new_cpu, prev_cpu))
+	/* prevent active task migration to busy or same/lower capacity CPU */
+	if (new_cpu < 0 || !available_idle_cpu(new_cpu) ||
+		capacity_orig_of(new_cpu) <= capacity_orig_of(prev_cpu))
 		goto out_unlock;
 
 	raw_spin_lock(&rq->lock);
@@ -540,6 +544,26 @@ out_unlock:
 	raw_spin_unlock_irqrestore(&walt_lb_migration_lock, flags);
 }
 
+__read_mostly unsigned int sysctl_sched_force_lb_enable = 1;
+static bool should_help_min_cap(int this_cpu)
+{
+	int cpu;
+
+	if (!sysctl_sched_force_lb_enable || is_min_capacity_cpu(this_cpu))
+		return false;
+
+	for_each_cpu(cpu, &cpu_array[0][0]) {
+		struct walt_rq *wrq = (struct walt_rq *) cpu_rq(cpu)->android_vendor_data1;
+
+		if (wrq->walt_stats.nr_big_tasks)
+			return true;
+	}
+
+	return false;
+}
+
+/* similar to sysctl_sched_migration_cost */
+#define NEWIDLE_BALANCE_THRESHOLD	500000
 static void walt_newidle_balance(void *unused, struct rq *this_rq,
 				 struct rq_flags *rf, int *pulled_task,
 				 int *done)
@@ -548,7 +572,9 @@ static void walt_newidle_balance(void *unused, struct rq *this_rq,
 	struct walt_rq *wrq = (struct walt_rq *) this_rq->android_vendor_data1;
 	int order_index;
 	int cluster = 0;
-	int busy_cpu;
+	int busy_cpu = -1;
+	bool enough_idle = (this_rq->avg_idle > NEWIDLE_BALANCE_THRESHOLD);
+	bool help_min_cap = false;
 
 	if (static_branch_unlikely(&walt_disabled))
 		return;
@@ -574,8 +600,12 @@ static void walt_newidle_balance(void *unused, struct rq *this_rq,
 		return;
 
 	if (!READ_ONCE(this_rq->rd->overload))
-		return;
+		goto out;
 
+	if (atomic_read(&this_rq->nr_iowait) && !enough_idle)
+		goto out;
+
+	help_min_cap = should_help_min_cap(this_cpu);
 	rq_unpin_lock(this_rq, rf);
 	raw_spin_unlock(&this_rq->lock);
 
@@ -593,15 +623,17 @@ static void walt_newidle_balance(void *unused, struct rq *this_rq,
 		if (busy_cpu != -1 || this_rq->nr_running > 0)
 			break;
 
+		if (!enough_idle && !help_min_cap)
+			break;
 	} while (++cluster < num_sched_clusters);
 
 	/* sanity checks before attempting the pull */
 	if (busy_cpu == -1 || this_rq->nr_running > 0 || (busy_cpu == this_cpu))
-		goto out;
+		goto unlock;
 
 	*pulled_task = walt_lb_pull_tasks(this_cpu, busy_cpu);
 
-out:
+unlock:
 	raw_spin_lock(&this_rq->lock);
 	if (this_rq->cfs.h_nr_running && !*pulled_task)
 		*pulled_task = 1;
@@ -616,7 +648,9 @@ out:
 
 	rq_repin_lock(this_rq, rf);
 
-	trace_walt_newidle_balance(this_cpu, busy_cpu, *pulled_task);
+out:
+	trace_walt_newidle_balance(this_cpu, busy_cpu, *pulled_task,
+				   help_min_cap, enough_idle);
 }
 
 static void walt_find_busiest_queue(void *unused, int dst_cpu,
@@ -724,19 +758,72 @@ static void walt_can_migrate_task(void *unused, struct task_struct *p,
 	*can_migrate = 0;
 }
 
-/*
- * when WALT becomes module, this init will be called from
- * another file and we don't have to define module_init().
- */
+static inline int rt_overloaded(struct rq *rq)
+{
+	return atomic_read(&rq->rd->rto_count);
+}
+
+static inline int has_pushable_tasks(struct rq *rq)
+{
+	return !plist_head_empty(&rq->rt.pushable_tasks);
+}
+
+#define WALT_RT_PULL_THRESHOLD_NS	250000
+static void walt_balance_rt(void *unused, struct rq *this_rq,
+			    struct task_struct *prev, int *done)
+{
+	int i, this_cpu = this_rq->cpu, src_cpu = this_cpu;
+	struct rq *src_rq;
+	struct task_struct *p;
+	struct walt_task_struct *wts;
+
+	/* Let RT push/pull handle the overloaded scenario */
+	if (rt_overloaded(this_rq))
+		return;
+
+	/* can't help if this has a runnable RT */
+	if (sched_rt_runnable(this_rq))
+		return;
+
+	/* check if any CPU has a pushable RT task */
+	for_each_possible_cpu(i) {
+		struct rq *rq = cpu_rq(i);
+
+		if (!has_pushable_tasks(rq))
+			continue;
+
+		src_cpu = i;
+		break;
+	}
+
+	if (src_cpu == this_cpu)
+		return;
+
+	src_rq = cpu_rq(src_cpu);
+	double_lock_balance(this_rq, src_rq);
+
+	/* lock is dropped, so check again */
+	if (sched_rt_runnable(this_rq))
+		goto unlock;
+
+	p = pick_highest_pushable_task(src_rq, this_cpu);
+
+	if (!p)
+		goto unlock;
+
+	wts = (struct walt_task_struct *) p->android_vendor_data1;
+	if (sched_ktime_clock() - wts->last_wake_ts < WALT_RT_PULL_THRESHOLD_NS)
+		goto unlock;
+
+	deactivate_task(src_rq, p, 0);
+	set_task_cpu(p, this_cpu);
+	activate_task(this_rq, p, 0);
+unlock:
+	double_unlock_balance(this_rq, src_rq);
+}
+
 void walt_lb_init(void)
 {
-	/*
-	 * Any task movement outside task placement is called
-	 * load balance, so moving the tick path and rotation
-	 * code to here. we also use our custom active load balance
-	 * stopper function instad of adding hooks to
-	 * active_load_balance_cpu_stop() in fair.c
-	 */
 	walt_lb_rotate_work_init();
 
 	register_trace_android_rvh_migrate_queued_task(walt_migrate_queued_task, NULL);
@@ -744,12 +831,6 @@ void walt_lb_init(void)
 	register_trace_android_rvh_can_migrate_task(walt_can_migrate_task, NULL);
 	register_trace_android_rvh_find_busiest_queue(walt_find_busiest_queue, NULL);
 	register_trace_android_rvh_sched_newidle_balance(walt_newidle_balance, NULL);
-
-	/*
-	 * TODO:
-	 * scheduler tick is not a restricted hook so multiple entities
-	 * can register for it. but from WALT, we will have only 1 hook
-	 * and it will call our load balancer function later.
-	 */
 	register_trace_android_vh_scheduler_tick(walt_lb_tick, NULL);
+	register_trace_android_rvh_sched_balance_rt(walt_balance_rt, NULL);
 }

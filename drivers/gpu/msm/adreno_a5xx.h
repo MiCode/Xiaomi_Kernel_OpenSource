@@ -29,11 +29,11 @@ struct adreno_a5xx_core {
 	/** @zap_name: Name of the CPZ zap file */
 	const char *zap_name;
 	/** @hwcg: List of registers and values to write for HWCG */
-	const struct adreno_reglist *hwcg;
+	const struct kgsl_regmap_list *hwcg;
 	/** @hwcg_count: Number of registers in @hwcg */
 	u32 hwcg_count;
 	/** @vbif: List of registers and values to write for VBIF */
-	const struct adreno_reglist *vbif;
+	const struct kgsl_regmap_list *vbif;
 	/** @vbif_count: Number of registers in @vbif */
 	u32 vbif_count;
 	/** @highest_bank_bit: The bit of the highest DDR bank */
@@ -298,5 +298,10 @@ int a5xx_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 int a5xx_ringbuffer_submit(struct adreno_ringbuffer *rb,
 		struct adreno_submit_time *time, bool sync);
+
+static inline bool a5xx_has_gpmu(struct adreno_device *adreno_dev)
+{
+	return (adreno_is_a530(adreno_dev) || adreno_is_a540(adreno_dev));
+}
 
 #endif

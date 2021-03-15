@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -105,6 +105,7 @@ struct geni_se_device {
 	int num_paths;
 	bool vote_for_bw;
 };
+
 
 #define HW_VER_MAJOR_MASK GENMASK(31, 28)
 #define HW_VER_MAJOR_SHFT 28
@@ -661,7 +662,7 @@ static bool geni_se_check_bus_bw(struct geni_se_device *geni_se_dev)
 	bool bus_bw_update = false;
 	/* Convert agg ab into bytes per second */
 	unsigned long new_ab_in_hz = DEFAULT_BUS_WIDTH *
-					((2*geni_se_dev->cur_ab)*10000);
+					KHz(geni_se_dev->cur_ab);
 
 	new_bus_bw = max(geni_se_dev->cur_ib, new_ab_in_hz) /
 							DEFAULT_BUS_WIDTH;

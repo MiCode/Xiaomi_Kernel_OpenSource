@@ -259,6 +259,7 @@ EXPORT_SYMBOL_GPL(clk_alpha_pll_regs);
 #define LUCID_EVO_ENABLE_VOTE_RUN	BIT(25)
 #define LUCID_EVO_PLL_L_VAL_MASK	GENMASK(15, 0)
 #define LUCID_EVO_PLL_CAL_L_VAL_MASK	GENMASK(31, 16)
+#define LUCID_EVO_PLL_CAL_L_VAL_SHIFT	16
 
 /* ZONDA PLL specific offsets */
 #define ZONDA_PLL_OUT_MASK		0xF
@@ -2951,10 +2952,12 @@ int clk_lucid_evo_pll_configure(struct clk_alpha_pll *pll,
 
 	if (config->cal_l)
 		ret |= regmap_update_bits(regmap, PLL_L_VAL(pll),
-				LUCID_EVO_PLL_CAL_L_VAL_MASK, config->cal_l);
+				LUCID_EVO_PLL_CAL_L_VAL_MASK,
+				config->cal_l << LUCID_EVO_PLL_CAL_L_VAL_SHIFT);
 	else
 		ret |= regmap_update_bits(regmap, PLL_L_VAL(pll),
-			LUCID_EVO_PLL_CAL_L_VAL_MASK, LUCID_PLL_CAL_VAL);
+				LUCID_EVO_PLL_CAL_L_VAL_MASK,
+				config->cal_l << LUCID_EVO_PLL_CAL_L_VAL_SHIFT);
 
 	if (config->alpha)
 		ret |= regmap_write(regmap, PLL_ALPHA_VAL(pll), config->alpha);

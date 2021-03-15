@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -547,6 +547,7 @@ static const struct clk_rpmh_desc clk_rpmh_sm8250 = {
 DEFINE_CLK_RPMH_ARC(waipio, bi_tcxo, bi_tcxo_ao, "xo.lvl", 0x3, 4);
 DEFINE_CLK_RPMH_VRM(waipio, ln_bb_clk1, ln_bb_clk1_ao, "lnbclka1", 4);
 DEFINE_CLK_RPMH_VRM(waipio, ln_bb_clk2, ln_bb_clk2_ao, "lnbclka2", 4);
+DEFINE_CLK_RPMH_VRM_OPT(waipio, rf_clk5, rf_clk5_ao, "rfclka5", 1);
 
 static struct clk_hw *waipio_rpmh_clocks[] = {
 	[RPMH_CXO_CLK]		= &waipio_bi_tcxo.hw,
@@ -563,8 +564,8 @@ static struct clk_hw *waipio_rpmh_clocks[] = {
 	[RPMH_RF_CLK3_A]	= &lahaina_rf_clk3_ao.hw,
 	[RPMH_RF_CLK4]		= &lahaina_rf_clk4.hw,
 	[RPMH_RF_CLK4_A]	= &lahaina_rf_clk4_ao.hw,
-	[RPMH_RF_CLK5]		= &lahaina_rf_clk5.hw,
-	[RPMH_RF_CLK5_A]	= &lahaina_rf_clk5_ao.hw,
+	[RPMH_RF_CLK5]		= &waipio_rf_clk5.hw,
+	[RPMH_RF_CLK5_A]	= &waipio_rf_clk5_ao.hw,
 	[RPMH_IPA_CLK]		= &lahaina_ipa.hw,
 };
 
@@ -650,7 +651,7 @@ static int clk_rpmh_probe(struct platform_device *pdev)
 		if (!res_addr) {
 			if (rpmh_clk->optional)
 				continue;
-			dev_err(&pdev->dev, "missing RPMh resource address for %s\n",
+			WARN(1, "clk-rpmh: Missing RPMh resource address for %s\n",
 				rpmh_clk->res_name);
 			return -ENODEV;
 		}
@@ -658,8 +659,7 @@ static int clk_rpmh_probe(struct platform_device *pdev)
 		data = cmd_db_read_aux_data(rpmh_clk->res_name, &aux_data_len);
 		if (IS_ERR(data)) {
 			ret = PTR_ERR(data);
-			dev_err(&pdev->dev,
-				"error reading RPMh aux data for %s (%d)\n",
+			WARN(1, "clk-rpmh: error reading RPMh aux data for %s (%d)\n",
 				rpmh_clk->res_name, ret);
 			return ret;
 		}

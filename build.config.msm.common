@@ -119,10 +119,10 @@ function check_merged_defconfig() {
   local output=$(mktemp)
   ${KERNEL_DIR}/scripts/diffconfig "${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}" ${OUT_DIR}/.config > $output
   set +x
-  if grep -q -v -E -e "^[+-]" $output; then
+  if grep -q -v -E -e "^\+" $output; then
     echo "========================================================"
     echo "ERROR! Defconfig fragment did not apply as expected"
-    grep -v -E -e "^[+-]" $output
+    grep -v -E -e "^\+" $output
     rm $output
     exit 1
   fi
@@ -141,61 +141,6 @@ function apply_defconfig_fragment() {
   DEFCONFIG_FRAGMENTS="${DEFCONFIG_FRAGMENTS} $1"
   DEFCONFIG="${2:-${DEFCONFIG}}"
 }
-
-function menuconfig() {
-  set +x
-  local orig_defconfig=$(mktemp)
-  local orig_config=$(mktemp)
-
-  cp ${OUT_DIR}/.config ${orig_config}
-  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} savedefconfig)
-  mv ${OUT_DIR}/defconfig ${orig_defconfig}
-
-  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${1:-menuconfig})
-  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} savedefconfig)
-  mv ${OUT_DIR}/defconfig ${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}
-
-  if [ -z "${FRAGMENT_CONFIG}" ]; then
-    rm "${orig_config}" "${orig_defconfig}"
-    exit
-  fi
-
-  local new_defconfig="${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}"
-  local new_config="${OUT_DIR}/.config"
-
-  # CONFIGs to be added
-  # 'defconfig' file should have been generated.
-  # Diff this with the 'defconfig_base' from the previous step and extract only the lines that were added
-  # Finally, remove the "+" from the beginning of the lines and append it to the FRAGMENT
-  diff -u ${orig_defconfig} ${new_defconfig} | grep "^+CONFIG_" | sed 's/^.//' >> ${FRAGMENT_CONFIG}
-
-  # CONFIGs to be removed
-  configs_to_remove=`diff -u ${orig_defconfig} ${new_defconfig} | grep "^-CONFIG_" | sed 's/^.//'`
-  for config_del in $configs_to_remove; do
-    sed -i "/$config_del/d" ${FRAGMENT_CONFIG}
-  done
-
-  # CONFIGs that are unset in base defconfig (# CONFIG_X is not set), but enabled in fragments,
-  # the diff is shown as: -# CONFIG_X is not set. Hence, explicitly set them in the config fragments.
-  configs_to_set=`diff -u ${orig_defconfig} ${new_defconfig} | grep "^-# CONFIG_" | awk '{print $2}'`
-  for config_to_set in $configs_to_set; do
-    # The CONFIG could be set as 'm' in the previous steps. Ignore setting them to 'y'
-    if ! grep -q "$config_to_set" ${FRAGMENT_CONFIG}; then
-      echo $config_to_set=y >> ${FRAGMENT_CONFIG}
-    fi
-  done
-
-  # CONFIGs that are set in base defconfig (or lower fragment), but wanted it to be disabled in FRAG_CONFIG
-  diff -u ${orig_config} ${new_config} | grep "^+# CONFIG_" | sed 's/^.//' >> ${FRAGMENT_CONFIG}
-
-  echo
-  echo "Updated ${FRAGMENT_CONFIG}"
-  echo
-
-  rm "${orig_config}" "${orig_defconfig}"
-  exit
-}
-export -f menuconfig
 
 ################################################################################
 ## DLKMs
@@ -220,6 +165,8 @@ function prepare_vendor_dlkm() {
 
     VENDOR_DLKM_MODULES_LIST="${MODULES_STAGING_DIR}/vendor_dlkm.modules.load"
   fi
+
+  SUPER_IMAGE_CONTENTS+="${DIST_DIR}/vendor_dlkm.img"
 }
 if [ "${BUILD_VENDOR_DLKM}" == "1" ]; then
   append_cmd DIST_CMDS 'prepare_vendor_dlkm'
@@ -259,3 +206,25 @@ if [ -n "${EXTRA_CONFIGS}" ]; then
     . ${extra_config}
   done
 fi
+
+################################################################################
+## Copy prebuilt files to ${COMMON_OUT_DIR}/host/bin to be used by CI tools
+DIST_BINS="""
+build/android/merge_dtbs.py
+build/build-tools/path/linux-x86/ufdt_apply_overlay
+"""
+function copy_dist_bins() (
+  set +x
+  set -e
+  mkdir -p ${COMMON_OUT_DIR}/host/bin
+  echo "Copying binaries to host/bin"
+  for FILE in $(ls -1 ${DIST_BINS}); do
+    if [ -f ${ROOT_DIR}/${FILE} ]; then
+      echo "  $FILE"
+      cp -p ${ROOT_DIR}/${FILE} ${COMMON_OUT_DIR}/host/bin/
+    else
+      echo "  $FILE is not a file, skipping"
+    fi
+  done
+)
+append_cmd DIST_CMDS 'copy_dist_bins'

@@ -4,6 +4,7 @@
  */
 
 #include <asm/cacheflush.h>
+#include <linux/debugfs.h>
 #include <linux/highmem.h>
 #include <linux/of.h>
 #include <linux/scatterlist.h>
@@ -11,6 +12,15 @@
 #include "kgsl_device.h"
 #include "kgsl_pool.h"
 #include "kgsl_sharedmem.h"
+
+/*
+ * The user can set this from debugfs to force failed memory allocations to
+ * fail without trying OOM first.  This is a debug setting useful for
+ * stress applications that want to test failure cases without pushing the
+ * system into unrecoverable OOM panics
+ */
+
+static bool mem_noretry_flag;
 
 /**
  * struct kgsl_page_pool - Structure to hold information for the pool
@@ -300,7 +310,7 @@ static gfp_t kgsl_gfp_mask(int page_order)
 	} else
 		gfp_mask |= GFP_KERNEL;
 
-	if (kgsl_sharedmem_get_noretry())
+	if (mem_noretry_flag)
 		gfp_mask |= __GFP_NORETRY | __GFP_NOWARN;
 
 	return gfp_mask;
@@ -474,7 +484,7 @@ int kgsl_pool_alloc_pages(u64 size, struct page ***pages, struct device *dev)
 			}
 			kvfree(local);
 
-			if (!kgsl_sharedmem_get_noretry())
+			if (!mem_noretry_flag)
 				pr_err_ratelimited("kgsl: out of memory: only allocated %lldKb of %lldKb requested\n",
 					(size - len) >> 10, size >> 10);
 
@@ -625,6 +635,9 @@ void kgsl_probe_page_pools(void)
 
 	/* Initialize shrinker */
 	register_shrinker(&kgsl_pool_shrinker);
+
+	debugfs_create_bool("strict_memory", 0644, kgsl_driver.debugfs_debug_dir,
+		&mem_noretry_flag);
 }
 
 void kgsl_exit_page_pools(void)

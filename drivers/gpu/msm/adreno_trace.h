@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 #if !defined(_ADRENO_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
@@ -16,6 +16,7 @@
 #include <linux/tracepoint.h>
 #include "adreno_a3xx.h"
 #include "adreno_a5xx.h"
+#include "adreno_genc.h"
 
 #define ADRENO_FT_TYPES \
 	{ BIT(KGSL_FT_OFF), "off" }, \
@@ -539,6 +540,70 @@ TRACE_EVENT(kgsl_a5xx_irq_status,
 			{ BIT(A5XX_INT_GPMU_FIRMWARE), "GPMU_FIRMWARE" },
 			{ BIT(A5XX_INT_ISDB_CPU_IRQ), "ISDB_CPU_IRQ" },
 			{ BIT(A5XX_INT_ISDB_UNDER_DEBUG), "ISDB_UNDER_DEBUG" })
+			: "None"
+	)
+);
+
+/*
+ * Tracepoint for genc irq. Includes status info
+ */
+TRACE_EVENT(kgsl_genc_irq_status,
+
+	TP_PROTO(struct adreno_device *adreno_dev, unsigned int status),
+
+	TP_ARGS(adreno_dev, status),
+
+	TP_STRUCT__entry(
+		__string(device_name, adreno_dev->dev.name)
+		__field(unsigned int, status)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, adreno_dev->dev.name);
+		__entry->status = status;
+	),
+
+	TP_printk(
+		"d_name=%s status=%s",
+		__get_str(device_name),
+		__entry->status ? __print_flags(__entry->status, "|",
+			{ BIT(GENC_INT_GPUIDLE), "GPUIDLE" },
+			{ BIT(GENC_INT_AHBERROR), "AHBERROR" },
+			{ BIT(GENC_INT_CPIPCINT0), "CPIPCINT0" },
+			{ BIT(GENC_INT_CPIPCINT1), "CPIPCINT1" },
+			{ BIT(GENC_INT_ATBASYNCFIFOOVERFLOW),
+				"ATBASYNCFIFOOVERFLOW" },
+			{ BIT(GENC_INT_GPCERROR), "GPCERROR" },
+			{ BIT(GENC_INT_SWINTERRUPT), "SWINTERRUPT" },
+			{ BIT(GENC_INT_HWERROR), "HWERROR" },
+			{ BIT(GENC_INT_CCU_CLEAN_DEPTH_TS),
+				"CCU_CLEAN_DEPTH_TS" },
+			{ BIT(GENC_INT_CCU_CLEAN_COLOR_TS),
+				"CCU_CLEAN_COLOR_TS" },
+			{ BIT(GENC_INT_CCU_RESOLVE_CLEAN_TS),
+				"CCU_RESOLVE_CLEAN_TS" },
+			{ BIT(GENC_INT_PM4CPINTERRUPT), "PM4CPINTERRUPT" },
+			{ BIT(GENC_INT_PM4CPINTERRUPTLPAC),
+				"PM4CPINTERRUPTLPAC" },
+			{ BIT(GENC_INT_RB_DONE_TS), "RB_DONE_TS" },
+			{ BIT(GENC_INT_CACHE_CLEAN_TS), "CACHE_CLEAN_TS" },
+			{ BIT(GENC_INT_CACHE_CLEAN_TS_LPAC),
+				"CACHE_CLEAN_TS_LPAC" },
+			{ BIT(GENC_INT_ATBBUSOVERFLOW), "ATBBUSOVERFLOW" },
+			{ BIT(GENC_INT_HANGDETECTINTERRUPT),
+				"HANGDETECTINTERRUPT" },
+			{ BIT(GENC_INT_OUTOFBOUNDACCESS),
+				"OUTOFBOUNDACCESS" },
+			{ BIT(GENC_INT_UCHETRAPINTERRUPT),
+				"UCHETRAPINTERRUPT" },
+			{ BIT(GENC_INT_DEBUGBUSINTERRUPT0),
+				"DEBUGBUSINTERRUPT0" },
+			{ BIT(GENC_INT_DEBUGBUSINTERRUPT1),
+				"DEBUGBUSINTERRUPT1" },
+			{ BIT(GENC_INT_TSBWRITEERROR), "TSBWRITEERROR" },
+			{ BIT(GENC_INT_ISDBCPUIRQ), "ISDBCPUIRQ" },
+			{ BIT(GENC_INT_ISDBUNDERDEBUG), "ISDBUNDERDEBUG" },
+			{ BIT(GENC_INT_ISDBUNDERDEBUG), "ISDBUNDERDEBUG" })
 			: "None"
 	)
 );

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- *Copyright (c) 2018,2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018,2020-2021 The Linux Foundation. All rights reserved.
  */
 
 #undef TRACE_SYSTEM
@@ -42,9 +42,9 @@ TRACE_EVENT(hyp_core_ctl_status,
 		__string(event, event)
 		__array(char, reserve, 32)
 		__array(char, reserved, 32)
-		__array(char, our_isolated, 32)
+		__array(char, our_paused, 32)
 		__array(char, online, 32)
-		__array(char, isolated, 32)
+		__array(char, active, 32)
 		__array(char, thermal, 32)
 	),
 
@@ -54,23 +54,19 @@ TRACE_EVENT(hyp_core_ctl_status,
 			  cpumask_pr_args(&hcd->reserve_cpus));
 		scnprintf(__entry->reserved, sizeof(__entry->reserve), "%*pbl",
 			  cpumask_pr_args(&hcd->final_reserved_cpus));
-		scnprintf(__entry->our_isolated, sizeof(__entry->reserve),
-			  "%*pbl", cpumask_pr_args(&hcd->our_isolated_cpus));
+		scnprintf(__entry->our_paused, sizeof(__entry->reserve),
+			  "%*pbl", cpumask_pr_args(&hcd->our_paused_cpus));
 		scnprintf(__entry->online, sizeof(__entry->reserve), "%*pbl",
 			  cpumask_pr_args(cpu_online_mask));
-		scnprintf(__entry->isolated, sizeof(__entry->reserve), "%*pbl",
-#ifdef CONFIG_SCHED_WALT
-			  cpumask_pr_args(cpu_isolated_mask));
-#else
-			  0);
-#endif
+		scnprintf(__entry->active, sizeof(__entry->reserve), "%*pbl",
+			  cpumask_pr_args(cpu_active_mask));
 		scnprintf(__entry->thermal, sizeof(__entry->reserve), "%*pbl",
-			  cpumask_pr_args(cpu_cooling_get_max_level_cpumask()));
+			  cpumask_pr_args(thermal_paused_cpumask()));
 	),
 
-	TP_printk("event=%s reserve=%s reserved=%s our_isolated=%s online=%s isolated=%s thermal=%s",
+	TP_printk("event=%s reserve=%s reserved=%s our_paused=%s online=%s active=%s thermal=%s",
 		  __get_str(event), __entry->reserve, __entry->reserved,
-		  __entry->our_isolated, __entry->online, __entry->isolated,
+		  __entry->our_paused, __entry->online, __entry->active,
 		  __entry->thermal)
 );
 

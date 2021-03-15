@@ -8,7 +8,7 @@
 
 #include "../../../kernel/sched/sched.h"
 #include "../../../fs/proc/internal.h"
-#include <linux/sched/core_ctl.h>
+#include <linux/sched/walt.h>
 #include <linux/jump_label.h>
 
 #include <linux/cgroup.h>
@@ -29,14 +29,6 @@
 
 #define NR_WINDOWS_PER_SEC (NSEC_PER_SEC / DEFAULT_SCHED_RAVG_WINDOW)
 
-#define SCHED_CPUFREQ_MIGRATION	(1U << 1)
-#define SCHED_CPUFREQ_INTERCLUSTER_MIG	(1U << 3)
-#define SCHED_CPUFREQ_WALT	(1U << 4)
-#define SCHED_CPUFREQ_PL	(1U << 5)
-#define SCHED_CPUFREQ_EARLY_DET	(1U << 6)
-#define SCHED_CPUFREQ_CONTINUE	(1U << 8)
-
-#define MAX_CLUSTERS 3
 /* MAX_MARGIN_LEVELS should be one less than MAX_CLUSTERS */
 #define MAX_MARGIN_LEVELS (MAX_CLUSTERS - 1)
 
@@ -65,78 +57,8 @@ enum task_boost_type {
 	TASK_BOOST_END,
 };
 
-#define WALT_NR_CPUS 8
-#define RAVG_HIST_SIZE_MAX 5
-#define NUM_BUSY_BUCKETS 10
-
-struct walt_task_struct {
-	/*
-	 * 'mark_start' marks the beginning of an event (task waking up, task
-	 * starting to execute, task being preempted) within a window
-	 *
-	 * 'sum' represents how runnable a task has been within current
-	 * window. It incorporates both running time and wait time and is
-	 * frequency scaled.
-	 *
-	 * 'sum_history' keeps track of history of 'sum' seen over previous
-	 * RAVG_HIST_SIZE windows. Windows where task was entirely sleeping are
-	 * ignored.
-	 *
-	 * 'demand' represents maximum sum seen over previous
-	 * sysctl_sched_ravg_hist_size windows. 'demand' could drive frequency
-	 * demand for tasks.
-	 *
-	 * 'curr_window_cpu' represents task's contribution to cpu busy time on
-	 * various CPUs in the current window
-	 *
-	 * 'prev_window_cpu' represents task's contribution to cpu busy time on
-	 * various CPUs in the previous window
-	 *
-	 * 'curr_window' represents the sum of all entries in curr_window_cpu
-	 *
-	 * 'prev_window' represents the sum of all entries in prev_window_cpu
-	 *
-	 * 'pred_demand' represents task's current predicted cpu busy time
-	 *
-	 * 'busy_buckets' groups historical busy time into different buckets
-	 * used for prediction
-	 *
-	 * 'demand_scaled' represents task's demand scaled to 1024
-	 */
-	u64				mark_start;
-	u32				sum, demand;
-	u32				coloc_demand;
-	u32				sum_history[RAVG_HIST_SIZE_MAX];
-	u32				curr_window_cpu[WALT_NR_CPUS];
-	u32				prev_window_cpu[WALT_NR_CPUS];
-	u32				curr_window, prev_window;
-	u32				pred_demand;
-	u8				busy_buckets[NUM_BUSY_BUCKETS];
-	u16				demand_scaled;
-	u16				pred_demand_scaled;
-	u64				active_time;
-	u64				last_win_size;
-	int				boost;
-	bool				wake_up_idle;
-	bool				misfit;
-	bool				rtg_high_prio;
-	bool				low_latency;
-	u64				boost_period;
-	u64				boost_expires;
-	u64				last_sleep_ts;
-	u32				init_load_pct;
-	u32				unfilter;
-	u64				last_wake_ts;
-	u64				last_enqueued_ts;
-	struct walt_related_thread_group __rcu	*grp;
-	struct list_head		grp_list;
-	u64				cpu_cycles;
-	cpumask_t			cpus_requested;
-};
-
-/*End linux/sched.h port */
-/*SCHED.H PORT*/
-extern __read_mostly bool sched_predl;
+#define WALT_LOW_LATENCY_PROCFS	BIT(0)
+#define WALT_LOW_LATENCY_BINDER	BIT(1)
 
 struct walt_cpu_load {
 	unsigned long	nl;
@@ -192,7 +114,6 @@ struct walt_rq {
 	u64			prev_runnable_sum;
 	u64			nt_curr_runnable_sum;
 	u64			nt_prev_runnable_sum;
-	u64			cum_window_demand_scaled;
 	struct group_cpu_time	grp_time;
 	struct load_subtractions load_subs[NUM_TRACKED_WINDOWS];
 	DECLARE_BITMAP_ARRAY(top_tasks_bitmap,
@@ -220,18 +141,6 @@ struct walt_sched_cluster {
 	u64			aggr_grp_load;
 };
 
-struct walt_related_thread_group {
-	int			id;
-	raw_spinlock_t		lock;
-	struct list_head	tasks;
-	struct list_head	list;
-	bool			skip_min;
-	struct rcu_head		rcu;
-	u64			last_update;
-	u64			downmigrate_ts;
-	u64			start_ts;
-};
-
 extern struct walt_sched_cluster *sched_cluster[WALT_NR_CPUS];
 
 extern struct walt_sched_cluster *rq_cluster(struct rq *rq);
@@ -251,13 +160,8 @@ extern void walt_rotation_checkpoint(int nr_big);
 extern void walt_fill_ta_data(struct core_ctl_notif_data *data);
 extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
 extern unsigned int sched_get_group_id(struct task_struct *p);
-extern int sched_set_init_task_load(struct task_struct *p, int init_load_pct);
-extern u32 sched_get_init_task_load(struct task_struct *p);
 extern void core_ctl_check(u64 wallclock);
 extern int sched_set_boost(int enable);
-extern int sched_pause_count(const cpumask_t *mask, bool include_offline);
-extern void sched_pause_pending(int cpu);
-extern void sched_unpause_pending(int cpu);
 extern int sched_wake_up_idle_show(struct seq_file *m, void *v);
 extern ssize_t sched_wake_up_idle_write(struct file *file,
 		const char __user *buf, size_t count, loff_t *offset);
@@ -273,12 +177,8 @@ extern int sched_group_id_open(struct inode *inode, struct file *filp);
 extern int sched_pause_cpus(struct cpumask *pause_cpus);
 extern int sched_unpause_cpus(struct cpumask *unpause_cpus);
 
-extern int core_ctl_set_boost(bool boost);
-extern void core_ctl_notifier_register(struct notifier_block *n);
-extern void core_ctl_notifier_unregister(struct notifier_block *n);
 extern unsigned int sched_get_cpu_util(int cpu);
 extern void sched_update_hyst_times(void);
-extern u64 sched_lpm_disallowed_time(int cpu);
 extern int
 sched_updown_migrate_handler(struct ctl_table *table, int write,
 			void __user *buffer, size_t *lenp, loff_t *ppos);
@@ -293,15 +193,7 @@ extern void walt_init_topapp_tg(struct task_group *tg);
 extern void walt_init_foreground_tg(struct task_group *tg);
 extern int register_walt_callback(void);
 extern void set_cpu_array(void);
-extern int sched_init_ops(void);
 extern int core_ctl_init(void);
-extern void acquire_rq_locks_irqsave(const cpumask_t *cpus,
-		unsigned long *flags);
-extern void release_rq_locks_irqrestore(const cpumask_t *cpus,
-		unsigned long *flags);
-extern struct list_head cluster_head;
-extern int set_sched_ravg_window(char *str);
-extern int set_sched_predl(char *str);
 extern int input_boost_init(void);
 extern int core_ctl_init(void);
 
@@ -330,7 +222,6 @@ extern enum sched_boost_policy boost_policy;
 extern unsigned int sysctl_input_boost_ms;
 extern unsigned int sysctl_input_boost_freq[8];
 extern unsigned int sysctl_sched_boost_on_input;
-extern unsigned int sysctl_sched_load_boost[WALT_NR_CPUS];
 extern unsigned int sysctl_sched_user_hint;
 extern unsigned int sysctl_sched_conservative_pl;
 #define WALT_MANY_WAKEUP_DEFAULT 1000
@@ -338,8 +229,8 @@ extern unsigned int sysctl_sched_many_wakeup_threshold;
 extern unsigned int sysctl_walt_rtg_cfs_boost_prio;
 extern __read_mostly unsigned int sysctl_sched_force_lb_enable;
 extern const int sched_user_hint_max;
-extern unsigned int sysctl_sched_prefer_spread;
 
+extern struct list_head cluster_head;
 #define for_each_sched_cluster(cluster) \
 	list_for_each_entry_rcu(cluster, &cluster_head, list)
 
@@ -384,7 +275,6 @@ extern unsigned int sysctl_sched_walt_rotate_big_tasks;
 extern unsigned int sysctl_sched_task_unfilter_period;
 extern unsigned int __read_mostly sysctl_sched_asym_cap_sibling_freq_match_pct;
 extern unsigned int sysctl_walt_low_latency_task_threshold; /* disabled by default */
-extern unsigned int sysctl_task_read_pid;
 extern struct ctl_table walt_table[];
 extern struct ctl_table walt_base_table[];
 extern void walt_tunables(void);
@@ -392,7 +282,6 @@ extern void walt_update_group_thresholds(void);
 extern void sched_window_nr_ticks_change(void);
 extern unsigned long sched_user_hint_reset_time;
 extern struct irq_work walt_migration_irq_work;
-extern __read_mostly unsigned int new_sched_ravg_window;
 extern struct task_group *task_group_topapp;
 extern struct task_group *task_group_foreground;
 
@@ -400,9 +289,6 @@ extern struct task_group *task_group_foreground;
 extern unsigned int cpuinfo_max_freq_cached;
 extern char sched_lib_name[LIB_PATH_LENGTH];
 extern unsigned int sched_lib_mask_force;
-extern bool is_sched_lib_based_app(pid_t pid);
-void android_vh_show_max_freq(void *unused, struct cpufreq_policy *policy,
-				unsigned int *max_freq);
 
 /* WALT cpufreq interface */
 #define WALT_CPUFREQ_ROLLOVER		(1U << 0)
@@ -410,6 +296,7 @@ void android_vh_show_max_freq(void *unused, struct cpufreq_policy *policy,
 #define WALT_CPUFREQ_IC_MIGRATION	(1U << 2)
 #define WALT_CPUFREQ_PL			(1U << 3)
 #define WALT_CPUFREQ_EARLY_DET		(1U << 4)
+#define WALT_CPUFREQ_BOOST_UPDATE	(1U << 5)
 
 #define NO_BOOST 0
 #define FULL_THROTTLE_BOOST 1
@@ -513,29 +400,9 @@ static inline unsigned long cpu_util(int cpu)
 	return min_t(unsigned long, walt_cpu_util, capacity_orig_of(cpu));
 }
 
-static inline unsigned long cpu_util_cum(int cpu, int delta)
+static inline unsigned long cpu_util_cum(int cpu)
 {
-	struct walt_rq *wrq = (struct walt_rq *) cpu_rq(cpu)->android_vendor_data1;
-	u64 util = wrq->cum_window_demand_scaled;
-	unsigned long capacity = capacity_orig_of(cpu);
-
-	delta += util;
-	if (delta < 0)
-		return 0;
-
-	return (delta >= capacity) ? capacity : delta;
-}
-
-extern unsigned int capacity_margin_freq;
-
-static inline unsigned long
-add_capacity_margin(unsigned long cpu_capacity, int cpu)
-{
-	cpu_capacity = cpu_capacity * capacity_margin_freq *
-			(100 + sysctl_sched_load_boost[cpu]);
-	cpu_capacity /= 100;
-	cpu_capacity /= SCHED_CAPACITY_SCALE;
-	return cpu_capacity;
+	return READ_ONCE(cpu_rq(cpu)->cfs.avg.util_avg);
 }
 
 static inline enum sched_boost_policy sched_boost_policy(void)
@@ -864,7 +731,7 @@ static inline unsigned int walt_get_idle_exit_latency(struct rq *rq)
 	if (idle)
 		return idle->exit_latency;
 
-	return UINT_MAX;
+	return 0; /* CPU is not idle */
 }
 
 extern void sched_get_nr_running_avg(struct sched_avg_stats *stats);
@@ -873,6 +740,7 @@ extern void sched_update_hyst_times(void);
 extern enum sched_boost_policy sched_boost_policy(void);
 extern void walt_rt_init(void);
 extern void walt_cfs_init(void);
+extern void walt_fixup_init(void);
 extern int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 					int sync, int sibling_count_hint);
 
@@ -949,25 +817,6 @@ static inline void clear_reserved(int cpu)
 	clear_bit(CPU_RESERVED, &wrq->walt_flags);
 }
 
-static inline bool
-task_in_cum_window_demand(struct rq *rq, struct task_struct *p)
-{
-	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
-	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
-
-	return cpu_of(rq) == task_cpu(p) && (p->on_rq ||
-		wts->last_sleep_ts >= wrq->window_start);
-}
-
-static inline void walt_fixup_cum_window_demand(struct rq *rq, s64 scaled_delta)
-{
-	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
-
-	wrq->cum_window_demand_scaled += scaled_delta;
-	if (unlikely((s64)wrq->cum_window_demand_scaled < 0))
-		wrq->cum_window_demand_scaled = 0;
-}
-
 static inline void walt_irq_work_queue(struct irq_work *work)
 {
 	if (likely(cpu_online(raw_smp_processor_id())))
@@ -976,35 +825,18 @@ static inline void walt_irq_work_queue(struct irq_work *work)
 		irq_work_queue_on(work, cpumask_any(cpu_online_mask));
 }
 
-#define PF_WAKE_UP_IDLE	1
-static inline u32 sched_get_wake_up_idle(struct task_struct *p)
-{
-	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
-
-	return wts->wake_up_idle;
-}
-
-static inline int sched_set_wake_up_idle(struct task_struct *p,
-						int wake_up_idle)
-{
-	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
-
-	wts->wake_up_idle = !!wake_up_idle;
-	return 0;
-}
-
-static inline void set_wake_up_idle(bool enabled)
-{
-	struct walt_task_struct *wts = (struct walt_task_struct *) current->android_vendor_data1;
-
-	wts->wake_up_idle = enabled;
-}
-
-extern int set_task_boost(int boost, u64 period);
-
 static inline struct task_group *css_tg(struct cgroup_subsys_state *css)
 {
 	return css ? container_of(css, struct task_group, css) : NULL;
 }
 
+/*
+ * The policy of a RT boosted task (via PI mutex) still indicates it is
+ * a fair task, so use prio check as well. The prio check alone is not
+ * sufficient since idle task also has 120 priority.
+ */
+static inline bool walt_fair_task(struct task_struct *p)
+{
+	return p->prio >= MAX_RT_PRIO && !is_idle_task(p);
+}
 #endif /* _WALT_H */

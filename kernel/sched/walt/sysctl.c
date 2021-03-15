@@ -40,7 +40,6 @@ unsigned int sysctl_input_boost_ms;
 unsigned int sysctl_input_boost_freq[8];
 unsigned int sysctl_sched_boost_on_input;
 unsigned int sysctl_sched_init_stage;
-unsigned int sysctl_sched_load_boost[WALT_NR_CPUS];
 
 /* sysctl nodes accesed by other files */
 unsigned int __read_mostly sysctl_sched_coloc_downmigrate_ns;
@@ -53,12 +52,15 @@ unsigned int sysctl_sched_walt_rotate_big_tasks;
 unsigned int sysctl_sched_task_unfilter_period;
 unsigned int __read_mostly sysctl_sched_asym_cap_sibling_freq_match_pct;
 unsigned int sysctl_walt_low_latency_task_threshold; /* disabled by default */
-unsigned int sysctl_task_read_pid;
 unsigned int sysctl_sched_conservative_pl;
 unsigned int sysctl_sched_min_task_util_for_boost = 51;
 unsigned int sysctl_sched_min_task_util_for_colocation = 35;
 unsigned int sysctl_sched_many_wakeup_threshold = WALT_MANY_WAKEUP_DEFAULT;
 const int sched_user_hint_max = 1000;
+unsigned int sysctl_walt_rtg_cfs_boost_prio = 99; /* disabled by default */
+
+/* range is [1 .. INT_MAX] */
+static int sysctl_task_read_pid = 1;
 
 static void init_tg_pointers(void)
 {
@@ -200,6 +202,20 @@ unlock:
 	return ret;
 }
 
+static DEFINE_MUTEX(sysctl_pid_mutex);
+static int sched_task_read_pid_handler(struct ctl_table *table, int write,
+				       void __user *buffer, size_t *lenp,
+				       loff_t *ppos)
+{
+	int ret;
+
+	mutex_lock(&sysctl_pid_mutex);
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+	mutex_unlock(&sysctl_pid_mutex);
+
+	return ret;
+}
+
 enum {
 	TASK_BEGIN = 0,
 	WAKE_UP_IDLE,
@@ -225,20 +241,15 @@ static int sched_task_handler(struct ctl_table *table, int write,
 		.maxlen	= sizeof(pid_and_val),
 		.mode	= table->mode,
 	};
-	static DEFINE_MUTEX(mutex);
 
-	mutex_lock(&mutex);
+	mutex_lock(&sysctl_pid_mutex);
 
 	if (!write) {
-		if (sysctl_task_read_pid <= 0) {
-			ret = -ENOENT;
-			goto unlock_mutex;
-		}
 		task = get_pid_task(find_vpid(sysctl_task_read_pid),
 				PIDTYPE_PID);
 		if (!task) {
 			ret = -ENOENT;
-			goto put_task;
+			goto unlock_mutex;
 		}
 		wts = (struct walt_task_struct *) task->android_vendor_data1;
 		pid_and_val[0] = sysctl_task_read_pid;
@@ -262,7 +273,8 @@ static int sched_task_handler(struct ctl_table *table, int write,
 					 1000000UL);
 			break;
 		case LOW_LATENCY:
-			pid_and_val[1] = wts->low_latency;
+			pid_and_val[1] = wts->low_latency &
+					 WALT_LOW_LATENCY_PROCFS;
 			break;
 		default:
 			ret = -EINVAL;
@@ -323,7 +335,10 @@ static int sched_task_handler(struct ctl_table *table, int write,
 		wts->boost_expires = sched_clock() + wts->boost_period;
 		break;
 	case LOW_LATENCY:
-		wts->low_latency = val;
+		if (val)
+			wts->low_latency |= WALT_LOW_LATENCY_PROCFS;
+		else
+			wts->low_latency &= ~WALT_LOW_LATENCY_PROCFS;
 		break;
 	default:
 		ret = -EINVAL;
@@ -332,50 +347,7 @@ static int sched_task_handler(struct ctl_table *table, int write,
 put_task:
 	put_task_struct(task);
 unlock_mutex:
-	mutex_unlock(&mutex);
-
-	return ret;
-}
-
-static int sched_load_boost_handler(struct ctl_table *table, int write,
-				void __user *buffer, size_t *lenp,
-				loff_t *ppos)
-{
-	int ret, i;
-	unsigned int *data = (unsigned int *)table->data;
-	int val[WALT_NR_CPUS];
-
-	struct ctl_table tmp = {
-		.data	= &val,
-		.maxlen	= sizeof(val),
-		.mode	= table->mode,
-	};
-	static DEFINE_MUTEX(mutex);
-
-	mutex_lock(&mutex);
-
-	if (!write) {
-		ret = proc_dointvec(table, write, buffer, lenp, ppos);
-		goto unlock_mutex;
-	}
-
-	ret = proc_dointvec(&tmp, write, buffer, lenp, ppos);
-	if (ret)
-		goto unlock_mutex;
-
-	for (i = 0; i < WALT_NR_CPUS; i++) {
-		if (val[i] < -100 || val[i] > 1000) {
-			ret = -EINVAL;
-			goto unlock_mutex;
-		}
-	}
-
-	/* all things checkout update the value */
-	for (i = 0; i < WALT_NR_CPUS; i++)
-		data[i] = val[i];
-
-unlock_mutex:
-	mutex_unlock(&mutex);
+	mutex_unlock(&sysctl_pid_mutex);
 
 	return ret;
 }
@@ -727,15 +699,6 @@ struct ctl_table walt_table[] = {
 		.proc_handler	= sched_updown_migrate_handler,
 	},
 	{
-		.procname	= "sched_prefer_spread",
-		.data		= &sysctl_sched_prefer_spread,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= SYSCTL_ZERO,
-		.extra2		= &four,
-	},
-	{
 		.procname	= "walt_rtg_cfs_boost_prio",
 		.data		= &sysctl_walt_rtg_cfs_boost_prio,
 		.maxlen		= sizeof(unsigned int),
@@ -828,16 +791,11 @@ struct ctl_table walt_table[] = {
 	{
 		.procname	= "sched_task_read_pid",
 		.data		= &sysctl_task_read_pid,
-		.maxlen		= sizeof(unsigned int),
+		.maxlen		= sizeof(int),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
-	{
-		.procname	= "sched_load_boost",
-		.data		= &sysctl_sched_load_boost,
-		.maxlen		= sizeof(unsigned int) * 8,
-		.mode		= 0644,
-		.proc_handler	= sched_load_boost_handler,
+		.proc_handler	= sched_task_read_pid_handler,
+		.extra1		= SYSCTL_ONE,
+		.extra2		= SYSCTL_INT_MAX,
 	},
 	{ }
 };
@@ -876,10 +834,6 @@ void walt_tunables(void)
 
 	sched_load_granule = DEFAULT_SCHED_RAVG_WINDOW / NUM_LOAD_INDICES;
 
-	sysctl_sched_min_task_util_for_boost = 51;
-
-	sysctl_sched_min_task_util_for_colocation = 35;
-
 	for (i = 0; i < WALT_NR_CPUS; i++) {
 		sysctl_sched_coloc_busy_hyst_cpu[i] = 39000000;
 		sysctl_sched_coloc_busy_hyst_cpu_busy_pct[i] = 10;
@@ -888,8 +842,6 @@ void walt_tunables(void)
 	sysctl_sched_coloc_busy_hyst_enable_cpus = 112;
 
 	sysctl_sched_coloc_busy_hyst_max_ms = 5000;
-
-	sysctl_walt_rtg_cfs_boost_prio = 99; /* disabled by default */
 
 	sched_ravg_window = DEFAULT_SCHED_RAVG_WINDOW;
 

@@ -1205,11 +1205,8 @@ int kgsl_drawobj_cmd_add_cmdlist(struct kgsl_device *device,
 		return ret;
 
 	for (i = 0; i < count; i++) {
-		memset(&obj, 0, sizeof(obj));
-
-		ret = kgsl_copy_from_user(&obj, ptr, sizeof(obj), size);
-		if (ret)
-			return ret;
+		if (copy_struct_from_user(&obj, sizeof(obj), ptr, size))
+			return -EFAULT;
 
 		/* Sanity check the flags */
 		if (!(obj.flags & CMDLIST_FLAGS)) {
@@ -1247,11 +1244,8 @@ int kgsl_drawobj_cmd_add_memlist(struct kgsl_device *device,
 		return ret;
 
 	for (i = 0; i < count; i++) {
-		memset(&obj, 0, sizeof(obj));
-
-		ret = kgsl_copy_from_user(&obj, ptr, sizeof(obj), size);
-		if (ret)
-			return ret;
+		if (copy_struct_from_user(&obj, sizeof(obj), ptr, size))
+			return -EFAULT;
 
 		if (!(obj.flags & KGSL_OBJLIST_MEMOBJ)) {
 			dev_err(device->dev,
@@ -1328,12 +1322,8 @@ int kgsl_drawobj_sync_add_synclist(struct kgsl_device *device,
 		return -ENOMEM;
 
 	for (i = 0; i < count; i++) {
-		memset(&syncpoint, 0, sizeof(syncpoint));
-
-		ret = kgsl_copy_from_user(&syncpoint, ptr,
-					sizeof(syncpoint), size);
-		if (ret)
-			return ret;
+		if (copy_struct_from_user(&syncpoint, sizeof(syncpoint), ptr, size))
+			return -EFAULT;
 
 		sync.type = syncpoint.type;
 		sync.priv = u64_to_user_ptr(syncpoint.priv);

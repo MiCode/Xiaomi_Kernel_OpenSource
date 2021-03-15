@@ -1256,7 +1256,7 @@ static int gsi_ring_alloc(struct gsi *gsi, struct gsi_ring *ring, u32 count)
 	/* Hardware requires a 2^n ring size, with alignment equal to size */
 	ring->virt = dma_alloc_coherent(dev, size, &addr, GFP_KERNEL);
 	if (ring->virt && addr % size) {
-		dma_free_coherent(dev, size, ring->virt, ring->addr);
+		dma_free_coherent(dev, size, ring->virt, addr);
 		dev_err(dev, "unable to alloc 0x%zx-aligned ring buffer\n",
 			size);
 		return -EINVAL;	/* Not a good error value, but distinct */
@@ -1573,6 +1573,7 @@ static int gsi_channel_setup(struct gsi *gsi, bool legacy)
 		if (!channel->gsi)
 			continue;	/* Ignore uninitialized channels */
 
+		ret = -EINVAL;
 		dev_err(gsi->dev, "channel %u not supported by hardware\n",
 			channel_id - 1);
 		channel_id = gsi->channel_count;

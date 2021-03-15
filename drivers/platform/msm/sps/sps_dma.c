@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2013, 2015, 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, 2015, 2017-2019, 2021, The Linux Foundation. All rights reserved.
  */
 /* BAM-DMA Manager. */
 
@@ -73,7 +73,8 @@ static inline void dma_write_reg(void *base, u32 offset, u32 val)
 static inline void dma_write_reg_field(void *base, u32 offset,
 				       const u32 mask, u32 val)
 {
-	u32 shift = find_first_bit((void *)&mask, 32);
+	unsigned long lmask = mask;
+	u32 shift = find_first_bit(&lmask, 32);
 	u32 tmp = ioread32(base + offset);
 
 	tmp &= ~mask;		/* clear written bits */

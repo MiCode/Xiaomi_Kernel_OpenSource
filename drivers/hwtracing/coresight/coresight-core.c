@@ -532,22 +532,39 @@ static struct coresight_device *coresight_get_source(struct list_head *path)
 static int coresight_set_csr_atid(struct list_head *path,
 			struct coresight_device *sink_csdev, bool enable)
 {
-	int atid, ret = 0;
+	int i, num, ret = 0;
 	struct coresight_device *src_csdev;
+	u32 *atid;
 
 	src_csdev = coresight_get_source(path);
-	if (!src_csdev)
+	if (!src_csdev) {
+		ret = -EINVAL;
+		return ret;
+	}
+
+	num = of_coresight_get_atid_number(src_csdev);
+	if (num < 0)
+		return num;
+
+	atid = kcalloc(num, sizeof(*atid), GFP_KERNEL);
+	ret = of_coresight_get_atid(src_csdev, atid, num);
+	if (ret < 0) {
+		kfree(atid);
+		return ret;
+	}
+
+	if (csr_set_atid_ops) {
+		for (i = 0; i < num; i++) {
+			ret = csr_set_atid_ops->set_atid(sink_csdev, atid[i], enable);
+			if (ret < 0) {
+				kfree(atid);
+				return ret;
+			}
+		}
+	} else
 		ret = -EINVAL;
 
-	atid = of_coresight_get_atid(src_csdev);
-	if (atid < 0)
-		ret = -EINVAL;
-
-	if (csr_set_atid_ops)
-		ret = csr_set_atid_ops->set_atid(sink_csdev, atid, enable);
-	else
-		ret = -EINVAL;
-
+	kfree(atid);
 	return ret;
 }
 

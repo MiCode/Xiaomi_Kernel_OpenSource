@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
+
+#include <linux/utsname.h>
 
 #include "adreno.h"
 #include "adreno_cp_parser.h"
@@ -209,7 +211,7 @@ static void dump_all_ibs(struct kgsl_device *device,
 	int index = 0;
 	unsigned int *rbptr;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+	struct kgsl_iommu *iommu = KGSL_IOMMU(device);
 
 	rbptr = rb->buffer_desc->hostptr;
 
@@ -368,7 +370,7 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 			parse_ibs = 0;
 
 		if (parse_ibs && adreno_cmd_is_ib(adreno_dev, rbptr[index])) {
-			struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+			struct kgsl_iommu *iommu = KGSL_IOMMU(device);
 			uint64_t ibaddr;
 			uint64_t ibsize;
 
@@ -777,7 +779,7 @@ static void adreno_snapshot_iommu(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+	struct kgsl_iommu *iommu = KGSL_IOMMU(device);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 		snapshot, adreno_snapshot_global, iommu->setstate);
@@ -803,6 +805,83 @@ static void adreno_snapshot_ringbuffer(struct kgsl_device *device,
 		snapshot_rb, &params);
 }
 
+static void adreno_snapshot_os(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot, struct kgsl_context *guilty,
+		bool dump_contexts)
+{
+	struct kgsl_snapshot_section_header *sect =
+		(struct kgsl_snapshot_section_header *) snapshot->ptr;
+	struct kgsl_snapshot_linux_v2 *header = (struct kgsl_snapshot_linux_v2 *)
+		(snapshot->ptr + sizeof(*sect));
+
+	if (snapshot->remain < (sizeof(*sect) + sizeof(*header))) {
+		SNAPSHOT_ERR_NOMEM(device, "OS");
+		return;
+	}
+
+	header->osid = KGSL_SNAPSHOT_OS_LINUX_V3;
+
+	strlcpy(header->release, init_utsname()->release, sizeof(header->release));
+	strlcpy(header->version, init_utsname()->version, sizeof(header->version));
+
+	header->seconds = get_seconds();
+	header->power_flags = device->pwrctrl.power_flags;
+	header->power_level = device->pwrctrl.active_pwrlevel;
+	header->power_interval_timeout = device->pwrctrl.interval_timeout;
+	header->grpclk = clk_get_rate(device->pwrctrl.grp_clks[0]);
+
+	/* Get the current PT base */
+	header->ptbase = kgsl_mmu_get_current_ttbr0(&device->mmu);
+	header->ctxtcount = 0;
+
+	/* If we know the guilty context then dump it */
+	if (guilty) {
+		header->pid = guilty->tid;
+		strlcpy(header->comm, guilty->proc_priv->comm,
+			sizeof(header->comm));
+	}
+
+	if (dump_contexts) {
+		u32 remain = snapshot->remain - sizeof(*sect) + sizeof(*header);
+		void *mem = snapshot->ptr + sizeof(*sect) + sizeof(*header);
+		struct kgsl_context *context;
+		int id;
+
+		read_lock(&device->context_lock);
+		idr_for_each_entry(&device->context_idr, context, id) {
+			struct kgsl_snapshot_linux_context_v2 *c = mem;
+
+			if (remain < sizeof(*c))
+				break;
+
+			kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_QUEUED,
+				&c->timestamp_queued);
+
+			kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_CONSUMED,
+				&c->timestamp_consumed);
+
+			kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED,
+				&c->timestamp_retired);
+
+			header->ctxtcount++;
+
+			mem += sizeof(*c);
+			remain -= sizeof(*c);
+
+		}
+		read_unlock(&device->context_lock);
+	}
+
+	sect->magic = SNAPSHOT_SECTION_MAGIC;
+	sect->id = KGSL_SNAPSHOT_SECTION_OS;
+	sect->size = sizeof(*sect) + sizeof(*header) +
+		header->ctxtcount * sizeof(struct kgsl_snapshot_linux_context_v2);
+
+	snapshot->ptr += sect->size;
+	snapshot->remain -= sect->size;
+	snapshot->size += sect->size;
+}
+
 /* adreno_snapshot - Snapshot the Adreno GPU state
  * @device - KGSL device to snapshot
  * @snapshot - Pointer to the snapshot instance
@@ -817,6 +896,21 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	unsigned int i;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct kgsl_snapshot_header *header = (struct kgsl_snapshot_header *)
+		snapshot->ptr;
+
+	/* Set up the master header */
+	header->magic = SNAPSHOT_MAGIC;
+	/* gpuid is deprecated so initialize it to an obviously wrong value */
+	header->gpuid = UINT_MAX;
+	header->chipid = adreno_dev->chipid;
+
+	snapshot->ptr += sizeof(*header);
+	snapshot->remain -= sizeof(*header);
+	snapshot->size += sizeof(*header);
+
+	/* Write the OS section */
+	adreno_snapshot_os(device, snapshot, context, device->gmu_fault);
 
 	ib_max_objs = 0;
 	/* Reset the list of objects */
@@ -952,4 +1046,59 @@ void adreno_snapshot_registers(struct kgsl_device *device,
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS, snapshot,
 		kgsl_snapshot_dump_registers, &r);
+}
+
+int adreno_snapshot_regs_count(const u32 *ptr)
+{
+	unsigned int count = 0;
+	unsigned int group_count;
+
+	for ( ; ptr[0] != UINT_MAX; ptr += 2) {
+		group_count = REG_COUNT(ptr);
+		if (group_count == 1)
+			count += group_count + 1;
+		else
+			count += group_count + 2;
+	}
+	return count;
+}
+
+/*
+ * This is a new format for dumping the registers, where we dump just the first
+ * address of the register along with the count of the contiguous registers
+ * which we going to dump. This helps us save memory by not dumping the
+ * address for each register
+ */
+size_t adreno_snapshot_registers_v2(struct kgsl_device *device, u8 *buf,
+				size_t remain, void *priv)
+{
+	const u32 *ptr = (const u32 *)priv;
+	unsigned int *data = (unsigned int *)buf;
+	int count = 0, k;
+
+	/* Figure out how many registers we are going to dump */
+	count = adreno_snapshot_regs_count(ptr);
+
+	if (remain < (count * 4)) {
+		SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
+		return 0;
+	}
+
+	for (ptr = (const u32 *)priv; ptr[0] != UINT_MAX; ptr += 2) {
+		int cnt = REG_COUNT(ptr);
+
+		if (cnt == 1)
+			*data++ = BIT(31) | ptr[0];
+		else {
+			*data++ = ptr[0];
+			*data++ = cnt;
+		}
+		for (k = ptr[0]; k <= ptr[1]; k++) {
+			kgsl_regread(device, k, data);
+			data++;
+		}
+	}
+
+	/* Return the size of the section */
+	return (count * 4);
 }

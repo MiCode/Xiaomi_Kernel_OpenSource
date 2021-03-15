@@ -14,6 +14,7 @@ msm_kgsl-y = \
 	kgsl_pool.o \
 	kgsl_pwrctrl.o \
 	kgsl_pwrscale.o \
+	kgsl_regmap.o \
 	kgsl_sharedmem.o \
 	kgsl_snapshot.o \
 	kgsl_timeline.o \
@@ -51,6 +52,17 @@ msm_kgsl-y += \
 	adreno_cp_parser.o \
 	adreno_dispatch.o \
 	adreno_drawctxt.o \
+	adreno_genc.o \
+	adreno_genc_gmu.o \
+	adreno_genc_gmu_snapshot.o \
+	adreno_genc_hfi.o \
+	adreno_genc_hwsched.o \
+	adreno_genc_hwsched_hfi.o \
+	adreno_genc_perfcounter.o \
+	adreno_genc_preempt.o \
+	adreno_genc_ringbuffer.o \
+	adreno_genc_rpmh.o \
+	adreno_genc_snapshot.o \
 	adreno_hwsched.o \
 	adreno_ioctl.o \
 	adreno_perfcounter.o \

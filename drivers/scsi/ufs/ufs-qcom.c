@@ -1848,6 +1848,7 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 		UFSHCD_CAP_RPM_AUTOSUSPEND;
 		hba->caps |= UFSHCD_CAP_WB_EN;
 		hba->caps |= UFSHCD_CAP_CRYPTO;
+		hba->caps |= UFSHCD_CAP_AGGR_POWER_COLLAPSE;
 	}
 
 	if (host->hw_ver.major >= 0x2)
@@ -3431,7 +3432,6 @@ static int ufs_qcom_device_reset(struct ufs_hba *hba)
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)
 static void ufs_qcom_config_scaling_param(struct ufs_hba *hba,
 					  struct devfreq_dev_profile *p,
 					  void *data)
@@ -3446,13 +3446,6 @@ static void ufs_qcom_config_scaling_param(struct ufs_hba *hba,
 	d->upthreshold = 70;
 	d->downdifferential = 5;
 }
-#else
-static void ufs_qcom_config_scaling_param(struct ufs_hba *hba,
-					  struct devfreq_dev_profile *p,
-					  void *data)
-{
-}
-#endif
 
 static struct ufs_dev_fix ufs_qcom_dev_fixups[] = {
 	UFS_FIX(UFS_VENDOR_SAMSUNG, "KLUEG8UHDB-C2D1",
@@ -3707,6 +3700,22 @@ static int ufs_qcom_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void ufs_qcom_shutdown(struct platform_device *pdev)
+{
+	struct ufs_hba *hba =  platform_get_drvdata(pdev);
+	struct scsi_device *sdev;
+
+	pm_runtime_get_sync(hba->dev);
+
+	shost_for_each_device(sdev, hba->host) {
+		if (sdev == hba->sdev_ufs_device)
+			scsi_device_quiesce(sdev);
+		else
+			scsi_remove_device(sdev);
+	}
+	ufshcd_shutdown(hba);
+}
+
 static const struct of_device_id ufs_qcom_of_match[] = {
 	{ .compatible = "qcom,ufshc"},
 	{},
@@ -3732,7 +3741,7 @@ static const struct dev_pm_ops ufs_qcom_pm_ops = {
 static struct platform_driver ufs_qcom_pltform = {
 	.probe	= ufs_qcom_probe,
 	.remove	= ufs_qcom_remove,
-	.shutdown = ufshcd_pltfrm_shutdown,
+	.shutdown = ufs_qcom_shutdown,
 	.driver	= {
 		.name	= "ufshcd-qcom",
 		.pm	= &ufs_qcom_pm_ops,

@@ -379,3 +379,4 @@ const struct mem_buf_dma_buf_ops qcom_sg_buf_ops = {
 		.release = qcom_sg_release,
 	}
 };
+EXPORT_SYMBOL(qcom_sg_buf_ops);

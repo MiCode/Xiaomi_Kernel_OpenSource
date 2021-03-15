@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 #include <linux/module.h>
 #include <linux/rpmsg.h>
 #include <linux/of_platform.h>
 #include <linux/of_fdt.h>
+#include <soc/qcom/of_common.h>
 #include <soc/qcom/secure_buffer.h>
 #include "msm_cvp_dsp.h"
 #include "msm_cvp_internal.h"

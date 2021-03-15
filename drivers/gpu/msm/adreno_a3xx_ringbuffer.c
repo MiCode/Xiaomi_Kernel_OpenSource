@@ -106,7 +106,7 @@ static int a3xx_rb_pagetable_switch(struct adreno_device *adreno_dev,
 {
 	u64 ttbr0 = kgsl_mmu_pagetable_get_ttbr0(pagetable);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+	struct kgsl_iommu *iommu = KGSL_IOMMU(device);
 	int count = 0;
 
 	/*
@@ -173,7 +173,7 @@ int a3xx_ringbuffer_init(struct adreno_device *adreno_dev)
 
 #define A3XX_SUBMIT_MAX 55
 
-int a3xx_ringbuffer_addcmds(struct adreno_device *adreno_dev,
+static int a3xx_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
 		u32 flags, u32 *in, u32 dwords, u32 timestamp,
 		struct adreno_submit_time *time)
@@ -346,7 +346,7 @@ static int a3xx_rb_context_switch(struct adreno_device *adreno_dev,
 			cmds, count, 0, NULL);
 }
 
-int a3xx_drawctxt_switch(struct adreno_device *adreno_dev,
+static int a3xx_drawctxt_switch(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb,
 		struct adreno_context *drawctxt)
 {
@@ -408,7 +408,8 @@ int a3xx_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 		list_for_each_entry(ib, &cmdobj->cmdlist, node) {
 			if (ib->priv & MEMOBJ_SKIP ||
-			    (ib->priv & MEMOBJ_PREAMBLE && !IS_PREAMBLE(flags)))
+			    (ib->flags & KGSL_CMDLIST_CTXTSWITCH_PREAMBLE
+			     && !IS_PREAMBLE(flags)))
 				cmds[index++] = cp_type3_packet(CP_NOP, 3);
 
 			cmds[index++] =

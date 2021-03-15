@@ -63,10 +63,8 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 
 void kgsl_process_init_sysfs(struct kgsl_device *device,
 		struct kgsl_process_private *private);
-void kgsl_process_uninit_sysfs(struct kgsl_process_private *private);
 
 int kgsl_sharedmem_init_sysfs(void);
-void kgsl_sharedmem_uninit_sysfs(void);
 
 void kgsl_get_memory_usage(char *str, size_t len, uint64_t memflags);
 
@@ -148,9 +146,6 @@ struct kgsl_memdesc *kgsl_allocate_global_fixed(struct kgsl_device *device,
  */
 void kgsl_free_globals(struct kgsl_device *device);
 
-#define MEMFLAGS(_flags, _mask, _shift) \
-	((unsigned int) (((_flags) & (_mask)) >> (_shift)))
-
 /*
  * kgsl_memdesc_get_align - Get alignment flags from a memdesc
  * @memdesc - the memdesc
@@ -160,20 +155,7 @@ void kgsl_free_globals(struct kgsl_device *device);
 static inline int
 kgsl_memdesc_get_align(const struct kgsl_memdesc *memdesc)
 {
-	return MEMFLAGS(memdesc->flags, KGSL_MEMALIGN_MASK,
-		KGSL_MEMALIGN_SHIFT);
-}
-
-/*
- * kgsl_memdesc_get_pagesize - Get pagesize based on alignment
- * @memdesc - the memdesc
- *
- * Returns the pagesize based on memdesc alignment
- */
-static inline int
-kgsl_memdesc_get_pagesize(const struct kgsl_memdesc *memdesc)
-{
-	return (1 << kgsl_memdesc_get_align(memdesc));
+	return FIELD_GET(KGSL_MEMALIGN_MASK, memdesc->flags);
 }
 
 /*
@@ -185,15 +167,13 @@ kgsl_memdesc_get_pagesize(const struct kgsl_memdesc *memdesc)
 static inline int
 kgsl_memdesc_get_cachemode(const struct kgsl_memdesc *memdesc)
 {
-	return MEMFLAGS(memdesc->flags, KGSL_CACHEMODE_MASK,
-		KGSL_CACHEMODE_SHIFT);
+	return FIELD_GET(KGSL_CACHEMODE_MASK, memdesc->flags);
 }
 
 static inline unsigned int
 kgsl_memdesc_get_memtype(const struct kgsl_memdesc *memdesc)
 {
-	return MEMFLAGS(memdesc->flags, KGSL_MEMTYPE_MASK,
-		KGSL_MEMTYPE_SHIFT);
+	return FIELD_GET(KGSL_MEMTYPE_MASK, memdesc->flags);
 }
 /*
  * kgsl_memdesc_set_align - Set alignment flags of a memdesc
@@ -207,8 +187,7 @@ kgsl_memdesc_set_align(struct kgsl_memdesc *memdesc, unsigned int align)
 		align = 32;
 
 	memdesc->flags &= ~(uint64_t)KGSL_MEMALIGN_MASK;
-	memdesc->flags |= (uint64_t)((align << KGSL_MEMALIGN_SHIFT) &
-					KGSL_MEMALIGN_MASK);
+	memdesc->flags |= FIELD_PREP(KGSL_MEMALIGN_MASK, align);
 	return 0;
 }
 
@@ -223,8 +202,7 @@ kgsl_memdesc_set_align(struct kgsl_memdesc *memdesc, unsigned int align)
 static inline unsigned int
 kgsl_memdesc_usermem_type(const struct kgsl_memdesc *memdesc)
 {
-	return MEMFLAGS(memdesc->flags, KGSL_MEMFLAGS_USERMEM_MASK,
-		KGSL_MEMFLAGS_USERMEM_SHIFT);
+	return FIELD_GET(KGSL_MEMFLAGS_USERMEM_MASK, memdesc->flags);
 }
 
 /**
@@ -244,11 +222,11 @@ int kgsl_memdesc_sg_dma(struct kgsl_memdesc *memdesc,
  * kgsl_memdesc_is_global - is this a globally mapped buffer?
  * @memdesc: the memdesc
  *
- * Returns nonzero if this is a global mapping, 0 otherwise
+ * Return: True if this is a global mapping
  */
-static inline int kgsl_memdesc_is_global(const struct kgsl_memdesc *memdesc)
+static inline bool kgsl_memdesc_is_global(const struct kgsl_memdesc *memdesc)
 {
-	return (memdesc->priv & KGSL_MEMDESC_GLOBAL) != 0;
+	return memdesc && (memdesc->priv & KGSL_MEMDESC_GLOBAL);
 }
 
 /*
@@ -263,40 +241,15 @@ static inline bool kgsl_memdesc_is_secured(const struct kgsl_memdesc *memdesc)
 }
 
 /*
- * kgsl_memdesc_has_guard_page - is the last page a guard page?
- * @memdesc - the memdesc
- *
- * Returns nonzero if there is a guard page, 0 otherwise
- */
-static inline int
-kgsl_memdesc_has_guard_page(const struct kgsl_memdesc *memdesc)
-{
-	return (memdesc->priv & KGSL_MEMDESC_GUARD_PAGE) != 0;
-}
-
-/*
- * kgsl_memdesc_guard_page_size - returns guard page size
- * @memdesc - the memdesc
- *
- * Returns guard page size
- */
-static inline uint64_t
-kgsl_memdesc_guard_page_size(const struct kgsl_memdesc *memdesc)
-{
-	if (!kgsl_memdesc_has_guard_page(memdesc))
-		return 0;
-
-	return PAGE_SIZE;
-}
-
-/*
  * kgsl_memdesc_use_cpu_map - use the same virtual mapping on CPU and GPU?
- * @memdesc - the memdesc
+ * @memdesc: the memdesc
+ *
+ * Return: true if the memdesc is using SVM mapping
  */
-static inline int
+static inline bool
 kgsl_memdesc_use_cpu_map(const struct kgsl_memdesc *memdesc)
 {
-	return (memdesc->flags & KGSL_MEMFLAGS_USE_CPU_MAP) != 0;
+	return memdesc && (memdesc->flags & KGSL_MEMFLAGS_USE_CPU_MAP);
 }
 
 /*
@@ -311,54 +264,10 @@ kgsl_memdesc_use_cpu_map(const struct kgsl_memdesc *memdesc)
 static inline uint64_t
 kgsl_memdesc_footprint(const struct kgsl_memdesc *memdesc)
 {
-	return ALIGN(memdesc->size + kgsl_memdesc_guard_page_size(memdesc),
-		PAGE_SIZE);
-}
+	if (!(memdesc->priv & KGSL_MEMDESC_GUARD_PAGE))
+		return memdesc->size;
 
-void kgsl_sharedmem_set_noretry(bool val);
-bool kgsl_sharedmem_get_noretry(void);
-
-/**
- * kgsl_alloc_sgt_from_pages() - Allocate a sg table
- *
- * @memdesc: memory descriptor of the allocation
- *
- * Allocate and return pointer to a sg table
- */
-static inline struct sg_table *kgsl_alloc_sgt_from_pages(
-				struct kgsl_memdesc *m)
-{
-	int ret;
-	struct sg_table *sgt;
-
-	sgt = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
-	if (sgt == NULL)
-		return ERR_PTR(-ENOMEM);
-
-	ret = sg_alloc_table_from_pages(sgt, m->pages, m->page_count, 0,
-					m->size, GFP_KERNEL);
-	if (ret) {
-		kfree(sgt);
-		return ERR_PTR(ret);
-	}
-
-	return sgt;
-}
-
-/**
- * kgsl_free_sgt() - Free a sg table structure
- *
- * @sgt: sg table pointer to be freed
- *
- * Free the sg table allocated using sgt and free the
- * sgt structure itself
- */
-static inline void kgsl_free_sgt(struct sg_table *sgt)
-{
-	if (sgt != NULL) {
-		sg_free_table(sgt);
-		kfree(sgt);
-	}
+	return PAGE_ALIGN(memdesc->size + PAGE_SIZE);
 }
 
 /**

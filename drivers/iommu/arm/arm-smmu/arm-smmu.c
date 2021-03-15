@@ -850,7 +850,7 @@ static int report_iommu_fault_helper(struct arm_smmu_domain *smmu_domain,
 {
 	u32 fsr, fsynr;
 	unsigned long iova;
-	int ret, flags;
+	int flags;
 
 	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
 	fsynr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR0);
@@ -868,27 +868,8 @@ static int report_iommu_fault_helper(struct arm_smmu_domain *smmu_domain,
 		flags |= IOMMU_FAULT_TRANSACTION_STALLED;
 
 
-	ret = report_iommu_fault(&smmu_domain->domain,
+	return report_iommu_fault(&smmu_domain->domain,
 				 smmu->dev, iova, flags);
-
-	/*
-	 * If the client returns -EBUSY, do not clear FSR and do not RESUME
-	 * if stalled. This is required to keep the IOMMU client stalled on
-	 * the outstanding fault. This gives the client a chance to take any
-	 * debug action and then terminate the stalled transaction.
-	 * So, the sequence in case of stall on fault should be:
-	 * 1) Do not clear FSR or write to RESUME here
-	 * 2) Client takes any debug action
-	 * 3) Client terminates the stalled transaction and resumes the IOMMU
-	 * 4) Client clears FSR. The FSR should only be cleared after 3) and
-	 *    not before so that the fault remains outstanding. This ensures
-	 *    SCTLR.HUPCF has the desired effect if subsequent transactions also
-	 *    need to be terminated.
-	 */
-	if (!ret || (ret == -EBUSY))
-		return IRQ_HANDLED;
-
-	return IRQ_NONE;
 }
 
 static int arm_smmu_get_fault_ids(struct iommu_domain *domain,
@@ -913,7 +894,7 @@ static int arm_smmu_get_fault_ids(struct iommu_domain *domain,
 	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
 
 	if (!(fsr & ARM_SMMU_FSR_FAULT)) {
-		arm_smmu_power_off(smmu, smmu->pwr);
+		arm_smmu_rpm_put(smmu);
 		return -EINVAL;
 	}
 
@@ -956,27 +937,45 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		BUG();
 	}
 
-	ret = report_iommu_fault_helper(smmu_domain, smmu, idx);
-	if (ret == IRQ_HANDLED)
-		goto out_power_off;
-
-	if (__ratelimit(&_rs)) {
-		print_fault_regs(smmu_domain, smmu, idx);
-		arm_smmu_verify_fault(smmu_domain, smmu, idx);
-	}
-	BUG_ON(!test_bit(DOMAIN_ATTR_NON_FATAL_FAULTS, smmu_domain->attributes));
-
-	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
-
 	/*
-	 * Barrier required to ensure that the FSR is cleared
-	 * before resuming SMMU operation
+	 * If the fault helper returns -ENOSYS, then no client fault helper was
+	 * registered. In that case, print the default report.
+	 *
+	 * If the client returns -EBUSY, do not clear FSR and do not RESUME
+	 * if stalled. This is required to keep the IOMMU client stalled on
+	 * the outstanding fault. This gives the client a chance to take any
+	 * debug action and then terminate the stalled transaction.
+	 * So, the sequence in case of stall on fault should be:
+	 * 1) Do not clear FSR or write to RESUME here
+	 * 2) Client takes any debug action
+	 * 3) Client terminates the stalled transaction and resumes the IOMMU
+	 * 4) Client clears FSR. The FSR should only be cleared after 3) and
+	 *    not before so that the fault remains outstanding. This ensures
+	 *    SCTLR.HUPCF has the desired effect if subsequent transactions also
+	 *    need to be terminated.
 	 */
-	wmb();
+	ret = report_iommu_fault_helper(smmu_domain, smmu, idx);
+	if (ret == -ENOSYS) {
+		if (__ratelimit(&_rs)) {
+			print_fault_regs(smmu_domain, smmu, idx);
+			arm_smmu_verify_fault(smmu_domain, smmu, idx);
+		}
+		BUG_ON(!test_bit(DOMAIN_ATTR_NON_FATAL_FAULTS, smmu_domain->attributes));
+	}
+	if (ret != -EBUSY) {
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
 
-	if (fsr & ARM_SMMU_FSR_SS)
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
+		/*
+		 * Barrier required to ensure that the FSR is cleared
+		 * before resuming SMMU operation
+		 */
+		wmb();
+
+		if (fsr & ARM_SMMU_FSR_SS)
+			arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
 				  ARM_SMMU_RESUME_TERMINATE);
+	}
+
 	ret = IRQ_HANDLED;
 out_power_off:
 	arm_smmu_rpm_put(smmu);
@@ -2332,18 +2331,15 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = to_smmu_domain(domain)->pgtbl_ops;
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	LIST_HEAD(nonsecure_pool);
 
 	if (!ops)
 		return -ENODEV;
 
 	arm_smmu_secure_domain_lock(smmu_domain);
-	arm_smmu_rpm_get(smmu);
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	ret = ops->map(ops, iova, paddr, size, prot, gfp);
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
-	arm_smmu_rpm_put(smmu);
 
 	/* if the map call failed due to insufficient memory,
 	 * then retry again with preallocated memory to see
@@ -2351,15 +2347,61 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	 */
 	if (ret == -ENOMEM) {
 		arm_smmu_prealloc_memory(smmu_domain, size, &nonsecure_pool);
-		arm_smmu_rpm_get(smmu);
 		spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 		list_splice_init(&nonsecure_pool, &smmu_domain->nonsecure_pool);
 		ret = ops->map(ops, iova, paddr, size, prot, gfp);
 		list_splice_init(&smmu_domain->nonsecure_pool, &nonsecure_pool);
 		spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
-		arm_smmu_rpm_put(smmu);
 		arm_smmu_release_prealloc_memory(smmu_domain, &nonsecure_pool);
 
+	}
+
+	arm_smmu_assign_table(smmu_domain);
+	arm_smmu_secure_domain_unlock(smmu_domain);
+
+	return ret;
+}
+
+static int arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
+			   struct scatterlist *sg, unsigned int nents, int prot,
+			   gfp_t gfp, size_t *mapped)
+{
+	int ret, i;
+	unsigned long flags;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct io_pgtable_ops *ops = to_smmu_domain(domain)->pgtbl_ops;
+	size_t size = 0;
+	struct scatterlist *iter;
+	LIST_HEAD(nonsecure_pool);
+
+	if (!ops)
+		return -ENODEV;
+
+	arm_smmu_secure_domain_lock(smmu_domain);
+	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
+	ret = ops->map_sg(ops, iova, sg, nents, prot, gfp, mapped);
+	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
+
+	if (ret == -ENOMEM) {
+		/* unmap any partially mapped iova */
+		if (*mapped) {
+			arm_smmu_secure_domain_unlock(smmu_domain);
+			iommu_unmap(domain, iova, *mapped);
+			*mapped = 0;
+			arm_smmu_secure_domain_lock(smmu_domain);
+		}
+
+		for_each_sg(sg, iter, nents, i)
+			size += sg->length;
+
+		arm_smmu_prealloc_memory(smmu_domain, size, &nonsecure_pool);
+		spin_lock_irqsave(&smmu_domain->cb_lock, flags);
+		list_splice_init(&nonsecure_pool, &smmu_domain->nonsecure_pool);
+		ret = ops->map_sg(ops, iova, sg, nents, prot, gfp, mapped);
+		list_splice_init(&smmu_domain->nonsecure_pool, &nonsecure_pool);
+		spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
+		arm_smmu_release_prealloc_memory(smmu_domain,
+						 &nonsecure_pool);
 	}
 
 	arm_smmu_assign_table(smmu_domain);
@@ -2373,7 +2415,6 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 {
 	size_t ret;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
 	unsigned long flags;
 
@@ -2382,11 +2423,9 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 
 	arm_smmu_secure_domain_lock(smmu_domain);
 
-	arm_smmu_rpm_get(smmu);
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	ret = ops->unmap(ops, iova, size, gather);
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
-	arm_smmu_rpm_put(smmu);
 
 	/*
 	 * While splitting up block mappings, we might allocate page table
@@ -2424,7 +2463,7 @@ static void arm_smmu_iotlb_sync(struct iommu_domain *domain,
 	arm_smmu_rpm_get(smmu);
 	if (smmu->version == ARM_SMMU_V2 ||
 	    smmu_domain->stage == ARM_SMMU_DOMAIN_S1)
-		arm_smmu_tlb_sync_context(smmu_domain);
+		arm_smmu_tlb_inv_context_s1(smmu_domain);
 	else
 		arm_smmu_tlb_sync_global(smmu);
 	arm_smmu_rpm_put(smmu);
@@ -3109,6 +3148,7 @@ static struct qcom_iommu_ops arm_smmu_ops = {
 		.domain_free		= arm_smmu_domain_free,
 		.attach_dev		= arm_smmu_attach_dev,
 		.map			= arm_smmu_map,
+		.map_sg			= arm_smmu_map_sg,
 		.unmap			= arm_smmu_unmap,
 		.flush_iotlb_all	= arm_smmu_flush_iotlb_all,
 		.iotlb_sync		= arm_smmu_iotlb_sync,
@@ -3231,12 +3271,19 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 		smr = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_SMR(i));
 		s2cr = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_S2CR(i));
 
-		smmu->smrs[i].mask = FIELD_GET(ARM_SMMU_SMR_MASK, smr);
 		smmu->smrs[i].id = FIELD_GET(ARM_SMMU_SMR_ID, smr);
-		if (smmu->features & ARM_SMMU_FEAT_EXIDS)
+		if (smmu->features & ARM_SMMU_FEAT_EXIDS) {
 			smmu->smrs[i].valid = FIELD_GET(ARM_SMMU_S2CR_EXIDVALID, s2cr);
-		else
+			smmu->smrs[i].mask = FIELD_GET(ARM_SMMU_SMR_MASK, smr);
+		} else {
 			smmu->smrs[i].valid = FIELD_GET(ARM_SMMU_SMR_VALID, smr);
+			/*
+			 * The SMR mask covers bits 30:16 when extended stream
+			 * matching is not enabled.
+			 */
+			smmu->smrs[i].mask = FIELD_GET(ARM_SMMU_SMR_MASK,
+						       smr & ~ARM_SMMU_SMR_VALID);
+		}
 
 		smmu->s2crs[i].group = NULL;
 		smmu->s2crs[i].count = 0;
@@ -3793,7 +3840,7 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	 */
 	err = arm_smmu_power_on(smmu->pwr);
 	if (err)
-		goto out_exit_power_resources;
+		return err;
 
 	err = arm_smmu_device_cfg_probe(smmu);
 	if (err)
@@ -3892,9 +3939,6 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 out_power_off:
 	arm_smmu_power_off(smmu, smmu->pwr);
 
-out_exit_power_resources:
-	arm_smmu_exit_power_resources(smmu->pwr);
-
 	return err;
 }
 
@@ -3924,8 +3968,6 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 		pm_runtime_force_suspend(smmu->dev);
 	else
 		arm_smmu_power_off(smmu, smmu->pwr);
-
-	arm_smmu_exit_power_resources(smmu->pwr);
 
 	return 0;
 }
@@ -4036,21 +4078,12 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int qsmmuv500_tbu_remove(struct platform_device *pdev)
-{
-	struct qsmmuv500_tbu_device *tbu = dev_get_drvdata(&pdev->dev);
-
-	arm_smmu_exit_power_resources(tbu->pwr);
-	return 0;
-}
-
 static struct platform_driver qsmmuv500_tbu_driver = {
 	.driver	= {
 		.name		= "qsmmuv500-tbu",
 		.of_match_table	= of_match_ptr(qsmmuv500_tbu_of_match),
 	},
 	.probe	= qsmmuv500_tbu_probe,
-	.remove = qsmmuv500_tbu_remove,
 };
 
 static struct platform_driver arm_smmu_driver = {

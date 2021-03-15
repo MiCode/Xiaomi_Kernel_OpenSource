@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -753,13 +753,17 @@ static void ipa_disconnect_channel(struct gsi_data_port *d_port)
 	gsi->d_port.in_channel_handle = -EINVAL;
 	gsi->d_port.out_channel_handle = -EINVAL;
 
-	if (gsi->d_port.in_ep)
+	if (gsi->d_port.in_ep) {
 		usb_gsi_ep_op(gsi->d_port.in_ep, &gsi->d_port.in_request,
 							GSI_EP_OP_FREE_TRBS);
+		msm_ep_set_mode(gsi->d_port.in_ep, USB_EP_NONE);
+	}
 
-	if (gsi->d_port.out_ep)
+	if (gsi->d_port.out_ep) {
 		usb_gsi_ep_op(gsi->d_port.out_ep, &gsi->d_port.out_request,
 							GSI_EP_OP_FREE_TRBS);
+		msm_ep_set_mode(gsi->d_port.out_ep, USB_EP_NONE);
+	}
 }
 
 static int ipa_suspend_work_handler(struct gsi_data_port *d_port)
@@ -2711,20 +2715,20 @@ static int gsi_update_function_bind_params(struct f_gsi *gsi,
 
 	/* allocate instance-specific endpoints */
 	if (info->fs_in_desc) {
-		ep = usb_ep_autoconfig_by_name(cdev->gadget,
-				info->fs_in_desc, info->in_epname);
+		ep = usb_ep_autoconfig(cdev->gadget, info->fs_in_desc);
 		if (!ep)
 			goto fail;
 		gsi->d_port.in_ep = ep;
+		msm_ep_set_mode(gsi->d_port.in_ep, USB_EP_GSI);
 		ep->driver_data = cdev;	/* claim */
 	}
 
 	if (info->fs_out_desc) {
-		ep = usb_ep_autoconfig_by_name(cdev->gadget,
-				info->fs_out_desc, info->out_epname);
+		ep = usb_ep_autoconfig(cdev->gadget, info->fs_out_desc);
 		if (!ep)
 			goto fail;
 		gsi->d_port.out_ep = ep;
+		msm_ep_set_mode(gsi->d_port.out_ep, USB_EP_GSI);
 		ep->driver_data = cdev;	/* claim */
 	}
 
@@ -2808,10 +2812,14 @@ fail:
 	/* we might as well release our claims on endpoints */
 	if (gsi->c_port.notify)
 		gsi->c_port.notify->driver_data = NULL;
-	if (gsi->d_port.out_ep && gsi->d_port.out_ep->desc)
+	if (gsi->d_port.out_ep && gsi->d_port.out_ep->desc) {
+		msm_ep_set_mode(gsi->d_port.out_ep, USB_EP_NONE);
 		gsi->d_port.out_ep->driver_data = NULL;
-	if (gsi->d_port.in_ep && gsi->d_port.in_ep->desc)
+	}
+	if (gsi->d_port.in_ep && gsi->d_port.in_ep->desc) {
+		msm_ep_set_mode(gsi->d_port.in_ep, USB_EP_NONE);
 		gsi->d_port.in_ep->driver_data = NULL;
+	}
 	log_event_err("%s: bind failed for %s", __func__, f->name);
 	return -ENOMEM;
 }
