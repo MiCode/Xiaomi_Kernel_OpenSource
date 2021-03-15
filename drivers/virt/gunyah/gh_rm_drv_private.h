@@ -70,6 +70,7 @@ struct gh_vm_property {
 
 /* Message IDs: VM Management */
 #define GH_RM_RPC_MSG_ID_CALL_VM_ALLOCATE		0x56000001
+#define GH_RM_RPC_MSG_ID_CALL_VM_DEALLOCATE		0x56000002
 #define GH_RM_RPC_MSG_ID_CALL_VM_START			0x56000004
 
 /* Message IDs: VM Query */
@@ -108,6 +109,12 @@ struct gh_vm_allocate_req_payload {
 
 struct gh_vm_allocate_resp_payload {
 	u32 vmid;
+} __packed;
+
+/* Call: VM_DEALLOCATE */
+struct gh_vm_deallocate_req_payload {
+	gh_vmid_t vmid;
+	u16 reserved;
 } __packed;
 
 /* Call: VM_START */

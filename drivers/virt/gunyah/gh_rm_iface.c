@@ -71,6 +71,22 @@ int gh_update_vm_prop_table(enum gh_vm_names vm_name,
 	return 0;
 }
 
+void gh_reset_vm_prop_table_entry(gh_vmid_t vmid)
+{
+	size_t vm_name;
+
+	spin_lock(&gh_vm_table_lock);
+
+	for (vm_name = GH_SELF_VM + 1; vm_name < GH_VM_MAX; vm_name++) {
+		if (vmid == gh_vm_table[vm_name].vmid) {
+			gh_vm_table[vm_name].vmid = GH_VMID_INVAL;
+			break;
+		}
+	}
+
+	spin_unlock(&gh_vm_table_lock);
+}
+
 /**
  * gh_rm_get_vmid: Translate VM name to vmid
  * @vm_name: VM name to lookup
@@ -795,6 +811,45 @@ int gh_rm_vm_alloc_vmid(enum gh_vm_names vm_name, int *vmid)
 	return 0;
 }
 EXPORT_SYMBOL(gh_rm_vm_alloc_vmid);
+
+/**
+ * gh_rm_vm_dealloc_vmid: Deallocate an already allocated vmid
+ * @vmid: The vmid to deallocate.
+ *
+ * The function returns 0 on success and a negative error code
+ * upon failure.
+ */
+int gh_rm_vm_dealloc_vmid(gh_vmid_t vmid)
+{
+	struct gh_vm_deallocate_req_payload req_payload = {
+		.vmid = vmid,
+	};
+	size_t resp_payload_size;
+	int err, reply_err_code;
+	void *resp;
+
+	resp = gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_DEALLOCATE,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (reply_err_code || IS_ERR(resp)) {
+		err = reply_err_code;
+		pr_err("%s: VM_DEALLOCATE failed with err: %d\n",
+			__func__, err);
+		return err;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for VM_DEALLOCATE: %u\n",
+			__func__, resp_payload_size);
+		kfree(resp);
+		return -EINVAL;
+	}
+
+	gh_reset_vm_prop_table_entry(vmid);
+
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_vm_dealloc_vmid);
 
 /**
  * gh_rm_vm_start: Send a request to Resource Manager VM to start a VM.

@@ -226,6 +226,7 @@ int gh_rm_set_vcpu_affinity_cb(gh_vcpu_affinity_cb_t fnptr);
 
 /* Client APIs for VM management */
 int gh_rm_vm_alloc_vmid(enum gh_vm_names vm_name, int *vmid);
+int gh_rm_vm_dealloc_vmid(gh_vmid_t vmid);
 int gh_rm_get_vmid(enum gh_vm_names vm_name, gh_vmid_t *vmid);
 int gh_rm_get_vm_name(gh_vmid_t vmid, enum gh_vm_names *vm_name);
 int gh_rm_get_vminfo(enum gh_vm_names vm_name, struct gh_vminfo *vminfo);
@@ -343,6 +344,11 @@ static inline int gh_rm_vm_irq_reclaim(gh_virq_handle_t virq_handle)
 
 /* Client APIs for VM management */
 static inline int gh_rm_vm_alloc_vmid(enum gh_vm_names vm_name, int *vmid)
+{
+	return -EINVAL;
+}
+
+static inline int gh_rm_vm_dealloc_vmid(gh_vmid_t vmid)
 {
 	return -EINVAL;
 }
