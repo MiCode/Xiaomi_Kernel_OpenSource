@@ -97,7 +97,7 @@ static bool _genc_do_crashdump(struct kgsl_device *device)
 	 */
 	rmb();
 
-	kgsl_regwrite(device, GENC_CP_CRASH_DUMP_CNTL, 1);
+	kgsl_regwrite(device, GENC_CP_CRASH_DUMP_CNTL, 0);
 
 	if (WARN(!(reg & 0x2), "Crashdumper timed out\n"))
 		return false;
@@ -985,16 +985,33 @@ void genc_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	unsigned int i;
-	u32 hi, lo, val, cgc;
+	u32 hi, lo, val, cgc, cgc1, cgc2;
 
 	/*
 	 * Dump debugbus data here to capture it for both
 	 * GMU and GPU snapshot. Debugbus data can be accessed
 	 * even if the gx headswitch is off. If gx
 	 * headswitch is off, data for gx blocks will show as
-	 * 0x5c00bd00.
+	 * 0x5c00bd00. Disable clock gating for SP and TP to capture
+	 * debugbus data.
 	 */
+	if (device->ftbl->is_hwcg_on(device)) {
+		kgsl_regread(device, GENC_RBBM_CLOCK_CNTL2_SP0, &cgc);
+		kgsl_regread(device, GENC_RBBM_CLOCK_CNTL_TP0, &cgc1);
+		kgsl_regread(device, GENC_RBBM_CLOCK_CNTL3_TP0, &cgc2);
+		kgsl_regrmw(device, GENC_RBBM_CLOCK_CNTL2_SP0, GENMASK(22, 20), 0);
+		kgsl_regrmw(device, GENC_RBBM_CLOCK_CNTL_TP0, GENMASK(2, 0), 0);
+		kgsl_regrmw(device, GENC_RBBM_CLOCK_CNTL3_TP0, GENMASK(14, 12), 0);
+	}
+
 	genc_snapshot_debugbus(adreno_dev, snapshot);
+
+	/* Restore the value of the clockgating registers */
+	if (device->ftbl->is_hwcg_on(device)) {
+		kgsl_regwrite(device, GENC_RBBM_CLOCK_CNTL2_SP0, cgc);
+		kgsl_regwrite(device, GENC_RBBM_CLOCK_CNTL_TP0, cgc1);
+		kgsl_regwrite(device, GENC_RBBM_CLOCK_CNTL3_TP0, cgc2);
+	}
 
 	if (!gmu_core_dev_gx_is_on(device))
 		return;
@@ -1034,14 +1051,17 @@ void genc_snapshot(struct adreno_device *adreno_dev,
 	 * Need to program and save this register before capturing resource table
 	 * to workaround a CGC issue
 	 */
-	kgsl_regread(device, GENC_RBBM_CLOCK_MODE_CP, &cgc);
-	kgsl_regrmw(device, GENC_RBBM_CLOCK_MODE_CP, 0x7, 0);
+	if (device->ftbl->is_hwcg_on(device)) {
+		kgsl_regread(device, GENC_RBBM_CLOCK_MODE_CP, &cgc);
+		kgsl_regrmw(device, GENC_RBBM_CLOCK_MODE_CP, 0x7, 0);
+	}
 	kgsl_snapshot_indexed_registers(device, snapshot,
 		GENC_CP_RESOURCE_TBL_DBG_ADDR, GENC_CP_RESOURCE_TBL_DBG_DATA,
 		0, 0x4100);
 
 	/* Reprogram the register back to the original stored value */
-	kgsl_regwrite(device, GENC_RBBM_CLOCK_MODE_CP, cgc);
+	if (device->ftbl->is_hwcg_on(device))
+		kgsl_regwrite(device, GENC_RBBM_CLOCK_MODE_CP, cgc);
 
 	for (i = 0; i < ARRAY_SIZE(genc_cp_indexed_reg_list); i++)
 		kgsl_snapshot_indexed_registers(device, snapshot,
