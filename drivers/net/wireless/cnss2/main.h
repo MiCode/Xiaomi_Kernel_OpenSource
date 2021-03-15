@@ -565,4 +565,6 @@ int cnss_dev_specific_power_on(struct cnss_plat_data *plat_priv);
 int cnss_request_firmware_direct(struct cnss_plat_data *plat_priv,
 				 const struct firmware **fw_entry,
 				 const char *filename);
+void cnss_disable_redundant_vreg(struct cnss_plat_data *plat_priv);
+
 #endif /* _CNSS_MAIN_H */

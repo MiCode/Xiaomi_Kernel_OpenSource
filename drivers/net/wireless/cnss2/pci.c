@@ -5729,6 +5729,10 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	ret = cnss_suspend_pci_link(pci_priv);
 	if (ret)
 		cnss_pr_err("Failed to suspend PCI link, err = %d\n", ret);
+
+	if (pci_dev->device == QCA6390_DEVICE_ID)
+		cnss_disable_redundant_vreg(plat_priv);
+
 	cnss_power_off_device(plat_priv);
 
 	return 0;
