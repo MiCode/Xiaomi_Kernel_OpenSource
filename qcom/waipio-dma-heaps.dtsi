@@ -34,7 +34,7 @@
 			qcom,dma-heap-name = "qcom,secure-sp-tz";
 			qcom,dma-heap-type = <HEAP_TYPE_SECURE_CARVEOUT>;
 			memory-region = <&spu_tz_shared_mem>;
-			qcom,token = <0x00810000>;
+			qcom,token = <0x01000000>;
 		};
 
 		qcom,user_contig {
