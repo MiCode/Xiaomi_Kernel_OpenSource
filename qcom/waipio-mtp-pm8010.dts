@@ -2,9 +2,10 @@
 
 #include "waipio.dtsi"
 #include "waipio-mtp.dtsi"
+#include "waipio-pm8010-spmi.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. Waipio MTP";
+	model = "Qualcomm Technologies, Inc. Waipio MTP with PM8010";
 	compatible = "qcom,waipio-mtp", "qcom,waipio", "qcom,mtp";
-	qcom,board-id = <8 0>;
+	qcom,board-id = <0x10008 0>;
 };

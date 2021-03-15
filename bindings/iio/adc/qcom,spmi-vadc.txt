@@ -15,7 +15,7 @@ VADC node:
                 Should contain "qcom,spmi-adc5" for PMIC5 ADC driver.
                 Should contain "qcom,spmi-adc-rev2" for PMIC rev2 ADC driver.
                 Should contain "qcom,pms405-adc" for PMS405 PMIC
-
+		Should contain "qcom,spmi-adc5-lite" for PMIC5 ADC-lite driver.
 - reg:
     Usage: required
     Value type: <prop-encoded-array>

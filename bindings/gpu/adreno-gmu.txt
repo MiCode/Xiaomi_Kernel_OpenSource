@@ -3,7 +3,10 @@ Qualcomm Technologies, Inc. GPU Graphics Management Unit (GMU)
 Required properties:
 - compatible :
 	- "qcom,gpu-gmu"
+	- "qcom,gpu-gmu-hwsched"
 	- "qcom,gpu-rgmu"
+	- "qcom,genc-gmu"
+	- "qcom,genc-gmu-hwsched"
 - reg:		Specifies the GMU register base address and size.
 - reg-names:		Resource names used for the physical address
 		and length of GMU registers.

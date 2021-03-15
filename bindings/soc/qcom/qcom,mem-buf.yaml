@@ -43,3 +43,14 @@ examples:
         compatible = "qcom,mem-buf";
         qcom,mem-buf-capabilities = "supplier";
     };
+
+description: |
+  Provides inter-VM message transfer services to the qcom,mem-buf driver
+
+properties:
+  compatible:
+    items:
+      - const: qcom,mem-buf-msgq
+
+required:
+  - compatible

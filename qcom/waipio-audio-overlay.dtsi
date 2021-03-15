@@ -47,9 +47,9 @@
 			qcom,swr_master_id = <3>;
 			qcom,mipi-sdw-block-packing-mode = <1>;
 			swrm-io-base = <0x33b0000 0x0>;
-			interrupts-extended =
-				<&intc GIC_SPI 496 IRQ_TYPE_LEVEL_HIGH>,
-				<&pdc 111 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts =
+				<GIC_SPI 496 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 520 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "swr_master_irq", "swr_wake_irq";
 			qcom,swr-wakeup-required = <1>;
 			qcom,swr-num-ports = <3>;
@@ -63,6 +63,7 @@
 			qcom,swr-num-dev = <5>;
 			qcom,swr-clock-stop-mode0 = <1>;
 			qcom,swr-mstr-irq-wakeup-capable = <1>;
+			qcom,is-always-on = <1>;
 			wcd938x_tx_slave: wcd938x-tx-slave {
 				compatible = "qcom,wcd938x-slave";
 				reg = <0x0D 0x01170223>;
@@ -248,7 +249,7 @@
 			qcom,swr-num-dev = <2>;
 			qcom,dynamic-port-map-supported = <0>;
 			wsa883x_2_0221: wsa883x@02170221 {
-				compatible = "qcom,wsa883x";
+				compatible = "qcom,wsa883x_2";
 				reg = <0x2 0x2170221>;
 				qcom,spkr-sd-n-node = <&wsa2_spkr_en1>;
 				qcom,lpass-cdc-handle = <&lpass_cdc>;
@@ -261,7 +262,7 @@
 			};
 
 			wsa883x_2_0222: wsa883x@02170222 {
-				compatible = "qcom,wsa883x";
+				compatible = "qcom,wsa883x_2";
 				reg = <0x2 0x2170222>;
 				qcom,spkr-sd-n-node = <&wsa2_spkr_en2>;
 				qcom,lpass-cdc-handle = <&lpass_cdc>;
@@ -299,8 +300,8 @@
 			<3 DMIC7 0x8 0 SWRM_TX3_CH4>;
 
 		qcom,swr-tx-port-params =
-			<OFFSET1_VAL0 LANE1>, <OFFSET1_VAL5 LANE0>, <OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>,
-			<OFFSET1_VAL0 LANE1>, <OFFSET1_VAL2 LANE0>, <OFFSET1_VAL1 LANE0>, <OFFSET1_VAL2 LANE0>,
+			<OFFSET1_VAL0 LANE1>, <OFFSET1_VAL2 LANE0>, <OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>,
+			<OFFSET1_VAL0 LANE1>, <OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>,
 			<OFFSET1_VAL0 LANE1>, <OFFSET1_VAL2 LANE0>, <OFFSET1_VAL1 LANE0>, <OFFSET1_VAL2 LANE0>,
 			<OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>;
 
@@ -366,11 +367,11 @@
 		"TX DMIC0", "Digital Mic0",
 		"Digital Mic0", "MIC BIAS3",
 		"TX DMIC1", "Digital Mic1",
-		"Digital Mic1", "MIC BIAS1",
+		"Digital Mic1", "MIC BIAS3",
 		"TX DMIC2", "Digital Mic2",
 		"Digital Mic2", "MIC BIAS1",
 		"TX DMIC3", "Digital Mic3",
-		"Digital Mic3", "MIC BIAS3",
+		"Digital Mic3", "MIC BIAS1",
 		"IN1_HPHL", "HPHL_OUT",
 		"IN2_HPHR", "HPHR_OUT",
 		"IN3_AUX", "AUX_OUT",
@@ -395,12 +396,15 @@
 		"VA DMIC2", "Digital Mic2",
 		"VA DMIC3", "Digital Mic3",
 		"Digital Mic0", "VA MIC BIAS3",
-		"Digital Mic1", "VA MIC BIAS1",
+		"Digital Mic1", "VA MIC BIAS3",
 		"Digital Mic2", "VA MIC BIAS1",
-		"Digital Mic3", "VA MIC BIAS3";
+		"Digital Mic3", "VA MIC BIAS1";
 	qcom,msm-mbhc-usbc-audio-supported = <0>;
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <1>;
+	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
+	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
+	qcom,cdc-dmic45-gpios = <&cdc_dmic45_gpios>;
 	asoc-codec  = <&stub_codec>, <&lpass_cdc>,
 		      <&wcd938x_codec>, <&swr_haptics>,
 		      <&wsa883x_0221>, <&wsa883x_0222>;
@@ -419,6 +423,17 @@
 };
 
 &spf_core_platform {
+	cdc_tert_mi2s_gpios: tert_mi2s_pinctrl {
+		status= "disabled";
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&tert_mi2s_sck_active &tert_mi2s_ws_active
+				&tert_mi2s_sd0_active>;
+		pinctrl-1 = <&tert_mi2s_sck_sleep &tert_mi2s_ws_sleep
+				&tert_mi2s_sd0_sleep>;
+		#gpio-cells = <0>;
+	};
+
 	wsa_swr_gpios: wsa_swr_clk_data_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";

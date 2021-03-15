@@ -1,0 +1,57 @@
+QTI CPU pause cooling devices.
+
+The CPU pause cooling device will be used for isolating a CPU on a thermal
+condition. This cooling device driver can register one cooling device per
+signle or multiple CPUs, which can be used by thermal zone to mitigate.
+
+Each child node will represent a cooling device and the child node should
+point to the CPU mask, which will be mitigated by that cooling device instance.
+
+Properties:
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: should be "qcom,thermal-pause"
+
+Cooling device node:
+- qcom,cpus:
+	Usage: required
+	Value type: <list of CPU Phandles>
+	Definition: List of Phandles to the CPUs that should be mitigated as
+			a part of this cooling device.
+
+-#cooling-cells:
+	Usage: required
+	Value type: <integer>
+	Definition: Must be 2. Needed for of_thermal as cooling device
+			identifier. Please refer to
+			<devicetree/bindings/thermal/thermal.txt> for more
+			details.
+Example:
+	qcom,thermal-pause {
+		compatible = "qcom,thermal-pause";
+
+		/* pause a single cpu, cpu 0 */
+		thermal_pause-01: thermal-pause-01 {
+			qcom,cpus = <&CPU0>;
+			#cooling-cells = <2>;
+		};
+
+		/* pause a group of cpus, cpus 0-3 */
+		thermal_pause-0F: thermal-pause-0F {
+			qcom,cpus = <&CPU0 &CPU1 &CPU2 &CPU3>;
+			#cooling-cells = <2>;
+		};
+
+		/* pause a group of cpus, cpus 6-7 */
+		thermal_pause-C0: thermal-pause-C0 {
+			qcom,cpus = <&CPU4 &CPU5 &CPU6 &CPU7>;
+			#cooling-cells = <2>;
+		};
+
+		/* pause a single cpu, cpu 7 */
+		thermal_pause-80:  thermal-pause-80 {
+			qcom,cpus = <&CPU7>;
+			#cooling-cells = <2>;
+		};
+        };

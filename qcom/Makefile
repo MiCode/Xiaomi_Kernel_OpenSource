@@ -77,19 +77,28 @@ endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 dtbo-$(CONFIG_ARCH_WAIPIO) += waipio-rumi-overlay.dtbo \
-	waipio-mtp-overlay.dtbo \
-	waipio-cdp-overlay.dtbo \
-	waipio-qrd-overlay.dtbo
+	waipio-mtp-pm8008-overlay.dtbo \
+	waipio-cdp-pm8008-overlay.dtbo \
+	waipio-qrd-pm8008-overlay.dtbo \
+	waipio-mtp-pm8010-overlay.dtbo \
+	waipio-cdp-pm8010-overlay.dtbo \
+	waipio-qrd-pm8010-overlay.dtbo
 
 waipio-rumi-overlay.dtbo-base := waipio.dtb
-waipio-mtp-overlay.dtbo-base := waipio.dtb
-waipio-cdp-overlay.dtbo-base := waipio.dtb
-waipio-qrd-overlay.dtbo-base := waipio.dtb
+waipio-mtp-pm8008-overlay.dtbo-base := waipio.dtb
+waipio-cdp-pm8008-overlay.dtbo-base := waipio.dtb
+waipio-qrd-pm8008-overlay.dtbo-base := waipio.dtb
+waipio-mtp-pm8010-overlay.dtbo-base := waipio.dtb
+waipio-cdp-pm8010-overlay.dtbo-base := waipio.dtb
+waipio-qrd-pm8010-overlay.dtbo-base := waipio.dtb
 else
 dtb-$(CONFIG_ARCH_WAIPIO) += waipio-rumi.dtb \
-	waipio-mtp.dtb \
-	waipio-cdp.dtb \
-	waipio-qrd.dtb
+	waipio-mtp-pm8008.dtb \
+	waipio-cdp-pm8008.dtb \
+	waipio-qrd-pm8008.dtb \
+	waipio-mtp-pm8010.dtb \
+	waipio-cdp-pm8010.dtb \
+	waipio-qrd-pm8010.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
@@ -189,7 +198,8 @@ ifeq ($(CONFIG_ARCH_WAIPIO), y)
 ifeq ($(CONFIG_ARCH_QTI_VM), y)
 dtb-$(CONFIG_ARCH_QTI_VM) += waipio-vm-mtp.dtb \
 	waipio-vm-cdp.dtb \
-	waipio-vm-qrd.dtb
+	waipio-vm-qrd.dtb \
+        waipio-vm-rumi.dtb
 endif
 endif
 

@@ -60,8 +60,9 @@
 			snps,dis_u2_susphy_quirk;
 			snps,ssp-u3-u0-quirk;
 			tx-fifo-resize;
-			dr_mode = "peripheral";
+			dr_mode = "otg";
 			maximum-speed = "super-speed-plus";
+			usb-role-switch;
 		};
 
 		qcom,usbbam@a704000 {

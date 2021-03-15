@@ -2,6 +2,7 @@
 #include <dt-bindings/input/input.h>
 
 #include "waipio-pmic-overlay.dtsi"
+#include "waipio-thermal-overlay.dtsi"
 #include "waipio-audio-overlay.dtsi"
 
 &ufsphy_mem {
@@ -94,11 +95,11 @@
 };
 
 &lpass_cdc {
-	qcom,num-macros = <5>;
+	qcom,num-macros = <4>;
 };
 
 &wsa2_macro {
-	status = "ok";
+	status = "disabled";
 };
 
 &swr_dmic_01 {
@@ -114,6 +115,10 @@
 };
 
 &swr_dmic_04 {
+	status = "ok";
+};
+
+&cdc_tert_mi2s_gpios {
 	status = "ok";
 };
 
@@ -142,29 +147,32 @@
 		"TX DMIC0", "Digital Mic0",
 		"Digital Mic0", "MIC BIAS3",
 		"TX DMIC1", "Digital Mic1",
-		"Digital Mic1", "MIC BIAS1",
+		"Digital Mic1", "MIC BIAS3",
 		"TX DMIC2", "Digital Mic2",
 		"Digital Mic2", "MIC BIAS1",
 		"TX DMIC3", "Digital Mic3",
-		"Digital Mic3", "MIC BIAS3",
+		"Digital Mic3", "MIC BIAS1",
+		"TX DMIC4", "Digital Mic4",
+		"Digital Mic4", "MIC BIAS4",
+		"TX DMIC5", "Digital Mic5",
+		"Digital Mic5", "MIC BIAS4",
+		"TX DMIC6", "Digital Mic6",
+		"Digital Mic6", "MIC BIAS3",
+		"TX DMIC7", "Digital Mic7",
+		"Digital Mic7", "MIC BIAS3",
 		"IN1_HPHL", "HPHL_OUT",
 		"IN2_HPHR", "HPHR_OUT",
 		"IN3_AUX", "AUX_OUT",
 		"HAP_IN", "PCM_OUT",
 		"WSA SRC0_INP", "SRC0",
-		"WSA2 SRC0_INP", "SRC0",
 		"WSA_TX DEC0_INP", "TX DEC0 MUX",
 		"WSA_TX DEC1_INP", "TX DEC1 MUX",
-		"WSA2_TX DEC0_INP", "TX DEC0 MUX",
-		"WSA2_TX DEC1_INP", "TX DEC1 MUX",
 		"RX_TX DEC0_INP", "TX DEC0 MUX",
 		"RX_TX DEC1_INP", "TX DEC1 MUX",
 		"RX_TX DEC2_INP", "TX DEC2 MUX",
 		"RX_TX DEC3_INP", "TX DEC3 MUX",
 		"SpkrLeft IN", "WSA_SPK1 OUT",
 		"SpkrRight IN", "WSA_SPK2 OUT",
-		"Spkr2Left IN", "WSA2_SPK1 OUT",
-		"Spkr2Right IN", "WSA2_SPK2 OUT",
 		"TX SWR_INPUT", "WCD_TX_OUTPUT",
 		"VA SWR_INPUT", "VA_SWR_CLK",
 		"VA SWR_INPUT", "WCD_TX_OUTPUT",
@@ -176,18 +184,25 @@
 		"VA DMIC2", "Digital Mic2",
 		"VA DMIC3", "Digital Mic3",
 		"Digital Mic0", "VA MIC BIAS3",
-		"Digital Mic1", "VA MIC BIAS1",
+		"Digital Mic1", "VA MIC BIAS3",
 		"Digital Mic2", "VA MIC BIAS1",
-		"Digital Mic3", "VA MIC BIAS3";
+		"Digital Mic3", "VA MIC BIAS1",
+		"Digital Mic4", "VA MIC BIAS4",
+		"Digital Mic5", "VA MIC BIAS4",
+		"Digital Mic6", "VA MIC BIAS3",
+		"Digital Mic7", "VA MIC BIAS3";
+	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
+	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
+	qcom,cdc-dmic45-gpios = <&cdc_dmic45_gpios>;
+	qcom,cdc-dmic67-gpios = <&cdc_dmic67_gpios>;
 	asoc-codec  = <&stub_codec>, <&lpass_cdc>,
 		      <&wcd938x_codec>, <&swr_haptics>,
-		      <&wsa883x_0221>, <&wsa883x_0222>,
-		      <&wsa883x_2_0221>, <&wsa883x_2_0222>;
+		      <&wsa883x_0221>, <&wsa883x_0222>;
 	asoc-codec-names = "msm-stub-codec.1", "lpass-cdc",
 			   "wcd938x_codec", "swr-haptics",
-			   "wsa-codec1", "wsa-codec2",
-			   "wsa-codec3", "wsa-codec4";
-	qcom,wsa-max-devs = <4>;
+			   "wsa-codec1", "wsa-codec2";
+	qcom,wsa-max-devs = <2>;
+	qcom,tert-mi2s-gpios = <&cdc_tert_mi2s_gpios>;
 };
 
 &qupv3_se9_i2c {
@@ -211,5 +226,32 @@
 		pinctrl-names = "nfc_active", "nfc_suspend";
 		pinctrl-0 = <&nfc_int_active &nfc_enable_active>;
 		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
+	};
+};
+
+&qupv3_se4_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "ok";
+	qcom,i2c-touch-active = "focaltech,fts_ts";
+
+	focaltech@38 {
+		compatible = "focaltech,fts_ts";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <21 0x2008>;
+		focaltech,reset-gpio = <&tlmm 20 0x00>;
+		focaltech,irq-gpio = <&tlmm 21 0x2008>;
+		focaltech,max-touch-number = <5>;
+		focaltech,display-coords = <0 0 1080 2340>;
+
+		vdd-supply = <&L3C>;
+		vcc_i2c-supply = <&L8C>;
+
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend","pmx_ts_release";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
 	};
 };

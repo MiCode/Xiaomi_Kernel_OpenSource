@@ -1,0 +1,226 @@
+/* Waipio configurations for PM8010I and PM8010J connected via SPMI */
+
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+
+/ {
+	qcom,pmic-id = <0x2f 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x41 0x41>;
+	qcom,pmic-id-size = <10>;
+};
+
+&apps_rsc {
+	rpmh-regulator-ldoi2 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoi2";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
+		L2I: pm8010i_l2: regulator-pm8010i-l2 {
+			regulator-name = "pm8010i_l2";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1056000>;
+			regulator-max-microvolt = <1056000>;
+			qcom,init-voltage = <1056000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldoi3 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoi3";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L3I: pm8010i_l3: regulator-pm8010i-l3 {
+			regulator-name = "pm8010i_l3";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <2904000>;
+			regulator-max-microvolt = <2904000>;
+			qcom,init-voltage = <2904000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldoi4 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoi4";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L4I: pm8010i_l4: regulator-pm8010i-l4 {
+			regulator-name = "pm8010i_l4";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			qcom,init-voltage = <2800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldoi6 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoi6";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L6I: pm8010i_l6: regulator-pm8010i-l6 {
+			regulator-name = "pm8010i_l6";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			qcom,init-voltage = <2800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldoi7 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoi7";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L7I: pm8010i_l7: regulator-pm8010i-l7 {
+			regulator-name = "pm8010i_l7";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <2960000>;
+			regulator-max-microvolt = <2960000>;
+			qcom,init-voltage = <2960000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldoj1 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoj1";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
+		L1J: pm8010j_l1: regulator-pm8010j-l1 {
+			regulator-name = "pm8010j_l1";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1104000>;
+			regulator-max-microvolt = <1104000>;
+			qcom,init-voltage = <1104000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldoj2 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoj2";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
+		L2J: pm8010j_l2: regulator-pm8010j-l2 {
+			regulator-name = "pm8010j_l2";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1056000>;
+			regulator-max-microvolt = <1056000>;
+			qcom,init-voltage = <1056000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldoj3 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoj3";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L3J: pm8010j_l3: regulator-pm8010j-l3 {
+			regulator-name = "pm8010j_l3";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldoj4 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoj4";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L4J: pm8010j_l4: regulator-pm8010j-l4 {
+			regulator-name = "pm8010j_l4";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldoj5 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoj5";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L5J: pm8010j_l5: regulator-pm8010j-l5 {
+			regulator-name = "pm8010j_l5";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			qcom,init-voltage = <2800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldoj6 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoj6";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L6J: pm8010j_l6: regulator-pm8010j-l6 {
+			regulator-name = "pm8010j_l6";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			qcom,init-voltage = <2800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	rpmh-regulator-ldoj7 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoj7";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L7J: pm8010j_l7: regulator-pm8010j-l7 {
+			regulator-name = "pm8010j_l7";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <3304000>;
+			regulator-max-microvolt = <3304000>;
+			qcom,init-voltage = <3304000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+};

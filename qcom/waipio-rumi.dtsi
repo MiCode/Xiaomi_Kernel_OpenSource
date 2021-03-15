@@ -132,3 +132,10 @@
 		asoc-codec-names = "msm-stub-codec.1";
 };
 
+&tsens0 {
+	status = "disabled";
+};
+
+&tsens1 {
+	status = "disabled";
+};

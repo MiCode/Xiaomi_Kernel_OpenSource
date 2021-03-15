@@ -2,9 +2,10 @@
 /plugin/;
 
 #include "waipio-mtp.dtsi"
+#include "waipio-pm8008.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. Waipio MTP";
+	model = "Qualcomm Technologies, Inc. Waipio MTP with PM8008";
 	compatible = "qcom,waipio-mtp", "qcom,waipio", "qcom,mtp";
 	qcom,msm-id = <457 0x10000>;
 	qcom,board-id = <0x10008 0>;

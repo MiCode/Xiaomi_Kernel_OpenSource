@@ -49,6 +49,13 @@ Please refer to slimbus/bus.txt for details of the common SLIMBus bindings.
 Each subnode represents an instance of NGD, must contain the following
 properties:
 
+- compatible:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "slim<MANUFATURE_ID>,<PRODUCT_ID>"
+	must be one of the following.
+	"slim217,221" for SM8450
+
 - reg:
 	Usage: required
 	Value type: <u32>
