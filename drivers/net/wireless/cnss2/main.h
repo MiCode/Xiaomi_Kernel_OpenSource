@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #ifndef _CNSS_MAIN_H
 #define _CNSS_MAIN_H
@@ -364,6 +364,7 @@ struct cnss_plat_data {
 	struct wlfw_rf_board_info board_info;
 	struct wlfw_soc_info soc_info;
 	struct wlfw_fw_version_info fw_version_info;
+	struct cnss_dev_mem_info dev_mem_info[CNSS_MAX_DEV_MEM_NUM];
 	char fw_build_id[QMI_WLFW_MAX_BUILD_ID_LEN + 1];
 	u32 otp_version;
 	u32 fw_mem_seg_len;
