@@ -491,6 +491,10 @@
 			reg = <0xc8 0xc8>;
 		};
 	};
+
+	dload_mode {
+		compatible = "qcom,dload-mode";
+	};
 };
 
 #include "diwali-pinctrl.dtsi"
