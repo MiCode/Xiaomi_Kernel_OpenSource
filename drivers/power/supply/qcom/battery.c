@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "QCOM-BATT: %s: " fmt, __func__
@@ -923,6 +924,17 @@ static bool is_main_available(struct pl_data *chip)
 	return !!chip->main_psy;
 }
 
+static bool is_batt_available(struct pl_data *chip)
+{
+	if (!chip->batt_psy)
+		chip->batt_psy = power_supply_get_by_name("battery");
+
+	if (!chip->batt_psy)
+		return false;
+
+	return true;
+}
+
 static int pl_fcc_main_vote_callback(struct votable *votable, void *data,
 			int fcc_main_ua, const char *client)
 {
@@ -1028,7 +1040,7 @@ static void fcc_stepper_work(struct work_struct *work)
 	struct pl_data *chip = container_of(work, struct pl_data,
 			fcc_stepper_work.work);
 	union power_supply_propval pval = {0, };
-	int reschedule_ms = 0, rc = 0, charger_present = 0;
+	int reschedule_ms = 0, rc = 0, charger_present = 0, batt_temp = 0;
 	int main_fcc = chip->main_fcc_ua;
 	int parallel_fcc = chip->slave_fcc_ua;
 
@@ -1052,6 +1064,12 @@ static void fcc_stepper_work(struct work_struct *work)
 		charger_present |= pval.intval;
 	}
 
+	if (is_batt_available(chip)) {
+		rc = power_supply_get_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_TEMP, &pval);
+		batt_temp = pval.intval;
+		pr_info("get batt temp=%d\n", batt_temp);
+	}
 	/*
 	 * If USB is not present, then set parallel FCC to min value and
 	 * main FCC to the effective value of FCC votable and exit.
@@ -1088,6 +1106,9 @@ static void fcc_stepper_work(struct work_struct *work)
 		main_fcc += chip->main_step_fcc_residual;
 		chip->main_step_fcc_residual = 0;
 	}
+
+	if (batt_temp < 0)
+		main_fcc = get_effective_result_locked(chip->fcc_votable);
 
 	if (chip->parallel_step_fcc_count) {
 		parallel_fcc += (chip->chg_param->fcc_step_size_ua
@@ -1193,17 +1214,6 @@ stepper_exit:
 out:
 	chip->step_fcc = 0;
 	vote(chip->pl_awake_votable, FCC_STEPPER_VOTER, false, 0);
-}
-
-static bool is_batt_available(struct pl_data *chip)
-{
-	if (!chip->batt_psy)
-		chip->batt_psy = power_supply_get_by_name("battery");
-
-	if (!chip->batt_psy)
-		return false;
-
-	return true;
 }
 
 #define PARALLEL_FLOAT_VOLTAGE_DELTA_UV 50000

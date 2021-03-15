@@ -12,6 +12,7 @@
 #include <linux/device.h>
 #include <linux/thermal.h>
 
+
 /* Initial state of a cooling device during binding */
 #define THERMAL_NO_TARGET -1UL
 
@@ -42,6 +43,8 @@ struct thermal_instance {
 	struct list_head cdev_node; /* node in cdev->thermal_instances */
 	unsigned int weight; /* The weight of the cooling device */
 };
+
+
 
 #define to_thermal_zone(_dev) \
 	container_of(_dev, struct thermal_zone_device, device)

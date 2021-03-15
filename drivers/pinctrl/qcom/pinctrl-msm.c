@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013, Sony Mobile Communications AB.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -778,33 +779,6 @@ static void msm_gpio_irq_unmask(struct irq_data *d)
 	_msm_gpio_irq_unmask(d, false);
 }
 
-static void msm_gpio_irq_disable(struct irq_data *d)
-{
-	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
-	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
-	struct irq_data *dir_conn_data;
-	irq_hw_number_t dir_conn_irq = 0;
-
-	if (d->parent_data) {
-		if (is_gpio_dual_edge(d, &dir_conn_irq)) {
-			dir_conn_data = irq_get_irq_data(dir_conn_irq);
-			if (!dir_conn_data)
-				return;
-
-			if (dir_conn_data->chip->irq_disable)
-				dir_conn_data->chip->irq_disable(dir_conn_data);
-			else
-				dir_conn_data->chip->irq_mask(dir_conn_data);
-		}
-		irq_chip_disable_parent(d);
-	}
-
-	if (test_bit(d->hwirq, pctrl->wakeup_masked_irqs))
-		return;
-
-	_msm_gpio_irq_mask(d);
-}
-
 static void msm_gpio_irq_enable(struct irq_data *d)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
@@ -1342,7 +1316,6 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 	pctrl->irq_chip.name = "msmgpio";
 	pctrl->irq_chip.irq_eoi	= irq_chip_eoi_parent;
 	pctrl->irq_chip.irq_enable = msm_gpio_irq_enable;
-	pctrl->irq_chip.irq_disable = msm_gpio_irq_disable;
 	pctrl->irq_chip.irq_mask = msm_gpio_irq_mask;
 	pctrl->irq_chip.irq_unmask = msm_gpio_irq_unmask;
 	pctrl->irq_chip.irq_ack = msm_gpio_irq_ack;

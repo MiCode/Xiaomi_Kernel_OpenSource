@@ -55,7 +55,6 @@ cpufreq_cooling_register(struct cpufreq_policy *policy);
 struct thermal_cooling_device *
 cpufreq_platform_cooling_register(struct cpufreq_policy *policy,
 					struct cpu_cooling_ops *ops);
-
 /**
  * cpufreq_cooling_unregister - function to remove cpufreq cooling device.
  * @cdev: thermal cooling device pointer.

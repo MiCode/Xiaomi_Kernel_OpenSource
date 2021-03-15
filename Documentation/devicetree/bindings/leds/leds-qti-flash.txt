@@ -1,0 +1,247 @@
+Qualcomm Technologies Inc. Flash LED bindings.
+
+Qualcomm Technologies, Inc. Flash LED supports camera flash with
+multiple LED channels (HW dependent) that can be used for multiplh
+camera devices which can be configured for pre-flash(torch) and
+flash modes.
+
+Flash LED device has two level of nodes. The main node represents
+flash LED peripheral and sub node represents the type of device
+that uses flash LED channel. It can be a torch, flash or switch.
+
+Main node:
+
+Required properties:
+- compatible : Should be one of "qcom,pm8350c-flash-led"
+                                "qcom,pm2250-flash-led"
+
+- reg : Base address of flash LED modules
+
+Optional properties:
+- interrupts : Specifies the interrupts associated with flash-led.
+
+- interrupt-names : Specify the interrupt names associated with interrupts.
+
+- qcom,thermal-derate-current : Array of currrent limits for thermal mitigation.
+                                Unit is mA. Format is
+                                qcom,thermal-derate-current =
+                                                     <OTST1_LIMIT, OTST2_LIMIT>.
+
+- qcom,hw-strobe-gpios : Array of one or more phandles to specify GPIOs to use
+                         for strobing flash/torch devices with HW strobe option.
+                         qcom,strobe-sel for flash/torch should be 1 if phandle
+                         is specified.
+
+Child node: Contains settings for each individual LED. Each LED channel needs a
+            flash node and torch node for itself, and an individual switch node
+            to serve as an overall switch.
+
+Required Properties:
+- label : Type of led that will be used, either "flash", "torch", or "switch.
+
+- qcom,led-name : Name of the LED.
+
+- qcom,id : ID for each LED channel. In order to handle situation when only
+            1 or 2  LEDs are installed, flash and torch nodes on LED channel
+            0 should be specified with ID 0; nodes on channel 1 be ID 1, etc.
+            This is not required for switch node.
+
+- qcom,default-led-trigger : Trigger for the camera flash and torch. Accepted
+                             values are "flash0_trigger", "flash1_trigger",
+                                        "flash2_trigger, "flash3_trigger,
+                                        "torch0_trigger", "torch1_trigger",
+                                        "torch2_trigger", "torch3_trigger",
+                                        and "switch_trigger".
+
+- qcom,led-mask : Required property for switch nodes. Bit mask to indicate which
+                 leds are controlled by this switch node. Accepted values are in
+                 the range 1 to 15, inclusive.
+                 Example: qcom,led-mask = <9>;
+		/* This switch node controls the flash0/torch0 and
+                   flash3/torch3 led. */
+
+Optional properties:
+- qcom,max-current-ma : Maximum current allowed on this LED.
+                        Valid values are:
+                        For PM8350C flash from 0 to 1500 inclusive. Unit is mA.
+                        For PM8350C torch, the maximum current is clamped to
+                        500 mA.
+                        For PM2250 flash from 0 to 1000 inclusive. Unit is mA.
+                        For PM2250 torch, the maximum current is clamped to
+                        200 mA.
+                        This is not required for the switch node.
+
+- qcom,duration-ms : Required property for flash nodes but not needed for torch
+                     or switch node. Integer type specifying flash duration.
+                     Values are from 10ms to 1280ms with 10ms resolution.
+
+- qcom,ires-ua : Integer type to specify current resolution. Accepted values
+                 should be 12500 and 5000. Unit is uA.
+
+- qcom,strobe-sel : Property to select strobe type. If not defined software
+                    strobe will be used. Allowed options are:
+                          0 - SW strobe
+                          1 - HW strobe
+
+- qcom,strobe-config: Strobe input selection for flash LED device. Each
+                      flash LED device has independently connected HW strobe
+                      inputs (GPIO1, GPIO2, GPIO3, GPIO4).
+                      PM8350C has 4 LED channles and PM2250 has one LED channel.
+                      This is applicable only when HW strobe is selected.
+
+- qcom,symmetry-en : Boolean property to specify if the flash LEDs under
+                     a switch node are controlled symmetrically. This needs to
+                     be specified if a group of flash LED channels are connected
+                     to a single LED.
+
+- qcom,ibatt-ocp-threshold-ua : Integer property for flash current predictive mitigation.
+				  Default value is 2500000 uA.
+
+Example:
+
+qcom,leds@ee00 {
+	compatible = "qcom,pm8350c-flash-led";
+	reg = <0xee00>;
+	interrupts = <0x2 0xee 0x0 IRQ_TYPE_EDGE_RISING>,
+		<0x2 0xee 0x3 IRQ_TYPE_EDGE_RISING>,
+		<0x2 0xee 0x4 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "led-fault-irq",
+				"all-ramp-down-done-irq",
+				"all-ramp-up-done-irq";
+	qcom,thermal-derate-current = <200 500>;
+	qcom,hw-strobe-gpios = <&pm8350c_gpios 1 0>;
+
+	pm8350c_flash0: qcom,flash_0 {
+		label = "flash";
+		qcom,led-name = "led:flash_0";
+		qcom,max-current-ma = <1500>;
+		qcom,default-led-trigger = "flash0_trigger";
+		qcom,id = <0>;
+		qcom,duration-ms = <1280>;
+		qcom,ires-ua = <12500>;
+		qcom,strobe-sel = <1>;
+		qcom,strobe-config = <0>;
+	};
+
+	pm8350c_flash1: qcom,flash_1 {
+		label = "flash";
+		qcom,led-name = "led:flash_1";
+		qcom,max-current-ma = <1500>;
+		qcom,default-led-trigger = "flash1_trigger";
+		qcom,id = <1>;
+		qcom,duration-ms = <1280>;
+		qcom,ires-ua = <12500>;
+	};
+
+	pm8350c_flash2: qcom,flash_2 {
+		label = "flash";
+		qcom,led-name = "led:flash_2";
+		qcom,max-current-ma = <1500>;
+		qcom,default-led-trigger = "flash2_trigger";
+		qcom,id = <2>;
+		qcom,duration-ms = <1280>;
+		qcom,ires-ua = <12500>;
+	};
+
+	pm8350c_flash3: qcom,flash_3 {
+		label = "flash";
+		qcom,led-name = "led:flash_3";
+		qcom,max-current-ma = <1500>;
+		qcom,default-led-trigger = "flash3_trigger";
+		qcom,id = <3>;
+		qcom,duration-ms = <1280>;
+		qcom,ires-ua = <12500>;
+	};
+
+	pm8350_torch0: qcom,torch_0 {
+		label = "torch";
+		qcom,led-name = "led:torch_0";
+		qcom,max-current-ma = <500>;
+		qcom,default-led-trigger = "torch0_trigger";
+		qcom,id = <0>;
+		qcom,ires-ua = <12500>;
+		qcom,strobe-sel = <1>;
+		qcom,strobe-config = <0>;
+	};
+
+	pm8350_torch1: qcom,torch_1 {
+		label = "torch";
+		qcom,led-name = "led:torch_1";
+		qcom,max-current-ma = <500>;
+		qcom,default-led-trigger = "torch1_trigger";
+		qcom,id = <1>;
+		qcom,ires-ua = <12500>;
+	};
+
+	pm8350_torch2: qcom,torch_2 {
+		label = "torch";
+		qcom,led-name = "led:torch_2";
+		qcom,max-current-ma = <500>;
+		qcom,default-led-trigger = "torch2_trigger";
+		qcom,id = <2>;
+		qcom,ires-ua = <12500>;
+	};
+
+	pm8350_torch3: qcom,torch_3 {
+		label = "torch";
+		qcom,led-name = "led:torch_3";
+		qcom,max-current-ma = <500>;
+		qcom,default-led-trigger = "torch3_trigger";
+		qcom,id = <3>;
+		qcom,ires-ua = <12500>;
+	};
+
+	pm8350_switch0: qcom,led_switch_0 {
+		label = "switch";
+		qcom,led-name = "led:switch_0";
+		qcom,led-mask = <9>; /* Channels 1 & 4 */
+		qcom,default-led-trigger = "switch0_trigger";
+		qcom,symmetry-en;
+	};
+
+	pm8350_switch1: qcom,led_switch_1 {
+		label = "switch";
+		qcom,led-name = "led:switch_1";
+		qcom,led-mask = <6>; /* Channels 2 & 3 */
+		qcom,default-led-trigger = "switch1_trigger";
+		qcom,symmetry-en;
+	};
+};
+
+
+qcom,flash_led@d300 {
+	compatible = "qcom,pm2250-flash-led";
+	reg = <0xd300>;
+	interrupts = <0x2 0xd3 0x0 IRQ_TYPE_EDGE_RISING>,
+		<0x2 0xd3 0x3 IRQ_TYPE_EDGE_RISING>,
+		<0x2 0xd3 0x4 IRQ_TYPE_EDGE_RISING>;
+	interrupt-names = "led-fault-irq"
+			"all-ramp-down-done-irq",
+			"all-ramp-up-done-irq";
+
+	pm2250_flash0: qcom,flash_0 {
+		label = "flash";
+		qcom,led-name = "led:flash_0";
+		qcom,max-current-ma = <1000>;
+		qcom,default-led-trigger = "flash0_trigger";
+		qcom,id = <0>;
+		qcom,duration-ms = <1280>;
+		qcom,ires-ua = <12500>;
+	};
+
+	pm2250_torch0: qcom,torch_0 {
+		label = "torch";
+		qcom,led-name = "led:torch_0";
+		qcom,max-current-ma = <200>;
+		qcom,default-led-trigger = "torch0_trigger";
+		qcom,id = <0>;
+		qcom,ires-ua = <12500>;
+	};
+
+	pm2250_switch0: qcom,led_switch_0 {
+		label = "switch";
+		qcom,led-name = "led:switch_0";
+		qcom,led-mask = <1>; /* Channel 0 */
+		qcom,default-led-trigger = "switch0_trigger";
+	};
+};

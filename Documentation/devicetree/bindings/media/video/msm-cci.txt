@@ -1,0 +1,398 @@
+* Qualcomm Technologies, Inc. MSM CCI
+
+[First level nodes]
+Required properties:
+- cell-index: cci hardware core index
+- compatible :
+    - "qcom,cci"
+- reg : offset and length of the register set for the device
+    for the cci operating in compatible mode.
+- reg-names : should specify relevant names to each reg property defined.
+- interrupts : should contain the cci interrupt.
+- interrupt-names : should specify relevant names to each interrupts
+  property defined.
+- gpios : should contain phandle to gpio controller node and array of
+    #gpio-cells specifying specific gpio (controller specific)
+- qcom,gpio-req-tbl-num : should contain index to gpios specific to this sensor
+- qcom,gpio-req-tbl-flags : should contain direction of gpios present in
+    qcom,gpio-req-tbl-num property (in the same order)
+- qcom,gpio-req-tbl-label : should contain name of gpios present in
+    qcom,gpio-req-tbl-num property (in the same order)
+- clock-names: name of the clocks required for the device
+- clock-rates: clock rate in Hz
+
+Optional properties:
+- qcom,cam-vreg-name : name of the voltage regulators required for the device.
+- gdscr-supply : should contain gdsr regulator used for cci clocks.
+- mmagic-supply : should contain mmagic regulator used for mmagic clocks.
+
+- I2c speed settings (*)
+	- i2c_freq_100Khz: qcom,i2c_standard_mode - node should contain clock settings for
+	    100Khz
+	- i2c_freq_400Khz: qcom,i2c_fast_mode - node should contain clock settings for
+	    400Khz
+	- i2c_freq_custom: qcom,i2c_custom_mode - node can contain clock settings for
+	    frequencies other than 100Khz and 400Khz which is specific to usecase.
+	    Currently it has settings for 375Khz.
+	- i2c_freq_1Mhz: qcom,i2c_fast_plus_mode - node should contain clock
+	    settings for 1Mhz
+	* if speed settings is not defined the low level driver can use "i2c_freq_custom"
+	  like default
+
+[Second level nodes]
+* Qualcomm Technologies, Inc. CCI clock settings
+
+Optional properties:
+- qcom,hw-thigh : should contain high period of the SCL clock in terms of CCI
+    clock cycle
+- qcom,hw-tlow : should contain high period of the SCL clock in terms of CCI
+    clock cycle
+- qcom,hw-tsu-sto : should contain setup time for STOP condition
+- qcom,hw-tsu-sta : should contain setup time for Repeated START condition
+- qcom,hw-thd-dat : should contain hold time for the data
+- qcom,hw-thd-sta : should contain hold time for START condition
+- qcom,hw-tbuf : should contain free time between a STOP and a START condition
+- qcom,hw-scl-stretch-en : should contain enable or disable clock stretching
+- qcom,hw-trdhld : should contain internal hold time for SDA
+- qcom,hw-tsp : should contain filtering of glitches
+
+* Qualcomm Technologies, Inc. MSM Sensor
+
+MSM sensor node contains properties of camera sensor
+
+Required properties:
+- compatible : should be manufacturer name followed by sensor name
+    - "qcom,camera"
+    - "shinetech,gc0310"
+- reg : should contain i2c slave address of the device
+- qcom,csiphy-sd-index : should contain csiphy instance that will used to
+    receive sensor data
+    - 0, 1, 2
+- qcom,csid-sd-index : should contain csid core instance that will used to
+    receive sensor data
+    - 0, 1, 2, 3
+- cam_vdig-supply : should contain regulator from which digital voltage is
+    supplied
+- cam_vana-supply : should contain regulator from which analog voltage is
+    supplied
+- cam_vio-supply : should contain regulator from which IO voltage is supplied
+- qcom,cam-vreg-name : should contain names of all regulators needed by this
+    sensor
+    - "cam_vdig", "cam_vana", "cam_vio", "cam_vaf"
+- qcom,cam-vreg-min-voltage : should contain minimum voltage level for
+    regulators mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,cam-vreg-max-voltage : should contain maximum voltage level for
+    regulators mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,cam-vreg-op-mode : should contain optimum voltage level for regulators
+    mentioned in qcom,cam-vreg-name property (in the same order)
+
+Optional properties:
+- qcom,slave-id : should contain i2c slave address, device id address
+    ,expected id read value and device id mask
+- qcom,sensor-name : should contain unique sensor name to differentiate from
+    other sensor
+    - "s5k3l1yx"
+- qcom,sensor-mode : should contain sensor mode supported
+    - 0 -> back camera 2D
+    - 1 -> front camera 2D
+    - 2 -> back camera 3D
+    - 3 -> back camera int 3D
+- qcom,sensor-type : should contain format of data that sensor streams
+    - 0 -> bayer format
+    - 1 -> yuv format
+- qcom,is-vpe : should be enabled if VPE module is required for post processing
+    of this sensor
+    - 1 if required, 0 otherwise
+- qcom,mount-angle : should contain the physical mount angle of the sensor on
+    the target
+    - 0, 90, 180, 360
+- qcom,secure : should be enabled to operate the camera in secure mode
+    - 0, 1
+- qcom,mclk-23880000 : should be enabled if the supported mclk is 23.88Mhz and
+    not 24 Mhz.
+- qcom,gpio-no-mux : should contain field to indicate whether gpio mux table is
+    available
+    - 1 if gpio mux is not available, 0 otherwise
+- cam_vaf-supply : should contain regulator from which AF voltage is supplied
+- gpios : should contain phandle to gpio controller node and array of
+    #gpio-cells specifying specific gpio (controller specific)
+- qcom,gpio-reset : should contain index to gpio used by sensors reset_n
+- qcom,gpio-standby : should contain index to gpio used by sensors standby_n
+- qcom,gpio-vio : should contain index to gpio used by sensors io vreg enable
+- qcom,gpio-vana : should contain index to gpio used by sensors analog vreg enable
+- qcom,gpio-vdig : should contain index to gpio used by sensors digital vreg enable
+- qcom,gpio-vaf : should contain index to gpio used by sensors af vreg enable
+- qcom,gpio-af-pwdm : should contain index to gpio used by sensors af pwdm_n
+- qcom,gpio-req-tbl-num : should contain index to gpios specific to this sensor
+- qcom,gpio-req-tbl-flags : should contain direction of gpios present in
+    qcom,gpio-req-tbl-num property (in the same order)
+- qcom,gpio-req-tbl-label : should contain name of gpios present in
+    qcom,gpio-req-tbl-num property (in the same order)
+- qcom,gpio-set-tbl-num : should contain index of gpios that need to be
+    configured by msm
+- qcom,gpio-set-tbl-flags : should contain value to be configured for the gpios
+    present in qcom,gpio-set-tbl-num property (in the same order)
+- qcom,gpio-set-tbl-delay : should contain amount of delay after configuring
+    gpios as specified in gpio_set_tbl_flags property (in the same order)
+- qcom,csi-lane-assign : should contain lane assignment value to map CSIPHY
+    lanes to CSID lanes
+    - 0x4320
+- qcom,csi-lane-mask : should contain lane mask that specifies CSIPHY lanes to
+    be enabled
+- qcom,csi-phy-sel : should contain CSIPHY core instance from which CSID should
+    receive data
+- qcom,actuator-cam-name : should contain actuator cam name associated with
+    this sensor
+    - If actuator does not exist, this property should not be initialized
+    - If actuator exist, this field should indicate the index of actuator to
+      be used
+- qcom,actuator-vcm-pwd : should contain the gpio pin of vcm power to be enabled
+    for actuator
+- qcom,actuator-vcm-enable : should contain value to be set for actuator vcm
+    gpio
+- qcom,sensor-position : should contain the mount angle of the camera sensor
+    - 0 -> back camera
+    - 1 -> front camera
+- qcom,cci-master : should contain i2c master id to be used for this camera
+    sensor
+    - 0 -> MASTER 0
+    - 1 -> MASTER 1
+- qcom,actuator-src : if auto focus is supported by this sensor, this
+   property should contain phandle of respective actuator node
+- qcom,led-flash-src : if LED flash is supported by this sensor, this
+   property should contain phandle of respective LED flash node
+- qcom,vdd-cx-supply : should contain regulator from which cx voltage is
+    supplied
+- qcom,vdd-cx-name : should contain names of cx regulator
+- qcom,eeprom-src : if eeprom memory is supported by this sensor, this
+   property should contain phandle of respective eeprom nodes
+- qcom,ois-src : if optical image stabilization is supported by this sensor,
+   this property should contain phandle of respective ois node
+- qcom,ir-led-src : if ir led is supported by this sensor, this property
+   should contain phandle of respective ir-led node
+- qcom,ir-cut-src : if ir cut is supported by this sensor, this property
+   should contain phandle of respective ir-cut node
+- qcom,special-support-sensors: if only some special sensors are supported
+   on this board, add sensor name in this property.
+
+* Qualcomm Technologies, Inc. MSM ACTUATOR
+
+Required properties:
+- cell-index : should contain unique identifier to differentiate
+    between multiple actuators
+- reg : should contain i2c slave address of the actuator and length of
+    data field which is 0x0
+- compatible :
+    - "qcom,actuator"
+- qcom,cci-master : should contain i2c master id to be used for this camera
+    sensor
+    - 0 -> MASTER 0
+    - 1 -> MASTER 1
+
+Optional properties:
+- qcom,cam-vreg-name : should contain names of all regulators needed by this
+    actuator
+    - "cam_vaf"
+- qcom,cam-vreg-min-voltage : should contain minimum voltage level in mcrovolts
+   for regulators mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,cam-vreg-max-voltage : should contain maximum voltage level in mcrovolts
+   for regulators mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,cam-vreg-op-mode : should contain the maximum current in microamps
+   required from the regulators mentioned in the qcom,cam-vreg-name property
+   (in the same order).
+- cam_vaf-supply : should contain regulator from which AF voltage is supplied
+
+* Qualcomm Technologies, Inc. MSM LASER LED
+
+Required properties:
+- cell-index : should contain unique identifier to differentiate
+    between multiple laser led modules
+- reg : should contain i2c slave address of the laser led and length of
+    data field which is 0x0
+- compatible :
+    - "qcom,laser-led"
+- qcom,cci-master : should contain i2c master id to be used for this camera
+    sensor
+    - 0 -> MASTER 0
+    - 1 -> MASTER 1
+
+Optional properties:
+- qcom,cam-vreg-name : should contain names of all regulators needed by this
+   laser led
+- qcom,cam-vreg-min-voltage : should contain minimum voltage level in microvolts
+   for regulators mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,cam-vreg-max-voltage : should contain maximum voltage level in microvolts
+   for regulators mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,cam-vreg-op-mode : should contain the maximum current in microamps
+   required from the regulators mentioned in the qcom,cam-vreg-name property
+   (in the same order).
+
+* Qualcomm Technologies, Inc. MSM OIS
+
+Required properties:
+- cell-index : should contain unique identifier to differentiate
+    between multiple ois drivers
+- reg : should contain i2c slave address of the ois and length of
+    data field which is 0x0
+- compatible :
+    - "qcom,ois"
+- qcom,cci-master : should contain i2c master id to be used for this camera
+    sensor
+    - 0 -> MASTER 0
+    - 1 -> MASTER 1
+
+Optional properties:
+- qcom,cam-vreg-name : should contain names of all regulators needed by this
+    ois
+    - "cam_vaf"
+- qcom,cam-vreg-min-voltage : should contain minimum voltage level in mcrovolts
+   for regulators mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,cam-vreg-max-voltage : should contain maximum voltage level in mcrovolts
+   for regulators mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,cam-vreg-op-mode : should contain the maximum current in microamps
+   required from the regulators mentioned in the qcom,cam-vreg-name property
+   (in the same order).
+- cam_vaf-supply : should contain regulator from which ois voltage is supplied
+
+Example:
+
+   qcom,cci@0xfda0c000 {
+       cell-index = <0>;
+       compatible = "qcom,cci";
+       reg = <0xfda0c000 0x300>;
+       reg-names = "cci";
+       interrupts = <0 50 0>;
+       interrupt-names = "cci";
+	clock-names = "camss_top_ahb_clk", "vfe_clk_src",
+			"camss_vfe_vfe_clk", "iface_clk", "cpp_core_clk",
+			"cpp_iface_clk", "cpp_bus_clk", "micro_iface_clk";
+	qcom,clock-rates = <0 266670000 0 0 266670000 0 0 0>;
+       gpios = <&msmgpio 19 0>,
+               <&msmgpio 20 0>,
+               <&msmgpio 21 0>,
+               <&msmgpio 22 0>;
+       qcom,gpio-tbl-num = <0 1 2 3>;
+       qcom,gpio-tbl-flags = <1 1 1 1>;
+       qcom,gpio-tbl-label = "CCI_I2C_DATA0",
+                             "CCI_I2C_CLK0",
+                             "CCI_I2C_DATA1",
+                             "CCI_I2C_CLK1";
+		i2c_freq_100Khz: qcom,i2c_standard_mode {
+			status = "disabled";
+		};
+		i2c_freq_400Khz: qcom,i2c_fast_mode {
+			status = "disabled";
+		};
+		i2c_freq_custom: qcom,i2c_custom_mode {
+			status = "disabled";
+		};
+
+        actuator0: qcom,actuator@18 {
+                cell-index = <0>;
+                reg = <0x18>;
+		compatible = "qcom,actuator";
+		qcom,cci-master = <0>;
+		cam_vaf-supply = <&pm8941_l23>;
+		qcom,cam-vreg-name = "cam_vaf";
+		qcom,cam-vreg-min-voltage = <3000000>;
+		qcom,cam-vreg-max-voltage = <3000000>;
+		qcom,cam-vreg-op-mode = <100000>;
+        };
+
+	qcom,camera@0 {
+		cell-index = <0>;
+		compatible = "qcom,camera";
+		reg = <0x0>;
+		qcom,csiphy-sd-index = <0>;
+		qcom,csid-sd-index = <0>;
+		qcom,mount-angle = <90>;
+		qcom,secure = <1>;
+		qcom,led-flash-src = <&led_flash0>;
+		qcom,actuator-src = <&actuator0>;
+		qcom,eeprom-src = <&eeprom0>;
+		cam_vdig-supply = <&pm8994_s3>;
+		cam_vio-supply = <&pm8994_lvs1>;
+		cam_vana-supply = <&pm8994_l17>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
+		qcom,cam-vreg-min-voltage = <1300000 0 2500000>;
+		qcom,cam-vreg-max-voltage = <1300000 0 2500000>;
+		qcom,cam-vreg-op-mode = <105000 0 80000>;
+		qcom,gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk0_active &cam_sensor_rear_active>;
+		pinctrl-1 = <&cam_sensor_mclk0_suspend &cam_sensor_rear_suspend>;
+		gpios = <&tlmm 13 0>,
+			<&tlmm 30 0>,
+			<&tlmm 29 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-standby = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK0",
+					  "CAM_RESET0",
+					  "CAM_STANDBY0";
+		qcom,sensor-position = <0>;
+		qcom,sensor-mode = <0>;
+		qcom,cci-master = <0>;
+		status = "ok";
+		clocks = <&clock_mmss clk_mclk0_clk_src>,
+				<&clock_mmss clk_camss_mclk0_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
+	};
+
+&i2c_freq_100Khz {
+	qcom,hw-thigh = <78>;
+	qcom,hw-tlow = <114>;
+	qcom,hw-tsu-sto = <28>;
+	qcom,hw-tsu-sta = <28>;
+	qcom,hw-thd-dat = <10>;
+	qcom,hw-thd-sta = <77>;
+	qcom,hw-tbuf = <118>;
+	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-trdhld = <6>;
+	qcom,hw-tsp = <1>;
+	status = "ok";
+};
+
+&i2c_freq_400Khz {
+	qcom,hw-thigh = <20>;
+	qcom,hw-tlow = <28>;
+	qcom,hw-tsu-sto = <21>;
+	qcom,hw-tsu-sta = <21>;
+	qcom,hw-thd-dat = <13>;
+	qcom,hw-thd-sta = <18>;
+	qcom,hw-tbuf = <25>;
+	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-trdhld = <6>;
+	qcom,hw-tsp = <3>;
+	status = "ok";
+};
+
+&i2c_freq_custom {
+	qcom,hw-thigh = <15>;
+	qcom,hw-tlow = <28>;
+	qcom,hw-tsu-sto = <21>;
+	qcom,hw-tsu-sta = <21>;
+	qcom,hw-thd-dat = <13>;
+	qcom,hw-thd-sta = <18>;
+	qcom,hw-tbuf = <25>;
+	qcom,hw-scl-stretch-en = <1>;
+	qcom,hw-trdhld = <6>;
+	qcom,hw-tsp = <3>;
+	status = "ok";
+};
+
+&i2c_freq_1Mhz {
+	qcom,hw-thigh = <16>;
+	qcom,hw-tlow = <22>;
+	qcom,hw-tsu-sto = <17>;
+	qcom,hw-tsu-sta = <18>;
+	qcom,hw-thd-dat = <16>;
+	qcom,hw-thd-sta = <15>;
+	qcom,hw-tbuf = <19>;
+	qcom,hw-scl-stretch-en = <1>;
+	qcom,hw-trdhld = <3>;
+	qcom,hw-tsp = <3>;
+	qcom,cci-clk-src = <37500000>;
+	status = "ok";
+};

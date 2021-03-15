@@ -1,0 +1,98 @@
+* Qualcomm Technologies, Inc. ConNectivity SubSystem Platform Driver
+
+This platform driver adds support for the CNSS subsystem used for PCIe
+based Wi-Fi devices. It also adds support to integrate PCIe WLAN module
+to subsystem restart framework. Apart from that, it also manages the
+3.3V voltage regulator, WLAN Enable GPIO signal and PCIe link dynamically
+with support for suspend and resume by retaining the PCI config space
+states when PCIe link is shutdown. The main purpose of this device tree
+entry below is to invoke the CNSS platform driver and provide handle to
+the WLAN enable GPIO, 3.3V fixed voltage regulator resources. It also
+provides the reserved RAM dump memory location and size.
+
+Required properties:
+  - compatible: "qcom,cnss" for QCA6174 device
+                "qcom,cnss-qca6290" for QCA6290 device
+                "qcom,cnss-qca6390" for QCA6390 device
+                "qcom,cnss-qca6490" for QCA6490 device
+  - wlan-en-gpio: WLAN_EN GPIO signal specified by the chip specifications
+  - vdd-wlan-supply: phandle to the regulator device tree node
+  - pinctrl-names: Names corresponding to the numbered pinctrl states
+  - pinctrl-<n>: Pinctrl states as described in
+                 bindings/pinctrl/pinctrl-bindings.txt
+  - qcom,wlan-rc-num: PCIe root complex number which WLAN chip is attached to
+
+Optional properties:
+  - qcom,notify-modem-status: Boolean property to decide whether modem
+                              notification should be enabled or not in this
+                              platform
+  - wlan-soc-swreg-supply: phandle to the external 1.15V regulator for QCA6174
+  - wlan-ant-switch-supply: phandle to the 2.7V regulator for the antenna
+                            switch of QCA6174
+  - qcom,wlan-uart-access: Boolean property to decide whether QCA6174
+                           has exclusive access to UART.
+  - vdd-wlan-io-supply: phandle to the 1.8V IO regulator for QCA6174
+  - vdd-wlan-xtal-supply: phandle to the 1.8V XTAL regulator for QCA6174
+  - vdd-wlan-xtal-aon-supply: phandle to the LDO-4 regulator. This is needed
+                              on platforms where XTAL regulator depends on
+                              always on regulator in VDDmin.
+  - vdd-wlan-ctrl1-supply: phandle to the DBU1 - 1.8V for QCA6595 or 3.3V for
+                           QCA6174 on auto platform.
+  - vdd-wlan-ctrl2-supply: phandle to the DBU4 - 2.2V for QCA6595 or 3.85V for
+                           QCA6696 on auto platform.
+  - vdd-wlan-core-supply: phandle to the 1.3V CORE regulator for QCA6174
+  - vdd-wlan-sp2t-supply: phandle to the 2.7V SP2T regulator for QCA6174
+  - <supply-name>-supply: phandle to the regulator device tree node.
+                          optional "supply-name" is "vdd-wlan-rfa"
+  - qcom,<supply>-config: Specifies voltage levels for supply. Should specified
+                          in pairs (min, max), units uV.  There can be optional
+                          load in uA and Regulator settle delay in us
+  - qcom,smmu-s1-enable: Boolean property to decide whether to enable SMMU
+                         S1 stage or not
+  - qcom,wlan-smmu-iova-address: I/O virtual address range as <start length>
+                                 format to be used for allocations associated
+                                 between WLAN/PCIe and SMMU
+  - qcom,wlan-ramdump-dynamic: To enable CNSS RAMDUMP collection
+                               by providing the size of CNSS DUMP
+  - qcom,cmd_db_name: CommandDB name indicating the PMIC rail used for open
+                      loop CPR
+  - reg: Memory regions defined as starting address and size
+  - reg-names: Names of the memory regions defined in reg entry
+  - wlan-bootstrap-gpio: WLAN_BOOTSTRAP GPIO signal specified by QCA6174
+                         which should be drived depending on platforms
+  - qcom,is-dual-wifi-enabled: Boolean property to control wlan enable(wlan-en)
+                               gpio on dual-wifi platforms.
+  - vdd-wlan-en-supply: WLAN_EN fixed regulator specified by QCA6174
+                        specifications.
+  - qcom,wlan-en-vreg-support: Boolean property to decide the whether the
+                               WLAN_EN pin is a gpio or fixed regulator.
+  - qcom,mhi: phandle to indicate the device which needs MHI support.
+  - qcom,cap-tsf-gpio: WLAN_TSF_CAPTURED GPIO signal specified by the chip
+                       specifications, should be drived depending on products
+  - cnss-daemon-support: Boolean property to decide whether cnss_daemon
+                         userspace QMI client is supported.
+  - use-nv-mac: Boolean property to indicate whether NV MAC is used or not.
+  - qcom,set-wlaon-pwr-ctrl: Boolean property to indicate if set
+                             WLAON_QFPROM_PWR_CTRL_REG register during power on
+                             and off sequences.
+  - qcom,converged-dt: Boolean property to decide whether it supports multiple
+                       WLAN devices.
+
+Example:
+
+    qcom,cnss@0d400000 {
+        compatible = "qcom,cnss";
+        reg = <0x0d400000 0x200000>;
+        reg-names = "ramdump";
+        qcom,wlan-ramdump-dynamic = <0x200000>;
+        wlan-en-gpio = <&msmgpio 82 0>;
+        vdd-wlan-supply = <&wlan_vreg>;
+        qcom,notify-modem-status;
+        wlan-soc-swreg-supply = <&pma8084_l27>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&cnss_default>;
+        qcom,wlan-rc-num = <0>;
+        qcom,wlan-smmu-iova-address = <0 0x10000000>;
+        qcom,mhi = <&mhi_wlan>;
+        qcom,cap-tsf-gpio = <&tlmm 126 1>;
+    };

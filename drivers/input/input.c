@@ -2,6 +2,7 @@
  * The input core
  *
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 /*
@@ -1292,9 +1293,7 @@ static int __init input_proc_init(void)
 			    &input_handlers_fileops);
 	if (!entry)
 		goto fail2;
-
 	return 0;
-
  fail2:	remove_proc_entry("devices", proc_bus_input_dir);
  fail1: remove_proc_entry("bus/input", NULL);
 	return -ENOMEM;

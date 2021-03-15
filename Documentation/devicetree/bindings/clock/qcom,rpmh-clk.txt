@@ -1,0 +1,33 @@
+Qualcomm Technologies, Inc. RPMh Clocks
+-------------------------------------------------------
+
+Resource Power Manager Hardened (RPMh) manages shared resources on
+some Qualcomm Technologies Inc. SoCs. It accepts clock requests from
+other hardware subsystems via RSC to control clocks.
+
+Required properties :
+- compatible : Shall contain one of the following:
+		"qcom,kona-rpmh-clk",
+		"qcom,sdm845-rpmh-clk"
+		"qcom,lito-rpmh-clk"
+		"qcom,lagoon-rpmh-clk"
+
+- #clock-cells : must contain 1
+
+Example :
+
+#include <dt-bindings/clock/qcom,rpmh.h>
+
+	&apps_rsc {
+		rpmhcc: clock-controller {
+			compatible = "qcom,sdm845-rpmh-clk";
+			#clock-cells = <1>;
+		};
+	};
+
+	&apps_rsc {
+		rpmhcc: clock-controller {
+			compatible = "qcom,kona-rpmh-clk";
+			#clock-cells = <1>;
+		};
+	};

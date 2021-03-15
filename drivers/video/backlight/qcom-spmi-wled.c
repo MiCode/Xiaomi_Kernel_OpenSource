@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015, Sony Mobile Communications, AB.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
@@ -118,6 +119,8 @@
 
 #define WLED5_CTRL_TEST4_REG		0xe5
 #define  WLED5_TEST4_EN_SH_SS		BIT(5)
+
+#define WLED5_CTRL_PBUS_WRITE_SYNC_CTL	0xef
 
 /* WLED5 specific sink registers */
 #define WLED5_SINK_MOD_A_EN_REG		0x50
@@ -293,15 +296,34 @@ static inline bool is_wled5(struct wled *wled)
 static int wled_module_enable(struct wled *wled, int val)
 {
 	int rc;
+	int reg;
 
 	if (wled->force_mod_disable)
 		return 0;
+
+	/* Force HFRC off */
+	if (*wled->version == WLED_PM8150L) {
+		reg = val ? 0 : 3;
+		rc = regmap_write(wled->regmap, wled->ctrl_addr +
+				  WLED5_CTRL_PBUS_WRITE_SYNC_CTL, reg);
+		if (rc < 0)
+			return rc;
+	}
 
 	rc = regmap_update_bits(wled->regmap, wled->ctrl_addr +
 			WLED_CTRL_MOD_ENABLE, WLED_CTRL_MOD_EN_MASK,
 			val << WLED_CTRL_MODULE_EN_SHIFT);
 	if (rc < 0)
 		return rc;
+
+	/* Force HFRC off */
+	if (*wled->version == WLED_PM8150L && val) {
+		rc = regmap_write(wled->regmap, wled->sink_addr +
+				  WLED5_SINK_FLASH_SHDN_CLR_REG, 0);
+		if (rc < 0)
+			return rc;
+	}
+
 	/*
 	 * Wait for at least 10ms before enabling OVP fault interrupt after
 	 * enabling the module so that soft start is completed. Keep the OVP
@@ -402,6 +424,39 @@ static int wled5_set_brightness(struct wled *wled, u16 brightness)
 	int rc, offset;
 	u16 low_limit = wled->max_brightness * 1 / 1000;
 	u8 val, v[2], brightness_msb_mask;
+	static u32 prop_read;
+	static u32 cabc_disable;
+	static u32 cabc_off_dbv;
+	static u32 cabc_pwm[2];
+
+	if (!prop_read) {
+		rc = of_property_read_u32(wled->pdev->dev.of_node, "mi,cabcoff-dbv", &cabc_off_dbv);
+		rc |= of_property_read_u32_array(wled->pdev->dev.of_node, "mi,cabc-pwm", cabc_pwm, 2);
+
+		if (rc) {
+			pr_info("wled config failed to read mi,cabcoff-dbv or mi,cabc-pwm\n");
+			cabc_off_dbv = 0;
+		} else
+			pr_info("wled config dbv:%d, pwm:%d:%d", cabc_off_dbv, cabc_pwm[0], cabc_pwm[1]);
+
+		prop_read = 1;
+	}
+
+	if (cabc_off_dbv > 0 && cabc_off_dbv < wled->max_brightness
+			&& brightness < cabc_off_dbv) {
+		brightness = brightness*cabc_pwm[0]/cabc_pwm[1];
+
+		if (!cabc_disable) {
+			pr_info("wled config to disable cabc\n");
+			wled->cabc_config(wled, false);
+		}
+
+		cabc_disable = 1;
+	} else if (cabc_disable) {
+		wled->cabc_config(wled, true);
+		cabc_disable = 0;
+		pr_info("wled config to enable cabc\n");
+	}
 
 	/* WLED5's lower limit is 0.1% */
 	if (brightness > 0 && brightness < low_limit)

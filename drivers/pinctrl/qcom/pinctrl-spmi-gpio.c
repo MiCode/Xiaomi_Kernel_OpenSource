@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2014, 2016-2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/gpio.h>
@@ -14,6 +15,7 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/spmi.h>
 
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 
@@ -110,6 +112,7 @@
 #define PMIC_GPIO_CONF_ATEST			(PIN_CONFIG_END + 3)
 #define PMIC_GPIO_CONF_ANALOG_PASS		(PIN_CONFIG_END + 4)
 #define PMIC_GPIO_CONF_DTEST_BUFFER		(PIN_CONFIG_END + 5)
+
 
 /* The index of each function in pmic_gpio_functions[] array */
 enum pmic_gpio_func_index {
@@ -736,6 +739,13 @@ static int pmic_gpio_get(struct gpio_chip *chip, unsigned pin)
 	}
 
 	return !!pad->out_value;
+}
+
+int pmic_gpio_get_external(const char* chip_name, unsigned pin)
+{
+	struct gpio_chip *chip;
+	chip = find_chip_by_name(chip_name);
+	return pmic_gpio_get(chip, pin);
 }
 
 static void pmic_gpio_set(struct gpio_chip *chip, unsigned pin, int value)

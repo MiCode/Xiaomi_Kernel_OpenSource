@@ -160,6 +160,7 @@ struct spmi_pmic_arb {
 	struct apid_data	apid_data[PMIC_ARB_MAX_PERIPHS];
 };
 
+
 /**
  * pmic_arb_ver: version dependent functionality.
  *

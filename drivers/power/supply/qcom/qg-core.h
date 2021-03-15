@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef __QG_CORE_H__
@@ -16,6 +17,8 @@ struct qg_batt_props {
 	int			vbatt_full_mv;
 	int			fastchg_curr_ma;
 	int			qg_profile_version;
+	int			ffc_term_curr_ma;
+	int			nom_cap_uah;
 };
 
 struct qg_irq_info {
@@ -59,6 +62,8 @@ struct qg_dt {
 	int			sys_min_volt_mv;
 	int			fvss_vbat_mv;
 	int			tcss_entry_soc;
+        int                     *dec_rate_seq;
+        int                     dec_rate_len;
 	int			esr_low_temp_threshold;
 	bool			hold_soc_while_full;
 	bool			linearize_soc;
@@ -103,6 +108,7 @@ struct qpnp_qg {
 	struct work_struct	scale_soc_work;
 	struct work_struct	qg_status_change_work;
 	struct delayed_work	qg_sleep_exit_work;
+	struct delayed_work	qg_batterysecret_load_profile_work;
 	struct notifier_block	nb;
 	struct mutex		bus_lock;
 	struct mutex		data_lock;
@@ -124,6 +130,7 @@ struct qpnp_qg {
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
 	struct power_supply	*parallel_psy;
+	struct power_supply *max_verify_psy;
 	struct power_supply	*cp_psy;
 	struct qg_esr_data	esr_data[QG_MAX_ESR_COUNT];
 
@@ -145,6 +152,12 @@ struct qpnp_qg {
 	bool			fvss_active;
 	bool			tcss_active;
 	bool			bass_active;
+	bool			batterysecret_support;
+	bool			fastcharge_mode_enabled;
+	bool			shutdown_delay_enable;
+	bool			shutdown_delay;
+	bool			last_shutdown_delay;
+	bool			shutdown_delay_cancel;
 	int			charge_status;
 	int			charge_type;
 	int			chg_iterm_ma;
@@ -163,6 +176,7 @@ struct qpnp_qg {
 	int			max_fcc_limit_ma;
 	int			bsoc_bass_entry;
 	int			qg_v_ibat;
+        int                     fake_temp;
 	u32			fifo_done_count;
 	u32			wa_flags;
 	u32			seq_no;

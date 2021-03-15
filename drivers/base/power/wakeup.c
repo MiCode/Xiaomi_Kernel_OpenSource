@@ -2,6 +2,7 @@
  * drivers/base/power/wakeup.c - System wakeup events framework
  *
  * Copyright (c) 2010 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file is released under the GPLv2.
  */
@@ -924,6 +925,7 @@ void pm_wakeup_clear(bool reset)
 	pm_wakeup_irq = 0;
 	if (reset)
 		atomic_set(&pm_abort_suspend, 0);
+
 }
 
 void pm_system_irq_wakeup(unsigned int irq_number)

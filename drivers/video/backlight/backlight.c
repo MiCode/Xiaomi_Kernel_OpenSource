@@ -2,6 +2,7 @@
  * Backlight Lowlevel Control Abstraction
  *
  * Copyright (C) 2003,2004 Hewlett-Packard Company
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  */
 
@@ -119,6 +120,7 @@ static void backlight_generate_event(struct backlight_device *bd,
 	envp[1] = NULL;
 	kobject_uevent_env(&bd->dev.kobj, KOBJ_CHANGE, envp);
 	sysfs_notify(&bd->dev.kobj, NULL, "actual_brightness");
+	sysfs_notify(&bd->dev.kobj, NULL, "brightness");
 }
 
 static ssize_t bl_power_show(struct device *dev, struct device_attribute *attr,
@@ -323,11 +325,22 @@ EXPORT_SYMBOL(backlight_force_update);
 static int bd_cdev_get_max_brightness(struct thermal_cooling_device *cdev,
 					unsigned long *state)
 {
+	int ret = 0;
 	struct backlight_device *bd = (struct backlight_device *)cdev->devdata;
 
-	*state = bd->props.max_brightness;
+	if (bd->props.max_brightness > 255) {
+		/* cooling_device_stats_setup() will kzalloc() max_brightness *
+		 * max_brightness * 4 bytes memory for trans_table, if max_brightness
+		 * is too big, kzalloc() will panic.
+		 */
+		pr_info("%s: Skip thermal statistics for big max_brightness(%d) to"
+				" avoid panic\n", __func__, bd->props.max_brightness);
+		ret = -1;
+	} else {
+		*state = bd->props.max_brightness;
+	}
 
-	return 0;
+	return ret;
 }
 
 static int bd_cdev_get_cur_brightness(struct thermal_cooling_device *cdev,

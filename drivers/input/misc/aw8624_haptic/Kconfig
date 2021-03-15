@@ -1,0 +1,12 @@
+config INPUT_AW8624_HAPTIC
+	tristate "Awinic AW8624 haptic driver"
+	depends on I2C
+	help
+	  Say Y here if you have Awinic AW8624 haptic controller
+	  chip in your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.
+
+

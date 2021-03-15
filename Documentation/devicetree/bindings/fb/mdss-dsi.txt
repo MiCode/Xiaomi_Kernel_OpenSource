@@ -1,0 +1,261 @@
+Qualcomm Technologies, Inc. mdss-dsi
+
+mdss-dsi is the master DSI device which supports multiple DSI host controllers that
+are compatible with MIPI display serial interface specification.
+
+Required properties:
+- compatible:				Must be "qcom,mdss-dsi"
+- hw-config:				Specifies the DSI host setup configuration
+					"hw-config" = "single_dsi"
+					"hw-config" = "dual_dsi"
+					"hw-config" = "split_dsi"
+- ranges:				The standard property which specifies the child address
+					space, parent address space and the length.
+- vdda-supply:				Phandle for vreg regulator device node.
+
+Bus Scaling Data:
+- qcom,msm-bus,name:		String property describing MDSS client.
+- qcom, msm-bus,num-cases:	This is the number of bus scaling use cases
+				defined in the vectors property. This must be
+				set to <2> for MDSS DSI driver where use-case 0
+				is used to remove BW votes from the system. Use
+				case 1 is used to generate bandwidth requestes
+				when sending command packets.
+- qcom,msm-bus,num-paths:	This represents number of paths in each bus
+				scaling usecase. This value depends on number of
+				AXI master ports dedicated to MDSS for
+				particular chipset.
+- qcom,msm-bus,vectors-KBps:	A series of 4 cell properties, with a format
+				of (src, dst, ab, ib) which is defined at
+				Documentation/devicetree/bindings/arm/msm/msm_bus.txt.
+				DSI driver should always set average bandwidth
+				(ab) to 0 and always use instantaneous
+				bandwidth(ib) values.
+
+Optional properties:
+- vcca-supply:				Phandle for vcca regulator device node.
+- qcom,<type>-supply-entries:		A node that lists the elements of the supply used by the
+					a particular "type" of DSI modulee. The module "types"
+					can be "core", "ctrl", and "phy". Within the same type,
+					there can be more than one instance of this binding,
+					in which case the entry would be appended with the
+					supply entry index.
+					e.g. qcom,ctrl-supply-entry@0
+					-- qcom,supply-name: name of the supply (vdd/vdda/vddio)
+					-- qcom,supply-min-voltage: minimum voltage level (uV)
+					-- qcom,supply-max-voltage: maximum voltage level (uV)
+					-- qcom,supply-enable-load: load drawn (uA) from enabled supply
+					-- qcom,supply-disable-load: load drawn (uA) from disabled supply
+					-- qcom,supply-ulp-load: load drawn (uA) from supply in ultra-low power mode
+					-- qcom,supply-pre-on-sleep: time to sleep (ms) before turning on
+					-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
+					-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
+					-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
+- pll-src-config			Specified the source PLL for the DSI
+					link clocks:
+					"PLL0" - Clocks sourced out of DSI PLL0
+					"PLL1" - Clocks sourced out of DSI PLL1
+					This property is only valid for
+					certain DSI hardware configurations
+					mentioned in the "hw-config" binding above.
+					For example, in split_dsi config, the clocks can
+					only be sourced out of PLL0. For
+					dual_dsi, both PLL would be active.
+					For single DSI, it is possible to
+					select either PLL. If no value is specified,
+					the default value for single DSI is set as PLL0.
+- qcom,mmss-ulp-clamp-ctrl-offset:	Specifies the offset for dsi ulps clamp control register.
+- qcom,mmss-phyreset-ctrl-offset:	Specifies the offset for dsi phy reset control register.
+- qcom,dsi-clk-ln-recovery:		Boolean which enables the clk lane recovery
+
+mdss-dsi-ctrl is a dsi controller device which is treated as a subnode of the mdss-dsi device.
+
+Required properties:
+- compatible:				Must be "qcom,mdss-dsi-ctrl"
+- cell-index:				Specifies the controller used among the two controllers.
+- reg: 					Base address and length of the different register
+					regions(s) required for DSI device functionality.
+- reg-names: 				A list of strings that map in order to the list of regs.
+					"dsi_ctrl" - MDSS DSI controller register region
+					"dsi_phy" - MDSS DSI PHY register region
+					"dsi_phy_regulator" - MDSS DSI PHY REGULATOR region
+					"mmss_misc_phys" - Register region for MMSS DSI clamps
+- vdd-supply:				Phandle for vdd regulator device node.
+- vddio-supply:				Phandle for vdd-io regulator device node.
+- qcom,mdss-fb-map-prim:		pHandle that specifies the framebuffer to which the
+					primary interface is mapped.
+- qcom,mdss-mdp:			pHandle that specifies the mdss-mdp device.
+- qcom,platform-regulator-settings:	An array of length 7 or 5 that specifies the PHY
+					regulator settings. It use 5 bytes for 8996 pll.
+- qcom,platform-strength-ctrl:		An array of length 2 or 10 that specifies the PHY
+					strengthCtrl settings. It use 10 bytes for 8996 pll.
+- qcom,platform-lane-config:		An array of length 45 or 20 that specifies the PHY
+					lane configuration settings. It use 20 bytes for 8996 pll.
+- qcom,platform-bist-ctrl:		An array of length 6 that specifies the PHY
+					BIST ctrl settings.
+- qcom,dsi-pref-prim-pan:		phandle that specifies the primary panel to be used
+					with the controller.
+
+Optional properties:
+- label:		        	A string used to describe the controller used.
+- qcom,mdss-fb-map:			pHandle that specifies the framebuffer to which the
+					interface is mapped.
+- qcom,mdss-fb-map-sec:			pHandle that specifies the framebuffer to which the
+					secondary interface is mapped.
+- qcom,platform-enable-gpio:		Specifies the panel lcd/display enable gpio.
+- qcom,platform-reset-gpio:		Specifies the panel reset gpio.
+- qcom,platform-te-gpio:		Specifies the gpio used for TE.
+- qcom,platform-bklight-en-gpio:	Specifies the gpio used to enable display back-light
+- qcom,platform-mode-gpio:		Select video/command mode of panel through gpio when it supports
+					both modes.
+- qcom,platform-intf-mux-gpio:		Select dsi/external(hdmi) interface through gpio when it supports
+					either dsi or external interface.
+- pinctrl-names:			List of names to assign mdss pin states defined in pinctrl device node
+					Refer to pinctrl-bindings.txt
+- pinctrl-<0..n>:			Lists phandles each pointing to the pin configuration node within a pin
+					controller. These pin configurations are installed in the pinctrl
+					device node. Refer to pinctrl-bindings.txt
+- qcom,regulator-ldo-mode:		Boolean to enable ldo mode for the dsi phy regulator
+- qcom,null-insertion-enabled:		Boolean to enable NULL packet insertion
+					feature for DSI controller.
+- qcom,dsi-irq-line:			Boolean specifies if DSI has a different irq line than mdp.
+- qcom,lane-map:			Specifies the data lane swap configuration.
+					"lane_map_0123" = <0 1 2 3> (default value)
+					"lane_map_3012" = <3 0 1 2>
+					"lane_map_2301" = <2 3 0 1>
+					"lane_map_1230" = <1 2 3 0>
+					"lane_map_0321" = <0 3 2 1>
+					"lane_map_1032" = <1 0 3 2>
+					"lane_map_2103" = <2 1 0 3>
+					"lane_map_3210" = <3 2 1 0>
+- qcom,pluggable			Boolean to enable hotplug feature.
+- qcom,timing-db-mode:			Boolean specifies dsi timing mode registers are supported or not.
+- qcom,display-id			A string indicates the display ID for the controller.
+					The possible values are:
+					- "primary"
+					- "secondary"
+					- "tertiary"
+- qcom,bridge-index:			Instance id of the bridge chip connected to DSI. qcom,bridge-index is
+					required if a bridge chip panel is used.
+
+Example:
+	mdss_dsi: qcom,mdss_dsi@0 {
+		compatible = "qcom,mdss-dsi";
+		hw-config = "single_dsi";
+		pll-src-config = "PLL0";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		vdda-supply = <&pm8226_l4>;
+		vcca-supply = <&pm8226_l28>;
+		reg = <0x1a98000 0x1a98000 0x25c
+		      0x1a98500 0x1a98500 0x280
+		      0x1a98780 0x1a98780 0x30
+		      0x193e000 0x193e000 0x30>;
+
+		qcom,dsi-clk-ln-recovery;
+
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+				qcom,supply-ulp-load = <0>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <0>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+			};
+		};
+
+		qcom,phy-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,phy-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-ulp-load = <100>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <20>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+			};
+		};
+
+		qcom,ctrl-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,ctrl-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda";
+				qcom,supply-min-voltage = <1200000>;
+				qcom,supply-max-voltage = <1200000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-ulp-load = <1000>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <20>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+			};
+		};
+
+		mdss_dsi0: mdss_dsi_ctrl0@fd922800 {
+			compatible = "qcom,mdss-dsi-ctrl";
+			label = "MDSS DSI CTRL->0";
+			cell-index = <0>;
+			reg = 	<0xfd922800 0x1f8>,
+				<0xfd922b00 0x2b0>,
+				<0xfd998780 0x30>,
+				<0xfd828000 0x108>;
+			reg-names = "dsi_ctrl", "dsi_phy",
+				"dsi_phy_regulator", "mmss_misc_phys";
+
+			vdd-supply = <&pm8226_l15>;
+			vddio-supply = <&pm8226_l8>;
+			qcom,mdss-fb-map-prim = <&mdss_fb0>;
+			qcom,mdss-mdp = <&mdss_mdp>;
+
+			qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;
+
+			qcom,platform-strength-ctrl = [ff 06];
+			qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
+			qcom,platform-regulator-settings = [07 09 03 00 20 00 01];
+			qcom,platform-lane-config = [00 00 00 00 00 00 00 01 97
+				00 00 00 00 05 00 00 01 97
+				00 00 00 00 0a 00 00 01 97
+				00 00 00 00 0f 00 00 01 97
+				00 c0 00 00 00 00 00 01 bb];
+
+			qcom,mmss-ulp-clamp-ctrl-offset = <0x20>;
+			qcom,mmss-phyreset-ctrl-offset = <0x24>;
+			qcom,regulator-ldo-mode;
+			qcom,null-insertion-enabled;
+			qcom,timing-db-mode;
+
+			pinctrl-names = "mdss_default", "mdss_sleep";
+			pinctrl-0 = <&mdss_dsi_active>;
+			pinctrl-1 = <&mdss_dsi_suspend>;
+			qcom,platform-reset-gpio = <&msmgpio 25 1>;
+			qcom,platform-te-gpio = <&msmgpio 24 0>;
+			qcom,platform-enable-gpio = <&msmgpio 58 1>;
+			qcom,platform-bklight-en-gpio = <&msmgpio 86 0>;
+			qcom,platform-mode-gpio = <&msmgpio 7 0>;
+			qcom,platform-intf-mux-gpio = <&tlmm 115 0>;
+			qcom,dsi-irq-line;
+			qcom,lane-map = "lane_map_3012";
+			qcom,display-id = "primary";
+			qcom,bridge-index = <00>;
+	        };
+	};

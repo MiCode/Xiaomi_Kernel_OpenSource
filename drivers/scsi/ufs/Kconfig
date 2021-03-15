@@ -148,3 +148,38 @@ config SCSI_UFS_CRYPTO_QTI
 	 Enable Vendor Crypto Engine Support in UFS
 	 Enabling this allows kernel to use UFS crypto operations defined
 	 and implemented by QTI.
+
+config UFSFEATURE
+       bool "UFS feature activate"
+        default n
+       depends on SCSI_UFSHCD
+       ---help---
+       UFS feature activate such as hpb, tw and etc.
+
+config UFSHPB
+       bool "UFSHPB"
+        default n
+       depends on SCSI_UFSHCD && UFSFEATURE
+       ---help---
+       UFS HPB Feature Enable
+
+config SCSI_SKHPB
+       bool "SCSI_SKHPB"
+        default y
+       depends on SCSI_UFSHCD && UFSFEATURE
+       ---help---
+       SK UFS HPB Feature Enable
+
+config UFSTW
+       bool "UFSTW"
+       default n
+       depends on SCSI_UFSHCD && UFSFEATURE
+       ---help---
+       UFS TW Feature Enable
+
+config UFSTW_IGNORE_GUARANTEE_BIT
+       bool "UFSTW_IGNORE_GUARANTEE_BIT"
+       default n
+       depends on SCSI_UFSHCD && UFSFEATURE && UFSTW
+       ---help---
+       ignore the guarantee bit[31] of dTurboWriteBufferLifeTimeEst for PoC

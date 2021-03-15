@@ -1,0 +1,24 @@
+Qualcomm Technologies, Inc. mdss-spi-display
+
+mdss-spi-display is a spi interface display which support send frame
+data and command to panel, compatible with SPI interface specification.
+
+Required properties:
+- compatible:		Must be "qcom,mdss-spi-display"
+- qcom,mdss-fb-map:	pHandle that specifies the framebuffer to which the
+			interface is mapped.
+
+Optional properties:
+- label:		A string used to describe the controller used.
+
+Example:
+mdss_spi_display: qcom,mdss_spi_display {
+	compatible = "qcom,mdss-spi-display";
+	label = "mdss spi display";
+
+	mdss_fb0: qcom,mdss_fb_primary {
+		cell-index = <0>;
+		compatible = "qcom,mdss-fb";
+	};
+};
+

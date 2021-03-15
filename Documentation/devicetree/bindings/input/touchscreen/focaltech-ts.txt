@@ -1,0 +1,68 @@
+FocalTech touch controller
+
+The focaltech controller is connected to host processor via i2c. The controller generates interrupts when the user touches the panel. The host controller is expected to read the touch coordinates over i2c and pass the coordinates to the rest of the system.
+
+Required properties:
+ - compatible		: should be "focaltech,fts_ts"
+ - reg			: i2c slave address of the device, should be <0x38>; For spi interface, means cs number, always be 0
+ - interrupt-parent	: parent of interrupt
+ - interrupts		: irq gpio, "0x02" stands for that the irq triggered by falling edge.
+ - focaltech,irq-gpio	: irq gpio, same as "interrupts" node.
+ - focaltech,reset-gpio	: reset gpio
+ - focaltech,num-max-touches	: maximum number of touches support
+ - focaltech,display-coords 	: display resolution in pixels. A four tuple consisting of minX, minY, maxX and maxY.
+
+Optional properties:
+ - focaltech,have-key		: specify if virtual keys are supported
+ - focaltech,key-number		: number of keys
+ - focaltech,keys		: virtual key codes mapping to the coords
+ - focaltech,key-x-coords	: constant x coordinates of keys, depends on the x resolution
+ - focaltech,key-y-coords	: constant y coordinates of keys, depends on the y resolution
+
+Example:
+I2C Interface:
+	i2c@f9927000 {
+		focaltech@38{
+			compatible = "focaltech,fts_ts";
+			reg = <0x38>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <13 0x02>;
+			focaltech,reset-gpio = <&msm_gpio 12 0x01>;
+			focaltech,irq-gpio = <&msm_gpio 13 0x02>;
+			focaltech,max-touch-number = <10>;
+			focaltech,display-coords =  <0 0 1080 1920>;
+
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+
+			/*
+			focaltech,have-key;
+			focaltech,key-number = <3>;
+			focaltech,keys = <139 102 158>;
+			focaltech,key-x-coords = <200 600 800>;
+			focaltech,key-y-coords = <2000 2000 2000>;
+			*/
+		};
+	};
+
+SPI Interface:
+	spi@78b9000 {
+		focaltech@0 {
+			compatible = "focaltech,fts_ts";
+			reg = <0x0>;
+			spi-max-frequency = <6000000>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <13 0x2>;
+			focaltech,reset-gpio = <&msm_gpio 12 0x01>;
+			focaltech,irq-gpio = <&msm_gpio 13 0x02>;
+			focaltech,max-touch-number = <10>;
+			focaltech,display-coords =  <0 0 1080 1920>;
+
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+		};
+	};

@@ -3,6 +3,7 @@
  * kernel userspace event delivery
  *
  * Copyright (C) 2004 Red Hat, Inc.  All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2004 Novell, Inc.  All rights reserved.
  * Copyright (C) 2004 IBM, Inc. All rights reserved.
  *
@@ -617,6 +618,7 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 		}
 	}
 #endif
+
 
 exit:
 	kfree(devpath);

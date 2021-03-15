@@ -45,6 +45,8 @@ EXPORT_SYMBOL_GPL(unregister_syscore_ops);
  *
  * This function is executed with one CPU on-line and disabled interrupts.
  */
+
+
 int syscore_suspend(void)
 {
 	struct syscore_ops *ops;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/clk-provider.h>
@@ -177,8 +178,9 @@ static int clk_rpmh_aggregate_state_send_command(struct clk_rpmh *c,
 	else if (ret)
 		c->state = c->valid_state_mask;
 
-	WARN(1, "clk: %s failed to %s\n", c->res_name,
-	     enable ? "enable" : "disable");
+	if(!oops_in_progress)
+		WARN(1, "clk: %s failed to %s\n", c->res_name,
+			enable ? "enable" : "disable");
 	return ret;
 }
 

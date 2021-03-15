@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/clk.h>
@@ -184,7 +185,7 @@ static struct clk_alpha_pll npu_cc_pll1 = {
 /* 600MHz Configuration */
 static struct alpha_pll_config npu_q6ss_pll_config = {
 	.l = 0x1F,
-	.cal_l = 0x1E,
+	.cal_l = 0x3F,
 	.alpha = 0x4000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,

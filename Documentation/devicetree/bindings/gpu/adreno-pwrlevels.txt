@@ -1,0 +1,80 @@
+Qualcomm Technologies, Inc. GPU powerlevels
+
+Powerlevels are defined in sets by qcom,gpu-pwrlevels. Multiple sets (bins)
+can be defined within qcom,gpu-pwrelvel-bins. Each powerlevel defines a
+voltage, bus, bandwidth level, and a DVM value.
+
+- qcom,gpu-pwrlevel-bins:	Contains one or more qcom,gpu-pwrlevels sets
+
+Properties:
+- compatible:			Must be qcom,gpu-pwrlevel-bins
+- qcom,gpu-pwrlevels:		Defines a set of powerlevels
+
+Properties:
+- qcom,speed-bin:		Speed bin identifier for the set - must match
+				the value read from the hardware
+- qcom,initial-pwrlevel:	GPU wakeup powerlevel
+
+- qcom,gpu-pwrlevel:		A single powerlevel
+
+- qcom,ca-target-pwrlevel:
+				This value indicates which qcom,gpu-pwrlevel
+				to jump on in case of context aware power level
+				jump.
+Required Properties:
+- reg:				Index of the powerlevel (0 = highest perf)
+- qcom,gpu-freq			GPU frequency for the powerlevel (in Hz)
+- qcom,bus-freq			Index to a bus level (defined by the bus
+				settings).
+
+- qcom,bus-freq-ddrX		If specified, define the DDR specific bus
+				frequency for the power level.  X will be the
+				return value from of_fdt_get_ddrtype().
+
+Optional Properties:
+- qcom,bus-min			Minimum bus level to set for the power level
+
+- qcom,bus-min-ddrX		If specified, define the DDR specific minimum
+				bus level for the power level.  X will be the
+				return value from of_fdt_get_ddrtype().
+
+- qcom,bus-max			maximum bus level to set for the power level
+
+- qcom,bus-max-ddrX		If specified, define the DDR specific maximum
+				bus level for the power level.  X will be the
+				return value from of_fdt_get_ddrtype().
+
+- qcom,acd-level:		Value that is used as a register setting for
+				the ACD power feature. It helps to determine
+				the threshold for when ACD activates. Zero is
+				the default value, and the setting where ACD
+				will never activate.
+Example:
+
+qcom,gpu-pwrlevel@6 {
+	reg = <6>;
+	qcom,gpu-freq = <0>;
+	qcom,bus-freq = <0>;
+	qcom,bus-min = <0>;
+	qcom,bus-max = <0>;
+	qcom,acd-level = <0xffffffff>;
+};
+
+Example for DDR4/DDR5 specific part:
+
+qcom,gpu-pwrlevel@6 {
+	reg = <6>;
+	qcom,gpu-freq = <480000000>;
+
+	/* DDR5 */
+	qcom,bus-freq-ddr8 = <10>;
+	qcom,bus-min-ddr8 = <9>;
+	qcom,bus-max-ddr8 = <11>;
+
+	/* DDR 4 */
+	qcom,bus-freq-ddr7 = <9>;
+	qcom,bus-min-ddr7 = <7>;
+	qcom,bus-max-ddr7 = <9>;
+
+	qcom,acd-level = <0xffffffff>;
+};

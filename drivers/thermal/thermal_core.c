@@ -23,6 +23,7 @@
 #include <net/genetlink.h>
 #include <linux/suspend.h>
 
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/thermal.h>
 
@@ -52,6 +53,8 @@ static bool power_off_triggered;
 static struct thermal_governor *def_governor;
 
 static struct workqueue_struct *thermal_passive_wq;
+
+
 
 /*
  * Governor section: set of functions to handle thermal governors

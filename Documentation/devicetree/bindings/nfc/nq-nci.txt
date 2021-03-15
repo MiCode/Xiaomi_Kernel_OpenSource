@@ -1,0 +1,55 @@
+Qualcomm Technologies, Inc NQxxxx NFC NCI device
+
+Near Field Communication (NFC) device is based on NFC Controller Interface (NCI)
+
+Required properties:
+
+- compatible: "qcom,nq-nci"
+- reg: NCI i2c slave address.
+- qcom,nq-ven: specific gpio for hardware reset.
+- qcom,nq-irq: specific gpio for read interrupt.
+- qcom,nq-firm: gpio for firmware download
+- qcom,nq-clkreq: gpio for clock
+- interrupt-parent: Should be phandle for the interrupt controller
+                    that services interrupts for this device.
+- interrupts: Nfc read interrupt,gpio-clk-req interrupt
+
+
+Recommended properties:
+
+- interrupt-names: names of interrupts, should include "nfc_irq", used for reference
+
+
+Optional properties:
+
+- pinctrl-names, pinctrl-0, pincntrl-1: references to our pincntrl settings
+- clocks, clock-names: must contain the NQxxxx's core clock.
+- qcom,nq-esepwr: gpio to control power of secure element
+- qcom,nq-vdd-1p8-supply: name of LDO to which NFC is connected
+- qcom,nq-vdd-1p8-voltage: min and max voltage(in uV) requirement for NFC
+- qcom,nq-vdd-1p8-current: max current(in uA) expected by NFC
+- qcom,clk-src: NFC clock for antenna
+
+Example:
+
+	nq-nci@2b {
+		compatible = "qcom,nq-nci";
+		reg = <0x2b>;
+		qcom,nq-irq = <&tlmm 29 0x00>;
+		qcom,nq-ven = <&tlmm 30 0x00>;
+		qcom,nq-firm = <&tlmm 93 0x00>;
+		qcom,nq-clkreq = <&pm8998_gpios 21 0x00>;
+		qcom,nq-esepwr = <&tlmm 116 0x00>;
+		qcom,nq-vdd-1p8-supply = <&L11A>;
+		qcom,nq-vdd-1p8-voltage = <1800000 1800000>;
+		qcom,nq-vdd-1p8-current = <157000>;
+		qcom,clk-src = "BBCLK2";
+		interrupt-parent = <&tlmm>;
+		interrupts = <29 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active","nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_disable_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_disable_suspend>;
+		clocks = <&clock_rpm clk_bb_clk2_pin>;
+		clock-names = "ref_clk";
+	};

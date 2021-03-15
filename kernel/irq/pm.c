@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file contains power management functions related to interrupts.
  */
@@ -10,8 +11,8 @@
 #include <linux/interrupt.h>
 #include <linux/suspend.h>
 #include <linux/syscore_ops.h>
-
 #include "internals.h"
+
 
 bool irq_pm_check_wakeup(struct irq_desc *desc)
 {

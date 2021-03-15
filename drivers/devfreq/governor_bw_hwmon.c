@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2013-2018, 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "bw-hwmon: " fmt
@@ -166,7 +167,7 @@ static DEVICE_ATTR(__attr, 0644, show_list_##__attr, store_list_##__attr)
 #define MAX_MS	500U
 
 #define SAMPLE_MIN_MS	1U
-#define SAMPLE_MAX_MS	50U
+#define SAMPLE_MAX_MS	600U
 
 /* Returns MBps of read/writes for the sampling window. */
 static unsigned long bytes_to_mbps(unsigned long long bytes, unsigned int us)
@@ -779,7 +780,6 @@ static ssize_t sample_ms_store(struct device *dev,
 	ret = kstrtoint(buf, 10, &val);
 	if (ret)
 		return ret;
-
 	val = max(val, SAMPLE_MIN_MS);
 	val = min(val, SAMPLE_MAX_MS);
 	if (val > df->profile->polling_ms)
@@ -981,7 +981,7 @@ int register_bw_hwmon(struct device *dev, struct bw_hwmon *hwmon)
 	node->decay_rate = 90;
 	node->io_percent = 16;
 	node->bw_step = 190;
-	node->sample_ms = 50;
+	node->sample_ms = 200;
 	node->up_scale = 0;
 	node->up_thres = 10;
 	node->down_thres = 0;
