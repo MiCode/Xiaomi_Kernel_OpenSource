@@ -27,7 +27,22 @@
 	(GH_RM_MEM_NOTIFY_RECIPIENT_SHARED |\
 	 GH_RM_MEM_NOTIFY_OWNER_RELEASED | GH_RM_MEM_NOTIFY_OWNER_ACCEPTED)
 
+static DEFINE_SPINLOCK(gh_vm_table_lock);
 static struct gh_vm_property gh_vm_table[GH_VM_MAX];
+
+void gh_init_vm_prop_table(void)
+{
+	size_t vm_name;
+
+	spin_lock(&gh_vm_table_lock);
+
+	gh_vm_table[GH_SELF_VM].vmid = 0;
+
+	for (vm_name = GH_SELF_VM + 1; vm_name < GH_VM_MAX; vm_name++)
+		gh_vm_table[vm_name].vmid = GH_VMID_INVAL;
+
+	spin_unlock(&gh_vm_table_lock);
+}
 
 int gh_update_vm_prop_table(enum gh_vm_names vm_name,
 			struct gh_vm_property *vm_prop)
@@ -35,8 +50,11 @@ int gh_update_vm_prop_table(enum gh_vm_names vm_name,
 	if (vm_prop->vmid < 0)
 		return -EINVAL;
 
-	if (vm_prop->vmid)
+	if (vm_prop->vmid) {
+		spin_lock(&gh_vm_table_lock);
 		gh_vm_table[vm_name].vmid = vm_prop->vmid;
+		spin_unlock(&gh_vm_table_lock);
+	}
 
 	if (vm_prop->guid)
 		gh_vm_table[vm_name].guid = vm_prop->guid;
@@ -734,7 +752,8 @@ int gh_rm_vm_alloc_vmid(enum gh_vm_names vm_name, int *vmid)
 	/* Look up for the vm_name<->vmid pair if already present.
 	 * If so, return.
 	 */
-	if (gh_vm_table[vm_name].vmid || vm_name == GH_SELF_VM) {
+	if (gh_vm_table[vm_name].vmid != GH_VMID_INVAL ||
+		vm_name == GH_SELF_VM) {
 		pr_err("%s: VM_ALLOCATE already called for this VM\n",
 			__func__);
 		return -EINVAL;

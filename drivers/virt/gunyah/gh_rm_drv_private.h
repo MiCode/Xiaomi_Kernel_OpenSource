@@ -337,6 +337,7 @@ struct gh_mem_notify_req_payload {
 /* End Message ID headers */
 
 /* Common function declerations */
+void gh_init_vm_prop_table(void);
 int gh_update_vm_prop_table(enum gh_vm_names vm_name,
 			struct gh_vm_property *vm_prop);
 void *gh_rm_call(gh_rm_msgid_t message_id,

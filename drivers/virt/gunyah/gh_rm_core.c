@@ -1009,6 +1009,8 @@ static int gh_vm_probe(struct device *dev, struct device_node *hyp_root)
 	struct gh_vm_property temp_property = {0};
 	int vmid, owner_vmid, ret;
 
+	gh_init_vm_prop_table();
+
 	node = of_find_compatible_node(hyp_root, NULL, "qcom,gunyah-vm-id-1.0");
 	if (IS_ERR_OR_NULL(node)) {
 		node = of_find_compatible_node(hyp_root, NULL, "qcom,haven-vm-id-1.0");
