@@ -2091,6 +2091,7 @@ static void gsi_rndis_command_complete(struct usb_ep *ep,
 		struct usb_request *req)
 {
 	struct f_gsi *gsi = req->context;
+	struct usb_composite_dev *cdev = gsi->function.config->cdev;
 	int status;
 	u32 MsgType;
 
@@ -2133,6 +2134,7 @@ static void gsi_rndis_command_complete(struct usb_ep *ep,
 			gsi_rndis_flow_ctrl_enable(!(*gsi->params->filter),
 					gsi->params);
 	}
+	cdev->setup_pending = false;
 }
 
 static void
@@ -2182,8 +2184,10 @@ invalid:
 static void gsi_ctrl_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_gsi *gsi = req->context;
+	struct usb_composite_dev *cdev = gsi->function.config->cdev;
 
 	gsi_ctrl_send_cpkt_tomodem(gsi, req->buf, req->actual);
+	cdev->setup_pending = false;
 }
 
 static void gsi_ctrl_reset_cmd_complete(struct usb_ep *ep,
@@ -2403,6 +2407,8 @@ invalid:
 		value = usb_ep_queue(cdev->gadget->ep0, req, GFP_ATOMIC);
 		if (value < 0)
 			log_event_err("response on err %d", value);
+		else
+			cdev->setup_pending = true;
 	}
 
 	/* device either stalls (value < 0) or reports success */
