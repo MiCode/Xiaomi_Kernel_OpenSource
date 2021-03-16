@@ -1096,6 +1096,18 @@ static void dwc3_core_stop_active_transfer(struct dwc3_ep *dep, bool force)
 	mdwc->hw_eps[dep->number].flags &= ~DWC3_MSM_HW_EP_TRANSFER_STARTED;
 }
 
+int dwc3_core_stop_hw_active_transfers(struct dwc3 *dwc)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	int i;
+
+	for (i = 0; i < DWC3_ENDPOINTS_NUM; i++)
+		if (mdwc->hw_eps[i].mode == USB_EP_GSI)
+			dwc3_core_stop_active_transfer(dwc->eps[i], true);
+
+	return 0;
+}
+
 #if IS_ENABLED(CONFIG_USB_DWC3_GADGET) || IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
 /**
  * Configure the DBM with the BAM's data fifo.

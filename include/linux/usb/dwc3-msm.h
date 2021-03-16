@@ -154,6 +154,7 @@ int dwc3_msm_release_ss_lane(struct device *dev);
 int msm_ep_update_ops(struct usb_ep *ep);
 int msm_ep_clear_ops(struct usb_ep *ep);
 int msm_ep_set_mode(struct usb_ep *ep, enum usb_hw_ep_mode mode);
+int dwc3_core_stop_hw_active_transfers(struct dwc3 *dwc);
 int dwc3_msm_kretprobe_init(void);
 void dwc3_msm_kretprobe_exit(void);
 #else
@@ -184,6 +185,8 @@ int msm_ep_clear_ops(struct usb_ep *ep)
 { return -ENODEV; }
 int msm_ep_set_mode(struct usb_ep *ep, enum usb_hw_ep_mode mode)
 { return -ENODEV; }
+inline int dwc3_core_stop_hw_active_transfers(struct dwc3 *dwc)
+{ return 0; }
 int dwc3_msm_kretprobe_init(void)
 { return 0; }
 void dwc3_msm_kretprobe_exit(void)
