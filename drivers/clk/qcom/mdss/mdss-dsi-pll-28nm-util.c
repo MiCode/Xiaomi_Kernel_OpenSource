@@ -590,6 +590,7 @@ unsigned long vco_28nm_recalc_rate(struct clk_hw *hw,
 
 	if (dsi_pll_lock_status(rsc)) {
 		rsc->handoff_resources = true;
+		rsc->cont_splash_enabled = true;
 		rsc->pll_on = true;
 		vco_rate = vco_get_rate(vco);
 	} else {
@@ -629,6 +630,10 @@ int vco_28nm_prepare(struct clk_hw *hw)
 		MDSS_PLL_REG_W(rsc->pll_base,
 				DSI_PHY_PLL_UNIPHY_PLL_VREG_CFG,
 				rsc->cached_vreg_cfg);
+	} else if (!rsc->handoff_resources && rsc->cont_splash_enabled) {
+		MDSS_PLL_REG_W(rsc->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_VREG_CFG,
+			rsc->cached_vreg_cfg);
 	}
 
 	rc = dsi_pll_enable(vco);
