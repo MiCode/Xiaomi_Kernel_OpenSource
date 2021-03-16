@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.*/
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -780,6 +780,7 @@ static void mhi_netdev_push_skb(struct mhi_netdev *mhi_netdev,
 			mhi_result->bytes_xferd, mhi_netdev->mru);
 	skb->dev = mhi_netdev->ndev;
 	skb->protocol = mhi_netdev_ip_type_trans(*(u8 *)mhi_buf->buf);
+	skb_set_mac_header(skb, 0);
 	netif_receive_skb(skb);
 }
 
@@ -815,6 +816,7 @@ static void mhi_netdev_xfer_dl_cb(struct mhi_device *mhi_dev,
 	/* we support chaining */
 	skb = alloc_skb(0, GFP_ATOMIC);
 	if (likely(skb)) {
+		skb_set_mac_header(skb, 0);
 		skb_add_rx_frag(skb, 0, mhi_buf->page, 0,
 				mhi_result->bytes_xferd, mhi_netdev->mru);
 		/* this is first on list */
