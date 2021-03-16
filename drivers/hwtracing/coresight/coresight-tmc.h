@@ -275,7 +275,7 @@ struct tmc_sg_table {
 void tmc_wait_for_tmcready(struct tmc_drvdata *drvdata);
 void tmc_flush_and_stop(struct tmc_drvdata *drvdata);
 void tmc_enable_hw(struct tmc_drvdata *drvdata);
-extern int tmc_etr_bam_init(struct amba_device *adev,
+extern int tmc_etr_usb_init(struct amba_device *adev,
 		struct tmc_drvdata *drvdata);
 void tmc_disable_hw(struct tmc_drvdata *drvdata);
 u32 tmc_get_memwidth_mask(struct tmc_drvdata *drvdata);
@@ -301,6 +301,7 @@ extern const struct coresight_ops tmc_etr_cs_ops;
 extern const struct csr_set_atid_op csr_atid_ops;
 ssize_t tmc_etr_get_sysfs_trace(struct tmc_drvdata *drvdata,
 				loff_t pos, size_t len, char **bufpp);
+long tmc_sg_get_rwp_offset(struct tmc_drvdata *drvdata);
 
 
 #define TMC_REG_PAIR(name, lo_off, hi_off)				\

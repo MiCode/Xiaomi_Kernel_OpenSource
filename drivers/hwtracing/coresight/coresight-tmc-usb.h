@@ -15,6 +15,12 @@
 #define TMC_USB_BAM_PIPE_INDEX	0
 #define TMC_USB_BAM_NR_PIPES	2
 
+enum tmc_etr_usb_mode {
+	TMC_ETR_USB_NONE,
+	TMC_ETR_USB_BAM_TO_BAM,
+	TMC_ETR_USB_SW,
+};
+
 struct tmc_usb_bam_data {
 	struct sps_bam_props	props;
 	unsigned long		handle;
@@ -32,6 +38,7 @@ struct tmc_usb_data {
 	struct usb_qdss_ch	*usbch;
 	struct tmc_usb_bam_data	*bamdata;
 	bool			enable_to_bam;
+	enum tmc_etr_usb_mode	usb_mode;
 	struct tmc_drvdata	*tmcdrvdata;
 };
 
