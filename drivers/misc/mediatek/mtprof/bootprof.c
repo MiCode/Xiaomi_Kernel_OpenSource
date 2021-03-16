@@ -65,7 +65,8 @@ static unsigned long log_count;
 static DEFINE_SPINLOCK(bootprof_lock);
 
 static bool enabled;
-static int bootprof_lk_t, bootprof_pl_t, bootprof_logo_t;
+static int bf_lk_t, bf_pl_t, bf_logo_t;
+static int bf_bl2ext_t, bf_gz_t, bf_atf_t;
 static u64 timestamp_on, timestamp_off;
 static bool boot_finish;
 
@@ -73,12 +74,10 @@ static struct list_head initcall_list;
 static DEFINE_SPINLOCK(initcall_lock);
 atomic_t initcall_num = ATOMIC_INIT(0);
 
-#ifndef MODULE
-/*Get info form cmdline (Build-in only)*/
-module_param_named(pl_t, bootprof_pl_t, int, 0644);
-module_param_named(lk_t, bootprof_lk_t, int, 0644);
-module_param_named(logo_t, bootprof_logo_t, int, 0644);
-#endif
+/*Get info form cmdline*/
+module_param_named(pl_t, bf_pl_t, int, 0644);
+module_param_named(lk_t, bf_lk_t, int, 0644);
+module_param_named(logo_t, bf_logo_t, int, 0644);
 
 bool mt_boot_finish(void)
 {
@@ -165,17 +164,18 @@ EXPORT_SYMBOL_GPL(bootprof_log_boot);
 static void bootprof_bootloader(void)
 {
 	struct device_node *node;
-	int err = 0;
 
 	node = of_find_node_by_name(NULL, "bootprof");
 	if (node) {
-		err |= of_property_read_s32(node, "pl_t", &bootprof_pl_t);
-		err |= of_property_read_s32(node, "lk_t", &bootprof_lk_t);
-		err |= of_property_read_s32(node, "lk_logo_t",
-						&bootprof_logo_t);
+		of_property_read_s32(node, "pl_t", &bf_pl_t);
+		of_property_read_s32(node, "lk_t", &bf_lk_t);
+		of_property_read_s32(node, "logo_t", &bf_logo_t);
+		of_property_read_s32(node, "bl2_ext_t", &bf_bl2ext_t);
+		of_property_read_s32(node, "atf_t", &bf_atf_t);
+		of_property_read_s32(node, "gz_t", &bf_gz_t);
 
-		pr_info("BOOTPROF: DT(Err:0x%x) pl_t=%d, lk_t=%d, lk_logo_t=%d\n",
-			err, bootprof_pl_t, bootprof_lk_t, bootprof_logo_t);
+		pr_info("BOOTPROF: pl=%d, bl2ext=%d ,lk=%d, logo=%d, atf=%d, gz=%d\n",
+			bf_pl_t, bf_bl2ext_t, bf_lk_t, bf_logo_t, bf_atf_t, bf_gz_t);
 	}
 }
 
@@ -495,18 +495,22 @@ static int mt_bootprof_show(struct seq_file *m, void *v)
 	seq_printf(m, "%-10d Kernel Module Total\n", atomic_read(&initcall_num));
 	seq_puts(m, "----------------------------------------\n");
 
-	if (bootprof_pl_t > 0 && bootprof_lk_t > 0) {
-		seq_printf(m, "%10d        : %s\n", bootprof_pl_t, "preloader");
-		if (bootprof_logo_t > 0) {
-			seq_printf(m, "%10d        : %s (%s: %d)\n",
-			bootprof_lk_t, "lk", "Start->Show logo",
-			bootprof_logo_t);
-		} else {
-			seq_printf(m, "%10d        : %s\n",
-			bootprof_lk_t, "lk");
-		}
-		seq_puts(m, "----------------------------------------\n");
+	seq_printf(m, "%10d        : %s\n", bf_pl_t, "preloader");
+
+	if (bf_bl2ext_t > 0) {
+		seq_printf(m, "%10d        : %s (%s: %d)\n", bf_bl2ext_t,
+						"bl2_ext", "Start->Show logo", bf_logo_t);
+		seq_printf(m, "%10d        : %s\n", bf_lk_t, "lk");
+	} else {
+		seq_printf(m, "%10d        : %s (%s: %d)\n", bf_lk_t,
+						"lk", "Start->Show logo", bf_logo_t);
 	}
+	if (bf_atf_t > 0)
+		seq_printf(m, "%10d        : %s\n", bf_atf_t, "atf");
+	if (bf_gz_t > 0)
+		seq_printf(m, "%10d        : %s\n", bf_gz_t, "gz");
+
+	seq_puts(m, "----------------------------------------\n");
 
 	seq_printf(m, "%10lld.%06ld : ON (Threshold:%5lldms)\n",
 		   msec_high(timestamp_on), msec_low(timestamp_on),
