@@ -236,6 +236,7 @@ static int atl2_hw_reset(struct atl_hw *hw)
 	u32 rbl_status = 0;
 	u32 rbl_request;
 	int err = 0;
+	int boot_time;
 
 	atl_lock_fw(hw);
 
@@ -260,15 +261,18 @@ static int atl2_hw_reset(struct atl_hw *hw)
 	atl_write(hw, ATL2_MIF_BOOT_REG_ADR, rbl_request);
 
 	/* Wait for RBL boot */
-	busy_wait(200, mdelay(1), rbl_status,
-		  atl_read(hw, ATL2_MIF_BOOT_REG_ADR),
-		  ((rbl_status & ATL2_BOOT_STARTED) == 0) ||
-		  (rbl_status == 0xffffffff));
+	boot_time = busy_wait(2000, mdelay(1), rbl_status,
+			      atl_read(hw, ATL2_MIF_BOOT_REG_ADR),
+			      ((rbl_status & ATL2_BOOT_STARTED) == 0) ||
+			      (rbl_status == 0xffffffff));
 	if (!(rbl_status & ATL2_BOOT_STARTED)) {
 		err = -ETIME;
 		atl_dev_err("Boot code hung, rbl_status %#x", rbl_status);
 		goto unlock;
 	}
+	if (boot_time > 200)
+		atl_dev_err("Boot code took %dms. Thats unexpected and more than 200ms. Will continue.\n",
+			    boot_time);
 
 next_turn:
 	busy_wait(1000, mdelay(1), rbl_complete, atl2_mcp_boot_complete(hw),
