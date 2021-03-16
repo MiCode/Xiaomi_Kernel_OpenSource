@@ -7,6 +7,7 @@
 #include <linux/coresight-cti.h>
 #include <linux/workqueue.h>
 #include <linux/sched/clock.h>
+#include <linux/regulator/consumer.h>
 #include <soc/qcom/sysmon.h>
 #include "esoc-mdm.h"
 
@@ -1081,6 +1082,54 @@ err_destroy_wrkq:
 	return ret;
 }
 
+static int lemur_setup_regulators(struct mdm_ctrl *mdm)
+{
+	int len;
+	int i, rc;
+	char uv_ua[50];
+	u32 uv_ua_vals[2];
+	const char *reg_name;
+
+	mdm->reg_cnt = of_property_count_strings(mdm->dev->of_node, "reg-names");
+	if (mdm->reg_cnt <= 0) {
+		dev_err(mdm->dev, "No regulators for this device\n");
+		esoc_mdm_log("No regulators for %s device\n", mdm->esoc->name);
+		return 0;
+	}
+
+	mdm->regs = devm_kzalloc(mdm->dev, sizeof(struct reg_info) * mdm->reg_cnt, GFP_KERNEL);
+	if (!mdm->regs)
+		return -ENOMEM;
+
+	for (i = 0; i < mdm->reg_cnt; i++) {
+		of_property_read_string_index(mdm->dev->of_node, "reg-names", i, &reg_name);
+
+		mdm->regs[i].reg = devm_regulator_get(mdm->dev, reg_name);
+		if (IS_ERR(mdm->regs[i].reg)) {
+			dev_err(mdm->dev, "failed to get %s reg\n", reg_name);
+			return PTR_ERR(mdm->regs[i].reg);
+		}
+
+		/* Read current(uA) and voltage(uV) value */
+		snprintf(uv_ua, sizeof(uv_ua), "%s-uV-uA", reg_name);
+		if (!of_find_property(mdm->dev->of_node, uv_ua, &len))
+			continue;
+
+		rc = of_property_read_u32_array(mdm->dev->of_node, uv_ua, uv_ua_vals,
+						ARRAY_SIZE(uv_ua_vals));
+		if (rc) {
+			dev_err(mdm->dev, "Failed to read uVuA value(rc:%d)\n", rc);
+			return rc;
+		}
+
+		if (uv_ua_vals[0] > 0)
+			mdm->regs[i].uV = uv_ua_vals[0];
+		if (uv_ua_vals[1] > 0)
+			mdm->regs[i].uA = uv_ua_vals[1];
+	}
+	return 0;
+}
+
 static int lemur_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
 			  struct platform_device *pdev)
 {
@@ -1092,6 +1141,12 @@ static int lemur_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
 		dev_err(mdm->dev, "Hardware setup failed for lemur\n");
 		esoc_mdm_log("Hardware setup failed for lemur\n");
 		return ret;
+	}
+
+	ret = lemur_setup_regulators(mdm);
+	if (ret) {
+		dev_err(mdm->dev, "Failed to setup regulators: %d\n", ret);
+		esoc_mdm_log("Failed to setup regulators: %d\n", ret);
 	}
 
 	mdm->esoc->name = LEMUR_LABEL;

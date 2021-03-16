@@ -81,6 +81,8 @@ struct mdm_ctrl {
 	int errfatal_irq;
 	int status_irq;
 	int pblrdy_irq;
+	struct reg_info *regs;
+	int reg_cnt;
 	int debug;
 	int init;
 	bool debug_fail;
