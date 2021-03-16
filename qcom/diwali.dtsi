@@ -1,4 +1,5 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/soc/qcom,ipcc.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. Diwali";
@@ -272,6 +273,15 @@
 			reg = <0x1742d000 0x1000>;
 			status = "disabled";
 		};
+	};
+
+	ipcc_mproc: qcom,ipcc@ed18000 {
+		compatible = "qcom,ipcc";
+		reg = <0xed18000 0x1000>;
+		interrupts = <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		#mbox-cells = <2>;
 	};
 };
 
