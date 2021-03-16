@@ -7347,18 +7347,19 @@ static int msm_pcie_drv_send_rpmsg(struct msm_pcie_dev_t *pcie_dev,
 
 	ret = rpmsg_trysend(rpdev->ept, msg, sizeof(*msg));
 	if (ret) {
-		PCIE_ERR(pcie_dev, "PCIe: RC%d: DRV: failed to send rpmsg\n",
-			pcie_dev->rc_idx);
+		PCIE_ERR(pcie_dev,
+			 "PCIe: RC%d: DRV: failed to send rpmsg, ret:%d\n",
+			pcie_dev->rc_idx, ret);
 		goto out;
 	}
 
 	ret = wait_for_completion_timeout(&drv_info->completion,
 					msecs_to_jiffies(drv_info->timeout_ms));
 	if (!ret) {
-		PCIE_ERR(pcie_dev,
-			"PCIe: RC%d: DRV: completion timeout for rpmsg\n",
-			pcie_dev->rc_idx);
 		ret = -ETIMEDOUT;
+		PCIE_ERR(pcie_dev,
+			"PCIe: RC%d: DRV: rpmsg completion timeout, ret:%d\n",
+			pcie_dev->rc_idx, ret);
 		goto out;
 	}
 
@@ -7379,6 +7380,7 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	struct msm_pcie_clk_info_t *clk_info;
 	u32 clkreq_override_en = 0;
 	int ret, i, rpmsg_ret = 0;
+	u32 val;
 
 	mutex_lock(&pcie_dev->recovery_lock);
 	mutex_lock(&pcie_dev->setup_lock);
@@ -7511,6 +7513,10 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 
 	enable_irq(pcie_dev->irq[MSM_PCIE_INT_GLOBAL_INT].num);
 
+	val = readl_relaxed(pcie_dev->parf + PCIE20_PARF_LTSSM);
+	PCIE_DBG(pcie_dev, "PCIe RC%d: LTSSM_STATE: %s\n",
+		pcie_dev->rc_idx, TO_LTSSM_STR(val & 0x3f));
+
 	mutex_unlock(&pcie_dev->setup_lock);
 	mutex_unlock(&pcie_dev->recovery_lock);
 
@@ -7523,6 +7529,7 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 	struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
 	struct msm_pcie_clk_info_t *clk_info;
 	int ret, i;
+	u32 val;
 
 	if (!drv_info->ep_connected) {
 		PCIE_ERR(pcie_dev,
@@ -7535,6 +7542,10 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 
 	/* disable global irq - no more linkdown/aer detection */
 	disable_irq(pcie_dev->irq[MSM_PCIE_INT_GLOBAL_INT].num);
+
+	val = readl_relaxed(pcie_dev->parf + PCIE20_PARF_LTSSM);
+	PCIE_DBG(pcie_dev, "PCIe RC%d: LTSSM_STATE: %s\n",
+		pcie_dev->rc_idx, TO_LTSSM_STR(val & 0x3f));
 
 	ret = msm_pcie_drv_send_rpmsg(pcie_dev, &drv_info->drv_enable);
 	if (ret) {
