@@ -102,6 +102,10 @@
 	status = "ok";
 };
 
+&battery_charger {
+	qcom,thermal-mitigation = <3000000 1500000 1000000 500000>;
+};
+
 &qupv3_se9_i2c {
 	status = "ok";
 	qcom,clk-freq-out = <1000000>;
