@@ -23,7 +23,6 @@
 #include "stmmac.h"
 #include "stmmac_platform.h"
 #include "dwmac-qcom-ethqos.h"
-
 #include "stmmac_ptp.h"
 
 #define RGMII_IO_MACRO_DEBUG1		0x20
@@ -113,6 +112,7 @@
 
 struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx = {0};
 struct plat_stmmacenet_data *plat_dat;
+struct qcom_ethqos *pethqos;
 
 inline void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos)
 {
@@ -707,6 +707,22 @@ smmu_probe_done:
 	return result;
 }
 
+static void ethqos_pps_irq_config(struct qcom_ethqos *ethqos)
+{
+	ethqos->pps_class_a_irq =
+	platform_get_irq_byname(ethqos->pdev, "ptp_pps_irq_0");
+	if (ethqos->pps_class_a_irq < 0) {
+		if (ethqos->pps_class_a_irq != -EPROBE_DEFER)
+			ETHQOSERR("class_a_irq config info not found\n");
+	}
+	ethqos->pps_class_b_irq =
+	platform_get_irq_byname(ethqos->pdev, "ptp_pps_irq_1");
+	if (ethqos->pps_class_b_irq < 0) {
+		if (ethqos->pps_class_b_irq != -EPROBE_DEFER)
+			ETHQOSERR("class_b_irq config info not found\n");
+	}
+}
+
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -814,6 +830,21 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		ethqos_phy_intr_enable(ethqos);
 	else
 		ETHQOSERR("Phy interrupt configuration failed");
+
+	if (ethqos->emac_ver == EMAC_HW_v2_3_2_RG) {
+		ethqos_pps_irq_config(ethqos);
+		create_pps_interrupt_device_node(&ethqos->avb_class_a_dev_t,
+						 &ethqos->avb_class_a_cdev,
+						 &ethqos->avb_class_a_class,
+						 AVB_CLASS_A_POLL_DEV_NODE);
+
+		create_pps_interrupt_device_node(&ethqos->avb_class_b_dev_t,
+						 &ethqos->avb_class_b_cdev,
+						 &ethqos->avb_class_b_class,
+						 AVB_CLASS_B_POLL_DEV_NODE);
+	}
+
+	pethqos = ethqos;
 	return ret;
 
 err_clk:

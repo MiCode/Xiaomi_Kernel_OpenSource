@@ -328,6 +328,7 @@ enum stmmac_state {
 
 #define GET_MEM_PDEV_DEV (priv->plat->stmmac_emb_smmu_ctx.valid ? \
 			&priv->plat->stmmac_emb_smmu_ctx.smmu_pdev->dev : priv->device)
+int ethqos_handle_prv_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
 
 int stmmac_mdio_unregister(struct net_device *ndev);
 int stmmac_mdio_register(struct net_device *ndev);
