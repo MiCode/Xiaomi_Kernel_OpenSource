@@ -777,7 +777,7 @@ config QCOM_FSA4480_I2C
 
 config QCOM_CDSP_RM
 	tristate "CDSP request manager"
-	depends on QCOM_GLINK
+	depends on RPMSG
 	help
 	  This driver serves CDSP requests for CPU L3 clock and CPU QoS thus
 	  improving CDSP performance. Using this driver, CDSP can set appropriate
