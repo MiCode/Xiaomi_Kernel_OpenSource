@@ -62,6 +62,7 @@
 #define	PTP_TCR_SNAPTYPSEL_1	BIT(16)
 /* Enable MAC address for PTP Frame Filtering */
 #define	PTP_TCR_TSENMACADDR	BIT(18)
+#define	PTP_TCR_AV8021ASMEN	BIT(28)
 
 /* SSIR defines */
 #define	PTP_SSIR_SSINC_MASK		0xff
