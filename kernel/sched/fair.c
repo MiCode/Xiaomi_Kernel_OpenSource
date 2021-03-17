@@ -6781,7 +6781,7 @@ unlock:
 	if (prev_delta == ULONG_MAX)
 		return best_energy_cpu;
 
-	if ((prev_delta - best_delta) > ((prev_delta + base_energy) >> 4))
+	if (prev_delta > best_delta)
 		return best_energy_cpu;
 
 	return prev_cpu;
