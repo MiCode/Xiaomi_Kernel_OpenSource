@@ -470,7 +470,7 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
 
 	seq = treq->rcv_isn + 1;
 	newtp->rcv_wup = seq;
-	newtp->copied_seq = seq;
+	WRITE_ONCE(newtp->copied_seq, seq);
 	WRITE_ONCE(newtp->rcv_nxt, seq);
 	newtp->segs_in = 1;
 
@@ -510,7 +510,7 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
 	newtp->app_limited = ~0U;
 
 	tcp_init_xmit_timers(newsk);
-	newtp->write_seq = newtp->pushed_seq = treq->snt_isn + 1;
+	WRITE_ONCE(newtp->write_seq, newtp->pushed_seq = treq->snt_isn + 1);
 
 	newtp->rx_opt.saw_tstamp = 0;
 
