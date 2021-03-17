@@ -32,6 +32,8 @@ struct gh_vm_struct {
 	struct notifier_block rm_nb;
 };
 
+SRCU_NOTIFIER_HEAD_STATIC(gh_vm_loader_notifier);
+
 static struct gh_vm_loader_name_map gh_vm_loader_name_map[] = {
 	{GH_PRIMARY_VM, "pvm"},
 	{GH_TRUSTED_VM, "trustedvm"},
@@ -40,6 +42,36 @@ static struct gh_vm_loader_name_map gh_vm_loader_name_map[] = {
 static struct gh_vm_loader_info *gh_vm_loader_info[] = {
 	[GH_VM_TYPE_SEC] = &gh_vm_sec_loader_info,
 };
+
+int gh_vm_loader_register_notifier(struct notifier_block *nb)
+{
+	return srcu_notifier_chain_register(&gh_vm_loader_notifier, nb);
+}
+EXPORT_SYMBOL(gh_vm_loader_register_notifier);
+
+int gh_vm_loader_unregister_notifier(struct notifier_block *nb)
+{
+	return srcu_notifier_chain_unregister(&gh_vm_loader_notifier, nb);
+}
+EXPORT_SYMBOL(gh_vm_loader_unregister_notifier);
+
+void
+gh_vm_loader_notify_clients(struct gh_vm_struct *vm_struct, unsigned long val)
+{
+	struct gh_vm_loader_notif loader_notif;
+	struct gh_vm_loader_name_map *name_map;
+
+	if (!vm_struct)
+		return;
+
+	name_map = vm_struct->name_map;
+
+	loader_notif.loader = vm_struct->type;
+	loader_notif.name_val = name_map->val;
+	loader_notif.vm_name = name_map->str;
+
+	srcu_notifier_call_chain(&gh_vm_loader_notifier, val, &loader_notif);
+}
 
 enum gh_vm_names gh_vm_loader_get_name_val(struct gh_vm_struct *vm_struct)
 {
@@ -320,3 +352,4 @@ module_init(gh_vm_loader_init);
 module_exit(gh_vm_loader_exit);
 
 MODULE_LICENSE("GPL v2");
+

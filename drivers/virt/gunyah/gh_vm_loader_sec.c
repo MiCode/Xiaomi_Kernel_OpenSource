@@ -220,6 +220,8 @@ static int gh_vm_loader_sec_start(struct gh_vm_struct *vm_struct)
 		goto err_unlock;
 	}
 
+	gh_vm_loader_notify_clients(vm_struct, GH_VM_LOADER_SEC_BEFORE_POWERUP);
+
 	vm_name_val = gh_vm_loader_get_name_val(vm_struct);
 	ret = gh_rm_vm_alloc_vmid(vm_name_val, &vm_dev->vmid);
 	if (ret < 0) {
@@ -260,6 +262,8 @@ static int gh_vm_loader_sec_start(struct gh_vm_struct *vm_struct)
 	if (ret)
 		goto err_reset_vm;
 
+	gh_vm_loader_notify_clients(vm_struct, GH_VM_LOADER_SEC_AFTER_POWERUP);
+
 	mutex_unlock(&sec_vm_struct->vm_lock);
 
 	return 0;
@@ -273,6 +277,7 @@ err_unload:
 err_dealloc_vmid:
 	gh_rm_vm_dealloc_vmid(vmid);
 err_unlock:
+	gh_vm_loader_notify_clients(vm_struct, GH_VM_LOADER_SEC_POWERUP_FAIL);
 	mutex_unlock(&sec_vm_struct->vm_lock);
 	return ret;
 }

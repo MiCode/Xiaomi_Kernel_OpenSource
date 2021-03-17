@@ -6,12 +6,16 @@
 #ifndef _GH_VM_LOADER_PRIVATE_H
 #define _GH_VM_LOADER_PRIVATE_H
 
+#include <linux/gunyah/gh_vm_loader.h>
+
 struct gh_vm_struct;
 
 const char *gh_vm_loader_get_name(struct gh_vm_struct *vm_struct);
 enum gh_vm_names gh_vm_loader_get_name_val(struct gh_vm_struct *vm_struct);
 void gh_vm_loader_set_loader_data(struct gh_vm_struct *vm_struct, void *data);
 void *gh_vm_loader_get_loader_data(struct gh_vm_struct *vm_struct);
+void
+gh_vm_loader_notify_clients(struct gh_vm_struct *vm_struct, unsigned long val);
 void gh_vm_loader_destroy_vm(struct gh_vm_struct *vm_struct);
 
 struct gh_vm_loader_info {
