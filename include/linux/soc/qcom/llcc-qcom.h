@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -30,12 +30,14 @@
 #define LLCC_NPU         23
 #define LLCC_WLNHW       24
 #define LLCC_PIMEM       25
+#define LLCC_DRE         26
 #define LLCC_CVP         28
 #define LLCC_MDMVPE      29
 #define LLCC_APTCM       30
 #define LLCC_WRTCH       31
 #define LLCC_CVPFW       32
 #define LLCC_CPUSS1      33
+#define LLCC_CMPT1       34
 #define LLCC_CPUHWT      36
 #define LLCC_MDMCLD2     37
 
