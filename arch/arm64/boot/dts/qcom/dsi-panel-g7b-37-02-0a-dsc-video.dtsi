@@ -40,8 +40,8 @@
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-reset-sequence = <1 5>, <0 1>, <1 10>;
-		qcom,mdss-pan-physical-width-dimension = <700>;
-		qcom,mdss-pan-physical-height-dimension = <1540>;
+		qcom,mdss-pan-physical-width-dimension = <70>;
+		qcom,mdss-pan-physical-height-dimension = <154>;
 		qcom,cont-splash-enabled;
 		qcom,mdss-dsi-tx-eot-append;
 		qcom,dispparam-enabled;

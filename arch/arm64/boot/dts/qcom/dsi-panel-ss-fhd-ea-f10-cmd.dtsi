@@ -43,8 +43,8 @@
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-bl-dcs-type-ss-ea;
 		qcom,mdss-dsi-reset-sequence = <0 1>, <1 10>;
-		qcom,mdss-pan-physical-width-dimension = <680>;
-		qcom,mdss-pan-physical-height-dimension = <1470>;
+		qcom,mdss-pan-physical-width-dimension = <68>;
+		qcom,mdss-pan-physical-height-dimension = <147>;
 		qcom,mdss-dsi-te-pin-select = <1>;
 		qcom,mdss-dsi-wr-mem-start = <0x2c>;
 		qcom,mdss-dsi-wr-mem-continue = <0x3c>;
