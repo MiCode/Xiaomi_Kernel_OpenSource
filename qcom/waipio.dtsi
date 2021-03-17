@@ -1237,6 +1237,14 @@
 		tlmm-vm-gpio-list = <365 366 367 368 301 305 387 388>;
 	};
 
+	qcom,gh_vm_loader_sec@e0b00000 {
+		compatible = "qcom,gh-vm-loader-sec";
+		qcom,pas-id = <28>;
+		qcom,vmid = <45>;
+		qcom,firmware-name = "trustedvm";
+		memory-region = <&trust_ui_vm_mem>;
+	};
+
 	ssc_sensors: qcom,msm-ssc-sensors {
 		compatible = "qcom,msm-ssc-sensors";
 		status = "ok";
