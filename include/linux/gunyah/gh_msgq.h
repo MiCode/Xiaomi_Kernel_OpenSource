@@ -40,6 +40,7 @@ int gh_msgq_recv(void *msgq_client_desc,
 int gh_msgq_populate_cap_info(int label, u64 cap_id,
 				int direction, int irq);
 int gh_msgq_probe(struct platform_device *pdev, int label);
+int gh_msgq_reset_cap_info(enum gh_msgq_label label, int direction, int *irq);
 #else
 static inline void *gh_msgq_register(int label)
 {
@@ -66,6 +67,12 @@ static inline int gh_msgq_recv(void *msgq_client_desc,
 
 static inline int gh_msgq_populate_cap_info(int label, u64 cap_id,
 					    int direction, int irq)
+{
+	return -EINVAL;
+}
+
+static inline
+int gh_msgq_reset_cap_info(enum gh_msgq_label label, int direction, int *irq)
 {
 	return -EINVAL;
 }

@@ -37,6 +37,12 @@
 #define GH_RM_MAX_MSG_SIZE_BYTES \
 	(GH_MSGQ_MAX_MSG_SIZE_BYTES - sizeof(struct gh_rm_rpc_hdr))
 
+#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
+	#define IRQ_OFFSET 32
+#else
+	#define IRQ_OFFSET 0
+#endif
+
 struct gh_rm_connection {
 	u32 msg_id;
 	u16 seq;
@@ -70,7 +76,7 @@ static DEFINE_MUTEX(gh_virtio_mmio_fn_lock);
 static DEFINE_IDR(gh_rm_call_idr);
 static DEFINE_MUTEX(gh_rm_send_lock);
 
-static DEFINE_IDA(gh_rm_free_virq_ida);
+static DEFINE_IDR(gh_rm_free_virq_idr);
 static struct device_node *gh_rm_intc;
 static struct irq_domain *gh_rm_irq_domain;
 static u32 gh_rm_base_virq;
@@ -666,7 +672,7 @@ int gh_rm_virq_to_irq(u32 virq, u32 type)
 {
 	struct irq_fwspec fwspec = {};
 
-	if (virq < 32 || virq >= GIC_V3_SPI_MAX) {
+	if (virq < IRQ_OFFSET || virq >= GIC_V3_SPI_MAX) {
 		pr_warn("%s: expecting an SPI from RM, but got GIC IRQ %d\n",
 			__func__, virq);
 	}
@@ -674,7 +680,7 @@ int gh_rm_virq_to_irq(u32 virq, u32 type)
 	fwspec.fwnode = of_node_to_fwnode(gh_rm_intc);
 	fwspec.param_count = 3;
 	fwspec.param[0] = GIC_SPI;
-	fwspec.param[1] = virq - 32;
+	fwspec.param[1] = virq - IRQ_OFFSET;
 	fwspec.param[2] = type;
 
 	return irq_create_fwspec_mapping(&fwspec);
@@ -717,22 +723,26 @@ static int gh_rm_get_irq(struct gh_vm_get_hyp_res_resp_entry *res_entry)
 	/* Allocate and bind a new IRQ if RM-VM hasn't already done already */
 	if (virq == GH_RM_NO_IRQ_ALLOC) {
 		/* Get the next free vIRQ.
-		 * Subtract 32 from the base virq to get the base SPI.
+		 * Subtract IRQ_OFFSET from the base virq to get the base SPI.
+		 *
+		 * Assoiate the address of the idr variable itself as a lookup
+		 * ptr. This will help us to free the virq later.
 		 */
-		ret = virq = ida_alloc_range(&gh_rm_free_virq_ida,
-					gh_rm_base_virq - 32,
+		ret = virq = idr_alloc(&gh_rm_free_virq_idr,
+					&gh_rm_free_virq_idr,
+					gh_rm_base_virq - IRQ_OFFSET,
 					GIC_V3_SPI_MAX, GFP_KERNEL);
 		if (ret < 0)
 			return ret;
 
-		/* Add 32 offset to make interrupt as hwirq */
-		virq += 32;
+		/* Add IRQ_OFFSET offset to make interrupt as hwirq */
+		virq += IRQ_OFFSET;
 
 		/* Bind the vIRQ */
 		ret = gh_rm_vm_irq_accept(res_entry->virq_handle, virq);
 		if (ret < 0)
 			goto err;
-	} else if ((virq - 32) < 0) {
+	} else if ((virq - IRQ_OFFSET) < 0) {
 		/* Sanity check to make sure hypervisor is passing the correct
 		 * interrupt numbers.
 		 */
@@ -742,7 +752,7 @@ static int gh_rm_get_irq(struct gh_vm_get_hyp_res_resp_entry *res_entry)
 	return gh_rm_virq_to_irq(virq, IRQ_TYPE_EDGE_RISING);
 
 err:
-	ida_free(&gh_rm_free_virq_ida, virq - 32);
+	idr_remove(&gh_rm_free_virq_idr, virq - IRQ_OFFSET);
 	return ret;
 }
 
@@ -919,6 +929,101 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL(gh_rm_populate_hyp_res);
+
+static void
+gh_rm_put_irq(struct gh_vm_get_hyp_res_resp_entry *res_entry, int irq)
+{
+	struct irq_data *irq_data;
+	void *idr_ptr;
+	int virq;
+
+	if (irq <= 0)
+		return;
+
+	irq_data = irq_get_irq_data(irq);
+	if (!irq_data)
+		return;
+
+	irq_dispose_mapping(irq);
+
+	virq = irq_data->hwirq - IRQ_OFFSET;
+
+	/* If the idr_find() returns a valid ptr, it means that the
+	 * virq was allocated by the kernel itself and not by hyp.
+	 * Release the IRQ and free the allocation if that's true.
+	 */
+	idr_ptr = idr_find(&gh_rm_free_virq_idr, virq);
+	if (idr_ptr) {
+		gh_rm_vm_irq_release(res_entry->virq_handle);
+		idr_remove(&gh_rm_free_virq_idr, virq);
+	}
+}
+
+/**
+ * gh_rm_unpopulate_hyp_res: Unpopulate the resources that we got from
+ *				gh_rm_populate_hyp_res().
+ * @vmid: The vmid of resources to be queried.
+ * @vm_name: The name of the VM
+ *
+ * Returns 0 on success and a negative error code upon failure.
+ */
+int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name)
+{
+	struct gh_vm_get_hyp_res_resp_entry *res_entries = NULL;
+	gh_label_t label;
+	u32 n_res, i;
+	int ret = 0, irq;
+
+	res_entries = gh_rm_vm_get_hyp_res(vmid, &n_res);
+	if (IS_ERR_OR_NULL(res_entries))
+		return PTR_ERR(res_entries);
+
+	for (i = 0; i < n_res; i++) {
+
+		label = res_entries[i].resource_label;
+
+		switch (res_entries[i].res_type) {
+		case GH_RM_RES_TYPE_MQ_TX:
+			ret = gh_msgq_reset_cap_info(label,
+						GH_MSGQ_DIRECTION_TX, &irq);
+			break;
+		case GH_RM_RES_TYPE_MQ_RX:
+			ret = gh_msgq_reset_cap_info(label,
+						GH_MSGQ_DIRECTION_RX, &irq);
+			break;
+		case GH_RM_RES_TYPE_DB_TX:
+			ret = gh_dbl_reset_cap_info(label,
+						GH_RM_RES_TYPE_DB_TX, &irq);
+			break;
+		case GH_RM_RES_TYPE_DB_RX:
+			ret = gh_dbl_reset_cap_info(label,
+						GH_RM_RES_TYPE_DB_RX, &irq);
+			break;
+		case GH_RM_RES_TYPE_VCPU:
+			/* TODO: Call the unpopulate callback */
+			break;
+		case GH_RM_RES_TYPE_VIRTIO_MMIO:
+			/* TODO: Call the unpopulate callback */
+			break;
+		case GH_RM_RES_TYPE_VPMGRP:
+			break;
+		default:
+			pr_err("%s: Unknown resource type: %u\n",
+				__func__, res_entries[i].res_type);
+			ret = -EINVAL;
+		}
+
+		if (ret < 0)
+			goto out;
+
+		gh_rm_put_irq(&res_entries[i], irq);
+	}
+
+out:
+	kfree(res_entries);
+	return ret;
+}
+EXPORT_SYMBOL(gh_rm_unpopulate_hyp_res);
 
 /**
  * gh_rm_set_virtio_mmio_cb: Set callback that handles virtio MMIO resource

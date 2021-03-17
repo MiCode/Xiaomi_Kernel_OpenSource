@@ -236,6 +236,7 @@ int gh_rm_vm_reset(gh_vmid_t vmid);
 
 /* Client APIs for VM query */
 int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name);
+int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name);
 
 /* Client APIs for VM Services */
 struct gh_vm_status {
