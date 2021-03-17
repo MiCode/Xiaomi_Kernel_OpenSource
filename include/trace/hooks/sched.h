@@ -58,8 +58,8 @@ DECLARE_RESTRICTED_HOOK(android_rvh_rtmutex_prepare_setprio,
 	TP_ARGS(p, pi_task), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_set_user_nice,
-	TP_PROTO(struct task_struct *p, long *nice),
-	TP_ARGS(p, nice), 1);
+	TP_PROTO(struct task_struct *p, long *nice, bool *allowed),
+	TP_ARGS(p, nice, allowed), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_setscheduler,
 	TP_PROTO(struct task_struct *p),
@@ -259,6 +259,21 @@ DECLARE_RESTRICTED_HOOK(android_rvh_pick_next_entity,
 DECLARE_RESTRICTED_HOOK(android_rvh_check_preempt_wakeup,
 	TP_PROTO(struct rq *rq, struct task_struct *p, bool *preempt),
 	TP_ARGS(rq, p, preempt), 1);
+
+DECLARE_HOOK(android_vh_do_wake_up_sync,
+	TP_PROTO(struct wait_queue_head *wq_head, int *done),
+	TP_ARGS(wq_head, done));
+
+DECLARE_HOOK(android_vh_set_wake_flags,
+	TP_PROTO(int *wake_flags, unsigned int *mode),
+	TP_ARGS(wake_flags, mode));
+
+enum uclamp_id;
+struct uclamp_se;
+DECLARE_RESTRICTED_HOOK(android_rvh_uclamp_eff_get,
+	TP_PROTO(struct task_struct *p, enum uclamp_id clamp_id,
+		 struct uclamp_se *uclamp_max, struct uclamp_se *uclamp_eff, int *ret),
+	TP_ARGS(p, clamp_id, uclamp_max, uclamp_eff, ret), 1);
 
 /* macro versions of hooks are no longer required */
 

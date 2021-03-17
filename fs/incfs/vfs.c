@@ -4,9 +4,12 @@
  */
 
 #include <linux/blkdev.h>
+#include <linux/compat.h>
 #include <linux/file.h>
 #include <linux/fs.h>
 #include <linux/fs_stack.h>
+#include <linux/fsnotify.h>
+#include <linux/fsverity.h>
 #include <linux/namei.h>
 #include <linux/parser.h>
 #include <linux/seq_file.h>
@@ -19,6 +22,7 @@
 #include "format.h"
 #include "internal.h"
 #include "pseudo_files.h"
+#include "verity.h"
 
 static int incfs_remount_fs(struct super_block *sb, int *flags, char *data);
 
@@ -40,6 +44,11 @@ static int file_open(struct inode *inode, struct file *file);
 static int file_release(struct inode *inode, struct file *file);
 static int read_single_page(struct file *f, struct page *page);
 static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg);
+
+#ifdef CONFIG_COMPAT
+static long incfs_compat_ioctl(struct file *file, unsigned int cmd,
+			 unsigned long arg);
+#endif
 
 static struct inode *alloc_inode(struct super_block *sb);
 static void free_inode(struct inode *inode);
@@ -106,7 +115,9 @@ const struct file_operations incfs_file_ops = {
 	.splice_read = generic_file_splice_read,
 	.llseek = generic_file_llseek,
 	.unlocked_ioctl = dispatch_ioctl,
-	.compat_ioctl = dispatch_ioctl
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = incfs_compat_ioctl,
+#endif
 };
 
 const struct inode_operations incfs_file_inode_ops = {
@@ -148,6 +159,8 @@ struct inode_search {
 	struct dentry *backing_dentry;
 
 	size_t size;
+
+	bool verity;
 };
 
 enum parse_parameter {
@@ -244,6 +257,13 @@ static u64 read_size_attr(struct dentry *backing_dentry)
 	return le64_to_cpu(attr_value);
 }
 
+/* Read verity flag from the attribute. Quicker than reading the header */
+static bool read_verity_attr(struct dentry *backing_dentry)
+{
+	return vfs_getxattr(backing_dentry, INCFS_XATTR_VERITY_NAME, NULL, 0)
+		>= 0;
+}
+
 static int inode_test(struct inode *inode, void *opaque)
 {
 	struct inode_search *search = opaque;
@@ -274,6 +294,8 @@ static int inode_set(struct inode *inode, void *opaque)
 		inode->i_op = &incfs_file_inode_ops;
 		inode->i_fop = &incfs_file_ops;
 		inode->i_mode &= ~0222;
+		if (search->verity)
+			inode_set_flags(inode, S_VERITY, S_VERITY);
 	} else if (S_ISDIR(inode->i_mode)) {
 		inode->i_size = 0;
 		inode->i_blocks = 1;
@@ -308,6 +330,7 @@ static struct inode *fetch_regular_inode(struct super_block *sb,
 		.ino = backing_inode->i_ino,
 		.backing_dentry = backing_dentry,
 		.size = read_size_attr(backing_dentry),
+		.verity = read_verity_attr(backing_dentry),
 	};
 	struct inode *inode = iget5_locked(sb, search.ino, inode_test,
 				inode_set, &search);
@@ -545,12 +568,62 @@ static int incfs_rmdir(struct dentry *dentry)
 	return error;
 }
 
-static void maybe_delete_incomplete_file(struct data_file *df)
+static void notify_unlink(struct dentry *dentry, const char *file_id_str,
+			  const char *special_directory)
+{
+	struct dentry *root = dentry;
+	struct dentry *file = NULL;
+	struct dentry *dir = NULL;
+	int error = 0;
+	bool take_lock = root->d_parent != root->d_parent->d_parent;
+
+	while (root != root->d_parent)
+		root = root->d_parent;
+
+	if (take_lock)
+		dir = incfs_lookup_dentry(root, special_directory);
+	else
+		dir = lookup_one_len(special_directory, root,
+				     strlen(special_directory));
+
+	if (IS_ERR(dir)) {
+		error = PTR_ERR(dir);
+		goto out;
+	}
+	if (d_is_negative(dir)) {
+		error = -ENOENT;
+		goto out;
+	}
+
+	file = incfs_lookup_dentry(dir, file_id_str);
+	if (IS_ERR(file)) {
+		error = PTR_ERR(file);
+		goto out;
+	}
+	if (d_is_negative(file)) {
+		error = -ENOENT;
+		goto out;
+	}
+
+	fsnotify_unlink(d_inode(dir), file);
+	d_delete(file);
+
+out:
+	if (error)
+		pr_warn("%s failed with error %d\n", __func__, error);
+
+	dput(dir);
+	dput(file);
+}
+
+static void maybe_delete_incomplete_file(struct file *f,
+					 struct data_file *df)
 {
 	struct mount_info *mi = df->df_mount_info;
 	char *file_id_str = NULL;
 	struct dentry *incomplete_file_dentry = NULL;
 	const struct cred *old_cred = override_creds(mi->mi_owner);
+	int error;
 
 	if (atomic_read(&df->df_data_blocks_written) < df->df_data_block_count)
 		goto out;
@@ -572,7 +645,13 @@ static void maybe_delete_incomplete_file(struct data_file *df)
 		goto out;
 
 	vfs_fsync(df->df_backing_file_context->bc_file, 0);
-	incfs_unlink(incomplete_file_dentry);
+	error = incfs_unlink(incomplete_file_dentry);
+	if (error) {
+		pr_warn("incfs: Deleting incomplete file failed: %d\n", error);
+		goto out;
+	}
+
+	notify_unlink(f->f_path.dentry, file_id_str, INCFS_INCOMPLETE_NAME);
 
 out:
 	dput(incomplete_file_dentry);
@@ -641,7 +720,7 @@ static long ioctl_fill_blocks(struct file *f, void __user *arg)
 	if (data_buf)
 		free_pages((unsigned long)data_buf, get_order(data_buf_size));
 
-	maybe_delete_incomplete_file(df);
+	maybe_delete_incomplete_file(f, df);
 
 	/*
 	 * Only report the error if no records were processed, otherwise
@@ -747,6 +826,13 @@ static long ioctl_get_block_count(struct file *f, void __user *arg)
 	return 0;
 }
 
+static int incfs_ioctl_get_flags(struct file *f, void __user *arg)
+{
+	u32 flags = IS_VERITY(file_inode(f)) ? FS_VERITY_FL : 0;
+
+	return put_user(flags, (int __user *) arg);
+}
+
 static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg)
 {
 	switch (req) {
@@ -758,10 +844,38 @@ static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg)
 		return ioctl_get_filled_blocks(f, (void __user *)arg);
 	case INCFS_IOC_GET_BLOCK_COUNT:
 		return ioctl_get_block_count(f, (void __user *)arg);
+	case FS_IOC_ENABLE_VERITY:
+		return incfs_ioctl_enable_verity(f, (const void __user *)arg);
+	case FS_IOC_GETFLAGS:
+		return incfs_ioctl_get_flags(f, (void __user *) arg);
+	case FS_IOC_MEASURE_VERITY:
+		return incfs_ioctl_measure_verity(f, (void __user *)arg);
 	default:
 		return -EINVAL;
 	}
 }
+
+#ifdef CONFIG_COMPAT
+static long incfs_compat_ioctl(struct file *file, unsigned int cmd,
+			       unsigned long arg)
+{
+	switch (cmd) {
+	case FS_IOC32_GETFLAGS:
+		cmd = FS_IOC_GETFLAGS;
+		break;
+	case INCFS_IOC_FILL_BLOCKS:
+	case INCFS_IOC_READ_FILE_SIGNATURE:
+	case INCFS_IOC_GET_FILLED_BLOCKS:
+	case INCFS_IOC_GET_BLOCK_COUNT:
+	case FS_IOC_ENABLE_VERITY:
+	case FS_IOC_MEASURE_VERITY:
+		break;
+	default:
+		return -ENOIOCTLCMD;
+	}
+	return dispatch_ioctl(file, cmd, (unsigned long) compat_ptr(arg));
+}
+#endif
 
 static struct dentry *dir_lookup(struct inode *dir_inode, struct dentry *dentry,
 				 unsigned int flags)
@@ -918,9 +1032,8 @@ path_err:
  * Delete file referenced by backing_dentry and if appropriate its hardlink
  * from .index and .incomplete
  */
-static int file_delete(struct mount_info *mi,
-			struct dentry *backing_dentry,
-			int nlink)
+static int file_delete(struct mount_info *mi, struct dentry *dentry,
+			struct dentry *backing_dentry, int nlink)
 {
 	struct dentry *index_file_dentry = NULL;
 	struct dentry *incomplete_file_dentry = NULL;
@@ -973,15 +1086,19 @@ static int file_delete(struct mount_info *mi,
 	if (nlink > 1)
 		goto just_unlink;
 
-	if (d_really_is_positive(index_file_dentry))
+	if (d_really_is_positive(index_file_dentry)) {
 		error = incfs_unlink(index_file_dentry);
-	if (error)
-		goto out;
+		if (error)
+			goto out;
+		notify_unlink(dentry, file_id_str, INCFS_INDEX_NAME);
+	}
 
-	if (d_really_is_positive(incomplete_file_dentry))
+	if (d_really_is_positive(incomplete_file_dentry)) {
 		error = incfs_unlink(incomplete_file_dentry);
-	if (error)
-		goto out;
+		if (error)
+			goto out;
+		notify_unlink(dentry, file_id_str, INCFS_INCOMPLETE_NAME);
+	}
 
 just_unlink:
 	error = incfs_unlink(backing_dentry);
@@ -1031,7 +1148,7 @@ static int dir_unlink(struct inode *dir, struct dentry *dentry)
 	if (err)
 		goto out;
 
-	err = file_delete(mi, backing_path.dentry, stat.nlink);
+	err = file_delete(mi, dentry, backing_path.dentry, stat.nlink);
 
 	d_drop(dentry);
 out:
@@ -1268,7 +1385,12 @@ static int file_open(struct inode *inode, struct file *file)
 		file->private_data = fd;
 
 		err = make_inode_ready_for_data_ops(mi, inode, backing_file);
+		if (err)
+			goto out;
 
+		err = incfs_fsverity_file_open(inode, file);
+		if (err)
+			goto out;
 	} else if (S_ISDIR(inode->i_mode)) {
 		struct dir_file *dir = NULL;
 
@@ -1517,8 +1639,6 @@ static ssize_t incfs_listxattr(struct dentry *d, char *list, size_t size)
 struct dentry *incfs_mount_fs(struct file_system_type *type, int flags,
 			      const char *dev_name, void *data)
 {
-	static const char index_name[] = ".index";
-	static const char incomplete_name[] = ".incomplete";
 	struct mount_options options = {};
 	struct mount_info *mi = NULL;
 	struct path backing_dir_path = {};
@@ -1577,7 +1697,7 @@ struct dentry *incfs_mount_fs(struct file_system_type *type, int flags,
 	}
 
 	index_dir = open_or_create_special_dir(backing_dir_path.dentry,
-					       index_name);
+					       INCFS_INDEX_NAME);
 	if (IS_ERR_OR_NULL(index_dir)) {
 		error = PTR_ERR(index_dir);
 		pr_err("incfs: Can't find or create .index dir in %s\n",
@@ -1588,7 +1708,7 @@ struct dentry *incfs_mount_fs(struct file_system_type *type, int flags,
 	mi->mi_index_dir = index_dir;
 
 	incomplete_dir = open_or_create_special_dir(backing_dir_path.dentry,
-						    incomplete_name);
+						    INCFS_INCOMPLETE_NAME);
 	if (IS_ERR_OR_NULL(incomplete_dir)) {
 		error = PTR_ERR(incomplete_dir);
 		pr_err("incfs: Can't find or create .incomplete dir in %s\n",

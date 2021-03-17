@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 5
 PATCHLEVEL = 10
-SUBLEVEL = 19
+SUBLEVEL = 21
 EXTRAVERSION =
 NAME = Dare mighty things
 
@@ -906,7 +906,13 @@ KBUILD_LDFLAGS	+= --thinlto-cache-dir=$(extmod-prefix).thinlto-cache
 else
 CC_FLAGS_LTO	+= -flto
 endif
+
+ifeq ($(SRCARCH),x86)
+# TODO(b/182572011): Revert workaround for compiler / linker bug.
 CC_FLAGS_LTO	+= -fvisibility=hidden
+else
+CC_FLAGS_LTO	+= -fvisibility=default
+endif
 
 # Limit inlining across translation units to reduce binary size
 KBUILD_LDFLAGS += -mllvm -import-instr-limit=5
@@ -1158,7 +1164,7 @@ quiet_cmd_headers_install = INSTALL $(INSTALL_HDR_PATH)/include
       cmd_headers_install = \
 	mkdir -p $(INSTALL_HDR_PATH); \
 	rsync -mrl --include='*/' --include='*\.h' --exclude='*' \
-	usr/include $(INSTALL_HDR_PATH)
+	$(hdr-prefix)usr/include $(INSTALL_HDR_PATH);
 
 PHONY += headers_install
 headers_install: headers

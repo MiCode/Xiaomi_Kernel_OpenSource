@@ -63,6 +63,10 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/module.h>
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/module.h>
+#include <trace/hooks/memory.h>
+
 #ifndef ARCH_SHF_SMALL
 #define ARCH_SHF_SMALL 0
 #endif
@@ -2257,6 +2261,10 @@ static void free_module(struct module *mod)
 
 	/* This may be empty, but that's OK */
 	module_arch_freeing_init(mod);
+	trace_android_vh_set_memory_rw((unsigned long)mod->init_layout.base,
+		(mod->init_layout.size)>>PAGE_SHIFT);
+	trace_android_vh_set_memory_nx((unsigned long)mod->init_layout.base,
+		(mod->init_layout.size)>>PAGE_SHIFT);
 	module_memfree(mod->init_layout.base);
 	kfree(mod->args);
 	percpu_modfree(mod);
@@ -2265,6 +2273,10 @@ static void free_module(struct module *mod)
 	lockdep_free_key_range(mod->core_layout.base, mod->core_layout.size);
 
 	/* Finally, free the core (containing the module structure) */
+	trace_android_vh_set_memory_rw((unsigned long)mod->core_layout.base,
+		(mod->core_layout.size)>>PAGE_SHIFT);
+	trace_android_vh_set_memory_nx((unsigned long)mod->core_layout.base,
+		(mod->core_layout.size)>>PAGE_SHIFT);
 	module_memfree(mod->core_layout.base);
 }
 
@@ -2322,6 +2334,21 @@ static int verify_exported_symbols(struct module *mod)
 	return 0;
 }
 
+static bool ignore_undef_symbol(Elf_Half emachine, const char *name)
+{
+	/*
+	 * On x86, PIC code and Clang non-PIC code may have call foo@PLT. GNU as
+	 * before 2.37 produces an unreferenced _GLOBAL_OFFSET_TABLE_ on x86-64.
+	 * i386 has a similar problem but may not deserve a fix.
+	 *
+	 * If we ever have to ignore many symbols, consider refactoring the code to
+	 * only warn if referenced by a relocation.
+	 */
+	if (emachine == EM_386 || emachine == EM_X86_64)
+		return !strcmp(name, "_GLOBAL_OFFSET_TABLE_");
+	return false;
+}
+
 /* Change all symbols so that st_value encodes the pointer directly. */
 static int simplify_symbols(struct module *mod, const struct load_info *info)
 {
@@ -2367,8 +2394,10 @@ static int simplify_symbols(struct module *mod, const struct load_info *info)
 				break;
 			}
 
-			/* Ok if weak.  */
-			if (!ksym && ELF_ST_BIND(sym[i].st_info) == STB_WEAK)
+			/* Ok if weak or ignored.  */
+			if (!ksym &&
+			    (ELF_ST_BIND(sym[i].st_info) == STB_WEAK ||
+			     ignore_undef_symbol(info->hdr->e_machine, name)))
 				break;
 
 			ret = PTR_ERR(ksym) ?: -ENOENT;
@@ -3520,7 +3549,15 @@ static void module_deallocate(struct module *mod, struct load_info *info)
 {
 	percpu_modfree(mod);
 	module_arch_freeing_init(mod);
+	trace_android_vh_set_memory_rw((unsigned long)mod->init_layout.base,
+		(mod->init_layout.size)>>PAGE_SHIFT);
+	trace_android_vh_set_memory_nx((unsigned long)mod->init_layout.base,
+		(mod->init_layout.size)>>PAGE_SHIFT);
 	module_memfree(mod->init_layout.base);
+	trace_android_vh_set_memory_rw((unsigned long)mod->core_layout.base,
+		(mod->core_layout.size)>>PAGE_SHIFT);
+	trace_android_vh_set_memory_nx((unsigned long)mod->core_layout.base,
+		(mod->core_layout.size)>>PAGE_SHIFT);
 	module_memfree(mod->core_layout.base);
 }
 
@@ -3678,8 +3715,13 @@ static noinline int do_init_module(struct module *mod)
 	rcu_assign_pointer(mod->kallsyms, &mod->core_kallsyms);
 #endif
 	module_enable_ro(mod, true);
+	trace_android_vh_set_module_permit_after_init(mod);
 	mod_tree_remove_init(mod);
 	module_arch_freeing_init(mod);
+	trace_android_vh_set_memory_rw((unsigned long)mod->init_layout.base,
+		(mod->init_layout.size)>>PAGE_SHIFT);
+	trace_android_vh_set_memory_nx((unsigned long)mod->init_layout.base,
+		(mod->init_layout.size)>>PAGE_SHIFT);
 	mod->init_layout.base = NULL;
 	mod->init_layout.size = 0;
 	mod->init_layout.ro_size = 0;
@@ -3786,6 +3828,7 @@ static int complete_formation(struct module *mod, struct load_info *info)
 	module_enable_ro(mod, false);
 	module_enable_nx(mod);
 	module_enable_x(mod);
+	trace_android_vh_set_module_permit_before_init(mod);
 
 	/* Mark state as coming so strong_try_module_get() ignores us,
 	 * but kallsyms etc. can see us. */
