@@ -137,6 +137,7 @@
 #define IPA_IOCTL_DEL_UC_ACT_ENTRY              84
 #define IPA_IOCTL_SET_SW_FLT                    85
 #define IPA_IOCTL_GET_HW_FEATURE_SUPPORT        86
+#define IPA_IOCTL_SET_PKT_THRESHOLD             87
 
 /**
  * max size of the header to be inserted
@@ -821,7 +822,13 @@ enum ipa_sw_flt_event {
 #define IPA_SW_FLT_EVENT_MAX IPA_SW_FLT_EVENT_MAX
 };
 
-#define IPA_EVENT_MAX_NUM (IPA_SW_FLT_EVENT_MAX)
+enum ipa_pkt_threshold_event {
+	IPA_PKT_THRESHOLD_EVENT = IPA_SW_FLT_EVENT_MAX,
+	IPA_PKT_THRESHOLD_EVENT_MAX
+#define IPA_PKT_THRESHOLD_EVENT_MAX IPA_PKT_THRESHOLD_EVENT_MAX
+};
+
+#define IPA_EVENT_MAX_NUM (IPA_PKT_THRESHOLD_EVENT_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
@@ -2492,6 +2499,28 @@ struct ipa_ioc_get_ep_info {
 };
 
 /**
+ * struct ipa_set_pkt_threshold
+ * @pkt_threshold_enable: indicate pkt_thr enable or not
+ * @pkt_threshold: if pkt_threshold_enable = true, given the values
+ */
+struct ipa_set_pkt_threshold {
+	uint8_t pkt_threshold_enable;
+	int pkt_threshold;
+};
+
+/**
+ * struct ipa_ioc_set_pkt_threshold
+ * @ioctl_ptr: has to be typecasted to (__u64)(uintptr_t)
+ * @ioctl_data_size:
+ * Eg: For ipa_set_pkt_threshold = sizeof(ipa_set_pkt_threshold)
+ */
+struct ipa_ioc_set_pkt_threshold {
+	__u64 ioctl_ptr;
+	__u32 ioctl_data_size;
+	__u32 padding;
+};
+
+/**
  * struct ipa_ioc_wigig_fst_switch - switch between wigig and wlan
  * @netdev_name: wigig interface name
  * @client_mac_addr: client to switch between netdevs
@@ -3396,6 +3425,10 @@ struct ipa_ioc_sw_flt_list_type {
 #define IPA_IOC_GET_HW_FEATURE_SUPPORT _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_GET_HW_FEATURE_SUPPORT, \
 				__u32)
+
+#define IPA_IOC_SET_PKT_THRESHOLD _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_SET_PKT_THRESHOLD, \
+				struct ipa_ioc_set_pkt_threshold)
 /*
  * unique magic number of the Tethering bridge ioctls
  */
