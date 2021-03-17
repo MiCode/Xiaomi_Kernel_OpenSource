@@ -698,8 +698,6 @@ static void process_raw_ctrs(struct cpu_stats *stats)
 				curr_ctrs->grp_ctrs[grp][idx] = ev_data;
 				break;
 			}
-			if (idx < NUM_GRP_EVS)
-				break;
 		}
 	}
 }
