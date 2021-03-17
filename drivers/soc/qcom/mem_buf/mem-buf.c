@@ -1322,12 +1322,11 @@ struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
 	buffer->free = mem_buf_retrieve_release;
 	buffer->vmperm = mem_buf_vmperm_alloc_accept(sgt, arg->memparcel_hdl);
 
-	exp_info.ops = &qcom_sg_buf_ops.dma_ops;
 	exp_info.size = buffer->len;
 	exp_info.flags = arg->fd_flags;
 	exp_info.priv = buffer;
 
-	dmabuf = mem_buf_dma_buf_export(&exp_info);
+	dmabuf = mem_buf_dma_buf_export(&exp_info, &qcom_sg_buf_ops);
 	if (IS_ERR(dmabuf))
 		goto err_export_dma_buf;
 
