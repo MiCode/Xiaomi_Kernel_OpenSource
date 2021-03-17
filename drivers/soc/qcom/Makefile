@@ -29,6 +29,7 @@ obj-$(CONFIG_QCOM_SMD_RPM)	+= smd-rpm.o
 obj-$(CONFIG_QCOM_SMEM) +=	smem.o
 obj-$(CONFIG_QCOM_SMEM_STATE) += smem_state.o
 obj-$(CONFIG_QCOM_SMP2P)	+= smp2p.o
+obj-$(CONFIG_QCOM_SUBSYSTEM_SLEEP_STATS) += subsystem_sleep_stats.o
 obj-$(CONFIG_QSEE_IPC_IRQ_BRIDGE) += qsee_ipc_irq_bridge.o
 obj-$(CONFIG_QCOM_SMSM)	+= smsm.o
 obj-$(CONFIG_MSM_CORE_HANG_DETECT) += core_hang_detect.o

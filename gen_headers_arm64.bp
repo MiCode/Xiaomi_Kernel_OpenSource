@@ -384,6 +384,7 @@ gen_headers_out_arm64 = [
     "linux/msm_ion_ids.h",
     "linux/msm_ipa.h",
     "linux/msm_kgsl.h",
+    "linux/msm_npu.h",
     "linux/msm_rmnet.h",
     "linux/mtio.h",
     "linux/n_r3964.h",

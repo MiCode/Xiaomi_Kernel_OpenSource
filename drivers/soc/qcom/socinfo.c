@@ -681,6 +681,7 @@ static const struct soc_id soc_id[] = {
 	{ 497, "YUPIK-IOT" },
 	{ 498, "YUPIKP-IOT" },
 	{ 499, "YUPIKP" },
+	{ 515, "YUPIK-LTE" },
 };
 
 static struct qcom_socinfo *qsocinfo;

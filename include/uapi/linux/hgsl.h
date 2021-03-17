@@ -130,7 +130,7 @@ struct hgsl_ctxt_create_info {
 #define HGSL_IOCTL_CTXT_DESTROY	HGSL_IOW(0x11,  __u32)
 
 /**
- * struct hgsl_wait_ts_info - wait a time step to be retired
+ * struct hgsl_wait_ts_info - wait a timestamp to be retired
  * @timestamp: The user timestamp to wait
  * @timeout: Expiry timeout
  */
@@ -144,4 +144,75 @@ struct hgsl_wait_ts_info {
 #define HGSL_IOCTL_WAIT_TIMESTAMP \
 	HGSL_IOW(0x12,  struct hgsl_wait_ts_info)
 
+
+/**
+ * struct hgsl_hsync_fence_create - wait a h-sync fence
+ * @timestamp: The user timestamp attached to the fence
+ * @context_id; The conext to create fence
+ * @fence_fd: File descriptor of the new created fence
+ */
+struct hgsl_hsync_fence_create {
+	__u32 timestamp;
+	__u32 padding;
+	__s32 context_id;
+	__s32 fence_fd;
+};
+
+#define HGSL_IOCTL_HSYNC_FENCE_CREATE \
+				HGSL_IOW(0x13, struct hgsl_hsync_fence_create)
+
+/**
+ * Create an i-fence timeline - param is id of the new timeline
+ */
+#define HGSL_IOCTL_ISYNC_TIMELINE_CREATE \
+				HGSL_IOW(0x14, __u32)
+
+/**
+ * Destroy an i-fence timeline - param is id of timeline to be released
+ */
+#define HGSL_IOCTL_ISYNC_TIMELINE_DESTROY \
+				HGSL_IOW(0x15, __u32)
+
+/**
+ * struct hgsl_isync_create_fence - wait an i-sync fence
+ * @timeline_id: The timestamp for the new fence
+ * @fence_id: id of new created fence
+ * @ts: option, should set it if want to use isync forward
+ */
+struct hgsl_isync_create_fence {
+	__u32 timeline_id;
+	__s32 fence_id;
+	__u32 ts;
+	__u32 padding;
+};
+#define HGSL_IOCTL_ISYNC_FENCE_CREATE	\
+				HGSL_IOW(0x16,  \
+					 struct hgsl_isync_create_fence)
+
+/**
+ * struct hgsl_isync_signal_fence - signal an i-sync fence
+ * @timeline_id: The timestamp for current fence
+ * @fence_id: id of fence to be signalled
+ */
+struct hgsl_isync_signal_fence {
+	__u32 timeline_id;
+	__s32 fence_id;
+};
+#define HGSL_IOCTL_ISYNC_FENCE_SIGNAL \
+				HGSL_IOW(0x17, \
+					 struct hgsl_isync_signal_fence)
+
+
+/**
+ * struct hgsl_isync_signal_fence - signal an i-sync fence
+ * @timeline_id: The timestamp for current fence
+ * @fence_id: id of fence to be signalled
+ */
+struct hgsl_isync_forward {
+	__u32 timeline_id;
+	__s32 ts;
+};
+#define HGSL_IOCTL_ISYNC_FORWARD \
+				HGSL_IOW(0x18, \
+					 struct hgsl_isync_forward)
 #endif /* _UAPI_MSM_HGSL_H */

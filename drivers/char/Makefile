@@ -59,6 +59,12 @@ ifdef CONFIG_COMPAT
   frpc-adsprpc-objs		+= adsprpc_compat.o
 endif
 obj-$(CONFIG_MSM_ADSPRPC)	+= frpc-adsprpc.o
+vfastrpc-objs			+= virtio_fastrpc.o
+ifdef CONFIG_COMPAT
+  vfastrpc-objs			+= adsprpc_compat.o
+endif
+obj-$(CONFIG_VIRTIO_FASTRPC)	+= vfastrpc.o
 obj-$(CONFIG_ADI)		+= adi.o
 obj-$(CONFIG_MSM_RDBG)		+= rdbg.o
 obj-$(CONFIG_MSM_FASTCVPD)	+= fastcvpd.o
+obj-$(CONFIG_VIRTIO_EAVB)       += virtio_eavb/

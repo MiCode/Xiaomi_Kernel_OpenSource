@@ -976,6 +976,11 @@ static int nvt_ts_trusted_touch_pvm_vm_mode_enable(struct nvt_ts_data *ts)
 	struct trusted_touch_vm_info *vm_info = ts->vm_info;
 
 	atomic_set(&ts->trusted_touch_underway, 1);
+
+#if BOOT_UPDATE_FIRMWARE
+	if (nvt_fwu_wq)
+		cancel_delayed_work_sync(&ts->nvt_fwu_work);
+#endif
 	/* i2c session start and resource acquire */
 	if (nvt_ts_bus_get(ts) < 0) {
 		pr_err("nvt_ts_bus_get failed\n");

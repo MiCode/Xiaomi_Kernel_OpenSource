@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #define ARM_SMMU_TESTBUS_SEL			0x25E4
 #define ARM_SMMU_TESTBUS			0x25E8
 #define ARM_SMMU_TESTBUS_SEL_HLOS1_NS		0x8
+#define ARM_SMMU_TCU_TESTBUS_HLOS1_NS		0x28
 #define DEBUG_TESTBUS_SEL_TBU			0x50
 #define DEBUG_TESTBUS_TBU			0x58
 
@@ -21,7 +22,7 @@
 #define TCU_PTW_QUEUE_MASK			GENMASK(7, 0)
 #define TCU_CACHE_TESTBUS_SEL			0x1
 #define TCU_CACHE_LOOKUP_QUEUE_SIZE		32
-#define TCU_CLK_TESTBUS_SEL			0x200
+#define TCU_CLK_TESTBUS_SEL			0x300
 
 
 #define TBU_CLK_GATE_CONTROLLER_TESTBUS_SEL	0x1

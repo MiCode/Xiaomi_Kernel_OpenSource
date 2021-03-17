@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitfield.h>
@@ -20,6 +20,8 @@
 #include <linux/uaccess.h>
 
 #define IMPL_DEF4_MICRO_MMU_CTRL	0
+#define IMPL_DEF4_CLK_ON_STATUS		0x50
+#define IMPL_DEF4_CLK_ON_CLIENT_STATUS	0x54
 #define MICRO_MMU_CTRL_LOCAL_HALT_REQ	BIT(2)
 #define MICRO_MMU_CTRL_IDLE		BIT(3)
 
@@ -193,8 +195,17 @@ static phys_addr_t qsmmuv2_iova_to_phys_hard(
 
 static void qsmmuv2_tlb_sync_timeout(struct arm_smmu_device *smmu)
 {
+	u32 clk_on, clk_on_client;
+
 	dev_err_ratelimited(smmu->dev,
 			    "TLB sync timed out -- SMMU may be deadlocked\n");
+	clk_on = arm_smmu_readl(smmu, ARM_SMMU_IMPL_DEF4,
+				IMPL_DEF4_CLK_ON_STATUS);
+	clk_on_client = arm_smmu_readl(smmu, ARM_SMMU_IMPL_DEF4,
+				       IMPL_DEF4_CLK_ON_CLIENT_STATUS);
+	dev_err_ratelimited(smmu->dev,
+			    "clk on 0x%x, clk on client 0x%x status\n",
+			    clk_on, clk_on_client);
 
 	BUG_ON(IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG));
 }

@@ -938,6 +938,14 @@ config QTI_RPM_STATS_LOG
 	  the low power modes that RPM enters. The drivers outputs the message
 	  via a sysfs node.
 
+config QCOM_SUBSYSTEM_SLEEP_STATS
+	tristate "Qualcomm Technologies, Inc. Subsystem sleep stats driver"
+	depends on QCOM_SMEM
+	help
+	  This driver is IOCTL implementation to get the subsystem stats data
+	  from SMEM. Stats information such as sleep count, last entered at,
+	  last exited at and accumulated duration can be read from
+	  userspace with ioctl.
 
 config QTI_DDR_STATS_LOG
 	tristate "Qualcomm Technologies Inc (QTI) DDR Stats Driver"

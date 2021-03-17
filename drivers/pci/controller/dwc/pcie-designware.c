@@ -473,6 +473,7 @@ int dw_pcie_link_up(struct dw_pcie *pci)
 	return ((val & PCIE_PORT_DEBUG1_LINK_UP) &&
 		(!(val & PCIE_PORT_DEBUG1_LINK_IN_TRAINING)));
 }
+EXPORT_SYMBOL_GPL(dw_pcie_link_up);
 
 static u8 dw_pcie_iatu_unroll_enabled(struct dw_pcie *pci)
 {

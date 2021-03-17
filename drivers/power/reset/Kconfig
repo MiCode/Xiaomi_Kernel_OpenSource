@@ -105,6 +105,14 @@ config POWER_RESET_MSM
 	help
 	  Power off and restart support for Qualcomm boards.
 
+config POWER_RESET_QCOM_VM
+	tristate "Qualcomm Technologies, Inc. MSM VM power-off driver"
+	help
+	  Power off and restart support for Qualcomm Technologies, Inc. virtual
+	  machine. This driver supports virtual machine power down and restart.
+	  Say Y here if you have a MSM virtual machine and wish to enable
+	  restart driver.
+
 config POWER_RESET_QCOM_DOWNLOAD_MODE
 	tristate "MSM download mode driver"
 	depends on ARCH_QCOM
