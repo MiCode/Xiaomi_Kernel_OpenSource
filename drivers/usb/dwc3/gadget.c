@@ -1866,8 +1866,6 @@ int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value, int protocol)
 {
 	struct dwc3_gadget_ep_cmd_params	params;
 	struct dwc3				*dwc = dep->dwc;
-	struct dwc3_request			*req;
-	struct dwc3_request			*tmp;
 	int					ret;
 
 	if (!dep->endpoint.desc) {
@@ -1926,15 +1924,13 @@ int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value, int protocol)
 		if (!dep->gsi) {
 			dwc3_stop_active_transfer(dep, true, true);
 
-			list_for_each_entry_safe(req, tmp, &dep->started_list, list)
-				dwc3_gadget_move_cancelled_request(req);
+		if (!list_empty(&dep->started_list))
+			dep->flags |= DWC3_EP_DELAY_START;
 
 			if (dep->flags & DWC3_EP_END_TRANSFER_PENDING) {
 				dep->flags |= DWC3_EP_PENDING_CLEAR_STALL;
 				return 0;
 			}
-
-			dwc3_gadget_ep_cleanup_cancelled_requests(dep);
 		}
 
 		ret = dwc3_send_clear_stall_ep_cmd(dep);
