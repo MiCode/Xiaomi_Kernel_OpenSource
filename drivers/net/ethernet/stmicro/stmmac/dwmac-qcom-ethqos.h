@@ -146,7 +146,6 @@ struct qcom_ethqos {
 	unsigned long avb_class_a_intr_cnt;
 	unsigned long avb_class_b_intr_cnt;
 
-	int oldlink;
 	/* saving state for Wake-on-LAN */
 	int wolopts;
 	/* state of enabled wol options in PHY*/
@@ -157,7 +156,6 @@ struct qcom_ethqos {
 	int clks_suspended;
 	/* Structure which holds done and wait members */
 	struct completion clk_enable_done;
-
 };
 
 struct pps_cfg {
@@ -193,6 +191,9 @@ int create_pps_interrupt_device_node(dev_t *pps_dev_t,
 				     struct cdev **pps_cdev,
 				     struct class **pps_class,
 				     char *pps_dev_node_name);
+bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos);
+void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos);
+
 int ppsout_config(struct stmmac_priv *priv, struct ifr_data_struct *req);
 
 u16 dwmac_qcom_select_queue(struct net_device *dev,

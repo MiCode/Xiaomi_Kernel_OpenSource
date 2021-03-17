@@ -911,33 +911,31 @@ static void qcom_ethqos_phy_suspend_clks(struct qcom_ethqos *ethqos)
 	ETHQOSINFO("Exit\n");
 }
 
-static bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos,
-				       struct net_device *ndev)
+inline void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos)
 {
-	if (!ethqos) {
-		ETHQOSINFO("ethqos addr is NULL");
-		return false;
-	}
+	struct platform_device *pdev = ethqos->pdev;
+	struct net_device *dev = platform_get_drvdata(pdev);
+	struct stmmac_priv *priv = netdev_priv(dev);
 
-	if (!ndev) {
-		ETHQOSINFO("dev addr is NULL");
-		return false;
-	}
-
-	/* PHY driver initializes phydev->link=1.
-	 * So, phydev->link is 1 even on booup with no PHY connected.
-	 * phydev->link is valid only after adjust_link is called once.
-	 * Use (pdata->oldlink != -1) to indicate phy link is not up
-	 */
-	return (ethqos->oldlink != -1 && ndev->phydev && ndev->phydev->link);
+	return priv;
 }
 
-static void qcom_ethqos_phy_resume_clks(struct qcom_ethqos *ethqos,
-					struct net_device *ndev)
+inline bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos)
+{
+	/* PHY driver initializes phydev->link=1.
+	 * So, phydev->link is 1 even on bootup with no PHY connected.
+	 * phydev->link is valid only after adjust_link is called once.
+	 */
+	struct stmmac_priv *priv = qcom_ethqos_get_priv(ethqos);
+
+	return (priv->dev->phydev && priv->dev->phydev->link);
+}
+
+static void qcom_ethqos_phy_resume_clks(struct qcom_ethqos *ethqos)
 {
 	ETHQOSINFO("Enter\n");
 
-	if (qcom_ethqos_is_phy_link_up(ethqos, ndev))
+	if (qcom_ethqos_is_phy_link_up(ethqos))
 		ethqos_update_rgmii_clk_and_bus_cfg(ethqos, ethqos->speed);
 	else
 		ethqos_update_rgmii_clk_and_bus_cfg(ethqos, SPEED_10);
@@ -1022,7 +1020,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	}
 
 	ethqos->pdev = pdev;
-	ethqos->oldlink = -1;
+
 	ethqos_init_reqgulators(ethqos);
 	ethqos_init_gpio(ethqos);
 
@@ -1202,7 +1200,7 @@ static int qcom_ethqos_resume(struct device *dev)
 		return -EINVAL;
 	}
 
-	qcom_ethqos_phy_resume_clks(ethqos, ndev);
+	qcom_ethqos_phy_resume_clks(ethqos);
 
 	ret = stmmac_resume(dev);
 
