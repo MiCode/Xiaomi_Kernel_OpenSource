@@ -1025,6 +1025,8 @@ static int azx_prepare(struct device *dev)
 	chip = card->private_data;
 	chip->pm_prepared = 1;
 
+	flush_work(&azx_bus(chip)->unsol_work);
+
 	/* HDA controller always requires different WAKEEN for runtime suspend
 	 * and system suspend, so don't use direct-complete here.
 	 */
