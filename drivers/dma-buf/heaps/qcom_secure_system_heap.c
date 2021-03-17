@@ -58,58 +58,104 @@
 #include "qcom_dma_heap_secure_utils.h"
 #include "qcom_dynamic_page_pool.h"
 #include "qcom_sg_ops.h"
+#include "qcom_secure_system_heap.h"
 #include "qcom_system_heap.h"
 
-static int system_heap_clear_pages(struct page **pages, int num, pgprot_t pgprot)
+static enum dynamic_pool_callback_ret free_secure_pages(struct dynamic_page_pool *pool,
+							struct list_head *pages,
+							int num_pages)
 {
-	void *addr = vmap(pages, num, VM_MAP, pgprot);
+	struct page *page;
+	struct sg_table sgt;
+	struct scatterlist *sg;
+	int ret;
 
-	if (!addr)
-		return -ENOMEM;
-	memset(addr, 0, PAGE_SIZE * num);
-	vunmap(addr);
-	return 0;
+	if (!num_pages)
+		return DYNAMIC_POOL_SUCCESS;
+
+	ret = sg_alloc_table(&sgt, num_pages, GFP_KERNEL);
+	if (ret)
+		return DYNAMIC_POOL_FAILURE;
+
+	sg = sgt.sgl;
+	list_for_each_entry(page, pages, lru) {
+		sg_set_page(sg, page, page_size(page), 0);
+		sg = sg_next(sg);
+	}
+
+	ret = hyp_unassign_sg_from_flags(&sgt, pool->vmid, true);
+	sg_free_table(&sgt);
+
+	if (ret)
+		return DYNAMIC_POOL_FAILURE;
+
+	return DYNAMIC_POOL_SUCCESS;
 }
 
-static int system_heap_zero_buffer(struct qcom_sg_buffer *buffer)
+static void page_list_merge(struct list_head *secure_pages,
+			    struct list_head *non_secure_pages,
+			    struct scatterlist *sg,
+			    struct scatterlist *non_secure_sg)
 {
-	struct sg_table *sgt = &buffer->sg_table;
-	struct sg_page_iter piter;
-	struct page *pages[32];
-	int p = 0;
-	int ret = 0;
+	bool is_secure_head, is_non_secure_head;
+	struct page *secure_page = list_first_entry(secure_pages, struct page, lru);
+	struct page *non_secure_page = list_first_entry(non_secure_pages, struct page, lru);
 
-	for_each_sgtable_page(sgt, &piter, 0) {
-		pages[p++] = sg_page_iter_page(&piter);
-		if (p == ARRAY_SIZE(pages)) {
-			ret = system_heap_clear_pages(pages, p, PAGE_KERNEL);
-			if (ret)
-				return ret;
-			p = 0;
+	do {
+		is_secure_head = list_entry_is_head(secure_page, secure_pages, lru);
+		is_non_secure_head = list_entry_is_head(non_secure_page, non_secure_pages, lru);
+
+		if (!is_secure_head && !is_non_secure_head) {
+			if (page_size(non_secure_page) >= page_size(secure_page)) {
+				sg_set_page(sg, non_secure_page,
+					    page_size(non_secure_page), 0);
+				sg_set_page(non_secure_sg, non_secure_page,
+					    page_size(non_secure_page), 0);
+
+				non_secure_page = list_next_entry(non_secure_page, lru);
+				non_secure_sg = sg_next(non_secure_sg);
+			} else {
+				sg_set_page(sg, secure_page,
+					    page_size(secure_page), 0);
+				secure_page = list_next_entry(secure_page, lru);
+			}
+		} else if (!is_non_secure_head) {
+			sg_set_page(sg, non_secure_page,
+					page_size(non_secure_page), 0);
+			sg_set_page(non_secure_sg, non_secure_page,
+					page_size(non_secure_page), 0);
+
+			non_secure_page = list_next_entry(non_secure_page, lru);
+			non_secure_sg = sg_next(non_secure_sg);
+		} else if (!is_secure_head) {
+			sg_set_page(sg, secure_page,
+					page_size(secure_page), 0);
+			secure_page = list_next_entry(secure_page, lru);
 		}
-	}
-	if (p)
-		ret = system_heap_clear_pages(pages, p, PAGE_KERNEL);
 
-	return ret;
+		sg = sg_next(sg);
+	} while (sg);
+}
+
+static int page_to_pool_ind(struct page *page)
+{
+	int i;
+
+	for (i = 0; i < NUM_ORDERS; i++)
+		if (compound_order(page) == orders[i])
+			break;
+	return i;
 }
 
 static void system_heap_free(struct qcom_sg_buffer *buffer)
 {
-	struct qcom_system_heap *sys_heap;
+	struct qcom_secure_system_heap *sys_heap;
 	struct sg_table *table;
 	struct scatterlist *sg;
 	int i, j;
 
 	sys_heap = dma_heap_get_drvdata(buffer->heap);
 	table = &buffer->sg_table;
-
-	if (sys_heap->vmid)
-		if (hyp_unassign_sg_from_flags(table, sys_heap->vmid, true))
-			return;
-
-	/* Zero the buffer pages before adding back to the pool */
-	system_heap_zero_buffer(buffer);
 
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		struct page *page = sg_page(sg);
@@ -124,24 +170,67 @@ static void system_heap_free(struct qcom_sg_buffer *buffer)
 	kfree(buffer);
 }
 
+static inline struct dynamic_page_pool **get_sys_heap_page_pool(void)
+{
+	static struct dynamic_page_pool **qcom_sys_heap_pools;
+	struct dma_heap *dma_heap;
+	struct qcom_system_heap *sys_heap;
+
+	if (qcom_sys_heap_pools)
+		return qcom_sys_heap_pools;
+
+	dma_heap = dma_heap_find("qcom,system");
+	if (!dma_heap) {
+		pr_err("Unable to find the system heap\n");
+		goto out;
+	}
+
+	sys_heap = (struct qcom_system_heap *) dma_heap_get_drvdata(dma_heap);
+	qcom_sys_heap_pools = sys_heap->pool_list;
+
+out:
+	return qcom_sys_heap_pools;
+}
+
 static struct page *alloc_largest_available(struct dynamic_page_pool **pools,
 					    unsigned long size,
-					    unsigned int max_order)
+					    unsigned int max_order,
+					    bool *page_from_secure_pool)
 {
 	struct page *page;
 	int i;
+	struct dynamic_page_pool **qcom_sys_heap_pools = get_sys_heap_page_pool();
+
+	if (!qcom_sys_heap_pools) {
+		pr_err("%s: Couldn't obtain the pools for the system heap!\n", __func__);
+		return NULL;
+	}
+
+	*page_from_secure_pool = true;
 
 	for (i = 0; i < NUM_ORDERS; i++) {
 		if (size <  (PAGE_SIZE << orders[i]))
 			continue;
 		if (max_order < orders[i])
 			continue;
-		page = dynamic_page_pool_alloc(pools[i]);
+
+		mutex_lock(&pools[i]->mutex);
+		if (pools[i]->high_count)
+			page = dynamic_page_pool_remove(pools[i], true);
+		else if (pools[i]->low_count)
+			page = dynamic_page_pool_remove(pools[i], false);
+		mutex_unlock(&pools[i]->mutex);
+
 		if (!page)
 			continue;
 		return page;
 	}
-	return NULL;
+
+	*page_from_secure_pool = false;
+
+	return qcom_sys_heap_alloc_largest_available(qcom_sys_heap_pools,
+						     size,
+						     max_order);
 }
 
 static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
@@ -149,17 +238,20 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 					       unsigned long fd_flags,
 					       unsigned long heap_flags)
 {
-	struct qcom_system_heap *sys_heap;
+	struct qcom_secure_system_heap *sys_heap;
 	struct qcom_sg_buffer *buffer;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 	unsigned long size_remaining = len;
 	unsigned int max_order = orders[0];
+	bool page_from_secure_pool;
 	struct dma_buf *dmabuf;
-	struct sg_table *table;
-	struct scatterlist *sg;
-	struct list_head pages;
+	struct sg_table *table, non_secure_table;
+	struct scatterlist *sg, *non_secure_sg = NULL;
+	LIST_HEAD(secure_pages);
+	LIST_HEAD(non_secure_pages);
 	struct page *page, *tmp_page;
-	int i, ret = -ENOMEM;
+	int total_pages = 0, num_non_secure_pages = 0;
+	int ret = -ENOMEM;
 	int perms;
 
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
@@ -172,11 +264,9 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 	mutex_init(&buffer->lock);
 	buffer->heap = heap;
 	buffer->len = len;
-	buffer->uncached = sys_heap->uncached;
+	buffer->uncached = true;
 	buffer->free = system_heap_free;
 
-	INIT_LIST_HEAD(&pages);
-	i = 0;
 	while (size_remaining > 0) {
 		/*
 		 * Avoid trying to allocate memory if the process
@@ -187,48 +277,47 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 
 		page = alloc_largest_available(sys_heap->pool_list,
 					       size_remaining,
-					       max_order);
+					       max_order,
+					       &page_from_secure_pool);
 		if (!page)
 			goto free_buffer;
 
-		list_add_tail(&page->lru, &pages);
+		if (page_from_secure_pool) {
+			list_add_tail(&page->lru, &secure_pages);
+		} else {
+			num_non_secure_pages++;
+			list_add_tail(&page->lru, &non_secure_pages);
+		}
+
 		size_remaining -= page_size(page);
 		max_order = compound_order(page);
-		i++;
+		total_pages++;
 	}
 
 	table = &buffer->sg_table;
-	if (sg_alloc_table(table, i, GFP_KERNEL))
+	if (sg_alloc_table(table, total_pages, GFP_KERNEL))
 		goto free_buffer;
-
 	sg = table->sgl;
-	list_for_each_entry_safe(page, tmp_page, &pages, lru) {
-		sg_set_page(sg, page, page_size(page), 0);
-		sg = sg_next(sg);
-		list_del(&page->lru);
+
+	if (num_non_secure_pages) {
+		if (sg_alloc_table(&non_secure_table, num_non_secure_pages, GFP_KERNEL))
+			goto free_sg;
+		non_secure_sg = non_secure_table.sgl;
 	}
 
-	/*
-	 * For uncached buffers, we need to initially flush cpu cache, since
-	 * the __GFP_ZERO on the allocation means the zeroing was done by the
-	 * cpu and thus it is likely cached. Map (and implicitly flush) and
-	 * unmap it now so we don't get corruption later on.
-	 */
-	if (buffer->uncached) {
-		dma_map_sgtable(dma_heap_get_dev(heap), table, DMA_BIDIRECTIONAL, 0);
-		dma_unmap_sgtable(dma_heap_get_dev(heap), table, DMA_BIDIRECTIONAL, 0);
+	page_list_merge(&secure_pages, &non_secure_pages, sg, non_secure_sg);
+
+	if (num_non_secure_pages) {
+		dma_map_sgtable(dma_heap_get_dev(heap), &non_secure_table, DMA_BIDIRECTIONAL, 0);
+		dma_unmap_sgtable(dma_heap_get_dev(heap), &non_secure_table, DMA_BIDIRECTIONAL, 0);
+
+		if (hyp_assign_sg_from_flags(&non_secure_table, sys_heap->vmid, true))
+			goto free_non_secure_sg;
 	}
 
-	if (sys_heap->vmid) {
-		if (hyp_assign_sg_from_flags(table, sys_heap->vmid, true))
-			goto free_pages;
-
-		perms = msm_secure_get_vmid_perms(sys_heap->vmid);
-		buffer->vmperm = mem_buf_vmperm_alloc_staticvm(table,
-					&sys_heap->vmid, &perms, 1);
-	} else {
-		buffer->vmperm = mem_buf_vmperm_alloc(table);
-	}
+	perms = msm_secure_get_vmid_perms(sys_heap->vmid);
+	buffer->vmperm = mem_buf_vmperm_alloc_staticvm(table,
+				&sys_heap->vmid, &perms, 1);
 
 	if (IS_ERR(buffer->vmperm)) {
 		ret = PTR_ERR(buffer->vmperm);
@@ -246,27 +335,31 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 		goto vmperm_release;
 	}
 
+	if (num_non_secure_pages)
+		sg_free_table(&non_secure_table);
+
 	return dmabuf;
 
 vmperm_release:
 	mem_buf_vmperm_release(buffer->vmperm);
 
 hyp_unassign:
-	if (sys_heap->vmid && hyp_unassign_sg_from_flags(table, sys_heap->vmid, true))
-		goto free_sg;
+	/* We check PagePrivate() below to see if we've reclaimed a particular page */
+	hyp_unassign_sg_from_flags(&non_secure_table, sys_heap->vmid, true);
 
-free_pages:
-	for_each_sgtable_sg(table, sg, i) {
-		struct page *p = sg_page(sg);
-
-		__free_pages(p, compound_order(p));
-	}
-
+free_non_secure_sg:
+	if (num_non_secure_pages)
+		sg_free_table(&non_secure_table);
 free_sg:
 	sg_free_table(table);
 free_buffer:
-	list_for_each_entry_safe(page, tmp_page, &pages, lru)
-		__free_pages(page, compound_order(page));
+	list_for_each_entry_safe(page, tmp_page, &secure_pages, lru)
+		dynamic_page_pool_free(sys_heap->pool_list[page_to_pool_ind(page)], page);
+	list_for_each_entry_safe(page, tmp_page, &non_secure_pages, lru)
+		/* PagePrivate(page) returns true if we've hyp-assigned the page */
+		if (!PagePrivate(page))
+			__free_pages(page, compound_order(page));
+
 	kfree(buffer);
 
 	return ERR_PTR(ret);
@@ -276,11 +369,11 @@ static const struct dma_heap_ops system_heap_ops = {
 	.allocate = system_heap_allocate,
 };
 
-int qcom_system_heap_create(char *name, bool uncached, int vmid)
+int qcom_secure_system_heap_create(char *name, int vmid)
 {
 	struct dma_heap_export_info exp_info;
 	struct dma_heap *heap;
-	struct qcom_system_heap *sys_heap;
+	struct qcom_secure_system_heap *sys_heap;
 	int ret;
 
 	ret = dynamic_page_pool_init_shrinker();
@@ -297,10 +390,9 @@ int qcom_system_heap_create(char *name, bool uncached, int vmid)
 	exp_info.ops = &system_heap_ops;
 	exp_info.priv = sys_heap;
 
-	sys_heap->uncached = uncached;
 	sys_heap->vmid = vmid;
 
-	sys_heap->pool_list = dynamic_page_pool_create_pools();
+	sys_heap->pool_list = dynamic_page_pool_create_pools(vmid, free_secure_pages);
 	if (IS_ERR(sys_heap->pool_list)) {
 		ret = PTR_ERR(sys_heap->pool_list);
 		goto free_heap;
@@ -312,9 +404,7 @@ int qcom_system_heap_create(char *name, bool uncached, int vmid)
 		goto free_pools;
 	}
 
-	if (uncached)
-		dma_coerce_mask_and_coherent(dma_heap_get_dev(heap),
-					     DMA_BIT_MASK(64));
+	dma_coerce_mask_and_coherent(dma_heap_get_dev(heap), DMA_BIT_MASK(64));
 
 	pr_info("%s: DMA-BUF Heap: Created '%s'\n", __func__, name);
 	return 0;

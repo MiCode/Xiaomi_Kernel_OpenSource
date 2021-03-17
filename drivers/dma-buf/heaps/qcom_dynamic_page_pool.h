@@ -37,17 +37,31 @@ static gfp_t order_flags[] = {HIGH_ORDER_GFP, LOW_ORDER_GFP | __GFP_NOWARN,
 static const unsigned int orders[] = {9, 4, 0};
 #define NUM_ORDERS ARRAY_SIZE(orders)
 
+enum dynamic_pool_callback_ret {
+	DYNAMIC_POOL_SUCCESS,
+	DYNAMIC_POOL_FAILURE,
+};
+
+struct dynamic_page_pool;
+
+typedef enum dynamic_pool_callback_ret (*prerelease_callback)(struct dynamic_page_pool *pool,
+							      struct list_head *pages,
+							      int num_pages);
+
 /**
  * struct dynamic_page_pool - pagepool struct
- * @high_count:		number of highmem items in the pool
- * @low_count:		number of lowmem items in the pool
- * @high_items:		list of highmem items
- * @low_items:		list of lowmem items
- * @mutex:		lock protecting this struct and especially the count
- *			item list
- * @gfp_mask:		gfp_mask to use from alloc
- * @order:		order of pages in the pool
- * @list:		list node for list of pools
+ * @high_count:			number of highmem items in the pool
+ * @low_count:			number of lowmem items in the pool
+ * @high_items:			list of highmem items
+ * @low_items:			list of lowmem items
+ * @mutex:			lock protecting this struct and especially the count
+ *				item list
+ * @gfp_mask:			gfp_mask to use from alloc
+ * @order:			order of pages in the pool
+ * @list:			list node for list of pools
+ * @vmid:			the vmid used for this pool
+ * @prerelease_callback:	preprocessing function called before pages are
+ *				released to buddy
  *
  * Allows you to keep a pool of pre allocated pages to use
  * Keeping a pool of pages that is ready for dma, ie any cached mapping have
@@ -63,12 +77,16 @@ struct dynamic_page_pool {
 	gfp_t gfp_mask;
 	unsigned int order;
 	struct list_head list;
+	int vmid;
+	prerelease_callback prerelease_callback;
 };
 
-struct dynamic_page_pool **dynamic_page_pool_create_pools(void);
+struct dynamic_page_pool **dynamic_page_pool_create_pools(int vmid,
+							  prerelease_callback callback);
 void dynamic_page_pool_release_pools(struct dynamic_page_pool **pool_list);
 struct page *dynamic_page_pool_alloc(struct dynamic_page_pool *pool);
 void dynamic_page_pool_free(struct dynamic_page_pool *pool, struct page *page);
 int dynamic_page_pool_init_shrinker(void);
+struct page *dynamic_page_pool_remove(struct dynamic_page_pool *pool, bool high);
 
 #endif /* _DYN_PAGE_POOL_H */

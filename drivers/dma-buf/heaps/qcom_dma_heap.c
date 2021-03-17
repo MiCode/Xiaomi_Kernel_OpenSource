@@ -13,6 +13,7 @@
 #include "qcom_dt_parser.h"
 #include "qcom_system_heap.h"
 #include "qcom_carveout_heap.h"
+#include "qcom_secure_system_heap.h"
 
 static int qcom_dma_heap_probe(struct platform_device *pdev)
 {
@@ -25,12 +26,12 @@ static int qcom_dma_heap_probe(struct platform_device *pdev)
 #ifdef CONFIG_QCOM_DMABUF_HEAPS_SYSTEM_UNCACHED
 	qcom_system_heap_create("qcom,system-uncached", true, 0);
 #endif
-	qcom_system_heap_create("system-secure", true,
-				QCOM_DMA_HEAP_FLAG_CP_PIXEL);
-	qcom_system_heap_create("qcom,secure-pixel", true,
-				QCOM_DMA_HEAP_FLAG_CP_PIXEL);
-	qcom_system_heap_create("qcom,secure-non-pixel", true,
-				QCOM_DMA_HEAP_FLAG_CP_NON_PIXEL);
+	qcom_secure_system_heap_create("system-secure",
+				       QCOM_DMA_HEAP_FLAG_CP_PIXEL);
+	qcom_secure_system_heap_create("qcom,secure-pixel",
+				       QCOM_DMA_HEAP_FLAG_CP_PIXEL);
+	qcom_secure_system_heap_create("qcom,secure-non-pixel",
+				       QCOM_DMA_HEAP_FLAG_CP_NON_PIXEL);
 
 	heaps = parse_heap_dt(pdev);
 	if (IS_ERR_OR_NULL(heaps))

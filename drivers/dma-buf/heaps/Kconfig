@@ -42,7 +42,7 @@ config QCOM_DMABUF_HEAPS_SYSTEM
 config QCOM_DMABUF_HEAPS_SYSTEM_SECURE
 	bool "QCOM DMA-BUF System Secure Heap"
 	depends on QCOM_DMABUF_HEAPS && QCOM_SECURE_BUFFER
-	select PAGE_POOL
+	depends on QCOM_DMABUF_HEAPS_SYSTEM
 	help
 	  Choose this option to build the QCOM DMA-BUF system
 	  secure heap. This heap, which combines the built-in

@@ -132,7 +132,16 @@ struct page *qcom_sys_heap_alloc_largest_available(struct dynamic_page_pool **po
 			continue;
 		if (max_order < orders[i])
 			continue;
-		page = dynamic_page_pool_alloc(pools[i]);
+
+		mutex_lock(&pools[i]->mutex);
+		if (pools[i]->high_count)
+			page = dynamic_page_pool_remove(pools[i], true);
+		else if (pools[i]->low_count)
+			page = dynamic_page_pool_remove(pools[i], false);
+		mutex_unlock(&pools[i]->mutex);
+
+		if (!page)
+			page = alloc_pages(pools[i]->gfp_mask, pools[i]->order);
 		if (!page)
 			continue;
 		return page;
@@ -295,7 +304,7 @@ int qcom_system_heap_create(char *name, bool uncached, int vmid)
 	sys_heap->uncached = uncached;
 	sys_heap->vmid = vmid;
 
-	sys_heap->pool_list = dynamic_page_pool_create_pools();
+	sys_heap->pool_list = dynamic_page_pool_create_pools(0, NULL);
 	if (IS_ERR(sys_heap->pool_list)) {
 		ret = PTR_ERR(sys_heap->pool_list);
 		goto free_heap;
