@@ -86,7 +86,8 @@ struct scp_regs {
 	void __iomem *cfg_core1;
 	void __iomem *cfg_sec;
 	void __iomem *bus_tracker;
-	int irq;
+	int irq0;
+	int irq1;
 	unsigned int total_tcmsize;
 	unsigned int cfgregsize;
 	unsigned int scp_tcmsize;

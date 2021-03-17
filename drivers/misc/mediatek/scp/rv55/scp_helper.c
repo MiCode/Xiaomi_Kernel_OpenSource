@@ -37,7 +37,6 @@
 #include "scp_dvfs.h"
 #include "scp_scpctl.h"
 #include "scp.h"
-#include <linux/syscore_ops.h>
 
 #ifdef CONFIG_OF_RESERVED_MEM
 #include <linux/of_reserved_mem.h>
@@ -158,14 +157,16 @@ struct scp_ipi_irq scp_ipi_irqs[] = {
 };
 #define IRQ_NUMBER  (sizeof(scp_ipi_irqs)/sizeof(struct scp_ipi_irq))
 
-static int scp_ipi_syscore_dbg_suspend(void) { return 0; }
-static void scp_ipi_syscore_dbg_resume(void)
+static int scp_ipi_dbg_resume_noirq(struct device *dev)
 {
-	int i;
+	int i = 0;
 	int ret = 0;
+	bool state = false;
 
 	for (i = 0; i < IRQ_NUMBER; i++) {
-		if (ret) {
+		ret = irq_get_irqchip_state(scp_ipi_irqs[i].irq_no,
+			IRQCHIP_STATE_PENDING, &state);
+		if (!ret && state) {
 			if (i < 2)
 				pr_info("[SCP] ipc%d wakeup\n", i);
 			else
@@ -173,6 +174,8 @@ static void scp_ipi_syscore_dbg_resume(void)
 			break;
 		}
 	}
+
+	return 0;
 }
 
 /*
@@ -1733,27 +1736,57 @@ static int scp_device_probe(struct platform_device *pdev)
 		pr_debug("[SCP] core_0 enable\n");
 		scp_enable[SCP_A_ID] = 1;
 	}
-	scpreg.irq = platform_get_irq_byname(pdev, "ipc0");
-	ret = request_irq(scpreg.irq, scp_A_irq_handler,
-		IRQF_TRIGGER_NONE, "SCP IPC0", NULL);
-	if (ret) {
-		pr_err("[SCP]ipc0 require irq fail %d %d\n", scpreg.irq, ret);
-		//goto err;
+	scpreg.irq0 = platform_get_irq_byname(pdev, "ipc0");
+	if (scpreg.irq0 < 0)
+		pr_err("[SCP] get ipc0 irq failed\n");
+	else {
+		pr_debug("ipc0 %d\n", scpreg.irq0);
+		ret = request_irq(scpreg.irq0, scp_A_irq_handler,
+			IRQF_TRIGGER_NONE, "SCP IPC0", NULL);
+		if (ret < 0)
+			pr_err("[SCP]ipc0 require fail %d %d\n",
+				scpreg.irq0, ret);
+		else {
+			ret = enable_irq_wake(scpreg.irq0);
+			if (ret < 0)
+				pr_err("[SCP] ipc0 wake fail:%d,%d\n",
+					scpreg.irq0, ret);
+		}
 	}
-	pr_debug("ipc0 %d\n", scpreg.irq);
-	scpreg.irq = platform_get_irq_byname(pdev, "ipc1");
-	ret = request_irq(scpreg.irq, scp_A_irq_handler,
-		IRQF_TRIGGER_NONE, "SCP IPC1", NULL);
-	if (ret) {
-		pr_err("[SCP]ipc1 require irq fail %d %d\n", scpreg.irq, ret);
-		//goto err;
+
+	scpreg.irq1 = platform_get_irq_byname(pdev, "ipc1");
+	if (scpreg.irq1 < 0)
+		pr_err("[SCP] get ipc1 irq failed\n");
+	else {
+		pr_debug("ipc1 %d\n", scpreg.irq1);
+		ret = request_irq(scpreg.irq1, scp_A_irq_handler,
+			IRQF_TRIGGER_NONE, "SCP IPC1", NULL);
+		if (ret < 0)
+			pr_err("[SCP]ipc1 require irq fail %d %d\n",
+				scpreg.irq1, ret);
+		else {
+			ret = enable_irq_wake(scpreg.irq1);
+			if (ret < 0)
+				pr_err("[SCP] irq wake fail:%d,%d\n",
+					scpreg.irq1, ret);
+		}
 	}
-	pr_debug("ipc1 %d\n", scpreg.irq);
+
 	/* create mbox dev */
 	pr_debug("[SCP] mbox probe\n");
 	for (i = 0; i < SCP_MBOX_TOTAL; i++) {
 		scp_mbox_info[i].mbdev = &scp_mboxdev;
-		mtk_mbox_probe(pdev, scp_mbox_info[i].mbdev, i);
+		ret = mtk_mbox_probe(pdev, scp_mbox_info[i].mbdev, i);
+		if (ret < 0 || scp_mboxdev.info_table[i].irq_num < 0) {
+			pr_err("[SCP] mbox%d probe fail\n", i, ret);
+			continue;
+		}
+
+		ret = enable_irq_wake(scp_mboxdev.info_table[i].irq_num);
+		if (ret < 0) {
+			pr_err("[SCP]mbox%d enable irq fail\n", i, ret);
+			continue;
+		}
 		mbox_setup_pin_table(i);
 	}
 
@@ -1819,6 +1852,10 @@ static int scpsys_device_remove(struct platform_device *dev)
 	return 0;
 }
 
+static const struct dev_pm_ops scp_ipi_dbg_pm_ops = {
+	.resume_noirq = scp_ipi_dbg_resume_noirq,
+};
+
 static const struct of_device_id scp_of_ids[] = {
 	{ .compatible = "mediatek,scp", },
 	{}
@@ -1833,6 +1870,7 @@ static struct platform_driver mtk_scp_device = {
 #ifdef CONFIG_OF
 		.of_match_table = scp_of_ids,
 #endif
+		.pm = &scp_ipi_dbg_pm_ops,
 	},
 };
 
@@ -1853,10 +1891,6 @@ static struct platform_driver mtk_scpsys_device = {
 	},
 };
 
-static struct syscore_ops scp_ipi_dbg_syscore_ops = {
-	.suspend = scp_ipi_syscore_dbg_suspend,
-	.resume = scp_ipi_syscore_dbg_resume,
-};
 
 /*
  * driver initialization entry point
@@ -1970,8 +2004,6 @@ static int __init scp_init(void)
 	scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
 #endif
 
-	register_syscore_ops(&scp_ipi_dbg_syscore_ops);
-
 	driver_init_done = true;
 	reset_scp(SCP_ALL_ENABLE);
 
@@ -2005,7 +2037,8 @@ static void __exit scp_exit(void)
 	scp_logger_uninit();
 #endif
 
-	free_irq(scpreg.irq, NULL);
+	free_irq(scpreg.irq0, NULL);
+	free_irq(scpreg.irq1, NULL);
 	misc_deregister(&scp_device);
 
 	flush_workqueue(scp_workqueue);
