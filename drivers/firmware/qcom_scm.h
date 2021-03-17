@@ -15,13 +15,17 @@
 #define QCOM_SCM_BOOT_SPIN_CPU			0x0d
 #define QCOM_SCM_BOOT_SWITCH_MODE		0x0f
 #define QCOM_SCM_BOOT_SET_DLOAD_MODE		0x10
+#define QCOM_SCM_BOOT_SET_ADDR_MC		0x11
 #define QCOM_SCM_BOOT_CONFIG_CPU_ERRATA		0x12
 #define QCOM_SCM_QUSB2PHY_LVL_SHIFTER_CMD_ID	0x1B
 extern int __qcom_scm_set_cold_boot_addr(struct device *dev, void *entry,
 		const cpumask_t *cpus);
 extern int __qcom_scm_set_warm_boot_addr(struct device *dev, void *entry,
 		const cpumask_t *cpus);
+extern int __qcom_scm_set_warm_boot_addr_mc(struct device *dev, void *entry,
+		u32 aff0, u32 aff1, u32 aff2, u32 flags);
 extern void __qcom_scm_cpu_power_down(struct device *dev, u32 flags);
+extern void __qcom_scm_cpu_hp(struct device *dev, u32 flags);
 extern int __qcom_scm_sec_wdog_deactivate(struct device *dev);
 extern int __qcom_scm_sec_wdog_trigger(struct device *dev);
 extern void __qcom_scm_disable_sdi(struct device *dev);
