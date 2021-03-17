@@ -83,6 +83,9 @@ static int dwmac4_wrback_get_rx_status(void *data, struct stmmac_extra_stats *x,
 	if (unlikely(rdes3 & RDES3_OWN))
 		return dma_own;
 
+	if (likely((rdes3 & RDES3_CONTEXT_DESCRIPTOR)))
+		return (discard_frame | ctxt_desc);
+
 	/* Verify rx error by looking at the last segment. */
 	if (likely(!(rdes3 & RDES3_LAST_DESCRIPTOR)))
 		return discard_frame;
