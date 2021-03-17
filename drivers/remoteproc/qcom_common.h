@@ -70,6 +70,7 @@ struct qcom_sysmon *qcom_add_sysmon_subdev(struct rproc *rproc,
 					   const char *name,
 					   int ssctl_instance);
 void qcom_remove_sysmon_subdev(struct qcom_sysmon *sysmon);
+uint32_t qcom_sysmon_get_txn_id(struct qcom_sysmon *sysmon);
 #else
 static inline struct qcom_sysmon *qcom_add_sysmon_subdev(struct rproc *rproc,
 							 const char *name,
@@ -80,6 +81,11 @@ static inline struct qcom_sysmon *qcom_add_sysmon_subdev(struct rproc *rproc,
 
 static inline void qcom_remove_sysmon_subdev(struct qcom_sysmon *sysmon)
 {
+}
+
+static inline uint32_t qcom_sysmon_get_txn_id(struct qcom_sysmon *sysmon)
+{
+	return 0;
 }
 #endif
 
