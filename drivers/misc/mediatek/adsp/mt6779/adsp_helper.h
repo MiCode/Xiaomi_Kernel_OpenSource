@@ -178,6 +178,7 @@ extern void adsp_extern_notify(enum ADSP_NOTIFY_EVENT notify_status);
 
 extern unsigned int adsp_set_reset_status(void);
 extern int is_adsp_ready(uint32_t adsp_id);
+extern bool adsp_feature_is_active(void);
 void adsp_reset_ready(uint32_t id);
 void adsp_A_ready_ipi_handler(int id, void *data, unsigned int len);
 
