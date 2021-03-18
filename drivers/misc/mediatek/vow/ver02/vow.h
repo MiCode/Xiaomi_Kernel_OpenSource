@@ -133,6 +133,7 @@
 #define VOW_GET_GOOGLE_ARCH           _IOW(VOW_IOC_MAGIC, 0x13, unsigned int)
 #define VOW_SET_DSP_AEC_PARAMETER     _IOW(VOW_IOC_MAGIC, 0x14, unsigned int)
 #define VOW_SET_PAYLOADDUMP_INFO      _IOW(VOW_IOC_MAGIC, 0x16, unsigned int)
+#define VOW_READ_VOICE_DATA           _IOW(VOW_IOC_MAGIC, 0x17, unsigned int)
 
 #ifdef VOW_ECHO_SW_SRC
 #define VOW_BARGEIN_AFE_MEMIF_SIZE    0x1E00
@@ -204,7 +205,6 @@ enum { /* dump_data_t */
  *****************************************************************************/
 enum vow_control_cmd_t {
 	VOWControlCmd_Init = 0,
-	VOWControlCmd_ReadVoiceData,
 	VOWControlCmd_EnableDebug,
 	VOWControlCmd_DisableDebug,
 	VOWControlCmd_EnableSeamlessRecord,
