@@ -701,7 +701,6 @@ static ssize_t gt9896s_ts_reg_rw_store(struct device *dev,
 
 	/* get addr */
 	pos = (char *)buf;
-	pos += 2;
 	token = strsep(&pos, ":");
 	if (!token) {
 		ts_err("invalid address info\n");
