@@ -848,10 +848,6 @@ static int disp_aal_copy_hist_to_user(struct DISP_AAL_HIST *hist)
 	g_aal_hist.essStrengthIndex = g_aal_ess_level;
 	g_aal_hist.ess_enable = g_aal_ess_en;
 	g_aal_hist.dre_enable = g_aal_dre_en;
-	if (isDualPQ)
-		g_aal_hist.pipeLineNum = 2;
-	else
-		g_aal_hist.pipeLineNum = 1;
 
 	g_aal_hist.serviceFlags = 0;
 	atomic_set(&g_aal0_hist_available, 0);
