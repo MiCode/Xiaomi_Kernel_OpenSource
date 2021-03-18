@@ -19,6 +19,7 @@
  * Platform dependent quirks
  */
 
+#define UFS_MTK_PLATFORM_EARA_IO
 /* #define UFS_MTK_PLATFORM_UFS_HCI_PERF_HEURISTIC */
 #define UFS_MTK_PLATFORM_VCC_ALWAYS_ON
 
