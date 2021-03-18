@@ -1702,6 +1702,7 @@ static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 {
 	bool doze_enabled = mtk_dsi_doze_state(dsi);
 	struct mtk_panel_funcs *panel_funcs;
+	struct drm_crtc *crtc = &dsi->ddp_comp.mtk_crtc->base;
 
 	if (!dsi->output_en)
 		return;
@@ -1709,7 +1710,7 @@ static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 	DDPINFO("%s doze_enabled state change %d->%d\n", __func__,
 		dsi->doze_enabled, doze_enabled);
 
-	if (dsi->ext && dsi->ext->funcs) {
+	if (dsi->ext && dsi->ext->funcs && crtc) {
 		panel_funcs = dsi->ext->funcs;
 	} else {
 		DDPINFO("%s, AOD should have use panel extension function\n",
@@ -1717,6 +1718,7 @@ static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 		return;
 	}
 
+	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 	/* Change LCM Doze mode */
 	if (doze_enabled && panel_funcs->doze_enable_start)
 		panel_funcs->doze_enable_start(dsi->panel, dsi,
