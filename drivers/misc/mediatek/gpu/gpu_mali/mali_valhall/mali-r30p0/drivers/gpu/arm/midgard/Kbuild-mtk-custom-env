@@ -51,3 +51,4 @@ endif
 
 ccflags-y += -DCONFIG_MTK_GPU_DEBUG
 ccflags-y += -DCONFIG_MTK_GPU_DEBUG_DFD
+ccflags-y += -DCONFIG_MTK_GPU_MEM_TRACK
