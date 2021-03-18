@@ -2766,6 +2766,8 @@ static int mtk_drm_bind(struct device *dev)
 	mtk_drm_assert_layer_init(crtc);
 #ifdef CONFIG_FPGA_EARLY_PORTING
 	pan_display_test(1, 32);
+	mtk_drm_crtc_analysis(crtc);
+	mtk_drm_crtc_dump(crtc);
 #endif
 	DDPINFO("%s-\n", __func__);
 

@@ -84,8 +84,8 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 bool hdr_en;
 static const char * const crtc_gce_client_str[] = {
 	DECLARE_GCE_CLIENT(DECLARE_STR)};
-static struct pm_qos_request mm_freq_request;
 #ifdef MTK_FB_MMDVFS_SUPPORT
+static struct pm_qos_request mm_freq_request;
 static u64 freq_steps[MAX_FREQ_STEP];
 static u32 step_size;
 #endif
@@ -1378,9 +1378,11 @@ void mtk_crtc_ddp_unprepare(struct mtk_drm_crtc *mtk_crtc)
 			}
 		}
 	}
+#ifdef MTK_FB_MMDVFS_SUPPORT
 	/*restore default mm freq, PM_QOS_MM_FREQ_DEFAULT_VALUE*/
 	if (drm_crtc_index(&mtk_crtc->base) == 1)
 		pm_qos_update_request(&mm_freq_request, 0);
+#endif
 
 }
 #ifdef MTK_DRM_ADVANCE
