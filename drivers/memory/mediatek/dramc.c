@@ -69,6 +69,8 @@ static int fmeter_v1_init(struct platform_device *pdev,
 		"dqsopen", (unsigned int *)(fmeter_dev_ptr->dqsopen), 6);
 	ret |= of_property_read_u32_array(dramc_node,
 		"dqopen", (unsigned int *)(fmeter_dev_ptr->dqopen), 6);
+	ret |= of_property_read_u32_array(dramc_node,
+		"ckdiv4_ca", (unsigned int *)(fmeter_dev_ptr->ckdiv4_ca), 6);
 
 	return ret;
 }
@@ -457,21 +459,29 @@ EXPORT_SYMBOL(mtk_dramc_get_steps_freq);
 static unsigned int decode_freq(unsigned int vco_freq)
 {
 	switch (vco_freq) {
+	case 5460:
+		return 5500;
 	case 4264:
 		return 4266;
 	case 3718:
+	case 3588:
 		return 3733;
 	case 3068:
 		return 3200;
+	case 2652:
+		return 2667;
 	case 2366:
 		return 2400;
 	case 1859:
+	case 1794:
 		return 1866;
 	case 1534:
 		return 1600;
 	case 1144:
+	case 1196:
 		return 1200;
 	case 754:
+	case 799:
 		return 800;
 	case 396:
 		return 400;
@@ -497,6 +507,7 @@ static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
 	unsigned int fbksel;
 	unsigned int dqsopen;
 	unsigned int dqopen;
+	unsigned int ckdiv4_ca_val;
 
 	shu_lv_val = (readl(dramc_dev_ptr->ddrphy_chn_base_nao[0] +
 		fmeter_dev_ptr->shu_lv.offset) &
@@ -562,12 +573,20 @@ static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
 		fmeter_dev_ptr->dqopen[pll_id_val].mask) >>
 		fmeter_dev_ptr->dqopen[pll_id_val].shift;
 
+	offset = fmeter_dev_ptr->ckdiv4_ca[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	ckdiv4_ca_val = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] + offset) &
+		fmeter_dev_ptr->ckdiv4_ca[pll_id_val].mask) >>
+		fmeter_dev_ptr->ckdiv4_ca[pll_id_val].shift;
+
 	vco_freq = ((fmeter_dev_ptr->crystal_freq >> prediv_val) *
 		(sdmpcw_val >> 8)) >> posdiv_val >> ckdiv4_val >>
 		pll_md_val >> cldiv2_val << fbksel;
 
-	if (dqsopen == 1 || dqopen == 1)
+	if ((dqsopen == 1 || dqopen == 1) && (ckdiv4_ca_val == 1))
 		vco_freq >>= 2;
+	else if ((dqsopen == 1 || dqopen == 1) && (ckdiv4_ca_val == 0))
+		vco_freq >>= 1;
 
 	return decode_freq(vco_freq);
 }
