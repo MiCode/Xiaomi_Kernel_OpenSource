@@ -22,12 +22,6 @@
  */
 #define TS_BOOT_T
 
-
-/**
- * disable sv top0 or not
- */
-#define DISABLE_SV_TOP0
-
 #ifndef CONFIG_OF
 extern void mt_irq_set_sens(unsigned int irq, unsigned int sens);
 extern void mt_irq_set_polarity(unsigned int irq, unsigned int polarity);

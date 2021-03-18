@@ -367,6 +367,7 @@ struct ISP_CLK_STRUCT {
 	struct clk *ISP_CAM_CAMSV0;
 	struct clk *ISP_CAM_CAMSV1;
 	struct clk *ISP_CAM_CAMSV2;
+	struct clk *ISP_CAM_CAMSV3;
 	struct clk *CAMSYS_SENINF_CGPDN;
 	struct clk *CAMSYS_CAM2MM_GALS_CGPDN;
 	struct clk *CAMSYS_TOP_MUX_CCU;
@@ -2207,6 +2208,10 @@ static inline void Prepare_Enable_ccf_clock(void)
 	if (ret)
 		LOG_NOTICE("cannot pre-en ISP_CAM_CAMSV2 clock\n");
 
+	ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSV3);
+	if (ret)
+		LOG_NOTICE("cannot pre-en ISP_CAM_CAMSV3 clock\n");
+
 	ret = clk_prepare_enable(isp_clk.ISP_CAM_LARB16_RAWA);
 	if (ret)
 		LOG_NOTICE("cannot pre-en ISP_CAM_LARB16_RAWA clock\n");
@@ -2246,6 +2251,7 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV0);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV1);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV2);
+	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV3);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMTG);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSYS);
 	clk_disable_unprepare(isp_clk.CAMSYS_CCU0_CGPDN);
@@ -6767,6 +6773,8 @@ static int ISP_probe(struct platform_device *pDev)
 		isp_clk.ISP_CAM_CAMSV2 =
 			devm_clk_get(&pDev->dev, "CAMSYS_CAMSV2_CGPDN");
 
+		isp_clk.ISP_CAM_CAMSV3 =
+			devm_clk_get(&pDev->dev, "CAMSYS_CAMSV3_CGPDN");
 
 		isp_clk.ISP_CAM_LARB16_RAWA =
 			devm_clk_get(&pDev->dev, "CAMSYS_RAWALARB16_CGPDN");
@@ -6842,6 +6850,10 @@ static int ISP_probe(struct platform_device *pDev)
 		if (IS_ERR(isp_clk.ISP_CAM_CAMSV2)) {
 			LOG_NOTICE("cannot get ISP_CAM_CAMSV2 clock\n");
 			return PTR_ERR(isp_clk.ISP_CAM_CAMSV2);
+		}
+		if (IS_ERR(isp_clk.ISP_CAM_CAMSV3)) {
+			LOG_NOTICE("cannot get ISP_CAM_CAMSV3 clock\n");
+			return PTR_ERR(isp_clk.ISP_CAM_CAMSV3);
 		}
 		if (IS_ERR(isp_clk.ISP_CAM_LARB16_RAWA)) {
 			LOG_NOTICE("cannot get ISP_CAM_LARB16_RAWA clock\n");

@@ -166,7 +166,7 @@ void mtk_pmqos_add(enum ISP_IRQ_TYPE_ENUM module, u32 portID)
 		case _camsv_ufeo_:
 			mm_qos_add_request(gSVBW_LIST(module),
 						gSV_BW_REQ(module, portID),
-						M4U_PORT_L13_CAM_RESERVE1);
+						M4U_PORT_L13_CAM_CAMSV1);
 			break;
 		default:
 			LOG_NOTICE("unsupported port:%d\n", portID);
@@ -178,12 +178,12 @@ void mtk_pmqos_add(enum ISP_IRQ_TYPE_ENUM module, u32 portID)
 		case _camsv_imgo_:
 			mm_qos_add_request(gSVBW_LIST(module),
 						gSV_BW_REQ(module, portID),
-						M4U_PORT_L13_CAM_RESERVE2);
+						M4U_PORT_L13_CAM_CAMSV2);
 			break;
 		case _camsv_ufeo_:
 			mm_qos_add_request(gSVBW_LIST(module),
 						gSV_BW_REQ(module, portID),
-						M4U_PORT_L13_CAM_RESERVE3);
+						M4U_PORT_L13_CAM_CAMSV3);
 			break;
 		default:
 			LOG_NOTICE("unsupported port:%d\n", portID);
