@@ -25,14 +25,6 @@ ccflags-y += \
                                 -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox \
                                 -I$(srctree)/drivers/misc/mediatek/sync/      \
                                 -I$(srctree)/drivers/misc/mediatek/lcm/inc/ \
-
-ifeq (y, $(filter y, $(CONFIG_MACH_MT6833)))
-ccflags-y += \
-                 -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/cmdq/v3/ \
-                 -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/cmdq/v3/$(MTK_PLATFORM)/
-else
-ccflags-y += \
                                 -I$(srctree)/drivers/misc/mediatek/cmdq/v3/ \
                                 -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
-endif
 
