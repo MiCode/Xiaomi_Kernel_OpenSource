@@ -32,8 +32,10 @@ static void ccci_aed_v1(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 {
 	void *ex_log_addr = NULL;
 	int ex_log_len = 0;
+#if defined(CONFIG_MTK_AEE_FEATURE)
 	void *md_img_addr = NULL;
 	int md_img_len = 0;
+#endif
 	int info_str_len = 0;
 	char *buff;		/*[AED_STR_LEN]; */
 #if defined(CONFIG_MTK_AEE_FEATURE)
@@ -94,10 +96,6 @@ static void ccci_aed_v1(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	if (dump_flag & CCCI_AED_DUMP_EX_PKT) {
 		ex_log_addr = (void *)&dumper->ex_info;
 		ex_log_len = sizeof(struct ex_log_t);
-	}
-	if (dump_flag & CCCI_AED_DUMP_MD_IMG_MEM) {
-		md_img_addr = (void *)mem_layout->md_bank0.base_ap_view_vir;
-		md_img_len = MD_IMG_DUMP_SIZE;
 	}
 	if (buff == NULL) {
 #if defined(CONFIG_MTK_AEE_FEATURE)
@@ -680,8 +678,6 @@ static void mdee_dumper_info_prepare_v1(struct ccci_fsm_ee *mdee)
 
 	debug_info->ext_mem = ex_info;
 	debug_info->ext_size = sizeof(struct ex_log_t);
-	debug_info->md_image = (void *)mem_layout->md_bank0.base_ap_view_vir;
-	debug_info->md_size = MD_IMG_DUMP_SIZE;
 }
 static void mdee_dumper_v1_set_ee_pkg(struct ccci_fsm_ee *mdee,
 	char *data, int len)

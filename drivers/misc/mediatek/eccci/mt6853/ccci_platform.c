@@ -46,6 +46,7 @@ int Is_MD_EMI_voilation(void)
 	return 1;
 }
 
+unsigned long pericfg_base;
 unsigned long infra_ao_base;
 unsigned long infra_ao_mem_base;
 
@@ -127,7 +128,7 @@ static int ccci_md_low_power_notify(
 static void ccci_md_low_battery_cb(LOW_BATTERY_LEVEL level)
 {
 	int idx = 0;
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	for (idx = 0; idx < MAX_MD_NUM; idx++) {
 		md = ccci_md_get_modem_by_id(idx);
@@ -139,7 +140,7 @@ static void ccci_md_low_battery_cb(LOW_BATTERY_LEVEL level)
 static void ccci_md_over_current_cb(BATTERY_OC_LEVEL level)
 {
 	int idx = 0;
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	for (idx = 0; idx < MAX_MD_NUM; idx++) {
 		md = ccci_md_get_modem_by_id(idx);
@@ -159,7 +160,7 @@ void ccci_reset_ccif_hw(unsigned char md_id,
 			int ccif_id, void __iomem *baseA, void __iomem *baseB)
 {
 	int i;
-	struct ccci_smem_region *region;
+	struct ccci_smem_region *region = NULL;
 
 	{
 		int ccif0_reset_bit = 8;
@@ -218,6 +219,17 @@ int ccci_platform_init(struct ccci_modem *md)
 		return -1;
 	}
 	CCCI_INIT_LOG(-1, TAG, "infra_ao_base:0x%p\n", (void *)infra_ao_base);
+
+	/*Get pericfg base(0x1000 3000) for ccif5*/
+	node = of_find_compatible_node(NULL, NULL, "mediatek,pericfg");
+	pericfg_base = (unsigned long)of_iomap(node, 0);
+	if (!pericfg_base) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s: pericfg_base of_iomap failed\n", node->full_name);
+		return -1;
+	}
+	CCCI_INIT_LOG(-1, TAG, "pericfg_base:0x%p\n", (void *)pericfg_base);
+
 	node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg_ao_mem");
 	infra_ao_mem_base = (unsigned long)of_iomap(node, 0);
 	if (!infra_ao_mem_base) {
@@ -355,17 +367,19 @@ static  struct dvfs_ref s_dl_dvfs_tbl[] = {
 	{1000000000LL, 1300000, 1406000, -1, -1, 1, 0x02, 0xC0, 0xC0},
 	{450000000LL, 1200000, 1406000, -1, -1, 1, 0x02, 0xC0, 0xC0},
 	{230000000LL, 1181000, -1, -1, -1, 1, 0xFF, 0xFF, 0x3D},
-	{50000000LL, -1, -1, -1, -1, 1, 0xFF, 0xFF, 0x0D},
+	{50000000LL, -1, -1, -1, -1, 1, 0xFF, 0xFF, 0x3D},
 	/* normal */
-	{0LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x0D},
+	{0LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x3D},
 };
 
 static  struct dvfs_ref s_ul_dvfs_tbl[] = {
 	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps*/
-	{500000000LL, 1700000, 1706000, -1, -1, 0, 0x02, 0xF0, 0xF0},
-	{250000000LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x0D},
+	{600000000LL, 2700000, 2706000, -1, -1, 0, 0x02, 0xC0, 0xC0},
+	{500000000LL, 1700000, 1706000, -1, -1, 0, 0x02, 0xC0, 0xC0},
+	{300000000LL, 1500000, 1500000, -1, -1, 1, 0xFF, 0xFF, 0x3D},
+	{250000000LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x3D},
 	/* normal */
-	{0LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x0D},
+	{0LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x3D},
 };
 
 struct dvfs_ref *mtk_ccci_get_dvfs_table(int is_ul, int *tbl_num)

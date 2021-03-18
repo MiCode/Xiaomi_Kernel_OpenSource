@@ -94,6 +94,6 @@
 #define USING_TX_DONE_KERNEL_THREAD
 
 #define CCCI_USE_DFD_OFFSET_0
-//define CCCI_ENABLE_MPU_MEMORY_API
+
 
 #endif

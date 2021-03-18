@@ -185,6 +185,11 @@ int ccci_fsm_increase_devapc_dump_counter(void)
 	return (++ s_devapc_dump_counter);
 }
 
+void __weak mtk_clear_md_violation(void)
+{
+	CCCI_ERROR_LOG(-1, FSM, "[%s] is not supported!\n", __func__);
+}
+
 /* cmd is not NULL only when reason is ordinary EE */
 static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_command *cmd, enum CCCI_EE_REASON reason)

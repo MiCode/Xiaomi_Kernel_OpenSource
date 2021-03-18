@@ -36,8 +36,10 @@ static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 {
 	void *ex_log_addr = NULL;
 	int ex_log_len = 0;
+#if defined(CONFIG_MTK_AEE_FEATURE)
 	void *md_img_addr = NULL;
 	int md_img_len = 0;
+#endif
 	int info_str_len = 0;
 	char *buff;		/*[AED_STR_LEN]; */
 #if defined(CONFIG_MTK_AEE_FEATURE)
@@ -97,10 +99,6 @@ static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	if (dump_flag & CCCI_AED_DUMP_EX_PKT) {
 		ex_log_addr = (void *)dumper->ex_pl_info;
 		ex_log_len = MD_HS1_FAIL_DUMP_SIZE;
-	}
-	if (dump_flag & CCCI_AED_DUMP_MD_IMG_MEM) {
-		md_img_addr = (void *)mem_layout->md_bank0.base_ap_view_vir;
-		md_img_len = MD_IMG_DUMP_SIZE;
 	}
 	if (buff == NULL) {
 #if defined(CONFIG_MTK_AEE_FEATURE)
