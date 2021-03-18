@@ -526,6 +526,7 @@ TRACE_EVENT(perf_index_s,
 		int io_reqc_w,
 		int io_dur,
 		int io_q_dept,
+		int io_top,
 		int *stall
 	),
 
@@ -535,7 +536,7 @@ TRACE_EVENT(perf_index_s,
 		io_req_r, io_all_r, io_reqsz_r, io_reqc_r,
 		io_req_w, io_all_w, io_reqsz_w, io_reqc_w,
 		io_dur,
-		io_q_dept,
+		io_q_dept, io_top,
 		stall
 ),
 
@@ -553,6 +554,7 @@ TRACE_EVENT(perf_index_s,
 		__field(int, io_reqc_w)
 		__field(int, io_dur)
 		__field(int, io_q_dept)
+		__field(int, io_top)
 		__array(int, stall, 8)
 	),
 
@@ -570,6 +572,7 @@ TRACE_EVENT(perf_index_s,
 		__entry->io_reqc_w  = io_reqc_w;
 		__entry->io_dur     = io_dur;
 		__entry->io_q_dept  = io_q_dept;
+		__entry->io_top     = io_top;
 		memcpy(__entry->stall, stall, sizeof(int)*8);
 	),
 

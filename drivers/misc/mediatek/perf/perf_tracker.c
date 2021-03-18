@@ -96,6 +96,7 @@ struct mtk_btag_mictx_iostat_struct {
 	__u32 reqcnt_r;  /* request count: read */
 	__u32 reqcnt_w;  /* request count: write */
 	__u16 wl;        /* storage device workload (%) */
+	__u16 top;       /* ratio of request (size) by top-app */
 	__u16 q_depth;   /* storage cmdq queue depth */
 };
 #endif
@@ -330,8 +331,9 @@ void __perf_tracker(u64 wallclock,
 			iostat->tp_req_w, iostat->tp_all_w,
 			iostat->reqsize_w, iostat->reqcnt_w,
 			iostat->duration, iostat->q_depth,
+			iostat->top,
 #else
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 #endif
 			stall);
 }
