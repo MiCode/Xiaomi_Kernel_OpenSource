@@ -135,6 +135,8 @@ static int systracker_platform_probe_default(struct platform_device *pdev)
 	track_config.enable_timeout = 1;
 	track_config.enable_slave_err = 1;
 	track_config.enable_irq = 0;
+	track_config.enable_resp_mon = 0;
+	track_config.enable_resp_unmask = 1;
 	track_config.timeout_ms = 100;
 	track_config.timeout2_ms = 2000;
 
@@ -487,6 +489,12 @@ void systracker_enable_default(void)
 		con |= BUS_DBG_CON_IRQ_EN;
 		con &= ~BUS_DBG_CON_IRQ_WP_EN;
 	}
+
+	if (track_config.enable_resp_mon)
+		con |= BUS_DBG_CON_RESP_MON_EN;
+
+	if (track_config.enable_resp_unmask)
+		con |= BUS_DBG_CON_RESP_UNMASK;
 
 	con |= BUS_DBG_CON_HALT_ON_EN;
 	writel(con, IOMEM(BUS_DBG_CON_INFRA));
