@@ -5161,8 +5161,11 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		panel_ext = mtk_dsi_get_panel_ext(comp);
 		if (panel_ext && panel_ext->funcs
-			&& panel_ext->funcs->reset)
+			&& panel_ext->funcs->reset) {
+			CRTC_MMP_EVENT_START(0, lcm, 0, __LINE__);
 			panel_ext->funcs->reset(dsi->panel, *(int *)params);
+			CRTC_MMP_EVENT_END(0, lcm, 0, __LINE__);
+		}
 	}
 		break;
 	case DSI_SET_BL:

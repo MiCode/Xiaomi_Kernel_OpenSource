@@ -103,6 +103,7 @@ struct CRTC_MMP_Events {
 	mmp_event clk_change;
 	mmp_event layerBmpDump;
 	mmp_event layer_dump[6];
+	mmp_event lcm;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);

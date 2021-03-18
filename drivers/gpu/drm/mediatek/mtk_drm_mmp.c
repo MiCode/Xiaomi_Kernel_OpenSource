@@ -237,6 +237,8 @@ void init_crtc_mmp_event(void)
 					mmprofile_register_event(
 					g_CRTC_MMP_Events[i].layerBmpDump,
 					"layer5_dump");
+		g_CRTC_MMP_Events[i].lcm = mmprofile_register_event(
+			crtc_mmp_root, "lcm");
 	}
 }
 void drm_mmp_init(void)
