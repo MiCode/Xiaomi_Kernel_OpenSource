@@ -100,12 +100,16 @@ static const struct of_device_id amms_of_ids[] = {
 	{ .compatible = "mediatek,amms", },
 	{}
 };
+
 static unsigned int amms_freq_up = 1;
 static unsigned int amms_vcore_up = 1;
+#if AMMS_POS
 static unsigned int amms_force_timeout;
 static unsigned int amms_alloc_count;
 static unsigned int amms_dealloc_count;
+#endif
 static unsigned int amms_irq_count;
+
 #ifdef CONFIG_MTK_CPU_FREQ
 #if AMMS_STRESS
 static unsigned int amms_pos_stress_operation;
@@ -332,11 +336,12 @@ module_param(amms_bind_cpu, int, 0644);
 
 module_param(amms_freq_up, uint, 0644);
 module_param(amms_vcore_up, uint, 0644);
+#if AMMS_POS
 module_param(amms_force_timeout, uint, 0644);
 module_param(amms_alloc_count, uint, 0644);
 module_param(amms_dealloc_count, uint, 0644);
+#endif
 module_param(amms_irq_count, uint, 0644);
-
 
 
 #if CONFIG_SYSFS
