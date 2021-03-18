@@ -2960,7 +2960,7 @@ static int mtk_drm_bind(struct device *dev)
 	crtc = list_first_entry(&(drm)->mode_config.crtc_list, typeof(*crtc),
 				head);
 	mtk_drm_assert_layer_init(crtc);
-#ifdef CONFIG_FPGA_EARLY_PORTING
+#ifdef MTK_DRM_BRINGUP_STAGE
 	pan_display_test(1, 32);
 	mtk_drm_crtc_analysis(crtc);
 	mtk_drm_crtc_dump(crtc);
