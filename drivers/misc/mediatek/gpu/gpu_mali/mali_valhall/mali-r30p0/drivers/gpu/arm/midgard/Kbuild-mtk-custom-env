@@ -49,3 +49,5 @@ endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 endif
 
+ccflags-y += -DCONFIG_MTK_GPU_DEBUG
+ccflags-y += -DCONFIG_MTK_GPU_DEBUG_DFD
