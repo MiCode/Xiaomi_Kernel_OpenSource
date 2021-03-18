@@ -887,6 +887,44 @@ int gh_rm_vm_start(int vmid)
 EXPORT_SYMBOL(gh_rm_vm_start);
 
 /**
+ * gh_rm_vm_reset: Send a request to Resource Manager VM to free up all
+ * resources used by the VM.
+ * @vmid: The vmid of the vm to be cleaned up.
+ *
+ * The function returns 0 on success and a negative error code
+ * upon failure.
+ */
+int gh_rm_vm_reset(gh_vmid_t vmid)
+{
+	struct gh_vm_reset_req_payload req_payload = {
+		.vmid = vmid,
+	};
+	size_t resp_payload_size;
+	int err, reply_err_code;
+	void *resp;
+
+	resp = gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_RESET,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (reply_err_code || IS_ERR(resp)) {
+		err = reply_err_code;
+		pr_err("%s: VM_RESET failed with err: %d\n",
+			__func__, err);
+		return err;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for VM_RESET: %u\n",
+			__func__, resp_payload_size);
+		kfree(resp);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_vm_reset);
+
+/**
  * gh_rm_console_open: Open a console with a VM
  * @vmid: The vmid of the vm to be started.
  */
