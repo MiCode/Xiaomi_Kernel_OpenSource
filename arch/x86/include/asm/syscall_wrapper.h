@@ -120,7 +120,11 @@ struct pt_regs;
  * kernel/time/posix-stubs.c to cover this case as well.
  */
 #define COND_SYSCALL_COMPAT(name) 					\
-	cond_syscall(__ia32_compat_sys_##name);				\
+	asmlinkage __weak long __ia32_compat_sys_##name(		\
+		const struct pt_regs *__unused)				\
+	{                                                               \
+		return sys_ni_syscall();                                \
+	}								\
 	cond_syscall(__x32_compat_sys_##name)
 
 #define COMPAT_SYS_NI(name)						\

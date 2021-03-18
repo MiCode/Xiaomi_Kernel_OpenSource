@@ -173,7 +173,7 @@ static int do_test(u64 sample_type, u64 sample_regs, u64 read_format)
 		.data = {1, 211, 212, 213},
 	};
 	u64 regs[64];
-	const u64 raw_data[] = {0x123456780a0b0c0dULL, 0x1102030405060708ULL};
+	const u32 raw_data[] = {0x12345678, 0x0a0b0c0d, 0x11020304, 0x05060708, 0 };
 	const u64 data[] = {0x2211443366558877ULL, 0, 0xaabbccddeeff4321ULL};
 	struct perf_sample sample = {
 		.ip		= 101,

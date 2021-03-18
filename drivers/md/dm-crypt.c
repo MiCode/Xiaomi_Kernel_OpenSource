@@ -3012,6 +3012,7 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 
 	}
 	ti->num_flush_bios = 1;
+	ti->limit_swap_bios = true;
 
 	return 0;
 

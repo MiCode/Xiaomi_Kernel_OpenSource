@@ -1197,6 +1197,10 @@
 # required by cnss_prealloc.ko
   save_stack_trace
 
+# required by coresight-clk-amba-dummy.ko
+  amba_driver_register
+  amba_driver_unregister
+
 # required by cpu_isolate.ko
   device_online
   sched_isolate_cpu
@@ -1569,6 +1573,7 @@
   getboottime64
   get_random_u32
   get_task_mm
+  get_task_pid
   get_unmapped_area
   get_user_pages
   idr_for_each
@@ -2332,6 +2337,7 @@
   proc_dointvec_minmax
   proc_dostring
   proc_doulongvec_minmax
+  _proc_mkdir
   put_cmsg
   rcu_barrier
   refcount_add_checked
