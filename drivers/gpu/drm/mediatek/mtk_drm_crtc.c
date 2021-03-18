@@ -690,6 +690,8 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 			DDP_FIRST_PATH, 0);
 
 	if (is_frame_mode) {
+		cmdq_pkt_clear_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
 		cmdq_pkt_wfe(cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 		cmdq_pkt_clear_event(cmdq_handle,
@@ -700,21 +702,26 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	if (comp->funcs && comp->funcs->io_cmd)
 		comp->funcs->io_cmd(comp, cmdq_handle, DSI_SET_BL, &level);
 
+	if (0) {
+		/* add counter to check update frequency */
+		cmdq_buf = &(mtk_crtc->gce_obj.buf);
+		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
+				cmdq_buf->pa_base +
+				DISP_SLOT_CUR_BL_IDX,
+				bl_cnt, ~0);
+		CRTC_MMP_MARK(index, backlight, bl_cnt, 0);
+		bl_cnt++;
+	}
+
 	if (is_frame_mode) {
 		cmdq_pkt_set_event(cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 		cmdq_pkt_set_event(cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_set_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
 	}
 
-	/* add counter to check update frequency */
-	cmdq_buf = &(mtk_crtc->gce_obj.buf);
-	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
-			   cmdq_buf->pa_base +
-				   DISP_SLOT_CUR_BL_IDX,
-			   bl_cnt, ~0);
-	CRTC_MMP_MARK(index, backlight, bl_cnt, 0);
-	bl_cnt++;
 
 	cb_data->crtc = crtc;
 	cb_data->cmdq_handle = cmdq_handle;
@@ -3072,25 +3079,28 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 	cmdq_handle = mtk_crtc->trig_loop_cmdq_handle;
 
 	if (mtk_crtc_is_frame_trigger_mode(crtc)) {
-		cmdq_pkt_wfe(cmdq_handle,
-			     mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
-#ifndef CONFIG_FPGA_EARLY_PORTING
-		cmdq_pkt_clear_event(cmdq_handle,
-				     mtk_crtc->gce_obj.event[EVENT_TE]);
-
-		if (mtk_drm_lcm_is_connect())
-			cmdq_pkt_wfe(cmdq_handle,
-					 mtk_crtc->gce_obj.event[EVENT_TE]);
-
 		/* The STREAM BLOCK EVENT is used for stopping frame trigger if
 		 * the engine is stopped
 		 */
 		cmdq_pkt_wait_no_clear(
 			cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
-#endif
+		cmdq_pkt_wfe(cmdq_handle,
+			     mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		cmdq_pkt_clear_event(cmdq_handle,
 				     mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+		cmdq_pkt_wait_no_clear(cmdq_handle,
+				       mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
+		cmdq_pkt_wait_no_clear(cmdq_handle,
+				     mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_clear_event(cmdq_handle,
+				     mtk_crtc->gce_obj.event[EVENT_TE]);
+		if (mtk_drm_lcm_is_connect())
+			cmdq_pkt_wfe(cmdq_handle,
+					 mtk_crtc->gce_obj.event[EVENT_TE]);
+
+#endif
 		cmdq_pkt_clear_event(
 			cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
@@ -3642,10 +3652,6 @@ static void mtk_crtc_set_dirty(struct mtk_drm_crtc *mtk_crtc)
 
 	cmdq_pkt_set_event(cmdq_handle,
 		mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
-	cmdq_pkt_set_event(cmdq_handle,
-		mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
-	cmdq_pkt_set_event(cmdq_handle,
-		mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
 
 	cb_data->cmdq_handle = cmdq_handle;
 	if (cmdq_pkt_flush_threaded(cmdq_handle,
