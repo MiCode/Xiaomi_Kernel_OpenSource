@@ -1382,7 +1382,7 @@ struct dwc3 {
 
 	/* IRQ timing statistics */
 	int			irq;
-	unsigned long		irq_cnt;
+	atomic_t		irq_cnt;
 	ktime_t			bh_start_time[MAX_INTR_STATS];
 	unsigned int		bh_completion_time[MAX_INTR_STATS];
 	unsigned int		bh_handled_evt_cnt[MAX_INTR_STATS];

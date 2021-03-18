@@ -4107,7 +4107,7 @@ static irqreturn_t dwc3_check_event_buf(struct dwc3_event_buffer *evt)
 
 	dwc = evt->dwc;
 	start_time = ktime_get();
-	dwc->irq_cnt++;
+	atomic_inc(&dwc->irq_cnt);
 
 	/* controller reset is still pending */
 	if (dwc->err_evt_seen)
