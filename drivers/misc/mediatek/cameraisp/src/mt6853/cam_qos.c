@@ -30,6 +30,10 @@
 //#define CONFIG_MTK_QOS_SUPPORT_ENABLE
 #define EP_STAGE
 #define EP_PMQOS
+#elif defined CONFIG_MACH_MT6877
+//#define CONFIG_MTK_QOS_SUPPORT_ENABLE
+#define EP_STAGE
+#define EP_PMQOS
 #endif
 
 #ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE

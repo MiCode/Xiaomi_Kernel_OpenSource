@@ -430,6 +430,7 @@ struct msdc_host {
 	/* src hclk for clk source of MSDC register */
 	struct clk              *src_hclk_ctl;
 	struct clk              *hclk_ctl;
+	struct clk              *new_rx_clk_ctl;
 	/* pclk for msdc register access */
 	struct clk              *pclk_ctl;
 	struct clk              *axi_clk_ctl; /* axi bus clk */
