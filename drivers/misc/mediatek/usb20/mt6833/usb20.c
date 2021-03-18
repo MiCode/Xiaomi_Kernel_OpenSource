@@ -16,6 +16,8 @@
 #include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
 #include <linux/of_address.h>
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
 
 #include "musb_core.h"
 #include "mtk_musb.h"
@@ -36,6 +38,110 @@
 
 #ifdef CONFIG_MTK_USB2JTAG_SUPPORT
 #include <mt-plat/mtk_usb2jtag.h>
+#endif
+
+#ifndef FPGA_PLATFORM
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
+static void usb_dpidle_request(int mode)
+{
+	struct arm_smccc_res res;
+	int op;
+
+	switch (mode) {
+	case USB_DPIDLE_SUSPEND:
+		op = MTK_USB_SMC_INFRA_REQUEST;
+		break;
+	case USB_DPIDLE_RESUME:
+		op = MTK_USB_SMC_INFRA_RELEASE;
+		break;
+	default:
+		return;
+	}
+
+	DBG(0, "operatio = %d\n", op);
+	arm_smccc_smc(MTK_SIP_USB_CONTROL, op, 0, 0, 0, 0, 0, 0, &res);
+}
+#endif
+
+
+#ifdef CONFIG_USB_MTK_OTG
+static struct regmap *pericfg;
+static struct regmap *infracg;
+
+static void mt_usb_wakeup(struct musb *musb, bool enable)
+{
+	u32 tmp;
+	bool is_con = musb->port1_status & USB_PORT_STAT_CONNECTION;
+
+	if (IS_ERR_OR_NULL(pericfg) || IS_ERR_OR_NULL(infracg)) {
+		DBG(0, "init fail");
+		return;
+	}
+
+	DBG(0, "connection=%d\n", is_con);
+
+	if (enable) {
+		tmp = musb_readl(musb->mregs, RESREG);
+		if (is_con)
+			tmp &= ~HSTPWRDWN_OPT;
+		else
+			tmp |= HSTPWRDWN_OPT;
+		musb_writel(musb->mregs, RESREG, tmp);
+
+		regmap_read(infracg, MISC_CONFIG, &tmp);
+		tmp |= USB_CD_CLR;
+		regmap_write(infracg, MISC_CONFIG, tmp);
+
+		mdelay(5);
+
+		regmap_read(pericfg, USB_WK_CTRL, &tmp);
+		tmp |= USB_CDDEBOUNCE(0x8) | USB_CDEN;
+		regmap_write(pericfg, USB_WK_CTRL, tmp);
+
+		mdelay(5);
+
+		regmap_read(infracg, MISC_CONFIG, &tmp);
+		tmp &= ~USB_CD_CLR;
+		regmap_write(infracg, MISC_CONFIG, tmp);
+	} else {
+		regmap_read(pericfg, USB_WK_CTRL, &tmp);
+		tmp &= ~(USB_CDEN | USB_CDDEBOUNCE(0x8));
+		regmap_write(pericfg, USB_WK_CTRL, tmp);
+
+		tmp = musb_readw(musb->mregs, RESREG);
+		tmp &= ~HSTPWRDWN_OPT;
+		musb_writew(musb->mregs, RESREG, tmp);
+	}
+}
+
+static int mt_usb_wakeup_init(struct musb *musb)
+{
+	struct device_node *node;
+
+	node = of_find_compatible_node(NULL, NULL,
+					"mediatek,mt6833-usb20");
+	if (!node) {
+		DBG(0, "map node failed\n");
+		return -ENODEV;
+	}
+
+	pericfg = syscon_regmap_lookup_by_phandle(node,
+					"pericfg");
+	if (IS_ERR(pericfg)) {
+		DBG(0, "fail to get pericfg regs\n");
+		return PTR_ERR(pericfg);
+	}
+
+	infracg = syscon_regmap_lookup_by_phandle(node,
+					"infracg");
+	if (IS_ERR(infracg)) {
+		DBG(0, "fail to get infracg regs\n");
+		return PTR_ERR(infracg);
+	}
+
+	return 0;
+}
 #endif
 
 static u32 cable_mode = CABLE_MODE_NORMAL;
@@ -1443,6 +1549,9 @@ static int __init mt_usb_init(struct musb *musb)
 
 #ifdef CONFIG_USB_MTK_OTG
 	mt_usb_otg_init(musb);
+	/* enable host suspend mode */
+	mt_usb_wakeup_init(musb);
+	musb->host_suspend = true;
 #endif
 	return 0;
 }
@@ -1497,6 +1606,9 @@ static const struct musb_platform_ops mt_usb_ops = {
 	.disable_clk =  mt_usb_disable_clk,
 	.prepare_clk = mt_usb_prepare_clk,
 	.unprepare_clk = mt_usb_unprepare_clk,
+#ifdef CONFIG_USB_MTK_OTG
+	.enable_wakeup = mt_usb_wakeup,
+#endif
 };
 
 #ifdef CONFIG_MTK_MUSB_DRV_36BIT
@@ -1624,6 +1736,9 @@ static int mt_usb_probe(struct platform_device *pdev)
 	isoc_ep_gpd_count = 248; /* 30 ms for HS, at most (30*8 + 1) */
 
 	mtk_host_qmu_force_isoc_restart = 0;
+#endif
+#ifndef FPGA_PLATFORM
+	register_usb_hal_dpidle_request(usb_dpidle_request);
 #endif
 #ifdef BYPASS_PMIC_LINKAGE
 	register_usb_hal_disconnect_check(trigger_disconnect_check_work);

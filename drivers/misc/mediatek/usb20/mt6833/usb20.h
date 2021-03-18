@@ -63,6 +63,12 @@ enum VBUS_OPS {
 	VBUS_OPS_ON
 };
 
+enum MTK_USB_SMC_CALL {
+	MTK_USB_SMC_INFRA_REQUEST = 0,
+	MTK_USB_SMC_INFRA_RELEASE,
+	MTK_USB_SMC_NUM
+};
+
 #ifdef CONFIG_MTK_UART_USB_SWITCH
 enum PORT_MODE {
 	PORT_MODE_USB = 0,
@@ -111,4 +117,12 @@ extern bool usb20_check_vbus_on(void);
 #endif
 extern bool usb_prepare_clock(bool enable);
 extern void usb_prepare_enable_clock(bool enable);
+
+/* usb host mode wakeup */
+#define USB_WK_CTRL		0x420
+#define USB_CDEN		BIT(6)
+#define USB_IP_SLEEP		BIT(12)
+#define USB_CDDEBOUNCE(x)	(((x) & 0xf) << 28)
+#define MISC_CONFIG		0xf08
+#define USB_CD_CLR		BIT(7)
 #endif
