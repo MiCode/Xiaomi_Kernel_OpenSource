@@ -595,7 +595,8 @@ static void mtk_dsi_cphy_timconfig(struct mtk_dsi *dsi, void *handle)
 	clk_hs_post = CHK_SWITCH(phy_timcon->clk_hs_post, clk_hs_post);
 
 CONFIG_REG:
-	dsi->data_phy_cycle = hs_prpr + hs_zero + da_hs_exit + lpx + 5;
+	dsi->data_phy_cycle = hs_prpr + hs_zero + da_hs_exit + lpx + 4;
+	dsi->hs_trail = hs_trail;
 
 	value = REG_FLD_VAL(FLD_LPX, lpx)
 		| REG_FLD_VAL(FLD_HS_PREP, hs_prpr)
@@ -1176,19 +1177,19 @@ static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 				t_hbp * dsi_tmp_buf_bpp -
 				12 * dsi->lanes - 26, 2);
 
-		if (t_hfp * dsi_tmp_buf_bpp < 8 * dsi->lanes + 28 +
+		if (t_hfp * dsi_tmp_buf_bpp < 10 * dsi->lanes + 24 +
 			2 * dsi->data_phy_cycle * dsi->lanes + 9)
 			horizontal_frontporch_byte = 8;
-		else if ((t_hfp * dsi_tmp_buf_bpp > 8 * dsi->lanes + 28 +
+		else if ((t_hfp * dsi_tmp_buf_bpp > 10 * dsi->lanes + 24 +
 			2 * dsi->data_phy_cycle * dsi->lanes + 8) &&
-			(t_hfp * dsi_tmp_buf_bpp < 8 * dsi->lanes + 28 +
+			(t_hfp * dsi_tmp_buf_bpp < 10 * dsi->lanes + 24 +
 			2 * dsi->data_phy_cycle * dsi->lanes +
-			2 * (32 + 1) * dsi->lanes - 6 * dsi->lanes - 12))
-			horizontal_frontporch_byte = 2*(32 + 1)*dsi->lanes -
-				6*dsi->lanes - 12;
+			2 * (dsi->hs_trail + 1) * dsi->lanes - 6 * dsi->lanes - 14))
+			horizontal_frontporch_byte = 2*(dsi->hs_trail + 1)*dsi->lanes -
+				6*dsi->lanes - 14;
 		else
 			horizontal_frontporch_byte = t_hfp * dsi_tmp_buf_bpp -
-				8 * dsi->lanes - 28 -
+				10 * dsi->lanes - 24 -
 				2 * dsi->data_phy_cycle * dsi->lanes;
 	} else {
 		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
