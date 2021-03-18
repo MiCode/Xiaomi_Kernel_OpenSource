@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2013-2014,2019-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014,2019-2021 The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_PROFILE_H
 #define __ADRENO_PROFILE_H
@@ -60,7 +60,7 @@ int adreno_profile_process_results(struct  adreno_device *adreno_dev);
 u64 adreno_profile_preib_processing(struct adreno_device *adreno_dev,
 		struct adreno_context *drawctxt, u32 *dwords);
 u64 adreno_profile_postib_processing(struct  adreno_device *adreno_dev,
-		u32 *dwords);
+		struct adreno_context *drawctxt, u32 *dwords);
 #else
 static inline void adreno_profile_init(struct adreno_device *adreno_dev) { }
 static inline void adreno_profile_close(struct adreno_device *adreno_dev) { }
@@ -78,7 +78,8 @@ adreno_profile_preib_processing(struct adreno_device *adreno_dev,
 }
 
 static inline u64
-adreno_profile_postib_processing(struct adreno_device *adreno_dev, u32 *dwords)
+adreno_profile_postib_processing(struct adreno_device *adreno_dev,
+		struct adreno_context *drawctxt, u32 *dwords)
 {
 	return 0;
 }
