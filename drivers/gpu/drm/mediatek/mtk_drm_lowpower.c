@@ -178,6 +178,7 @@ void mtk_drm_idlemgr_kick(const char *source, struct drm_crtc *crtc,
 
 	/* update kick timestamp */
 	idlemgr_ctx->idlemgr_last_kick_time = sched_clock();
+	idlemgr_ctx->idle_vblank_check_internal = 0;
 
 	if (idlemgr_ctx->is_idle) {
 		DDPINFO("[LP] kick idle from [%s]\n", source);
@@ -314,7 +315,6 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 	struct mtk_crtc_state *mtk_state = NULL;
 	struct drm_vblank_crtc *vblank = NULL;
 	int crtc_id = drm_crtc_index(crtc);
-	static unsigned long long idlemgr_vblank_check_internal;
 
 	msleep(16000);
 	while (1) {
@@ -323,8 +323,8 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 			atomic_read(&idlemgr->idlemgr_task_active));
 
 		t_idle = local_clock() - idlemgr_ctx->idlemgr_last_kick_time;
-		if (idlemgr_vblank_check_internal)
-			t_to_check = idlemgr_vblank_check_internal *
+		if (idlemgr_ctx->idle_vblank_check_internal)
+			t_to_check = idlemgr_ctx->idle_vblank_check_internal *
 				1000 * 1000 - t_idle;
 		else
 			t_to_check = idlemgr_ctx->idle_check_interval *
@@ -377,9 +377,9 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 		}
 
 		t_idle = local_clock() - idlemgr_ctx->idlemgr_last_kick_time;
-		if ((idlemgr_vblank_check_internal &&
-		    t_idle < idlemgr_vblank_check_internal * 1000 * 1000) ||
-		    (!idlemgr_vblank_check_internal &&
+		if ((idlemgr_ctx->idle_vblank_check_internal &&
+		    t_idle < idlemgr_ctx->idle_vblank_check_internal * 1000 * 1000) ||
+		    (!idlemgr_ctx->idle_vblank_check_internal &&
 		    t_idle < idlemgr_ctx->idle_check_interval * 1000 * 1000)) {
 			/* kicked in idle_check_interval msec, it's not idle */
 			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
@@ -395,11 +395,11 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 			if (!vblank || atomic_read(&vblank->refcount) == 0) {
 				mtk_drm_idlemgr_enter_idle_nolock(crtc);
 				idlemgr_ctx->is_idle = 1;
-				idlemgr_vblank_check_internal = 0;
+				idlemgr_ctx->idle_vblank_check_internal = 0;
 			} else {
 				idlemgr_ctx->idlemgr_last_kick_time =
 					sched_clock();
-				idlemgr_vblank_check_internal = 10;
+				idlemgr_ctx->idle_vblank_check_internal = 17;
 			}
 		}
 
@@ -446,6 +446,7 @@ int mtk_drm_idlemgr_init(struct drm_crtc *crtc, int index)
 	idlemgr_ctx->idlemgr_last_kick_time = ~(0ULL);
 	idlemgr_ctx->cur_lp_cust_mode = 0;
 	idlemgr_ctx->idle_check_interval = 50;
+	idlemgr_ctx->idle_vblank_check_internal = 0;
 
 	snprintf(name, len, "mtk_drm_disp_idlemgr-%d", index);
 	idlemgr->idlemgr_task =

@@ -18,6 +18,7 @@
 
 struct mtk_drm_idlemgr_context {
 	unsigned long long idle_check_interval;
+	unsigned long long idle_vblank_check_internal;
 	unsigned long long idlemgr_last_kick_time;
 	unsigned int enterulps;
 	int session_mode_before_enter_idle;
