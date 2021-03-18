@@ -54,5 +54,9 @@
 #define MTK_SIP_SDA_CONTROL \
 	(0x82000525 | MTK_SIP_SMC_AARCH_BIT)
 
+/* USB related SMC call */
+#define MTK_SIP_USB_CONTROL \
+	(0x82000526 | MTK_SIP_SMC_AARCH_BIT)
+
 #endif
 /* _MTK_SECURE_API_H_ */
