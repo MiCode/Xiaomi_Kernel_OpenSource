@@ -40,6 +40,10 @@
 #include <linux/jiffies.h>
 #endif				/* #if NVT_TOUCH_ESD_PROTECT */
 
+#ifdef CONFIG_DRM_MEDIATEK
+#include "mtk_panel_ext.h"
+#endif
+
 #if NVT_TOUCH_ESD_PROTECT
 static struct delayed_work nvt_esd_check_work;
 static struct workqueue_struct *nvt_esd_check_wq;
@@ -64,6 +68,9 @@ static int nvt_fb_notifier_callback(struct notifier_block *self, unsigned long e
 static void nvt_ts_early_suspend(struct early_suspend *h);
 static void nvt_ts_late_resume(struct early_suspend *h);
 #endif
+
+static int32_t nvt_ts_resume(struct device *dev);
+static int32_t nvt_ts_suspend(struct device *dev);
 
 uint32_t ENG_RST_ADDR = 0x7FFF80;
 uint32_t SWRST_N8_ADDR;	//read from dtsi
@@ -1448,6 +1455,29 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_DRM_MEDIATEK
+static int nvt_tp_power_on_reinit(void)
+{
+	int32_t ret;
+
+	pr_info("%s is called\n", __func__);
+
+	/* do esd recovery, bootloader reset */
+	ret = nvt_ts_suspend(&ts->client->dev);
+	if (ret) {
+		pr_info("%s  is called suspend %d\n", __func__, ret);
+		return ret;
+	}
+
+	ret = nvt_ts_resume(&ts->client->dev);
+	if (ret)
+		pr_info("%s  is called resume %d\n", __func__, ret);
+
+	return ret;
+}
+#endif
+
+
 /*******************************************************
 Description:
 	Novatek touchscreen driver probe function.
@@ -1475,6 +1505,11 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 #if ((TOUCH_KEY_NUM > 0) || WAKEUP_GESTURE)
 	int32_t retry = 0;
 #endif
+
+#ifdef CONFIG_DRM_MEDIATEK
+	void **retval = NULL;
+#endif
+
 
 	NVT_LOG("start\n");
 
@@ -1778,6 +1813,14 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 
 	bTouchIsAwake = 1;
 	NVT_LOG("end\n");
+
+#ifdef CONFIG_DRM_MEDIATEK
+	pr_info("%s, disp notifier register func!\n", __func__);
+	if (mtk_panel_tch_handle_init()) {
+		retval = mtk_panel_tch_handle_init();
+		*retval = (void *)nvt_tp_power_on_reinit;
+	}
+#endif
 
 	nvt_irq_enable(true);
 
