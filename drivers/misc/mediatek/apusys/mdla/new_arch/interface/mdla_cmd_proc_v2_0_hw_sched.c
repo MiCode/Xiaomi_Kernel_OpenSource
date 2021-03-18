@@ -282,6 +282,7 @@ int mdla_cmd_run_sync_v2_0_hw_sched(struct mdla_run_cmd_sync *cmd_data,
 			goto error_handle;
 	}
 
+	mdla_cmd_plat_cb()->post_cmd_handle(core_id, ce);
 	mdla_cmd_plat_cb()->post_cmd_info(core_id);
 
 	if (unlikely(ce->fin_cid < ce->count))
