@@ -533,7 +533,7 @@ struct drm_mtk_layer_config {
 };
 
 struct drm_mtk_layering_info {
-	struct drm_mtk_layer_config *input_config[3];
+	struct drm_mtk_layer_config __user *input_config[3];
 	int disp_mode[3];
 	/* index of crtc display mode including resolution, fps... */
 	int disp_mode_idx[3];

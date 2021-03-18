@@ -3129,3 +3129,65 @@ int mtk_layering_rule_ioctl(struct drm_device *dev, void *data,
 
 	return 0;
 }
+
+#if IS_ENABLED(CONFIG_COMPAT)
+struct drm_mtk_layering_info_32 {
+	compat_uptr_t input_config[3];
+	int disp_mode[3];
+	/* index of crtc display mode including resolution, fps... */
+	int disp_mode_idx[3];
+	int layer_num[3];
+	int gles_head[3];
+	int gles_tail[3];
+	int hrt_num;
+	/* res_idx: SF/HWC selects which resolution to use */
+	int res_idx;
+	uint32_t hrt_weight;
+	uint32_t hrt_idx;
+};
+
+int mtk_layering_rule_ioctl_compat(struct file *file, unsigned int cmd,
+			      unsigned long arg)
+{
+	struct drm_mtk_layering_info data;
+	struct drm_mtk_layering_info_32 data32;
+	int err, i;
+
+	if (copy_from_user(&data32, (void __user *)arg, sizeof(data32)))
+		return -EFAULT;
+	for (i = 0; i < 3; i++) {
+		data.input_config[i] = compat_ptr(data32.input_config[i]);
+		data.disp_mode[i] = data32.disp_mode[i];
+		data.disp_mode_idx[i] = data32.disp_mode_idx[i];
+		data.layer_num[i] = data32.layer_num[i];
+		data.gles_head[i] = data32.gles_head[i];
+		data.gles_tail[i] = data32.gles_tail[i];
+	}
+	data.hrt_num = data32.hrt_num;
+	data.res_idx = data32.res_idx;
+	data.hrt_weight = data32.hrt_weight;
+	data.hrt_idx = data32.hrt_idx;
+
+	err = drm_ioctl_kernel(file, mtk_layering_rule_ioctl, &data,
+			DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW);
+	if (err)
+		return err;
+
+	for (i = 0; i < 3; i++) {
+		//data32.input_config[i] = ptr_to_compat(data.input_config[i]);
+		data32.disp_mode[i] = data.disp_mode[i];
+		data32.disp_mode_idx[i] = data.disp_mode_idx[i];
+		data32.layer_num[i] = data.layer_num[i];
+		data32.gles_head[i] = data.gles_head[i];
+		data32.gles_tail[i] = data.gles_tail[i];
+	}
+	data32.hrt_num = data.hrt_num;
+	data32.res_idx = data.res_idx;
+	data32.hrt_weight = data.hrt_weight;
+	data32.hrt_idx = data.hrt_idx;
+	if (copy_to_user((void __user *)arg, &data32, sizeof(data32)))
+		return -EFAULT;
+
+	return 0;
+}
+#endif

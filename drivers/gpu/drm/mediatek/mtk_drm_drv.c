@@ -2553,7 +2553,6 @@ int mtk_drm_get_master_info_ioctl(struct drm_device *dev,
 	return 0;
 }
 
-
 int mtk_drm_set_ddp_mode(struct drm_device *dev, void *data,
 			 struct drm_file *file_priv)
 {
@@ -2813,6 +2812,89 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 #endif
 };
 
+#if IS_ENABLED(CONFIG_COMPAT)
+struct drm_ioctl32_desc {
+	drm_ioctl_compat_t *fn;
+	char *name;
+};
+
+static const struct drm_ioctl32_desc mtk_compat_ioctls[] = {
+#define DRM_IOCTL32_DEF_DRV(n, f)[DRM_##n] = {.fn = f, .name = #n}
+	DRM_IOCTL32_DEF_DRV(MTK_GEM_CREATE, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_GEM_MAP_OFFSET, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_GEM_SUBMIT, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_SESSION_CREATE, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_SESSION_DESTROY, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_LAYERING_RULE, mtk_layering_rule_ioctl_compat),
+	DRM_IOCTL32_DEF_DRV(MTK_CRTC_GETFENCE, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_WAIT_REPAINT, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_GET_DISPLAY_CAPS, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_SET_DDP_MODE, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_GET_SESSION_INFO, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_GET_MASTER_INFO, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_SET_CCORR, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_CCORR_EVENTCTL, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_CCORR_GET_IRQ, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_SUPPORT_COLOR_TRANSFORM, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_SET_GAMMALUT, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_SET_PQPARAM, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_SET_PQINDEX, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_SET_COLOR_REG, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_MUTEX_CONTROL, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_READ_REG, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_WRITE_REG, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_BYPASS_COLOR, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_PQ_SET_WINDOW, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_WRITE_SW_REG, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_READ_SW_REG, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_GET_LCM_INDEX, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_AAL_INIT_REG, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_AAL_GET_HIST, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_AAL_SET_PARAM, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_AAL_EVENTCTL, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_AAL_INIT_DRE30, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_AAL_GET_SIZE, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_SEC_HND_TO_GEM_HND, NULL),
+#ifdef CONFIG_MTK_HDMI_SUPPORT
+	DRM_IOCTL32_DEF_DRV(MTK_HDMI_GET_DEV_INFO, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_HDMI_AUDIO_ENABLE, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_HDMI_AUDIO_CONFIG, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_HDMI_GET_CAPABILITY, NULL),
+#endif
+};
+
+long mtk_drm_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	unsigned int nr = DRM_IOCTL_NR(cmd);
+	struct drm_file *file_priv = filp->private_data;
+	drm_ioctl_compat_t *fn;
+	int ret;
+
+#ifdef CONFIG_MTK_HDMI_SUPPORT
+	if (file_priv)
+		file_priv->authenticated = 1;
+#endif
+	if (nr < DRM_COMMAND_BASE ||
+	    nr >= DRM_COMMAND_BASE + ARRAY_SIZE(mtk_compat_ioctls))
+		return drm_compat_ioctl(filp, cmd, arg);
+
+	fn = mtk_compat_ioctls[nr - DRM_COMMAND_BASE].fn;
+	if (!fn)
+		return drm_compat_ioctl(filp, cmd, arg);
+
+	if (file_priv)
+		DDPDBG("%s: pid=%d, dev=0x%lx, auth=%d, %s\n",
+			  __func__, task_pid_nr(current),
+			  (long)old_encode_dev(file_priv->minor->kdev->devt),
+			  file_priv->authenticated,
+			  mtk_compat_ioctls[nr].name);
+	ret = (*fn)(filp, cmd, arg);
+	if (ret)
+		DDPMSG("ret = %d\n", ret);
+	return ret;
+}
+#endif
+
 static const struct file_operations mtk_drm_fops = {
 	.owner = THIS_MODULE,
 	.open = drm_open,
@@ -2822,7 +2904,7 @@ static const struct file_operations mtk_drm_fops = {
 	.poll = drm_poll,
 	.read = drm_read,
 #ifdef CONFIG_COMPAT
-	.compat_ioctl = drm_compat_ioctl,
+	.compat_ioctl = mtk_drm_compat_ioctl,
 #endif
 };
 
