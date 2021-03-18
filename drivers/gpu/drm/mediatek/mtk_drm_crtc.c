@@ -2296,6 +2296,11 @@ int get_path_wait_event(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_ddp_comp *comp = NULL;
 	int i;
 
+	if (ddp_path < 0 || ddp_path >= DDP_PATH_NR) {
+		DDPPR_ERR("%s, invalid ddp_path value\n", __func__);
+		return -EINVAL;
+	}
+
 	for_each_comp_in_crtc_target_path(
 		comp, mtk_crtc, i,
 		ddp_path)

@@ -279,7 +279,7 @@ void mtk_addon_connect_between(struct drm_crtc *crtc, unsigned int ddp_mode,
 				  addon_config, cmdq_handle);
 
 	addon_idx = i;
-	for (; i < path_data->path_len; i++) {
+	for (i = addon_idx; i < path_data->path_len; i++) {
 		if (mtk_ddp_comp_get_type(path_data->path[i]) ==
 		    MTK_DISP_VIRTUAL)
 			continue;

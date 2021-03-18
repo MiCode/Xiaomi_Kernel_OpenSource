@@ -1223,7 +1223,6 @@ const struct mtk_mmsys_reg_data mt6833_mmsys_reg_data = {
 	.rdma0_sout_sel_in = MT6833_DISP_REG_CONFIG_DISP_RDMA0_RSZ0_SOUT_SEL,
 	.rdma0_sout_color0 = RDMA0_SOUT_COLOR0,
 };
-
 static char *ddp_signal_0_mt6885(int bit)
 {
 	switch (bit) {
@@ -1792,6 +1791,25 @@ static char *ddp_signal_5_mt6885(int bit)
 	case 14:
 		return
 			"THP_LMT_DSI1__TO__DSI1";
+	default:
+		return NULL;
+	}
+}
+static char *ddp_signal_mt6885(int idx, int bit)
+{
+	switch (idx) {
+	case 0:
+		return ddp_signal_0_mt6885(bit);
+	case 1:
+		return ddp_signal_1_mt6885(bit);
+	case 2:
+		return ddp_signal_2_mt6885(bit);
+	case 3:
+		return ddp_signal_3_mt6885(bit);
+	case 4:
+		return ddp_signal_4_mt6885(bit);
+	case 5:
+		return ddp_signal_5_mt6885(bit);
 	default:
 		return NULL;
 	}
@@ -3315,271 +3333,6 @@ static char *ddp_clock_0_mt6833(int bit)
 	}
 }
 
-static char *ddp_signal_0(int bit)
-{
-	switch (bit) {
-	case 0:
-		return "aal0__to__gamma0";
-	case 1:
-		return "ccorr0__to__aal0";
-	case 2:
-		return "color0__to__color_out_sel_in0";
-	case 3:
-		return "disp_color_out_sel__to__ccorr0";
-	case 4:
-		return "dither0__to__dither0_mout";
-	case 5:
-		return "dither0_mout0__to__dsi0_sel_in0";
-	case 6:
-		return "dither0_mout1__to__dpi_sel_in2";
-	case 7:
-		return "dither0_mout2__to__wdma0_pre_sel_in1";
-	case 8:
-		return "gamma0__to__postmask";
-	case 9:
-		return "ovl0_2l_mout_out0__to__path0_sel_in1";
-	case 10:
-		return "ovl0_2l_mout_out1__to__ovl_to_wrot_sel_in1";
-	case 11:
-		return "ovl0_2l_mout_out2__to__ovl_to_wdma_sel_in1";
-	case 12:
-		return "ovl0_2l_mout_out3__to__ovl_to_rsz_sel_in1";
-	case 13:
-		return "ovl0_2l_mout_out4__to__rsz_sel_in5";
-	case 14:
-		return "ovl0_2l_out0__to__ovl0_2l_mout";
-	case 15:
-		return "ovl0_2l_out1__to__ovl0_2l_wcg_mout";
-	case 16:
-		return "ovl0_2l_out2__to__rsz_sel_in1";
-	case 17:
-		return "ovl0_2l_sel__to__ovl0_2l_in1";
-	case 18:
-		return "ovl0_2l_wcg_mout_out0__to__ovl0_wcg_sel_in0";
-	case 19:
-		return "ovl0_2l_wcg_mout_out1__to__ovl1_2l_wcg_sel_in1";
-	case 20:
-		return "ovl0_2l_wcg_sel__to__ovl0_2l_in0";
-	case 21:
-		return "ovl0_mout_out0__to__path0_sel_in0";
-	case 22:
-		return "ovl0_mout_out1__to__ovl_to_wrot_sel_in0";
-	case 23:
-		return "ovl0_mout_out2__to__ovl_to_wdma_sel_in0";
-	case 24:
-		return "ovl0_mout_out3__to__ovl_to_rsz_sel_in0";
-	case 25:
-		return "ovl0_mout_out4__to__rsz_sel_in4";
-	case 26:
-		return "ovl0_out0__to__ovl0_mout";
-	case 27:
-		return "ovl0_out1__to__ovl0_wcg_mout";
-	case 28:
-		return "ovl0_out2__to__rsz_sel_in0";
-	case 29:
-		return "ovl0_sel__to__ovl0_in1";
-	case 30:
-		return "ovl0_wcg_mout_out0__to__ovl0_2l_wcg_sel_in0";
-	case 31:
-		return "ovl0_wcg_mout_out1__to__ovl1_2l_wcg_sel_in0";
-	default:
-		break;
-	}
-	return NULL;
-}
-
-static char *ddp_signal_1(int bit)
-{
-	switch (bit) {
-	case 0:
-		return "ovl0_wcg_sel__to__ovl0_in0";
-	case 1:
-		return "ovl1_2l_mout_out0__to__path0_sel_in2";
-	case 2:
-		return "ovl1_2l_mout_out1__to__ovl_to_wrot_sel_in2";
-	case 3:
-		return "ovl1_2l_mout_out2__to__ovl_to_wdma_sel_in2";
-	case 4:
-		return "ovl1_2l_mout_out3__to__ovl_to_rsz_sel_in2";
-	case 5:
-		return "ovl1_2l_mout_out4__to__rdma1";
-	case 6:
-		return "ovl1_2l_mout_out5__to__rsz_sel_in6";
-	case 7:
-		return "ovl1_2l_out0__to__ovl1_2l_mout";
-	case 8:
-		return "ovl1_2l_out1__to__ovl1_2l_wcg_mout";
-	case 9:
-		return "ovl1_2l_out2__to__rsz_sel_in2";
-	case 10:
-		return "ovl1_2l_wcg_mout_out0__to__ovl0_2l_wcg_sel_in0";
-	case 11:
-		return "ovl1_2l_wcg_mout_out1__to__ovl0_wcg_sel_in1";
-	case 12:
-		return "ovl1_2l_wcg_sel__to__ovl1_2l_in0";
-	case 13:
-		return "path0_sel__to__rdma0";
-	case 14:
-		return "postmask0__to__dither0";
-	case 15:
-		return "rdma0__to__rdma0_rsz_in_sout";
-	case 16:
-		return "rdma0_rsz_in_sout_out0__to__rdma0_rsz_out_sel_in0";
-	case 17:
-		return "rdma0_rsz_in_sout_out1__to__rsz_sel_in3";
-	case 18:
-		return "rdma0_esz_out_sel__to__rdma0_sout";
-	case 19:
-		return "rdma0_sout_out0__to__dsi0_sel_in1";
-	case 20:
-		return "rdma0_sout_out1__to__color0";
-	case 21:
-		return "rdma0_sout_out2__to__color_out_sel_in1";
-	case 22:
-		return "rdma0_sout_out3__to__dpi0_sel_in0";
-	case 23:
-		return "rdma1__to__rdma1_sout";
-	case 24:
-		return "rdma1_sout_out0__to__dpi0_sel_in1";
-	case 25:
-		return "rdma1_sout_out1__to__dsi0_sel_in2";
-	case 26:
-		return "rsz0__to__rsz_mout";
-	case 27:
-		return "rsz_mout_out0__to__ovl0_in2";
-	case 28:
-		return "rsz_mout_out1__to__ovl0_2l_in2";
-	case 29:
-		return "rsz_mout_out2__to__ovl1_2l_in2";
-	case 30:
-		return "ovl_to_wdma_sel__to__wdma0_pre_sel_in0";
-	case 31:
-		return "rsz_mout_out4__to__ovl_to_wdma_sel_in3";
-	default:
-		break;
-	}
-	return NULL;
-}
-
-static char *ddp_signal_2(int bit)
-{
-	switch (bit) {
-	case 0:
-		return "rsz_mout_out5__to__rdma0_rsz_out_sel_in3";
-	case 1:
-		return "rsz_mout_out6__to__ovl_to_wrot_sel_in3";
-	case 2:
-		return "rsz_sel__to__rsz0";
-	case 3:
-		return "to_wrot_sout_out0__to__mdp_wrot0_sel_in1";
-	case 4:
-		return "to_wrot_sout_out1__to__mdp_wrot1_sel_in1";
-	case 5:
-		return "wdma0_pre_sel__to__wdma0_sel_in3";
-	case 6:
-		return "wdma0_sel__to__wdma0";
-	case 7:
-		return "dpi0_sel__to__dpi0_thp_lmt";
-	case 8:
-		return "dpi0_thp_lmt__to__dpi0";
-	case 9:
-		return "dsi0_sel__to__dsi0_thp_lmt";
-	case 10:
-		return "dsi0_thp_lmt__to__dsi0";
-	default:
-		break;
-	}
-	return NULL;
-}
-
-static char *ddp_greq_name(int bit)
-{
-	switch (bit) {
-	case 0:
-		return "OVL0";
-	case 1:
-		return "OVL0_2L_LARB0";
-	case 2:
-		return "RDMA0";
-	case 3:
-		return "WDMA0";
-	case 4:
-		return "MDP_RDMA0";
-	case 5:
-		return "MDP_WROT0";
-	case 6:
-		return "DISP_FAKE0";
-	case 16:
-		return "OVL1";
-	case 17:
-		return "RDMA1";
-	case 18:
-		return "OVL0_2L_LARB1";
-	case 19:
-		return "MDP_RDMA1";
-	case 20:
-		return "MDP_WROT1";
-	case 21:
-		return "DISP_FAKE1";
-	default:
-		break;
-	}
-	return NULL;
-}
-
-static char *ddp_get_mutex_module0_name(unsigned int bit)
-{
-	switch (bit) {
-	case 0:
-		return "rdma0";
-	case 1:
-		return "rdma1";
-	case 2:
-		return "mdp_rdma0";
-	case 4:
-		return "mdp_rsz0";
-	case 5:
-		return "mdp_rsz1";
-	case 6:
-		return "mdp_tdshp";
-	case 7:
-		return "mdp_wrot0";
-	case 8:
-		return "mdp_wrot1";
-	case 9:
-		return "ovl0";
-	case 10:
-		return "ovl0_2L";
-	case 11:
-		return "ovl1_2L";
-	case 12:
-		return "wdma0";
-	case 13:
-		return "color0";
-	case 14:
-		return "ccorr0";
-	case 15:
-		return "aal0";
-	case 16:
-		return "gamma0";
-	case 17:
-		return "dither0";
-	case 18:
-		return "PWM0";
-	case 19:
-		return "DSI";
-	case 20:
-		return "DPI";
-	case 21:
-		return "postmask";
-	case 22:
-		return "rsz";
-	default:
-		break;
-	}
-	return "unknown-mutex";
-}
-
 char *mtk_ddp_get_mutex_sof_name(unsigned int regval)
 {
 	switch (regval) {
@@ -3593,70 +3346,6 @@ char *mtk_ddp_get_mutex_sof_name(unsigned int regval)
 		DDPDUMP("%s, unknown reg=%d\n", __func__, regval);
 		return "unknown";
 	}
-}
-
-static char *ddp_clock_0(int bit)
-{
-	switch (bit) {
-	case 0:
-		return "smi_common(cg), ";
-	case 1:
-		return "smi_larb0(cg), ";
-	case 2:
-		return "smi_larb1(cg), ";
-	case 3:
-		return "gals_common0(cg), ";
-	case 4:
-		return "gals_common1(cg), ";
-	case 20:
-		return "ovl0, ";
-	case 21:
-		return "ovl0_2L, ";
-	case 22:
-		return "ovl1_2L, ";
-	case 23:
-		return "rdma0, ";
-	case 24:
-		return "rdma1, ";
-	case 25:
-		return "wdma0, ";
-	case 26:
-		return "color, ";
-	case 27:
-		return "ccorr, ";
-	case 28:
-		return "aal, ";
-	case 29:
-		return "gamma, ";
-	case 30:
-		return "dither, ";
-	case 31:
-		return "split, ";
-	default:
-		break;
-	}
-	return NULL;
-}
-
-static char *ddp_clock_1(int bit)
-{
-	switch (bit) {
-	case 0:
-		return "dsi0_mm(cg), ";
-	case 1:
-		return "dsi0_interface(cg), ";
-	case 2:
-		return "dpi_mm(cg), ";
-	case 3:
-		return "dpi_interface, ";
-	case 7:
-		return "26M, ";
-	case 9:
-		return "disp_rsz, ";
-	default:
-		break;
-	}
-	return NULL;
 }
 
 static int mtk_ddp_mout_en_MT6885(const struct mtk_mmsys_reg_data *data,
@@ -6433,103 +6122,6 @@ void mutex_dump_reg_mt6873(struct mtk_disp_mutex *mutex)
 		readl_relaxed(module_base + 0x094));
 }
 
-void mutex_dump_reg(struct mtk_disp_mutex *mutex)
-{
-	struct mtk_ddp *ddp =
-		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
-	void __iomem *module_base = ddp->regs;
-
-	DDPDUMP("== DISP MUTEX REGS ==\n");
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x0, readl_relaxed(module_base + 0x0), 0x4,
-		readl_relaxed(module_base + 0x4), 0x8,
-		readl_relaxed(module_base + 0x8), 0xC,
-		readl_relaxed(module_base + 0xC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x10, readl_relaxed(module_base + 0x10), 0x18,
-		readl_relaxed(module_base + 0x18), 0x1C,
-		readl_relaxed(module_base + 0x1C), 0x020,
-		readl_relaxed(module_base + 0x020));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x024, readl_relaxed(module_base + 0x024), 0x028,
-		readl_relaxed(module_base + 0x028), 0x02C,
-		readl_relaxed(module_base + 0x02C), 0x030,
-		readl_relaxed(module_base + 0x030));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x040, readl_relaxed(module_base + 0x040), 0x044,
-		readl_relaxed(module_base + 0x044), 0x048,
-		readl_relaxed(module_base + 0x048), 0x04C,
-		readl_relaxed(module_base + 0x04C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x050, readl_relaxed(module_base + 0x050), 0x060,
-		readl_relaxed(module_base + 0x060), 0x064,
-		readl_relaxed(module_base + 0x064), 0x068,
-		readl_relaxed(module_base + 0x068));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x06C, readl_relaxed(module_base + 0x06C), 0x070,
-		readl_relaxed(module_base + 0x070), 0x080,
-		readl_relaxed(module_base + 0x080), 0x084,
-		readl_relaxed(module_base + 0x084));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x088, readl_relaxed(module_base + 0x088), 0x08C,
-		readl_relaxed(module_base + 0x08C), 0x090,
-		readl_relaxed(module_base + 0x090), 0x0A0,
-		readl_relaxed(module_base + 0x0A0));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x0A4, readl_relaxed(module_base + 0x0A4), 0x0A8,
-		readl_relaxed(module_base + 0x0A8), 0x0AC,
-		readl_relaxed(module_base + 0x0AC), 0x0B0,
-		readl_relaxed(module_base + 0x0B0));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x0C0, readl_relaxed(module_base + 0x0C0), 0x0C4,
-		readl_relaxed(module_base + 0x0C4), 0x0C8,
-		readl_relaxed(module_base + 0x0C8), 0x0CC,
-		readl_relaxed(module_base + 0x0CC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x0D0, readl_relaxed(module_base + 0x0D0), 0x0E0,
-		readl_relaxed(module_base + 0x0E0), 0x0E4,
-		readl_relaxed(module_base + 0x0E4), 0x0E8,
-		readl_relaxed(module_base + 0x0E8));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x0EC, readl_relaxed(module_base + 0x0EC), 0x0F0,
-		readl_relaxed(module_base + 0x0F0), 0x100,
-		readl_relaxed(module_base + 0x100), 0x104,
-		readl_relaxed(module_base + 0x104));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x108, readl_relaxed(module_base + 0x108), 0x10C,
-		readl_relaxed(module_base + 0x10C), 0x110,
-		readl_relaxed(module_base + 0x110), 0x120,
-		readl_relaxed(module_base + 0x120));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x124, readl_relaxed(module_base + 0x124), 0x128,
-		readl_relaxed(module_base + 0x128), 0x12C,
-		readl_relaxed(module_base + 0x12C), 0x130,
-		readl_relaxed(module_base + 0x130));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x140, readl_relaxed(module_base + 0x140), 0x144,
-		readl_relaxed(module_base + 0x144), 0x148,
-		readl_relaxed(module_base + 0x148), 0x14C,
-		readl_relaxed(module_base + 0x14C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x150, readl_relaxed(module_base + 0x150), 0x160,
-		readl_relaxed(module_base + 0x160), 0x164,
-		readl_relaxed(module_base + 0x164), 0x168,
-		readl_relaxed(module_base + 0x168));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x16C, readl_relaxed(module_base + 0x16C), 0x170,
-		readl_relaxed(module_base + 0x170), 0x180,
-		readl_relaxed(module_base + 0x180), 0x184,
-		readl_relaxed(module_base + 0x184));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x188, readl_relaxed(module_base + 0x188), 0x18C,
-		readl_relaxed(module_base + 0x18C), 0x190,
-		readl_relaxed(module_base + 0x190), 0x300,
-		readl_relaxed(module_base + 0x300));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x\n", 0x304,
-		readl_relaxed(module_base + 0x304), 0x30C,
-		readl_relaxed(module_base + 0x30C));
-}
-
 void mutex_dump_analysis_mt6885(struct mtk_disp_mutex *mutex)
 {
 	struct mtk_ddp *ddp =
@@ -6751,7 +6343,8 @@ void mutex_dump_analysis_mt6833(struct mtk_disp_mutex *mutex)
 				      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_EOF, val)),
 			      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF_WAIT, val));
 
-		p += len;
+		if (len >= 0)
+			p += len;
 		for (j = 0; j < 32; j++) {
 			unsigned int regval = readl_relaxed(
 				ddp->regs + DISP_REG_MUTEX_MOD(ddp->data, i));
@@ -6759,51 +6352,8 @@ void mutex_dump_analysis_mt6833(struct mtk_disp_mutex *mutex)
 			if ((regval & (1 << j))) {
 				len = sprintf(p, "%s,",
 					ddp_get_mutex_module0_name_mt6833(j));
-				p += len;
-			}
-		}
-		DDPDUMP("%s)\n", mutex_module);
-	}
-}
-
-void mutex_dump_analysis(struct mtk_disp_mutex *mutex)
-{
-	struct mtk_ddp *ddp =
-		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
-	unsigned int i = 0;
-	unsigned int j = 0;
-	char mutex_module[512] = {'\0'};
-	char *p = NULL;
-	int len = 0;
-	unsigned int val;
-
-	DDPDUMP("== DISP Mutex Analysis ==\n");
-	for (i = 0; i < 5; i++) {
-		p = mutex_module;
-		len = 0;
-		if (readl_relaxed(ddp->regs +
-				  DISP_REG_MUTEX_MOD(ddp->data, i)) == 0)
-			continue;
-
-		val = readl_relaxed(ddp->regs +
-				    DISP_REG_MUTEX_MOD(ddp->data, i));
-
-		len = sprintf(p, "MUTEX%d:SOF=%s,EOF=%s,WAIT=%d,module=(", i,
-			      mtk_ddp_get_mutex_sof_name(
-				      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF, val)),
-			      mtk_ddp_get_mutex_sof_name(
-				      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_EOF, val)),
-			      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF_WAIT, val));
-
-		p += len;
-		for (j = 0; j < 32; j++) {
-			unsigned int regval = readl_relaxed(
-				ddp->regs + DISP_REG_MUTEX_MOD(ddp->data, i));
-
-			if ((regval & (1 << j))) {
-				len = sprintf(p, "%s,",
-					      ddp_get_mutex_module0_name(j));
-				p += len;
+				if (len >= 0)
+					p += len;
 			}
 		}
 		DDPDUMP("%s)\n", mutex_module);
@@ -6866,236 +6416,6 @@ void mmsys_config_dump_reg_mt6873(void __iomem *config_regs)
 		mtk_serial_dump_reg(config_regs, off, 4);
 }
 
-void mmsys_config_dump_reg(void __iomem *config_regs)
-{
-
-	DDPDUMP("== DISP MMSYS_CONFIG REGS ==\n");
-/* TODO: use raw dump helper here */
-#if 1
-	{
-		unsigned int off = 0;
-
-		for (off = 0x0; off <= 0x240; off += 0x10)
-			mtk_serial_dump_reg(config_regs, off, 4);
-
-		for (off = 0x800; off <= 0x940; off += 0x10)
-			mtk_serial_dump_reg(config_regs, off, 4);
-
-		for (off = 0xf00; off <= 0xfD0; off += 0x10)
-			mtk_serial_dump_reg(config_regs, off, 4);
-	}
-#else
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x000, readl_relaxed(config_regs + 0x000), 0x004,
-		readl_relaxed(config_regs + 0x004), 0x00C,
-		readl_relaxed(config_regs + 0x00C), 0x010,
-		readl_relaxed(config_regs + 0x010));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x014, readl_relaxed(config_regs + 0x014), 0x018,
-		readl_relaxed(config_regs + 0x018), 0x020,
-		readl_relaxed(config_regs + 0x020), 0x024,
-		readl_relaxed(config_regs + 0x024));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x028, readl_relaxed(config_regs + 0x028), 0x02C,
-		readl_relaxed(config_regs + 0x02C), 0x030,
-		readl_relaxed(config_regs + 0x030), 0x034,
-		readl_relaxed(config_regs + 0x034));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x038, readl_relaxed(config_regs + 0x038), 0x048,
-		readl_relaxed(config_regs + 0x048), 0x0F0,
-		readl_relaxed(config_regs + 0x0F0), 0x0F4,
-		readl_relaxed(config_regs + 0x0F4));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x0F8, readl_relaxed(config_regs + 0x0F8), 0x100,
-		readl_relaxed(config_regs + 0x100), 0x104,
-		readl_relaxed(config_regs + 0x104), 0x108,
-		readl_relaxed(config_regs + 0x108));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x110, readl_relaxed(config_regs + 0x110), 0x114,
-		readl_relaxed(config_regs + 0x114), 0x118,
-		readl_relaxed(config_regs + 0x118), 0x120,
-		readl_relaxed(config_regs + 0x120));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x124, readl_relaxed(config_regs + 0x124), 0x128,
-		readl_relaxed(config_regs + 0x128), 0x130,
-		readl_relaxed(config_regs + 0x130), 0x134,
-		readl_relaxed(config_regs + 0x134));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x138, readl_relaxed(config_regs + 0x138), 0x140,
-		readl_relaxed(config_regs + 0x140), 0x144,
-		readl_relaxed(config_regs + 0x144), 0x150,
-		readl_relaxed(config_regs + 0x150));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x180, readl_relaxed(config_regs + 0x180), 0x184,
-		readl_relaxed(config_regs + 0x184), 0x190,
-		readl_relaxed(config_regs + 0x190), 0x200,
-		readl_relaxed(config_regs + 0x200));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x204, readl_relaxed(config_regs + 0x204), 0x208,
-		readl_relaxed(config_regs + 0x208), 0x20C,
-		readl_relaxed(config_regs + 0x20C), 0x210,
-		readl_relaxed(config_regs + 0x210));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x214, readl_relaxed(config_regs + 0x214), 0x218,
-		readl_relaxed(config_regs + 0x218), 0x220,
-		readl_relaxed(config_regs + 0x220), 0x224,
-		readl_relaxed(config_regs + 0x224));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x228, readl_relaxed(config_regs + 0x228), 0x22C,
-		readl_relaxed(config_regs + 0x22C), 0x230,
-		readl_relaxed(config_regs + 0x230), 0x234,
-		readl_relaxed(config_regs + 0x234));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x238, readl_relaxed(config_regs + 0x238), 0x800,
-		readl_relaxed(config_regs + 0x800), 0x804,
-		readl_relaxed(config_regs + 0x804), 0x808,
-		readl_relaxed(config_regs + 0x808));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x80C, readl_relaxed(config_regs + 0x80C), 0x810,
-		readl_relaxed(config_regs + 0x810), 0x814,
-		readl_relaxed(config_regs + 0x814), 0x818,
-		readl_relaxed(config_regs + 0x818));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x81C, readl_relaxed(config_regs + 0x81C), 0x820,
-		readl_relaxed(config_regs + 0x820), 0x824,
-		readl_relaxed(config_regs + 0x824), 0x828,
-		readl_relaxed(config_regs + 0x828));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x82C, readl_relaxed(config_regs + 0x82C), 0x830,
-		readl_relaxed(config_regs + 0x830), 0x834,
-		readl_relaxed(config_regs + 0x834), 0x838,
-		readl_relaxed(config_regs + 0x838));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x83C, readl_relaxed(config_regs + 0x83C), 0x840,
-		readl_relaxed(config_regs + 0x840), 0x844,
-		readl_relaxed(config_regs + 0x844), 0x848,
-		readl_relaxed(config_regs + 0x848));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x84C, readl_relaxed(config_regs + 0x84C), 0x854,
-		readl_relaxed(config_regs + 0x854), 0x858,
-		readl_relaxed(config_regs + 0x858), 0x85C,
-		readl_relaxed(config_regs + 0x85C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x860, readl_relaxed(config_regs + 0x860), 0x864,
-		readl_relaxed(config_regs + 0x864), 0x868,
-		readl_relaxed(config_regs + 0x868), 0x870,
-		readl_relaxed(config_regs + 0x870));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x874, readl_relaxed(config_regs + 0x874), 0x878,
-		readl_relaxed(config_regs + 0x878), 0x88C,
-		readl_relaxed(config_regs + 0x88C), 0x890,
-		readl_relaxed(config_regs + 0x890));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x894, readl_relaxed(config_regs + 0x894), 0x898,
-		readl_relaxed(config_regs + 0x898), 0x89C,
-		readl_relaxed(config_regs + 0x89C), 0x8A0,
-		readl_relaxed(config_regs + 0x8A0));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x8A4, readl_relaxed(config_regs + 0x8A4), 0x8A8,
-		readl_relaxed(config_regs + 0x8A8), 0x8AC,
-		readl_relaxed(config_regs + 0x8AC), 0x8B0,
-		readl_relaxed(config_regs + 0x8B0));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x8B4, readl_relaxed(config_regs + 0x8B4), 0x8B8,
-		readl_relaxed(config_regs + 0x8B8), 0x8C0,
-		readl_relaxed(config_regs + 0x8C0), 0x8C4,
-		readl_relaxed(config_regs + 0x8C4));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x8CC, readl_relaxed(config_regs + 0x8CC), 0x8D0,
-		readl_relaxed(config_regs + 0x8D0), 0x8D4,
-		readl_relaxed(config_regs + 0x8D4), 0x8D8,
-		readl_relaxed(config_regs + 0x8D8));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x8DC, readl_relaxed(config_regs + 0x8DC), 0x8E0,
-		readl_relaxed(config_regs + 0x8E0), 0x8E4,
-		readl_relaxed(config_regs + 0x8E4), 0x8E8,
-		readl_relaxed(config_regs + 0x8E8));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x8EC, readl_relaxed(config_regs + 0x8EC), 0x8F0,
-		readl_relaxed(config_regs + 0x8F0), 0x908,
-		readl_relaxed(config_regs + 0x908), 0x90C,
-		readl_relaxed(config_regs + 0x90C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x910, readl_relaxed(config_regs + 0x910), 0x914,
-		readl_relaxed(config_regs + 0x914), 0x918,
-		readl_relaxed(config_regs + 0x918), 0x91C,
-		readl_relaxed(config_regs + 0x91C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x920, readl_relaxed(config_regs + 0x920), 0x924,
-		readl_relaxed(config_regs + 0x924), 0x928,
-		readl_relaxed(config_regs + 0x928), 0x934,
-		readl_relaxed(config_regs + 0x934));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x938, readl_relaxed(config_regs + 0x938), 0x93C,
-		readl_relaxed(config_regs + 0x93C), 0x940,
-		readl_relaxed(config_regs + 0x940), 0x944,
-		readl_relaxed(config_regs + 0x944));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xF00, readl_relaxed(config_regs + 0xF00), 0xF04,
-		readl_relaxed(config_regs + 0xF04), 0xF08,
-		readl_relaxed(config_regs + 0xF08), 0xF0C,
-		readl_relaxed(config_regs + 0xF0C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xF10, readl_relaxed(config_regs + 0xF10), 0xF20,
-		readl_relaxed(config_regs + 0xF20), 0xF24,
-		readl_relaxed(config_regs + 0xF24), 0xF28,
-		readl_relaxed(config_regs + 0xF28));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xF2C, readl_relaxed(config_regs + 0xF2C), 0xF30,
-		readl_relaxed(config_regs + 0xF30), 0xF34,
-		readl_relaxed(config_regs + 0xF34), 0xF38,
-		readl_relaxed(config_regs + 0xF38));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xF3C, readl_relaxed(config_regs + 0xF3C), 0xF40,
-		readl_relaxed(config_regs + 0xF40), 0xF44,
-		readl_relaxed(config_regs + 0xF44), 0xF48,
-		readl_relaxed(config_regs + 0xF48));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xF50, readl_relaxed(config_regs + 0xF50), 0xF54,
-		readl_relaxed(config_regs + 0xF54), 0xF58,
-		readl_relaxed(config_regs + 0xF58), 0xF5C,
-		readl_relaxed(config_regs + 0xF5C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xF60, readl_relaxed(config_regs + 0xF60), 0xF64,
-		readl_relaxed(config_regs + 0xF64), 0xF68,
-		readl_relaxed(config_regs + 0xF68), 0xF6C,
-		readl_relaxed(config_regs + 0xF6C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xF70, readl_relaxed(config_regs + 0xF70), 0xF74,
-		readl_relaxed(config_regs + 0xF74), 0xF78,
-		readl_relaxed(config_regs + 0xF78), 0xF7C,
-		readl_relaxed(config_regs + 0xF7C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xF80, readl_relaxed(config_regs + 0xF80), 0xF84,
-		readl_relaxed(config_regs + 0xF84), 0xF88,
-		readl_relaxed(config_regs + 0xF88), 0xF8C,
-		readl_relaxed(config_regs + 0xF8C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xF90, readl_relaxed(config_regs + 0xF90), 0xF94,
-		readl_relaxed(config_regs + 0xF94), 0xF98,
-		readl_relaxed(config_regs + 0xF98), 0xFA0,
-		readl_relaxed(config_regs + 0xFA0));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xFA4, readl_relaxed(config_regs + 0xFA4), 0xFA8,
-		readl_relaxed(config_regs + 0xFA8), 0xFAC,
-		readl_relaxed(config_regs + 0xFAC), 0xFB0,
-		readl_relaxed(config_regs + 0xFB0));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xFC0, readl_relaxed(config_regs + 0xFC0), 0xFC4,
-		readl_relaxed(config_regs + 0XFC4), 0xFC8,
-		readl_relaxed(config_regs + 0xFC8), 0xFCC,
-		readl_relaxed(config_regs + 0xFCC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xFD0, readl_relaxed(config_regs + 0xFD0), 0xFD4,
-		readl_relaxed(config_regs + 0xFD4), 0xFD8,
-		readl_relaxed(config_regs + 0xFD8), 0xFDC,
-		readl_relaxed(config_regs + 0xFDC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x\n", 0xFE0,
-		readl_relaxed(config_regs + 0xFE0), 0xFE4,
-		readl_relaxed(config_regs + 0xFE4));
-#endif
-}
-
 /**
  * ------ clock:
  * Before power on mmsys:
@@ -7123,47 +6443,48 @@ void mmsys_config_dump_reg(void __iomem *config_regs)
  */
 void mmsys_config_dump_analysis_mt6885(void __iomem *config_regs)
 {
-	unsigned int i = 0;
+	unsigned int idx = 0, bit = 0, len = 0;
 	unsigned int reg = 0;
 	char clock_on[512] = {'\0'};
 	char *pos = NULL;
 	char *name = NULL;
-
-	unsigned int valid0 =
-		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_VALID_0);
-	unsigned int valid1 =
-		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_VALID_1);
-	unsigned int valid2 =
-		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_VALID_2);
-	unsigned int valid3 =
-		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_VALID_3);
-	unsigned int valid4 =
-		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_VALID_4);
-	unsigned int valid5 =
-		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_VALID_5);
-
-	unsigned int ready0 =
-		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_READY_0);
-	unsigned int ready1 =
-		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_READY_1);
-	unsigned int ready2 =
-		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_READY_2);
-	unsigned int ready3 =
-		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_READY_3);
-	unsigned int ready4 =
-		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_READY_4);
-	unsigned int ready5 =
-		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_READY_5);
-
+	unsigned int valid[6] = {0};
+	unsigned int ready[6] = {0};
 	unsigned int greq =
 		readl_relaxed(config_regs +
 				MT6885_DISP_REG_CONFIG_SMI_LARB_GREQ);
 
+	valid[0] =
+		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_VALID_0);
+	valid[1] =
+		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_VALID_1);
+	valid[2] =
+		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_VALID_2);
+	valid[3] =
+		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_VALID_3);
+	valid[4] =
+		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_VALID_4);
+	valid[5] =
+		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_VALID_5);
+
+	ready[0] =
+		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_READY_0);
+	ready[1] =
+		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_READY_1);
+	ready[2] =
+		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_READY_2);
+	ready[3] =
+		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_READY_3);
+	ready[4] =
+		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_READY_4);
+	ready[5] =
+		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_READY_5);
+
 	DDPDUMP("== DISP MMSYS_CONFIG ANALYSIS ==\n");
 	reg = readl_relaxed(config_regs + DISP_REG_CONFIG_MMSYS_CG_CON0_MT6885);
-	for (i = 0; i < 32; i++) {
-		if ((reg & (1 << i)) == 0) {
-			name = ddp_clock_0_mt6885(i);
+	for (bit = 0; bit < 32; bit++) {
+		if ((reg & (1 << bit)) == 0) {
+			name = ddp_clock_0_mt6885(bit);
 			if (name)
 				strncat(clock_on, name, (sizeof(clock_on) -
 							 strlen(clock_on) - 1));
@@ -7171,9 +6492,9 @@ void mmsys_config_dump_analysis_mt6885(void __iomem *config_regs)
 	}
 
 	reg = readl_relaxed(config_regs + DISP_REG_CONFIG_MMSYS_CG_CON1_MT6885);
-	for (i = 0; i < 32; i++) {
-		if ((reg & (1 << i)) == 0) {
-			name = ddp_clock_1_mt6885(i);
+	for (bit = 0; bit < 32; bit++) {
+		if ((reg & (1 << bit)) == 0) {
+			name = ddp_clock_1_mt6885(bit);
 			if (name)
 				strncat(clock_on, name, (sizeof(clock_on) -
 							 strlen(clock_on) - 1));
@@ -7183,142 +6504,39 @@ void mmsys_config_dump_analysis_mt6885(void __iomem *config_regs)
 	DDPDUMP("clock on modules:%s\n", clock_on);
 
 	DDPDUMP("va0=0x%x,va1=0x%x,va2=0x%x,va3=0x%x,va4=0x%x,va5=0x%x\n",
-		valid0, valid1,	valid2, valid3, valid4, valid5);
+		valid[0], valid[1], valid[2], valid[3], valid[4], valid[5]);
 	DDPDUMP("rd0=0x%x,rd1=0x%x,rd2=0x%x,rd3=0x%x,rd4=0x%x,rd5=0x%x\n",
-		ready0, ready1, ready2, ready3, ready4, ready5);
+		ready[0], ready[1], ready[2], ready[3], ready[4], ready[5]);
 	DDPDUMP("greq=0x%x\n", greq);
-	for (i = 0; i < 32; i++) {
-		name = ddp_signal_0_mt6885(i);
-		if (!name)
-			continue;
+	for (idx = 0; idx < 6; idx++) {
+		for (bit = 0; bit < 32; bit++) {
+			name = ddp_signal_mt6885(idx, bit);
+			if (!name)
+				continue;
+			pos = clock_on;
 
-		pos = clock_on;
+			if ((valid[idx] & (1 << bit)))
+				len = sprintf(pos, "%s,", "v");
+			else
+				len = sprintf(pos, "%s,", "n");
 
-		if ((valid0 & (1 << i)))
-			pos += sprintf(pos, "%s,", "v");
-		else
-			pos += sprintf(pos, "%s,", "n");
+			if (len >= 0)
+				pos += len;
 
-		if ((ready0 & (1 << i)))
-			pos += sprintf(pos, "%s", "r");
-		else
-			pos += sprintf(pos, "%s", "n");
+			if ((ready[idx] & (1 << bit)))
+				len = sprintf(pos, "%s", "r");
+			else
+				len = sprintf(pos, "%s", "n");
+			if (len >= 0)
+				pos += len;
 
-		pos += sprintf(pos, ": %s", name);
+			len = sprintf(pos, ": %s", name);
+			if (len >= 0)
+				pos += len;
 
-		DDPDUMP("%s\n", clock_on);
+			DDPDUMP("%s\n", clock_on);
+		}
 	}
-
-	for (i = 0; i < 32; i++) {
-		name = ddp_signal_1_mt6885(i);
-		if (!name)
-			continue;
-
-		pos = clock_on;
-
-		if ((valid1 & (1 << i)))
-			pos += sprintf(pos, "%s,", "v");
-		else
-			pos += sprintf(pos, "%s,", "n");
-
-		if ((ready1 & (1 << i)))
-			pos += sprintf(pos, "%s", "r");
-		else
-			pos += sprintf(pos, "%s", "n");
-
-		pos += sprintf(pos, ": %s", name);
-
-		DDPDUMP("%s\n", clock_on);
-	}
-
-	for (i = 0; i < 32; i++) {
-		name = ddp_signal_2_mt6885(i);
-		if (!name)
-			continue;
-
-		pos = clock_on;
-
-		if ((valid2 & (1 << i)))
-			pos += sprintf(pos, "%s,", "v");
-		else
-			pos += sprintf(pos, "%s,", "n");
-
-		if ((ready2 & (1 << i)))
-			pos += sprintf(pos, "%s", "r");
-		else
-			pos += sprintf(pos, "%s", "n");
-
-		pos += sprintf(pos, ": %s", name);
-
-		DDPDUMP("%s\n", clock_on);
-	}
-
-	for (i = 0; i < 32; i++) {
-		name = ddp_signal_3_mt6885(i);
-		if (!name)
-			continue;
-
-		pos = clock_on;
-
-		if ((valid3 & (1 << i)))
-			pos += sprintf(pos, "%s,", "v");
-		else
-			pos += sprintf(pos, "%s,", "n");
-
-		if ((ready3 & (1 << i)))
-			pos += sprintf(pos, "%s", "r");
-		else
-			pos += sprintf(pos, "%s", "n");
-
-		pos += sprintf(pos, ": %s", name);
-
-		DDPDUMP("%s\n", clock_on);
-	}
-
-	for (i = 0; i < 32; i++) {
-		name = ddp_signal_4_mt6885(i);
-		if (!name)
-			continue;
-
-		pos = clock_on;
-
-		if ((valid4 & (1 << i)))
-			pos += sprintf(pos, "%s,", "v");
-		else
-			pos += sprintf(pos, "%s,", "n");
-
-		if ((ready4 & (1 << i)))
-			pos += sprintf(pos, "%s", "r");
-		else
-			pos += sprintf(pos, "%s", "n");
-
-		pos += sprintf(pos, ": %s", name);
-
-		DDPDUMP("%s\n", clock_on);
-	}
-
-	for (i = 0; i < 14; i++) {
-		name = ddp_signal_5_mt6885(i);
-		if (!name)
-			continue;
-
-		pos = clock_on;
-
-		if ((valid5 & (1 << i)))
-			pos += sprintf(pos, "%s,", "v");
-		else
-			pos += sprintf(pos, "%s,", "n");
-
-		if ((ready5 & (1 << i)))
-			pos += sprintf(pos, "%s", "r");
-		else
-			pos += sprintf(pos, "%s", "n");
-
-		pos += sprintf(pos, ": %s", name);
-
-		DDPDUMP("%s\n", clock_on);
-	}
-
 	/* greq: 1 means SMI dose not grant, maybe SMI hang */
 	if (greq) {
 		DDPDUMP("smi greq not grant module:\n");
@@ -7326,9 +6544,9 @@ void mmsys_config_dump_analysis_mt6885(void __iomem *config_regs)
 	}
 
 	clock_on[0] = '\0';
-	for (i = 0; i < 32; i++) {
-		if (greq & (1 << i)) {
-			name = ddp_greq_name_mt6885(i);
+	for (bit = 0; bit < 32; bit++) {
+		if (greq & (1 << bit)) {
+			name = ddp_greq_name_mt6885(bit);
 			if (!name)
 				continue;
 			strncat(clock_on, name,
@@ -7811,43 +7029,24 @@ void mmsys_config_dump_analysis_mt6877(void __iomem *config_regs)
 
 void mmsys_config_dump_analysis_mt6833(void __iomem *config_regs)
 {
-	unsigned int i = 0;
+	unsigned int i = 0, len = 0;
 	unsigned int reg = 0;
 	char clock_on[512] = {'\0'};
 	char *pos = NULL;
-	char *name;
+	char *name = NULL;
+	unsigned int valid = 0;
+	unsigned int ready = 0;
+	unsigned int greq0 = 0, greq1 = 0;
 
-	//same address for 6833
-	unsigned int valid0 =
+	valid =
 		readl_relaxed(config_regs + MT6873_DISP_REG_CONFIG_DL_VALID_0);
-	unsigned int valid1 =
-		readl_relaxed(config_regs + MT6873_DISP_REG_CONFIG_DL_VALID_1);
-	unsigned int valid2 =
-		readl_relaxed(config_regs + MT6873_DISP_REG_CONFIG_DL_VALID_2);
-	unsigned int valid3 =
-		readl_relaxed(config_regs + MT6873_DISP_REG_CONFIG_DL_VALID_3);
-	unsigned int valid4 =
-		readl_relaxed(config_regs + MT6873_DISP_REG_CONFIG_DL_VALID_4);
-	unsigned int valid5 =
-		readl_relaxed(config_regs + MT6873_DISP_REG_CONFIG_DL_VALID_5);
-
-	unsigned int ready0 =
+	ready =
 		readl_relaxed(config_regs + MT6873_DISP_REG_CONFIG_DL_READY_0);
-	unsigned int ready1 =
-		readl_relaxed(config_regs + MT6873_DISP_REG_CONFIG_DL_READY_1);
-	unsigned int ready2 =
-		readl_relaxed(config_regs + MT6873_DISP_REG_CONFIG_DL_READY_2);
-	unsigned int ready3 =
-		readl_relaxed(config_regs + MT6873_DISP_REG_CONFIG_DL_READY_3);
-	unsigned int ready4 =
-		readl_relaxed(config_regs + MT6873_DISP_REG_CONFIG_DL_READY_4);
-	unsigned int ready5 =
-		readl_relaxed(config_regs + MT6873_DISP_REG_CONFIG_DL_READY_5);
 
-	unsigned int greq0 =
+	greq0 =
 		readl_relaxed(config_regs +
 				MT6873_DISP_REG_CONFIG_SMI_LARB0_GREQ);
-	unsigned int greq1 =
+	greq1 =
 		readl_relaxed(config_regs +
 				MT6873_DISP_REG_CONFIG_SMI_LARB1_GREQ);
 
@@ -7863,12 +7062,7 @@ void mmsys_config_dump_analysis_mt6833(void __iomem *config_regs)
 	}
 
 	DDPDUMP("clock on modules:%s\n", clock_on);
-
-	DDPDUMP("va0=0x%x,va1=0x%x,va2=0x%x,va3=0x%x,va4=0x%x,va5=0x%x\n",
-		valid0, valid1,	valid2, valid3, valid4, valid5);
-	DDPDUMP("rd0=0x%x,rd1=0x%x,rd2=0x%x,rd3=0x%x,rd4=0x%x,rd5=0x%x\n",
-		ready0, ready1, ready2, ready3, ready4, ready5);
-	DDPDUMP("greq0=0x%x greq1=0x%x\n", greq0, greq1);
+	DDPDUMP("va=0x%x, rd=0x%x, greq0=0x%x, greq1=0x%x\n", valid, ready, greq0, greq1);
 	for (i = 0; i < 32; i++) {
 		name = ddp_signal_0_mt6833(i);
 		if (!name)
@@ -7876,17 +7070,23 @@ void mmsys_config_dump_analysis_mt6833(void __iomem *config_regs)
 
 		pos = clock_on;
 
-		if ((valid0 & (1 << i)))
-			pos += sprintf(pos, "%s,", "v");
+		if ((valid & (1 << i)))
+			len = sprintf(pos, "%s,", "v");
 		else
-			pos += sprintf(pos, "%s,", "n");
+			len = sprintf(pos, "%s,", "n");
+		if (len >= 0)
+			pos += len;
 
-		if ((ready0 & (1 << i)))
-			pos += sprintf(pos, "%s", "r");
+		if ((ready & (1 << i)))
+			len = sprintf(pos, "%s", "r");
 		else
-			pos += sprintf(pos, "%s", "n");
+			len = sprintf(pos, "%s", "n");
+		if (len >= 0)
+			pos += len;
 
-		pos += sprintf(pos, ": %s", name);
+		len = sprintf(pos, ": %s", name);
+		if (len >= 0)
+			pos += len;
 
 		DDPDUMP("%s\n", clock_on);
 	}
@@ -7936,150 +7136,6 @@ void mmsys_config_dump_analysis_mt6833(void __iomem *config_regs)
 			DDPDUMP("%s, Can't smi dump in IRQ\n", __func__);
 	}
 #endif
-}
-
-void mmsys_config_dump_analysis(void __iomem *config_regs)
-{
-	unsigned int i = 0;
-	unsigned int reg = 0;
-	char clock_on[512] = {'\0'};
-	char *pos = NULL;
-	char *name = NULL;
-
-	unsigned int valid0 =
-		readl_relaxed(config_regs + DISP_REG_CONFIG_DISP_DL_VALID_0);
-	unsigned int valid1 =
-		readl_relaxed(config_regs + DISP_REG_CONFIG_DISP_DL_VALID_1);
-	unsigned int valid2 =
-		readl_relaxed(config_regs + DISP_REG_CONFIG_DISP_DL_VALID_2);
-	unsigned int ready0 =
-		readl_relaxed(config_regs + DISP_REG_CONFIG_DISP_DL_READY_0);
-	unsigned int ready1 =
-		readl_relaxed(config_regs + DISP_REG_CONFIG_DISP_DL_READY_1);
-	unsigned int ready2 =
-		readl_relaxed(config_regs + DISP_REG_CONFIG_DISP_DL_READY_2);
-	unsigned int greq =
-		readl_relaxed(config_regs + DISP_REG_CONFIG_SMI_LARB_GREQ);
-
-	DDPDUMP("== DISP MMSYS_CONFIG ANALYSIS ==\n");
-#if 0 /* TODO: mmsys clk?? */
-	DDPDUMP("mmsys clock=0x%x, CG_CON0=0x%x, CG_CON1=0x%x\n",
-		DISP_REG_GET(DISP_REG_CLK_CFG_0_MM_CLK),
-		DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0),
-		DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1));
-	if ((DISP_REG_GET(DISP_REG_CLK_CFG_0_MM_CLK) >> 31) & 0x1)
-		DDP_PR_ERR("mmsys clock abnormal!!\n");
-#endif
-
-	reg = readl_relaxed(config_regs + DISP_REG_CONFIG_MMSYS_CG_CON0);
-	for (i = 0; i < 32; i++) {
-		if ((reg & (1 << i)) == 0) {
-			name = ddp_clock_0(i);
-			if (name)
-				strncat(clock_on, name, (sizeof(clock_on) -
-							 strlen(clock_on) - 1));
-		}
-	}
-
-	reg = readl_relaxed(config_regs + DISP_REG_CONFIG_MMSYS_CG_CON1);
-	for (i = 0; i < 32; i++) {
-		if ((reg & (1 << i)) == 0) {
-			name = ddp_clock_1(i);
-			if (name)
-				strncat(clock_on, name, (sizeof(clock_on) -
-							 strlen(clock_on) - 1));
-		}
-	}
-
-	DDPDUMP("clock on modules:%s\n", clock_on);
-
-	DDPDUMP("valid0=0x%x,valid1=0x%x,valid2=0x%x\n", valid0, valid1,
-		valid2);
-	DDPDUMP("ready0=0x%x,ready1=0x%x,ready2=0x%x,greq=0%x\n", ready0,
-		ready1, ready2, greq);
-	for (i = 0; i < 32; i++) {
-		name = ddp_signal_0(i);
-		if (!name)
-			continue;
-
-		pos = clock_on;
-
-		if ((valid0 & (1 << i)))
-			pos += sprintf(pos, "%s,", "v");
-		else
-			pos += sprintf(pos, "%s,", "n");
-
-		if ((ready0 & (1 << i)))
-			pos += sprintf(pos, "%s", "r");
-		else
-			pos += sprintf(pos, "%s", "n");
-
-		pos += sprintf(pos, ": %s", name);
-
-		DDPDUMP("%s\n", clock_on);
-	}
-
-	for (i = 0; i < 32; i++) {
-		name = ddp_signal_1(i);
-		if (!name)
-			continue;
-
-		pos = clock_on;
-
-		if ((valid1 & (1 << i)))
-			pos += sprintf(pos, "%s,", "v");
-		else
-			pos += sprintf(pos, "%s,", "n");
-
-		if ((ready1 & (1 << i)))
-			pos += sprintf(pos, "%s", "r");
-		else
-			pos += sprintf(pos, "%s", "n");
-
-		pos += sprintf(pos, ": %s", name);
-
-		DDPDUMP("%s\n", clock_on);
-	}
-
-	for (i = 0; i < 11; i++) {
-		name = ddp_signal_2(i);
-		if (!name)
-			continue;
-
-		pos = clock_on;
-
-		if ((valid2 & (1 << i)))
-			pos += sprintf(pos, "%s,", "v");
-		else
-			pos += sprintf(pos, "%s,", "n");
-
-		if ((ready2 & (1 << i)))
-			pos += sprintf(pos, "%s", "r");
-		else
-			pos += sprintf(pos, "%s", "n");
-
-		pos += sprintf(pos, ": %s", name);
-
-		DDPDUMP("%s\n", clock_on);
-	}
-
-	/* greq: 1 means SMI dose not grant, maybe SMI hang */
-	if (greq) {
-		DDPDUMP("smi greq not grant module:\n");
-		DDPDUMP("(greq: 1 means SMI dose not grant, maybe SMI hang)\n");
-	}
-
-	clock_on[0] = '\0';
-	for (i = 0; i < 32; i++) {
-		if (greq & (1 << i)) {
-			name = ddp_greq_name(i);
-			if (!name)
-				continue;
-			strncat(clock_on, name,
-				(sizeof(clock_on) - strlen(clock_on) - 1));
-		}
-	}
-	DDPDUMP("%s\n", clock_on);
 }
 
 static int mtk_ddp_probe(struct platform_device *pdev)
