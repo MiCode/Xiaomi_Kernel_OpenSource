@@ -2663,6 +2663,7 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc,
 			mtk_crtc->qos_ctx->last_hrt_req);
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
+	if (mtk_crtc->enabled)
 		mtk_disp_set_hrt_bw(mtk_crtc,
 				mtk_crtc->qos_ctx->last_hrt_req);
 #endif
