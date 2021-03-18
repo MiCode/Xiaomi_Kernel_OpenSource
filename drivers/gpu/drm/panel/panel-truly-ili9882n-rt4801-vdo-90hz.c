@@ -548,26 +548,77 @@ static int lcm_enable(struct drm_panel *panel)
 #define HFP (36)
 #define HSA (8)
 #define HBP (36)
-#define VFP (1060)
-#define VSA (8)
+#define VFP_45HZ (2220)
+#define VFP_60HZ (1260)
+#define VFP_90HZ (330)
+#define VSA (12)
 #define VBP (8)
 #define VAC (1520)
 #define HAC (720)
 
 static struct drm_display_mode default_mode = {
-	.clock = 124608,
+	.clock = 134400,
 	.hdisplay = HAC,
 	.hsync_start = HAC + HFP,
 	.hsync_end = HAC + HFP + HSA,
 	.htotal = HAC + HFP + HSA + HBP,
 	.vdisplay = VAC,
-	.vsync_start = VAC + VFP,
-	.vsync_end = VAC + VFP + VSA,
-	.vtotal = VAC + VFP + VSA + VBP,
+	.vsync_start = VAC + VFP_60HZ,
+	.vsync_end = VAC + VFP_60HZ + VSA,
+	.vtotal = VAC + VFP_60HZ + VSA + VBP,
 	.vrefresh = 60,
 };
 
+static const struct drm_display_mode performance_mode = {
+	.clock = 134640,
+	.hdisplay = HAC,
+	.hsync_start = HAC + HFP,
+	.hsync_end = HAC + HFP + HSA,
+	.htotal = HAC + HFP + HSA + HBP,
+	.vdisplay = VAC,
+	.vsync_start = VAC + VFP_90HZ,
+	.vsync_end = VAC + VFP_90HZ + VSA,
+	.vtotal = VAC + VFP_90HZ + VSA + VBP,
+	.vrefresh = 90,
+};
+
 #if defined(CONFIG_MTK_PANEL_EXT)
+static struct mtk_panel_params ext_params = {
+	.pll_clk = 442,
+	.vfp_low_power = VFP_45HZ,
+	.cust_esd_check = 0,
+	.esd_check_enable = 1,
+	.lcm_esd_check_table[0] = {
+		.cmd = 0x0a,
+		.count = 1,
+		.para_list[0] = 0x9c,
+	},
+	.data_rate = 884,
+	.dyn_fps = {
+		.switch_en = 1,
+		.vact_timing_fps = 90,
+	},
+
+};
+
+static struct mtk_panel_params ext_params_90hz = {
+	.pll_clk = 442,
+	.vfp_low_power = VFP_60HZ,
+	.cust_esd_check = 0,
+	.esd_check_enable = 1,
+	.lcm_esd_check_table[0] = {
+		.cmd = 0x0a,
+		.count = 1,
+		.para_list[0] = 0x9c,
+	},
+	.data_rate = 884,
+	.dyn_fps = {
+		.switch_en = 1,
+		.vact_timing_fps = 90,
+	},
+
+};
+
 static int panel_ext_reset(struct drm_panel *panel, int on)
 {
 	struct lcm *ctx = panel_to_lcm(panel);
@@ -587,6 +638,27 @@ static int panel_ext_reset(struct drm_panel *panel, int on)
 
 static int panel_ata_check(struct drm_panel *panel)
 {
+	struct lcm *ctx = panel_to_lcm(panel);
+	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
+	unsigned char data[3] = {0x00, 0x00, 0x00};
+	unsigned char id[3] = {0x00, 0x80, 0x00};
+	ssize_t ret;
+
+	ret = mipi_dsi_dcs_read(dsi, 0x4, data, 3);
+	if (ret < 0) {
+		pr_err("%s error\n", __func__);
+		return 0;
+	}
+
+	pr_info("ATA read data %x %x %x\n", data[0], data[1], data[2]);
+
+	if (data[0] == id[0] &&
+	    data[1] == id[1] &&
+	    data[2] == id[2])
+		return 1;
+
+	pr_info("ATA expect data is %x %x %x\n", id[0], id[1], id[2]);
+
 	return 0;
 }
 
@@ -615,22 +687,42 @@ static int lcm_get_virtual_width(void)
 	return HAC;
 }
 
-static struct mtk_panel_params ext_params = {
-	.pll_clk = 424,
-	.vfp_low_power = 1250,
-	.cust_esd_check = 0,
-	.esd_check_enable = 0,
-	.lcm_esd_check_table[0] = {
-		.cmd = 0x0a,
-		.count = 1,
-		.para_list[0] = 0x9c,
-	},
 
-};
+static int mtk_panel_ext_param_set(struct drm_panel *panel, unsigned int mode)
+{
+	struct mtk_panel_ext *ext = find_panel_ext(panel);
+	int ret = 0;
 
+	if (mode == 0)
+		ext->params = &ext_params;
+	else if (mode == 1)
+		ext->params = &ext_params_90hz;
+	else
+		ret = 1;
+
+	return ret;
+}
+
+static int mtk_panel_ext_param_get(struct mtk_panel_params *ext_para,
+			 unsigned int mode)
+{
+	int ret = 0;
+
+	if (mode == 0)
+		ext_para = &ext_params;
+	else if (mode == 1)
+		ext_para = &ext_params_90hz;
+	else
+		ret = 1;
+
+	return ret;
+
+}
 static struct mtk_panel_funcs ext_funcs = {
 	.reset = panel_ext_reset,
 	.set_backlight_cmdq = lcm_setbacklight_cmdq,
+	.ext_param_set = mtk_panel_ext_param_set,
+	.ext_param_get = mtk_panel_ext_param_get,
 	.ata_check = panel_ata_check,
 	.get_virtual_heigh = lcm_get_virtual_heigh,
 	.get_virtual_width = lcm_get_virtual_width,
@@ -659,6 +751,7 @@ struct panel_desc {
 static int lcm_get_modes(struct drm_panel *panel)
 {
 	struct drm_display_mode *mode;
+	struct drm_display_mode *mode2;
 
 	mode = drm_mode_duplicate(panel->drm, &default_mode);
 	if (!mode) {
@@ -672,10 +765,22 @@ static int lcm_get_modes(struct drm_panel *panel)
 	mode->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
 	drm_mode_probed_add(panel->connector, mode);
 
+	mode2 = drm_mode_duplicate(panel->drm, &performance_mode);
+	if (!mode2) {
+		dev_info(panel->drm->dev, "failed to add mode %ux%ux@%u\n",
+			 performance_mode.hdisplay, performance_mode.vdisplay,
+			 performance_mode.vrefresh);
+		return -ENOMEM;
+	}
+
+	drm_mode_set_name(mode2);
+	mode2->type = DRM_MODE_TYPE_DRIVER;
+	drm_mode_probed_add(panel->connector, mode2);
+
 	panel->connector->display_info.width_mm = 65;
 	panel->connector->display_info.height_mm = 129;
 
-	return 1;
+	return 2;
 }
 
 static const struct drm_panel_funcs lcm_drm_funcs = {
@@ -711,6 +816,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 		return -ENODEV;
 	}
 
+	pr_info("%s+\n", __func__);
 	ctx = devm_kzalloc(dev, sizeof(struct lcm), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
@@ -720,7 +826,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	ctx->dev = dev;
 	dsi->lanes = 4;
 	dsi->format = MIPI_DSI_FMT_RGB888;
-	dsi->mode_flags = MIPI_DSI_MODE_VIDEO
+	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE
 			 | MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET
 			 | MIPI_DSI_CLOCK_NON_CONTINUOUS;
 
