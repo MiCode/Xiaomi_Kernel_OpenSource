@@ -2775,7 +2775,7 @@ static void ufs_mtk_setup_xfer_req(struct ufs_hba *hba, int tag,
 		lrbp = &hba->lrb[tag];
 		cmd = lrbp->cmd;
 
-		if (!ufs_mtk_is_data_cmd(cmd->cmnd[0], false))
+		if (!ufs_mtk_is_data_cmd(cmd, false))
 			return;
 
 		ufs_mtk_biolog_send_command(tag, cmd);
@@ -2794,7 +2794,7 @@ static void ufs_mtk_compl_xfer_req(struct ufs_hba *hba, int tag,
 		lrbp = &hba->lrb[tag];
 		cmd = lrbp->cmd;
 
-		if (!ufs_mtk_is_data_cmd(cmd->cmnd[0], false))
+		if (!ufs_mtk_is_data_cmd(cmd, false))
 			return;
 
 		req_mask = hba->outstanding_reqs &
