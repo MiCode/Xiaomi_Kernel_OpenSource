@@ -98,4 +98,15 @@ config GH_VIRTIO_BACKEND
 	  machine is created for all backend devices of the VM. Say y or m here
 	  to enable.  If unsure, say n.
 
+config GH_GUEST_POPS
+	tristate "Gunyah Guest Power-Operations driver"
+	depends on GH_RM_DRV
+	help
+	  The driver runs on guest VMs and is majorly responsible for coordinating
+	  the guest's power operations. This includes, setting the VM's status,
+	  such as OS_STATUS_* or APPS_STATUS_*. It also acts as an input power key
+	  driver. That is, it listens to the shutdown requests, and when it receives
+	  one, it'll emulate a power key press action by sending an input
+	  notification to user-space.
+
 endif
