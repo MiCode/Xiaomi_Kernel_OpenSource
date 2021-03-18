@@ -1642,7 +1642,6 @@ static void mtk_crtc_free_ddpblob_ids(struct drm_crtc *crtc,
 	if (lyeblob_ids->ddp_blob_id) {
 		blob = drm_property_lookup_blob(dev, lyeblob_ids->ddp_blob_id);
 		drm_property_unreference_blob(blob);
-		drm_property_unreference_blob(blob);
 
 		list_del(&lyeblob_ids->list);
 		kfree(lyeblob_ids);
@@ -1665,7 +1664,6 @@ static void mtk_crtc_free_lyeblob_ids(struct drm_crtc *crtc,
 			blob_id = lyeblob_ids->lye_plane_blob_id[j][i];
 			if (blob_id > 0) {
 				blob = drm_property_lookup_blob(dev, blob_id);
-				drm_property_unreference_blob(blob);
 				drm_property_unreference_blob(blob);
 			}
 		}
