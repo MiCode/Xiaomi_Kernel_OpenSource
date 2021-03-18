@@ -2334,6 +2334,9 @@ static int addrconf_ifid_ip6tnl(u8 *eui, struct net_device *dev)
 
 static int ipv6_generate_eui64(u8 *eui, struct net_device *dev)
 {
+	/* MTK_NET_CHANGES */
+	if (strncmp(dev->name, "ccmni", 2) == 0)
+		return -1;
 	switch (dev->type) {
 	case ARPHRD_ETHER:
 	case ARPHRD_FDDI:
@@ -3410,7 +3413,6 @@ static void addrconf_dev_config(struct net_device *dev)
 	    (dev->type != ARPHRD_INFINIBAND) &&
 	    (dev->type != ARPHRD_IEEE1394) &&
 	    (dev->type != ARPHRD_TUNNEL6) &&
-	    (dev->type != ARPHRD_PUREIP) &&
 	    (dev->type != ARPHRD_6LOWPAN) &&
 	    (dev->type != ARPHRD_IP6GRE) &&
 	    (dev->type != ARPHRD_IPGRE) &&
@@ -3429,8 +3431,8 @@ static void addrconf_dev_config(struct net_device *dev)
 	if (IS_ERR(idev))
 		return;
 
-	/*mobile device  doesn't  need  auto-linklocal addr  */
-	if (dev->type == ARPHRD_PUREIP)
+	/*mobile device doesn't need auto-linklocal addr  */
+	if (dev->type == ARPHRD_RAWIP)
 		return;
 
 	/* this device type has no EUI support */
