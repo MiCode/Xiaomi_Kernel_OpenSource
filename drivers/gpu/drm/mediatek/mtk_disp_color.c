@@ -2128,7 +2128,7 @@ static void mtk_color_config(struct mtk_ddp_comp *comp,
 		       comp->regs_pa + DISP_COLOR_HEIGHT(color), cfg->h, ~0);
 }
 
-static void ddp_color_bypass_color(struct mtk_ddp_comp *comp, int bypass,
+void ddp_color_bypass_color(struct mtk_ddp_comp *comp, int bypass,
 		struct cmdq_pkt *handle)
 {
 
