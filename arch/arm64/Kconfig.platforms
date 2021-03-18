@@ -630,6 +630,9 @@ config MACH_MT6833
 	select MTK_PID_MAP
 	select MTK_CM_MGR
 	select MTK_CPU_KORO
+	select MTK_SDA
+	select MTK_BUS_PARITY_CHECK
+
 	help
 	  This enables support for MediaTek MT6833
 	  Support for aarch64 Architecture
