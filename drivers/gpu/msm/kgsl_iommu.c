@@ -1142,7 +1142,7 @@ static struct kgsl_pagetable *kgsl_iommu_secure_pagetable(struct kgsl_mmu *mmu)
 		return ERR_PTR(-EPERM);
 
 	iommu_pt = kzalloc(sizeof(*iommu_pt), GFP_KERNEL);
-	if (iommu_pt)
+	if (!iommu_pt)
 		return ERR_PTR(-ENOMEM);
 
 	kgsl_mmu_pagetable_init(mmu, &iommu_pt->base, KGSL_MMU_SECURE_PT);
@@ -1156,7 +1156,7 @@ static struct kgsl_pagetable *kgsl_iommu_secure_pagetable(struct kgsl_mmu *mmu)
 	iommu_pt->base.va_end = KGSL_IOMMU_SECURE_END(mmu);
 
 	kgsl_mmu_pagetable_add(mmu, &iommu_pt->base);
-	return 0;
+	return &iommu_pt->base;
 }
 #else
 static struct kgsl_pagetable *kgsl_iommu_secure_pagetable(struct kgsl_mmu *mmu)
