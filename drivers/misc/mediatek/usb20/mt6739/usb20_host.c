@@ -630,7 +630,8 @@ static void musb_host_work(struct work_struct *data)
 #endif
 		/* setup fifo for host mode */
 		ep_config_from_table_for_host(mtk_musb);
-		__pm_stay_awake(mtk_musb->usb_lock);
+		if (!mtk_musb->host_suspend)
+			__pm_stay_awake(mtk_musb->usb_lock);
 
 		/* this make PHY operation workable */
 		musb_platform_enable(mtk_musb);
