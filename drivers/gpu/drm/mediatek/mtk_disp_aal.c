@@ -26,14 +26,24 @@
 //For 120Hz rotation issue
 #include <linux/time.h>
 
-#ifdef CONFIG_LEDS_MTK_DISP
-#define CONFIG_LEDS_BRIGHTNESS_CHANGED
+#ifdef CONFIG_MTK_LEDS
 #include <mtk_leds_drv.h>
+#ifdef CONFIG_LEDS_MTK_DISP
+#ifdef CONFIG_MTK_AAL_SUPPORT
+#define CONFIG_LEDS_BRIGHTNESS_CHANGED
+#endif
 #include <leds-mtk-disp.h>
 #elif defined CONFIG_LEDS_MTK_PWM
+#ifdef CONFIG_MTK_AAL_SUPPORT
 #define CONFIG_LEDS_BRIGHTNESS_CHANGED
-#include <mtk_leds_drv.h>
+#endif
 #include <leds-mtk-pwm.h>
+#elif defined CONFIG_LEDS_MTK_I2C
+#ifdef CONFIG_MTK_AAL_SUPPORT
+#define CONFIG_LEDS_BRIGHTNESS_CHANGED
+#endif
+#include <leds-mtk-i2c.h>
+#endif
 #else
 #define mt_leds_brightness_set(x, y) do { } while (0)
 #define MT65XX_LED_MODE_NONE (0)
