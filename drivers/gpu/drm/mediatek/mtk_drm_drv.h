@@ -273,5 +273,5 @@ int lcm_fps_ctx_init(struct drm_crtc *crtc);
 int lcm_fps_ctx_reset(struct drm_crtc *crtc);
 int lcm_fps_ctx_update(unsigned long long cur_ns,
 		unsigned int crtc_id, unsigned int mode);
-
+int mtk_mipi_clk_change(struct drm_crtc *crtc, unsigned int data_rate);
 #endif /* MTK_DRM_DRV_H */

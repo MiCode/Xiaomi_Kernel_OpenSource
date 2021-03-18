@@ -1613,7 +1613,7 @@ void mtk_mipi_tx_pll_rate_switch_gce(struct phy *phy,
 	unsigned int txdiv, txdiv0, txdiv1, tmp;
 	u32 reg_val;
 
-	DDPINFO("%s+ %lu\n", __func__, rate);
+	DDPMSG("%s+ %lu\n", __func__, rate);
 
 	/* parameter rate should be MHz */
 	if (rate >= 2000) {
@@ -1668,7 +1668,8 @@ void mtk_mipi_tx_pll_rate_switch_gce(struct phy *phy,
 	cmdq_pkt_write(handle, mipi_tx->cmdq_base,
 			mipi_tx->regs_pa + MIPITX_PLL_CON1, reg_val, ~0);
 
-	DDPDBG("%s-\n", __func__);
+	DDPMSG("%s-\n", __func__);
+
 }
 
 static long mtk_mipi_tx_pll_round_rate(struct clk_hw *hw, unsigned long rate,

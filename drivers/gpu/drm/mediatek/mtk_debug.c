@@ -1770,6 +1770,28 @@ static void process_dbg_opt(const char *opt)
 		DDPMSG("read_ddic_test:%d\n", case_num);
 
 		ddic_dsi_read_cmd_test(case_num);
+	} else if (!strncmp(opt, "chg_mipi:", 9)) {
+		int ret;
+		unsigned int rate;
+		struct drm_crtc *crtc;
+
+		ret = sscanf(opt, "chg_mipi:%u\n", &rate);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+		DDPMSG("chg_mipi:%u  1\n", rate);
+
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+						typeof(*crtc), head);
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			return;
+		}
+		DDPMSG("chg_mipi:%u  2\n", rate);
+
+		mtk_mipi_clk_change(crtc, rate);
 	} else if (strncmp(opt, "mipi_volt:", 10) == 0) {
 		char *p = (char *)opt + 10;
 		int ret;
