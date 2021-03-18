@@ -807,6 +807,7 @@ struct DISP_DRE30_INIT {
 struct DISP_AAL_DISPLAY_SIZE {
 	int width;
 	int height;
+	bool isdualpipe;
 };
 
 struct DISP_AAL_HIST {

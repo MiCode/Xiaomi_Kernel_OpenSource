@@ -724,8 +724,10 @@ static void mtk_aal_config(struct mtk_ddp_comp *comp,
 	if (g_aal_get_size_available == false) {
 		g_aal_size.height = height;
 		g_aal_size.width = width;
+		g_aal_size.isdualpipe = isDualPQ;
 		g_dual_aal_size.height = height;
 		g_dual_aal_size.width = cfg->w;
+		g_dual_aal_size.isdualpipe = isDualPQ;
 		g_aal_get_size_available = true;
 		wake_up_interruptible(&g_aal_size_wq);
 		AALFLOW_LOG("size available: (w,h)=(%d,%d)+\n", width, height);
