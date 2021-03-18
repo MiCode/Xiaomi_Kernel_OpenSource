@@ -478,7 +478,6 @@ static int segment_user_support_check(void *param)
 	seg_info->support = true;
 	seg_info->seg = SEGMENT_2;
 
-	val = get_devinfo_with_index(30);
 	if (val == 0x1) {
 		seg_info->seg = SEGMENT_1;
 #if 0 //[Fix me]
