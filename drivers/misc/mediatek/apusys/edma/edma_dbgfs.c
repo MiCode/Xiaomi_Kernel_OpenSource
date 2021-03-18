@@ -1,16 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2019 MediaTek Inc.
- * Author: JB Tsai <jb.tsai@mediatek.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
+
 
 #include <linux/platform_device.h>
 #include <linux/module.h>
@@ -24,7 +16,7 @@
 
 u8 g_edma_log_lv = EDMA_LOG_WARN;
 
-static ssize_t show_edma_register(struct device *dev,
+static ssize_t edma_register_show(struct device *dev,
 				   struct device_attribute *attr, char *buf)
 {
 	int count = 0, i, desp;
@@ -64,7 +56,7 @@ static ssize_t show_edma_register(struct device *dev,
 	return count;
 }
 
-static ssize_t set_edma_register(struct device *dev,
+static ssize_t edma_register_store(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t count)
 {
@@ -83,7 +75,7 @@ static ssize_t set_edma_register(struct device *dev,
 	return count;
 }
 
-static ssize_t show_edma_power(struct device *dev,
+static ssize_t edma_power_show(struct device *dev,
 				   struct device_attribute *attr, char *buf)
 {
 	int count = 0, i;
@@ -105,7 +97,7 @@ static ssize_t show_edma_power(struct device *dev,
 	return count;
 }
 
-static ssize_t set_edma_power(struct device *dev,
+static ssize_t edma_power_store(struct device *dev,
 			   struct device_attribute *attr,
 			   const char *buf, size_t count)
 {
@@ -128,7 +120,7 @@ static ssize_t set_edma_power(struct device *dev,
 	return count;
 }
 
-static ssize_t show_edma_dbglv(struct device *dev,
+static ssize_t edma_debuglv_show(struct device *dev,
 				   struct device_attribute *attr, char *buf)
 {
 	int count = 0;
@@ -139,12 +131,14 @@ static ssize_t show_edma_dbglv(struct device *dev,
 	return count;
 }
 
-static ssize_t set_edma_dbglv(struct device *dev,
+static ssize_t edma_debuglv_store(struct device *dev,
 			   struct device_attribute *attr,
 			   const char *buf, size_t count)
 {
-	unsigned int input = 0;
-	int ret;
+	unsigned int input = 0, portNum;
+	int ret, i;
+	struct edma_device *edma_device = dev_get_drvdata(dev);
+	struct edma_sub *edma_sub;
 
 	ret = kstrtouint(buf, 10, &input);
 
@@ -152,15 +146,22 @@ static ssize_t set_edma_dbglv(struct device *dev,
 
 	g_edma_log_lv = input;
 
+	if (input >= 10 && input < 18) {
+		portNum = input - 10;
+		for (i = 0; i < edma_device->edma_sub_num; i++) {
+			edma_sub = edma_device->edma_sub[i];
+			edma_sub->dbg_portID = input - 10;
+		}
+		dev_notice(dev, "set portNum = %d\n", portNum);
+	}
+
 	return count;
 }
 
 
-DEVICE_ATTR(edma_register, 0644, show_edma_register,
-	    set_edma_register);
-DEVICE_ATTR(edma_power, 0644, show_edma_power, set_edma_power);
-
-DEVICE_ATTR(edma_debuglv, 0644, show_edma_dbglv, set_edma_dbglv);
+DEVICE_ATTR_RW(edma_register);
+DEVICE_ATTR_RW(edma_power);
+DEVICE_ATTR_RW(edma_debuglv);
 
 static struct attribute *edma_sysfs_entries[] = {
 	&dev_attr_edma_register.attr,

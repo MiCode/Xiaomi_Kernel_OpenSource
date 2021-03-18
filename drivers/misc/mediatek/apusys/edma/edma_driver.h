@@ -1,30 +1,17 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2019 MediaTek Inc.
- * Author: JB Tsai <jb.tsai@mediatek.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
+
 
 #ifndef __EDMA_DRIVER_H__
 #define __EDMA_DRIVER_H__
 
 #include "apusys_device.h"
+#include <linux/cdev.h>
 
 #define DEBUG
 
-#if 0
-#define edma_debug(mask, ...) do { if (edma_klog & mask) \
-		pr_debug(__VA_ARGS__); \
-	} while (0)
-
-#endif
 
 #define EDMA_SUB_NUM 2
 #define EDMA_SUB_NAME_SIZE 20
@@ -49,6 +36,7 @@ struct edma_sub {
 	struct apusys_device adev;
 	u32 sub;
 	struct edma_device *edma_device;
+	spinlock_t reg_lock;
 
 	void __iomem *base_addr;
 
@@ -61,8 +49,11 @@ struct edma_sub {
 	enum edma_power_state power_state;
 
 	struct task_struct *enque_task;
+	const void *plat_drv;
+
 	u8 sub_name[EDMA_SUB_NAME_SIZE];
 	uint32_t ip_time;
+	unsigned int dbg_portID;
 };
 
 struct edma_device {
@@ -76,10 +67,7 @@ struct edma_device {
 	wait_queue_head_t req_wait;
 
 	/* to check user list must have mutex protection */
-	struct mutex user_mutex;
 	struct mutex power_mutex;
-	struct list_head user_list;
-	int edma_num_users;
 	enum edma_power_state power_state;
 	struct work_struct power_off_work;
 
@@ -161,7 +149,29 @@ struct edma_request {
 	u32 cmd_status;
 };
 
-long edma_ioctl(struct file *flip, unsigned int cmd, unsigned long arg);
+#define	EDMA_EXT_MODE_SIZE		0x60
+
+enum edma_command_type {
+	EDMA_PROC_NORMAL,
+	EDMA_PROC_FILL,
+	EDMA_PROC_NUMERICAL,
+	EDMA_PROC_FORMAT,
+	EDMA_PROC_COMPRESS,
+	EDMA_PROC_DECOMPRESS,
+	EDMA_PROC_RAW,
+	EDMA_PROC_EXT_MODE,
+	EDMA_PROC_MAX,
+};
+
+struct edma_ext {
+	__u64 cmd_handle;
+	__u32 count;
+	__u32 reg_addr;
+	__u32 fill_value;
+	__u8  desp_iommu_en;
+} __attribute__ ((__packed__));
+
+//long edma_ioctl(struct file *flip, unsigned int cmd, unsigned long arg);
 int edma_initialize(struct edma_device *edma_device);
 
 #endif /* __EDMA_DRIVER_H__ */
