@@ -21,7 +21,6 @@ struct mtk_usb2jtag_driver {
 	int	(*usb2jtag_suspend)(void);
 };
 
-extern bool usb_enable_clock(bool enable);
 extern struct clk *musb_clk;
 extern int usb2jtag_usb_init(void);
 #endif

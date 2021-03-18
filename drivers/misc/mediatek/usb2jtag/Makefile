@@ -17,6 +17,8 @@ CFLAGS_usb2jtag_v1.o := -DDEBUG
 endif
 ifeq ($(CONFIG_MACH_MT6761),y)
 obj-y += mt6765/
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6853"))
+obj-y += mt6877/
 else
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
