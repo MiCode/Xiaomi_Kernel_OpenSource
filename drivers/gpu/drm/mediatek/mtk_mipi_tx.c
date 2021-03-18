@@ -2309,6 +2309,8 @@ static const struct of_device_id mtk_mipi_tx_match[] = {
 		.data = &mt6873_mipitx_cphy_data},
 	{.compatible = "mediatek,mt6885-mipi-tx-cphy",
 		.data = &mt6885_mipitx_cphy_data},
+	{.compatible = "mediatek,mt6833-mipi-tx-cphy",
+		.data = &mt6833_mipitx_cphy_data},
 	{},
 };
 
