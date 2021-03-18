@@ -2693,12 +2693,20 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	}
 	case BACKUP_OVL_STATUS: {
 		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
-		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-		dma_addr_t slot = cmdq_buf->pa_base + DISP_SLOT_OVL_STATUS;
+		struct cmdq_pkt_buffer *cmdq_buf = NULL;
+		dma_addr_t slot;
 
-		cmdq_pkt_mem_move(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_REG_OVL_STA,
-			slot, CMDQ_THR_SPR_IDX3);
+		DDPDBG("%s,+BACKUP_OVL_STATUS\n", __func__);
+		if (mtk_crtc) {
+			cmdq_buf = &(mtk_crtc->gce_obj.buf);
+			if (cmdq_buf) {
+				slot = cmdq_buf->pa_base + DISP_SLOT_OVL_STATUS;
+
+				cmdq_pkt_mem_move(handle, comp->cmdq_base,
+					comp->regs_pa + DISP_REG_OVL_STA,
+					slot, CMDQ_THR_SPR_IDX3);
+			}
+		}
 		break;
 	}
 	default:
@@ -3239,10 +3247,11 @@ static void mtk_ovl_prepare(struct mtk_ddp_comp *comp)
 		DISP_REG_OVL_EN, DISP_OVL_BYPASS_SHADOW);
 #endif
 #endif
-
-	dev_priv = comp->mtk_crtc->base.dev->dev_private;
-	if (mtk_drm_helper_get_opt(dev_priv->helper_opt, MTK_DRM_OPT_LAYER_REC))
-		writel(0xffffffff, comp->regs + DISP_OVL_REG_GDRDY_PRD);
+	if (comp && comp->mtk_crtc) {
+		dev_priv = comp->mtk_crtc->base.dev->dev_private;
+		if (mtk_drm_helper_get_opt(dev_priv->helper_opt, MTK_DRM_OPT_LAYER_REC))
+			writel(0xffffffff, comp->regs + DISP_OVL_REG_GDRDY_PRD);
+	}
 }
 
 static void mtk_ovl_unprepare(struct mtk_ddp_comp *comp)
