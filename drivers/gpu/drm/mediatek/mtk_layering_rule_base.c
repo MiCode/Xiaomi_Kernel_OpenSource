@@ -2016,7 +2016,8 @@ static int set_disp_info(struct drm_mtk_layering_info *disp_info_user,
 		sizeof(struct drm_mtk_layering_info));
 
 	for (i = 0; i < HRT_TYPE_NUM; i++)
-		_copy_layer_info_from_disp(disp_info_user, debug_mode, i);
+		if (_copy_layer_info_from_disp(disp_info_user, debug_mode, i))
+			return -EFAULT;
 
 	memset(l_rule_info->addon_scn, 0x0, sizeof(l_rule_info->addon_scn));
 	return 0;
