@@ -152,43 +152,23 @@ struct dvfs_vf_tbl mc50_tbl[NR_EEMSN_DET] = {
 #endif
 
 #if defined(MC50_LOAD)
-#if defined(MT6833)// 5g-b
 struct dvfs_vf_tbl mc50_tbl[NR_EEMSN_DET] = {
 	[0] = {
 		.pi_vf_num			= 3,
-		.pi_freq_tbl		= {2000, 1500, 620},
-		.pi_volt_tbl	  = {0x43, 0x2B, 0x18},
+		.pi_freq_tbl		= {2000, 1600, 650},
+		.pi_volt_tbl	  = {0x7F, 0x71, 0x59},
 	},
 	[1] = {
 		.pi_vf_num			= 3,
-		.pi_freq_tbl		= {2600, 1650, 725},
-		.pi_volt_tbl	  = {0x4A, 0x29, 0x18},
+		.pi_freq_tbl		= {2600, 1660, 650},
+		.pi_volt_tbl	  = {0x95, 0x73, 0x56},
 	},
 	[2] = {
 		.pi_vf_num			= 3,
-		.pi_freq_tbl		= {1600, 1050, 450},
-		.pi_volt_tbl	  = {0x43, 0x2B, 0x18},
+		.pi_freq_tbl		= {1700, 1350, 520},
+		.pi_volt_tbl	  = {0x7F, 0x71, 0x59},
 	},
 };
-#elif defined(MT6833T) // 5g-b+
-struct dvfs_vf_tbl mc50_tbl[NR_EEMSN_DET] = {
-	[0] = {
-		.pi_vf_num			= 3,
-		.pi_freq_tbl		= {2000, 1500, 650},
-		.pi_volt_tbl	  = {0x43, 0x2D, 0x18},
-	},
-	[1] = {
-		.pi_vf_num			= 4,
-		.pi_freq_tbl		= {2600, 1650, 725},
-		.pi_volt_tbl	  = {0x4E, 0x2C, 0x18},
-	},
-	[2] = {
-		.pi_vf_num			= 3,
-		.pi_freq_tbl		= {1400, 1050, 450},
-		.pi_volt_tbl	  = {0x43, 0x2D, 0x18},
-	},
-};
-#endif
 #endif
 
 #undef __MT_EEM_INTERNAL_C__
