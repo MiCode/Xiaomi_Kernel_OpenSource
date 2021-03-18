@@ -169,4 +169,8 @@
 #define MTK_SIP_KERNEL_APU_VCORE_CG_CTL \
 	MTK_SIP_SMC_CMD(0x2B1)
 
+/* USB related SMC call */
+#define MTK_SIP_KERNEL_USB_CONTROL \
+	MTK_SIP_SMC_CMD(0x526)
+
 #endif
