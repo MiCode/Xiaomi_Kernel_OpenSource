@@ -272,12 +272,12 @@ static bool can_be_compress(uint32_t format)
 	if (mtk_is_yuv(format))
 		return 0;
 #else
-	if (mtk_is_yuv(format) || format == DRM_FORMAT_RGB565)
+	if (mtk_is_yuv(format) || format == DRM_FORMAT_RGB565 ||
+	    format == DRM_FORMAT_BGR565)
 		return 0;
 #endif
 
-	else
-		return 1;
+	return 1;
 }
 
 static void filter_by_fbdc(struct drm_mtk_layering_info *disp_info)
