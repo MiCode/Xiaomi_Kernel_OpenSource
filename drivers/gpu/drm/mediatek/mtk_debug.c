@@ -74,6 +74,7 @@ static struct proc_dir_entry *mtkfb_debug_procfs;
 static struct drm_device *drm_dev;
 static struct DISP_PQ_BYPASS_SWITCH m_old_pq_bypass_switch;
 static struct DISP_PQ_BYPASS_SWITCH m_new_pq_bypass_switch;
+
 bool g_mobile_log;
 bool g_fence_log;
 bool g_irq_log;
