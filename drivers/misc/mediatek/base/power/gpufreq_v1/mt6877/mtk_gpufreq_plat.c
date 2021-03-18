@@ -48,7 +48,7 @@
 #include "mtk_thermal.h"
 #endif
 #ifdef CONFIG_MTK_FREQ_HOPPING
-#include "mtk_freqhopping_drv.h"
+#include "mtk_freqhopping.h"
 #endif
 #if MT_GPUFREQ_KICKER_PBM_READY
 #include "mtk_pbm.h"

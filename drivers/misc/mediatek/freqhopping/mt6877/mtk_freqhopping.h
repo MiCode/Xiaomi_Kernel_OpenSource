@@ -33,4 +33,6 @@ enum FH_PLL_ID {
 	FH_PLL_NUM,
 };
 
+extern int mt_dfs_general_pll(unsigned int pll_id, unsigned int target_dds);
+
 #endif

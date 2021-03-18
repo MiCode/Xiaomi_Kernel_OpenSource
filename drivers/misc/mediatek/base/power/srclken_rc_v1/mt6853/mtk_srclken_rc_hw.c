@@ -97,6 +97,9 @@ static void __iomem *gpio_base;
 #if defined(CONFIG_MACH_MT6833)
 #define PWRAP_DTS_NODE_NAME			"mediatek,mt6833-pwrap"
 #define SCPSYS_DTS_NODE_NAME			"mediatek,mt6833-scpsys"
+#elif defined(CONFIG_MACH_MT6877)
+#define PWRAP_DTS_NODE_NAME			"mediatek,mt6877-pwrap"
+#define SCPSYS_DTS_NODE_NAME			"mediatek,mt6877-scpsys"
 #else
 #define PWRAP_DTS_NODE_NAME			"mediatek,mt6853-pwrap"
 #define SCPSYS_DTS_NODE_NAME			"mediatek,mt6853-scpsys"

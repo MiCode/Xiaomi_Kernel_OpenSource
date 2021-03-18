@@ -14,7 +14,6 @@
 # SW ReadyGo, need to include mt6877/ prior to mt6853/ if mt6877/ exists
 ifeq ($(CONFIG_MACH_MT6877),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/mt6877/inc/mach/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6877/include/mach/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/mt6877/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dbgtop/mt6877/
 endif

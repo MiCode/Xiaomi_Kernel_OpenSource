@@ -21,7 +21,7 @@
 #include <linux/interrupt.h>
 #include <linux/of.h>
 #include "config.h"
-#include <mt-plat/rt-regmap.h>
+#include "rt-regmap.h"
 
 extern bool dbg_log_en;
 #define mt_dbg(dev, fmt, ...) \

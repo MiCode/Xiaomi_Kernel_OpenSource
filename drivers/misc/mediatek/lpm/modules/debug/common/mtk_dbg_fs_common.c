@@ -20,7 +20,7 @@
 #include <mtk_idle_sysfs.h>
 #include <mtk_suspend_sysfs.h>
 #include <mtk_spm_sysfs.h>
-#ifdef CONFIG_MACH_MT6833
+#if defined(CONFIG_MACH_MT6833)  || defined(CONFIG_MACH_MT6877)
 #include <gs/v1/mtk_power_gs.h>
 #else
 #include <mtk_power_gs_api.h>
@@ -58,7 +58,7 @@ static int spm_syscore_dbg_suspend(void)
 	if (mtk_suspend_debug_flag & MTK_DUMP_GPIO)
 		mtk_suspend_gpio_dbg();
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
-#ifdef CONFIG_MACH_MT6833
+#if defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 #ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
 	if (mtk_suspend_debug_flag & MTK_DUMP_LP_GOLDEN) {
 		struct mtk_lpm_callee_simple *callee = NULL;

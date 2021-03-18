@@ -606,6 +606,10 @@ static const struct mtk_disp_postmask_data mt6853_postmask_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_disp_postmask_data mt6877_postmask_driver_data = {
+	.support_shadow = false,
+};
+
 static const struct mtk_disp_postmask_data mt6833_postmask_driver_data = {
 	.support_shadow = false,
 };
@@ -619,6 +623,8 @@ static const struct of_device_id mtk_disp_postmask_driver_dt_match[] = {
 	  .data = &mt6873_postmask_driver_data},
 	{ .compatible = "mediatek,mt6853-disp-postmask",
 	  .data = &mt6853_postmask_driver_data},
+	{ .compatible = "mediatek,mt6877-disp-postmask",
+	  .data = &mt6877_postmask_driver_data},
 	{ .compatible = "mediatek,mt6833-disp-postmask",
 	  .data = &mt6833_postmask_driver_data},
 	{},

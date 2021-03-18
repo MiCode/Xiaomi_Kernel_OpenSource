@@ -687,6 +687,7 @@ static int emicen_remove(struct platform_device *dev)
 
 static const struct of_device_id emicen_of_ids[] = {
 	{.compatible = "mediatek,common-emicen",},
+	{.compatible = "mediatek,mt6877-emicen",},
 	{}
 };
 
