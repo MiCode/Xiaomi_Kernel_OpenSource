@@ -145,6 +145,8 @@
 #define RTC_PDN2_PWRON_LOGO		BIT(15)
 #define RTC_PDN2_PWRON_ALARM	BIT(4)
 
+#define RTC_POFF_ALM_SET	_IOW('p', 0x15, struct rtc_time) /* Set alarm time  */
+
 
 static u16 rtc_alarm_reg[RTC_OFFSET_COUNT][3] = {
 	{RTC_AL_SEC, RTC_AL_SEC_MASK, 0},
@@ -986,7 +988,54 @@ exit:
 	return ret;
 }
 
+int mtk_set_power_on(struct device *dev, struct rtc_wkalrm *alm)
+{
+	int err = 0;
+	struct rtc_time tm;
+	time64_t now, scheduled;
+
+	err = rtc_valid_tm(&alm->time);
+	if (err != 0)
+		return err;
+	scheduled = rtc_tm_to_time64(&alm->time);
+
+	err = rtc_ops_read_time(dev, &tm);
+	if (err != 0)
+		return err;
+	now = rtc_tm_to_time64(&tm);
+
+	if (scheduled <= now)
+		alm->enabled = 4;
+	else
+		alm->enabled = 3;
+
+	rtc_ops_set_alarm(dev, alm);
+
+	return err;
+}
+
+static int mtk_rtc_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
+{
+	void __user *uarg = (void __user *) arg;
+	int err = 0;
+	struct rtc_wkalrm alm;
+
+	switch (cmd) {
+	case RTC_POFF_ALM_SET:
+		if (copy_from_user(&alm.time, uarg, sizeof(alm.time)))
+			return -EFAULT;
+		err = mtk_set_power_on(dev, &alm);
+		break;
+	default:
+		err = -EINVAL;
+		break;
+	}
+
+	return err;
+}
+
 static const struct rtc_class_ops rtc_ops = {
+	.ioctl     = mtk_rtc_ioctl,
 	.read_time = rtc_ops_read_time,
 	.set_time = rtc_ops_set_time,
 	.read_alarm = rtc_ops_read_alarm,
