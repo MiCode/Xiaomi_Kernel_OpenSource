@@ -322,15 +322,18 @@ int mtk_dprec_logger_get_buf(enum DPREC_LOGGER_PR_TYPE type, char *stringbuf,
 {
 	int n = 0;
 	int i;
-	int c = dprec_logger_buffer[type].id;
 	char **buf_arr;
+	int c;
 
-	if (type >= DPREC_LOGGER_PR_NUM || type < 0 || len < 0)
+	if (type >= DPREC_LOGGER_PR_NUM || type < 0 || len < 0) {
+		DDPPR_ERR("%s invalid DPREC_LOGGER_PR_TYPE\n", __func__);
 		return 0;
+	}
 
 	if (!is_buffer_init)
 		return 0;
 
+	c = dprec_logger_buffer[type].id;
 	buf_arr = dprec_logger_buffer[type].buffer_ptr;
 
 	for (i = 0; i < dprec_logger_buffer[type].cnt; i++) {
@@ -1877,7 +1880,8 @@ static void process_dbg_opt(const char *opt)
 
 		mtk_crtc = to_mtk_crtc(crtc);
 		comp = mtk_ddp_comp_request_output(mtk_crtc);
-		comp->funcs->io_cmd(comp, NULL, DSI_LFR_SET, &lfr_con);
+		if (comp && comp->funcs && comp->funcs->io_cmd)
+			comp->funcs->io_cmd(comp, NULL, DSI_LFR_SET, &lfr_con);
 	} else if (strncmp(opt, "LFR_update", 10) == 0) {
 		struct mtk_ddp_comp *comp;
 		struct drm_crtc *crtc;
@@ -1893,7 +1897,8 @@ static void process_dbg_opt(const char *opt)
 
 		mtk_crtc = to_mtk_crtc(crtc);
 		comp = mtk_ddp_comp_request_output(mtk_crtc);
-		comp->funcs->io_cmd(comp, NULL, DSI_LFR_UPDATE, NULL);
+		if (comp && comp->funcs && comp->funcs->io_cmd)
+			comp->funcs->io_cmd(comp, NULL, DSI_LFR_UPDATE, NULL);
 	} else if (strncmp(opt, "LFR_status_check", 16) == 0) {
 		//unsigned int data = mtk_dbg_get_LFR_value();
 		struct mtk_ddp_comp *comp;
@@ -1910,7 +1915,8 @@ static void process_dbg_opt(const char *opt)
 
 		mtk_crtc = to_mtk_crtc(crtc);
 		comp = mtk_ddp_comp_request_output(mtk_crtc);
-		comp->funcs->io_cmd(comp, NULL, DSI_LFR_STATUS_CHECK, NULL);
+		if (comp && comp->funcs && comp->funcs->io_cmd)
+			comp->funcs->io_cmd(comp, NULL, DSI_LFR_STATUS_CHECK, NULL);
 	} else if (strncmp(opt, "tui:", 4) == 0) {
 		unsigned int en, ret;
 

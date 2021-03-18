@@ -386,7 +386,10 @@ void mtk_ddp_comp_get_name(struct mtk_ddp_comp *comp, char *buf, int buf_len)
 
 	if (buf_len > sizeof(buf))
 		buf_len = sizeof(buf);
-
+	if (mtk_ddp_matches[comp->id].type < 0) {
+		DDPPR_ERR("%s invalid type\n", __func__);
+		return;
+	}
 	r = snprintf(buf, buf_len, "%s%d",
 		  mtk_ddp_comp_stem[mtk_ddp_matches[comp->id].type],
 		  mtk_ddp_matches[comp->id].alias_id);
@@ -619,7 +622,8 @@ void mtk_ddp_comp_unregister(struct drm_device *drm, struct mtk_ddp_comp *comp)
 {
 	struct mtk_drm_private *private = drm->dev_private;
 
-	private->ddp_comp[comp->id] = NULL;
+	if (comp && comp->id >= 0 && comp->id < DDP_COMPONENT_ID_MAX)
+		private->ddp_comp[comp->id] = NULL;
 }
 
 void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp)

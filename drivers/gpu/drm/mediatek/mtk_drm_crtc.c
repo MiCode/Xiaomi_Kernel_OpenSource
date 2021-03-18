@@ -468,7 +468,7 @@ static int mtk_drm_crtc_set_property(struct drm_crtc *crtc,
 	int ret = 0;
 	int i;
 
-	if (index < 0)
+	if (index < 0 || index >= MAX_CRTC)
 		return -EINVAL;
 
 	for (i = 0; i < CRTC_PROP_MAX; i++) {
@@ -498,6 +498,10 @@ static int mtk_drm_crtc_get_property(struct drm_crtc *crtc,
 	int index = drm_crtc_index(crtc);
 	int i;
 
+	if (index < 0 || index >= MAX_CRTC) {
+		DDPPR_ERR("%s invalid crtc index\n", __func__);
+		return -EINVAL;
+	}
 	for (i = 0; i < CRTC_PROP_MAX; i++) {
 		if (private->crtc_property[index][i] == property) {
 			*val = crtc_state->prop_val[i];
@@ -1992,11 +1996,11 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	drm_mode_set_crtcinfo(&crtc->state->adjusted_mode, 0);
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-	if (output_comp)
+	if (output_comp) {
 		mtk_ddp_comp_io_cmd(output_comp, NULL, DYN_FPS_INDEX,
 				old_state);
-	fps_chg_index = output_comp->mtk_crtc->fps_change_index;
-
+		fps_chg_index = output_comp->mtk_crtc->fps_change_index;
+	}
 	//to do fps change index adjust
 	if (fps_chg_index &
 		(DYNFPS_DSI_HFP | DYNFPS_DSI_MIPI_CLK)) {
