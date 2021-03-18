@@ -1912,6 +1912,8 @@ page_owner=on loop.max_part=7";
 			 <0x0870 0x00100000 20>;
 		dqopen = <0x0870 0x00200000 21>,
 			 <0x0870 0x00200000 21>;
+		ckdiv4_ca = <0x0b74 0x00000004 2>,
+			 <0x0b74 0x00000004 2>;
 	};
 
 	emichn: emichn@10235000 {
