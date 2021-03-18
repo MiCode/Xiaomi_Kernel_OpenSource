@@ -29,6 +29,7 @@
 #include "autok.h"
 #include "mtk_sd.h"
 #include "autok_cust.h"
+#include "msdc_cust.h"
 #include "mmc/core/card.h"
 
 /* 100ms */
@@ -3523,6 +3524,7 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 	int err = 0;
 	unsigned int response;
 	unsigned int uCmdEdge = 0;
+	unsigned int uDatEdge = 0;
 	u64 RawData64 = 0LL;
 	unsigned int score = 0;
 	unsigned int j, k, cycle_value;
@@ -3629,6 +3631,82 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 	autok_paddly_update(CMD_PAD_RDLY,
 		pBdInfo->opt_dly_cnt, p_autok_tune_res);
 
+#ifdef SUPPORT_NEW_TX_NEW_RX
+	AUTOK_RAWPRINT("[AUTOK] new_rx autok starting... ...\r\n");
+	autok_tuning_parameter_init(host, p_autok_tune_res);
+	/* check device status */
+	ret = autok_send_tune_cmd(host, 13, TUNE_CMD, &autok_host_para);
+	if (ret == E_RES_PASS) {
+		response = MSDC_READ32(SDC_RESP0);
+		AUTOK_RAWPRINT("[AUTOK]dev status 0x%08x\r\n", response);
+	} else
+		AUTOK_RAWPRINT("[AUTOK]CMD err while check dev status\r\n");
+
+#ifdef CMDQ
+	opcode = MMC_SEND_EXT_CSD; // can also use MMC_READ_SINGLE_BLOCK
+#else
+	opcode = MMC_READ_SINGLE_BLOCK;
+#endif
+
+//	opcode = MMC_SEND_TUNING_BLOCK_HS200;
+	memset(pBdInfo, 0, sizeof(struct AUTOK_REF_INFO));
+
+	uDatEdge = 0;
+	do {
+		autok_adjust_param(host, RD_FIFO_EDGE, &uDatEdge, AUTOK_WRITE);
+		RawData64 = 0LL;
+		for (j = 0; j < 64; j++) {
+			autok_adjust_paddly(host, &j, DAT_PAD_RDLY);
+			for (k = 0; k < AUTOK_CMD_TIMES / 2; k++) {
+				ret = autok_send_tune_cmd(host, opcode,
+					TUNE_DATA, &autok_host_para);
+				   // device cant receive cmd21.(cmd13 check device status)
+				   // device is idle  (cmd1 ok ?)  -> cause by power.
+				   // tx drving is not best (dts)
+				   // dump host info.
+				if ((ret & (E_RES_CMD_TMO | E_RES_RSP_CRC)) != 0) {
+					AUTOK_RAWPRINT
+						 ("[AUTOK]Err CMD Fail@RD\r\n");
+					goto fail;
+				} else if ((ret & (E_RES_DAT_CRC |
+					E_RES_DAT_TMO)) != 0) {
+					RawData64 |= (u64) (1LL << j);
+					break;
+				} else if ((ret & E_RES_FATAL_ERR) != 0)
+					goto fail;
+			}
+		}
+		score = autok_simple_score64(tune_result_str64, RawData64);
+		AUTOK_DBGPRINT(AUTOK_DBG_RES, "[AUTOK]DAT %d \t %d \t %s\r\n",
+		uDatEdge, score, tune_result_str64);
+		if (uDatEdge)
+			autok_window_apply(DAT_FALL,
+					RawData64, p_autok_tune_res);
+		else
+			autok_window_apply(DAT_RISE,
+					RawData64, p_autok_tune_res);
+		if (autok_check_scan_res64(RawData64,
+			&pBdInfo->scan_info[uDatEdge],
+			AUTOK_TUNING_INACCURACY) != 0) {
+			host->autok_error = -1;
+			goto fail;
+		}
+		uDatEdge ^= 0x1;
+	} while (uDatEdge);
+
+	err = autok_pad_dly_sel(pBdInfo);
+	if (err == -2) {
+		AUTOK_DBGPRINT(AUTOK_DBG_RES,
+			   "[AUTOK][Error]======Analysis Failed!!======\r\n");
+		goto fail;
+	}
+	autok_param_update(RD_FIFO_EDGE, pBdInfo->opt_edge_sel,
+		p_autok_tune_res);
+	autok_paddly_update(DAT_PAD_RDLY, pBdInfo->opt_dly_cnt,
+		p_autok_tune_res);
+	autok_param_update(WD_FIFO_EDGE, pBdInfo->opt_edge_sel,
+		p_autok_tune_res);
+#else
 	/* DLY3 keep default value 20 */
 	p_autok_tune_res[EMMC50_DS_ZDLY_DLY] = platform_para_rx.ds_dly3_hs400;
 	cycle_value = pBdInfo->cycle_cnt;
@@ -3641,7 +3719,7 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 	autok_tuning_parameter_init(host, p_autok_tune_res);
 	/* check device status */
 	ret = autok_send_tune_cmd(host, MMC_SEND_STATUS, TUNE_CMD,
-	    &autok_host_para);
+		&autok_host_para);
 	if (ret == E_RES_PASS) {
 		response = MSDC_READ32(SDC_RESP0);
 		AUTOK_RAWPRINT("[AUTOK]device status 0x%08x\r\n", response);
@@ -3674,8 +3752,7 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 			ret = autok_send_tune_cmd(host, opcode, TUNE_DATA,
 			    &autok_host_para);
 			if ((ret & (E_RES_CMD_TMO | E_RES_RSP_CRC)) != 0) {
-				AUTOK_RAWPRINT
-				    ("[AUTOK]Err CMD Fail@RD\r\n");
+				AUTOK_RAWPRINT("[AUTOK]Err CMD Fail@RD\r\n");
 				goto fail;
 			} else if ((ret & (E_RES_DAT_CRC | E_RES_DAT_TMO)) != 0)
 				break;
@@ -3708,11 +3785,9 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 			    &autok_host_para);
 			if ((ret & (E_RES_CMD_TMO
 			    | E_RES_RSP_CRC)) != 0) {
-				AUTOK_RAWPRINT
-				    ("[AUTOK]Err CMD Fail@RD\r\n");
+				AUTOK_RAWPRINT("[AUTOK]Err CMD Fail@RD\r\n");
 				goto fail;
-			} else if ((ret & (E_RES_DAT_CRC
-					    | E_RES_DAT_TMO)) != 0) {
+			} else if ((ret & (E_RES_DAT_CRC | E_RES_DAT_TMO)) != 0) {
 				RawData64 |= (u64) (1LL << j);
 				break;
 			} else if ((ret & E_RES_FATAL_ERR) != 0)
@@ -3729,7 +3804,7 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 
 	autok_ds_dly_sel(&pInfo->scan_info[0], &uDatDly);
 	autok_paddly_update(DS_PAD_RDLY, uDatDly, p_autok_tune_res);
-
+#endif
 	autok_tuning_parameter_init(host, p_autok_tune_res);
 	autok_result_dump(host, p_autok_tune_res);
 #if AUTOK_PARAM_DUMP_ENABLE

@@ -33,6 +33,7 @@
 #if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_MMC_CRYPTO)
 #define MSDC0_AES_CLK_NAME          "msdc0-aes-clock"
 #endif
+#define MSDC0_SRC_HCLK_NAME     "msdc0-src-hclk"
 #define MSDC0_HCLK_NAME         "msdc0-hclock"
 #define MSDC0_NEW_RX_CLK_NAME   "msdc0-newrx-clock"
 #define MSDC1_CLK_NAME          "msdc1-clock"
@@ -40,7 +41,10 @@
 #define MSDC0_IOCFG_NAME        "mediatek,iocfg_tl"
 #define MSDC1_IOCFG_NAME        "mediatek,iocfg_rm"
 
-#define SUPPORT_NEW_TX
+/* support new tx/rx for mt6877, if support new rx, must support new tx */
+//#define SUPPORT_NEW_TX_NEW_RX
+//#define SUPPORT_NEW_TX_OLD_RX
+
 /**************************************************************/
 /* Section 2: Power                                           */
 /**************************************************************/
@@ -478,6 +482,9 @@
 
 /* #define MSDC_HQA */
 /* #define SDIO_HQA */
+
+/* nano memory card support flag by platform */
+//#define NMCARD_SUPPORT
 
 /* sd read/write crc error happen in mt6885 when vcore changes,
  * sd can't support autok merge by fix vcore(like emmc),

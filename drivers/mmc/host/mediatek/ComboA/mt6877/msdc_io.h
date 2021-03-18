@@ -66,8 +66,8 @@ extern  u32 hclks_msdc[];
 #define msdc_dump_dvfs_reg(buff, size, m, host)
 #define msdc_dump_clock_sts(buff, size, m, host)
 #define msdc_get_hclk(host, src)        MSDC_SRC_FPGA
-static inline int msdc_clk_enable(struct msdc_host *host) { return 0; }
-#define msdc_clk_disable(host)
+static inline int msdc_clk_prepare_enable(struct msdc_host *host) { return 0; }
+#define msdc_clk_disable_unprepare(host)
 #define msdc_get_ccf_clk_pointer(pdev, host) (0)
 #define msdc_clk_enable_and_stable(host)
 #endif
@@ -81,30 +81,12 @@ void msdc_dump_clock_sts(char **buff, unsigned long *size,
 #define msdc_get_hclk(id, src)		hclks_msdc_all[id][src]
 
 #ifndef CONFIG_MTK_MSDC_BRING_UP_BYPASS
-#define msdc_clk_enable(host) \
-	do { \
-		if (host->src_hclk_ctl) \
-			(void)clk_enable(host->src_hclk_ctl); \
-		(void)clk_enable(host->clk_ctl); \
-		if (host->aes_clk_ctl) \
-			(void)clk_enable(host->aes_clk_ctl); \
-		if (host->hclk_ctl) \
-			(void)clk_enable(host->hclk_ctl); \
-	} while (0)
-#define msdc_clk_disable(host) \
-	do { \
-		clk_disable(host->clk_ctl); \
-		if (host->aes_clk_ctl) \
-			clk_disable(host->aes_clk_ctl); \
-		if (host->hclk_ctl) \
-			clk_disable(host->hclk_ctl); \
-		if (host->src_hclk_ctl) \
-			clk_disable(host->src_hclk_ctl); \
-	} while (0)
 #define msdc_clk_prepare_enable(host) \
 	do { \
 		if (host->new_rx_clk_ctl) \
 			(void)clk_prepare_enable(host->new_rx_clk_ctl); \
+		if (host->src_hclk_ctl) \
+			(void)clk_prepare_enable(host->src_hclk_ctl); \
 		(void)clk_prepare_enable(host->clk_ctl); \
 		if (host->aes_clk_ctl) \
 			(void)clk_prepare_enable(host->aes_clk_ctl); \
@@ -120,10 +102,10 @@ void msdc_dump_clock_sts(char **buff, unsigned long *size,
 			clk_disable_unprepare(host->aes_clk_ctl); \
 		if (host->hclk_ctl) \
 			clk_disable_unprepare(host->hclk_ctl); \
+		if (host->src_hclk_ctl) \
+			(void)clk_disable_unprepare(host->src_hclk_ctl); \
 	} while (0)
 #else
-#define msdc_clk_enable(host)
-#define msdc_clk_disable(host)
 #define msdc_clk_prepare_enable(host)
 #define msdc_clk_disable_unprepare(host)
 #endif

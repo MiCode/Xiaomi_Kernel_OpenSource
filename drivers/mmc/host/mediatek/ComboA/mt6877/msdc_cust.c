@@ -315,14 +315,13 @@ void msdc_sd_power(struct msdc_host *host, u32 on)
 			&host->power_flash);
 
 		/* VMC VOLSEL */
-#ifdef NMCARD_SUPPORT
-		msdc_ldo_power(on, host->mmc->supply.vqmmc, VOL_1800,
-			&host->power_io);
-#else
+#ifndef NMCARD_SUPPORT
 		msdc_ldo_power(on, host->mmc->supply.vqmmc, VOL_3000,
 			&host->power_io);
+#else
+		msdc_ldo_power(on, host->mmc->supply.vqmmc, VOL_1800,
+			&host->power_io);
 #endif
-
 		pr_info("msdc%d power %s\n", host->id, (on ? "on" : "off"));
 		break;
 
@@ -532,28 +531,38 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 		MSDC0_HCLK_NAME, MSDC1_HCLK_NAME
 	};
 
-	/* clk enable flow
-	 * First turn on the clock source of the MSDC register
-	 * msdc src hclk -> msdc hclk cg
-	 */
-
-#if 0
+#ifdef SUPPORT_NEW_TX_NEW_RX
 	if  (pdev->id == 0) {
-		host->src_hclk_ctl = devm_clk_get(&pdev->dev,
-				MSDC0_SRC_HCLK_NAME);
-		if (IS_ERR(host->src_hclk_ctl)) {
-			pr_notice("[msdc%d] cannot get src hclk ctl\n",
-					pdev->id);
-			WARN_ON(1);
-				return 1;
-			}
-		if (clk_prepare_enable(host->src_hclk_ctl)) {
-			pr_notice("[msdc%d] cannot prepare src hclk ctrl\n",
-					pdev->id);
-				return 1;
-			}
+		host->new_rx_clk_ctl = devm_clk_get(&pdev->dev,
+						MSDC0_NEW_RX_CLK_NAME);
+		if (IS_ERR(host->new_rx_clk_ctl)) {
+			pr_notice("[msdc%d] cannot get new rx clk ctrl\n",
+				pdev->id);
+			return 1;
+		}
+		if (clk_prepare_enable(host->new_rx_clk_ctl)) {
+			pr_notice("[msdc%d] cannot prepare new rx clk ctrl\n",
+				pdev->id);
+			return 1;
+		}
+		host->new_rx_clk_ctl = NULL;
 	}
 #endif
+	if (pdev->id == 0) {
+		host->src_hclk_ctl = devm_clk_get(&pdev->dev,
+						MSDC0_SRC_HCLK_NAME);
+		if (IS_ERR(host->src_hclk_ctl)) {
+			pr_notice("[msdc%d] cannot get src hclk ctrl\n",
+				pdev->id);
+			return 1;
+		}
+		if (clk_prepare_enable(host->src_hclk_ctl)) {
+			pr_notice("[msdc%d] cannot prepare src hclk ctrl\n",
+				pdev->id);
+			return 1;
+		}
+		host->src_hclk_ctl = NULL;
+	}
 
 	if  (clk_names[pdev->id]) {
 		host->clk_ctl = devm_clk_get(&pdev->dev,
@@ -610,9 +619,9 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 	}
 #endif
 
-	pr_info("[msdc%d] src_hclk_ctl:%p, hclk:%p, clk_ctl:%p, hclk_ctl:%p\n",
-		pdev->id, host->src_hclk_ctl, host->hclk,
-		host->clk_ctl, host->hclk_ctl);
+	pr_info("[msdc%d] hclk:%d, clk_ctl:%p, hclk_ctl:%p new_rx_clk_ctl:%p\n",
+		pdev->id, host->hclk, host->clk_ctl, host->hclk_ctl,
+		host->new_rx_clk_ctl);
 
 	return 0;
 }
@@ -655,6 +664,17 @@ static void msdc_dump_clock_sts_core(char **buff, unsigned long *size,
 			/* cg at bit 4,16 */
 			(MSDC_READ32(infracfg_ao_base + 0x094) >> 4) & 1,
 			(MSDC_READ32(infracfg_ao_base + 0x094) >> 16) & 1);
+		if (host->id == 0) {
+			buf_ptr += sprintf(buf_ptr,
+				"NEW RX CLK_MUX[%p][10:8]=%d, pdn=%d, CLK_CG[%p] cg=%d\n",
+				topckgen_base + 0x180,
+				/* mux at bits 10~8 */
+				(MSDC_READ32(topckgen_base + 0x180) >> 8) & 3,
+				/* pdn at bit 15 */
+				(MSDC_READ32(topckgen_base + 0x180) >> 15) & 1,
+				MSDC_NEW_RX_CFG,
+				MSDC_READ32(MSDC_NEW_RX_CFG));
+		}
 		*buf_ptr = '\0';
 		SPREAD_PRINTF(buff, size, m, "%s", buffer);
 	}
@@ -1428,12 +1448,6 @@ int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 		WARN_ON(1);
 	}
 	host->hclk = msdc_get_hclk(host->id, host->hw->clk_src);
-#if 0
-	if (of_property_read_bool(np, "support_new_rx"))
-		host->support_new_rx = 1;
-	else
-		host->support_new_rx = 0;
-#endif
 #endif
 
 	if (of_find_property(np, "sd-uhs-ddr208", &len))
@@ -1618,6 +1632,7 @@ u16 msdc_offsets[] = {
 	OFFSET_SDC_CSTS_EN,
 	OFFSET_SDC_DCRC_STS,
 	OFFSET_SDC_ADV_CFG0,
+	OFFSET_MSDC_NEW_RX_CFG,
 	OFFSET_EMMC_CFG0,
 	OFFSET_EMMC_CFG1,
 	OFFSET_EMMC_STS,
@@ -1725,6 +1740,6 @@ u16 msdc_offsets_top[] = {
 	OFFSET_TOP_EMMC50_PAD_DAT5_TUNE,
 	OFFSET_TOP_EMMC50_PAD_DAT6_TUNE,
 	OFFSET_TOP_EMMC50_PAD_DAT7_TUNE,
-
+	OFFSET_TOP_TEST_LOOP,
 	0xFFFF /*as mark of end */
 };
