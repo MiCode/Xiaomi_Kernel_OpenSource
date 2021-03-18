@@ -50,42 +50,42 @@ static int current_fps = 60;
 
 /* i2c control start */
 #define LCM_I2C_ID_NAME "I2C_LCD_BIAS"
-static struct i2c_client *_lcm_i2c_client;
+static struct i2c_client *jdi_lcm_i2c_client;
 static char bl_tb0[] = { 0x51, 0xff };
 
 /*****************************************************************************
  * Function Prototype
  *****************************************************************************/
-static int _lcm_i2c_probe(struct i2c_client *client,
+static int jdi_lcm_i2c_probe(struct i2c_client *client,
 			  const struct i2c_device_id *id);
-static int _lcm_i2c_remove(struct i2c_client *client);
+static int jdi_lcm_i2c_remove(struct i2c_client *client);
 
 /*****************************************************************************
  * Data Structure
  *****************************************************************************/
-struct _lcm_i2c_dev {
+struct jdi_lcm_i2c_dev {
 	struct i2c_client *client;
 };
 
-static const struct of_device_id _lcm_i2c_of_match[] = {
+static const struct of_device_id jdi_lcm_i2c_of_match[] = {
 	{
 	    .compatible = "mediatek,I2C_LCD_BIAS",
 	},
 	{},
 };
 
-static const struct i2c_device_id _lcm_i2c_id[] = { { LCM_I2C_ID_NAME, 0 },
+static const struct i2c_device_id jdi_lcm_i2c_id[] = { { LCM_I2C_ID_NAME, 0 },
 						    {} };
 
-static struct i2c_driver _lcm_i2c_driver = {
-	.id_table = _lcm_i2c_id,
-	.probe = _lcm_i2c_probe,
-	.remove = _lcm_i2c_remove,
-	/* .detect		   = _lcm_i2c_detect, */
+static struct i2c_driver jdi_lcm_i2c_driver = {
+	.id_table = jdi_lcm_i2c_id,
+	.probe = jdi_lcm_i2c_probe,
+	.remove = jdi_lcm_i2c_remove,
+	/* .detect		   = jdi_lcm_i2c_detect, */
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = LCM_I2C_ID_NAME,
-		.of_match_table = _lcm_i2c_of_match,
+		.of_match_table = jdi_lcm_i2c_of_match,
 	},
 };
 
@@ -98,32 +98,32 @@ static struct i2c_driver _lcm_i2c_driver = {
 extern void lcd_queue_load_tp_fw(void);
 #endif /*VENDOR_EDIT*/
 
-static int _lcm_i2c_probe(struct i2c_client *client,
+static int jdi_lcm_i2c_probe(struct i2c_client *client,
 			  const struct i2c_device_id *id)
 {
 	pr_debug("[LCM][I2C] %s\n", __func__);
 	pr_debug("[LCM][I2C] NT: info==>name=%s addr=0x%x\n", client->name,
 		 client->addr);
-	_lcm_i2c_client = client;
+	jdi_lcm_i2c_client = client;
 	return 0;
 }
 
-static int _lcm_i2c_remove(struct i2c_client *client)
+static int jdi_lcm_i2c_remove(struct i2c_client *client)
 {
 	pr_debug("[LCM][I2C] %s\n", __func__);
-	_lcm_i2c_client = NULL;
+	jdi_lcm_i2c_client = NULL;
 	i2c_unregister_device(client);
 	return 0;
 }
 
-static int _lcm_i2c_write_bytes(unsigned char addr, unsigned char value)
+static int jdi_lcm_i2c_write_bytes(unsigned char addr, unsigned char value)
 {
 	int ret = 0;
-	struct i2c_client *client = _lcm_i2c_client;
+	struct i2c_client *client = jdi_lcm_i2c_client;
 	char write_data[2] = { 0 };
 
 	if (client == NULL) {
-		pr_debug("ERROR!! _lcm_i2c_client is null\n");
+		pr_debug("ERROR!! jdi_lcm_i2c_client is null\n");
 		return 0;
 	}
 
@@ -139,25 +139,25 @@ static int _lcm_i2c_write_bytes(unsigned char addr, unsigned char value)
 /*
  * module load/unload record keeping
  */
-static int __init _lcm_i2c_init(void)
+static int __init jdi_lcm_i2c_init(void)
 {
 	pr_debug("[LCM][I2C] %s\n", __func__);
-	i2c_add_driver(&_lcm_i2c_driver);
+	i2c_add_driver(&jdi_lcm_i2c_driver);
 	pr_debug("[LCM][I2C] %s success\n", __func__);
 	return 0;
 }
 
-static void __exit _lcm_i2c_exit(void)
+static void __exit jdi_lcm_i2c_exit(void)
 {
 	pr_debug("[LCM][I2C] %s\n", __func__);
-	i2c_del_driver(&_lcm_i2c_driver);
+	i2c_del_driver(&jdi_lcm_i2c_driver);
 }
 
-module_init(_lcm_i2c_init);
-module_exit(_lcm_i2c_exit);
+module_init(jdi_lcm_i2c_init);
+module_exit(jdi_lcm_i2c_exit);
 /***********************************/
 
-struct tianma {
+struct jdi {
 	struct device *dev;
 	struct drm_panel panel;
 	struct backlight_device *backlight;
@@ -170,27 +170,27 @@ struct tianma {
 	int error;
 };
 
-#define tianma_dcs_write_seq(ctx, seq...)                                         \
+#define jdi_dcs_write_seq(ctx, seq...)                                         \
 	({                                                                     \
 		const u8 d[] = { seq };                                        \
 		BUILD_BUG_ON_MSG(ARRAY_SIZE(d) > 64,                           \
 				 "DCS sequence too big for stack");            \
-		tianma_dcs_write(ctx, d, ARRAY_SIZE(d));                          \
+		jdi_dcs_write(ctx, d, ARRAY_SIZE(d));                          \
 	})
 
-#define tianma_dcs_write_seq_static(ctx, seq...)                                  \
+#define jdi_dcs_write_seq_static(ctx, seq...)                                  \
 	({                                                                     \
 		static const u8 d[] = { seq };                                 \
-		tianma_dcs_write(ctx, d, ARRAY_SIZE(d));                          \
+		jdi_dcs_write(ctx, d, ARRAY_SIZE(d));                          \
 	})
 
-static inline struct tianma *panel_to_tianma(struct drm_panel *panel)
+static inline struct jdi *panel_to_jdi(struct drm_panel *panel)
 {
-	return container_of(panel, struct tianma, panel);
+	return container_of(panel, struct jdi, panel);
 }
 
 #ifdef PANEL_SUPPORT_READBACK
-static int tianma_dcs_read(struct tianma *ctx, u8 cmd, void *data, size_t len)
+static int jdi_dcs_read(struct jdi *ctx, u8 cmd, void *data, size_t len)
 {
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
 	ssize_t ret;
@@ -208,7 +208,7 @@ static int tianma_dcs_read(struct tianma *ctx, u8 cmd, void *data, size_t len)
 	return ret;
 }
 
-static void tianma_panel_get_data(struct tianma *ctx)
+static void jdi_panel_get_data(struct jdi *ctx)
 {
 	u8 buffer[3] = { 0 };
 	static int ret;
@@ -216,7 +216,7 @@ static void tianma_panel_get_data(struct tianma *ctx)
 	pr_info("%s+\n", __func__);
 
 	if (ret == 0) {
-		ret = tianma_dcs_read(ctx, 0x0A, buffer, 1);
+		ret = jdi_dcs_read(ctx, 0x0A, buffer, 1);
 		pr_info("%s  0x%08x\n", __func__, buffer[0] | (buffer[1] << 8));
 		dev_info(ctx->dev, "return %d data(0x%08x) to dsi engine\n",
 			 ret, buffer[0] | (buffer[1] << 8));
@@ -224,7 +224,7 @@ static void tianma_panel_get_data(struct tianma *ctx)
 }
 #endif
 
-static void tianma_dcs_write(struct tianma *ctx, const void *data, size_t len)
+static void jdi_dcs_write(struct jdi *ctx, const void *data, size_t len)
 {
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
 	ssize_t ret;
@@ -244,7 +244,7 @@ static void tianma_dcs_write(struct tianma *ctx, const void *data, size_t len)
 	}
 }
 
-static void tianma_panel_init(struct tianma *ctx)
+static void jdi_panel_init(struct jdi *ctx)
 {
 	ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
 	usleep_range(10 * 1000, 15 * 1000);
@@ -253,36 +253,296 @@ static void tianma_panel_init(struct tianma *ctx)
 	gpiod_set_value(ctx->reset_gpio, 1);
 	usleep_range(10 * 1000, 15 * 1000);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
+
 	pr_info("%s+\n", __func__);
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0x10);
+	msleep(100);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
 #if HFP_SUPPORT
 	pr_info("%s, fps:%d\n", __func__, current_fps);
-	tianma_dcs_write_seq_static(ctx, 0xFF, 0x25);
-	tianma_dcs_write_seq_static(ctx, 0xFB, 0x01);
-	if (current_fps == 60)
-		tianma_dcs_write_seq_static(ctx, 0x18, 0x21);
-	else if (current_fps == 90)
-		tianma_dcs_write_seq_static(ctx, 0x18, 0x20);
-	else
-		tianma_dcs_write_seq_static(ctx, 0x18, 0x21);
-#endif
+	jdi_dcs_write_seq_static(ctx, 0xB0, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0xC0, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0xC2, 0x1B, 0xA0);
 
-	tianma_dcs_write_seq_static(ctx, 0xFF, 0x10);
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0x20);
 	msleep(100);
-	tianma_dcs_write_seq_static(ctx, 0xFB, 0x01);
-	tianma_dcs_write_seq_static(ctx, 0xBA, 0x02);
-	tianma_dcs_write_seq_static(ctx, 0x35, 0x00);
-	tianma_dcs_write_seq_static(ctx, 0xBB, 0x03);//lane_num
-	tianma_dcs_write_seq_static(ctx, 0xC0, 0x00);
-	tianma_dcs_write_seq_static(ctx, 0x11);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x01, 0x66);
+	jdi_dcs_write_seq_static(ctx, 0x06, 0x40);
+	jdi_dcs_write_seq_static(ctx, 0x07, 0x38);
+	jdi_dcs_write_seq_static(ctx, 0x95, 0xD1);
+	jdi_dcs_write_seq_static(ctx, 0x96, 0xD1);
+	jdi_dcs_write_seq_static(ctx, 0xF2, 0x64);
+	jdi_dcs_write_seq_static(ctx, 0xF4, 0x64);
+	jdi_dcs_write_seq_static(ctx, 0xF6, 0x64);
+	jdi_dcs_write_seq_static(ctx, 0xF8, 0x64);
+
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0x24);
+	msleep(100);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x01, 0x0F);
+	jdi_dcs_write_seq_static(ctx, 0x03, 0x0C);
+	jdi_dcs_write_seq_static(ctx, 0x05, 0x1D);
+	jdi_dcs_write_seq_static(ctx, 0x08, 0x2F);
+	jdi_dcs_write_seq_static(ctx, 0x09, 0x2E);
+	jdi_dcs_write_seq_static(ctx, 0x0A, 0x2D);
+	jdi_dcs_write_seq_static(ctx, 0x0B, 0x2C);
+	jdi_dcs_write_seq_static(ctx, 0x11, 0x17);
+	jdi_dcs_write_seq_static(ctx, 0x12, 0x13);
+	jdi_dcs_write_seq_static(ctx, 0x13, 0x15);
+	jdi_dcs_write_seq_static(ctx, 0x15, 0x14);
+	jdi_dcs_write_seq_static(ctx, 0x16, 0x16);
+	jdi_dcs_write_seq_static(ctx, 0x17, 0x18);
+	jdi_dcs_write_seq_static(ctx, 0x1B, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x1D, 0x1D);
+	jdi_dcs_write_seq_static(ctx, 0x20, 0x2F);
+	jdi_dcs_write_seq_static(ctx, 0x21, 0x2E);
+	jdi_dcs_write_seq_static(ctx, 0x22, 0x2D);
+	jdi_dcs_write_seq_static(ctx, 0x23, 0x2C);
+	jdi_dcs_write_seq_static(ctx, 0x29, 0x17);
+	jdi_dcs_write_seq_static(ctx, 0x2A, 0x13);
+	jdi_dcs_write_seq_static(ctx, 0x2B, 0x15);
+	jdi_dcs_write_seq_static(ctx, 0x2F, 0x14);
+	jdi_dcs_write_seq_static(ctx, 0x30, 0x16);
+	jdi_dcs_write_seq_static(ctx, 0x31, 0x18);
+	jdi_dcs_write_seq_static(ctx, 0x32, 0x04);
+	jdi_dcs_write_seq_static(ctx, 0x34, 0x10);
+	jdi_dcs_write_seq_static(ctx, 0x35, 0x1F);
+	jdi_dcs_write_seq_static(ctx, 0x36, 0x1F);
+	jdi_dcs_write_seq_static(ctx, 0x37, 0x20);
+	jdi_dcs_write_seq_static(ctx, 0x4D, 0x1B);
+	jdi_dcs_write_seq_static(ctx, 0x4E, 0x4B);
+	jdi_dcs_write_seq_static(ctx, 0x4F, 0x4B);
+	jdi_dcs_write_seq_static(ctx, 0x53, 0x4B);
+	jdi_dcs_write_seq_static(ctx, 0x71, 0x30);
+	jdi_dcs_write_seq_static(ctx, 0x79, 0x11);
+	jdi_dcs_write_seq_static(ctx, 0x7A, 0x82);
+	jdi_dcs_write_seq_static(ctx, 0x7B, 0x96);
+	jdi_dcs_write_seq_static(ctx, 0x7D, 0x04);
+	jdi_dcs_write_seq_static(ctx, 0x80, 0x04);
+	jdi_dcs_write_seq_static(ctx, 0x81, 0x04);
+	jdi_dcs_write_seq_static(ctx, 0x82, 0x13);
+	jdi_dcs_write_seq_static(ctx, 0x84, 0x31);
+	jdi_dcs_write_seq_static(ctx, 0x85, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x86, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x87, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x90, 0x13);
+	jdi_dcs_write_seq_static(ctx, 0x92, 0x31);
+	jdi_dcs_write_seq_static(ctx, 0x93, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x94, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x95, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x9C, 0xF4);
+	jdi_dcs_write_seq_static(ctx, 0x9D, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0xA0, 0x16);
+	jdi_dcs_write_seq_static(ctx, 0xA2, 0x16);
+	jdi_dcs_write_seq_static(ctx, 0xA3, 0x02);
+	jdi_dcs_write_seq_static(ctx, 0xA4, 0x04);
+	jdi_dcs_write_seq_static(ctx, 0xA5, 0x04);
+	jdi_dcs_write_seq_static(ctx, 0xC9, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0xD9, 0x80);
+	jdi_dcs_write_seq_static(ctx, 0xE9, 0x02);
+
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0x25);
+	msleep(100);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x19, 0xE4);
+	jdi_dcs_write_seq_static(ctx, 0x21, 0x40);
+	jdi_dcs_write_seq_static(ctx, 0x66, 0xD8);
+	jdi_dcs_write_seq_static(ctx, 0x68, 0x50);
+	jdi_dcs_write_seq_static(ctx, 0x69, 0x10);
+	jdi_dcs_write_seq_static(ctx, 0x6B, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x6D, 0x0D);
+	jdi_dcs_write_seq_static(ctx, 0x6E, 0x48);
+	jdi_dcs_write_seq_static(ctx, 0x72, 0x41);
+	jdi_dcs_write_seq_static(ctx, 0x73, 0x4A);
+	jdi_dcs_write_seq_static(ctx, 0x74, 0xD0);
+	jdi_dcs_write_seq_static(ctx, 0x76, 0x83);
+	jdi_dcs_write_seq_static(ctx, 0x77, 0x62);
+	jdi_dcs_write_seq_static(ctx, 0x7D, 0x03);
+	jdi_dcs_write_seq_static(ctx, 0x7E, 0x15);
+	jdi_dcs_write_seq_static(ctx, 0x7F, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x84, 0x4D);
+	jdi_dcs_write_seq_static(ctx, 0xCF, 0x80);
+	jdi_dcs_write_seq_static(ctx, 0xD6, 0x80);
+	jdi_dcs_write_seq_static(ctx, 0xD7, 0x80);
+	jdi_dcs_write_seq_static(ctx, 0xEF, 0x20);
+	jdi_dcs_write_seq_static(ctx, 0xF0, 0x84);
+
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0x26);
+	msleep(100);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x80, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x81, 0x16);
+	jdi_dcs_write_seq_static(ctx, 0x83, 0x03);
+	jdi_dcs_write_seq_static(ctx, 0x84, 0x03);
+	jdi_dcs_write_seq_static(ctx, 0x85, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x86, 0x03);
+	jdi_dcs_write_seq_static(ctx, 0x87, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x8A, 0x1A);
+	jdi_dcs_write_seq_static(ctx, 0x8B, 0x11);
+	jdi_dcs_write_seq_static(ctx, 0x8C, 0x24);
+	jdi_dcs_write_seq_static(ctx, 0x8E, 0x42);
+	jdi_dcs_write_seq_static(ctx, 0x8F, 0x11);
+	jdi_dcs_write_seq_static(ctx, 0x90, 0x11);
+	jdi_dcs_write_seq_static(ctx, 0x91, 0x11);
+	jdi_dcs_write_seq_static(ctx, 0x9A, 0x81);
+	jdi_dcs_write_seq_static(ctx, 0x9B, 0x03);
+	jdi_dcs_write_seq_static(ctx, 0x9C, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x9D, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x9E, 0x00);
+
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0x27);
+	msleep(100);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x01, 0x60);
+	jdi_dcs_write_seq_static(ctx, 0x20, 0x81);
+	jdi_dcs_write_seq_static(ctx, 0x21, 0xEA);
+	jdi_dcs_write_seq_static(ctx, 0x25, 0x82);
+	jdi_dcs_write_seq_static(ctx, 0x26, 0x1F);
+	jdi_dcs_write_seq_static(ctx, 0x6E, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x6F, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x70, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x71, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x72, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x75, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x76, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x77, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x7D, 0x09);
+	jdi_dcs_write_seq_static(ctx, 0x7E, 0x5F);
+	jdi_dcs_write_seq_static(ctx, 0x80, 0x23);
+	jdi_dcs_write_seq_static(ctx, 0x82, 0x09);
+	jdi_dcs_write_seq_static(ctx, 0x83, 0x5F);
+	jdi_dcs_write_seq_static(ctx, 0x88, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x89, 0x10);
+	jdi_dcs_write_seq_static(ctx, 0xA5, 0x10);
+	jdi_dcs_write_seq_static(ctx, 0xA6, 0x23);
+	jdi_dcs_write_seq_static(ctx, 0xA7, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0xB6, 0x40);
+	jdi_dcs_write_seq_static(ctx, 0xE3, 0x02);
+	jdi_dcs_write_seq_static(ctx, 0xE4, 0xE0);
+	jdi_dcs_write_seq_static(ctx, 0xE9, 0x03);
+	jdi_dcs_write_seq_static(ctx, 0xEA, 0x2F);
+
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0x2A);
+	msleep(100);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x00, 0x91);
+	jdi_dcs_write_seq_static(ctx, 0x03, 0x20);
+	jdi_dcs_write_seq_static(ctx, 0x07, 0x3A);
+	jdi_dcs_write_seq_static(ctx, 0x0A, 0x60);
+	jdi_dcs_write_seq_static(ctx, 0x0C, 0x06);
+	jdi_dcs_write_seq_static(ctx, 0x0D, 0x40);
+	jdi_dcs_write_seq_static(ctx, 0x0E, 0x02);
+	jdi_dcs_write_seq_static(ctx, 0x0F, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x11, 0x58);
+	jdi_dcs_write_seq_static(ctx, 0x15, 0x0E);
+	jdi_dcs_write_seq_static(ctx, 0x16, 0x79);
+	jdi_dcs_write_seq_static(ctx, 0x19, 0x0D);
+	jdi_dcs_write_seq_static(ctx, 0x1A, 0xF2);
+	jdi_dcs_write_seq_static(ctx, 0x1B, 0x14);
+	jdi_dcs_write_seq_static(ctx, 0x1D, 0x36);
+	jdi_dcs_write_seq_static(ctx, 0x1E, 0x55);
+	jdi_dcs_write_seq_static(ctx, 0x1F, 0x55);
+	jdi_dcs_write_seq_static(ctx, 0x20, 0x55);
+	jdi_dcs_write_seq_static(ctx, 0x27, 0x80);
+	jdi_dcs_write_seq_static(ctx, 0x28, 0x0A);
+	jdi_dcs_write_seq_static(ctx, 0x29, 0x0B);
+	jdi_dcs_write_seq_static(ctx, 0x2A, 0x42);
+	jdi_dcs_write_seq_static(ctx, 0x2B, 0x04);
+	jdi_dcs_write_seq_static(ctx, 0x2F, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x30, 0x47);
+	jdi_dcs_write_seq_static(ctx, 0x31, 0xC8);
+	jdi_dcs_write_seq_static(ctx, 0x33, 0x2E);
+	jdi_dcs_write_seq_static(ctx, 0x34, 0xFF);
+	jdi_dcs_write_seq_static(ctx, 0x35, 0x30);
+	jdi_dcs_write_seq_static(ctx, 0x36, 0x7D);
+	jdi_dcs_write_seq_static(ctx, 0x37, 0xFA);
+	jdi_dcs_write_seq_static(ctx, 0x38, 0x33);
+	jdi_dcs_write_seq_static(ctx, 0x39, 0x7A);
+	jdi_dcs_write_seq_static(ctx, 0x3A, 0x47);
+	jdi_dcs_write_seq_static(ctx, 0x44, 0x4C);
+	jdi_dcs_write_seq_static(ctx, 0x45, 0x09);
+	jdi_dcs_write_seq_static(ctx, 0x46, 0x40);
+	jdi_dcs_write_seq_static(ctx, 0x47, 0x02);
+	jdi_dcs_write_seq_static(ctx, 0x48, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x4A, 0xF0);
+	jdi_dcs_write_seq_static(ctx, 0x4E, 0x0E);
+	jdi_dcs_write_seq_static(ctx, 0x4F, 0x79);
+	jdi_dcs_write_seq_static(ctx, 0x52, 0x0D);
+	jdi_dcs_write_seq_static(ctx, 0x53, 0xF2);
+	jdi_dcs_write_seq_static(ctx, 0x54, 0x14);
+	jdi_dcs_write_seq_static(ctx, 0x56, 0x36);
+	jdi_dcs_write_seq_static(ctx, 0x57, 0x7E);
+	jdi_dcs_write_seq_static(ctx, 0x58, 0x7E);
+	jdi_dcs_write_seq_static(ctx, 0x59, 0x7E);
+	jdi_dcs_write_seq_static(ctx, 0x60, 0x80);
+	jdi_dcs_write_seq_static(ctx, 0x61, 0x0A);
+	jdi_dcs_write_seq_static(ctx, 0x62, 0x03);
+	jdi_dcs_write_seq_static(ctx, 0x63, 0xE9);
+	jdi_dcs_write_seq_static(ctx, 0x66, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x67, 0x04);
+	jdi_dcs_write_seq_static(ctx, 0x68, 0x6F);
+	jdi_dcs_write_seq_static(ctx, 0x6B, 0xCA);
+	jdi_dcs_write_seq_static(ctx, 0x6C, 0x20);
+	jdi_dcs_write_seq_static(ctx, 0x6D, 0xDE);
+	jdi_dcs_write_seq_static(ctx, 0x6E, 0xC5);
+	jdi_dcs_write_seq_static(ctx, 0x6F, 0x23);
+	jdi_dcs_write_seq_static(ctx, 0x70, 0xDB);
+	jdi_dcs_write_seq_static(ctx, 0x71, 0x04);
+
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0x2C);
+	msleep(100);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x00, 0x02);
+	jdi_dcs_write_seq_static(ctx, 0x01, 0x02);
+	jdi_dcs_write_seq_static(ctx, 0x02, 0x02);
+	jdi_dcs_write_seq_static(ctx, 0x03, 0x16);
+	jdi_dcs_write_seq_static(ctx, 0x04, 0x16);
+	jdi_dcs_write_seq_static(ctx, 0x05, 0x16);
+	jdi_dcs_write_seq_static(ctx, 0x0D, 0x1F);
+	jdi_dcs_write_seq_static(ctx, 0x0E, 0x1F);
+	jdi_dcs_write_seq_static(ctx, 0x16, 0x1B);
+	jdi_dcs_write_seq_static(ctx, 0x17, 0x4B);
+	jdi_dcs_write_seq_static(ctx, 0x18, 0x4B);
+	jdi_dcs_write_seq_static(ctx, 0x19, 0x4B);
+	jdi_dcs_write_seq_static(ctx, 0x2A, 0x03);
+	jdi_dcs_write_seq_static(ctx, 0x3B, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x4D, 0x16);
+	jdi_dcs_write_seq_static(ctx, 0x4E, 0x03);
+
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0xF0);
+	msleep(100);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x5A, 0x00);
+
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0x25);
+	msleep(100);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
+	if (current_fps == 60)
+		jdi_dcs_write_seq_static(ctx, 0x18, 0x21);
+	else if (current_fps == 90)
+		jdi_dcs_write_seq_static(ctx, 0x18, 0x20);
+	else
+		jdi_dcs_write_seq_static(ctx, 0x18, 0x21);
+
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0x10);
+	msleep(100);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
+#endif
+	jdi_dcs_write_seq_static(ctx, 0xBA, 0x02);
+	jdi_dcs_write_seq_static(ctx, 0x35, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0xBB, 0x03);//lane_num
+	jdi_dcs_write_seq_static(ctx, 0xC0, 0x00);
+	jdi_dcs_write_seq_static(ctx, 0x11);
 	msleep(120);
 	/* Display On*/
-	tianma_dcs_write_seq_static(ctx, 0x29);
+	jdi_dcs_write_seq_static(ctx, 0x29);
 	pr_info("%s-\n", __func__);
 }
 
-static int tianma_disable(struct drm_panel *panel)
+static int jdi_disable(struct drm_panel *panel)
 {
-	struct tianma *ctx = panel_to_tianma(panel);
+	struct jdi *ctx = panel_to_jdi(panel);
 
 	if (!ctx->enabled)
 		return 0;
@@ -297,18 +557,18 @@ static int tianma_disable(struct drm_panel *panel)
 	return 0;
 }
 
-static int tianma_unprepare(struct drm_panel *panel)
+static int jdi_unprepare(struct drm_panel *panel)
 {
 
-	struct tianma *ctx = panel_to_tianma(panel);
+	struct jdi *ctx = panel_to_jdi(panel);
 
-	pr_info("%s++\n", __func__);
+	pr_info("%s\n", __func__);
 
 	if (!ctx->prepared)
 		return 0;
 
-	tianma_dcs_write_seq_static(ctx, MIPI_DCS_ENTER_SLEEP_MODE);
-	tianma_dcs_write_seq_static(ctx, MIPI_DCS_SET_DISPLAY_OFF);
+	jdi_dcs_write_seq_static(ctx, MIPI_DCS_ENTER_SLEEP_MODE);
+	jdi_dcs_write_seq_static(ctx, MIPI_DCS_SET_DISPLAY_OFF);
 	msleep(200);
 	/*
 	 * ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
@@ -333,9 +593,9 @@ static int tianma_unprepare(struct drm_panel *panel)
 	return 0;
 }
 
-static int tianma_prepare(struct drm_panel *panel)
+static int jdi_prepare(struct drm_panel *panel)
 {
-	struct tianma *ctx = panel_to_tianma(panel);
+	struct jdi *ctx = panel_to_jdi(panel);
 	int ret;
 
 	pr_info("%s+\n", __func__);
@@ -361,17 +621,17 @@ static int tianma_prepare(struct drm_panel *panel)
 	    devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
 	gpiod_set_value(ctx->bias_neg, 1);
 	devm_gpiod_put(ctx->dev, ctx->bias_neg);
-	_lcm_i2c_write_bytes(0x0, 0xf);
-	_lcm_i2c_write_bytes(0x1, 0xf);
-	tianma_panel_init(ctx);
+	jdi_lcm_i2c_write_bytes(0x0, 0xf);
+	jdi_lcm_i2c_write_bytes(0x1, 0xf);
+	jdi_panel_init(ctx);
 
 	ret = ctx->error;
 	if (ret < 0)
-		tianma_unprepare(panel);
+		jdi_unprepare(panel);
 
 	ctx->prepared = true;
 #ifdef PANEL_SUPPORT_READBACK
-	tianma_panel_get_data(ctx);
+	jdi_panel_get_data(ctx);
 #endif
 
 #ifdef VENDOR_EDIT
@@ -383,9 +643,9 @@ static int tianma_prepare(struct drm_panel *panel)
 	return ret;
 }
 
-static int tianma_enable(struct drm_panel *panel)
+static int jdi_enable(struct drm_panel *panel)
 {
-	struct tianma *ctx = panel_to_tianma(panel);
+	struct jdi *ctx = panel_to_jdi(panel);
 
 	if (ctx->enabled)
 		return 0;
@@ -535,13 +795,13 @@ static struct mtk_panel_params ext_params_90hz = {
 };
 
 
-static int panel_ata_check(struct drm_panel *panel)
+static int jdi_panel_ata_check(struct drm_panel *panel)
 {
 	/* Customer test by own ATA tool */
 	return 1;
 }
 
-static int tianma_setbacklight_cmdq(void *dsi, dcs_write_gce cb, void *handle,
+static int jdi_setbacklight_cmdq(void *dsi, dcs_write_gce cb, void *handle,
 				 unsigned int level)
 {
 
@@ -566,7 +826,7 @@ static int tianma_setbacklight_cmdq(void *dsi, dcs_write_gce cb, void *handle,
 	return 0;
 }
 
-struct drm_display_mode *get_mode_by_id_hfp(struct drm_panel *panel,
+struct drm_display_mode *jdi_get_mode_by_id_hfp(struct drm_panel *panel,
 	unsigned int mode)
 {
 	struct drm_display_mode *m;
@@ -579,12 +839,11 @@ struct drm_display_mode *get_mode_by_id_hfp(struct drm_panel *panel,
 	}
 	return NULL;
 }
-
-static int mtk_panel_ext_param_set(struct drm_panel *panel, unsigned int mode)
+static int jdi_panel_ext_param_set(struct drm_panel *panel, unsigned int mode)
 {
 	struct mtk_panel_ext *ext = find_panel_ext(panel);
 	int ret = 0;
-	struct drm_display_mode *m = get_mode_by_id_hfp(panel, mode);
+	struct drm_display_mode *m = jdi_get_mode_by_id_hfp(panel, mode);
 
 	if (m->vrefresh == 60) {
 		ext->params = &ext_params;
@@ -602,7 +861,7 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel, unsigned int mode)
 	return ret;
 }
 
-static int mtk_panel_ext_param_get(struct mtk_panel_params *ext_para,
+static int jdi_panel_ext_param_get(struct mtk_panel_params *ext_para,
 			 unsigned int mode)
 {
 	int ret = 0;
@@ -618,26 +877,28 @@ static int mtk_panel_ext_param_get(struct mtk_panel_params *ext_para,
 
 }
 
-static void mode_switch_to_90(struct drm_panel *panel)
+static void jdi_mode_switch_to_90(struct drm_panel *panel)
 {
-	struct tianma *ctx = panel_to_tianma(panel);
+	struct jdi *ctx = panel_to_jdi(panel);
 
-	tianma_dcs_write_seq_static(ctx, 0xFF, 0x25);
-	tianma_dcs_write_seq_static(ctx, 0xFB, 0x01);
-	tianma_dcs_write_seq_static(ctx, 0x18, 0x20);//90hz
+	pr_info("%s\n", __func__);
+
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0x25);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x18, 0x20);//90hz
 
 }
 
-static void mode_switch_to_60(struct drm_panel *panel)
+static void jdi_mode_switch_to_60(struct drm_panel *panel)
 {
-	struct tianma *ctx = panel_to_tianma(panel);
+	struct jdi *ctx = panel_to_jdi(panel);
 
-	tianma_dcs_write_seq_static(ctx, 0xFF, 0x25);
-	tianma_dcs_write_seq_static(ctx, 0xFB, 0x01);
-	tianma_dcs_write_seq_static(ctx, 0x18, 0x21);
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0x25);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
+	jdi_dcs_write_seq_static(ctx, 0x18, 0x21);
 }
 
-static int mode_switch(struct drm_panel *panel, unsigned int cur_mode,
+static int jdi_mode_switch(struct drm_panel *panel, unsigned int cur_mode,
 		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage)
 {
 	int ret = 0;
@@ -645,19 +906,19 @@ static int mode_switch(struct drm_panel *panel, unsigned int cur_mode,
 
 	pr_info("%s cur_mode = %d dst_mode %d\n", __func__, cur_mode, dst_mode);
 
-	if (dst_mode == 60) { /* 60 switch to 120 */
-		mode_switch_to_60(panel);
-	} else if (dst_mode == 90) { /* 1200 switch to 60 */
-		mode_switch_to_90(panel);
-	} else
+	if (dst_mode == 60)
+		jdi_mode_switch_to_60(panel);
+	else if (dst_mode == 90)
+		jdi_mode_switch_to_90(panel);
+	else
 		ret = 1;
 
 	return ret;
 }
 
-static int panel_ext_reset(struct drm_panel *panel, int on)
+static int jdi_panel_ext_reset(struct drm_panel *panel, int on)
 {
-	struct tianma *ctx = panel_to_tianma(panel);
+	struct jdi *ctx = panel_to_jdi(panel);
 
 	ctx->reset_gpio =
 		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
@@ -668,12 +929,12 @@ static int panel_ext_reset(struct drm_panel *panel, int on)
 }
 
 static struct mtk_panel_funcs ext_funcs = {
-	.reset = panel_ext_reset,
-	.set_backlight_cmdq = tianma_setbacklight_cmdq,
-	.ext_param_set = mtk_panel_ext_param_set,
-	.ext_param_get = mtk_panel_ext_param_get,
-	.mode_switch = mode_switch,
-	.ata_check = panel_ata_check,
+	.reset = jdi_panel_ext_reset,
+	.set_backlight_cmdq = jdi_setbacklight_cmdq,
+	.ext_param_set = jdi_panel_ext_param_set,
+	.ext_param_get = jdi_panel_ext_param_get,
+	.mode_switch = jdi_mode_switch,
+	.ata_check = jdi_panel_ata_check,
 };
 #endif
 
@@ -707,7 +968,7 @@ struct panel_desc {
 	} delay;
 };
 
-static int tianma_get_modes(struct drm_panel *panel)
+static int jdi_get_modes(struct drm_panel *panel)
 {
 	struct drm_display_mode *mode;
 	struct drm_display_mode *mode2;
@@ -742,18 +1003,18 @@ static int tianma_get_modes(struct drm_panel *panel)
 	return 2;
 }
 
-static const struct drm_panel_funcs tianma_drm_funcs = {
-	.disable = tianma_disable,
-	.unprepare = tianma_unprepare,
-	.prepare = tianma_prepare,
-	.enable = tianma_enable,
-	.get_modes = tianma_get_modes,
+static const struct drm_panel_funcs jdi_drm_funcs = {
+	.disable = jdi_disable,
+	.unprepare = jdi_unprepare,
+	.prepare = jdi_prepare,
+	.enable = jdi_enable,
+	.get_modes = jdi_get_modes,
 };
 
-static int tianma_probe(struct mipi_dsi_device *dsi)
+static int jdi_probe(struct mipi_dsi_device *dsi)
 {
 	struct device *dev = &dsi->dev;
-	struct tianma *ctx;
+	struct jdi *ctx;
 	struct device_node *backlight;
 	int ret;
 	struct device_node *dsi_node, *remote_node = NULL, *endpoint = NULL;
@@ -776,7 +1037,7 @@ static int tianma_probe(struct mipi_dsi_device *dsi)
 	}
 
 	pr_info("%s+\n", __func__);
-	ctx = devm_kzalloc(dev, sizeof(struct tianma), GFP_KERNEL);
+	ctx = devm_kzalloc(dev, sizeof(struct jdi), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
 
@@ -824,7 +1085,7 @@ static int tianma_probe(struct mipi_dsi_device *dsi)
 	ctx->enabled = true;
 	drm_panel_init(&ctx->panel);
 	ctx->panel.dev = dev;
-	ctx->panel.funcs = &tianma_drm_funcs;
+	ctx->panel.funcs = &jdi_drm_funcs;
 
 	ret = drm_panel_add(&ctx->panel);
 	if (ret < 0)
@@ -843,14 +1104,14 @@ static int tianma_probe(struct mipi_dsi_device *dsi)
 
 #endif
 
-	pr_info("%s- tianma,nt36672c,cphy,vdo,90hz,rt4801\n", __func__);
+	pr_info("%s- jdi,nt36672c,cphy,vdo,90hz,rt4801\n", __func__);
 
 	return ret;
 }
 
-static int tianma_remove(struct mipi_dsi_device *dsi)
+static int jdi_remove(struct mipi_dsi_device *dsi)
 {
-	struct tianma *ctx = mipi_dsi_get_drvdata(dsi);
+	struct jdi *ctx = mipi_dsi_get_drvdata(dsi);
 
 	mipi_dsi_detach(dsi);
 	drm_panel_remove(&ctx->panel);
@@ -858,27 +1119,27 @@ static int tianma_remove(struct mipi_dsi_device *dsi)
 	return 0;
 }
 
-static const struct of_device_id tianma_of_match[] = {
+static const struct of_device_id jdi_of_match[] = {
 	{
-	    .compatible = "tianma,nt36672c,cphy,vdo,90hz,rt4801",
+	    .compatible = "jdi,nt36672c,cphy,vdo,90hz,rt4801",
 	},
 	{}
 };
 
-MODULE_DEVICE_TABLE(of, tianma_of_match);
+MODULE_DEVICE_TABLE(of, jdi_of_match);
 
-static struct mipi_dsi_driver tianma_driver = {
-	.probe = tianma_probe,
-	.remove = tianma_remove,
+static struct mipi_dsi_driver jdi_driver = {
+	.probe = jdi_probe,
+	.remove = jdi_remove,
 	.driver = {
-		.name = "panel-tianma-nt36672c-cphy-vdo-90hz-rt4801",
+		.name = "panel-jdi-nt36672c-cphy-vdo-90hz-rt4801",
 		.owner = THIS_MODULE,
-		.of_match_table = tianma_of_match,
+		.of_match_table = jdi_of_match,
 	},
 };
 
-module_mipi_dsi_driver(tianma_driver);
+module_mipi_dsi_driver(jdi_driver);
 
 MODULE_AUTHOR("Cui Zhang <cui.zhang@mediatek.com>");
-MODULE_DESCRIPTION("tianma r66451 VDO Panel Driver");
+MODULE_DESCRIPTION("jdi r66451 VDO Panel Driver");
 MODULE_LICENSE("GPL v2");
