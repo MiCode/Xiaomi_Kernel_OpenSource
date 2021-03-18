@@ -630,7 +630,7 @@ void register_battery_percent_notify_ext(
 {
 	PMICLOG("[%s] start\n", __func__);
 
-	bpcb_tb_ext[prio_val].bpcb = battery_percent_callback;
+	bpcb_tb_ext[(unsigned int)prio_val].bpcb = battery_percent_callback;
 
 	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
 
