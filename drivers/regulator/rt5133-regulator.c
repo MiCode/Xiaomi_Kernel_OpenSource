@@ -972,7 +972,7 @@ module_i2c_driver(rt5133_driver);
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
 MODULE_DESCRIPTION("RT5133 Regulator Driver");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION(RT5133_DRV_VERSION)
+MODULE_VERSION(RT5133_DRV_VERSION);
 /*
  * Release Note
  * 1.0.1
