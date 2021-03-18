@@ -322,9 +322,9 @@ static int get_ovl_idx_by_phy_layer(int layer_map_tb, int phy_layer_idx)
 		ovl_mapping_tb >>= 1;
 	}
 #ifdef HRT_DEBUG_LEVEL2
-	pr_info("[DISP]%s, phy_layer_idx:%d, layer_map_tb:0x%x, layer_idx:%d ovl_idx:%d, ovl_mapping_tb:0x%x\n",
-		__func__, phy_layer_idx, layer_map_tb,
-		layer_idx, ovl_idx, ovl_mapping_tb);
+	DISPMSG("%s,phy:%d,layer_tb:0x%x,L_idx:%d ovl_idx:%d, ov_tb:0x%x\n",
+		__func__, phy_layer_idx, layer_map_tb, layer_idx,
+		ovl_idx, ovl_mapping_tb);
 #endif
 	return ovl_idx;
 }
@@ -384,16 +384,20 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 	int i, j;
 	struct layer_config *layer_info;
 
+#define _HRT_FMT \
+	"HRT hrt_num:0x%x/fps:%d/dal:%d/p:%d/r:%s/l_tb:%d/bd_tb:%d/dc:%d/i:%d\n"
+#define _L_FMT \
+	"L%d->%d/of(%d,%d)/swh(%d,%d)/dwh(%d,%d)/fmt:0x%x/ext:%d/caps:0x%x\n"
+
 	if (debug_level < DISP_DEBUG_LEVEL_INFO) {
-		pr_info("[DISP]HRT hrt_num:%d/fps:%d/dal:%d/p:%d/r:%s/layer_tb:%d/bound_tb:%d/dc:%d\n",
-			HRT_GET_DVFS_LEVEL(disp_info->hrt_num),
+		DISPMSG(_HRT_FMT,
+			disp_info->hrt_num,
 			l_rule_info->primary_fps,
 			l_rule_info->dal_enable,
 			HRT_GET_PATH_ID(l_rule_info->disp_path),
 			get_scale_name(l_rule_info->scale_rate),
 			l_rule_info->layer_tb_idx, l_rule_info->bound_tb_idx,
 			HRT_GET_DC_FLAG(disp_info->hrt_num));
-
 		for (i = 0 ; i < 2 ; i++) {
 			if (disp_info->layer_num[i] <= 0)
 				continue;
@@ -407,7 +411,7 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 
 			for (j = 0 ; j < disp_info->layer_num[i] ; j++) {
 				layer_info = &disp_info->input_config[i][j];
-				pr_info("[DISP]L%d->%d/of(%d,%d)/swh(%d,%d)/dwh(%d,%d)/fmt:0x%x/ext:%d/caps:0x%x\n",
+				DISPMSG(_L_FMT,
 					j, layer_info->ovl_id,
 					layer_info->dst_offset_x,
 					layer_info->dst_offset_y,
@@ -421,8 +425,8 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 			}
 		}
 	} else {
-		pr_info("[DISP]HRT hrt_num:%d/fps:%d/dal:%d/p:%d/r:%s/layer_tb:%d/bound_tb:%d/dc:%d\n",
-			HRT_GET_DVFS_LEVEL(disp_info->hrt_num),
+		DISPMSG(_HRT_FMT,
+			disp_info->hrt_num,
 			l_rule_info->primary_fps,
 			l_rule_info->dal_enable,
 			HRT_GET_PATH_ID(l_rule_info->disp_path),
@@ -434,7 +438,7 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 			if (disp_info->layer_num[i] <= 0)
 				continue;
 
-			pr_info("[DISP]HRT D%d/M%d/LN%d/hrt_num:%d/G(%d,%d)\n",
+			DISPMSG("[DISP]HRT D%d/M%d/LN%d/hrt_num:%d/G(%d,%d)\n",
 				i, disp_info->disp_mode[i],
 				disp_info->layer_num[i], disp_info->hrt_num,
 				disp_info->gles_head[i],
@@ -442,7 +446,7 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 
 			for (j = 0 ; j < disp_info->layer_num[i] ; j++) {
 				layer_info = &disp_info->input_config[i][j];
-				pr_info("[DISP]L%d->%d/of(%d,%d)/swh(%d,%d)/dwh(%d,%d)/fmt:0x%x/ext:%d/caps:0x%x\n",
+				DISPMSG(_L_FMT,
 					j, layer_info->ovl_id,
 					layer_info->dst_offset_x,
 					layer_info->dst_offset_y,
@@ -1285,7 +1289,7 @@ static int _calc_hrt_num(struct disp_layer_info *disp_info, int disp_index,
 	}
 
 #ifdef HRT_DEBUG_LEVEL1
-	pr_info("%s disp_index:%d, disp_index:%d, hrt_type:%d, sum_overlap_w:%d\n",
+	DISPMSG("%s disp_index:%d, disp_index:%d, hrt_type:%d, sum_overlap_w:%d\n",
 		__func__, disp_index, disp_index, hrt_type, sum_overlap_w);
 #endif
 
@@ -1625,8 +1629,7 @@ int check_disp_info(struct disp_layer_info *disp_info)
 
 		if (disp_info->layer_num[disp_idx] > 0 &&
 			disp_info->input_config[disp_idx] == NULL) {
-			pr_info("[DISP][%s #%d]ERROR:[HRT]Has input layer, but input config is empty, disp_idx:%d, layer_num:%d\n",
-				__func__, __LINE__,
+			DISPERR("[HRT]input config is empty,disp:%d,l_num:%d\n",
 				disp_idx, disp_info->layer_num[disp_idx]);
 			return -1;
 		}
@@ -1647,11 +1650,9 @@ int check_disp_info(struct disp_layer_info *disp_info)
 			(disp_info->gles_tail[disp_idx] <
 			disp_info->layer_num[disp_idx])))) {
 			dump_disp_info(disp_info, DISP_DEBUG_LEVEL_ERR);
-			pr_info("[DISP][%s #%d]ERROR:[HRT]gles layer invalid, disp_idx:%d, head:%d, tail:%d, layer_num:%d\n",
-				__func__, __LINE__,
+			DISPERR("[HRT]gles invalid,disp:%d,head:%d,tail:%d\n",
 				disp_idx, disp_info->gles_head[disp_idx],
-				disp_info->gles_tail[disp_idx],
-				disp_info->layer_num[disp_idx]);
+				disp_info->gles_tail[disp_idx]);
 			return -1;
 		}
 	}
@@ -1833,8 +1834,7 @@ int layering_rule_start(struct disp_layer_info *disp_info_user, int debug_mode)
 		if (l_rule_ops->resizing_rule)
 			ret = l_rule_ops->resizing_rule(&layering_info);
 		else
-			pr_info("[DISP][%s #%d]warn:RSZ feature on, but no resizing rule be implement.\n",
-				__func__, __LINE__);
+			DISPWARN("RSZ feature on, but no resizing rule be implement.\n");
 	} else {
 		l_rule_info->scale_rate = HRT_SCALE_NONE;
 	}
@@ -1877,6 +1877,10 @@ int layering_rule_start(struct disp_layer_info *disp_info_user, int debug_mode)
 		layering_info.hrt_num = 0;
 
 	ret = dispatch_ovl_id(&layering_info);
+
+	if (l_rule_ops->clear_layer)
+		l_rule_ops->clear_layer(&layering_info);
+
 	check_layering_result(&layering_info);
 	HRT_SET_PATH_SCENARIO(layering_info.hrt_num, l_rule_info->disp_path);
 	HRT_SET_SCALE_SCENARIO(layering_info.hrt_num, l_rule_info->scale_rate);
@@ -2066,9 +2070,10 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 			tmp_config =
 				disp_info->input_config[disp_id][layer_id];
 			tok = parse_hrt_data_value(tok, &layer_result);
+			if (!tok)
+				DISPWARN("can not parse lay_result\n");
 			if (layer_result != tmp_config.ovl_id) {
-				pr_info("[DISP][%s #%d]warn:Test case:%d, ovl_id incorrect, real is %d, expect is %d\n",
-					__func__, __LINE__,
+				DISPWARN("case:%d,ovl_id incorrect,%d/%d\n",
 					(int)test_case,
 					tmp_config.ovl_id,
 					(int)layer_result);
@@ -2080,8 +2085,7 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 			if (!tok)
 				goto end;
 			if (layer_result != tmp_config.ext_sel_layer) {
-				pr_info("[DISP][%s #%d]warn:Test case:%d, ext_sel_layer incorrect, real is %d, expect is %d\n",
-					__func__, __LINE__,
+				DISPWARN("case:%d,ext_sel_layer wrong,%d/%d\n",
 					(int)test_case,
 					tmp_config.ext_sel_layer,
 					(int)layer_result);
@@ -2098,8 +2102,7 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 				goto end;
 			tok = parse_hrt_data_value(tok, &gles_num);
 			if (gles_num != disp_info->gles_head[disp_id]) {
-				pr_info("[DISP][%s #%d]warn:Test case:%d, gles head incorrect, gles head is %d, expect is %d\n",
-					__func__, __LINE__,
+				DISPWARN("case:%d,gles head err,%d/%d\n",
 					(int)test_case,
 					disp_info->gles_head[disp_id],
 					(int)gles_num);
@@ -2110,8 +2113,7 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 				goto end;
 			tok = parse_hrt_data_value(tok, &gles_num);
 			if (gles_num != disp_info->gles_tail[disp_id]) {
-				pr_info("[DISP][%s #%d]warn:Test case:%d, gles tail incorrect, gles tail is %d, expect is %d\n",
-					__func__, __LINE__,
+				DISPWARN("case:%d,gles tail err,%d/%d\n",
 					(int)test_case,
 					disp_info->gles_tail[disp_id],
 					(int)gles_num);
@@ -2122,8 +2124,7 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 
 			tok = parse_hrt_data_value(line_buf, &hrt_num);
 			if (hrt_num != HRT_GET_DVFS_LEVEL(disp_info->hrt_num))
-				pr_info("[DISP][%s #%d]warnTest case:%d, hrt num incorrect, hrt_num is %d, expect is %d\n",
-					__func__, __LINE__,
+				DISPWARN("case:%d,hrt num err,%d/%d\n",
 					(int)test_case,
 					HRT_GET_DVFS_LEVEL(disp_info->hrt_num),
 					(int)hrt_num);
@@ -2134,8 +2135,7 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 			tmp = HRT_GET_PATH_SCENARIO(disp_info->hrt_num);
 
 			if (hrt_num != (tmp & 0x1F)) {
-				pr_info("[DISP][%s #%d]warn:Test case:%d, hrt path incorrect, disp_path is %d, expect is %d\n",
-					__func__, __LINE__,
+				DISPWARN("case:%d,hrt path err,%d/%d\n",
 					(int)test_case,
 					tmp & 0x1F,
 					(int)hrt_num);
@@ -2150,8 +2150,7 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 
 			if (hrt_num !=
 				HRT_GET_SCALE_SCENARIO(disp_info->hrt_num)) {
-				pr_info("[DISP][%s #%d]warn:Test case:%d, hrt scale scenario incorrect, hrt scale is %d, expect is %d\n",
-					__func__, __LINE__,
+				DISPWARN("case:%d, hrt scale err,%d/%d\n",
 					(int)test_case,
 					tmp_hrt_num,
 					(int)hrt_num);

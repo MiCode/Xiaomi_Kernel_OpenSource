@@ -121,28 +121,28 @@ static bool filter_by_hw_limitation(struct disp_layer_info *disp_info)
 	unsigned int i = 0;
 	struct layer_config *info;
 	unsigned int disp_idx = 0;
-#if 0
-	/* ovl only support 1 yuv layer */
-	for (disp_idx = 0 ; disp_idx < 2 ; disp_idx++) {
+	unsigned int layer_cnt = 0;
+
+	for (disp_idx = 0 ; disp_idx < 2; ++disp_idx) {
+		if (disp_info->layer_num[disp_idx] < 1)
+			continue;
+
+		/* display not support RGBA1010102 & RGBA_FP16 */
 		for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
 			info = &(disp_info->input_config[disp_idx][i]);
-			if (is_gles_layer(disp_info, disp_idx, i))
+			if (info->src_fmt != DISP_FORMAT_RGBA1010102 &&
+					info->src_fmt != DISP_FORMAT_RGBA_FP16)
 				continue;
-			if (is_yuv(info->src_fmt)) {
-				if (flag) {
-					/* push to GPU */
-					if (disp_info->gles_head[disp_idx] == -1 || i < disp_info->gles_head[disp_idx])
-						disp_info->gles_head[disp_idx] = i;
-					if (disp_info->gles_tail[disp_idx] == -1 || i > disp_info->gles_tail[disp_idx])
-						disp_info->gles_tail[disp_idx] = i;
-				} else {
-					flag = true;
-				}
-			}
+
+			/* push to GPU */
+			if (disp_info->gles_head[disp_idx] == -1 ||
+			    i < disp_info->gles_head[disp_idx])
+				disp_info->gles_head[disp_idx] = i;
+			if (disp_info->gles_tail[disp_idx] == -1 ||
+			    i > disp_info->gles_tail[disp_idx])
+				disp_info->gles_tail[disp_idx] = i;
 		}
 	}
-#else
-	unsigned int layer_cnt = 0;
 
 	disp_idx = 1;
 	for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
@@ -163,8 +163,54 @@ static bool filter_by_hw_limitation(struct disp_layer_info *disp_info)
 			flag = false;
 		}
 	}
-#endif
 	return flag;
+}
+
+static void clear_layer(struct disp_layer_info *disp_info)
+{
+	int di = 0;
+	int i = 0;
+	struct layer_config *c;
+
+	for (di = 0; di < 2; di++) {
+		int g_head = disp_info->gles_head[di];
+		int top = -1;
+
+		if (disp_info->layer_num[di] <= 0)
+			continue;
+		if (g_head == -1)
+			continue;
+
+		for (i = disp_info->layer_num[di] - 1; i >= g_head; i--) {
+			c = &disp_info->input_config[di][i];
+			if (has_layer_cap(c, LAYERING_OVL_ONLY) &&
+			    has_layer_cap(c, CLIENT_CLEAR_LAYER)) {
+				top = i;
+				break;
+			}
+		}
+		if (top == -1)
+			continue;
+		if (!is_gles_layer(disp_info, di, top))
+			continue;
+
+		c = &disp_info->input_config[di][top];
+		c->layer_caps |= DISP_CLIENT_CLEAR_LAYER;
+		DISPMSG("%s:D%d:L%d\n", __func__, di, top);
+
+		disp_info->gles_head[di] = 0;
+		disp_info->gles_tail[di] = disp_info->layer_num[di] - 1;
+		for (i = 0; i < disp_info->layer_num[di]; i++) {
+			c = &disp_info->input_config[di][i];
+
+			c->ext_sel_layer = -1;
+
+			if (i == top)
+				c->ovl_id = 0;
+			else
+				c->ovl_id = 1;
+		}
+	}
 }
 
 static int get_hrt_bound(int is_larb, int hrt_level)
@@ -218,4 +264,5 @@ static struct layering_rule_ops l_rule_ops = {
 	.get_hrt_bound = get_hrt_bound,
 	.get_mapping_table = get_mapping_table,
 	.rollback_to_gpu_by_hw_limitation = filter_by_hw_limitation,
+	.clear_layer = clear_layer,
 };

@@ -142,6 +142,7 @@ struct layering_rule_ops {
 		struct disp_layer_info	*disp_info);
 	bool (*adaptive_dc_enabled)(void);
 	bool (*has_hrt_limit)(struct disp_layer_info *disp_info, int disp_idx);
+	void (*clear_layer)(struct disp_layer_info *disp_info);
 };
 
 #define HRT_GET_DVFS_LEVEL(hrt_num) (hrt_num & 0xF)
