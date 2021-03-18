@@ -311,8 +311,9 @@ static unsigned int g_SuspendCnt;
 #ifdef MFB_PMQOS
 static struct pm_qos_request mfb_pmqos_request;
 static u64 max_img_freq[4];
+#define MFB_PORT_NUM 8
 struct plist_head module_request_list;  /* all module list */
-struct mm_qos_request mfb_mmqos_request;
+struct mm_qos_request mfb_mmqos_request[MFB_PORT_NUM];
 
 static spinlock_t SpinLockMfbPmqos;
 static unsigned int qos_scen[4];
@@ -789,6 +790,7 @@ void MFBQOS_Init(void)
 	s32 result = 0;
 	u64 img_freq_steps[MAX_FREQ_STEP];
 	u32 step_size;
+	int i = 0;
 
 	/* Call pm_qos_add_request when initialize module or driver prob */
 	pm_qos_add_request(
@@ -817,11 +819,15 @@ void MFBQOS_Init(void)
 	/* Call mm_qos_add_request */
 	/* when initialize module or driver prob */
 #if (MTK_MFB_REG_VERSION >= 2)
-	mm_qos_add_request(&module_request_list,
-		&mfb_mmqos_request, M4U_PORT_L11_IMG_MFB_RDMA0);
+	for (i = 0; i < MFB_PORT_NUM; i++) {
+		mm_qos_add_request(&module_request_list,
+			&mfb_mmqos_request[i], M4U_PORT_L11_IMG_MFB_RDMA0+i);
+	}
 #else
-	mm_qos_add_request(&module_request_list,
-		&mfb_mmqos_request, M4U_PORT_L9_IMG_MFB_RDMA0_MDP);
+	for (i = 0; i < MFB_PORT_NUM; i++) {
+		mm_qos_add_request(&module_request_list,
+			&mfb_mmqos_request[i], M4U_PORT_L9_IMG_MFB_RDMA0_MDP+i);
+	}
 #endif
 }
 
@@ -836,6 +842,8 @@ void MFBQOS_Uninit(void)
 
 void MFBQOS_Update(bool start, unsigned int scen, unsigned long bw)
 {
+	int i;
+
 	LOG_DBG("start: %d, MFB scen: %d, bw: %lu", start, scen, bw);
 	if (start) { /* start MFB, configure MMDVFS to highest CLK */
 		LOG_DBG("MFB total: %ld", qos_total);
@@ -880,19 +888,15 @@ void MFBQOS_Update(bool start, unsigned int scen, unsigned long bw)
 			pm_qos_update_request(&mfb_pmqos_request, 0);
 		}
 	}
-#if 0 /*YWtodo*/
-	if (start) {
-		/* Call mm_qos_set_request API to setup estimated data bw */
-		mm_qos_set_request(&mfb_mmqos_request,
-					bw/1000000, 0, BW_COMP_NONE);
-		/* Call mm_qos_update_all_requests API */
-		/* update necessary HW configuration for MM BW */
-		mm_qos_update_all_request(&module_request_list);
-	} else {
-		mm_qos_set_request(&mfb_mmqos_request, 0, 0, BW_COMP_NONE);
-		mm_qos_update_all_request(&module_request_list);
+
+	for (i = 0; i < MFB_PORT_NUM; i++) {
+	/* Call mm_qos_set_request API to setup estimated data bw */
+		mm_qos_set_request(&mfb_mmqos_request[i],
+					qos_total/1000000, 0, BW_COMP_NONE);
 	}
-#endif
+	/* Call mm_qos_update_all_requests API */
+	/* update necessary HW configuration for MM BW */
+	mm_qos_update_all_request(&module_request_list);
 }
 #endif
 
