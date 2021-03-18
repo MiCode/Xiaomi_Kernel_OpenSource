@@ -775,6 +775,10 @@ struct DISP_AAL_INITREG {
 	int act_win_y_end;
 	int blk_num_x_start;
 	int blk_num_x_end;
+	int dre0_blk_num_x_start;
+	int dre0_blk_num_x_end;
+	int dre1_blk_num_x_start;
+	int dre1_blk_num_x_end;
 	int blk_cnt_x_start;
 	int blk_cnt_x_end;
 	int blk_num_y_start;

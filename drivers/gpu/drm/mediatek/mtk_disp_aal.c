@@ -1010,13 +1010,34 @@ static void disp_aal_dre3_config(struct mtk_ddp_comp *comp,
 		((init_regs->dre_blk_x_num-1) << 13) |
 		(init_regs->dre_blk_width-1), ~0);
 #else
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		dre3_pa + MDP_AAL_TILE_00,
-		(0x1 << 21) | (0x1 << 20) |
-		(init_regs->blk_num_x_end << 15) |
-		(init_regs->blk_num_x_start << 10) |
-		(init_regs->blk_num_y_end << 5) |
-		init_regs->blk_num_y_start, ~0);
+	if (comp->mtk_crtc->is_dual_pipe) {
+		if (comp->id == DDP_COMPONENT_AAL0) {
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				dre3_pa + MDP_AAL_TILE_00,
+				(0x1 << 21) | (0x1 << 20) |
+				(init_regs->dre0_blk_num_x_end << 15) |
+				(init_regs->dre0_blk_num_x_start << 10) |
+				(init_regs->blk_num_y_end << 5) |
+				init_regs->blk_num_y_start, ~0);
+		} else if (comp->id == DDP_COMPONENT_AAL1) {
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				dre3_pa + MDP_AAL_TILE_00,
+				(0x1 << 21) | (0x1 << 20) |
+				(init_regs->dre1_blk_num_x_end << 15) |
+				(init_regs->dre1_blk_num_x_start << 10) |
+				(init_regs->blk_num_y_end << 5) |
+				init_regs->blk_num_y_start, ~0);
+		}
+	} else {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			dre3_pa + MDP_AAL_TILE_00,
+			(0x1 << 21) | (0x1 << 20) |
+			(init_regs->blk_num_x_end << 15) |
+			(init_regs->blk_num_x_start << 10) |
+			(init_regs->blk_num_y_end << 5) |
+			init_regs->blk_num_y_start, ~0);
+	}
+
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		dre3_pa + MDP_AAL_TILE_01,
 		(init_regs->blk_cnt_x_end << (aal_data->data->bitShift)) |
@@ -1103,6 +1124,10 @@ void dump_init_reg(struct DISP_AAL_INITREG *data)
 	PRINT_INIT_REG(dre_flat_length_th);
 	PRINT_INIT_REG(blk_num_x_start);
 	PRINT_INIT_REG(blk_num_x_end);
+	PRINT_INIT_REG(dre0_blk_num_x_start);
+	PRINT_INIT_REG(dre0_blk_num_x_end);
+	PRINT_INIT_REG(dre1_blk_num_x_start);
+	PRINT_INIT_REG(dre1_blk_num_x_end);
 	PRINT_INIT_REG(blk_cnt_x_start);
 	PRINT_INIT_REG(blk_cnt_x_end);
 	PRINT_INIT_REG(blk_num_y_start);

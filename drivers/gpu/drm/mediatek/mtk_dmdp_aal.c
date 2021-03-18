@@ -151,6 +151,8 @@ struct aal_backup { /* structure for backup AAL register value */
 	unsigned int DUAL_PIPE_INFO_00;
 	unsigned int DUAL_PIPE_INFO_01;
 	unsigned int TILE_00;
+	unsigned int DRE0_TILE_00;
+	unsigned int DRE1_TILE_00;
 	unsigned int TILE_01;
 	unsigned int TILE_02;
 };
@@ -203,12 +205,20 @@ static void ddp_aal_dre3_backup(struct mtk_ddp_comp *comp)
 		readl(comp->regs + DMDP_AAL_DUAL_PIPE_INFO_00);
 	g_aal_backup.DUAL_PIPE_INFO_01 =
 		readl(comp->regs + DMDP_AAL_DUAL_PIPE_INFO_01);
-	g_aal_backup.TILE_00 =
-		readl(comp->regs + DMDP_AAL_TILE_00);
 	g_aal_backup.TILE_01 =
 		readl(comp->regs + DMDP_AAL_TILE_01);
 	g_aal_backup.TILE_02 =
 		readl(comp->regs + DMDP_AAL_TILE_02);
+	if (comp->mtk_crtc->is_dual_pipe) {
+		if (comp->id == DDP_COMPONENT_DMDP_AAL0)
+			g_aal_backup.DRE0_TILE_00 =
+					readl(comp->regs + DMDP_AAL_TILE_00);
+		else if (comp->id == DDP_COMPONENT_DMDP_AAL1)
+			g_aal_backup.DRE1_TILE_00 =
+					readl(comp->regs + DMDP_AAL_TILE_00);
+	} else
+		g_aal_backup.TILE_00 =
+			readl(comp->regs + DMDP_AAL_TILE_00);
 }
 
 static void ddp_aal_dre_backup(struct mtk_ddp_comp *comp)
@@ -257,12 +267,21 @@ static void ddp_aal_dre3_restore(struct mtk_ddp_comp *comp)
 		g_aal_backup.DUAL_PIPE_INFO_00, ~0);
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_DUAL_PIPE_INFO_01,
 		g_aal_backup.DUAL_PIPE_INFO_01, ~0);
-	mtk_aal_write_mask(comp->regs + DMDP_AAL_TILE_00,
-		g_aal_backup.TILE_00, ~0);
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_TILE_01,
 		g_aal_backup.TILE_01, ~0);
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_TILE_02,
 		g_aal_backup.TILE_02, ~0);
+
+	if (comp->mtk_crtc->is_dual_pipe) {
+		if (comp->id == DDP_COMPONENT_DMDP_AAL0)
+			mtk_aal_write_mask(comp->regs + DMDP_AAL_TILE_00,
+				g_aal_backup.DRE0_TILE_00, ~0);
+		else if (comp->id == DDP_COMPONENT_DMDP_AAL1)
+			mtk_aal_write_mask(comp->regs + DMDP_AAL_TILE_00,
+				g_aal_backup.DRE1_TILE_00, ~0);
+	} else
+		mtk_aal_write_mask(comp->regs + DMDP_AAL_TILE_00,
+			g_aal_backup.TILE_00, ~0);
 }
 
 static void ddp_aal_dre_restore(struct mtk_ddp_comp *comp)
