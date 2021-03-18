@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, 2021 The Linux Foundation. All rights reserved.
  */
 
 #ifndef _QCOM_INLINE_CRYPTO_ENGINE_H_
@@ -116,15 +116,15 @@ int qcom_ice_config_start(struct request *req,
 #else
 static inline int enable_ice_setup(struct ice_device *ice_dev)
 {
-	return 0;
+	return -ENODEV;
 }
 static inline int disable_ice_setup(struct ice_device *ice_dev)
 {
-	return 0;
+	return -ENODEV;
 }
 static inline int qcom_ice_setup_ice_hw(const char *storage_type, int enable)
 {
-	return 0;
+	return -ENODEV;
 }
 static inline void qcom_ice_set_fde_flag(int flag) {}
 static inline struct list_head *get_ice_dev_list(void)
