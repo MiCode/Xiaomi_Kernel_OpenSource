@@ -51,18 +51,6 @@ static const struct mt6360_pmic_platform_data def_platform_data = {
 	.pwr_off_seq = { 0x06, 0x04, 0x00, 0x02 },
 };
 
-static const u8 sys_ctrl_mask[MT6360_SYS_CTRLS_NUM] = {
-	0xfe, 0xc0, 0xff
-};
-
-static const u8 buck_ctrl_mask[MT6360_BUCK_CTRLS_NUM] = {
-	0xff, 0xff, 0xff, 0xff, 0xff, 0x8f, 0xff, 0xff
-};
-
-static const u8 ldo_ctrl_mask[MT6360_LDO_CTRLS_NUM] = {
-	0xff, 0x8f, 0x3f, 0xfe, 0xff
-};
-
 static int mt6360_pmic_read_device(void *client, u32 addr, int len, void *dst)
 {
 	struct i2c_client *i2c = client;

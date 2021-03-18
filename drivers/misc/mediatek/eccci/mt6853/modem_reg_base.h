@@ -19,9 +19,8 @@
 /* ============================================================ */
 
 #define MD_BOOT_VECTOR_EN 0x20000024
-#ifndef CCCI_PLATFORM_MT6877
 #define INFRA_AO_MD_SRCCLKENA    (0xF0C) /* SRC CLK ENA */
-#endif
+
 #define MD_PCORE_PCCIF_BASE 0x20510000
 
 #define CCIF_SRAM_SIZE 512

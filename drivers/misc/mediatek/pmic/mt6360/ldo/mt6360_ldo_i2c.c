@@ -43,10 +43,6 @@ struct mt6360_regulator_desc {
 	unsigned int moder_mask;
 };
 
-static const u8 ldo_ctrl_mask[MT6360_LDO_CTRLS_NUM] = {
-	0xff, 0x8f, 0xff, 0xff, 0xff
-};
-
 static int mt6360_ldo_read_device(void *client, u32 addr, int len, void *dst)
 {
 	struct i2c_client *i2c = client;
