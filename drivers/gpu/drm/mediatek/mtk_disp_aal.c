@@ -837,7 +837,6 @@ static int disp_aal_copy_hist_to_user(struct DISP_AAL_HIST *hist)
 
 	/* We assume only one thread will call this function */
 	spin_lock_irqsave(&g_aal_hist_lock, flags);
-	memcpy(&g_aal_hist_db, &g_aal_hist, sizeof(g_aal_hist));
 
 #if defined(CONFIG_MTK_DRE30_SUPPORT)
 	memcpy(&g_aal_dre30_hist_db, &g_aal_dre30_hist,
@@ -852,6 +851,9 @@ static int disp_aal_copy_hist_to_user(struct DISP_AAL_HIST *hist)
 	g_aal_hist.serviceFlags = 0;
 	atomic_set(&g_aal0_hist_available, 0);
 	atomic_set(&g_aal1_hist_available, 0);
+
+	memcpy(&g_aal_hist_db, &g_aal_hist, sizeof(g_aal_hist));
+
 	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 
 #if defined(CONFIG_MTK_DRE30_SUPPORT)
