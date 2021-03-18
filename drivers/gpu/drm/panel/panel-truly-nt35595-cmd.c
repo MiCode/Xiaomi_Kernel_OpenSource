@@ -1078,7 +1078,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 		if (!ctx->backlight)
 			return -EPROBE_DEFER;
 	}
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	ctx->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx->reset_gpio)) {
 		dev_err(dev, "cannot get reset-gpios %ld\n",
@@ -1102,7 +1102,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 		return PTR_ERR(ctx->bias_neg);
 	}
 	devm_gpiod_put(dev, ctx->bias_neg);
-
+#endif
 	ctx->prepared = true;
 	ctx->enabled = true;
 
