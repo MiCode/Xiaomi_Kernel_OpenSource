@@ -1802,6 +1802,9 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 	case 0x04:
 		segment_id = MT6833M_SEGMENT;    /* 5G-CM */
 		break;
+	case 0x06:
+		segment_id = MT6833T_SEGMENT;    /* 5G-C+ */
+		break;
 	default:
 		segment_id = MT6833_SEGMENT;
 		gpufreq_pr_info("@%s: invalid efuse_id(0x%x)\n",
@@ -3076,10 +3079,12 @@ static void __mt_gpufreq_init_table(void)
 	unsigned int i = 0;
 
 	/* determine max_opp/num/segment_table... by segment  */
-	if (segment_id == MT6833_SEGMENT)
+	if (segment_id == MT6833_SEGMENT)    /* 5G-C */
 		g_segment_max_opp_idx = 11;
-	else if (segment_id == MT6833M_SEGMENT)
+	else if (segment_id == MT6833M_SEGMENT)    /* 5G-CM */
 		g_segment_max_opp_idx = 24;
+	else if (segment_id == MT6833T_SEGMENT)    /* 5G-C+ */
+		g_segment_max_opp_idx = 0;
 	else
 		g_segment_max_opp_idx = 0;
 
