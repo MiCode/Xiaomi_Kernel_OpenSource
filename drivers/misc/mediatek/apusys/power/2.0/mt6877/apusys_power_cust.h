@@ -39,7 +39,7 @@
 #define DVFS_ASSERTION_CHECK (1)
 #define VCORE_DVFS_SUPPORT	(0)
 #define ASSERTION_PERCENTAGE	(1)	// 1%
-#define BINNING_VOLTAGE_SUPPORT (0)
+#define BINNING_VOLTAGE_SUPPORT (1)
 #define SUPPORT_HW_CONTROL_PMIC	(0)
 #define TIME_PROFILING		(0)
 #define APUSYS_SETTLE_TIME_TEST (0)
@@ -73,7 +73,7 @@
 #define CCF_SET_RATE		(0)
 
 /* Raise up lowest voltage */
-#define VOLTAGE_RAISE_UP	(0)
+#define VOLTAGE_RAISE_UP	(1)
 
 // FIXME: check default value with APUSYS_DEFAULT_OPP
 #define VCORE_DEFAULT_VOLT	DVFS_VOLT_00_550000_V
