@@ -45,6 +45,16 @@
 
 static struct SENINF gseninf;
 
+extern MUINT32 Switch_Tg_For_Stagger(MUINT16 camtg)
+{
+#ifdef _CAM_MUX_SWITCH
+	return _switch_tg_for_stagger(camtg, &gseninf);
+#else
+	return 0;
+#endif
+}
+EXPORT_SYMBOL(Switch_Tg_For_Stagger);
+
 #if 1
 MINT32 seninf_dump_reg(void)
 {
@@ -315,7 +325,12 @@ static long seninf_ioctl(struct file *pfile,
 			ret = ERROR_TEE_CA_TA_FAIL;
 		break;
 #endif
-
+	case KDSENINFIOC_SET_CAM_MUX_FOR_SWITCH:
+#ifdef _CAM_MUX_SWITCH
+		ret = _seninf_set_tg_for_switch(
+			(*(unsigned int *)pbuff) >> 16, (*(unsigned int *)pbuff) & 0xFFFF);
+#endif
+		break;
 	default:
 		PK_DBG("No such command %d\n", cmd);
 		ret = -EPERM;

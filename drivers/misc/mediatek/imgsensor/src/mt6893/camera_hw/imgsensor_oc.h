@@ -11,19 +11,20 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#ifndef __SENINF_CFG_H__
-#define __SENINF_CFG_H__
+#ifndef __IMGSENSOR_OC_H__
+#define __IMGSENSOR_OC_H__
 
-#define _CAM_MUX_SWITCH
-#define SENINF_MAX_NUM 8
+#include "imgsensor.h"
+#include "imgsensor_common.h"
+#include "imgsensor_hw.h"
 
-#define SENINF_MAP_BASE_REG  0x1A004000
-#define SENINF_MAP_BASE_ANA  0x11C80000
-#define SENINF_MAP_BASE_GPIO 0xFFFFFFFF
+#define IMGSENSOR_OC_ENABLE
 
-#define SENINF_MAP_LENGTH_REG  0xA000
-#define SENINF_MAP_LENGTH_ANA  0x10000
-#define SENINF_MAP_LENGTH_GPIO 0x00000
+enum IMGSENSOR_RETURN imgsensor_oc_init(void);
+enum IMGSENSOR_RETURN
+	imgsensor_oc_interrupt(enum IMGSENSOR_HW_POWER_STATUS pwr_status);
+
+extern struct IMGSENSOR gimgsensor;
 
 #endif
 

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2017 MediaTek Inc.
+# Copyright (C) 2015 MediaTek Inc.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -11,5 +11,5 @@
 # GNU General Public License for more details.
 #
 
-# obj-y += ../../common/v1_1/seninf_clk.o
-obj-y += seninf_impl.o
+obj-y += imx519mipiraw_Sensor.o
+obj-y += imx519_eeprom.o

@@ -75,6 +75,7 @@ struct imgsensor_struct {
 	kal_uint8 hdr_mode;
 	kal_uint8 i2c_write_id; /* record current sensor's i2c write id */
 	kal_uint8  AE_binning_type;
+	kal_bool extend_frame_length_en;
 };
 
 /* SENSOR PRIVATE STRUCT FOR CONSTANT*/

@@ -1024,6 +1024,7 @@ static kal_uint32 streaming_control(kal_bool enable)
 }
 
 #if USE_BURST_MODE
+#define MULTI_WRITE 0
 #define I2C_BUFFER_LEN 255 /* trans# max is 255, each 3 bytes */
 static kal_uint16 imx586_table_write_cmos_sensor(kal_uint16 *para,
 						 kal_uint32 len)
@@ -1050,6 +1051,7 @@ static kal_uint16 imx586_table_write_cmos_sensor(kal_uint16 *para,
 		/* Write when remain buffer size is less than 3 bytes
 		 * or reach end of data
 		 */
+#if MULTI_WRITE
 		if ((I2C_BUFFER_LEN - tosend) < 3
 			|| IDX == len || addr != addr_last) {
 			iBurstWriteReg_multi(puSendCmd,
@@ -1059,6 +1061,10 @@ static kal_uint16 imx586_table_write_cmos_sensor(kal_uint16 *para,
 						imgsensor_info.i2c_speed);
 			tosend = 0;
 		}
+#else
+		iWriteRegI2C(puSendCmd, 3, imgsensor.i2c_write_id);
+		tosend = 0;
+#endif
 	}
 	return 0;
 }
@@ -1532,6 +1538,13 @@ static kal_uint16 imx586_capture_setting[] = {
 	0x3E3B, 0x01,
 	0x4434, 0x01,
 	0x4435, 0xF0,
+	/*cphy global timing*/
+	0x0808, 0x02,
+	0x084f, 0x08,
+	0x0851, 0x07,
+	0x0853, 0x0e,
+	0x0855, 0x14,
+	0x0859, 0x1c
 #endif
 };
 
@@ -1733,6 +1746,12 @@ static kal_uint16 imx586_preview_setting[] = {
 	0x3E3B, 0x01,
 	0x4434, 0x01,
 	0x4435, 0xF0,
+	0x0808, 0x02,
+	0x084f, 0x12,
+	0x0851, 0x0f,
+	0x0853, 0x1e,
+	0x0855, 0x14,
+	0x0859, 0x1c
 #endif
 };
 
@@ -1842,6 +1861,13 @@ static kal_uint16 imx586_custom2_setting[] = {
 	0x3E3B, 0x01,
 	0x4434, 0x01,
 	0x4435, 0xE0,
+	/*cphy global timing*/
+	0x0808, 0x02,
+	0x084f, 0x08,
+	0x0851, 0x07,
+	0x0853, 0x0e,
+	0x0855, 0x14,
+	0x0859, 0x1c
 };
 
 static kal_uint16 imx586_normal_video_setting[] = {
@@ -1949,6 +1975,13 @@ static kal_uint16 imx586_normal_video_setting[] = {
 	0x3E3B, 0x01,
 	0x4434, 0x01,
 	0x4435, 0xF0,
+	/*cphy global timing*/
+	0x0808, 0x02,
+	0x084f, 0x08,
+	0x0851, 0x07,
+	0x0853, 0x0e,
+	0x0855, 0x14,
+	0x0859, 0x1c
 };
 
 static kal_uint16 imx586_hs_video_setting[] = {
@@ -2056,6 +2089,13 @@ static kal_uint16 imx586_hs_video_setting[] = {
 	0x3E3B, 0x00,
 	0x4434, 0x00,
 	0x4435, 0xF8,
+	/*cphy global timing*/
+	0x0808, 0x02,
+	0x084f, 0x08,
+	0x0851, 0x07,
+	0x0853, 0x0e,
+	0x0855, 0x14,
+	0x0859, 0x1c
 };
 
 static kal_uint16 imx586_slim_video_setting[] = {
@@ -2163,6 +2203,13 @@ static kal_uint16 imx586_slim_video_setting[] = {
 	0x3E3B, 0x01,
 	0x4434, 0x01,
 	0x4435, 0xF0,
+	/*cphy global timing*/
+	0x0808, 0x02,
+	0x084f, 0x08,
+	0x0851, 0x07,
+	0x0853, 0x0e,
+	0x0855, 0x14,
+	0x0859, 0x1c
 };
 
 static kal_uint16 imx586_custom1_setting[] = {
@@ -2268,6 +2315,13 @@ static kal_uint16 imx586_custom1_setting[] = {
 	/*PDAF TYPE1 Setting*/
 	0x3E20, 0x01,
 	0x3E37, 0x00,
+	/*cphy global timing*/
+	0x0808, 0x02,
+	0x084f, 0x17,
+	0x0851, 0x12,
+	0x0853, 0x25,
+	0x0855, 0x14,
+	0x0859, 0x1c
 };
 
 static kal_uint16 imx586_custom4_setting[] = {
@@ -2373,6 +2427,13 @@ static kal_uint16 imx586_custom4_setting[] = {
 	/*PDAF TYPE1 Setting*/
 	0x3E20, 0x01,
 	0x3E3B, 0x00,
+	/*cphy global timing*/
+	0x0808, 0x02,
+	0x084f, 0x17,
+	0x0851, 0x12,
+	0x0853, 0x25,
+	0x0855, 0x14,
+	0x0859, 0x1c
 };
 
 static kal_uint16 imx586_custom3_setting[] = {
@@ -2479,7 +2540,14 @@ static kal_uint16 imx586_custom3_setting[] = {
 	0x3E20, 0x02,
 	0x3E3B, 0x01,
 	0x4434, 0x01,
-	0x4435, 0xE0,
+	0x4435, 0xF0,
+	/*cphy global timing*/
+	0x0808, 0x02,
+	0x084f, 0x17,
+	0x0851, 0x12,
+	0x0853, 0x25,
+	0x0855, 0x14,
+	0x0859, 0x1c
 };
 
 
@@ -3906,10 +3974,10 @@ static kal_uint32 seamless_switch(enum MSDK_SCENARIO_ID_ENUM scenario_id,
 				gain & 0xff;
 		}
 		if (shutter != 0) {
-			imx586_seamless_custom3[3] =
-				(gain >> 8) & 0xff;
-			imx586_seamless_custom3[5] =
-				gain & 0xff;
+			imx586_seamless_custom3[7] =
+				(shutter >> 8) & 0xff;
+			imx586_seamless_custom3[9] =
+				shutter & 0xff;
 		}
 
 		pr_info("seamless switch Full remosaic!\n");
@@ -4878,7 +4946,6 @@ break;
 		 (struct SENSOR_VC_INFO_STRUCT *)(uintptr_t)(*(feature_data+1));
 		switch (*feature_data_32) {
 		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
-		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
 		case MSDK_SCENARIO_ID_CUSTOM5:
 		case MSDK_SCENARIO_ID_CUSTOM6:
 		case MSDK_SCENARIO_ID_CUSTOM7:
@@ -4924,6 +4991,10 @@ break;
 			break;
 		case MSDK_SCENARIO_ID_CUSTOM4:
 			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[6],
+				sizeof(struct SENSOR_VC_INFO_STRUCT));
+			break;
+		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
+			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[7],
 				sizeof(struct SENSOR_VC_INFO_STRUCT));
 			break;
 		default:
@@ -5004,6 +5075,17 @@ break;
 		case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
 		case MSDK_SCENARIO_ID_CUSTOM1:
 		case MSDK_SCENARIO_ID_CUSTOM2:
+		case MSDK_SCENARIO_ID_CUSTOM5:
+		case MSDK_SCENARIO_ID_CUSTOM6:
+		case MSDK_SCENARIO_ID_CUSTOM7:
+		case MSDK_SCENARIO_ID_CUSTOM8:
+		case MSDK_SCENARIO_ID_CUSTOM9:
+		case MSDK_SCENARIO_ID_CUSTOM10:
+		case MSDK_SCENARIO_ID_CUSTOM11:
+		case MSDK_SCENARIO_ID_CUSTOM12:
+		case MSDK_SCENARIO_ID_CUSTOM13:
+		case MSDK_SCENARIO_ID_CUSTOM14:
+		case MSDK_SCENARIO_ID_CUSTOM15:
 		default:
 			*pScenarios = 0xff;
 			break;
