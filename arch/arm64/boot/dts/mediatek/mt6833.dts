@@ -497,6 +497,40 @@ page_owner=on loop.max_part=7";
 			     <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	bus_parity {
+		compatible = "mediatek,mt6885-bus-parity";
+		reg = <0 0x0c538800 0 0x20>,
+			<0 0x0c538820 0 0x20>,
+			<0 0x0c538840 0 0x20>,
+			<0 0x0c538860 0 0x40>,
+			<0 0x0c5388A0 0 0x30>,
+			<0 0x0c5388D0 0 0x30>,
+			<0 0x10001780 0 0x14>,
+			<0 0x10001794 0 0x14>,
+			<0 0x100017A8 0 0x14>,
+			<0 0x100017BC 0 0x8>,
+			/*<0 0x1030E078 0 0x14>,*/
+			/*<0 0x1030E08C 0 0x14>,*/
+			<0 0x0c53A39C 0 0x4>;
+
+		interrupts = <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>,	/* MCU */
+			   <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>;	/* Infra */
+		interrupt-names = "mcu-bus-parity", "infra-bus-parity";
+
+		mcu-names = "MST_CCIM0", "MST_CCIM1", "MST_INTAXI", "SLV_1TO2",
+			"SLV_L3C", "SLV_GIC";
+		infra-names = "MCU2EMI_M0", "MCU2EMI_M1", "MCU2IFR_REG",
+			"INF_L3C2MCU";
+		/*infra-names = "MCU2EMI_M0", "MCU2EMI_M1", "MCU2IFR_REG",*/
+		/*	"INF_L3C2MCU", "MCU2SUB_EMI_M0", "MCU2SUB_EMI_M1";*/
+
+		mcu-types = <0 0 0 1 1 1>;
+		infra-types = <1 1 1 0>;
+		/*infra-types = <1 1 1 0 1 1>;*/
+
+		mcu-data-len = <4 4 2 4 2 2>;
+	};
+
 	qos@0011bb00 {
 		compatible = "mediatek,qos-2.0";
 		reg = <0 0x0011bb00 0 0x100>;
