@@ -36,11 +36,11 @@
 	vcore-supply = <&mt_pmic_vgpu11_buck_reg>;
 	clocks = <&infracfg_ao_clk CLK_IFRAO_MSDC0_SRC>,
 		<&infracfg_ao_clk CLK_IFRAO_MSDC0>,
-		<&infracfg_ao_clk CLK_IFRAO_MSDC0_AES>,
+		<&infracfg_ao_clk CLK_IFRAO_RG_AES_CK_0P_CK>,
+		<&topckgen_clk CLK_TOP_MSDC50_0_HCLK_SEL>,
 		<&msdc0_clk CLK_MSDC0_MSDC_NEW_RX_PATH_SEL>;
 	clock-names = "msdc0-clock", "msdc0-hclock", "msdc0-aes-clock",
-			"msdc0-newrx-clock";
-	//support_new_rx;
+			"msdc0-src-hclk", "msdc0-newrx-clock";
 };
 
 
@@ -50,18 +50,21 @@
 	bus-width = <4>;
 	max-frequency = <200000000>;
 	cap-sd-highspeed;
+	cap-mmc-highspeed;
 	sd-uhs-sdr12;
 	sd-uhs-sdr25;
 	sd-uhs-sdr50;
 	sd-uhs-sdr104;
 	sd-uhs-ddr50;
-	no-mmc;
+	mmc-ddr-1_8v;
+	mmc-hs200-1_8v;
 	no-sdio;
 
 	pinctl = <&msdc1_pins_default>;
 	pinctl_sdr104 = <&msdc1_pins_sdr104>;
 	pinctl_sdr50 = <&msdc1_pins_sdr50>;
 	pinctl_ddr50 = <&msdc1_pins_ddr50>;
+	pinctl_hs200 = <&msdc1_pins_hs200>;
 	register_setting = <&msdc1_register_setting_default>;
 
 	host_function = /bits/ 8 <MSDC_SD>;
@@ -177,6 +180,18 @@
 	};
 
 	msdc1_pins_ddr50: msdc1@ddr50 {
+		pins_cmd {
+			drive-strength = /bits/ 8 <3>;
+		};
+		pins_dat {
+			drive-strength = /bits/ 8 <3>;
+		};
+		pins_clk {
+			drive-strength = /bits/ 8 <3>;
+		};
+	};
+
+	msdc1_pins_hs200: msdc1@hs200 {
 		pins_cmd {
 			drive-strength = /bits/ 8 <3>;
 		};
