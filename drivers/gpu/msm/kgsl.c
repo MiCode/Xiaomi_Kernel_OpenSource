@@ -2023,12 +2023,12 @@ long kgsl_ioctl_gpu_aux_command(struct kgsl_device_private *dev_priv,
 				goto err;
 			}
 
+			drawobjs[index++] = DRAWOBJ(timelineobj);
+
 			ret = kgsl_drawobj_add_timeline(dev_priv, timelineobj,
 				u64_to_user_ptr(generic.priv), generic.size);
 			if (ret)
 				goto err;
-
-			drawobjs[index++] = DRAWOBJ(timelineobj);
 		} else {
 			ret = -EINVAL;
 			goto err;
