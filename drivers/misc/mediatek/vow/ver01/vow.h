@@ -104,8 +104,6 @@
 #define VOW_GET_GOOGLE_ENGINE_VER     _IOW(VOW_IOC_MAGIC, 0x12, unsigned int)
 #define VOW_GET_GOOGLE_ARCH           _IOW(VOW_IOC_MAGIC, 0x13, unsigned int)
 
-#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
-
 #ifdef VOW_ECHO_SW_SRC
 #define VOW_BARGEIN_DUMP_OFFSET 0x1E00
 #else
@@ -113,7 +111,6 @@
 #endif
 #define VOW_BARGEIN_DUMP_SIZE   0x3C00
 #define VOW_BARGEIN_IRQ_MAX_NUM 32
-#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
 #define KERNEL_VOW_DRV_VER              "1.0.4"
 #define DEFAULT_GOOGLE_ENGINE_VER       2147483647
@@ -158,9 +155,7 @@ struct dump_work_t {
 
 enum { /* dump_data_t */
 	DUMP_RECOG = 0,
-#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	DUMP_BARGEIN,
-#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 	NUM_DUMP_DATA,
 };
 
@@ -187,10 +182,8 @@ enum vow_ipi_msgid_t {
 	IPIMSG_VOW_SET_MODEL = 4,
 	IPIMSG_VOW_SET_FLAG = 5,
 	IPIMSG_VOW_SET_SMART_DEVICE = 6,
-#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	IPIMSG_VOW_SET_BARGEIN_ON = 10,
 	IPIMSG_VOW_SET_BARGEIN_OFF = 11,
-#endif /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 	IPIMSG_VOW_PCM_DUMP_ON = 12,
 	IPIMSG_VOW_PCM_DUMP_OFF = 13,
 	IPIMSG_VOW_COMBINED_INFO = 17,
@@ -428,7 +421,6 @@ struct vow_ipi_combined_info_t {
 	/* IPIMSG_VOW_DATAREADY */
 	unsigned int voice_buf_offset;
 	unsigned int voice_length;
-#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	/* IPIMSG_VOW_BARGEIN_DUMP_INFO */
 	unsigned int dump_frm_cnt;
 	unsigned int voice_sample_delay;
@@ -441,7 +433,6 @@ struct vow_ipi_combined_info_t {
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 	unsigned int echo_dump_size;
 	unsigned int echo_offset;
-#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 	unsigned int recog_dump_size;
 	unsigned int recog_dump_offset;
 #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
