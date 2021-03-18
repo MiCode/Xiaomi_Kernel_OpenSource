@@ -3,6 +3,7 @@
 #
 
 obj-$(CONFIG_PHY_MTK_TPHY)		+= phy-mtk-tphy.o
+obj-$(CONFIG_PHY_MTK_FPGAPHY)		+= phy-mtk-fpga.o
 
 ifeq ($(CONFIG_PHY_MTK_USB),y)
 obj-y					+= phy-mtk.o

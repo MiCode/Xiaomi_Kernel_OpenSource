@@ -23,3 +23,9 @@ config PHY_MTK_USB
 	  Enables support for ASIC PHY.
 	  This driver provides interface to interact with USB 2.0 and
 	  USB 3.0 PHY that is part of the Mediatek SOC.
+
+config PHY_MTK_FPGAPHY
+	tristate "MediaTek FPGA-PHY Driver"
+	select GENERIC_PHY
+	help
+	  Enable this to support A60931/A60810 FPGA PHY.
