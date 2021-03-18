@@ -244,7 +244,9 @@ static bool mtk_btag_is_top_task(struct task_struct *task, int mode, unsigned lo
 		return true;
 
 	if (task->tgid && task->tgid != task->pid) {
+		rcu_read_lock();
 		t_tgid = find_task_by_vpid(task->tgid);
+		rcu_read_unlock();
 		if (t_tgid) {
 			cid_tgid =
 				mtk_btag_get_schedtune_cgrp_id(t_tgid);
