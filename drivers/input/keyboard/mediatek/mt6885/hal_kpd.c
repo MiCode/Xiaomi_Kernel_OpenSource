@@ -55,6 +55,8 @@ void kpd_get_keymap_state(u16 state[])
 void long_press_reboot_function_setting(void)
 {
 #ifdef CONFIG_MTK_PMIC_NEW_ARCH /*for pmic not ready*/
+	/* unlock PMIC protect key */
+	pmic_set_register_value(PMIC_RG_CPS_W_KEY, 0x4729);
 	if (kpd_enable_lprst && get_boot_mode() == NORMAL_BOOT) {
 		kpd_info("Normal Boot long press reboot selection\n");
 
@@ -96,6 +98,8 @@ void long_press_reboot_function_setting(void)
 #endif
 
 	}
+	/* lock PMIC protect key */
+	pmic_set_register_value(PMIC_RG_CPS_W_KEY, 0);
 #endif
 }
 
