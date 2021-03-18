@@ -352,9 +352,9 @@
 				"pcie_1_phy_reset";
 
 		dma-coherent;
-		qcom,smmu-sid-base = <0x1e00>;
-		iommu-map = <0x0 &apps_smmu 0x1e00 0x1>,
-			<0x100 &apps_smmu 0x1e01 0x1>;
+		qcom,smmu-sid-base = <0x1c80>;
+		iommu-map = <0x0 &apps_smmu 0x1c80 0x1>,
+			<0x100 &apps_smmu 0x1c81 0x1>;
 
 		qcom,boot-option = <0x1>;
 		qcom,aux-clk-freq = <17>; /* 16.6 MHz */
