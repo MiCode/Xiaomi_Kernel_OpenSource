@@ -914,12 +914,36 @@ static void process_log_block(struct adreno_device *adreno_dev, void *data)
 	}
 }
 
+static void process_f2h_list(struct adreno_device *adreno_dev,
+		struct llist_head *head)
+{
+	struct llist_node *list;
+	struct f2h_packet *pkt, *tmp;
+
+	list = llist_del_all(head);
+	if (!list)
+		return;
+
+	list = llist_reverse_order(list);
+
+	llist_for_each_entry_safe(pkt, tmp, list, node) {
+		if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_TS_RETIRE)
+			process_ts_retire(adreno_dev, pkt->rcvd);
+
+		if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_CONTEXT_BAD)
+			process_ctx_bad(adreno_dev, pkt->rcvd);
+
+		if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_LOG_BLOCK)
+			process_log_block(adreno_dev, pkt->rcvd);
+
+		kmem_cache_free(f2h_cache, pkt);
+	}
+}
+
 static int hfi_f2h_main(void *arg)
 {
 	struct adreno_device *adreno_dev = arg;
 	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
-	struct llist_node *list;
-	struct f2h_packet *pkt, *tmp;
 
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(hfi->f2h_wq,
@@ -930,29 +954,10 @@ static int hfi_f2h_main(void *arg)
 		if (kthread_should_stop())
 			break;
 
-		list = llist_del_all(&hfi->f2h_msglist);
-
-		list = llist_reverse_order(list);
-
-		llist_for_each_entry_safe(pkt, tmp, list, node) {
-			if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_TS_RETIRE)
-				process_ts_retire(adreno_dev, pkt->rcvd);
-
-			if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_CONTEXT_BAD)
-				process_ctx_bad(adreno_dev, pkt->rcvd);
-
-			kmem_cache_free(f2h_cache, pkt);
-		}
+		process_f2h_list(adreno_dev, &hfi->f2h_msglist);
 
 		/* Process packets on the secondary list after the primary list */
-		list = llist_del_all(&hfi->f2h_secondary_list);
-		list = llist_reverse_order(list);
-		llist_for_each_entry_safe(pkt, tmp, list, node) {
-			if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_LOG_BLOCK)
-				process_log_block(adreno_dev, pkt->rcvd);
-
-			kmem_cache_free(f2h_cache, pkt);
-		}
+		process_f2h_list(adreno_dev, &hfi->f2h_secondary_list);
 	}
 
 	return 0;
