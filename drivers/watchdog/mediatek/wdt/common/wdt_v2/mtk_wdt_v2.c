@@ -1473,9 +1473,8 @@ static int mtk_wdt_probe(struct platform_device *dev)
 	if (!apxgpt_base)
 		pr_debug("apxgpt iomap failed\n");
 	else {
-		ret = of_property_read_u32(np_apxgpt, "mediatek,kick_off",
-					   &kick_dbg_off);
-		if (ret)
+		if (of_property_read_u32(np_apxgpt, "mediatek,kick_off",
+					   &kick_dbg_off))
 			kick_dbg_off = 0;
 	}
 
