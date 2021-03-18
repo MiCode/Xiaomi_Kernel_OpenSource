@@ -1373,10 +1373,6 @@ static int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba,
 			break;
 		}
 
-		dev_info(hba->dev, "%s: tr: %lu, tm: %lu\n",
-			 hweight_long(tr_doorbell),
-			 hweight_long(tm_doorbell));
-
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
 		schedule();
 		if (ktime_to_us(ktime_sub(ktime_get(), start)) >
