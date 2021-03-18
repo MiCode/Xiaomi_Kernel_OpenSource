@@ -2134,8 +2134,52 @@ mtk_dsi_connector_detect(struct drm_connector *connector, bool force)
 static int mtk_dsi_connector_get_modes(struct drm_connector *connector)
 {
 	struct mtk_dsi *dsi = connector_to_dsi(connector);
+#ifndef CONFIG_MTK_DYN_SWITCH_BY_CMD
+	struct drm_display_mode *mode, *pt;
+	int htotal_low = 0, mcount = 0;
+#endif
+	int ret = 0;
 
-	return drm_panel_get_modes(dsi->panel);
+	ret = drm_panel_get_modes(dsi->panel);
+	if (ret <= 0)
+		return ret;
+
+#ifndef CONFIG_MTK_DYN_SWITCH_BY_CMD
+	WARN_ON(!mutex_is_locked(&connector->dev->mode_config.mutex));
+	list_for_each_entry_safe(mode, pt, &connector->probed_modes, head) {
+		if (mode->vrefresh < 90 && !htotal_low)
+			htotal_low = mode->htotal;
+		mcount++;
+	}
+	DDPMSG("%s, %d, htotal_low:%d, mcount:%d\n",
+		__func__, __LINE__, htotal_low, mcount);
+	if (!htotal_low || mcount < 2)
+		return ret;
+
+	list_for_each_entry_safe(mode, pt, &connector->probed_modes, head) {
+		if (htotal_low != mode->htotal) {
+			mcount--;
+			DDPMSG("%s, %d low=%d, invalid fps:%d, htotal:%d, total:%d\n",
+				__func__, __LINE__, htotal_low,
+				mode->vrefresh, mode->htotal, mcount);
+			list_del(&mode->head);
+			drm_mode_destroy(connector->dev, mode);
+		}
+	}
+	ret = mcount;
+
+	list_for_each_entry_safe(mode, pt, &connector->modes, head) {
+		if (htotal_low != mode->htotal) {
+			DDPMSG("%s, %d low=%d, invalid fps:%d, htotal:%d\n",
+				__func__, __LINE__, htotal_low,
+				mode->vrefresh, mode->htotal);
+			list_del(&mode->head);
+			drm_mode_destroy(connector->dev, mode);
+		}
+	}
+#endif
+
+	return ret;
 }
 
 static int mtk_dsi_atomic_check(struct drm_encoder *encoder,
@@ -2683,10 +2727,12 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 			old_mode->vtotal) {
 			fps_chg_index |= DYNFPS_DSI_VFP;
 		}
+#ifdef CONFIG_MTK_DYN_SWITCH_BY_CMD
 		if (adjust_mode->htotal !=
 			old_mode->htotal) {
 			fps_chg_index |= DYNFPS_DSI_HFP;
 		}
+#endif
 		if (panel_ext && adjust_panel_params &&
 			panel_ext->params->data_rate !=
 			adjust_panel_params->data_rate) {
@@ -2706,10 +2752,12 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 			adjust_panel_params->dyn.vfp) {
 			fps_chg_index |= DYNFPS_DSI_VFP;
 		}
+#ifdef CONFIG_MTK_DYN_SWITCH_BY_CMD
 		if (cur_panel_params->dyn.hfp !=
 			adjust_panel_params->dyn.hfp) {
 			fps_chg_index |= DYNFPS_DSI_HFP;
 		}
+#endif
 		if (cur_panel_params->dyn.pll_clk !=
 			adjust_panel_params->dyn.pll_clk) {
 			fps_chg_index |= DYNFPS_DSI_MIPI_CLK;
