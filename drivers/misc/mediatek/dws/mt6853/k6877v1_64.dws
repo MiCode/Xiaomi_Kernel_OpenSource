@@ -2094,7 +2094,7 @@
             </gpio188>
             <gpio189>
                 <eint_mode>false</eint_mode>
-                <def_mode>1</def_mode>
+                <def_mode>0</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
