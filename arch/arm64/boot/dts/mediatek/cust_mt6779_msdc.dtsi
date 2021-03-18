@@ -88,8 +88,8 @@
 	sd-uhs-sdr12;
 	sd-uhs-sdr25;
 	sd-uhs-sdr50;
-	//sd-uhs-sdr104;
-	//sd-uhs-ddr50;
+	sd-uhs-sdr104;
+	sd-uhs-ddr50;
 	cd-gpios = <&pio 8 GPIO_ACTIVE_LOW>;
 	vmmc-supply = <&mt_pmic_vmch_ldo_reg>;
 	vqmmc-supply = <&mt_pmic_vmc_ldo_reg>;
