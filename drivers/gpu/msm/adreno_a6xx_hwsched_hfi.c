@@ -770,7 +770,8 @@ int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
-	ret = a6xx_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_KPROF, 1, 0);
+	ret = a6xx_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_A6XX_KPROF,
+			1, 0);
 	if (ret)
 		goto err;
 
