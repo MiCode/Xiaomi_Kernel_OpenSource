@@ -430,9 +430,14 @@ int apu_device_power_on(enum DVFS_USER user)
 
 	if (pwr_dev->is_power_on == 1) {
 		mutex_unlock(&power_ctl_mtx);
+#if !BYPASS_POWER_OFF
 		LOG_ERR("APUPWR_ON_FAIL, not allow user:%d to pwr on twice\n",
 									user);
 		return -ECANCELED;
+#else
+		LOG_WRN("%s by user:%d bypass\n", __func__, user);
+		return 0;
+#endif
 	}
 
 	LOG_DBG("%s for user:%d, cnt:%d\n", __func__,
