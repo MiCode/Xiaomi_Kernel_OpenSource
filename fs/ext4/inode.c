@@ -1388,7 +1388,7 @@ retry_journal:
 		return ret;
 	}
 	*pagep = page;
-	mtk_btag_pidlog_set_pid(*pagep);
+	mtk_btag_pidlog_set_pid(page, PIDLOG_MODE_FS_WRITE_BEGIN, true);
 	return ret;
 }
 

@@ -224,7 +224,6 @@ static int fat_write_begin(struct file *file, struct address_space *mapping,
 	err = cont_write_begin(file, mapping, pos, len, flags,
 				pagep, fsdata, fat_get_block,
 				&MSDOS_I(mapping->host)->mmu_private);
-	mtk_btag_pidlog_set_pid(*pagep);
 	if (err < 0)
 		fat_write_failed(mapping, pos + len);
 	return err;

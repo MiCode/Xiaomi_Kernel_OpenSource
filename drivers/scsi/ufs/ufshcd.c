@@ -2204,7 +2204,6 @@ void ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 	}
 
 	__set_bit(task_tag, &hba->outstanding_reqs);
-	ufs_mtk_biolog_check(hba->outstanding_reqs);
 	ufshcd_writel(hba, 1 << task_tag, REG_UTP_TRANSFER_REQ_DOOR_BELL);
 	/* Make sure that doorbell is committed immediately */
 	wmb();
@@ -2994,12 +2993,6 @@ send_orig_cmd:
 	/* Make sure descriptors are ready before ringing the doorbell */
 	wmb();
 
-#if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSHPB)
-	if (!pre_req_err)
-		ufs_mtk_biolog_queue_command(add_tag, add_lrbp->cmd);
-#endif
-	ufs_mtk_biolog_queue_command(tag, lrbp->cmd);
-
 	/* issue command to the controller */
 	spin_lock_irqsave(hba->host->host_lock, flags);
 
@@ -3037,21 +3030,6 @@ send_orig_cmd:
 
 out_unlock:
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
-
-	/*
-	 * Logging "send_cmd" in blocktag after command is actually sent.
-	 *
-	 * Use "err" here as condition because command will be sent only
-	 * if "err" is 0.
-	 *
-	 * Note we always try to avoid logging while holding mutexes.
-	 */
-#if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSHPB)
-	if (req_sent)
-		ufs_mtk_biolog_send_command(add_tag);
-#endif
-	if (!err)
-		ufs_mtk_biolog_send_command(tag);
 out:
 #if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSHPB)
 	if (!pre_req_err) {
@@ -5658,6 +5636,7 @@ static int __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 	for_each_set_bit(index, &completed_reqs, hba->nutrs) {
 		lrbp = &hba->lrb[index];
 		cmd = lrbp->cmd;
+		ufshcd_vops_compl_xfer_req(hba, index, (cmd) ? true : false);
 		if (cmd) {
 			ufshcd_cond_add_cmd_trace(hba, index,
 				UFS_TRACE_COMPLETED);
@@ -5687,7 +5666,6 @@ static int __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 
 			ufs_mtk_perf_heurisic_req_done(hba, cmd);
 			handled_reqs |= (1UL << index);
-			ufs_mtk_biolog_transfer_req_compl(index);
 
 			cmd->result = result;
 #ifdef CONFIG_MTK_UFS_LBA_CRC16_CHECK
@@ -5724,10 +5702,8 @@ static int __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			clear_bit_unlock(index, &hba->lrb_in_use);
 
 			/* Do not touch lrbp after scsi done */
-			ufs_mtk_biolog_scsi_done_start(index); /* MTK PATCH */
 			cmd->scsi_done(cmd);
 			__ufshcd_release(hba);
-			ufs_mtk_biolog_scsi_done_end(index); /* MTK PATCH */
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE ||
 			lrbp->command_type == UTP_CMD_TYPE_UFS_STORAGE) {
 			if (hba->dev_cmd.complete) {
@@ -5743,7 +5719,6 @@ static int __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 
 	/* clear corresponding bits of completed commands */
 	hba->outstanding_reqs ^= completed_reqs;
-	ufs_mtk_biolog_check(hba->outstanding_reqs);
 	ufshcd_vops_res_ctrl(hba, UFS_RESCTL_CMD_COMP);
 	ufs_mtk_auto_hiber8_quirk_handler(hba, true);
 
