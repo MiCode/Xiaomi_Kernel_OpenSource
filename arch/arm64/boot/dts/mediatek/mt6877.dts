@@ -5622,7 +5622,7 @@
 		aed = <0x1a>;
 	};
 
-	ssusb: usb@11201000 {
+	mtu3_0: mtu3_0@11201000 {
 		compatible = "mediatek,mt6877-mtu3";
 		reg = <0 0x11201000 0 0x3000>,
 		      <0 0x11203e00 0 0x100>;
