@@ -152,6 +152,12 @@ static struct devapc_vio_callbacks devapc_test_handle = {
 	.debug_dump_adv = devapc_dump_adv_cb,
 };
 
+void __weak register_devapc_vio_callback(
+		struct devapc_vio_callbacks *viocb)
+{
+	CCCI_ERROR_LOG(-1, TAG, "[%s] is not supported!\n", __func__);
+}
+
 void ccci_md_devapc_register_cb(void)
 {
 	/*register handle function*/
