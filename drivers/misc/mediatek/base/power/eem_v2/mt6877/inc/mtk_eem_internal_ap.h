@@ -176,14 +176,10 @@ struct eemsn_devinfo {
 
 
 struct eemsn_det {
-	int64_t		cpe_init_aging;
 	int temp; /* det temperature */
 
 	/* dvfs */
 	unsigned int cur_volt;
-	unsigned int *p_sn_cpu_coef;
-	struct sn_param *p_sn_cpu_param;
-
 
 	struct eemsn_det_ops *ops;
 	enum eemsn_det_id det_id;
@@ -195,7 +191,6 @@ struct eemsn_det {
 	unsigned short eemsn_step;
 	unsigned short pmic_base;
 	unsigned short pmic_step;
-	short cpe_volt_total_mar;
 
 	/* dvfs */
 	unsigned short freq_tbl[NR_FREQ];
@@ -206,24 +201,16 @@ struct eemsn_det {
 	unsigned char volt_tbl0_min; /* pmic value */
 
 	unsigned char features; /* enum eemsn_features */
-	unsigned char cur_phase;
-	unsigned char cur_oppidx;
-
 	const char *name;
 
 	unsigned char disabled; /* Disabled by error or sysfs */
 	unsigned char num_freq_tbl;
 
-	unsigned char turn_pt;
-	unsigned char vmin_high;
-	unsigned char vmin_mid;
-	int8_t delta_vc;
-	int8_t sn_aging;
+	//unsigned char turn_pt;
+	//unsigned char vmin_high;
+	//unsigned char vmin_mid;
 	int8_t volt_offset;
 	int8_t volt_clamp;
-	/* int volt_offset:8; */
-	unsigned int delta_ir:4;
-	unsigned int delta_vdppm:5;
 
 #if UPDATE_TO_UPOWER
 	/* only when init2, eemsn need to set volt to upower */
@@ -285,32 +272,6 @@ struct sn_log_data {
 #endif
 };
 
-struct sn_param {
-	unsigned short bin_freq;
-	int Param_A_Tused_SVT;
-	int Param_A_Tused_LVT;
-	int Param_A_Tused_ULVT;
-	int Param_A_T0_SVT;
-	int Param_A_T0_LVT;
-	int Param_A_T0_ULVT;
-	int Param_ATE_temp;
-	int Param_temp;
-	int Param_INTERCEPTION;
-	int8_t A_GB;
-	int8_t Default_Aging;
-	unsigned char T_GB;
-
-	/* Formula for CPE_Vmin (Vmin prediction) */
-	//unsigned char CPE_GB;
-	//int8_t MSSV_GB;
-	unsigned int norm_temp_off:4;
-	unsigned int norm_temp_1850_off:4;
-	unsigned int norm_temp_5085_off:4;
-	unsigned int syn_ta_margin:4;
-
-};
-
-
 struct A_Tused_VT {
 	unsigned int A_Tused_SVT:16;
 	unsigned int A_Tused_LVT:16;
@@ -319,7 +280,6 @@ struct A_Tused_VT {
 };
 
 struct sn_log_cal_data {
-	/* struct sn_param sn_cpu_param; */
 	int64_t cpe_init_aging[NR_PI_VF];
 	struct A_Tused_VT atvt;
 	int TEMP_CAL;
@@ -343,11 +303,7 @@ struct eemsn_log {
 	struct eemsn_log_det det_log[NR_EEMSN_DET];
 	struct sn_log_data sn_log;
 	struct sn_log_cal_data sn_cal_data[NR_SN_DET];
-	struct sn_param sn_cpu_param[NR_SN_DET];
 	struct eemsn_devinfo efuse_devinfo;
-	//unsigned int efuse_sv;
-	//unsigned int efuse_sv2;
-	//unsigned int picachu_sn_mem_base_phys;
 	unsigned char init2_v_ready;
 	unsigned char init_vboot_done;
 	unsigned char eemsn_enable;
