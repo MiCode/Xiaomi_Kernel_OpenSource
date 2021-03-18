@@ -20,9 +20,10 @@
 #include <asm/memory.h>
 #include <linux/of_fdt.h>
 #include <linux/kmsg_dump.h>
-
+#include <linux/suspend.h>
 #include "log_store_kernel.h"
 #include "upmu_common.h"
+#include "mtk_boot_common.h"
 
 static struct sram_log_header *sram_header;
 static int sram_log_store_status = BUFF_NOT_READY;
@@ -32,7 +33,7 @@ static struct pl_lk_log *dram_curlog_header;
 static struct dram_buf_header *sram_dram_buff;
 static bool early_log_disable;
 struct proc_dir_entry *entry;
-static u32 last_boot_phase;
+static u32 last_boot_phase = FLAG_INVALID;
 
 
 #define EXPDB_PATH "/dev/block/by-name/expdb"
@@ -94,13 +95,18 @@ void set_boot_phase(u32 step)
 	int file_size = 0;
 	struct log_emmc_header pEmmc;
 
+	step &= BOOT_PHASE_MASK;
+
 #ifdef CONFIG_MTK_PMIC_COMMON
 	if (sram_header->reserve[SRAM_PMIC_BOOT_PHASE] == FLAG_ENABLE) {
 		set_pmic_boot_phase(step);
-		if (last_boot_phase == 0)
+		if (last_boot_phase == FLAG_INVALID)
 			get_pmic_boot_phase();
 	}
 #endif
+
+	sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] &= ~BOOT_PHASE_MASK;
+	sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] |= step;
 
 	if ((sram_dram_buff->flag & NEED_SAVE_TO_EMMC) == NEED_SAVE_TO_EMMC) {
 		pr_notice("log_store: set boot phase, last boot phase is %d.\n",
@@ -128,16 +134,15 @@ void set_boot_phase(u32 step)
 		pr_notice("log_store emmc header error, format it.\n");
 		memset(&pEmmc, 0, sizeof(struct log_emmc_header));
 		pEmmc.sig = LOG_EMMC_SIG;
-	} else if (last_boot_phase == 0)
+	} else if (last_boot_phase == FLAG_INVALID)
 		// get last boot phase
 		last_boot_phase = (pEmmc.reserve_flag[BOOT_STEP] >>
 			LAST_BOOT_PHASE_SHIFT) & BOOT_PHASE_MASK;
 
 	// clear now boot phase
-	pEmmc.reserve_flag[BOOT_STEP] &= (BOOT_PHASE_MASK <<
-		LAST_BOOT_PHASE_SHIFT);
+	pEmmc.reserve_flag[BOOT_STEP] &= ~BOOT_PHASE_MASK;
 	// set boot phase
-	pEmmc.reserve_flag[BOOT_STEP] |= (step << NOW_BOOT_PHASE_SHIFT);
+	pEmmc.reserve_flag[BOOT_STEP] |= step;
 	sys_lseek(fd, file_size - sram_header->reserve[1], 0);
 	sys_write(fd, (char *)&pEmmc, sizeof(struct log_emmc_header));
 	sys_close(fd);
@@ -344,15 +349,16 @@ static int pl_lk_log_show(struct seq_file *m, void *v)
 
 	seq_printf(m, "show buff sig 0x%x, size 0x%x,pl size 0x%x, lk size 0x%x, last_boot step 0x%x!\n",
 			dram_curlog_header->sig, dram_curlog_header->buff_size,
-			dram_curlog_header->sz_pl, dram_curlog_header->sz_lk, last_boot_phase);
+			dram_curlog_header->sz_pl, dram_curlog_header->sz_lk,
+			sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] ?
+			sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] : last_boot_phase);
 
 	if (dram_log_store_status == BUFF_READY)
 		if (dram_curlog_header->buff_size >= (dram_curlog_header->off_pl
 		+ dram_curlog_header->sz_pl
 		+ dram_curlog_header->sz_lk))
-			seq_write(m, pbuff+dram_curlog_header->off_pl,
-				dram_curlog_header->sz_lk
-				+ dram_curlog_header->sz_pl);
+			seq_write(m, pbuff, dram_curlog_header->off_pl +
+				dram_curlog_header->sz_lk + dram_curlog_header->sz_pl);
 
 	return 0;
 }
@@ -394,6 +400,25 @@ static ssize_t pl_lk_file_write(struct file *filp,
 	return cnt;
 }
 
+static int logstore_pm_notify(struct notifier_block *notify_block,
+	unsigned long mode, void *unused)
+{
+	switch (mode) {
+	case PM_HIBERNATION_PREPARE:
+	case PM_SUSPEND_PREPARE:
+	case PM_RESTORE_PREPARE:
+		set_boot_phase(BOOT_PHASE_PRE_SUSPEND);
+		break;
+
+	case PM_POST_SUSPEND:
+	case PM_POST_HIBERNATION:
+	case PM_POST_RESTORE:
+		set_boot_phase(BOOT_PHASE_EXIT_RESUME);
+		break;
+	}
+	return 0;
+}
+
 static const struct file_operations pl_lk_file_ops = {
 	.owner = THIS_MODULE,
 	.open = pl_lk_file_open,
@@ -406,12 +431,19 @@ static const struct file_operations pl_lk_file_ops = {
 
 static int __init log_store_late_init(void)
 {
+	static struct notifier_block logstore_pm_nb;
+
+	logstore_pm_nb.notifier_call = logstore_pm_notify;
+	register_pm_notifier(&logstore_pm_nb);
 	set_boot_phase(BOOT_PHASE_KERNEL);
 	if (sram_dram_buff == NULL) {
 		pr_notice("log_store: sram header DRAM buff is null.\n");
 		dram_log_store_status = BUFF_ALLOC_ERROR;
 		return -1;
 	}
+
+	if (get_boot_mode() != NORMAL_BOOT)
+		store_log_to_emmc_enable(false);
 
 	if (!sram_dram_buff->buf_addr || !sram_dram_buff->buf_size) {
 		pr_notice("log_store: DRAM buff is null.\n");
