@@ -299,6 +299,7 @@ static int mtk_rtc_read_time(struct rtc_time *tm)
 	u16 data[RTC_OFFSET_COUNT];
 	int ret;
 	u32 sec = 0;
+	unsigned long long timeout = sched_clock() + 500000000;
 
 	do {
 
@@ -316,7 +317,10 @@ static int mtk_rtc_read_time(struct rtc_time *tm)
 		ret = rtc_read(RTC_TC_SEC, &sec);
 		if (ret < 0)
 			goto exit;
-
+		if (sched_clock() > timeout) {
+			pr_notice("%s, time out\n", __func__);
+			break;
+		}
 	} while (sec < tm->tm_sec);
 
 	return ret;
@@ -1109,6 +1113,18 @@ static int mtk_rtc_pdrv_probe(struct platform_device *pdev)
 	mtk_rtc_set_lp_irq();
 	spin_unlock_irqrestore(&rtc->lock, flags);
 
+	mt6358_rtc_suspend_lock =
+		wakeup_source_register(NULL, "mt6358-rtc suspend wakelock");
+
+#ifdef CONFIG_PM
+	if (register_pm_notifier(&rtc_pm_notifier_func))
+		pr_notice("rtc pm failed\n");
+	else
+		rtc_pm_notifier_registered = true;
+#endif /* CONFIG_PM */
+
+	INIT_WORK(&rtc->work, mtk_rtc_work_queue);
+
 	ret = request_threaded_irq(rtc->irq, NULL,
 				   mtk_rtc_irq_handler,
 				   IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
@@ -1120,9 +1136,6 @@ static int mtk_rtc_pdrv_probe(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(&pdev->dev, 1);
-
-	mt6358_rtc_suspend_lock =
-		wakeup_source_register(NULL, "mt6358-rtc suspend wakelock");
 
 	/* register rtc device (/dev/rtc0) */
 	rtc->rtc_dev = rtc_device_register(RTC_NAME,
@@ -1137,15 +1150,6 @@ static int mtk_rtc_pdrv_probe(struct platform_device *pdev)
 		apply_lpsd_solution = 1;
 		pr_notice("%s: apply_lpsd_solution\n", __func__);
 	}
-
-#ifdef CONFIG_PM
-	if (register_pm_notifier(&rtc_pm_notifier_func))
-		pr_notice("rtc pm failed\n");
-	else
-		rtc_pm_notifier_registered = true;
-#endif /* CONFIG_PM */
-
-	INIT_WORK(&rtc->work, mtk_rtc_work_queue);
 
 #if IS_ENABLED(CONFIG_MTK_RTC)
 	plt_dev = platform_device_register_data(&pdev->dev, "mtk_rtc_dbg",
