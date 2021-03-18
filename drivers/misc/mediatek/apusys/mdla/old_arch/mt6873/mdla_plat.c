@@ -864,8 +864,8 @@ void mdla_normal_dual_cmd_issue(
 	uint32_t core_id,
 	uint64_t dual_cmd_id)
 {
-	/* Margaux don't support SMP cmd */
-	mdla_cmd_debug("Margaux don't support dual cmd\n");
+	/* mt6877 don't support SMP cmd */
+	mdla_cmd_debug("mt6877 don't support dual cmd\n");
 }
 
 /*
