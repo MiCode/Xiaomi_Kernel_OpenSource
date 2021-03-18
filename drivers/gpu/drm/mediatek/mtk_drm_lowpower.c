@@ -24,7 +24,7 @@
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_mmp.h"
 
-#define MAX_ENTER_IDLE_RSZ_RATIO 250
+#define MAX_ENTER_IDLE_RSZ_RATIO 300
 
 static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc);
 static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc);
