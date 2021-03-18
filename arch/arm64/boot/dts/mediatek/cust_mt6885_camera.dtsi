@@ -448,6 +448,37 @@
 	cam2_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
 	cam4_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
 
+	cam0_pin_mclk = "mclk";
+	cam0_pin_pdn = "gpio";
+	cam0_pin_rst = "gpio";
+	cam0_pin_vcama = "gpio";
+	cam0_pin_vcamd = "gpio";
+	cam0_pin_vcamio = "regulator";
+	cam1_pin_mclk = "mclk";
+	cam1_pin_pdn = "gpio";
+	cam1_pin_rst = "gpio";
+	cam1_pin_vcama = "gpio";
+	cam1_pin_vcamd = "gpio";
+	cam1_pin_vcamio = "regulator";
+	cam2_pin_mclk = "mclk";
+	cam2_pin_pdn = "gpio";
+	cam2_pin_rst = "gpio";
+	cam2_pin_vcama = "gpio";
+	cam2_pin_vcamd = "gpio";
+	cam2_pin_vcamio = "regulator";
+	cam3_pin_mclk = "mclk";
+	cam3_pin_pdn = "gpio";
+	cam3_pin_rst = "gpio";
+	cam3_pin_vcama = "gpio";
+	cam3_pin_vcamd = "gpio";
+	cam3_pin_vcamio = "regulator";
+	cam4_pin_mclk = "mclk";
+	cam4_pin_pdn = "gpio";
+	cam4_pin_rst = "gpio";
+	cam4_pin_vcama = "gpio";
+	cam4_pin_vcamd = "gpio";
+	cam4_pin_vcamio = "regulator";
+
 	status = "okay";
 };
 /* CAMERA GPIO end */
