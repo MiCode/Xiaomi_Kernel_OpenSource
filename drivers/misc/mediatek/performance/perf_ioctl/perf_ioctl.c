@@ -41,6 +41,9 @@ void (*fpsgo_get_nn_ttime_fp)(unsigned int pid, unsigned long long mid,
 void (*rsu_getusage_fp)(__s32 *devusage, __u32 *bwusage, __u32 pid);
 void (*rsu_getstate_fp)(int *throttled);
 
+void (*rsi_getindex_fp)(__s32 *data, __s32 input_size);
+void (*rsi_switch_collect_fp)(__s32 cmd);
+
 static unsigned long perfctl_copy_from_user(void *pvTo,
 		const void __user *pvFrom, unsigned long ulBytes)
 {
@@ -298,6 +301,66 @@ static const struct file_operations eara_Fops = {
 	.release = single_release,
 };
 
+/*--------------------EARASYS OP------------------------*/
+static int earasys_show(struct seq_file *m, void *v)
+{
+	return 0;
+}
+
+static int earasys_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, earasys_show, inode->i_private);
+}
+
+static long earasys_ioctl(struct file *filp,
+		unsigned int cmd, unsigned long arg)
+{
+	ssize_t ret = 0;
+	struct _EARA_SYS_PACKAGE *msgKM = NULL;
+	struct _EARA_SYS_PACKAGE *msgUM = (struct _EARA_SYS_PACKAGE *)arg;
+	struct _EARA_SYS_PACKAGE smsgKM = {0};
+
+	msgKM = &smsgKM;
+
+	switch (cmd) {
+	case EARA_GETINDEX:
+		if (rsi_getindex_fp)
+			rsi_getindex_fp(smsgKM.data, sizeof(struct _EARA_SYS_PACKAGE));
+
+		perfctl_copy_to_user(msgUM, msgKM,
+				sizeof(struct _EARA_SYS_PACKAGE));
+
+		break;
+	case EARA_COLLECT:
+		if (perfctl_copy_from_user(msgKM, msgUM,
+					sizeof(struct _EARA_SYS_PACKAGE))) {
+			ret = -EFAULT;
+			goto ret_ioctl;
+		}
+
+		if (rsi_switch_collect_fp)
+			rsi_switch_collect_fp(msgKM->cmd);
+		break;
+	default:
+		pr_debug(TAG "%s %d: unknown cmd %x\n",
+			__FILE__, __LINE__, cmd);
+		ret = -1;
+		goto ret_ioctl;
+	}
+
+ret_ioctl:
+	return ret;
+}
+
+static const struct file_operations earasys_Fops = {
+	.unlocked_ioctl = earasys_ioctl,
+	.compat_ioctl = earasys_ioctl,
+	.open = earasys_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 /*--------------------INIT------------------------*/
 
 static int device_show(struct seq_file *m, void *v)
@@ -414,6 +477,15 @@ int init_perfctl(struct proc_dir_entry *parent)
 	}
 
 	pe = proc_create("eara_ioctl", 0664, parent, &eara_Fops);
+	if (!pe) {
+		pr_debug(TAG"%s failed with %d\n",
+				"Creating file node ",
+				ret_val);
+		ret_val = -ENOMEM;
+		goto out_wq;
+	}
+
+	pe = proc_create("eara_sys_ioctl", 0664, parent, &earasys_Fops);
 	if (!pe) {
 		pr_debug(TAG"%s failed with %d\n",
 				"Creating file node ",

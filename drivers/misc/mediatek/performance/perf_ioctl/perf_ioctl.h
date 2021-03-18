@@ -80,6 +80,14 @@ struct _EARA_NN_PACKAGE {
 	};
 };
 
+#define EARASYS_MAX_SIZE 27
+struct _EARA_SYS_PACKAGE {
+	union {
+		__s32 cmd;
+		__s32 data[EARASYS_MAX_SIZE];
+	};
+};
+
 enum  {
 	USAGE_DEVTYPE_CPU  = 0,
 	USAGE_DEVTYPE_GPU  = 1,
@@ -100,6 +108,9 @@ enum  {
 #define EARA_NN_END                 _IOW('g', 2, struct _EARA_NN_PACKAGE)
 #define EARA_GETUSAGE               _IOW('g', 3, struct _EARA_NN_PACKAGE)
 #define EARA_GETSTATE               _IOW('g', 4, struct _EARA_NN_PACKAGE)
+
+#define EARA_GETINDEX                _IOW('g', 1, struct _EARA_SYS_PACKAGE)
+#define EARA_COLLECT                 _IOW('g', 2, struct _EARA_SYS_PACKAGE)
 
 #endif
 

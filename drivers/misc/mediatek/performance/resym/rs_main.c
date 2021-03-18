@@ -20,6 +20,7 @@
 #include "rs_trace.h"
 #include "rs_usage.h"
 #include "rs_state.h"
+#include "rs_index.h"
 
 #define RS_SYSFS_DIR_NAME "resym"
 
@@ -29,6 +30,7 @@ static int __init rs_init(void)
 {
 	rs_kobj = kobject_create_and_add(RS_SYSFS_DIR_NAME, kernel_kobj);
 
+	rs_index_init();
 	rs_trace_init();
 	rs_usage_init();
 	rs_state_init();

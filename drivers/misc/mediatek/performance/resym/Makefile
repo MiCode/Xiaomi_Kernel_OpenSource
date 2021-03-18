@@ -23,5 +23,6 @@ ccflags-y += -DNR_FREQ_CPU=16
 
 obj-y += rs_usage.o
 obj-y += rs_state.o
+obj-y += rs_index.o
 
 obj-y += platform/$(MTK_PLATFORM)/
