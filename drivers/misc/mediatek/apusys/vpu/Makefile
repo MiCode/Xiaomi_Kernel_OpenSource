@@ -15,6 +15,8 @@ ifneq (,$(filter $(strip $(MTK_PLATFORM)), mt6885 mt6873 mt6893 mt6853 mt6877))
 
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6893)))
 PDIR = mt6885
+else ifeq ($(CONFIG_MACH_MT6877),y)
+PDIR = mt6877
 else
 PDIR = $(MTK_PLATFORM)
 endif
