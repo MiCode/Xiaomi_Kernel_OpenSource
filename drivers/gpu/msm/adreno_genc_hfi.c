@@ -333,8 +333,11 @@ int genc_hfi_send_core_fw_start(struct adreno_device *adreno_dev)
 	struct hfi_core_fw_start_cmd cmd = {
 		.handle = 0x0,
 	};
+	int ret;
 
-	CMD_MSG_HDR(cmd, H2F_MSG_CORE_FW_START);
+	ret = CMD_MSG_HDR(cmd, H2F_MSG_CORE_FW_START);
+	if (ret)
+		return ret;
 
 	return genc_hfi_send_generic_req(adreno_dev, &cmd);
 }
@@ -360,7 +363,9 @@ int genc_hfi_send_feature_ctrl(struct adreno_device *adreno_dev,
 	};
 	int ret;
 
-	CMD_MSG_HDR(cmd, H2F_MSG_FEATURE_CTRL);
+	ret = CMD_MSG_HDR(cmd, H2F_MSG_FEATURE_CTRL);
+	if (ret)
+		return ret;
 
 	ret = genc_hfi_send_generic_req(adreno_dev, &cmd);
 	if (ret)
