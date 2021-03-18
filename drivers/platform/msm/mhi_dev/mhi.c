@@ -615,18 +615,21 @@ static int mhi_dev_flush_transfer_completion_events(struct mhi_dev *mhi,
 	unsigned long flags;
 	struct event_req *flush_ereq;
 
-	/*
-	 * Channel got stopped or closed with transfers pending
-	 * Do not send completion events to host
-	 */
-	if (ch->state == MHI_DEV_CH_CLOSED ||
-		ch->state == MHI_DEV_CH_STOPPED) {
-		mhi_log(MHI_MSG_DBG, "Ch %d closed with %d writes pending\n",
-			ch->ch_id, ch->pend_wr_count + 1);
-		return -ENODEV;
-	}
-
 	do {
+
+		/*
+		 * Channel got stopped or closed with transfers pending
+		 * Do not send completion events to host
+		 */
+		if (ch->state == MHI_DEV_CH_CLOSED ||
+			ch->state == MHI_DEV_CH_STOPPED) {
+			mhi_log(MHI_MSG_DBG,
+				"Ch %d closed with %d writes pending\n",
+				ch->ch_id, ch->pend_wr_count + 1);
+			rc = -ENODEV;
+			break;
+		}
+
 		spin_lock_irqsave(&mhi->lock, flags);
 		if (list_empty(&ch->flush_event_req_buffers)) {
 			spin_unlock_irqrestore(&mhi->lock, flags);
@@ -652,7 +655,8 @@ static int mhi_dev_flush_transfer_completion_events(struct mhi_dev *mhi,
 				"Invalid cmpl evt buf - start %pK, end %pK\n",
 				flush_ereq->tr_events,
 				flush_ereq->tr_events + flush_ereq->num_events);
-			return -EINVAL;
+			rc = -EINVAL;
+			break;
 		}
 		rc = mhi_dev_send_multiple_tr_events(mhi,
 				mhi->ch_ctx_cache[ch->ch_id].err_indx,
@@ -2429,6 +2433,7 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 	/* Trigger client call back */
 	req->client_cb(req);
 
+	mutex_lock(&ch->ch_lock);
 	/* Flush read completions to host */
 	if (snd_cmpl && mhi_ctx->ch_ctx_cache[ch->ch_id].ch_type ==
 				MHI_DEV_CH_TYPE_OUTBOUND_CHANNEL) {
@@ -2439,7 +2444,7 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 				"Failed to flush read completions to host\n");
 		}
 	}
-
+	mutex_unlock(&ch->ch_lock);
 	if (ch->state == MHI_DEV_CH_PENDING_STOP) {
 		ch->state = MHI_DEV_CH_STOPPED;
 		rc = mhi_dev_process_stop_cmd(ch->ring, ch->ch_id, mhi_ctx);
@@ -3131,7 +3136,8 @@ void mhi_dev_close_channel(struct mhi_dev_client *handle)
 	ch = handle->channel;
 
 	do {
-		if (ch->pend_wr_count) {
+		if (ch->pend_wr_count &&
+			!list_empty(&ch->event_req_buffers)) {
 			usleep_range(MHI_DEV_CH_CLOSE_TIMEOUT_MIN,
 					MHI_DEV_CH_CLOSE_TIMEOUT_MAX);
 		} else
@@ -3142,6 +3148,9 @@ void mhi_dev_close_channel(struct mhi_dev_client *handle)
 
 	if (ch->pend_wr_count)
 		mhi_log(MHI_MSG_ERROR, "%d writes pending for channel %d\n",
+			ch->pend_wr_count, ch->ch_id);
+	if (!list_empty(&ch->event_req_buffers))
+		mhi_log(MHI_MSG_ERROR, "%d pending flush for channel %d\n",
 			ch->pend_wr_count, ch->ch_id);
 
 	if (ch->state != MHI_DEV_CH_PENDING_START)
@@ -3154,14 +3163,24 @@ void mhi_dev_close_channel(struct mhi_dev_client *handle)
 	ch->state = MHI_DEV_CH_CLOSED;
 	ch->active_client = NULL;
 	kfree(ch->ereqs);
+	mhi_log(MHI_MSG_INFO,
+		"MEM_DEALLOC:ch:%d size:%d EREQ\n",
+		ch->ch_id, ch->evt_req_size);
 	kfree(ch->tr_events);
+	mhi_log(MHI_MSG_INFO,
+		"MEM_DEALLOC:ch:%d size:%d TR_EVENTS\n",
+		ch->ch_id, ch->evt_buf_size);
 	ch->evt_buf_size = 0;
 	ch->evt_req_size = 0;
 	ch->ereqs = NULL;
 	ch->tr_events = NULL;
 	kfree(handle);
+	mhi_log(MHI_MSG_INFO,
+		"MEM_ALLOC:ch:%d size:%d CLNT_HANDLE\n",
+		ch->ch_id, sizeof(struct mhi_dev_client));
 
 	mutex_unlock(&ch->ch_lock);
+	return;
 }
 
 static int mhi_dev_check_tre_bytes_left(struct mhi_dev_channel *ch,
