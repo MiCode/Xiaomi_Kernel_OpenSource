@@ -486,6 +486,16 @@ int genc_hfi_send_acd_feature_ctrl(struct adreno_device *adreno_dev)
 	return ret;
 }
 
+int genc_hfi_send_ifpc_feature_ctrl(struct adreno_device *adreno_dev)
+{
+	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
+
+	if (gmu->idle_level == GPU_HW_IFPC)
+		return genc_hfi_send_feature_ctrl(adreno_dev,
+				HFI_FEATURE_IFPC, 1, 0x1680);
+	return 0;
+}
+
 int genc_hfi_start(struct adreno_device *adreno_dev)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
@@ -524,6 +534,12 @@ int genc_hfi_start(struct adreno_device *adreno_dev)
 	result = genc_hfi_send_bcl_feature_ctrl(adreno_dev);
 	if (result)
 		goto err;
+
+	/*
+	 * GMU might not support this feature enablement yet. Don't error for
+	 * now.
+	 */
+	genc_hfi_send_ifpc_feature_ctrl(adreno_dev);
 
 	result = genc_hfi_send_core_fw_start(adreno_dev);
 	if (result)
