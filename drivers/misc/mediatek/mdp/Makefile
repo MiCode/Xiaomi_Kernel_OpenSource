@@ -29,6 +29,8 @@ ccflags-$(CONFIG_MACH_MT6853) += -DCMDQ_MDP_ENABLE_SPR
 ccflags-$(CONFIG_MACH_MT6853) += -DMDP_MMPATH
 ccflags-$(CONFIG_MACH_MT6833) += -DCMDQ_MDP_ENABLE_SPR
 ccflags-$(CONFIG_MACH_MT6833) += -DMDP_MMPATH
+ccflags-$(CONFIG_MACH_MT6877) += -DCMDQ_MDP_ENABLE_SPR
+ccflags-$(CONFIG_MACH_MT6877) += -DMDP_MMPATH
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
 	     -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)/ \

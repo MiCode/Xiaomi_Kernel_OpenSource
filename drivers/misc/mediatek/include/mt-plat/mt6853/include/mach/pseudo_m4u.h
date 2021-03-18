@@ -11,6 +11,9 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+#if defined CONFIG_MACH_MT6877
+#include "../../../mt6877/include/mach/pseudo_m4u.h"
+#else
 #ifndef __PSEUDO_M4U_H__
 #define __PSEUDO_M4U_H__
 
@@ -336,4 +339,5 @@ int pseudo_dump_iova_reserved_region(struct seq_file *s);
 #define F_SMI_DOMN(domain)		F_VAL(domain, 8, 4)
 #define F_SMI_DOMN_VAL(regval)		F_MSK_SHIFT(regval, 8, 4)
 
+#endif
 #endif

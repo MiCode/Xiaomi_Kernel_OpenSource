@@ -135,7 +135,8 @@ int __mtk_disp_pmqos_port_look_up(int comp_id)
 		return M4U_PORT_L0_DISP_WDMA0;
 #endif
 
-#if defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833)
+#if defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833) \
+	|| defined(CONFIG_MACH_MT6877)
 	case DDP_COMPONENT_OVL0:
 		return M4U_PORT_L0_OVL_RDMA0;
 	case DDP_COMPONENT_OVL0_2L:
@@ -145,6 +146,12 @@ int __mtk_disp_pmqos_port_look_up(int comp_id)
 	case DDP_COMPONENT_WDMA0:
 		return M4U_PORT_L1_DISP_WDMA0;
 #endif
+
+#if defined(CONFIG_MACH_MT6877)
+	case DDP_COMPONENT_OVL1_2L:
+		return M4U_PORT_L1_OVL_2L_RDMA1;
+#endif
+
 
 	default:
 		DDPPR_ERR("%s, unknown comp %d\n", __func__, comp_id);

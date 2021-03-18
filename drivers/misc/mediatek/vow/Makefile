@@ -10,6 +10,13 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
+ifeq ($(CONFIG_MACH_MT6877),y)
+MTK_PLATFORM := mt6853
+else
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+endif
+
+
 ifeq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),y)
 
 PCMCALLBACK_TYPE := $(subst ",,$(CONFIG_MTK_VOW_PCMCALLBACK_SUPPORT))

@@ -14,6 +14,11 @@
 # Makefile for misc devices that really don't fit anywhere else.
 #
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+
+ifeq ($(CONFIG_MACH_MT6877),y)
+MTK_DERIVED_PLATFORM := mt6877
+endif
+
 ARCH_MTK_PROJECT := $(subst ",,$(CONFIG_ARCH_MTK_PROJECT))
 IMGSENSOR_DRIVER_PATH  := $(srctree)/drivers/misc/mediatek/imgsensor/src
 MTK_DRIVER_PATH  := $(srctree)/drivers/misc/mediatek
@@ -74,3 +79,8 @@ obj-y += seninf/
 ifeq ($(ARCH_MTK_PROJECT), k6853v1_64_6360_alpha)
 subdir-ccflags-y += -DNEED_LATE_INITCALL
 endif
+
+ifeq ($(CONFIG_MACH_MT6877),y)
+subdir-ccflags-y += -DNEED_LATE_INITCALL
+endif
+

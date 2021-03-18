@@ -99,7 +99,8 @@
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 #define DISP_REG_DSC_SHADOW			0x0200
 	#define DSC_FORCE_COMMIT BIT(1)
-#elif defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+#elif defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
+	|| defined(CONFIG_MACH_MT6877)
 #define DISP_REG_DSC_SHADOW			0x0200
 #define DSC_FORCE_COMMIT	BIT(0)
 #define DSC_BYPASS_SHADOW	BIT(1)
@@ -177,7 +178,8 @@ static void mtk_dsc_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	struct mtk_disp_dsc *dsc = comp_to_dsc(comp);
 
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893) \
-	|| defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+	|| defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
+	|| defined(CONFIG_MACH_MT6877)
 	mtk_ddp_write_mask(comp, DSC_FORCE_COMMIT,
 		DISP_REG_DSC_SHADOW, DSC_FORCE_COMMIT, handle);
 #endif
@@ -212,7 +214,8 @@ static void mtk_dsc_prepare(struct mtk_ddp_comp *comp)
 
 	mtk_ddp_comp_clk_prepare(comp);
 
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
+	|| defined(CONFIG_MACH_MT6877)
 #if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
 	if (dsc->data->support_shadow) {
 		/* Enable shadow register and read shadow register */
@@ -408,7 +411,8 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 					handle);
 
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893) \
-	|| defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+	|| defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
+	|| defined(CONFIG_MACH_MT6877)
 		mtk_ddp_write_mask(comp,
 			(((dsc_params->ver & 0xf) == 2) ? 0x40 : 0x20),
 			DISP_REG_DSC_SHADOW, 0x60, handle);
@@ -552,7 +556,8 @@ void mtk_dsc_dump(struct mtk_ddp_comp *comp)
 	DDPDUMP("(0x018)DSC_WIDTH=0x%x\n", readl(baddr + DISP_REG_DSC_PIC_W));
 	DDPDUMP("(0x01C)DSC_HEIGHT=0x%x\n", readl(baddr + DISP_REG_DSC_PIC_H));
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893) \
-	|| defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+	|| defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
+	|| defined(CONFIG_MACH_MT6877)
 	DDPDUMP("(0x200)DSC_SHADOW=0x%x\n",
 		readl(baddr + DISP_REG_DSC_SHADOW));
 #endif
@@ -698,6 +703,10 @@ static const struct mtk_disp_dsc_data mt6853_dsc_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_disp_dsc_data mt6877_dsc_driver_data = {
+	.support_shadow = false,
+};
+
 static const struct of_device_id mtk_disp_dsc_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6885-disp-dsc",
 	  .data = &mt6885_dsc_driver_data},
@@ -705,6 +714,8 @@ static const struct of_device_id mtk_disp_dsc_driver_dt_match[] = {
 	  .data = &mt6873_dsc_driver_data},
 	{ .compatible = "mediatek,mt6853-disp-dsc",
 	  .data = &mt6853_dsc_driver_data},
+	{ .compatible = "mediatek,mt6877-disp-dsc",
+	  .data = &mt6877_dsc_driver_data},
 	{},
 };
 

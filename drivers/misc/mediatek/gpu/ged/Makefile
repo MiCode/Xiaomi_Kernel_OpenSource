@@ -47,6 +47,15 @@ ccflags-y += \
     -I$(srctree)/drivers/misc/mediatek/sspm/mt6833
 endif
 
+ifeq ($(CONFIG_MACH_MT6877),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/mt6877
+ccflags-y += \
+    -I$(MTK_TOP)/base/power/mt6877/ \
+    -I$(srctree)/drivers/misc/mediatek/video/mt6877/videox \
+    -I$(srctree)/drivers/misc/mediatek/video/mt6877/dispsys \
+    -I$(srctree)/drivers/misc/mediatek/sspm/mt6877
+endif
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(subst ",,$(CONFIG_MTK_PLATFORM))
 ccflags-y += \
     -I$(MTK_TOP)/base/power/$(subst ",,$(CONFIG_MTK_PLATFORM))/ \

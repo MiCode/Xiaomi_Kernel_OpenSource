@@ -56,7 +56,11 @@ obj-$(CONFIG_MTK_ECCCI_DRIVER) := ccci.o
 
 # platform dependent parts
 ccci-y := ccci_platform.o $(core_obj) $(mach_obj) $(sec_obj)
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6877)))
+ccci-y += ap_md_reg_dump_6877.o
+else
 ccci-y += ap_md_reg_dump.o
+endif
 ccci-y += md_sys1_platform.o
 
 else

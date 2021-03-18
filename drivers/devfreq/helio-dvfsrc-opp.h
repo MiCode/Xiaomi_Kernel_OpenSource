@@ -31,6 +31,8 @@
 #elif defined(CONFIG_MACH_MT6853)
 	#if defined(CONFIG_MTK_DVFSRC_MT6833_PRETEST)
 	#include <helio-dvfsrc-opp-mt6833.h>
+	#elif defined(CONFIG_MTK_DVFSRC_MT6877_PRETEST)
+	#include <helio-dvfsrc-opp-v6877.h>
 	#else
 	#include <helio-dvfsrc-opp-mt6853.h>
 	#endif

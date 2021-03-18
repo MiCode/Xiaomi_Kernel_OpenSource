@@ -12,6 +12,10 @@
 #ifndef _DTS_IOMMU_PORT_MT6853_H_
 #define _DTS_IOMMU_PORT_MT6853_H_
 
+#if defined CONFIG_MACH_MT6877
+#include "mt6877-larb-port.h"
+#else
+
 #define MTK_M4U_ID(larb, port)			(((larb) << 5) | (port))
 
 /* Local arbiter ID */
@@ -295,5 +299,6 @@
 #define APU_IOMMU_INDEX				(1)
 
 #define MTK_IOMMU_PORT_TRANSFER_DISABLE
+#endif
 
 #endif

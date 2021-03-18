@@ -1361,7 +1361,11 @@ void MTK_update_gpu_LTR(void)
 	gpu_perf_counter.counter[VINSTR_L2_EXT_RRESP_192_255] = kernel_dump[167] + kernel_dump[231];
 	gpu_perf_counter.counter[VINSTR_L2_EXT_RRESP_256_319] = kernel_dump[168] + kernel_dump[232];
 	gpu_perf_counter.counter[VINSTR_L2_EXT_RRESP_320_383] = kernel_dump[169] + kernel_dump[233];
+#if defined(CONFIG_MACH_MT6877)
+	gpu_perf_counter.counter[VINSTR_L2_ANY_LOOKUP] = kernel_dump[153] + kernel_dump[217];
+#else
 	gpu_perf_counter.counter[VINSTR_L2_ANY_LOOKUP] = kernel_dump[153] + kernel_dump[217] + kernel_dump[281] + kernel_dump[345];
+#endif
 	gpu_perf_counter.counter[VINSTR_JS0_ACTIVE] = kernel_dump[10];
 	gpu_perf_counter.counter[VINSTR_JS1_ACTIVE] = kernel_dump[18];
 #endif

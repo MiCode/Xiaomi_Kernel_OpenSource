@@ -542,6 +542,8 @@ void mt6873_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
 void mt6853_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
+void mt6877_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data);
 void mt6833_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
 

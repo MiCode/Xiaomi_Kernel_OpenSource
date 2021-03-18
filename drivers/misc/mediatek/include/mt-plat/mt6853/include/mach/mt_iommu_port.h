@@ -11,8 +11,12 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+#if defined CONFIG_MACH_MT6877
+#include "../../../mt6877/include/mach/mt_iommu_port.h"
+#else
 #ifndef __MT_IOMMU_PORT_H__
 #define __MT_IOMMU_PORT_H__
+
 /*
  * this header file is only used for mtk_iomm module
  * the definition of header file is platform dependency.
@@ -509,5 +513,6 @@ static char *vpu_axi_bus_name[IOMMU_APU_AXI_PORT_NR] = {
 
 #ifndef M4U_PORT_NR
 #define M4U_PORT_NR (181)
+#endif
 #endif
 #endif

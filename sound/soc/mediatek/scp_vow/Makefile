@@ -3,6 +3,8 @@
 # MTK Platform Support
 ifeq ($(CONFIG_MACH_MT6893),y)
 MTK_PLATFORM := mt6885
+else ifeq ($(CONFIG_MACH_MT6877),y)
+MTK_PLATFORM := mt6853
 else
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 endif

@@ -140,6 +140,9 @@ static void __iomem *spm_base;
 #if defined(CONFIG_MACH_MT6833)
 #define PWRAP_DTS_NODE_NAME			"mediatek,mt6833-pwrap"
 #define PMIF_M_DTS_NODE_NAME			"mediatek,mt6833-pmif-m"
+#elif defined(CONFIG_MACH_MT6877)
+#define PWRAP_DTS_NODE_NAME			"mediatek,mt6877-pwrap"
+#define PMIF_M_DTS_NODE_NAME			"mediatek,mt6877-pmif-m"
 #else
 #define PWRAP_DTS_NODE_NAME			"mediatek,mt6853-pwrap"
 #define PMIF_M_DTS_NODE_NAME			"mediatek,mt6853-pmif-m"

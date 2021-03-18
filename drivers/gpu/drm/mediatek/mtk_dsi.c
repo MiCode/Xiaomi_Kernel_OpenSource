@@ -31,7 +31,7 @@
 #include <video/videomode.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 #include <linux/ratelimit.h>
 #endif
 
@@ -903,7 +903,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 	}
 #else
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 	/* Bypass shadow register and read shadow register */
 	mtk_dsi_mask(dsi, DSI_SHADOW_DEBUG,
 		DSI_BYPASS_SHADOW, DSI_BYPASS_SHADOW);
@@ -1064,7 +1064,7 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 
 #if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873) \
 	&& !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MACH_MT6853) \
-	&& !defined(CONFIG_MACH_MT6833)
+	&& !defined(CONFIG_MACH_MT6833) && !defined(CONFIG_MACH_MT6877)
 	val = vm->hactive * dsi_buf_bpp;
 	writel(val, dsi->regs + DSI_HSTX_CKL_WC);
 #endif
@@ -1097,7 +1097,7 @@ static void mtk_dsi_rxtx_control(struct mtk_dsi *dsi)
 	tmp_reg |= (dsi->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS) << 6;
 #if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873) \
 	&& !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MACH_MT6853) \
-	&& !defined(CONFIG_MACH_MT6833)
+	&& !defined(CONFIG_MACH_MT6833) || !defined(CONFIG_MACH_MT6877)
 	tmp_reg |= (dsi->mode_flags & MIPI_DSI_MODE_EOT_PACKET) >> 3;
 #endif
 
@@ -1400,7 +1400,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	static unsigned int dsi_underrun_trigger = 1;
 	unsigned int ret = 0;
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 	static DEFINE_RATELIMIT_STATE(ioctl_ratelimit, 1 * HZ, 20);
 #endif
 	bool doze_enabled = 0;
@@ -1461,7 +1461,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			}
 
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 			mtk_dprec_logger_pr(DPREC_LOGGER_ERROR,
 				"[IRQ] %s: buffer underrun\n",
 				mtk_dump_comp_str(&dsi->ddp_comp));
@@ -5435,6 +5435,14 @@ static const struct mtk_dsi_driver_data mt6853_dsi_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_dsi_driver_data mt6877_dsi_driver_data = {
+	.reg_cmdq_ofs = 0x200,
+	.poll_for_idle = mtk_dsi_poll_for_idle,
+	.irq_handler = mtk_dsi_irq_status,
+	.esd_eint_compat = "mediatek, DSI_TE-eint",
+	.support_shadow = false,
+};
+
 static const struct mtk_dsi_driver_data mt6833_dsi_driver_data = {
 	.reg_cmdq_ofs = 0x200,
 	.poll_for_idle = mtk_dsi_poll_for_idle,
@@ -5455,6 +5463,7 @@ static const struct of_device_id mtk_dsi_of_match[] = {
 	{.compatible = "mediatek,mt6885-dsi", .data = &mt6885_dsi_driver_data},
 	{.compatible = "mediatek,mt6873-dsi", .data = &mt6873_dsi_driver_data},
 	{.compatible = "mediatek,mt6853-dsi", .data = &mt6853_dsi_driver_data},
+	{.compatible = "mediatek,mt6877-dsi", .data = &mt6877_dsi_driver_data},
 	{.compatible = "mediatek,mt6833-dsi", .data = &mt6833_dsi_driver_data},
 	{},
 };

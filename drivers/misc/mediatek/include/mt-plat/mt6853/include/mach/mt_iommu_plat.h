@@ -11,6 +11,9 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+#if defined CONFIG_MACH_MT6877
+#include "../../../mt6877/include/mach/mt_iommu_plat.h"
+#else
 #ifndef __MT_IOMMU_PLAT_H__
 #define __MT_IOMMU_PLAT_H__
 
@@ -663,8 +666,13 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #define RESERVED_IOVA_SIZE_APU_CODE	(0x12600000U)
 #define RESERVED_IOVA_ADDR_APU_DATA	(0x10000000U)
 #define RESERVED_IOVA_SIZE_APU_DATA	(0x10000000U)
+#if defined(CONFIG_MACH_MT6877)
+#define RESERVED_IOVA_ADDR_APU_VLM	(0x48000000U)
+#define RESERVED_IOVA_SIZE_APU_VLM	(0x02000000U)
+#else
 #define RESERVED_IOVA_ADDR_APU_VLM	(0x48000000U)
 #define RESERVED_IOVA_SIZE_APU_VLM	(0x04000000U)
+#endif
 const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #if (defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)) || \
@@ -800,4 +808,5 @@ struct mau_config_info *get_mau_info(int m4u_id)
 		return NULL;
 }
 
+#endif
 #endif

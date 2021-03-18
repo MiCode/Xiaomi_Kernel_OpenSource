@@ -4,6 +4,9 @@ endif
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6833)))
 MTK_PLATFORM := mt6833
 endif
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6877)))
+MTK_PLATFORM := mt6877
+endif
 
 obj-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-dec.o \
 				       mtk-vcodec-enc.o \

@@ -234,6 +234,7 @@
 #define DISP_REG_OVL_ADDR_MT6885 0x0f40
 #define DISP_REG_OVL_ADDR_MT6873 0x0f40
 #define DISP_REG_OVL_ADDR_MT6853 0x0f40
+#define DISP_REG_OVL_ADDR_MT6877 0x0f40
 #define DISP_REG_OVL_ADDR_MT6833 0x0f40
 #define DISP_REG_OVL_ADDR_MT8173 0x0f40
 #define DISP_REG_OVL_ADDR(module, n) ((module)->data->addr + 0x20 * (n))
@@ -710,7 +711,7 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		       value, mask);
 
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 	/* Enable feedback real BW consumed from OVL */
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_REG_OVL_GDRDY_PRD,
@@ -2319,7 +2320,7 @@ void mtk_ovl_cal_golden_setting(struct mtk_ddp_config *cfg, unsigned int *gs)
 #endif
 
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 	/* OVL_RDMA_MEM_GMC_SETTING_1 */
 	gs[GS_OVL_RDMA_ULTRA_TH] = 0x3ff;
 	gs[GS_OVL_RDMA_PRE_ULTRA_TH] = (!is_dc) ? 0x3ff : 0xe0;
@@ -3083,7 +3084,7 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 			(DISP_REG_OVL_EL_ADDR(0) - DISP_REG_OVL_ADDR_MT6885);
 #endif
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 		Lx_addr_base +=
 			(DISP_REG_OVL_EL_ADDR(0) - DISP_REG_OVL_ADDR_MT6873);
 #endif
@@ -3100,7 +3101,7 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 	addr = readl(DISP_REG_OVL_ADDR_MT6885 + Lx_addr_base);
 #endif
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 	addr = readl(DISP_REG_OVL_ADDR_MT6873 + Lx_addr_base);
 #endif
 	clip = readl(DISP_REG_OVL_CLIP(0) + Lx_base);
@@ -3231,7 +3232,8 @@ static void mtk_ovl_prepare(struct mtk_ddp_comp *comp)
 			DISP_REG_OVL_EN, DISP_OVL_BYPASS_SHADOW);
 	}
 #else
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
+	|| defined(CONFIG_MACH_MT6877)
 	/* Bypass shadow register and read shadow register */
 	mtk_ddp_write_mask_cpu(comp, DISP_OVL_BYPASS_SHADOW,
 		DISP_REG_OVL_EN, DISP_OVL_BYPASS_SHADOW);
@@ -3565,6 +3567,20 @@ static const struct mtk_disp_ovl_data mt6853_ovl_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct compress_info compr_info_mt6877  = {
+	.name = "AFBC_V1_2_MTK_1",
+	.l_config = &compr_l_config_AFBC_V1_2,
+};
+
+static const struct mtk_disp_ovl_data mt6877_ovl_driver_data = {
+	.addr = DISP_REG_OVL_ADDR_MT6877,
+	.fmt_rgb565_is_0 = true,
+	.fmt_uyvy = 4U << 12,
+	.fmt_yuyv = 5U << 12,
+	.compr_info = &compr_info_mt6877,
+	.support_shadow = false,
+};
+
 static const struct compress_info compr_info_mt6833  = {
 	.name = "AFBC_V1_2_MTK_1",
 	.l_config = &compr_l_config_AFBC_V1_2,
@@ -3600,6 +3616,8 @@ static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {
 	 .data = &mt6873_ovl_driver_data},
 	{.compatible = "mediatek,mt6853-disp-ovl",
 	 .data = &mt6853_ovl_driver_data},
+	{.compatible = "mediatek,mt6877-disp-ovl",
+	 .data = &mt6877_ovl_driver_data},
 	{.compatible = "mediatek,mt6833-disp-ovl",
 	 .data = &mt6833_ovl_driver_data},
 	{},

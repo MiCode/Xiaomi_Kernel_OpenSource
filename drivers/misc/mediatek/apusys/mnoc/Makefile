@@ -11,7 +11,12 @@
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
 
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6877)))
+PDIR = mt6877
+else
 PDIR = $(MTK_PLATFORM)
+endif
+
 MNOC_VER = 1.0
 POWER_VER = 2.0
 MIDWARE_VER = 1.1
