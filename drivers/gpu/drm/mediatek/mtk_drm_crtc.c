@@ -5767,6 +5767,17 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	/* This refcnt would be release in ddp_cmdq_cb */
 	drm_atomic_state_get(old_crtc_state->state);
 	mtk_drm_crtc_lfr_update(crtc, cmdq_handle);
+
+	/* backup ovl0 2l status for crtc0
+	 * do not insert code between back up ovl status and gce flush
+	 */
+	if (index == 0) {
+		comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_OVL0_2L);
+		if (comp != NULL)
+			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+				BACKUP_OVL_STATUS, NULL);
+	}
+
 #ifdef MTK_DRM_CMDQ_ASYNC
 	ret = mtk_crtc_gce_flush(crtc, ddp_cmdq_cb, cb_data, cmdq_handle);
 	if (ret) {
