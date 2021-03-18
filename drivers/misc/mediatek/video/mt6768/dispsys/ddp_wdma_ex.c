@@ -635,7 +635,7 @@ wdma_golden_setting(enum DISP_MODULE_ENUM module,
 	unsigned int ultra_high_us = 4;
 	unsigned int preultra_low_us = 7;
 	unsigned int preultra_high_us = ultra_low_us;
-	unsigned int fifo_pseudo_size = 288;
+	unsigned int fifo_pseudo_size = 244;
 	unsigned int frame_rate = 60;
 	unsigned int bytes_per_sec = 3;
 	/*unsigned int is_primary_flag = 1;*/  /*primary or external*/
