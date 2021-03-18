@@ -1,10 +1,11 @@
-/* SPDX-License-Identifier: GPL-2.0 */
-/*
- * Copyright (c) 2020 MediaTek Inc.
- * Author: Yu-Chang Wang <Yu-Chang.Wang@mediatek.com>
+/* SPDX-License-Identifier: GPL-2.0
+ *
+ * Copyright (c) 2019 MediaTek Inc.
  */
+
 #ifndef __MT_FREQHOPPING_H__
 #define __MT_FREQHOPPING_H__
+
 
 enum FH_PLL_ID {
 	FH_TOP_PLL0  = 0,       /*ARMPLL_LL */

@@ -514,8 +514,6 @@ static int ap_hopping_v1(void *priv_data, char *domain_name, int fh_id,
 
 	mutex_lock(lock);
 
-	FHDBG("id<%d>\n", fh_id);
-
 	domain = d->domain;
 	regs = &domain->regs[fh_id];
 	data = &domain->data[fh_id];
@@ -663,6 +661,7 @@ static int ap_init_v1(struct pll_dts *array, struct match *match)
 	domain = priv_data->domain;
 	regs = &domain->regs[fh_id];
 	data = &domain->data[fh_id];
+
 	fh_set_field(regs->reg_clk_con, mask, 1);
 	fh_set_field(regs->reg_rst_con, mask, 0);
 	fh_set_field(regs->reg_rst_con, mask, 1);

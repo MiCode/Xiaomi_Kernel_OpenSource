@@ -119,8 +119,6 @@ static int mcupm_hopping_v1(void *priv_data, char *domain_name, int fh_id,
 
 	mutex_lock(lock);
 
-	FHDBG("id=%d\n", fh_id);
-
 	memset(&ipi_data, 0, sizeof(struct fhctl_ipi_data));
 	ipi_data.cmd = FH_DCTL_CMD_GENERAL_DFS;
 	ipi_data.u.args[0] = fh_id;
