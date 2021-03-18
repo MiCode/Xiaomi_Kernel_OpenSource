@@ -63,10 +63,12 @@ static int I2C_SET_FOR_BACKLIGHT  = 350;
 /****************************************************************************
  * DEBUG MACROS
  ***************************************************************************/
+#undef pr_fmt
+#define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
 static int debug_enable_led = 1;
 #define LEDS_DRV_DEBUG(format, args...) do { \
 	if (debug_enable_led) {	\
-		pr_debug("[LED]"format, ##args);\
+		pr_info("[LED]"format, ##args);\
 	} \
 } while (0)
 

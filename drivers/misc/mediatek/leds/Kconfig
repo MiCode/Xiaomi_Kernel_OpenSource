@@ -51,6 +51,16 @@ config LEDS_MTK_PWM
 	  To compile this driver as a module, choose 'M' here: the module
 	  will be called leds-mtk-pwm.
 
+config LEDS_MTK_I2C
+	tristate "Mediatek i2c LED support"
+	depends on LEDS_CLASS
+	help
+	  This option enables support for Mediatek i2c LEDs.
+	  say 'y' to enable this
+
+	  To compile this driver as a module, choose 'M' here: the module
+	  will be called leds-mtk-i2c.
+
 config CONTROL_BL_TEMPERATURE
 	bool "Support backlight controlled by thermal"
 	---help---
