@@ -279,7 +279,6 @@ static bool mtk_btag_earaio_send_uevent(const char *src)
 		return false;
 	}
 
-	pr_info("[BLOCK_TAG/EARA] sent uevent %s\n", src);
 	return true;
 }
 
@@ -289,8 +288,6 @@ void mtk_btag_earaio_boost(bool boost)
 	struct mtk_btag_mictx_struct *ctx;
 	static bool boosted;
 	bool ret = false;
-
-	pr_info("[BLOCK_TAG/EARA] boost:%d\n", boost);
 
 	/* Use earaio_obj.minor to indicate if obj is existed */
 	if (!(boost ^ boosted) || unlikely(!earaio_obj.minor))
