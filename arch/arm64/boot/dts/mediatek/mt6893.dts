@@ -881,11 +881,16 @@
 
 	extcon_usb: extcon_usb {
 		compatible = "mediatek,extcon-usb";
-		dev-conn = <&ssusb>;
 		vbus-supply = <&otg_vbus>;
-		vbus-volt = <5000000>;
+		vbus-voltage = <5000000>;
+		vbus-current = <1800000>;
 		charger = <&mt6360_chg>;
 		mediatek,bypss-typec-sink = <1>;
+		port {
+			usb_role: endpoint@0 {
+				remote-endpoint = <&mtu3_drd_switch>;
+			};
+		};
 	};
 
 	pd_adapter: pd_adapter {
@@ -1395,5 +1400,13 @@
 	md_vsram-supply = <&mt6315_3_vbuck4>;
 	md_vnr-supply = <&mt6315_3_vbuck3>;
 	md_vdigrf-supply = <&mt6359p_vpu_reg>;
+};
+
+&ssusb {
+	port {
+		mtu3_drd_switch: endpoint@0 {
+			remote-endpoint = <&usb_role>;
+		};
+	};
 };
 
