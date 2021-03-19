@@ -25,14 +25,13 @@
 				name ## _proc_show,   \
 				PDE_DATA(inode));     \
 	}                                 \
-	static const struct file_operations name ## _proc_fops = \
+	static const struct proc_ops name ## _proc_fops = \
 	{                                 \
-		.owner = THIS_MODULE,         \
-		.open = name ## _proc_open,   \
-		.read = seq_read,             \
-		.llseek = seq_lseek,          \
-		.release = single_release,    \
-		.write = name ## _proc_write, \
+		.proc_open = name ## _proc_open,   \
+		.proc_read = seq_read,             \
+		.proc_lseek = seq_lseek,           \
+		.proc_release = single_release,    \
+		.proc_write = name ## _proc_write, \
 	}
 
 #define PROC_FOPS_RO(name)            \
@@ -45,13 +44,12 @@
 				name ## _proc_show,   \
 				PDE_DATA(inode));     \
 	}                                 \
-	static const struct file_operations name ## _proc_fops = \
+	static const struct proc_ops name ## _proc_fops = \
 	{                                 \
-		.owner = THIS_MODULE,         \
-		.open = name ## _proc_open,   \
-		.read = seq_read,             \
-		.llseek = seq_lseek,          \
-		.release = single_release,    \
+		.proc_open = name ## _proc_open,   \
+		.proc_read = seq_read,             \
+		.proc_lseek = seq_lseek,           \
+		.proc_release = single_release,    \
 	}
 
 #define PROC_ENTRY(name)              \

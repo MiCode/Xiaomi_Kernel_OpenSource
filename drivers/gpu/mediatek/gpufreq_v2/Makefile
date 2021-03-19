@@ -25,7 +25,7 @@ ccflags-y += \
 	-Wno-unused-function
 
 ifeq ($(findstring aging,$(PROJECT_DTB_NAMES)),aging)
-	ccflags-y += -DAGING_LOAD
+	ccflags-y += -DGPUFREQ_AGING_LOAD
 endif
 
 mtk_gpufreqv2_wrapper-y := \

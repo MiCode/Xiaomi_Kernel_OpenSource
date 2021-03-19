@@ -20,7 +20,16 @@
 #include <mtk_gpuppm.h>
 #if defined(CONFIG_GPU_MT6893)
 #include <mt6893/mtk_gpufreq_core.h>
-#include <mt-plat/mt6893/include/mach/upmu_sw.h>
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
+#include <mtk_battery_oc_throttling.h>
+#endif
+#if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
+#include <mtk_low_battery_throttling.h>
+#endif
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENTAGE_POWER_THROTTLING)
+#include <mtk_battery_percentage_throttling.h>
 #endif
 
 static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev);
@@ -744,15 +753,23 @@ static int __init gpufreq_wrapper_init(void)
 	}
 
 	/* init power throttling */
+#if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 	register_low_battery_notify(
 			&gpufreq_low_batt_callback,
 			LOW_BATTERY_PRIO_GPU);
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
 	register_battery_percent_notify(
 			&gpufreq_batt_percent_callback,
 			BATTERY_PERCENT_PRIO_GPU);
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 	register_battery_oc_notify(
 			&gpufreq_batt_oc_callback,
 			BATTERY_OC_PRIO_GPU);
+#endif
 
 done:
 	return ret;

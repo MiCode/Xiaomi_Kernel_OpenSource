@@ -155,26 +155,31 @@ int gpuppm_get_ceiling_gpu(void)
 {
 	return g_gpu.ceiling;
 }
+EXPORT_SYMBOL(gpuppm_get_ceiling_gpu);
 
 int gpuppm_get_floor_gpu(void)
 {
 	return g_gpu.floor;
 }
+EXPORT_SYMBOL(gpuppm_get_floor_gpu);
 
 unsigned int gpuppm_get_c_limiter_gpu(void)
 {
 	return g_gpu.c_limiter;
 }
+EXPORT_SYMBOL(gpuppm_get_c_limiter_gpu);
 
 unsigned int gpuppm_get_f_limiter_gpu(void)
 {
 	return g_gpu.f_limiter;
 }
+EXPORT_SYMBOL(gpuppm_get_f_limiter_gpu);
 
 const struct gpuppm_limit_info *gpuppm_get_limit_table_gpu(void)
 {
 	return g_gpu_limit_table;
 }
+EXPORT_SYMBOL(gpuppm_get_limit_table_gpu);
 
 struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info_gpu(void)
 {
@@ -193,31 +198,37 @@ struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info_gpu(void)
 
 	return limit_info;
 }
+EXPORT_SYMBOL(gpuppm_get_debug_limit_info_gpu);
 
 int gpuppm_get_ceiling_gstack(void)
 {
 	return g_gstack.ceiling;
 }
+EXPORT_SYMBOL(gpuppm_get_ceiling_gstack);
 
 int gpuppm_get_floor_gstack(void)
 {
 	return g_gstack.floor;
 }
+EXPORT_SYMBOL(gpuppm_get_floor_gstack);
 
 unsigned int gpuppm_get_c_limiter_gstack(void)
 {
 	return g_gstack.c_limiter;
 }
+EXPORT_SYMBOL(gpuppm_get_c_limiter_gstack);
 
 unsigned int gpuppm_get_f_limiter_gstack(void)
 {
 	return g_gstack.f_limiter;
 }
+EXPORT_SYMBOL(gpuppm_get_f_limiter_gstack);
 
 const struct gpuppm_limit_info *gpuppm_get_limit_table_gstack(void)
 {
 	return g_gstack_limit_table;
 }
+EXPORT_SYMBOL(gpuppm_get_limit_table_gstack);
 
 struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info_gstack(void)
 {
@@ -236,6 +247,7 @@ struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info_gstack(void)
 
 	return limit_info;
 }
+EXPORT_SYMBOL(gpuppm_get_debug_limit_info_gstack);
 
 int gpuppm_set_limit_gpu(
 	unsigned int limiter, int ceiling, int floor)
@@ -285,12 +297,14 @@ done:
 
 	return ret;
 }
+EXPORT_SYMBOL(gpuppm_set_limit_gpu);
 
 int gpuppm_set_limit_gstack(
 	unsigned int limiter, int ceiling, int floor)
 {
 	return GPUFREQ_SUCCESS;
 }
+EXPORT_SYMBOL(gpuppm_set_limit_gstack);
 
 int gpuppm_limited_commit_gpu(int oppidx)
 {
@@ -323,6 +337,7 @@ int gpuppm_limited_commit_gpu(int oppidx)
 
 	return ret;
 }
+EXPORT_SYMBOL(gpuppm_limited_commit_gpu);
 
 int gpuppm_limited_commit_gstack(int oppidx)
 {
@@ -337,6 +352,7 @@ int gpuppm_limited_commit_gstack(int oppidx)
 
 	return ret;
 }
+EXPORT_SYMBOL(gpuppm_limited_commit_gstack);
 
 int gpuppm_init(void)
 {
