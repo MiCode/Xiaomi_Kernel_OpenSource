@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 #include "hab.h"
 #include "hab_grantable.h"
@@ -241,7 +241,8 @@ int hab_mem_export(struct uhab_context *ctx,
 	int page_count;
 	int compressed = 0;
 
-	if (!ctx || !param || !param->buffer)
+	if (!ctx || !param || !param->buffer || !param->sizebytes
+		|| ((param->sizebytes % PAGE_SIZE) != 0))
 		return -EINVAL;
 
 	vchan = hab_get_vchan_fromvcid(param->vcid, ctx, 0);
