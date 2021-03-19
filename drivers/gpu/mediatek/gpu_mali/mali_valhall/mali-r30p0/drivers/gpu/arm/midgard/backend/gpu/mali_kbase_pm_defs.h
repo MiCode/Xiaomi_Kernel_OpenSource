@@ -208,6 +208,9 @@ struct kbasep_pm_metrics {
 #else
 	u32 busy_cl[2];
 	u32 busy_gl;
+#if IS_ENABLED(CONFIG_MALI_MIDGARD_DVFS) && IS_ENABLED(CONFIG_MALI_MTK_DVFS_POLICY)
+	u32 busy_gl_plus[3];
+#endif
 #endif
 };
 

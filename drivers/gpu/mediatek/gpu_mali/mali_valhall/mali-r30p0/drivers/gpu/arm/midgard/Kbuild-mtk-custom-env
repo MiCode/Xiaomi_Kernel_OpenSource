@@ -30,6 +30,7 @@ ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_mali/mali_valhall/mali-r30p0/drivers/gpu/arm/midgard/backend/gpu
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_mali/mali_valhall/mali-r30p0/drivers/gpu/arm/midgard/include
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_mali/mali_valhall/mali-r30p0/drivers/gpu/arm/midgard/platform/$(MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_mali/mali_valhall/mali-r30p0/drivers/gpu/arm/midgard/platform/mtk_platform_common
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_mali/mali_valhall/mali-r30p0/drivers/gpu/arm/midgard/debug
 ccflags-y += -I$(srctree)/drivers/staging/android/ion
 ccflags-y += -I$(srctree)/drivers/iommu
@@ -41,4 +42,6 @@ ccflags-y += -DCONFIG_PROC_FS
 ccflags-y += -DCONFIG_MALI_MIDGARD_DVFS
 ccflags-y += -DCONFIG_MALI_DEVFREQ
 #ccflags-y += -DCONFIG_MALI_MTK_IOMMU_V2
+ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DCONFIG_MALI_MTK_DVFS_POLICY
+ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DCONFIG_MALI_MTK_DVFS_LOADING_MODE
 
