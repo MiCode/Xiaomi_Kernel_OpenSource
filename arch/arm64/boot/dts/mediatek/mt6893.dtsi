@@ -1341,6 +1341,10 @@
 				<0 0x1022e000 0 0x1000>; /*SRAM*/
 			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH 0>;
 			mediatek,dpmaif_capability = <6>;
+			clocks = <&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
+				<&infracfg_ao_clk CLK_IFRAO_DPMAIF>;
+			clock-names = "infra-dpmaif-clk",
+				"infra-dpmaif-blk-clk";
 		};
 
 		systimer: systimer@10017000 {
@@ -1387,6 +1391,22 @@
 			/*CCIF0 174/206, CCIF0 175/207*/
 			interrupts = <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&infracfg_ao_clk CLK_IFRAO_CCIF_AP>,
+				<&infracfg_ao_clk CLK_IFRAO_CCIF_MD>,
+				<&infracfg_ao_clk CLK_IFRAO_CCIF1_AP>,
+				<&infracfg_ao_clk CLK_IFRAO_CCIF1_MD>,
+				<&infracfg_ao_clk CLK_IFRAO_CCIF2_AP>,
+				<&infracfg_ao_clk CLK_IFRAO_CCIF2_MD>,
+				<&infracfg_ao_clk CLK_IFRAO_CCIF4_MD>,
+				<&infracfg_ao_clk CLK_IFRAO_CCIF5_MD>;
+			clock-names = "infra-ccif-ap",
+				"infra-ccif-md",
+				"infra-ccif1-ap",
+				"infra-ccif1-md",
+				"infra-ccif2-ap",
+				"infra-ccif2-md",
+				"infra-ccif4-md",
+				"infra-ccif5-md";
 		};
 
 		mddriver:mddriver {
@@ -1394,7 +1414,7 @@
 			/* bit0~3: CLDMA|CCIF|DPMAIF */
 			mediatek,mdhif_type = <6>;
 			mediatek,md_id = <0>;
-			mediatek,ap_plat_info = <6873>;
+			mediatek,ap_plat_info = <6893>;
 			mediatek,md_generation = <6297>;
 			mediatek,offset_apon_md1 = <0x2844>;
 			mediatek,cldma_capability = <6>;
@@ -1404,11 +1424,9 @@
 			interrupts = <GIC_SPI 78 IRQ_TYPE_EDGE_RISING 0>,
 				     <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH 0>;
-			/* md_vmodem-supply = <&mt6315_3_vbuck1>; move mt6873.dts */
-			/* md_vsram-supply = <&mt6315_3_vbuck4>; move mt6873.dts */
-			/* md_vnr-supply = <&mt6315_3_vbuck3>; move mt6873.dts */
-			/* md_vdigrf-supply = <&mt6359p_vpu_reg>; move mt6873.dts */
+			power-domains = <&scpsys MT6893_POWER_DOMAIN_MD>;
 			ccci-infracfg = <&infracfg_ao_clk>;
+			ccci-topckgen = <&topckgen_clk>;
 		};
 
 		md_auxadc:md_auxadc {
