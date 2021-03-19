@@ -248,19 +248,19 @@ static struct mt6315_regulator_info mt6315_regulators[] = {
 		MT6315_BUCK_TOP_ELR6, 0x8),
 };
 
-static const struct mt6315_init_data mt6315_3_init_data = {
+static struct mt6315_init_data mt6315_3_init_data = {
 	.id = MT6315_SLAVE_ID_3,
 	.size = MT6315_ID_3_MAX,
 	.buck1_modeset_mask = 0x3,
 };
 
-static const struct mt6315_init_data mt6315_6_init_data = {
+static struct mt6315_init_data mt6315_6_init_data = {
 	.id = MT6315_SLAVE_ID_6,
 	.size = MT6315_ID_6_MAX,
 	.buck1_modeset_mask = 0xB,
 };
 
-static const struct mt6315_init_data mt6315_7_init_data = {
+static struct mt6315_init_data mt6315_7_init_data = {
 	.id = MT6315_SLAVE_ID_7,
 	.size = MT6315_ID_7_MAX,
 	.buck1_modeset_mask = 0x3,
@@ -291,6 +291,8 @@ static int mt6315_regulator_probe(struct platform_device *pdev)
 	struct mt6315_chip *chip;
 	struct regulator_config config = {};
 	struct regulator_dev *rdev;
+	struct device_node *node = pdev->dev.of_node;
+	u32 val = 0;
 	int i;
 
 	regmap = dev_get_regmap(dev->parent, NULL);
@@ -307,6 +309,10 @@ static int mt6315_regulator_probe(struct platform_device *pdev)
 
 	pdata = (struct mt6315_init_data *)of_id->data;
 	chip->slave_id = pdata->id;
+	if (!of_property_read_u32(node, "buck-size", &val))
+		pdata->size = val;
+	if (!of_property_read_u32(node, "buck1-modeset-mask", &val))
+		pdata->buck1_modeset_mask = val;
 	chip->dev = dev;
 	chip->regmap = regmap;
 	dev_set_drvdata(dev, chip);
