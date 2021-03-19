@@ -42,6 +42,7 @@ enum {
 	P_GPLL6_OUT_AUX,
 	P_GPLL6_OUT_MAIN,
 	P_SLEEP_CLK,
+	P_GPLL3_OUT_MAIN_DIV,
 };
 
 static const struct parent_map gcc_parent_map_0[] = {
@@ -249,7 +250,7 @@ static const struct parent_map gcc_parent_map_14[] = {
 static const struct parent_map gcc_parent_map_14_gfx3d[] = {
 	{ P_BI_TCXO, 0 },
 	{ P_GPLL0_OUT_MAIN, 5 },
-	{ P_GPLL3_OUT_MAIN, 2 },
+	{ P_GPLL3_OUT_MAIN_DIV, 2 },
 	{ P_GPLL6_OUT_AUX, 6 },
 	{ P_GPLL4_OUT_AUX, 4 },
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
@@ -258,7 +259,7 @@ static const struct parent_map gcc_parent_map_14_gfx3d[] = {
 static const char * const gcc_parent_names_14[] = {
 	"bi_tcxo",
 	"gpll0_out_main",
-	"gpll3_out_main",
+	"gpll3_out_main_div",
 	"gpll6_out_aux",
 	"gpll4_out_aux",
 	"core_bi_pll_test_se",
@@ -463,6 +464,18 @@ static struct clk_alpha_pll gpll3_out_main = {
 				[VDD_LOW_L1] = 800000000,
 				[VDD_NOMINAL] = 1400000000},
 		},
+	},
+};
+
+static struct clk_fixed_factor gpll3_out_main_div = {
+	.mult = 1,
+	.div = 2,
+	.hw.init = &(struct clk_init_data){
+		.name = "gpll3_out_main_div",
+		.parent_names = (const char *[]){ "gpll3_out_main" },
+		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
+		.ops = &clk_fixed_factor_ops,
 	},
 };
 
@@ -1729,6 +1742,12 @@ static struct freq_tbl ftbl_oxili_gfx3d_clk_src_qm215[] = {
 	F_SLEW( 270000000, P_GPLL6_OUT_AUX, 4, 0, 0, FIXED_FREQ_SRC),
 	F_SLEW( 320000000, P_GPLL0_OUT_MAIN, 2.5, 0, 0, FIXED_FREQ_SRC),
 	F_SLEW( 400000000, P_GPLL0_OUT_MAIN, 2, 0, 0, FIXED_FREQ_SRC),
+	F_SLEW( 465000000, P_GPLL3_OUT_MAIN_DIV, 1, 0, 0, 930000000),
+	F_SLEW( 484800000, P_GPLL3_OUT_MAIN_DIV, 1, 0, 0, 969600000),
+	F_SLEW( 500000000, P_GPLL3_OUT_MAIN_DIV, 1, 0, 0, 1000000000),
+	F_SLEW( 523200000, P_GPLL3_OUT_MAIN_DIV, 1, 0, 0, 1046400000),
+	F_SLEW( 550000000, P_GPLL3_OUT_MAIN_DIV, 1, 0, 0, 1100000000),
+	F_SLEW( 598000000, P_GPLL3_OUT_MAIN_DIV, 1, 0, 0, 1196000000),
 	{ }
 };
 
@@ -1743,6 +1762,7 @@ static struct clk_rcg2 gfx3d_clk_src = {
 		.name = "gfx3d_clk_src",
 		.parent_names = gcc_parent_names_14,
 		.num_parents = 6,
+		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 	},
 };
@@ -4319,6 +4339,12 @@ static int gcc_sdm429w_probe(struct platform_device *pdev)
 	if (IS_ERR(clk)) {
 		dev_err(&pdev->dev, "Unable to register wcnss_m_clk\n");
 		return PTR_ERR(clk);
+	}
+
+	ret = devm_clk_hw_register(&pdev->dev, &gpll3_out_main_div.hw);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register hardware clock\n");
+		return ret;
 	}
 
 	ret = qcom_cc_really_probe(pdev, &gcc_sdm429w_desc, regmap);
