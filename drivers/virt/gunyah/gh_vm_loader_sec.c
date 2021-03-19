@@ -15,6 +15,7 @@
 #include <linux/wait.h>
 #include <linux/qcom_scm.h>
 #include <linux/firmware.h>
+#include <linux/completion.h>
 #include <linux/platform_device.h>
 #include <linux/soc/qcom/mdt_loader.h>
 
@@ -43,6 +44,9 @@ struct gh_sec_vm_struct {
 	int vmid;
 	struct gh_vm_status vm_status;
 	wait_queue_head_t vm_status_wait;
+	struct completion ioc_vm_exit_wait;
+	u32 ioc_exit_reason;
+	u32 restart_level;
 };
 
 #define GH_VM_LOADER_SEC_STATUS_TIMEOUT_MS 5000
@@ -112,6 +116,114 @@ gh_vm_loader_wait_for_os_status(struct gh_sec_vm_struct *sec_vm_struct,
 	return 0;
 }
 
+static int
+gh_vm_loader_sec_reset(struct gh_sec_vm_struct *sec_vm_struct)
+{
+	struct gh_sec_vm_dev *vm_dev = sec_vm_struct->vm_dev;
+	struct device *dev = vm_dev->dev;
+	int ret;
+
+	ret = gh_rm_vm_reset(sec_vm_struct->vmid);
+	if (ret) {
+		dev_err(dev, "Failed to reset the VM: %d\n", ret);
+		return ret;
+	}
+
+	ret = gh_vm_loader_wait_for_vm_status(sec_vm_struct,
+						GH_RM_VM_STATUS_RESET);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static void gh_vm_loader_sec_cleanup_res(struct gh_sec_vm_struct *sec_vm_struct)
+{
+	struct gh_sec_vm_dev *vm_dev = sec_vm_struct->vm_dev;
+	int ret, vmid = sec_vm_struct->vmid;
+	struct device *dev = vm_dev->dev;
+
+	ret = gh_rm_unpopulate_hyp_res(vmid, vm_dev->vm_name);
+	if (ret)
+		dev_warn(dev, "Failed to unpopulate hyp resources: %d\n", ret);
+
+	ret = gh_vm_loader_sec_reset(sec_vm_struct);
+	if (ret)
+		dev_warn(dev, "VM reset unsuccessful\n");
+
+	ret = qcom_scm_pas_shutdown(vm_dev->pas_id);
+	if (ret)
+		dev_warn(dev, "Failed to do scm_shutdown: %d\n", ret);
+
+	ret = gh_rm_vm_dealloc_vmid(vmid);
+	if (ret)
+		dev_warn(dev, "Failed to dealloc VMID: %d: %d\n", vmid, ret);
+
+	sec_vm_struct->vmid = -EINVAL;
+	sec_vm_struct->vm_status.vm_status = GH_RM_VM_STATUS_INIT;
+}
+
+static void
+gh_vm_loader_handle_fatal_err(struct gh_sec_vm_struct *sec_vm_struct,
+			struct gh_rm_notif_vm_exited_payload *vm_exited)
+{
+	struct gh_vm_struct *vm_struct = sec_vm_struct->vm_struct;
+	struct gh_sec_vm_dev *vm_dev = sec_vm_struct->vm_dev;
+	struct device *dev = vm_dev->dev;
+
+	dev_info(dev, "VM: %d Crashed! restart_level set: %u\n",
+		sec_vm_struct->vmid, sec_vm_struct->restart_level);
+
+	if (sec_vm_struct->restart_level == GH_VM_RESTART_LEVEL_SYSTEM)
+		panic("Resetting the SoC");
+	else if (sec_vm_struct->restart_level == GH_VM_RESTART_LEVEL_RELATIVE)
+		dev_info(dev, "Recovering the VM\n");
+
+	/* Send a early notification to the clients before
+	 * the VM's resources are cleaned
+	 */
+	gh_vm_loader_notify_clients(vm_struct, GH_VM_LOADER_SEC_VM_CRASH_EARLY);
+
+	gh_vm_loader_sec_cleanup_res(sec_vm_struct);
+
+	gh_vm_loader_notify_clients(vm_struct, GH_VM_LOADER_SEC_VM_CRASH);
+}
+
+static void
+gh_vm_loader_sec_notif_vm_exited(struct gh_sec_vm_struct *sec_vm_struct,
+			struct gh_rm_notif_vm_exited_payload *vm_exited)
+{
+	struct device *dev = sec_vm_struct->vm_dev->dev;
+	u32 ioc_exit_reason = GH_VM_EXIT_REASON_UNKNOWN;
+
+	if (sec_vm_struct->vmid != vm_exited->vmid) {
+		dev_warn(dev, "VM_EXITED notification not for this vmid\n");
+		return;
+	}
+
+	mutex_lock(&sec_vm_struct->vm_lock);
+
+	switch (vm_exited->exit_type) {
+	case GH_RM_VM_EXIT_TYPE_WDT_BITE:
+		gh_vm_loader_handle_fatal_err(sec_vm_struct, vm_exited);
+		ioc_exit_reason = GH_VM_EXIT_REASON_NSWD;
+		break;
+	case GH_RM_VM_EXIT_TYPE_HYP_ERROR:
+		gh_vm_loader_handle_fatal_err(sec_vm_struct, vm_exited);
+		ioc_exit_reason = GH_VM_EXIT_REASON_HYP_ERROR;
+		break;
+	case GH_RM_VM_EXIT_TYPE_ASYNC_EXT_ABORT:
+		gh_vm_loader_handle_fatal_err(sec_vm_struct, vm_exited);
+		ioc_exit_reason = GH_VM_EXIT_REASON_ASYNC_EXT_ABORT;
+		break;
+	}
+
+	sec_vm_struct->ioc_exit_reason = ioc_exit_reason;
+	complete(&sec_vm_struct->ioc_vm_exit_wait);
+
+	mutex_unlock(&sec_vm_struct->vm_lock);
+}
+
 static void
 gh_vm_loader_sec_notif_vm_status(struct gh_sec_vm_struct *sec_vm_struct,
 				struct gh_rm_notif_vm_status_payload *vm_status)
@@ -130,6 +242,9 @@ gh_vm_loader_sec_notif_vm_status(struct gh_sec_vm_struct *sec_vm_struct,
 		switch (vm_status->vm_status) {
 		case GH_RM_VM_STATUS_RUNNING:
 			dev_info(dev, "VM:%d started running\n", vmid);
+			break;
+		case GH_RM_VM_STATUS_RESET:
+			dev_info(dev, "VM: %d reset complete\n", vmid);
 			break;
 		}
 
@@ -161,6 +276,9 @@ static void gh_vm_loader_sec_rm_notifier(struct gh_vm_struct *vm_struct,
 	switch (cmd) {
 	case GH_RM_NOTIF_VM_STATUS:
 		gh_vm_loader_sec_notif_vm_status(sec_vm_struct, data);
+		break;
+	case GH_RM_NOTIF_VM_EXITED:
+		gh_vm_loader_sec_notif_vm_exited(sec_vm_struct, data);
 		break;
 	}
 }
@@ -282,6 +400,57 @@ err_unlock:
 	return ret;
 }
 
+static int
+gh_vm_loader_wait_for_exit(struct gh_vm_struct *vm_struct, void __user *argp)
+{
+	struct gh_vm_sec_exit_status exit_status = {0};
+	struct gh_sec_vm_struct *sec_vm_struct;
+
+	sec_vm_struct = gh_vm_loader_get_loader_data(vm_struct);
+	if (!sec_vm_struct)
+		return -EINVAL;
+
+	mutex_lock(&sec_vm_struct->vm_lock);
+	if (sec_vm_struct->vm_status.vm_status != GH_RM_VM_STATUS_RUNNING) {
+		dev_err(sec_vm_struct->vm_dev->dev, "VM not started\n");
+		mutex_unlock(&sec_vm_struct->vm_lock);
+		return -ENODEV;
+	}
+	mutex_unlock(&sec_vm_struct->vm_lock);
+
+	if (wait_for_completion_interruptible(&sec_vm_struct->ioc_vm_exit_wait))
+		return -ERESTARTSYS;
+
+	mutex_lock(&sec_vm_struct->vm_lock);
+	reinit_completion(&sec_vm_struct->ioc_vm_exit_wait);
+	exit_status.reason = sec_vm_struct->ioc_exit_reason;
+	mutex_unlock(&sec_vm_struct->vm_lock);
+
+	if (copy_to_user(argp, &exit_status, sizeof(exit_status)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int gh_vm_loader_set_restart_level(struct gh_vm_struct *vm_struct,
+					unsigned long arg)
+{
+	struct gh_sec_vm_struct *sec_vm_struct;
+
+	if (arg >= GH_VM_RESTART_LEVELS_MAX)
+		return -EINVAL;
+
+	sec_vm_struct = gh_vm_loader_get_loader_data(vm_struct);
+	if (!sec_vm_struct)
+		return -EINVAL;
+
+	mutex_lock(&sec_vm_struct->vm_lock);
+	sec_vm_struct->restart_level = arg;
+	mutex_unlock(&sec_vm_struct->vm_lock);
+
+	return 0;
+}
+
 static long gh_vm_loader_sec_ioctl(struct file *file,
 					unsigned int cmd, unsigned long arg)
 {
@@ -290,6 +459,11 @@ static long gh_vm_loader_sec_ioctl(struct file *file,
 	switch (cmd) {
 	case GH_VM_SEC_START:
 		return gh_vm_loader_sec_start(vm_struct);
+	case GH_VM_SEC_WAIT_FOR_EXIT:
+		return gh_vm_loader_wait_for_exit(vm_struct,
+						(void __user *)arg);
+	case GH_VM_SEC_SET_RESTART_LEVEL:
+		return gh_vm_loader_set_restart_level(vm_struct, arg);
 	default:
 		pr_err("Invalid IOCTL for secure loader\n");
 		break;
@@ -342,11 +516,14 @@ static int gh_vm_loader_sec_vm_init(struct gh_vm_struct *vm_struct)
 
 	mutex_init(&sec_vm_struct->vm_lock);
 	init_waitqueue_head(&sec_vm_struct->vm_status_wait);
+	init_completion(&sec_vm_struct->ioc_vm_exit_wait);
 
 	sec_vm_struct->vm_struct = vm_struct;
 	sec_vm_struct->vm_dev = vm_dev;
 	sec_vm_struct->vm_status.vm_status = GH_RM_VM_STATUS_INIT;
 	sec_vm_struct->vmid = -EINVAL;
+	sec_vm_struct->ioc_exit_reason = GH_VM_EXIT_REASON_UNKNOWN;
+	sec_vm_struct->restart_level = GH_VM_RESTART_LEVEL_SYSTEM;
 
 	gh_vm_loader_set_loader_data(vm_struct, sec_vm_struct);
 
