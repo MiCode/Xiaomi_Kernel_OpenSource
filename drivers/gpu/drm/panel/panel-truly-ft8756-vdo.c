@@ -694,12 +694,12 @@ static int panel_ata_check(struct drm_panel *panel)
 		return 0;
 	}
 
-	DDPINFO("ATA read data %x %x %x\n", data[0], data[1], data[2]);
+	pr_info("ATA read data %x %x %x\n", data[0], data[1], data[2]);
 
 	if (data[0] == id[0] && data[1] == id[1] && data[2] == id[2])
 		return 1;
 
-	DDPINFO("ATA expect read data is %x %x %x\n", id[0], id[1], id[2]);
+	pr_info("ATA expect read data is %x %x %x\n", id[0], id[1], id[2]);
 
 	return 0;
 }
