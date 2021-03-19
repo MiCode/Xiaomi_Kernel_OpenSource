@@ -137,6 +137,9 @@ static int ufshcd_populate_vreg(struct device *dev, const char *name,
 		if (of_property_read_bool(np, "vcc-supply-1p8")) {
 			vreg->min_uV = UFS_VREG_VCC_1P8_MIN_UV;
 			vreg->max_uV = UFS_VREG_VCC_1P8_MAX_UV;
+		} else if (of_property_read_bool(np, "vcc-supply-2p5")) {
+			vreg->min_uV = UFS_VREG_VCC_2P5_MIN_UV;
+			vreg->max_uV = UFS_VREG_VCC_2P5_MAX_UV;
 		} else {
 			vreg->min_uV = UFS_VREG_VCC_MIN_UV;
 			vreg->max_uV = UFS_VREG_VCC_MAX_UV;

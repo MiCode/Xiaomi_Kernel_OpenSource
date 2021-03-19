@@ -498,6 +498,8 @@ struct ufs_query_res {
 #define UFS_VREG_VCC_MAX_UV	   3600000 /* uV */
 #define UFS_VREG_VCC_1P8_MIN_UV    1700000 /* uV */
 #define UFS_VREG_VCC_1P8_MAX_UV    1950000 /* uV */
+#define UFS_VREG_VCC_2P5_MIN_UV    2400000 /* uV */
+#define UFS_VREG_VCC_2P5_MAX_UV    2700000 /* uV */
 #define UFS_VREG_VCCQ_MIN_UV	   1140000 /* uV */
 #define UFS_VREG_VCCQ_MAX_UV	   1260000 /* uV */
 #define UFS_VREG_VCCQ2_MIN_UV	   1700000 /* uV */
