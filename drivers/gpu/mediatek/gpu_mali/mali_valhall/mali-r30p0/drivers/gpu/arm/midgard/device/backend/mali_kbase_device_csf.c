@@ -40,6 +40,8 @@
 #include <backend/gpu/mali_kbase_js_internal.h>
 #include <backend/gpu/mali_kbase_clk_rate_trace_mgr.h>
 
+#include "../../platform/mtk_platform_common.h"
+
 static void kbase_device_csf_firmware_term(struct kbase_device *kbdev)
 {
 	kbase_csf_firmware_term(kbdev);
@@ -173,6 +175,11 @@ static void kbase_backend_late_term(struct kbase_device *kbdev)
 }
 
 static const struct kbase_device_init dev_init[] = {
+	// *** MTK ***
+	{mtk_common_device_init, mtk_common_device_term,
+			"MTK common initialization failed"},
+	{mtk_platform_device_init, mtk_platform_device_term,
+			"MTK platform initialization failed"},
 #ifdef CONFIG_MALI_NO_MALI
 	{kbase_gpu_device_create, kbase_gpu_device_destroy,
 			"Dummy model initialization failed"},
