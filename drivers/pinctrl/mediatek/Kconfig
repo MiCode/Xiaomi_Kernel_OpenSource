@@ -120,6 +120,16 @@ config PINCTRL_MT6873
 	depends on OF || COMPILE_TEST
 	select PINCTRL_MTK_PARIS
 
+config PINCTRL_MT6885
+	tristate "Mediatek MT6885 pin control"
+	depends on OF || COMPILE_TEST
+	select PINCTRL_MTK_PARIS
+	help
+	  This is the pin controller and gpio driver for mediatek
+	  mt6885 chipset. It will enable mediatek common v2,
+	  paris and eint core driver.
+	  Say Y here to enable it.
+
 config PINCTRL_MT7622
 	bool "MediaTek MT7622 pin control"
 	depends on OF
