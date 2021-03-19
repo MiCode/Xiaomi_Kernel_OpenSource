@@ -2224,6 +2224,8 @@
 				reg = <0 0x11200000 0 0x1000>;
 				reg-names = "mac";
 				interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH 0>;
+				clocks = <&infracfg_ao_clk CLK_IFRAO_SSUSB_XHCI>;
+				clock-names = "sys_ck";
 				mediatek,keep-clock-on;
 				status = "okay";
 			};
