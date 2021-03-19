@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_DEVICE_H
 #define __KGSL_DEVICE_H
@@ -282,10 +282,12 @@ struct kgsl_device {
 	u32 speed_bin;
 	/** @gmu_fault: Set when a gmu or rgmu fault is encountered */
 	bool gmu_fault;
-	/** @timelines: xarray for the timelines */
-	struct xarray timelines;
 	/** @regmap: GPU register map */
 	struct kgsl_regmap regmap;
+	/** @timelines: Iterator for assigning IDs to timelines */
+	struct idr timelines;
+	/** @timelines_lock: Spinlock to protect the timelines idr */
+	spinlock_t timelines_lock;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
