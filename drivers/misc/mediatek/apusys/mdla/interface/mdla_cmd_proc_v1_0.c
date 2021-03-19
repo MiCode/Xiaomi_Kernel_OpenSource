@@ -175,7 +175,6 @@ process_command:
 		ret = -1;
 	}
 
-	mdla_prof_stop(core_id, 1);
 	mdla_pwr_ops_get()->off_timer_start(core_id);
 
 	ce.wait_t = sched_clock();
@@ -266,7 +265,6 @@ process_command:
 		wt->result = 1;
 	}
 
-	mdla_prof_stop(core_id, 1);
 	mdla_pwr_ops_get()->off_timer_start(core_id);
 
 	ce.wait_t = sched_clock();

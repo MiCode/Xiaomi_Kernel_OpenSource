@@ -84,7 +84,7 @@ static inline unsigned long mdla_plat_get_wait_time(u32 core_id)
 {
 	unsigned long time;
 
-	if (mdla_prof_pmu_timer_is_running(core_id))
+	if (mdla_prof_pmu_tmr_en(core_id))
 		time = usecs_to_jiffies(mdla_dbg_read_u64(FS_CFG_PMU_PERIOD));
 	else
 		time = msecs_to_jiffies(mdla_dbg_read_u32(FS_POLLING_CMD_DONE));
@@ -432,7 +432,7 @@ static int mdla_plat_register_show(struct seq_file *s, void *data)
 
 static int mdla_plat_dbgfs_usage(struct seq_file *s, void *data)
 {
-	seq_printf(s, "---- Kernel debug log maks (current = 0x%x) ----\n",
+	seq_printf(s, "---- Kernel debug log mask (current = 0x%x) ----\n",
 				mdla_dbg_read_u32(FS_KLOG));
 	seq_printf(s, "echo [mask(hex)] > /d/mdla/%s\n",
 				mdla_dbg_get_u32_node_str(FS_KLOG));
@@ -648,9 +648,9 @@ static void mdla_v2_0_reset(u32 core_id, const char *str)
 		str);
 
 	spin_lock_irqsave(&dev->hw_lock, flags);
+
 	io->cfg.write(core_id, MDLA_CG_CLR, 0xffffffff);
 	io->cmde.write(core_id, MREG_TOP_G_INTP2, MDLA_IRQ_MASK & ~(INTR_SUPPORT_MASK));
-
 
 	/* for DCM and CG */
 	io->cmde.write(core_id, MREG_TOP_ENG0, mdla_dbg_read_u32(FS_CFG_ENG0));

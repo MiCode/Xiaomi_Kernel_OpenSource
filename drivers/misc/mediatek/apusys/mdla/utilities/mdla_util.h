@@ -40,7 +40,7 @@ for (i = 0;  i < mdla_util_get_core_num(); i++)
 #define core_id_is_invalid(i) ((i) >= mdla_util_get_core_num())
 
 /* pmu operation */
-#define MDLA_PMU_COUNTERS   (15)
+#define MDLA_PMU_COUNTERS   15
 #define COUNTER_CLEAR       (0xFFFFFFFF)
 
 enum CMD_MODE {

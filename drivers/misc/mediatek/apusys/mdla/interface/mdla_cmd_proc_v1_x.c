@@ -143,7 +143,6 @@ int mdla_cmd_run_sync_v1_x(struct mdla_run_cmd_sync *cmd_data,
 	mdla_info->sched->pro_ce = NULL;
 
 	mdla_trace_end(core_id, 0, &ce);
-	mdla_prof_stop(core_id, 1);
 	mdla_prof_iter(core_id);
 	mdla_util_apu_pmu_update(mdla_info, apusys_hd, 0);
 
@@ -262,7 +261,6 @@ int mdla_cmd_ut_run_sync_v1_x(void *run_cmd, void *wait_cmd,
 		wt->result = 1;
 	}
 
-	mdla_prof_stop(core_id, 1);
 	mdla_pwr_ops_get()->off_timer_start(core_id);
 
 	ce.wait_t = sched_clock();

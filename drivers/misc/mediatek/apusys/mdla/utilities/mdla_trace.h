@@ -35,8 +35,4 @@ static inline void mdla_trace_pmu_polling(u32 core_id, u32 *c) {}
 
 bool mdla_trace_enable(void);
 
-void mdla_trace_set_cfg_pmu_tmr_en(int enable);
-bool mdla_trace_get_cfg_pmu_tmr_en(void);
-void mdla_trace_register_cfg_pmu_tmr(int *timer_en);
-
 #endif /* __MDLA_TRACE_H__ */

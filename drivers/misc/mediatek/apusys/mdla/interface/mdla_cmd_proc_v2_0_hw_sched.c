@@ -295,7 +295,6 @@ int mdla_cmd_run_sync_v2_0_hw_sched(struct mdla_run_cmd_sync *cmd_data,
 error_handle:
 
 	mdla_trace_end(core_id, 0, ce);
-	mdla_prof_stop(core_id, 1);
 	mdla_prof_iter(core_id);
 	mdla_util_apu_pmu_update(mdla_info, apusys_hd, (u16)priority);
 

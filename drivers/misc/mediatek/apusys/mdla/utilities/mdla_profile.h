@@ -36,7 +36,7 @@ void mdla_prof_start(u32 core_id);
 void mdla_prof_stop(u32 core_id, int wait);
 void mdla_prof_iter(u32 core_id);
 
-bool mdla_prof_pmu_timer_is_running(u32 core_id);
+bool mdla_prof_pmu_tmr_en(u32 core_id);
 bool mdla_prof_use_dbgfs_pmu_event(u32 core_id);
 
 void mdla_prof_set_ts(u32 core_id, int index, u64 time_ns);
