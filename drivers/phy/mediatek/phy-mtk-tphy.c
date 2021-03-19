@@ -11,6 +11,7 @@
 #include <linux/io.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/phy/phy.h>
@@ -127,6 +128,9 @@
 #define P3C_RG_SWRST_U3_PHYD_FORCE_EN	BIT(24)
 
 #define U3P_U3_PHYA_REG0	0x000
+#define P3A_RG_SSUSB_IEXT_INTR_CTRL	GENMASK(15, 10)
+#define P3A_RG_SSUSB_IEXT_INTR_CTRL_VAL(x)	((0x3f & (x)) << 10)
+
 #define P3A_RG_CLKDRV_OFF		GENMASK(3, 2)
 #define P3A_RG_CLKDRV_OFF_VAL(x)	((0x3 & (x)) << 2)
 
@@ -181,6 +185,14 @@
 #define U3P_U3_PHYD_LFPS1		0x00c
 #define P3D_RG_FWAKE_TH		GENMASK(21, 16)
 #define P3D_RG_FWAKE_TH_VAL(x)	((0x3f & (x)) << 16)
+
+#define U3P_U3_PHYD_IMPCAL0		0x010
+#define P3D_RG_SSUSB_TX_IMPSEL		GENMASK(28, 24)
+#define P3D_RG_SSUSB_TX_IMPSEL_VAL(x)	((0x1f & (x)) << 24)
+
+#define U3P_U3_PHYD_IMPCAL1		0x014
+#define P3D_RG_SSUSB_RX_IMPSEL		GENMASK(28, 24)
+#define P3D_RG_SSUSB_RX_IMPSEL_VAL(x)	((0x1f & (x)) << 24)
 
 #define U3P_U3_PHYD_CDR1		0x05c
 #define P3D_RG_CDR_BIR_LTD1		GENMASK(28, 24)
@@ -285,6 +297,20 @@ enum mtk_phy_version {
 	MTK_PHY_V2,
 };
 
+enum mtk_phy_efuse {
+	INTR_CAL = 0,
+	IEXT_INTR_CTRL,
+	RX_IMPSEL,
+	TX_IMPSEL,
+};
+
+static char *efuse_name[4] = {
+	"intr_cal",
+	"iext_intr_ctrl",
+	"rx_impsel",
+	"tx_impsel",
+};
+
 struct mtk_phy_pdata {
 	/* avoid RX sensitivity level degradation only for mt8173 */
 	bool avoid_rx_sen_degradation;
@@ -333,6 +359,86 @@ struct mtk_tphy {
 	int src_ref_clk; /* MHZ, reference clock for slew rate calibrate */
 	int src_coef; /* coefficient for slew rate calibrate */
 };
+
+static int phy_efuse_set(struct mtk_phy_instance *instance,
+			     enum mtk_phy_efuse type)
+{
+	struct device *dev = &instance->phy->dev;
+	struct device_node *np = dev->of_node;
+	struct u2phy_banks *u2_banks;
+	struct u3phy_banks *u3_banks;
+	u32 val, tmp, mask;
+	int index = 0, ret = 0;
+
+	index = of_property_match_string(np,
+			"nvmem-cell-names", efuse_name[type]);
+	if (index < 0)
+		return index;
+
+	ret = of_property_read_u32_index(np, "nvmem-cell-masks",
+			index, &mask);
+	if (ret)
+		return ret;
+
+	ret = nvmem_cell_read_u32(dev, efuse_name[type], &val);
+	if (ret)
+		return ret;
+
+	if (!val || !mask)
+		return 0;
+
+	val = (val & mask) >> (ffs(mask) - 1);
+	dev_info(dev, "%s, %s=0x%x\n", __func__, efuse_name[type], val);
+
+	switch (type) {
+	case INTR_CAL:
+		u2_banks = &instance->u2_banks;
+		tmp = readl(u2_banks->com + U3P_USBPHYACR1);
+		tmp &= ~PA1_RG_INTR_CAL;
+		tmp |= PA1_RG_INTR_CAL_VAL(val);
+		writel(tmp, u2_banks->com + U3P_USBPHYACR1);
+		break;
+	case IEXT_INTR_CTRL:
+		u3_banks = &instance->u3_banks;
+		tmp = readl(u3_banks->phya + U3P_U3_PHYA_REG0);
+		tmp &= ~P3A_RG_SSUSB_IEXT_INTR_CTRL;
+		tmp |= P3A_RG_SSUSB_IEXT_INTR_CTRL_VAL(val);
+		writel(tmp, u3_banks->phya + U3P_U3_PHYA_REG0);
+		break;
+	case RX_IMPSEL:
+		u3_banks = &instance->u3_banks;
+		tmp = readl(u3_banks->phyd + U3P_U3_PHYD_IMPCAL1);
+		tmp &= ~P3D_RG_SSUSB_RX_IMPSEL;
+		tmp |= P3D_RG_SSUSB_RX_IMPSEL_VAL(val);
+		writel(tmp, u3_banks->phyd + U3P_U3_PHYD_IMPCAL1);
+		break;
+	case TX_IMPSEL:
+		u3_banks = &instance->u3_banks;
+		tmp = readl(u3_banks->phyd + U3P_U3_PHYD_IMPCAL0);
+		tmp &= ~P3D_RG_SSUSB_TX_IMPSEL;
+		tmp |= P3D_RG_SSUSB_TX_IMPSEL_VAL(val);
+		writel(tmp, u3_banks->phyd + U3P_U3_PHYD_IMPCAL0);
+		break;
+	default:
+		return 0;
+	}
+
+	return 0;
+}
+
+static void u2_phy_efuse_set(struct mtk_tphy *tphy,
+			     struct mtk_phy_instance *instance)
+{
+	phy_efuse_set(instance, INTR_CAL);
+}
+
+static void u3_phy_efuse_set(struct mtk_tphy *tphy,
+			     struct mtk_phy_instance *instance)
+{
+	phy_efuse_set(instance, IEXT_INTR_CTRL);
+	phy_efuse_set(instance, RX_IMPSEL);
+	phy_efuse_set(instance, TX_IMPSEL);
+}
 
 static void hs_slew_rate_calibrate(struct mtk_tphy *tphy,
 	struct mtk_phy_instance *instance)
@@ -994,10 +1100,12 @@ static int mtk_phy_init(struct phy *phy)
 	switch (instance->type) {
 	case PHY_TYPE_USB2:
 		u2_phy_instance_init(tphy, instance);
+		u2_phy_efuse_set(tphy, instance);
 		u2_phy_props_set(tphy, instance);
 		break;
 	case PHY_TYPE_USB3:
 		u3_phy_instance_init(tphy, instance);
+		u3_phy_efuse_set(tphy, instance);
 		break;
 	case PHY_TYPE_PCIE:
 		pcie_phy_instance_init(tphy, instance);
