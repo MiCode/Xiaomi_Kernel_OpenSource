@@ -93,8 +93,6 @@ struct mtk_base_dsp {
 	 * aud_playback task get data from source and write to AFE HW
 	 */
 	int dsp_ver;
-
-	int is_shared_dram_mpu;
 };
 
 struct mtk_adsp_task_attr {

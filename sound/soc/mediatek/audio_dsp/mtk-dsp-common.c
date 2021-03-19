@@ -8,16 +8,15 @@
 #include <linux/notifier.h>
 
 /* ipi message related*/
-#include <audio_ipi_dma.h>
-#include <audio_ipi_platform.h>
-#include <audio_messenger_ipi.h>
-#include <audio_task_manager.h>
-#include <audio_task.h>
-#include <mtk-base-afe.h>
-
-#include <mtk-dsp-mem-control.h>
-#include <mtk-base-dsp.h>
-#include <mtk-dsp-common.h>
+#include "audio_ipi_dma.h"
+#include "audio_ipi_platform.h"
+#include "audio_messenger_ipi.h"
+#include "audio_task_manager.h"
+#include "audio_task.h"
+#include "mtk-base-afe.h"
+#include "mtk-dsp-mem-control.h"
+#include "mtk-base-dsp.h"
+#include "mtk-dsp-common.h"
 
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
 #include <adsp_helper.h>
@@ -98,16 +97,14 @@ int mtk_scp_ipi_send(int task_scene, int data_type, int ack_type,
 
 	if (!is_audio_task_dsp_ready(task_scene)) {
 		pr_info("%s(), is_adsp_ready send false\n", __func__);
-		send_result = -1;
-		return send_result;
+		return -1;
 	}
 
 	if (get_task_attr(get_dspdaiid_by_dspscene(task_scene),
 			  ADSP_TASK_ATTR_DEFAULT) == 0) {
 		pr_info("%s() task_scene[%d] not enable\n",
 			__func__, task_scene);
-		send_result = -1;
-		return send_result;
+		return -1;
 	}
 
 	send_result = audio_send_ipi_msg(
@@ -115,10 +112,8 @@ int mtk_scp_ipi_send(int task_scene, int data_type, int ack_type,
 		AUDIO_IPI_LAYER_TO_DSP, data_type,
 		ack_type, msg_id, param1, param2,
 		(char *)payload);
-
 	if (send_result)
-		pr_info("%s(),scp_ipi send fail\n",
-			__func__);
+		pr_info("%s(),scp_ipi send fail\n", __func__);
 
 	return send_result;
 }
@@ -268,6 +263,56 @@ int get_dsp_task_id_from_str(const char *task_name)
 }
 EXPORT_SYMBOL_GPL(get_dsp_task_id_from_str);
 
+const char *get_str_by_dsp_dai_id(const int task_id)
+{
+	char *name = NULL;
+
+	switch (task_id) {
+	case AUDIO_TASK_VOIP_ID:
+		name = "T_VOIP";
+		break;
+	case AUDIO_TASK_PRIMARY_ID:
+		name = "T_PRIMARY";
+		break;
+	case AUDIO_TASK_OFFLOAD_ID:
+		name = "T_OFFLOAD";
+		break;
+	case AUDIO_TASK_DEEPBUFFER_ID:
+		name = "T_DEEP";
+		break;
+	case AUDIO_TASK_PLAYBACK_ID:
+		name = "T_PLAYBACK";
+		break;
+	case AUDIO_TASK_MUSIC_ID:
+		name = "T_MUSIC";
+		break;
+	case AUDIO_TASK_CAPTURE_UL1_ID:
+		name = "T_CAPTURE";
+		break;
+	case AUDIO_TASK_A2DP_ID:
+		name = "T_A2DP";
+		break;
+	case AUDIO_TASK_DATAPROVIDER_ID:
+		name = "T_DATAPROVIDER";
+		break;
+	case AUDIO_TASK_CALL_FINAL_ID:
+		name = "T_CALLFINAL";
+		break;
+	case AUDIO_TASK_FAST_ID:
+		name = "T_FAST";
+		break;
+	case AUDIO_TASK_KTV_ID:
+		name = "T_KTV";
+		break;
+	default:
+		name = "T_UNKNOWN";
+		break;
+	}
+
+	return name;
+}
+EXPORT_SYMBOL_GPL(get_str_by_dsp_dai_id);
+
 static int set_aud_buf_attr(struct audio_hw_buffer *audio_hwbuf,
 			    struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params,
@@ -344,13 +389,14 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 		       struct snd_soc_dai *dai,
 		       struct mtk_base_afe *afe)
 {
-	int task_id = 0, ret = 0;
+	int ret = 0;
 	struct mtk_base_dsp *dsp = (struct mtk_base_dsp *)local_base_dsp;
 	void *ipi_audio_buf; /* dsp <-> audio data struct*/
 	struct mtk_base_dsp_mem *dsp_memif;
 	struct mtk_base_afe_memif *memif = &afe->memif[dai->id];
+	int task_id = get_taskid_by_afe_daiid(dai->id);
+	const char *task_name = get_str_by_dsp_dai_id(task_id);
 
-	task_id = get_taskid_by_afe_daiid(dai->id);
 	if (task_id < 0 || task_id >= AUDIO_TASK_DAI_NUM)
 		return -1;
 
@@ -358,11 +404,11 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 	    get_task_attr(task_id, ADSP_TASK_ATTR_DEFAULT) <= 0)
 		return -1;
 
-	pr_info("%s(), command 0x%x\n", __func__, command);
+	pr_info("%s(), %s send cmd 0x%x\n", __func__, task_name, command);
 
 	dsp_memif = (struct mtk_base_dsp_mem *)&dsp->dsp_mem[task_id];
 
-	/* send msg by task , unsing common function*/
+	/* send msg by task by unsing common function */
 	switch (command) {
 	case AUDIO_DSP_TASK_PCM_HWPARAM:
 		set_aud_buf_attr(&dsp_memif->audio_afepcm_buf,
@@ -371,7 +417,7 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 				 memif->irq_usage,
 				 dai);
 
-		/* send audio_afepcm_buf to SCP side*/
+		/* send audio_afepcm_buf to SCP side */
 		ipi_audio_buf = (void *)
 				 dsp_memif->msg_atod_share_buf.va_addr;
 		memcpy((void *)ipi_audio_buf,
@@ -387,13 +433,13 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 		 */
 		ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(task_id),
 				       AUDIO_IPI_PAYLOAD,
-				 AUDIO_IPI_MSG_NEED_ACK,
-				 AUDIO_DSP_TASK_PCM_HWPARAM,
-				 sizeof(unsigned int),
-				 (unsigned int)
-				 dsp_memif->msg_atod_share_buf.phy_addr,
-				 (char *)
-				 &dsp_memif->msg_atod_share_buf.phy_addr);
+				       AUDIO_IPI_MSG_NEED_ACK,
+				       AUDIO_DSP_TASK_PCM_HWPARAM,
+				       sizeof(unsigned int),
+				       (unsigned int)
+				       dsp_memif->msg_atod_share_buf.phy_addr,
+				       (char *)
+				       &dsp_memif->msg_atod_share_buf.phy_addr);
 		break;
 	case AUDIO_DSP_TASK_PCM_PREPARE:
 		set_aud_buf_attr(&dsp_memif->audio_afepcm_buf,
@@ -402,7 +448,7 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 				 memif->irq_usage,
 				 dai);
 
-		/* send audio_afepcm_buf to SCP side*/
+		/* send audio_afepcm_buf to SCP side */
 		ipi_audio_buf =
 			(void *)dsp_memif->msg_atod_share_buf.va_addr;
 		memcpy((void *)ipi_audio_buf,
@@ -413,7 +459,7 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 		dump_audio_hwbuffer(ipi_audio_buf);
 #endif
 
-		/* send to task with prepare status*/
+		/* send to task with prepare status */
 		ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(task_id),
 				       AUDIO_IPI_PAYLOAD,
 				       AUDIO_IPI_MSG_NEED_ACK,
@@ -430,7 +476,7 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 				 params,
 				 memif->irq_usage,
 				 dai);
-		/* send to task with prepare status*/
+		/* send to task with prepare status */
 		ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(task_id),
 				       AUDIO_IPI_MSG_ONLY,
 				       AUDIO_IPI_MSG_NEED_ACK,
@@ -507,4 +553,42 @@ int mtk_audio_register_notify(void)
 #endif
 	return 0;
 }
+
+int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size)
+{
+	int result = 0;
+	struct ipi_msg_t ipi_msg;
+	int task_scene;
+
+	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
+	task_scene = mtk_get_speech_status() ?
+		     TASK_SCENE_CALL_FINAL : TASK_SCENE_AUDPLAYBACK;
+
+	result = audio_send_ipi_buf_to_dsp(&ipi_msg, task_scene,
+					   AUDIO_DSP_TASK_AURISYS_SET_BUF,
+					   data_buffer, data_size);
+
+	return result;
+}
+EXPORT_SYMBOL(mtk_spk_send_ipi_buf_to_dsp);
+
+int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
+				  int16_t size,
+				  uint32_t *buf_len)
+{
+	int result = 0;
+	struct ipi_msg_t ipi_msg;
+	int task_scene;
+
+	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
+	task_scene = mtk_get_speech_status() ?
+		     TASK_SCENE_CALL_FINAL : TASK_SCENE_AUDPLAYBACK;
+
+	result = audio_recv_ipi_buf_from_dsp(&ipi_msg,
+					     task_scene,
+					     AUDIO_DSP_TASK_AURISYS_GET_BUF,
+					     buffer, size, buf_len);
+	return result;
+}
+EXPORT_SYMBOL(mtk_spk_recv_ipi_buf_from_dsp);
 

@@ -14,7 +14,7 @@
 # additional debugging
 #TFA_DEBUG=1
 
-subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/common
+subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/audio_dsp
 
 # debugging support (also enables trace_printk)
 ccflags-y += -I$(srctree)/sound/soc/codecs/tfa98xx/inc

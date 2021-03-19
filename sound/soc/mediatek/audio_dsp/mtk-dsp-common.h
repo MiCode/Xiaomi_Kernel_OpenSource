@@ -105,6 +105,7 @@ int mtk_adsp_genpool_free_memory(unsigned char **vaddr,
 int afe_get_pcmdir(int dir, struct audio_hw_buffer buf);
 int get_dsp_task_attr(int dsp_id, int task_attr);
 int get_dsp_task_id_from_str(const char *task_name);
+const char *get_str_by_dsp_dai_id(const int task_id);
 
 int audio_set_dsp_afe(struct mtk_base_afe *afe);
 struct mtk_base_afe *get_afe_base(void);
@@ -114,5 +115,9 @@ int mtk_dsp_deregister_feature(int id);
 
 int mtk_audio_register_notify(void);
 
+int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size);
+int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
+				  int16_t size,
+				  uint32_t *buf_len);
 #endif
 #endif

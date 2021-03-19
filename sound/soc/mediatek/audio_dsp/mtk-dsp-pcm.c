@@ -112,14 +112,6 @@ static int dsp_pcm_taskattr_init(struct platform_device *pdev)
 
 		set_task_attr(AUDIO_TASK_PLAYBACK_ID, ADSP_TASK_ATTR_SMARTPA,
 			      task_attr.spk_protect_in_dsp);
-
-		ret = of_property_read_u32(pdev->dev.of_node,
-					   "is_shared_dram_mpu",
-					   &dsp->is_shared_dram_mpu);
-		if (ret) {
-			pr_err("%s is_shared_dram_mpu error: %d\n", ret);
-			dsp->is_shared_dram_mpu = 0;
-		}
 	}
 	return 0;
 }
@@ -181,8 +173,8 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 		goto err_platform;
 	}
 
-	/* set mpu with adsp common memory*/
-	if (dsp->is_shared_dram_mpu)
+	/* set adsp shared memory cacheable by using ADSP MPU */
+	if (dsp->dsp_ver)
 		ret = set_mtk_adsp_mpu_sharedram(AUDIO_DSP_AFE_SHARE_MEM_ID);
 	if (ret)
 		pr_info("set_mtk_adsp_mpu_sharedram fail\n");

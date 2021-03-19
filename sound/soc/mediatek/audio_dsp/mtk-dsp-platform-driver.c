@@ -920,7 +920,7 @@ SYNC_READINDEX:
 
 	/* handle for underflow */
 	if (dsp_mem->underflowed) {
-		pr_info("%s id = %d return -1 because underflowed[%d] %d\n",
+		pr_info("%s id = %d return -1 because underflowed[%d]\n",
 			__func__, id, dsp_mem->underflowed);
 		dsp_mem->underflowed = 0;
 		spin_unlock_irqrestore(&dsp_ringbuf_lock, flags);
@@ -976,13 +976,15 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 	unsigned long flags;
 	void *ipi_audio_buf;
 	struct mtk_base_dsp_mem *dsp_mem = &dsp->dsp_mem[id];
+	const char *task_name = get_str_by_dsp_dai_id(id);
 
 #ifdef DEBUG_VERBOSE_IRQ
 	pr_info("%s dsp[%p] id[%id]\n", __func__, dsp, id);
 #endif
 
 	if (!dsp->dsp_mem[id].substream) {
-		pr_info_ratelimited("%s substream NULL id[%d]\n", __func__, id);
+		pr_info_ratelimited("%s %s substream NULL\n",
+				    __func__, task_name);
 		return;
 	}
 
@@ -994,7 +996,7 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 
 	/* adsp reset message */
 	if (ipi_msg && ipi_msg->param2 == ADSP_DL_CONSUME_RESET) {
-		pr_info("%s adsp resert id = %d\n", __func__, id);
+		pr_info("%s %s adsp reset\n", __func__, task_name);
 		RingBuf_Reset(&dsp->dsp_mem[id].ring_buf);
 		/* notify subsream */
 		return snd_pcm_period_elapsed(dsp->dsp_mem[id].substream);
@@ -1002,7 +1004,7 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 
 	/* adsp reset message */
 	if (ipi_msg && ipi_msg->param2 == ADSP_DL_CONSUME_UNDERFLOW) {
-		pr_info("%s adsp underflowed id = %d\n", __func__, id);
+		pr_info("%s %s adsp underflowed\n", __func__, task_name);
 		dsp->dsp_mem[id].underflowed = true;
 		/* notify subsream */
 		return snd_pcm_period_elapsed(dsp->dsp_mem[id].substream);
@@ -1145,8 +1147,9 @@ static int mtk_dsp_pcm_open(struct snd_soc_component *component,
 	int id = cpu_dai->id;
 
 	int dsp_feature_id = get_featureid_by_dsp_daiid(id);
+	const char *task_name = get_str_by_dsp_dai_id(id);
 
-	pr_info("%s(), task_id: %d\n", __func__, id);
+	pr_info("%s(), %s\n", __func__, task_name);
 
 	memcpy((void *)(&(runtime->hw)), (void *)dsp->mtk_dsp_hardware,
 	       sizeof(struct snd_pcm_hardware));
@@ -1177,14 +1180,14 @@ static int mtk_dsp_pcm_close(struct snd_soc_component *component,
 	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
 	int id = cpu_dai->id;
 	int dsp_feature_id = get_featureid_by_dsp_daiid(id);
+	const char *task_name = get_str_by_dsp_dai_id(id);
 
-	pr_info("%s id[%d]\n", __func__, id);
+	pr_info("%s() %s\n", __func__, task_name);
 
 	/* send to task with close information */
-	mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_MSG_ONLY,
-			 AUDIO_IPI_MSG_NEED_ACK, AUDIO_DSP_TASK_CLOSE, 0, 0,
-			 NULL);
-
+	ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_MSG_ONLY,
+			       AUDIO_IPI_MSG_NEED_ACK, AUDIO_DSP_TASK_CLOSE, 0,
+			       0, NULL);
 	if (ret)
 		pr_info("%s ret[%d]\n", __func__, ret);
 
@@ -1341,6 +1344,7 @@ static int mtk_dsp_pcm_hw_prepare(struct snd_soc_component *component,
 	void *ipi_audio_buf; /* dsp <-> audio data struct */
 	struct mtk_base_dsp_mem *dsp_memif = &dsp->dsp_mem[id];
 	struct audio_hw_buffer *adsp_buf = &dsp->dsp_mem[id].adsp_buf;
+	const char *task_name = get_str_by_dsp_dai_id(id);
 
 	clear_audiobuffer_hw(adsp_buf);
 	RingBuf_Reset(&dsp->dsp_mem[id].ring_buf);
@@ -1352,8 +1356,8 @@ static int mtk_dsp_pcm_hw_prepare(struct snd_soc_component *component,
 	if (ret < 0)
 		pr_warn("%s set_audiobuffer_attribute err\n", __func__);
 
-	pr_info("%s(), task_id: %d start_threshold: %u stop_threshold: %u period_size: %d period_count: %d\n",
-		__func__, id,
+	pr_info("%s(), %s start_threshold: %u stop_threshold: %u period_size: %d period_count: %d\n",
+		__func__, task_name,
 		adsp_buf->aud_buffer.start_threshold,
 		adsp_buf->aud_buffer.stop_threshold,
 		adsp_buf->aud_buffer.period_size,
@@ -1406,9 +1410,10 @@ static int mtk_dsp_pcm_hw_trigger(struct snd_soc_component *component,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct mtk_base_dsp *dsp = snd_soc_component_get_drvdata(component);
 	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
+	const char *task_name = get_str_by_dsp_dai_id(cpu_dai->id);
 
-	dev_info(dsp->dev, "%s cmd %d id = %d\n",
-		 __func__, cmd, cpu_dai->id);
+	dev_info(dsp->dev, "%s() %s cmd %d\n", __func__, task_name, cmd);
+
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:

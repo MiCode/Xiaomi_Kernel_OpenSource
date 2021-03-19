@@ -25,7 +25,9 @@
 #include "tfa.h"
 #include "tfa_dsp_fw.h"
 /* MTK platform header file. */
-//#include <mtk-sp-spk-amp.h>
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+#include <mtk-dsp-common.h>
+#endif
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -120,16 +122,15 @@ struct tfa98xx_rate {
 
 static uint8_t g_tfa98xx_firmware_status;
 
-#if 0
 int tfa98xx_send_data_to_dsp(int8_t *buffer, int16_t DataLength)
 {
 	int result = 0;
 
 	if (buffer == NULL)
 		return -EFAULT;
-
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	result = mtk_spk_send_ipi_buf_to_dsp(buffer, DataLength);
-
+#endif
 	/*msleep(50);*/
 
 	return result;
@@ -140,12 +141,11 @@ int tfa98xx_receive_data_from_dsp(int8_t *buffer,
 	uint32_t *DataLength)
 {
 	int result = 0;
-
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	result = mtk_spk_recv_ipi_buf_from_dsp(buffer, size, DataLength);
-
+#endif
 	return result;
 }
-#endif
 
 static const struct tfa98xx_rate rate_to_fssel[] = {
 	{ 8000, 0 },
@@ -769,12 +769,11 @@ static ssize_t tfa98xx_dbgfs_rpc_read(struct file *file,
 	mutex_lock(&tfa98xx->dsp_lock);
 
 	if (tfa98xx->tfa->is_probus_device) {
-		//uint32_t DataLength = 0;
+		uint32_t DataLength = 0;
 
 		if (tfa98xx->dsp_init == TFA98XX_DSP_INIT_DONE) {
-			error = Tfa98xx_Error_Ok;
-			//error = tfa98xx_receive_data_from_dsp(
-			//	buffer, count, &DataLength);
+			error = tfa98xx_receive_data_from_dsp(
+				buffer, count, &DataLength);
 		} else {
 			error = -ENODEV;
 			pr_info("receive data fail as DSP NOT work\n");
@@ -829,9 +828,8 @@ static ssize_t tfa98xx_dbgfs_rpc_send(struct file *file,
 	if (tfa98xx->tfa->is_probus_device) {
 		mutex_lock(&tfa98xx->dsp_lock);
 		if (tfa98xx->dsp_init == TFA98XX_DSP_INIT_DONE) {
-			error = Tfa98xx_Error_Ok;
-			//error = tfa98xx_send_data_to_dsp(msg_file->data,
-			//	msg_file->size);
+			error = tfa98xx_send_data_to_dsp(msg_file->data,
+				msg_file->size);
 		} else {
 			error = -ENODEV;
 		}
@@ -2591,9 +2589,8 @@ enum Tfa98xx_Error tfa98xx_adsp_send_calib_values(void)
 		bytes[2] = 0x81;
 		bytes[3] = 0x05;
 		if (tfa98xx->dsp_init == TFA98XX_DSP_INIT_DONE)
-			ret = Tfa98xx_Error_Ok;
-			//ret = tfa98xx_send_data_to_dsp(&bytes[1],
-			//      sizeof(bytes) - 1);
+			ret = tfa98xx_send_data_to_dsp(&bytes[1],
+			      sizeof(bytes) - 1);
 		else {
 			ret = -1;
 			pr_info(" send data fail as DSP NOT work\n");
@@ -2614,11 +2611,10 @@ enum Tfa98xx_Error tfa98xx_adsp_send_calib_values(void)
 
 static int tfa98xx_send_mute_cmd(void)
 {
-	//uint8_t cmd[9] = {0x04, 0x81, 0x04, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff};
+	uint8_t cmd[9] = {0x04, 0x81, 0x04, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff};
 
 	//pr_info("send mute command to host DSP.\n");
-	//return tfa98xx_send_data_to_dsp(&cmd[0], sizeof(cmd));
-	return 0;
+	return tfa98xx_send_data_to_dsp(&cmd[0], sizeof(cmd));
 }
 #endif
 
@@ -2626,7 +2622,7 @@ static int tfa98xx_mute_stream(struct snd_soc_dai *dai, int mute, int direction)
 {
 	struct snd_soc_component *codec = dai->component;
 	struct tfa98xx *tfa98xx = snd_soc_component_get_drvdata(codec);
-	
+
 	pr_info("%s :%d, dsp_init:%d\n", __func__, mute, tfa98xx->dsp_init);
 
 	if (tfa98xx_container == NULL) {
@@ -3187,6 +3183,7 @@ int tfa98xx_i2c_probe(struct i2c_client *i2c,
 
 	return 0;
 }
+EXPORT_SYMBOL(tfa98xx_i2c_probe);
 
 int tfa98xx_i2c_remove(struct i2c_client *i2c)
 {
@@ -3225,6 +3222,7 @@ int tfa98xx_i2c_remove(struct i2c_client *i2c)
 
 	return 0;
 }
+EXPORT_SYMBOL(tfa98xx_i2c_remove);
 
 static const struct of_device_id __maybe_unused tfa98xx_of_id[] = {
 	{ .compatible = "goodix,tfa9874",},
