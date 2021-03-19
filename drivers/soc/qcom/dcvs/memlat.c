@@ -153,7 +153,6 @@ struct memlat_dev_data {
 	struct work_struct		work;
 	struct workqueue_struct		*memlat_wq;
 	u32				sample_ms;
-	u32				cpucp_sample_ms;
 	struct hrtimer			timer;
 	ktime_t				last_update_ts;
 	ktime_t				last_jiffy_ts;
@@ -165,8 +164,11 @@ struct memlat_dev_data {
 	bool				fp_enabled;
 	bool				sampling_enabled;
 	bool				inited;
+/* CPUCP related struct fields */
 	const struct scmi_memlat_vendor_ops *memlat_ops;
 	struct scmi_protocol_handle	*ph;
+	u32				cpucp_sample_ms;
+	u32				cpucp_log_level;
 };
 
 static struct memlat_dev_data		*memlat_data;
@@ -210,12 +212,22 @@ static ssize_t store_##name(struct kobject *kobj,			\
 	int ret;							\
 	unsigned int val;						\
 	struct memlat_mon *mon = to_memlat_mon(kobj);			\
+	struct memlat_group *grp = mon->memlat_grp;			\
+	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;	\
 	ret = kstrtouint(buf, 10, &val);				\
 	if (ret < 0)							\
 		return ret;						\
 	val = max(val, _min);						\
 	val = min(val, _max);						\
 	mon->name = val;						\
+	if (mon->type == CPUCP_MON && ops) {					\
+		ret = ops->name(memlat_data->ph, grp->hw_type,		\
+				mon->index, mon->name);			\
+		if (ret == 0) {							\
+			pr_err("failed to set mon tunable :%d\n", ret);	\
+			count = 0;					\
+		}							\
+	}								\
 	return count;							\
 }									\
 
@@ -251,14 +263,24 @@ static ssize_t store_min_freq(struct kobject *kobj,
 	int ret;
 	unsigned int freq;
 	struct memlat_mon *mon = to_memlat_mon(kobj);
+	struct memlat_group *grp = mon->memlat_grp;
+	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;
 
 	ret = kstrtouint(buf, 10, &freq);
 	if (ret < 0)
 		return ret;
 	freq = max(freq, mon->mon_min_freq);
 	freq = min(freq, mon->max_freq);
-
 	mon->min_freq = freq;
+
+	if (mon->type == CPUCP_MON && ops) {
+		ret = ops->min_freq(memlat_data->ph, grp->hw_type,
+				    mon->index, mon->min_freq);
+		if (ret < 0) {
+			pr_err("failed to set min_freq :%d\n", ret);
+			count = 0;
+		}
+	}
 
 	return count;
 }
@@ -270,14 +292,24 @@ static ssize_t store_max_freq(struct kobject *kobj,
 	int ret;
 	unsigned int freq;
 	struct memlat_mon *mon = to_memlat_mon(kobj);
+	struct memlat_group *grp = mon->memlat_grp;
+	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;
 
 	ret = kstrtouint(buf, 10, &freq);
 	if (ret < 0)
 		return ret;
 	freq = max(freq, mon->min_freq);
 	freq = min(freq, mon->mon_max_freq);
-
 	mon->max_freq = freq;
+
+	if (mon->type == CPUCP_MON && ops) {
+		ret = ops->max_freq(memlat_data->ph, grp->hw_type,
+				    mon->index, mon->max_freq);
+		if (ret < 0) {
+			pr_err("failed to set max_freq :%d\n", ret);
+			count = 0;
+		}
+	}
 
 	return count;
 }
@@ -328,6 +360,88 @@ static ssize_t show_sample_ms(struct kobject *kobj,
 	return scnprintf(buf, PAGE_SIZE, "%u\n", memlat_data->sample_ms);
 }
 
+static ssize_t store_cpucp_sample_ms(struct kobject *kobj,
+				     struct attribute *attr, const char *buf,
+				     size_t count)
+{
+	int ret, i;
+	unsigned int val;
+	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;
+	struct memlat_group *grp;
+
+	if (!ops)
+		return -ENODEV;
+
+	for (i = 0; i < MAX_MEMLAT_GRPS; i++) {
+		grp = memlat_data->groups[i];
+		if (grp->cpucp_enabled)
+			break;
+	}
+	if (i == MAX_MEMLAT_GRPS)
+		return count;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (ret < 0)
+		return ret;
+	val = max(val, MIN_SAMPLE_MS);
+	val = min(val, MAX_SAMPLE_MS);
+
+	ret = ops->sample_ms(memlat_data->ph, val);
+	if (ret < 0) {
+		pr_err("Failed to set cpucp sample ms :%d\n", ret);
+		return 0;
+	}
+
+	memlat_data->cpucp_sample_ms = val;
+	return count;
+}
+
+static ssize_t show_cpucp_sample_ms(struct kobject *kobj,
+				    struct attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", memlat_data->cpucp_sample_ms);
+}
+
+static ssize_t store_cpucp_log_level(struct kobject *kobj,
+				     struct attribute *attr, const char *buf,
+				     size_t count)
+{
+	int ret, i;
+	unsigned int val;
+	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;
+	struct memlat_group *grp;
+
+	if (!ops)
+		return -ENODEV;
+
+	for (i = 0; i < MAX_MEMLAT_GRPS; i++) {
+		grp = memlat_data->groups[i];
+		if (grp->cpucp_enabled)
+			break;
+	}
+	if (i == MAX_MEMLAT_GRPS)
+		return count;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (ret < 0)
+		return ret;
+
+	ret = ops->set_log_level(memlat_data->ph, val);
+	if (ret < 0) {
+		pr_err("failed to configure log_level, ret = %d\n", ret);
+		return 0;
+	}
+
+	memlat_data->cpucp_log_level = val;
+	return count;
+}
+
+static ssize_t show_cpucp_log_level(struct kobject *kobj,
+				    struct attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", memlat_data->cpucp_log_level);
+}
+
 show_grp_attr(sampling_cur_freq);
 show_grp_attr(adaptive_cur_freq);
 show_grp_attr(adaptive_high_freq);
@@ -354,6 +468,8 @@ store_attr(freq_scale_limit_mhz, 0U, 5000U);
 show_attr(freq_scale_limit_mhz);
 
 MEMLAT_ATTR_RW(sample_ms);
+MEMLAT_ATTR_RW(cpucp_sample_ms);
+MEMLAT_ATTR_RW(cpucp_log_level);
 
 MEMLAT_ATTR_RO(sampling_cur_freq);
 MEMLAT_ATTR_RO(adaptive_cur_freq);
@@ -374,6 +490,8 @@ MEMLAT_ATTR_RW(freq_scale_limit_mhz);
 
 static struct attribute *memlat_settings_attr[] = {
 	&sample_ms.attr,
+	&cpucp_sample_ms.attr,
+	&cpucp_log_level.attr,
 	NULL,
 };
 
