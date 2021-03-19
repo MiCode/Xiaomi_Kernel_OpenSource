@@ -105,7 +105,16 @@ static u32 ut_get_spend_msec(void)
 	struct timespec64 *start_time = &ut_case_start_time;
 	struct timespec64 *end_time = &ut_case_end_time;
 
-	return GET_TIME_DIFF_USEC_P(start_time, end_time);
+	return GET_TIME_DIFF_NSEC_P(start_time, end_time);
+}
+
+static void tmem_do_gettimeofday(struct timespec64 *tv)
+{
+	struct timespec64 now;
+
+	ktime_get_real_ts64(&now);
+	tv->tv_sec = now.tv_sec;
+	tv->tv_nsec = now.tv_nsec;
 }
 
 static void ut_status_reset(u64 ut_cmd)
@@ -114,12 +123,12 @@ static void ut_status_reset(u64 ut_cmd)
 	ut_case_fail_count = 0;
 	ut_case_halt = false;
 	ut_case_command = ut_cmd;
-	ktime_get_ts64(&ut_case_start_time);
+	tmem_do_gettimeofday(&ut_case_start_time);
 }
 
 static void ut_status_dump(void)
 {
-	ktime_get_ts64(&ut_case_start_time);
+	tmem_do_gettimeofday(&ut_case_start_time);
 	pr_info("[UT_CASE]================================================\n");
 	pr_info("[UT_CASE]Executing UT command: %lld\n", ut_case_command);
 	pr_info("[UT_CASE]  TOTAL TEST ITEMS: %d\n",

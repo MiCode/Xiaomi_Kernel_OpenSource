@@ -42,10 +42,20 @@ struct profile_entry_string profile_entry_str[] = {
 	{PROFILE_ENTRY_INVOKE_COMMAND, STR(INVOKE_COMMAND)},
 };
 
-#define GET_START_TIME() do_gettimeofday(&start_time)
-#define GET_END_TIME() do_gettimeofday(&end_time)
+#define GET_START_TIME() tmem_do_gettimeofday(&start_time)
+#define GET_END_TIME() tmem_do_gettimeofday(&end_time)
+static void tmem_do_gettimeofday(struct timespec64 *tv)
+{
+	struct timespec64 now;
+
+	ktime_get_ts64(&now);
+
+	tv->tv_sec = now.tv_sec;
+	tv->tv_nsec = now.tv_nsec;
+}
 
 #define SEC_TO_US(s) (s * 1000000)
+#define NSEC_TO_US(s) ((long)s/1000)
 
 #include <asm/div64.h>
 static inline u64 u64_div(u64 n, u64 base)
@@ -71,7 +81,7 @@ void trusted_mem_core_profile_dump(struct trusted_mem_device *mem_device)
 
 	for (idx = 0; idx < PROFILE_ENTRY_MAX; idx++) {
 		average_one_time_us = SEC_TO_US(data->item[idx].sec);
-		average_one_time_us += data->item[idx].usec;
+		average_one_time_us += NSEC_TO_US(data->item[idx].nsec);
 		average_one_time_us =
 			u64_div(average_one_time_us, data->item[idx].count);
 		average_one_time_ms = us_to_ms(average_one_time_us);
@@ -82,7 +92,7 @@ void trusted_mem_core_profile_dump(struct trusted_mem_device *mem_device)
 			data->item[idx].count);
 		pr_info("[%d]   spend time: %lld.%06lld sec\n",
 			mem_device->mem_type, data->item[idx].sec,
-			data->item[idx].usec);
+			NSEC_TO_US(data->item[idx].nsec));
 		pr_info("[%d]   average one time: %lld msec (%06lld usec)\n",
 			mem_device->mem_type, average_one_time_ms,
 			average_one_time_us);
@@ -101,18 +111,18 @@ static void increase_enter_count(enum PROFILE_ENTRY_TYPE entry,
 
 static void add_exec_time(enum PROFILE_ENTRY_TYPE entry,
 			  struct profile_data_context *data,
-			  struct timeval *start, struct timeval *end)
+			  struct timespec64 *start, struct timespec64 *end)
 {
 	int time_diff_sec = GET_TIME_DIFF_SEC_P(start, end);
-	int time_diff_usec = GET_TIME_DIFF_USEC_P(start, end);
+	int time_diff_nsec = GET_TIME_DIFF_NSEC_P(start, end);
 
 	mutex_lock(&data->item[entry].lock);
 
 	data->item[entry].sec += time_diff_sec;
-	data->item[entry].usec += time_diff_usec;
-	if (data->item[entry].usec > 1000000) {
+	data->item[entry].nsec += time_diff_nsec;
+	if (data->item[entry].nsec > 1000000000) {
 		data->item[entry].sec += 1;
-		data->item[entry].usec -= 1000000;
+		data->item[entry].nsec -= 1000000000;
 	}
 
 	mutex_unlock(&data->item[entry].lock);
@@ -121,7 +131,7 @@ static void add_exec_time(enum PROFILE_ENTRY_TYPE entry,
 static int profile_ssmr_get(u64 *pa, u32 *size, u32 feat, void *dev_desc)
 {
 	int ret;
-	struct timeval start_time, end_time;
+	struct timespec64 start_time, end_time;
 	struct profile_mgr_desc *prof_mgr = (struct profile_mgr_desc *)dev_desc;
 
 	increase_enter_count(PROFILE_ENTRY_SSMR_GET, &prof_mgr->data);
@@ -139,7 +149,7 @@ static int profile_ssmr_get(u64 *pa, u32 *size, u32 feat, void *dev_desc)
 static int profile_ssmr_put(u32 feat, void *dev_desc)
 {
 	int ret;
-	struct timeval start_time, end_time;
+	struct timespec64 start_time, end_time;
 	struct profile_mgr_desc *prof_mgr = (struct profile_mgr_desc *)dev_desc;
 
 	increase_enter_count(PROFILE_ENTRY_SSMR_PUT, &prof_mgr->data);
@@ -159,7 +169,7 @@ static int profile_chunk_alloc(u32 alignment, u32 size, u32 *refcount,
 			       void *peer_data, void *dev_desc)
 {
 	int ret;
-	struct timeval start_time, end_time;
+	struct timespec64 start_time, end_time;
 	struct profile_mgr_desc *prof_mgr = (struct profile_mgr_desc *)dev_desc;
 
 	increase_enter_count(PROFILE_ENTRY_CHUNK_ALLOC, &prof_mgr->data);
@@ -179,7 +189,7 @@ static int profile_chunk_free(u32 sec_handle, u8 *owner, u32 id,
 			      void *peer_data, void *dev_desc)
 {
 	int ret;
-	struct timeval start_time, end_time;
+	struct timespec64 start_time, end_time;
 	struct profile_mgr_desc *prof_mgr = (struct profile_mgr_desc *)dev_desc;
 
 	increase_enter_count(PROFILE_ENTRY_CHUNK_FREE, &prof_mgr->data);
@@ -197,7 +207,7 @@ static int profile_chunk_free(u32 sec_handle, u8 *owner, u32 id,
 static int profile_mem_add(u64 pa, u32 size, void *peer_data, void *dev_desc)
 {
 	int ret;
-	struct timeval start_time, end_time;
+	struct timespec64 start_time, end_time;
 	struct profile_mgr_desc *prof_mgr = (struct profile_mgr_desc *)dev_desc;
 
 	increase_enter_count(PROFILE_ENTRY_MEM_ADD, &prof_mgr->data);
@@ -215,7 +225,7 @@ static int profile_mem_add(u64 pa, u32 size, void *peer_data, void *dev_desc)
 static int profile_mem_remove(void *peer_data, void *dev_desc)
 {
 	int ret;
-	struct timeval start_time, end_time;
+	struct timespec64 start_time, end_time;
 	struct profile_mgr_desc *prof_mgr = (struct profile_mgr_desc *)dev_desc;
 
 	increase_enter_count(PROFILE_ENTRY_MEM_REMOVE, &prof_mgr->data);
@@ -233,7 +243,7 @@ static int profile_mem_remove(void *peer_data, void *dev_desc)
 static int profile_session_open(void **peer_data, void *dev_desc)
 {
 	int ret;
-	struct timeval start_time, end_time;
+	struct timespec64 start_time, end_time;
 	struct profile_mgr_desc *prof_mgr = (struct profile_mgr_desc *)dev_desc;
 
 	increase_enter_count(PROFILE_ENTRY_SESSION_OPEN, &prof_mgr->data);
@@ -251,7 +261,7 @@ static int profile_session_open(void **peer_data, void *dev_desc)
 static int profile_session_close(void *peer_data, void *dev_desc)
 {
 	int ret;
-	struct timeval start_time, end_time;
+	struct timespec64 start_time, end_time;
 	struct profile_mgr_desc *prof_mgr = (struct profile_mgr_desc *)dev_desc;
 
 	increase_enter_count(PROFILE_ENTRY_SESSION_CLOSE, &prof_mgr->data);
@@ -271,7 +281,7 @@ profile_invoke_command(struct trusted_driver_cmd_params *invoke_params,
 		       void *peer_data, void *dev_desc)
 {
 	int ret;
-	struct timeval start_time, end_time;
+	struct timespec64 start_time, end_time;
 	struct profile_mgr_desc *prof_mgr = (struct profile_mgr_desc *)dev_desc;
 
 	increase_enter_count(PROFILE_ENTRY_INVOKE_COMMAND, &prof_mgr->data);
@@ -319,7 +329,7 @@ struct profile_mgr_desc *create_profile_mgr_desc(void)
 		mutex_init(&t_profile_desc->data.item[idx].lock);
 		t_profile_desc->data.item[idx].count = 0;
 		t_profile_desc->data.item[idx].sec = 0;
-		t_profile_desc->data.item[idx].usec = 0;
+		t_profile_desc->data.item[idx].nsec = 0;
 	}
 
 	t_profile_desc->profiled_peer_ops = &profiler_peer_ops;

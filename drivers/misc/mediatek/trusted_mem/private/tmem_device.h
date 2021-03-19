@@ -29,7 +29,7 @@ enum PROFILE_ENTRY_TYPE {
 struct profile_data_item {
 	u64 count;
 	u64 sec;
-	u64 usec;
+	u64 nsec;
 	struct mutex lock;
 };
 

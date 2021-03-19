@@ -42,9 +42,9 @@ static int tmem_open(struct inode *inode, struct file *file)
 	return TMEM_OK;
 }
 
-static int tmem_release(struct inode *inode, struct file *file)
+static int tmem_release(struct inode *ino, struct file *file)
 {
-	UNUSED(inode);
+	UNUSED(ino);
 	UNUSED(file);
 
 	pr_info("%s:%d\n", __func__, __LINE__);
@@ -221,15 +221,14 @@ static ssize_t tmem_write(struct file *file, const char __user *buffer,
 	return count;
 }
 
-static const struct file_operations tmem_fops = {
-	.owner = THIS_MODULE,
-	.open = tmem_open,
-	.release = tmem_release,
-	.unlocked_ioctl = NULL,
+static const struct proc_ops tmem_fops = {
+	.proc_open = tmem_open,
+	.proc_release = tmem_release,
+	.proc_ioctl = NULL,
 #if IS_ENABLED(CONFIG_COMPAT)
-	.compat_ioctl = NULL,
+	.proc_compat_ioctl = NULL,
 #endif
-	.write = tmem_write,
+	.proc_write = tmem_write,
 };
 
 static void trusted_mem_create_proc_entry(void)
