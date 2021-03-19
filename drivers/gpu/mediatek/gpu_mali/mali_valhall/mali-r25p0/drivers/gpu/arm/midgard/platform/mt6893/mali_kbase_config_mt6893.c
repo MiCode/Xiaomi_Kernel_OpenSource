@@ -17,6 +17,9 @@
 #include "platform/mtk_platform_common.h"
 #include "ged_dvfs.h"
 #include "mtk_gpufreq.h"
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+#include <mboot_params.h>
+#endif
 #if IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)
 #include <mtk_gpu_power_sspm_ipi.h>
 #endif
