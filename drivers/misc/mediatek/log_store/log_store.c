@@ -20,7 +20,7 @@
 #include <asm/memory.h>
 #include <linux/of_fdt.h>
 #include <linux/kmsg_dump.h>
-
+#include <linux/suspend.h>
 #include "log_store_kernel.h"
 
 static struct sram_log_header *sram_header;
@@ -31,7 +31,7 @@ static struct pl_lk_log *dram_curlog_header;
 static struct dram_buf_header *sram_dram_buff;
 static bool early_log_disable;
 struct proc_dir_entry *entry;
-static u32 last_boot_phase;
+static u32 last_boot_phase = FLAG_INVALID;
 
 
 #define EXPDB_PATH "/dev/block/by-name/expdb"
@@ -101,8 +101,11 @@ void set_boot_phase(u32 step)
 	}
 #endif
 
+	sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] &= ~BOOT_PHASE_MASK;
+	sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] |= step;
+
 	if ((sram_dram_buff->flag & NEED_SAVE_TO_EMMC) == NEED_SAVE_TO_EMMC) {
-		pr_notice("log_store: set boot phase, last boot phase is %d.\n",
+		pr_notice("log_store: set boot phase, last boot phase is 0x%x.\n",
 		last_boot_phase);
 		pr_notice("log_store: not boot up, don't store log to expdb  ");
 		return;
@@ -127,23 +130,22 @@ void set_boot_phase(u32 step)
 	memset(&pEmmc, 0, sizeof(struct log_emmc_header));
 	file_size  = filp->f_op->llseek(filp, 0, SEEK_END);
 	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	filp->f_op->read(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
+	kernel_read(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
 	if (pEmmc.sig != LOG_EMMC_SIG) {
 		pr_notice("log_store emmc header error, format it.\n");
 		memset(&pEmmc, 0, sizeof(struct log_emmc_header));
 		pEmmc.sig = LOG_EMMC_SIG;
-	} else if (last_boot_phase == 0)
+	} else if (last_boot_phase == FLAG_INVALID) {
 		// get last boot phase
 		last_boot_phase = (pEmmc.reserve_flag[BOOT_STEP] >>
 			LAST_BOOT_PHASE_SHIFT) & BOOT_PHASE_MASK;
-
+	}
 	// clear now boot phase
-	pEmmc.reserve_flag[BOOT_STEP] &= (BOOT_PHASE_MASK <<
-		LAST_BOOT_PHASE_SHIFT);
+	pEmmc.reserve_flag[BOOT_STEP] &= ~BOOT_PHASE_MASK;
 	// set boot phase
-	pEmmc.reserve_flag[BOOT_STEP] |= (step << NOW_BOOT_PHASE_SHIFT);
+	pEmmc.reserve_flag[BOOT_STEP] |= step;
 	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	filp->f_op->write(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
+	kernel_write(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
 	filp_close(filp, NULL);
 	set_fs(fs);
 	pr_notice("log_store: set boot phase, last boot phase is %d.\n",
@@ -193,7 +195,7 @@ void log_store_to_emmc(void)
 	memset(&pEmmc, 0, sizeof(struct log_emmc_header));
 	file_size  = filp->f_op->llseek(filp, 0, SEEK_END);
 	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	filp->f_op->read(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
+	kernel_read(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
 	if (pEmmc.sig != LOG_EMMC_SIG) {
 		pr_notice("log_store emmc header error, format it.\n");
 		memset(&pEmmc, 0, sizeof(struct log_emmc_header));
@@ -208,7 +210,7 @@ void log_store_to_emmc(void)
 		if (pEmmc.offset + len + LOG_BLOCK_SIZE > EXPDB_LOG_SIZE)
 			pEmmc.offset = 0;
 		filp->f_op->llseek(filp, file_size - EXPDB_LOG_SIZE + pEmmc.offset, SEEK_SET);
-		size = filp->f_op->write(filp, buff, len, &filp->f_pos);
+		size = kernel_write(filp, buff, len, &filp->f_pos);
 		if (size < 0)
 			pr_notice_once("write expdb failed:%d.\n", size);
 		else
@@ -222,12 +224,12 @@ void log_store_to_emmc(void)
 		sizeof(struct log_emmc_header) +
 		pEmmc.reserve_flag[LOG_INDEX] * sizeof(struct emmc_log);
 	filp->f_op->llseek(filp, size, SEEK_SET);
-	filp->f_op->write(filp, (char *)&kernel_log_config, sizeof(struct emmc_log), &filp->f_pos);
+	kernel_write(filp, (char *)&kernel_log_config, sizeof(struct emmc_log), &filp->f_pos);
 	pEmmc.reserve_flag[LOG_INDEX] += 1;
 	pEmmc.reserve_flag[LOG_INDEX] = pEmmc.reserve_flag[LOG_INDEX] %
 		HEADER_INDEX_MAX;
 	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	filp->f_op->write(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
+	kernel_write(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
 	filp_close(filp, NULL);
 	set_fs(fs);
 	pr_notice("log_store write expdb done!\n");
@@ -264,7 +266,7 @@ int set_emmc_config(int type, int value)
 	memset(&pEmmc, 0, sizeof(struct log_emmc_header));
 	file_size  = filp->f_op->llseek(filp, 0, SEEK_END);
 	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	filp->f_op->read(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
+	kernel_read(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
 	if (pEmmc.sig != LOG_EMMC_SIG) {
 		pr_notice("log_store emmc header error.\n");
 		filp_close(filp, NULL);
@@ -282,7 +284,7 @@ int set_emmc_config(int type, int value)
 		pEmmc.reserve_flag[type] = value;
 	}
 	filp->f_op->llseek(filp, file_size - LOG_BLOCK_SIZE, SEEK_SET);
-	filp->f_op->write(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
+	kernel_write(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
 	filp_close(filp, NULL);
 	set_fs(fs);
 	pr_notice("type:%d, value:%d.\n", type, value);
@@ -313,7 +315,7 @@ int read_emmc_config(struct log_emmc_header *log_header)
 
 	file_size  = filp->f_op->llseek(filp, 0, SEEK_END);
 	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	filp->f_op->read(filp, (char *)log_header, sizeof(struct log_emmc_header), &filp->f_pos);
+	kernel_read(filp, (char *)log_header, sizeof(struct log_emmc_header), &filp->f_pos);
 	if (log_header->sig != LOG_EMMC_SIG) {
 		pr_notice("log_store emmc header error.\n");
 		filp_close(filp, NULL);
@@ -369,15 +371,16 @@ static int pl_lk_log_show(struct seq_file *m, void *v)
 
 	seq_printf(m, "show buff sig 0x%x, size 0x%x,pl size 0x%x, lk size 0x%x, last_boot step 0x%x!\n",
 			dram_curlog_header->sig, dram_curlog_header->buff_size,
-			dram_curlog_header->sz_pl, dram_curlog_header->sz_lk, last_boot_phase);
+			dram_curlog_header->sz_pl, dram_curlog_header->sz_lk,
+			sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] ?
+			sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] : last_boot_phase);
 
 	if (dram_log_store_status == BUFF_READY)
 		if (dram_curlog_header->buff_size >= (dram_curlog_header->off_pl
 		+ dram_curlog_header->sz_pl
 		+ dram_curlog_header->sz_lk))
-			seq_write(m, pbuff+dram_curlog_header->off_pl,
-				dram_curlog_header->sz_lk
-				+ dram_curlog_header->sz_pl);
+			seq_write(m, pbuff, dram_curlog_header->off_pl +
+				dram_curlog_header->sz_lk + dram_curlog_header->sz_pl);
 
 	return 0;
 }
@@ -419,6 +422,24 @@ static ssize_t pl_lk_file_write(struct file *filp,
 	return cnt;
 }
 
+static int logstore_pm_notify(struct notifier_block *notify_block,
+	unsigned long mode, void *unused)
+{
+	switch (mode) {
+	case PM_HIBERNATION_PREPARE:
+	case PM_SUSPEND_PREPARE:
+	case PM_RESTORE_PREPARE:
+		set_boot_phase(BOOT_PHASE_PRE_SUSPEND);
+		break;
+
+	case PM_POST_SUSPEND:
+	case PM_POST_HIBERNATION:
+	case PM_POST_RESTORE:
+		set_boot_phase(BOOT_PHASE_EXIT_RESUME);
+		break;
+	}
+	return 0;
+}
 static const struct proc_ops pl_lk_file_ops = {
 	.proc_open = pl_lk_file_open,
 	.proc_write = pl_lk_file_write,
@@ -430,12 +451,17 @@ static const struct proc_ops pl_lk_file_ops = {
 
 static int __init log_store_late_init(void)
 {
+	static struct notifier_block logstore_pm_nb;
+
+	logstore_pm_nb.notifier_call = logstore_pm_notify;
+	register_pm_notifier(&logstore_pm_nb);
 	set_boot_phase(BOOT_PHASE_KERNEL);
 	if (sram_dram_buff == NULL) {
 		pr_notice("log_store: sram header DRAM buff is null.\n");
 		dram_log_store_status = BUFF_ALLOC_ERROR;
 		return -1;
 	}
+	store_log_to_emmc_enable(false);
 
 	if (!sram_dram_buff->buf_addr || !sram_dram_buff->buf_size) {
 		pr_notice("log_store: DRAM buff is null.\n");
