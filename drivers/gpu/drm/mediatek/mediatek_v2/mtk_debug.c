@@ -1506,9 +1506,9 @@ static void process_dbg_opt(const char *opt)
 		}
 		gCaptureOVLEn = dump_en;
 
-		if (!downSampleX)
+		if (downSampleX)
 			gCapturePriLayerDownX = downSampleX;
-		if (!downSampleY)
+		if (downSampleY)
 			gCapturePriLayerDownY = downSampleY;
 	} else if (strncmp(opt, "idlemgr_kick", 12) == 0) {
 		mtk_drm_idlemgr_kick_ext(__func__);
