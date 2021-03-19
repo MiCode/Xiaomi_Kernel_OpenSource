@@ -31,10 +31,14 @@ ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_mali/mali_valhall/mali-r30p0/
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_mali/mali_valhall/mali-r30p0/drivers/gpu/arm/midgard/include
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_mali/mali_valhall/mali-r30p0/drivers/gpu/arm/midgard/platform/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_mali/mali_valhall/mali-r30p0/drivers/gpu/arm/midgard/debug
+ccflags-y += -I$(srctree)/drivers/staging/android/ion
+ccflags-y += -I$(srctree)/drivers/iommu
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 
 ccflags-$(CONFIG_DEBUG_FS) += -DCONFIG_DEBUG_FS
 ccflags-y += -DCONFIG_PROC_FS
 
 ccflags-y += -DCONFIG_MALI_MIDGARD_DVFS
 ccflags-y += -DCONFIG_MALI_DEVFREQ
+#ccflags-y += -DCONFIG_MALI_MTK_IOMMU_V2
 
