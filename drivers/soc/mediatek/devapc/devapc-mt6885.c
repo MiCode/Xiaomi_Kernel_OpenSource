@@ -7,7 +7,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
-#include <asm-generic/io.h>
+#include <linux/io.h>
 
 #include "devapc-mt6885.h"
 #include "devapc-mtk-multi-ao.h"
@@ -1817,7 +1817,7 @@ static uint32_t mt6885_shift_group_get(int slave_type, uint32_t vio_idx)
 				(vio_idx >= 209 && vio_idx <= 232) ||
 				vio_idx == 258)
 			return 10;
-		else if ((vio_idx >= 112 && vio_idx <= 40) ||
+		else if ((vio_idx >= 40 && vio_idx <= 112) ||
 				(vio_idx >= 233 && vio_idx <= 251) ||
 				vio_idx == 259)
 			return 11;
