@@ -16,6 +16,7 @@
 #include <linux/of_device.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
+#include <linux/sysfs.h>
 
 /* version V1 sub-banks offset base address */
 /* banks shared by multiple phys */
@@ -48,8 +49,12 @@
 #define PA1_RG_INTR_CAL_VAL(x)	((0x1f & (x)) << 19)
 #define PA1_RG_VRT_SEL			GENMASK(14, 12)
 #define PA1_RG_VRT_SEL_VAL(x)	((0x7 & (x)) << 12)
+#define PA1_RG_VRT_SEL_MASK	(0x7)
+#define PA1_RG_VRT_SEL_OFST	(12)
 #define PA1_RG_TERM_SEL		GENMASK(10, 8)
 #define PA1_RG_TERM_SEL_VAL(x)	((0x7 & (x)) << 8)
+#define PA1_RG_TERM_SEL_MASK	(0x7)
+#define PA1_RG_TERM_SEL_OFST	(8)
 
 #define U3P_USBPHYACR2		0x008
 #define PA2_RG_SIF_U2PLL_FORCE_EN	BIT(18)
@@ -63,10 +68,14 @@
 #define U3P_USBPHYACR6		0x018
 #define PA6_RG_U2_PHY_REV6		GENMASK(31, 30)
 #define PA6_RG_U2_PHY_REV6_VAL(x)	((0x3 & (x)) << 30)
+#define PA6_RG_U2_PHY_REV6_MASK	(0x3)
+#define PA6_RG_U2_PHY_REV6_OFET	(30)
 #define PA6_RG_U2_BC11_SW_EN		BIT(23)
 #define PA6_RG_U2_OTG_VBUSCMP_EN	BIT(20)
 #define PA6_RG_U2_DISCTH		GENMASK(7, 4)
 #define PA6_RG_U2_DISCTH_VAL(x)	((0xf & (x)) << 4)
+#define PA6_RG_U2_DISCTH_MASK	(0xf)
+#define PA6_RG_U2_DISCTH_OFET	(4)
 #define PA6_RG_U2_SQTH		GENMASK(3, 0)
 #define PA6_RG_U2_SQTH_VAL(x)	(0xf & (x))
 
@@ -359,6 +368,271 @@ struct mtk_tphy {
 	int src_ref_clk; /* MHZ, reference clock for slew rate calibrate */
 	int src_coef; /* coefficient for slew rate calibrate */
 };
+
+static void cover_val_to_str(u32 val, u8 width, char *str)
+{
+	int i, temp;
+
+	temp = val;
+	str[width] = '\0';
+	for (i = (width - 1); i >= 0; i--) {
+		if (val % 2)
+			str[i] = '1';
+		else
+			str[i] = '0';
+		val /= 2;
+	}
+}
+
+static struct attribute *u3_phy_attrs[] = {
+	NULL
+};
+
+static const struct attribute_group u3_phy_group = {
+	.attrs = u3_phy_attrs,
+};
+
+static int u3_phy_sysfs_init(struct mtk_phy_instance *instance)
+{
+	struct phy *phy = instance->phy;
+	struct device *dev = &phy->dev;
+	int ret;
+
+	/* workaround to prvent deadlock warning */
+	mutex_unlock(&phy->mutex);
+
+	ret = sysfs_create_group(&dev->kobj, &u3_phy_group);
+	if (ret)
+		dev_info(dev, "failed to creat sysfs attributes\n");
+
+	ret = sysfs_create_link(&dev->parent->kobj, &dev->kobj, "u3_phy");
+	if (ret)
+		dev_info(dev, "failed to creat link\n");
+
+	mutex_lock(&phy->mutex);
+
+	return ret;
+}
+
+static int u3_phy_sysfs_exit(struct mtk_phy_instance *instance)
+{
+	struct device *dev = &instance->phy->dev;
+
+	sysfs_remove_link(&dev->parent->kobj, "u3_phy");
+	sysfs_remove_group(&dev->kobj, &u3_phy_group);
+
+	return 0;
+}
+
+static ssize_t vrt_sel_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
+	struct u2phy_banks *u2_banks = &instance->u2_banks;
+	void __iomem *com = u2_banks->com;
+	u32 tmp, val;
+
+	if (kstrtouint(buf, 2, &val))
+		return -EINVAL;
+
+	tmp = readl(com + U3P_USBPHYACR1);
+	tmp &= ~PA1_RG_VRT_SEL;
+	tmp |= PA1_RG_VRT_SEL_VAL(val);
+	writel(tmp, com + U3P_USBPHYACR1);
+
+	dev_info(dev, "%s, vrt_sel=%x\n", __func__, val);
+	return count;
+}
+
+static ssize_t vrt_sel_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
+	struct u2phy_banks *u2_banks = &instance->u2_banks;
+	void __iomem *com = u2_banks->com;
+	u32 tmp;
+	char str[16];
+
+	tmp = readl(com + U3P_USBPHYACR1);
+	tmp >>= PA1_RG_VRT_SEL_OFST;
+	tmp &= PA1_RG_VRT_SEL_MASK;
+
+	cover_val_to_str(tmp, 3, str);
+
+	dev_info(dev, "%s, vrt_sel=%s\n", __func__, str);
+	return scnprintf(buf, PAGE_SIZE, "vrt_sel = %s\n", str);
+}
+static DEVICE_ATTR_RW(vrt_sel);
+
+static ssize_t term_sel_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
+	struct u2phy_banks *u2_banks = &instance->u2_banks;
+	void __iomem *com = u2_banks->com;
+	u32 tmp, val;
+
+	if (kstrtouint(buf, 2, &val))
+		return -EINVAL;
+
+	tmp = readl(com + U3P_USBPHYACR1);
+	tmp &= ~PA1_RG_TERM_SEL;
+	tmp |= PA1_RG_TERM_SEL_VAL(val);
+	writel(tmp, com + U3P_USBPHYACR1);
+
+	dev_info(dev, "%s, term_sel=%x\n", __func__, val);
+	return count;
+}
+
+static ssize_t term_sel_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
+	struct u2phy_banks *u2_banks = &instance->u2_banks;
+	void __iomem *com = u2_banks->com;
+	u32 tmp;
+	char str[16];
+
+	tmp = readl(com + U3P_USBPHYACR1);
+	tmp >>= PA1_RG_TERM_SEL_OFST;
+	tmp &= PA1_RG_TERM_SEL_MASK;
+
+	cover_val_to_str(tmp, 3, str);
+
+	dev_info(dev, "%s, term_sel=%s\n", __func__, str);
+	return scnprintf(buf, PAGE_SIZE, "term_sel = %s\n", str);
+}
+static DEVICE_ATTR_RW(term_sel);
+
+static ssize_t phy_rev6_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
+	struct u2phy_banks *u2_banks = &instance->u2_banks;
+	void __iomem *com = u2_banks->com;
+	u32 tmp, val;
+
+	if (kstrtouint(buf, 2, &val))
+		return -EINVAL;
+
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp &= ~PA6_RG_U2_PHY_REV6;
+	tmp |= PA6_RG_U2_PHY_REV6_VAL(val);
+	writel(tmp, com + U3P_USBPHYACR6);
+
+	dev_info(dev, "%s, phy_rev6=%x\n", __func__, val);
+	return count;
+}
+
+static ssize_t phy_rev6_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
+	struct u2phy_banks *u2_banks = &instance->u2_banks;
+	void __iomem *com = u2_banks->com;
+	u32 tmp;
+	char str[16];
+
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp >>= PA6_RG_U2_PHY_REV6_OFET;
+	tmp &= PA6_RG_U2_PHY_REV6_MASK;
+
+	cover_val_to_str(tmp, 2, str);
+
+	dev_info(dev, "%s, phy_rev6=%s\n", __func__, str);
+	return scnprintf(buf, PAGE_SIZE, "phy_rev6 = %s\n", str);
+}
+static DEVICE_ATTR_RW(phy_rev6);
+
+
+static ssize_t discth_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
+	struct u2phy_banks *u2_banks = &instance->u2_banks;
+	void __iomem *com = u2_banks->com;
+	u32 tmp, val;
+
+	if (kstrtouint(buf, 2, &val))
+		return -EINVAL;
+
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp &= ~PA6_RG_U2_DISCTH;
+	tmp |= PA6_RG_U2_DISCTH_VAL(val);
+	writel(tmp, com + U3P_USBPHYACR6);
+
+	dev_info(dev, "%s, discth=%x\n", __func__, val);
+	return count;
+}
+
+static ssize_t discth_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
+	struct u2phy_banks *u2_banks = &instance->u2_banks;
+	void __iomem *com = u2_banks->com;
+	u32 tmp;
+	char str[16];
+
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp >>= PA6_RG_U2_DISCTH_OFET;
+	tmp &= PA6_RG_U2_DISCTH_MASK;
+
+	cover_val_to_str(tmp, 4, str);
+
+	dev_info(dev, "%s, discth=%s\n", __func__, str);
+	return scnprintf(buf, PAGE_SIZE, "discth = %s\n", str);
+}
+static DEVICE_ATTR_RW(discth);
+
+static struct attribute *u2_phy_attrs[] = {
+	&dev_attr_vrt_sel.attr,
+	&dev_attr_term_sel.attr,
+	&dev_attr_phy_rev6.attr,
+	&dev_attr_discth.attr,
+	NULL
+};
+
+static const struct attribute_group u2_phy_group = {
+	.attrs = u2_phy_attrs,
+};
+
+static int u2_phy_sysfs_init(struct mtk_phy_instance *instance)
+{
+	struct phy *phy = instance->phy;
+	struct device *dev = &phy->dev;
+
+	int ret;
+
+	/* workaround to prvent deadlock warning */
+	mutex_unlock(&phy->mutex);
+
+	ret = sysfs_create_group(&dev->kobj, &u2_phy_group);
+	if (ret)
+		dev_info(dev, "failed to creat sysfs attributes\n");
+
+	ret = sysfs_create_link(&dev->parent->kobj, &dev->kobj, "u2_phy");
+	if (ret)
+		dev_info(dev, "failed to creat link\n");
+
+	mutex_lock(&phy->mutex);
+
+	return ret;
+}
+
+static int u2_phy_sysfs_exit(struct mtk_phy_instance *instance)
+{
+	struct device *dev = &instance->phy->dev;
+
+	sysfs_remove_link(&dev->parent->kobj, "u2_phy");
+	sysfs_remove_group(&dev->kobj, &u2_phy_group);
+
+	return 0;
+}
 
 static int phy_efuse_set(struct mtk_phy_instance *instance,
 			     enum mtk_phy_efuse type)
@@ -1102,10 +1376,12 @@ static int mtk_phy_init(struct phy *phy)
 		u2_phy_instance_init(tphy, instance);
 		u2_phy_efuse_set(tphy, instance);
 		u2_phy_props_set(tphy, instance);
+		u2_phy_sysfs_init(instance);
 		break;
 	case PHY_TYPE_USB3:
 		u3_phy_instance_init(tphy, instance);
 		u3_phy_efuse_set(tphy, instance);
+		u3_phy_sysfs_init(instance);
 		break;
 	case PHY_TYPE_PCIE:
 		pcie_phy_instance_init(tphy, instance);
@@ -1154,8 +1430,13 @@ static int mtk_phy_exit(struct phy *phy)
 	struct mtk_phy_instance *instance = phy_get_drvdata(phy);
 	struct mtk_tphy *tphy = dev_get_drvdata(phy->dev.parent);
 
-	if (instance->type == PHY_TYPE_USB2)
+	if (instance->type == PHY_TYPE_USB2) {
 		u2_phy_instance_exit(tphy, instance);
+		u2_phy_sysfs_exit(instance);
+	}
+
+	if (instance->type == PHY_TYPE_USB3)
+		u3_phy_sysfs_exit(instance);
 
 	clk_disable_unprepare(instance->ref_clk);
 	clk_disable_unprepare(instance->da_ref_clk);
