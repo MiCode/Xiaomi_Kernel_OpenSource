@@ -1,0 +1,40 @@
+#
+# Copyright (C) 2019 MediaTek Inc.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+#
+ccflags-y += -I$(srctree)/include/
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq_v2/include/
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/ged/include/
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/mt-plat/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/clk/mediatek/
+
+ccflags-y += \
+	-Wno-unused-variable \
+	-Wno-unused-function
+
+ifeq ($(findstring aging,$(PROJECT_DTB_NAMES)),aging)
+	ccflags-y += -DAGING_LOAD
+endif
+
+mtk_gpufreqv2_wrapper-y := \
+	mtk_gpufreq_v2.o \
+	mtk_gpufreq_debug.o
+
+mtk_gpufreqv2_core-y := \
+	mtk_gpuppm.o \
+	$(MTK_PLATFORM)/mtk_gpufreq_core.o
+
+obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreqv2_wrapper.o
+obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreqv2_core.o
