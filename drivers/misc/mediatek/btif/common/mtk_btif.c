@@ -127,7 +127,6 @@ static int _btif_vfifo_deinit(struct _mtk_btif_dma_ *p_dma);
 static int _btif_vfifo_init(struct _mtk_btif_dma_ *p_dma);
 #endif
 
-static bool _btif_is_tx_complete(struct _mtk_btif_ *p_btif);
 static int _btif_init(struct _mtk_btif_ *p_btif);
 static int _btif_lpbk_ctrl(struct _mtk_btif_ *p_btif, bool flag);
 static int btif_rx_dma_mode_set(int en);
@@ -1733,7 +1732,7 @@ int _btif_enter_dpidle_from_on(struct _mtk_btif_ *p_btif)
 
 	btif_do_gettimeofday(&timer_start);
 
-	while ((!_btif_is_tx_complete(p_btif)) && (retry < max_retry)) {
+	while ((!btif_is_tx_complete(p_btif)) && (retry < max_retry)) {
 		btif_do_gettimeofday(&timer_now);
 		if ((MAX_WAIT_TIME_MS/1000) <=
 				(timer_now.tv_sec - timer_start.tv_sec)) {
@@ -1812,7 +1811,7 @@ int btif_raise_wak_signal(struct _mtk_btif_ *p_btif)
 	return i_ret;
 }
 
-bool _btif_is_tx_complete(struct _mtk_btif_ *p_btif)
+bool btif_is_tx_complete(struct _mtk_btif_ *p_btif)
 {
 	bool b_ret = false;
 	enum _ENUM_BTIF_MODE_ tx_mode = p_btif->tx_mode;
@@ -2894,6 +2893,15 @@ dmp_reg_err:
 	return i_ret;
 }
 
+void btif_dump_dma_vfifo(struct _mtk_btif_ *p_btif)
+{
+	if (p_btif->tx_mode == BTIF_MODE_DMA)
+		hal_dma_dump_vfifo(p_btif->p_tx_dma->p_dma_info);
+
+	if (p_btif->rx_mode == BTIF_MODE_DMA)
+		hal_dma_dump_vfifo(p_btif->p_rx_dma->p_dma_info);
+}
+
 int btif_rx_notify_reg(struct _mtk_btif_ *p_btif, MTK_BTIF_RX_NOTIFY rx_notify)
 {
 	if (p_btif->rx_notify) {
@@ -2923,14 +2931,14 @@ int btif_dump_data(const char *p_buf, int len)
 		if (7 == (idx % 8)) {
 			*p_str++ = '\n';
 			*p_str = '\0';
-			pr_debug("%s", str);
+			pr_info("%s", str);
 			p_str = &str[0];
 		}
 	}
 	if (len % 8) {
 		*p_str++ = '\n';
 		*p_str = '\0';
-		pr_debug("%s", str);
+		pr_info("%s", str);
 	}
 	return 0;
 }
@@ -2986,7 +2994,7 @@ int btif_log_buf_dmp_in(struct _btif_log_queue_t_ *p_log_que,
 
 /*check if log dynamic output function is enabled or not*/
 	if (output_flag) {
-		pr_debug("BTIF-DBG, dir:%s, %d.%ds(%lld.%.9ld) len:%d\n",
+		pr_info("BTIF-DBG, dir:%s, %d.%ds(%lld.%.9ld) len:%d\n",
 			 dir, (int)p_timer->tv_sec, (int)p_timer->tv_nsec,
 			 (long long)p_ts->tv_sec, p_ts->tv_nsec, len);
 /*output buffer content*/
