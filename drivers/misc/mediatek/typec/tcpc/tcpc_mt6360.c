@@ -927,7 +927,8 @@ static int mt6360_pmu_tcpc_irq_register(struct tcpc_device *tcpc)
 		irq_desc->irq = r->start;
 		ret = devm_request_threaded_irq(chip->dev, irq_desc->irq, NULL,
 						irq_desc->irq_handler,
-						IRQF_TRIGGER_FALLING,
+						IRQF_TRIGGER_FALLING |
+						IRQF_ONESHOT,
 						irq_desc->name,
 						chip);
 		if (ret < 0)
