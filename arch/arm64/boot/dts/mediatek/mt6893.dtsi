@@ -3685,12 +3685,12 @@
 		};
 
 		vpu_core0: vpu_core0@19030000 {
-			compatible = "mediatek,mt6873-vpu_core";
+			compatible = "mediatek,mt6893-vpu_core";
 			reg = <0 0x19030000 0 0x1000>,
 				<0 0x1d100000 0 0x40000>,
 				<0 0x1d140000 0 0x30000>,
 				<0 0x0d190000 0 0x4000>;
-			interrupts = <GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 419 IRQ_TYPE_LEVEL_HIGH 0>;
 			id = <0>;
 			reset-vector = <0x7da00000 0x00100000 0x0>;
 			main-prog = <0x7db00000 0x00300000 0x100000>;
@@ -3713,16 +3713,32 @@
 		};
 
 		vpu_core1: vpu_core1@19031000 {
-			compatible = "mediatek,mt6873-vpu_core";
+			compatible = "mediatek,mt6893-vpu_core";
 			reg = <0 0x19031000 0 0x1000>,
 				<0 0x1d200000 0 0x40000>,
 				<0 0x1d240000 0 0x30000>,
 				<0 0x0d194000 0 0x4000>;
-			interrupts = <GIC_SPI 421 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH 0>;
 			id = <1>;
 			reset-vector = <0x7e300000 0x00100000 0x400000>;
 			main-prog = <0x7e400000 0x00300000 0x500000>;
 			kernel-lib = <0x7e700000 0x00500000 0xffffffff>;
+			work-buf = <0x0 0x12000 0xffffffff>;
+			dma-ranges = <0x3 0x0 0x3 0x0 0x1 0x0>;
+			iommus = <&iommu2 M4U_PORT_L22_APU_VPU>;
+		};
+
+		vpu_core2: vpu_core2@19031000 {
+			compatible = "mediatek,mt6893-vpu_core";
+			reg = <0 0x19032000 0 0x1000>,
+				<0 0x1d300000 0 0x40000>,
+				<0 0x1d340000 0 0x30000>,
+				<0 0x0d198000 0 0x4000>;
+			interrupts = <GIC_SPI 421 IRQ_TYPE_LEVEL_HIGH>;
+			id = <2>;
+			reset-vector = <0x7ec00000 0x00100000 0x800000>;
+			main-prog = <0x7ed00000 0x00300000 0x900000>;
+			kernel-lib = <0x7f000000 0x00500000 0xffffffff>;
 			work-buf = <0x0 0x12000 0xffffffff>;
 			dma-ranges = <0x3 0x0 0x3 0x0 0x1 0x0>;
 			iommus = <&iommu2 M4U_PORT_L22_APU_VPU>;
