@@ -31,6 +31,9 @@
 #include <device/mali_kbase_device.h>
 #include <mali_kbase_as_fault_debugfs.h>
 #include "../mali_kbase_mmu_internal.h"
+#if IS_ENABLED(CONFIG_MALI_MTK_DEBUG)
+#include <mtk_gpufreq.h>
+#endif
 
 void kbase_mmu_get_as_setup(struct kbase_mmu_table *mmut,
 		struct kbase_mmu_setup * const setup)
@@ -126,6 +129,10 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx,
 	exception_type = fault->status & 0xFF;
 	access_type = (fault->status >> 8) & 0x3;
 	source_id = (fault->status >> 16);
+
+#if IS_ENABLED(CONFIG_MALI_MTK_DEBUG)
+	mt_gpufreq_dump_infra_status();
+#endif
 
 	/* terminal fault, print info about the fault */
 	dev_err(kbdev->dev,
