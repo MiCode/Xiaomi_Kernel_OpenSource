@@ -37,6 +37,9 @@
 #if IS_ENABLED(CONFIG_MALI_MTK_DEVFREQ)
 #include <platform/mtk_platform_common/mtk_gpu_devfreq_governor.h>
 #endif
+#if IS_ENABLED(CONFIG_MALI_MTK_DEVFREQ_THERMAL)
+#include <platform/mtk_platform_common/mtk_gpu_devfreq_thermal.h>
+#endif
 
 /**
  * get_voltage() - Get the voltage value corresponding to the nominal frequency
@@ -696,16 +699,22 @@ int kbase_devfreq_init(struct kbase_device *kbdev)
 	}
 
 #ifdef CONFIG_DEVFREQ_THERMAL
+#if !IS_ENABLED(CONFIG_MALI_MTK_DEVFREQ_THERMAL)
 	err = kbase_ipa_init(kbdev);
 	if (err) {
 		dev_err(kbdev->dev, "IPA initialization failed\n");
 		goto cooling_failed;
 	}
+#endif
 
 	kbdev->devfreq_cooling = of_devfreq_cooling_register_power(
 			kbdev->dev->of_node,
 			kbdev->devfreq,
+#if IS_ENABLED(CONFIG_MALI_MTK_DEVFREQ_THERMAL)
+			&mtk_common_cooling_power_ops);
+#else
 			&kbase_ipa_power_model_ops);
+#endif
 	if (IS_ERR_OR_NULL(kbdev->devfreq_cooling)) {
 		err = PTR_ERR(kbdev->devfreq_cooling);
 		dev_err(kbdev->dev,
@@ -742,7 +751,9 @@ void kbase_devfreq_term(struct kbase_device *kbdev)
 	if (kbdev->devfreq_cooling)
 		devfreq_cooling_unregister(kbdev->devfreq_cooling);
 
+#if !IS_ENABLED(CONFIG_MALI_MTK_DEVFREQ_THERMAL)
 	kbase_ipa_term(kbdev);
+#endif
 #endif
 
 	devfreq_unregister_opp_notifier(kbdev->dev, kbdev->devfreq);
