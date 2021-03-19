@@ -836,7 +836,8 @@ int pd_set_data_role(struct pd_port *pd_port, uint8_t dr)
 		pd_port->tcpc_dev->typec_caps.data = TYPEC_PORT_DFP;
 
 	tcpci_notify_role_swap(pd_port->tcpc_dev, TCP_NOTIFY_DR_SWAP, dr);
-	typec_set_data_role(pd_port->tcpc_dev->typec_port,
+	if (pd_port->tcpc_dev->typec_port)
+		typec_set_data_role(pd_port->tcpc_dev->typec_port,
 			    pd_port->tcpc_dev->dual_role_dr ==
 			    DUAL_ROLE_PROP_DR_HOST ? TYPEC_HOST : TYPEC_DEVICE);
 	return pd_update_msg_header(pd_port);
@@ -861,7 +862,8 @@ int pd_set_power_role(struct pd_port *pd_port, uint8_t pr)
 	pd_port->tcpc_dev->dual_role_pr = !(pd_port->power_role);
 
 	tcpci_notify_role_swap(pd_port->tcpc_dev, TCP_NOTIFY_PR_SWAP, pr);
-	typec_set_pwr_role(pd_port->tcpc_dev->typec_port,
+	if (pd_port->tcpc_dev->typec_port)
+		typec_set_pwr_role(pd_port->tcpc_dev->typec_port,
 			   pd_port->tcpc_dev->dual_role_pr ==
 			   DUAL_ROLE_PROP_PR_SRC ? TYPEC_SOURCE : TYPEC_SINK);
 	return ret;
@@ -932,8 +934,8 @@ int pd_set_vconn(struct pd_port *pd_port, uint8_t role)
 	ret = tcpci_set_vconn(pd_port->tcpc_dev, enable);
 	if (ret)
 		return ret;
-
-	typec_set_vconn_role(pd_port->tcpc_dev->typec_port,
+	if (pd_port->tcpc_dev->typec_port)
+		typec_set_vconn_role(pd_port->tcpc_dev->typec_port,
 				pd_port->tcpc_dev->dual_role_pr ==
 				DUAL_ROLE_PROP_VCONN_SUPPLY_YES ?
 				TYPEC_SOURCE : TYPEC_SINK);
@@ -1395,23 +1397,27 @@ int pd_update_connect_state(struct pd_port *pd_port, uint8_t state)
 					      &pd_port->tcpc_dev->partner_ident;
 		pd_port->tcpc_dev->partner_desc.usb_pd =
 						  pd_port->tcpc_dev->pd_capable;
-		pd_port->tcpc_dev->partner =
-			typec_register_partner(pd_port->tcpc_dev->typec_port,
+		if (pd_port->tcpc_dev->typec_port) {
+			pd_port->tcpc_dev->partner =
+				typec_register_partner(pd_port->tcpc_dev->typec_port,
 					      &pd_port->tcpc_dev->partner_desc);
-		if (!pd_port->tcpc_dev->partner)
-			PE_INFO("register partner fail\r\n");
+			if (!pd_port->tcpc_dev->partner)
+				PE_INFO("register partner fail\r\n");
+		}
 	}
 
-	typec_set_data_role(pd_port->tcpc_dev->typec_port,
+	if (pd_port->tcpc_dev->typec_port) {
+		typec_set_data_role(pd_port->tcpc_dev->typec_port,
 			    pd_port->tcpc_dev->dual_role_dr ==
 			    DUAL_ROLE_PROP_DR_HOST ? TYPEC_HOST : TYPEC_DEVICE);
-	typec_set_pwr_role(pd_port->tcpc_dev->typec_port,
+		typec_set_pwr_role(pd_port->tcpc_dev->typec_port,
 			   pd_port->tcpc_dev->dual_role_pr ==
 			   DUAL_ROLE_PROP_PR_SRC ? TYPEC_SOURCE : TYPEC_SINK);
-	typec_set_vconn_role(pd_port->tcpc_dev->typec_port,
+		typec_set_vconn_role(pd_port->tcpc_dev->typec_port,
 				pd_port->tcpc_dev->dual_role_pr ==
 				DUAL_ROLE_PROP_VCONN_SUPPLY_YES ?
 				TYPEC_SOURCE : TYPEC_SINK);
+	}
 
 	return tcpci_notify_pd_state(pd_port->tcpc_dev, state);
 }

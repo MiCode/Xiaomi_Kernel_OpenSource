@@ -477,9 +477,11 @@ static inline int tcpci_report_usb_port_attached(struct tcpc_device *tcpc)
 		tcpc->dual_role_vconn = DUAL_ROLE_PROP_VCONN_SUPPLY_NO;
 		tcpc->typec_caps.type = TYPEC_PORT_SNK;
 		tcpc->typec_caps.data = TYPEC_PORT_UFP;
-		typec_set_data_role(tcpc->typec_port, TYPEC_DEVICE);
-		typec_set_pwr_role(tcpc->typec_port, TYPEC_SINK);
-		typec_set_vconn_role(tcpc->typec_port, TYPEC_SINK);
+		if (tcpc->typec_port) {
+			typec_set_data_role(tcpc->typec_port, TYPEC_DEVICE);
+			typec_set_pwr_role(tcpc->typec_port, TYPEC_SINK);
+			typec_set_vconn_role(tcpc->typec_port, TYPEC_SINK);
+		}
 		break;
 	case TYPEC_ATTACHED_SRC:
 		tcpc->dual_role_pr = DUAL_ROLE_PROP_PR_SRC;
@@ -488,15 +490,18 @@ static inline int tcpci_report_usb_port_attached(struct tcpc_device *tcpc)
 		tcpc->dual_role_vconn = DUAL_ROLE_PROP_VCONN_SUPPLY_YES;
 		tcpc->typec_caps.type = TYPEC_PORT_SRC;
 		tcpc->typec_caps.data = TYPEC_PORT_DFP;
-		typec_set_data_role(tcpc->typec_port, TYPEC_HOST);
-		typec_set_pwr_role(tcpc->typec_port, TYPEC_SOURCE);
-		typec_set_vconn_role(tcpc->typec_port, TYPEC_SOURCE);
+		if (tcpc->typec_port) {
+			typec_set_data_role(tcpc->typec_port, TYPEC_HOST);
+			typec_set_pwr_role(tcpc->typec_port, TYPEC_SOURCE);
+			typec_set_vconn_role(tcpc->typec_port, TYPEC_SOURCE);
+		}
 		break;
 	default:
 		break;
 	}
 	/* set typec switch orientation */
-	typec_set_orientation(tcpc->typec_port, tcpc->typec_polarity ?
+	if (tcpc->typec_port)
+		typec_set_orientation(tcpc->typec_port, tcpc->typec_polarity ?
 			TYPEC_ORIENTATION_NORMAL : TYPEC_ORIENTATION_REVERSE);
 
 	tcpci_set_wake_lock_pd(tcpc, true);
@@ -526,12 +531,14 @@ static inline int tcpci_report_usb_port_detached(struct tcpc_device *tcpc)
 	tcpc->dual_role_vconn = DUAL_ROLE_PROP_VCONN_SUPPLY_NO;
 	tcpc->typec_caps.type = TYPEC_PORT_DRP;
 	tcpc->typec_caps.data = TYPEC_PORT_DRD;
-	typec_set_data_role(tcpc->typec_port, TYPEC_DEVICE);
-	typec_set_pwr_role(tcpc->typec_port, TYPEC_SINK);
-	typec_set_vconn_role(tcpc->typec_port, TYPEC_SINK);
-	typec_set_pwr_opmode(tcpc->typec_port, TYPEC_PWR_MODE_USB);
-	/* set typec switch orientation */
-	typec_set_orientation(tcpc->typec_port, TYPEC_ORIENTATION_NONE);
+	if (tcpc->typec_port) {
+		typec_set_data_role(tcpc->typec_port, TYPEC_DEVICE);
+		typec_set_pwr_role(tcpc->typec_port, TYPEC_SINK);
+		typec_set_vconn_role(tcpc->typec_port, TYPEC_SINK);
+		typec_set_pwr_opmode(tcpc->typec_port, TYPEC_PWR_MODE_USB);
+		/* set typec switch orientation */
+		typec_set_orientation(tcpc->typec_port, TYPEC_ORIENTATION_NONE);
+	}
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	/* MTK Only */

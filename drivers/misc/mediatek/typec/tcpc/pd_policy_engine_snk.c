@@ -37,7 +37,8 @@ void pe_snk_startup_entry(struct pd_port *pd_port)
 		opmode = TYPEC_PWR_MODE_USB;
 		break;
 	}
-	typec_set_pwr_opmode(pd_port->tcpc_dev->typec_port, opmode);
+	if (pd_port->tcpc_dev->typec_port)
+		typec_set_pwr_opmode(pd_port->tcpc_dev->typec_port, opmode);
 
 	if (pr_swap) {
 		/*
@@ -161,7 +162,9 @@ void pe_snk_ready_entry(struct pd_port *pd_port)
 	pd_notify_pe_snk_explicit_contract(pd_port);
 	pe_power_ready_entry(pd_port);
 	pd_port->tcpc_dev->typec_caps.data = TYPEC_PORT_DRD;
-	typec_set_pwr_opmode(pd_port->tcpc_dev->typec_port, TYPEC_PWR_MODE_PD);
+	if (pd_port->tcpc_dev->typec_port)
+		typec_set_pwr_opmode(pd_port->tcpc_dev->typec_port,
+			TYPEC_PWR_MODE_PD);
 }
 
 void pe_snk_hard_reset_entry(struct pd_port *pd_port)
