@@ -1024,6 +1024,11 @@
 			};
 		};
 
+		infracfg_ao_mem@10002000 {
+			compatible = "mediatek,infracfg_ao_mem";
+			reg = <0 0x10002000 0 0x1000>;
+		};
+
 		pericfg: pericfg@10003000 {
 			compatible = "mediatek,mt8192-pericfg", "syscon";
 			reg = <0 0x10003000 0 0x1000>;
