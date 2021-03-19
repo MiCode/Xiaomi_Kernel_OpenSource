@@ -913,6 +913,12 @@
 		compatible = "mediatek,ptn36241g";
 		status = "okay";
 	};
+
+	mrdump_ext_rst: mrdump_ext_rst {
+		compatible = "mediatek, mrdump_ext_rst-eint";
+		mode = "IRQ";
+		status = "okay";
+	};
 };
 
 &i2c5 {
@@ -1217,7 +1223,7 @@
 
 &pmic {
 	interrupt-parent = <&pio>;
-	interrupts = <214 IRQ_TYPE_LEVEL_HIGH 214 0>;
+	interrupts = <222 IRQ_TYPE_LEVEL_HIGH 222 0>;
 
 	mtk_battery_oc_throttling {
 		compatible = "mediatek,mt6359p-battery_oc_throttling";
@@ -1227,8 +1233,8 @@
 };
 
 &mt6359p_vemc_reg {
-	regulator-min-microvolt = <3000000>;
-	regulator-max-microvolt = <3000000>;
+	regulator-min-microvolt = <2500000>;
+	regulator-max-microvolt = <2500000>;
 };
 
 &mt6359p_vgpu11_reg {
@@ -1278,6 +1284,8 @@
 		};
 		mt6315_3_regulator: mt6315_3_regulator {
 			compatible = "mediatek,mt6315_3-regulator";
+			buck-size = <3>;
+			buck1-modeset-mask = <0x3>;
 
 			mt6315_3_vbuck1: 3_vbuck1 {
 				regulator-compatible = "vbuck1";
@@ -1320,20 +1328,12 @@
 		};
 		mt6315_6_regulator: mt6315_6_regulator {
 			compatible = "mediatek,mt6315_6-regulator";
+			buck-size = <1>;
+			buck1-modeset-mask = <0xF>;
 
 			mt6315_6_vbuck1: 6_vbuck1 {
 				regulator-compatible = "vbuck1";
 				regulator-name = "6_vbuck1";
-				regulator-min-microvolt = <300000>;
-				regulator-max-microvolt = <1193750>;
-				regulator-enable-ramp-delay = <256>;
-				regulator-allowed-modes = <0 1 2 4>;
-				regulator-always-on;
-			};
-
-			mt6315_6_vbuck3: 6_vbuck3 {
-				regulator-compatible = "vbuck3";
-				regulator-name = "6_vbuck3";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1193750>;
 				regulator-enable-ramp-delay = <256>;
@@ -1352,6 +1352,9 @@
 		};
 		mt6315_7_regulator: mt6315_7_regulator {
 			compatible = "mediatek,mt6315_7-regulator";
+			buck-size = <3>;
+			buck1-modeset-mask = <0x3>;
+
 			mt6315_7_vbuck1: 7_vbuck1 {
 				regulator-compatible = "vbuck1";
 				regulator-name = "7_vbuck1";
@@ -1367,13 +1370,18 @@
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1193750>;
 				regulator-enable-ramp-delay = <256>;
+				regulator-always-on;
+			};
+
+			mt6315_7_vbuck4: 7_vbuck4 {
+				regulator-compatible = "vbuck4";
+				regulator-name = "7_vbuck4";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-enable-ramp-delay = <256>;
+				regulator-always-on;
 			};
 		};
-	};
-	mrdump_ext_rst: mrdump_ext_rst {
-		compatible = "mediatek, mrdump_ext_rst-eint";
-		mode = "IRQ";
-		status = "okay";
 	};
 };
 
