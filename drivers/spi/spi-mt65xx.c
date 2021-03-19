@@ -789,20 +789,20 @@ static int mtk_spi_probe(struct platform_device *pdev)
 	ret = clk_prepare(mdata->spi_clk);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "failed to prepare spi_clk (%d)\n", ret);
-		goto err_put_master;
+		goto err_unprepare_clk;
 	}
 
 	ret = clk_enable(mdata->spi_clk);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "failed to enable spi_clk (%d)\n", ret);
-		goto err_put_master;
+		goto err_unprepare_clk;
 	}
 
 	ret = clk_set_parent(mdata->sel_clk, mdata->parent_clk);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "failed to clk_set_parent (%d)\n", ret);
 		clk_disable(mdata->spi_clk);
-		goto err_put_master;
+		goto err_unprepare_clk;
 	}
 
 	mdata->spi_clk_hz = clk_get_rate(mdata->spi_clk);
@@ -814,7 +814,7 @@ static int mtk_spi_probe(struct platform_device *pdev)
 	ret = devm_spi_register_master(&pdev->dev, master);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register master (%d)\n", ret);
-		goto err_put_master;
+		goto err_unprepare_clk;
 	}
 
 	if (mdata->dev_comp->need_pad_sel) {
@@ -823,14 +823,14 @@ static int mtk_spi_probe(struct platform_device *pdev)
 				"pad_num does not match num_chipselect(%d != %d)\n",
 				mdata->pad_num, master->num_chipselect);
 			ret = -EINVAL;
-			goto err_put_master;
+			goto err_unprepare_clk;
 		}
 
 		if (!master->cs_gpios && master->num_chipselect > 1) {
 			dev_err(&pdev->dev,
 				"cs_gpios not specified and num_chipselect > 1\n");
 			ret = -EINVAL;
-			goto err_put_master;
+			goto err_unprepare_clk;
 		}
 
 		if (master->cs_gpios) {
@@ -841,7 +841,7 @@ static int mtk_spi_probe(struct platform_device *pdev)
 				if (ret) {
 					dev_err(&pdev->dev,
 						"can't get CS GPIO %i\n", i);
-					goto err_put_master;
+					goto err_unprepare_clk;
 				}
 			}
 		}
@@ -858,10 +858,10 @@ static int mtk_spi_probe(struct platform_device *pdev)
 
 	return 0;
 
+err_unprepare_clk:
+	clk_unprepare(mdata->spi_clk);
 err_put_master:
 	spi_master_put(master);
-	clk_unprepare(mdata->spi_clk);
-
 	return ret;
 }
 
