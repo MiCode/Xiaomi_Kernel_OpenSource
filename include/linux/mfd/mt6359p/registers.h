@@ -17,6 +17,7 @@
 #define MT6359P_TOP_INT_STATUS0               0x19e
 #define MT6359P_OTP_CON0                      0x38a
 #define MT6359P_TOP_TMA_KEY                   0x3a8
+#define MT6359P_SCK_TOP_CKPDN_CON0            0x514
 #define MT6359P_SCK_TOP_INT_CON0              0x528
 #define MT6359P_SCK_TOP_INT_STATUS0           0x534
 #define MT6359P_EOSC_CALI_CON0                0x53a
