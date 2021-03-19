@@ -45,6 +45,7 @@ obj-$(CONFIG_MTK_CONN_MD) += conn_md/
 obj-$(CONFIG_MTK_CAM_CAL) += cam_cal/
 obj-$(CONFIG_MTK_AEE_FEATURE) += aee/
 obj-$(CONFIG_MTK_DBGTOP) += dbgtop/
+obj-$(CONFIG_MTK_CLKBUF) += clkbuf/
 obj-$(CONFIG_MTK_CLK_BUFFER) += clkbuf/
 obj-$(CONFIG_MTK_SRCLKEN_RC) += srclken_rc/
 obj-$(CONFIG_MTK_POWER_THROTTLING_COMMON) += power_throttling/
