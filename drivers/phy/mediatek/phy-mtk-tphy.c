@@ -60,6 +60,8 @@
 #define PA5_RG_U2_HS_100U_U3_EN	BIT(11)
 
 #define U3P_USBPHYACR6		0x018
+#define PA6_RG_U2_PHY_REV6		GENMASK(31, 30)
+#define PA6_RG_U2_PHY_REV6_VAL(x)	((0x3 & (x)) << 30)
 #define PA6_RG_U2_BC11_SW_EN		BIT(23)
 #define PA6_RG_U2_OTG_VBUSCMP_EN	BIT(20)
 #define PA6_RG_U2_DISCTH		GENMASK(7, 4)
@@ -318,6 +320,7 @@ struct mtk_phy_instance {
 	int eye_term;
 	int intr;
 	int discth;
+	int rev6;
 	bool bc12_en;
 };
 
@@ -897,10 +900,13 @@ static void phy_parse_property(struct mtk_tphy *tphy,
 				 &instance->intr);
 	device_property_read_u32(dev, "mediatek,discth",
 				 &instance->discth);
+	device_property_read_u32(dev, "mediatek,rev6",
+				 &instance->rev6);
 	dev_dbg(dev, "bc12:%d, src:%d, vrt:%d, term:%d, intr:%d, disc:%d\n",
 		instance->bc12_en, instance->eye_src,
 		instance->eye_vrt, instance->eye_term,
 		instance->intr, instance->discth);
+	dev_dbg(dev, "rev6:%d\n", instance->rev6);
 }
 
 static void u2_phy_props_set(struct mtk_tphy *tphy,
@@ -908,7 +914,14 @@ static void u2_phy_props_set(struct mtk_tphy *tphy,
 {
 	struct u2phy_banks *u2_banks = &instance->u2_banks;
 	void __iomem *com = u2_banks->com;
+	struct device *dev = &instance->phy->dev;
 	u32 tmp;
+
+	dev_info(dev, "bc12:%d, src:%d, vrt:%d, term:%d, intr:%d, disc:%d\n",
+		instance->bc12_en, instance->eye_src,
+		instance->eye_vrt, instance->eye_term,
+		instance->intr, instance->discth);
+	dev_info(dev, "rev6:%d\n", instance->rev6);
 
 	if (instance->bc12_en) {
 		tmp = readl(com + U3P_U2PHYBC12C);
@@ -948,6 +961,13 @@ static void u2_phy_props_set(struct mtk_tphy *tphy,
 		tmp = readl(com + U3P_USBPHYACR6);
 		tmp &= ~PA6_RG_U2_DISCTH;
 		tmp |= PA6_RG_U2_DISCTH_VAL(instance->discth);
+		writel(tmp, com + U3P_USBPHYACR6);
+	}
+
+	if (instance->rev6) {
+		tmp = readl(com + U3P_USBPHYACR6);
+		tmp &= ~PA6_RG_U2_PHY_REV6;
+		tmp |= PA6_RG_U2_PHY_REV6_VAL(instance->rev6);
 		writel(tmp, com + U3P_USBPHYACR6);
 	}
 }
