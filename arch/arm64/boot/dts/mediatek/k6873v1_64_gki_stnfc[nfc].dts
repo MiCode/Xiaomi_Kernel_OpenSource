@@ -1,6 +1,0 @@
-// SPDX-License-Identifier: (GPL-2.0 OR MIT)
-/*
- * Copyright (C) 2020 MediaTek Inc.
- * Author: Chun-Hung Wu <chun-hung.wu@mediatek.com>
- */
-#include "k6873v1_64_gki_stnfc.dts"
