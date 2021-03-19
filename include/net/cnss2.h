@@ -149,6 +149,7 @@ struct cnss_wlan_enable_cfg {
 	struct cnss_shadow_reg_v2_cfg *shadow_reg_v2_cfg;
 	bool rri_over_ddr_cfg_valid;
 	struct cnss_rri_over_ddr_cfg rri_over_ddr_cfg;
+	bool send_msi_ce;
 };
 
 enum cnss_driver_mode {

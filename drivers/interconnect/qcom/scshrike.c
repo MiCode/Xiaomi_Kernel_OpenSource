@@ -631,7 +631,7 @@ static struct qcom_icc_qosbox acm_gpu_tcu_qos = {
 	.num_ports = 1,
 	.offsets = { 0x30400 },
 	.config = &(struct qos_config) {
-		.prio = 6,
+		.prio = 1,
 		.urg_fwd = 0,
 	},
 };

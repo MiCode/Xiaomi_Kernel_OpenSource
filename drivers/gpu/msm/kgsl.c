@@ -1950,8 +1950,7 @@ long kgsl_ioctl_gpu_aux_command(struct kgsl_device_private *dev_priv,
 	if (param->flags & KGSL_GPU_AUX_COMMAND_SYNC)
 		count++;
 
-	drawobjs = kvcalloc(count, sizeof(*drawobjs),
-		GFP_KERNEL | __GFP_NORETRY | __GFP_NOWARN);
+	drawobjs = kvcalloc(count, sizeof(*drawobjs), GFP_KERNEL);
 
 	if (!drawobjs) {
 		kgsl_context_put(context);
@@ -2019,7 +2018,7 @@ long kgsl_ioctl_gpu_aux_command(struct kgsl_device_private *dev_priv,
 			}
 
 			ret = kgsl_drawobj_add_timeline(dev_priv, timelineobj,
-				cmdlist, param->cmdsize);
+				u64_to_user_ptr(generic.priv), generic.size);
 			if (ret)
 				goto err;
 
@@ -2396,8 +2395,7 @@ static int memdesc_sg_virt(struct kgsl_memdesc *memdesc, unsigned long useraddr)
 	if (sglen == 0 || sglen >= LONG_MAX)
 		return -EINVAL;
 
-	pages = kvcalloc(sglen, sizeof(*pages),
-		GFP_KERNEL | __GFP_NORETRY | __GFP_NOWARN);
+	pages = kvcalloc(sglen, sizeof(*pages), GFP_KERNEL);
 	if (pages == NULL)
 		return -ENOMEM;
 

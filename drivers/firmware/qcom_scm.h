@@ -274,6 +274,8 @@ extern int __qcom_scm_invoke_callback_response(struct device *dev,
 		u64 *response_type, unsigned int *data);
 
 extern void __qcom_scm_init(void);
+extern int __qcom_scm_mem_protect_audio(struct device *dev, phys_addr_t paddr,
+					size_t size);
 
 #ifdef CONFIG_QCOM_RTIC
 

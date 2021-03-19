@@ -22,10 +22,10 @@ enum {
 	WEST
 };
 
-#define HMSS_WEST	0x031BB000
-#define HMSS_EAST	0x035B7000
-#define HMSS_NORTH	0x039BC000
-#define HMSS_SOUTH	0x03DBE000
+#define HMSS_WEST	0x000BB000
+#define HMSS_EAST	0x000B7000
+#define HMSS_NORTH	0x000BC000
+#define HMSS_SOUTH	0x000BE000
 
 #define FUNCTION(fname)					\
 	[msm_mux_##fname] = {				\

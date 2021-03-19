@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config MSM_NPU
+	tristate "QTI MSM Neural Processing Unit support"
+	depends on ARCH_QCOM
+	help
+	  Enable support for Neural Processing Unit
+	  for specific QTI chipsets.
+	  This module serves as the common driver
+	  for npu which provides acceleration for neural
+	  network processing.
+
+config VIRTIO_NPU
+	tristate "Virtio MSM Neural Processing Unit support"
+	depends on VIRTIO && MSM_NPU
+	help
+	  This is the virtual frontend driver for Neural Processing Unit
+	  based on virtio. Say Y if you want to support virtual NPU.

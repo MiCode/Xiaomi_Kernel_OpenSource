@@ -2370,7 +2370,7 @@ struct ipa_ioc_nat_pdn_entry {
  */
 struct ipa_ioc_vlan_iface_info {
 	char name[IPA_RESOURCE_NAME_MAX];
-	uint8_t vlan_id;
+	uint16_t vlan_id;
 };
 
 /**

@@ -938,6 +938,14 @@ config QTI_RPM_STATS_LOG
 	  the low power modes that RPM enters. The drivers outputs the message
 	  via a sysfs node.
 
+config QCOM_SUBSYSTEM_SLEEP_STATS
+	tristate "Qualcomm Technologies, Inc. Subsystem sleep stats driver"
+	depends on QCOM_SMEM
+	help
+	  This driver is IOCTL implementation to get the subsystem stats data
+	  from SMEM. Stats information such as sleep count, last entered at,
+	  last exited at and accumulated duration can be read from
+	  userspace with ioctl.
 
 config QTI_DDR_STATS_LOG
 	tristate "Qualcomm Technologies Inc (QTI) DDR Stats Driver"
@@ -1178,6 +1186,15 @@ config QTI_CRYPTO_TZ
 	 programmed and managed through SCM calls to TZ where ICE driver
 	 will configure keys.
 
+config QTI_CRYPTO_FDE
+	tristate "Enable common crypto functionality used for FDE"
+	depends on QTI_CRYPTO_COMMON
+	help
+	 Say 'Y' to enable hardware Full Disk Encryption implementation to be used by
+	 different storage layers such as UFS. Enabling the FDE will reserve one slot
+	 of KSM(Key Slot Manager) for the FDE. Making one less slot available for FBE
+	 (File based encryption) in case both encryption mechanism are enabled on device.
+
 config QTI_HW_KEY_MANAGER
 	tristate "Enable QTI Hardware Key Manager for storage encryption"
 	default n
@@ -1212,6 +1229,31 @@ config QCOM_ADSP_MANUAL_VOTE
 	  APPS processor during system suspend and resume.
           This driver sends message over QMI to the service which is running on
           ADSP.
+
+config MSM_SLATECOM
+	bool "Provide APIs to communicate with Slate chipset"
+	help
+		SLATECOM is a thin layer above SPI. It is used whithin a SoC for
+		communication between G-Link/slate_com_dev and Slate processor over SPI.
+		This handle the interrupts raised by BG and notify the G-link with
+		interrupt event and event data.
+
+config MSM_SLATECOM_INTERFACE
+	tristate "Driver support for Slate Communication"
+	depends on MSM_SLATECOM
+	help
+		Create a slate_com_dev device node for user space communication.
+		Single user space client can open device node for communication
+		from hardware. Hardware will provide access to read
+		registers and read/write AHB memory in the device.
+
+config QCOM_AOP_SET_DDR
+	tristate "Sysfs to communicate with AOP using QMP protocol"
+	help
+	  This options enables a driver which allows clients to send messages
+	  to Alway On processor using QMP transport. Users can echo a frequency
+	  into an exposed sysfs node to send to AOP. The driver expects the Cap
+	  frequency of DDR based on SKU.
 
 source "drivers/soc/qcom/icnss2/Kconfig"
 endmenu

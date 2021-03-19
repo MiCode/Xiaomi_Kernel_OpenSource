@@ -23,11 +23,11 @@
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
-#include <linux/spinlock.h>
 #include <linux/regmap.h>
 #include <linux/uaccess.h>
 #include <uapi/linux/hgsl.h>
 
+#include "hgsl.h"
 #include "hgsl_tcsr.h"
 
 #define HGSL_DEVICE_NAME  "hgsl"
@@ -38,7 +38,6 @@
 
 #define IORESOURCE_HWINF "hgsl_reg_hwinf"
 #define IORESOURCE_GMUCX "hgsl_reg_gmucx"
-
 
 /* Set-up profiling packets as needed by scope */
 #define CMDBATCH_PROFILING  0x00000010
@@ -266,20 +265,6 @@ struct doorbell_queue {
 	struct mutex lock;
 };
 
-struct hgsl_context {
-	uint32_t context_id;
-	struct dma_buf *shadow_dma;
-	void *shadow_vbase;
-	uint32_t shadow_sop_off;
-	uint32_t shadow_eop_off;
-	wait_queue_head_t wait_q;
-	pid_t pid;
-	bool dbq_assigned;
-
-	bool in_destroy;
-	struct kref kref;
-};
-
 struct hgsl_active_wait {
 	struct list_head head;
 	struct hgsl_context *ctxt;
@@ -304,6 +289,9 @@ struct qcom_hgsl {
 
 	struct doorbell_queue dbq[MAX_DB_QUEUE];
 
+	/* Could disable db and use isync only */
+	bool db_off;
+
 	/* global doorbell tcsr */
 	struct hgsl_tcsr *tcsr[HGSL_TCSR_NUM][HGSL_TCSR_ROLE_MAX];
 	int tcsr_idx;
@@ -317,12 +305,6 @@ struct qcom_hgsl {
 	struct work_struct ts_retire_work;
 
 	struct hw_version *ver;
-};
-
-struct hgsl_priv {
-	struct qcom_hgsl *dev;
-	uint32_t dbq_idx;
-	pid_t pid;
 };
 
 static int hgsl_reg_map(struct platform_device *pdev,
@@ -571,6 +553,11 @@ static int hgsl_cmdstream_db_issueib(struct file *filep,
 	int idx;
 	int ret = 0;
 
+	if (hgsl->db_off) {
+		dev_err(hgsl->dev, "Doorbell not open\n");
+		return -EPERM;
+	}
+
 	copy_from_user(&submit_info, USRPTR(arg), sizeof(submit_info));
 
 	if (!hgsl_ctx_dbq_ready(priv)) {
@@ -686,6 +673,11 @@ static int hgsl_dbq_assign(struct file *filep, unsigned long arg)
 	struct doorbell_queue *dbq;
 	unsigned int dbq_idx;
 
+	if (hgsl->db_off) {
+		dev_err(hgsl->dev, "Doorbell not open\n");
+		return -EPERM;
+	}
+
 	if (copy_from_user(&dbq_idx, USRPTR(arg), sizeof(dbq_idx)))
 		return -EFAULT;
 
@@ -698,28 +690,49 @@ static int hgsl_dbq_assign(struct file *filep, unsigned long arg)
 	return dbq->state;
 }
 
-static inline bool _timestamp_retired(struct hgsl_context *ctxt,
-					unsigned int timestamp)
+static inline uint32_t get_context_timestamp(struct hgsl_context *ctxt)
 {
-	unsigned int ts = *(unsigned int *)(ctxt->shadow_vbase +
+	unsigned int ts;
+
+	ts = *(unsigned int *)(ctxt->shadow_vbase +
 						ctxt->shadow_eop_off);
 
 	/* ensure read is done before comparison */
 	rmb();
-	return (ts >= timestamp);
+	return ts;
 }
 
-static irqreturn_t hgsl_tcsr_isr(struct device *dev, uint32_t status)
+static inline bool _timestamp_retired(struct hgsl_context *ctxt,
+					unsigned int timestamp)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct qcom_hgsl *hgsl = platform_get_drvdata(pdev);
+	return (get_context_timestamp(ctxt) >= timestamp);
+}
 
-	if ((status & GLB_DB_DEST_TS_RETIRE_IRQ_MASK) == 0)
-		return IRQ_NONE;
+static inline void _destroy_context(struct kref *kref);
+static void _signal_contexts(struct qcom_hgsl *hgsl)
+{
+	struct hgsl_context *ctxt;
+	int i;
+	uint32_t ts;
 
-	queue_work(hgsl->wq, &hgsl->ts_retire_work);
+	for (i = 0; i < HGSL_CONTEXT_NUM; i++) {
+		read_lock(&hgsl->ctxt_lock);
+		ctxt = hgsl->contexts[i];
+		read_unlock(&hgsl->ctxt_lock);
 
-	return IRQ_HANDLED;
+		if (ctxt == NULL)
+			continue;
+
+		kref_get(&ctxt->kref);
+		ts = get_context_timestamp(ctxt);
+		if (ts != ctxt->last_ts) {
+			hgsl_hsync_timeline_signal(ctxt->timeline, ts);
+			ctxt->last_ts = ts;
+		}
+		kref_put(&ctxt->kref, _destroy_context);
+
+	}
+
 }
 
 static void ts_retire_worker(struct work_struct *work)
@@ -734,6 +747,21 @@ static void ts_retire_worker(struct work_struct *work)
 			wake_up_all(&wait->ctxt->wait_q);
 	}
 	spin_unlock(&hgsl->active_wait_lock);
+
+	_signal_contexts(hgsl);
+}
+
+static irqreturn_t hgsl_tcsr_isr(struct device *dev, uint32_t status)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct qcom_hgsl *hgsl = platform_get_drvdata(pdev);
+
+	if ((status & GLB_DB_DEST_TS_RETIRE_IRQ_MASK) == 0)
+		return IRQ_NONE;
+
+	queue_work(hgsl->wq, &hgsl->ts_retire_work);
+
+	return IRQ_HANDLED;
 }
 
 static int hgsl_init_global_db(struct qcom_hgsl *hgsl,
@@ -860,6 +888,11 @@ static int hgsl_dbq_init(struct file *filep, unsigned long arg)
 	int tcsr_idx;
 	int ret;
 
+	if (hgsl->db_off) {
+		dev_err(hgsl->dev, "Doorbell not open\n");
+		return -EPERM;
+	}
+
 	copy_from_user(&param, USRPTR(arg), sizeof(param));
 	if (param.fd < 0) {
 		dev_err(hgsl->dev, "Invalid dbq fd\n");
@@ -952,7 +985,17 @@ static int hgsl_context_create(struct file *filep, unsigned long arg)
 	struct dma_buf *dmabuf;
 	void *vbase;
 	struct hgsl_context *ctxt;
-	int ret;
+	int ret = 0;
+
+	if (hgsl->db_off) {
+		dev_err(hgsl->dev, "Doorbell not open\n");
+		return -EPERM;
+	}
+
+	if (!hgsl->contexts) {
+		dev_err(hgsl->dev, "DBQ not initialized propertily\n");
+		return -ENODEV;
+	}
 
 	if (!is_global_db(hgsl->tcsr_idx)) {
 		dev_err(hgsl->dev, "Global doorbell not supported for this process\n");
@@ -1000,11 +1043,12 @@ static int hgsl_context_create(struct file *filep, unsigned long arg)
 
 	write_lock(&hgsl->ctxt_lock);
 	if (hgsl->contexts[param.context_id] != NULL) {
+		write_unlock(&hgsl->ctxt_lock);
 		dev_err(hgsl->dev,
 			"context id %d already created\n",
 			param.context_id);
 		ret = -EBUSY;
-		goto err_unlock;
+		goto err_free;
 	}
 
 	hgsl->contexts[param.context_id] = ctxt;
@@ -1017,10 +1061,18 @@ static int hgsl_context_create(struct file *filep, unsigned long arg)
 	kref_init(&ctxt->kref);
 	write_unlock(&hgsl->ctxt_lock);
 
+
+	ret = hgsl_hsync_timeline_create(ctxt);
+	if (ret < 0) {
+		dev_err(hgsl->dev,
+			"hsync timeline failed for context %d\n",
+			param.context_id);
+		goto err_free;
+	}
+
 	return 0;
 
-err_unlock:
-	write_unlock(&hgsl->ctxt_lock);
+err_free:
 	kfree(ctxt);
 err_dma_unmap:
 	dma_buf_vunmap(dmabuf, vbase);
@@ -1038,6 +1090,11 @@ static int hgsl_context_destroy(struct file *filep, unsigned long arg,
 	struct qcom_hgsl *hgsl = priv->dev;
 	uint32_t context_id;
 	struct hgsl_context *ctxt;
+
+	if (hgsl->db_off) {
+		dev_err(hgsl->dev, "Doorbell not open\n");
+		return -EPERM;
+	}
 
 	if (!is_global_db(hgsl->tcsr_idx)) {
 		dev_err(hgsl->dev, "Global doorbell not supported for this process\n");
@@ -1075,6 +1132,8 @@ static int hgsl_context_destroy(struct file *filep, unsigned long arg,
 
 	write_unlock(&hgsl->ctxt_lock);
 
+	hgsl_hsync_timeline_put(ctxt->timeline);
+
 	kref_put(&ctxt->kref, _destroy_context);
 	return 0;
 }
@@ -1088,6 +1147,11 @@ static int hgsl_wait_timestamp(struct file *filep, unsigned long arg)
 	struct hgsl_context *ctxt;
 	unsigned int timestamp;
 	int ret;
+
+	if (hgsl->db_off) {
+		dev_err(hgsl->dev, "Doorbell not open\n");
+		return -EPERM;
+	}
 
 	if (!is_global_db(hgsl->tcsr_idx)) {
 		dev_err(hgsl->dev, "Global doorbell not supported for this process\n");
@@ -1106,14 +1170,13 @@ static int hgsl_wait_timestamp(struct file *filep, unsigned long arg)
 
 	read_lock(&hgsl->ctxt_lock);
 	ctxt = hgsl->contexts[param.context_id];
+	read_unlock(&hgsl->ctxt_lock);
 	if (ctxt == NULL) {
-		read_unlock(&hgsl->ctxt_lock);
 		dev_err(hgsl->dev,
 			"context id %d is not created\n",
 			param.context_id);
 		return -EINVAL;
 	}
-	read_unlock(&hgsl->ctxt_lock);
 
 	if (_timestamp_retired(ctxt, timestamp))
 		return 0;
@@ -1161,9 +1224,15 @@ static int hgsl_dbq_release(struct file *filep, unsigned long arg,
 	struct qcom_hgsl *hgsl = priv->dev;
 	struct doorbell_queue *dbq;
 	struct hgsl_dbq_release_info rel_info;
+	int ret = 0;
+
+	if (hgsl->db_off) {
+		dev_err(hgsl->dev, "Doorbell not open\n");
+		return -EPERM;
+	}
 
 	if (!force_cleanup)
-		copy_from_user(&rel_info, USRPTR(arg),
+		ret = copy_from_user(&rel_info, USRPTR(arg),
 						sizeof(rel_info));
 	else
 		rel_info = *(struct hgsl_dbq_release_info *)arg;
@@ -1183,7 +1252,7 @@ static int hgsl_dbq_release(struct file *filep, unsigned long arg,
 	rel_info.ref_count = (dbq->state == DB_STATE_Q_INIT_DONE) ? 1 : 0;
 
 	if (!force_cleanup)
-		copy_to_user(USRPTR(arg), &rel_info, sizeof(rel_info));
+		ret = copy_to_user(USRPTR(arg), &rel_info, sizeof(rel_info));
 
 	return priv->dbq_idx;
 }
@@ -1196,6 +1265,9 @@ static int hgsl_open(struct inode *inodep, struct file *filep)
 
 	if (!priv)
 		return -ENOMEM;
+
+	idr_init(&priv->isync_timeline_idr);
+	spin_lock_init(&priv->isync_timeline_lock);
 
 	priv->dev = hgsl;
 	filep->private_data = priv;
@@ -1238,13 +1310,135 @@ static ssize_t hgsl_read(struct file *filep, char __user *buf, size_t count,
 	uint32_t release = 0;
 	char buff[100];
 
-	hgsl_reg_read(&hgsl->reg_ver, 0, &version);
-	hgsl_reg_read(&hgsl->reg_ver, 4, &release);
-	snprintf(buff, 100, "gpu HW Version:%x HW Release:%x\n",
+	if (!hgsl->db_off) {
+		hgsl_reg_read(&hgsl->reg_ver, 0, &version);
+		hgsl_reg_read(&hgsl->reg_ver, 4, &release);
+		snprintf(buff, 100, "gpu HW Version:%x HW Release:%x\n",
 							version, release);
+	} else
+		snprintf(buff, 100, "Doorbell closed\n");
 
 	return simple_read_from_buffer(buf, count, pos,
 			buff, strlen(buff) + 1);
+}
+
+static int hgsl_ioctl_hsync_fence_create(struct file *filep,
+					   unsigned long arg)
+{
+	struct hgsl_priv *priv = filep->private_data;
+	struct qcom_hgsl *hgsl = priv->dev;
+	struct hgsl_hsync_fence_create param;
+	struct hgsl_context *ctxt;
+	int ret = 0;
+
+	if (hgsl->db_off) {
+		dev_err(hgsl->dev, "Doorbell not open\n");
+		return -EPERM;
+	}
+
+	copy_from_user(&param, USRPTR(arg), sizeof(param));
+
+	read_lock(&hgsl->ctxt_lock);
+	ctxt = hgsl->contexts[param.context_id];
+	read_unlock(&hgsl->ctxt_lock);
+
+	if (ctxt == NULL) {
+		dev_err(hgsl->dev,
+			"context id %d is not created\n",
+			param.context_id);
+		return -EINVAL;
+	}
+
+	kref_get(&ctxt->kref);
+
+	param.fence_fd = hgsl_hsync_fence_create_fd(ctxt, param.timestamp);
+	if (param.fence_fd < 0) {
+		ret = param.fence_fd;
+		goto out;
+	}
+	copy_to_user(USRPTR(arg), &param, sizeof(param));
+out:
+	kref_put(&ctxt->kref, _destroy_context);
+
+	return ret;
+}
+
+static int hgsl_ioctl_isync_timeline_create(struct file *filep,
+					      unsigned long arg)
+{
+	struct hgsl_priv *priv = filep->private_data;
+	uint32_t param = 0;
+	int ret = 0;
+
+	ret = hgsl_isync_timeline_create(priv, &param);
+	if (ret == 0)
+		copy_to_user(USRPTR(arg), &param, sizeof(param));
+
+	return ret;
+}
+
+static int hgsl_ioctl_isync_timeline_destroy(struct file *filep,
+					       unsigned long arg)
+{
+	struct hgsl_priv *priv = filep->private_data;
+	uint32_t param = 0;
+	int ret = 0;
+
+	copy_from_user(&param, USRPTR(arg), sizeof(param));
+	ret = hgsl_isync_timeline_destroy(priv, param);
+
+	return ret;
+}
+
+static int hgsl_ioctl_isync_fence_create(struct file *filep,
+					   unsigned long arg)
+{
+	struct hgsl_priv *priv = filep->private_data;
+	struct hgsl_isync_create_fence param;
+	int ret = 0;
+	int fence = 0;
+
+	copy_from_user(&param, USRPTR(arg), sizeof(param));
+
+	ret = hgsl_isync_fence_create(priv, param.timeline_id,
+						param.ts, &fence);
+
+	if (ret == 0) {
+		param.fence_id = fence;
+		copy_to_user(USRPTR(arg), &param, sizeof(param));
+	}
+
+	return ret;
+}
+
+static int hgsl_ioctl_isync_fence_signal(struct file *filep,
+					   unsigned long arg)
+{
+	struct hgsl_priv *priv = filep->private_data;
+	struct hgsl_isync_signal_fence param;
+	int ret = 0;
+
+	copy_from_user(&param, USRPTR(arg), sizeof(param));
+
+	ret = hgsl_isync_fence_signal(priv, param.timeline_id,
+						  param.fence_id);
+
+	return ret;
+}
+
+static int hgsl_ioctl_isync_forward(struct file *filep,
+					   unsigned long arg)
+{
+	struct hgsl_priv *priv = filep->private_data;
+	struct hgsl_isync_forward param;
+	int ret = 0;
+
+	copy_from_user(&param, USRPTR(arg), sizeof(param));
+
+	ret = hgsl_isync_forward(priv, param.timeline_id,
+						  param.ts);
+
+	return ret;
 }
 
 static long hgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
@@ -1276,6 +1470,25 @@ static long hgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	case HGSL_IOCTL_WAIT_TIMESTAMP:
 		ret = hgsl_wait_timestamp(filep, arg);
 		break;
+	case HGSL_IOCTL_HSYNC_FENCE_CREATE:
+		ret = hgsl_ioctl_hsync_fence_create(filep, arg);
+		break;
+	case HGSL_IOCTL_ISYNC_TIMELINE_CREATE:
+		ret = hgsl_ioctl_isync_timeline_create(filep, arg);
+		break;
+	case HGSL_IOCTL_ISYNC_TIMELINE_DESTROY:
+		ret = hgsl_ioctl_isync_timeline_destroy(filep, arg);
+		break;
+	case HGSL_IOCTL_ISYNC_FENCE_CREATE:
+		ret = hgsl_ioctl_isync_fence_create(filep, arg);
+		break;
+	case HGSL_IOCTL_ISYNC_FENCE_SIGNAL:
+		ret = hgsl_ioctl_isync_fence_signal(filep, arg);
+		break;
+	case HGSL_IOCTL_ISYNC_FORWARD:
+		ret = hgsl_ioctl_isync_forward(filep, arg);
+		break;
+
 	default:
 		ret = -ENOIOCTLCMD;
 	}
@@ -1362,6 +1575,18 @@ static void qcom_hgsl_deregister(struct platform_device *pdev)
 	unregister_chrdev_region(hgsl_dev->device_no, HGSL_DEV_NUM);
 }
 
+static bool hgsl_is_db_off(struct platform_device *pdev)
+{
+	uint32_t db_off = 0;
+
+	if (pdev == NULL)
+		return true;
+
+	of_property_read_u32(pdev->dev.of_node, "db-off", &db_off);
+
+	return db_off == 1 ? true : false;
+}
+
 static int hgsl_reg_map(struct platform_device *pdev,
 			char *res_name, struct reg *reg)
 {
@@ -1433,12 +1658,18 @@ static int qcom_hgsl_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = hgsl_reg_map(pdev, IORESOURCE_HWINF, &hgsl_dev->reg_ver);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Unable to map resource:%s\n",
-							   IORESOURCE_HWINF);
-		goto exit_dereg;
+	hgsl_dev->db_off = hgsl_is_db_off(pdev);
+
+	if (!hgsl_dev->db_off) {
+		ret = hgsl_reg_map(pdev, IORESOURCE_HWINF,
+						&hgsl_dev->reg_ver);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "Unable to map resource:%s\n",
+							IORESOURCE_HWINF);
+			goto exit_dereg;
+		}
 	}
+
 
 	for (i = 0; i < MAX_DB_QUEUE; i++) {
 		mutex_init(&hgsl_dev->dbq[i].lock);

@@ -20,6 +20,7 @@ struct led_qcom_clk_priv {
 	struct pinctrl_state *gpio_active;
 	struct pinctrl_state *gpio_sleep;
 	const char *name;
+	const char *default_trigger;
 	int duty_cycle, max_duty;
 	bool clk_enabled;
 };
@@ -93,6 +94,9 @@ static int qcom_clk_led_parse_dt(struct device *dev,
 	led->name = of_get_property(dev->of_node, "qcom,label", NULL) ? :
 				dev->of_node->name;
 
+	led->default_trigger = of_get_property(dev->of_node,
+			"qcom,default-clk-trigger", NULL);
+
 	ret = of_property_read_u32(dev->of_node, "qcom,max_duty",
 			&led->max_duty);
 	if (ret) {
@@ -155,6 +159,7 @@ static int led_qcom_clk_probe(struct platform_device *pdev)
 	priv->cdev.brightness = LED_OFF;
 	priv->cdev.max_brightness = priv->max_duty;
 	priv->cdev.flags = LED_CORE_SUSPENDRESUME;
+	priv->cdev.default_trigger = priv->default_trigger;
 	priv->cdev.brightness_set_blocking = qcom_clk_led_set;
 
 	return devm_led_classdev_register(&pdev->dev, &priv->cdev);

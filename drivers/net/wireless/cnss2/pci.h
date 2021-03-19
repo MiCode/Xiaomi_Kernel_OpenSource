@@ -102,7 +102,6 @@ struct cnss_pci_data {
 	int wake_gpio;
 	int wake_irq;
 	u32 wake_counter;
-	struct completion wake_event;
 	u8 monitor_wake_intr;
 	struct iommu_domain *iommu_domain;
 	u8 smmu_s1_enable;
@@ -249,5 +248,10 @@ int cnss_pci_debug_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 int cnss_pci_get_iova(struct cnss_pci_data *pci_priv, u64 *addr, u64 *size);
 int cnss_pci_get_iova_ipa(struct cnss_pci_data *pci_priv, u64 *addr,
 			  u64 *size);
-
+int cnss_pci_get_user_msi_assignment(struct cnss_pci_data *pci_priv,
+				     char *user_name,
+				     int *num_vectors,
+				     u32 *user_base_data,
+				     u32 *base_vector);
+bool cnss_pci_is_smmu_s1_enabled(struct cnss_pci_data *pci_priv);
 #endif /* _CNSS_PCI_H */

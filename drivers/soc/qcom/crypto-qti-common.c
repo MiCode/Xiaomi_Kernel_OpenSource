@@ -2,13 +2,28 @@
 /*
  * Common crypto library for storage encryption.
  *
- * Copyright (c) 2020, Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, Linux Foundation. All rights reserved.
  */
 
 #include <linux/crypto-qti-common.h>
 #include <linux/module.h>
 #include "crypto-qti-ice-regs.h"
 #include "crypto-qti-platform.h"
+
+#if IS_ENABLED(CONFIG_QTI_CRYPTO_FDE)
+#include <linux/of.h>
+#include <linux/blkdev.h>
+#include <linux/regulator/consumer.h>
+#include <linux/clk.h>
+
+#define CRYPTO_ICE_TYPE_NAME_LEN	8
+#define CRYPTO_ICE_ENCRYPT		0x1
+#define CRYPTO_ICE_DECRYPT		0x2
+#define CRYPTO_SECT_LEN_IN_BYTE		512
+#define CRYPTO_ICE_CXT_FDE		1
+#define CRYPTO_ICE_FDE_KEY_INDEX	31
+#define CRYPTO_UD_VOLNAME		"userdata"
+#endif //CONFIG_QTI_CRYPTO_FDE
 
 static int ice_check_fuse_setting(struct crypto_vops_qti_entry *ice_entry)
 {
@@ -475,6 +490,631 @@ int crypto_qti_derive_raw_secret(void *priv_data,
 				secret, secret_size);
 }
 EXPORT_SYMBOL(crypto_qti_derive_raw_secret);
+
+#if IS_ENABLED(CONFIG_QTI_CRYPTO_FDE)
+static int ice_fde_flag;
+struct ice_clk_info {
+	struct list_head list;
+	struct clk *clk;
+	const char *name;
+	u32 max_freq;
+	u32 min_freq;
+	u32 curr_freq;
+	bool enabled;
+};
+
+static LIST_HEAD(ice_devices);
+/*
+ * ICE HW device structure.
+ */
+struct ice_device {
+	struct list_head	list;
+	struct device		*pdev;
+	dev_t			device_no;
+	void __iomem		*mmio;
+	int			irq;
+	bool			is_ice_enabled;
+	ice_error_cb		error_cb;
+	void			*host_controller_data; /* UFS/EMMC/other? */
+	struct list_head	clk_list_head;
+	u32			ice_hw_version;
+	bool			is_ice_clk_available;
+	char			ice_instance_type[CRYPTO_ICE_TYPE_NAME_LEN];
+	struct regulator	*reg;
+	bool			is_regulator_available;
+};
+
+static int crypto_qti_ice_init(struct ice_device *ice_dev, void *host_controller_data,
+							   ice_error_cb error_cb);
+
+static int crypto_qti_ice_get_vreg(struct ice_device *ice_dev)
+{
+	int ret = 0;
+
+	if (!ice_dev->is_regulator_available)
+		return 0;
+
+	if (ice_dev->reg)
+		return 0;
+
+	ice_dev->reg = devm_regulator_get(ice_dev->pdev, "vdd-hba");
+	if (IS_ERR(ice_dev->reg)) {
+		ret = PTR_ERR(ice_dev->reg);
+		dev_err(ice_dev->pdev, "%s: %s get failed, err=%d\n",
+			__func__, "vdd-hba-supply", ret);
+	}
+	return ret;
+}
+
+static int crypto_qti_ice_setting_config(struct request *req,
+				  struct ice_crypto_setting *crypto_data,
+				  struct ice_data_setting *setting, uint32_t cxt)
+{
+	if (!setting)
+		return -EINVAL;
+
+	if ((short)(crypto_data->key_index) >= 0) {
+		memcpy(&setting->crypto_data, crypto_data,
+				sizeof(setting->crypto_data));
+
+		if (rq_data_dir(req) == WRITE) {
+			if (((cxt == CRYPTO_ICE_CXT_FDE) &&
+				(ice_fde_flag & CRYPTO_ICE_ENCRYPT)))
+				setting->encr_bypass = false;
+		} else if (rq_data_dir(req) == READ) {
+			if (((cxt == CRYPTO_ICE_CXT_FDE) &&
+				(ice_fde_flag & CRYPTO_ICE_DECRYPT)))
+				setting->decr_bypass = false;
+		} else {
+			/* Should I say BUG_ON */
+			setting->encr_bypass = true;
+			setting->decr_bypass = true;
+		}
+	}
+
+	return 0;
+}
+
+static void crypto_qti_ice_disable_intr(struct ice_device *ice_dev)
+{
+	unsigned int reg;
+
+	reg = crypto_qti_ice_readl(ice_dev, ICE_REGS_NON_SEC_IRQ_MASK);
+	reg |= ICE_NON_SEC_IRQ_MASK;
+	crypto_qti_ice_writel(ice_dev, reg, ICE_REGS_NON_SEC_IRQ_MASK);
+	/*
+	 * Ensure previous instructions was completed before issuing next
+	 * ICE initialization/optimization instruction
+	 */
+	mb();
+}
+
+static void crypto_qti_ice_parse_ice_instance_type(struct platform_device *pdev,
+					     struct ice_device *ice_dev)
+{
+	int ret = -1;
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
+	const char *type;
+
+	ret = of_property_read_string_index(np, "qcom,instance-type", 0, &type);
+	if (ret) {
+		pr_err("%s: Could not get ICE instance type\n", __func__);
+		goto out;
+	}
+	strlcpy(ice_dev->ice_instance_type, type, CRYPTO_ICE_TYPE_NAME_LEN);
+out:
+	return;
+}
+
+static int crypto_qti_ice_parse_clock_info(struct platform_device *pdev, struct ice_device *ice_dev)
+{
+	int ret = -1, cnt, i, len;
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
+	char *name;
+	struct ice_clk_info *clki;
+	u32 *clkfreq = NULL;
+
+	if (!np)
+		goto out;
+
+	cnt = of_property_count_strings(np, "clock-names");
+	if (cnt <= 0) {
+		dev_info(dev, "%s: Unable to find clocks, assuming enabled\n",
+			 __func__);
+		ret = cnt;
+		goto out;
+	}
+
+	if (!of_get_property(np, "qcom,op-freq-hz", &len)) {
+		dev_info(dev, "qcom,op-freq-hz property not specified\n");
+		goto out;
+	}
+
+	len = len/sizeof(*clkfreq);
+	if (len != cnt)
+		goto out;
+
+	clkfreq = devm_kzalloc(dev, len * sizeof(*clkfreq), GFP_KERNEL);
+	if (!clkfreq) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	ret = of_property_read_u32_array(np, "qcom,op-freq-hz", clkfreq, len);
+
+	INIT_LIST_HEAD(&ice_dev->clk_list_head);
+
+	for (i = 0; i < cnt; i++) {
+		ret = of_property_read_string_index(np,
+				"clock-names", i, (const char **)&name);
+		if (ret)
+			goto out;
+
+		clki = devm_kzalloc(dev, sizeof(*clki), GFP_KERNEL);
+		if (!clki) {
+			ret = -ENOMEM;
+			goto out;
+		}
+		clki->max_freq = clkfreq[i];
+		clki->name = kstrdup(name, GFP_KERNEL);
+		list_add_tail(&clki->list, &ice_dev->clk_list_head);
+	}
+out:
+	return ret;
+}
+
+static int crypto_qti_ice_get_dts_data(struct platform_device *pdev, struct ice_device *ice_dev)
+{
+	int rc = -1;
+
+	ice_dev->mmio = NULL;
+	if (!of_parse_phandle(pdev->dev.of_node, "vdd-hba-supply", 0)) {
+		pr_err("%s: No vdd-hba-supply regulator, assuming not needed\n",
+								 __func__);
+		ice_dev->is_regulator_available = false;
+	} else {
+		ice_dev->is_regulator_available = true;
+	}
+	ice_dev->is_ice_clk_available = of_property_read_bool(
+						(&pdev->dev)->of_node,
+						"qcom,enable-ice-clk");
+
+	if (ice_dev->is_ice_clk_available) {
+		rc = crypto_qti_ice_parse_clock_info(pdev, ice_dev);
+		if (rc) {
+			pr_err("%s: crypto_qti_ice_parse_clock_info failed (%d)\n",
+				__func__, rc);
+			goto err_dev;
+		}
+	}
+
+	crypto_qti_ice_parse_ice_instance_type(pdev, ice_dev);
+
+	return 0;
+err_dev:
+	return rc;
+}
+
+/*
+ * ICE HW instance can exist in UFS or eMMC based storage HW
+ * Userspace does not know what kind of ICE it is dealing with.
+ * Though userspace can find which storage device it is booting
+ * from but all kind of storage types dont support ICE from
+ * beginning. So ICE device is created for user space to ping
+ * if ICE exist for that kind of storage
+ */
+static const struct file_operations crypto_qti_ice_fops = {
+	.owner = THIS_MODULE,
+};
+
+
+
+static int crypto_qti_ice_probe(struct platform_device *pdev)
+{
+	struct ice_device *ice_dev;
+	int rc = 0;
+
+	if (!pdev) {
+		pr_err("%s: Invalid platform_device passed\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	ice_dev = kzalloc(sizeof(struct ice_device), GFP_KERNEL);
+
+	if (!ice_dev) {
+		rc = -ENOMEM;
+		pr_err("%s: Error %d allocating memory for ICE device:\n",
+			__func__, rc);
+		goto out;
+	}
+
+	ice_dev->pdev = &pdev->dev;
+	if (!ice_dev->pdev) {
+		rc = -EINVAL;
+		pr_err("%s: Invalid device passed in platform_device\n",
+								__func__);
+		goto err_ice_dev;
+	}
+
+	if (pdev->dev.of_node)
+		rc = crypto_qti_ice_get_dts_data(pdev, ice_dev);
+	else {
+		rc = -EINVAL;
+		pr_err("%s: ICE device node not found\n", __func__);
+	}
+
+	if (rc)
+		goto err_ice_dev;
+
+	/*
+	 * If ICE is enabled here, it would be waste of power.
+	 * We would enable ICE when first request for crypto
+	 * operation arrives.
+	 */
+	rc = crypto_qti_ice_init(ice_dev, NULL, NULL);
+	if (rc) {
+		pr_err("ice_init failed.\n");
+		goto err_ice_dev;
+	}
+	ice_dev->is_ice_enabled = true;
+	platform_set_drvdata(pdev, ice_dev);
+	list_add_tail(&ice_dev->list, &ice_devices);
+
+	goto out;
+
+err_ice_dev:
+	kfree(ice_dev);
+out:
+	return rc;
+}
+
+static int crypto_qti_ice_remove(struct platform_device *pdev)
+{
+	struct ice_device *ice_dev;
+
+	ice_dev = (struct ice_device *)platform_get_drvdata(pdev);
+
+	if (!ice_dev)
+		return 0;
+
+	crypto_qti_ice_disable_intr(ice_dev);
+
+	device_init_wakeup(&pdev->dev, false);
+	if (ice_dev->mmio)
+		iounmap(ice_dev->mmio);
+
+	list_del_init(&ice_dev->list);
+	kfree(ice_dev);
+
+	return 1;
+}
+
+
+int crypto_qti_ice_config_start(struct request *req, struct ice_data_setting *setting)
+{
+	struct ice_crypto_setting ice_data = {0};
+	unsigned long sec_end = 0;
+	sector_t data_size;
+
+	ice_data.key_index = CRYPTO_ICE_FDE_KEY_INDEX;
+
+	if (!req) {
+		pr_err("%s: Invalid params passed\n", __func__);
+		return -EINVAL;
+	}
+
+	/*
+	 * It is not an error to have a request with no  bio
+	 * Such requests must bypass ICE. So first set bypass and then
+	 * return if bio is not available in request
+	 */
+	if (setting) {
+		setting->encr_bypass = true;
+		setting->decr_bypass = true;
+	}
+
+	if (!req->bio) {
+		/* It is not an error to have a request with no  bio */
+		return 0;
+	}
+
+	if (ice_fde_flag && req->part && req->part->info
+				&& req->part->info->volname[0]) {
+		if (!strcmp(req->part->info->volname, CRYPTO_UD_VOLNAME)) {
+			sec_end = req->part->start_sect + req->part->nr_sects;
+			if ((req->__sector >= req->part->start_sect) &&
+				(req->__sector < sec_end)) {
+				/*
+				 * Ugly hack to address non-block-size aligned
+				 * userdata end address in eMMC based devices.
+				 * for eMMC based devices, since sector and
+				 * block sizes are not same i.e. 4K, it is
+				 * possible that partition is not a multiple of
+				 * block size. For UFS based devices sector
+				 * size and block size are same. Hence ensure
+				 * that data is within userdata partition using
+				 * sector based calculation
+				 */
+				data_size = req->__data_len /
+						CRYPTO_SECT_LEN_IN_BYTE;
+
+				if ((req->__sector + data_size) > sec_end)
+					return 0;
+				else
+					return crypto_qti_ice_setting_config(req,
+						&ice_data, setting,
+						CRYPTO_ICE_CXT_FDE);
+			}
+		}
+	}
+
+	/*
+	 * It is not an error. If target is not req-crypt based, all request
+	 * from storage driver would come here to check if there is any ICE
+	 * setting required
+	 */
+	return 0;
+}
+EXPORT_SYMBOL(crypto_qti_ice_config_start);
+
+void crypto_qti_ice_set_fde_flag(int flag)
+{
+	ice_fde_flag = flag;
+	pr_debug("%s flag = %d\n", __func__, ice_fde_flag);
+}
+EXPORT_SYMBOL(crypto_qti_ice_set_fde_flag);
+
+/* Following struct is required to match device with driver from dts file */
+
+static const struct of_device_id crypto_qti_ice_match[] = {
+	{ .compatible = "qcom,ice" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, crypto_qti_ice_match);
+
+static int crypto_qti_ice_enable_clocks(struct ice_device *ice, bool enable)
+{
+	int ret = 0;
+	struct ice_clk_info *clki = NULL;
+	struct device *dev = ice->pdev;
+	struct list_head *head = &ice->clk_list_head;
+
+	if (!head || list_empty(head)) {
+		dev_err(dev, "%s:ICE Clock list null/empty\n", __func__);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (!ice->is_ice_clk_available) {
+		dev_err(dev, "%s:ICE Clock not available\n", __func__);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	list_for_each_entry(clki, head, list) {
+		if (!clki->name)
+			continue;
+
+		if (enable)
+			ret = clk_prepare_enable(clki->clk);
+		else
+			clk_disable_unprepare(clki->clk);
+
+		if (ret) {
+			dev_err(dev, "Unable to %s ICE core clk\n",
+				enable?"enable":"disable");
+			goto out;
+		}
+	}
+out:
+	return ret;
+}
+
+static struct ice_device *crypto_qti_get_ice_device_from_storage_type
+					(const char *storage_type)
+{
+	struct ice_device *ice_dev = NULL;
+
+	if (list_empty(&ice_devices)) {
+		pr_err("%s: invalid device list\n", __func__);
+		ice_dev = ERR_PTR(-EPROBE_DEFER);
+		goto out;
+	}
+
+	list_for_each_entry(ice_dev, &ice_devices, list) {
+		if (!strcmp(ice_dev->ice_instance_type, storage_type)) {
+			pr_debug("%s: ice device %pK\n", __func__, ice_dev);
+			return ice_dev;
+		}
+	}
+out:
+	return NULL;
+}
+
+
+static int crypto_qti_ice_enable_setup(struct ice_device *ice_dev)
+{
+	int ret = -1;
+
+	/* Setup Regulator */
+	if (ice_dev->is_regulator_available) {
+		if (crypto_qti_ice_get_vreg(ice_dev)) {
+			pr_err("%s: Could not get regulator\n", __func__);
+			goto out;
+		}
+		ret = regulator_enable(ice_dev->reg);
+		if (ret) {
+			pr_err("%s:%pK: Could not enable regulator\n",
+					__func__, ice_dev);
+			goto out;
+		}
+	}
+
+	/* Setup Clocks */
+	if (crypto_qti_ice_enable_clocks(ice_dev, true)) {
+		pr_err("%s:%pK:%s Could not enable clocks\n", __func__,
+				ice_dev, ice_dev->ice_instance_type);
+		goto out_reg;
+	}
+
+	return ret;
+
+out_reg:
+	if (ice_dev->is_regulator_available) {
+		if (crypto_qti_ice_get_vreg(ice_dev)) {
+			pr_err("%s: Could not get regulator\n", __func__);
+			goto out;
+		}
+		ret = regulator_disable(ice_dev->reg);
+		if (ret) {
+			pr_err("%s:%pK: Could not disable regulator\n",
+					__func__, ice_dev);
+			goto out;
+		}
+	}
+out:
+	return ret;
+}
+
+static int crypto_qti_ice_disable_setup(struct ice_device *ice_dev)
+{
+	int ret = 0;
+
+	/* Setup Clocks */
+	if (crypto_qti_ice_enable_clocks(ice_dev, false))
+		pr_err("%s:%pK:%s Could not disable clocks\n", __func__,
+				ice_dev, ice_dev->ice_instance_type);
+
+	/* Setup Regulator */
+	if (ice_dev->is_regulator_available) {
+		if (crypto_qti_ice_get_vreg(ice_dev)) {
+			pr_err("%s: Could not get regulator\n", __func__);
+			goto out;
+		}
+		ret = regulator_disable(ice_dev->reg);
+		if (ret) {
+			pr_err("%s:%pK: Could not disable regulator\n",
+					__func__, ice_dev);
+			goto out;
+		}
+	}
+out:
+	return ret;
+}
+
+
+static int crypto_qti_ice_init_clocks(struct ice_device *ice)
+{
+	int ret = -EINVAL;
+	struct ice_clk_info *clki = NULL;
+	struct device *dev = ice->pdev;
+	struct list_head *head = &ice->clk_list_head;
+
+	if (!head || list_empty(head)) {
+		dev_err(dev, "%s:ICE Clock list null/empty\n", __func__);
+		goto out;
+	}
+
+	list_for_each_entry(clki, head, list) {
+		if (!clki->name)
+			continue;
+
+		clki->clk = devm_clk_get(dev, clki->name);
+		if (IS_ERR(clki->clk)) {
+			ret = PTR_ERR(clki->clk);
+			dev_err(dev, "%s: %s clk get failed, %d\n",
+					__func__, clki->name, ret);
+			goto out;
+		}
+
+		/* Not all clocks would have a rate to be set */
+		ret = 0;
+		if (clki->max_freq) {
+			ret = clk_set_rate(clki->clk, clki->max_freq);
+			if (ret) {
+				dev_err(dev,
+				"%s: %s clk set rate(%dHz) failed, %d\n",
+						__func__, clki->name,
+				clki->max_freq, ret);
+				goto out;
+			}
+			clki->curr_freq = clki->max_freq;
+			dev_dbg(dev, "%s: clk: %s, rate: %lu\n", __func__,
+				clki->name, clk_get_rate(clki->clk));
+		}
+	}
+out:
+	return ret;
+}
+
+static int crypto_qti_ice_finish_init(struct ice_device *ice_dev)
+{
+	int err = 0;
+
+	if (!ice_dev) {
+		pr_err("%s: Null data received\n", __func__);
+		err = -ENODEV;
+		goto out;
+	}
+
+	if (ice_dev->is_ice_clk_available) {
+		err = crypto_qti_ice_init_clocks(ice_dev);
+		if (err)
+			goto out;
+	}
+out:
+	return err;
+}
+
+static int crypto_qti_ice_init(struct ice_device *ice_dev,
+							   void *host_controller_data,
+							   ice_error_cb error_cb)
+{
+	/*
+	 * A completion event for host controller would be triggered upon
+	 * initialization completion
+	 * When ICE is initialized, it would put ICE into Global Bypass mode
+	 * When any request for data transfer is received, it would enable
+	 * the ICE for that particular request
+	 */
+
+	ice_dev->error_cb = error_cb;
+	ice_dev->host_controller_data = host_controller_data;
+
+	return crypto_qti_ice_finish_init(ice_dev);
+}
+
+
+int crypto_qti_ice_setup_ice_hw(const char *storage_type, int enable)
+{
+	int ret = -1;
+	struct ice_device *ice_dev = NULL;
+
+	ice_dev = crypto_qti_get_ice_device_from_storage_type(storage_type);
+	if (ice_dev == ERR_PTR(-EPROBE_DEFER))
+		return -EPROBE_DEFER;
+
+	if (!ice_dev || !ice_dev->is_ice_enabled)
+		return ret;
+	if (enable)
+		return crypto_qti_ice_enable_setup(ice_dev);
+	else
+		return crypto_qti_ice_disable_setup(ice_dev);
+}
+EXPORT_SYMBOL(crypto_qti_ice_setup_ice_hw);
+
+static struct platform_driver crypto_qti_ice_driver = {
+	.probe          = crypto_qti_ice_probe,
+	.remove         = crypto_qti_ice_remove,
+	.driver         = {
+		.name   = "qcom_ice",
+		.of_match_table = crypto_qti_ice_match,
+	},
+};
+module_platform_driver(crypto_qti_ice_driver);
+#endif //CONFIG_QTI_CRYPTO_FDE
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Common crypto library for storage encryption");

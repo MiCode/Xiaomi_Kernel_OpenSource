@@ -35,3 +35,4 @@ obj-$(CONFIG_PINCTRL_SDXLEMUR) += pinctrl-sdxlemur.o
 obj-$(CONFIG_PINCTRL_SDXNIGHTJAR) += pinctrl-sdxnightjar.o
 obj-$(CONFIG_PINCTRL_MONACO) += pinctrl-monaco.o
 obj-$(CONFIG_PINCTRL_SLPI) += pinctrl-slpi.o
+obj-$(CONFIG_PINCTRL_DIREWOLF) += pinctrl-direwolf.o

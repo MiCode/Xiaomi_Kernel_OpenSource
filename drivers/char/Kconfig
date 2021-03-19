@@ -572,6 +572,25 @@ config ADSPRPC_QGKI
 		in a GKI kernel or not.
 		Say Y if the driver is being compiled in a QGKI kernel.
 
+config VIRTIO_EAVB
+	tristate "Virtio eavb driver"
+	depends on VIRTIO
+	help
+	  This the virtual eavb frontend driver based on virtio. Eavb
+	  means ethernet Audio Video Bridging. It provides unified ioctl
+	  interface for userspace. Say Y if you want to support virtual
+	  eavb.
+
+config VIRTIO_FASTRPC
+	tristate "Virtio fastrpc driver"
+	depends on VIRTIO
+	help
+	  This is the virtual fastrpc frontend driver based on virtio. It
+	  provides a communication mechanism that allows for clients to
+	  make remote method invocations across processor boundary to
+	  applications DSP processor. Say Y if you want to support virtual
+	  fastrpc.
+
 config MSM_RDBG
 	tristate "QTI Remote debug driver"
 	help

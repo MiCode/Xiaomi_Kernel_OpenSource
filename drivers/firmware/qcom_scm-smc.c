@@ -16,6 +16,7 @@
 
 #include <linux/qtee_shmbridge.h>
 #include <soc/qcom/qseecom_scm.h>
+#include <soc/qcom/qseecomi.h>
 
 #include "qcom_scm.h"
 
@@ -1060,7 +1061,8 @@ void __qcom_scm_phy_update_scm_level_shifter(struct device *dev, u32 val)
 	};
 
 	desc.args[0] = val;
-	desc.arginfo = QCOM_SCM_ARGS(1);
+	desc.args[1] = 0;
+	desc.arginfo = QCOM_SCM_ARGS(2);
 
 	ret = qcom_scm_call(dev, &desc);
 	if (ret)
@@ -2343,6 +2345,34 @@ int __qcom_scm_invoke_callback_response(struct device *dev, phys_addr_t out_buf,
 
 	if (data)
 		*data = desc.res[2];
+
+	return ret;
+}
+
+
+#define TZ_SVC_MEMORY_PROTECTION 12 /* Memory protection service. */
+
+#define TZ_MPU_LOCK_AUDIO_BUFFER  \
+	TZ_SYSCALL_CREATE_SMC_ID(TZ_OWNER_SIP, TZ_SVC_MEMORY_PROTECTION, 0x06)
+
+#define TZ_MPU_LOCK_AUDIO_BUFFER_PARAM_ID \
+	TZ_SYSCALL_CREATE_PARAM_ID_2( \
+	TZ_SYSCALL_PARAM_TYPE_VAL, TZ_SYSCALL_PARAM_TYPE_VAL)
+int __qcom_scm_mem_protect_audio(struct device *dev, phys_addr_t paddr,
+					size_t size)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = TZ_SVC_MEMORY_PROTECTION,
+		.cmd = 0x6,
+		.owner = TZ_OWNER_SIP,
+	};
+
+	desc.args[0] = paddr;
+	desc.args[1] = size;
+	desc.arginfo = QCOM_SCM_ARGS(2);
+
+	ret = qcom_scm_call(dev, &desc);
 
 	return ret;
 }

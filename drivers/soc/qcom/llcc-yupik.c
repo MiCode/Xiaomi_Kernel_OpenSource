@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -56,7 +56,7 @@ static struct llcc_slice_config yupik_data[] =  {
 	SCT_ENTRY(LLCC_CMPT,     10, 768, 1, 1, 0x3F, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_GPUHTW,   11, 256, 1, 1, 0x3F, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_GPU,      12, 512, 1, 0, 0x3F, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_MMUHWT,   13, 256, 1, 1, 0x3F, 0x0, 0, 0, 0, 0, 1, 1),
+	SCT_ENTRY(LLCC_MMUHWT,   13, 256, 1, 1, 0x3F, 0x0, 0, 0, 0, 0, 0, 1),
 	SCT_ENTRY(LLCC_MDMPNG,   21, 768, 0, 1, 0x3F, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_WLNHW,    24, 256, 1, 1, 0x3F, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_MDMVPE,   29, 64,  1, 1, 0x3F, 0x0, 0, 0, 0, 0, 1, 0),
