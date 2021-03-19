@@ -1112,6 +1112,43 @@ static const struct mtk_iommu_plat_data mt8167_data = {
 	.larbid_remap = {{0}, {1}, {2}}, /* Linear mapping. */
 };
 
+static const struct mtk_iommu_plat_data mt6893_data_iommu0 = {
+	.m4u_plat        = M4U_MT6893,
+	.larbid_remap    = {{0}, {1}, {4, 5}, {7}, {2}, {9, 11, 19, 20},
+			    {0, 14, 16}, {0, 13, 18, 17}},
+	.inv_sel_reg     = REG_MMU_INV_SEL_GEN2,
+	.iova_region     = mt6873_multi_dom,
+	.iova_region_nr = ARRAY_SIZE(mt6873_multi_dom),
+};
+
+static const struct mtk_iommu_plat_data mt6893_data_iommu1 = {
+	.m4u_plat        = M4U_MT6893,
+	.larbid_remap    = {{0}, {1}, {4, 5}, {7}, {2}, {9, 11, 19, 20},
+			    {0, 14, 16}, {0, 13, 18, 17}},
+	.inv_sel_reg     = REG_MMU_INV_SEL_GEN2,
+	.iova_region     = mt6873_multi_dom,
+	.iova_region_nr = ARRAY_SIZE(mt6873_multi_dom),
+};
+
+static const struct mtk_iommu_plat_data mt6893_data_iommu2 = {
+	.m4u_plat        = M4U_MT6893,
+	.is_apu          = true,
+	.inv_sel_reg	 = REG_MMU_INV_SEL_GEN2,
+	.iova_region	 = mt6873_multi_dom,
+	.larbid_remap    = {{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}},
+	.iova_region_nr = ARRAY_SIZE(mt6873_multi_dom),
+};
+
+static const struct mtk_iommu_plat_data mt6893_data_iommu3 = {
+	.m4u_plat        = M4U_MT6893,
+	.is_apu          = true,
+	.inv_sel_reg	 = REG_MMU_INV_SEL_GEN2,
+	.iova_region	 = mt6873_multi_dom,
+	.larbid_remap    = {{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}},
+	.iova_region_nr = ARRAY_SIZE(mt6873_multi_dom),
+};
+
+
 static const struct mtk_iommu_plat_data mt8173_data = {
 	.m4u_plat     = M4U_MT8173,
 	.flags	      = HAS_4GB_MODE | HAS_BCLK | RESET_AXI |
@@ -1133,6 +1170,12 @@ static const struct of_device_id mtk_iommu_of_ids[] = {
 	{ .compatible = "mediatek,mt6873-m4u", .data = &mt6873_data},
 	{ .compatible = "mediatek,mt6873-apu-iommu", .data = &mt6873_data_apu},
 	{ .compatible = "mediatek,mt8167-m4u", .data = &mt8167_data},
+	{ .compatible = "mediatek,mt6893-iommu0", .data = &mt6893_data_iommu0},
+	{ .compatible = "mediatek,mt6893-iommu1", .data = &mt6893_data_iommu1},
+#ifdef NOT_SKIP_APU_IOMMU_IN_BRINGUP
+	{ .compatible = "mediatek,mt6893-iommu2", .data = &mt6893_data_iommu2},
+	{ .compatible = "mediatek,mt6893-iommu3", .data = &mt6893_data_iommu3},
+#endif
 	{ .compatible = "mediatek,mt8173-m4u", .data = &mt8173_data},
 	{ .compatible = "mediatek,mt8183-m4u", .data = &mt8183_data},
 	{}
