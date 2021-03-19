@@ -90,4 +90,8 @@
 #define MTK_SIP_SCP_DVFS_CONTROL \
 	MTK_SIP_SMC_CMD(0x232)
 
+/* USB related SMC call */
+#define MTK_SIP_KERNEL_USB_CONTROL \
+	MTK_SIP_SMC_CMD(0x526)
+
 #endif
