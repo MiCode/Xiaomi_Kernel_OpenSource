@@ -400,43 +400,63 @@
 #include "mediatek/cust_mt6873_camera.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
 
-/* CONSYS GPIO standardization */
+/* GPS GPIO standardization start */
 &pio {
-	consys_pins_default: consys_default {
+	gps_pins_default: gps_default {
 	};
-	gpslna_pins_init: gpslna@0 {
+	gps_l1_lna_pins_ol: gps_l1_lna@0 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO162__FUNC_GPIO162>;
-			slew-rate = <0>;
-			bias-disable;
 			output-low;
 		};
 	};
-	gpslna_pins_oh: gpslna@1 {
+	gps_l1_lna_pins_dsp_ctrl: gps_l1_lna@1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO162__FUNC_GPS_L1_ELNA_EN>;
+		};
+	};
+	gps_l1_lna_pins_oh: gps_l1_lna@2 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO162__FUNC_GPIO162>;
-			slew-rate = <1>;
 			output-high;
 		};
 	};
-	gpslna_pins_ol: gpslna@2 {
+	gps_l5_lna_pins_ol: gps_l5_lna@0 {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO162__FUNC_GPIO162>;
-			slew-rate = <1>;
+			pinmux = <PINMUX_GPIO163__FUNC_GPIO163>;
 			output-low;
 		};
 	};
+	gps_l5_lna_pins_dsp_ctrl: gps_l5_lna@1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO163__FUNC_GPS_L5_ELNA_EN>;
+		};
+	};
+	gps_l5_lna_pins_oh: gps_l5_lna@2 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO163__FUNC_GPIO163>;
+			output-high;
+		};
+	};
 };
-
-&consys {
-	pinctrl-names = "default", "gps_lna_state_init",
-		"gps_lna_state_oh", "gps_lna_state_ol";
-	pinctrl-0 = <&consys_pins_default>;
-	pinctrl-1 = <&gpslna_pins_init>;
-	pinctrl-2 = <&gpslna_pins_oh>;
-	pinctrl-3 = <&gpslna_pins_ol>;
+&gps {
+	pinctrl-names = "default",
+		"gps_l1_lna_disable",
+		"gps_l1_lna_dsp_ctrl",
+		"gps_l1_lna_enable",
+		"gps_l5_lna_disable",
+		"gps_l5_lna_dsp_ctrl",
+		"gps_l5_lna_enable";
+	pinctrl-0 = <&gps_pins_default>;
+	pinctrl-1 = <&gps_l1_lna_pins_ol>;
+	pinctrl-2 = <&gps_l1_lna_pins_dsp_ctrl>;
+	pinctrl-3 = <&gps_l1_lna_pins_oh>;
+	pinctrl-4 = <&gps_l5_lna_pins_ol>;
+	pinctrl-5 = <&gps_l5_lna_pins_dsp_ctrl>;
+	pinctrl-6 = <&gps_l5_lna_pins_oh>;
 	status = "okay";
 };
+/* GPS GPIO standardization end */
 
 &pdc {
 	pd_vbus_upper_bound = <12000000>;
