@@ -16,6 +16,7 @@
 #include <linux/mfd/mt6397/rtc.h>
 #include <linux/mod_devicetable.h>
 #include <linux/nvmem-provider.h>
+#include <linux/sched_clock.h>
 
 #ifdef SUPPORT_EOSC_CALI
 #include <linux/mfd/mt6359p/registers.h>
@@ -720,11 +721,16 @@ static int mtk_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	time64_t time;
 	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
 	int days, sec, ret;
+	unsigned long long timeout = sched_clock() + 500000000;
 
 	do {
 		ret = __mtk_rtc_read_time(rtc, tm, &sec);
 		if (ret < 0)
 			goto exit;
+		if (sched_clock() > timeout) {
+			pr_notice("%s, time out\n", __func__);
+			break;
+		}
 	} while (sec < tm->tm_sec);
 
 	/* HW register use 7 bits to store year data, minus
@@ -1055,32 +1061,6 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 	if (IS_ERR(rtc->rtc_dev))
 		return PTR_ERR(rtc->rtc_dev);
 
-	ret = devm_request_threaded_irq(&pdev->dev, rtc->irq, NULL,
-					mtk_rtc_irq_handler_thread,
-					IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
-					"mt6397-rtc", rtc);
-
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to request alarm IRQ: %d: %d\n",
-			rtc->irq, ret);
-		return ret;
-	}
-
-	device_init_wakeup(&pdev->dev, 1);
-
-	rtc->rtc_dev->ops = &mtk_rtc_ops;
-
-	if (rtc->data->spare_reg_fields)
-		if (mtk_rtc_set_spare(&pdev->dev))
-			dev_err(&pdev->dev, "spare is not supported\n");
-
-#ifdef SUPPORT_EOSC_CALI
-	if (rtc->data->cali_reg_fields)
-		if (mtk_rtc_config_eosc_cali(&pdev->dev))
-			dev_err(&pdev->dev, "config eosc cali failed\n");
-
-#endif
-
 #ifdef SUPPORT_PWR_OFF_ALARM
 	mt6397_rtc_suspend_lock =
 		wakeup_source_register(NULL, "mt6397-rtc suspend wakelock");
@@ -1114,6 +1094,32 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 #endif /* CONFIG_PM */
 
 	INIT_WORK(&rtc->work, mtk_rtc_work_queue);
+#endif
+
+	ret = devm_request_threaded_irq(&pdev->dev, rtc->irq, NULL,
+					mtk_rtc_irq_handler_thread,
+					IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
+					"mt6397-rtc", rtc);
+
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to request alarm IRQ: %d: %d\n",
+			rtc->irq, ret);
+		return ret;
+	}
+
+	device_init_wakeup(&pdev->dev, 1);
+
+	rtc->rtc_dev->ops = &mtk_rtc_ops;
+
+	if (rtc->data->spare_reg_fields)
+		if (mtk_rtc_set_spare(&pdev->dev))
+			dev_err(&pdev->dev, "spare is not supported\n");
+
+#ifdef SUPPORT_EOSC_CALI
+	if (rtc->data->cali_reg_fields)
+		if (mtk_rtc_config_eosc_cali(&pdev->dev))
+			dev_err(&pdev->dev, "config eosc cali failed\n");
+
 #endif
 
 	return rtc_register_device(rtc->rtc_dev);
