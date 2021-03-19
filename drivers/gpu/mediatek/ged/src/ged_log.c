@@ -407,9 +407,9 @@ static int ged_log_buf_seq_show(struct seq_file *psSeqFile, void *pvData)
 		int i;
 
 #if IS_BUILTIN(CONFIG_MTK_GPU_SUPPORT)
-#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173)\
-|| defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6761)\
-|| defined(CONFIG_MACH_MT6765)
+#if defined(CONFIG_GPU_MT8167) || defined(CONFIG_GPU_MT8173)\
+|| defined(CONFIG_GPU_MT6739) || defined(CONFIG_GPU_MT6761)\
+|| defined(CONFIG_GPU_MT6765)
 		if (strncmp(psGEDLogBuf->acName, "PowerLog", 8) == 0)
 			ged_dump_fw();
 #endif

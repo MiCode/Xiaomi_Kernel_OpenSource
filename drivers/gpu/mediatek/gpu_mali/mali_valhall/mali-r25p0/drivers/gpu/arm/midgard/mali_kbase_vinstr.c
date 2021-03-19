@@ -1313,7 +1313,7 @@ void MTK_update_gpu_LTR(void)
 	gpu_perf_counter.counter[VINSTR_GPU_FREQ] = mt_gpufreq_get_cur_freq();
 	gpu_perf_counter.counter[VINSTR_GPU_VOLT] = mt_gpufreq_get_cur_volt();
 	gpu_perf_counter.counter[VINSTR_GPU_LOADING] = pm_gpu_loading;
-#if defined(CONFIG_MACH_MT6853)
+#if defined(CONFIG_GPU_MT6853)
 	gpu_perf_counter.counter[VINSTR_GPU_ACTIVE] = kernel_dump[6];
 	gpu_perf_counter.counter[VINSTR_EXEC_INSTR_FMA] = kernel_dump[219];
 	gpu_perf_counter.counter[VINSTR_EXEC_INSTR_CVT] = kernel_dump[220];

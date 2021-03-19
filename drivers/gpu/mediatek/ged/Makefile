@@ -115,7 +115,7 @@ else
 ccflags-y += \
 		 -I$(srctree)/drivers/misc/mediatek/cmdq/v3
 
-ifeq ($(CONFIG_MACH_MT6761),y)
+ifeq ($(CONFIG_GPU_MT6761),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/mt6765/
 else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(subst ",,$(MTK_PLATFORM))

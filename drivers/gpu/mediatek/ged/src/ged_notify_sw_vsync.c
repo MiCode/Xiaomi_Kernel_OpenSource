@@ -55,9 +55,9 @@ static struct hrtimer g_HT_hwvsync_emu;
 #include "ged_global.h"
 
 static struct workqueue_struct *g_psNotifyWorkQueue;
-#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173)\
-|| defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6761)\
-|| defined(CONFIG_MACH_MT6765)
+#if defined(CONFIG_GPU_MT8167) || defined(CONFIG_GPU_MT8173)\
+|| defined(CONFIG_GPU_MT6739) || defined(CONFIG_GPU_MT6761)\
+|| defined(CONFIG_GPU_MT6765)
 static struct workqueue_struct *g_psDumpFW;
 #endif
 
@@ -71,9 +71,9 @@ struct GED_NOTIFY_SW_SYNC {
 	unsigned long ul3DFenceDoneTime;
 };
 
-#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173)\
-|| defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6761)\
-|| defined(CONFIG_MACH_MT6765)
+#if defined(CONFIG_GPU_MT8167) || defined(CONFIG_GPU_MT8173)\
+|| defined(CONFIG_GPU_MT6739) || defined(CONFIG_GPU_MT6761)\
+|| defined(CONFIG_GPU_MT6765)
 struct GED_DUMP_FW {
 	struct work_struct	sWork;
 };
@@ -490,9 +490,9 @@ void ged_sodi_stop(void)
 }
 
 #if IS_BUILTIN(CONFIG_MTK_GPU_SUPPORT)
-#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173)\
-|| defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6761)\
-|| defined(CONFIG_MACH_MT6765)
+#if defined(CONFIG_GPU_MT8167) || defined(CONFIG_GPU_MT8173)\
+|| defined(CONFIG_GPU_MT6739) || defined(CONFIG_GPU_MT6761)\
+|| defined(CONFIG_GPU_MT6765)
 static void ged_dump_fw_handle(struct work_struct *psWork)
 {
 	struct GED_DUMP_FW *psNotify
@@ -527,9 +527,9 @@ GED_ERROR ged_notify_sw_vsync_system_init(void)
 	if (g_psNotifyWorkQueue == NULL)
 		return GED_ERROR_OOM;
 
-#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173)\
-|| defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6761)\
-|| defined(CONFIG_MACH_MT6765)
+#if defined(CONFIG_GPU_MT8167) || defined(CONFIG_GPU_MT8173)\
+|| defined(CONFIG_GPU_MT6739) || defined(CONFIG_GPU_MT6761)\
+|| defined(CONFIG_GPU_MT6765)
 	g_psDumpFW = NULL;
 	g_psDumpFW = create_workqueue("ged_dump_fw_log");
 
@@ -557,9 +557,9 @@ void ged_notify_sw_vsync_system_exit(void)
 		g_psNotifyWorkQueue = NULL;
 	}
 
-#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173)\
-|| defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6761)\
-|| defined(CONFIG_MACH_MT6765)
+#if defined(CONFIG_GPU_MT8167) || defined(CONFIG_GPU_MT8173)\
+|| defined(CONFIG_GPU_MT6739) || defined(CONFIG_GPU_MT6761)\
+|| defined(CONFIG_GPU_MT6765)
 	if (g_psDumpFW != NULL) {
 		flush_workqueue(g_psDumpFW);
 		destroy_workqueue(g_psDumpFW);

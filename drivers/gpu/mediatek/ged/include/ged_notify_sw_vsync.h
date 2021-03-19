@@ -26,9 +26,9 @@ void ged_cancel_backup_timer(void);
 void ged_sodi_start(void);
 void ged_sodi_stop(void);
 
-#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173) ||\
-defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6761) ||\
-defined(CONFIG_MACH_MT6765)
+#if defined(CONFIG_GPU_MT8167) || defined(CONFIG_GPU_MT8173) ||\
+defined(CONFIG_GPU_MT6739) || defined(CONFIG_GPU_MT6761) ||\
+defined(CONFIG_GPU_MT6765)
 extern void MTKFWDump(void);
 #endif
 
