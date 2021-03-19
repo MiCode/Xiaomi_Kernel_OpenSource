@@ -582,9 +582,9 @@
 		consys_mem: consys-reserve-memory {
 			compatible = "mediatek,consys-reserve-memory";
 			no-map;
-			size = <0 0x400000>;
+			size = <0 0x450000>;
 			alignment = <0 0x1000000>;
-			alloc-ranges = <0 0x40000000 0 0x80000000>;
+			alloc-ranges = <0 0x50000000 0 0x40000000>;
 		};
 
 		wifi_mem: wifi-reserve-memory {
@@ -1996,20 +1996,25 @@
 			nvmem-cell-names = "e_data1","e_data2";
 		};
 
-		btif@1100c000 {
+		btif: btif@1100c000 {
 			compatible = "mediatek,btif";
 				/*btif base*/
 			reg = <0 0x1100c000 0 0x1000>,
 				/*btif tx dma base*/
-				<0 0x10217d80 0 0x80>,
+				<0 0x11000d80 0 0x80>,
 				/*btif rx dma base*/
-				<0 0x10217e00 0 0x80>;
+				<0 0x11000e00 0 0x80>;
 				/*btif irq, IRQS_Sync ID, btif_irq_b*/
 			interrupts = <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH 0>,
 				/*btif tx dma irq*/
 				<GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH 0>,
 				/*btif rx dma irq*/
 				<GIC_SPI 153 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&infracfg_ao_clk CLK_IFRAO_BTIF>,
+				/*btif clock*/
+				<&infracfg_ao_clk CLK_IFRAO_APDMA>;
+				/*ap dma clock*/
+			clock-names = "btifc","apdmac";
 		};
 
 		disp_pwm: pwm@1100e000 {
@@ -5479,41 +5484,42 @@
 			memory-region = <&wifi_mem>;
 		};
 
-		consys: consys@18002000 {
-			compatible = "mediatek,mt6873-consys";
+		consys: consys@18000000 {
+			compatible = "mediatek,mt6893-consys";
 			#thermal-sensor-cells = <0>;
-			#address-cells = <2>;
-			#size-cells = <2>;
-				/*CONN_MCU_CONFIG_BASE */
-			reg = <0 0x18002000 0 0x1000>,
-				/*TOP_RGU_BASE */
-			    <0 0x10007000 0 0x0100>,
-				/*INFRACFG_AO_BASE */
-			    <0 0x10001000 0 0x1000>,
-				/*SPM_BASE */
-			    <0 0x10006000 0 0x1000>,
-				/*CONN_HIF_ON_BASE */
-			    <0 0x18007000 0 0x1000>,
-				/*CONN_TOP_MISC_OFF_BASE */
-			    <0 0x180b1000 0 0x1000>,
-				/*CONN_MCU_CFG_ON_BASE */
-			    <0 0x180a3000 0 0x1000>,
-				/*CONN_MCU_CIRQ_BASE */
-			    <0 0x180a5000 0 0x800>,
-				/*CONN_TOP_MISC_ON_BASE */
-			    <0 0x180c1000 0 0x1000>,
-				/*CONN_HIF_PDMA_BASE */
-			    <0 0x18004000 0 0x1000>,
-				/* INFRASYS_COMMON AP2MD_PCCIF4_BASE */
-			    <0 0x1024C000 0 0x40>,
-				/*INFRA_AO_PERICFG_BASE */
-			    <0 0x10003000 0 0x1000>;
-				/*BGF_EINT */
-			interrupts = <GIC_SPI 377 IRQ_TYPE_LEVEL_HIGH 0>,
-				/*WDT_EINT */
-				   <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH 0>,
-				/*conn2ap_sw_irq*/
-				   <GIC_SPI 378 IRQ_TYPE_LEVEL_HIGH 0>;
+			/* conn_infra_rgu */
+			reg = <0 0x18000000 0 0x1000>,
+				/* conn_infra_cfg */
+				<0 0x18001000 0 0x1000>,
+				/* conn_host_csr_top */
+				<0 0x18060000 0 0x10000>,
+				/* infracfg_ao */
+				<0 0x10001000 0 0x1000>,
+				/* TOP RGU */
+				<0 0x10007000 0 0x1000>,
+				/* SPM */
+				<0 0x10006000 0 0x1000>,
+				/* INFRACFG */
+				<0 0x1020e000 0 0x1000>,
+				/* conn_wt_slp_ctl_reg */
+				<0 0x18005000 0 0x1000>,
+				/* conn_afe_ctl */
+				<0 0x18003000 0 0x1000>,
+				/* conn_infra_sysram */
+				<0 0x18050000 0 0x10000>,
+				/* GPIO */
+				<0 0x10005000 0 0x1000>,
+				/* conn_rf_spi_mst_reg */
+				<0 0x18004000 0 0x1000>,
+				/* conn_semaphore */
+				<0 0x18070000 0 0x10000>,
+				/* conn_top_therm_ctl */
+				<0 0x18002000 0 0x1000>,
+				/* IOCFG_RT */
+				<0 0x11ea0000 0 0x1000>,
+				/* debug_ctrl */
+				<0 0x1800f000 0 0x1000>;
+			power-domains = <&scpsys MT6893_POWER_DOMAIN_CONN>;
 			pmic = <&pmic>;
 			memory-region = <&consys_mem>;
 		};
