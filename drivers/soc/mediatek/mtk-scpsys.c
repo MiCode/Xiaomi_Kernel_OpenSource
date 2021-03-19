@@ -1857,6 +1857,10 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 				MT6893_TOP_AXI_PROT_EN_SUB_INFRA_VDNR_MD),
 		},
 	},
+	[MT6893_POWER_DOMAIN_APU] = {
+		.name = "apu",
+		.caps = MTK_SCPD_APU_OPS,
+	},
 };
 
 static const struct scp_subdomain scp_subdomain_mt6893[] = {
