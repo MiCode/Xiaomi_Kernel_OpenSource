@@ -3,8 +3,8 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#ifndef __MTK_GPUFREQ_H__
-#define __MTK_GPUFREQ_H__
+#ifndef __MTK_GPUFREQ_V1_H__
+#define __MTK_GPUFREQ_V1_H__
 
 #if defined(CONFIG_GPU_MT6885)
 #include "mt6885/mtk_gpufreq_plat.h"
@@ -19,5 +19,5 @@
 #include "mt6853/mtk_gpufreq_plat.h"
 #endif
 
-#endif /* __MTK_GPUFREQ_H__ */
+#endif /* __MTK_GPUFREQ_V1_H__ */
 

@@ -100,7 +100,6 @@ ccflags-y += \
 	     -I$(srctree)/drivers/misc/mediatek/lcm/inc/ \
 	     -I$(srctree)/drivers/misc/mediatek/dfrc/ \
 	     -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/ \
-	     -I$(srctree)/drivers/gpu/mediatek/gpufreq_v1/include/ \
 	     -I$(srctree)/drivers/misc/mediatek/performance/fpsgo_v3
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/

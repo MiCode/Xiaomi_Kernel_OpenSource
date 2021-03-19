@@ -16,7 +16,7 @@
 #include "mtk_eemgpu_internal_ap.h"
 #include "mtk_eemgpu_internal.h"
 #if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
-#include "mtk_gpufreq_plat.h"
+#include "mtk_gpufreq.h"
 #endif
 
 /*

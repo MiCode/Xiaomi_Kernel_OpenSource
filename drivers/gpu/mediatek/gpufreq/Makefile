@@ -1,5 +1,5 @@
-
-# Copyright (C) 2016 MediaTek Inc.
+#
+# Copyright (C) 2021 MediaTek Inc.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -11,13 +11,8 @@
 # GNU General Public License for more details.
 #
 
-ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
-ccflags-y += -I$(srctree)/include/linux/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/eemgpu/common/inc/
-
-obj-${CONFIG_MTK_PTPOD_GPU} += mtk_eem.o
-mtk_eem-y += \
-	mtk_eemgpu.o \
-	mtk_eemgpu_platform.o \
-	mtk_eemgpu_internal.o
+ifeq ($(CONFIG_MTK_GPUFREQ_V2), y)
+	obj-y += v2/
+else
+	obj-y += v1/
+endif

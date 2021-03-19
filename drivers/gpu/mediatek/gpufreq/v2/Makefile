@@ -11,7 +11,7 @@
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
 ccflags-y += -I$(srctree)/include/
-ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq_v2/include/
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/v2/include/
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/ged/include/
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
