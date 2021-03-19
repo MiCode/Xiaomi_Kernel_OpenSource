@@ -32,6 +32,8 @@ struct vpu_iova {
 	struct list_head list;
 };
 
+void *vpu_vmap(phys_addr_t start, size_t size);
+
 extern struct vpu_mem_ops vpu_mops_v1;
 extern struct vpu_mem_ops vpu_mops_v2;
 
