@@ -23,6 +23,8 @@ endif
 
 ifeq ($(MTK_PLATFORM),mt6873)
 subdir-ccflags-y += -DCONFIG_MACH_MT6873
+else ifeq ($(MTK_PLATFORM),mt6893)
+subdir-ccflags-y += -DCONFIG_MACH_MT6893
 else ifeq ($(MTK_PLATFORM),mt6853)
 subdir-ccflags-y += -DCONFIG_MACH_MT6853
 endif
