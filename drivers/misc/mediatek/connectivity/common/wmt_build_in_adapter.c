@@ -15,6 +15,7 @@
 #endif
 
 #include <linux/interrupt.h>
+#include <linux/ratelimit.h>
 
 #define CONNADP_LOG_LOUD    4
 #define CONNADP_LOG_DBG     3
@@ -66,6 +67,9 @@ void wmt_export_platform_bridge_register(struct wmt_platform_bridge *cb)
 	bridge.thermal_query_cb = cb->thermal_query_cb;
 	bridge.trigger_assert_cb = cb->trigger_assert_cb;
 	bridge.clock_fail_dump_cb = cb->clock_fail_dump_cb;
+	bridge.conninfra_reg_readable_cb = cb->conninfra_reg_readable_cb;
+	bridge.conninfra_reg_is_bus_hang_cb = cb->conninfra_reg_is_bus_hang_cb;
+
 	CONNADP_INFO_FUNC("\n");
 }
 EXPORT_SYMBOL(wmt_export_platform_bridge_register);
@@ -106,6 +110,30 @@ void mtk_wcn_cmb_stub_clock_fail_dump(void)
 		CONNADP_WARN_FUNC("Clock fail dump not registered\n");
 	else
 		bridge.clock_fail_dump_cb();
+}
+
+int mtk_wcn_conninfra_reg_readable(void)
+{
+	static DEFINE_RATELIMIT_STATE(_rs, 5*HZ, 1);
+
+	if (unlikely(!bridge.conninfra_reg_readable_cb)) {
+		if (__ratelimit(&_rs))
+			CONNADP_WARN_FUNC("reg_readable not registered\n");
+		return -1;
+	} else
+		return bridge.conninfra_reg_readable_cb();
+}
+
+int mtk_wcn_conninfra_is_bus_hang(void)
+{
+	static DEFINE_RATELIMIT_STATE(_rs, 5*HZ, 1);
+
+	if (unlikely(!bridge.conninfra_reg_is_bus_hang_cb)) {
+		if (__ratelimit(&_rs))
+			CONNADP_WARN_FUNC("is_bus_hang not registered\n");
+		return -1;
+	} else
+		return bridge.conninfra_reg_is_bus_hang_cb();
 }
 
 /*******************************************************************************
