@@ -48,7 +48,7 @@ TRACE_EVENT(tracing_on,
 
 #ifdef CONFIG_MTK_FTRACER
 struct trace_buffer;
-void print_enabled_events(struct trace_buffer *buf, struct seq_file *m);
+void print_enabled_events(struct array_buffer *buf, struct seq_file *m);
 void update_buf_size(unsigned long size);
 bool boot_ftrace_check(unsigned long trace_en);
 #if IS_BUILTIN(CONFIG_MTPROF)
