@@ -682,12 +682,15 @@ static inline struct task_struct *task_of(struct sched_entity *se)
 	return container_of(se, struct task_struct, se);
 }
 
-static void walt_place_entity(void *unused, struct sched_entity *se, u64 *vruntime)
+static void walt_place_entity(void *unused, struct cfs_rq *cfs_rq,
+				struct sched_entity *se, int initial, u64 vruntime)
 {
 	if (unlikely(walt_disabled))
 		return;
-	if (entity_is_task(se)) {
+
+	if (!initial && entity_is_task(se)) {
 		unsigned long thresh = sysctl_sched_latency;
+		u64 walt_vruntime = vruntime;
 
 		/*
 		 * Halve their sleep time's effect, to allow
@@ -699,9 +702,9 @@ static void walt_place_entity(void *unused, struct sched_entity *se, u64 *vrunti
 		if ((per_task_boost(task_of(se)) == TASK_BOOST_STRICT_MAX) ||
 				walt_low_latency_task(task_of(se)) ||
 				task_rtg_high_prio(task_of(se))) {
-			*vruntime -= sysctl_sched_latency;
-			*vruntime -= thresh;
-			se->vruntime = *vruntime;
+			walt_vruntime -= sysctl_sched_latency;
+			walt_vruntime -= thresh;
+			se->vruntime = walt_vruntime;
 		}
 	}
 }
