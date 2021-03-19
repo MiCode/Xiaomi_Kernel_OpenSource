@@ -350,6 +350,7 @@ struct u3phy_banks {
 struct mtk_phy_instance {
 	struct phy *phy;
 	void __iomem *port_base;
+	void __iomem *ippc_base;
 	union {
 		struct u2phy_banks u2_banks;
 		struct u3phy_banks u3_banks;
@@ -376,6 +377,65 @@ struct mtk_tphy {
 	int src_ref_clk; /* MHZ, reference clock for slew rate calibrate */
 	int src_coef; /* coefficient for slew rate calibrate */
 };
+
+static ssize_t sib_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
+	struct u3phy_banks *u3_banks = &instance->u3_banks;
+	unsigned int val;
+
+	if (IS_ERR_OR_NULL(instance->ippc_base))
+		return -ENODEV;
+
+	if (kstrtouint(buf, 10, &val))
+		return -EINVAL;
+
+	/* SSUSB_SIFSLV_IPPC_BASE SSUSB_IP_SW_RST = 0 */
+	writel(0x00031000, instance->ippc_base + 0x00);
+	/* SSUSB_IP_HOST_PDN = 0 */
+	writel(0x00000000, instance->ippc_base + 0x04);
+	/* SSUSB_IP_DEV_PDN = 0 */
+	writel(0x00000000, instance->ippc_base + 0x08);
+	/* SSUSB_IP_PCIE_PDN = 0 */
+	writel(0x00000000, instance->ippc_base + 0x0C);
+	/* SSUSB_U3_PORT_DIS/SSUSB_U3_PORT_PDN = 0*/
+	writel(0x0000000C, instance->ippc_base + 0x30);
+
+	/*
+	 * USBMAC mode is 0x62910002 (bit 1)
+	 * MDSIB  mode is 0x62910008 (bit 3)
+	 * 0x0629 just likes a signature. Can't be removed.
+	 */
+	if (val)
+		writel(0x62910008, u3_banks->chip);
+	else
+		writel(0x62910002, u3_banks->chip);
+
+	dev_info(dev, "%s, sib=%d\n", __func__, val);
+	return count;
+}
+
+static ssize_t sib_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
+	struct u3phy_banks *u3_banks = &instance->u3_banks;
+	unsigned int val;
+	u32 tmp;
+
+	tmp = readl(u3_banks->chip);
+
+	if (tmp == 0x62910008)
+		val = 1;
+	else
+		val = 0;
+
+	dev_info(dev, "%s, sib=%d\n", __func__, val);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
+}
+static DEVICE_ATTR_RW(sib);
 
 static void cover_val_to_str(u32 val, u8 width, char *str)
 {
@@ -538,6 +598,7 @@ static DEVICE_ATTR_RO(loopback_test);
 
 static struct attribute *u3_phy_attrs[] = {
 	&dev_attr_loopback_test.attr,
+	&dev_attr_sib.attr,
 	NULL
 };
 
@@ -1766,6 +1827,18 @@ static int mtk_tphy_probe(struct platform_device *pdev)
 			dev_err(dev, "failed to remap phy regs\n");
 			retval = PTR_ERR(instance->port_base);
 			goto put_child;
+		}
+
+		/* Get optional property ippc address */
+		retval = of_address_to_resource(child_np, 1, &res);
+		if (retval) {
+			dev_info(dev, "failed to get ippc resource(id-%d)\n",
+				port);
+		} else {
+			instance->ippc_base = devm_ioremap(dev, res.start,
+				resource_size(&res));
+			if (IS_ERR(instance->ippc_base))
+				dev_info(dev, "failed to remap ippc regs\n");
 		}
 
 		instance->phy = phy;
