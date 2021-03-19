@@ -8,6 +8,7 @@
   alarm_cancel
   alarm_init
   alarm_start_relative
+  alarm_expires_remaining
   alloc_chrdev_region
   __alloc_disk_node
   alarmtimer_get_rtcdev
