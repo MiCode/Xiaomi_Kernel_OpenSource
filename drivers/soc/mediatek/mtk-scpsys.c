@@ -1857,6 +1857,19 @@ static const struct scp_domain_data scp_domain_data_mt6893[] = {
 				MT6893_TOP_AXI_PROT_EN_SUB_INFRA_VDNR_MD),
 		},
 	},
+	[MT6893_POWER_DOMAIN_CONN] = {
+		.name = "conn",
+		.sta_mask = BIT(1),
+		.ctl_offs = 0x304,
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+				MT6893_TOP_AXI_PROT_EN_CONN),
+			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+				MT6893_TOP_AXI_PROT_EN_CONN_2ND),
+			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+				MT6893_TOP_AXI_PROT_EN_2_CONN),
+		},
+	},
 	[MT6893_POWER_DOMAIN_APU] = {
 		.name = "apu",
 		.caps = MTK_SCPD_APU_OPS,
