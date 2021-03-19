@@ -813,9 +813,9 @@ struct base_jd_atom_v2 {
 	u8 renderpass_id;
 	u8 padding[7];
 
-#if defined(MTK_GPU_BM_2)
+//#if defined(MTK_GPU_BM_2)
 	u32 frame_nr;  /* frame number to the atom */
-#endif
+//#endif
 };
 
 /**
@@ -865,9 +865,9 @@ typedef struct base_jd_atom {
 	u8 renderpass_id;
 	u8 padding[7];
 
-#if defined(MTK_GPU_BM_2)
+//#if defined(MTK_GPU_BM_2)
 	u32 frame_nr;  /* frame number to the atom */
-#endif
+//#endif
 } base_jd_atom;
 
 /* Job chain event code bits

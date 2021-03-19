@@ -90,6 +90,7 @@ static DECLARE_DELAYED_WORK(g_setupfw_work, setupfw_work_handler);
 
 static void setupfw_work_handler(struct work_struct *work)
 {
+#ifdef MTK_QOS_FRAMEWORK
 	struct qos_ipi_data qos_d;
 	int ret;
 
@@ -111,6 +112,9 @@ static void setupfw_work_handler(struct work_struct *work)
 		pr_debug("%s: sspm_ipi fail (%d)\n", __func__, ret);
 		schedule_delayed_work(&g_setupfw_work, 5 * HZ);
 	}
+#else
+	pr_debug("%s: sspm_ipi is not support!\n", __func__);
+#endif
 }
 
 static void _MTKGPUQoS_setupFW(phys_addr_t phyaddr, size_t size)
