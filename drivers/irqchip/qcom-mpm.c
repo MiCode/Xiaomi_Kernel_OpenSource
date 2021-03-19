@@ -447,7 +447,7 @@ void msm_mpm_enter_sleep(struct cpumask *cpumask)
 	if (!irq_data)
 		return;
 
-	if (cpumask)
+	if (cpumask && irq_chip->irq_set_affinity)
 		irq_chip->irq_set_affinity(irq_data, cpumask, true);
 }
 
