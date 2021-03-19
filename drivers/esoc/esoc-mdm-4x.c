@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2015, 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/coresight.h>
@@ -9,7 +10,84 @@
 #include <linux/sched/clock.h>
 #include <soc/qcom/sysmon.h>
 #include "esoc-mdm.h"
+#include <linux/seq_file.h>
+#include <linux/proc_fs.h>
+#include <linux/workqueue.h>
 
+#define STR_NV_SIGNATURE_DESTROYED "CRITICAL_DATA_CHECK_FAIL"
+
+static struct kobject *checknv_kobj;
+static struct kset *checknv_kset;
+
+static const struct sysfs_ops checknv_sysfs_ops = {
+};
+
+static void kobj_release(struct kobject *kobj)
+{
+	kfree(kobj);
+}
+
+static struct kobj_type checknv_ktype = {
+	.sysfs_ops = &checknv_sysfs_ops,
+	.release = kobj_release,
+};
+
+static void checknv_kobj_clean(struct work_struct *work)
+{
+	kobject_uevent(checknv_kobj, KOBJ_REMOVE);
+	kobject_put(checknv_kobj);
+	kset_unregister(checknv_kset);
+}
+
+static void checknv_kobj_create(struct work_struct *work)
+{
+	int ret;
+
+	if (checknv_kset != NULL) {
+		pr_err("checknv_kset is not NULL, should clean up.");
+		kobject_uevent(checknv_kobj, KOBJ_REMOVE);
+		kobject_put(checknv_kobj);
+	}
+
+	checknv_kobj = kzalloc(sizeof(struct kobject), GFP_KERNEL);
+	if (!checknv_kobj) {
+		pr_err("kobject alloc failed.");
+		return;
+	}
+
+	if (checknv_kset == NULL) {
+		checknv_kset = kset_create_and_add("checknv_errimei", NULL, NULL);
+		if (!checknv_kset) {
+			pr_err("kset creation failed.");
+			goto free_kobj;
+		}
+	}
+
+	checknv_kobj->kset = checknv_kset;
+
+	ret = kobject_init_and_add(checknv_kobj, &checknv_ktype, NULL, "%s", "errimei");
+	if (ret) {
+		pr_err("%s: Error in creation kobject", __func__);
+		goto del_kobj;
+	}
+
+	kobject_uevent(checknv_kobj, KOBJ_ADD);
+	return;
+
+del_kobj:
+	kobject_put(checknv_kobj);
+	kset_unregister(checknv_kset);
+
+free_kobj:
+	kfree(checknv_kobj);
+}
+
+static DECLARE_DELAYED_WORK(create_kobj_work, checknv_kobj_create);
+static DECLARE_WORK(clean_kobj_work, checknv_kobj_clean);
+
+#define MAX_SSR_REASON_LEN	130U
+static char last_modem_sfr_reason[MAX_SSR_REASON_LEN] = "none";
+static struct proc_dir_entry *last_modem_sfr_entry;
 enum gpio_update_config {
 	GPIO_UPDATE_BOOTING_CONFIG = 1,
 	GPIO_UPDATE_RUNNING_CONFIG,
@@ -385,7 +463,15 @@ static void mdm_get_restart_reason(struct work_struct *work)
 		esoc_mdm_log("restart reason not obtained. err: %d\n", ret);
 		dev_dbg(dev, "%s: Error retrieving restart reason: %d\n",
 						__func__, ret);
-	}
+	} else {
+		strlcpy(last_modem_sfr_reason, sfr_buf, MAX_SSR_REASON_LEN);
+		pr_err("modem subsystem failure reason: %s.\n", last_modem_sfr_reason);
+		// If the NV protected file (critical_info) is destroyed, restart to recovery to inform user
+		if (strstr(last_modem_sfr_reason, STR_NV_SIGNATURE_DESTROYED)) {
+			pr_err("errimei_dev: the NV has been destroyed, should restart to recovery\n");
+			schedule_delayed_work(&create_kobj_work, msecs_to_jiffies(1*1000));
+		}
+  }
 	mdm->get_restart_reason = false;
 }
 
@@ -1207,6 +1293,24 @@ static int mdm_probe(struct platform_device *pdev)
 
 	return ret;
 }
+static int last_modem_sfr_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s\n", last_modem_sfr_reason);
+	return 0;
+}
+
+static int last_modem_sfr_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, last_modem_sfr_proc_show, NULL);
+}
+
+static const struct file_operations last_modem_sfr_file_ops = {
+	.owner   = THIS_MODULE,
+	.open    = last_modem_sfr_proc_open,
+	.read    = seq_read,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
 
 static struct platform_driver mdm_driver = {
 	.probe		= mdm_probe,
@@ -1219,12 +1323,21 @@ static struct platform_driver mdm_driver = {
 
 static int __init mdm_register(void)
 {
+	last_modem_sfr_entry = proc_create("last_mcrash", S_IFREG | S_IRUGO, NULL, &last_modem_sfr_file_ops);
+	if (!last_modem_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry last_mcrash\n");
+	}
 	return platform_driver_register(&mdm_driver);
 }
 module_init(mdm_register);
 
 static void __exit mdm_unregister(void)
 {
+	schedule_work(&clean_kobj_work);
+	if (last_modem_sfr_entry) {
+            remove_proc_entry("last_mcrash", NULL);
+            last_modem_sfr_entry = NULL;
+	}
 	platform_driver_unregister(&mdm_driver);
 }
 module_exit(mdm_unregister);

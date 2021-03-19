@@ -1,0 +1,13 @@
+* Demux
+
+Demux is responsible for demuxing the transport stream contents
+to respective elementary streams
+
+Required properties:
+- compatible : Should be "qcom,demux"
+
+Example:
+
+        demux {
+                compatible = "qcom,demux";
+        };

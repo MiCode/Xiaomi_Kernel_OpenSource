@@ -2,7 +2,8 @@
  *
  * FocalTech TouchScreen driver.
  *
- * Copyright (c) 2012-2019, Focaltech Ltd. All rights reserved.
+ * Copyright (c) 2010-2017, Focaltech Ltd. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -32,238 +33,199 @@
 /*****************************************************************************
 * 1.Included header files
 *****************************************************************************/
-#include <linux/uaccess.h>
 #include "focaltech_core.h"
 
 /*****************************************************************************
 * Private constant and macro definitions using #define
 *****************************************************************************/
-#define PROC_UPGRADE                            0
-#define PROC_READ_REGISTER                      1
-#define PROC_WRITE_REGISTER                     2
-#define PROC_AUTOCLB                            4
-#define PROC_UPGRADE_INFO                       5
-#define PROC_WRITE_DATA                         6
-#define PROC_READ_DATA                          7
-#define PROC_SET_TEST_FLAG                      8
-#define PROC_SET_SLAVE_ADDR                     10
-#define PROC_HW_RESET                           11
-#define PROC_READ_STATUS                        12
-#define PROC_SET_BOOT_MODE                      13
-#define PROC_ENTER_TEST_ENVIRONMENT             14
-#define PROC_NAME                               "ftxxxx-debug"
-#define PROC_BUF_SIZE                           256
+/*create apk debug channel*/
+#define PROC_UPGRADE					0
+#define PROC_READ_REGISTER				1
+#define PROC_WRITE_REGISTER				2
+#define PROC_AUTOCLB					4
+#define PROC_UPGRADE_INFO				5
+#define PROC_WRITE_DATA					6
+#define PROC_READ_DATA					7
+#define PROC_SET_TEST_FLAG				8
+#define PROC_SET_SLAVE_ADDR				10
+#define PROC_HW_RESET					11
+#define PROC_NAME						"ftxxxx-debug"
+#define PROC_WRITE_BUF_SIZE				256
+#define PROC_READ_BUF_SIZE				256
 
 /*****************************************************************************
 * Private enumerations, structures and unions using typedef
+*****************************************************************************/
+
+/*****************************************************************************
+* Static variables
 *****************************************************************************/
 enum {
 	RWREG_OP_READ = 0,
 	RWREG_OP_WRITE = 1,
 };
-
-/*****************************************************************************
-* Static variables
-*****************************************************************************/
 static struct rwreg_operation_t {
-	int type;        /*  0: read, 1: write */
-	int reg;         /*  register */
-	int len;         /*  read/write length */
-	int val;         /*  length = 1; read: return value, write: op return */
-	int res;         /*  0: success, otherwise: fail */
-	char *opbuf;     /*  length >= 1, read return value, write: op return */
+	int type;		/*  0: read, 1: write */
+	int reg;		/*  register */
+	int len;		/*  read/write length */
+	int val;		/*  length = 1; read: return value, write: op return */
+	int res;		/*  0: success, otherwise: fail */
+	char *opbuf;		/*  length >= 1, read return value, write: op return */
 } rw_op;
 
 /*****************************************************************************
 * Global variable or extern global variabls/functions
 *****************************************************************************/
-
 /*****************************************************************************
 * Static function prototypes
 *****************************************************************************/
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
-static ssize_t fts_debug_write(
-	struct file *filp, const char __user *buff, size_t count, loff_t *ppos)
+/************************************************************************
+*   Name: fts_debug_write
+*  Brief:interface of write proc
+* Input: file point, data buf, data len, no use
+* Output: no
+* Return: data len
+***********************************************************************/
+static ssize_t fts_debug_write(struct file *filp, const char __user *buff, size_t count, loff_t *ppos)
 {
-	u8 *writebuf = NULL;
-	u8 tmpbuf[PROC_BUF_SIZE] = { 0 };
+	u8 writebuf[PROC_WRITE_BUF_SIZE] = { 0 };
 	int buflen = count;
 	int writelen = 0;
 	int ret = 0;
-	char tmp[PROC_BUF_SIZE];
+	char tmp[25];
 	struct fts_ts_data *ts_data = fts_data;
-	struct ftxxxx_proc *proc = &ts_data->proc;
+	struct i2c_client *client = ts_data->client;
 
-	if ((buflen <= 1) || (buflen > PAGE_SIZE)) {
-		FTS_ERROR("apk proc wirte count(%d>%d) fail", buflen, (int)PAGE_SIZE);
+	if ((count == 0) || (count > PROC_WRITE_BUF_SIZE)) {
+		FTS_ERROR("apk proc wirte count(%d) fail", (int)count);
 		return -EINVAL;
 	}
 
-	if (buflen > PROC_BUF_SIZE) {
-		writebuf = (u8 *)kzalloc(buflen * sizeof(u8), GFP_KERNEL);
-		if (NULL == writebuf) {
-			FTS_ERROR("apk proc wirte buf zalloc fail");
-			return -ENOMEM;
-		}
-	} else {
-		writebuf = tmpbuf;
-	}
-
-	if (copy_from_user(writebuf, buff, buflen)) {
+	if (copy_from_user(&writebuf, buff, count)) {
 		FTS_ERROR("[APK]: copy from user error!!");
-		ret = -EFAULT;
-		goto proc_write_err;
+		return -EFAULT;
 	}
 
-	proc->opmode = writebuf[0];
-	switch (proc->opmode) {
+	ts_data->proc_opmode = writebuf[0];
+
+	switch (ts_data->proc_opmode) {
 	case PROC_SET_TEST_FLAG:
-		FTS_DEBUG("[APK]: PROC_SET_TEST_FLAG = %x", writebuf[1]);
+		FTS_INFO("[APK]: PROC_SET_TEST_FLAG = %x!!", writebuf[1]);
+#if FTS_ESDCHECK_EN
 		if (writebuf[1] == 0) {
-#if FTS_ESDCHECK_EN
 			fts_esdcheck_switch(ENABLE);
-#endif
 		} else {
-#if FTS_ESDCHECK_EN
 			fts_esdcheck_switch(DISABLE);
+		}
 #endif
+		break;
+	case PROC_READ_REGISTER:
+		writelen = 1;
+		ret = fts_i2c_write(client, writebuf + 1, writelen);
+		if (ret < 0) {
+			FTS_ERROR("[APK]: write iic error!!");
 		}
 		break;
-
-	case PROC_READ_REGISTER:
-		proc->cmd[0] = writebuf[1];
+	case PROC_WRITE_REGISTER:
+		writelen = 2;
+		ret = fts_i2c_write(client, writebuf + 1, writelen);
+		if (ret < 0) {
+			FTS_ERROR("[APK]: write iic error!!");
+		}
+		break;
+	case PROC_SET_SLAVE_ADDR:
+#if (FTS_CHIP_TYPE == _FT8201)
+		FTS_INFO("Original i2c addr 0x%x", client->addr << 1);
+		if (writebuf[1] != client->addr) {
+			client->addr = writebuf[1];
+			FTS_INFO("Change i2c addr 0x%x to 0x%x", client->addr << 1, writebuf[1] << 1);
+		}
+#endif
 		break;
 
-	case PROC_WRITE_REGISTER:
-		ret = fts_write_reg(writebuf[1], writebuf[2]);
-		if (ret < 0) {
-			FTS_ERROR("PROC_WRITE_REGISTER write error");
-			goto proc_write_err;
+	case PROC_HW_RESET:
+		snprintf(tmp, 25, "%s", writebuf + 1);
+		tmp[buflen - 1] = '\0';
+		if (strncmp(tmp, "focal_driver", 12) == 0) {
+			FTS_INFO("APK execute HW Reset");
+			fts_reset_proc(1);
 		}
 		break;
 
 	case PROC_READ_DATA:
-		writelen = buflen - 1;
-		if (writelen >= FTX_MAX_COMMMAND_LENGTH) {
-			FTS_ERROR("cmd(PROC_READ_DATA) len(%d) fail", writelen);
-			goto proc_write_err;
-		}
-		memcpy(proc->cmd, writebuf + 1, writelen);
-		proc->cmd_len = writelen;
-		ret = fts_write(writebuf + 1, writelen);
-		if (ret < 0) {
-			FTS_ERROR("PROC_READ_DATA write error");
-			goto proc_write_err;
-		}
-		break;
-
 	case PROC_WRITE_DATA:
 		writelen = buflen - 1;
-		ret = fts_write(writebuf + 1, writelen);
-		if (ret < 0) {
-			FTS_ERROR("PROC_WRITE_DATA write error");
-			goto proc_write_err;
+		if (writelen > 0) {
+			ret = fts_i2c_write(client, writebuf + 1, writelen);
+			if (ret < 0) {
+				FTS_ERROR("[APK]: write iic error!!");
+			}
 		}
 		break;
-
-	case PROC_SET_SLAVE_ADDR:
-		break;
-
-	case PROC_HW_RESET:
-		snprintf(tmp, PROC_BUF_SIZE, "%s", writebuf + 1);
-		tmp[buflen - 1] = '\0';
-		if (strncmp(tmp, "focal_driver", 12) == 0) {
-			FTS_INFO("APK execute HW Reset");
-			fts_reset_proc(0);
-		}
-		break;
-
-	case PROC_SET_BOOT_MODE:
-		FTS_DEBUG("[APK]: PROC_SET_BOOT_MODE = %x", writebuf[1]);
-		if (0 == writebuf[1]) {
-			ts_data->fw_is_running = true;
-		} else {
-			ts_data->fw_is_running = false;
-		}
-		break;
-
-	case PROC_ENTER_TEST_ENVIRONMENT:
-		FTS_DEBUG("[APK]: PROC_ENTER_TEST_ENVIRONMENT = %x", writebuf[1]);
-		if (0 == writebuf[1]) {
-			fts_enter_test_environment(0);
-		} else {
-			fts_enter_test_environment(1);
-		}
-		break;
-
 	default:
 		break;
 	}
 
-	ret = buflen;
-proc_write_err:
-	if ((buflen > PROC_BUF_SIZE) && writebuf) {
-		kfree(writebuf);
-		writebuf = NULL;
+	if (ret < 0) {
+		return ret;
+	} else {
+		return count;
 	}
-	return ret;
 }
 
-static ssize_t fts_debug_read(
-	struct file *filp, char __user *buff, size_t count, loff_t *ppos)
+/************************************************************************
+*   Name: fts_debug_read
+*  Brief:interface of read proc
+* Input: point to the data, no use, no use, read len, no use, no use
+* Output: page point to data
+* Return: read char number
+***********************************************************************/
+static ssize_t fts_debug_read(struct file *filp, char __user *buff, size_t count, loff_t *ppos)
 {
 	int ret = 0;
 	int num_read_chars = 0;
-	int buflen = count;
-	u8 *readbuf = NULL;
-	u8 tmpbuf[PROC_BUF_SIZE] = { 0 };
+	int readlen = 0;
+	u8 buf[PROC_READ_BUF_SIZE] = { 0 };
 	struct fts_ts_data *ts_data = fts_data;
-	struct ftxxxx_proc *proc = &ts_data->proc;
+	struct i2c_client *client = ts_data->client;
 
-	if ((buflen <= 0) || (buflen > PAGE_SIZE)) {
-		FTS_ERROR("apk proc read count(%d>%d) fail", buflen, (int)PAGE_SIZE);
+	if ((count == 0) || (count > PROC_READ_BUF_SIZE)) {
+		FTS_ERROR("apk proc read count(%d) fail", (int)count);
 		return -EINVAL;
 	}
-
-	if (buflen > PROC_BUF_SIZE) {
-		readbuf = (u8 *)kzalloc(buflen * sizeof(u8), GFP_KERNEL);
-		if (NULL == readbuf) {
-			FTS_ERROR("apk proc wirte buf zalloc fail");
-			return -ENOMEM;
-		}
-	} else {
-		readbuf = tmpbuf;
-	}
-
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_proc_busy(1);
 #endif
 
-	switch (proc->opmode) {
+	switch (ts_data->proc_opmode) {
 	case PROC_READ_REGISTER:
+		readlen = 1;
+		ret = fts_i2c_read(client, NULL, 0, buf, readlen);
+		if (ret < 0) {
+#if FTS_ESDCHECK_EN
+			fts_esdcheck_proc_busy(0);
+#endif
+			FTS_ERROR("[APK]: read iic error!!");
+			return ret;
+		}
 		num_read_chars = 1;
-		ret = fts_read_reg(proc->cmd[0], &readbuf[0]);
-		if (ret < 0) {
-			FTS_ERROR("PROC_READ_REGISTER read error");
-			goto proc_read_err;
-		}
 		break;
-
-	case PROC_WRITE_REGISTER:
-		break;
-
 	case PROC_READ_DATA:
-		num_read_chars = buflen;
-		ret = fts_read(NULL, 0, readbuf, num_read_chars);
+		readlen = count;
+		ret = fts_i2c_read(client, NULL, 0, buf, readlen);
 		if (ret < 0) {
-			FTS_ERROR("PROC_READ_DATA read error");
-			goto proc_read_err;
+#if FTS_ESDCHECK_EN
+			fts_esdcheck_proc_busy(0);
+#endif
+			FTS_ERROR("[APK]: read iic error!!");
+			return ret;
 		}
-		break;
 
+		num_read_chars = readlen;
+		break;
 	case PROC_WRITE_DATA:
 		break;
-
 	default:
 		break;
 	}
@@ -272,209 +234,168 @@ static ssize_t fts_debug_read(
 	fts_esdcheck_proc_busy(0);
 #endif
 
-	if (copy_to_user(buff, readbuf, num_read_chars)) {
-		FTS_ERROR("copy to user error");
-		ret = -EFAULT;
-		goto proc_read_err;
+	if (copy_to_user(buff, buf, num_read_chars)) {
+		FTS_ERROR("[APK]: copy to user error!!");
+		return -EFAULT;
 	}
 
-	ret = num_read_chars;
-proc_read_err:
-	if ((buflen > PROC_BUF_SIZE) && readbuf) {
-		kfree(readbuf);
-		readbuf = NULL;
-	}
-	return ret;
+	return num_read_chars;
 }
 
 static const struct file_operations fts_proc_fops = {
 	.owner = THIS_MODULE,
-	.read  = fts_debug_read,
+	.read = fts_debug_read,
 	.write = fts_debug_write,
 };
 #else
-static int fts_debug_write(struct file *filp,
-	const char __user *buff, unsigned long len, void *data)
+/* interface of write proc */
+/************************************************************************
+*   Name: fts_debug_write
+*  Brief:interface of write proc
+* Input: file point, data buf, data len, no use
+* Output: no
+* Return: data len
+***********************************************************************/
+static int fts_debug_write(struct file *filp, const char __user *buff, unsigned long len, void *data)
 {
-	u8 *writebuf = NULL;
-	u8 tmpbuf[PROC_BUF_SIZE] = { 0 };
-	int buflen = count;
-	int writelen = 0;
 	int ret = 0;
-	char tmp[PROC_BUF_SIZE];
+	u8 writebuf[PROC_WRITE_BUF_SIZE] = { 0 };
+	int buflen = len;
+	int writelen = 0;
+	char tmp[25];
 	struct fts_ts_data *ts_data = fts_data;
-	struct ftxxxx_proc *proc = &ts_data->proc;
+	struct i2c_client *client = ts_data->client;
 
-	if ((buflen <= 1) || (buflen > PAGE_SIZE)) {
-		FTS_ERROR("apk proc wirte count(%d>%d) fail", buflen, (int)PAGE_SIZE);
+	if ((count == 0) || (count > PROC_WRITE_BUF_SIZE)) {
+		FTS_ERROR("apk proc wirte count(%d) fail", (int)count);
 		return -EINVAL;
 	}
 
-	if (buflen > PROC_BUF_SIZE) {
-		writebuf = (u8 *)kzalloc(buflen * sizeof(u8), GFP_KERNEL);
-		if (NULL == writebuf) {
-			FTS_ERROR("apk proc wirte buf zalloc fail");
-			return -ENOMEM;
-		}
-	} else {
-		writebuf = tmpbuf;
-	}
-
-	if (copy_from_user(writebuf, buff, buflen)) {
+	if (copy_from_user(&writebuf, buff, buflen)) {
 		FTS_ERROR("[APK]: copy from user error!!");
-		ret = -EFAULT;
-		goto proc_write_err;
+		return -EFAULT;
 	}
 
-	proc->opmode = writebuf[0];
-	switch (proc->opmode) {
+	ts_data->proc_opmode = writebuf[0];
+
+	switch (ts_data->proc_opmode) {
 	case PROC_SET_TEST_FLAG:
-		FTS_DEBUG("[APK]: PROC_SET_TEST_FLAG = %x", writebuf[1]);
+		FTS_DEBUG("[APK]: PROC_SET_TEST_FLAG = %x!!", writebuf[1]);
+#if FTS_ESDCHECK_EN
 		if (writebuf[1] == 0) {
-#if FTS_ESDCHECK_EN
 			fts_esdcheck_switch(ENABLE);
-#endif
 		} else {
-#if FTS_ESDCHECK_EN
 			fts_esdcheck_switch(DISABLE);
+		}
 #endif
+		break;
+	case PROC_READ_REGISTER:
+		writelen = 1;
+		ret = fts_i2c_write(client, writebuf + 1, writelen);
+		if (ret < 0) {
+			FTS_ERROR("[APK]: write iic error!!n");
 		}
 		break;
-
-	case PROC_READ_REGISTER:
-		proc->cmd[0] = writebuf[1];
+	case PROC_WRITE_REGISTER:
+		writelen = 2;
+		ret = fts_i2c_write(client, writebuf + 1, writelen);
+		if (ret < 0) {
+			FTS_ERROR("[APK]: write iic error!!");
+		}
+		break;
+	case PROC_SET_SLAVE_ADDR:
+#if (FTS_CHIP_TYPE == _FT8201)
+		ret = client->addr;
+		FTS_DEBUG("Original i2c addr 0x%x ", ret << 1);
+		if (writebuf[1] != client->addr) {
+			client->addr = writebuf[1];
+			FTS_DEBUG("Change i2c addr 0x%x to 0x%x", ret << 1, writebuf[1] << 1);
+		}
+#endif
 		break;
 
-	case PROC_WRITE_REGISTER:
-		ret = fts_write_reg(writebuf[1], writebuf[2]);
-		if (ret < 0) {
-			FTS_ERROR("PROC_WRITE_REGISTER write error");
-			goto proc_write_err;
+	case PROC_HW_RESET:
+		snprintf(tmp, PAGE_SIZE, "%s", writebuf + 1);
+		tmp[buflen - 1] = '\0';
+		if (strncmp(tmp, "focal_driver", 12) == 0) {
+			FTS_INFO("Begin HW Reset");
+			fts_reset_proc(1);
 		}
 		break;
 
 	case PROC_READ_DATA:
-		writelen = buflen - 1;
-		if (writelen >= FTX_MAX_COMMMAND_LENGTH) {
-			FTS_ERROR("cmd(PROC_READ_DATA) length(%d) fail", writelen);
-			goto proc_write_err;
-		}
-		memcpy(proc->cmd, writebuf + 1, writelen);
-		proc->cmd_len = writelen;
-		ret = fts_write(writebuf + 1, writelen);
-		if (ret < 0) {
-			FTS_ERROR("PROC_READ_DATA write error");
-			goto proc_write_err;
-		}
-		break;
-
 	case PROC_WRITE_DATA:
-		writelen = buflen - 1;
-		ret = fts_write(writebuf + 1, writelen);
-		if (ret < 0) {
-			FTS_ERROR("PROC_WRITE_DATA write error");
-			goto proc_write_err;
+		writelen = len - 1;
+		if (writelen > 0) {
+			ret = fts_i2c_write(client, writebuf + 1, writelen);
+			if (ret < 0) {
+				FTS_ERROR("[APK]: write iic error!!");
+			}
 		}
 		break;
-
-	case PROC_SET_SLAVE_ADDR:
-		break;
-
-	case PROC_HW_RESET:
-		snprintf(tmp, PROC_BUF_SIZE, "%s", writebuf + 1);
-		tmp[buflen - 1] = '\0';
-		if (strncmp(tmp, "focal_driver", 12) == 0) {
-			FTS_INFO("APK execute HW Reset");
-			fts_reset_proc(0);
-		}
-		break;
-
-	case PROC_SET_BOOT_MODE:
-		FTS_DEBUG("[APK]: PROC_SET_BOOT_MODE = %x", writebuf[1]);
-		if (0 == writebuf[1]) {
-			ts_data->fw_is_running = true;
-		} else {
-			ts_data->fw_is_running = false;
-		}
-		break;
-
-	case PROC_ENTER_TEST_ENVIRONMENT:
-		FTS_DEBUG("[APK]: PROC_ENTER_TEST_ENVIRONMENT = %x", writebuf[1]);
-		if (0 == writebuf[1]) {
-			fts_enter_test_environment(0);
-		} else {
-			fts_enter_test_environment(1);
-		}
-		break;
-
 	default:
 		break;
 	}
 
-	ret = buflen;
-proc_write_err:
-	if ((buflen > PROC_BUF_SIZE) && writebuf) {
-		kfree(writebuf);
-		writebuf = NULL;
+	if (ret < 0) {
+		return ret;
+	} else {
+		return len;
 	}
-	return ret;
 }
 
-static int fts_debug_read(
-	char *page, char **start, off_t off, int count, int *eof, void *data )
+/* interface of read proc */
+/************************************************************************
+*   Name: fts_debug_read
+*  Brief:interface of read proc
+* Input: point to the data, no use, no use, read len, no use, no use
+* Output: page point to data
+* Return: read char number
+***********************************************************************/
+static int fts_debug_read(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
 	int ret = 0;
+	u8 buf[PROC_READ_BUF_SIZE] = { 0 };
 	int num_read_chars = 0;
-	int buflen = count;
-	u8 *readbuf = NULL;
-	u8 tmpbuf[PROC_BUF_SIZE] = { 0 };
+	int readlen = 0;
 	struct fts_ts_data *ts_data = fts_data;
-	struct ftxxxx_proc *proc = &ts_data->proc;
+	struct i2c_client *client = ts_data->client;
 
-	if ((buflen <= 0) || (buflen > PAGE_SIZE)) {
-		FTS_ERROR("apk proc read count(%d>%d) fail", buflen, (int)PAGE_SIZE);
+	if ((count == 0) || (count > PROC_READ_BUF_SIZE)) {
+		FTS_ERROR("apk proc read count(%d) fail", (int)count);
 		return -EINVAL;
 	}
-
-	if (buflen > PROC_BUF_SIZE) {
-		readbuf = (u8 *)kzalloc(buflen * sizeof(u8), GFP_KERNEL);
-		if (NULL == readbuf) {
-			FTS_ERROR("apk proc wirte buf zalloc fail");
-			return -ENOMEM;
-		}
-	} else {
-		readbuf = tmpbuf;
-	}
-
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_proc_busy(1);
 #endif
-
-	switch (proc->opmode) {
+	switch (ts_data->proc_opmode) {
 	case PROC_READ_REGISTER:
+		readlen = 1;
+		ret = fts_i2c_read(client, NULL, 0, buf, readlen);
+		if (ret < 0) {
+#if FTS_ESDCHECK_EN
+			fts_esdcheck_proc_busy(0);
+#endif
+			FTS_ERROR("[APK]: read iic error!!");
+			return ret;
+		}
 		num_read_chars = 1;
-		ret = fts_read_reg(proc->cmd[0], &readbuf[0]);
-		if (ret < 0) {
-			FTS_ERROR("PROC_READ_REGISTER read error");
-			goto proc_read_err;
-		}
 		break;
-
-	case PROC_WRITE_REGISTER:
-		break;
-
 	case PROC_READ_DATA:
-		num_read_chars = buflen;
-		ret = fts_read(NULL, 0, readbuf, num_read_chars);
+		readlen = count;
+		ret = fts_i2c_read(client, NULL, 0, buf, readlen);
 		if (ret < 0) {
-			FTS_ERROR("PROC_READ_DATA read error");
-			goto proc_read_err;
+#if FTS_ESDCHECK_EN
+			fts_esdcheck_proc_busy(0);
+#endif
+			FTS_ERROR("[APK]: read iic error!!");
+			return ret;
 		}
-		break;
 
+		num_read_chars = readlen;
+		break;
 	case PROC_WRITE_DATA:
 		break;
-
 	default:
 		break;
 	}
@@ -483,53 +404,53 @@ static int fts_debug_read(
 	fts_esdcheck_proc_busy(0);
 #endif
 
-	if (copy_to_user(buff, readbuf, num_read_chars)) {
-		FTS_ERROR("copy to user error");
-		ret = -EFAULT;
-		goto proc_read_err;
-	}
-
-	ret = num_read_chars;
-proc_read_err:
-	if ((buflen > PROC_BUF_SIZE) && readbuf) {
-		kfree(readbuf);
-		readbuf = NULL;
-	}
-	return ret;
+	memcpy(page, buf, num_read_chars);
+	return num_read_chars;
 }
 #endif
 
+/************************************************************************
+* Name: fts_create_apk_debug_channel
+* Brief:  create apk debug channel
+* Input: i2c info
+* Output:
+* Return: return 0 if success
+***********************************************************************/
 int fts_create_apk_debug_channel(struct fts_ts_data *ts_data)
 {
-	struct ftxxxx_proc *proc = &ts_data->proc;
-
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
-	proc->proc_entry = proc_create(PROC_NAME, 0777, NULL, &fts_proc_fops);
-	if (NULL == proc->proc_entry) {
-		FTS_ERROR("create proc entry fail");
-		return -ENOMEM;
-	}
+	ts_data->proc = proc_create(PROC_NAME, 0644, NULL, &fts_proc_fops);
 #else
-	proc->proc_entry = create_proc_entry(PROC_NAME, 0777, NULL);
-	if (NULL == proc->proc_entry) {
+	ts_data->proc = create_proc_entry(PROC_NAME, 0644, NULL);
+#endif
+	if (NULL == ts_data->proc) {
 		FTS_ERROR("create proc entry fail");
 		return -ENOMEM;
-	}
-	proc->proc_entry->write_proc = fts_debug_write;
-	proc->proc_entry->read_proc = fts_debug_read;
-#endif
+	} else {
+		FTS_INFO("Create proc entry success!");
 
-	FTS_INFO("Create proc entry success!");
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0))
+		ts_data->proc->write_proc = fts_debug_write;
+		ts_data->proc->read_proc = fts_debug_read;
+#endif
+	}
+
 	return 0;
 }
 
+/************************************************************************
+* Name: fts_release_apk_debug_channel
+* Brief:  release apk debug channel
+* Input:
+* Output:
+* Return:
+***********************************************************************/
 void fts_release_apk_debug_channel(struct fts_ts_data *ts_data)
 {
-	struct ftxxxx_proc *proc = &ts_data->proc;
 
-	if (proc->proc_entry) {
+	if (ts_data->proc) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
-		proc_remove(proc->proc_entry);
+		proc_remove(ts_data->proc);
 #else
 		remove_proc_entry(PROC_NAME, NULL);
 #endif
@@ -539,105 +460,60 @@ void fts_release_apk_debug_channel(struct fts_ts_data *ts_data)
 /************************************************************************
  * sysfs interface
  ***********************************************************************/
-/* fts_hw_reset interface */
-static ssize_t fts_hw_reset_show(
-	struct device *dev, struct device_attribute *attr, char *buf)
+
+/*
+ * fts_hw_reset interface
+ */
+static ssize_t fts_hw_reset_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	return -EPERM;
+}
+
+static ssize_t fts_hw_reset_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct input_dev *input_dev = fts_data->input_dev;
 	ssize_t count = 0;
 
 	mutex_lock(&input_dev->mutex);
-	fts_reset_proc(0);
+	fts_reset_proc(1);
 	count = snprintf(buf, PAGE_SIZE, "hw reset executed\n");
 	mutex_unlock(&input_dev->mutex);
 
 	return count;
 }
 
-static ssize_t fts_hw_reset_store(
-	struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	return -EPERM;
-}
-
-/* fts_irq interface */
-static ssize_t fts_irq_show(
-	struct device *dev, struct device_attribute *attr, char *buf)
-{
-	ssize_t count = 0;
-	struct irq_desc *desc = irq_to_desc(fts_data->irq);
-
-	count = snprintf(buf, PAGE_SIZE, "irq_depth:%d\n", desc->depth);
-
-	return count;
-}
-
-static ssize_t fts_irq_store(
-	struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
+/*
+ * fts_irq interface
+ */
+static ssize_t fts_irq_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct input_dev *input_dev = fts_data->input_dev;
 
 	mutex_lock(&input_dev->mutex);
 	if (FTS_SYSFS_ECHO_ON(buf)) {
-		FTS_INFO("enable irq");
+		FTS_INFO("[EX-FUN]enable irq");
 		fts_irq_enable();
 	} else if (FTS_SYSFS_ECHO_OFF(buf)) {
-		FTS_INFO("disable irq");
+		FTS_INFO("[EX-FUN]disable irq");
 		fts_irq_disable();
 	}
 	mutex_unlock(&input_dev->mutex);
 	return count;
 }
 
-/* fts_boot_mode interface */
-static ssize_t fts_bootmode_store(
-	struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t fts_irq_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	struct input_dev *input_dev = fts_data->input_dev;
-
-	FTS_FUNC_ENTER();
-	mutex_lock(&input_dev->mutex);
-	if (FTS_SYSFS_ECHO_ON(buf)) {
-		FTS_INFO("[EX-FUN]set to boot mode");
-		fts_data->fw_is_running = false;
-	} else if (FTS_SYSFS_ECHO_OFF(buf)) {
-		FTS_INFO("[EX-FUN]set to fw mode");
-		fts_data->fw_is_running = true;
-	}
-	mutex_unlock(&input_dev->mutex);
-	FTS_FUNC_EXIT();
-
-	return count;
+	return -EPERM;
 }
 
-static ssize_t fts_bootmode_show(
-	struct device *dev, struct device_attribute *attr, char *buf)
-{
-	ssize_t count = 0;
-	struct input_dev *input_dev = fts_data->input_dev;
-
-	FTS_FUNC_ENTER();
-	mutex_lock(&input_dev->mutex);
-	if (true == fts_data->fw_is_running) {
-		count = snprintf(buf, PAGE_SIZE, "tp is in fw mode\n");
-	} else {
-		count = snprintf(buf, PAGE_SIZE, "tp is in boot mode\n");
-	}
-	mutex_unlock(&input_dev->mutex);
-	FTS_FUNC_EXIT();
-
-	return count;
-}
-
-/* fts_tpfwver interface */
-static ssize_t fts_tpfwver_show(
-	struct device *dev, struct device_attribute *attr, char *buf)
+/*
+ * fts_tpfwver interface
+ */
+static ssize_t fts_tpfwver_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct fts_ts_data *ts_data = fts_data;
 	struct input_dev *input_dev = ts_data->input_dev;
+	struct i2c_client *client = ts_data->client;
 	ssize_t num_read_chars = 0;
 	u8 fwver = 0;
 
@@ -646,7 +522,9 @@ static ssize_t fts_tpfwver_show(
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_proc_busy(1);
 #endif
-	fts_read_reg(FTS_REG_FW_VER, &fwver);
+	if (fts_i2c_read_reg(client, FTS_REG_FW_VER, &fwver) < 0) {
+		num_read_chars = snprintf(buf, PAGE_SIZE, "I2c transfer error!\n");
+	}
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_proc_busy(0);
 #endif
@@ -659,16 +537,19 @@ static ssize_t fts_tpfwver_show(
 	return num_read_chars;
 }
 
-static ssize_t fts_tpfwver_store(
-	struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t fts_tpfwver_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	return -EPERM;
 }
 
-/* fts_rw_reg */
-static ssize_t fts_tprwreg_show(
-	struct device *dev, struct device_attribute *attr, char *buf)
+/************************************************************************
+* Name: fts_tprwreg_show
+* Brief:  no
+* Input: device, device attribute, char buf
+* Output: no
+* Return: EPERM
+***********************************************************************/
+static ssize_t fts_tprwreg_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	int count;
 	int i;
@@ -683,13 +564,13 @@ static ssize_t fts_tprwreg_show(
 			if (rw_op.res == 0) {
 				count = snprintf(buf, PAGE_SIZE, "Read %02X: %02X\n", rw_op.reg, rw_op.val);
 			} else {
-				count = snprintf(buf, PAGE_SIZE, "Read %02X failed, ret: %d\n", rw_op.reg,  rw_op.res);
+				count = snprintf(buf, PAGE_SIZE, "Read %02X failed, ret: %d\n", rw_op.reg, rw_op.res);
 			}
 		} else {
 			if (rw_op.res == 0) {
-				count = snprintf(buf, PAGE_SIZE, "Write %02X, %02X success\n", rw_op.reg,  rw_op.val);
+				count = snprintf(buf, PAGE_SIZE, "Write %02X, %02X success\n", rw_op.reg, rw_op.val);
 			} else {
-				count = snprintf(buf, PAGE_SIZE, "Write %02X failed, ret: %d\n", rw_op.reg,  rw_op.res);
+				count = snprintf(buf, PAGE_SIZE, "Write %02X failed, ret: %d\n", rw_op.reg, rw_op.res);
 			}
 		}
 	} else {
@@ -707,7 +588,10 @@ static ssize_t fts_tprwreg_show(
 				}
 			}
 		} else {
-			count = snprintf(buf, PAGE_SIZE, "Write Reg: [%02X]-[%02X]\n", rw_op.reg, rw_op.reg + rw_op.len - 1);
+			;
+			count =
+			    snprintf(buf, PAGE_SIZE, "Write Reg: [%02X]-[%02X]\n", rw_op.reg,
+				     rw_op.reg + rw_op.len - 1);
 			count += snprintf(buf + count, PAGE_SIZE, "Write Data: ");
 			if (rw_op.opbuf) {
 				for (i = 1; i < rw_op.len; i++) {
@@ -722,10 +606,9 @@ static ssize_t fts_tprwreg_show(
 			}
 		}
 		/*if (rw_op.opbuf) {
-		 *  kfree(rw_op.opbuf);
-		 *  rw_op.opbuf = NULL;
-		 *}
-		 */
+			kfree(rw_op.opbuf);
+			rw_op.opbuf = NULL;
+		} */
 	}
 	mutex_unlock(&input_dev->mutex);
 
@@ -758,11 +641,11 @@ static int shex_to_int(const char *hex_buf, int size)
 	return value;
 }
 
-
 static u8 shex_to_u8(const char *hex_buf, int size)
 {
-	return (u8)shex_to_int(hex_buf, size);
+	return (u8) shex_to_int(hex_buf, size);
 }
+
 /*
  * Format buf:
  * [0]: '0' write, '1' read(reserved)
@@ -816,11 +699,17 @@ static int fts_parse_buf(const char *buf, size_t cmd_len)
 	return rw_op.len;
 }
 
-static ssize_t fts_tprwreg_store(
-	struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
+/************************************************************************
+* Name: fts_tprwreg_store
+* Brief:  read/write register
+* Input: device, device attribute, char buf, char count
+* Output: print register value
+* Return: char count
+***********************************************************************/
+static ssize_t fts_tprwreg_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct input_dev *input_dev = fts_data->input_dev;
+	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
 	ssize_t cmd_length = 0;
 
 	mutex_lock(&input_dev->mutex);
@@ -836,12 +725,14 @@ static ssize_t fts_tprwreg_store(
 	if (2 == cmd_length) {
 		rw_op.type = RWREG_OP_READ;
 		rw_op.len = 1;
+
 		rw_op.reg = shex_to_int(buf, 2);
 	} else if (4 == cmd_length) {
 		rw_op.type = RWREG_OP_WRITE;
 		rw_op.len = 1;
 		rw_op.reg = shex_to_int(buf, 2);
 		rw_op.val = shex_to_int(buf + 2, 2);
+
 	} else if (cmd_length < 5) {
 		FTS_ERROR("Invalid cmd buffer");
 		mutex_unlock(&input_dev->mutex);
@@ -855,48 +746,47 @@ static ssize_t fts_tprwreg_store(
 #endif
 	if (rw_op.len < 0) {
 		FTS_ERROR("cmd buffer error!");
-		goto exit;
-	}
-
-	if (RWREG_OP_READ == rw_op.type) {
-		if (rw_op.len == 1) {
-			u8 reg, val;
-			reg = rw_op.reg & 0xFF;
-			rw_op.res = fts_read_reg(reg, &val);
-			rw_op.val = val;
-		} else {
-			char reg;
-			reg = rw_op.reg & 0xFF;
-
-			rw_op.res = fts_read(&reg, 1, rw_op.opbuf, rw_op.len);
-		}
-
-		if (rw_op.res < 0) {
-			FTS_ERROR("Could not read 0x%02x", rw_op.reg);
-		} else {
-			FTS_INFO("read 0x%02x, %d bytes successful", rw_op.reg, rw_op.len);
-			rw_op.res = 0;
-		}
 
 	} else {
-		if (rw_op.len == 1) {
-			u8 reg, val;
-			reg = rw_op.reg & 0xFF;
-			val = rw_op.val & 0xFF;
-			rw_op.res = fts_write_reg(reg, val);
-		} else {
-			rw_op.res = fts_write(rw_op.opbuf, rw_op.len);
-		}
-		if (rw_op.res < 0) {
-			FTS_ERROR("Could not write 0x%02x", rw_op.reg);
+		if (RWREG_OP_READ == rw_op.type) {
+			if (rw_op.len == 1) {
+				u8 reg, val;
+				reg = rw_op.reg & 0xFF;
+				rw_op.res = fts_i2c_read_reg(client, reg, &val);
+				rw_op.val = val;
+			} else {
+				char reg;
+				reg = rw_op.reg & 0xFF;
+
+				rw_op.res = fts_i2c_read(client, &reg, 1, rw_op.opbuf, rw_op.len);
+			}
+
+			if (rw_op.res < 0) {
+				FTS_ERROR("Could not read 0x%02x", rw_op.reg);
+			} else {
+				FTS_INFO("read 0x%02x, %d bytes successful", rw_op.reg, rw_op.len);
+				rw_op.res = 0;
+			}
 
 		} else {
-			FTS_INFO("Write 0x%02x, %d bytes successful", rw_op.val, rw_op.len);
-			rw_op.res = 0;
+			if (rw_op.len == 1) {
+				u8 reg, val;
+				reg = rw_op.reg & 0xFF;
+				val = rw_op.val & 0xFF;
+				rw_op.res = fts_i2c_write_reg(client, reg, val);
+			} else {
+				rw_op.res = fts_i2c_write(client, rw_op.opbuf, rw_op.len);
+			}
+			if (rw_op.res < 0) {
+				FTS_ERROR("Could not write 0x%02x", rw_op.reg);
+
+			} else {
+				FTS_INFO("Write 0x%02x, %d bytes successful", rw_op.val, rw_op.len);
+				rw_op.res = 0;
+			}
 		}
 	}
 
-exit:
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_proc_busy(0);
 #endif
@@ -905,218 +795,200 @@ exit:
 	return count;
 }
 
-/* fts_upgrade_bin interface */
-static ssize_t fts_fwupgradebin_show(
-	struct device *dev, struct device_attribute *attr, char *buf)
+/*
+ * fts_upgrade_bin interface
+ */
+static ssize_t fts_fwupgradebin_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	return -EPERM;
 }
 
-static ssize_t fts_fwupgradebin_store(
-	struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t fts_fwupgradebin_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
-	char fwname[FILE_NAME_LENGTH] = { 0 };
-	struct input_dev *input_dev = fts_data->input_dev;
+	char fwname[FILE_NAME_LENGTH];
+	struct fts_ts_data *ts_data = fts_data;
+	struct input_dev *input_dev = ts_data->input_dev;
+	struct i2c_client *client = ts_data->client;
 
 	if ((count <= 1) || (count >= FILE_NAME_LENGTH - 32)) {
 		FTS_ERROR("fw bin name's length(%d) fail", (int)count);
 		return -EINVAL;
 	}
-
 	memset(fwname, 0, sizeof(fwname));
 	snprintf(fwname, FILE_NAME_LENGTH, "%s", buf);
 	fwname[count - 1] = '\0';
 
 	FTS_INFO("upgrade with bin file through sysfs node");
 	mutex_lock(&input_dev->mutex);
-	fts_upgrade_bin(fwname, 0);
+	ts_data->fw_loading = 1;
+	fts_irq_disable();
+#if FTS_ESDCHECK_EN
+	fts_esdcheck_switch(DISABLE);
+#endif
+
+	fts_upgrade_bin(client, fwname, 0);
+
+#if FTS_ESDCHECK_EN
+	fts_esdcheck_switch(ENABLE);
+#endif
+	fts_irq_enable();
+	ts_data->fw_loading = 0;
 	mutex_unlock(&input_dev->mutex);
 
 	return count;
 }
 
-/* fts_force_upgrade interface */
-static ssize_t fts_fwforceupg_show(
-	struct device *dev, struct device_attribute *attr, char *buf)
+/*
+ * fts_force_upgrade interface
+ */
+static ssize_t fts_fwforceupg_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	return -EPERM;
 }
 
-static ssize_t fts_fwforceupg_store(
-	struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t fts_fwforceupg_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	char fwname[FILE_NAME_LENGTH];
-	struct input_dev *input_dev = fts_data->input_dev;
+	struct fts_ts_data *ts_data = fts_data;
+	struct input_dev *input_dev = ts_data->input_dev;
+	struct i2c_client *client = ts_data->client;
 
 	if ((count <= 1) || (count >= FILE_NAME_LENGTH - 32)) {
 		FTS_ERROR("fw bin name's length(%d) fail", (int)count);
 		return -EINVAL;
 	}
-
 	memset(fwname, 0, sizeof(fwname));
 	snprintf(fwname, FILE_NAME_LENGTH, "%s", buf);
 	fwname[count - 1] = '\0';
 
 	FTS_INFO("force upgrade through sysfs node");
 	mutex_lock(&input_dev->mutex);
-	fts_upgrade_bin(fwname, 1);
+	ts_data->fw_loading = 1;
+	fts_irq_disable();
+#if FTS_ESDCHECK_EN
+	fts_esdcheck_switch(DISABLE);
+#endif
+
+	fts_upgrade_bin(client, fwname, 1);
+
+#if FTS_ESDCHECK_EN
+	fts_esdcheck_switch(ENABLE);
+#endif
+	fts_irq_enable();
+	ts_data->fw_loading = 0;
 	mutex_unlock(&input_dev->mutex);
 
 	return count;
 }
 
-/* fts_driver_info interface */
-static ssize_t fts_driverinfo_show(
-	struct device *dev, struct device_attribute *attr, char *buf)
+/*
+ * fts_driver_version interface
+ */
+static ssize_t fts_driverversion_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	int count = 0;
-	struct fts_ts_data *ts_data = fts_data;
-	struct fts_ts_platform_data *pdata = ts_data->pdata;
-	struct input_dev *input_dev = ts_data->input_dev;
+	int count;
+	struct input_dev *input_dev = fts_data->input_dev;
 
 	mutex_lock(&input_dev->mutex);
-	count += snprintf(buf + count, PAGE_SIZE, "Driver Ver:%s\n", FTS_DRIVER_VERSION);
-
-	count += snprintf(buf + count, PAGE_SIZE, "Resolution:(%d,%d)~(%d,%d)\n",
-			pdata->x_min, pdata->y_min, pdata->x_max, pdata->y_max);
-
-	count += snprintf(buf + count, PAGE_SIZE, "Max Touchs:%d\n", pdata->max_touch_number);
-
-	count += snprintf(buf + count, PAGE_SIZE, "reset gpio:%d,int gpio:%d,irq:%d\n",
-			pdata->reset_gpio, pdata->irq_gpio, ts_data->irq);
-
-	count += snprintf(buf + count, PAGE_SIZE, "IC ID:0x%02x%02x\n",
-			ts_data->ic_info.ids.chip_idh, ts_data->ic_info.ids.chip_idl);
+	count = snprintf(buf, PAGE_SIZE, FTS_DRIVER_VERSION "\n");
 	mutex_unlock(&input_dev->mutex);
 
 	return count;
 }
 
-static ssize_t fts_driverinfo_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t fts_driverversion_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	return -EPERM;
 }
 
-/* fts_dump_reg interface */
-static ssize_t fts_dumpreg_show(
-	struct device *dev, struct device_attribute *attr, char *buf)
+/*
+ * fts_dump_reg interface
+ */
+static ssize_t fts_dumpreg_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	return -EPERM;
+}
+
+static ssize_t fts_dumpreg_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	int count = 0;
 	u8 val = 0;
+	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
 	struct input_dev *input_dev = fts_data->input_dev;
 
 	mutex_lock(&input_dev->mutex);
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_proc_busy(1);
 #endif
-	fts_read_reg(FTS_REG_POWER_MODE, &val);
+	fts_i2c_read_reg(client, FTS_REG_POWER_MODE, &val);
 	count += snprintf(buf + count, PAGE_SIZE, "Power Mode:0x%02x\n", val);
 
-	fts_read_reg(FTS_REG_FW_VER, &val);
+	fts_i2c_read_reg(client, FTS_REG_FW_VER, &val);
 	count += snprintf(buf + count, PAGE_SIZE, "FW Ver:0x%02x\n", val);
 
-	fts_read_reg(FTS_REG_LIC_VER, &val);
+	fts_i2c_read_reg(client, FTS_REG_LIC_VER, &val);
 	count += snprintf(buf + count, PAGE_SIZE, "LCD Initcode Ver:0x%02x\n", val);
 
-	fts_read_reg(FTS_REG_IDE_PARA_VER_ID, &val);
+	fts_i2c_read_reg(client, FTS_REG_IDE_PARA_VER_ID, &val);
 	count += snprintf(buf + count, PAGE_SIZE, "Param Ver:0x%02x\n", val);
 
-	fts_read_reg(FTS_REG_IDE_PARA_STATUS, &val);
+	fts_i2c_read_reg(client, FTS_REG_IDE_PARA_STATUS, &val);
 	count += snprintf(buf + count, PAGE_SIZE, "Param status:0x%02x\n", val);
 
-	fts_read_reg(FTS_REG_VENDOR_ID, &val);
+	fts_i2c_read_reg(client, FTS_REG_VENDOR_ID, &val);
 	count += snprintf(buf + count, PAGE_SIZE, "Vendor ID:0x%02x\n", val);
 
-	fts_read_reg(FTS_REG_LCD_BUSY_NUM, &val);
+	fts_i2c_read_reg(client, FTS_REG_LCD_BUSY_NUM, &val);
 	count += snprintf(buf + count, PAGE_SIZE, "LCD Busy Number:0x%02x\n", val);
 
-	fts_read_reg(FTS_REG_GESTURE_EN, &val);
+	fts_i2c_read_reg(client, FTS_REG_GESTURE_EN, &val);
 	count += snprintf(buf + count, PAGE_SIZE, "Gesture Mode:0x%02x\n", val);
 
-	fts_read_reg(FTS_REG_CHARGER_MODE_EN, &val);
+	fts_i2c_read_reg(client, FTS_REG_CHARGER_MODE_EN, &val);
 	count += snprintf(buf + count, PAGE_SIZE, "charge stat:0x%02x\n", val);
 
-	fts_read_reg(FTS_REG_INT_CNT, &val);
+	fts_i2c_read_reg(client, FTS_REG_INT_CNT, &val);
 	count += snprintf(buf + count, PAGE_SIZE, "INT count:0x%02x\n", val);
 
-	fts_read_reg(FTS_REG_FLOW_WORK_CNT, &val);
+	fts_i2c_read_reg(client, FTS_REG_FLOW_WORK_CNT, &val);
 	count += snprintf(buf + count, PAGE_SIZE, "ESD count:0x%02x\n", val);
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_proc_busy(0);
 #endif
 
 	mutex_unlock(&input_dev->mutex);
-
 	return count;
 }
 
-static ssize_t fts_dumpreg_store(
-	struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	return -EPERM;
-}
-
-/* fts_dump_reg interface */
-static ssize_t fts_tpbuf_show(
-	struct device *dev, struct device_attribute *attr, char *buf)
-{
-	int count = 0;
-	int i = 0;
-	struct input_dev *input_dev = fts_data->input_dev;
-
-	mutex_lock(&input_dev->mutex);
-	count += snprintf(buf + count, PAGE_SIZE, "touch point buffer:\n");
-	for (i = 0; i < fts_data->pnt_buf_size; i++) {
-		count += snprintf(buf + count, PAGE_SIZE, "%02x ",
-			fts_data->point_buf[i]);
-	}
-	count += snprintf(buf + count, PAGE_SIZE, "\n");
-	mutex_unlock(&input_dev->mutex);
-
-	return count;
-}
-
-static ssize_t fts_tpbuf_store(
-	struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	return -EPERM;
-}
-
-/* fts_log_level interface */
-static ssize_t fts_log_level_show(
-	struct device *dev, struct device_attribute *attr, char *buf)
-{
-	int count = 0;
-	struct input_dev *input_dev = fts_data->input_dev;
-
-	mutex_lock(&input_dev->mutex);
-	count += snprintf(buf + count, PAGE_SIZE, "log level:%d\n",
-			fts_data->log_level);
-	mutex_unlock(&input_dev->mutex);
-
-	return count;
-}
-
-static ssize_t fts_log_level_store(
-	struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t fts_fod_test_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
 {
 	int value = 0;
 	struct input_dev *input_dev = fts_data->input_dev;
 
-	FTS_FUNC_ENTER();
-	mutex_lock(&input_dev->mutex);
-	sscanf(buf, "%d", &value);
-	FTS_DEBUG("log level:%d->%d", fts_data->log_level, value);
-	fts_data->log_level = value;
-	mutex_unlock(&input_dev->mutex);
-	FTS_FUNC_EXIT();
-
+	FTS_ERROR("%s,buf:%s,count:%u\n",__func__, buf, count);
+	sscanf(buf, "%u", &value);
+	if (value) {
+		input_report_key(input_dev, BTN_INFO, 1);
+		input_sync(input_dev);
+		input_mt_slot(input_dev, 0);
+		input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, 1);
+		input_report_key(input_dev, BTN_TOUCH, 1);
+		input_report_key(input_dev, BTN_TOOL_FINGER, 1);
+		input_report_abs(input_dev, ABS_MT_TRACKING_ID, 0);
+		input_report_abs(input_dev, ABS_MT_WIDTH_MINOR, 1);
+		input_report_abs(input_dev, ABS_MT_POSITION_X, 540);
+		input_report_abs(input_dev, ABS_MT_POSITION_Y, 1756);
+		input_sync(input_dev);
+	} else {
+		input_mt_slot(input_dev, 0);
+		input_report_abs(input_dev, ABS_MT_WIDTH_MINOR, 0);
+		input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, 0);
+		input_report_abs(input_dev, ABS_MT_TRACKING_ID, -1);
+		input_report_key(input_dev, BTN_INFO, 0);
+		input_sync(input_dev);
+	}
 	return count;
 }
 
@@ -1140,27 +1012,22 @@ static DEVICE_ATTR(fts_rw_reg, S_IRUGO | S_IWUSR, fts_tprwreg_show, fts_tprwreg_
 /*  upgrade from fw bin file   example:echo "*.bin" > fts_upgrade_bin */
 static DEVICE_ATTR(fts_upgrade_bin, S_IRUGO | S_IWUSR, fts_fwupgradebin_show, fts_fwupgradebin_store);
 static DEVICE_ATTR(fts_force_upgrade, S_IRUGO | S_IWUSR, fts_fwforceupg_show, fts_fwforceupg_store);
-static DEVICE_ATTR(fts_driver_info, S_IRUGO | S_IWUSR, fts_driverinfo_show, fts_driverinfo_store);
+static DEVICE_ATTR(fts_driver_version, S_IRUGO | S_IWUSR, fts_driverversion_show, fts_driverversion_store);
 static DEVICE_ATTR(fts_dump_reg, S_IRUGO | S_IWUSR, fts_dumpreg_show, fts_dumpreg_store);
 static DEVICE_ATTR(fts_hw_reset, S_IRUGO | S_IWUSR, fts_hw_reset_show, fts_hw_reset_store);
 static DEVICE_ATTR(fts_irq, S_IRUGO | S_IWUSR, fts_irq_show, fts_irq_store);
-static DEVICE_ATTR(fts_boot_mode, S_IRUGO | S_IWUSR, fts_bootmode_show, fts_bootmode_store);
-static DEVICE_ATTR(fts_touch_point, S_IRUGO | S_IWUSR, fts_tpbuf_show, fts_tpbuf_store);
-static DEVICE_ATTR(fts_log_level, S_IRUGO | S_IWUSR, fts_log_level_show, fts_log_level_store);
+static DEVICE_ATTR(fts_fod_test, S_IRUGO | S_IWUSR, NULL, fts_fod_test_store);
 
-/* add your attr in here*/
 static struct attribute *fts_attributes[] = {
 	&dev_attr_fts_fw_version.attr,
 	&dev_attr_fts_rw_reg.attr,
 	&dev_attr_fts_dump_reg.attr,
 	&dev_attr_fts_upgrade_bin.attr,
 	&dev_attr_fts_force_upgrade.attr,
-	&dev_attr_fts_driver_info.attr,
+	&dev_attr_fts_driver_version.attr,
 	&dev_attr_fts_hw_reset.attr,
 	&dev_attr_fts_irq.attr,
-	&dev_attr_fts_boot_mode.attr,
-	&dev_attr_fts_touch_point.attr,
-	&dev_attr_fts_log_level.attr,
+	&dev_attr_fts_fod_test.attr,
 	NULL
 };
 
@@ -1168,14 +1035,21 @@ static struct attribute_group fts_attribute_group = {
 	.attrs = fts_attributes
 };
 
-int fts_create_sysfs(struct fts_ts_data *ts_data)
+/************************************************************************
+* Name: fts_create_sysfs
+* Brief: create sysfs interface
+* Input:
+* Output:
+* Return: return 0 if success
+***********************************************************************/
+int fts_create_sysfs(struct i2c_client *client)
 {
 	int ret = 0;
 
-	ret = sysfs_create_group(&ts_data->dev->kobj, &fts_attribute_group);
+	ret = sysfs_create_group(&client->dev.kobj, &fts_attribute_group);
 	if (ret) {
 		FTS_ERROR("[EX]: sysfs_create_group() failed!!");
-		sysfs_remove_group(&ts_data->dev->kobj, &fts_attribute_group);
+		sysfs_remove_group(&client->dev.kobj, &fts_attribute_group);
 		return -ENOMEM;
 	} else {
 		FTS_INFO("[EX]: sysfs_create_group() succeeded!!");
@@ -1184,8 +1058,15 @@ int fts_create_sysfs(struct fts_ts_data *ts_data)
 	return ret;
 }
 
-int fts_remove_sysfs(struct fts_ts_data *ts_data)
+/************************************************************************
+* Name: fts_remove_sysfs
+* Brief: remove sysfs interface
+* Input:
+* Output:
+* Return:
+***********************************************************************/
+int fts_remove_sysfs(struct i2c_client *client)
 {
-	sysfs_remove_group(&ts_data->dev->kobj, &fts_attribute_group);
+	sysfs_remove_group(&client->dev.kobj, &fts_attribute_group);
 	return 0;
 }

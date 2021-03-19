@@ -2,6 +2,7 @@
 
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, KBUILD_MODNAME
@@ -19,6 +20,7 @@
 #include <linux/soc/qcom/smem.h>
 #include <asm/arch_timer.h>
 #include "rpmh_master_stat.h"
+#include <linux/slab.h>
 
 #define UNIT_DIST 0x14
 #define REG_VALID 0x0
@@ -99,6 +101,7 @@ static ssize_t msm_rpmh_master_stats_print_data(char *prvbuf, ssize_t length,
 				struct msm_rpmh_master_stats *record,
 				const char *name)
 {
+	int sleep_status;
 	uint64_t accumulated_duration = record->accumulated_duration;
 	/*
 	 * If a master is in sleep when reading the sleep stats from SMEM
@@ -106,19 +109,22 @@ static ssize_t msm_rpmh_master_stats_print_data(char *prvbuf, ssize_t length,
 	 * This ensures that the displayed stats are real when used for
 	 * the purpose of computing battery utilization.
 	 */
-	if (record->last_entered > record->last_exited)
+	sleep_status = 0;
+	if (record->last_entered > record->last_exited) {
 		accumulated_duration +=
 				(arch_counter_get_cntvct()
 				- record->last_entered);
-
-	return scnprintf(prvbuf, length, "%s\n\tVersion:0x%x\n"
+		sleep_status = 1;
+	}
+	return snprintf(prvbuf, length, "%s\n\tVersion:0x%x\n"
 			"\tSleep Count:0x%x\n"
 			"\tSleep Last Entered At:0x%llx\n"
 			"\tSleep Last Exited At:0x%llx\n"
-			"\tSleep Accumulated Duration:0x%llx\n\n",
+			"\tSleep Accumulated Duration:0x%llx\n"
+			"\tSleep Status:%d\n\n",
 			name, record->version_id, record->counts,
 			record->last_entered, record->last_exited,
-			accumulated_duration);
+			accumulated_duration,sleep_status);
 }
 
 static ssize_t msm_rpmh_master_stats_show(struct kobject *kobj,
@@ -152,6 +158,40 @@ static ssize_t msm_rpmh_master_stats_show(struct kobject *kobj,
 
 	return length;
 }
+
+void system_sleep_status_print_enabled(void)
+{
+	size_t size = 0;
+	int i = 0;
+	int sleep_status;
+	ssize_t length;
+	char *buf = NULL;
+	struct msm_rpmh_master_stats *record = NULL;
+	mutex_lock(&rpmh_stats_mutex);
+
+	sleep_status = (apss_master_stats.last_entered > apss_master_stats.last_exited) ? 1:0;
+	pr_info("APSS---SLEEP status:%d count:0x%x\n",sleep_status, apss_master_stats.counts);
+	buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	length = msm_rpmh_master_stats_print_data(buf, PAGE_SIZE,
+						&apss_master_stats, "APSS");
+
+	for (i = 0; i < ARRAY_SIZE(rpmh_masters); i++) {
+		record = (struct msm_rpmh_master_stats *) qcom_smem_get(
+					rpmh_masters[i].pid, 
+					rpmh_masters[i].smem_id, &size);
+		if (!IS_ERR_OR_NULL(record) && (PAGE_SIZE - length > 0)) {
+			sleep_status = (record->last_entered > record->last_exited) ? 1:0;
+			pr_info("%s---SLEEP status:%d count:0x%x\n",rpmh_masters[i].master_name, sleep_status, record->counts);
+		}
+	}
+
+	mutex_unlock(&rpmh_stats_mutex);
+	kfree (buf);
+
+}
+
+EXPORT_SYMBOL_GPL(system_sleep_status_print_enabled);
+
 
 static inline void msm_rpmh_apss_master_stats_update(
 				struct msm_rpmh_profile_unit *profile_unit)

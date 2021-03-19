@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2016-2017, Linaro Ltd
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
@@ -2065,6 +2066,8 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 	snprintf(glink->irqname, 32, "glink-native-%s", glink->name);
 
 	irq = of_irq_get(dev->of_node, 0);
+	snprintf(glink->irqname, sizeof(glink->irqname)-1, "glink-native_%s", glink->name);
+        dev_err(dev, "glink-native glink->irqname=%s irq=%d\n", glink->irqname, irq);
 	ret = devm_request_irq(dev, irq,
 			       qcom_glink_native_intr,
 			       IRQF_NO_SUSPEND | IRQF_SHARED,

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010-2011 Canonical Ltd <jeremy.kerr@canonical.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2011-2012 Linaro Ltd <mturquette@linaro.org>
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
@@ -124,6 +125,7 @@ struct clk {
 	unsigned int exclusive_count;
 	struct hlist_node clks_node;
 };
+
 
 /***           runtime pm          ***/
 static int clk_pm_runtime_get(struct clk_core *core)
@@ -1099,10 +1101,11 @@ runtime_put:
 static int clk_core_prepare_lock(struct clk_core *core)
 {
 	int ret;
-
-	clk_prepare_lock();
+	if (!oops_in_progress)
+		clk_prepare_lock();
 	ret = clk_core_prepare(core);
-	clk_prepare_unlock();
+	if (!oops_in_progress)
+		clk_prepare_unlock();
 
 	return ret;
 }
@@ -3218,7 +3221,7 @@ EXPORT_SYMBOL_GPL(clk_set_flags);
 
 static struct dentry *rootdir;
 static int inited = 0;
-static u32 debug_suspend;
+static u32 debug_suspend = 1;
 static DEFINE_MUTEX(clk_debug_lock);
 static HLIST_HEAD(clk_debug_list);
 

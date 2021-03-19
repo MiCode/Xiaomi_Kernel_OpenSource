@@ -1,0 +1,61 @@
+* Qualcomm Technologies, L2CACHE COUNTERS Bindings
+
+This represents the several hardware counters located in each cluster levels.
+And each counter counter specific transactions on cluster level like.
+
+DDR write counter  : Write-Back, Write-Clean and Write-Evict transactions on
+			GNOC Interface.
+
+DDR read counter   : Read-Shared, Read-Unique, Read-Clean and
+			Read-Not-Shared-Dirty transactions on GNOC interface.
+
+Snoop read counter : Read-Once, Read-Shared, Read-Unique, Read-Clean and
+			Read-Not-Shared-Dirty transactions from GNOC to Cluster
+			interface.
+
+ACP write counter  : Write-Back, Write-Clean and Write-Evict transactions to ACP
+			port of Collapsed Cluster.
+
+Tenure counter	   : Low-Power mode tenure is used to count tenure (no. of XO -
+			19.2MHz) of L2 Low-Power mode.
+
+Low/Mid/High
+occurrence counter : Based on threshold set for low and mid tenure counter,
+			current tenure count compared against them and based
+			on which category it belongs respective counter
+			(low/mid/high occurrence counters) gets incremented.
+			e.g :
+
+1. 0 < Current Tenure <= Low-tenure threshold		: Low-Tenure category
+2. Low-tenure < Current Tenure <= Mid-tenure threshold	: Mid-Tenure category
+3. Mid-tenure < Current tenure				: High-Tenure category
+
+
+The follow section describes the L2 CACHE Counters DT node binding.
+
+Required properties:
+- compatible 	: Shall be "qcom,l2cache-pmu"
+- reg		: There shall be one resource per cluster of the form
+		  < base_address total_size > representing the counters
+		  register region.
+- irq		: There shall be one interrupt resource per cluster.
+
+e.g:
+l2cache_pmu {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	compatible = "qcom,l2cache-pmu";
+	ranges;
+
+	cluster0@f111000 {
+		cluster-id = <0>;
+		interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0xf111000 0x1000>;
+	};
+
+	cluster1@f011000 {
+		cluster-id = <1>;
+		interrupts = <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0xf011000 0x1000>;
+	};
+};

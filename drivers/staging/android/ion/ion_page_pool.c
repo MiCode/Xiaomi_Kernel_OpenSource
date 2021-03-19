@@ -3,6 +3,7 @@
  * drivers/staging/android/ion/ion_mem_pool.c
  *
  * Copyright (C) 2011 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/list.h>
@@ -176,6 +177,19 @@ struct page *ion_page_pool_alloc_pool_only(struct ion_page_pool *pool)
 	if (!page)
 		return ERR_PTR(-ENOMEM);
 	return page;
+}
+
+void ion_page_pool_prealloc(struct ion_page_pool *pool, unsigned int reserve)
+{
+	unsigned int i;
+
+	for (i = 0; i < reserve; i++) {
+		struct page *page = ion_page_pool_alloc_pages(pool);
+
+		if (!page)
+			return;
+		ion_page_pool_add(pool, page);
+	}
 }
 
 void ion_page_pool_free(struct ion_page_pool *pool, struct page *page)

@@ -3,6 +3,7 @@
  * f_qdss.c -- QDSS function Driver
  *
  * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/init.h>
@@ -938,8 +939,9 @@ close:
 	}
 	gadget = qdss->gadget;
 	ch->app_conn = 0;
+	ch->priv = NULL;
+	ch->notify = NULL;
 	spin_unlock_irqrestore(&channel_lock, flags);
-
 	status = uninit_data(qdss->port.data);
 	if (status)
 		pr_err("%s: uninit_data error\n", __func__);

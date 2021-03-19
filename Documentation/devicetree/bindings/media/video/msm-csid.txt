@@ -1,0 +1,52 @@
+* Qualcomm Technologies, Inc. MSM CSID
+
+Required properties:
+- cell-index: csid hardware core index
+- compatible :
+    - "qcom,csid"
+    - "qcom,csid-v2.0"
+    - "qcom,csid-v2.2"
+    - "qcom,csid-v3.0"
+    - "qcom,csid-v3.1"
+    - "qcom,csid-v3.2"
+    - "qcom,csid-v3.5"
+    - "qcom,csid-v4.0"
+    - "qcom,csid-v3.4.2"
+    - "qcom,csid-v3.5.1"
+    - "qcom,csid-v3.4.3"
+    - "qcom,csid-v5.0"
+- reg : offset and length of the register set for the device
+    for the csid operating in compatible mode.
+- reg-names : should specify relevant names to each reg property defined.
+- interrupts : should contain the csid interrupt.
+- interrupt-names : should specify relevant names to each interrupts
+  property defined.
+- qcom,csi-vdd-voltage : should specify voltage level
+    for mipi csi in uV.
+- qcom,mipi-csi-vdd-supply : should contain regulator to be used for
+    this csid core
+- clock-names: name of the clocks required for the device
+- qcom,clock-rates: clock rate in Hz
+	- 0 if appropriate clock is required but doesn't have to apply the rate
+
+Optional properties:
+- qcom,cam-vreg-name : name of the voltage regulators required for the device.
+- gdscr-supply : should contain regulator used for csid clocks.
+- mmagic-supply : should contain mmagic regulator used for mmagic clocks.
+
+Example:
+
+   qcom,csid@fda08000 {
+       cell-index = <0>;
+       compatible = "qcom,csid-v2.0", "qcom,csid";
+       reg = <0xfda08000 0x200>;
+       reg-names = "csid";
+       interrupts = <0 51 0>;
+       interrupt-names = "csiphy";
+       qcom,csi-vdd-voltage = <1800000>;
+       qcom,mipi-csi-vdd-supply = <&pm8941_l12>;
+       clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
+                "csi_ahb_clk", "csi_src_clk", "csi_clk",
+                "csi_phy_clk", "csi_pix_clk", "csi_rdi_clk";
+       qcom,clock-rates = <0 0 0 200000000 0 0 0 0>;
+   };

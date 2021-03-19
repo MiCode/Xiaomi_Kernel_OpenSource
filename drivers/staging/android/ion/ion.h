@@ -3,6 +3,7 @@
  * drivers/staging/android/ion/ion.h
  *
  * Copyright (C) 2011 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  */
@@ -38,6 +39,7 @@
 #define ION_SECURE_HEAP_NAME	"secure_heap"
 #define ION_SECURE_DISPLAY_HEAP_NAME "secure_display"
 #define ION_AUDIO_HEAP_NAME    "audio"
+#define ION_CAMERA_HEAP_NAME   "camera"
 
 #define ION_IS_CACHED(__flags)  ((__flags) & ION_FLAG_CACHED)
 
@@ -163,6 +165,7 @@ struct ion_device {
 	struct rw_semaphore lock;
 	struct plist_head heaps;
 	struct dentry *debug_root;
+	struct dentry *heaps_debug_root;
 	int heap_cnt;
 };
 
@@ -229,6 +232,9 @@ struct ion_heap_ops {
  * @task:		task struct of deferred free thread
  * @debug_show:		called when heap debug file is read to add any
  *			heap specific debug info to output
+ * @num_of_buffers	the number of currently allocated buffers
+ * @num_of_alloc_bytes	the number of allocated bytes
+ * @alloc_bytes_wm	the number of allocated bytes watermark
  *
  * Represents a pool of memory from which buffers can be made.  In some
  * systems the only heap is regular system memory allocated via vmalloc.
@@ -251,6 +257,13 @@ struct ion_heap {
 	spinlock_t free_lock;
 	wait_queue_head_t waitqueue;
 	struct task_struct *task;
+	u64 num_of_buffers;
+	u64 num_of_alloc_bytes;
+	u64 alloc_bytes_wm;
+
+	/* protect heap statistics */
+	spinlock_t stat_lock;
+
 	atomic_long_t total_allocated;
 
 	int (*debug_show)(struct ion_heap *heap, struct seq_file *s,
@@ -291,6 +304,7 @@ int ion_heap_buffer_zero(struct ion_buffer *buffer);
 int ion_heap_pages_zero(struct page *page, size_t size, pgprot_t pgprot);
 
 int ion_alloc_fd(size_t len, unsigned int heap_id_mask, unsigned int flags);
+int ion_alloc_fd_with_caller_pid(size_t len, unsigned int heap_id_mask, unsigned int flags, int pid_info);
 
 /**
  * ion_heap_init_shrinker
@@ -370,6 +384,7 @@ size_t ion_heap_freelist_size(struct ion_heap *heap);
 struct ion_heap *ion_heap_create(struct ion_platform_heap *heap_data);
 
 struct ion_heap *ion_system_heap_create(struct ion_platform_heap *unused);
+struct ion_heap *ion_camera_heap_create(struct ion_platform_heap *heap);
 struct ion_heap *ion_system_contig_heap_create(struct ion_platform_heap *heap);
 
 struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data);
@@ -452,6 +467,7 @@ struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order,
 void ion_page_pool_refill(struct ion_page_pool *pool);
 void ion_page_pool_destroy(struct ion_page_pool *pool);
 struct page *ion_page_pool_alloc(struct ion_page_pool *a, bool *from_pool);
+void ion_page_pool_prealloc(struct ion_page_pool *pool, unsigned int reserve);
 void ion_page_pool_free(struct ion_page_pool *pool, struct page *page);
 
 struct ion_heap *get_ion_heap(int heap_id);

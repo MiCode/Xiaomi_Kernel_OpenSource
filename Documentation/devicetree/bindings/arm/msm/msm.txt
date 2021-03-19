@@ -1,0 +1,249 @@
+* Qualcomm Technologies, Inc. MSM
+
+MSM uses a combination of DTS and DTSI files to describe the hardware on various
+SoCs and boards. Typically, a SoC-specific DTSI file describes the devices
+present on a given SoC, and a board-specific DTSI file describes the devices
+external to the SoC, although some targets may follow a more simplified
+approach. Additionally, the SoC-specific DTSI files may further consist of a
+base chip-specific file and a version-specific DTSI file, to facilitate reuse
+of device definitions among multiple revisions of the same SoC.
+
+Required properties:
+- compatible: Every device present on the MSM SoC shall have a 'qcom,' prefix
+  in its compatible string
+
+Example:
+restart@fc4ab000 {
+	compatible = "qcom,pshold";
+	reg = <0xfc4ab000 0x4>;
+};
+
+
+* Compatible strings:
+
+SoCs:
+
+- APQ8016
+  compatible = "qcom,apq8016"
+
+- APQ8084
+  compatible = "qcom,apq8084"
+
+- APQ8096
+  compatible = "qcom,apq8096"
+
+- MSM8916
+  compatible = "qcom,msm8916"
+
+- MSM8960
+  compatible = "qcom,msm8960"
+
+- MSM8996
+  compatible = "qcom,msm8996"
+
+- SM8150
+  compatible = "qcom,sm8150"
+
+- KONA
+  compatible = "qcom,kona"
+
+- LITO
+  compatible = "qcom,lito"
+
+- ORCHID
+  compatible = "qcom,orchid"
+
+- LAGOON
+  compatible = "qcom,lagoon"
+
+- BENGAL
+  compatible = "qcom,bengal"
+
+- SCUBA
+  compatible = "qcom,scuba"
+
+- SCUBAIOT
+  compatible = "qcom,scuba-iot"
+
+- SCUBAPIOT
+  compatible = "qcom,scubap-iot"
+
+- SDMSHRIKE
+  compatible = "qcom,sdmshrike"
+
+- SM6150
+  compatible = "qcom,sm6150"
+
+- QCS405
+  compatible = "qcom,qcs405"
+
+- QCS403
+  compatible = "qcom,qcs403"
+
+- SDXPRAIRIE
+  compatible = "qcom,sdxprairie"
+
+- SDMMAGPIE
+  compatible = "qcom,sdmmagpie"
+
+- SDM660
+  compatible = "qcom,sdm660"
+
+- SDA660
+  compatible = "qcom,sda660"
+
+- BENGAL_IOT
+  compatible = "qcom,bengal-iot"
+
+- BENGALP-IOT
+  compatible = "qcom,bengalp-iot"
+
+Generic board variants:
+
+- CDP device:
+  compatible = "qcom,cdp"
+
+- IDP device:
+  compatible = "qcom,idp"
+
+- MTP device:
+  compatible = "qcom,mtp"
+
+- ATP device:
+  compatible = "qcom,atp"
+
+- FLUID device:
+  compatible = "qcom,fluid"
+
+- LIQUID device:
+  compatible = "qcom,liquid"
+
+- Dragonboard device:
+  compatible = "qcom,dragonboard"
+
+- SBC device:
+  compatible = "qcom,sbc"
+
+- SURF device:
+  compatible = "qcom,surf"
+
+- QRD device:
+  compatible = "qcom,qrd"
+
+- HDK device:
+  compatible = "qcom,hdk"
+
+- ADP device:
+  compatible = "qcom,adp"
+
+- Simulator device:
+  compatible = "qcom,sim"
+
+- RUMI device:
+  compatible = "qcom,rumi"
+
+- IOT device:
+  compatible = "qcom,iot"
+
+
+Boards (SoC type + board variant):
+
+compatible = "qcom,apq8016"
+compatible = "qcom,apq8084-cdp"
+compatible = "qcom,apq8084-liquid"
+compatible = "qcom,apq8084-mtp"
+compatible = "qcom,apq8084-sbc"
+compatible = "qcom,apq8094-cdp"
+compatible = "qcom,apq8096-cdp"
+compatible = "qcom,apq8096-mtp"
+compatible = "qcom,apq8096-dragonboard"
+compatible = "qcom,apq8096-sbc"
+compatible = "qcom,apq8096-liquid"
+compatible = "qcom,msm8916-cdp"
+compatible = "qcom,msm8916-mtp"
+compatible = "qcom,msm8916-qrd-skuh"
+compatible = "qcom,msm8916-qrd-skuhf"
+compatible = "qcom,msm8916-qrd-skui"
+compatible = "qcom,msm8916-qrd-skuic"
+compatible = "qcom,msm8916-qrd-skuid"
+compatible = "qcom,msm8916-qrd-skut1"
+compatible = "qcom,msm8916-rumi"
+compatible = "qcom,msm8916-sim"
+compatible = "qcom,msm8960-cdp"
+compatible = "qcom,msm8974-cdp"
+compatible = "qcom,msm8974-fluid"
+compatible = "qcom,msm8974-liquid"
+compatible = "qcom,msm8974-mtp"
+compatible = "qcom,msm8974-rumi"
+compatible = "qcom,msm8974-sim"
+compatible = "qcom,msm8996-rumi"
+compatible = "qcom,msm8996-sim"
+compatible = "qcom,msm8996-cdp"
+compatible = "qcom,msm8996-dtp"
+compatible = "qcom,msm8996-fluid"
+compatible = "qcom,msm8996-liquid"
+compatible = "qcom,msm8996-mtp"
+compatible = "qcom,msm8996-adp"
+compatible = "qcom,sm8150-rumi"
+compatible = "qcom,sm8150-mtp"
+compatible = "qcom,sm8150-cdp"
+compatible = "qcom,sm8150-qrd"
+compatible = "qcom,sm8150p-cdp"
+compatible = "qcom,sm8150p-mtp"
+compatible = "qcom,sm8150p-qrd"
+compatible = "qcom,kona-rumi"
+compatible = "qcom,kona-mtp"
+compatible = "qcom,kona-cdp"
+compatible = "qcom,kona-qrd"
+compatible = "qcom,kona-hdk"
+compatible = "qcom,kona-iot"
+compatible = "qcom,lito-rumi"
+compatible = "qcom,lito-mtp"
+compatible = "qcom,lito-cdp"
+compatible = "qcom,lito-atp"
+compatible = "qcom,lito-qrd"
+compatible = "qcom,orchid-mtp"
+compatible = "qcom,orchid-cdp"
+compatible = "qcom,lagoon-rumi"
+compatible = "qcom,lagoon-mtp"
+compatible = "qcom,lagoon-cdp"
+compatible = "qcom,lagoon-atp"
+compatible = "qcom,lagoon-qrd"
+compatible = "qcom,bengal-rumi"
+compatible = "qcom,bengal-qrd"
+compatible = "qcom,bengal-idp"
+compatible = "qcom,bengalp"
+compatible = "qcom,bengalp-idp"
+compatible = "qcom,scuba-rumi"
+compatible = "qcom,scuba-idp"
+compatible = "qcom,scuba-qrd"
+compatible = "qcom,sdmshrike-rumi"
+compatible = "qcom,sdmshrike-mtp"
+compatible = "qcom,sdmshrike-cdp"
+compatible = "qcom,sm6150-rumi"
+compatible = "qcom,sm6150-mtp"
+compatible = "qcom,sm6150-cdp"
+compatible = "qcom,sm6150-qrd"
+compatible = "qcom,sm6150-idp"
+compatible = "qcom,qcs405-rumi"
+compatible = "qcom,qcs405-iot"
+compatible = "qcom,qcs403-iot"
+compatible = "qcom,sa8150-adp-star"
+compatible = "qcom,adp-star"
+compatible = "qcom,sdxprairie-rumi"
+compatible = "qcom,sdxprairie-mtp"
+compatible = "qcom,sdxprairie-cdp"
+compatible = "qcom,sdmmagpie-rumi"
+compatible = "qcom,sdmmagpie-idp"
+compatible = "qcom,sdmmagpie-qrd"
+compatible = "qcom,sdm660-cdp"
+compatible = "qcom,sdm660-mtp"
+compatible = "qcom,sdm660-qrd"
+compatible = "qcom,sdm660-sim"
+compatible = "qcom,sda660-mtp"
+compatible = "qcom,sda660-cdp"
+compatible = "qcom,sda660-qrd"
+compatible = "qcom,bengal-iot"
+compatible = "qcom,bengalp-iot"
+compatible = "qcom,bengal-iot-idp"
+compatible = "qcom,bengalp-iot-idp"

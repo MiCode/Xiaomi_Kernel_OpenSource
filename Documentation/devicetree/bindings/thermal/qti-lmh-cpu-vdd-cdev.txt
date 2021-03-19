@@ -1,0 +1,33 @@
+QTI LMH CPU Voltage cooling devices.
+
+The LMH CPU voltage cooling device will be used to place voltage restriction
+vote on CPU railway during cold thermal condition. This cooling device driver
+will register one cooling device per LLM, which can be used by thermal zone to
+place voltage restriction vote.
+
+Properties:
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: should be "qcom,lmh-cpu-vdd"
+
+Cooling device node:
+- reg:
+	Usage: Required
+	Value type: <a b>
+	Definition: where 'a' is the starting register address of the LLM
+			and 'b' is the size of LLM address space.
+
+- #cooling-cells:
+	Usage: required
+	Value type: <integer>
+	Definition: Must be 2. Needed for of_thermal as cooling device
+			identifier. Please refer to
+			<devicetree/bindings/thermal/thermal.txt> for more
+			details.
+Example:
+	lmh_cpu_vdd0: qcom,lmh-cpu-vdd@18350800 {
+		compatible = "qcom,lmh-cpu-vdd";
+		reg =  <0x18350800 0x1000>;
+		#cooling-cells = <2>;
+	};

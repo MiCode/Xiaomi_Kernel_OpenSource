@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2013-2017 ARM Limited, All Rights Reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Marc Zyngier <marc.zyngier@arm.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -34,6 +35,9 @@
 #include <linux/irqchip/arm-gic-common.h>
 #include <linux/irqchip/arm-gic-v3.h>
 #include <linux/irqchip/irq-partition-percpu.h>
+#include <linux/power_debug.h>
+#include <linux/wakeup_reason.h>
+#include <linux/syscore_ops.h>
 
 #include <asm/cputype.h>
 #include <asm/exception.h>
@@ -371,7 +375,8 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 		else if (desc->action && desc->action->name)
 			name = desc->action->name;
 
-		pr_warn("%s: %d triggered %s\n", __func__, irq, name);
+		//pr_warn("%s: %d triggered %s\n", __func__, irq, name);
+		pr_warn("%s: %d triggered %s (hwirq %d)\n", __func__, irq, name, i);
 	}
 }
 
@@ -398,6 +403,43 @@ static int __init gic_init_sys(void)
 arch_initcall(gic_init_sys);
 
 #endif
+
+static bool gic_check_wakeup_event(void *data)
+{
+	unsigned int i;
+	u32 enabled;
+	bool ret=false;
+	u32 pending[32];
+	void __iomem *base = gic_data.dist_base;
+
+	for (i = 0; i * 32 < gic_data.irq_nr; i++) {
+		enabled = readl_relaxed(base + GICD_ICENABLER + i * 4);
+		pending[i] = readl_relaxed(base + GICD_ISPENDR + i * 4);
+		pending[i] &= enabled;
+	}
+
+	for (i = find_first_bit((unsigned long *)pending, gic_data.irq_nr);
+	     i < gic_data.irq_nr;
+	     i = find_next_bit((unsigned long *)pending, gic_data.irq_nr, i+1)) {
+		unsigned int irq = irq_find_mapping(gic_data.domain, i);
+		struct irq_desc *desc = irq_to_desc(irq);
+		const char *name = "null";
+
+		if (desc == NULL)
+			name = "stray irq";
+		else if (desc->action && desc->action->name)
+			name = desc->action->name;
+		ret = true;
+		log_wakeup_reason(irq);
+	}
+
+	return ret;
+}
+
+static struct wakeup_device gic_wakeup_device = {
+	.name = "gic-v3",
+	.check_wakeup_event = gic_check_wakeup_event,
+};
 
 static u64 gic_mpidr_to_affinity(unsigned long mpidr)
 {
@@ -1393,6 +1435,7 @@ static int __init gicv3_of_init(struct device_node *node, struct device_node *pa
 		goto out_unmap_rdist;
 
 	gic_populate_ppi_partitions(node);
+	pm_register_wakeup_device(&gic_wakeup_device);
 
 	if (static_branch_likely(&supports_deactivate_key))
 		gic_of_setup_kvm_info(node);

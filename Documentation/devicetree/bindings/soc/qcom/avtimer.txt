@@ -1,0 +1,35 @@
+* avtimer
+
+Avtimer provides an interface for clients to enable avtimer block
+on qdsp6. 64 bit AVtimer exposed by qdsp6 is used for audio and video
+stream synchronization during capture and playback usecases.
+
+Required properties:
+- reg : physical address and length of avtimer register
+- reg-names : AVtimer register name
+  Required register resource entries are:
+  "avtimer_lsb_addr" : AVtimer lsb physical address
+  "avtimer_msb_addr" : AVtimer msb physical address
+- compatible : Must be "qcom,avtimer"
+
+Optional properties:
+- clk-div : Divisor to divide the ticks value to get msec value.
+ If the clock is at 27MHz, the ticks value read from AVTimer
+ registers will have to be divided by 27, to achieve the msec value.
+- clk-mult : Multiplier to multiply the ticks value in order to avoid
+ a floating point operation if the clock is of decimal value.
+ E.g. To get msec out of ticks from a 19.2MHz clock source, the ticks
+ value will have to be divided by 19.2, which will then become a
+ floating point operation. However, to avoid using a floating point
+ operation, the msec can be calculated by multiplying ticks with 10
+ and dividing the result by 192. i.e. msec = (ticks * 10) / 192;
+
+Example:
+	qcom,avtimer@90f7000 {
+		compatible = "qcom,avtimer";
+		reg = <0x90f700c 0x4>,
+		      <0x90f7010 0x4>;
+		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
+		qcom,clk-div = <27>;
+		qcom,clk-mult = <10>;
+	};

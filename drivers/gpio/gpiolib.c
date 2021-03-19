@@ -61,6 +61,16 @@ static struct bus_type gpio_bus_type = {
 	.name = "gpio",
 };
 
+#define gpio_debug_output(m, c, fmt, ...)		\
+do {							\
+	if (m)						\
+		seq_printf(m, fmt, ##__VA_ARGS__);	\
+	else if (c)					\
+		pr_cont(fmt, ##__VA_ARGS__);		\
+	else						\
+		pr_info(fmt, ##__VA_ARGS__);		\
+} while (0)
+
 /*
  * Number of GPIOs to use for the fast path in set array
  */
@@ -1632,7 +1642,7 @@ static int gpiochip_match_name(struct gpio_chip *chip, void *data)
 	return !strcmp(chip->label, name);
 }
 
-static struct gpio_chip *find_chip_by_name(const char *name)
+struct gpio_chip *find_chip_by_name(const char *name)
 {
 	return gpiochip_find((void *)name, gpiochip_match_name);
 }
@@ -4358,6 +4368,8 @@ core_initcall(gpiolib_dev_init);
 
 #ifdef CONFIG_DEBUG_FS
 
+static u32 gpio_debug_suspend = 0;
+
 static void gpiolib_dbg_show(struct seq_file *s, struct gpio_device *gdev)
 {
 	unsigned		i;
@@ -4370,7 +4382,7 @@ static void gpiolib_dbg_show(struct seq_file *s, struct gpio_device *gdev)
 	for (i = 0; i < gdev->ngpio; i++, gpio++, gdesc++) {
 		if (!test_bit(FLAG_REQUESTED, &gdesc->flags)) {
 			if (gdesc->name) {
-				seq_printf(s, " gpio-%-3d (%-20.20s)\n",
+				gpio_debug_output(s, 1, " gpio-%-3d (%-20.20s)\n",
 					   gpio, gdesc->name);
 			}
 			continue;
@@ -4379,12 +4391,12 @@ static void gpiolib_dbg_show(struct seq_file *s, struct gpio_device *gdev)
 		gpiod_get_direction(gdesc);
 		is_out = test_bit(FLAG_IS_OUT, &gdesc->flags);
 		is_irq = test_bit(FLAG_USED_AS_IRQ, &gdesc->flags);
-		seq_printf(s, " gpio-%-3d (%-20.20s|%-20.20s) %s %s %s",
+		gpio_debug_output(s, 1, " gpio-%-3d (%-20.20s|%-20.20s) %s %s %s",
 			gpio, gdesc->name ? gdesc->name : "", gdesc->label,
 			is_out ? "out" : "in ",
 			chip->get ? (chip->get(chip, i) ? "hi" : "lo") : "?  ",
 			is_irq ? "IRQ" : "   ");
-		seq_printf(s, "\n");
+		gpio_debug_output(s, 1, "\n");
 	}
 }
 
@@ -4437,24 +4449,30 @@ static int gpiolib_seq_show(struct seq_file *s, void *v)
 	struct device *parent;
 
 	if (!chip) {
-		seq_printf(s, "%s%s: (dangling chip)", (char *)s->private,
-			   dev_name(&gdev->dev));
+		if (s)
+			gpio_debug_output(s, 1, "%s%s: (dangling chip)", (char *)s->private,
+				dev_name(&gdev->dev));
+		else
+			gpio_debug_output(s, 1, "%s: (dangling chip)", dev_name(&gdev->dev));
 		return 0;
 	}
-
-	seq_printf(s, "%s%s: GPIOs %d-%d", (char *)s->private,
-		   dev_name(&gdev->dev),
-		   gdev->base, gdev->base + gdev->ngpio - 1);
+	if (s)
+		gpio_debug_output(s, 1, "%s%s: GPIOs %d-%d", (char *)s->private,
+			dev_name(&gdev->dev),
+			gdev->base, gdev->base + gdev->ngpio - 1);
+	else
+		gpio_debug_output(s, 1, "%s: GPIOs %d-%d", dev_name(&gdev->dev),
+			gdev->base, gdev->base + gdev->ngpio - 1);
 	parent = chip->parent;
 	if (parent)
-		seq_printf(s, ", parent: %s/%s",
+		gpio_debug_output(s, 1, ", parent: %s/%s",
 			   parent->bus ? parent->bus->name : "no-bus",
 			   dev_name(parent));
 	if (chip->label)
-		seq_printf(s, ", %s", chip->label);
+		gpio_debug_output(s, 1, ", %s", chip->label);
 	if (chip->can_sleep)
-		seq_printf(s, ", can sleep");
-	seq_printf(s, ":\n");
+		gpio_debug_output(s, 1, ", can sleep");
+	gpio_debug_output(s, 1, ":\n");
 
 	if (chip->dbg_show)
 		chip->dbg_show(s, chip);
@@ -4471,8 +4489,33 @@ static const struct seq_operations gpiolib_seq_ops = {
 	.show = gpiolib_seq_show,
 };
 
+void gpio_debug_print(void)
+{
+	struct gpio_chip *gpiochip;
+	int m = 0;
+	static const char * const gpio_chip_name[] = {
+		"soc:qcom,msm-audio-apr:qcom,q6core-audio:lpi_pinctrl@33c0000",
+		"c440000.qcom,spmi:qcom,pm8009@a:pinctrl@c000",
+		"c440000.qcom,spmi:qcom,pm8150l@4:pinctrl@c000",
+		"c440000.qcom,spmi:qcom,pm8150b@2:pinctrl@c000",
+		"c440000.qcom,spmi:qcom,pm8150@0:pinctrl@c000",
+		"f000000.pinctrl",
+	};
+
+	if (likely(!gpio_debug_suspend))
+		return;
+
+	pr_info("GPIOs dump:\n");
+	for (m=0;m<sizeof(gpio_chip_name)/sizeof(gpio_chip_name[0]);m++) {
+		gpiochip = find_chip_by_name(gpio_chip_name[m]);
+		if (gpiochip)
+			gpiolib_seq_show(NULL, gpiochip->gpiodev);
+	}
+}
+
 static int gpiolib_open(struct inode *inode, struct file *file)
 {
+	gpio_debug_print();
 	return seq_open(file, &gpiolib_seq_ops);
 }
 
@@ -4484,13 +4527,21 @@ static const struct file_operations gpiolib_operations = {
 	.release	= seq_release,
 };
 
+EXPORT_SYMBOL_GPL(gpio_debug_print);
+
 static int __init gpiolib_debugfs_init(void)
 {
 	/* /sys/kernel/debug/gpio */
 	(void) debugfs_create_file("gpio", S_IFREG | S_IRUGO,
 				NULL, NULL, &gpiolib_operations);
+
+	debugfs_create_u32("gpio_debug_suspend", 0644, NULL, &gpio_debug_suspend);
 	return 0;
 }
 subsys_initcall(gpiolib_debugfs_init);
-
+#else
+void gpio_debug_print(void)
+{
+}
+EXPORT_SYMBOL_GPL(gpio_debug_print);
 #endif	/* DEBUG_FS */

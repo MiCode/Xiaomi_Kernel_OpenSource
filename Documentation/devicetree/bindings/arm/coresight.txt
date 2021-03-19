@@ -1,0 +1,491 @@
+* CoreSight Components:
+
+CoreSight components are compliant with the ARM CoreSight architecture
+specification and can be connected in various topologies to suit a particular
+SoCs tracing needs. These trace components can generally be classified as
+sinks, links and sources. Trace data produced by one or more sources flows
+through the intermediate links connecting the source to the currently selected
+sink. Each CoreSight component device should use these properties to describe
+its hardware characteristcs.
+
+* Required properties for all components *except* non-configurable replicators:
+
+	* compatible: These have to be supplemented with "arm,primecell" as
+	  drivers are using the AMBA bus interface.  Possible values include:
+		- Embedded Trace Buffer (version 1.0):
+			"arm,coresight-etb10", "arm,primecell";
+
+		- Trace Port Interface Unit:
+			"arm,coresight-tpiu", "arm,primecell";
+
+		- Trace Memory Controller, used for Embedded Trace Buffer(ETB),
+		  Embedded Trace FIFO(ETF) and Embedded Trace Router(ETR)
+		  configuration.  The configuration mode (ETB, ETF, ETR) is
+		  discovered at boot time when the device is probed.
+			"arm,coresight-tmc", "arm,primecell";
+
+		- Trace Funnel:
+			"arm,coresight-funnel", "arm,primecell";
+
+		- Embedded Trace Macrocell (version 3.x) and
+					Program Flow Trace Macrocell:
+			"arm,coresight-etm3x", "arm,primecell";
+
+		- Embedded Trace Macrocell (version 4.x):
+			"arm,coresight-etm4x", "arm,primecell";
+
+		- Coresight programmable Replicator :
+			"arm,coresight-dynamic-replicator", "arm,primecell";
+
+		- System Trace Macrocell:
+			"arm,coresight-stm", "arm,primecell"; [1]
+		- Coresight Address Translation Unit (CATU)
+			"arm,coresight-catu", "arm,primecell";
+
+		- Trigger Generation Unit:
+			"arm,primecell";
+
+	* reg: physical base address and length of the register
+	  set(s) of the component.
+
+	* clocks: the clocks associated to this component.
+
+	* clock-names: the name of the clocks referenced by the code.
+	  Since we are using the AMBA framework, the name of the clock
+	  providing the interconnect should be "apb_pclk", and some
+	  coresight blocks also have an additional clock "atclk", which
+	  clocks the core of that coresight component. The latter clock
+	  is optional.
+
+	* port or ports: The representation of the component's port
+	  layout using the generic DT graph presentation found in
+	  "bindings/graph.txt".
+
+	* coresight-name: unique descriptive name of the component.
+
+* Additional required properties for System Trace Macrocells (STM):
+	* reg: along with the physical base address and length of the register
+	  set as described above, another entry is required to describe the
+	  mapping of the extended stimulus port area.
+
+	* reg-names: the only acceptable values are "stm-base" and
+	  "stm-stimulus-base", each corresponding to the areas defined in "reg".
+
+* Required properties for devices that don't show up on the AMBA bus, such as
+  non-configurable replicators:
+
+	* compatible: Currently supported value is (note the absence of the
+	  AMBA markee):
+		- "arm,coresight-replicator"
+		- "arm,coresight-cti"
+		- "qcom,coresight-tpda"
+		- "qcom,coresight-tpdm"
+		- "qcom,coresight-csr"
+		- "qcom,coresight-hwevent"
+		- "qcom,coresight-dummy"
+		- "qcom,coresight-remote-etm"
+
+	* port or ports: same as above.
+
+	* coresight-name: unique descriptive name of the component.
+
+* Additional required property for coresight-tgu devices:
+	* tgu-steps: must be present. Indicates number of steps supported
+	  by the TGU.
+	* tgu-conditions: must be present. Indicates the number of conditions
+	  supported by the TGU.
+	* tgu-regs: must be present. Indicates the number of regs supported
+	  by the TGU.
+	* tgu-timer-counters: must be present. Indicates the number of timers and
+	  counters available in the TGU to do a comparision.
+
+* Optional properties for all components:
+	* reg-names: names corresponding to each reg property value.
+
+	* qcom,proxy-regs: List of regulators required.
+
+	* qcom,proxy-clks: List of additional clocks required.
+
+* Optional properties for ETM/PTMs:
+
+	* arm,cp14: must be present if the system accesses ETM/PTM management
+	  registers via co-processor 14.
+
+	* cpu: the cpu phandle this ETM/PTM is affined to. When omitted the
+	  source is considered to belong to CPU0.
+
+	* qcom,tupwr-disable: For ETM, don't keep trace unit powered across power
+	  collapse.
+
+* Optional property for TMC:
+
+	* arm,buffer-size: size of contiguous buffer space for TMC ETR
+	  (embedded trace router). This property is obsolete. The buffer size
+	  can be configured dynamically via buffer_size property in sysfs.
+
+	* arm,scatter-gather: boolean. Indicates that the TMC-ETR can safely
+	  use the SG mode on this system.
+
+	* arm,default-sink: represents the default compile time CoreSight sink
+
+	* coresight-ctis: represents flush and reset CTIs for TMC buffer
+
+	* qcom,force-reg-dump: enables TMC reg dump support
+
+	* qcom,sw-usb: enables SW mode USB support for TMC ETR
+
+	* arm,sg-enable : indicates whether scatter gather feature is enabled
+	  by default for TMC ETR configuration.
+
+* Optional property for CATU :
+	* interrupts : Exactly one SPI may be listed for reporting the address
+	  error
+
+* Required property for TPDAs:
+
+	* qcom,tpda-atid: must be present. Specifies the ATID for TPDA.
+
+* Optional properties for TPDAs:
+
+	* qcom,bc-elem-size: specifies the BC element size supported by each
+	  monitor connected to the aggregator on each port. Should be specified
+	  in pairs (port, bc element size).
+
+	* qcom,tc-elem-size: specifies the TC element size supported by each
+	  monitor connected to the aggregator on each port. Should be specified
+	  in pairs (port, tc element size).
+
+	* qcom,dsb-elem-size: specifies the DSB element size supported by each
+	  monitor connected to the aggregator on each port. Should be specified
+	  in pairs (port, dsb element size).
+
+	* qcom,cmb-elem-size: specifies the CMB element size supported by each
+	  monitor connected to the aggregator on each port. Should be specified
+	  in pairs (port, cmb element size).
+
+* Optional properties for TPDM:
+
+	* qcom,clk-enable: specifies whether additional clock bit needs to be
+	  set for M4M TPDM.
+
+	* qcom,msr-fix-req: boolean, indicating if MSRs need to be programmed
+	  after enabling the subunit.
+
+	* qcom,hw-enable-check: Check if the tpdm need to be probed as some tpdms
+	  are not enabled in secure device.
+
+* Optional properties for CSRs:
+
+	* qcom,usb-bam-support: boolean, indicates CSR has the ability to operate on
+	  usb bam, include enable,disable and flush.
+
+	* qcom,hwctrl-set-support: boolean, indicates CSR has the ability to operate on
+	  to "HWCTRL" register.
+
+	* qcom,set-byte-cntr-support:boolean, indicates CSR has the ability to operate on
+	  to "BYTECNT" register.
+
+	* qcom,timestamp-support:boolean, indicates CSR support sys interface to read
+	  timestamp value.
+	* qcom,aodbg-csr-support: boolean, indicates this CSR is AODBG CSR.
+
+* Required property for Remote ETMs:
+
+	* qcom,inst-id: must be present. QMI instance id for remote ETMs.
+
+* Optional properties for funnels:
+
+	* source: specifies the source that binds to this output port. Only
+	  trace from that source routes to this output port.
+
+	* qcom,duplicate-funnel: boolean, indicates its a duplicate of an
+	  existing funnel. Funnel devices are now capable of supporting
+	  multiple-input and multiple-output configuration with in built
+	  hardware filtering for TPDM devices. Each set of input-output
+	  combination is treated as independent funnel device.
+	  funnel-base-dummy and funnel-base-real reg-names must be specified
+	  when this property is enabled.
+
+	* reg-names: funnel-base-dummy: dummy register space used by a
+	  duplicate funnel. Should be a valid register address space that
+	  no other device is using.
+
+	* reg-names: funnel-base-real: actual register space for the
+	  duplicate funnel.
+
+Example:
+
+1. Sinks
+	etb@20010000 {
+		compatible = "arm,coresight-etb10", "arm,primecell";
+		reg = <0 0x20010000 0 0x1000>;
+
+		clocks = <&oscclk6a>;
+		clock-names = "apb_pclk";
+		port {
+			etb_in_port: endpoint@0 {
+				slave-mode;
+				remote-endpoint = <&replicator_out_port0>;
+			};
+		};
+	};
+
+	tpiu@20030000 {
+		compatible = "arm,coresight-tpiu", "arm,primecell";
+		reg = <0 0x20030000 0 0x1000>;
+
+		clocks = <&oscclk6a>;
+		clock-names = "apb_pclk";
+		port {
+			tpiu_in_port: endpoint@0 {
+				slave-mode;
+				remote-endpoint = <&replicator_out_port1>;
+			};
+		};
+	};
+
+	etr@20070000 {
+		compatible = "arm,coresight-tmc", "arm,primecell";
+		reg = <0 0x20070000 0 0x1000>;
+
+		clocks = <&oscclk6a>;
+		clock-names = "apb_pclk";
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* input port */
+			port@0 {
+				reg =  <0>;
+				etr_in_port: endpoint {
+					slave-mode;
+					remote-endpoint = <&replicator2_out_port0>;
+				};
+			};
+
+			/* CATU link represented by output port */
+			port@1 {
+				reg = <1>;
+				etr_out_port: endpoint {
+					remote-endpoint = <&catu_in_port>;
+				};
+			};
+		};
+	};
+
+2. Links
+	replicator {
+		/* non-configurable replicators don't show up on the
+		 * AMBA bus.  As such no need to add "arm,primecell".
+		 */
+		compatible = "arm,coresight-replicator";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* replicator output ports */
+			port@0 {
+				reg = <0>;
+				replicator_out_port0: endpoint {
+					remote-endpoint = <&etb_in_port>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				replicator_out_port1: endpoint {
+					remote-endpoint = <&tpiu_in_port>;
+				};
+			};
+
+			/* replicator input port */
+			port@2 {
+				reg = <0>;
+				replicator_in_port0: endpoint {
+					slave-mode;
+					remote-endpoint = <&funnel_out_port0>;
+				};
+			};
+		};
+	};
+
+	funnel@20040000 {
+		compatible = "arm,coresight-funnel", "arm,primecell";
+		reg = <0 0x20040000 0 0x1000>;
+
+		clocks = <&oscclk6a>;
+		clock-names = "apb_pclk";
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* funnel output port */
+			port@0 {
+				reg = <0>;
+				funnel_out_port0: endpoint {
+					remote-endpoint =
+							<&replicator_in_port0>;
+				};
+			};
+
+			/* funnel input ports */
+			port@1 {
+				reg = <0>;
+				funnel_in_port0: endpoint {
+					slave-mode;
+					remote-endpoint = <&ptm0_out_port>;
+				};
+			};
+
+			port@2 {
+				reg = <1>;
+				funnel_in_port1: endpoint {
+					slave-mode;
+					remote-endpoint = <&ptm1_out_port>;
+				};
+			};
+
+			port@3 {
+				reg = <2>;
+				funnel_in_port2: endpoint {
+					slave-mode;
+					remote-endpoint = <&etm0_out_port>;
+				};
+			};
+
+		};
+	};
+
+	tpda_mss: tpda@7043000 {
+		compatible = "qcom,coresight-tpda", "arm,primecell";
+		reg = <0x7043000 0x1000>;
+		reg-names = "tpda-base";
+
+		coresight-name = "coresight-tpda-mss";
+
+		qcom,tpda-atid = <67>;
+		qcom,dsb-elem-size = <0 32>;
+		qcom,cmb-elem-size = <0 32>;
+
+		clocks = <&clock_aop qdss_clk>;
+		clock-names = "apb_pclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				tpda_mss_out_funnel_in1: endpoint {
+				remote-endpoint =
+					<&funnel_in1_in_tpda_mss>;
+				};
+			};
+			port@1 {
+				reg = <0>;
+				tpda_mss_in_tpdm_mss: endpoint {
+				slave-mode;
+				remote-endpoint =
+					<&tpdm_mss_out_tpda_mss>;
+				};
+			};
+		};
+	};
+3. Sources
+	ptm@2201c000 {
+		compatible = "arm,coresight-etm3x", "arm,primecell";
+		reg = <0 0x2201c000 0 0x1000>;
+
+		cpu = <&cpu0>;
+		clocks = <&oscclk6a>;
+		clock-names = "apb_pclk";
+		port {
+			ptm0_out_port: endpoint {
+				remote-endpoint = <&funnel_in_port0>;
+			};
+		};
+	};
+
+	ptm@2201d000 {
+		compatible = "arm,coresight-etm3x", "arm,primecell";
+		reg = <0 0x2201d000 0 0x1000>;
+
+		cpu = <&cpu1>;
+		clocks = <&oscclk6a>;
+		clock-names = "apb_pclk";
+		port {
+			ptm1_out_port: endpoint {
+				remote-endpoint = <&funnel_in_port1>;
+			};
+		};
+	};
+
+4. STM
+	stm@20100000 {
+		compatible = "arm,coresight-stm", "arm,primecell";
+		reg = <0 0x20100000 0 0x1000>,
+		      <0 0x28000000 0 0x180000>;
+		reg-names = "stm-base", "stm-stimulus-base";
+
+		clocks = <&soc_smc50mhz>;
+		clock-names = "apb_pclk";
+		port {
+			stm_out_port: endpoint {
+				remote-endpoint = <&main_funnel_in_port2>;
+			};
+		};
+	};
+
+5. CATU
+
+	catu@207e0000 {
+		compatible = "arm,coresight-catu", "arm,primecell";
+		reg = <0 0x207e0000 0 0x1000>;
+
+		clocks = <&oscclk6a>;
+		clock-names = "apb_pclk";
+
+		interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
+		port {
+			catu_in_port: endpoint {
+				slave-mode;
+				remote-endpoint = <&etr_out_port>;
+			};
+		};
+	};
+
+	tpdm_mss: tpdm@7042000 {
+		compatible = "qcom,coresight-tpdm", "arm,primecell";
+		reg = <0x7042000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name = "coresight-tpdm-mss";
+
+		clocks = <&clock_aop qdss_clk>;
+		clock-names = "apb_pclk";
+
+		port{
+			tpdm_mss_out_tpda_mss: endpoint {
+				remote-endpoint = <&tpda_mss_in_tpdm_mss>;
+		};
+	};
+};
+
+5. TGUs
+	ipcb_tgu: tgu@6b0c000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b999>;
+		reg = <0x06B0C000 0x1000>;
+		reg-names = "tgu-base";
+		tgu-steps = <3>;
+		tgu-conditions = <4>;
+		tgu-regs = <4>;
+		tgu-timer-counters = <8>;
+
+		coresight-name = "coresight-tgu-ipcb";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+[1]. There is currently two version of STM: STM32 and STM500.  Both
+have the same HW interface and as such don't need an explicit binding name.

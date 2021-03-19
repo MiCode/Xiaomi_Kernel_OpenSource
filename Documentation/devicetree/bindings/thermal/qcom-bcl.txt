@@ -1,0 +1,44 @@
+===============================================================================
+BCL PMIC Peripheral driver:
+===============================================================================
+Qualcomm Technologies, Inc's PMIC has battery current limiting peripheral, which can monitor for
+high battery current and low battery voltage in the hardware. The BCL
+peripheral driver interacts with the PMIC peripheral using the SPMI driver
+interface. The hardware can take threshold for notifying for high battery
+current or low battery voltage events.
+
+Required Parameters:
+- compatible: must be
+	'qcom,msm-bcl-lmh' for bcl peripheral with LMH DCVSh interface.
+- reg: <a b> where 'a' is the starting register address of the PMIC
+	peripheral and 'b' is the size of the peripheral address space.
+	If the BCL inhibit current derating feature is enabled, this must also
+	have the PON spare registers as well. Example: <a b c d> where
+	c is the first PON spare register that will be written and d is the
+	size of the registers space needed to be written. Certain version
+	of PMIC, can send interrupt to LMH hardware driver directly. In that
+	case the shadow peripheral address space should be mentioned along
+	with the bcl peripherals address.
+- interrupts: <a b c> Where 'a' is the SLAVE ID of the PMIC, 'b' is
+		the peripheral ID and 'c' is the interrupt number in PMIC.
+- interrupt-names: user defined names for the interrupts. These
+		interrupt names will be used by the drivers to identify the
+		interrupts, instead of specifying the ID's. bcl driver will
+		accept these five standard interrupts.
+		"bcl-low-vbat"
+		"bcl-very-low-vbat"
+		"bcl-crit-low-vbat"
+		"bcl-high-ibat"
+		"bcl-very-high-ibat"
+
+
+Optional Parameters:
+
+		bcl@4200 {
+			compatible = "qcom,msm-bcl";
+			reg = <0x4200 0xFF 0x88e 0x2>;
+			interrupts = <0x2 0x42 0x0>,
+					<0x2 0x42 0x1>;
+			interrupt-names = "bcl-high-ibat-int",
+						"bcl-low-vbat-int";
+		};
