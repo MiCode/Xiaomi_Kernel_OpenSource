@@ -2004,6 +2004,32 @@
 			clock-names = "btifc","apdmac";
 		};
 
+		bt: bt@18000000 {
+			compatible = "mediatek,bt";
+				/* conn_infra_rgu */
+			reg = <0 0x18000000 0 0x1000>,
+				/* conn_infra_cfg */
+				<0 0x18001000 0 0x1000>,
+				/* sys ram */
+				<0 0x18050000 0 0x1000>,
+				/* conn_host_csr_top */
+				<0 0x18060000 0 0x1000>,
+				/* bgfsys base */
+				<0 0x18800000 0 0x1000>,
+				/* bgfsys hw info base */
+				<0 0x18812000 0 0x1000>,
+				/* coninfra cfg ao */
+				<0 0x10001000 0 0x1000>;
+				/* coninfra ccif base */
+				/* <0 0x10003300 0 0x100>, */
+				/* bgf2md base */
+				/* <0 0x1025C000 0 0x100>; */
+				/* Rx Interrupt */
+			interrupts = <GIC_SPI 376 IRQ_TYPE_LEVEL_HIGH 0>,
+				/* Assert & FW log interrupt */
+				<GIC_SPI 377 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
 		disp_pwm: pwm@1100e000 {
 			compatible = "mediatek,disp_pwm0",
 					"mediatek,mt6873-disp-pwm";
