@@ -3188,9 +3188,14 @@ int dpmaif_late_init(unsigned char hif_id)
 	}
 
 	/* wakeup source init */
-	reg_val =
-		regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
 		INFRA_DPMAIF_CTRL_REG, &reg_val);
+	if (ret) {
+		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+			"%s:read INFRA_DPMAIF_CTRL_REG fail,ret=%d\n",
+			__func__, ret);
+		return ret;
+	}
 	reg_val |= DPMAIF_IP_BUSY_MASK;
 	reg_val &= ~(1 << 13); /* MD to AP wakeup event */
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
@@ -3636,13 +3641,18 @@ int dpmaif_stop_tx_sw(unsigned char hif_id)
 void dpmaif_hw_reset(unsigned char md_id)
 {
 	unsigned int reg_value;
+	int ret;
 #ifndef MT6297
 	int count = 0;
 #endif
 
 	/* pre- DPMAIF HW reset: bus-protect */
 #ifdef MT6297
-	regmap_read(dpmaif_ctrl->plat_val.infra_ao_base, 0, &reg_value);
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base, 0, &reg_value);
+	if (ret) {
+		CCCI_ERROR_LOG(0, TAG, "read infra_ao_base ret=%d\n", ret);
+		return;
+	}
 	reg_value &= ~INFRA_PROT_DPMAIF_BIT;
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base, 0, reg_value);
 	CCCI_REPEAT_LOG(md_id, TAG, "%s:set prot:0x%x\n", __func__, reg_value);
@@ -3651,33 +3661,53 @@ void dpmaif_hw_reset(unsigned char md_id)
 		INFRA_TOPAXI_PROTECTEN_1_SET,
 		DPMAIF_SLEEP_PROTECT_CTRL);
 
-	while ((regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
-		INFRA_TOPAXI_PROTECT_READY_STA1_1, &reg_value)
-		&(1<<4)) != (1 << 4)) {
+	while (1) {
+		ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+			INFRA_TOPAXI_PROTECT_READY_STA1_1, &reg_value);
+		if (ret) {
+			CCCI_ERROR_LOG(0, TAG,
+			"read INFRA_TOPAXI_PROTECT_READY_STA1_1 ret=%d\n",
+			ret);
+			break;
+		}
+		if (reg_value&(1<<4) == (1 << 4))
+			break;
 		udelay(1);
 		if (++count >= 1000) {
 			CCCI_ERROR_LOG(0, TAG, "DPMAIF pre-reset timeout\n");
 			break;
 		}
 	}
-	reg_value = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
 		INFRA_TOPAXI_PROTECTEN_1, &reg_value);
+	if (ret) {
+		CCCI_ERROR_LOG(0, TAG, "read INFRA_TOPAXI_PROTECTEN_1 ret=%d\n", ret);
+		return;
+	}
 	CCCI_NORMAL_LOG(md_id, TAG,
 		"infra_topaxi_protecten_1: 0x%x\n", reg_value);
 #endif
 	/* DPMAIF HW reset */
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
 	/* reset dpmaif hw: AO Domain */
-	reg_value = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
 		INFRA_RST0_REG_AO, &reg_value);
+	if (ret) {
+		CCCI_ERROR_LOG(0, TAG, "read INFRA_RST0_REG_AO ret=%d\n", ret);
+		return;
+	}
 	reg_value &= ~(DPMAIF_AO_RST_MASK); /* the bits in reg is WO, */
 	reg_value |= (DPMAIF_AO_RST_MASK);/* so only this bit effective */
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
 		INFRA_RST0_REG_AO, reg_value);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
 	/* reset dpmaif clr */
-	reg_value = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
 		INFRA_RST1_REG_AO, &reg_value);
+	if (ret) {
+		CCCI_ERROR_LOG(0, TAG, "read INFRA_RST1_REG_AO ret=%d\n", ret);
+		return;
+	}
 	reg_value &= ~(DPMAIF_AO_RST_MASK);/* read no use, maybe a time delay */
 	reg_value |= (DPMAIF_AO_RST_MASK);
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
@@ -3685,16 +3715,24 @@ void dpmaif_hw_reset(unsigned char md_id)
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:done\n", __func__);
 
 	/* reset dpmaif hw: PD Domain */
-	reg_value = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
-	INFRA_RST0_REG_PD, &reg_value);
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+		INFRA_RST0_REG_PD, &reg_value);
+	if (ret) {
+		CCCI_ERROR_LOG(0, TAG, "read INFRA_RST0_REG_PD ret=%d\n", ret);
+		return;
+	}
 	reg_value &= ~(DPMAIF_PD_RST_MASK);
 	reg_value |= (DPMAIF_PD_RST_MASK);
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
 		INFRA_RST0_REG_PD, reg_value);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
 	/* reset dpmaif clr */
-	reg_value = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
 		INFRA_RST1_REG_PD, &reg_value);
+	if (ret) {
+		CCCI_ERROR_LOG(0, TAG, "read INFRA_RST1_REG_PD ret=%d\n", ret);
+		return;
+	}
 	reg_value &= ~(DPMAIF_PD_RST_MASK);
 	reg_value |= (DPMAIF_PD_RST_MASK);
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,

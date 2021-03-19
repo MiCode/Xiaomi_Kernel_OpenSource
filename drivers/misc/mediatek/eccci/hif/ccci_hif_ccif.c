@@ -1911,13 +1911,20 @@ static void ccif_set_clk_cg(unsigned char hif_id, unsigned int on)
 	}
 	/* Set MD_PCCIF4_PWR_ON */
 	if (on) {
+		if (!ccif_ctrl->plat_val.infra_ao_base) {
+			CCCI_ERROR_LOG(ccif_ctrl->md_id, TAG,
+				"%s:infra_ao_base is null!\n", __func__);
+			return;
+		}
 		CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG,
-			"ccif4 %s:  set 0x%llx + 0x22C = 0x1\n",
+			"%s:ccif4 set 0x%llx + 0x22C = 0x1\n",
 			__func__,
 			(u64)ccif_ctrl->plat_val.infra_ao_base);
+
 		regmap_write(ccif_ctrl->plat_val.infra_ao_base,
 			0x22C, 0x1);
 	}
+	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s:done!\n", __func__);
 }
 
 static int ccif_start(unsigned char hif_id)

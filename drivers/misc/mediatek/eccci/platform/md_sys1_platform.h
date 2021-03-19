@@ -9,7 +9,8 @@
 #include <linux/skbuff.h>
 
 struct  ccci_plat_val {
-	void __iomem *infra_ao_base;
+	struct regmap *infra_ao_base;
+	struct regmap *topckgen_clk_base;
 	unsigned int md_gen;
 	unsigned long offset_epof_md1;
 	void __iomem *md_plat_info;
@@ -52,7 +53,6 @@ struct ccci_plat_ops {
 struct md_hw_info {
 	/* HW info - Register Address */
 	unsigned long md_rgu_base;
-	void __iomem *ap_topclkgen_base;
 	unsigned long md_boot_slave_Vector;
 	unsigned long md_boot_slave_Key;
 	unsigned long md_boot_slave_En;
