@@ -464,6 +464,20 @@ static const struct soc_enum mic_type_mux_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mic_type_mux_map), mic_type_mux_map),
 };
 
+static int dmic_used_get(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	ucontrol->value.integer.value[0] =
+		priv->mux_select[MUX_MIC_TYPE_0] == MIC_TYPE_MUX_DMIC ||
+		priv->mux_select[MUX_MIC_TYPE_1] == MIC_TYPE_MUX_DMIC ||
+		priv->mux_select[MUX_MIC_TYPE_2] == MIC_TYPE_MUX_DMIC;
+
+	return 0;
+}
+
 static int mic_type_get(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
@@ -2251,8 +2265,13 @@ static int mt_ul_src_dmic_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		/* default two wire, 3.25M */
-		regmap_write(priv->regmap, MT6359_AFE_UL_SRC_CON0_H, 0x0080);
+		if (priv->dmic_one_wire_mode)
+			regmap_write(priv->regmap, MT6359_AFE_UL_SRC_CON0_H,
+				     0x0400);
+		else
+			regmap_write(priv->regmap, MT6359_AFE_UL_SRC_CON0_H,
+				     0x0080);
+
 		regmap_update_bits(priv->regmap, MT6359_AFE_UL_SRC_CON0_L,
 				   0xfffc, 0x0000);
 		break;
@@ -2278,9 +2297,13 @@ static int mt_ul_src_34_dmic_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		/* default two wire, 3.25M */
-		regmap_write(priv->regmap,
-			     MT6359_AFE_ADDA6_L_SRC_CON0_H, 0x0080);
+		if (priv->dmic_one_wire_mode)
+			regmap_write(priv->regmap,
+				     MT6359_AFE_ADDA6_L_SRC_CON0_H, 0x0400);
+		else
+			regmap_write(priv->regmap,
+				     MT6359_AFE_ADDA6_L_SRC_CON0_H, 0x0080);
+
 		regmap_update_bits(priv->regmap, MT6359_AFE_ADDA6_UL_SRC_CON0_L,
 				   0xfffc, 0x0000);
 		break;
@@ -5162,6 +5185,7 @@ static const struct snd_kcontrol_new mt6359_snd_misc_controls[] = {
 		       hp_impedance_get, NULL),
 	SOC_ENUM_EXT("PMIC_REG_CLEAR", misc_control_enum[0],
 		     NULL, mt6359_rcv_dcc_set),
+	SOC_ENUM_EXT("DMic Used", misc_control_enum[0], dmic_used_get, NULL),
 };
 
 static int mt6359_codec_init_reg(struct snd_soc_component *cmpnt)
@@ -6147,7 +6171,9 @@ static const struct file_operations mt6359_debugfs_ops = {
 
 static int mt6359_parse_dt(struct mt6359_priv *priv)
 {
-	int ret;
+	int ret, i;
+	const int mux_num = 3;
+	unsigned int mic_type_mux[mux_num];
 	struct device *dev = priv->dev;
 	struct device_node *np;
 
@@ -6159,41 +6185,38 @@ static int mt6359_parse_dt(struct mt6359_priv *priv)
 	ret = of_property_read_u32(np, "mediatek,dmic-mode",
 				   &priv->dmic_one_wire_mode);
 	if (ret) {
-		dev_warn(dev, "%s() failed to read dmic-mode\n",
+		dev_info(dev, "%s() failed to read dmic-mode, default 2 wire\n",
 			 __func__);
 		priv->dmic_one_wire_mode = 0;
 	}
-	ret = of_property_read_u32(np, "mediatek,mic-type-0",
-				   &priv->mux_select[MUX_MIC_TYPE_0]);
+	ret = of_property_read_u32_array(np, "mediatek,mic-type",
+					 mic_type_mux, mux_num);
 	if (ret) {
-		dev_warn(dev, "%s() failed to read mic-type-0\n",
+		dev_info(dev, "%s() failed to read mic-type, default DCC\n",
 			 __func__);
 		priv->mux_select[MUX_MIC_TYPE_0] = MIC_TYPE_MUX_DCC;
-	}
-	ret = of_property_read_u32(np, "mediatek,mic-type-1",
-				   &priv->mux_select[MUX_MIC_TYPE_1]);
-	if (ret) {
-		dev_warn(dev, "%s() failed to read mic-type-1\n",
-			 __func__);
 		priv->mux_select[MUX_MIC_TYPE_1] = MIC_TYPE_MUX_DCC;
-	}
-	ret = of_property_read_u32(np, "mediatek,mic-type-2",
-				   &priv->mux_select[MUX_MIC_TYPE_2]);
-	if (ret) {
-		dev_warn(dev, "%s() failed to read mic-type-2\n",
-			 __func__);
 		priv->mux_select[MUX_MIC_TYPE_2] = MIC_TYPE_MUX_DCC;
+	} else {
+		for (i = MUX_MIC_TYPE_0; i <= MUX_MIC_TYPE_2; ++i)
+			priv->mux_select[i] = mic_type_mux[i];
 	}
 
 	/* get auxadc channel */
 	priv->hpofs_cal_auxadc = devm_iio_channel_get(dev,
 						      "pmic_hpofs_cal");
+
 	ret = PTR_ERR_OR_ZERO(priv->hpofs_cal_auxadc);
 	if (ret) {
-		if (ret != -EPROBE_DEFER)
+		if (ret != -EPROBE_DEFER)	//EPROBE_DEFER:517
 			dev_err(dev,
 				"%s() Get pmic_hpofs_cal iio ch failed (%d)\n",
 				__func__, ret);
+		else
+			dev_err(dev,
+				"%s() Get pmic_hpofs_cal iio ch failed (%d), will retry ...\n",
+				__func__, ret);
+
 		return ret;
 	}
 
@@ -6204,6 +6227,10 @@ static int mt6359_parse_dt(struct mt6359_priv *priv)
 		if (ret != -EPROBE_DEFER)
 			dev_err(dev, "%s() Get efuse failed (%d)\n",
 				__func__, ret);
+		else
+			dev_err(dev, "%s() Get efuse failed (%d), will retry ...\n",
+				__func__, ret);
+
 		return ret;
 	}
 
