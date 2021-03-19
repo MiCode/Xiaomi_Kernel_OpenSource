@@ -33,7 +33,22 @@ static void mdla_cmd_prepare_v2_0(struct mdla_run_cmd *cd,
 	ce->bandwidth = 0;
 	ce->result = MDLA_SUCCESS;
 	ce->count = cd->count;
-	ce->kva = (void *)(apusys_hd->cmd_entry+cd->offset_code_buf);
+	ce->fin_cid = 0;
+	ce->csn = (ce->mva & 0xFFFFFFFE);
+	ce->footprint = 0;
+
+	if (cd->offset_code_buf == 0)
+		/* for mdla UT */
+		ce->kva = (void *)apusys_mem_query_kva((u32)ce->mva);
+	else
+		ce->kva = (void *)(apusys_hd->cmd_entry + cd->offset_code_buf);
+
+	/* Initialize timestamp*/
+	ce->exec_time = 0;
+	ce->poweron_t = 0;
+	ce->req_start_t = 0;
+	ce->req_end_t = 0;
+	ce->queue_t = 0;
 
 	mdla_cmd_debug("%s: kva=0x%llx(0x%llx+0x%x) mva=0x%08x(0x%08x+0x%x) cnt=%u sz=0x%x\n",
 			__func__,
@@ -66,6 +81,10 @@ static void mdla_cmd_ut_prepare_v2_0(struct ioctl_run_cmd *cd,
 	ce->count = cd->count;
 	ce->kva = NULL;
 	ce->boost_val = cd->boost_value;
+
+	/* Initialize timestamp */
+	ce->wait_t = 0;
+	ce->queue_t = 0;
 }
 
 int mdla_cmd_run_sync_v2_0(struct mdla_run_cmd_sync *cmd_data,
@@ -164,7 +183,7 @@ int mdla_cmd_run_sync_v2_0(struct mdla_run_cmd_sync *cmd_data,
 	}
 
 	mdla_pwr_ops_get()->off_timer_start(core_id);
-	apusys_hd->ip_time += (u32)(ce.req_end_t - ce.req_start_t) / 1000;
+	apusys_hd->ip_time = (u32)ce.exec_time / 1000;
 
 out:
 	mdla_pwr_ops_get()->wake_unlock(core_id);
@@ -278,4 +297,3 @@ out:
 	mutex_unlock(&mdla_info->cmd_lock);
 	return ret;
 }
-

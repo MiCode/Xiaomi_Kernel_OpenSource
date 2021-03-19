@@ -29,13 +29,15 @@ struct command_batch {
 
 struct sched_smp_ce {
 	spinlock_t lock;
-	struct lock_class_key lock_key;
 	u64 deadline;
 };
 
 static struct sched_smp_ce smp_ce[PRIORITY_LEVEL];
+static struct lock_class_key smp_ce_lock_key[PRIORITY_LEVEL];
 
-void mdla_sched_set_smp_deadline(int priority, u64 deadline)
+static struct lock_class_key sched_lock_key[MAX_CORE_NUM];
+
+static void mdla_sched_set_smp_deadline(int priority, u64 deadline)
 {
 	unsigned long flags;
 
@@ -48,7 +50,7 @@ void mdla_sched_set_smp_deadline(int priority, u64 deadline)
 	spin_unlock_irqrestore(&smp_ce[priority].lock, flags);
 }
 
-u64 mdla_sched_get_smp_deadline(int priority)
+static u64 mdla_sched_get_smp_deadline(int priority)
 {
 	if (unlikely(priority < 0 || priority >= PRIORITY_LEVEL))
 		return 0;
@@ -341,6 +343,7 @@ static void mdla_sched_normal_smp_issue_ce(
 
 		if ((ce == NULL) || (ce->cmd_id != dual_cmd_id)
 				|| (ce->priority != MDLA_LOW_PRIORITY)) {
+			mdla_get_device(i)->sched->pro_ce = ce;
 			break;
 		}
 
@@ -488,6 +491,7 @@ int mdla_v1_x_sched_init(void)
 		mdla_get_device(i)->sched = sched;
 
 		spin_lock_init(&sched->lock);
+		lockdep_set_class(&sched->lock, &sched_lock_key[i]);
 
 		for (j = 0; j < PRIORITY_LEVEL; j++)
 			INIT_LIST_HEAD(&sched->ce_list[j]);
@@ -500,10 +504,15 @@ int mdla_v1_x_sched_init(void)
 		sched->complete_ce      = mdla_sched_complete_ce;
 		sched->issue_dual_lowce = mdla_sched_normal_smp_issue_ce;
 		sched->preempt_ce       = mdla_preempt_ce;
+		sched->get_smp_deadline	= mdla_sched_get_smp_deadline;
+		sched->set_smp_deadline = mdla_sched_set_smp_deadline;
+
 	}
 
-	for (i = 0; i < PRIORITY_LEVEL; i++)
+	for (i = 0; i < PRIORITY_LEVEL; i++) {
 		spin_lock_init(&smp_ce[i].lock);
+		lockdep_set_class(&smp_ce[i].lock, &smp_ce_lock_key[i]);
+	}
 
 	/* set scheduler callback */
 	sched_cb->split_alloc_cmd_batch = mdla_split_alloc_command_batch;

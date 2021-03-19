@@ -54,16 +54,15 @@ int mdla_pwr_on_v2_0(u32 core_id, bool force)
 		if (force == false)
 			mdla_device->cmd_list_cnt--;
 
-		goto out;
+		goto power_on_done;
 	}
 
 	mdla_pwr_debug("mdla %d: power on info: apu_device_power_on_time: %llu\n",
 			core_id, sched_clock() - poweron_t);
 
-power_on_done:
 	mdla_pwr_ops_get()->hw_reset(core_id,
 				mdla_dbg_get_reason_str(REASON_POWERON));
-out:
+power_on_done:
 	mdla_pwr_ops_get()->unlock(core_id);
 
 	return 0;

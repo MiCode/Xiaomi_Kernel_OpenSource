@@ -27,10 +27,10 @@
 #include <utilities/mdla_trace.h>
 #include <utilities/mdla_debug.h>
 
-#include "mdla_cmd_data_v1_x.h"
+#include "mdla_cmd_data_v2_0.h"
 
 
-static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
+static void mdla_cmd_prepare_v2_0_hw_sched(struct mdla_run_cmd *cd,
 	struct apusys_cmd_hnd *apusys_hd,
 	struct command_entry *ce, int priority)
 {
@@ -42,7 +42,7 @@ static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
 	ce->result = MDLA_SUCCESS;
 	ce->count = cd->count;
 	ce->receive_t = sched_clock();
-	ce->csn = priority + 1;
+	ce->csn = (ce->mva & 0xFFFFFFFE) | priority;
 
 	ce->deadline_t = get_jiffies_64()
 			+ msecs_to_jiffies(mdla_dbg_read_u32(FS_TIMEOUT));
@@ -59,6 +59,7 @@ static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
 	apusys_hd->ip_time = 0;
 	ce->cmdbuf = apusys_hd->cmdbuf;
 	ce->priority = priority;
+	ce->footprint = 0;
 
 	if (cd->offset_code_buf == 0)
 		/* for mdla UT */
@@ -66,14 +67,22 @@ static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
 	else
 		ce->kva = (void *)(apusys_hd->cmd_entry + cd->offset_code_buf);
 
+	/* Initialize timestamp*/
+	ce->exec_time = 0;
+	ce->poweron_t = 0;
+	ce->req_start_t = 0;
+	ce->req_end_t = 0;
 
-	if (apusys_hd->multicore_total == 2) {
-		ce->cmd_id = apusys_hd->cmd_id;
-		ce->multicore_total = apusys_hd->multicore_total;
-		ce->cmd_batch_size = cd->count + 1;
-	} else {
-		ce->cmd_batch_size = apusys_hd->cluster_size;
-	}
+	/* Initialize HW preemption information */
+	ce->hw_sync0 = 0;
+	ce->hw_sync1 = 0;
+	ce->hw_sync2 = 0;
+	ce->hw_sync3 = 0;
+
+	/* Initialize SMP cmd data */
+	ce->cmd_id = apusys_hd->cmd_id;
+	ce->multicore_total = apusys_hd->multicore_total;
+	//FIXME: porting multicore_id?
 
 	init_completion(&ce->swcmd_done_wait);
 
@@ -87,12 +96,12 @@ static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
 			cd->offset,
 			ce->count,
 			cd->size);
-	mdla_verbose("%s: ctx_id=%d apu_hd_core_num=%d prio=%d batch_sz=%d)\n",
+	mdla_verbose("%s: ctx_id=%d apu_hd_core_num=%d prio=%d)\n",
 			__func__,
 			ce->ctx_id,
 			apusys_hd->multicore_total,
-			ce->priority,
-			ce->cmd_batch_size);
+			ce->priority);
+
 }
 
 static void mdla_cmd_set_opp(u32 core_id, struct command_entry *ce, int boost_val)
@@ -140,6 +149,21 @@ static int mdla_cmd_wrong_count_handler(struct mdla_dev *mdla_info,
 		mdla_timeout_debug("=====================\n");
 	}
 
+	mdla_timeout_debug("core_id: %x, TS_HW_TRIGGER=%llu",
+			core_id, mdla_prof_get_ts(core_id, TS_HW_TRIGGER));
+	mdla_timeout_debug("core_id: %x, TS_HW_FIRST_TRIGGER=%llu",
+			core_id, mdla_prof_get_ts(core_id, TS_HW_FIRST_TRIGGER));
+	mdla_timeout_debug("core_id: %x, TS_HW_INTR=%llu",
+			core_id, mdla_prof_get_ts(core_id, TS_HW_INTR));
+	mdla_timeout_debug("core_id: %x, TS_HW_LAST_INTR=%llu",
+			core_id, mdla_prof_get_ts(core_id, TS_HW_LAST_INTR));
+	mdla_timeout_debug("core_id: %x, TS_CMD_STOP_REQ=%llu",
+			core_id, mdla_prof_get_ts(core_id, TS_CMD_STOP_REQ));
+	mdla_timeout_debug("core_id: %x, TS_CMD_STOPPED=%llu",
+			core_id, mdla_prof_get_ts(core_id, TS_CMD_STOPPED));
+	mdla_timeout_debug("core_id: %x, TS_CMD_RESUME=%llu",
+			core_id, mdla_prof_get_ts(core_id, TS_CMD_RESUME));
+
 	/* handle command timeout */
 	mdla_cmd_plat_cb()->post_cmd_hw_detect(core_id);
 	mt_irq_dump_status(mdla_cmd_plat_cb()->get_irq_num(core_id));
@@ -166,7 +190,7 @@ static int mdla_cmd_wrong_count_handler(struct mdla_dev *mdla_info,
 	return -REASON_MDLA_TIMEOUT;
 }
 
-int mdla_cmd_run_sync_v1_x_sched(struct mdla_run_cmd_sync *cmd_data,
+int mdla_cmd_run_sync_v2_0_hw_sched(struct mdla_run_cmd_sync *cmd_data,
 				struct mdla_dev *mdla_info,
 				struct apusys_cmd_hnd *apusys_hd,
 				int priority)
@@ -218,16 +242,11 @@ int mdla_cmd_run_sync_v1_x_sched(struct mdla_run_cmd_sync *cmd_data,
 	mdla_pwr_ops_get()->wake_lock(core_id);
 
 	/* prepare CE */
-	mdla_cmd_prepare_v1_x_sched(cd, apusys_hd, ce, priority);
+	mdla_cmd_prepare_v2_0_hw_sched(cd, apusys_hd, ce, priority);
 
 	ce->poweron_t = pwron_t;
 
 	mdla_cmd_set_opp(core_id, ce, pro_boost_val);
-
-	if (priority == MDLA_LOW_PRIORITY && ce->cmd_batch_size < ce->count)
-		mdla_sched_plat_cb()->split_alloc_cmd_batch(ce);
-	else
-		ce->batch_list_head = NULL;
 
 	mdla_util_apu_pmu_handle(mdla_info, apusys_hd, (u16)priority);
 
@@ -236,21 +255,19 @@ int mdla_cmd_run_sync_v1_x_sched(struct mdla_run_cmd_sync *cmd_data,
 
 	mdla_cmd_plat_cb()->pre_cmd_handle(core_id, ce);
 
-	if (ce->multicore_total > 1 && ce->priority == MDLA_LOW_PRIORITY) {
-		spin_lock_irqsave(&sched->lock, flags);
-		sched->enqueue_ce(core_id, ce, 0);
-		spin_unlock_irqrestore(&sched->lock, flags);
-		sched->issue_dual_lowce(core_id, ce->cmd_id);
+	spin_lock_irqsave(&sched->lock, flags);
+	if (sched->pro_ce == NULL) {
+		sched->pro_ce = ce;
+		sched->issue_ce(core_id);
 	} else {
-		spin_lock_irqsave(&sched->lock, flags);
-		if (sched->pro_ce == NULL) {
-			sched->pro_ce = ce;
-			sched->issue_ce(core_id);
-		} else {
-			sched->enqueue_ce(core_id, ce, 0);
+		sched->enqueue_ce(core_id, ce, 0);
+
+		if (ce->priority > sched->pro_ce->priority) {
+			/* preemption occur */
+			sched->stop_ce(core_id, ce);
 		}
-		spin_unlock_irqrestore(&sched->lock, flags);
 	}
+	spin_unlock_irqrestore(&sched->lock, flags);
 
 	/* wait for deadline */
 	while (ce->fin_cid < ce->count
@@ -264,6 +281,8 @@ int mdla_cmd_run_sync_v1_x_sched(struct mdla_run_cmd_sync *cmd_data,
 		if (ce->state & BIT(CE_FAIL))
 			goto error_handle;
 	}
+
+	mdla_cmd_plat_cb()->post_cmd_info(core_id);
 
 	if (unlikely(ce->fin_cid < ce->count))
 		ret = mdla_cmd_wrong_count_handler(mdla_info, ce);
@@ -282,9 +301,6 @@ error_handle:
 
 	spin_lock_irqsave(&sched->lock, flags);
 
-	if (priority == MDLA_LOW_PRIORITY && ce->batch_list_head != NULL)
-		mdla_sched_plat_cb()->del_free_cmd_batch(ce);
-
 	kfree(sched->ce[priority]);
 	sched->ce[priority] = NULL;
 
@@ -293,10 +309,12 @@ error_handle:
 	mdla_pwr_ops_get()->off_timer_start(core_id);
 	mdla_pwr_ops_get()->wake_unlock(core_id);
 
+	mdla_prof_set_ts(core_id, TS_CMD_FINISH, sched_clock());
+
 	return ret;
 }
 
-int mdla_cmd_ut_run_sync_v1_x_sched(void *run_cmd, void *wait_cmd,
+int mdla_cmd_ut_run_sync_v2_0_hw_sched(void *run_cmd, void *wait_cmd,
 				struct mdla_dev *mdla_info)
 {
 	return 0;

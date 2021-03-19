@@ -39,10 +39,10 @@ static irqreturn_t mdla_irq_handler(int irq, void *dev_id)
 		return IRQ_HANDLED;
 
 	core_id = mdla_device->mdla_id;
-	status_int = io->cmde.read(core_id, MREG_TOP_G_INTP0);
 
 	spin_lock_irqsave(&mdla_device->hw_lock, flags);
 
+	status_int = io->cmde.read(core_id, MREG_TOP_G_INTP0);
 	id = io->cmde.read(core_id, MREG_TOP_G_FIN0);
 
 	//mdla_pmu_reg_save(mdla_device->mdla_id, &mdla_device->pmu_info[0]);

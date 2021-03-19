@@ -30,6 +30,11 @@ u32 mdla_util_get_core_num(void)
 	return mdla_plat_get_core_num();
 }
 
+u32 mdla_util_get_ip_version(void)
+{
+	return get_major_num(mdla_plat_get_version());
+}
+
 const struct of_device_id *mdla_util_get_device_id(void)
 {
 	return mdla_plat_get_device();

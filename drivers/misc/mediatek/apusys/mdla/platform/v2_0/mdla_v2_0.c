@@ -75,6 +75,9 @@ static bool mdla_dbgfs_u32_create[NF_MDLA_DEBUG_FS_U32] = {
 	[FS_PREEMPTION_DBG]    = 1,
 };
 
+static struct lock_class_key hw_lock_key[MAX_CORE_NUM];
+static struct lock_class_key stat_lock_key[MAX_CORE_NUM];
+
 /* platform static functions */
 
 static inline unsigned long mdla_plat_get_wait_time(u32 core_id)
@@ -145,13 +148,42 @@ static int mdla_plat_pre_cmd_handle(u32 core_id, struct command_entry *ce)
 	return 0;
 }
 
+static int mdla_plat_pre_cmd_handle_sw_sched(u32 core_id, struct command_entry *ce)
+{
+	if (ce->multicore_total > 1)
+		mdla_plat_devices[core_id].sched->set_smp_deadline(ce->priority, ce->deadline_t);
+
+	if (mdla_dbg_read_u32(FS_DUMP_CMDBUF))
+		mdla_plat_create_dump_cmdbuf(mdla_get_device(core_id), ce);
+
+	return 0;
+}
+
 static int mdla_plat_post_cmd_handle(u32 core_id, struct command_entry *ce)
 {
+	unsigned long flags;
+
+	spin_lock_irqsave(&mdla_get_device(core_id)->hw_lock, flags);
 	/* clear current event id */
 	mdla_util_io_ops_get()->cmde.write(core_id, MREG_TOP_G_CDMA4, 1);
+	spin_unlock_irqrestore(&mdla_get_device(core_id)->hw_lock, flags);
 
-	ce->req_start_t = mdla_prof_get_ts(core_id, TS_HW_TRIGGER);
-	ce->req_end_t = mdla_prof_get_ts(core_id, TS_HW_INTR);
+	ce->req_start_t = mdla_prof_get_ts(core_id, TS_HW_FIRST_TRIGGER);
+	ce->req_end_t = mdla_prof_get_ts(core_id, TS_HW_LAST_INTR);
+
+
+	return 0;
+}
+
+static int mdla_plat_wait_cmd_handle(u32 core_id, struct command_entry *ce)
+{
+	/* update SMP CMD deadline */
+	if (ce->multicore_total > 1) {
+		u64 deadline = mdla_plat_devices[core_id].sched->get_smp_deadline(ce->priority);
+
+		if (deadline > ce->deadline_t)
+			ce->deadline_t = deadline;
+	}
 
 	return 0;
 }
@@ -160,19 +192,19 @@ static void mdla_plat_print_post_cmd_info(u32 core_id)
 {
 	const struct mdla_util_io_ops *io = mdla_util_io_ops_get();
 
-	mdla_verbose("%s: C:%d,FIN0:%.8x,FIN1: %.8x,FIN3: %.8x\n",
+	mdla_verbose("%s: C:%d,FIN1: %.8x\n",
 			__func__,
 			core_id,
-			io->cmde.read(core_id, MREG_TOP_G_FIN0),
-			io->cmde.read(core_id, MREG_TOP_G_FIN1),
-			io->cmde.read(core_id, MREG_TOP_G_FIN3));
+			io->cmde.read(core_id, MREG_TOP_G_FIN1));
 
 	mdla_pmu_debug("%s: CFG_PMCR: %8x, pmu_clk_cnt: %.8x\n",
 		__func__,
 		io->biu.read(core_id, CFG_PMCR),
 		io->biu.read(core_id, PMU_CLK_CNT));
+
 }
 
+/* NOTE: hw_lock should be acquired by caller */
 static void mdla_plat_verbose_log(u32 core_id, const struct mdla_util_io_ops *io)
 {
 	if (mdla_dbg_read_u32(FS_KLOG) != MDLA_DBG_ALL)
@@ -189,6 +221,7 @@ static void mdla_plat_verbose_log(u32 core_id, const struct mdla_util_io_ops *io
 	pr_info("%d: TOP_G_IDLE=0x%x\n", core_id, io->cmde.read(core_id, MREG_TOP_G_IDLE));
 }
 
+/* NOTE: hw_lock should be acquired by caller */
 static void mdla_plat_raw_process_command(u32 core_id, u32 evt_id, dma_addr_t addr, u32 count)
 {
 	const struct mdla_util_io_ops *io = mdla_util_io_ops_get();
@@ -199,11 +232,73 @@ static void mdla_plat_raw_process_command(u32 core_id, u32 evt_id, dma_addr_t ad
 	io->cmde.write(core_id, MREG_TOP_G_CDMA1, addr);
 	/* set command number */
 	io->cmde.write(core_id, MREG_TOP_G_CDMA2, count);
-
-	mdla_prof_set_ts(core_id, TS_HW_TRIGGER, sched_clock());
-
 	/* trigger hw */
 	io->cmde.write(core_id, MREG_TOP_G_CDMA3, evt_id);
+	/* write event id for SW debug */
+	io->cmde.write(core_id, MREG_TOP_G_STREAM0, evt_id);
+
+	mdla_prof_set_ts(core_id, TS_HW_TRIGGER, sched_clock());
+	mdla_verbose("%s:Fire to mdla-%x: addr: %lx, count: %d, evt_id: %x\n",
+		__func__, core_id, (unsigned long)addr, count, evt_id);
+}
+
+static int mdla_plat_process_command_in_batch(u32 core_id, struct command_entry *ce)
+{
+	dma_addr_t addr;
+	u32 evt_id, count;
+	unsigned long flags;
+	struct command_batch *cb;
+
+	count = ce->count - ce->fin_cid;
+	if ((ce->batch_list_head != NULL)
+			&& !list_empty(ce->batch_list_head)) {
+		cb = list_first_entry(ce->batch_list_head,
+					struct command_batch, node);
+		count = cb->size;
+	}
+	ce->wish_fin_cid = ce->fin_cid + count;
+
+	addr = ce->mva + ((dma_addr_t)ce->fin_cid) * MREG_CMD_SIZE;
+	evt_id = ce->csn;
+
+	mdla_verbose("%s: mdla-%x: wish_fin_cid:%d\n", __func__, core_id, ce->wish_fin_cid);
+
+	spin_lock_irqsave(&mdla_get_device(core_id)->hw_lock, flags);
+
+	ce->state = CE_RUN;
+	mdla_plat_raw_process_command(core_id, evt_id, addr, count);
+	ce_func_trace(ce, F_ISSUE);
+
+	spin_unlock_irqrestore(&mdla_get_device(core_id)->hw_lock, flags);
+
+	return 0;
+}
+
+static int mdla_plat_process_command_in_batch_no_lock(u32 core_id, struct command_entry *ce)
+{
+	dma_addr_t addr;
+	u32 evt_id, count;
+	struct command_batch *cb;
+
+	count = ce->count - ce->fin_cid;
+	if ((ce->batch_list_head != NULL)
+			&& !list_empty(ce->batch_list_head)) {
+		cb = list_first_entry(ce->batch_list_head,
+					struct command_batch, node);
+		count = cb->size;
+	}
+	ce->wish_fin_cid = ce->fin_cid + count;
+
+	addr = ce->mva + ((dma_addr_t)ce->fin_cid) * MREG_CMD_SIZE;
+	evt_id = ce->csn;
+
+	mdla_verbose("%s: mdla-%x: wish_fin_cid:%d\n", __func__, core_id, ce->wish_fin_cid);
+
+	ce->state = CE_RUN;
+	mdla_plat_raw_process_command(core_id, evt_id, addr, count);
+	ce_func_trace(ce, F_ISSUE);
+
+	return 0;
 }
 
 static int mdla_plat_process_command(u32 core_id, struct command_entry *ce)
@@ -212,27 +307,45 @@ static int mdla_plat_process_command(u32 core_id, struct command_entry *ce)
 	u32 evt_id, count;
 	unsigned long flags;
 
-	addr = ce->mva;
-	count = ce->count;
-	evt_id = ce->count;
+	addr = ce->mva + ((dma_addr_t)ce->fin_cid) * MREG_CMD_SIZE;
+	count = ce->count - ce->fin_cid;
+	evt_id = ce->csn;
 
-	mdla_verbose("%s: count: %d, addr: %lx\n",
-		__func__, ce->count,
-		(unsigned long)addr);
+	mdla_verbose("%s: mdla-%x: fin_cid:%d\n", __func__, core_id, ce->fin_cid);
 
 	spin_lock_irqsave(&mdla_get_device(core_id)->hw_lock, flags);
 
 	ce->state = CE_RUN;
-	mdla_prof_set_ts(core_id, TS_HW_FIRST_TRIGGER, sched_clock());
 	mdla_plat_raw_process_command(core_id, evt_id, addr, count);
+	ce_func_trace(ce, F_ISSUE);
 
 	spin_unlock_irqrestore(&mdla_get_device(core_id)->hw_lock, flags);
 
 	return 0;
 }
 
+static int mdla_plat_process_command_no_lock(u32 core_id, struct command_entry *ce)
+{
+	dma_addr_t addr;
+	u32 evt_id, count;
+
+	addr = ce->mva + ((dma_addr_t)ce->fin_cid) * MREG_CMD_SIZE;
+	count = ce->count - ce->fin_cid;
+	evt_id = ce->csn;
+
+	mdla_verbose("%s: mdla-%x: fin_cid:%d\n", __func__, core_id, ce->fin_cid);
+
+	ce->state = CE_RUN;
+	mdla_plat_raw_process_command(core_id, evt_id, addr, count);
+	ce_func_trace(ce, F_ISSUE);
+
+	return 0;
+}
+
 static void mdla_plat_dump_reg(u32 core_id, struct seq_file *s)
 {
+	int i;
+
 	dump_reg_cfg(core_id, MDLA_CG_CON);
 	dump_reg_cfg(core_id, MDLA_SW_RST);
 	dump_reg_cfg(core_id, MDLA_MBIST_MODE0);
@@ -261,6 +374,16 @@ static void mdla_plat_dump_reg(u32 core_id, struct seq_file *s)
 	dump_reg_top(core_id, MREG_TOP_G_FIN1);
 	dump_reg_top(core_id, MREG_TOP_G_FIN3);
 	dump_reg_top(core_id, MREG_TOP_G_IDLE);
+	dump_reg_top(core_id, MREG_TOP_G_MDLA_HWSYNC1);
+	dump_reg_top(core_id, MREG_TOP_G_MDLA_HWSYNC2);
+	dump_reg_top(core_id, MREG_TOP_G_MDLA_HWSYNC3);
+
+	dump_reg_top(core_id, MREG_TOP_G_DBG_CMDE28);
+	dump_reg_top(core_id, MREG_TOP_G_DBG_CMDE29);
+
+	for (i = 0x000; i < 0x1000; i += 0x4)
+		mdla_timeout_debug("mdla_cmde_mreg_top+%.4x: %.8x\n",
+				i, mdla_util_io_ops_get()->cmde.read(core_id, i));
 }
 
 static void mdla_plat_memory_show(struct seq_file *s)
@@ -472,7 +595,15 @@ static int mdla_sw_multi_devices_init(struct device *dev)
 
 		INIT_LIST_HEAD(&mdla_plat_devices[i].cmd_list);
 		init_completion(&mdla_plat_devices[i].command_done);
+
 		spin_lock_init(&mdla_plat_devices[i].hw_lock);
+		lockdep_set_class(&mdla_plat_devices[i].hw_lock,
+						&hw_lock_key[i]);
+
+		spin_lock_init(&mdla_plat_devices[i].stat_lock);
+		lockdep_set_class(&mdla_plat_devices[i].stat_lock,
+						&stat_lock_key[i]);
+
 		mutex_init(&mdla_plat_devices[i].cmd_lock);
 		mutex_init(&mdla_plat_devices[i].cmd_list_lock);
 		mutex_init(&mdla_plat_devices[i].cmd_buf_dmp_lock);
@@ -518,7 +649,8 @@ static void mdla_v2_0_reset(u32 core_id, const char *str)
 
 	spin_lock_irqsave(&dev->hw_lock, flags);
 	io->cfg.write(core_id, MDLA_CG_CLR, 0xffffffff);
-	io->cmde.write(core_id, MREG_TOP_G_INTP2, MDLA_IRQ_MASK & ~(INTR_SWCMD_DONE));
+	io->cmde.write(core_id, MREG_TOP_G_INTP2, MDLA_IRQ_MASK & ~(INTR_SUPPORT_MASK));
+
 
 	/* for DCM and CG */
 	io->cmde.write(core_id, MREG_TOP_ENG0, mdla_dbg_read_u32(FS_CFG_ENG0));
@@ -564,15 +696,29 @@ int mdla_v2_0_init(struct platform_device *pdev)
 		goto err_sched;
 
 	/* set command strategy */
-	mdla_cmd_setup(mdla_cmd_run_sync_v2_0, NULL);
+	if (mdla_plat_hw_preemption_support())
+		mdla_cmd_setup(mdla_cmd_run_sync_v2_0_hw_sched, NULL);
+	else if (mdla_plat_sw_preemption_support())
+		mdla_cmd_setup(mdla_cmd_run_sync_v2_0_sw_sched, NULL);
+	else
+		mdla_cmd_setup(mdla_cmd_run_sync_v2_0, NULL);
 
 	/* set command callback */
-	cmd_cb->pre_cmd_handle      = mdla_plat_pre_cmd_handle;
 	cmd_cb->post_cmd_handle     = mdla_plat_post_cmd_handle;
 	cmd_cb->post_cmd_info       = mdla_plat_print_post_cmd_info;
 	cmd_cb->get_irq_num         = mdla_v2_0_get_irq_num;
 	cmd_cb->get_wait_time       = mdla_plat_get_wait_time;
-	cmd_cb->process_command     = mdla_plat_process_command;
+
+	if (mdla_plat_sw_preemption_support()) {
+		cmd_cb->pre_cmd_handle          = mdla_plat_pre_cmd_handle_sw_sched;
+		cmd_cb->wait_cmd_handle         = mdla_plat_wait_cmd_handle;
+		cmd_cb->process_command         = mdla_plat_process_command_in_batch;
+		cmd_cb->process_command_no_lock = mdla_plat_process_command_in_batch_no_lock;
+	} else {
+		cmd_cb->pre_cmd_handle          = mdla_plat_pre_cmd_handle;
+		cmd_cb->process_command         = mdla_plat_process_command;
+		cmd_cb->process_command_no_lock = mdla_plat_process_command_no_lock;
+	}
 
 	/* set debug callback */
 	dbg_cb->destroy_dump_cmdbuf = mdla_plat_destroy_dump_cmdbuf;

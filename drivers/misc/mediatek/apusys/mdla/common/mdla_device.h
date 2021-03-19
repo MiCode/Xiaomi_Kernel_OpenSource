@@ -92,6 +92,14 @@ enum REASON_QUEUE_STATE_ENUM {
 	REASON_QUEUE_MAX,
 };
 
+enum MDLA_STATUS_TYPE {
+	MDLA_FREE      = 0x0,
+	MDLA_GOTO_STOP = 0x1,
+	MDLA_STOP      = 0x2,
+	MDLA_RUN       = 0x3,
+	MDLA_SMP_PROP  = 0x100,
+};
+
 /*mdla dev info, register to apusys callback*/
 struct mdla_dev {
 	u32 mdla_id;
@@ -103,7 +111,6 @@ struct mdla_dev {
 	struct mutex cmd_list_lock;
 	struct completion command_done;
 	spinlock_t hw_lock;
-	struct lock_class_key hw_lock_key;
 
 	/* power */
 	struct mdla_pwr_ctrl *power;
@@ -123,8 +130,13 @@ struct mdla_dev {
 	size_t cmd_buf_len;
 	struct mutex cmd_buf_dmp_lock;
 
-	/* sw preemption */
+	/* SW preemption */
 	struct mdla_scheduler *sched;
+
+	/* SMP HW preemption*/
+	uint32_t status;
+	spinlock_t stat_lock;
+
 	u32 error_bit;
 };
 
@@ -161,13 +173,22 @@ struct command_entry {
 
 	u32 fin_cid;         /* record the last finished command id */
 	u32 wish_fin_cid;
-	u32 cmd_batch_size;  /* command batch size */
-	bool cmd_batch_en;       /* enable command batch or not */
-	u32 priority;
-	struct list_head *batch_list_head;/* list of command batch */
+
 	struct apusys_kmem *cmdbuf;
 	int ctx_id;
 	int (*context_callback)(int a, int b, unsigned char c);
+
+	/* SW preemption information */
+	u32 priority;
+	u32 cmd_batch_size;  /* command batch size */
+	bool cmd_batch_en;       /* enable command batch or not */
+	struct list_head *batch_list_head;/* list of command batch */
+
+	/* HW preemption information */
+	u32 hw_sync0;
+	u32 hw_sync1;
+	u32 hw_sync2;
+	u32 hw_sync3;
 };
 
 struct mdla_dev *mdla_get_device(int id);

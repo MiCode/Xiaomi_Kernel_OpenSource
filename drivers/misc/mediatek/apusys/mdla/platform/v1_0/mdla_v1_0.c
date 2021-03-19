@@ -81,6 +81,7 @@ static int mdla_dbgfs_u32_create[NF_MDLA_DEBUG_FS_U32] = {
 	[FS_PREEMPTION_DBG]    = 0,
 };
 
+static struct lock_class_key hw_lock_key[MAX_CORE_NUM];
 
 /* platform static functions */
 
@@ -194,6 +195,7 @@ static int mdla_plat_process_command(u32 core_id, struct command_entry *ce)
 	mdla_util_pmu_ops_get()->write_evt_exec(core_id, 0);
 
 	ce->state = CE_RUN;
+	ce_func_trace(ce, F_ISSUE);
 	mdla_plat_raw_process_command(core_id, evt_id, addr, count);
 
 	spin_unlock_irqrestore(&mdla_get_device(core_id)->hw_lock, flags);
@@ -249,6 +251,7 @@ static void mdla_plat_dump_reg(u32 core_id, struct seq_file *s)
 	dump_reg_top(core_id, MREG_TOP_G_FIN0);
 	dump_reg_top(core_id, MREG_TOP_G_FIN1);
 	dump_reg_top(core_id, MREG_TOP_G_IDLE);
+
 }
 
 static void mdla_plat_memory_show(struct seq_file *s)
@@ -450,6 +453,8 @@ static int mdla_sw_multi_devices_init(struct device *dev)
 		INIT_LIST_HEAD(&mdla_plat_devices[i].cmd_list);
 		init_completion(&mdla_plat_devices[i].command_done);
 		spin_lock_init(&mdla_plat_devices[i].hw_lock);
+		lockdep_set_class(&mdla_plat_devices[i].hw_lock,
+						&hw_lock_key[i]);
 		mutex_init(&mdla_plat_devices[i].cmd_lock);
 		mutex_init(&mdla_plat_devices[i].cmd_list_lock);
 		mutex_init(&mdla_plat_devices[i].cmd_buf_dmp_lock);

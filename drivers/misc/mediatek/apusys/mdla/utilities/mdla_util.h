@@ -28,6 +28,8 @@ enum MDLA_PRIORITY {
 /* platform */
 const struct of_device_id *mdla_util_get_device_id(void);
 u32 mdla_util_get_core_num(void);
+u32 mdla_util_get_ip_version(void);
+
 /* return 0 or 1 if success (0: AP version, 1: uP version) */
 int mdla_util_plat_init(struct platform_device *pdev);
 void mdla_util_plat_deinit(struct platform_device *pdev);
