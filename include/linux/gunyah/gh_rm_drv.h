@@ -48,6 +48,8 @@
 #define GH_RM_MEM_NOTIFY_OWNER		GH_RM_MEM_NOTIFY_OWNER_RELEASED
 #define GH_RM_MEM_NOTIFY_OWNER_ACCEPTED		BIT(2)
 
+#define MAX_EXIT_REASON_SIZE			4
+
 struct gh_rm_mem_shared_acl_entry;
 struct gh_rm_mem_shared_sgl_entry;
 struct gh_rm_mem_shared_attr_entry;
@@ -140,6 +142,7 @@ struct gh_notify_vmid_desc {
 } __packed;
 
 /* VM APIs */
+#define GH_RM_NOTIF_VM_EXITED		0x56100001
 #define GH_RM_NOTIF_VM_STATUS		0x56100008
 #define GH_RM_NOTIF_VM_IRQ_LENT		0x56100011
 #define GH_RM_NOTIF_VM_IRQ_RELEASED	0x56100012
@@ -150,16 +153,88 @@ struct gh_notify_vmid_desc {
 #define GH_RM_VM_STATUS_READY		2
 #define GH_RM_VM_STATUS_RUNNING		3
 #define GH_RM_VM_STATUS_PAUSED		4
-#define GH_RM_VM_STATUS_SHUTDOWN	5
-#define GH_RM_VM_STATUS_SHUTOFF		6
-#define GH_RM_VM_STATUS_CRASHED		7
+/* 5, 6 and 7 are deprecated */
 #define GH_RM_VM_STATUS_INIT_FAILED	8
+#define GH_RM_VM_STATUS_EXITED		9
+#define GH_RM_VM_STATUS_RESETTING	10
+#define GH_RM_VM_STATUS_RESET		11
 
 #define GH_RM_OS_STATUS_NONE		0
 #define GH_RM_OS_STATUS_EARLY_BOOT	1
 #define GH_RM_OS_STATUS_BOOT		2
 #define GH_RM_OS_STATUS_INIT		3
 #define GH_RM_OS_STATUS_RUN		4
+
+#define GH_RM_VM_EXIT_TYPE_VM_EXIT				0
+#define GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_OFF		1
+#define GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_RESET	2
+#define GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_RESET2	3
+#define GH_RM_VM_EXIT_TYPE_WDT_BITE				4
+#define GH_RM_VM_EXIT_TYPE_HYP_ERROR			5
+#define GH_RM_VM_EXIT_TYPE_ASYNC_EXT_ABORT		6
+#define GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED		7
+
+/* GH_RM_VM_EXIT_TYPE_VM_EXIT */
+struct gh_vm_exit_reason_vm_exit {
+	u16 exit_flags;
+	/* GH_VM_EXIT_EXIT_FLAG_* are bit representations */
+#define GH_VM_EXIT_EXIT_FLAG_TYPE	0x1
+#define GH_VM_EXIT_POWEROFF	0 /* Value at bit:0 */
+#define GH_VM_EXIT_RESTART	1 /* Value at bit:0 */
+#define GH_VM_EXIT_EXIT_FLAG_SYSTEM	0x2
+#define GH_VM_EXIT_EXIT_FLAG_WARM	0x4
+#define GH_VM_EXIT_EXIT_FLAG_DUMP	0x8
+
+	u8 exit_code;
+	/* Exit codes */
+#define GH_VM_EXIT_CODE_NORMAL	0
+#define GH_VM_EXIT_SOFTWARE_ERR	1
+#define GH_VM_EXIT_BUS_ERR		2
+#define GH_VM_EXIT_DEVICE_ERR	3
+
+	u8 reserved;
+} __packed;
+
+/* GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_RESET2 */
+struct gh_vm_exit_reason_psci_sys_reset2 {
+	u16 exit_flags;
+	/* GH_PSCI_SYS_RESET2_EXIT_FLAG_* are bit representations.
+	 * It follows similar flags model as that of VM_EXIT, but
+	 * only if the vendor_reset field in the struct is set
+	 */
+#define GH_PSCI_SYS_RESET2_EXIT_FLAG_TYPE	0x1
+#define GH_PSCI_SYS_RESET2_POWEROFF	0 /* Value at bit:0 */
+#define GH_PSCI_SYS_RESET2_RESTART	1 /* Value at bit:0 */
+#define GH_PSCI_SYS_RESET2_EXIT_FLAG_SYSTEM	0x2
+#define GH_PSCI_SYS_RESET2_EXIT_FLAG_WARM	0x4
+#define GH_PSCI_SYS_RESET2_EXIT_FLAG_DUMP	0x8
+
+	u8 exit_code;
+	/* Exit codes.
+	 * It follows similar flags model as that of VM_EXIT, but
+	 * only if the vendor_reset field in the struct is set
+	 */
+#define GH_PSCI_SYS_RESET2_CODE_NORMAL	0
+#define GH_PSCI_SYS_RESET2_SOFTWARE_ERR	1
+#define GH_PSCI_SYS_RESET2_BUS_ERR		2
+#define GH_PSCI_SYS_RESET2_DEVICE_ERR	3
+
+	u8 reserved:7;
+
+	/* If the vendor_reset is set, the above flags and codes apply.
+	 * Else, the entire exit_reason struct is 0, which qualifies as
+	 * PSCI_SYSTEM_WARM_RESET. Hence, first check this field before
+	 * checking others.
+	 */
+	u8 vendor_reset:1;
+} __packed;
+
+struct gh_rm_notif_vm_exited_payload {
+	gh_vmid_t vmid;
+	u16 exit_type;
+	u32 exit_reason_size;
+	u32 exit_reason[0];
+} __packed;
 
 struct gh_rm_notif_vm_status_payload {
 	gh_vmid_t vmid;

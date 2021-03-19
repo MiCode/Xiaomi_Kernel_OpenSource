@@ -138,6 +138,55 @@ int gh_rm_unregister_notifier(struct notifier_block *nb)
 }
 EXPORT_SYMBOL(gh_rm_unregister_notifier);
 
+static int
+gh_rm_validate_vm_exited_notif(struct gh_rm_rpc_hdr *hdr,
+				void *payload, size_t recv_buff_size)
+{
+	struct gh_rm_notif_vm_exited_payload *vm_exited_payload;
+	size_t min_buff_sz = sizeof(*hdr) + sizeof(*vm_exited_payload);
+
+	if (recv_buff_size < min_buff_sz)
+		return -EINVAL;
+
+	vm_exited_payload = payload;
+
+	switch (vm_exited_payload->exit_type) {
+	case GH_RM_VM_EXIT_TYPE_VM_EXIT:
+		if ((vm_exited_payload->exit_reason_size !=
+					MAX_EXIT_REASON_SIZE) ||
+					(recv_buff_size != min_buff_sz +
+			sizeof(struct gh_vm_exit_reason_vm_exit))) {
+			pr_err("%s: Invalid size for type VM_EXIT: %u\n",
+				__func__, recv_buff_size - sizeof(*hdr));
+			return -EINVAL;
+		}
+		break;
+	case GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_RESET2:
+		if ((vm_exited_payload->exit_reason_size !=
+					MAX_EXIT_REASON_SIZE) ||
+					(recv_buff_size != min_buff_sz +
+			sizeof(struct gh_vm_exit_reason_psci_sys_reset2))) {
+			pr_err("%s: Invalid size for type PSCI_SYSTEM_RESET2: %u\n",
+			__func__, recv_buff_size - sizeof(*hdr));
+			return -EINVAL;
+		}
+	case GH_RM_VM_EXIT_TYPE_WDT_BITE:
+		break;
+	case GH_RM_VM_EXIT_TYPE_HYP_ERROR:
+		break;
+	case GH_RM_VM_EXIT_TYPE_ASYNC_EXT_ABORT:
+		break;
+	case GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED:
+		break;
+	default:
+		pr_err("%s: Unknown exit type: %u\n",
+			vm_exited_payload->exit_type);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static struct gh_rm_connection *
 gh_rm_wait_for_notif_fragments(void *recv_buff, size_t recv_buff_size)
 {
@@ -192,6 +241,11 @@ static void gh_rm_validate_notif(struct work_struct *work)
 				__func__, recv_buff_size - sizeof(*hdr));
 			goto err;
 		}
+		break;
+	case GH_RM_NOTIF_VM_EXITED:
+		if (gh_rm_validate_vm_exited_notif(hdr,
+						payload, recv_buff_size))
+			goto err;
 		break;
 	case GH_RM_NOTIF_VM_IRQ_LENT:
 		if (recv_buff_size != sizeof(*hdr) +
