@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # SPDX-License-Identifier: GPL-2.0
 
 green='\e[0;32m'
@@ -11,7 +11,7 @@ ABIGAIL_DIR=$BASE_DIR/../kernel/build/abi
 ABIGAIL_BUILD_SCRIPT=$ABIGAIL_DIR/bootstrap_src_build
 ABI_XML_DIR=$BASE_DIR/scripts/abi/abi_xml
 #target_kernel must create outside current kernel's repo
-TARGET_KERNEL_DIR=$BASE_DIR/../../target_kernel_quark5.4
+TARGET_KERNEL_DIR=$BASE_DIR/../../target_kernel_quark5.10
 TARGET_DEFCONFIG=mtk_gki_defconfig
 TARGET_DEFCONFIG_PATCH=$ABI_DIR/mtk_gki_defconfig_patch
 TARGET_ABI_XML=abi_$src_defconfig.xml
@@ -45,8 +45,8 @@ mode=m ./scripts/abi/genOriABIxml.sh"
 	echo "[target_commit]: target kernel commit id"
 	echo ""
 	echo -e "${green}Example:${eol} ${red}src_commit=491f0e3 \
-src_defconfig=k6873k_64_gki_defconfig \
-target_branch=common-android11-5.4 target_commit=f232ce6 mode=m \
+src_defconfig=k6893k_64_defconfig \
+target_branch=common-android12-5.10 target_commit=f232ce6 mode=m \
 ./scripts/abi/genOriABIxml.sh 2>&1 | tee buildOriABI.log${eol}"
 	echo ""
 	echo -e "${green}Script for auto generate target_branch's ABI xml \
@@ -61,8 +61,8 @@ for preflight based on src_defconfig ${eol}"
 	echo "[target_branch]: target branch"
 	echo ""
 	echo -e "${green}Example:${eol} ${red}src_defconfig=\
-k6873v1_64_gki_defconfig \
-target_branch=common-android11-5.4 mode=p \
+k6893v1_64_defconfig \
+target_branch=common-android12-5.10 mode=p \
 ./scripts/abi/genOriABIxml.sh 2>&1 | tee buildOriABI.log${eol}"
 	echo ""
 	echo -e "${red}Command for delete temp files:${eol}"
@@ -93,7 +93,7 @@ fi
 
 if [ "$mode" == "p" ]
 then
-target_commit=62b6e96e16b2359ba2f3afff5d32205d9ae9e5c1 #ACK5.4.61->latest
+target_commit=b9e54f8e02e2838d055c8ff1fef5c06c6bd30cd5 #Merge v5.10 into android12-5.10
 echo src_commit=$src_commit
 echo target_commit=$target_commit
 fi
@@ -115,7 +115,13 @@ then
 	$ABIGAIL_BUILD_SCRIPT
 	#remove temp files first
 	del_temp_files
+
 	cd ..
+
+	#Use local kernel prebuilts to build $TARGET_KERNLE
+	export PATH=\
+$PWD/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/:\
+$PWD/prebuilts/clang/host/linux-x86/clang-r383902/bin/:$PATH
 
 	echo "Generate ABI xml:$TARGET_ABI_XML of target_branch:$target_branch \
 with commit id:$target_commit"
@@ -124,9 +130,6 @@ with commit id:$target_commit"
 	repo init -u http://gerrit.mediatek.inc:8080/kernel/manifest -b $target_branch
 	$SERVER_QUEUE mtk_repo sync -f -j8 --no-clone-bundle -c --no-tags
 
-	export PATH=\
-$PWD/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/:\
-$PWD/prebuilts-master/clang/host/linux-x86/clang-r383902/bin/:$PATH
 	cd common
 	git checkout $target_commit
 	echo "Move gki_defconfig from arch/arm64/configs/ to \

@@ -1,10 +1,24 @@
 #Add symbols to bypass ABI Monitor here
 bypass_arr=( \
-"struct iommu_ops " \
-"function int iommu_map_atomic" \
-"function size_t iommu_map_sg_atomic" \
+"android_vh" \
+"function void gpio_dump_regs_range" \
+"function int mtk_build_eint" \
+"function int mtk_eh_ctrl" \
+"function int mtk_eint" \
+"function int mtk_hw_get_value" \
+"function int mtk_hw_set_value" \
+"function bool mtk_is_virt_gpio" \
+"function void mtk_mmsys" \
+"function ssize_t mtk_pctrl_show_one_pin" \
+"function int mtk_pinconf" \
 "function int sched_setattr_nocheck" \
-"function long long unsigned int memblock_end_of_DRAM" \
-"tracepoint __tracepoint_android_vh_cgroup_set_task" \
-"tracepoint __tracepoint_android_vh_nice_check" \
-"tracepoint __tracepoint_android_vh_sys_set_task")
+"function int timer_of_init" \
+"function unsigned int filter_irq_stacks" \
+"function const char\* pptp_msg_name" \
+"function unsigned int stack_" \
+"mtk_paris_pinctrl" \
+"struct ehci_hcd " \
+"struct iommu_ops " \
+"struct mem_section " \
+"struct ufs_hba_variant_ops " \
+"xhci")

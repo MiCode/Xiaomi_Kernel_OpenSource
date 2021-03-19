@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # SPDX-License-Identifier: GPL-2.0
 
 green='\e[0;32m'
@@ -33,7 +33,7 @@ based on src_defconfig and compare with abi_{src_defconfig}.xml${eol}"
 	echo "[src_defconfig]: source project defconfig"
 	echo ""
 	echo -e "${green}Example:${eol} ${red}src_defconfig=\
-k6873v1_64_gki_defconfig mode=m \
+k6893v1_64_defconfig mode=m \
 ./scripts/abi/CompareABI.sh 2>&1 | tee buildABI.log${eol}"
 	echo ""
 	echo -e "${green}Script for auto generate target_branch's ABI xml \
@@ -50,7 +50,7 @@ monitor result to [abi_result_path]${eol}"
 	echo "[abi_result_path]: absolute path to put abi monitor result"
 	echo ""
 	echo -e "${green}Example:${eol} ${red}src_defconfig=\
-k6873v1_64_gki_defconfig mode=m abi_result_path=absolute_path \
+k6893v1_64_defconfig mode=m abi_result_path=absolute_path \
 ./scripts/abi/CompareABI.sh 2>&1 | tee buildABI.log${eol}"
 	echo ""
 	echo -e "${red}Command for delete temp files:${eol}"
@@ -111,7 +111,7 @@ then
 	#Build libabigail first
 	$ABIGAIL_BUILD_SCRIPT
 	#remove temp files first
-	del_temp_files
+	#del_temp_files
 	echo "Generate .config from src_defconfig:$src_defconfig"
 	cd ..
 	export PATH=$PWD\
