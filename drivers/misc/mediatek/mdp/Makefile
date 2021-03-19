@@ -69,6 +69,7 @@ mdp_drv-y := mdp_driver.o \
 
 mdp_drv-$(CONFIG_MTK_MDP_MT6873) += mdp_mt6873.o
 mdp_drv-$(CONFIG_MTK_MDP_MT6853) += mdp_mt6853.o
+mdp_drv-$(CONFIG_MTK_MDP_MT6893) += mdp_mt6893.o
 #obj-y += cmdq_prof.o
 #obj-y += cmdq_test.o
 
