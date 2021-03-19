@@ -3278,7 +3278,7 @@
 					<&larb16 &larb18>;
 			interrupts = <GIC_SPI 498 IRQ_TYPE_LEVEL_HIGH 0>;
 			power-domains = <&scpsys MT6893_POWER_DOMAIN_MDP>;
-			clocks = <&mdpsys_config_clk CLK_MDP_SMI2>;
+			clocks = <&mdpsys CLK_MDP_SMI2>;
 			clock-names = "bclk";
 			#iommu-cells = <1>;
 		};
@@ -3728,12 +3728,12 @@
 			mediatek,larb = <&larb7>;
 			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 			iommus = <&iommu0 M4U_PORT_L7_JPGENC_Y_RDMA_DISP>,
-				 <&iommu0 M4U_PORT_L7_JPGENC_Q_RDMA_DISP>,
-				 <&iommu0 M4U_PORT_L7_JPGENC_C_TABLE_DISP>,
+				 <&iommu0 M4U_PORT_L7_JPGENC_C_RDMA_DISP>,
+				 <&iommu0 M4U_PORT_L7_JPGENC_Q_TABLE_DISP>,
 				 <&iommu0 M4U_PORT_L7_JPGENC_BSDMA_DISP>;
 			port-id = <M4U_PORT_L7_JPGENC_Y_RDMA_DISP>,
-				  <M4U_PORT_L7_JPGENC_Q_RDMA_DISP>,
-				  <M4U_PORT_L7_JPGENC_C_TABLE_DISP>,
+				  <M4U_PORT_L7_JPGENC_C_RDMA_DISP>,
+				  <M4U_PORT_L7_JPGENC_Q_TABLE_DISP>,
 				  <M4U_PORT_L7_JPGENC_BSDMA_DISP>;
 		};
 
@@ -3769,7 +3769,7 @@
 		apu_iommu_data: apu_iommu_data {
 			compatible = "mediatek,apu_iommu_data";
 			dma-ranges = <0x3 0x0 0x3 0x0 0x1 0x0>;
-			iommus = <&iommu2 M4U_PORT_L22_APU_DATA>;
+			iommus = <&iommu2 M4U_PORT_L21_APU_FAKE_DATA>;
 		};
 
 		apu_conn_clk: syscon@19020000 {
@@ -3788,7 +3788,7 @@
 			default-dram = <0x4000000>;
 			boundary = <0x3>;
 			dma-ranges = <0x3 0x0 0x3 0x0 0x1 0x0>;
-			iommus = <&iommu2 M4U_PORT_L22_APU_VLM>;
+			iommus = <&iommu2 M4U_PORT_L21_APU_FAKE_VLM>;
 		};
 
 		edma0: edma0@19027000 {
@@ -3828,7 +3828,7 @@
 			kernel-lib = <0x7de00000 0x00500000 0xffffffff>;
 			work-buf = <0x0 0x12000 0xffffffff>;
 			dma-ranges = <0x3 0x0 0x3 0x0 0x1 0x0>;
-			iommus = <&iommu2 M4U_PORT_L22_APU_VPU>;
+			iommus = <&iommu2 M4U_PORT_L21_APU_FAKE_CODE>;
 		};
 
 		apu1_clk: syscon@19031000 {
@@ -3850,7 +3850,7 @@
 			kernel-lib = <0x7e700000 0x00500000 0xffffffff>;
 			work-buf = <0x0 0x12000 0xffffffff>;
 			dma-ranges = <0x3 0x0 0x3 0x0 0x1 0x0>;
-			iommus = <&iommu2 M4U_PORT_L22_APU_VPU>;
+			iommus = <&iommu2 M4U_PORT_L21_APU_FAKE_CODE>;
 		};
 
 		apu2_clk: syscon@19032000 {
@@ -3872,7 +3872,7 @@
 			kernel-lib = <0x7f000000 0x00500000 0xffffffff>;
 			work-buf = <0x0 0x12000 0xffffffff>;
 			dma-ranges = <0x3 0x0 0x3 0x0 0x1 0x0>;
-			iommus = <&iommu2 M4U_PORT_L22_APU_VPU>;
+			iommus = <&iommu2 M4U_PORT_L21_APU_FAKE_CODE>;
 		};
 
 		apu_mdla0_clk: syscon@19034000 {
