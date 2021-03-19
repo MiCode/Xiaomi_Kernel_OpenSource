@@ -3867,12 +3867,6 @@
 			#clock-cells = <1>;
 		};
 
-		apu2_clk: syscon@19032000 {
-			compatible = "mediatek,mt6893-apu2", "syscon";
-			reg = <0 0x19032000 0 0x1000>;
-			#clock-cells = <1>;
-		};
-
 		vpu_core1: vpu_core1@19031000 {
 			compatible = "mediatek,mt6893-vpu_core";
 			reg = <0 0x19031000 0 0x1000>,
@@ -3889,7 +3883,13 @@
 			iommus = <&iommu2 M4U_PORT_L22_APU_VPU>;
 		};
 
-		vpu_core2: vpu_core2@19031000 {
+		apu2_clk: syscon@19032000 {
+			compatible = "mediatek,mt6893-apu2", "syscon";
+			reg = <0 0x19032000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		vpu_core2: vpu_core2@19032000 {
 			compatible = "mediatek,mt6893-vpu_core";
 			reg = <0 0x19032000 0 0x1000>,
 				<0 0x1d300000 0 0x40000>,
