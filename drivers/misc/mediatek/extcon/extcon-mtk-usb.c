@@ -372,14 +372,6 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 
 static int mtk_usb_extcon_remove(struct platform_device *pdev)
 {
-	/* fix me */
-#if 0
-	struct mtk_extcon_info *extcon = platform_get_drvdata(pdev);
-
-	if (extcon->dev_conn.id)
-		device_connection_remove(&extcon->dev_conn);
-#endif
-
 	return 0;
 }
 
