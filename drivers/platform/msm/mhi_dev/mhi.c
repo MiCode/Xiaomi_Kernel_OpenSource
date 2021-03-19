@@ -3306,6 +3306,8 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 	}
 
 	usr_buf_remaining =  wreq->len;
+	handle_client = wreq->client;
+	ch = handle_client->channel;
 	mutex_lock(&mhi_ctx->mhi_write_test);
 
 	if (atomic_read(&mhi_ctx->is_suspended)) {
@@ -3313,6 +3315,7 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 		 * Expected usage is when there is a write
 		 * to the MHI core -> notify SM.
 		 */
+		mhi_log(MHI_MSG_INFO, "Wakeup by chan:%d\n", ch->ch_id);
 		rc = mhi_dev_notify_sm_event(MHI_DEV_EVENT_CORE_WAKEUP);
 		if (rc) {
 			pr_err("error sending core wakeup event\n");
@@ -3335,8 +3338,6 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 		return -ENODEV;
 	}
 
-	handle_client = wreq->client;
-	ch = handle_client->channel;
 
 	ring = ch->ring;
 
