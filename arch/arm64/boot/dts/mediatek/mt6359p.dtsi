@@ -353,6 +353,9 @@
 		mt6359prtc: mt6359prtc {
 			compatible = "mediatek,mt6359p-rtc";
 
+			#address-cells = <1>;
+			#size-cells = <1>;
+
 			fg_init: fg_init {
 				reg = <0 0x1>;
 				bits = <0 8>;
@@ -449,8 +452,6 @@
 					"pmic_battery_voltage",
 					"pmic_bif_voltage",
 					"pmic_ptim_voltage";
-			nvmem-cells = <&fg_init>, <&fg_soc>;
-			nvmem-cell-names = "initialization", "state-of-charge";
 		};
 		mt6359keys: mt6359keys {
 			compatible = "mediatek,mt6359p-keys";
