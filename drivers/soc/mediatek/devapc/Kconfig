@@ -33,3 +33,13 @@ config DEVAPC_MT6873
 	  Device APC driver.
 	  This driver is combined with DEVAPC_ARCH_MULTI for
 	  common handle flow.
+
+config DEVAPC_MT6885
+	tristate "Mediatek MT6885 Device APC driver"
+	select MTK_DEVAPC
+	select DEVAPC_ARCH_MULTI
+	help
+	  Say yes here to enable support Mediatek MT6885
+	  Device APC driver.
+	  This driver is combined with DEVAPC_ARCH_MULTI for
+	  common handle flow.
