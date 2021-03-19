@@ -1807,6 +1807,7 @@ static int ccif_debug(unsigned char hif_id,
 		ccci_reset_ccif_hw(ccif_ctrl->md_id, AP_MD1_CCIF,
 			ccif_ctrl->ccif_ap_base,
 			ccif_ctrl->ccif_md_base, ccif_ctrl);
+		ret = 0;
 		break;
 	default:
 		break;
