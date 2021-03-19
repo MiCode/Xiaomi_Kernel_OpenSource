@@ -8,8 +8,8 @@ sfile="$(readlink -f "$0")"
 outdir="$(pwd)"
 tarfile=$1
 cpio_dir=$outdir/$tarfile.tmp
-cpio=$srctree/tools/build/cpio
-tar=$srctree/tools/build/tar
+cpio=$abs_srctree/tools/build/cpio
+tar=$abs_srctree/tools/build/tar
 
 dir_list="
 include/

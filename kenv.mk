@@ -24,11 +24,10 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
   current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
 
   ifeq ($(KERNEL_TARGET_ARCH),arm64)
-    build_config_file := $(current_dir)/build.config.mtk.aarch64
+    include $(current_dir)/build.config.mtk.aarch64
   else
-    build_config_file := $(current_dir)/build.config.mtk.arm
+    include $(current_dir)/build.config.mtk.arm
   endif
-  include $(build_config_file)
 
   ARGS := CROSS_COMPILE=$(CROSS_COMPILE)
   ifneq ($(LLVM),)
@@ -47,19 +46,6 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
     ifneq ($(LLVM_IAS),)
       ARGS += LLVM_IAS=$(LLVM_IAS)
     endif
-    ifeq ($(HOSTCC),)
-      ifneq ($(CC),)
-        ARGS += HOSTCC=$(CC)
-      endif
-    else
-      ARGS += HOSTCC=$(HOSTCC)
-    endif
-    ifneq ($(LD),)
-      ARGS += LD=$(LD) HOSTLD=$(LD)
-      ifneq ($(suffix $(LD)),)
-        ARGS += HOSTLDFLAGS=-fuse-ld=$(subst .,,$(suffix $(LD)))
-      endif
-    endif
     ifneq ($(LD_LIBRARY_PATH),)
       ARGS += LD_LIBRARY_PATH=$(KERNEL_ROOT_DIR)/$(LD_LIBRARY_PATH)
     endif
@@ -68,8 +54,7 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
   TARGET_KERNEL_CROSS_COMPILE := $(KERNEL_ROOT_DIR)/$(LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN)/$(CROSS_COMPILE)
 
   ifeq ($(wildcard $(TARGET_PREBUILT_KERNEL)),)
-    KERNEL_OUT ?= $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/$(LINUX_KERNEL_VERSION)
-    REL_KERNEL_OUT := $(shell ./$(current_dir)/scripts/get_rel_path.sh $(patsubst %/,%,$(dir $(KERNEL_OUT))) $(KERNEL_ROOT_DIR))
+    KERNEL_OUT ?= $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ
     KERNEL_ROOT_OUT := $(if $(filter /% ~%,$(KERNEL_OUT)),,$(KERNEL_ROOT_DIR)/)$(KERNEL_OUT)
     ifeq ($(KERNEL_TARGET_ARCH), arm64)
       ifeq ($(MTK_APPENDED_DTB_SUPPORT), yes)
@@ -88,8 +73,6 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
     BUILT_KERNEL_TARGET := $(KERNEL_ZIMAGE_OUT).bin
     INSTALLED_KERNEL_TARGET := $(PRODUCT_OUT)/kernel
     TARGET_KERNEL_CONFIG := $(KERNEL_OUT)/.config
-    GEN_KERNEL_BUILD_CONFIG := $(patsubst %/,%,$(dir $(KERNEL_OUT)))/build.config
-    REL_GEN_KERNEL_BUILD_CONFIG := $(REL_KERNEL_OUT)/$(notdir $(GEN_KERNEL_BUILD_CONFIG))
     KERNEL_CONFIG_FILE := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/configs/$(word 1,$(KERNEL_DEFCONFIG))
     KERNEL_MAKE_OPTION := O=$(KERNEL_ROOT_OUT) ARCH=$(KERNEL_TARGET_ARCH) $(ARGS) ROOTDIR=$(KERNEL_ROOT_DIR)
     KERNEL_MAKE_PATH_OPTION := /usr/bin

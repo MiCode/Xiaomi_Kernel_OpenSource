@@ -4,7 +4,7 @@ LD_LIBRARY_PATH=prebuilts/clang/host/linux-x86/clang-r383902/lib64:$$LD_LIBRARY_
 LLVM=1
 LLVM_IAS=1
 # DEFCONFIG=defconfig
-KERNEL_DIR=kernel-mainline
+KERNEL_DIR=kernel-5.10
 CLANG_PREBUILT_BIN=prebuilts/clang/host/linux-x86/clang-r383902/bin
 BUILDTOOLS_PREBUILT_BIN=prebuilts/build-tools/linux-x86/bin
 # for check scripts
