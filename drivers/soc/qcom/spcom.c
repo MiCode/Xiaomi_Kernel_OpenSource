@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -887,6 +887,10 @@ static int modify_ion_addr(void *buf,
 	/* Set the physical address at the buffer offset */
 	spcom_pr_dbg("ion phys addr = [0x%lx]\n", (long) phy_addr);
 	memcpy(ptr, &phy_addr, sizeof(phy_addr));
+
+	/* Don't unmap the buffer to allow dmabuf sync start/end. */
+	dma_buf_put(dma_buf);
+	return 0;
 
 mem_map_sg_failed:
 	dma_buf_unmap_attachment(attach, sg, DMA_BIDIRECTIONAL);
