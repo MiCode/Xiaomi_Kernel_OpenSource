@@ -271,16 +271,27 @@ static struct mem_buf_vmperm *to_mem_buf_vmperm(struct dma_buf *dmabuf)
 	return ops->lookup(dmabuf);
 }
 
+/*
+ * With CFI enabled, ops->attach must be set from *this* modules in order
+ * for the comparison test in to_mem_buf_vmperm() to work.
+ */
 struct dma_buf *
-mem_buf_dma_buf_export(const struct dma_buf_export_info *exp_info)
+mem_buf_dma_buf_export(struct dma_buf_export_info *exp_info,
+		       struct mem_buf_dma_buf_ops *ops)
 {
 	struct mem_buf_vmperm *vmperm;
 	struct dma_buf *dmabuf;
+	struct dma_buf_ops *dma_ops = &ops->dma_ops;
 
-	if (exp_info->ops->attach != mem_buf_dma_buf_attach) {
-		pr_err("Invalid attach callback %ps\n", exp_info->ops);
-		return ERR_PTR(-EINVAL);
+	if (dma_ops->attach != mem_buf_dma_buf_attach) {
+		if (!dma_ops->attach) {
+			dma_ops->attach = mem_buf_dma_buf_attach;
+		} else {
+			pr_err("Attach callback must be null! %ps\n", exp_info->ops);
+			return ERR_PTR(-EINVAL);
+		}
 	}
+	exp_info->ops = dma_ops;
 
 	dmabuf = dma_buf_export(exp_info);
 	if (IS_ERR(dmabuf))

@@ -172,11 +172,10 @@ static struct dma_buf *__carveout_heap_allocate(struct carveout_heap *carveout_h
 
 
 	/* Instantiate our dma_buf */
-	exp_info.ops = &qcom_sg_buf_ops.dma_ops;
 	exp_info.size = buffer->len;
 	exp_info.flags = fd_flags;
 	exp_info.priv = buffer;
-	dmabuf = mem_buf_dma_buf_export(&exp_info);
+	dmabuf = mem_buf_dma_buf_export(&exp_info, &qcom_sg_buf_ops);
 	if (IS_ERR(dmabuf)) {
 		ret = PTR_ERR(dmabuf);
 		goto err_free_vmperm;

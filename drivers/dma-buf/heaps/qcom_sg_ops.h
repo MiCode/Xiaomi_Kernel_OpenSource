@@ -38,6 +38,6 @@ struct dma_heap_attachment {
 	bool mapped;
 };
 
-extern const struct mem_buf_dma_buf_ops qcom_sg_buf_ops;
+extern struct mem_buf_dma_buf_ops qcom_sg_buf_ops;
 
 #endif /* _QCOM_SG_OPS_H */
