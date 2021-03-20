@@ -564,6 +564,17 @@
 		reg = <0x0 0xed900000 0x0 0x3b00000>;
 	};
 
+	/*
+	 * Statically determine address to ensure that this CMA area's
+	 * allocation is not impacted by fragmentation from smaller regions
+	 * being allocated first.
+	 */
+	non_secure_display_memory: non_secure_display_region {
+		compatible = "shared-dma-pool";
+		reusable;
+		reg = <0x0 0xf2800000 0x0 0xd800000>;
+	};
+
 	sp_mem: sp_region {  /* SPSS-HLOS ION shared mem */
 		compatible = "shared-dma-pool";
 		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
@@ -596,28 +607,12 @@
 		size = <0x0 0x1000000>;
 	};
 
-	secure_display_memory: secure_display_region { /* Secure UI */
-		compatible = "shared-dma-pool";
-		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
-		reusable;
-		alignment = <0x0 0x400000>;
-		size = <0x0 0xA400000>;
-	};
-
 	cnss_wlan_mem: cnss_wlan_region {
 		compatible = "shared-dma-pool";
 		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 		reusable;
 		alignment = <0x0 0x400000>;
 		size = <0x0 0x1400000>;
-	};
-
-	non_secure_display_memory: non_secure_display_region {
-		compatible = "shared-dma-pool";
-		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
-		reusable;
-		alignment = <0x0 0x400000>;
-		size = <0x0 0xD800000>;
 	};
 
 	audio_cma_mem: audio_cma_region {
@@ -3325,7 +3320,6 @@
 #include "waipio-usb.dtsi"
 #include "waipio-coresight.dtsi"
 #include "waipio-dma-heaps.dtsi"
-#include "lahaina-ion.dtsi"
 #include "waipio-debug.dtsi"
 #include "waipio-eva.dtsi"
 #include "waipio-audio.dtsi"
