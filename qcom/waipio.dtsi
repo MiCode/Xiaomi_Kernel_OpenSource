@@ -1364,6 +1364,51 @@
 		qcom,battery_debug {
 			compatible = "qcom,battery-debug";
 		};
+
+		qcom,spmi_glink_debug {
+			compatible = "qcom,spmi-glink-debug";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			depends-on-supply = <&spmi1_bus>;
+
+			/* Primary SPMI bus */
+			spmi@0 {
+				reg = <0>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				qcom,pm8350b-debug@3 {
+					compatible = "qcom,spmi-pmic";
+					reg = <0x3 SPMI_USID>;
+					qcom,can-sleep;
+				};
+			};
+
+			/* Secondary SPMI bus */
+			spmi@1 {
+				reg = <1>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				smb1394_glink_debug: qcom,smb1394-debug@9 {
+					compatible = "qcom,spmi-pmic";
+					reg = <0x9 SPMI_USID>;
+					qcom,can-sleep;
+				};
+
+				qcom,smb1394-debug@b {
+					compatible = "qcom,spmi-pmic";
+					reg = <0xb SPMI_USID>;
+					qcom,can-sleep;
+				};
+
+				qcom,smb1396-debug@d {
+					compatible = "qcom,spmi-pmic";
+					reg = <0xd SPMI_USID>;
+					qcom,can-sleep;
+				};
+			};
+		};
 	};
 
 	cache-controller@19200000 {
@@ -2685,6 +2730,7 @@
 		#address-cells = <2>;
 		#size-cells = <0>;
 		depends-on-supply = <&spmi1_bus>;
+		depends-on2-supply = <&smb1394_glink_debug>;
 
 		qcom,pmk8350-debug@0 {
 			compatible = "qcom,spmi-pmic";
