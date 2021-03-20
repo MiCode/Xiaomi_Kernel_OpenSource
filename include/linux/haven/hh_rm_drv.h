@@ -223,7 +223,7 @@ int hh_rm_set_virtio_mmio_cb(hh_virtio_mmio_cb_t fnptr);
 int hh_rm_set_vcpu_affinity_cb(hh_vcpu_affinity_cb_t fnptr);
 
 /* Client APIs for VM management */
-int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name);
+int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name, int *vmid);
 int hh_rm_get_vmid(enum hh_vm_names vm_name, hh_vmid_t *vmid);
 int hh_rm_get_vm_name(hh_vmid_t vmid, enum hh_vm_names *vm_name);
 int hh_rm_vm_start(int vmid);
@@ -327,7 +327,7 @@ static inline int hh_rm_vm_irq_reclaim(hh_virq_handle_t virq_handle)
 }
 
 /* Client APIs for VM management */
-static inline int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name)
+static inline int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name, int *vmid)
 {
 	return -EINVAL;
 }

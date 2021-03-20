@@ -441,11 +441,12 @@ EXPORT_SYMBOL(hh_rm_vm_irq_reclaim);
  *			memory. This call should be called only during
 			initialization.
  * @vm_name: The enum value of the vm that has been loaded.
+ * @vmid: Value of vmid read from DT. If not present in DT using 0.
  *
  * The function encodes the error codes via ERR_PTR. Hence, the caller is
  * responsible to check it with IS_ERR_OR_NULL().
  */
-int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name)
+int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name, int *vmid)
 {
 	struct hh_vm_allocate_resp_payload *resp_payload;
 	struct hh_vm_allocate_req_payload req_payload = {0};
@@ -462,34 +463,40 @@ int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name)
 		return -EINVAL;
 	}
 
-	req_payload.vmid = 0;
+	req_payload.vmid = *vmid;
 
 	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_ALLOCATE,
 				&req_payload, sizeof(req_payload),
 				&resp_payload_size, &reply_err_code);
-	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+	if (reply_err_code || IS_ERR(resp_payload)) {
 		err = PTR_ERR(resp_payload);
 		pr_err("%s: VM_ALLOCATE failed with err: %d\n",
 			__func__, err);
 		return err;
 	}
 
-	if (resp_payload_size != sizeof(*resp_payload)) {
+	if (resp_payload &&
+			(resp_payload_size != sizeof(*resp_payload))) {
 		pr_err("%s: Invalid size received for VM_ALLOCATE: %u\n",
 			__func__, resp_payload_size);
 		kfree(resp_payload);
 		return -EINVAL;
 	}
 
-	vm_prop.vmid = resp_payload->vmid;
+	if (resp_payload)
+		*vmid = resp_payload->vmid;
+
+	vm_prop.vmid = *vmid;
 	err = hh_update_vm_prop_table(vm_name, &vm_prop);
 
 	if (err) {
-		pr_err("%s: Invalid vmid sent for updating table: %u\n",
-			__func__, resp_payload_size);
+		pr_err("%s: Invalid vmid sent for updating table: %d\n",
+			__func__, vm_prop.vmid);
 		return -EINVAL;
 	}
-	return resp_payload->vmid;
+
+	kfree(resp_payload);
+	return 0;
 }
 EXPORT_SYMBOL(hh_rm_vm_alloc_vmid);
 

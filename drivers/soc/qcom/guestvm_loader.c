@@ -253,8 +253,9 @@ static ssize_t guestvm_loader_start(struct kobject *kobj,
 
 	if (boot) {
 		priv->vm_status = HH_RM_VM_STATUS_INIT;
-		priv->vmid = hh_rm_vm_alloc_vmid(get_hh_vm_name(priv->vm_name));
-		if (priv->vmid < 0) {
+		ret = hh_rm_vm_alloc_vmid(get_hh_vm_name(priv->vm_name),
+							&priv->vmid);
+		if (ret < 0) {
 			dev_err(priv->dev, "Couldn't allocate VMID.\n");
 			return count;
 		}
@@ -343,6 +344,11 @@ static int guestvm_loader_probe(struct platform_device *pdev)
 	ret = hh_rm_register_notifier(&priv->guestvm_nb);
 	if (ret)
 		return ret;
+
+	ret = of_property_read_u32(pdev->dev.of_node, "qcom,vmid",
+							&priv->vmid);
+	if (ret)
+		dev_err(&pdev->dev, "Unable to get vmid from DT, ret=%d\n", ret);
 
 	priv->iso_needed = of_property_read_bool(pdev->dev.of_node,
 							"qcom,isolate-cpus");
