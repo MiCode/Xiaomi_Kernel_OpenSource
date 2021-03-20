@@ -819,7 +819,7 @@ void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 	pr_warn("RSC:%s\n", drv->name);
 
 	for (i = 0; i < drv->num_tcs; i++) {
-		if (!test_bit(i, drv->tcs_in_use))
+		if (read_tcs_reg(drv, RSC_DRV_STATUS, i))
 			continue;
 		busy++;
 		print_tcs_info(drv, i, &accl);
