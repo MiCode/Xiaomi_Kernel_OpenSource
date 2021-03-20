@@ -145,6 +145,9 @@ static ssize_t store_boost_freq(struct kobject *kobj,
 	}
 	mutex_unlock(&path->voter_lock);
 
+	trace_qcom_dcvs_boost(hw->type, path->type, hw->boost_freq,
+				new_freq.ib, new_freq.ab);
+
 	return count;
 }
 
@@ -326,6 +329,9 @@ static int qcom_dcvs_sp_update(const char *name, struct dcvs_freq *votes,
 		mutex_unlock(&path->voter_lock);
 		if (ret < 0)
 			return ret;
+		trace_qcom_dcvs_update(name, hw_type, path->type, votes[i].ib,
+					new_freq.ib, votes[i].ab, new_freq.ab,
+					path->hw->boost_freq);
 	}
 
 	return ret;
@@ -364,6 +370,8 @@ static int qcom_dcvs_fp_update(const char *name, struct dcvs_freq *votes,
 		new_freqs[i].ib = get_target_freq(path, votes[i].ib);
 		if (new_freqs[i].ib != path->cur_freq.ib)
 			commit_mask |= BIT(i);
+		trace_qcom_dcvs_update(name, hw_type, path->type, votes[i].ib,
+					new_freqs[i].ib, 0, 0, 0);
 	}
 
 	if (commit_mask)
@@ -411,6 +419,8 @@ static int qcom_dcvs_percpu_update(const char *name, struct dcvs_freq *votes,
 			if (ret < 0)
 				return ret;
 		}
+		trace_qcom_dcvs_update(name, hw_type, path->type, votes[i].ib,
+					new_freq.ib, 0, 0, 0);
 	}
 
 	return ret;
