@@ -737,6 +737,14 @@ int genc_hwsched_hfi_start(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
+	if (gmu->log_stream_enable)
+		genc_hfi_send_set_value(adreno_dev,
+			HFI_VALUE_LOG_STREAM_ENABLE, 0, 1);
+
+	if (gmu->log_group_mask)
+		genc_hfi_send_set_value(adreno_dev,
+			HFI_VALUE_LOG_GROUP, 0, gmu->log_group_mask);
+
 	ret = genc_hfi_send_core_fw_start(adreno_dev);
 	if (ret)
 		goto err;

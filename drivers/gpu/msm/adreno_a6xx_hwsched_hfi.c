@@ -782,6 +782,9 @@ int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
 		a6xx_hfi_send_set_value(adreno_dev,
 			HFI_VALUE_LOG_STREAM_ENABLE, 0, 1);
 
+	if (gmu->log_group_mask)
+		a6xx_hfi_send_set_value(adreno_dev, HFI_VALUE_LOG_GROUP, 0, gmu->log_group_mask);
+
 	ret = a6xx_hfi_send_core_fw_start(adreno_dev);
 	if (ret)
 		goto err;

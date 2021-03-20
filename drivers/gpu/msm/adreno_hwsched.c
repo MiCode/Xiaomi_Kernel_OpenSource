@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include "adreno.h"
@@ -1080,30 +1080,11 @@ static unsigned int _preempt_count_show(struct adreno_device *adreno_dev)
 	return a6xx_hwsched_preempt_count_get(adreno_dev);
 }
 
-static int _gmu_log_stream_enable_store(struct adreno_device *adreno_dev,
-		bool val)
-{
-	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
-
-	if (gmu->log_stream_enable == val)
-		return 0;
-
-	return adreno_power_cycle_bool(adreno_dev, &gmu->log_stream_enable, val);
-}
-
-static bool _gmu_log_stream_enable_show(struct adreno_device *adreno_dev)
-{
-	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
-
-	return gmu->log_stream_enable;
-}
-
 static ADRENO_SYSFS_BOOL(preemption);
 static ADRENO_SYSFS_U32(preempt_level);
 static ADRENO_SYSFS_BOOL(usesgmem);
 static ADRENO_SYSFS_BOOL(skipsaverestore);
 static ADRENO_SYSFS_RO_U32(preempt_count);
-static ADRENO_SYSFS_BOOL(gmu_log_stream_enable);
 
 static const struct attribute *_hwsched_attr_list[] = {
 	&adreno_attr_preemption.attr.attr,
@@ -1111,7 +1092,6 @@ static const struct attribute *_hwsched_attr_list[] = {
 	&adreno_attr_usesgmem.attr.attr,
 	&adreno_attr_skipsaverestore.attr.attr,
 	&adreno_attr_preempt_count.attr.attr,
-	&adreno_attr_gmu_log_stream_enable.attr.attr,
 	NULL,
 };
 
