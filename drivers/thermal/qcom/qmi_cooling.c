@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -501,6 +501,7 @@ static int qmi_device_probe(struct platform_device *pdev)
 		if (ret < 0) {
 			dev_err(dev, "QMI[0x%x] handle init failed. err:%d\n",
 					tmd->inst_id, ret);
+			tmd_inst_cnt = idx;
 			goto probe_err;
 		}
 		ret = qmi_add_lookup(&tmd->handle, TMD_SERVICE_ID_V01,
