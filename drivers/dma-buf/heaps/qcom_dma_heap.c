@@ -21,10 +21,10 @@ static int qcom_dma_heap_probe(struct platform_device *pdev)
 	int i;
 	struct platform_data *heaps;
 
-	qcom_system_heap_create("system", false, 0);
-	qcom_system_heap_create("qcom,system", false, 0);
+	qcom_system_heap_create("system", false);
+	qcom_system_heap_create("qcom,system", false);
 #ifdef CONFIG_QCOM_DMABUF_HEAPS_SYSTEM_UNCACHED
-	qcom_system_heap_create("qcom,system-uncached", true, 0);
+	qcom_system_heap_create("qcom,system-uncached", true);
 #endif
 	qcom_secure_system_heap_create("system-secure",
 				       QCOM_DMA_HEAP_FLAG_CP_PIXEL);

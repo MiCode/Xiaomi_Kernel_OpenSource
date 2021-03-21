@@ -100,10 +100,6 @@ static void system_heap_free(struct qcom_sg_buffer *buffer)
 	sys_heap = dma_heap_get_drvdata(buffer->heap);
 	table = &buffer->sg_table;
 
-	if (sys_heap->vmid)
-		if (hyp_unassign_sg_from_flags(table, sys_heap->vmid, true))
-			return;
-
 	/* Zero the buffer pages before adding back to the pool */
 	system_heap_zero_buffer(buffer);
 
@@ -165,7 +161,6 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 	struct list_head pages;
 	struct page *page, *tmp_page;
 	int i, ret = -ENOMEM;
-	int perms;
 
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
 	if (!buffer)
@@ -224,20 +219,11 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 		dma_unmap_sgtable(dma_heap_get_dev(heap), table, DMA_BIDIRECTIONAL, 0);
 	}
 
-	if (sys_heap->vmid) {
-		if (hyp_assign_sg_from_flags(table, sys_heap->vmid, true))
-			goto free_pages;
-
-		perms = msm_secure_get_vmid_perms(sys_heap->vmid);
-		buffer->vmperm = mem_buf_vmperm_alloc_staticvm(table,
-					&sys_heap->vmid, &perms, 1);
-	} else {
-		buffer->vmperm = mem_buf_vmperm_alloc(table);
-	}
+	buffer->vmperm = mem_buf_vmperm_alloc(table);
 
 	if (IS_ERR(buffer->vmperm)) {
 		ret = PTR_ERR(buffer->vmperm);
-		goto hyp_unassign;
+		goto free_sg;
 	}
 
 	/* create the dmabuf */
@@ -254,18 +240,6 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 
 vmperm_release:
 	mem_buf_vmperm_release(buffer->vmperm);
-
-hyp_unassign:
-	if (sys_heap->vmid && hyp_unassign_sg_from_flags(table, sys_heap->vmid, true))
-		goto free_sg;
-
-free_pages:
-	for_each_sgtable_sg(table, sg, i) {
-		struct page *p = sg_page(sg);
-
-		__free_pages(p, compound_order(p));
-	}
-
 free_sg:
 	sg_free_table(table);
 free_buffer:
@@ -280,7 +254,7 @@ static const struct dma_heap_ops system_heap_ops = {
 	.allocate = system_heap_allocate,
 };
 
-int qcom_system_heap_create(char *name, bool uncached, int vmid)
+int qcom_system_heap_create(char *name, bool uncached)
 {
 	struct dma_heap_export_info exp_info;
 	struct dma_heap *heap;
@@ -302,7 +276,6 @@ int qcom_system_heap_create(char *name, bool uncached, int vmid)
 	exp_info.priv = sys_heap;
 
 	sys_heap->uncached = uncached;
-	sys_heap->vmid = vmid;
 
 	sys_heap->pool_list = dynamic_page_pool_create_pools(0, NULL);
 	if (IS_ERR(sys_heap->pool_list)) {
