@@ -1402,7 +1402,7 @@ static void nvmet_tcp_state_change(struct sock *sk)
 {
 	struct nvmet_tcp_queue *queue;
 
-	write_lock_bh(&sk->sk_callback_lock);
+	read_lock_bh(&sk->sk_callback_lock);
 	queue = sk->sk_user_data;
 	if (!queue)
 		goto done;
@@ -1420,7 +1420,7 @@ static void nvmet_tcp_state_change(struct sock *sk)
 			queue->idx, sk->sk_state);
 	}
 done:
-	write_unlock_bh(&sk->sk_callback_lock);
+	read_unlock_bh(&sk->sk_callback_lock);
 }
 
 static int nvmet_tcp_set_queue_sock(struct nvmet_tcp_queue *queue)
