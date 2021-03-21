@@ -25,7 +25,7 @@ enum {
 	DIODE_ERRATA_0,
 	DIODE_ERRATA_1,
 	DIODE_ERRATA_2,
-	SWITCH_MAX,
+	DIODE_ERRATA_MAX,
 };
 
 struct pci_qcom_switch_errata {
@@ -246,7 +246,7 @@ static int config_downstream_port_1_diode(struct device *dev, void *data)
 	return 0;
 }
 
-struct pci_qcom_switch_errata errata[] = {
+struct pci_qcom_switch_errata diode_errata[] = {
 	[DIODE_ERRATA_0] = {config_upstream_port_diode},
 	[DIODE_ERRATA_1] = {config_downstream_port_1_diode},
 	[DIODE_ERRATA_2] = {config_common_port_diode},
@@ -260,30 +260,56 @@ static struct pci_device_id switch_qcom_pci_tbl[] = {
 };
 MODULE_DEVICE_TABLE(pci, switch_qcom_pci_tbl);
 
+static int switch_qcom_config_errata(struct pci_dev *pdev)
+{
+	int errata_num = 0;
+	int ret;
+
+	ret = of_property_read_u32(pdev->dev.of_node, "errata",
+				   &errata_num);
+	if (ret)
+		return 0;
+
+	if (pdev->vendor == DIODE_VENDOR_ID) {
+		dev_info(&pdev->dev, "Diode errata being requested: %d\n",
+			 errata_num);
+
+		if (errata_num >= DIODE_ERRATA_MAX) {
+			dev_err(&pdev->dev, "Invalid errata num: %d\n",
+				errata_num);
+			return -EINVAL;
+		}
+
+		ret = diode_errata[errata_num].config_errata(&pdev->dev, NULL);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static void switch_qcom_pci_remove(struct pci_dev *pdev)
+{
+	pci_clear_master(pdev);
+	pci_disable_device(pdev);
+}
+
 static int switch_qcom_pci_probe(struct pci_dev *pdev,
 			const struct pci_device_id *id)
 {
-	int ret = 0, errata_num = 0;
+	int ret = 0;
 
-	ret = of_property_read_u32((&pdev->dev)->of_node, "errata",
-							&errata_num);
+	ret = switch_qcom_config_errata(pdev);
+	if (ret)
+		return ret;
+
+	ret = pci_enable_device(pdev);
 	if (ret) {
-		pr_info("No erratas needed\n");
-		return 0;
-	}
-
-	pr_info("Errata being requested: %d\n", errata_num);
-
-	if (errata_num >= SWITCH_MAX) {
-		pr_err("Invalid errata num:%d\n", errata_num);
-		return -EINVAL;
-	}
-
-	ret = errata[errata_num].config_errata(&pdev->dev, NULL);
-	if (ret) {
-		pr_err("Error applying errata\n");
+		dev_err(&pdev->dev, "failed to enable PCIe device\n");
 		return ret;
 	}
+
+	pci_set_master(pdev);
 
 	return 0;
 }
@@ -292,6 +318,7 @@ static struct pci_driver switch_qcom_pci_driver = {
 	.name		= "pcie-qcom-switch",
 	.id_table	= switch_qcom_pci_tbl,
 	.probe		= switch_qcom_pci_probe,
+	.remove		= switch_qcom_pci_remove,
 };
 
 static int __init switch_qcom_pci_init(void)
