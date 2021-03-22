@@ -165,6 +165,8 @@ struct gh_notify_vmid_desc {
 #define GH_RM_OS_STATUS_INIT		3
 #define GH_RM_OS_STATUS_RUN		4
 
+#define GH_RM_VM_STOP_FLAG_FORCE_STOP				0x01
+
 #define GH_RM_VM_EXIT_TYPE_VM_EXIT				0
 #define GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_OFF		1
 #define GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_RESET	2
@@ -334,6 +336,7 @@ int gh_rm_get_vm_name(gh_vmid_t vmid, enum gh_vm_names *vm_name);
 int gh_rm_get_vminfo(enum gh_vm_names vm_name, struct gh_vminfo *vminfo);
 int gh_rm_vm_start(int vmid);
 int gh_rm_get_vm_id_info(enum gh_vm_names vm_name, gh_vmid_t vmid);
+int gh_rm_vm_stop(gh_vmid_t vmid, u32 stop_reason, u8 flags);
 int gh_rm_vm_reset(gh_vmid_t vmid);
 
 /* Client APIs for VM query */
@@ -478,6 +481,11 @@ static inline int gh_rm_vm_start(int vmid)
 }
 
 static inline int gh_rm_get_vm_id_info(enum gh_vm_names vm_name, gh_vmid_t vmid)
+{
+	return -EINVAL;
+}
+
+static inline int gh_rm_vm_stop(gh_vmid_t vmid, u32 stop_reason, u8 flags)
 {
 	return -EINVAL;
 }

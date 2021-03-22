@@ -72,6 +72,7 @@ struct gh_vm_property {
 #define GH_RM_RPC_MSG_ID_CALL_VM_ALLOCATE		0x56000001
 #define GH_RM_RPC_MSG_ID_CALL_VM_DEALLOCATE		0x56000002
 #define GH_RM_RPC_MSG_ID_CALL_VM_START			0x56000004
+#define GH_RM_RPC_MSG_ID_CALL_VM_STOP			0x56000005
 #define GH_RM_RPC_MSG_ID_CALL_VM_RESET			0x56000006
 
 /* Message IDs: VM Query */
@@ -126,6 +127,14 @@ struct gh_vm_start_req_payload {
 
 struct gh_vm_start_resp_payload {
 	u32 response;
+} __packed;
+
+/* Call: VM_STOP */
+struct gh_vm_stop_req_payload {
+	gh_vmid_t vmid;
+	u8 flags;
+	u8 reserved;
+	u32 stop_reason;
 } __packed;
 
 /* Call: VM_RESET */

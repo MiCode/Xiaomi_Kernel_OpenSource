@@ -8,6 +8,7 @@
 #include <linux/limits.h>
 #include <linux/module.h>
 
+#include <linux/gunyah/gh_vm.h>
 #include <linux/gunyah/gh_msgq.h>
 #include <linux/gunyah/gh_common.h>
 
@@ -885,6 +886,50 @@ int gh_rm_vm_start(int vmid)
 	return 0;
 }
 EXPORT_SYMBOL(gh_rm_vm_start);
+
+/**
+ * gh_rm_vm_stop: Send a request to Resource Manager VM to stop a VM.
+ * @vmid: The vmid of the vm to be stopped.
+ *
+ * The function encodes the error codes via ERR_PTR. Hence, the caller is
+ * responsible to check it with IS_ERR_OR_NULL().
+ */
+int gh_rm_vm_stop(gh_vmid_t vmid, u32 stop_reason, u8 flags)
+{
+	struct gh_vm_stop_req_payload req_payload = {0};
+	size_t resp_payload_size;
+	int err, reply_err_code;
+	void *resp;
+
+	if (stop_reason >= GH_VM_STOP_MAX) {
+		pr_err("%s: Invalid stop reason provided for VM_STOP\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	req_payload.vmid = vmid;
+	req_payload.stop_reason = stop_reason;
+	req_payload.flags = flags;
+
+	resp = gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_STOP,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (reply_err_code || IS_ERR(resp)) {
+		err = reply_err_code;
+		pr_err("%s: VM_STOP failed with err: %d\n", __func__, err);
+		return err;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for VM_STOP: %u\n",
+			__func__, resp_payload_size);
+		kfree(resp);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_vm_stop);
 
 /**
  * gh_rm_vm_reset: Send a request to Resource Manager VM to free up all
