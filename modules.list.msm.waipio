@@ -7,6 +7,7 @@ cmd-db.ko
 cqhci.ko
 dcvs_fp.ko
 debug-regulator.ko
+deferred-free-helper.ko
 dispcc-waipio.ko
 gcc-waipio.ko
 gdsc-regulator.ko
