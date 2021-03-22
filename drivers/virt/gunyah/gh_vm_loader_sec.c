@@ -46,10 +46,13 @@ struct gh_sec_vm_struct {
 	wait_queue_head_t vm_status_wait;
 	struct completion ioc_vm_exit_wait;
 	u32 ioc_exit_reason;
+	wait_queue_head_t vm_exited_wait;
+	u32 exit_type;
 	u32 restart_level;
 };
 
 #define GH_VM_LOADER_SEC_STATUS_TIMEOUT_MS 5000
+#define GH_VM_LOADER_SEC_EXITED_TIMEOUT_MS 5000
 
 static DEFINE_SPINLOCK(gh_sec_vm_devs_lock);
 static LIST_HEAD(gh_sec_vm_devs);
@@ -110,6 +113,42 @@ gh_vm_loader_wait_for_os_status(struct gh_sec_vm_struct *sec_vm_struct,
 		return -ERESTARTSYS;
 	} else if (timeleft == 0) {
 		dev_err(dev, "Wait for OS_STATUS %d timed out\n", wait_status);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+static int gh_vm_loader_get_wait_for_stop_reason(u32 stop_reason)
+{
+	switch (stop_reason) {
+	case GH_VM_STOP_SHUTDOWN:
+		return GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_OFF;
+	case GH_VM_STOP_RESTART:
+		return GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_RESET;
+	case GH_VM_STOP_CRASH:
+		return GH_RM_VM_EXIT_TYPE_WDT_BITE;
+	}
+
+	return -EINVAL;
+}
+
+static int
+gh_vm_loader_wait_for_vm_exited(struct gh_sec_vm_struct *sec_vm_struct,
+				int exit_type)
+{
+	struct device *dev = sec_vm_struct->vm_dev->dev;
+	long timeleft;
+
+	timeleft = wait_event_interruptible_timeout(
+			sec_vm_struct->vm_exited_wait,
+			sec_vm_struct->exit_type == exit_type,
+			msecs_to_jiffies(GH_VM_LOADER_SEC_EXITED_TIMEOUT_MS));
+	if (timeleft < 0) {
+		dev_err(dev, "Wait for VM_EXITED %d interrupt\n", exit_type);
+		return -ERESTARTSYS;
+	} else if (timeleft == 0) {
+		dev_err(dev, "Wait for VM_EXITED %d timed out\n", exit_type);
 		return -ETIMEDOUT;
 	}
 
@@ -190,6 +229,18 @@ gh_vm_loader_handle_fatal_err(struct gh_sec_vm_struct *sec_vm_struct,
 }
 
 static void
+gh_vm_loader_handle_shutdown(struct gh_sec_vm_struct *sec_vm_struct,
+			struct gh_rm_notif_vm_exited_payload *vm_exited)
+{
+	struct gh_vm_struct *vm_struct = sec_vm_struct->vm_struct;
+
+	gh_vm_loader_sec_cleanup_res(sec_vm_struct);
+
+	gh_vm_loader_notify_clients(vm_struct,
+					GH_VM_LOADER_SEC_AFTER_SHUTDOWN);
+}
+
+static void
 gh_vm_loader_sec_notif_vm_exited(struct gh_sec_vm_struct *sec_vm_struct,
 			struct gh_rm_notif_vm_exited_payload *vm_exited)
 {
@@ -204,6 +255,18 @@ gh_vm_loader_sec_notif_vm_exited(struct gh_sec_vm_struct *sec_vm_struct,
 	mutex_lock(&sec_vm_struct->vm_lock);
 
 	switch (vm_exited->exit_type) {
+	case GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_OFF:
+		gh_vm_loader_handle_shutdown(sec_vm_struct, vm_exited);
+		ioc_exit_reason = GH_VM_EXIT_REASON_SHUTDOWN;
+		break;
+	case GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_RESET:
+		gh_vm_loader_handle_shutdown(sec_vm_struct, vm_exited);
+		ioc_exit_reason = GH_VM_EXIT_REASON_RESTART;
+		break;
+	case GH_RM_VM_EXIT_TYPE_VM_STOP_FORCED:
+		gh_vm_loader_handle_shutdown(sec_vm_struct, vm_exited);
+		ioc_exit_reason = GH_VM_EXIT_REASON_FORCE_STOPPED;
+		break;
 	case GH_RM_VM_EXIT_TYPE_WDT_BITE:
 		gh_vm_loader_handle_fatal_err(sec_vm_struct, vm_exited);
 		ioc_exit_reason = GH_VM_EXIT_REASON_NSWD;
@@ -217,6 +280,9 @@ gh_vm_loader_sec_notif_vm_exited(struct gh_sec_vm_struct *sec_vm_struct,
 		ioc_exit_reason = GH_VM_EXIT_REASON_ASYNC_EXT_ABORT;
 		break;
 	}
+
+	sec_vm_struct->exit_type = vm_exited->exit_type;
+	wake_up_interruptible(&sec_vm_struct->vm_exited_wait);
 
 	sec_vm_struct->ioc_exit_reason = ioc_exit_reason;
 	complete(&sec_vm_struct->ioc_vm_exit_wait);
@@ -400,6 +466,61 @@ err_unlock:
 	return ret;
 }
 
+static int gh_vm_loader_sec_stop(struct gh_vm_struct *vm_struct,
+				u32 stop_reason, u8 stop_flags)
+{
+	struct gh_sec_vm_struct *sec_vm_struct;
+	struct gh_sec_vm_dev *vm_dev;
+	int ret, wait_status;
+	struct device *dev;
+
+	if (stop_reason >= GH_VM_STOP_MAX)
+		return -EINVAL;
+
+	wait_status = gh_vm_loader_get_wait_for_stop_reason(stop_reason);
+	if (wait_status < 0)
+		return -EINVAL;
+
+	sec_vm_struct = gh_vm_loader_get_loader_data(vm_struct);
+	if (!sec_vm_struct)
+		return -EINVAL;
+
+	vm_dev = sec_vm_struct->vm_dev;
+	dev = vm_dev->dev;
+
+	mutex_lock(&sec_vm_struct->vm_lock);
+	if (sec_vm_struct->vm_status.vm_status <= GH_RM_VM_STATUS_INIT) {
+		dev_err(dev, "VM not started\n");
+		mutex_unlock(&sec_vm_struct->vm_lock);
+		return -ENODEV;
+	}
+
+	gh_vm_loader_notify_clients(vm_struct,
+					GH_VM_LOADER_SEC_BEFORE_SHUTDOWN);
+
+	ret = gh_rm_vm_stop(sec_vm_struct->vmid, stop_reason, stop_flags);
+	if (ret) {
+		dev_err(dev, "Failed to stop the VM\n");
+		goto err_unlock;
+	}
+
+	mutex_unlock(&sec_vm_struct->vm_lock);
+
+	ret = gh_vm_loader_wait_for_vm_exited(sec_vm_struct, wait_status);
+	if (ret)
+		goto err_notify_fail;
+
+	return 0;
+
+err_unlock:
+	mutex_unlock(&sec_vm_struct->vm_lock);
+err_notify_fail:
+	gh_vm_loader_notify_clients(vm_struct,
+					GH_VM_LOADER_SEC_SHUTDOWN_FAIL);
+	return ret;
+}
+
+
 static int
 gh_vm_loader_wait_for_exit(struct gh_vm_struct *vm_struct, void __user *argp)
 {
@@ -459,6 +580,11 @@ static long gh_vm_loader_sec_ioctl(struct file *file,
 	switch (cmd) {
 	case GH_VM_SEC_START:
 		return gh_vm_loader_sec_start(vm_struct);
+	case GH_VM_SEC_STOP:
+		return gh_vm_loader_sec_stop(vm_struct, arg, 0);
+	case GH_VM_SEC_FORCE_STOP:
+		return gh_vm_loader_sec_stop(vm_struct, GH_VM_STOP_SHUTDOWN,
+						GH_RM_VM_STOP_FLAG_FORCE_STOP);
 	case GH_VM_SEC_WAIT_FOR_EXIT:
 		return gh_vm_loader_wait_for_exit(vm_struct,
 						(void __user *)arg);
@@ -517,6 +643,7 @@ static int gh_vm_loader_sec_vm_init(struct gh_vm_struct *vm_struct)
 	mutex_init(&sec_vm_struct->vm_lock);
 	init_waitqueue_head(&sec_vm_struct->vm_status_wait);
 	init_completion(&sec_vm_struct->ioc_vm_exit_wait);
+	init_waitqueue_head(&sec_vm_struct->vm_exited_wait);
 
 	sec_vm_struct->vm_struct = vm_struct;
 	sec_vm_struct->vm_dev = vm_dev;
