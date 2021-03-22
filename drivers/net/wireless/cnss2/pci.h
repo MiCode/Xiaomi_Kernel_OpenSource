@@ -7,7 +7,9 @@
 #include <linux/iommu.h>
 #include <linux/mhi.h>
 #include <linux/mhi_misc.h>
+#if IS_ENABLED(CONFIG_PCI_MSM)
 #include <linux/msm_pcie.h>
+#endif
 #include <linux/pci.h>
 
 #include "main.h"
@@ -87,7 +89,9 @@ struct cnss_pci_data {
 	u8 pci_link_down_ind;
 	struct pci_saved_state *saved_state;
 	struct pci_saved_state *default_state;
+#if IS_ENABLED(CONFIG_PCI_MSM)
 	struct msm_pcie_register_event msm_pci_event;
+#endif
 	struct cnss_pm_stats pm_stats;
 	atomic_t auto_suspended;
 	atomic_t drv_connected;
@@ -96,6 +100,9 @@ struct cnss_pci_data {
 	u16 def_link_speed;
 	u16 def_link_width;
 	u16 cur_link_speed;
+	int wake_gpio;
+	int wake_irq;
+	u32 wake_counter;
 	struct completion wake_event;
 	u8 monitor_wake_intr;
 	struct iommu_domain *iommu_domain;

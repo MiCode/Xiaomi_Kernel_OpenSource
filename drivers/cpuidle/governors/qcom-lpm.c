@@ -327,12 +327,14 @@ static void update_cpu_history(struct lpm_cpu *cpu_gov)
 {
 	bool tmr = false;
 	int idx = cpu_gov->last_idx;
-	struct cpuidle_state *target = &cpu_gov->drv->states[idx];
 	struct history_lpm *lpm_history = &cpu_gov->lpm_history;
 	u64 measured_us = ktime_to_us(cpu_gov->dev->last_residency_ns);
+	struct cpuidle_state *target;
 
 	if (prediction_disabled || idx < 0 || idx > cpu_gov->drv->state_count-1)
 		return;
+
+	target = &cpu_gov->drv->states[idx];
 
 	if (measured_us > target->exit_latency)
 		measured_us -= target->exit_latency;

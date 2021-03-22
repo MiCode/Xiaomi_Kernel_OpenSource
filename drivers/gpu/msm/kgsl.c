@@ -980,16 +980,15 @@ static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 	list_del(&private->list);
 	write_unlock(&kgsl_driver.proclist_lock);
 
+	debugfs_remove_recursive(private->debug_root);
+
 	/*
-	 * Unlock the mutex before releasing the memory and the debugfs
-	 * nodes - this prevents deadlocks with the IOMMU and debugfs
-	 * locks.
+	 * Unlock the mutex before releasing the memory - this prevents a
+	 * deadlock with the IOMMU mutex if a page fault occurs.
 	 */
 	mutex_unlock(&kgsl_driver.process_mutex);
 
 	process_release_memory(private);
-	debugfs_remove_recursive(private->debug_root);
-
 	kgsl_process_private_put(private);
 }
 
@@ -1188,7 +1187,9 @@ kgsl_sharedmem_find(struct kgsl_process_private *private, uint64_t gpuaddr)
 	if (!private)
 		return NULL;
 
-	if (!kgsl_mmu_gpuaddr_in_range(private->pagetable, gpuaddr))
+	if (!kgsl_mmu_gpuaddr_in_range(private->pagetable, gpuaddr) &&
+		!kgsl_mmu_gpuaddr_in_range(
+			private->pagetable->mmu->securepagetable, gpuaddr))
 		return NULL;
 
 	spin_lock(&private->mem_lock);
@@ -2451,15 +2452,6 @@ static int kgsl_setup_anon_useraddr(struct kgsl_pagetable *pagetable,
 }
 
 #ifdef CONFIG_DMA_SHARED_BUFFER
-static int match_file(const void *p, struct file *file, unsigned int fd)
-{
-	/*
-	 * We must return fd + 1 because iterate_fd stops searching on
-	 * non-zero return, but 0 is a valid fd.
-	 */
-	return (p == file) ? (fd + 1) : 0;
-}
-
 static void _setup_cache_mode(struct kgsl_mem_entry *entry,
 		struct vm_area_struct *vma)
 {
@@ -2513,14 +2505,21 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 			return -EFAULT;
 		}
 
-		/* Look for the fd that matches this the vma file */
-		fd = iterate_fd(current->files, 0, match_file, vma->vm_file);
-		if (fd != 0) {
-			dmabuf = dma_buf_get(fd - 1);
-			if (IS_ERR(dmabuf)) {
-				mmap_read_unlock(current->mm);
-				return PTR_ERR(dmabuf);
-			}
+		fd = get_unused_fd_flags(0);
+		if (fd < 0) {
+			mmap_read_unlock(current->mm);
+			return -ENOSPC;
+		}
+
+		fd_install(fd, vma->vm_file);
+
+		dmabuf = dma_buf_get(fd);
+
+		put_unused_fd(fd);
+
+		if (IS_ERR(dmabuf)) {
+			mmap_read_unlock(current->mm);
+			return PTR_ERR(dmabuf);
 		}
 	}
 

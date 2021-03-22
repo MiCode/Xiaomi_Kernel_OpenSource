@@ -241,6 +241,8 @@ static int qcom_smmu_cfg_probe(struct arm_smmu_device *smmu)
 		smr = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_SMR(i));
 
 		if (FIELD_GET(ARM_SMMU_SMR_VALID, smr)) {
+			/* Ignore valid bit for SMR mask extraction. */
+			smr &= ~ARM_SMMU_SMR_VALID;
 			smmu->smrs[i].id = FIELD_GET(ARM_SMMU_SMR_ID, smr);
 			smmu->smrs[i].mask = FIELD_GET(ARM_SMMU_SMR_MASK, smr);
 			smmu->smrs[i].valid = true;
@@ -950,11 +952,17 @@ static int qsmmuv500_device_group(struct device *dev,
 {
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
-	struct arm_smmu_device *smmu = cfg->smmu;
-	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
+	struct arm_smmu_device *smmu;
+	struct qsmmuv500_archdata *data;
 	struct qsmmuv500_group_iommudata *iommudata;
 	u32 actlr, i, j, idx;
 	struct arm_smmu_smr *smr, *smr2;
+
+	if (!fwspec || !cfg)
+		return -EINVAL;
+
+	smmu = cfg->smmu;
+	data = to_qsmmuv500_archdata(smmu);
 
 	iommudata = to_qsmmuv500_group_iommudata(group);
 	if (!iommudata) {

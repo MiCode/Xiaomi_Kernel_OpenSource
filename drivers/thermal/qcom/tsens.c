@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, 2021, The Linux Foundation. All rights reserved.
  * Copyright (c) 2019, 2020, Linaro Ltd.
  */
 
@@ -601,6 +601,8 @@ int get_temp_tsens_valid(const struct tsens_sensor *s, int *temp)
 	/* Valid bit is set, OK to read the temperature */
 	*temp = tsens_hw_to_mC(s, temp_idx);
 
+	TSENS_DBG(priv, "Sensor_id: %d temp: %d", hw_id, *temp);
+
 	return 0;
 }
 
@@ -615,6 +617,8 @@ int get_temp_common(const struct tsens_sensor *s, int *temp)
 		return ret;
 
 	*temp = code_to_degc(last_temp, s) * 1000;
+
+	TSENS_DBG(priv, "Sensor_id: %d temp: %d", hw_id, *temp);
 
 	return 0;
 }
@@ -685,6 +689,13 @@ static void tsens_debug_init(struct platform_device *pdev)
 	/* A directory for each instance of the TSENS IP */
 	priv->debug = debugfs_create_dir(dev_name(&pdev->dev), priv->debug_root);
 	debugfs_create_file("sensors", 0444, priv->debug, pdev, &dbg_sensors_fops);
+
+	/* Enable TSENS IPC logging context */
+	priv->ipc_log = ipc_log_context_create(IPC_LOGPAGES,
+				dev_name(&pdev->dev), 0);
+	if (!priv->ipc_log)
+		dev_err(&pdev->dev, "%s: unable to create IPC Logging for %s\n",
+				__func__, dev_name(&pdev->dev));
 }
 #else
 static inline void tsens_debug_init(struct platform_device *pdev) {}

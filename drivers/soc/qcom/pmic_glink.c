@@ -17,7 +17,7 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
-#include <soc/qcom/subsystem_notif.h>
+#include <linux/remoteproc/qcom_rproc.h>
 #include <soc/qcom/service-locator.h>
 #include <soc/qcom/service-notifier.h>
 #include <linux/soc/qcom/pmic_glink.h>
@@ -144,11 +144,11 @@ static int pmic_glink_ssr_notifier_cb(struct notifier_block *nb,
 	pr_debug("code: %lu\n", code);
 
 	switch (code) {
-	case SUBSYS_BEFORE_SHUTDOWN:
+	case QCOM_SSR_BEFORE_SHUTDOWN:
 		atomic_set(&pgdev->prev_state, code);
 		pmic_glink_notify_clients(pgdev, PMIC_GLINK_STATE_DOWN);
 		break;
-	case SUBSYS_AFTER_POWERUP:
+	case QCOM_SSR_AFTER_POWERUP:
 		/*
 		 * Do not notify PMIC Glink clients here but rather from
 		 * pmic_glink_init_work which will be run only after rpmsg
@@ -603,11 +603,11 @@ static void pmic_glink_init_work(struct work_struct *work)
 
 	if (atomic_read(&pgdev->pdr_state) ==
 	    SERVREG_NOTIF_SERVICE_STATE_EARLY_DOWN_V01 ||
-	    atomic_read(&pgdev->prev_state) == SUBSYS_BEFORE_SHUTDOWN) {
+	    atomic_read(&pgdev->prev_state) == QCOM_SSR_BEFORE_SHUTDOWN) {
 		pmic_glink_notify_clients(pgdev, PMIC_GLINK_STATE_UP);
 		atomic_set(&pgdev->pdr_state,
 				SERVREG_NOTIF_SERVICE_STATE_UP_V01);
-		atomic_set(&pgdev->prev_state, SUBSYS_AFTER_POWERUP);
+		atomic_set(&pgdev->prev_state, QCOM_SSR_AFTER_POWERUP);
 	}
 
 	if (pgdev->child_probed)
@@ -707,17 +707,17 @@ static int pmic_glink_probe(struct platform_device *pdev)
 	spin_lock_init(&pgdev->rx_lock);
 	mutex_init(&pgdev->client_lock);
 	idr_init(&pgdev->client_idr);
-	atomic_set(&pgdev->prev_state, SUBSYS_BEFORE_POWERUP);
+	atomic_set(&pgdev->prev_state, QCOM_SSR_BEFORE_POWERUP);
 	atomic_set(&pgdev->pdr_state, SERVREG_NOTIF_SERVICE_STATE_UNINIT_V01);
 
 	if (pgdev->subsys_name) {
 		pgdev->ssr_nb.notifier_call = pmic_glink_ssr_notifier_cb;
-		pgdev->subsys_handle = subsys_notif_register_notifier(
+		pgdev->subsys_handle = qcom_register_ssr_notifier(
 							pgdev->subsys_name,
 							&pgdev->ssr_nb);
 		if (IS_ERR(pgdev->subsys_handle)) {
 			rc = PTR_ERR(pgdev->subsys_handle);
-			pr_err("Failed in subsys_notif_register_notifier %d\n",
+			pr_err("Failed in qcom_register_ssr_notifier rc=%d\n",
 				rc);
 			goto error_subsys;
 		}
@@ -747,7 +747,7 @@ static int pmic_glink_probe(struct platform_device *pdev)
 	return 0;
 
 error_service:
-	subsys_notif_unregister_notifier(pgdev->subsys_handle, &pgdev->ssr_nb);
+	qcom_unregister_ssr_notifier(pgdev->subsys_handle, &pgdev->ssr_nb);
 error_subsys:
 	idr_destroy(&pgdev->client_idr);
 	destroy_workqueue(pgdev->rx_wq);
@@ -759,7 +759,7 @@ static int pmic_glink_remove(struct platform_device *pdev)
 	struct pmic_glink_dev *pgdev = dev_get_drvdata(&pdev->dev);
 
 	service_notif_unregister_notifier(pgdev->pdr_handle, &pgdev->pdr_nb);
-	subsys_notif_unregister_notifier(pgdev->subsys_handle, &pgdev->ssr_nb);
+	qcom_unregister_ssr_notifier(pgdev->subsys_handle, &pgdev->ssr_nb);
 	device_init_wakeup(pgdev->dev, false);
 	debugfs_remove_recursive(pgdev->debugfs_dir);
 	flush_workqueue(pgdev->rx_wq);

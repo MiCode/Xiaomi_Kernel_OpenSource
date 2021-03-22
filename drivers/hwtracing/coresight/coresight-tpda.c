@@ -804,13 +804,11 @@ err:
 	return -EPERM;
 }
 
-static int __exit tpda_remove(struct amba_device *adev)
+static void __exit tpda_remove(struct amba_device *adev)
 {
 	struct tpda_drvdata *drvdata = dev_get_drvdata(&adev->dev);
 
 	coresight_unregister(drvdata->csdev);
-
-	return 0;
 }
 
 static struct amba_id tpda_ids[] = {

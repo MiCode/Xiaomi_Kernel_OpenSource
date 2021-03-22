@@ -66,34 +66,52 @@ static u32 spss_emul_type_reg_addr; /* TCSR_SOC_EMULATION_TYPE */
 static void *iar_notif_handle;
 static struct notifier_block *iar_nb;
 static bool is_iar_active;
+static bool is_ssr_disabled;
 
 #define CMAC_SIZE_IN_BYTES (128/8) /* 128 bit = 16 bytes */
 #define CMAC_SIZE_IN_DWORDS (CMAC_SIZE_IN_BYTES/sizeof(u32)) /* 4 dwords */
 
-/* Asym , Crypt , Keym */
-#define NUM_UEFI_APPS 3
-
 static u32 pil_addr;
 static u32 pil_size;
-static u32 cmac_buf[CMAC_SIZE_IN_DWORDS]; /* saved cmac */
-static u32 pbl_cmac_buf[CMAC_SIZE_IN_DWORDS]; /* pbl cmac */
 
-static u32 calc_apps_cmac[NUM_UEFI_APPS][CMAC_SIZE_IN_DWORDS];
-static u32 saved_apps_cmac[NUM_UEFI_APPS][CMAC_SIZE_IN_DWORDS];
+/*
+ * The saved fw cmac is stored in file in IAR-DB.
+ * It is provided via ioctl from user space spu service.
+ */
+static u32 saved_fw_cmac[CMAC_SIZE_IN_DWORDS]; /* saved fw cmac */
 
-#define FW_AND_APPS_CMAC_SIZE \
-	(CMAC_SIZE_IN_DWORDS + NUM_UEFI_APPS*CMAC_SIZE_IN_DWORDS)
+/*
+ * The calculated fw cmac is calculated by SPU PBL.
+ * It is read from shared memory and provided back to user space service
+ * via device attribute.
+ */
+static u32 calc_fw_cmac[CMAC_SIZE_IN_DWORDS]; /* calculated pbl fw cmac */
 
-static u32 iar_state;
-static bool is_iar_enabled;
-static bool ssr_disabled_flag;
+/*
+ * The saved apps cmac is stored in file in IAR-DB.
+ * It is provided via ioctl from user space spu service.
+ */
+static u32 saved_apps_cmac[MAX_SPU_UEFI_APPS][CMAC_SIZE_IN_DWORDS];
+
+/*
+ * The calculated apps cmac is calculated by SPU firmware.
+ * It is read from shared memory and provided back to user space service
+ * via device attribute.
+ */
+static u32 calc_apps_cmac[MAX_SPU_UEFI_APPS][CMAC_SIZE_IN_DWORDS];
 
 static void __iomem *cmac_mem;
-static size_t cmac_mem_size = SZ_4K; /* XPU align to 4KB */
 static phys_addr_t cmac_mem_addr;
+#define  CMAC_MEM_SIZE SZ_4K /* XPU align to 4KB */
+
+#define SPSS_BASE_ADDR_MASK 0xFFFF0000
+#define SPSS_RMB_CODE_SIZE_REG_OFFSET 0x1008
 
 #define SPU_EMULATUION (BIT(0) | BIT(1))
 #define SPU_PRESENT_IN_EMULATION BIT(0)
+
+/* IOCTL max request size is 1KB */
+#define MAX_IOCTL_REQ_SIZE  1024
 
 /* Events notification */
 static struct completion spss_events[SPSS_NUM_EVENTS];
@@ -118,11 +136,11 @@ struct spss_utils_device {
 static struct spss_utils_device *spss_utils_dev;
 
 /* static functions declaration */
-static int spss_set_fw_cmac(u32 *cmac, size_t cmac_size);
-static int spss_get_pbl_and_apps_calc_cmac(void);
-
-static int spss_get_saved_uefi_apps_cmac(void);
+static int spss_set_saved_fw_cmac(u32 *cmac, size_t cmac_size);
 static int spss_set_saved_uefi_apps_cmac(void);
+
+static int spss_get_fw_calc_cmac(void);
+static int spss_get_apps_calc_cmac(void);
 
 /*==========================================================================*/
 /*		Device Sysfs */
@@ -214,85 +232,26 @@ static ssize_t spss_debug_reg_show(struct device *dev,
 
 static DEVICE_ATTR_RO(spss_debug_reg);
 
-static ssize_t cmac_buf_show(struct device *dev,
+static ssize_t calc_fw_cmac_show(struct device *dev,
 		struct device_attribute *attr,
 		char *buf)
 {
-	int ret = 0;
-
 	if (!dev || !attr || !buf) {
 		pr_err("invalid param.\n");
 		return -EINVAL;
 	}
 
-	ret = snprintf(buf, PAGE_SIZE, "0x%08x,0x%08x,0x%08x,0x%08x\n",
-		cmac_buf[0], cmac_buf[1], cmac_buf[2], cmac_buf[3]);
+	/* first make sure the calc cmac is updated */
+	spss_get_fw_calc_cmac();
 
-	return ret;
+	memcpy(buf, calc_fw_cmac, sizeof(calc_fw_cmac));
+
+	return sizeof(calc_fw_cmac);
 }
 
-static DEVICE_ATTR_RO(cmac_buf);
+static DEVICE_ATTR_RO(calc_fw_cmac);
 
-static ssize_t iar_state_show(struct device *dev,
-		struct device_attribute *attr,
-		char *buf)
-{
-	int ret = 0;
-
-	if (!dev || !attr || !buf) {
-		pr_err("invalid param.\n");
-		return -EINVAL;
-	}
-
-	/* show IAR-STATE from soc fuse */
-	ret = snprintf(buf, PAGE_SIZE, "0x%x\n", iar_state);
-
-	return ret;
-}
-
-static DEVICE_ATTR_RO(iar_state);
-
-static ssize_t iar_enabled_show(struct device *dev,
-		struct device_attribute *attr,
-		char *buf)
-{
-	int ret = 0;
-
-	if (!dev || !attr || !buf) {
-		pr_err("invalid param.\n");
-		return -EINVAL;
-	}
-
-	ret = snprintf(buf, PAGE_SIZE, "0x%x\n", is_iar_enabled);
-
-	return ret;
-}
-
-static DEVICE_ATTR_RO(iar_enabled);
-
-static ssize_t pbl_cmac_show(struct device *dev,
-		struct device_attribute *attr,
-		char *buf)
-{
-	int ret = 0;
-
-	if (!dev || !attr || !buf) {
-		pr_err("invalid param.\n");
-		return -EINVAL;
-	}
-
-	/* first make sure the pbl cmac is updated */
-	spss_get_pbl_and_apps_calc_cmac();
-
-	ret = snprintf(buf, PAGE_SIZE, "0x%08x,0x%08x,0x%08x,0x%08x\n",
-	    pbl_cmac_buf[0], pbl_cmac_buf[1], pbl_cmac_buf[2], pbl_cmac_buf[3]);
-
-	return ret;
-}
-
-static DEVICE_ATTR_RO(pbl_cmac);
-
-static ssize_t apps_cmac_show(struct device *dev,
+static ssize_t calc_apps_cmac_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	if (!dev || !attr || !buf) {
@@ -300,15 +259,15 @@ static ssize_t apps_cmac_show(struct device *dev,
 		return -EINVAL;
 	}
 
-	/* first make sure the pbl cmac is updated */
-	spss_get_pbl_and_apps_calc_cmac();
+	/* first make sure the calc cmac is updated */
+	spss_get_apps_calc_cmac();
 
 	memcpy(buf, calc_apps_cmac, sizeof(calc_apps_cmac));
 
 	return sizeof(calc_apps_cmac);
 }
 
-static DEVICE_ATTR_RO(apps_cmac);
+static DEVICE_ATTR_RO(calc_apps_cmac);
 
 /*--------------------------------------------------------------------------*/
 static int spss_create_sysfs(struct device *dev)
@@ -333,47 +292,23 @@ static int spss_create_sysfs(struct device *dev)
 		goto remove_test_fuse_state;
 	}
 
-	ret = device_create_file(dev, &dev_attr_cmac_buf);
+	ret = device_create_file(dev, &dev_attr_calc_fw_cmac);
 	if (ret < 0) {
-		pr_err("failed to create sysfs file for cmac_buf.\n");
+		pr_err("failed to create sysfs file for calc_fw_cmac.\n");
 		goto remove_spss_debug_reg;
 	}
 
-	ret = device_create_file(dev, &dev_attr_iar_state);
+	ret = device_create_file(dev, &dev_attr_calc_apps_cmac);
 	if (ret < 0) {
-		pr_err("failed to create sysfs file for iar_state.\n");
-		goto remove_cmac_buf;
-	}
-
-	ret = device_create_file(dev, &dev_attr_iar_enabled);
-	if (ret < 0) {
-		pr_err("failed to create sysfs file for iar_enabled.\n");
-		goto remove_iar_state;
-	}
-
-	ret = device_create_file(dev, &dev_attr_pbl_cmac);
-	if (ret < 0) {
-		pr_err("failed to create sysfs file for pbl_cmac.\n");
-		goto remove_iar_enabled;
-	}
-
-	ret = device_create_file(dev, &dev_attr_apps_cmac);
-	if (ret < 0) {
-		pr_err("failed to create sysfs file for apps_cmac.\n");
-		goto remove_pbl_cmac;
+		pr_err("failed to create sysfs file for calc_apps_cmac.\n");
+		goto remove_calc_fw_cmac;
 	}
 
 
 	return 0;
 
-remove_pbl_cmac:
-		device_remove_file(dev, &dev_attr_pbl_cmac);
-remove_iar_enabled:
-		device_remove_file(dev, &dev_attr_iar_enabled);
-remove_iar_state:
-		device_remove_file(dev, &dev_attr_iar_state);
-remove_cmac_buf:
-		device_remove_file(dev, &dev_attr_cmac_buf);
+remove_calc_fw_cmac:
+		device_remove_file(dev, &dev_attr_calc_fw_cmac);
 remove_spss_debug_reg:
 		device_remove_file(dev, &dev_attr_spss_debug_reg);
 remove_test_fuse_state:
@@ -386,11 +321,8 @@ remove_firmware_name:
 static void spss_destroy_sysfs(struct device *dev)
 {
 
-	device_remove_file(dev, &dev_attr_apps_cmac);
-	device_remove_file(dev, &dev_attr_pbl_cmac);
-	device_remove_file(dev, &dev_attr_iar_enabled);
-	device_remove_file(dev, &dev_attr_iar_state);
-	device_remove_file(dev, &dev_attr_cmac_buf);
+	device_remove_file(dev, &dev_attr_calc_apps_cmac);
+	device_remove_file(dev, &dev_attr_calc_fw_cmac);
 	device_remove_file(dev, &dev_attr_spss_debug_reg);
 	device_remove_file(dev, &dev_attr_test_fuse_state);
 	device_remove_file(dev, &dev_attr_firmware_name);
@@ -500,16 +432,70 @@ static int spss_is_event_signaled(struct spss_ioc_is_signaled *req)
 	return 0;
 }
 
+static int spss_handle_set_fw_and_apps_cmac(struct spss_ioc_set_fw_and_apps_cmac *req)
+{
+	int ret = 0;
+	u32 cmac_buf_size = req->cmac_buf_size;
+	void __user *cmac_buf_ptr = u64_to_user_ptr(req->cmac_buf_ptr);
+	u32 num_of_cmacs = req->num_of_cmacs;
+	/* Saved cmacs of spu firmware and UEFI loaded spu apps */
+	u32 fw_and_apps_cmacs[1+MAX_SPU_UEFI_APPS][CMAC_SIZE_IN_DWORDS];
+
+	pr_debug("cmac_buf_size [0x%x].\n", (int) req->cmac_buf_size);
+	pr_debug("cmac_buf_ptr  [0x%x].\n", (int) req->cmac_buf_ptr);
+	pr_debug("num_of_cmacs  [0x%x].\n", (int) req->num_of_cmacs);
+
+	if (cmac_buf_size != sizeof(fw_and_apps_cmacs)) {
+		pr_err("cmac_buf_size [0x%x] invalid.\n", cmac_buf_size);
+		return -EINVAL;
+	}
+
+	if (num_of_cmacs > (u32)(MAX_SPU_UEFI_APPS+1)) {
+		pr_err("num_of_cmacs [0x%x] invalid.\n", num_of_cmacs);
+		return -EINVAL;
+	}
+
+	/* copy the saved cmacs from user buffer to loacl variable */
+	ret = copy_from_user(fw_and_apps_cmacs, cmac_buf_ptr, cmac_buf_size);
+	if (ret < 0) {
+		pr_err("copy_from_user() from cmac_buf_ptr failed.\n");
+		return -EFAULT;
+	}
+
+	/* store the saved fw cmac */
+	memcpy(saved_fw_cmac, fw_and_apps_cmacs[0],
+		sizeof(saved_fw_cmac));
+
+	pr_debug("saved fw cmac: 0x%08x,0x%08x,0x%08x,0x%08x\n",
+		saved_fw_cmac[0], saved_fw_cmac[1],
+		saved_fw_cmac[2], saved_fw_cmac[3]);
+
+	/* store the saved apps cmac */
+	memcpy(saved_apps_cmac, fw_and_apps_cmacs[1],
+		sizeof(saved_apps_cmac));
+
+	/*
+	 * SPSS is loaded now by UEFI,
+	 * so PIL-IAR-callback is not being called on power-up by PIL.
+	 * therefore get the saved spu fw cmac and apps cmac from ioctl.
+	 * The PIL-IAR-callback shall be called on spss SSR.
+	 * The saved cmacs are used on QCOM_SSR_AFTER_POWERUP event !
+	 */
+	spss_set_saved_fw_cmac(saved_fw_cmac, sizeof(saved_fw_cmac));
+	spss_set_saved_uefi_apps_cmac();
+
+	pr_debug("completed ok\n");
+
+	return 0;
+}
+
 static long spss_utils_ioctl(struct file *file,
 	unsigned int cmd, unsigned long arg)
 {
 	int ret;
 	void *buf = (void *) arg;
-	unsigned char data[64] = {0};
+	uint8_t data[MAX_IOCTL_REQ_SIZE] = {0};
 	size_t size = 0;
-	u32 i = 0;
-	/* Saved cmacs of spu firmware and UEFI loaded spu apps */
-	u32 fw_and_apps_cmacs[FW_AND_APPS_CMAC_SIZE];
 	void *req = (void *) data;
 
 	if (buf == NULL) {
@@ -533,36 +519,23 @@ static long spss_utils_ioctl(struct file *file,
 	}
 
 	switch (cmd) {
-	case SPSS_IOC_SET_FW_CMAC:
-		if (size != sizeof(fw_and_apps_cmacs)) {
-			pr_err("cmd [0x%x] invalid size [0x%x]\n", cmd, size);
-			return -EINVAL;
-		}
+	case SPSS_IOC_SET_FW_AND_APPS_CMAC:
+		pr_debug("ioctl [SPSS_IOC_SET_FW_AND_APPS_CMAC]\n");
 
 		/* spdaemon uses this ioctl only when IAR is active */
 		is_iar_active = true;
 
-		memcpy(fw_and_apps_cmacs, data, sizeof(fw_and_apps_cmacs));
-		memcpy(cmac_buf, fw_and_apps_cmacs, sizeof(cmac_buf));
-
-		for (i = 0; i < NUM_UEFI_APPS; ++i) {
-			int x = (i+1)*CMAC_SIZE_IN_DWORDS;
-
-			memcpy(saved_apps_cmac[i],
-				fw_and_apps_cmacs + x,
-				CMAC_SIZE_IN_BYTES);
+		if (cmac_mem == NULL) {
+			cmac_mem = ioremap(cmac_mem_addr, CMAC_MEM_SIZE);
+			if (!cmac_mem) {
+				pr_err("can't map cmac_mem.\n");
+				return -EFAULT;
+			}
 		}
 
-		/*
-		 * SPSS is loaded now by UEFI,
-		 * so IAR callback is not being called on power-up by PIL.
-		 * therefore read the spu pbl fw cmac and apps cmac from ioctl.
-		 * The callback shall be called on spss SSR.
-		 */
-		pr_debug("read pbl cmac from shared memory\n");
-		spss_set_fw_cmac(cmac_buf, sizeof(cmac_buf));
-		spss_set_saved_uefi_apps_cmac();
-		spss_get_saved_uefi_apps_cmac();
+		ret = spss_handle_set_fw_and_apps_cmac(req);
+		if (ret < 0)
+			return ret;
 		break;
 
 	case SPSS_IOC_WAIT_FOR_EVENT:
@@ -609,10 +582,17 @@ static long spss_utils_ioctl(struct file *file,
 		}
 
 		if (is_iar_active) {
-			memcpy(&ssr_disabled_flag, data, size);
-			pr_debug("SSR disabled state updated to: %d\n",
-				 ssr_disabled_flag);
+			uint32_t tmp = 0;
+
+			memcpy(&tmp, data, sizeof(tmp));
+			is_ssr_disabled = (bool) tmp; /* u32 to bool */
+
+			pr_info("SSR disabled state updated to: %d\n",
+				 is_ssr_disabled);
 		}
+
+		pr_info("is_iar_active [%d] is_ssr_disabled [%d].\n",
+			is_iar_active, is_ssr_disabled);
 		break;
 
 	default:
@@ -701,47 +681,51 @@ static void spss_utils_destroy_chardev(void)
 /*		Device Tree */
 /*==========================================================================*/
 
+/* get the ACTUAL spss PIL firmware size from spu reg */
+static int get_pil_size(phys_addr_t base_addr)
+{
+	u32 spss_code_size_addr = 0;
+	void __iomem *spss_code_size_reg = NULL;
+	u32 pil_size = 0;
+
+	spss_code_size_addr = base_addr + SPSS_RMB_CODE_SIZE_REG_OFFSET;
+	spss_code_size_reg = ioremap(spss_code_size_addr, sizeof(u32));
+	if (!spss_code_size_reg) {
+		pr_err("can't map spss_code_size_addr\n");
+		return -EINVAL;
+	}
+	pil_size = readl_relaxed(spss_code_size_reg);
+	iounmap(spss_code_size_reg);
+
+	if (pil_size % SZ_4K) {
+		pr_err("pil_size [0x%08x] is not 4K aligned.\n", pil_size);
+		return -EFAULT;
+	}
+
+	return pil_size;
+}
+
 /**
  * spss_parse_dt() - Parse Device Tree info.
  */
 static int spss_parse_dt(struct device_node *node)
 {
 	int ret;
-
-/**
- *	TODO: Fuse access is temporarily disabled due to access fault
- *	Uncomment when access issue is fixed
- *
- *	u32 spss_fuse1_addr = 0;
- *	u32 spss_fuse1_bit = 0;
- *	u32 spss_fuse1_mask = 0;
- *	void __iomem *spss_fuse1_reg = NULL;
- *	u32 spss_fuse2_addr = 0;
- *	u32 spss_fuse2_bit = 0;
- *	u32 spss_fuse2_mask = 0;
- *	void __iomem *spss_fuse2_reg = NULL;
- *
- *	* IAR_FEATURE_ENABLED soc fuse
- *
- *	u32 spss_fuse3_addr = 0;
- *	u32 spss_fuse3_bit = 0;
- *	u32 spss_fuse3_mask = 0;
- *	void __iomem *spss_fuse3_reg = NULL;
- *
- *	* IAR_STATE soc fuses
- *
- *	u32 spss_fuse4_addr = 0;
- *	u32 spss_fuse4_bit = 0;
- *	u32 spss_fuse4_mask = 0;
- *	void __iomem *spss_fuse4_reg = NULL;
- *	u32 val1 = 0;
- *	u32 val2 = 0;
- */
+	u32 spss_fuse1_addr = 0;
+	u32 spss_fuse1_bit = 0;
+	u32 spss_fuse1_mask = 0;
+	void __iomem *spss_fuse1_reg = NULL;
+	u32 spss_fuse2_addr = 0;
+	u32 spss_fuse2_bit = 0;
+	u32 spss_fuse2_mask = 0;
+	void __iomem *spss_fuse2_reg = NULL;
 	struct device_node *np;
 	struct resource r;
-
+	u32 val1 = 0;
+	u32 val2 = 0;
 	void __iomem *spss_emul_type_reg = NULL;
 	u32 spss_emul_type_val = 0;
+	phys_addr_t spss_regs_base_addr = 0;
 
 	ret = of_property_read_string(node, "qcom,spss-dev-firmware-name",
 		&dev_firmware_name);
@@ -764,87 +748,82 @@ static int spss_parse_dt(struct device_node *node)
 		return -EINVAL;
 	}
 
-/**
- *	TODO: Fuse access is temporarily disabled due to access fault
- *	Uncomment when access issue is fixed
- *
- *	ret = of_property_read_u32(node, "qcom,spss-fuse1-addr",
- *		&spss_fuse1_addr);
- *	if (ret < 0) {
- *		pr_err("can't get fuse1 addr\n");
- *		return -EINVAL;
- *	}
- *
- *	ret = of_property_read_u32(node, "qcom,spss-fuse2-addr",
- *		&spss_fuse2_addr);
- *	if (ret < 0) {
- *		pr_err("can't get fuse2 addr\n");
- *		return -EINVAL;
- *	}
- *
- *	ret = of_property_read_u32(node, "qcom,spss-fuse1-bit",
- *		&spss_fuse1_bit);
- *	if (ret < 0) {
- *		pr_err("can't get fuse1 bit\n");
- *		return -EINVAL;
- *	}
- *
- *	ret = of_property_read_u32(node, "qcom,spss-fuse2-bit",
- *		&spss_fuse2_bit);
- *	if (ret < 0) {
- *		pr_err("can't get fuse2 bit\n");
- *		return -EINVAL;
- *	}
- *
- *
- *	spss_fuse1_mask = BIT(spss_fuse1_bit);
- *	spss_fuse2_mask = BIT(spss_fuse2_bit);
- *
- *	pr_debug("spss fuse1 addr [0x%x] bit [%d]\n",
- *		(int) spss_fuse1_addr, (int) spss_fuse1_bit);
- *	pr_debug("spss fuse2 addr [0x%x] bit [%d]\n",
- *		(int) spss_fuse2_addr, (int) spss_fuse2_bit);
- *
- *	spss_fuse1_reg = ioremap(spss_fuse1_addr, sizeof(u32));
- *	if (!spss_fuse1_reg) {
- *		pr_err("can't map fuse1 addr\n");
- *		return -EINVAL;
- *	}
- *
- *	spss_fuse2_reg = ioremap(spss_fuse2_addr, sizeof(u32));
- *	if (!spss_fuse2_reg) {
- *		iounmap(spss_fuse1_reg);
- *		pr_err("can't map fuse2 addr\n");
- *		return -EINVAL;
- *	}
- *
- *	val1 = readl_relaxed(spss_fuse1_reg);
- *	val2 = readl_relaxed(spss_fuse2_reg);
- *
- *	pr_debug("spss fuse1 value [0x%08x]\n", (int) val1);
- *	pr_debug("spss fuse2 value [0x%08x]\n", (int) val2);
- *
- *	pr_debug("spss fuse1 mask [0x%08x]\n", (int) spss_fuse1_mask);
- *	pr_debug("spss fuse2 mask [0x%08x]\n", (int) spss_fuse2_mask);
- *
- *	 * Set firmware_type based on fuses:
- *	 *	SPSS_CONFIG_MODE 11:        dev
- *	 *	SPSS_CONFIG_MODE 01 or 10:  test
- *	 *	SPSS_CONFIG_MODE 00:        prod
- *
- *	if ((val1 & spss_fuse1_mask) && (val2 & spss_fuse2_mask))
- *		firmware_type = SPSS_FW_TYPE_DEV;
- *	else if ((val1 & spss_fuse1_mask) || (val2 & spss_fuse2_mask))
- *		firmware_type = SPSS_FW_TYPE_TEST;
- *	else
- *		firmware_type = SPSS_FW_TYPE_PROD;
- *
- *	iounmap(spss_fuse1_reg);
- *	iounmap(spss_fuse2_reg);
- */
+	ret = of_property_read_u32(node, "qcom,spss-fuse1-addr",
+		&spss_fuse1_addr);
+	if (ret < 0) {
+		pr_err("can't get fuse1 addr\n");
+		return -EINVAL;
+	}
 
-	/* Force test firmware type. Remove when fuse assess issue is resolved.*/
-	firmware_type = SPSS_FW_TYPE_TEST;
+	ret = of_property_read_u32(node, "qcom,spss-fuse2-addr",
+		&spss_fuse2_addr);
+	if (ret < 0) {
+		pr_err("can't get fuse2 addr\n");
+		return -EINVAL;
+	}
+
+	ret = of_property_read_u32(node, "qcom,spss-fuse1-bit",
+		&spss_fuse1_bit);
+	if (ret < 0) {
+		pr_err("can't get fuse1 bit\n");
+		return -EINVAL;
+	}
+
+	ret = of_property_read_u32(node, "qcom,spss-fuse2-bit",
+		&spss_fuse2_bit);
+	if (ret < 0) {
+		pr_err("can't get fuse2 bit\n");
+		return -EINVAL;
+	}
+
+
+	spss_fuse1_mask = BIT(spss_fuse1_bit);
+	spss_fuse2_mask = BIT(spss_fuse2_bit);
+
+	pr_debug("spss fuse1 addr [0x%x] bit [%d]\n",
+		(int) spss_fuse1_addr, (int) spss_fuse1_bit);
+	pr_debug("spss fuse2 addr [0x%x] bit [%d]\n",
+		(int) spss_fuse2_addr, (int) spss_fuse2_bit);
+
+	spss_fuse1_reg = ioremap(spss_fuse1_addr, sizeof(u32));
+
+	if (!spss_fuse1_reg) {
+		pr_err("can't map fuse1 addr\n");
+		return -EINVAL;
+	}
+
+	spss_fuse2_reg = ioremap(spss_fuse2_addr, sizeof(u32));
+
+	if (!spss_fuse2_reg) {
+		iounmap(spss_fuse1_reg);
+		pr_err("can't map fuse2 addr\n");
+		return -EINVAL;
+	}
+
+	val1 = readl_relaxed(spss_fuse1_reg);
+	val2 = readl_relaxed(spss_fuse2_reg);
+
+	pr_debug("spss fuse1 value [0x%08x]\n", (int) val1);
+	pr_debug("spss fuse2 value [0x%08x]\n", (int) val2);
+
+	pr_debug("spss fuse1 mask [0x%08x]\n", (int) spss_fuse1_mask);
+	pr_debug("spss fuse2 mask [0x%08x]\n", (int) spss_fuse2_mask);
+
+	/**
+	 * Set firmware_type based on fuses:
+	 *	SPSS_CONFIG_MODE 11:        dev
+	 *	SPSS_CONFIG_MODE 01 or 10:  test
+	 *	SPSS_CONFIG_MODE 00:        prod
+	 */
+	if ((val1 & spss_fuse1_mask) && (val2 & spss_fuse2_mask))
+		firmware_type = SPSS_FW_TYPE_DEV;
+	else if ((val1 & spss_fuse1_mask) || (val2 & spss_fuse2_mask))
+		firmware_type = SPSS_FW_TYPE_TEST;
+	else
+		firmware_type = SPSS_FW_TYPE_PROD;
+
+	iounmap(spss_fuse1_reg);
+	iounmap(spss_fuse2_reg);
 
 	pr_debug("firmware_type value [%c]\n", firmware_type);
 
@@ -901,12 +880,14 @@ static int spss_parse_dt(struct device_node *node)
 		pil_addr = (u32)r.start;
 	}
 
-	ret = of_property_read_u32(node, "qcom,pil-size",
-		&pil_size);
+	spss_regs_base_addr =
+		(spss_debug_reg_addr & SPSS_BASE_ADDR_MASK);
+	ret = get_pil_size(spss_regs_base_addr);
 	if (ret < 0) {
-		pr_err("can't get pil_size\n");
+		pr_err("failed to get pil_size.\n");
 		return -EFAULT;
 	}
+	pil_size = (u32) ret;
 
 	pr_debug("pil_addr [0x%08x].\n", pil_addr);
 	pr_debug("pil_size [0x%08x].\n", pil_size);
@@ -915,184 +896,110 @@ static int spss_parse_dt(struct device_node *node)
 	cmac_mem_addr = pil_addr + pil_size;
 	pr_info("iar_buf_addr [0x%08x].\n", cmac_mem_addr);
 
-/**
- *	TODO: Fuse access is temporarily disabled due to access fault
- *	Uncomment when access issue is fixed
- *
- *	ret = of_property_read_u32(node, "qcom,spss-fuse3-addr",
- *		&spss_fuse3_addr);
- *	if (ret < 0) {
- *		pr_err("can't get fuse3 addr.\n");
- *		return -EFAULT;
- *	}
- *
- *	ret = of_property_read_u32(node, "qcom,spss-fuse3-bit",
- *		&spss_fuse3_bit);
- *	if (ret < 0) {
- *		pr_err("can't get fuse3 bit.\n");
- *		return -EFAULT;
- *	}
- *
- *	spss_fuse3_reg = ioremap(spss_fuse3_addr, sizeof(u32));
- *
- *	if (!spss_fuse3_reg) {
- *		pr_err("can't map fuse3 addr.\n");
- *		return -EFAULT;
- *	}
- *
- *	read IAR_FEATURE_ENABLED from soc fuse
- *
- *	val1 = readl_relaxed(spss_fuse3_reg);
- *	iounmap(spss_fuse3_reg);
- *	spss_fuse3_mask = (1<<spss_fuse3_bit);
- *	pr_debug("iar_enabled fuse, addr [0x%x] val [0x%x] mask [0x%x].\n",
- *		spss_fuse3_addr, val1, spss_fuse3_mask);
- *	if (val1 & spss_fuse3_mask)
- *		is_iar_enabled = true;
- *	else
- */
-
-	is_iar_enabled = false;
-
-	memset(cmac_buf, 0xA5, sizeof(cmac_buf));
-
-/**
- *	TODO: Fuse access is temporarily disabled due to access fault
- *	Uncomment when access issue is fixed
- *
- *	ret = of_property_read_u32(node, "qcom,spss-fuse4-addr",
- *		&spss_fuse4_addr);
- *	if (ret < 0) {
- *		pr_err("can't get fuse4 addr.\n");
- *		return -EFAULT;
- *	}
- *
- *	ret = of_property_read_u32(node, "qcom,spss-fuse4-bit",
- *		&spss_fuse4_bit);
- *	if (ret < 0) {
- *		pr_err("can't get fuse4 bit.\n");
- *		return -EFAULT;
- *	}
- *
- *	spss_fuse4_reg = ioremap(spss_fuse4_addr, sizeof(u32));
- *
- *	if (!spss_fuse4_reg) {
- *		pr_err("can't map fuse4 addr.\n");
- *		return -EFAULT;
- *	}
- *
- *	val1 = readl_relaxed(spss_fuse4_reg);
- *	iounmap(spss_fuse4_reg);
- *	spss_fuse4_mask = (0x07 << spss_fuse4_bit);   * 3 bits
- *	pr_debug("IAR_STATE fuse, addr [0x%x] val [0x%x] mask [0x%x].\n",
- *	spss_fuse4_addr, val1, spss_fuse4_mask);
- *	val1 = ((val1 & spss_fuse4_mask) >> spss_fuse4_bit) & 0x07;
- *
- *	iar_state = val1;
- */
-	iar_state = 0;
-
-	pr_debug("iar_state [%d]\n", iar_state);
+	memset(saved_fw_cmac, 0xA5, sizeof(saved_fw_cmac));
+	memset(saved_apps_cmac, 0xA5, sizeof(saved_apps_cmac));
 
 	return 0;
 }
 
-static int spss_set_fw_cmac(u32 *cmac, size_t cmac_size)
+static int spss_set_saved_fw_cmac(u32 *cmac, size_t cmac_size)
 {
 	u8 __iomem *reg = NULL;
 	int i;
 
 	if (cmac_mem == NULL) {
-		cmac_mem = ioremap(cmac_mem_addr, cmac_mem_size);
-		if (!cmac_mem) {
-			pr_err("can't map cmac_mem.\n");
-			return -EFAULT;
-		}
+		pr_err("invalid cmac_mem.\n");
+		return -EFAULT;
 	}
 
-	pr_debug("pil_addr [0x%x]\n", pil_addr);
-	pr_debug("pil_size [0x%x]\n", pil_size);
-	pr_debug("cmac_mem [%pK]\n", cmac_mem);
 	reg = cmac_mem;
-	pr_debug("reg [%pK]\n", reg);
 
-	for (i = 0; i < cmac_size/4; i++) {
+	for (i = 0; i < cmac_size/sizeof(u32); i++)
 		writel_relaxed(cmac[i], reg + i*sizeof(u32));
-		pr_debug("cmac[%d] [0x%x]\n", i, cmac[i]);
-	}
 
-	reg += cmac_size;
+	pr_debug("saved fw cmac: 0x%08x,0x%08x,0x%08x,0x%08x\n",
+		cmac[0], cmac[1], cmac[2], cmac[3]);
+
 	return 0;
 }
 
-static int spss_get_pbl_and_apps_calc_cmac(void)
+static int spss_get_fw_calc_cmac(void)
 {
 	u8 __iomem *reg = NULL;
-	int i, j;
+	int i;
 	u32 val;
+	u32 cmac[CMAC_SIZE_IN_DWORDS] = {0};
 
-	if (cmac_mem == NULL)
+	if (cmac_mem == NULL) {
+		pr_err("invalid cmac_mem.\n");
 		return -EFAULT;
+	}
 
 	reg = cmac_mem; /* IAR buffer base */
 	reg += CMAC_SIZE_IN_BYTES; /* skip the saved cmac */
-	pr_debug("reg [%pK]\n", reg);
+
+	memset(calc_fw_cmac, 0, sizeof(calc_fw_cmac));
 
 	/* get pbl fw cmac from ddr */
 	for (i = 0; i < CMAC_SIZE_IN_DWORDS; i++) {
 		val = readl_relaxed(reg);
-		pbl_cmac_buf[i] = val;
+		calc_fw_cmac[i] = val;
 		reg += sizeof(u32);
 	}
-	reg += CMAC_SIZE_IN_BYTES; /* skip the saved cmac */
 
-	pr_debug("pbl_cmac_buf : 0x%08x,0x%08x,0x%08x,0x%08x\n",
-	    pbl_cmac_buf[0], pbl_cmac_buf[1],
-	    pbl_cmac_buf[2], pbl_cmac_buf[3]);
+	/* check for any pattern to mark invalid cmac */
+	if (cmac[0] == cmac[1])
+		return -EINVAL; /* not valid cmac */
 
-	/* get apps cmac from ddr */
-	for (j = 0; j < NUM_UEFI_APPS; j++) {
-		for (i = 0; i < CMAC_SIZE_IN_DWORDS; i++) {
-			val = readl_relaxed(reg);
-			calc_apps_cmac[j][i] = val;
-			reg += sizeof(u32);
-		}
-		reg += CMAC_SIZE_IN_BYTES; /* skip the saved cmac */
+	memcpy(calc_fw_cmac, cmac, sizeof(calc_fw_cmac));
 
-		pr_debug("app [%d] cmac : 0x%08x,0x%08x,0x%08x,0x%08x\n", j,
-			calc_apps_cmac[j][0], calc_apps_cmac[j][1],
-			calc_apps_cmac[j][2], calc_apps_cmac[j][3]);
-	}
+	pr_debug("calc_fw_cmac : 0x%08x,0x%08x,0x%08x,0x%08x\n",
+	    calc_fw_cmac[0], calc_fw_cmac[1],
+	    calc_fw_cmac[2], calc_fw_cmac[3]);
 
 	return 0;
 }
 
-static int spss_get_saved_uefi_apps_cmac(void)
+static int spss_get_apps_calc_cmac(void)
 {
 	u8 __iomem *reg = NULL;
 	int i, j;
 	u32 val;
 
-	if (cmac_mem == NULL)
+	if (cmac_mem == NULL) {
+		pr_err("invalid cmac_mem.\n");
 		return -EFAULT;
+	}
 
 	reg = cmac_mem; /* IAR buffer base */
-	reg += (2*CMAC_SIZE_IN_BYTES); /* skip the saved and calc fw cmac */
-	pr_debug("reg [%pK]\n", reg);
+	reg += CMAC_SIZE_IN_BYTES; /* skip the saved fw cmac */
+	reg += CMAC_SIZE_IN_BYTES; /* skip the calc fw cmac */
+	reg += CMAC_SIZE_IN_BYTES; /* skip the saved 1st app cmac */
 
-	/* get saved apps cmac from ddr - were written by UEFI spss driver */
-	for (j = 0; j < NUM_UEFI_APPS; j++) {
-		for (i = 0; i < CMAC_SIZE_IN_DWORDS; i++) {
+	memset(calc_apps_cmac, 0, sizeof(calc_apps_cmac));
+
+	/* get apps cmac from ddr */
+	for (j = 0; j < ARRAY_SIZE(calc_apps_cmac); j++) {
+		u32 cmac[CMAC_SIZE_IN_DWORDS] = {0};
+
+		memset(cmac, 0, sizeof(cmac));
+
+		for (i = 0; i < ARRAY_SIZE(cmac); i++) {
 			val = readl_relaxed(reg);
-			saved_apps_cmac[j][i] = val;
+			cmac[i] = val;
 			reg += sizeof(u32);
 		}
-		reg += CMAC_SIZE_IN_BYTES; /* skip the calc cmac */
+		reg += CMAC_SIZE_IN_BYTES; /* skip the saved cmac */
 
-		pr_debug("app[%d] saved cmac: 0x%08x,0x%08x,0x%08x,0x%08x\n",
-			j,
-			saved_apps_cmac[j][0], saved_apps_cmac[j][1],
-			saved_apps_cmac[j][2], saved_apps_cmac[j][3]);
+		/* check for any pattern to mark end of cmacs */
+		if (cmac[0] == cmac[1])
+			break; /* no more valid cmacs */
+
+		memcpy(calc_apps_cmac[j], cmac, sizeof(calc_apps_cmac[j]));
+
+		pr_debug("app [%d] cmac : 0x%08x,0x%08x,0x%08x,0x%08x\n", j,
+			calc_apps_cmac[j][0], calc_apps_cmac[j][1],
+			calc_apps_cmac[j][2], calc_apps_cmac[j][3]);
 	}
 
 	return 0;
@@ -1104,15 +1011,18 @@ static int spss_set_saved_uefi_apps_cmac(void)
 	int i, j;
 	u32 val;
 
-	if (cmac_mem == NULL)
+	if (cmac_mem == NULL) {
+		pr_err("invalid cmac_mem.\n");
 		return -EFAULT;
+	}
 
 	reg = cmac_mem; /* IAR buffer base */
 	reg += (2*CMAC_SIZE_IN_BYTES); /* skip the saved and calc fw cmac */
-	pr_debug("reg [%pK]\n", reg);
 
 	/* get saved apps cmac from ddr - were written by UEFI spss driver */
-	for (j = 0; j < NUM_UEFI_APPS; j++) {
+	for (j = 0; j < MAX_SPU_UEFI_APPS; j++) {
+		if (saved_apps_cmac[j][0] == saved_apps_cmac[j][1])
+			break; /* no more cmacs */
 		for (i = 0; i < CMAC_SIZE_IN_DWORDS; i++) {
 			val = saved_apps_cmac[j][i];
 			writel_relaxed(val, reg);
@@ -1162,16 +1072,43 @@ static int spss_utils_rproc_callback(struct notifier_block *nb,
 		break;
 	case QCOM_SSR_BEFORE_POWERUP:
 		pr_debug("[QCOM_SSR_BEFORE_POWERUP] event.\n");
-		if (is_iar_active && ssr_disabled_flag) {
-			pr_warn("SPSS SSR disabled, requesting reboot\n");
-			kernel_restart("SPSS SSR disabled, requesting reboot");
+		if (is_iar_active) {
+			if (is_ssr_disabled) {
+				pr_warn("SPSS SSR disabled, requesting reboot\n");
+				kernel_restart("SPSS SSR disabled, requesting reboot");
+			} else {
+			/* Called on SSR as spss firmware is loaded by UEFI */
+				spss_set_saved_fw_cmac(saved_fw_cmac, sizeof(saved_fw_cmac));
+				spss_set_saved_uefi_apps_cmac();
+			}
 		}
-		/* Called on SSR as spss firmware is loaded by UEFI */
-		spss_set_fw_cmac(cmac_buf, sizeof(cmac_buf));
-		spss_set_saved_uefi_apps_cmac();
 		break;
 	case QCOM_SSR_AFTER_POWERUP:
-		pr_debug("[QCOM_SSR_AFTER_POWERUP] event.\n");
+		pr_info("QCOM_SSR_AFTER_POWERUP] event.\n");
+		mutex_lock(&event_lock);
+		event_id = SPSS_EVENT_ID_SPU_POWER_UP;
+		complete_all(&spss_events[event_id]);
+		spss_events_signaled[event_id] = true;
+
+		event_id = SPSS_EVENT_ID_SPU_POWER_DOWN;
+		reinit_completion(&spss_events[event_id]);
+		spss_events_signaled[event_id] = false;
+		mutex_unlock(&event_lock);
+
+		/*
+		 * For IAR-DB-Recovery, read cmac regadless of is_iar_active.
+		 * please notice that HYP unmap this area, it is a race.
+		 */
+		if (cmac_mem == NULL) {
+			cmac_mem = ioremap(cmac_mem_addr, CMAC_MEM_SIZE);
+			if (!cmac_mem) {
+				pr_err("can't map cmac_mem.\n");
+				return -EFAULT;
+			}
+		}
+
+		spss_get_fw_calc_cmac();
+		spss_get_apps_calc_cmac();
 		break;
 	default:
 		pr_err("unknown code [0x%x] .\n", (int) code);
@@ -1191,8 +1128,8 @@ static int spss_probe(struct platform_device *pdev)
 	int i;
 	struct device_node *np = NULL;
 	struct device *dev = &pdev->dev;
-	struct property *prop;
-	struct rproc *rproc;
+	struct property *prop = NULL;
+	struct rproc *rproc = NULL;
 
 	np = pdev->dev.of_node;
 	spss_dev = dev;
@@ -1270,7 +1207,8 @@ static int spss_probe(struct platform_device *pdev)
 	}
 	mutex_init(&event_lock);
 
-	ssr_disabled_flag = false;
+	is_iar_active = false;
+	is_ssr_disabled = false;
 
 	pr_info("Probe completed successfully, [%s].\n", firmware_name);
 
@@ -1334,6 +1272,6 @@ static void __exit spss_exit(void)
 }
 module_exit(spss_exit)
 
+MODULE_SOFTDEP("post: qcom_spss");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Secure Processor Utilities");
-MODULE_SOFTDEP("post: qcom_spss");

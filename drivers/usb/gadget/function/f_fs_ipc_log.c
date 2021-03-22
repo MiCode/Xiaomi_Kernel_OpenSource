@@ -770,14 +770,13 @@ static int exit_ffs_closed(struct kretprobe_instance *ri,
 	struct kprobe_data *data = (struct kprobe_data *)ri->data;
 	struct ffs_data *ffs = data->x0;
 	struct ffs_dev *ffs_obj = ffs->private_data;
-	struct f_fs_opts *opts = ffs_obj->opts;
 	void *context = get_ipc_context(ffs);
 
 	if (test_bit(FFS_FL_BOUND, &ffs->flags))
 		kprobe_log(context, ri->rp->kp.symbol_name, "unreg gadget done");
-	else if (!ffs_obj || !ffs_obj->opts || opts->no_configfs ||
-		 !opts->func_inst.group.cg_item.ci_parent
-		 || !kref_read(&opts->func_inst.group.cg_item.ci_kref))
+	else if (!ffs_obj || !ffs_obj->opts || ffs_obj->opts->no_configfs ||
+		 !ffs_obj->opts->func_inst.group.cg_item.ci_parent
+		 || !kref_read(&ffs_obj->opts->func_inst.group.cg_item.ci_kref))
 		kprobe_log(context, ri->rp->kp.symbol_name, "exit error");
 	return 0;
 }

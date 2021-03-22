@@ -6,6 +6,8 @@
 #ifndef __QCOM_OF_H
 #define __QCOM_OF_H
 
+#include <linux/of.h>
+
 /**
  * of_fdt_get_ddrtype - Return the type of ddr (4/5) on the current device
  *

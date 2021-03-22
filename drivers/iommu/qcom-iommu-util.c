@@ -6,7 +6,8 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/qcom-iommu-util.h>
-#include  "qcom-dma-iommu-generic.h"
+#include <linux/dma-mapping-fast.h>
+#include "qcom-dma-iommu-generic.h"
 #include "qcom-io-pgtable.h"
 
 
@@ -443,15 +444,17 @@ void qcom_io_pgtable_free_pages(const struct qcom_iommu_pgtable_ops *ops,
  * It is allowed to have a NULL exitcall corresponding to a non-NULL initcall.
  */
 static initcall_t init_table[] __initdata = {
+	dma_mapping_fast_init,
 	qcom_dma_iommu_generic_driver_init,
 	qcom_arm_lpae_do_selftests,
 	NULL
 };
 
 static exitcall_t exit_table[] = {
+	dma_mapping_fast_exit,
 	qcom_dma_iommu_generic_driver_exit,
+	NULL, /* lpae_do_selftests */
 	NULL,
-	NULL
 };
 
 static int __init qcom_iommu_util_init(void)

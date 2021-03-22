@@ -662,11 +662,16 @@ static void
 walt_select_task_rq_fair(void *unused, struct task_struct *p, int prev_cpu,
 				int sd_flag, int wake_flags, int *target_cpu)
 {
-	int sync = (wake_flags & WF_SYNC) && !(current->flags & PF_EXITING);
-	int sibling_count_hint = 1;
+	int sync;
+	int sibling_count_hint;
 
-	if (static_branch_unlikely(&walt_disabled))
+	if (unlikely(walt_disabled))
 		return;
+
+	sync = (wake_flags & WF_SYNC) && !(current->flags & PF_EXITING);
+	sibling_count_hint = p->wake_q_count;
+	p->wake_q_count = 0;
+
 	*target_cpu = walt_find_energy_efficient_cpu(p, prev_cpu, sync, sibling_count_hint);
 	if (unlikely(*target_cpu < 0))
 		*target_cpu = prev_cpu;
@@ -677,12 +682,15 @@ static inline struct task_struct *task_of(struct sched_entity *se)
 	return container_of(se, struct task_struct, se);
 }
 
-static void walt_place_entity(void *unused, struct sched_entity *se, u64 *vruntime)
+static void walt_place_entity(void *unused, struct cfs_rq *cfs_rq,
+				struct sched_entity *se, int initial, u64 vruntime)
 {
-	if (static_branch_unlikely(&walt_disabled))
+	if (unlikely(walt_disabled))
 		return;
-	if (entity_is_task(se)) {
+
+	if (!initial && entity_is_task(se)) {
 		unsigned long thresh = sysctl_sched_latency;
+		u64 walt_vruntime = vruntime;
 
 		/*
 		 * Halve their sleep time's effect, to allow
@@ -694,9 +702,9 @@ static void walt_place_entity(void *unused, struct sched_entity *se, u64 *vrunti
 		if ((per_task_boost(task_of(se)) == TASK_BOOST_STRICT_MAX) ||
 				walt_low_latency_task(task_of(se)) ||
 				task_rtg_high_prio(task_of(se))) {
-			*vruntime -= sysctl_sched_latency;
-			*vruntime -= thresh;
-			se->vruntime = *vruntime;
+			walt_vruntime -= sysctl_sched_latency;
+			walt_vruntime -= thresh;
+			se->vruntime = walt_vruntime;
 		}
 	}
 }
@@ -705,7 +713,7 @@ static void walt_binder_low_latency_set(void *unused, struct task_struct *task)
 {
 	struct walt_task_struct *wts = (struct walt_task_struct *) task->android_vendor_data1;
 
-	if (static_branch_unlikely(&walt_disabled))
+	if (unlikely(walt_disabled))
 		return;
 	if (task && current->signal &&
 			(current->signal->oom_score_adj == 0) &&
@@ -718,7 +726,7 @@ static void walt_binder_low_latency_clear(void *unused, struct binder_transactio
 {
 	struct walt_task_struct *wts = (struct walt_task_struct *) current->android_vendor_data1;
 
-	if (static_branch_unlikely(&walt_disabled))
+	if (unlikely(walt_disabled))
 		return;
 	if (wts->low_latency & WALT_LOW_LATENCY_BINDER)
 		wts->low_latency &= ~WALT_LOW_LATENCY_BINDER;

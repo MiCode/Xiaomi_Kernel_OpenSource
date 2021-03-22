@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DRIVERS_CRYPTO_MSM_QCRYPTO_H_
@@ -20,7 +20,7 @@
 #define QCRYPTO_CTX_XTS_DU_SIZE_1KB	0x00000200
 
 
-int qcrypto_cipher_set_device(struct ablkcipher_request *req, unsigned int dev);
+int qcrypto_cipher_set_device(struct skcipher_request *req, unsigned int dev);
 int qcrypto_ahash_set_device(struct ahash_request *req, unsigned int dev);
 int qcrypto_aead_set_device(struct aead_request *req, unsigned int dev);
 
@@ -28,7 +28,7 @@ int qcrypto_cipher_set_flag(struct skcipher_request *req, unsigned int flags);
 int qcrypto_ahash_set_flag(struct ahash_request *req, unsigned int flags);
 int qcrypto_aead_set_flag(struct aead_request *req, unsigned int flags);
 
-int qcrypto_cipher_clear_flag(struct ablkcipher_request *req,
+int qcrypto_cipher_clear_flag(struct skcipher_request *req,
 							unsigned int flags);
 int qcrypto_ahash_clear_flag(struct ahash_request *req, unsigned int flags);
 int qcrypto_aead_clear_flag(struct aead_request *req, unsigned int flags);

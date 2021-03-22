@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __DT_BINDINGS_QCOM_IPCC_H
@@ -35,6 +35,7 @@
 #define IPCC_CLIENT_PCIE2		15
 #define IPCC_CLIENT_SPSS		16
 #define IPCC_CLIENT_TME			23
-#define IPCC_CLIENT_MAX			24 /* Used by driver only */
+#define IPCC_CLIENT_WPSS		24
+#define IPCC_CLIENT_MAX			25 /* Used by driver only */
 
 #endif

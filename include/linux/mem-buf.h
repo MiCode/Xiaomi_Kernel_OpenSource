@@ -153,6 +153,13 @@ struct mem_buf_lend_kernel_arg {
 
 int mem_buf_lend(struct dma_buf *dmabuf,
 		struct mem_buf_lend_kernel_arg *arg);
+
+/*
+ * mem_buf_share
+ * Grant the local VM, as well as one or more remote VMs access
+ * to the dmabuf. The permissions of the local VM default to RWX
+ * unless otherwise specified.
+ */
 int mem_buf_share(struct dma_buf *dmabuf,
 		struct mem_buf_lend_kernel_arg *arg);
 

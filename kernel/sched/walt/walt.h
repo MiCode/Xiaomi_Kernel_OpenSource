@@ -32,7 +32,7 @@
 /* MAX_MARGIN_LEVELS should be one less than MAX_CLUSTERS */
 #define MAX_MARGIN_LEVELS (MAX_CLUSTERS - 1)
 
-extern struct static_key_true walt_disabled;
+extern bool walt_disabled;
 
 enum task_event {
 	PUT_PREV_TASK	= 0,
@@ -47,14 +47,6 @@ enum task_event {
 enum migrate_types {
 	GROUP_TO_RQ,
 	RQ_TO_GROUP,
-};
-
-enum task_boost_type {
-	TASK_BOOST_NONE = 0,
-	TASK_BOOST_ON_MID,
-	TASK_BOOST_ON_MAX,
-	TASK_BOOST_STRICT_MAX,
-	TASK_BOOST_END,
 };
 
 #define WALT_LOW_LATENCY_PROCFS	BIT(0)

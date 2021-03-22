@@ -6481,7 +6481,8 @@ static struct rpmsg_driver msm_pcie_drv_rpmsg_driver = {
 static int msm_pcie_ssr_notifier(struct notifier_block *nb,
 				       unsigned long action, void *data)
 {
-	struct pcie_drv_sta *pcie_drv = data;
+	struct pcie_drv_sta *pcie_drv = container_of(nb, struct pcie_drv_sta,
+						     nb);
 
 	if (action == QCOM_SSR_BEFORE_SHUTDOWN) {
 		pcie_drv->rc_drv_enabled = 0;
@@ -6547,7 +6548,7 @@ static void msm_pcie_drv_connect_worker(struct work_struct *work)
 		mutex_unlock(&pcie_dev->drv_pc_lock);
 	}
 
-	pcie_drv->notifier = qcom_register_ssr_notifier("adsp", &pcie_drv->nb);
+	pcie_drv->notifier = qcom_register_ssr_notifier("lpass", &pcie_drv->nb);
 	if (IS_ERR(pcie_drv->notifier)) {
 		PCIE_ERR(pcie_dev, "PCIe: RC%d: DRV: failed to register ssr notifier\n",
 			 pcie_dev->rc_idx);

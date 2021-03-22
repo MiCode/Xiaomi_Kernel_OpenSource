@@ -32,6 +32,7 @@ qcom_iommu_util.ko
 iommu-logger.ko
 pinctrl-msm.ko
 pinctrl-waipio.ko
+pinctrl-diwali.ko
 qcom-scm.ko
 qcom_hwspinlock.ko
 sdhci-msm.ko

@@ -4,6 +4,7 @@
   add_cpu
   add_device_randomness
   add_memory
+  add_memory_subsection
   add_taint
   add_timer
   add_timer_on
@@ -243,6 +244,7 @@
   cpufreq_freq_attr_scaling_boost_freqs
   cpufreq_generic_frequency_table_verify
   cpufreq_get_policy
+  cpufreq_quick_get
   cpufreq_quick_get_max
   cpufreq_register_driver
   cpufreq_register_governor
@@ -937,6 +939,7 @@
   get_unused_fd_flags
   get_user_pages
   get_zeroed_page
+  gfp_zone
   gic_nonsecure_priorities
   gov_attr_set_init
   gov_attr_set_put
@@ -1111,13 +1114,6 @@
   iommu_put_dma_cookie
   iommu_set_fault_handler
   iommu_unmap
-  ion_alloc
-  ion_buffer_zero
-  __ion_device_add_heap
-  ion_free
-  ion_heap_map_kernel
-  ion_heap_map_user
-  ion_heap_unmap_kernel
   __ioread32_copy
   __ioremap
   iounmap
@@ -1327,6 +1323,12 @@
   memory_block_size_bytes
   memory_read_from_buffer
   memparse
+  mempool_alloc
+  mempool_alloc_slab
+  mempool_create
+  mempool_destroy
+  mempool_free
+  mempool_free_slab
   memremap
   memset
   memset64
@@ -1391,6 +1393,7 @@
   __netlink_kernel_create
   netlink_kernel_release
   netlink_unicast
+  __next_zones_zonelist
   nla_find
   nla_memcpy
   __nla_parse
@@ -1802,7 +1805,6 @@
   refcount_dec_and_lock
   refcount_dec_not_one
   refcount_warn_saturate
-  __refrigerator
   regcache_cache_only
   regcache_mark_dirty
   regcache_sync
@@ -1870,6 +1872,7 @@
   release_sock
   remap_pfn_range
   remove_cpu
+  remove_memory_subsection
   remove_proc_entry
   remove_wait_queue
   report_iommu_fault
@@ -1918,8 +1921,10 @@
   rproc_add_subdev
   rproc_alloc
   rproc_boot
+  rproc_coredump_add_custom_segment
   rproc_coredump_add_segment
   rproc_coredump_set_elf_info
+  rproc_coredump_using_sections
   rproc_del
   rproc_free
   rproc_get_by_child
@@ -2294,7 +2299,9 @@
   __tracepoint_android_rvh_account_irq
   __tracepoint_android_rvh_build_perf_domains
   __tracepoint_android_rvh_can_migrate_task
+  __tracepoint_android_rvh_check_preempt_wakeup
   __tracepoint_android_rvh_cpu_cgroup_attach
+  __tracepoint_android_rvh_cpufreq_transition
   __tracepoint_android_rvh_dequeue_task
   __tracepoint_android_rvh_enqueue_task
   __tracepoint_android_rvh_find_busiest_queue
@@ -2304,6 +2311,7 @@
   __tracepoint_android_rvh_irqs_enable
   __tracepoint_android_rvh_migrate_queued_task
   __tracepoint_android_rvh_new_task_stats
+  __tracepoint_android_rvh_pick_next_entity
   __tracepoint_android_rvh_place_entity
   __tracepoint_android_rvh_preempt_disable
   __tracepoint_android_rvh_preempt_enable
@@ -2346,8 +2354,10 @@
   __tracepoint_android_vh_show_max_freq
   __tracepoint_android_vh_show_resume_epoch_val
   __tracepoint_android_vh_show_suspend_epoch_val
+  __tracepoint_android_vh_timer_calc_index
   __tracepoint_binder_transaction_received
   __tracepoint_cpu_frequency
+  __tracepoint_cpu_frequency_limits
   __tracepoint_cpu_idle
   __tracepoint_ipi_entry
   __tracepoint_ipi_raise
@@ -2654,3 +2664,5 @@
   xa_find_after
   xa_load
   xa_store
+  zone_watermark_ok
+  zone_watermark_ok_safe

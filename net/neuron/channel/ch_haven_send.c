@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2020 The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2020-2021 The Linux Foundation. All rights reserved. */
 
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -180,6 +180,8 @@ static int read_config(struct neuron_mq_data_priv *priv)
 	msgq->message_alignment = hdr->message_alignment;
 	/* Get ring_buffer_len value. */
 	msgq->ring_buffer_len = hdr->ring_buffer_len;
+	if (msgq->ring_buffer_len > resource_size(&priv->buffer))
+		return -ECONNRESET;
 	/* Get tail_offset, making sure the value is valid. */
 	offset = hdr->tail_offset;
 	if (offset > resource_size(&priv->buffer))
@@ -462,6 +464,7 @@ static int channel_hh_probe(struct neuron_channel *cdev)
 	if (!priv)
 		return -ENOMEM;
 	priv->dev = cdev;
+	init_waitqueue_head(&priv->wait_q);
 
 	ret = of_property_read_u32(node, "haven-label", &priv->haven_label);
 	if (ret) {
@@ -488,8 +491,6 @@ static int channel_hh_probe(struct neuron_channel *cdev)
 		dev_err(dev, "failed to get haven rx dbl %d\n", ret);
 		goto fail_rx_dbl;
 	}
-
-	init_waitqueue_head(&priv->wait_q);
 	/* Start the thread for syncing with the receiver. */
 	priv->sync_thread = kthread_run(channel_sync_thread, priv,
 					"send_sync_thread");

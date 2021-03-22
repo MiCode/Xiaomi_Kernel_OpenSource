@@ -11,7 +11,9 @@
 #include <linux/rwsem.h>
 #include <linux/suspend.h>
 #include <linux/timer.h>
+#if IS_ENABLED(CONFIG_QCOM_MINIDUMP)
 #include <soc/qcom/minidump.h>
+#endif
 
 #include "main.h"
 #include "bus.h"
@@ -34,11 +36,13 @@
 #define CNSS_QUIRKS_DEFAULT		0
 #ifdef CONFIG_CNSS_EMULATION
 #define CNSS_MHI_TIMEOUT_DEFAULT	90000
+#define CNSS_MHI_M2_TIMEOUT_DEFAULT	2000
+#define CNSS_QMI_TIMEOUT_DEFAULT	90000
 #else
 #define CNSS_MHI_TIMEOUT_DEFAULT	0
-#endif
 #define CNSS_MHI_M2_TIMEOUT_DEFAULT	25
 #define CNSS_QMI_TIMEOUT_DEFAULT	10000
+#endif
 #define CNSS_BDF_TYPE_DEFAULT		CNSS_BDF_ELF
 #define CNSS_TIME_SYNC_PERIOD_DEFAULT	900000
 
@@ -95,7 +99,7 @@ static struct notifier_block cnss_pm_notifier = {
 	.notifier_call = cnss_pm_notify,
 };
 
-static void cnss_pm_stay_awake(struct cnss_plat_data *plat_priv)
+void cnss_pm_stay_awake(struct cnss_plat_data *plat_priv)
 {
 	if (atomic_inc_return(&plat_priv->pm_count) != 1)
 		return;
@@ -106,7 +110,7 @@ static void cnss_pm_stay_awake(struct cnss_plat_data *plat_priv)
 	pm_stay_awake(&plat_priv->plat_dev->dev);
 }
 
-static void cnss_pm_relax(struct cnss_plat_data *plat_priv)
+void cnss_pm_relax(struct cnss_plat_data *plat_priv)
 {
 	int r = atomic_dec_return(&plat_priv->pm_count);
 
@@ -765,6 +769,14 @@ int cnss_idle_restart(struct device *dev)
 	timeout = cnss_get_timeout(plat_priv, CNSS_TIMEOUT_IDLE_RESTART);
 	ret = wait_for_completion_timeout(&plat_priv->power_up_complete,
 					  msecs_to_jiffies(timeout));
+	if (plat_priv->power_up_error) {
+		ret = plat_priv->power_up_error;
+		clear_bit(CNSS_DRIVER_IDLE_RESTART, &plat_priv->driver_state);
+		cnss_pr_dbg("Power up error:%d, exiting\n",
+			    plat_priv->power_up_error);
+		goto out;
+	}
+
 	if (!ret) {
 		/* This exception occurs after attempting retry of FW recovery.
 		 * Thus we can safely power off the device.
@@ -1980,6 +1992,7 @@ void cnss_unregister_subsys(struct cnss_plat_data *plat_priv)
 		cnss_pr_err("Failed to unregister panic handler\n");
 }
 
+#if IS_ENABLED(CONFIG_QCOM_MEMORY_DUMP_V2)
 static void *cnss_create_ramdump_device(struct cnss_plat_data *plat_priv)
 {
 	return &plat_priv->plat_dev->dev;
@@ -1989,6 +2002,7 @@ static void cnss_destroy_ramdump_device(struct cnss_plat_data *plat_priv,
 					void *ramdump_dev)
 {
 }
+#endif
 
 #if IS_ENABLED(CONFIG_QCOM_RAMDUMP)
 int cnss_do_ramdump(struct cnss_plat_data *plat_priv)
@@ -2071,6 +2085,7 @@ int cnss_do_elf_ramdump(struct cnss_plat_data *plat_priv)
 #endif /* CONFIG_QCOM_RAMDUMP */
 #endif /* CONFIG_MSM_SUBSYSTEM_RESTART */
 
+#if IS_ENABLED(CONFIG_QCOM_MEMORY_DUMP_V2)
 static int cnss_init_dump_entry(struct cnss_plat_data *plat_priv)
 {
 	struct cnss_ramdump_info *ramdump_info;
@@ -2167,17 +2182,10 @@ static void cnss_unregister_ramdump_v1(struct cnss_plat_data *plat_priv)
  *
  * Return: Same given error code if mem dump feature enabled, 0 otherwise
  */
-#ifdef CONFIG_QCOM_MEMORY_DUMP_V2
 static int cnss_ignore_dump_data_reg_fail(int ret)
 {
 	return ret;
 }
-#else
-static int cnss_ignore_dump_data_reg_fail(int ret)
-{
-	return 0;
-}
-#endif
 
 static int cnss_register_ramdump_v2(struct cnss_plat_data *plat_priv)
 {
@@ -2287,7 +2295,16 @@ void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv)
 		break;
 	}
 }
+#else
+int cnss_register_ramdump(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
 
+void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv) {}
+#endif /* CONFIG_QCOM_MEMORY_DUMP_V2 */
+
+#if IS_ENABLED(CONFIG_QCOM_MINIDUMP)
 int cnss_minidump_add_region(struct cnss_plat_data *plat_priv,
 			     enum cnss_fw_dump_type type, int seg_no,
 			     void *va, phys_addr_t pa, size_t size)
@@ -2368,7 +2385,23 @@ int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
 
 	return ret;
 }
+#else
+int cnss_minidump_add_region(struct cnss_plat_data *plat_priv,
+			     enum cnss_fw_dump_type type, int seg_no,
+			     void *va, phys_addr_t pa, size_t size)
+{
+	return 0;
+}
 
+int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
+				enum cnss_fw_dump_type type, int seg_no,
+				void *va, phys_addr_t pa, size_t size)
+{
+	return 0;
+}
+#endif /* CONFIG_QCOM_MINIDUMP */
+
+#if IS_ENABLED(CONFIG_INTERCONNECT)
 /**
  * cnss_register_bus_scale() - Setup interconnect voting data
  * @plat_priv: Platform data structure
@@ -2494,6 +2527,14 @@ static void cnss_unregister_bus_scale(struct cnss_plat_data *plat_priv)
 	}
 	memset(&plat_priv->icc, 0, sizeof(plat_priv->icc));
 }
+#else
+static int cnss_register_bus_scale(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+static void cnss_unregister_bus_scale(struct cnss_plat_data *plat_priv) {}
+#endif /* CONFIG_INTERCONNECT */
 
 static ssize_t recovery_store(struct device *dev,
 			      struct device_attribute *attr,
@@ -2566,6 +2607,7 @@ static ssize_t fs_ready_store(struct device *dev,
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
+	case WCN7850_DEVICE_ID:
 		break;
 	default:
 		cnss_pr_err("Not supported for device ID 0x%lx\n",
@@ -2811,7 +2853,7 @@ static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
 				  "cnss-daemon-support"))
 		plat_priv->ctrl_params.quirks |= BIT(ENABLE_DAEMON_SUPPORT);
 
-	plat_priv->cbc_enabled =
+	plat_priv->cbc_enabled = !IS_ENABLED(CONFIG_CNSS_EMULATION) &&
 		of_property_read_bool(plat_priv->plat_dev->dev.of_node,
 				      "qcom,wlan-cbc-enabled");
 
@@ -2845,8 +2887,10 @@ static void cnss_get_wlaon_pwr_ctrl_info(struct cnss_plat_data *plat_priv)
 
 static bool cnss_use_fw_path_with_prefix(struct cnss_plat_data *plat_priv)
 {
-	return of_property_read_bool(plat_priv->plat_dev->dev.of_node,
-				     "qcom,converged-dt");
+	return (of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				      "qcom,converged-dt") ||
+	       of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				     "qcom,same-dt-multi-dev"));
 }
 
 static const struct platform_device_id cnss_platform_id_table[] = {

@@ -1203,7 +1203,6 @@ static int arm_smmu_get_dma_cookie(struct device *dev,
 		ret = fast_smmu_init_mapping(dev, domain, pgtbl_ops);
 		if (ret)
 			return ret;
-		dev->dma_ops = fast_smmu_get_dma_ops();
 	}
 
 	return 0;
@@ -2219,7 +2218,6 @@ static int __bus_lookup_iommu_group(struct device *dev, void *priv)
 	}
 
 	data->group = group;
-	iommu_group_put(group);
 	return 1;
 }
 
@@ -2706,6 +2704,9 @@ static struct iommu_group *arm_smmu_device_group(struct device *dev)
 	int i, idx;
 
 	group = of_get_device_group(dev);
+	if (group)
+		goto finish;
+
 	for_each_cfg_sme(cfg, fwspec, i, idx) {
 		if (group && smmu->s2crs[idx].group &&
 		    group != smmu->s2crs[idx].group) {
@@ -2732,6 +2733,7 @@ static struct iommu_group *arm_smmu_device_group(struct device *dev)
 			return NULL;
 	}
 
+finish:
 	if (smmu->impl && smmu->impl->device_group &&
 	    smmu->impl->device_group(dev, group)) {
 		iommu_group_put(group);
@@ -3101,10 +3103,14 @@ static int __arm_smmu_sid_switch(struct device *dev, void *data)
 {
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
-	struct arm_smmu_device *smmu = cfg->smmu;
+	struct arm_smmu_device *smmu;
 	enum sid_switch_direction dir = (typeof(dir))data;
 	int i, idx;
 
+	if (!fwspec || !cfg)
+		return 0;
+
+	smmu = cfg->smmu;
 	for_each_cfg_sme(cfg, fwspec, i, idx) {
 		if (dir == SID_SWITCH_HLOS_TO_SECURE) {
 			arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_SMR(idx), 0);

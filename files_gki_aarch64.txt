@@ -1,3 +1,4 @@
+arch/arm64/crypto/aes-ce-core.S
 arch/arm64/crypto/aes-ce-glue.c
 arch/arm64/crypto/aes-ce.S
 arch/arm64/crypto/aes-ce-setkey.h
@@ -81,6 +82,7 @@ arch/arm64/include/asm/kgdb.h
 arch/arm64/include/asm/kprobes.h
 arch/arm64/include/asm/kvm_arm.h
 arch/arm64/include/asm/kvm_asm.h
+arch/arm64/include/asm/kvm_cpufeature.h
 arch/arm64/include/asm/kvm_emulate.h
 arch/arm64/include/asm/kvm_host.h
 arch/arm64/include/asm/kvm_hyp.h
@@ -280,8 +282,16 @@ arch/arm64/kvm/hyp/include/hyp/adjust_pc.h
 arch/arm64/kvm/hyp/include/hyp/debug-sr.h
 arch/arm64/kvm/hyp/include/hyp/switch.h
 arch/arm64/kvm/hyp/include/hyp/sysreg-sr.h
+arch/arm64/kvm/hyp/include/nvhe/early_alloc.h
+arch/arm64/kvm/hyp/include/nvhe/gfp.h
+arch/arm64/kvm/hyp/include/nvhe/memory.h
+arch/arm64/kvm/hyp/include/nvhe/mem_protect.h
+arch/arm64/kvm/hyp/include/nvhe/mm.h
+arch/arm64/kvm/hyp/include/nvhe/spinlock.h
 arch/arm64/kvm/hyp/include/nvhe/trap_handler.h
+arch/arm64/kvm/hyp/nvhe/cache.S
 arch/arm64/kvm/hyp/nvhe/debug-sr.c
+arch/arm64/kvm/hyp/nvhe/early_alloc.c
 arch/arm64/kvm/hyp/nvhe/gen-hyprel.c
 arch/arm64/kvm/hyp/nvhe/host.S
 arch/arm64/kvm/hyp/nvhe/hyp-init.S
@@ -289,12 +299,18 @@ arch/arm64/kvm/hyp/nvhe/hyp.lds.S
 arch/arm64/kvm/hyp/nvhe/hyp-main.c
 arch/arm64/kvm/hyp/nvhe/hyp-reloc.S
 arch/arm64/kvm/hyp/nvhe/hyp-smp.c
+arch/arm64/kvm/hyp/nvhe/mem_protect.c
+arch/arm64/kvm/hyp/nvhe/mm.c
+arch/arm64/kvm/hyp/nvhe/page_alloc.c
 arch/arm64/kvm/hyp/nvhe/psci-relay.c
+arch/arm64/kvm/hyp/nvhe/setup.c
+arch/arm64/kvm/hyp/nvhe/stub.c
 arch/arm64/kvm/hyp/nvhe/switch.c
 arch/arm64/kvm/hyp/nvhe/sysreg-sr.c
 arch/arm64/kvm/hyp/nvhe/timer-sr.c
 arch/arm64/kvm/hyp/nvhe/tlb.c
 arch/arm64/kvm/hyp/pgtable.c
+arch/arm64/kvm/hyp/reserved_mem.c
 arch/arm64/kvm/hyp/vgic-v2-cpuif-proxy.c
 arch/arm64/kvm/hyp/vgic-v3-sr.c
 arch/arm64/kvm/hyp/vhe/debug-sr.c
@@ -741,6 +757,7 @@ drivers/firmware/arm_scmi/sensors.c
 drivers/firmware/arm_scmi/shmem.c
 drivers/firmware/arm_scmi/smc.c
 drivers/firmware/arm_scmi/system.c
+drivers/firmware/arm_scmi/voltage.c
 drivers/firmware/arm_scpi.c
 drivers/firmware/efi/arm-runtime.c
 drivers/firmware/efi/capsule.c
@@ -904,6 +921,7 @@ drivers/hid/hid-picolcd_core.c
 drivers/hid/hid-picolcd_debugfs.c
 drivers/hid/hid-picolcd.h
 drivers/hid/hid-plantronics.c
+drivers/hid/hid-playstation.c
 drivers/hid/hid-prodikeys.c
 drivers/hid/hid-quirks.c
 drivers/hid/hidraw.c
@@ -1321,6 +1339,9 @@ drivers/pinctrl/sunxi/pinctrl-sun50i-a100.c
 drivers/pinctrl/sunxi/pinctrl-sun50i-a100-r.c
 drivers/pinctrl/sunxi/pinctrl-sunxi.c
 drivers/pinctrl/sunxi/pinctrl-sunxi.h
+drivers/powercap/dtpm.c
+drivers/powercap/dtpm_cpu.c
+drivers/powercap/powercap_sys.c
 drivers/power/reset/hisi-reboot.c
 drivers/power/supply/power_supply_core.c
 drivers/power/supply/power_supply.h
@@ -1424,15 +1445,6 @@ drivers/staging/android/ashmem.c
 drivers/staging/android/ashmem.h
 drivers/staging/android/debug_kinfo.c
 drivers/staging/android/debug_kinfo.h
-drivers/staging/android/ion/heaps/ion_page_pool.c
-drivers/staging/android/ion/heaps/ion_page_pool.h
-drivers/staging/android/ion/heaps/ion_system_heap.c
-drivers/staging/android/ion/ion_buffer.c
-drivers/staging/android/ion/ion.c
-drivers/staging/android/ion/ion_dma_buf.c
-drivers/staging/android/ion/ion_heap.c
-drivers/staging/android/ion/ion_private.h
-drivers/staging/android/ion/ion_trace.h
 drivers/staging/android/uapi/ashmem.h
 drivers/thermal/cpufreq_cooling.c
 drivers/thermal/devfreq_cooling.c
@@ -1592,7 +1604,6 @@ drivers/usb/host/xhci-ext-caps.h
 drivers/usb/host/xhci.h
 drivers/usb/host/xhci-hub.c
 drivers/usb/host/xhci-mem.c
-drivers/usb/host/xhci-mtk.h
 drivers/usb/host/xhci-mvebu.h
 drivers/usb/host/xhci-pci.c
 drivers/usb/host/xhci-pci.h
@@ -1779,7 +1790,6 @@ fs/f2fs/segment.h
 fs/f2fs/shrinker.c
 fs/f2fs/super.c
 fs/f2fs/sysfs.c
-fs/f2fs/trace.h
 fs/f2fs/verity.c
 fs/f2fs/xattr.c
 fs/f2fs/xattr.h
@@ -1825,6 +1835,8 @@ fs/incfs/internal.h
 fs/incfs/main.c
 fs/incfs/pseudo_files.c
 fs/incfs/pseudo_files.h
+fs/incfs/verity.c
+fs/incfs/verity.h
 fs/incfs/vfs.c
 fs/incfs/vfs.h
 fs/init.c
@@ -2014,6 +2026,7 @@ fs/unicode/utf8-core.c
 fs/unicode/utf8data.h
 fs/unicode/utf8n.h
 fs/unicode/utf8-norm.c
+fs/userfaultfd.c
 fs/utimes.c
 fs/verity/enable.c
 fs/verity/fsverity_private.h
@@ -2021,6 +2034,7 @@ fs/verity/hash_algs.c
 fs/verity/init.c
 fs/verity/measure.c
 fs/verity/open.c
+fs/verity/read_metadata.c
 fs/verity/signature.c
 fs/verity/verify.c
 fs/xattr.c
@@ -2506,6 +2520,7 @@ include/linux/dnotify.h
 include/linux/dqblk_qtree.h
 include/linux/dqblk_v1.h
 include/linux/dqblk_v2.h
+include/linux/dtpm.h
 include/linux/dynamic_debug.h
 include/linux/dynamic_queue_limits.h
 include/linux/earlycpio.h
@@ -2675,7 +2690,6 @@ include/linux/io.h
 include/linux/iomap.h
 include/linux/iommu.h
 include/linux/iommu-helper.h
-include/linux/ion.h
 include/linux/io-pgtable.h
 include/linux/iopoll.h
 include/linux/ioport.h
@@ -3012,6 +3026,7 @@ include/linux/posix_acl.h
 include/linux/posix_acl_xattr.h
 include/linux/posix-clock.h
 include/linux/posix-timers.h
+include/linux/powercap.h
 include/linux/power_supply.h
 include/linux/ppp_channel.h
 include/linux/ppp-comp.h
@@ -3304,6 +3319,7 @@ include/linux/unaligned/access_ok.h
 include/linux/unaligned/generic.h
 include/linux/unaligned/packed_struct.h
 include/linux/unicode.h
+include/linux/units.h
 include/linux/uprobes.h
 include/linux/usb/audio.h
 include/linux/usb/audio-v2.h
@@ -3524,9 +3540,11 @@ include/net/neighbour.h
 include/net/netevent.h
 include/net/netfilter/ipv4/nf_conntrack_ipv4.h
 include/net/netfilter/ipv4/nf_defrag_ipv4.h
+include/net/netfilter/ipv4/nf_dup_ipv4.h
 include/net/netfilter/ipv4/nf_reject.h
 include/net/netfilter/ipv6/nf_conntrack_ipv6.h
 include/net/netfilter/ipv6/nf_defrag_ipv6.h
+include/net/netfilter/ipv6/nf_dup_ipv6.h
 include/net/netfilter/ipv6/nf_reject.h
 include/net/netfilter/nf_conntrack_acct.h
 include/net/netfilter/nf_conntrack_bridge.h
@@ -3798,11 +3816,14 @@ include/trace/events/vsock_virtio_transport_common.h
 include/trace/events/workqueue.h
 include/trace/events/writeback.h
 include/trace/events/xdp.h
+include/trace/hooks/avc.h
 include/trace/hooks/binder.h
 include/trace/hooks/bug.h
+include/trace/hooks/cgroup.h
 include/trace/hooks/cpufreq.h
 include/trace/hooks/cpu.h
 include/trace/hooks/cpuidle.h
+include/trace/hooks/creds.h
 include/trace/hooks/debug.h
 include/trace/hooks/dtask.h
 include/trace/hooks/epoch.h
@@ -3813,7 +3834,9 @@ include/trace/hooks/futex.h
 include/trace/hooks/gic.h
 include/trace/hooks/gic_v3.h
 include/trace/hooks/iommu.h
+include/trace/hooks/memory.h
 include/trace/hooks/mm.h
+include/trace/hooks/module.h
 include/trace/hooks/mpam.h
 include/trace/hooks/pm_domain.h
 include/trace/hooks/power.h
@@ -3822,9 +3845,13 @@ include/trace/hooks/printk.h
 include/trace/hooks/rwsem.h
 include/trace/hooks/sched.h
 include/trace/hooks/softlockup.h
+include/trace/hooks/sys.h
 include/trace/hooks/sysrqcrash.h
+include/trace/hooks/thermal.h
 include/trace/hooks/timer.h
 include/trace/hooks/topology.h
+include/trace/hooks/traps.h
+include/trace/hooks/ufshcd.h
 include/trace/hooks/vendor_hooks.h
 include/trace/hooks/wqlockup.h
 include/trace/perf.h
@@ -3970,7 +3997,6 @@ include/uapi/linux/input.h
 include/uapi/linux/in_route.h
 include/uapi/linux/ioctl.h
 include/uapi/linux/iommu.h
-include/uapi/linux/ion.h
 include/uapi/linux/io_uring.h
 include/uapi/linux/ip6_tunnel.h
 include/uapi/linux/ipc.h
@@ -4059,7 +4085,9 @@ include/uapi/linux/netfilter/xt_CONNSECMARK.h
 include/uapi/linux/netfilter/xt_conntrack.h
 include/uapi/linux/netfilter/xt_CT.h
 include/uapi/linux/netfilter/xt_dscp.h
+include/uapi/linux/netfilter/xt_DSCP.h
 include/uapi/linux/netfilter/xt_ecn.h
+include/uapi/linux/netfilter/xt_esp.h
 include/uapi/linux/netfilter/xt_hashlimit.h
 include/uapi/linux/netfilter/xt_helper.h
 include/uapi/linux/netfilter/xt_IDLETIMER.h
@@ -4069,6 +4097,7 @@ include/uapi/linux/netfilter/xt_length.h
 include/uapi/linux/netfilter/xt_limit.h
 include/uapi/linux/netfilter/xt_mac.h
 include/uapi/linux/netfilter/xt_mark.h
+include/uapi/linux/netfilter/xt_multiport.h
 include/uapi/linux/netfilter/xt_NFLOG.h
 include/uapi/linux/netfilter/xt_NFQUEUE.h
 include/uapi/linux/netfilter/xt_owner.h
@@ -4083,6 +4112,7 @@ include/uapi/linux/netfilter/xt_statistic.h
 include/uapi/linux/netfilter/xt_string.h
 include/uapi/linux/netfilter/xt_TCPMSS.h
 include/uapi/linux/netfilter/xt_tcpudp.h
+include/uapi/linux/netfilter/xt_TEE.h
 include/uapi/linux/netfilter/xt_time.h
 include/uapi/linux/netfilter/xt_TPROXY.h
 include/uapi/linux/netfilter/xt_u32.h
@@ -4219,6 +4249,7 @@ include/uapi/linux/usb/f_accessory.h
 include/uapi/linux/usb/functionfs.h
 include/uapi/linux/usb/midi.h
 include/uapi/linux/usb/video.h
+include/uapi/linux/userfaultfd.h
 include/uapi/linux/utime.h
 include/uapi/linux/utsname.h
 include/uapi/linux/uuid.h
@@ -4411,6 +4442,7 @@ kernel/irq/spurious.c
 kernel/irq_work.c
 kernel/jump_label.c
 kernel/kallsyms.c
+kernel/kcmp.c
 kernel/kheaders.c
 kernel/kmod.c
 kernel/kprobes.c
@@ -4700,6 +4732,7 @@ lib/logic_pio.c
 lib/lz4/lz4_compress.c
 lib/lz4/lz4_decompress.c
 lib/lz4/lz4defs.h
+lib/lz4/lz4hc_compress.c
 lib/lzo/lzo1x_compress.c
 lib/lzo/lzo1x_decompress_safe.c
 lib/lzo/lzodefs.h
@@ -4901,6 +4934,7 @@ mm/swap_slots.c
 mm/swap_state.c
 mm/truncate.c
 mm/usercopy.c
+mm/userfaultfd.c
 mm/util.c
 mm/vmacache.c
 mm/vmalloc.c
@@ -5111,6 +5145,7 @@ net/ipv4/netfilter/ip_tables.c
 net/ipv4/netfilter/iptable_security.c
 net/ipv4/netfilter/ipt_REJECT.c
 net/ipv4/netfilter/nf_defrag_ipv4.c
+net/ipv4/netfilter/nf_dup_ipv4.c
 net/ipv4/netfilter/nf_nat_h323.c
 net/ipv4/netfilter/nf_nat_pptp.c
 net/ipv4/netfilter/nf_reject_ipv4.c
@@ -5195,6 +5230,7 @@ net/ipv6/netfilter/ip6t_REJECT.c
 net/ipv6/netfilter/ip6t_rpfilter.c
 net/ipv6/netfilter/nf_conntrack_reasm.c
 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
+net/ipv6/netfilter/nf_dup_ipv6.c
 net/ipv6/netfilter/nf_reject_ipv6.c
 net/ipv6/netfilter/nf_socket_ipv6.c
 net/ipv6/netfilter/nf_tproxy_ipv6.c
@@ -5369,7 +5405,10 @@ net/netfilter/xt_connmark.c
 net/netfilter/xt_CONNSECMARK.c
 net/netfilter/xt_conntrack.c
 net/netfilter/xt_CT.c
+net/netfilter/xt_dscp.c
+net/netfilter/xt_DSCP.c
 net/netfilter/xt_ecn.c
+net/netfilter/xt_esp.c
 net/netfilter/xt_hashlimit.c
 net/netfilter/xt_helper.c
 net/netfilter/xt_hl.c
@@ -5381,6 +5420,7 @@ net/netfilter/xt_limit.c
 net/netfilter/xt_mac.c
 net/netfilter/xt_mark.c
 net/netfilter/xt_MASQUERADE.c
+net/netfilter/xt_multiport.c
 net/netfilter/xt_nat.c
 net/netfilter/xt_NETMAP.c
 net/netfilter/xt_NFLOG.c
@@ -5399,6 +5439,7 @@ net/netfilter/xt_statistic.c
 net/netfilter/xt_string.c
 net/netfilter/xt_TCPMSS.c
 net/netfilter/xt_tcpudp.c
+net/netfilter/xt_TEE.c
 net/netfilter/xt_time.c
 net/netfilter/xt_TPROXY.c
 net/netfilter/xt_TRACE.c
@@ -5414,6 +5455,7 @@ net/rfkill/rfkill.h
 net/sched/act_api.c
 net/sched/cls_api.c
 net/sched/cls_bpf.c
+net/sched/cls_fw.c
 net/sched/cls_u32.c
 net/sched/ematch.c
 net/sched/em_u32.c
@@ -5424,6 +5466,7 @@ net/sched/sch_generic.c
 net/sched/sch_htb.c
 net/sched/sch_ingress.c
 net/sched/sch_mq.c
+net/sched/sch_prio.c
 net/socket.c
 net/sysctl_net.c
 net/tipc/addr.c

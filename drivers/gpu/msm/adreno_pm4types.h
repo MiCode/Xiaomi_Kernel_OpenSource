@@ -169,6 +169,12 @@
 #define CP_SYNC_THREADS BIT(31)
 #define CP_CONCURRENT_BIN_DISABLE BIT(27)
 
+#define CP_RESET_CONTEXT_STATE 0x1F
+
+#define CP_CLEAR_BV_BR_COUNTER BIT(2)
+#define CP_CLEAR_RESOURCE_TABLE BIT(1)
+#define CP_CLEAR_ON_CHIP_TS BIT(0)
+
 static inline uint pm4_calc_odd_parity_bit(uint val)
 {
 	return (0x9669 >> (0xf & ((val) ^

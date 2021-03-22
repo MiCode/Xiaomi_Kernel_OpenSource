@@ -112,7 +112,10 @@ static struct mem_buf_vm *find_vm_by_vmid(int vmid)
 
 	for (vm_name = HH_PRIMARY_VM; vm_name < HH_VM_MAX; vm_name++) {
 		ret = hh_rm_get_vmid(vm_name, &hh_vmid);
-		if (!ret && hh_vmid == vmid)
+		if (ret)
+			return ERR_PTR(ret);
+
+		if (hh_vmid == vmid)
 			break;
 	}
 
@@ -120,7 +123,7 @@ static struct mem_buf_vm *find_vm_by_vmid(int vmid)
 		return ERR_PTR(-EINVAL);
 
 	xa_for_each(&mem_buf_vm_minors, idx, vm) {
-		if (vm->hh_id == hh_vmid)
+		if (vm->hh_id == vm_name)
 			return vm;
 	}
 	WARN_ON(1);

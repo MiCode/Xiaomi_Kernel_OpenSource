@@ -2,7 +2,7 @@
 /*
  * QTI Crypto Engine driver.
  *
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "QCE50: %s: " fmt, __func__
@@ -2238,7 +2238,7 @@ static int _f9_complete(struct qce_device *pce_dev, int req_info)
 
 static int _ablk_cipher_complete(struct qce_device *pce_dev, int req_info)
 {
-	struct ablkcipher_request *areq;
+	struct skcipher_request *areq;
 	unsigned char iv[NUM_OF_CRYPTO_CNTR_IV_REG * CRYPTO_REG_SIZE];
 	int32_t result_status = 0;
 	uint32_t result_dump_status;
@@ -2249,7 +2249,7 @@ static int _ablk_cipher_complete(struct qce_device *pce_dev, int req_info)
 	preq_info = &pce_dev->ce_request_info[req_info];
 	pce_sps_data = &preq_info->ce_sps;
 	qce_callback = preq_info->qce_cb;
-	areq = (struct ablkcipher_request *) preq_info->areq;
+	areq = (struct skcipher_request *) preq_info->areq;
 	if (areq->src != areq->dst) {
 		qce_dma_unmap_sg(pce_dev->pdev, areq->dst,
 			preq_info->dst_nents, DMA_FROM_DEVICE);
@@ -2302,9 +2302,9 @@ static int _ablk_cipher_complete(struct qce_device *pce_dev, int req_info)
 				unsigned long long cntr_iv64 = 0;
 				unsigned char *b = (unsigned char *)(&cntr_iv3);
 
-				memcpy(iv, areq->info, sizeof(iv));
+				memcpy(iv, areq->iv, sizeof(iv));
 				if (preq_info->mode != QCE_MODE_XTS)
-					num_blk = areq->nbytes/16;
+					num_blk = areq->cryptlen/16;
 				else
 					num_blk = 1;
 				cntr_iv3 =  ((*(iv + 12) << 24) & 0xff000000) |
@@ -5104,7 +5104,7 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 {
 	int rc = 0;
 	struct qce_device *pce_dev = (struct qce_device *) handle;
-	struct ablkcipher_request *areq = (struct ablkcipher_request *)
+	struct skcipher_request *areq = (struct skcipher_request *)
 						c_req->areq;
 	struct qce_cmdlist_info *cmdlistinfo = NULL;
 	int req_info = -1;
@@ -5121,14 +5121,14 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 	preq_info->dst_nents = 0;
 
 	/* cipher input */
-	preq_info->src_nents = count_sg(areq->src, areq->nbytes);
+	preq_info->src_nents = count_sg(areq->src, areq->cryptlen);
 
 	qce_dma_map_sg(pce_dev->pdev, areq->src, preq_info->src_nents,
 		(areq->src == areq->dst) ? DMA_BIDIRECTIONAL :
 							DMA_TO_DEVICE);
 	/* cipher output */
 	if (areq->src != areq->dst) {
-		preq_info->dst_nents = count_sg(areq->dst, areq->nbytes);
+		preq_info->dst_nents = count_sg(areq->dst, areq->cryptlen);
 			qce_dma_map_sg(pce_dev->pdev, areq->dst,
 				preq_info->dst_nents, DMA_FROM_DEVICE);
 	} else {
@@ -5153,10 +5153,10 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 			qce_free_req_info(pce_dev, req_info, false);
 			return -EINVAL;
 		}
-		rc = _ce_setup_cipher(pce_dev, c_req, areq->nbytes, 0,
+		rc = _ce_setup_cipher(pce_dev, c_req, areq->cryptlen, 0,
 							cmdlistinfo);
 	} else {
-		rc = _ce_setup_cipher_direct(pce_dev, c_req, areq->nbytes, 0);
+		rc = _ce_setup_cipher_direct(pce_dev, c_req, areq->cryptlen, 0);
 	}
 	if (rc < 0)
 		goto bad;
@@ -5169,13 +5169,13 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 
 	/* setup xfer type for producer callback handling */
 	preq_info->xfer_type = QCE_XFER_CIPHERING;
-	preq_info->req_len = areq->nbytes;
+	preq_info->req_len = areq->cryptlen;
 
 	_qce_sps_iovec_count_init(pce_dev, req_info);
 	if (pce_dev->support_cmd_dscr && cmdlistinfo)
 		_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK, cmdlistinfo,
 					&pce_sps_data->in_transfer);
-	if (_qce_sps_add_sg_data(pce_dev, areq->src, areq->nbytes,
+	if (_qce_sps_add_sg_data(pce_dev, areq->src, areq->cryptlen,
 					&pce_sps_data->in_transfer))
 		goto bad;
 	_qce_set_flag(&pce_sps_data->in_transfer,
@@ -5186,10 +5186,10 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 			&pce_sps_data->cmdlistptr.unlock_all_pipes,
 			&pce_sps_data->in_transfer);
 
-	if (_qce_sps_add_sg_data(pce_dev, areq->dst, areq->nbytes,
+	if (_qce_sps_add_sg_data(pce_dev, areq->dst, areq->cryptlen,
 					&pce_sps_data->out_transfer))
 		goto bad;
-	if (pce_dev->no_get_around || areq->nbytes <= SPS_MAX_PKT_SIZE) {
+	if (pce_dev->no_get_around || areq->cryptlen <= SPS_MAX_PKT_SIZE) {
 		pce_sps_data->producer_state = QCE_PIPE_STATE_COMP;
 		if (_qce_sps_add_data(
 				GET_PHYS_ADDR(pce_sps_data->result_dump),

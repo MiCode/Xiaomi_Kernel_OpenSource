@@ -68,6 +68,12 @@ struct ufs_qcom_phy {
 	struct clk *ref_clk;
 	struct clk *ref_aux_clk;
 	struct clk *qref_clk;
+	struct clk *rx_sym0_mux_clk;
+	struct clk *rx_sym1_mux_clk;
+	struct clk *tx_sym0_mux_clk;
+	struct clk *rx_sym0_phy_clk;
+	struct clk *rx_sym1_phy_clk;
+	struct clk *tx_sym0_phy_clk;
 	bool is_ref_clk_enabled;
 	bool is_dev_ref_clk_enabled;
 	struct ufs_qcom_phy_vreg vdda_pll;

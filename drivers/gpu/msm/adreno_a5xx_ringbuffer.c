@@ -301,7 +301,7 @@ static u32 a5xx_get_alwayson_counter(struct adreno_device *adreno_dev,
 
 /* This is the maximum possible size for 64 bit targets */
 #define PROFILE_IB_DWORDS 4
-#define PROFILE_IB_SLOTS (PAGE_SIZE / PROFILE_IB_DWORDS << 2)
+#define PROFILE_IB_SLOTS (PAGE_SIZE / (PROFILE_IB_DWORDS << 2))
 
 static u64 a5xx_get_user_profiling_ib(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb, struct kgsl_drawobj_cmd *cmdobj,

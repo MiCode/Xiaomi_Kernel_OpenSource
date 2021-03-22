@@ -15,6 +15,7 @@
 #include <linux/qcom_scm.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
+#include <linux/dma-mapping.h>
 #include <linux/soc/qcom/mdt_loader.h>
 
 static bool mdt_phdr_valid(const struct elf32_phdr *phdr)
@@ -88,8 +89,9 @@ EXPORT_SYMBOL_GPL(qcom_mdt_get_size);
 
 /**
  * qcom_mdt_read_metadata() - read header and metadata from mdt or mbn
- * @fw:		firmware of mdt header or mbn
- * @data_len:	length of the read metadata blob
+ * @fw:			firmware of mdt header or mbn
+ * @data_len:		length of the read metadata blob
+ * @metadata_phys:	phys address for the assigned metadata buffer
  *
  * The mechanism that performs the authentication of the loading firmware
  * expects an ELF header directly followed by the segment of hashes, with no
@@ -104,7 +106,7 @@ EXPORT_SYMBOL_GPL(qcom_mdt_get_size);
  * Return: pointer to data, or ERR_PTR()
  */
 void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw, const char *firmware,
-			     size_t *data_len)
+			     size_t *data_len, dma_addr_t *metadata_phys)
 {
 	const struct elf32_phdr *phdrs;
 	const struct elf32_hdr *ehdr;
@@ -136,7 +138,16 @@ void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw, cons
 	ehdr_size = phdrs[0].p_filesz;
 	hash_size = phdrs[hash_index].p_filesz;
 
-	data = kmalloc(ehdr_size + hash_size, GFP_KERNEL);
+	/*
+	 * During the scm call memory protection will be enabled for the meta
+	 * data blob, so make sure it's physically contiguous, 4K aligned and
+	 * non-cachable to avoid XPU violations.
+	 */
+	if (metadata_phys)
+		data = dma_alloc_coherent(dev, ehdr_size + hash_size, metadata_phys, GFP_KERNEL);
+	else
+		data = kmalloc(ehdr_size + hash_size, GFP_KERNEL);
+
 	if (!data)
 		return ERR_PTR(-ENOMEM);
 
@@ -170,10 +181,9 @@ void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw, cons
 }
 EXPORT_SYMBOL_GPL(qcom_mdt_read_metadata);
 
-static int __qcom_mdt_load(struct device *dev, const struct firmware *fw,
-			   const char *firmware, int pas_id, void *mem_region,
-			   phys_addr_t mem_phys, size_t mem_size,
-			   phys_addr_t *reloc_base, bool pas_init)
+static int __qcom_mdt_load(struct device *dev, const struct firmware *fw, const char *firmware,
+			   int pas_id, void *mem_region, phys_addr_t mem_phys, size_t mem_size,
+			   phys_addr_t *reloc_base, bool pas_init, struct qcom_mdt_metadata *mdata)
 {
 	const struct elf32_phdr *phdrs;
 	const struct elf32_phdr *phdr;
@@ -182,6 +192,7 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw,
 	phys_addr_t mem_reloc;
 	phys_addr_t min_addr = PHYS_ADDR_MAX;
 	phys_addr_t max_addr = 0;
+	dma_addr_t metadata_phys;
 	size_t metadata_len;
 	size_t fw_name_len;
 	ssize_t offset;
@@ -209,18 +220,22 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw,
 		return -ENOMEM;
 
 	if (pas_init) {
-		metadata = qcom_mdt_read_metadata(dev, fw, firmware, &metadata_len);
+		metadata = qcom_mdt_read_metadata(dev, fw, firmware, &metadata_len, &metadata_phys);
 		if (IS_ERR(metadata)) {
 			ret = PTR_ERR(metadata);
 			goto out;
 		}
 
-		ret = qcom_scm_pas_init_image(pas_id, metadata, metadata_len);
+		if (mdata) {
+			mdata->buf = metadata;
+			mdata->buf_phys = metadata_phys;
+			mdata->size = metadata_len;
+		}
 
-		kfree(metadata);
+		ret = qcom_scm_pas_init_image(pas_id, metadata_phys);
 		if (ret) {
 			dev_err(dev, "invalid firmware metadata\n");
-			goto out;
+			goto deinit;
 		}
 	}
 
@@ -246,7 +261,7 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw,
 						     max_addr - min_addr);
 			if (ret) {
 				dev_err(dev, "unable to setup relocation\n");
-				goto out;
+				goto deinit;
 			}
 		}
 
@@ -302,7 +317,12 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw,
 
 	if (reloc_base)
 		*reloc_base = mem_reloc;
-
+deinit:
+	if (ret || !mdata) {
+		if (ret)
+			qcom_scm_pas_shutdown(pas_id);
+		dma_free_coherent(dev, metadata_len, metadata, metadata_phys);
+	}
 out:
 	kfree(fw_name);
 
@@ -328,7 +348,7 @@ int qcom_mdt_load(struct device *dev, const struct firmware *fw,
 		  phys_addr_t *reloc_base)
 {
 	return __qcom_mdt_load(dev, fw, firmware, pas_id, mem_region, mem_phys,
-			       mem_size, reloc_base, true);
+			       mem_size, reloc_base, true, NULL);
 }
 EXPORT_SYMBOL_GPL(qcom_mdt_load);
 
@@ -351,9 +371,55 @@ int qcom_mdt_load_no_init(struct device *dev, const struct firmware *fw,
 			  size_t mem_size, phys_addr_t *reloc_base)
 {
 	return __qcom_mdt_load(dev, fw, firmware, pas_id, mem_region, mem_phys,
-			       mem_size, reloc_base, false);
+			       mem_size, reloc_base, false, NULL);
 }
 EXPORT_SYMBOL_GPL(qcom_mdt_load_no_init);
+
+/**
+ * qcom_mdt_load_no_free() - load the firmware which header is loaded as fw
+ * @dev:	device handle to associate resources with
+ * @fw:		firmware object for the mdt file
+ * @firmware:	name of the firmware, for construction of segment file names
+ * @pas_id:	PAS identifier
+ * @mem_region:	allocated memory region to load firmware into
+ * @mem_phys:	physical address of allocated memory region
+ * @mem_size:	size of the allocated memory region
+ * @reloc_base:	adjusted physical address after relocation
+ *
+ * This function is essentially the same as qcom_mdt_load. The only difference
+ * between the two is that the metadata is not freed at the end of this call.
+ * The client must call qcom_mdt_free_metadata for cleanup.
+ *
+ * Returns 0 on success, negative errno otherwise.
+ */
+int qcom_mdt_load_no_free(struct device *dev, const struct firmware *fw, const char *firmware,
+		  int pas_id, void *mem_region, phys_addr_t mem_phys, size_t mem_size,
+		  phys_addr_t *reloc_base, struct qcom_mdt_metadata *metadata)
+{
+	return __qcom_mdt_load(dev, fw, firmware, pas_id, mem_region, mem_phys,
+			       mem_size, reloc_base, true, metadata);
+}
+EXPORT_SYMBOL(qcom_mdt_load_no_free);
+
+/**
+ * qcom_mdt_free_metadata() - free the firmware metadata
+ * @dev:	device handle to associate resources with
+ * @pas_id:	PAS identifier
+ * @mdata:	reference to metadata region to be freed
+ * @err:	whether this call was made after an error occurred
+ *
+ * Free the metadata that was allocated by mdt loader.
+ *
+ */
+void qcom_mdt_free_metadata(struct device *dev, int pas_id, struct qcom_mdt_metadata *mdata,
+			    int err)
+{
+	if (err)
+		qcom_scm_pas_shutdown(pas_id);
+	if (mdata)
+		dma_free_coherent(dev, mdata->size, mdata->buf, mdata->buf_phys);
+}
+EXPORT_SYMBOL(qcom_mdt_free_metadata);
 
 MODULE_DESCRIPTION("Firmware parser for Qualcomm MDT format");
 MODULE_LICENSE("GPL v2");

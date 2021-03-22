@@ -186,12 +186,14 @@ static void clear_sw_init_done_error(struct qcom_spss *spss, int err)
 
 static void clear_wdog(struct qcom_spss *spss)
 {
-	/* Check crash status to know if device is restarting*/
-	if (spss->rproc->state == RPROC_RUNNING) {
-		dev_err(spss->dev, "wdog bite received from %s!\n", spss->rproc->name);
-		__raw_writel(BIT(spss->bits_arr[ERR_READY]), spss->irq_clr);
-		rproc_report_crash(spss->rproc, RPROC_WATCHDOG);
+	dev_err(spss->dev, "wdog bite received from %s!\n", spss->rproc->name);
+	if (spss->rproc->recovery_disabled) {
+		spss->rproc->state = RPROC_CRASHED;
+		panic("Panicking, remoterpoc %s crashed\n", spss->rproc->name);
 	}
+
+	__raw_writel(BIT(spss->bits_arr[ERR_READY]), spss->irq_clr);
+	rproc_report_crash(spss->rproc, RPROC_WATCHDOG);
 }
 
 static irqreturn_t spss_generic_handler(int irq, void *dev_id)
@@ -293,9 +295,11 @@ static int spss_attach(struct rproc *rproc)
 	unmask_scsr_irqs(spss);
 
 	ret = wait_for_completion_timeout(&spss->start_done, msecs_to_jiffies(SPSS_TIMEOUT));
-	if (!ret) {
+	if (rproc->recovery_disabled && !ret) {
+		panic("Panicking, %s attach timed out\n", rproc->name);
+	} else if (!ret) {
 		dev_err(spss->dev, "start timed out\n");
-		spss_stop(rproc);
+		rproc_report_crash(spss->rproc, RPROC_WATCHDOG);
 	}
 	ret = ret ? 0 : -ETIMEDOUT;
 
@@ -336,12 +340,17 @@ static int spss_start(struct rproc *rproc)
 		goto disable_cx_supply;
 	}
 
+	/* at this point the spss should be in the process of booting up */
+	rproc->state = RPROC_RUNNING;
+
 	unmask_scsr_irqs(spss);
 
 	ret = wait_for_completion_timeout(&spss->start_done, msecs_to_jiffies(SPSS_TIMEOUT));
-	if (!ret) {
+	if (rproc->recovery_disabled && !ret) {
+		panic("Panicking, %s start timed out\n", rproc->name);
+	} else if (!ret) {
 		dev_err(spss->dev, "start timed out\n");
-		spss_stop(rproc);
+		rproc_report_crash(spss->rproc, RPROC_WATCHDOG);
 	}
 	ret = ret ? 0 : -ETIMEDOUT;
 

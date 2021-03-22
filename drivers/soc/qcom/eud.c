@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -78,6 +78,8 @@ struct eud_chip {
 	bool				need_phy_clk_vote;
 	phys_addr_t			eud_mode_mgr2_phys_base;
 	struct clk			*eud_ahb2phy_clk;
+	struct clk			*eud_clkref_clk;
+	bool				eud_clkref_enabled;
 };
 
 static const unsigned int eud_extcon_cable[] = {
@@ -89,6 +91,30 @@ static const unsigned int eud_extcon_cable[] = {
 static int enable = EUD_DISABLE_CMD;
 static bool eud_ready;
 static struct platform_device *eud_private;
+
+static int msm_eud_clkref_en(struct eud_chip *chip, bool enable)
+{
+	int ret = 0;
+
+	if (chip->eud_clkref_enabled == enable)
+		return 0;
+
+	if (enable) {
+		/* Vote for EUD USB reference clk, needed to keep QREF enabled */
+		ret = clk_prepare_enable(chip->eud_clkref_clk);
+		if (ret) {
+			dev_err(chip->dev,
+				"Failed to enable eud_clkref_clk\n");
+			return ret;
+		}
+	} else {
+		clk_disable_unprepare(chip->eud_clkref_clk);
+	}
+
+	chip->eud_clkref_enabled = enable;
+
+	return 0;
+}
 
 static inline void msm_eud_enable_irqs(struct eud_chip *chip)
 {
@@ -129,6 +155,8 @@ static void enable_eud(struct platform_device *pdev)
 {
 	struct eud_chip *priv = platform_get_drvdata(pdev);
 	int ret;
+
+	msm_eud_clkref_en(priv, true);
 
 	/* write into CSR to enable EUD */
 	writel_relaxed(BIT(0), priv->eud_reg_base + EUD_REG_CSR_EUD_EN);
@@ -173,6 +201,8 @@ static void disable_eud(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 			"qcom_scm_io_write failed with rc:%d\n", ret);
 	}
+
+	msm_eud_clkref_en(priv, false);
 
 	dev_dbg(&pdev->dev, "%s: EUD Disabled!\n", __func__);
 }
@@ -653,6 +683,10 @@ static int msm_eud_probe(struct platform_device *pdev)
 			return ret;
 	}
 
+	chip->eud_clkref_clk = devm_clk_get(&pdev->dev, "eud_clkref_clk");
+	if (IS_ERR(chip->eud_clkref_clk))
+		chip->eud_clkref_clk = NULL;
+
 	ret = devm_request_irq(&pdev->dev, chip->eud_irq, handle_eud_irq,
 				IRQF_TRIGGER_HIGH, "eud_irq", chip);
 	if (ret) {
@@ -717,6 +751,13 @@ static int msm_eud_probe(struct platform_device *pdev)
 
 	/* Proceed enable other EUD elements if bootloader has enabled it */
 	if (msm_eud_hw_is_enabled(pdev)) {
+		/*
+		 * UEFI USB driver should have already enabled this clock, but
+		 * enable it here as well, so the clk driver can track the use
+		 * count if we disable EUD from the module param.
+		 */
+		msm_eud_clkref_en(chip, true);
+
 		msm_eud_enable_irqs(chip);
 
 		/*

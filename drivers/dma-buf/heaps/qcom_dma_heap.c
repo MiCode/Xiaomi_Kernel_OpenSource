@@ -20,7 +20,6 @@ static int qcom_dma_heap_probe(struct platform_device *pdev)
 	int i;
 	struct platform_data *heaps;
 
-	dynamic_page_pool_init_shrinker();
 	qcom_system_heap_create("system", false, 0);
 	qcom_system_heap_create("qcom,system", false, 0);
 #ifdef CONFIG_QCOM_DMABUF_HEAPS_SYSTEM_UNCACHED

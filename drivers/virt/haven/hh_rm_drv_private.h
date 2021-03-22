@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __HH_RM_DRV_PRIVATE_H
@@ -11,6 +11,8 @@
 #include <linux/haven/hh_msgq.h>
 #include <linux/haven/hh_rm_drv.h>
 #include <linux/haven/hh_common.h>
+
+extern bool hh_rm_core_initialized;
 
 /* Resource Manager Header */
 struct hh_rm_rpc_hdr {

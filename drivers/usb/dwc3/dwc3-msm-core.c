@@ -1096,6 +1096,18 @@ static void dwc3_core_stop_active_transfer(struct dwc3_ep *dep, bool force)
 	mdwc->hw_eps[dep->number].flags &= ~DWC3_MSM_HW_EP_TRANSFER_STARTED;
 }
 
+int dwc3_core_stop_hw_active_transfers(struct dwc3 *dwc)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	int i;
+
+	for (i = 0; i < DWC3_ENDPOINTS_NUM; i++)
+		if (mdwc->hw_eps[i].mode == USB_EP_GSI)
+			dwc3_core_stop_active_transfer(dwc->eps[i], true);
+
+	return 0;
+}
+
 #if IS_ENABLED(CONFIG_USB_DWC3_GADGET) || IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
 /**
  * Configure the DBM with the BAM's data fifo.
@@ -2915,12 +2927,14 @@ void dwc3_msm_notify_event(struct dwc3 *dwc,
 		break;
 	case DWC3_CONTROLLER_NOTIFY_CLEAR_DB:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_NOTIFY_CLEAR_DB\n");
-		dwc3_msm_write_reg_field(mdwc->base,
-			GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
-			BLOCK_GSI_WR_GO_MASK, true);
-		dwc3_msm_write_reg_field(mdwc->base,
-			GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
-			GSI_EN_MASK, 0);
+		if (mdwc->gsi_reg) {
+			dwc3_msm_write_reg_field(mdwc->base,
+				GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
+				BLOCK_GSI_WR_GO_MASK, true);
+			dwc3_msm_write_reg_field(mdwc->base,
+				GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
+				GSI_EN_MASK, 0);
+		}
 		break;
 	default:
 		dev_dbg(mdwc->dev, "unknown dwc3 event\n");
@@ -3198,9 +3212,9 @@ static int dwc3_msm_update_bus_bw(struct dwc3_msm *mdwc, enum bus_vote bv)
 	 * set it to _NONE irrespective of the requested vote
 	 * from userspace.
 	 */
-	if (bv >= BUS_VOTE_MAX)
-		bv_index = mdwc->default_bus_vote;
-	else if (bv == BUS_VOTE_NONE)
+	if (bv_index >= BUS_VOTE_MAX)
+		bv_index = BUS_VOTE_MAX - 1;
+	else if (bv_index < BUS_VOTE_NONE)
 		bv_index = BUS_VOTE_NONE;
 
 	for (i = 0; i < ARRAY_SIZE(mdwc->icc_paths); i++) {

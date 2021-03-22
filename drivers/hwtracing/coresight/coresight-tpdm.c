@@ -4232,13 +4232,11 @@ static int tpdm_probe(struct amba_device *adev, const struct amba_id *id)
 	return 0;
 }
 
-static int __exit tpdm_remove(struct amba_device *adev)
+static void __exit tpdm_remove(struct amba_device *adev)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(&adev->dev);
 
 	coresight_unregister(drvdata->csdev);
-
-	return 0;
 }
 
 static struct amba_id tpdm_ids[] = {

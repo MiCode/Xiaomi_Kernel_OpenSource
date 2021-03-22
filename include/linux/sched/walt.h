@@ -22,6 +22,14 @@ struct core_ctl_notif_data {
 	unsigned int cur_cap_pct[MAX_CLUSTERS];
 };
 
+enum task_boost_type {
+	TASK_BOOST_NONE = 0,
+	TASK_BOOST_ON_MID,
+	TASK_BOOST_ON_MAX,
+	TASK_BOOST_STRICT_MAX,
+	TASK_BOOST_END,
+};
+
 #define WALT_NR_CPUS 8
 #define RAVG_HIST_SIZE_MAX 5
 #define NUM_BUSY_BUCKETS 10
@@ -104,6 +112,11 @@ struct walt_task_struct {
 	bool				iowaited;
 };
 
+#define wts_to_ts(wts) ({ \
+		void *__mptr = (void *)(wts); \
+		((struct task_struct *)(__mptr - \
+			offsetof(struct task_struct, android_vendor_data1))); })
+
 static inline bool sched_get_wake_up_idle(struct task_struct *p)
 {
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
@@ -133,6 +146,8 @@ struct notifier_block;
 extern void core_ctl_notifier_register(struct notifier_block *n);
 extern void core_ctl_notifier_unregister(struct notifier_block *n);
 extern int core_ctl_set_boost(bool boost);
+extern int walt_pause_cpus(struct cpumask *cpus);
+extern int walt_resume_cpus(struct cpumask *cpus);
 #else
 static inline int sched_lpm_disallowed_time(int cpu, u64 *timeout)
 {
@@ -170,6 +185,14 @@ static inline void core_ctl_notifier_unregister(struct notifier_block *n)
 {
 }
 
+inline int walt_pause_cpus(struct cpumask *cpus)
+{
+	return 0;
+}
+inline int walt_resume_cpus(struct cpumask *cpus)
+{
+	return 0;
+}
 #endif
 
 #endif /* _LINUX_SCHED_WALT_H */
