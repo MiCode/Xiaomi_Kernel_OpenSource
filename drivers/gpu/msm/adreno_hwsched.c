@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include "adreno.h"
@@ -17,6 +17,15 @@ struct cmd_list_obj {
 	/** @node: List node to put it in the list of inflight commands */
 	struct list_head node;
 };
+
+/*
+ * Number of commands that can be queued in a context before it sleeps
+ *
+ * Our code that "puts back" a command from the context is much cleaner
+ * if we are sure that there will always be enough room in the ringbuffer
+ * so restrict the size of the context queue to ADRENO_CONTEXT_DRAWQUEUE_SIZE - 1
+ */
+static u32 _context_drawqueue_size = ADRENO_CONTEXT_DRAWQUEUE_SIZE - 1;
 
 /* Number of milliseconds to wait for the context queue to clear */
 static unsigned int _context_queue_wait = 10000;
@@ -44,7 +53,7 @@ static struct adreno_device *hwsched_to_adreno(struct adreno_hwsched *hwsched)
 	return &a6xx_hwsched->a6xx_dev.adreno_dev;
 }
 
-static bool _check_context_queue(struct adreno_context *drawctxt)
+static bool _check_context_queue(struct adreno_context *drawctxt, u32 count)
 {
 	bool ret;
 
@@ -58,7 +67,7 @@ static bool _check_context_queue(struct adreno_context *drawctxt)
 	if (kgsl_context_invalid(&drawctxt->base))
 		ret = false;
 	else
-		ret = drawctxt->queued < (ADRENO_CONTEXT_DRAWQUEUE_SIZE - 1);
+		ret = ((drawctxt->queued + count) < _context_drawqueue_size) ? 1 : 0;
 
 	spin_unlock(&drawctxt->lock);
 
@@ -454,7 +463,7 @@ static int hwsched_sendcmds(struct adreno_device *adreno_dev,
 	 * or marker commands and we have room in the context queue.
 	 */
 
-	if (_check_context_queue(drawctxt))
+	if (_check_context_queue(drawctxt, 0))
 		wake_up_all(&drawctxt->wq);
 
 	if (!ret)
@@ -688,17 +697,22 @@ static inline int _verify_cmdobj(struct kgsl_device_private *dev_priv,
 }
 
 static inline int _wait_for_room_in_context_queue(
-	struct adreno_context *drawctxt)
+	struct adreno_context *drawctxt, u32 count)
 {
 	int ret = 0;
 
-	/* Wait for room in the context queue */
-	while (drawctxt->queued >= ADRENO_CONTEXT_DRAWQUEUE_SIZE - 2) {
+	/*
+	 * There is always a possibility that dispatcher may end up pushing
+	 * the last popped draw object back to the context drawqueue. Hence,
+	 * we can only queue up to _context_drawqueue_size - 1 here to make
+	 * sure we never let drawqueue->queued exceed _context_drawqueue_size.
+	 */
+	if ((drawctxt->queued + count) > (_context_drawqueue_size - 1)) {
 		trace_adreno_drawctxt_sleep(drawctxt);
 		spin_unlock(&drawctxt->lock);
 
 		ret = wait_event_interruptible_timeout(drawctxt->wq,
-			_check_context_queue(drawctxt),
+			_check_context_queue(drawctxt, count),
 			msecs_to_jiffies(_context_queue_wait));
 
 		spin_lock(&drawctxt->lock);
@@ -708,27 +722,24 @@ static inline int _wait_for_room_in_context_queue(
 		 * Account for the possibility that the context got invalidated
 		 * while we were sleeping
 		 */
-
-		if (ret > 0) {
+		if (ret > 0)
 			ret = _check_context_state(&drawctxt->base);
-			if (ret)
-				return ret;
-		} else
-			return (ret == 0) ? -ETIMEDOUT : (int) ret;
+		else if (ret == 0)
+			ret = -ETIMEDOUT;
 	}
 
-	return 0;
+	return ret;
 }
 
 static unsigned int _check_context_state_to_queue_cmds(
-	struct adreno_context *drawctxt)
+	struct adreno_context *drawctxt, u32 count)
 {
 	int ret = _check_context_state(&drawctxt->base);
 
 	if (ret)
 		return ret;
 
-	return _wait_for_room_in_context_queue(drawctxt);
+	return _wait_for_room_in_context_queue(drawctxt, count);
 }
 
 static void _queue_drawobj(struct adreno_context *drawctxt,
@@ -837,7 +848,13 @@ int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 	int ret;
 	unsigned int i, user_ts;
 
-	if (!count)
+	/*
+	 * There is always a possibility that dispatcher may end up pushing
+	 * the last popped draw object back to the context drawqueue. Hence,
+	 * we can only queue up to _context_drawqueue_size - 1 here to make
+	 * sure we never let drawqueue->queued exceed _context_drawqueue_size.
+	 */
+	if (!count || count > _context_drawqueue_size - 1)
 		return -EINVAL;
 
 	for (i = 0; i < count; i++) {
@@ -876,7 +893,7 @@ int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 
 	spin_lock(&drawctxt->lock);
 
-	ret = _check_context_state_to_queue_cmds(drawctxt);
+	ret = _check_context_state_to_queue_cmds(drawctxt, count);
 	if (ret) {
 		spin_unlock(&drawctxt->lock);
 		kmem_cache_free(jobs_cache, job);
