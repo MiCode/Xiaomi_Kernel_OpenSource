@@ -19,11 +19,12 @@
 #include <linux/dma-iommu.h>
 #include <linux/iommu.h>
 #include <linux/micrel_phy.h>
-
+#include <linux/tcp.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
 #include "stmmac.h"
 #include "stmmac_platform.h"
 #include "dwmac-qcom-ethqos.h"
-
 #include "stmmac_ptp.h"
 
 #define RGMII_IO_MACRO_DEBUG1		0x20
@@ -114,6 +115,160 @@
 bool phy_intr_en;
 
 struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx = {0};
+struct qcom_ethqos *pethqos;
+
+static inline unsigned int dwmac_qcom_get_eth_type(unsigned char *buf)
+{
+	return
+		((((u16)buf[QTAG_ETH_TYPE_OFFSET] << 8) |
+		  buf[QTAG_ETH_TYPE_OFFSET + 1]) == ETH_P_8021Q) ?
+		(((u16)buf[QTAG_VLAN_ETH_TYPE_OFFSET] << 8) |
+		 buf[QTAG_VLAN_ETH_TYPE_OFFSET + 1]) :
+		 (((u16)buf[QTAG_ETH_TYPE_OFFSET] << 8) |
+		  buf[QTAG_ETH_TYPE_OFFSET + 1]);
+}
+
+static inline unsigned int dwmac_qcom_get_vlan_ucp(unsigned char  *buf)
+{
+	return
+		(((u16)buf[QTAG_UCP_FIELD_OFFSET] << 8)
+		 | buf[QTAG_UCP_FIELD_OFFSET + 1]);
+}
+
+u16 dwmac_qcom_select_queue(struct net_device *dev,
+			    struct sk_buff *skb,
+			    struct net_device *sb_dev)
+{
+	u16 txqueue_select = ALL_OTHER_TRAFFIC_TX_CHANNEL;
+	unsigned int eth_type, priority;
+
+	/* Retrieve ETH type */
+	eth_type = dwmac_qcom_get_eth_type(skb->data);
+
+	if (eth_type == ETH_P_TSN) {
+		/* Read VLAN priority field from skb->data */
+		priority = dwmac_qcom_get_vlan_ucp(skb->data);
+
+		priority >>= VLAN_TAG_UCP_SHIFT;
+		if (priority == CLASS_A_TRAFFIC_UCP)
+			txqueue_select = CLASS_A_TRAFFIC_TX_CHANNEL;
+		else if (priority == CLASS_B_TRAFFIC_UCP)
+			txqueue_select = CLASS_B_TRAFFIC_TX_CHANNEL;
+		else
+			txqueue_select = ALL_OTHER_TX_TRAFFIC_IPA_DISABLED;
+	} else {
+		/* VLAN tagged IP packet or any other non vlan packets (PTP)*/
+		txqueue_select = ALL_OTHER_TX_TRAFFIC_IPA_DISABLED;
+	}
+
+	ETHQOSDBG("tx_queue %d\n", txqueue_select);
+	return txqueue_select;
+}
+
+void dwmac_qcom_program_avb_algorithm(struct stmmac_priv *priv,
+				      struct ifr_data_struct *req)
+{
+	struct dwmac_qcom_avb_algorithm l_avb_struct, *u_avb_struct =
+		(struct dwmac_qcom_avb_algorithm *)req->ptr;
+	struct dwmac_qcom_avb_algorithm_params *avb_params;
+
+	ETHQOSDBG("\n");
+
+	if (copy_from_user(&l_avb_struct, (void __user *)u_avb_struct,
+			   sizeof(struct dwmac_qcom_avb_algorithm)))
+		ETHQOSERR("Failed to fetch AVB Struct\n");
+
+	if (priv->speed == SPEED_1000)
+		avb_params = &l_avb_struct.speed1000params;
+	else
+		avb_params = &l_avb_struct.speed100params;
+
+	/* Application uses 1 for CLASS A traffic and
+	 * 2 for CLASS B traffic
+	 * Configure right channel accordingly
+	 */
+	if (l_avb_struct.qinx == 1)
+		l_avb_struct.qinx = CLASS_A_TRAFFIC_TX_CHANNEL;
+	else if (l_avb_struct.qinx == 2)
+		l_avb_struct.qinx = CLASS_B_TRAFFIC_TX_CHANNEL;
+
+	priv->plat->tx_queues_cfg[l_avb_struct.qinx].mode_to_use =
+		MTL_QUEUE_AVB;
+	priv->plat->tx_queues_cfg[l_avb_struct.qinx].send_slope =
+		avb_params->send_slope,
+	priv->plat->tx_queues_cfg[l_avb_struct.qinx].idle_slope =
+		avb_params->idle_slope,
+	priv->plat->tx_queues_cfg[l_avb_struct.qinx].high_credit =
+		avb_params->hi_credit,
+	priv->plat->tx_queues_cfg[l_avb_struct.qinx].low_credit =
+		avb_params->low_credit,
+
+	priv->hw->mac->config_cbs(priv->hw,
+	priv->plat->tx_queues_cfg[l_avb_struct.qinx].send_slope,
+	   priv->plat->tx_queues_cfg[l_avb_struct.qinx].idle_slope,
+	   priv->plat->tx_queues_cfg[l_avb_struct.qinx].high_credit,
+	   priv->plat->tx_queues_cfg[l_avb_struct.qinx].low_credit,
+	   l_avb_struct.qinx);
+
+	ETHQOSDBG("\n");
+}
+
+unsigned int dwmac_qcom_get_plat_tx_coal_frames(struct sk_buff *skb)
+{
+	bool is_udp;
+	unsigned int eth_type;
+
+	eth_type = dwmac_qcom_get_eth_type(skb->data);
+
+#ifdef CONFIG_PTPSUPPORT_OBJ
+	if (eth_type == ETH_P_1588)
+		return PTP_INT_MOD;
+#endif
+
+	if (eth_type == ETH_P_TSN)
+		return AVB_INT_MOD;
+	if (eth_type == ETH_P_IP || eth_type == ETH_P_IPV6) {
+#ifdef CONFIG_PTPSUPPORT_OBJ
+		is_udp = (((eth_type == ETH_P_IP) &&
+				   (ip_hdr(skb)->protocol ==
+					IPPROTO_UDP)) ||
+				  ((eth_type == ETH_P_IPV6) &&
+				   (ipv6_hdr(skb)->nexthdr ==
+					IPPROTO_UDP)));
+
+		if (is_udp && ((udp_hdr(skb)->dest ==
+			htons(PTP_UDP_EV_PORT)) ||
+			(udp_hdr(skb)->dest ==
+			  htons(PTP_UDP_GEN_PORT))))
+			return PTP_INT_MOD;
+#endif
+		return IP_PKT_INT_MOD;
+	}
+	return DEFAULT_INT_MOD;
+}
+
+int ethqos_handle_prv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+{
+	struct stmmac_priv *pdata = netdev_priv(dev);
+	struct ifr_data_struct req;
+	int ret = 0;
+
+	if (copy_from_user(&req, ifr->ifr_ifru.ifru_data,
+			   sizeof(struct ifr_data_struct)))
+		return -EFAULT;
+
+	switch (req.cmd) {
+	case ETHQOS_CONFIG_PPSOUT_CMD:
+		ret = ppsout_config(pdata, &req);
+		break;
+	case ETHQOS_AVB_ALGORITHM:
+		dwmac_qcom_program_avb_algorithm(pdata, &req);
+		break;
+	default:
+		break;
+	}
+	return ret;
+}
 
 static int rgmii_readl(struct qcom_ethqos *ethqos, unsigned int offset)
 {
@@ -696,6 +851,22 @@ smmu_probe_done:
 	return result;
 }
 
+static void ethqos_pps_irq_config(struct qcom_ethqos *ethqos)
+{
+	ethqos->pps_class_a_irq =
+	platform_get_irq_byname(ethqos->pdev, "ptp_pps_irq_0");
+	if (ethqos->pps_class_a_irq < 0) {
+		if (ethqos->pps_class_a_irq != -EPROBE_DEFER)
+			ETHQOSERR("class_a_irq config info not found\n");
+	}
+	ethqos->pps_class_b_irq =
+	platform_get_irq_byname(ethqos->pdev, "ptp_pps_irq_1");
+	if (ethqos->pps_class_b_irq < 0) {
+		if (ethqos->pps_class_b_irq != -EPROBE_DEFER)
+			ETHQOSERR("class_b_irq config info not found\n");
+	}
+}
+
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -755,6 +926,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 
 	plat_dat->bsp_priv = ethqos;
 	plat_dat->fix_mac_speed = ethqos_fix_mac_speed;
+	plat_dat->tx_select_queue = dwmac_qcom_select_queue;
 	plat_dat->has_gmac4 = 1;
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
@@ -798,6 +970,21 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	else
 		ETHQOSERR("Phy interrupt configuration failed");
 	rgmii_dump(ethqos);
+
+	if (ethqos->emac_ver == EMAC_HW_v2_3_2_RG) {
+		ethqos_pps_irq_config(ethqos);
+		create_pps_interrupt_device_node(&ethqos->avb_class_a_dev_t,
+						 &ethqos->avb_class_a_cdev,
+						 &ethqos->avb_class_a_class,
+						 AVB_CLASS_A_POLL_DEV_NODE);
+
+		create_pps_interrupt_device_node(&ethqos->avb_class_b_dev_t,
+						 &ethqos->avb_class_b_cdev,
+						 &ethqos->avb_class_b_class,
+						 AVB_CLASS_B_POLL_DEV_NODE);
+	}
+
+	pethqos = ethqos;
 	return ret;
 
 err_clk:
