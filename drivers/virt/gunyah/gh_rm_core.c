@@ -247,6 +247,14 @@ static void gh_rm_validate_notif(struct work_struct *work)
 						payload, recv_buff_size))
 			goto err;
 		break;
+	case GH_RM_NOTIF_VM_SHUTDOWN:
+		if (recv_buff_size != sizeof(*hdr) +
+			sizeof(struct gh_rm_notif_vm_shutdown_payload)) {
+			pr_err("%s: Invalid size for VM_SHUTDOWN notif: %u\n",
+				__func__, recv_buff_size - sizeof(*hdr));
+			goto err;
+		}
+		break;
 	case GH_RM_NOTIF_VM_IRQ_LENT:
 		if (recv_buff_size != sizeof(*hdr) +
 			sizeof(struct gh_rm_notif_vm_irq_lent_payload)) {

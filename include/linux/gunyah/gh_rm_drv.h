@@ -143,6 +143,7 @@ struct gh_notify_vmid_desc {
 
 /* VM APIs */
 #define GH_RM_NOTIF_VM_EXITED		0x56100001
+#define GH_RM_NOTIF_VM_SHUTDOWN		0x56100002
 #define GH_RM_NOTIF_VM_STATUS		0x56100008
 #define GH_RM_NOTIF_VM_IRQ_LENT		0x56100011
 #define GH_RM_NOTIF_VM_IRQ_RELEASED	0x56100012
@@ -236,6 +237,10 @@ struct gh_rm_notif_vm_exited_payload {
 	u16 exit_type;
 	u32 exit_reason_size;
 	u32 exit_reason[0];
+} __packed;
+
+struct gh_rm_notif_vm_shutdown_payload {
+	u32 stop_reason;
 } __packed;
 
 struct gh_rm_notif_vm_status_payload {
