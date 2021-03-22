@@ -204,10 +204,13 @@ static int genc_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 	return 0;
 
 err:
-	if (device->gmu_fault)
+	if (device->gmu_fault) {
 		genc_gmu_suspend(adreno_dev);
 
-	return ret;
+		return ret;
+	}
+
+	genc_gmu_irq_disable(adreno_dev);
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
@@ -262,10 +265,13 @@ static int genc_hwsched_gmu_boot(struct adreno_device *adreno_dev)
 
 	return 0;
 err:
-	if (device->gmu_fault)
+	if (device->gmu_fault) {
 		genc_gmu_suspend(adreno_dev);
 
-	return ret;
+		return ret;
+	}
+
+	genc_gmu_irq_disable(adreno_dev);
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
