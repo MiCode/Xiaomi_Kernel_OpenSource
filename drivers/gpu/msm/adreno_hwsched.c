@@ -332,7 +332,7 @@ static int hwsched_sendcmd(struct adreno_device *adreno_dev,
 		set_bit(ADRENO_HWSCHED_POWER, &hwsched->flags);
 	}
 
-	ret = a6xx_hwsched_submit_cmdobj(adreno_dev, cmdobj);
+	ret = hwsched->hwsched_ops->submit_cmdobj(adreno_dev, cmdobj);
 	if (ret) {
 		/*
 		 * If the first submission failed, then put back the active
@@ -1059,7 +1059,10 @@ static bool _preemption_show(struct adreno_device *adreno_dev)
 
 static unsigned int _preempt_count_show(struct adreno_device *adreno_dev)
 {
-	return a6xx_hwsched_preempt_count_get(adreno_dev);
+	const struct adreno_hwsched_ops *hwsched_ops =
+		adreno_dev->hwsched.hwsched_ops;
+
+	return hwsched_ops->preempt_count(adreno_dev);
 }
 
 static ADRENO_SYSFS_BOOL(preemption);
@@ -1144,7 +1147,7 @@ static void adreno_hwsched_complete_replay(struct adreno_device *adreno_dev)
 		}
 
 		if (!test_and_set_bit(KGSL_FT_REPLAY, &cmdobj->fault_policy))
-			a6xx_hwsched_submit_cmdobj(adreno_dev, cmdobj);
+			hwsched->hwsched_ops->submit_cmdobj(adreno_dev, cmdobj);
 	}
 
 	/* Signal fences */
@@ -1325,7 +1328,8 @@ static const struct adreno_dispatch_ops hwsched_ops = {
 	.fault = adreno_hwsched_fault,
 };
 
-int adreno_hwsched_init(struct adreno_device *adreno_dev)
+int adreno_hwsched_init(struct adreno_device *adreno_dev,
+	const struct adreno_hwsched_ops *target_hwsched_ops)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
@@ -1355,6 +1359,7 @@ int adreno_hwsched_init(struct adreno_device *adreno_dev)
 
 	sysfs_create_files(&device->dev->kobj, _hwsched_attr_list);
 	adreno_set_dispatch_ops(adreno_dev, &hwsched_ops);
+	hwsched->hwsched_ops = target_hwsched_ops;
 	return 0;
 }
 

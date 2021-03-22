@@ -976,6 +976,11 @@ const struct adreno_power_ops genc_hwsched_power_ops = {
 	.gpu_bus_set = genc_hwsched_bus_set,
 };
 
+const struct adreno_hwsched_ops genc_hwsched_ops = {
+	.submit_cmdobj = genc_hwsched_submit_cmdobj,
+	.preempt_count = genc_hwsched_preempt_count_get,
+};
+
 int genc_hwsched_probe(struct platform_device *pdev,
 		u32 chipid, const struct adreno_gpu_core *gpucore)
 {
@@ -1003,5 +1008,5 @@ int genc_hwsched_probe(struct platform_device *pdev,
 
 	adreno_dev->irq_mask = GENC_HWSCHED_INT_MASK;
 
-	return adreno_hwsched_init(adreno_dev);
+	return adreno_hwsched_init(adreno_dev, &genc_hwsched_ops);
 }
