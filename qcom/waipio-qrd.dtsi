@@ -48,6 +48,8 @@
 	pinctrl-1 = <&sdc2_off>;
 
 	cd-gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
+
+	status = "ok";
 };
 
 &qupv3_se5_i2c {
@@ -135,6 +137,13 @@
 	status = "ok";
 };
 
+&battery_charger {
+	qcom,thermal-mitigation = <11500000 11000000 10500000 10000000 9500000
+				9000000 8500000 8000000 7500000 7000000 6500000
+				6000000 5500000 5000000 4500000 4000000 3500000
+				3000000 2500000 2000000 1500000 1000000 500000>;
+};
+
 &qupv3_se9_i2c {
 	status = "ok";
 	qcom,clk-freq-out = <1000000>;
@@ -188,15 +197,25 @@
 
 	qcom,audio-routing =
 		"AMIC1", "Analog Mic1",
-		"Analog Mic1", "MIC BIAS1",
+		"AMIC1", "MIC BIAS1",
 		"AMIC2", "Analog Mic2",
-		"Analog Mic2", "MIC BIAS2",
+		"AMIC2", "MIC BIAS2",
 		"AMIC3", "Analog Mic3",
-		"Analog Mic3", "MIC BIAS3",
+		"AMIC3", "MIC BIAS3",
 		"AMIC4", "Analog Mic4",
-		"Analog Mic4", "MIC BIAS3",
+		"AMIC4", "MIC BIAS3",
 		"AMIC5", "Analog Mic5",
-		"Analog Mic5", "MIC BIAS4",
+		"AMIC5", "MIC BIAS4",
+		"VA AMIC1", "Analog Mic1",
+		"VA AMIC1", "VA MIC BIAS1",
+		"VA AMIC2", "Analog Mic2",
+		"VA AMIC2", "VA MIC BIAS2",
+		"VA AMIC3", "Analog Mic3",
+		"VA AMIC3", "VA MIC BIAS3",
+		"VA AMIC4", "Analog Mic4",
+		"VA AMIC4", "VA MIC BIAS3",
+		"VA AMIC5", "Analog Mic5",
+		"VA AMIC5", "VA MIC BIAS4",
 		"IN1_HPHL", "HPHL_OUT",
 		"IN2_HPHR", "HPHR_OUT",
 		"IN3_AUX", "AUX_OUT",
@@ -247,3 +266,27 @@
 	};
 };
 
+&usb0 {
+	usb-role-switch;
+
+	dwc3@a600000 {
+		usb-role-switch;
+		dr_mode = "otg";
+	};
+
+	port {
+		usb_port0: endpoint {
+			remote-endpoint = <&usb_port0_connector>;
+		};
+	};
+};
+
+&ucsi {
+	connector {
+		port {
+			usb_port0_connector: endpoint {
+				remote-endpoint = <&usb_port0>;
+			};
+		};
+	};
+};

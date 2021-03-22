@@ -49,9 +49,12 @@
 		vreg-1p8-supply = <&pm8350_l6>;
 		vreg-0p9-supply = <&pm8350_l5>;
 		vreg-cx-supply = <&VDD_CX_LEVEL>;
+		vreg-mx-supply = <&VDD_MXA_LEVEL>;
 		qcom,vreg-1p8-voltage-level = <1200000 1200000 18200>;
 		qcom,vreg-0p9-voltage-level = <880000 880000 80900>;
 		qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
+						RPMH_REGULATOR_LEVEL_NOM 0>;
+		qcom,vreg-mx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
 						RPMH_REGULATOR_LEVEL_NOM 0>;
 		qcom,bw-scale = /* Gen1 */
 				<RPMH_REGULATOR_LEVEL_LOW_SVS
@@ -63,7 +66,7 @@
 				19200000
 				/* Gen3 */
 				RPMH_REGULATOR_LEVEL_NOM
-				RPMH_REGULATOR_LEVEL_LOW_SVS
+				RPMH_REGULATOR_LEVEL_NOM
 				100000000>;
 
 		interconnect-names = "icc_path";
@@ -306,7 +309,7 @@
 				RPMH_REGULATOR_LEVEL_LOW_SVS
 				19200000
 				/* Gen3 */
-				RPMH_REGULATOR_LEVEL_NOM
+				RPMH_REGULATOR_LEVEL_LOW_SVS
 				RPMH_REGULATOR_LEVEL_LOW_SVS
 				100000000
 				/* Gen4 */

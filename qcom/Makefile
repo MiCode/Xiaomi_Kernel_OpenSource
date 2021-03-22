@@ -80,25 +80,45 @@ dtbo-$(CONFIG_ARCH_WAIPIO) += waipio-rumi-overlay.dtbo \
 	waipio-mtp-pm8008-overlay.dtbo \
 	waipio-cdp-pm8008-overlay.dtbo \
 	waipio-qrd-pm8008-overlay.dtbo \
+	waipio-atp-pm8008-overlay.dtbo \
 	waipio-mtp-pm8010-overlay.dtbo \
 	waipio-cdp-pm8010-overlay.dtbo \
-	waipio-qrd-pm8010-overlay.dtbo
+	waipio-qrd-pm8010-overlay.dtbo \
+	waipio-atp-pm8010-overlay.dtbo
 
-waipio-rumi-overlay.dtbo-base := waipio.dtb
-waipio-mtp-pm8008-overlay.dtbo-base := waipio.dtb
-waipio-cdp-pm8008-overlay.dtbo-base := waipio.dtb
-waipio-qrd-pm8008-overlay.dtbo-base := waipio.dtb
-waipio-mtp-pm8010-overlay.dtbo-base := waipio.dtb
-waipio-cdp-pm8010-overlay.dtbo-base := waipio.dtb
-waipio-qrd-pm8010-overlay.dtbo-base := waipio.dtb
+waipio-rumi-overlay.dtbo-base := waipio.dtb waipiop.dtb
+waipio-mtp-pm8008-overlay.dtbo-base := waipio.dtb waipiop.dtb
+waipio-cdp-pm8008-overlay.dtbo-base := waipio.dtb waipiop.dtb
+waipio-qrd-pm8008-overlay.dtbo-base := waipio.dtb waipiop.dtb
+waipio-atp-pm8008-overlay.dtbo-base := waipio.dtb waipiop.dtb
+waipio-mtp-pm8010-overlay.dtbo-base := waipio.dtb waipiop.dtb
+waipio-cdp-pm8010-overlay.dtbo-base := waipio.dtb waipiop.dtb
+waipio-qrd-pm8010-overlay.dtbo-base := waipio.dtb waipiop.dtb
+waipio-atp-pm8010-overlay.dtbo-base := waipio.dtb waipiop.dtb
 else
 dtb-$(CONFIG_ARCH_WAIPIO) += waipio-rumi.dtb \
 	waipio-mtp-pm8008.dtb \
 	waipio-cdp-pm8008.dtb \
 	waipio-qrd-pm8008.dtb \
+	waipio-atp-pm8008.dtb \
 	waipio-mtp-pm8010.dtb \
 	waipio-cdp-pm8010.dtb \
-	waipio-qrd-pm8010.dtb
+	waipio-qrd-pm8010.dtb \
+	waipio-atp-pm8010.dtb
+	waipiop-mtp-pm8008.dtb \
+	waipiop-cdp-pm8008.dtb \
+	waipiop-qrd-pm8008.dtb \
+	waipiop-mtp-pm8010.dtb \
+	waipiop-cdp-pm8010.dtb \
+	waipiop-qrd-pm8010.dtb
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+dtbo-$(CONFIG_ARCH_DIWALI) += diwali-rumi-overlay.dtbo
+
+diwali-rumi-overlay.dtbo-base := diwali.dtb
+else
+dtb-$(CONFIG_ARCH_DIWALI) += diwali-rumi.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)

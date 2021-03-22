@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "waipiop.dtsi"
+#include "waipio-cdp.dtsi"
+#include "waipio-pm8010-spmi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. WaipioP CDP with PM8010";
+	compatible = "qcom,waipiop-cdp", "qcom,waipiop", "qcom,cdp";
+	qcom,board-id = <0x10001 0>;
+};

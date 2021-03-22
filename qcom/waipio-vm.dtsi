@@ -8,13 +8,33 @@
 	qcom,msm-id = <457 0x10000>;
 	interrupt-parent = <&vgic>;
 
-	qcom-mem-buf {
+	qcom,mem-buf {
 		compatible = "qcom,mem-buf";
 		qcom,mem-buf-capabilities = "consumer";
+		qcom,vmid = <45>;
+	};
+
+	qcom,mem-buf-msgq {
+		compatible = "qcom,mem-buf-msgq";
 	};
 
 	chosen {
 		bootargs = "nokaslr log_buf_len=256K root=/dev/ram rw init=/init console=hvc0 loglevel=8";
+	};
+
+	reserved_memory: reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		system_cma: linux,cma {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x400000>;
+			linux,cma-default;
+		};
 	};
 
 	cpus {
@@ -44,8 +64,8 @@
 		CPU_PWR_DWN: c4 {  /* Using Gold C4 latencies */
 			compatible = "arm,idle-state";
 			idle-state-name = "rail-pc";
-			entry-latency-us = <702>;
-			exit-latency-us = <1061>;
+			entry-latency-us = <369>;
+			exit-latency-us = <1502>;
 			min-residency-us = <4488>;
 			arm,psci-suspend-param = <0x40000004>;
 			local-timer-stop;
@@ -55,8 +75,8 @@
 		CLUSTER_PWR_DWN: d4 { /* C4+D4 */
 			compatible = "arm,idle-state";
 			idle-state-name = "l3-pc";
-			entry-latency-us = <2752>;
-			exit-latency-us = <3048>;
+			entry-latency-us = <584>;
+			exit-latency-us = <2332>;
 			min-residency-us = <6118>;
 			arm,psci-suspend-param = <0x40000044>;
 			local-timer-stop;
@@ -129,6 +149,7 @@
 				peer-default;
 				vqs-num = <0x1>;
 				push-compatible = "virtio,mmio";
+				dma-coherent;
 				dma_base = <0x0 0x0>;
 				memory {
 					qcom,label = <0x10>;
@@ -143,6 +164,7 @@
 				peer-default;
 				vqs-num = <0x1>;
 				push-compatible = "virtio,mmio";
+				dma-coherent;
 				dma_base = <0x0 0x4000>;
 				memory {
 					qcom,label = <0x11>;
@@ -326,3 +348,5 @@
 		qcom,support-hypervisor;
 	};
 };
+
+#include "waipio-vm-dma-heaps.dtsi"

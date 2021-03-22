@@ -488,6 +488,11 @@
 			qcom,dump-id = <0x102>;
 		};
 
+		etr1_reg {
+			qcom,dump-size = <0x1000>;
+			qcom,dump-id = <0x105>;
+		};
+
 		misc_data {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0xe8>;
@@ -514,22 +519,22 @@
 		};
 
 		llcc_1_dcache {
-			qcom,dump-size = <0x1141c0>;
+			qcom,dump-size = <0x171000>;
 			qcom,dump-id = <0x140>;
 		};
 
 		llcc_2_dcache {
-			qcom,dump-size = <0x1141c0>;
+			qcom,dump-size = <0x171000>;
 			qcom,dump-id = <0x141>;
 		};
 
 		llcc_3_dcache {
-			qcom,dump-size = <0x1141c0>;
+			qcom,dump-size = <0x171000>;
 			qcom,dump-id = <0x142>;
 		};
 
 		llcc_4_dcache {
-			qcom,dump-size = <0x1141c0>;
+			qcom,dump-size = <0x171000>;
 			qcom,dump-id = <0x143>;
 		};
 	};

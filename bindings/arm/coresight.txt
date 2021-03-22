@@ -161,12 +161,24 @@ its hardware characteristcs.
 	* arm,scatter-gather: boolean. Indicates that the TMC-ETR can safely
 	  use the SG mode on this system.
 
+	* usb_bam_support: boolean. Indicates that the TMC-ETR supports usb
+	  bam connection.
+
+	* csr-atid-offset: When there are two ETRs, each of the ETR has its own ATID config
+	  csr registers. It is the ETR_ATID0 register offset to the CSR base address.
+
+	* csr-irqctrl-offset: When there are two ETRs, each of the ETR has its own ETRIRQCTRL
+	  register. It is the IRQCTRL register offset to the CSR base address.
+
+	* byte-cntr-name: The name of the byte-cntr
+
+	* byte-cntr-class-name: The name for class_create in byte-cntr driver.
+
 * Optional property for CATU and APSS :
 	* interrupts : Exactly one SPI may be listed for reporting the address
 	  error for CATU and four interrupts for TGU to get trigger from four
 	  type of events.
 
-<<<<<<< HEAD
 * Required property for TPDAs:
 
 	* qcom,tpda-atid: must be present. Specifies the ATID for TPDA.
@@ -216,6 +228,12 @@ its hardware characteristcs.
 	* qcom,timestamp-support:boolean, indicates CSR support sys interface to read
 	  timestamp value.
 
+	* qcom,perflsheot-set-support: boolean, indicates PERFLSHEOT bit of USBFLSHCTRL
+	  register will be set to 1 when usb sink is enabled.
+
+	* qcom,msr-support: boolean, indicates that CSR supports configure msr config for
+	  tpdm.
+
 * Required property for Remote ETMs:
 
 	* qcom,inst-id: must be present. QMI instance id for remote ETMs.
@@ -239,13 +257,16 @@ its hardware characteristcs.
 
 	* reg-names: funnel-base-real: actual register space for the
 	  duplicate funnel.
-=======
+
 * Optional property for configurable replicators:
 
 	* qcom,replicator-loses-context: boolean. Indicates that the replicator
 	  will lose register context when AMBA clock is removed which is observed
 	  in some replicator designs.
->>>>>>> android-mainline
+
+* Optional property for all source components:
+	* atid: atid for the trace data of the source. If the data has two atids, configure
+	  two ids for the source. This is for multi ETR sink.
 
 Graph bindings for Coresight
 -------------------------------

@@ -87,7 +87,10 @@ SoCs:
   compatible = "qcom,holi"
 
 - WAIPIO
-  compatible = "qcom,waipio"
+  compatible = "qcom,waipio", "qcom,waipiop"
+
+- DIWALI
+  compatible = "qcom,diwali"
 
 Generic board variants:
 
@@ -244,5 +247,10 @@ compatible = "qcom,holi-qrd"
 compatible = "qcom,holi-atp"
 compatible = "qcom,waipio-rumi"
 compatible = "qcom,waipio-mtp"
+compatible = "qcom,waipio-atp"
 compatible = "qcom,waipio-cdp"
 compatible = "qcom,waipio-qrd"
+compatible = "qcom,waipiop-mtp"
+compatible = "qcom,waipiop-cdp"
+compatible = "qcom,waipiop-qrd"
+compatible = "qcom,diwali-rumi"

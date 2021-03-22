@@ -27,7 +27,7 @@
 	#size-cells = <2>;
 
 	chosen: chosen {
-		bootargs = "nokaslr kpti=0 log_buf_len=256K kernel.panic_on_rcu_stall=1 swiotlb=0 loop.max_part=7 cgroup.memory=nokmem,nosocket pcie_ports=compat service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 cpufreq.default_governor=performance pelt=8 kasan=off";
+		bootargs = "nokaslr console=ttyMSM0,115200n8 kpti=0 log_buf_len=256K kernel.panic_on_rcu_stall=1 swiotlb=0 loop.max_part=7 cgroup.memory=nokmem,nosocket pcie_ports=compat service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 cpufreq.default_governor=performance pelt=8 kasan=off";
 	};
 
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
@@ -263,8 +263,8 @@
 		SILVER_OFF: silver-c4 {  /* C4 */
 			compatible = "arm,idle-state";
 			idle-state-name = "rail-pc";
-			entry-latency-us = <360>;
-			exit-latency-us = <531>;
+			entry-latency-us = <274>;
+			exit-latency-us = <480>;
 			min-residency-us = <3934>;
 			arm,psci-suspend-param = <0x40000004>;
 			local-timer-stop;
@@ -273,8 +273,8 @@
 		GOLD_OFF: gold-c4 {  /* C4 */
 			compatible = "arm,idle-state";
 			idle-state-name = "rail-pc";
-			entry-latency-us = <702>;
-			exit-latency-us = <1061>;
+			entry-latency-us = <327>;
+			exit-latency-us = <1502>;
 			min-residency-us = <4488>;
 			arm,psci-suspend-param = <0x40000004>;
 			local-timer-stop;
@@ -283,8 +283,8 @@
 		CLUSTER_PWR_DN: cluster-d4 { /* D4 */
 			compatible = "domain-idle-state";
 			idle-state-name = "l3-off";
-			entry-latency-us = <2752>;
-			exit-latency-us = <3048>;
+			entry-latency-us = <584>;
+			exit-latency-us = <2332>;
 			min-residency-us = <6118>;
 			arm,psci-suspend-param = <0x41000044>;
 		};
@@ -292,8 +292,8 @@
 		APSS_OFF: cluster-e3 { /* E3 */
 			compatible = "domain-idle-state";
 			idle-state-name = "llcc-off";
-			entry-latency-us = <3263>;
-			exit-latency-us = <6562>;
+			entry-latency-us = <2893>;
+			exit-latency-us = <4023>;
 			min-residency-us = <9987>;
 			arm,psci-suspend-param = <0x4100c344>;
 		};
@@ -655,7 +655,7 @@
 	/* global autoconfigured region for contiguous allocations */
 	system_cma: linux,cma {
 		compatible = "shared-dma-pool";
-		alloc-ranges = <0x0 0x00000000 0x0 0xdfffffff>;
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 		reusable;
 		alignment = <0x0 0x400000>;
 		size = <0x0 0x2000000>;
@@ -910,6 +910,11 @@
 
 	dload_mode {
 		compatible = "qcom,dload-mode";
+	};
+
+	mini_dump_mode {
+		compatible = "qcom,minidump";
+		status = "ok";
 	};
 
 	qcom,mpm2-sleep-counter@c221000 {
@@ -1325,14 +1330,10 @@
 		compatible = "qcom,spss-utils";
 		/* spss fuses physical address */
 		qcom,rproc-handle = <&spss_pas>;
-		qcom,spss-fuse1-addr = <0x221C22EC>;
+		qcom,spss-fuse1-addr = <0x221C8214>;
 		qcom,spss-fuse1-bit = <8>;
-		qcom,spss-fuse2-addr = <0x221C22EC>;
+		qcom,spss-fuse2-addr = <0x221C8214>;
 		qcom,spss-fuse2-bit = <7>;
-		qcom,spss-fuse3-addr = <0x221C2238>; // IAR_FEATURE_ENABLED fuse
-		qcom,spss-fuse3-bit = <10>;
-		qcom,spss-fuse4-addr = <0x221C22EC>; // IAR_STATE fuse
-		qcom,spss-fuse4-bit = <21>; // 0x221C22EC bits 21-23
 		qcom,spss-dev-firmware-name  = "spss1d.mdt";  /* 8 chars max */
 		qcom,spss-test-firmware-name = "spss1t.mdt";  /* 8 chars max */
 		qcom,spss-prod-firmware-name = "spss1p.mdt";  /* 8 chars max */
@@ -1351,7 +1352,7 @@
 			compatible = "qcom,battery-charger";
 		};
 
-		qcom,ucsi {
+		ucsi: qcom,ucsi {
 			compatible = "qcom,ucsi-glink";
 		};
 
@@ -1388,6 +1389,10 @@
 		reg = <0x088E0000 0x2000>,
 			<0x088E2000 0x1000>;
 		reg-names = "eud_base", "eud_mode_mgr2";
+
+		clocks = <&clock_gcc GCC_EUSB3_0_CLKREF_EN>;
+		clock-names = "eud_clkref_clk";
+
 		qcom,secure-eud-en;
 		status = "ok";
 	};
@@ -1722,13 +1727,25 @@
 		reg = <0x3d99058 0x4>;
 	};
 
+	gpu_cc_gx_acd_reset: syscon@3d99358 {
+		compatible = "syscon";
+		reg = <0x3d99358 0x4>;
+	};
+
+	gpu_cc_gx_acd_iroot_reset: syscon@3d9958c {
+		compatible = "syscon";
+		reg = <0x3d9958c 0x4>;
+	};
+
 	gpu_cc_gx_gdsc: qcom,gdsc@3d9905c {
 		compatible = "qcom,gdsc";
 		reg = <0x3d9905c 0x4>;
 		regulator-name = "gpu_cc_gx_gdsc";
 		domain-addr = <&gpu_cc_gx_domain_addr>;
-		sw-reset = <&gpu_cc_gx_sw_reset>;
-		parent-supply = <&VDD_GFX_LEVEL>;
+		sw-reset = <&gpu_cc_gx_sw_reset>,
+			   <&gpu_cc_gx_acd_reset>,
+			   <&gpu_cc_gx_acd_iroot_reset>;
+		parent-supply = <&VDD_GFX_MXC_VOTER_LEVEL>;
 		qcom,reset-aon-logic;
 		qcom,retain-regs;
 		qcom,gds-timeout = <500>;
@@ -2040,6 +2057,46 @@
 		qcom,qsee-reentrancy-support = <2>;
 	};
 
+	qcom_cedev: qcedev@1de0000 {
+		compatible = "qcom,qcedev";
+		reg = <0x1de0000 0x20000>,
+			<0x1dc4000 0x24000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <GIC_SPI 272 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,bam-pipe-pair = <2>;
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-device = <0>;
+		qcom,ce-hw-shared;
+		qcom,bam-ee = <0>;
+		qcom,smmu-s1-enable;
+		qcom,no-clock-support;
+		interconnect-names = "data_path";
+		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
+		iommus = <&apps_smmu 0x0584 0x0011>,
+			 <&apps_smmu 0x0594 0x0011>;
+		qcom,iommu-dma = "atomic";
+
+		qcom_cedev_ns_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "ns_context";
+			iommus = <&apps_smmu 0x588 0x0>,
+			<&apps_smmu 0x59C 0x5>,
+			<&apps_smmu 0x598 0x5>,
+			<&apps_smmu 0x59D 0x5>;
+		};
+
+		qcom_cedev_s_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "secure_context";
+			iommus = <&apps_smmu 0x592 0x0>,
+				 <&apps_smmu 0x597 0x0>,
+				 <&apps_smmu 0x59B 0x0>,
+				 <&apps_smmu 0x59E 0x0>;
+			qcom,iommu-vmid = <0x9>;
+			qcom,secure-context-bank;
+		};
+	};
+
 	smem: qcom,smem {
 		compatible = "qcom,smem";
 		memory-region = <&smem_mem>;
@@ -2060,10 +2117,18 @@
 
 		lanes-per-direction = <2>;
 		clock-names = "ref_clk_src",
-			"ref_aux_clk", "qref_clk";
+			"ref_aux_clk", "qref_clk",
+			"rx_sym0_mux_clk", "rx_sym1_mux_clk", "tx_sym0_mux_clk",
+			"rx_sym0_phy_clk", "rx_sym1_phy_clk", "tx_sym0_phy_clk";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>,
 			<&clock_gcc GCC_UFS_PHY_PHY_AUX_CLK>,
-			<&clock_gcc GCC_UFS_0_CLKREF_EN>;
+			<&clock_gcc GCC_UFS_0_CLKREF_EN>,
+			<&clock_gcc GCC_UFS_PHY_RX_SYMBOL_0_CLK_SRC>,
+			<&clock_gcc GCC_UFS_PHY_RX_SYMBOL_1_CLK_SRC>,
+			<&clock_gcc GCC_UFS_PHY_TX_SYMBOL_0_CLK_SRC>,
+			<&clock_gcc UFS_PHY_RX_SYMBOL_0_CLK>,
+			<&clock_gcc UFS_PHY_RX_SYMBOL_1_CLK>,
+			<&clock_gcc UFS_PHY_TX_SYMBOL_0_CLK>;
 		resets = <&ufshc_mem 0>;
 		status = "disabled";
 	};
@@ -2740,7 +2805,7 @@
 
 		qcom,bt-vdd-aon-config = <966000 966000 0 1>;
 		qcom,bt-vdd-dig-config = <966000 966000 0 1>;
-		qcom,bt-vdd-rfa1-config = <1900000 1900000 0 1>;
+		qcom,bt-vdd-rfa1-config = <1900000 2100000 0 1>;
 		qcom,bt-vdd-rfa2-config = <1350000 1350000 0 1>;
 		qcom,bt-vdd-asd-config = <2800000 2800000 0 1>;
 	};
@@ -3077,6 +3142,7 @@
 		qcom,wlan-cbc-enabled;
 		use-pm-domain;
 		cnss-enable-self-recovery;
+		qcom,same-dt-multi-dev;
 
 		vdd-wlan-aon-supply = <&S2E>;
 		qcom,vdd-wlan-aon-config = <1012000 1012000 0 0 1>;
@@ -3085,7 +3151,7 @@
 		vdd-wlan-io-supply = <&S10B>;
 		qcom,vdd-wlan-io-config = <1800000 1800000 0 0 1>;
 		vdd-wlan-rfa1-supply = <&S1C>;
-		qcom,vdd-wlan-rfa1-config = <1900000 1900000 0 0 1>;
+		qcom,vdd-wlan-rfa1-config = <1900000 2100000 0 0 1>;
 		vdd-wlan-rfa2-supply = <&S12B>;
 		qcom,vdd-wlan-rfa2-config = <1350000 1350000 0 0 1>;
 		wlan-ant-switch-supply = <&L7E>;
@@ -3154,6 +3220,8 @@
 		qcom,use-64-bit-dma-mask;
 		qcom,ipa-endp-delay-wa;
 		qcom,lan-rx-napi;
+		qcom,tx-napi;
+		qcom,tx-poll;
 		qcom,wan-use-skb-page;
 		qcom,rmnet-ctl-enable;
 		qcom,ipa-uc-holb-monitor;
