@@ -276,6 +276,7 @@ int esoc_clink_register(struct esoc_clink *esoc_clink)
 	dev = &esoc_clink->dev;
 	dev->bus = &esoc_bus_type;
 	dev->release = esoc_clink_release;
+	spin_lock_init(&esoc_clink->notify_lock);
 	if (!esoc_clink->parent)
 		dev->parent = &esoc_bus;
 	else
@@ -286,7 +287,6 @@ int esoc_clink_register(struct esoc_clink *esoc_clink)
 		dev_err(esoc_clink->parent, "esoc device register failed\n");
 		goto exit_ida;
 	}
-	spin_lock_init(&esoc_clink->notify_lock);
 	return 0;
 exit_ida:
 	ida_simple_remove(&esoc_ida, id);
