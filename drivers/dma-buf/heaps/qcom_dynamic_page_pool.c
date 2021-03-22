@@ -18,13 +18,14 @@
 #include <linux/slab.h>
 #include <linux/swap.h>
 #include <linux/sched/signal.h>
+#include <uapi/linux/sched/types.h>
 
 #include "qcom_dynamic_page_pool.h"
 
 static LIST_HEAD(pool_list);
 static DEFINE_MUTEX(pool_list_lock);
 
-static void dynamic_page_pool_add(struct dynamic_page_pool *pool, struct page *page)
+void dynamic_page_pool_add(struct dynamic_page_pool *pool, struct page *page)
 {
 	mutex_lock(&pool->mutex);
 	if (PageHighMem(page)) {
@@ -35,6 +36,7 @@ static void dynamic_page_pool_add(struct dynamic_page_pool *pool, struct page *p
 		pool->low_count++;
 	}
 
+	atomic_inc(&pool->count);
 	mod_node_page_state(page_pgdat(page), NR_KERNEL_MISC_RECLAIMABLE,
 			    1 << pool->order);
 	mutex_unlock(&pool->mutex);
@@ -54,6 +56,7 @@ struct page *dynamic_page_pool_remove(struct dynamic_page_pool *pool, bool high)
 		pool->low_count--;
 	}
 
+	atomic_dec(&pool->count);
 	list_del(&page->lru);
 	mod_node_page_state(page_pgdat(page), NR_KERNEL_MISC_RECLAIMABLE,
 			    -(1 << pool->order));
@@ -253,6 +256,8 @@ struct dynamic_page_pool **dynamic_page_pool_create_pools(int vmid,
 							orders[i]);
 		pool_list[i]->vmid = vmid;
 		pool_list[i]->prerelease_callback = callback;
+		atomic_set(&pool_list[i]->count, 0);
+		pool_list[i]->last_low_watermark_ktime = 0;
 
 		if (IS_ERR_OR_NULL(pool_list[i])) {
 			int j;

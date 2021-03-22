@@ -53,12 +53,97 @@
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
+#include <linux/kthread.h>
 #include <linux/qcom_dma_heap.h>
+#include <uapi/linux/sched/types.h>
 
 #include "qcom_dma_heap_secure_utils.h"
 #include "qcom_dynamic_page_pool.h"
 #include "qcom_sg_ops.h"
 #include "qcom_system_heap.h"
+
+#define DYNAMIC_POOL_FILL_MARK (100 * SZ_1M)
+#define DYNAMIC_POOL_LOW_MARK_PERCENT 40UL
+#define DYNAMIC_POOL_LOW_MARK ((DYNAMIC_POOL_FILL_MARK * DYNAMIC_POOL_LOW_MARK_PERCENT) / 100)
+
+#define DYNAMIC_POOL_REFILL_DEFER_WINDOW_MS 10
+#define DYNAMIC_POOL_KTHREAD_NICE_VAL 10
+
+static int get_dynamic_pool_fillmark(struct dynamic_page_pool *pool)
+{
+	return DYNAMIC_POOL_FILL_MARK / (PAGE_SIZE << pool->order);
+}
+
+static bool dynamic_pool_fillmark_reached(struct dynamic_page_pool *pool)
+{
+	return atomic_read(&pool->count) >= get_dynamic_pool_fillmark(pool);
+}
+
+static int get_dynamic_pool_lowmark(struct dynamic_page_pool *pool)
+{
+	return DYNAMIC_POOL_LOW_MARK / (PAGE_SIZE << pool->order);
+}
+
+static bool dynamic_pool_count_below_lowmark(struct dynamic_page_pool *pool)
+{
+	return atomic_read(&pool->count) < get_dynamic_pool_lowmark(pool);
+}
+
+/* do a simple check to see if we are in any low memory situation */
+static bool dynamic_pool_refill_ok(struct dynamic_page_pool *pool)
+{
+	struct zonelist *zonelist;
+	struct zoneref *z;
+	struct zone *zone;
+	int mark;
+	enum zone_type classzone_idx = gfp_zone(pool->gfp_mask);
+	s64 delta;
+
+	/* check if we are within the refill defer window */
+	delta = ktime_ms_delta(ktime_get(), pool->last_low_watermark_ktime);
+	if (delta < DYNAMIC_POOL_REFILL_DEFER_WINDOW_MS)
+		return false;
+
+	zonelist = node_zonelist(numa_node_id(), pool->gfp_mask);
+	/*
+	 * make sure that if we allocate a pool->order page from buddy,
+	 * we don't put the zone watermarks go below the high threshold.
+	 * This makes sure there's no unwanted repetitive refilling and
+	 * reclaiming of buddy pages on the pool.
+	 */
+	for_each_zone_zonelist(zone, z, zonelist, classzone_idx) {
+		if (!strcmp(zone->name, "DMA32"))
+			continue;
+
+		mark = high_wmark_pages(zone);
+		mark += 1 << pool->order;
+		if (!zone_watermark_ok_safe(zone, pool->order, mark,
+					    classzone_idx)) {
+			pool->last_low_watermark_ktime = ktime_get();
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static void dynamic_page_pool_refill(struct dynamic_page_pool *pool)
+{
+	struct page *page;
+	gfp_t gfp_refill = (pool->gfp_mask | __GFP_RECLAIM) & ~__GFP_NORETRY;
+
+	/* skip refilling order 0 pools */
+	if (!pool->order)
+		return;
+
+	while (!dynamic_pool_fillmark_reached(pool) && dynamic_pool_refill_ok(pool)) {
+		page = alloc_pages(gfp_refill, pool->order);
+		if (!page)
+			break;
+
+		dynamic_page_pool_add(pool, page);
+	}
+}
 
 static int system_heap_clear_pages(struct page **pages, int num, pgprot_t pgprot)
 {
@@ -158,6 +243,10 @@ struct page *qcom_sys_heap_alloc_largest_available(struct dynamic_page_pool **po
 			page = alloc_pages(pools[i]->gfp_mask, pools[i]->order);
 		if (!page)
 			continue;
+
+		if (dynamic_pool_count_below_lowmark(pools[i]))
+			wake_up_process(pools[i]->refill_worker);
+
 		return page;
 	}
 	return NULL;
@@ -268,6 +357,30 @@ free_buffer:
 	return ERR_PTR(ret);
 }
 
+static int system_heap_refill_worker(void *data)
+{
+	struct dynamic_page_pool **pool_list = data;
+	int i;
+
+	for (;;) {
+		for (i = 0; i < NUM_ORDERS; i++) {
+			if (dynamic_pool_count_below_lowmark(pool_list[i]))
+				dynamic_page_pool_refill(pool_list[i]);
+		}
+
+		set_current_state(TASK_INTERRUPTIBLE);
+		if (unlikely(kthread_should_stop())) {
+			set_current_state(TASK_RUNNING);
+			break;
+		}
+		schedule();
+
+		set_current_state(TASK_RUNNING);
+	}
+
+	return 0;
+}
+
 static const struct dma_heap_ops system_heap_ops = {
 	.allocate = system_heap_allocate,
 };
@@ -277,7 +390,10 @@ int qcom_system_heap_create(char *name, bool uncached)
 	struct dma_heap_export_info exp_info;
 	struct dma_heap *heap;
 	struct qcom_system_heap *sys_heap;
+	struct task_struct *refill_worker;
+	struct sched_attr attr = { .sched_nice = DYNAMIC_POOL_KTHREAD_NICE_VAL };
 	int ret;
+	int i;
 
 	ret = dynamic_page_pool_init_shrinker();
 	if (ret)
@@ -301,10 +417,29 @@ int qcom_system_heap_create(char *name, bool uncached)
 		goto free_heap;
 	}
 
+	refill_worker = kthread_run(system_heap_refill_worker, sys_heap->pool_list,
+				    "%s-pool-refill-thread", name);
+	if (IS_ERR(refill_worker)) {
+		pr_err("%s: failed to create %s-pool-refill-thread: %ld\n",
+			__func__, name, PTR_ERR(refill_worker));
+		ret = PTR_ERR(refill_worker);
+		goto free_pools;
+	}
+
+	ret = sched_setattr(refill_worker, &attr);
+	if (ret) {
+		pr_warn("%s: failed to set task priority for %s-pool-refill-thread: ret = %d\n",
+			__func__, name, ret);
+		goto stop_worker;
+	}
+
+	for (i = 0; i < NUM_ORDERS; i++)
+		sys_heap->pool_list[i]->refill_worker = refill_worker;
+
 	heap = dma_heap_add(&exp_info);
 	if (IS_ERR(heap)) {
 		ret = PTR_ERR(heap);
-		goto free_pools;
+		goto stop_worker;
 	}
 
 	if (uncached)
@@ -313,6 +448,9 @@ int qcom_system_heap_create(char *name, bool uncached)
 
 	pr_info("%s: DMA-BUF Heap: Created '%s'\n", __func__, name);
 	return 0;
+
+stop_worker:
+	kthread_stop(refill_worker);
 
 free_pools:
 	dynamic_page_pool_release_pools(sys_heap->pool_list);
