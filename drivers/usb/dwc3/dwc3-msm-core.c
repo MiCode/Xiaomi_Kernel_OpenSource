@@ -5618,28 +5618,22 @@ static int dwc3_msm_pm_resume(struct device *dev)
 
 	atomic_set(&mdwc->pm_suspended, 0);
 
-	if (!mdwc->host_poweroff_in_pm_suspend || !mdwc->in_host_mode) {
-		/* kick in otg state machine */
-		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
-
-		return 0;
-	}
-
 	/* Resume dwc to avoid unclocked access by xhci_plat_resume */
 	dwc3_msm_resume(mdwc);
 	pm_runtime_disable(dev);
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
 
-	/* Restore PHY flags if hibernated in host mode */
-	mdwc->hs_phy->flags |= PHY_HOST_MODE;
-	usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
-	if (dwc3_msm_get_max_speed(mdwc) >= USB_SPEED_SUPER) {
-		mdwc->ss_phy->flags |= PHY_HOST_MODE;
-		usb_phy_notify_connect(mdwc->ss_phy,
-					USB_SPEED_SUPER);
+	if (mdwc->host_poweroff_in_pm_suspend && mdwc->in_host_mode) {
+		/* Restore PHY flags if hibernated in host mode */
+		mdwc->hs_phy->flags |= PHY_HOST_MODE;
+		usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
+		if (dwc3_msm_get_max_speed(mdwc) >= USB_SPEED_SUPER) {
+			mdwc->ss_phy->flags |= PHY_HOST_MODE;
+			usb_phy_notify_connect(mdwc->ss_phy,
+						USB_SPEED_SUPER);
+		}
 	}
-
 	/* kick in otg state machine */
 	queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 
