@@ -21,7 +21,6 @@
 #include "adreno_a5xx.h"
 #include "adreno_a6xx.h"
 #include "adreno_compat.h"
-#include "adreno_hwsched.h"
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
 #include "kgsl_bus.h"

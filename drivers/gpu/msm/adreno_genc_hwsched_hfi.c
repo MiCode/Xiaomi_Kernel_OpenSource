@@ -10,7 +10,6 @@
 #include "adreno_genc.h"
 #include "adreno_genc_hwsched.h"
 #include "adreno_hfi.h"
-#include "adreno_hwsched.h"
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
 #include "kgsl_device.h"

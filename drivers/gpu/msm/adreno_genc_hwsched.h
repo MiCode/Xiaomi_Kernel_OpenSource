@@ -7,7 +7,6 @@
 #define _ADRENO_GENC_HWSCHED_H_
 
 #include "adreno_genc_hwsched_hfi.h"
-#include "adreno_hwsched.h"
 
 /**
  * struct genc_hwsched_device - Container for the genc hwscheduling device
@@ -17,8 +16,6 @@ struct genc_hwsched_device {
 	struct genc_device genc_dev;
 	/** @hwsched_hfi: Container for hwscheduling specific hfi resources */
 	struct genc_hwsched_hfi hwsched_hfi;
-	/** @hwsched: Container for the hardware dispatcher */
-	struct adreno_hwsched hwsched;
 };
 
 /**
