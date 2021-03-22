@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _ADRENO_HWSCHED_H_
@@ -89,4 +89,13 @@ void adreno_hwsched_parse_fault_cmdobj(struct adreno_device *adreno_dev,
 	struct kgsl_snapshot *snapshot);
 
 void adreno_hwsched_flush(struct adreno_device *adreno_dev);
+
+/**
+ * adreno_hwsched_unregister_contexts - Reset context gmu_registered bit
+ * @adreno_dev: pointer to the adreno device
+ *
+ * Walk the list of contexts and reset the gmu_registered for all
+ * contexts
+ */
+void adreno_hwsched_unregister_contexts(struct adreno_device *adreno_dev);
 #endif
