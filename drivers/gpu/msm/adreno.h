@@ -772,7 +772,7 @@ struct adreno_gpudev {
 	bool (*hw_isidle)(struct adreno_device *adreno_dev);
 	const char *(*iommu_fault_block)(struct kgsl_device *device,
 				unsigned int fsynr1);
-	int (*reset)(struct kgsl_device *device);
+	int (*reset)(struct adreno_device *adreno_dev);
 	/** @read_alwayson: Return the current value of the alwayson counter */
 	u64 (*read_alwayson)(struct adreno_device *adreno_dev);
 	/**

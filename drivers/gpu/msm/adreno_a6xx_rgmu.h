@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_A6XX_RGMU_H
 #define __ADRENO_A6XX_RGMU_H
@@ -72,12 +72,12 @@ int a6xx_rgmu_device_probe(struct platform_device *pdev,
 	u32 chipid, const struct adreno_gpu_core *gpucore);
 
 /**
- * a6xx_rgmu_restart - Reset and restart the rgmu
- * @device: Pointer to the kgsl device
+ * a6xx_rgmu_reset - Reset and restart the rgmu
+ * @adreno_dev: Pointer to the adreno device
  *
  * Return: 0 on success or negative error on failure
  */
-int a6xx_rgmu_restart(struct kgsl_device *device);
+int a6xx_rgmu_reset(struct adreno_device *adreno_dev);
 
 /**
  * a6xx_rgmu_snapshot - Take snapshot for rgmu based targets

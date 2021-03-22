@@ -2573,9 +2573,8 @@ int genc_gmu_device_probe(struct platform_device *pdev,
 	return 0;
 }
 
-int genc_gmu_restart(struct kgsl_device *device)
+int genc_gmu_reset(struct adreno_device *adreno_dev)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
 
 	genc_hfi_stop(adreno_dev);

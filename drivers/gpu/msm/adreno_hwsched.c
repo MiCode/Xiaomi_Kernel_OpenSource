@@ -1218,6 +1218,7 @@ static void reset_and_snapshot(struct adreno_device *adreno_dev)
 	struct kgsl_context *context = NULL;
 	struct cmd_list_obj *obj = get_fault_cmdobj(adreno_dev);
 	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (device->state != KGSL_STATE_ACTIVE)
 		return;
@@ -1249,7 +1250,7 @@ static void reset_and_snapshot(struct adreno_device *adreno_dev)
 	 */
 	kgsl_drawobj_put(drawobj);
 done:
-	a6xx_hwsched_restart(adreno_dev);
+	gpudev->reset(adreno_dev);
 	adreno_hwsched_init_replay(hwsched);
 }
 

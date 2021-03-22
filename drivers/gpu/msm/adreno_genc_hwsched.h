@@ -32,10 +32,12 @@ int genc_hwsched_probe(struct platform_device *pdev,
 		u32 chipid, const struct adreno_gpu_core *gpucore);
 
 /**
- * genc_hwsched_restart - Restart the gmu and gpu
+ * genc_hwsched_reset - Restart the gmu and gpu
  * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
  */
-void genc_hwsched_restart(struct adreno_device *adreno_dev);
+int genc_hwsched_reset(struct adreno_device *adreno_dev);
 
 /**
  * genc_hwsched_snapshot - take genc hwsched snapshot

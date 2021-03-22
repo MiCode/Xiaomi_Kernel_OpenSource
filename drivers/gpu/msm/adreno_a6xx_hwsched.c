@@ -951,7 +951,7 @@ static void a6xx_hwsched_drain_ctxt_unregister(struct adreno_device *adreno_dev)
 	read_unlock(&hfi->msglock);
 }
 
-void a6xx_hwsched_restart(struct adreno_device *adreno_dev)
+int a6xx_hwsched_reset(struct adreno_device *adreno_dev)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	int ret;
@@ -967,7 +967,7 @@ void a6xx_hwsched_restart(struct adreno_device *adreno_dev)
 	adreno_hwsched_unregister_contexts(adreno_dev);
 
 	if (!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
-		return;
+		return 0;
 
 	a6xx_hwsched_hfi_stop(adreno_dev);
 
@@ -980,6 +980,8 @@ void a6xx_hwsched_restart(struct adreno_device *adreno_dev)
 	ret = a6xx_hwsched_boot(adreno_dev);
 
 	BUG_ON(ret);
+
+	return ret;
 }
 
 const struct adreno_power_ops a6xx_hwsched_power_ops = {

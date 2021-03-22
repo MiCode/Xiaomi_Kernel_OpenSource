@@ -145,12 +145,12 @@ int genc_gmu_device_probe(struct platform_device *pdev,
 		u32 chipid, const struct adreno_gpu_core *gpucore);
 
 /**
- * genc_gmu_restart - Reset and restart the gmu
- * @device: Pointer to the kgsl device
+ * genc_gmu_reset - Reset and restart the gmu
+ * @adreno_dev: Pointer to the adreno device
  *
  * Return: 0 on success or negative error on failure
  */
-int genc_gmu_restart(struct kgsl_device *device);
+int genc_gmu_reset(struct adreno_device *adreno_dev);
 
 /**
  * genc_enable_gpu_irq - Enable gpu interrupt

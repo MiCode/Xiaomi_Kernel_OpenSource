@@ -32,10 +32,12 @@ int a6xx_hwsched_probe(struct platform_device *pdev,
 	u32 chipid, const struct adreno_gpu_core *gpucore);
 
 /**
- * a6xx_hwsched_restart - Restart the gmu and gpu
+ * a6xx_hwsched_reset - Restart the gmu and gpu
  * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
  */
-void a6xx_hwsched_restart(struct adreno_device *adreno_dev);
+int a6xx_hwsched_reset(struct adreno_device *adreno_dev);
 
 /**
  * a6xx_hwsched_snapshot - take a6xx hwsched snapshot

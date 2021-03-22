@@ -1333,14 +1333,14 @@ static int a6xx_clear_pending_transactions(struct adreno_device *adreno_dev)
 
 /**
  * a6xx_reset() - Helper function to reset the GPU
- * @device: Pointer to the KGSL device structure for the GPU
+ * @adreno_dev: Pointer to the adreno device structure for the GPU
  *
  * Try to reset the GPU to recover from a fault for targets without
  * a GMU.
  */
-static int a6xx_reset(struct kgsl_device *device)
+static int a6xx_reset(struct adreno_device *adreno_dev)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 	unsigned long flags = device->pwrctrl.ctrl_flags;
 
@@ -2628,6 +2628,7 @@ const struct a6xx_gpudev adreno_a6xx_hwsched_gpudev = {
 		.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
 		.read_alwayson = a6xx_read_alwayson,
+		.reset = a6xx_hwsched_reset,
 		.power_ops = &a6xx_hwsched_power_ops,
 		.power_stats = a6xx_power_stats,
 		.setproperty = a6xx_setproperty,
@@ -2648,7 +2649,7 @@ const struct a6xx_gpudev adreno_a6xx_gmu_gpudev = {
 		.gpu_keepalive = a6xx_gpu_keepalive,
 		.hw_isidle = a6xx_hw_isidle,
 		.iommu_fault_block = a6xx_iommu_fault_block,
-		.reset = a6xx_gmu_restart,
+		.reset = a6xx_gmu_reset,
 		.preemption_schedule = a6xx_preemption_schedule,
 		.preemption_context_init = a6xx_preemption_context_init,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
@@ -2676,7 +2677,7 @@ const struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 	.gpu_keepalive = a6xx_gpu_keepalive,
 	.hw_isidle = a6xx_hw_isidle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
-	.reset = a6xx_rgmu_restart,
+	.reset = a6xx_rgmu_reset,
 	.preemption_schedule = a6xx_preemption_schedule,
 	.preemption_context_init = a6xx_preemption_context_init,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
@@ -2736,7 +2737,7 @@ const struct a6xx_gpudev adreno_a630_gpudev = {
 		.gpu_keepalive = a6xx_gpu_keepalive,
 		.hw_isidle = a6xx_hw_isidle,
 		.iommu_fault_block = a6xx_iommu_fault_block,
-		.reset = a6xx_gmu_restart,
+		.reset = a6xx_gmu_reset,
 		.preemption_schedule = a6xx_preemption_schedule,
 		.preemption_context_init = a6xx_preemption_context_init,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
