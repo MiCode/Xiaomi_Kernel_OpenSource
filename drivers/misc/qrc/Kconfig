@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# QRC device driver configuration
+#
+
+menu "qrc device driver"
+
+config QRC
+	bool "QRC device driver for Robotic SDK MCU"
+	help
+	   This kernel configuration is used to enable robotic controller
+	   device driver. Say Y here if you want to enable robotic
+	   controller device driver.
+	   When in doubt, say N.
+
+config QRC_DEBUG
+	bool "QRC Debugging"
+	depends on QRC
+	help
+	  Say Y here if you want the robotic controller to produce
+	  a bunch of debug messages to the system log. Select this if you
+	  are having a problem with robotic controller support and want
+	  to see more of what is going on.
+	  When in doubt, say N.
+endmenu

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019,2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk/qcom.h>
@@ -1094,8 +1094,14 @@ struct {
 	{ A3XX_CP_PROTECT_REG_0 + 13, 0x0cc0, 0 },
 	/* VBIF */
 	{ A3XX_CP_PROTECT_REG_0 + 14, 0x3000, 6 },
-	/* SMMU */
-	{ A3XX_CP_PROTECT_REG_0 + 15, 0xa000, 12 },
+	/*
+	 * SMMU
+	 * For A3xx, base offset for smmu region is 0xa000 and length is
+	 * 0x1000 bytes. Offset must be in dword and length of the block
+	 * must be ilog2(dword length).
+	 * 0xa000 >> 2 = 0x2800, ilog2(0x1000 >> 2) = 10.
+	 */
+	{ A3XX_CP_PROTECT_REG_0 + 15, 0x2800, 10 },
 	/* There are no remaining protected mode registers for a3xx */
 };
 

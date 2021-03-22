@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 /* -------------------------------------------------------------------------
@@ -295,7 +295,7 @@ static int ipc_queue_write(struct npu_device *npu_dev,
 	uint32_t packet_size, new_write_idx;
 	uint32_t empty_space;
 	void *write_ptr;
-	uint32_t read_idx;
+	uint32_t read_idx, write_idx;
 
 	size_t offset = (size_t)IPC_ADDR +
 		sizeof(struct hfi_queue_tbl_header) +
@@ -383,6 +383,23 @@ exit:
 		(uint8_t *)&queue.qhdr_rx_req,
 		sizeof(queue.qhdr_rx_req));
 	*is_rx_req_set = (queue.qhdr_rx_req == 1) ? 1 : 0;
+
+	/* check if queue is empty (consumed by fw) */
+	if (*is_rx_req_set) {
+		MEMR(npu_dev, (void *)((size_t)(offset + (uint32_t)(
+			(size_t)&(queue.qhdr_write_idx) - (size_t)&queue))),
+			(uint8_t *)&write_idx,
+			sizeof(queue.qhdr_write_idx));
+
+		MEMR(npu_dev, (void *)((size_t)(offset + (uint32_t)(
+			(size_t)&(queue.qhdr_read_idx) - (size_t)&queue))),
+			(uint8_t *)&read_idx,
+			sizeof(queue.qhdr_read_idx));
+
+		/* cmd has been consumed by fw, no need to trigger irq */
+		if (read_idx == write_idx)
+			*is_rx_req_set = 0;
+	}
 
 	return status;
 }

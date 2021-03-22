@@ -704,7 +704,7 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			qseecom.smcinvoke_support = true;
 			smc_id = TZ_OS_REGISTER_LISTENER_SMCINVOKE_ID;
 			ret = __qseecom_scm_call2_locked(smc_id, &desc);
-			if (ret == -EIO) {
+			if (ret == -EOPNOTSUPP) {
 				/* smcinvoke is not supported */
 				qseecom.smcinvoke_support = false;
 				smc_id = TZ_OS_REGISTER_LISTENER_ID;
@@ -4360,6 +4360,11 @@ static int __qseecom_send_modfd_cmd(struct qseecom_dev_handle *data,
 	/* Allocate kernel buffer for request and response*/
 	ret = __qseecom_alloc_coherent_buf(req.cmd_req_len + req.resp_len,
 					&va, &pa);
+	if (ret) {
+		pr_err("Failed to allocate coherent buf, ret %d\n", ret);
+		return ret;
+	}
+
 	req.cmd_req_buf = va;
 	send_cmd_req.cmd_req_buf = (void *)pa;
 
@@ -9696,7 +9701,8 @@ static int qseecom_suspend(struct platform_device *pdev, pm_message_t state)
 
 	mutex_unlock(&clk_access_lock);
 	mutex_unlock(&qsee_bw_mutex);
-	cancel_work_sync(&qseecom.bw_inactive_req_ws);
+	if (qseecom.support_bus_scaling)
+		cancel_work_sync(&qseecom.bw_inactive_req_ws);
 
 	return 0;
 }

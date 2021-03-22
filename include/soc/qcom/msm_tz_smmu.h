@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018,2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __MSM_TZ_SMMU_H__
 #define __MSM_TZ_SMMU_H__
 
 #include <linux/device.h>
+#include <linux/iommu.h>
 
 enum tz_smmu_device_id {
 	TZ_DEVICE_START = 0,
@@ -49,6 +50,21 @@ enum tz_smmu_device_id msm_dev_to_device_id(struct device *dev);
 int msm_tz_set_cb_format(enum tz_smmu_device_id sec_id, int cbndx);
 int msm_iommu_sec_pgtbl_init(void);
 int register_iommu_sec_ptbl(void);
+bool arm_smmu_skip_write(void __iomem *addr);
+extern void *get_smmu_from_addr(struct iommu_device *iommu, void __iomem *addr);
+extern void *arm_smmu_get_by_addr(void __iomem *addr);
+/* Donot write to smmu global space with CONFIG_MSM_TZ_SMMU */
+#undef writel_relaxed
+#undef writeq_relaxed
+#define writel_relaxed(v, c)	do {					\
+	if (!arm_smmu_skip_write(c))					\
+		((void)__raw_writel((u32)cpu_to_le32(v), (c)));	\
+	} while (0)
+
+#define writeq_relaxed(v, c) do {                              \
+	if (!arm_smmu_skip_write(c))                            \
+		((void)__raw_writeq((u64)cpu_to_le64(v), (c))); \
+	} while (0)
 #else
 
 static inline int msm_tz_smmu_atos_start(struct device *dev, int cb_num)

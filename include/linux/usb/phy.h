@@ -177,6 +177,11 @@ struct usb_phy {
 	/* reset the PHY clocks */
 	int     (*reset)(struct usb_phy *x);
 	int	(*drive_dp_pulse)(struct usb_phy *x, unsigned int pulse_width);
+
+	/* for notification of usb_phy_dbg_events */
+	void    (*dbg_event)(struct usb_phy *x,
+			char *event, int msg1, int msg2);
+
 };
 
 /* for board-specific init logic */

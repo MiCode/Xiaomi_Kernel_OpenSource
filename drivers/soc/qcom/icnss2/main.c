@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "icnss2: " fmt
@@ -3351,6 +3351,32 @@ out:
 	return ret;
 }
 
+static int icnss_smmu_fault_handler(struct iommu_domain *domain,
+				    struct device *dev, unsigned long iova,
+				    int flags, void *handler_token)
+{
+	struct icnss_priv *priv = handler_token;
+	struct icnss_uevent_fw_down_data fw_down_data = {0};
+
+	icnss_fatal_err("SMMU fault happened with IOVA 0x%lx\n", iova);
+
+	if (!priv) {
+		icnss_pr_err("priv is NULL\n");
+		return -ENODEV;
+	}
+
+	if (test_bit(ICNSS_FW_READY, &priv->state)) {
+		fw_down_data.crashed = true;
+		icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN,
+					 &fw_down_data);
+	}
+
+	icnss_trigger_recovery(&priv->pdev->dev);
+
+	/* IOMMU driver requires non-zero return value to print debug info. */
+	return -EINVAL;
+}
+
 static int icnss_smmu_dt_parse(struct icnss_priv *priv)
 {
 	int ret = 0;
@@ -3382,6 +3408,10 @@ static int icnss_smmu_dt_parse(struct icnss_priv *priv)
 		if (!ret && !strcmp("fastmap", iommu_dma_type)) {
 			icnss_pr_dbg("SMMU S1 stage enabled\n");
 			priv->smmu_s1_enable = true;
+			if (priv->device_id == WCN6750_DEVICE_ID)
+				iommu_set_fault_handler(priv->iommu_domain,
+						icnss_smmu_fault_handler,
+						priv);
 		}
 
 		res = platform_get_resource_byname(pdev,

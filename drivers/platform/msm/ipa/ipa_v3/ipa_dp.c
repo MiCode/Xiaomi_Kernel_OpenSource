@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -824,7 +824,7 @@ static int ipa3_rx_switch_to_intr_mode(struct ipa3_sys_context *sys)
 
 	atomic_set(&sys->curr_polling_state, 0);
 	__ipa3_update_curr_poll_state(sys->ep->client, 0);
-
+	ipa_pm_deferred_deactivate(sys->pm_hdl);
 	ipa3_dec_release_wakelock();
 	ret = gsi_config_channel_mode(sys->ep->gsi_chan_hdl,
 		GSI_CHAN_MODE_CALLBACK);
@@ -857,8 +857,8 @@ static void ipa3_handle_rx(struct ipa3_sys_context *sys)
 	int cnt;
 	int ret;
 
-	ipa_pm_activate_sync(sys->pm_hdl);
 start_poll:
+	ipa_pm_activate_sync(sys->pm_hdl);
 	inactive_cycles = 0;
 	do {
 		cnt = ipa3_handle_rx_core(sys, true, true);
@@ -886,7 +886,7 @@ start_poll:
 	if (ret == -GSI_STATUS_PENDING_IRQ)
 		goto start_poll;
 
-	ipa_pm_deferred_deactivate(sys->pm_hdl);
+	IPA_ACTIVE_CLIENTS_DEC_EP(sys->ep->client);
 }
 
 static void ipa3_switch_to_intr_rx_work_func(struct work_struct *work)
@@ -1814,11 +1814,21 @@ fail_pipe_not_valid:
 static void ipa3_wq_handle_rx(struct work_struct *work)
 {
 	struct ipa3_sys_context *sys;
+	enum ipa_client_type client_type;
 
 	sys = container_of(work, struct ipa3_sys_context, work);
+	/*
+	 * Mark client as WAN_COAL_CONS only as
+	 * NAPI only use sys of WAN_COAL_CONS.
+	 */
+	if (IPA_CLIENT_IS_WAN_CONS(sys->ep->client))
+		client_type = IPA_CLIENT_APPS_WAN_COAL_CONS;
+	else
+		client_type = sys->ep->client;
+
+	IPA_ACTIVE_CLIENTS_INC_EP(client_type);
 
 	if (sys->napi_obj) {
-		ipa_pm_activate_sync(sys->pm_hdl);
 		napi_schedule(sys->napi_obj);
 		IPA_STATS_INC_CNT(sys->napi_sch_cnt);
 	} else
@@ -4415,7 +4425,8 @@ static void ipa_gsi_irq_tx_notify_cb(struct gsi_chan_xfer_notify *notify)
 
 void __ipa_gsi_irq_rx_scedule_poll(struct ipa3_sys_context *sys)
 {
-	bool clk_off;
+	bool clk_off = true;
+	enum ipa_client_type client_type;
 
 	atomic_set(&sys->curr_polling_state, 1);
 	__ipa3_update_curr_poll_state(sys->ep->client, 1);
@@ -4423,11 +4434,21 @@ void __ipa_gsi_irq_rx_scedule_poll(struct ipa3_sys_context *sys)
 	ipa3_inc_acquire_wakelock();
 
 	/*
-	 * pm deactivate is done in wq context
-	 * or after NAPI poll
+	 * Mark client as WAN_COAL_CONS only as
+	 * NAPI only use sys of WAN_COAL_CONS.
 	 */
+	if (IPA_CLIENT_IS_WAN_CONS(sys->ep->client))
+		client_type = IPA_CLIENT_APPS_WAN_COAL_CONS;
+	else
+		client_type = sys->ep->client;
+	/*
+	 * Have race condition to use PM on poll to isr
+	 * switch. Use the active no block instead
+	 * where we would have ref counts.
+	 */
+	if (sys->napi_obj)
+		clk_off = IPA_ACTIVE_CLIENTS_INC_EP_NO_BLOCK(client_type);
 
-	clk_off = ipa_pm_activate(sys->pm_hdl);
 	if (!clk_off && sys->napi_obj) {
 		napi_schedule(sys->napi_obj);
 		IPA_STATS_INC_CNT(sys->napi_sch_cnt);
@@ -4973,6 +4994,11 @@ int ipa3_lan_rx_poll(u32 clnt_hdl, int weight)
 	ep = &ipa3_ctx->ep[clnt_hdl];
 
 start_poll:
+	/*
+	 * it is guaranteed we already have clock here.
+	 * This is mainly for clock scaling.
+	 */
+	ipa_pm_activate(ep->sys->pm_hdl);
 	while (remain_aggr_weight > 0 &&
 			atomic_read(&ep->sys->curr_polling_state)) {
 		atomic_set(&ipa3_ctx->transport_pm.eot_activity, 1);
@@ -5002,7 +5028,7 @@ start_poll:
 				napi_reschedule(ep->sys->napi_obj))
 			goto start_poll;
 
-		ipa_pm_deferred_deactivate(ep->sys->pm_hdl);
+		IPA_ACTIVE_CLIENTS_DEC_EP_NO_BLOCK(ep->client);
 	}
 
 	return cnt;
@@ -5055,6 +5081,11 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
 start_poll:
+	/*
+	 * it is guaranteed we already have clock here.
+	 * This is mainly for clock scaling.
+	 */
+	ipa_pm_activate(ep->sys->pm_hdl);
 	while (remain_aggr_weight > 0 &&
 			atomic_read(&ep->sys->curr_polling_state)) {
 		atomic_set(&ipa3_ctx->transport_pm.eot_activity, 1);
@@ -5094,7 +5125,7 @@ start_poll:
 		if (ret == -GSI_STATUS_PENDING_IRQ &&
 				napi_reschedule(ep->sys->napi_obj))
 			goto start_poll;
-		ipa_pm_deferred_deactivate(ep->sys->pm_hdl);
+		IPA_ACTIVE_CLIENTS_DEC_EP_NO_BLOCK(ep->client);
 	} else {
 		cnt = weight;
 		IPADBG_LOW("Client = %d not replenished free descripotrs\n",

@@ -433,7 +433,7 @@ void mdss_dsi_dfps_config_8996(struct mdss_dsi_ctrl_pdata *ctrl)
 	wmb(); /* make sure phy timings are updated*/
 }
 
-static void mdss_dsi_ctrl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
+void mdss_dsi_ctrl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	/* start phy sw reset */
 	MIPI_OUTP(ctrl->ctrl_base + 0x12c, 0x0001);

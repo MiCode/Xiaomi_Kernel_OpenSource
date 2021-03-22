@@ -773,13 +773,12 @@ static int mhi_uci_open(struct inode *inode, struct file *filp)
 		spin_unlock_bh(&drvdata->lock);
 		return ret;
 	}
-	drvdata->opened = ENABLE;
 	spin_unlock_bh(&drvdata->lock);
 
 	ret = mhi_prepare_for_transfer(drvdata->mhi_dev);
 	if (ret) {
 		pr_err("Error starting transfer channels\n");
-		goto error_open_chan;
+		return ret;
 	}
 
 	ret = mhi_queue_inbound(drvdata);
@@ -787,6 +786,7 @@ static int mhi_uci_open(struct inode *inode, struct file *filp)
 		goto error_rx_queue;
 
 	filp->private_data = drvdata;
+	drvdata->opened = ENABLE;
 	return ret;
 
 error_rx_queue:
@@ -797,10 +797,6 @@ error_rx_queue:
 		kfree(buf_itr);
 	}
 
-error_open_chan:
-	spin_lock_bh(&drvdata->lock);
-	drvdata->opened = DISABLE;
-	spin_unlock_bh(&drvdata->lock);
 	return ret;
 }
 

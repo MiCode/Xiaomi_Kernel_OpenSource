@@ -30,7 +30,7 @@ enum ice_crpto_key_mode {
 	ICE_CRYPTO_USE_LUT_SW_KEY  = 0x3
 };
 
-#define QCOM_ICE_TYPE_NAME_LEN 8
+#define QCOM_ICE_TYPE_NAME_LEN 12
 
 typedef void (*ice_error_cb)(void *, u32 error);
 
