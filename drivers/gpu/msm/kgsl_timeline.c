@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-fence.h>
@@ -288,6 +288,10 @@ struct dma_fence *kgsl_timeline_fence_alloc(struct kgsl_timeline *timeline,
 		return ERR_PTR(-ENOMEM);
 
 	fence->timeline = kgsl_timeline_get(timeline);
+	if (!fence->timeline) {
+		kfree(fence);
+		return ERR_PTR(-ENOENT);
+	}
 
 	dma_fence_init(&fence->base, &timeline_fence_ops,
 		&timeline->lock, timeline->context, seqno);
