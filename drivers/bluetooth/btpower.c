@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -460,11 +460,7 @@ static int bluetooth_power(int on)
 gpio_fail:
 		if (bt_power_pdata->bt_gpio_sys_rst > 0)
 			gpio_free(bt_power_pdata->bt_gpio_sys_rst);
-		if (bt_power_pdata->wl_gpio_sys_rst > 0)
-			gpio_free(bt_power_pdata->wl_gpio_sys_rst);
-		if  (bt_power_pdata->bt_gpio_sw_ctrl  >  0)
-			gpio_free(bt_power_pdata->bt_gpio_sw_ctrl);
-		if  (bt_power_pdata->bt_gpio_debug  >  0)
+		if (bt_power_pdata->bt_gpio_debug  >  0)
 			gpio_free(bt_power_pdata->bt_gpio_debug);
 		if (bt_power_pdata->bt_chip_clk)
 			bt_clk_disable(bt_power_pdata->bt_chip_clk);
