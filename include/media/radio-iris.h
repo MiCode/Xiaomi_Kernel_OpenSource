@@ -71,13 +71,15 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb);
 
 #undef FMDBG
 #ifdef FM_DEBUG
-#define FMDBG(fmt, args...) pr_info("iris_radio: " fmt, ##args)
+#define FMDBG(fmt, args...) pr_debug("iris_radio: " fmt, ##args)
 #else
 #define FMDBG(fmt, args...)
 #endif
 
 #undef FMDERR
 #define FMDERR(fmt, args...) pr_err("iris_radio: " fmt, ##args)
+
+#define FM_INFO(fmt, args...) pr_info("iris_transport: " fmt, ##args)
 
 /* HCI timeouts */
 #define RADIO_HCI_TIMEOUT	(10000)	/* 10 seconds */
