@@ -4,7 +4,6 @@ config PARISC
 	select ARCH_32BIT_OFF_T if !64BIT
 	select ARCH_MIGHT_HAVE_PC_PARPORT
 	select HAVE_IDE
-	select HAVE_OPROFILE
 	select HAVE_FUNCTION_TRACER
 	select HAVE_FUNCTION_GRAPH_TRACER
 	select HAVE_SYSCALL_TRACEPOINTS
@@ -335,7 +334,6 @@ source "kernel/Kconfig.hz"
 config COMPAT
 	def_bool y
 	depends on 64BIT
-	select COMPAT_BINFMT_ELF if BINFMT_ELF
 
 config SYSVIPC_COMPAT
 	def_bool y

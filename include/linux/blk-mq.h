@@ -494,6 +494,18 @@ static inline int blk_mq_request_completed(struct request *rq)
 	return blk_mq_rq_state(rq) == MQ_RQ_COMPLETE;
 }
 
+/*
+ * 
+ * Set the state to complete when completing a request from inside ->queue_rq.
+ * This is used by drivers that want to ensure special complete actions that
+ * need access to the request are called on failure, e.g. by nvme for
+ * multipathing.
+ */
+static inline void blk_mq_set_request_complete(struct request *rq)
+{
+	WRITE_ONCE(rq->state, MQ_RQ_COMPLETE);
+}
+
 void blk_mq_start_request(struct request *rq);
 void blk_mq_end_request(struct request *rq, blk_status_t error);
 void __blk_mq_end_request(struct request *rq, blk_status_t error);
@@ -602,8 +614,8 @@ static inline void blk_rq_bio_prep(struct request *rq, struct bio *bio,
 	rq->bio = rq->biotail = bio;
 	rq->ioprio = bio_prio(bio);
 
-	if (bio->bi_disk)
-		rq->rq_disk = bio->bi_disk;
+	if (bio->bi_bdev)
+		rq->rq_disk = bio->bi_bdev->bd_disk;
 }
 
 blk_qc_t blk_mq_submit_bio(struct bio *bio);

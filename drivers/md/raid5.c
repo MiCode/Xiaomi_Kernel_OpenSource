@@ -5310,7 +5310,7 @@ static int in_chunk_boundary(struct mddev *mddev, struct bio *bio)
 	unsigned int chunk_sectors;
 	unsigned int bio_sectors = bio_sectors(bio);
 
-	WARN_ON_ONCE(bio->bi_partno);
+	WARN_ON_ONCE(bio->bi_bdev->bd_partno);
 
 	chunk_sectors = min(conf->chunk_sectors, conf->prev_chunk_sectors);
 	return  chunk_sectors >=
@@ -7661,7 +7661,7 @@ static int raid5_run(struct mddev *mddev)
 	}
 
 	/* device size must be a multiple of chunk size */
-	mddev->dev_sectors &= ~(mddev->chunk_sectors - 1);
+	mddev->dev_sectors &= ~((sector_t)mddev->chunk_sectors - 1);
 	mddev->resync_max_sectors = mddev->dev_sectors;
 
 	if (mddev->degraded > dirty_parity_disks &&

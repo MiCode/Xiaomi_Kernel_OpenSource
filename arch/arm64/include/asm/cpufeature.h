@@ -17,7 +17,6 @@
 #ifndef __ASSEMBLY__
 
 #include <linux/bug.h>
-#include <linux/cpumask.h>
 #include <linux/jump_label.h>
 #include <linux/kernel.h>
 
@@ -64,6 +63,11 @@ struct arm64_ftr_bits {
 	s64		safe_val; /* safe value for FTR_EXACT features */
 };
 
+struct arm64_ftr_override {
+	u64		val;
+	u64		mask;
+};
+
 /*
  * @arm64_ftr_reg - Feature register
  * @strict_mask		Bits which should match across all CPUs for sanity.
@@ -75,6 +79,7 @@ struct arm64_ftr_reg {
 	u64				user_mask;
 	u64				sys_val;
 	u64				user_val;
+	struct arm64_ftr_override	*override;
 	const struct arm64_ftr_bits	*ftr_bits;
 };
 
@@ -395,8 +400,6 @@ static __always_inline bool is_hyp_code(void)
 	return is_vhe_hyp_code() || is_nvhe_hyp_code();
 }
 
-extern cpumask_t aarch32_el0_mask;
-
 extern DECLARE_BITMAP(cpu_hwcaps, ARM64_NCAPS);
 extern struct static_key_false cpu_hwcap_keys[ARM64_NCAPS];
 extern struct static_key_false arm64_const_caps_ready;
@@ -603,6 +606,7 @@ void __init setup_cpu_features(void);
 void check_local_cpu_capabilities(void);
 
 u64 read_sanitised_ftr_reg(u32 id);
+u64 __read_sysreg_by_encoding(u32 sys_id);
 
 static inline bool cpu_supports_mixed_endian_el0(void)
 {
@@ -612,15 +616,6 @@ static inline bool cpu_supports_mixed_endian_el0(void)
 static inline bool system_supports_32bit_el0(void)
 {
 	return cpus_have_const_cap(ARM64_HAS_32BIT_EL0);
-}
-
-static inline bool kvm_system_supports_32bit_el0(void)
-{
-#ifndef CONFIG_ASYMMETRIC_AARCH32
-	return system_supports_32bit_el0();
-#else
-	return cpumask_equal(&aarch32_el0_mask, cpu_possible_mask);
-#endif
 }
 
 static inline bool system_supports_4kb_granule(void)
@@ -822,6 +817,10 @@ static inline unsigned int get_vmid_bits(u64 mmfr1)
 	 */
 	return 8;
 }
+
+extern struct arm64_ftr_override id_aa64mmfr1_override;
+extern struct arm64_ftr_override id_aa64pfr1_override;
+extern struct arm64_ftr_override id_aa64isar1_override;
 
 u32 get_kvm_ipa_limit(void);
 void dump_cpu_features(void);

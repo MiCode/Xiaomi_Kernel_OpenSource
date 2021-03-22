@@ -475,7 +475,7 @@ int blk_queue_enter(struct request_queue *q, blk_mq_req_flags_t flags)
 
 static inline int bio_queue_enter(struct bio *bio)
 {
-	struct request_queue *q = bio->bi_disk->queue;
+	struct request_queue *q = bio->bi_bdev->bd_disk->queue;
 	bool nowait = bio->bi_opf & REQ_NOWAIT;
 	int ret;
 
@@ -691,11 +691,9 @@ static inline bool should_fail_request(struct block_device *part,
 
 #endif /* CONFIG_FAIL_MAKE_REQUEST */
 
-static inline bool bio_check_ro(struct bio *bio, struct block_device *part)
+static inline bool bio_check_ro(struct bio *bio)
 {
-	const int op = bio_op(bio);
-
-	if (part->bd_read_only && op_is_write(op)) {
+	if (op_is_write(bio_op(bio)) && bdev_read_only(bio->bi_bdev)) {
 		char b[BDEVNAME_SIZE];
 
 		if (op_is_flush(bio->bi_opf) && !bio_sectors(bio))
@@ -703,7 +701,7 @@ static inline bool bio_check_ro(struct bio *bio, struct block_device *part)
 
 		WARN_ONCE(1,
 		       "Trying to write to read-only block-device %s (partno %d)\n",
-			bio_devname(bio, b), part->bd_partno);
+			bio_devname(bio, b), bio->bi_bdev->bd_partno);
 		/* Older lvm-tools actually trigger this */
 		return false;
 	}
@@ -713,7 +711,7 @@ static inline bool bio_check_ro(struct bio *bio, struct block_device *part)
 
 static noinline int should_fail_bio(struct bio *bio)
 {
-	if (should_fail_request(bio->bi_disk->part0, bio->bi_iter.bi_size))
+	if (should_fail_request(bdev_whole(bio->bi_bdev), bio->bi_iter.bi_size))
 		return -EIO;
 	return 0;
 }
@@ -724,8 +722,9 @@ ALLOW_ERROR_INJECTION(should_fail_bio, ERRNO);
  * This may well happen - the kernel calls bread() without checking the size of
  * the device, e.g., when mounting a file system.
  */
-static inline int bio_check_eod(struct bio *bio, sector_t maxsector)
+static inline int bio_check_eod(struct bio *bio)
 {
+	sector_t maxsector = bdev_nr_sectors(bio->bi_bdev);
 	unsigned int nr_sectors = bio_sectors(bio);
 
 	if (nr_sectors && maxsector &&
@@ -740,33 +739,20 @@ static inline int bio_check_eod(struct bio *bio, sector_t maxsector)
 /*
  * Remap block n of partition p to block n+start(p) of the disk.
  */
-static inline int blk_partition_remap(struct bio *bio)
+static int blk_partition_remap(struct bio *bio)
 {
-	struct block_device *p;
-	int ret = -EIO;
+	struct block_device *p = bio->bi_bdev;
 
-	rcu_read_lock();
-	p = __disk_get_part(bio->bi_disk, bio->bi_partno);
-	if (unlikely(!p))
-		goto out;
 	if (unlikely(should_fail_request(p, bio->bi_iter.bi_size)))
-		goto out;
-	if (unlikely(bio_check_ro(bio, p)))
-		goto out;
-
+		return -EIO;
 	if (bio_sectors(bio)) {
-		if (bio_check_eod(bio, bdev_nr_sectors(p)))
-			goto out;
 		bio->bi_iter.bi_sector += p->bd_start_sect;
 		trace_block_bio_remap(bio, p->bd_dev,
 				      bio->bi_iter.bi_sector -
 				      p->bd_start_sect);
 	}
-	bio->bi_partno = 0;
-	ret = 0;
-out:
-	rcu_read_unlock();
-	return ret;
+	bio->bi_bdev = bdev_whole(p);
+	return 0;
 }
 
 /*
@@ -806,7 +792,8 @@ static inline blk_status_t blk_check_zone_append(struct request_queue *q,
 
 static noinline_for_stack bool submit_bio_checks(struct bio *bio)
 {
-	struct request_queue *q = bio->bi_disk->queue;
+	struct block_device *bdev = bio->bi_bdev;
+	struct request_queue *q = bdev->bd_disk->queue;
 	blk_status_t status = BLK_STS_IOERR;
 	struct blk_plug *plug;
 
@@ -825,16 +812,12 @@ static noinline_for_stack bool submit_bio_checks(struct bio *bio)
 
 	if (should_fail_bio(bio))
 		goto end_io;
-
-	if (bio->bi_partno) {
-		if (unlikely(blk_partition_remap(bio)))
-			goto end_io;
-	} else {
-		if (unlikely(bio_check_ro(bio, bio->bi_disk->part0)))
-			goto end_io;
-		if (unlikely(bio_check_eod(bio, get_capacity(bio->bi_disk))))
-			goto end_io;
-	}
+	if (unlikely(bio_check_ro(bio)))
+		goto end_io;
+	if (unlikely(bio_check_eod(bio)))
+		goto end_io;
+	if (bio->bi_bdev->bd_partno && unlikely(blk_partition_remap(bio)))
+		goto end_io;
 
 	/*
 	 * Filter flush bio's early so that bio based drivers without flush
@@ -925,7 +908,7 @@ end_io:
 
 static blk_qc_t __submit_bio(struct bio *bio)
 {
-	struct gendisk *disk = bio->bi_disk;
+	struct gendisk *disk = bio->bi_bdev->bd_disk;
 	blk_qc_t ret = BLK_QC_T_NONE;
 
 	if (blk_crypto_bio_prep(&bio)) {
@@ -967,7 +950,7 @@ static blk_qc_t __submit_bio_noacct(struct bio *bio)
 	current->bio_list = bio_list_on_stack;
 
 	do {
-		struct request_queue *q = bio->bi_disk->queue;
+		struct request_queue *q = bio->bi_bdev->bd_disk->queue;
 		struct bio_list lower, same;
 
 		if (unlikely(bio_queue_enter(bio) != 0))
@@ -988,7 +971,7 @@ static blk_qc_t __submit_bio_noacct(struct bio *bio)
 		bio_list_init(&lower);
 		bio_list_init(&same);
 		while ((bio = bio_list_pop(&bio_list_on_stack[0])) != NULL)
-			if (q == bio->bi_disk->queue)
+			if (q == bio->bi_bdev->bd_disk->queue)
 				bio_list_add(&same, bio);
 			else
 				bio_list_add(&lower, bio);
@@ -1013,7 +996,7 @@ static blk_qc_t __submit_bio_noacct_mq(struct bio *bio)
 	current->bio_list = bio_list;
 
 	do {
-		struct gendisk *disk = bio->bi_disk;
+		struct gendisk *disk = bio->bi_bdev->bd_disk;
 
 		if (unlikely(bio_queue_enter(bio) != 0))
 			continue;
@@ -1056,7 +1039,7 @@ blk_qc_t submit_bio_noacct(struct bio *bio)
 		return BLK_QC_T_NONE;
 	}
 
-	if (!bio->bi_disk->fops->submit_bio)
+	if (!bio->bi_bdev->bd_disk->fops->submit_bio)
 		return __submit_bio_noacct_mq(bio);
 	return __submit_bio_noacct(bio);
 }
@@ -1068,7 +1051,7 @@ EXPORT_SYMBOL(submit_bio_noacct);
  *
  * submit_bio() is used to submit I/O requests to block devices.  It is passed a
  * fully set up &struct bio that describes the I/O that needs to be done.  The
- * bio will be send to the device described by the bi_disk and bi_partno fields.
+ * bio will be send to the device described by the bi_bdev field.
  *
  * The success/failure status of the request, along with notification of
  * completion, is delivered asynchronously through the ->bi_end_io() callback
@@ -1088,7 +1071,8 @@ blk_qc_t submit_bio(struct bio *bio)
 		unsigned int count;
 
 		if (unlikely(bio_op(bio) == REQ_OP_WRITE_SAME))
-			count = queue_logical_block_size(bio->bi_disk->queue) >> 9;
+			count = queue_logical_block_size(
+					bio->bi_bdev->bd_disk->queue) >> 9;
 		else
 			count = bio_sectors(bio);
 
