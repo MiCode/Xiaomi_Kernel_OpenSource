@@ -186,7 +186,7 @@ static int a6xx_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 	/* Vote for minimal DDR BW for GMU to init */
 	level = pwr->pwrlevels[pwr->default_pwrlevel].bus_min;
 
-	icc_set_bw(pwr->icc_path, 0, MBps_to_icc(pwr->ddr_table[level]));
+	icc_set_bw(pwr->icc_path, 0, kBps_to_icc(pwr->ddr_table[level]));
 
 	ret = a6xx_gmu_device_start(adreno_dev);
 	if (ret)
