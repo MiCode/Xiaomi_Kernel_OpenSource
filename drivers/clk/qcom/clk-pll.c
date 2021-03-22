@@ -138,7 +138,8 @@ clk_pll_determine_rate(struct clk_hw *hw, struct clk_rate_request *req)
 
 	f = find_freq(pll->freq_tbl, req->rate);
 	if (!f)
-		req->rate = clk_pll_recalc_rate(hw, req->best_parent_rate);
+		req->rate = DIV_ROUND_UP_ULL(req->rate, req->best_parent_rate)
+			* req->best_parent_rate;
 	else
 		req->rate = f->freq;
 
@@ -175,12 +176,38 @@ clk_pll_set_rate(struct clk_hw *hw, unsigned long rate, unsigned long p_rate)
 	return 0;
 }
 
+static void clk_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
+{
+	struct clk_pll *pll = to_clk_pll(hw);
+	int size, i, val;
+
+	static struct clk_register_data data[] = {
+		{"PLL_MODE", 0x0},
+		{"PLL_L_VAL", 0x4},
+		{"PLL_M_VAL", 0x8},
+		{"PLL_N_VAL", 0xC},
+		{"PLL_USER_CTL", 0x10},
+		{"PLL_CONFIG_CTL", 0x14},
+		{"PLL_STATUS_CTL", 0x1C},
+	};
+
+	size = ARRAY_SIZE(data);
+
+	for (i = 0; i < size; i++) {
+		regmap_read(pll->clkr.regmap, pll->mode_reg + data[i].offset,
+									&val);
+		clock_debug_output(f, false,
+				"%20s: 0x%.8x\n", data[i].name, val);
+	}
+}
+
 const struct clk_ops clk_pll_ops = {
 	.enable = clk_pll_enable,
 	.disable = clk_pll_disable,
 	.recalc_rate = clk_pll_recalc_rate,
 	.determine_rate = clk_pll_determine_rate,
 	.set_rate = clk_pll_set_rate,
+	.list_registers = clk_pll_list_registers,
 };
 EXPORT_SYMBOL_GPL(clk_pll_ops);
 
