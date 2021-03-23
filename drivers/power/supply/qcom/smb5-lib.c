@@ -1355,6 +1355,7 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	}
 
 	chg->qc3p5_detected = false;
+	chg->qc3p5_detected_mw = 0;
 	smblib_update_usb_type(chg);
 }
 
@@ -6319,6 +6320,7 @@ static void typec_src_removal(struct smb_charger *chg)
 			"Couldn't disable secondary charger rc=%d\n", rc);
 
 	chg->qc3p5_detected = false;
+	chg->qc3p5_detected_mw = 0;
 	typec_src_fault_condition_cfg(chg, false);
 	smblib_hvdcp_detect_try_enable(chg, false);
 	smblib_update_usb_type(chg);
