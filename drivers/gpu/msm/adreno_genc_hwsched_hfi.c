@@ -291,7 +291,7 @@ static irqreturn_t genc_hwsched_hfi_handler(int irq, void *data)
 	}
 
 	/* Ignore OOB bits */
-	status &= GENMASK(31, 31 - (oob_max - 1));
+	status &= GENMASK(31 - (oob_max - 1), 0);
 
 	if (status & ~hfi->irq_mask)
 		dev_err_ratelimited(&gmu->pdev->dev,
