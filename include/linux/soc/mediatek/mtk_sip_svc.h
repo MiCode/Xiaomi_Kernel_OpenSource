@@ -33,6 +33,9 @@
 /* SDA */
 #define MTK_SIP_SDA_CONTROL \
 	MTK_SIP_SMC_CMD(0x525)
+#define MTK_SIP_KERNEL_GIC_DUMP \
+	MTK_SIP_SMC_CMD(0x526)
+
 
 /* Debug feature and ATF related */
 #define MTK_SIP_KERNEL_WDT \

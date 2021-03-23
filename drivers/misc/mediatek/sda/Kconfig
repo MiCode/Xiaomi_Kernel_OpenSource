@@ -30,6 +30,17 @@ config MTK_DBGTOP
 	  Provide APIs for interactions between debuggers
 	  and some hardware modules.
 
+config MTK_IRQ_DBG
+	tristate "MediaTek IRQ dbg driver"
+	help
+	  This selects the device driver for the interrupt
+	  debug module. The module provides APIs of irq debug
+	  in the Mediatek SoC.
+
+	  Enable this to get the interrupt related APIs for
+	  debugging only.
+
+
 config MTK_BUS_PARITY_CHECK
 	tristate "MediaTek BUS PARITY CHECK"
 	help
