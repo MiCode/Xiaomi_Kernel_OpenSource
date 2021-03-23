@@ -183,11 +183,12 @@ ATTRIBUTE_GROUPS(smblite);
 static int smblite_chg_config_init(struct smblite *chip)
 {
 	struct smb_charger *chg = &chip->chg;
-	int subtype = (u8)of_device_get_match_data(chg->dev);
 	u8 val;
 	int rc = 0;
 
-	switch (subtype) {
+	chg->subtype = (u8)of_device_get_match_data(chg->dev);
+
+	switch (chg->subtype) {
 	case PM2250:
 		chg->wa_flags |= WEAK_ADAPTER_WA;
 		chg->base = smb_base[PM2250];
@@ -209,7 +210,7 @@ static int smblite_chg_config_init(struct smblite *chip)
 		chg->name = "PM5100_charger";
 		break;
 	default:
-		pr_err("Unsupported PMIC subtype=%d\n", subtype);
+		pr_err("Unsupported PMIC subtype=%d\n", chg->subtype);
 		return -EINVAL;
 	}
 
@@ -301,6 +302,9 @@ static int smblite_parse_dt_misc(struct smblite *chip, struct device_node *node)
 					&chg->chg_param.fcc_step_size_ua);
 	if (chg->chg_param.fcc_step_size_ua <= 0)
 		chg->chg_param.fcc_step_size_ua = DEFAULT_FCC_STEP_SIZE_UA;
+
+	chg->concurrent_mode_supported = of_property_read_bool(node,
+					"qcom,concurrency-mode-supported");
 
 	return 0;
 }
@@ -770,6 +774,41 @@ static int smblite_init_batt_psy(struct smblite *chip)
 
 	return rc;
 }
+
+/*******************
+ * QCOM SMB Class  *
+ *******************/
+static ssize_t boost_concurrent_mode_store(struct class *c, struct class_attribute *attr,
+						const char *buf, size_t count)
+{
+	struct smb_charger *chg = container_of(c, struct smb_charger, qcom_class);
+	int rc;
+	bool val;
+
+	if (kstrtobool(buf, &val))
+		return -EINVAL;
+
+	rc = smblite_lib_set_concurrent_config(chg, val);
+	if (rc < 0)
+		return rc;
+
+	return count;
+}
+
+static ssize_t boost_concurrent_mode_show(struct class *c, struct class_attribute *attr,
+						char *buf)
+{
+	struct smb_charger *chg = container_of(c, struct smb_charger, qcom_class);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", chg->concurrent_mode_status);
+}
+static CLASS_ATTR_RW(boost_concurrent_mode);
+
+static struct attribute *qcom_class_attrs[] = {
+	&class_attr_boost_concurrent_mode.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(qcom_class);
 
 /***************************
  * HARDWARE INITIALIZATION *
@@ -1964,6 +2003,18 @@ static int smblite_probe(struct platform_device *pdev)
 		goto disable_irq;
 	}
 
+	/* Register QCOM SMB class */
+	if (is_concurrent_mode_supported(chg)) {
+		chg->qcom_class.name = "qcom-smb";
+		chg->qcom_class.owner = THIS_MODULE;
+		chg->qcom_class.class_groups = qcom_class_groups;
+		rc = class_register(&chg->qcom_class);
+		if (rc < 0) {
+			pr_err("Failed to create qcom_class rc=%d\n", rc);
+			goto disable_irq;
+		}
+	}
+
 	device_init_wakeup(chg->dev, true);
 
 	rc = smblite_lib_get_prop_usb_present(chg, &pval);
@@ -1991,6 +2042,7 @@ static int smblite_remove(struct platform_device *pdev)
 	struct smb_charger *chg = &chip->chg;
 
 	smblite_disable_interrupts(chg);
+	class_destroy(&chg->qcom_class);
 	smblite_lib_deinit(chg);
 	sysfs_remove_groups(&chg->dev->kobj, smblite_groups);
 	platform_set_drvdata(pdev, NULL);
