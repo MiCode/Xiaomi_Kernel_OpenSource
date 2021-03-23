@@ -505,6 +505,8 @@ static int genc_hwsched_boot(struct adreno_device *adreno_dev)
 
 	trace_kgsl_pwr_request_state(device, KGSL_STATE_ACTIVE);
 
+	adreno_hwsched_start(adreno_dev);
+
 	ret = genc_hwsched_gmu_boot(adreno_dev);
 	if (ret)
 		return ret;
@@ -513,7 +515,6 @@ static int genc_hwsched_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	adreno_hwsched_start(adreno_dev);
 	kgsl_start_idle_timer(device);
 	kgsl_pwrscale_wake(device);
 
@@ -533,6 +534,8 @@ static int genc_hwsched_first_boot(struct adreno_device *adreno_dev)
 
 	if (test_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags))
 		return genc_hwsched_boot(adreno_dev);
+
+	adreno_hwsched_start(adreno_dev);
 
 	ret = genc_microcode_read(adreno_dev);
 	if (ret)
@@ -555,8 +558,6 @@ static int genc_hwsched_first_boot(struct adreno_device *adreno_dev)
 	ret = genc_hwsched_gpu_boot(adreno_dev);
 	if (ret)
 		return ret;
-
-	adreno_hwsched_start(adreno_dev);
 
 	adreno_get_bus_counters(adreno_dev);
 

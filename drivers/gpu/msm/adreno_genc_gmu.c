@@ -797,6 +797,9 @@ void genc_gmu_register_config(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 val;
 
+	/* Clear any previously set cm3 fault */
+	atomic_set(&gmu->cm3_fault, 0);
+
 	/* Vote veto for FAL10 */
 	gmu_core_regwrite(device, GENC_GPU_GMU_CX_GMU_CX_FALNEXT_INTF, 0x1);
 	gmu_core_regwrite(device, GENC_GPU_GMU_CX_GMU_CX_FAL_INTF, 0x1);
