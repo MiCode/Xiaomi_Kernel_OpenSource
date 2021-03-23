@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __ESE_COLD_RESET_H
@@ -32,6 +32,7 @@ enum ese_ioctl_arg_type {
 enum ese_cold_reset_origin {
 	ESE_COLD_RESET_ORIGIN_ESE = 0,
 	ESE_COLD_RESET_ORIGIN_NFC,
+	ESE_COLD_RESET_ORIGIN_OTHER = 0x20,
 	ESE_COLD_RESET_ORIGIN_NONE = 0xFF,
 };
 
