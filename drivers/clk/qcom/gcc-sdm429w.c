@@ -4406,9 +4406,21 @@ static const struct qcom_cc_desc mdss_sdm429w_desc = {
 	.num_hwclks = ARRAY_SIZE(mdss_sdm429w_hws),
 };
 
+static void fixup_for_qm215_gcc_mdss(void)
+{
+	/*
+	 * Below clocks are not available on QM215, thus mark them NULL.
+	 */
+
+	mdss_sdm429w_desc.clks[BYTE1_CLK_SRC] = NULL;
+	mdss_sdm429w_desc.clks[PCLK1_CLK_SRC] = NULL;
+	mdss_sdm429w_desc.clks[GCC_MDSS_BYTE1_CLK] = NULL;
+	mdss_sdm429w_desc.clks[GCC_MDSS_PCLK1_CLK] = NULL;
+}
+
 static const struct of_device_id mdss_sdm429w_match_table[] = {
 	{ .compatible = "qcom,gcc-mdss-sdm429w" },
-	{ .compatible = "qcom,gcc-mdss-8917" },
+	{ .compatible = "qcom,gcc-mdss-qm215" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, mdss_sdm429w_match_table);
@@ -4420,6 +4432,10 @@ static int mdss_sdm429w_probe(struct platform_device *pdev)
 	struct resource *res;
 	void __iomem *base;
 	int ret;
+	bool is_qm215;
+
+	is_qm215 = of_device_is_compatible(pdev->dev.of_node,
+			"qcom,gcc-mdss-qm215");
 
 	clk = clk_get(&pdev->dev, "pclk0_src");
 	if (IS_ERR(clk)) {
@@ -4451,6 +4467,9 @@ static int mdss_sdm429w_probe(struct platform_device *pdev)
 					mdss_sdm429w_desc.config);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
+
+	if (is_qm215)
+		fixup_for_qm215_gcc_mdss();
 
 	ret = qcom_cc_really_probe(pdev, &mdss_sdm429w_desc, regmap);
 	if (ret) {
