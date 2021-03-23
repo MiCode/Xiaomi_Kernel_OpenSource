@@ -528,6 +528,9 @@ static struct hfi_mem_alloc_entry *get_mem_alloc_entry(
 	if (!(desc->flags & HFI_MEMFLAG_GFX_WRITEABLE))
 		flags |= KGSL_MEMFLAGS_GPUREADONLY;
 
+	if (desc->flags & HFI_MEMFLAG_GFX_SECURE)
+		flags |= KGSL_MEMFLAGS_SECURE;
+
 	entry->gpu_md = kgsl_allocate_global(device, desc->size, 0, flags, priv,
 		memkind_string);
 	if (IS_ERR(entry->gpu_md)) {
