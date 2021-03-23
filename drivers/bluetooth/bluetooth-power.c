@@ -448,10 +448,6 @@ static void bt_free_gpios(void)
 {
 	if (bt_power_pdata->bt_gpio_sys_rst > 0)
 		gpio_free(bt_power_pdata->bt_gpio_sys_rst);
-	if (bt_power_pdata->wl_gpio_sys_rst > 0)
-		gpio_free(bt_power_pdata->wl_gpio_sys_rst);
-	if  (bt_power_pdata->bt_gpio_sw_ctrl  >  0)
-		gpio_free(bt_power_pdata->bt_gpio_sw_ctrl);
 	if  (bt_power_pdata->bt_gpio_debug  >  0)
 		gpio_free(bt_power_pdata->bt_gpio_debug);
 }
