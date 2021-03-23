@@ -27,6 +27,7 @@
 #include <soc/qcom/qcom_llcc_pmu.h>
 
 #define MAX_PMU_EVS	QCOM_PMU_MAX_EVS
+#define INVALID_ID	0xFF
 
 struct event_data {
 	u32			event_id;
@@ -35,6 +36,7 @@ struct event_data {
 	u64			cached_count;
 	u32			ref_cnt;
 	enum amu_counters	amu_id;
+	enum cpucp_ev_idx	cid;
 };
 
 struct amu_data {
@@ -55,8 +57,11 @@ static DEFINE_PER_CPU(struct cpu_data *, cpu_ev_data);
 static bool qcom_pmu_inited;
 static bool pmu_long_counter;
 static int cpuhp_state;
+static struct scmi_protocol_handle *ph;
+const static struct scmi_pmu_vendor_ops *ops;
 static LIST_HEAD(idle_notif_list);
 static DEFINE_SPINLOCK(idle_list_lock);
+static struct cpucp_hlos_map cpucp_map[MAX_CPUCP_EVT];
 
 /*
  * is_amu_valid: Check if AMUs are supported and if the id corresponds to the
@@ -69,6 +74,14 @@ static inline bool is_amu_valid(enum amu_counters amu_id)
 		IS_ENABLED(CONFIG_ARM64_AMU_EXTN));
 }
 
+/*
+ * is_cid_valid: Check if events are supported and if the id corresponds to the
+ * supported CPUCP events i.e. enum cpucp_ev_idx,
+ */
+static inline bool is_cid_valid(enum cpucp_ev_idx cid)
+{
+	return (cid >= CPU_CYC_EVT && cid < MAX_CPUCP_EVT);
+}
 
 static struct perf_event_attr *alloc_attr(void)
 {
@@ -96,6 +109,9 @@ static int set_event(struct event_data *ev, int cpu,
 		goto set_cpu;
 	else
 		ev->amu_id = SYS_AMU_MAX;
+
+	if (!is_cid_valid(ev->cid))
+		ev->cid = MAX_CPUCP_EVT;
 
 	if (!ev->event_id)
 		return 0;
@@ -351,7 +367,45 @@ int qcom_pmu_idle_unregister(struct qcom_pmu_notif_node *idle_node)
 }
 EXPORT_SYMBOL(qcom_pmu_idle_unregister);
 
-static void qcom_pmu_idle_notif(void *unused, int event, int state, int cpu)
+static int configure_cpucp_map(cpumask_t mask)
+{
+	struct event_data *event;
+	int i, cpu, ret = 0, cid;
+	u8 pmu_map[MAX_NUM_CPUS][MAX_CPUCP_EVT];
+	struct cpu_data *cpu_data;
+
+	if (!qcom_pmu_inited)
+		return -EPROBE_DEFER;
+
+	/*
+	 * Only set the hw cntrs for cpus that are part of the cpumask passed
+	 * in argument and cpucp_map events mask. Set rest of the memory with
+	 * INVALID_ID which is ignored on cpucp side.
+	 */
+	memset(pmu_map, INVALID_ID, MAX_NUM_CPUS * MAX_CPUCP_EVT);
+	for (cpu = 0; cpu < MAX_NUM_CPUS; cpu++) {
+		if (!cpumask_test_cpu(cpu, &mask))
+			continue;
+		cpu_data = per_cpu(cpu_ev_data, cpu);
+		for (i = 0; i < cpu_data->num_evs; i++) {
+			event = &cpu_data->events[i];
+			cid = event->cid;
+			if (!is_cid_valid(cid) || !cpucp_map[cid].shared ||
+			    is_amu_valid(event->amu_id) || !event->pevent ||
+			    !cpumask_test_cpu(cpu, to_cpumask(&cpucp_map[cid].cpus)))
+				continue;
+			pmu_map[cpu][cid] = event->pevent->hw.idx;
+		}
+	}
+
+	if (ops)
+		ret = ops->set_pmu_map(ph, pmu_map);
+
+	return ret;
+}
+
+static void qcom_pmu_idle_enter_notif(void *unused, int *state,
+				      struct cpuidle_device *dev)
 {
 	struct cpu_data *cpu_data = per_cpu(cpu_ev_data, cpu);
 	struct qcom_pmu_data pmu_data;
@@ -462,7 +516,21 @@ static int qcom_pmu_cpu_hp_init(void)
 static int qcom_pmu_cpu_hp_init(void) { return 0; }
 #endif
 
-static int configure_pmu_event(u32 event_id, int amu_id, int cpu)
+int rimps_pmu_init(struct scmi_device *sdev)
+{
+
+	if (!sdev || !sdev->handle)
+		return -EINVAL;
+
+	ops = sdev->handle->devm_get_protocol(sdev, SCMI_PMU_PROTOCOL, &ph);
+	if (!ops)
+		return -EINVAL;
+
+	return configure_cpucp_map(*cpu_possible_mask);
+}
+EXPORT_SYMBOL(rimps_pmu_init);
+
+static int configure_pmu_event(u32 event_id, int amu_id, int cid, int cpu)
 {
 	struct cpu_data *cpu_data;
 	struct event_data *event;
@@ -485,6 +553,7 @@ static int configure_pmu_event(u32 event_id, int amu_id, int cpu)
 	event = &cpu_data->events[cpu_data->num_evs];
 	event->event_id = event_id;
 	event->amu_id = amu_id;
+	event->cid = cid;
 	ret = set_event(event, cpu, attr);
 	if (ret < 0)
 		event->event_id = 0;
@@ -497,12 +566,12 @@ out:
 }
 
 #define PMU_TBL_PROP	"qcom,pmu-events-tbl"
-#define NUM_COL		3
+#define NUM_COL		4
 static int setup_pmu_events(struct device *dev)
 {
 	struct device_node *of_node = dev->of_node;
 	int ret, len, i, j, cpu;
-	u32 data = 0, event_id;
+	u32 data = 0, event_id, cid;
 	unsigned long cpus;
 	int amu_id;
 
@@ -535,8 +604,13 @@ static int setup_pmu_events(struct device *dev)
 		if (ret < 0)
 			return -EINVAL;
 
+		ret = of_property_read_u32_index(of_node, PMU_TBL_PROP, j + 3,
+						 &cid);
+		if (ret < 0)
+			return -EINVAL;
+
 		for_each_cpu(cpu, to_cpumask(&cpus)) {
-			ret = configure_pmu_event(event_id, amu_id, cpu);
+			ret = configure_pmu_event(event_id, amu_id, cid, cpu);
 			if (!ret)
 				continue;
 			else if (ret != -EPROBE_DEFER)
@@ -544,6 +618,13 @@ static int setup_pmu_events(struct device *dev)
 								event_id, cpu);
 			return ret;
 		}
+
+		if (is_cid_valid(cid)) {
+			cpucp_map[cid].shared = true;
+			cpucp_map[cid].cpus = cpus;
+		}
+		dev_dbg(dev, "entry=%d: ev=%lu, cpus=%lu cpucp id=%lu amu_id=%d\n",
+			i, event_id, cpus, cid, amu_id);
 	}
 
 	return 0;
