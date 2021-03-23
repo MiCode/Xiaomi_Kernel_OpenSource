@@ -712,4 +712,8 @@ static inline int _CMD_MSG_HDR(u32 *hdr, int id, size_t size)
 #define CMD_MSG_HDR(cmd, id) \
 	_CMD_MSG_HDR(&(cmd).hdr, id, sizeof(cmd))
 
+/* Maximum number of IBs in a submission */
+#define HWSCHED_MAX_NUMIBS \
+	((HFI_MAX_MSG_SIZE - offsetof(struct hfi_issue_cmd_cmd, ibs)) \
+		/ sizeof(struct hfi_issue_ib))
 #endif
