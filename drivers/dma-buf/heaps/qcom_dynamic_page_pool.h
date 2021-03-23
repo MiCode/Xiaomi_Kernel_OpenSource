@@ -10,7 +10,7 @@
  *
  * Copyright (C) 2011 Google, Inc.
  *
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DYN_PAGE_POOL_H
@@ -27,7 +27,13 @@
 				| __GFP_NORETRY) & ~__GFP_RECLAIM) \
 				| __GFP_COMP)
 #define LOW_ORDER_GFP (GFP_HIGHUSER | __GFP_ZERO | __GFP_COMP)
-static gfp_t order_flags[] = {HIGH_ORDER_GFP, LOW_ORDER_GFP, LOW_ORDER_GFP};
+
+/*
+ * We add __GFP_NOWARN for order 4 allocations since the core mm/ framework
+ * makes no guarantee of these allocations succeeding.
+ */
+static gfp_t order_flags[] = {HIGH_ORDER_GFP, LOW_ORDER_GFP | __GFP_NOWARN,
+			      LOW_ORDER_GFP};
 static const unsigned int orders[] = {9, 4, 0};
 #define NUM_ORDERS ARRAY_SIZE(orders)
 
