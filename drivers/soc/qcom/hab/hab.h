@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __HAB_H
 #define __HAB_H
@@ -341,6 +341,10 @@ struct virtual_channel {
 	 */
 	int closed;
 	int forked; /* if fork is detected and assume only once */
+	/* stats */
+	uint64_t tx_cnt; /* total succeeded tx */
+	uint64_t rx_cnt; /* total succeeded rx */
+	int rx_inflight; /* rx in progress/blocking */
 };
 
 /*
