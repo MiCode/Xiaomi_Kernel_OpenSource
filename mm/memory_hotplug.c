@@ -1504,7 +1504,6 @@ int __ref offline_pages(unsigned long start_pfn, unsigned long nr_pages)
 			 !IS_ALIGNED(start_pfn | nr_pages, PAGES_PER_SECTION)))
 		return -EINVAL;
 
-	lru_cache_disable();
 	mem_hotplug_begin();
 
 	/*
@@ -1533,6 +1532,7 @@ int __ref offline_pages(unsigned long start_pfn, unsigned long nr_pages)
 	}
 	node = zone_to_nid(zone);
 
+	lru_cache_disable();
 	/* set above range as isolated */
 	ret = start_isolate_page_range(start_pfn, end_pfn,
 				       MIGRATE_MOVABLE,
@@ -1620,6 +1620,7 @@ int __ref offline_pages(unsigned long start_pfn, unsigned long nr_pages)
 	zone->nr_isolate_pageblock -= nr_pages / pageblock_nr_pages;
 	spin_unlock_irqrestore(&zone->lock, flags);
 
+	lru_cache_enable();
 	/* removal success */
 	adjust_managed_page_count(pfn_to_page(start_pfn), -nr_pages);
 	zone->present_pages -= nr_pages;
@@ -1647,8 +1648,6 @@ int __ref offline_pages(unsigned long start_pfn, unsigned long nr_pages)
 	memory_notify(MEM_OFFLINE, &arg);
 	remove_pfn_range_from_zone(zone, start_pfn, nr_pages);
 	mem_hotplug_done();
-	lru_cache_enable();
-
 	return 0;
 
 failed_removal_isolated:
@@ -1661,7 +1660,6 @@ failed_removal:
 		 reason);
 	/* pushback to free area */
 	mem_hotplug_done();
-	lru_cache_enable();
 	return ret;
 }
 
