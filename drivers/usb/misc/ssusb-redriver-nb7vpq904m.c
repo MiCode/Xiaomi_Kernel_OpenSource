@@ -101,7 +101,6 @@ struct ssusb_redriver {
 	enum plug_orientation typec_orientation;
 	enum operation_mode op_mode;
 
-	struct notifier_block	panic_nb;
 	struct notifier_block ucsi_nb;
 
 	enum	channel_mode chan_mode[CHANNEL_NUM];
@@ -557,17 +556,6 @@ static void ssusb_redriver_orientation_gpio_init(
 	redriver->orientation_gpio_enable = true;
 }
 
-static int ssusb_redriver_panic_notifier(struct notifier_block *this,
-		unsigned long event, void *ptr)
-{
-	struct ssusb_redriver *redriver = container_of(this,
-			struct ssusb_redriver, panic_nb);
-
-	pr_err("%s: op mode: %d\n", __func__, redriver->op_mode);
-
-	return NOTIFY_OK;
-}
-
 static const struct regmap_config redriver_regmap = {
 	.max_register = REDRIVER_REG_MAX,
 	.reg_bits = 8,
@@ -608,10 +596,6 @@ static int redriver_i2c_probe(struct i2c_client *client,
 
 	ssusb_redriver_orientation_gpio_init(redriver);
 
-	redriver->panic_nb.notifier_call = ssusb_redriver_panic_notifier;
-	atomic_notifier_chain_register(&panic_notifier_list,
-			&redriver->panic_nb);
-
 	redriver->ucsi_nb.notifier_call = ssusb_redriver_ucsi_notifier;
 	register_ucsi_glink_notifier(&redriver->ucsi_nb);
 
@@ -626,8 +610,6 @@ static int redriver_i2c_remove(struct i2c_client *client)
 
 	debugfs_remove(redriver->debug_root);
 	unregister_ucsi_glink_notifier(&redriver->ucsi_nb);
-	atomic_notifier_chain_unregister(&panic_notifier_list,
-			&redriver->panic_nb);
 
 	return 0;
 }
