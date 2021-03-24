@@ -20,6 +20,7 @@
   complete
   __const_udelay
   consume_skb
+  _copy_from_iter_full
   cpu_hwcap_keys
   cpu_hwcaps
   cpu_number
@@ -63,7 +64,6 @@
   kfree_skb
   __kmalloc
   kmalloc_caches
-  kmalloc_order_trace
   kmem_cache_alloc
   kmem_cache_alloc_trace
   kmem_cache_create
@@ -159,6 +159,7 @@
   sg_init_one
   sg_init_table
   skb_clone
+  skb_dequeue
   skb_put
   sk_free
   snd_device_new
@@ -261,6 +262,19 @@
   serdev_device_write
   serdev_device_write_wakeup
 
+# required by hci_vhci.ko
+  bt_err
+  hci_alloc_dev
+  hci_free_dev
+  hci_recv_frame
+  hci_register_dev
+  hci_unregister_dev
+  skb_pull
+  skb_push
+  skb_queue_head
+  skb_queue_purge
+  skb_queue_tail
+
 # required by incrementalfs.ko
   bin2hex
   __break_lease
@@ -312,10 +326,12 @@
   __msecs_to_jiffies
   mutex_is_locked
   notify_change
+  override_creds
   pagecache_get_page
   path_get
   path_put
   register_filesystem
+  revert_creds
   seq_puts
   set_anon_super
   sget
@@ -595,6 +611,7 @@
   drm_set_preferred_mode
   drm_universal_plane_init
   __get_task_comm
+  kmalloc_order_trace
   kvfree
   kvmalloc_node
   memdup_user
@@ -825,12 +842,13 @@
   bpf_trace_run10
   bpf_trace_run8
   cancel_delayed_work
-  _copy_from_iter_full
   _copy_to_iter
   trace_print_symbols_seq
 
 # required by vsock.ko
   autoremove_wake_function
+  init_user_ns
+  ns_capable_noaudit
   prandom_u32
   prepare_to_wait
   proto_register
@@ -839,7 +857,6 @@
   _raw_write_unlock_bh
   security_sock_graft
   sk_alloc
-  skb_dequeue
   sock_init_data
   sock_no_accept
   sock_no_getsockopt
