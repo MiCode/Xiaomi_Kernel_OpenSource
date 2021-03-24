@@ -208,13 +208,13 @@ err_exit:
 }
 
 static int ssusb_redriver_param_config(struct ssusb_redriver *redriver,
-		u8 reg_base, u8 channel, u8 mask, u8 shift, u8 val,
+		u8 reg_base, u8 channel, u8 chan_mode, u8 mask, u8 shift, u8 val,
 		u8 (*stored_val)[CHANNEL_NUM])
 {
 	int i, j, ret = -EINVAL;
-	u8 reg_addr, reg_val, real_channel, chan_mode;
+	u8 reg_addr, reg_val;
 
-	if (channel == CHANNEL_NUM * CHAN_MODE_NUM) {
+	if (channel == CHANNEL_NUM) {
 		for (i = 0; i < CHAN_MODE_NUM; i++)
 			for (j = 0; j < CHANNEL_NUM; j++) {
 				if (redriver->chan_mode[j] == i) {
@@ -232,11 +232,8 @@ static int ssusb_redriver_param_config(struct ssusb_redriver *redriver,
 				stored_val[i][j] = val;
 			}
 	} else {
-		real_channel = channel % CHANNEL_NUM;
-		chan_mode = channel / CHANNEL_NUM;
-
-		if (redriver->chan_mode[real_channel] == chan_mode) {
-			reg_addr = reg_base + (real_channel << 1);
+		if (redriver->chan_mode[channel] == chan_mode) {
+			reg_addr = reg_base + (channel << 1);
 
 			reg_val =  (val  << shift);
 			reg_val &= (mask << shift);
@@ -247,50 +244,52 @@ static int ssusb_redriver_param_config(struct ssusb_redriver *redriver,
 				return ret;
 		}
 
-		stored_val[chan_mode][real_channel] = val;
+		stored_val[chan_mode][channel] = val;
 	}
 
 	return 0;
 }
 
 static int ssusb_redriver_eq_config(
-		struct ssusb_redriver *redriver, u8 channel, u8 val)
+	struct ssusb_redriver *redriver, u8 channel, u8 chan_mode, u8 val)
 {
 	return ssusb_redriver_param_config(redriver,
-			EQ_SET_REG_BASE, channel, EQ_SETTING_MASK,
-			EQ_SETTING_SHIFT, val, redriver->eq);
+			EQ_SET_REG_BASE, channel, chan_mode,
+			EQ_SETTING_MASK, EQ_SETTING_SHIFT,
+			val, redriver->eq);
 }
 
 static int ssusb_redriver_flat_gain_config(
-		struct ssusb_redriver *redriver, u8 channel, u8 val)
+	struct ssusb_redriver *redriver, u8 channel, u8 chan_mode, u8 val)
 {
 	return ssusb_redriver_param_config(redriver,
-			FLAT_GAIN_REG_BASE, channel, FLAT_GAIN_MASK,
-			FLAT_GAIN_SHIFT, val, redriver->flat_gain);
+			FLAT_GAIN_REG_BASE, channel, chan_mode,
+			FLAT_GAIN_MASK, FLAT_GAIN_SHIFT,
+			val, redriver->flat_gain);
 }
 
 static int ssusb_redriver_output_comp_config(
-		struct ssusb_redriver *redriver, u8 channel, u8 val)
+	struct ssusb_redriver *redriver, u8 channel, u8 chan_mode, u8 val)
 {
 	return ssusb_redriver_param_config(redriver,
-			OUT_COMP_AND_POL_REG_BASE, channel,
-			OUTPUT_COMPRESSION_MASK,
-			OUTPUT_COMPRESSION_SHIFT, val,
-			redriver->output_comp);
+			OUT_COMP_AND_POL_REG_BASE, channel, chan_mode,
+			OUTPUT_COMPRESSION_MASK, OUTPUT_COMPRESSION_SHIFT,
+			val, redriver->output_comp);
 }
 
 static int ssusb_redriver_loss_match_config(
-		struct ssusb_redriver *redriver, u8 channel, u8 val)
+	struct ssusb_redriver *redriver, u8 channel, u8 chan_mode, u8 val)
 {
 	return ssusb_redriver_param_config(redriver,
-			LOSS_MATCH_REG_BASE, channel, LOSS_MATCH_MASK,
-			LOSS_MATCH_SHIFT, val, redriver->loss_match);
+			LOSS_MATCH_REG_BASE, channel, chan_mode,
+			LOSS_MATCH_MASK, LOSS_MATCH_SHIFT, val,
+			redriver->loss_match);
 }
 
 static int ssusb_redriver_channel_update(struct ssusb_redriver *redriver)
 {
-	int ret = 0, i = 0, pos = 0;
-	u8 chan_mode;
+	int ret;
+	u8 i, chan_mode;
 
 	switch (redriver->op_mode) {
 	case OP_MODE_USB:
@@ -324,30 +323,27 @@ static int ssusb_redriver_channel_update(struct ssusb_redriver *redriver)
 
 	for (i = 0; i < CHANNEL_NUM; i++) {
 		chan_mode = redriver->chan_mode[i];
-		pos = i + chan_mode * CHANNEL_NUM;
 
-		ret = ssusb_redriver_eq_config(redriver, pos,
+		ret = ssusb_redriver_eq_config(redriver, i, chan_mode,
 				redriver->eq[chan_mode][i]);
 		if (ret)
 			goto err;
 
-		ret = ssusb_redriver_flat_gain_config(redriver, pos,
+		ret = ssusb_redriver_flat_gain_config(redriver, i, chan_mode,
 				redriver->flat_gain[chan_mode][i]);
 		if (ret)
 			goto err;
 
-		ret = ssusb_redriver_output_comp_config(redriver, pos,
+		ret = ssusb_redriver_output_comp_config(redriver, i, chan_mode,
 				redriver->output_comp[chan_mode][i]);
 		if (ret)
 			goto err;
 
-		ret = ssusb_redriver_loss_match_config(redriver, pos,
+		ret = ssusb_redriver_loss_match_config(redriver, i, chan_mode,
 				redriver->loss_match[chan_mode][i]);
 		if (ret)
 			goto err;
 	}
-
-	dev_dbg(redriver->dev, "redriver channel parameters updated.\n");
 
 	return 0;
 
@@ -617,13 +613,14 @@ static int redriver_i2c_remove(struct i2c_client *client)
 static ssize_t channel_config_write(struct file *file,
 		const char __user *ubuf, size_t count, loff_t *ppos,
 		int (*config_func)(struct ssusb_redriver *redriver,
-			u8 channel, u8 val))
+			u8 channel, u8 chan_mode, u8 val))
 {
 	struct seq_file *s = file->private_data;
 	struct ssusb_redriver *redriver = s->private;
 	char buf[40];
 	char *token_chan, *token_val, *this_buf;
-	int store_offset = 0, ret = 0;
+	u8 channel, chan_mode;
+	int ret = 0;
 
 	memset(buf, 0, sizeof(buf));
 
@@ -633,8 +630,7 @@ static ssize_t channel_config_write(struct file *file,
 		return -EFAULT;
 
 	if (isdigit(buf[0])) {
-		ret = config_func(redriver, CHANNEL_NUM * CHAN_MODE_NUM,
-				buf[0] - '0');
+		ret = config_func(redriver, CHANNEL_NUM, -1, buf[0] - '0');
 		if (ret < 0)
 			goto err;
 	} else if (isalpha(buf[0])) {
@@ -644,7 +640,8 @@ static ssize_t channel_config_write(struct file *file,
 			case 'B':
 			case 'C':
 			case 'D':
-				store_offset = *token_chan - 'A';
+				channel = *token_chan - 'A';
+				chan_mode = CHAN_MODE_USB;
 				token_val = strsep(&this_buf, " ");
 				if (!isdigit(*token_val))
 					goto err;
@@ -653,8 +650,8 @@ static ssize_t channel_config_write(struct file *file,
 			case 'b':
 			case 'c':
 			case 'd':
-				store_offset = *token_chan - 'a'
-					+ CHANNEL_NUM;
+				channel = *token_chan - 'a';
+				chan_mode = CHAN_MODE_DP;
 				token_val = strsep(&this_buf, " ");
 				if (!isdigit(*token_val))
 					goto err;
@@ -663,7 +660,7 @@ static ssize_t channel_config_write(struct file *file,
 				goto err;
 			}
 
-			ret = config_func(redriver, store_offset,
+			ret = config_func(redriver, channel, chan_mode,
 					*token_val - '0');
 			if (ret < 0)
 				goto err;
