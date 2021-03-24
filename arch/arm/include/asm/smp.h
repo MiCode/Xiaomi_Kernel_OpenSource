@@ -7,6 +7,7 @@
 #ifndef __ASM_ARM_SMP_H
 #define __ASM_ARM_SMP_H
 
+#include <asm/percpu.h>
 #include <linux/threads.h>
 #include <linux/cpumask.h>
 #include <linux/thread_info.h>
