@@ -85,7 +85,6 @@ struct ssusb_redriver {
 	struct i2c_client	*client;
 
 	int orientation_gpio;
-	bool orientation_gpio_enable;
 	enum plug_orientation typec_orientation;
 	enum operation_mode op_mode;
 
@@ -400,40 +399,15 @@ err:
 
 static int ssusb_redriver_read_orientation(struct ssusb_redriver *redriver)
 {
-	struct device *dev = redriver->dev;
-	struct pinctrl *orientation_pinctrl;
-	struct pinctrl_state *gpio_state;
 	int ret;
 
-	if (!redriver->orientation_gpio_enable)
+	if (!gpio_is_valid(redriver->orientation_gpio))
 		return -EINVAL;
 
-	orientation_pinctrl = pinctrl_get(dev);
-	if (IS_ERR_OR_NULL(orientation_pinctrl)) {
-		dev_err(dev, "Failed to get pinctrl\n");
-		return -EINVAL;
-	}
-
-	gpio_state = pinctrl_lookup_state(orientation_pinctrl, "enable_gpio");
-	if (IS_ERR_OR_NULL(gpio_state)) {
-		dev_err(dev, "Failed to get gpio state\n");
-		ret = -ENODEV;
-		goto put_pinctrl;
-	}
-
-	ret = pinctrl_select_state(orientation_pinctrl, gpio_state);
-	if (ret) {
-		dev_err(redriver->dev, "fail to enable gpio state\n");
-		ret = -EINVAL;
-		goto put_pinctrl;
-	}
-
-	/* wait for some time ??? */
 	ret = gpio_get_value(redriver->orientation_gpio);
 	if (ret < 0) {
 		dev_err(redriver->dev, "fail to read gpio value\n");
-		ret = -EINVAL;
-		goto put_pinctrl;
+		return -EINVAL;
 	}
 
 	if (ret == 0)
@@ -441,12 +415,7 @@ static int ssusb_redriver_read_orientation(struct ssusb_redriver *redriver)
 	else
 		redriver->typec_orientation = ORIENTATION_CC2;
 
-	ret = 0;
-
-put_pinctrl:
-	pinctrl_put(orientation_pinctrl);
-
-	return ret;
+	return 0;
 }
 
 static int ssusb_redriver_ucsi_notifier(struct notifier_block *nb,
@@ -629,9 +598,8 @@ static void ssusb_redriver_orientation_gpio_init(
 	struct device *dev = redriver->dev;
 	int rc;
 
-	redriver->orientation_gpio =
-			of_get_named_gpio(dev->of_node, "orientation_gpio", 0);
-	if (redriver->orientation_gpio < 0) {
+	redriver->orientation_gpio = of_get_gpio(dev->of_node, 0);
+	if (!gpio_is_valid(redriver->orientation_gpio)) {
 		dev_err(dev, "Failed to get gpio\n");
 		return;
 	}
@@ -639,10 +607,9 @@ static void ssusb_redriver_orientation_gpio_init(
 	rc = devm_gpio_request(dev, redriver->orientation_gpio, "redriver");
 	if (rc < 0) {
 		dev_err(dev, "Failed to request gpio\n");
+		redriver->orientation_gpio = -EINVAL;
 		return;
 	}
-
-	redriver->orientation_gpio_enable = true;
 }
 
 static const struct regmap_config redriver_regmap = {
