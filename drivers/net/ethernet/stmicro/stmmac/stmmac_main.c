@@ -1054,6 +1054,7 @@ static int stmmac_init_phy(struct net_device *dev)
 			    !priv->phydev->drv->config_intr(priv->phydev)) {
 				pr_err(" qcom-ethqos: %s config_phy_intr successful aftre connect\n",
 				       __func__);
+				qcom_ethqos_request_phy_wol(priv->plat);
 			}
 		} else {
 			pr_info("stmmac phy polling mode\n");
@@ -4040,22 +4041,6 @@ static int stmmac_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 	default:
 		return -EOPNOTSUPP;
 	}
-}
-
-static u16 stmmac_select_queue(struct net_device *dev, struct sk_buff *skb,
-			       struct net_device *sb_dev)
-{
-	if (skb_shinfo(skb)->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)) {
-		/*
-		 * There is no way to determine the number of TSO
-		 * capable Queues. Let's use always the Queue 0
-		 * because if TSO is supported then at least this
-		 * one will be capable.
-		 */
-		return 0;
-	}
-
-	return netdev_pick_tx(dev, skb, NULL) % dev->real_num_tx_queues;
 }
 
 static int stmmac_set_mac_address(struct net_device *ndev, void *addr)

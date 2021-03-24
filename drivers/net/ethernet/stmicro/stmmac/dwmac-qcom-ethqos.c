@@ -320,7 +320,8 @@ static void rgmii_dump(struct qcom_ethqos *ethqos)
 #define RGMII_ID_MODE_10_LOW_SVS_CLK_FREQ	  (5 * 1000 * 1000UL)
 
 static void
-ethqos_update_rgmii_clk(struct qcom_ethqos *ethqos, unsigned int speed)
+ethqos_update_rgmii_clk_and_bus_cfg(struct qcom_ethqos *ethqos,
+				    unsigned int speed)
 {
 	switch (speed) {
 	case SPEED_1000:
@@ -336,6 +337,21 @@ ethqos_update_rgmii_clk(struct qcom_ethqos *ethqos, unsigned int speed)
 		break;
 	}
 
+	switch (speed) {
+	case SPEED_1000:
+		ethqos->vote_idx = VOTE_IDX_1000MBPS;
+		break;
+	case SPEED_100:
+		ethqos->vote_idx = VOTE_IDX_100MBPS;
+		break;
+	case SPEED_10:
+		ethqos->vote_idx = VOTE_IDX_10MBPS;
+		break;
+	case 0:
+		ethqos->vote_idx = VOTE_IDX_0MBPS;
+		ethqos->rgmii_clk_rate = 0;
+		break;
+	}
 	clk_set_rate(ethqos->rgmii_clk, ethqos->rgmii_clk_rate);
 }
 
@@ -665,7 +681,7 @@ static void ethqos_fix_mac_speed(void *priv, unsigned int speed)
 	struct qcom_ethqos *ethqos = priv;
 
 	ethqos->speed = speed;
-	ethqos_update_rgmii_clk(ethqos, speed);
+	ethqos_update_rgmii_clk_and_bus_cfg(ethqos, speed);
 	ethqos_configure(ethqos);
 }
 
@@ -741,6 +757,13 @@ static void ethqos_handle_phy_interrupt(struct qcom_ethqos *ethqos)
 		ETHQOSDBG("MICREL PHY Intr EN Reg (%#x) = %#x\n",
 			  DWC_ETH_QOS_MICREL_PHY_INTCS, micrel_intr_status);
 
+		/**
+		 * Call ack interrupt to clear the WOL
+		 * interrupt status fields
+		 */
+		if (priv->phydev->drv->ack_interrupt)
+			priv->phydev->drv->ack_interrupt(priv->phydev);
+
 		/* Interrupt received for link state change */
 		if (phy_intr_status & LINK_STATE_MASK) {
 			if (micrel_intr_status & MICREL_LINK_UP_INTR_STATUS)
@@ -769,12 +792,17 @@ static void ethqos_defer_phy_isr_work(struct work_struct *work)
 	struct qcom_ethqos *ethqos =
 		container_of(work, struct qcom_ethqos, emac_phy_work);
 
+	if (ethqos->clks_suspended)
+		wait_for_completion(&ethqos->clk_enable_done);
+
 	ethqos_handle_phy_interrupt(ethqos);
 }
 
 static irqreturn_t ETHQOS_PHY_ISR(int irq, void *dev_data)
 {
 	struct qcom_ethqos *ethqos = (struct qcom_ethqos *)dev_data;
+
+	pm_wakeup_event(&ethqos->pdev->dev, 5000);
 
 	queue_work(system_wq, &ethqos->emac_phy_work);
 	return IRQ_HANDLED;
@@ -785,6 +813,8 @@ static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
 	int ret = 0;
 
 	INIT_WORK(&ethqos->emac_phy_work, ethqos_defer_phy_isr_work);
+	init_completion(&ethqos->clk_enable_done);
+
 	ret = request_irq(ethqos->phy_intr, ETHQOS_PHY_ISR,
 			  IRQF_SHARED, "stmmac", ethqos);
 	if (ret) {
@@ -867,6 +897,106 @@ static void ethqos_pps_irq_config(struct qcom_ethqos *ethqos)
 	}
 }
 
+static void qcom_ethqos_phy_suspend_clks(struct qcom_ethqos *ethqos)
+{
+	ETHQOSINFO("Enter\n");
+
+	if (phy_intr_en)
+		reinit_completion(&ethqos->clk_enable_done);
+
+	ethqos->clks_suspended = 1;
+
+	ethqos_update_rgmii_clk_and_bus_cfg(ethqos, 0);
+
+	ETHQOSINFO("Exit\n");
+}
+
+inline void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos)
+{
+	struct platform_device *pdev = ethqos->pdev;
+	struct net_device *dev = platform_get_drvdata(pdev);
+	struct stmmac_priv *priv = netdev_priv(dev);
+
+	return priv;
+}
+
+inline bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos)
+{
+	/* PHY driver initializes phydev->link=1.
+	 * So, phydev->link is 1 even on bootup with no PHY connected.
+	 * phydev->link is valid only after adjust_link is called once.
+	 */
+	struct stmmac_priv *priv = qcom_ethqos_get_priv(ethqos);
+
+	return (priv->dev->phydev && priv->dev->phydev->link);
+}
+
+static void qcom_ethqos_phy_resume_clks(struct qcom_ethqos *ethqos)
+{
+	ETHQOSINFO("Enter\n");
+
+	if (qcom_ethqos_is_phy_link_up(ethqos))
+		ethqos_update_rgmii_clk_and_bus_cfg(ethqos, ethqos->speed);
+	else
+		ethqos_update_rgmii_clk_and_bus_cfg(ethqos, SPEED_10);
+
+	ethqos->clks_suspended = 0;
+
+	if (phy_intr_en)
+		complete_all(&ethqos->clk_enable_done);
+
+	ETHQOSINFO("Exit\n");
+}
+
+void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat)
+{
+	struct qcom_ethqos *ethqos = plat->bsp_priv;
+	struct platform_device *pdev = ethqos->pdev;
+	struct net_device *ndev = platform_get_drvdata(pdev);
+
+	ethqos->phy_wol_supported = 0;
+	ethqos->phy_wol_wolopts = 0;
+	/* Check if phydev is valid*/
+	/* Check and enable Wake-on-LAN functionality in PHY*/
+
+	if (ndev->phydev) {
+		struct ethtool_wolinfo wol = {.cmd = ETHTOOL_GWOL};
+
+		wol.supported = 0;
+		wol.wolopts = 0;
+		ETHQOSINFO("phydev addr: 0x%pK\n", ndev->phydev);
+		phy_ethtool_get_wol(ndev->phydev, &wol);
+		ethqos->phy_wol_supported = wol.supported;
+		ETHQOSINFO("Get WoL[0x%x] in %s\n", wol.supported,
+			   ndev->phydev->drv->name);
+
+	/* Try to enable supported Wake-on-LAN features in PHY*/
+		if (wol.supported) {
+			device_set_wakeup_capable(&ethqos->pdev->dev, 1);
+
+			wol.cmd = ETHTOOL_SWOL;
+			wol.wolopts = wol.supported;
+
+			if (!phy_ethtool_set_wol(ndev->phydev, &wol)) {
+				ethqos->phy_wol_wolopts = wol.wolopts;
+
+				enable_irq_wake(ethqos->phy_intr);
+				device_set_wakeup_enable(&ethqos->pdev->dev, 1);
+
+				ETHQOSINFO("Enabled WoL[0x%x] in %s\n",
+					   wol.wolopts,
+					   ndev->phydev->drv->name);
+			} else {
+				ETHQOSINFO("Disabled WoL[0x%x] in %s\n",
+					   wol.wolopts,
+					   ndev->phydev->drv->name);
+			}
+		} else {
+			ETHQOSINFO("WoL Not Supported\n");
+		}
+	}
+}
+
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -888,6 +1018,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err_mem;
 	}
+
 	ethqos->pdev = pdev;
 
 	ethqos_init_reqgulators(ethqos);
@@ -920,8 +1051,8 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_mem;
 
-	ethqos->speed = SPEED_1000;
-	ethqos_update_rgmii_clk(ethqos, SPEED_1000);
+	ethqos->speed = SPEED_10;
+	ethqos_update_rgmii_clk_and_bus_cfg(ethqos, SPEED_10);
 	ethqos_set_func_clk_en(ethqos);
 
 	plat_dat->bsp_priv = ethqos;
@@ -1010,20 +1141,86 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 
 	if (phy_intr_en)
 		free_irq(ethqos->phy_intr, ethqos);
+
+	if (phy_intr_en)
+		cancel_work_sync(&ethqos->emac_phy_work);
+
 	emac_emb_smmu_exit();
 	ethqos_disable_regulators(ethqos);
 
 	return ret;
 }
 
+static int qcom_ethqos_suspend(struct device *dev)
+{
+	struct qcom_ethqos *ethqos;
+	struct net_device *ndev = NULL;
+	int ret;
+
+	if (of_device_is_compatible(dev->of_node, "qcom,emac-smmu-embedded")) {
+		ETHQOSDBG("smmu return\n");
+		return 0;
+	}
+
+	ethqos = get_stmmac_bsp_priv(dev);
+	if (!ethqos)
+		return -ENODEV;
+
+	ndev = dev_get_drvdata(dev);
+
+	if (!ndev || !netif_running(ndev))
+		return -EINVAL;
+
+	ret = stmmac_suspend(dev);
+	qcom_ethqos_phy_suspend_clks(ethqos);
+
+	ETHQOSDBG(" ret = %d\n", ret);
+	return ret;
+}
+
+static int qcom_ethqos_resume(struct device *dev)
+{
+	struct net_device *ndev = NULL;
+	struct qcom_ethqos *ethqos;
+	int ret;
+
+	ETHQOSDBG("Resume Enter\n");
+	if (of_device_is_compatible(dev->of_node, "qcom,emac-smmu-embedded"))
+		return 0;
+
+	ethqos = get_stmmac_bsp_priv(dev);
+
+	if (!ethqos)
+		return -ENODEV;
+
+	ndev = dev_get_drvdata(dev);
+
+	if (!ndev || !netif_running(ndev)) {
+		ETHQOSERR(" Resume not possible\n");
+		return -EINVAL;
+	}
+
+	qcom_ethqos_phy_resume_clks(ethqos);
+
+	ret = stmmac_resume(dev);
+
+	ETHQOSDBG("<--Resume Exit\n");
+	return ret;
+}
+
 MODULE_DEVICE_TABLE(of, qcom_ethqos_match);
+
+static const struct dev_pm_ops qcom_ethqos_pm_ops = {
+	.suspend = qcom_ethqos_suspend,
+	.resume = qcom_ethqos_resume,
+};
 
 static struct platform_driver qcom_ethqos_driver = {
 	.probe  = qcom_ethqos_probe,
 	.remove = qcom_ethqos_remove,
 	.driver = {
 		.name           = DRV_NAME,
-		.pm		= &stmmac_pltfr_pm_ops,
+		.pm		= &qcom_ethqos_pm_ops,
 		.of_match_table = of_match_ptr(qcom_ethqos_match),
 	},
 };
