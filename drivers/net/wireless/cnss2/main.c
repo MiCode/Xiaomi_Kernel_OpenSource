@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/delay.h>
 #include <linux/jiffies.h>
@@ -606,6 +606,38 @@ out:
 	return ret;
 }
 
+/**
+ * cnss_get_timeout - Get timeout for corresponding type.
+ * @plat_priv: Pointer to platform driver context.
+ * @cnss_timeout_type: Timeout type.
+ *
+ * Return: Timeout in milliseconds.
+ */
+unsigned int cnss_get_timeout(struct cnss_plat_data *plat_priv,
+			      enum cnss_timeout_type timeout_type)
+{
+	unsigned int qmi_timeout = cnss_get_qmi_timeout(plat_priv);
+
+	switch (timeout_type) {
+	case CNSS_TIMEOUT_QMI:
+		return qmi_timeout;
+	case CNSS_TIMEOUT_POWER_UP:
+		return (qmi_timeout << 2);
+	case CNSS_TIMEOUT_IDLE_RESTART:
+		return ((qmi_timeout << 1) + WLAN_WD_TIMEOUT_MS);
+	case CNSS_TIMEOUT_CALIBRATION:
+		return (qmi_timeout << 2);
+	case CNSS_TIMEOUT_WLAN_WATCHDOG:
+		return ((qmi_timeout << 1) + WLAN_WD_TIMEOUT_MS);
+	case CNSS_TIMEOUT_RDDM:
+		return CNSS_RDDM_TIMEOUT_MS;
+	case CNSS_TIMEOUT_RECOVERY:
+		return RECOVERY_TIMEOUT;
+	default:
+		return qmi_timeout;
+	}
+}
+
 unsigned int cnss_get_boot_timeout(struct device *dev)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
@@ -615,7 +647,7 @@ unsigned int cnss_get_boot_timeout(struct device *dev)
 		return 0;
 	}
 
-	return cnss_get_qmi_timeout(plat_priv);
+	return cnss_get_timeout(plat_priv, CNSS_TIMEOUT_QMI);
 }
 EXPORT_SYMBOL(cnss_get_boot_timeout);
 
@@ -641,13 +673,14 @@ int cnss_power_up(struct device *dev)
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		goto out;
 
-	timeout = cnss_get_boot_timeout(dev);
+	timeout = cnss_get_timeout(plat_priv, CNSS_TIMEOUT_POWER_UP);
 
 	reinit_completion(&plat_priv->power_up_complete);
 	ret = wait_for_completion_timeout(&plat_priv->power_up_complete,
-					  msecs_to_jiffies(timeout) << 2);
+					  msecs_to_jiffies(timeout));
 	if (!ret) {
-		cnss_pr_err("Timeout waiting for power up to complete\n");
+		cnss_pr_err("Timeout (%ums) waiting for power up to complete\n",
+			    timeout);
 		ret = -EAGAIN;
 		goto out;
 	}
@@ -713,10 +746,9 @@ int cnss_idle_restart(struct device *dev)
 		goto out;
 	}
 
-	timeout = cnss_get_boot_timeout(dev);
+	timeout = cnss_get_timeout(plat_priv, CNSS_TIMEOUT_IDLE_RESTART);
 	ret = wait_for_completion_timeout(&plat_priv->power_up_complete,
-					  msecs_to_jiffies((timeout << 1) +
-							   WLAN_WD_TIMEOUT_MS));
+					  msecs_to_jiffies(timeout));
 	if (plat_priv->power_up_error) {
 		ret = plat_priv->power_up_error;
 		clear_bit(CNSS_DRIVER_IDLE_RESTART, &plat_priv->driver_state);
@@ -726,7 +758,8 @@ int cnss_idle_restart(struct device *dev)
 	}
 
 	if (!ret) {
-		cnss_pr_err("Timeout waiting for idle restart to complete\n");
+		cnss_pr_err("Timeout (%ums) waiting for idle restart to complete\n",
+			    timeout);
 		ret = -ETIMEDOUT;
 		goto out;
 	}
@@ -750,6 +783,7 @@ EXPORT_SYMBOL(cnss_idle_restart);
 int cnss_idle_shutdown(struct device *dev)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	unsigned int timeout;
 	int ret;
 
 	if (!plat_priv) {
@@ -769,10 +803,12 @@ int cnss_idle_shutdown(struct device *dev)
 		goto skip_wait;
 
 	reinit_completion(&plat_priv->recovery_complete);
+	timeout = cnss_get_timeout(plat_priv, CNSS_TIMEOUT_RECOVERY);
 	ret = wait_for_completion_timeout(&plat_priv->recovery_complete,
-					  msecs_to_jiffies(RECOVERY_TIMEOUT));
+					  msecs_to_jiffies(timeout));
 	if (!ret) {
-		cnss_pr_err("Timeout waiting for recovery to complete\n");
+		cnss_pr_err("Timeout (%ums) waiting for recovery to complete\n",
+			    timeout);
 		CNSS_ASSERT(0);
 	}
 
@@ -1314,6 +1350,7 @@ EXPORT_SYMBOL(cnss_force_fw_assert);
 int cnss_force_collect_rddm(struct device *dev)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	unsigned int timeout;
 	int ret = 0;
 
 	if (!plat_priv) {
@@ -1349,11 +1386,14 @@ int cnss_force_collect_rddm(struct device *dev)
 		return ret;
 
 	reinit_completion(&plat_priv->rddm_complete);
-	ret = wait_for_completion_timeout
-		(&plat_priv->rddm_complete,
-		 msecs_to_jiffies(CNSS_RDDM_TIMEOUT_MS));
-	if (!ret)
+	timeout = cnss_get_timeout(plat_priv, CNSS_TIMEOUT_RDDM);
+	ret = wait_for_completion_timeout(&plat_priv->rddm_complete,
+					  msecs_to_jiffies(timeout));
+	if (!ret) {
+		cnss_pr_err("Timeout (%ums) waiting for RDDM to complete\n",
+			    timeout);
 		ret = -ETIMEDOUT;
+	}
 
 	return ret;
 }
