@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -640,6 +640,9 @@ static int redriver_i2c_probe(struct i2c_client *client,
 	redriver->dev = &client->dev;
 	i2c_set_clientdata(client, redriver);
 
+	/* init mode is OP_MODE_NONE and disable chip for power */
+	ssusb_redriver_gen_dev_set(redriver);
+
 	ret = ssusb_redriver_read_configuration(redriver);
 	if (ret < 0) {
 		dev_err(&client->dev,
@@ -947,7 +950,8 @@ static int __maybe_unused redriver_i2c_suspend(struct device *dev)
 	dev_dbg(redriver->dev, "%s: SS USB redriver suspend.\n",
 			__func__);
 
-	if (redriver->op_mode != OP_MODE_DP) {
+	if (redriver->op_mode != OP_MODE_DP &&
+	    redriver->op_mode != OP_MODE_NONE) {
 		redriver->op_mode = OP_MODE_NONE;
 		ssusb_redriver_gen_dev_set(redriver);
 	}
