@@ -1282,5 +1282,14 @@ config QCOM_AOP_SET_DDR
 	  into an exposed sysfs node to send to AOP. The driver expects the Cap
 	  frequency of DDR based on SKU.
 
+config DUMP_XBL_LOG
+	bool "print xbl log on console from fs"
+	help
+	  This driver is used to capture xbl log from reserved memory  region
+	  defined separately in each device tree and print on console when user
+	  requests. User can perform below command to print xbl log stored in
+	  reserved memory region:
+		cat /sys/module/xbl_log/xbl_log
+
 source "drivers/soc/qcom/icnss2/Kconfig"
 endmenu
