@@ -60,36 +60,24 @@
 #define CHNC_INDEX		2
 #define CHND_INDEX		3
 
-#define CHAN_MODE_NUM		2
-
-/* for type c cable */
 enum plug_orientation {
 	ORIENTATION_CC1,
 	ORIENTATION_CC2,
 };
 
-/*
- * Three Modes of Operations:
- *  - One/Two ports of USB 3.1 Gen1/Gen2 (Default Mode)
- *  - Two lanes of DisplayPort 1.4 + One port of USB 3.1 Gen1/Gen2
- *  - Four lanes of DisplayPort 1.4
- */
 enum operation_mode {
-	OP_MODE_NONE,
-	OP_MODE_USB,	/* One/Two ports of USB */
-	OP_MODE_DP,		/* DP 4 Lane and DP 2 Lane */
-	OP_MODE_USB_AND_DP, /* One port of USB and DP 2 Lane */
+	OP_MODE_NONE,		/* 4 lanes disabled */
+	OP_MODE_USB,		/* 2 lanes for USB and 2 lanes disabled */
+	OP_MODE_DP,		/* 4 lanes DP */
+	OP_MODE_USB_AND_DP,	/* 2 lanes for USB and 2 lanes DP */
+	OP_MODE_DEFAULT,	/* 4 lanes USB */
 };
 
-/*
- * USB redriver channel mode:
- *  - USB mode
- *  - DP mode
- */
-enum channel_mode {
-	CHAN_MODE_USB,
-	CHAN_MODE_DP,
-};
+#define CHAN_MODE_USB		0
+#define CHAN_MODE_DP		1
+#define CHAN_MODE_NUM		2
+
+#define CHAN_MODE_DISABLE	0xff /* when disable, not configure eq, gain ... */
 
 struct ssusb_redriver {
 	struct device		*dev;
@@ -103,7 +91,7 @@ struct ssusb_redriver {
 
 	struct notifier_block ucsi_nb;
 
-	enum	channel_mode chan_mode[CHANNEL_NUM];
+	u8	chan_mode[CHANNEL_NUM];
 
 	u8	eq[CHAN_MODE_NUM][CHANNEL_NUM];
 	u8	output_comp[CHAN_MODE_NUM][CHANNEL_NUM];
@@ -121,6 +109,7 @@ static const char * const opmode_string[] = {
 	[OP_MODE_USB] = "USB",
 	[OP_MODE_DP] = "DP",
 	[OP_MODE_USB_AND_DP] = "USB and DP",
+	[OP_MODE_DEFAULT] = "DEFAULT",
 };
 #define OPMODESTR(x) opmode_string[x]
 
@@ -143,10 +132,16 @@ static int redriver_i2c_reg_set(struct ssusb_redriver *redriver,
 
 static void ssusb_redriver_gen_dev_set(struct ssusb_redriver *redriver)
 {
-	int ret;
 	u8 val = 0;
 
 	switch (redriver->op_mode) {
+	case OP_MODE_DEFAULT:
+		/* Enable channel A, B, C and D */
+		val |= (CHNA_EN | CHNB_EN);
+		val |= (CHNC_EN | CHND_EN);
+		val |= (0x5 << OP_MODE_SHIFT);
+		val |= CHIP_EN;
+		break;
 	case OP_MODE_USB:
 		/* Use source side I/O mapping */
 		if (redriver->typec_orientation
@@ -193,18 +188,7 @@ static void ssusb_redriver_gen_dev_set(struct ssusb_redriver *redriver)
 		break;
 	}
 
-	ret = redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG, val);
-	if (ret < 0)
-		goto err_exit;
-
-	dev_dbg(redriver->dev,
-		"successfully configure device, reg 0x00 = 0x%x\n", val);
-
-	return;
-
-err_exit:
-	dev_err(redriver->dev,
-		"failure to configure device, reg 0x00 = 0x%x\n", val);
+	redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG, val);
 }
 
 static int ssusb_redriver_param_config(struct ssusb_redriver *redriver,
@@ -292,11 +276,24 @@ static int ssusb_redriver_channel_update(struct ssusb_redriver *redriver)
 	u8 i, chan_mode;
 
 	switch (redriver->op_mode) {
-	case OP_MODE_USB:
+	case OP_MODE_DEFAULT:
 		redriver->chan_mode[CHNA_INDEX] = CHAN_MODE_USB;
 		redriver->chan_mode[CHNB_INDEX] = CHAN_MODE_USB;
 		redriver->chan_mode[CHNC_INDEX] = CHAN_MODE_USB;
 		redriver->chan_mode[CHND_INDEX] = CHAN_MODE_USB;
+		break;
+	case OP_MODE_USB:
+		if (redriver->typec_orientation == ORIENTATION_CC1) {
+			redriver->chan_mode[CHNA_INDEX] = CHAN_MODE_DISABLE;
+			redriver->chan_mode[CHNB_INDEX] = CHAN_MODE_DISABLE;
+			redriver->chan_mode[CHNC_INDEX] = CHAN_MODE_USB;
+			redriver->chan_mode[CHND_INDEX] = CHAN_MODE_USB;
+		} else {
+			redriver->chan_mode[CHNA_INDEX] = CHAN_MODE_USB;
+			redriver->chan_mode[CHNB_INDEX] = CHAN_MODE_USB;
+			redriver->chan_mode[CHNC_INDEX] = CHAN_MODE_DISABLE;
+			redriver->chan_mode[CHND_INDEX] = CHAN_MODE_DISABLE;
+		}
 		break;
 	case OP_MODE_USB_AND_DP:
 		if (redriver->typec_orientation == ORIENTATION_CC1) {
@@ -322,6 +319,9 @@ static int ssusb_redriver_channel_update(struct ssusb_redriver *redriver)
 	}
 
 	for (i = 0; i < CHANNEL_NUM; i++) {
+		if (redriver->chan_mode[i] == CHAN_MODE_DISABLE)
+			continue;
+
 		chan_mode = redriver->chan_mode[i];
 
 		ret = ssusb_redriver_eq_config(redriver, i, chan_mode,
@@ -392,7 +392,7 @@ static int ssusb_redriver_read_configuration(struct ssusb_redriver *redriver)
 
 err:
 	dev_err(redriver->dev,
-			"%s: set default parameters failure.\n", __func__);
+			"%s: error read parameters.\n", __func__);
 	return ret;
 }
 
@@ -580,15 +580,19 @@ static int redriver_i2c_probe(struct i2c_client *client,
 	redriver->dev = &client->dev;
 	i2c_set_clientdata(client, redriver);
 
-	/* init mode is OP_MODE_NONE and disable chip for power */
-	ssusb_redriver_gen_dev_set(redriver);
-
 	ret = ssusb_redriver_read_configuration(redriver);
 	if (ret < 0) {
 		dev_err(&client->dev,
 			"Failed to read default configuration: %d\n", ret);
 		return ret;
 	}
+
+	if (of_property_read_bool(redriver->dev->of_node, "init-none"))
+		redriver->op_mode = OP_MODE_NONE;
+	else
+		redriver->op_mode = OP_MODE_DEFAULT;
+	ssusb_redriver_channel_update(redriver); /* a little expensive ??? */
+	ssusb_redriver_gen_dev_set(redriver);
 
 	ssusb_redriver_orientation_gpio_init(redriver);
 
@@ -885,11 +889,18 @@ static int __maybe_unused redriver_i2c_suspend(struct device *dev)
 	dev_dbg(redriver->dev, "%s: SS USB redriver suspend.\n",
 			__func__);
 
-	if (redriver->op_mode != OP_MODE_DP &&
-	    redriver->op_mode != OP_MODE_NONE) {
-		redriver->op_mode = OP_MODE_NONE;
-		ssusb_redriver_gen_dev_set(redriver);
-	}
+	/*
+	 * 1. when in 4 lanes display mode, it can't disable;
+	 * 2. when in NONE mode, there is no need to re-disable;
+	 * 3. when in DEFAULT mode, there is no adsp and can't disable;
+	 */
+	if (redriver->op_mode == OP_MODE_DP ||
+	    redriver->op_mode == OP_MODE_NONE ||
+	    redriver->op_mode == OP_MODE_DEFAULT)
+		return 0;
+
+	redriver->op_mode = OP_MODE_NONE;
+	ssusb_redriver_gen_dev_set(redriver);
 
 	return 0;
 }
