@@ -264,6 +264,9 @@ static void fts_ts_trusted_touch_reset_gpio_toggle(struct fts_ts_data *fts_data)
 {
 	void __iomem *base;
 
+	if (fts_data->bus_type != BUS_TYPE_I2C)
+		return;
+
 	base = ioremap(TOUCH_RESET_GPIO_BASE, TOUCH_RESET_GPIO_SIZE);
 	writel_relaxed(0x1, base + TOUCH_RESET_GPIO_OFFSET);
 	/* wait until toggle to finish*/
@@ -279,6 +282,9 @@ static void fts_trusted_touch_intr_gpio_toggle(struct fts_ts_data *fts_data,
 {
 	void __iomem *base;
 	u32 val;
+
+	if (fts_data->bus_type != BUS_TYPE_I2C)
+		return;
 
 	base = ioremap(TOUCH_INTR_GPIO_BASE, TOUCH_INTR_GPIO_SIZE);
 	val = readl_relaxed(base + TOUCH_RESET_GPIO_OFFSET);
