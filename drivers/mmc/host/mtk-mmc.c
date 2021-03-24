@@ -2212,7 +2212,6 @@ static int msdc_drv_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
 #if !IS_ENABLED(CONFIG_MMC_AUTOK)
 static void msdc_save_reg(struct msdc_host *host)
 {
@@ -2374,13 +2373,11 @@ void msdc_restore_timing_setting(struct msdc_host *host)
 	}
 }
 #endif
-static int msdc_runtime_suspend(struct device *dev)
+static int __maybe_unused msdc_runtime_suspend(struct device *dev)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msdc_host *host = mmc_priv(mmc);
 
-	if (mmc->caps2 & MMC_CAP2_CQE)
-		cqhci_suspend(mmc);
 #if IS_ENABLED(CONFIG_MMC_AUTOK)
 	msdc_save_timing_setting(host);
 #else
@@ -2391,13 +2388,11 @@ static int msdc_runtime_suspend(struct device *dev)
 	return 0;
 }
 
-static int msdc_runtime_resume(struct device *dev)
+static int __maybe_unused msdc_runtime_resume(struct device *dev)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msdc_host *host = mmc_priv(mmc);
 
-	if (mmc->caps2 & MMC_CAP2_CQE)
-		cqhci_resume(mmc);
 	msdc_ungate_clock(host);
 #if IS_ENABLED(CONFIG_MMC_AUTOK)
 	msdc_restore_timing_setting(host);
@@ -2407,11 +2402,28 @@ static int msdc_runtime_resume(struct device *dev)
 
 	return 0;
 }
-#endif
+
+static int __maybe_unused msdc_suspend(struct device *dev)
+{
+	struct mmc_host *mmc = dev_get_drvdata(dev);
+	int ret;
+
+	if (mmc->caps2 & MMC_CAP2_CQE) {
+		ret = cqhci_suspend(mmc);
+		if (ret)
+			return ret;
+	}
+
+	return pm_runtime_force_suspend(dev);
+}
+
+static int __maybe_unused msdc_resume(struct device *dev)
+{
+	return pm_runtime_force_resume(dev);
+}
 
 static const struct dev_pm_ops msdc_dev_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
-				pm_runtime_force_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(msdc_suspend, msdc_resume)
 	SET_RUNTIME_PM_OPS(msdc_runtime_suspend, msdc_runtime_resume, NULL)
 };
 
