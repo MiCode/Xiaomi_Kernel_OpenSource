@@ -418,6 +418,29 @@ static int ssusb_redriver_read_orientation(struct ssusb_redriver *redriver)
 	return 0;
 }
 
+int redriver_orientation_get(struct device_node *node)
+{
+	struct ssusb_redriver *redriver;
+	struct i2c_client *client;
+
+	if (!node)
+		return -ENODEV;
+
+	client = of_find_i2c_device_by_node(node);
+	if (!client)
+		return -ENODEV;
+
+	redriver = i2c_get_clientdata(client);
+	if (!redriver)
+		return -EINVAL;
+
+	if (!gpio_is_valid(redriver->orientation_gpio))
+		return -EINVAL;
+
+	return gpio_get_value(redriver->orientation_gpio);
+}
+EXPORT_SYMBOL(redriver_orientation_get);
+
 static int ssusb_redriver_ucsi_notifier(struct notifier_block *nb,
 		unsigned long action, void *data)
 {
