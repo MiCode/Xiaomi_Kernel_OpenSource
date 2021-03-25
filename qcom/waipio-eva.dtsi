@@ -20,6 +20,8 @@
 		/* Clocks */
 		clock-names = "gcc_video_axi1", "cvp_clk", "core_clk",
 				"video_cc_mvs1_clk_src";
+		clock-ids = <GCC_VIDEO_AXI1_CLK VIDEO_CC_MVS1C_CLK
+			VIDEO_CC_MVS1_CLK VIDEO_CC_MVS1_CLK_SRC>;
 		clocks = <&clock_gcc GCC_VIDEO_AXI1_CLK>,
 			<&clock_videocc VIDEO_CC_MVS1C_CLK>,
 			<&clock_videocc VIDEO_CC_MVS1_CLK>,
