@@ -3011,6 +3011,18 @@ static inline bool walt_low_latency_task(struct task_struct *p)
 		(task_util(p) < sysctl_walt_low_latency_task_threshold);
 }
 
+static inline bool walt_binder_low_latency_task(struct task_struct *p)
+{
+	return (p->wts.low_latency & WALT_LOW_LATENCY_BINDER) &&
+		(task_util(p) < sysctl_walt_low_latency_task_threshold);
+}
+
+static inline bool walt_procfs_low_latency_task(struct task_struct *p)
+{
+	return (p->wts.low_latency & WALT_LOW_LATENCY_PROCFS) &&
+		(task_util(p) < sysctl_walt_low_latency_task_threshold);
+}
+
 /* Is frequency of two cpus synchronized with each other? */
 static inline int same_freq_domain(int src_cpu, int dst_cpu)
 {
