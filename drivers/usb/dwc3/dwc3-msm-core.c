@@ -647,12 +647,11 @@ static enum usb_device_speed dwc3_msm_get_max_speed(struct dwc3_msm *mdwc)
 	return dwc->maximum_speed;
 }
 
-static unsigned int dwc3_msm_set_max_speed(struct dwc3_msm *mdwc, enum usb_device_speed req_spd)
+static unsigned int dwc3_msm_set_max_speed(struct dwc3_msm *mdwc, enum usb_device_speed spd)
 {
-	enum usb_device_speed spd = USB_SPEED_UNKNOWN;
 	struct dwc3 *dwc;
 
-	if (req_spd >= mdwc->max_hw_supp_speed)
+	if (spd == USB_SPEED_UNKNOWN || spd >= mdwc->max_hw_supp_speed)
 		spd = mdwc->max_hw_supp_speed;
 
 	if (!mdwc->dwc3) {
@@ -2617,6 +2616,9 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 	/* Reset active USB connection */
 	dwc3_resume_work(&mdwc->resume_work);
 
+	/* temporarily disable dwc3 autosuspend so it suspends immediately */
+	pm_runtime_dont_use_autosuspend(&mdwc->dwc3->dev);
+
 	/* Make sure disconnect is processed before sending connect */
 	while (--timeout && !pm_runtime_suspended(mdwc->dev))
 		msleep(20);
@@ -2629,6 +2631,7 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 		pm_runtime_suspend(mdwc->dev);
 	}
 
+	pm_runtime_use_autosuspend(&mdwc->dwc3->dev);
 	mdwc->in_restart = false;
 	/* Force reconnect only if cable is still connected */
 	if (mdwc->vbus_active)
@@ -3722,7 +3725,6 @@ skip_update:
 	if (mdwc->override_usb_speed &&
 			mdwc->override_usb_speed <= dwc3_msm_get_max_speed(mdwc)) {
 		dwc3_msm_set_max_speed(mdwc, mdwc->override_usb_speed);
-		// TODO: dwc->gadget->max_speed = dwc->maximum_speed;
 	}
 
 	dbg_event(0xFF, "speed", dwc3_msm_get_max_speed(mdwc));
@@ -4589,7 +4591,6 @@ static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 	if (mdwc->override_usb_speed &&
 		mdwc->override_usb_speed <= dwc3_msm_get_max_speed(mdwc)) {
 		dwc3_msm_set_max_speed(mdwc, mdwc->override_usb_speed);
-		// TODO: dwc->gadget.max_speed = dwc->maximum_speed;
 	}
 
 	/*
@@ -5337,11 +5338,15 @@ static void dwc3_override_vbus_status(struct dwc3_msm *mdwc, bool vbus_present)
 	dwc3_msm_write_reg_field(mdwc->base, HS_PHY_CTRL_REG,
 			UTMI_OTG_VBUS_VALID, !!vbus_present);
 
-	/* Update only if Super Speed is supported */
-	if (dwc3_msm_get_max_speed(mdwc) >= USB_SPEED_SUPER) {
-		/* Update VBUS Valid from SSPHY to controller */
+	/* Update VBUS Valid from SSPHY to controller */
+	if (vbus_present) {
+		/* Update only if Super Speed is supported */
+		if (dwc3_msm_get_max_speed(mdwc) >= USB_SPEED_SUPER)
+			dwc3_msm_write_reg_field(mdwc->base, SS_PHY_CTRL_REG,
+				LANE0_PWR_PRESENT, 1);
+	} else {
 		dwc3_msm_write_reg_field(mdwc->base, SS_PHY_CTRL_REG,
-			LANE0_PWR_PRESENT, !!vbus_present);
+			LANE0_PWR_PRESENT, 0);
 	}
 }
 
