@@ -15,6 +15,7 @@
 #include <asm/kvm_hyp.h>
 #include <asm/kvm_mmu.h>
 
+#include <nvhe/ffa.h>
 #include <nvhe/iommu.h>
 #include <nvhe/mem_protect.h>
 #include <nvhe/mm.h>
@@ -1052,6 +1053,8 @@ static void handle_host_smc(struct kvm_cpu_context *host_ctxt)
 	handled = kvm_host_psci_handler(host_ctxt);
 	if (!handled && kvm_iommu_ops.host_smc_handler)
 		handled = kvm_iommu_ops.host_smc_handler(host_ctxt);
+	if (!handled)
+		handled = kvm_host_ffa_handler(host_ctxt);
 	if (!handled)
 		default_host_smc_handler(host_ctxt);
 
