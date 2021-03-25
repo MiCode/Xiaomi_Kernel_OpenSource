@@ -25,7 +25,7 @@ static ssize_t set_ddr_capped_freq_store(struct device *dev,
 	unsigned int freq = 0;
 
 	if (kstrtou32(buf, 0, &freq)) {
-		pr_err("%s: failed to read boot info from string\n", __func__);
+		pr_err("%s: failed to read frequency info from string\n", __func__);
 		return -EINVAL;
 	}
 
