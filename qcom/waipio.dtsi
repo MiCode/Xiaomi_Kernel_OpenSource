@@ -2120,17 +2120,15 @@
 		qcom,no-clock-support;
 		interconnect-names = "data_path";
 		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
-		iommus = <&apps_smmu 0x0584 0x0011>,
-			 <&apps_smmu 0x0594 0x0011>;
+		iommus = <&apps_smmu 0x0584 0x0011>;
 		qcom,iommu-dma = "atomic";
 
 		qcom_cedev_ns_cb {
 			compatible = "qcom,qcedev,context-bank";
 			label = "ns_context";
 			iommus = <&apps_smmu 0x588 0x0>,
-			<&apps_smmu 0x59C 0x5>,
-			<&apps_smmu 0x598 0x5>,
-			<&apps_smmu 0x59D 0x5>;
+				<&apps_smmu 0x59A 0x0>,
+				<&apps_smmu 0x598 0x5>;
 		};
 
 		qcom_cedev_s_cb {
