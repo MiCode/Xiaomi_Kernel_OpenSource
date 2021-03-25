@@ -315,13 +315,6 @@ enum dwc3_id_state {
 	DWC3_ID_FLOAT,
 };
 
-/* for type c cable */
-enum plug_orientation {
-	ORIENTATION_NONE,
-	ORIENTATION_CC1,
-	ORIENTATION_CC2,
-};
-
 enum msm_usb_irq {
 	HS_PHY_IRQ,
 	PWR_EVNT_IRQ,
@@ -506,7 +499,6 @@ struct dwc3_msm {
 	atomic_t                in_p3;
 	atomic_t		in_lpm;
 	unsigned int		lpm_to_suspend_delay;
-	enum plug_orientation	typec_orientation;
 	u32			num_gsi_event_buffers;
 	struct dwc3_event_buffer **gsi_ev_buff;
 	int pm_qos_latency;
@@ -3085,6 +3077,44 @@ static void dwc3_set_phy_speed_flags(struct dwc3_msm *mdwc)
 	}
 }
 
+static void dwc3_set_ssphy_orientation_flag(struct dwc3_msm *mdwc)
+{
+	union extcon_property_value val;
+	struct extcon_dev *edev = NULL;
+	unsigned int extcon_id;
+	int ret;
+
+	mdwc->ss_phy->flags &= ~(PHY_LANE_A | PHY_LANE_B);
+
+	if (mdwc->orientation_override) {
+		mdwc->ss_phy->flags |= mdwc->orientation_override;
+	} else if (mdwc->ss_redriver_node) {
+		ret = redriver_orientation_get(mdwc->ss_redriver_node);
+		if (ret == 0)
+			mdwc->ss_phy->flags |= PHY_LANE_A;
+		else
+			mdwc->ss_phy->flags |= PHY_LANE_B;
+	} else {
+		if (mdwc->extcon && mdwc->vbus_active && !mdwc->in_restart) {
+			extcon_id = EXTCON_USB;
+			edev = mdwc->extcon[mdwc->ext_idx].edev;
+		} else if (mdwc->extcon && mdwc->id_state == DWC3_ID_GROUND) {
+			extcon_id = EXTCON_USB_HOST;
+			edev = mdwc->extcon[mdwc->ext_idx].edev;
+		}
+
+		if (edev && extcon_get_state(edev, extcon_id)) {
+			ret = extcon_get_property(edev, extcon_id,
+					EXTCON_PROP_USB_TYPEC_POLARITY, &val);
+			if (ret == 0)
+				mdwc->ss_phy->flags |= val.intval ?
+						PHY_LANE_B : PHY_LANE_A;
+		}
+	}
+
+	dbg_event(0xFF, "ss_flag", mdwc->ss_phy->flags);
+}
+
 static void msm_dwc3_perf_vote_update(struct dwc3_msm *mdwc,
 						bool perf_mode);
 
@@ -3491,13 +3521,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	/* Resume SS PHY */
 	if (dwc3_msm_get_max_speed(mdwc) >= USB_SPEED_SUPER &&
 			mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND) {
-		mdwc->ss_phy->flags &= ~(PHY_LANE_A | PHY_LANE_B);
-		if (mdwc->orientation_override)
-			mdwc->ss_phy->flags |= mdwc->orientation_override;
-		else if (mdwc->typec_orientation == ORIENTATION_CC1)
-			mdwc->ss_phy->flags |= PHY_LANE_A;
-		else if (mdwc->typec_orientation == ORIENTATION_CC2)
-			mdwc->ss_phy->flags |= PHY_LANE_B;
+		dwc3_set_ssphy_orientation_flag(mdwc);
 		usb_phy_set_suspend(mdwc->ss_phy, 0);
 		mdwc->ss_phy->flags &= ~DEVICE_IN_SS_MODE;
 		mdwc->lpm_flags &= ~MDWC3_SS_PHY_SUSPEND;
@@ -3682,24 +3706,16 @@ static void dwc3_resume_work(struct work_struct *w)
 	}
 
 	dwc3_msm_set_max_speed(mdwc, mdwc->max_hw_supp_speed);
-	/* Check speed and Type-C polarity values in order to configure PHY */
 	if (edev && extcon_get_state(edev, extcon_id)) {
 		ret = extcon_get_property(edev, extcon_id,
 				EXTCON_PROP_USB_SS, &val);
 
 		if (!ret && val.intval == 0)
 			dwc3_msm_set_max_speed(mdwc, USB_SPEED_HIGH);
-
-		ret = extcon_get_property(edev, extcon_id,
-				EXTCON_PROP_USB_TYPEC_POLARITY, &val);
-		if (ret)
-			mdwc->typec_orientation = ORIENTATION_NONE;
-		else
-			mdwc->typec_orientation = val.intval ?
-					ORIENTATION_CC2 : ORIENTATION_CC1;
-
-		dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
 	}
+
+	if (dwc->maximum_speed >= USB_SPEED_SUPER)
+		dwc3_set_ssphy_orientation_flag(mdwc);
 
 skip_update:
 	dbg_log_string("max_speed:%d hw_supp_speed:%d override_speed:%d",
@@ -4184,7 +4200,7 @@ static ssize_t orientation_store(struct device *dev,
 	else if (sysfs_streq(buf, "B"))
 		mdwc->orientation_override = PHY_LANE_B;
 	else
-		mdwc->orientation_override = ORIENTATION_NONE;
+		mdwc->orientation_override = 0;
 
 	return count;
 }
