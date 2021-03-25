@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
+/*
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ */
 
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -57,6 +60,7 @@ static struct cnss_clk_cfg cnss_clk_list[] = {
 #define WLAN_EN_GPIO			"wlan-en-gpio"
 #define BT_EN_GPIO			"qcom,bt-en-gpio"
 #define XO_CLK_GPIO			"qcom,xo-clk-gpio"
+#define SW_CTRL_GPIO			"qcom,sw-ctrl-gpio"
 #define WLAN_EN_ACTIVE			"wlan_en_active"
 #define WLAN_EN_SLEEP			"wlan_en_sleep"
 
@@ -762,6 +766,17 @@ int cnss_get_pinctrl(struct cnss_plat_data *plat_priv)
 	} else {
 		pinctrl_info->xo_clk_gpio = -EINVAL;
 	}
+
+	if (of_find_property(dev->of_node, SW_CTRL_GPIO, NULL)) {
+		pinctrl_info->sw_ctrl_gpio = of_get_named_gpio(dev->of_node,
+							       SW_CTRL_GPIO,
+							       0);
+		cnss_pr_dbg("Switch control GPIO: %d\n",
+			    pinctrl_info->sw_ctrl_gpio);
+	} else {
+		pinctrl_info->sw_ctrl_gpio = -EINVAL;
+	}
+
 	return 0;
 out:
 	return ret;
@@ -902,6 +917,23 @@ set_wlan_en:
 	if (!wlan_en_state)
 		ret = cnss_select_pinctrl_state(plat_priv, true);
 	return ret;
+}
+
+int cnss_get_input_gpio_value(struct cnss_plat_data *plat_priv, int gpio_num)
+{
+	int ret;
+
+	if (gpio_num < 0)
+		return -EINVAL;
+
+	ret = gpio_direction_input(gpio_num);
+	if (ret) {
+		cnss_pr_err("Failed to set direction of GPIO(%d), err = %d",
+			    gpio_num, ret);
+		return -EINVAL;
+	}
+
+	return gpio_get_value(gpio_num);
 }
 
 int cnss_power_on_device(struct cnss_plat_data *plat_priv)
