@@ -3199,6 +3199,8 @@
 		use-pm-domain;
 		cnss-enable-self-recovery;
 		qcom,same-dt-multi-dev;
+		mboxes = <&qmp_aop 0>;
+		qcom,vreg_ipa="s3e";
 
 		vdd-wlan-aon-supply = <&S2E>;
 		qcom,vdd-wlan-aon-config = <1012000 1012000 0 0 1>;
