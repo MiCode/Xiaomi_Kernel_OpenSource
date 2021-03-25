@@ -813,7 +813,6 @@ static void rmem_swiotlb_debugfs_init(struct reserved_mem *rmem)
 {
 }
 #endif
-
 struct page *swiotlb_alloc(struct device *dev, size_t size)
 {
 	struct io_tlb_mem *mem = dev->dma_io_tlb_mem;
