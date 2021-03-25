@@ -1203,11 +1203,9 @@ static int genc_gmu_dcvs_set(struct adreno_device *adreno_dev,
 		 * If this was a dcvs request along side an active gpu, request
 		 * dispatcher based reset and recovery.
 		 */
-		if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags)) {
-			adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT |
+		if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
+			adreno_dispatcher_fault(adreno_dev, ADRENO_GMU_FAULT |
 				ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
-			adreno_dispatcher_schedule(device);
-		}
 	}
 
 	return ret;

@@ -369,7 +369,7 @@ static void process_ctx_bad(struct adreno_device *adreno_dev)
 {
 	log_gpu_fault(adreno_dev);
 
-	adreno_hwsched_set_fault(adreno_dev);
+	adreno_hwsched_fault(adreno_dev, ADRENO_HARD_FAULT);
 }
 
 static void process_msgq_irq(struct adreno_device *adreno_dev)
@@ -454,7 +454,7 @@ static void process_dbgq_irq(struct adreno_device *adreno_dev)
 	if (!recovery)
 		return;
 
-	adreno_hwsched_set_fault(adreno_dev);
+	adreno_hwsched_fault(adreno_dev, ADRENO_HARD_FAULT);
 }
 
 /* HFI interrupt handler */
@@ -490,7 +490,7 @@ static irqreturn_t genc_hwsched_hfi_handler(int irq, void *data)
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU CM3 fault interrupt received\n");
 
-		adreno_hwsched_set_fault(adreno_dev);
+		adreno_hwsched_fault(adreno_dev, ADRENO_HARD_FAULT);
 	}
 
 	/* Ignore OOB bits */
@@ -1316,7 +1316,7 @@ static int hfi_context_register(struct adreno_device *adreno_dev,
 			context->id, ret);
 
 		if (device->gmu_fault)
-			adreno_hwsched_set_fault(adreno_dev);
+			adreno_hwsched_fault(adreno_dev, ADRENO_HARD_FAULT);
 
 		return ret;
 	}
@@ -1328,7 +1328,7 @@ static int hfi_context_register(struct adreno_device *adreno_dev,
 			context->id, ret);
 
 		if (device->gmu_fault)
-			adreno_hwsched_set_fault(adreno_dev);
+			adreno_hwsched_fault(adreno_dev, ADRENO_HARD_FAULT);
 
 		return ret;
 	}
@@ -1504,7 +1504,7 @@ static int send_context_unregister_hfi(struct adreno_device *adreno_dev,
 		 */
 		adreno_drawctxt_set_guilty(device, context);
 
-		adreno_hwsched_set_fault(adreno_dev);
+		adreno_hwsched_fault(adreno_dev, ADRENO_HARD_FAULT);
 
 		goto done;
 	}

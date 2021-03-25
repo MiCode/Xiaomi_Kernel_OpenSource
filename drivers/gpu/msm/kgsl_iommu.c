@@ -975,9 +975,8 @@ static int kgsl_iommu_fault_handler(struct kgsl_mmu *mmu,
 		/* This is used by reset/recovery path */
 		ctx->stalled_on_fault = true;
 
-		adreno_set_gpu_fault(adreno_dev, ADRENO_IOMMU_PAGE_FAULT);
 		/* Go ahead with recovery*/
-		adreno_dispatcher_schedule(device);
+		adreno_dispatcher_fault(adreno_dev, ADRENO_IOMMU_PAGE_FAULT);
 	}
 
 	kgsl_context_put(context);

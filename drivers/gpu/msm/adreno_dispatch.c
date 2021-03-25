@@ -2495,7 +2495,7 @@ static void adreno_dispatcher_queue_context(struct adreno_device *adreno_dev,
 	adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
 }
 
-static void adreno_dispatcher_fault(struct adreno_device *adreno_dev,
+void adreno_dispatcher_fault(struct adreno_device *adreno_dev,
 		u32 fault)
 {
 	adreno_set_gpu_fault(adreno_dev, fault);

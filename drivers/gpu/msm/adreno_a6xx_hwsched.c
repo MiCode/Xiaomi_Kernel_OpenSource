@@ -875,7 +875,7 @@ static int a6xx_hwsched_dcvs_set(struct adreno_device *adreno_dev,
 		 * dispatcher based reset and recovery.
 		 */
 		if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
-			adreno_hwsched_set_fault(adreno_dev);
+			adreno_hwsched_fault(adreno_dev, ADRENO_HARD_FAULT);
 	}
 
 	if (req.freq != INVALID_DCVS_IDX)
@@ -993,7 +993,7 @@ void a6xx_hwsched_handle_watchdog(struct adreno_device *adreno_dev)
 	dev_err_ratelimited(&gmu->pdev->dev,
 			"GMU watchdog expired interrupt received\n");
 
-	adreno_hwsched_set_fault(adreno_dev);
+	adreno_hwsched_fault(adreno_dev, ADRENO_HARD_FAULT);
 }
 
 static void a6xx_hwsched_pm_resume(struct adreno_device *adreno_dev)

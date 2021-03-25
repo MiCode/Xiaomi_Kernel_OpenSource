@@ -53,7 +53,6 @@ struct adreno_hwsched {
 
 enum adreno_hwsched_flags {
 	ADRENO_HWSCHED_POWER = 0,
-	ADRENO_HWSCHED_FAULT_RESTART,
 	ADRENO_HWSCHED_ACTIVE,
 };
 
@@ -84,10 +83,11 @@ int adreno_hwsched_init(struct adreno_device *adreno_dev,
 	const struct adreno_hwsched_ops *hwsched_ops);
 
 /**
- * adreno_hwsched_set_fault - Set hwsched fault to request recovery
+ * adreno_hwsched_fault - Set hwsched fault to request recovery
  * @adreno_dev: A handle to adreno device
+ * @fault: The type of fault
  */
-void adreno_hwsched_set_fault(struct adreno_device *adreno_dev);
+void adreno_hwsched_fault(struct adreno_device *adreno_dev, u32 fault);
 
 /**
  * adreno_hwsched_parse_fault_ib - Parse the faulty submission

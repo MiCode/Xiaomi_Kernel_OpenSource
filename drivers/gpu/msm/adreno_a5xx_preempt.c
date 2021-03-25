@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2017,2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017,2021 The Linux Foundation. All rights reserved.
  */
 
 #include "adreno.h"
@@ -67,8 +67,7 @@ static void _a5xx_preemption_done(struct adreno_device *adreno_dev)
 			     adreno_dev->next_rb->wptr);
 
 		/* Set a fault and restart */
-		adreno_set_gpu_fault(adreno_dev, ADRENO_PREEMPT_FAULT);
-		adreno_dispatcher_schedule(device);
+		adreno_dispatcher_fault(adreno_dev, ADRENO_PREEMPT_FAULT);
 
 		return;
 	}
@@ -123,8 +122,7 @@ static void _a5xx_preemption_fault(struct adreno_device *adreno_dev)
 		     adreno_get_rptr(adreno_dev->next_rb),
 		     adreno_dev->next_rb->wptr);
 
-	adreno_set_gpu_fault(adreno_dev, ADRENO_PREEMPT_FAULT);
-	adreno_dispatcher_schedule(device);
+	adreno_dispatcher_fault(adreno_dev, ADRENO_PREEMPT_FAULT);
 }
 
 static void _a5xx_preemption_worker(struct work_struct *work)
