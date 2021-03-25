@@ -989,6 +989,20 @@ config SMARTJOYPLUS_FF
 	Say Y here if you have a SmartJoy PLUS PS2/USB adapter and want to
 	enable force feedback support for it.
 
+config HID_AKSYS_QRD
+	tristate "AKSys gamepad USB adapter support"
+	depends on HID
+	---help---
+	Support for AKSys gamepad USB adapter
+
+config AKSYS_QRD_FF
+	bool "AKSys gamepad USB adapter force feedback support"
+	depends on HID_AKSYS_QRD
+	select INPUT_FF_MEMLESS
+	---help---
+	Say Y here if you have a AKSys gamepad USB adapter and want to
+	enable force feedback support for it.
+
 config HID_TIVO
 	tristate "TiVo Slide Bluetooth remote control support"
 	depends on HID
