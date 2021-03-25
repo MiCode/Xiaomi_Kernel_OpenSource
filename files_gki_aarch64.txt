@@ -1174,6 +1174,7 @@ drivers/mmc/host/sdhci.h
 drivers/mmc/host/sdhci-pltfm.c
 drivers/mmc/host/sdhci-pltfm.h
 drivers/net/dummy.c
+drivers/net/ifb.c
 drivers/net/loopback.c
 drivers/net/mdio/of_mdio.c
 drivers/net/mii.c
@@ -1200,6 +1201,10 @@ drivers/net/ppp/pptp.c
 drivers/net/slip/slhc.c
 drivers/net/Space.c
 drivers/net/tun.c
+drivers/net/usb/aqc111.c
+drivers/net/usb/aqc111.h
+drivers/net/usb/cdc_ether.c
+drivers/net/usb/cdc_ncm.c
 drivers/net/usb/r8152.c
 drivers/net/usb/usbnet.c
 drivers/net/veth.c
@@ -1340,7 +1345,6 @@ drivers/pinctrl/sunxi/pinctrl-sun50i-a100-r.c
 drivers/pinctrl/sunxi/pinctrl-sunxi.c
 drivers/pinctrl/sunxi/pinctrl-sunxi.h
 drivers/powercap/dtpm.c
-drivers/powercap/dtpm_cpu.c
 drivers/powercap/powercap_sys.c
 drivers/power/reset/hisi-reboot.c
 drivers/power/supply/power_supply_core.c
@@ -2337,6 +2341,7 @@ include/linux/alarmtimer.h
 include/linux/amba/bus.h
 include/linux/amba/serial.h
 include/linux/android_debug_symbols.h
+include/linux/android_kabi.h
 include/linux/android_vendor.h
 include/linux/anon_inodes.h
 include/linux/arch_topology.h
@@ -3319,13 +3324,13 @@ include/linux/unaligned/access_ok.h
 include/linux/unaligned/generic.h
 include/linux/unaligned/packed_struct.h
 include/linux/unicode.h
-include/linux/units.h
 include/linux/uprobes.h
 include/linux/usb/audio.h
 include/linux/usb/audio-v2.h
 include/linux/usb/audio-v3.h
 include/linux/usb/ccid.h
 include/linux/usb/cdc.h
+include/linux/usb/cdc_ncm.h
 include/linux/usb/ch9.h
 include/linux/usb/composite.h
 include/linux/usbdevice_fs.h
@@ -3829,10 +3834,12 @@ include/trace/hooks/dtask.h
 include/trace/hooks/epoch.h
 include/trace/hooks/fault.h
 include/trace/hooks/fpsimd.h
+include/trace/hooks/fs.h
 include/trace/hooks/ftrace_dump.h
 include/trace/hooks/futex.h
 include/trace/hooks/gic.h
 include/trace/hooks/gic_v3.h
+include/trace/hooks/gpiolib.h
 include/trace/hooks/iommu.h
 include/trace/hooks/memory.h
 include/trace/hooks/mm.h
@@ -3851,6 +3858,7 @@ include/trace/hooks/thermal.h
 include/trace/hooks/timer.h
 include/trace/hooks/topology.h
 include/trace/hooks/traps.h
+include/trace/hooks/typec.h
 include/trace/hooks/ufshcd.h
 include/trace/hooks/vendor_hooks.h
 include/trace/hooks/wqlockup.h
@@ -5453,6 +5461,7 @@ net/packet/internal.h
 net/rfkill/core.c
 net/rfkill/rfkill.h
 net/sched/act_api.c
+net/sched/act_police.c
 net/sched/cls_api.c
 net/sched/cls_bpf.c
 net/sched/cls_fw.c
@@ -5467,6 +5476,7 @@ net/sched/sch_htb.c
 net/sched/sch_ingress.c
 net/sched/sch_mq.c
 net/sched/sch_prio.c
+net/sched/sch_tbf.c
 net/socket.c
 net/sysctl_net.c
 net/tipc/addr.c

@@ -709,12 +709,14 @@ static void walt_place_entity(void *unused, struct cfs_rq *cfs_rq,
 	}
 }
 
-static void walt_binder_low_latency_set(void *unused, struct task_struct *task)
+static void walt_binder_low_latency_set(void *unused, struct task_struct *task,
+					bool sync, struct binder_proc *proc)
 {
 	struct walt_task_struct *wts = (struct walt_task_struct *) task->android_vendor_data1;
 
 	if (unlikely(walt_disabled))
 		return;
+
 	if (task && current->signal &&
 			(current->signal->oom_score_adj == 0) &&
 			((current->prio < DEFAULT_PRIO) ||
@@ -728,6 +730,7 @@ static void walt_binder_low_latency_clear(void *unused, struct binder_transactio
 
 	if (unlikely(walt_disabled))
 		return;
+
 	if (wts->low_latency & WALT_LOW_LATENCY_BINDER)
 		wts->low_latency &= ~WALT_LOW_LATENCY_BINDER;
 }
