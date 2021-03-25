@@ -16,6 +16,7 @@
 #include <linux/sched.h>
 #include <linux/pm.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
 #include <linux/sysctl.h>
 #include <linux/proc_fs.h>
 #include <linux/delay.h>
@@ -992,11 +993,79 @@ gpio_keys_disable_wakeup(struct gpio_keys_drvdata *ddata)
 	}
 }
 
+#ifdef CONFIG_DEEPSLEEP
+static int gpio_keys_freeze(struct device *dev)
+{
+	struct gpio_keys_drvdata *ddata = dev_get_drvdata(dev);
+	struct gpio_button_data *bdata;
+	int i;
+
+	for (i = 0; i < ddata->pdata->nbuttons; i++) {
+		bdata = &ddata->data[i];
+
+		if (!bdata->irq)
+			continue;
+
+		mutex_lock(&ddata->disable_lock);
+		gpio_keys_disable_button(bdata);
+		mutex_unlock(&ddata->disable_lock);
+
+		devm_free_irq(dev, bdata->irq, bdata);
+	}
+
+	return 0;
+}
+
+
+static int gpio_keys_restore(struct device *dev)
+{
+	struct gpio_keys_drvdata *ddata = dev_get_drvdata(dev);
+	struct gpio_button_data *bdata;
+	int error = 0, i;
+	irq_handler_t isr;
+	unsigned long irqflags;
+	const char *desc;
+
+	for (i = 0; i < ddata->pdata->nbuttons; i++) {
+		bdata = &ddata->data[i];
+		desc = bdata->button->desc ? bdata->button->desc : "gpio_keys";
+		if (!bdata->irq)
+			continue;
+
+		if (bdata->gpiod) {
+			isr = gpio_keys_gpio_isr;
+			irqflags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
+		} else {
+			isr = gpio_keys_irq_isr;
+			irqflags = 0;
+		}
+
+		if (!bdata->button->can_disable)
+			irqflags = IRQF_SHARED;
+
+		error = devm_request_any_context_irq(dev, bdata->irq,
+						isr, irqflags, desc, bdata);
+		if (error < 0) {
+			dev_err(dev, "Unable to claim irq %d; error %d\n",
+				bdata->irq, error);
+			return error;
+		}
+	}
+
+	return 0;
+}
+#endif
+
 static int __maybe_unused gpio_keys_suspend(struct device *dev)
 {
 	struct gpio_keys_drvdata *ddata = dev_get_drvdata(dev);
 	struct input_dev *input = ddata->input;
 	int error;
+
+#ifdef CONFIG_DEEPSLEEP
+	if (pm_suspend_via_firmware())
+		return gpio_keys_freeze(dev);
+#endif
 
 	if (device_may_wakeup(dev)) {
 		error = gpio_keys_enable_wakeup(ddata);
@@ -1018,6 +1087,11 @@ static int __maybe_unused gpio_keys_resume(struct device *dev)
 	struct input_dev *input = ddata->input;
 	int error = 0;
 
+#ifdef CONFIG_DEEPSLEEP
+	if (pm_suspend_via_firmware())
+		return gpio_keys_restore(dev);
+#endif
+
 	if (device_may_wakeup(dev)) {
 		gpio_keys_disable_wakeup(ddata);
 	} else {
@@ -1034,7 +1108,16 @@ static int __maybe_unused gpio_keys_resume(struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_DEEPSLEEP
+static const struct dev_pm_ops gpio_keys_pm_ops = {
+	.freeze = gpio_keys_freeze,
+	.restore = gpio_keys_restore,
+	.suspend = gpio_keys_suspend,
+	.resume = gpio_keys_resume,
+};
+#else
 static SIMPLE_DEV_PM_OPS(gpio_keys_pm_ops, gpio_keys_suspend, gpio_keys_resume);
+#endif
 
 static void gpio_keys_shutdown(struct platform_device *pdev)
 {
