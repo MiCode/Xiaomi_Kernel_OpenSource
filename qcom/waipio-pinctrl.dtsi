@@ -2476,6 +2476,20 @@
 				drive-strength = <2>;
 			};
 		};
+
+		usb3phy_portselect_gpio: usb3phy_portselect_gpio {
+			mux {
+				pins = "gpio91";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio91";
+				drive-strength = <2>;
+				bias-disable;
+				input-enable;
+			};
+		};
 	};
 
 	cnss_pins {
