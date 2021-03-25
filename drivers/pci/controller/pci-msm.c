@@ -9,6 +9,7 @@
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
+#include <linux/i2c.h>
 #include <linux/interconnect.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
@@ -20,6 +21,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/msm_pcie.h>
+#include <linux/of_device.h>
 #include <linux/of_gpio.h>
 #include <linux/of_pci.h>
 #include <linux/pci.h>
@@ -696,6 +698,36 @@ struct msm_pcie_drv_info {
 	struct completion completion;
 };
 
+/* i2c control interface for a i2c client device */
+struct pcie_i2c_ctrl {
+	struct i2c_client *client;
+
+	/* client specific register info */
+	u32 gpio_config_reg;
+	u32 ep_reset_reg;
+	u32 ep_reset_gpio_mask;
+	u32 *dump_regs;
+	u32 dump_reg_count;
+
+	/* client specific callbacks */
+	int (*client_i2c_read)(struct i2c_client *client, u32 reg_addr,
+			       u32 *val);
+	int (*client_i2c_write)(struct i2c_client *client, u32 reg_addr,
+				u32 val);
+	int (*client_i2c_reset)(struct pcie_i2c_ctrl *i2c_ctrl, bool reset);
+	void (*client_i2c_dump_regs)(struct pcie_i2c_ctrl *i2c_ctrl);
+};
+
+enum i2c_client_id {
+	I2C_CLIENT_ID_NTN3,
+	I2C_CLIENT_ID_MAX,
+};
+
+struct i2c_driver_data {
+	int rc_index;
+	enum i2c_client_id client_id;
+};
+
 /* msm pcie device structure */
 struct msm_pcie_dev_t {
 	struct platform_device *pdev;
@@ -854,6 +886,8 @@ struct msm_pcie_dev_t {
 
 	u32 *filtered_bdfs;
 	u32 bdf_count;
+
+	struct pcie_i2c_ctrl i2c_ctrl;
 };
 
 struct msm_root_dev_t {
@@ -4357,6 +4391,9 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 			link_check_count);
 		PCIE_INFO(dev, "PCIe RC%d link initialized\n", dev->rc_idx);
 	} else {
+		if (dev->i2c_ctrl.client && dev->i2c_ctrl.client_i2c_dump_regs)
+			dev->i2c_ctrl.client_i2c_dump_regs(&dev->i2c_ctrl);
+
 		PCIE_INFO(dev, "PCIe: Assert the reset of endpoint of RC%d.\n",
 			dev->rc_idx);
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
@@ -4397,6 +4434,170 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 	}
 
 	return 0;
+}
+
+/* write 32-bit value to 24 bit register */
+static int ntn3_i2c_write(struct i2c_client *client, u32 reg_addr,
+			      u32 reg_val)
+{
+	int ret;
+	u8 msg_buf[7];
+	struct i2c_msg msg;
+
+	msg.addr = client->addr;
+	msg.len = 7;
+	msg.flags = 0;
+
+	// Big Endian for reg addr
+	msg_buf[0] = (u8)(reg_addr >> 16);
+	msg_buf[1] = (u8)(reg_addr >> 8);
+	msg_buf[2] = (u8)reg_addr;
+
+	// Little Endian for reg val
+	msg_buf[3] = (u8)(reg_val);
+	msg_buf[4] = (u8)(reg_val >> 8);
+	msg_buf[5] = (u8)(reg_val >> 16);
+	msg_buf[6] = (u8)(reg_val >> 24);
+
+	msg.buf = msg_buf;
+
+	ret = i2c_transfer(client->adapter, &msg, 1);
+
+	return ret == 1 ? 0 : ret;
+}
+
+/* read 32 bit value from 24 bit reg addr */
+static int ntn3_i2c_read(struct i2c_client *client, u32 reg_addr,
+			     u32 *reg_val)
+{
+	int ret;
+	u8 wr_data[3], rd_data[4];
+	struct i2c_msg msg[2];
+
+	msg[0].addr = client->addr;
+	msg[0].len = 3;
+	msg[0].flags = 0;
+
+	// Big Endian for reg addr
+	wr_data[0] = (u8)(reg_addr >> 16);
+	wr_data[1] = (u8)(reg_addr >> 8);
+	wr_data[2] = (u8)reg_addr;
+
+	msg[0].buf = wr_data;
+
+	msg[1].addr = client->addr;
+	msg[1].len = 4;
+	msg[1].flags = I2C_M_RD;
+
+	msg[1].buf = rd_data;
+
+	ret = i2c_transfer(client->adapter, &msg[0], 2);
+	if (ret != 2)
+		return ret;
+
+	*reg_val = (rd_data[3] << 24) | (rd_data[2] << 16) | (rd_data[1] << 8) |
+		   rd_data[0];
+
+	return 0;
+}
+
+static int ntn3_ep_reset_ctrl(struct pcie_i2c_ctrl *i2c_ctrl, bool reset)
+{
+	int ret, rd_val;
+	struct msm_pcie_dev_t *pcie_dev = container_of(i2c_ctrl,
+						       struct msm_pcie_dev_t,
+						       i2c_ctrl);
+
+	if (!i2c_ctrl->client_i2c_write || !i2c_ctrl->client_i2c_read)
+		return -EOPNOTSUPP;
+
+	/* set NTN3 GPIO as output */
+	ret = i2c_ctrl->client_i2c_read(i2c_ctrl->client,
+					i2c_ctrl->gpio_config_reg, &rd_val);
+	if (ret) {
+		PCIE_DBG(pcie_dev,
+			 "PCIe: RC%d: gpio config reg read failed : %d\n",
+			 pcie_dev->rc_idx, ret);
+		return ret;
+	}
+
+	rd_val &= ~i2c_ctrl->ep_reset_gpio_mask;
+	i2c_ctrl->client_i2c_write(i2c_ctrl->client, i2c_ctrl->gpio_config_reg,
+				   rd_val);
+
+	/* read back to flush write - config gpio */
+	ret = i2c_ctrl->client_i2c_read(i2c_ctrl->client,
+					i2c_ctrl->gpio_config_reg, &rd_val);
+	if (ret) {
+		PCIE_DBG(pcie_dev,
+			 "PCIe: RC%d: gpio config reg read failed : %d\n",
+			 pcie_dev->rc_idx, ret);
+		return ret;
+	}
+
+	ret = i2c_ctrl->client_i2c_read(i2c_ctrl->client,
+					i2c_ctrl->ep_reset_reg, &rd_val);
+	if (ret) {
+		PCIE_DBG(pcie_dev,
+			 "PCIe: RC%d: ep_reset_gpio read failed : %d\n",
+			 pcie_dev->rc_idx, ret);
+		return ret;
+	}
+
+	rd_val &= ~i2c_ctrl->ep_reset_gpio_mask;
+	i2c_ctrl->client_i2c_write(i2c_ctrl->client, i2c_ctrl->ep_reset_reg,
+				   rd_val);
+
+	/* read back to flush write - reset gpio */
+	ret = i2c_ctrl->client_i2c_read(i2c_ctrl->client,
+					i2c_ctrl->ep_reset_reg, &rd_val);
+	if (ret) {
+		PCIE_DBG(pcie_dev,
+			 "PCIe: RC%d: ep_reset_gpio read failed : %d\n",
+			 pcie_dev->rc_idx, ret);
+		return ret;
+	}
+
+	/* ep reset done */
+	if (reset)
+		return 0;
+
+	/* toggle (0 -> 1) reset gpios to bring eps out of reset */
+	rd_val |= i2c_ctrl->ep_reset_gpio_mask;
+	i2c_ctrl->client_i2c_write(i2c_ctrl->client, i2c_ctrl->ep_reset_reg,
+				   rd_val);
+
+	/* read back to flush write - reset gpio */
+	ret = i2c_ctrl->client_i2c_read(i2c_ctrl->client,
+					i2c_ctrl->ep_reset_reg, &rd_val);
+	if (ret) {
+		PCIE_DBG(pcie_dev,
+			 "PCIe: RC%d: ep_reset_gpio read failed : %d\n",
+			 pcie_dev->rc_idx, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static void ntn3_dump_regs(struct pcie_i2c_ctrl *i2c_ctrl)
+{
+	int i, val;
+	struct msm_pcie_dev_t *pcie_dev = container_of(i2c_ctrl,
+						       struct msm_pcie_dev_t,
+						       i2c_ctrl);
+
+	if (!i2c_ctrl->client_i2c_read || !i2c_ctrl->dump_reg_count)
+		return;
+
+	PCIE_DUMP(pcie_dev, "PCIe: RC%d: NTN3 reg dumps\n", pcie_dev->rc_idx);
+
+	for (i = 0; i < i2c_ctrl->dump_reg_count; i++) {
+		i2c_ctrl->client_i2c_read(i2c_ctrl->client,
+					  i2c_ctrl->dump_regs[i], &val);
+		PCIE_DUMP(pcie_dev, "PCIe: RC%d: reg: 0x%04x val: 0x%08x\n",
+			  pcie_dev->rc_idx, i2c_ctrl->dump_regs[i], val);
+	}
 }
 
 static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
@@ -4561,6 +4762,10 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 		msm_pcie_config_link_pm(dev, true);
 	}
 
+	/* bring eps out of reset */
+	if (dev->i2c_ctrl.client && dev->i2c_ctrl.client_i2c_reset)
+		dev->i2c_ctrl.client_i2c_reset(&dev->i2c_ctrl, false);
+
 	goto out;
 
 link_fail:
@@ -4606,6 +4811,10 @@ static void msm_pcie_disable(struct msm_pcie_dev_t *dev)
 	dev->link_status = MSM_PCIE_LINK_DISABLED;
 	dev->power_on = false;
 	dev->link_turned_off_counter++;
+
+	/* assert reset on eps */
+	if (dev->i2c_ctrl.client && dev->i2c_ctrl.client_i2c_reset)
+		dev->i2c_ctrl.client_i2c_reset(&dev->i2c_ctrl, true);
 
 	PCIE_INFO(dev, "PCIe: Assert the reset of endpoint of RC%d.\n",
 		dev->rc_idx);
@@ -5946,6 +6155,56 @@ static int msm_pcie_setup_drv(struct msm_pcie_dev_t *pcie_dev,
 	return 0;
 }
 
+static int msm_pcie_i2c_ctrl_init(struct msm_pcie_dev_t *pcie_dev)
+{
+	int ret, size;
+	struct device_node *of_node, *i2c_client_node;
+	struct device *dev = &pcie_dev->pdev->dev;
+	struct pcie_i2c_ctrl *i2c_ctrl = &pcie_dev->i2c_ctrl;
+
+	of_node = of_parse_phandle(dev->of_node, "pcie-i2c-phandle", 0);
+	if (!of_node) {
+		PCIE_DBG(pcie_dev, "PCIe: RC%d: No i2c phandle found\n",
+			 pcie_dev->rc_idx);
+		return 0;
+	}
+
+	i2c_client_node = of_get_child_by_name(of_node, "pcie_i2c_ctrl");
+	if (!i2c_client_node) {
+		PCIE_ERR(pcie_dev,
+			 "PCIe: RC%d: No i2c slave node phandle found\n",
+			 pcie_dev->rc_idx);
+		return 0;
+	}
+
+	of_property_read_u32(i2c_client_node, "gpio-config-reg",
+			     &i2c_ctrl->gpio_config_reg);
+
+	of_property_read_u32(i2c_client_node, "ep-reset-reg",
+			     &i2c_ctrl->ep_reset_reg);
+
+	of_property_read_u32(i2c_client_node, "ep-reset-gpio-mask",
+			     &i2c_ctrl->ep_reset_gpio_mask);
+
+	of_get_property(i2c_client_node, "dump-regs", &size);
+
+	if (size) {
+		i2c_ctrl->dump_regs = devm_kzalloc(dev, size, GFP_KERNEL);
+		if (!i2c_ctrl->dump_regs)
+			return -ENOMEM;
+
+		i2c_ctrl->dump_reg_count = size / sizeof(*i2c_ctrl->dump_regs);
+
+		ret = of_property_read_u32_array(i2c_client_node, "dump-regs",
+						 i2c_ctrl->dump_regs,
+						 i2c_ctrl->dump_reg_count);
+		if (ret)
+			i2c_ctrl->dump_reg_count = 0;
+	}
+
+	return 0;
+}
+
 static int msm_pcie_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -6257,6 +6516,8 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				 "PCIe: RC%d: DRV: failed to setup DRV: ret: %d\n",
 				pcie_dev->rc_idx, ret);
 	}
+
+	msm_pcie_i2c_ctrl_init(pcie_dev);
 
 	msm_pcie_sysfs_init(pcie_dev);
 
@@ -6979,6 +7240,72 @@ static void msm_pcie_drv_connect_worker(struct work_struct *work)
 				msm_pcie_early_notifier, pcie_drv);
 }
 
+static const struct i2c_driver_data ntn3_data = {
+	.rc_index = 0,
+	.client_id = I2C_CLIENT_ID_NTN3,
+};
+
+static const struct of_device_id of_i2c_id_table[] = {
+	{ .compatible = "qcom,pcie0-i2c-ntn3", .data = &ntn3_data },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, of_i2c_id_table);
+
+static int pcie_i2c_ctrl_probe(struct i2c_client *client,
+				    const struct i2c_device_id *id)
+{
+	int rc_index = -EINVAL;
+	enum i2c_client_id client_id;
+	struct pcie_i2c_ctrl *i2c_ctrl;
+	const struct of_device_id *match;
+	struct i2c_driver_data *data;
+
+	if (i2c_check_functionality(client->adapter, I2C_FUNC_I2C) == 0) {
+		dev_err(&client->dev, "I2C functionality not supported\n");
+		return -EIO;
+	}
+
+	if (client->dev.of_node) {
+		match = of_match_device(of_match_ptr(of_i2c_id_table),
+					&client->dev);
+		if (!match) {
+			dev_err(&client->dev, "Error: No device match found\n");
+			return -ENODEV;
+		}
+
+		data = (struct i2c_driver_data *)match->data;
+		rc_index = data->rc_index;
+		client_id = data->client_id;
+	}
+
+	if (rc_index >= MAX_RC_NUM) {
+		dev_err(&client->dev, "invalid RC index %d\n", rc_index);
+		return -EINVAL;
+	}
+
+	if (client_id == I2C_CLIENT_ID_NTN3) {
+		i2c_ctrl = &msm_pcie_dev[rc_index].i2c_ctrl;
+		i2c_ctrl->client = client;
+		i2c_ctrl->client_i2c_read = ntn3_i2c_read;
+		i2c_ctrl->client_i2c_write = ntn3_i2c_write;
+		i2c_ctrl->client_i2c_reset = ntn3_ep_reset_ctrl;
+		i2c_ctrl->client_i2c_dump_regs = ntn3_dump_regs;
+	} else {
+		dev_err(&client->dev, "invalid client id %d\n", client_id);
+	}
+
+	return 0;
+}
+
+static struct i2c_driver pcie_i2c_ctrl_driver = {
+	.driver = {
+		.name	=		"pcie-i2c-ctrl",
+		.of_match_table	=	of_match_ptr(of_i2c_id_table),
+	},
+
+	.probe		=       pcie_i2c_ctrl_probe,
+};
+
 static int __init pcie_init(void)
 {
 	int ret = 0, i;
@@ -7037,6 +7364,9 @@ static int __init pcie_init(void)
 				msm_pcie_drv_enable_pc);
 	}
 
+	if (i2c_add_driver(&pcie_i2c_ctrl_driver))
+		pr_info("Failed to add i2c ctrl driver: %d\n", ret);
+
 	crc8_populate_msb(msm_pcie_crc8_table, MSM_PCIE_CRC8_POLYNOMIAL);
 
 	msm_pcie_debugfs_init();
@@ -7070,6 +7400,8 @@ static void __exit pcie_exit(void)
 	int i;
 
 	pr_info("PCIe: %s\n", __func__);
+
+	i2c_del_driver(&pcie_i2c_ctrl_driver);
 
 	if (mpcie_wq)
 		destroy_workqueue(mpcie_wq);
