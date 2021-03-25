@@ -1102,6 +1102,8 @@ int a6xx_rgmu_restart(struct kgsl_device *device)
 	/* Hard reset the rgmu and gpu */
 	a6xx_rgmu_suspend(adreno_dev);
 
+	a6xx_reset_preempt_records(adreno_dev);
+
 	clear_bit(RGMU_PRIV_GPU_STARTED, &rgmu->flags);
 
 	/* Attempt rebooting the rgmu and gpu */

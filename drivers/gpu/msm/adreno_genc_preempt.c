@@ -22,7 +22,8 @@ enum {
 	SET_PSEUDO_REGISTER_SAVE_REGISTER_COUNTER,
 };
 
-static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
+static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer,
+	bool atomic)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb = adreno_dev->cur_rb;
@@ -31,7 +32,7 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 
 	spin_lock_irqsave(&rb->preempt_lock, flags);
 
-	if (in_interrupt() == 0) {
+	if (!atomic) {
 		/*
 		 * We might have skipped updating the wptr in case we are in
 		 * dispatcher context. Do it now.
@@ -61,11 +62,13 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 
 	spin_unlock_irqrestore(&rb->preempt_lock, flags);
 
-	if (in_interrupt() == 0) {
+	if (!atomic) {
 		/* If WPTR update fails, set the fault and trigger recovery */
 		if (ret) {
-			adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
-			adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
+			gmu_core_fault_snapshot(device);
+			adreno_set_gpu_fault(adreno_dev,
+				ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
+			adreno_dispatcher_schedule(device);
 		}
 	}
 }
@@ -125,7 +128,7 @@ static void _genc_preemption_done(struct adreno_device *adreno_dev)
 	adreno_dev->next_rb = NULL;
 
 	/* Update the wptr for the new command queue */
-	_update_wptr(adreno_dev, true);
+	_update_wptr(adreno_dev, true, false);
 
 	/* Update the dispatcher timer for the new command queue */
 	mod_timer(&adreno_dev->dispatcher.timer,
@@ -208,7 +211,7 @@ static struct adreno_ringbuffer *genc_next_ringbuffer(
 	return NULL;
 }
 
-void genc_preemption_trigger(struct adreno_device *adreno_dev)
+void genc_preemption_trigger(struct adreno_device *adreno_dev, bool atomic)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_iommu *iommu = KGSL_IOMMU(device);
@@ -237,7 +240,7 @@ void genc_preemption_trigger(struct adreno_device *adreno_dev)
 		 */
 
 		if (next != NULL) {
-			_update_wptr(adreno_dev, false);
+			_update_wptr(adreno_dev, false, atomic);
 
 			mod_timer(&adreno_dev->dispatcher.timer,
 				adreno_dev->cur_rb->dispatch_q.expires);
@@ -444,7 +447,7 @@ void genc_preemption_callback(struct adreno_device *adreno_dev, int bit)
 	adreno_dev->next_rb = NULL;
 
 	/* Update the wptr if it changed while preemption was ongoing */
-	_update_wptr(adreno_dev, true);
+	_update_wptr(adreno_dev, true, true);
 
 	/* Update the dispatcher timer for the new command queue */
 	mod_timer(&adreno_dev->dispatcher.timer,
@@ -452,7 +455,7 @@ void genc_preemption_callback(struct adreno_device *adreno_dev, int bit)
 
 	adreno_set_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE);
 
-	genc_preemption_trigger(adreno_dev);
+	genc_preemption_trigger(adreno_dev, true);
 }
 
 void genc_preemption_schedule(struct adreno_device *adreno_dev)
@@ -467,7 +470,7 @@ void genc_preemption_schedule(struct adreno_device *adreno_dev)
 	if (adreno_in_preempt_state(adreno_dev, ADRENO_PREEMPT_COMPLETE))
 		_genc_preemption_done(adreno_dev);
 
-	genc_preemption_trigger(adreno_dev);
+	genc_preemption_trigger(adreno_dev, false);
 
 	mutex_unlock(&device->mutex);
 }
@@ -602,13 +605,41 @@ void genc_preemption_start(struct adreno_device *adreno_dev)
 	}
 }
 
+static void reset_rb_preempt_record(struct adreno_device *adreno_dev,
+	struct adreno_ringbuffer *rb)
+{
+	memset(rb->preemption_desc->hostptr, 0x0, rb->preemption_desc->size);
+
+	kgsl_sharedmem_writel(rb->preemption_desc,
+		PREEMPT_RECORD(magic), GENC_CP_CTXRECORD_MAGIC_REF);
+	kgsl_sharedmem_writel(rb->preemption_desc,
+		PREEMPT_RECORD(cntl), GENC_CP_RB_CNTL_DEFAULT);
+	kgsl_sharedmem_writeq(rb->preemption_desc,
+		PREEMPT_RECORD(rptr_addr), SCRATCH_RPTR_GPU_ADDR(
+		KGSL_DEVICE(adreno_dev), rb->id));
+	kgsl_sharedmem_writeq(rb->preemption_desc,
+		PREEMPT_RECORD(rbase), rb->buffer_desc->gpuaddr);
+}
+
+void genc_reset_preempt_records(struct adreno_device *adreno_dev)
+{
+	int i;
+	struct adreno_ringbuffer *rb;
+
+	if (!adreno_is_preemption_enabled(adreno_dev))
+		return;
+
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		reset_rb_preempt_record(adreno_dev, rb);
+	}
+}
+
 static int genc_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 	struct adreno_ringbuffer *rb)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_genc_core *genc_core = to_genc_core(adreno_dev);
 	u64 ctxt_record_size = GENC_CP_CTXRECORD_SIZE_IN_BYTES;
-	u32 cp_rb_cntl = GENC_CP_RB_CNTL_DEFAULT;
 	int ret;
 
 	if (genc_core->ctxt_record_size)
@@ -634,25 +665,7 @@ static int genc_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 	if (ret)
 		return ret;
 
-	kgsl_sharedmem_writel(rb->preemption_desc,
-		PREEMPT_RECORD(magic), GENC_CP_CTXRECORD_MAGIC_REF);
-	kgsl_sharedmem_writel(rb->preemption_desc,
-		PREEMPT_RECORD(info), 0);
-	kgsl_sharedmem_writel(rb->preemption_desc,
-		PREEMPT_RECORD(data), 0);
-	kgsl_sharedmem_writel(rb->preemption_desc,
-		PREEMPT_RECORD(cntl), cp_rb_cntl);
-	kgsl_sharedmem_writel(rb->preemption_desc,
-		PREEMPT_RECORD(rptr), 0);
-	kgsl_sharedmem_writel(rb->preemption_desc,
-		PREEMPT_RECORD(wptr), 0);
-	kgsl_sharedmem_writeq(rb->preemption_desc,
-		PREEMPT_RECORD(rptr_addr), SCRATCH_RPTR_GPU_ADDR(device,
-		rb->id));
-	kgsl_sharedmem_writeq(rb->preemption_desc,
-		PREEMPT_RECORD(rbase), rb->buffer_desc->gpuaddr);
-	kgsl_sharedmem_writeq(rb->preemption_desc,
-		PREEMPT_RECORD(counter), 0);
+	reset_rb_preempt_record(adreno_dev, rb);
 
 	return 0;
 }

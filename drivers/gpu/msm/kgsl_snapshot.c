@@ -333,8 +333,8 @@ static size_t kgsl_snapshot_dump_indexed_regs(struct kgsl_device *device,
 	header->count = iregs->count;
 	header->start = iregs->start;
 
-	kgsl_regmap_read_indexed(&device->regmap, iregs->index, iregs->data,
-		data, iregs->count);
+	kgsl_regmap_read_indexed_interleaved(&device->regmap, iregs->index,
+		iregs->data, data, iregs->start, iregs->count);
 
 	return (iregs->count * 4) + sizeof(*header);
 }

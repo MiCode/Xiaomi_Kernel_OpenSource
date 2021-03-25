@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef KGSL_REGMAP_H
@@ -200,10 +200,29 @@ void __iomem *kgsl_regmap_virt(struct kgsl_regmap *regmap, u32 offset);
  * @data: The offset of the data register for the index pair
  * @dest: An array to put the values
  * @count: Number of dwords to read from @data
+ *
+ * This function configures the address register once and then
+ * reads from the data register in a loop.
  */
-
 void kgsl_regmap_read_indexed(struct kgsl_regmap *regmap, u32 addr,
 		u32 data, u32 *dest, int count);
+
+/**
+ * kgsl_regmap_read_indexed_interleaved - Dump an indexed pair of registers
+ * @regmap: The regmap to read from
+ * @addr: The offset of the address register for the index pair
+ * @data: The offset of the data register for the index pair
+ * @dest: An array to put the values
+ * @start: Starting value to be programmed in the address register
+ * @count: Number of dwords to read from @data
+ *
+ * This function is slightly different than kgsl_regmap_read_indexed()
+ * in that it takes as argument a start value that is to be programmed
+ * in the address register and secondly, the address register is to be
+ * configured before every read of the data register.
+ */
+void kgsl_regmap_read_indexed_interleaved(struct kgsl_regmap *regmap, u32 addr,
+		u32 data, u32 *dest, u32 start, int count);
 
 /**
  * kgsl_regmap_get_region - Return the region for the given offset

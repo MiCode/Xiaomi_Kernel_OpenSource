@@ -86,6 +86,12 @@ struct adreno_a6xx_core {
 	u64 ctxt_record_size;
 };
 
+#define SPTPRAC_POWERON_CTRL_MASK	0x00778000
+#define SPTPRAC_POWEROFF_CTRL_MASK	0x00778001
+#define SPTPRAC_POWEROFF_STATUS_MASK	BIT(2)
+#define SPTPRAC_POWERON_STATUS_MASK	BIT(3)
+#define A6XX_RETAIN_FF_ENABLE_ENABLE_MASK BIT(11)
+
 #define CP_CLUSTER_FE		0x0
 #define CP_CLUSTER_SP_VS	0x1
 #define CP_CLUSTER_PC_VS	0x2
@@ -234,7 +240,7 @@ static inline bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
 }
 
 /* Preemption functions */
-void a6xx_preemption_trigger(struct adreno_device *adreno_dev);
+void a6xx_preemption_trigger(struct adreno_device *adreno_dev, bool atomic);
 void a6xx_preemption_schedule(struct adreno_device *adreno_dev);
 void a6xx_preemption_start(struct adreno_device *adreno_dev);
 int a6xx_preemption_init(struct adreno_device *adreno_dev);
@@ -459,4 +465,11 @@ to_a6xx_gpudev(const struct adreno_gpudev *gpudev)
 	return container_of(gpudev, struct a6xx_gpudev, base);
 }
 
+/**
+ * a6xx_reset_preempt_records - Reset the preemption buffers
+ * @adreno_dev: Handle to the adreno device
+ *
+ * Reset the preemption records at the time of hard reset
+ */
+void a6xx_reset_preempt_records(struct adreno_device *adreno_dev);
 #endif

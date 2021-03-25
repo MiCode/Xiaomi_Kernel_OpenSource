@@ -203,7 +203,7 @@ void a6xx_load_rsc_ucode(struct adreno_device *adreno_dev)
 	if (adreno_is_a650_family(adreno_dev))
 		rscc = gmu->rscc_virt;
 	else
-		rscc = kgsl_regmap_virt(&device->regmap, 0x23400);
+		rscc = kgsl_regmap_virt(&device->regmap, 0x23000);
 
 	/* Disable SDE clock gating */
 	_regwrite(rscc, A6XX_GPU_RSCC_RSC_STATUS0_DRV0, BIT(24));
@@ -956,12 +956,7 @@ static int a6xx_complete_rpmh_votes(struct adreno_device *adreno_dev)
 	return ret;
 }
 
-#define SPTPRAC_POWERON_CTRL_MASK	0x00778000
-#define SPTPRAC_POWEROFF_CTRL_MASK	0x00778001
-#define SPTPRAC_POWEROFF_STATUS_MASK	BIT(2)
-#define SPTPRAC_POWERON_STATUS_MASK	BIT(3)
 #define SPTPRAC_CTRL_TIMEOUT		10 /* ms */
-#define A6XX_RETAIN_FF_ENABLE_ENABLE_MASK BIT(11)
 
 /*
  * a6xx_gmu_sptprac_enable() - Power on SPTPRAC
@@ -978,26 +973,6 @@ int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 
 	if (test_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED, &adreno_dev->priv))
 		return 0;
-
-	if (adreno_is_a619_holi(adreno_dev)) {
-		u32 val;
-		void __iomem *addr = kgsl_regmap_virt(&device->regmap,
-			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS);
-
-		kgsl_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
-			SPTPRAC_POWERON_CTRL_MASK);
-
-		if (readl_poll_timeout(addr, val,
-			(val & SPTPRAC_POWERON_STATUS_MASK) ==
-			SPTPRAC_POWERON_STATUS_MASK, 10,
-			10 * 1000)) {
-			dev_err(device->dev, "power on SPTPRAC fail\n");
-			return -EINVAL;
-		}
-
-		set_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED, &adreno_dev->priv);
-		return 0;
-	}
 
 	/* GMU enabled a630 and a615 targets */
 	gmu_core_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
@@ -1033,26 +1008,6 @@ void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev)
 	if (!test_and_clear_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED,
 		&adreno_dev->priv))
 		return;
-
-	if (adreno_is_a619_holi(adreno_dev)) {
-		u32 val;
-		void __iomem *addr = kgsl_regmap_virt(&device->regmap,
-			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS);
-
-		/* Ensure that retention is on */
-		kgsl_regrmw(device, A6XX_GPU_CC_GX_GDSCR,
-			0, A6XX_RETAIN_FF_ENABLE_ENABLE_MASK);
-
-		kgsl_regwrite(device,
-			A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
-			SPTPRAC_POWEROFF_CTRL_MASK);
-		if (readl_poll_timeout(addr, val,
-			(val & SPTPRAC_POWEROFF_STATUS_MASK) ==
-			SPTPRAC_POWEROFF_STATUS_MASK, 10,
-			10 * 1000))
-			dev_err(device->dev, "power off SPTPRAC fail\n");
-		return;
-	}
 
 	/* GMU enabled a630 and a615 targets */
 
@@ -3369,6 +3324,8 @@ int a6xx_gmu_restart(struct kgsl_device *device)
 
 	/* Hard reset the gmu and gpu */
 	a6xx_gmu_suspend(adreno_dev);
+
+	a6xx_reset_preempt_records(adreno_dev);
 
 	clear_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
 
