@@ -634,7 +634,7 @@
 
 			gpu0_tj_cfg: tj_cfg {
 				temperature = <95000>;
-				hysteresis = <0>;
+				hysteresis = <5000>;
 				type = "passive";
 			};
 		};
@@ -672,7 +672,7 @@
 
 			gpu1_tj_cfg: tj_cfg {
 				temperature = <95000>;
-				hysteresis = <0>;
+				hysteresis = <5000>;
 				type = "passive";
 			};
 		};
@@ -881,7 +881,7 @@
 
 			nspss_0_config: junction-config {
 				temperature = <95000>;
-				hysteresis = <0>;
+				hysteresis = <5000>;
 				type = "passive";
 			};
 		};
@@ -920,7 +920,7 @@
 
 			nspss_1_config: junction-config {
 				temperature = <95000>;
-				hysteresis = <0>;
+				hysteresis = <5000>;
 				type = "passive";
 			};
 		};
@@ -959,7 +959,7 @@
 
 			nspss_2_config: junction-config {
 				temperature = <95000>;
-				hysteresis = <0>;
+				hysteresis = <5000>;
 				type = "passive";
 			};
 		};
