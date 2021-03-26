@@ -419,8 +419,8 @@ EXPORT_SYMBOL(qcom_mdt_load_no_free);
 void qcom_mdt_free_metadata(struct device *dev, int pas_id, struct qcom_mdt_metadata *mdata,
 			    int err)
 {
-	if (err)
-		qcom_scm_pas_shutdown(pas_id);
+	if (err && qcom_scm_pas_shutdown_retry(pas_id))
+		panic("Panicking, failed to shutdown peripheral %d\n", pas_id);
 	if (mdata)
 		dma_free_coherent(dev, mdata->size, mdata->buf, mdata->buf_phys);
 }
