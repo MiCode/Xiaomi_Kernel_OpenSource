@@ -2854,6 +2854,9 @@
 		qcom,bt-reset-gpio = <&tlmm 81 0>; /* BT_EN */
 		qcom,wl-reset-gpio = <&tlmm 80 0>; /* WL_EN */
 		qcom,bt-sw-ctrl-gpio = <&tlmm 82 0>; /* SW_CTRL */
+		mboxes = <&qmp_aop 0>;
+		qcom,vreg_ipa="s3e";
+
 		qcom,bt-vdd-aon-supply = <&S11B>;
 		qcom,bt-vdd-dig-supply = <&S11B>;
 		qcom,bt-vdd-rfa1-supply = <&S1C>;
