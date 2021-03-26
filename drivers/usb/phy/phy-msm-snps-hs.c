@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -112,6 +112,8 @@ struct msm_hsphy {
 	struct mutex		phy_lock;
 	struct regulator_desc	dpdm_rdesc;
 	struct regulator_dev	*dpdm_rdev;
+
+	struct power_supply	*usb_psy;
 
 	/* debugfs entries */
 	struct dentry		*root;
@@ -554,6 +556,33 @@ static int msm_hsphy_notify_disconnect(struct usb_phy *uphy,
 	return 0;
 }
 
+static int msm_hsphy_set_power(struct usb_phy *uphy, unsigned int mA)
+{
+	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
+	union power_supply_propval val = {0};
+	int ret;
+
+	if (!phy->usb_psy) {
+		phy->usb_psy = power_supply_get_by_name("usb");
+		if (!phy->usb_psy) {
+			dev_err(phy->phy.dev, "Could not get usb psy\n");
+			return -ENODEV;
+		}
+	}
+
+	dev_info(phy->phy.dev, "Avail curr from USB = %u\n", mA);
+
+	/* Set max current limit in uA */
+	val.intval = 1000 * mA;
+	ret = power_supply_set_property(phy->usb_psy, POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT, &val);
+	if (ret) {
+		dev_dbg(phy->phy.dev, "Error (%d) setting input current limit\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int msm_hsphy_dpdm_regulator_enable(struct regulator_dev *rdev)
 {
 	int ret = 0;
@@ -823,6 +852,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	phy->phy.set_suspend		= msm_hsphy_set_suspend;
 	phy->phy.notify_connect		= msm_hsphy_notify_connect;
 	phy->phy.notify_disconnect	= msm_hsphy_notify_disconnect;
+	phy->phy.set_power		= msm_hsphy_set_power;
 	phy->phy.type			= USB_PHY_TYPE_USB2;
 
 	ret = usb_add_phy_dev(&phy->phy);
@@ -856,6 +886,9 @@ static int msm_hsphy_remove(struct platform_device *pdev)
 
 	if (!phy)
 		return 0;
+
+	if (phy->usb_psy)
+		power_supply_put(phy->usb_psy);
 
 	debugfs_remove_recursive(phy->root);
 
