@@ -35,6 +35,7 @@
 #define TZBSP_FVER_MINOR_SHIFT          12
 #define TZBSP_DIAG_MAJOR_VERSION_V9     9
 #define TZBSP_DIAG_MINOR_VERSION_V2     2
+#define TZBSP_DIAG_MINOR_VERSION_V21     3
 
 /* TZ Diag Feature Version Id */
 #define QCOM_SCM_FEAT_DIAG_ID           0x06
@@ -191,6 +192,34 @@ struct tzdbg_log_v2_t {
 	uint8_t					log_buf[];
 };
 
+struct tzbsp_encr_info_for_log_chunk_t {
+	uint32_t size_to_encr;
+	uint8_t nonce[TZBSP_NONCE_LEN];
+	uint8_t tag[TZBSP_TAG_LEN];
+};
+
+/*
+ * Only `ENTIRE_LOG` will be used unless the
+ * "OEM_tz_num_of_diag_log_chunks_to_encr" devcfg field >= 2.
+ * If this is true, the diag log will be encrypted in two
+ * separate chunks: a smaller chunk containing only error
+ * fatal logs and a bigger "rest of the log" chunk. In this
+ * case, `ERR_FATAL_LOG_CHUNK` and `BIG_LOG_CHUNK` will be
+ * used instead of `ENTIRE_LOG`.
+ */
+enum tzbsp_encr_info_for_log_chunks_idx_t {
+	BIG_LOG_CHUNK = 0,
+	ENTIRE_LOG = 1,
+	ERR_FATAL_LOG_CHUNK = 1,
+	MAX_NUM_OF_CHUNKS,
+};
+
+struct tzbsp_encr_info_t {
+	uint32_t num_of_chunks;
+	struct tzbsp_encr_info_for_log_chunk_t chunks[MAX_NUM_OF_CHUNKS];
+	uint8_t key[TZBSP_AES_256_ENCRYPTED_KEY_SIZE];
+};
+
 /*
  * Diagnostic Table
  * Note: This is the reference data structure for tz diagnostic table
@@ -232,29 +261,63 @@ struct tzdbg_t {
 	/* Offset for Wakeup info */
 	uint32_t wakeup_info_off;
 
-	/*
-	 * VMID to EE Mapping
-	 */
-	struct tzdbg_vmid_t vmid_info[TZBSP_DIAG_NUM_OF_VMID];
-	/*
-	 * Boot Info
-	 */
-	struct tzdbg_boot_info_t  boot_info[TZBSP_MAX_CPU_COUNT];
-	/*
-	 * Reset Info
-	 */
-	struct tzdbg_reset_info_t reset_info[TZBSP_MAX_CPU_COUNT];
-	uint32_t num_interrupts;
-	struct tzdbg_int_t  int_info[TZBSP_DIAG_INT_NUM];
+	union {
+		/* The elements in below structure have to be used for TZ where
+		 * diag version = TZBSP_DIAG_MINOR_VERSION_V2
+		 */
+		struct {
 
-	/* Wake up info */
-	struct tzbsp_diag_wakeup_info_t  wakeup_info[TZBSP_MAX_CPU_COUNT];
+			/*
+			 * VMID to EE Mapping
+			 */
+			struct tzdbg_vmid_t vmid_info[TZBSP_DIAG_NUM_OF_VMID];
+			/*
+			 * Boot Info
+			 */
+			struct tzdbg_boot_info_t  boot_info[TZBSP_MAX_CPU_COUNT];
+			/*
+			 * Reset Info
+			 */
+			struct tzdbg_reset_info_t reset_info[TZBSP_MAX_CPU_COUNT];
+			uint32_t num_interrupts;
+			struct tzdbg_int_t  int_info[TZBSP_DIAG_INT_NUM];
+			/* Wake up info */
+			struct tzbsp_diag_wakeup_info_t  wakeup_info[TZBSP_MAX_CPU_COUNT];
 
-	uint8_t key[TZBSP_AES_256_ENCRYPTED_KEY_SIZE];
+			uint8_t key[TZBSP_AES_256_ENCRYPTED_KEY_SIZE];
 
-	uint8_t nonce[TZBSP_NONCE_LEN];
+			uint8_t nonce[TZBSP_NONCE_LEN];
 
-	uint8_t tag[TZBSP_TAG_LEN];
+			uint8_t tag[TZBSP_TAG_LEN];
+		};
+		/* The elements in below structure have to be used for TZ where
+		 * diag version = TZBSP_DIAG_MINOR_VERSION_V21
+		 */
+		struct {
+
+			uint32_t encr_info_for_log_off;
+
+			/*
+			 * VMID to EE Mapping
+			 */
+			struct tzdbg_vmid_t vmid_info_v2[TZBSP_DIAG_NUM_OF_VMID];
+			/*
+			 * Boot Info
+			 */
+			struct tzdbg_boot_info_t  boot_info_v2[TZBSP_MAX_CPU_COUNT];
+			/*
+			 * Reset Info
+			 */
+			struct tzdbg_reset_info_t reset_info_v2[TZBSP_MAX_CPU_COUNT];
+			uint32_t num_interrupts_v2;
+			struct tzdbg_int_t  int_info_v2[TZBSP_DIAG_INT_NUM];
+
+			/* Wake up info */
+			struct tzbsp_diag_wakeup_info_t  wakeup_info_v2[TZBSP_MAX_CPU_COUNT];
+
+			struct tzbsp_encr_info_t encr_info_for_log;
+		};
+	};
 
 	/*
 	 * We need at least 2K for the ring buffer
@@ -1387,8 +1450,10 @@ static int tzdbg_get_tz_version(void)
 	if (
 	(((version >> TZBSP_FVER_MAJOR_SHIFT) & TZBSP_FVER_MAJOR_MINOR_MASK)
 			== TZBSP_DIAG_MAJOR_VERSION_V9) &&
+	((((version >> TZBSP_FVER_MINOR_SHIFT) & TZBSP_FVER_MAJOR_MINOR_MASK)
+			== TZBSP_DIAG_MINOR_VERSION_V2) ||
 	(((version >> TZBSP_FVER_MINOR_SHIFT) & TZBSP_FVER_MAJOR_MINOR_MASK)
-			== TZBSP_DIAG_MINOR_VERSION_V2))
+			== TZBSP_DIAG_MINOR_VERSION_V21)))
 		tzdbg.is_enlarged_buf = true;
 	else
 		tzdbg.is_enlarged_buf = false;
