@@ -18,6 +18,8 @@
 #include <soc/qcom/minidump.h>
 #include <linux/dma-map-ops.h>
 #include <linux/jhash.h>
+#include <linux/dma-buf.h>
+#include <linux/dma-resv.h>
 #include "minidump_memory.h"
 #include "../../../mm/slab.h"
 #include "../mm/internal.h"
@@ -26,6 +28,12 @@ struct priv_buf {
 	char *buf;
 	size_t size;
 	size_t offset;
+};
+
+struct dma_buf_priv {
+	struct priv_buf *priv_buf;
+	int count;
+	size_t size;
 };
 
 static void show_val_kb(struct seq_buf *m, const char *s, unsigned long num)
@@ -256,6 +264,8 @@ bool md_register_memory_dump(int size, char *name)
 	if (!strcmp(name, "SLABOWNER"))
 		WRITE_ONCE(md_slabowner_dump_addr, buffer_start);
 #endif
+	if (!strcmp(name, "DMABUF_INFO"))
+		WRITE_ONCE(md_dma_buf_info_addr, buffer_start);
 	return true;
 }
 
@@ -1017,3 +1027,171 @@ void md_debugfs_slabowner(struct dentry *minidump_dir)
 	}
 }
 #endif	/* CONFIG_SLUB_DEBUG */
+
+static int dump_bufinfo(const struct dma_buf *buf_obj, void *private)
+{
+	int ret;
+	struct dma_buf_attachment *attach_obj;
+	struct dma_resv *robj;
+	struct dma_resv_list *fobj;
+	struct dma_fence *fence;
+	unsigned int seq;
+	int attach_count, shared_count, i = 0;
+	struct dma_buf_priv *buf = (struct dma_buf_priv *)private;
+	struct priv_buf *priv_buf = buf->priv_buf;
+
+
+	ret = dma_resv_lock(buf_obj->resv, NULL);
+	if (ret)
+		goto err;
+
+	ret = scnprintf(priv_buf->buf + priv_buf->offset,
+			priv_buf->size - priv_buf->offset,
+			"%08zu\t%08x\t%08x\t%08ld\t%s\t%08lu\t%s\n",
+			buf_obj->size,
+			buf_obj->file->f_flags, buf_obj->file->f_mode,
+			file_count(buf_obj->file),
+			buf_obj->exp_name,
+			file_inode(buf_obj->file)->i_ino,
+			buf_obj->name ?: "");
+	priv_buf->offset += ret;
+	if (priv_buf->offset == priv_buf->size - 1)
+		goto err;
+
+	robj = buf_obj->resv;
+	while (true) {
+		seq = read_seqcount_begin(&robj->seq);
+		rcu_read_lock();
+		fobj = rcu_dereference(robj->fence);
+		shared_count = fobj ? fobj->shared_count : 0;
+		fence = rcu_dereference(robj->fence_excl);
+		if (!read_seqcount_retry(&robj->seq, seq))
+			break;
+		rcu_read_unlock();
+	}
+
+	if (fence) {
+		ret = scnprintf(priv_buf->buf + priv_buf->offset,
+				priv_buf->size - priv_buf->offset,
+				"\tExclusive fence: %s %s %ssignalled\n",
+				fence->ops->get_driver_name(fence),
+				fence->ops->get_timeline_name(fence),
+				dma_fence_is_signaled(fence) ? "" : "un");
+		priv_buf->offset += ret;
+		if (priv_buf->offset == priv_buf->size - 1)
+			goto err;
+	}
+	for (i = 0; i < shared_count; i++) {
+		fence = rcu_dereference(fobj->shared[i]);
+		if (!dma_fence_get_rcu(fence))
+			continue;
+		ret = scnprintf(priv_buf->buf + priv_buf->offset,
+				priv_buf->size - priv_buf->offset,
+				"\tShared fence: %s %s %ssignalled\n",
+				fence->ops->get_driver_name(fence),
+				fence->ops->get_timeline_name(fence),
+				dma_fence_is_signaled(fence) ? "" : "un");
+		priv_buf->offset += ret;
+		if (priv_buf->offset == priv_buf->size - 1)
+			goto err;
+		dma_fence_put(fence);
+	}
+	rcu_read_unlock();
+
+	ret = scnprintf(priv_buf->buf + priv_buf->offset,
+			priv_buf->size - priv_buf->offset,
+			"\tAttached Devices:\n");
+	priv_buf->offset += ret;
+	if (priv_buf->offset == priv_buf->size - 1)
+		goto err;
+	attach_count = 0;
+
+	list_for_each_entry(attach_obj, &buf_obj->attachments, node) {
+		ret = scnprintf(priv_buf->buf + priv_buf->offset,
+				priv_buf->size - priv_buf->offset,
+				"\t%s\n", dev_name(attach_obj->dev));
+		priv_buf->offset += ret;
+		if (priv_buf->offset == priv_buf->size - 1)
+			goto err;
+		attach_count++;
+	}
+	dma_resv_unlock(buf_obj->resv);
+
+	ret = scnprintf(priv_buf->buf + priv_buf->offset,
+			priv_buf->size - priv_buf->offset,
+			"Total %d devices attached\n\n",
+			attach_count);
+	priv_buf->offset += ret;
+	if (priv_buf->offset == priv_buf->size - 1)
+		goto err;
+
+	buf->count += 1;
+	buf->size += buf_obj->size;
+
+	return 0;
+err:
+	pr_err("DMABUF_INFO minidump region exhausted\n");
+	return -ENOSPC;
+}
+
+void md_dma_buf_info(char *m, size_t dump_size)
+{
+	int ret;
+	struct dma_buf_priv dma_buf_priv;
+	struct priv_buf buf;
+
+	buf.buf = m;
+	buf.size = dump_size;
+	buf.offset = 0;
+	dma_buf_priv.priv_buf = &buf;
+	dma_buf_priv.count = 0;
+	dma_buf_priv.size = 0;
+
+	ret = scnprintf(buf.buf, buf.size, "\nDma-buf Objects:\n");
+	ret += scnprintf(buf.buf + ret, buf.size - ret,
+			"%-8s\t%-8s\t%-8s\t%-8s\texp_name\t%-8s\n",
+			"size", "flags", "mode", "count", "ino");
+	buf.offset = ret;
+
+	get_each_dmabuf(dump_bufinfo, &dma_buf_priv);
+
+	scnprintf(buf.buf + buf.offset, buf.size - buf.offset,
+			"\nTotal %d objects, %zu bytes\n",
+			dma_buf_priv.count, dma_buf_priv.size);
+}
+
+static ssize_t dma_buf_info_size_write(struct file *file,
+					  const char __user *ubuf,
+					  size_t count, loff_t *offset)
+{
+	unsigned long long  size;
+
+	if (kstrtoull_from_user(ubuf, count, 0, &size)) {
+		pr_err_ratelimited("Invalid format for size\n");
+		return -EINVAL;
+	}
+	update_dump_size("DMABUF_INFO", size,
+			&md_dma_buf_info_addr, &md_dma_buf_info_size);
+	return count;
+}
+
+static ssize_t dma_buf_info_size_read(struct file *file, char __user *ubuf,
+				       size_t count, loff_t *offset)
+{
+	char buf[100];
+
+	snprintf(buf, sizeof(buf), "%llu MB\n", md_dma_buf_info_size/SZ_1M);
+	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
+}
+
+static const struct file_operations proc_dma_buf_info_size_ops = {
+	.open	= simple_open,
+	.write	= dma_buf_info_size_write,
+	.read	= dma_buf_info_size_read,
+};
+
+void md_debugfs_dmabufinfo(struct dentry *minidump_dir)
+{
+	debugfs_create_file("dma_buf_info_size_mb", 0400, minidump_dir, NULL,
+			    &proc_dma_buf_info_size_ops);
+}

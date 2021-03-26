@@ -13,6 +13,8 @@ extern char *md_pageowner_dump_addr;
 extern size_t md_slabowner_dump_size;
 extern char *md_slabowner_dump_addr;
 #endif
+extern size_t md_dma_buf_info_size;
+extern char *md_dma_buf_info_addr;
 
 void md_dump_meminfo(struct seq_buf *m);
 #ifdef CONFIG_SLUB_DEBUG
@@ -40,3 +42,5 @@ static inline bool is_slub_debug_enabled(void) { return false; }
 static inline void md_dump_slabowner(char *addr, size_t dump_size) {}
 static inline void md_debugfs_slabowner(struct dentry *minidump_dir) {}
 #endif
+void md_dma_buf_info(char *m, size_t dump_size);
+void md_debugfs_dmabufinfo(struct dentry *minidump_dir);

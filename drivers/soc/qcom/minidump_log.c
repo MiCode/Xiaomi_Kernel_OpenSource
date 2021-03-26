@@ -136,6 +136,9 @@ size_t md_slabowner_dump_size = SZ_2M;
 char *md_slabowner_dump_addr;
 #endif
 
+size_t md_dma_buf_info_size = SZ_256K;
+char *md_dma_buf_info_addr;
+
 /* Modules information */
 #ifdef CONFIG_MODULES
 #define NUM_MD_MODULES	200
@@ -1096,6 +1099,8 @@ dump_rq:
 	if (md_slabowner_dump_addr)
 		md_dump_slabowner(md_slabowner_dump_addr, md_slabowner_dump_size);
 #endif
+	if (md_dma_buf_info_addr)
+		md_dma_buf_info(md_dma_buf_info_addr, md_dma_buf_info_size);
 	md_in_oops_handler = false;
 	return NOTIFY_DONE;
 }
@@ -1189,6 +1194,8 @@ static void md_register_panic_data(void)
 		md_debugfs_slabowner(minidump_dir);
 	}
 #endif
+	md_register_memory_dump(md_dma_buf_info_size, "DMABUF_INFO");
+	md_debugfs_dmabufinfo(minidump_dir);
 }
 
 #ifdef CONFIG_MODULES
