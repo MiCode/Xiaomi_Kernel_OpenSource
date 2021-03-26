@@ -5,12 +5,13 @@ green='\e[0;32m'
 red='\e[0;31m'
 eol='\e[0m'
 
+KERNEL_VER=kernel-5.4
 BASE_DIR=$PWD
 ABIGAIL_DIR=$BASE_DIR/../kernel/build/abi
 ABIGAIL_BUILD_SCRIPT=$ABIGAIL_DIR/bootstrap_src_build
 ABI_XML_DIR=$BASE_DIR/scripts/abi/abi_xml
 ABI_RESULT_DIR=$BASE_DIR/scripts/abi/abi_xml
-ORI_ABI_XML=abi_$src_defconfig.xml
+ORI_ABI_XML=abi_$src_project"_defconfig.xml"
 TARGET_ABI_XML=abi_target.xml
 ABI_REPORT=abi-report.out
 FINAL_ABI_REPORT=abi-report-final.out
@@ -24,33 +25,33 @@ echo "ABIGAIL_DIR_RELEASE=$ABIGAIL_DIR_RELEASE"
 
 function print_usage(){
 	echo -e "${green}Script for auto generate target_branch's ABI xml \
-based on src_defconfig and compare with abi_{src_defconfig}.xml${eol}"
+based on src_project and compare with abi_{src_project}.xml${eol}"
 	echo ""
 	echo -e "${red}Command for local test:${eol}"
-	echo "[src_defconfig] mode=m ./scripts/abi/CompareABI.sh"
+	echo "[src_project] mode=m ./scripts/abi/CompareABI.sh"
 	echo ""
 	echo -e "${green}Description:${eol}"
-	echo "[src_defconfig]: source project defconfig"
+	echo "[src_project]: source project name"
 	echo ""
-	echo -e "${green}Example:${eol} ${red}src_defconfig=\
-k6873v1_64_gki_defconfig mode=m \
+	echo -e "${green}Example:${eol} ${red}src_project=\
+k6873v1_64_gki mode=m \
 ./scripts/abi/CompareABI.sh 2>&1 | tee buildABI.log${eol}"
 	echo ""
 	echo -e "${green}Script for auto generate target_branch's ABI xml \
-based on src_defconfig and compare with abi_{src_defconfig}.xml and save abi \
+based on src_project and compare with abi_{src_project}.xml and save abi \
 monitor result to [abi_result_path]${eol}"
 	echo ""
 	echo -e "${red}Command for local test:${eol}"
-	echo "[src_defconfig] mode=m [abi_result_path] \
+	echo "[src_project] mode=m [abi_result_path] \
 ./scripts/abi/CompareABI.sh"
 	echo ""
 	echo -e "${green}Description:${eol}"
-	echo "[src_defconfig]: source project defconfig"
+	echo "[src_project]: source project name"
 	echo ""
 	echo "[abi_result_path]: absolute path to put abi monitor result"
 	echo ""
-	echo -e "${green}Example:${eol} ${red}src_defconfig=\
-k6873v1_64_gki_defconfig mode=m abi_result_path=absolute_path \
+	echo -e "${green}Example:${eol} ${red}src_project=\
+k6873v1_64_gki mode=m abi_result_path=absolute_path \
 ./scripts/abi/CompareABI.sh 2>&1 | tee buildABI.log${eol}"
 	echo ""
 	echo -e "${red}Command for delete temp files:${eol}"
@@ -112,25 +113,16 @@ then
 	$ABIGAIL_BUILD_SCRIPT
 	#remove temp files first
 	del_temp_files
-	echo "Generate .config from src_defconfig:$src_defconfig"
+	echo "Generate .config from src_project:$src_project"
 	cd ..
-	export PATH=$PWD\
-/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/:\
-$PWD/prebuilts/clang/host/linux-x86/clang-r383902/bin/:$PATH
+
+	#build kernel
+	python $KERNEL_VER/scripts/gen_build_config.py -p $src_project \
+	 -m user -o $TARGET_KERNEL_DIR/build.config
+	BUILD_CONFIG=$KERNEL_VER/temp/out/build.config OUT_DIR=$KERNEL_VER/temp/out \
+	./kernel/build/build.sh 2>&1 |tee k.log
+
 	cd $BASE_DIR
-	echo "Copy arch/arm64/configs/$src_defconfig to \
-arch/arm64/configs/$src_defconfig.config"
-	cp arch/arm64/configs/$src_defconfig \
-	arch/arm64/configs/$src_defconfig.config
-
-	make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
-	CROSS_COMPILE=aarch64-linux-android- CC=clang \
-	gki_defconfig $src_defconfig.config O=temp/out
-	$SERVER_QUEUE make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
-	CROSS_COMPILE=aarch64-linux-android- CC=clang O=temp/out -j24 -k
-
-	echo "Remove temp file arch/arm64/configs/$src_defconfig.config"
-	rm arch/arm64/configs/$src_defconfig.config
 
 	echo "Generate ABI xml:$TARGET_ABI_XML from kernel \
 tree:$TARGET_VMLINUX_DIR"
@@ -139,9 +131,9 @@ tree:$TARGET_VMLINUX_DIR"
 	export PATH=${ABIGAIL_DIR_RELEASE}/bin:${PATH}
 	export LD_LIBRARY_PATH=${ABIGAIL_DIR_RELEASE}/lib:\
 ${ABIGAIL_DIR_RELEASE}/lib/elfutils:${LD_LIBRARY_PATH}
-	echo "Copy vmlinux from $TARGET_KERNEL_DIR to $TARGET_VMLINUX_DIR"
+	echo "Copy vmlinux from $TARGET_KERNEL_DIR\\$KERNEL_VER to $TARGET_VMLINUX_DIR"
 	mkdir -p $TARGET_VMLINUX_DIR
-	cp $TARGET_KERNEL_DIR/vmlinux $TARGET_VMLINUX_DIR
+	cp $TARGET_KERNEL_DIR/$KERNEL_VER/vmlinux $TARGET_VMLINUX_DIR
 	cd $ABIGAIL_DIR
 	python dump_abi --linux-tree $TARGET_VMLINUX_DIR --out-file \
 	$ABI_RESULT_DIR/$TARGET_ABI_XML

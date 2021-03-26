@@ -5,6 +5,7 @@ green='\e[0;32m'
 red='\e[0;31m'
 eol='\e[0m'
 
+KERNEL_VER=kernel-5.4
 BASE_DIR=$PWD
 ABI_DIR=$BASE_DIR/scripts/abi
 ABIGAIL_DIR=$BASE_DIR/../kernel/build/abi
@@ -12,9 +13,9 @@ ABIGAIL_BUILD_SCRIPT=$ABIGAIL_DIR/bootstrap_src_build
 ABI_XML_DIR=$BASE_DIR/scripts/abi/abi_xml
 #target_kernel must create outside current kernel's repo
 TARGET_KERNEL_DIR=$BASE_DIR/../../target_kernel_quark5.4
-TARGET_DEFCONFIG=mtk_gki_defconfig
 TARGET_DEFCONFIG_PATCH=$ABI_DIR/mtk_gki_defconfig_patch
-TARGET_ABI_XML=abi_$src_defconfig.xml
+TARGET_ABI_XML=abi_$src_project"_defconfig.xml"
+echo "TARGET_ABI_XML=$TARGET_ABI_XML"
 TARGET_VMLINUX_DIR=$TARGET_KERNEL_DIR/common/out_vmlinux
 
 echo "Get ABIGAIL_VERSION from $ABIGAIL_BUILD_SCRIPT"
@@ -32,36 +33,36 @@ cd $BASE_DIR
 
 function print_usage(){
 	echo -e "${green}Script for auto generate target_branch's ABI xml \
-based on src_defconfig ${eol}"
+based on src_project ${eol}"
 	echo ""
 	echo -e "${red}Command for local test:${eol}"
-	echo "[src_commit] [src_defconfig] [target_branch] [target_commit] \
+	echo "[src_commit] [src_project] [target_branch] [target_commit] \
 mode=m ./scripts/abi/genOriABIxml.sh"
 	echo ""
 	echo -e "${green}Description:${eol}"
 	echo "[src_commit]: source kernel commit id"
-	echo "[src_defconfig]: source project defconfig"
+	echo "[src_project]: source project name"
 	echo "[target_branch]: target branch"
 	echo "[target_commit]: target kernel commit id"
 	echo ""
 	echo -e "${green}Example:${eol} ${red}src_commit=491f0e3 \
-src_defconfig=k6873k_64_gki_defconfig \
+src_project=k6873k_64_gki \
 target_branch=common-android11-5.4 target_commit=f232ce6 mode=m \
 ./scripts/abi/genOriABIxml.sh 2>&1 | tee buildOriABI.log${eol}"
 	echo ""
 	echo -e "${green}Script for auto generate target_branch's ABI xml \
-for preflight based on src_defconfig ${eol}"
+for preflight based on src_project ${eol}"
 	echo ""
 	echo -e "${red}Command for local test:${eol}"
-	echo "[src_defconfig] [target_branch] mode=p \
+	echo "[src_project] [target_branch] mode=p \
 ./scripts/abi/genOriABIxml.sh"
 	echo ""
 	echo -e "${green}Description:${eol}"
-	echo "[src_defconfig]: source project defconfig"
+	echo "[src_project]: source project name"
 	echo "[target_branch]: target branch"
 	echo ""
-	echo -e "${green}Example:${eol} ${red}src_defconfig=\
-k6873v1_64_gki_defconfig \
+	echo -e "${green}Example:${eol} ${red}src_project=\
+k6873v1_64_gki \
 target_branch=common-android11-5.4 mode=p \
 ./scripts/abi/genOriABIxml.sh 2>&1 | tee buildOriABI.log${eol}"
 	echo ""
@@ -117,41 +118,50 @@ then
 	del_temp_files
 	cd ..
 
+	#May need alps build.config setting in the future
+	#now just use google's build.config.gki-debug.aarch64 instead
+	#python $KERNEL_VER/scripts/gen_build_config.py -p $src_project \
+	#-m user -o $KERNEL_VER/temp/out/build.config
+	#BUILD_CONFIG=$KERNEL_VER/temp/out/build.config OUT_DIR=out \
+	#POST_DEFCONFIG_CMDS="exit 0" ./build/build.sh 2>&1 |tee k.log
+
 	echo "Generate ABI xml:$TARGET_ABI_XML of target_branch:$target_branch \
 with commit id:$target_commit"
 	mkdir $TARGET_KERNEL_DIR
 	cd $TARGET_KERNEL_DIR
-	repo init -u http://gerrit.mediatek.inc:8080/kernel/manifest -b $target_branch
+	repo init -u https://gerrit.mediatek.inc/kernel/manifest -b $target_branch
 	$SERVER_QUEUE mtk_repo sync -f -j8 --no-clone-bundle -c --no-tags
 
-	export PATH=\
-$PWD/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/:\
-$PWD/prebuilts-master/clang/host/linux-x86/clang-r383902/bin/:$PATH
 	cd common
 	git checkout $target_commit
-	echo "Move gki_defconfig from arch/arm64/configs/ to \
-$PWD/arch/arm64/configs/$TARGET_DEFCONFIG"
-	cp arch/arm64/configs/gki_defconfig arch/arm64/configs/$TARGET_DEFCONFIG
-	#Modify $TARGET_DEFCONFIG configs according to $TARGET_DEFCONFIG_PATCH
+	#Modify gki_defconfig configs according to $TARGET_DEFCONFIG_PATCH
 	exec < $TARGET_DEFCONFIG_PATCH
 	while read line
 	do
 		#get string before "="
 		config_=${line%%=*}
-		#replace matched string
-		sed -i "/$config_/c\\$line" \
-			$PWD/arch/arm64/configs/$TARGET_DEFCONFIG
+		#delete matched string "xxx is not set"
+		echo "Remove $config_ in gki_defconfig"
+		sed -i "/$config_/d" \
+			$PWD/arch/arm64/configs/gki_defconfig
 	done
 
-	make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
-	CROSS_COMPILE=aarch64-linux-android- CC=clang $TARGET_DEFCONFIG O=temp/out
-	$SERVER_QUEUE make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
-	CROSS_COMPILE=aarch64-linux-android- CC=clang O=temp/out -j24 -k
+	#NOT reqiried currently, may need in the future
+	#copy $BASE_DIR/temp/out/build.config to $TARGET_KERNEL_DIR/common
+	#cp $BASE_DIR/temp/out/build.config .
+
+	cd ..
+
+	#build target kernel, export all symbols to xml
+	BUILD_CONFIG=common/build.config.gki-debug.aarch64 \
+	OUT_DIR=common/temp/out ./build/build.sh 2>&1 |tee k.log
+
+	cd common
 
 	#Only use vmlinux to generate ABI xml
 	echo "Copy vmlinux from $PWD/temp/out to $PWD/out_vmlinux"
 	mkdir out_vmlinux
-	cp temp/out/vmlinux out_vmlinux
+	cp temp/out/dist/vmlinux out_vmlinux
 
 	#Use abi_dump to generate $TARGET_ABI_XML
 	#export $ABIGAIL_DIR bin and lib
