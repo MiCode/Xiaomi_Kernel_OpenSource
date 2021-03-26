@@ -5230,12 +5230,14 @@ static void msm_pcie_handle_linkdown(struct msm_pcie_dev_t *dev)
 	dev->link_status = MSM_PCIE_LINK_DOWN;
 	dev->shadow_en = false;
 
-	/* PCIe registers dump on link down */
-	PCIE_DUMP(dev, "PCIe:Linkdown IRQ for RC%d Dumping PCIe registers\n",
-		dev->rc_idx);
-	pcie_phy_dump(dev);
-	pcie_parf_dump(dev);
-	pcie_dm_core_dump(dev);
+	if (!dev->suspending) {
+		/* PCIe registers dump on link down */
+		PCIE_DUMP(dev, "PCIe:Linkdown IRQ for RC%d Dumping PCIe registers\n",
+			dev->rc_idx);
+		pcie_phy_dump(dev);
+		pcie_parf_dump(dev);
+		pcie_dm_core_dump(dev);
+	}
 
 	/* assert PERST */
 	if (!(msm_pcie_keep_resources_on & BIT(dev->rc_idx)))
