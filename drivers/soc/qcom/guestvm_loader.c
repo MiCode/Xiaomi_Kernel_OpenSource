@@ -153,6 +153,11 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 			complete_all(&priv->vm_start);
 			return NOTIFY_DONE;
 		}
+		ret = hh_rm_get_vm_id_info(get_hh_vm_name(priv->vm_name),
+							priv->vmid);
+		if (ret < 0)
+			dev_err(priv->dev, "Couldn't obtain VM ID info.\n");
+
 		complete_all(&priv->vm_start);
 		break;
 	case HH_RM_VM_STATUS_RUNNING:
@@ -341,6 +346,7 @@ static int guestvm_loader_probe(struct platform_device *pdev)
 	init_completion(&priv->vm_start);
 	init_completion(&isolation_done);
 	priv->guestvm_nb.notifier_call = guestvm_loader_nb_handler;
+	priv->guestvm_nb.priority = 1;
 	ret = hh_rm_register_notifier(&priv->guestvm_nb);
 	if (ret)
 		return ret;
