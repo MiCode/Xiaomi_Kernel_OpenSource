@@ -977,5 +977,15 @@ config MSM_EXT_DISPLAY
 	  between external display driver and its counterparts.
 	  This should be enabled to support audio & video over HDMI or
 	  DP for hot pluggable sink devices.
+
+config QCOM_PANEL_EVENT_NOTIFIER
+	tristate "panel event notifier"
+	depends on DRM
+	help
+	  Enabling this option adds panel event notifier driver.
+	  This driver is responsible for notifying clients interested in display
+	  panel events such as panel on , panel off, fps change etc.  Clients
+	  can use these notifications for power saving or align its operations
+	  with display panel power state.
 source "drivers/soc/qcom/icnss2/Kconfig"
 endmenu
