@@ -15,6 +15,42 @@ struct kprobe_data {
 	void *x2;
 };
 
+static unsigned int ep_flags[DWC3_ENDPOINTS_NUM];
+
+static int entry___dwc3_gadget_ep_disable(struct kretprobe_instance *ri,
+				   struct pt_regs *regs)
+{
+	struct kprobe_data *data = (struct kprobe_data *)ri->data;
+	struct dwc3_ep *dep = (struct dwc3_ep *)regs->regs[0];
+
+	ep_flags[dep->number] = dep->flags;
+	data->x0 = dep;
+
+	return 0;
+}
+
+static int exit___dwc3_gadget_ep_disable(struct kretprobe_instance *ri,
+				   struct pt_regs *regs)
+{
+	struct kprobe_data *data = (struct kprobe_data *)ri->data;
+	struct dwc3_ep *dep = (struct dwc3_ep *)data->x0;
+
+	ep_flags[dep->number] = 0;
+	dep->flags = 0;
+
+	return 0;
+}
+
+static int entry_dwc3_remove_requests(struct kretprobe_instance *ri,
+				   struct pt_regs *regs)
+{
+	struct dwc3_ep *dep = (struct dwc3_ep *)regs->regs[0];
+
+	dep->flags = ep_flags[dep->number];
+
+	return 0;
+}
+
 static int entry_dwc3_gadget_run_stop(struct kretprobe_instance *ri,
 				   struct pt_regs *regs)
 {
@@ -91,6 +127,8 @@ static int exit_dwc3_gadget_conndone_interrupt(struct kretprobe_instance *ri,
 }
 
 static struct kretprobe dwc3_msm_probes[] = {
+	ENTRY_EXIT(__dwc3_gadget_ep_disable),
+	ENTRY(dwc3_remove_requests),
 	ENTRY(dwc3_gadget_run_stop),
 	ENTRY(dwc3_send_gadget_ep_cmd),
 	ENTRY(dwc3_gadget_reset_interrupt),
