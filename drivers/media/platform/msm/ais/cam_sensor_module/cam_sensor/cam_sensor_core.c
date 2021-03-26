@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1639,6 +1640,11 @@ int cam_sensor_publish_dev_info(struct cam_req_mgr_device_info *info)
 	else
 		info->p_delay = 2;
 	info->trigger = CAM_TRIGGER_POINT_SOF;
+
+	if (g_operation_mode == 0x8006)
+		info->p_delay = 0;
+	if (g_operation_mode == 0x8002)
+		info->p_delay = 1;
 
 	return rc;
 }

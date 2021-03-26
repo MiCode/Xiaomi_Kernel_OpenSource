@@ -2072,4 +2072,10 @@ config ASN1
 	  inform it as to what tags are to be expected in a stream and what
 	  functions to call on what tags.
 
+config MIHW
+	bool "MI driver"
+	default n
+	help
+	  Mi driver code
+
 source "kernel/Kconfig.locks"

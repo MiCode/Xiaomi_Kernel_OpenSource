@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2003 Sistina Software Limited.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2004-2005 Red Hat, Inc. All rights reserved.
  *
  * This file is released under the GPL.
@@ -1807,8 +1808,7 @@ out:
 	return r;
 }
 
-static int multipath_prepare_ioctl(struct dm_target *ti,
-		struct block_device **bdev, fmode_t *mode)
+static int multipath_prepare_ioctl(struct dm_target *ti, struct block_device **bdev)
 {
 	struct multipath *m = ti->private;
 	struct pgpath *current_pgpath;

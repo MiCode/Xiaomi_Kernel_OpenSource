@@ -4,6 +4,7 @@
  * Written by Stephen C. Tweedie <sct@redhat.com>, 1998
  *
  * Copyright 1998 Red Hat corp --- All Rights Reserved
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file is part of the Linux kernel and is made available under
  * the terms of the GNU General Public License, version 2, or at your
@@ -28,6 +29,10 @@
 #include <linux/blkdev.h>
 #include <linux/bitops.h>
 #include <trace/events/jbd2.h>
+
+#if defined(CONFIG_UFSTW)
+#include <linux/ufstw.h>
+#endif
 
 /*
  * IO end handler for temporary buffer_heads handling writes to the journal.
@@ -532,6 +537,9 @@ void jbd2_journal_commit_transaction(journal_t *journal)
 	write_unlock(&journal->j_state_lock);
 
 	jbd_debug(3, "JBD2: commit phase 2a\n");
+#if defined(CONFIG_UFSTW)
+	bdev_set_turbo_write(journal->j_dev);
+#endif
 
 	/*
 	 * Now start flushing things to disk, in the order they appear
@@ -1132,6 +1140,9 @@ restart_loop:
 	write_unlock(&journal->j_state_lock);
 	wake_up(&journal->j_wait_done_commit);
 
+#if defined(CONFIG_UFSTW)
+	bdev_clear_turbo_write(journal->j_dev);
+#endif
 	/*
 	 * Calculate overall stats
 	 */

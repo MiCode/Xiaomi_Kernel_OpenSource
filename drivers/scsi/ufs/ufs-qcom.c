@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013-2020, Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1955,8 +1956,14 @@ static void ufs_qcom_parse_lpm(struct ufs_qcom_host *host)
 	struct device_node *node = host->hba->dev->of_node;
 
 	host->disable_lpm = of_property_read_bool(node, "qcom,disable-lpm");
+
+	/*XM: disable lpm in recovery mode*/
+	if(strnstr(saved_command_line, "androidboot.recoveyboot=true",
+		strlen(saved_command_line)))
+		host->disable_lpm=1;
+
 	if (host->disable_lpm)
-		pr_info("%s: will disable all LPM modes\n", __func__);
+		pr_err("%s: will disable all LPM modes\n", __func__);
 }
 
 static int ufs_qcom_parse_reg_info(struct ufs_qcom_host *host, char *name,

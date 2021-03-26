@@ -2,6 +2,7 @@
  * cgroup_freezer.c -  control group freezer subsystem
  *
  * Copyright IBM Corporation, 2007
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author : Cedric Le Goater <clg@fr.ibm.com>
  *
@@ -450,6 +451,26 @@ static u64 freezer_parent_freezing_read(struct cgroup_subsys_state *css,
 	return (bool)(freezer->state & CGROUP_FREEZING_PARENT);
 }
 
+int __weak millet_can_attach(struct cgroup_taskset *tset)
+{
+	return 0;
+}
+
+int __weak millet_cancel_attach(struct cgroup_taskset *tset)
+{
+	return 0;
+}
+
+static int freezer_can_attach(struct cgroup_taskset *tset)
+{
+	return millet_can_attach(tset);
+}
+
+static void freezer_cancel_attach(struct cgroup_taskset *tset)
+{
+	millet_cancel_attach(tset);
+}
+
 static struct cftype files[] = {
 	{
 		.name = "state",
@@ -475,6 +496,8 @@ struct cgroup_subsys freezer_cgrp_subsys = {
 	.css_online	= freezer_css_online,
 	.css_offline	= freezer_css_offline,
 	.css_free	= freezer_css_free,
+	.can_attach	= freezer_can_attach,
+	.cancel_attach	= freezer_cancel_attach,
 	.attach		= freezer_attach,
 	.fork		= freezer_fork,
 	.legacy_cftypes	= files,

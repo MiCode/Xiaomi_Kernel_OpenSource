@@ -1,4 +1,5 @@
 /* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,15 +17,10 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "atoll-atp.dtsi"
-#include "atoll-audio-overlay.dtsi"
 
 / {
 	model = "ATP";
 	compatible = "qcom,atoll-idp", "qcom,atoll", "qcom,idp", "qcom,atp";
 	qcom,msm-id = <407 0x0>;
 	qcom,board-id = <33 0>;
-};
-
-&dsi_rm69299_visionox_amoled_vid_display {
-	qcom,dsi-display-active;
 };

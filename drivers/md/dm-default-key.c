@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2017 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/blk-crypto.h>
@@ -413,8 +414,7 @@ static void default_key_status(struct dm_target *ti, status_type_t type,
 }
 
 static int default_key_prepare_ioctl(struct dm_target *ti,
-				     struct block_device **bdev,
-				     fmode_t *mode)
+				     struct block_device **bdev)
 {
 	const struct default_key_c *dkc = ti->private;
 	const struct dm_dev *dev = dkc->dev;

@@ -1,0 +1,286 @@
+/*for F10 SM7150 pinctrl*/
+
+&tlmm {
+	/*touchpanel*/
+	pmx_ts_active {
+			tp_active: tp_active {
+					mux {
+						pins = "gpio9", "gpio8";
+						function = "gpio";
+					};
+					config {
+						pins = "gpio9", "gpio8";
+						drive-strength = <16>;
+						bias-pull-up;
+					};
+			};
+	};
+
+	pmx_ts_int_suspend {
+			tp_int_suspend: tp_int_suspend {
+				mux {
+					pins = "gpio9";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio9";
+					drive-strength = <16>;
+					input-enable;
+					slew-rate = <0>;
+					bias-pull-up = <00>;
+				};
+			};
+	};
+
+	pmx_ts_reset_suspend {
+			tp_reset_suspend: tp_reset_suspend {
+				mux {
+					pins = "gpio8";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio8";
+					drive-strength = <16>;
+					slew-rate = <1>;
+					bias-disable;
+					output-high;
+				};
+			};
+	};
+	bq2597x {
+		bq2597x_int_default: bq2597x_int_default {
+			/* active state */
+			mux {
+				/* GPIO 48 is used for bq25970 master ic interrupt usage */
+				pins = "gpio58";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio58";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				input-enable;
+			};
+		};
+
+		bq2597x_int_suspend: bq2597x_int_suspend {
+			/* sleep state */
+			mux {
+				/* GPIO 48 is used for bq25970 master ic interrupt usage */
+				pins = "gpio58";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio58";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				input-enable;
+			};
+		};
+	};
+
+	onewire_gpio_active: onewire_gpio_active {
+		mux {
+			pins = "gpio94";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio94";
+			drive-strength = <2>;
+			bias-pull-up; /* No PULL */
+		};
+	};
+
+	onewire_gpio_sleep: onewire_gpio_sleep {
+		mux {
+			pins = "gpio94";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio94";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+
+	pri_i2s_sck_ws {
+		pri_i2s_sck_sleep: pri_i2s_sck_sleep {
+			mux {
+				pins = "gpio49";
+				function = "pri_mi2s";
+			};
+
+			config {
+				pins = "gpio49";
+				drive-strength = <2>;   /* 2 mA */
+			};
+		};
+
+		pri_i2s_sck_active: pri_i2s_sck_active {
+			mux {
+				pins = "gpio49";
+				function = "pri_mi2s";
+			};
+
+			config {
+				pins = "gpio49";
+				drive-strength = <8>;   /* 8 mA */
+				bias-disable;
+				output-high;
+			};
+		};
+
+		pri_i2s_ws_sleep: pri_i2s_ws_sleep {
+			mux {
+				pins = "gpio50";
+				function = "pri_mi2s_ws";
+			};
+
+			config {
+				pins = "gpio50";
+				drive-strength = <2>;   /* 2 mA */
+			};
+		};
+
+		pri_i2s_ws_active: pri_i2s_ws_active {
+			mux {
+				pins = "gpio50";
+				function = "pri_mi2s_ws";
+			};
+
+			config {
+				pins = "gpio50";
+				drive-strength = <8>;   /* 8 mA */
+				bias-disable;
+				output-high;
+			};
+		};
+	};
+
+	pri_i2s_data0 {
+		pri_i2s_data0_sleep: pri_i2s_data0_sleep {
+			mux {
+				pins = "gpio52";
+				function = "pri_mi2s";
+			};
+
+			config {
+				pins = "gpio52";
+				drive-strength = <2>;   /* 2 mA */
+			};
+		};
+
+		pri_i2s_data0_active: pri_i2s_data0_active {
+			mux {
+				pins = "gpio52";
+				function = "pri_mi2s";
+			};
+
+			config {
+				pins = "gpio52";
+				drive-strength = <8>;   /* 8 mA */
+				bias-disable;
+				input-enable;
+			};
+		};
+	};
+
+	pri_i2s_data1 {
+		pri_i2s_data1_sleep: pri_i2s_data1_sleep {
+			mux {
+				pins = "gpio51";
+				function = "pri_mi2s";
+			};
+
+			config {
+				pins = "gpio51";
+				drive-strength = <2>;   /* 2 mA */
+			};
+		};
+
+		pri_i2s_data1_active: pri_i2s_data1_active {
+			mux {
+				pins = "gpio51";
+				function = "pri_mi2s";
+			};
+
+			config {
+				pins = "gpio51";
+				drive-strength = <8>;   /* 8 mA */
+				bias-disable;
+				output-high;
+			};
+		};
+	};
+
+	smartpa_int_active: smartpa_int_active {
+		/* active state */
+		mux {
+			/* GPIO 56 Interrupt */
+			pins = "gpio56";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio56";
+			drive-strength = <2>; /* 2 MA */
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+	smartpa_int_suspend: smartpa_int_suspend {
+		/* sleep state */
+		mux {
+			/* GPIO 56 Interrupt */
+			pins = "gpio56";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio56";
+			drive-strength = <2>; /* 2 MA */
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+	smartpa_enable_active: smartpa_enable_active {
+		/* active state */
+		mux {
+			/* GPIO 12 rst pin */
+			pins = "gpio12";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio12";
+			drive-strength = <2>;
+			bias-disable;
+			bias-pull-down;
+			output-low;
+		};
+	};
+
+	smartpa_enable_suspend: smartpa_enable_suspend {
+		/* sleep state */
+		mux {
+			/* GPIO 12 rst pin */
+			pins = "gpio12";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio12";
+			drive-strength = <2>;
+			bias-disable;
+			bias-pull-down;
+			output-low;
+		};
+	};
+
+};

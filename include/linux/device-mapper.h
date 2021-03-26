@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2001 Sistina Software (UK) Limited.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2004-2008 Red Hat, Inc. All rights reserved.
  *
  * This file is released under the LGPL.
@@ -88,8 +89,7 @@ typedef void (*dm_status_fn) (struct dm_target *ti, status_type_t status_type,
 
 typedef int (*dm_message_fn) (struct dm_target *ti, unsigned argc, char **argv);
 
-typedef int (*dm_prepare_ioctl_fn) (struct dm_target *ti,
-			    struct block_device **bdev, fmode_t *mode);
+typedef int (*dm_prepare_ioctl_fn) (struct dm_target *ti, struct block_device **bdev);
 
 /*
  * These iteration functions are typically used to check (and combine)

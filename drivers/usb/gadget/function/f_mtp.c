@@ -2,6 +2,7 @@
  * Gadget Function Driver for MTP
  *
  * Copyright (C) 2010 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Mike Lockwood <lockwood@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -159,9 +160,9 @@ static struct usb_interface_descriptor mtp_interface_desc = {
 	.bDescriptorType        = USB_DT_INTERFACE,
 	.bInterfaceNumber       = 0,
 	.bNumEndpoints          = 3,
-	.bInterfaceClass        = USB_CLASS_VENDOR_SPEC,
-	.bInterfaceSubClass     = USB_SUBCLASS_VENDOR_SPEC,
-	.bInterfaceProtocol     = 0,
+	.bInterfaceClass        = USB_CLASS_STILL_IMAGE,
+	.bInterfaceSubClass     = 1,
+	.bInterfaceProtocol     = 1,
 };
 
 static struct usb_interface_descriptor ptp_interface_desc = {
@@ -614,6 +615,7 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 		goto wait_err;
 	}
 
+	cdev = dev->cdev;
 	len = ALIGN(count, dev->ep_out->maxpacket);
 	if (len > mtp_rx_req_len)
 		return -EINVAL;

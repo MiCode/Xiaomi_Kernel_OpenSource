@@ -43,6 +43,11 @@ config ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES
 	  /sys/module/lowmemorykiller/parameters/adj and convert them
 	  to oom_score_adj values.
 
+config MIGT
+        bool "boost cpufreq when load high"
+        ---help---
+          Boost cpufreq when current frame drawing time too long
+
 source "drivers/staging/android/ion/Kconfig"
 
 endif # if ANDROID

@@ -358,6 +358,136 @@ static int scsi_vpd_inquiry(struct scsi_device *sdev, unsigned char *buffer,
 	return get_unaligned_be16(&buffer[2]) + 4;
 }
 
+int scsi_ss_set_pwd(struct scsi_device *sdev)
+{
+	int result;
+	unsigned char cmd[16] = {0};
+
+	cmd[0] = 0xc0; /*VENDOR_SPECIFIC_CDB;*/
+	cmd[1] = 0x03;
+
+	/*password*/
+	cmd[2] = 'g';
+	cmd[3] = 'h';
+	cmd[4] = 'r';
+	cmd[5] = 0;
+
+	result = scsi_execute_req(sdev, cmd, DMA_NONE, 0,
+				  0, NULL, 30 * HZ, 3, NULL);
+	if (result) {
+		pr_err("ufs: scsi_ss_set_pwd error\n");
+	}
+	return result;
+}
+
+
+int scsi_ss_enter_vendor_mode(struct scsi_device *sdev)
+{
+	int result;
+	unsigned char cmd[16] = {0};
+
+	cmd[0] = 0xc0; /*VENDOR_SPECIFIC_CDB;*/
+	cmd[1] = 0;
+
+	cmd[2] = 0x5C;
+	cmd[3] = 0x38;
+	cmd[4] = 0x23;
+	cmd[5] = 0xAE;
+
+	/*password*/
+	cmd[6] = 'g';
+	cmd[7] = 'h';
+	cmd[8] = 'r';
+	cmd[9] = 0;
+
+	result = scsi_execute_req(sdev, cmd, DMA_NONE, 0,
+				  0, NULL, 30 * HZ, 3, NULL);
+	if (result) {
+		pr_err("ufs: scsi_ss_enter_vendor_mode error\n");
+	}
+	return result;
+}
+
+int scsi_ss_exit_vendor_mode(struct scsi_device *sdev)
+{
+	int result;
+	unsigned char cmd[16] = {0};
+
+	cmd[0] = 0xc0; /*VENDOR_SPECIFIC_CDB;*/
+	cmd[1] = 0x01;
+
+	result = scsi_execute_req(sdev, cmd, DMA_NONE, 0,
+				  0, NULL, 30 * HZ, 3, NULL);
+	if (result) {
+		pr_err("ufs: scsi_ss_enter_vendor_mode error\n");
+	}
+	return result;
+}
+
+
+int scsi_ss_nandinfo(struct scsi_device *sdev, char *osv, int len)
+{
+	int result;
+	unsigned char cmd[16] = {0};
+
+	if (!osv)
+		return -EINVAL;
+
+	cmd[0] = 0xc0; /*VENDOR_SPECIFIC_CDB;*/
+	cmd[1] = 0x40;
+
+	cmd[4] = 0x01;
+	cmd[5] = 0x0A;
+
+	cmd[15] = 0x4C;
+
+	len = 0x4C;
+	result = scsi_execute_req(sdev, cmd, DMA_FROM_DEVICE, osv,
+				  len, NULL, 30 * HZ, 3, NULL);
+	if (result) {
+		pr_err("ufs: get osv result error\n");
+		return -EIO;
+	}
+
+	return 0;
+}
+
+int scsi_ss_hr(struct scsi_device *sdev, char *osv, int len)
+{
+	int result = 0;
+
+	result = scsi_ss_enter_vendor_mode(sdev);
+	if (result) {
+		pr_err("ufs: enter vendor mode fail, program key and try again\n");
+
+		result = scsi_ss_set_pwd(sdev);
+		if (result) {
+			pr_err("ufs: set pwd fail\n");
+			goto out;
+		} else {
+			result = scsi_ss_enter_vendor_mode(sdev);
+			if (result) {
+				pr_err("ufs: enter vendor mode fail\n");
+				goto out;
+			}
+		}
+	}
+
+	result = scsi_ss_nandinfo(sdev, osv, len);
+	if (result) {
+		pr_err("ufs: ger hr fail fail\n");
+	}
+
+	result = scsi_ss_exit_vendor_mode(sdev);
+	if (result) {
+		pr_err("ufs: exit vendor mode fail\n");
+	}
+
+out:
+	return result;
+}
+
+
 /**
  * scsi_get_vpd_page - Get Vital Product Data from a SCSI device
  * @sdev: The device to ask

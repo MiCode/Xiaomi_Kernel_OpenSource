@@ -67,6 +67,14 @@ config NFC_NQ
           This enables the NFC driver for NQx based devices.
           This is for i2c connected version. NCI protocol logic
           resides in the usermode and it has no other NFC dependencies.
+config NFC_NQ_PN80T
+        tristate "QTI NCI based NFC Controller Driver for NQ PN80T"
+        depends on I2C
+        help
+          This enables the NFC driver for NQ PN80T based devices.
+          This is for i2c connected version. NCI protocol logic
+          resides in the usermode and it has no other NFC dependencies.
+
 
 config NTAG_NQ
 	tristate "QTI NTAG Driver for NTAG communication"

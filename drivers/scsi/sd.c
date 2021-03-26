@@ -3276,6 +3276,9 @@ static void sd_probe_async(void *data, async_cookie_t cookie)
 			sd_printk(KERN_NOTICE, sdkp, "supports TCG Opal\n");
 	}
 
+
+	sd_printk(KERN_NOTICE, sdkp, "Attached SCSI %sdisk\n", sdp->removable ? "removable " : "");
+
 	scsi_autopm_put_device(sdp);
 	put_device(&sdkp->dev);
 }

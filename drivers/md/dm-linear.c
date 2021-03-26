@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2001-2003 Sistina Software (UK) Limited.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file is released under the GPL.
  */
@@ -135,8 +136,7 @@ void dm_linear_status(struct dm_target *ti, status_type_t type,
 }
 EXPORT_SYMBOL_GPL(dm_linear_status);
 
-int dm_linear_prepare_ioctl(struct dm_target *ti,
-		struct block_device **bdev, fmode_t *mode)
+int dm_linear_prepare_ioctl(struct dm_target *ti, struct block_device **bdev)
 {
 	struct linear_c *lc = (struct linear_c *) ti->private;
 	struct dm_dev *dev = lc->dev;

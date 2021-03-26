@@ -217,6 +217,8 @@ source "drivers/fpga/Kconfig"
 
 source "drivers/fsi/Kconfig"
 
+source "drivers/mihw/Kconfig"
+
 source "drivers/tee/Kconfig"
 
 source "drivers/mux/Kconfig"

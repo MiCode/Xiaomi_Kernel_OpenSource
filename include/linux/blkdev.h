@@ -98,6 +98,9 @@ typedef __u32 __bitwise req_flags_t;
 #define RQF_MQ_INFLIGHT		((__force req_flags_t)(1 << 6))
 /* don't call prep for this one */
 #define RQF_DONTPREP		((__force req_flags_t)(1 << 7))
+/* set for "ide_preempt" requests and also for requests for which the SCSI
+   "quiesce" state must be ignored. */
+#define RQF_PREEMPT            ((__force req_flags_t)(1 << 8))
 /* contains copies of user pages */
 #define RQF_COPY_USER		((__force req_flags_t)(1 << 9))
 /* vaguely specified driver internal error.  Ignored by the block layer */
@@ -623,6 +626,11 @@ struct request_queue {
 
 #define BLK_MAX_WRITE_HINTS	5
 	u64			write_hints[BLK_MAX_WRITE_HINTS];
+	atomic64_t		io_stime;
+	atomic64_t		io_wtime;
+#ifdef CONFIG_UFSTW
+	bool			turbo_write_dev;
+#endif
 };
 
 #define QUEUE_FLAG_QUEUED	0	/* uses generic tag queueing */

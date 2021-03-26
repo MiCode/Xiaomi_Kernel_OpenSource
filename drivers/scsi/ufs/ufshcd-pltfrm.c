@@ -3,6 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd-pltfrm.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -262,11 +263,18 @@ static void ufshcd_parse_pm_levels(struct ufs_hba *hba)
 	struct device *dev = hba->dev;
 	struct device_node *np = dev->of_node;
 
-	if (np) {
-		if (of_property_read_u32(np, "rpm-level", &hba->rpm_lvl))
-			hba->rpm_lvl = -1;
-		if (of_property_read_u32(np, "spm-level", &hba->spm_lvl))
-			hba->spm_lvl = -1;
+	/*XM: disable lpm in recovery mode*/
+	if(strnstr(saved_command_line, "androidboot.recoveyboot=true",
+		strlen(saved_command_line))) {
+		hba->rpm_lvl = 0;
+		hba->spm_lvl = 0;
+	}else{
+		if (np) {
+			if (of_property_read_u32(np, "rpm-level", &hba->rpm_lvl))
+				hba->rpm_lvl = -1;
+			if (of_property_read_u32(np, "spm-level", &hba->spm_lvl))
+				hba->spm_lvl = -1;
+		}
 	}
 }
 

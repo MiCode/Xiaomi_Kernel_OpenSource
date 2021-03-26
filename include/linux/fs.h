@@ -1976,6 +1976,16 @@ static inline void init_sync_kiocb(struct kiocb *kiocb, struct file *filp)
 	};
 }
 
+static inline void kiocb_clone(struct kiocb *kiocb, struct kiocb *kiocb_src,
+					       struct file *filp)
+{
+	*kiocb = (struct kiocb) {
+			.ki_filp = filp,
+			.ki_flags = kiocb_src->ki_flags,
+			.ki_hint = kiocb_src->ki_hint,
+			.ki_pos = kiocb_src->ki_pos,
+		};
+}
 /*
  * Inode state bits.  Protected by inode->i_lock
  *
@@ -2056,6 +2066,7 @@ static inline void init_sync_kiocb(struct kiocb *kiocb, struct file *filp)
 #define I_DIO_WAKEUP		(1 << __I_DIO_WAKEUP)
 #define I_LINKABLE		(1 << 10)
 #define I_DIRTY_TIME		(1 << 11)
+#define I_DIRTY_TIME_EXPIRED	(1 << 12)
 #define I_WB_SWITCH		(1 << 13)
 #define I_OVL_INUSE		(1 << 14)
 #define I_SYNC_QUEUED		(1 << 17)

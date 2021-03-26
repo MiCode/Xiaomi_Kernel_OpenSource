@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,9 +46,17 @@
 
 /* IBB */
 #define IBB_PD_CTL(chip)		(chip->ibb_base + 0x47)
+#define IBB_CURR_SENSE(chip)		(chip->ibb_base + 0x4C)
 #define IBB_PS_CTL(chip)		(chip->ibb_base + 0x50)
+#define IBB_PWM_CTL1(chip)		(chip->ibb_base + 0x51)
+#define IBB_PWM_CTL3(chip)		(chip->ibb_base + 0x53)
+#define IBB_SPARE_CTL(chip)		(chip->ibb_base + 0x60)
+
 #define IBB_NLIMIT_DAC(chip)		(chip->ibb_base + 0x61)
 #define IBB_SMART_PS_CTL(chip)		(chip->ibb_base + 0x65)
+#define IBB_ERR_AMP_THR2(chip)		(chip->ibb_base + 0x76)
+#define IBB_TRIM_CTL2(chip)		(chip->ibb_base + 0xF2)
+#define IBB_TRIM_CTL3(chip)		(chip->ibb_base + 0xF3)
 
 /* IBB_PD_CTL */
 #define ENABLE_PD_BIT			BIT(7)

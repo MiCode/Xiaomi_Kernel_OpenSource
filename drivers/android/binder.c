@@ -3,6 +3,7 @@
  * Android IPC Subsystem
  *
  * Copyright (C) 2007-2008 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -71,7 +72,7 @@
 #include <linux/pid_namespace.h>
 #include <linux/security.h>
 #include <linux/spinlock.h>
-
+#include <linux/millet.h>
 #include <uapi/linux/android/binder.h>
 #include <uapi/linux/sched/types.h>
 #include "binder_alloc.h"
@@ -3027,6 +3028,22 @@ static void binder_transaction(struct binder_proc *proc,
 			target_thread = NULL;
 			goto err_dead_binder;
 		}
+#ifdef CONFIG_MILLET
+		if (target_proc
+			&& target_proc->tsk
+			&& (task_uid(target_proc->tsk).val <= frozen_uid_min)) {
+			struct millet_data data;
+
+			memset(&data, 0, sizeof(struct millet_data));
+			data.pri[0] =  BINDER_REPLY;
+			data.mod.k_priv.binder.trans.src_task = proc->tsk;
+			data.mod.k_priv.binder.trans.caller_tid = thread->pid;
+			data.mod.k_priv.binder.trans.dst_task = target_proc->tsk;
+			data.mod.k_priv.binder.trans.tf_oneway = tr->flags & TF_ONE_WAY;
+			data.mod.k_priv.binder.trans.code = tr->code;
+			millet_sendmsg(BINDER_TYPE, target_proc->tsk, &data);
+		}
+#endif
 		target_proc = target_thread->proc;
 		target_proc->tmp_ref++;
 		binder_inner_proc_unlock(target_thread->proc);
@@ -3082,6 +3099,24 @@ static void binder_transaction(struct binder_proc *proc,
 			goto err_dead_binder;
 		}
 		e->to_node = target_node->debug_id;
+#ifdef CONFIG_MILLET
+		if ((!(tr->flags & TF_ONE_WAY))
+			&& target_proc
+			&& target_proc->tsk
+			&& (task_uid(target_proc->tsk).val > frozen_uid_min)
+			&& (proc->pid != target_proc->pid)) {
+			struct millet_data data;
+
+			memset(&data, 0, sizeof(struct millet_data));
+			data.pri[0] =  BINDER_TRANS;
+			data.mod.k_priv.binder.trans.src_task = proc->tsk;
+			data.mod.k_priv.binder.trans.caller_tid = thread->pid;
+			data.mod.k_priv.binder.trans.dst_task = target_proc->tsk;
+			data.mod.k_priv.binder.trans.tf_oneway = tr->flags & TF_ONE_WAY;
+			data.mod.k_priv.binder.trans.code = tr->code;
+			millet_sendmsg(BINDER_TYPE, target_proc->tsk, &data);
+		}
+#endif
 		if (security_binder_transaction(proc->tsk,
 						target_proc->tsk) < 0) {
 			return_error = BR_FAILED_REPLY;
@@ -4131,6 +4166,10 @@ static int binder_wait_for_work(struct binder_thread *thread,
 {
 	DEFINE_WAIT(wait);
 	struct binder_proc *proc = thread->proc;
+#ifdef CONFIG_MILLET
+	struct binder_transaction *t;
+	struct binder_proc *target_proc;
+#endif
 	int ret = 0;
 
 	freezer_do_not_count();
@@ -4139,6 +4178,29 @@ static int binder_wait_for_work(struct binder_thread *thread,
 		prepare_to_wait(&thread->wait, &wait, TASK_INTERRUPTIBLE);
 		if (binder_has_work_ilocked(thread, do_proc_work))
 			break;
+#ifdef CONFIG_MILLET
+		target_proc = NULL;
+		t = thread->transaction_stack;
+		if (t)
+			target_proc = t->to_proc;
+
+		if ((!(t->flags & TF_ONE_WAY))
+			&& target_proc
+			&& target_proc->tsk
+			&& (task_uid(target_proc->tsk).val <= frozen_uid_min)
+			&& (proc->pid != target_proc->pid)) {
+			struct millet_data data;
+
+			memset(&data, 0, sizeof(struct millet_data));
+			data.pri[0] =  BINDER_THREAD_HAS_WORK;
+			data.mod.k_priv.binder.trans.src_task = proc->tsk;
+			data.mod.k_priv.binder.trans.caller_tid = thread->pid;
+			data.mod.k_priv.binder.trans.dst_task = target_proc->tsk;
+			data.mod.k_priv.binder.trans.tf_oneway = t->flags & TF_ONE_WAY;
+			data.mod.k_priv.binder.trans.code = t->code;
+			millet_sendmsg(BINDER_TYPE, target_proc->tsk, &data);
+		}
+#endif
 		if (do_proc_work)
 			list_add(&thread->waiting_thread_node,
 				 &proc->waiting_threads);
@@ -4641,8 +4703,15 @@ static struct binder_thread *binder_get_thread(struct binder_proc *proc)
 
 static void binder_free_proc(struct binder_proc *proc)
 {
+	struct binder_device *device;
+
 	BUG_ON(!list_empty(&proc->todo));
 	BUG_ON(!list_empty(&proc->delivered_death));
+	device = container_of(proc->context, struct binder_device, context);
+	if (refcount_dec_and_test(&device->ref)) {
+		kfree(proc->context->name);
+		kfree(device);
+	}
 	binder_alloc_deferred_release(&proc->alloc);
 	put_task_struct(proc->tsk);
 	binder_stats_deleted(BINDER_STAT_PROC);
@@ -5255,6 +5324,154 @@ static int binder_open(struct inode *nodp, struct file *filp)
 	return 0;
 }
 
+#ifdef CONFIG_MILLET
+static enum BINDER_STAT query_binder_stats(struct binder_proc *proc)
+{
+	struct rb_node *n = NULL;
+	struct binder_thread *thread = NULL;
+	struct millet_data data;
+	struct task_struct *tsk;
+	int uid = 0;
+
+	if (proc->tsk)
+		uid = task_uid(proc->tsk).val;
+	data.uid = uid;
+
+	binder_inner_proc_lock(proc);
+	if (proc->tsk && !binder_worklist_empty_ilocked(&proc->todo)) {
+		data.mod.k_priv.binder.stat.task = proc->tsk;
+		data.mod.k_priv.binder.stat.pid = task_pid_nr(proc->tsk);
+		data.mod.k_priv.binder.stat.reason = BINDER_PROC_IN_BUSY;
+		goto busy;
+	}
+
+	for (n = rb_first(&proc->threads); n != NULL; n = rb_next(n)) {
+		thread = rb_entry(n, struct binder_thread, rb_node);
+		if (!thread->task)
+			continue;
+
+		if (!binder_worklist_empty_ilocked(&thread->todo)) {
+			data.mod.k_priv.binder.stat.task = thread->task;
+			data.mod.k_priv.binder.stat.tid = thread->pid;
+			data.mod.k_priv.binder.stat.pid = task_tgid_nr(thread->task);
+			data.mod.k_priv.binder.stat.reason = BINDER_THREAD_IN_BUSY;
+			goto busy;
+		}
+
+		if (!thread->transaction_stack)
+			continue;
+
+		spin_lock(&thread->transaction_stack->lock);
+		if (thread->transaction_stack->to_thread == thread) {
+			data.mod.k_priv.binder.stat.task = thread->task;
+			data.mod.k_priv.binder.stat.tid = thread->pid;
+			data.mod.k_priv.binder.stat.pid = task_tgid_nr(thread->task);
+			data.mod.k_priv.binder.stat.reason = BINDER_IN_TRANSACTION;
+			spin_unlock(&thread->transaction_stack->lock);
+			goto busy;
+		}
+		spin_unlock(&thread->transaction_stack->lock);
+	}
+
+	binder_inner_proc_unlock(proc);
+	return BINDER_IN_IDLE;
+busy:
+	tsk = data.mod.k_priv.binder.stat.task;
+	binder_inner_proc_unlock(proc);
+	millet_sendmsg(BINDER_ST_TYPE, tsk, &data);
+	return data.mod.k_priv.binder.stat.reason;
+}
+
+static void binder_recv_hook(void *data, unsigned int len)
+{
+	struct millet_userconf *payload = (struct millet_userconf *)data;
+	int uid = payload->mod.u_priv.binder_st.uid;
+	struct binder_proc *proc;
+	bool idle_f = true;
+	struct millet_data sdata;
+
+	mutex_lock(&binder_procs_lock);
+	hlist_for_each_entry(proc, &binder_procs, proc_node) {
+		if (proc != NULL && proc->tsk
+			&& (task_uid(proc->tsk).val == uid)) {
+			if (query_binder_stats(proc) != BINDER_IN_IDLE)
+				idle_f = false;
+		}
+	}
+
+	sdata.mod.k_priv.binder.stat.task = current;
+
+	if (idle_f)
+		sdata.mod.k_priv.binder.stat.reason = BINDER_IN_IDLE;
+	else
+		sdata.mod.k_priv.binder.stat.reason = BINDER_IN_BUSY;
+
+	sdata.uid = uid;
+	millet_sendmsg(BINDER_ST_TYPE, current, &sdata);
+	mutex_unlock(&binder_procs_lock);
+}
+
+static int binder_sendmsg(struct task_struct *tsk,
+		struct millet_data *data, struct millet_sock *sk)
+{
+	int ret = 0;
+	struct task_struct *src_task;
+	struct task_struct *dst_task;
+
+	if (!sk || !data || !tsk) {
+		pr_err("%s input invalid\n", __FUNCTION__);
+		return RET_ERR;
+	}
+
+	data->msg_type = MSG_TO_USER;
+	data->owner = BINDER_TYPE;
+	src_task = (struct task_struct *)data->mod.k_priv.binder.trans.src_task;
+	data->mod.k_priv.binder.trans.caller_pid = task_pid_nr(src_task);
+	data->mod.k_priv.binder.trans.caller_uid = task_uid(src_task).val;
+	dst_task = (struct task_struct *)data->mod.k_priv.binder.trans.dst_task;
+	data->mod.k_priv.binder.trans.dst_pid = task_pid_nr(dst_task);
+	data->uid = task_uid(dst_task).val;
+
+	if (frozen_task_group(tsk))
+		ret = millet_sendto_user(tsk, data, sk);
+
+	return ret;
+}
+
+static void binder_init_millet(struct millet_sock *sk)
+{
+	if (sk)
+		sk->mod[BINDER_TYPE].monitor = BINDER_TYPE;
+}
+
+static int binder_st_sendmsg(struct task_struct *tsk,
+		struct millet_data *data, struct millet_sock *sk)
+
+{
+	int ret = RET_OK;
+	struct task_struct *task_node;
+
+	if (!sk || !data || !tsk) {
+		pr_err("%s input invalid\n", __FUNCTION__);
+		return RET_ERR;
+	}
+
+	task_node = (struct task_struct *)(data->mod.k_priv.binder.stat.task);
+	data->msg_type = MSG_TO_USER;
+	data->owner = BINDER_ST_TYPE;
+	//data->uid = task_uid(task_node).val;
+	ret = millet_sendto_user(tsk, data, sk);
+
+	return ret;
+}
+
+static void binder_st_init_millet(struct millet_sock *sk)
+{
+	if (sk)
+		sk->mod[BINDER_ST_TYPE].monitor = BINDER_TYPE;
+}
+#endif
+
 static int binder_flush(struct file *filp, fl_owner_t id)
 {
 	struct binder_proc *proc = filp->private_data;
@@ -5370,7 +5587,6 @@ static int binder_node_release(struct binder_node *node, int refs)
 static void binder_deferred_release(struct binder_proc *proc)
 {
 	struct binder_context *context = proc->context;
-	struct binder_device *device;
 	struct rb_node *n;
 	int threads, nodes, incoming_refs, outgoing_refs, active_transactions;
 
@@ -5389,12 +5605,6 @@ static void binder_deferred_release(struct binder_proc *proc)
 		context->binder_context_mgr_node = NULL;
 	}
 	mutex_unlock(&context->context_mgr_node_lock);
-	device = container_of(proc->context, struct binder_device, context);
-	if (refcount_dec_and_test(&device->ref)) {
-		kfree(context->name);
-		kfree(device);
-	}
-	proc->context = NULL;
 	binder_inner_proc_lock(proc);
 	/*
 	 * Make sure proc stays alive after we
@@ -6154,6 +6364,12 @@ static int __init binder_init(void)
 	if (ret)
 		goto err_init_binder_device_failed;
 
+#ifdef CONFIG_MILLET
+	register_millet_hook(BINDER_TYPE, NULL,
+			binder_sendmsg, binder_init_millet);
+	register_millet_hook(BINDER_ST_TYPE, binder_recv_hook,
+			binder_st_sendmsg, binder_st_init_millet);
+#endif
 	return ret;
 
 err_init_binder_device_failed:
@@ -6172,6 +6388,18 @@ err_alloc_device_names_failed:
 }
 
 device_initcall(binder_init);
+
+#ifdef CONFIG_MILLET
+struct task_struct *binder_buff_owner(struct binder_alloc *alloc)
+{
+	struct binder_proc *proc = NULL;
+	if (!alloc)
+		return NULL;
+
+	proc = container_of(alloc, struct binder_proc, alloc);
+	return proc->tsk;
+}
+#endif
 
 #define CREATE_TRACE_POINTS
 #include "binder_trace.h"

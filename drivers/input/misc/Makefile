@@ -5,6 +5,7 @@
 
 # Each configuration option enables a list of files.
 
+obj-$(CONFIG_INPUT_AW8624_HAPTIC)	+= aw8624_haptic/
 obj-$(CONFIG_INPUT_88PM860X_ONKEY)	+= 88pm860x_onkey.o
 obj-$(CONFIG_INPUT_88PM80X_ONKEY)	+= 88pm80x_onkey.o
 obj-$(CONFIG_INPUT_AB8500_PONKEY)	+= ab8500-ponkey.o
@@ -31,7 +32,7 @@ obj-$(CONFIG_INPUT_DA9055_ONKEY)	+= da9055_onkey.o
 obj-$(CONFIG_INPUT_DA9063_ONKEY)	+= da9063_onkey.o
 obj-$(CONFIG_INPUT_DM355EVM)		+= dm355evm_keys.o
 obj-$(CONFIG_INPUT_E3X0_BUTTON)		+= e3x0-button.o
-obj-$(CONFIG_INPUT_DRV260X_HAPTICS)	+= drv260x.o
+obj-$(CONFIG_INPUT_DRV260X_HAPTICS)	+= drv260x_input.o
 obj-$(CONFIG_INPUT_DRV2665_HAPTICS)	+= drv2665.o
 obj-$(CONFIG_INPUT_DRV2667_HAPTICS)	+= drv2667.o
 obj-$(CONFIG_INPUT_GP2A)		+= gp2ap002a00f.o

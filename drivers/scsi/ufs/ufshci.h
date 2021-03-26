@@ -3,6 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshci.h
  * Copyright (C) 2011-2013 Samsung India Software Operations
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -411,6 +412,7 @@ enum {
 	UTP_CMD_TYPE_SCSI		= 0x0,
 	UTP_CMD_TYPE_UFS		= 0x1,
 	UTP_CMD_TYPE_DEV_MANAGE		= 0x2,
+	UTP_CMD_TYPE_SCSI_VENDOR_HY	= 0xb,
 };
 
 /* To accommodate UFS2.0 required Command type */

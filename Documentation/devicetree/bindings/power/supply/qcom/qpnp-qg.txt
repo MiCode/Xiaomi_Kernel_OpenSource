@@ -419,35 +419,35 @@ First Level Node - QGAUGE device
 		    is set.
 
 - qcom,multi-profile-load
-	Usage:      optional
-	Value type: <bool>
-	Definition: A boolean property that when specified indicates that
-		    multiple profile loading needs to be enabled. This requires
-		    multiple battery profiles to be specified for a battery for
-		    proper functionality.
+        Usage:      optional
+        Value type: <bool>
+        Definition: A boolean property that when specified indicates that
+                    multiple profile loading needs to be enabled. This requires
+                    multiple battery profiles to be specified for a battery for
+                    proper functionality.
 
 - qcom,tcss-enable
-	Usage:      optional
-	Value type: bool
-	Definition: Enable Termination current based SOC scaling.
-		    This logic enables SOC scaling to report
-		    100% at the QG termination current defined by
-		    qcom,qg-iterm-ma.
+        Usage:      optional
+        Value type: bool
+        Definition: Enable Termination current based SOC scaling.
+                    This logic enables SOC scaling to report
+                    100% at the QG termination current defined by
+                    qcom,qg-iterm-ma.
 
 - qcom,tcss-entry-soc
-	Usage:      optional
-	Value type: <u32>
-	Definition: SOC threshold at which TCSS starts. The default
-		    value is 90%. This property is valid only if
-		    qcom,tcss-enable is defined.
+        Usage:      optional
+        Value type: <u32>
+        Definition: SOC threshold at which TCSS starts. The default
+                    value is 90%. This property is valid only if
+                    qcom,tcss-enable is defined.
 
 - qcom,bass-enable
-	Usage:      optional
-	Value type: bool
-	Definition: Enable Battery SOC based SOC scaling. This logic
-		    allows monotonic-SOC scaling at low-temperatures
-		    when there is variation in system-SOC due to
-		    changes in the load.
+        Usage:      optional
+        Value type: bool
+        Definition: Enable Battery SOC based SOC scaling. This logic
+                    allows monotonic-SOC scaling at low-temperatures
+                    when there is variation in system-SOC due to
+                    changes in the load.
 
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver

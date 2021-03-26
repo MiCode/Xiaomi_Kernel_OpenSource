@@ -44,7 +44,7 @@
 #include <linux/posix-timers.h>
 #include <linux/oom.h>
 #include <linux/capability.h>
-
+#include <linux/millet.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/signal.h>
 
@@ -1217,7 +1217,20 @@ int do_send_sig_info(int sig, struct siginfo *info, struct task_struct *p,
 {
 	unsigned long flags;
 	int ret = -ESRCH;
+#ifdef CONFIG_MILLET
+	struct millet_data data;
 
+	if (sig == SIGKILL
+		|| sig == SIGTERM
+		|| sig == SIGABRT
+		|| sig == SIGQUIT) {
+
+		data.mod.k_priv.sig.caller_task = current;
+		data.mod.k_priv.sig.killed_task = p;
+		data.mod.k_priv.sig.reason = KILLED_BY_PRO;
+		millet_sendmsg(SIG_TYPE, p, &data);
+	}
+#endif
 	if (lock_task_sighand(p, &flags)) {
 		ret = send_signal(sig, info, p, group);
 		unlock_task_sighand(p, &flags);
@@ -3932,6 +3945,42 @@ __weak const char *arch_vma_name(struct vm_area_struct *vma)
 	return NULL;
 }
 
+#ifdef CONFIG_MILLET
+int last_report_task;
+
+static int signals_sendmsg(struct task_struct *tsk,
+		struct millet_data *data, struct millet_sock *sk)
+{
+	int ret = 0;
+
+	if (!sk || !data || !tsk) {
+		pr_err("%s input invalid\n", __FUNCTION__);
+		return RET_ERR;
+	}
+
+	data->mod.k_priv.sig.killed_pid = task_tgid_nr(tsk);
+	data->uid = task_uid(tsk).val;
+	data->msg_type = MSG_TO_USER;
+	data->owner = SIG_TYPE;
+
+	if (frozen_task_group(tsk)
+		&& (data->mod.k_priv.sig.killed_pid != *(int *)sk->mod[SIG_TYPE].priv)) {
+		*(int *)sk->mod[SIG_TYPE].priv = data->mod.k_priv.sig.killed_pid;
+		ret = millet_sendto_user(tsk, data, sk);
+	}
+
+	return ret;
+}
+
+static void signas_init_millet(struct millet_sock *sk)
+{
+	if (sk) {
+		sk->mod[SIG_TYPE].monitor = SIG_TYPE;
+		sk->mod[SIG_TYPE].priv = (void *)&last_report_task;
+	}
+}
+#endif
+
 void __init signals_init(void)
 {
 	/* If this check fails, the __ARCH_SI_PREAMBLE_SIZE value is wrong! */
@@ -3939,6 +3988,10 @@ void __init signals_init(void)
 		!= offsetof(struct siginfo, _sifields._pad));
 
 	sigqueue_cachep = KMEM_CACHE(sigqueue, SLAB_PANIC);
+#ifdef CONFIG_MILLET
+	register_millet_hook(SIG_TYPE, NULL,
+		signals_sendmsg, signas_init_millet);
+#endif
 }
 
 #ifdef CONFIG_KGDB_KDB

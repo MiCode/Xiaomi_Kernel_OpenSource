@@ -1,0 +1,161 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sdmmagpie-audio-overlay.dtsi"
+
+&sm6150_snd {
+	qcom,model = "sm6150-idp-snd-card";
+	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
+	qcom,ext-disp-audio-rx = <1>;
+	qcom,audio-routing =
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Analog Mic2",
+		"AMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Analog Mic1",
+		"AMIC3", "MIC BIAS3",
+		"MIC BIAS3", "Analog Mic3",
+		"TX_AIF1 CAP", "VA_MCLK",
+		"TX_AIF2 CAP", "VA_MCLK",
+		"RX AIF1 PB", "VA_MCLK",
+		"RX AIF2 PB", "VA_MCLK",
+		"RX AIF3 PB", "VA_MCLK",
+		"RX AIF4 PB", "VA_MCLK",
+		"HPHL_OUT", "VA_MCLK",
+		"HPHR_OUT", "VA_MCLK",
+		"AUX_OUT", "VA_MCLK",
+		"IN1_HPHL", "HPHL_OUT",
+		"IN2_HPHR", "HPHR_OUT",
+		"IN3_AUX", "AUX_OUT",
+		"TX SWR_ADC0", "ADC1_OUTPUT",
+		"TX SWR_ADC2", "ADC2_OUTPUT",
+		"RX_TX DEC0_INP", "TX DEC0 MUX",
+		"RX_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC2_INP", "TX DEC2 MUX",
+		"RX_TX DEC3_INP", "TX DEC3 MUX",
+		"SpkrLeft IN", "WSA_SPK1 OUT",
+		"SpkrRight IN", "WSA_SPK2 OUT",
+		"WSA_SPK1 OUT", "VA_MCLK",
+		"WSA_SPK2 OUT", "VA_MCLK";
+	qcom,msm-mbhc-hphl-swh = <1>;
+	qcom,msm-mbhc-gnd-swh = <1>;
+	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
+	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
+	qcom,pri-mi2s-gpios = <&cdc_pri_mi2s_gpios>;
+	asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
+	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
+			   "msm-ext-disp-audio-codec-rx";
+	qcom,wsa-max-devs = <0>;
+	/*qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
+			<&wsa881x_0213>, <&wsa881x_0214>;*/
+	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
+				  "SpkrLeft", "SpkrRight";
+	qcom,codec-aux-devs = <&wcd937x_codec>;
+	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>,
+				<&lpi_tlmm>, <&bolero>;
+};
+
+&wsa_swr_gpios {
+	status = "disabled";
+};
+
+&wsa_spkr_en1 {
+	status = "disabled";
+};
+
+&wsa_spkr_en2 {
+	status = "disabled";
+};
+
+&soc {
+	cdc_pri_mi2s_gpios: msm_cdc_pinctrl_pri {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&pri_i2s_sck_active &pri_i2s_ws_active
+			     &pri_i2s_data0_active &pri_i2s_data1_active>;
+		pinctrl-1 = <&pri_i2s_sck_sleep &pri_i2s_ws_sleep
+			     &pri_i2s_data0_sleep &pri_i2s_data1_sleep>;
+	};
+};
+
+&dai_mi2s0 {
+	compatible = "qcom,msm-dai-q6-mi2s";
+	qcom,msm-dai-q6-mi2s-dev-id = <0>;
+	qcom,msm-mi2s-rx-lines = <1>;
+	qcom,msm-mi2s-tx-lines = <2>;
+};
+
+&bolero {
+	qcom,num-macros = <3>;
+};
+
+&wsa_macro {
+	compatible = "qcom,wsa-macro";
+	status = "disabled";
+};
+
+&qupv3_se4_i2c {
+	status = "ok";
+	tfa98xx@34 {
+		compatible = "nxp,tfa98xx";
+		reset-gpio = <&tlmm 12 0>;
+		irq-gpio = <&tlmm 56 0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <56 0>;
+		interrupt-names = "smartpa_irq";
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&smartpa_int_active &smartpa_enable_active>;
+		pinctrl-1 = <&smartpa_int_suspend &smartpa_enable_suspend>;
+		reg = <0x34>;
+		status = "ok";
+	};
+};
+
+&wcd937x_codec {
+	compatible = "qcom,wcd937x-codec";
+	qcom,cdc-micbias1-mv = <2750>;
+	qcom,cdc-micbias3-mv = <2750>;
+};
+
+/* change m0a smartpa GPIO rst pin */
+&smartpa_enable_active {
+	/* active state */
+	mux {
+		/* GPIO 12 rst pin */
+		pins = "gpio12";
+		function = "gpio";
+	};
+	config {
+		pins = "gpio12";
+		drive-strength = <2>;
+		bias-disable;
+		bias-pull-down;
+		output-low;
+	};
+};
+
+&smartpa_enable_suspend {
+	/* sleep state */
+	mux {
+		/* GPIO 12 rst pin */
+		pins = "gpio12";
+		function = "gpio";
+	};
+	config {
+		pins = "gpio12";
+		drive-strength = <2>;
+		bias-disable;
+		bias-pull-down;
+		output-low;
+	};
+};

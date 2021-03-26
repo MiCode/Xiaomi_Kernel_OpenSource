@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +26,7 @@
 #define UFS_VENDOR_SAMSUNG     0x1CE
 #define UFS_VENDOR_SKHYNIX     0x1AD
 #define UFS_VENDOR_WDC		0x145
+#define UFS_VENDOR_MICRON      0x12C
 
 /**
  * ufs_dev_fix - ufs device quirk info
@@ -148,5 +150,12 @@ struct ufs_dev_fix {
  * instead of the default delay.
  */
 #define UFS_DEVICE_QUIRK_WAIT_AFTER_REF_CLK_UNGATE	(1 << 10)
+
+/*
+ * MTK PATCH
+ * Some UFS device writebooster cannot flush.
+ * To fix this problem, Toggle fWriteBoosterEn instead.
+ */
+#define UFS_DEVICE_QUIRK_WRITE_BOOSETER_FLUSH	(1 << 31)
 
 #endif /* UFS_QUIRKS_H_ */

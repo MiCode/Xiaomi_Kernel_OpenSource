@@ -201,6 +201,8 @@ enum {
 	BLK_MQ_REQ_NOWAIT	= (1 << 0), /* return when out of requests */
 	BLK_MQ_REQ_RESERVED	= (1 << 1), /* allocate from reserved pool */
 	BLK_MQ_REQ_INTERNAL	= (1 << 2), /* allocate internal/sched tag */
+   	/* set RQF_PREEMPT */
+	BLK_MQ_REQ_PREEMPT	=(1 << 3),
 };
 
 struct request *blk_mq_alloc_request(struct request_queue *q, unsigned int op,

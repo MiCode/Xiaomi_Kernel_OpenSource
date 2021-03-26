@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010-2012 by Dell Inc.  All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2011-2013 Red Hat, Inc.
  *
  * This file is released under the GPL.
@@ -511,8 +512,7 @@ static void switch_status(struct dm_target *ti, status_type_t type,
  *
  * Passthrough all ioctls to the path for sector 0
  */
-static int switch_prepare_ioctl(struct dm_target *ti,
-		struct block_device **bdev, fmode_t *mode)
+static int switch_prepare_ioctl(struct dm_target *ti, struct block_device **bdev)
 {
 	struct switch_ctx *sctx = ti->private;
 	unsigned path_nr;
