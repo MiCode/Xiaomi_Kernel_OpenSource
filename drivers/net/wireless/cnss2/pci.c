@@ -553,6 +553,23 @@ static int cnss_pci_set_link_down(struct cnss_pci_data *pci_priv)
 
 	return ret;
 }
+
+/**
+ * _cnss_pci_get_reg_dump() - Dump PCIe RC registers for debug
+ * @pci_priv: driver PCI bus context pointer
+ * @buf: destination buffer pointer
+ * @len: length of the buffer
+ *
+ * This function shall call corresponding PCIe root complex driver API
+ * to dump PCIe RC registers for debug purpose.
+ *
+ * Return: 0 for success, negative value for error
+ */
+static int _cnss_pci_get_reg_dump(struct cnss_pci_data *pci_priv,
+				  u8 *buf, u32 len)
+{
+	return msm_pcie_reg_dump(pci_priv->pci_dev, buf, len);
+}
 #else
 static int cnss_pci_enumerate(struct cnss_plat_data *plat_priv, int rc_num)
 {
@@ -594,6 +611,12 @@ static int cnss_pci_set_link_up(struct cnss_pci_data *pci_priv)
 }
 
 static int cnss_pci_set_link_down(struct cnss_pci_data *pci_priv)
+{
+	return 0;
+}
+
+static int _cnss_pci_get_reg_dump(struct cnss_pci_data *pci_priv,
+				  u8 *buf, u32 len)
 {
 	return 0;
 }
@@ -1261,15 +1284,21 @@ EXPORT_SYMBOL(cnss_pci_link_down);
 int cnss_pci_get_reg_dump(struct device *dev, uint8_t *buffer, uint32_t len)
 {
 	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
 
-	if (!pci_dev) {
-		cnss_pr_err("pci_dev is NULL\n");
-		return -EINVAL;
+	if (!pci_priv) {
+		cnss_pr_err("pci_priv is NULL\n");
+		return -ENODEV;
 	}
 
-	cnss_pr_dbg("Get pci reg dump for hang data\n");
+	if (pci_priv->pci_link_state == PCI_LINK_DOWN) {
+		cnss_pr_dbg("No PCIe reg dump since PCIe device is suspended(D3)\n");
+		return -EACCES;
+	}
 
-	return msm_pcie_reg_dump(pci_dev, buffer, len);
+	cnss_pr_dbg("Start to get PCIe reg dump\n");
+
+	return _cnss_pci_get_reg_dump(pci_priv, buffer, len);
 }
 EXPORT_SYMBOL(cnss_pci_get_reg_dump);
 
