@@ -4384,8 +4384,8 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	rwlock_init(&device->context_lock);
 	spin_lock_init(&device->submit_lock);
 
-	/* Use XA_FLAGS_ALLOC1 to disallow 0 as an option */
-	xa_init_flags(&device->timelines, XA_FLAGS_ALLOC1);
+	idr_init(&device->timelines);
+	spin_lock_init(&device->timelines_lock);
 
 	kgsl_device_debugfs_init(device);
 
@@ -4419,6 +4419,7 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 		kobject_del(&device->gpu_sysfs_kobj);
 
 	idr_destroy(&device->context_idr);
+	idr_destroy(&device->timelines);
 
 	kgsl_device_events_remove(device);
 

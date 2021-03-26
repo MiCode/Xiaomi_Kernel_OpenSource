@@ -314,8 +314,10 @@ struct kgsl_device {
 	u32 speed_bin;
 	/** @gmu_fault: Set when a gmu or rgmu fault is encountered */
 	bool gmu_fault;
-	/** @timelines: xarray for the timelines */
-	struct xarray timelines;
+	/** @timelines: Iterator for assigning IDs to timelines */
+	struct idr timelines;
+	/** @timelines_lock: Spinlock to protect the timelines idr */
+	spinlock_t timelines_lock;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
