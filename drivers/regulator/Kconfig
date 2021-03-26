@@ -122,15 +122,6 @@ config REGULATOR_AAT2870
 	  If you have a AnalogicTech AAT2870 say Y to enable the
 	  regulator driver.
 
-config REGULATOR_AB3100
-	tristate "ST-Ericsson AB3100 Regulator functions"
-	depends on AB3100_CORE
-	default y if AB3100_CORE
-	help
-	 These regulators correspond to functionality in the
-	 AB3100 analog baseband dealing with power regulators
-	 for the system.
-
 config REGULATOR_AB8500
 	bool "ST-Ericsson AB8500 Power Regulators"
 	depends on AB8500_CORE
@@ -177,6 +168,14 @@ config REGULATOR_AS3722
 	help
 	  This driver provides support for the voltage regulators on the
 	  AS3722 PMIC. This will enable support for all the software
+	  controllable DCDC/LDO regulators.
+
+config REGULATOR_ATC260X
+	tristate "Actions Semi ATC260x PMIC Regulators"
+	depends on MFD_ATC260X
+	help
+	  This driver provides support for the voltage regulators on the
+	  ATC260x PMICs. This will enable support for all the software
 	  controllable DCDC/LDO regulators.
 
 config REGULATOR_AXP20X
@@ -867,6 +866,10 @@ config REGULATOR_PF8X00
 	  Say y here to support the regulators found on the NXP
 	  PF8100/PF8121A/PF8200 PMIC.
 
+	  Say M here if you want to support for the regulators found
+	  on the NXP PF8100/PF8121A/PF8200 PMIC. The module will be named
+	  "pf8x00-regulator".
+
 config REGULATOR_PFUZE100
 	tristate "Freescale PFUZE100/200/3000/3001 regulator driver"
 	depends on I2C && OF
@@ -1007,6 +1010,16 @@ config REGULATOR_RT4801
 	help
 	  This adds support for voltage regulators in Richtek RT4801 Display Bias IC.
 	  The device supports two regulators (DSVP/DSVN).
+
+config REGULATOR_RT4831
+	tristate "Richtek RT4831 DSV Regulators"
+	depends on MFD_RT4831
+	help
+	  This adds support for voltage regulators in Richtek RT4831.
+	  There are three regulators (VLCM/DSVP/DSVN).
+	  VLCM is a virtual voltage input for DSVP/DSVN inside IC.
+	  And DSVP/DSVN is the real Vout range from 4V to 6.5V.
+	  It's common used to provide the power for the display panel.
 
 config REGULATOR_RT5033
 	tristate "Richtek RT5033 Regulators"

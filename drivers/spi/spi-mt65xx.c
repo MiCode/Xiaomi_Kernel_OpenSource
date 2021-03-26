@@ -318,60 +318,35 @@ static void mtk_spi_set_cs(struct spi_device *spi, bool enable)
 static void mtk_spi_prepare_transfer(struct spi_master *master,
 				     struct spi_transfer *xfer)
 {
-	u32 div, sck_time, cs_time, reg_val = 0;
+	u32 spi_clk_hz, div, sck_time, reg_val;
 	struct mtk_spi *mdata = spi_master_get_devdata(master);
-	u32 cs_setuptime, cs_holdtime, cs_idletime = 0;
-	struct spi_device *spi = master->cur_msg->spi;
-	struct mtk_chip_config *chip_config = spi->controller_data;
 
-	if (xfer->speed_hz < mdata->spi_clk_hz / 2)
-		div = DIV_ROUND_UP(mdata->spi_clk_hz, xfer->speed_hz);
+	spi_clk_hz = clk_get_rate(mdata->spi_clk);
+	if (xfer->speed_hz < spi_clk_hz / 2)
+		div = DIV_ROUND_UP(spi_clk_hz, xfer->speed_hz);
 	else
 		div = 1;
 
 	sck_time = (div + 1) / 2;
-	cs_time = sck_time * 2;
-
-	if (chip_config->cs_setuptime)
-		cs_setuptime = chip_config->cs_setuptime;
-	else
-		cs_setuptime = cs_time;
-
-	if (chip_config->cs_holdtime)
-		cs_holdtime = chip_config->cs_holdtime;
-	else
-		cs_holdtime = cs_time;
-
-	if (chip_config->cs_idletime)
-		cs_idletime = chip_config->cs_idletime;
-	else
-		cs_idletime = cs_time;
 
 	if (mdata->dev_comp->enhance_timing) {
-		reg_val = (((sck_time - 1) & 0xffff)
+		reg_val = readl(mdata->base + SPI_CFG2_REG);
+		reg_val &= ~(0xffff << SPI_CFG2_SCK_HIGH_OFFSET);
+		reg_val |= (((sck_time - 1) & 0xffff)
 			   << SPI_CFG2_SCK_HIGH_OFFSET);
+		reg_val &= ~(0xffff << SPI_CFG2_SCK_LOW_OFFSET);
 		reg_val |= (((sck_time - 1) & 0xffff)
 			   << SPI_CFG2_SCK_LOW_OFFSET);
 		writel(reg_val, mdata->base + SPI_CFG2_REG);
-
-		reg_val = 0;
-		reg_val = (((cs_holdtime - 1) & 0xffff)
-			   << SPI_ADJUST_CFG0_CS_HOLD_OFFSET);
-		reg_val |= (((cs_setuptime - 1) & 0xffff)
-			   << SPI_ADJUST_CFG0_CS_SETUP_OFFSET);
-		writel(reg_val, mdata->base + SPI_CFG0_REG);
 	} else {
-		reg_val = (((sck_time - 1) & 0xff) << SPI_CFG0_SCK_HIGH_OFFSET);
+		reg_val = readl(mdata->base + SPI_CFG0_REG);
+		reg_val &= ~(0xff << SPI_CFG0_SCK_HIGH_OFFSET);
+		reg_val |= (((sck_time - 1) & 0xff)
+			   << SPI_CFG0_SCK_HIGH_OFFSET);
+		reg_val &= ~(0xff << SPI_CFG0_SCK_LOW_OFFSET);
 		reg_val |= (((sck_time - 1) & 0xff) << SPI_CFG0_SCK_LOW_OFFSET);
-		reg_val |= (((cs_holdtime - 1) & 0xff) << SPI_CFG0_CS_HOLD_OFFSET);
-		reg_val |= (((cs_setuptime - 1) & 0xff) << SPI_CFG0_CS_SETUP_OFFSET);
 		writel(reg_val, mdata->base + SPI_CFG0_REG);
 	}
-
-	reg_val = readl(mdata->base + SPI_CFG1_REG);
-	reg_val &= ~SPI_CFG1_CS_IDLE_MASK;
-	reg_val |= (((cs_idletime - 1) & 0xff) << SPI_CFG1_CS_IDLE_OFFSET);
-	writel(reg_val, mdata->base + SPI_CFG1_REG);
 }
 
 static void mtk_spi_setup_packet(struct spi_master *master)
@@ -562,6 +537,52 @@ static bool mtk_spi_can_dma(struct spi_master *master,
 		(unsigned long)xfer->rx_buf % 4 == 0);
 }
 
+static int mtk_spi_set_hw_cs_timing(struct spi_device *spi,
+				    struct spi_delay *setup,
+				    struct spi_delay *hold,
+				    struct spi_delay *inactive)
+{
+	struct mtk_spi *mdata = spi_master_get_devdata(spi->master);
+	u16 setup_dly, hold_dly, inactive_dly;
+	u32 reg_val;
+
+	if ((setup && setup->unit != SPI_DELAY_UNIT_SCK) ||
+	    (hold && hold->unit != SPI_DELAY_UNIT_SCK) ||
+	    (inactive && inactive->unit != SPI_DELAY_UNIT_SCK)) {
+		dev_err(&spi->dev,
+			"Invalid delay unit, should be SPI_DELAY_UNIT_SCK\n");
+		return -EINVAL;
+	}
+
+	setup_dly = setup ? setup->value : 1;
+	hold_dly = hold ? hold->value : 1;
+	inactive_dly = inactive ? inactive->value : 1;
+
+	reg_val = readl(mdata->base + SPI_CFG0_REG);
+	if (mdata->dev_comp->enhance_timing) {
+		reg_val &= ~(0xffff << SPI_ADJUST_CFG0_CS_HOLD_OFFSET);
+		reg_val |= (((hold_dly - 1) & 0xffff)
+			   << SPI_ADJUST_CFG0_CS_HOLD_OFFSET);
+		reg_val &= ~(0xffff << SPI_ADJUST_CFG0_CS_SETUP_OFFSET);
+		reg_val |= (((setup_dly - 1) & 0xffff)
+			   << SPI_ADJUST_CFG0_CS_SETUP_OFFSET);
+	} else {
+		reg_val &= ~(0xff << SPI_CFG0_CS_HOLD_OFFSET);
+		reg_val |= (((hold_dly - 1) & 0xff) << SPI_CFG0_CS_HOLD_OFFSET);
+		reg_val &= ~(0xff << SPI_CFG0_CS_SETUP_OFFSET);
+		reg_val |= (((setup_dly - 1) & 0xff)
+			    << SPI_CFG0_CS_SETUP_OFFSET);
+	}
+	writel(reg_val, mdata->base + SPI_CFG0_REG);
+
+	reg_val = readl(mdata->base + SPI_CFG1_REG);
+	reg_val &= ~SPI_CFG1_CS_IDLE_MASK;
+	reg_val |= (((inactive_dly - 1) & 0xff) << SPI_CFG1_CS_IDLE_OFFSET);
+	writel(reg_val, mdata->base + SPI_CFG1_REG);
+
+	return 0;
+}
+
 static int mtk_spi_setup(struct spi_device *spi)
 {
 	struct mtk_spi *mdata = spi_master_get_devdata(spi->master);
@@ -693,6 +714,7 @@ static int mtk_spi_probe(struct platform_device *pdev)
 	master->transfer_one = mtk_spi_transfer_one;
 	master->can_dma = mtk_spi_can_dma;
 	master->setup = mtk_spi_setup;
+	master->set_cs_timing = mtk_spi_set_hw_cs_timing;
 
 	of_id = of_match_node(mtk_spi_of_match, pdev->dev.of_node);
 	mdata = spi_master_get_devdata(master);

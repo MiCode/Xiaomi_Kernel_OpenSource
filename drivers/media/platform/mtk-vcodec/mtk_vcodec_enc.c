@@ -1220,8 +1220,6 @@ static int vidioc_venc_g_fmt(struct file *file, void *priv,
 	for (i = 0; i < pix->num_planes; i++) {
 		pix->plane_fmt[i].bytesperline = q_data->bytesperline[i];
 		pix->plane_fmt[i].sizeimage = q_data->sizeimage[i];
-		memset(&(pix->plane_fmt[i].reserved[0]), 0x0,
-		       sizeof(pix->plane_fmt[i].reserved));
 	}
 
 	pix->flags = 0;

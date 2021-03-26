@@ -11,6 +11,7 @@
 
 #include <dt-bindings/reset-controller/mt2712-resets.h>
 #include <dt-bindings/reset-controller/mt8183-resets.h>
+#include <dt-bindings/reset-controller/mt8192-resets.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/init.h>
@@ -57,9 +58,6 @@
 static bool nowayout = WATCHDOG_NOWAYOUT;
 static unsigned int timeout;
 
-static int mtk_wdt_start(struct watchdog_device *wdt_dev);
-static int mtk_wdt_stop(struct watchdog_device *wdt_dev);
-
 struct mtk_wdt_dev {
 	struct watchdog_device wdt_dev;
 	void __iomem *wdt_base;
@@ -77,6 +75,10 @@ static const struct mtk_wdt_data mt2712_data = {
 
 static const struct mtk_wdt_data mt8183_data = {
 	.toprgu_sw_rst_num = MT8183_TOPRGU_SW_RST_NUM,
+};
+
+static const struct mtk_wdt_data mt8192_data = {
+	.toprgu_sw_rst_num = MT8192_TOPRGU_SW_RST_NUM,
 };
 
 static int toprgu_reset_update(struct reset_controller_dev *rcdev,
@@ -151,20 +153,6 @@ static int toprgu_register_reset_controller(struct platform_device *pdev,
 	return ret;
 }
 
-static void mtk_wdt_init(struct device_node *np,
-			struct watchdog_device *wdt_dev)
-{
-	struct mtk_wdt_dev *mtk_wdt = watchdog_get_drvdata(wdt_dev);
-	void __iomem *wdt_base;
-
-	wdt_base = mtk_wdt->wdt_base;
-
-	if (readl(wdt_base + WDT_MODE) & WDT_MODE_EN)
-		mtk_wdt_start(wdt_dev);
-	else
-		mtk_wdt_stop(wdt_dev);
-}
-
 static int mtk_wdt_restart(struct watchdog_device *wdt_dev,
 			   unsigned long action, void *data)
 {
@@ -211,6 +199,19 @@ static int mtk_wdt_set_timeout(struct watchdog_device *wdt_dev,
 	mtk_wdt_ping(wdt_dev);
 
 	return 0;
+}
+
+static void mtk_wdt_init(struct watchdog_device *wdt_dev)
+{
+	struct mtk_wdt_dev *mtk_wdt = watchdog_get_drvdata(wdt_dev);
+	void __iomem *wdt_base;
+
+	wdt_base = mtk_wdt->wdt_base;
+
+	if (readl(wdt_base + WDT_MODE) & WDT_MODE_EN) {
+		set_bit(WDOG_HW_RUNNING, &wdt_dev->status);
+		mtk_wdt_set_timeout(wdt_dev, wdt_dev->timeout);
+	}
 }
 
 static int mtk_wdt_stop(struct watchdog_device *wdt_dev)
@@ -285,7 +286,7 @@ static int mtk_wdt_probe(struct platform_device *pdev)
 	mtk_wdt->wdt_dev.info = &mtk_wdt_info;
 	mtk_wdt->wdt_dev.ops = &mtk_wdt_ops;
 	mtk_wdt->wdt_dev.timeout = WDT_MAX_TIMEOUT;
-	mtk_wdt->wdt_dev.max_timeout = WDT_MAX_TIMEOUT;
+	mtk_wdt->wdt_dev.max_hw_heartbeat_ms = WDT_MAX_TIMEOUT * 1000;
 	mtk_wdt->wdt_dev.min_timeout = WDT_MIN_TIMEOUT;
 	mtk_wdt->wdt_dev.parent = dev;
 
@@ -295,7 +296,7 @@ static int mtk_wdt_probe(struct platform_device *pdev)
 
 	watchdog_set_drvdata(&mtk_wdt->wdt_dev, mtk_wdt);
 
-	mtk_wdt_init(pdev->dev.of_node, &mtk_wdt->wdt_dev);
+	mtk_wdt_init(&mtk_wdt->wdt_dev);
 
 	watchdog_stop_on_reboot(&mtk_wdt->wdt_dev);
 	err = devm_watchdog_register_device(dev, &mtk_wdt->wdt_dev);
@@ -343,6 +344,7 @@ static const struct of_device_id mtk_wdt_dt_ids[] = {
 	{ .compatible = "mediatek,mt2712-wdt", .data = &mt2712_data },
 	{ .compatible = "mediatek,mt6589-wdt" },
 	{ .compatible = "mediatek,mt8183-wdt", .data = &mt8183_data },
+	{ .compatible = "mediatek,mt8192-wdt", .data = &mt8192_data },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, mtk_wdt_dt_ids);

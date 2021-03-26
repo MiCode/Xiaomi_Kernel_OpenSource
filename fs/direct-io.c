@@ -431,6 +431,8 @@ static inline void dio_bio_submit(struct dio *dio, struct dio_submit *sdio)
 	unsigned long flags;
 
 	bio->bi_private = dio;
+	/* don't account direct I/O as memory stall */
+	bio_clear_flag(bio, BIO_WORKINGSET);
 
 	spin_lock_irqsave(&dio->bio_lock, flags);
 	dio->refcount++;
@@ -698,7 +700,7 @@ static inline int dio_new_bio(struct dio *dio, struct dio_submit *sdio,
 	if (ret)
 		goto out;
 	sector = start_sector << (sdio->blkbits - 9);
-	nr_pages = min(sdio->pages_in_io, BIO_MAX_PAGES);
+	nr_pages = bio_max_segs(sdio->pages_in_io);
 	BUG_ON(nr_pages <= 0);
 	dio_bio_alloc(dio, sdio, map_bh->b_bdev, sector, nr_pages);
 	sdio->boundary = 0;
