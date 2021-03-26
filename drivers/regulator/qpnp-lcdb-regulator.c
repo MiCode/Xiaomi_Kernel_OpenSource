@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"LCDB: %s: " fmt, __func__
@@ -1010,7 +1010,9 @@ static irqreturn_t qpnp_lcdb_sc_irq_handler(int irq, void *data)
 	int rc;
 	u8 val, val2[2] = {0};
 
+	mutex_lock(&lcdb->lcdb_mutex);
 	rc = qpnp_lcdb_read(lcdb, lcdb->base + INT_RT_STATUS_REG, &val, 1);
+	mutex_unlock(&lcdb->lcdb_mutex);
 	if (rc < 0)
 		goto irq_handled;
 
@@ -1050,8 +1052,15 @@ static irqreturn_t qpnp_lcdb_sc_irq_handler(int irq, void *data)
 			/* blanking time */
 			usleep_range(2000, 2100);
 			/* Read the SC status again to confirm true SC */
+			mutex_lock(&lcdb->lcdb_mutex);
+			/*
+			 * Wait for the completion of LCDB module enable,
+			 * which could be initiated in a previous SC event,
+			 * to avoid multiple module disable/enable calls.
+			 */
 			rc = qpnp_lcdb_read(lcdb,
 				lcdb->base + INT_RT_STATUS_REG, &val, 1);
+			mutex_unlock(&lcdb->lcdb_mutex);
 			if (rc < 0)
 				goto irq_handled;
 
@@ -2084,7 +2093,12 @@ static void qpnp_lcdb_pmic_config(struct qpnp_lcdb *lcdb)
 			lcdb->wa_flags |= NCP_SCP_DISABLE_WA;
 		break;
 	case PMI632_SUBTYPE:
-	case PM6150L_SUBTYPE:
+		lcdb->wa_flags |= FORCE_PD_ENABLE_WA;
+		break;
+	case PM8150L_SUBTYPE:
+		if (lcdb->pmic_rev_id->rev4 >= PM8150L_V3P0_REV4)
+			lcdb->voltage_step_ramp = false;
+
 		lcdb->wa_flags |= FORCE_PD_ENABLE_WA;
 		break;
 	default:

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #define KMSG_COMPONENT "QDSS diag bridge"
@@ -510,14 +510,10 @@ static int mhi_ch_open(struct qdss_bridge_drvdata *drvdata)
 	ret = mhi_prepare_for_transfer(drvdata->mhi_dev);
 	if (ret) {
 		pr_err("Unable to open MHI channel\n");
-		goto err;
+		return ret;
 	}
 
 	return 0;
-err:
-	spin_lock_bh(&drvdata->lock);
-	spin_unlock_bh(&drvdata->lock);
-	return ret;
 }
 
 static void qdss_bridge_open_work_fn(struct work_struct *work)
@@ -713,9 +709,10 @@ static ssize_t mhi_uci_read(struct file *file,
 			pr_err("Failed to recycle element, ret: %d\n", ret);
 			qdss_del_buf_tbl_entry(drvdata, uci_buf->buf);
 			uci_buf->buf = NULL;
-			uci_buf = NULL;
+			kfree(uci_buf);
 			return ret;
 		}
+		kfree(uci_buf);
 	}
 
 	pr_debug("Returning %lu bytes\n", to_copy);
@@ -776,13 +773,12 @@ static int mhi_uci_open(struct inode *inode, struct file *filp)
 		spin_unlock_bh(&drvdata->lock);
 		return ret;
 	}
-	drvdata->opened = ENABLE;
 	spin_unlock_bh(&drvdata->lock);
 
 	ret = mhi_prepare_for_transfer(drvdata->mhi_dev);
 	if (ret) {
 		pr_err("Error starting transfer channels\n");
-		goto error_open_chan;
+		return ret;
 	}
 
 	ret = mhi_queue_inbound(drvdata);
@@ -790,6 +786,7 @@ static int mhi_uci_open(struct inode *inode, struct file *filp)
 		goto error_rx_queue;
 
 	filp->private_data = drvdata;
+	drvdata->opened = ENABLE;
 	return ret;
 
 error_rx_queue:
@@ -797,12 +794,9 @@ error_rx_queue:
 	list_for_each_entry_safe(buf_itr, tmp, &drvdata->read_done_list, link) {
 		list_del(&buf_itr->link);
 		kfree(buf_itr->buf);
+		kfree(buf_itr);
 	}
 
-error_open_chan:
-	spin_lock_bh(&drvdata->lock);
-	drvdata->opened = DISABLE;
-	spin_unlock_bh(&drvdata->lock);
 	return ret;
 }
 

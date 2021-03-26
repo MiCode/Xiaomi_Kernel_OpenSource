@@ -407,7 +407,7 @@ config MSM_REMOTEQDSS
 	  /sys/class/remoteqdss.
 
 config MSM_TZ_SMMU
-	depends on ARCH_MSM8953 || ARCH_QCS405
+	depends on ARCH_MSM8953 || ARCH_QCS405 || ARCH_MSM8917
 	bool "Helper functions for SMMU configuration through TZ"
 	help
 	  Say 'Y' here for targets that need to call into TZ to configure
@@ -963,3 +963,5 @@ config ICNSS_QMI
 	  handshake messages to WLAN FW, which includes hardware capabilities
 	  and configurations. It also send WLAN on/off control message to FW
 	  over QMI channel.
+
+source "drivers/soc/qcom/wcnss/Kconfig"

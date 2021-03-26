@@ -584,3 +584,27 @@ config CLOCK_CPU_OSM_660
 	 frequency and voltage requests for multiple clusters via the
 	 existence of multiple OSM domains.
 	 Say Y if you want to support OSM clocks.
+
+config SDM_GCC_429W
+	tristate "SDM429w Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on SDM429w/QM215 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  I2C, USB, UFS, SDCC, Display, Camera, Video etc.
+
+config SDM_DEBUGCC_429W
+	tristate "SDM429W Debug Clock Controller"
+	depends on SDM_GCC_429W
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SDM429W/QM215 devices.
+	  Say Y if you want to support the clock measurement functionality.
+
+config CLOCK_CPU_SDM
+	bool "CPU SDM Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	 Support for the cpu clock controller on SDM based devices(e.g. QM215/SDM429).
+	 Say Y if you want to support CPU clock scaling using
+	 CPUfreq drivers for dynamic power management.

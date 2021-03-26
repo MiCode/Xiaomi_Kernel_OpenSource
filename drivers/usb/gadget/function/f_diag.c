@@ -3,7 +3,7 @@
  * Diag Function Device - Route ARM9 and ARM11 DIAG messages
  * between HOST and DEVICE.
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  */
 #include <linux/init.h>
@@ -510,7 +510,7 @@ int usb_diag_read(struct usb_diag_ch *ch, struct diag_request *d_req)
 
 	if (list_empty(&ctxt->read_pool)) {
 		spin_unlock_irqrestore(&ctxt->lock, flags);
-		ERROR(ctxt->cdev, "%s: no requests available\n", __func__);
+		pr_err("%s: no requests available\n", __func__);
 		return -EAGAIN;
 	}
 
@@ -536,8 +536,7 @@ int usb_diag_read(struct usb_diag_ch *ch, struct diag_request *d_req)
 		list_add_tail(&req->list, &ctxt->read_pool);
 		/* 1 error message for every 10 sec */
 		if (__ratelimit(&rl))
-			ERROR(ctxt->cdev, "%s: cannot queue read request\n",
-								__func__);
+			pr_err("%s: cannot queue read request\n", __func__);
 
 		if (kref_put(&ctxt->kref, diag_context_release))
 			/* diag_context_release called spin_unlock already */
@@ -586,7 +585,7 @@ int usb_diag_write(struct usb_diag_ch *ch, struct diag_request *d_req)
 
 	if (list_empty(&ctxt->write_pool)) {
 		spin_unlock_irqrestore(&ctxt->lock, flags);
-		ERROR(ctxt->cdev, "%s: no requests available\n", __func__);
+		pr_err("%s: no requests available\n", __func__);
 		return -EAGAIN;
 	}
 
@@ -614,8 +613,7 @@ int usb_diag_write(struct usb_diag_ch *ch, struct diag_request *d_req)
 		ctxt->dpkts_tolaptop_pending--;
 		/* 1 error message for every 10 sec */
 		if (__ratelimit(&rl))
-			ERROR(ctxt->cdev, "%s: cannot queue read request\n",
-								__func__);
+			pr_err("%s: cannot queue read request\n", __func__);
 
 		if (kref_put(&ctxt->kref, diag_context_release))
 			/* diag_context_release called spin_unlock already */

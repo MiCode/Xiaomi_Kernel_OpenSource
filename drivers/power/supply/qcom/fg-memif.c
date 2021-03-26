@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, 2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"FG: %s: " fmt, __func__
@@ -1072,6 +1072,64 @@ static int __fg_direct_mem_rw(struct fg_dev *fg, u16 sram_addr, u8 offset,
 	ret = fg_direct_mem_release(fg);
 	if (ret < 0) {
 		pr_err("Error in releasing direct_mem access rc=%d\n", rc);
+		return ret;
+	}
+
+	return rc;
+}
+
+int fg_dma_mem_req(struct fg_dev *chip, bool request)
+{
+	int ret, rc = 0, retry_count  = RETRY_COUNT;
+	u8 val;
+
+	if (request) {
+		/* configure for DMA access */
+		rc = fg_masked_write(chip, MEM_IF_MEM_INTF_CFG(chip),
+				MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT,
+				MEM_ACCESS_REQ_BIT);
+		if (rc < 0) {
+			pr_err("failed to set mem_access bit rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = fg_masked_write(chip, MEM_IF_MEM_ARB_CFG(chip),
+				MEM_IF_ARB_REQ_BIT, MEM_IF_ARB_REQ_BIT);
+		if (rc < 0) {
+			pr_err("failed to set mem_arb bit rc=%d\n", rc);
+			goto release_mem;
+		}
+
+		while (retry_count--) {
+			rc = fg_read(chip, MEM_IF_INT_RT_STS(chip), &val, 1);
+			if (rc < 0) {
+				pr_err("failed to set ima_rt_sts rc=%d\n", rc);
+				goto release_mem;
+			}
+			if (val & MEM_GNT_BIT)
+				break;
+			msleep(20);
+		}
+		if ((retry_count < 0) && !(val & MEM_GNT_BIT)) {
+			pr_err("failed to get memory access\n");
+			rc = -ETIMEDOUT;
+			goto release_mem;
+		}
+
+		return 0;
+	}
+
+release_mem:
+	/* Release access */
+	rc = fg_masked_write(chip, MEM_IF_MEM_INTF_CFG(chip),
+			MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT, 0);
+	if (rc < 0)
+		pr_err("failed to reset mem_access bit rc = %d\n", rc);
+
+	ret = fg_masked_write(chip, MEM_IF_MEM_ARB_CFG(chip),
+			MEM_IF_ARB_REQ_BIT, 0);
+	if (ret < 0) {
+		pr_err("failed to release mem_arb bit rc=%d\n", ret);
 		return ret;
 	}
 

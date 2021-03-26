@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef SDE_ROTATOR_HWIO_H
@@ -59,8 +59,11 @@
 #define MMSS_VBIF_NRT_VBIF_OUT_WR_LIM_CONF0		0x00D4
 #define MMSS_VBIF_NRT_VBIF_OUT_AXI_AMEMTYPE_CONF0	0x0160
 #define MMSS_VBIF_NRT_VBIF_QOS_RP_REMAP_000		0x0550
+#ifdef CONFIG_FB_MSM_MDSS
+#define MMSS_VBIF_NRT_VBIF_QOS_LVL_REMAP_000		0x0570
+#else
 #define MMSS_VBIF_NRT_VBIF_QOS_LVL_REMAP_000		0x0590
-
+#endif
 #define SDE_MDP_REG_TRAFFIC_SHAPER_EN			BIT(31)
 #define SDE_MDP_REG_TRAFFIC_SHAPER_RD_CLIENT(num)	(0x030 + (num * 4))
 #define SDE_MDP_REG_TRAFFIC_SHAPER_WR_CLIENT(num)	(0x060 + (num * 4))

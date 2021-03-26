@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# msm network device configuration
+#
+config MSM_RMNET_BAM
+	bool "RMNET BAM Driver"
+	depends on MSM_BAM_DMUX
+	default n
+	help
+	  Implements RMNET over BAM interface.
+	  RMNET provides a virtual ethernet interface
+	  for routing IP packets within the MSM using
+	  BAM as a physical transport.
+
+config MSM_RMNET_DEBUG
+	bool "MSM RMNET debug interface"
+	depends on MSM_RMNET
+	default n
+

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2012-2018, 2020 The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2012-2018, 2020-2021, The Linux Foundation. All rights reserved. */
 
 #ifndef __MDSS_DSI_PLL_H
 #define __MDSS_DSI_PLL_H
@@ -38,5 +38,9 @@ static inline struct dsi_pll_vco_clk *to_vco_clk_hw(struct clk_hw *hw)
 }
 
 int dsi_pll_clock_register_14nm(struct platform_device *pdev,
+				struct mdss_pll_resources *pll_res);
+int dsi_pll_clock_register_28lpm(struct platform_device *pdev,
+				struct mdss_pll_resources *pll_res);
+int dsi_pll_clock_register_12nm(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
 #endif

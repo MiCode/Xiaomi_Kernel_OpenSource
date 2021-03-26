@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
@@ -380,6 +380,8 @@ static void sde_smmu_callback(struct mdss_smmu_intf *smmu)
 
 	/* Copy mmu device info into sde private structure */
 	mdata->iommu_ctrl = smmu->iommu_ctrl;
+	mdata->vbif_reg_lock = smmu->reg_lock;
+	mdata->vbif_reg_unlock = smmu->reg_unlock;
 	mdata->wait_for_transition = smmu->wait_for_transition;
 	mdata->secure_session_ctrl = smmu->secure_session_ctrl;
 	if (smmu->is_secure) {
