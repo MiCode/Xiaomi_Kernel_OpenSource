@@ -39,6 +39,17 @@ config QCOM_DMABUF_HEAPS_SYSTEM
 	  along with other optimizatons. If in doubt, say Y
 	  here.
 
+config QCOM_DMABUF_HEAPS_SYSTEM_SECURE
+	bool "QCOM DMA-BUF System Secure Heap"
+	depends on QCOM_DMABUF_HEAPS && QCOM_SECURE_BUFFER
+	select PAGE_POOL
+	help
+	  Choose this option to build the QCOM DMA-BUF system
+	  secure heap. This heap, which combines the built-in
+	  system heap along with other optimizations, assigns
+	  memory that is secure by default. If in doubt, say Y
+	  here.
+
 config QCOM_DMABUF_HEAPS_SYSTEM_UNCACHED
 	bool "QCOM DMA-BUF Uncached System Heap"
 	depends on QCOM_DMABUF_HEAPS && QCOM_DMABUF_HEAPS_SYSTEM
