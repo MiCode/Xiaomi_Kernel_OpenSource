@@ -23,8 +23,8 @@ static ssize_t iommu_debug_dma_atos_read(struct file *file, char __user *ubuf,
 	struct iommu_debug_device *ddev = file->private_data;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(ddev->test_dev);
 	phys_addr_t phys;
-	char buf[100] = {};
-	struct qcom_iommu_atos_txn txn = {};
+	char buf[100] = {0};
+	struct qcom_iommu_atos_txn txn;
 	int len;
 
 	if (*offset)
@@ -37,7 +37,7 @@ static ssize_t iommu_debug_dma_atos_read(struct file *file, char __user *ubuf,
 
 	mutex_lock(&ddev->state_lock);
 	if (!ddev->domain) {
-		pr_err("%s: No domain. Did you already attach?\n", __func__);
+		pr_err("%s: No domain. Have you selected a usecase?\n", __func__);
 		mutex_unlock(&ddev->state_lock);
 		return -EINVAL;
 	}
@@ -93,7 +93,7 @@ static ssize_t iommu_debug_map_write(struct file *file, const char __user *ubuf,
 	ssize_t retval = -EINVAL;
 	int ret;
 	char *comma1, *comma2, *comma3;
-	char buf[100];
+	char buf[100] = {0};
 	dma_addr_t iova;
 	phys_addr_t phys;
 	size_t size;
@@ -104,8 +104,6 @@ static ssize_t iommu_debug_map_write(struct file *file, const char __user *ubuf,
 		pr_err_ratelimited("Value too large\n");
 		return -EINVAL;
 	}
-
-	memset(buf, 0, 100);
 
 	if (copy_from_user(buf, ubuf, count)) {
 		pr_err_ratelimited("Couldn't copy from user\n");
@@ -141,7 +139,7 @@ static ssize_t iommu_debug_map_write(struct file *file, const char __user *ubuf,
 
 	mutex_lock(&ddev->state_lock);
 	if (!ddev->domain) {
-		pr_err_ratelimited("No domain. Did you already attach?\n");
+		pr_err_ratelimited("%s: No domain. Have you selected a usecase?\n", __func__);
 		mutex_unlock(&ddev->state_lock);
 		return -EINVAL;
 	}
@@ -154,7 +152,7 @@ static ssize_t iommu_debug_map_write(struct file *file, const char __user *ubuf,
 	}
 
 	retval = count;
-	pr_info_ratelimited("Mapped %pa to %pa (len=0x%zx, prot=0x%x)\n", &iova, &phys, size, prot);
+	pr_info("Mapped %pa to %pa (len=0x%zx, prot=0x%x)\n", &iova, &phys, size, prot);
 out:
 	mutex_unlock(&ddev->state_lock);
 	return retval;
@@ -175,7 +173,7 @@ static ssize_t iommu_debug_unmap_write(struct file *file,
 {
 	ssize_t retval = 0;
 	char *comma1;
-	char buf[100];
+	char buf[100] = {0};
 	dma_addr_t iova;
 	size_t size;
 	size_t unmapped;
@@ -187,11 +185,9 @@ static ssize_t iommu_debug_unmap_write(struct file *file,
 	}
 
 	if (!ddev->domain) {
-		pr_err_ratelimited("No domain. Did you already attach?\n");
+		pr_err_ratelimited("%s: No domain. Have you selected a usecase?\n", __func__);
 		return -EINVAL;
 	}
-
-	memset(buf, 0, 100);
 
 	if (copy_from_user(buf, ubuf, count)) {
 		pr_err_ratelimited("Couldn't copy from user\n");
@@ -228,7 +224,7 @@ static ssize_t iommu_debug_unmap_write(struct file *file,
 	}
 
 	retval = count;
-	pr_info_ratelimited("Unmapped %pa (len=0x%zx)\n", &iova, size);
+	pr_info("Unmapped %pa (len=0x%zx)\n", &iova, size);
 out:
 	mutex_unlock(&ddev->state_lock);
 	return retval;
@@ -385,7 +381,7 @@ static int __functional_dma_api_map_sg_test(struct device *dev, struct seq_file 
 	const size_t *sz;
 	int ret = 0, count = 0;
 
-	ds_printf(dev, s, "Map SG DMA API test\n");
+	ds_printf(dev, s, "Map SG DMA API test");
 
 	for (sz = sizes; *sz; ++sz) {
 		size_t size = *sz;
@@ -946,7 +942,7 @@ static ssize_t iommu_debug_test_virt_addr_read(struct file *file,
 		test_virt_addr = ERR_PTR(-ENOMEM);
 		len = strscpy(buf, "FAIL\n", sizeof(buf));
 	} else {
-		len = scnprintf(buf, sizeof(buf), "0x%pK\n", test_virt_addr);
+		len = scnprintf(buf, sizeof(buf), "0x%p\n", test_virt_addr);
 	}
 	mutex_unlock(&test_virt_addr_lock);
 

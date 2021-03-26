@@ -47,7 +47,7 @@ DEFINE_DEBUGFS_ATTRIBUTE(iommu_debug_nr_iters_fops,
 int iommu_debug_check_mapping_flags(struct device *dev, dma_addr_t iova, size_t size,
 				    phys_addr_t expected_pa, u32 flags)
 {
-	struct qcom_iommu_atos_txn txn = {0};
+	struct qcom_iommu_atos_txn txn;
 	struct iommu_fwspec *fwspec;
 	struct iommu_domain *domain;
 
