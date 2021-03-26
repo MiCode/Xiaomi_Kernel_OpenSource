@@ -147,6 +147,7 @@ static uint16_t g_last_mem_rgn_id, g_last_mem_map_obj_id;
 static size_t g_max_cb_buf_size = SMCINVOKE_TZ_MIN_BUF_SIZE;
 static unsigned int cb_reqs_inflight;
 static bool legacy_smc_call;
+static int invoke_cmd;
 
 static long smcinvoke_ioctl(struct file *, unsigned int, unsigned long);
 static int smcinvoke_open(struct inode *, struct file *);
@@ -999,6 +1000,41 @@ static void process_mem_obj(void *buf, size_t buf_len)
 	mutex_unlock(&g_smcinvoke_lock);
 }
 
+static int invoke_cmd_handler(int cmd, phys_addr_t in_paddr, size_t in_buf_len,
+			uint8_t *out_buf, phys_addr_t out_paddr,
+			size_t out_buf_len, int32_t *result, u64 *response_type,
+			unsigned int *data, struct qtee_shm *in_shm,
+			struct qtee_shm *out_shm)
+{
+	int ret = 0;
+
+	switch (cmd) {
+	case SMCINVOKE_INVOKE_CMD_LEGACY:
+		qtee_shmbridge_flush_shm_buf(in_shm);
+		qtee_shmbridge_flush_shm_buf(out_shm);
+		ret = qcom_scm_invoke_smc_legacy(in_paddr, in_buf_len, out_paddr, out_buf_len,
+			result, response_type, data);
+		qtee_shmbridge_inv_shm_buf(in_shm);
+		qtee_shmbridge_inv_shm_buf(out_shm);
+		break;
+
+	case SMCINVOKE_INVOKE_CMD:
+		ret = qcom_scm_invoke_smc(in_paddr, in_buf_len, out_paddr, out_buf_len,
+			result, response_type, data);
+		break;
+
+	case SMCINVOKE_CB_RSP_CMD:
+		ret = qcom_scm_invoke_callback_response(virt_to_phys(out_buf), out_buf_len,
+			result, response_type, data);
+		break;
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
 /*
  * Buf should be aligned to struct smcinvoke_tzcb_req
  */
@@ -1219,7 +1255,8 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 				size_t out_buf_len,
 				struct smcinvoke_cmd_req *req,
 				union smcinvoke_arg *args_buf,
-				bool *tz_acked)
+				bool *tz_acked,
+				struct qtee_shm *in_shm, struct  qtee_shm *out_shm)
 {
 	int ret = 0, cmd;
 	u64 response_type;
@@ -1231,10 +1268,7 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 	if ((in_buf_len % PAGE_SIZE) != 0 || (out_buf_len % PAGE_SIZE) != 0)
 		return -EINVAL;
 
-	if (legacy_smc_call)
-		cmd = SMCINVOKE_INVOKE_CMD_LEGACY;
-	else
-		cmd = SMCINVOKE_INVOKE_CMD;
+	cmd = invoke_cmd;
 	/*
 	 * purpose of lock here is to ensure that any CB obj that may be going
 	 * to user as OO is not released by piggyback message on another invoke
@@ -1247,18 +1281,9 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 	while (1) {
 		mutex_lock(&g_smcinvoke_lock);
 
-		if (cmd == SMCINVOKE_INVOKE_CMD_LEGACY)
-			ret = qcom_scm_invoke_smc_legacy(in_paddr, in_buf_len,
-					out_paddr, out_buf_len,
-					&req->result, &response_type, &data);
-		else if (cmd == SMCINVOKE_INVOKE_CMD)
-			ret = qcom_scm_invoke_smc(in_paddr, in_buf_len,
-					out_paddr, out_buf_len,
-					&req->result, &response_type, &data);
-		else
-			ret = qcom_scm_invoke_callback_response(
-					virt_to_phys(out_buf), out_buf_len,
-					&req->result, &response_type, &data);
+		ret = invoke_cmd_handler(cmd, in_paddr, in_buf_len, out_buf,
+			out_paddr, out_buf_len, &req->result, &response_type,
+			&data, in_shm, out_shm);
 
 		if (!ret && !is_inbound_req(response_type)) {
 			/* dont marshal if Obj returns an error */
@@ -1880,7 +1905,7 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 
 	ret = prepare_send_scm_msg(in_msg, in_shm.paddr, inmsg_size,
 					out_msg, out_shm.paddr, outmsg_size,
-					&req, args_buf, &tz_acked);
+					&req, args_buf, &tz_acked, &in_shm, &out_shm);
 
 	/*
 	 * If scm_call is success, TZ owns responsibility to release
@@ -2024,7 +2049,8 @@ static int smcinvoke_release(struct inode *nodp, struct file *filp)
 
 	ret = prepare_send_scm_msg(in_buf, in_shm.paddr,
 		SMCINVOKE_TZ_MIN_BUF_SIZE, out_buf, out_shm.paddr,
-		SMCINVOKE_TZ_MIN_BUF_SIZE, &req, NULL, &release_handles);
+		SMCINVOKE_TZ_MIN_BUF_SIZE, &req, NULL, &release_handles,
+		&in_shm, &out_shm);
 
 	process_piggyback_data(out_buf, SMCINVOKE_TZ_MIN_BUF_SIZE);
 out:
@@ -2078,6 +2104,7 @@ static int smcinvoke_probe(struct platform_device *pdev)
 	}
 	legacy_smc_call = of_property_read_bool((&pdev->dev)->of_node,
 			"qcom,support-legacy_smc");
+	invoke_cmd = legacy_smc_call ? SMCINVOKE_INVOKE_CMD_LEGACY : SMCINVOKE_INVOKE_CMD;
 
 	return  0;
 
