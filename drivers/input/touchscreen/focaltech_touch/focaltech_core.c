@@ -1338,7 +1338,14 @@ void fts_irq_disable(void)
 	spin_lock_irqsave(&fts_data->irq_lock, irqflags);
 
 	if (!fts_data->irq_disabled) {
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
+		if (atomic_read(&fts_data->trusted_touch_underway))
+			disable_irq_wake(fts_data->irq);
+		else
+			disable_irq_nosync(fts_data->irq);
+#else
 		disable_irq_nosync(fts_data->irq);
+#endif
 		fts_data->irq_disabled = true;
 	}
 
@@ -1354,7 +1361,14 @@ void fts_irq_enable(void)
 	spin_lock_irqsave(&fts_data->irq_lock, irqflags);
 
 	if (fts_data->irq_disabled) {
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
+		if (atomic_read(&fts_data->trusted_touch_underway))
+			enable_irq_wake(fts_data->irq);
+		else
+			enable_irq(fts_data->irq);
+#else
 		enable_irq(fts_data->irq);
+#endif
 		fts_data->irq_disabled = false;
 	}
 
