@@ -475,14 +475,11 @@ struct dwc3_msm {
 	struct workqueue_struct *sm_usb_wq;
 	struct delayed_work	sm_work;
 	unsigned long		inputs;
-	unsigned int		max_power;
 	enum dwc3_drd_state	drd_state;
 	enum usb_dr_mode	dr_mode;
 	enum bus_vote		default_bus_vote;
 	enum bus_vote		override_bus_vote;
 	struct icc_path		*icc_paths[3];
-	struct power_supply	*usb_psy;
-	struct work_struct	vbus_draw_work;
 	bool			in_host_mode;
 	bool			in_device_mode;
 	enum usb_device_speed	max_rh_port_speed;
@@ -556,7 +553,6 @@ struct dwc3_msm {
 #define USB_SSPHY_1P8_HPM_LOAD		23000	/* uA */
 
 static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
-static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA);
 
 static inline void dwc3_msm_ep_writel(void __iomem *base, u32 offset, u32 value)
 {
@@ -2697,14 +2693,6 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 	return ret;
 }
 
-static void dwc3_msm_vbus_draw_work(struct work_struct *w)
-{
-	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
-			vbus_draw_work);
-
-	dwc3_msm_gadget_vbus_draw(mdwc, mdwc->vbus_draw);
-}
-
 static void dwc3_gsi_event_buf_alloc(struct dwc3 *dwc)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
@@ -2825,10 +2813,6 @@ void dwc3_msm_notify_event(struct dwc3 *dwc,
 					PWR_EVNT_LPM_OUT_L1_MASK, 1);
 
 		atomic_set(&mdwc->in_lpm, 0);
-		break;
-	case DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT:
-		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT received\n");
-		schedule_work(&mdwc->vbus_draw_work);
 		break;
 	case DWC3_GSI_EVT_BUF_ALLOC:
 		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_ALLOC\n");
@@ -4673,7 +4657,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&mdwc->req_complete_list);
 	INIT_WORK(&mdwc->resume_work, dwc3_resume_work);
 	INIT_WORK(&mdwc->restart_usb_work, dwc3_restart_usb_work);
-	INIT_WORK(&mdwc->vbus_draw_work, dwc3_msm_vbus_draw_work);
 	INIT_DELAYED_WORK(&mdwc->sm_work, dwc3_otg_sm_work);
 	INIT_DELAYED_WORK(&mdwc->perf_vote_work, msm_dwc3_perf_vote_work);
 
@@ -5025,9 +5008,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		regulator_unregister_notifier(mdwc->dpdm_reg, &mdwc->dpdm_nb);
 		mdwc->dpdm_nb.notifier_call = NULL;
 	}
-
-	if (mdwc->usb_psy)
-		power_supply_put(mdwc->usb_psy);
 
 	/*
 	 * In case of system suspend, pm_runtime_get_sync fails.
@@ -5390,42 +5370,6 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 	return 0;
 }
 
-static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
-{
-	union power_supply_propval pval = {0};
-	int ret;
-
-	if (!mdwc->usb_psy && of_property_read_bool(mdwc->dev->of_node,
-					"qcom,usb-charger")) {
-		mdwc->usb_psy = power_supply_get_by_name("usb");
-		if (!mdwc->usb_psy) {
-			dev_err(mdwc->dev, "Could not get usb psy\n");
-			return -ENODEV;
-		}
-	}
-
-	if (!mdwc->usb_psy)
-		return 0;
-
-	if (mdwc->max_power == mA)
-		return 0;
-
-	dev_info(mdwc->dev, "Avail curr from USB = %u\n", mA);
-
-	/* Set max current limit in uA */
-	pval.intval = 1000 * mA;
-	ret = power_supply_set_property(mdwc->usb_psy,
-				POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT, &pval);
-	if (ret) {
-		dev_dbg(mdwc->dev, "power supply error when setting property\n");
-		return ret;
-	}
-
-	mdwc->max_power = mA;
-	return 0;
-}
-
-
 /**
  * dwc3_otg_sm_work - workqueue function.
  *
@@ -5527,7 +5471,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			mdwc->drd_state = DRD_STATE_PERIPHERAL;
 			work = true;
 		} else {
-			dwc3_msm_gadget_vbus_draw(mdwc, 0);
+			usb_phy_set_power(mdwc->hs_phy, 0);
 			dev_dbg(mdwc->dev, "Cable disconnected\n");
 		}
 		break;
