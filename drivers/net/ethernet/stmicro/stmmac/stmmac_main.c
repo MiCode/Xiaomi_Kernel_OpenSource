@@ -178,6 +178,8 @@ int stmmac_bus_clks_config(struct stmmac_priv *priv, bool enabled)
 }
 EXPORT_SYMBOL_GPL(stmmac_bus_clks_config);
 
+static void stmmac_set_speed100(struct phy_device *phydev);
+
 /**
  * stmmac_verify_args - verify the driver parameters.
  * Description: it checks the driver parameters and set a default in case of
@@ -1047,11 +1049,38 @@ static void stmmac_validate(struct phylink_config *config,
 		phylink_set(mask, 1000baseT_Half);
 	}
 
+	/* Early ethernet settings to bring up link in 100M,
+	 * Auto neg Off with full duplex link.
+	 */
+	if (max_speed == SPEED_100 && priv->early_eth) {
+		priv->phydev->autoneg = AUTONEG_DISABLE;
+		priv->phydev->speed = SPEED_100;
+		priv->phydev->duplex = DUPLEX_FULL;
+
+	phylink_set(mac_supported, 100baseT_Full);
+	phylink_set(mac_supported, TP);
+	phylink_set(mac_supported, MII);
+	phylink_set(mac_supported, 10baseT_Full);
+	phylink_clear(mac_supported, Autoneg);
 	linkmode_and(supported, supported, mac_supported);
 	linkmode_andnot(supported, supported, mask);
 
+	phylink_clear(mac_supported, Autoneg);
 	linkmode_and(state->advertising, state->advertising, mac_supported);
 	linkmode_andnot(state->advertising, state->advertising, mask);
+
+	pr_info(" qcom-ethqos: %s early eth setting successful\n",
+		__func__);
+
+		stmmac_set_speed100(priv->phydev);
+	} else {
+		linkmode_and(supported, supported, mac_supported);
+		linkmode_andnot(supported, supported, mask);
+		linkmode_and(state->advertising,
+			     state->advertising, mac_supported);
+		linkmode_andnot(state->advertising,
+				state->advertising, mask);
+	}
 
 	/* If PCS is supported, check which modes it supports. */
 	if (priv->hw->xpcs)
@@ -1191,6 +1220,13 @@ static void stmmac_mac_link_up(struct phylink_config *config,
 
 	if (priv->dma_cap.fpesel)
 		stmmac_fpe_link_state_handle(priv, true);
+
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+	if (phy->link == 1 && !priv->boot_kpi) {
+		place_marker("M - Ethernet is Ready.Link is UP");
+		priv->boot_kpi = true;
+	}
+#endif
 }
 
 static const struct phylink_mac_ops stmmac_phylink_mac_ops = {
@@ -1225,6 +1261,30 @@ static void stmmac_check_pcs_mode(struct stmmac_priv *priv)
 	}
 }
 
+static void stmmac_set_speed100(struct phy_device *phydev)
+{
+	u16 bmcr_val, ctrl1000_val, adv_val;
+
+	/* Disable 1000M mode */
+	ctrl1000_val = phy_read(phydev, MII_CTRL1000);
+	ctrl1000_val &= ~(ADVERTISE_1000HALF | ADVERTISE_1000FULL);
+	phy_write(phydev, MII_CTRL1000, ctrl1000_val);
+
+	/* Disable 100M mode */
+	adv_val = phy_read(phydev, MII_ADVERTISE);
+	adv_val &= ~(ADVERTISE_100HALF);
+	phy_write(phydev, MII_ADVERTISE, adv_val);
+
+	/* Disable autoneg */
+	bmcr_val = phy_read(phydev, MII_BMCR);
+	bmcr_val &= ~(BMCR_ANENABLE);
+	phy_write(phydev, MII_BMCR, bmcr_val);
+
+	bmcr_val = phy_read(phydev, MII_BMCR);
+	bmcr_val |= BMCR_ANRESTART;
+	phy_write(phydev, MII_BMCR, bmcr_val);
+}
+
 /**
  * stmmac_init_phy - PHY initialization
  * @dev: net device structure
@@ -1238,6 +1298,8 @@ static int stmmac_init_phy(struct net_device *dev)
 	struct stmmac_priv *priv = netdev_priv(dev);
 	struct device_node *node;
 	int ret;
+
+	priv->boot_kpi = false;
 
 	node = priv->plat->phylink_node;
 
@@ -1272,6 +1334,8 @@ static int stmmac_init_phy(struct net_device *dev)
 			priv->phydev->irq = PHY_POLL;
 		}
 	}
+	pr_info(" qcom-ethqos: %s early eth setting stmmac init\n",
+		__func__);
 
 	if (!priv->plat->pmt) {
 		struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
@@ -2567,6 +2631,10 @@ static int stmmac_tx_clean(struct stmmac_priv *priv, int budget, u32 queue)
 				priv->dev->stats.tx_packets++;
 				priv->xstats.tx_pkt_n++;
 				priv->xstats.txq_stats[queue].tx_pkt_n++;
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+if (priv->dev->stats.tx_packets == 1)
+	place_marker("M - Ethernet first packet transmitted");
+#endif
 			}
 			if (skb)
 				stmmac_get_tx_hwtstamp(priv, p, skb);
@@ -5349,6 +5417,10 @@ drain_data:
 		skb = NULL;
 
 		priv->dev->stats.rx_packets++;
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+	if (priv->dev->stats.rx_packets == 1)
+		place_marker("M - Ethernet first packet received");
+#endif
 		priv->dev->stats.rx_bytes += len;
 		count++;
 	}

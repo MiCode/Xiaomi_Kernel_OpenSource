@@ -25,6 +25,8 @@
 #include <linux/tcp.h>
 #include <linux/ip.h>
 #include <linux/ipv6.h>
+#include <linux/rtnetlink.h>
+
 #include "stmmac.h"
 #include "stmmac_platform.h"
 #include "dwmac-qcom-ethqos.h"
@@ -119,6 +121,20 @@ struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx = {0};
 struct plat_stmmacenet_data *plat_dat;
 struct qcom_ethqos *pethqos;
 
+#ifdef MODULE
+static char *eipv4;
+module_param(eipv4, charp, 0660);
+MODULE_PARM_DESC(eipv4, "ipv4 value from ethernet partition");
+
+static char *eipv6;
+module_param(eipv6, charp, 0660);
+MODULE_PARM_DESC(eipv6, "ipv6 value from ethernet partition");
+
+static char *ermac;
+module_param(ermac, charp, 0660);
+MODULE_PARM_DESC(ermac, "mac address from ethernet partition");
+#endif
+
 inline void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos)
 {
 	struct platform_device *pdev = ethqos->pdev;
@@ -127,6 +143,10 @@ inline void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos)
 
 	return priv;
 }
+
+static unsigned char dev_addr[ETH_ALEN] = {
+	0, 0x55, 0x7b, 0xb5, 0x7d, 0xf7};
+static struct ip_params pparams = {"", "", "", ""};
 
 static inline unsigned int dwmac_qcom_get_eth_type(unsigned char *buf)
 {
@@ -278,6 +298,194 @@ int ethqos_handle_prv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	default:
 		break;
 	}
+	return ret;
+}
+
+static int set_early_ethernet_ipv4(char *ipv4_addr_in)
+{
+	int ret = 1;
+
+	pparams.is_valid_ipv4_addr = false;
+
+	if (!ipv4_addr_in)
+		return ret;
+
+	strscpy(pparams.ipv4_addr_str,
+		ipv4_addr_in, sizeof(pparams.ipv4_addr_str));
+	ETHQOSDBG("Early ethernet IPv4 addr: %s\n", pparams.ipv4_addr_str);
+
+	ret = in4_pton(pparams.ipv4_addr_str, -1,
+		       (u8 *)&pparams.ipv4_addr.s_addr, -1, NULL);
+	if (ret != 1 || pparams.ipv4_addr.s_addr == 0) {
+		ETHQOSERR("Invalid ipv4 address programmed: %s\n",
+			  ipv4_addr_in);
+		return ret;
+	}
+
+	pparams.is_valid_ipv4_addr = true;
+	return ret;
+}
+
+static int set_early_ethernet_ipv6(char *ipv6_addr_in)
+{
+	int ret = 1;
+
+	pparams.is_valid_ipv6_addr = false;
+
+	if (!ipv6_addr_in)
+		return ret;
+
+	strscpy(pparams.ipv6_addr_str,
+		ipv6_addr_in, sizeof(pparams.ipv6_addr_str));
+	ETHQOSDBG("Early ethernet IPv6 addr: %s\n", pparams.ipv6_addr_str);
+
+	ret = in6_pton(pparams.ipv6_addr_str, -1,
+		       (u8 *)&pparams.ipv6_addr.ifr6_addr.s6_addr32, -1, NULL);
+	if (ret != 1 || !pparams.ipv6_addr.ifr6_addr.s6_addr32)  {
+		ETHQOSERR("Invalid ipv6 address programmed: %s\n",
+			  ipv6_addr_in);
+		return ret;
+	}
+
+	pparams.is_valid_ipv6_addr = true;
+	return ret;
+}
+
+static int set_early_ethernet_mac(char *mac_addr)
+{
+	bool valid_mac = false;
+
+	pparams.is_valid_mac_addr = false;
+	if (!mac_addr)
+		return 1;
+
+	valid_mac = mac_pton(mac_addr, pparams.mac_addr);
+	if (!valid_mac)
+		goto fail;
+
+	valid_mac = is_valid_ether_addr(pparams.mac_addr);
+	if (!valid_mac)
+		goto fail;
+
+	pparams.is_valid_mac_addr = true;
+	return 0;
+
+fail:
+	ETHQOSERR("Invalid Mac address programmed: %s\n", mac_addr);
+	return 1;
+}
+
+#ifndef MODULE
+static int __init set_early_ethernet_ipv4_static(char *ipv4_addr_in)
+{
+	int ret = 1;
+
+	ret = set_early_ethernet_ipv4(ipv4_addr_in);
+	return ret;
+}
+
+__setup("eipv4=", set_early_ethernet_ipv4_static);
+
+static int __init set_early_ethernet_ipv6_static(char *ipv6_addr_in)
+{
+	int ret = 1;
+
+	ret = set_early_ethernet_ipv6(ipv6_addr_in);
+	return ret;
+}
+
+__setup("eipv6=", set_early_ethernet_ipv6_static);
+
+static int __init set_early_ethernet_mac_static(char *mac_addr)
+{
+	int ret = 1;
+
+	ret = set_early_ethernet_mac(mac_addr);
+	return ret;
+}
+
+__setup("ermac=", set_early_ethernet_mac_static);
+#endif
+
+static int qcom_ethqos_add_ipaddr(struct ip_params *ip_info,
+				  struct net_device *dev)
+{
+	int res = 0;
+	struct ifreq ir;
+	struct sockaddr_in *sin = (void *)&ir.ifr_ifru.ifru_addr;
+	struct net *net = dev_net(dev);
+
+	if (!net || !net->genl_sock || !net->genl_sock->sk_socket) {
+		ETHQOSINFO("Sock is null, unable to assign ipv4 address\n");
+		return res;
+	}
+	/*For valid Ipv4 address*/
+	memset(&ir, 0, sizeof(ir));
+	memcpy(&sin->sin_addr.s_addr, &ip_info->ipv4_addr,
+	       sizeof(sin->sin_addr.s_addr));
+
+	strscpy(ir.ifr_ifrn.ifrn_name,
+		dev->name, sizeof(ir.ifr_ifrn.ifrn_name));
+	sin->sin_family = AF_INET;
+	sin->sin_port = 0;
+
+	res = inet_ioctl(net->genl_sock->sk_socket,
+			 SIOCSIFADDR, (unsigned long)(void *)&ir);
+		if (res) {
+			ETHQOSERR("can't setup IPv4 address!: %d\r\n", res);
+		} else {
+			ETHQOSINFO("Assigned IPv4 address: %s\r\n",
+				   ip_info->ipv4_addr_str);
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+place_marker("M - Etherent Assigned IPv4 address");
+#endif
+		}
+	return res;
+}
+
+static int qcom_ethqos_add_ipv6addr(struct ip_params *ip_info,
+				    struct net_device *dev)
+{
+	int ret = -EFAULT;
+	struct in6_ifreq ir6;
+	char *prefix;
+	struct net *net = dev_net(dev);
+	/*For valid IPv6 address*/
+
+	if (!net || !net->genl_sock || !net->genl_sock->sk_socket)
+		ETHQOSERR("Sock is null, unable to assign ipv6 address\n");
+
+	if (!net->ipv6.devconf_dflt) {
+		ETHQOSERR("ipv6.devconf_dflt is null, schedule wq\n");
+		schedule_delayed_work(&pethqos->ipv6_addr_assign_wq,
+				      msecs_to_jiffies(1000));
+		return ret;
+	}
+	memset(&ir6, 0, sizeof(ir6));
+	memcpy(&ir6, &ip_info->ipv6_addr, sizeof(struct in6_ifreq));
+	ir6.ifr6_ifindex = dev->ifindex;
+
+	prefix = strnchr(ip_info->ipv6_addr_str,
+			 strlen(ip_info->ipv6_addr_str), '/');
+
+	if (!prefix) {
+		ir6.ifr6_prefixlen = 0;
+	} else {
+		ret = kstrtoul(prefix + 1, 0, (unsigned long *)&ir6.ifr6_prefixlen);
+		if (ir6.ifr6_prefixlen > 128)
+			ir6.ifr6_prefixlen = 0;
+	}
+	ret = inet6_ioctl(net->genl_sock->sk_socket,
+			  SIOCSIFADDR, (unsigned long)(void *)&ir6);
+		if (ret) {
+			ETHQOSDBG("Can't setup IPv6 address!\r\n");
+		} else {
+			ETHQOSDBG("Assigned IPv6 address: %s\r\n",
+				  ip_info->ipv6_addr_str);
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+		place_marker("M - Ethernet Assigned IPv6 address");
+#endif
+		}
 	return ret;
 }
 
@@ -939,15 +1147,6 @@ static void qcom_ethqos_phy_suspend_clks(struct qcom_ethqos *ethqos)
 	ETHQOSINFO("Exit\n");
 }
 
-inline void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos)
-{
-	struct platform_device *pdev = ethqos->pdev;
-	struct net_device *dev = platform_get_drvdata(pdev);
-	struct stmmac_priv *priv = netdev_priv(dev);
-
-	return priv;
-}
-
 inline bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos)
 {
 	/* PHY driver initializes phydev->link=1.
@@ -1039,6 +1238,127 @@ void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat)
 	}
 }
 
+static void qcom_ethqos_bringup_iface(struct work_struct *work)
+{
+	struct platform_device *pdev = NULL;
+	struct net_device *ndev = NULL;
+	struct qcom_ethqos *ethqos =
+		container_of(work, struct qcom_ethqos, early_eth);
+
+	ETHQOSINFO("entry\n");
+	if (!ethqos)
+		return;
+	pdev = ethqos->pdev;
+	if (!pdev)
+		return;
+	ndev = platform_get_drvdata(pdev);
+	if (!ndev || netif_running(ndev))
+		return;
+	rtnl_lock();
+	if (dev_change_flags(ndev, ndev->flags | IFF_UP, NULL) < 0)
+		ETHQOSINFO("ERROR\n");
+	rtnl_unlock();
+	ETHQOSINFO("exit\n");
+}
+
+static void ethqos_is_ipv4_NW_stack_ready(struct work_struct *work)
+{
+	struct delayed_work *dwork;
+	struct qcom_ethqos *ethqos;
+	struct platform_device *pdev = NULL;
+	struct net_device *ndev = NULL;
+	int ret;
+
+	ETHQOSINFO("\n");
+	dwork = container_of(work, struct delayed_work, work);
+	ethqos = container_of(dwork, struct qcom_ethqos, ipv4_addr_assign_wq);
+
+	if (!ethqos)
+		return;
+
+	pdev = ethqos->pdev;
+
+	if (!pdev)
+		return;
+
+	ndev = platform_get_drvdata(pdev);
+
+	ret = qcom_ethqos_add_ipaddr(&pparams, ndev);
+	if (ret)
+		return;
+
+	cancel_delayed_work_sync(&ethqos->ipv4_addr_assign_wq);
+	flush_delayed_work(&ethqos->ipv4_addr_assign_wq);
+}
+
+static void ethqos_is_ipv6_NW_stack_ready(struct work_struct *work)
+{
+	struct delayed_work *dwork;
+	struct qcom_ethqos *ethqos;
+	struct platform_device *pdev = NULL;
+	struct net_device *ndev = NULL;
+	int ret;
+
+	ETHQOSINFO("\n");
+	dwork = container_of(work, struct delayed_work, work);
+	ethqos = container_of(dwork, struct qcom_ethqos, ipv6_addr_assign_wq);
+
+	if (!ethqos)
+		return;
+
+	pdev = ethqos->pdev;
+
+	if (!pdev)
+		return;
+
+	ndev = platform_get_drvdata(pdev);
+
+	ret = qcom_ethqos_add_ipv6addr(&pparams, ndev);
+	if (ret)
+		return;
+
+	cancel_delayed_work_sync(&ethqos->ipv6_addr_assign_wq);
+	flush_delayed_work(&ethqos->ipv6_addr_assign_wq);
+}
+
+static int ethqos_set_early_eth_param(struct stmmac_priv *priv,
+				      struct qcom_ethqos *ethqos)
+{
+	int ret = 0;
+
+	if (priv->plat && priv->plat->mdio_bus_data)
+		priv->plat->mdio_bus_data->phy_mask =
+		 priv->plat->mdio_bus_data->phy_mask | DUPLEX_FULL | SPEED_100;
+
+	priv->plat->max_speed = SPEED_100;
+	priv->early_eth = ethqos->early_eth_enabled;
+	qcom_ethqos_add_ipaddr(&pparams, priv->dev);
+
+	if (pparams.is_valid_ipv4_addr) {
+		INIT_DELAYED_WORK(&ethqos->ipv4_addr_assign_wq,
+				  ethqos_is_ipv4_NW_stack_ready);
+		ret = qcom_ethqos_add_ipaddr(&pparams, priv->dev);
+		if (ret)
+			schedule_delayed_work(&ethqos->ipv4_addr_assign_wq,
+					      msecs_to_jiffies(1000));
+	}
+
+	if (pparams.is_valid_ipv6_addr) {
+		INIT_DELAYED_WORK(&ethqos->ipv6_addr_assign_wq,
+				  ethqos_is_ipv6_NW_stack_ready);
+		ret = qcom_ethqos_add_ipv6addr(&pparams, priv->dev);
+		if (ret)
+			schedule_delayed_work(&ethqos->ipv6_addr_assign_wq,
+					      msecs_to_jiffies(1000));
+	}
+
+	if (pparams.is_valid_mac_addr) {
+		ether_addr_copy(dev_addr, pparams.mac_addr);
+		memcpy(priv->dev->dev_addr, dev_addr, ETH_ALEN);
+	}
+	return ret;
+}
+
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -1046,10 +1366,27 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	struct qcom_ethqos *ethqos = NULL;
 
 	int ret;
+	struct net_device *ndev;
+	struct stmmac_priv *priv;
 
 	if (of_device_is_compatible(pdev->dev.of_node,
 				    "qcom,emac-smmu-embedded"))
 		return emac_emb_smmu_cb_probe(pdev, plat_dat);
+
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+	place_marker("M - Ethernet probe start");
+#endif
+#ifdef MODULE
+		if (eipv4)
+			ret = set_early_ethernet_ipv4(eipv4);
+
+		if (eipv6)
+			ret = set_early_ethernet_ipv6(eipv6);
+
+		if (ermac)
+			ret = set_early_ethernet_mac(ermac);
+#endif
+
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
 	if (ret)
 		return ret;
@@ -1089,6 +1426,22 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(ethqos->rgmii_clk);
 	if (ret)
 		goto err_mem;
+
+	/*Initialize Early ethernet to false*/
+	ethqos->early_eth_enabled = false;
+
+	/*Check for valid mac, ip address to enable Early eth*/
+	if (pparams.is_valid_mac_addr &&
+	    (pparams.is_valid_ipv4_addr || pparams.is_valid_ipv6_addr)) {
+		/* For 1000BASE-T mode, auto-negotiation is required and
+		 * always used to establish a link.
+		 * Configure phy and MAC in 100Mbps mode with autoneg
+		 * disable as link up takes more time with autoneg
+		 * enabled.
+		 */
+		ethqos->early_eth_enabled = true;
+		ETHQOSINFO("Early ethernet is enabled\n");
+	}
 
 	ethqos->speed = SPEED_10;
 	ethqos_update_rgmii_clk_and_bus_cfg(ethqos, SPEED_10);
@@ -1163,6 +1516,19 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	}
 
 	pethqos = ethqos;
+
+	ndev = dev_get_drvdata(&ethqos->pdev->dev);
+	priv = netdev_priv(ndev);
+
+	if (ethqos->early_eth_enabled) {
+		/* Initialize work*/
+		INIT_WORK(&ethqos->early_eth,
+			  qcom_ethqos_bringup_iface);
+		/* Queue the work*/
+		queue_work(system_wq, &ethqos->early_eth);
+		/*Set early eth parameters*/
+		ethqos_set_early_eth_param(priv, ethqos);
+	}
 	return ret;
 
 err_clk:
@@ -1274,7 +1640,56 @@ static struct platform_driver qcom_ethqos_driver = {
 		.of_match_table = of_match_ptr(qcom_ethqos_match),
 	},
 };
-module_platform_driver(qcom_ethqos_driver);
+
+static int __init qcom_ethqos_init_module(void)
+{
+	int ret = 0;
+
+	ETHQOSINFO("\n");
+
+	ret = platform_driver_register(&qcom_ethqos_driver);
+	if (ret < 0) {
+		ETHQOSINFO("qcom-ethqos: Driver registration failed");
+		return ret;
+	}
+
+	ETHQOSINFO("\n");
+
+	return ret;
+}
+
+static void __exit qcom_ethqos_exit_module(void)
+{
+	ETHQOSINFO("\n");
+
+	platform_driver_unregister(&qcom_ethqos_driver);
+
+	ETHQOSINFO("\n");
+}
+
+/*!
+ * \brief Macro to register the driver registration function.
+ *
+ * \details A module always begin with either the init_module or the function
+ * you specify with module_init call. This is the entry function for modules;
+ * it tells the kernel what functionality the module provides and sets up the
+ * kernel to run the module's functions when they're needed. Once it does this,
+ * entry function returns and the module does nothing until the kernel wants
+ * to do something with the code that the module provides.
+ */
+
+module_init(qcom_ethqos_init_module)
+
+/*!
+ * \brief Macro to register the driver un-registration function.
+ *
+ * \details All modules end by calling either cleanup_module or the function
+ * you specify with the module_exit call. This is the exit function for modules;
+ * it undoes whatever entry function did. It unregisters the functionality
+ * that the entry function registered.
+ */
+
+module_exit(qcom_ethqos_exit_module)
 
 MODULE_DESCRIPTION("Qualcomm ETHQOS driver");
 MODULE_LICENSE("GPL v2");
