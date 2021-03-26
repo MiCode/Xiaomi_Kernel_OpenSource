@@ -1211,6 +1211,16 @@ config REGULATOR_STUB
 	  Consumers can use stub regulator device with proper constraint
 	  checking while the real regulator driver is being developed.
 
+config REGULATOR_QPNP
+	tristate "Qualcomm Technologies, Inc. QPNP regulator support"
+	depends on SPMI
+	help
+	  This driver supports voltage regulators in Qualcomm Technologies, Inc.
+	  PMIC chips which comply with QPNP.  QPNP is a SPMI based PMIC
+	  implementation.  These chips provide several different varieties of
+	  LDO and switching regulators.  They also provide voltage switches and
+	  boost regulators.
+
 config VIRTIO_REGULATOR
 	tristate "Virtio regulator driver"
 	depends on VIRTIO
