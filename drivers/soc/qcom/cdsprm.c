@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -1197,7 +1197,6 @@ static int cdsp_rm_driver_probe(struct platform_device *pdev)
 		}
 
 		gcdsprm.cdsp_tcdev = tcdev;
-		thermal_cdev_update(tcdev);
 	}
 
 	gcdsprm.b_qosinitdone = true;
@@ -1369,7 +1368,6 @@ static int hvx_rm_driver_probe(struct platform_device *pdev)
 				"HVX thermal driver reg failed\n");
 		}
 		gcdsprm.hvx_tcdev = tcdev;
-		thermal_cdev_update(tcdev);
 	}
 
 	dev_dbg(dev, "HVX request manager driver probe called\n");
