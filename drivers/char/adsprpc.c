@@ -3092,7 +3092,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		if (fl->profile && !interrupted)
 			fastrpc_update_invoke_count(invoke->handle,
 				perf_counter, &invoket);
-		if (fl->profile && ctx->handle > FASTRPC_STATIC_HANDLE_MAX) {
+		if (fl->profile && ctx->perf && ctx->handle > FASTRPC_STATIC_HANDLE_MAX) {
 			trace_fastrpc_perf_counters(ctx->handle, ctx->sc,
 			ctx->perf->count, ctx->perf->flush, ctx->perf->map,
 			ctx->perf->copy, ctx->perf->link, ctx->perf->getargs,
@@ -3179,7 +3179,7 @@ bail:
 	if (ierr)
 		async_res->result = ierr;
 	if (ctx) {
-		if (fl->profile && ctx->handle > FASTRPC_STATIC_HANDLE_MAX) {
+		if (fl->profile && ctx->perf && ctx->handle > FASTRPC_STATIC_HANDLE_MAX) {
 			trace_fastrpc_perf_counters(ctx->handle, ctx->sc,
 			ctx->perf->count, ctx->perf->flush, ctx->perf->map,
 			ctx->perf->copy, ctx->perf->link, ctx->perf->getargs,
