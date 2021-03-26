@@ -10,6 +10,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/seq_file.h>
+#include <linux/string.h>
 
 #include <linux/soc/qcom/smem.h>
 #include <clocksource/arm_arch_timer.h>
@@ -98,9 +99,9 @@ static void print_sleep_stats(struct seq_file *s, struct sleep_stats *stat)
 	seq_printf(s, "Accumulated Duration = %llu\n", accumulated);
 }
 
-#if IS_ENABLED(CONFIG_QCOM_SMEM)
 static int subsystem_sleep_stats_show(struct seq_file *s, void *d)
 {
+#if IS_ENABLED(CONFIG_QCOM_SMEM)
 	struct subsystem_data *subsystem = s->private;
 	struct sleep_stats *stat;
 
@@ -110,11 +111,11 @@ static int subsystem_sleep_stats_show(struct seq_file *s, void *d)
 
 	print_sleep_stats(s, stat);
 
+#endif
 	return 0;
 }
 
 DEFINE_SHOW_ATTRIBUTE(subsystem_sleep_stats);
-#endif
 
 static int soc_sleep_stats_show(struct seq_file *s, void *d)
 {
@@ -208,12 +209,14 @@ DEFINE_SHOW_ATTRIBUTE(ddr_stats);
 
 static struct dentry *create_debugfs_entries(void __iomem *reg,
 					     void __iomem *ddr_reg,
-					     struct stats_prv_data *prv_data)
+					     struct stats_prv_data *prv_data,
+					     struct device_node *node)
 {
 	struct dentry *root;
 	char stat_type[sizeof(u32) + 1] = {0};
 	u32 offset, type, key;
-	int i;
+	int i, j, n_subsystems;
+	const char *name;
 
 	root = debugfs_create_dir("qcom_sleep_stats", NULL);
 
@@ -234,20 +237,24 @@ static struct dentry *create_debugfs_entries(void __iomem *reg,
 				    &soc_sleep_stats_fops);
 	}
 
-#if IS_ENABLED(CONFIG_QCOM_SMEM)
-	for (i = 0; i < ARRAY_SIZE(subsystems); i++) {
-		struct sleep_stats *stat;
+	n_subsystems = of_property_count_strings(node, "ss-name");
+	if (n_subsystems < 0)
+		goto exit;
 
-		stat = qcom_smem_get(subsystems[i].pid, subsystems[i].smem_item,
-				     NULL);
-		if (IS_ERR(stat))
-			continue;
+	for (i = 0; i < n_subsystems; i++) {
+		of_property_read_string_index(node, "ss-name", i, &name);
 
-		debugfs_create_file(subsystems[i].name, 0444, root,
-				    &subsystems[i],
-				    &subsystem_sleep_stats_fops);
+		for (j = 0; j < ARRAY_SIZE(subsystems); j++) {
+			if (!strcmp(subsystems[j].name, name)) {
+				debugfs_create_file(subsystems[j].name, 0444,
+						    root, &subsystems[j],
+						    &subsystem_sleep_stats_fops);
+				break;
+			}
+		}
+
 	}
-#endif
+
 	if (!ddr_reg)
 		goto exit;
 
@@ -316,7 +323,8 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 skip_ddr_stats:
-	root = create_debugfs_entries(reg, ddr_reg,  prv_data);
+	root = create_debugfs_entries(reg, ddr_reg,  prv_data,
+				      pdev->dev.of_node);
 	platform_set_drvdata(pdev, root);
 
 	return 0;
