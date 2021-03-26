@@ -1092,6 +1092,7 @@ drivers/media/mc/mc-devnode.c
 drivers/media/mc/mc-entity.c
 drivers/media/mc/mc-request.c
 drivers/media/rc/bpf-lirc.c
+drivers/media/rc/keymaps/rc-cec.c
 drivers/media/rc/lirc_dev.c
 drivers/media/rc/rc-core-priv.h
 drivers/media/rc/rc-ir-raw.c
@@ -4426,6 +4427,7 @@ kernel/fork.c
 kernel/freezer.c
 kernel/futex.c
 kernel/groups.c
+kernel/hung_task.c
 kernel/iomem.c
 kernel/irq/affinity.c
 kernel/irq/autoprobe.c
@@ -4868,6 +4870,7 @@ mm/cleancache.c
 mm/cma.c
 mm/cma_debug.c
 mm/cma.h
+mm/cma_sysfs.c
 mm/compaction.c
 mm/debug.c
 mm/dmapool.c
@@ -5461,10 +5464,15 @@ net/packet/internal.h
 net/rfkill/core.c
 net/rfkill/rfkill.h
 net/sched/act_api.c
+net/sched/act_gact.c
+net/sched/act_mirred.c
 net/sched/act_police.c
 net/sched/cls_api.c
+net/sched/cls_basic.c
 net/sched/cls_bpf.c
 net/sched/cls_fw.c
+net/sched/cls_matchall.c
+net/sched/cls_tcindex.c
 net/sched/cls_u32.c
 net/sched/ematch.c
 net/sched/em_u32.c
