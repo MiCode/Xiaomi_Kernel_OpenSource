@@ -3290,6 +3290,11 @@
 		qcom,ipa-holb-monitor-max-cnt-11ad = <10>;
 		qcom,tx-wrapper-cache-max-size = <400>;
 		qcom,ipa-gpi-event-rp-ddr;
+		qcom,ulso-supported;
+		qcom,ulso-ip-id-min-linux-val = <0>;
+		qcom,ulso-ip-id-max-linux-val = <0xffff>;
+		qcom,ulso-ip-id-min-windows-val = <0>;
+		qcom,ulso-ip-id-max-windows-val = <0x7fff>;
 		qcom,max_num_smmu_cb = <4>;
 		clock-names = "core_clk";
 		clocks = <&clock_rpmh RPMH_IPA_CLK>;
