@@ -1109,7 +1109,7 @@
 	camera-1 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
-		thermal-sensors = <&tsens0 15>;
+		thermal-sensors = <&tsens1 15>;
 		trips {
 			thermal-engine-config {
 				temperature = <125000>;
