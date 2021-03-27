@@ -120,9 +120,9 @@ static void system_heap_free(struct qcom_sg_buffer *buffer)
 	kfree(buffer);
 }
 
-static struct page *alloc_largest_available(struct dynamic_page_pool **pools,
-					    unsigned long size,
-					    unsigned int max_order)
+struct page *qcom_sys_heap_alloc_largest_available(struct dynamic_page_pool **pools,
+						   unsigned long size,
+						   unsigned int max_order)
 {
 	struct page *page;
 	int i;
@@ -181,9 +181,9 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 		if (fatal_signal_pending(current))
 			goto free_buffer;
 
-		page = alloc_largest_available(sys_heap->pool_list,
-					       size_remaining,
-					       max_order);
+		page = qcom_sys_heap_alloc_largest_available(sys_heap->pool_list,
+							     size_remaining,
+							     max_order);
 		if (!page)
 			goto free_buffer;
 
