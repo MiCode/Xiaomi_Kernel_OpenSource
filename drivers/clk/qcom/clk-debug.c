@@ -45,16 +45,6 @@ static LIST_HEAD(clk_hw_debug_mux_list);
 #define MEASURE_CNT		GENMASK(24, 0)
 #define CBCR_ENA		BIT(0)
 
-#define clock_debug_output(m, c, fmt, ...)		\
-do {							\
-	if (m)						\
-		seq_printf(m, fmt, ##__VA_ARGS__);	\
-	else if (c)					\
-		pr_cont(fmt, ##__VA_ARGS__);		\
-	else						\
-		pr_info(fmt, ##__VA_ARGS__);		\
-} while (0)
-
 /* Sample clock for 'ticks' reference clock ticks. */
 static u32 run_measurement(unsigned int ticks, struct regmap *regmap,
 		u32 ctl_reg, u32 status_reg)
@@ -589,7 +579,7 @@ static const struct file_operations list_rates_fops = {
 	.release	= seq_release,
 };
 
-static void clk_debug_print_hw(struct clk_hw *hw, struct seq_file *f)
+void clk_debug_print_hw(struct clk_hw *hw, struct seq_file *f)
 {
 	struct clk_regmap *rclk;
 
@@ -597,7 +587,7 @@ static void clk_debug_print_hw(struct clk_hw *hw, struct seq_file *f)
 		return;
 
 	clk_debug_print_hw(clk_hw_get_parent(hw), f);
-	seq_printf(f, "%s\n", clk_hw_get_name(hw));
+	clock_debug_output(f, "%s\n", clk_hw_get_name(hw));
 
 	if (clk_is_regmap_clk(hw)) {
 		rclk = to_clk_regmap(hw);
@@ -667,7 +657,7 @@ static int clock_debug_print_clock(struct hw_debug_clk *dclk, struct seq_file *s
 	if (!clk_hw_is_prepared(dclk->clk_hw))
 		return 0;
 
-	clock_debug_output(s, 0, "    ");
+	clock_debug_output(s, "    ");
 
 	clk = dclk->clk_hw->clk;
 
@@ -679,14 +669,14 @@ static int clock_debug_print_clock(struct hw_debug_clk *dclk, struct seq_file *s
 		vdd_level = clk_list_rate_vdd_level(clk_hw, clk_rate);
 
 		if (vdd_level)
-			clock_debug_output(s, 1, "%s%s:%u:%u [%ld, %d]", start,
+			clock_debug_output_cont(s, "%s%s:%u:%u [%ld, %d]", start,
 				clk_hw_get_name(clk_hw),
 				clk_enabled,
 				clk_prepared,
 				clk_rate,
 				vdd_level);
 		else
-			clock_debug_output(s, 1, "%s%s:%u:%u [%ld]", start,
+			clock_debug_output_cont(s, "%s%s:%u:%u [%ld]", start,
 				clk_hw_get_name(clk_hw),
 				clk_enabled,
 				clk_prepared,
@@ -695,7 +685,7 @@ static int clock_debug_print_clock(struct hw_debug_clk *dclk, struct seq_file *s
 
 	} while ((clk = clk_get_parent(clk_hw->clk)));
 
-	clock_debug_output(s, 1, "\n");
+	clock_debug_output_cont(s, "\n");
 
 	return 1;
 }
@@ -708,15 +698,15 @@ static void clock_debug_print_enabled_clocks(struct seq_file *s)
 	struct hw_debug_clk *dclk;
 	int cnt = 0;
 
-	clock_debug_output(s, 0, "Enabled clocks:\n");
+	clock_debug_output(s, "Enabled clocks:\n");
 
 	list_for_each_entry(dclk, &clk_hw_debug_list, list)
 		cnt += clock_debug_print_clock(dclk, s);
 
 	if (cnt)
-		clock_debug_output(s, 0, "Enabled clock count: %d\n", cnt);
+		clock_debug_output(s, "Enabled clock count: %d\n", cnt);
 	else
-		clock_debug_output(s, 0, "No clocks enabled.\n");
+		clock_debug_output(s, "No clocks enabled.\n");
 
 }
 
