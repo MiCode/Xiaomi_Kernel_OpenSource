@@ -3188,6 +3188,12 @@
 		status = "disabled";
 	};
 
+	qcom,qbt_handler {
+		compatible = "qcom,qbt-handler";
+		qcom,ipc-gpio = <&tlmm 40 0>;
+		qcom,finger-detect-gpio = <&tlmm 41 0>;
+	};
+
 	wlan: qcom,cnss-qca6490@b0000000 {
 		compatible = "qcom,cnss-qca6490";
 		reg = <0xb0000000 0x10000>;
