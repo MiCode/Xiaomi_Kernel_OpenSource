@@ -29,6 +29,10 @@
  * Git-commit: 6f080eb67dce63c6efa57ef564ca4cd762ccebb0
  * Git-commit: 6fb9593b928c4cb485bef4e88c59c6b9fdf11352
  *
+ * Branched off from qcom_system_heap.c as of commit a4e135a8e482
+ * ("dt-bindings: ipcc: Add WPSS client to IPCC header") to accommodate secure
+ * pooling.
+ *
  * Copyright (C) 2011 Google, Inc.
  * Copyright (C) 2019, 2020 Linaro Ltd.
  *
@@ -120,9 +124,9 @@ static void system_heap_free(struct qcom_sg_buffer *buffer)
 	kfree(buffer);
 }
 
-struct page *qcom_sys_heap_alloc_largest_available(struct dynamic_page_pool **pools,
-						   unsigned long size,
-						   unsigned int max_order)
+static struct page *alloc_largest_available(struct dynamic_page_pool **pools,
+					    unsigned long size,
+					    unsigned int max_order)
 {
 	struct page *page;
 	int i;
@@ -181,9 +185,9 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 		if (fatal_signal_pending(current))
 			goto free_buffer;
 
-		page = qcom_sys_heap_alloc_largest_available(sys_heap->pool_list,
-							     size_remaining,
-							     max_order);
+		page = alloc_largest_available(sys_heap->pool_list,
+					       size_remaining,
+					       max_order);
 		if (!page)
 			goto free_buffer;
 
@@ -232,6 +236,7 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 	}
 
 	/* create the dmabuf */
+	exp_info.ops = &qcom_sg_buf_ops.dma_ops;
 	exp_info.size = buffer->len;
 	exp_info.flags = fd_flags;
 	exp_info.priv = buffer;
