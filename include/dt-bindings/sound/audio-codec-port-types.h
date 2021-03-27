@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved. */
 
 #ifndef __AUDIO_CODEC_PORT_TYPES_H
 #define __AUDIO_CODEC_PORT_TYPES_H
@@ -50,5 +50,6 @@
 #define SWRM_TX3_CH3 44
 #define SWRM_TX3_CH4 45
 #define SWRM_PCM_IN 46
+#define SWRM_RX_PCM_IN 47
 
 #endif /* __AUDIO_CODEC_PORT_TYPES_H */
