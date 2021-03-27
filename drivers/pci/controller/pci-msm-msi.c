@@ -63,6 +63,7 @@ struct msm_msi {
 	phys_addr_t msi_addr;
 	u32 msi_addr_size;
 	enum msi_type type;
+	bool msi_mask_disable;
 	spinlock_t cfg_lock; /* lock for configuring Synopsys MSI registers */
 	bool cfg_access; /* control access to MSI registers */
 	void __iomem *pcie_cfg;
@@ -162,7 +163,7 @@ static void msm_msi_mask_irq(struct irq_data *data)
 	msi = msi_irq->client->msi;
 
 	spin_lock_irqsave(&msi->cfg_lock, flags);
-	if (msi->cfg_access)
+	if (!msi->msi_mask_disable && msi->cfg_access)
 		pci_msi_mask_irq(data);
 	spin_unlock_irqrestore(&msi->cfg_lock, flags);
 
@@ -213,7 +214,7 @@ static void msm_msi_unmask_irq(struct irq_data *data)
 	msi->unmask_irq(parent_data);
 
 	spin_lock_irqsave(&msi->cfg_lock, flags);
-	if (msi->cfg_access)
+	if (!msi->msi_mask_disable && msi->cfg_access)
 		pci_msi_unmask_irq(data);
 	spin_unlock_irqrestore(&msi->cfg_lock, flags);
 }
@@ -665,6 +666,12 @@ int msm_msi_init(struct device *dev)
 	mutex_init(&msi->mutex);
 	spin_lock_init(&msi->cfg_lock);
 	INIT_LIST_HEAD(&msi->clients);
+	msi->msi_mask_disable = of_property_read_bool(dev->of_node,
+						"qcom,msi_mask_disable");
+
+	if (msi->msi_mask_disable)
+		pr_warn("MSI interrupts mask disabled:%d\n",
+				msi->msi_mask_disable);
 
 	prop_val = of_get_address(msi->of_node, 0, NULL, NULL);
 	if (!prop_val) {
