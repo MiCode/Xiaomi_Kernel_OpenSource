@@ -55,7 +55,7 @@ do {									     \
 #define RPM_GLINK_CID_MIN	1
 #define RPM_GLINK_CID_MAX	65536
 
-static int wakeup_enabled;
+static int should_wake;
 
 struct glink_msg {
 	__le16 cmd;
@@ -1243,7 +1243,7 @@ static irqreturn_t qcom_glink_native_intr(int irq, void *data)
 	unsigned int cmd;
 	int ret = 0;
 
-	if (wakeup_enabled)
+	if (should_wake)
 		pm_system_wakeup();
 	/* To wakeup any blocking writers */
 	wake_up_all(&glink->tx_avail_notify);
@@ -2218,14 +2218,14 @@ EXPORT_SYMBOL_GPL(qcom_glink_native_unregister);
 
 static int qcom_glink_suspend_no_irq(struct device *dev)
 {
-	wakeup_enabled = true;
+	should_wake = true;
 
 	return 0;
 }
 
 static int qcom_glink_resume_no_irq(struct device *dev)
 {
-	wakeup_enabled = false;
+	should_wake = false;
 
 	return 0;
 }

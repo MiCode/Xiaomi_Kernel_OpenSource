@@ -23,13 +23,13 @@
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
 #define BIN_BDF_FILE_NAME_GF_PREFIX	"bdwlang.b"
 #define REGDB_FILE_NAME			"regdb.bin"
-#define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
 #define CHIP_ID_GF_MASK			0x10
 
 #define QDSS_TRACE_CONFIG_FILE		"qdss_trace_config"
 #define DEBUG_STR			"debug"
 #define HW_V1_NUMBER			"v1"
 #define HW_V2_NUMBER			"v2"
+#define CE_MSI_NAME			"CE"
 
 #define QMI_WLFW_TIMEOUT_MS		(plat_priv->ctrl_params.qmi_timeout)
 #define QMI_WLFW_TIMEOUT_JF		msecs_to_jiffies(QMI_WLFW_TIMEOUT_MS)
@@ -225,7 +225,8 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 	req->cal_done = plat_priv->cal_done;
 	cnss_pr_dbg("Calibration done is %d\n", plat_priv->cal_done);
 
-	if (!cnss_bus_get_iova(plat_priv, &iova_start, &iova_size) &&
+	if (cnss_bus_is_smmu_s1_enabled(plat_priv) &&
+	    !cnss_bus_get_iova(plat_priv, &iova_start, &iova_size) &&
 	    !cnss_bus_get_iova_ipa(plat_priv, &iova_ipa_start,
 				   &iova_ipa_size)) {
 		req->ddr_range_valid = 1;
@@ -377,7 +378,7 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 	struct wlfw_cap_resp_msg_v01 *resp;
 	struct qmi_txn txn;
 	char *fw_build_timestamp;
-	int ret = 0;
+	int ret = 0, i;
 
 	cnss_pr_dbg("Sending target capability message, state: 0x%lx\n",
 		    plat_priv->driver_state);
@@ -462,7 +463,17 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 	}
 	if (resp->otp_version_valid)
 		plat_priv->otp_version = resp->otp_version;
-
+	if (resp->dev_mem_info_valid) {
+		for (i = 0; i < QMI_WLFW_MAX_DEV_MEM_NUM_V01; i++) {
+			plat_priv->dev_mem_info[i].start =
+				resp->dev_mem_info[i].start;
+			plat_priv->dev_mem_info[i].size =
+				resp->dev_mem_info[i].size;
+			cnss_pr_buf("Device memory info[%d]: start = 0x%llx, size = 0x%llx\n",
+				    i, plat_priv->dev_mem_info[i].start,
+				    plat_priv->dev_mem_info[i].size);
+		}
+	}
 	if (resp->fw_caps_valid)
 		plat_priv->fw_pcie_gen_switch =
 			!!(resp->fw_caps & QMI_WLFW_HOST_PCIE_GEN_SWITCH_V01);
@@ -548,11 +559,6 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 	case CNSS_BDF_REGDB:
 		snprintf(filename_tmp, filename_len, REGDB_FILE_NAME);
 		break;
-	case CNSS_BDF_DUMMY:
-		cnss_pr_dbg("CNSS_BDF_DUMMY is set, sending dummy BDF\n");
-		snprintf(filename_tmp, filename_len, DUMMY_BDF_FILE_NAME);
-		ret = MAX_FIRMWARE_NAME_LEN;
-		break;
 	default:
 		cnss_pr_err("Invalid BDF type: %d\n",
 			    plat_priv->ctrl_params.bdf_type);
@@ -560,7 +566,7 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 		break;
 	}
 
-	if (ret >= 0)
+	if (!ret)
 		cnss_bus_add_fw_prefix_name(plat_priv, filename, filename_tmp);
 
 	return ret;
@@ -593,15 +599,16 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 
 	ret = cnss_get_bdf_file_name(plat_priv, bdf_type,
 				     filename, sizeof(filename));
-	if (ret > 0) {
-		temp = DUMMY_BDF_FILE_NAME;
-		remaining = MAX_FIRMWARE_NAME_LEN;
-		goto bypass_bdf;
-	} else if (ret < 0) {
+	if (ret)
 		goto err_req_fw;
-	}
 
-	ret = request_firmware(&fw_entry, filename, &plat_priv->plat_dev->dev);
+	if (bdf_type == CNSS_BDF_REGDB)
+		ret = cnss_request_firmware_direct(plat_priv, &fw_entry,
+						   filename);
+	else
+		ret = request_firmware(&fw_entry, filename,
+				       &plat_priv->plat_dev->dev);
+
 	if (ret) {
 		cnss_pr_err("Failed to load BDF: %s\n", filename);
 		goto err_req_fw;
@@ -610,7 +617,6 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 	temp = fw_entry->data;
 	remaining = fw_entry->size;
 
-bypass_bdf:
 	cnss_pr_dbg("Downloading BDF: %s, size: %u\n", filename, remaining);
 
 	while (remaining) {
@@ -673,8 +679,7 @@ bypass_bdf:
 		req->seg_id++;
 	}
 
-	if (bdf_type != CNSS_BDF_DUMMY)
-		release_firmware(fw_entry);
+	release_firmware(fw_entry);
 
 	/* QCA6490 enable S3E regulator for IPA configuration only */
 	if (resp->host_bdf_data_valid) {
@@ -687,8 +692,7 @@ bypass_bdf:
 	return 0;
 
 err_send:
-	if (bdf_type != CNSS_BDF_DUMMY)
-		release_firmware(fw_entry);
+	release_firmware(fw_entry);
 err_req_fw:
 	if (!(bdf_type == CNSS_BDF_REGDB ||
 	      test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state) ||
@@ -1010,8 +1014,8 @@ int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 	}
 
 	cnss_get_qdss_cfg_filename(plat_priv, qdss_cfg_filename, sizeof(qdss_cfg_filename));
-	ret = request_firmware(&fw_entry, qdss_cfg_filename,
-			       &plat_priv->plat_dev->dev);
+	ret = cnss_request_firmware_direct(plat_priv, &fw_entry,
+					   qdss_cfg_filename);
 	if (ret) {
 		cnss_pr_err("Failed to load QDSS: %s\n",
 			    qdss_cfg_filename);
@@ -1277,7 +1281,7 @@ int cnss_wlfw_wlan_cfg_send_sync(struct cnss_plat_data *plat_priv,
 	struct wlfw_wlan_cfg_req_msg_v01 *req;
 	struct wlfw_wlan_cfg_resp_msg_v01 *resp;
 	struct qmi_txn txn;
-	u32 i;
+	u32 i, ce_id, num_vectors, user_base_data, base_vector;
 	int ret = 0;
 
 	if (!plat_priv)
@@ -1323,7 +1327,17 @@ int cnss_wlfw_wlan_cfg_send_sync(struct cnss_plat_data *plat_priv,
 		req->svc_cfg[i].pipe_dir = config->ce_svc_cfg[i].pipe_dir;
 		req->svc_cfg[i].pipe_num = config->ce_svc_cfg[i].pipe_num;
 	}
-
+	if (config->num_shadow_reg_cfg) {
+		req->shadow_reg_valid = 1;
+		if (config->num_shadow_reg_cfg >
+		    QMI_WLFW_MAX_NUM_SHADOW_REG_V01)
+			req->shadow_reg_len = QMI_WLFW_MAX_NUM_SHADOW_REG_V01;
+		else
+			req->shadow_reg_len = config->num_shadow_reg_cfg;
+		memcpy(req->shadow_reg, config->shadow_reg_cfg,
+		       sizeof(struct wlfw_shadow_reg_cfg_s_v01)
+		       * req->shadow_reg_len);
+	}
 	req->shadow_reg_v2_valid = 1;
 	if (config->num_shadow_reg_v2_cfg >
 	    QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01)
@@ -1334,6 +1348,30 @@ int cnss_wlfw_wlan_cfg_send_sync(struct cnss_plat_data *plat_priv,
 	memcpy(req->shadow_reg_v2, config->shadow_reg_v2_cfg,
 	       sizeof(struct wlfw_shadow_reg_v2_cfg_s_v01)
 	       * req->shadow_reg_v2_len);
+	if (config->rri_over_ddr_cfg_valid) {
+		req->rri_over_ddr_cfg_valid = 1;
+		req->rri_over_ddr_cfg.base_addr_low =
+			config->rri_over_ddr_cfg.base_addr_low;
+		req->rri_over_ddr_cfg.base_addr_high =
+			config->rri_over_ddr_cfg.base_addr_high;
+	}
+	if (config->send_msi_ce) {
+		ret = cnss_bus_get_msi_assignment(plat_priv,
+						  CE_MSI_NAME,
+						  &num_vectors,
+						  &user_base_data,
+						  &base_vector);
+		if (!ret) {
+			req->msi_cfg_valid = 1;
+			req->msi_cfg_len = QMI_WLFW_MAX_NUM_CE_V01;
+			for (ce_id = 0; ce_id < QMI_WLFW_MAX_NUM_CE_V01;
+				ce_id++) {
+				req->msi_cfg[ce_id].ce_id = ce_id;
+				req->msi_cfg[ce_id].msi_vector =
+					(ce_id % num_vectors) + base_vector;
+			}
+		}
+	}
 
 	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
 			   wlfw_wlan_cfg_resp_msg_v01_ei, resp);

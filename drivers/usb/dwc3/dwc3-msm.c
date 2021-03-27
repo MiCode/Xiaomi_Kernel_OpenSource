@@ -4530,36 +4530,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		mdwc->lpm_to_suspend_delay = 0;
 	}
 
-	for (i = 0; i < USB_MAX_IRQ; i++) {
-		mdwc->wakeup_irq[i].irq = platform_get_irq_byname(pdev,
-					usb_irq_info[i].name);
-		/* pwr_evnt_irq is only mandatory irq for single port core */
-		if (mdwc->wakeup_irq[i].irq < 0) {
-			if (!mdwc->dual_port && usb_irq_info[i].required) {
-				dev_err(&pdev->dev, "get_irq for %s failed\n\n",
-						usb_irq_info[i].name);
-				ret = -EINVAL;
-				goto err;
-			}
-			mdwc->wakeup_irq[i].irq = 0;
-		} else {
-			irq_set_status_flags(mdwc->wakeup_irq[i].irq,
-						IRQ_NOAUTOEN);
-
-			ret = devm_request_threaded_irq(&pdev->dev,
-					mdwc->wakeup_irq[i].irq,
-					msm_dwc3_pwr_irq,
-					msm_dwc3_pwr_irq_thread,
-					usb_irq_info[i].irq_type,
-					usb_irq_info[i].name, mdwc);
-			if (ret) {
-				dev_err(&pdev->dev, "irq req %s failed: %d\n\n",
-						usb_irq_info[i].name, ret);
-				goto err;
-			}
-		}
-	}
-
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "core_base");
 	if (!res) {
 		dev_err(&pdev->dev, "missing memory base resource\n");
@@ -4603,19 +4573,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			}
 			clk_disable_unprepare(mdwc->cfg_ahb_clk);
 			dwc3_msm_config_gdsc(mdwc, 0);
-		}
-	}
-
-	dwc3_init_dbm(mdwc);
-
-	/* Add power event if the dbm indicates coming out of L1 by interrupt */
-	if (!mdwc->dbm_is_1p4) {
-		/* Dual port core does not need pwr_evnt_irq */
-		if (!mdwc->dual_port && !mdwc->wakeup_irq[PWR_EVNT_IRQ].irq) {
-			dev_err(&pdev->dev,
-				"need pwr_event_irq exiting L1\n");
-			ret = -EINVAL;
-			goto err;
 		}
 	}
 
@@ -4743,6 +4700,51 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (!dwc) {
 		dev_err(&pdev->dev, "Failed to get dwc3 device\n");
 		goto put_dwc3;
+	}
+
+	for (i = 0; i < USB_MAX_IRQ; i++) {
+		mdwc->wakeup_irq[i].irq = platform_get_irq_byname(pdev,
+					usb_irq_info[i].name);
+		/* pwr_evnt_irq is mandatory for cores allowing SSPHY suspend */
+		if (mdwc->wakeup_irq[i].irq < 0) {
+			if (!dwc->dis_u3_susphy_quirk &&
+					usb_irq_info[i].required) {
+				dev_err(&pdev->dev, "get_irq for %s failed\n\n",
+						usb_irq_info[i].name);
+				ret = -EINVAL;
+				goto put_dwc3;
+			}
+			mdwc->wakeup_irq[i].irq = 0;
+		} else {
+			irq_set_status_flags(mdwc->wakeup_irq[i].irq,
+						IRQ_NOAUTOEN);
+
+			ret = devm_request_threaded_irq(&pdev->dev,
+					mdwc->wakeup_irq[i].irq,
+					msm_dwc3_pwr_irq,
+					msm_dwc3_pwr_irq_thread,
+					usb_irq_info[i].irq_type,
+					usb_irq_info[i].name, mdwc);
+			if (ret) {
+				dev_err(&pdev->dev, "irq req %s failed: %d\n\n",
+						usb_irq_info[i].name, ret);
+				goto put_dwc3;
+			}
+		}
+	}
+
+	dwc3_init_dbm(mdwc);
+
+	/* Add power event if the dbm indicates coming out of L1 by interrupt */
+	if (!mdwc->dbm_is_1p4) {
+		/* pwr_evnt_irq is mandatory for cores allowing SSPHY suspend */
+		if (!dwc->dis_u3_susphy_quirk &&
+				!mdwc->wakeup_irq[PWR_EVNT_IRQ].irq) {
+			dev_err(&pdev->dev,
+				"need pwr_event_irq exiting L1\n");
+			ret = -EINVAL;
+			goto put_dwc3;
+		}
 	}
 
 	if (of_property_read_bool(node, "qcom,ignore-wakeup-src-in-hostmode")) {

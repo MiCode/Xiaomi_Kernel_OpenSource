@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -65,6 +65,8 @@
 #include <linux/ioctl.h>
 #include <linux/ipc_logging.h>
 #include <linux/pm.h>
+
+#include <linux/regulator/consumer.h>
 
 #define SPCOM_LOG_PAGE_CNT 10
 
@@ -678,6 +680,12 @@ static int spcom_handle_restart_sp_command(void *cmd_buf, int cmd_size)
 	void *subsystem_get_retval = NULL;
 	struct spcom_user_restart_sp_command *cmd = cmd_buf;
 
+	struct regulator *sp_vreg = NULL;
+	struct regulator *sp_gpio = NULL;
+
+	int ret = 0;
+	int regulator_retval = 0;
+
 	if (!cmd) {
 		spcom_pr_err("NULL cmd_buf\n");
 		return -EINVAL;
@@ -699,13 +707,57 @@ static int spcom_handle_restart_sp_command(void *cmd_buf, int cmd_size)
 			subsystem_get_retval = subsystem_get("spss");
 			if (IS_ERR_OR_NULL(subsystem_get_retval)) {
 				spcom_pr_err("spss - restart - Failed start\n");
-				return -ENODEV;
+				ret = -ENODEV;
+				goto disable_pmic_vote;
 			}
 			spcom_pr_info("restart - spss started.\n");
 		}
 	}
 	spcom_pr_dbg("restart - PIL FW loading process is complete\n");
-	return 0;
+
+disable_pmic_vote:
+
+	sp_vreg = regulator_get(&(spcom_dev->pdev->dev), "vreg_sp");
+	if (IS_ERR_OR_NULL(sp_vreg)) {
+		regulator_retval = PTR_ERR(sp_vreg);
+		spcom_pr_err("get vreg_sp regulator failed, regulator_retval = %d",
+			regulator_retval);
+		goto exit_reset_handler;
+	}
+	sp_gpio = regulator_get(&(spcom_dev->pdev->dev), "gpio_sp");
+	if (IS_ERR_OR_NULL(sp_gpio)) {
+		regulator_retval = PTR_ERR(sp_gpio);
+		spcom_pr_err("get gpio_sp regulator failed, regulator_retval = %d",
+			regulator_retval);
+		goto exit_reset_handler;
+	}
+
+	regulator_retval = regulator_enable(sp_vreg);
+	if (regulator_retval)
+		spcom_pr_err("enable vreg_sp regulator failed, regulator_retval = %d",
+			regulator_retval);
+	regulator_retval = regulator_enable(sp_gpio);
+	if (regulator_retval)
+		spcom_pr_err("enable gpio_sp regulator failed, regulator_retval = %d",
+			regulator_retval);
+
+	regulator_retval = regulator_disable(sp_vreg);
+	if (regulator_retval)
+		spcom_pr_err("disable vreg_sp regulator failed, regulator_retval = %d",
+			regulator_retval);
+	regulator_retval = regulator_disable(sp_gpio);
+	if (regulator_retval)
+		spcom_pr_err("disable gpio_sp regulator failed, regulator_retval = %d",
+			regulator_retval);
+
+exit_reset_handler:
+
+	if (!IS_ERR_OR_NULL(sp_vreg))
+		regulator_put(sp_vreg);
+	if (!IS_ERR_OR_NULL(sp_gpio))
+		regulator_put(sp_gpio);
+
+	return ret;
 }
 
 /**

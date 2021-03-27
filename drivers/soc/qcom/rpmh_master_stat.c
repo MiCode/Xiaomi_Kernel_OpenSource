@@ -128,7 +128,7 @@ static ssize_t msm_rpmh_master_stats_print_data(char *prvbuf, ssize_t length,
 static ssize_t msm_rpmh_master_stats_show(struct kobject *kobj,
 				struct kobj_attribute *attr, char *buf)
 {
-	ssize_t length;
+	ssize_t length = 0;
 	int i = 0;
 	struct msm_rpmh_master_stats *record = NULL;
 

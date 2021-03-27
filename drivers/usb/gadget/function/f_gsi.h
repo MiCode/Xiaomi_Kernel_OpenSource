@@ -240,6 +240,10 @@ struct gsi_ctrl_port {
 	unsigned int modem_to_host;
 	unsigned int cpkt_drop_cnt;
 	unsigned int get_encap_cnt;
+
+	struct device *dev;
+	struct work_struct uevent_work;
+	struct workqueue_struct *uevent_wq;
 };
 
 struct gsi_data_port {

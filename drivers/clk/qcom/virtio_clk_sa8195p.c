@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -90,6 +90,16 @@ static const char * const sa8195p_gcc_virtio_clocks[] = {
 	[GCC_SDCC2_AHB_CLK] = "gcc_sdcc2_ahb_clk",
 	[GCC_SDCC2_APPS_CLK] = "gcc_sdcc2_apps_clk",
 	[GCC_PRNG_AHB_CLK] = "gcc_prng_ahb_clk",
+	[GCC_UFS_PHY_ICE_CORE_CLK] = "gcc_ufs_phy_ice_core_clk",
+	[GCC_UFS_CARD_2_AHB_CLK] = "gcc_ufs_card_2_ahb_clk",
+	[GCC_UFS_CARD_2_ICE_CORE_CLK] = "gcc_ufs_card_2_ice_core_clk",
+	[GCC_UFS_CARD_2_PHY_AUX_CLK] = "gcc_ufs_card_2_phy_aux_clk",
+	[GCC_UFS_CARD_2_AXI_CLK] = "gcc_ufs_card_2_axi_clk",
+	[GCC_AGGRE_UFS_CARD_2_AXI_CLK] = "gcc_aggre_ufs_card_2_axi_clk",
+	[GCC_UFS_CARD_2_UNIPRO_CORE_CLK] = "gcc_ufs_card_2_unipro_core_clk",
+	[GCC_UFS_CARD_2_TX_SYMBOL_0_CLK] = "gcc_ufs_card_2_tx_symbol_0_clk",
+	[GCC_UFS_CARD_2_RX_SYMBOL_0_CLK] = "gcc_ufs_card_2_rx_symbol_0_clk",
+	[GCC_UFS_CARD_2_RX_SYMBOL_1_CLK] = "gcc_ufs_card_2_rx_symbol_1_clk",
 };
 
 static const char * const sa8195p_gcc_virtio_resets[] = {
@@ -105,6 +115,7 @@ static const char * const sa8195p_gcc_virtio_resets[] = {
 	[GCC_PCIE_2_PHY_BCR] = "gcc_pcie_2_phy_bcr",
 	[GCC_PCIE_3_BCR] = "gcc_pcie_3_mstr_axi_clk",
 	[GCC_PCIE_3_PHY_BCR] = "gcc_pcie_3_phy_bcr",
+	[GCC_UFS_CARD_2_BCR] = "gcc_ufs_card_2_axi_clk",
 };
 
 const struct clk_virtio_desc clk_virtio_sa8195p_gcc = {

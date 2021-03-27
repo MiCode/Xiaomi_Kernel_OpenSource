@@ -509,6 +509,22 @@ config QCOM_SMD_RPM
 	  Say M here if you want to include support for the Qualcomm RPM as a
 	  module. This will build a module called "qcom-smd-rpm".
 
+config MSM_SPM
+        bool "Driver support for SPM and AVS wrapper hardware"
+        help
+          Enables the support for SPM and AVS wrapper hardware on MSMs. SPM
+          hardware is used to manage the processor power during sleep. The
+          driver allows configuring SPM to allow different low power modes for
+          both core and L2.
+
+config MSM_L2_SPM
+        bool "SPM support for L2 cache"
+        help
+          Enable SPM driver support for L2 cache. Some MSM chipsets allow
+          control of L2 cache low power mode with a Subsystem Power manager.
+          Enabling this driver allows configuring L2 SPM for low power modes
+          on supported chipsets.
+
 config QCOM_MEMORY_DUMP_V2
 	tristate "QCOM Memory Dump V2 Support"
 	help
@@ -835,6 +851,17 @@ config QTI_SYSTEM_PM
 config QTI_SYSTEM_PM_RPM
 	bool
 
+config MSM_PM_LEGACY
+	depends on PM
+	select MSM_IDLE_STATS if DEBUG_FS
+	select CPU_IDLE_MULTIPLE_DRIVERS
+	bool "Qualcomm Technologies, Inc. (QTI) platform specific Legacy PM driver"
+	help
+	  Platform specific legacy power driver to manage
+	  cores and l2 low power modes. It interface with
+	  various system driver and put the cores into
+	  low power modes.
+
 config QTI_PLH_SCMI_CLIENT
 	tristate "Qualcomm Technologies Inc. SCMI client driver for PLH"
 	depends on QTI_PLH
@@ -895,7 +922,7 @@ config QTI_HW_MEMLAT_LOG
 	  This driver register with IPC_Logging framework, to have dedicated
 	  buffer for memlat hw device.
 
-if MSM_PM
+if (MSM_PM || MSM_PM_LEGACY)
 menuconfig MSM_IDLE_STATS
 	bool "Collect idle statistics"
 	help
@@ -928,7 +955,7 @@ config MSM_SUSPEND_STATS_FIRST_BUCKET
 	  histogram.  This is for collecting statistics on suspend.
 
 endif # MSM_IDLE_STATS
-endif # MSM_PM
+endif # MSM_PM || MSM_PM_LEGACY
 
 config QTI_RPM_STATS_LOG
 	tristate "Qualcomm Technologies RPM Stats Driver"
@@ -1186,6 +1213,15 @@ config QTI_CRYPTO_TZ
 	 programmed and managed through SCM calls to TZ where ICE driver
 	 will configure keys.
 
+config QTI_CRYPTO_FDE
+	tristate "Enable common crypto functionality used for FDE"
+	depends on QTI_CRYPTO_COMMON
+	help
+	 Say 'Y' to enable hardware Full Disk Encryption implementation to be used by
+	 different storage layers such as UFS. Enabling the FDE will reserve one slot
+	 of KSM(Key Slot Manager) for the FDE. Making one less slot available for FBE
+	 (File based encryption) in case both encryption mechanism are enabled on device.
+
 config QTI_HW_KEY_MANAGER
 	tristate "Enable QTI Hardware Key Manager for storage encryption"
 	default n
@@ -1228,6 +1264,23 @@ config MSM_SLATECOM
 		communication between G-Link/slate_com_dev and Slate processor over SPI.
 		This handle the interrupts raised by BG and notify the G-link with
 		interrupt event and event data.
+
+config MSM_SLATECOM_INTERFACE
+	tristate "Driver support for Slate Communication"
+	depends on MSM_SLATECOM
+	help
+		Create a slate_com_dev device node for user space communication.
+		Single user space client can open device node for communication
+		from hardware. Hardware will provide access to read
+		registers and read/write AHB memory in the device.
+
+config QCOM_AOP_SET_DDR
+	tristate "Sysfs to communicate with AOP using QMP protocol"
+	help
+	  This options enables a driver which allows clients to send messages
+	  to Alway On processor using QMP transport. Users can echo a frequency
+	  into an exposed sysfs node to send to AOP. The driver expects the Cap
+	  frequency of DDR based on SKU.
 
 source "drivers/soc/qcom/icnss2/Kconfig"
 endmenu

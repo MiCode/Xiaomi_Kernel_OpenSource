@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #undef TRACE_SYSTEM
@@ -259,6 +259,25 @@ TRACE_EVENT(ipi_wakeup_time,
 	),
 
 	TP_printk("wakeup:%llu", __entry->wakeup)
+);
+
+TRACE_EVENT(pre_pc_cb,
+
+	TP_PROTO(int tzflag),
+
+	TP_ARGS(tzflag),
+
+	TP_STRUCT__entry(
+		__field(int, tzflag)
+	),
+
+	TP_fast_assign(
+		__entry->tzflag = tzflag;
+	),
+
+	TP_printk("tzflag:%d",
+		__entry->tzflag
+	)
 );
 
 #endif

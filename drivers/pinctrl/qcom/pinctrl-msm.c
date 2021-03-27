@@ -1284,11 +1284,13 @@ static int msm_gpio_wakeirq(struct gpio_chip *gc,
 	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
 	const struct msm_gpio_wakeirq_map *map;
 	int i;
+	bool skip;
 
 	*parent = GPIO_NO_WAKE_IRQ;
 	*parent_type = IRQ_TYPE_EDGE_RISING;
 
-	if (!test_bit(child, pctrl->skip_wake_irqs))
+	skip = irq_domain_qcom_handle_wakeup(gc->irq.parent_domain);
+	if (!test_bit(child, pctrl->skip_wake_irqs) && skip)
 		return 0;
 
 	for (i = 0; i < pctrl->soc->nwakeirq_map; i++) {

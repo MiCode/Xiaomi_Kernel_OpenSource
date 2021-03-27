@@ -54,6 +54,7 @@
 enum cnss_dev_bus_type {
 	CNSS_BUS_NONE = -1,
 	CNSS_BUS_PCI,
+	CNSS_BUS_USB,
 };
 
 struct cnss_vreg_cfg {
@@ -342,7 +343,6 @@ enum cnss_bdf_type {
 	CNSS_BDF_BIN,
 	CNSS_BDF_ELF,
 	CNSS_BDF_REGDB = 4,
-	CNSS_BDF_DUMMY = 255,
 };
 
 enum cnss_cal_status {
@@ -444,6 +444,7 @@ struct cnss_plat_data {
 	struct wlfw_rf_board_info board_info;
 	struct wlfw_soc_info soc_info;
 	struct wlfw_fw_version_info fw_version_info;
+	struct cnss_dev_mem_info dev_mem_info[CNSS_MAX_DEV_MEM_NUM];
 	char fw_build_id[QMI_WLFW_MAX_BUILD_ID_LEN + 1];
 	u32 otp_version;
 	u32 fw_mem_seg_len;
@@ -493,6 +494,8 @@ struct cnss_plat_data {
 	struct cnss_dms_data dms;
 	int power_up_error;
 	u32 hw_trc_override;
+	u32 is_converged_dt;
+	struct device_node *dev_node;
 };
 
 #ifdef CONFIG_ARCH_QCOM
@@ -558,5 +561,10 @@ int cnss_enable_int_pow_amp_vreg(struct cnss_plat_data *plat_priv);
 int cnss_get_tcs_info(struct cnss_plat_data *plat_priv);
 unsigned int cnss_get_timeout(struct cnss_plat_data *plat_priv,
 			      enum cnss_timeout_type);
+int cnss_dev_specific_power_on(struct cnss_plat_data *plat_priv);
+int cnss_request_firmware_direct(struct cnss_plat_data *plat_priv,
+				 const struct firmware **fw_entry,
+				 const char *filename);
+void cnss_disable_redundant_vreg(struct cnss_plat_data *plat_priv);
 
 #endif /* _CNSS_MAIN_H */

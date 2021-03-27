@@ -87,6 +87,23 @@ int qcom_scm_set_cold_boot_addr(void *entry, const cpumask_t *cpus)
 EXPORT_SYMBOL(qcom_scm_set_cold_boot_addr);
 
 /**
+ * scm_set_boot_addr_mc - Set entry physical address for cpus
+ * @dev: Device pointer
+ * @addr: 32bit physical address
+ * @aff0: Collective bitmask of the affinity-level-0 of the mpidr
+ *	  1<<aff0_CPU0| 1<<aff0_CPU1....... | 1<<aff0_CPU32
+ *	  Supports maximum 32 cpus under any affinity level.
+ * @aff1:  Collective bitmask of the affinity-level-1 of the mpidr
+ * @aff2:  Collective bitmask of the affinity-level-2 of the mpidr
+ * @flags: Flag to differentiate between coldboot vs warmboot
+ */
+int qcom_scm_set_warm_boot_addr_mc(void *entry, u32 aff0, u32 aff1, u32 aff2, u32 flags)
+{
+	return __qcom_scm_set_warm_boot_addr_mc(__scm->dev, entry, aff0, aff1, aff2, flags);
+}
+EXPORT_SYMBOL(qcom_scm_set_warm_boot_addr_mc);
+
+/**
  * qcom_scm_set_warm_boot_addr() - Set the warm boot address for cpus
  * @entry: Entry point function for the cpus
  * @cpus: The cpumask of cpus that will use the entry point
@@ -99,6 +116,20 @@ int qcom_scm_set_warm_boot_addr(void *entry, const cpumask_t *cpus)
 	return __qcom_scm_set_warm_boot_addr(__scm->dev, entry, cpus);
 }
 EXPORT_SYMBOL(qcom_scm_set_warm_boot_addr);
+
+/**
+ * qcom_scm_cpu_hp() - Power down the cpu
+ * @flags - Flags to flush cache
+ *
+ * This is an end point to power down cpu. If there was a pending interrupt,
+ * the control would return from this function, otherwise, the cpu jumps to the
+ * warm boot entry point set for this cpu upon reset.
+ */
+void qcom_scm_cpu_hp(u32 flags)
+{
+	__qcom_scm_cpu_hp(__scm ? __scm->dev : NULL, flags);
+}
+EXPORT_SYMBOL(qcom_scm_cpu_hp);
 
 /**
  * qcom_scm_cpu_power_down() - Power down the cpu

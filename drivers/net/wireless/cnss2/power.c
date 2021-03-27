@@ -56,6 +56,7 @@ static struct cnss_clk_cfg cnss_clk_list[] = {
 #define XO_CLK_GPIO			"qcom,xo-clk-gpio"
 #define WLAN_EN_ACTIVE			"wlan_en_active"
 #define WLAN_EN_SLEEP			"wlan_en_sleep"
+#define WLAN_VREGS_PROP			"wlan_vregs"
 
 #define BOOTSTRAP_DELAY			1000
 #define WLAN_ENABLE_DELAY		1000
@@ -97,7 +98,7 @@ static int cnss_get_vreg_single(struct cnss_plat_data *plat_priv,
 	snprintf(prop_name, MAX_PROP_SIZE, "qcom,%s-config",
 		 vreg->cfg.name);
 
-	prop = of_get_property(dev->of_node, prop_name, &len);
+	prop = of_get_property(plat_priv->dev_node, prop_name, &len);
 	if (!prop || len != (5 * sizeof(__be32))) {
 		cnss_pr_dbg("Property %s %s, use default\n", prop_name,
 			    prop ? "invalid format" : "doesn't exist");
@@ -269,18 +270,51 @@ static int cnss_get_vreg(struct cnss_plat_data *plat_priv,
 	int i;
 	struct cnss_vreg_info *vreg;
 	struct device *dev = &plat_priv->plat_dev->dev;
+	int id_n;
 
-	if (!list_empty(vreg_list)) {
+	if (!list_empty(&plat_priv->vreg_list) &&
+	    !plat_priv->is_converged_dt) {
 		cnss_pr_dbg("Vregs have already been updated\n");
 		return 0;
 	}
 
-	for (i = 0; i < vreg_list_size; i++) {
+	if (plat_priv->is_converged_dt) {
+		id_n = of_property_count_strings(plat_priv->dev_node,
+						 WLAN_VREGS_PROP);
+		if (id_n <= 0) {
+			if (id_n == -ENODATA) {
+				cnss_pr_dbg("No additional vregs for: %s:%lx\n",
+					    plat_priv->dev_node->name,
+					    plat_priv->device_id);
+				return 0;
+			}
+
+			cnss_pr_err("property %s is invalid or missed: %s:%lx\n",
+				    WLAN_VREGS_PROP, plat_priv->dev_node->name,
+				    plat_priv->device_id);
+			return -EINVAL;
+		}
+	} else {
+		id_n = vreg_list_size;
+	}
+
+	for (i = 0; i < id_n; i++) {
 		vreg = devm_kzalloc(dev, sizeof(*vreg), GFP_KERNEL);
 		if (!vreg)
 			return -ENOMEM;
 
-		memcpy(&vreg->cfg, &vreg_cfg[i], sizeof(vreg->cfg));
+		if (plat_priv->is_converged_dt) {
+			ret = of_property_read_string_index(plat_priv->dev_node,
+							    WLAN_VREGS_PROP, i,
+							    &vreg->cfg.name);
+			if (ret) {
+				cnss_pr_err("Failed to read vreg ids\n");
+				return ret;
+			}
+		} else {
+			memcpy(&vreg->cfg, &vreg_cfg[i], sizeof(vreg->cfg));
+		}
+
 		ret = cnss_get_vreg_single(plat_priv, vreg);
 		if (ret != 0) {
 			if (ret == -ENODEV) {
@@ -455,6 +489,27 @@ int cnss_vreg_unvote_type(struct cnss_plat_data *plat_priv,
 	}
 
 	return ret;
+}
+
+void cnss_disable_redundant_vreg(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_vreg_info *vreg, *vreg_tmp;
+	struct list_head *vreg_list = &plat_priv->vreg_list;
+
+	list_for_each_entry_safe(vreg, vreg_tmp, vreg_list, list) {
+		if (IS_ERR_OR_NULL(vreg->reg))
+			continue;
+
+		if ((!strcmp("wlan-ant-switch", vreg->cfg.name) ||
+		     !strcmp("vdd-wlan-aon", vreg->cfg.name)) &&
+		    vreg->enabled) {
+			cnss_pr_dbg("Disable Regulator %s\n", vreg->cfg.name);
+
+			list_del(&vreg->list);
+			cnss_vreg_off_single(vreg);
+			cnss_put_vreg_single(plat_priv, vreg);
+		}
+	}
 }
 
 static int cnss_get_clk_single(struct cnss_plat_data *plat_priv,
@@ -1145,4 +1200,19 @@ int cnss_enable_int_pow_amp_vreg(struct cnss_plat_data *plat_priv)
 	data_val = readl_relaxed(tcs_cmd);
 	cnss_pr_dbg("Setup S3E TCS Addr: %x Data: %d\n", addr_val, data_val);
 	return 0;
+}
+
+int cnss_dev_specific_power_on(struct cnss_plat_data *plat_priv)
+{
+	int ret;
+
+	if (!plat_priv->is_converged_dt)
+		return 0;
+
+	ret = cnss_get_vreg_type(plat_priv, CNSS_VREG_PRIM);
+	if (ret)
+		return ret;
+
+	plat_priv->powered_on = false;
+	return cnss_power_on_device(plat_priv);
 }

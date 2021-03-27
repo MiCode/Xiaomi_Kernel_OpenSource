@@ -15,13 +15,15 @@
 #define QCA6290_DEVICE_ID		0x1100
 #define QCA6390_VENDOR_ID		0x17CB
 #define QCA6390_DEVICE_ID		0x1101
+#define QCN7605_VENDOR_ID		0x17CB
+#define QCN7605_DEVICE_ID		0x1102
 #define QCA6490_VENDOR_ID		0x17CB
 #define QCA6490_DEVICE_ID		0x1103
 #define WCN7850_VENDOR_ID		0x17CB
 #define WCN7850_DEVICE_ID		0x1107
 
 enum cnss_dev_bus_type cnss_get_dev_bus_type(struct device *dev);
-enum cnss_dev_bus_type cnss_get_bus_type(unsigned long device_id);
+enum cnss_dev_bus_type cnss_get_bus_type(struct cnss_plat_data *plat_priv);
 void *cnss_bus_dev_to_bus_priv(struct device *dev);
 struct cnss_plat_data *cnss_bus_dev_to_plat_priv(struct device *dev);
 int cnss_bus_init(struct cnss_plat_data *plat_priv);
@@ -62,4 +64,10 @@ int cnss_bus_debug_reg_write(struct cnss_plat_data *plat_priv, u32 offset,
 int cnss_bus_get_iova(struct cnss_plat_data *plat_priv, u64 *addr, u64 *size);
 int cnss_bus_get_iova_ipa(struct cnss_plat_data *plat_priv, u64 *addr,
 			  u64 *size);
+int cnss_bus_get_msi_assignment(struct cnss_plat_data *plat_priv,
+				char *msi_name,
+				int *num_vectors,
+				u32 *user_base_data,
+				u32 *base_vector);
+bool cnss_bus_is_smmu_s1_enabled(struct cnss_plat_data *plat_priv);
 #endif /* _CNSS_BUS_H */

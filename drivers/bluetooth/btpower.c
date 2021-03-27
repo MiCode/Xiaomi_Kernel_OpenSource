@@ -353,6 +353,45 @@ static int bt_clk_disable(struct bt_power_clk_data *clk)
 	return rc;
 }
 
+static void btpower_set_xo_reset_gpio_state(bool enable)
+{
+	int xo_reset_gpio =  bt_power_pdata->xo_gpio_sys_rst;
+	int retry = 0;
+	int rc = 0;
+
+	if (xo_reset_gpio < 0)
+		return;
+
+retry_gpio_req:
+	rc = gpio_request(xo_reset_gpio, "xo_reset_gpio_n");
+	if (rc) {
+		if (retry++ < XO_RESET_RETRY_COUNT_MAX) {
+			/* wait for ~(10 - 20) ms */
+			usleep_range(10000, 20000);
+			goto retry_gpio_req;
+		}
+	}
+
+	if (rc) {
+		pr_err("%s: unable to request XO reset gpio %d (%d)\n",
+			__func__, xo_reset_gpio, rc);
+		return;
+	}
+
+	if (enable) {
+		gpio_direction_output(xo_reset_gpio, 1);
+		/*XO CLK must be asserted for some time before BT_EN */
+		usleep_range(100, 200);
+	} else {
+		/* Assert XO CLK ~(2-5)ms before off for valid latch in HW */
+		usleep_range(2000, 5000);
+		gpio_direction_output(xo_reset_gpio, 0);
+	}
+
+	gpio_free(xo_reset_gpio);
+}
+
+
 static int bt_configure_gpios(int on)
 {
 	int rc = 0;
@@ -360,9 +399,7 @@ static int bt_configure_gpios(int on)
 	int wl_reset_gpio = bt_power_pdata->wl_gpio_sys_rst;
 	int bt_sw_ctrl_gpio  =  bt_power_pdata->bt_gpio_sw_ctrl;
 	int bt_debug_gpio  =  bt_power_pdata->bt_gpio_debug;
-	int xo_reset_gpio =  bt_power_pdata->xo_gpio_sys_rst;
 	int assert_dbg_gpio = 0;
-	int retry = 0;
 
 	if (on) {
 		rc = gpio_request(bt_reset_gpio, "bt_sys_rst_n");
@@ -396,6 +433,8 @@ static int bt_configure_gpios(int on)
 
 		if ((wl_reset_gpio < 0) ||
 			((wl_reset_gpio >= 0) && gpio_get_value(wl_reset_gpio))) {
+
+			btpower_set_xo_reset_gpio_state(true);
 			pr_info("%s: BTON: Asserting BT_EN\n", __func__);
 			rc = gpio_direction_output(bt_reset_gpio, 1);
 			if (rc) {
@@ -404,6 +443,7 @@ static int bt_configure_gpios(int on)
 			}
 			PWR_SRC_STATUS_SET(BT_RESET_GPIO,
 				gpio_get_value(bt_reset_gpio));
+			btpower_set_xo_reset_gpio_state(false);
 		}
 		if ((wl_reset_gpio >= 0) && (gpio_get_value(wl_reset_gpio) == 0)) {
 			if (gpio_get_value(bt_reset_gpio)) {
@@ -420,6 +460,7 @@ static int bt_configure_gpios(int on)
 			pr_info("%s:add 100ms delay for AON output to fully discharge\n",
 				 __func__);
 			msleep(100);
+			btpower_set_xo_reset_gpio_state(true);
 			rc = gpio_direction_output(bt_reset_gpio, 1);
 			if (rc) {
 				pr_err("%s: Unable to set direction\n", __func__);
@@ -427,43 +468,9 @@ static int bt_configure_gpios(int on)
 			}
 			bt_power_src_status[BT_RESET_GPIO] =
 				gpio_get_value(bt_reset_gpio);
+			btpower_set_xo_reset_gpio_state(false);
 		}
 
-		pr_info("xo_reset_gpio(%d)\n", xo_reset_gpio);
-
-		if (xo_reset_gpio > 0) {
-retry_gpio_req:
-			rc = gpio_request(xo_reset_gpio, "xo_reset_gpio_n");
-			if (rc) {
-				if (retry++ < XO_RESET_RETRY_COUNT_MAX) {
-					/* wait for ~(10 - 20) ms */
-					usleep_range(10000, 20000);
-					goto retry_gpio_req;
-				}
-			}
-
-			if (rc) {
-				pr_err("%s: unable to request XO reset gpio %d (%d)\n",
-					__func__, xo_reset_gpio, rc);
-			} else {
-				pr_info("%s: gpio_request for xo_reset_gpio succeed\n",
-					__func__);
-				// XO clk GPIO must be asserted for some time
-				rc = gpio_direction_output(xo_reset_gpio, 1);
-				if (rc) {
-					pr_err("%s: Unable to set direction of xo_reset_gpio\n",
-						__func__);
-				}
-				usleep_range(2000, 5000);
-				// pull XO clk GPIO low after 2 ms delay
-				rc = gpio_direction_output(xo_reset_gpio, 0);
-				if (rc) {
-					pr_err("%s: Unable to set direction of xo_reset_gpio\n",
-						__func__);
-				}
-				gpio_free(xo_reset_gpio);
-			}
-		}
 		msleep(50);
 		/*  Check  if  SW_CTRL  is  asserted  */
 		if  (bt_sw_ctrl_gpio  >=  0)  {
@@ -830,6 +837,27 @@ static void bt_power_vreg_put(void)
 	}
 }
 
+static int bt_disable_asd(void)
+{
+	int rc = 0;
+	int i;
+	int num_vregs =  bt_power_pdata->num_vregs;
+	struct bt_power_vreg_data *vreg_info = NULL;
+
+	for (i = 0; i < num_vregs; i++) {
+		vreg_info = &bt_power_pdata->vreg_info[i];
+		if (strnstr(vreg_info->name, "bt-vdd-asd", sizeof(vreg_info->name))) {
+			if (vreg_info->reg) {
+				pr_warn("%s: Disabling ASD regulator\n", __func__);
+				rc = bt_vreg_disable(vreg_info);
+			} else {
+				pr_warn("%s: ASD regulator is not configured\n", __func__);
+			}
+			break;
+		}
+	}
+	return rc;
+}
 
 static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 {
@@ -1056,6 +1084,14 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			chipset_version);
 		if (chipset_version) {
 			soc_id = chipset_version;
+			if (soc_id == HASTINGS_SOC_ID_0100 ||
+				soc_id == HASTINGS_SOC_ID_0101 ||
+				soc_id == HASTINGS_SOC_ID_0110 ||
+				soc_id == HASTINGS_SOC_ID_0200) {
+				ret = bt_disable_asd();
+				if (ret >= 0)
+					PWR_SRC_STATUS_SET(BT_VDD_ASD_LDO, PWR_SRC_NOT_AVAILABLE);
+			}
 		} else {
 			pr_err("%s: got invalid soc version\n", __func__);
 			soc_id = 0;

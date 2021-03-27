@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 #include "hab.h"
 
@@ -233,6 +233,8 @@ int hab_open_receive_cancel(struct physical_channel *pchan,
 		request->xdata.vchan_id = data.vchan_id;
 		request->xdata.sub_id   = data.sub_id;
 		request->xdata.open_id  = data.open_id;
+		request->xdata.ver_fe  = data.ver_fe;
+		request->xdata.ver_be  = data.ver_be;
 
 		ktime_get_ts64(&ts);
 		node->age = ts.tv_sec + HAB_OPEN_REQ_EXPIRE_TIME_S +

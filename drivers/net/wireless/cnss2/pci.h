@@ -248,5 +248,10 @@ int cnss_pci_debug_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 int cnss_pci_get_iova(struct cnss_pci_data *pci_priv, u64 *addr, u64 *size);
 int cnss_pci_get_iova_ipa(struct cnss_pci_data *pci_priv, u64 *addr,
 			  u64 *size);
-
+int cnss_pci_get_user_msi_assignment(struct cnss_pci_data *pci_priv,
+				     char *user_name,
+				     int *num_vectors,
+				     u32 *user_base_data,
+				     u32 *base_vector);
+bool cnss_pci_is_smmu_s1_enabled(struct cnss_pci_data *pci_priv);
 #endif /* _CNSS_PCI_H */

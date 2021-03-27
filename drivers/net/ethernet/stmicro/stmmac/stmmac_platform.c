@@ -285,9 +285,9 @@ static int stmmac_mtl_setup(struct platform_device *pdev,
 		dev_err(&pdev->dev, "Not all TX queues were configured\n");
 		goto out;
 	}
-#endif
 
 out:
+#endif
 	of_node_put(rx_node);
 	of_node_put(tx_node);
 	of_node_put(q_node);
@@ -596,6 +596,12 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
 		plat->clk_ptp_rate = clk_get_rate(plat->clk_ptp_ref);
 		dev_dbg(&pdev->dev, "PTP rate %d\n", plat->clk_ptp_rate);
 	}
+
+	of_property_read_u32(np,
+			     "snps,ptp-ref-clk-rate", &plat->clk_ptp_rate);
+
+	of_property_read_u32(np,
+			     "snps,ptp-req-clk-rate", &plat->clk_ptp_req_rate);
 
 	plat->stmmac_rst = devm_reset_control_get(&pdev->dev,
 						  STMMAC_RESOURCE_NAME);

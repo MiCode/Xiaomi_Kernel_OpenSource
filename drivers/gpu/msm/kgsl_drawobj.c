@@ -820,25 +820,6 @@ static int drawobj_init(struct kgsl_device *device,
 	return 0;
 }
 
-static int get_aux_command(void __user *ptr, u64 generic_size,
-		int type, void *auxcmd, size_t auxcmd_size)
-{
-	struct kgsl_gpu_aux_command_generic generic;
-	u64 size;
-
-	if (copy_struct_from_user(&generic, sizeof(generic), ptr, generic_size))
-		return -EFAULT;
-
-	if (generic.type != type)
-		return -EINVAL;
-
-	size = min_t(u64, auxcmd_size, generic.size);
-	if (copy_from_user(auxcmd, u64_to_user_ptr(generic.priv), size))
-		return -EFAULT;
-
-	return 0;
-}
-
 struct kgsl_drawobj_timeline *
 kgsl_drawobj_timeline_create(struct kgsl_device *device,
 		struct kgsl_context *context)
@@ -870,12 +851,8 @@ int kgsl_drawobj_add_timeline(struct kgsl_device_private *dev_priv,
 	struct kgsl_gpu_aux_command_timeline cmd;
 	int i, ret;
 
-	memset(&cmd, 0, sizeof(cmd));
-
-	ret = get_aux_command(src, cmdsize,
-		KGSL_GPU_AUX_COMMAND_TIMELINE, &cmd, sizeof(cmd));
-	if (ret)
-		return ret;
+	if (copy_struct_from_user(&cmd, sizeof(cmd), src, cmdsize))
+		return -EFAULT;
 
 	if (!cmd.count)
 		return -EINVAL;
