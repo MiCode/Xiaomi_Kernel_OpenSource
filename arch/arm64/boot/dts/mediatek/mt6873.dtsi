@@ -1933,6 +1933,16 @@ fw_devlink.strict=on";
 				"mbox4";
 		};
 
+		mobicore {
+			compatible = "trustonic,mobicore";
+			interrupts = <GIC_SPI 83 IRQ_TYPE_EDGE_RISING>;
+		};
+
+		tee_sanity {
+			compatible = "mediatek,tee_sanity";
+			interrupts = <GIC_SPI 84 IRQ_TYPE_EDGE_RISING>;
+		};
+
 		scp_adsp: scp_adsp@10720000 {
 			compatible = "mediatek,mt8192-scp_adsp", "syscon";
 			reg = <0 0x10720000 0 0x1000>;
