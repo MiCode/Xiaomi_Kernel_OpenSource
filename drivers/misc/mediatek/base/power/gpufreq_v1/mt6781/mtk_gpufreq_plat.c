@@ -328,8 +328,8 @@ void mt_gpufreq_dump_infra_status(void)
 
 	gpufreq_pr_info("[GPU_DFD] ====\n");
 	gpufreq_pr_info("[GPU_DFD] mfgpll_ref=%d mfgpll=%d freq=%d vgpu=%d vsram_gpu=%d\n",
-			mt_get_ckgen_freq(FM_MFG_CK),
-			mt_get_abist_freq(FM_MGPLL_CK),
+			mt_get_ckgen_freq(FM_HF_FMFG_CK),
+			mt_get_abist_freq(FM_AD_MFGPLL_CK),
 			g_cur_opp_freq,
 			g_cur_opp_vgpu,
 			g_cur_opp_vsram_gpu);
@@ -1982,7 +1982,7 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 			g_cur_opp_vgpu,
 			g_cur_opp_vsram_gpu);
 	seq_printf(m, "(real) freq: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
-			-1,//mt_get_abist_freq(FM_MGPLL_CK),  MT6781_TODO,check FMETTER USAGE
+			mt_get_abist_freq(FM_AD_MFGPLL_CK),
 			__mt_gpufreq_get_cur_freq(),
 			__mt_gpufreq_get_cur_vgpu(),
 			__mt_gpufreq_get_cur_vsram_gpu());
@@ -2517,17 +2517,14 @@ static void __mt_gpufreq_set(
 
 	gpu_dvfs_oppidx_footprint(idx_new);
 
-// MT6781_TODO check fmeter usage
-#if 0
 	gpufreq_pr_logbuf(
 		"end idx: %d -> %d, clk: %d, ref_clk: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
 		idx_old, idx_new,
-		mt_get_abist_freq(FM_MGPLL_CK),
-		mt_get_ckgen_freq(FM_MFG_CK),
+		mt_get_abist_freq(FM_AD_MFGPLL_CK),
+		mt_get_ckgen_freq(FM_HF_FMFG_CK),
 		__mt_gpufreq_get_cur_freq(),
 		__mt_gpufreq_get_cur_vgpu(),
 		__mt_gpufreq_get_cur_vsram_gpu());
-#endif
 
 	__mt_gpufreq_kick_pbm(1);
 }
@@ -2644,6 +2641,7 @@ static unsigned int __mt_gpufreq_calculate_dds(
 static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 {
 	enum g_posdiv_power_enum posdiv_power;
+	enum g_posdiv_power_enum real_posdiv_power;
 	unsigned int dds, pll;
 	bool parking = false;
 
@@ -2659,16 +2657,16 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 	dds = __mt_gpufreq_calculate_dds(freq_new, posdiv_power);
 	pll = (0x80000000) | (posdiv_power << POSDIV_SHIFT) | dds;
 
+	real_posdiv_power = __mt_gpufreq_get_curr_posdiv_power();
+
 #ifndef CONFIG_MTK_FREQ_HOPPING
 	/* force parking if FHCTL not ready */
 	parking = true;
 #else
-	if (posdiv_power != g_posdiv_power) {
+	if (posdiv_power != real_posdiv_power)
 		parking = true;
-		g_posdiv_power = posdiv_power;
-	} else {
+	else
 		parking = false;
-	}
 #endif
 
 	if (parking) {
@@ -3661,17 +3659,18 @@ static void __mt_gpufreq_dump_bringup_status(void)
 	// [SPM] pwr_status: pwr_ack (@0x1000_616C)
 	// [SPM] pwr_status_2nd: pwr_ack_2nd (@x1000_6170)
 	// [2]: MFG0, [3]: MFG1, [4]: MFG2, [5]: MFG3
-#if 0 // MT6781_TODO
+	/*
 	gpufreq_pr_info("@%s: [PWR_ACK] MFG0~MFG3=0x%08X(0x%08X)\n",
 			__func__,
 			readl(g_sleep + 0x16C) & 0x0000003C,
 			readl(g_sleep + 0x170) & 0x0000003C);
+	*/
+	// @}
 	gpufreq_pr_info("@%s: [MFGPLL] FMETER=%d FREQ=%d\n",
 			__func__,
-			mt_get_abist_freq(FM_MGPLL_CK),
+			mt_get_abist_freq(FM_AD_MFGPLL_CK),
 			__mt_gpufreq_get_cur_freq());
-#endif
-	// @}
+
 }
 
 /*

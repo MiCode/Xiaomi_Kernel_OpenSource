@@ -139,6 +139,9 @@
  **************************************************/
 #define MT_GPUFREQ_PTPOD_CALIBRATION_ENABLE 0
 
+#define FM_HF_FMFG_CK 3
+#define FM_AD_MFGPLL_CK 27
+
 /**************************************************
  * Register Manipulations
  **************************************************/
@@ -335,6 +338,7 @@ struct g_pmic_info {
  **************************************************/
 extern bool mtk_get_gpu_loading(unsigned int *pLoading);
 extern unsigned int mt_get_abist_freq(unsigned int idx);
+extern unsigned int mt_get_ckgen_freq(unsigned int ID);
 
 /**************************************************
  * global value definition
