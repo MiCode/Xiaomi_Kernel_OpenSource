@@ -160,35 +160,6 @@ static enum mddp_state_e mddp_get_state(struct mddp_app_t *app)
 	return app->state;
 }
 
-bool mddp_is_acted_state(enum mddp_app_type_e type)
-{
-	struct mddp_app_t              *app;
-	uint32_t                        tmp_type;
-	uint32_t                        idx;
-	bool                            ret = false;
-
-	if (type == MDDP_APP_TYPE_ALL) {
-		/* OK. Check all app state. */
-		for (idx = 0; idx < MDDP_MOD_CNT; idx++) {
-			tmp_type = mddp_sm_module_list_s[idx];
-			app = mddp_get_app_inst(tmp_type);
-
-			if (app->state == MDDP_STATE_ACTIVATED)
-				return true;
-		}
-	} else if (type < 0 || type > MDDP_APP_TYPE_ALL) {
-		/* NG! */
-		MDDP_S_LOG(MDDP_LL_ERR,
-				"%s: Invalid app_type(%d)!\n", __func__, type);
-	} else {
-		/* OK. Check single app state. */
-		app = mddp_get_app_inst(type);
-		ret = (app->state == MDDP_STATE_ACTIVATED) ? true : false;
-	}
-
-	return ret;
-}
-
 enum mddp_state_e mddp_sm_set_state_by_md_rsp(struct mddp_app_t *app,
 	enum mddp_state_e prev_state,
 	bool md_rsp_result)
