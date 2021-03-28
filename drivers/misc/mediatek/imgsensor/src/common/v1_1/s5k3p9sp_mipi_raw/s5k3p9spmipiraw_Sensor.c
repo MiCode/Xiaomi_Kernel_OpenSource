@@ -77,7 +77,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		/*Caohua.Lin@Camera.Driver add for 18011/18311  board 20180723*/
 		.module_id = 0x04,	//0x01 Sunny,0x05 QTEK
 		#endif
-		.checksum_value = 0xb1f1b3cc,
+		.checksum_value = 0x31e3fbe2,
 
 		.pre = {
 			.pclk = 560000000,
