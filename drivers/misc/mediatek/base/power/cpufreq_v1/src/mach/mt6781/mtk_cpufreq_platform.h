@@ -18,9 +18,7 @@
 
 #define CPU_DVFS_DT_REG	1
 
-/* #define CPU_DVFS_NOT_READY 1 */
-
-#if defined(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT) || defined(USE_SSMP_VER_V2)
+#if defined(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT) || defined(USE_SSPM_VER_V2)
 #define CONFIG_HYBRID_CPU_DVFS	1
 #define READ_SRAM_VOLT          1
 #define PPM_AP_SIDE	1
@@ -28,14 +26,14 @@
 #define CCI_MAP_TBL_SUPPORT	1
 #define ENABLE_DOE              1
 #define MET_READY              1
-/* #define IMAX_ENABLE             1 */
+#define IMAX_ENABLE             1
 #define IMAX_INIT_STATE         1
 #define CPU_DVFS_NOT_READY	1
 #define REPORT_IDLE_FREQ	1
 #define ENABLE_CLUSTER_ONOFF_SRAM	1
 #else
 /* #define SUPPORT_VOLT_HW_AUTO_TRACK 1 */
-//#define CPU_DVFS_NOT_READY	1
+#define CPU_DVFS_NOT_READY	1
 #endif
 #define NR_FREQ		16
 #define NR_CCI_TBL		2
