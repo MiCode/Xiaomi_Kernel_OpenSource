@@ -32,13 +32,13 @@
  * Aging table focuss on freq, but every time DVFS policy
  * will change apusys_opps.next_buck_volt as 575MV.
  *
- * Suppsely user takes opp 5, the smallest one, apusys_final_volt_check
+ * Suppsely user takes opp 6, the smallest one, apusys_final_volt_check
  * will use MAX(apusys_opps.next_buck_volt[buck_index],
 		apusys_opps.user_path_volt[user_index][path_index])
  * and that will never let aging voltage working.
  *
- * That is why default 525mv minus MG_VOLT_06250 first.
- * (the precondition is VPU/MDLA aging voltage on 525mv are the same)
+ * That is why default 575mv minus MG_VOLT_06250 first.
+ * (the precondition is VPU/MDLA aging voltage on 575mv are the same)
  */
 #ifdef AGING_MARGIN
 #define MARGIN_VOLT_8	(MG_VOLT_06250)
@@ -89,9 +89,11 @@ enum DVFS_BUCK {
 
 enum DVFS_VOLTAGE {
 	DVFS_VOLT_NOT_SUPPORT = 0,
+	DVFS_VOLT_00_525000_V = 525000 - MARGIN_VOLT_9,
 	DVFS_VOLT_00_550000_V = 550000 - MARGIN_VOLT_9,
 	DVFS_VOLT_00_575000_V = 575000 - MARGIN_VOLT_8,
 	DVFS_VOLT_00_600000_V = 600000 - MARGIN_VOLT_7,
+	DVFS_VOLT_00_612500_V = 612500 - MARGIN_VOLT_7,
 	DVFS_VOLT_00_625000_V = 625000 - MARGIN_VOLT_7,
 	DVFS_VOLT_00_650000_V = 650000 - MARGIN_VOLT_6,
 	DVFS_VOLT_00_700000_V = 700000 - MARGIN_VOLT_5,
@@ -116,11 +118,13 @@ enum DVFS_FREQ {
 	DVFS_FREQ_00_026000_F = 26000,
 	DVFS_FREQ_00_208000_F = 208000,
 	DVFS_FREQ_00_242700_F = 242700,
+	DVFS_FREQ_00_250000_F = 250000,
 	DVFS_FREQ_00_273000_F = 273000,
-	DVFS_FREQ_00_360000_F = 360000,
-	DVFS_FREQ_00_343000_F = 343000,
 	DVFS_FREQ_00_312000_F = 312000,
+	DVFS_FREQ_00_343000_F = 343000,
+	DVFS_FREQ_00_360000_F = 360000,
 	DVFS_FREQ_00_416000_F = 416000,
+	DVFS_FREQ_00_425000_F = 425000,
 	DVFS_FREQ_00_499200_F = 499200,
 	DVFS_FREQ_00_500000_F = 500000,
 	DVFS_FREQ_00_525000_F = 525000,
@@ -128,12 +132,11 @@ enum DVFS_FREQ {
 	DVFS_FREQ_00_594000_F = 594000,
 	DVFS_FREQ_00_624000_F = 624000,
 	DVFS_FREQ_00_688000_F = 688000,
-	DVFS_FREQ_00_687500_F = 687500,
 	DVFS_FREQ_00_728000_F = 728000,
 	DVFS_FREQ_00_800000_F = 800000,
 	DVFS_FREQ_00_832000_F = 832000,
 	DVFS_FREQ_00_880000_F = 880000,
-	DVFS_FREQ_00_960000_F = 960000,
+	DVFS_FREQ_00_950000_F = 950000,
 	DVFS_FREQ_00_1100000_F = 1100000,
 	DVFS_FREQ_MAX,
 };

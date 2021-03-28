@@ -24,9 +24,13 @@
 #include "mtk_freqhopping_drv.h"
 #endif
 
+static DEFINE_SPINLOCK(meter_lock);
+#define fmeter_lock(flags)   spin_lock_irqsave(&meter_lock, flags)
+#define fmeter_unlock(flags) spin_unlock_irqrestore(&meter_lock, flags)
+
 /************** IMPORTANT !! *******************
  * The following name of each clock struct
- * MUST mapping to clock-names @ mt6873.dts
+ * MUST mapping to clock-names @ mt6877.dts
  **********************************************/
 
 /* for dvfs clock source */
@@ -70,7 +74,9 @@ int enable_apu_mtcmos(int enable)
 int prepare_apu_clock(struct device *dev)
 {
 	int ret = 0;
+#if 0  //APUSYS_POWER_BRINGUP
 	int ret_all = 0;
+#endif
 
 	PREPARE_CLK(mtcmos_scp_sys_vpu);
 
@@ -79,16 +85,17 @@ int prepare_apu_clock(struct device *dev)
 	PREPARE_CLK(clk_apupll_apupll1);
 	PREPARE_CLK(clk_apupll_apupll2);
 
-	ENABLE_CLK(clk_apupll_apupll);
-	ENABLE_CLK(clk_apupll_npupll);
+#if 0 //APUSYS_POWER_BRINGUP
 	ENABLE_CLK(clk_apupll_apupll1);
 	ENABLE_CLK(clk_apupll_apupll2);
+	ENABLE_CLK(clk_apupll_npupll);
+	ENABLE_CLK(clk_apupll_apupll);
 
-	_init_acc(V_APU_CONN);
+	//_init_acc(V_APU_CONN);
 	_init_acc(V_VPU0);
 	_init_acc(V_VPU1);
 	_init_acc(V_MDLA0);
-	_init_acc(V_TOP_IOMMU);
+	//_init_acc(V_TOP_IOMMU);
 
 	/* Deault ACC will raise APU_ DIV_2 */
 	clk_set_rate(clk_apupll_apupll,
@@ -104,6 +111,7 @@ int prepare_apu_clock(struct device *dev)
 	DISABLE_CLK(clk_apupll_npupll);
 	DISABLE_CLK(clk_apupll_apupll2);
 	DISABLE_CLK(clk_apupll_apupll1);
+#endif
 
 	return ret;
 }
@@ -161,7 +169,7 @@ void disable_apupll(enum APUPLL apupll)
 	}
 }
 
-/* Turn on/off CG_APU */
+/* acc_clk_enable/disable: Turn on/off CG_APU */
 static int _enable_acc(enum DVFS_VOLTAGE_DOMAIN domain, bool enable)
 {
 	void *acc_set = NULL;
@@ -265,9 +273,18 @@ static void _init_acc(enum DVFS_VOLTAGE_DOMAIN domain)
 	if (inverse)
 		writel(BIT(BIT_INVEN_OUT), acc_set);
 
-	writel(BIT(BIT_SEL_APU),      acc_set);
-	writel(BIT(BIT_CGEN_SOC),     acc_clr);
+	writel(BIT(BIT_SEL_APU), acc_set);
+	writel(BIT(BIT_CGEN_SOC), acc_clr);
 	writel(BIT(BIT_SEL_APU_DIV2), acc_set); /* default freq needed */
+}
+
+void acc_init(void)
+{
+	_init_acc(V_APU_CONN);
+	_init_acc(V_VPU0);
+	_init_acc(V_VPU1);
+	_init_acc(V_MDLA0);
+	_init_acc(V_TOP_IOMMU);
 }
 
 int enable_apu_device_clksrc(enum DVFS_USER user)
@@ -392,12 +409,12 @@ void disable_apu_device_clksrc(enum DVFS_USER user)
 }
 
 /*
- * ACC MUX select
+ * acc_clk_set_parent:ACC MUX select
  * 0. freq parameters here, only ACC clksrc is valid
  * 1. Switch between APUPLL <=> Parking (F26M, PARK)
- * 2. Turn on/off CG_F26M, CG_PARK, CG_SOC
+ * 2. Turn on/off CG_F26M, CG_PARK, CG_SOC, but no CG_APU
  * 3. Clear APU Div2 while Parking
- * 4. Only use clksrc of APUPLL while ACC CG_OUT(bit4) is on
+ * 4. Only use clksrc of APUPLL while ACC CG_APU is on
  */
 int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
@@ -433,14 +450,14 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		DRV_WriteReg32(acc_set, BIT(BIT_CGEN_PARK));
 		DRV_WriteReg32(acc_clr, BIT(BIT_CGEN_F26M) | BIT(BIT_CGEN_SOC));
 		// Select park path
-		DRV_WriteReg32(acc_set, BIT(BIT_SEL_APU));
+		DRV_WriteReg32(acc_clr, BIT(BIT_SEL_APU));
 		// clear apu div 2
 		DRV_WriteReg32(acc_clr, BIT(BIT_SEL_APU_DIV2));
 		break;
 
 	case DVFS_FREQ_ACC_APUPLL:
 		// Select park path
-		DRV_WriteReg32(acc_clr, BIT(BIT_SEL_APU));
+		DRV_WriteReg32(acc_set, BIT(BIT_SEL_APU));
 		// Clear park cg
 		DRV_WriteReg32(acc_clr, BIT(BIT_CGEN_PARK) |
 			BIT(BIT_CGEN_F26M) | BIT(BIT_CGEN_SOC));
@@ -499,6 +516,27 @@ static enum DVFS_FREQ_POSTDIV apu_get_posdiv_power(enum DVFS_FREQ freq,
 	return POSDIV_4;
 }
 
+#if 0
+static enum DVFS_FREQ_POSTDIV apu_get_curr_posdiv_power(
+	enum DVFS_VOLTAGE_DOMAIN domain)
+{
+	unsigned long pll  = 0;
+	enum DVFS_FREQ_POSTDIV real_posdiv_power = 0;
+
+	if (domain == V_VPU0 || domain == V_VPU1)
+		pll = DRV_Reg32(APU_PLL4H_PLL2_CON1);
+	else if (domain == V_MDLA0)
+		pll = DRV_Reg32(APU_PLL4H_PLL1_CON1);
+
+	real_posdiv_power = (pll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
+
+	LOG_DBG("%s real_posdiv_power %d\n",
+		__func__, real_posdiv_power);
+
+	return real_posdiv_power;
+}
+#endif
+
 static bool apu_get_div2(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
 	int opp = 0;
@@ -513,22 +551,7 @@ static bool apu_get_div2(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	return false;
 }
 
-#if 0
-static enum DVFS_FREQ_POSTDIV apu_get_curr_posdiv_power(void)
-{
-	unsigned long pll  = 0;
-	enum DVFS_FREQ_POSTDIV real_posdiv_power = 0;
-
-	pll = DRV_Reg32(NPUPLL_CON1);
-	real_posdiv_power = (pll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
-
-	LOG_DBG("%s real_posdiv_power %d\n",
-		__func__, real_posdiv_power);
-
-	return real_posdiv_power;
-}
-#endif
-
+//acc_clk_set_rate w/ vol domain, ex: V_VPU0
 int config_apupll_freq(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
 	int ret = 0;
@@ -595,21 +618,33 @@ int config_apupll_freq(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 
 	if (div2 == true)
 		DRV_WriteReg32(acc_set0, BIT(BIT_SEL_APU_DIV2));
+	if ((div2 == true) && (acc_set1))
+		DRV_WriteReg32(acc_set1, BIT(BIT_SEL_APU_DIV2));
 
 	/*
 	 * Switch back to APUPLL
-	 * 1. Only switch back to APUPLL while CG_APU on
+	 * Only switch back to APUPLL while CG_APU on
+	 * And clksrc is not APUPLL
 	 */
 	switch (domain) {
 	case V_VPU0:
+	case V_VPU1:
+		if ((DRV_Reg32(acc_set0) & BIT(BIT_CGEN_APU)) &&
+			!(DRV_Reg32(acc_set0) & BIT(BIT_SEL_APU)))
+			ret = set_apu_clock_source(DVFS_FREQ_ACC_APUPLL, V_VPU0);
+		if ((DRV_Reg32(acc_set1) & BIT(BIT_CGEN_APU)) &&
+			!(DRV_Reg32(acc_set1) & BIT(BIT_SEL_APU)))
+			ret = set_apu_clock_source(DVFS_FREQ_ACC_APUPLL, V_VPU1);
+		break;
 	case V_MDLA0:
+		if ((DRV_Reg32(acc_set0) & BIT(BIT_CGEN_APU)) &&
+			!(DRV_Reg32(acc_set0) & BIT(BIT_SEL_APU)))
+			ret = set_apu_clock_source(DVFS_FREQ_ACC_APUPLL, V_MDLA0);
+		break;
 	case V_APU_CONN:
 	case V_TOP_IOMMU:
-		if (DRV_Reg32(acc_set0) & BIT(BIT_CGEN_APU))
-			ret = set_apu_clock_source(DVFS_FREQ_ACC_APUPLL, domain);
-		break;
-	case V_VPU1:
-		if (DRV_Reg32(acc_set1) & BIT(BIT_CGEN_APU))
+		if ((DRV_Reg32(acc_set0) & BIT(BIT_CGEN_APU)) &&
+			!(DRV_Reg32(acc_set0) & BIT(BIT_SEL_APU)))
 			ret = set_apu_clock_source(DVFS_FREQ_ACC_APUPLL, domain);
 		break;
 	default:
@@ -621,6 +656,121 @@ int config_apupll_freq(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	return ret;
 }
 
+#if FMETER_CHK
+#define FM_PLL1_CK				0
+#define FM_PLL2_CK				1
+#define FM_PLL3_CK				2
+#define FM_PLL4_CK				3
+static unsigned int pll_freqmeter_get(unsigned int pll_sel)
+{
+	int output = 0, i = 0;
+	unsigned int temp, pll4h_fqmtr_con0, pll4h_fqmtr_con1;
+	bool timeout = false;
+	unsigned long flags;
+	void *con0 = APU_PLL4H_FQMTR_CON0;
+	void *con1 = APU_PLL4H_FQMTR_CON1;
+
+	fmeter_lock(flags);
+	pll4h_fqmtr_con0 = DRV_Reg32(con0);
+	pll4h_fqmtr_con1 = DRV_Reg32(con1);
+
+	/* PLL4H_FQMTR_CON1[15]: rst 1 -> 0 */
+	DRV_WriteReg32(con0, DRV_Reg32(con0) & 0xFFFF7FFF);
+	/* PLL4H_FQMTR_CON1[15]: rst 0 -> 1 */
+	DRV_WriteReg32(con0, DRV_Reg32(con0) | 0x000080000);
+	/* sel fqmtr_cksel */
+	DRV_WriteReg32(con0, (pll4h_fqmtr_con0 & 0x00FFFFF8) | (pll_sel << 0));
+
+	/* fqmtr_en set to 1, fqmtr_exc set to 0, fqmtr_start set to 0 */
+	DRV_WriteReg32(con0, ((DRV_Reg32(con0) | 0x00001000) & 0xFFFFFEEF));
+	/*fqmtr_start set to 1 */
+	DRV_WriteReg32(con0, DRV_Reg32(con0) | 0x00000010);
+
+	/* wait frequency meter finish */
+	while (DRV_Reg32(con0) & 0x10) {
+		udelay(10);
+		i++;
+		if (i > 30) {
+			timeout = true;
+			LOG_DBG("timeout! [PLL%d]con0: 0x%x, con1: 0x%x\n",
+				pll_sel, DRV_Reg32(con0), DRV_Reg32(con1));
+			break;
+		}
+	}
+
+	if (!timeout) {
+		temp = DRV_Reg32(con1) & 0xFFFF;
+		output = ((temp * 26000)) / (256 * 1000); // MHz
+	} else {
+		output = 0;
+	}
+
+	DRV_WriteReg32(con0, pll4h_fqmtr_con0);
+	DRV_WriteReg32(con1, pll4h_fqmtr_con1);
+	fmeter_unlock(flags);
+
+	return output;
+}
+#endif
+
+#if FMETER_CHK
+#define FM_ACC0		0x0
+#define FM_ACC1		0x1
+#define FM_ACC2		0x10
+#define FM_ACC4		0x40
+#define FM_ACC5		0x44
+#define FM_ACC7		0x68
+#define FM_ACC0_Pout		0x8000
+#define FM_ACC7_Pout		0xE800
+static unsigned int acc_freqmeter_get(unsigned int acc_sel)
+{
+	int output = 0, i = 0;
+	unsigned int tempValue = 0;
+	bool timeout = false;
+	unsigned int loop_ref = 0;  // 0 for Max freq  ~ 1074MHz
+	unsigned long flags;
+	void *fm_sel = APU_ACC_FM_SEL;
+	void *confg_set = APU_ACC_FM_CONFG_SET;
+	void *confg_clr = APU_ACC_FM_CONFG_CLR;
+
+	fmeter_lock(flags);
+	/* reset */
+	DRV_WriteReg32(fm_sel, 0x0);
+	DRV_WriteReg32(fm_sel, DRV_Reg32(fm_sel) | acc_sel);
+	DRV_WriteReg32(fm_sel, DRV_Reg32(fm_sel) | (loop_ref << D_FM_LOOP_REF_OFFSET));
+	DRV_WriteReg32(confg_set, BIT(D_FM_CLK_EN));
+	DRV_WriteReg32(confg_set, BIT(D_FM_FUN_EN));
+
+	/* wait frequency meter finish */
+	while (!(DRV_Reg32(confg_set) & BIT(D_FM_FM_DONE))) {
+		udelay(10);
+		i++;
+		if (i > 30) {
+			timeout = true;
+			LOG_DBG("timeout! [ACC%d]fm_sel: 0x%x, confg_set: 0x%x\n",
+				acc_sel, DRV_Reg32(fm_sel), DRV_Reg32(confg_set));
+			break;
+		}
+	}
+
+	if ((!timeout) &&
+		!(DRV_Reg32(confg_set) & BIT(D_FM_FM_OVERFLOW))) {
+		tempValue = DRV_Reg32(APU_ACC_FM_CNT);
+		tempValue = tempValue & 0xFFFF;
+		output = tempValue * 16384 / ((loop_ref + 1) * 1000000);  //MHz
+	} else {
+		output = 0;
+	}
+
+	DRV_WriteReg32(confg_clr, BIT(D_FM_FM_DONE));
+	DRV_WriteReg32(confg_clr, BIT(D_FM_FUN_EN));
+	DRV_WriteReg32(confg_clr, BIT(D_FM_CLK_EN));
+	fmeter_unlock(flags);
+
+	return output;
+}
+#endif
+
 // dump related frequencies of APUsys
 void dump_frequency(struct apu_power_info *info)
 {
@@ -629,7 +779,46 @@ void dump_frequency(struct apu_power_info *info)
 	int apupll1_freq = 0;
 	int apupll2_freq = 0;
 	int dump_div = 1;
+#if FMETER_CHK
+	int acc0_fmeter = 0, acc1_fmeter = 0, acc2_fmeter = 0;
+	int acc4_fmeter = 0, acc7_fmeter = 0;
+	int acc0_pout_fmeter = 0, acc7_pout_fmeter = 0;
+	int apupll_fmeter = 0, npupll_fmeter = 0;
+	int apupll1_fmeter = 0, apupll2_fmeter = 0;
+#else
 	uint8_t opp_index = 0;
+#endif
+
+	info->acc_status[0] = DRV_Reg32(APU_ACC_CONFG_SET0);
+	info->acc_status[1] = DRV_Reg32(APU_ACC_CONFG_SET1);
+	info->acc_status[2] = DRV_Reg32(APU_ACC_CONFG_SET2);
+	info->acc_status[4] = DRV_Reg32(APU_ACC_CONFG_SET4);
+	info->acc_status[7] = DRV_Reg32(APU_ACC_CONFG_SET7);
+
+#if FMETER_CHK
+	if (info->acc_status[0] & BIT(BIT_CGEN_APU)) {
+		apupll1_fmeter = pll_freqmeter_get(FM_PLL3_CK);
+		acc0_fmeter = acc_freqmeter_get(FM_ACC0);
+		acc0_pout_fmeter = acc_freqmeter_get(FM_ACC0_Pout);
+	}
+	if (info->acc_status[1] & BIT(BIT_CGEN_APU)) {
+		npupll_fmeter = pll_freqmeter_get(FM_PLL2_CK);
+		acc1_fmeter = acc_freqmeter_get(FM_ACC1);
+	}
+	if (info->acc_status[2] & BIT(BIT_CGEN_APU)) {
+		npupll_fmeter = pll_freqmeter_get(FM_PLL2_CK);
+		acc2_fmeter = acc_freqmeter_get(FM_ACC2);
+	}
+	if (info->acc_status[4] & BIT(BIT_CGEN_APU)) {
+		apupll_fmeter = pll_freqmeter_get(FM_PLL1_CK);
+		acc4_fmeter = acc_freqmeter_get(FM_ACC4);
+	}
+	if (info->acc_status[7] & BIT(BIT_CGEN_APU)) {
+		apupll2_fmeter = pll_freqmeter_get(FM_PLL4_CK);
+		acc7_fmeter = acc_freqmeter_get(FM_ACC7);
+		acc7_pout_fmeter = acc_freqmeter_get(FM_ACC7_Pout);
+	}
+#endif
 
 	apupll_freq = clk_get_rate(clk_apupll_apupll);
 	npupll_freq = clk_get_rate(clk_apupll_npupll);
@@ -640,6 +829,39 @@ void dump_frequency(struct apu_power_info *info)
 	info->npupll_freq = npupll_freq / dump_div;
 	info->apupll1_freq = apupll1_freq / dump_div;
 	info->apupll2_freq = apupll2_freq / dump_div;
+
+#if FMETER_CHK
+	if (info->acc_status[0] & BIT(BIT_SEL_APU))
+		info->conn_freq = acc0_fmeter;
+	else
+		info->conn_freq = acc7_pout_fmeter;
+
+	if (info->acc_status[1] & BIT(BIT_SEL_APU))
+		info->vpu0_freq = acc1_fmeter;
+	else
+		info->vpu0_freq = acc0_pout_fmeter;
+
+	if (info->acc_status[2] & BIT(BIT_SEL_APU))
+		info->vpu1_freq = acc2_fmeter;
+	else
+		info->vpu1_freq = acc0_pout_fmeter;
+
+	if (info->acc_status[4] & BIT(BIT_SEL_APU))
+		info->mdla0_freq = acc4_fmeter;
+	else
+		info->mdla0_freq = acc0_pout_fmeter;
+
+	if (info->acc_status[7] & BIT(BIT_SEL_APU))
+		info->iommu_freq = acc7_fmeter;
+	else
+		info->iommu_freq = acc0_pout_fmeter;
+
+	dump_div = info->dump_div ? info->dump_div : 1;
+	do_div(info->apupll_freq, dump_div * KHZ);
+	do_div(info->npupll_freq, dump_div * KHZ);
+	do_div(info->apupll2_freq, dump_div * KHZ);
+	do_div(info->apupll1_freq, dump_div * KHZ);
+#else
 
 	opp_index = apusys_opps.cur_opp_index[V_VPU0];
 	info->vpu0_freq = (apusys_opps.opps[opp_index][V_VPU0].div2) ?
@@ -672,13 +894,22 @@ void dump_frequency(struct apu_power_info *info)
 	do_div(info->mdla0_freq, dump_div * KHZ);
 	do_div(info->conn_freq, dump_div * KHZ);
 	do_div(info->iommu_freq, dump_div * KHZ);
+#endif
 
-	info->acc_status[0] = DRV_Reg32(APU_ACC_CONFG_SET0);
-	info->acc_status[1] = DRV_Reg32(APU_ACC_CONFG_SET1);
-	info->acc_status[2] = DRV_Reg32(APU_ACC_CONFG_SET2);
-	info->acc_status[4] = DRV_Reg32(APU_ACC_CONFG_SET4);
-	info->acc_status[5] = DRV_Reg32(APU_ACC_CONFG_SET5);
-	info->acc_status[7] = DRV_Reg32(APU_ACC_CONFG_SET7);
+#if 0
+#if FMETER_CHK
+	LOG_DBG("apupll_fmeter = %d\n", apupll_fmeter);
+	LOG_DBG("npupll_fmeter = %d\n", npupll_fmeter);
+	LOG_DBG("apupll1_fmeter = %d\n", apupll1_fmeter);
+	LOG_DBG("apupll2_fmeter = %d\n", apupll2_fmeter);
+	LOG_DBG("acc0_fmeter = %d\n", acc0_fmeter);
+	LOG_DBG("acc1_fmeter = %d\n", acc1_fmeter);
+	LOG_DBG("acc2_fmeter = %d\n", acc2_fmeter);
+	LOG_DBG("acc4_fmeter = %d\n", acc4_fmeter);
+	LOG_DBG("acc7_fmeter = %d\n", acc7_fmeter);
+	LOG_DBG("acc0_pout_fmeter = %d\n", acc0_pout_fmeter);
+	LOG_DBG("acc7_pout_fmeter = %d\n", acc7_pout_fmeter);
+#endif
 
 	LOG_DBG("apupll_freq = %d\n", apupll_freq);
 	LOG_DBG("npupll_freq = %d\n", npupll_freq);
@@ -689,4 +920,5 @@ void dump_frequency(struct apu_power_info *info)
 	LOG_DBG("mdla0_freq = %d, acc4_status = 0x%x\n", info->mdla0_freq, info->acc_status[4]);
 	LOG_DBG("conn_freq = %d, acc0_status = 0x%x\n", info->conn_freq, info->acc_status[0]);
 	LOG_DBG("iommu_freq = %d, acc7_status = 0x%x\n", info->iommu_freq, info->acc_status[7]);
+#endif
 }

@@ -28,7 +28,7 @@
 #endif
 
 /* length of buffer to save freq/volt of each buck_domain */
-#define INFO_LENGTH		15
+#define INFO_LENGTH		18
 
 /**
  * add_separte() - Add separater when showing freq/volt info
@@ -58,7 +58,7 @@ void apu_power_dump_opp_table(struct seq_file *s)
 	seq_printf(s, info);
 	for (bd = 0 ; bd < APUSYS_BUCK_DOMAIN_NUM; bd++) {
 		line_size += snprintf(info, INFO_LENGTH,
-			 "%13s|", buck_domain_str[bd]);
+			 "%16s|", buck_domain_str[bd]);
 		seq_printf(s, info);
 		memset(info, 0, sizeof(info));
 	}
@@ -73,9 +73,9 @@ void apu_power_dump_opp_table(struct seq_file *s)
 		seq_printf(s, "|%3d|", opp_num);
 		for (bd = 0 ; bd < APUSYS_BUCK_DOMAIN_NUM; bd++) {
 			memset(info, 0, sizeof(info));
-			snprintf(info, INFO_LENGTH, "%3dMhz(%3dmv)|",
+			snprintf(info, INFO_LENGTH, "%3dMhz(%6dmv)|",
 				apusys_opps.opps[opp_num][bd].freq / 1000,
-				apusys_opps.opps[opp_num][bd].voltage / 1000);
+				apusys_opps.opps[opp_num][bd].voltage);
 				seq_printf(s, info);
 		}
 		add_separte(s, separate);
@@ -124,16 +124,24 @@ int apu_power_dump_curr_status(struct seq_file *s, int oneline_str)
 	}
 
 	seq_printf(s,
-		"|curr| vpu0| vpu1| mdla0| conn| iommu|\n");
+		"|curr|  vpu0 |  vpu1 | mdla0 |  conn | iommu |\n");
 
 	seq_printf(s,
-		"|freq| %03u | %03u | %03u | %03u | %03u |\n",
+		"| opp|   %u   |   %u   |   %u   |   %u   |   %u   |\n",
+		apusys_opps.cur_opp_index[V_VPU0],
+		apusys_opps.cur_opp_index[V_VPU1],
+		apusys_opps.cur_opp_index[V_MDLA0],
+		apusys_opps.cur_opp_index[V_APU_CONN],
+		apusys_opps.cur_opp_index[V_TOP_IOMMU]);
+
+	seq_printf(s,
+		"|freq|  %03u  |  %03u  |  %03u  |  %03u  |  %03u  |\n",
 		info.vpu0_freq, info.vpu1_freq,
 		info.mdla0_freq, info.conn_freq,
 		info.iommu_freq);
 
 	seq_printf(s,
-		"| clk| npupll| npupll| apupll| apupll1|apupll2|\n(unit: MHz)\n\n");
+		"| clk| npupll| npupll| apupll|apupll1|apupll2|\n(unit: MHz)\n\n");
 
 	seq_printf(s,
 		"npupll:%u(MHz), apupll:%u(MHz), apupll1:%u(MHz), apupll2:%u(MHz)\n\n",

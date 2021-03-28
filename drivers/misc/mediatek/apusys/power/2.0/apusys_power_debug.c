@@ -109,7 +109,7 @@ int apu_power_power_stress(int type, int device, int opp)
 		break;
 
 	case 4: // power driver debug func
-#if defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6877)
 		// device: binning test
 		// opp: raise test
 		opp = ((device & 0xF) << 8) | opp;

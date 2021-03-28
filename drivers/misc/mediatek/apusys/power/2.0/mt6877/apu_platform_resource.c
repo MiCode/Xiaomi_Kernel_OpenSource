@@ -43,6 +43,10 @@ struct hal_param_init_power *init_power_data)
 	struct device_node *apusys_vpu1_node = NULL;
 	struct device_node *apusys_mdla0_node = NULL;
 
+#ifdef APUSYS_POWER_BRINGUP
+	g_pwr_log_level = APUSYS_PWR_LOG_VERBOSE;
+#endif
+
 	LOG_INF("%s pdev id = %d name = %s, name = %s\n", __func__,
 						pdev->id, pdev->name,
 						pdev->dev.of_node->name);
@@ -195,7 +199,7 @@ struct hal_param_init_power *init_power_data)
 
 	// apusys pll
 	apusys_pll_node = of_find_compatible_node(NULL, NULL,
-						"mediatek,mt6877-apusys_pll");
+						"mediatek,mt6877-apu_pll_ctrl");
 	if (apusys_pll_node) {
 		init_power_data->pll_base_addr = of_iomap(apusys_pll_node, 0);
 

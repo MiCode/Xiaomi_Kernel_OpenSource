@@ -57,8 +57,7 @@ void apu_power_assert_check(struct apu_power_info *info)
 		vpu0_freq  = apusys_get_dvfs_freq(V_VPU0) / info->dump_div;
 		if (((abs(vpu0_freq  - info->vpu0_freq) * 100) >
 			vpu0_freq  * ASSERTION_PERCENTAGE)  &&
-		    (vpu0_freq  != BUCK_VVPU_DOMAIN_DEFAULT_FREQ /
-		    info->dump_div)) {
+		    (vpu0_freq  != 0)) {
 			LOG_WRN("ASSERT vpu0_freq =%d, info->vpu0_freq =%d\n",
 						vpu0_freq, info->vpu0_freq);
 		}
@@ -71,8 +70,7 @@ void apu_power_assert_check(struct apu_power_info *info)
 		vpu1_freq = apusys_get_dvfs_freq(V_VPU1) / info->dump_div;
 		if (((abs(vpu1_freq - info->vpu1_freq) * 100) >
 			vpu1_freq * ASSERTION_PERCENTAGE) &&
-			(vpu1_freq != BUCK_VVPU_DOMAIN_DEFAULT_FREQ /
-			info->dump_div)) {
+			(vpu1_freq != 0)) {
 			LOG_WRN("ASSERT vpu1_freq=%d, info->vpu1_freq=%d\n",
 						vpu1_freq, info->vpu1_freq);
 		}
@@ -83,24 +81,21 @@ void apu_power_assert_check(struct apu_power_info *info)
 		mdla0_freq = apusys_get_dvfs_freq(V_MDLA0) / info->dump_div;
 		if ((abs(mdla0_freq - info->mdla0_freq) * 100) >
 			mdla0_freq * ASSERTION_PERCENTAGE &&
-			(mdla0_freq != BUCK_VMDLA_DOMAIN_DEFAULT_FREQ /
-			info->dump_div)) {
+			(mdla0_freq != 0)) {
 			LOG_WRN("ASSERT mdla0_freq=%d, info->mdla0_freq=%d\n",
 					mdla0_freq, info->mdla0_freq);
 		}
 	}
 
 
-	if (apusys_get_conn_power_on_status() == true) {
-		if (info->conn_freq != 0) {
-			conn_freq =
-			apusys_get_dvfs_freq(V_APU_CONN)/info->dump_div;
-			if ((abs(conn_freq - info->conn_freq) * 100) >
-				conn_freq * ASSERTION_PERCENTAGE) {
-				LOG_WRN(
-			"ASSERT conn_freq=%d, info->conn_freq=%d\n",
+	if (apusys_get_conn_power_on_status() == true &&
+		info->conn_freq != 0) {
+		conn_freq = apusys_get_dvfs_freq(V_APU_CONN)/info->dump_div;
+		if ((abs(conn_freq - info->conn_freq) * 100) >
+			conn_freq * ASSERTION_PERCENTAGE &&
+			(conn_freq != 0)) {
+			LOG_WRN("ASSERT conn_freq=%d, info->conn_freq=%d\n",
 					conn_freq, info->conn_freq);
-			}
 		}
 	}
 

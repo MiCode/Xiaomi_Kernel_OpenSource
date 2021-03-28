@@ -83,6 +83,7 @@ void disable_apu_device_clksrc(enum DVFS_USER user);
 
 int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain);
 int config_apupll_freq(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain);
+void acc_init(void);
 
 void dump_voltage(struct apu_power_info *info);
 void dump_frequency(struct apu_power_info *info);

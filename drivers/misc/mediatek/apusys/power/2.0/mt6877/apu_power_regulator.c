@@ -39,17 +39,10 @@ static int curr_vsram_volt;
 #define MT6359P_DOWN_RATE       4500    /*    5mV/us - 10% */
 #define MT6359P_CONSTRAIN       0       /* min interval between 2 cmds */
 
-#ifdef CONFIG_REGULATOR_MT6315
-#define VPU_BUCK_UP_RATE	MT6315VPU_UP_RATE
-#define VPU_BUCK_DOWN_RATE	MT6315VPU_DOWN_RATE
-#define VPU_BUCK_CONSTRAIN	MT6315VPU_CONSTRAIN
-#define VPU_BUCK_NAME		"MT6315"
-#else
 #define VPU_BUCK_UP_RATE	MT6359P_UP_RATE
 #define VPU_BUCK_DOWN_RATE	MT6359P_DOWN_RATE
 #define VPU_BUCK_CONSTRAIN	MT6359P_CONSTRAIN
 #define VPU_BUCK_NAME		"MT6359P"
-#endif
 
 #define SRAM_BUCK_UP_RATE        11250    /* 12.5mV/us - 10% */
 #define SRAM_BUCK_DOWN_RATE      4500     /*    5mV/us - 10% */
@@ -96,11 +89,7 @@ int prepare_regulator(enum DVFS_BUCK buck, struct device *dev)
 	int ret = 0;
 
 	if (buck == VPU_BUCK) {
-#ifdef CONFIG_REGULATOR_MT6315
-		vvpu_reg_id = regulator_get(dev, "vvpu_6315");
-#else
 		vvpu_reg_id = regulator_get(dev, "vvpu");
-#endif
 		if (IS_ERR(vvpu_reg_id)) {
 			ret = PTR_ERR(vvpu_reg_id);
 			LOG_ERR("regulator_get vpu failed, ret: %d\n", ret);
@@ -391,20 +380,20 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	 */
 #if VOLTAGE_RAISE_UP
 	vpu_efuse_raise =
-		GET_BITS_VAL(1:0, get_devinfo_with_index(EFUSE_RAISE));
+		GET_BITS_VAL(20:21, get_devinfo_with_index(EFUSE_BIN));
 	LOG_DBG("Raise bin: vpu_efuse=%d, efuse: 0x%x\n",
-		vpu_efuse_raise, get_devinfo_with_index(EFUSE_RAISE));
-	/* raising up Vvpu LV from 575mv to 600mv */
+		vpu_efuse_raise, get_devinfo_with_index(EFUSE_BIN));
+	/* raising up Vvpu LV from 575mv to 625mv */
 	if (vpu_efuse_raise == 1 &&
 		buck == VPU_BUCK &&
 		voltage_mV == DVFS_VOLT_00_575000_V)
-		voltage_mV += 25000;
+		voltage_mV += 50000;
 
-	/* raising up Vvpu LV from 575mv to 625mv */
+	/* raising up Vvpu LV from 575mv to 600mv */
 	if (vpu_efuse_raise == 2 &&
 		buck == VPU_BUCK &&
 		voltage_mV == DVFS_VOLT_00_575000_V)
-		voltage_mV += 50000;
+		voltage_mV += 25000;
 #endif
 
 	if (buck >= 0) /* bypass the case of SRAM_BUCK = -1 */
