@@ -295,6 +295,14 @@
 		};
 	};
 
+	bus_dbg@10208000 {
+		compatible = "mediatek,bus_dbg-v2";
+		reg = <0 0x10208000 0 0x1000>,
+			<0 0x10001000 0 0x1000>;
+		mediatek,bus_dbg_con_offset = <0x2fc>;
+		interrupt = <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	topckgen: topckgen@10000000 {
 		compatible = "mediatek,topckgen";
 		reg = <0 0x10000000 0 0x1000>;
