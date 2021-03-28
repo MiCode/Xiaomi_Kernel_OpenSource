@@ -130,10 +130,10 @@
 /**************************************************************/
 #if !defined(FPGA_PLATFORM)
 /* MSDCPLL register offset */
-#define MSDCPLL_CON0_OFFSET     (0x350)
-#define MSDCPLL_CON1_OFFSET     (0x354)
-#define MSDCPLL_CON2_OFFSET     (0x358)
-#define MSDCPLL_PWR_CON0_OFFSET (0x35c)
+#define MSDCPLL_CON0_OFFSET     (0x260)
+#define MSDCPLL_CON1_OFFSET     (0x264)
+#define MSDCPLL_CON2_OFFSET     (0x268)
+#define MSDCPLL_PWR_CON0_OFFSET (0x26C)
 #endif
 
 #define MSDCPLL_FREQ            400000000

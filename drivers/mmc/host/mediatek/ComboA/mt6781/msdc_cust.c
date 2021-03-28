@@ -607,34 +607,33 @@ static void msdc_dump_clock_sts_core(char **buff, unsigned long *size,
 
 	if (topckgen_base && infracfg_ao_base) {
 		buf_ptr += sprintf(buf_ptr,
-			"MSDC0 HCLK_MUX[0x%p][25:24]=%d, pdn=%d\n",
-			topckgen_base + 0x070,
-			/* mux at bits 25~24 */
-			(MSDC_READ32(topckgen_base + 0x070) >> 24) & 3,
-			/* pdn at bit 31 */
-			(MSDC_READ32(topckgen_base + 0x070) >> 31) & 1);
-		buf_ptr += sprintf(buf_ptr,
-			"MSDC0 CLK_MUX[%p][2:0]=%d, pdn=%d, CLK_CG[%p]bit 2,6=%d,%d\n",
-			topckgen_base + 0x080,
-			/* mux at bits 2~0 */
-			(MSDC_READ32(topckgen_base + 0x080) >> 0) & 7,
+			"MSDC0 HCLK_MUX[0x%p][1:0]=%d, pdn=%d\n", topckgen_base + 0x070,
+			/* mux at bits 1~0 */
+			(MSDC_READ32(topckgen_base + 0x070) >> 0) & 3,
 			/* pdn at bit 7 */
-			(MSDC_READ32(topckgen_base + 0x080) >> 7) & 1,
-			infracfg_ao_base + 0x094,
-			/* cg at bit 2,6 */
-			(MSDC_READ32(infracfg_ao_base + 0x094) >> 2) & 1,
-			(MSDC_READ32(infracfg_ao_base + 0x094) >> 6) & 1);
+			(MSDC_READ32(topckgen_base + 0x070) >> 7) & 1);
 		buf_ptr += sprintf(buf_ptr,
-			"MSDC1 CLK_MUX[%p][10:8]=%d, pdn=%d, CLK_CG[%p]bit 4,16=%d,%d\n",
-			topckgen_base + 0x080,
+			"MSDC0 CLK_MUX[%p][2:0]=%d, pdn=%d, CLK_CG[%p]bit 2,9=%d,%d\n",
+			topckgen_base + 0x070,
 			/* mux at bits 10~8 */
-			(MSDC_READ32(topckgen_base + 0x080) >> 8) & 7,
+			(MSDC_READ32(topckgen_base + 0x070) >> 8) & 7,
 			/* pdn at bit 15 */
-			(MSDC_READ32(topckgen_base + 0x080) >> 15) & 1,
+			(MSDC_READ32(topckgen_base + 0x070) >> 15) & 1,
 			infracfg_ao_base + 0x094,
-			/* cg at bit 4,16 */
+			/* cg at bit 2,9 */
+			(MSDC_READ32(infracfg_ao_base + 0x094) >> 2) & 1,
+			(MSDC_READ32(infracfg_ao_base + 0x0c8) >> 9) & 1);
+		buf_ptr += sprintf(buf_ptr,
+			"MSDC1 CLK_MUX[%p][10:8]=%d, pdn=%d, CLK_CG[%p]bit 4,10=%d,%d\n",
+			topckgen_base + 0x070,
+			/* mux at bits 18~16 */
+			(MSDC_READ32(topckgen_base + 0x070) >> 16) & 7,
+			/* pdn at bit 23 */
+			(MSDC_READ32(topckgen_base + 0x070) >> 23) & 1,
+			infracfg_ao_base + 0x094,
+			/* cg at bit 4,10 */
 			(MSDC_READ32(infracfg_ao_base + 0x094) >> 4) & 1,
-			(MSDC_READ32(infracfg_ao_base + 0x094) >> 16) & 1);
+			(MSDC_READ32(infracfg_ao_base + 0x0c8) >> 10) & 1);
 
 		*buf_ptr = '\0';
 		SPREAD_PRINTF(buff, size, m, "%s", buffer);
