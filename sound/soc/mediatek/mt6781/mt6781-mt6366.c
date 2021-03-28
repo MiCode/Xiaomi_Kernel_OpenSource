@@ -816,15 +816,6 @@ static struct snd_soc_dai_link mt6781_mt6366_dai_links[] = {
 		.ignore_suspend = 1,
 	},
 	{
-		.name = "Hostless_DSP_DL",
-		.cpu_dai_name = "Hostless_DSP_DL DAI",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.ignore_suspend = 1,
-	},
-	{
 		.name = "Hostless_HW_Gain_AAudio",
 		.stream_name = "Hostless_HW_Gain_AAudio",
 		.cpu_dai_name = "Hostless HW Gain AAudio DAI",
