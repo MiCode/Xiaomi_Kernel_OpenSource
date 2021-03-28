@@ -1177,7 +1177,6 @@
 		set_ltiming = /bits/ 8 <1>;
 		ext_time_config = /bits/ 16 <0x1801>;
 		cnt_constraint = /bits/ 8 <1>;
-		dma_ver = /bits/ 8 <1>;
 	};
 
 	i2c0: i2c0@11007000 {
