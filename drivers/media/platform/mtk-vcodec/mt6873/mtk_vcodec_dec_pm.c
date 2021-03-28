@@ -805,8 +805,7 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 	if (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_MPEG1 ||
 	ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_MPEG2 ||
 	ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_MPEG4 ||
-	ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_H263 ||
-	ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_XVID)
+	ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_H263)
 		vdec_req_freq[hw_id] = 312;
 
 	if (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_VP8)
@@ -903,7 +902,6 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 	case V4L2_PIX_FMT_MPEG4:
 	case V4L2_PIX_FMT_H263:
 	case V4L2_PIX_FMT_S263:
-	case V4L2_PIX_FMT_XVID:
 	case V4L2_PIX_FMT_MPEG1:
 	case V4L2_PIX_FMT_MPEG2:
 		emi_bw = emi_bw * mp24_frm_scale[f_type] / (2 * STD_VDEC_FREQ);
@@ -983,7 +981,6 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 		case V4L2_PIX_FMT_MPEG4:
 		case V4L2_PIX_FMT_H263:
 		case V4L2_PIX_FMT_S263:
-		case V4L2_PIX_FMT_XVID:
 		case V4L2_PIX_FMT_MPEG1:
 		case V4L2_PIX_FMT_MPEG2:
 			emi_bw_input = 13 * vdec_freq / STD_VDEC_FREQ;
