@@ -803,6 +803,32 @@
 		reg = <0 0x1021b000 0 0x1000>;
 	};
 
+	dvfsp@10227000 {
+		compatible = "mediatek,dvfsp";
+		reg = <0 0x10227000 0 0x1000>;
+	};
+
+	dvfsp: dvfsp@0011bc00 {
+		compatible = "mediatek,mt6781-dvfsp";
+		reg = <0 0x0011bc00 0 0x1400>,
+		      <0 0x0011bc00 0 0x1400>;
+		state = <1>;
+		imax_state = <2>;
+		change_flag = <0>;
+		little-rise-time = <1000>;
+		little-down-time = <750>;
+		big-rise-time = <1000>;
+		big-down-time = <750>;
+	};
+
+	mt_cpufreq: mt_cpufreq {
+		compatible = "mediatek,mt-cpufreq";
+		proc1-supply = <&mt_pmic_vproc11_buck_reg>;
+		proc2-supply = <&mt_pmic_vproc12_buck_reg>;
+		sram_proc1-supply = <&mt_pmic_vsram_proc11_ldo_reg>;
+		sram_proc2-supply = <&mt_pmic_vsram_proc12_ldo_reg>;
+	};
+
 	gce_mbox: gce_mbox@1022c000 {
 		compatible = "mediatek,mt6781-gce";
 		reg = <0 0x1022c000 0 0x4000>;
