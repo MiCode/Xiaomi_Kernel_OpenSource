@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--dct_version="2.5" buid_sn="161102" dws_modification_time="03.04.2021.23:19:31"-->
+<!--dct_version="2.5" buid_sn="161102" dws_modification_time="03.10.2021.14:30:08"-->
 <dct_cfg>
     <general chip="MT6781">
         <proj>MT6781</proj>
@@ -49,13 +49,6 @@
                 <sensitive_level>Level</sensitive_level>
                 <debounce_en>Disable</debounce_en>
             </eint0>
-            <eint2>
-                <varName>GYRO</varName>
-                <debounce_time>0</debounce_time>
-                <polarity>Low</polarity>
-                <sensitive_level>Level</sensitive_level>
-                <debounce_en>Disable</debounce_en>
-            </eint2>
             <eint4>
                 <varName>SUBPMIC_PMU_EINT</varName>
                 <debounce_time>0</debounce_time>
@@ -316,8 +309,8 @@
                 <def_mode>0</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
-                <def_dir>IN</def_dir>
-                <out_high>false</out_high>
+                <def_dir>OUT</def_dir>
+                <out_high>true</out_high>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio21>
@@ -963,10 +956,10 @@
                 <ies>true</ies>
             </gpio82>
             <gpio83>
-                <eint_mode>false</eint_mode>
+                <eint_mode>true</eint_mode>
                 <def_mode>0</def_mode>
                 <inpull_en>true</inpull_en>
-                <inpull_selhigh>false</inpull_selhigh>
+                <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
                 <smt>true</smt>
@@ -1922,7 +1915,7 @@
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
                 <varName0>GPIO_PWRAP_SPI0_CSN_PIN</varName0>
-                <smt>false</smt>
+                <smt>true</smt>
                 <ies>true</ies>
             </gpio174>
             <gpio175>
@@ -1933,18 +1926,18 @@
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
                 <varName0>GPIO_PWRAP_SPI0_CK_PIN</varName0>
-                <smt>false</smt>
+                <smt>true</smt>
                 <ies>true</ies>
             </gpio175>
             <gpio176>
                 <eint_mode>false</eint_mode>
                 <def_mode>1</def_mode>
-                <inpull_en>false</inpull_en>
+                <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
                 <varName0>GPIO_PWRAP_SPI0_MO_PIN</varName0>
-                <smt>false</smt>
+                <smt>true</smt>
                 <ies>true</ies>
             </gpio176>
             <gpio177>
@@ -1955,7 +1948,7 @@
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
                 <varName0>GPIO_PWRAP_SPI0_MI_PIN</varName0>
-                <smt>false</smt>
+                <smt>true</smt>
                 <ies>true</ies>
             </gpio177>
             <gpio178>
