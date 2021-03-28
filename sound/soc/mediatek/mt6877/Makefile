@@ -12,7 +12,8 @@ snd-soc-mt6877-afe-objs := \
 	mt6877-dai-src.o \
 	mt6877-dai-pcm.o \
 	mt6877-dai-hostless.o \
-	mt6877-misc-control.o
+	mt6877-misc-control.o \
+	mt6877-reg-autogen.o
 
 obj-$(CONFIG_SND_SOC_MT6877) += snd-soc-mt6877-afe.o
 
