@@ -2660,6 +2660,7 @@
 	mdp_rdma0@1b003000 {
 		compatible = "mediatek,mdp_rdma0";
 		reg = <0 0x1b003000 0 0x1000>;
+		dre30_hist_sram_start = <1536>;
 	};
 
 	reserved@1b004000 {
