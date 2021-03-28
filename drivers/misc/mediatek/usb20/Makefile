@@ -21,6 +21,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 obj-$(CONFIG_MACH_MT6739) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6765) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6768) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+obj-$(CONFIG_MACH_MT6781) += mt6781/
 obj-$(CONFIG_MACH_MT6833) += mt6833/
 obj-$(CONFIG_MACH_MT8167) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 
@@ -38,4 +39,5 @@ endif
 
 obj-$(CONFIG_DUAL_ROLE_USB_INTF) += mtk_dual_role.o
 
+subdir-ccflags-$(CONFIG_MACH_MT6781) += -DUSB2_PHY_V2
 subdir-ccflags-$(CONFIG_MACH_MT6833) += -DUSB2_PHY_V2
