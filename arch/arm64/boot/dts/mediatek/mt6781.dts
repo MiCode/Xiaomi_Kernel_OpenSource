@@ -289,6 +289,7 @@
 	dvfsrc@10012000 {
 		compatible = "mediatek,dvfsrc";
 		reg = <0 0x10012000 0 0x1000>;
+		status = "disabled";
 	};
 
 	mbist_ao@10013000 {
