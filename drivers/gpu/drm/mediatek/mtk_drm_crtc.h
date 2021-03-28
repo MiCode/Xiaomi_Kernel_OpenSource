@@ -152,7 +152,7 @@ enum DISP_PMQOS_SLOT {
 #define _MTK_CRTC_COLOR_FMT_RGB_WIDTH 1
 
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833)
 #define GCE_BASE_ADDR 0x10228000
 #define GCE_GCTL_VALUE 0x48
 #define GCE_DEBUG_START_ADDR 0x1104
@@ -442,7 +442,7 @@ enum CRTC_GCE_EVENT_TYPE {
 	EVENT_STREAM_EOF,
 	EVENT_STREAM_DIRTY,
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833)
 	EVENT_SYNC_TOKEN_SODI,
 #endif
 	EVENT_TE,
@@ -559,7 +559,7 @@ struct mtk_drm_crtc {
 	struct mtk_crtc_gce_obj gce_obj;
 	struct cmdq_pkt *trig_loop_cmdq_handle;
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833)
 	struct cmdq_pkt *sodi_loop_cmdq_handle;
 #endif
 	struct mtk_drm_plane *planes;
@@ -756,7 +756,7 @@ void mtk_crtc_stop_trig_loop(struct drm_crtc *crtc);
 void mtk_crtc_start_trig_loop(struct drm_crtc *crtc);
 
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833)
 bool mtk_crtc_with_sodi_loop(struct drm_crtc *crtc);
 void mtk_crtc_stop_sodi_loop(struct drm_crtc *crtc);
 void mtk_crtc_start_sodi_loop(struct drm_crtc *crtc);

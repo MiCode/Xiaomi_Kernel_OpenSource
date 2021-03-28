@@ -420,7 +420,7 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 #endif
 
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833)
 		if (!mtk_crtc_is_frame_trigger_mode(crtc))
 			mtk_crtc_stop_sodi_loop(crtc);
 #endif
@@ -461,7 +461,7 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 			mtk_disp_mutex_src_set(mtk_crtc, true);
 		}
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833)
 		if (!mtk_crtc_is_frame_trigger_mode(crtc))
 			mtk_crtc_start_sodi_loop(crtc);
 #endif
