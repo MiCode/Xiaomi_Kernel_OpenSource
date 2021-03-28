@@ -1517,7 +1517,7 @@
 		reg = <0 0x11270000 0 0x2300>;
 		interrupts = <GIC_SPI 289 IRQ_TYPE_LEVEL_HIGH>;
 
-		#if 0
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		clocks =
 			<&infracfg_ao INFRACFG_AO_UFS_CG>,
 			<&infracfg_ao INFRACFG_AO_UNIPRO_SCK_CG>,
@@ -1533,7 +1533,7 @@
 			<0 0>,
 			<0 0>,
 			<0 0>;
-		#endif
+#endif
 
 		/* Regulators */
 		/* In MT67xx, only VCC is available to be controlled by UFS */
@@ -1542,11 +1542,10 @@
 		/* necessary */
 		/* VCCQ: Not supported by current UFS devices */
 
-		#if 0
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		vcc-supply = <&mt_pmic_vemc_ldo_reg>;
 		vcc-fixed-regulator;
-		#endif
-
+#endif
 		/* Number of lanes available per direction - either 1 or 2 */
 		lanes-per-direction = <1>;
 
