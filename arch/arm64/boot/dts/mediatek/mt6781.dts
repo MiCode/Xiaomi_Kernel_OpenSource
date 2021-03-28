@@ -3377,6 +3377,12 @@
 	fdvt@1c001000 {
 		compatible = "mediatek,fdvt";
 		reg = <0 0x1c001000 0 0x1000>;
+		interrupts = <GIC_SPI 338 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&ipesys CLK_IPE_FD>;
+		clock-names = "FD_CLK_IPE_FD";
+		mboxes = <&gce_mbox 14 0 CMDQ_THR_PRIO_1>,
+			 <&gce_mbox_sec 11 0 CMDQ_THR_PRIO_1>;
+		fdvt_frame_done = <CMDQ_EVENT_FDVT_DONE>;
 	};
 
 	fe@1c002000 {
@@ -3387,6 +3393,13 @@
 	rsc@1c003000 {
 		compatible = "mediatek,rsc";
 		reg = <0 0x1c003000 0 0x1000>;
+		mediatek,larb = <&smi_larb20>;
+		interrupts = <GIC_SPI 339 IRQ_TYPE_LEVEL_HIGH>;
+		mboxes = <&gce_mbox 13 0 CMDQ_THR_PRIO_1>;
+		gce-event-names = "rsc_eof";
+		gce-events = <&gce_mbox CMDQ_EVENT_RSC_DONE>;
+		clocks = <&ipesys CLK_IPE_RSC>;
+		clock-names = "RSC_CLK_IPE_RSC";
 	};
 
 	ipe_smi_subcom@1c00e000 {
