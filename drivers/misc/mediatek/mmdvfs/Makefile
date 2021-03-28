@@ -96,9 +96,14 @@ endif
 MMDVFS_PLATFORM_DIR=$(srctree)/drivers/misc/mediatek/mmdvfs/$(MTK_PLATFORM)
 platformdir_exists=$(shell if [ -d $(MMDVFS_PLATFORM_DIR) ]; then echo "y"; else echo "n"; fi;)
 
-ifeq (true, $(BUILD_MMDVFS))
-obj-y += mmdvfs_pmqos.o
+ifeq ($(CONFIG_MACH_MT6781),y)
+BUILD_MMDVFS := false
 endif
+
+ifeq (true, $(BUILD_MMDVFS))
+ccflags-y += -DBUILD_MMDVFS
+endif
+obj-y += mmdvfs_pmqos.o
 ifeq (true, $(FORCE_STEP0))
 ccflags-y += -DMMDVFS_FORCE_STEP0
 endif

@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#if IS_ENABLED(BUILD_MMDVFS)
 #include <linux/module.h>
 #include <linux/clk.h>
 #include <linux/kthread.h>
@@ -2781,3 +2782,105 @@ module_exit(mmdvfs_pmqos_exit);
 MODULE_DESCRIPTION("MTK MMDVFS driver");
 MODULE_AUTHOR("Damon Chu<damon.chu@mediatek.com>");
 MODULE_LICENSE("GPL");
+#else
+#include <linux/string.h>
+#include <linux/math64.h>
+#include "mmdvfs_pmqos.h"
+struct mm_qos_request *req;
+s32 mm_qos_add_request(struct plist_head *owner_list,
+	struct mm_qos_request *req, u32 smi_master_id)
+{
+	return 0;
+}
+
+s32 mm_qos_set_request(struct mm_qos_request *req, u32 bw_value,
+	u32 hrt_value, u32 comp_type)
+{
+	return 0;
+}
+
+s32 mm_qos_set_bw_request(struct mm_qos_request *req,
+	u32 bw_value, s32 comp_type)
+{
+	return 0;
+}
+
+s32 mm_qos_set_hrt_request(struct mm_qos_request *req,
+	u32 hrt_value)
+{
+	return 0;
+}
+
+void mm_qos_update_all_request(struct plist_head *owner_list)
+{
+}
+
+void mm_qos_remove_all_request(struct plist_head *owner_list)
+{
+}
+
+void mm_qos_update_all_request_zero(struct plist_head *owner_list)
+{
+}
+
+s32 mm_hrt_get_available_hrt_bw(u32 master_id)
+{
+	return -1;
+}
+
+s32 mm_hrt_add_bw_throttle_notifier(struct notifier_block *nb)
+{
+	return 0;
+}
+
+s32 mm_hrt_remove_bw_throttle_notifier(struct notifier_block *nb)
+{
+	return 0;
+}
+
+void mmdvfs_set_max_camera_hrt_bw(u32 bw)
+{
+}
+
+int mmdvfs_qos_get_freq_steps(u32 pm_qos_class,
+	u64 *out_freq_steps, u32 *out_step_size)
+{
+	return 0;
+}
+
+int mmdvfs_qos_force_step(int step)
+{
+	return 0;
+}
+
+void mmdvfs_qos_enable(bool enable)
+{
+}
+
+void mmdvfs_autok_qos_enable(bool enable)
+{
+}
+
+u64 mmdvfs_qos_get_freq(u32 pm_qos_class)
+{
+	return 0;
+}
+
+void mmdvfs_qos_limit_config(u32 pm_qos_class, u32 limit_value,
+	enum mmdvfs_limit_source source)
+{
+}
+
+void mmdvfs_print_larbs_info(void)
+{
+}
+
+void mmdvfs_prepare_action(enum mmdvfs_prepare_event event)
+{
+}
+
+s32 get_virtual_port(enum virtual_source_id id)
+{
+	return 0;
+}
+#endif
