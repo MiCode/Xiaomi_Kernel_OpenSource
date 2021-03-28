@@ -89,6 +89,13 @@
 			alignment = <0 0x1000>;
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
+		consys-reserve-memory {
+			compatible = "mediatek,consys-reserve-memory";
+			no-map;
+			size = <0 0x780000>;
+			alignment = <0 0x100000>;
+			alloc-ranges = <0 0x50000000 0 0x40000000>;
+		};
 
 		reserve-memory-scp_share {
 			compatible = "mediatek,reserve-memory-scp_share";
@@ -328,6 +335,22 @@
 		mediatek,cali-oe-bit = <0>;
 		/* 4. Auxadc cali efuse index */
 		mediatek,cali-efuse-index = <113>;
+	};
+
+	btif@1100c000 {
+		compatible = "mediatek,btif";
+		reg = <0 0x1100c000 0 0x100>, /*btif base*/
+			<0 0x10221200 0 0x80>,/*btif tx dma base*/
+			<0 0x10221280 0 0x80>;/*btif rx dma base*/
+			/*btif irq, IRQS_Sync ID, btif_irq_b*/
+		interrupts = <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH>,
+			/*btif tx dma irq*/
+			<GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>,
+			/*btif rx dma irq*/
+			<GIC_SPI 191 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&infracfg_ao_clk CLK_IFRAO_BTIF>,
+			<&infracfg_ao_clk CLK_IFRAO_APDMA>;
+		clock-names = "btifc","apdmac";
 	};
 
 	audio_clk: syscon@11210000 {
@@ -2828,6 +2851,29 @@
 		reg = <0 0x17011000 0 0x1000>;
 		mediatek,larb-id = <8>;
 		mediatek,smi-id = <8>;
+	};
+
+	consys: consys@18000000 {
+		compatible = "mediatek,mt6877-consys";
+		reg = <0 0x18000000 0 0x470>,   /* 0. conn_infra_rgu */
+			<0 0x18001000 0 0x658>, /* 1. conn_infra_cfg */
+			<0 0x18009000 0 0xa08>, /* 2. conn_infra_clkgen_on_top */
+			<0 0x1800e000 0 0x2d8>, /* 3. conn_infra_bus_cr */
+			<0 0x18060000 0 0x438>, /* 4. conn_host_csr_top */
+			<0 0x10001000 0 0xfb8>, /* 5. infracfg_ao */
+			<0 0x10005000 0 0x718>, /* 6. GPIO */
+			<0 0x10006000 0 0xfb0>, /* 7. spm */
+			<0 0x10007000 0 0x51c>, /* 8. top_rgu */
+			<0 0x18005000 0 0x204>, /* 9. conn_wt_slp_ctl_reg */
+			<0 0x18052800 0 0x1000>,/* 10. conn_infra_sysram_sw_cr */
+			<0 0x18003000 0 0x128>, /* 11. conn_afe_ctl */
+			<0 0x18070000 0 0x8004>,/* 12. conn_semaphore */
+			<0 0x18004000 0 0x22c>, /* 13. conn_rf_spi_mst_reg */
+			<0 0x11ea0000 0 0xa14>, /* 14. IOCFG_RT */
+			<0 0x18002000 0 0x2c>,  /* 15. conn_therm_ctl */
+			<0 0x1802e000 0 0x4c>;  /* 16. conn_bcrm_on */
+		clocks = <&scpsys SCP_SYS_CONN>;
+		clock-names = "conn";
 	};
 
 	apu_conn2_clk: syscon@19020000 {
