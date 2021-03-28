@@ -1683,7 +1683,7 @@
 			<&infracfg_ao INFRACFG_AO_UFS_CG>,
 			<&infracfg_ao INFRACFG_AO_UNIPRO_SCK_CG>,
 			<&infracfg_ao INFRACFG_AO_UFS_MP_SAP_BCLK_CG>,
-			<&infracfg_ao INFRACFG_AO_AES_UFSFDE_CG>;
+			<&infracfg_ao INFRACFG_AO_AES_UFS_CG>;
 		clock-names =
 			"ufs0-clock",
 			"ufs0-unipro-clk",
