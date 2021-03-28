@@ -3148,6 +3148,16 @@ static const struct mtk_disp_color_data mt6853_color_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_disp_color_data mt6877_color_driver_data = {
+	.color_offset = DISP_COLOR_START_MT6873,
+	.support_color21 = true,
+	.support_color30 = false,
+	.reg_table = {0x14009000, 0x1400B000, 0x1400C000,
+			0x1400D000, 0x1400F000, 0x1400A000},
+	.color_window = 0x40185E57,
+	.support_shadow = false,
+};
+
 static const struct mtk_disp_color_data mt6833_color_driver_data = {
 	.color_offset = DISP_COLOR_START_MT6873,
 	.support_color21 = true,
@@ -3172,7 +3182,7 @@ static const struct of_device_id mtk_disp_color_driver_dt_match[] = {
 	{.compatible = "mediatek,mt6853-disp-color",
 	 .data = &mt6853_color_driver_data},
 	{.compatible = "mediatek,mt6877-disp-color",
-	 .data = &mt6853_color_driver_data},
+	 .data = &mt6877_color_driver_data},
 	{.compatible = "mediatek,mt6833-disp-color",
 	 .data = &mt6833_color_driver_data},
 	{},
