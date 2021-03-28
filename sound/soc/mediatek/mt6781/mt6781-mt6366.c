@@ -404,7 +404,7 @@ static struct snd_soc_dai_link mt6781_mt6366_dai_links[] = {
 	{
 		.name = "Playback_5",
 		.stream_name = "Playback_5",
-		.cpu_dai_name = "DL3",
+		.cpu_dai_name = "DL5",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.trigger = {SND_SOC_DPCM_TRIGGER_PRE,
@@ -980,11 +980,13 @@ static struct snd_soc_card mt6781_mt6366_soc_card = {
 static int mt6781_mt6366_dev_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &mt6781_mt6366_soc_card;
-	struct device_node *platform_node, *codec_node, *spk_node = NULL;
-	struct snd_soc_dai_link *spk_out_dai_link, *spk_iv_dai_link = NULL;
-	int ret = 0;
-	int i = 0;
-	int spk_out_dai_link_idx, spk_iv_dai_link_idx = 0;
+	struct device_node *platform_node, *codec_node, *spk_node, *dsp_node;
+	struct snd_soc_dai_link *spk_out_dai_link, *spk_iv_dai_link;
+	int ret, i;
+	int spk_out_dai_link_idx, spk_iv_dai_link_idx;
+	const char *name;
+
+	dev_info(&pdev->dev, "%s(), ++\n", __func__);
 
 	ret = mtk_spk_update_info(card, pdev,
 				  &spk_out_dai_link_idx, &spk_iv_dai_link_idx,
@@ -994,6 +996,8 @@ static int mt6781_mt6366_dev_probe(struct platform_device *pdev)
 			__func__);
 		return -EINVAL;
 	}
+
+	dev_info(&pdev->dev, "%s(), update spk dai\n", __func__);
 
 	spk_out_dai_link = &mt6781_mt6366_dai_links[spk_out_dai_link_idx];
 	spk_iv_dai_link = &mt6781_mt6366_dai_links[spk_iv_dai_link_idx];
@@ -1022,17 +1026,34 @@ static int mt6781_mt6366_dev_probe(struct platform_device *pdev)
 		}
 	}
 
+	dev_info(&pdev->dev, "%s(), update platform dai\n", __func__);
+
 	platform_node = of_parse_phandle(pdev->dev.of_node,
 					 "mediatek,platform", 0);
 	if (!platform_node) {
 		dev_err(&pdev->dev, "Property 'platform' missing or invalid\n");
 		return -EINVAL;
 	}
+
+	dsp_node = of_parse_phandle(pdev->dev.of_node,
+				    "mediatek,snd_audio_dsp", 0);
+	if (!dsp_node)
+		dev_info(&pdev->dev, "Property 'snd_audio_dsp' missing or invalid\n");
+
 	for (i = 0; i < card->num_links; i++) {
 		if (mt6781_mt6366_dai_links[i].platform_name)
 			continue;
+		/* no platform assign and with dsp playback node. */
+		name = mt6781_mt6366_dai_links[i].name;
+		if (!strncmp(name, "DSP", strlen("DSP")) &&
+		    mt6781_mt6366_dai_links[i].platform_name == NULL) {
+			mt6781_mt6366_dai_links[i].platform_of_node = dsp_node;
+			continue;
+		}
 		mt6781_mt6366_dai_links[i].platform_of_node = platform_node;
 	}
+
+	dev_info(&pdev->dev, "%s(), update audio-codec dai\n", __func__);
 
 	codec_node = of_parse_phandle(pdev->dev.of_node,
 				      "mediatek,audio-codec", 0);
@@ -1050,6 +1071,8 @@ static int mt6781_mt6366_dev_probe(struct platform_device *pdev)
 	}
 
 	card->dev = &pdev->dev;
+
+	dev_info(&pdev->dev, "%s(), devm_snd_soc_register_card\n", __func__);
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret)
