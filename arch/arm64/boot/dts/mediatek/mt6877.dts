@@ -3174,6 +3174,25 @@
 		reg = <0 0x1a08f000 0 0x1000>;
 	};
 
+	flashlight_core: flashlight_core {
+		compatible = "mediatek,flashlight_core";
+	};
+
+	flashlights_mt6360: flashlights_mt6360 {
+		compatible = "mediatek,flashlights_mt6360";
+		decouple = <1>;
+		channel@1 {
+			type = <0>;
+			ct = <0>;
+			part = <0>;
+		};
+		channel@2 {
+			type = <0>;
+			ct = <1>;
+			part = <0>;
+		};
+	};
+
 	cam1_inner@1a038000 {
 		compatible = "mediatek,cam1_inner";
 		reg = <0 0x1a038000 0 0x8000>;
