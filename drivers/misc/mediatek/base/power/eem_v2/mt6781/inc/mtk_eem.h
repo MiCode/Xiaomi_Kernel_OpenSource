@@ -105,6 +105,13 @@ enum {
 	EEM_VOLT_RESTORE = BIT(1),
 };
 
+enum {
+	EEM_NORMAL_T	= 0,
+	EEM_LOW_T,
+	EEM_EXTRALOW_T,
+	EEM_HIGH_T
+};
+
 #if ENABLE_LOO
 enum eem_loo_role {
 	NO_LOO_BANK	=	0,

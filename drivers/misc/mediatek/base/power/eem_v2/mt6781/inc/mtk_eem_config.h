@@ -21,13 +21,15 @@
 #define EARLY_PORTING		(0) /* for detecting real vboot in eem_init01 */
 #define DUMP_DATA_TO_DE		(1)
 #define EEM_ENABLE		(1) /* enable; after pass HPT mini-SQC */
-#define EEM_FAKE_EFUSE		(0)
+#define EEM_FAKE_EFUSE		(1)
 /* FIX ME */
 #define UPDATE_TO_UPOWER	(1)
 #define EEM_LOCKTIME_LIMIT	(3000)
 #define ENABLE_LOO			(1)
 #define ENABLE_LOO_B			(1)
 #define ENABLE_LOO_G			(1)
+#define SUPPORT_GPU_VB	(1)	/* gpu voltage bin */
+
 #ifdef CORN_LOAD
 #define ENABLE_VPU              (1)
 #define ENABLE_MDLA             (1)
@@ -35,17 +37,17 @@
 #define ENABLE_VPU              (0)
 #define ENABLE_MDLA             (0)
 #endif
-#define ENABLE_INIT1_STRESS	(1)
+#define ENABLE_INIT1_STRESS	(0)
 
 #define EEM_OFFSET
-#define SET_PMIC_VOLT		(1)
-#define SET_PMIC_VOLT_TO_DVFS (1)
+/* CCJ set to 0 for bring up */
+#define SET_PMIC_VOLT		(0)
+#define SET_PMIC_VOLT_TO_DVFS (0)
 #define LOG_INTERVAL	(2LL * NSEC_PER_SEC)
 #define DVT					(0)
 #define SUPPORT_DCONFIG		(1)
 #define ENABLE_HT_FT		(1)
 //#define EARLY_PORTING_VPU
-#define ENABLE_MINIHQA		(0)
 #define ENABLE_REMOVE_AGING		(0)
 
 #if DVT
@@ -80,6 +82,8 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_IDX_14 64
 #define DEVINFO_IDX_15 65
 #define DEVINFO_IDX_16 66
+#define DEVINFO_IDX_19 69
+
 
 #define DEVINFO_TIME_IDX 132
 
@@ -185,20 +189,9 @@ enum mt_cpu_dvfs_id {
  * eem sw setting
  ******************************************
  */
-#define NR_HW_RES_FOR_BANK	(14) /* real eem banks for efuse */
-#define EEM_INIT01_FLAG (0x0f) /* 0x0f=> [3]:GPU, [2]:CCI, [1]:B, [0]:L */
+#define NR_HW_RES_FOR_BANK	(17) /* real eem banks for efuse */
 #define EEM_CORNER_FLAG (0x30) /* 0x30=> [5]:VPU, [4]:MDLA */
-#if 0
-#if ENABLE_LOO
-#if DVT
-#define EEM_GPU_INIT02_FLAG (0x48) /* should be 0x048=>[6]:GPU_HI,[3]:GPU_LO */
-#else
-#define EEM_GPU_INIT02_FLAG (0x18) /* should be 0x018=>[4]:GPU_HI,[3]:GPU_LO */
-#endif
-#else
-#define EEM_GPU_INIT02_FLAG (0x8) /* should be 0x08=>[3]:GPU */
-#endif
-#endif
+
 
 #define NR_FREQ 16
 #define NR_FREQ_GPU 16
@@ -208,12 +201,12 @@ enum mt_cpu_dvfs_id {
 #define L_FREQ_BASE			2000000
 #define B_FREQ_BASE			2050000
 #define	CCI_FREQ_BASE		1400000
-#define GPU_FREQ_BASE		806000
+#define GPU_FREQ_BASE		790000
 #define B_M_FREQ_BASE		1670000
-#define GPU_M_FREQ_BASE		620000
+#define GPU_M_FREQ_BASE		560000
 
-#define BANK_L_TURN_FREQ	1800000
-#define BANK_B_TURN_FREQ	1800000
+#define BANK_L_TURN_FREQ	2000000
+#define BANK_B_TURN_FREQ	1670000
 #define BANK_L_TURN_PT		0
 #define BANK_GPU_TURN_PT	6
 #if ENABLE_LOO_B
@@ -254,8 +247,8 @@ enum mt_cpu_dvfs_id {
 #define VBOOT_PMIC_CLR	(0)
 #define VBOOT_VAL		(0x40) /* volt domain: 0.8v */
 #define VMAX_VAL		(0x73) /* volt domain: 1.11875v*/
-#define VMIN_VAL		(0x20) /* volt domain: 0.6v*/
-#define VCO_VAL			(0x20)
+#define VMIN_VAL		(0x18) /* volt domain: 0.6v*/
+#define VCO_VAL			(0x10)
 #define DVTFIXED_VAL	(0x6)
 #define DVTFIXED_VAL_V2	(10)
 
@@ -263,10 +256,10 @@ enum mt_cpu_dvfs_id {
 
 
 #define VMAX_VAL_B		(0x73) /* volt domain: 1.11875v*/
-#define VMIN_VAL_B		(0x20) /* volt domain: 0.6v*/
-#define VCO_VAL_B		(0x20) /* volt domain: 0.6v*/
+#define VMIN_VAL_B		(0x18) /* volt domain: 0.6v*/
+#define VCO_VAL_B		(0x10) /* volt domain: 0.5v*/
 #define DVTFIXED_VAL_B	(0x6)
-#define DVTFIXED_VAL_B_V2	(10)
+
 
 #define DTHI_VAL		(0x01) /* positive */
 #define DTLO_VAL		(0xfe) /* negative (2's compliment) */
@@ -278,58 +271,41 @@ enum mt_cpu_dvfs_id {
 
 /* different for CCI */
 #define VMAX_VAL_CCI		(0x73) /* volt domain: 1.11875v*/
-#define VMIN_VAL_CCI		(0x20)
-#define VCO_VAL_CCI			(0x20)
+#define VMIN_VAL_CCI		(0x18)
+#define VCO_VAL_CCI			(0x10)
 #define DVTFIXED_VAL_CCI	(0x6)
-#define DVTFIXED_VAL_CCI_V2	(10)
+
 
 
 /* different for GPU */
 #define VMAX_VAL_GPU                    (0x73) /* eem domain: 1.11875v*/
-#define VMIN_VAL_GPU                    (0x22) /* eem domain: 0.6125v*/
-#define VCO_VAL_GPU                     (0x1C) /* eem domain: 0.575v*/
+#define VMIN_VAL_GPU                    (0x18) /* eem domain: 0.55v*/
+#define VCO_VAL_GPU                     (0x10) /* eem domain: 0.5v*/
 
 /* different for GPU_L */
 #define VMAX_VAL_GL                     (0x73)
-#define VMIN_VAL_GL                     (0x22)
-#define VCO_VAL_GL                      (0x1C)
+#define VMIN_VAL_GL                     (0x18)
+#define VCO_VAL_GL                      (0x10)
 #define DVTFIXED_VAL_GL					(0x04)
 #define DVTFIXED_VAL_GPU				(0x04)
 
 /* different for GPU_H */
 #define VMAX_VAL_GH                     (0x73) /* volt domain: 1.11875v*/
-#define VMIN_VAL_GH                     (0x22)
-#define VCO_VAL_GH                      (0x1C)
-
-/* different for L_L */
-#define VMAX_VAL_LL                     (0x37)
-#define VMIN_VAL_LL                     (0x15)
-#define VCO_VAL_LL                      (0x15)
-
-/* different for B_L */
-#define VMAX_VAL_BL                     (0x73) /* volt domain: 1.11875v*/
-#define VMIN_VAL_BL                     (0x20)
-#define VCO_VAL_BL                      (0x20)
-#define DVTFIXED_VAL_BL					(0x6)
-
-/* different for L_H */
-#define VMAX_VAL_H			(0x50)
-#define VMIN_VAL_H			(0x30)
-#define VCO_VAL_H			(0x30)
-#define DVTFIXED_VAL_H			(0x03)
+#define VMIN_VAL_GH                     (0x18)
+#define VCO_VAL_GH                      (0x10)
 
 /* different for B_H */
 #define VMAX_VAL_BH			(0x73) /* volt domain: 1.11875v*/
-#define VMIN_VAL_BH			(0x20)
-#define VCO_VAL_BH			(0x20)
+#define VMIN_VAL_BH			(0x18)
+#define VCO_VAL_BH			(0x10)
 #define DVTFIXED_VAL_BH		(0x6)
 
-/* different for APU */
-#define VBOOT_VAL_VPU		(0x40) /* eem domain: 0x40, volt domain: 0.8v */
-#define VMAX_VAL_VPU		(0xFF) /* eem domain: 0x60, volt domain: 1.0v */
-#define VMIN_VAL_VPU		(0x00) /* eem domain: 0x60, volt domain: 1.0v */
-#define VCO_VAL_VPU             (0x10)
-#define DVTFIXED_VAL_VPU	(0x06)
+/* different for B_H */
+#define VMAX_VAL_BL			(0x73)/* volt domain: 1.11875v*/
+#define VMIN_VAL_BL			(0x18)
+#define VCO_VAL_BL			(0x10)
+#define DVTFIXED_VAL_BL		(0x3)
+
 
 
 /* use in base_ops_mon_mode */
@@ -340,11 +316,10 @@ enum mt_cpu_dvfs_id {
 #define CORESEL_INIT2_VAL		(0x0fff0000)
 
 
-#define INVERT_TEMP_VAL		(25000)
-#define INVERT_LOW_TEMP_VAL	(10000)
-#define OVER_INV_TEM_VAL	(27000)
-#define HIGH_TEM_VAL		(85000)
-#define LOWER_HIGH_TEM_VAL	(83000)
+#define LOW_TEMP_VAL		(25000)
+#define EXTRA_LOW_TEMP_VAL	(10000)
+#define HIGH_TEMP_VAL		(85000)
+
 
 #define LOW_TEMP_OFF_DEFAULT	(0)
 #define EXTRA_TEMP_OFF_L		(8)
@@ -364,9 +339,9 @@ enum mt_cpu_dvfs_id {
 
 
 /* for EEMCTL0's setting */
-#define EEM_CTL0_L			(0x06540007)
-#define EEM_CTL0_B			(0x00980003)
-#define EEM_CTL0_CCI		(0x06540007)
+#define EEM_CTL0_L			(0x3210000F)
+#define EEM_CTL0_B			(0x00540003)
+#define EEM_CTL0_CCI		(0x3210000F)
 #define EEM_CTL0_GPU		(0x00100003)
 #define EEM_CTL0_VPU		(0x00010001)
 

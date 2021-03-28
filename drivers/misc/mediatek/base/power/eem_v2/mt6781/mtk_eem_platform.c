@@ -73,6 +73,15 @@ struct eem_det_ops mdla_det_ops = {
 };
 #endif
 
+//CCJ
+#if SET_PMIC_VOLT_TO_DVFS == 0
+#define mt_cpufreq_get_cur_volt(...)	0
+#define mt_cpufreq_update_volt(...)	0
+#define mt_cpufreq_get_freq_by_idx(...)	0
+#define mt_cpufreq_get_cpu_level(...)	0
+#endif
+//CCJ
+
 #ifndef EARLY_PORTING_CPU
 static unsigned int detid_to_dvfsid(struct eem_det *det)
 {
@@ -108,6 +117,7 @@ int get_volt_cpu(struct eem_det *det)
 	FUNC_ENTER(FUNC_LV_HELP);
 	/* unit mv * 100 = 10uv */
 	cpudvfsindex = detid_to_dvfsid(det);
+
 	value = mt_cpufreq_get_cur_volt(cpudvfsindex);
 
 	FUNC_EXIT(FUNC_LV_HELP);

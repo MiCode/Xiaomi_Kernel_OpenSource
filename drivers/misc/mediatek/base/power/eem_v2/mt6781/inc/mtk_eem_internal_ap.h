@@ -139,14 +139,14 @@ struct eem_det {
 	unsigned int pi_loo_enabled: 1;
 	unsigned int pi_reserved: 15;
 
-	int volt_dcv:8;
 	int volt_offset:8;
 	int volt_clamp:8;
 
 	unsigned int disabled:8; /* Disabled by error or sysfs */
 	unsigned int low_temp_off:8;
+	unsigned int high_temp_off:8;
 	unsigned int isAddExtra:2;
-	unsigned int isTempInv:1;
+	unsigned int isTempInv:2;
 	unsigned int isHighTemp:1;
 	unsigned int volt_policy:1;
 	/* only when init2, eem need to set volt to upower */

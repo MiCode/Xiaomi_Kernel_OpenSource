@@ -215,7 +215,9 @@ void get_original_table(void)
 	unsigned short idx = 0; /* default use MT6771T_6785 */
 	int i, j;
 
+#if UPOWER_NOT_READY == 0
 	idx = mt_cpufreq_get_cpu_level();
+#endif
 
 	/* get location of reference table */
 	upower_tbl_infos = &upower_tbl_infos_list[idx][0];
