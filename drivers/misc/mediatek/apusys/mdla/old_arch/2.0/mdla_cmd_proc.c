@@ -546,8 +546,7 @@ int mdla_run_command_sync(
 
 	if (mdla_info->max_cmd_id >= id) {
 		wt->result = 0;
-	}
-	else { // Command timeout
+	} else { // Command timeout
 		mdla_timeout_debug("command: %d, max_cmd_id: %d\n",
 				id,
 				mdla_info->max_cmd_id);
