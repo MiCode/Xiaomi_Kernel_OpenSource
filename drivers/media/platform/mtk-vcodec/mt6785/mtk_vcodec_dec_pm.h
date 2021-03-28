@@ -40,6 +40,5 @@ void mtk_unprepare_vdec_emi_bw(void);
 void mtk_vdec_pmqos_prelock(struct mtk_vcodec_ctx *ctx, int hw_id);
 void mtk_vdec_pmqos_begin_frame(struct mtk_vcodec_ctx *ctx, int hw_id);
 void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx, int hw_id);
-int mtk_vdec_ion_config_buff(struct dma_buf *dmabuf);
 
 #endif /* _MTK_VCODEC_DEC_PM_H_ */

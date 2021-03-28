@@ -15,14 +15,7 @@
 #ifndef _MTK_VCODEC_PM_H_
 #define _MTK_VCODEC_PM_H_
 
-#include "ion_drv.h"
-#include "mach/mt_iommu.h"
-
-extern struct ion_device *g_ion_device;
-
-#define MTK_PLATFORM_STR        "platform:mt6873"
-#define MTK_VDEC_RACING_INFO_OFFSET  0x100
-#define MTK_VDEC_RACING_INFO_SIZE 68
+#define MTK_PLATFORM_STR        "platform:mt6785"
 
 /**
  * struct mtk_vcodec_pm - Power management data structure
@@ -48,14 +41,12 @@ struct mtk_vcodec_pm {
 	struct device_node      *chip_node;
 	struct mtk_vcodec_dev   *mtkdev;
 
-	struct clk *clk_MT_CG_SOC;           /* VDEC SOC*/
-	struct clk *clk_MT_CG_VDEC0;         /* VDEC core 0*/
-	struct clk *clk_MT_CG_VENC0;         /* VENC core 0*/
-	struct clk *clk_MT_CG_VDEC1;         /* VDEC core 1*/
+	struct clk *clk_MT_CG_VDEC;         /* VDEC */
+	struct clk *clk_MT_CG_VENC;         /* VENC */
+	struct clk *clk_MT_SCP_SYS_VDE;          /* SCP_SYS_VDE */
+	struct clk *clk_MT_SCP_SYS_VEN;          /* SCP_SYS_VEN */
+	struct clk *clk_MT_SCP_SYS_DIS;          /* SCP_SYS_DIS */
 
-	atomic_t dec_active_cnt;
-	__u32 vdec_racing_info[MTK_VDEC_RACING_INFO_SIZE];
-	struct mutex dec_racing_info_mutex;
 };
 
 enum mtk_dec_dump_addr_type {
@@ -63,25 +54,20 @@ enum mtk_dec_dump_addr_type {
 	DUMP_VDEC_OUT_BUF,
 	DUMP_VDEC_REF_BUF,
 	DUMP_VDEC_MV_BUF,
-	DUMP_VDEC_UBE_BUF,
 };
 
 enum mtk_dec_dtsi_reg_idx {
 	VDEC_SYS,
-	VDEC_BASE,
 	VDEC_VLD,
 	VDEC_MC,
 	VDEC_MV,
 	VDEC_MISC,
-	VDEC_LAT_MISC,
-	VDEC_LAT_VLD,
-	VDEC_RACING_CTRL,
 	NUM_MAX_VDEC_REG_BASE,
 };
 
 enum mtk_enc_dtsi_reg_idx {
+	VENC_LT_SYS,
 	VENC_SYS,
-	VENC_C1_SYS,
 	NUM_MAX_VENC_REG_BASE
 };
 

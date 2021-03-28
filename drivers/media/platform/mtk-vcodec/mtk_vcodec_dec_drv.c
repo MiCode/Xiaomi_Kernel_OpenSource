@@ -380,6 +380,9 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
+#ifdef DEC_TF_CALLBACK
+	mtk_vdec_translation_fault_callback_setting(dev);
+#endif
 #endif
 	mtk_v4l2_debug(0, "decoder registered as /dev/video%d",
 				   vfd_dec->num);

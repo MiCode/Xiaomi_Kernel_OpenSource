@@ -265,6 +265,181 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 	}
 }
 
+void mtk_vdec_dump_addr_reg(
+	struct mtk_vcodec_dev *dev, int hw_id, enum mtk_dec_dump_addr_type type)
+{
+	struct mtk_vcodec_ctx *ctx = dev->curr_dec_ctx[hw_id];
+	u32 fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+	void __iomem *vld_addr = dev->dec_reg_base[VDEC_VLD];
+	void __iomem *mc_addr = dev->dec_reg_base[VDEC_MC];
+	void __iomem *mv_addr = dev->dec_reg_base[VDEC_MV];
+	unsigned long value, values[6];
+	int i, j, start, end;
+
+	#define INPUT_VLD_NUM 7
+	const unsigned int input_vld_reg[INPUT_VLD_NUM] = {
+		0xB0, 0xB4, 0xB8, 0x110, 0xEC, 0xF8, 0xFC};
+	// RPTR, VSTART, VEND, WPTR, VBAR, VWPTR, VRPTR
+	#define OUTPUT_MC_NUM 2
+	const unsigned int output_mc_reg[OUTPUT_MC_NUM] = {
+		0x224, 0x228}; // PY_ADD, PC_ADD
+	#define REF_MC_NUM 7
+	const unsigned int ref_mc_base[REF_MC_NUM] = {
+		0x3DC, 0xB60, 0x45C, 0xBE0, 0x4DC, 0xC60, 0xD28};
+	// P_L0_Y, P_L0_C, B_L0_Y, B_L0_C, B_L1_Y, B_L1_C, REF
+
+	switch (type) {
+	case DUMP_VDEC_IN_BUF:
+		for (i = 0; i < INPUT_VLD_NUM; i++) {
+			value = readl(vld_addr + input_vld_reg[i]);
+			mtk_v4l2_err("[VLD] 0x%x(%d) = 0x%lx",
+			  input_vld_reg[i], input_vld_reg[i]/4, value);
+		}
+		break;
+	case DUMP_VDEC_OUT_BUF:
+		for (i = 0; i < OUTPUT_MC_NUM; i++) {
+			value = readl(mc_addr + output_mc_reg[i]);
+			mtk_v4l2_err("[MC] 0x%x(%d) = 0x%lx",
+				output_mc_reg[i], output_mc_reg[i]/4, value);
+		}
+		break;
+	case DUMP_VDEC_REF_BUF:
+		for (i = 0; i < 32; i++) {
+			for (j = 0; j < 6; j++) {
+				values[j] = readl(mc_addr +
+					(ref_mc_base[j] + i * 4));
+			}
+			mtk_v4l2_err("[MC] 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx",
+				ref_mc_base[0] + i * 4,
+				ref_mc_base[0]/4 + i, values[0],
+				ref_mc_base[1] + i * 4,
+				ref_mc_base[1]/4 + i, values[1],
+				ref_mc_base[2] + i * 4,
+				ref_mc_base[2]/4 + i, values[2],
+				ref_mc_base[3] + i * 4,
+				ref_mc_base[3]/4 + i, values[3],
+				ref_mc_base[4] + i * 4,
+				ref_mc_base[4]/4 + i, values[4],
+				ref_mc_base[5] + i * 4,
+				ref_mc_base[5]/4 + i, values[5]);
+		}
+		for (i = 0; i < 4; i++)
+			values[i] = readl(mc_addr + i * 4);
+		mtk_v4l2_err("[MC] 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx",
+			i * 4, i, values[0],
+			i * 4, i, values[1],
+			i * 4, i, values[2],
+			i * 4, i, values[3]);
+		for (i = 0; i < 6; i++) {
+			values[i] = readl(mc_addr +
+				(ref_mc_base[6] + i * 4));
+		}
+		mtk_v4l2_err("[MC] 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx",
+			ref_mc_base[6],
+			ref_mc_base[6]/4 + 0, values[0],
+			ref_mc_base[6] + 1 * 4,
+			ref_mc_base[6]/4 + 1, values[1],
+			ref_mc_base[6] + 2 * 4,
+			ref_mc_base[6]/4 + 2, values[2],
+			ref_mc_base[6] + 3 * 4,
+			ref_mc_base[6]/4 + 3, values[3],
+			ref_mc_base[6] + 4 * 4,
+			ref_mc_base[6]/4 + 4, values[4],
+			ref_mc_base[6] + 5 * 4,
+			ref_mc_base[6]/4 + 5, values[5]);
+		break;
+	case DUMP_VDEC_MV_BUF:
+		if (hw_id != MTK_VDEC_CORE) {
+			mtk_v4l2_err("not support dump MV at hw_id %d",
+				hw_id);
+			break;
+		}
+		value = readl(mv_addr + 0x20C);
+		mtk_v4l2_err("[MV] 0x%x(%d) = 0x%lx",
+			0x20C, 0x20C/4, value);
+		switch (fourcc) {
+		case V4L2_PIX_FMT_H265:
+			start = 0;
+			end = 32;
+			break;
+		case V4L2_PIX_FMT_H264:
+			start = 96;
+			end = 128;
+			break;
+		case V4L2_PIX_FMT_VP9:
+			start = 240;
+			end = 241;
+			break;
+		case V4L2_PIX_FMT_AV1:
+			start = 353;
+			end = 356;
+			break;
+		default:
+			start = 195;
+			end = 198;
+		}
+		for (i = start; i < end; i++) {
+			value = readl(mv_addr + i * 4);
+			mtk_v4l2_err("[MV] 0x%x(%d) = 0x%lx",
+				i * 4, i, value);
+		}
+		break;
+	default:
+		mtk_v4l2_err("unknown addr type");
+	}
+}
+
+#ifdef CONFIG_MTK_IOMMU_V2
+enum mtk_iommu_callback_ret_t mtk_vdec_translation_fault_callback(
+	int port, unsigned long mva, void *data)
+{
+	struct mtk_vcodec_dev *dev = (struct mtk_vcodec_dev *)data;
+	int hw_id = MTK_VDEC_CORE;
+	struct mtk_vcodec_ctx *ctx;
+	u32 fourcc;
+
+	ctx = dev->curr_dec_ctx[hw_id];
+	fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+	mtk_v4l2_err("codec:0x%08x(%c%c%c%c) TF larb %d port %x mva 0x%lx",
+		fourcc, fourcc & 0xFF, (fourcc >> 8) & 0xFF,
+		(fourcc >> 16) & 0xFF, (fourcc >> 24) & 0xFF,
+		port >> 5, port, mva);
+
+	switch (port) {
+	case M4U_PORT_L4_VDEC_VLD_EXT:
+	case M4U_PORT_L4_VDEC_VLD2_EXT:
+		mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_IN_BUF);
+		break;
+	case M4U_PORT_L4_VDEC_PP_EXT:
+	case M4U_PORT_L4_VDEC_UFO_ENC_EXT:
+		mtk_vdec_dump_addr_reg(dev, MTK_VDEC_CORE, DUMP_VDEC_OUT_BUF);
+		break;
+	case M4U_PORT_L4_VDEC_MC_EXT:
+		mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_REF_BUF);
+		break;
+	case M4U_PORT_L4_VDEC_AVC_MV_EXT:
+		mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_MV_BUF);
+		break;
+	default:
+		mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_IN_BUF);
+		mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_OUT_BUF);
+	}
+
+	return MTK_IOMMU_CALLBACK_HANDLED;
+}
+
+void mtk_vdec_translation_fault_callback_setting(
+	struct mtk_vcodec_dev *dev)
+{
+	int i;
+
+	for (i = M4U_PORT_L4_VDEC_MC_EXT; i <= M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT; i++) {
+		mtk_iommu_register_fault_callback(i,
+			mtk_vdec_translation_fault_callback, (void *)dev);
+	}
+}
+#endif
+
 void mtk_prepare_vdec_dvfs(void)
 {
 #if DEC_DVFS
