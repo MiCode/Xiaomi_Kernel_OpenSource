@@ -42,9 +42,9 @@
 #define RSC_REG_RANGE           (0x1000)
 
 #ifdef CONFIG_MACH_MT6781
-#define FDVT_BASE_HW   0x1C003000
+#define RSC_BASE_HW   0x1C003000
 #else
-#define FDVT_BASE_HW   0x1B003000
+#define RSC_BASE_HW   0x1B003000
 #endif
 
 /*This macro is for setting irq status represnted
