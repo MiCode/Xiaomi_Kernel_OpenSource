@@ -2513,13 +2513,6 @@ static const struct mtk_mipitx_data mt6781_mipitx_data = {
 	.pll_unprepare = mtk_mipi_tx_pll_unprepare_mt6781,
 };
 
-static const struct mtk_mipitx_data mt6781_mipitx_cphy_data = {
-	.mppll_preserve = (0 << 8),
-	.pll_prepare = mtk_mipi_tx_pll_cphy_prepare_mt6873,
-	.pll_unprepare = mtk_mipi_tx_pll_cphy_unprepare_mt6873,
-};
-
-
 static const struct mtk_mipitx_data mt8173_mipitx_data = {
 	.mppll_preserve = (0 << 8),
 	.pll_prepare = mtk_mipi_tx_pll_prepare,

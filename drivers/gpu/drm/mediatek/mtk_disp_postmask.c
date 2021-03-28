@@ -134,8 +134,6 @@ static irqreturn_t mtk_postmask_irq_handler(int irq, void *dev_id)
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
-//	return IRQ_HANDLED;
-
 	if (mtk_drm_top_clk_isr_get("postmask_irq") == false) {
 		DDPIRQ("%s, top clk off\n", __func__);
 		return IRQ_NONE;

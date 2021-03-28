@@ -2611,10 +2611,10 @@ int mtk_dsi_dump(struct mtk_ddp_comp *comp)
 	DDPDUMP("- DSI CMD REGS -\n");
 	for (k = 0; k < 32; k += 16) {
 		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
-			readl(dsi->regs + 0x200 + k),
-			readl(dsi->regs + 0x200 + k + 0x4),
-			readl(dsi->regs + 0x200 + k + 0x8),
-			readl(dsi->regs + 0x200 + k + 0xc));
+			readl(dsi->regs + DSI_CMDQ0 + k),
+			readl(dsi->regs + DSI_CMDQ0 + k + 0x4),
+			readl(dsi->regs + DSI_CMDQ0 + k + 0x8),
+			readl(dsi->regs + DSI_CMDQ0 + k + 0xc));
 	}
 
 	mtk_mipi_tx_dump(dsi->phy);
@@ -2836,10 +2836,10 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->mtk_crtc->config_regs_pa + 0xF0, 0x1, 0x1);
 
-		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x200,
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ0,
 			       0x002c3909, ~0);
-		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x60, 1,
-			       ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ_SIZE,
+					1, ~0);
 
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DSI_START, 0, ~0);
@@ -5268,7 +5268,7 @@ static const struct mtk_dsi_driver_data mt6833_dsi_driver_data = {
 };
 
 static const struct mtk_dsi_driver_data mt6781_dsi_driver_data = {
-	.reg_cmdq_ofs = 0x200,
+	.reg_cmdq_ofs = 0xD00,
 	.poll_for_idle = mtk_dsi_poll_for_idle,
 	.irq_handler = mtk_dsi_irq_status,
 	.esd_eint_compat = "mediatek, DSI_TE-eint",
@@ -5448,12 +5448,8 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, dsi);
 	DDPINFO("%s-\n", __func__);
 
-	ret = component_add(&pdev->dev, &mtk_dsi_component_ops);
-	DDPINFO("%s- normal return,return value:%d  linue: %d\n", __func__, ret,  __LINE__);
-	return ret;
-
+	return component_add(&pdev->dev, &mtk_dsi_component_ops);
 error:
-	DDPINFO("%s- after error line:%d\n", __func__, __LINE__);
 	mipi_dsi_host_unregister(&dsi->host);
 	return -EPROBE_DEFER;
 }

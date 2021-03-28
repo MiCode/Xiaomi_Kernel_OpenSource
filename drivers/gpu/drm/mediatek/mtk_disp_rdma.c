@@ -462,7 +462,11 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	/* fixed variable */
 	unsigned int mmsys_clk = 208;
 	unsigned int FP = 1000;
+#if defined(CONFIG_MACH_MT6781)
+	unsigned int fifo_size = 3062;
+#else
 	unsigned int fifo_size = 2240;
+#endif
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 	unsigned int pre_ultra_low_us = 245, pre_ultra_high_us = 255;
 	unsigned int ultra_low_us = 230, ultra_high_us = 245;

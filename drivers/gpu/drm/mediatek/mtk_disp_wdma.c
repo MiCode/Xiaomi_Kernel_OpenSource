@@ -367,10 +367,13 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 #endif
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
 	|| defined(CONFIG_MACH_MT6833) \
-	|| defined(CONFIG_MACH_MT6877) \
-	|| defined(CONFIG_MACH_MT6781)
+	|| defined(CONFIG_MACH_MT6877)
 	unsigned int fifo_size = 578;
 	unsigned int fifo_size_uv = 29;
+#endif
+#if defined(CONFIG_MACH_MT6781)
+	unsigned int fifo_size = 410;
+	unsigned int fifo_size_uv = 200;
 #endif
 	unsigned int fifo;
 	unsigned int factor1 = 4;
