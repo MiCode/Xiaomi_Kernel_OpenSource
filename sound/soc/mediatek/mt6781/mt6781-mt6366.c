@@ -816,6 +816,15 @@ static struct snd_soc_dai_link mt6781_mt6366_dai_links[] = {
 		.ignore_suspend = 1,
 	},
 	{
+		.name = "Hostless_DSP_DL",
+		.cpu_dai_name = "Hostless_DSP_DL DAI",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.ignore_suspend = 1,
+	},
+	{
 		.name = "Hostless_HW_Gain_AAudio",
 		.stream_name = "Hostless_HW_Gain_AAudio",
 		.cpu_dai_name = "Hostless HW Gain AAudio DAI",
@@ -852,7 +861,6 @@ static struct snd_soc_dai_link mt6781_mt6366_dai_links[] = {
 	},
 #endif
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-#if defined(CONFIG_MTK_AUDIO_TUNNELING_SUPPORT)
 	{
 		.name = "Offload_Playback",
 		.stream_name = "Offload_Playback",
@@ -861,7 +869,77 @@ static struct snd_soc_dai_link mt6781_mt6366_dai_links[] = {
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
-#endif
+	{
+		.name = "DSP_Playback_Voip",
+		.stream_name = "DSP_Playback_Voip",
+		.cpu_dai_name = "audio_task_voip_dai",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
+	{
+		.name = "DSP_Playback_Primary",
+		.stream_name = "DSP_Playback_Primary",
+		.cpu_dai_name = "audio_task_primary_dai",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
+	{
+		.name = "DSP_Playback_DeepBuf",
+		.stream_name = "DSP_Playback_DeepBuf",
+		.cpu_dai_name = "audio_task_deepbuf_dai",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
+	{
+		.name = "DSP_Playback_Playback",
+		.stream_name = "DSP_Playback_Playback",
+		.cpu_dai_name = "audio_task_Playback_dai",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
+	{
+		.name = "DSP_Capture_Ul1",
+		.stream_name = "DSP_Capture_Ul1",
+		.cpu_dai_name = "audio_task_capture_ul1_dai",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
+	{
+		.name = "DSP_Call_Final",
+		.stream_name = "DSP_Call_Final",
+		.cpu_dai_name = "audio_task_call_final_dai",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
+	{
+		.name = "DSP_Playback_Fast",
+		.stream_name = "DSP_Playback_Fast",
+		.cpu_dai_name = "audio_task_fast_dai",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
+	{
+		.name = "DSP_Playback_Ktv",
+		.stream_name = "DSP_Playback_Ktv",
+		.cpu_dai_name = "audio_task_ktv_dai",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
+	{
+		.name = "DSP_Capture_Raw",
+		.stream_name = "DSP_Capture_Raw",
+		.cpu_dai_name = "audio_task_capture_raw_dai",
+		.platform_name = "snd_audio_dsp",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
+	{
+		.name = "DSP_Playback_A2DP",
+		.stream_name = "DSP_Playback_A2DP",
+		.cpu_dai_name = "audio_task_a2dp_dai",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
 #endif
 #ifdef CONFIG_MTK_VOW_SUPPORT
 	{
