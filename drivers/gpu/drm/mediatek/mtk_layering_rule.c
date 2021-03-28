@@ -270,7 +270,7 @@ static void filter_by_wcg(struct drm_device *dev,
 static bool can_be_compress(uint32_t format)
 {
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
-	defined(CONFIG_MACH_MT6877)
+	defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6781)
 	if (mtk_is_yuv(format))
 		return 0;
 #else

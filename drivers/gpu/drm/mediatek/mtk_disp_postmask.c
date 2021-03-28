@@ -134,6 +134,8 @@ static irqreturn_t mtk_postmask_irq_handler(int irq, void *dev_id)
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
+//	return IRQ_HANDLED;
+
 	if (mtk_drm_top_clk_isr_get("postmask_irq") == false) {
 		DDPIRQ("%s, top clk off\n", __func__);
 		return IRQ_NONE;
@@ -581,6 +583,10 @@ static const struct mtk_disp_postmask_data mt6833_postmask_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_disp_postmask_data mt6781_postmask_driver_data = {
+	.support_shadow = false,
+};
+
 static const struct of_device_id mtk_disp_postmask_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6779-disp-postmask",
 	  .data = &mt6779_postmask_driver_data},
@@ -594,6 +600,8 @@ static const struct of_device_id mtk_disp_postmask_driver_dt_match[] = {
 	  .data = &mt6877_postmask_driver_data},
 	{ .compatible = "mediatek,mt6833-disp-postmask",
 	  .data = &mt6833_postmask_driver_data},
+	{ .compatible = "mediatek,mt6781-disp-postmask",
+	  .data = &mt6781_postmask_driver_data},
 	{},
 };
 

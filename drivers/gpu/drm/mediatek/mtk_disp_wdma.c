@@ -333,7 +333,8 @@ static void mtk_wdma_prepare(struct mtk_ddp_comp *comp)
 #else
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
 	|| defined(CONFIG_MACH_MT6833) \
-	|| defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 	/* Bypass shadow register and read shadow register */
 	mtk_ddp_write_mask_cpu(comp, WDMA_BYPASS_SHADOW,
 		DISP_REG_WDMA_SHADOW_CTRL, WDMA_BYPASS_SHADOW);
@@ -366,7 +367,8 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 #endif
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
 	|| defined(CONFIG_MACH_MT6833) \
-	|| defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 	unsigned int fifo_size = 578;
 	unsigned int fifo_size_uv = 29;
 #endif
@@ -405,7 +407,8 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 #endif
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
 	|| defined(CONFIG_MACH_MT6833) \
-	|| defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 		fifo_size = 402;
 		fifo_size_uv = 99;
 #endif
@@ -423,7 +426,8 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 		fifo_size_uv = 109;
 #endif
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 		fifo_size = 402;
 		fifo_size_uv = 201;
 #endif
@@ -1356,6 +1360,11 @@ static const struct mtk_disp_wdma_data mt6833_wdma_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_disp_wdma_data mt6781_wdma_driver_data = {
+	.sodi_config = mt6781_mtk_sodi_config,
+	.support_shadow = false,
+};
+
 static const struct of_device_id mtk_disp_wdma_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-wdma"},
 	{.compatible = "mediatek,mt6779-disp-wdma",
@@ -1371,6 +1380,8 @@ static const struct of_device_id mtk_disp_wdma_driver_dt_match[] = {
 	 .data = &mt6877_wdma_driver_data},
 	{.compatible = "mediatek,mt6833-disp-wdma",
 	 .data = &mt6833_wdma_driver_data},
+	{.compatible = "mediatek,mt6781-disp-wdma",
+	 .data = &mt6781_wdma_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_wdma_driver_dt_match);

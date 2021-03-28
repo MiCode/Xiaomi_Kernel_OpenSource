@@ -116,5 +116,9 @@ ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek/			\
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6833)))
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6833/include/mach/
 else
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6781)))
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6781/include/mach/
+else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach/
+endif
 endif

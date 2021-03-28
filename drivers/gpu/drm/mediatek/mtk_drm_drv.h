@@ -32,7 +32,7 @@
  * some feature options should be disabled in bringup stage,
  * in bringup stage this #define should open.
  */
-#if defined(CONFIG_MACH_MT6877)
+#if defined(CONFIG_MACH_MT6781)
 #define MTK_DRM_BRINGUP_STAGE
 #endif
 
@@ -52,7 +52,7 @@
 #if (defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)\
 	|| defined(CONFIG_MACH_MT6893) ||\
 	defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6877) || \
-	defined(CONFIG_MACH_MT6833)) &&\
+	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6781)) &&\
 	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 #define MTK_DRM_DELAY_PRESENT_FENCE
 /* Delay present fence would cause config merge */

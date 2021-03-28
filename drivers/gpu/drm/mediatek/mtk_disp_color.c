@@ -2682,7 +2682,8 @@ int mtk_drm_ioctl_read_reg(struct drm_device *dev, void *data,
 
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) \
 	|| defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 	// For 6885 CCORR COEF, real values need to right shift one bit
 	if (pa >= ccorr_comp->regs_pa + CCORR_REG(0) &&
 		pa <= ccorr_comp->regs_pa + CCORR_REG(4))
@@ -2724,7 +2725,8 @@ int mtk_drm_ioctl_write_reg(struct drm_device *dev, void *data,
 
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) \
 	|| defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 	// For 6885 CCORR COEF, real values need to left shift one bit
 	if (pa >= ccorr_comp->regs_pa + CCORR_REG(0) &&
 		pa <= ccorr_comp->regs_pa + CCORR_REG(4))
@@ -2960,7 +2962,8 @@ static void mtk_color_prepare(struct mtk_ddp_comp *comp)
 	}
 #else
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 	/* Bypass shadow register and read shadow register */
 	mtk_ddp_write_mask_cpu(comp, COLOR_BYPASS_SHADOW,
 		DISP_COLOR_SHADOW_CTRL, COLOR_BYPASS_SHADOW);
@@ -3170,6 +3173,16 @@ static const struct mtk_disp_color_data mt6833_color_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_disp_color_data mt6781_color_driver_data = {
+	.color_offset = DISP_COLOR_START_MT6781,
+	.support_color21 = true,
+	.support_color30 = false,
+	.reg_table = {0x14009000, 0x1400A000, 0x1400B000,
+			0x1400C000, 0x1400E000},
+	.color_window = 0x40185E57,
+	.support_shadow = false,
+};
+
 static const struct of_device_id mtk_disp_color_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-color",
 	 .data = &mt2701_color_driver_data},
@@ -3187,6 +3200,8 @@ static const struct of_device_id mtk_disp_color_driver_dt_match[] = {
 	 .data = &mt6877_color_driver_data},
 	{.compatible = "mediatek,mt6833-disp-color",
 	 .data = &mt6833_color_driver_data},
+	{.compatible = "mediatek,mt6781-disp-color",
+	 .data = &mt6781_color_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_color_driver_dt_match);

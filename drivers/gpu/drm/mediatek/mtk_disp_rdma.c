@@ -100,7 +100,7 @@
 #define DISP_REG_RDMA_SHADOW_UPDATE 0x00b8
 #endif
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6781)
 #define DISP_REG_RDMA_SHADOW_UPDATE 0x00bc
 #define RDMA_BYPASS_SHADOW BIT(1)
 #define RDMA_READ_WORK_REG BIT(2)
@@ -469,7 +469,8 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	unsigned int urgent_low_us = 113, urgent_high_us = 117;
 #endif
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 	unsigned int pre_ultra_low_us = 250, pre_ultra_high_us = 260;
 	unsigned int ultra_low_us = 230, ultra_high_us = 250;
 	unsigned int urgent_low_us = 110, urgent_high_us = 120;
@@ -1072,7 +1073,7 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 		DDPDUMP("(0x0b8)DISP_REG_RDMA_SHADOW_UPDATE=0x%x\n",
 			readl(DISP_REG_RDMA_SHADOW_UPDATE + baddr));
 #elif defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6781)
 		DDPDUMP("(0x0bc)DISP_REG_RDMA_SHADOW_UPDATE=0x%x\n",
 			readl(DISP_REG_RDMA_SHADOW_UPDATE + baddr));
 #endif
@@ -1183,7 +1184,7 @@ static void mtk_rdma_prepare(struct mtk_ddp_comp *comp)
 	}
 #else
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6781)
 	/* Bypass shadow register and read shadow register */
 	mtk_ddp_write_mask_cpu(comp, RDMA_BYPASS_SHADOW,
 		DISP_REG_RDMA_SHADOW_UPDATE, RDMA_BYPASS_SHADOW);
@@ -1463,6 +1464,12 @@ static const struct mtk_disp_rdma_data mt6833_rdma_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_disp_rdma_data mt6781_rdma_driver_data = {
+	.fifo_size = SZ_1K * 3 + SZ_32K,
+	.sodi_config = mt6781_mtk_sodi_config,
+	.support_shadow = false,
+};
+
 static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-rdma",
 	 .data = &mt2701_rdma_driver_data},
@@ -1480,6 +1487,8 @@ static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
 	 .data = &mt6877_rdma_driver_data},
 	{.compatible = "mediatek,mt6833-disp-rdma",
 	 .data = &mt6833_rdma_driver_data},
+	{.compatible = "mediatek,mt6781-disp-rdma",
+	 .data = &mt6781_rdma_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_rdma_driver_dt_match);

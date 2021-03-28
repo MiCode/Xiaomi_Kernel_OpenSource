@@ -221,6 +221,7 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	case MMSYS_MT6853:
 	case MMSYS_MT6877:
 	case MMSYS_MT6833:
+	case MMSYS_MT6781:
 		mmsys_config_dump_reg_mt6873(mtk_crtc->config_regs);
 		mutex_dump_reg_mt6873(mtk_crtc->mutex[0]);
 		break;
@@ -318,6 +319,10 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	case MMSYS_MT6833:
 		mmsys_config_dump_analysis_mt6833(mtk_crtc->config_regs);
 		mutex_dump_analysis_mt6833(mtk_crtc->mutex[0]);
+		break;
+	case MMSYS_MT6781:
+		mmsys_config_dump_analysis_mt6781(mtk_crtc->config_regs);
+		mutex_dump_analysis_mt6781(mtk_crtc->mutex[0]);
 		break;
 	default:
 		pr_info("%s mtk drm not support mmsys id %d\n",
@@ -2573,7 +2578,8 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 			DDPPR_ERR("ovl status error\n");
 #endif
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
-	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 		if (ovl_status & 1) {
 			DDPPR_ERR("ovl status error\n");
 			mtk_drm_crtc_analysis(crtc);
@@ -3172,6 +3178,9 @@ static void mtk_crtc_addon_connector_disconnect(struct drm_crtc *crtc,
 #if defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6877)
 		mtk_ddp_remove_dsc_prim_MT6853(mtk_crtc, handle);
 #endif
+#if defined(CONFIG_MACH_MT6781)
+		mtk_ddp_remove_dsc_prim_MT6781(mtk_crtc, handle);
+#endif
 		mtk_disp_mutex_remove_comp_with_cmdq(mtk_crtc, dsc_comp->id,
 			handle, 0);
 		mtk_ddp_comp_stop(dsc_comp, handle);
@@ -3250,6 +3259,9 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 #endif
 #if defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6877)
 		mtk_ddp_insert_dsc_prim_MT6853(mtk_crtc, handle);
+#endif
+#if defined(CONFIG_MACH_MT6781)
+		mtk_ddp_insert_dsc_prim_MT6781(mtk_crtc, handle);
 #endif
 		mtk_disp_mutex_add_comp_with_cmdq(mtk_crtc, dsc_comp->id,
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base),

@@ -169,6 +169,7 @@ enum LUT_REG {
 #define DISP_COLOR_START_MT6885		0x0c00
 #define DISP_COLOR_START_MT8173		0x0c00
 #define DISP_COLOR_START_MT6873		0x0c00
+#define DISP_COLOR_START_MT6781		0x0c00
 #define DISP_COLOR_START(module)		((module)->data->color_offset)
 #define DISP_COLOR_INTEN(reg)		(DISP_COLOR_START(reg) + 0x4UL)
 #define DISP_COLOR_OUT_SEL(reg)		(DISP_COLOR_START(reg) + 0xCUL)

@@ -31,7 +31,8 @@
 #include <video/videomode.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 #include <linux/ratelimit.h>
 #endif
 
@@ -204,15 +205,23 @@
 #define FLD_CLK_HS_EXIT REG_FLD_MSB_LSB(23, 16)
 #define DSI_CPHY_CON0 0x120
 
+#if defined(CONFIG_MACH_MT6781)
+#define DSI_VM_CMD_CON 0x200
+#define DSI_VM_CMD_DATA0	0x208
+#define DSI_VM_CMD_DATA10	0x218
+#define DSI_VM_CMD_DATA20	0x228
+#define DSI_VM_CMD_DATA30	0x238
+#elif defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893) \
+	|| defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 #define DSI_VM_CMD_CON 0x130
-#define VM_CMD_EN BIT(0)
-#define TS_VFP_EN BIT(5)
 #define DSI_VM_CMD_DATA0	0x134
 #define DSI_VM_CMD_DATA10	0x180
 #define DSI_VM_CMD_DATA20	0x1A0
 #define DSI_VM_CMD_DATA30	0x1B0
-
-#define DSI_VM_CMD_DATA0 0x134
+#endif
+#define VM_CMD_EN BIT(0)
+#define TS_VFP_EN BIT(5)
 
 #define DSI_STATE_DBG6 0x160
 #define STATE_DBG6_FLD_REG_CMCTL_STATE REG_FLD_MSB_LSB(14, 0)
@@ -221,8 +230,15 @@
 #define DSI_BYPASS_SHADOW BIT(1)
 #define DSI_READ_WORKING BIT(2)
 
+#if defined(CONFIG_MACH_MT6781)
+#define DSI_CMDQ0 0xD00
+#define DSI_CMDQ1 0xD04
+#elif defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893) \
+	|| defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 #define DSI_CMDQ0 0x200
 #define DSI_CMDQ1 0x204
+#endif
 
 #define CONFIG (0xff << 0)
 #define SHORT_PACKET 0
@@ -910,7 +926,8 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 	}
 #else
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 	/* Bypass shadow register and read shadow register */
 	mtk_dsi_mask(dsi, DSI_SHADOW_DEBUG,
 		DSI_BYPASS_SHADOW, DSI_BYPASS_SHADOW);
@@ -1060,7 +1077,8 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 
 #if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873) \
 	&& !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MACH_MT6853) \
-	&& !defined(CONFIG_MACH_MT6833) && !defined(CONFIG_MACH_MT6877)
+	&& !defined(CONFIG_MACH_MT6833) && !defined(CONFIG_MACH_MT6877) \
+	&& !defined(CONFIG_MACH_MT6781)
 	val = vm->hactive * dsi_buf_bpp;
 	writel(val, dsi->regs + DSI_HSTX_CKL_WC);
 #endif
@@ -1093,7 +1111,8 @@ static void mtk_dsi_rxtx_control(struct mtk_dsi *dsi)
 	tmp_reg |= (dsi->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS) << 6;
 #if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873) \
 	&& !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MACH_MT6853) \
-	&& !defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	&& !defined(CONFIG_MACH_MT6833) && !defined(CONFIG_MACH_MT6877) \
+	&& !defined(CONFIG_MACH_MT6781)
 	tmp_reg |= (dsi->mode_flags & MIPI_DSI_MODE_EOT_PACKET) >> 3;
 #endif
 
@@ -1393,7 +1412,8 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	static unsigned int dsi_underrun_trigger = 1;
 	unsigned int ret = 0;
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 	static DEFINE_RATELIMIT_STATE(ioctl_ratelimit, 1 * HZ, 20);
 #endif
 	bool doze_enabled = 0;
@@ -1454,7 +1474,8 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			}
 
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 			mtk_dprec_logger_pr(DPREC_LOGGER_ERROR,
 				"[IRQ] %s: buffer underrun\n",
 				mtk_dump_comp_str(&dsi->ddp_comp));
@@ -5246,6 +5267,14 @@ static const struct mtk_dsi_driver_data mt6833_dsi_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_dsi_driver_data mt6781_dsi_driver_data = {
+	.reg_cmdq_ofs = 0x200,
+	.poll_for_idle = mtk_dsi_poll_for_idle,
+	.irq_handler = mtk_dsi_irq_status,
+	.esd_eint_compat = "mediatek, DSI_TE-eint",
+	.support_shadow = false,
+};
+
 static const struct mtk_dsi_driver_data mt2701_dsi_driver_data = {
 	.reg_cmdq_ofs = 0x180, .irq_handler = mtk_dsi_irq,
 	.support_shadow = false,
@@ -5260,6 +5289,7 @@ static const struct of_device_id mtk_dsi_of_match[] = {
 	{.compatible = "mediatek,mt6853-dsi", .data = &mt6853_dsi_driver_data},
 	{.compatible = "mediatek,mt6877-dsi", .data = &mt6877_dsi_driver_data},
 	{.compatible = "mediatek,mt6833-dsi", .data = &mt6833_dsi_driver_data},
+	{.compatible = "mediatek,mt6781-dsi", .data = &mt6781_dsi_driver_data},
 	{},
 };
 
@@ -5418,9 +5448,12 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, dsi);
 	DDPINFO("%s-\n", __func__);
 
-	return component_add(&pdev->dev, &mtk_dsi_component_ops);
+	ret = component_add(&pdev->dev, &mtk_dsi_component_ops);
+	DDPINFO("%s- normal return,return value:%d  linue: %d\n", __func__, ret,  __LINE__);
+	return ret;
 
 error:
+	DDPINFO("%s- after error line:%d\n", __func__, __LINE__);
 	mipi_dsi_host_unregister(&dsi->host);
 	return -EPROBE_DEFER;
 }
