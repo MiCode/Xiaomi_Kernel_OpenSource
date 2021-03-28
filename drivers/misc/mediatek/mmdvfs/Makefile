@@ -33,11 +33,11 @@ ccflags-y += -DDYNAMIC_DISP_HRT
 SUPPORT_USE_DDR_TYPE := true
 SUPPORT_MMP := true
 FORCE_STEP0 := false
-BUILD_MMDVFS := true
+BUILD_MMDVFS_PMQOS := true
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6765"))
 SUPPORT_MMP := true
 FORCE_STEP0 := false
-BUILD_MMDVFS := true
+BUILD_MMDVFS_PMQOS := true
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt8168"))
 ccflags-y += -DSMI_AQU
 ENABLE_SCENARIO := true
@@ -47,11 +47,11 @@ else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6768"))
 ccflags-y += -DSMI_TAL
 SUPPORT_MMP := true
 FORCE_STEP0 := false
-BUILD_MMDVFS := true
+BUILD_MMDVFS_PMQOS := true
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739"))
-BUILD_MMDVFS := true
+BUILD_MMDVFS_PMQOS := true
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6785"))
-BUILD_MMDVFS := true
+BUILD_MMDVFS_PMQOS := true
 HRT_MECHANISM := true
 BLOCKING_MECHANISM := true
 SUPPORT_MMP := true
@@ -60,7 +60,7 @@ QOS_BOUND_DETECT := true
 FORCE_STEP0 := false
 ccflags-y += -DCHECK_VOLTAGE
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885" "mt6893"))
-BUILD_MMDVFS := true
+BUILD_MMDVFS_PMQOS := true
 HRT_MECHANISM := true
 BLOCKING_MECHANISM := true
 SUPPORT_MMP := true
@@ -70,7 +70,7 @@ FORCE_STEP0 := false
 ccflags-y += -DCHECK_VOLTAGE
 ccflags-y += -DPMQOS_USE_IOMMU_PORT
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873"))
-BUILD_MMDVFS := true
+BUILD_MMDVFS_PMQOS := true
 HRT_MECHANISM := true
 BLOCKING_MECHANISM := true
 SUPPORT_MMP := true
@@ -82,7 +82,7 @@ ccflags-y += -DCHECK_VOLTAGE
 ccflags-y += -DCHECK_OSTD_UPDATE
 MTK_FREQ_HOPPING := true
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6853"))
-BUILD_MMDVFS := true
+BUILD_MMDVFS_PMQOS := true
 SUPPORT_MMP := true
 ccflags-y += -DPMQOS_USE_IOMMU_PORT
 FORCE_STEP0 := false
@@ -103,19 +103,31 @@ endif
 platformdir_exists=$(shell if [ -d $(MMDVFS_PLATFORM_DIR) ]; then echo "y"; else echo "n"; fi;)
 
 ifeq ($(CONFIG_MACH_MT6781),y)
-platformdir_exists := n #should remove when UT done
-BUILD_MMDVFS := false
-#FORCE_STEP0 := true
+platformdir_exists := n
+BUILD_MMDVFS := true
+BUILD_MMDVFS_PMQOS := false
+BUILD_MMQOS := false
+FORCE_STEP0 := true
 #SKIP_SMI_CONFIG := true
-#MTK_FREQ_HOPPING := true #should add to mt6785@CONFIG_MTK_PLATFORM
+MTK_FREQ_HOPPING := true
 #ccflags-y += -DPMQOS_USE_IOMMU_PORT #should add to mt6785@CONFIG_MTK_PLATFORM
 #ccflags-y += -DCHECK_OSTD_UPDATE #should add to mt6785@CONFIG_MTK_PLATFORM
 endif
 
+ifeq (true, $(BUILD_MMDVFS_PMQOS))
+obj-y += mmdvfs_pmqos.o
+ccflags-y += -DBUILD_MMDVFS_PMQOS
+else
 ifeq (true, $(BUILD_MMDVFS))
 ccflags-y += -DBUILD_MMDVFS
 endif
-obj-y += mmdvfs_pmqos.o
+ifeq (true, $(BUILD_MMQOS))
+ccflags-y += -DBUILD_MMQOS
+endif
+obj-y += mmqos.o
+obj-y += mmdvfs.o
+endif
+
 ifeq (true, $(FORCE_STEP0))
 ccflags-y += -DMMDVFS_FORCE_STEP0
 endif
