@@ -225,9 +225,13 @@ int wk_vbat_cali(int vbat_out, int precision_factor)
 	return vbat_out;
 }
 
-static void auxadc_cali_init(void)
+static void auxadc_cali_init(struct device_node *np)
 {
 	unsigned int efuse = 0;
+	unsigned int efuse_offset;
+
+	if (of_property_read_u32(np, "cali-efuse-offset", &efuse_offset))
+		efuse_offset = 0;
 
 	if (pmic_get_register_value(PMIC_AUXADC_EFUSE_ADC_CALI_EN) == 1) {
 		g_DEGC = pmic_get_register_value(PMIC_AUXADC_EFUSE_DEGC_CALI);
@@ -242,7 +246,7 @@ static void auxadc_cali_init(void)
 		g_O_VTS = 1600;
 	}
 
-	efuse = pmic_Read_Efuse_HPOffset(39);
+	efuse = pmic_Read_Efuse_HPOffset(39 + efuse_offset);
 	g_CALI_FROM_EFUSE_EN = (efuse >> 2) & 0x1;
 	if (g_CALI_FROM_EFUSE_EN == 1) {
 		g_SIGN_AUX = (efuse >> 3) & 0x1;
@@ -257,12 +261,12 @@ static void auxadc_cali_init(void)
 	g_SIGN_BGRH = (efuse >> 5) & 0x1;
 	g_BGRCALI_EN = (efuse >> 7) & 0x1;
 
-	efuse = pmic_Read_Efuse_HPOffset(40);
+	efuse = pmic_Read_Efuse_HPOffset(40 + efuse_offset);
 	g_GAIN_BGRL = (efuse >> 9) & 0x7F;
-	efuse = pmic_Read_Efuse_HPOffset(41);
+	efuse = pmic_Read_Efuse_HPOffset(41 + efuse_offset);
 	g_GAIN_BGRH = (efuse >> 9) & 0x7F;
 
-	efuse = pmic_Read_Efuse_HPOffset(42);
+	efuse = pmic_Read_Efuse_HPOffset(42 + efuse_offset);
 	g_TEMP_L_CALI = (efuse >> 10) & 0x7;
 	g_TEMP_H_CALI = (efuse >> 13) & 0x7;
 
@@ -761,7 +765,7 @@ int pmic_auxadc_chip_init(struct device *dev)
 #if 1 /*TBD*/
 	legacy_auxadc_init(dev);
 #endif
-	auxadc_cali_init();
+	auxadc_cali_init(dev->of_node);
 
 	wk_auxadc_dbg_init();
 
