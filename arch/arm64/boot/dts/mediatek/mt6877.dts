@@ -109,6 +109,15 @@
 			alloc-ranges = <0 0x40000000 0 0x40000000>;
 			alignment = <0 0x10000>; //EMI 64KB Align
 		};
+
+		wifi_mem: wifi-reserve-memory {
+			compatible = "shared-dma-pool";
+			no-map;
+			size = <0 0xF20000>;
+			alignment = <0 0x1000000>;
+			alloc-ranges = <0 0x40000000 0 0x80000000>;
+		};
+
 	};
 
 	aliases {
@@ -2838,6 +2847,14 @@
 		reg = <0 0x19024000 0 0x1000>;
 		pwr-regmap = <&scpsys>;
 		#clock-cells = <1>;
+	};
+
+	wifi@18000000 {
+		compatible = "mediatek,wifi";
+		reg = <0 0x18000000 0 0x700000>;
+		interrupts = <GIC_SPI 463 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 478 IRQ_TYPE_LEVEL_HIGH>;
+		memory-region = <&wifi_mem>;
 	};
 
 	apusys_vcore_clk: syscon@19029000 {
