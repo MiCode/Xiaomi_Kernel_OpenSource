@@ -30,7 +30,8 @@ enum subsys_id {
 	SYS_IPE = 12,
 	SYS_CAM_RAWA = 13,
 	SYS_CAM_RAWB = 14,
-	NR_SYSS = 15,
+	SYS_CSI = 15,
+	NR_SYSS = 16,
 };
 
 struct pg_callbacks {

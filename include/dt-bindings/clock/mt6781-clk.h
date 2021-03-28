@@ -516,6 +516,7 @@
 #define SCP_SYS_IPE  13
 #define SCP_SYS_CAM_RAWA  14
 #define SCP_SYS_CAM_RAWB  15
-#define SCP_NR_SYSS  16
+#define SCP_SYS_CSI  16
+#define SCP_NR_SYSS  17
 
 #endif				/* _DT_BINDINGS_CLK_MT6781_H */

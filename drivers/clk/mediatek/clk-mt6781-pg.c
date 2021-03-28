@@ -120,6 +120,7 @@ static struct subsys_ops MFG0_sys_ops;
 static struct subsys_ops MFG1_sys_ops;
 static struct subsys_ops MFG2_sys_ops;
 static struct subsys_ops MFG3_sys_ops;
+static struct subsys_ops CSI_sys_ops;
 
 
 
@@ -252,6 +253,7 @@ static void __iomem *smi_common_base;
 #define MFG1_PWR_STA_MASK                (0x1 << 3)
 #define MFG2_PWR_STA_MASK                (0x1 << 4)
 #define MFG3_PWR_STA_MASK                (0x1 << 5)
+#define MFG4_PWR_STA_MASK                (0x1 << 6)
 #define ISP_PWR_STA_MASK                 (0x1 << 13)
 #define ISP2_PWR_STA_MASK                (0x1 << 14)
 #define IPE_PWR_STA_MASK                 (0x1 << 15)
@@ -280,6 +282,9 @@ static void __iomem *smi_common_base;
 #define MFG3_SRAM_PDN                    (0x1 << 8)
 #define MFG3_SRAM_PDN_ACK                (0x1 << 12)
 #define MFG3_SRAM_PDN_ACK_BIT0           (0x1 << 12)
+#define MFG4_SRAM_PDN                    (0x1 << 8)
+#define MFG4_SRAM_PDN_ACK                (0x1 << 12)
+#define MFG4_SRAM_PDN_ACK_BIT0           (0x1 << 12)
 #define ISP_SRAM_PDN                     (0x1 << 8)
 #define ISP_SRAM_PDN_ACK                 (0x1 << 12)
 #define ISP_SRAM_PDN_ACK_BIT0            (0x1 << 12)
@@ -327,6 +332,7 @@ static void __iomem *smi_common_base;
 #define MFG1_PWR_CON	SPM_REG(0x30C)
 #define MFG2_PWR_CON	SPM_REG(0x310)
 #define MFG3_PWR_CON	SPM_REG(0x314)
+#define MFG4_PWR_CON	SPM_REG(0x318)
 #define ISP2_PWR_CON	SPM_REG(0x338)
 #define IPE_PWR_CON		SPM_REG(0x33C)
 #define CAM_RAWA_PWR_CON   SPM_REG(0x360)
@@ -472,6 +478,15 @@ static struct subsys syss[] =	/* NR_SYSS *//* FIXME: set correct value */
 		     .bus_prot_mask = 0,
 		     .ops = &CAM_RAWB_sys_ops,
 		     },
+	[SYS_CSI] = {
+		     .name = __stringify(SYS_CSI),
+		     .sta_mask = MFG4_PWR_STA_MASK,
+		     /* .ctl_addr = NULL,  */
+		     .sram_pdn_bits = 0,
+		     .sram_pdn_ack_bits = 0,
+		     .bus_prot_mask = 0,
+		     .ops = &CSI_sys_ops,
+		     },
 };
 
 spinlock_t pgcb_lock;
@@ -513,6 +528,7 @@ static struct subsys *id_to_sys(unsigned int id)
 #define DBG_ID_IPE 12
 #define DBG_ID_CAM_RAWA 13
 #define DBG_ID_CAM_RAWB 14
+#define DBG_ID_CSI 15
 
 #define ID_MADK   0xFF000000
 #define STA_MASK  0x00F00000
@@ -2163,6 +2179,88 @@ int spm_mtcmos_ctrl_cam_rawb(int state)
 	return err;
 }
 
+int spm_mtcmos_ctrl_mfg4(int state)
+{
+	int err = 0;
+
+	DBG_ID = DBG_ID_CSI;
+	DBG_STA = state;
+	DBG_STEP = 0;
+	/* TINFO="enable SPM register control" */
+	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
+
+	if (state == STA_POWER_DOWN) {
+		/* TINFO="Start to turn off MFG4" */
+		/* TINFO="Set SRAM_PDN = 1" */
+		spm_write(MFG4_PWR_CON, spm_read(MFG4_PWR_CON) | MFG4_SRAM_PDN);
+#ifndef IGNORE_MTCMOS_CHECK
+		/* TINFO="Wait until MFG4_SRAM_PDN_ACK = 1" */
+		while ((spm_read(MFG4_PWR_CON) & MFG4_SRAM_PDN_ACK) != MFG4_SRAM_PDN_ACK) {
+			/*  */
+			/*  */
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+#endif
+		/* TINFO="Set PWR_ISO = 1" */
+		spm_write(MFG4_PWR_CON, spm_read(MFG4_PWR_CON) | PWR_ISO);
+		/* TINFO="Set PWR_CLK_DIS = 1" */
+		spm_write(MFG4_PWR_CON, spm_read(MFG4_PWR_CON) | PWR_CLK_DIS);
+		/* TINFO="Set PWR_RST_B = 0" */
+		spm_write(MFG4_PWR_CON, spm_read(MFG4_PWR_CON) & ~PWR_RST_B);
+		/* TINFO="Set PWR_ON = 0" */
+		spm_write(MFG4_PWR_CON, spm_read(MFG4_PWR_CON) & ~PWR_ON);
+		/* TINFO="Set PWR_ON_2ND = 0" */
+		spm_write(MFG4_PWR_CON, spm_read(MFG4_PWR_CON) & ~PWR_ON_2ND);
+#ifndef IGNORE_MTCMOS_CHECK
+		/* TINFO="Wait until PWR_STATUS = 0 and PWR_STATUS_2ND = 0" */
+		while ((spm_read(PWR_STATUS) & MFG4_PWR_STA_MASK)
+		       || (spm_read(PWR_STATUS_2ND) & MFG4_PWR_STA_MASK)) {
+			/* No logic between pwr_on and pwr_ack. */
+			/* Print SRAM / MTCMOS control and PWR_ACK for debug. */
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+#endif
+		/* TINFO="Finish to turn off MFG4" */
+	} else {    /* STA_POWER_ON */
+		/* TINFO="Start to turn on MFG4" */
+		/* TINFO="Set PWR_ON = 1" */
+		spm_write(MFG4_PWR_CON, spm_read(MFG4_PWR_CON) | PWR_ON);
+		/* TINFO="Set PWR_ON_2ND = 1" */
+		spm_write(MFG4_PWR_CON, spm_read(MFG4_PWR_CON) | PWR_ON_2ND);
+#ifndef IGNORE_MTCMOS_CHECK
+		/* TINFO="Wait until PWR_STATUS = 1 and PWR_STATUS_2ND = 1" */
+		while (((spm_read(PWR_STATUS) & MFG4_PWR_STA_MASK) != MFG4_PWR_STA_MASK)
+		       || ((spm_read(PWR_STATUS_2ND) & MFG4_PWR_STA_MASK) != MFG4_PWR_STA_MASK)) {
+			/* No logic between pwr_on and pwr_ack. */
+			/* Print SRAM / MTCMOS control and PWR_ACK for debug. */
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+#endif
+		/* TINFO="Set PWR_CLK_DIS = 0" */
+		spm_write(MFG4_PWR_CON, spm_read(MFG4_PWR_CON) & ~PWR_CLK_DIS);
+		/* TINFO="Set PWR_ISO = 0" */
+		spm_write(MFG4_PWR_CON, spm_read(MFG4_PWR_CON) & ~PWR_ISO);
+		/* TINFO="Set PWR_RST_B = 1" */
+		spm_write(MFG4_PWR_CON, spm_read(MFG4_PWR_CON) | PWR_RST_B);
+		/* TINFO="Set SRAM_PDN = 0" */
+		spm_write(MFG4_PWR_CON, spm_read(MFG4_PWR_CON) & ~(0x1 << 8));
+#ifndef IGNORE_MTCMOS_CHECK
+		/* TINFO="Wait until MFG4_SRAM_PDN_ACK_BIT0 = 0" */
+		while (spm_read(MFG4_PWR_CON) & MFG4_SRAM_PDN_ACK_BIT0) {
+			/*  */
+			/*  */
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+#endif
+		/* TINFO="Finish to turn on MFG4" */
+	}
+	return err;
+}
+
 /* auto-gen end*/
 
 /* enable op*/
@@ -2247,7 +2345,10 @@ static int MFG3_sys_enable_op(struct subsys *sys)
 	return spm_mtcmos_ctrl_mfg3(STA_POWER_ON);
 }
 
-
+static int CSI_sys_enable_op(struct subsys *sys)
+{
+	return spm_mtcmos_ctrl_mfg4(STA_POWER_ON);
+}
 
 
 /* disable op */
@@ -2330,6 +2431,11 @@ static int MFG2_sys_disable_op(struct subsys *sys)
 static int MFG3_sys_disable_op(struct subsys *sys)
 {
 	return spm_mtcmos_ctrl_mfg3(STA_POWER_DOWN);
+}
+
+static int CSI_sys_disable_op(struct subsys *sys)
+{
+	return spm_mtcmos_ctrl_mfg4(STA_POWER_DOWN);
 }
 
 static int sys_get_state_op(struct subsys *sys)
@@ -2458,6 +2564,12 @@ static struct subsys_ops MFG3_sys_ops = {
 	.get_state = sys_get_state_op,
 };
 
+static struct subsys_ops CSI_sys_ops = {
+	.enable = CSI_sys_enable_op,
+	.disable = CSI_sys_disable_op,
+	.get_state = sys_get_state_op,
+};
+
 static int subsys_is_on(enum subsys_id id)
 {
 	int r;
@@ -2494,7 +2606,7 @@ int allow[NR_SYSS] = {
 1,	/*SYS_IPE = 12,*/
 1,	/*SYS_CAM_RAWA = 13,*/
 1,	/*SYS_CAM_RAWB = 14,*/
-1,	/*SYS_MFG5 = 15,*/
+1,	/*SYS_CSI = 15,*/
 };
 #endif
 static int enable_subsys(enum subsys_id id)
@@ -2763,6 +2875,7 @@ struct clk *mt_clk_register_power_gate(const char *name,
 #define pg_ipe	"pg_ipe"
 #define pg_cam_rawa	"pg_cam_rawa"
 #define pg_cam_rawb	"pg_cam_rawb"
+#define pg_csi	"pg_csi"
 
 #define img1_sel		"img1_sel"
 #define ipe_sel		"ipe_sel"
@@ -2809,6 +2922,7 @@ struct mtk_power_gate scp_clks[] __initdata = {
 
 	PGATE(SCP_SYS_CAM_RAWA, pg_cam_rawa, pg_cam, cam_sel, SYS_CAM_RAWA),
 	PGATE(SCP_SYS_CAM_RAWB, pg_cam_rawb, pg_cam, cam_sel, SYS_CAM_RAWB),
+	PGATE(SCP_SYS_CSI, pg_csi, NULL, NULL, SYS_CSI),
 };
 
 static void __init init_clk_scpsys(void __iomem *infracfg_reg,
@@ -3371,6 +3485,10 @@ void subsys_if_on(void)
 	}
 	if ((sta & MFG3_PWR_STA_MASK) && (sta_s & MFG3_PWR_STA_MASK)) {
 		pr_notice("suspend warning: SYS_MFG3 is on!!!\n");
+		ret++;
+	}
+	if ((sta & MFG4_PWR_STA_MASK) && (sta_s & MFG4_PWR_STA_MASK)) {
+		pr_notice("suspend warning: SYS_CSI is on!!!\n");
 		ret++;
 	}
 
