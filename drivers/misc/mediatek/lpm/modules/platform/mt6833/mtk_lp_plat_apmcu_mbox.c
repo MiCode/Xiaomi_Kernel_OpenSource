@@ -43,8 +43,9 @@ struct lpm_apmcu_mbox {
 };
 
 struct lpm_apmcu_ipi_data {
-	unsigned int magic;
-	unsigned int ipi_id;
+	unsigned int ipi_id	: 24;
+	unsigned int magic	: 8;
+	unsigned int type;
 	unsigned int reserved[6];
 };
 
@@ -237,7 +238,10 @@ bool mtk_lp_apmcu_is_ready(void)
 void mtk_wait_mbox_init_done(void)
 {
 	int sta = MCUPM_TASK_UNINIT, ret = 0;
-	struct lpm_apmcu_ipi_data d_lpm_apmcu_ipi = {.ipi_id = 0};
+	struct lpm_apmcu_ipi_data d_lpm_apmcu_ipi = {
+					.ipi_id = APMCU_PM_IPI_UID_MCDI,
+					.magic = MCDI_IPI_MAGIC_NUM,
+					.type = MCDI_IPI_SHARE_SRAM_INFO_GET};
 
 	while (1) {
 

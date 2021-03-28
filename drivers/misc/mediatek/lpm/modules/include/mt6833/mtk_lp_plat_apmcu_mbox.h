@@ -14,13 +14,20 @@ enum {
 	NF_MBOX,
 };
 
+enum APMCU_PM_IPI_UID {
+	APMCU_PM_IPI_PMSR = 0,
+	APMCU_PM_IPI_UID_LPM,
+	APMCU_PM_IPI_UID_MCDI,
+	APMCU_PM_IPI_UID_MAX,
+};
+
 /* mcdi ipi id definition */
 enum MCDI_IPI_ID_TLB {
 	MCDI_IPI_SHARE_SRAM_INFO_GET = 0,
 	MCDI_IPI_ID_MAX
 };
 
-#define MCDI_IPI_MAGIC_NUM	0x5731
+#define MCDI_IPI_MAGIC_NUM	0x4d
 
 /* SSPM Mbox */
 #define APMCU_SSPM_MBOX_ID           3
