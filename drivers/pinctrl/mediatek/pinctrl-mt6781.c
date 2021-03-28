@@ -1189,6 +1189,23 @@ static const struct mtk_pin_field_calc mt6781_pin_rsel_range[] = {
 	PIN_FIELD_BASE(163, 163, 6, 0x00e0, 0x10, 14, 2),
 };
 
+static const struct mtk_pin_reg_calc mt6781_reg_cals[PINCTRL_PIN_REG_MAX] = {
+	[PINCTRL_PIN_REG_MODE] = MTK_RANGE(mt6781_pin_mode_range),
+	[PINCTRL_PIN_REG_DIR] = MTK_RANGE(mt6781_pin_dir_range),
+	[PINCTRL_PIN_REG_DI] = MTK_RANGE(mt6781_pin_di_range),
+	[PINCTRL_PIN_REG_DO] = MTK_RANGE(mt6781_pin_do_range),
+	[PINCTRL_PIN_REG_SR] = MTK_RANGE(mt6781_pin_dir_range),
+	[PINCTRL_PIN_REG_SMT] = MTK_RANGE(mt6781_pin_smt_range),
+	[PINCTRL_PIN_REG_IES] = MTK_RANGE(mt6781_pin_ies_range),
+	[PINCTRL_PIN_REG_PU] = MTK_RANGE(mt6781_pin_pu_range),
+	[PINCTRL_PIN_REG_PD] = MTK_RANGE(mt6781_pin_pd_range),
+	[PINCTRL_PIN_REG_DRV] = MTK_RANGE(mt6781_pin_drv_range),
+	[PINCTRL_PIN_REG_PUPD] = MTK_RANGE(mt6781_pin_pupd_range),
+	[PINCTRL_PIN_REG_R0] = MTK_RANGE(mt6781_pin_r0_range),
+	[PINCTRL_PIN_REG_R1] = MTK_RANGE(mt6781_pin_r1_range),
+	[PINCTRL_PIN_REG_DRV_EH] = MTK_RANGE(mt6781_pin_eh_range),
+};
+
 static const struct mtk_eh_pin_pinmux mt6781_eh_pin_pinmux_list[] = {
 	/* pin number, pinmux number */
 	{144, 1},
