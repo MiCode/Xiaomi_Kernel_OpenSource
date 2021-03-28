@@ -1308,6 +1308,10 @@ static int eem_probe(struct platform_device *pdev)
 #endif
 	enum mt_cpu_dvfs_id cpudvfsindex;
 
+#if EEM_NOT_READY
+	return 0;
+#endif
+
 	FUNC_ENTER(FUNC_LV_MODULE);
 	seq = 0;
 
