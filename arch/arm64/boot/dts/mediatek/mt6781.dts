@@ -112,6 +112,10 @@
 		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	clkitg: clkitg {
+		compatible = "simple-bus";
+	};
+
 	clocks {
 		clk_null: clk_null {
 			compatible = "fixed-clock";
@@ -692,6 +696,14 @@
 			"mbox2",
 			"mbox3",
 			"mbox4";
+	};
+
+	imp_iic_wrap: imp_iic_wrap@11017000 {
+		compatible = "mediatek,imp_iic_wrap",
+			"mediatek,mt6781-imp_iic_wrap", "syscon";
+		reg = <0 0x11017000 0 0x1000>;
+		pwr-regmap = <&topckgen>;
+		#clock-cells=<1>;
 	};
 
 	auxadc@11001000 {
@@ -2286,3 +2298,4 @@
 #include "mediatek/cust_mt6781_msdc.dtsi"
 #include "mediatek/mt6370.dtsi"
 #include "mediatek/mt6370_pd.dtsi"
+#include "mediatek/mt6781-clkitg.dtsi"
