@@ -1,0 +1,136 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/pinctrl/mt6785-pinfunc.h>
+
+&reserved_memory {
+};
+
+/* chosen */
+&chosen {
+	/* fpga may has no lk, we need to specify display info here */
+	/* fb buffer is reserved using this dts by memory node above */
+	bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
+		loglevel=8 \
+		androidboot.selinux=permissive androidboot.hardware=mt6781 \
+		earlycon=mtk8250,mmio32,0x11002000 \
+		initcall_debug=1";
+	atag,videolfb-fb_base_l = <0x7e605000>;
+	atag,videolfb-fb_base_h = <0x0>;
+	atag,videolfb-islcmfound = <1>;
+	atag,videolfb-islcm_inited = <0>;
+	atag,videolfb-fps= <6000>;
+	atag,videolfb-vramSize= <0x017e8000>;
+	atag,videolfb-lcmname=
+		"nt35695_fhd_dsi_cmd_truly_rt5081_drv";
+};
+
+&timer {
+	clock-frequency = <150000000>;
+};
+
+&odm {
+	led0:led@0 {
+		compatible = "mediatek,red";
+		led_mode = <0>;
+		data = <1>;
+		pwm_config = <0 0 0 0 0>;
+	};
+	led1:led@1 {
+		compatible = "mediatek,green";
+		led_mode = <0>;
+		data = <1>;
+		pwm_config = <0 0 0 0 0>;
+	};
+	led2:led@2 {
+		compatible = "mediatek,blue";
+		led_mode = <0>;
+		data = <1>;
+		pwm_config = <0 0 0 0 0>;
+	};
+	led3:led@3 {
+		compatible = "mediatek,jogball-backlight";
+		led_mode = <0>;
+		data = <1>;
+		pwm_config = <0 0 0 0 0>;
+	};
+	led4:led@4 {
+		compatible = "mediatek,keyboard-backlight";
+		led_mode = <0>;
+		data = <1>;
+		pwm_config = <0 0 0 0 0>;
+	};
+	led5:led@5 {
+		compatible = "mediatek,button-backlight";
+		led_mode = <0>;
+		data = <1>;
+		pwm_config = <0 0 0 0 0>;
+	};
+	led6:led@6 {
+		compatible = "mediatek,lcd-backlight";
+		led_mode = <5>;
+		data = <1>;
+		pwm_config = <0 1 0 0 0>;
+	};
+	vibrator0:vibrator@0 {
+		compatible = "mediatek,vibrator";
+		vib_timer = <25>;
+		vib_limit = <9>;
+		vib_vol= <9>;
+	};
+
+	usb_c_pinctrl:usb_c_pinctrl {
+		compatible = "mediatek,usb_c_pinctrl";
+	};
+};
+
+&mt6370_pmu {
+	mt6370,intr_gpio_num = <4>; /* direct defined GPIO num */
+	mt6370,intr_gpio = <&pio 4 0x0>;
+};
+
+&i2c2 {
+	clock-frequency = <400000>;
+	mtk-usb@60 {
+		compatible = "mediatek,mtk-usb";
+		reg = <0x60>;
+		status = "okay";
+	};
+};
+
+/* accdet start */
+&accdet {
+	/* accdet micbias voltage: 0x07,2.7v;0x05,2.5v;0x02,1.9v */
+	accdet-mic-vol = <6>;
+	headset-mode-setting = <0x500 0x500 1 0x1f0 0x800 0x800 0x20 0x44>;
+	accdet-plugout-debounce = <1>;
+	/*1:ACC mode, 2:low cost without in bias, 6:low cost with in bias*/
+	accdet-mic-mode = <1>;
+	/* eint_level_trigger: 8,LEVEL_LOW(DEF) ;4,LV_HIGH;others,LV_LOW */
+	headset-eint-level-pol = <8>;
+	/*0--MD_MAX--UP_MAX--DW_MAX*/
+	headset-three-key-threshold = <0 80 220 400>;
+	headset-three-key-threshold-CDD = <0 121 192 600>;
+	/*0--MD_MAX--VOICE_MAX--UP_MAX--DW_MAX*/
+	headset-four-key-threshold = <0 58 121 192 400>;
+	status = "okay";
+};
+/* accdet end */
+
+#include <k6781v1_64/cust.dtsi>
+//#include "mediatek/cust_mt6785_camera.dtsi"
+//#include "mediatek/cust_mt6785_touch_1080x2160.dtsi"
+/*End of this file, DO NOT ADD ANYTHING HERE*/
