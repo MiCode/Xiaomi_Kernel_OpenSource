@@ -3717,6 +3717,35 @@
 			<0 0x19020000 0 0x40000>;  /* APU CONN     */
 		interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH>;
 	};
+
+	apusys_power: apusys_power@0x190f0000 {
+		compatible = "mediatek,apusys_power";
+		reg = <0 0x190f0000 0 0x1000>,
+		      <0 0x190f1000 0 0x1000>,
+		      <0 0x19029000 0 0x1000>;
+		reg-names = "apusys_rpc",
+			    "apusys_pcu",
+			    "apusys_vcore";
+		vvpu-supply = <&mt_pmic_vproc1_buck_reg>;
+		vsram_apu-supply = <&mt_pmic_vsram_others_ldo_reg>;
+		vcore-supply = <&mt_pmic_vgpu11_buck_reg>;
+		clocks = <&scpsys SCP_SYS_APU>,
+			 <&apu_pll_ctrl_clk CLK_APU_AO_APUPLL>,
+			 <&apu_pll_ctrl_clk CLK_APU_AO_NPUPLL>,
+			 <&apu_pll_ctrl_clk CLK_APU_AO_APUPLL1>,
+			 <&apu_pll_ctrl_clk CLK_APU_AO_APUPLL2>;
+		clock-names = "mtcmos_scp_sys_vpu",
+			      "clk_apupll_apupll",
+			      "clk_apupll_npupll",
+			      "clk_apupll_apupll1",
+			      "clk_apupll_apupll2";
+	};
+
+	apu_acc: syscon@190f4000 {
+		compatible = "mediatek,mt6877-apu_acc", "syscon";
+		reg = <0 0x190f4000 0 0x100>;
+	};
+
 	spi0: spi0@1100a000 {
 		compatible = "mediatek,mt6765-spi";
 		mediatek,pad-select = <0>;
