@@ -3277,21 +3277,116 @@
 		reg = <0 0x15820000 0 0x1000>;
 	};
 
-	vdec_gcon: vdec_gcon@1602f000 {
-		compatible = "mediatek,vdec_gcon", "syscon";
-		reg = <0 0x1602f000 0 0x1000>;
-		#clock-cells = <1>;
+	vcu: vcu@16000000 {
+		compatible = "mediatek-vcu";
+		mediatek,vcuid = <0>;
+		mediatek,vcuname = "vcu";
+		reg = <0 0x16000000 0 0x40000>,	/* VDEC_BASE */
+			 <0 0x17020000 0 0x10000>,	/* VENC_BASE */
+			 <0 0x17820000 0 0x10000>;	/* VENC_C1_BASE */
+		iommus = <&iommu0 M4U_PORT_L4_VDEC_MC_EXT>;
+		mediatek,mailbox-gce = <&gce_mbox>;
+		mediatek,dec_gce_th_num = <1>; /* VDEC GCE HW THREAD NUM*/
+		mediatek,enc_gce_th_num = <1>; /* VDEC GCE HW THREAD NUM*/
+		mboxes = <&gce_mbox 7 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox 12 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox_sec 9 0 CMDQ_THR_PRIO_1>;
+		gce-event-names = "venc_eof",
+			"venc_cmdq_pause_done",
+			"venc_mb_done",
+			"venc_sps_done",
+			"venc_pps_done",
+			"venc_128B_cnt_done",
+			"vdec_pic_start",
+			"vdec_decode_done",
+			"vdec_pause",
+			"vdec_dec_error",
+			"vdec_mc_busy_overflow_timeout",
+			"vdec_all_dram_req_done",
+			"vdec_ini_fetch_rdy",
+			"vdec_process_flag",
+			"vdec_search_start_code_done",
+			"vdec_ref_reorder_done",
+			"vdec_wp_tble_done",
+			"vdec_count_sram_clr_done",
+			"vdec_gce_cnt_op_threshold";
+		gce-events =  <&gce_mbox CMDQ_EVENT_VENC_CMDQ_FRAME_DONE>,
+			<&gce_mbox CMDQ_EVENT_VENC_CMDQ_PAUSE_DONE>,
+			<&gce_mbox CMDQ_EVENT_VENC_CMDQ_MB_DONE>,
+			<&gce_mbox CMDQ_EVENT_VENC_CMDQ_SPS_DONE>,
+			<&gce_mbox CMDQ_EVENT_VENC_CMDQ_PPS_DONE>,
+			<&gce_mbox CMDQ_EVENT_VENC_CMDQ_128BYTE_CNT_DONE>,
+			<&gce_mbox CMDQ_EVENT_LINE_COUNT_THRESHOLD_INTERRUPT>,
+			<&gce_mbox CMDQ_EVENT_VDEC_INT>,
+			<&gce_mbox CMDQ_EVENT_VDEC_PAUSE>,
+			<&gce_mbox CMDQ_EVENT_VDEC_DEC_ERROR>,
+			<&gce_mbox CMDQ_EVENT_MDEC_TIMEOUT>,
+			<&gce_mbox CMDQ_EVENT_DRAM_ACCESS_DONE>,
+			<&gce_mbox CMDQ_EVENT_INI_FETCH_RDY>,
+			<&gce_mbox CMDQ_EVENT_PROCESS_FLAG>,
+			<&gce_mbox CMDQ_EVENT_SEARCH_START_CODE_DONE>,
+			<&gce_mbox CMDQ_EVENT_REF_REORDER_DONE>,
+			<&gce_mbox CMDQ_EVENT_WP_TBLE_DONE>,
+			<&gce_mbox CMDQ_EVENT_COUNT_SRAM_CLR_DONE>,
+			<&gce_mbox CMDQ_EVENT_GCE_CNT_OP_THRESHOLD>;
+		gce-gpr = <GCE_GPR_R10>, <GCE_GPR_R11>;
 	};
 
-	vdec@16020000 {
-		compatible = "mediatek,vdec";
-		reg = <0 0x16020000 0 0xd000>;
+	vdec@16000000 {
+		compatible = "mediatek,mt6781-vcodec-dec";
+		reg = <0 0x1602f000 0 0x1000>,		/* VDEC_SYS */
+			 <0 0x16029800 0 0x400>,                /* VDEC_UFO */
+			 <0 0x16020000 0 0x400>,		/* VDEC_VLD */
+			 <0 0x16021000 0 0x1000>,               /* VDEC_MC */
+			 <0 0x16023000 0 0x1000>,               /* VDEC_MV */
+			 <0 0x16025000 0 0x1000>;		/* VDEC_MISC */
+		iommus = <&iommu0 M4U_PORT_L4_VDEC_MC_EXT>;
+		mediatek,larb = <&smi_larb4>;
+		interrupts = <GIC_SPI 343 IRQ_TYPE_LEVEL_HIGH>;
+		mediatek,vcu = <&vcu>;
+		clocks =
+			<&vdec_gcon VDEC_VDEC>;
+		clock-names =
+			"MT_CG_VDEC";
+	};
+
+	vdec_gcon_clk: vdec_gcon@16010000 {
+		compatible = "mediatek,vdec_gcon";
+		reg = <0 0x16010000 0 0x8000>;
+	};
+
+	vdec_gcon@16018000 {
+		compatible = "mediatek,vdec_gcon";
+		reg = <0 0x16018000 0 0x8000>;
+	};
+
+	vdec_gcon: vdec_gcon@1602f000 {
+		compatible = "mediatek,vdec_gcon",
+				"mediatek,mt6833-vdec_gcon", "syscon";
+		reg = <0 0x1602f000 0 0x1000>;
+		pwr-regmap = <&sleep>;
+		#clock-cells = <1>;
 	};
 
 	venc_gcon: venc_gcon@17000000 {
-		compatible = "mediatek,venc_gcon", "syscon";
+		compatible = "mediatek,venc_gcon",
+				"mediatek,mt6833-venc_gcon", "syscon";
 		reg = <0 0x17000000 0 0x10000>;
+		pwr-regmap = <&sleep>;
 		#clock-cells = <1>;
+	};
+
+	venc@17000000 {
+		compatible = "mediatek,mt6781-vcodec-enc";
+		reg = <0 0x17020000 0 0x2000>;
+		iommus = <&iommu0 M4U_PORT_L7_VENC_RD_COMV>;
+		mediatek,larb = <&smi_larb7>;
+		interrupts = <GIC_SPI 243 IRQ_TYPE_LEVEL_HIGH>;
+		mediatek,vcu = <&vcu>;
+		clocks =
+			<&venc_gcon VENC_GCON_VENC>;
+		clock-names =
+			"MT_CG_VENC";
 	};
 
 	smi_larb7: smi_larb7@17010000 {
@@ -3308,6 +3403,7 @@
 	venc@17020000 {
 		compatible = "mediatek,venc";
 		reg = <0 0x17020000 0 0x10000>;
+		interrupts = <GIC_SPI 243 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	jpgenc@17030000 {
