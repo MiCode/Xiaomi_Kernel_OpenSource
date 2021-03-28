@@ -3666,8 +3666,9 @@ static void __mt_gpufreq_dump_bringup_status(void)
 			readl(g_sleep + 0x170) & 0x0000003C);
 	*/
 	// @}
-	gpufreq_pr_info("@%s: [MFGPLL] FMETER=%d FREQ=%d\n",
+	gpufreq_pr_info("@%s: [MFGPLL] FMETER hf_fmg_ck=%d, ad_mfgpll_ck=%d, FREQ=%d\n",
 			__func__,
+			mt_get_ckgen_freq(FM_HF_FMFG_CK),
 			mt_get_abist_freq(FM_AD_MFGPLL_CK),
 			__mt_gpufreq_get_cur_freq());
 
