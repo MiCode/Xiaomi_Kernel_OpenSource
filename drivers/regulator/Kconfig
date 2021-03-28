@@ -792,6 +792,7 @@ config REGULATOR_RT5033
 config REGULATOR_RT5133
 	tristate "Richtek RT5133 regulator driver"
 	depends on I2C && GPIOLIB
+	select MTK_EXTBUCK
 	select REGMAP
 	select CRC8
 	select OF_GPIO

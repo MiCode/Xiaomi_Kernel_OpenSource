@@ -29,9 +29,11 @@ int is_ext_buck_exist(void)
 #ifndef CONFIG_MTK_EXTBUCK
 	return 0;
 #else
-	#ifdef CONFIG_REGULATOR_ISL91302A
+	#if defined(CONFIG_REGULATOR_ISL91302A) || defined(CONFIG_REGULATOR_RT5133)
 	struct regulator *reg;
+	#endif /* CONFIG_REGULATOR_ISL91302A || CONFIG_REGULATOR_RT5133 */
 
+	#ifdef CONFIG_REGULATOR_ISL91302A
 	reg = regulator_get(NULL, "ext_buck_proc1");
 	if (reg == NULL)
 		return 0;
@@ -50,6 +52,13 @@ int is_ext_buck_exist(void)
 	if ((is_mt6315_exist() == 1))
 		return 1;
 	#endif
+	#ifdef CONFIG_REGULATOR_RT5133
+	reg = regulator_get(NULL, "rt5133-ldo1");
+	if (IS_ERR(reg))
+		return 0;
+	regulator_put(reg);
+	return 1;
+	#endif /* CONFIG_REGULATOR_RT5133 */
 	#ifdef CONFIG_REGULATOR_RT5738
 	if ((is_rt5738_exist() == 1))
 		return 1;
@@ -64,6 +73,15 @@ int is_ext_buck2_exist(void)
 #ifndef CONFIG_MTK_EXTBUCK
 	return 0;
 #else
+	#ifdef CONFIG_REGULATOR_RT5133
+	struct regulator *reg;
+
+	reg = regulator_get(NULL, "rt5133-ldo1");
+	if (IS_ERR(reg))
+		return 0;
+	regulator_put(reg);
+	return 1;
+	#endif /* CONFIG_REGULATOR_RT5133 */
 	#ifdef CONFIG_REGULATOR_RT5738
 	if ((is_rt5738_exist() == 1))
 		return 1;
