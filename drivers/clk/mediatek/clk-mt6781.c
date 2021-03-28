@@ -65,17 +65,16 @@ void __iomem *infracfg_base;
 void __iomem *apmixed_base;
 void __iomem *audio_base;
 void __iomem *cam_base;
-void __iomem *img_base;
+void __iomem *cam_ra_base;
+void __iomem *cam_rb_base;
+void __iomem *img1_base;
+void __iomem *img2_base;
 void __iomem *ipe_base;
 void __iomem *mfgcfg_base;
 void __iomem *mmsys_config_base;
+void __iomem *mdpsys_config_base;
 void __iomem *venc_gcon_base;
 void __iomem *vdec_gcon_base;
-void __iomem *apu_vcore_base;
-void __iomem *apu_conn_base;
-void __iomem *apu0_base;
-void __iomem *apu1_base;
-void __iomem *apu_mdla_base;
 
 
 /* CKSYS */
@@ -159,9 +158,9 @@ void __iomem *apu_mdla_base;
 #define CAMSYS_CG_SET		(cam_base + 0x0004)
 #define CAMSYS_CG_CLR		(cam_base + 0x0008)
 
-#define IMG_CG_CON		(img_base + 0x0000)
-#define IMG_CG_SET		(img_base + 0x0004)
-#define IMG_CG_CLR		(img_base + 0x0008)
+#define IMG_CG_CON		(img1_base + 0x0000)
+#define IMG_CG_SET		(img1_base + 0x0004)
+#define IMG_CG_CLR		(img1_base + 0x0008)
 
 #define MFG_CG_CON              (mfgcfg_base + 0x0000)
 #define MFG_CG_SET              (mfgcfg_base + 0x0004)
@@ -183,21 +182,6 @@ void __iomem *apu_mdla_base;
 #define LARB1_CKEN_SET          (vdec_gcon_base + 0x0008)
 #define LARB1_CKEN_CLR          (vdec_gcon_base + 0x000C)
 
-#define APU_VCORE_CG_CON              (apu_vcore_base + 0x0000)
-#define APU_VCORE_CG_SET              (apu_vcore_base + 0x0004)
-#define APU_VCORE_CG_CLR              (apu_vcore_base + 0x0008)
-
-#define APU_CONN_CG_CON              (apu_conn_base + 0x0000)
-#define APU_CONN_CG_SET              (apu_conn_base + 0x0004)
-#define APU_CONN_CG_CLR              (apu_conn_base + 0x0008)
-
-#define APU_CORE0_CG_CON              (apu0_base + 0x0000)
-#define APU_CORE0_CG_SET              (apu0_base + 0x0004)
-#define APU_CORE0_CG_CLR              (apu0_base + 0x0008)
-
-#define APU_CORE1_CG_CON              (apu1_base + 0x0000)
-#define APU_CORE1_CG_SET              (apu1_base + 0x0004)
-#define APU_CORE1_CG_CLR              (apu1_base + 0x0008)
 
 
 
@@ -217,10 +201,6 @@ void __iomem *apu_mdla_base;
 #define VENC_CG 0x10000111 /* inverse */
 #define VDEC_CG 0x1 /* inverse */
 #define VDEC_LARB1_CG 0x1 /* inverse */
-#define APU_CONN_CG 0xff
-#define APU_CORE0_CG 0x7
-#define APU_CORE1_CG 0x7
-#define APU_VCORE_CG 0xf
 
 
 #define CK_CFG_UPDATE	0x04
@@ -2563,18 +2543,18 @@ static const struct mtk_gate audio_clks[] __initconst = {
 #endif
 };
 
-static const struct mtk_gate_regs cam_cg_regs = {
+static const struct mtk_gate_regs cam_m_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
 	.sta_ofs = 0x0,
 };
 
-#define GATE_CAM(_id, _name, _parent, _shift) {	\
-		.id = _id,			\
-		.name = _name,			\
-		.parent_name = _parent,		\
-		.regs = &cam_cg_regs,		\
-		.shift = _shift,		\
+#define GATE_CAM_M(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &cam_m_cg_regs,			\
+		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
@@ -2596,80 +2576,195 @@ static const struct mtk_gate_regs cam_cg_regs = {
 		.ops = &mtk_clk_gate_ops_dummy,	\
 	}
 
-static const struct mtk_gate cam_clks[] __initconst = {
-#if MT_CCF_BRINGUP
-	GATE_CAM_DUMMY(CAMSYS_LARB6_CGPDN, "camsys_larb6", "cam_sel", 0),
-	GATE_CAM_DUMMY(CAMSYS_LARB7_CGPDN, "camsys_larb7", "cam_sel", 2),
-	GATE_CAM_DUMMY(CAMSYS_GALS_CGPDN, "camsys_gals", "cam_sel", 4),
-	GATE_CAM_DUMMY(CAMSYS_CAM_CGPDN, "camsys_cam", "cam_sel", 6),
-	GATE_CAM_DUMMY(CAMSYS_CAMTG_CGPDN, "camsys_camtg", "cam_sel", 7),
-	GATE_CAM_DUMMY(CAMSYS_SENINF_CGPDN, "camsys_seninf", "cam_sel", 8),
-	GATE_CAM_DUMMY(CAMSYS_CAMSV0_CGPDN, "camsys_camsv0", "cam_sel", 9),
-	GATE_CAM_DUMMY(CAMSYS_CAMSV1_CGPDN, "camsys_camsv1", "cam_sel", 10),
-	GATE_CAM_DUMMY(CAMSYS_CCU_CGPDN, "camsys_ccu", "cam_sel", 12),
-	GATE_CAM_DUMMY(CAMSYS_FAKE_ENG_CGPDN, "camsys_fake_eng", "cam_sel", 13),
-#else
-	GATE_CAM_DUMMY(CAMSYS_LARB6_CGPDN, "camsys_larb6", "cam_sel", 0),
-	GATE_CAM_DUMMY(CAMSYS_LARB7_CGPDN, "camsys_larb7", "cam_sel", 2),
-	GATE_CAM_DUMMY(CAMSYS_GALS_CGPDN, "camsys_gals", "cam_sel", 4),
-	GATE_CAM_CHECK(CAMSYS_CAM_CGPDN, "camsys_cam", "cam_sel", 6),
-	GATE_CAM_CHECK(CAMSYS_CAMTG_CGPDN, "camsys_camtg", "cam_sel", 7),
-	GATE_CAM_CHECK(CAMSYS_SENINF_CGPDN, "camsys_seninf", "cam_sel", 8),
-	GATE_CAM_CHECK(CAMSYS_CAMSV0_CGPDN, "camsys_camsv0", "cam_sel", 9),
-	GATE_CAM_CHECK(CAMSYS_CAMSV1_CGPDN, "camsys_camsv1", "cam_sel", 10),
-	GATE_CAM_CHECK(CAMSYS_CCU_CGPDN, "camsys_ccu", "cam_sel", 12),
-	GATE_CAM_CHECK(CAMSYS_FAKE_ENG_CGPDN, "camsys_fake_eng", "cam_sel", 13),
-#endif
+static const struct mtk_gate cam_m_clks[] = {
+	GATE_CAM_M(CLK_CAM_M_LARB13, "cam_m_larb13",
+			"cam_ck"/* parent */, 0),
+	GATE_CAM_M(CLK_CAM_M_LARB14, "cam_m_larb14",
+			"cam_ck"/* parent */, 2),
+	GATE_CAM_M(CLK_CAM_M_RESERVED0, "cam_m_reserved0",
+			"cam_ck"/* parent */, 3),
+	GATE_CAM_M(CLK_CAM_M_CAM, "cam_m_cam",
+			"cam_ck"/* parent */, 6),
+	GATE_CAM_M(CLK_CAM_M_CAMTG, "cam_m_camtg",
+			"cam_ck"/* parent */, 7),
+	GATE_CAM_M(CLK_CAM_M_SENINF, "cam_m_seninf",
+			"cam_ck"/* parent */, 8),
+	GATE_CAM_M(CLK_CAM_M_CAMSV1, "cam_m_camsv1",
+			"cam_ck"/* parent */, 10),
+	GATE_CAM_M(CLK_CAM_M_CAMSV2, "cam_m_camsv2",
+			"cam_ck"/* parent */, 11),
+	GATE_CAM_M(CLK_CAM_M_CAMSV3, "cam_m_camsv3",
+			"cam_ck"/* parent */, 12),
+	GATE_CAM_M(CLK_CAM_M_CCU0, "cam_m_ccu0",
+			"cam_ck"/* parent */, 13),
+	GATE_CAM_M(CLK_CAM_M_CCU1, "cam_m_ccu1",
+			"cam_ck"/* parent */, 14),
+	GATE_CAM_M(CLK_CAM_M_MRAW0, "cam_m_mraw0",
+			"cam_ck"/* parent */, 15),
+	GATE_CAM_M(CLK_CAM_M_RESERVED2, "cam_m_reserved2",
+			"cam_ck"/* parent */, 16),
+	GATE_CAM_M(CLK_CAM_M_FAKE_ENG, "cam_m_fake_eng",
+			"cam_ck"/* parent */, 17),
+	GATE_CAM_M(CLK_CAM_M_CCU_GALS, "cam_m_ccu_gals",
+			"cam_ck"/* parent */, 18),
+	GATE_CAM_M(CLK_CAM_M_CAM2MM_GALS, "cam_m_cam2mm_gals",
+			"cam_ck"/* parent */, 19),
 };
 
-static const struct mtk_gate_regs img_cg_regs = {
+static const struct mtk_gate_regs cam_ra_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
 	.sta_ofs = 0x0,
 };
 
-#define GATE_IMG(_id, _name, _parent, _shift) {	\
+#define GATE_CAM_RA(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &cam_ra_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr,	\
+	}
+
+static const struct mtk_gate cam_ra_clks[] = {
+	GATE_CAM_RA(CLK_CAM_RA_LARBX, "cam_ra_larbx",
+			"cam_ck"/* parent */, 0),
+	GATE_CAM_RA(CLK_CAM_RA_CAM, "cam_ra_cam",
+			"cam_ck"/* parent */, 1),
+	GATE_CAM_RA(CLK_CAM_RA_CAMTG, "cam_ra_camtg",
+			"cam_ck"/* parent */, 2),
+};
+
+static const struct mtk_gate_regs cam_rb_cg_regs = {
+	.set_ofs = 0x4,
+	.clr_ofs = 0x8,
+	.sta_ofs = 0x0,
+};
+
+#define GATE_CAM_RB(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &cam_rb_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr,	\
+	}
+
+static const struct mtk_gate cam_rb_clks[] = {
+	GATE_CAM_RB(CLK_CAM_RB_LARBX, "cam_rb_larbx",
+			"cam_ck"/* parent */, 0),
+	GATE_CAM_RB(CLK_CAM_RB_CAM, "cam_rb_cam",
+			"cam_ck"/* parent */, 1),
+	GATE_CAM_RB(CLK_CAM_RB_CAMTG, "cam_rb_camtg",
+			"cam_ck"/* parent */, 2),
+};
+
+static const struct mtk_gate_regs imgsys1_cg_regs = {
+	.set_ofs = 0x4,
+	.clr_ofs = 0x8,
+	.sta_ofs = 0x0,
+};
+
+#define GATE_IMGSYS1(_id, _name, _parent, _shift) {	\
 		.id = _id,			\
 		.name = _name,			\
 		.parent_name = _parent,		\
-		.regs = &img_cg_regs,		\
+		.regs = &imgsys1_cg_regs,		\
 		.shift = _shift,		\
 		.ops = &mtk_clk_gate_ops_setclr,\
 	}
 
-#define GATE_IMG_DUMMY(_id, _name, _parent, _shift) {	\
+#define GATE_IMGSYS1_DUMMY(_id, _name, _parent, _shift) {	\
 		.id = _id,			\
 		.name = _name,			\
 		.parent_name = _parent,		\
-		.regs = &img_cg_regs,		\
+		.regs = &imgsys1_cg_regs,		\
 		.shift = _shift,		\
 		.ops = &mtk_clk_gate_ops_dummy,	\
 	}
 
-static const struct mtk_gate img_clks[] __initconst = {
-#if 1//MT_CCF_BRINGUP
-	GATE_IMG_DUMMY(IMG_LARB5, "imgsys_larb5", "img_sel", 0),
-	GATE_IMG_DUMMY(IMG_LARB4, "imgsys_larb4", "img_sel", 1),
-	GATE_IMG_DUMMY(IMG_DIP, "imgsys_dip", "img_sel", 2),
-	GATE_IMG_DUMMY(IMG_FDVT, "imgsys_fdvt", "img_sel", 3),
-	GATE_IMG_DUMMY(IMG_DPE, "imgsys_dpe", "img_sel", 4),
-	GATE_IMG_DUMMY(IMG_RSC, "imgsys_rsc", "img_sel", 5),
-	GATE_IMG_DUMMY(IMG_MFB, "imgsys_mfb", "img_sel", 6),
-	GATE_IMG_DUMMY(IMG_WPE_A, "imgsys_wpe_a", "img_sel", 7),
-	GATE_IMG_DUMMY(IMG_WPE_B, "imgsys_wpe_b", "img_sel", 8),
-	GATE_IMG_DUMMY(IMG_OWE, "imgsys_owe", "img_sel", 9),
-#else
-	GATE_IMG(IMG_LARB5, "imgsys_larb5", "img_sel", 0),
-	GATE_IMG(IMG_LARB4, "imgsys_larb4", "img_sel", 1),
-	GATE_IMG(IMG_DIP, "imgsys_dip", "img_sel", 2),
-	GATE_IMG(IMG_FDVT, "imgsys_fdvt", "img_sel", 3),
-	GATE_IMG(IMG_DPE, "imgsys_dpe", "img_sel", 4),
-	GATE_IMG(IMG_RSC, "imgsys_rsc", "img_sel", 5),
-	GATE_IMG(IMG_MFB, "imgsys_mfb", "img_sel", 6),
-	GATE_IMG(IMG_WPE_A, "imgsys_wpe_a", "img_sel", 7),
-	GATE_IMG(IMG_WPE_B, "imgsys_wpe_b", "img_sel", 8),
-	GATE_IMG(IMG_OWE, "imgsys_owe", "img_sel", 9),
-#endif
+static const struct mtk_gate imgsys1_clks[] __initconst = {
+	GATE_IMGSYS1(CLK_IMGSYS1_LARB9, "imgsys1_larb9",
+			"img1_ck"/* parent */, 0),
+	GATE_IMGSYS1(CLK_IMGSYS1_LARB10, "imgsys1_larb10",
+			"img1_ck"/* parent */, 1),
+	GATE_IMGSYS1(CLK_IMGSYS1_DIP, "imgsys1_dip",
+			"img1_ck"/* parent */, 2),
+	GATE_IMGSYS1(CLK_IMGSYS1_GALS, "imgsys1_gals",
+			"img1_ck"/* parent */, 12),
+};
+
+static const struct mtk_gate_regs imgsys2_cg_regs = {
+	.set_ofs = 0x4,
+	.clr_ofs = 0x8,
+	.sta_ofs = 0x0,
+};
+
+#define GATE_IMGSYS2(_id, _name, _parent, _shift) {	\
+		.id = _id,			\
+		.name = _name,			\
+		.parent_name = _parent,		\
+		.regs = &imgsys2_cg_regs,		\
+		.shift = _shift,		\
+		.ops = &mtk_clk_gate_ops_setclr,\
+	}
+
+#define GATE_IMGSYS2_DUMMY(_id, _name, _parent, _shift) {	\
+		.id = _id,			\
+		.name = _name,			\
+		.parent_name = _parent,		\
+		.regs = &imgsys2_cg_regs,		\
+		.shift = _shift,		\
+		.ops = &mtk_clk_gate_ops_dummy,	\
+	}
+
+static const struct mtk_gate imgsys2_clks[] __initconst = {
+	GATE_IMGSYS2(CLK_IMGSYS2_LARB9, "imgsys2_larb9",
+			"img1_ck"/* parent */, 0),
+	GATE_IMGSYS2(CLK_IMGSYS2_LARB10, "imgsys2_larb10",
+			"img1_ck"/* parent */, 1),
+	GATE_IMGSYS2(CLK_IMGSYS2_MFB, "imgsys2_mfb",
+			"img1_ck"/* parent */, 6),
+	GATE_IMGSYS2(CLK_IMGSYS2_WPE, "imgsys2_wpe",
+			"img1_ck"/* parent */, 7),
+	GATE_IMGSYS2(CLK_IMGSYS2_MSS, "imgsys2_mss",
+			"img1_ck"/* parent */, 8),
+	GATE_IMGSYS2(CLK_IMGSYS2_GALS, "imgsys2_gals",
+			"img1_ck"/* parent */, 12),
+};
+
+static const struct mtk_gate_regs ipe_cg_regs = {
+	.set_ofs = 0x4,
+	.clr_ofs = 0x8,
+	.sta_ofs = 0x0,
+};
+
+#define GATE_IPE(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &ipe_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr,	\
+	}
+
+static const struct mtk_gate ipe_clks[] = {
+	GATE_IPE(CLK_IPE_LARB19, "ipe_larb19",
+			"ipe_ck"/* parent */, 0),
+	GATE_IPE(CLK_IPE_LARB20, "ipe_larb20",
+			"ipe_ck"/* parent */, 1),
+	GATE_IPE(CLK_IPE_SMI_SUBCOM, "ipe_smi_subcom",
+			"ipe_ck"/* parent */, 2),
+	GATE_IPE(CLK_IPE_FD, "ipe_fd",
+			"ipe_ck"/* parent */, 3),
+	GATE_IPE(CLK_IPE_FE, "ipe_fe",
+			"ipe_ck"/* parent */, 4),
+	GATE_IPE(CLK_IPE_RSC, "ipe_rsc",
+			"ipe_ck"/* parent */, 5),
+	GATE_IPE(CLK_IPE_DPE, "ipe_dpe",
+			"dpe_ck"/* parent */, 6),
+	GATE_IPE(CLK_IPE_GALS, "ipe_gals",
+			"img2_ck"/* parent */, 8),
 };
 
 
@@ -2787,6 +2882,81 @@ static const struct mtk_gate mm_clks[] __initconst = {
 			"disp_ck"/* parent */, 10),
 };
 
+static const struct mtk_gate_regs mdp0_cg_regs = {
+	.set_ofs = 0x104,
+	.clr_ofs = 0x108,
+	.sta_ofs = 0x100,
+};
+
+static const struct mtk_gate_regs mdp1_cg_regs = {
+	.set_ofs = 0x124,
+	.clr_ofs = 0x128,
+	.sta_ofs = 0x120,
+};
+
+#define GATE_MDP0(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &mdp0_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr,	\
+	}
+
+#define GATE_MDP1(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &mdp1_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr,	\
+	}
+
+static const struct mtk_gate mdp_clks[] = {
+	/* MDP0 */
+	GATE_MDP0(CLK_MDP_RDMA0, "mdp_rdma0",
+			"mdp_ck"/* parent */, 0),
+	GATE_MDP0(CLK_MDP_TDSHP0, "mdp_tdshp0",
+			"mdp_ck"/* parent */, 1),
+	GATE_MDP0(CLK_MDP_IMG_DL_ASYNC0, "mdp_img_dl_async0",
+			"mdp_ck"/* parent */, 2),
+	GATE_MDP0(CLK_MDP_IMG_DL_ASYNC1, "mdp_img_dl_async1",
+			"mdp_ck"/* parent */, 3),
+	GATE_MDP0(CLK_MDP_RDMA1, "mdp_rdma1",
+			"mdp_ck"/* parent */, 4),
+	GATE_MDP0(CLK_MDP_TDSHP1, "mdp_tdshp1",
+			"mdp_ck"/* parent */, 5),
+	GATE_MDP0(CLK_MDP_SMI0, "mdp_smi0",
+			"mdp_ck"/* parent */, 6),
+	GATE_MDP0(CLK_MDP_APB_BUS, "mdp_apb_bus",
+			"mdp_ck"/* parent */, 7),
+	GATE_MDP0(CLK_MDP_WROT0, "mdp_wrot0",
+			"mdp_ck"/* parent */, 8),
+	GATE_MDP0(CLK_MDP_RSZ0, "mdp_rsz0",
+			"mdp_ck"/* parent */, 9),
+	GATE_MDP0(CLK_MDP_HDR0, "mdp_hdr0",
+			"mdp_ck"/* parent */, 10),
+	GATE_MDP0(CLK_MDP_MUTEX0, "mdp_mutex0",
+			"mdp_ck"/* parent */, 11),
+	GATE_MDP0(CLK_MDP_WROT1, "mdp_wrot1",
+			"mdp_ck"/* parent */, 12),
+	GATE_MDP0(CLK_MDP_RSZ1, "mdp_rsz1",
+			"mdp_ck"/* parent */, 13),
+	GATE_MDP0(CLK_MDP_FAKE_ENG0, "mdp_fake_eng0",
+			"mdp_ck"/* parent */, 14),
+	GATE_MDP0(CLK_MDP_AAL0, "mdp_aal0",
+			"mdp_ck"/* parent */, 15),
+	GATE_MDP0(CLK_MDP_AAL1, "mdp_aal1",
+			"mdp_ck"/* parent */, 16),
+	GATE_MDP0(CLK_MDP_COLOR0, "mdp_color0",
+			"mdp_ck"/* parent */, 17),
+	/* MDP1 */
+	GATE_MDP1(CLK_MDP_IMG_DL_RELAY0_ASYNC0, "mdp_img_dl_rel0_as0",
+			"mdp_ck"/* parent */, 0),
+	GATE_MDP1(CLK_MDP_IMG_DL_RELAY1_ASYNC1, "mdp_img_dl_rel1_as1",
+			"mdp_ck"/* parent */, 8),
+};
+
 static const struct mtk_gate_regs vdec0_cg_regs = {
 	.set_ofs = 0x0,
 	.clr_ofs = 0x4,
@@ -2892,159 +3062,6 @@ static const struct mtk_gate venc_global_con_clks[] __initconst = {
 		"venc_sel", 8),
 	GATE_VENC_GLOBAL_CON_DUMMY(VENC_GCON_GALS, "venc_gals",
 		"venc_sel", 28),
-#endif
-};
-
-static const struct mtk_gate_regs apu_conn_cg_regs = {
-	.set_ofs = 0x4,
-	.clr_ofs = 0x8,
-	.sta_ofs = 0x0,
-};
-
-#define GATE_APU_CONN(_id, _name, _parent, _shift) {	\
-		.id = _id,			\
-		.name = _name,			\
-		.parent_name = _parent,		\
-		.regs = &apu_conn_cg_regs,	\
-		.shift = _shift,		\
-		.ops = &mtk_clk_gate_ops_setclr,\
-	}
-
-#define GATE_APU_CONN_DUMMY(_id, _name, _parent, _shift) {	\
-		.id = _id,			\
-		.name = _name,			\
-		.parent_name = _parent,		\
-		.regs = &apu_conn_cg_regs,	\
-		.shift = _shift,		\
-		.ops = &mtk_clk_gate_ops_dummy,	\
-	}
-
-static const struct mtk_gate apu_conn_clks[] __initconst = {
-	GATE_APU_CONN_DUMMY(APU_CONN_APU_CG, "apu_conn_apu", "dsp1_sel", 0),
-	GATE_APU_CONN_DUMMY(APU_CONN_AHB_CG, "apu_conn_ahb", "dsp_sel", 1),
-	GATE_APU_CONN_DUMMY(APU_CONN_AXI_CG, "apu_conn_axi", "dsp_sel", 2),
-	GATE_APU_CONN_DUMMY(APU_CONN_ISP_CG, "apu_conn_isp", "dsp_sel", 3),
-	GATE_APU_CONN_DUMMY(APU_CONN_CAM_ADL_CG, "apu_conn_cam_adl",
-		"dsp_sel", 4),
-	GATE_APU_CONN_DUMMY(APU_CONN_IMG_ADL_CG, "apu_conn_img_adl",
-		"dsp_sel", 5),
-	GATE_APU_CONN_DUMMY(APU_CONN_EMI_26M_CG, "apu_conn_emi_26m",
-		"dsp_sel", 6),
-	GATE_APU_CONN_DUMMY(APU_CONN_VPU_UDI_CG, "apu_conn_vpu_udi",
-		"dsp_sel", 7),
-};
-
-static const struct mtk_gate_regs apu0_cg_regs = {
-	.set_ofs = 0x4,
-	.clr_ofs = 0x8,
-	.sta_ofs = 0x0,
-};
-
-#define GATE_APU0(_id, _name, _parent, _shift) {	\
-		.id = _id,			\
-		.name = _name,			\
-		.parent_name = _parent,		\
-		.regs = &apu0_cg_regs,		\
-		.shift = _shift,		\
-		.ops = &mtk_clk_gate_ops_setclr,\
-	}
-
-#define GATE_APU0_DUMMY(_id, _name, _parent, _shift) {	\
-		.id = _id,			\
-		.name = _name,			\
-		.parent_name = _parent,		\
-		.regs = &apu0_cg_regs,		\
-		.shift = _shift,		\
-		.ops = &mtk_clk_gate_ops_dummy,	\
-	}
-
-static const struct mtk_gate apu0_clks[] __initconst = {
-#if MT_CCF_BRINGUP
-	GATE_APU0_DUMMY(APU0_APU_CG, "apu0_apu", "dsp1_sel", 0),
-	GATE_APU0_DUMMY(APU0_AXI_M_CG, "apu0_axi", "dsp1_sel", 1),
-	GATE_APU0_DUMMY(APU0_JTAG_CG, "apu0_jtag", "dsp1_sel", 2),
-#else
-	GATE_APU0(APU0_APU_CG, "apu0_apu", "dsp1_sel", 0),
-	GATE_APU0(APU0_AXI_M_CG, "apu0_axi", "dsp1_sel", 1),
-	GATE_APU0(APU0_JTAG_CG, "apu0_jtag", "dsp1_sel", 2),
-#endif
-};
-
-static const struct mtk_gate_regs apu1_cg_regs = {
-	.set_ofs = 0x4,
-	.clr_ofs = 0x8,
-	.sta_ofs = 0x0,
-};
-
-#define GATE_APU1(_id, _name, _parent, _shift) {	\
-		.id = _id,			\
-		.name = _name,			\
-		.parent_name = _parent,		\
-		.regs = &apu1_cg_regs,		\
-		.shift = _shift,		\
-		.ops = &mtk_clk_gate_ops_setclr,\
-	}
-
-#define GATE_APU1_DUMMY(_id, _name, _parent, _shift) {	\
-		.id = _id,			\
-		.name = _name,			\
-		.parent_name = _parent,		\
-		.regs = &apu1_cg_regs,		\
-		.shift = _shift,		\
-		.ops = &mtk_clk_gate_ops_dummy,	\
-	}
-
-static const struct mtk_gate apu1_clks[] __initconst = {
-#if MT_CCF_BRINGUP
-	GATE_APU1_DUMMY(APU1_APU_CG, "apu1_apu", "dsp2_sel", 0),
-	GATE_APU1_DUMMY(APU1_AXI_M_CG, "apu1_axi", "dsp2_sel", 1),
-	GATE_APU1_DUMMY(APU1_JTAG_CG, "apu1_jtag", "dsp2_sel", 2),
-#else
-	GATE_APU1(APU1_APU_CG, "apu1_apu", "dsp2_sel", 0),
-	GATE_APU1(APU1_AXI_M_CG, "apu1_axi", "dsp2_sel", 1),
-	GATE_APU1(APU1_JTAG_CG, "apu1_jtag", "dsp2_sel", 2),
-#endif
-};
-
-static const struct mtk_gate_regs apu_vcore_cg_regs = {
-	.set_ofs = 0x4,
-	.clr_ofs = 0x8,
-	.sta_ofs = 0x0,
-};
-
-#define GATE_APU_VCORE(_id, _name, _parent, _shift) {	\
-		.id = _id,			\
-		.name = _name,			\
-		.parent_name = _parent,		\
-		.regs = &apu_vcore_cg_regs,	\
-		.shift = _shift,		\
-		.ops = &mtk_clk_gate_ops_setclr,\
-	}
-
-#define GATE_APU_VCORE_DUMMY(_id, _name, _parent, _shift) {	\
-		.id = _id,			\
-		.name = _name,			\
-		.parent_name = _parent,		\
-		.regs = &apu_vcore_cg_regs,	\
-		.shift = _shift,		\
-		.ops = &mtk_clk_gate_ops_dummy_all,	\
-	}
-
-static const struct mtk_gate apu_vcore_clks[] __initconst = {
-#if 1/*MT_CCF_BRINGUP*/
-	GATE_APU_VCORE_DUMMY(APU_VCORE_AHB_CG, "apu_vcore_ahb",
-		"ipu_if_sel", 0),
-	GATE_APU_VCORE_DUMMY(APU_VCORE_AXI_CG, "apu_vcore_axi",
-		"ipu_if_sel", 1),
-	GATE_APU_VCORE_DUMMY(APU_VCORE_ADL_CG, "apu_vcore_adl",
-		"ipu_if_sel", 2),
-	GATE_APU_VCORE_DUMMY(APU_VCORE_QOS_CG, "apu_vcore_qos",
-		"ipu_if_sel", 3),
-#else
-	GATE_APU_VCORE(APU_VCORE_AHB_CG, "apu_vcore_ahb", "ipu_if_sel", 0),
-	GATE_APU_VCORE(APU_VCORE_AXI_CG, "apu_vcore_axi", "ipu_if_sel", 1),
-	GATE_APU_VCORE(APU_VCORE_ADL_CG, "apu_vcore_adl", "ipu_if_sel", 2),
-	GATE_APU_VCORE(APU_VCORE_QOS_CG, "apu_vcore_qos", "ipu_if_sel", 3),
 #endif
 };
 
@@ -3492,9 +3509,9 @@ static void __init mtk_camsys_init(struct device_node *node)
 		pr_notice("%s(): ioremap failed\n", __func__);
 		return;
 	}
-	clk_data = mtk_alloc_clk_data(CAMSYS_NR_CLK);
+	clk_data = mtk_alloc_clk_data(CLK_CAM_M_NR_CLK);
 
-	mtk_clk_register_gates(node, cam_clks, ARRAY_SIZE(cam_clks), clk_data);
+	mtk_clk_register_gates(node, cam_m_clks, ARRAY_SIZE(cam_m_clks), clk_data);
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
@@ -3504,14 +3521,10 @@ static void __init mtk_camsys_init(struct device_node *node)
 		kfree(clk_data);
 	}
 	cam_base = base;
-
-#if MT_CCF_BRINGUP
-	clk_writel(CAMSYS_CG_CLR, CAMSYS_CG);
-#endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_camsys, "mediatek,camsys", mtk_camsys_init);
 
-static void __init mtk_imgsys_init(struct device_node *node)
+static void __init mtk_camsys_rawa_init(struct device_node *node)
 {
 	struct clk_onecell_data *clk_data;
 	void __iomem *base;
@@ -3522,9 +3535,9 @@ static void __init mtk_imgsys_init(struct device_node *node)
 		pr_notice("%s(): ioremap failed\n", __func__);
 		return;
 	}
-	clk_data = mtk_alloc_clk_data(IMG_NR_CLK);
+	clk_data = mtk_alloc_clk_data(CLK_CAM_RA_NR_CLK);
 
-	mtk_clk_register_gates(node, img_clks, ARRAY_SIZE(img_clks), clk_data);
+	mtk_clk_register_gates(node, cam_ra_clks, ARRAY_SIZE(cam_ra_clks), clk_data);
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
@@ -3533,13 +3546,113 @@ static void __init mtk_imgsys_init(struct device_node *node)
 			__func__, r);
 		kfree(clk_data);
 	}
-	img_base = base;
-
-#if MT_CCF_BRINGUP
-	clk_writel(IMG_CG_CLR, IMG_CG);
-#endif
+	cam_ra_base = base;
 }
-CLK_OF_DECLARE_DRIVER(mtk_imgsys, "mediatek,imgsys", mtk_imgsys_init);
+CLK_OF_DECLARE_DRIVER(mtk_camsys_rawa, "mediatek,camsys_rawa", mtk_camsys_rawa_init);
+
+static void __init mtk_camsys_rawb_init(struct device_node *node)
+{
+	struct clk_onecell_data *clk_data;
+	void __iomem *base;
+	int r;
+
+	base = of_iomap(node, 0);
+	if (!base) {
+		pr_notice("%s(): ioremap failed\n", __func__);
+		return;
+	}
+	clk_data = mtk_alloc_clk_data(CLK_CAM_RB_NR_CLK);
+
+	mtk_clk_register_gates(node, cam_rb_clks, ARRAY_SIZE(cam_rb_clks), clk_data);
+
+	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+
+	if (r) {
+		pr_notice("%s(): could not register clock provider: %d\n",
+			__func__, r);
+		kfree(clk_data);
+	}
+	cam_rb_base = base;
+}
+CLK_OF_DECLARE_DRIVER(mtk_camsys_rawb, "mediatek,camsys_rawb", mtk_camsys_rawb_init);
+
+static void __init mtk_imgsys1_init(struct device_node *node)
+{
+	struct clk_onecell_data *clk_data;
+	void __iomem *base;
+	int r;
+
+	base = of_iomap(node, 0);
+	if (!base) {
+		pr_notice("%s(): ioremap failed\n", __func__);
+		return;
+	}
+	clk_data = mtk_alloc_clk_data(CLK_IMGSYS1_NR_CLK);
+
+	mtk_clk_register_gates(node, imgsys1_clks, ARRAY_SIZE(imgsys1_clks), clk_data);
+
+	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+
+	if (r) {
+		pr_notice("%s(): could not register clock provider: %d\n",
+			__func__, r);
+		kfree(clk_data);
+	}
+	img1_base = base;
+}
+CLK_OF_DECLARE_DRIVER(mtk_imgsys1, "mediatek,imgsys1", mtk_imgsys1_init);
+
+static void __init mtk_imgsys2_init(struct device_node *node)
+{
+	struct clk_onecell_data *clk_data;
+	void __iomem *base;
+	int r;
+
+	base = of_iomap(node, 0);
+	if (!base) {
+		pr_notice("%s(): ioremap failed\n", __func__);
+		return;
+	}
+	clk_data = mtk_alloc_clk_data(CLK_IMGSYS2_NR_CLK);
+
+	mtk_clk_register_gates(node, imgsys2_clks, ARRAY_SIZE(imgsys2_clks), clk_data);
+
+	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+
+	if (r) {
+		pr_notice("%s(): could not register clock provider: %d\n",
+			__func__, r);
+		kfree(clk_data);
+	}
+	img2_base = base;
+}
+CLK_OF_DECLARE_DRIVER(mtk_imgsys2, "mediatek,imgsys2", mtk_imgsys2_init);
+
+static void __init mtk_ipesys_init(struct device_node *node)
+{
+	struct clk_onecell_data *clk_data;
+	void __iomem *base;
+	int r;
+
+	base = of_iomap(node, 0);
+	if (!base) {
+		pr_notice("%s(): ioremap failed\n", __func__);
+		return;
+	}
+	clk_data = mtk_alloc_clk_data(CLK_IPE_NR_CLK);
+
+	mtk_clk_register_gates(node, ipe_clks, ARRAY_SIZE(ipe_clks), clk_data);
+
+	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+
+	if (r) {
+		pr_notice("%s(): could not register clock provider: %d\n",
+			__func__, r);
+		kfree(clk_data);
+	}
+	ipe_base = base;
+}
+CLK_OF_DECLARE_DRIVER(mtk_ipesys, "mediatek,ipesys", mtk_ipesys_init);
 
 static void __init mtk_mfg_cfg_init(struct device_node *node)
 {
@@ -3597,14 +3710,36 @@ static void __init mtk_mmsys_config_init(struct device_node *node)
 		kfree(clk_data);
 	}
 	mmsys_config_base = base;
-#if MT_CCF_BRINGUP
-	/*clk_writel(MM_CG_CLR0, MM_CG0);*/
-	/*clk_writel(MM_CG_CLR1, MM_CG1);*/
-#else
-#endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_mmsys_config, "mediatek,mmsys_config",
 		mtk_mmsys_config_init);
+
+static void __init mtk_mdpsys_config_init(struct device_node *node)
+{
+	struct clk_onecell_data *clk_data;
+	void __iomem *base;
+	int r;
+
+	base = of_iomap(node, 0);
+	if (!base) {
+		pr_notice("%s(): ioremap failed\n", __func__);
+		return;
+	}
+	clk_data = mtk_alloc_clk_data(CLK_MDP_NR_CLK);
+
+	mtk_clk_register_gates(node, mdp_clks, ARRAY_SIZE(mdp_clks), clk_data);
+
+	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+
+	if (r) {
+		pr_notice("%s(): could not register clock provider: %d\n",
+			__func__, r);
+		kfree(clk_data);
+	}
+	mdpsys_config_base = base;
+}
+CLK_OF_DECLARE_DRIVER(mtk_mdpsys_config, "mediatek,mdpsys_config",
+		mtk_mdpsys_config_init);
 
 static void __init mtk_vdec_top_global_con_init(struct device_node *node)
 {
@@ -3670,130 +3805,6 @@ static void __init mtk_venc_global_con_init(struct device_node *node)
 }
 CLK_OF_DECLARE_DRIVER(mtk_venc_global_con, "mediatek,venc_gcon",
 		mtk_venc_global_con_init);
-
-static void __init mtk_apu_conn_init(struct device_node *node)
-{
-	struct clk_onecell_data *clk_data;
-	void __iomem *base;
-	int r;
-
-	base = of_iomap(node, 0);
-	if (!base) {
-		pr_notice("%s(): ioremap failed\n", __func__);
-		return;
-	}
-	clk_data = mtk_alloc_clk_data(APU_CONN_NR_CLK);
-
-	mtk_clk_register_gates(node, apu_conn_clks,
-		ARRAY_SIZE(apu_conn_clks), clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r) {
-		pr_notice("%s(): could not register clock provider: %d\n",
-			__func__, r);
-		kfree(clk_data);
-	}
-	apu_conn_base = base;
-
-#if MT_CCF_BRINGUP
-	/*clk_writel(APU_CONN_CG_CLR, APU_CONN_CG);*/
-#endif
-}
-CLK_OF_DECLARE_DRIVER(mtk_apu_conn, "mediatek,apu_conn", mtk_apu_conn_init);
-
-static void __init mtk_apu0_init(struct device_node *node)
-{
-	struct clk_onecell_data *clk_data;
-	void __iomem *base;
-	int r;
-
-	base = of_iomap(node, 0);
-	if (!base) {
-		pr_notice("%s(): ioremap failed\n", __func__);
-		return;
-	}
-	clk_data = mtk_alloc_clk_data(APU0_NR_CLK);
-
-	mtk_clk_register_gates(node, apu0_clks,
-		ARRAY_SIZE(apu0_clks), clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r) {
-		pr_notice("%s(): could not register clock provider: %d\n",
-			__func__, r);
-		kfree(clk_data);
-	}
-	apu0_base = base;
-
-#if MT_CCF_BRINGUP
-	/*clk_writel(APU_CORE0_CG_CLR, APU_CORE0_CG);*/
-#endif
-}
-CLK_OF_DECLARE_DRIVER(mtk_apu0, "mediatek,apu0", mtk_apu0_init);
-
-static void __init mtk_apu1_init(struct device_node *node)
-{
-	struct clk_onecell_data *clk_data;
-	void __iomem *base;
-	int r;
-
-	base = of_iomap(node, 0);
-	if (!base) {
-		pr_notice("%s(): ioremap failed\n", __func__);
-		return;
-	}
-	clk_data = mtk_alloc_clk_data(APU1_NR_CLK);
-
-	mtk_clk_register_gates(node, apu1_clks,
-		ARRAY_SIZE(apu1_clks), clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r) {
-		pr_notice("%s(): could not register clock provider: %d\n",
-			__func__, r);
-		kfree(clk_data);
-	}
-	apu1_base = base;
-
-#if MT_CCF_BRINGUP
-	/*clk_writel(APU_CORE1_CG_CLR, APU_CORE1_CG);*/
-#endif
-}
-CLK_OF_DECLARE_DRIVER(mtk_apu1, "mediatek,apu1", mtk_apu1_init);
-
-static void __init mtk_apu_vcore_init(struct device_node *node)
-{
-	struct clk_onecell_data *clk_data;
-	void __iomem *base;
-	int r;
-
-	base = of_iomap(node, 0);
-	if (!base) {
-		pr_notice("%s(): ioremap failed\n", __func__);
-		return;
-	}
-	clk_data = mtk_alloc_clk_data(APU_VCORE_NR_CLK);
-
-	mtk_clk_register_gates(node, apu_vcore_clks,
-		ARRAY_SIZE(apu_vcore_clks), clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r) {
-		pr_notice("%s(): could not register clock provider: %d\n",
-			__func__, r);
-		kfree(clk_data);
-	}
-	apu_vcore_base = base;
-
-#if MT_CCF_BRINGUP
-	/*clk_writel(APU_VCORE_CG_CLR, APU_VCORE_CG);*/
-#endif
-}
-CLK_OF_DECLARE_DRIVER(mtk_apu_vcore, "mediatek,apu_vcore", mtk_apu_vcore_init);
 
 void check_seninf_ck(void)
 {
@@ -4052,24 +4063,6 @@ void pll_if_on(void)//check need to add bug_on
 	pr_notice("%s: APLL1 = %dHZ\r\n", __func__, mt_get_abist_freq(28));
 	pr_notice("%s: APLL2 = %dHZ\r\n", __func__, mt_get_abist_freq(29));
 #endif
-}
-
-void clock_force_off(void)
-{
-	/*DISP CG*/
-	clk_writel(MM_CG_SET0, MM_CG0);
-	clk_writel(MM_CG_SET1, MM_CG1);
-	/*AUDIO*/
-	/*clk_writel(AUDIO_TOP_CON0, AUDIO_CG0);*/
-	/*clk_writel(AUDIO_TOP_CON1, AUDIO_CG1);*/
-	/*MFG*/
-	clk_writel(MFG_CG_SET, MFG_CG);
-	/*ISP*/
-	clk_writel(IMG_CG_SET, IMG_CG);
-	/*VENC inverse*/
-	clk_writel(VENC_CG_CLR, VENC_CG);
-	/*CAM*/
-	clk_writel(CAMSYS_CG_SET, CAMSYS_CG);
 }
 
 void pll_force_off(void)
