@@ -376,17 +376,24 @@ static inline unsigned int hmp_select_faster_cpu(struct task_struct *tsk,
 	int lowest_cpu = num_possible_cpus();
 	__always_unused int lowest_ratio =
 		hmp_domain_min_load(hmp_faster_domain(cpu), &lowest_cpu);
+	struct cpumask act_faster_mask;
+	int act_faster_cpu = cpu;
 	/*
 	 * If the lowest-loaded CPU in the domain is allowed by
 	 * the task affinity.
 	 * Select that one, otherwise select one which is allowed
 	 */
 	if (lowest_cpu < nr_cpu_ids &&
-			cpumask_test_cpu(lowest_cpu, &tsk->cpus_allowed))
+			cpumask_test_cpu(lowest_cpu, &tsk->cpus_allowed)
+			&& !cpu_isolated(lowest_cpu))
 		return lowest_cpu;
-	else
-		return cpumask_any_and(&hmp_faster_domain(cpu)->cpus,
+	else {
+		cpumask_andnot(&act_faster_mask,
+				&hmp_faster_domain(cpu)->cpus, cpu_isolated_mask);
+		act_faster_cpu = cpumask_any_and(&act_faster_mask,
 				&tsk->cpus_allowed);
+		return act_faster_cpu;
+	}
 }
 
 static inline void hmp_next_up_delay(struct sched_entity *se, int cpu)
@@ -618,7 +625,7 @@ static int hmp_select_task_rq_fair(int sd_flag, struct task_struct *p,
 	struct list_head *pos;
 	struct cpumask fast_cpu_mask, slow_cpu_mask;
 
-	if (idle_cpu(new_cpu) && hmp_cpu_is_fastest(new_cpu))
+	if (idle_cpu(new_cpu) && hmp_cpu_is_fastest(new_cpu) && !cpu_isolated(new_cpu))
 		return new_cpu;
 
 	/* error handling */
@@ -639,8 +646,10 @@ static int hmp_select_task_rq_fair(int sd_flag, struct task_struct *p,
 		struct hmp_domain *domain;
 
 		domain = list_entry(pos, struct hmp_domain, hmp_domains);
-		if (cpumask_empty(&domain->cpus))
+		if (cpumask_empty(&domain->cpus) ||
+			cpumask_subset(&domain->possible_cpus, cpu_isolated_mask))
 			continue;
+
 		if (cpumask_empty(&fast_cpu_mask)) {
 			cpumask_copy(&fast_cpu_mask, &domain->possible_cpus);
 		} else {
