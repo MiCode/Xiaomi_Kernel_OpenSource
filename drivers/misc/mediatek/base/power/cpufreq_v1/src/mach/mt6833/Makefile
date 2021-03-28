@@ -22,5 +22,5 @@ ccflags-y +=	\
 ifeq ($(findstring k6833v1_64_33m,$(PROJECT_DTB_NAMES)),k6833v1_64_33m)
 subdir-ccflags-y = -DMTK_5GCM_PROJECT
 endif
-
+SSPM_VER := v2
 obj-y += mtk_cpufreq_platform.o

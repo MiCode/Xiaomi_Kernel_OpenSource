@@ -34,5 +34,5 @@ endif
 ifeq ($(findstring k6853v1_64_swrgo_5gc,$(PROJECT_DTB_NAMES)),k6853v1_64_swrgo_5gc)
 subdir-ccflags-y = -DTURBO
 endif
-
+SSPM_VER := v2
 obj-y += mtk_cpufreq_platform.o
