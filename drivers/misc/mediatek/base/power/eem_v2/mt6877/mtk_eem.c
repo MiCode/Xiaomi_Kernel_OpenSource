@@ -2150,30 +2150,14 @@ static int eem_efuse_proc_show(struct seq_file *m, void *v)
 	unsigned int i;
 
 	FUNC_ENTER(FUNC_LV_HELP);
-	for (i = 0; i < 25; i++)
+	for (i = 0; i < IDX_HW_RES_SN; i++)
 		seq_printf(m, "%s[PTP_DUMP] ORIG_RES%d: 0x%08X\n", EEM_TAG, i,
 			get_devinfo_with_index(DEVINFO_IDX_0 + i));
 
-	seq_printf(m, "%s[PTP_DUMP] ORIG_RES%d: 0x%08X\n", EEM_TAG, 25,
-		get_devinfo_with_index(DEVINFO_IDX_25));
-	seq_printf(m, "%s[PTP_DUMP] ORIG_RES%d: 0x%08X\n", EEM_TAG, 27,
-		get_devinfo_with_index(DEVINFO_IDX_27));
-
-
-
 	/* Depend on EFUSE location */
-	for (i = 0; i < IDX_HW_RES_SN;
-		i++)
+	for (i = 0; i < NR_HW_RES_FOR_BANK; i++)
 		seq_printf(m, "%s[PTP_DUMP] RES%d: 0x%08X\n", EEM_TAG, i,
 			val[i]);
-
-	for (i = IDX_HW_RES_SN; i < NR_HW_RES_FOR_BANK - 1; i++)
-		seq_printf(m, "%s[PTP_DUMP] RES%d: 0x%08X\n", EEM_TAG,
-			(i + 3),
-			val[i]);
-
-	seq_printf(m, "%s[PTP_DUMP] RES%d: 0x%08X\n", EEM_TAG,
-		27, val[23]);
 
 	FUNC_EXIT(FUNC_LV_HELP);
 	return 0;

@@ -28,7 +28,7 @@
  * ############################
  */
 #define EEM_FAKE_EFUSE (0)
-#define FAKE_SN_DVT_EFUSE_FOR_DE	(1)
+#define FAKE_SN_DVT_EFUSE_FOR_DE	(0)
 
 /*
  * ##########################
