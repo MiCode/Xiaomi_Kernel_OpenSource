@@ -162,14 +162,6 @@
 			};
 		};
 
-	aliases {
-		ovl0  = &disp_ovl0;
-		ovl3  = &disp_ovl0_2l;
-		rdma0 = &disp_rdma0;
-		dsi0  = &dsi0;
-		ccorr0 = &disp_ccorr0;
-	};
-
 		constraint-list {
 			rc_bus26m: rc_bus26m {
 				id = <0x00000000>;
@@ -188,6 +180,14 @@
 	memory {
 		device_type = "memory";
 		reg = <0 0x40000000 0 0x3e605000>;
+	};
+
+	aliases {
+		ovl0  = &disp_ovl0;
+		ovl3  = &disp_ovl0_2l;
+		rdma0 = &disp_rdma0;
+		dsi0  = &dsi0;
+		ccorr0 = &disp_ccorr0;
 	};
 
 	reserved_memory: reserved-memory {
