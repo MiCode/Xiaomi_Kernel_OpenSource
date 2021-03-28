@@ -32,9 +32,9 @@
  * some feature options should be disabled in bringup stage,
  * in bringup stage this #define should open.
  */
-#if defined(CONFIG_MACH_MT6781)
-#define MTK_DRM_BRINGUP_STAGE
-#endif
+//#if defined(CONFIG_MACH_MT6781)
+//#define MTK_DRM_BRINGUP_STAGE
+//#endif
 
 #ifdef MTK_DRM_BRINGUP_STAGE
 #define DRM_BYPASS_PQ
@@ -64,11 +64,6 @@
 #endif
 
 #endif /*MTK_DRM_BRINGUP_STAGE*/
-
-#ifdef CONFIG_MTK_IOMMU_V2
-#define CONFIG_MTK_DISPLAY_M4U
-#endif
-
 #ifdef CONFIG_MTK_CMDQ_MBOX
 #define MTK_DRM_CMDQ_ASYNC
 #define CONFIG_MTK_DISPLAY_CMDQ
