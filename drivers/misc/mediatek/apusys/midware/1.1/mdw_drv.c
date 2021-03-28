@@ -199,8 +199,7 @@ static int mdw_remove(struct platform_device *pdev)
 
 static int mdw_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
-	mdw_sched_pause();
-	return 0;
+	return mdw_sched_pause();
 }
 
 static int mdw_resume(struct platform_device *pdev)

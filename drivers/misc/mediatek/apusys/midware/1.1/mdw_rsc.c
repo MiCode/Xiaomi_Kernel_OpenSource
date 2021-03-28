@@ -507,7 +507,23 @@ static int mdw_rsc_sec_off(struct mdw_dev_info *d)
 
 static int mdw_rsc_suspend(struct mdw_dev_info *d)
 {
-	return d->dev->send_cmd(APUSYS_CMD_SUSPEND, NULL, d->dev);
+	struct mdw_rsc_tab *t = mdw_rsc_get_tab(d->type);
+	int ret = 0;
+
+	if (!t)
+		return -ENODEV;
+
+	mutex_lock(&t->mtx);
+	if (d->state != MDW_DEV_INFO_STATE_IDLE) {
+		mdw_drv_warn("dev(%s%d) busy(%d)\n", d->name, d->idx, d->state);
+		ret = -EBUSY;
+		goto out;
+	}
+
+	ret = d->dev->send_cmd(APUSYS_CMD_SUSPEND, NULL, d->dev);
+out:
+	mutex_unlock(&t->mtx);
+	return ret;
 }
 
 static int mdw_rsc_resume(struct mdw_dev_info *d)

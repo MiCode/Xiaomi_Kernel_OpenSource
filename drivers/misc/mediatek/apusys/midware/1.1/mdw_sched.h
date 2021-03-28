@@ -26,7 +26,7 @@ void mdw_sched_set_thd_group(void);
 int mdw_sched_init(void);
 void mdw_sched_exit(void);
 
-void mdw_sched_pause(void);
+int mdw_sched_pause(void);
 void mdw_sched_restart(void);
 
 #endif
