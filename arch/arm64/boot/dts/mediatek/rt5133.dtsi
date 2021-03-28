@@ -20,6 +20,7 @@
 		regulator-name = "rt5133-gpio1";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
+		vin-supply = <&rt5133_ldo1>;
 		enable-active-high;
 		gpio = <&rt5133 0 0x0>;
 	};
@@ -29,6 +30,7 @@
 		regulator-name = "rt5133-gpio2";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
+		vin-supply = <&rt5133_ldo1>;
 		enable-active-high;
 		gpio = <&rt5133 1 0x0>;
 	};
@@ -38,6 +40,7 @@
 		regulator-name = "rt5133-gpio3";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
+		vin-supply = <&rt5133_ldo1>;
 		enable-active-high;
 		gpio = <&rt5133 2 0x0>;
 	};
@@ -51,8 +54,8 @@
 		compatible = "richtek,rt5133";
 		reg = <0x18>;
 		wakeup-source;
-		interrupts-extended = <&pio 163 0x0>;
-		enable-gpio = <&pio 162 0x0>;
+		interrupts-extended = <&pio 11 0x0>;
+		enable-gpio = <&pio 25 0x0>;
 		gpio-supply = <&rt5133_ldo1>;
 		gpio-controller;
 		#gpio-cells = <2>;
