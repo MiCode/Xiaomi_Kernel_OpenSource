@@ -3663,10 +3663,10 @@
 };
 
 &i2c6 {
-	speaker_amp: speaker_amp@5c {
+	speaker_amp: speaker_amp@34 {
 		compatible = "mediatek,speaker_amp";
 		#sound-dai-cells = <0>;
-		reg = <0x5c>;
+		reg = <0x34>;
 		status = "okay";
 	};
 };
