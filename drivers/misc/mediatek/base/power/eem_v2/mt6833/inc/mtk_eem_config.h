@@ -17,7 +17,7 @@
 
 
 /* CONFIG (SW related) */
-#define EEM_NOT_READY		(0)
+#define EEM_NOT_READY		(1)
 #define EARLY_PORTING		(0)
 #define LOG_INTERVAL		(100LL * MSEC_PER_SEC)
 
