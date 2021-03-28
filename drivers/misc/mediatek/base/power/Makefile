@@ -174,4 +174,5 @@ ifeq ($(CONFIG_MTK_GPU_SUPPORT), y)
 obj-$(CONFIG_MACH_MT6853) += gpufreq_v1/
 obj-$(CONFIG_MACH_MT6833) += gpufreq_v1/
 obj-$(CONFIG_MACH_MT6877) += gpufreq_v1/
+obj-$(CONFIG_MACH_MT6781) += gpufreq_v1/
 endif
