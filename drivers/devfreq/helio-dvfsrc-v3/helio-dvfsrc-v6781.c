@@ -34,7 +34,9 @@
 #include <linux/platform_device.h>
 #include <linux/sched/clock.h>
 #include <dbgtop.h>
+#if defined(CONFIG_MTK_DVFSRC_MT6781_PRETEST)
 #include <ext_wd_drv.h>
+#endif
 
 #define dvfsrc_rmw(offset, val, mask, shift) \
 	dvfsrc_write(offset, (dvfsrc_read(offset) & ~(mask << shift)) \
