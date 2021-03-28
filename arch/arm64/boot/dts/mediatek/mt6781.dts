@@ -967,9 +967,9 @@
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>,
 				 /bits/ 16 <CMDQ_SYNC_RESOURCE_WROT0>,
 				 /bits/ 16 <CMDQ_SYNC_RESOURCE_WROT1>;
-		// clocks = <&infracfg_ao CLK_IFRAO_GCE>,
-		//	 <&infracfg_ao CLK_IFRAO_GCE_26M>;
-		// clock-names = "gce", "gce-timer";
+		 clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>,
+			 <&infracfg_ao INFRACFG_AO_GCE_26M_CG>;
+		 clock-names = "gce", "gce-timer";
 	};
 
 	gce_mbox_sec: gce_mbox_sec@1022c000 {
@@ -977,8 +977,8 @@
 		reg = <0 0x1022c000 0 0x4000>;
 		#mbox-cells = <3>;
 		mboxes = <&gce_mbox 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
-		// clocks = <&infracfg_ao CLK_IFRAO_GCE>;
-		// clock-names = "gce";
+		clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>;
+		clock-names = "gce";
 	};
 
 	cmdq-test {
