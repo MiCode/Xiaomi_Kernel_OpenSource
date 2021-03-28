@@ -863,7 +863,7 @@ int mt6781_init_clock(struct mtk_base_afe *afe)
 		return -ENOMEM;
 
 	for (i = 0; i < CLK_NUM; i++) {
-		//afe_priv->clk[i] = devm_clk_get(afe->dev, aud_clks[i]);
+		afe_priv->clk[i] = devm_clk_get(afe->dev, aud_clks[i]);
 		if (IS_ERR(afe_priv->clk[i])) {
 			dev_warn(afe->dev, "%s devm_clk_get %s fail, ret %ld\n",
 				 __func__,
