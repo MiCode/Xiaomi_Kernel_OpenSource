@@ -303,6 +303,11 @@
 		interrupt = <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	dbgtop@1000d000 {
+		compatible = "mediatek,dbgtop";
+		reg = <0 0x1000d000 0 0x1000>;
+	};
+
 	topckgen: topckgen@10000000 {
 		compatible = "mediatek,topckgen";
 		reg = <0 0x10000000 0 0x1000>;
@@ -1097,11 +1102,6 @@
 		compatible = "mediatek,devapc";
 		reg = <0 0x10207000 0 0x1000>;
 		interrupts = <GIC_SPI 231 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	bus_dbg@10208000 {
-		compatible = "mediatek,bus_dbg";
-		reg = <0 0x10208000 0 0x1000>;
 	};
 
 	ap_ccif0@10209000 {
