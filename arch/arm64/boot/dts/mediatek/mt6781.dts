@@ -22,6 +22,7 @@
 #include <dt-bindings/mfd/mt6366-irq.h>
 #include <dt-bindings/mmc/mt6833-msdc.h>
 #include <dt-bindings/gce/mt6781-gce.h>
+#include <generated/autoconf.h>
 
 / {
 	model = "MT6781";
@@ -779,6 +780,17 @@
 		compatible = "mediatek,pmic-accdet";
 		mediatek,accdet-pmic = <0x66>;
 	};
+
+	mt6358_gauge {
+		compatible = "mediatek,mt6358_gauge";
+		gauge_name = "gauge";
+		alias_name = "MT6358";
+	};
+
+#if (CONFIG_MTK_GAUGE_VERSION == 30)
+	#include "mediatek/bat_setting/mt6781_battery_prop.dtsi"
+#endif
+
 	md_ccif3@1023f000 {
 		compatible = "mediatek,md_ccif3";
 		reg = <0 0x1023f000 0 0x1000>;
