@@ -58,6 +58,7 @@
 	defined(CONFIG_MACH_MT6771) || \
 	defined(CONFIG_MACH_MT6768) || \
 	defined(CONFIG_MACH_MT6785) || \
+	defined(CONFIG_MACH_MT6781) || \
 	defined(CONFIG_MACH_KIBOPLUS) || \
 	defined(CONFIG_MACH_MT6885) || \
 	defined(CONFIG_MACH_MT6853) || \
