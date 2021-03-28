@@ -17,32 +17,6 @@ GPU_TOP = $(srctree)/drivers/gpu/mediatek/
 
 subdir-ccflags-y += -Wno-error
 
-#MT6781 config
-ifeq ($(CONFIG_MACH_MT6781),y)
-ccflags-y += -DMTK_GPUFREQ_V1
-#ccflags-y += -DGED_KPI_MET_DEBUG
-ccflags-y += -DMTK_GED_KPI
-ccflags-y += -DGED_KPI_CPU_BOOST
-
-ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
-ccflags-y += -DGED_ENABLE_FB_DVFS
-ccflags-y += -DGED_ENABLE_DYNAMIC_DVFS_MARGIN
-ccflags-y += -DGED_CONFIGURE_LOADING_BASE_DVFS_STEP
-ccflags-y += -DGED_ENABLE_TIMER_BASED_DVFS_MARGIN
-#ccflags-y += -DMTK_CPUFREQ
-ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
-endif
-
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3
-
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/mt6781
-ccflags-y += \
-    -I$(MTK_TOP)/base/power/mt6781/ \
-    -I$(srctree)/drivers/misc/mediatek/video/mt6781/videox \
-    -I$(srctree)/drivers/misc/mediatek/video/mt6781/dispsys \
-    -I$(srctree)/drivers/misc/mediatek/sspm/mt6781
-endif
-
 #
 # mt6853 family config (mt6833)
 #
