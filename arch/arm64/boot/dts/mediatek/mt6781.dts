@@ -1441,29 +1441,70 @@
 		reg = <0 0x0e700000 0 0x100000>;
 	};
 
-	dfd@13e00000 {
-		compatible = "mediatek,dfd";
+	mali: mali@13000000 {
+		compatible = "mediatek,mali", "arm,mali-valhall";
+		reg = <0 0x13000000 0 0x4000>;
+		interrupts =
+			<GIC_SPI 274 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 275 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 276 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 277 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 278 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names =
+			"GPU",
+			"MMU",
+			"JOB",
+			"EVENT",
+			"PWR";
+	};
+
+	gpufreq {
+		compatible = "mediatek,gpufreq";
+		clocks =
+			<&topckgen TOP_MUX_MFG>,
+			<&topckgen TOP_MFGPLL_CK>,
+			<&topckgen TOP_MAINPLL_D5>,
+			<&mfgcfg MFGCFG_BG3D>,
+			<&scpsys SCP_SYS_MFG0>,
+			<&scpsys SCP_SYS_MFG1>,
+			<&scpsys SCP_SYS_MFG2>,
+			<&scpsys SCP_SYS_MFG3>;
+		clock-names =
+			"clk_mux",		/* switch main/sub */
+			"clk_main_parent",	/* main pll freq */
+			"clk_sub_parent",	/* default 218.4 MHz */
+			"subsys_mfg_cg",
+			"mtcmos_mfg_async",		/* ASYNC MFG0 */
+			"mtcmos_mfg",		/* MFG_TOP MFG1 */
+			"mtcmos_mfg_core0",		/* Shader Stack0  MFG2*/
+			"mtcmos_mfg_core1";		/* Shader Stack2  MFG3*/
+#ifndef CONFIG_FPGA_EARLY_PORTING
+		_vgpu-supply = <&mt_pmic_vgpu_buck_reg>;
+		_vsram_gpu-supply = <&mt_pmic_vsram_gpu_ldo_reg>;
+#endif
+	};
+
+	dfd_controller@13e00000 {
+		compatible = "mediatek,dfd_controller";
 		reg = <0 0x13e00000 0 0x112000>;
 	};
 
-	g3d_config@13fbc000 {
-		compatible = "mediatek,g3d_config";
+	g3d_secure_reg@13fbc000 {
+		compatible = "mediatek,g3d_secure_reg";
 		reg = <0 0x13fbc000 0 0x1000>;
 	};
 
-	g3d_config@13fbd000 {
-		compatible = "mediatek,g3d_config";
+	g3d_testbench@13fbd000 {
+		compatible = "mediatek,g3d_testbench", "syscon";
 		reg = <0 0x13fbd000 0 0x1000>;
 	};
 
-	g3d_config@13fbf000 {
-		compatible = "mediatek,g3d_config";
-		reg = <0 0x13fbf000 0 0x1000>;
-	};
-
 	mfgcfg: mfgcfg@13fbf000 {
-		compatible = "mediatek,mfgcfg", "syscon";
+		compatible = "mediatek,mfgcfg",
+			"mediatek,mt6781-mfgsys", "syscon",
+			"mediatek,g3d_config";
 		reg = <0 0x13fbf000 0 0x1000>;
+		pwr-regmap = <&sleep>;
 		#clock-cells = <1>;
 	};
 
