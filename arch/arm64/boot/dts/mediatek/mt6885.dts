@@ -5534,6 +5534,8 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x1602f000 0 0x1000>,		/* VDEC_SYS */
 			 <0 0x16000000 0 0x1000>,		/* VDEC_BASE */
 			 <0 0x16020000 0 0x1000>,		/* VDEC_VLD */
+			 <0 0x16021000 0 0x1000>,		/* VDEC_MC */
+			 <0 0x16023000 0 0x1000>,		/* VDEC_MV */
 			 <0 0x16025000 0 0x4000>,		/* VDEC_MISC */
 			 <0 0x16010000 0 0x1000>, /* VDEC_LAT_MISC */
 			 <0 0x16011000 0 0x400>, /* VDEC_LAT_VLD */
