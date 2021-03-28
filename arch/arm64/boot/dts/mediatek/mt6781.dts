@@ -2345,28 +2345,7 @@
 	};
 
 	mmdvfs: mmdvfs_pmqos {
-		compatible = "mediatek,mmdvfs_pmqos";
-		larb_groups = <0 1 2 4 7 9 11 13 14 16 17 19 20>;
-		larb0 = <8 7 8 8>;
-		larb1 = <7 8 8 9 8>;
-		larb2 = <7 7 8 8 8>;
-		larb4 = <6 7 8 7 7 7 7 7 7 6 6 7 8 9>;
-		larb7 = <7 8 8 8 7 7 7 7 7 7 7 7 8>;
-		larb9 = <7 7 7 7 7 7 8 8 8 8 7 7 8 9 8 6 6 7
-			7 7 7 7 7 7 8 8 8 8 7>;
-		larb11 = <7 7 7 7 7 7 8 8 8 8 7 7 8 9 8 6 6 7
-			7 7 7 7 7 7 8 8 8 8 7>;
-		larb13 = <7 8 8 8 8 8 8 8 8 7 8 7>;
-		larb14 = <7 8 8 8 7 8>;
-		larb16 = <8 8 7 7 8 7 7 7 8 8 8 8 8 8 8 8 7>;
-		larb17 = <8 8 7 7 8 7 7 7 8 8 8 8 8 8 8 8 7>;
-		larb19 = <7 8 7 8>;
-		larb20 = <7 7 8 8 6 7>;
-		/* include SMI common CCU */
-		cam_larb = <13 14 16 17>;
-		max_ostd_larb = <0 1>;
-		max_ostd = <40>;
-		comm_freq = "disp_freq";
+		compatible = "mediatek,mmdvfs";
 		disp_step0 = <560 1 0 7>;
 		disp_step0_ext = <560 2 9 0x1589D8>;
 		disp_step1 = <450 1 0 7>;
@@ -2429,6 +2408,31 @@
 			"TOP_UNIVPLL_D3",	/* 9 */
 			"TOP_UNIVPLL_D2_D2",	/* 10 */
 			"TOP_MAINPLL_D3";	/* 11 */
+	};
+
+	mmqos: mmqos {
+		compatible = "mediatek,mmqos";
+		larb_groups = <0 1 2 4 7 9 11 13 14 16 17 19 20>;
+		larb0 = <8 7 8 8>;
+		larb1 = <7 8 8 9 8>;
+		larb2 = <7 7 8 8 8>;
+		larb4 = <6 7 8 7 7 7 7 7 7 6 6 7 8 9>;
+		larb7 = <7 8 8 8 7 7 7 7 7 7 7 7 8>;
+		larb9 = <7 7 7 7 7 7 8 8 8 8 7 7 8 9 8 6 6 7
+			7 7 7 7 7 7 8 8 8 8 7>;
+		larb11 = <7 7 7 7 7 7 8 8 8 8 7 7 8 9 8 6 6 7
+			7 7 7 7 7 7 8 8 8 8 7>;
+		larb13 = <7 8 8 8 8 8 8 8 8 7 8 7>;
+		larb14 = <7 8 8 8 7 8>;
+		larb16 = <8 8 7 7 8 7 7 7 8 8 8 8 8 8 8 8 7>;
+		larb17 = <8 8 7 7 8 7 7 7 8 8 8 8 8 8 8 8 7>;
+		larb19 = <7 8 7 8>;
+		larb20 = <7 7 8 8 6 7>;
+		/* include SMI common CCU */
+		cam_larb = <13 14 16 17>;
+		max_ostd_larb = <0 1>;
+		max_ostd = <40>;
+		comm_freq = <0>;
 	};
 
 	disp_ovl0: disp_ovl0@14005000 {
