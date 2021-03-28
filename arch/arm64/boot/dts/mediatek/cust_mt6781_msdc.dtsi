@@ -1,0 +1,51 @@
+/*
+ * Copyright (c) 2017 MediaTek Inc.
+ * Author: Shi.Ma <shi.ma@mediatek.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&msdc0 {
+	index = /bits/ 8 <0>;
+	clk_src = /bits/ 8 <MSDC0_CLKSRC_400MHZ>;
+	bus-width = <8>;
+	max-frequency = <200000000>;
+	cap-mmc-highspeed;
+	no-sd;
+	no-sdio;
+	non-removable;
+
+	host_function = /bits/ 8 <MSDC_EMMC>;
+	bootable;
+
+	status = "okay";
+};
+
+
+&msdc1 {
+	index = /bits/ 8 <1>;
+	clk_src = /bits/ 8 <MSDC1_CLKSRC_200MHZ>;
+	bus-width = <4>;
+	max-frequency = <200000000>;
+	cap-sd-highspeed;
+	cap-mmc-highspeed;
+	sd-uhs-sdr12;
+	sd-uhs-sdr25;
+	sd-uhs-sdr50;
+	sd-uhs-sdr104;
+	sd-uhs-ddr50;
+	mmc-ddr-1_8v;
+	mmc-hs200-1_8v;
+	no-sdio;
+
+	host_function = /bits/ 8 <MSDC_SD>;
+
+	status = "okay";
+};

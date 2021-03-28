@@ -18,6 +18,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/memory/mt6781-larb-port.h>
+#include <dt-bindings/mmc/mt6833-msdc.h>
 
 / {
 	model = "MT6781";
@@ -896,14 +897,16 @@
 		reg = <0 0x11212000 0 0xe000>;
 	};
 
-	msdc0@11230000 {
-		compatible = "mediatek,msdc0";
+	msdc0: msdc0@11230000 {
+		compatible = "mediatek,msdc";
 		reg = <0 0x11230000 0 0x10000>;
+		interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	msdc1@11240000 {
-		compatible = "mediatek,msdc1";
+	msdc1: msdc1@11240000 {
+		compatible = "mediatek,msdc";
 		reg = <0 0x11240000 0 0x10000>;
+		interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	mipi_rx_ana_csi0@11c10000 {
@@ -916,8 +919,8 @@
 		reg = <0 0x11c80000 0 0x10000>;
 	};
 
-	msdc1_pad_macro@11c90000 {
-		compatible = "mediatek,msdc1_pad_macro";
+	msdc1_top@11c90000 {
+		compatible = "mediatek,msdc1_top";
 		reg = <0 0x11c90000 0 0x10000>;
 	};
 
@@ -931,8 +934,8 @@
 		reg = <0 0x11cb0000 0 0x10000>;
 	};
 
-	msdc0_pad_macro@11cd0000 {
-		compatible = "mediatek,msdc0_pad_macro";
+	msdc0_top@11cd0000 {
+		compatible = "mediatek,msdc0_top";
 		reg = <0 0x11cd0000 0 0x10000>;
 	};
 
@@ -1992,3 +1995,5 @@
 		/* reserved for overlay by odm */
 	};
 };
+
+#include "mediatek/cust_mt6781_msdc.dtsi"
