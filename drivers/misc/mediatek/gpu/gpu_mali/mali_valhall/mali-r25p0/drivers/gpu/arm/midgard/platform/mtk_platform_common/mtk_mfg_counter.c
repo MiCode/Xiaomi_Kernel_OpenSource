@@ -35,7 +35,8 @@
 #define SHADER_BLOCK_NAME_POS	2
 #define MMU_BLOCK_NAME_POS		3
 //gpu stall counter
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833) \
+	|| defined(CONFIG_MACH_MT6781)
 #define GPU_STALL_ADD_BASE	0x1021C000
 #else
 #define GPU_STALL_ADD_BASE	0x1021E000
