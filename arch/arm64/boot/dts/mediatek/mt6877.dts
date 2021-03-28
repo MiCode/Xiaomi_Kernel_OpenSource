@@ -3457,6 +3457,53 @@
 		/* reserved for overlay by odm */
 	};
 
+	apusys_reviser@19021000 {
+		compatible = "mediatek,apusys_reviser";
+		reg = <0 0x19021000 0 0x1000>,		/* apu_sctrl_reviser  */
+			  <0 0x1d800000 0 0x200000>,	/* VLM          */
+			  <0 0x1d000000 0 0x000000>,	/* TCM          */
+			  <0 0x19001000 0 0x1000>;		/* apusys int */
+		interrupts = <GIC_SPI 494 IRQ_TYPE_LEVEL_HIGH>;
+#ifdef CONFIG_MTK_IOMMU_V2
+		//iommus = <&iommu1 M4U_PORT_L21_APU_FAKE_VLM>;
+#endif
+	};
+
+	apusys_mnoc@1906e000 {
+		compatible = "mediatek,apusys_mnoc";
+		reg = <0 0x1906e000 0 0x2000>,	/* mnoc reg  */
+		      <0 0x19001000 0 0x1000>,	/* apusys int */
+		      <0 0x19020000 0 0x1000>,	/* apu_conn_config */
+		      <0 0x10001000 0 0x1000>,	/* slp prot 1 */
+		      <0 0x10215000 0 0x1000>;	/* slp prot 2 */
+		interrupts = <GIC_SPI 494 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	edma0: edma0@19025000 {
+		compatible = "mtk,edma-sub-v30";
+		reg = <0x0 0x19025000 0x0 0x1000>;
+		interrupts = <GIC_SPI 503 IRQ_TYPE_LEVEL_HIGH>;
+#ifdef CONFIG_MTK_IOMMU_V2
+		//iommus = <&iommu1 M4U_PORT_L21_APU_FAKE_VLM>;
+#endif
+	};
+
+	edma: edma {
+		compatible = "mtk,edma";
+		sub_nr = <1>;
+		mediatek,edma-sub = <&edma0>;
+	};
+
+	mtk_mdla: mdla@19036000 {
+		compatible = "mediatek, mt6877-mdla";
+		core_num = <1>;
+		reg = <0 0x19034000 0 0x1000>,  /* dla0 config  */
+			<0 0x19036000 0 0x1000>,  /* dla0 command */
+			<0 0x19035000 0 0x1000>,  /* dla0 biu     */
+			<0 0x1d000000 0 0x100000>,/* GSM,TODO      */
+			<0 0x19020000 0 0x40000>;  /* APU CONN     */
+		interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH>;
+	};
 	spi0: spi0@1100a000 {
 		compatible = "mediatek,mt6765-spi";
 		mediatek,pad-select = <0>;
