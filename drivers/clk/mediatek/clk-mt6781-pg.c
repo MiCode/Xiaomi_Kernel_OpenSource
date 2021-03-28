@@ -597,8 +597,8 @@ static void ram_console_update(void)
 			if (pgcb->debug_dump)
 				pgcb->debug_dump(DBG_ID);
 		}
+		spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 	}
-	spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 	for (j = 0; j <= i; j++)
 		aee_rr_rec_clk(j, data[j]);
 	/*todo: add each domain's debug register to ram console*/
