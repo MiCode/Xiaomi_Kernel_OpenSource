@@ -1847,9 +1847,28 @@
 		reg = <0 0x1401f000 0 0xe1000>;
 	};
 
-	imgsys_config@15020000 {
-		compatible = "mediatek,imgsys_config";
+	imgsys1_clk: syscon@15020000 {
+		compatible = "mediatek,mt6781-imgsys1", "syscon";
 		reg = <0 0x15020000 0 0x1000>;
+		pwr-regmap = <&scpsys>;
+		#clock-cells = <1>;
+	};
+
+	imgsys_config: imgsys_config@15020000 {
+		compatible = "mediatek,imgsys", "syscon";
+		reg = <0 0x15020000 0 0x1000>;
+		clocks =
+				<&imgsys1_clk CLK_IMGSYS1_LARB9>,
+				<&imgsys1_clk CLK_IMGSYS1_DIP>,
+				<&imgsys2_clk CLK_IMGSYS2_LARB9>,
+				<&imgsys2_clk CLK_IMGSYS2_MSS>,
+				<&imgsys2_clk CLK_IMGSYS2_MFB>;
+		clock-names =
+				"DIP_CG_IMG_LARB9",
+				"DIP_CG_IMG_DIP",
+				"DIP_CG_IMG_LARB11",
+				"DIP_CG_IMG_DIP_MSS",
+				"DIP_CG_IMG_MFB_DIP";
 	};
 
 	imgsys1: imgsys1@15020000 {
@@ -1859,8 +1878,9 @@
 	};
 
 	dip_a0@15021000 {
-		compatible = "mediatek,dip_a0";
+		compatible = "mediatek,dip1";
 		reg = <0 0x15021000 0 0x1000>;
+		interrupts = <GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	dip_a1@15022000 {
@@ -1954,15 +1974,16 @@
 		reg = <0 0x15012000 0 0x1000>;
 	};
 
-	imgsys2_config@15820000 {
-		compatible = "mediatek,imgsys2_config";
+	imgsys2_clk: syscon@15820000 {
+		compatible = "mediatek,mt6781-imgsys2", "syscon";
 		reg = <0 0x15820000 0 0x1000>;
+		pwr-regmap = <&scpsys>;
+		#clock-cells = <1>;
 	};
 
-	imgsys2: imgsys2@15820000 {
+	imgsys2_config: imgsys2_config@15820000 {
 		compatible = "mediatek,imgsys2", "syscon";
 		reg = <0 0x15820000 0 0x1000>;
-		#clock-cells=<1>;
 	};
 
 	dip_b0@15821000 {
@@ -2041,6 +2062,12 @@
 		mediatek,smi-id = <12>;
 	};
 
+	msfdl@15810000 {
+		compatible = "mediatek,msfdl";
+		reg = <0 0x15810000 0 0x1000>;
+		interrupts = <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	mfb_b@15810000 {
 		compatible = "mediatek,mfb_b";
 		reg = <0 0x15810000 0 0x1000>;
@@ -2049,6 +2076,12 @@
 	wpe_b@15811000 {
 		compatible = "mediatek,wpe_b";
 		reg = <0 0x15811000 0 0x1000>;
+	};
+
+	mssdl@15812000 {
+		compatible = "mediatek,mssdl";
+		reg = <0 0x15812000 0 0x1000>;
+		interrupts = <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	mss_b@15812000 {
