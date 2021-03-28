@@ -151,6 +151,28 @@ config MACH_MT6785
 	  Support for fpga_64_mt6785 related projects
 	  Support for mt6785 related projects
 
+config MACH_MT6781
+	bool "MediaTek MT6781"
+	select ARM_DSU_PMU
+	select MTK_TIMER_SYSTIMER
+	select IRQ_DOMAIN
+	select MFD_SYSCON
+	select MTK_SYSIRQ
+	select EXT4_FS
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select SDCARD_FS
+	select OVERLAY_FS
+	select CPU_IDLE
+	select PM_DEVFREQ
+	select ARM64_CRYPTO
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	help
+	  This enables support for MediaTek MT6781
+	  Support for aarch64 Architecture
+	  Support for fpga_64_mt6781 related projects
+	  Support for mt6781 related projects
 
 config MACH_MT6765
 	bool "MediaTek MT6765"
