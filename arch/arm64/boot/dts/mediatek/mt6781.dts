@@ -580,6 +580,10 @@
 			interrupt-parent = <&pio>;
 			interrupts = <144 IRQ_TYPE_LEVEL_HIGH 144 0>;
 			status = "okay";
+
+			pmic_oc_debug: pmic-oc-debug {
+				compatible = "mediatek,pmic-oc-debug";
+			};
 		};
 
 	};
