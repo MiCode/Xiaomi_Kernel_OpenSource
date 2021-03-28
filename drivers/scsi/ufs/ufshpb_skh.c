@@ -77,7 +77,7 @@ static void skhpb_purge_active_block(struct skhpb_lu *hpb);
 static int skhpb_set_map_req(struct skhpb_lu *hpb,
 		int region, int subregion, struct skhpb_map_ctx *mctx,
 		struct skhpb_rsp_info *rsp_info,
-		enum SKHPB_BUFFER_MODE flag, bool unset_rb_block);
+		enum SKHPB_BUFFER_MODE flag);
 static void skhpb_rsp_map_cmd_req(struct skhpb_lu *hpb,
 		struct skhpb_rsp_info *rsp_info);
 static void skhpb_map_loading_trigger(struct skhpb_lu *hpb,
@@ -85,6 +85,9 @@ static void skhpb_map_loading_trigger(struct skhpb_lu *hpb,
 
 static inline void skhpb_purge_active_page(struct skhpb_lu *hpb,
 		struct skhpb_subregion *cp, int state);
+
+static void skhpb_hit_lru_info(struct skhpb_victim_select_info *lru_info,
+		struct skhpb_region *cb);
 
 static inline void skhpb_get_bit_offset(
 		struct skhpb_lu *hpb, int subregion_offset,
@@ -98,17 +101,15 @@ static inline void skhpb_get_bit_offset(
 static bool skhpb_ppn_dirty_check(struct skhpb_lu *hpb,
 		struct skhpb_subregion *cp, int subregion_offset)
 {
-	bool is_dirty;
+	bool is_dirty = false;
 	unsigned int bit_dword, bit_offset;
 
 	if (!cp->mctx->ppn_dirty)
-		return false;
+		return true;
 
 	skhpb_get_bit_offset(hpb, subregion_offset,
 			&bit_dword, &bit_offset);
-
-	is_dirty = cp->mctx->ppn_dirty[bit_dword] &
-		(1 << bit_offset) ? true : false;
+	is_dirty = cp->mctx->ppn_dirty[bit_dword] & (1 << bit_offset) ? true : false;
 
 	return is_dirty;
 }
@@ -226,7 +227,7 @@ static inline void skhpb_get_pos_from_lpn(struct skhpb_lu *hpb,
 }
 
 static inline bool skhpb_check_region_subregion_validity(struct skhpb_lu *hpb,
-												int region, int subregion)
+		int region, int subregion)
 {
 	struct skhpb_region *cb;
 
@@ -308,7 +309,7 @@ static bool skhpb_lc_dirty_check(struct skhpb_lu *hpb, unsigned int lpn, unsigne
 	do {
 		skhpb_get_pos_from_lpn(hpb, cur_lpn, &reg, &subReg, &subRegOffset);
 		if (!skhpb_check_region_subregion_validity(hpb, reg, subReg))
-			break;
+			return true;
 		cb = hpb->region_tbl + reg;
 		cp = cb->subregion_tbl + subReg;
 
@@ -317,6 +318,7 @@ static bool skhpb_lc_dirty_check(struct skhpb_lu *hpb, unsigned int lpn, unsigne
 			atomic64_inc(&hpb->lc_reg_subreg_miss);
 			return true;
 		}
+
 		if (skhpb_subregion_dirty_check(hpb, cp, subRegOffset, reqBlkCnt)) {
 			//SKHPB_DRIVER_D("[NORMAL READ] DIRTY: Region(%d), SubRegion(%d) \n", reg, subReg);
 			atomic64_inc(&hpb->lc_entry_dirty_miss);
@@ -370,7 +372,7 @@ void skhpb_prep_fn(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	 * if (cmd==SKHPB_CMD_READ && skhpb_is_encrypted_lrbp(lrbp))
 	 *	return;
 	 */
-	rq 			= lrbp->cmd->request;
+	rq 		= lrbp->cmd->request;
 	rq_pos 		= blk_rq_pos(rq);
 	rq_sectors 	= blk_rq_sectors(rq);
 
@@ -440,21 +442,6 @@ void skhpb_prep_fn(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	return;
 }
 
-static inline bool skhpb_check_subregion_condition_for_write_buf(struct skhpb_region *cb)
-{
-	struct skhpb_subregion *cp;
-	int i;
-
-	for (i = 0; i < cb->subregion_count; i++) {
-		cp = cb->subregion_tbl + i;
-		if (cp->subregion_state == SKHPB_SUBREGION_CLEAN ||
-			cp->subregion_state == SKHPB_SUBREGION_ISSUED) {
-			return true;
-		}
-	}
-	return false;
-}
-
 static int skhpb_clean_dirty_bitmap(
 		struct skhpb_lu *hpb, struct skhpb_subregion *cp)
 {
@@ -518,6 +505,13 @@ static void skhpb_map_compl_process(struct skhpb_lu *hpb,
 			hpb->region_tbl[map_req->region].subregion_tbl +
 							map_req->subregion);
 	spin_unlock_irqrestore(&hpb->hpb_lock, flags);
+}
+
+static void skhpb_map_inactive_compl_process(struct skhpb_lu *hpb,
+				     struct skhpb_map_req *map_req)
+{
+	SKHPB_DRIVER_D("SKHPB WB COMPL BUFFER %d\n", map_req->region);
+	SKHPB_MAP_REQ_TIME(map_req, map_req->RSP_end, 1);
 }
 
 /*
@@ -609,6 +603,79 @@ free_map_req:
 	atomic64_dec(&hpb->alloc_map_req_cnt);
 }
 
+static void skhpb_map_inactive_req_compl_fn(
+	struct request *req, blk_status_t error)
+{
+	struct skhpb_map_req *map_req = req->end_io_data;
+	struct ufs_hba *hba;
+	struct skhpb_lu *hpb;
+	struct scsi_sense_hdr sshdr;
+	struct skhpb_region *cb;
+	struct scsi_request *scsireq = scsi_req(req);
+	unsigned long flags;
+
+	/* shut up "bio leak" warning */
+	memcpy(map_req->sense, scsireq->sense, SCSI_SENSE_BUFFERSIZE);
+	req->bio = NULL;
+	__blk_put_request(req->q, req);
+
+	hpb = map_req->hpb;
+	hba = hpb->hba;
+	cb = hpb->region_tbl + map_req->region;
+
+	if (hba->skhpb_state != SKHPB_PRESENT)
+		goto free_map_req;
+
+	if (!error) {
+		skhpb_map_inactive_compl_process(hpb, map_req);
+		goto free_map_req;
+	}
+
+	SKHPB_DRIVER_E("error number %d ( %d - %d )",
+			error, map_req->region, map_req->subregion);
+	scsi_normalize_sense(map_req->sense, SCSI_SENSE_BUFFERSIZE,
+						 &sshdr);
+	SKHPB_DRIVER_E("code %x sense_key %x asc %x ascq %x",
+			sshdr.response_code,
+			sshdr.sense_key, sshdr.asc, sshdr.ascq);
+	SKHPB_DRIVER_E("byte4 %x byte5 %x byte6 %x additional_len %x",
+			sshdr.byte4, sshdr.byte5,
+			sshdr.byte6, sshdr.additional_length);
+	atomic64_inc(&hpb->rb_fail);
+
+	if (sshdr.sense_key == ILLEGAL_REQUEST) {
+		if (cb->is_pinned) {
+			SKHPB_DRIVER_E("WRITE_BUFFER is not allowed on pinned area: region#%d",
+					cb->region);
+		} else {
+			if (sshdr.asc == 0x00 && sshdr.ascq == 0x16) {
+				/* OPERATION IN PROGRESS */
+				SKHPB_DRIVER_E("retry wb %d", map_req->region);
+
+				spin_lock(&hpb->map_list_lock);
+				INIT_LIST_HEAD(&map_req->list_map_req);
+				list_add_tail(&map_req->list_map_req, &hpb->lh_map_req_retry);
+				spin_unlock(&hpb->map_list_lock);
+
+				schedule_delayed_work(&hpb->skhpb_map_req_retry_work,
+									  msecs_to_jiffies(5000));
+				return;
+			}
+		}
+	}
+	// Only change subregion status at here.
+	// Do not put map_ctx, it will re-use when it is activated again.
+	spin_lock_irqsave(&hpb->hpb_lock, flags);
+	skhpb_error_active_subregion(hpb, cb->subregion_tbl + map_req->subregion);
+	spin_unlock_irqrestore(&hpb->hpb_lock, flags);
+free_map_req:
+	spin_lock(&hpb->map_list_lock);
+	INIT_LIST_HEAD(&map_req->list_map_req);
+	list_add_tail(&map_req->list_map_req, &hpb->lh_map_req_free);
+	spin_unlock(&hpb->map_list_lock);
+	atomic64_dec(&hpb->alloc_map_req_cnt);
+}
+
 static int skhpb_execute_req_dev_ctx(struct skhpb_lu *hpb,
 				unsigned char *cmd, void *buf, int length)
 {
@@ -674,6 +741,23 @@ int skhpb_issue_req_dev_ctx(struct skhpb_lu *hpb, unsigned char *buf,
 	return ret;
 }
 
+static inline void skhpb_set_write_buf_cmd(unsigned char *cmd, int region)
+{
+	cmd[0] = SKHPB_WRITE_BUFFER;
+	cmd[1] = 0x01;
+	cmd[2] = SKHPB_GET_BYTE_1(region);
+	cmd[3] = SKHPB_GET_BYTE_0(region);
+	cmd[4] = 0x00;
+	cmd[5] = 0x00;
+	cmd[6] = 0x00;
+	cmd[7] = 0x00;
+	cmd[8] = 0x00;
+	cmd[9] = 0x00;
+
+	//To verify the values within WRITE_BUFFER command
+	SKHPB_DRIVER_HEXDUMP("[HPB] WRITE BUFFER ", 16, 1, cmd, 10, 1);
+}
+
 static inline void skhpb_set_read_buf_cmd(unsigned char *cmd,
 		int region, int subregion, int subregion_mem_size)
 {
@@ -725,13 +809,24 @@ static int skhpb_map_req_issue(
 	int ret;
 	unsigned long flags;
 
-	skhpb_set_read_buf_cmd(cmd, map_req->region, map_req->subregion,
-										map_req->subregion_mem_size);
-
-	req = blk_get_request(q, REQ_OP_SCSI_IN, __GFP_RECLAIM);
+	if (map_req->rwbuffer_flag == W_BUFFER)
+		skhpb_set_write_buf_cmd(cmd, map_req->region);
+	else
+		skhpb_set_read_buf_cmd(cmd, map_req->region, map_req->subregion,
+								map_req->subregion_mem_size);
+	if (map_req->rwbuffer_flag == W_BUFFER)
+		req = blk_get_request(q, REQ_OP_SCSI_OUT, __GFP_RECLAIM);
+	else
+		req = blk_get_request(q, REQ_OP_SCSI_IN, __GFP_RECLAIM);
 	if (IS_ERR(req)) {
 		int rv = PTR_ERR(req);
-		SKHPB_DRIVER_E("blk_get_request errno %d, \
+
+		if (map_req->rwbuffer_flag == W_BUFFER)
+			SKHPB_DRIVER_E("blk_get_request errno %d, \
+					retry #%d, WRITE BUFFER %d\n",
+					rv, map_req->retry_cnt, map_req->region);
+		else
+			SKHPB_DRIVER_E("blk_get_request errno %d, \
 					retry #%d, READ BUFFER %d:%d\n",
 					rv, map_req->retry_cnt,
 					map_req->region, map_req->subregion);
@@ -774,8 +869,19 @@ static int skhpb_map_req_issue(
 			map_req->region, map_req->subregion);
 
 	SKHPB_MAP_REQ_TIME(map_req, map_req->RSP_issue, 0);
-	blk_execute_rq_nowait(q, NULL, req, 1, skhpb_map_req_compl_fn);
-	atomic64_inc(&hpb->map_req_cnt);
+	if( hpb->hpb_control_mode == HOST_CTRL_MODE) {
+		if (map_req->rwbuffer_flag == W_BUFFER)
+			blk_execute_rq_nowait(
+				q, NULL, req, 0, skhpb_map_inactive_req_compl_fn);
+		else
+			blk_execute_rq_nowait(q, NULL, req, 0, skhpb_map_req_compl_fn);
+	} else
+		blk_execute_rq_nowait(q, NULL, req, 1, skhpb_map_req_compl_fn);
+
+	if (map_req->rwbuffer_flag == W_BUFFER)
+		atomic64_inc(&hpb->w_map_req_cnt);
+	else
+		atomic64_inc(&hpb->map_req_cnt);
 
 	return 0;
 
@@ -787,7 +893,7 @@ out_put_request:
 static int skhpb_set_map_req(struct skhpb_lu *hpb,
 		int region, int subregion, struct skhpb_map_ctx *mctx,
 		struct skhpb_rsp_info *rsp_info,
-		enum SKHPB_BUFFER_MODE flag, bool unset_rb_block)
+		enum SKHPB_BUFFER_MODE flag)
 {
 	bool last = hpb->region_tbl[region].subregion_tbl[subregion].last;
 	struct skhpb_map_req *map_req;
@@ -816,8 +922,10 @@ static int skhpb_set_map_req(struct skhpb_lu *hpb,
 	map_req->mctx = mctx;
 	map_req->lun = hpb->lun;
 	map_req->RSP_start = rsp_info->RSP_start;
-	map_req->unset_rb_block_flag = unset_rb_block;
-	map_req->rwbuffer_flag = R_BUFFER;
+	if (flag == W_BUFFER) {
+		map_req->rwbuffer_flag = W_BUFFER;
+	} else
+		map_req->rwbuffer_flag = R_BUFFER;
 
 	if(skhpb_map_req_issue(hpb, map_req)) {
 		SKHPB_DRIVER_E("issue Failed!!!\n");
@@ -826,7 +934,6 @@ static int skhpb_set_map_req(struct skhpb_lu *hpb,
 
 	return 0;
 }
-
 
 static struct skhpb_map_ctx *skhpb_get_map_ctx(struct skhpb_lu *hpb)
 {
@@ -1124,7 +1231,7 @@ static void skhpb_rsp_map_cmd_req(struct skhpb_lu *hpb,
 				!hpb->hba->sdev_ufs_lu[hpb->lun]->request_queue)
 				return;
 			ret = skhpb_set_map_req(hpb, region, subregion,
-									cp->mctx, rsp_info, R_BUFFER, false);
+									cp->mctx, rsp_info, R_BUFFER);
 			SKHPB_DRIVER_D("SEND READ_BUFFER - Region:%d, SubRegion:%d\n",
 						   region, subregion);
 			if (ret) {
@@ -1288,10 +1395,9 @@ static int skhpb_read_desc(struct ufs_hba *hba,
 		u8 desc_id, u8 desc_index, u8 *desc_buf, u32 size)
 {
 	int err = 0;
-	u8 selector = 1;
 
 	err = ufshcd_query_descriptor_retry(hba, UPIU_QUERY_OPCODE_READ_DESC,
-				desc_id, desc_index, selector, desc_buf, &size);
+				desc_id, desc_index, 0, desc_buf, &size);
 	if (err) {
 		SKHPB_DRIVER_E("reading Device Desc failed. err = %d\n", err);
 	}
@@ -1399,8 +1505,11 @@ static int skhpb_execute_req(struct skhpb_lu *hpb, unsigned char *cmd,
 		ret = -EIO;
 	} else {
 		spin_lock_irqsave(&hpb->hpb_lock, flags);
-		skhpb_clean_dirty_bitmap(hpb, cp);
+		ret = skhpb_clean_dirty_bitmap(hpb, cp);
 		spin_unlock_irqrestore(&hpb->hpb_lock, flags);
+		if (ret) {
+			SKHPB_DRIVER_E("skhpb_clean_dirty_bitmap error %d", ret);
+		}
 		ret = 0;
 	}
 
@@ -1651,8 +1760,8 @@ static inline void skhpb_init_jobs(struct skhpb_lu *hpb)
 static inline void skhpb_cancel_jobs(struct skhpb_lu *hpb)
 {
 	cancel_delayed_work_sync(&hpb->skhpb_pinned_work);
-	cancel_delayed_work_sync(&hpb->skhpb_map_req_retry_work);
 	cancel_work_sync(&hpb->skhpb_rsp_work);
+	cancel_delayed_work_sync(&hpb->skhpb_map_req_retry_work);
 }
 
 static void skhpb_init_subregion_tbl(struct skhpb_lu *hpb,
@@ -1673,14 +1782,12 @@ static void skhpb_init_subregion_tbl(struct skhpb_lu *hpb,
 static inline int skhpb_alloc_subregion_tbl(struct skhpb_lu *hpb,
 		struct skhpb_region *cb, int subregion_count)
 {
-	cb->subregion_tbl = vzalloc(sizeof(struct skhpb_subregion) * subregion_count);
+	cb->subregion_tbl = kzalloc(sizeof(struct skhpb_subregion) * subregion_count,
+			GFP_KERNEL);
 	if (!cb->subregion_tbl)
 		return -ENOMEM;
 
 	cb->subregion_count = subregion_count;
-	/* SKSKHPB_DRIVER_D("region %d subregion_count %d active_page_table bytes %lu\n",
-		cb->region, subregion_count,
-		sizeof(struct skhpb_subregion *) * hpb->subregions_per_region); */
 
 	return 0;
 }
@@ -1758,7 +1865,6 @@ static int skhpb_req_mempool_init(struct ufs_hba *hba,
 		SKHPB_DRIVER_E("lu_queue_depth is 0. we use device's queue info.\n");
 		SKHPB_DRIVER_E("hba->nutrs = %d\n", hba->nutrs);
 	}
-
 	INIT_LIST_HEAD(&hpb->lh_rsp_info_free);
 	INIT_LIST_HEAD(&hpb->lh_map_req_free);
 	INIT_LIST_HEAD(&hpb->lh_map_req_retry);
@@ -1828,6 +1934,7 @@ static void skhpb_init_lu_constant(struct skhpb_lu *hpb,
 	hpb->entries_per_subregion = hpb->subregion_mem_size / SKHPB_ENTRY_SIZE;
 	hpb->subregions_per_region = region_mem_size / hpb->subregion_mem_size;
 
+	hpb->hpb_control_mode = func_desc->hpb_control_mode;
 #if defined(SKHPB_READ_LARGE_CHUNK_SUPPORT)
 	hpb->ppn_dirties_per_subregion =
 		hpb->entries_per_subregion/BITS_PER_PPN_DIRTY;
@@ -2087,7 +2194,7 @@ static int skhpb_get_hpb_lu_desc(struct ufs_hba *hba,
 static void skhpb_quirk_setup(struct ufs_hba *hba,
 							  struct skhpb_func_desc *desc)
 {
-	if (desc->spec_ver < 0x0300) {
+	if (hba->dev_quirks & SKHPB_QUIRK_PURGE_HINT_INFO_WHEN_SLEEP) {
 		hba->skhpb_quirk |= SKHPB_QUIRK_PURGE_HINT_INFO_WHEN_SLEEP;
 		SKHPB_DRIVER_I("QUIRK set PURGE_HINT_INFO_WHEN_SLEEP\n");
 	}
@@ -2134,9 +2241,10 @@ static int skhpb_read_dev_desc_support(struct ufs_hba *hba,
 	desc->hpb_ver =
 		(u16)SKHPB_SHIFT_BYTE_1(desc_buf[DEVICE_DESC_PARAM_HPB_VER]) |
 		(u16)SKHPB_SHIFT_BYTE_0(desc_buf[DEVICE_DESC_PARAM_HPB_VER + 1]);
-	SKHPB_DRIVER_I("Dev Ver= %x.%x, DD Ver= %x.%x.%x\n",
-			SKHPB_GET_BYTE_1(desc->hpb_ver),
-			SKHPB_GET_BYTE_0(desc->hpb_ver),
+	SKHPB_DRIVER_I("Dev Ver= %x.%x.%x, DD Ver= %x.%x.%x\n",
+			(desc->hpb_ver >> 8) & 0xf,
+			(desc->hpb_ver >> 4) & 0xf,
+			(desc->hpb_ver >> 0) & 0xf,
 			SKHPB_GET_BYTE_2(SKHPB_DD_VER),
 			SKHPB_GET_BYTE_1(SKHPB_DD_VER),
 			SKHPB_GET_BYTE_0(SKHPB_DD_VER));
@@ -2147,12 +2255,14 @@ static int skhpb_read_dev_desc_support(struct ufs_hba *hba,
 		desc->hpb_control_mode = DEV_CTRL_MODE;
 	else
 		desc->hpb_control_mode = (u8)desc_buf[DEVICE_DESC_PARAM_HPB_CONTROL];
+
+
+	SKHPB_DRIVER_I("HPB Control Mode = %s",
+			(desc->hpb_control_mode)?"DEV MODE":"HOST MODE");
 	if (desc->hpb_control_mode == HOST_CTRL_MODE) {
 		SKHPB_DRIVER_E("Driver does not support Host Control Mode");
 		return -ENODEV;
 	}
-	SKHPB_DRIVER_I("HPB Control Mode = %s",
-			(desc->hpb_control_mode)?"DEV MODE":"HOST MODE");
 	hba->hpb_control_mode = desc->hpb_control_mode;
 	return 0;
 }
@@ -2218,7 +2328,7 @@ int skhpb_control_validation(struct ufs_hba *hba,
 static int skhpb_init(struct ufs_hba *hba)
 {
 	struct skhpb_func_desc func_desc;
-	int ret;
+	int ret, retries;
 	u8 lun;
 	int hpb_dev = 0;
 	bool do_work;
@@ -2232,10 +2342,18 @@ static int skhpb_init(struct ufs_hba *hba)
 	if (ret)
 		goto out_state;
 
-	ret = ufshcd_query_flag(hba,
-			UPIU_QUERY_OPCODE_SET_FLAG,
-			QUERY_FLAG_IDN_HPB_RESET,
-			NULL);
+	for (retries = 0; retries < 20; retries++) {
+		if (!hba->lrb_in_use) {
+			ret = ufshcd_query_flag(hba, UPIU_QUERY_OPCODE_SET_FLAG,
+				QUERY_FLAG_IDN_HPB_RESET, NULL);
+			if (!ret) {
+				SKHPB_DRIVER_I("Query fHPBReset is successfully sent retries = %d\n", retries);
+				break;
+			}
+		}
+		else
+			msleep(200);
+	}
 	if (ret == 0) {
 		bool fHPBReset = true;
 
@@ -2244,7 +2362,7 @@ static int skhpb_init(struct ufs_hba *hba)
 				QUERY_FLAG_IDN_HPB_RESET,
 				&fHPBReset);
 		if (fHPBReset)
-			SKHPB_DRIVER_E("fHPBReset still set\n");
+			SKHPB_DRIVER_I("fHPBReset still set\n");
 	}
 
 	skhpb_init_constant();
@@ -2322,7 +2440,7 @@ static void skhpb_map_loading_trigger(struct skhpb_lu *hpb,
 
 	if (do_work_handler)
 		goto work_out;
-
+	flush_delayed_work(&hpb->skhpb_pinned_work);
 	for (region = 0 ; region < hpb->regions_per_lu ; region++) {
 		struct skhpb_region *cb;
 
@@ -2463,7 +2581,7 @@ static void skhpb_destroy_region_tbl(struct skhpb_lu *hpb)
 			skhpb_destroy_subregion_tbl(hpb, cb);
 		}
 	}
-	kfree(hpb->region_tbl);
+	vfree(hpb->region_tbl);
 }
 
 void skhpb_suspend(struct ufs_hba *hba)
@@ -2522,7 +2640,7 @@ void skhpb_suspend(struct ufs_hba *hba)
 		hpb = hba->skhpb_lup[lun];
 		if (!hpb)
 			continue;
-		cancel_delayed_work(&hpb->skhpb_map_req_retry_work);
+		skhpb_cancel_jobs(hpb);
 	}
 }
 
@@ -2566,8 +2684,8 @@ void skhpb_release(struct ufs_hba *hba, int state)
 		skhpb_destroy_region_tbl(hpb);
 		skhpb_table_mempool_remove(hpb);
 
-		kfree(hpb->rsp_info);
-		kvfree(hpb->map_req);
+		vfree(hpb->rsp_info);
+		vfree(hpb->map_req);
 
 		kobject_uevent(&hpb->kobj, KOBJ_REMOVE);
 		kobject_del(&hpb->kobj); // TODO --count & del?
@@ -2645,6 +2763,7 @@ static void skhpb_stat_init(struct skhpb_lu *hpb)
 	atomic64_set(&hpb->region_miss, 0);
 	atomic64_set(&hpb->subregion_miss, 0);
 	atomic64_set(&hpb->entry_dirty_miss, 0);
+	atomic64_set(&hpb->w_map_req_cnt, 0);
 #if defined(SKHPB_READ_LARGE_CHUNK_SUPPORT)
 	atomic64_set(&hpb->lc_entry_dirty_miss, 0);
 	atomic64_set(&hpb->lc_reg_subreg_miss, 0);
@@ -2711,8 +2830,8 @@ static ssize_t skhpb_sysfs_info_from_lba_store(struct skhpb_lu *hpb,
 	int region, subregion, subregion_offset;
 	struct skhpb_region *cb;
 	struct skhpb_subregion *cp;
-	int dirty;
 	unsigned long flags;
+	int dirty;
 
 	if (kstrtoull(buf, 0, &value)) {
 		SKHPB_DRIVER_E("kstrtoul error\n");
@@ -2728,7 +2847,8 @@ static ssize_t skhpb_sysfs_info_from_lba_store(struct skhpb_lu *hpb,
 
 	skhpb_get_pos_from_lpn(hpb, lpn, &region, &subregion,
 						&subregion_offset);
-	skhpb_check_region_subregion_validity(hpb, region, subregion);
+	if(!skhpb_check_region_subregion_validity(hpb, region, subregion))
+		return -EINVAL;
 	cb = hpb->region_tbl + region;
 	cp = cb->subregion_tbl + subregion;
 
@@ -2791,7 +2911,9 @@ static ssize_t skhpb_sysfs_statistics_show(struct skhpb_lu *hpb, char *buf)
 {
 	long long size_miss, region_miss, subregion_miss, entry_dirty_miss,
 		 hit, miss_all, rb_fail, canceled_resp, canceled_map_req;
+#if defined(SKHPB_READ_LARGE_CHUNK_SUPPORT)
 	long long lc_dirty_miss = 0, lc_state_miss = 0, lc_hit = 0;
+#endif
 	int count = 0;
 
 	hit = atomic64_read(&hpb->hit);
@@ -2811,14 +2933,12 @@ static ssize_t skhpb_sysfs_statistics_show(struct skhpb_lu *hpb, char *buf)
 	subregion_miss += lc_state_miss;
 #endif
 	miss_all = size_miss + region_miss + subregion_miss + entry_dirty_miss;
-	{
-		count += snprintf(buf + count, PAGE_SIZE,
-				"Total: %lld\nHit_Count: %lld\n",
-				hit + miss_all, hit);
-		count += snprintf(buf + count, PAGE_SIZE,
-				"Miss Count[ALL SIZE REG SUBREG DIRTY]= %lld %lld %lld %lld %lld\n",
-				miss_all, size_miss, region_miss, subregion_miss, entry_dirty_miss);
-	}
+	count += snprintf(buf + count, PAGE_SIZE,
+			"Total: %lld\nHit_Counts: %lld\n",
+			hit + miss_all, hit);
+	count += snprintf(buf + count, PAGE_SIZE,
+			"Miss_Counts[ALL SIZE REG SUBREG DIRTY]= %lld %lld %lld %lld %lld\n",
+			miss_all, size_miss, region_miss, subregion_miss, entry_dirty_miss);
 
 #if defined(SKHPB_READ_LARGE_CHUNK_SUPPORT)
 	count += snprintf(buf + count, PAGE_SIZE,
@@ -2838,9 +2958,10 @@ static ssize_t skhpb_sysfs_statistics_show(struct skhpb_lu *hpb, char *buf)
 static ssize_t skhpb_sysfs_version_show(struct skhpb_lu *hpb, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE,
-			"HPBversion[HPB DD]= %x.%x %x.%x.%x\n",
-			SKHPB_GET_BYTE_1(hpb->hpb_ver),
-			SKHPB_GET_BYTE_0(hpb->hpb_ver),
+			"HPBversion[HPB DD]= %x.%x.%x %x.%x.%x\n",
+			(hpb->hpb_ver >> 8) & 0xf,
+			(hpb->hpb_ver >> 4) & 0xf,
+			(hpb->hpb_ver >> 0) & 0xf,
 			SKHPB_GET_BYTE_2(SKHPB_DD_VER),
 			SKHPB_GET_BYTE_1(SKHPB_DD_VER),
 			SKHPB_GET_BYTE_0(SKHPB_DD_VER));
@@ -2888,7 +3009,7 @@ static ssize_t skhpb_sysfs_hpb_disable_store(struct skhpb_lu *hpb,
 	if (kstrtoul(buf, 0, &value))
 		return -EINVAL;
 
-	if (value < 0 || value > 3) {
+	if (value > 3) {
 		SKHPB_DRIVER_E("Error, Only [0-3] is valid:\
 			 \n[0] BOTH_enable\
 			 \n[1] ONLY_HPB_BUFFER_disable\
@@ -2916,6 +3037,7 @@ static ssize_t skhpb_sysfs_hpb_reset_store(struct skhpb_lu *hpb,
 		return -EINVAL;
 	if (!value)
 		return count;
+
 	for (retries = 1; retries <= 20; retries++) {
 		pm_runtime_get_sync(SKHPB_DEV(hpb));
 		ufshcd_hold(hpb->hba, false);
@@ -2956,6 +3078,7 @@ static ssize_t skhpb_sysfs_hpb_reset_store(struct skhpb_lu *hpb,
 		SKHPB_DRIVER_E("Fail to set fHPBReset flag\n");
 		goto out;
 	}
+	flush_delayed_work(&hpb->skhpb_pinned_work);
 	for (lun = 0 ; lun < UFS_UPIU_MAX_GENERAL_LUN ; lun++)
 	{
 		hpb_lu = hpb->hba->skhpb_lup[lun];
@@ -3015,7 +3138,7 @@ static ssize_t skhpb_sysfs_debug_log_store(struct skhpb_lu *hpb,
 	if (kstrtoul(buf, 0, &value))
 		return -EINVAL;
 
-	if (value < SKHPB_LOG_LEVEL_OFF || value > SKHPB_LOG_LEVEL_HEX) {
+	if (value > SKHPB_LOG_LEVEL_HEX) {
 		SKHPB_DRIVER_E("Error, Only [0-4] is valid:\
 			 \n[0] : LOG_LEVEL_OFF\
 			 \n[1] : LOG_LEVEL_ERR\
@@ -3054,7 +3177,7 @@ static ssize_t skhpb_sysfs_rsp_time_store(struct skhpb_lu *hpb,
 	if (kstrtoul(buf, 0, &value))
 		return -EINVAL;
 
-	if (value < 0 || value > 1)
+	if (value > 1)
 		return count;
 
 	debug_map_req = value;
