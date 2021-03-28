@@ -3538,6 +3538,40 @@
 		mediatek,edma-sub = <&edma0>;
 	};
 
+	vpu_core0: vpu_core0@19030000 {
+		compatible = "mediatek,vpu_core0";
+		reg = <0 0x19030000 0 0x1000>,
+			<0 0x1d400000 0 0x40000>,
+			<0 0x1d440000 0 0x30000>,
+			<0 0x0d190000 0 0x4000>;
+		interrupts = <GIC_SPI 507 IRQ_TYPE_LEVEL_HIGH>;
+		id = <0>;
+		reset-vector = <0x7da00000 0x00100000 0x0>;
+		main-prog = <0x7db00000 0x00300000 0x100000>;
+		kernel-lib = <0x7de00000 0x00500000 0xffffffff>;
+		work-buf = <0x0 0x12000 0xffffffff>;
+#ifdef CONFIG_MTK_IOMMU_V2
+		//iommus = <&iommu1 M4U_PORT_L21_APU_FAKE_CODE>;
+#endif
+	};
+
+	vpu_core1: vpu_core1@19031000 {
+		compatible = "mediatek,vpu_core1";
+		reg = <0 0x19031000 0 0x1000>,
+			<0 0x1d500000 0 0x40000>,
+			<0 0x1d540000 0 0x30000>,
+			<0 0x0d194000 0 0x4000>;
+		interrupts = <GIC_SPI 508 IRQ_TYPE_LEVEL_HIGH>;
+		id = <1>;
+		reset-vector = <0x7e300000 0x00100000 0x400000>;
+		main-prog = <0x7e400000 0x00300000 0x500000>;
+		kernel-lib = <0x7e700000 0x00500000 0xffffffff>;
+		work-buf = <0x0 0x12000 0xffffffff>;
+#ifdef CONFIG_MTK_IOMMU_V2
+		//iommus = <&iommu1 M4U_PORT_L21_APU_FAKE_CODE>;
+#endif
+	};
+
 	mtk_mdla: mdla@19036000 {
 		compatible = "mediatek, mt6877-mdla";
 		core_num = <1>;
