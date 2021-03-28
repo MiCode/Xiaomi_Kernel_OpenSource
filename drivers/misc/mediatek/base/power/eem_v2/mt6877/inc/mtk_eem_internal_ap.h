@@ -104,43 +104,43 @@ struct eemsn_devinfo {
 	unsigned int RSV0_1:20;
 
 	/* M_HW_RES1 */
-	unsigned int CPU_B_HI;
+	unsigned int M_HW_RES1;
 
 	/* M_HW_RES2 */
-	unsigned int CPU_B_M;
+	unsigned int M_HW_RES2;
 
 	/* M_HW_RES3 */
-	unsigned int CPU_L_HI;
+	unsigned int M_HW_RES3;
 
 	/* M_HW_RES4 */
-	unsigned int CPU_L_M;
+	unsigned int M_HW_RES4;
 
 	/* M_HW_RES5 */
-	unsigned int CPU_CCI_H;
+	unsigned int M_HW_RES5;
 
 	/* M_HW_RES6 */
-	unsigned int CPU_CCI_M;
+	unsigned int M_HW_RES6;
 
 	/* M_HW_RES7 */
-	unsigned int CPU_B_L_DCMDET;
+	unsigned int M_HW_RES7;
 
 	/* M_HW_RES8 */
-	unsigned int CPU_CCI_GPU_DCMDET;
+	unsigned int M_HW_RES8;
 
 	/* M_HW_RES9 */
-	unsigned int GPU_HI;
+	unsigned int M_HW_RES9;
 
 	/* M_HW_RES10 (0x11F105A8)*/
-	unsigned int GPU_M;
+	unsigned int M_HW_RES10;
 
 	/* M_HW_RES11 (0x11F105AC)*/
-	unsigned int RSV1;
+	unsigned int M_HW_RES11;
 
 	/* M_HW_RES12 (0x11F105B0)*/
-	unsigned int RSV2;
+	unsigned int M_HW_RES12;
 
 	/* M_HW_RES13 (0x11F105B4)*/
-	unsigned int RSV3;
+	unsigned int M_HW_RES13;
 
 	/* M_HW_RES14 SN (0x11F10950)*/
 	unsigned int BCPU_A_T0_SVT:16;
@@ -234,7 +234,7 @@ struct eemsn_det {
 struct eemsn_log_det {
 	unsigned int temp;
 	unsigned short freq_tbl[NR_FREQ];
-	unsigned short volt_tbl_pmic[NR_FREQ];
+	unsigned char volt_tbl_pmic[NR_FREQ];
 	unsigned char volt_tbl_orig[NR_FREQ];
 	unsigned char volt_tbl_init2[NR_FREQ];
 	/* unsigned char volt_tbl[NR_FREQ]; */
@@ -252,17 +252,21 @@ struct sensing_stru {
 	uint64_t CPE_Vmin_HW;
 #endif
 	unsigned int SN_Vmin;
-	int CPE_Vmin;
+	int CPE_Vmin[2];
 	unsigned int cur_volt;
+	int max_temp;
+	int min_temp;
 #if !VMIN_PREDICT_ENABLE
 	/* unsigned int count_cur_volt_HT; */
 	//int Sensor_Volt_HT;
 	//int Sensor_Volt_RT;
-	int8_t CPE_temp;
-	int8_t SN_temp;
+	int8_t CPE_temp_RT[2];
+	int8_t CPE_temp_HT[2];
+	int8_t final_CPE_temp[2];
+	int8_t SN_temp[2];
+	int8_t cur_sn_aging[2];
 	unsigned char T_SVT_current;
 #endif
-	unsigned short cur_temp;
 	unsigned char cur_oppidx;
 	unsigned char dst_volt_pmic;
 };
@@ -282,7 +286,7 @@ struct sn_log_data {
 };
 
 struct sn_param {
-	/* for SN aging*/
+	unsigned short bin_freq;
 	int Param_A_Tused_SVT;
 	int Param_A_Tused_LVT;
 	int Param_A_Tused_ULVT;
@@ -294,9 +298,7 @@ struct sn_param {
 	int Param_INTERCEPTION;
 	int8_t A_GB;
 	int8_t Default_Aging;
-	int8_t sn_temp_threshold;
 	unsigned char T_GB;
-
 
 	/* Formula for CPE_Vmin (Vmin prediction) */
 	//unsigned char CPE_GB;
@@ -304,26 +306,29 @@ struct sn_param {
 	unsigned int norm_temp_off:4;
 	unsigned int norm_temp_1850_off:4;
 	unsigned int norm_temp_5085_off:4;
+	unsigned int syn_ta_margin:4;
 
 };
 
 
 struct A_Tused_VT {
-	unsigned int A_Tused_SVT:8;
-	unsigned int A_Tused_LVT:8;
-	unsigned int A_Tused_ULVT:8;
-	unsigned int A_Tused_RSV0:8;
+	unsigned int A_Tused_SVT:16;
+	unsigned int A_Tused_LVT:16;
+	unsigned int A_Tused_ULVT:16;
+	unsigned int A_Tused_RSV0:16;
 };
 
 struct sn_log_cal_data {
 	/* struct sn_param sn_cpu_param; */
-	int64_t cpe_init_aging;
+	int64_t cpe_init_aging[NR_PI_VF];
 	struct A_Tused_VT atvt;
 	int TEMP_CAL;
 	int volt_cross;
 	int count_cross;
-	short CPE_Aging;
-	int8_t sn_aging;
+	int CPE_Aging[NR_PI_VF];
+	int8_t sn_aging[NR_PI_VF];
+	uint8_t T_SVT_HV_HT;
+	uint8_t T_SVT_LV_HT;
 	uint8_t T_SVT_HV_RT;
 	uint8_t T_SVT_LV_RT;
 };

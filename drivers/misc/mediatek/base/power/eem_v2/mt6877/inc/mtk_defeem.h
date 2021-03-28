@@ -226,6 +226,8 @@ extern void __iomem *eem_base;
 #define SN_BCPUINTERCEPTION1    (SN_BASEADDR + 0xED0)
 /* SN_BCPUINTERCEPTION1 = BCPUINTERCEPTION1WBCPUVOLTCOEF */
 
+#define PSESN32T35_OFFSET		0x640
+#define ASESN_ULVT_OFFSET			0x670
 #if USE_EEMSN_PHYSICAL_ADDR
 #define MCUSYS_CPU0_BASEADDR             0x0C530000
 #define MCUSYS_CPU1_BASEADDR             0x0C530800
@@ -236,16 +238,14 @@ extern void __iomem *eem_base;
 #define MCUSYS_CPU6_BASEADDR             0x0C533000
 #define MCUSYS_CPU7_BASEADDR             0x0C533800
 #else
-#define MCUSYS_CPU0_BASEADDR             0x02010000
-#define MCUSYS_CPU1_BASEADDR             0x02010800
-#define MCUSYS_CPU2_BASEADDR             0x02011000
-#define MCUSYS_CPU3_BASEADDR             0x02011800
-#define MCUSYS_CPU4_BASEADDR             0x02012000
-#define MCUSYS_CPU5_BASEADDR             0x02012800
-#define MCUSYS_CPU6_BASEADDR             0x02013000
-#define MCUSYS_CPU7_BASEADDR             0x02013800
+#define MCUSYS_CPU0_BASEADDR             0x03000000
+#define MCUSYS_CPU1_BASEADDR             0x03000800
+#define MCUSYS_CPU2_BASEADDR             0x03001000
+#define MCUSYS_CPU3_BASEADDR             0x03001800
+#define MCUSYS_CPU4_BASEADDR             0x03002000
+#define MCUSYS_CPU5_BASEADDR             0x03002800
+#define MCUSYS_CPU6_BASEADDR             0x03003000
+#define MCUSYS_CPU7_BASEADDR             0x03003800
 #endif
-
-
 
 #endif

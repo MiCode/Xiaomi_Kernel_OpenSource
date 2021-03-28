@@ -27,7 +27,7 @@
  * efuse feature
  * ############################
  */
-#define EEM_FAKE_EFUSE (1)
+#define EEM_FAKE_EFUSE (0)
 #define FAKE_SN_DVT_EFUSE_FOR_DE	(1)
 
 /*
@@ -46,8 +46,6 @@
  * phase out define
  * ############################
  */
-#define SUPPORT_PI_LOG_AREA (0)
-
 
 #endif
 

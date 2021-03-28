@@ -17,7 +17,7 @@
 
 
 /* CONFIG (SW related) */
-#define EEM_NOT_READY		(1)
+#define EEM_NOT_READY		(0)
 #define EARLY_PORTING		(0)
 #define LOG_INTERVAL		(100LL * MSEC_PER_SEC)
 
@@ -44,12 +44,12 @@
 
 /* 1mV=>10uV */
 /* EEMSN */
-#define EEMSN_V_BASE	(40000)
+#define EEMSN_V_BASE	(625)
 #define EEMSN_STEP		(625)
 
 /* CPU */
-#define CPU_PMIC_BASE	(40000)
-#define CPU_PMIC_STEP	(625) /* 1.231/1024=0.001202v=120(10uv)*/
+#define CPU_PMIC_BASE	(0)
+#define CPU_PMIC_STEP	(625)
 
 
 /*
@@ -61,9 +61,9 @@
 
 /* SN dump data */
 #if FULL_REG_DUMP_SNDATA
-#define SIZE_SN_MCUSYS_REG			(16)
+#define SIZE_SN_MCUSYS_REG			(17)
 #else
-#define SIZE_SN_MCUSYS_REG			(10)
+#define SIZE_SN_MCUSYS_REG			(12)
 #endif
 
 #define SIZE_SN_DUMP_SENSOR			(64)
@@ -129,20 +129,19 @@
 #else
 
 #define DEVINFO_0 0x0
-#define DEVINFO_1 0x5C1A2C25
-#define DEVINFO_2 0x22082C3F
-#define DEVINFO_3 0x46172C0A
-#define DEVINFO_4 0x411A2C20
-#define DEVINFO_5 0x6AEB2C20
-#define DEVINFO_6 0x3B1F2C36
-#define DEVINFO_7 0x4B162C20
-#define DEVINFO_8 0x3A1C2C36
-#define DEVINFO_9 0xC15B249E
-#define DEVINFO_10 0x82AA24BA
+#define DEVINFO_1 0x00000000
+#define DEVINFO_2 0x00000000
+#define DEVINFO_3 0x00000000
+#define DEVINFO_4 0x00000000
+#define DEVINFO_5 0x00000000
+#define DEVINFO_6 0x00000000
+#define DEVINFO_7 0x00000000
+#define DEVINFO_8 0x00000000
+#define DEVINFO_9 0x00000000
+#define DEVINFO_10 0x00000000
 #define DEVINFO_11 0x00000000
-#define DEVINFO_12 0x5F052C39
-#define DEVINFO_13 0x1B031B03
-
+#define DEVINFO_12 0x00000000
+#define DEVINFO_13 0x00000000
 #endif
 
 #define DEVINFO_14 0x1BC415BE

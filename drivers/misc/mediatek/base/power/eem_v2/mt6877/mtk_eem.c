@@ -175,7 +175,7 @@ unsigned int seq;
 unsigned int ptp_data[3] = {0, 0, 0};
 static char *cpu_name[3] = {
 	"L",
-	"BIG",
+	"B",
 	"CCI"
 };
 
@@ -1844,7 +1844,7 @@ static void dump_sndata_to_de(struct seq_file *m)
 	for (i = 0; i < sizeof(struct eemsn_devinfo) / sizeof(unsigned int);
 		i++)
 		seq_printf(m, "[%d]M_HW_RES%d\t= 0x%08X\n",
-		seq++, ((i >= IDX_HW_RES_SN) ? (i + 3) : i), val[i]);
+		seq++, i, val[i]);
 
 	seq_printf(m, "[%d]Start dump_CPE:\n", seq++);
 	for (i = 0; i < MIN_SIZE_SN_DUMP_CPE; i++) {
@@ -1901,8 +1901,6 @@ static int eem_dump_proc_show(struct seq_file *m, void *v)
 
 	/* Print initial data */
 	seq_printf(m, "ctrl_agingload_enable=%d\n", ctrl_agingload_enable);
-	eem_aging_dump_proc_show(m, v);
-
 	seq_printf(m, "[%d]========Start sn_trigger_sensing!\n", seq++);
 
 	while (1) {
@@ -1922,18 +1920,12 @@ static int eem_dump_proc_show(struct seq_file *m, void *v)
 	for (i = 0; i < NR_SN_DET; i++) {
 		det = id_to_eem_det((enum eemsn_det_id)i);
 
-		if (i == SN_DET_B)
-			seq_printf(m, "[%d]T_SVT_HV_BCPU:%d %d %d %d\n",
-				seq++, eem_devinfo.T_SVT_HV_BCPU_HT,
-				eem_devinfo.T_SVT_LV_BCPU_HT,
-				eemsn_log->sn_cal_data[i].T_SVT_HV_RT,
-				eemsn_log->sn_cal_data[i].T_SVT_LV_RT);
-		else
-			seq_printf(m, "[%d]T_SVT_HV_LCPU:%d %d %d %d\n",
-				seq, eem_devinfo.T_SVT_HV_LCPU_HT,
-				eem_devinfo.T_SVT_LV_LCPU_HT,
-				eemsn_log->sn_cal_data[i].T_SVT_HV_RT,
-				eemsn_log->sn_cal_data[i].T_SVT_LV_RT);
+		seq_printf(m, "[%d]T_SVT_HV_%sCPU:%d %d %d %d\n",
+			seq, cpu_name[i],
+			eemsn_log->sn_cal_data[i].T_SVT_HV_HT,
+			eemsn_log->sn_cal_data[i].T_SVT_LV_HT,
+			eemsn_log->sn_cal_data[i].T_SVT_HV_RT,
+			eemsn_log->sn_cal_data[i].T_SVT_LV_RT);
 
 #if VMIN_PREDICT_ENABLE
 		seq_printf(m, "[%d]id:%d, ATE_Temp_decode:%d, T_SVT_current:0, ",
@@ -1947,18 +1939,31 @@ static int eem_dump_proc_show(struct seq_file *m, void *v)
 			eemsn_log->sn_cal_data[i].sn_aging);
 
 #else
-		seq_printf(m, "[%d]id:%d, ATE_Temp_decode:%d, T_SVT_current:%d, ",
+		seq_printf(m, "[%d]id:%d, ATE_Temp_decode:%d, T_SVT_current:%d\n",
 			seq++, i, eem_devinfo.ATE_TEMP,
 			eemsn_log->sn_log.sd[i].T_SVT_current);
 
-		seq_printf(m, "[%d]SN_Vmin:0x%x, CPE_Vmin:0x%x, init2[0]:0x%x, ",
+		seq_printf(m,
+			"[%d]CPE_temp_RT:%d %d, CPE_temp_HT:%d %d\n",
+			seq++,
+			eemsn_log->sn_log.sd[i].CPE_temp_RT[0],
+			eemsn_log->sn_log.sd[i].CPE_temp_RT[1],
+			eemsn_log->sn_log.sd[i].CPE_temp_HT[0],
+			eemsn_log->sn_log.sd[i].CPE_temp_HT[1]);
+
+		seq_printf(m,
+			"[%d]SN_Vmin:0x%x, CPE_Vmin:0x%x 0x%x, init2[0]:0x%x, ",
 			seq++, eemsn_log->sn_log.sd[i].SN_Vmin,
-			eemsn_log->sn_log.sd[i].CPE_Vmin,
+			eemsn_log->sn_log.sd[i].CPE_Vmin[0],
+			eemsn_log->sn_log.sd[i].CPE_Vmin[1],
 			eemsn_log->det_log[i].volt_tbl_init2[0]);
-		seq_printf(m, "sn_aging:%d, SN_temp:%d, CPE_temp:%d\n",
-			eemsn_log->sn_cal_data[i].sn_aging,
-			eemsn_log->sn_log.sd[i].SN_temp,
-			eemsn_log->sn_log.sd[i].CPE_temp);
+		seq_printf(m, "sn_aging:%d %d, SN_temp:%d %d, CPE_temp:%d %d\n",
+			eemsn_log->sn_log.sd[i].cur_sn_aging[0],
+			eemsn_log->sn_log.sd[i].cur_sn_aging[1],
+			eemsn_log->sn_log.sd[i].SN_temp[0],
+			eemsn_log->sn_log.sd[i].SN_temp[1],
+			eemsn_log->sn_log.sd[i].final_CPE_temp[0],
+			eemsn_log->sn_log.sd[i].final_CPE_temp[1]);
 #endif
 		oppidx = eemsn_log->sn_log.sd[i].cur_oppidx;
 		seq_printf(m, "cur_opp:%d, dst_volt_pmic:0x%x, footprint:0x%x\n",
@@ -1966,12 +1971,13 @@ static int eem_dump_proc_show(struct seq_file *m, void *v)
 			eemsn_log->sn_log.sd[i].dst_volt_pmic,
 			eemsn_log->sn_log.footprint[i]);
 		seq_printf(m,
-			"[%d]cur_volt:%d, new dst_volt_pmic:%d, cur temp:%d, ",
+			"[%d]cur_volt:%d, new dst_volt_pmic:%d, max_temp:%d, min_temp:%d",
 			seq++, eemsn_log->sn_log.sd[i].cur_volt,
 			det->ops->pmic_2_volt(det,
 			eemsn_log->sn_log.sd[i].dst_volt_pmic),
-			eemsn_log->sn_log.sd[i].cur_temp);
-		seq_printf(m, "cur_volt_ptp:%d\n",
+			eemsn_log->sn_log.sd[i].max_temp,
+			eemsn_log->sn_log.sd[i].min_temp);
+		seq_printf(m, " cur_volt_ptp:%d\n",
 			det->ops->pmic_2_volt(det,
 			eemsn_log->det_log[det->det_id].volt_tbl_pmic[oppidx]
 			));
@@ -1992,7 +1998,7 @@ static int eem_aging_dump_proc_show(struct seq_file *m, void *v)
 	struct eem_ipi_data eem_data;
 	int ipi_ret = 0;
 	unsigned char lock;
-	unsigned char i, j;
+	unsigned char i, j, itbl;
 	unsigned int locklimit = 0;
 
 	FUNC_ENTER(FUNC_LV_HELP);
@@ -2051,11 +2057,13 @@ static int eem_aging_dump_proc_show(struct seq_file *m, void *v)
 
 	for (i = 0; i < NR_SN_DET; i++) {
 		seq_printf(m, "id:%d\n", i);
+#if 0
 		seq_printf(m, "[cal_sn_aging]Param_temp:%d, SVT:%d, LVT:%d, ULVT:%d\n",
 			eemsn_log->sn_cpu_param[i].Param_temp,
 			eemsn_log->sn_cpu_param[i].Param_A_Tused_SVT,
 			eemsn_log->sn_cpu_param[i].Param_A_Tused_LVT,
 			eemsn_log->sn_cpu_param[i].Param_A_Tused_ULVT);
+#endif
 		seq_printf(m, "cal_sn_aging, atvt A_Tused_SVT:%d, LVT:%d, ",
 			eemsn_log->sn_cal_data[i].atvt.A_Tused_SVT,
 			eemsn_log->sn_cal_data[i].atvt.A_Tused_LVT);
@@ -2063,11 +2071,16 @@ static int eem_aging_dump_proc_show(struct seq_file *m, void *v)
 			eemsn_log->sn_cal_data[i].atvt.A_Tused_ULVT,
 			eemsn_log->sn_cal_data[i].TEMP_CAL);
 
-		seq_printf(m, "[cal_sn_aging]id:%d, cpe_init_aging:%llu, ",
-			i, eemsn_log->sn_cal_data[i].cpe_init_aging);
-		seq_printf(m, "CPE_Aging:%d, sn_anging:%d\n",
-			eemsn_log->sn_cal_data[i].CPE_Aging,
-			eemsn_log->sn_cal_data[i].sn_aging);
+		for (itbl = 0; (itbl < NR_PI_VF); itbl++) {
+			if (eemsn_log->sn_cal_data[i].cpe_init_aging[itbl]) {
+				seq_printf(m,
+				"[cal_sn_aging]id:%d, cpe_init_aging:%llu, ",
+					i, eemsn_log->sn_cal_data[i].cpe_init_aging[itbl]);
+				seq_printf(m, "CPE_Aging:%d, sn_anging:%d, itbl:%d\n",
+					eemsn_log->sn_cal_data[i].CPE_Aging[itbl],
+					eemsn_log->sn_cal_data[i].sn_aging[itbl], itbl);
+			}
+		}
 		seq_printf(m, "volt_cross:%d, count_cross:%d\n",
 			eemsn_log->sn_cal_data[i].volt_cross,
 			eemsn_log->sn_cal_data[i].count_cross);
@@ -2748,12 +2761,7 @@ struct eemsn_det *det;
 #if defined(MC50_LOAD)
 	/* d __iomem *spare1_phys; */
 #endif
-#if SUPPORT_PI_LOG_AREA
-	void __iomem *spare2phys;
-#endif
-#if EEM_NOT_READY
-	return 0;
-#endif
+
 	eem_debug("[EEM] ctrl_EEMSN_Enable=%d\n", ctrl_EEMSN_Enable);
 	get_devinfo();
 
@@ -2778,32 +2786,16 @@ struct eemsn_det *det;
 	eem_data.u.data.arg[0] = eem_log_phy_addr;
 	eem_data.u.data.arg[1] = eem_log_size;
 
-#if SUPPORT_PI_LOG_AREA
-	spare2phys = ioremap(EEM_PHY_TEMPSPARE2, 0);
-	if ((void __iomem *)spare2phys != NULL)
-		picachu_sn_mem_base_phys =
-		(eem_read(spare2_phys)
-		+ 0x60000);
-	else
-		eem_error("incorrect spare1_phys:0x%x", spare2_phys);
-
-
-	eemsn_log->picachu_sn_mem_base_phys =
-		picachu_sn_mem_base_phys;
-	eem_error("arg0(addr):0x%x, arg1(len):%d: [2]:0x%x\n",
-		eem_data.u.data.arg[0], eem_data.u.data.arg[1],
-		eemsn_log->picachu_sn_mem_base_phys);
-#endif
 	memcpy(&(eemsn_log->efuse_devinfo), &eem_devinfo,
 		sizeof(struct eemsn_devinfo));
 	eemsn_log->segCode = get_devinfo_with_index(DEVINFO_SEG_IDX)
 			& 0xFF;
-	/* eemsn_log->efuse_sv = eem_read(EEM_TEMPSPARE1); */
 
 #if SUPPORT_PICACHU
 	get_picachu_efuse();
 #endif
 #if 0
+	/* test if picachu not ready */
 	/* force set freq table */
 	memcpy(eemsn_log->vf_tbl_det,
 		mc50_tbl, sizeof(eemsn_log->vf_tbl_det));
@@ -2847,10 +2839,10 @@ struct eemsn_det *det;
 	return 0;
 #endif
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
-	eem_error("AP:eem_log_size:%d, eemsn_log:%d\n",
+	eem_debug("AP:eem_log_size:%d, eemsn_log:%d\n",
 		eem_data.u.data.arg[1], sizeof(struct eemsn_log));
 #endif
-	eem_error("AP:%d, %d, %d, %d, %d\n",
+	eem_debug("AP:%d, %d, %d, %d, %d\n",
 	sizeof(struct eemsn_log_det),
 	sizeof(struct sn_log_data),
 	sizeof(struct sn_log_cal_data),
