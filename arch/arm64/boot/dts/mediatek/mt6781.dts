@@ -314,6 +314,11 @@ pwrap: pwrap@1000d000 {
 		interrupts = <GIC_SPI 73 IRQ_TYPE_EDGE_RISING>;
 	};
 
+	amms_control {
+		compatible = "mediatek,amms";
+		interrupts = <GIC_SPI 341 IRQ_TYPE_EDGE_RISING>;
+	};
+
 	topmisc@10011000 {
 		compatible = "mediatek,topmisc";
 		reg = <0 0x10011000 0 0x1000>;
