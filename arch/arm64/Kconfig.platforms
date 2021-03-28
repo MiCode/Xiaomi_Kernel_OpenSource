@@ -167,6 +167,7 @@ config MACH_MT6781
 	select MTK_LPM_MT6781
 	select OVERLAY_FS
 	select CPU_IDLE
+	select MTK_BASE_POWER
 	select PM_DEVFREQ
 	select PINCTRL
 	select PINCTRL_MT6781
