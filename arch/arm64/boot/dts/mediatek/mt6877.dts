@@ -1917,10 +1917,9 @@
 		/* define threads, see mt6877-gce.h */
 		mediatek,mailbox-gce = <&gce_mbox>;
 		mboxes = <&gce_mbox 0 0 CMDQ_THR_PRIO_4>,
-			<&gce_mbox 5 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox 1 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox 2 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox 3 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
-			<&gce_mbox 1 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_6>,
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 			<&gce_mbox 4 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox 6 0 CMDQ_THR_PRIO_3>,
@@ -1934,7 +1933,6 @@
 			"CLIENT_CFG1",
 			"CLIENT_CFG2",
 			"CLIENT_TRIG_LOOP0",
-			"CLIENT_SODI_LOOP0",
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 			"CLIENT_SUB_CFG0",
 			"CLIENT_DSI_CFG0",
@@ -1952,7 +1950,6 @@
 		/* define subsys, see mt6877-gce.h */
 		gce-event-names = "disp_mutex0_eof",
 			"disp_token_stream_dirty0",
-			"disp_token_sodi0",
 			"disp_wait_dsi0_te",
 			"disp_token_stream_eof0",
 			"disp_dsi0_eof",
@@ -1967,7 +1964,6 @@
 		gce-events =
 			<&gce_mbox CMDQ_EVENT_DISP_STREAM_DONE_ENG_EVENT_0>,
 			<&gce_mbox CMDQ_SYNC_TOKEN_CONFIG_DIRTY>,
-			<&gce_mbox CMDQ_SYNC_TOKEN_SODI>,
 			<&gce_mbox CMDQ_EVENT_DSI0_TE_ENG_EVENT>,
 			<&gce_mbox CMDQ_SYNC_TOKEN_STREAM_EOF>,
 			<&gce_mbox CMDQ_EVENT_DSI0_FRAME_DONE>,
