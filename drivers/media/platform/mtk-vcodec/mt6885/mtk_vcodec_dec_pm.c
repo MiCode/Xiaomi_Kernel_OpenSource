@@ -162,7 +162,6 @@ void mtk_vcodec_dec_pw_off(struct mtk_vcodec_pm *pm, int hw_id)
 
 void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 {
-
 #ifdef CONFIG_MTK_PSEUDO_M4U
 	int i, larb_port_num, larb_id;
 	struct M4U_PORT_STRUCT port;
@@ -172,6 +171,7 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 	int j, ret;
 	struct mtk_vcodec_dev *dev;
 	void __iomem *vdec_racing_addr;
+	unsigned long flags;
 
 	time_check_start(MTK_FMT_DEC, hw_id);
 	if (hw_id == MTK_VDEC_CORE) {
@@ -196,10 +196,17 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 		return;
 	}
 
+	dev = container_of(pm, struct mtk_vcodec_dev, pm);
+
+	if (!ret) {
+		spin_lock_irqsave(&dev->dec_power_lock[hw_id], flags);
+		dev->dec_is_power_on[hw_id] = true;
+		spin_unlock_irqrestore(&dev->dec_power_lock[hw_id], flags);
+	}
+
 	mutex_lock(&pm->dec_racing_info_mutex);
 	if (atomic_inc_return(&pm->dec_active_cnt) == 1) {
 		/* restore racing info read/write ptr */
-		dev = container_of(pm, struct mtk_vcodec_dev, pm);
 		vdec_racing_addr =
 			dev->dec_reg_base[VDEC_RACING_CTRL] +
 				MTK_VDEC_RACING_INFO_OFFSET;
@@ -242,7 +249,6 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 	}
 	time_check_end(MTK_FMT_DEC, hw_id, 50);
 #endif
-
 }
 
 void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
@@ -250,6 +256,7 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 #ifndef FPGA_PWRCLK_API_DISABLE
 	struct mtk_vcodec_dev *dev;
 	void __iomem *vdec_racing_addr;
+	unsigned long flags;
 	int i;
 
 	mutex_lock(&pm->dec_racing_info_mutex);
@@ -267,6 +274,11 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 
 	dev = container_of(pm, struct mtk_vcodec_dev, pm);
 	mtk_vdec_hw_break(dev, hw_id);
+
+	/* avoid translation fault callback dump reg not done */
+	spin_lock_irqsave(&dev->dec_power_lock[hw_id], flags);
+	dev->dec_is_power_on[hw_id] = false;
+	spin_unlock_irqrestore(&dev->dec_power_lock[hw_id], flags);
 
 	if (hw_id == MTK_VDEC_CORE) {
 		clk_disable_unprepare(pm->clk_MT_CG_VDEC0);
@@ -442,6 +454,7 @@ void mtk_vdec_dump_addr_reg(
 	unsigned long value, values[6];
 	bool is_ufo = false;
 	int i, j, start, end;
+	unsigned long flags;
 
 	#define INPUT_LAT_VLD_NUM 7
 	const unsigned int input_lat_vld_reg[INPUT_LAT_VLD_NUM] = {
@@ -464,6 +477,13 @@ void mtk_vdec_dump_addr_reg(
 	#define UBE_CORE_VLD_NUM 3
 	const unsigned int ube_core_vld_reg[UBE_CORE_VLD_NUM] = {
 		0xB0, 0xB4, 0xB8};
+
+	spin_lock_irqsave(&dev->dec_power_lock[hw_id], flags);
+	if (dev->dec_is_power_on[hw_id] == false) {
+		mtk_v4l2_err("hw %d power is off !!", hw_id);
+		spin_unlock_irqrestore(&dev->dec_power_lock[hw_id], flags);
+		return;
+	}
 
 	if (hw_id == MTK_VDEC_CORE && fourcc != V4L2_PIX_FMT_AV1)
 		is_ufo = (readl(ufo_addr + 0x08C) & 0x1) == 0x1;
@@ -604,6 +624,8 @@ void mtk_vdec_dump_addr_reg(
 	default:
 		mtk_v4l2_err("unknown addr type");
 	}
+
+	spin_unlock_irqrestore(&dev->dec_power_lock[hw_id], flags);
 }
 
 #ifdef CONFIG_MTK_IOMMU_V2
