@@ -1813,46 +1813,46 @@ static const struct mtk_gate_regs cam_m_cg_regs = {
 		.id = _id,			\
 		.name = _name,			\
 		.parent_name = _parent,		\
-		.regs = &cam_cg_regs,		\
+		.regs = &cam_m_cg_regs,			\
 		.shift = _shift,		\
 		.ops = &mtk_clk_gate_ops_dummy,	\
 	}
 
 static const struct mtk_gate cam_m_clks[] = {
-	GATE_CAM_M(CLK_CAM_M_LARB13, "cam_m_larb13",
-			"cam_ck"/* parent */, 0),
+	GATE_CAM_DUMMY(CLK_CAM_M_LARB13, "cam_m_larb13",
+			"cam_sel"/* parent */, 0),
 	GATE_CAM_M(CLK_CAM_M_DFP_VAD, "cam_m_dfpvad",
-			"cam_ck"/* parent */, 1),
-	GATE_CAM_M(CLK_CAM_M_LARB14, "cam_m_larb14",
-			"cam_ck"/* parent */, 2),
+			"cam_sel"/* parent */, 1),
+	GATE_CAM_DUMMY(CLK_CAM_M_LARB14, "cam_m_larb14",
+			"cam_sel"/* parent */, 2),
 	GATE_CAM_M(CLK_CAM_M_RESERVED0, "cam_m_reserved0",
-			"cam_ck"/* parent */, 3),
-	GATE_CAM_M(CLK_CAM_M_CAM, "cam_m_cam",
-			"cam_ck"/* parent */, 6),
+			"cam_sel"/* parent */, 3),
+	GATE_CAM_DUMMY(CLK_CAM_M_CAM, "cam_m_cam",
+			"cam_sel"/* parent */, 6),
 	GATE_CAM_M(CLK_CAM_M_CAMTG, "cam_m_camtg",
-			"cam_ck"/* parent */, 7),
+			"cam_sel"/* parent */, 7),
 	GATE_CAM_M(CLK_CAM_M_SENINF, "cam_m_seninf",
-			"cam_ck"/* parent */, 8),
+			"cam_sel"/* parent */, 8),
 	GATE_CAM_M(CLK_CAM_M_CAMSV1, "cam_m_camsv1",
-			"cam_ck"/* parent */, 10),
+			"cam_sel"/* parent */, 10),
 	GATE_CAM_M(CLK_CAM_M_CAMSV2, "cam_m_camsv2",
-			"cam_ck"/* parent */, 11),
+			"cam_sel"/* parent */, 11),
 	GATE_CAM_M(CLK_CAM_M_CAMSV3, "cam_m_camsv3",
-			"cam_ck"/* parent */, 12),
+			"cam_sel"/* parent */, 12),
 	GATE_CAM_M(CLK_CAM_M_CCU0, "cam_m_ccu0",
-			"cam_ck"/* parent */, 13),
+			"cam_sel"/* parent */, 13),
 	GATE_CAM_M(CLK_CAM_M_CCU1, "cam_m_ccu1",
-			"cam_ck"/* parent */, 14),
+			"cam_sel"/* parent */, 14),
 	GATE_CAM_M(CLK_CAM_M_MRAW0, "cam_m_mraw0",
-			"cam_ck"/* parent */, 15),
+			"cam_sel"/* parent */, 15),
 	GATE_CAM_M(CLK_CAM_M_RESERVED2, "cam_m_reserved2",
-			"cam_ck"/* parent */, 16),
+			"cam_sel"/* parent */, 16),
 	GATE_CAM_M(CLK_CAM_M_FAKE_ENG, "cam_m_fake_eng",
-			"cam_ck"/* parent */, 17),
-	GATE_CAM_M(CLK_CAM_M_CCU_GALS, "cam_m_ccu_gals",
-			"cam_ck"/* parent */, 18),
-	GATE_CAM_M(CLK_CAM_M_CAM2MM_GALS, "cam_m_cam2mm_gals",
-			"cam_ck"/* parent */, 19),
+			"cam_sel"/* parent */, 17),
+	GATE_CAM_DUMMY(CLK_CAM_M_CCU_GALS, "cam_m_ccu_gals",
+			"cam_sel"/* parent */, 18),
+	GATE_CAM_DUMMY(CLK_CAM_M_CAM2MM_GALS, "cam_m_cam2mm_gals",
+			"cam_sel"/* parent */, 19),
 };
 
 static const struct mtk_gate_regs cam_ra_cg_regs = {
@@ -1870,13 +1870,22 @@ static const struct mtk_gate_regs cam_ra_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_CAM_RA_DUMMY(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &cam_ra_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_dummy,	\
+	}
+
 static const struct mtk_gate cam_ra_clks[] = {
-	GATE_CAM_RA(CLK_CAM_RA_LARBX, "cam_ra_larbx",
-			"cam_ck"/* parent */, 0),
-	GATE_CAM_RA(CLK_CAM_RA_CAM, "cam_ra_cam",
-			"cam_ck"/* parent */, 1),
+	GATE_CAM_RA_DUMMY(CLK_CAM_RA_LARBX, "cam_ra_larbx",
+			"cam_sel"/* parent */, 0),
+	GATE_CAM_RA_DUMMY(CLK_CAM_RA_CAM, "cam_ra_cam",
+			"cam_sel"/* parent */, 1),
 	GATE_CAM_RA(CLK_CAM_RA_CAMTG, "cam_ra_camtg",
-			"cam_ck"/* parent */, 2),
+			"cam_sel"/* parent */, 2),
 };
 
 static const struct mtk_gate_regs cam_rb_cg_regs = {
@@ -1894,13 +1903,22 @@ static const struct mtk_gate_regs cam_rb_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_CAM_RB_DUMMY(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &cam_rb_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_dummy,	\
+	}
+
 static const struct mtk_gate cam_rb_clks[] = {
-	GATE_CAM_RB(CLK_CAM_RB_LARBX, "cam_rb_larbx",
-			"cam_ck"/* parent */, 0),
-	GATE_CAM_RB(CLK_CAM_RB_CAM, "cam_rb_cam",
-			"cam_ck"/* parent */, 1),
+	GATE_CAM_RB_DUMMY(CLK_CAM_RB_LARBX, "cam_rb_larbx",
+			"cam_sel"/* parent */, 0),
+	GATE_CAM_RB_DUMMY(CLK_CAM_RB_CAM, "cam_rb_cam",
+			"cam_sel"/* parent */, 1),
 	GATE_CAM_RB(CLK_CAM_RB_CAMTG, "cam_rb_camtg",
-			"cam_ck"/* parent */, 2),
+			"cam_sel"/* parent */, 2),
 };
 
 static const struct mtk_gate_regs imgsys1_cg_regs = {
@@ -1928,14 +1946,14 @@ static const struct mtk_gate_regs imgsys1_cg_regs = {
 	}
 
 static const struct mtk_gate imgsys1_clks[] __initconst = {
-	GATE_IMGSYS1(CLK_IMGSYS1_LARB9, "imgsys1_larb9",
-			"img1_ck"/* parent */, 0),
-	GATE_IMGSYS1(CLK_IMGSYS1_LARB10, "imgsys1_larb10",
-			"img1_ck"/* parent */, 1),
+	GATE_IMGSYS1_DUMMY(CLK_IMGSYS1_LARB9, "imgsys1_larb9",
+			"img1_sel"/* parent */, 0),
+	GATE_IMGSYS1_DUMMY(CLK_IMGSYS1_LARB10, "imgsys1_larb10",
+			"img1_sel"/* parent */, 1),
 	GATE_IMGSYS1(CLK_IMGSYS1_DIP, "imgsys1_dip",
-			"img1_ck"/* parent */, 2),
-	GATE_IMGSYS1(CLK_IMGSYS1_GALS, "imgsys1_gals",
-			"img1_ck"/* parent */, 12),
+			"img1_sel"/* parent */, 2),
+	GATE_IMGSYS1_DUMMY(CLK_IMGSYS1_GALS, "imgsys1_gals",
+			"img1_sel"/* parent */, 12),
 };
 
 static const struct mtk_gate_regs imgsys2_cg_regs = {
@@ -1963,18 +1981,18 @@ static const struct mtk_gate_regs imgsys2_cg_regs = {
 	}
 
 static const struct mtk_gate imgsys2_clks[] __initconst = {
-	GATE_IMGSYS2(CLK_IMGSYS2_LARB9, "imgsys2_larb9",
-			"img1_ck"/* parent */, 0),
-	GATE_IMGSYS2(CLK_IMGSYS2_LARB10, "imgsys2_larb10",
-			"img1_ck"/* parent */, 1),
+	GATE_IMGSYS2_DUMMY(CLK_IMGSYS2_LARB9, "imgsys2_larb9",
+			"img1_sel"/* parent */, 0),
+	GATE_IMGSYS2_DUMMY(CLK_IMGSYS2_LARB10, "imgsys2_larb10",
+			"img1_sel"/* parent */, 1),
 	GATE_IMGSYS2(CLK_IMGSYS2_MFB, "imgsys2_mfb",
-			"img1_ck"/* parent */, 6),
+			"img1_sel"/* parent */, 6),
 	GATE_IMGSYS2(CLK_IMGSYS2_WPE, "imgsys2_wpe",
-			"img1_ck"/* parent */, 7),
+			"img1_sel"/* parent */, 7),
 	GATE_IMGSYS2(CLK_IMGSYS2_MSS, "imgsys2_mss",
-			"img1_ck"/* parent */, 8),
-	GATE_IMGSYS2(CLK_IMGSYS2_GALS, "imgsys2_gals",
-			"img1_ck"/* parent */, 12),
+			"img1_sel"/* parent */, 8),
+	GATE_IMGSYS2_DUMMY(CLK_IMGSYS2_GALS, "imgsys2_gals",
+			"img1_sel"/* parent */, 12),
 };
 
 static const struct mtk_gate_regs ipe_cg_regs = {
@@ -1992,23 +2010,32 @@ static const struct mtk_gate_regs ipe_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_IPE_DUMMY(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &ipe_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_dummy,	\
+	}
+
 static const struct mtk_gate ipe_clks[] = {
-	GATE_IPE(CLK_IPE_LARB19, "ipe_larb19",
-			"ipe_ck"/* parent */, 0),
-	GATE_IPE(CLK_IPE_LARB20, "ipe_larb20",
-			"ipe_ck"/* parent */, 1),
-	GATE_IPE(CLK_IPE_SMI_SUBCOM, "ipe_smi_subcom",
-			"ipe_ck"/* parent */, 2),
+	GATE_IPE_DUMMY(CLK_IPE_LARB19, "ipe_larb19",
+			"ipe_sel"/* parent */, 0),
+	GATE_IPE_DUMMY(CLK_IPE_LARB20, "ipe_larb20",
+			"ipe_sel"/* parent */, 1),
+	GATE_IPE_DUMMY(CLK_IPE_SMI_SUBCOM, "ipe_smi_subcom",
+			"ipe_sel"/* parent */, 2),
 	GATE_IPE(CLK_IPE_FD, "ipe_fd",
-			"ipe_ck"/* parent */, 3),
+			"ipe_sel"/* parent */, 3),
 	GATE_IPE(CLK_IPE_FE, "ipe_fe",
-			"ipe_ck"/* parent */, 4),
+			"ipe_sel"/* parent */, 4),
 	GATE_IPE(CLK_IPE_RSC, "ipe_rsc",
-			"ipe_ck"/* parent */, 5),
+			"ipe_sel"/* parent */, 5),
 	GATE_IPE(CLK_IPE_DPE, "ipe_dpe",
-			"dpe_ck"/* parent */, 6),
-	GATE_IPE(CLK_IPE_GALS, "ipe_gals",
-			"img2_ck"/* parent */, 8),
+			"ipe_sel"/* parent */, 6),
+	GATE_IPE_DUMMY(CLK_IPE_GALS, "ipe_gals",
+			"img1_sel"/* parent */, 8),
 };
 
 
@@ -2063,58 +2090,58 @@ static const struct mtk_gate_regs mm1_cg_regs = {
 static const struct mtk_gate mm_clks[] __initconst = {
 	/* MM0 */
 	GATE_MM0(CLK_MM_DISP_MUTEX0, "mm_disp_mutex0",
-			"disp_ck"/* parent */, 0),
+			"disp_sel"/* parent */, 0),
 	GATE_MM0(CLK_MM_APB_BUS, "mm_apb_bus",
-			"disp_ck"/* parent */, 1),
+			"disp_sel"/* parent */, 1),
 	GATE_MM0(CLK_MM_DISP_OVL0, "mm_disp_ovl0",
-			"disp_ck"/* parent */, 2),
+			"disp_sel"/* parent */, 2),
 	GATE_MM0(CLK_MM_DISP_RDMA0, "mm_disp_rdma0",
-			"disp_ck"/* parent */, 3),
+			"disp_sel"/* parent */, 3),
 	GATE_MM0(CLK_MM_DISP_OVL0_2L, "mm_disp_ovl0_2l",
-			"disp_ck"/* parent */, 4),
+			"disp_sel"/* parent */, 4),
 	GATE_MM0(CLK_MM_DISP_WDMA0, "mm_disp_wdma0",
-			"disp_ck"/* parent */, 5),
+			"disp_sel"/* parent */, 5),
 	GATE_MM0(CLK_MM_DISP_CCORR1, "mm_disp_ccorr1",
-			"disp_ck"/* parent */, 6),
+			"disp_sel"/* parent */, 6),
 	GATE_MM0(CLK_MM_DISP_RSZ0, "mm_disp_rsz0",
-			"disp_ck"/* parent */, 7),
+			"disp_sel"/* parent */, 7),
 	GATE_MM0(CLK_MM_DISP_AAL0, "mm_disp_aal0",
-			"disp_ck"/* parent */, 8),
+			"disp_sel"/* parent */, 8),
 	GATE_MM0(CLK_MM_DISP_CCORR0, "mm_disp_ccorr0",
-			"disp_ck"/* parent */, 9),
+			"disp_sel"/* parent */, 9),
 	GATE_MM0(CLK_MM_DISP_COLOR0, "mm_disp_color0",
-			"disp_ck"/* parent */, 10),
-	GATE_MM0(CLK_MM_SMI_INFRA, "mm_smi_infra",
-			"disp_ck"/* parent */, 11),
+			"disp_sel"/* parent */, 10),
+	GATE_MM0_DUMMY(CLK_MM_SMI_INFRA, "mm_smi_infra",
+			"disp_sel"/* parent */, 11),
 	GATE_MM0(CLK_MM_DISP_DSC_WRAP, "mm_disp_dsc_wrap",
-			"disp_ck"/* parent */, 12),
+			"disp_sel"/* parent */, 12),
 	GATE_MM0(CLK_MM_DISP_GAMMA0, "mm_disp_gamma0",
-			"disp_ck"/* parent */, 13),
+			"disp_sel"/* parent */, 13),
 	GATE_MM0(CLK_MM_DISP_POSTMASK0, "mm_disp_postmask0",
-			"disp_ck"/* parent */, 14),
+			"disp_sel"/* parent */, 14),
 	GATE_MM0(CLK_MM_DISP_SPR0, "mm_disp_spr0",
-			"disp_ck"/* parent */, 15),
+			"disp_sel"/* parent */, 15),
 	GATE_MM0(CLK_MM_DISP_DITHER0, "mm_disp_dither0",
-			"disp_ck"/* parent */, 16),
-	GATE_MM0(CLK_MM_SMI_COMMON, "mm_smi_common",
-			"disp_ck"/* parent */, 17),
+			"disp_sel"/* parent */, 16),
+	GATE_MM0_DUMMY(CLK_MM_SMI_COMMON, "mm_smi_common",
+			"disp_sel"/* parent */, 17),
 	GATE_MM0(CLK_MM_DISP_CM0, "mm_disp_cm0",
-			"disp_ck"/* parent */, 18),
+			"disp_sel"/* parent */, 18),
 	GATE_MM0(CLK_MM_DSI0, "mm_dsi0",
-			"disp_ck"/* parent */, 19),
+			"disp_sel"/* parent */, 19),
 	GATE_MM0(CLK_MM_DISP_FAKE_ENG0, "mm_disp_fake_eng0",
-			"disp_ck"/* parent */, 20),
+			"disp_sel"/* parent */, 20),
 	GATE_MM0(CLK_MM_DISP_FAKE_ENG1, "mm_disp_fake_eng1",
-			"disp_ck"/* parent */, 21),
-	GATE_MM0(CLK_MM_SMI_GALS, "mm_smi_gals",
-			"disp_ck"/* parent */, 22),
-	GATE_MM0(CLK_MM_SMI_IOMMU, "mm_smi_iommu",
-			"disp_ck"/* parent */, 24),
+			"disp_sel"/* parent */, 21),
+	GATE_MM0_DUMMY(CLK_MM_SMI_GALS, "mm_smi_gals",
+			"disp_sel"/* parent */, 22),
+	GATE_MM0_DUMMY(CLK_MM_SMI_IOMMU, "mm_smi_iommu",
+			"disp_sel"/* parent */, 24),
 	/* MM1 */
 	GATE_MM1(CLK_MM_DSI0_DSI_CK_DOMAIN, "mm_dsi0_dsi_domain",
-			"disp_ck"/* parent */, 0),
+			"disp_sel"/* parent */, 0),
 	GATE_MM1(CLK_MM_DISP_26M, "mm_disp_26m_ck",
-			"disp_ck"/* parent */, 10),
+			"disp_sel"/* parent */, 10),
 };
 
 static const struct mtk_gate_regs mdp0_cg_regs = {
@@ -2138,6 +2165,15 @@ static const struct mtk_gate_regs mdp1_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_MDP0_DUMMY(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &mdp0_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_dummy,	\
+	}
+
 #define GATE_MDP1(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -2150,46 +2186,46 @@ static const struct mtk_gate_regs mdp1_cg_regs = {
 static const struct mtk_gate mdp_clks[] = {
 	/* MDP0 */
 	GATE_MDP0(CLK_MDP_RDMA0, "mdp_rdma0",
-			"mdp_ck"/* parent */, 0),
+			"disp_sel"/* parent */, 0),
 	GATE_MDP0(CLK_MDP_TDSHP0, "mdp_tdshp0",
-			"mdp_ck"/* parent */, 1),
+			"disp_sel"/* parent */, 1),
 	GATE_MDP0(CLK_MDP_IMG_DL_ASYNC0, "mdp_img_dl_async0",
-			"mdp_ck"/* parent */, 2),
+			"disp_sel"/* parent */, 2),
 	GATE_MDP0(CLK_MDP_IMG_DL_ASYNC1, "mdp_img_dl_async1",
-			"mdp_ck"/* parent */, 3),
+			"disp_sel"/* parent */, 3),
 	GATE_MDP0(CLK_MDP_RDMA1, "mdp_rdma1",
-			"mdp_ck"/* parent */, 4),
+			"disp_sel"/* parent */, 4),
 	GATE_MDP0(CLK_MDP_TDSHP1, "mdp_tdshp1",
-			"mdp_ck"/* parent */, 5),
-	GATE_MDP0(CLK_MDP_SMI0, "mdp_smi0",
-			"mdp_ck"/* parent */, 6),
+			"disp_sel"/* parent */, 5),
+	GATE_MDP0_DUMMY(CLK_MDP_SMI0, "mdp_smi0",
+			"disp_sel"/* parent */, 6),
 	GATE_MDP0(CLK_MDP_APB_BUS, "mdp_apb_bus",
-			"mdp_ck"/* parent */, 7),
+			"disp_sel"/* parent */, 7),
 	GATE_MDP0(CLK_MDP_WROT0, "mdp_wrot0",
-			"mdp_ck"/* parent */, 8),
+			"disp_sel"/* parent */, 8),
 	GATE_MDP0(CLK_MDP_RSZ0, "mdp_rsz0",
-			"mdp_ck"/* parent */, 9),
+			"disp_sel"/* parent */, 9),
 	GATE_MDP0(CLK_MDP_HDR0, "mdp_hdr0",
-			"mdp_ck"/* parent */, 10),
+			"disp_sel"/* parent */, 10),
 	GATE_MDP0(CLK_MDP_MUTEX0, "mdp_mutex0",
-			"mdp_ck"/* parent */, 11),
+			"disp_sel"/* parent */, 11),
 	GATE_MDP0(CLK_MDP_WROT1, "mdp_wrot1",
-			"mdp_ck"/* parent */, 12),
+			"disp_sel"/* parent */, 12),
 	GATE_MDP0(CLK_MDP_RSZ1, "mdp_rsz1",
-			"mdp_ck"/* parent */, 13),
+			"disp_sel"/* parent */, 13),
 	GATE_MDP0(CLK_MDP_FAKE_ENG0, "mdp_fake_eng0",
-			"mdp_ck"/* parent */, 14),
+			"disp_sel"/* parent */, 14),
 	GATE_MDP0(CLK_MDP_AAL0, "mdp_aal0",
-			"mdp_ck"/* parent */, 15),
+			"disp_sel"/* parent */, 15),
 	GATE_MDP0(CLK_MDP_AAL1, "mdp_aal1",
-			"mdp_ck"/* parent */, 16),
+			"disp_sel"/* parent */, 16),
 	GATE_MDP0(CLK_MDP_COLOR0, "mdp_color0",
-			"mdp_ck"/* parent */, 17),
+			"disp_sel"/* parent */, 17),
 	/* MDP1 */
 	GATE_MDP1(CLK_MDP_IMG_DL_RELAY0_ASYNC0, "mdp_img_dl_rel0_as0",
-			"mdp_ck"/* parent */, 0),
+			"disp_sel"/* parent */, 0),
 	GATE_MDP1(CLK_MDP_IMG_DL_RELAY1_ASYNC1, "mdp_img_dl_rel1_as1",
-			"mdp_ck"/* parent */, 8),
+			"disp_sel"/* parent */, 8),
 };
 
 static const struct mtk_gate_regs vdec0_cg_regs = {

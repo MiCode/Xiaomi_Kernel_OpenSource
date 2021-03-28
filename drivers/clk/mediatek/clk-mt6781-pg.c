@@ -3093,16 +3093,47 @@ static const char * const *get_cam_clk_names(size_t *num)
 	static const char * const clks[] = {
 
 		/* CAM */
-		"camsys_larb6",
-		"camsys_larb7",
-		"camsys_gals",
-		"camsys_cam",
-		"camsys_camtg",
-		"camsys_seninf",
-		"camsys_camsv0",
-		"camsys_camsv1",
-		"camsys_ccu",
-		"camsys_fake_eng",
+		"cam_m_larb13",
+		"cam_m_dfpvad",
+		"cam_m_larb14",
+		"cam_m_cam",
+		"cam_m_camtg",
+		"cam_m_seninf",
+		"cam_m_camsv1",
+		"cam_m_camsv2",
+		"cam_m_camsv3",
+		"cam_m_ccu0",
+		"cam_m_ccu1",
+		"cam_m_mraw0",
+		"cam_m_fake_eng",
+		"cam_m_ccu_gals",
+		"cam_m_cam2mm_gals",
+	};
+	*num = ARRAY_SIZE(clks);
+	return clks;
+}
+
+static const char * const *get_cam_ra_clk_names(size_t *num)
+{
+	static const char * const clks[] = {
+
+		/* CAM_RAWA */
+		"cam_ra_larbx",
+		"cam_ra_cam",
+		"cam_ra_camtg",
+	};
+	*num = ARRAY_SIZE(clks);
+	return clks;
+}
+
+static const char * const *get_cam_rb_clk_names(size_t *num)
+{
+	static const char * const clks[] = {
+
+		/* CAM_RAWB */
+		"cam_rb_larbx",
+		"cam_rb_cam",
+		"cam_rb_camtg",
 	};
 	*num = ARRAY_SIZE(clks);
 	return clks;
@@ -3113,16 +3144,44 @@ static const char * const *get_img_clk_names(size_t *num)
 	static const char * const clks[] = {
 
 		/* IMG */
-		"imgsys_larb5",
-		"imgsys_larb4",
-		"imgsys_dip",
-		"imgsys_fdvt",
-		"imgsys_dpe",
-		"imgsys_rsc",
-		"imgsys_mfb",
-		"imgsys_wpe_a",
-		"imgsys_wpe_b",
-		"imgsys_owe",
+		"imgsys1_larb9",
+		"imgsys1_larb10",
+		"imgsys1_dip",
+		"imgsys1_gals",
+	};
+	*num = ARRAY_SIZE(clks);
+	return clks;
+}
+
+static const char * const *get_img2_clk_names(size_t *num)
+{
+	static const char * const clks[] = {
+
+		/* IMG2 */
+		"imgsys2_larb9",
+		"imgsys2_larb10",
+		"imgsys2_mfb",
+		"imgsys2_wpe",
+		"imgsys2_mss",
+		"imgsys2_gals",
+	};
+	*num = ARRAY_SIZE(clks);
+	return clks;
+}
+
+static const char * const *get_ipe_clk_names(size_t *num)
+{
+	static const char * const clks[] = {
+
+		/* IPE */
+		"ipe_larb19",
+		"ipe_larb20",
+		"ipe_smi_subcom",
+		"ipe_fd",
+		"ipe_fe",
+		"ipe_rsc",
+		"ipe_dpe",
+		"ipe_gals",
 	};
 	*num = ARRAY_SIZE(clks);
 	return clks;
@@ -3132,56 +3191,63 @@ static const char * const *get_mm_clk_names(size_t *num)
 {
 	static const char * const clks[] = {
 
-		"mm_smi_common",
-		"mm_smi_larb0",
-		"mm_smi_larb1",
-		"mm_gals_comm0",
-		"mm_gals_comm1",
-		"mm_gals_ccu2mm",
-		"mm_gals_ipu12mm",
-		"mm_gals_img2mm",
-		"mm_gals_cam2mm",
-		"mm_gals_ipu2mm",
-		"mm_mdp_dl_txck",
-		"mm_ipu_dl_txck",
-		"mm_mdp_rdma0",
-		"mm_mdp_rdma1",
-		"mm_mdp_rsz0",
-		"mm_mdp_rsz1",
-		"mm_mdp_tdshp",
-		"mm_mdp_wrot0",
-		"mm_mdp_wrot1",
-		"mm_fake_eng",
+		"mm_disp_mutex0",
+		"mm_apb_bus",
 		"mm_disp_ovl0",
-		"mm_disp_ovl0_2l",
-		"mm_disp_ovl1_2l",
 		"mm_disp_rdma0",
-		"mm_disp_rdma1",
+		"mm_disp_ovl0_2l",
 		"mm_disp_wdma0",
-		"mm_disp_color0",
-		"mm_disp_ccorr0",
+		"mm_disp_ccorr1",
+		"mm_disp_rsz0",
 		"mm_disp_aal0",
+		"mm_disp_ccorr0",
+		"mm_disp_color0",
+		"mm_smi_infra",
+		"mm_disp_dsc_wrap",
 		"mm_disp_gamma0",
+		"mm_disp_postmask0",
+		"mm_disp_spr0",
 		"mm_disp_dither0",
-		"mm_disp_split",
+		"mm_smi_common",
+		"mm_disp_cm0",
+		"mm_dsi0",
+		"mm_disp_fake_eng0",
+		"mm_disp_fake_eng1",
+		"mm_smi_gals",
+		"mm_smi_iommu",
 		/* MM1 */
-		"mm_dsi0_mmck",
-		"mm_dsi0_ifck",
-		"mm_dpi_mmck",
-		"mm_dpi_ifck",
-		"mm_fake_eng2",
-		"mm_mdp_dl_rxck",
-		"mm_ipu_dl_rxck",
-		"mm_26m",
-		"mm_mmsys_r2y",
-		"mm_disp_rsz",
-		"mm_mdp_aal",
-		"mm_mdp_hdr",
-		"mm_dbi_mmck",
-		"mm_dbi_ifck",
-		"mm_disp_pm0",
-		"mm_disp_hrt_bw",
-		"mm_disp_ovl_fbdc",
+		"mm_dsi0_dsi_domain",
+		"mm_disp_26m_ck",
+	};
+	*num = ARRAY_SIZE(clks);
+	return clks;
+}
+
+static const char * const *get_mdp_clk_names(size_t *num)
+{
+	static const char * const clks[] = {
+
+		"mdp_rdma0",
+		"mdp_tdshp0",
+		"mdp_img_dl_async0",
+		"mdp_img_dl_async1",
+		"mdp_rdma1",
+		"mdp_tdshp1",
+		"mdp_smi0",
+		"mdp_apb_bus",
+		"mdp_wrot0",
+		"mdp_rsz0",
+		"mdp_hdr0",
+		"mdp_mutex0",
+		"mdp_wrot1",
+		"mdp_rsz1",
+		"mdp_fake_eng0",
+		"mdp_aal0",
+		"mdp_aal1",
+		"mdp_color0",
+		/* MDP1 */
+		"mdp_img_dl_rel0_as0",
+		"mdp_img_dl_rel1_as1",
 	};
 	*num = ARRAY_SIZE(clks);
 	return clks;
@@ -3209,6 +3275,7 @@ static const char * const *get_vdec_clk_names(size_t *num)
 		"vdec_cken",
 		/* VDEC1 */
 		"vdec_larb1_cken",
+		"vdec_lat_cken",
 	};
 	*num = ARRAY_SIZE(clks);
 	return clks;
@@ -3247,6 +3314,7 @@ void subsys_if_on(void)
 	int ret = 0;
 	int i = 0;
 	size_t cam_num, img_num, mm_num, venc_num, vdec_num = 0;
+	size_t cam_ra_num, cam_rb_num, img2_num, mdp_num, ipe_num = 0;
 	/*size_t num, cam_num, img_num, mm_num, venc_num, vdec_num = 0;*/
 
 	/*const char * const *clks = get_all_clk_names(&num);*/
@@ -3255,6 +3323,11 @@ void subsys_if_on(void)
 	const char * const *mm_clks = get_mm_clk_names(&mm_num);
 	const char * const *venc_clks = get_venc_clk_names(&venc_num);
 	const char * const *vdec_clks = get_vdec_clk_names(&vdec_num);
+	const char * const *img2_clks = get_img2_clk_names(&img2_num);
+	const char * const *ipe_clks = get_ipe_clk_names(&ipe_num);
+	const char * const *mdp_clks = get_mdp_clk_names(&mdp_num);
+	const char * const *cam_ra_clks = get_cam_ra_clk_names(&cam_ra_num);
+	const char * const *cam_rb_clks = get_cam_rb_clk_names(&cam_rb_num);
 
 	if (sta_md1 & PWR_ON)
 		pr_notice("suspend warning: SYS_MD1 is on!!!\n");
@@ -3265,6 +3338,8 @@ void subsys_if_on(void)
 		//check_mm0_clk_sts();
 		for (i = 0; i < mm_num; i++)
 			dump_cg_state(mm_clks[i]);
+		for (i = 0; i < mdp_num; i++)
+			dump_cg_state(mdp_clks[i]);
 		ret++;
 	}
 	if ((sta & MFG0_PWR_STA_MASK) && (sta_s & MFG0_PWR_STA_MASK)) {
@@ -3301,11 +3376,15 @@ void subsys_if_on(void)
 
 	if ((sta & ISP2_PWR_STA_MASK) && (sta_s & ISP2_PWR_STA_MASK)) {
 		pr_notice("suspend warning: SYS_ISP2 is on!!!\n");
+		for (i = 0; i < img2_num; i++)
+			dump_cg_state(img2_clks[i]);
 		ret++;
 	}
 
 	if ((sta & IPE_PWR_STA_MASK) && (sta_s & IPE_PWR_STA_MASK)) {
 		pr_notice("suspend warning: SYS_IPE is on!!!\n");
+		for (i = 0; i < ipe_num; i++)
+			dump_cg_state(ipe_clks[i]);
 		ret++;
 	}
 
@@ -3319,11 +3398,15 @@ void subsys_if_on(void)
 
 	if ((sta & CAM_RAWA_PWR_STA_MASK) && (sta_s & CAM_RAWA_PWR_STA_MASK)) {
 		pr_notice("suspend warning: SYS_CAM_RAWA is on!!!\n");
+		for (i = 0; i < cam_ra_num; i++)
+			dump_cg_state(cam_ra_clks[i]);
 		ret++;
 	}
 
 	if ((sta & CAM_RAWB_PWR_STA_MASK) && (sta_s & CAM_RAWB_PWR_STA_MASK)) {
 		pr_notice("suspend warning: SYS_CAM_RAWB is on!!!\n");
+		for (i = 0; i < cam_rb_num; i++)
+			dump_cg_state(cam_rb_clks[i]);
 		ret++;
 	}
 
