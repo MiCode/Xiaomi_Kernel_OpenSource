@@ -424,7 +424,7 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 		formula_param = 400000; // 0.4 V
 		reg_id = vvpu_reg_id;
 	} else if (buck == SRAM_BUCK) {
-		buck_addr = PMIC_RG_LDO_VSRAM_MD_VOSEL_ADDR;
+		buck_addr = PMIC_RG_LDO_VSRAM_OTHERS_VOSEL_ADDR;
 		formula_param = 500000; // 0.5 V
 		reg_id = vsram_reg_id;
 	} else {
