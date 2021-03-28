@@ -163,6 +163,11 @@
 	mt6370,intr_gpio = <&pio 4 0x0>;
 };
 
+&mt6370_typec {
+	mt6370pd,intr_gpio_num = <83>; /* direct defined GPIO num */
+	mt6370pd,intr_gpio = <&pio 83 0x0>;
+};
+
 &i2c2 {
 	clock-frequency = <400000>;
 	mtk-usb@60 {
