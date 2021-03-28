@@ -174,7 +174,7 @@ static int idle_proc_buck_mode_show(struct seq_file *m, void *v)
 		{NF_MCUPM_BUCK_MODE, "unknown"},
 	};
 
-	mode = mtk_get_mcupm_buck_mode();
+	mode = mtk_get_lp_apmcu_buck_mode();
 
 	if (mode < 0 || mode > NF_MCUPM_BUCK_MODE)
 		mode = NF_MCUPM_BUCK_MODE;
@@ -213,7 +213,7 @@ static ssize_t idle_proc_buck_mode_write(struct file *filp,
 	}
 
 	if (mode < NF_MCUPM_BUCK_MODE)
-		mtk_set_mcupm_buck_mode(mode);
+		mtk_set_lp_apmcu_buck_mode(mode);
 
 free:
 	mtk_idle_procfs_free(buf);
@@ -236,7 +236,7 @@ static int idle_proc_armpll_mode_show(struct seq_file *m, void *v)
 		{NF_MCUPM_ARMPLL_MODE, "unknown"},
 	};
 
-	mode = mtk_get_mcupm_pll_mode();
+	mode = mtk_get_lp_apmcu_pll_mode();
 
 	if (mode < 0 || mode > NF_MCUPM_ARMPLL_MODE)
 		mode = NF_MCUPM_ARMPLL_MODE;
@@ -275,7 +275,7 @@ static ssize_t idle_proc_armpll_mode_write(struct file *filp,
 	}
 
 	if (mode < NF_MCUPM_ARMPLL_MODE)
-		mtk_set_mcupm_pll_mode(mode);
+		mtk_set_lp_apmcu_pll_mode(mode);
 
 free:
 	mtk_idle_procfs_free(buf);
@@ -287,7 +287,7 @@ static int idle_proc_notify_cm_show(struct seq_file *m, void *v)
 {
 	bool notify;
 
-	notify = mtk_mcupm_cm_is_notified();
+	notify = mtk_lp_apmcu_cm_is_notified();
 
 	seq_printf(m, "mcupm cm mgr : %s\n",
 		notify ? "Enable" : "Disable");

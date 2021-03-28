@@ -14,6 +14,14 @@ enum {
 	NF_MBOX,
 };
 
+/* mcdi ipi id definition */
+enum MCDI_IPI_ID_TLB {
+	MCDI_IPI_SHARE_SRAM_INFO_GET = 0,
+	MCDI_IPI_ID_MAX
+};
+
+#define MCDI_IPI_MAGIC_NUM	0x5731
+
 /* SSPM Mbox */
 #define APMCU_SSPM_MBOX_ID           3
 #define APMCU_SSPM_MBOX_SPM_CMD_SIZE 8
@@ -27,9 +35,6 @@ enum {
 #define APMCU_SSPM_MBOX_SPM_ARGS6    6
 #define APMCU_SSPM_MBOX_SPM_ARGS7    7
 #define APMCU_SSPM_MBOX_AP_READY     17
-
-void mtk_set_sspm_lp_cmd(void *buf);
-void mtk_clr_sspm_lp_cmd(void);
 
 
 /* MCUPM Mbox */
@@ -88,20 +93,23 @@ void mtk_clr_sspm_lp_cmd(void);
 #define MCUPM_TASK_RUN                  4
 #define MCUPM_TASK_PAUSE                5
 
-bool mtk_mcupm_cm_is_notified(void);
 
-void mtk_set_mcupm_pll_mode(unsigned int mode);
-int mtk_get_mcupm_pll_mode(void);
+bool mtk_lp_apmcu_cm_is_notified(void);
 
-void mtk_set_mcupm_buck_mode(unsigned int mode);
-int mtk_get_mcupm_buck_mode(void);
+void mtk_set_lp_apmcu_pll_mode(unsigned int mode);
+int mtk_get_lp_apmcu_pll_mode(void);
+
+void mtk_set_lp_apmcu_buck_mode(unsigned int mode);
+int mtk_get_lp_apmcu_buck_mode(void);
 
 void mtk_set_preferred_cpu_wakeup(int cpu);
 int mtk_get_preferred_cpu_wakeup(void);
 
-bool mtk_mcupm_is_ready(void);
+bool mtk_lp_apmcu_is_ready(void);
 
 void mtk_wait_mbox_init_done(void);
 void mtk_notify_subsys_ap_ready(void);
+
+int mtk_apmcu_mbox_init(void);
 
 #endif

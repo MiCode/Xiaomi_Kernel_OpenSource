@@ -6,6 +6,11 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/$(MTK_PLATFORM)/
 endif
 
+ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)/
+endif
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/inc/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/mtk_lpm_trace_event/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/include/

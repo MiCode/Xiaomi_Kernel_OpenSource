@@ -234,7 +234,7 @@ static int __mtk_lp_plat_wait_depd_condition(int type, void *arg)
 	do {
 		msleep(1000);
 
-		if (!mcupm_rdy && mtk_mcupm_is_ready())
+		if (!mcupm_rdy && mtk_lp_apmcu_is_ready())
 			mcupm_rdy = true;
 
 		if ((type & DEPD_COND_TYPE_BOOTIME) &&
@@ -317,6 +317,8 @@ int __init mtk_lp_plat_apmcu_init(void)
 	}
 
 	mtk_lp_plat_pwr_dev_init();
+
+	mtk_apmcu_mbox_init();
 
 	node = of_find_compatible_node(NULL, NULL, MTK_LPM_DTS_COMPATIBLE);
 	if (node) {
