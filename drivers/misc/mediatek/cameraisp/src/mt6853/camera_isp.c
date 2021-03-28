@@ -53,6 +53,8 @@
 #include <clk-mt6833-pg.h>
 #elif defined CONFIG_MACH_MT6877
 #include <clk-mt6877-pg.h>
+#elif defined CONFIG_MACH_MT6781
+#include <clk-mt6781-pg.h>
 #endif
 
 /* MET: define to enable MET*/
