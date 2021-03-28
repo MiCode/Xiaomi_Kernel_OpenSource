@@ -49,9 +49,6 @@ defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 #else
 #include <sspm_ipi_id.h>
 #include <sspm_mbox_pin.h>
-#ifdef CONFIG_MACH_MT6781
-#include <sspm_ipi_table.h>
-#endif
 #endif
 
 #endif
