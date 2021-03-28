@@ -22,6 +22,9 @@
 #include <mtk_clkbuf_common.h>
 #if defined(CONFIG_MTK_UFS_SUPPORT)
 #include "ufs-mtk.h"
+#if defined(CONFIG_MACH_MT6781)
+#include <mt-plat/mtk_boot.h>
+#endif
 #endif
 
 static void __iomem *pwrap_base;
@@ -1131,16 +1134,24 @@ static ssize_t clk_buf_show_status_info_internal(char *buf)
 	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 		"bblpm_switch=%u, bblpm_cnt=%u, bblpm_cond=0x%x\n",
 		bblpm_switch, bblpm_cnt, clk_buf_bblpm_enter_cond());
-
+#if defined(CONFIG_MACH_MT6768)
 	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 		"MD1_PWR_CON=0x%x, PWR_STATUS=0x%x, PCM_REG13_DATA=0x%x,",
 		mtk_spm_read_register(SPM_MD1_PWR_CON),
 		mtk_spm_read_register(SPM_PWRSTA),
 		mtk_spm_read_register(SPM_REG13));
+#endif
+
+#if defined(CONFIG_MACH_MT6768)
 	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 		"SPARE_ACK_MASK=0x%x, flight mode = %d\n",
 		mtk_spm_read_register(SPM_SPARE_ACK_MASK),
 		is_clk_buf_under_flightmode());
+#else
+		len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+		 "flight mode = %d\n",
+		is_clk_buf_under_flightmode());
+#endif
 	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 			".********** clock buffer command help **********\n");
 	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
