@@ -3208,7 +3208,11 @@ static void __mt_gpufreq_init_table(void)
 	else if (segment_id == MT6893_SEGMENT)
 		g_segment_max_opp_idx = 0; // 886MHz
 
+#if MT_GPUFREQ_SHADER_PWR_CTL_WA
+	g_segment_min_opp_idx = NUM_OF_OPP_IDX - 3;
+#else
 	g_segment_min_opp_idx = NUM_OF_OPP_IDX - 1;
+#endif
 
 	g_opp_table = kzalloc((NUM_OF_OPP_IDX)*sizeof(*opp_table), GFP_KERNEL);
 
