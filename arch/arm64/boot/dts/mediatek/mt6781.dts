@@ -2197,6 +2197,9 @@
 		reg = <0 0x1c100000 0 0x1000>;
 	};
 
+	subpmic_pmu_eint: mt6370_pmu_eint {
+	};
+
 	odm: odm {
 		compatible = "simple-bus";
 		/* reserved for overlay by odm */
@@ -2212,3 +2215,5 @@
 
 #include "mediatek/mt6366.dtsi"
 #include "mediatek/cust_mt6781_msdc.dtsi"
+#include "mediatek/mt6370.dtsi"
+#include "mediatek/mt6370_pd.dtsi"
