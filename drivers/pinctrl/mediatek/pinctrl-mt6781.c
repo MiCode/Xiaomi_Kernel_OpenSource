@@ -1231,11 +1231,19 @@ static const struct mtk_eh_pin_pinmux mt6781_eh_pin_pinmux_list[] = {
 	{0xffff, 0}, /* indicate end of array */
 };
 
+static const struct mtk_eint_hw mt6781_eint_hw = {
+	.port_mask = 5,
+	.ports     = 5,
+	.ap_num    = 139,
+	.db_cnt    = 32,
+};
+
 static const struct mtk_pin_soc mt6781_data = {
 	.reg_cal = mt6781_reg_cals,
 	.pins = mtk_pins_mt6781,
 	.npins = ARRAY_SIZE(mtk_pins_mt6781),
 	.ngrps = ARRAY_SIZE(mtk_pins_mt6781),
+	.eint_hw = &mt6781_eint_hw,
 	.nfuncs = 8,
 	.gpio_m = 0,
 	.race_free_access = true,
