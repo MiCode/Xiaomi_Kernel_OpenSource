@@ -1019,7 +1019,7 @@ pwrap: pwrap@1000d000 {
 	ufshci:ufshci@11270000 {
 		compatible = "mediatek,ufshci";
 		reg = <0 0x11270000 0 0x2300>;
-		interrupts = <GIC_SPI 299 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <GIC_SPI 289 IRQ_TYPE_LEVEL_HIGH>;
 
 		#if 0
 		clocks =
@@ -1071,10 +1071,6 @@ pwrap: pwrap@1000d000 {
 		mediatek,rpm-level = <3>;
 	};
 
-	ufs_mphy@11cc0000 {
-		compatible = "mediatek,ufs_mphy";
-		reg = <0 0x11cc0000 0xc000>;
-	};
 
 	mipi_rx_ana_csi0@11c10000 {
 		compatible = "mediatek,mipi_rx_ana_csi0";
@@ -1099,6 +1095,11 @@ pwrap: pwrap@1000d000 {
 	efusec@11cb0000 {
 		compatible = "mediatek,efusec";
 		reg = <0 0x11cb0000 0 0x10000>;
+	};
+
+	ufs_mphy@11cc0000 {
+		compatible = "mediatek,ufs_mphy";
+		reg = <0 0x11cc0000 0 0xc000>;
 	};
 
 	msdc0_top@11cd0000 {
