@@ -550,7 +550,7 @@ static int get_devinfo(void)
 #endif
 
 
-	if (val[1] == 0) {
+	if (val[0] == 0) {
 		ret = 1;
 		safeEfuse = 1;
 		eem_error("No EFUSE (val[1]), use safe efuse\n");
