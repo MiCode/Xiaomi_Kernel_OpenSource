@@ -736,7 +736,6 @@ static int mtk_dsi_set_LFR(struct mtk_dsi *dsi, struct mtk_ddp_comp *comp,
 	void *handle)
 {
 	u32 val = 0, mask = 0;
-
 	//lfr_dbg: setting value form debug mode
 	unsigned int lfr_dbg = mtk_dbg_get_lfr_dbg_value();
 	unsigned int lfr_mode = LFR_MODE_BOTH_MODE;
@@ -2302,7 +2301,7 @@ static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle)
 
 		/* wait frame done */
 		cmdq_pkt_wait_no_clear(handle,
-		   mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+		   mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
 	}
 	/* stop vdo mode */
 	_mtk_dsi_set_mode(&dsi->ddp_comp, handle, CMD_MODE);
@@ -2998,7 +2997,7 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 		mtk_dsi_calc_vdo_timing(dsi);
 
 		cmdq_pkt_wait_no_clear(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+			mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
 
 		mtk_dsi_phy_timconfig(dsi, cmdq_handle);
 
@@ -4024,7 +4023,7 @@ int mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
 				mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
 	} else { /* VDO to CMD mode LP */
 		cmdq_pkt_wfe(cmdq_handle,
-				mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+				mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
 
 		mtk_dsi_stop_vdo_mode(dsi, cmdq_handle);
 
@@ -4605,7 +4604,7 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 		 * because fps change need stop & re-start vdo mode
 		 */
 		cmdq_pkt_wfe(handle,
-			     mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+			     mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
 		/*1.1 send cmd: stop vdo mode*/
 		mtk_dsi_stop_vdo_mode(dsi, handle);
 		/* for crtc first enable,dyn fps fail*/
@@ -4634,7 +4633,7 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 		 * avoid config continue after we trigger vdo mode
 		 */
 		cmdq_pkt_clear_event(handle,
-			     mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+			     mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
 		/*1.3 send cmd: trigger*/
 		mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], handle);
 		mtk_dsi_trigger(comp, handle);

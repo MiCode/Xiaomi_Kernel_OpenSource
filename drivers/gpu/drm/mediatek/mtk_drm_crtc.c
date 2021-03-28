@@ -1795,7 +1795,6 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	unsigned int fps_chg_index = 0;
 	unsigned int _idle_timeout = 50;/*ms*/
 	int en = 1;
-
 	struct mtk_ddp_comp *output_comp;
 
 	/* Check if disp_mode_idx change */
@@ -2147,7 +2146,8 @@ int get_path_wait_event(struct mtk_drm_crtc *mtk_crtc,
 		if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
 			return mtk_crtc->gce_obj.event[EVENT_STREAM_EOF];
 		else
-			return mtk_crtc->gce_obj.event[EVENT_VDO_EOF];
+			return mtk_crtc->gce_obj.event[EVENT_CMD_EOF];
+
 	} else if (comp->id == DDP_COMPONENT_DP_INTF0) {
 		return mtk_crtc->gce_obj.event[EVENT_VDO_EOF];
 	} else if (comp->id == DDP_COMPONENT_WDMA0) {
@@ -2171,6 +2171,7 @@ void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 	if (gce_event < 0)
 		return;
 	if (gce_event == mtk_crtc->gce_obj.event[EVENT_STREAM_EOF] ||
+	    gce_event == mtk_crtc->gce_obj.event[EVENT_CMD_EOF] ||
 	    gce_event == mtk_crtc->gce_obj.event[EVENT_VDO_EOF]) {
 		struct mtk_drm_private *priv;
 		if (clear_event)
@@ -2178,7 +2179,7 @@ void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 		else
 			cmdq_pkt_wait_no_clear(cmdq_handle, gce_event);
 		priv = mtk_crtc->base.dev->dev_private;
-		if (gce_event == mtk_crtc->gce_obj.event[EVENT_VDO_EOF] &&
+		if (gce_event == mtk_crtc->gce_obj.event[EVENT_CMD_EOF] &&
 		    mtk_drm_helper_get_opt(priv->helper_opt,
 					   MTK_DRM_OPT_LAYER_REC) &&
 		    mtk_crtc->layer_rec_en) {
@@ -2854,7 +2855,7 @@ void mtk_crtc_start_sodi_loop(struct drm_crtc *crtc)
 	cmdq_handle = mtk_crtc->sodi_loop_cmdq_handle;
 
 	cmdq_pkt_wait_no_clear(cmdq_handle,
-		mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+		mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
 
 	cmdq_pkt_write(cmdq_handle, NULL,
 		GCE_BASE_ADDR + GCE_GCTL_VALUE, GCE_DDR_EN, GCE_DDR_EN);
@@ -2964,8 +2965,12 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 				   mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 	} else {
 		mtk_disp_mutex_submit_sof(mtk_crtc->mutex[0]);
-		cmdq_pkt_wfe(cmdq_handle,
-			     mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+		if (crtc_id == 0)
+			cmdq_pkt_wfe(cmdq_handle,
+				     mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+		else if (crtc_id == 1)
+			cmdq_pkt_wfe(cmdq_handle,
+					 mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
 
 /* sw workaround to fix gce hw bug */
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
@@ -3764,7 +3769,7 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 		 * Do not wait frame done in this case.
 		 */
 		cmdq_pkt_wfe(cmdq_handle,
-				 mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+				 mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
 	}
 
 skip:
@@ -4220,6 +4225,8 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 			__get_golden_setting_context(mtk_crtc);
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	cmdq_pkt_clear_event(cmdq_handle,
+			     mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
 	cmdq_pkt_clear_event(cmdq_handle,
 			     mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
 	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
