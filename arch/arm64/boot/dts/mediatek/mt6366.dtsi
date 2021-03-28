@@ -503,12 +503,10 @@
 		interrupts = <INT_RTC IRQ_TYPE_NONE>;
 		interrupt-names = "rtc";
 		base = <0x580>;
-		apply-lpsd-solution;
 	};
 	mt6358_misc: mt6358_misc {
 		compatible = "mediatek,mt6358-misc";
 		base = <0x580>;
-		apply-lpsd-solution;
 		dcxo-switch;
 	};
 };/* End of main_pmic */
