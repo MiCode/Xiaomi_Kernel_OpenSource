@@ -39,6 +39,7 @@ endif
 
 ifeq ($(CONFIG_MACH_MT6781),y)
   obj-y += mt6853/
+  subdir-ccflags-y += -DDISABLE_CCU
 endif
 
 ifeq ($(CONFIG_MACH_MT8167),y)
