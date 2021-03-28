@@ -26,14 +26,16 @@
 #include "adsp_ipi.h"
 #include "adsp_bus_monitor.h"
 
-#include <mtk_spm_sleep.h>
+#include <linux/suspend.h>
+#include <linux/arm-smccc.h> /* for Kernel Native SMC API */
+#include <mt-plat/mtk_secure_api.h> /* for SMC ID table */
+#include <mt6781-afe-common.h>
 
 struct wait_queue_head adsp_waitq;
 struct workqueue_struct *adsp_wq;
 struct adsp_com adsp_common;
 struct adsp_priv *adsp_cores[ADSP_CORE_TOTAL];
 static u32 adsp_load;
-static struct syscore_ops adsp_syscore_ops;
 
 static int adsp_core0_init(struct adsp_priv *pdata);
 static int adsp_core0_suspend(void);
@@ -297,6 +299,40 @@ struct notifier_block adsp_uevent_notifier = {
 	.priority = AUDIO_HAL_FEATURE_PRI,
 };
 
+#ifdef CONFIG_PM
+static int adsp_pm_event(struct notifier_block *notifier
+			, unsigned long pm_event, void *unused)
+{
+	struct arm_smccc_res res;
+
+	switch (pm_event) {
+	case PM_POST_HIBERNATION:
+		pr_notice("[ADSP] %s: reboot\n", __func__);
+		adsp_reset();
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE:
+		if (adsp_feature_is_active(ADSP_A_ID))
+			arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+				  MTK_AUDIO_SMC_OP_ADSP_REQUEST,
+				  0, 0, 0, 0, 0, 0, &res);
+
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND:
+		if (adsp_feature_is_active(ADSP_A_ID))
+			arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+				  MTK_AUDIO_SMC_OP_ADSP_RELEASE,
+				  0, 0, 0, 0, 0, 0, &res);
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block adsp_pm_notifier_block = {
+	.notifier_call = adsp_pm_event,
+	.priority = 0,
+};
+#endif
+
 static int adsp_common_drv_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -337,7 +373,11 @@ static int adsp_common_drv_probe(struct platform_device *pdev)
 
 	adsp_register_notify(&adsp_uevent_notifier);
 
-	register_syscore_ops(&adsp_syscore_ops);
+#ifdef CONFIG_PM
+	ret = register_pm_notifier(&adsp_pm_notifier_block);
+	if (ret)
+		pr_info("[ADSP] failed to register PM notifier %d\n", ret);
+#endif
 
 	pr_info("%s, success\n", __func__);
 ERROR:
@@ -469,31 +509,9 @@ static int adsp_ap_resume(struct device *dev)
 	return 0;
 }
 
-static int adsp_syscore_suspend(void)
-{
-	if (!is_adsp_system_running()) {
-		adsp_bus_sleep_protect(true);
-		spm_adsp_mem_protect();
-	}
-	return 0;
-}
-
-static void adsp_syscore_resume(void)
-{
-	if (!is_adsp_system_running()) {
-		spm_adsp_mem_unprotect();
-		adsp_bus_sleep_protect(false);
-	}
-}
-
 static const struct dev_pm_ops adsp_ap_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(adsp_ap_suspend,
 				adsp_ap_resume)
-};
-
-static struct syscore_ops adsp_syscore_ops = {
-	.resume = adsp_syscore_resume,
-	.suspend = adsp_syscore_suspend,
 };
 
 static struct platform_driver adsp_common_driver = {

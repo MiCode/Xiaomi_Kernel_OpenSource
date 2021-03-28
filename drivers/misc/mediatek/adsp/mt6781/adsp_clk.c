@@ -20,9 +20,7 @@ static struct adsp_clock_attr adsp_clks[ADSP_CLK_NUM] = {
 	[CLK_ADSP_INFRA] = {"clk_adsp_infra", NULL},
 	[CLK_TOP_ADSP_SEL] = {"clk_top_adsp_sel", NULL},
 	[CLK_TOP_CLK26M] = {"clk_adsp_clk26m", NULL},
-	[CLK_TOP_MMPLL_D4] = {"clk_top_mmpll_d4", NULL},
-	[CLK_TOP_ADSPPLL_D4] = {"clk_top_adsppll_d4", NULL},
-	[CLK_TOP_ADSPPLL_D6] = {"clk_top_adsppll_d6", NULL},
+	[CLK_TOP_ADSPPLL] = {"clk_top_adsppll_ck", NULL},
 };
 
 int adsp_set_top_mux(enum adsp_clk clk)
@@ -46,9 +44,7 @@ void adsp_set_clock_freq(enum adsp_clk clk)
 {
 	switch (clk) {
 	case CLK_TOP_CLK26M:
-	case CLK_TOP_MMPLL_D4:
-	case CLK_TOP_ADSPPLL_D4:
-	case CLK_TOP_ADSPPLL_D6:
+	case CLK_TOP_ADSPPLL:
 		adsp_set_top_mux(clk);
 		break;
 	default:

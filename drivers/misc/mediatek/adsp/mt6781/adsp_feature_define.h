@@ -10,7 +10,11 @@
 #define CFG_RECOVERY_SUPPORT
 
 /* adsp platform configs*/
+#ifdef CONFIG_MTK_EMI
 #define ADSP_EMI_PROTECTION_ENABLE       (1)
+#else
+#define ADSP_EMI_PROTECTION_ENABLE       (0)
+#endif
 #define ADSP_BUS_MONITOR_INIT_ENABLE     (1)
 
 /* adsp feature PRI list */
