@@ -14,7 +14,7 @@
 /plugin/;
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
-#include <dt-bindings/pinctrl/mt6785-pinfunc.h>
+#include <dt-bindings/pinctrl/mt6781-pinfunc.h>
 
 &reserved_memory {
 };
@@ -132,5 +132,5 @@
 
 #include <k6781v1_64/cust.dtsi>
 //#include "mediatek/cust_mt6785_camera.dtsi"
-//#include "mediatek/cust_mt6785_touch_1080x2160.dtsi"
+#include "mediatek/cust_mt6781_touch_1080x2300.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
