@@ -279,10 +279,14 @@ unsigned int seninf_clk_get_meter(struct SENINF_CLK *pclk, unsigned int clk)
 	else
 		return 0;
 #else
+#if defined(CONFIG_MACH_MT6781)
+	return 0;
+#else
 	if (clk < 64)
 		return mt_get_ckgen_freq(clk);
 	else
 		return 0;
+#endif
 #endif
 }
 

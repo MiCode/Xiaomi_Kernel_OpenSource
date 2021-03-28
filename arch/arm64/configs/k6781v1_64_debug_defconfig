@@ -73,6 +73,7 @@ CONFIG_MTK_STATIC_POWER=y
 CONFIG_MTK_THERMAL_PA_VIA_ATCMD=y
 CONFIG_CUSTOM_KERNEL_IMGSENSOR="imx519_mipi_raw imx586_mipi_raw s5k2l7_mipi_raw s5k2t7sp_mipi_raw imx398_mipi_raw imx350_mipi_raw imx386_mipi_raw imx386_mipi_mono imx499_mipi_raw imx576_mipi_raw s5k2lqsx_mipi_raw s5k4h7_mipi_raw s5khm2sp_mipi_raw"
 CONFIG_CUSTOM_KERNEL_CAM_CAL_DRV="BRCB032GWZ_3 GT24c32a cat24c16"
+CONFIG_MTK_IMGSENSOR=y
 CONFIG_CUSTOM_KERNEL_LCM="otm1911a_fhdp_dsi_vdo_truly_rt4801 hx83112b_fhdp_dsi_vdo_auo_rt4801"
 CONFIG_MTK_FB=y
 CONFIG_MTK_LCM_PHYSICAL_ROTATION="0"
