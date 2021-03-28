@@ -183,9 +183,9 @@ void __iomem *imp_base;
 #define CK_CFG_10	0xe0
 #define CK_CFG_10_SET	0xe4
 #define CK_CFG_10_CLR	0xe8
-#define CK_CFG_11	0xf0
-#define CK_CFG_11_SET	0xf4
-#define CK_CFG_11_CLR	0xf8
+#define CK_CFG_11	0xec
+#define CK_CFG_11_SET	0xf0
+#define CK_CFG_11_CLR	0xf4
 #define CK_CFG_12	0x100
 #define CK_CFG_12_SET	0x104
 #define CK_CFG_12_CLR	0x108
@@ -3146,6 +3146,7 @@ void mipi_26m_en(unsigned int module_idx, int en)
 	apmixed_mipi_unlock(flags);
 }
 
+#if 0
 unsigned int mt_get_ckgen_freq(unsigned int ID)
 {
 	int output = 0, i = 0;
@@ -3155,7 +3156,7 @@ unsigned int mt_get_ckgen_freq(unsigned int ID)
 	clk_writel(CLK_DBG_CFG, (clk_dbg_cfg & 0xFFFFC0FC)|(ID << 8)|(0x1));
 
 	clk_misc_cfg_0 = clk_readl(CLK_MISC_CFG_0);
-	clk_writel(CLK_MISC_CFG_0, (clk_misc_cfg_0 & 0x00FFFFFF));
+	clk_writel(CLK_MISC_CFG_0, (clk_misc_cfg_0 & 0x00FFFFFF) | (3 << 24));
 
 	clk26cali_1 = clk_readl(CLK26CALI_1);
 	clk_writel(CLK26CALI_0, 0x1000);
@@ -3165,8 +3166,21 @@ unsigned int mt_get_ckgen_freq(unsigned int ID)
 	while (clk_readl(CLK26CALI_0) & 0x10) {
 		udelay(10);
 		i++;
-		if (i > 20)
+		if (i > 30)
 			break;
+	}
+	/* illegal pass */
+	if (i == 0) {
+		clk_writel(CLK26CALI_0, 0x0000);
+		//re-trigger
+		clk_writel(CLK26CALI_0, 0x1000);
+		clk_writel(CLK26CALI_0, 0x1010);
+		while (clk_readl(CLK26CALI_0) & 0x10) {
+			udelay(10);
+			i++;
+			if (i > 30)
+				break;
+		}
 	}
 
 	temp = clk_readl(CLK26CALI_1) & 0xFFFF;
@@ -3175,28 +3189,33 @@ unsigned int mt_get_ckgen_freq(unsigned int ID)
 
 	clk_writel(CLK_DBG_CFG, clk_dbg_cfg);
 	clk_writel(CLK_MISC_CFG_0, clk_misc_cfg_0);
-	/*clk_writel(CLK26CALI_0, clk26cali_0);*/
-	/*clk_writel(CLK26CALI_1, clk26cali_1);*/
-
 	clk_writel(CLK26CALI_0, 0x0000);
-	/*print("ckgen meter[%d] = %d Khz\n", ID, output);*/
-	if (i > 20)
-		return 0;
-	else
-		return output;
 
+	/*print("ckgen meter[%d] = %d Khz\n", ID, output);*/
+	if (i > 30)
+		return 0;
+	if ((output * 4) < 25000) {
+		pr_notice("%s: CLK_DBG_CFG = 0x%x, CLK_MISC_CFG_0 = 0x%x, CLK26CALI_0 = 0x%x, CLK26CALI_1 = 0x%x\n",
+			__func__,
+			clk_readl(CLK_DBG_CFG),
+			clk_readl(CLK_MISC_CFG_0),
+			clk_readl(CLK26CALI_0),
+			clk_readl(CLK26CALI_1));
+	}
+	return (output * 4);
 }
 
 unsigned int mt_get_abist_freq(unsigned int ID)
 {
 	int output = 0, i = 0;
+	unsigned long flags;
 	unsigned int temp, clk_dbg_cfg, clk_misc_cfg_0, clk26cali_1 = 0;
 
 	clk_dbg_cfg = clk_readl(CLK_DBG_CFG);
 	clk_writel(CLK_DBG_CFG, (clk_dbg_cfg & 0xFFC0FFFC)|(ID << 16));
 
 	clk_misc_cfg_0 = clk_readl(CLK_MISC_CFG_0);
-	clk_writel(CLK_MISC_CFG_0, (clk_misc_cfg_0 & 0x00FFFFFF) | (1 << 24));
+	clk_writel(CLK_MISC_CFG_0, (clk_misc_cfg_0 & 0x00FFFFFF) | (3 << 24));
 
 	clk26cali_1 = clk_readl(CLK26CALI_1);
 
@@ -3207,25 +3226,44 @@ unsigned int mt_get_abist_freq(unsigned int ID)
 	while (clk_readl(CLK26CALI_0) & 0x10) {
 		udelay(10);
 		i++;
-		if (i > 20)
+		if (i > 30)
 			break;
 	}
-
+	/* illegal pass */
+	if (i == 0) {
+		clk_writel(CLK26CALI_0, 0x0000);
+		//re-trigger
+		clk_writel(CLK26CALI_0, 0x1000);
+		clk_writel(CLK26CALI_0, 0x1010);
+		while (clk_readl(CLK26CALI_0) & 0x10) {
+			udelay(10);
+			i++;
+			if (i > 30)
+				break;
+		}
+	}
 	temp = clk_readl(CLK26CALI_1) & 0xFFFF;
 
 	output = (temp * 26000) / 1024;
 
 	clk_writel(CLK_DBG_CFG, clk_dbg_cfg);
 	clk_writel(CLK_MISC_CFG_0, clk_misc_cfg_0);
-	/*clk_writel(CLK26CALI_0, clk26cali_0);*/
-	/*clk_writel(CLK26CALI_1, clk26cali_1);*/
 	clk_writel(CLK26CALI_0, 0x0000);
-	/*pr_debug("%s = %d Khz\n", abist_array[ID-1], output);*/
-	if (i > 20)
+
+	if (i > 30)
 		return 0;
-	else
-		return (output * 2);
+	if ((output * 4) < 25000) {
+		pr_notice("%s: CLK_DBG_CFG = 0x%x, CLK_MISC_CFG_0 = 0x%x, CLK26CALI_0 = 0x%x, CLK26CALI_1 = 0x%x\n",
+			__func__,
+			clk_readl(CLK_DBG_CFG),
+			clk_readl(CLK_MISC_CFG_0),
+			clk_readl(CLK26CALI_0),
+			clk_readl(CLK26CALI_1));
+	}
+	return (output * 4);
 }
+#endif
+
 #define ARMPLL_LL_SEL            ((0x1 << 19) \
 					  |(0x1 << 20) \
 					  |(0x1 << 21) \

@@ -219,155 +219,125 @@ enum FMETER_TYPE {
 
 static const struct fmeter_clk fclks[] = {
 	FMCLK(CKGEN,  1, "hd_faxi_ck"),
-	FMCLK(CKGEN,  2, "hf_fmm_ck"),
-	FMCLK(CKGEN,  3, "hf_fscp_ck"),
-	FMCLK(CKGEN,  4, "hf_fcksys_fmem_ck"),
-	FMCLK(CKGEN,  5, "hf_fimg_ck"),
-	FMCLK(CKGEN,  6, "hf_fipe_ck"),
-	FMCLK(CKGEN,  7, "hf_fdpe_ck"),
-	FMCLK(CKGEN,  8, "hf_fcam_ck"),
-	FMCLK(CKGEN,  9, "hf_fccu_ck"),
-	FMCLK(CKGEN,  10, "hf_fdsp_ck"),
-	FMCLK(CKGEN,  11, "hf_fdsp1_ck"),
-	FMCLK(CKGEN,  12, "hf_fdsp2_ck"),
-	FMCLK(CKGEN,  13, "hf_fdsp3_ck"),
-	FMCLK(CKGEN,  14, "hf_fipu_if_ck"),
-	FMCLK(CKGEN,  15, "hf_fmfg_ck"),
-	FMCLK(CKGEN,  16, "f_fmfg_52m_ck"),
-	FMCLK(CKGEN,  17, "f_fcamtg_ck"),
-	FMCLK(CKGEN,  18, "f_fcamtg2_ck"),
-	FMCLK(CKGEN,  19, "f_fcamtg3_ck"),
-	FMCLK(CKGEN,  20, "f_fcamtg4_ck"),
-	FMCLK(CKGEN,  21, "f_fuart_ck"),
-	FMCLK(CKGEN,  22, "hf_fspi_ck"),
-	FMCLK(CKGEN,  23, "hf_fmsdc50_0_hclk_ck"),
-	FMCLK(CKGEN,  24, "hf_fmsdc50_0_ck"),
-	FMCLK(CKGEN,  25, "hf_fmsdc30_1_ck"),
-	FMCLK(CKGEN,  26, "hf_faudio_ck"),
-	FMCLK(CKGEN,  27, "hf_faud_intbus_ck"),
-	FMCLK(CKGEN,  28, "f_fpwrap_ulposc_ck"),
-	FMCLK(CKGEN,  29, "hf_fatb_ck"),
-	FMCLK(CKGEN,  30, "hf_fsspm_ck"),
-	FMCLK(CKGEN,  31, "hf_fdpi0_ck"),
-	FMCLK(CKGEN,  32, "hf_fscam_ck"),
-	FMCLK(CKGEN,  33, "f_fdisp_pwm_ck"),
-	FMCLK(CKGEN,  34, "f_fusb_top_ck"),
-	FMCLK(CKGEN,  35, "f_fssusb_xhci_ck"),
-	FMCLK(CKGEN,  36, "hg_fspm_ck"),
-	FMCLK(CKGEN,  37, "f_fi2c_ck"),
-	FMCLK(CKGEN,  38, "f_fseninf_ck"),
-	FMCLK(CKGEN,  39, "f_fseninf1_ck"),
-	FMCLK(CKGEN,  40, "f_fseninf2_ck"),
-	FMCLK(CKGEN,  41, "hf_fdxcc_ck"),
-	FMCLK(CKGEN,  42, "hf_faud_engen1_ck"),
-	FMCLK(CKGEN,  43, "hf_faud_engen2_ck"),
-	FMCLK(CKGEN,  44, "hf_faes_ufsfde_ck"),
-	FMCLK(CKGEN,  45, "hf_fufs_ck"),
-	FMCLK(CKGEN,  46, "hf_faud_1_ck"),
-	FMCLK(CKGEN,  47, "hf_faud_2_ck"),
-	FMCLK(CKGEN,  48, "hf_fadsp_ck"),
-	FMCLK(CKGEN,  49, "hf_fdpmaif_main_ck"),
-	FMCLK(CKGEN,  50, "hf_fvenc_ck"),
-	FMCLK(CKGEN,  51, "hf_fvdec_ck"),
-	FMCLK(CKGEN,  52, "hf_fcamtm_ck"),
-	FMCLK(CKGEN,  53, "hf_fpwm_ck"),
-	FMCLK(CKGEN,  54, "hf_faudio_h_ck"),
-	FMCLK(CKGEN,  55, "hd_fbus_aximem_ck"),
-	FMCLK(CKGEN,  56, "hd_faxi_west_ck"),
-	FMCLK(CKGEN,  57, "hd_faxi_north_ck"),
-	FMCLK(CKGEN,  58, "hd_faxi_south_ck"),
-	FMCLK(CKGEN,  59, "fmem_ck_bfe_dcm_ch0"),
-	FMCLK(CKGEN,  60, "fmem_ck_aft_dcm_ch0"),
-	FMCLK(CKGEN,  61, "fmem_ck_bfe_dcm_ch1"),
-	FMCLK(CKGEN,  62, "fmem_ck_aft_dcm_ch1"),
-	FMCLK(CKGEN,  63, "dramc_pll104m_ck"),
-	FMCLK(ABIST,  1, "AD_WBG_DIG_CK_832M"),
-	FMCLK(ABIST,  2, "AD_WBG_DIG_CK_960M"),
-	FMCLK(ABIST,  3, "UFS_MP_CLK2FREQ"),
-	FMCLK(ABIST,  4, "AD_CSI0A_CDPHY_DELAYCAL_CK"),
-	FMCLK(ABIST,  5, "AD_CSI0B_CDPHY_DELAYCAL_CK"),
-	FMCLK(ABIST,  6, "AD_CSI1A_DPHY_DELAYCAL_CK"),
-	FMCLK(ABIST,  7, "AD_CSI1B_DPHY_DELAYCAL_CK"),
-	FMCLK(ABIST,  8, "AD_CSI2A_DPHY_DELAYCAL_CK"),
-	FMCLK(ABIST,  9, "AD_CSI2B_DPHY_DELAYCAL_CK"),
-	FMCLK(ABIST,  10, "AD_MDBPIPLL_CK"),
-	FMCLK(ABIST,  11, "AD_MDBRPPLL_CK"),
-	FMCLK(ABIST,  12, "AD_MDMCUPLL_CK"),
-	FMCLK(ABIST,  13, "AD_ADSPPLL_CK"),
-	FMCLK(ABIST,  14, "AD_MDVDSPPLL_CK"),
-	FMCLK(ABIST,  16, "AD_LTEPLL_FS26M_CK"),
-	FMCLK(ABIST,  20, "AD_ARMPLL_BL_CK"),
-	FMCLK(ABIST,  21, "AD_ARMPLL_BB_CK"),
-	FMCLK(ABIST,  22, "AD_ARMPLL_LL_CK"),
-	FMCLK(ABIST,  23, "AD_MAINPLL_1092M_CK"),
-	FMCLK(ABIST,  24, "AD_UNIVPLL_1248M_CK"),
-	FMCLK(ABIST,  25, "AD_MFGPLL_CK"),
-	FMCLK(ABIST,  26, "AD_MSDCPLL_CK"),
+	FMCLK(CKGEN,  2, "hf_fscp_ck"),
+	FMCLK(CKGEN,  3, "hf_fmfg_ck"),
+	FMCLK(CKGEN,  4, "f_fcamtg_ck"),
+	FMCLK(CKGEN,  5, "f_fcamtg1_ck"),
+	FMCLK(CKGEN,  6, "f_fcamtg2_ck"),
+	FMCLK(CKGEN,  7, "f_fcamtg3_ck"),
+	FMCLK(CKGEN,  8, "f_fcamtg4_ck"),
+	FMCLK(CKGEN,  9, "f_fcamtg5_ck"),
+	FMCLK(CKGEN,  10, "f_fcamtg6_ck"),
+	FMCLK(CKGEN,  11, "f_fuart_ck"),
+	FMCLK(CKGEN,  12, "hf_fspi_ck"),
+	FMCLK(CKGEN,  13, "hf_fmsdc50_0_hclk_ck"),
+	FMCLK(CKGEN,  14, "hf_fmsdc50_0_ck"),
+	FMCLK(CKGEN,  15, "hf_fmsdc30_1_ck"),
+	FMCLK(CKGEN,  16, "hf_faudio_ck"),
+	FMCLK(CKGEN,  17, "hf_faud_intbus_ck"),
+	FMCLK(CKGEN,  18, "hf_faud_1_ck"),
+	FMCLK(CKGEN,  19, "hf_faud_2_ck"),
+	FMCLK(CKGEN,  20, "hf_faud_engen1_ck"),
+	FMCLK(CKGEN,  21, "hf_faud_engen2_ck"),
+	FMCLK(CKGEN,  22, "f_fdisp_pwm_ck"),
+	FMCLK(CKGEN,  23, "hf_sspm_ck"),
+	FMCLK(CKGEN,  24, "hf_fdxcc_ck"),
+	FMCLK(CKGEN,  25, "hf_fusb_top_ck"),
+	FMCLK(CKGEN,  26, "hf_fsrck_ck"),
+	FMCLK(CKGEN,  27, "hf_fspm_ck"),
+	FMCLK(CKGEN,  28, "hf_fi2c_ck"),
+	FMCLK(CKGEN,  29, "f_fpwm_ck"),
+	FMCLK(CKGEN,  30, "f_fseninf_ck"),
+	FMCLK(CKGEN,  31, "f_fseninf1_ck"),
+	FMCLK(CKGEN,  32, "f_fseninf2_ck"),
+	FMCLK(CKGEN,  33, "f_fseninf3_ck"),
+	FMCLK(CKGEN,  34, "hdf_faes_msdcfde_ck"),
+	FMCLK(CKGEN,  35, "f_fpwrap_ulposc_ck"),
+	FMCLK(CKGEN,  36, "f_fcamtm_ck"),
+	FMCLK(CKGEN,  37, "hf_fvenc_ck"),
+	FMCLK(CKGEN,  38, "hf_fcam_ck"),
+	FMCLK(CKGEN,  39, "hf_fimg1_ck"),
+	FMCLK(CKGEN,  40, "hf_fipe_ck"),
+	FMCLK(CKGEN,  41, "hf_dpmaif_ck"),
+	FMCLK(CKGEN,  42, "hf_fvdec_ck"),
+	FMCLK(CKGEN,  43, "hf_fdisp_ck"),
+	FMCLK(CKGEN,  44, "hf_fmdp_ck"),
+	FMCLK(CKGEN,  45, "hf_faudio_h_ck"),
+	FMCLK(CKGEN,  46, "hf_fufs_ck"),
+	FMCLK(CKGEN,  47, "hf_faes_fde_ck"),
+	FMCLK(CKGEN,  48, "hf_audiodsp_ck"),
+	FMCLK(CKGEN,  49, "hg_fdvfsrc_ck"),
+	FMCLK(CKGEN,  50, "hg_fdvfsrc_ck"),
+	FMCLK(CKGEN,  51, "hf_dsi_occ_ck"),
+	FMCLK(CKGEN,  52, "hf_fspmi_mst_ck"),
+	FMCLK(ABIST,  7, "AD_CCIPLL_CK"),
+	FMCLK(ABIST,  8, "AD_ARMPLL_L_CK"),
+	FMCLK(ABIST,  9, "AD_ARMPLL_CK"),
+	FMCLK(ABIST,  10, "AD_PLLGP1_TST_CK"),
+	FMCLK(ABIST,  11, "AD_MDBPIPLL_CK"),
+	FMCLK(ABIST,  12, "AD_MDBRPPLL_CK"),
+	FMCLK(ABIST,  13, "AD_MDVDSPPLL_CK"),
+	FMCLK(ABIST,  14, "AD_MDMCUPLL_CK"),
+	FMCLK(ABIST,  15, "AD_APLL2_CK"),
+	FMCLK(ABIST,  16, "AD_APLL1_CK"),
+	FMCLK(ABIST,  17, "AD_USB20_192M_CK"),
+	FMCLK(ABIST,  19, "AD_CCIPLL_CK"),
+	FMCLK(ABIST,  20, "AD_DSI0_LNTC_DSICLK"),
+	FMCLK(ABIST,  21, "AD_DSI0_MPPLL_TST_CK"),
+	FMCLK(ABIST,  24, "AD_MAINPLL_CK"),
+	FMCLK(ABIST,  25, "AD_MDPLL1_FS26M_CK_guide"),
+	FMCLK(ABIST,  26, "AD_MFGPLL_CK"),
 	FMCLK(ABIST,  27, "AD_MMPLL_CK"),
-	FMCLK(ABIST,  28, "AD_APLL1_CK"),
-	FMCLK(ABIST,  29, "AD_APLL2_CK"),
-	FMCLK(ABIST,  30, "AD_APPLLGP_TST_CK"),
-	FMCLK(ABIST,  32, "AD_UNIV_192M_CK"),
-	FMCLK(ABIST,  34, "AD_TVDPLL_CK"),
-	FMCLK(ABIST,  35, "AD_DSI0_MPPLL_TST_CK"),
-	FMCLK(ABIST,  36, "AD_DSI0_LNTC_DSICLK"),
-	FMCLK(ABIST,  37, "AD_OSC_CK_2"),
-	FMCLK(ABIST,  38, "AD_OSC_CK"),
-	FMCLK(ABIST,  39, "rtc32k_ck_i"),
-	FMCLK(ABIST,  40, "mcusys_arm_clk_out_all"),
-	FMCLK(ABIST,  41, "AD_ULPOSC_SYNC_CK_2"),
-	FMCLK(ABIST,  42, "AD_ULPOSC_SYNC_CK"),
-	FMCLK(ABIST,  43, "msdc01_in_ck"),
-	FMCLK(ABIST,  44, "msdc02_in_ck"),
-	FMCLK(ABIST,  45, "msdc11_in_ck"),
-	FMCLK(ABIST,  46, "msdc12_in_ck"),
-	FMCLK(ABIST,  49, "AD_CCIPLL_CK"),
-	FMCLK(ABIST,  50, "AD_MPLL_208M_CK"),
-	FMCLK(ABIST,  51, "AD_WBG_DIG_CK_CK_416M"),
-	FMCLK(ABIST,  52, "AD_WBG_B_DIG_CK_64M"),
-	FMCLK(ABIST,  53, "AD_WBG_W_DIG_CK_64M"),
-	FMCLK(ABIST,  55, "DA_UNIV_48M_DIV_CK"),
-	FMCLK(ABIST,  57, "DA_MPLL_52M_DIV_CK"),
-	FMCLK(ABIST,  60, "ckmon1_ck"),
-	FMCLK(ABIST,  61, "ckmon2_ck"),
-	FMCLK(ABIST,  62, "ckmon3_ck"),
-	FMCLK(ABIST,  63, "ckmon4_ck"),
+	FMCLK(ABIST,  28, "AD_ADSPPLL_CK"),
+	FMCLK(ABIST,  29, "AD_MPLL_208M_CK"),
+	FMCLK(ABIST,  30, "AD_MSDCPLL_CK"),
+	FMCLK(ABIST,  34, "AD_ULPOSC2_CK"),
+	FMCLK(ABIST,  35, "AD_ULPOSC_CK"),
+	FMCLK(ABIST,  36, "AD_UNIVPLL_CK"),
+	FMCLK(ABIST,  40, "ad_wbg_dig_bpll_ck"),
+	FMCLK(ABIST,  41, "UFS_MP_CLK2FREQ"),
+	FMCLK(ABIST,  42, "AD_RCLRPLL_DIV4_CK"),
+	FMCLK(ABIST,  43, "AD_RPHYPLL_DIV4_CK"),
+	FMCLK(ABIST,  44, "fmem_ck_aft_dsm_ch0"),
+	FMCLK(ABIST,  45, "fmem_ck_aft_dsm_ch1"),
+	FMCLK(ABIST,  46, "fmem_ck_bfe_dcm_ch0"),
+	FMCLK(ABIST,  47, "fmem_ck_bfe_dcm_ch1"),
+	FMCLK(ABIST,  48, "mcusys_arm_clk_out_all"),
 	{}
 };
 
 #define _CKGEN(x)		(rb[topckgen].virt + (x))
-#define CLK_CFG_0		_CKGEN(0x20)
-#define CLK_CFG_1		_CKGEN(0x30)
-#define CLK_CFG_2		_CKGEN(0x40)
-#define CLK_CFG_3		_CKGEN(0x50)
-#define CLK_CFG_4		_CKGEN(0x60)
-#define CLK_CFG_5		_CKGEN(0x70)
-#define CLK_CFG_6		_CKGEN(0x80)
-#define CLK_CFG_7		_CKGEN(0x90)
-#define CLK_CFG_8		_CKGEN(0xA0)
-#define CLK_CFG_9		_CKGEN(0xB0)
-#define CLK_CFG_10		_CKGEN(0xC0)
-#define CLK_CFG_11		_CKGEN(0xD0)
-#define CLK_CFG_12		_CKGEN(0xE0)
-#define CLK_CFG_13		_CKGEN(0xF0)
-#define CLK_MISC_CFG_0		_CKGEN(0x110)
-#define CLK_DBG_CFG		_CKGEN(0x10C)
+#define CLK_CFG_0		_CKGEN(0x40)
+#define CLK_CFG_1		_CKGEN(0x50)
+#define CLK_CFG_2		_CKGEN(0x60)
+#define CLK_CFG_3		_CKGEN(0x70)
+#define CLK_CFG_4		_CKGEN(0x80)
+#define CLK_CFG_5		_CKGEN(0x90)
+#define CLK_CFG_6		_CKGEN(0xa0)
+#define CLK_CFG_7		_CKGEN(0xb0)
+#define CLK_CFG_8		_CKGEN(0xc0)
+#define CLK_CFG_9		_CKGEN(0xd0)
+#define CLK_CFG_10		_CKGEN(0xe0)
+#define CLK_CFG_11		_CKGEN(0xf0)
+#define CLK_CFG_12		_CKGEN(0x100)
+#define CLK_MISC_CFG_0		_CKGEN(0x140)
+#define CLK_DBG_CFG		_CKGEN(0x17C)
 #define CLK26CALI_0		_CKGEN(0x220)
 #define CLK26CALI_1		_CKGEN(0x224)
 
 #define _SCPSYS(x)		(rb[scpsys].virt + (x))
-#define SPM_PWR_STATUS		_SCPSYS(0x160)
-#define SPM_PWR_STATUS_2ND	_SCPSYS(0x164)
+#define SPM_PWR_STATUS		_SCPSYS(0x16C)
+#define SPM_PWR_STATUS_2ND	_SCPSYS(0x170)
 
 #ifdef CONFIG_MTK_DEVAPC
 static void devapc_dump_regs(void)
 {
 	int i = 0;
 
-	pr_notice("[devapc] CLK_CFG_0-13\r\n");
-	for (i = 0; i < 14; i++)
+	pr_notice("[devapc] CLK_CFG_0-12\r\n");
+	for (i = 0; i < 13; i++)
 		pr_notice("[%d]0x%08x\r\n", i, clk_readl(CLK_CFG_0 + (i << 4)));
-	pr_notice("[devapc] PWR_STATUS(0x160,0x164) = 0x%08x 0x%08x\n",
+	pr_notice("[devapc] PWR_STATUS(0x16C,0x170) = 0x%08x 0x%08x\n",
 		clk_readl(SPM_PWR_STATUS), clk_readl(SPM_PWR_STATUS_2ND));
 }
 
@@ -463,7 +433,7 @@ struct bak {
 	u32 test_dbg_ctrl;
 };
 
-static unsigned int mt_get_ckgen_freq(unsigned int ID)
+unsigned int mt_get_ckgen_freq(unsigned int ID)
 {
 	int output = 0, i = 0;
 	unsigned int temp, clk_dbg_cfg, clk_misc_cfg_0, clk26cali_1 = 0;
@@ -472,7 +442,7 @@ static unsigned int mt_get_ckgen_freq(unsigned int ID)
 	clk_writel(CLK_DBG_CFG, (clk_dbg_cfg & 0xFFFFC0FC)|(ID << 8)|(0x1));
 
 	clk_misc_cfg_0 = clk_readl(CLK_MISC_CFG_0);
-	clk_writel(CLK_MISC_CFG_0, (clk_misc_cfg_0 & 0x00FFFFFF));
+	clk_writel(CLK_MISC_CFG_0, (clk_misc_cfg_0 & 0x00FFFFFF) | (3 << 24));
 
 	clk26cali_1 = clk_readl(CLK26CALI_1);
 	clk_writel(CLK26CALI_0, 0x1000);
@@ -482,8 +452,21 @@ static unsigned int mt_get_ckgen_freq(unsigned int ID)
 	while (clk_readl(CLK26CALI_0) & 0x10) {
 		udelay(10);
 		i++;
-		if (i > 20)
+		if (i > 30)
 			break;
+	}
+	/* illegal pass */
+	if (i == 0) {
+		clk_writel(CLK26CALI_0, 0x0000);
+		//re-trigger
+		clk_writel(CLK26CALI_0, 0x1000);
+		clk_writel(CLK26CALI_0, 0x1010);
+		while (clk_readl(CLK26CALI_0) & 0x10) {
+			udelay(10);
+			i++;
+			if (i > 30)
+				break;
+		}
 	}
 
 	temp = clk_readl(CLK26CALI_1) & 0xFFFF;
@@ -492,19 +475,23 @@ static unsigned int mt_get_ckgen_freq(unsigned int ID)
 
 	clk_writel(CLK_DBG_CFG, clk_dbg_cfg);
 	clk_writel(CLK_MISC_CFG_0, clk_misc_cfg_0);
-	/*clk_writel(CLK26CALI_0, clk26cali_0);*/
-	/*clk_writel(CLK26CALI_1, clk26cali_1);*/
-
 	clk_writel(CLK26CALI_0, 0x0000);
-	/*print("ckgen meter[%d] = %d Khz\n", ID, output);*/
-	if (i > 20)
-		return 0;
-	else
-		return output;
 
+	/*print("ckgen meter[%d] = %d Khz\n", ID, output);*/
+	if (i > 30)
+		return 0;
+	if ((output * 4) < 25000) {
+		pr_notice("%s: CLK_DBG_CFG = 0x%x, CLK_MISC_CFG_0 = 0x%x, CLK26CALI_0 = 0x%x, CLK26CALI_1 = 0x%x\n",
+			__func__,
+			clk_readl(CLK_DBG_CFG),
+			clk_readl(CLK_MISC_CFG_0),
+			clk_readl(CLK26CALI_0),
+			clk_readl(CLK26CALI_1));
+	}
+	return (output * 4);
 }
 
-static unsigned int mt_get_abist_freq(unsigned int ID)
+unsigned int mt_get_abist_freq(unsigned int ID)
 {
 	int output = 0, i = 0;
 	unsigned int temp, clk_dbg_cfg, clk_misc_cfg_0, clk26cali_1 = 0;
@@ -513,7 +500,7 @@ static unsigned int mt_get_abist_freq(unsigned int ID)
 	clk_writel(CLK_DBG_CFG, (clk_dbg_cfg & 0xFFC0FFFC)|(ID << 16));
 
 	clk_misc_cfg_0 = clk_readl(CLK_MISC_CFG_0);
-	clk_writel(CLK_MISC_CFG_0, (clk_misc_cfg_0 & 0x00FFFFFF) | (1 << 24));
+	clk_writel(CLK_MISC_CFG_0, (clk_misc_cfg_0 & 0x00FFFFFF) | (3 << 24));
 
 	clk26cali_1 = clk_readl(CLK26CALI_1);
 
@@ -524,24 +511,41 @@ static unsigned int mt_get_abist_freq(unsigned int ID)
 	while (clk_readl(CLK26CALI_0) & 0x10) {
 		udelay(10);
 		i++;
-		if (i > 20)
+		if (i > 30)
 			break;
 	}
-
+	/* illegal pass */
+	if (i == 0) {
+		clk_writel(CLK26CALI_0, 0x0000);
+		//re-trigger
+		clk_writel(CLK26CALI_0, 0x1000);
+		clk_writel(CLK26CALI_0, 0x1010);
+		while (clk_readl(CLK26CALI_0) & 0x10) {
+			udelay(10);
+			i++;
+			if (i > 30)
+				break;
+		}
+	}
 	temp = clk_readl(CLK26CALI_1) & 0xFFFF;
 
 	output = (temp * 26000) / 1024;
 
 	clk_writel(CLK_DBG_CFG, clk_dbg_cfg);
 	clk_writel(CLK_MISC_CFG_0, clk_misc_cfg_0);
-	/*clk_writel(CLK26CALI_0, clk26cali_0);*/
-	/*clk_writel(CLK26CALI_1, clk26cali_1);*/
 	clk_writel(CLK26CALI_0, 0x0000);
-	/*pr_debug("%s = %d Khz\n", abist_array[ID-1], output);*/
-	if (i > 20)
+
+	if (i > 30)
 		return 0;
-	else
-		return (output * 2);
+	if ((output * 4) < 25000) {
+		pr_notice("%s: CLK_DBG_CFG = 0x%x, CLK_MISC_CFG_0 = 0x%x, CLK26CALI_0 = 0x%x, CLK26CALI_1 = 0x%x\n",
+			__func__,
+			clk_readl(CLK_DBG_CFG),
+			clk_readl(CLK_MISC_CFG_0),
+			clk_readl(CLK26CALI_0),
+			clk_readl(CLK26CALI_1));
+	}
+	return (output * 4);
 }
 
 static u32 fmeter_freq_op(const struct fmeter_clk *fclk)
