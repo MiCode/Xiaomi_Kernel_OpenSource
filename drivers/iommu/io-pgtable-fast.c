@@ -670,7 +670,6 @@ static void dummy_tlb_add_page(struct iommu_iotlb_gather *gather,
 static struct iommu_flush_ops dummy_tlb_ops __initdata = {
 	.tlb_flush_all	= dummy_tlb_flush_all,
 	.tlb_flush_walk	= dummy_tlb_flush,
-	.tlb_flush_leaf	= dummy_tlb_flush,
 	.tlb_add_page	= dummy_tlb_add_page,
 };
 

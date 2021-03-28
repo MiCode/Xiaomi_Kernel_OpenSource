@@ -605,14 +605,6 @@ static void arm_smmu_tlb_inv_walk_s1(unsigned long iova, size_t size,
 	arm_smmu_tlb_sync_context(cookie);
 }
 
-static void arm_smmu_tlb_inv_leaf_s1(unsigned long iova, size_t size,
-				     size_t granule, void *cookie)
-{
-	arm_smmu_tlb_inv_range_s1(iova, size, granule, cookie,
-				  ARM_SMMU_CB_S1_TLBIVAL);
-	arm_smmu_tlb_sync_context(cookie);
-}
-
 static void arm_smmu_tlb_add_page_s1(struct iommu_iotlb_gather *gather,
 				     unsigned long iova, size_t granule,
 				     void *cookie)
@@ -629,14 +621,6 @@ static void arm_smmu_tlb_inv_walk_s2(unsigned long iova, size_t size,
 	arm_smmu_tlb_sync_context(cookie);
 }
 
-static void arm_smmu_tlb_inv_leaf_s2(unsigned long iova, size_t size,
-				     size_t granule, void *cookie)
-{
-	arm_smmu_tlb_inv_range_s2(iova, size, granule, cookie,
-				  ARM_SMMU_CB_S2_TLBIIPAS2L);
-	arm_smmu_tlb_sync_context(cookie);
-}
-
 static void arm_smmu_tlb_add_page_s2(struct iommu_iotlb_gather *gather,
 				     unsigned long iova, size_t granule,
 				     void *cookie)
@@ -645,8 +629,8 @@ static void arm_smmu_tlb_add_page_s2(struct iommu_iotlb_gather *gather,
 				  ARM_SMMU_CB_S2_TLBIIPAS2L);
 }
 
-static void arm_smmu_tlb_inv_any_s2_v1(unsigned long iova, size_t size,
-				       size_t granule, void *cookie)
+static void arm_smmu_tlb_inv_walk_s2_v1(unsigned long iova, size_t size,
+					size_t granule, void *cookie)
 {
 	arm_smmu_tlb_inv_context_s2(cookie);
 }
@@ -673,21 +657,18 @@ static void arm_smmu_tlb_add_page_s2_v1(struct iommu_iotlb_gather *gather,
 static const struct iommu_flush_ops arm_smmu_s1_tlb_ops = {
 	.tlb_flush_all	= arm_smmu_tlb_inv_context_s1,
 	.tlb_flush_walk	= arm_smmu_tlb_inv_walk_s1,
-	.tlb_flush_leaf	= arm_smmu_tlb_inv_leaf_s1,
 	.tlb_add_page	= arm_smmu_tlb_add_page_s1,
 };
 
 static const struct iommu_flush_ops arm_smmu_s2_tlb_ops_v2 = {
 	.tlb_flush_all	= arm_smmu_tlb_inv_context_s2,
 	.tlb_flush_walk	= arm_smmu_tlb_inv_walk_s2,
-	.tlb_flush_leaf	= arm_smmu_tlb_inv_leaf_s2,
 	.tlb_add_page	= arm_smmu_tlb_add_page_s2,
 };
 
 static const struct iommu_flush_ops arm_smmu_s2_tlb_ops_v1 = {
 	.tlb_flush_all	= arm_smmu_tlb_inv_context_s2,
-	.tlb_flush_walk	= arm_smmu_tlb_inv_any_s2_v1,
-	.tlb_flush_leaf	= arm_smmu_tlb_inv_any_s2_v1,
+	.tlb_flush_walk	= arm_smmu_tlb_inv_walk_s2_v1,
 	.tlb_add_page	= arm_smmu_tlb_add_page_s2_v1,
 };
 

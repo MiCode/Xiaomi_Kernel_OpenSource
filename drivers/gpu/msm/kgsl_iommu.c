@@ -67,7 +67,6 @@ static void _tlb_add_page(struct iommu_iotlb_gather *gather,
 static const struct iommu_flush_ops kgsl_iopgtbl_tlb_ops = {
 	.tlb_flush_all = _tlb_flush_all,
 	.tlb_flush_walk = _tlb_flush_walk,
-	.tlb_flush_leaf = _tlb_flush_walk,
 	.tlb_add_page = _tlb_add_page,
 };
 
