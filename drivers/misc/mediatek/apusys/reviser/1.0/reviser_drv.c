@@ -112,6 +112,10 @@ static int reviser_memory_func(void *arg)
 	}
 	LOG_INFO("reviser memory init\n");
 
+	/* Workaround for power all on mode*/
+	//reviser_power_on(NULL);
+	//reviser_power_on_cb(NULL);
+
 	return 0;
 }
 
@@ -423,7 +427,7 @@ static int reviser_probe(struct platform_device *pdev)
 	apu_power_device_register(REVISER, pdev);
 	/* Workaround for power all on mode*/
 	//reviser_power_on(NULL);
-
+	//reviser_power_on_cb(NULL);
 
 	reviser_device->init_done = true;
 	platform_set_drvdata(pdev, reviser_device);

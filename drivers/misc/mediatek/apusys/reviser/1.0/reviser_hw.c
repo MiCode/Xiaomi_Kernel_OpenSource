@@ -61,9 +61,11 @@ APUSYS_ATTR_USE static void _reviser_set_context_ID(void *drvinfo,
 APUSYS_ATTR_USE static void _reviser_set_remap_table(void *drvinfo,
 		uint32_t offset, uint8_t valid, uint8_t ID,
 		uint8_t src_page, uint8_t dst_page);
+#if APUSYS_SECURE
 static uint32_t _reviser_get_remap_table_reg(
 		uint8_t valid, uint8_t ID,
 		uint8_t src_page, uint8_t dst_page);
+#endif
 APUSYS_ATTR_USE static void _reviser_set_default_iova(void *drvinfo,
 		uint32_t iova);
 
@@ -555,7 +557,7 @@ static uint32_t _reviser_ctrl_reg_read(void *drvinfo, uint32_t offset)
 	}
 
 	reviser_device = (struct reviser_dev_info *)drvinfo;
-#if 1
+#if APUSYS_SECURE
 
 	ret = mt_secure_call_ret2(MTK_SIP_APUSYS_CONTROL,
 			MTK_APUSYS_KERNEL_OP_REVISER_CHK_VALUE,
@@ -742,6 +744,8 @@ static void  _reviser_set_remap_table(void *drvinfo,
 		_reviser_reg_set(reviser_device->pctrl_top,
 				offset, (1 << VLM_REMAP_VALID_OFFSET));
 }
+
+#if APUSYS_SECURE
 static uint32_t  _reviser_get_remap_table_reg(
 		uint8_t valid, uint8_t ID,
 		uint8_t src_page, uint8_t dst_page)
@@ -762,6 +766,8 @@ static uint32_t  _reviser_get_remap_table_reg(
 
 	return value;
 }
+#endif
+
 int reviser_type_convert(int type, enum REVISER_DEVICE_E *reviser_type)
 {
 	int ret = 0;
@@ -796,8 +802,9 @@ int reviser_set_remap_table(void *drvinfo,
 {
 	uint32_t offset = 0;
 	int ret = 0;
+#if APUSYS_SECURE
 	uint32_t value = 0;
-
+#endif
 	DEBUG_TAG;
 
 	if (index > VLM_REMAP_TABLE_DST_MAX) {
@@ -857,8 +864,9 @@ int reviser_set_boundary(void *drvinfo,
 		enum REVISER_DEVICE_E type, int index, uint8_t boundary)
 {
 	APUSYS_ATTR_USE uint32_t offset;
+#if APUSYS_SECURE
 	uint32_t value = 0;
-
+#endif
 	DEBUG_TAG;
 
 	if (boundary > VLM_CTXT_BDY_SELECT_MAX) {
@@ -988,8 +996,9 @@ int reviser_get_interrupt_offset(void *drvinfo)
 {
 	uint32_t offset = 0;
 	int ret = 0;
+#if APUSYS_SECURE
 	size_t reg_value;
-
+#endif
 	struct reviser_dev_info *reviser_device = NULL;
 
 
