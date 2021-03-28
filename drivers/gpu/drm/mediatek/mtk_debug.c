@@ -75,10 +75,10 @@ static struct drm_device *drm_dev;
 static struct DISP_PQ_BYPASS_SWITCH m_old_pq_bypass_switch;
 static struct DISP_PQ_BYPASS_SWITCH m_new_pq_bypass_switch;
 #ifdef MTK_DRM_BRINGUP_STAGE
-bool g_mobile_log = 1;
-bool g_fence_log = 1;
-bool g_irq_log = 1;
-bool g_detail_log = 1;
+bool g_mobile_log;
+bool g_fence_log;
+bool g_irq_log;
+bool g_detail_log;
 #else
 bool g_mobile_log;
 bool g_fence_log;
