@@ -962,6 +962,11 @@
 		sram_proc2-supply = <&mt_pmic_vsram_proc12_ldo_reg>;
 	};
 
+	mcucfg: mcucfg@0c530000 {
+		compatible = "mediatek,mcucfg";
+		reg = <0 0x0c530000 0 0x10000>;
+	};
+
 	gce_mbox: gce_mbox@1022c000 {
 		compatible = "mediatek,mt6781-gce";
 		reg = <0 0x1022c000 0 0x4000>;
