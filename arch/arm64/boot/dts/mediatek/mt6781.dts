@@ -260,10 +260,43 @@
 		reg = <0 0x1000ce00 0 0x200>;
 	};
 
-	pwrap@1000d000 {
-		compatible = "mediatek,pwrap";
+pwrap: pwrap@1000d000 {
+		compatible = "mediatek,mt6781-pwrap";
+		reg = <0 0x1000d000 0 0x1000>;
+		reg-names = "pwrap";
+		interrupts = <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk26m>, <&clk26m>;
+		clock-names = "spi", "wrap";
+
+		main_pmic: mt6358-pmic {
+			compatible = "mediatek,mt6358-pmic";
+			interrupt-parent = <&pio>;
+			interrupts = <144 IRQ_TYPE_LEVEL_HIGH 144 0>;
+			status = "okay";
+		};
+
+	};
+
+	pwraph: pwraphal@ {
+		compatible = "mediatek,pwraph";
+		mediatek,pwrap-regmap = <&pwrap>;
+	};
+
+	pwrap_mpu@1000d000 {
+		compatible = "mediatek,pwrap_mpu";
 		reg = <0 0x1000d000 0 0x1000>;
 	};
+
+	pwrap_p2p@1005cb000 {
+		compatible = "mediatek,pwrap_p2p";
+		reg = <0 0x105cb000 0 0x1000>;
+	};
+
+	pwrap_md32@10448000 {
+		compatible = "mediatek,pwrap_md32";
+		reg = <0 0x10448000 0 0x1000>;
+	};
+
 
 	devapc_ao_infra_peri@1000e000 {
 		compatible = "mediatek,devapc_ao_infra_peri";
