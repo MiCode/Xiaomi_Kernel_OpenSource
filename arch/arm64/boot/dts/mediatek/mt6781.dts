@@ -1923,6 +1923,93 @@
 		mediatek,smi-id = <20>;
 	};
 
+	mmdvfs: mmdvfs_pmqos {
+		compatible = "mediatek,mmdvfs_pmqos";
+		larb_groups = <0 1 2 4 7 9 11 13 14 16 17 19 20>;
+		larb0 = <8 7 8 8>;
+		larb1 = <7 8 8 9 8>;
+		larb2 = <7 7 8 8 8>;
+		larb4 = <6 7 8 7 7 7 7 7 7 6 6 7 8 9>;
+		larb7 = <7 8 8 8 7 7 7 7 7 7 7 7 8>;
+		larb9 = <7 7 7 7 7 7 8 8 8 8 7 7 8 9 8 6 6 7
+			7 7 7 7 7 7 8 8 8 8 7>;
+		larb11 = <7 7 7 7 7 7 8 8 8 8 7 7 8 9 8 6 6 7
+			7 7 7 7 7 7 8 8 8 8 7>;
+		larb13 = <7 8 8 8 8 8 8 8 8 7 8 7>;
+		larb14 = <7 8 8 8 7 8>;
+		larb16 = <8 8 7 7 8 7 7 7 8 8 8 8 8 8 8 8 7>;
+		larb17 = <8 8 7 7 8 7 7 7 8 8 8 8 8 8 8 8 7>;
+		larb19 = <7 8 7 8>;
+		larb20 = <7 7 8 8 6 7>;
+		/* include SMI common CCU */
+		cam_larb = <13 14 16 17>;
+		max_ostd_larb = <0 1>;
+		max_ostd = <40>;
+		comm_freq = "disp_freq";
+		disp_step0 = <560 1 0 7>;
+		disp_step0_ext = <560 2 9 0x1589D8>;
+		disp_step1 = <450 1 0 7>;
+		disp_step1_ext = <450 2 9 0x114EC4>;
+		disp_step2 = <315 1 0 7>;
+		disp_step2_ext = <315 2 9 0x183B13>;
+		cam_step0 = <546 1 1 8>;
+		cam_step1 = <416 1 1 9>;
+		cam_step2 = <312 1 1 10>;
+		img_step0 = <546 1 2 8>;
+		img_step1 = <364 1 2 11>;
+		img_step2 = <312 1 2 10>;
+		ipe_step0 = <546 1 3 8>;
+		ipe_step1 = <364 1 3 11>;
+		ipe_step2 = <312 1 3 10>;
+		venc_step0 = <560 1 4 7>;
+		venc_step1 = <450 1 4 7>;
+		venc_step2 = <364 1 4 11>;
+		vdec_step0 = <546 1 5 8>;
+		vdec_step1 = <416 1 5 9>;
+		vdec_step2 = <312 1 5 10>;
+		mdp_step0 = <560 1 6 7>;
+		mdp_step1 = <450 1 6 7>;
+		mdp_step2 = <315 1 6 7>;
+
+		vcore-supply = <&mt_pmic_vcore_buck_reg>;
+
+		/* fmeter_mux_ids: Mapping to mux sequence in clocks */
+		vopp_steps = <0 1 2>;
+		disp_freq = "disp_step0", "disp_step1", "disp_step2";
+		cam_freq = "cam_step0", "cam_step1", "cam_step2";
+		img_freq = "img_step0", "img_step1", "img_step2";
+		ipe_freq = "ipe_step0", "ipe_step1", "ipe_step2";
+		venc_freq = "venc_step0", "venc_step1", "venc_step2";
+		vdec_freq = "vdec_step0", "vdec_step1", "vdec_step2";
+		mdp_freq = "mdp_step0", "mdp_step1", "mdp_step2";
+
+		clocks = <&topckgen TOP_MUX_DISP>,	/* 0 */
+			<&topckgen TOP_MUX_CAM>,	/* 1 */
+			<&topckgen TOP_MUX_IMG1>,	/* 2 */
+			<&topckgen TOP_MUX_IPE>,	/* 3 */
+			<&topckgen TOP_MUX_VENC>,	/* 4 */
+			<&topckgen TOP_MUX_VDEC>,	/* 5 */
+			<&topckgen TOP_MUX_MDP>,	/* 6 */
+			<&topckgen TOP_MMPLL_CK>,	/* 7 */
+			<&topckgen TOP_MAINPLL_D2>,	/* 8 */
+			<&topckgen TOP_UNIVPLL_D3>,	/* 9 */
+			<&topckgen TOP_UNIVPLL_D2_D2>,	/* 10 */
+			<&topckgen TOP_MAINPLL_D3>;	/* 11 */
+
+		clock-names = "TOP_MUX_DISP",	/* 0 */
+			"TOP_MUX_CAM",		/* 1 */
+			"TOP_MUX_IMG1",		/* 2 */
+			"TOP_MUX_IPE",		/* 3 */
+			"TOP_MUX_VENC",		/* 4 */
+			"TOP_MUX_VDEC",		/* 5 */
+			"TOP_MUX_MDP",		/* 6 */
+			"TOP_MMPLL_CK",		/* 7 */
+			"TOP_MAINPLL_D2",	/* 8 */
+			"TOP_UNIVPLL_D3",	/* 9 */
+			"TOP_UNIVPLL_D2_D2",	/* 10 */
+			"TOP_MAINPLL_D3";	/* 11 */
+	};
+
 	disp_ovl0: disp_ovl0@14005000 {
 		compatible = "mediatek,disp_ovl0",
 					"mediatek,mt6781-disp-ovl";
