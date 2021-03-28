@@ -3291,7 +3291,8 @@ page_owner=on loop.max_part=7";
 			"MTK_DRM_OPT_HBM",
 			"MTK_DRM_OPT_VDS_PATH_SWITCH",
 			"MTK_DRM_OPT_LAYER_REC",
-			"MTK_DRM_OPT_CLEAR_LAYER";
+			"MTK_DRM_OPT_CLEAR_LAYER",
+			"MTK_DRM_OPT_LFR";
 
 		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 			<1>, /*MTK_DRM_OPT_USE_CMDQ*/
@@ -3330,7 +3331,8 @@ page_owner=on loop.max_part=7";
 			<0>, /*MTK_DRM_OPT_HBM*/
 			<1>, /*MTK_DRM_OPT_VDS_PATH_SWITCH*/
 			<0>, /*MTK_DRM_OPT_LAYER_REC*/
-			<1>; /*MTK_DRM_OPT_CLEAR_LAYER*/
+			<1>, /*MTK_DRM_OPT_CLEAR_LAYER*/
+			<0>; /*MTK_DRM_OPT_LFR*/
 	};
 
 	disp_mutex0: disp_mutex@14001000 {
