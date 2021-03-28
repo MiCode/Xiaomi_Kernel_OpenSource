@@ -56,44 +56,49 @@ void long_press_reboot_function_setting(void)
 #ifdef CONFIG_MTK_PMIC_NEW_ARCH /*for pmic not ready*/
 	if (kpd_enable_lprst && get_boot_mode() == NORMAL_BOOT) {
 		kpd_info("Normal Boot long press reboot selection\n");
-
 #ifdef CONFIG_KPD_PMIC_LPRST_TD
 		kpd_info("Enable normal mode LPRST\n");
 #ifdef CONFIG_ONEKEY_REBOOT_NORMAL_MODE
-		/*POWERKEY*/
-		pmic_set_register_value(PMIC_RG_PWRKEY_KEY_MODE, 0x00);
-#elif defined(CONFIG_TWOKEY_REBOOT_NORMAL_MODE)
-		/*PWRKEY + HOMEKEY*/
-		pmic_set_register_value(PMIC_RG_PWRKEY_KEY_MODE, 0x01);
-#endif
+		pmic_set_register_value(PMIC_RG_PWRKEY_RST_EN, 0x01);
+		pmic_set_register_value(PMIC_RG_HOMEKEY_RST_EN, 0x00);
 		pmic_set_register_value(PMIC_RG_PWRKEY_RST_TD,
 			CONFIG_KPD_PMIC_LPRST_TD);
+#endif
+
+#ifdef CONFIG_TWOKEY_REBOOT_NORMAL_MODE
 		pmic_set_register_value(PMIC_RG_PWRKEY_RST_EN, 0x01);
+		pmic_set_register_value(PMIC_RG_HOMEKEY_RST_EN, 0x01);
+		pmic_set_register_value(PMIC_RG_PWRKEY_RST_TD,
+			CONFIG_KPD_PMIC_LPRST_TD);
+#endif
 #else
 		kpd_info("disable normal mode LPRST\n");
 		pmic_set_register_value(PMIC_RG_PWRKEY_RST_EN, 0x00);
+		pmic_set_register_value(PMIC_RG_HOMEKEY_RST_EN, 0x00);
+
 #endif
 	} else {
 		kpd_info("Other Boot Mode long press reboot selection\n");
-
 #ifdef CONFIG_KPD_PMIC_LPRST_TD
 		kpd_info("Enable other mode LPRST\n");
-
-#ifdef CONFIG_ONEKEY_REBOOT_NORMAL_MODE
-			/*POWERKEY*/
-			pmic_set_register_value(PMIC_RG_PWRKEY_KEY_MODE, 0x00);
-#elif defined(CONFIG_TWOKEY_REBOOT_NORMAL_MODE)
-			/*PWRKEY + HOMEKEY*/
-			pmic_set_register_value(PMIC_RG_PWRKEY_KEY_MODE, 0x01);
+#ifdef CONFIG_ONEKEY_REBOOT_OTHER_MODE
+		pmic_set_register_value(PMIC_RG_PWRKEY_RST_EN, 0x01);
+		pmic_set_register_value(PMIC_RG_HOMEKEY_RST_EN, 0x00);
+		pmic_set_register_value(PMIC_RG_PWRKEY_RST_TD,
+			CONFIG_KPD_PMIC_LPRST_TD);
 #endif
-			pmic_set_register_value(PMIC_RG_PWRKEY_RST_TD,
-				CONFIG_KPD_PMIC_LPRST_TD);
-			pmic_set_register_value(PMIC_RG_PWRKEY_RST_EN, 0x01);
+
+#ifdef CONFIG_TWOKEY_REBOOT_OTHER_MODE
+		pmic_set_register_value(PMIC_RG_PWRKEY_RST_EN, 0x01);
+		pmic_set_register_value(PMIC_RG_HOMEKEY_RST_EN, 0x01);
+		pmic_set_register_value(PMIC_RG_PWRKEY_RST_TD,
+			CONFIG_KPD_PMIC_LPRST_TD);
+#endif
 #else
-			kpd_info("disable normal mode LPRST\n");
-			pmic_set_register_value(PMIC_RG_PWRKEY_RST_EN, 0x00);
+		kpd_info("disable other mode LPRST\n");
+		pmic_set_register_value(PMIC_RG_PWRKEY_RST_EN, 0x00);
+		pmic_set_register_value(PMIC_RG_HOMEKEY_RST_EN, 0x00);
 #endif
-
 	}
 #endif
 }
