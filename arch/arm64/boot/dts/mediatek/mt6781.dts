@@ -1190,6 +1190,21 @@
 	therm_ctrl@1100b000 {
 		compatible = "mediatek,therm_ctrl";
 		reg = <0 0x1100b000 0 0x1000>;
+		interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&infracfg_ao INFRACFG_AO_THERM_CG>;
+		clock-names = "therm-main";
+	};
+
+	tboard_thermistor1: thermal-sensor1 {
+		compatible = "mediatek,mtboard-thermistor1";
+		io-channels = <&auxadc 0>;
+		io-channel-names = "thermistor-ch0";
+	};
+
+	tboard_thermistor2: thermal-sensor2 {
+		compatible = "mediatek,mtboard-thermistor2";
+		io-channels = <&auxadc 1>;
+		io-channel-names = "thermistor-ch1";
 	};
 
 	cpumssv: cpumssv {
