@@ -3424,7 +3424,6 @@
 				<&camsys CLK_CAM_M_CAMSV3>,
 				<&camsys CLK_CAM_M_LARB13>,
 				<&camsys CLK_CAM_M_LARB14>,
-				<&camsys CLK_CAM_M_CCU0>,
 				<&camsys CLK_CAM_M_SENINF>,
 				<&camsys CLK_CAM_M_CAM2MM_GALS>,
 				<&camsys_rawa CLK_CAM_RA_LARBX>,
@@ -3433,7 +3432,7 @@
 				<&camsys_rawb CLK_CAM_RB_LARBX>,
 				<&camsys_rawb CLK_CAM_RB_CAM>,
 				<&camsys_rawb CLK_CAM_RB_CAMTG>,
-				<&topckgen TOP_MUX_CAMTG>;
+				<&topckgen TOP_MUX_CAMTM>;
 		clock-names = "ISP_SCP_SYS_CAM",
 				"ISP_SCP_SYS_RAWA",
 				"ISP_SCP_SYS_RAWB",
@@ -3444,7 +3443,6 @@
 				"CAMSYS_CAMSV2_CGPDN",
 				"CAMSYS_LARB13_CGPDN",
 				"CAMSYS_LARB14_CGPDN",
-				"CAMSYS_CCU0_CGPDN",
 				"CAMSYS_SENINF_CGPDN",
 				"CAMSYS_MAIN_CAM2MM_GALS_CGPDN",
 				"CAMSYS_RAWALARB16_CGPDN",
