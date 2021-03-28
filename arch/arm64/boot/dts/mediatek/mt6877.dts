@@ -977,12 +977,12 @@
 		clock-frequency = <10000000>;
 	};
 
-	apdma: dma-controller@10217a80 {
+	apdma: dma-controller@10220e00 {
 		compatible = "mediatek,mt6577-uart-dma";
-		reg = <0 0x10217a80 0 0x80>,
-		      <0 0x10217b00 0 0x80>,
-		      <0 0x10217b80 0 0x80>,
-		      <0 0x10217c00 0 0x80>;
+		reg = <0 0x10220e00 0 0x80>,
+		      <0 0x10220e80 0 0x80>,
+		      <0 0x10220f00 0 0x80>,
+		      <0 0x10220f80 0 0x80>;
 		interrupts = <GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>,
