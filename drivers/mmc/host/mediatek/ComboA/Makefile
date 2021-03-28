@@ -18,6 +18,9 @@ MTK_PLATFORM := mt6833
 MMC_FOLDER := mt6833
 else ifeq (y, $(filter y, $(CONFIG_MACH_MT6893)))
 MMC_FOLDER := mt6885
+else ifeq (y, $(filter y, $(CONFIG_MACH_MT6781)))
+MTK_PLATFORM := mt6781
+MMC_FOLDER := mt6781
 else
 MMC_FOLDER := $(MTK_PLATFORM)
 endif
