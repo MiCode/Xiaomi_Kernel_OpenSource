@@ -115,6 +115,10 @@ extern void wait_scp_dvfs_init_done(void);
 extern int __init scp_dvfs_init(void);
 extern void __exit scp_dvfs_exit(void);
 
+#if defined(CONFIG_MACH_MT6781)
+extern int scp_resource_req(unsigned int req_type);
+#endif
+
 /* scp dvfs variable*/
 extern unsigned int scp_expected_freq;
 extern unsigned int scp_current_freq;

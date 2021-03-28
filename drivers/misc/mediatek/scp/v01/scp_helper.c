@@ -46,7 +46,13 @@
 #if SCP_DVFS_INIT_ENABLE
 #include "scp_dvfs.h"
 #endif
+
+#if defined(CONFIG_MACH_MT6781)
+#include "mtk_secure_api.h"
+#else
 #include "mtk_spm_resource_req.h"
+#endif
+
 #include "scp_scpctl.h"
 
 #ifdef CONFIG_OF_RESERVED_MEM
@@ -378,7 +384,11 @@ static void scp_A_notify_ws(struct work_struct *ws)
 	/*clear reset status and unlock wake lock*/
 	pr_debug("[SCP] clear scp reset flag and unlock\n");
 #ifndef CONFIG_FPGA_EARLY_PORTING
+#if defined(CONFIG_MACH_MT6781)
+	scp_resource_req(SCP_REQ_RELEASE);
+#else
 	spm_resource_req(SPM_RESOURCE_USER_SCP, SPM_RESOURCE_RELEASE);
+#endif
 #endif  // CONFIG_FPGA_EARLY_PORTING
 	/* register scp dvfs*/
 	msleep(2000);
@@ -1532,8 +1542,11 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	/* wake lock AP*/
 	__pm_stay_awake(&scp_reset_lock);
 #ifndef CONFIG_FPGA_EARLY_PORTING
-	/* keep Univpll */
+#if defined(CONFIG_MACH_MT6781)
+	scp_resource_req(SCP_REQ_26M);
+#else
 	spm_resource_req(SPM_RESOURCE_USER_SCP, SPM_RESOURCE_CK_26M);
+#endif
 #endif  // CONFIG_FPGA_EARLY_PORTING
 
 	/*request pll clock before turn off scp */
@@ -1890,8 +1903,11 @@ static int __init scp_init(void)
 #endif
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
-	/* keep Univpll */
+#if defined(CONFIG_MACH_MT6781)
+	scp_resource_req(SCP_REQ_26M);
+#else
 	spm_resource_req(SPM_RESOURCE_USER_SCP, SPM_RESOURCE_CK_26M);
+#endif
 #endif  // CONFIG_FPGA_EARLY_PORTING
 
 #if SCP_RESERVED_MEM && defined(CONFIG_OF_RESERVED_MEM)
