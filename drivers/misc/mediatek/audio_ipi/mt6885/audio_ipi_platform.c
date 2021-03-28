@@ -118,6 +118,7 @@ uint32_t audio_get_dsp_id(const uint8_t task)
 	case TASK_SCENE_CALL_FINAL:
 	case TASK_SCENE_MUSIC:
 	case TASK_SCENE_FAST:
+	case TASK_SCENE_FM_ADSP:
 		dsp_id = AUDIO_OPENDSP_USE_HIFI3_A;
 		break;
 	case TASK_SCENE_PHONE_CALL:

@@ -1091,6 +1091,7 @@ static int mt6877_adsp_mem_get(struct snd_kcontrol *kcontrol,
 					      ADSP_TASK_ATTR_MEMDL);
 		break;
 	case AUDIO_TASK_CAPTURE_UL1_ID:
+	case AUDIO_TASK_FM_ADSP_ID:
 		memif_num = get_dsp_task_attr(task_id,
 					      ADSP_TASK_ATTR_MEMUL);
 		break;
@@ -1130,6 +1131,7 @@ static int mt6877_adsp_mem_set(struct snd_kcontrol *kcontrol,
 						 ADSP_TASK_ATTR_MEMDL);
 		break;
 	case AUDIO_TASK_CAPTURE_UL1_ID:
+	case AUDIO_TASK_FM_ADSP_ID:
 		ul_memif_num = get_dsp_task_attr(task_id,
 						 ADSP_TASK_ATTR_MEMUL);
 		break;
@@ -1358,6 +1360,10 @@ static const struct snd_kcontrol_new mt6877_pcm_kcontrols[] = {
 		       mt6877_adsp_mem_get,
 		       mt6877_adsp_mem_set),
 	SOC_SINGLE_EXT("adsp_ktv_sharemem_scenario",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       mt6877_adsp_mem_get,
+		       mt6877_adsp_mem_set),
+	SOC_SINGLE_EXT("adsp_fm_sharemem_scenario",
 		       SND_SOC_NOPM, 0, 0x1, 0,
 		       mt6877_adsp_mem_get,
 		       mt6877_adsp_mem_set),
@@ -1600,6 +1606,8 @@ static const struct snd_kcontrol_new memif_ul6_ch1_mix[] = {
 				    I_PCM_1_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN46,
 				    I_PCM_2_CAP_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("GAIN1_OUT_CH1", AFE_CONN46,
+				    I_GAIN1_OUT_CH1, 1, 0),
 };
 
 static const struct snd_kcontrol_new memif_ul6_ch2_mix[] = {
@@ -1621,6 +1629,8 @@ static const struct snd_kcontrol_new memif_ul6_ch2_mix[] = {
 				    I_PCM_1_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN47,
 				    I_PCM_2_CAP_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("GAIN1_OUT_CH2", AFE_CONN47,
+				    I_GAIN1_OUT_CH2, 1, 0),
 };
 
 static const struct snd_kcontrol_new memif_ul7_ch1_mix[] = {
@@ -1913,6 +1923,8 @@ static const struct snd_soc_dapm_route mt6877_memif_routes[] = {
 	{"UL6_CH2", "PCM_1_CAP_CH1", "PCM 1 Capture"},
 	{"UL6_CH1", "PCM_2_CAP_CH1", "PCM 2 Capture"},
 	{"UL6_CH2", "PCM_2_CAP_CH1", "PCM 2 Capture"},
+	{"UL6_CH1", "GAIN1_OUT_CH1", "HW Gain 1 Out"},
+	{"UL6_CH2", "GAIN1_OUT_CH2", "HW Gain 1 Out"},
 
 	{"UL7", NULL, "UL7_CH1"},
 	{"UL7", NULL, "UL7_CH2"},
