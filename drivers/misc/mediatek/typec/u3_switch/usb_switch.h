@@ -13,6 +13,10 @@
 #ifndef USB_SWITCH_H
 #define USB_SWITCH_H
 
+#if IS_ENABLED(CONFIG_MTK_USB_TYPEC_U3_MUX_V2)
+#include "mux.h"
+#endif
+
 struct usb3_switch {
 	int sel_gpio;
 	int en_gpio;
@@ -58,8 +62,18 @@ struct usbtypc {
 	struct usb_redriver *u_rd;
 };
 
-#endif	/* USB_SWITCH_H */
+#if IS_ENABLED(CONFIG_MTK_USB_TYPEC_U3_MUX_V2)
+struct typec_switch *mtk_typec_switch_register(struct device *dev,
+			const struct typec_switch_desc *desc);
+void mtk_typec_switch_unregister(struct typec_switch *sw);
+struct typec_mux *mtk_typec_mux_register(struct device *dev,
+			const struct typec_mux_desc *desc);
+void mtk_typec_mux_unregister(struct typec_mux *mux);
+#endif
 
 extern void usb3_switch_ctrl_sel(int sel);
 extern void usb3_switch_ctrl_en(bool en);
 extern void usb3_switch_dps_en(bool en);
+
+#endif	/* USB_SWITCH_H */
+
