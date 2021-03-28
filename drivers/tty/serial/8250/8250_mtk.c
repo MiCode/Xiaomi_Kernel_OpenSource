@@ -82,7 +82,7 @@
 char uart_write_statbuf[256];
 #endif
 #ifdef CONFIG_FPGA_EARLY_PORTING
-#define MTK_UART_FPGA_CLK  10000000
+#define MTK_UART_FPGA_CLK  12000000
 #define MTK_UART_FPGA_BAUD 921600
 #endif
 #ifdef CONFIG_SERIAL_8250_DMA
