@@ -3309,7 +3309,7 @@ void subsys_if_on(void)
 	}
 
 	if (ret > 0)
-		BUG_ON(1);
+		WARN_ON(1);
 #if 0
 	for (i = 0; i < num; i++)
 		dump_cg_state(clks[i]);
