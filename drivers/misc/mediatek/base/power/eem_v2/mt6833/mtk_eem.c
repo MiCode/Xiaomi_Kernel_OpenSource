@@ -2799,6 +2799,10 @@ struct eemsn_det *det;
 	void __iomem *spare2phys;
 #endif
 
+#if EEM_NOT_READY
+	return 0;
+#endif
+
 	eem_debug("[EEM] ctrl_EEMSN_Enable=%d\n", ctrl_EEMSN_Enable);
 	get_devinfo();
 
