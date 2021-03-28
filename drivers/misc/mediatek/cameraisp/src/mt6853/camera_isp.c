@@ -5732,6 +5732,18 @@ static long ISP_ioctl_compat(struct file *filp, unsigned int cmd,
 
 		return ret;
 	}
+	case COMPAT_ISP_NOTE_CQTHR0_BASE: {
+		ret = filp->f_op->unlocked_ioctl(
+			filp, ISP_NOTE_CQTHR0_BASE, (unsigned long)compat_ptr(arg));
+
+		return ret;
+	}
+	case COMPAT_ISP_SET_VIR_CQCNT: {
+		ret = filp->f_op->unlocked_ioctl(
+			filp, ISP_SET_VIR_CQCNT, (unsigned long)compat_ptr(arg));
+
+		return ret;
+	}
 	case ISP_GET_DUMP_INFO:
 	case ISP_WAIT_IRQ:
 	case ISP_CLEAR_IRQ: /* structure (no pointer) */
@@ -5757,9 +5769,7 @@ static long ISP_ioctl_compat(struct file *filp, unsigned int cmd,
 	case SV_SET_PM_QOS_INFO:
 	case SV_SET_PM_QOS:
 	case ISP_SET_SEC_DAPC_REG:
-	case ISP_NOTE_CQTHR0_BASE:
 	case ISP_GET_CUR_HWP1DONE:
-	case ISP_SET_VIR_CQCNT:
 		return filp->f_op->unlocked_ioctl(filp, cmd, arg);
 	default:
 		return -ENOIOCTLCMD;
