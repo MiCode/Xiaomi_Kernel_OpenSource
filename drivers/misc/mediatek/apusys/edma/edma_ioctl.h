@@ -1,21 +1,13 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2019 MediaTek Inc.
  * Author: JB Tsai <jb.tsai@mediatek.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 
 #ifndef __EDMA_IOCTL_H__
 #define __EDMA_IOCTL_H__
 
-#define	EDMA_EXT_MODE_SIZE		0x60
+#define	EDMA_EXT_MODE_SIZE		0x40
 
 #define EDMA_MAGICNO			'v'
 #define EDMA_IOCTL_ENQUE_NORMAL		_IOWR(EDMA_MAGICNO,  0,\
