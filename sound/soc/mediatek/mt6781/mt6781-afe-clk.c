@@ -68,7 +68,6 @@ static const char *aud_clks[CLK_NUM] = {
 	[CLK_TOP_APLL12_DIV4] = "top_apll12_div4",
 	[CLK_TOP_APLL12_DIVB] = "top_apll12_divb",
 	[CLK_TOP_APLL12_DIV5] = "top_apll12_div5",
-	[CLK_TOP_MAINPLL_D4_D4] = "top_mainpll_d4_d4",
 	[CLK_CLK26M] = "top_clk26m_clk",
 };
 

@@ -3216,7 +3216,7 @@ static int mt6781_afe_pcm_copy(struct snd_pcm_substream *substream,
 	struct mtk_base_afe *afe = snd_soc_platform_get_drvdata(rtd->platform);
 	int ret = 0;
 
-	mt6781_set_audio_int_bus_parent(afe, CLK_TOP_MAINPLL_D4_D4);
+	mt6781_set_audio_int_bus_parent(afe, CLK_TOP_MAINPLL_D2_D4);
 
 	ret = sp_copy(substream, channel, hwoff, buf, bytes);
 
