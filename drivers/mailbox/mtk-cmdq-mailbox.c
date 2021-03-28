@@ -306,11 +306,12 @@ static void cmdq_clk_disable(struct cmdq *cmdq)
 	spin_lock_irqsave(&cmdq->lock, flags);
 
 	usage = atomic_dec_return(&cmdq->usage);
-
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	if (usage == -1)
 		cmdq_util_aee("CMDQ", "%s cmdq:%pa suspend:%d usage:%d",
 			__func__, &cmdq->base_pa, cmdq->suspended, usage);
-	else if (usage < 0) {
+#endif
+	if (usage < 0) {
 		/* print error but still try close */
 		cmdq_err("ref count error after dec:%d suspend:%s",
 			usage, cmdq->suspended ? "true" : "false");
@@ -927,12 +928,12 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 	bool secure_irq = false;
 	struct cmdq_task *task, *tmp;
 	struct list_head removes;
-
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	if (atomic_read(&cmdq->usage) == -1)
 		cmdq_util_aee("CMDQ", "%s irq:%d cmdq:%pa suspend:%d usage:%d",
 			__func__, irq, &cmdq->base_pa, cmdq->suspended,
 			atomic_read(&cmdq->usage));
-
+#endif
 	if (atomic_read(&cmdq->usage) <= 0) {
 		if (cmdq->suspended)
 			return IRQ_HANDLED;

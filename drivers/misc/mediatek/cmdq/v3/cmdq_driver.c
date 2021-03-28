@@ -158,7 +158,7 @@ static const struct file_operations cmdqDebugInstructionCountOp = {
 };
 #endif
 
-void cmdq_driver_dump_readback(u32 *addrs, u32 count, u32 *values)
+void cmdq_driver_dump_readback(u32 *ids, u32 *addrs, u32 count, u32 *values)
 {}
 
 static int cmdq_open(struct inode *pInode, struct file *pFile)

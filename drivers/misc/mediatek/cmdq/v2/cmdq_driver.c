@@ -64,7 +64,7 @@ static dev_t gCmdqDevNo;
 static struct cdev *gCmdqCDev;
 static struct class *gCMDQClass;
 
-void cmdq_driver_dump_readback(u32 *addrs, u32 count, u32 *values)
+void cmdq_driver_dump_readback(u32 *ids, u32 *addrs, u32 count, u32 *values)
 {}
 
 static ssize_t cmdq_driver_dummy_write(struct device *dev,
