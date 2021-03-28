@@ -64,21 +64,8 @@ int degree_set[NR_UPOWER_DEGREE] = {
 #define INIT_UPOWER_TBL_INFOS(name, tbl) {__stringify(name), &tbl}
 struct upower_tbl_info
 	upower_tbl_infos_list[NR_UPOWER_TBL_LIST][NR_UPOWER_BANK] = {
-	/* 6785 */
-	[0] = {
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
-				upower_tbl_l_6785),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
-				upower_tbl_b_6785),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
-				upower_tbl_cluster_l_6785),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
-				upower_tbl_cluster_b_6785),
-		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
-				upower_tbl_cci_6785),
-	},
 	/* 6785T */
-	[1] = {
+	[0] = {
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
 				upower_tbl_l_6785T),
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
@@ -89,6 +76,20 @@ struct upower_tbl_info
 				upower_tbl_cluster_b_6785T),
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
 				upower_tbl_cci_6785T),
+	},
+
+	/* 6785 */
+	[1] = {
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
+				upower_tbl_l_6785),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
+				upower_tbl_b_6785),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
+				upower_tbl_cluster_l_6785),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
+				upower_tbl_cluster_b_6785),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
+				upower_tbl_cci_6785),
 	},
 
 	/* 6783 */
@@ -215,9 +216,7 @@ void get_original_table(void)
 	unsigned short idx = 0; /* default use MT6771T_6785 */
 	int i, j;
 
-#if UPOWER_NOT_READY == 0
 	idx = mt_cpufreq_get_cpu_level();
-#endif
 
 	/* get location of reference table */
 	upower_tbl_infos = &upower_tbl_infos_list[idx][0];
