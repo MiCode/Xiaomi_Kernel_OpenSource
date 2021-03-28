@@ -1396,6 +1396,12 @@
 		reg = <0 0x11200000 0 0x10000>,
 			<0 0x11ca0000 0 0x10000>;
 		interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&infracfg_ao INFRACFG_AO_ICUSB_CG>,
+			<&topckgen TOP_MUX_USB_TOP>,
+			<&topckgen TOP_UNIVPLL_D5_D2>;
+		clock-names = "usb0",
+			"usb0_clk_top_sel",
+			"usb0_clk_univpll5_d2";
 		mode = <2>;
 		multipoint = <1>;
 		num_eps = <16>;
