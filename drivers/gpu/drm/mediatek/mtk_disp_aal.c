@@ -148,7 +148,8 @@ enum AAL_IOCTL_CMD {
 	INIT_REG = 0,
 	SET_PARAM,
 	EVENTCTL,
-	FLIP_SRAM
+	FLIP_SRAM,
+	BYPASS_AAL
 };
 
 struct dre3_node {
@@ -1322,38 +1323,6 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 	return ret;
 }
 
-static int mtk_aal_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
-	unsigned int cmd, void *data)
-{
-	AALFLOW_LOG("cmd: %d\n", cmd);
-	switch (cmd) {
-	case INIT_REG:
-		if (disp_aal_set_init_reg(comp, handle,
-			(struct DISP_AAL_INITREG *) data) < 0) {
-			AALERR("INIT_REG: fail\n");
-			return -EFAULT;
-		}
-		break;
-	case SET_PARAM:
-		if (disp_aal_set_param(comp, handle,
-			(struct DISP_AAL_PARAM *) data) < 0) {
-			AALERR("SET_PARAM: fail\n");
-			return -EFAULT;
-		}
-		break;
-	case EVENTCTL:
-		disp_aal_flip_sram(comp, handle, __func__);
-		break;
-	case FLIP_SRAM:
-		disp_aal_first_flip_sram(comp, handle, __func__);
-		break;
-	default:
-		AALERR("error cmd: %d\n", cmd);
-		return -EINVAL;
-	}
-	return 0;
-}
-
 static DEFINE_SPINLOCK(g_aal_get_irq_lock);
 
 static void disp_aal_clear_irq(struct mtk_ddp_comp *comp,
@@ -1898,15 +1867,56 @@ static void mtk_aal_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	basic_cmdq_write(handle, comp, DISP_AAL_EN, 0x0, ~0);
 }
 
-static void mtk_aal_bypass(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
+static void mtk_aal_bypass(struct mtk_ddp_comp *comp, int bypass,
+	struct cmdq_pkt *handle)
 {
 #if 1
 	AALFLOW_LOG("\n");
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_AAL_CFG,
-		0x1, 0x1);
+		bypass, 0x1);
+	atomic_set(&g_aal_force_relay, bypass);
 #else
 	AALFLOW_LOG("is ignored\n");
 #endif
+}
+
+static int mtk_aal_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+	unsigned int cmd, void *data)
+{
+	AALFLOW_LOG("cmd: %d\n", cmd);
+	switch (cmd) {
+	case INIT_REG:
+		if (disp_aal_set_init_reg(comp, handle,
+			(struct DISP_AAL_INITREG *) data) < 0) {
+			AALERR("INIT_REG: fail\n");
+			return -EFAULT;
+		}
+		break;
+	case SET_PARAM:
+		if (disp_aal_set_param(comp, handle,
+			(struct DISP_AAL_PARAM *) data) < 0) {
+			AALERR("SET_PARAM: fail\n");
+			return -EFAULT;
+		}
+		break;
+	case EVENTCTL:
+		disp_aal_flip_sram(comp, handle, __func__);
+		break;
+	case FLIP_SRAM:
+		disp_aal_first_flip_sram(comp, handle, __func__);
+		break;
+	case BYPASS_AAL:
+	{
+		int *value = data;
+
+		mtk_aal_bypass(comp, *value, handle);
+	}
+		break;
+	default:
+		AALERR("error cmd: %d\n", cmd);
+		return -EINVAL;
+	}
+	return 0;
 }
 
 #define DRE_FLT_NUM	(12)
@@ -1932,6 +1942,7 @@ struct aal_backup { /* structure for backup AAL register value */
 	unsigned int DUAL_PIPE_INFO_00;
 	unsigned int DUAL_PIPE_INFO_01;
 #endif
+	unsigned int AAL_CFG;
 };
 static struct aal_backup g_aal_backup;
 
@@ -1996,12 +2007,18 @@ static void ddp_aal_cabc_backup(struct mtk_ddp_comp *comp)
 #endif	/* not define NOT_SUPPORT_CABC_HW */
 }
 
+static void ddp_aal_cfg_backup(struct mtk_ddp_comp *comp)
+{
+	g_aal_backup.AAL_CFG = readl(comp->regs + DISP_AAL_CFG);
+}
+
 static void ddp_aal_backup(struct mtk_ddp_comp *comp)
 {
 	AALFLOW_LOG("\n");
 	ddp_aal_cabc_backup(comp);
 	ddp_aal_dre_backup(comp);
 	ddp_aal_dre3_backup(comp);
+	ddp_aal_cfg_backup(comp);
 	atomic_set(&g_aal_initialed, 1);
 }
 
@@ -2073,6 +2090,11 @@ static void ddp_aal_cabc_restore(struct mtk_ddp_comp *comp)
 #endif	/* not define NOT_SUPPORT_CABC_HW */
 }
 
+static void ddp_aal_cfg_restore(struct mtk_ddp_comp *comp)
+{
+	writel(g_aal_backup.AAL_CFG, comp->regs + DISP_AAL_CFG);
+}
+
 static void ddp_aal_restore(struct mtk_ddp_comp *comp)
 {
 	if (atomic_read(&g_aal_initialed) != 1)
@@ -2082,6 +2104,7 @@ static void ddp_aal_restore(struct mtk_ddp_comp *comp)
 	ddp_aal_cabc_restore(comp);
 	ddp_aal_dre_restore(comp);
 	ddp_aal_dre3_restore(comp);
+	ddp_aal_cfg_restore(comp);
 }
 
 static bool debug_skip_first_br;
@@ -2278,7 +2301,6 @@ static irqreturn_t mtk_disp_aal_irq_handler(int irq, void *dev_id)
 	struct mtk_disp_aal *priv = dev_id;
 	struct mtk_ddp_comp *comp = &priv->ddp_comp;
 	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
-
 	if (spin_trylock_irqsave(&g_aal_clock_lock, flags)) {
 		if (atomic_read(&aal_data->is_clock_on) != 1)
 			AALIRQ_LOG("clock is off\n");
@@ -2670,4 +2692,12 @@ void disp_aal_debug(const char *opt)
 		pr_notice("[debug] debug_ess_en=%d\n", g_aal_ess_en);
 		pr_notice("[debug] debug_dre_en=%d\n", g_aal_dre_en);
 	}
+}
+
+void disp_aal_set_bypass(struct drm_crtc *crtc, int bypass)
+{
+	int ret;
+
+	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_AAL, &bypass);
+	DDPFUNC("ret = %d", ret);
 }

@@ -72,6 +72,8 @@ static struct proc_dir_entry *disp_lowpower_proc;
 static struct proc_dir_entry *mtkfb_debug_procfs;
 #endif
 static struct drm_device *drm_dev;
+static struct DISP_PQ_BYPASS_SWITCH m_old_pq_bypass_switch;
+static struct DISP_PQ_BYPASS_SWITCH m_new_pq_bypass_switch;
 bool g_mobile_log;
 bool g_fence_log;
 bool g_irq_log;
@@ -1373,6 +1375,43 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state)
 	DDPINFO("%s, gCapturePriLayerEnable is %d\n",
 		__func__, gCaptureOVLEn);
 	return -1;
+}
+
+int mtk_drm_ioctl_pq_debug_set_bypass(struct drm_device *dev, void *data,
+	struct drm_file *file_priv)
+{
+	int ret = 0;
+	struct mtk_drm_private *private = dev->dev_private;
+	struct drm_crtc *crtc = private->crtc[0];
+
+	m_old_pq_bypass_switch = m_new_pq_bypass_switch;
+	m_new_pq_bypass_switch = *((struct DISP_PQ_BYPASS_SWITCH *)data);
+
+	DDPFUNC("+");
+
+	if (m_old_pq_bypass_switch.color_bypass !=
+		m_new_pq_bypass_switch.color_bypass)
+		disp_color_set_bypass(crtc, m_new_pq_bypass_switch.color_bypass);
+
+	if (m_old_pq_bypass_switch.ccorr_bypass !=
+		m_new_pq_bypass_switch.ccorr_bypass)
+		disp_ccorr_set_bypass(crtc, m_new_pq_bypass_switch.ccorr_bypass);
+
+	if (m_old_pq_bypass_switch.gamma_bypass !=
+		m_new_pq_bypass_switch.gamma_bypass)
+		disp_gamma_set_bypass(crtc, m_new_pq_bypass_switch.gamma_bypass);
+
+	if (m_old_pq_bypass_switch.dither_bypass !=
+		m_new_pq_bypass_switch.dither_bypass)
+		disp_dither_set_bypass(crtc, m_new_pq_bypass_switch.dither_bypass);
+
+	if (m_old_pq_bypass_switch.aal_bypass !=
+		m_new_pq_bypass_switch.aal_bypass)
+		disp_aal_set_bypass(crtc, m_new_pq_bypass_switch.aal_bypass);
+
+	DDPFUNC("-");
+
+	return ret;
 }
 
 static void process_dbg_opt(const char *opt)

@@ -94,7 +94,7 @@ static bool need_offset;
 /* static ddp_module_notify g_ccorr_ddp_notify; */
 
 // It's a work around for no comp assigned in functions.
-struct mtk_ddp_comp *default_comp;
+static struct mtk_ddp_comp *default_comp;
 
 static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, int lock);
@@ -103,6 +103,7 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 enum CCORR_IOCTL_CMD {
 	SET_CCORR = 0,
 	SET_INTERRUPT,
+	BYPASS_CCORR
 };
 
 struct mtk_disp_ccorr_data {
@@ -833,13 +834,13 @@ static void mtk_ccorr_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		       comp->regs_pa + DISP_REG_CCORR_EN, 0x1, 0x1);
 }
 
-static void mtk_ccorr_bypass(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
+static void mtk_ccorr_bypass(struct mtk_ddp_comp *comp, int bypass,
+	struct cmdq_pkt *handle)
 {
 	DDPINFO("%s\n", __func__);
-
 	cmdq_pkt_write(handle, comp->cmdq_base,
-		       comp->regs_pa + DISP_REG_CCORR_CFG, 0x1, 0x1);
-	g_ccorr_relay_value[index_of_ccorr(comp->id)] = 0x1;
+		       comp->regs_pa + DISP_REG_CCORR_CFG, bypass, 0x1);
+	g_ccorr_relay_value[index_of_ccorr(comp->id)] = bypass;
 }
 
 static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
@@ -900,11 +901,35 @@ static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
 	}
 	break;
 
+	case BYPASS_CCORR:
+	{
+		int *value = data;
+
+		mtk_ccorr_bypass(comp, *value, handle);
+	}
+	break;
+
 	default:
 		DDPPR_ERR("%s: error cmd: %d\n", __func__, cmd);
 		return -EINVAL;
 	}
 	return 0;
+}
+
+struct ccorr_backup {
+	unsigned int REG_CCORR_CFG;
+};
+static struct ccorr_backup g_ccorr_backup;
+
+static void ddp_ccorr_backup(struct mtk_ddp_comp *comp)
+{
+	g_ccorr_backup.REG_CCORR_CFG =
+		readl(comp->regs + DISP_REG_CCORR_CFG);
+}
+
+static void ddp_ccorr_restore(struct mtk_ddp_comp *comp)
+{
+	writel(g_ccorr_backup.REG_CCORR_CFG, comp->regs + DISP_REG_CCORR_CFG);
 }
 
 static void mtk_ccorr_prepare(struct mtk_ddp_comp *comp)
@@ -936,6 +961,7 @@ static void mtk_ccorr_prepare(struct mtk_ddp_comp *comp)
 		DISP_REG_CCORR_SHADOW, CCORR_BYPASS_SHADOW);
 #endif
 #endif
+	ddp_ccorr_restore(comp);
 }
 
 static void mtk_ccorr_unprepare(struct mtk_ddp_comp *comp)
@@ -951,7 +977,7 @@ static void mtk_ccorr_unprepare(struct mtk_ddp_comp *comp)
 	spin_unlock_irqrestore(&g_ccorr_clock_lock, flags);
 	DDPDBG("%s @ %d......... spin_unlock_irqrestore ", __func__, __LINE__);
 	wake_up_interruptible(&g_ccorr_get_irq_wq); // wake up who's waiting isr
-
+	ddp_ccorr_backup(comp);
 	mtk_ddp_comp_clk_unprepare(comp);
 
 	DDPINFO("%s\n", __func__);
@@ -1033,6 +1059,9 @@ static int mtk_disp_ccorr_probe(struct platform_device *pdev)
 		return comp_id;
 	}
 
+	if (!default_comp)
+		default_comp = &priv->ddp_comp;
+
 	ret = mtk_ddp_comp_init(dev, dev->of_node, &priv->ddp_comp, comp_id,
 				&mtk_disp_ccorr_funcs);
 	if (ret != 0) {
@@ -1054,8 +1083,6 @@ static int mtk_disp_ccorr_probe(struct platform_device *pdev)
 		pm_runtime_disable(dev);
 	}
 	DDPINFO("%s-\n", __func__);
-
-	default_comp = NULL;
 
 	return ret;
 }
@@ -1120,3 +1147,11 @@ struct platform_driver mtk_disp_ccorr_driver = {
 			.of_match_table = mtk_disp_ccorr_driver_dt_match,
 		},
 };
+
+void disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass)
+{
+	int ret;
+
+	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_CCORR, &bypass);
+	DDPFUNC("ret = %d", ret);
+}

@@ -30,6 +30,15 @@
 #define DEBUG_BUFFER_SIZE 10240
 #endif
 
+extern void disp_color_set_bypass(struct drm_crtc *crtc, int bypass);
+extern void disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass);
+extern void disp_gamma_set_bypass(struct drm_crtc *crtc, int bypass);
+extern void disp_dither_set_bypass(struct drm_crtc *crtc, int bypass);
+extern void disp_aal_set_bypass(struct drm_crtc *crtc, int bypass);
+
+int mtk_drm_ioctl_pq_debug_set_bypass(struct drm_device *dev, void *data,
+	struct drm_file *file_priv);
+
 extern int mtk_disp_hrt_bw_dbg(void);
 
 #ifdef _DRM_P_H_

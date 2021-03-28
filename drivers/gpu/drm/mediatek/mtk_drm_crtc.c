@@ -3664,7 +3664,7 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 		if (!mtk_drm_helper_get_opt(
 				    priv->helper_opt,
 				    MTK_DRM_OPT_USE_PQ))
-			mtk_ddp_comp_bypass(comp, cmdq_handle);
+			mtk_ddp_comp_bypass(comp, 1, cmdq_handle);
 	}
 
 	if (mtk_crtc->is_dual_pipe) {
@@ -6390,7 +6390,7 @@ static void mtk_crtc_config_single_path_cmdq(struct drm_crtc *crtc,
 		if (!mtk_drm_helper_get_opt(
 				    priv->helper_opt,
 				    MTK_DRM_OPT_USE_PQ))
-			mtk_ddp_comp_bypass(comp, cmdq_handle);
+			mtk_ddp_comp_bypass(comp, 1, cmdq_handle);
 	}
 
 	if (mtk_crtc->is_dual_pipe)
@@ -6457,7 +6457,7 @@ static void mtk_crtc_create_wb_path_cmdq(struct drm_crtc *crtc,
 		if (!mtk_drm_helper_get_opt(
 				    priv->helper_opt,
 				    MTK_DRM_OPT_USE_PQ))
-			mtk_ddp_comp_bypass(comp, cmdq_handle);
+			mtk_ddp_comp_bypass(comp, 1, cmdq_handle);
 	}
 
 	addr = cmdq_buf->pa_base + DISP_SLOT_RDMA_FB_ID;

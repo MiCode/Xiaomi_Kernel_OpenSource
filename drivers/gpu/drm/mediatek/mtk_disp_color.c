@@ -2835,10 +2835,12 @@ static void mtk_color_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		DRM_ERROR("Failed to disable power domain: %d\n", ret);
 }
 
-static void mtk_color_bypass(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
+static void mtk_color_bypass(struct mtk_ddp_comp *comp, int bypass,
+	struct cmdq_pkt *handle)
 {
 	struct mtk_disp_color *color = comp_to_color(comp);
 
+	DDPINFO("%s: bypass: %d\n", __func__, bypass);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_COLOR_CFG_MAIN,
 		       COLOR_BYPASS_ALL | COLOR_SEQ_SEL, ~0);
@@ -3228,4 +3230,12 @@ void mtk_color_setbypass(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	} else {
 		DDPINFO("%s, default_comp is null\n", __func__);
 	}
+}
+
+void disp_color_set_bypass(struct drm_crtc *crtc, int bypass)
+{
+	int ret;
+
+	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_COLOR, &bypass);
+	DDPFUNC("ret = %d", ret);
 }
