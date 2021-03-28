@@ -141,7 +141,7 @@ signed int battery_get_ibus(void)
 
 signed int battery_get_vbus(void)
 {
-	return charger_get_vbus();
+	return pmic_get_vbus();
 }
 
 signed int battery_get_bat_avg_current(void)
