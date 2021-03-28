@@ -29,7 +29,7 @@
 
 #define mtktspmic_TEMP_CRIT 150000 /* 150.000 degree Celsius */
 #define y_pmic_repeat_times	1
-#define THERMAL_USE_IIO_CHANNEL
+//#define THERMAL_USE_IIO_CHANNEL
 
 #define mtktspmic_info(fmt, args...)   pr_info("[Thermal/TZ/PMIC] " fmt, ##args)
 
@@ -46,11 +46,11 @@ extern void mtktspmic_cali_prepare(void);
 extern void mtktspmic_cali_prepare2(void);
 extern void mtktspmic_get_from_dts(void);
 extern int mtktspmic_get_hw_temp(void);
-extern int mt6359vcore_get_hw_temp(void);
-extern int mt6359vproc_get_hw_temp(void);
-extern int mt6359vgpu_get_hw_temp(void);
-extern int mt6359tsx_get_hw_temp(void);
-extern int mt6359dcxo_get_hw_temp(void);
+extern int mt6366vcore_get_hw_temp(void);
+extern int mt6366vproc_get_hw_temp(void);
+extern int mt6366vgpu_get_hw_temp(void);
+extern int mt6366tsx_get_hw_temp(void);
+extern int mt6366dcxo_get_hw_temp(void);
 extern u32 pmic_Read_Efuse_HPOffset(int i);
 
 #endif	/* __TSPMIC_SETTINGS_H__ */

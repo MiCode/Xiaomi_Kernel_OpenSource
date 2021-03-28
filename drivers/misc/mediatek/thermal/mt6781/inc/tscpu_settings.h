@@ -156,8 +156,6 @@
 #define CONFIG_LVTS_ERROR_AEE_WARNING (0)
 #endif
 
-#define LVTS_REFINE_MANUAL_RCK_WITH_EFUSE  (1)
-
 #define DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE  (1)
 
 #if CONFIG_LVTS_ERROR_AEE_WARNING
@@ -250,15 +248,11 @@ struct mtk_cpu_power_info {
 /*
  * module			LVTS Plan
  *=====================================================
- * MCU_LITTLE	LVTS1-0, LVTS1-1, LVTS1-2, LVTS1-3
+ * MCU_LITTLE	LVTS1-0, LVTS1-1, LVTS1-2
+ * CAM MM		LVTS1-3
  * MCU_BIG		LVTS2-0, LVTS2-1
- * GPU			LVTS3-0
- * CAM			LVTS3-1
- * SOC TOP		LVTS3-2, LVTS3-3
- * VPU			LVTS4-0
- * MD-4G		LVTS5-0
- * MD-5G		LVTS5-1
- * MD-3G		LVTS5-2
+ * MD			LVTS3-0
+ * MFG			LVTS3-1, LVTS3-2
  */
 
 
@@ -267,16 +261,12 @@ enum lvts_sensor_enum {
 	L_TS_LVTS1_0 = 0,	/* LVTS1-0 Little */
 	L_TS_LVTS1_1,		/* LVTS1-1 Little */
 	L_TS_LVTS1_2,		/* LVTS1-2 Little */
-	L_TS_LVTS1_3,		/* LVTS1-3 Little */
+	L_TS_LVTS1_3,		/* LVTS1-3 CAM MM */
 	L_TS_LVTS2_0,		/* LVTS2-0 Big */
 	L_TS_LVTS2_1,		/* LVTS2-1 Big */
-	L_TS_LVTS3_0,		/* LVTS3-0 GPU */
-	L_TS_LVTS3_1,		/* LVTS3-1 GPU */
-	L_TS_LVTS3_2,		/* LVTS3-2 SOC */
-	L_TS_LVTS3_3,		/* LVTS3-3 CONNSYS */
-	L_TS_LVTS4_0,		/* LVTS4-0 MD-4G */
-	L_TS_LVTS4_1,		/* LVTS4-1 MD-5G */
-	L_TS_LVTS4_2,		/* LVTS4-2 MD-3G */
+	L_TS_LVTS3_0,		/* LVTS3-0 MD */
+	L_TS_LVTS3_1,		/* LVTS3-1 MFG0 */
+	L_TS_LVTS3_2,		/* LVTS3-2 MFG1 */
 	L_TS_LVTS_NUM
 };
 
@@ -285,7 +275,6 @@ enum lvts_tc_enum {
 	LVTS_AP_CONTROLLER0 = 0,/* LVTSMONCTL0 */
 	LVTS_AP_CONTROLLER1,	/* LVTSMONCTL0_1 */
 	LVTS_AP_CONTROLLER2,	/* LVTSMONCTL0_2 */
-	LVTS_AP_CONTROLLER3,	/* LVTSMONCTL0_3 */
 	LVTS_CONTROLLER_NUM
 };
 

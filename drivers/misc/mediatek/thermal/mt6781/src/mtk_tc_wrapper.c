@@ -93,8 +93,7 @@ int get_immediate_cpuL_wrap(void)
 	curr_temp = MAX(
 		MAX(tscpu_ts_lvts_temp[L_TS_LVTS1_0],
 			tscpu_ts_lvts_temp[L_TS_LVTS1_1]),
-		MAX(tscpu_ts_lvts_temp[L_TS_LVTS1_2],
-			tscpu_ts_lvts_temp[L_TS_LVTS1_3])
+			tscpu_ts_lvts_temp[L_TS_LVTS1_2]
 		);
 
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
@@ -119,45 +118,21 @@ int get_immediate_gpu_wrap(void)
 {
 	int curr_temp;
 
-	curr_temp = MAX(tscpu_ts_lvts_temp[L_TS_LVTS3_0],
-			tscpu_ts_lvts_temp[L_TS_LVTS3_1]);
+	curr_temp = MAX(tscpu_ts_lvts_temp[L_TS_LVTS3_1],
+			tscpu_ts_lvts_temp[L_TS_LVTS3_2]);
 
 
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
 	return curr_temp;
 
-}
-
-int get_immediate_infa_wrap(void)
-{
-	int curr_temp;
-
-	curr_temp = tscpu_ts_lvts_temp[L_TS_LVTS3_2];
-
-	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
-
-	return curr_temp;
-}
-
-int get_immediate_connsys_wrap(void)
-{
-	int curr_temp;
-
-	curr_temp = tscpu_ts_lvts_temp[L_TS_LVTS3_3];
-
-	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
-
-	return curr_temp;
 }
 
 int get_immediate_md_wrap(void)
 {
 	int curr_temp;
 
-	curr_temp = MAX(MAX(tscpu_ts_lvts_temp[L_TS_LVTS4_0],
-		tscpu_ts_lvts_temp[L_TS_LVTS4_1]),
-		tscpu_ts_lvts_temp[L_TS_LVTS4_2]);
+	curr_temp = tscpu_ts_lvts_temp[L_TS_LVTS3_0];
 
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 
@@ -169,29 +144,24 @@ int get_immediate_md_wrap(void)
 /*
  * module			LVTS Plan
  *=====================================================
- * MCU_LITTLE		LVTS1-0, LVTS1-1, LVTS1-2, LVTS1-3
- * BIG		LVTS2-0, LVTS2-1
- * GPU		LVTS3-0, LVTS3-1
- * SOC		LVTS3-2
- * CONSYS		LVTS3-3
- * MD-4G		LVTS4-0
- * MD-5G		LVTS4-1
- * MD-3G		LVTS4-2
+ * MCU_LITTLE	LVTS1-0, LVTS1-1, LVTS1-2
+ * CAM MM		LVTS1-3
+ * MCU_BIG		LVTS2-0, LVTS2-1
+ * MD			LVTS3-0
+ * MFG			LVTS3-1, LVTS3-2
  */
 
 
 /*
- * THERMAL_BANK0,	//L CPU (LVTS1)
+ * THERMAL_BANK0,	//L CPU CAM MM (LVTS1)
  * THERMAL_BANK1,	//B CPU (LVTS2)
- * THERMAL_BANK2,	//GPU (LVTS3)
- * THERMAL_BANK3,	//MD   (LVTS4)
+ * THERMAL_BANK2,	//MD GPU (LVTS3)
  */
 
 int (*max_temperature_in_bank[THERMAL_BANK_NUM])(void) = {
 	get_immediate_cpuB_LVTS1_wrap,
 	get_immediate_cpuL_wrap,
-	get_immediate_gpu_wrap,
-	get_immediate_md_wrap
+	get_immediate_gpu_wrap
 };
 
 int get_immediate_cpuB_wrap(void)
@@ -299,16 +269,6 @@ int get_immediate_ts8_wrap(void)
 	return curr_temp;
 }
 
-int get_immediate_ts9_wrap(void)
-{
-	int curr_temp;
-
-	curr_temp = tscpu_ts_lvts_temp[L_TS_LVTS3_3];
-	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
-
-	return curr_temp;
-}
-
 #if CFG_THERM_LVTS
 int get_immediate_tslvts1_0_wrap(void)
 {
@@ -399,47 +359,6 @@ int get_immediate_tslvts3_2_wrap(void)
 	return curr_temp;
 }
 
-int get_immediate_tslvts3_3_wrap(void)
-{
-	int curr_temp;
-
-	curr_temp = tscpu_ts_lvts_temp[TS_LVTS3_3];
-	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
-
-	return curr_temp;
-}
-
-int get_immediate_tslvts4_0_wrap(void)
-{
-	int curr_temp;
-
-	curr_temp = tscpu_ts_lvts_temp[TS_LVTS4_0];
-	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
-
-	return curr_temp;
-}
-
-int get_immediate_tslvts4_1_wrap(void)
-{
-	int curr_temp;
-
-	curr_temp = tscpu_ts_lvts_temp[TS_LVTS4_1];
-	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
-
-	return curr_temp;
-}
-
-int get_immediate_tslvts4_2_wrap(void)
-{
-	int curr_temp;
-
-	curr_temp = tscpu_ts_lvts_temp[TS_LVTS4_2];
-	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
-
-	return curr_temp;
-}
-
-
 
 #endif
 
@@ -460,11 +379,7 @@ int (*get_immediate_tsX[TS_ENUM_MAX])(void) = {
 	get_immediate_tslvts2_1_wrap,
 	get_immediate_tslvts3_0_wrap,
 	get_immediate_tslvts3_1_wrap,
-	get_immediate_tslvts3_2_wrap,
-	get_immediate_tslvts3_3_wrap,
-	get_immediate_tslvts4_0_wrap,
-	get_immediate_tslvts4_1_wrap,
-	get_immediate_tslvts4_2_wrap
+	get_immediate_tslvts3_2_wrap
 #endif
 };
 
@@ -532,14 +447,11 @@ int tscpu_get_curr_temp(void)
 	/*
 	 * module			LVTS Plan
 	 *=====================================================
-	 * MCU_LITTLE		LVTS1-0, LVTS1-1, LVTS1-2, LVTS1-3
-	 * BIG		LVTS2-0, LVTS2-1
-	 * GPU		LVTS3-0, LVTS3-1
-	 * SOC		LVTS3-2
-	 * CONSYS		LVTS3-3
-	 * MD-4G		LVTS4-0
-	 * MD-5G		LVTS4-1
-	 * MD-3G		LVTS4-2
+	 * MCU_LITTLE	LVTS1-0, LVTS1-1, LVTS1-2
+	 * CAM MM		LVTS1-3
+	 * MCU_BIG		LVTS2-0, LVTS2-1
+	 * MD			LVTS3-0
+	 * MFG			LVTS3-1, LVTS3-2
 	 */
 
 
@@ -551,8 +463,7 @@ int tscpu_get_curr_temp(void)
 		(MAX(
 		MAX(tscpu_ts_lvts_temp[TS_LVTS1_0],
 			tscpu_ts_lvts_temp[TS_LVTS1_1]),
-		MAX(tscpu_ts_lvts_temp[TS_LVTS1_2],
-			tscpu_ts_lvts_temp[TS_LVTS1_3])
+			tscpu_ts_lvts_temp[TS_LVTS1_2]
 		)),
 		(MAX(
 			tscpu_ts_lvts_temp[TS_LVTS2_0],
@@ -560,8 +471,8 @@ int tscpu_get_curr_temp(void)
 		)
 	);
 
-	tscpu_curr_gpu_temp = MAX(tscpu_ts_lvts_temp[TS_LVTS3_0],
-								tscpu_ts_lvts_temp[TS_LVTS3_1]);
+	tscpu_curr_gpu_temp = MAX(tscpu_ts_lvts_temp[TS_LVTS3_1],
+								tscpu_ts_lvts_temp[TS_LVTS3_2]);
 #endif /* CFG_THERM_LVTS */
 #else
 	/* It is platform dependent which TS is better to present CPU/GPU
@@ -597,11 +508,7 @@ char mcu_s_array[TS_ENUM_MAX][17] = {
 	"TS_LVTS2_1",
 	"TS_LVTS3_0",
 	"TS_LVTS3_1",
-	"TS_LVTS3_2",
-	"TS_LVTS3_3",
-	"TS_LVTS4_0",
-	"TS_LVTS4_1",
-	"TS_LVTS4_2"
+	"TS_LVTS3_2"
  #endif
 };
 
@@ -900,8 +807,7 @@ int get_io_reg_base(void)
 			mtk_idle_notifier_register(&thermal_idle_nfb);
 	}
 
-	node = of_find_compatible_node(NULL, NULL,
-					"mediatek,mt6833-apmixedsys");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,apmixed");
 	WARN_ON_ONCE(node == 0);
 	if (node) {
 		/* Setup IO addresses */

@@ -40,7 +40,9 @@
 #endif
 #ifdef ATM_USES_PPM
 #include "mtk_ppm_api.h"
+#if CLATM_USE_MIN_CPU_OPP
 #include "mtk_ppm_platform.h"
+#endif
 #else
 #ifndef CONFIG_MACH_MT8168
 #include "mt_cpufreq.h"

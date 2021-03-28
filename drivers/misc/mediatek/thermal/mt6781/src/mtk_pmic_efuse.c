@@ -43,7 +43,7 @@ int mtktspmic_debug_log;
 static __s32 g_o_vts;
 static __s32 g_o_vts_2;
 static __s32 g_o_vts_3;
-static __s32 g_o_vts_4;
+static __s32 g_o_4rsv0;
 static __s32 g_degc_cali;
 static __s32 g_adc_cali_en;
 static __s32 g_o_slope;
@@ -134,11 +134,11 @@ static __s32 tsbuck3_raw_to_temp(__u32 ret)
 static void mtktspmic_read_efuse(void)
 {
 	mtktspmic_info("[pmic_debug]  start\n");
-	/* MT6359 */
+	/* MT6358 */
 	g_o_vts = pmic_get_register_value(PMIC_AUXADC_EFUSE_O_VTS);
 	g_o_vts_2 = pmic_get_register_value(PMIC_AUXADC_EFUSE_O_VTS_2);
 	g_o_vts_3 = pmic_get_register_value(PMIC_AUXADC_EFUSE_O_VTS_3);
-	g_o_vts_4 = pmic_get_register_value(PMIC_AUXADC_EFUSE_O_VTS_4);
+	g_o_4rsv0 = pmic_get_register_value(PMIC_AUXADC_EFUSE_4RSV0);
 	g_degc_cali = pmic_get_register_value(PMIC_AUXADC_EFUSE_DEGC_CALI);
 	g_adc_cali_en = pmic_get_register_value(PMIC_AUXADC_EFUSE_ADC_CALI_EN);
 	g_o_slope_sign =
@@ -146,23 +146,23 @@ static void mtktspmic_read_efuse(void)
 	g_o_slope = pmic_get_register_value(PMIC_AUXADC_EFUSE_O_SLOPE);
 	g_id = pmic_get_register_value(PMIC_AUXADC_EFUSE_ID);
 
-	mtktspmic_info("[pmic_debug] 6359_efuse: g_o_vts        = %d\n",
+	mtktspmic_info("[pmic_debug] 6358_efuse: g_o_vts        = %d\n",
 			g_o_vts);
-	mtktspmic_info("[pmic_debug] 6359_efuse: g_o_vts_2      = %d\n",
+	mtktspmic_info("[pmic_debug] 6358_efuse: g_o_vts_2      = %d\n",
 			g_o_vts_2);
-	mtktspmic_info("[pmic_debug] 6359_efuse: g_o_vts_3      = %d\n",
+	mtktspmic_info("[pmic_debug] 6358_efuse: g_o_vts_3      = %d\n",
 			g_o_vts_3);
-	mtktspmic_info("[pmic_debug] 6359_efuse: g_o_vts_4      = %d\n",
-			g_o_vts_4);
-	mtktspmic_info("[pmic_debug] 6359_efuse: g_degc_cali    = %d\n",
+	mtktspmic_info("[pmic_debug] 6358_efuse: g_o_4rsv0      = %d\n",
+			g_o_4rsv0);
+	mtktspmic_info("[pmic_debug] 6358_efuse: g_degc_cali    = %d\n",
 			g_degc_cali);
-	mtktspmic_info("[pmic_debug] 6359_efuse: g_adc_cali_en  = %d\n",
+	mtktspmic_info("[pmic_debug] 6358_efuse: g_adc_cali_en  = %d\n",
 			g_adc_cali_en);
-	mtktspmic_info("[pmic_debug] 6359_efuse: g_o_slope_sign = %d\n",
+	mtktspmic_info("[pmic_debug] 6358_efuse: g_o_slope_sign = %d\n",
 			g_o_slope_sign);
-	mtktspmic_info("[pmic_debug] 6359_efuse: g_o_slope      = %d\n",
+	mtktspmic_info("[pmic_debug] 6358_efuse: g_o_slope      = %d\n",
 			g_o_slope);
-	mtktspmic_info("[pmic_debug] 6359_efuse: g_id		   = %d\n",
+	mtktspmic_info("[pmic_debug] 6358_efuse: g_id		   = %d\n",
 			g_id);
 
 	mtktspmic_info("[pmic_debug]  end\n");
@@ -182,7 +182,7 @@ void mtktspmic_cali_prepare(void)
 		g_o_vts = 1600;
 		g_o_vts_2 = 1600;
 		g_o_vts_3 = 1600;
-		g_o_vts_4 = 1600;
+		g_o_4rsv0 = 1600;
 		g_degc_cali = 50;
 		g_o_slope_sign = 0;
 		g_o_slope = 0;
@@ -194,7 +194,7 @@ void mtktspmic_cali_prepare(void)
 	mtktspmic_info("[pmic_debug] g_o_vts        = 0x%x\n", g_o_vts);
 	mtktspmic_info("[pmic_debug] g_o_vts_2      = 0x%x\n", g_o_vts_2);
 	mtktspmic_info("[pmic_debug] g_o_vts_3      = 0x%x\n", g_o_vts_3);
-	mtktspmic_info("[pmic_debug] g_o_vts_4      = 0x%x\n", g_o_vts_4);
+	mtktspmic_info("[pmic_debug] g_o_4rsv0      = 0x%x\n", g_o_4rsv0);
 	mtktspmic_info("[pmic_debug] g_degc_cali    = 0x%x\n", g_degc_cali);
 	mtktspmic_info("[pmic_debug] g_adc_cali_en  = 0x%x\n", g_adc_cali_en);
 	mtktspmic_info("[pmic_debug] g_o_slope      = 0x%x\n", g_o_slope);
@@ -298,7 +298,7 @@ void mtktspmic_cali_prepare2(void)
 	else
 		g_tsbuck3_slope2 = -(factor - g_o_slope);
 
-	vbe_t = (-1) * ((((g_o_vts_4) * 1800)) / 4096) * 1000;
+	vbe_t = (-1) * ((((g_o_4rsv0) * 1800)) / 4096) * 1000;
 
 	if (g_o_slope_sign == 0)
 		g_tsbuck3_intercept =
@@ -409,7 +409,7 @@ int mtktspmic_get_hw_temp(void)
 	return temp1;
 }
 
-int mt6359vcore_get_hw_temp(void)
+int mt6366vcore_get_hw_temp(void)
 {
 	int temp = 0, temp1 = 0;
 #if defined(THERMAL_USE_IIO_CHANNEL)
@@ -457,7 +457,7 @@ int mt6359vcore_get_hw_temp(void)
 	return temp1;
 }
 
-int mt6359vproc_get_hw_temp(void)
+int mt6366vproc_get_hw_temp(void)
 {
 	int temp = 0, temp1 = 0;
 #if defined(THERMAL_USE_IIO_CHANNEL)
@@ -504,7 +504,7 @@ int mt6359vproc_get_hw_temp(void)
 	return temp1;
 }
 
-int mt6359vgpu_get_hw_temp(void)
+int mt6366vgpu_get_hw_temp(void)
 {
 	int temp = 0, temp1 = 0;
 #if defined(THERMAL_USE_IIO_CHANNEL)
@@ -552,6 +552,7 @@ int mt6359vgpu_get_hw_temp(void)
 	return temp1;
 }
 
+#if defined(THERMAL_USE_IIO_CHANNEL)
 static int u_table[126] = {
 	64078,
 	63972,
@@ -680,6 +681,8 @@ static int u_table[126] = {
 	5510,
 	5339
 };
+#endif
+
 #define MIN_TSX_TEMP (-40000)
 #define MAX_TSX_TEMP (+85000)
 /* Original formula is
@@ -691,6 +694,7 @@ static int u_table[126] = {
  * => u * 2^16 = auxadc raw
  */
 
+#if defined(THERMAL_USE_IIO_CHANNEL)
 static int tsx_u2t(int auxadc_raw)
 {
 	int i;
@@ -724,8 +728,9 @@ static int tsx_u2t(int auxadc_raw)
 
 	return ret;
 }
+#endif
 
-int mt6359tsx_get_hw_temp(void)
+int mt6366tsx_get_hw_temp(void)
 {
 	int raw = 0, temp1 = 0;
 #if defined(THERMAL_USE_IIO_CHANNEL)
@@ -775,7 +780,7 @@ int mt6359tsx_get_hw_temp(void)
 	return temp1;
 }
 
-int mt6359dcxo_get_hw_temp(void)
+int mt6366dcxo_get_hw_temp(void)
 {
 	int raw = 0, temp1 = 0;
 #if defined(THERMAL_USE_IIO_CHANNEL)

@@ -48,13 +48,13 @@ struct mt_gpufreq_power_table_info {
 #if CFG_THERM_LVTS
 #define	CFG_LVTS_DOMINATOR			(1)
 #define	LVTS_THERMAL_CONTROLLER_HW_FILTER	(1) /* 1, 2, 4, 8, 16 */
-#define	LVTS_DEVICE_AUTO_RCK			(0)
+#define	LVTS_DEVICE_AUTO_RCK			(1)
 /*Use bootup "count RC", no need to get "count RC" again after resume*/
 #define CFG_THERM_USE_BOOTUP_COUNT_RC
 #else
 #define	CFG_LVTS_DOMINATOR			(0)
 #define	LVTS_THERMAL_CONTROLLER_HW_FILTER	(0)
-#define	LVTS_DEVICE_AUTO_RCK			(0)
+#define	LVTS_DEVICE_AUTO_RCK			(1)
 #endif
 
 /*
@@ -82,16 +82,12 @@ enum thermal_sensor {
 	TS_LVTS1_0 = 0,	/* LVTS1-0 Little */
 	TS_LVTS1_1,		/* LVTS1-1 Little */
 	TS_LVTS1_2,		/* LVTS1-2 Little */
-	TS_LVTS1_3,		/* LVTS1-3 Little */
+	TS_LVTS1_3,		/* LVTS1-3 CAM MM */
 	TS_LVTS2_0,		/* LVTS2-0 Big */
 	TS_LVTS2_1,		/* LVTS2-1 Big */
-	TS_LVTS3_0,		/* LVTS3-0 GPU */
-	TS_LVTS3_1,		/* LVTS3-1 GPU */
-	TS_LVTS3_2,		/* LVTS3-2 SOC */
-	TS_LVTS3_3,		/* LVTS3-3 CONNSYS */
-	TS_LVTS4_0,		/* LVTS4-0 MD-4G */
-	TS_LVTS4_1,		/* LVTS4-1 MD-5G */
-	TS_LVTS4_2,		/* LVTS4-2 MD-4G */
+	TS_LVTS3_0,		/* LVTS3-0 MD */
+	TS_LVTS3_1,		/* LVTS3-1 MFG0 */
+	TS_LVTS3_2,		/* LVTS3-2 MFG1 */
 
 #endif
 	TS_ENUM_MAX
@@ -101,7 +97,6 @@ enum thermal_bank_name {
 	THERMAL_BANK0 = 0,
 	THERMAL_BANK1,
 	THERMAL_BANK2,
-	THERMAL_BANK3,
 	THERMAL_BANK_NUM
 };
 
@@ -160,10 +155,6 @@ enum mtk_thermal_sensor_cpu_id_met {
 	MTK_THERMAL_SENSOR_LVTS3_0,
 	MTK_THERMAL_SENSOR_LVTS3_1,
 	MTK_THERMAL_SENSOR_LVTS3_2,
-	MTK_THERMAL_SENSOR_LVTS3_3,
-	MTK_THERMAL_SENSOR_LVTS4_0,
-	MTK_THERMAL_SENSOR_LVTS4_1,
-	MTK_THERMAL_SENSOR_LVTS4_2,
 #endif
 	ATM_CPU_LIMIT,
 	ATM_GPU_LIMIT,
@@ -204,10 +195,6 @@ extern int get_immediate_tslvts2_1_wrap(void);
 extern int get_immediate_tslvts3_0_wrap(void);
 extern int get_immediate_tslvts3_1_wrap(void);
 extern int get_immediate_tslvts3_2_wrap(void);
-extern int get_immediate_tslvts3_3_wrap(void);
-extern int get_immediate_tslvts4_0_wrap(void);
-extern int get_immediate_tslvts4_1_wrap(void);
-extern int get_immediate_tslvts4_2_wrap(void);
 #endif
 
 extern int get_immediate_tsabb_wrap(void);
