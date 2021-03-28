@@ -241,12 +241,12 @@ struct AUTOK_PLAT_FUNC {
 		autok_para_rx.old_water_hs = 8; \
 		autok_para_rx.old_stop_hs = 3; \
 		autok_para_rx.read_dat_cnt_hs400 = 7; \
-		autok_para_rx.read_dat_cnt_ddr208 = 1; \
-		autok_para_rx.end_bit_chk_cnt_hs400 = 0xE; \
-		autok_para_rx.end_bit_chk_cnt_ddr208 = 3; \
+		autok_para_rx.read_dat_cnt_ddr208 = 0; \
+		autok_para_rx.end_bit_chk_cnt_hs400 = 14; \
+		autok_para_rx.end_bit_chk_cnt_ddr208 = 0; \
 		autok_para_rx.latchck_switch_cnt_hs400 = 6; \
-		autok_para_rx.latchck_switch_cnt_ddr208 = 5; \
-		autok_para_rx.ds_dly3_hs400 = 0; \
+		autok_para_rx.latchck_switch_cnt_ddr208 = 0; \
+		autok_para_rx.ds_dly3_hs400 = 20; \
 		autok_para_rx.ds_dly3_ddr208 = 0; \
 	} while (0)
 
@@ -282,7 +282,7 @@ struct AUTOK_PLAT_FUNC {
 		autok_para_func.fifo_1k = 1; \
 		autok_para_func.latch_enhance = 1; \
 		autok_para_func.msdc0_bypass_duty_modify = 1; \
-		autok_para_func.msdc1_bypass_duty_modify = 0; \
+		autok_para_func.msdc1_bypass_duty_modify = 1; \
 		autok_para_func.msdc2_bypass_duty_modify = 0; \
 	} while (0)
 
