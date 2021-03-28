@@ -798,7 +798,7 @@ static int rt5133_regulator_notify(struct notifier_block *nb,
 		return NOTIFY_OK;
 	if (data != NULL) {
 		idx = *(int *)data;
-		pr_dbg("%s, ldo(%d), event = %d\n", __func__, idx, event);
+		pr_info("%s, ldo(%d), event = %d\n", __func__, idx, event);
 		idx = idx - 1;
 	}
 
