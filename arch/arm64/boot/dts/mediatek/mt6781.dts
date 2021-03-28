@@ -202,7 +202,7 @@
 		#size-cells = <2>;
 		ranges;
 		suspend-method = "disable";
-		cpupm-method = "mcu";
+		cpupm-method = "disabled";
 
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
