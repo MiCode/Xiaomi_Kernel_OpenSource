@@ -147,60 +147,41 @@ void msdc_dump_ldo_sts(char **buff, unsigned long *size,
 {
 #if !defined(CONFIG_MTK_MSDC_BRING_UP_BYPASS) \
 	|| defined(MTK_MSDC_BRINGUP_DEBUG)
-	u32 ldo_en = 0, vm_mode = 0;
-	u32 ldo_vol[2] = {0}, ldo_cal[2] = {0};
+	u32 ldo_en = 0, ldo_vol = 0, ldo_cal = 0;
 	u32 id = host->id;
 
 	switch (id) {
 	case 0:
-		/*
-		 * 6359p provide two groups of VOSEL and VOCAL
-		 * when ufs3.0 used,you need to check VOSEL_1,
-		 * or you need to check VOSEL_0
-		 * you can identify the right VOSEL by checking VM_MODE
-		 * VM_MODE=1 <-->VOSEL_1
-		 * VM_MODE=0 <-->VOSEL_0
-		 */
 		pmic_read_interface_nolock(REG_VEMC_EN, &ldo_en, MASK_VEMC_EN,
 			SHIFT_VEMC_EN);
-		pmic_read_interface_nolock(PMIC_RG_VEMC_VOSEL_0_ADDR,
-			&ldo_vol[0],
-			PMIC_RG_VEMC_VOSEL_0_MASK, PMIC_RG_VEMC_VOSEL_0_SHIFT);
-		pmic_read_interface_nolock(PMIC_RG_VEMC_VOCAL_0_ADDR,
-			&ldo_cal[0],
-			PMIC_RG_VEMC_VOCAL_0_MASK, PMIC_RG_VEMC_VOCAL_0_SHIFT);
-		pmic_read_interface_nolock(PMIC_RG_VEMC_VOSEL_1_ADDR,
-			&ldo_vol[1],
-			PMIC_RG_VEMC_VOSEL_1_MASK, PMIC_RG_VEMC_VOSEL_1_SHIFT);
-		pmic_read_interface_nolock(PMIC_RG_VEMC_VOCAL_1_ADDR,
-			&ldo_cal[1],
-			PMIC_RG_VEMC_VOCAL_1_MASK, PMIC_RG_VEMC_VOCAL_1_SHIFT);
-		pmic_read_interface_nolock(PMIC_VM_MODE_ADDR,
-			&vm_mode,
-			PMIC_VM_MODE_MASK, PMIC_VM_MODE_SHIFT);
+		pmic_read_interface_nolock(REG_VEMC_VOSEL, &ldo_vol,
+			MASK_VEMC_VOSEL, SHIFT_VEMC_VOSEL);
+		pmic_read_interface_nolock(REG_VEMC_VOCAL, &ldo_cal,
+			MASK_VEMC_VOCAL, SHIFT_VEMC_VOCAL);
 		SPREAD_PRINTF(buff, size, m,
-			" VEMC_EN=0x%x, VM_MODE=%d, VEMC_VOL=0:0x%x 1:0x%x [4b'1011(3V)], VEMC_CAL=0:0x%x 1:0x%x\n",
-			ldo_en, vm_mode, ldo_vol[0],
-			ldo_vol[1], ldo_cal[0], ldo_cal[1]);
+			" VEMC_EN=0x%x, VEMC_VOL=0x%x [3b'011(3V)], VEMC_CAL=0x%x\n",
+			ldo_en, ldo_vol, ldo_cal);
 		break;
 	case 1:
-		/*
-		 * 6360 only provide regulator APIs with mutex protection.
-		 * Therefore, can not dump msdc1 ldo status in IRQ context.
-		 * Enable dump msdc1 if you make sure the dump context
-		 * is correct.
-		 */
-		#if 0
+		pmic_read_interface_nolock(REG_VMC_EN, &ldo_en, MASK_VMC_EN,
+			SHIFT_VMC_EN);
+		pmic_read_interface_nolock(REG_VMC_VOSEL, &ldo_vol,
+			MASK_VMC_VOSEL, SHIFT_VMC_VOSEL);
+		pmic_read_interface_nolock(REG_VMC_VOCAL, &ldo_cal,
+			MASK_VMC_VOCAL, SHIFT_VMC_VOCAL);
 		SPREAD_PRINTF(buff, size, m,
-		" VMCH_EN=0x%x, VMCH_VOL=0x%x\n",
-			regulator_is_enabled(host->mmc->supply.vmmc),
-			regulator_get_voltage(host->mmc->supply.vmmc));
+			" VMC_EN=0x%x, VMC_VOL=0x%x [4b'1011(3V)], VMC_CAL=0x%x\n",
+			ldo_en, ldo_vol, ldo_cal);
+		pmic_read_interface_nolock(REG_VMCH_EN, &ldo_en, MASK_VMCH_EN,
+			SHIFT_VMCH_EN);
+		pmic_read_interface_nolock(REG_VMCH_VOSEL, &ldo_vol,
+			MASK_VMCH_VOSEL, SHIFT_VMCH_VOSEL);
+		pmic_read_interface_nolock(REG_VMCH_VOCAL, &ldo_cal,
+			MASK_VMCH_VOCAL, SHIFT_VMCH_VOCAL);
 		SPREAD_PRINTF(buff, size, m,
-		" VMC_EN=0x%x, VMC_VOL=0x%x\n",
-			regulator_is_enabled(host->mmc->supply.vqmmc),
-			regulator_get_voltage(host->mmc->supply.vqmmc));
+			" VMCH_EN=0x%x, VMC_VOL=0x%x [3b'011(3V)], VMCH_CAL=0x%x\n",
+			ldo_en, ldo_vol, ldo_cal);
 		break;
-		#endif
 	default:
 		break;
 	}
