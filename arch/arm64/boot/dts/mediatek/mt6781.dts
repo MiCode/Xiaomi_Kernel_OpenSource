@@ -243,6 +243,14 @@
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
+
+		reserve-memory-scp_share {
+			compatible = "mediatek,reserve-memory-scp_share";
+			no-map;
+			size = <0 0x00300000>; /*3 MB share mem size */
+			alignment = <0 0x1000000>;
+			alloc-ranges = <0 0x50000000 0 0x40000000>;
+		};
 	};
 
 	gic: interrupt-controller {
@@ -627,6 +635,18 @@
 				<GIC_PPI 11 IRQ_TYPE_LEVEL_LOW>,
 				<GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>;
 		clock-frequency = <13000000>;
+	};
+
+	scp@10500000 {
+		compatible = "mediatek,scp";
+		status = "okay";
+		reg = <0 0x10500000 0 0xc0000>,
+				<0 0x105c0000 0 0x3000>,
+				<0 0x105c4000 0 0x1000>,
+				<0 0x105d4000 0 0x6000>;
+		interrupts = <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH>;
+		core_1 = "enable";
+		scp_sramSize = <0x000c0000>;
 	};
 
 	modem_temp_share@10018000 {
