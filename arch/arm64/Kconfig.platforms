@@ -153,6 +153,7 @@ config MACH_MT6785
 
 config MACH_MT6781
 	bool "MediaTek MT6781"
+	select ARM_MTK_NEW_ARCH_CPUIDLE
 	select ARM_DSU_PMU
 	select MTK_TIMER_SYSTIMER
 	select IRQ_DOMAIN
