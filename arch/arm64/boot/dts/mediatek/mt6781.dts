@@ -1547,7 +1547,6 @@
 			"aud_3rd_dac_predis_clk",
 			"aud_3rd_dac_tml",
 			"aud_3rd_dac_hires_clk",
-			"scp_sys_audio",
 			"aud_infra_clk",
 			"mtkaif_26m_clk",
 			"top_mux_audio",
