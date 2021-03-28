@@ -350,7 +350,7 @@ static unsigned char CCI_6783_Tbl[32][16] = {
 	{ 0, 0, 1, 1, 2, 4, 5, 6, 12, 12, 14, 14, 15, 15, 15, 15},
 	{ 0, 0, 1, 1, 2, 4, 5, 6, 12, 12, 14, 14, 15, 15, 15, 15},
 #endif
-}
+};
 
 static unsigned char enratio_FYTbl[(NR_FREQ + 1) * IMAX_EN_RATIO_TBL_NUM] = {
 	5, 22, 23, 25, 26, 28, 30, 0, 0,

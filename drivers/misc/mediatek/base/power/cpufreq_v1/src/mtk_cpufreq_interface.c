@@ -685,7 +685,7 @@ static int cpufreq_imax_reg_dump_proc_show(struct seq_file *m, void *v)
 	unsigned int i;
 
 #ifdef CONFIG_HYBRID_CPU_DVFS
-	cpufreq_get_imax_reg(addr_arr, reg_val);
+	//cpufreq_get_imax_reg(addr_arr, reg_val);
 	for (i = 0; i < REG_LEN; i++)
 		seq_printf(m, "IMAX addr 0x%x = 0x%x\n", addr_arr[i],
 				reg_val[i]);
