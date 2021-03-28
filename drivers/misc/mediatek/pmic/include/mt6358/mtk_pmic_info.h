@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2021 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -22,8 +22,9 @@
 #define PMIC6358_E3_CID_CODE    0x5830
 
 
+//TODO, enable it after bring up
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-#define IPIMB /* disable for Bring up */
+//#define IPIMB /* disable for Bring up */
 #endif
 
 /*

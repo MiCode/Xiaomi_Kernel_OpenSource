@@ -82277,3 +82277,1541 @@ unsigned int mt6358_upmu_get_da_vcn33_wifi_mode(
 	return mt6358_upmu_get_da_vcn33_mode();
 }
 
+#if defined(USE_PMIC_MT6366) && USE_PMIC_MT6366
+unsigned int mt6358_upmu_set_rg_ldo_vm18_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VM18_CON0),
+		(val),
+		(PMIC_RG_LDO_VM18_EN_MASK),
+		(PMIC_RG_LDO_VM18_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vm18_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VM18_CON0),
+		(&val),
+		(PMIC_RG_LDO_VM18_EN_MASK),
+		(PMIC_RG_LDO_VM18_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vm18_lp(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VM18_CON0),
+		(val),
+		(PMIC_RG_LDO_VM18_LP_MASK),
+		(PMIC_RG_LDO_VM18_LP_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vm18_sw_op_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VM18_OP_EN),
+		(val),
+		(PMIC_RG_LDO_VM18_SW_OP_EN_MASK),
+		(PMIC_RG_LDO_VM18_SW_OP_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vm18_sw_op_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VM18_OP_EN),
+		(&val),
+		(PMIC_RG_LDO_VM18_SW_OP_EN_MASK),
+		(PMIC_RG_LDO_VM18_SW_OP_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vm18_hw0_op_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VM18_OP_EN),
+		(val),
+		(PMIC_RG_LDO_VM18_HW0_OP_EN_MASK),
+		(PMIC_RG_LDO_VM18_HW0_OP_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vm18_hw0_op_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VM18_OP_EN),
+		(&val),
+		(PMIC_RG_LDO_VM18_HW0_OP_EN_MASK),
+		(PMIC_RG_LDO_VM18_HW0_OP_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vm18_hw1_op_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VM18_OP_EN),
+		(val),
+		(PMIC_RG_LDO_VM18_HW1_OP_EN_MASK),
+		(PMIC_RG_LDO_VM18_HW1_OP_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vm18_hw1_op_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VM18_OP_EN),
+		(&val),
+		(PMIC_RG_LDO_VM18_HW1_OP_EN_MASK),
+		(PMIC_RG_LDO_VM18_HW1_OP_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vm18_hw2_op_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VM18_OP_EN),
+		(val),
+		(PMIC_RG_LDO_VM18_HW2_OP_EN_MASK),
+		(PMIC_RG_LDO_VM18_HW2_OP_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vm18_hw2_op_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VM18_OP_EN),
+		(&val),
+		(PMIC_RG_LDO_VM18_HW2_OP_EN_MASK),
+		(PMIC_RG_LDO_VM18_HW2_OP_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vm18_hw0_op_cfg(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VM18_OP_CFG),
+		(val),
+		(PMIC_RG_LDO_VM18_HW0_OP_CFG_MASK),
+		(PMIC_RG_LDO_VM18_HW0_OP_CFG_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vm18_hw0_op_cfg(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VM18_OP_CFG),
+		(&val),
+		(PMIC_RG_LDO_VM18_HW0_OP_CFG_MASK),
+		(PMIC_RG_LDO_VM18_HW0_OP_CFG_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vm18_hw1_op_cfg(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VM18_OP_CFG),
+		(val),
+		(PMIC_RG_LDO_VM18_HW1_OP_CFG_MASK),
+		(PMIC_RG_LDO_VM18_HW1_OP_CFG_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vm18_hw1_op_cfg(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VM18_OP_CFG),
+		(&val),
+		(PMIC_RG_LDO_VM18_HW1_OP_CFG_MASK),
+		(PMIC_RG_LDO_VM18_HW1_OP_CFG_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vm18_hw2_op_cfg(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VM18_OP_CFG),
+		(val),
+		(PMIC_RG_LDO_VM18_HW2_OP_CFG_MASK),
+		(PMIC_RG_LDO_VM18_HW2_OP_CFG_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vm18_hw2_op_cfg(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VM18_OP_CFG),
+		(&val),
+		(PMIC_RG_LDO_VM18_HW2_OP_CFG_MASK),
+		(PMIC_RG_LDO_VM18_HW2_OP_CFG_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_get_da_vm18_mode(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VM18_CON1),
+		(&val),
+		(PMIC_DA_VM18_MODE_MASK),
+		(PMIC_DA_VM18_MODE_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vm18_stbtd(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VM18_CON1),
+		(val),
+		(PMIC_RG_LDO_VM18_STBTD_MASK),
+		(PMIC_RG_LDO_VM18_STBTD_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_da_vm18_stb(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VM18_CON1),
+		(&val),
+		(PMIC_DA_VM18_STB_MASK),
+		(PMIC_DA_VM18_STB_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_get_da_vm18_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VM18_CON1),
+		(&val),
+		(PMIC_DA_VM18_EN_MASK),
+		(PMIC_DA_VM18_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vm18_ocfb_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VM18_CON2),
+		(val),
+		(PMIC_RG_LDO_VM18_OCFB_EN_MASK),
+		(PMIC_RG_LDO_VM18_OCFB_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vm18_ocfb_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VM18_CON2),
+		(&val),
+		(PMIC_RG_LDO_VM18_OCFB_EN_MASK),
+		(PMIC_RG_LDO_VM18_OCFB_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_get_da_vm18_ocfb_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VM18_CON2),
+		(&val),
+		(PMIC_DA_VM18_OCFB_EN_MASK),
+		(PMIC_DA_VM18_OCFB_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vm18_dummy_load(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VM18_CON3),
+		(val),
+		(PMIC_RG_LDO_VM18_DUMMY_LOAD_MASK),
+		(PMIC_RG_LDO_VM18_DUMMY_LOAD_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_da_vm18_dummy_load(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VM18_CON3),
+		(&val),
+		(PMIC_DA_VM18_DUMMY_LOAD_MASK),
+		(PMIC_DA_VM18_DUMMY_LOAD_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vmddr_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VMDDR_CON0),
+		(val),
+		(PMIC_RG_LDO_VMDDR_EN_MASK),
+		(PMIC_RG_LDO_VMDDR_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vmddr_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VMDDR_CON0),
+		(&val),
+		(PMIC_RG_LDO_VMDDR_EN_MASK),
+		(PMIC_RG_LDO_VMDDR_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vmddr_lp(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VMDDR_CON0),
+		(val),
+		(PMIC_RG_LDO_VMDDR_LP_MASK),
+		(PMIC_RG_LDO_VMDDR_LP_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vmddr_sw_op_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VMDDR_OP_EN),
+		(val),
+		(PMIC_RG_LDO_VMDDR_SW_OP_EN_MASK),
+		(PMIC_RG_LDO_VMDDR_SW_OP_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vmddr_sw_op_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VMDDR_OP_EN),
+		(&val),
+		(PMIC_RG_LDO_VMDDR_SW_OP_EN_MASK),
+		(PMIC_RG_LDO_VMDDR_SW_OP_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vmddr_hw0_op_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VMDDR_OP_EN),
+		(val),
+		(PMIC_RG_LDO_VMDDR_HW0_OP_EN_MASK),
+		(PMIC_RG_LDO_VMDDR_HW0_OP_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vmddr_hw0_op_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VMDDR_OP_EN),
+		(&val),
+		(PMIC_RG_LDO_VMDDR_HW0_OP_EN_MASK),
+		(PMIC_RG_LDO_VMDDR_HW0_OP_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vmddr_hw1_op_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VMDDR_OP_EN),
+		(val),
+		(PMIC_RG_LDO_VMDDR_HW1_OP_EN_MASK),
+		(PMIC_RG_LDO_VMDDR_HW1_OP_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vmddr_hw1_op_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VMDDR_OP_EN),
+		(&val),
+		(PMIC_RG_LDO_VMDDR_HW1_OP_EN_MASK),
+		(PMIC_RG_LDO_VMDDR_HW1_OP_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vmddr_hw2_op_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VMDDR_OP_EN),
+		(val),
+		(PMIC_RG_LDO_VMDDR_HW2_OP_EN_MASK),
+		(PMIC_RG_LDO_VMDDR_HW2_OP_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vmddr_hw2_op_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VMDDR_OP_EN),
+		(&val),
+		(PMIC_RG_LDO_VMDDR_HW2_OP_EN_MASK),
+		(PMIC_RG_LDO_VMDDR_HW2_OP_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vmddr_hw0_op_cfg(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VMDDR_OP_CFG),
+		(val),
+		(PMIC_RG_LDO_VMDDR_HW0_OP_CFG_MASK),
+		(PMIC_RG_LDO_VMDDR_HW0_OP_CFG_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vmddr_hw0_op_cfg(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VMDDR_OP_CFG),
+		(&val),
+		(PMIC_RG_LDO_VMDDR_HW0_OP_CFG_MASK),
+		(PMIC_RG_LDO_VMDDR_HW0_OP_CFG_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vmddr_hw1_op_cfg(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VMDDR_OP_CFG),
+		(val),
+		(PMIC_RG_LDO_VMDDR_HW1_OP_CFG_MASK),
+		(PMIC_RG_LDO_VMDDR_HW1_OP_CFG_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vmddr_hw1_op_cfg(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VMDDR_OP_CFG),
+		(&val),
+		(PMIC_RG_LDO_VMDDR_HW1_OP_CFG_MASK),
+		(PMIC_RG_LDO_VMDDR_HW1_OP_CFG_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vmddr_hw2_op_cfg(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VMDDR_OP_CFG),
+		(val),
+		(PMIC_RG_LDO_VMDDR_HW2_OP_CFG_MASK),
+		(PMIC_RG_LDO_VMDDR_HW2_OP_CFG_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vmddr_hw2_op_cfg(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VMDDR_OP_CFG),
+		(&val),
+		(PMIC_RG_LDO_VMDDR_HW2_OP_CFG_MASK),
+		(PMIC_RG_LDO_VMDDR_HW2_OP_CFG_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_get_da_vmddr_mode(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VMDDR_CON1),
+		(&val),
+		(PMIC_DA_VMDDR_MODE_MASK),
+		(PMIC_DA_VMDDR_MODE_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vmddr_stbtd(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VMDDR_CON1),
+		(val),
+		(PMIC_RG_LDO_VMDDR_STBTD_MASK),
+		(PMIC_RG_LDO_VMDDR_STBTD_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_da_vmddr_stb(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VMDDR_CON1),
+		(&val),
+		(PMIC_DA_VMDDR_STB_MASK),
+		(PMIC_DA_VMDDR_STB_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_get_da_vmddr_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VMDDR_CON1),
+		(&val),
+		(PMIC_DA_VMDDR_EN_MASK),
+		(PMIC_DA_VMDDR_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vmddr_ocfb_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VMDDR_CON2),
+		(val),
+		(PMIC_RG_LDO_VMDDR_OCFB_EN_MASK),
+		(PMIC_RG_LDO_VMDDR_OCFB_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vmddr_ocfb_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VMDDR_CON2),
+		(&val),
+		(PMIC_RG_LDO_VMDDR_OCFB_EN_MASK),
+		(PMIC_RG_LDO_VMDDR_OCFB_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_get_da_vmddr_ocfb_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VMDDR_CON2),
+		(&val),
+		(PMIC_DA_VMDDR_OCFB_EN_MASK),
+		(PMIC_DA_VMDDR_OCFB_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vmddr_dummy_load(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VMDDR_CON3),
+		(val),
+		(PMIC_RG_LDO_VMDDR_DUMMY_LOAD_MASK),
+		(PMIC_RG_LDO_VMDDR_DUMMY_LOAD_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_da_vmddr_dummy_load(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VMDDR_CON3),
+		(&val),
+		(PMIC_DA_VMDDR_DUMMY_LOAD_MASK),
+		(PMIC_DA_VMDDR_DUMMY_LOAD_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_CON0),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_EN_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vsram_core_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_CON0),
+		(&val),
+		(PMIC_RG_LDO_VSRAM_CORE_EN_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_lp(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_CON0),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_LP_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_LP_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_vosel_sleep(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_CON2),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_VOSEL_SLEEP_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_VOSEL_SLEEP_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vsram_core_vosel_sleep(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_CON2),
+		(&val),
+		(PMIC_RG_LDO_VSRAM_CORE_VOSEL_SLEEP_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_VOSEL_SLEEP_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_sfchg_frate(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_CFG0),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_SFCHG_FRATE_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_SFCHG_FRATE_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_sfchg_fen(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_CFG0),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_SFCHG_FEN_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_SFCHG_FEN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_sfchg_rrate(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_CFG0),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_SFCHG_RRATE_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_SFCHG_RRATE_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_sfchg_ren(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_CFG0),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_SFCHG_REN_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_SFCHG_REN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_dvs_trans_td(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_CFG1),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_DVS_TRANS_TD_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_DVS_TRANS_TD_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_dvs_trans_ctrl(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_CFG1),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_DVS_TRANS_CTRL_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_DVS_TRANS_CTRL_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_dvs_trans_once(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_CFG1),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_DVS_TRANS_ONCE_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_DVS_TRANS_ONCE_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_sw_op_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_OP_EN),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_SW_OP_EN_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_SW_OP_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vsram_core_sw_op_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_OP_EN),
+		(&val),
+		(PMIC_RG_LDO_VSRAM_CORE_SW_OP_EN_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_SW_OP_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_hw0_op_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_OP_EN),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_HW0_OP_EN_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_HW0_OP_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vsram_core_hw0_op_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_OP_EN),
+		(&val),
+		(PMIC_RG_LDO_VSRAM_CORE_HW0_OP_EN_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_HW0_OP_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_hw1_op_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_OP_EN),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_HW1_OP_EN_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_HW1_OP_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vsram_core_hw1_op_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_OP_EN),
+		(&val),
+		(PMIC_RG_LDO_VSRAM_CORE_HW1_OP_EN_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_HW1_OP_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_hw2_op_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_OP_EN),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_HW2_OP_EN_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_HW2_OP_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vsram_core_hw2_op_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_OP_EN),
+		(&val),
+		(PMIC_RG_LDO_VSRAM_CORE_HW2_OP_EN_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_HW2_OP_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_hw0_op_cfg(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_OP_CFG),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_HW0_OP_CFG_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_HW0_OP_CFG_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vsram_core_hw0_op_cfg(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_OP_CFG),
+		(&val),
+		(PMIC_RG_LDO_VSRAM_CORE_HW0_OP_CFG_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_HW0_OP_CFG_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_hw1_op_cfg(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_OP_CFG),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_HW1_OP_CFG_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_HW1_OP_CFG_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vsram_core_hw1_op_cfg(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_OP_CFG),
+		(&val),
+		(PMIC_RG_LDO_VSRAM_CORE_HW1_OP_CFG_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_HW1_OP_CFG_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_hw2_op_cfg(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_OP_CFG),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_HW2_OP_CFG_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_HW2_OP_CFG_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vsram_core_hw2_op_cfg(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_OP_CFG),
+		(&val),
+		(PMIC_RG_LDO_VSRAM_CORE_HW2_OP_CFG_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_HW2_OP_CFG_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_get_da_vsram_core_mode(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_CON3),
+		(&val),
+		(PMIC_DA_VSRAM_CORE_MODE_MASK),
+		(PMIC_DA_VSRAM_CORE_MODE_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_stbtd(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_CON3),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_STBTD_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_STBTD_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_ocfb_en(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_CON4),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_OCFB_EN_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_OCFB_EN_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vsram_core_ocfb_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_CON4),
+		(&val),
+		(PMIC_RG_LDO_VSRAM_CORE_OCFB_EN_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_OCFB_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_get_da_vsram_core_ocfb_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_CON4),
+		(&val),
+		(PMIC_DA_VSRAM_CORE_OCFB_EN_MASK),
+		(PMIC_DA_VSRAM_CORE_OCFB_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_dummy_load(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CORE_CON5),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_DUMMY_LOAD_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_DUMMY_LOAD_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_da_vsram_core_dummy_load(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_CON5),
+		(&val),
+		(PMIC_DA_VSRAM_CORE_DUMMY_LOAD_MASK),
+		(PMIC_DA_VSRAM_CORE_DUMMY_LOAD_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_get_da_vsram_core_vosel_gray(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_DBG0),
+		(&val),
+		(PMIC_DA_VSRAM_CORE_VOSEL_GRAY_MASK),
+		(PMIC_DA_VSRAM_CORE_VOSEL_GRAY_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_get_da_vsram_core_vosel(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_DBG0),
+		(&val),
+		(PMIC_DA_VSRAM_CORE_VOSEL_MASK),
+		(PMIC_DA_VSRAM_CORE_VOSEL_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_get_da_vsram_core_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_DBG1),
+		(&val),
+		(PMIC_DA_VSRAM_CORE_EN_MASK),
+		(PMIC_DA_VSRAM_CORE_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_get_da_vsram_core_stb(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_DBG1),
+		(&val),
+		(PMIC_DA_VSRAM_CORE_STB_MASK),
+		(PMIC_DA_VSRAM_CORE_STB_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_get_da_vsram_core_vsleep_sel(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_DBG1),
+		(&val),
+		(PMIC_DA_VSRAM_CORE_VSLEEP_SEL_MASK),
+		(PMIC_DA_VSRAM_CORE_VSLEEP_SEL_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_get_da_vsram_core_r2r_pdn(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_DBG1),
+		(&val),
+		(PMIC_DA_VSRAM_CORE_R2R_PDN_MASK),
+		(PMIC_DA_VSRAM_CORE_R2R_PDN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_get_da_vsram_core_track_ndis_en(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_DBG1),
+		(&val),
+		(PMIC_DA_VSRAM_CORE_TRACK_NDIS_EN_MASK),
+		(PMIC_DA_VSRAM_CORE_TRACK_NDIS_EN_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_get_ldo_vsram_core_wdtdbg_vosel(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CORE_WDT_DBG0),
+		(&val),
+		(PMIC_LDO_VSRAM_CORE_WDTDBG_VOSEL_MASK),
+		(PMIC_LDO_VSRAM_CORE_WDTDBG_VOSEL_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_vm18_vosel(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_VM18_ANA_CON0),
+		(val),
+		(PMIC_RG_VM18_VOSEL_MASK),
+		(PMIC_RG_VM18_VOSEL_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_vm18_vosel(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_VM18_ANA_CON0),
+		(&val),
+		(PMIC_RG_VM18_VOSEL_MASK),
+		(PMIC_RG_VM18_VOSEL_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_vmddr_vosel(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_VMDDR_ANA_CON0),
+		(val),
+		(PMIC_RG_VMDDR_VOSEL_MASK),
+		(PMIC_RG_VMDDR_VOSEL_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_vmddr_vosel(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_VMDDR_ANA_CON0),
+		(&val),
+		(PMIC_RG_VMDDR_VOSEL_MASK),
+		(PMIC_RG_VMDDR_VOSEL_SHIFT)
+		);
+
+	return val;
+}
+
+unsigned int mt6358_upmu_set_rg_ldo_vsram_core_vosel(
+	unsigned int val)
+{
+	unsigned int ret = 0;
+
+	ret = pmic_config_interface(
+		(MT6358_LDO_VSRAM_CON5),
+		(val),
+		(PMIC_RG_LDO_VSRAM_CORE_VOSEL_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_VOSEL_SHIFT)
+			);
+
+	return ret;
+}
+
+unsigned int mt6358_upmu_get_rg_ldo_vsram_core_vosel(
+	void)
+{
+	unsigned int ret = 0;
+	unsigned int val = 0;
+
+	ret = pmic_read_interface(
+		(MT6358_LDO_VSRAM_CON5),
+		(&val),
+		(PMIC_RG_LDO_VSRAM_CORE_VOSEL_MASK),
+		(PMIC_RG_LDO_VSRAM_CORE_VOSEL_SHIFT)
+		);
+
+	return val;
+}
+#endif

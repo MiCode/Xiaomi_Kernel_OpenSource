@@ -27,6 +27,7 @@ void record_md_vosel(void)
 }
 
 /* [Export API] */
+//TODO
 void vmd1_pmic_setting_on(void)
 {
 	/* 1.Call PMIC driver API configure VMODEM voltage */

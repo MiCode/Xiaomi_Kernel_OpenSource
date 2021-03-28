@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2021 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -141,6 +141,24 @@ void PMIC_CUST_SETTING(void)
 	pr_debug("[%s] Done\n", __func__);
 }
 
+#if defined(CONFIG_MACH_MT6781)
+//TODO
+/* for PMIC MT6366 */
+void PMIC_LP_INIT_SETTING(void)
+{
+	g_pmic_chip_version = PMIC_CHIP_VER();
+#if LP_INIT_SETTING_VERIFIED
+	/*SODI3*/
+
+	/*Deepidle*/
+
+	pr_info("[%s] Chip Ver = %d\n", __func__, g_pmic_chip_version);
+#endif /*LP_INIT_SETTING_VERIFIED*/
+
+	PMIC_CUST_SETTING();
+}
+#else
+/* for PMIC MT6358 (MT6771 & MT6768) */
 void PMIC_LP_INIT_SETTING(void)
 {
 	g_pmic_chip_version = PMIC_CHIP_VER();
@@ -234,3 +252,4 @@ void PMIC_LP_INIT_SETTING(void)
 
 	PMIC_CUST_SETTING();
 }
+#endif
