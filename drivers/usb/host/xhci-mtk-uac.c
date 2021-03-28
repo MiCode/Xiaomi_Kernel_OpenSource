@@ -244,6 +244,12 @@ void *mtk_usb_alloc_sram(unsigned int id, size_t size, dma_addr_t *dma)
 	if (xhci_sram[0].state != STATE_USE)
 		return NULL;
 
+	if (usb_audio_sram[id].state == STATE_USE) {
+		pr_info("%s state_use id=%d\n", __func__, id);
+		return NULL;
+
+	}
+
 	mtk_audio_request_sram(dma, (unsigned char **)&sram_virt_addr,
 					   size, &usb_audio_sram[id]);
 
