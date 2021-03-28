@@ -411,6 +411,10 @@
 		interrupt-parent = <&gic>;
 	};
 
+	kd_camera_hw1:kd_camera_hw1@1a004000 {
+		compatible = "mediatek,imgsensor";
+	};
+
 	sleep: sleep@10006000 {
 		compatible = "mediatek,sleep";
 		reg = <0 0x10006000 0 0x1000>;
