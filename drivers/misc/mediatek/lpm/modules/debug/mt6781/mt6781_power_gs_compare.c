@@ -124,7 +124,6 @@ int mt6781_power_gs_pmic_user_attach(struct mtk_lpm_gs_pmic *p)
 	if (!p || !p->regulator)
 		return -EINVAL;
 
-#if 0 /*FIXME need to update 6366 pmic golden setting*/
 	/* Set compare golden setting for scenario */
 	if (!strcmp(p->regulator, "vcore")) {
 		p->user[MTK_LPM_PWR_GS_TYPE_SUSPEND].name = "suspend";
@@ -146,7 +145,6 @@ int mt6781_power_gs_pmic_user_attach(struct mtk_lpm_gs_pmic *p)
 			AP_PMIC_REG_6366_gs_deepidle___lp_mp3_32kless_len;
 	} else
 		return -EINVAL;
-#endif
 
 	return 0;
 }
