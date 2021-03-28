@@ -14,4 +14,3 @@
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/power_throttling/
 
 obj-y += mtk_md_power_throttling.o
-obj-(CONFIG_MACH_MT6877) += mtk_cpu_power_throttling.o
