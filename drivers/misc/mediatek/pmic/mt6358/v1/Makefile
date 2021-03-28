@@ -36,7 +36,6 @@ obj-$(CONFIG_MTK_PMIC_CHIP_MT6358)	+= pmic.o pmic_common.o \
 		pmic_efuse.o \
 		pmic_throttling_dlpt.o \
 
-		#TODO
 		#pmic_bif.o \
 
 #TODO

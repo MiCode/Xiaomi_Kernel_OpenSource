@@ -27,7 +27,24 @@ void record_md_vosel(void)
 }
 
 /* [Export API] */
-//TODO
+#if defined(CONFIG_MACH_MT6781)
+void vmd1_pmic_setting_on(void)
+{
+	unsigned int vsram_md_vosel = 0x4F; /*993750*/
+
+	/* 1.Call PMIC driver API configure VMODEM voltage */
+	if (g_vmodem_vosel != 0) {
+		/* TODO: Swap vsram_others to vsram_core */
+		pmic_set_register_value(PMIC_RG_LDO_VSRAM_OTHERS_VOSEL, vsram_md_vosel);
+		pmic_set_register_value(PMIC_RG_BUCK_VMODEM_VOSEL, g_vmodem_vosel);
+		pr_info("[%s] set vmodem=0x%x vsram_md=0x%x\n"
+			, __func__, g_vmodem_vosel, vsram_md_vosel);
+	} else {
+		pr_notice("[%s] vmodem vosel has not recorded!\n", __func__);
+		record_md_vosel();
+	}
+}
+#else
 void vmd1_pmic_setting_on(void)
 {
 	/* 1.Call PMIC driver API configure VMODEM voltage */
@@ -47,6 +64,7 @@ void vmd1_pmic_setting_on(void)
 			pmic_get_register_value(PMIC_RG_BUCK_VMODEM_VOSEL),
 			pmic_get_register_value(PMIC_DA_VMODEM_VOSEL));
 }
+#endif
 
 void vmd1_pmic_setting_off(void)
 {
