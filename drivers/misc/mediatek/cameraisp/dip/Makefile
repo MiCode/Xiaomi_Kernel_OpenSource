@@ -48,6 +48,11 @@ ifeq ($(CONFIG_MACH_MT6833),y)
   MTK_MSF_OFFSET := 1
 endif
 
+ifeq ($(CONFIG_MACH_MT6781),y)
+  obj-y += $(subst ",,isp_6s)/
+  MTK_MSF_OFFSET := 1
+endif
+
 ifeq ($(CONFIG_MACH_MT3967),y)
   obj-y += $(subst ",,isp_50)/
 endif
