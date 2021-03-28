@@ -159,7 +159,7 @@ endif
 #
 # mt6785 config
 #
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6785"))
+ifeq ($(CONFIG_MACH_MT6785),y)
 #ccflags-y += -DGED_KPI_MET_DEBUG
 ccflags-y += -DMTK_GED_KPI
 ccflags-y += -DGED_KPI_CPU_BOOST
