@@ -218,6 +218,14 @@
 			alignment = <0 0x1000>;
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
+
+		wifi_mem: wifi-reserve-memory {
+			compatible = "shared-dma-pool";
+			no-map;
+			size = <0 0x600000>;
+			alignment = <0 0x1000000>;
+			alloc-ranges = <0 0x40000000 0 0x80000000>;
+		};
 	};
 
 	gic: interrupt-controller {
@@ -1151,6 +1159,13 @@
 			 <&topckgen TOP_MUX_SPI>,
 			 <&infracfg_ao INFRACFG_AO_SPI0_CG>;
 		clock-names = "parent-clk", "sel-clk", "spi-clk";
+	};
+
+	wifi@18000000 {
+		compatible = "mediatek,wifi";
+		reg = <0 0x18000000 0 0x100000>;
+		interrupts = <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH>;
+		memory-region = <&wifi_mem>;
 	};
 
 	therm_ctrl@1100b000 {
