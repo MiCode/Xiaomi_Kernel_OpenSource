@@ -3281,6 +3281,10 @@
 	subpmic_pmu_eint: mt6370_pmu_eint {
 	};
 
+	gps: gps@18c00000 {
+		compatible = "mediatek,gps";
+	};
+
 	odm: odm {
 		compatible = "simple-bus";
 		/* reserved for overlay by odm */
