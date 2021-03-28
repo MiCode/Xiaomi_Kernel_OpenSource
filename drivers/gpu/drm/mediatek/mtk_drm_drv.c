@@ -3398,7 +3398,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		struct device *infra_dev;
 		struct resource *infra_mem;
 
-		infra_node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg_ao");
+		infra_node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg_ao_mem");
 		if (infra_node == NULL) {
 			DDPPR_ERR("mediatek,infracfg_ao_mem is not found\n");
 		} else {
