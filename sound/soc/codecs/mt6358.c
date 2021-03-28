@@ -6710,13 +6710,19 @@ static int get_hp_current_calibrate_val(struct mt6358_priv *priv)
 
 	/* 2. set RG_OTP_RD_SW */
 	regmap_update_bits(priv->regmap, MT6358_OTP_CON11, 0x0001, 0x0001);
-
+#if defined(CONFIG_SND_SOC_MT6366)
+	/* 3. set EFUSE addr */
+	/* HPDET_COMP[6:0] @ efuse bit 1880 ~ 1886 */
+	/* HPDET_COMP_SIGN @ efuse bit 1887 */
+	/* 1880 / 8 = 235 --> 0xeb */
+	regmap_update_bits(priv->regmap, MT6358_OTP_CON0, 0xff, 0xeb);
+#else
 	/* 3. set EFUSE addr */
 	/* HPDET_COMP[6:0] @ efuse bit 1696 ~ 1702 */
 	/* HPDET_COMP_SIGN @ efuse bit 1703 */
 	/* 1696 / 8 = 212 --> 0xd4 */
 	regmap_update_bits(priv->regmap, MT6358_OTP_CON0, 0xff, 0xd4);
-
+#endif
 	/* 4. Toggle RG_OTP_RD_TRIG */
 	regmap_read(priv->regmap, MT6358_OTP_CON8, &ret);
 	if (ret == 0)
