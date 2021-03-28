@@ -1143,13 +1143,11 @@ static int gt9896s_ts_power_init(struct gt9896s_ts_core *core_data)
 			core_data->avdd = NULL;
 			return r;
 		}
-#if 0
 		r = regulator_set_voltage(core_data->avdd, 2800000, 2800000);
 		if (r) {
 			ts_err("regulator_set_voltage failed %d\n", r);
 			return r;
 		}
-#endif
 	} else {
 		ts_info("Avdd name is NULL");
 	}
