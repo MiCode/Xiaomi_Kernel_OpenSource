@@ -27,7 +27,7 @@
 #endif
 
 #define HIE_CHANGE_KEY_IN_NORMAL_WORLD
-
+#define UFSHCD_QUIRK_BROKEN_UFS_HCI_VERSION
 /*
  * Platform dependent quirks
  */

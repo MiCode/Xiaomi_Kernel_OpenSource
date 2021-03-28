@@ -441,6 +441,16 @@ int ufs_mtk_cfg_unipro_cg(struct ufs_hba *hba, bool enable)
 	return 0;
 }
 
+static u32 ufs_mtk_get_ufs_hci_version(struct ufs_hba *hba)
+{
+#ifdef UFS_MTK_PLATFORM_FIX_UFS_HCI_VERSION
+	return UFSHCI_VERSION_20;
+#else
+	dev_info(hba->dev, "%s can't be here\n", __func__);
+	return 0;
+#endif
+}
+
 /**
  * ufs_mtk_advertise_quirks - advertise the known mtk UFS controller quirks
  * @hba: host controller instance
@@ -468,6 +478,9 @@ static void ufs_mtk_advertise_hci_quirks(struct ufs_hba *hba)
 	hba->quirks |= UFSHCD_QUIRK_UFS_VCC_ALWAYS_ON;
 #endif
 
+#if defined(UFS_MTK_PLATFORM_FIX_UFS_HCI_VERSION)
+	hba->quirks |= UFSHCD_QUIRK_BROKEN_UFS_HCI_VERSION;
+#endif
 	/* Always enable "Disable AH8 before RDB" */
 	hba->quirks |= UFSHCD_QUIRK_UFS_HCI_DISABLE_AH8_BEFORE_RDB;
 
@@ -2727,7 +2740,7 @@ static struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	"mediatek.ufshci",  /* name */
 	ufs_mtk_init,    /* init */
 	ufs_mtk_exit,    /* exit */
-	NULL,            /* get_ufs_hci_version */
+	ufs_mtk_get_ufs_hci_version,            /* get_ufs_hci_version */
 	NULL,            /* clk_scale_notify */
 	ufs_mtk_setup_clocks,            /* setup_clocks */
 	NULL,            /* setup_regulators */
@@ -2775,6 +2788,7 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 	 * Which block 26M off
 	 */
 	ufs_base = of_iomap(pdev->dev.of_node, 0);
+
 	if (!ufs_base) {
 		dev_err(dev, "ufs iomap failed\n");
 		return -ENODEV;
