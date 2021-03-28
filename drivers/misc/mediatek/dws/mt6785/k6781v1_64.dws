@@ -2283,11 +2283,6 @@
                 <channel>I2C_CHANNEL_5</channel>
                 <address>0x4E</address>
             </device15>
-            <device18>
-                <varName>SPEAKER_AMP</varName>
-                <channel>I2C_CHANNEL_6</channel>
-                <address>0x34</address>
-            </device18>
             <device24>
                 <varName>CAMERA_MAIN</varName>
                 <channel>I2C_CHANNEL_8</channel>
