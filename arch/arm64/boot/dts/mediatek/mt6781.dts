@@ -900,7 +900,7 @@
 		reg = <0 0x1100c000 0 0x1000>;
 	};
 
-	disp_pwm@1100e000 {
+	disp_pwm: disp_pwm@1100e000 {
 		compatible = "mediatek,disp_pwm";
 		reg = <0 0x1100e000 0 0x1000>;
 	};
@@ -1309,6 +1309,29 @@
 	reserved@14015000 {
 		compatible = "mediatek,reserved";
 		reg = <0 0x14015000 0 0x1000>;
+	};
+
+	disp_leds {
+		compatible = "mediatek,disp-leds";
+
+		backlight {
+			label = "lcd-backlight";
+			max-brightness = <255>;
+			led-bits = <8>;
+			default-state = "on";
+		};
+	};
+
+	pwmleds {
+		compatible = "mediatek,pwm-leds";
+
+		backlight {
+			label = "lcd-backlight";
+			pwms = <&disp_pwm 0 39385>;
+			max-brightness = <255>;
+			led-bits = <8>;
+			pwm-names = "lcd-backlight";
+		};
 	};
 
 	ion: iommu {
