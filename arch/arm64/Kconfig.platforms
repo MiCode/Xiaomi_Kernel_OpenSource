@@ -162,6 +162,9 @@ config MACH_MT6781
 	select EXT4_FS_SECURITY
 	select EXT4_ENCRYPTION
 	select SDCARD_FS
+	select MTK_LPM
+	select MTK_LOW_POWER_MODULE
+	select MTK_LPM_MT6781
 	select OVERLAY_FS
 	select CPU_IDLE
 	select PM_DEVFREQ
