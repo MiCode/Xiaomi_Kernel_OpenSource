@@ -918,6 +918,16 @@
 		reg = <0 0x0d0c0000 0 0x40000>;
 	};
 
+	usb0@11200000 {
+		compatible = "mediatek,mt6781-usb20";
+		reg = <0 0x11200000 0 0x10000>,
+			<0 0x11ca0000 0 0x10000>;
+		interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
+		mode = <2>;
+		multipoint = <1>;
+		num_eps = <16>;
+	};
+
 	infra_dbgsystop_cpu0@0e000000 {
 		compatible = "mediatek,infra_dbgsystop_cpu0";
 		reg = <0 0x0e000000 0 0x100000>;
