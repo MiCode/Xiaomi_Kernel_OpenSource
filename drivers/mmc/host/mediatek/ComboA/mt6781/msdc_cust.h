@@ -485,10 +485,11 @@
 
 #ifdef FPGA_PLATFORM
 #define HOST_MAX_MCLK           (200000000)
+#define HOST_MIN_MCLK           (100000)
 #else
 #define HOST_MAX_MCLK           (200000000)
-#endif
 #define HOST_MIN_MCLK           (260000)
+#endif
 
 
 /* SD card, bad card handling settings */
