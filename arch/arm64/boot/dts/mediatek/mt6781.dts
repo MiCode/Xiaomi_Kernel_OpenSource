@@ -15,9 +15,11 @@
 
 /dts-v1/;
 #include <dt-bindings/clock/mt6781-clk.h>
+#include <dt-bindings/iio/mt635x-auxadc.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/memory/mt6781-larb-port.h>
+#include <dt-bindings/mfd/mt6366-irq.h>
 #include <dt-bindings/mmc/mt6833-msdc.h>
 #include <dt-bindings/gce/mt6781-gce.h>
 
@@ -270,7 +272,7 @@
 		reg = <0 0x1000ce00 0 0x200>;
 	};
 
-pwrap: pwrap@1000d000 {
+	pwrap: pwrap@1000d000 {
 		compatible = "mediatek,mt6781-pwrap";
 		reg = <0 0x1000d000 0 0x1000>;
 		reg-names = "pwrap";
@@ -2187,4 +2189,5 @@ pwrap: pwrap@1000d000 {
 	};
 };
 
+#include "mediatek/mt6366.dtsi"
 #include "mediatek/cust_mt6781_msdc.dtsi"
