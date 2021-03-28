@@ -17,13 +17,13 @@
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 /* If SPM function not ready, comment this define */
-//#define SPM_READY
+//#define SPM_READY //MT6781 no need SPM
 
 /* If CLKBUF function not ready, comment this define */
-//#define CLKBUF_READY
+#define CLKBUF_READY
 
 /* If UPMU function not ready, comment this define */
-//#define UPMU_READY
+#define UPMU_READY
 #endif
 
 #define HIE_CHANGE_KEY_IN_NORMAL_WORLD
