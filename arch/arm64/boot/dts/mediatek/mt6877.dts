@@ -1972,9 +1972,19 @@
 		reg = <0 0x10a40000 0 0xc0000>;
 	};
 
-	dfd@0c600000 {
+	dfd: dfd@0c600000 {
 		compatible = "mediatek,dfd";
-		reg = <0 0x0c600000 0 0x100000>;
+		mediatek,enabled = <1>;
+		mediatek,chain_length = <0xbe2b>;
+		mediatek,rg_dfd_timeout = <0xa0>;
+	};
+
+	dfd_cache: dfd_cache {
+		compatible = "mediatek,dfd_cache";
+		mediatek,enabled = <0>;
+		mediatek,l2c_trigger = <0>;
+		mediatek,rg_dfd_timeout = <0x5dc0>;
+
 	};
 
 	dbg_ao@0d000000 {
