@@ -399,6 +399,10 @@
 		reg = <0 0x10207000 0 0x1000>;
 	};
 
+	hwrng: hwrng {
+		compatible = "mediatek,mt67xx-rng";
+	};
+
 	bus_dbg@10208000 {
 		compatible = "mediatek,bus_dbg";
 		reg = <0 0x10208000 0 0x1000>;
