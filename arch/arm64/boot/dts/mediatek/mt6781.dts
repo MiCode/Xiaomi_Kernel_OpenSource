@@ -457,24 +457,41 @@
 		reg = <0 0x1023f000 0 0x1000>;
 	};
 
-	ap_dma@11000000 {
-		compatible = "mediatek,ap_dma";
-		reg = <0 0x11000000 0 0x1000>;
-	};
-
 	auxadc@11001000 {
 		compatible = "mediatek,auxadc";
 		reg = <0 0x11001000 0 0x1000>;
 	};
 
-	ap_uart0@11002000 {
-		compatible = "mediatek,ap_uart0";
-		reg = <0 0x11002000 0 0x1000>;
+	apdma: dma-controller@10200d80 {
+		compatible = "mediatek,mt6577-uart-dma";
+		reg = <0 0x10200d80 0 0x80>,
+		      <0 0x10200e00 0 0x80>,
+		      <0 0x10200e80 0 0x80>,
+		      <0 0x10200f00 0 0x80>;
+		interrupts = <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>;
+		#dma-cells = <1>;
+		dma-bits = <34>;
 	};
 
-	ap_uart1@11003000 {
-		compatible = "mediatek,ap_uart1";
+	apuart0: serial@11002000 {
+		compatible = "mediatek,mt6577-uart";
+		reg = <0 0x11002000 0 0x1000>;
+		interrupts = <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>;
+		dmas = <&apdma 0
+				&apdma 1>;
+		dma-names = "tx", "rx";
+	};
+
+	apuart1: serial@11003000 {
+		compatible = "mediatek,mt6577-uart";
 		reg = <0 0x11003000 0 0x1000>;
+		interrupts = <GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>;
+		dmas = <&apdma 2
+				&apdma 3>;
+		dma-names = "tx", "rx";
 	};
 
 	i2c7@11004000 {
