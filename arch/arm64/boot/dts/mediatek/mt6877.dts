@@ -621,7 +621,7 @@
 		reg = <0 0x10026000 0 0x1000>,
 		      <0 0x10028000 0 0x1000>;
 		reg-names = "pwrap","spi_mst";
-		interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 232 IRQ_TYPE_LEVEL_HIGH>;
 	#ifdef CONFIG_FPGA_EARLY_PORTING
 		clocks = <&clk26m>, <&clk26m>, <&clk26m>, <&clk26m>;
 	#else
@@ -1063,7 +1063,6 @@
 	emi@10219000 {
 		compatible = "mediatek,emi";
 		reg = <0 0x10219000 0 0x1000>;
-		interrupts = <GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	infra_device_mpu@1021a000 {
@@ -1466,7 +1465,7 @@
 		      <0 0x10027900 0 0x000500>,
 		      <0 0x10029000 0 0x000100>;
 		reg-names = "pmif", "pmifmpu", "spmimst";
-		interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "pmif_irq";
 		irq_event_en = <0x0 0x0 0x0 0x0 0x0>;
 #ifdef CONFIG_FPGA_EARLY_PORTING
@@ -1496,7 +1495,7 @@
 			"spmimst_clk_mux",
 			"spmimst_clk26m",
 			"spmimst_clk_osc_d10";
-		swinf_ch_start = <4>;
+		swinf_ch_start = <3>;
 		ap_swinf_no = <2>;
 		#address-cells = <2>;
 		#size-cells = <0>;
