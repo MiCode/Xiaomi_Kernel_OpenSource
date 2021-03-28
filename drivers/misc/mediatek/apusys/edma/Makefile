@@ -16,6 +16,7 @@ PDIR = $(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/$(PDIR)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/1.1/
 
 obj-y += edma.o
 

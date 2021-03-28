@@ -191,10 +191,6 @@ void edma_sw_reset(struct edma_sub *edma_sub)
 void edma_trigger_external(void __iomem *base_addr, u32 ext_addr, u32 num_desp,
 					u8 desp_iommu_en)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&edma_sub->reg_lock, flags);
-
 	edma_set_reg32(base_addr, APU_EDMA2_CTL_0, EDMA_DESCRIPTOR_MODE);
 
 	num_desp--;
@@ -207,9 +203,6 @@ void edma_trigger_external(void __iomem *base_addr, u32 ext_addr, u32 num_desp,
 
 	edma_write_reg32(base_addr, APU_EDMA2_EXT_DESP_CFG_1, ext_addr);
 	edma_set_reg32(base_addr, APU_EDMA2_CFG_0, EXT_DESP_START);
-
-	spin_unlock_irqrestore(&edma_sub->reg_lock, flags);
-
 }
 
 
@@ -222,6 +215,7 @@ int edma_exe_v20(struct edma_sub *edma_sub, struct edma_request *req)
 {
 	int ret = 0;
 	void __iomem *base_addr;
+	unsigned long flags;
 
 
 	base_addr = edma_sub->base_addr;
@@ -229,11 +223,17 @@ int edma_exe_v20(struct edma_sub *edma_sub, struct edma_request *req)
 
 	edma_sw_reset(edma_sub); // no need in edma 3.0
 
+
+
+	spin_lock_irqsave(&edma_sub->reg_lock, flags);
+
 	edma_write_reg32(base_addr, APU_EDMA2_FILL_VALUE, req->fill_value);
 	edma_trigger_external(edma_sub->base_addr,
 				req->ext_reg_addr,
 				req->ext_count,
 				req->desp_iommu_en);
+
+	spin_unlock_irqrestore(&edma_sub->reg_lock, flags);
 
 	return ret;
 
