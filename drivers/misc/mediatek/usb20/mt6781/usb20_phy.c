@@ -115,9 +115,9 @@ void usb_phy_tuning(void)
 
 	if (!inited) {
 		/* apply default value */
-		u2_vrt_ref = 5;
-		u2_term_ref = 5;
-		u2_enhance = 1;
+		u2_vrt_ref = -1;
+		u2_term_ref = -1;
+		u2_enhance = -1;
 
 		of_node = of_find_compatible_node(NULL,
 			NULL, "mediatek,phy_tuning");
@@ -489,19 +489,6 @@ void usb_phy_poweron(void)
 	/* wait 50 usec for PHY3.3v/1.8v stable. */
 	udelay(50);
 
-	/* RG_USB20_PLL_PREDIV[1:0]=2'b00 */
-	USBPHY_CLR32(0x00, (0x3 << 6));
-	/* RG_USB20_PLL_FBDIV[21:0]=22'd1814843 */
-	USBPHY_CLR32(0x30, (0x3fffff << 0));
-	USBPHY_SET32(0x30, (0x1bb13b << 0));
-	/* RG_USB20_PLL_FRA_EN=1'b1 */
-	USBPHY_SET32(0x44, (0x1 << 3));
-	/* RG_USB20_PLL_ REFCLK_SEL=1'b1 */
-	USBPHY_SET32(0x44, (0x1 << 5));
-	/* RG_USB20_PLL_BW[2:0]=3'b011 */
-	USBPHY_CLR32(0x08, (0x7 << 19));
-	USBPHY_SET32(0x08, (0x3 << 19));
-
 	/*
 	 * force_uart_en	1'b0		0x68 26
 	 * RG_UART_EN		1'b0		0x6c 16
@@ -644,18 +631,6 @@ void usb_phy_recover(void)
 	/* wait 50 usec. */
 	udelay(50);
 
-	/* RG_USB20_PLL_PREDIV[1:0]=2'b00 */
-	USBPHY_CLR32(0x00, (0x3 << 6));
-	/* RG_USB20_PLL_FBDIV[21:0]=22'd1814843 */
-	USBPHY_CLR32(0x30, (0x3fffff << 0));
-	USBPHY_SET32(0x30, (0x1bb13b << 0));
-	/* RG_USB20_PLL_FRA_EN=1'b1 */
-	USBPHY_SET32(0x44, (0x1 << 3));
-	/* RG_USB20_PLL_ REFCLK_SEL=1'b1 */
-	USBPHY_SET32(0x44, (0x1 << 5));
-	/* RG_USB20_PLL_BW[2:0]=3'b011 */
-	USBPHY_CLR32(0x08, (0x7 << 19));
-	USBPHY_SET32(0x08, (0x3 << 19));
 
 	/*
 	 * 04.force_uart_en	1'b0 0x68 26
