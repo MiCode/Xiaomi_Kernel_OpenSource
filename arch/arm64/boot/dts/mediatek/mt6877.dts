@@ -513,6 +513,11 @@
 		interrupts = <GIC_SPI 135 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+
+	kd_camera_hw1:kd_camera_hw1@1a004000 {
+		compatible = "mediatek,imgsensor";
+	};
+
 	imp_iic_wrap_c_clk: syscon@11282000 {
 		compatible = "mediatek,mt6877-imp_iic_wrap_c", "syscon";
 		reg = <0 0x11282000 0 0x1000>;
@@ -827,7 +832,7 @@
 		reg = <0 0x1000f800 0 0x1000>;
 	};
 
-	kp@10010000 {
+	keypad:kp@10010000 {
 		compatible = "mediatek,kp";
 		reg = <0 0x10010000 0 0x1000>;
 		interrupts = <GIC_SPI 106 IRQ_TYPE_EDGE_RISING>;
@@ -841,6 +846,10 @@
 	mbist_ao@10013000 {
 		compatible = "mediatek,mbist_ao";
 		reg = <0 0x10013000 0 0x1000>;
+	};
+
+	irq_nfc: irq_nfc {
+		compatible = "mediatek,irq_nfc-eint";
 	};
 
 	gpio_usage_mapping:gpio_usage_mapping {
@@ -1505,6 +1514,15 @@
 
 		/* 3. Runtime Suspend Level */
 		mediatek,rpm-level = <3>;
+	};
+
+	msdc1_ins:msdc1_ins {
+	};
+
+	md1_sim1_hot_plug_eint:md1_sim1_hot_plug_eint {
+	};
+
+	md1_sim2_hot_plug_eint:md1_sim2_hot_plug_eint {
 	};
 
 	ufs_mphy@11fa0000 {
@@ -4109,6 +4127,19 @@
 		compatible = "mediatek, mrdump_ext_rst-eint";
 		mode = "IRQ";
 		status = "okay";
+	};
+
+	gyro:gyro {
+	};
+
+	touch:touch {
+		compatible = "goodix,touch";
+	};
+
+	touch_panel:touch_panel {
+	};
+
+	alsps_mtk:alsps_mtk {
 	};
 
 	bt@18000000 {
