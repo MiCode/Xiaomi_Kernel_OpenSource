@@ -50,6 +50,9 @@
 #define MTK_UART_RX_SEL		0x24	/* Uart rx pin sel */
 #define MTK_UART_SLEEP_REQ	0x2d	/* Sleep request register */
 #define MTK_UART_SLEEP_ACK	0x2e	/* Sleep ack register */
+#define MTK_UART_DLL  0x24
+#define MTK_UART_DLH  0x25
+#define MTK_UART_FEATURE_SEL  0x27
 
 #define MTK_UART_IER_XOFFI	0x20	/* Enable XOFF character interrupt */
 #define MTK_UART_IER_RTSI	0x40	/* Enable RTS Modem status interrupt */
@@ -77,6 +80,8 @@
 #define MTK_UART_RX_SIZE	0x8000
 #define MTK_UART_TX_TRIGGER	1
 #define MTK_UART_RX_TRIGGER	MTK_UART_RX_SIZE
+
+
 
 #ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
 char uart_write_statbuf[256];
@@ -405,11 +410,14 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 	spin_lock_irqsave(&port->lock, flags);
 
 	/* set DLAB we have cval saved in up->lcr from the call to the core */
-	serial_port_out(port, UART_LCR, up->lcr | UART_LCR_DLAB);
-	serial_dl_write(up, quot);
-
+	//serial_port_out(port, UART_LCR, up->lcr | UART_LCR_DLAB);
+	//serial_dl_write(up, quot);
+	serial_port_out(port, MTK_UART_FEATURE_SEL, 0x1);
+	serial_port_out(port, MTK_UART_DLL, quot & 0xff);
+	serial_port_out(port, MTK_UART_DLH, quot >> 8 & 0xff);
+	serial_port_out(port, MTK_UART_FEATURE_SEL, 0x0);
 	/* reset DLAB */
-	serial_port_out(port, UART_LCR, up->lcr);
+	//serial_port_out(port, UART_LCR, up->lcr);
 
 	if (baud > 460800) {
 		unsigned int tmp;
@@ -794,10 +802,16 @@ static void mtk8250_save_dev(struct device *dev)
 	reg->highspeed = serial_in(up, MTK_UART_HIGHS);
 	reg->fracdiv_l = serial_in(up, MTK_UART_FRACDIV_L);
 	reg->fracdiv_m = serial_in(up, MTK_UART_FRACDIV_M);
+	#if 0
 	serial_out(up, UART_LCR, reg->lcr | UART_LCR_DLAB);
 	reg->dll = serial_in(up, UART_DLL);
 	reg->dlm = serial_in(up, UART_DLM);
 	serial_out(up, UART_LCR, reg->lcr);
+	#endif
+	serial_out(up, MTK_UART_FEATURE_SEL, 0x1);
+	reg->dll = serial_in(up, MTK_UART_DLL);
+	reg->dlm = serial_in(up, MTK_UART_DLH);
+	serial_out(up, MTK_UART_FEATURE_SEL, 0x0);
 	reg->sample_count = serial_in(up, MTK_UART_SAMPLE_COUNT);
 	reg->sample_point = serial_in(up, MTK_UART_SAMPLE_POINT);
 	reg->guard = serial_in(up, MTK_UART_GUARD);
@@ -857,10 +871,16 @@ void mtk8250_backup_dev(void)
 		reg->highspeed = serial_in(up, MTK_UART_HIGHS);
 		reg->fracdiv_l = serial_in(up, MTK_UART_FRACDIV_L);
 		reg->fracdiv_m = serial_in(up, MTK_UART_FRACDIV_M);
+		#if 0
 		serial_out(up, UART_LCR, reg->lcr | UART_LCR_DLAB);
 		reg->dll = serial_in(up, UART_DLL);
 		reg->dlm = serial_in(up, UART_DLM);
 		serial_out(up, UART_LCR, reg->lcr);
+		#endif
+		serial_out(up, MTK_UART_FEATURE_SEL, 0x1);
+		reg->dll = serial_in(up, MTK_UART_DLL);
+		reg->dlm = serial_in(up, MTK_UART_DLH);
+		serial_out(up, MTK_UART_FEATURE_SEL, 0x0);
 		reg->sample_count = serial_in(up, MTK_UART_SAMPLE_COUNT);
 		reg->sample_point = serial_in(up, MTK_UART_SAMPLE_POINT);
 		reg->guard = serial_in(up, MTK_UART_GUARD);
@@ -920,10 +940,16 @@ void mtk8250_restore_dev(void)
 		serial_out(up, MTK_UART_HIGHS, reg->highspeed);
 		serial_out(up, MTK_UART_FRACDIV_L, reg->fracdiv_l);
 		serial_out(up, MTK_UART_FRACDIV_M, reg->fracdiv_m);
+		#if 0
 		serial_out(up, UART_LCR, reg->lcr | UART_LCR_DLAB);
 		serial_out(up, UART_DLL, reg->dll);
 		serial_out(up, UART_DLM, reg->dlm);
 		serial_out(up, UART_LCR, reg->lcr);
+		#endif
+		serial_out(up, MTK_UART_FEATURE_SEL, 0x1);
+		serial_out(up, MTK_UART_DLL, reg->dll);
+		serial_out(up, MTK_UART_DLH, reg->dlm);
+		serial_out(up, MTK_UART_FEATURE_SEL, 0x0);
 		serial_out(up, MTK_UART_SAMPLE_COUNT, reg->sample_count);
 		serial_out(up, MTK_UART_SAMPLE_POINT, reg->sample_point);
 		serial_out(up, MTK_UART_GUARD, reg->guard);
