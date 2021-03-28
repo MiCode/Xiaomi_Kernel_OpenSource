@@ -583,7 +583,7 @@ pwrap: pwrap@1000d000 {
 		mediatek,gce = <&gce_mbox>;
 		mmsys_config = <&mmsys_config>;
 		mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
-		mboxes = <&gce_mbox 23 0 CMDQ_THR_PRIO_1>,
+		mboxes = <&gce_mbox 21 0 CMDQ_THR_PRIO_1>,
 			 <&gce_mbox 22 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>,
 			 <&gce_mbox_sec 11 0 CMDQ_THR_PRIO_1>;
 		token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
