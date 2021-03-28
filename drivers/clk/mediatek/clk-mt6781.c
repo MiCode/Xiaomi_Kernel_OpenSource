@@ -75,7 +75,7 @@ void __iomem *mmsys_config_base;
 void __iomem *mdpsys_config_base;
 void __iomem *venc_gcon_base;
 void __iomem *vdec_gcon_base;
-
+void __iomem *imp_base;
 
 /* CKSYS */
 #define CLK_CFG_UPDATE		(cksys_base + 0x004)
@@ -253,6 +253,8 @@ static const struct mtk_fixed_factor top_divs[] __initconst = {
 		8),
 	FACTOR(TOP_UNIVPLL_D3_D16, "univpll_d3_d16", "univpll_d3", 1,
 		16),
+	FACTOR(TOP_UNIVPLL_D3_D32, "univpll_d3_d32", "univpll_d3", 1,
+		32),
 
 	FACTOR(TOP_UNIVPLL_D5, "univpll_d5", "univpll", 1,
 		5),
@@ -298,6 +300,8 @@ static const struct mtk_fixed_factor top_divs[] __initconst = {
 
 	FACTOR(TOP_MMPLL_CK, "mmpll_ck", "mmpll", 1,
 		1),
+	FACTOR(TOP_MMPLL_D2, "mmpll_d2", "mmpll", 1,
+		2),
 	FACTOR(TOP_MMPLL_D4, "mmpll_d4", "mmpll", 1,
 		4),
 	FACTOR(TOP_MMPLL_D4_D2, "mmpll_d4_d2", "mmpll_d4", 1,
@@ -315,12 +319,16 @@ static const struct mtk_fixed_factor top_divs[] __initconst = {
 		1),
 	FACTOR(TOP_ADSPPLL_CK, "adsppll_ck", "adsppll", 1,
 		1),
+	FACTOR(TOP_ADSPPLL_D2, "adsppll_d2", "adsppll", 1,
+		2),
 	FACTOR(TOP_ADSPPLL_D4, "adsppll_d4", "adsppll", 1,
 		4),
 	FACTOR(TOP_ADSPPLL_D5, "adsppll_d5", "adsppll", 1,
 		5),
 	FACTOR(TOP_ADSPPLL_D6, "adsppll_d6", "adsppll", 1,
 		6),
+	FACTOR(TOP_ADSPPLL_D8, "adsppll_d8", "adsppll", 1,
+		8),
 
 	FACTOR(TOP_MSDCPLL_CK, "msdcpll_ck", "msdcpll", 1,
 		1),
@@ -1435,8 +1443,8 @@ static const struct mtk_gate infra_clks[] __initconst = {
 		"dxcc_sel", 27),
 	GATE_INFRA1(INFRACFG_AO_DXCC_AO_CG, "infra_dxcc_ao",
 		"dxcc_sel", 28),
-	GATE_INFRA1(INFRACFG_AO_IMP_II_CG, "infra_imp_ii",
-		"axi_sel", 29),
+	GATE_INFRA1(INFRACFG_AO_IMP_IIC_CG, "infra_imp_iic",
+		"i2c_sel", 29),
 	GATE_INFRA1(INFRACFG_AO_DEVMPU_BCLK_CG, "infra_devmpu_bclk",
 		"axi_sel", 30),
 	GATE_INFRA1(INFRACFG_AO_DRAMC_F26M_CG, "infra_dramc_f26m",
@@ -1666,6 +1674,12 @@ static const struct mtk_gate_regs audio1_cg_regs = {
 	.sta_ofs = 0x4,
 };
 
+static const struct mtk_gate_regs audio2_cg_regs = {
+	.set_ofs = 0x8,
+	.clr_ofs = 0x8,
+	.sta_ofs = 0x8,
+};
+
 #define GATE_AUDIO0(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -1680,6 +1694,15 @@ static const struct mtk_gate_regs audio1_cg_regs = {
 		.name = _name,				\
 		.parent_name = _parent,			\
 		.regs = &audio1_cg_regs,		\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops,		\
+	}
+
+#define GATE_AUDIO2(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &audio2_cg_regs,		\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops,		\
 	}
@@ -1763,6 +1786,11 @@ static const struct mtk_gate audio_clks[] __initconst = {
 		30),
 	GATE_AUDIO1(AUDIO_3RD_DAC_HIRES, "aud_3rd_dac_hires", "audio_h_sel",
 		31),
+	/* AUDIO2 */
+	GATE_AUDIO2(AUDIO_ETDM_IN1_BCLK_SW, "aud_etdm_in1_bclk", "audio_sel",
+		4),
+	GATE_AUDIO2(AUDIO_ETDM_OUT1_BCLK_SW, "aud_etdm_out1_bclk", "audio_sel",
+		5),
 };
 
 static const struct mtk_gate_regs cam_m_cg_regs = {
@@ -1793,6 +1821,8 @@ static const struct mtk_gate_regs cam_m_cg_regs = {
 static const struct mtk_gate cam_m_clks[] = {
 	GATE_CAM_M(CLK_CAM_M_LARB13, "cam_m_larb13",
 			"cam_ck"/* parent */, 0),
+	GATE_CAM_M(CLK_CAM_M_DFP_VAD, "cam_m_dfpvad",
+			"cam_ck"/* parent */, 1),
 	GATE_CAM_M(CLK_CAM_M_LARB14, "cam_m_larb14",
 			"cam_ck"/* parent */, 2),
 	GATE_CAM_M(CLK_CAM_M_RESERVED0, "cam_m_reserved0",
@@ -2174,6 +2204,12 @@ static const struct mtk_gate_regs vdec1_cg_regs = {
 	.sta_ofs = 0x8,
 };
 
+static const struct mtk_gate_regs vdec2_cg_regs = {
+	.set_ofs = 0x200,
+	.clr_ofs = 0x204,
+	.sta_ofs = 0x200,
+};
+
 #define GATE_VDEC0_I(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -2188,6 +2224,15 @@ static const struct mtk_gate_regs vdec1_cg_regs = {
 		.name = _name,				\
 		.parent_name = _parent,			\
 		.regs = &vdec1_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_inv,	\
+	}
+
+#define GATE_VDEC2_I(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &vdec2_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr_inv,	\
 	}
@@ -2210,17 +2255,30 @@ static const struct mtk_gate_regs vdec1_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr_inv_dummy,	\
 	}
 
+#define GATE_VDEC2_I_DUMMY(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &vdec2_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_inv_dummy,	\
+	}
+
 static const struct mtk_gate vdec_clks[] __initconst = {
 #if 1//MT_CCF_BRINGUP
 	/* VDEC0 */
 	GATE_VDEC0_I_DUMMY(VDEC_VDEC, "vdec_cken", "vdec_sel", 0),
 	/* VDEC1 */
 	GATE_VDEC1_I_DUMMY(VDEC_LARB1, "vdec_larb1_cken", "vdec_sel", 0),
+	/* VDEC2 */
+	GATE_VDEC2_I_DUMMY(VDEC_LAT, "vdec_lat_cken", "vdec_sel", 0),
 #else
 	/* VDEC0 */
 	GATE_VDEC0_I(VDEC_VDEC, "vdec_cken", "vdec_sel", 0),
 	/* VDEC1 */
 	GATE_VDEC1_I(VDEC_LARB1, "vdec_larb1_cken", "vdec_sel", 0),
+	/* VDEC2 */
+	GATE_VDEC2_I(VDEC_LAT, "vdec_lat_cken", "vdec_sel", 0),
 #endif
 };
 
@@ -2268,6 +2326,53 @@ static const struct mtk_gate venc_global_con_clks[] __initconst = {
 	GATE_VENC_GLOBAL_CON_DUMMY(VENC_GCON_GALS, "venc_gals",
 		"venc_sel", 28),
 #endif
+};
+
+static const struct mtk_gate_regs imp_cg_regs = {
+	.set_ofs = 0xe08,
+	.clr_ofs = 0xe04,
+	.sta_ofs = 0xe00,
+};
+
+#define GATE_IMP(_id, _name, _parent, _shift) {	\
+		.id = _id,			\
+		.name = _name,			\
+		.parent_name = _parent,		\
+		.regs = &imp_cg_regs,		\
+		.shift = _shift,		\
+		.ops = &mtk_clk_gate_ops_setclr,\
+	}
+
+#define GATE_IMP_DUMMY(_id, _name, _parent, _shift) {	\
+		.id = _id,			\
+		.name = _name,			\
+		.parent_name = _parent,		\
+		.regs = &imp_cg_regs,		\
+		.shift = _shift,		\
+		.ops = &mtk_clk_gate_ops_dummy,	\
+	}
+
+static const struct mtk_gate imp_clks[] __initconst = {
+	GATE_IMP(CLK_IMP_AP_CLOCK_RO_I2C0, "imp_ap_i2c0",
+			"infra_imp_iic"/* parent */, 0),
+	GATE_IMP(CLK_IMP_AP_CLOCK_RO_I2C1, "imp_ap_i2c1",
+			"infra_imp_iic"/* parent */, 1),
+	GATE_IMP(CLK_IMP_AP_CLOCK_RO_I2C2, "imp_ap_i2c2",
+			"infra_imp_iic"/* parent */, 2),
+	GATE_IMP(CLK_IMP_AP_CLOCK_RO_I2C3, "imp_ap_i2c3",
+			"infra_imp_iic"/* parent */, 3),
+	GATE_IMP(CLK_IMP_AP_CLOCK_RO_I2C4, "imp_ap_i2c4",
+			"infra_imp_iic"/* parent */, 4),
+	GATE_IMP(CLK_IMP_AP_CLOCK_RO_I2C5, "imp_ap_i2c5",
+			"infra_imp_iic"/* parent */, 5),
+	GATE_IMP(CLK_IMP_AP_CLOCK_RO_I2C6, "imp_ap_i2c6",
+			"infra_imp_iic"/* parent */, 6),
+	GATE_IMP(CLK_IMP_AP_CLOCK_RO_I2C7, "imp_ap_i2c7",
+			"infra_imp_iic"/* parent */, 7),
+	GATE_IMP(CLK_IMP_AP_CLOCK_RO_I2C8, "imp_ap_i2c8",
+			"infra_imp_iic"/* parent */, 8),
+	GATE_IMP(CLK_IMP_AP_CLOCK_RO_I2C9, "imp_ap_i2c9",
+			"infra_imp_iic"/* parent */, 9),
 };
 
 static void __init mtk_topckgen_init(struct device_node *node)
@@ -2958,6 +3063,32 @@ static void __init mtk_venc_global_con_init(struct device_node *node)
 }
 CLK_OF_DECLARE_DRIVER(mtk_venc_global_con, "mediatek,venc_gcon",
 		mtk_venc_global_con_init);
+
+static void __init mtk_imp_iic_wrap_init(struct device_node *node)
+{
+	struct clk_onecell_data *clk_data;
+	void __iomem *base;
+	int r;
+
+	base = of_iomap(node, 0);
+	if (!base) {
+		pr_notice("%s(): ioremap failed\n", __func__);
+		return;
+	}
+	clk_data = mtk_alloc_clk_data(CLK_IMP_NR_CLK);
+
+	mtk_clk_register_gates(node, imp_clks, ARRAY_SIZE(imp_clks), clk_data);
+
+	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+
+	if (r) {
+		pr_notice("%s(): could not register clock provider: %d\n",
+			__func__, r);
+		kfree(clk_data);
+	}
+	imp_base = base;
+}
+CLK_OF_DECLARE_DRIVER(mtk_imp_iic_wrap, "mediatek,imp_iic_wrap", mtk_imp_iic_wrap_init);
 
 void check_seninf_ck(void)
 {

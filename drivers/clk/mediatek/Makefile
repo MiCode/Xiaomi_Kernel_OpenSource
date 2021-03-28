@@ -12,7 +12,7 @@ obj-$(CONFIG_COMMON_CLK_MEDIATEK) += clk-fixup-div.o clk-mtk.o clk-pll.o clk-gat
 obj-$(CONFIG_RESET_CONTROLLER) += reset.o
 ifneq ($(CONFIG_FPGA_EARLY_PORTING), y)
 obj-$(CONFIG_COMMON_CLK_MT6785) += clk-mt6785.o clk-mt6785-pg.o clk-mtk-v1.o clkdbg.o clkchk.o clkdbg-mt6785.o clkchk-mt6785.o
-obj-$(CONFIG_COMMON_CLK_MT6781) += clk-mt6781.o clk-mt6781-pg.o clk-mtk-v1.o clkdbg.o clkchk.o clkdbg-mt6781.o clkchk-mt6781.o
+obj-$(CONFIG_COMMON_CLK_MT6781) += clk-mt6781.o clk-mt6781-pg.o clk-mtk-v1.o clkdbg.o clkchk.o clkdbg-mt6781.o clkchk-mt6781.o clk-bringup.o
 obj-$(CONFIG_COMMON_CLK_MT6873) += clk-mt6873.o clk-mt6873-pg.o clk-mtk-v1.o clkdbg.o clkdbg-mt6873.o clkchk.o clkchk-mt6873.o clk-fmeter-mt6873.o
 obj-$(CONFIG_COMMON_CLK_MT6885) += clk-mt6885.o clk-mt6885-pg.o clk-mtk-v1.o clkdbg.o clkdbg-mt6885.o clkchk.o clkchk-mt6885.o clk-fmeter-mt6885.o
 obj-$(CONFIG_COMMON_CLK_MT6893) += clk-mt6885.o clk-mt6885-pg.o clk-mtk-v1.o clkdbg.o clkdbg-mt6885.o clkchk.o clkchk-mt6885.o clk-fmeter-mt6885.o
