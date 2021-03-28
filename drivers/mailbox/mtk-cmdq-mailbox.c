@@ -995,7 +995,6 @@ static bool cmdq_thread_timeout_excceed(struct cmdq_thread *thread)
 	if (duration < thread->timeout_ms) {
 		mod_timer(&thread->timeout, jiffies +
 			msecs_to_jiffies(thread->timeout_ms - duration));
-		thread->timer_mod = sched_clock();
 		cmdq_msg(
 			"thread:%u usage:%d mod time:%llu dur:%llu timeout not excceed",
 			thread->idx, atomic_read(&cmdq->usage),
