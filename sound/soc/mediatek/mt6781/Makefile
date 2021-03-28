@@ -17,7 +17,7 @@ snd-soc-mt6781-afe-objs := \
 obj-$(CONFIG_SND_SOC_MT6781) += snd-soc-mt6781-afe.o
 
 # machine driver
-obj-$(CONFIG_SND_SOC_MT6781_MT6358) += mt6781-mt6366.o
+obj-$(CONFIG_SND_SOC_MT6781_MT6366) += mt6781-mt6366.o
 
 # MENU Governor Predict(low power)
 ifeq ($(CONFIG_MTK_ACAO_SUPPORT),y)
