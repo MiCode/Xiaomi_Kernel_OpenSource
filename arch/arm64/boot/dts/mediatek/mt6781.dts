@@ -977,6 +977,11 @@
 		reg = <0 0x1100b000 0 0x1000>;
 	};
 
+	cpumssv: cpumssv {
+		compatible = "mediatek,cpumssv";
+		state = <0>;
+	};
+
 	btif@1100c000 {
 		compatible = "mediatek,btif";
 		reg = <0 0x1100c000 0 0x1000>;
