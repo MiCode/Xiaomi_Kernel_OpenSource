@@ -170,6 +170,7 @@ config MACH_MT6781
 	select ARM64_CRYPTO
 	select CRYPTO_SHA2_ARM64_CE
 	select CRYPTO_AES_ARM64_CE_BLK
+	select MTK_UNIFIED_DEBUG_INTERFACE
 	help
 	  This enables support for MediaTek MT6781
 	  Support for aarch64 Architecture
