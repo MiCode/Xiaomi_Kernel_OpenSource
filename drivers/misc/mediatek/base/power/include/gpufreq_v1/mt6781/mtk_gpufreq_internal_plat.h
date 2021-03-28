@@ -19,7 +19,7 @@
  *         disable DDK power on/off callback
  **************************************************/
 //MT6781_TODO disable bringup  enable POWER CTL & DVFS
-#define MT_GPUFREQ_POWER_CTL_ENABLE	0
+#define MT_GPUFREQ_POWER_CTL_ENABLE	1
 
 /**************************************************
  * (DVFS_ENABLE, CUST_CONFIG)
