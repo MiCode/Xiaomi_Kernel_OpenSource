@@ -83,6 +83,10 @@ extern "C" {
 #include "mtk_unified_power_mt6833.h"
 #endif
 
+#if defined(CONFIG_MACH_MT6877)
+#include "mtk_unified_power_mt6877.h"
+#endif
+
 #if defined(CONFIG_MACH_MT8168)
 #include "mtk_unified_power_mt8168.h"
 #endif
