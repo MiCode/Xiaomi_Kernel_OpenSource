@@ -542,7 +542,7 @@ void apusys_frequency_check(void)
 			if (apusys_power_on == false &&
 #ifndef CONFIG_MACH_MT6853
 			apusys_opps.is_power_on[EDMA] == false &&
-#ifndef CONFIG_MACH_MT6873
+#if !defined(CONFIG_MACH_MT6873) && !defined(CONFIG_MACH_MT6877)
 			apusys_opps.is_power_on[EDMA2] == false &&
 #endif
 #endif
