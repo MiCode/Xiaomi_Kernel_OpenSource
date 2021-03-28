@@ -178,7 +178,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.cmd_online = "prot_sharedmem=on",
 		.cmd_offline = "prot_sharedmem=off",
 		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
-				FACE_UNLOCK_FLAGS
+				FACE_UNLOCK_FLAGS | SVP_FLAGS
 	},
 #endif
 #ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
