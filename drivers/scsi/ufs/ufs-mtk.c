@@ -2710,6 +2710,10 @@ static void ufs_mtk_event_notify(struct ufs_hba *hba,
 		return;
 	}
 
+	if ((evt == UFS_EVT_SUSPEND_ERR && val == -EAGAIN) ||
+		(evt == UFS_EVT_PERF_WARN))
+		return;
+
 	trace_ufs_mtk_event(evt, val);
 }
 
