@@ -27,7 +27,7 @@
 
 #ifdef FPGA_PLATFORM
 #include <linux/i2c.h>
-#include "mtk-phy-a60810.h"
+#include "phy-mtk-fpga.h"
 #endif
 
 #ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
@@ -1073,6 +1073,280 @@ u32 u3_phy_write_reg8(u32 addr, u8 data)
 	return 0;
 }
 
+int phy_init_a60931(struct u3phy_info *info)
+{
+	/* 0xFC[31:24], Change bank address to 0 */
+	//phy_writeb(i2c, 0x60, 0xff, 0x0);
+	/* 0x14[14:12],  RG_USB20_HSTX_SRCTRL, set U2 slew rate as 4 */
+	u3_phy_write_field32(((u32)&info->u2phy_regs_a->usbphyacr5),
+		A60931_RG_USB20_HSTX_SRCTRL_OFST, A60931_RG_USB20_HSTX_SRCTRL, 0x4);
+
+	/* 0x18[23:23],  RG_USB20_BC11_SW_EN, Disable BC 1.1 */
+	//phy_writelmsk(i2c, 0x60, 0x18, 23, BIT(23), 0x0);
+	u3_phy_write_field32(((u32)&info->u2phy_regs_a->usbphyacr6),
+		A60931_RG_USB20_BC11_SW_EN_OFST, A60931_RG_USB20_BC11_SW_EN, 0x0);
+
+	/* 0x68[18:18],  force_suspendm = 0 */
+	//phy_writelmsk(i2c, 0x60, 0x68, 18, BIT(18), 0x0);
+	u3_phy_write_field32(((u32)&info->u2phy_regs_a->u2phydtm0),
+		A60931_FORCE_SUSPENDM_OFST, A60931_FORCE_SUSPENDM, 0x0);
+
+	/* 0xFC[31:24], Change bank address to 0x30 */
+	//phy_writeb(i2c, 0x60, 0xff, 0x30);
+	/* 0x04[29:29],  RG_VUSB10_ON, SSUSB 1.0V power ON */
+	//phy_writelmsk(i2c, 0x60, 0x04, 29, BIT(29), 0x1);
+	u3_phy_write_field32(((u32)&info->u3phya_regs_a->reg1),
+		A60931_RG_VUSB10_ON_OFST, A60931_RG_VUSB10_ON, 0x1);
+
+	/* 0x04[25:21], RG_SSUSB_XTAL_TOP_RESERVE */
+	//phy_writelmsk(i2c, 0x60, 0x04, 21, GENMASK(25, 21), 0x11);
+	u3_phy_write_field32(((u32)&info->u3phya_regs_a->reg1),
+		A60931_RG_SSUSB_XTAL_TOP_RESERVE_OFST,
+		A60931_RG_SSUSB_XTAL_TOP_RESERVE, 0x11);
+
+	/* 0xFC[31:24], Change bank address to 0x40 */
+	//phy_writeb(i2c, 0x60, 0xff, 0x40);
+
+	/* 0x38[15:0], DA_SSUSB_PLL_SSC_DELTA1 */
+	/* fine tune SSC delta1 to let SSC min average ~0ppm */
+	//phy_writelmsk(i2c, 0x60, 0x38, 0, GENMASK(15, 0)<<0, 0x47);
+	u3_phy_write_field32(((u32)&info->u3phya_da_regs_a->reg19),
+		A60931_RG_SSUSB_PLL_SSC_DELTA1_U3_OFST,
+		A60931_RG_SSUSB_PLL_SSC_DELTA1_U3, 0x47);
+
+	/* 0x40[31:16], DA_SSUSB_PLL_SSC_DELTA */
+	/* fine tune SSC delta to let SSC min average ~0ppm */
+	//phy_writelmsk(i2c, 0x60, 0x40, 16, GENMASK(31, 16), 0x44);
+	u3_phy_write_field32(((u32)&info->u3phya_da_regs_a->reg21),
+		A60931_RG_SSUSB_PLL_SSC_DELTA_U3_OFST,
+		A60931_RG_SSUSB_PLL_SSC_DELTA_U3, 0x44);
+
+	/* 0xFC[31:24], Change bank address to 0x30 */
+	//phy_writeb(i2c, 0x60, 0xff, 0x30);
+	/* 0x14[15:0],  RG_SSUSB_PLL_SSC_PRD */
+	/* fine tune SSC PRD to let SSC freq average 31.5KHz */
+	//phy_writelmsk(i2c, 0x60, 0x14, 0, GENMASK(15, 0), 0x190);
+	u3_phy_write_field32(((u32)&info->u3phya_regs_a->reg7),
+		A60931_RG_SSUSB_PLL_SSC_PRD_OFST, A60931_RG_SSUSB_PLL_SSC_PRD, 0x190);
+
+	/* ToDo: PCIE CODA A60931A_PCIE_GLB_CSR_Description */
+#ifdef CONFIG_A60931_PCIE
+	/* 0xFC[31:24], Change bank address to 0x70 */
+	//phy_writeb(i2c, 0x70, 0xff, 0x70);
+	/* 0x88[3:2], Pipe reset, clk driving current */
+	phy_writelmsk(i2c, 0x70, 0x88, 2, GENMASK(3, 2), 0x1);
+	/* 0x88[5:4], Data lane 0 driving current */
+	phy_writelmsk(i2c, 0x70, 0x88, 4, GENMASK(5, 4), 0x1);
+	/* 0x88[7:6], Data lane 1 driving current */
+	phy_writelmsk(i2c, 0x70, 0x88, 6, GENMASK(7, 6), 0x1);
+	/* 0x88[9:8], Data lane 2 driving current */
+	phy_writelmsk(i2c, 0x70, 0x88, 8, GENMASK(9, 8), 0x1);
+	/* 0x88[11:10], Data lane 3 driving current */
+	phy_writelmsk(i2c, 0x70, 0x88, 10, GENMASK(11, 10), 0x1);
+	/* 0x9C[4:0],  rg_ssusb_ckphase, PCLK phase 0x00~0x1F */
+	phy_writelmsk(i2c, 0x70, 0x9c, 0, GENMASK(4, 0), 0x19);
+#endif
+	/* Set INTR & TX/RX Impedance */
+
+	/* 0xFC[31:24], Change bank address to 0x30 */
+	//phy_writeb(i2c, 0x60, 0xff, 0x30);
+
+	/* 0x00[26:26],  RG_SSUSB_INTR_EN */
+	//phy_writelmsk(i2c, 0x60, 0x00, 26, BIT(26), 0x1);
+	u3_phy_write_field32(((u32)&info->u3phya_regs_a->reg0),
+		A60931_RG_SSUSB_INTR_EN_OFST, A60931_RG_SSUSB_INTR_EN, 0x1);
+
+	/* 0x00[15:10],  RG_SSUSB_IEXT_INTR_CTRL, Set Iext R selection */
+	//phy_writelmsk(i2c, 0x60, 0x00, 10, GENMASK(15, 10), 0x26);
+	u3_phy_write_field32(((u32)&info->u3phya_regs_a->reg0),
+		A60931_RG_SSUSB_IEXT_INTR_CTRL_OFST, A60931_RG_SSUSB_IEXT_INTR_CTRL, 0x26);
+
+	/* 0xFC[31:24], Change bank address to 0x10 */
+	//phy_writeb(i2c, 0x60, 0xff, 0x10);
+
+	/* 0x10[31:31],  rg_ssusb_force_tx_impsel,  enable */
+	//phy_writelmsk(i2c, 0x60, 0x10, 31, BIT(31), 0x1);
+	u3_phy_write_field32(((u32)&info->u3phyd_regs_a->phyd_impcal0),
+		A60931_RG_SSUSB_FORCE_TX_IMPSEL_OFST, A60931_RG_SSUSB_FORCE_TX_IMPSEL, 0x1);
+
+	/* 0x10[28:24],  rg_ssusb_tx_impsel, Set TX Impedance */
+	//phy_writelmsk(i2c, 0x60, 0x10, 24, GENMASK(28, 24), 0x10);
+	u3_phy_write_field32(((u32)&info->u3phyd_regs_a->phyd_impcal0),
+		A60931_RG_SSUSB_TX_IMPSEL_OFST, A60931_RG_SSUSB_RX_IMPSEL, 0x10);
+
+	/* 0x14[31:31],  rg_ssusb_force_rx_impsel, enable */
+	//phy_writelmsk(i2c, 0x60, 0x14, 31, BIT(31), 0x1);
+	u3_phy_write_field32(((u32)&info->u3phyd_regs_a->phyd_impcal1),
+		A60931_RG_SSUSB_FORCE_RX_IMPSEL_OFST, A60931_RG_SSUSB_FORCE_RX_IMPSEL, 0x1);
+
+	/* 0x14[28:24],  rg_ssusb_rx_impsel, Set RX Impedance */
+	//phy_writelmsk(i2c, 0x60, 0x14, 24, GENMASK(28, 24), 0x10);
+	u3_phy_write_field32(((u32)&info->u3phyd_regs_a->phyd_impcal1),
+		A60931_RG_SSUSB_RX_IMPSEL_OFST, A60931_RG_SSUSB_RX_IMPSEL, 0x10);
+
+	/* 0xFC[31:24], Change bank address to 0x00 */
+	//phy_writeb(i2c, 0x60, 0xff, 0x00);
+	/* 0x00[05:05],  RG_USB20_INTR_EN, U2 INTR_EN */
+	//phy_writelmsk(i2c, 0x60, 0x00, 5, BIT(5), 0x1);
+	u3_phy_write_field32(((u32)&info->u2phy_regs_a->usbphyacr0),
+		A60931_RG_USB20_INTR_EN_OFST, A60931_RG_USB20_INTR_EN, 0x1);
+
+	/* 0x04[23:19],  RG_USB20_INTR_CAL, Set Iext R selection */
+	//phy_writelmsk(i2c, 0x60, 0x04, 19, GENMASK(23, 19), 0x14);
+	u3_phy_write_field32(((u32)&info->u2phy_regs_a->usbphyacr1),
+		A60931_RG_USB20_INTR_CAL_OFST, A60931_RG_USB20_INTR_CAL, 0x14);
+
+	return 0;
+}
+
+int phy_init_a60810(struct u3phy_info *info)
+{
+	/* BANK 0x00 */
+	/* for U2 hS eye diagram */
+	u3_phy_write_field32(((u32)
+		&info->u2phy_regs_a->usbphyacr1)
+		, A60810_RG_USB20_TERM_VREF_SEL_OFST
+		, A60810_RG_USB20_TERM_VREF_SEL
+		, 0x05);
+	/* for U2 hS eye diagram */
+	u3_phy_write_field32(((u32)
+		&info->u2phy_regs_a->usbphyacr1)
+		, A60810_RG_USB20_VRT_VREF_SEL_OFST
+		, A60810_RG_USB20_VRT_VREF_SEL
+		, 0x05);
+	/* for U2 sensititvity */
+	u3_phy_write_field32(((u32)
+		&info->u2phy_regs_a->usbphyacr6)
+		, A60810_RG_USB20_SQTH_OFST
+		, A60810_RG_USB20_SQTH
+		, 0x04);
+
+	/* BANK 0x10 */
+	/* disable ssusb_p3_entry to work around resume from P3 bug */
+	u3_phy_write_field32(((u32)
+		&info->u3phyd_regs_a->phyd_lfps0)
+		, A60810_RG_SSUSB_P3_ENTRY_OFST
+		, A60810_RG_SSUSB_P3_ENTRY
+		, 0x00);
+	/* force disable ssusb_p3_entry to
+	 * work around resume from P3 bug
+	 */
+	u3_phy_write_field32(((u32)
+		&info->u3phyd_regs_a->phyd_lfps0)
+		, A60810_RG_SSUSB_P3_ENTRY_SEL_OFST
+		, A60810_RG_SSUSB_P3_ENTRY_SEL
+		, 0x01);
+
+	/* BANK 0x40 */
+	/* fine tune SSC delta1 to let SSC min average ~0ppm */
+	u3_phy_write_field32(((u32)
+		&info->u3phya_da_regs_a->reg19)
+		, A60810_RG_SSUSB_PLL_SSC_DELTA1_U3_OFST
+		, A60810_RG_SSUSB_PLL_SSC_DELTA1_U3
+		, 0x46);
+	/* U3PhyWriteField32(((u32)&info.u3phya_da_regs_a->reg19) */
+	u3_phy_write_field32(((u32)
+		&info->u3phya_da_regs_a->reg21)
+		, A60810_RG_SSUSB_PLL_SSC_DELTA1_PE1H_OFST
+		, A60810_RG_SSUSB_PLL_SSC_DELTA1_PE1H
+		, 0x40);
+
+	/* fine tune SSC delta to let SSC min average ~0ppm */
+
+	/* Fine tune SYSPLL to improve phase noise */
+	/* I2C  60    0x08[01:00]	0x03
+	 * RW  RG_SSUSB_PLL_BC_U3
+	 */
+	u3_phy_write_field32(((u32)
+		&info->u3phya_da_regs_a->reg4)
+		, A60810_RG_SSUSB_PLL_BC_U3_OFST
+		, A60810_RG_SSUSB_PLL_BC_U3
+		, 0x3);
+	/* I2C  60    0x08[12:10]	0x03
+	 * RW  RG_SSUSB_PLL_DIVEN_U3
+	 */
+	u3_phy_write_field32(((u32)
+		&info->u3phya_da_regs_a->reg4)
+		, A60810_RG_SSUSB_PLL_DIVEN_U3_OFST
+		, A60810_RG_SSUSB_PLL_DIVEN_U3
+		, 0x3);
+	/* I2C  60    0x0C[03:00]	0x01   RW  RG_SSUSB_PLL_IC_U3 */
+	u3_phy_write_field32(((u32)
+		&info->u3phya_da_regs_a->reg5)
+		, A60810_RG_SSUSB_PLL_IC_U3_OFST
+		, A60810_RG_SSUSB_PLL_IC_U3
+		, 0x1);
+	/* I2C  60    0x0C[23:22]	0x01   RW  RG_SSUSB_PLL_BR_U3 */
+	u3_phy_write_field32(((u32)
+		&info->u3phya_da_regs_a->reg5)
+		, A60810_RG_SSUSB_PLL_BR_U3_OFST
+		, A60810_RG_SSUSB_PLL_BR_U3
+		, 0x1);
+	/* I2C  60    0x10[03:00]	0x01
+	 * RW  RG_SSUSB_PLL_IR_U3
+	 */
+	u3_phy_write_field32(((u32)
+		&info->u3phya_da_regs_a->reg6)
+		, A60810_RG_SSUSB_PLL_IR_U3_OFST
+		, A60810_RG_SSUSB_PLL_IR_U3
+		, 0x1);
+	/* I2C  60    0x14[03:00]	0x0F   RW  RG_SSUSB_PLL_BP_U3 */
+	u3_phy_write_field32(((u32)
+		&info->u3phya_da_regs_a->reg7)
+		, A60810_RG_SSUSB_PLL_BP_U3_OFST
+		, A60810_RG_SSUSB_PLL_BP_U3
+		, 0x0f);
+
+	/* BANK 0x60 */
+	/* force xtal pwd mode enable */
+	u3_phy_write_field32(((u32)
+		&info->spllc_regs_a->u3d_xtalctl_2)
+		, A60810_RG_SSUSB_FORCE_XTAL_PWD_OFST
+		, A60810_RG_SSUSB_FORCE_XTAL_PWD
+		, 0x1);
+	/* force bias pwd mode enable */
+	u3_phy_write_field32(((u32)
+		&info->spllc_regs_a->u3d_xtalctl_2)
+		, A60810_RG_SSUSB_FORCE_BIAS_PWD_OFST
+		, A60810_RG_SSUSB_FORCE_BIAS_PWD
+		, 0x1);
+	/* force xtal pwd mode off to work around xtal drv de */
+	u3_phy_write_field32(((u32)
+		&info->spllc_regs_a->u3d_xtalctl_2)
+		, A60810_RG_SSUSB_XTAL_PWD_OFST
+		, A60810_RG_SSUSB_XTAL_PWD
+		, 0x0);
+	/* force bias pwd mode off to work around xtal drv de */
+	u3_phy_write_field32(((u32)
+		&info->spllc_regs_a->u3d_xtalctl_2)
+		, A60810_RG_SSUSB_BIAS_PWD_OFST
+		, A60810_RG_SSUSB_BIAS_PWD
+		, 0x0);
+
+	/********* test chip settings ***********/
+	/* BANK 0x00 */
+	/* slew rate setting */
+	u3_phy_write_field32(((u32)
+		&info->u2phy_regs_a->usbphyacr5)
+		, A60810_RG_USB20_HSTX_SRCTRL_OFST
+		, A60810_RG_USB20_HSTX_SRCTRL
+		, 0x4);
+
+	/* BANK 0x50 */
+
+	/* PIPE setting  BANK5 */
+	/* PIPE drv = 2 */
+	u3_phy_write_reg8(((u32)
+			&info->sifslv_chip_regs_a->gpio_ctla) + 2, 0x10);
+	/* PIPE phase */
+	/* U3PhyWriteReg8(((u32)&info.sifslv_chip_regs_a->gpio_ctla)+3, */
+	/* 0xdc); */
+	u3_phy_write_reg8(((u32)
+			&info->sifslv_chip_regs_a->gpio_ctla) + 3, 0x24);
+
+	return 0;
+}
+
 static int usb_i2c_probe(struct i2c_client *client,
 						const struct i2c_device_id *id)
 {
@@ -1087,14 +1361,14 @@ static int usb_i2c_probe(struct i2c_client *client,
 
 	/* disable usb mac suspend */
 	val = musb_readl(base, 0x68);
-	DBG(0, "[MUSB]0x68=0x%x\n", val);
+	/* DBG(0, "[MUSB]0x68=0x%x\n", val); */
 
 	musb_writel(base, 0x68, (val & ~(0x4 << 16)));
 
-	DBG(0, "[MUSB]0x68=0x%x\n"
-			"[MUSB]addr: 0xFF, value: %x\n",
-			musb_readl(base, 0x68),
-			USB_PHY_Read_Register8(0xFF));
+	/* DBG(0, "[MUSB]0x68=0x%x\n"                    */
+	/*		"[MUSB]addr: 0xFF, value: %x\n", */
+	/*		musb_readl(base, 0x68),          */
+	/*		USB_PHY_Read_Register8(0xFF));   */
 
 	USB_PHY_Write_Register8(0x20, 0xFF);
 
@@ -1107,7 +1381,7 @@ static int usb_i2c_probe(struct i2c_client *client,
 	if (USB_PHY_Read_Register8(0xE7) == 0xa) {
 		static struct u3phy_info info;
 
-		DBG(0, "[A60801A] Phy version is %x\n",
+		DBG(0, "[MUSB] Phy version is %x\n",
 					u3_phy_read_reg32(0x2000e4));
 
 		info.u2phy_regs_a = (struct u2phy_reg_a *)0x0;
@@ -1120,149 +1394,14 @@ static int usb_i2c_probe(struct i2c_client *client,
 		info.spllc_regs_a = (struct spllc_reg_a *)0x600000;
 		info.sifslv_fm_regs_a = (struct sifslv_fm_reg_a *)0xf00000;
 
-		/* BANK 0x00 */
-		/* for U2 hS eye diagram */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.u2phy_regs_a->usbphyacr1)
-			, A60810_RG_USB20_TERM_VREF_SEL_OFST
-			, A60810_RG_USB20_TERM_VREF_SEL
-			, 0x05);
-		/* for U2 hS eye diagram */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.u2phy_regs_a->usbphyacr1)
-			, A60810_RG_USB20_VRT_VREF_SEL_OFST
-			, A60810_RG_USB20_VRT_VREF_SEL
-			, 0x05);
-		/* for U2 sensititvity */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.u2phy_regs_a->usbphyacr6)
-			, A60810_RG_USB20_SQTH_OFST
-			, A60810_RG_USB20_SQTH
-			, 0x04);
+		if (u3_phy_read_reg32(0x2000e4) == 0xa60810a) {
+			/* DBG(0, "[MUSB] PHY A60810 init\n"); */
+			phy_init_a60810(&info);
+		} else if (u3_phy_read_reg32(0x2000e4) == 0xa60931a) {
+			/* DBG(0, "[MUSB] PHY A60931 init\n"); */
+			phy_init_a60931(&info);
+		}
 
-		/* BANK 0x10 */
-		/* disable ssusb_p3_entry to work around resume from P3 bug */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.u3phyd_regs_a->phyd_lfps0)
-			, A60810_RG_SSUSB_P3_ENTRY_OFST
-			, A60810_RG_SSUSB_P3_ENTRY
-			, 0x00);
-		/* force disable ssusb_p3_entry to
-		 * work around resume from P3 bug
-		 */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.u3phyd_regs_a->phyd_lfps0)
-			, A60810_RG_SSUSB_P3_ENTRY_SEL_OFST
-			, A60810_RG_SSUSB_P3_ENTRY_SEL
-			, 0x01);
-
-		/* BANK 0x40 */
-		/* fine tune SSC delta1 to let SSC min average ~0ppm */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.u3phya_da_regs_a->reg19)
-			, A60810_RG_SSUSB_PLL_SSC_DELTA1_U3_OFST
-			, A60810_RG_SSUSB_PLL_SSC_DELTA1_U3
-			, 0x46);
-		/* U3PhyWriteField32(((u32)&info.u3phya_da_regs_a->reg19) */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.u3phya_da_regs_a->reg21)
-			, A60810_RG_SSUSB_PLL_SSC_DELTA1_PE1H_OFST
-			, A60810_RG_SSUSB_PLL_SSC_DELTA1_PE1H
-			, 0x40);
-
-		/* fine tune SSC delta to let SSC min average ~0ppm */
-
-		/* Fine tune SYSPLL to improve phase noise */
-		/* I2C  60    0x08[01:00]	0x03
-		 * RW  RG_SSUSB_PLL_BC_U3
-		 */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.u3phya_da_regs_a->reg4)
-			, A60810_RG_SSUSB_PLL_BC_U3_OFST
-			, A60810_RG_SSUSB_PLL_BC_U3
-			, 0x3);
-		/* I2C  60    0x08[12:10]	0x03
-		 * RW  RG_SSUSB_PLL_DIVEN_U3
-		 */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.u3phya_da_regs_a->reg4)
-			, A60810_RG_SSUSB_PLL_DIVEN_U3_OFST
-			, A60810_RG_SSUSB_PLL_DIVEN_U3
-			, 0x3);
-		/* I2C  60    0x0C[03:00]	0x01   RW  RG_SSUSB_PLL_IC_U3 */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.u3phya_da_regs_a->reg5)
-			, A60810_RG_SSUSB_PLL_IC_U3_OFST
-			, A60810_RG_SSUSB_PLL_IC_U3
-			, 0x1);
-		/* I2C  60    0x0C[23:22]	0x01   RW  RG_SSUSB_PLL_BR_U3 */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.u3phya_da_regs_a->reg5)
-			, A60810_RG_SSUSB_PLL_BR_U3_OFST
-			, A60810_RG_SSUSB_PLL_BR_U3
-			, 0x1);
-		/* I2C  60    0x10[03:00]	0x01
-		 * RW  RG_SSUSB_PLL_IR_U3
-		 */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.u3phya_da_regs_a->reg6)
-			, A60810_RG_SSUSB_PLL_IR_U3_OFST
-			, A60810_RG_SSUSB_PLL_IR_U3
-			, 0x1);
-		/* I2C  60    0x14[03:00]	0x0F   RW  RG_SSUSB_PLL_BP_U3 */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.u3phya_da_regs_a->reg7)
-			, A60810_RG_SSUSB_PLL_BP_U3_OFST
-			, A60810_RG_SSUSB_PLL_BP_U3
-			, 0x0f);
-
-		/* BANK 0x60 */
-		/* force xtal pwd mode enable */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.spllc_regs_a->u3d_xtalctl_2)
-			, A60810_RG_SSUSB_FORCE_XTAL_PWD_OFST
-			, A60810_RG_SSUSB_FORCE_XTAL_PWD
-			, 0x1);
-		/* force bias pwd mode enable */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.spllc_regs_a->u3d_xtalctl_2)
-			, A60810_RG_SSUSB_FORCE_BIAS_PWD_OFST
-			, A60810_RG_SSUSB_FORCE_BIAS_PWD
-			, 0x1);
-		/* force xtal pwd mode off to work around xtal drv de */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.spllc_regs_a->u3d_xtalctl_2)
-			, A60810_RG_SSUSB_XTAL_PWD_OFST
-			, A60810_RG_SSUSB_XTAL_PWD
-			, 0x0);
-		/* force bias pwd mode off to work around xtal drv de */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.spllc_regs_a->u3d_xtalctl_2)
-			, A60810_RG_SSUSB_BIAS_PWD_OFST
-			, A60810_RG_SSUSB_BIAS_PWD
-			, 0x0);
-
-		/********* test chip settings ***********/
-		/* BANK 0x00 */
-		/* slew rate setting */
-		u3_phy_write_field32(((phys_addr_t)(uintptr_t)
-			&info.u2phy_regs_a->usbphyacr5)
-			, A60810_RG_USB20_HSTX_SRCTRL_OFST
-			, A60810_RG_USB20_HSTX_SRCTRL
-			, 0x4);
-
-		/* BANK 0x50 */
-
-		/* PIPE setting  BANK5 */
-		/* PIPE drv = 2 */
-		u3_phy_write_reg8(((phys_addr_t)(uintptr_t)
-				&info.sifslv_chip_regs_a->gpio_ctla) + 2, 0x10);
-		/* PIPE phase */
-		/* U3PhyWriteReg8(((u32)&info.sifslv_chip_regs_a->gpio_ctla)+3,
-		 * 0xdc);
-		 */
-		u3_phy_write_reg8(((phys_addr_t)(uintptr_t)
-				&info.sifslv_chip_regs_a->gpio_ctla) + 3, 0x24);
 	} else {
 		USB_PHY_Write_Register8(0x00, 0xFF);
 
