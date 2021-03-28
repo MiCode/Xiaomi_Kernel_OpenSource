@@ -132,6 +132,8 @@ struct gt9896s_ts_board_data {
 	/* For MTK Internal Touch End */
 
 	unsigned int swap_axis;
+	unsigned int lcm_max_x;
+	unsigned int lcm_max_y;
 	unsigned int panel_max_x;
 	unsigned int panel_max_y;
 	unsigned int panel_max_w; /*major and minor*/

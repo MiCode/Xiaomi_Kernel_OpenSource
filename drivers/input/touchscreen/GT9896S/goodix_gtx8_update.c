@@ -163,7 +163,7 @@ struct fw_update_ctrl {
 	struct gt9896s_ts_device *ts_dev;
 	struct gt9896s_ts_core *core_data;
 
-	char fw_name[32];
+	char fw_name[64];
 	struct bin_attribute attr_fwimage;
 };
 static struct fw_update_ctrl gt9896s_fw_update_ctrl;
@@ -1524,11 +1524,27 @@ static int gt9896s_fw_update_init(struct gt9896s_ts_core *core_data,
 		strlcpy(gt9896s_fw_update_ctrl.fw_name, ts_bdata->fw_name,
 			sizeof(gt9896s_fw_update_ctrl.fw_name));
 	else {
-		ret = snprintf(gt9896s_fw_update_ctrl.fw_name,
-			sizeof(gt9896s_fw_update_ctrl.fw_name),
-			"%s%s.bin",
-			TS_DEFAULT_FIRMWARE,
-			gt9896s_firmware_buf);
+		if (ts_bdata->lcm_max_x == 1080 && ts_bdata->lcm_max_y == 2280) {
+			ret = snprintf(gt9896s_fw_update_ctrl.fw_name,
+						sizeof(gt9896s_fw_update_ctrl.fw_name),
+						"%s%s_1080x2280.bin",
+						TS_DEFAULT_FIRMWARE,
+						gt9896s_firmware_buf);
+		} else if (ts_bdata->lcm_max_x == 1080 && ts_bdata->lcm_max_y == 2300) {
+			ret = snprintf(gt9896s_fw_update_ctrl.fw_name,
+						sizeof(gt9896s_fw_update_ctrl.fw_name),
+						"%s%s_1080x2300.bin",
+						TS_DEFAULT_FIRMWARE,
+						gt9896s_firmware_buf);
+		} else {
+			ret = snprintf(gt9896s_fw_update_ctrl.fw_name,
+						sizeof(gt9896s_fw_update_ctrl.fw_name),
+						"%s%s.bin",
+						TS_DEFAULT_FIRMWARE,
+						gt9896s_firmware_buf);
+		}
+
+		ts_info("firmware_bin_name %s!!!", gt9896s_fw_update_ctrl.fw_name);
 		if (ret >= sizeof(gt9896s_fw_update_ctrl.fw_name))
 			ts_err("get firmware_bin_name name FAILED!!!");
 	}

@@ -76,6 +76,20 @@
 #define BYTES_PER_COORD				8
 #define TS_CFG_BAG_NUM_INDEX		2
 
+/* this struct used for get lcm width and heigh. We have reached a consensus
+ * with display owner and the members of tag_videolfb in front of lcm_width
+ * are fixed. If you want to change tag_videolfb, please contect display owner
+ * in advance.
+ */
+struct tag_videolfb {
+	u64 fb_base;
+	u32 islcmfound;
+	u32 fps;
+	u32 vram;
+	char lcmname[1];
+	u32 lcm_width;
+	u32 lcm_heigh;
+};
 /*struction & enum*/
 enum TS_SEND_CFG_REPLY {
 	TS_CFG_REPLY_PKGS_ERR   = 0x01,
@@ -91,6 +105,49 @@ const char *gt9896s_config_buf;
 static struct platform_device *gt9896s_pdev;
 
 #ifdef CONFIG_OF
+#define GET_L16(data) (data & 0xffff)
+#define GET_H16(data) ((data >> 16) & 0xffff)
+static void mtk_drm_lcm_info_get(struct gt9896s_ts_board_data *board_data)
+{
+	struct device_node *chosen_node;
+	struct tag_videolfb *videolfb_tag = NULL;
+	unsigned long size = 0;
+	unsigned int offset = 0;
+	u32 lcm_width;
+	u32 lcm_heigh;
+	u32 lcm_name_len;
+
+	chosen_node = of_find_node_by_path("/chosen");
+	if (chosen_node) {
+		videolfb_tag = (struct tag_videolfb *)of_get_property(
+			chosen_node, "atag,videolfb", (int *)&size);
+
+		if (videolfb_tag) {
+			lcm_name_len = strlen((char *)(videolfb_tag->lcmname));
+			offset = 2 + 3 + ((lcm_name_len + 1 + 4) >> 2);
+			lcm_width = *((unsigned int *)videolfb_tag + offset);
+			lcm_heigh = *((unsigned int *)videolfb_tag + offset + 1);
+
+			if ((lcm_heigh == 0) || (lcm_width == 0))
+				return;
+
+			if ((lcm_name_len == GET_H16(lcm_width))
+				&& (lcm_name_len == GET_H16(lcm_heigh))) {
+				board_data->lcm_max_x = GET_L16(lcm_width);
+				board_data->lcm_max_y = GET_L16(lcm_heigh);
+			} else {
+				ts_err("heigh_h[%d], heigh_l[%d], width_h[%d], width_l[%d]",
+					GET_H16(lcm_heigh), GET_L16(lcm_heigh),
+					GET_H16(lcm_width), GET_H16(lcm_width));
+			}
+		} else {
+			ts_err("videolfb_tag not found");
+		}
+	} else {
+		ts_err("of_chosen not found");
+	}
+
+}
 /**
  * gt9896s_parse_dt_resolution - parse resolution from dt
  * @node: devicetree node
@@ -228,6 +285,9 @@ static int gt9896s_parse_dt(struct device_node *node,
 			board_data->power_off_delay_us = 0;
 		}
 	}
+
+	/* get lcm info */
+	mtk_drm_lcm_info_get(board_data);
 
 	/* get xyz resolutions */
 	r = gt9896s_parse_dt_resolution(node, board_data);
@@ -1019,10 +1079,17 @@ static void gt9896s_swap_coords(struct gt9896s_ts_device *dev,
 		*coor_y = temp;
 	}
 
-	if (!bdata->x2x)
-		*coor_x = bdata->panel_max_x - *coor_x;
-	if (!bdata->y2y)
-		*coor_y = bdata->panel_max_y - *coor_y;
+	if (bdata->lcm_max_x && bdata->lcm_max_y) {
+		if (!bdata->x2x)
+			*coor_x = bdata->lcm_max_x - *coor_x;
+		if (!bdata->y2y)
+			*coor_y = bdata->lcm_max_y - *coor_y;
+	} else {
+		if (!bdata->x2x)
+			*coor_x = bdata->panel_max_x - *coor_x;
+		if (!bdata->y2y)
+			*coor_y = bdata->panel_max_y - *coor_y;
+	}
 }
 
 static void gt9896s_parse_finger_ys(struct gt9896s_ts_device *dev,

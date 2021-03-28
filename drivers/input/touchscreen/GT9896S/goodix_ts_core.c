@@ -701,7 +701,6 @@ static ssize_t gt9896s_ts_reg_rw_store(struct device *dev,
 
 	/* get addr */
 	pos = (char *)buf;
-	pos += 2;
 	token = strsep(&pos, ":");
 	if (!token) {
 		ts_err("invalid address info\n");
@@ -1409,13 +1408,24 @@ static void gt9896s_ts_set_input_params(struct input_dev *input_dev,
 {
 	int i;
 
-	if (ts_bdata->swap_axis)
-		swap(ts_bdata->input_max_x, ts_bdata->input_max_y);
+	if (ts_bdata->lcm_max_x && ts_bdata->lcm_max_y) {
+		if (ts_bdata->swap_axis)
+			swap(ts_bdata->lcm_max_x, ts_bdata->lcm_max_y);
 
-	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
-			     0, ts_bdata->input_max_x, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
-			     0, ts_bdata->input_max_y, 0, 0);
+		input_set_abs_params(input_dev, ABS_MT_POSITION_X,
+				     0, ts_bdata->lcm_max_x, 0, 0);
+		input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
+				     0, ts_bdata->lcm_max_y, 0, 0);
+	} else {
+		if (ts_bdata->swap_axis)
+			swap(ts_bdata->input_max_x, ts_bdata->input_max_y);
+
+		input_set_abs_params(input_dev, ABS_MT_POSITION_X,
+				     0, ts_bdata->input_max_x, 0, 0);
+		input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
+				     0, ts_bdata->input_max_y, 0, 0);
+	}
+
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
 			     0, ts_bdata->panel_max_w, 0, 0);
 
@@ -1524,8 +1534,14 @@ static int gt9896s_ts_pen_dev_config(struct gt9896s_ts_core *core_data)
 	__set_bit(BTN_TOUCH, pen_dev->keybit);
 	__set_bit(BTN_TOOL_PEN, pen_dev->keybit);
 	__set_bit(INPUT_PROP_DIRECT, pen_dev->propbit);
-	input_set_abs_params(pen_dev, ABS_X, 0, ts_bdata->input_max_x, 0, 0);
-	input_set_abs_params(pen_dev, ABS_Y, 0, ts_bdata->input_max_y, 0, 0);
+
+	if (ts_bdata->lcm_max_x && ts_bdata->lcm_max_y) {
+		input_set_abs_params(pen_dev, ABS_X, 0, ts_bdata->lcm_max_x, 0, 0);
+		input_set_abs_params(pen_dev, ABS_Y, 0, ts_bdata->lcm_max_y, 0, 0);
+	} else {
+		input_set_abs_params(pen_dev, ABS_X, 0, ts_bdata->input_max_x, 0, 0);
+		input_set_abs_params(pen_dev, ABS_Y, 0, ts_bdata->input_max_y, 0, 0);
+	}
 	input_set_abs_params(pen_dev, ABS_PRESSURE, 0,
 			     GOODIX_PEN_MAX_PRESSURE, 0, 0);
 
