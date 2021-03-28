@@ -946,7 +946,7 @@ static void ram_console_update(void)
 
 #if 0
 		if (DBG_ID == DBG_ID_CAM)
-			check_cam_clk_sts();
+			//check_cam_clk_sts();
 
 		if (DBG_ID == DBG_ID_VPU_CONN_SHUTDOWN) {
 			pr_notice("%s: APU_VCORE_CG_CON = 0x%08x\n",
@@ -5386,7 +5386,7 @@ void subsys_if_on(void)
 		pr_notice("suspend warning: SYS_CONN is on!!!\n");
 	if ((sta & DIS_PWR_STA_MASK) && (sta_s & DIS_PWR_STA_MASK)) {
 		pr_notice("suspend warning: SYS_DIS is on!!!\n");
-		check_mm0_clk_sts();
+		//check_mm0_clk_sts();
 		for (i = 0; i < mm_num; i++)
 			dump_cg_state(mm_clks[i]);
 		ret++;
@@ -5397,7 +5397,7 @@ void subsys_if_on(void)
 	}
 	if ((sta & ISP_PWR_STA_MASK) && (sta_s & ISP_PWR_STA_MASK)) {
 		pr_notice("suspend warning: SYS_ISP is on!!!\n");
-		check_img_clk_sts();
+		//check_img_clk_sts();
 		for (i = 0; i < img_num; i++)
 			dump_cg_state(img_clks[i]);
 		ret++;
@@ -5413,7 +5413,7 @@ void subsys_if_on(void)
 	}
 	if ((sta & VEN_PWR_STA_MASK) && (sta_s & VEN_PWR_STA_MASK)) {
 		pr_notice("suspend warning: SYS_VEN is on!!!\n");
-		check_ven_clk_sts();
+		//check_ven_clk_sts();
 		for (i = 0; i < venc_num; i++)
 			dump_cg_state(venc_clks[i]);
 		ret++;
@@ -5438,7 +5438,7 @@ void subsys_if_on(void)
 
 	if ((sta & CAM_PWR_STA_MASK) && (sta_s & CAM_PWR_STA_MASK)) {
 		pr_notice("suspend warning: SYS_CAM is on!!!\n");
-		check_cam_clk_sts();
+		//check_cam_clk_sts();
 		for (i = 0; i < cam_num; i++)
 			dump_cg_state(cam_clks[i]);
 		ret++;
