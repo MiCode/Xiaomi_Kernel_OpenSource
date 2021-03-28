@@ -152,44 +152,44 @@
 		#clock-cells = <1>;
 	};
 
-	io_cfg_lt@10002000 {
-		compatible = "mediatek,io_cfg_lt";
+	iocfg_lt: iocfg_lt@10002000 {
+		compatible = "mediatek,iocfg_lt";
 		reg = <0 0x10002000 0 0x200>;
 	};
 
-	io_cfg_lm@10002200 {
-		compatible = "mediatek,io_cfg_lm";
+	iocfg_lm: iocfg_lm@10002200 {
+		compatible = "mediatek,iocfg_lm";
 		reg = <0 0x10002200 0 0x200>;
 	};
 
-	io_cfg_lb@10002400 {
-		compatible = "mediatek,io_cfg_lb";
+	iocfg_lb: iocfg_lb@10002400 {
+		compatible = "mediatek,iocfg_lb";
 		reg = <0 0x10002400 0 0x200>;
 	};
 
-	io_cfg_bl@10002600 {
-		compatible = "mediatek,io_cfg_bl";
+	iocfg_bl: iocfg_bl@10002600 {
+		compatible = "mediatek,iocfg_bl";
 		reg = <0 0x10002600 0 0x200>;
 	};
 
-	io_cfg_bm@10002800 {
-		compatible = "mediatek,io_cfg_bm";
+	iocfg_bm: iocfg_bm@10002800 {
+		compatible = "mediatek,iocfg_bm";
 		reg = <0 0x10002800 0 0x200>;
 	};
 
-	io_cfg_rm@10002a00 {
-		compatible = "mediatek,io_cfg_rm";
-		reg = <0 0x10002a00 0 0x200>;
+	iocfg_rm: iocfg_rm@10002A00 {
+		compatible = "mediatek,iocfg_rm";
+		reg = <0 0x10002A00 0 0x200>;
 	};
 
-	io_cfg_rt@10002c00 {
-		compatible = "mediatek,io_cfg_rt";
-		reg = <0 0x10002c00 0 0x200>;
+	iocfg_rt: iocfg_rt@10002C00 {
+		compatible = "mediatek,iocfg_rt";
+		reg = <0 0x10002C00 0 0x200>;
 	};
 
-	io_cfg_tl@10002e00 {
-		compatible = "mediatek,io_cfg_tl";
-		reg = <0 0x10002e00 0 0x200>;
+	iocfg_tl: iocfg_tl@10002E00 {
+		compatible = "mediatek,iocfg_tl";
+		reg = <0 0x10002E00 0 0x200>;
 	};
 
 	pericfg@10003000 {
@@ -202,9 +202,26 @@
 		reg = <0 0x10004000 0 0x1000>;
 	};
 
-	gpio@10005000 {
+	gpio: gpio@10005000 {
 		compatible = "mediatek,gpio";
 		reg = <0 0x10005000 0 0x1000>;
+	};
+
+	pio: pinctrl {
+		compatible = "mediatek,mt6781-pinctrl";
+		reg_bases = <&gpio>,
+				<&iocfg_lt>,
+				<&iocfg_lm>,
+				<&iocfg_lb>,
+				<&iocfg_bl>,
+				<&iocfg_bm>,
+				<&iocfg_rm>,
+				<&iocfg_rt>,
+				<&iocfg_tl>;
+		pins-are-numbered;
+		gpio-controller;
+		gpio-ranges = <&pio 0 0 202>;
+		#gpio-cells = <2>;
 	};
 
 	sleep@10006000 {
