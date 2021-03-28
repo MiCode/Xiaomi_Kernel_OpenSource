@@ -16,6 +16,9 @@
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6877)))
 MTK_PLATFORM := mt6853
 subdir-ccflags-y += -DCCCI_PLATFORM_MT6877
+else ifeq (y, $(filter y, $(CONFIG_MACH_MT6781)))
+MTK_PLATFORM := mt6785
+subdir-ccflags-y += -DCCCI_PLATFORM_MT6781
 else ifeq (y, $(filter y, $(CONFIG_MACH_MT6893)))
 MTK_PLATFORM := mt6885
 else ifeq (y, $(filter y, $(CONFIG_MACH_MT6833)))
