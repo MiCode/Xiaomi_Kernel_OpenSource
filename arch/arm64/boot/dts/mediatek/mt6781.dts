@@ -382,6 +382,12 @@
 			clock-frequency = <26000000>;
 		};
 
+		clk13m: clk13m {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <13000000>;
+		};
+
 		clk32k: clk32k {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
@@ -536,7 +542,7 @@
 		reg = <0 0x10006000 0 0x1000>;
 	};
 
-	toprgu@10007000 {
+	toprgu: toprgu@10007000 {
 		compatible = "mediatek,toprgu";
 		reg = <0 0x10007000 0 0x1000>;
 	};
@@ -544,6 +550,7 @@
 	apxgpt@10008000 {
 		compatible = "mediatek,apxgpt";
 		reg = <0 0x10008000 0 0x1000>;
+		mediatek,kick_off = <0xb4>;
 	};
 
 	sej@1000a000 {
@@ -728,15 +735,18 @@
 	sys_timer@10017000 {
 		compatible = "mediatek,sys_timer";
 		reg = <0 0x10017000 0 0x1000>;
+		reg-names = "sys_timer_base";
+		interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk13m>;
 	};
 
 	timer: timer {
 		compatible = "arm,armv8-timer";
 		interrupt-parent = <&gic>;
-		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>,
-				<GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>,
-				<GIC_PPI 11 IRQ_TYPE_LEVEL_LOW>,
-				<GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_PPI 14 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_PPI 11 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_PPI 10 IRQ_TYPE_LEVEL_HIGH>;
 		clock-frequency = <13000000>;
 	};
 
