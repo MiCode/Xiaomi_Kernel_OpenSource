@@ -706,7 +706,7 @@
 		#clock-cells=<1>;
 	};
 
-	auxadc@11001000 {
+	auxadc: auxadc@11001000 {
 		compatible = "mediatek,auxadc";
 		reg = <0 0x11001000 0 0x1000>;
 	};
@@ -2301,6 +2301,44 @@
 	/* ATF logger */
 	atf_logger {
 		compatible = "mediatek,atf_logger";
+	};
+
+	md_auxadc:md_auxadc {
+		compatible = "mediatek,md_auxadc";
+	};
+
+	gpio_usage_mapping: gpio_usage_mapping {
+		compatible = "mediatek,gpio_usage_mapping";
+	};
+
+	mrdump_ext_rst: mrdump_ext_rst {
+		compatible = "mediatek, mrdump_ext_rst-eint";
+		mode = "IRQ";
+		status = "okay";
+	};
+
+	gyro:gyro {
+	};
+
+	msdc1_ins: msdc1_ins {
+	};
+
+	touch: touch {
+		compatible = "goodix,touch", "mediatek,touch";
+	};
+
+	smart_pa: smart_pa {
+	};
+
+	dsi_te: dsi_te {
+		compatible = "mediatek, dsi_te-eint";
+		status = "disabled";
+	};
+
+	md1_sim1_hot_plug_eint:md1_sim1_hot_plug_eint{
+	};
+
+	md1_sim2_hot_plug_eint:md1_sim2_hot_plug_eint{
 	};
 };
 
