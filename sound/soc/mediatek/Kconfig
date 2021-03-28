@@ -75,10 +75,10 @@ config SND_SOC_MT6781
 config SND_SOC_MT6781_MT6366
 	tristate "ASoc Audio driver for MT6781 with MT6366 codec"
 	select SND_SOC_MT6781
-	select SND_SOC_MT6358
+	select SND_SOC_MT6366
 	help
 	  This adds ASoC driver for Mediatek MT6781 boards
-	  with the MT6366(the same MT6358) codecs.
+	  with the MT6366 codecs.
 	  Select Y if you have such device.
 	  If unsure select "N".
 

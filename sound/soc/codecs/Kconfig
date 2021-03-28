@@ -103,6 +103,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_ML26124 if I2C
 	select SND_SOC_MT6358
 	select SND_SOC_MT6359
+	select SND_SOC_MT6366
 	select SND_SOC_NAU8540 if I2C
 	select SND_SOC_NAU8810 if I2C
 	select SND_SOC_NAU8824 if I2C
@@ -1218,6 +1219,9 @@ config SND_SOC_MT6358
 	tristate
 
 config SND_SOC_MT6359
+	tristate
+
+config SND_SOC_MT6366
 	tristate
 
 config SND_SOC_MT6392_CODEC
