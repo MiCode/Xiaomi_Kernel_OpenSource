@@ -647,9 +647,10 @@ void md_cd_dump_debug_register(struct ccci_modem *md)
 
 	md_cd_lock_modem_clock_src(1);
 
+#ifndef DISABLE_MD_DUMP_REGISTER
 	/* This function needs to be cancelled temporarily for bringup*/
 	internal_md_dump_debug_register(md->index);
-
+#endif
 	md_cd_lock_modem_clock_src(0);
 
 }
