@@ -223,6 +223,7 @@
 			<&apmixed APMIXED_CLKSQ_LVPLL_26M>,
 			<&apmixed APMIXED_MIPID0_26M>,
 			<&apmixed APMIXED_MIPID1_26M>,
+			<&mfgcfg MFGCFG_BG3D>,
 			<&audio AUDIO_AFE>,
 			<&audio AUDIO_22M>,
 			<&audio AUDIO_24M>,
