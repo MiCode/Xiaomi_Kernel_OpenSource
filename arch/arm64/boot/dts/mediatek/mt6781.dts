@@ -1199,8 +1199,8 @@
 		reg = <0 0x15020000 0 0x1000>;
 	};
 
-	imgsys: imgsys@15020000 {
-		compatible = "mediatek,imgsys", "syscon";
+	imgsys1: imgsys1@15020000 {
+		compatible = "mediatek,imgsys1", "syscon";
 		reg = <0 0x15020000 0 0x1000>;
 		#clock-cells = <1>;
 	};
@@ -1446,9 +1446,10 @@
 		#clock-cells=<1>;
 	};
 
-	mdpsys_config@1b000000 {
+	mdpsys_config: mdpsys_config@1b000000 {
 		compatible = "mediatek,mdpsys_config";
 		reg = <0 0x1b000000 0 0x1000>;
+		#clock-cells=<1>;
 	};
 
 	mdp_mutex0@1b001000 {
