@@ -192,10 +192,11 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 
 void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 {
-	u32 cg_status = 0;
+	u32 cg_status = 0, ufo_cg_status = 0;
 	void __iomem *vdec_misc_addr = dev->dec_reg_base[VDEC_MISC];
 	void __iomem *vdec_vld_addr = dev->dec_reg_base[VDEC_VLD];
 	void __iomem *vdec_gcon_addr = dev->dec_reg_base[VDEC_SYS];
+	void __iomem *vdec_ufo_addr = dev->dec_reg_base[VDEC_UFO];
 	struct mtk_vcodec_ctx *ctx = dev->curr_dec_ctx[hw_id];
 	int misc_offset[4] = {64, 66, 67, 65};
 
@@ -205,22 +206,32 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 	int offset, idx;
 	unsigned long value;
 	u32 fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+	u32 is_ufo = 0;
 
 	if (hw_id == MTK_VDEC_CORE) {
+		if (fourcc != V4L2_PIX_FMT_AV1)
+			is_ufo = readl(vdec_ufo_addr + 0x08C) & 0x1;
+
 		/* hw break */
 		writel((readl(vdec_misc_addr + 0x0100) | 0x1),
 			vdec_misc_addr + 0x0100);
+		if (is_ufo)
+			writel((readl(vdec_ufo_addr + 0x01C) & 0xFFFFFFFD),
+				vdec_ufo_addr + 0x01C);
 
 		do_gettimeofday(&tv_start);
 		cg_status = readl(vdec_misc_addr + 0x0104);
-		while (!((cg_status & 0x1) && (cg_status & 0x10))) {
+		if (is_ufo)
+			ufo_cg_status = readl(vdec_ufo_addr + 0x08C);
+		while (((cg_status & 0x11) != 0x11) ||
+		      (is_ufo && ((ufo_cg_status & 0x11000) != 0x11000))) {
 			do_gettimeofday(&tv_end);
 			usec = (tv_end.tv_sec - tv_start.tv_sec) * 1000000 +
 			       tv_end.tv_usec - tv_start.tv_usec;
 			if (usec > timeout) {
-				mtk_v4l2_err("VDEC HW break timeout. codec:0x%08x(%c%c%c%c)",
+				mtk_v4l2_err("VDEC HW break timeout. codec:0x%08x(%c%c%c%c) ufo %d",
 				    fourcc, fourcc & 0xFF, (fourcc >> 8) & 0xFF,
-				    (fourcc >> 16) & 0xFF, (fourcc >> 24) & 0xFF);
+				    (fourcc >> 16) & 0xFF, (fourcc >> 24) & 0xFF, is_ufo);
 				value = readl(vdec_gcon_addr + (0 << 2));
 				mtk_v4l2_err("[DEBUG][GCON] 0x%x(%d) = 0x%lx",
 					0 << 2, 0, value);
@@ -240,6 +251,9 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 					mtk_v4l2_err("[DEBUG][MISC] 0x%x(%d) = 0x%lx",
 						offset << 2, offset, value);
 				}
+				if (is_ufo)
+					mtk_v4l2_err("[DEBUG][UFO] 0x%x(%d) = 0x%lx",
+						0x08C, 0x08C >> 2, ufo_cg_status);
 
 				if (timeout == 20000)
 					timeout = 1000000;
@@ -256,9 +270,14 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 				//smi_debug_bus_hang_detect(0, "VCODEC");
 			}
 			cg_status = readl(vdec_misc_addr + 0x0104);
+			if (is_ufo)
+				ufo_cg_status = readl(vdec_ufo_addr + 0x08C);
 		}
 
 		/* sw reset */
+		if (is_ufo)
+			writel((readl(vdec_ufo_addr + 0x01C) | 0x2),
+				vdec_ufo_addr + 0x01C);
 		writel(0x1, vdec_vld_addr + 0x0108);
 		writel(0x0, vdec_vld_addr + 0x0108);
 	} else {
