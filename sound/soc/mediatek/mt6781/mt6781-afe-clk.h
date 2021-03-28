@@ -245,8 +245,6 @@ int mt6781_init_clock(struct mtk_base_afe *afe);
 int mt6781_afe_enable_clock(struct mtk_base_afe *afe);
 void mt6781_afe_disable_clock(struct mtk_base_afe *afe);
 
-int mt6781_afe_suspend_clock(struct mtk_base_afe *afe);
-int mt6781_afe_resume_clock(struct mtk_base_afe *afe);
 
 int mt6781_afe_dram_request(struct device *dev);
 int mt6781_afe_dram_release(struct device *dev);

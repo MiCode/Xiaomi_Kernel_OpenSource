@@ -8,14 +8,13 @@
 #include <linux/clk.h>
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
+#include <linux/arm-smccc.h> /* for Kernel Native SMC API */
+#include <mt-plat/mtk_secure_api.h> /* for SMC ID table */
 
 #include "mt6781-afe-common.h"
 #include "mt6781-afe-clk.h"
 
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
-#include <mtk_idle.h>
-#include <mtk_spm_resource_req.h>
-#endif
+
 
 /* for apmixed / cksys access */
 #include <mt-plat/sync_write.h>
@@ -375,15 +374,17 @@ int mt6781_afe_dram_request(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
 	struct mt6781_afe_private *afe_priv = afe->platform_priv;
+	struct arm_smccc_res res;
 
 	dev_info(dev, "%s(), dram_resource_counter %d\n",
 		 __func__, afe_priv->dram_resource_counter);
 
 	mutex_lock(&mutex_request_dram);
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+
 	if (afe_priv->dram_resource_counter == 0)
-		spm_resource_req(SPM_RESOURCE_USER_AUDIO, SPM_RESOURCE_ALL);
-#endif
+		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+			      MTK_AUDIO_SMC_OP_DRAM_REQUEST,
+			      0, 0, 0, 0, 0, 0, &res);
 	afe_priv->dram_resource_counter++;
 	mutex_unlock(&mutex_request_dram);
 	return 0;
@@ -393,16 +394,18 @@ int mt6781_afe_dram_release(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
 	struct mt6781_afe_private *afe_priv = afe->platform_priv;
+	struct arm_smccc_res res;
 
 	dev_info(dev, "%s(), dram_resource_counter %d\n",
 		 __func__, afe_priv->dram_resource_counter);
 
 	mutex_lock(&mutex_request_dram);
 	afe_priv->dram_resource_counter--;
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+
 	if (afe_priv->dram_resource_counter == 0)
-		spm_resource_req(SPM_RESOURCE_USER_AUDIO, SPM_RESOURCE_RELEASE);
-#endif
+		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+			      MTK_AUDIO_SMC_OP_DRAM_RELEASE,
+			      0, 0, 0, 0, 0, 0, &res);
 
 	if (afe_priv->dram_resource_counter < 0) {
 		dev_warn(dev, "%s(), dram_resource_counter %d\n",
@@ -849,40 +852,6 @@ void mt6781_mck_disable(struct mtk_base_afe *afe, int mck_id)
 		clk_disable_unprepare(afe_priv->clk[m_sel_id]);
 }
 
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
-enum {
-	aud_intbus_sel_26m = 0,
-	aud_intbus_sel_mainpll_d2_d4,
-	aud_intbus_sel_mainpll_d7_d2,
-};
-
-static int mt6781_afe_idle_notify_call(struct notifier_block *nfb,
-				       unsigned long id,
-				       void *arg)
-{
-	switch (id) {
-	case NOTIFY_DPIDLE_ENTER:
-	case NOTIFY_SOIDLE_ENTER:
-		aud_intbus_mux_sel(aud_intbus_sel_26m);
-		break;
-	case NOTIFY_DPIDLE_LEAVE:
-	case NOTIFY_SOIDLE_LEAVE:
-		aud_intbus_mux_sel(aud_intbus_sel_mainpll_d2_d4);
-		break;
-	case NOTIFY_SOIDLE3_ENTER:
-	case NOTIFY_SOIDLE3_LEAVE:
-	default:
-		break;
-	}
-
-	return NOTIFY_OK;
-}
-
-static struct notifier_block mt6781_afe_idle_nfb = {
-	.notifier_call = mt6781_afe_idle_notify_call,
-};
-#endif
-
 int mt6781_init_clock(struct mtk_base_afe *afe)
 {
 	struct mt6781_afe_private *afe_priv = afe->platform_priv;
@@ -933,10 +902,7 @@ int mt6781_init_clock(struct mtk_base_afe *afe)
 		return PTR_ERR(afe_priv->infracfg_ao);
 	}
 
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
-	local_afe = afe;
-	mtk_idle_notifier_register(&mt6781_afe_idle_nfb);
-#endif
+
 
 	return 0;
 }
