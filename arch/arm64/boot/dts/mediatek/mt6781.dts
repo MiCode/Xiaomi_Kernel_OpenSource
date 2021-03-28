@@ -2648,6 +2648,25 @@
 		#clock-cells=<1>;
 	};
 
+	flashlight_core: flashlight_core {
+		compatible = "mediatek,flashlight_core";
+	};
+
+	flashlights_mt6370: flashlights_mt6370 {
+		compatible = "mediatek,flashlights_mt6370";
+		decouple = <1>;
+		channel@1 {
+			type = <0>;
+			ct = <0>;
+			part = <0>;
+		};
+		channel@2 {
+			type = <0>;
+			ct = <1>;
+			part = <0>;
+		};
+	};
+
 	mdpsys_config: mdpsys_config@1b000000 {
 		compatible = "mediatek,mdpsys_config";
 		reg = <0 0x1b000000 0 0x1000>;
