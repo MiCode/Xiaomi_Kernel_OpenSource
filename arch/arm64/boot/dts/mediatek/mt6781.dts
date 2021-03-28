@@ -1766,8 +1766,18 @@
 	};
 
 	smi_common@14002000 {
-		compatible = "mediatek,smi_common";
+		compatible = "mediatek,disp_smi_common", "mediatek,smi_common";
 		reg = <0 0x14002000 0 0x1000>;
+		clocks = <&scpsys SCP_SYS_DIS>,
+			<&mmsys_config CLK_MM_SMI_COMMON>,
+			<&mmsys_config CLK_MM_SMI_GALS>,
+			<&mmsys_config CLK_MM_SMI_INFRA>,
+			<&mmsys_config CLK_MM_SMI_IOMMU>;
+		clock-names = "scp-dis", "mm-comm", "mm-gals",
+			"mm-infra", "mm-iommu";
+		mediatek,smi-id = <21>;
+		mediatek,smi-cnt = <29>;
+		mmsys_config = <&mmsys_config>;
 	};
 
 	smi_larb0: smi_larb0@14003000 {
@@ -1775,6 +1785,8 @@
 		reg = <0 0x14003000 0 0x1000>;
 		mediatek,larb-id = <0>;
 		interrupts = <GIC_SPI 277 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&scpsys SCP_SYS_DIS>;
+		clock-names = "scp-dis";
 		mediatek,smi-id = <0>;
 	};
 
@@ -1783,13 +1795,17 @@
 		reg = <0 0x14004000 0 0x1000>;
 		mediatek,larb-id = <1>;
 		interrupts = <GIC_SPI 276 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&scpsys SCP_SYS_DIS>;
+		clock-names = "scp-dis";
 		mediatek,smi-id = <1>;
 	};
 
-	smi_larb2: smi_larb2@1f002000 {
+	smi_larb2: smi_larb2@1b002000 {
 		compatible = "mediatek,smi_larb2", "mediatek,smi_larb";
 		reg = <0 0x1b002000 0 0x1000>;
 		mediatek,larb-id = <2>;
+		clocks = <&scpsys SCP_SYS_DIS>, <&mdpsys_config CLK_MDP_SMI0>;
+		clock-names = "scp-dis", "mdp-smi";
 		mediatek,smi-id = <2>;
 	};
 
@@ -1797,6 +1813,8 @@
 		compatible = "mediatek,smi_larb3", "mediatek,smi_larb";
 		reg = <0 0x1f00f000 0 0x1000>;
 		mediatek,larb-id = <3>;
+		clocks = <&scpsys SCP_SYS_DIS>;
+		clock-names = "scp-dis";
 		mediatek,smi-id = <3>;
 	};
 
@@ -1804,6 +1822,8 @@
 		compatible = "mediatek,smi_larb4", "mediatek,smi_larb";
 		reg = <0 0x1602e000 0 0x1000>;
 		mediatek,larb-id = <4>;
+		clocks = <&scpsys SCP_SYS_VDE>, <&vdec_gcon VDEC_VDEC>;
+		clock-names = "scp-vdec", "vdec-larb";
 		mediatek,smi-id = <4>;
 	};
 
@@ -1811,6 +1831,8 @@
 		compatible = "mediatek,smi_larb5", "mediatek,smi_larb";
 		reg = <0 0x16030000 0 0x1000>;
 		mediatek,larb-id = <5>;
+		clocks = <&scpsys SCP_SYS_VDE>;
+		clock-names = "scp-vdec";
 		mediatek,smi-id = <5>;
 	};
 
@@ -1818,6 +1840,8 @@
 		compatible = "mediatek,smi_larb6", "mediatek,smi_larb";
 		reg = <0 0x16031000 0 0x1000>;
 		mediatek,larb-id = <6>;
+		clocks = <&scpsys SCP_SYS_VDE>;
+		clock-names = "scp-vdec";
 		mediatek,smi-id = <6>;
 	};
 
@@ -1825,6 +1849,9 @@
 		compatible = "mediatek,smi_larb13", "mediatek,smi_larb";
 		reg = <0 0x1a001000 0 0x1000>;
 		mediatek,larb-id = <13>;
+		clocks = <&scpsys SCP_SYS_CAM>,
+			<&camsys CLK_CAM_M_LARB13>;
+		clock-names = "scp-cam", "cam-larb13";
 		mediatek,smi-id = <13>;
 	};
 
@@ -1832,6 +1859,9 @@
 		compatible = "mediatek,smi_larb14", "mediatek,smi_larb";
 		reg = <0 0x1a002000 0 0x1000>;
 		mediatek,larb-id = <14>;
+		clocks = <&scpsys SCP_SYS_CAM>,
+			<&camsys CLK_CAM_M_LARB14>;
+		clock-names = "scp-cam", "cam-larb14";
 		mediatek,smi-id = <14>;
 	};
 
@@ -1839,6 +1869,8 @@
 		compatible = "mediatek,smi_larb15", "mediatek,smi_larb";
 		reg = <0 0x1a003000 0 0x1000>;
 		mediatek,larb-id = <15>;
+		clocks = <&scpsys SCP_SYS_CAM>;
+		clock-names = "scp-cam";
 		mediatek,smi-id = <15>;
 	};
 
@@ -1846,6 +1878,9 @@
 		compatible = "mediatek,smi_larb16", "mediatek,smi_larb";
 		reg = <0 0x1a00f000 0 0x1000>;
 		mediatek,larb-id = <16>;
+		clocks = <&scpsys SCP_SYS_CAM_RAWA>,
+			<&camsys_rawa CLK_CAM_RA_LARBX>;
+		clock-names = "scp-cam-rawa", "cam-rawa-larbx";
 		mediatek,smi-id = <16>;
 	};
 
@@ -1853,6 +1888,9 @@
 		compatible = "mediatek,smi_larb17", "mediatek,smi_larb";
 		reg = <0 0x1a010000 0 0x1000>;
 		mediatek,larb-id = <17>;
+		clocks = <&scpsys SCP_SYS_CAM_RAWB>,
+			<&camsys_rawb CLK_CAM_RB_LARBX>;
+		clock-names = "scp-cam-rawb", "cam-rawb-larbx";
 		mediatek,smi-id = <17>;
 	};
 
@@ -1860,20 +1898,28 @@
 		compatible = "mediatek,smi_larb18", "mediatek,smi_larb";
 		reg = <0 0x1a011000 0 0x1000>;
 		mediatek,larb-id = <18>;
+		clocks = <&scpsys SCP_SYS_CAM_RAWB>;
+		clock-names = "scp-cam-rawb";
 		mediatek,smi-id = <18>;
 	};
 
-	smi_larb19: smi_larb19@1b10f000 {
+	smi_larb19: smi_larb19@1c10f000 {
 		compatible = "mediatek,smi_larb19", "mediatek,smi_larb";
 		reg = <0 0x1c10f000 0 0x1000>;
 		mediatek,larb-id = <19>;
+		clocks = <&scpsys SCP_SYS_IPE>,
+			<&ipesys CLK_IPE_LARB19>;
+		clock-names = "scp-ipe", "ipe-larb19";
 		mediatek,smi-id = <19>;
 	};
 
-	smi_larb20: smi_larb20@1b00f000 {
+	smi_larb20: smi_larb20@1c00f000 {
 		compatible = "mediatek,smi_larb20", "mediatek,smi_larb";
 		reg = <0 0x1c00f000 0 0x1000>;
 		mediatek,larb-id = <20>;
+		clocks = <&scpsys SCP_SYS_IPE>,
+			<&ipesys CLK_IPE_LARB20>;
+		clock-names = "scp-ipe", "ipe-larb20";
 		mediatek,smi-id = <20>;
 	};
 
@@ -2428,13 +2474,19 @@
 	};
 
 	disp_smi_2x1_sub_common_u0@1401b000 {
-		compatible = "mediatek,disp_smi_2x1_sub_common_u0";
+		compatible = "mediatek,disp_smi_2x1_sub_common_u0", "mediatek,smi_common";
 		reg = <0 0x1401b000 0 0x1000>;
+		clocks = <&scpsys SCP_SYS_DIS>;
+		clock-names = "scp-dis";
+		mediatek,smi-id = <22>;
 	};
 
 	disp_smi_2x1_sub_common_u1@1401c000 {
-		compatible = "mediatek,disp_smi_2x1_sub_common_u1";
+		compatible = "mediatek,disp_smi_2x1_sub_common_u1", "mediatek,smi_common";
 		reg = <0 0x1401c000 0 0x1000>;
+		clocks = <&scpsys SCP_SYS_DIS>;
+		clock-names = "scp-dis";
+		mediatek,smi-id = <23>;
 	};
 
 	reserved@1401d000 {
@@ -2443,8 +2495,11 @@
 	};
 
 	img1_smi_2x1_sub_common@1401e000 {
-		compatible = "mediatek,img1_smi_2x1_sub_common";
+		compatible = "mediatek,img1_smi_2x1_sub_common", "mediatek,smi_common";
 		reg = <0 0x1401e000 0 0x1000>;
+		clocks = <&scpsys SCP_SYS_DIS>;
+		clock-names = "scp-dis";
+		mediatek,smi-id = <24>;
 	};
 
 	reserved@1401f000 {
@@ -2541,6 +2596,9 @@
 		reg = <0 0x1502e000 0 0x1000>;
 		mediatek,larb-id = <9>;
 		interrupts = <GIC_SPI 345 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&scpsys SCP_SYS_ISP>,
+			<&imgsys1 CLK_IMGSYS1_LARB9>;
+		clock-names = "scp-isp", "img1-larb9";
 		mediatek,smi-id = <9>;
 	};
 
@@ -2548,13 +2606,18 @@
 		compatible = "mediatek,smi_larb10", "mediatek,smi_larb";
 		reg = <0 0x15030000 0 0x1000>;
 		mediatek,larb-id = <10>;
+		clocks = <&scpsys SCP_SYS_ISP>;
+		clock-names = "scp-isp";
 		mediatek,smi-id = <10>;
 	};
 
 
 	2x1_sub_common@1502f000 {
-		compatible = "mediatek,2x1_sub_common";
+		compatible = "mediatek,2x1_sub_common", "mediatek,smi_common";
 		reg = <0 0x1502f000 0 0x1000>;
+		clocks = <&scpsys SCP_SYS_ISP>;
+		clock-names = "scp-isp";
+		mediatek,smi-id = <28>;
 	};
 
 	mfb@15010000 {
@@ -2648,6 +2711,9 @@
 		reg = <0 0x1582e000 0 0x1000>;
 		mediatek,larb-id = <11>;
 		interrupts = <GIC_SPI 352 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&scpsys SCP_SYS_ISP2>,
+			<&imgsys2 CLK_IMGSYS2_LARB9>;
+		clock-names = "scp-isp2", "img2-larb9";
 		mediatek,smi-id = <11>;
 	};
 
@@ -2656,6 +2722,8 @@
 		reg = <0 0x15830000 0 0x1000>;
 		mediatek,larb-id = <12>;
 		interrupts = <GIC_SPI 354 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&scpsys SCP_SYS_ISP2>;
+		clock-names = "scp-isp2";
 		mediatek,smi-id = <12>;
 	};
 
@@ -2735,6 +2803,10 @@
 		reg = <0 0x17010000 0 0x1000>;
 		mediatek,larb-id = <7>;
 		interrupts = <GIC_SPI 309 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&scpsys SCP_SYS_VEN>,
+			<&venc_gcon VENC_GCON_VENC>,
+			<&venc_gcon VENC_GCON_JPGENC>;
+		clock-names = "scp-venc", "venc-set1", "venc-set2";
 		mediatek,smi-id = <7>;
 	};
 
@@ -2808,6 +2880,22 @@
 		compatible = "mediatek,camsys", "syscon";
 		reg = <0 0x1a000000 0 0x1000>;
 		#clock-cells = <1>;
+	};
+
+	cam_smi_subcom@1a00c000 {
+		compatible = "mediatek,cam_smi_subcom", "mediatek,smi_common";
+		reg = <0 0x1a00c000 0 0x1000>;
+		clocks = <&scpsys SCP_SYS_CAM>;
+		clock-names = "scp-cam";
+		mediatek,smi-id = <26>;
+	};
+
+	cam_smi_subcom@1a00d000 {
+		compatible = "mediatek,cam_smi_subcom", "mediatek,smi_common";
+		reg = <0 0x1a00d000 0 0x1000>;
+		clocks = <&scpsys SCP_SYS_CAM>;
+		clock-names = "scp-cam";
+		mediatek,smi-id = <27>;
 	};
 
 	camsys_rawa: camsys_rawa@1a04f000 {
@@ -2945,14 +3033,19 @@
 	};
 
 	ipe_smi_subcom@1c00e000 {
-		compatible = "mediatek,ipe_smi_subcom";
+		compatible = "mediatek,ipe_smi_subcom", "mediatek,smi_common";
 		reg = <0 0x1c00e000 0 0x1000>;
+		clocks = <&scpsys SCP_SYS_IPE>;
+		clock-names = "scp-ipe";
+		mediatek,smi-id = <25>;
 	};
 
 	smi_larb8@17011000 {
 		compatible = "mediatek,smi_larb8", "mediatek,smi_larb";
 		reg = <0 0x17011000 0 0x1000>;
 		mediatek,larb-id = <8>;
+		clocks = <&scpsys SCP_SYS_VEN>;
+		clock-names = "scp-venc";
 		mediatek,smi-id = <8>;
 	};
 
