@@ -53,6 +53,9 @@
 
 #define IPC_L4C_MSG_ID_LEN   (0x40)
 
+/* only bringup need BY_PASS_MD_BROM, normal load no need */
+#define BY_PASS_MD_BROM
+
 /* feature option, always try using platform info first! */
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
 #ifdef CCCI_PLATFORM_MT6781

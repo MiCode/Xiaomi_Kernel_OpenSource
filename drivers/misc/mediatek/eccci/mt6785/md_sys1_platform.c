@@ -203,7 +203,25 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 			hw_info->md_wdt_irq_id);
 		return -1;
 	}
-
+#ifdef CCCI_PLATFORM_MT6781
+	/* Get spm sleep base */
+	node = of_find_compatible_node(NULL, NULL, "mediatek,sleep");
+	if (!node) {
+		CCCI_ERROR_LOG(dev_cfg->index, TAG,
+			"%s: can't find node:mediatek,sleep\n",
+			__func__);
+		return -1;
+	}
+	hw_info->spm_sleep_base = (unsigned long)of_iomap(node, 0);
+	if (!hw_info->spm_sleep_base) {
+		CCCI_ERROR_LOG(dev_cfg->index, TAG,
+			"%s: spm_sleep_base of_iomap failed\n",
+			__func__);
+		return -1;
+	}
+	CCCI_NORMAL_LOG(dev_cfg->index, TAG, "spm_sleep_base:0x%lx\n",
+		(unsigned long)hw_info->spm_sleep_base);
+#endif
 	CCCI_DEBUG_LOG(dev_cfg->index, TAG,
 		"dev_major:%d,minor_base:%d,capability:%d\n",
 		dev_cfg->major, dev_cfg->minor_base, dev_cfg->capability);
@@ -556,6 +574,7 @@ int md_cd_soft_power_on(struct ccci_modem *md, unsigned int mode)
 
 int md_start_platform(struct ccci_modem *md)
 {
+#ifndef BY_PASS_MD_BROM
 	struct device_node *node = NULL;
 	void __iomem *sec_ao_base = NULL;
 	int timeout = 100; /* 100 * 20ms = 2s */
@@ -611,16 +630,85 @@ int md_start_platform(struct ccci_modem *md)
 	}
 
 	return ret;
+#endif
+	CCCI_NORMAL_LOG(-1, TAG, "by pass MD BROM\n");
+	return 0;
 }
+
+#ifdef CCCI_PLATFORM_MT6781
+static int mtk_ccci_cfg_srclken_o1_on(struct ccci_modem *md)
+{
+	unsigned int val;
+	struct md_hw_info *hw_info = md->hw_info;
+
+	CCCI_NORMAL_LOG(-1, TAG, "%s:spm_sleep_base:0x%lx\n",
+		__func__, (unsigned long)hw_info->spm_sleep_base);
+	if (hw_info->spm_sleep_base) {
+		ccci_write32(hw_info->spm_sleep_base, 0, 0x0B160001);
+		val = ccci_read32(hw_info->spm_sleep_base, 0);
+		CCCI_NORMAL_LOG(-1, TAG, "spm_sleep_base: val:0x%x\n", val);
+
+		val = ccci_read32(hw_info->spm_sleep_base, 8);
+		CCCI_NORMAL_LOG(-1, TAG, "spm_sleep_base+8: val:0x%x +\n", val);
+		val |= 0x1 << 21;
+		ccci_write32(hw_info->spm_sleep_base, 8, val);
+		val = ccci_read32(hw_info->spm_sleep_base, 8);
+		CCCI_NORMAL_LOG(-1, TAG, "spm_sleep_base+8: val:0x%x -\n", val);
+	}
+	return 0;
+}
+#endif
+
+#ifdef BY_PASS_MD_BROM
+static int bypass_md_brom(struct ccci_modem *md)
+{
+	void __iomem *mdbrom_reg;
+
+	CCCI_NORMAL_LOG(md->index, TAG, "%s:bypass MD brom\n",
+		__func__);
+	// unlock to write boot slave jump address
+	mdbrom_reg = ioremap_nocache(0x20060000, 0x200);
+	if (mdbrom_reg == NULL) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"md brom reg ioremap 0x1000 bytes from 0x20060000 fail\n");
+		return -1;
+	}
+	CCCI_NORMAL_LOG(md->index, TAG, "%s:mdbrom_reg=%px\n",
+		__func__, mdbrom_reg);
+	ccci_write32(mdbrom_reg, 0x10C, 0x5500);
+	// write 0x0 to boot slave jump address
+	ccci_write32(mdbrom_reg, 0x104, 0x0);
+	// update boot slave jump address
+	ccci_write32(mdbrom_reg, 0x108, 0x1);
+	iounmap(mdbrom_reg);
+
+	return 0;
+}
+#endif
 
 int md_cd_power_on(struct ccci_modem *md)
 {
 	int ret = 0;
+#ifndef CCCI_PLATFORM_MT6781
 	unsigned int reg_value;
+#endif
 
 	/* step 1: PMIC setting */
 	md1_pmic_setting_on();
+	/* only use in mt6781 power_on flow */
+#ifdef CCCI_PLATFORM_MT6781
+	ret = mtk_ccci_cfg_srclken_o1_on(md);
+	if (ret != 0) {
+		CCCI_ERROR_LOG(0, TAG,
+			"%s:config srclken_o1 fail\n",
+			__func__);
+		return ret;
+	}
+	CCCI_NORMAL_LOG(md->index, TAG, "%s: set srclken_o1_on done ret=%d\n",
+		__func__, ret);
+#endif
 
+#ifndef CCCI_PLATFORM_MT6781
 	/* step 2: MD srcclkena setting */
 	reg_value = ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA);
 	reg_value &= ~(0xFF);
@@ -629,6 +717,7 @@ int md_cd_power_on(struct ccci_modem *md)
 	CCCI_BOOTUP_LOG(md->index, CORE,
 		"%s: set md1_srcclkena bit(0x1000_0F0C)=0x%x\n",
 		__func__, ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA));
+#endif
 
 	/* steip 3: power on MD_INFRA and MODEM_TOP */
 	switch (md->index) {
@@ -653,6 +742,14 @@ int md_cd_power_on(struct ccci_modem *md)
 	inform_nfc_vsim_change(md->index, 1, 0);
 #endif
 
+#ifdef BY_PASS_MD_BROM
+	ret = bypass_md_brom(md);
+	if (ret != 0) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"bypass md brom fail ret=%d,exit\n", ret);
+		return ret;
+	}
+#endif
 	return 0;
 }
 
