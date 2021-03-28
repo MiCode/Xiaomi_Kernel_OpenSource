@@ -54,6 +54,7 @@ obj-$(CONFIG_MACH_MT6771) += mtk_unified_power_mt6771.o
 obj-$(CONFIG_MACH_MT6775) += mtk_unified_power_mt6775.o
 obj-$(CONFIG_MACH_MT6768) += mtk_unified_power_mt6768.o
 obj-$(CONFIG_MACH_MT6785) += mtk_unified_power_mt6785.o
+obj-$(CONFIG_MACH_MT6781) += mtk_unified_power_mt6781.o
 ifeq ($(CONFIG_MACH_MT6885), y)
 ifeq ($(CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES), "mediatek/mt6885")
 obj-y += mtk_unified_power_mt6885.o
