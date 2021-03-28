@@ -227,7 +227,6 @@ bool usb_prepare_clock(bool enable)
 	mutex_lock(&prepare_lock);
 
 	if (IS_ERR_OR_NULL(musb_clk) ||
-			IS_ERR_OR_NULL(musb_ref_clk) ||
 			IS_ERR_OR_NULL(musb_clk_top_sel) ||
 			IS_ERR_OR_NULL(musb_clk_univpll5_d2)) {
 		DBG(0, "clk not ready\n");
@@ -247,14 +246,11 @@ bool usb_prepare_clock(bool enable)
 		if (clk_prepare(musb_clk))
 			DBG(0, "musb_clk prepare fail\n");
 
-		if (clk_prepare(musb_ref_clk))
-			DBG(0, "musb_ref_clk prepare fail\n");
 
 		atomic_inc(&clk_prepare_cnt);
 	} else {
 
 		clk_unprepare(musb_clk_top_sel);
-		clk_unprepare(musb_ref_clk);
 		clk_unprepare(musb_clk);
 
 		atomic_dec(&clk_prepare_cnt);
@@ -305,19 +301,11 @@ bool usb_enable_clock(bool enable)
 			goto exit;
 		}
 
-		if (clk_enable(musb_ref_clk)) {
-			DBG(0, "musb_ref_clk enable fail\n");
-			clk_disable(musb_clk);
-			clk_disable(musb_clk_top_sel);
-			goto exit;
-		}
-
 		usb_hal_dpidle_request(USB_DPIDLE_FORBIDDEN);
 		real_enable++;
 
 	} else if (!enable && count == 1) {
 		clk_disable(musb_clk);
-		clk_disable(musb_ref_clk);
 		clk_disable(musb_clk_top_sel);
 
 		usb_hal_dpidle_request(USB_DPIDLE_ALLOWED);
