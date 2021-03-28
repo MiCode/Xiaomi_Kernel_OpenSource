@@ -1192,6 +1192,25 @@
 		state = <0>;
 	};
 
+	eem_fsm: eem_fsm@1100b000 {
+		compatible = "mediatek,eem_fsm";
+		reg = <0 0x1100b000 0 0x1000>;
+		interrupts = <GIC_SPI 142 IRQ_TYPE_LEVEL_HIGH>;
+		eem-status = <1>;
+		eem-initmon-little = <0xf>;
+		eem-initmon-big = <0xf>;
+		eem-initmon-cci = <0xf>;
+		eem-initmon-gpu = <0xf>;
+		eem-clamp-little = <0>;
+		eem-clamp-big = <0>;
+		eem-clamp-cci = <0>;
+		eem-clamp-gpu = <0>;
+		eem-offset-little = <0xff>;
+		eem-offset-big = <0xff>;
+		eem-offset-cci = <0xff>;
+		eem-offset-gpu = <0xff>;
+	};
+
 	btif@1100c000 {
 		compatible = "mediatek,btif";
 			/*btif base*/
