@@ -222,8 +222,8 @@ void __iomem *infra_base;
 static u32 eem_irq_number;
 #endif
 #define INFRA_AO_NODE		"mediatek,infracfg_ao"
-#define INFRA_EEM_RST		(infra_base + 0x150)
-#define INFRA_EEM_CLR		(infra_base + 0x154)
+#define INFRA_EEM_RST		(infra_base + 0x130)
+#define INFRA_EEM_CLR		(infra_base + 0x134)
 
 /*=============================================================
  * common functions for both ap and eem
@@ -956,10 +956,6 @@ void base_ops_set_phase(struct eem_det *det, enum eem_phase phase)
 			WARN_ON(eem_read(EEMEN) != (0x00000005 | SEC_MOD_SEL));
 		}
 
-		/* Initialise 'isAddExtra' to trigger first volt update */
-		if (det->volt_policy)
-			det->isAddExtra = UNDEF_EXTRA;
-
 		dump_register();
 		udelay(200); /* all banks' phase cannot be set without delay */
 		break;
@@ -1297,7 +1293,9 @@ static void eem_interpolate_mid_opp(struct eem_det *ndet)
 static void get_volt_table_in_thread(struct eem_det *det)
 {
 #if ENABLE_LOO
+#if UPDATE_TO_UPOWER
 	unsigned int init2chk = 0;
+#endif
 	struct eem_det *highdet;
 #endif
 	struct eem_det *ndet = det;
@@ -2091,7 +2089,7 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 
 		det->volt_policy = 1;
 		det->low_temp_off = EXTRA_TEMP_OFF_L;
-
+		det->VMAX += det->DVTFIXED;
 
 #if ENABLE_REMOVE_AGING
 		det->volt_aging[0] = 0 - AGING_VAL_CPU_L;
@@ -2130,7 +2128,7 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 			det->loo_role = NO_LOO_BANK;
 		}
 #endif
-
+		det->VMAX += det->DVTFIXED;
 
 		break;
 
@@ -2143,6 +2141,7 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 		det->EEMMONEN	= devinfo->CCI_MONEN;
 		det->MTDES	= devinfo->CCI_MTDES;
 		det->SPEC       = devinfo->CCI_SPEC;
+		det->VMAX += det->DVTFIXED;
 		break;
 
 	case EEM_DET_GPU:
@@ -2178,6 +2177,7 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 			det->loo_role = NO_LOO_BANK;
 		}
 #endif
+		det->VMAX += det->DVTFIXED;
 		break;
 
 
@@ -2231,6 +2231,7 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 		det->EEMMONEN	= devinfo->CPU_B_HI_MONEN;
 		det->MTDES	= devinfo->CPU_B_HI_MTDES;
 		det->SPEC	= devinfo->CPU_B_HI_SPEC;
+		det->VMAX += det->DVTFIXED;
 
 		if (!big_2line) {
 			det->features = 0;
@@ -2295,7 +2296,7 @@ static void eem_update_init2_volt_to_upower
 		volt_tbl[i] = det->ops->pmic_2_volt(det, pmic_volt[i]);
 
 	bank = transfer_ptp_to_upower_bank(det_to_id(det));
-#if 1
+#if UPDATE_TO_UPOWER
 	if (bank < NR_UPOWER_BANK) {
 		upower_update_volt_by_eem(bank, volt_tbl, det->num_freq_tbl);
 		/* eem_debug
@@ -3406,13 +3407,13 @@ static int eem_probe(struct platform_device *pdev)
 	/* infra_ao */
 	node_infra = of_find_compatible_node(NULL, NULL, INFRA_AO_NODE);
 	if (!node_infra) {
-		eem_debug("INFRA_AO_NODE Not Found\n")
+		eem_debug("INFRA_AO_NODE Not Found\n");
 		return 0;
 	}
 
 	infra_base = of_iomap(node_infra, 0);
 	if (!infra_base) {
-		eem_debug("infra_ao Map Failed\n")
+		eem_debug("infra_ao Map Failed\n");
 		return 0;
 	}
 #endif
@@ -3927,9 +3928,7 @@ static int eem_cur_volt_proc_show(struct seq_file *m, void *v)
 			det->volt_tbl_pmic[i],
 			det->ops->pmic_2_volt(det, det->volt_tbl_pmic[i]));
 
-		seq_printf(m, "policy:%d, addExtra:%d, HighTemp:%d\n",
-		det->volt_policy, det->isAddExtra,
-		det->isHighTemp);
+		seq_printf(m, "policy:%d\n", det->volt_policy);
 	}
 	FUNC_EXIT(FUNC_LV_HELP);
 

@@ -21,7 +21,7 @@
 #define EARLY_PORTING		(0) /* for detecting real vboot in eem_init01 */
 #define DUMP_DATA_TO_DE		(1)
 #define EEM_ENABLE		(1) /* enable; after pass HPT mini-SQC */
-#define EEM_FAKE_EFUSE		(1)
+#define EEM_FAKE_EFUSE		(0)
 /* FIX ME */
 #define UPDATE_TO_UPOWER	(1)
 #define EEM_LOCKTIME_LIMIT	(3000)
@@ -41,13 +41,13 @@
 
 #define EEM_OFFSET
 /* CCJ set to 0 for bring up */
-#define SET_PMIC_VOLT		(0)
-#define SET_PMIC_VOLT_TO_DVFS (0)
+#define EARLY_PORTING_GPU
+#define SET_PMIC_VOLT		(1)
+#define SET_PMIC_VOLT_TO_DVFS (1)
 #define LOG_INTERVAL	(2LL * NSEC_PER_SEC)
 #define DVT					(0)
 #define SUPPORT_DCONFIG		(1)
 #define ENABLE_HT_FT		(1)
-//#define EARLY_PORTING_VPU
 #define ENABLE_REMOVE_AGING		(0)
 
 #if DVT
@@ -234,11 +234,11 @@ enum mt_cpu_dvfs_id {
 #define EEM_STEP		(625)
 
 /* CPU */
-#define CPU_PMIC_BASE_6359	(40000)
+#define CPU_PMIC_BASE	(50000)
 #define CPU_PMIC_STEP		(625) /* 1.231/1024=0.001202v=120(10uv)*/
 
 /* GPU */
-#define GPU_PMIC_BASE		(40000)
+#define GPU_PMIC_BASE		(50000)
 #define GPU_PMIC_STEP		(625) /* 1.231/1024=0.001202v=120(10uv)*/
 
 /* common part: for cci, LL, L, GPU */

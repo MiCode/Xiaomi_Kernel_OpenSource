@@ -146,15 +146,13 @@ int set_volt_cpu(struct eem_det *det)
 
 	if (errcheck == 0) {
 		cpudvfsindex = detid_to_dvfsid(det);
-		value = mt_cpufreq_update_volt(cpudvfsindex,
-				record_tbl_locked, det->num_freq_tbl);
+#if SET_PMIC_VOLT
+	value = mt_cpufreq_update_volt(cpudvfsindex,
+		record_tbl_locked, det->num_freq_tbl);
+#endif
 	} else
 		WARN_ON(errcheck);
-#if 0
-	cpudvfsindex = detid_to_dvfsid(det);
-	value = mt_cpufreq_update_volt(cpudvfsindex,
-			record_tbl_locked, det->num_freq_tbl);
-#endif
+
 #if 0
 	/*
 	 *eem_debug("[set_volt_cpu %s].volt_tbl[0] = 0x%X
@@ -255,6 +253,9 @@ void get_freq_table_cpu(struct eem_det *det)
 				break;
 			}
 		}
+#if DVT
+		det->turn_pt = 5;
+#endif
 	}
 #endif
 	eem_debug("[%s] freq_num:%d, max_freq=%d, turn_pt:%d\n",
@@ -317,6 +318,9 @@ int get_volt_gpu(struct eem_det *det)
 
 int set_volt_gpu(struct eem_det *det)
 {
+#ifdef EARLY_PORTING_GPU
+	return 0;
+#else
 	int i;
 	unsigned int output[NR_FREQ_GPU];
 
@@ -331,6 +335,7 @@ int set_volt_gpu(struct eem_det *det)
 	}
 
 	return mt_gpufreq_update_volt(output, det->num_freq_tbl);
+#endif
 }
 
 void restore_default_volt_gpu(struct eem_det *det)
@@ -355,7 +360,7 @@ void get_freq_table_gpu(struct eem_det *det)
 	eem_debug("In gpu freq\n");
 
 	for (i = 0; i < NR_FREQ_GPU; i++) {
-#if DVT
+#if DVT || defined(EARLY_PORTING_GPU)
 		det->freq_tbl[i] = dvtfreq[i];
 #else
 		curfreq = mt_gpufreq_get_freq_by_real_idx
@@ -398,6 +403,9 @@ void get_freq_table_gpu(struct eem_det *det)
 			break;
 		}
 	}
+#ifdef EARLY_PORTING_GPU
+	det->turn_pt = 5;
+#endif
 #endif
 
 	eem_debug("[%s] freq_num:%d, max_freq=%d, turn_pt:%d\n",

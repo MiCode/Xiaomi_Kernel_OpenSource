@@ -145,9 +145,7 @@ struct eem_det {
 	unsigned int disabled:8; /* Disabled by error or sysfs */
 	unsigned int low_temp_off:8;
 	unsigned int high_temp_off:8;
-	unsigned int isAddExtra:2;
 	unsigned int isTempInv:2;
-	unsigned int isHighTemp:1;
 	unsigned int volt_policy:1;
 	/* only when init2, eem need to set volt to upower */
 	unsigned int set_volt_to_upower:1;
@@ -167,8 +165,8 @@ struct eem_devinfo {
 	unsigned int CPU_B_MONEN:1;
 	unsigned int CPU_B_DVFS_LOW:3;
 	unsigned int CPU_B_SPEC:3;
-	unsigned int CPU_B_LO_BDES:8;
-	unsigned int CPU_B_LO_MDES:8;
+	unsigned int CPU_B_BDES:8;
+	unsigned int CPU_B_MDES:8;
 
 	/* M_HW_RES2 */
 	unsigned int CPU_B_HI_MTDES:8;
@@ -186,8 +184,8 @@ struct eem_devinfo {
 	unsigned int CPU_B_LO_MONEN:1;
 	unsigned int CPU_B_LO_DVFS_LOW:3;
 	unsigned int CPU_B_LO_SPEC:3;
-	unsigned int CPU_B_BDES:8;
-	unsigned int CPU_B_MDES:8;
+	unsigned int CPU_B_LO_BDES:8;
+	unsigned int CPU_B_LO_MDES:8;
 
 	/* M_HW_RES4 */
 	unsigned int CPU_L_MTDES:8;
@@ -250,9 +248,9 @@ struct eem_devinfo {
 	unsigned int CCI_DCMDET:8;
 
 	/* M_HW_RES16 */
+	unsigned int RSV16:16;
 	unsigned int GPU_LO_DCBDET:8;
 	unsigned int GPU_LO_DCMDET:8;
-	unsigned int RSV16:16;
 };
 
 /*********************************************
