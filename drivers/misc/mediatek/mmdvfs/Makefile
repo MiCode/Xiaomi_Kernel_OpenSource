@@ -19,6 +19,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 ccflags-${CONFIG_MACH_MT6833} += -I$(srctree)/drivers/misc/mediatek/smi/mt6833/
+ccflags-${CONFIG_MACH_MT6877} += -I$(srctree)/drivers/misc/mediatek/smi/mt6877/
+ccflags-${CONFIG_MACH_MT6781} += -I$(srctree)/drivers/misc/mediatek/smi/mt6781/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)/
 
 obj-y += swpm_me.o
@@ -93,11 +95,21 @@ ccflags-y += -DCHECK_OSTD_UPDATE
 MTK_FREQ_HOPPING := true
 endif
 
+ifeq ($(CONFIG_MACH_MT6781),y)
+MMDVFS_PLATFORM_DIR=$(srctree)/drivers/misc/mediatek/mmdvfs/mt6853
+else
 MMDVFS_PLATFORM_DIR=$(srctree)/drivers/misc/mediatek/mmdvfs/$(MTK_PLATFORM)
+endif
 platformdir_exists=$(shell if [ -d $(MMDVFS_PLATFORM_DIR) ]; then echo "y"; else echo "n"; fi;)
 
 ifeq ($(CONFIG_MACH_MT6781),y)
+platformdir_exists := n #should remove when UT done
 BUILD_MMDVFS := false
+#FORCE_STEP0 := true
+#SKIP_SMI_CONFIG := true
+#MTK_FREQ_HOPPING := true #should add to mt6785@CONFIG_MTK_PLATFORM
+#ccflags-y += -DPMQOS_USE_IOMMU_PORT #should add to mt6785@CONFIG_MTK_PLATFORM
+#ccflags-y += -DCHECK_OSTD_UPDATE #should add to mt6785@CONFIG_MTK_PLATFORM
 endif
 
 ifeq (true, $(BUILD_MMDVFS))
@@ -126,7 +138,11 @@ ifeq (true, $(MMDVFS_LIMIT))
 ccflags-y += -DMMDVFS_LIMIT
 endif
 ifeq ($(platformdir_exists), y)
+ifeq ($(CONFIG_MACH_MT6781),y)
+obj-y += mt6853/
+else
 obj-y += $(subst ",,$(MTK_PLATFORM))/
+endif
 else
 obj-y += mmdvfs_plat_default.o
 endif

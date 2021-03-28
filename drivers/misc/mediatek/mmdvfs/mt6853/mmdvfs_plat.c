@@ -16,7 +16,11 @@
 #include "mmdvfs_plat.h"
 #include "mtk_qos_sram.h"
 #include "smi_pmqos.h"
+#if IS_ENABLED(CONFIG_MACH_MT6877)
+#include <dt-bindings/memory/mt6877-larb-port.h>
+#else
 #include <dt-bindings/memory/mt6853-larb-port.h>
+#endif
 
 #undef pr_fmt
 #define pr_fmt(fmt) "[mmdvfs][plat]" fmt
@@ -119,6 +123,10 @@ s32 get_md_hrt_bw(void)
 {
 #if IS_ENABLED(CONFIG_MACH_MT6853)
 	return 3344;
+#elif IS_ENABLED(CONFIG_MACH_MT6877)
+	return (3427*100/65+1700);
+#elif IS_ENABLED(CONFIG_MACH_MT6781)
+	return 1843;
 #else
 	return 3888;
 #endif
@@ -129,4 +137,40 @@ s32 dram_write_weight(s32 val)
 	return val;
 }
 
+s32 emi_occ_ratio(void)
+{
+#if IS_ENABLED(CONFIG_MACH_MT6877)
+	return 740;
+#else
+	return 500;
+#endif
+}
+
+s32 emi_occ_ui_only(void)
+{
+#if IS_ENABLED(CONFIG_MACH_MT6877)
+	return 745;
+#else
+	return 500;
+#endif
+}
+
+
+s32 cam_occ_ratio(void)
+{
+#if IS_ENABLED(CONFIG_MACH_MT6877)
+	return 880;
+#else
+	return 1000;
+#endif
+}
+
+s32 disp_occ_ratio(void)
+{
+#if IS_ENABLED(CONFIG_MACH_MT6877)
+	return 900;
+#else
+	return 1000;
+#endif
+}
 
