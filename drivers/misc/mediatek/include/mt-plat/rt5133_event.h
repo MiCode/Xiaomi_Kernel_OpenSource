@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2020 Mediatek Technology Inc.
+ *  Copyright (C) 2021 Mediatek Technology Inc.
  *  Jeff_Chang <jeff_chang@richtek.com>
  *
  *  This program is free software; you can redistribute it and/or modify

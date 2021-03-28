@@ -7,7 +7,7 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 title: Richtek RT5133 voltage regulator
 
 maintainers:
-  - Jeff Chang <jeff_chang@richtek.com>
+  - Tina Yang <tina_yang@richtek.com>
 
 description: |
   Richtek RT5133 is a integrated IC that includes 8 LDOs and 3 output only

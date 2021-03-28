@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2020 Mediatek Technology Inc.
+ *  Copyright (C) 2021 Mediatek Technology Inc.
  *  Jeff_Chang <jeff_chang@richtek.com>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -30,6 +30,8 @@
 #if GENERIC_DEBUGFS
 #include <linux/debugfs.h>
 #endif /* GENERIC_DEBUGFS */
+
+#define RT5133_DRV_VERSION	"1.0.1_MTK"
 
 #define RT5133_REG_CHIP_INFO		0x00
 #define RT5133_REG_RST_CTRL		0x06
@@ -147,7 +149,6 @@ struct rt5133_priv {
 	struct regmap *regmap;
 	struct gpio_desc *enable_gpio;
 	struct regulator_dev *rdev[RT5133_REGULATOR_MAX];
-	struct regulator *gpio_supply;
 	struct gpio_chip gc;
 	unsigned int gpio_output_flag;
 	u8 crc8_tbls[CRC8_TABLE_SIZE];
@@ -183,17 +184,20 @@ static int data_debug_show(struct seq_file *s, void *data)
 		d->data_buffer = buffer;
 		d->data_buffer_size = d->size;
 	}
+
 	/* read transfer */
 	if (!di->io_read)
 		return -EPERM;
 	ret = di->io_read(di->io_drvdata, d->reg, d->data_buffer, d->size);
 	if (ret < 0)
 		return ret;
+
 	pdata = d->data_buffer;
 	seq_puts(s, "0x");
 	for (i = 0; i < d->size; i++)
 		seq_printf(s, "%02x,", *(pdata + i));
 	seq_puts(s, "\n");
+
 	return 0;
 }
 
@@ -203,8 +207,8 @@ static int data_debug_open(struct inode *inode, struct file *file)
 }
 
 static ssize_t data_debug_write(struct file *file,
-		const char __user *user_buf,
-		size_t cnt, loff_t *loff)
+				const char __user *user_buf,
+				size_t cnt, loff_t *loff)
 {
 	struct seq_file *seq = file->private_data;
 	struct dbg_info *di = seq->private;
@@ -219,6 +223,7 @@ static ssize_t data_debug_write(struct file *file,
 	if (copy_from_user(buf, user_buf, cnt))
 		return -EFAULT;
 	buf[cnt] = 0;
+
 	/* buffer size check */
 	if (d->data_buffer_size < d->size) {
 		buffer = kzalloc(d->size, GFP_KERNEL);
@@ -228,6 +233,7 @@ static ssize_t data_debug_write(struct file *file,
 		d->data_buffer = buffer;
 		d->data_buffer_size = d->size;
 	}
+
 	/* data parsing */
 	cur = buf;
 	pdata = d->data_buffer;
@@ -241,6 +247,7 @@ static ssize_t data_debug_write(struct file *file,
 	}
 	if (val_cnt != d->size)
 		return -EINVAL;
+
 	/* write transfer */
 	if (!di->io_write)
 		return -EPERM;
@@ -299,6 +306,7 @@ static ssize_t lock_debug_write(struct file *file,
 	ret = kstrtou32_from_user(user_buf, cnt, 0, &lock);
 	if (ret < 0)
 		return ret;
+
 	lock ? mutex_lock(&d->io_lock) : mutex_unlock(&d->io_lock);
 	return cnt;
 }
@@ -320,6 +328,7 @@ static int generic_debugfs_init(struct dbg_info *di)
 	d->data_buffer = kzalloc(PREALLOC_RBUFFER_SIZE, GFP_KERNEL);
 	if (!d->data_buffer)
 		return -ENOMEM;
+
 	/* create debugfs */
 	d->rt_root = debugfs_lookup("ext_dev_io", NULL);
 	if (!d->rt_root) {
@@ -328,6 +337,7 @@ static int generic_debugfs_init(struct dbg_info *di)
 			return -ENODEV;
 		d->rt_dir_create = true;
 	}
+
 	d->ic_root = debugfs_create_dir(di->dirname, d->rt_root);
 	if (!d->ic_root)
 		goto err_cleanup_rt;
@@ -346,6 +356,7 @@ static int generic_debugfs_init(struct dbg_info *di)
 		goto err_cleanup_ic;
 	mutex_init(&d->io_lock);
 	return 0;
+
 err_cleanup_ic:
 	debugfs_remove_recursive(d->ic_root);
 err_cleanup_rt:
@@ -536,22 +547,6 @@ static void rt5133_gpio_set(struct gpio_chip *chip, unsigned int offset,
 	else
 		next_flag &= ~BIT(offset);
 
-	ret = regulator_is_enabled(priv->gpio_supply);
-	if (ret > 0 && !next_flag) {
-		ret = regulator_disable(priv->gpio_supply);
-		if (ret) {
-			dev_err(priv->dev, "Failed to disable gpio_supply\n");
-			return;
-		}
-	} else if (ret == 0 && next_flag) {
-		ret = regulator_enable(priv->gpio_supply);
-		if (ret) {
-			dev_err(priv->dev, "Failed to enable gpio supply\n");
-			return;
-		}
-	} else if (ret < 0)
-		return;
-
 	ret = regmap_update_bits(priv->regmap, RT5133_REG_GPIO_CTRL, mask, val);
 	if (ret) {
 		dev_err(priv->dev, "Failed to set gpio [%d] val %d\n", offset,
@@ -736,7 +731,6 @@ static const struct regmap_bus rt5133_regmap_bus = {
 static const struct regmap_config rt5133_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
-
 	.max_register = RT5133_REG_LDO8_CTRL4,
 };
 
@@ -752,9 +746,7 @@ static int rt5133_chip_reset(struct rt5133_priv *priv)
 	/* Wait for register reset to take effect */
 	udelay(2);
 
-	/* Default to disable base current */
-	return regmap_update_bits(priv->regmap, RT5133_REG_BASE_CTRL,
-				  RT5133_FOFF_BASE_MASK, RT5133_FOFF_BASE_MASK);
+	return 0;
 }
 
 static int rt5133_validate_vendor_info(struct rt5133_priv *priv)
@@ -796,6 +788,7 @@ static int rt5133_regulator_notify(struct notifier_block *nb,
 	if (event != REGULATOR_EVENT_OVER_CURRENT &&
 		event != REGULATOR_EVENT_FAIL)
 		return NOTIFY_OK;
+
 	if (data != NULL) {
 		idx = *(int *)data;
 		pr_info("%s, ldo(%d), event = %d\n", __func__, idx, event);
@@ -814,6 +807,7 @@ static int rt5133_regulator_notify(struct notifier_block *nb,
 	default:
 		break;
 	}
+
 	return NOTIFY_OK;
 }
 
@@ -837,6 +831,7 @@ static int rt5133_register_notifier(struct rt5133_priv *priv)
 				regulator_name[i]);
 			goto err_get_regulator;
 		}
+
 		rt5133_nb[i].notifier_call = rt5133_regulator_notify;
 		ret = devm_regulator_register_notifier(regulator[i],
 						       &rt5133_nb[i]);
@@ -846,6 +841,7 @@ static int rt5133_register_notifier(struct rt5133_priv *priv)
 
 	kfree(regulator_name);
 	return 0;
+
 err_get_regulator:
 	if (i > 0) {
 		for (; i > 0; i--) {
@@ -864,7 +860,7 @@ static int rt5133_probe(struct i2c_client *i2c)
 	struct regulator_config config = {0};
 	int i, ret;
 
-	dev_info(&i2c->dev, "%s\n", __func__);
+	dev_info(&i2c->dev, "%s start(%s)\n", __func__, RT5133_DRV_VERSION);
 	priv = devm_kzalloc(&i2c->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
@@ -896,11 +892,11 @@ static int rt5133_probe(struct i2c_client *i2c)
 	priv->dbg_info.io_drvdata = priv->regmap;
 	priv->dbg_info.io_read = rt5133_dbg_io_read;
 	priv->dbg_info.io_write = rt5133_dbg_io_write;
+
 	ret = generic_debugfs_init(&priv->dbg_info);
 	if (ret < 0)
 		return ret;
 #endif /* GENERIC_DEBUGFS*/
-
 
 	ret = rt5133_validate_vendor_info(priv);
 	if (ret) {
@@ -928,10 +924,6 @@ static int rt5133_probe(struct i2c_client *i2c)
 			return PTR_ERR(priv->rdev[i]);
 		}
 	}
-
-	priv->gpio_supply = devm_regulator_get(&i2c->dev, "gpio");
-	if (IS_ERR(priv->gpio_supply))
-		return PTR_ERR(priv->gpio_supply);
 
 	priv->gc.label = dev_name(&i2c->dev);
 	priv->gc.parent = &i2c->dev;
@@ -980,3 +972,14 @@ module_i2c_driver(rt5133_driver);
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
 MODULE_DESCRIPTION("RT5133 Regulator Driver");
 MODULE_LICENSE("GPL v2");
+MODULE_VERSION(RT5133_DRV_VERSION);
+/*
+ * Release Note
+ * 1.0.1
+ * (1) Add driver version description
+ * (2) Remove check of gpio regulator
+ * (3) Remove the force disabling of Base current at initialization
+ *
+ * 1.0.0
+ * (1) Initial released
+ */
