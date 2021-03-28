@@ -1240,7 +1240,7 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 		ccmni_dev_init(md_id, dev);
 
 		/* used to support auto add ipv6 mroute */
-		dev->type = ARPHRD_PUREIP;
+		dev->type = ARPHRD_RAWIP;
 
 		sprintf(dev->name, "%s%d", ctlb->ccci_ops->name, i);
 
