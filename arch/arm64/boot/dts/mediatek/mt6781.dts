@@ -2802,3 +2802,4 @@
 #include "mediatek/mt6370.dtsi"
 #include "mediatek/mt6370_pd.dtsi"
 #include "mediatek/mt6781-clkitg.dtsi"
+#include "mediatek/rt5133.dtsi"
