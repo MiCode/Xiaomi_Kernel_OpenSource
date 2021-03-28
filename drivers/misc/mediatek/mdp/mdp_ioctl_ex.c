@@ -44,7 +44,7 @@
 #include "cmdq_struct.h"
 #include "mdp_m4u.h"
 
-#define MDP_TASK_PAENDING_TIME_MAX	10000000
+#define MDP_TASK_PAENDING_TIME_MAX	100000000
 
 /* compatible with cmdq legacy driver */
 #ifndef CMDQ_TRACE_FORCE_BEGIN
@@ -92,7 +92,7 @@ static int mdp_limit_release(struct inode *pInode, struct file *pFile)
 	struct cmdqFileNodeStruct *pNode;
 	unsigned long flags;
 
-	CMDQ_VERBOSE("mdp limit driver release fd=%p begin\n", pFile);
+	CMDQ_LOG("mdp limit driver release fd=%p begin\n", pFile);
 
 	pNode = (struct cmdqFileNodeStruct *)pFile->private_data;
 
@@ -120,7 +120,7 @@ static int mdp_limit_release(struct inode *pInode, struct file *pFile)
 
 	cmdq_free_write_addr_by_node(CMDQ_CLT_MDP, pFile);
 
-	CMDQ_VERBOSE("CMDQ driver release end\n");
+	CMDQ_LOG("CMDQ driver release end\n");
 
 	return 0;
 }
@@ -137,6 +137,7 @@ struct mdp_job_mapping {
 	int fds[MAX_HANDLE_NUM];
 	u32 mvas[MAX_HANDLE_NUM];
 	u32 handle_count;
+	void *node;
 };
 static DEFINE_MUTEX(mdp_job_mapping_list_mutex);
 
@@ -643,6 +644,7 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		goto done;
 	}
 
+	desc_private.node_private_data = pf->private_data;
 	status = cmdq_mdp_handle_setup(&user_job, &desc_private, handle);
 	if (status < 0) {
 		CMDQ_ERR("%s setup fail:%d\n", __func__, status);
@@ -732,6 +734,7 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 	user_job.job_id = job_mapping_idx;
 	job_mapping_idx++;
 	mapping_job->job = handle;
+	mapping_job->node = pf->private_data;
 	list_add_tail(&mapping_job->list_entry, &job_mapping_list);
 	mutex_unlock(&mdp_job_mapping_list_mutex);
 
@@ -1130,10 +1133,34 @@ done:
 }
 #endif
 
+void mdp_ioctl_free_job_by_node(void *node)
+{
+	uint32_t i;
+	struct mdp_job_mapping *mapping_job = NULL, *tmp = NULL;
+
+	/* verify job handle */
+	mutex_lock(&mdp_job_mapping_list_mutex);
+	list_for_each_entry_safe(mapping_job, tmp, &job_mapping_list,
+		list_entry) {
+		if (mapping_job->node != node)
+			continue;
+
+		CMDQ_LOG("[warn] %s job task handle %p\n",
+			__func__, mapping_job->job);
+
+		list_del(&mapping_job->list_entry);
+		for (i = 0; i < mapping_job->handle_count; i++)
+			mdp_ion_free_handle(mapping_job->handles[i]);
+		kfree(mapping_job);
+	}
+	mutex_unlock(&mdp_job_mapping_list_mutex);
+}
+
 void mdp_ioctl_free_readback_slots_by_node(void *fp)
 {
 	u32 i, free_slot_group, free_slot;
 	dma_addr_t paStart = 0;
+	u32 count = 0;
 
 	CMDQ_MSG("%s, node:%p\n", __func__, fp);
 
@@ -1151,13 +1178,15 @@ void mdp_ioctl_free_readback_slots_by_node(void *fp)
 		rb_slot[i].count = 0;
 		rb_slot[i].pa_start = 0;
 		rb_slot[i].fp = NULL;
-		CMDQ_MSG("%s free 0x%pa in %d\n", __func__, &paStart, i);
-		CMDQ_MSG("%s alloc slot[%d] %#llx, %#llx\n", __func__,
-			free_slot_group,
+		CMDQ_MSG("%s free %pa in %u alloc slot[%d] %#llx, %#llx\n",
+			__func__, &paStart, i, free_slot_group,
 			alloc_slot[free_slot_group], alloc_slot_group);
 		cmdq_free_write_addr(paStart, CMDQ_CLT_MDP);
+		count++;
 	}
 	mutex_unlock(&rb_slot_list_mutex);
+
+	CMDQ_LOG("%s free %u slot group by node %p\n", __func__, count, fp);
 }
 
 static long mdp_limit_ioctl(struct file *pf, unsigned int code,
