@@ -17,17 +17,17 @@
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 /* If SPM function not ready, comment this define */
-#define SPM_READY
+//#define SPM_READY
 
 /* If CLKBUF function not ready, comment this define */
-#define CLKBUF_READY
+//#define CLKBUF_READY
 
 /* If UPMU function not ready, comment this define */
-#define UPMU_READY
+//#define UPMU_READY
 #endif
 
 #define HIE_CHANGE_KEY_IN_NORMAL_WORLD
-#define UFSHCD_QUIRK_BROKEN_UFS_HCI_VERSION
+#define UFS_MTK_PLATFORM_FIX_UFS_HCI_VERSION
 /*
  * Platform dependent quirks
  */
