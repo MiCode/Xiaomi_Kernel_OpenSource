@@ -10,7 +10,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
-
+$(warning $(srctree))
 export CPUFREQ_ROOT_DIR ?= $(srctree)/drivers/misc/mediatek/base/power/cpufreq_v1
-
 obj-y += src/
+#$(error "asdfsdfasdfasdf/drivers/misc/mediatek/base/power/cpufreq_v1")
+

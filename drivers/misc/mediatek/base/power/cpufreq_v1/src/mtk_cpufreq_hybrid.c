@@ -51,14 +51,16 @@
 /* #include <trace/events/mtk_events.h> */
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && \
-	!defined(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT)
+!defined(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT)
 #include "v1/sspm_ipi.h"
+
 #else
 #if defined(USE_SSPM_VER_V2)
 #include <sspm_ipi_id.h>
 #include <sspm_define.h>
-#else
+#elif defined(USE_SSPM_VER_V2)
 #include "v1/sspm_ipi.h"
+#else
 #endif
 #endif
 
