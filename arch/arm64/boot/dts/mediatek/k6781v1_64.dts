@@ -38,10 +38,6 @@
 		"nt35695_fhd_dsi_cmd_truly_rt5081_drv";
 };
 
-&timer {
-	clock-frequency = <150000000>;
-};
-
 &odm {
 	led0:led@0 {
 		compatible = "mediatek,red";
