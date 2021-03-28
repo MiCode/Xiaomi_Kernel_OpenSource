@@ -622,6 +622,10 @@
 		reg = <0 0x1023e000 0 0x1000>;
 	};
 
+	accdet: accdet {
+		compatible = "mediatek,pmic-accdet";
+		mediatek,accdet-pmic = <0x66>;
+	};
 	md_ccif3@1023f000 {
 		compatible = "mediatek,md_ccif3";
 		reg = <0 0x1023f000 0 0x1000>;
