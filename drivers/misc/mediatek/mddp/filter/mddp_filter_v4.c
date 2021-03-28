@@ -92,7 +92,7 @@ struct nat_tuple {
 	bool is_need_tag;
 };
 
-static int mddp_f_max_nat = MD_DIRECT_TETHERING_RULE_NUM;
+static int mddp_f_max_nat = 10 * MD_DIRECT_TETHERING_RULE_NUM;
 static struct kmem_cache *mddp_f_nat_tuple_cache;
 
 static spinlock_t mddp_f_nat_tuple_lock;
@@ -178,6 +178,8 @@ static void mddp_f_timeout_nat_tuple(unsigned long data)
 		mddp_f_del_nat_tuple_w_unlock(t, flag);
 	else {
 		t->is_need_tag = true;
+		t->last_cnt = t->curr_cnt;
+
 		MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock, flag);
 
 		mod_timer(&t->timeout_used, jiffies + HZ * USED_TIMEOUT);
