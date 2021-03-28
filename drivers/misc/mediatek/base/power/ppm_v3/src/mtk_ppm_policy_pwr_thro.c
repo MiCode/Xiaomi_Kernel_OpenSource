@@ -20,10 +20,13 @@
 #include "mach/mtk_pmic.h"
 #include "mtk_ppm_internal.h"
 
+#if defined(LOW_BATTERY_PT_SETTING_V2) || defined(LBAT_LIMIT_BCPU_OPP)
+#define ENABLE_OPP_LIMIT
+#endif
 
 static void ppm_pwrthro_update_limit_cb(void);
 static void ppm_pwrthro_status_change_cb(bool enable);
-#ifdef LOW_BATTERY_PT_SETTING_V2
+#if defined(ENABLE_OPP_LIMIT)
 static bool ppm_pwrthro_is_policy_active(void);
 static void mt_ppm_pwrthro_set_freq_limit(unsigned int cluster, int min_freq_idx, int max_freq_idx);
 #endif
@@ -38,7 +41,7 @@ static struct ppm_policy_data pwrthro_policy = {
 	.status_change_cb	= ppm_pwrthro_status_change_cb,
 };
 
-#ifdef LOW_BATTERY_PT_SETTING_V2
+#if defined(ENABLE_OPP_LIMIT)
 static struct ppm_pwrthro_data {
 	struct ppm_user_limit limit[NR_PPM_CLUSTERS];
 } pwrthro_limit_data;
@@ -46,7 +49,7 @@ static struct ppm_pwrthro_data {
 
 static void ppm_pwrthro_update_limit_cb(void)
 {
-#ifdef LOW_BATTERY_PT_SETTING_V2
+#if defined(ENABLE_OPP_LIMIT)
 	int i;
 #endif
 
@@ -55,12 +58,12 @@ static void ppm_pwrthro_update_limit_cb(void)
 	ppm_clear_policy_limit(&pwrthro_policy);
 
 	/* update limit according to power budget */
-#ifdef LOW_BATTERY_PT_SETTING_V2
+#if defined(ENABLE_OPP_LIMIT)
 	if (pwrthro_policy.req.power_budget != 0)
 #endif
 		ppm_update_req_by_pwr(&pwrthro_policy.req);
 
-#ifdef LOW_BATTERY_PT_SETTING_V2
+#if defined(ENABLE_OPP_LIMIT)
 	for_each_ppm_clusters(i) {
 		if (pwrthro_limit_data.limit[i].min_freq_idx != -1 &&
 			pwrthro_policy.req.limit[i].min_cpufreq_idx >
@@ -101,7 +104,7 @@ static void ppm_pwrthro_status_change_cb(bool enable)
 	FUNC_EXIT(FUNC_LV_POLICY);
 }
 
-#ifdef LOW_BATTERY_PT_SETTING_V2
+#if defined(ENABLE_OPP_LIMIT)
 static bool ppm_pwrthro_is_policy_active(void)
 {
 	int i;
@@ -195,7 +198,7 @@ static void ppm_pwrthro_bat_per_protect(BATTERY_PERCENT_LEVEL level)
 	}
 
 	pwrthro_policy.req.power_budget = limited_power;
-#ifdef LOW_BATTERY_PT_SETTING_V2
+#if defined(ENABLE_OPP_LIMIT)
 	pwrthro_policy.is_activated = ppm_pwrthro_is_policy_active();
 #else
 	pwrthro_policy.is_activated = (limited_power) ? true : false;
@@ -236,7 +239,7 @@ static void ppm_pwrthro_bat_oc_protect(BATTERY_OC_LEVEL level)
 	}
 
 	pwrthro_policy.req.power_budget = limited_power;
-#ifdef LOW_BATTERY_PT_SETTING_V2
+#if defined(ENABLE_OPP_LIMIT)
 	pwrthro_policy.is_activated = ppm_pwrthro_is_policy_active();
 #else
 	pwrthro_policy.is_activated = (limited_power) ? true : false;
@@ -298,10 +301,12 @@ void ppm_pwrthro_low_bat_protect(LOW_BATTERY_LEVEL level)
 		break;
 	}
 
-#ifdef LOW_BATTERY_PT_SETTING_V2
+#ifndef LOW_BATTERY_PT_SETTING_V2
+	pwrthro_policy.req.power_budget = limited_power;
+#endif
+#if defined(ENABLE_OPP_LIMIT)
 	pwrthro_policy.is_activated = ppm_pwrthro_is_policy_active();
 #else
-	pwrthro_policy.req.power_budget = limited_power;
 	pwrthro_policy.is_activated = (limited_power) ? true : false;
 #endif
 	ppm_unlock(&pwrthro_policy.lock);
@@ -310,12 +315,48 @@ void ppm_pwrthro_low_bat_protect(LOW_BATTERY_LEVEL level)
 end:
 	FUNC_EXIT(FUNC_LV_API);
 }
-#endif
+
+#ifdef LBAT_LIMIT_BCPU_OPP
+void ppm_pwrthro_low_bat_protect_ext(LOW_BATTERY_LEVEL level)
+{
+	FUNC_ENTER(FUNC_LV_API);
+
+	ppm_ver("@%s: low bat lv = %d\n", __func__, level);
+
+	ppm_lock(&pwrthro_policy.lock);
+
+	if (!pwrthro_policy.is_enabled) {
+		ppm_warn("@%s: pwrthro policy is not enabled!\n", __func__);
+		ppm_unlock(&pwrthro_policy.lock);
+		goto end;
+	}
+
+	switch (level) {
+	case LOW_BATTERY_LEVEL_1:
+		mt_ppm_pwrthro_set_freq_limit(1, -1, PWRTHRO_LOW_BAT_LV1_OPP);
+		break;
+	case LOW_BATTERY_LEVEL_2:
+		break;
+	default:
+		/* Unlimit */
+		mt_ppm_pwrthro_set_freq_limit(1, -1, -1);
+		break;
+	}
+
+	pwrthro_policy.is_activated = ppm_pwrthro_is_policy_active();
+	ppm_unlock(&pwrthro_policy.lock);
+	mt_ppm_main();
+
+end:
+	FUNC_EXIT(FUNC_LV_API);
+}
+#endif /* LBAT_LIMIT_BCPU_OPP */
+#endif /* DISABLE_LOW_BATTERY_PROTECT */
 
 static int __init ppm_pwrthro_policy_init(void)
 {
 	int ret = 0;
-#ifdef LOW_BATTERY_PT_SETTING_V2
+#if defined(ENABLE_OPP_LIMIT)
 	int i = 0;
 #endif
 
@@ -340,9 +381,13 @@ static int __init ppm_pwrthro_policy_init(void)
 #ifndef DISABLE_LOW_BATTERY_PROTECT
 	register_low_battery_notify(&ppm_pwrthro_low_bat_protect,
 		LOW_BATTERY_PRIO_CPU_L);
+#ifdef LBAT_LIMIT_BCPU_OPP
+	register_low_battery_notify_ext(&ppm_pwrthro_low_bat_protect_ext,
+		LOW_BATTERY_PRIO_CPU_L);
+#endif
 #endif
 
-#ifdef LOW_BATTERY_PT_SETTING_V2
+#if defined(ENABLE_OPP_LIMIT)
 	for_each_ppm_clusters(i) {
 		pwrthro_limit_data.limit[i].min_freq_idx = -1;
 		pwrthro_limit_data.limit[i].max_freq_idx = -1;
