@@ -48,7 +48,7 @@ endif
         MTK_PLATFORM_ID := $(patsubst CONSYS_%,%,$(subst ",,$(CONFIG_MTK_COMBO_CHIP)))
         $(info MTK_PLATFORM_ID is [${MTK_PLATFORM_ID}])
 
-        ifneq (,$(filter $(CONFIG_MTK_COMBO_CHIP), "CONSYS_6885" "CONSYS_6893"))
+        ifneq (,$(filter $(CONFIG_MTK_COMBO_CHIP), "CONSYS_6885" "CONSYS_6893" "CONSYS_6877"))
             export MTK_COMBO_CHIP=CONNAC2X2_SOC3_0
             PATH_TO_WMT_DRV      = vendor/mediatek/kernel_modules/connectivity/conninfra
         else ifneq (,$(filter $(CONFIG_MTK_COMBO_CHIP), "CONSYS_6779" "CONSYS_6873" "CONSYS_6853"))
@@ -124,6 +124,9 @@ endif
         # else ifneq (,$(filter $(CONFIG_MTK_COMBO_CHIP), "CONSYS_6893"))
         #     PATH_TO_BT_DRV       = vendor/mediatek/kernel_modules/connectivity/bt/mt66xx/connac2
         #     export _MTK_BT_CHIP=MTK_CONSYS_MT6893
+        # else ifneq (,$(filter $(CONFIG_MTK_COMBO_CHIP), "CONSYS_6877"))
+        #     PATH_TO_BT_DRV       = vendor/mediatek/kernel_modules/connectivity/bt/mt66xx/connac2
+        #     export _MTK_BT_CHIP=MTK_CONSYS_MT6877
         # else
         #     PATH_TO_BT_DRV       = vendor/mediatek/kernel_modules/connectivity/bt/mt66xx/legacy
         # endif
@@ -136,13 +139,13 @@ endif
 
         # For FM built-in mode start @{
         # for fmradio options
-        # ifneq (,$(filter $(CONFIG_MTK_COMBO_CHIP), "CONSYS_6885" "CONSYS_6893"))
+        # ifneq (,$(filter $(CONFIG_MTK_COMBO_CHIP), "CONSYS_6885" "CONSYS_6893" "CONSYS_6877"))
         #     export CFG_BUILD_CONNAC2=true
         # else
         #     export CFG_BUILD_CONNAC2=false
         # endif
         # FM_6631_CHIPS := 6758 6759 6771 6775 6765 6761 3967 6797 6768 6785 8168
-        # FM_6635_CHIPS := 6779 6885 6873 6893
+        # FM_6635_CHIPS := 6779 6885 6873 6893 6877
         # ifneq ($(filter $(FM_6631_CHIPS), $(MTK_PLATFORM_ID)),)
         #     FM_CHIP := mt6631
         # else ifneq ($(filter $(FM_6635_CHIPS), $(MTK_PLATFORM_ID)),)
