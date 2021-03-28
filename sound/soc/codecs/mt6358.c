@@ -797,12 +797,20 @@ int mt6358_set_mtkaif_calibration_phase(struct snd_soc_component *cmpnt,
 
 static int get_auxadc_audio(void)
 {
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 	return pmic_get_auxadc_value(AUXADC_LIST_HPOFS_CAL);
+#else
+	return 1;
+#endif
 }
 
 static int get_accdet_auxadc(void)
 {
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 	return pmic_get_auxadc_value(AUXADC_LIST_ACCDET);
+#else
+	return 1;
+#endif
 }
 
 /* dl pga gain */
@@ -7736,6 +7744,7 @@ static int mt6358_platform_driver_remove(struct platform_device *pdev)
 
 static const struct of_device_id mt6358_of_match[] = {
 	{.compatible = "mediatek,mt6358-sound",},
+	{.compatible = "mediatek,mt6366-sound",},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mt6358_of_match);
