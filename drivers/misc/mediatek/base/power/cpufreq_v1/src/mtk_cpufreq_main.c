@@ -1146,7 +1146,8 @@ static unsigned int _calc_new_opp_idx(struct mt_cpu_dvfs *p, int new_opp_idx)
 	return new_opp_idx;
 }
 
-#if 0
+#if defined(CONFIG_MACH_MT6781)
+#else
 static void ppm_limit_callback(struct ppm_client_req req)
 {
 	struct ppm_client_req *ppm = (struct ppm_client_req *)&req;
@@ -1652,7 +1653,8 @@ static int cpuhp_cpufreq_offline(unsigned int cpu)
 static enum cpuhp_state hp_online;
 static int _mt_cpufreq_pdrv_probe(struct platform_device *pdev)
 {
-#if 0
+#if defined(CONFIG_MACH_MT6781)
+#else
 	unsigned int lv = _mt_cpufreq_get_cpu_level();
 #endif
 	unsigned int ret;
