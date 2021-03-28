@@ -73,12 +73,6 @@
 #define DRV_SetReg32(addr, val)	DRV_WriteReg32(addr, DRV_Reg32(addr) | (val))
 #define DRV_ClrReg32(addr, val)	DRV_WriteReg32(addr, DRV_Reg32(addr) & ~(val))
 
-#if defined(CONFIG_MACH_MT6781)
-#define USE_VSRAM_OTHERS_LDO	1
-#define USE_VSRAM_CORE_LDO		2
-int Scp_Vsram_Ldo_usage;
-#endif
-
 /* -1:SCP DVFS OFF, 1:SCP DVFS ON */
 static int scp_dvfs_flag = 1;
 
@@ -112,6 +106,23 @@ static struct pm_qos_request dvfsrc_scp_vcore_req;
 
 static void mt_pmic_sshub_init(void);
 static void mt_scp_dvfs_ipi_init(void);
+
+#if defined(CONFIG_MACH_MT6781)
+/* 0: GPIO Dir. as Input; 1: GPIO Dir. as Output; */
+#define ADR_GPIO_DIR6 (gpio_base + 0x060)
+#define BIT_GPIO_DIR6_GPIO200 8
+#define MAK_GPIO_DIR6_GPIO200 0x1
+
+/* GPIO200=Lo:   SCP uses VASRAM_CORE  */
+/* GPIO200=High: SCP uses VASRAM_OTHERS  */
+#define ADR_GPIO_DIN6 (gpio_base + 0x260)
+#define BIT_GPIO_DIN6_GPIO200 8
+#define MAK_GPIO_DIN6_GPIO200 0x1
+
+#define USE_VSRAM_CORE_LDO		1
+#define USE_VSRAM_OTHERS_LDO	2
+int Scp_Vsram_Ldo_usage;
+#endif
 
 #if 0
 bool __attribute__((weak))
@@ -1018,7 +1029,26 @@ static int mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	}
 
 #if defined(CONFIG_MACH_MT6781)
-	/* TBD: check VSRAM LDO usage */
+	/* check GPIO200 dirction */
+	if (((DRV_Reg32(ADR_GPIO_DIR6) >>
+			BIT_GPIO_DIR6_GPIO200) &
+			MAK_GPIO_DIR6_GPIO200) == 0)
+		pr_notice("GPIO200 DIR: input\n");
+	else {
+		pr_notice("ERROR: GPIO200 DIR: output\n");
+		WARN_ON(1);
+	}
+
+	/* check VSRAM LDO usage */
+	if (((DRV_Reg32(ADR_GPIO_DIN6) >>
+			BIT_GPIO_DIN6_GPIO200) &
+			MAK_GPIO_DIN6_GPIO200) == 0) {
+		Scp_Vsram_Ldo_usage = USE_VSRAM_CORE_LDO;
+		pr_notice("SCP's VSRAM LDO: VSRAM_CORE\n");
+	} else {
+		Scp_Vsram_Ldo_usage = USE_VSRAM_OTHERS_LDO;
+		pr_notice("SCP's VSRAM LDO: VSRAM_OTHERS\n");
+	}
 #endif
 
 	wakeup_source_init(&scp_suspend_lock, "scp wakelock");
