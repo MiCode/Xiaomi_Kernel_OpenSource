@@ -3572,8 +3572,10 @@
 	mdp_rdma0: mdp_rdma0@1b003000 {
 		compatible = "mediatek,mdp_rdma0", "mediatek,mdp";
 		reg = <0 0x1b003000 0 0x1000>;
-		clocks = <&mdpsys_config CLK_MDP_RDMA0>;
-		clock-names = "MDP_RDMA0";
+		clocks = <&mdpsys_config CLK_MDP_RDMA0>,
+			<&infracfg_ao INFRACFG_AO_GCE_CG>,
+			<&infracfg_ao INFRACFG_AO_GCE_26M_CG>;
+		clock-names = "MDP_RDMA0", "GCE", "GCE_TIMER";
 		mmsys_config = <&mdpsys_config>;
 		mm_mutex   = <&mdp_mutex>;
 		mboxes = <&gce_mbox_sec 10 0 CMDQ_THR_PRIO_1>,
