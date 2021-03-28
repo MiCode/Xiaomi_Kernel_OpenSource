@@ -58,7 +58,8 @@
 /* Delay present fence would cause config merge */
 #endif
 
-#if defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6853)\
+	|| defined(CONFIG_MACH_MT6877)
 #define CONFIG_MTK_DYN_SWITCH_BY_CMD
 #endif
 
