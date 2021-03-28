@@ -23,9 +23,15 @@ ccflags-y += \
         -I$(srctree)/drivers/misc/mediatek/base/power/eem_v2/mt6893/inc \
         -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6893/include/mach
 else
+ifeq ($(CONFIG_MACH_MT6781),y)
+ccflags-y += \
+        -I$(srctree)/drivers/misc/mediatek/base/power/eem_v2/mt6781/inc \
+        -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6781/include/mach
+else
 ccflags-y += \
         -I$(srctree)/drivers/misc/mediatek/base/power/eem_v2/$(CONFIG_MTK_PLATFORM)/inc \
         -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include/mach
+endif
 endif
 endif
 
@@ -38,7 +44,11 @@ ccflags-y += \
 
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+ifeq ($(CONFIG_MACH_MT6781),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/mt6781
+else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
+endif
 ccflags-y += -I$(srctree)/drivers/devfreq
 endif
 
