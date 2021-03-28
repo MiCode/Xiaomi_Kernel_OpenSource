@@ -934,7 +934,11 @@ int ISP_SetPMQOS(
 			for (i = 0; i < step; i++)
 				pvalue[i] = freq[i];
 
-			target_clk = pvalue[step - 1];
+			if (step > 0)
+				target_clk = pvalue[step - 1];
+			else
+				LOG_NOTICE("No supported clock step(%d). mmdvfs not ready?\n",
+					step);
 
 			for (i = 0 ; i < step; i++)
 				LOG_DBG("2:DFS Clk_%d:%d", i, pvalue[i]);
