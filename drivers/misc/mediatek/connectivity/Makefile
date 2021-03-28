@@ -59,6 +59,9 @@ endif
             PATH_TO_WMT_DRV      = vendor/mediatek/kernel_modules/connectivity/common
         endif
 
+        export MTK_PLATFORM_WMT=$(MTK_PLATFORM)
+        export TARGET_BOARD_PLATFORM_WMT=$(patsubst CONSYS_%,mt%,$(subst ",,$(CONFIG_MTK_COMBO_CHIP)))
+
         PATH_TO_WLAN_CHR_DRV = vendor/mediatek/kernel_modules/connectivity/wlan/adaptor
         PATH_TO_WLAN_DRV     = vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m
 
