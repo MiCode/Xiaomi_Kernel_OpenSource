@@ -136,6 +136,12 @@ config PINCTRL_MT6771
 	depends on MACH_MT6771
 	select PINCTRL_MTK_PARIS
 
+config PINCTRL_MT6781
+	bool "Mediatek MT6781 pin control"
+	default n
+	depends on MACH_MT6781
+	select PINCTRL_MTK_PARIS
+
 config PINCTRL_MT6833
 	bool "Mediatek MT6833 pin control"
 	default n
