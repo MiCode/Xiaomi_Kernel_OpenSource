@@ -22,7 +22,11 @@ endif
 endif
 
 ifeq ($(CONFIG_MTK_GAUGE_VERSION),30)
+ifeq ($(CONFIG_MACH_MT6781),y)
+obj-y += mt6366_gauge.o
+else
 obj-y += mt6358_gauge.o
+endif
 endif
 
 obj-$(CONFIG_MTK_PMIC_CHIP_MT6358)	+= pmic.o pmic_common.o \
