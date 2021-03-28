@@ -27,7 +27,6 @@
 #endif
 
 #define HIE_CHANGE_KEY_IN_NORMAL_WORLD
-#define UFS_MTK_PLATFORM_FIX_UFS_HCI_VERSION
 /*
  * Platform dependent quirks
  */
