@@ -52,6 +52,29 @@ static struct trusted_mem_configs mchunk_general_configs = {
 };
 
 static struct tmem_device_description mtee_mchunks[] = {
+#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT) \
+	&& defined(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
+	{
+		.kern_tmem_type = TRUSTED_MEM_SVP,
+		.tee_smem_type = TEE_SMEM_SVP,
+		.mtee_chunks_id = MTEE_MCHUNKS_SVP,
+#if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
+		.ssmr_feature_id = SSMR_FEAT_SVP,
+#endif
+		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_SVP},
+#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)                                     \
+	&& defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+		.notify_remote = true,
+		.notify_remote_fn = secmem_fr_set_prot_shared_region,
+#else
+		.notify_remote = false,
+		.notify_remote_fn = NULL,
+#endif
+		.mem_cfg = &mchunk_general_configs,
+		.dev_name = "MTEE_SVP",
+	},
+#endif
+
 #ifdef CONFIG_MTK_PROT_MEM_SUPPORT
 	{
 		.kern_tmem_type = TRUSTED_MEM_PROT,

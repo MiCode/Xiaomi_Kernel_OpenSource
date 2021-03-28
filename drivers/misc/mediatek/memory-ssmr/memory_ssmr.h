@@ -15,7 +15,8 @@
 
 enum ssmr_feature_type {
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	defined(CONFIG_MTK_TEE_GP_SUPPORT)
+	defined(CONFIG_MTK_TEE_GP_SUPPORT) || \
+	defined(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
 	SSMR_FEAT_SVP,
 #endif
 #ifdef CONFIG_MTK_CAM_SECURITY_SUPPORT

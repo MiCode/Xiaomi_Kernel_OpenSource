@@ -30,7 +30,8 @@ config MTK_PROT_MEM_SUPPORT
 #
 config MTK_SECURE_MEM_SUPPORT
 	tristate "MTK SVP SECURE Memory Support"
-	depends on TRUSTONIC_TEE_SUPPORT || MTK_TEE_GP_SUPPORT
+	depends on TRUSTONIC_TEE_SUPPORT || MTK_TEE_GP_SUPPORT || \
+			  MTK_GZ_KREE && MTK_SVP_ON_MTEE_SUPPORT
 	default y
 	help
 	  Enable the support of MediaTek SVP secure memory driver.
@@ -39,6 +40,16 @@ config MTK_SECURE_MEM_SUPPORT
 	  It is a proxy of TEE secure memory driver for SVP secure memory
 	  management.
 	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+config MTK_SVP_ON_MTEE_SUPPORT
+	bool "MTK SVP Secure Memory allocator on MTEE"
+	default y
+	depends on MTK_GZ_KREE
+	help
+	  Enable the support of MediaTek SVP on MTEE.
+	  The continued memory managed by MTEE, so it is a memory allocator.
+	  Say Y if you would like to enable SVP by using MTEE.
 	  If unsure, say N.
 
 #

@@ -61,7 +61,7 @@ obj-y += tee_devices.o
 obj-y += tee_impl.o
 tee_impl-y += tee_impl/tee_invoke.o
 
-ifneq ($(filter y,$(CONFIG_MTK_TEE_GP_SUPPORT) $(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
+ifneq ($(filter y,$(CONFIG_MICROTRUST_TEE_SUPPORT) $(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
 tee_impl-y += tee_impl/tee_ops.o
 endif
 endif
@@ -69,7 +69,7 @@ endif
 #==========================================================================
 # MTEE Multiple Chunk Devices & Geniezone Peer Driver
 #==========================================================================
-ifneq ($(filter y,$(CONFIG_MTK_PROT_MEM_SUPPORT) $(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)),)
+ifneq ($(filter y,$(CONFIG_MTK_PROT_MEM_SUPPORT) $(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT) $(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)),)
 obj-y += mtee_devices.o
 endif
 ifeq ($(CONFIG_MTK_GZ_KREE),y)

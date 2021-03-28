@@ -41,8 +41,9 @@
 
 #define TEE_CMD_LOCK() mutex_lock(&tee_lock)
 #define TEE_CMD_UNLOCK() mutex_unlock(&tee_lock)
-
 static DEFINE_MUTEX(tee_lock);
+
+#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || defined(CONFIG_MICROTRUST_TEE_SUPPORT)
 static struct trusted_driver_operations *tee_ops;
 static void *tee_session_data;
 
@@ -69,6 +70,13 @@ tee_directly_invoke_cmd_locked(struct trusted_driver_cmd_params *invoke_params)
 
 	return ret;
 }
+#else
+static inline int
+tee_directly_invoke_cmd_locked(struct trusted_driver_cmd_params *invoke_params)
+{
+	return 0;
+}
+#endif
 
 int tee_directly_invoke_cmd(struct trusted_driver_cmd_params *invoke_params)
 {
