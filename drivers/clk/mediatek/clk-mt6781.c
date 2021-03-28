@@ -2305,7 +2305,7 @@ static void __init mtk_topckgen_init(struct device_node *node)
 	clk_writel(CLK_SCP_CFG_0, clk_readl(CLK_SCP_CFG_0) | 0x3FF);
 	clk_writel(CLK_SCP_CFG_1, clk_readl(CLK_SCP_CFG_1) | 0x11);
 
-#if 1
+#if 0
 	clk_writel(cksys_base + CK_CFG_0_CLR, 0x80000000);
 	clk_writel(cksys_base + CK_CFG_0_SET, 0x80000000);
 
@@ -2608,7 +2608,6 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 	clk_clrl(UNIVPLL_CON0, PLL_EN);
 	clk_setl(UNIVPLL_PWR_CON0, PLL_ISO_EN);
 	clk_clrl(UNIVPLL_PWR_CON0, PLL_PWR_ON);
-#endif
 /*MSDCPLL*/
 	clk_clrl(MSDCPLL_CON0, PLL_EN);
 	clk_setl(MSDCPLL_PWR_CON0, PLL_ISO_EN);
@@ -2627,6 +2626,7 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 	clk_setl(ADSPPLL_PWR_CON0, PLL_ISO_EN);
 	clk_clrl(ADSPPLL_PWR_CON0, PLL_PWR_ON);
 	clk_clrl(ADSPPLL_CON0, ADSPPLL_DIV_RSTB);/*move to front*/
+#endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_apmixedsys, "mediatek,apmixed",
 		mtk_apmixedsys_init);

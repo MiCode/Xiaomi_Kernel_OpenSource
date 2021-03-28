@@ -37,6 +37,10 @@
 #define CONN_TIMEOUT_RECOVERY	6
 #define CONN_TIMEOUT_STEP1	5
 
+#ifdef CONFIG_FPGA_EARLY_PORTING
+#define IGNORE_MTCMOS_CHECK
+#endif
+
 #ifndef GENMASK
 #define GENMASK(h, l)	(((U32_C(1) << ((h) - (l) + 1)) - 1) << (l))
 #endif
@@ -2746,14 +2750,14 @@ static void __init mt_scpsys_init(struct device_node *node)
 	disable_subsys(SYS_MD1);
 #else				/*power on all subsys for bring up */
 #ifndef CONFIG_FPGA_EARLY_PORTING
-#if 1/*MT_CCF_BRINGUP*/
+#if 0/*MT_CCF_BRINGUP*/
 //CHANGE TO USE CLKTGI
 	spm_mtcmos_ctrl_mfg0(STA_POWER_ON);
 	spm_mtcmos_ctrl_mfg1(STA_POWER_ON);
 	spm_mtcmos_ctrl_mfg2(STA_POWER_ON);
 	spm_mtcmos_ctrl_mfg3(STA_POWER_ON);
-	spm_mtcmos_ctrl_mfg4(STA_POWER_ON);
-	spm_mtcmos_ctrl_mfg5(STA_POWER_ON);
+	//spm_mtcmos_ctrl_mfg4(STA_POWER_ON);
+	//spm_mtcmos_ctrl_mfg5(STA_POWER_ON);
 #if 0
 	spm_mtcmos_ctrl_dis(STA_POWER_ON);
 	spm_mtcmos_ctrl_cam(STA_POWER_ON);
