@@ -384,10 +384,15 @@
 				<&iocfg_rm>,
 				<&iocfg_rt>,
 				<&iocfg_tl>;
+		reg_base_eint = <&eint>;
 		pins-are-numbered;
 		gpio-controller;
 		gpio-ranges = <&pio 0 0 202>;
 		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupts = <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gic>;
 	};
 
 	sleep: sleep@10006000 {
@@ -410,7 +415,7 @@
 		reg = <0 0x1000a000 0 0x1000>;
 	};
 
-	apirq@1000b000 {
+	eint: apirq@1000b000 {
 		compatible = "mediatek,apirq";
 		reg = <0 0x1000b000 0 0x1000>;
 	};
