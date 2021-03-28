@@ -46,6 +46,11 @@ $(info *GPU defined GPU BM QoS 2.0)
 endif
 endif
 
+ifeq ($(CONFIG_MACH_MT6781),y)
+ccflags-y += -DMTK_GPU_BM_2
+$(info *GPU defined GPU BM QoS 2.0)
+endif
+
 # Enable by specific Family-ID
 ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6885" "mt6873" "mt6853"))
 ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
