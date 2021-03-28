@@ -44,10 +44,9 @@
 
 #define DVFSRC_1600_FLOOR
 
-
+#if defined(CONFIG_MTK_DVFSRC_MT6781_PRETEST)
 static struct reg_config dvfsrc_init_configs[][128] = {
 	{
-#if defined(CONFIG_MTK_DVFSRC_MT6781_PRETEST)
 		{ DVFSRC_TIMEOUT_NEXTREQ,  0x0000002B },
 		{ DVFSRC_INT_EN,           0x00000002 },
 		{ DVFSRC_QOS_EN,           0x0000407C },
@@ -129,7 +128,6 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_BASIC_CONTROL,     0x7599404B },
 		{ DVFSRC_BASIC_CONTROL,     0x7599014B },
 		{ DVFSRC_CURRENT_FORCE,     0x00000000 },
-#endif
 		{ -1, 0 },
 	},
 	/* NULL */
@@ -137,7 +135,108 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ -1, 0 },
 	},
 };
+#else
+static struct reg_config dvfsrc_init_configs[][128] = {
+	{
+		{ DVFSRC_HRT_REQ_UNIT,       0x0000001E },
+		{ DVFSRC_DEBOUNCE_TIME,      0x00001965 },
+		{ DVFSRC_TIMEOUT_NEXTREQ,    0x00000015 },
 
+		{ DVFSRC_DDR_QOS0,           0x00000019 },
+		{ DVFSRC_DDR_QOS1,           0x00000026 },
+		{ DVFSRC_DDR_QOS2,           0x00000033 },
+		{ DVFSRC_DDR_QOS3,           0x0000004C },
+		{ DVFSRC_DDR_QOS4,           0x00000066 },
+		{ DVFSRC_DDR_QOS5,           0x00000077 },
+		{ DVFSRC_DDR_QOS6,           0x00000077 },
+
+		{ DVFSRC_LEVEL_LABEL_0_1,    0x40225032 },
+		{ DVFSRC_LEVEL_LABEL_2_3,    0x20223012 },
+		{ DVFSRC_LEVEL_LABEL_4_5,    0x40211012 },
+		{ DVFSRC_LEVEL_LABEL_6_7,    0x20213011 },
+		{ DVFSRC_LEVEL_LABEL_8_9,    0x30101011 },
+		{ DVFSRC_LEVEL_LABEL_10_11,  0x10102000 },
+		{ DVFSRC_LEVEL_LABEL_12_13,  0x00000000 },
+		{ DVFSRC_LEVEL_LABEL_14_15,  0x00000000 },
+
+		{ DVFSRC_MD_LATENCY_IMPROVE, 0x00000040 },
+		{ DVFSRC_HRT_BW_BASE,        0x00000004 },
+		{ DVSFRC_HRT_REQ_MD_URG,     0x0000D3D3 },
+		{ DVFSRC_HRT_REQ_MD_BW_0,    0x00200802 },
+		{ DVFSRC_HRT_REQ_MD_BW_1,    0x00200800 },
+		{ DVFSRC_HRT_REQ_MD_BW_2,    0x00200002 },
+		{ DVFSRC_HRT_REQ_MD_BW_3,    0x00200802 },
+		{ DVFSRC_HRT_REQ_MD_BW_4,    0x00400802 },
+		{ DVFSRC_HRT_REQ_MD_BW_5,    0x00601404 },
+		{ DVFSRC_HRT_REQ_MD_BW_6,    0x00902008 },
+		{ DVFSRC_HRT_REQ_MD_BW_7,    0x00E0380E },
+		{ DVFSRC_HRT_REQ_MD_BW_8,    0x00000000 },
+		{ DVFSRC_HRT_REQ_MD_BW_9,    0x00000000 },
+		{ DVFSRC_HRT_REQ_MD_BW_10,   0x00034C00 },
+		{ DVFSRC_HRT1_REQ_MD_BW_0,   0x0360D836 },
+		{ DVFSRC_HRT1_REQ_MD_BW_1,   0x0360D800 },
+		{ DVFSRC_HRT1_REQ_MD_BW_2,   0x03600036 },
+		{ DVFSRC_HRT1_REQ_MD_BW_3,   0x0360D836 },
+		{ DVFSRC_HRT1_REQ_MD_BW_4,   0x0360D836 },
+		{ DVFSRC_HRT1_REQ_MD_BW_5,   0x0360D836 },
+		{ DVFSRC_HRT1_REQ_MD_BW_6,   0x0360D836 },
+		{ DVFSRC_HRT1_REQ_MD_BW_7,   0x0360D836 },
+		{ DVFSRC_HRT1_REQ_MD_BW_8,   0x00000000 },
+		{ DVFSRC_HRT1_REQ_MD_BW_9,   0x00000000 },
+		{ DVFSRC_HRT1_REQ_MD_BW_10,  0x00034C00 },
+
+		{ DVFSRC_95MD_SCEN_BW0_T,   0x22222220 },
+		{ DVFSRC_95MD_SCEN_BW1_T,   0x22222222 },
+		{ DVFSRC_95MD_SCEN_BW2_T,   0x22222222 },
+		{ DVFSRC_95MD_SCEN_BW3_T,   0x52222222 },
+		{ DVFSRC_95MD_SCEN_BW4,     0x00000005 },
+
+		{ DVFSRC_RSRV_5,             0x00000001 },
+#ifdef DVFSRC_1600_FLOOR
+		{ DVFSRC_DDR_REQUEST,		 0x00004322 },
+#else
+		{ DVFSRC_DDR_REQUEST,        0x00004321 },
+#endif
+		{ DVFSRC_DDR_REQUEST3,       0x00000065 },
+		{ DVFSRC_DDR_ADD_REQUEST,    0x66543210 },
+#ifdef DVFSRC_1600_FLOOR
+		{ DVFSRC_DDR_REQUEST5,	     0x00322000 },
+#else
+		{ DVFSRC_DDR_REQUEST5,	     0x00321000 },
+#endif
+		{ DVFSRC_DDR_REQUEST7,       0x54000000 },
+		{ DVFSRC_EMI_MON_DEBOUNCE_TIME,   0x4C2D0000 },
+		{ DVFSRC_DDR_REQUEST6,       0x66543210 },
+		{ DVFSRC_VCORE_USER_REQ,     0x00010A29 },
+
+		{ DVFSRC_HRT_HIGH,           0x070804B0 },
+		{ DVFSRC_HRT_HIGH_1,         0x11830B80 },
+		{ DVFSRC_HRT_HIGH_2,         0x18A618A6 },
+		{ DVFSRC_HRT_HIGH_3,         0x000018A6 },
+		{ DVFSRC_HRT_LOW,            0x070704AF },
+		{ DVFSRC_HRT_LOW_1,          0x11820B7F },
+		{ DVFSRC_HRT_LOW_2,          0x18A518A5 },
+		{ DVFSRC_HRT_LOW_3,          0x000018A5 },
+#ifdef DVFSRC_1600_FLOOR
+		{ DVFSRC_HRT_REQUEST,	     0x05554322 },
+#else
+		{ DVFSRC_HRT_REQUEST,	     0x05554321 },
+#endif
+		{ DVFSRC_BASIC_CONTROL_3,    0x00000006 },
+		{ DVFSRC_INT_EN,             0x00000002 },
+		{ DVFSRC_QOS_EN,             0x0000407C },
+		{ DVFSRC_CURRENT_FORCE,      0x00000001 },
+		{ DVFSRC_BASIC_CONTROL,      0x6598444B },
+		{ DVFSRC_BASIC_CONTROL,      0x6598054B },
+		{ DVFSRC_CURRENT_FORCE,      0x00000000 },
+		{ -1, 0 },
+	},
+	/* NULL */
+	{
+		{ -1, 0 },
+	},
+};
+#endif
 static ssize_t dvfsrc_vcore_settle_time_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -194,13 +293,7 @@ static int dvfsrc_get_emi_mon_gear(void)
 {
 	unsigned int total_bw_status;
 	int i;
-#if 0
-	total_bw_status = vcorefs_get_total_emi_status() & 0x3F;/*TBD*/
-	for (i = 6; i >= 0 ; i--) {
-		if ((total_bw_status >> i) > 0)
-			return i + 1;
-	}
-#else
+
 	total_bw_status = vcorefs_get_total_emi_status() & 0x1F;
 	for (i = 4; i >= 0 ; i--) {
 		if ((total_bw_status >> i) > 0) {
@@ -215,7 +308,6 @@ static int dvfsrc_get_emi_mon_gear(void)
 		}
 	}
 
-#endif
 	return 0;
 }
 

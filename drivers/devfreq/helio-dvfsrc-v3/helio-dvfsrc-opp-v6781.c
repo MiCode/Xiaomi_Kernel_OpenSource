@@ -29,10 +29,15 @@
 #define V_VMODE_SHIFT 0
 #define V_CT_SHIFT 5
 #define V_CT_TEST_SHIFT 6
+#define V_CT_OPP2_SHIFT 7
+
+static int opp_min_bin_opp0;
+static int opp_min_bin_opp2;
+
 
 static int dvfsrc_rsrv;
 
-#if defined(CONFIG_MTK_DVFSRC_MT6781_PRETEST)
+
 #ifndef CONFIG_MTK_DRAMC
 static int dram_steps_freq(unsigned int step)
 {
@@ -47,17 +52,6 @@ int ddr_level_to_step(int opp)
 
 	return step[opp];
 }
-#else
-#ifndef CONFIG_MEDIATEK_DRAMC
-static int mtk_dramc_get_steps_freq(unsigned int step)
-{
-	pr_info("get dram steps_freq fail\n");
-	return 4266;
-}
-#endif
-#endif
-
-
 
 void dvfsrc_opp_level_mapping(void)
 {
@@ -105,13 +99,49 @@ void dvfsrc_opp_table_init(void)
 		}
 		set_opp_table(i, get_vcore_uv_table(vcore_opp),
 
-#if defined(CONFIG_MTK_DVFSRC_MT6781_PRETEST)
 		dram_steps_freq(ddr_level_to_step(ddr_opp)) * 1000);
-#else
-		mtk_dramc_get_steps_freq(ddr_opp) * 1000);
-#endif
-
 	}
+}
+
+static int get_vb_volt(int vcore_opp)
+{
+	int idx;
+	int ret = 0;
+	int ptpod = get_devinfo_with_index(69);
+
+	pr_info("%s: PTPOD: 0x%x\n", __func__, ptpod);
+
+	switch (vcore_opp) {
+	case VCORE_OPP_0:
+		idx = (ptpod >> 4) & 0xF;
+		if (idx >= opp_min_bin_opp0)
+			ret = 1;
+		break;
+	case VCORE_OPP_2:
+		idx = ptpod & 0xF;
+		if (idx >= opp_min_bin_opp2 && idx < 10)
+			ret = 1;
+		break;
+	default:
+		break;
+	}
+
+	return ret * 25000;
+}
+
+static int is_rising_need(void)
+{
+#if 0
+	int idx;
+	int ptpod = get_devinfo_with_index(69);
+
+	pr_info("%s: PTPOD: 0x%x\n", __func__, ptpod);
+
+	idx = ptpod & 0xF;
+	if (idx == 1 || idx == 2)
+		return idx;
+#endif
+	return 0;
 }
 
 static int __init dvfsrc_opp_init(void)
@@ -120,6 +150,8 @@ static int __init dvfsrc_opp_init(void)
 	int vcore_opp_0_uv, vcore_opp_1_uv, vcore_opp_2_uv;
 	int is_vcore_ct = 0;
 	int dvfs_v_mode = 0;
+	int ct_test = 0;
+	int ct_opp2_en = 0;
 	void __iomem *dvfsrc_base;
 
 #if defined(CONFIG_MTK_DVFSRC_MT6781_PRETEST)
@@ -158,7 +190,27 @@ static int __init dvfsrc_opp_init(void)
 		pr_info("%s: vcore_arg = %08x\n", __func__, dvfsrc_rsrv);
 		dvfs_v_mode = (dvfsrc_rsrv >> V_VMODE_SHIFT) & 0x3;
 		is_vcore_ct = (dvfsrc_rsrv >> V_CT_SHIFT) & 0x1;
+		ct_test = (dvfsrc_rsrv >> V_CT_TEST_SHIFT) & 0x1;
+		ct_opp2_en = (dvfsrc_rsrv >> V_CT_OPP2_SHIFT) & 0x1;
 	}
+
+	if (is_vcore_ct) {
+		if (ct_test) {
+			opp_min_bin_opp0 = 2;
+			opp_min_bin_opp2 = 4;
+		} else {
+			opp_min_bin_opp0 = 3;
+			opp_min_bin_opp2 = 5;
+	}
+		vcore_opp_0_uv -= get_vb_volt(VCORE_OPP_0);
+		if (ct_opp2_en)
+			vcore_opp_2_uv -= get_vb_volt(VCORE_OPP_2);
+	}
+
+	if (is_rising_need() == 2)
+		vcore_opp_2_uv = 675000;
+	else if (is_rising_need() == 1)
+		vcore_opp_2_uv = 700000;
 
 	if (dvfs_v_mode == 3) {
 		/* LV */
@@ -196,16 +248,12 @@ fs_initcall_sync(dvfsrc_opp_init)
 static int __init dvfsrc_dram_opp_init(void)
 {
 	int i;
-#if defined(CONFIG_MTK_DVFSRC_MT6781_PRETEST)
 
 	for (i = 0; i < DDR_OPP_NUM; i++) {
 		set_opp_ddr_freq(i,
 			dram_steps_freq(ddr_level_to_step(i)) * 1000);
 	}
-#else
-	for (i = 0; i < DDR_OPP_NUM; i++)
-		set_opp_ddr_freq(i, mtk_dramc_get_steps_freq(i) * 1000);
-#endif
+
 	return 0;
 }
 
