@@ -175,7 +175,7 @@
 		};
 	};
 	panel3@0 {
-		compatible = "truly,td4330,vdo";
+		compatible = "truly,td4330,cmd";
 		reg = <2>;
 		pm-enable-gpios = <&pio 107 0>;
 		reset-gpios = <&pio 40 0>;
