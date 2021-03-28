@@ -87,11 +87,10 @@
 #define TO_MHZ_TAIL                     (10)
 #define ROUNDING_VALUE                  (5)
 #define MFGPLL_FIN                      (26)            /* MHz */
-#define MFGPLL_FH_PLL                   FH_PLL6
-#define MFGPLL_CON0                     (g_apmixed_base + 0x268)
-#define MFGPLL_CON1                     (g_apmixed_base + 0x26C)
-#define MFGPLL_CON2                     (g_apmixed_base + 0x270)
-#define MFGPLL_CON3                     (g_apmixed_base + 0x274)
+#define MFGPLL_FH_PLL                   FH_PLL4
+#define MFGPLL_CON0                     (g_apmixed_base + 0x250)
+#define MFGPLL_CON1                     (g_apmixed_base + 0x254)
+#define MFGPLL_PWR_CON0                 (g_apmixed_base + 0x25C)
 
 /**************************************************
  * Reference Power Setting
