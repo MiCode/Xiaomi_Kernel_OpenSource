@@ -6145,9 +6145,14 @@ int Panel_Master_lcm_get_dsi_timing_entry(struct drm_crtc *crtc,
 		goto done;
 	}
 	mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
+	if (mtk_drm_top_clk_isr_get("mipi_get") == false) {
+		DDPINFO("%s, top clk off\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
 
 	ret = PanelMaster_get_dsi_timing(dsi, type);
-
+	mtk_drm_top_clk_isr_put("mipi_get");
 
 done:
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
@@ -6169,8 +6174,14 @@ int Panel_Master_mipi_set_timing_entry(struct drm_crtc *crtc,
 		goto done;
 	}
 	mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
+	if (mtk_drm_top_clk_isr_get("mipi_set") == false) {
+		DDPINFO("%s, top clk off\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
 
 	ret = PanelMaster_DSI_set_timing(dsi, timing);
+	mtk_drm_top_clk_isr_put("mipi_set");
 
 done:
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
