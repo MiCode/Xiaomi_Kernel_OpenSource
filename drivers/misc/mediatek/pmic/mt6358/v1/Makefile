@@ -9,9 +9,16 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb_c/tcpc/inc
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/pmic/include
 
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
+ifeq ($(CONFIG_MACH_MT6781),y)
+# SSPM V2
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/mt6781/
+obj-y += pmic_ipi_v2.o
+else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)/
 obj-y += pmic_ipi.o
+endif
 endif
 
 ifeq ($(CONFIG_MTK_GAUGE_VERSION),30)
