@@ -1,4 +1,3 @@
-//#error "afasdfdas"
 /*
  * Copyright (C) 2020 MediaTek Inc.
  *

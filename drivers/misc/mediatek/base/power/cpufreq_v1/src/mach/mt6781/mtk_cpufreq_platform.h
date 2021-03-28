@@ -66,7 +66,7 @@
 #define PLL_SETTLE_TIME		20
 #define POS_SETTLE_TIME		1
 
-#define DVFSP_DT_NODE		"mediatek,mt6833-dvfsp"
+#define DVFSP_DT_NODE		"mediatek,mt6781-dvfsp"
 
 #define CSRAM_BASE		0x0011bc00
 #define CSRAM_SIZE		0x1400		/* 5K bytes */

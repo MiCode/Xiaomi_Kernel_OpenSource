@@ -141,6 +141,8 @@ Retry_OFF:
 	return 0;
 }
 
+#if defined(CONFIG_MACH_MT6781)
+#else
 static void ppm_limit_callback(struct ppm_client_req req)
 {
 	mutex_lock(&ppm_mutex);
@@ -149,7 +151,7 @@ static void ppm_limit_callback(struct ppm_client_req req)
 
 	wake_up_process(ppm_kthread);
 }
-
+#endif
 
 void ppm_notifier(void)
 {
@@ -176,10 +178,11 @@ void ppm_notifier(void)
 		       PTR_ERR(ppm_kthread));
 		return;
 	}
-
+#if defined(CONFIG_MACH_MT6781)
+#else
 	/* register PPM callback */
 	mt_ppm_register_client(PPM_CLIENT_HOTPLUG, &ppm_limit_callback);
-
+#endif
 	hps_ws = wakeup_source_register(NULL, "hps");
 	if (!hps_ws)
 		pr_debug("hps wakelock register fail!\n");
