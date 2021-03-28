@@ -63,13 +63,6 @@
                 <sensitive_level>Edge</sensitive_level>
                 <debounce_en>Disable</debounce_en>
             </eint15>
-            <eint60>
-                <varName>SMART_PA</varName>
-                <debounce_time>0</debounce_time>
-                <polarity>Low</polarity>
-                <sensitive_level>Level</sensitive_level>
-                <debounce_en>Disable</debounce_en>
-            </eint60>
             <eint97>
                 <varName>DSI_TE</varName>
                 <debounce_time>0</debounce_time>
@@ -937,9 +930,9 @@
             <gpio81>
                 <eint_mode>false</eint_mode>
                 <def_mode>0</def_mode>
-                <inpull_en>false</inpull_en>
+                <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
-                <def_dir>IN</def_dir>
+                <def_dir>OUT</def_dir>
                 <out_high>false</out_high>
                 <varName0>GPIO_SMARTPA_WDT</varName0>
                 <smt>true</smt>
