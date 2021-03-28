@@ -139,7 +139,7 @@
 #define MT_GPUFREQ_PTPOD_CALIBRATION_ENABLE 0
 
 #define FM_HF_FMFG_CK 3
-#define FM_AD_MFGPLL_CK 27
+#define FM_AD_MFGPLL_CK 26
 
 /**************************************************
  * Register Manipulations
