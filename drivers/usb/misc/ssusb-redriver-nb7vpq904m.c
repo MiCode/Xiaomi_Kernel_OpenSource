@@ -97,6 +97,7 @@ struct ssusb_redriver {
 	u8	loss_match[CHAN_MODE_NUM][CHANNEL_NUM];
 	u8	flat_gain[CHAN_MODE_NUM][CHANNEL_NUM];
 
+	u8	gen_dev_val;
 	int	ucsi_i2c_write_err;
 
 	struct dentry	*debug_root;
@@ -188,6 +189,8 @@ static int ssusb_redriver_gen_dev_set(struct ssusb_redriver *redriver)
 		val &= ~CHIP_EN;
 		break;
 	}
+
+	redriver->gen_dev_val = val;
 
 	return redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG, val);
 }
@@ -982,8 +985,8 @@ static int __maybe_unused redriver_i2c_suspend(struct device *dev)
 	    redriver->op_mode == OP_MODE_DEFAULT)
 		return 0;
 
-	redriver->op_mode = OP_MODE_NONE;
-	ssusb_redriver_gen_dev_set(redriver);
+	redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG,
+				redriver->gen_dev_val & ~CHIP_EN);
 
 	return 0;
 }
@@ -995,6 +998,15 @@ static int __maybe_unused redriver_i2c_resume(struct device *dev)
 
 	dev_dbg(redriver->dev, "%s: SS USB redriver resume.\n",
 			__func__);
+
+	/* no suspend happen in following mode */
+	if (redriver->op_mode == OP_MODE_DP ||
+	    redriver->op_mode == OP_MODE_NONE ||
+	    redriver->op_mode == OP_MODE_DEFAULT)
+		return 0;
+
+	redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG,
+				redriver->gen_dev_val);
 
 	return 0;
 }
