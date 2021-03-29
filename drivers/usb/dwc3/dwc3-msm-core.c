@@ -530,6 +530,8 @@ struct dwc3_msm {
 	bool			ss_release_called;
 	int			orientation_override;
 
+	struct device_node	*ss_redriver_node;
+
 #define MAX_ERROR_RECOVERY_TRIES	3
 	bool			err_evt_seen;
 	int			retries_on_error;
@@ -4444,7 +4446,6 @@ static int dwc3_start_stop_device(struct dwc3_msm *mdwc, bool start)
 int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
-	struct device_node *ssusb_redriver_node;
 	int ret;
 
 	if (!mdwc || !mdwc->dwc3) {
@@ -4468,9 +4469,7 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 	flush_work(&mdwc->resume_work);
 	drain_workqueue(mdwc->sm_usb_wq);
 
-	ssusb_redriver_node =
-		of_parse_phandle(mdwc->dev->of_node, "ssusb_redriver", 0);
-	redriver_release_usb_lanes(ssusb_redriver_node);
+	redriver_release_usb_lanes(mdwc->ss_redriver_node);
 
 	mdwc->ss_release_called = true;
 	mdwc->ss_phy->flags |= PHY_DP_MODE;
@@ -4893,6 +4892,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mutex_init(&mdwc->suspend_resume_mutex);
 
+	mdwc->ss_redriver_node = of_parse_phandle(node, "ssusb_redriver", 0);
+
 	if (of_property_read_bool(node, "usb-role-switch")) {
 		struct usb_role_switch_desc role_desc = {
 			.set = dwc3_msm_usb_set_role,
@@ -4984,6 +4985,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 put_dwc3:
 	usb_role_switch_unregister(mdwc->role_switch);
+	of_node_put(mdwc->ss_redriver_node);
 	for (i = 0; i < ARRAY_SIZE(mdwc->icc_paths); i++)
 		icc_put(mdwc->icc_paths[i]);
 
@@ -5000,6 +5002,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	int i, ret_pm;
 
 	usb_role_switch_unregister(mdwc->role_switch);
+	of_node_put(mdwc->ss_redriver_node);
 	device_remove_file(&pdev->dev, &dev_attr_mode);
 	device_remove_file(&pdev->dev, &dev_attr_speed);
 	device_remove_file(&pdev->dev, &dev_attr_bus_vote);
