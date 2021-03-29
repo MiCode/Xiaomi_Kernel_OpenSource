@@ -1104,7 +1104,7 @@ void genc_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	unsigned int i;
-	u32 hi, lo, val, cgc, cgc1, cgc2;
+	u32 hi, lo, cgc, cgc1, cgc2;
 
 	/*
 	 * Dump debugbus data here to capture it for both
@@ -1210,10 +1210,9 @@ void genc_snapshot(struct adreno_device *adreno_dev,
 	/* registers dumped through DBG AHB */
 	genc_snapshot_dbgahb_regs(device, snapshot);
 
-	kgsl_regread(device, GENC_RBBM_SNAPSHOT_STATUS, &val);
-	if (!val)
-		dev_err(device->dev,
-			"Interface signals may have changed during snapshot\n");
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS_V2,
+		snapshot, adreno_snapshot_registers_v2,
+		(void *)genc_post_crashdumper_registers);
 
 	kgsl_regwrite(device, GENC_RBBM_SNAPSHOT_STATUS, 0x0);
 
