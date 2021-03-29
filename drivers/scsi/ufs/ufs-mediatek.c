@@ -1069,16 +1069,6 @@ static void ufs_mtk_setup_xfer_req(struct ufs_hba *hba, int tag,
 	}
 }
 
-static void ufs_mtk_compl_xfer_req(struct ufs_hba *hba, int tag,
-				   bool is_scsi)
-{
-	if (is_scsi) {
-		ufs_mtk_biolog_transfer_req_compl(tag);
-		ufs_mtk_biolog_check(hba->outstanding_reqs &
-				     ~(1 << tag));
-	}
-}
-
 static void ufs_mtk_event_notify(struct ufs_hba *hba,
 				 enum ufs_event_type evt, void *data)
 {
@@ -1101,7 +1091,6 @@ static const struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	.link_startup_notify = ufs_mtk_link_startup_notify,
 	.pwr_change_notify   = ufs_mtk_pwr_change_notify,
 	.setup_xfer_req      = ufs_mtk_setup_xfer_req,
-	.compl_xfer_req      = ufs_mtk_compl_xfer_req,
 	.apply_dev_quirks    = ufs_mtk_apply_dev_quirks,
 	.fixup_dev_quirks    = ufs_mtk_fixup_dev_quirks,
 	.suspend             = ufs_mtk_suspend,
