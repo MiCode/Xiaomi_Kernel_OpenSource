@@ -226,6 +226,7 @@ int hh_rm_set_vcpu_affinity_cb(hh_vcpu_affinity_cb_t fnptr);
 int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name, int *vmid);
 int hh_rm_get_vmid(enum hh_vm_names vm_name, hh_vmid_t *vmid);
 int hh_rm_get_vm_name(hh_vmid_t vmid, enum hh_vm_names *vm_name);
+int hh_rm_get_vminfo(enum hh_vm_names vm_name, struct hh_vminfo *vminfo);
 int hh_rm_vm_start(int vmid);
 int hh_rm_get_vm_id_info(enum hh_vm_names vm_name, hh_vmid_t vmid);
 
@@ -343,10 +344,16 @@ static inline int hh_rm_get_vm_name(hh_vmid_t vmid, enum hh_vm_names *vm_name)
 	return -EINVAL;
 }
 
+static inline int hh_rm_get_vminfo(enum hh_vm_names vm_name, struct hh_vminfo *vminfo);
+{
+	return -EINVAL;
+}
+
 static inline int hh_rm_vm_start(int vmid)
 {
 	return -EINVAL;
 }
+
 static inline int hh_rm_get_vm_id_info(enum hh_vm_names vm_name, hh_vmid_t vmid)
 {
 	return -EINVAL;

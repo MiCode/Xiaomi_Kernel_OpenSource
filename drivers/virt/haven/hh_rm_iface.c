@@ -101,6 +101,31 @@ int hh_rm_get_vm_name(hh_vmid_t vmid, enum hh_vm_names *vm_name)
 EXPORT_SYMBOL(hh_rm_get_vm_name);
 
 /**
+ * hh_rm_get_vminfo: Obtain Vm related info with vm name
+ * @vm_name: VM name to lookup
+ * @vm: out pointer to store id information about VM
+ *
+ * If no VM is known to RM with the supplied name, -EINVAL is returned.
+ * 0 otherwise.
+ */
+int hh_rm_get_vminfo(enum hh_vm_names vm_name, struct hh_vminfo *vm)
+{
+	if (!vm)
+		return -EINVAL;
+
+	if (!vm->guid || !vm->uri || !vm->name || !vm->sign_auth)
+		return -EINVAL;
+
+	vm->guid = hh_vm_table[vm_name].guid;
+	vm->uri = hh_vm_table[vm_name].uri;
+	vm->name = hh_vm_table[vm_name].name;
+	vm->sign_auth = hh_vm_table[vm_name].sign_auth;
+
+	return 0;
+}
+EXPORT_SYMBOL(hh_rm_get_vminfo);
+
+/**
  * hh_rm_vm_get_id: Get identification info about a VM
  * @vmid: vmid whose info is needed. Pass 0 for self
  * @n_entries: The number of the resource entries that's returned to the caller
