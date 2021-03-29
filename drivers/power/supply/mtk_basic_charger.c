@@ -187,13 +187,6 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 				pdata->input_current_limit;
 			pdata2->charging_current_limit = 2000000;
 		}
-	} else if (info->chr_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
-		/* NONSTANDARD_CHARGER */
-		pdata->input_current_limit =
-			info->data.usb_charger_current;
-		pdata->charging_current_limit =
-			info->data.usb_charger_current;
-		is_basic = true;
 	}
 
 	if (info->enable_sw_jeita) {

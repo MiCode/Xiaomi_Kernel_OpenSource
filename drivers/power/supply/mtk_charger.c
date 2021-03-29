@@ -1566,8 +1566,6 @@ static char *dump_charger_type(int type)
 		return "usb-h";
 	case POWER_SUPPLY_TYPE_USB_DCP:
 		return "std";
-	case POWER_SUPPLY_TYPE_USB_FLOAT:
-			return "nonstd";
 	default:
 		return "unknown";
 	}
