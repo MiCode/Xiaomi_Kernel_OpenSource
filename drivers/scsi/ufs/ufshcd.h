@@ -343,7 +343,6 @@ struct ufs_hba_variant_ops {
 					struct ufs_pa_layer_attr *,
 					struct ufs_pa_layer_attr *);
 	void	(*setup_xfer_req)(struct ufs_hba *, int, bool);
-	void	(*compl_xfer_req)(struct ufs_hba *hba, int tag, bool is_scsi);
 	void	(*setup_task_mgmt)(struct ufs_hba *, int, u8);
 	void    (*hibern8_notify)(struct ufs_hba *, enum uic_cmd_dme,
 					enum ufs_notify_change_status);
@@ -1229,13 +1228,6 @@ static inline void ufshcd_vops_setup_xfer_req(struct ufs_hba *hba, int tag,
 {
 	if (hba->vops && hba->vops->setup_xfer_req)
 		return hba->vops->setup_xfer_req(hba, tag, is_scsi_cmd);
-}
-
-static inline void ufshcd_vops_compl_xfer_req(struct ufs_hba *hba,
-					      int tag, bool is_scsi)
-{
-	if (hba->vops && hba->vops->compl_xfer_req)
-		hba->vops->compl_xfer_req(hba, tag, is_scsi);
 }
 
 static inline void ufshcd_vops_setup_task_mgmt(struct ufs_hba *hba,
