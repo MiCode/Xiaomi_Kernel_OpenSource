@@ -147,6 +147,8 @@ struct arm_lpae_io_pgtable {
 
 	void			*pgd;
 	const struct qcom_iommu_pgtable_ops *iommu_pgtbl_ops;
+	/* Protects table refcounts */
+	spinlock_t		lock;
 };
 
 typedef u64 arm_lpae_iopte;
@@ -163,6 +165,9 @@ typedef u64 arm_lpae_iopte;
  *
  * [54..52], [11..2] is enough bits for tracking table mappings at any
  * level for any granule, so we'll use those.
+ *
+ * If iopte_tblcnt reaches zero for a last-level pagetable, the pagetable
+ * will be freed.
  */
 #define BOTTOM_IGNORED_MASK GENMASK(11, 2)
 #define TOP_IGNORED_MASK GENMASK_ULL(54, 52)
@@ -406,7 +411,7 @@ struct map_state {
 static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 			  phys_addr_t paddr, size_t size, arm_lpae_iopte prot,
 			  int lvl, arm_lpae_iopte *ptep, arm_lpae_iopte *prev_ptep,
-			  struct map_state *ms, gfp_t gfp)
+			  struct map_state *ms, gfp_t gfp, unsigned long *flags)
 {
 	arm_lpae_iopte *cptep, pte;
 	size_t block_size = ARM_LPAE_BLOCK_SIZE(lvl, data);
@@ -466,7 +471,17 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 	/* Grab a pointer to the next level */
 	pte = READ_ONCE(*ptep);
 	if (!pte) {
+		/*
+		 * Drop the lock in order to support GFP_KERNEL.
+		 *
+		 * Only last level pagetables will be freed if iotlb_tblcnt reaches 0.
+		 * Since we are installing a new pagetable, the current pagetable cannot
+		 * be the last level. So we can assume ptep is still a valid memory location
+		 * after reaquiring the lock.
+		 */
+		spin_unlock_irqrestore(&data->lock, *flags);
 		cptep = __arm_lpae_alloc_pages(data, tblsz, gfp, cfg, cookie);
+		spin_lock_irqsave(&data->lock, *flags);
 		if (!cptep)
 			return -ENOMEM;
 
@@ -487,7 +502,7 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 
 	/* Rinse, repeat */
 	return __arm_lpae_map(data, iova, paddr, size, prot, lvl + 1, cptep, ptep,
-			      ms, gfp);
+			      ms, gfp, flags);
 }
 
 static arm_lpae_iopte arm_lpae_prot_to_pte(struct arm_lpae_io_pgtable *data,
@@ -563,6 +578,7 @@ static int arm_lpae_map(struct io_pgtable_ops *ops, unsigned long iova,
 	int ret, lvl = data->start_level;
 	arm_lpae_iopte prot;
 	long iaext = (s64)iova >> cfg->ias;
+	unsigned long flags;
 
 	/* If no access, then nothing to do */
 	if (!(iommu_prot & (IOMMU_READ | IOMMU_WRITE)))
@@ -577,7 +593,9 @@ static int arm_lpae_map(struct io_pgtable_ops *ops, unsigned long iova,
 		return -ERANGE;
 
 	prot = arm_lpae_prot_to_pte(data, iommu_prot);
-	ret = __arm_lpae_map(data, iova, paddr, size, prot, lvl, ptep, NULL, NULL, gfp);
+	spin_lock_irqsave(&data->lock, flags);
+	ret = __arm_lpae_map(data, iova, paddr, size, prot, lvl, ptep, NULL, NULL, gfp, &flags);
+	spin_unlock_irqrestore(&data->lock, flags);
 	/*
 	 * Synchronise all PTE updates for the new mapping before there's
 	 * a chance for anything to kick off a table walk for the new iova.
@@ -622,7 +640,8 @@ static size_t arm_lpae_pgsize(unsigned long pgsize_bitmap, unsigned long addr_me
 static int arm_lpae_map_by_pgsize(struct io_pgtable_ops *ops,
 				  unsigned long iova, phys_addr_t paddr,
 				  size_t size, int iommu_prot, gfp_t gfp,
-				  size_t *mapped, struct map_state *ms)
+				  size_t *mapped, struct map_state *ms,
+				  unsigned long *flags)
 {
 	struct arm_lpae_io_pgtable *data = io_pgtable_ops_to_data(ops);
 	struct io_pgtable_cfg *cfg = &data->iop.cfg;
@@ -654,7 +673,7 @@ static int arm_lpae_map_by_pgsize(struct io_pgtable_ops *ops,
 			ms->num_pte++;
 		} else {
 			ret = __arm_lpae_map(data, iova, paddr, pgsize, prot, lvl, ptep,
-					     NULL, ms, gfp);
+					     NULL, ms, gfp, flags);
 			if (ret)
 				return ret;
 		}
@@ -679,6 +698,7 @@ static int arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 	struct map_state ms = {};
 	struct arm_lpae_io_pgtable *data = io_pgtable_ops_to_data(ops);
 	struct io_pgtable_cfg *cfg = &data->iop.cfg;
+	unsigned long flags;
 
 	*mapped = 0;
 
@@ -686,15 +706,18 @@ static int arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 	if (!(prot & (IOMMU_READ | IOMMU_WRITE)))
 		return 0;
 
+	spin_lock_irqsave(&data->lock, flags);
 	while (i <= nents) {
 		phys_addr_t s_phys = sg_phys(sg);
 
 		if (len && s_phys != start + len) {
 			ret = arm_lpae_map_by_pgsize(ops, iova + *mapped, start,
-						     len, prot, gfp, mapped, &ms);
+						     len, prot, gfp, mapped, &ms, &flags);
 
-			if (ret)
+			if (ret) {
+				spin_unlock_irqrestore(&data->lock, flags);
 				return ret;
+			}
 
 			len = 0;
 		}
@@ -709,6 +732,7 @@ static int arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 		if (++i < nents)
 			sg = sg_next(sg);
 	}
+	spin_unlock_irqrestore(&data->lock, flags);
 
 	if (ms.pgtable && !cfg->coherent_walk)
 		dma_sync_single_for_device(cfg->iommu_dev,
@@ -891,6 +915,8 @@ static size_t arm_lpae_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 	struct io_pgtable_cfg *cfg = &data->iop.cfg;
 	arm_lpae_iopte *ptep = data->pgd;
 	long iaext = (s64)iova >> cfg->ias;
+	unsigned long flags;
+	size_t ret;
 
 	if (WARN_ON(!size || (size & cfg->pgsize_bitmap) != size))
 		return 0;
@@ -900,7 +926,10 @@ static size_t arm_lpae_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 	if (WARN_ON(iaext))
 		return 0;
 
-	return __arm_lpae_unmap(data, gather, iova, size, data->start_level, ptep);
+	spin_lock_irqsave(&data->lock, flags);
+	ret = __arm_lpae_unmap(data, gather, iova, size, data->start_level, ptep);
+	spin_unlock_irqrestore(&data->lock, flags);
+	return ret;
 }
 
 static phys_addr_t arm_lpae_iova_to_phys(struct io_pgtable_ops *ops,
@@ -909,11 +938,13 @@ static phys_addr_t arm_lpae_iova_to_phys(struct io_pgtable_ops *ops,
 	struct arm_lpae_io_pgtable *data = io_pgtable_ops_to_data(ops);
 	arm_lpae_iopte pte, *ptep = data->pgd;
 	int lvl = data->start_level;
+	unsigned long flags;
 
+	spin_lock_irqsave(&data->lock, flags);
 	do {
 		/* Valid IOPTE pointer? */
 		if (!ptep)
-			return 0;
+			goto err;
 
 		/* Grab the IOPTE we're interested in */
 		ptep += ARM_LPAE_LVL_IDX(iova, lvl, data);
@@ -921,7 +952,7 @@ static phys_addr_t arm_lpae_iova_to_phys(struct io_pgtable_ops *ops,
 
 		/* Valid entry? */
 		if (!pte)
-			return 0;
+			goto err;
 
 		/* Leaf entry? */
 		if (iopte_leaf(pte, lvl, data->iop.fmt))
@@ -932,9 +963,12 @@ static phys_addr_t arm_lpae_iova_to_phys(struct io_pgtable_ops *ops,
 	} while (++lvl < ARM_LPAE_MAX_LEVELS);
 
 	/* Ran out of page tables to walk */
+err:
+	spin_unlock_irqrestore(&data->lock, flags);
 	return 0;
 
 found_translation:
+	spin_unlock_irqrestore(&data->lock, flags);
 	iova &= (ARM_LPAE_BLOCK_SIZE(lvl, data) - 1);
 	return iopte_to_paddr(pte, data) | iova;
 }
@@ -1022,6 +1056,7 @@ arm_lpae_alloc_pgtable(struct io_pgtable_cfg *cfg)
 	};
 
 	data->iommu_pgtbl_ops = pgtbl_info->iommu_pgtbl_ops;
+	spin_lock_init(&data->lock);
 
 	return data;
 }
