@@ -15,17 +15,31 @@
 #define DSI_PLL_POLL_MAX_READS                  15
 #define DSI_PLL_POLL_TIMEOUT_US                 1000
 
+static void __mdss_dsi_get_pll_vco_cntrl(u64 target_freq, u32 post_div_mux,
+	u32 *vco_cntrl, u32 *cpbias_cntrl);
+
 int pixel_div_set_div(void *context, unsigned int reg,
 			unsigned int div)
 {
 	struct mdss_pll_resources *pll = context;
+	void __iomem *pll_base = pll->pll_base;
+	int rc;
+	char data = 0;
 	struct dsi_pll_db *pdb;
 
 	pdb = (struct dsi_pll_db *)pll->priv;
+	rc = mdss_pll_resource_enable(pll, true);
+	if (rc) {
+		pr_err("Failed to enable mdss dsi pll resources\n");
+		return rc;
+	}
 
 	/* Programming during vco_prepare. Keep this value */
-	pdb->param.pixel_divhf = (div - 1);
+	data = ((div - 1) & 0x7f);
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC9, data);
+	pdb->param.pixel_divhf = data;
 
+	mdss_pll_resource_enable(pll, false);
 	pr_debug("ndx=%d div=%d divhf=%d\n",
 			pll->index, div, pdb->param.pixel_divhf);
 
@@ -37,6 +51,7 @@ int pixel_div_get_div(void *context, unsigned int reg,
 {
 	int rc;
 	struct mdss_pll_resources *pll = context;
+	u32 val = 0;
 
 	if (is_gdsc_disabled(pll))
 		return 0;
@@ -47,8 +62,9 @@ int pixel_div_get_div(void *context, unsigned int reg,
 		return rc;
 	}
 
-	*div = (MDSS_PLL_REG_R(pll->pll_base, DSIPHY_SSC9) & 0x7F);
-	pr_debug("pixel_div = %d\n", (*div+1));
+	val = (MDSS_PLL_REG_R(pll->pll_base, DSIPHY_SSC9) & 0x7F);
+	*div = val + 1;
+	pr_debug("pixel_div = %d\n", (*div));
 
 	mdss_pll_resource_enable(pll, false);
 
@@ -59,12 +75,29 @@ int set_post_div_mux_sel(void *context, unsigned int reg,
 			unsigned int sel)
 {
 	struct mdss_pll_resources *pll = context;
+	void __iomem *pll_base = pll->pll_base;
 	struct dsi_pll_db *pdb;
+	u64 target_freq = 0;
+	u32 vco_cntrl = 0, cpbias_cntrl = 0;
+	char data = 0;
 
 	pdb = (struct dsi_pll_db *)pll->priv;
 
 	/* Programming during vco_prepare. Keep this value */
 	pdb->param.post_div_mux = sel;
+
+	target_freq = div_u64(pll->vco_current_rate,
+		BIT(pdb->param.post_div_mux));
+	__mdss_dsi_get_pll_vco_cntrl(target_freq, pdb->param.post_div_mux,
+		&vco_cntrl, &cpbias_cntrl);
+
+	data = ((vco_cntrl & 0x3f) | BIT(6));
+	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_VCO_CTRL, data);
+	pr_debug("%s: vco_cntrl 0x%x\n", __func__, vco_cntrl);
+
+	data = ((cpbias_cntrl & 0x1) << 6) | BIT(4);
+	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_CHAR_PUMP_BIAS_CTRL, data);
+	pr_debug("%s: cpbias_cntrl 0x%x\n", __func__, cpbias_cntrl);
 
 	pr_debug("ndx=%d post_div_mux_sel=%d p_div=%d\n",
 			pll->index, sel, (u32) BIT(sel));
@@ -90,6 +123,7 @@ int get_post_div_mux_sel(void *context, unsigned int reg,
 
 	vco_cntrl = MDSS_PLL_REG_R(pll->pll_base, DSIPHY_PLL_VCO_CTRL);
 	vco_cntrl &= 0x30;
+	pr_debug("%s: vco_cntrl 0x%x\n", __func__, vco_cntrl);
 
 	cpbias_cntrl = MDSS_PLL_REG_R(pll->pll_base,
 		DSIPHY_PLL_CHAR_PUMP_BIAS_CTRL);
@@ -112,6 +146,7 @@ int get_post_div_mux_sel(void *context, unsigned int reg,
 	}
 
 	mdss_pll_resource_enable(pll, false);
+	pr_debug("%s: sel = %d\n", __func__, *sel);
 
 	return 0;
 }
@@ -120,16 +155,24 @@ int set_gp_mux_sel(void *context, unsigned int reg,
 			unsigned int sel)
 {
 	struct mdss_pll_resources *pll = context;
-	struct dsi_pll_db *pdb;
+	void __iomem *pll_base = pll->pll_base;
+	char data = 0;
+	int rc;
 
-	pdb = (struct dsi_pll_db *)pll->priv;
+	rc = mdss_pll_resource_enable(pll, true);
+	if (rc) {
+		pr_err("Failed to enable mdss dsi pll resources\n");
+		return rc;
+	}
 
 	/* Programming during vco_prepare. Keep this value */
-	pdb->param.gp_div_mux = sel;
+	data = ((sel & 0x7) << 5) | 0x5;
+	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_CTRL, data);
 
 	pr_debug("ndx=%d gp_div_mux_sel=%d gp_cntrl=%d\n",
 			pll->index, sel, (u32) BIT(sel));
 
+	mdss_pll_resource_enable(pll, false);
 	return 0;
 }
 
@@ -175,7 +218,9 @@ static bool pll_is_pll_locked_12nm(struct mdss_pll_resources *pll,
 			pr_err("DSI PLL ndx=%d status=%x failed to Lock\n",
 				pll->index, status);
 		pll_locked = false;
+		pr_debug("%s: not locked\n", __func__);
 	} else {
+		pr_debug("%s: locked\n", __func__);
 		pll_locked = true;
 	}
 
@@ -542,13 +587,13 @@ static void mdss_dsi_pll_12nm_calc_reg(struct mdss_pll_resources *pll,
 {
 	struct dsi_pll_param *param = &pdb->param;
 	u64 target_freq = 0;
+	u32 post_div_mux = 0;
 
+	get_post_div_mux_sel(pll, 0, &post_div_mux);
 	target_freq = div_u64(pll->vco_current_rate,
-		BIT(pdb->param.post_div_mux));
+		BIT(post_div_mux));
 
 	param->hsfreqrange = __mdss_dsi_get_hsfreqrange(target_freq);
-	__mdss_dsi_get_pll_vco_cntrl(target_freq, param->post_div_mux,
-		&param->vco_cntrl, &param->cpbias_cntrl);
 	param->osc_freq_target = __mdss_dsi_get_osc_freq_target(target_freq);
 	param->m_div = (u32) __mdss_dsi_pll_get_m_div(pll->vco_current_rate);
 	param->fsm_ovr_ctrl = __mdss_dsi_get_fsm_ovr_ctrl(target_freq);
@@ -707,9 +752,6 @@ static void pll_db_commit_12nm(struct mdss_pll_resources *pll,
 	data = ((param->hsfreqrange & 0x7f) | BIT(7));
 	MDSS_PLL_REG_W(pll_base, DSIPHY_HS_FREQ_RAN_SEL, data);
 
-	data = ((param->vco_cntrl & 0x3f) | BIT(6));
-	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_VCO_CTRL, data);
-
 	data = (param->osc_freq_target & 0x7f);
 	MDSS_PLL_REG_W(pll_base, DSIPHY_SLEWRATE_DDL_CYC_FRQ_ADJ_0, data);
 
@@ -732,15 +774,6 @@ static void pll_db_commit_12nm(struct mdss_pll_resources *pll,
 
 	data = ((param->gmp_cntrl & 0x3) << 4);
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_GMP_CTRL_DIG_TST, data);
-
-	data = ((param->cpbias_cntrl & 0x1) << 6) | BIT(4);
-	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_CHAR_PUMP_BIAS_CTRL, data);
-
-	data = ((param->gp_div_mux & 0x7) << 5) | 0x5;
-	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_CTRL, data);
-
-	data = (param->pixel_divhf & 0x7f);
-	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC9, data);
 
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_ANA_PROG_CTRL, 0x03);
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_ANA_TST_LOCK_ST_OVR_CTRL, 0x50);
@@ -779,6 +812,14 @@ int pll_vco_set_rate_12nm(struct clk_hw *hw, unsigned long rate,
 
 	pll->vco_current_rate = rate;
 	pll->vco_ref_clk_rate = vco->ref_clk_rate;
+
+	mdss_dsi_pll_12nm_calc_reg(pll, pdb);
+	if (pll->ssc_en)
+		mdss_dsi_pll_12nm_calc_ssc(pll, pdb);
+
+	/* commit DSI vco  */
+	pll_db_commit_12nm(pll, pdb);
+
 error:
 	return rc;
 }
@@ -791,9 +832,13 @@ static unsigned long pll_vco_get_rate_12nm(struct clk_hw *hw)
 	u64 ref_clk = vco->ref_clk_rate;
 	int rc;
 	struct mdss_pll_resources *pll = vco->priv;
+	u32 post_div_mux;
+	u32 cpbias_cntrl = 0;
 
-	if (is_gdsc_disabled(pll))
+	if (is_gdsc_disabled(pll)) {
+		pr_err("%s:gdsc disabled\n", __func__);
 		return 0;
+	}
 
 	rc = mdss_pll_resource_enable(pll, true);
 	if (rc) {
@@ -810,6 +855,16 @@ static unsigned long pll_vco_get_rate_12nm(struct clk_hw *hw)
 			DSIPHY_PLL_LOOP_DIV_RATIO_1);
 	m_div_11_6 &= 0x3f;
 	pr_debug("m_div_11_6 = 0x%x\n", m_div_11_6);
+
+	post_div_mux = MDSS_PLL_REG_R(pll->pll_base,
+			DSIPHY_PLL_VCO_CTRL);
+
+	pr_debug("post_div_mux = 0x%x\n", post_div_mux);
+
+	cpbias_cntrl = MDSS_PLL_REG_R(pll->pll_base,
+		DSIPHY_PLL_CHAR_PUMP_BIAS_CTRL);
+	cpbias_cntrl = ((cpbias_cntrl >> 6) & 0x1);
+	pr_debug("cpbias_cntrl = 0x%x\n", cpbias_cntrl);
 
 	m_div = ((m_div_11_6 << 6) | (m_div_5_0));
 
@@ -845,10 +900,20 @@ unsigned long vco_12nm_recalc_rate(struct clk_hw *hw,
 	struct mdss_pll_resources *pll = vco->priv;
 	unsigned long rate = 0;
 	int rc;
+	struct dsi_pll_db *pdb;
+
+	pdb = (struct dsi_pll_db *)pll->priv;
 
 	if (!pll && is_gdsc_disabled(pll)) {
 		pr_err("gdsc disabled\n");
 		return 0;
+	}
+
+	if (pll->vco_current_rate != 0) {
+		rate = pll_vco_get_rate_12nm(hw);
+		pr_debug("%s:returning vco rate = %lld\n", __func__,
+				pll->vco_current_rate);
+		return rate;
 	}
 
 	rc = mdss_pll_resource_enable(pll, true);
@@ -861,6 +926,7 @@ unsigned long vco_12nm_recalc_rate(struct clk_hw *hw,
 		pll->handoff_resources = true;
 		pll->pll_on = true;
 		rate = pll_vco_get_rate_12nm(hw);
+		pr_debug("%s: pll locked. rate %lu\n", __func__, rate);
 	} else {
 		mdss_pll_resource_enable(pll, false);
 	}
@@ -921,15 +987,7 @@ int pll_vco_prepare_12nm(struct clk_hw *hw)
 			goto end;
 	}
 
-	mdss_dsi_pll_12nm_calc_reg(pll, pdb);
-	if (pll->ssc_en)
-		mdss_dsi_pll_12nm_calc_ssc(pll, pdb);
-
-	/* commit DSI vco  */
-	pll_db_commit_12nm(pll, pdb);
-
 	rc = dsi_pll_enable(hw);
-
 error:
 	if (rc) {
 		mdss_pll_resource_enable(pll, false);
