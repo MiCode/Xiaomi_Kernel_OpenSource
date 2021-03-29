@@ -1007,9 +1007,6 @@ static void _enable_gpuhtw_llc(struct kgsl_mmu *mmu, struct iommu_domain *domain
 	if (!test_bit(KGSL_MMU_LLCC_ENABLE, &mmu->features))
 		return;
 
-	if (!IS_ENABLED(CONFIG_QCOM_IOMMU_IO_PGTABLE_QUIRKS))
-		return;
-
 	if (mmu->subtype == KGSL_IOMMU_SMMU_V500)
 		iommu_domain_set_attr(domain, DOMAIN_ATTR_USE_LLC_NWA, &val);
 	else
