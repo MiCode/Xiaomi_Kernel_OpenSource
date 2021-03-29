@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "qcom-dcvs-icc: " fmt
@@ -29,21 +29,8 @@ static int commit_icc_freq(struct dcvs_path *path, struct dcvs_freq *freqs,
 	struct dcvs_hw *hw = path->hw;
 	struct icc_sp_data *sp_data = path->data;
 	struct icc_path *icc_path = sp_data->icc_path;
-	u32 icc_ib = 0, icc_ab = 0;
-
-	switch (hw->type) {
-	case DCVS_L3:
-		icc_ib = freqs->ib * 1000UL;
-		icc_ab = 0;
-		break;
-	case DCVS_DDR:
-	case DCVS_LLCC:
-		icc_ib = freqs->ib * hw->width;
-		icc_ab = freqs->ab * hw->width;
-		break;
-	default:
-		return -EINVAL;
-	}
+	u32 icc_ib = freqs->ib * hw->width;
+	u32 icc_ab = freqs->ab * hw->width;
 
 	ret = icc_set_bw(icc_path, icc_ab, icc_ib);
 	if (ret < 0) {
@@ -63,8 +50,7 @@ int setup_icc_sp_device(struct device *dev, struct dcvs_hw *hw,
 	struct icc_sp_data *sp_data = NULL;
 	int ret = 0;
 
-	if (hw->type != DCVS_DDR && hw->type != DCVS_LLCC
-					&& hw->type != DCVS_L3)
+	if (hw->type != DCVS_DDR && hw->type != DCVS_LLCC)
 		return -EINVAL;
 
 	sp_data = devm_kzalloc(dev, sizeof(*sp_data), GFP_KERNEL);
