@@ -4,6 +4,9 @@
  */
 #include "hab.h"
 
+#define CREATE_TRACE_POINTS
+#include "hab_trace_os.h"
+
 #define HAB_DEVICE_CNSTR(__name__, __id__, __num__) { \
 	.name = __name__,\
 	.id = __id__,\
@@ -555,6 +558,9 @@ long hab_vchan_send(struct uhab_context *ctx,
 		goto err;
 	}
 
+	/* log msg send timestamp: enter hab_vchan_send */
+	trace_hab_vchan_send_start(vchan);
+
 	HAB_HEADER_SET_SIZE(header, sizebytes);
 	if (flags & HABMM_SOCKET_SEND_FLAGS_XING_VM_STAT) {
 		HAB_HEADER_SET_TYPE(header, HAB_PAYLOAD_TYPE_PROFILE);
@@ -595,6 +601,10 @@ long hab_vchan_send(struct uhab_context *ctx,
 	if (!ret)
 		vchan->tx_cnt++;
 err:
+
+	/* log msg send timestamp: exit hab_vchan_send */
+	trace_hab_vchan_send_done(vchan);
+
 	if (vchan)
 		hab_vchan_put(vchan);
 
@@ -638,6 +648,9 @@ int hab_vchan_recv(struct uhab_context *ctx,
 		else if (ret == -ERESTARTSYS)
 			ret = -EINTR;
 	} else if (!ret) {
+		/* log msg recv timestamp: exit hab_vchan_recv */
+		trace_hab_vchan_recv_done(vchan, *message);
+
 		/*
 		 * Here, it is for sure that a message was received from the
 		 * hab_vchan_recv()'s view w/ the ret as 0 and *message as

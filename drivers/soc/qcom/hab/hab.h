@@ -224,6 +224,7 @@ struct hab_export_ack_recvd {
 struct hab_message {
 	struct list_head node;
 	size_t sizebytes;
+	uint32_t sequence_rx;
 	uint32_t data[];
 };
 
