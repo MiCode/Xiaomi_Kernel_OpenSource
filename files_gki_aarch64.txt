@@ -4389,6 +4389,7 @@ kernel/bpf/tnum.c
 kernel/bpf/trampoline.c
 kernel/bpf/verifier.c
 kernel/capability.c
+kernel/cfi.c
 kernel/cgroup/cgroup.c
 kernel/cgroup/cgroup-internal.h
 kernel/cgroup/cgroup-v1.c
