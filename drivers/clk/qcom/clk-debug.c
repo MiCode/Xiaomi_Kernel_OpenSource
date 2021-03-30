@@ -178,7 +178,7 @@ static int clk_find_and_set_parent(struct clk_hw *mux, struct clk_hw *clk)
 	if (!clk || !clk_is_debug_mux(mux))
 		return -EINVAL;
 
-	if (!clk_set_parent(mux->clk, clk->clk))
+	if (mux == clk || !clk_set_parent(mux->clk, clk->clk))
 		return 0;
 
 	for (i = 0; i < clk_hw_get_num_parents(mux); i++) {
@@ -216,6 +216,13 @@ static u8 clk_debug_mux_get_parent(struct clk_hw *hw)
 	return 0;
 }
 
+static int clk_debug_mux_set_mux_sel(struct clk_debug_mux *mux, u32 val)
+{
+	return regmap_update_bits(mux->regmap, mux->debug_offset,
+				  mux->src_sel_mask,
+				  val << mux->src_sel_shift);
+}
+
 static int clk_debug_mux_set_parent(struct clk_hw *hw, u8 index)
 {
 	struct clk_debug_mux *mux = to_clk_measure(hw);
@@ -224,10 +231,7 @@ static int clk_debug_mux_set_parent(struct clk_hw *hw, u8 index)
 	if (!mux->mux_sels)
 		return 0;
 
-	/* Update the debug sel for mux */
-	ret = regmap_update_bits(mux->regmap, mux->debug_offset,
-		mux->src_sel_mask,
-		mux->mux_sels[index] << mux->src_sel_shift);
+	ret = clk_debug_mux_set_mux_sel(mux, mux->mux_sels[index]);
 	if (ret)
 		return ret;
 
@@ -240,6 +244,7 @@ static int clk_debug_mux_set_parent(struct clk_hw *hw, u8 index)
 const struct clk_ops clk_debug_mux_ops = {
 	.get_parent = clk_debug_mux_get_parent,
 	.set_parent = clk_debug_mux_set_parent,
+	.debug_init = clk_debug_measure_add,
 };
 EXPORT_SYMBOL(clk_debug_mux_ops);
 
@@ -301,10 +306,39 @@ static u32 get_mux_divs(struct clk_hw *mux)
 	return div_val * get_mux_divs(parent);
 }
 
+static int clk_debug_measure_set(void *data, u64 val)
+{
+	struct clk_debug_mux *mux;
+	struct clk_hw *hw = data;
+	int ret;
+
+	if (!clk_is_debug_mux(hw))
+		return 0;
+
+	mutex_lock(&clk_debug_lock);
+
+	mux = to_clk_measure(hw);
+	clk_debug_mux_set_mux_sel(mux, val);
+
+	/*
+	 * Setting the debug mux select value directly in HW invalidates the
+	 * framework parent. Orphan the debug mux so that subsequent set_parent
+	 * calls don't short-circuit when new_parent == old_parent. Otherwise,
+	 * subsequent reads of "clk_measure" from old_parent will use stale HW
+	 * mux select values and report invalid frequencies.
+	 */
+	ret = clk_set_parent(hw->clk, NULL);
+	if (ret)
+		pr_err("Failed to orphan debug mux.\n");
+
+	mutex_unlock(&clk_debug_lock);
+	return ret;
+}
+
 static int clk_debug_measure_get(void *data, u64 *val)
 {
+	struct clk_debug_mux *mux = NULL;
 	struct clk_regmap *rclk = NULL;
-	struct clk_debug_mux *mux;
 	struct clk_hw *hw = data;
 	struct clk_hw *parent;
 	int ret = 0;
@@ -328,14 +362,10 @@ static int clk_debug_measure_get(void *data, u64 *val)
 	}
 
 	parent = clk_hw_get_parent(measure);
-	if (!parent) {
-		pr_err("Failed to get the debug mux's parent.\n");
-		goto exit;
-	}
+	if (parent && clk_is_debug_mux(parent))
+		mux = to_clk_measure(parent);
 
-	mux = to_clk_measure(parent);
-
-	if (clk_is_debug_mux(parent) && !mux->mux_sels) {
+	if (mux && !mux->mux_sels) {
 		regmap_read(mux->regmap, mux->period_offset, &regval);
 		if (!regval) {
 			pr_err("Error reading mccc period register\n");
@@ -359,7 +389,7 @@ exit:
 }
 
 DEFINE_DEBUGFS_ATTRIBUTE(clk_measure_fops, clk_debug_measure_get,
-			 NULL, "%lld\n");
+			 clk_debug_measure_set, "%lld\n");
 
 void clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry)
 {
