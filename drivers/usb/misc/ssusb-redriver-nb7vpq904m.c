@@ -98,6 +98,7 @@ struct ssusb_redriver {
 	u8	flat_gain[CHAN_MODE_NUM][CHANNEL_NUM];
 
 	u8	gen_dev_val;
+	bool	lane_channel_swap;
 	int	ucsi_i2c_write_err;
 
 	struct dentry	*debug_root;
@@ -413,6 +414,14 @@ static int ssusb_redriver_read_orientation(struct ssusb_redriver *redriver)
 		return -EINVAL;
 	}
 
+	/*
+	 * Support some board layouts in which the channels are reversed.
+	 * i.e. channels C&D are used for the USB CC1 orientation and
+	 * channels A&B are used for USB CC2
+	 */
+	if (redriver->lane_channel_swap)
+		ret = !ret;
+
 	if (ret == 0)
 		redriver->typec_orientation = ORIENTATION_CC1;
 	else
@@ -672,6 +681,9 @@ static int redriver_i2c_probe(struct i2c_client *client,
 			"Failed to read default configuration: %d\n", ret);
 		return ret;
 	}
+
+	redriver->lane_channel_swap =
+	    of_property_read_bool(redriver->dev->of_node, "lane-channel-swap");
 
 	if (of_property_read_bool(redriver->dev->of_node, "init-none"))
 		redriver->op_mode = OP_MODE_NONE;
