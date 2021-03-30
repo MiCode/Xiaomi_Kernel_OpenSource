@@ -1,0 +1,10 @@
+config TOUCHSCREEN_ZINITIX_BT541
+	tristate "ZINITIX BT541 I2C TouchScreen"
+	depends on I2C
+	help
+	  Say Y here if you have zinitix bt541 I2C touchscreen.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called zinitix.

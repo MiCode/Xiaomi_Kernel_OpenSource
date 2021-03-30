@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/cma.h>
 #include <linux/firmware.h>
@@ -76,6 +76,7 @@ static DEFINE_SPINLOCK(time_sync_lock);
 #define POWER_ON_RETRY_DELAY_MS			200
 
 #define LINK_TRAINING_RETRY_MAX_TIMES		3
+#define LINK_TRAINING_RETRY_DELAY_MS		500
 
 #define HANG_DATA_LENGTH		384
 #define HST_HANG_DATA_OFFSET		((3 * 1024 * 1024) - HANG_DATA_LENGTH)
@@ -393,15 +394,25 @@ int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
 static void cnss_pci_select_window(struct cnss_pci_data *pci_priv, u32 offset)
 {
 	u32 window = (offset >> WINDOW_SHIFT) & WINDOW_VALUE_MASK;
+	u32 window_enable = WINDOW_ENABLE_BIT | window;
+	u32 val;
 
-	writel_relaxed(WINDOW_ENABLE_BIT | window,
-		       QCA6390_PCIE_REMAP_BAR_CTRL_OFFSET +
-		       pci_priv->bar);
+	writel_relaxed(window_enable, pci_priv->bar +
+		       QCA6390_PCIE_REMAP_BAR_CTRL_OFFSET);
 
 	if (window != pci_priv->remap_window) {
 		pci_priv->remap_window = window;
 		cnss_pr_dbg("Config PCIe remap window register to 0x%x\n",
-			    WINDOW_ENABLE_BIT | window);
+			    window_enable);
+	}
+
+	/* Read it back to make sure the write has taken effect */
+	val = readl_relaxed(pci_priv->bar + QCA6390_PCIE_REMAP_BAR_CTRL_OFFSET);
+	if (val != window_enable) {
+		cnss_pr_err("Failed to config window register to 0x%x, current value: 0x%x\n",
+			    window_enable, val);
+		if (!cnss_pci_check_link_status(pci_priv))
+			CNSS_ASSERT(0);
 	}
 }
 
@@ -756,6 +767,8 @@ retry:
 			    link_up ? "resume" : "suspend", ret);
 		if (link_up && retry++ < LINK_TRAINING_RETRY_MAX_TIMES) {
 			cnss_pr_dbg("Retry PCI link training #%d\n", retry);
+			if (pci_priv->pci_link_down_ind)
+				msleep(LINK_TRAINING_RETRY_DELAY_MS * retry);
 			goto retry;
 		}
 	}
@@ -869,6 +882,8 @@ int cnss_pci_recover_link_down(struct cnss_pci_data *pci_priv)
 	 */
 	msleep(WAKE_EVENT_TIMEOUT);
 
+	/* Always do PCIe L2 suspend/resume during link down recovery */
+	pci_priv->drv_connected_last = 0;
 	ret = cnss_suspend_pci_link(pci_priv);
 	if (ret)
 		cnss_pr_err("Failed to suspend PCI link, err = %d\n", ret);
@@ -892,6 +907,7 @@ int cnss_pci_prevent_l1(struct device *dev)
 {
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	int ret;
 
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL\n");
@@ -908,7 +924,13 @@ int cnss_pci_prevent_l1(struct device *dev)
 		return -EIO;
 	}
 
-	return msm_pcie_prevent_l1(pci_dev);
+	ret = msm_pcie_prevent_l1(pci_dev);
+	if (ret) {
+		cnss_pr_err("Failed to prevent PCIe L1, considered as link down\n");
+		cnss_pci_link_down(dev);
+	}
+
+	return ret;
 }
 EXPORT_SYMBOL(cnss_pci_prevent_l1);
 
@@ -1380,10 +1402,13 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		break;
 	case CNSS_MHI_RESUME:
 		mutex_lock(&pci_priv->mhi_ctrl->pm_mutex);
-		if (pci_priv->drv_connected_last)
+		if (pci_priv->drv_connected_last) {
+			cnss_pci_prevent_l1(&pci_priv->pci_dev->dev);
 			ret = mhi_pm_fast_resume(pci_priv->mhi_ctrl, true);
-		else
+			cnss_pci_allow_l1(&pci_priv->pci_dev->dev);
+		} else {
 			ret = mhi_pm_resume(pci_priv->mhi_ctrl);
+		}
 		mutex_unlock(&pci_priv->mhi_ctrl->pm_mutex);
 		break;
 	case CNSS_MHI_TRIGGER_RDDM:

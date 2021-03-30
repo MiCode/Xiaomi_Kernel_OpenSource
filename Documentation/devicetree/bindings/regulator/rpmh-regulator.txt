@@ -1,0 +1,285 @@
+Qualcomm Technologies, Inc. RPMh Regulators
+
+rpmh-regulator devices support PMIC regulator management via the VRM, ARC and
+XOB RPMh accelerators.  The APPS processor communicates with these hardware
+blocks via an RSC using command packets.  The VRM allows changing four
+parameters for a given regulator: enable state, output voltage, operating mode,
+and minimum headroom voltage.  The ARC allows changing only a single parameter
+for a given regulator: its operating level.  This operating level is fed into
+CPR which then decides upon a final explicit voltage for the regulator.  The XOB
+allows changing only a single parameter for a given regulator: its enable state.
+
+=======================
+Required Node Structure
+=======================
+
+RPMh regulators must be described in two levels of device nodes.  The first
+level describes the interface with RPMh (resource) and must reside within an
+RPMh device node.  The second level describes properties of one regulator
+framework interface (of potentially many) for the regulator resource.
+
+==================================
+First Level Nodes - RPMh Interface
+==================================
+
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: Must be "qcom,rpmh-vrm-regulator", "qcom,rpmh-arc-regulator"
+		    or "qcom,rpmh-xob-regulator" depending upon the hardware
+		    type, VRM, ARC or XOB, of the RPMh managed regulator
+		    resource.
+
+- qcom,resource-name
+	Usage:      required
+	Value type: <string>
+	Definition: RPMh resource name which encodes the the specific instance
+		    of a given type of regulator (LDO, SMPS, VS, etc) within
+		    a particular PMIC found in the system.  This name must match
+		    to one that is defined by the bootloader.
+
+- qcom,regulator-type
+	Usage:      required if qcom,supported-modes is specified or if
+		    qcom,init-mode is specified in any subnodes
+	Value type: <string>
+	Definition: The physical type of the regulator including the PMIC
+		    family.  This is used for mode control.  Supported values:
+		    "pmic4-ldo", "pmic4-hfsmps", "pmic4-ftsmps", "pmic4-bob",
+		    "pmic5-ldo", "pmic5-hfsmps", "pmic5-ftsmps", and
+		    "pmic5-bob".
+
+- qcom,always-wait-for-ack
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that the application processor
+		    must wait for an ACK or a NACK from RPMh for every request
+		    sent for this regulator including those which are for a
+		    strictly lower power state.
+
+- <regulator-name>-parent-supply
+	Usage:      optional
+	Value type: <phandle>
+	Definition: phandle of the parent supply regulator of one of the
+		    regulators for this RPMh resource.  The property name is
+		    defined by the value specified for the regulator-name
+		    property.
+
+- qcom,supported-modes
+	Usage:      optional; VRM regulators only
+	Value type: <prop-encoded-array>
+	Definition: A list of integers specifying the PMIC regulator modes
+		    supported by this regulator.  Supported values are
+		    RPMH_REGULATOR_MODE_* (i.e. 0 to 4).  Elements must be
+		    specified in order from lowest to highest.
+
+- qcom,mode-threshold-currents
+	Usage:      required if qcom,supported-modes is specified
+	Value type: <prop-encoded-array>
+	Definition: A list of integers specifying minimum allowed current in
+		    microamps for each of the modes listed in
+		    qcom,supported-modes.  The first element should always be 0.
+		    Elements must be specified in order from lowest to highest.
+
+- qcom,send-defaults
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that the initial parameter
+		    values should be sent to RPMh before consumers make their
+		    own requests.  If this flag is not specified, then initial
+		    parameters values will only be sent after some consumer
+		    makes a request.
+
+=========================================
+Second Level Nodes - Regulator Interfaces
+=========================================
+
+- regulator-name
+	Usage:      required
+	Value type: <string>
+	Definition: Specifies the name for this RPMh regulator.
+
+- regulator-min-microvolt
+	Usage:      required
+	Value type: <u32>
+	Definition: For VRM resources, this is the minimum supported voltage in
+		    microvolts.  For ARC resources, this is the minimum
+		    supported voltage level from RPMH_REGULATOR_LEVEL_*.
+
+- regulator-max-microvolt
+	Usage:      required
+	Value type: <u32>
+	Definition: For VRM resources, this is the maximum supported voltage in
+		    microvolts.  For ARC resources, this is the maximum
+		    supported voltage level from RPMH_REGULATOR_LEVEL_*.
+
+ - regulator-enable-ramp-delay
+	Usage:      optional
+	Value type: <u32>
+	Definition: For VRM and XOB resources, the time in microseconds to delay
+		    after enabling a regulator.
+
+- qcom,set
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies which sets that requests made with this regulator
+		    interface should be sent to.  Regulator requests sent in the
+		    active set take effect immediately.  Requests sent in the
+		    sleep set take effect when the Apps processor transitions
+		    into RPMh assisted power collapse.  Supported values are
+		    one of RPMH_REGULATOR_SET_* (i.e. 1, 2, or 3).
+
+- qcom,init-enable
+	Usage:      optional; VRM and XOB regulators only
+	Value type: <u32>
+	Definition: Specifies the initial enable state to request for a VRM
+		    regulator.  Supported values are 0 (regulator disabled) and
+		    1 (regulator enabled).
+
+- qcom,init-voltage
+	Usage:      optional; VRM regulators only
+	Value type: <u32>
+	Definition: Specifies the initial voltage in microvolts to request for a
+		    VRM regulator.  Supported values are 0 to 8191000.
+
+- qcom,init-mode
+	Usage:      optional; VRM regulators only
+	Value type: <u32>
+	Definition: Specifies the initial mode to request for a VRM regulator.
+		    Supported values are RPMH_REGULATOR_MODE_* (i.e. 0 to 4).
+
+- qcom,init-headroom-voltage
+	Usage:      optional; VRM regulators only
+	Value type: <u32>
+	Definition: Specifies the initial headroom voltage in microvolts to
+		    request for a VRM regulator.  RPMh ensures that the parent
+		    of this regulator outputs a voltage high enough to satisfy
+		    the requested headroom.  Supported values are 0 to 511000.
+
+- qcom,init-voltage-level
+	Usage:      optional; ARC regulators only
+	Value type: <u32>
+	Definition: Specifies the initial voltage level to request for an ARC
+		    regulator.  Supported values are RPMH_REGULATOR_LEVEL_*
+		    (i.e. 1 to ~513).
+
+- qcom,min-dropout-voltage
+	Usage:      optional; VRM regulators only
+	Value type: <u32>
+	Definition: Specifies the minimum voltage in microvolts that the parent
+		    supply regulator must output above the output of this
+		    regulator.  It is only meaningful if the property
+		    <regulator-name>-parent-supply has been specified in the
+		    first level node.
+
+- qcom,min-dropout-voltage-level
+	Usage:      optional; ARC regulators only
+	Value type: <u32>
+	Definition: Specifies the minimum voltage level difference that the
+		    parent supply regulator must output above the output of this
+		    regulator.  It is only meaningful if the property
+		    <regulator-name>-parent-supply has been specified in the
+		    first level node.
+
+========
+Examples
+========
+
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+
+&apps_rsc {
+	rpmh-regulator-cxlvl {
+		compatible = "qcom,rpmh-arc-regulator";
+		qcom,resource-name = "cx.lvl";
+		qcom,send-defaults;
+		pm8998_s9_level: regulator-s9-level {
+			regulator-name = "pm8998_s9_level";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt =
+					<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level = <RPMH_REGULATOR_LEVEL_TURBO>;
+		};
+
+		pm8998_s9_level_ao: regulator-s9-level-ao {
+			regulator-name = "pm8998_s9_level_ao";
+			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			regulator-min-microvolt =
+					<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+		};
+	};
+
+	rpmh-regulator-smpa2 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "smpa2";
+		qcom,regulator-type = "pmic4-smps";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_AUTO
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 2000000>;
+		pm8998_s2: regulator-s2 {
+			regulator-name = "pm8998_s2";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1100000>;
+			regulator-max-microvolt = <1200000>;
+			regulator-enable-ramp-delay = <200>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_AUTO>;
+			qcom,init-voltage = <1150000>;
+		};
+	};
+
+	rpmh-regulator-ldoa4 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoa4";
+		qcom,regulator-type = "pmic4-ldo";
+		pm8998_l4-parent-supply = <&pm8998_s2>;
+		pm8998_l4: regulator-l4 {
+			regulator-name = "pm8998_l4";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+			qcom,init-voltage = <1000000>;
+		};
+	};
+
+	rpmh-regulator-ldoc1 {
+		compatible = "qcom,rpmh-xob-regulator";
+		qcom,resource-name = "ldoc1";
+		pm8150l_l1: regulator-pm8150l-l1 {
+			regulator-name = "pm8150l_l1";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
+	};
+};
+
+&disp_rsc {
+	rpmh-regulator-ldoa3-disp {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoa3";
+		qcom,regulator-type = "pmic4-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		qcom,always-wait-for-ack;
+		pm8998_l3_disp_ao: regulator-l3-ao {
+			regulator-name = "pm8998_l3_disp_ao";
+			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1200000>;
+			qcom,init-voltage = <1000000>;
+			qcom,init-headroom-voltage = <60000>;
+		};
+		pm8998_l3_disp_so: regulator-l3-so {
+			regulator-name = "pm8998_l3_disp_so";
+			qcom,set = <RPMH_REGULATOR_SET_SLEEP>;
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1200000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+			qcom,init-voltage = <1000000>;
+			qcom,init-enable = <0>;
+		};
+	};
+};

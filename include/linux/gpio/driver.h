@@ -22,6 +22,7 @@ enum gpio_lookup_flags;
 
 struct gpio_chip;
 
+
 /**
  * struct gpio_irq_chip - GPIO interrupt controller
  */

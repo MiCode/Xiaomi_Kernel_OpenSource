@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
-
+#define DEBUG
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/power_supply.h>
@@ -64,7 +64,7 @@ static const struct fsa4480_reg_val fsa_reg_i2c_defaults[] = {
 	{FSA4480_DELAY_L_MIC, 0x00},
 	{FSA4480_DELAY_L_SENSE, 0x00},
 	{FSA4480_DELAY_L_AGND, 0x09},
-	{FSA4480_SWITCH_SETTINGS, 0x98},
+	{FSA4480_SWITCH_SETTINGS, 0xF8},
 };
 
 static void fsa4480_usbc_update_settings(struct fsa4480_priv *fsa_priv,
@@ -210,7 +210,7 @@ static int fsa4480_usbc_analog_setup_switches_psupply(
 				TYPEC_ACCESSORY_NONE, NULL);
 
 		/* deactivate switches */
-		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
+		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
 		break;
 	default:
 		/* ignore other usb connection modes */
@@ -258,7 +258,7 @@ static int fsa4480_usbc_analog_setup_switches_ucsi(
 				TYPEC_ACCESSORY_NONE, NULL);
 
 		/* deactivate switches */
-		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
+		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
 		break;
 	default:
 		/* ignore other usb connection modes */
@@ -341,7 +341,7 @@ int fsa4480_unreg_notifier(struct notifier_block *nb,
 
 	mutex_lock(&fsa_priv->notification_lock);
 
-	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
+	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
 	rc = blocking_notifier_chain_unregister
 				(&fsa_priv->fsa4480_notifier, nb);
 	mutex_unlock(&fsa_priv->notification_lock);
@@ -405,7 +405,7 @@ int fsa4480_switch_event(struct device_node *node,
 		fsa4480_usbc_update_settings(fsa_priv, 0x78, 0xF8);
 		return fsa4480_validate_display_port_settings(fsa_priv);
 	case FSA_USBC_DISPLAYPORT_DISCONNECTED:
-		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
+		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
 		break;
 	default:
 		break;
@@ -545,7 +545,7 @@ static int fsa4480_remove(struct i2c_client *i2c)
 	} else {
 		unregister_ucsi_glink_notifier(&fsa_priv->nb);
 	}
-	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
+	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
 	cancel_work_sync(&fsa_priv->usbc_analog_work);
 	pm_relax(fsa_priv->dev);
 	mutex_destroy(&fsa_priv->notification_lock);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2013-2017 ARM Limited, All Rights Reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Marc Zyngier <marc.zyngier@arm.com>
  */
 
@@ -27,6 +28,7 @@
 #include <linux/irqchip/arm-gic-v3.h>
 #include <linux/irqchip/irq-partition-percpu.h>
 
+
 #include <asm/cputype.h>
 #include <asm/exception.h>
 #include <asm/smp_plat.h>
@@ -39,6 +41,10 @@
 #define GICD_INT_NMI_PRI	(GICD_INT_DEF_PRI & ~0x80)
 
 #define FLAGS_WORKAROUND_GICR_WAKER_MSM8996	(1ULL << 0)
+
+#ifdef CONFIG_DEBUG_POWER_MI
+int qrtr_first_msg = 0;
+#endif
 
 struct redist_region {
 	void __iomem		*redist_base;
@@ -611,6 +617,9 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 
 		pr_warn("%s: irq:%d hwirq:%u triggered %s\n",
 			 __func__, irq, i, name);
+		#ifdef CONFIG_DEBUG_POWER_MI
+		qrtr_first_msg = 1;
+		#endif
 	}
 }
 
@@ -637,6 +646,7 @@ static int __init gic_init_sys(void)
 arch_initcall(gic_init_sys);
 
 #endif
+
 
 static u64 gic_mpidr_to_affinity(unsigned long mpidr)
 {
@@ -1847,6 +1857,7 @@ static int __init gicv3_of_init(struct device_node *node, struct device_node *pa
 		goto out_unmap_rdist;
 
 	gic_populate_ppi_partitions(node);
+
 
 	if (static_branch_likely(&supports_deactivate_key))
 		gic_of_setup_kvm_info(node);

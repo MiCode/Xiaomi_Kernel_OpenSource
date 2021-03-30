@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2013, Sony Mobile Communications AB.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
@@ -27,6 +28,7 @@
 #include <linux/soc/qcom/irq.h>
 
 #include <linux/soc/qcom/irq.h>
+
 
 #include "../core.h"
 #include "../pinconf.h"
@@ -1280,6 +1282,7 @@ static bool msm_gpio_needs_valid_mask(struct msm_pinctrl *pctrl)
 	return device_property_count_u16(pctrl->dev, "gpios") > 0;
 }
 
+
 static int msm_gpio_init(struct msm_pinctrl *pctrl)
 {
 	struct gpio_chip *chip;
@@ -1312,6 +1315,7 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 	pctrl->irq_chip.irq_set_wake = msm_gpio_irq_set_wake;
 	pctrl->irq_chip.irq_set_affinity = msm_gpio_irq_set_affinity;
 	pctrl->irq_chip.irq_set_vcpu_affinity = msm_gpio_irq_set_vcpu_affinity;
+
 
 	dn = of_parse_phandle(pctrl->dev->of_node, "wakeup-parent", 0);
 	if (dn) {
@@ -1497,6 +1501,8 @@ int msm_gpio_mpm_wake_set(unsigned int gpio, bool enable)
 }
 EXPORT_SYMBOL(msm_gpio_mpm_wake_set);
 
+
+
 int msm_pinctrl_probe(struct platform_device *pdev,
 		      const struct msm_pinctrl_soc_data *soc_data)
 {
@@ -1569,6 +1575,16 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 	platform_set_drvdata(pdev, pctrl);
 
 	dev_dbg(&pdev->dev, "Probed Qualcomm pinctrl driver\n");
+#ifdef CONFIG_PINCTRL_RENOIR
+	pr_err("Disable GPIO151, 202  wakeup\n");
+	msm_gpio_mpm_wake_set(151, false);
+	msm_gpio_mpm_wake_set(202, false);
+#else
+	pr_err("Disable GPIO151, 200, 202 wakeup\n");
+	msm_gpio_mpm_wake_set(151, false);
+	msm_gpio_mpm_wake_set(200, false);
+	msm_gpio_mpm_wake_set(202, false);
+#endif
 
 	return 0;
 }

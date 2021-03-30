@@ -1,0 +1,269 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/pil/subsys-pil-tz.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Generic Subsystem Peripheral Image Loader
+
+maintainers:
+  - Raghavendra Rao Ananta <rananta@quicinc.com>
+
+description: |+
+  subsys-pil-tz is a generic peripheral image loader (PIL) driver. It is
+  used for loading the firmware images of the subsystems into memory and
+  preparing the subsystem's processor to execute code. It's also responsible
+  for shutting down the processor when it's not needed.
+
+properties:
+  compatible:
+    oneOf:
+      - const: qcom,pil-tz-generic
+        description:
+          For implementations specific to subsystem PIL nodes. Could be more
+          than one.
+
+      - const: qcom,pil-tz-scm-pas
+        description:
+          For specifically registering with the interconnect framework, in
+          order to satisfy the bandwidth requirements between the DDR and
+          the crypto engine. This is so that the secure world can validate
+          the PIL images. Only one node per device-tree is required.
+
+  qcom,firmware-name:
+    description: Base name of the firmware image.
+
+  reg:
+    description:
+      Pairs of physical base addresses and region sizes of memory mapped
+      registers.
+
+  reg-names:
+    description:
+      Names of the bases for the above registers. Not required for PIL usage.
+      For example, "wrapper_base", "vbif_base".
+
+  interrupts:
+    description: Subsystem to Apps watchdog bite interrupt.
+
+  vdd_'reg'-supply:
+    description:
+      Reference to the regulator that supplies the corresponding 'reg' domain.
+
+  qcom,proxy-reg-names:
+    description:
+      Names of the regulators that need to be turned on/off during proxy
+      voting/unvoting.
+
+  qcom,active-reg-names:
+    description:
+      Names of the regulators that need to be turned on for the subsystem to
+      run. Turned off when the subsystem is shutdown.
+
+  qcom,vdd_'reg'-uV-uA:
+    description: Voltage and current values for the 'reg' regulator.
+
+  qcom,proxy-clock-names:
+    description:
+      Names of the clocks that need to be turned on/off during proxy
+      voting/unvoting.
+
+  qcom,active-clock-names:
+    description:
+      Names of the clocks that need to be turned on for the subsystem to run.
+      Turned off when the subsystem is shutdown.
+
+  clock-names:
+    description: Names of all the clocks that are accessed by the subsystem.
+
+  qcom,<clock-name>-freq:
+    description:
+      Frequency to be set for that clock in Hz. If the property isn't added
+      for a clock, then the default clock frequency would be set to 19200000 Hz.
+
+  qcom,pas-id:
+    description: pas_id of the subsystem.
+
+  qcom,proxy-timeout-ms:
+    description: Proxy vote timeout value for the subsystem.
+
+  qcom,smem-id:
+    description: ID of the SMEM item for the subsystem.
+
+  qcom,is-not-loadable:
+    description:
+      Present if the subsystem's firmware image does not need be loaded.
+    type: boolean
+
+  qcom,pil-no-auth:
+    description:
+      Present if the subsystem is not authenticated and brought out of reset
+      by using the PIL ops.
+    type: boolean
+
+  qcom,mem-protect-id:
+    description:
+      Virtual ID used by PIL to call into TZ/HYP to protect/unprotect subsystem
+      related memory.
+
+  qcom,gpio-err-fatal:
+    description: GPIO used by the subsystem to indicate error fatal to the apps.
+
+  qcom,gpio-err-ready:
+    description: GPIO used by the subsystem to indicate error ready to the apps.
+
+  qcom,gpio-proxy-unvote:
+    description:
+      GPIO used by the subsystem to trigger proxy unvoting in the apps.
+
+  qcom,gpio-force-stop:
+    description: GPIO used by the apps to force the subsystem to shutdown.
+
+  qcom,gpio-stop-ack:
+    description:
+      GPIO used by the subsystem to ack force stop or a graceful stop to the
+      apps.
+
+  qcom,restart-group:
+    description: List of subsystems that will need to restart together.
+
+  qcom,keep-proxy-regs-on:
+    description:
+      Present if during proxy unvoting, PIL needs to leave the regulators
+      enabled after removing the voltage/current votes.
+    type: boolean
+
+  qcom,edge:
+    description: GLINK logical name of the remote subsystem
+
+  qcom,ssctl-instance-id:
+    description:
+      Instance id used by the subsystem to connect with the SSCTL service.
+
+  qcom,sysmon-id:
+    description: Platform device id that sysmon is probed with for the subsystem.
+
+  qcom,pil-force-shutdown:
+    description:
+      If set, the SSR framework will not trigger graceful shutdown on behalf of
+      the subsystem driver.
+    type: boolean
+
+  qcom,pil-generic-irq-handler:
+    description:
+      Generic interrupt handler used for communication with subsytem based on
+      bit values in scsr registers.
+
+  qcom,spss-scsr-bits:
+    description:
+      Array of bit positions into the scsr registers used in generic handler.
+
+  qcom,complete-ramdump:
+    description:
+      If set, complete ramdump i.e. region between start address of first segment
+      to end address of last segment will be collected without leaving any hole
+      in between.
+    type: boolean
+
+  qcom,boot-enabled:
+    description:
+      Set this property if subsystem is brought out of reset
+      during bootloader stage. subsystem-pil-tz driver checks the
+      crash status of subsystems when initial subsystem request is made.
+    type: boolean
+
+  qcom,ignore-ssr-failure:
+    description: If set, SSR failures are not considered fatal.
+    type: boolean
+
+  qcom,signal-aop:
+    description:
+      If set, when subsystem is brought up, pil will send a notification to AOP
+      through qmp mailbox driver.
+    type: boolean
+
+  qcom,minidump-id:
+    description:
+      ID that is used to index into the global minidump table of contents to
+      access a subsystem's minidump table of contents.
+
+  qcom,aux-minidump-ids:
+    description:
+      List of IDs that index into the global minidump table of contents to access
+      the table of contents for additional minidump entries that should be
+      collected along with the subsystem's minidump.
+
+  interconnects:
+    description:
+      Specifies the interconnect bus-master and bus-slave for bandwidth voting
+      during proxy vote/unvote.
+
+required:
+  - compatible
+  - qcom,firmware-name
+
+examples:
+  - |
+
+    pil_scm_pas {
+      compatible = "qcom,pil-tz-scm-pas";
+      interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
+    };
+
+    qcom,venus@fdce0000 {
+      compatible = "qcom,pil-tz-generic";
+      reg = <0xfdce0000 0x4000>,
+            <0xfdc80000 0x400>;
+
+      vdd-supply = <&gdsc_venus>;
+      qcom,proxy-reg-names = "vdd";
+      clock-names = "core_clk", "iface_clk", "bus_clk", "mem_clk",
+          "scm_core_clk", "scm_iface_clk", "scm_bus_clk",
+          "scm_core_clk_src";
+      qcom,proxy-clock-names = "core_clk", "iface_clk", "bus_clk",
+            "mem_clk", "scm_core_clk",
+            "scm_iface_clk", "scm_bus_clk",
+            "scm_core_clk_src";
+      qcom,scm_core_clk_src-freq = <50000000>;
+
+      interconnects = <&qnm_video0 MASTER_VIDEO_P0 &mc_virt SLAVE_EBI1>;
+
+      qcom,pas-id = <9>;
+      qcom,proxy-timeout-ms = <2000>;
+      qcom,firmware-name = "venus";
+    };
+
+    qcom,lpass@fe200000 {
+      compatible = "qcom,pil-tz-generic";
+      reg = <0xfe200000 0x00100>,
+            <0xfd485100 0x00010>,
+            <0xfc4016c0 0x00004>;
+
+      interrupts = <0 162 1>;
+
+      vdd_cx-supply = <&pm8841_s2_corner>;
+      qcom,proxy-reg-names = "vdd_cx";
+      qcom,vdd_cx-uV-uA = <7 100000>;
+      clock-names = "bus_clk", "xo", "scm_core_clk", "scm_iface_clk",
+          "scm_bus_clk", "scm_core_clk_src";
+      qcom,active-clock-names = "bus_clk";
+      qcom,proxy-clock-names = "xo", "scm_core_clk", "scm_iface_clk",
+            "scm_bus_clk", "scm_core_clk_src";
+      qcom,scm_core_clk_src-freq = <50000000>;
+
+      qcom,smem-id = <423>;
+      qcom,pas-id = <1>;
+      qcom,proxy-timeout-ms = <10000>;
+      qcom,firmware-name = "adsp";
+      qcom,edge = "lpass";
+
+      /* GPIO inputs from lpass */
+      qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
+      qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_2_in 2 0>;
+      qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_2_in 1 0>;
+      qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_2_in 3 0>;
+
+      /* GPIO output to lpass */
+      qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
+      qcom,ssctl-instance-id = <14>;
+      qcom,sysmon-id = <1>;
+    };

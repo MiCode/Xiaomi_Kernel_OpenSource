@@ -3,6 +3,7 @@
  * Block multiqueue core code
  *
  * Copyright (C) 2013-2014 Jens Axboe
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2013-2014 Christoph Hellwig
  */
 #include <linux/kernel.h>
@@ -1218,6 +1219,9 @@ bool blk_mq_dispatch_rq_list(struct request_queue *q, struct list_head *list,
 	blk_status_t ret = BLK_STS_OK;
 
 	if (list_empty(list))
+		return false;
+
+	if(oops_in_progress)
 		return false;
 
 	WARN_ON(!list_is_singular(list) && got_budget);

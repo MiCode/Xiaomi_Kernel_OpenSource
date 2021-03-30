@@ -1,0 +1,69 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/soc/qcom/qcom,msm-eud.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Qualcomm Technologies Inc Embedded USB Debugger (EUD)
+
+maintainers:
+  - Prakruthi Deepak Heragu <pheragu@codeaurora.org>
+
+description: |+
+  The EUD (Embedded USB Debugger) is a mini-USB hub implemented
+  on chip to support the USB-based debug and trace capabilities.
+
+
+
+properties:
+  compatible:
+    Usage: required
+    Value type: <string>
+    Definition: Must be "qcom,msm-eud"
+
+  reg:
+    Usage: required
+    Value type: <prop-encoded-array>
+    Definition: address and size of EUD register space
+
+  reg-names:
+    Usage: required
+    Value type: <string>
+    Definition: Must be "eud_base"
+
+  interrupts:
+    Usage: required
+    Value type: <prop-encoded-array>
+    Definition: Interrupt number
+
+  interrupt-names:
+    Usage: required
+    Value type: <string>
+    Definition: Must be "eud_irq"
+
+  reg-names:
+    Usage: optional
+    Value type: <string>
+    Definition: Must be "eud_mode_mgr2" for secure eud
+
+  qcom,secure-eud-en:
+    Usage: optional to enable secure eud
+
+  qcom,eud-clock-vote-req:
+    Usage: optional to enable clock voting from eud
+
+example:
+  - |
+    eud: qcom,msm-eud@88e0000 {
+       compatible = "qcom,msm-eud";
+       interrupt-names = "eud_irq";
+       interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
+       reg = <0x88e0000 0x4000>;
+       reg-names = "eud_base";
+    };
+
+client-example:
+  - |
+    usb3 {
+	extcon = <&eud>;
+    };
+...

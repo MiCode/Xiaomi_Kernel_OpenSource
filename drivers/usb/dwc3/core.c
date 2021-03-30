@@ -3,10 +3,15 @@
  * core.c - DesignWare USB3 DRD Controller Core file
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  */
+
+#ifdef CONFIG_FACTORY_BUILD
+#define DEBUG
+#endif
 
 #include <linux/clk.h>
 #include <linux/version.h>
@@ -40,6 +45,9 @@
 #include "debug.h"
 
 #define DWC3_DEFAULT_AUTOSUSPEND_DELAY	500 /* ms */
+
+
+
 
 static int count;
 static struct dwc3 *dwc3_instance[DWC_CTRL_COUNT];

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  */
 #include <linux/interconnect-provider.h>
@@ -17,6 +18,16 @@
 #include "icc-rpmh.h"
 
 static LIST_HEAD(bcm_voters);
+#define ufs_mutex_lock(lock)				\
+do {	\
+	if (!oops_in_progress)\
+		mutex_lock(lock);	\
+} while (0)
+#define ufs_mutex_unlock(lock)				\
+	do {	\
+		if (!oops_in_progress)\
+			mutex_unlock(lock); \
+} while (0)
 
 /**
  * struct bcm_voter - Bus Clock Manager voter
@@ -238,14 +249,14 @@ void qcom_icc_bcm_voter_add(struct bcm_voter *voter, struct qcom_icc_bcm *bcm)
 	if (!voter)
 		return;
 
-	mutex_lock(&voter->lock);
+	ufs_mutex_lock(&voter->lock);
 	if (list_empty(&bcm->list))
 		list_add_tail(&bcm->list, &voter->commit_list);
 
 	if (list_empty(&bcm->ws_list))
 		list_add_tail(&bcm->ws_list, &voter->ws_list);
 
-	mutex_unlock(&voter->lock);
+	ufs_mutex_unlock(&voter->lock);
 }
 EXPORT_SYMBOL(qcom_icc_bcm_voter_add);
 
@@ -272,7 +283,7 @@ int qcom_icc_bcm_voter_commit(struct bcm_voter *voter)
 	if (!voter)
 		return 0;
 
-	mutex_lock(&voter->lock);
+	ufs_mutex_lock(&voter->lock);
 	list_for_each_entry(bcm, &voter->commit_list, list)
 		bcm_aggregate(bcm, voter->init);
 
@@ -366,7 +377,7 @@ out:
 		list_del_init(&bcm->list);
 
 	INIT_LIST_HEAD(&voter->commit_list);
-	mutex_unlock(&voter->lock);
+	ufs_mutex_unlock(&voter->lock);
 	return ret;
 }
 EXPORT_SYMBOL(qcom_icc_bcm_voter_commit);
@@ -380,9 +391,9 @@ void qcom_icc_bcm_voter_clear_init(struct bcm_voter *voter)
 	if (!voter)
 		return;
 
-	mutex_lock(&voter->lock);
+	ufs_mutex_lock(&voter->lock);
 	voter->init = false;
-	mutex_unlock(&voter->lock);
+	ufs_mutex_unlock(&voter->lock);
 }
 EXPORT_SYMBOL(qcom_icc_bcm_voter_clear_init);
 

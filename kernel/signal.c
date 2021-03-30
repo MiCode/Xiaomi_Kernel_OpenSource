@@ -56,7 +56,11 @@
 #include <asm/unistd.h>
 #include <asm/siginfo.h>
 #include <asm/cacheflush.h>
+#ifdef CONFIG_OEM_KERNEL
+#include "kern_oem.h"
 
+__weak struct kernel_oem_hook_s oem_kernel_hook;
+#endif
 /*
  * SLAB caches for signal bits.
  */
@@ -1287,6 +1291,10 @@ int do_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p
 	unsigned long flags;
 	int ret = -ESRCH;
 
+#ifdef CONFIG_OEM_KERNEL
+	if (oem_kernel_hook.sig)
+		oem_kernel_hook.sig(sig, current, p);
+#endif
 	if (lock_task_sighand(p, &flags)) {
 		ret = send_signal(sig, info, p, type);
 		unlock_task_sighand(p, &flags);

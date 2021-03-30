@@ -3,6 +3,7 @@
  * main.c - Multi purpose firmware loading support
  *
  * Copyright (c) 2003 Manuel Estrada Sainz
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Please see Documentation/firmware_class/ for more information.
  *
@@ -441,7 +442,7 @@ static int fw_decompress_xz(struct device *dev, struct fw_priv *fw_priv,
 #endif /* CONFIG_FW_LOADER_COMPRESS */
 
 /* direct firmware loading support */
-static char fw_path_para[256];
+static char fw_path_para[256] = "/vendor/firmware";
 static const char * const fw_path[] = {
 	fw_path_para,
 	"/lib/firmware/updates/" UTS_RELEASE,

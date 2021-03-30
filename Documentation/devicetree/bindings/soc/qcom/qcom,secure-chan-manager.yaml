@@ -1,0 +1,27 @@
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/soc/qcom/qcom,secure-chan-manager.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Qualcomm Technologies, Inc. Secure Channel Manager binding
+
+maintainers:
+  - Raghavendra Rao Ananta <rananta@quicinc.com>
+
+description: |
+  The Secure Channel Manager (SCM) driver is used to communicate with the ARMv8
+  secure world (EL2 and EL3).
+
+properties:
+  compatible:
+    items:
+      - const: qcom,secure-chan-manager
+
+required:
+  - compatible
+
+examples:
+  - |
+    qcom_scm {
+        compatible = "qcom,secure-chan-manager";
+    };

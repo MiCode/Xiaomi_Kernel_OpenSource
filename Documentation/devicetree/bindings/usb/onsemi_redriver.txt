@@ -1,0 +1,53 @@
+ON Semiconductor USB Type-C and display port 10Gbps Linear Re-Driver
+
+Required properties:
+- compatible: Must be "onnn,redriver".
+- reg: I2C address on the selected bus.
+- extcon: phandles to external connector devices. The first phandle
+	should point to the external connector which provides
+	both "USB" cable events and "USB-HOST" cable events.
+	An optional second phandle may be specified for DP
+	lane events.
+
+Optional properties:
+- eq: Equalization value of re-driver channel A/B/C/D, 8 bit.
+	eq[0] - eq[3]: Channel A-D parameter for USB.
+	eq[4] - eq[7]: Channel A-D parameter for DP.
+- flat-gain: Flat gain control value of re-driver channel A/B/C/D, 8 bit.
+	flat_gain[0] - flat_gain[3]: Channel A-D parameter for USB.
+	flat_gain[4] - flat_gain[7]: Channel A-D parameter for DP.
+- output-comp: Output compression value of re-driver channel A/B/C/D,
+8 bit.
+	output_comp[0] - output_comp[3]: Channel A-D parameter for USB.
+	output_comp[4] - output_comp[7]: Channel A-D parameter for DP.
+- loss-match: Loss profile matching control value of re-driver channel
+A/B/C/D, 8 bit.
+	loss_match[0] - loss_match[3]: Channel A-D parameter for USB.
+	loss_match[4] - loss_match[7]: Channel A-D parameter for DP.
+
+Example:
+	redriver@19 {
+		compatible = "onnn,redriver";
+		reg = <0x19>;
+		extcon = <&pm8150b_pdphy>, <&pm8150b_pdphy>;
+		eq = /bits/ 8 <
+				/* Parameters for USB */
+				0x4 0x4 0x4 0x4
+				/* Parameters for DP */
+				0x6 0x4 0x4 0x6>;
+		flat-gain = /bits/ 8 <
+				/* Parameters for USB */
+				0x3 0x1 0x1 0x3
+				/* Parameters for DP */
+				0x2 0x1 0x1 0x2>;
+		output-comp = /bits/ 8 <
+				/* Parameters for USB */
+				0x3 0x3 0x3 0x3
+				/* Parameters for DP */
+				0x3 0x3 0x3 0x3>;
+		loss-match = /bits/ 8 <
+				/* Parameters for USB */
+				0x1 0x3 0x3 0x1
+				/* Parameters for DP */
+				0x3 0x3 0x3 0x3>;
+	};

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include "msm_cvp.h"
@@ -895,12 +896,12 @@ static int adjust_bw_freqs(void)
 	cvp_max_rate = tbl[tbl_size - 1].clock_rate;
 	bus = &core->resources.bus_set.bus_tbl[1];
 	max_bw = bus->range[1];
-	min_bw = max_bw/10;
+	min_bw = max_bw/100;
 
 	aggregate_power_update(core, &nrt_pwr, &rt_pwr, cvp_max_rate);
-	dprintk(CVP_PROF, "PwrUpdate nrt %u %u rt %u %u\n",
-		nrt_pwr.core_sum, nrt_pwr.op_core_sum,
-		rt_pwr.core_sum, rt_pwr.op_core_sum);
+	dprintk(CVP_PROF, "PwrUpdate nrt %u %u %lld rt %u %u %lld\n",
+		nrt_pwr.core_sum, nrt_pwr.op_core_sum, nrt_pwr.bw_sum,
+		rt_pwr.core_sum, rt_pwr.op_core_sum, rt_pwr.bw_sum);
 
 	if (rt_pwr.core_sum > cvp_max_rate) {
 		dprintk(CVP_WARN, "%s clk vote out of range %lld\n",

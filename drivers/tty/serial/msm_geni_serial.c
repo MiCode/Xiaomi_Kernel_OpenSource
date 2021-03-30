@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/bitmap.h>
@@ -101,8 +102,9 @@
 
 #define UART_OVERSAMPLING	(32)
 #define STALE_TIMEOUT		(16)
-#define STALE_COUNT		(DEFAULT_BITS_PER_CHAR * STALE_TIMEOUT)
-#define SEC_TO_USEC		(1000000)
+#define STALE_COUNT        (DEFAULT_BITS_PER_CHAR * STALE_TIMEOUT)
+#define SEC_TO_USEC        (1000000)
+#define SYSTEM_DELAY		(500)
 #define DEFAULT_BITS_PER_CHAR	(10)
 #define GENI_UART_NR_PORTS	(6)
 #define GENI_UART_CONS_PORTS	(1)
@@ -200,6 +202,7 @@ struct msm_geni_serial_port {
 	bool s_cmd;
 	struct completion m_cmd_timeout;
 	struct completion s_cmd_timeout;
+	spinlock_t rx_lock;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -224,6 +227,7 @@ static void msm_geni_serial_stop_rx(struct uart_port *uport);
 static int msm_geni_serial_runtime_resume(struct device *dev);
 static int msm_geni_serial_runtime_suspend(struct device *dev);
 static int msm_geni_serial_get_ver_info(struct uart_port *uport);
+static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport);
 static int uart_line_id;
 
 #define GET_DEV_PORT(uport) \
@@ -1348,9 +1352,9 @@ static void start_rx_sequencer(struct uart_port *uport)
 		geni_se_rx_dma_start(uport->membase, DMA_RX_BUF_SIZE,
 							&port->rx_dma);
 
-	/* Start RX with the RFR_OPEN to keep RFR in always ready state */
-	geni_setup_s_cmd(uport->membase, UART_START_READ, geni_se_param);
-	msm_geni_serial_enable_interrupts(uport);
+    /* Start RX with the RFR_OPEN to keep RFR in always ready state */
+    geni_setup_s_cmd(uport->membase, UART_START_READ, geni_se_param);
+    msm_geni_serial_enable_interrupts(uport);
 
 	/* Ensure that the above writes go through */
 	mb();
@@ -1415,6 +1419,7 @@ static int stop_rx_sequencer(struct uart_port *uport)
 	unsigned long flags = 0;
 	bool is_rx_active;
 	unsigned int stale_delay;
+	u32 dma_rx_status, s_irq_status;
 
 	IPC_LOG_MSG(port->ipc_log_misc, "%s\n", __func__);
 
@@ -1433,11 +1438,31 @@ static int stop_rx_sequencer(struct uart_port *uport)
 		 * Wait for the stale timeout to happen if there
 		 * is any data pending in the rx fifo.
 		 * Have a safety factor of 2 to include the interrupt
-		 * and system latencies.
+		 * and system latencies, add 500usec delay for interrupt
+		 * latency or system delay.
 		 */
 		stale_delay = (STALE_COUNT * SEC_TO_USEC) / port->cur_baud;
-		stale_delay = (2 * stale_delay);
+		stale_delay = (2 * stale_delay) + SYSTEM_DELAY;
 		udelay(stale_delay);
+
+		dma_rx_status = geni_read_reg_nolog(uport->membase,
+						SE_DMA_RX_IRQ_STAT);
+		/* The transfer is completed at HW level and the completion
+		 * interrupt is delayed. So process the transfer completion
+		 * before issuing the cancel command to resolve the race
+		 * btw cancel RX and completion interrupt.
+		 */
+		if (dma_rx_status) {
+			s_irq_status = geni_read_reg_nolog(uport->membase,
+							SE_GENI_S_IRQ_STATUS);
+			geni_write_reg_nolog(s_irq_status, uport->membase,
+							SE_GENI_S_IRQ_CLEAR);
+			geni_se_dump_dbg_regs(&port->serial_rsc,
+				uport->membase, port->ipc_log_misc);
+			IPC_LOG_MSG(port->ipc_log_misc, "%s: Interrupt delay\n",
+					__func__);
+			handle_rx_dma_xfer(s_irq_status, uport);
+		}
 	}
 
 	IPC_LOG_MSG(port->ipc_log_misc, "%s: Start 0x%x\n",
@@ -1460,22 +1485,26 @@ static int stop_rx_sequencer(struct uart_port *uport)
 	 */
 	mb();
 	timeout = geni_wait_for_cmd_done(uport, is_irq_masked);
-	if (timeout) {
-		geni_status = geni_read_reg_nolog(uport->membase,
+	geni_status = geni_read_reg_nolog(uport->membase,
 							SE_GENI_STATUS);
+	is_rx_active = geni_status & S_GENI_CMD_ACTIVE;
+	IPC_LOG_MSG(port->ipc_log_misc, "%s: 0x%x, dma_dbg:0x%x\n", __func__,
+		geni_status, geni_read_reg(uport->membase, SE_DMA_DEBUG_REG0));
+	if (timeout || is_rx_active) {
+		IPC_LOG_MSG(port->ipc_log_misc,
+			    "%s cancel failed timeout:%d is_rx_active:%d 0x%x\n",
+			    __func__, timeout, is_rx_active, geni_status);
+		IPC_LOG_MSG(port->console_log,
+			    "%s cancel failed timeout:%d is_rx_active:%d 0x%x\n",
+			    __func__, timeout, is_rx_active, geni_status);
+		geni_se_dump_dbg_regs(&port->serial_rsc,
+				uport->membase, port->ipc_log_misc);
 		/*
 		 * Possible that stop_rx is called from system resume context
 		 * for console usecase. In early resume, irq remains disabled
 		 * in the system. call msm_geni_serial_handle_isr to clear
 		 * the interrupts.
 		 */
-		is_rx_active = geni_status & S_GENI_CMD_ACTIVE;
-		IPC_LOG_MSG(port->ipc_log_misc,
-			    "%s cancel failed is_rx_active:%d 0x%x\n",
-			    __func__, is_rx_active, geni_status);
-		IPC_LOG_MSG(port->console_log,
-			    "%s cancel failed is_rx_active:%d 0x%x\n",
-			    __func__, is_rx_active, geni_status);
 		if (uart_console(uport) && !is_rx_active) {
 			msm_geni_serial_handle_isr(uport, &flags, true);
 			goto exit_rx_seq;
@@ -1487,13 +1516,20 @@ static int stop_rx_sequencer(struct uart_port *uport)
 		mb();
 
 		timeout = geni_wait_for_cmd_done(uport, is_irq_masked);
-		if (timeout) {
+		geni_status = geni_read_reg_nolog(uport->membase,
+							SE_GENI_STATUS);
+		is_rx_active = geni_status & S_GENI_CMD_ACTIVE;
+		if (timeout || is_rx_active) {
 			geni_status = geni_read_reg_nolog(uport->membase,
 							SE_GENI_STATUS);
 			IPC_LOG_MSG(port->ipc_log_misc,
-				"%s abort fail 0x%x\n", __func__, geni_status);
+				"%s abort fail timeout:%d is_rx_active:%d 0x%x\n",
+				__func__, timeout, is_rx_active, geni_status);
 			IPC_LOG_MSG(port->console_log,
-				"%s abort fail 0x%x\n",  __func__, geni_status);
+				"%s abort fail timeout:%d is_rx_active:%d 0x%x\n",
+				 __func__, timeout, is_rx_active, geni_status);
+			geni_se_dump_dbg_regs(&port->serial_rsc,
+				uport->membase, port->ipc_log_misc);
 		}
 
 		if (port->xfer_mode == SE_DMA) {
@@ -1518,8 +1554,9 @@ exit_rx_seq:
 		msm_geni_serial_set_manual_flow(true, port);
 
 	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
-	IPC_LOG_MSG(port->ipc_log_misc, "%s: End 0x%x\n",
-		    __func__, geni_status);
+	IPC_LOG_MSG(port->ipc_log_misc, "%s: End 0x%x dma_dbg:0x%x\n",
+		    __func__, geni_status,
+		    geni_read_reg(uport->membase, SE_DMA_DEBUG_REG0));
 
 	is_rx_active = geni_status & S_GENI_CMD_ACTIVE;
 	if (is_rx_active)
@@ -1895,17 +1932,14 @@ static bool handle_tx_dma_xfer(u32 m_irq_status, struct uart_port *uport)
 					SE_DMA_TX_IRQ_CLR);
 
 		if (dma_tx_status & (TX_RESET_DONE | TX_GENI_CANCEL_IRQ))
-			ret = true;
-
-		if (m_irq_status & (M_CMD_CANCEL_EN | M_CMD_ABORT_EN))
-			ret = true;
-
-		if (ret)
-			return ret;
+			return true;
 
 		if (dma_tx_status & TX_DMA_DONE)
 			msm_geni_serial_handle_dma_tx(uport);
 	}
+
+	if (m_irq_status & (M_CMD_CANCEL_EN | M_CMD_ABORT_EN))
+		ret = true;
 
 	return ret;
 }
@@ -1915,7 +1949,10 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 	bool ret = false;
 	bool drop_rx = false;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
-	u32 dma_rx_status = geni_read_reg_nolog(uport->membase,
+	u32 dma_rx_status;
+
+	spin_lock(&msm_port->rx_lock);
+	dma_rx_status = geni_read_reg_nolog(uport->membase,
 						SE_DMA_RX_IRQ_STAT);
 
 	if (dma_rx_status) {
@@ -1925,7 +1962,8 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 		if (dma_rx_status & RX_RESET_DONE) {
 			IPC_LOG_MSG(msm_port->ipc_log_misc,
 			"%s.Reset done.  0x%x.\n", __func__, dma_rx_status);
-			return ret;
+			ret = true;
+			goto exit;
 		}
 
 		if (dma_rx_status & UART_DMA_RX_ERRS) {
@@ -1966,11 +2004,13 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 
 		if (dma_rx_status & (RX_EOT | RX_GENI_CANCEL_IRQ | RX_DMA_DONE))
 			ret = true;
-
-		if (s_irq_status & (S_CMD_CANCEL_EN | S_CMD_ABORT_EN))
-			ret = true;
 	}
 
+	if (s_irq_status & (S_CMD_CANCEL_EN | S_CMD_ABORT_EN))
+		ret = true;
+
+exit:
+	spin_unlock(&msm_port->rx_lock);
 	return ret;
 }
 
@@ -2675,13 +2715,33 @@ static int msm_geni_console_setup(struct console *co, char *options)
 	return uart_set_options(uport, co, baud, parity, bits, flow);
 }
 
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+extern bool is_early_cons_enabled;
+#endif
+
 static int console_register(struct uart_driver *drv)
 {
+
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+	if (!is_early_cons_enabled) {
+		pr_info("ignore console register\n");
+		return 0;
+	}
+#endif
+
 	return uart_register_driver(drv);
 }
 
 static void console_unregister(struct uart_driver *drv)
 {
+
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+	if (!is_early_cons_enabled) {
+		pr_info("ignore console unregister\n");
+		return;
+	}
+#endif
+
 	uart_unregister_driver(drv);
 }
 
@@ -2786,6 +2846,12 @@ static void msm_geni_serial_cons_pm(struct uart_port *uport,
 {
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+	if (!is_early_cons_enabled) {
+		pr_info("ignore console pm\n");
+		return;
+	}
+#endif
 	if (unlikely(!uart_console(uport)))
 		return;
 
@@ -3077,18 +3143,28 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	struct msm_geni_serial_port *dev_port;
 	struct uart_port *uport;
 	struct uart_driver *drv;
-	const struct of_device_id *id;
 	bool is_console = false;
 
-	id = of_match_device(msm_geni_device_tbl, &pdev->dev);
+	const struct of_device_id *id = of_match_device(msm_geni_device_tbl,
+			&pdev->dev);
 	if (!id) {
 		dev_err(&pdev->dev, "%s: No matching device found\n",
 				__func__);
 		return -ENODEV;
 	}
 	dev_dbg(&pdev->dev, "%s: %s\n", __func__, id->compatible);
-	drv = (struct uart_driver *)id->data;
 
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+	/*if earlycon is not enabled, we should ignore console
+	  driver prob*/
+	if (!is_early_cons_enabled &&
+		(!strcmp(id->compatible, "qcom,msm-geni-console"))) {
+		pr_info("ignore cons prob\n");
+		return 0;
+	}
+#endif
+
+	drv = (struct uart_driver *)id->data;
 	if (pdev->dev.of_node) {
 		if (drv->cons) {
 			line = of_alias_get_id(pdev->dev.of_node, "serial");
@@ -3188,6 +3264,8 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	 */
 	if (uart_console(uport))
 		geni_se_remove_earlycon_icc_vote(dev_port->wrapper_dev);
+	else
+		spin_lock_init(&dev_port->rx_lock);
 
 exit_geni_serial_probe:
 	IPC_LOG_MSG(dev_port->ipc_log_misc, "%s: ret:%d\n",
@@ -3197,10 +3275,29 @@ exit_geni_serial_probe:
 
 static int msm_geni_serial_remove(struct platform_device *pdev)
 {
-	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
-	struct uart_driver *drv =
-			(struct uart_driver *)port->uport.private_data;
+	struct msm_geni_serial_port *port;
+	struct uart_driver *drv;
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+	const struct of_device_id *id = of_match_device(msm_geni_device_tbl,
+			&pdev->dev);
+	if (!id) {
+		dev_err(&pdev->dev, "%s: No matching device found\n",
+				__func__);
+		return -ENODEV;
+	}
+	dev_dbg(&pdev->dev, "%s: %s\n", __func__, id->compatible);
 
+	/*if earlycon is not enabled, we should ignore console
+	  driver prob*/
+	if (!is_early_cons_enabled &&
+		(!strcmp(id->compatible, "qcom,msm-geni-console"))) {
+		pr_info("ignore cons remove\n");
+		return 0;
+	}
+#endif
+
+	port = platform_get_drvdata(pdev);
+	drv = (struct uart_driver *)port->uport.private_data;
 	if (!uart_console(&port->uport))
 		wakeup_source_unregister(port->geni_wake);
 	uart_remove_one_port(drv, &port->uport);
@@ -3214,17 +3311,17 @@ static int msm_geni_serial_remove(struct platform_device *pdev)
 
 static void msm_geni_serial_allow_rx(struct msm_geni_serial_port *port)
 {
-	u32 uart_manual_rfr;
+    u32 uart_manual_rfr;
 
-	uart_manual_rfr = (UART_MANUAL_RFR_EN | UART_RFR_READY);
-	geni_write_reg_nolog(uart_manual_rfr, port->uport.membase,
-						SE_UART_MANUAL_RFR);
-	/* Ensure that the manual flow off writes go through */
-	mb();
-	uart_manual_rfr = geni_read_reg_nolog(port->uport.membase,
-						SE_UART_MANUAL_RFR);
-	IPC_LOG_MSG(port->ipc_log_misc, "%s(): rfr = 0x%x\n",
-					__func__, uart_manual_rfr);
+    uart_manual_rfr = (UART_MANUAL_RFR_EN | UART_RFR_READY);
+    geni_write_reg_nolog(uart_manual_rfr, port->uport.membase,
+                        SE_UART_MANUAL_RFR);
+    /* Ensure that the manual flow off writes go through */
+    mb();
+    uart_manual_rfr = geni_read_reg_nolog(port->uport.membase,
+                        SE_UART_MANUAL_RFR);
+    IPC_LOG_MSG(port->ipc_log_misc, "%s(): rfr = 0x%x\n",
+                    __func__, uart_manual_rfr);
 
 	/* To give control of RFR back to HW */
 	msm_geni_serial_set_manual_flow(true, port);
@@ -3234,9 +3331,30 @@ static void msm_geni_serial_allow_rx(struct msm_geni_serial_port *port)
 static int msm_geni_serial_runtime_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
+	struct msm_geni_serial_port *port;
 	int ret = 0;
-	u32 geni_status = geni_read_reg_nolog(port->uport.membase,
+	u32 geni_status;
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+	const struct of_device_id *id = of_match_device(msm_geni_device_tbl,
+			&pdev->dev);
+	if (!id) {
+		dev_err(&pdev->dev, "%s: No matching device found\n",
+				__func__);
+		return -ENODEV;
+	}
+	dev_dbg(&pdev->dev, "%s: %s\n", __func__, id->compatible);
+
+	/*if earlycon is not enabled, we should ignore console
+	  driver prob*/
+	if (!is_early_cons_enabled &&
+		(!strcmp(id->compatible, "qcom,msm-geni-console"))) {
+		pr_info("ignore cons runtime suspend\n");
+		return 0;
+	}
+#endif
+
+	port = platform_get_drvdata(pdev);
+	geni_status = geni_read_reg_nolog(port->uport.membase,
 							SE_GENI_STATUS);
 
 	wait_for_transfers_inflight(&port->uport);
@@ -3285,8 +3403,28 @@ exit_runtime_suspend:
 static int msm_geni_serial_runtime_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
+	struct msm_geni_serial_port *port;
 	int ret = 0;
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+	const struct of_device_id *id = of_match_device(msm_geni_device_tbl,
+			&pdev->dev);
+	if (!id) {
+		dev_err(&pdev->dev, "%s: No matching device found\n",
+				__func__);
+		return -ENODEV;
+	}
+	dev_dbg(&pdev->dev, "%s: %s\n", __func__, id->compatible);
+
+	/*if earlycon is not enabled, we should ignore console
+	  driver prob*/
+	if (!is_early_cons_enabled &&
+		(!strcmp(id->compatible, "qcom,msm-geni-console"))) {
+		pr_info("ignore cons runtime resume\n");
+		return 0;
+	}
+#endif
+
+	port = platform_get_drvdata(pdev);
 
 	/*
 	 * Do an unconditional relax followed by a stay awake in case the
@@ -3322,8 +3460,29 @@ exit_runtime_resume:
 static int msm_geni_serial_sys_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
-	struct uart_port *uport = &port->uport;
+	struct msm_geni_serial_port *port;
+	struct uart_port *uport;
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+	const struct of_device_id *id = of_match_device(msm_geni_device_tbl,
+			&pdev->dev);
+	if (!id) {
+		dev_err(&pdev->dev, "%s: No matching device found\n",
+				__func__);
+		return -ENODEV;
+	}
+	dev_dbg(&pdev->dev, "%s: %s\n", __func__, id->compatible);
+
+	/*if earlycon is not enabled, we should ignore console
+	  driver prob*/
+	if (!is_early_cons_enabled &&
+		(!strcmp(id->compatible, "qcom,msm-geni-console"))) {
+		pr_info("ignore cons suspend\n");
+		return 0;
+	}
+#endif
+
+	port = platform_get_drvdata(pdev);
+	uport = &port->uport;
 
 	if (uart_console(uport)) {
 		uart_suspend_port((struct uart_driver *)uport->private_data,
@@ -3351,8 +3510,29 @@ static int msm_geni_serial_sys_suspend(struct device *dev)
 static int msm_geni_serial_sys_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
-	struct uart_port *uport = &port->uport;
+	struct msm_geni_serial_port *port;
+	struct uart_port *uport;
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+	const struct of_device_id *id = of_match_device(msm_geni_device_tbl,
+			&pdev->dev);
+	if (!id) {
+		dev_err(&pdev->dev, "%s: No matching device found\n",
+				__func__);
+		return -ENODEV;
+	}
+	dev_dbg(&pdev->dev, "%s: %s\n", __func__, id->compatible);
+
+	/*if earlycon is not enabled, we should ignore console
+	  driver prob*/
+	if (!is_early_cons_enabled &&
+		(!strcmp(id->compatible, "qcom,msm-geni-console"))) {
+		pr_info("ignore cons resume\n");
+		return 0;
+	}
+#endif
+
+	port = platform_get_drvdata(pdev);
+	uport = &port->uport;
 
 	if (uart_console(uport) &&
 	    console_suspend_enabled && uport->suspended) {

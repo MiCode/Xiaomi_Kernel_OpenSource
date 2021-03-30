@@ -31,6 +31,9 @@ struct ucsi;
 #define UCSI_CCI_ERROR			BIT(30)
 #define UCSI_CCI_COMMAND_COMPLETE	BIT(31)
 
+#define UCSI_CMD_PR(data)		((data) & BIT(0))
+#define UCSI_CMD_DR(data)		(((data) & BIT(1)) >> 1)
+
 /**
  * struct ucsi_operations - UCSI I/O operations
  * @read: Read operation

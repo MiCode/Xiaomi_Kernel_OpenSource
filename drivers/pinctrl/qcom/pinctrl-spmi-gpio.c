@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2014, 2016-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/gpio/driver.h>
@@ -16,6 +17,7 @@
 #include <linux/slab.h>
 #include <linux/spmi.h>
 #include <linux/types.h>
+
 
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 
@@ -780,6 +782,8 @@ static const struct gpio_chip pmic_gpio_gpio_template = {
 	.of_xlate		= pmic_gpio_of_xlate,
 	.dbg_show		= pmic_gpio_dbg_show,
 };
+
+
 
 static int pmic_gpio_populate(struct pmic_gpio_state *state,
 			      struct pmic_gpio_pad *pad)

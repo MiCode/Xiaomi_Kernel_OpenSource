@@ -1,0 +1,32 @@
+Qualcomm Technologies, Inc. Debug Clock Controller Binding
+----------------------------------------------------------
+
+Required properties :
+- compatible: shall contain only one of the following:
+
+			"qcom,lahaina-debugcc"
+			"qcom,shima-debugcc"
+			"qcom,holi-debugcc"
+			"qcom,sdxlemur-debugcc"
+			"qcom,sm8150-debugcc"
+			"qcom,yupik-debugcc"
+
+- qcom,gcc: phandle to the GCC device node.
+- qcom,videocc: phandle to the Video CC device node.
+- qcom,camcc: phandle to the Camera CC device node.
+- qcom,dispcc: phandle to the Display CC device node.
+- clock-names: Shall contain "xo_clk_src"
+- clocks: phandle + clock reference to the CXO clock.
+- #clock-cells : Shall contain 1.
+
+Example:
+	clock_debug: qcom,cc-debug {
+		compatible = "qcom,lahaina-debugcc";
+		qcom,gcc = <&clock_gcc>;
+		qcom,videocc = <&clock_videocc>;
+		qcom,camcc = <&clock_camcc>;
+		qcom,dispcc = <&clock_dispcc>;
+		clock-names = "xo_clk_src";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		#clock-cells = <1>;
+	};

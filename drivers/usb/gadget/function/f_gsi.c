@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -3214,6 +3215,7 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 	rmnet_gsi_string_defs[0].id = 0;
 	mbim_gsi_string_defs[0].id  = 0;
 	qdss_gsi_string_defs[0].id  = 0;
+	atomic_set(&gsi->connected, 0);
 
 	if (gsi->prot_id == IPA_USB_RNDIS) {
 		gsi->d_port.sm_state = STATE_UNINITIALIZED;

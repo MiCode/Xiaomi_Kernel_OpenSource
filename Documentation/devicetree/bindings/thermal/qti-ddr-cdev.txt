@@ -1,0 +1,42 @@
+QTI DDR cooling device.
+
+The DDR cooling device will be used to place a DDR frequency vote. This
+cooling device will be used in those cases where all the subsystem's are
+thermally throttled and DDR has to be operated with a minimum performance
+level. This cooling device vote can ensure the same.
+
+Properties:
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: should be "qcom,ddr-cooling-device"
+
+Cooling device node:
+- qcom,ddr-freq:
+	Usage: required
+	Value type: <u32 array>
+	Definition: List of available DDR frequencies.
+
+-#cooling-cells:
+	Usage: required
+	Value type: <integer>
+	Definition: Must be 2. Needed for of_thermal as cooling device
+			identifier. Please refer to
+			<devicetree/bindings/thermal/thermal.txt> for more
+			details.
+Example:
+	qcom,ddr-cdev {
+		compatible = "qcom,ddr-cooling-device";
+		qcom,ddr-freq = <200000>,
+				<451000>,
+				<547000>,
+				<681000>,
+				<768000>,
+				<1017000>,
+				<1555000>,
+				<1708000>,
+				<2092000>,
+				<2736000>,
+				<3196000>;
+		#cooling-cells = <2>;
+        };

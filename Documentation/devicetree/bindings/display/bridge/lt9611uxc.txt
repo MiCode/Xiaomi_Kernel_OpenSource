@@ -1,0 +1,125 @@
+LT9611uxc DSI to HDMI bridge
+
+Required properties:
+	- compatible:				Must be "lt,lt9611uxc"
+	- reg:					Main I2C slave ID (for I2C host driver)
+	- lt,irq-gpio:				Main IRQ gpio mapping
+	- lt,reset-gpio				Main reset gpio mapping
+
+
+	Optional properties:
+	- lt,hdmi-ps-gpio:			gpio mapping for HDMI PS
+	- lt,hdmi-en-gpio:			gpio mapping for HDMI EN
+
+	- lt,supply-entries:			A node that lists the elements of the supply used to
+						power the bridge. There can be more than one instance
+						of this binding, in which case the entry would be
+						appended with the supply entry index.
+	e.g. lt,supply-entry@0
+	-- lt,supply-name: name of the supply (vdd/vcc)
+	-- lt,supply-min-voltage: minimum voltage level (uV)
+	-- lt,supply-max-voltage: maximum voltage level (uV)
+	-- lt,supply-enable-load: load drawn (uA) from enabled supply
+	-- lt,supply-disable-load: load drawn (uA) from disabled supply
+	-- lt,supply-ulp-load: load drawn (uA) from supply in ultra-low power mode
+	-- lt,supply-pre-on-sleep: time to sleep (ms) before turning on
+	-- lt,supply-post-on-sleep: time to sleep (ms) after turning on
+	-- lt,supply-pre-off-sleep: time to sleep (ms) before turning off
+	-- lt,supply-post-off-sleep: time to sleep (ms) after turning off
+
+	- lt,non-pluggable: Boolean to indicate if display is non pluggable.
+	- lt,customize-modes: Customized modes when it's non-pluggable display.
+	e.g. lt,customize-mode-id@0
+	-- lt,mode-h-active: Horizontal active pixels for this mode.
+	-- lt,mode-h-front-porch: Horizontal front porch in pixels for this mode.
+	-- lt,mode-h-pulse-width: Horizontal sync width in pixels for this mode.
+	-- lt,mode-h-back-porch: Horizontal back porch in pixels for this mode.
+	-- lt,mode-h-active-high: Boolean to indicate if mode horizontal polarity is active high.
+	-- lt,mode-v-active: Vertical active lines for this mode.
+	-- lt,mode-v-front-porch: Vertical front porch in lines for this mode.
+	-- lt,mode-v-pulse-width: Vertical sync width in lines for this mode.
+	-- lt,mode-v-back-porch: Vertical back porch in lines for this mode.
+	-- lt,mode-v-active-high: Boolean to indicate if mode vertical polarity is active high.
+	-- lt,mode-refersh-rate: Mode refresh rate in hertz.
+	-- lt,mode-clock-in-khz: Mode pclk in KHz.
+
+Required nodes:
+
+The LT9611 has one video port. Its connection is modelled using the OF
+graph bindings specified in Documentation/devicetree/bindings/graph.txt.
+Video port 0 is for the DSI input. The remote endpoint phandle should
+be a reference to a valid mipi_dsi_host device node.
+
+
+Example:
+
+&qupv3_se9_i2c {
+	status = "okay";
+	lt9611@3b {
+		compatible = "lt,lt9611uxc";
+		reg = <0x3b>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <125 0>;
+		interrupt-names = "lt_irq";
+		lt,irq-gpio = <&tlmm 125 0x0>;
+		lt,reset-gpio = <&tlmm 134 0x0>;
+		lt,hdmi-ps-gpio = <&tlmm 136 0x0>;
+		lt,hdmi-en-gpio = <&tlmm 137 0x0>;
+
+		vcc-supply = <&pm660l_l6>;
+		vdd-supply = <&pm660_l11>;
+		lt,supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			lt,supply-entry@0 {
+				reg = <0>;
+				lt,supply-name = "vcc";
+				lt,supply-min-voltage = <3300000>;
+				lt,supply-max-voltage = <3300000>;
+				lt,supply-enable-load = <200000>;
+				lt,supply-post-on-sleep = <50>;
+			};
+
+			lt,supply-entry@1 {
+				reg = <1>;
+				lt,supply-name = "vdd";
+				lt,supply-min-voltage = <1800000>;
+				lt,supply-max-voltage = <1800000>;
+				lt,supply-enable-load = <200000>;
+				lt,supply-post-on-sleep = <50>;
+			};
+		};
+
+		lt,customize-modes {
+			lt,customize-mode-id@0 {
+				lt,mode-h-active = <1920>;
+				lt,mode-h-front-porch = <88>;
+				lt,mode-h-pulse-width = <44>;
+				lt,mode-h-back-porch = <148>;
+				lt,mode-h-active-high;
+				lt,mode-v-active = <1080>;
+				lt,mode-v-front-porch = <4>;
+				lt,mode-v-pulse-width = <5>;
+				lt,mode-v-back-porch = <36>;
+				lt,mode-v-active-high;
+				lt,mode-refresh-rate = <60>;
+				lt,mode-clock-in-khz = <148500>;
+			};
+		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				lt9611_in: endpoint {
+				remote-endpoint = <&ext_dsi_out>;
+				};
+			};
+		};
+	};
+};
+
+

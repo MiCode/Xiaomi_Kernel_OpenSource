@@ -1,0 +1,357 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/leds/leds-qti-flash.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Qualcomm Technologies, Inc. Flash LED binding.
+
+maintainers:
+  - Shyam Kumar Thella <sthella@qti.qualcomm.com>
+
+description: |
+  Qualcomm Technologies, Inc. Flash LED supports camera flash with
+  multiple LED channels (HW dependent) that can be used for multiple
+  camera devices which can be configured for pre-flash(torch) and
+  flash modes.
+
+  Flash LED device has two level of nodes. The main node represents
+  flash LED peripheral and sub node represents the type of device
+  that uses flash LED channel. It can be a torch, flash or switch.
+
+properties:
+  compatible:
+    items:
+      - const: qcom,pm8350c-flash-led
+
+  reg:
+    description: Base address of flash LED module.
+    maxItems: 1
+
+  interrupts:
+    description: Specifies the interrupts associated with this device.
+
+  interrupt-names:
+    items:
+      - const: led-fault-irq
+      - const: all-ramp-down-irq
+      - const: all-ramp-up-irq
+
+  qcom,thermal-derate-current:
+    description: Array of current limits for different level of thermal
+      mitigation.
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32-array
+
+  qcom,hw-strobe-gpios:
+    description: Array of one or more phandles to specify GPIOs to use
+      for strobing flash/torch devices with HW strobe option.
+      qcom,strobe-sel for flash/torch should be 1 if phandle is specified.
+    $ref: /schemas/types.yaml#/definitions/phandle-array
+
+patternProperties:
+  '^qcom,flash_[0-9]$':
+    type: object
+    properties:
+      label:
+        description: Specifies type of LED that will be used.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/string-array
+        items:
+          - const: flash
+
+      qcom,led-name:
+        description: Specifies the name of flash device.
+        $ref: /schemas/types.yaml#/definitions/string
+
+      qcom,id:
+        description: Specifies the LED channel number for flash device.
+          It depends on hardware and starts with an index 0.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - enum: [ 0, 1, 2, 3 ]
+
+      qcom,default-led-trigger:
+        description: Trigger for camera flash device.
+        $ref: /schemas/types.yaml#/definitions/string
+
+      qcom,max-current-ma:
+        description: Maximum current allowed for flash LED device.
+          Unit is mA.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 0
+        maximum: 1600
+        default: 1600
+
+      qcom,duration-ms:
+        description: Default time duration for flash LED device.
+          Unit is ms.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 10
+        maximum: 1280
+        default: 1000
+
+      qcom,ires-ua:
+        description: Current resolution for flash LED device. Unit is uA.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+        items:
+          - const: 5000
+          - const: 12500
+
+      qcom,strobe-sel:
+        description: Strobe type selection for flash LED device. 0 for
+          SW strobe and 1 for HW strobe. If not specified, SW strobe is
+          used.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - enum: [ 0, 1 ]
+
+      qcom,strobe-config:
+        description: Strobe input selection for flash LED device. Each
+          flash LED device has independently connected HW strobe inputs
+          (GPIO1, GPIO2, GPIO3, GPIO4). This is applicable only when HW
+          strobe is selected.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - enum: [ 0, 1, 2, 3 ]
+
+    required:
+      - label
+      - qcom,led-name
+      - qcom,default-led-trigger
+      - qcom,id
+      - qcom,max-current-ma
+
+  '^qcom,torch_[0-9]$':
+    type: object
+    properties:
+      label:
+        description: Specifies type of LED that will be used.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/string-array
+        items:
+          - const: torch
+
+      qcom,led-name:
+        description: Specifies the name of the torch device.
+        $ref: /schemas/types.yaml#/definitions/string
+
+      qcom,id:
+        description: Specifies the LED channel number for torch device.
+          It depends on hardware and starts with an index 0.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - enum: [ 0, 1, 2, 3 ]
+
+      qcom,default-led-trigger:
+        description: Trigger for torch device.
+        $ref: /schemas/types.yaml#/definitions/string
+
+      qcom,max-current-ma:
+        description: Maximum current allowed for torch device.
+          Unit is mA.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 0
+        maximum: 500
+        default: 500
+
+      qcom,ires-ua:
+        description: Current resolution for torch device. Unit is uA.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+        items:
+          - const: 5000
+          - const: 12500
+
+      qcom,strobe-sel:
+        description: Strobe type selection for torch device. 0 for SW
+          strobe and 1 for HW strobe. If not specified, SW strobe is
+          used.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - enum: [ 0, 1 ]
+
+      qcom,strobe-config:
+        description: Strobe input selection for torch device. Each
+          torch device has independently connected HW strobe inputs
+          (GPIO1, GPIO2, GPIO3, GPIO4). This is applicable only when
+          HW strobe is selected.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - enum: [ 0, 1, 2, 3 ]
+
+    required:
+      - label
+      - qcom,led-name
+      - qcom,default-led-trigger
+      - qcom,id
+      - qcom,max-current-ma
+
+  '^qcom,switch_[0-9]$':
+    type: object
+    properties:
+      label:
+        description: Specifies type of LED that will be used.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/string-array
+        items:
+          - const: torch
+
+      qcom,led-name:
+        description: Specifies the name of the switch device.
+        $ref: /schemas/types.yaml#/definitions/string
+
+      qcom,id:
+        description: Specifies the number of switch device.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - enum: [ 0, 1, ]
+
+      qcom,default-led-trigger:
+        description: Trigger for switch device.
+        $ref: /schemas/types.yaml#/definitions/string
+
+      qcom,led-mask:
+        description: Bit mask indicating group of LEDs that are controlled
+          by the switch device. It depends on the number of LED channels
+          present on the LED peripheral.
+        $ref: /schemas/types.yaml#/definitions/uint32
+
+      qcom,symmetry-en:
+        description: Specify if the flash LEDs under a switch device are
+          controlled symmetrically. This is specified if a group of LED
+          channels are connected to single LED.
+        type: boolean
+
+    required:
+      - label
+      - qcom,led-name
+      - qcom,default-led-trigger
+      - qcom,id
+      - qcom,led-mask
+
+required:
+  - compatible
+  - reg
+  - qcom,thermal-derate-current
+  - label
+  - qcom,led-name
+  - qcom,default-led-trigger
+  - qcom,id
+  - qcom,max-current-ma
+  - qcom,led-mask
+
+examples:
+  - |
+    qcom,leds@ee00 {
+        compatible = "qcom,pm8350c-flash-led";
+        reg = <0xee00>;
+        interrupts = <0x2 0xee 0x0 IRQ_TYPE_EDGE_RISING>,
+            <0x2 0xee 0x3 IRQ_TYPE_EDGE_RISING>,
+            <0x2 0xee 0x4 IRQ_TYPE_EDGE_RISING>;
+        interrupt-names = "led-fault-irq",
+            "all-ramp-down-done-irq",
+            "all-ramp-up-done-irq";
+        qcom,thermal-derate-current = <200 500>;
+        qcom,hw-strobe-gpios = <&pm8350c_gpios 1 0>;
+
+        pm8350c_flash0: qcom,flash_0 {
+            label = "flash";
+            qcom,led-name = "led:flash_0";
+            qcom,max-current-ma = <1500>;
+            qcom,default-led-trigger = "flash0_trigger";
+            qcom,id = <0>;
+            qcom,duration-ms = <1280>;
+            qcom,ires-ua = <12500>;
+            qcom,strobe-sel = <1>;
+            qcom,strobe-config = <0>;
+        };
+
+        pm8350c_flash1: qcom,flash_1 {
+            label = "flash";
+            qcom,led-name = "led:flash_1";
+            qcom,max-current-ma = <1500>;
+            qcom,default-led-trigger = "flash1_trigger";
+            qcom,id = <1>;
+            qcom,duration-ms = <1280>;
+            qcom,ires-ua = <12500>;
+        };
+
+        pm8350c_flash2: qcom,flash_2 {
+            label = "flash";
+            qcom,led-name = "led:flash_2";
+            qcom,max-current-ma = <1500>;
+            qcom,default-led-trigger = "flash2_trigger";
+            qcom,id = <2>;
+            qcom,duration-ms = <1280>;
+            qcom,ires-ua = <12500>;
+        };
+
+        pm8350c_flash3: qcom,flash_3 {
+            label = "flash";
+            qcom,led-name = "led:flash_3";
+            qcom,max-current-ma = <1500>;
+            qcom,default-led-trigger = "flash3_trigger";
+            qcom,id = <3>;
+            qcom,duration-ms = <1280>;
+            qcom,ires-ua = <12500>;
+        };
+
+        pm8350_torch0: qcom,torch_0 {
+            label = "torch";
+            qcom,led-name = "led:torch_0";
+            qcom,max-current-ma = <500>;
+            qcom,default-led-trigger = "torch0_trigger";
+            qcom,id = <0>;
+            qcom,ires-ua = <12500>;
+            qcom,strobe-sel = <1>;
+            qcom,strobe-config = <0>;
+        };
+
+        pm8350_torch1: qcom,torch_1 {
+            label = "torch";
+            qcom,led-name = "led:torch_1";
+            qcom,max-current-ma = <500>;
+            qcom,default-led-trigger = "torch1_trigger";
+            qcom,id = <1>;
+            qcom,ires-ua = <12500>;
+        };
+
+        pm8350_torch2: qcom,torch_2 {
+            label = "torch";
+            qcom,led-name = "led:torch_2";
+            qcom,max-current-ma = <500>;
+            qcom,default-led-trigger = "torch2_trigger";
+            qcom,id = <2>;
+            qcom,ires-ua = <12500>;
+        };
+
+        pm8350_torch3: qcom,torch_3 {
+            label = "torch";
+            qcom,led-name = "led:torch_3";
+            qcom,max-current-ma = <500>;
+            qcom,default-led-trigger = "torch3_trigger";
+            qcom,id = <3>;
+            qcom,ires-ua = <12500>;
+        };
+
+        pm8350_switch0: qcom,led_switch_0 {
+            label = "switch";
+            qcom,led-name = "led:switch_0";
+            qcom,led-mask = <9>; /* Channels 1 & 4 */
+            qcom,default-led-trigger = "switch0_trigger";
+            qcom,symmetry-en;
+        };
+
+        pm8350_switch1: qcom,led_switch_1 {
+            label = "switch";
+            qcom,led-name = "led:switch_1";
+            qcom,led-mask = <6>; /* Channels 2 & 3 */
+            qcom,default-led-trigger = "switch1_trigger";
+            qcom,symmetry-en;
+        };
+    };
+...

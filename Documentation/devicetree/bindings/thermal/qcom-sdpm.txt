@@ -1,0 +1,65 @@
+Simple Digital Power Meter(SDPM) clock monitoring.
+
+SDPM is used to monitor the operating frequency of different clocks and based
+on operating levels of different clients, the Policy Engine will recommend a
+new max operating level. The SDPM driver will register with the clock
+framework for rate change notification of different clocks. These clock rate
+will be updated to SDPM.
+
+Properties:
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: should be "qcom,sdpm"
+
+- reg:
+	Usage: required
+	Value type: <u32>
+	Definition: RDPM base address.
+
+- clocks:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: A List of phandle and clock specifier pairs as listed
+			in clock-names property.
+
+- clock-names:
+	Usage: required
+	Value type: <stringlist>
+	Definition: List of clock names matching the clock order mentioned in
+			the clocks property.
+
+- <supply-name>-supply:
+	Usage: Optional
+	Value type: <regulator phandle>
+	Definition: phandle to the regulator device tree node that powers
+			this domain.
+
+- cpu:
+	Usage: optional
+	Value type: <CPU phandle>
+	Definition: The CPU for which the clock changes should be monitored.
+
+- csr-id:
+	Usage: required
+	Value type: <array of u32>
+	Definition: Array of CSR ID matching the clock order mentioned in the
+			clocks property. The last ID can be the CSR
+			corresponding to the CPU that needs to be monitored.
+
+Example:
+
+cx_sdpm@0x00634000 {
+	compatible = "qcom,sdpm";
+	reg = <0x00634000 0x1000>;
+	clock-names = "cam_cc_ipe", "compo_aux";
+	clocks = <&clock_camcc CAM_CC_IPE_0_CLK_SRC>,
+		<&clk_m_a2_div1 CLK_M_COMPO_AUX>;
+	cam_cc_ipe-supply = <&cam_cc_ipe_0_gdsc>;
+	cpu = <&CPU7>;
+	csr-id = <5 7 4>;
+	//CSR 5 <=> cam_cc
+	//CSR 7 <=> compo_aux
+	//CSR 4 <=> CPU7
+};

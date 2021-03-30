@@ -3,6 +3,7 @@
  * QTI Secure Execution Environment Communicator (QSEECOM) driver
  *
  * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "QSEECOM: %s: " fmt, __func__
@@ -2638,6 +2639,11 @@ err_resp:
 			pr_warn("get cback req app_id = %d, resp->data = %d\n",
 				data->client.app_id, resp->data);
 			resp->resp_type = SMCINVOKE_RESULT_INBOUND_REQ_NEEDED;
+			/* We are here because scm call sent to TZ has requested
+			 * for another callback request. This call has been a
+			 * success and hence setting result = 0
+			 */
+			resp->result = 0;
 			break;
 		default:
 			pr_err("fail:resp res= %d,app_id = %d,lstr = %d\n",
@@ -3720,8 +3726,8 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 				(uint32_t)(__qseecom_uvirt_to_kphys(
 				data, (uintptr_t)req->resp_buf));
 		} else {
-			send_data_req.req_ptr = (uint32_t)req->cmd_req_buf;
-			send_data_req.rsp_ptr = (uint32_t)req->resp_buf;
+			send_data_req.req_ptr = *((uint32_t *)(&req->cmd_req_buf));
+			send_data_req.rsp_ptr = *((uint32_t *)(&req->resp_buf));
 		}
 
 		send_data_req.req_len = req->cmd_req_len;
