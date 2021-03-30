@@ -19,7 +19,8 @@
 | cepheus-q-oss | Mi 9, Redmi K20 Pro | Android Q | LA.UM.8.1.r1-08700-sm8150.0 | [cepheus-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cepheus-q-oss) |
 | cezanne-q-oss | Redmi K30 Ultra | Android Q | MTK | [cezanne-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cezanne-q-oss) |
 | clover-o-oss | Mi Pad 4 | Android O | LA.UM.6.2.r1-08100-sdm660.0 | [clover-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/clover-o-oss) |
-| cmi-r-oss | Redmi K30S Ultra, Mi 10 Ultra, Mi 10 Pro, Redmi K30 Pro, Mi 10 | Android R | LA.UM.9.12.r1-08000-SMxx50.0 | [cmi-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cmi-r-oss) |      
+| cmi-r-oss | Redmi K30S Ultra, Mi 10 Ultra, Mi 10 Pro, Redmi K30 Pro, Mi 10 | Android R | LA.UM.9.12.r1-08000-SMxx50.0 | [cmi-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cmi-r-oss) | 
+| courbet-r-oss | Mi 11 Lite | Android R | LA.UM.9.1.r1-06700-SMxxx0.0 | [courbet-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/courbet-r-oss) |   
 | crux-p-oss | Mi9 Pro 5G | Android P | LA.UM.7.1.r1-15600-sm8150.0 | [crux-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/crux-p-oss) |
 | curtana-q-oss | Redmi Note 9 Pro,Redmi Note 9 Pro Max | Android Q | LA.UM.8.9.r1-07100-SM6xx.0 | [curtana-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/curtana-q-oss) |
 | daisy-o-oss | Mi A2 lite, Redmi 6pro | Android O | LA.UM.6.6.r1-07400-89xx.0-1 | [daisy-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/daisy-o-oss) |
