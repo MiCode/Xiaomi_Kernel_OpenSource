@@ -993,7 +993,7 @@
 	};
 
 	ddr {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens1 9>;
 		trips {
@@ -1003,10 +1003,29 @@
 				type = "passive";
 			};
 
+			ddr_config0: ddr0-config {
+				temperature = <90000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
 				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			cpu_voltage_cdev {
+				trip = <&ddr_config0>;
+				cooling-device = <&apc1_cluster
+					THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+			};
+
+			ddr_cdev {
+				trip = <&ddr_config0>;
+				cooling-device = <&ddr_cdev 8 8>;
 			};
 		};
 	};
