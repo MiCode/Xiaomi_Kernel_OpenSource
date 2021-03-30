@@ -13,6 +13,7 @@
 struct qcom_secure_system_heap {
 	struct dynamic_page_pool **pool_list;
 	int vmid;
+	struct list_head list;
 };
 
 #ifdef CONFIG_QCOM_DMABUF_HEAPS_SYSTEM_SECURE

@@ -91,9 +91,14 @@ struct dynamic_page_pool {
 struct dynamic_page_pool **dynamic_page_pool_create_pools(int vmid,
 							  prerelease_callback callback);
 void dynamic_page_pool_release_pools(struct dynamic_page_pool **pool_list);
+
 struct page *dynamic_page_pool_alloc(struct dynamic_page_pool *pool);
 void dynamic_page_pool_free(struct dynamic_page_pool *pool, struct page *page);
+
 int dynamic_page_pool_init_shrinker(void);
+void dynamic_page_pool_shrink_high_and_low(struct dynamic_page_pool **pools_list,
+					   int num_pools, int nr_to_scan);
+
 struct page *dynamic_page_pool_remove(struct dynamic_page_pool *pool, bool high);
 void dynamic_page_pool_add(struct dynamic_page_pool *pool, struct page *page);
 

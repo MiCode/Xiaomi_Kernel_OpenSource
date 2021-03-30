@@ -144,8 +144,8 @@ void dynamic_page_pool_destroy(struct dynamic_page_pool *pool)
 	kfree(pool);
 }
 
-int dynamic_page_pool_do_shrink(struct dynamic_page_pool *pool, gfp_t gfp_mask,
-				int nr_to_scan)
+static int dynamic_page_pool_do_shrink(struct dynamic_page_pool *pool, gfp_t gfp_mask,
+				       int nr_to_scan)
 {
 	int freed = 0;
 	bool high;
@@ -190,6 +190,24 @@ int dynamic_page_pool_do_shrink(struct dynamic_page_pool *pool, gfp_t gfp_mask,
 	}
 
 	return freed;
+}
+
+void dynamic_page_pool_shrink_high_and_low(struct dynamic_page_pool **pools_list,
+					   int num_pools, int nr_to_scan)
+{
+	int i, remaining = nr_to_scan;
+
+	mutex_lock(&pool_list_lock);
+	for (i = 0; i < num_pools; i++) {
+		remaining -= dynamic_page_pool_do_shrink(pools_list[i], __GFP_HIGHMEM,
+							 remaining);
+
+		if (remaining <= 0) {
+			mutex_unlock(&pool_list_lock);
+			return;
+		}
+	}
+	mutex_unlock(&pool_list_lock);
 }
 
 static int dynamic_page_pool_shrink(gfp_t gfp_mask, int nr_to_scan)

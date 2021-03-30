@@ -55,6 +55,17 @@ int carveout_heap_add_memory(char *heap_name, struct sg_table *sgt);
  */
 int carveout_heap_remove_memory(char *heap_name, struct sg_table *sgt);
 
+struct dma_buf_heap_prefetch_region {
+	u64 size;
+	struct dma_heap *heap;
+};
+
+int qcom_secure_system_heap_prefetch(struct dma_buf_heap_prefetch_region *regions,
+				     size_t nr_regions);
+
+int qcom_secure_system_heap_drain(struct dma_buf_heap_prefetch_region *regions,
+				  size_t nr_regions);
+
 /**
  * dma_buf_heap_hyp_assign - wrapper function for hyp-assigning a dma_buf
  * @buf:		dma_buf to hyp-assign away from HLOS
