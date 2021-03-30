@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_GCC_MONACO_H
@@ -136,15 +136,16 @@
 #define GCC_USB20_MOCK_UTMI_CLK_SRC		126
 #define GCC_USB20_MOCK_UTMI_POSTDIV_CLK_SRC	127
 #define GCC_USB20_SLEEP_CLK			128
-#define GCC_VCODEC0_AXI_CLK			129
-#define GCC_VENUS_AHB_CLK			130
-#define GCC_VENUS_CTL_AXI_CLK			131
-#define GCC_VIDEO_AHB_CLK			132
-#define GCC_VIDEO_THROTTLE_CORE_CLK		133
-#define GCC_VIDEO_VCODEC0_SYS_CLK		134
-#define GCC_VIDEO_VENUS_CLK_SRC			135
-#define GCC_VIDEO_VENUS_CTL_CLK			136
-#define GCC_VIDEO_XO_CLK			137
+#define GCC_USB2_PRIM_CLKREF_CLK		129
+#define GCC_VCODEC0_AXI_CLK			130
+#define GCC_VENUS_AHB_CLK			131
+#define GCC_VENUS_CTL_AXI_CLK			132
+#define GCC_VIDEO_AHB_CLK			133
+#define GCC_VIDEO_THROTTLE_CORE_CLK		134
+#define GCC_VIDEO_VCODEC0_SYS_CLK		135
+#define GCC_VIDEO_VENUS_CLK_SRC			136
+#define GCC_VIDEO_VENUS_CTL_CLK			137
+#define GCC_VIDEO_XO_CLK			138
 
 /* GCC resets */
 #define GCC_CAMSS_OPE_BCR			0
