@@ -64,8 +64,6 @@
 #define TZ_PIL_AUTH_QDSP6_PROC 1
 
 #define FASTRPC_DMAHANDLE_NOMAP (16)
-/* Flag to map DMA buffer on DSP */
-#define FASTRPC_DMABUF_MAP      (32)
 
 #define FASTRPC_ENOSUCH 39
 #define DEBUGFS_SIZE 3072
@@ -1008,7 +1006,7 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
 			}
 		}
 		spin_unlock(&me->hlock);
-	} else if (mflags == FASTRPC_DMABUF_MAP) {
+	} else if (mflags == ADSP_MMAP_DMA_BUFFER) {
 		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
 			if (map->buf == buf) {
 				if (refs) {
@@ -1357,7 +1355,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 				(unsigned int)map->attr);
 			map->refs = 2;
 		}
-		if (mflags == FASTRPC_DMABUF_MAP) {
+		if (mflags == ADSP_MMAP_DMA_BUFFER) {
 			/* Increment DMA buffer ref count,
 			 * so that client cannot unmap DMA buffer, before freeing buffer
 			 */
@@ -6565,13 +6563,13 @@ long fastrpc_driver_invoke(struct fastrpc_device *dev, unsigned int invoke_num,
 		/* Map DMA buffer on SMMU device*/
 		err = fastrpc_mmap_create(fl, -1, p.map->buf,
 					p.map->attrs, 0, p.map->size,
-					FASTRPC_DMABUF_MAP, &map);
+					ADSP_MMAP_DMA_BUFFER, &map);
 		mutex_unlock(&fl->map_mutex);
 		if (err)
 			break;
 		/* Map DMA buffer on DSP*/
-		VERIFY(err, 0 == (err = fastrpc_mmap_on_dsp(fl, 0,
-			0, map->phys, map->size, &raddr)));
+		VERIFY(err, 0 == (err = fastrpc_mmap_on_dsp(fl,
+			map->flags, 0, map->phys, map->size, &raddr)));
 		if (err)
 			break;
 		map->raddr = raddr;
@@ -6601,7 +6599,7 @@ long fastrpc_driver_invoke(struct fastrpc_device *dev, unsigned int invoke_num,
 		spin_unlock(&me->hlock);
 		mutex_lock(&fl->internal_map_mutex);
 
-		if (!fastrpc_mmap_find(fl, -1, p.unmap->buf, 0, 0, FASTRPC_DMABUF_MAP, 0, &map)) {
+		if (!fastrpc_mmap_find(fl, -1, p.unmap->buf, 0, 0, ADSP_MMAP_DMA_BUFFER, 0, &map)) {
 			/* Un-map DMA buffer on DSP*/
 			VERIFY(err, !(err = fastrpc_munmap_on_dsp(fl, map->raddr,
 				map->phys, map->size, map->flags)));
