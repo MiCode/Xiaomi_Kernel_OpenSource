@@ -628,10 +628,39 @@
 				type = "passive";
 			};
 
-			thermal-hal-config0 {
-				temperature = <125000>;
-				hysteresis = <1000>;
+			ific_config0: ific-config0 {
+				temperature = <90000>;
+				hysteresis = <5000>;
 				type = "passive";
+			};
+
+			ific_config1: ific-config1 {
+				temperature = <95000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			ific_config2: ific-config2 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			ific_cdev0 {
+				trip = <&ific_config0>;
+				cooling-device = <&mmw_ific_dsc 2 2>;
+			};
+
+			ific_cdev1 {
+				trip = <&ific_config1>;
+				cooling-device = <&mmw_ific_dsc 3 3>;
+			};
+
+			ific_cdev2 {
+				trip = <&ific_config2>;
+				cooling-device = <&mmw_ific_dsc 255 255>;
 			};
 		};
 	};
