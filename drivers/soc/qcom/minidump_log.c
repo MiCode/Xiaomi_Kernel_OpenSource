@@ -82,10 +82,15 @@ static struct md_suspend_context_data md_suspend_context;
 static bool is_vmap_stack __read_mostly;
 
 #ifdef CONFIG_QCOM_MINIDUMP_FTRACE
+#include <trace/hooks/ftrace_dump.h>
+#include <linux/ring_buffer.h>
+
 #define MD_FTRACE_BUF_SIZE	SZ_2M
 
 static char *md_ftrace_buf_addr;
 static size_t md_ftrace_buf_current;
+static bool minidump_ftrace_in_oops;
+static bool minidump_ftrace_dump = true;
 #endif
 
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
@@ -587,7 +592,7 @@ static inline void register_irq_stack(void) {}
 #endif
 
 #ifdef CONFIG_QCOM_MINIDUMP_FTRACE
-void minidump_add_trace_event(char *buf, size_t size)
+static void minidump_add_trace_event(char *buf, size_t size)
 {
 	char *addr;
 
@@ -600,6 +605,51 @@ void minidump_add_trace_event(char *buf, size_t size)
 	addr = md_ftrace_buf_addr + md_ftrace_buf_current;
 	memcpy(addr, buf, size);
 	md_ftrace_buf_current += size;
+}
+
+static void md_trace_oops_enter(void *unused, bool *enter_check)
+{
+	if (!minidump_ftrace_in_oops) {
+		minidump_ftrace_in_oops = true;
+		*enter_check = false;
+	} else {
+		*enter_check = true;
+	}
+}
+
+static void md_trace_oops_exit(void *unused, bool *exit_check)
+{
+	minidump_ftrace_in_oops = false;
+}
+
+static void md_update_trace_fmt(void *unused, bool *format_check)
+{
+	*format_check = false;
+}
+
+static void md_buf_size_check(void *unused, unsigned long buffer_size,
+			      bool *size_check)
+{
+	if (!minidump_ftrace_dump) {
+		*size_check = true;
+		return;
+	}
+
+	if (buffer_size > (SZ_256K + PAGE_SIZE)) {
+		pr_err("Skip md ftrace buffer dump for: %#lx\n", buffer_size);
+		minidump_ftrace_dump = false;
+		*size_check = true;
+	}
+}
+
+static void md_dump_trace_buf(void *unused, struct trace_seq *trace_buf,
+			      bool *printk_check)
+{
+	if (minidump_ftrace_in_oops && minidump_ftrace_dump) {
+		minidump_add_trace_event(trace_buf->buffer,
+					 trace_buf->seq.len);
+		*printk_check = false;
+	}
 }
 
 static void md_register_trace_buf(void)
@@ -618,6 +668,17 @@ static void md_register_trace_buf(void)
 	md_entry.size = MD_FTRACE_BUF_SIZE;
 	if (msm_minidump_add_region(&md_entry) < 0)
 		pr_err("Failed to add ftrace buffer entry in Minidump\n");
+
+	register_trace_android_vh_ftrace_oops_enter(md_trace_oops_enter,
+							 NULL);
+	register_trace_android_vh_ftrace_oops_exit(md_trace_oops_exit,
+							 NULL);
+	register_trace_android_vh_ftrace_size_check(md_buf_size_check,
+						    NULL);
+	register_trace_android_vh_ftrace_format_check(md_update_trace_fmt,
+						      NULL);
+	register_trace_android_vh_ftrace_dump_buffer(md_dump_trace_buf,
+						     NULL);
 
 	/* Complete registration before adding enteries */
 	smp_mb();

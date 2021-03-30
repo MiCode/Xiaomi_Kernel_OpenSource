@@ -65,7 +65,7 @@
 #endif
 
 
-#define WDOG_NR_IPI	7
+#define WDOG_NR_IPI	10
 #define NR_TOP_HITTERS 10
 
 struct qcom_wdt_ops;

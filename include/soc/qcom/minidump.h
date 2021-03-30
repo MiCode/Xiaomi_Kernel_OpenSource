@@ -67,11 +67,7 @@ static inline void add_trace_event(char *buf, size_t size) {}
 static inline void md_dump_meminfo(void) {}
 static inline void md_dump_slabinfo(void) {}
 #endif
-#ifdef CONFIG_QCOM_MINIDUMP_FTRACE
-extern void minidump_add_trace_event(char *buf, size_t size);
-#else
-static inline void minidump_add_trace_event(char *buf, size_t size) {}
-#endif
+
 #ifdef CONFIG_PAGE_OWNER
 extern size_t md_pageowner_dump_size;
 extern char *md_pageowner_dump_addr;
