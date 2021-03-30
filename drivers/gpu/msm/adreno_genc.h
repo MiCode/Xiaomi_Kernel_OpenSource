@@ -106,6 +106,7 @@ struct adreno_genc_core {
  * @rptr_addr: (32) RB_RPTR_ADDR_LO|HI saved and restored. We must initialize.
  * rbase: (40) RB_BASE_LO|HI saved and restored.
  * counter: (48) Pointer to preemption counter.
+ * @bv_rptr_addr: (56) BV_RB_RPTR_ADDR_LO|HI save and restored. We must initialize.
  */
 struct genc_cp_preemption_record {
 	u32 magic;
@@ -119,6 +120,7 @@ struct genc_cp_preemption_record {
 	u64 rptr_addr;
 	u64 rbase;
 	u64 counter;
+	u64 bv_rptr_addr;
 };
 
 /**
@@ -144,7 +146,7 @@ struct genc_cp_smmu_info {
 
 #define GENC_CP_CTXRECORD_MAGIC_REF		0xae399d6eUL
 /* Size of each CP preemption record */
-#define GENC_CP_CTXRECORD_SIZE_IN_BYTES		(2112 * 1024)
+#define GENC_CP_CTXRECORD_SIZE_IN_BYTES		(2860 * 1024)
 /* Size of the user context record block (in bytes) */
 #define GENC_CP_CTXRECORD_USER_RESTORE_SIZE	(192 * 1024)
 /* Size of the performance counter save/restore block (in bytes) */

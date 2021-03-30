@@ -209,7 +209,7 @@ int genc_ringbuffer_init(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-#define GENC_SUBMIT_MAX 95
+#define GENC_SUBMIT_MAX 100
 
 int genc_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,

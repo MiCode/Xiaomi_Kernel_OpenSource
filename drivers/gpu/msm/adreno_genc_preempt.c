@@ -481,6 +481,9 @@ u32 genc_preemption_pre_ibsubmit(struct adreno_device *adreno_dev,
 	if (!adreno_is_preemption_enabled(adreno_dev))
 		return 0;
 
+	*cmds++ = cp_type7_packet(CP_THREAD_CONTROL, 1);
+	*cmds++ = CP_SET_THREAD_BR;
+
 	if (drawctxt) {
 		gpuaddr = drawctxt->base.user_ctxt_record->memdesc.gpuaddr;
 		*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 15);
@@ -548,6 +551,8 @@ u32 genc_preemption_post_ibsubmit(struct adreno_device *adreno_dev,
 		cmds[index++] = 0;
 	}
 
+	cmds[index++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+	cmds[index++] = CP_SET_THREAD_BOTH;
 	cmds[index++] = cp_type7_packet(CP_CONTEXT_SWITCH_YIELD, 4);
 	cmds[index++] = 0;
 	cmds[index++] = 0;
@@ -615,6 +620,9 @@ static void reset_rb_preempt_record(struct adreno_device *adreno_dev,
 		KGSL_DEVICE(adreno_dev), rb->id));
 	kgsl_sharedmem_writeq(rb->preemption_desc,
 		PREEMPT_RECORD(rbase), rb->buffer_desc->gpuaddr);
+	kgsl_sharedmem_writeq(rb->preemption_desc,
+		PREEMPT_RECORD(bv_rptr_addr), SCRATCH_BV_RPTR_GPU_ADDR(
+		KGSL_DEVICE(adreno_dev), rb->id));
 }
 
 void genc_reset_preempt_records(struct adreno_device *adreno_dev)
