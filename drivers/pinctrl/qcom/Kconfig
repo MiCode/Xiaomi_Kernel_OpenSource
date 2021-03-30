@@ -354,6 +354,15 @@ config PINCTRL_SLPI
 	  driver for the SLPI pin controller block. Select Y if this driver
 	  needs to be enabled or select N if unsure.
 
+config PINCTRL_KHAJE
+	tristate "Qualcomm Technologies, Inc KHAJE pin controller driver"
+	depends on GPIOLIB && OF
+	select PINCTRL_MSM
+	help
+	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+	  Qualcomm Technologies, Inc. TLMM block found on the Qualcomm
+	  Technologies, Inc. KHAJE platform.
+
 config PINCTRL_LPASS_LPI
 	tristate "Qualcomm Technologies Inc LPASS LPI pin controller driver"
 	select PINMUX
