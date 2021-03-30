@@ -2,6 +2,7 @@ Index
 =======
         * Introduction
         * Integration details
+        * Copyright
 
 Introduction
 ==============
@@ -72,7 +73,7 @@ In order to explain how to integrate ASM330LHHX sensor in raspberry kernel, plea
 >          };
 
 ### Device Tree configuration
-                
+
 > I2C example (based on Raspberry PI ZERO W):
 
 >		&i2c1 {
@@ -118,3 +119,13 @@ Configure kernel with *make menuconfig* (alternatively use *make xconfig* or *ma
 >				[*]   Enable wake-up irq
 
 
+Copyright Driver
+===========
+Copyright (C) 2017 STMicroelectronics
+
+This software is distributed under the GNU General Public License v2.0
+
+[1]: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/iio/iio_configfs.txt "IIO"
+[2]: https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/i2c "I2C"
+[3]: https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/spi "SPI"
+[4]: https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/interrupt-controller/interrupts.txt "interrupts"
