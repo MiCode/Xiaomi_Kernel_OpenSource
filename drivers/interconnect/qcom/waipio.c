@@ -1957,6 +1957,8 @@ static struct qcom_icc_node qns_mem_noc_sf_disp = {
 static struct qcom_icc_bcm bcm_acv = {
 	.name = "ACV",
 	.voter_idx = 0,
+	.enable_mask = BIT(3),
+	.perf_mode_mask = BIT(1),
 	.num_nodes = 1,
 	.nodes = { &ebi },
 };
@@ -2131,6 +2133,8 @@ static struct qcom_icc_bcm bcm_sn7 = {
 static struct qcom_icc_bcm bcm_acv_disp = {
 	.name = "ACV",
 	.voter_idx = 1,
+	.enable_mask = BIT(0),
+	.perf_mode_mask = BIT(1),
 	.num_nodes = 1,
 	.nodes = { &ebi_disp },
 };
