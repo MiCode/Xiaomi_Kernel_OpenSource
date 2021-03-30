@@ -888,9 +888,18 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 
 		iopte_tblcnt_sub(ptep, 1);
 		if (!iopte_tblcnt(*ptep)) {
-			/* no valid mappings left under this table. free it. */
+			size_t block_size = ARM_LPAE_BLOCK_SIZE(lvl, data);
+			/*
+			 * no valid mappings left under this table.
+			 * Defer table free until after iommu_iotlb_sync, or
+			 * iotlb_sync_map, whichever occurs first.
+			 */
 			__arm_lpae_set_pte(ptep, 0, &iop->cfg);
-			__arm_lpae_free_pgtable(data, lvl + 1, table);
+
+			qcom_io_pgtable_tlb_add_walk(data->iommu_pgtbl_ops,
+				data->iop.cookie, table,
+				iova & ~(block_size - 1),
+				block_size);
 		}
 
 		return size;
