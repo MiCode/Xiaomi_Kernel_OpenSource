@@ -103,6 +103,7 @@
 | scorpio-o-oss | Mi 5, Mi 5s, Mi 5s Plus, Mi MIX, Mi Note 2 | Android O | LA.UM.6.5.r1-04300-8x96.0 | [scorpio-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/scorpio-o-oss) |
 | sirius-o-oss | Mi 8 SE | Android O | LA.UM.6.8.r2-00700-SDM710.0 | [sirius-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sirius-o-oss) |
 | sirius-q-oss | MI 8SE, MI 9SE, MI CC 9, MI CC 9 Meitu Edition | Android Q | LA.UM.8.8.r1-05100-SDM710.0 | [sirius-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sirius-q-oss) |
+| star-r-oss | Mi 11 Lite 5G, Mi 11 Pro, Mi 11 Ultra, MIX FOLD | Android R | LA.UM.9.14.r1-11500-LAHAINA.0 | [star-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/star-r-oss) |  
 | surya-q-oss | Redmi POCO X3 | Android Q | LA.UM.8.9.r1-09300-SM6xx.0 | [surya-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/surya-q-oss) |
 | sweet-r-oss | Redmi Note 10 Pro | Android R | LA.UM.9.1.r1-06700-SMxxx0.0-1 | [sweet-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sweet-r-oss) |
 | thomas-kk-oss | Redmi 2 Standard | Android KK | LNX.LA.3.7.2.1.c6-02400-8x16.0 | [thomas-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/thomas-kk-oss) |
