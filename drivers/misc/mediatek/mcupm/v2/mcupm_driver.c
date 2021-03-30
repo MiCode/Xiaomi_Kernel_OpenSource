@@ -215,6 +215,7 @@ static int mcupm_assign_memory_block(void)
 			 mcupm_reserve_mblock[id].size);
 	}
 
+	accumlate_memory_size = 0;
 	for (id = 0; id < NUMS_MCUPM_MEM_ID; id++) {
 		mcupm_reserve_mblock[id].start_virt = mcupm_mem_base_virt +
 			accumlate_memory_size;
