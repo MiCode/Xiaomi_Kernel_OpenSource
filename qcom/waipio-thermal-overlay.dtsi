@@ -126,4 +126,77 @@
 			};
 		};
 	};
+
+	pm8350c_tz {
+		cooling-maps {
+			pm8350c_nsp {
+				trip = <&pm8350c_trip0>;
+				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
+			};
+
+			pm8350c_lte {
+				trip = <&pm8350c_trip0>;
+				cooling-device = <&modem_lte_dsc 255 255>;
+			};
+
+			pm8350c_nr {
+				trip = <&pm8350c_trip0>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+		};
+	};
+
+	xo-therm {
+		cooling-maps {
+			cpu4_freq_cdev {
+				trip = <&xo_config0>;
+				cooling-device = <&CPU4 15 THERMAL_NO_LIMIT>;
+			};
+
+			cpu7_freq_cdev {
+				trip = <&xo_config0>;
+				cooling-device = <&CPU7 15 THERMAL_NO_LIMIT>;
+			};
+
+			apc1_cdev {
+				trip = <&xo_config0>;
+				cooling-device = <&APC1_pause 1 1>;
+			};
+
+			cdsp_cdev {
+				trip = <&xo_config0>;
+				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
+			};
+
+			gpu_cdev {
+				trip = <&xo_config0>;
+				cooling-device = <&msm_gpu 7 THERMAL_NO_LIMIT>;
+			};
+
+			cpu5_hot_cdev {
+				trip = <&xo_config1>;
+				cooling-device = <&cpu5_hotplug 1 1>;
+			};
+
+			cpu6_hot_cdev {
+				trip = <&xo_config1>;
+				cooling-device = <&cpu6_hotplug 1 1>;
+			};
+
+			cpu7_hot_cdev {
+				trip = <&xo_config1>;
+				cooling-device = <&cpu7_hotplug 1 1>;
+			};
+
+			lte_cdev {
+				trip = <&xo_config1>;
+				cooling-device = <&modem_lte_dsc 255 255>;
+			};
+
+			nr_cdev {
+				trip = <&xo_config1>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+		};
+	};
 };
