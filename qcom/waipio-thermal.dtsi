@@ -171,6 +171,8 @@
 	};
 };
 
+#include "waipio-thermal-modem.dtsi"
+
 &thermal_zones {
 	aoss-0 {
 		polling-delay-passive = <0>;
