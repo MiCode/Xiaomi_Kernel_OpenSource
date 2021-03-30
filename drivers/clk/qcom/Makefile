@@ -99,6 +99,7 @@ obj-$(CONFIG_SM_GCC_SHIMA) += gcc-shima.o
 obj-$(CONFIG_SM_GCC_YUPIK) += gcc-yupik.o
 obj-$(CONFIG_SM_GPUCC_6150) += gpucc-sm6150.o
 obj-$(CONFIG_SM_GPUCC_8150) += gpucc-sm8150.o
+obj-$(CONFIG_SM_GPUCC_BLAIR) += gpucc-blair.o
 obj-$(CONFIG_SM_GPUCC_HOLI) += gpucc-holi.o
 obj-$(CONFIG_SM_GPUCC_SHIMA) += gpucc-shima.o
 obj-$(CONFIG_SM_GPUCC_YUPIK) += gpucc-yupik.o
