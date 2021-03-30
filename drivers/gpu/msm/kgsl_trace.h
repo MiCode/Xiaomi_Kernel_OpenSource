@@ -252,6 +252,30 @@ TRACE_EVENT(kgsl_clk,
 	)
 );
 
+TRACE_EVENT(kgsl_gmu_pwrlevel,
+
+	TP_PROTO(unsigned long freq,
+		unsigned long prev_freq),
+
+	TP_ARGS(freq, prev_freq),
+
+	TP_STRUCT__entry(
+		__field(unsigned long, freq)
+		__field(unsigned long, prev_freq)
+	),
+
+	TP_fast_assign(
+		__entry->freq = freq;
+		__entry->prev_freq = prev_freq;
+	),
+
+	TP_printk(
+		"gmu_freq=%ld gmu_prev_freq=%ld",
+		__entry->freq,
+		__entry->prev_freq
+	)
+);
+
 TRACE_EVENT(kgsl_pwrlevel,
 
 	TP_PROTO(struct kgsl_device *device,

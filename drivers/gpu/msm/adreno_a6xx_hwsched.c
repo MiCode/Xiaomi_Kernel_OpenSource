@@ -891,6 +891,38 @@ static int a6xx_hwsched_clock_set(struct adreno_device *adreno_dev,
 	return a6xx_hwsched_dcvs_set(adreno_dev, pwrlevel, INVALID_DCVS_IDX);
 }
 
+static void scale_gmu_frequency(struct adreno_device *adreno_dev, int buslevel)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	static unsigned long prev_freq;
+	unsigned long freq = GMU_FREQ_MIN;
+
+	if (!gmu->perf_ddr_bw)
+		return;
+
+	/*
+	 * Scale the GMU if DDR is at a CX corner at which GMU can run at
+	 * 500 Mhz
+	 */
+	if (pwr->ddr_table[buslevel] >= gmu->perf_ddr_bw)
+		freq = GMU_FREQ_MAX;
+
+	if (prev_freq == freq)
+		return;
+
+	if (kgsl_clk_set_rate(gmu->clks, gmu->num_clks, "gmu_clk", freq)) {
+		dev_err(&gmu->pdev->dev, "Unable to set the GMU clock to %ld\n",
+			freq);
+		return;
+	}
+
+	trace_kgsl_gmu_pwrlevel(freq, prev_freq);
+
+	prev_freq = freq;
+}
+
 static int a6xx_hwsched_bus_set(struct adreno_device *adreno_dev, int buslevel,
 	u32 ab)
 {
@@ -903,6 +935,8 @@ static int a6xx_hwsched_bus_set(struct adreno_device *adreno_dev, int buslevel,
 				buslevel);
 		if (ret)
 			return ret;
+
+		scale_gmu_frequency(adreno_dev, buslevel);
 
 		pwr->cur_buslevel = buslevel;
 
