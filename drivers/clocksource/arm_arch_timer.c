@@ -26,6 +26,7 @@
 #include <linux/acpi.h>
 
 #include <asm/arch_timer.h>
+#include <asm/traps.h>
 #include <asm/virt.h>
 
 #include <clocksource/arm_arch_timer.h>
@@ -1519,6 +1520,7 @@ static int __init arch_timer_mem_of_init(struct device_node *np)
 	ret = arch_timer_mem_frame_register(frame);
 	if (!ret && !arch_timer_needs_of_probing())
 		ret = arch_timer_common_init();
+	get_timer_count_hook_init();
 out:
 	kfree(timer_mem);
 	return ret;
