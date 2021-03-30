@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/devfreq_cooling.h>
 #include <linux/slab.h>
+#include <linux/pm_qos.h>
 
 #include "kgsl_bus.h"
 #include "kgsl_device.h"
 #include "kgsl_pwrscale.h"
 #include "kgsl_trace.h"
+
+#define KHZ_TO_HZ(_freq) (_freq * 1000)
 
 static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
 	.bus = {
@@ -275,6 +278,10 @@ static inline bool _check_maxfreq(u32 flags)
  * @freq: see devfreq.h
  * @flags: see devfreq.h
  *
+ * This is a devfreq callback function for dcvs recommendations and
+ * thermal constraints. If any thermal constraints are present,
+ * devfreq adjusts the gpu frequency range to cap the max frequency
+ * thereby not recommending anything above the constraint.
  * This function expects the device mutex to be unlocked.
  */
 int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
@@ -283,16 +290,21 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	struct kgsl_pwrctrl *pwr;
 	int level;
 	unsigned int i;
-	unsigned long cur_freq, rec_freq;
+	unsigned long cur_freq, rec_freq, cur_thermal_freq;
+	s32 qos_max_freq = dev_pm_qos_read_value(dev, DEV_PM_QOS_MAX_FREQUENCY);
 
 	if (device == NULL)
 		return -ENODEV;
 	if (freq == NULL)
 		return -EINVAL;
-	if (!device->pwrscale.enabled)
-		return 0;
 
 	pwr = &device->pwrctrl;
+	cur_thermal_freq = pwr->pwrlevels[pwr->thermal_pwrlevel].gpu_freq;
+
+	if ((!device->pwrscale.enabled) &&
+		(KHZ_TO_HZ(qos_max_freq) == cur_thermal_freq))
+		return 0;
+
 	if (_check_maxfreq(flags)) {
 		/*
 		 * The GPU is about to get suspended,
@@ -307,6 +319,21 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	mutex_lock(&device->mutex);
 	cur_freq = kgsl_pwrctrl_active_freq(pwr);
 	level = pwr->active_pwrlevel;
+
+	/*
+	 * As thermal constraints flow through devfreq as recommended frequency,
+	 * we need to explicitly track the constraint to prevent any overrides.
+	 */
+	if ((qos_max_freq != PM_QOS_MAX_FREQUENCY_DEFAULT_VALUE) &&
+		(KHZ_TO_HZ(qos_max_freq) != cur_thermal_freq)) {
+		for (i = 0; i < pwr->num_pwrlevels; i++) {
+			if (pwr->pwrlevels[i].gpu_freq == KHZ_TO_HZ(qos_max_freq)) {
+				pwr->thermal_pwrlevel = i;
+				trace_kgsl_thermal_constraint(KHZ_TO_HZ(qos_max_freq));
+				break;
+			}
+		}
+	}
 
 	/* If the governor recommends a new frequency, update it here */
 	if (rec_freq != cur_freq) {
@@ -598,70 +625,6 @@ int kgsl_busmon_get_cur_freq(struct device *dev, unsigned long *freq)
 	return 0;
 }
 
-/*
- * opp_notify - Callback function registered to receive OPP events.
- * @nb: The notifier block
- * @type: The event type. Two OPP events are expected in this function:
- *      - OPP_EVENT_ENABLE: an GPU OPP is enabled. The in_opp parameter
- *	contains the OPP that is enabled
- *	- OPP_EVENT_DISALBE: an GPU OPP is disabled. The in_opp parameter
- *	contains the OPP that is disabled.
- * @in_opp: the GPU OPP whose status is changed and triggered the event
- *
- * GPU OPP event callback function. The function subscribe GPU OPP status
- * change and update thermal power level accordingly.
- */
-
-static int opp_notify(struct notifier_block *nb,
-	unsigned long type, void *in_opp)
-{
-	int level, min_level, max_level;
-	struct kgsl_pwrctrl *pwr = container_of(nb, struct kgsl_pwrctrl, nb);
-	struct kgsl_device *device = container_of(pwr,
-			struct kgsl_device, pwrctrl);
-	struct device *dev = &device->pdev->dev;
-	struct dev_pm_opp *opp;
-	unsigned long min_freq = 0, max_freq = pwr->pwrlevels[0].gpu_freq;
-
-	if (type != OPP_EVENT_ENABLE && type != OPP_EVENT_DISABLE)
-		return -EINVAL;
-
-	opp = dev_pm_opp_find_freq_floor(dev, &max_freq);
-	if (IS_ERR(opp))
-		return PTR_ERR(opp);
-
-	dev_pm_opp_put(opp);
-
-	opp = dev_pm_opp_find_freq_ceil(dev, &min_freq);
-	if (IS_ERR(opp))
-		min_freq = pwr->pwrlevels[pwr->min_pwrlevel].gpu_freq;
-	else
-		dev_pm_opp_put(opp);
-
-	trace_kgsl_opp_notify(min_freq, max_freq);
-	mutex_lock(&device->mutex);
-
-	max_level = pwr->thermal_pwrlevel;
-	min_level = pwr->thermal_pwrlevel_floor;
-
-	/* Thermal limit cannot be lower than lowest non-zero operating freq */
-	for (level = 0; level < pwr->num_pwrlevels; level++) {
-		if (pwr->pwrlevels[level].gpu_freq == max_freq)
-			max_level = level;
-		if (pwr->pwrlevels[level].gpu_freq == min_freq)
-			min_level = level;
-	}
-
-	pwr->thermal_pwrlevel = max_level;
-	pwr->thermal_pwrlevel_floor = min_level;
-
-	/* Update the current level using the new limit */
-	kgsl_pwrctrl_pwrlevel_change(device, pwr->active_pwrlevel);
-	mutex_unlock(&device->mutex);
-
-	return 0;
-}
-
 static void pwrscale_busmon_create(struct kgsl_device *device,
 		struct platform_device *pdev, unsigned long *table)
 {
@@ -787,11 +750,7 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 
 	gpu_profile->profile.polling_ms = 10;
 
-	pwr->nb.notifier_call = opp_notify;
-
 	pwrscale_of_ca_aware(device);
-
-	dev_pm_opp_register_notifier(&pdev->dev, &pwr->nb);
 
 	srcu_init_notifier_head(&pwrscale->nh);
 
@@ -920,7 +879,6 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 	kgsl_midframe = NULL;
 	device->pwrscale.devfreqptr = NULL;
 	srcu_cleanup_notifier_head(&device->pwrscale.nh);
-	dev_pm_opp_unregister_notifier(&device->pdev->dev, &pwr->nb);
 }
 
 static void do_devfreq_suspend(struct work_struct *work)
