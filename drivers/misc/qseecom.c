@@ -2657,11 +2657,6 @@ err_resp:
 			pr_warn("get cback req app_id = %d, resp->data = %d\n",
 				data->client.app_id, resp->data);
 			resp->resp_type = SMCINVOKE_RESULT_INBOUND_REQ_NEEDED;
-			/* We are here because scm call sent to TZ has requested
-			 * for another callback request. This call has been a
-			 * success and hence setting result = 0
-			 */
-			resp->result = 0;
 			break;
 		default:
 			pr_err("fail:resp res= %d,app_id = %d,lstr = %d\n",
@@ -5401,8 +5396,8 @@ int qseecom_process_listener_from_smcinvoke(uint32_t *result,
 	if (ret)
 		pr_err("Failed on cmd %d for lsnr %d session %d, ret = %d\n",
 			resp.result, resp.data, resp.resp_type, ret);
-	*result = resp.result;
-	*response_type = resp.resp_type;
+	*result = resp.resp_type;
+	*response_type = resp.result;
 	*data = resp.data;
 	return ret;
 }
