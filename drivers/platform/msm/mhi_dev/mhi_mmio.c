@@ -598,18 +598,23 @@ int mhi_dev_restore_mmio(struct mhi_dev *dev)
 	mhi_dev_mmio_mask_interrupts(dev);
 
 	for (i = 0; i < (MHI_DEV_MMIO_RANGE/4); i++) {
-		reg_cntl_addr = dev->mmio_base_addr + (i * 4);
+		reg_cntl_addr = dev->mmio_base_addr +
+				MHI_DEV_MMIO_OFFSET + (i * 4);
 		reg_cntl_value = dev->mmio_backup[i];
 		writel_relaxed(reg_cntl_value, reg_cntl_addr);
 	}
 
 	mhi_dev_mmio_clear_interrupts(dev);
+
+	/* Mask and enable control interrupt */
 	mhi_dev_mmio_enable_ctrl_interrupt(dev);
 
 	/*Enable chdb interrupt*/
 	mhi_dev_mmio_enable_chdb_interrupts(dev);
 
-	/* Mask and enable control interrupt */
+	/*Enable cmdb interrupt*/
+	mhi_dev_mmio_enable_cmdb_interrupt(dev);
+
 	mb();
 
 	return 0;
@@ -619,13 +624,16 @@ EXPORT_SYMBOL(mhi_dev_restore_mmio);
 int mhi_dev_backup_mmio(struct mhi_dev *dev)
 {
 	uint32_t i = 0;
+	void __iomem *reg_cntl_addr;
 
 	if (WARN_ON(!dev))
 		return -EINVAL;
 
-	for (i = 0; i < MHI_DEV_MMIO_RANGE/4; i++)
-		dev->mmio_backup[i] =
-				readl_relaxed(dev->mmio_base_addr + (i * 4));
+	for (i = 0; i < MHI_DEV_MMIO_RANGE/4; i++) {
+		reg_cntl_addr = (void __iomem *) (dev->mmio_base_addr +
+				MHI_DEV_MMIO_OFFSET + (i * 4));
+		dev->mmio_backup[i] = readl_relaxed(reg_cntl_addr);
+	}
 
 	return 0;
 }
