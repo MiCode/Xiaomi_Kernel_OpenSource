@@ -2340,7 +2340,6 @@ static void cnss_pci_dump_misc_reg(struct cnss_pci_data *pci_priv)
 	if (cnss_pci_check_link_status(pci_priv))
 		return;
 
-	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
 	cnss_pci_misc_reg_dump(pci_priv, pci_priv->wcss_reg,
 			       WCSS_REG_SIZE, "wcss");
 	cnss_pci_misc_reg_dump(pci_priv, pci_priv->pcie_reg,
@@ -4644,6 +4643,8 @@ static void cnss_pci_dump_qdss_reg(struct cnss_pci_data *pci_priv)
 			return;
 	}
 
+	cnss_pr_dbg("Start to dump qdss registers\n");
+
 	for (i = 0; qdss_csr[i].name; i++) {
 		reg_offset = QDSS_APB_DEC_CSR_BASE + qdss_csr[i].offset;
 		if (cnss_pci_reg_read(pci_priv, reg_offset,
@@ -4697,12 +4698,12 @@ static void cnss_pci_dump_ce_reg(struct cnss_pci_data *pci_priv,
 	}
 }
 
-static void cnss_pci_dump_registers(struct cnss_pci_data *pci_priv)
+static void cnss_pci_dump_debug_reg(struct cnss_pci_data *pci_priv)
 {
-	cnss_pr_dbg("Start to dump debug registers\n");
-
 	if (cnss_pci_check_link_status(pci_priv))
 		return;
+
+	cnss_pr_dbg("Start to dump debug registers\n");
 
 	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
 	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_COMMON);
@@ -4734,6 +4735,7 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 		return 0;
 	}
 
+	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
 	cnss_pci_dump_misc_reg(pci_priv);
 	cnss_pci_dump_shadow_reg(pci_priv);
 
@@ -4745,7 +4747,7 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 			return 0;
 		}
 		cnss_fatal_err("Failed to trigger RDDM, err = %d\n", ret);
-		cnss_pci_dump_registers(pci_priv);
+		cnss_pci_dump_debug_reg(pci_priv);
 		cnss_schedule_recovery(&pci_priv->pci_dev->dev,
 				       CNSS_REASON_DEFAULT);
 		return ret;
@@ -4907,6 +4909,7 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 			return;
 	}
 
+	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
 	cnss_pci_dump_misc_reg(pci_priv);
 	cnss_pci_dump_shadow_reg(pci_priv);
 	cnss_pci_dump_qdss_reg(pci_priv);
@@ -4915,7 +4918,7 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	if (ret) {
 		cnss_fatal_err("Failed to download RDDM image, err = %d\n",
 			       ret);
-		cnss_pci_dump_registers(pci_priv);
+		cnss_pci_dump_debug_reg(pci_priv);
 		return;
 	}
 
