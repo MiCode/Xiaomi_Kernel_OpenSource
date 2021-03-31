@@ -1686,6 +1686,8 @@
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_DISP_AHB_CLK>;
 		parent-supply = <&VDD_MM_LEVEL>;
+		proxy-supply = <&disp_cc_mdss_core_gdsc>;
+		qcom,proxy-consumer-enable;
 		qcom,support-hw-trigger;
 		qcom,retain-regs;
 	};
@@ -1736,6 +1738,8 @@
 		regulator-name = "gcc_ufs_phy_gdsc";
 		qcom,gds-timeout = <500>;
 		parent-supply = <&VDD_CX_LEVEL>;
+		proxy-supply = <&gcc_ufs_phy_gdsc>;
+		qcom,proxy-consumer-enable;
 		qcom,retain-regs;
 	};
 
@@ -1744,6 +1748,8 @@
 		reg = <0x149004 0x4>;
 		regulator-name = "gcc_usb30_prim_gdsc";
 		qcom,gds-timeout = <500>;
+		proxy-supply = <&gcc_usb30_prim_gdsc>;
+		qcom,proxy-consumer-enable;
 		qcom,retain-regs;
 	};
 
