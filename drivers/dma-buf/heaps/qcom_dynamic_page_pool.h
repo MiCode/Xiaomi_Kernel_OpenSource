@@ -52,8 +52,12 @@ typedef enum dynamic_pool_callback_ret (*prerelease_callback)(struct dynamic_pag
  * struct dynamic_page_pool - pagepool struct
  * @high_count:			number of highmem items in the pool
  * @low_count:			number of lowmem items in the pool
+ * @count:			total number of pages/items in the pool
  * @high_items:			list of highmem items
  * @low_items:			list of lowmem items
+ * @last_low_watermark_ktime:	most recent time at which the zone watermarks were
+ *				low
+ * @refill_worker:		kthread used to refill a pool, if applicable
  * @mutex:			lock protecting this struct and especially the count
  *				item list
  * @gfp_mask:			gfp_mask to use from alloc
@@ -71,8 +75,11 @@ typedef enum dynamic_pool_callback_ret (*prerelease_callback)(struct dynamic_pag
 struct dynamic_page_pool {
 	int high_count;
 	int low_count;
+	atomic_t count;
 	struct list_head high_items;
 	struct list_head low_items;
+	ktime_t last_low_watermark_ktime;
+	struct task_struct *refill_worker;
 	struct mutex mutex;
 	gfp_t gfp_mask;
 	unsigned int order;
@@ -88,5 +95,6 @@ struct page *dynamic_page_pool_alloc(struct dynamic_page_pool *pool);
 void dynamic_page_pool_free(struct dynamic_page_pool *pool, struct page *page);
 int dynamic_page_pool_init_shrinker(void);
 struct page *dynamic_page_pool_remove(struct dynamic_page_pool *pool, bool high);
+void dynamic_page_pool_add(struct dynamic_page_pool *pool, struct page *page);
 
 #endif /* _DYN_PAGE_POOL_H */
