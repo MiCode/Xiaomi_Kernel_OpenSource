@@ -281,6 +281,11 @@
 	};
 };
 
+&usb2_phy0 {
+	qcom,param-override-seq =
+		<0xe3 0x6c>;
+};
+
 &ucsi {
 	connector {
 		port {
