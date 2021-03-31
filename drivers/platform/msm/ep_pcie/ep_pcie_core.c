@@ -31,6 +31,7 @@
 
 #define PCIE_MHI_STATUS(n)			((n) + 0x148)
 #define TCSR_PERST_SEPARATION_ENABLE		0x270
+#define TCSR_PCIE_RST_SEPARATION		0x3F8
 #define PCIE_ISSUE_WAKE				1
 #define PCIE_MHI_FWD_STATUS_MIN			5000
 #define PCIE_MHI_FWD_STATUS_MAX			5100
@@ -642,6 +643,11 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 		EP_PCIE_DBG2(dev, "PCIe V%d: Allow L1 after D3_COLD->D0\n",
 				dev->rev);
 		ep_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
+
+		EP_PCIE_DBG2(dev, "PCIe V%d: Clear disconn_req after D3_COLD\n",
+			     dev->rev);
+		ep_pcie_write_reg_field(dev->tcsr_perst_en,
+					TCSR_PCIE_RST_SEPARATION, BIT(5), 0);
 	}
 
 	if (dev->active_config) {
@@ -2020,6 +2026,12 @@ int ep_pcie_core_disable_endpoint(void)
 	val =  readl_relaxed(dev->elbi + PCIE20_ELBI_SYS_STTS);
 	EP_PCIE_DBG(dev, "PCIe V%d: LTSSM_STATE during disable:0x%x\n",
 		dev->rev, (val >> 0xC) & 0x3f);
+
+	EP_PCIE_DBG2(dev, "PCIe V%d: Set pcie_disconnect_req during D3_COLD\n",
+		     dev->rev);
+	ep_pcie_write_reg_field(dev->tcsr_perst_en,
+				TCSR_PCIE_RST_SEPARATION, BIT(5), 1);
+
 	ep_pcie_pipe_clk_deinit(dev);
 	ep_pcie_clk_deinit(dev);
 	ep_pcie_vreg_deinit(dev);
