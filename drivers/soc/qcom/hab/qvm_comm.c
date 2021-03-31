@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 #include "hab.h"
 #include "hab_qvm.h"
+#include "hab_trace_os.h"
 
 static unsigned long long xvm_sche_tx_tv_buffer[2];
 
@@ -59,6 +60,8 @@ int physical_channel_send(struct physical_channel *pchan,
 		return -EINVAL; /* too much data for ring */
 
 	hab_spin_lock(&dev->io_lock, irqs_disabled);
+
+	trace_hab_pchan_send_start(pchan);
 
 	if ((dev->pipe_ep->tx_info.sh_buf->size -
 		(dev->pipe_ep->tx_info.wr_count -
@@ -117,13 +120,18 @@ int physical_channel_send(struct physical_channel *pchan,
 	}
 
 	hab_pipe_write_commit(dev->pipe_ep);
+
+	/* locally +1 as late as possible but before unlock */
+	++pchan->sequence_tx;
+
+	trace_hab_pchan_send_done(pchan);
+
 	hab_spin_unlock(&dev->io_lock, irqs_disabled);
 	if (HAB_HEADER_GET_TYPE(*header) == HAB_PAYLOAD_TYPE_SCHE_MSG)
 		xvm_sche_tx_tv_buffer[0] = msm_timer_get_sclk_ticks();
 	else if (HAB_HEADER_GET_TYPE(*header) == HAB_PAYLOAD_TYPE_SCHE_MSG_ACK)
 		xvm_sche_tx_tv_buffer[1] = msm_timer_get_sclk_ticks();
 	habhyp_notify(dev);
-	++pchan->sequence_tx;
 	return 0;
 }
 
@@ -173,6 +181,9 @@ void physical_channel_rx_dispatch(unsigned long data)
 		}
 
 		pchan->sequence_rx = header.sequence;
+
+		/* log msg recv timestamp: enter pchan dispatcher */
+		trace_hab_pchan_recv_start(pchan);
 
 		hab_msg_recv(pchan, &header);
 		i++;
