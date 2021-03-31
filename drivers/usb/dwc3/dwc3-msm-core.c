@@ -3056,9 +3056,14 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc, bool ignore_p3_state)
 
 static void dwc3_set_phy_speed_flags(struct dwc3_msm *mdwc)
 {
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	struct dwc3 *dwc;
 	int i, num_ports;
 	u32 reg;
+
+	if (!mdwc->dwc3)
+		return;
+
+	dwc = platform_get_drvdata(mdwc->dwc3);
 
 	mdwc->hs_phy->flags &= ~(PHY_HSFS_MODE | PHY_LS_MODE);
 	if (mdwc->in_host_mode) {
@@ -3218,10 +3223,13 @@ static int dwc3_msm_update_bus_bw(struct dwc3_msm *mdwc, enum bus_vote bv)
 static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 {
 	int ret;
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	struct dwc3 *dwc = NULL;
 	struct dwc3_event_buffer *evt;
 	struct usb_irq *uirq;
 	bool can_suspend_ssphy, no_active_ss;
+
+	if (mdwc->dwc3)
+		dwc = platform_get_drvdata(mdwc->dwc3);
 
 	mutex_lock(&mdwc->suspend_resume_mutex);
 	if (atomic_read(&mdwc->in_lpm)) {
@@ -3233,7 +3241,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 	cancel_delayed_work_sync(&mdwc->perf_vote_work);
 	msm_dwc3_perf_vote_update(mdwc, false);
 
-	if (!mdwc->in_host_mode) {
+	if (dwc && !mdwc->in_host_mode) {
 		evt = dwc->ev_buf;
 		if ((evt->flags & DWC3_EVENT_PENDING)) {
 			dev_dbg(mdwc->dev,
@@ -5412,7 +5420,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		ret = dwc3_msm_core_init(mdwc);
 		if (ret) {
 			dbg_event(0xFF, "core_init failed", ret);
-			pm_runtime_put_sync(mdwc->dev);
+			pm_runtime_put_sync_suspend(mdwc->dev);
 			pm_runtime_disable(mdwc->dev);
 			break;
 		}
