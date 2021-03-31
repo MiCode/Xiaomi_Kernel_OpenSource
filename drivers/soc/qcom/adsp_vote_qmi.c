@@ -87,7 +87,7 @@ out:
 	return ret;
 }
 
-static struct qmi_handle adsp_qmi_client;
+static struct qmi_handle *adsp_qmi_client;
 
 static int send_adsp_manual_unvote(struct device *dev)
 {
@@ -188,23 +188,29 @@ static int adsp_manual_vote_driver_probe(struct platform_device *pdev)
 			PROD_SET_LPM_VOTE_REQ_MSG_V01_MAX_MSG_LEN,
 			&adsp_qmi_ops, NULL);
 	if (ret < 0) {
-		pr_err("Successfully got the qmi_handle for the client\n");
-		goto err_handle;
+		pr_err("Fail to get qmi_handle for the client\n");
+		goto handle_fail;
 	}
 
 	//Register a new lookup with the service PGS_SERVICE_ID_V01
 	ret = qmi_add_lookup(dev, PGS_SERVICE_ID_V01,
 			PGS_SERVICE_VERS_V01, 0);
 
-	if (ret < 0)
-		goto err_handle;
+	if (ret < 0) {
+		pr_err("QMI register failed for adsp manual vote driver\n");
+		goto service_add_fail;
+	}
+
+	platform_set_drvdata(pdev, (void *) dev);
+	adsp_qmi_client = dev;
+	pgdata = pdev;
+	pr_info("ADSP vote device is registered successfully\n");
 
 	dent_adsp_vote = debugfs_create_dir("adsp_manual_vote", NULL);
 	if (IS_ERR_OR_NULL(dent_adsp_vote)) {
 		dev_err(&pdev->dev, "%s:  debugfs create dir failed %d\n",
 				__func__, ret);
-		ret = -ENODEV;
-		goto err_handle;
+		return ret;
 	}
 
 	adsp_vote = debugfs_create_file("vote", 0220, dent_adsp_vote, NULL,
@@ -214,16 +220,12 @@ static int adsp_manual_vote_driver_probe(struct platform_device *pdev)
 		dent_adsp_vote = NULL;
 		dev_err(&pdev->dev, "%s:  debugfs create file failed %d\n",
 				__func__, ret);
-		ret = -ENODEV;
-		goto err_handle;
 	}
-
-	platform_set_drvdata(pdev, (void *) dev);
-	pgdata = pdev;
-	pr_info("ADSP vote device is registered successfully\n");
 	return ret;
 
-err_handle:
+service_add_fail:
+	qmi_handle_release(adsp_qmi_client);
+handle_fail:
 	kfree(dev);
 	return ret;
 }
@@ -259,7 +261,6 @@ static int __init adsp_manual_vote_qmi_init(void)
 	if (ret)
 		return -ENODEV;
 
-	pr_info("ADSP vote device is registered successfully\n");
 
 	ret = platform_driver_register(&adsp_manual_vote_driver);
 	if (ret) {
@@ -274,7 +275,7 @@ out:
 static void __exit adsp_manual_vote_qmi_deinit(void)
 {
 	debugfs_remove_recursive(dent_adsp_vote);
-	qmi_handle_release(&adsp_qmi_client);
+	qmi_handle_release(adsp_qmi_client);
 	platform_driver_unregister(&adsp_manual_vote_driver);
 	platform_device_unregister(&adsp_manual_vote_device);
 }
