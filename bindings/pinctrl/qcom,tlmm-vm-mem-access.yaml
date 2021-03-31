@@ -1,0 +1,30 @@
+%YAML 1.2
+--
+$id: http://devicetree.org/schemas/bindings/arm/msm/qcom,tlmm-vm-mem-access.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Qualcomm Technologies, Inc. TLMM VM memory access driver binding
+
+maintainers:
+
+description: |+
+   The driver facilitates initial memory access to TLMM VM driver.
+
+properties:
+  compatible:
+    const: qcom,tlmm-vm-mem-access
+
+  qcom,master:
+    description: Specify if this device is on the primary virtual machine.
+
+  tlmm-vm-gpio-list:
+    description: Array of shared gpio numbers in global space.
+
+example:
+  - |
+    tlmm-vm-mem-access {
+	compatible = "qcom,tlmm-vm-mem-access";
+	qcom,master;
+	tlmm-vm-gpio-list = <0>;
+    };
+...
