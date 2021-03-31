@@ -659,7 +659,8 @@ static void tmc_shutdown(struct amba_device *adev)
 	if (drvdata->mode == CS_MODE_DISABLED)
 		goto out;
 
-	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR)
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR &&
+		drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
 		tmc_etr_disable_hw(drvdata);
 
 	/*
