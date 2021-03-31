@@ -158,8 +158,8 @@ static void cluster_predict(struct lpm_cluster *cluster_gov)
 
 		if (count > PRED_PREMATURE_CNT) {
 			do_div(avg_residency, count);
-			cluster_gov->pred_wakeup = ktime_add_us(avg_residency,
-								cluster_gov->now);
+			cluster_gov->pred_wakeup = ktime_add_us(cluster_gov->now,
+								avg_residency);
 			cluster_gov->predicted = true;
 			return;
 		}
@@ -205,7 +205,8 @@ static void update_cluster_history(struct lpm_cluster *cluster_gov)
 	if ((cluster_gov->entry_idx == -1) || (cluster_gov->entry_idx == idx)) {
 		residency = ktime_sub(cluster_gov->now, cluster_gov->entry_time);
 		residency = ktime_to_us(residency);
-		cluster_gov->history[samples_idx].entry_time = cluster_gov->entry_time;
+		cluster_gov->history[samples_idx].entry_time =
+					ktime_to_us(cluster_gov->entry_time);
 	} else
 		return;
 
@@ -252,7 +253,7 @@ static void cluster_power_down(struct lpm_cluster *cluster_gov)
 	if (idx < 0)
 		return;
 
-	cluster_gov->entry_time = ktime_to_us(cluster_gov->now);
+	cluster_gov->entry_time = cluster_gov->now;
 	cluster_gov->entry_idx = idx;
 	trace_cluster_pred_select(genpd->state_idx, genpd->next_wakeup,
 				  0, cluster_gov->predicted, cluster_gov->next_wakeup);

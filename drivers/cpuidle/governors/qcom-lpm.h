@@ -71,7 +71,6 @@ struct lpm_cluster {
 	uint32_t samples_idx;
 	bool history_invalid;
 	bool htmr_wkup;
-	uint64_t entry_time;
 	int entry_idx;
 	int nsamp;
 	struct cluster_history history[MAXSAMPLES];
@@ -81,6 +80,7 @@ struct lpm_cluster {
 	struct notifier_block genpd_nb;
 	struct work_struct work;
 	struct hrtimer histtimer;
+	ktime_t entry_time;
 	ktime_t next_wakeup;
 	ktime_t pred_wakeup;
 	ktime_t now;
