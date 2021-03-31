@@ -2504,8 +2504,8 @@ int cnss_request_firmware_direct(struct cnss_plat_data *plat_priv,
 		return request_firmware_direct(fw_entry, filename,
 					       &plat_priv->plat_dev->dev);
 	else
-		return request_firmware(fw_entry, filename,
-					&plat_priv->plat_dev->dev);
+		return firmware_request_nowarn(fw_entry, filename,
+					       &plat_priv->plat_dev->dev);
 }
 
 #if IS_ENABLED(CONFIG_INTERCONNECT)
