@@ -30,9 +30,23 @@ static struct hh_vm_property hh_vm_table[HH_VM_MAX];
 int hh_update_vm_prop_table(enum hh_vm_names vm_name,
 			struct hh_vm_property *vm_prop)
 {
-	if (vm_prop->vmid <= 0)
+	if (vm_prop->vmid < 0)
 		return -EINVAL;
-	hh_vm_table[vm_name].vmid = vm_prop->vmid;
+
+	if (vm_prop->vmid)
+		hh_vm_table[vm_name].vmid = vm_prop->vmid;
+
+	if (vm_prop->guid)
+		hh_vm_table[vm_name].guid = vm_prop->guid;
+
+	if (vm_prop->uri)
+		hh_vm_table[vm_name].uri = vm_prop->uri;
+
+	if (vm_prop->name)
+		hh_vm_table[vm_name].name = vm_prop->name;
+
+	if (vm_prop->sign_auth)
+		hh_vm_table[vm_name].sign_auth = vm_prop->sign_auth;
 
 	return 0;
 }
@@ -85,6 +99,94 @@ int hh_rm_get_vm_name(hh_vmid_t vmid, enum hh_vm_names *vm_name)
 	return -EINVAL;
 }
 EXPORT_SYMBOL(hh_rm_get_vm_name);
+
+/**
+ * hh_rm_get_vminfo: Obtain Vm related info with vm name
+ * @vm_name: VM name to lookup
+ * @vm: out pointer to store id information about VM
+ *
+ * If no VM is known to RM with the supplied name, -EINVAL is returned.
+ * 0 otherwise.
+ */
+int hh_rm_get_vminfo(enum hh_vm_names vm_name, struct hh_vminfo *vm)
+{
+	if (!vm)
+		return -EINVAL;
+
+	if (!vm->guid || !vm->uri || !vm->name || !vm->sign_auth)
+		return -EINVAL;
+
+	vm->guid = hh_vm_table[vm_name].guid;
+	vm->uri = hh_vm_table[vm_name].uri;
+	vm->name = hh_vm_table[vm_name].name;
+	vm->sign_auth = hh_vm_table[vm_name].sign_auth;
+
+	return 0;
+}
+EXPORT_SYMBOL(hh_rm_get_vminfo);
+
+/**
+ * hh_rm_vm_get_id: Get identification info about a VM
+ * @vmid: vmid whose info is needed. Pass 0 for self
+ * @n_entries: The number of the resource entries that's returned to the caller
+ *
+ * The function returns an array of type 'struct hh_vm_get_id_resp_entry',
+ * in which each entry specifies identification info about the vm. The number
+ * of entries in the array is returned by 'n_entries'. The caller must kfree
+ * the returned pointer when done.
+ *
+ * The function encodes the error codes via ERR_PTR. Hence, the caller is
+ * responsible to check it with IS_ERR_OR_NULL().
+ */
+struct hh_vm_get_id_resp_entry *
+hh_rm_vm_get_id(hh_vmid_t vmid, u32 *n_entries)
+{
+	struct hh_vm_get_id_resp_payload *resp_payload;
+	struct hh_vm_get_id_req_payload req_payload = {
+		.vmid = vmid
+	};
+	struct hh_vm_get_id_resp_entry *resp_entries;
+	size_t resp_payload_size, resp_entries_size;
+	int err, reply_err_code;
+
+	if (!n_entries)
+		return ERR_PTR(-EINVAL);
+
+	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_GET_ID,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		err = PTR_ERR(resp_payload);
+		pr_err("%s: GET_ID failed with err: %d\n",
+			__func__, err);
+		return ERR_PTR(err);
+	}
+
+	/* The response payload should contain all the resource entries */
+	if (resp_payload_size < sizeof(*n_entries) ||
+		resp_payload_size != sizeof(*n_entries) +
+		(resp_payload->n_id_entries * sizeof(*resp_entries))) {
+		pr_err("%s: Invalid size received for GET_ID: %u\n",
+			__func__, resp_payload_size);
+		resp_entries = ERR_PTR(-EINVAL);
+		goto out;
+	}
+
+	resp_entries_size = sizeof(*resp_entries) *
+				resp_payload->n_id_entries;
+	resp_entries = kmemdup(resp_payload->resp_entries, resp_entries_size,
+			       GFP_KERNEL);
+	if (!resp_entries) {
+		resp_entries = ERR_PTR(-ENOMEM);
+		goto out;
+	}
+
+	*n_entries = resp_payload->n_id_entries;
+
+out:
+	kfree(resp_payload);
+	return resp_entries;
+}
 
 /**
  * hh_rm_vm_get_hyp_res: Get info about a series of resources for this VM
@@ -441,11 +543,12 @@ EXPORT_SYMBOL(hh_rm_vm_irq_reclaim);
  *			memory. This call should be called only during
 			initialization.
  * @vm_name: The enum value of the vm that has been loaded.
+ * @vmid: Value of vmid read from DT. If not present in DT using 0.
  *
  * The function encodes the error codes via ERR_PTR. Hence, the caller is
  * responsible to check it with IS_ERR_OR_NULL().
  */
-int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name)
+int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name, int *vmid)
 {
 	struct hh_vm_allocate_resp_payload *resp_payload;
 	struct hh_vm_allocate_req_payload req_payload = {0};
@@ -462,34 +565,40 @@ int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name)
 		return -EINVAL;
 	}
 
-	req_payload.vmid = 0;
+	req_payload.vmid = *vmid;
 
 	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_ALLOCATE,
 				&req_payload, sizeof(req_payload),
 				&resp_payload_size, &reply_err_code);
-	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+	if (reply_err_code || IS_ERR(resp_payload)) {
 		err = PTR_ERR(resp_payload);
 		pr_err("%s: VM_ALLOCATE failed with err: %d\n",
 			__func__, err);
 		return err;
 	}
 
-	if (resp_payload_size != sizeof(*resp_payload)) {
+	if (resp_payload &&
+			(resp_payload_size != sizeof(*resp_payload))) {
 		pr_err("%s: Invalid size received for VM_ALLOCATE: %u\n",
 			__func__, resp_payload_size);
 		kfree(resp_payload);
 		return -EINVAL;
 	}
 
-	vm_prop.vmid = resp_payload->vmid;
+	if (resp_payload)
+		*vmid = resp_payload->vmid;
+
+	vm_prop.vmid = *vmid;
 	err = hh_update_vm_prop_table(vm_name, &vm_prop);
 
 	if (err) {
-		pr_err("%s: Invalid vmid sent for updating table: %u\n",
-			__func__, resp_payload_size);
+		pr_err("%s: Invalid vmid sent for updating table: %d\n",
+			__func__, vm_prop.vmid);
 		return -EINVAL;
 	}
-	return resp_payload->vmid;
+
+	kfree(resp_payload);
+	return 0;
 }
 EXPORT_SYMBOL(hh_rm_vm_alloc_vmid);
 

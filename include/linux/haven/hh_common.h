@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -18,6 +18,13 @@ typedef u32 hh_memparcel_handle_t;
 typedef u64 hh_capid_t;
 typedef u64 hh_dbl_flags_t;
 
+struct hh_vminfo {
+	u8 *guid;
+	char *uri;
+	char *name;
+	char *sign_auth;
+};
+
 /* Common Haven macros */
 #define HH_CAPID_INVAL	U64_MAX
 
@@ -29,6 +36,7 @@ enum hh_vm_names {
 	HH_SELF_VM,
 	HH_PRIMARY_VM,
 	HH_TRUSTED_VM,
+	HH_CPUSYS_VM,
 	HH_VM_MAX
 };
 

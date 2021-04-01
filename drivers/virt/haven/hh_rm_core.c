@@ -746,6 +746,74 @@ err:
 }
 
 /**
+ * hh_rm_get_vm_id_info: Query Resource Manager VM to get vm identification info.
+ * @vmid: The vmid of VM whose id information needs to be queried.
+ *
+ * The function encodes the error codes via ERR_PTR. Hence, the caller is
+ * responsible to check it with IS_ERR_OR_NULL().
+ */
+int hh_rm_get_vm_id_info(enum hh_vm_names vm_name, hh_vmid_t vmid)
+{
+	struct hh_vm_get_id_resp_entry *id_entries = NULL;
+	struct hh_vm_property vm_prop = {0};
+	void *info = NULL;
+	int ret = 0;
+	u32 n_id, i;
+
+	id_entries = hh_rm_vm_get_id(vmid, &n_id);
+	if (IS_ERR_OR_NULL(id_entries))
+		return PTR_ERR(id_entries);
+
+	pr_debug("%s: %d Info are associated with vmid %d\n",
+		 __func__, n_id, vmid);
+
+	for (i = 0; i < n_id; i++) {
+		pr_debug("%s: idx:%d id_type %d reserved %d id_size %d\n",
+			__func__, i,
+			id_entries[i].id_type,
+			id_entries[i].reserved,
+			id_entries[i].id_size);
+
+		info = kmemdup_nul(id_entries[i].id_info,
+			id_entries[i].id_size, GFP_KERNEL);
+
+		if (!info) {
+			pr_err("%s: Couldn't copy id type: %u\n",
+					__func__, id_entries[i].id_type);
+			ret = PTR_ERR(info);
+			continue;
+		}
+
+		switch (id_entries[i].id_type) {
+		case HH_RM_ID_TYPE_GUID:
+			vm_prop.guid = info;
+		break;
+		case HH_RM_ID_TYPE_URI:
+			vm_prop.uri = info;
+		break;
+		case HH_RM_ID_TYPE_NAME:
+			vm_prop.name = info;
+		break;
+		case HH_RM_ID_TYPE_SIGN_AUTH:
+			vm_prop.sign_auth = info;
+		break;
+		default:
+			pr_err("%s: Unknown id type: %u\n",
+				__func__, id_entries[i].id_type);
+			ret = -EINVAL;
+		}
+		pr_debug("%s: idx:%d id_info %s\n", __func__, i, info);
+	}
+
+	if (!ret)
+		ret = hh_update_vm_prop_table(vm_name, &vm_prop);
+
+	kfree(id_entries);
+	return ret;
+}
+EXPORT_SYMBOL(hh_rm_get_vm_id_info);
+
+/**
  * hh_rm_populate_hyp_res: Query Resource Manager VM to get hyp resources.
  * @vmid: The vmid of resources to be queried.
  *
