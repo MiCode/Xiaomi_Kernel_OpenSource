@@ -266,8 +266,13 @@ void kbase_clk_rate_trace_manager_notify_all(
  	/* Raise standard `power/gpu_frequency` ftrace event */
  	{
 		unsigned long new_rate_khz = new_rate;
-
+#if BITS_PER_LONG == 64
 		do_div(new_rate_khz, 1000);
+#elif BITS_PER_LONG == 32
+        	new_rate_khz /= 1000;
+#else
+		#error "unsigned long division is not supported for this architecture"
+#endif	
 		trace_gpu_frequency(new_rate_khz, clk_index);
 	}
 
