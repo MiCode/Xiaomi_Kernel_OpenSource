@@ -16,6 +16,8 @@
 #include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
 #include <linux/of_address.h>
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
 
 #include "musb_core.h"
 #include "mtk_musb.h"
@@ -119,12 +121,82 @@ static void usb_dpidle_request(int mode)
 		DBG(0, "USB_DPIDLE_TIMER\n");
 		issue_dpidle_timer();
 		break;
+	case USB_DPIDLE_SUSPEND:
+		spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+			SPM_RESOURCE_MAINPLL | SPM_RESOURCE_CK_26M |
+			SPM_RESOURCE_AXI_BUS);
+		DBG(0, "DPIDLE_SUSPEND\n");
+		break;
+	case USB_DPIDLE_RESUME:
+		spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+			SPM_RESOURCE_RELEASE);
+		DBG(0, "DPIDLE_RESUME\n");
+		break;
 	default:
 		DBG(0, "[ERROR] Are you kidding!?!?\n");
 		break;
 	}
 
 	spin_unlock_irqrestore(&usb_hal_dpidle_lock, flags);
+}
+#endif
+
+#ifdef CONFIG_USB_MTK_OTG
+static struct regmap *pericfg;
+
+static void mt_usb_wakeup(struct musb *musb, bool enable)
+{
+	u32 tmp;
+	bool is_con = musb->port1_status & USB_PORT_STAT_CONNECTION;
+
+	if (IS_ERR_OR_NULL(pericfg)) {
+		DBG(0, "init fail");
+		return;
+	}
+
+	DBG(0, "connection=%d\n", is_con);
+
+	if (enable) {
+		regmap_read(pericfg, USB_WAKEUP_DEC_CON1, &tmp);
+		tmp |= USB1_CDDEBOUNCE(0x8) | USB1_CDEN;
+		regmap_write(pericfg, USB_WAKEUP_DEC_CON1, tmp);
+
+		tmp = musb_readw(musb->mregs, RESREG);
+		if (is_con)
+			tmp &= ~HSTPWRDWN_OPT;
+		else
+			tmp |= HSTPWRDWN_OPT;
+		musb_writew(musb->mregs, RESREG, tmp);
+	} else {
+		regmap_read(pericfg, USB_WAKEUP_DEC_CON1, &tmp);
+		tmp &= ~(USB1_CDEN | USB1_CDDEBOUNCE(0xf));
+		regmap_write(pericfg, USB_WAKEUP_DEC_CON1, tmp);
+
+		tmp = musb_readw(musb->mregs, RESREG);
+		tmp &= ~HSTPWRDWN_OPT;
+		musb_writew(musb->mregs, RESREG, tmp);
+	}
+}
+
+static int mt_usb_wakeup_init(struct musb *musb)
+{
+	struct device_node *node;
+
+	node = of_find_compatible_node(NULL, NULL,
+					"mediatek,mt6768-usb20");
+	if (!node) {
+		DBG(0, "map node failed\n");
+		return -ENODEV;
+	}
+
+	pericfg = syscon_regmap_lookup_by_phandle(node,
+					"pericfg");
+	if (IS_ERR(pericfg)) {
+		DBG(0, "fail to get pericfg regs\n");
+		return PTR_ERR(pericfg);
+	}
+
+	return 0;
 }
 #endif
 
@@ -1533,6 +1605,9 @@ static int __init mt_usb_init(struct musb *musb)
 
 #ifdef CONFIG_USB_MTK_OTG
 	mt_usb_otg_init(musb);
+	/* enable host suspend mode */
+	mt_usb_wakeup_init(musb);
+	musb->host_suspend = true;
 #endif
 	return 0;
 }
@@ -1587,6 +1662,9 @@ static const struct musb_platform_ops mt_usb_ops = {
 	.disable_clk =  mt_usb_disable_clk,
 	.prepare_clk = mt_usb_prepare_clk,
 	.unprepare_clk = mt_usb_unprepare_clk,
+#ifdef CONFIG_USB_MTK_OTG
+	.enable_wakeup = mt_usb_wakeup,
+#endif
 };
 
 #ifdef CONFIG_MTK_MUSB_DRV_36BIT
