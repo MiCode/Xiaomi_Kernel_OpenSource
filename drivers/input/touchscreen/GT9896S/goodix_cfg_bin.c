@@ -167,7 +167,7 @@ static int gt9896s_cfg_bin_proc(struct gt9896s_ts_core *core_data)
 	ts_dev->cfg_bin_state = CFG_BIN_STATE_ERROR;
 
 	/*get cfg_bin from file system*/
-	r = gt9896s_read_cfg_bin(ts_dev->dev, cfg_bin);
+	r = gt9896s_read_cfg_bin(ts_dev, cfg_bin);
 	if (r < 0) {
 		ts_err("Failed get valid config bin data");
 		goto exit;
@@ -423,15 +423,24 @@ get_default_pkg:
 	return r;
 }
 
-int gt9896s_read_cfg_bin(struct device *dev, struct gt9896s_cfg_bin *cfg_bin)
+int gt9896s_read_cfg_bin(struct gt9896s_ts_device *ts_dev, struct gt9896s_cfg_bin *cfg_bin)
 {
 	const struct firmware *firmware = NULL;
-	char cfg_bin_name[32] = {0x00};
+	struct gt9896s_ts_board_data *ts_bdata = &ts_dev->board_data;
+	char cfg_bin_name[64] = {0x00};
 	int i = 0, r;
 
 	/*get cfg_bin_name*/
-	r = snprintf(cfg_bin_name, sizeof(cfg_bin_name), "%s%s.bin",
-		TS_DEFAULT_CFG_BIN, gt9896s_config_buf);
+	if (ts_bdata->lcm_max_x == 1080 && ts_bdata->lcm_max_y == 2280) {
+		r = snprintf(cfg_bin_name, sizeof(cfg_bin_name), "%s%s_1080x2280.bin",
+				TS_DEFAULT_CFG_BIN, gt9896s_config_buf);
+	} else if (ts_bdata->lcm_max_x == 1080 && ts_bdata->lcm_max_y == 2300) {
+		r = snprintf(cfg_bin_name, sizeof(cfg_bin_name), "%s%s_1080x2300.bin",
+				TS_DEFAULT_CFG_BIN, gt9896s_config_buf);
+	} else {
+		r = snprintf(cfg_bin_name, sizeof(cfg_bin_name), "%s%s.bin",
+			TS_DEFAULT_CFG_BIN, gt9896s_config_buf);
+	}
 	if (r >= sizeof(cfg_bin_name)) {
 		ts_err("get cfg_bin name FAILED!!!");
 		goto exit;
@@ -440,7 +449,7 @@ int gt9896s_read_cfg_bin(struct device *dev, struct gt9896s_cfg_bin *cfg_bin)
 	ts_info("cfg_bin_name:%s", cfg_bin_name);
 
 	for (i = 0; i < TS_RQST_FW_RETRY_TIMES; i++) {
-		r = request_firmware(&firmware, cfg_bin_name, dev);
+		r = request_firmware(&firmware, cfg_bin_name, ts_dev->dev);
 		if (r < 0) {
 			ts_err("failed get cfg bin[%s] error:%d, try_times:%d",
 				cfg_bin_name, r, i + 1);

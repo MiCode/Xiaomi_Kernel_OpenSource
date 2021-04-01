@@ -120,8 +120,10 @@ int gt9896s_parse_cfg_bin(struct gt9896s_cfg_bin *cfg_bin);
 int gt9896s_get_reg_and_cfg(struct gt9896s_ts_device *ts_dev,
 				  struct gt9896s_cfg_bin *cfg_bin);
 
-int gt9896s_read_cfg_bin(struct device *dev,
-			       struct gt9896s_cfg_bin *cfg_bin);
+// int gt9896s_read_cfg_bin(struct device *dev,
+	//		       struct gt9896s_cfg_bin *cfg_bin);
+int gt9896s_read_cfg_bin(struct gt9896s_ts_device *ts_dev,
+					struct gt9896s_cfg_bin *cfg_bin);
 
 void gt9896s_cfg_pkg_leToCpu(struct gt9896s_cfg_package *pkg);
 
