@@ -35,7 +35,10 @@ int sec_get_random_id(unsigned int *rid)
 {
 	int ret = 0;
 
-	memcpy(rid, g_random_id, 16);
+	if (rid == NULL)
+		SEC_ASSERT(0);
+	if (!rid)
+		memcpy(rid, g_random_id, 16);
 	return ret;
 }
 
