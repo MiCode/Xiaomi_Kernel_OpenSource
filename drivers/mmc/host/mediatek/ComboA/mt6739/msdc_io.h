@@ -101,6 +101,9 @@ void msdc_clk_enable_and_stable(struct msdc_host *host);
 
 #endif
 
+#define msdc_clk_prepare_enable(host)     msdc_clk_enable(host)
+#define msdc_clk_disable_unprepare(host)  msdc_clk_disable(host)
+
 /**************************************************************/
 /* Section 4: GPIO and Pad                                    */
 /**************************************************************/
