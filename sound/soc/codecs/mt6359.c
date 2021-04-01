@@ -2511,7 +2511,7 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	dev_info(priv->dev, "%s(), event 0x%x, single mic select: %d, vow_channel: %d\n",
-			__func__, event, priv->vow_single_mic_select, priv->vow_channel);
+		 __func__, event, priv->vow_single_mic_select, priv->vow_channel);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -2524,22 +2524,22 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 		if (priv->vow_channel == 2) {
 			/* dul mic L + R */
 			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
-							   0x0039, 0x0039);
+					   0x0039, 0x0039);
 			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON4,
-							   0x0039, 0x0039);
+					   0x0039, 0x0039);
 		} else {
 			/* handset single mic (R)*/
 			if (priv->vow_single_mic_select == MIC_INDEX_THIRD)
 				regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON4,
-								   0x0039, 0x0039);
+						   0x0039, 0x0039);
 			/* handset single mic (L) or headset mic mode*/
 			else if (priv->vow_single_mic_select == MIC_INDEX_MAIN ||
 					priv->vow_single_mic_select == MIC_INDEX_HEADSET)
 				regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
-								   0x0039, 0x0039);
+						   0x0039, 0x0039);
 			else
 				dev_info(priv->dev, "%s(), unsupport mic index %d.\n",
-						__func__, priv->vow_single_mic_select);
+					 __func__, priv->vow_single_mic_select);
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -2550,22 +2550,22 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 		if (priv->vow_channel == 2) {
 			/* dul mic mic L + mic R */
 			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
-							   0x0039, 0x0000);
+					   0x0039, 0x0000);
 			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON4,
-							   0x0039, 0x0000);
+					   0x0039, 0x0000);
 		} else {
 			/* handset mic R or L */
 			if (priv->vow_single_mic_select == MIC_INDEX_THIRD)
 				regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON4,
-								   0x0039, 0x0000);
+						   0x0039, 0x0000);
 			/* handset single mic (L) or headset mic mode*/
 			else if (priv->vow_single_mic_select == MIC_INDEX_MAIN
 					|| priv->vow_single_mic_select == MIC_INDEX_HEADSET)
 				regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
-								   0x0039, 0x0000);
+						   0x0039, 0x0000);
 			else
 				dev_info(priv->dev, "%s(), unsupport mic index %d.\n",
-						__func__, priv->vow_single_mic_select);
+					 __func__, priv->vow_single_mic_select);
 		}
 		break;
 	default:
@@ -2740,7 +2740,7 @@ static int mt_vow_digital_cfg_event(struct snd_soc_dapm_widget *w,
 	unsigned int is_dmic = 0;
 
 	dev_info(priv->dev, "%s(), event 0x%x, mic_type0: %d, mic_type2: %d,vow_dmic_lp: %d\n",
-			__func__, event, mic_type0, mic_type2, priv->vow_dmic_lp);
+		 __func__, event, mic_type0, mic_type2, priv->vow_dmic_lp);
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
@@ -7835,7 +7835,7 @@ static void mt6359_parse_dt(struct mt6359_priv *priv)
 		priv->vow_dmic_lp = 1;
 	} else {
 		dev_info(dev, "%s() vow_dmic_lp node not exist, default off.\n",
-				__func__);
+			 __func__);
 		priv->vow_dmic_lp = 0;
 	}
 }
