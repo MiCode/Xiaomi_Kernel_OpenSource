@@ -17,10 +17,10 @@ obj-$(CONFIG_SND_SOC_MTK_SCP_SMARTPA) += scp_spk/
 obj-$(CONFIG_SND_SOC_MTK_SCP_SMARTPA) += utility/
 
 # scp vow bargein related code
-obj-y += scp_vow/
+obj-$(CONFIG_MTK_VOW_SUPPORT) += scp_vow/
+
 #scp ultra sound related code
 obj-$(CONFIG_MTK_ULTRASND_PROXIMITY) += scp_ultra/
-
 
 # dsp related code
 obj-$(CONFIG_SND_SOC_MTK_AUDIO_DSP) += audio_dsp/

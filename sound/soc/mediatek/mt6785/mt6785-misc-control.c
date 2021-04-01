@@ -1789,19 +1789,21 @@ static const struct snd_kcontrol_new mt6785_afe_speech_controls[] = {
 static int mt6785_afe_vow_bargein_get(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
+#if defined(CONFIG_MTK_VOW_SUPPORT)
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
 	int id;
 
 	id = get_scp_vow_memif_id();
 	ucontrol->value.integer.value[0] = afe->memif[id].vow_bargein_enable;
-
+#endif
 	return 0;
 }
 
 static int mt6785_afe_vow_bargein_set(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
+#if defined(CONFIG_MTK_VOW_SUPPORT)
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
 	int id;
@@ -1812,7 +1814,7 @@ static int mt6785_afe_vow_bargein_set(struct snd_kcontrol *kcontrol,
 	dev_info(afe->dev, "%s(), %d\n", __func__, val);
 
 	afe->memif[id].vow_bargein_enable = (val > 0) ? true : false;
-
+#endif
 	return 0;
 }
 

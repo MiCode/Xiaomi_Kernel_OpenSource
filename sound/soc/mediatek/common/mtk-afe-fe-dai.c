@@ -211,6 +211,7 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 
 	substream->runtime->dma_bytes = params_buffer_bytes(params);
 
+#if defined(CONFIG_MTK_VOW_SUPPORT)
 	if (memif->vow_bargein_enable) {
 		ret = allocate_vow_bargein_mem(substream,
 					       &substream->runtime->dma_addr,
@@ -218,11 +219,13 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 					       substream->runtime->dma_bytes,
 					       params_format(params),
 					       afe);
+
 		if (ret < 0)
 			return ret;
 
 		goto BYPASS_AFE_FE_ALLOCATE_MEM;
 	}
+#endif
 
 #if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
 	if (memif->scp_spk_enable) {
@@ -327,7 +330,11 @@ END:
 		return ret;
 	}
 
+#if defined(CONFIG_MTK_VOW_SUPPORT) ||\
+		defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA) ||\
+		defined(CONFIG_MTK_ULTRASND_PROXIMITY)
 BYPASS_AFE_FE_ALLOCATE_MEM:
+#endif
 
 	/* set channel */
 	ret = mtk_memif_set_channel(afe, id, channels);
