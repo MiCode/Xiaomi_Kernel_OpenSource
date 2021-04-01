@@ -139,28 +139,27 @@ int mt6877_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	unsigned int rate = runtime->rate;
 	int fs;
 	int ret;
-	bool dsp_reset = false;
 
-	dev_info(afe->dev, "%s(), %s cmd %d, irq_id %d dsp_reset %d\n",
-		 __func__, memif->data->name, cmd, irq_id, dsp_reset);
+	dev_info(afe->dev, "%s(), %s cmd %d, irq_id %d\n",
+		 __func__, memif->data->name, cmd, irq_id);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
-		/* with dsp enable, not to set when stop_threshold = ~(0U) */
-		if (runtime->stop_threshold == ~(0U))
+		/* set memif enable */
+		if (memif->vow_bargein_enable)
+			/* memif will be set by scp */
 			ret = 0;
 		else
-/* only when adsp enable using hw semaphore to set memif */
-#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-			ret = mtk_dsp_memif_set_enable(afe, id);
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+			/* with dsp enable, not to set when stop_threshold = ~(0U) */
+			if (runtime->stop_threshold == ~(0U))
+				ret = 0;
+			else
+				/* only when adsp enable using hw semaphore to set memif */
+				ret = mtk_dsp_memif_set_enable(afe, id);
 #else
 			ret = mtk_memif_set_enable(afe, id);
-#endif
-#else
-		ret = mtk_memif_set_enable(afe, id);
 #endif
 
 		/*
@@ -197,17 +196,19 @@ int mt6877_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				       irq_data->irq_fs_maskbit
 				       << irq_data->irq_fs_shift,
 				       fs << irq_data->irq_fs_shift);
+
 		/* enable interrupt */
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
 		if (runtime->stop_threshold != ~(0U))
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 			mtk_dsp_irq_set_enable(afe, irq_data);
 #else
-		if (runtime->stop_threshold != ~(0U))
 			mtk_regmap_update_bits(afe->regmap,
 					       irq_data->irq_en_reg,
 					       1 << irq_data->irq_en_shift,
 					       1 << irq_data->irq_en_shift);
 #endif
+
 		return 0;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -222,24 +223,21 @@ int mt6877_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				}
 			}
 		}
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) || defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+		/* set memif disable */
+		if (runtime->stop_threshold != ~(0U))
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	/* only when adsp enable using hw semaphore to set memif */
-		dsp_reset = mtk_audio_get_adsp_reset_status();
-		if (runtime->stop_threshold == ~(0U) && is_adsp_system_running() &&
-		    !dsp_reset)
-			ret = 0;
-		else
-			ret = mtk_dsp_memif_set_disable(afe, id);
-#elif defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
-		if (runtime->stop_threshold == ~(0U))
-			ret = 0;
-		else
+			if ((!is_adsp_system_running()) || mtk_audio_get_adsp_reset_status())
+				/* only when adsp enable using hw semaphore to set memif */
+				ret = mtk_dsp_memif_set_disable(afe, id);
+			else
+				ret = 0;
+#else
 			ret = mtk_memif_set_disable(afe, id);
 #endif
-#else
-		ret = mtk_memif_set_disable(afe, id);
-#endif
+		else
+			/* barge-in set stop_threshold == ~(0U), memif is set by scp */
+			ret = 0;
+
 		if (ret) {
 			dev_err(afe->dev, "%s(), error, id %d, memif enable, ret %d\n",
 				__func__, id, ret);
@@ -248,22 +246,22 @@ int mt6877_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		/* disable interrupt */
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 		if (runtime->stop_threshold != ~(0U) || (!is_adsp_system_running()) ||
-		    dsp_reset)
+			mtk_audio_get_adsp_reset_status())
 			mtk_dsp_irq_set_disable(afe, irq_data);
 #else
+		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
 		if (runtime->stop_threshold != ~(0U))
 			mtk_regmap_update_bits(afe->regmap,
 					       irq_data->irq_en_reg,
 					       1 << irq_data->irq_en_shift,
 					       0 << irq_data->irq_en_shift);
-
 #endif
 		/* clear pending IRQ */
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) || defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
 		if (runtime->stop_threshold != ~(0U))
-#endif
 			regmap_write(afe->regmap, irq_data->irq_clr_reg,
 				     1 << irq_data->irq_clr_shift);
+
 		return ret;
 	default:
 		return -EINVAL;
@@ -1019,7 +1017,6 @@ static int mt6877_sram_size_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 static int mt6877_vow_barge_in_irq_id_get(struct snd_kcontrol *kcontrol,
 					  struct snd_ctl_elem_value *ucontrol)
 {
@@ -1032,7 +1029,7 @@ static int mt6877_vow_barge_in_irq_id_get(struct snd_kcontrol *kcontrol,
 	ucontrol->value.integer.value[0] = irq_id;
 	return 0;
 }
-#endif
+
 
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 static int mt6877_adsp_ref_mem_get(struct snd_kcontrol *kcontrol,
@@ -1331,10 +1328,8 @@ static const struct snd_kcontrol_new mt6877_pcm_kcontrols[] = {
 		       mt6877_voip_scene_get, mt6877_voip_scene_set),
 	SOC_SINGLE_EXT("sram_size", SND_SOC_NOPM, 0, 0xffffffff, 0,
 		       mt6877_sram_size_get, NULL),
-#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 	SOC_SINGLE_EXT("vow_barge_in_irq_id", SND_SOC_NOPM, 0, 0x3ffff, 0,
 		       mt6877_vow_barge_in_irq_id_get, NULL),
-#endif
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	SOC_SINGLE_EXT("adsp_primary_sharemem_scenario",
 		       SND_SOC_NOPM, 0, 0x1, 0,

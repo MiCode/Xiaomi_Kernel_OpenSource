@@ -142,14 +142,12 @@ int mt6833_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
-#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
-		if (runtime->stop_threshold == ~(0U))
+		/* set memif enable */
+		if (memif->vow_bargein_enable)
+			/* memif will be set by scp */
 			ret = 0;
 		else
 			ret = mtk_memif_set_enable(afe, id);
-#else
-		ret = mtk_memif_set_enable(afe, id);
-#endif
 
 		/*
 		 * for small latency record
@@ -185,7 +183,9 @@ int mt6833_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				       irq_data->irq_fs_maskbit
 				       << irq_data->irq_fs_shift,
 				       fs << irq_data->irq_fs_shift);
+
 		/* enable interrupt */
+		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
 		if (runtime->stop_threshold != ~(0U))
 			mtk_regmap_update_bits(afe->regmap,
 					       irq_data->irq_en_reg,
@@ -205,20 +205,21 @@ int mt6833_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				}
 			}
 		}
-#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+
+		/* set memif disable */
 		if (runtime->stop_threshold == ~(0U))
+			/* barge-in set stop_threshold == ~(0U), memif is set by scp */
 			ret = 0;
 		else
 			ret = mtk_memif_set_disable(afe, id);
-#else
-		ret = mtk_memif_set_disable(afe, id);
-#endif
+
 		if (ret) {
 			dev_err(afe->dev, "%s(), error, id %d, memif enable, ret %d\n",
 				__func__, id, ret);
 		}
 
 		/* disable interrupt */
+		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
 		if (runtime->stop_threshold != ~(0U))
 			mtk_regmap_update_bits(afe->regmap,
 					       irq_data->irq_en_reg,
@@ -226,9 +227,8 @@ int mt6833_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 					       0 << irq_data->irq_en_shift);
 
 		/* and clear pending IRQ */
-#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
 		if (runtime->stop_threshold != ~(0U))
-#endif
 			regmap_write(afe->regmap, irq_data->irq_clr_reg,
 				     1 << irq_data->irq_clr_shift);
 		return ret;
@@ -941,7 +941,6 @@ static int mt6833_sram_size_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 static int mt6833_vow_barge_in_irq_id_get(struct snd_kcontrol *kcontrol,
 					  struct snd_ctl_elem_value *ucontrol)
 {
@@ -954,7 +953,6 @@ static int mt6833_vow_barge_in_irq_id_get(struct snd_kcontrol *kcontrol,
 	ucontrol->value.integer.value[0] = irq_id;
 	return 0;
 }
-#endif
 
 #if defined(CONFIG_MTK_ION)
 static int mt6833_mmap_dl_scene_get(struct snd_kcontrol *kcontrol,
@@ -1120,10 +1118,8 @@ static const struct snd_kcontrol_new mt6833_pcm_kcontrols[] = {
 		       mt6833_voip_scene_get, mt6833_voip_scene_set),
 	SOC_SINGLE_EXT("sram_size", SND_SOC_NOPM, 0, 0xffffffff, 0,
 		       mt6833_sram_size_get, NULL),
-#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 	SOC_SINGLE_EXT("vow_barge_in_irq_id", SND_SOC_NOPM, 0, 0x3ffff, 0,
 		       mt6833_vow_barge_in_irq_id_get, NULL),
-#endif
 #if defined(CONFIG_MTK_ION)
 	SOC_SINGLE_EXT("mmap_play_scenario", SND_SOC_NOPM, 0, 0x1, 0,
 		       mt6833_mmap_dl_scene_get, mt6833_mmap_dl_scene_set),

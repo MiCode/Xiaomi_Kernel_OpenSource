@@ -21,4 +21,4 @@ endif
 
 obj-y += $(MTK_PLATFORM)/
 
-obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += mtk-scp-vow-common.o
+obj-y += mtk-scp-vow-common.o
