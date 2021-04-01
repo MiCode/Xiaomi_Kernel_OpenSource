@@ -305,7 +305,7 @@ static bool mtk_planes_is_yuv_fmt(struct drm_crtc *crtc)
 static int mtk_drm_idlemgr_monitor_thread(void *data)
 {
 	int ret = 0;
-	long long t_to_check = 0;
+	unsigned long long t_to_check = 0;
 	unsigned long long t_idle;
 	struct drm_crtc *crtc = (struct drm_crtc *)data;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -331,7 +331,7 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 				1000 * 1000 - t_idle;
 		do_div(t_to_check, 1000000);
 
-		t_to_check = min(t_to_check, 1000LL);
+		t_to_check = min(t_to_check, 1000ULL);
 		/* when starting up before the first time kick */
 		if (idlemgr_ctx->idlemgr_last_kick_time == 0)
 			msleep_interruptible(idlemgr_ctx->idle_check_interval);
