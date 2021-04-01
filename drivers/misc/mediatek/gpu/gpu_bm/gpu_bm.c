@@ -105,7 +105,11 @@ static void setupfw_timer_callback(unsigned long _data)
 
 	qos_d.cmd = QOS_IPI_SETUP_GPU_INFO;
 	qos_d.u.gpu_info.addr = (unsigned int)data.phyaddr;
+#if BITS_PER_LONG == 32
+	qos_d.u.gpu_info.addr_hi = (unsigned int)((u64)data.phyaddr >> 32);
+#else
 	qos_d.u.gpu_info.addr_hi = (unsigned int)(data.phyaddr >> 32);
+#endif
 	qos_d.u.gpu_info.size = (unsigned int)data.size;
 	ret = qos_ipi_to_sspm_command(&qos_d, 4);
 
