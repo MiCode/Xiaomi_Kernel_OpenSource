@@ -39,10 +39,41 @@
 #include "../mediatek/mtk_corner_pattern/mtk_data_hw_roundedpattern.h"
 #endif
 
+#if defined(CONFIG_LEDS_MTK_I2C)
+#include "../../../misc/mediatek/leds/leds-mtk-i2c.h"
+#endif
+
+#if defined(CONFIG_DRM_RT4831A_I2C) && defined(CONFIG_LEDS_MTK_PWM)
+#include <linux/i2c-dev.h>
+#include <linux/i2c.h>
+/* i2c control start */
+#define LCM_I2C_ID_NAME "I2C_LCD_BIAS"
+static struct i2c_client *_lcm_i2c_client;
+/*****************************************************************************
+ * Function Prototype
+ *****************************************************************************/
+static int _lcm_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *id);
+static int _lcm_i2c_remove(struct i2c_client *client);
+/*****************************************************************************
+ * Data Structure
+ *****************************************************************************/
+struct _lcm_i2c_dev {
+	struct i2c_client *client;
+};
+
+static const struct i2c_device_id _lcm_i2c_id[] = {
+	{ LCM_I2C_ID_NAME, 0 },
+	{}
+};
+
+#endif
+
 struct lcm {
 	struct device *dev;
 	struct drm_panel panel;
 	struct backlight_device *backlight;
+	struct gpio_desc *pm_enable_gpio;
 	struct gpio_desc *reset_gpio;
 	struct gpio_desc *bias_pos, *bias_neg;
 
@@ -64,6 +95,68 @@ struct lcm {
 	static const u8 d[] = { seq };\
 	lcm_dcs_write(ctx, d, ARRAY_SIZE(d));\
 })
+
+#if defined(CONFIG_DRM_RT4831A_I2C) && defined(CONFIG_LEDS_MTK_PWM)
+static int _lcm_i2c_write_bytes(unsigned char addr, unsigned char value)
+{
+	int ret = 0;
+	struct i2c_client *client = _lcm_i2c_client;
+	char write_data[2] = { 0 };
+
+	if (client == NULL) {
+		pr_info("ERROR!! _lcm_i2c_client is null\n");
+		return 0;
+	}
+	write_data[0] = addr;
+	write_data[1] = value;
+	ret = i2c_master_send(client, write_data, 2);
+	if (ret < 0)
+		pr_info("[LCM][ERROR] _lcm_i2c write data fail !!\n");
+	return ret;
+}
+
+static int _lcm_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *id)
+{
+	pr_info("[LCM][I2C] %s\n", __func__);
+	pr_info("[LCM][I2C] NT: info==>name=%s addr=0x%x\n", client->name,
+		client->addr);
+	_lcm_i2c_client = client;
+	/*set 0x02 0x69 for pwm*/
+	_lcm_i2c_write_bytes(0x02, 0x69);
+	return 0;
+}
+
+static int _lcm_i2c_remove(struct i2c_client *client)
+{
+	pr_info("[LCM][I2C] %s\n", __func__);
+	_lcm_i2c_client = NULL;
+
+	i2c_unregister_device(client);
+	return 0;
+}
+
+static const struct of_device_id of_leds_i2c_match[] = {
+	{ .compatible = "mediatek,i2c-leds", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, of_leds_i2c_match);
+
+static struct i2c_driver _lcm_i2c_driver = {
+	.id_table = _lcm_i2c_id,
+	.probe = _lcm_i2c_probe,
+	.remove = _lcm_i2c_remove,
+	/* .detect		   = _lcm_i2c_detect, */
+	.driver = {
+		.owner = THIS_MODULE,
+		.name = LCM_I2C_ID_NAME,
+		.of_match_table = of_leds_i2c_match,
+	},
+};
+
+module_i2c_driver(_lcm_i2c_driver);
+
+#endif
 
 static inline struct lcm *panel_to_lcm(struct drm_panel *panel)
 {
@@ -501,6 +594,8 @@ static int lcm_unprepare(struct drm_panel *panel)
 {
 	struct lcm *ctx = panel_to_lcm(panel);
 
+	pr_info("%s\n", __func__);
+
 	if (!ctx->prepared)
 		return 0;
 
@@ -513,6 +608,32 @@ static int lcm_unprepare(struct drm_panel *panel)
 	ctx->prepared = false;
 #if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
 	lcm_panel_bias_disable();
+#else
+#if defined(CONFIG_LEDS_MTK_I2C)
+	/*this is rt4831a*/
+	mtk_leds_deinit_power();
+	lcm_i2c_write_bytes(0x09, 0x18);
+	ctx->pm_enable_gpio = devm_gpiod_get(ctx->dev,
+		"pm-enable", GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->pm_enable_gpio)) {
+		dev_err(ctx->dev, "%s: cannot get pm-enable %ld\n",
+			__func__, PTR_ERR(ctx->pm_enable_gpio));
+		return PTR_ERR(ctx->pm_enable_gpio);
+	}
+	gpiod_set_value(ctx->pm_enable_gpio, 0);
+	devm_gpiod_put(ctx->dev, ctx->pm_enable_gpio);
+#else
+#if defined(CONFIG_DRM_RT4831A_I2C) && defined(CONFIG_LEDS_MTK_PWM)
+	_lcm_i2c_write_bytes(0x09, 0x18);
+	ctx->pm_enable_gpio = devm_gpiod_get(ctx->dev,
+		"pm-enable", GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->pm_enable_gpio)) {
+		dev_err(ctx->dev, "%s: cannot get pm-enable %ld\n",
+			__func__, PTR_ERR(ctx->pm_enable_gpio));
+		return PTR_ERR(ctx->pm_enable_gpio);
+	}
+	gpiod_set_value(ctx->pm_enable_gpio, 0);
+	devm_gpiod_put(ctx->dev, ctx->pm_enable_gpio);
 #else
 	ctx->reset_gpio =
 		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
@@ -547,7 +668,8 @@ static int lcm_unprepare(struct drm_panel *panel)
 	gpiod_set_value(ctx->bias_pos, 0);
 	devm_gpiod_put(ctx->dev, ctx->bias_pos);
 #endif
-
+#endif
+#endif
 	return 0;
 }
 
@@ -562,6 +684,50 @@ static int lcm_prepare(struct drm_panel *panel)
 
 #if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
 	lcm_panel_bias_enable();
+#else
+#if defined(CONFIG_LEDS_MTK_I2C)
+	/*rt4831a co-work with leds_i2c*/
+	ctx->pm_enable_gpio = devm_gpiod_get(ctx->dev,
+		"pm-enable", GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->pm_enable_gpio)) {
+		dev_err(ctx->dev, "%s: cannot get pm-enable %ld\n",
+			__func__, PTR_ERR(ctx->pm_enable_gpio));
+		return PTR_ERR(ctx->pm_enable_gpio);
+	}
+	gpiod_set_value(ctx->pm_enable_gpio, 1);
+	devm_gpiod_put(ctx->dev, ctx->pm_enable_gpio);
+	lcm_i2c_write_bytes(0x0a, 0x11);
+	lcm_i2c_write_bytes(0x0b, 0x00);
+	/*set bias to 5.4v*/
+	lcm_i2c_write_bytes(0x0c, 0x24);
+	lcm_i2c_write_bytes(0x0d, 0x1c);
+	lcm_i2c_write_bytes(0x0e, 0x1c);
+	/*bias enable*/
+	lcm_i2c_write_bytes(0x09, 0x9e);
+	mtk_leds_init_power();
+#else
+#if defined(CONFIG_DRM_RT4831A_I2C) && defined(CONFIG_LEDS_MTK_PWM)
+	/*rt4831a co-work with leds_i2c*/
+	ctx->pm_enable_gpio = devm_gpiod_get(ctx->dev,
+		"pm-enable", GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->pm_enable_gpio)) {
+		dev_err(ctx->dev, "%s: cannot get pm-enable %ld\n",
+			__func__, PTR_ERR(ctx->pm_enable_gpio));
+		return PTR_ERR(ctx->pm_enable_gpio);
+	}
+	gpiod_set_value(ctx->pm_enable_gpio, 1);
+	devm_gpiod_put(ctx->dev, ctx->pm_enable_gpio);
+	/*set 0x02 0x69 for pwm*/
+	_lcm_i2c_write_bytes(0x02, 0x69);
+	_lcm_i2c_write_bytes(0x0a, 0x11);
+	_lcm_i2c_write_bytes(0x0b, 0x00);
+	/*set bias to 5.4v*/
+	_lcm_i2c_write_bytes(0x0c, 0x24);
+	_lcm_i2c_write_bytes(0x0d, 0x1c);
+	_lcm_i2c_write_bytes(0x0e, 0x1c);
+	/*bias enable*/
+	_lcm_i2c_write_bytes(0x09, 0x9e);
+	_lcm_i2c_write_bytes(0x08, 0x13);
 #else
 	ctx->bias_pos = devm_gpiod_get_index(ctx->dev,
 		"bias", 0, GPIOD_OUT_HIGH);
@@ -585,7 +751,8 @@ static int lcm_prepare(struct drm_panel *panel)
 	gpiod_set_value(ctx->bias_neg, 1);
 	devm_gpiod_put(ctx->dev, ctx->bias_neg);
 #endif
-
+#endif
+#endif
 	lcm_panel_init(ctx);
 
 	ret = ctx->error;
@@ -826,6 +993,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	}
 	devm_gpiod_put(dev, ctx->reset_gpio);
 
+#if !(defined(CONFIG_LEDS_MTK_I2C) || defined(CONFIG_DRM_RT4831A_I2C))
 	ctx->bias_pos = devm_gpiod_get_index(dev, "bias", 0, GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx->bias_pos)) {
 		dev_err(dev, "%s: cannot get bias-pos 0 %ld\n",
@@ -841,7 +1009,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 		return PTR_ERR(ctx->bias_neg);
 	}
 	devm_gpiod_put(dev, ctx->bias_neg);
-
+#endif
 	ctx->prepared = true;
 	ctx->enabled = true;
 
