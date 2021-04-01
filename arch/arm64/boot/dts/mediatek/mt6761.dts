@@ -2271,6 +2271,7 @@ firmware_class.path=/vendor/firmware";
 		/*-effuse access-*/
 		nvmem-cells = <&efuse_analog7>;
 		nvmem-cell-names = "efuse_idx107";
+		pericfg= <&pericfg>;
 	};
 
 	usb_sif@11210000 {
