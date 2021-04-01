@@ -4868,8 +4868,8 @@ static int clk_mt6877_scpsys_probe(struct platform_device *pdev)
 #if MT_CCF_BRINGUP
 	pr_notice("%s init begin\n", __func__);
 #endif
-	infracfg_base = get_reg(node, 0);
-	spm_base = get_reg(node, 1);
+	spm_base = get_reg(node, 0);
+	infracfg_base = get_reg(node, 1);
 	infra_base = get_reg(node, 2);
 	infra_pdn_base = get_reg(node, 3);
 
