@@ -20,7 +20,6 @@ ccflags-y += -I$(srctree)/include/memory/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/
 
 ifeq ($(SSPM_VER),v2)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
@@ -31,8 +30,10 @@ obj-y += mtk_qos_ipi.o
 endif
 
 
-ifeq ($(CONFIG_MACH_MT6877), y)
-subdir-ccflags-y += -DVPU_DIFF
+ifeq ($(CONFIG_MACH_MT6877),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/mt6877
+else
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(CONFIG_MTK_PLATFORM)
 endif
 
 obj-y += mtk_qos_main.o mtk_qos_bound.o mtk_qos_sram.o mtk_qos_sysfs.o
