@@ -217,6 +217,16 @@ void ssusb_dpidle_request(int mode)
 		mtu3_printk(K_NOTICE, "DPIDLE_TIMER\n");
 		issue_dpidle_timer();
 		break;
+	case USB_DPIDLE_SUSPEND:
+		spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+				SPM_RESOURCE_MAINPLL | SPM_RESOURCE_CK_26M |
+				SPM_RESOURCE_AXI_BUS);
+		mtu3_printk(K_NOTICE, "DPIDLE_SUSPEND\n");
+		break;
+	case USB_DPIDLE_RESUME:
+		spm_resource_req(SPM_RESOURCE_USER_SSUSB, 0);
+		mtu3_printk(K_NOTICE, "DPIDLE_RESUME\n");
+		break;
 	default:
 		mtu3_printk(K_WARNIN, "[ERROR] Are you kidding!?!?\n");
 		break;

@@ -16,6 +16,8 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 
 #include <mtu3.h>
 #include <mtu3_hal.h>
@@ -154,5 +156,20 @@ int ssusb_ext_pwr_off(struct ssusb_mtk *ssusb, int mode)
 
 void ssusb_dpidle_request(int mode)
 {
-	/* not support */
+	struct arm_smccc_res res;
+	int op;
+
+	switch (mode) {
+	case USB_DPIDLE_SUSPEND:
+		op = MTK_USB_SMC_INFRA_REQUEST;
+		break;
+	case USB_DPIDLE_RESUME:
+		op = MTK_USB_SMC_INFRA_RELEASE;
+		break;
+	default:
+		return;
+	}
+
+	pr_info("%s operation = %d\n", __func__, op);
+	arm_smccc_smc(MTK_SIP_USB_CONTROL, op, 0, 0, 0, 0, 0, 0, &res);
 }

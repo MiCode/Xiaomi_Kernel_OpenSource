@@ -22,6 +22,7 @@ struct ssusb_priv {
 extern void usb_audio_req(bool on);
 extern int mtu3_phy_init_debugfs(struct phy *phy);
 extern int mtu3_phy_exit_debugfs(void);
+extern void slp_set_infra_on(bool infra_on);
 
 #endif
 
