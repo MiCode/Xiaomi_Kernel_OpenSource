@@ -54,7 +54,7 @@ static u32 smi_larb_bw_thrt_en_port[SMI_LARB_NUM][2] = { /* non-HRT */
 /* conf */
 #define SMI_COMM_CONF_NUM	(7)
 struct mtk_smi_pair smi_comm_conf_pair[SMI_COMM_CONF_NUM] = {
-	{SMI_L1LEN, 0xb}, {SMI_BUS_SEL, 0x4514}, {SMI_M4U_TH, 0xe100e10},
+	{SMI_L1LEN, 0xb}, {SMI_BUS_SEL, 0x1414}, {SMI_M4U_TH, 0xe100e10},
 	{SMI_FIFO_TH1, 0x90a090a}, {SMI_FIFO_TH2, 0x506090a},
 	{SMI_DCM, 0x4f1}, {SMI_DUMMY, 0x1},
 };
