@@ -83,8 +83,10 @@ static ssize_t mddp_dev_write(struct file *file,
 	const char __user *buf, size_t count, loff_t *ppos);
 static long mddp_dev_ioctl(struct file *file,
 	unsigned int cmd, unsigned long arg);
+#ifdef CONFIG_COMPAT
 static long mddp_dev_compat_ioctl(struct file *filp,
 	unsigned int cmd, unsigned long arg);
+#endif
 static unsigned int mddp_dev_poll(struct file *fp,
 	struct poll_table_struct *poll);
 
