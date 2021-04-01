@@ -411,6 +411,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_COLD_BOOT_CAL:
 			seq_puts(s, "COLD BOOT CALIBRATION");
+			continue;
+		case ICNSS_QMI_DMS_CONNECTED:
+			seq_puts(s, "DMS_CONNECTED");
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);

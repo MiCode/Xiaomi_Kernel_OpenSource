@@ -84,7 +84,8 @@ uint64_t dynamic_feature_mask = ICNSS_DEFAULT_FEATURE_MASK;
 #define ICNSS_EVENT_UNINTERRUPTIBLE		BIT(1)
 #define ICNSS_EVENT_SYNC_UNINTERRUPTIBLE	(ICNSS_EVENT_UNINTERRUPTIBLE | \
 						 ICNSS_EVENT_SYNC)
-
+#define ICNSS_DMS_QMI_CONNECTION_WAIT_MS 50
+#define ICNSS_DMS_QMI_CONNECTION_WAIT_RETRY 200
 
 enum icnss_pdr_cause_index {
 	ICNSS_FW_CRASH,
@@ -540,6 +541,42 @@ int icnss_call_driver_uevent(struct icnss_priv *priv,
 	return priv->ops->uevent(&priv->pdev->dev, &uevent_data);
 }
 
+static int icnss_setup_dms_mac(struct icnss_priv *priv)
+{
+	int i;
+	int ret = 0;
+
+	ret = icnss_qmi_get_dms_mac(priv);
+	if (ret == 0 && priv->dms.mac_valid)
+		goto qmi_send;
+
+	/* DTSI property use-nv-mac is used to force DMS MAC address for WLAN.
+	 * Thus assert on failure to get MAC from DMS even after retries
+	 */
+	if (priv->use_nv_mac) {
+		for (i = 0; i < ICNSS_DMS_QMI_CONNECTION_WAIT_RETRY; i++) {
+			if (priv->dms.mac_valid)
+				break;
+
+			ret = icnss_qmi_get_dms_mac(priv);
+			if (ret != -EAGAIN)
+				break;
+			msleep(ICNSS_DMS_QMI_CONNECTION_WAIT_MS);
+		}
+		if (!priv->dms.nv_mac_not_prov && !priv->dms.mac_valid) {
+			icnss_pr_err("Unable to get MAC from DMS after retries\n");
+			ICNSS_ASSERT(0);
+			return -EINVAL;
+		}
+	}
+qmi_send:
+	if (priv->dms.mac_valid)
+		ret =
+		icnss_wlfw_wlan_mac_req_send_sync(priv, priv->dms.mac,
+						  ARRAY_SIZE(priv->dms.mac));
+	return ret;
+}
+
 static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 						 void *data)
 {
@@ -635,7 +672,6 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 
 		ret = icnss_wlfw_bdf_dnld_send_sync(priv,
 						    priv->ctrl_params.bdf_type);
-
 	}
 
 	if (priv->device_id == ADRASTEA_DEVICE_ID) {
@@ -817,10 +853,13 @@ static int icnss_driver_event_fw_ready_ind(struct icnss_priv *priv, void *data)
 		goto out;
 	}
 
-	if (test_bit(ICNSS_PD_RESTART, &priv->state))
+	if (test_bit(ICNSS_PD_RESTART, &priv->state)) {
 		ret = icnss_pd_restart_complete(priv);
-	else
+	} else {
+		if (priv->device_id == WCN6750_DEVICE_ID)
+			icnss_setup_dms_mac(priv);
 		ret = icnss_call_driver_probe(priv);
+	}
 
 	icnss_vreg_unvote(priv);
 
@@ -2786,6 +2825,10 @@ int icnss_wlan_enable(struct device *dev, struct icnss_wlan_enable_cfg *config,
 		return -EINVAL;
 	}
 
+	if (priv->device_id == WCN6750_DEVICE_ID &&
+	    !priv->dms.nv_mac_not_prov && !priv->dms.mac_valid)
+		icnss_setup_dms_mac(priv);
+
 	return icnss_send_wlan_enable_to_fw(priv, config, mode, host_version);
 }
 EXPORT_SYMBOL(icnss_wlan_enable);
@@ -3715,6 +3758,12 @@ static inline void icnss_runtime_pm_deinit(struct icnss_priv *priv)
 	pm_runtime_put_sync(&priv->pdev->dev);
 }
 
+static inline bool icnss_use_nv_mac(struct icnss_priv *priv)
+{
+	return of_property_read_bool(priv->pdev->dev.of_node,
+				     "use-nv-mac");
+}
+
 static int icnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -3816,6 +3865,9 @@ static int icnss_probe(struct platform_device *pdev)
 	init_completion(&priv->unblock_shutdown);
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
+		ret = icnss_dms_init(priv);
+		if (ret)
+			icnss_pr_err("ICNSS DMS init failed %d\n", ret);
 		ret = icnss_genl_init();
 		if (ret < 0)
 			icnss_pr_err("ICNSS genl init failed %d\n", ret);
@@ -3824,6 +3876,9 @@ static int icnss_probe(struct platform_device *pdev)
 		icnss_get_cpr_info(priv);
 		icnss_get_smp2p_info(priv);
 		set_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
+		priv->use_nv_mac = icnss_use_nv_mac(priv);
+		icnss_pr_dbg("NV MAC feature is %s\n",
+			     priv->use_nv_mac ? "Mandatory":"Not Mandatory");
 		INIT_WORK(&wpss_loader, icnss_wpss_load);
 	}
 
@@ -3853,6 +3908,7 @@ static int icnss_remove(struct platform_device *pdev)
 	icnss_pr_info("Removing driver: state: 0x%lx\n", priv->state);
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
+		icnss_dms_deinit(priv);
 		icnss_genl_exit();
 		icnss_runtime_pm_deinit(priv);
 	}

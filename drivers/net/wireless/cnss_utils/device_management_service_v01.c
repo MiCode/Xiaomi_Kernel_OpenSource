@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2020-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/soc/qcom/qmi.h>
-
+#include <linux/module.h>
 #include "device_management_service_v01.h"
 
 struct qmi_elem_info dms_get_mac_address_req_msg_v01_ei[] = {
@@ -22,6 +22,7 @@ struct qmi_elem_info dms_get_mac_address_req_msg_v01_ei[] = {
 		.tlv_type       = QMI_COMMON_TLV_TYPE,
 	},
 };
+EXPORT_SYMBOL(dms_get_mac_address_req_msg_v01_ei);
 
 struct qmi_elem_info dms_get_mac_address_resp_msg_v01_ei[] = {
 	{
@@ -71,3 +72,7 @@ struct qmi_elem_info dms_get_mac_address_resp_msg_v01_ei[] = {
 		.tlv_type       = QMI_COMMON_TLV_TYPE,
 	},
 };
+EXPORT_SYMBOL(dms_get_mac_address_resp_msg_v01_ei);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("WLAN qmi service DMS");
