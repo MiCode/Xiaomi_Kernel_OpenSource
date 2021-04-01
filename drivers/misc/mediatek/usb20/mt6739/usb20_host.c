@@ -399,8 +399,8 @@ void switch_int_to_host(struct musb *musb)
 void musb_disable_host(struct musb *musb)
 {
 	if (musb && musb->is_host) {	/* shut down USB host for IPO */
-		if (mtk_musb->usb_lock.active)
-			__pm_relax(&mtk_musb->usb_lock);
+		if (mtk_musb->usb_lock->active)
+			__pm_relax(mtk_musb->usb_lock);
 		mt_usb_set_vbus(mtk_musb, 0);
 		/* add sleep time to ensure vbus off and disconnect irq processed. */
 		msleep(50);
