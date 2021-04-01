@@ -298,6 +298,10 @@
 #define MTK_SIP_TMEM_CONTROL \
 	(0x82000524 | MTK_SIP_SMC_AARCH_BIT)
 
+/* APUPWR control related SMC call */
+#define MTK_SIP_APUPWR_CONTROL \
+	(0x82000526 | MTK_SIP_SMC_AARCH_BIT)
+
 extern size_t mt_secure_call_all(size_t function_id,
 	size_t arg0, size_t arg1, size_t arg2,
 	size_t arg3, size_t *r1, size_t *r2, size_t *r3);

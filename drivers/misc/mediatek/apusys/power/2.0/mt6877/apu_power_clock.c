@@ -23,6 +23,7 @@
 #ifdef CONFIG_MTK_FREQ_HOPPING
 #include "mtk_freqhopping_drv.h"
 #endif
+#include "apupwr_secure.h"
 
 static DEFINE_SPINLOCK(meter_lock);
 #define fmeter_lock(flags)   spin_lock_irqsave(&meter_lock, flags)
@@ -33,11 +34,13 @@ static DEFINE_SPINLOCK(meter_lock);
  * MUST mapping to clock-names @ mt6877.dts
  **********************************************/
 
+#ifndef APUPWR_SECURE
 /* for dvfs clock source */
 static struct clk *clk_apupll_apupll;  /* MDLA  */
 static struct clk *clk_apupll_npupll;  /* VPU   */
 static struct clk *clk_apupll_apupll1; /* CONN  */
 static struct clk *clk_apupll_apupll2; /* IOMMU */
+#endif
 
 static struct clk *mtcmos_scp_sys_vpu;		// mtcmos for apu conn/vcore
 
@@ -74,43 +77,13 @@ int enable_apu_mtcmos(int enable)
 int prepare_apu_clock(struct device *dev)
 {
 	int ret = 0;
-#if 0  //APUSYS_POWER_BRINGUP
-	int ret_all = 0;
-#endif
 
 	PREPARE_CLK(mtcmos_scp_sys_vpu);
-
+#ifndef APUPWR_SECURE
 	PREPARE_CLK(clk_apupll_apupll);
 	PREPARE_CLK(clk_apupll_npupll);
 	PREPARE_CLK(clk_apupll_apupll1);
 	PREPARE_CLK(clk_apupll_apupll2);
-
-#if 0 //APUSYS_POWER_BRINGUP
-	ENABLE_CLK(clk_apupll_apupll1);
-	ENABLE_CLK(clk_apupll_apupll2);
-	ENABLE_CLK(clk_apupll_npupll);
-	ENABLE_CLK(clk_apupll_apupll);
-
-	//_init_acc(V_APU_CONN);
-	_init_acc(V_VPU0);
-	_init_acc(V_VPU1);
-	_init_acc(V_MDLA0);
-	//_init_acc(V_TOP_IOMMU);
-
-	/* Deault ACC will raise APU_ DIV_2 */
-	clk_set_rate(clk_apupll_apupll,
-			(BUCK_VMDLA_DOMAIN_DEFAULT_FREQ * 2) * 1000);
-	clk_set_rate(clk_apupll_npupll,
-			(BUCK_VVPU_DOMAIN_DEFAULT_FREQ  * 2) * 1000);
-	clk_set_rate(clk_apupll_apupll1,
-			(BUCK_VCONN_DOMAIN_DEFAULT_FREQ * 2) * 1000);
-	clk_set_rate(clk_apupll_apupll2,
-			(BUCK_VIOMMU_DOMAIN_DEFAULT_FREQ * 2) * 1000);
-
-	DISABLE_CLK(clk_apupll_apupll);
-	DISABLE_CLK(clk_apupll_npupll);
-	DISABLE_CLK(clk_apupll_apupll2);
-	DISABLE_CLK(clk_apupll_apupll1);
 #endif
 
 	return ret;
@@ -123,8 +96,9 @@ void unprepare_apu_clock(void)
 
 int enable_apupll(enum APUPLL apupll)
 {
-	int ret = 0;
 	int ret_all = 0;
+#ifndef APUPWR_SECURE
+	int ret = 0;
 
 	switch (apupll) {
 	case APUPLL:
@@ -144,12 +118,13 @@ int enable_apupll(enum APUPLL apupll)
 			__func__, __LINE__, apupll);
 		return -1;
 	}
-
+#endif
 	return ret_all;
 }
 
 void disable_apupll(enum APUPLL apupll)
 {
+#ifndef APUPWR_SECURE
 	switch (apupll) {
 	case APUPLL:
 		DISABLE_CLK(clk_apupll_apupll);
@@ -167,11 +142,30 @@ void disable_apupll(enum APUPLL apupll)
 		LOG_ERR("[%s][%d] Invaild apupll = %d\n",
 			__func__, __LINE__, apupll);
 	}
+#endif
 }
 
 /* acc_clk_enable/disable: Turn on/off CG_APU */
 static int _enable_acc(enum DVFS_VOLTAGE_DOMAIN domain, bool enable)
 {
+
+#ifdef APUPWR_SECURE
+	int ret = 0;
+	size_t value = 0;
+
+	ret = mt_secure_call_ret2(MTK_SIP_APUPWR_CONTROL,
+			MTK_APUPWR_SMC_OP_ACC_TOGGLE,
+			(size_t)domain, (size_t)enable, 0, &value);
+	LOG_DBG("[%s] domain@%d, enable(%d) ACC: 0x%x\n", __func__, domain, enable, value);
+
+	if (ret) {
+		LOG_ERR("[%s] domain@%d, enable(%d) Fail: %d\n", __func__, domain, enable, ret);
+		return -1;
+	}
+
+	return 0;
+#else
+
 	void *acc_set = NULL;
 	void *acc_clr = NULL;
 	void *aacc_set[APUSYS_BUCK_DOMAIN_NUM] = {APU_ACC_CONFG_SET1,
@@ -200,6 +194,7 @@ static int _enable_acc(enum DVFS_VOLTAGE_DOMAIN domain, bool enable)
 		writel(BIT(BIT_CGEN_APU), acc_clr);
 
 	return 0;
+#endif
 }
 
 int enable_apuacc(enum DVFS_VOLTAGE_DOMAIN domain)
@@ -246,6 +241,17 @@ int enable_apu_conn_clksrc(void)
  */
 static void _init_acc(enum DVFS_VOLTAGE_DOMAIN domain)
 {
+#ifdef APUPWR_SECURE
+	int ret = 0;
+
+	ret = mt_secure_call_ret1(MTK_SIP_APUPWR_CONTROL,
+			MTK_APUPWR_SMC_OP_ACC_INIT,
+			(size_t)domain, 0, 0);
+
+	if (ret)
+		LOG_ERR("[%s] domain:%d, ret:%d\n", __func__, ret);
+
+#else
 	bool inverse = false;
 	void *acc_set = NULL;
 	void *acc_clr = NULL;
@@ -276,6 +282,7 @@ static void _init_acc(enum DVFS_VOLTAGE_DOMAIN domain)
 	writel(BIT(BIT_SEL_APU), acc_set);
 	writel(BIT(BIT_CGEN_SOC), acc_clr);
 	writel(BIT(BIT_SEL_APU_DIV2), acc_set); /* default freq needed */
+#endif
 }
 
 void acc_init(void)
@@ -418,6 +425,21 @@ void disable_apu_device_clksrc(enum DVFS_USER user)
  */
 int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
+#ifdef APUPWR_SECURE
+	int ret = 0;
+
+	ret = mt_secure_call_ret1(MTK_SIP_APUPWR_CONTROL,
+			MTK_APUPWR_SMC_OP_ACC_SET_PARENT,
+			(size_t)freq, (size_t)domain, 0);
+
+	if (ret) {
+		LOG_ERR("[%s] domain:%d, ret:%d\n", __func__, ret);
+		return -1;
+	}
+
+	return 0;
+#else
+
 	void *acc_set = NULL;
 	void *acc_clr = NULL;
 	void *aacc_set[APUSYS_BUCK_DOMAIN_NUM] = {APU_ACC_CONFG_SET1,
@@ -484,6 +506,7 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		__func__, buck_domain_str[domain], freq);
 
 	return 0;
+#endif
 }
 
 static unsigned int apu_get_dds(enum DVFS_FREQ freq,
@@ -516,27 +539,6 @@ static enum DVFS_FREQ_POSTDIV apu_get_posdiv_power(enum DVFS_FREQ freq,
 	return POSDIV_4;
 }
 
-#if 0
-static enum DVFS_FREQ_POSTDIV apu_get_curr_posdiv_power(
-	enum DVFS_VOLTAGE_DOMAIN domain)
-{
-	unsigned long pll  = 0;
-	enum DVFS_FREQ_POSTDIV real_posdiv_power = 0;
-
-	if (domain == V_VPU0 || domain == V_VPU1)
-		pll = DRV_Reg32(APU_PLL4H_PLL2_CON1);
-	else if (domain == V_MDLA0)
-		pll = DRV_Reg32(APU_PLL4H_PLL1_CON1);
-
-	real_posdiv_power = (pll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
-
-	LOG_DBG("%s real_posdiv_power %d\n",
-		__func__, real_posdiv_power);
-
-	return real_posdiv_power;
-}
-#endif
-
 static bool apu_get_div2(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
 	int opp = 0;
@@ -554,6 +556,27 @@ static bool apu_get_div2(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 //acc_clk_set_rate w/ vol domain, ex: V_VPU0
 int config_apupll_freq(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
+#ifdef APUPWR_SECURE
+	int ret = 0;
+	enum DVFS_FREQ_POSTDIV posdiv_power = 0;
+	unsigned int dds;
+	bool div2;
+
+	posdiv_power = apu_get_posdiv_power(freq, domain);
+	dds = apu_get_dds(freq, domain);
+	div2 = apu_get_div2(freq, domain);
+	ret = mt_secure_call_ret1(MTK_SIP_APUPWR_CONTROL,
+			MTK_APUPWR_SMC_OP_PLL_SET_RATE,
+			(size_t)freq, (size_t)div2, (size_t)domain);
+
+	if (ret) {
+		LOG_ERR("[%s] domain:%d, ret:%d\n", __func__, ret);
+		return -1;
+	}
+
+	return 0;
+#else
+
 	int ret = 0;
 	void *acc_clr0 = NULL, *acc_clr1 = NULL;
 	void *acc_set0 = NULL, *acc_set1 = NULL;
@@ -654,23 +677,57 @@ int config_apupll_freq(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	}
 
 	return ret;
+#endif
 }
 
 #if FMETER_CHK
+
+#ifdef APUPWR_SECURE
+#define FMETER_PLL				1
+#define FMETER_ACC				2
+#define FMETER_STEP1				1
+#define FMETER_STEP2				2
+#define FMETER_STEP3				3
+#endif
+
 #define FM_PLL1_CK				0
 #define FM_PLL2_CK				1
 #define FM_PLL3_CK				2
 #define FM_PLL4_CK				3
-static unsigned int pll_freqmeter_get(unsigned int pll_sel)
+unsigned int pll_freqmeter_get(unsigned int pll_sel)
 {
 	int output = 0, i = 0;
-	unsigned int temp, pll4h_fqmtr_con0, pll4h_fqmtr_con1;
+	unsigned int temp;
+#ifdef APUPWR_SECURE
+	int ret = 0;
+	size_t value = 0;
+#else
+	unsigned int pll4h_fqmtr_con0, pll4h_fqmtr_con1;
+#endif
 	bool timeout = false;
 	unsigned long flags;
 	void *con0 = APU_PLL4H_FQMTR_CON0;
 	void *con1 = APU_PLL4H_FQMTR_CON1;
 
+	if (pll_sel < FM_PLL1_CK || pll_sel > FM_PLL4_CK) {
+		LOG_ERR("[%s] invalid pll_sel : %u\n", __func__, pll_sel);
+		return 0;
+	}
+
 	fmeter_lock(flags);
+
+#ifdef APUPWR_SECURE
+	ret = mt_secure_call_ret2(MTK_SIP_APUPWR_CONTROL,
+			MTK_APUPWR_SMC_OP_FMETER_CTL,
+			FMETER_PLL, FMETER_STEP1, pll_sel, &value);
+
+	if (ret) {
+		LOG_ERR("[%s] Fail in pll_sel:%u (step1)\n",
+						__func__, pll_sel);
+		return 0;
+	}
+
+#else
 	pll4h_fqmtr_con0 = DRV_Reg32(con0);
 	pll4h_fqmtr_con1 = DRV_Reg32(con1);
 
@@ -685,8 +742,8 @@ static unsigned int pll_freqmeter_get(unsigned int pll_sel)
 	DRV_WriteReg32(con0, ((DRV_Reg32(con0) | 0x00001000) & 0xFFFFFEEF));
 	/*fqmtr_start set to 1 */
 	DRV_WriteReg32(con0, DRV_Reg32(con0) | 0x00000010);
-
-	/* wait frequency meter finish */
+#endif
+	/* step2. wait frequency meter finish */
 	while (DRV_Reg32(con0) & 0x10) {
 		udelay(10);
 		i++;
@@ -705,24 +762,34 @@ static unsigned int pll_freqmeter_get(unsigned int pll_sel)
 		output = 0;
 	}
 
+#ifdef APUPWR_SECURE
+	ret = mt_secure_call_ret2(MTK_SIP_APUPWR_CONTROL,
+			MTK_APUPWR_SMC_OP_FMETER_CTL,
+			FMETER_PLL, FMETER_STEP3, pll_sel, &value);
+	if (ret) {
+		LOG_ERR("[%s] Fail in pll_sel:%u (step3)\n",
+						__func__, pll_sel);
+		return 0;
+	}
+
+#else
 	DRV_WriteReg32(con0, pll4h_fqmtr_con0);
 	DRV_WriteReg32(con1, pll4h_fqmtr_con1);
+#endif
 	fmeter_unlock(flags);
 
 	return output;
 }
-#endif
 
-#if FMETER_CHK
-#define FM_ACC0		0x0
-#define FM_ACC1		0x1
-#define FM_ACC2		0x10
-#define FM_ACC4		0x40
-#define FM_ACC5		0x44
-#define FM_ACC7		0x68
+#define FM_ACC0			0x0
+#define FM_ACC1			0x1
+#define FM_ACC2			0x10
+#define FM_ACC4			0x40
+#define FM_ACC5			0x44
+#define FM_ACC7			0x68
 #define FM_ACC0_Pout		0x8000
 #define FM_ACC7_Pout		0xE800
-static unsigned int acc_freqmeter_get(unsigned int acc_sel)
+unsigned int acc_freqmeter_get(unsigned int acc_sel)
 {
 	int output = 0, i = 0;
 	unsigned int tempValue = 0;
@@ -731,23 +798,39 @@ static unsigned int acc_freqmeter_get(unsigned int acc_sel)
 	unsigned long flags;
 	void *fm_sel = APU_ACC_FM_SEL;
 	void *confg_set = APU_ACC_FM_CONFG_SET;
+#ifdef APUPWR_SECURE
+	int ret = 0;
+	size_t value = 0;
+#else
 	void *confg_clr = APU_ACC_FM_CONFG_CLR;
+#endif
+
+	if (acc_sel < FM_ACC0 || acc_sel > FM_ACC7_Pout) {
+		LOG_ERR("[%s] invalid acc_sel : %u\n", __func__, acc_sel);
+		return 0;
+	}
 
 	fmeter_lock(flags);
+
+#ifdef APUPWR_SECURE
+	ret = mt_secure_call_ret2(MTK_SIP_APUPWR_CONTROL,
+			MTK_APUPWR_SMC_OP_FMETER_CTL,
+			FMETER_ACC, FMETER_STEP1, acc_sel, &value);
+#else
 	/* reset */
 	DRV_WriteReg32(fm_sel, 0x0);
 	DRV_WriteReg32(fm_sel, DRV_Reg32(fm_sel) | acc_sel);
 	DRV_WriteReg32(fm_sel, DRV_Reg32(fm_sel) | (loop_ref << D_FM_LOOP_REF_OFFSET));
 	DRV_WriteReg32(confg_set, BIT(D_FM_CLK_EN));
 	DRV_WriteReg32(confg_set, BIT(D_FM_FUN_EN));
-
-	/* wait frequency meter finish */
+#endif
+	/* step2. wait frequency meter finish */
 	while (!(DRV_Reg32(confg_set) & BIT(D_FM_FM_DONE))) {
 		udelay(10);
 		i++;
 		if (i > 30) {
 			timeout = true;
-			LOG_DBG("timeout! [ACC%d]fm_sel: 0x%x, confg_set: 0x%x\n",
+			LOG_DBG("timeout! [ACC:0x%x]fm_sel: 0x%x, confg_set: 0x%x\n",
 				acc_sel, DRV_Reg32(fm_sel), DRV_Reg32(confg_set));
 			break;
 		}
@@ -762,9 +845,15 @@ static unsigned int acc_freqmeter_get(unsigned int acc_sel)
 		output = 0;
 	}
 
+#ifdef APUPWR_SECURE
+	ret = mt_secure_call_ret2(MTK_SIP_APUPWR_CONTROL,
+			MTK_APUPWR_SMC_OP_FMETER_CTL,
+			FMETER_ACC, FMETER_STEP3, acc_sel, &value);
+#else
 	DRV_WriteReg32(confg_clr, BIT(D_FM_FM_DONE));
 	DRV_WriteReg32(confg_clr, BIT(D_FM_FUN_EN));
 	DRV_WriteReg32(confg_clr, BIT(D_FM_CLK_EN));
+#endif
 	fmeter_unlock(flags);
 
 	return output;
@@ -774,10 +863,6 @@ static unsigned int acc_freqmeter_get(unsigned int acc_sel)
 // dump related frequencies of APUsys
 void dump_frequency(struct apu_power_info *info)
 {
-	int apupll_freq = 0;
-	int npupll_freq = 0;
-	int apupll1_freq = 0;
-	int apupll2_freq = 0;
 	int dump_div = 1;
 #if FMETER_CHK
 	int acc0_fmeter = 0, acc1_fmeter = 0, acc2_fmeter = 0;
@@ -785,8 +870,6 @@ void dump_frequency(struct apu_power_info *info)
 	int acc0_pout_fmeter = 0, acc7_pout_fmeter = 0;
 	int apupll_fmeter = 0, npupll_fmeter = 0;
 	int apupll1_fmeter = 0, apupll2_fmeter = 0;
-#else
-	uint8_t opp_index = 0;
 #endif
 
 	info->acc_status[0] = DRV_Reg32(APU_ACC_CONFG_SET0);
@@ -818,19 +901,12 @@ void dump_frequency(struct apu_power_info *info)
 		acc7_fmeter = acc_freqmeter_get(FM_ACC7);
 		acc7_pout_fmeter = acc_freqmeter_get(FM_ACC7_Pout);
 	}
-#endif
 
-	apupll_freq = clk_get_rate(clk_apupll_apupll);
-	npupll_freq = clk_get_rate(clk_apupll_npupll);
-	apupll1_freq = clk_get_rate(clk_apupll_apupll1);
-	apupll2_freq = clk_get_rate(clk_apupll_apupll2);
+	info->apupll_freq = apupll_fmeter / dump_div;
+	info->npupll_freq = npupll_fmeter / dump_div;
+	info->apupll1_freq = apupll1_fmeter / dump_div;
+	info->apupll2_freq = apupll2_fmeter / dump_div;
 
-	info->apupll_freq = apupll_freq / dump_div;
-	info->npupll_freq = npupll_freq / dump_div;
-	info->apupll1_freq = apupll1_freq / dump_div;
-	info->apupll2_freq = apupll2_freq / dump_div;
-
-#if FMETER_CHK
 	if (info->acc_status[0] & BIT(BIT_SEL_APU))
 		info->conn_freq = acc0_fmeter;
 	else
@@ -855,45 +931,6 @@ void dump_frequency(struct apu_power_info *info)
 		info->iommu_freq = acc7_fmeter;
 	else
 		info->iommu_freq = acc0_pout_fmeter;
-
-	dump_div = info->dump_div ? info->dump_div : 1;
-	do_div(info->apupll_freq, dump_div * KHZ);
-	do_div(info->npupll_freq, dump_div * KHZ);
-	do_div(info->apupll2_freq, dump_div * KHZ);
-	do_div(info->apupll1_freq, dump_div * KHZ);
-#else
-
-	opp_index = apusys_opps.cur_opp_index[V_VPU0];
-	info->vpu0_freq = (apusys_opps.opps[opp_index][V_VPU0].div2) ?
-				npupll_freq / 2 : npupll_freq;
-
-	opp_index = apusys_opps.cur_opp_index[V_VPU1];
-	info->vpu1_freq = (apusys_opps.opps[opp_index][V_VPU1].div2) ?
-				npupll_freq / 2 : npupll_freq;
-
-	opp_index = apusys_opps.cur_opp_index[V_MDLA0];
-	info->mdla0_freq = (apusys_opps.opps[opp_index][V_MDLA0].div2) ?
-				apupll_freq / 2 : apupll_freq;
-
-	opp_index = apusys_opps.cur_opp_index[V_APU_CONN];
-	info->conn_freq = (apusys_opps.opps[opp_index][V_APU_CONN].div2) ?
-				apupll1_freq / 2 : apupll1_freq;
-
-	opp_index = apusys_opps.cur_opp_index[V_TOP_IOMMU];
-	info->iommu_freq = (apusys_opps.opps[opp_index][V_TOP_IOMMU].div2) ?
-				apupll2_freq / 2 : apupll2_freq;
-
-	dump_div = info->dump_div ? info->dump_div : 1;
-	do_div(info->apupll_freq, dump_div * KHZ);
-	do_div(info->npupll_freq, dump_div * KHZ);
-	do_div(info->apupll2_freq, dump_div * KHZ);
-	do_div(info->apupll1_freq, dump_div * KHZ);
-
-	do_div(info->vpu0_freq, dump_div * KHZ);
-	do_div(info->vpu1_freq, dump_div * KHZ);
-	do_div(info->mdla0_freq, dump_div * KHZ);
-	do_div(info->conn_freq, dump_div * KHZ);
-	do_div(info->iommu_freq, dump_div * KHZ);
 #endif
 
 #if 0
@@ -911,10 +948,6 @@ void dump_frequency(struct apu_power_info *info)
 	LOG_DBG("acc7_pout_fmeter = %d\n", acc7_pout_fmeter);
 #endif
 
-	LOG_DBG("apupll_freq = %d\n", apupll_freq);
-	LOG_DBG("npupll_freq = %d\n", npupll_freq);
-	LOG_DBG("apupll1_freq = %d\n", apupll1_freq);
-	LOG_DBG("apupll2_freq = %d\n", apupll2_freq);
 	LOG_DBG("vpu0_freq = %d, acc1_status = 0x%x\n", info->vpu0_freq, info->acc_status[1]);
 	LOG_DBG("vpu1_freq = %d, acc2_status = 0x%x\n", info->vpu1_freq, info->acc_status[2]);
 	LOG_DBG("mdla0_freq = %d, acc4_status = 0x%x\n", info->mdla0_freq, info->acc_status[4]);

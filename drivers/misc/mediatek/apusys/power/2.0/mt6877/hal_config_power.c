@@ -784,11 +784,11 @@ static int binning_support_check(void)
 	if (vpu_efuse_bin_highv > 0 || vpu_efuse_bin_midv > 0 ||
 		vpu_efuse_raise > 0) {
 		if (vpu_efuse_bin_highv > 0)
-			LOG_ERR("Vol bin: vpu_efuse_hv=%d\n", vpu_efuse_bin_highv);
+			LOG_WRN("Vol bin: vpu_efuse_hv=%d\n", vpu_efuse_bin_highv);
 		if (vpu_efuse_bin_midv > 0)
-			LOG_ERR("Vol bin: vpu_efuse_mv=%d\n", vpu_efuse_bin_midv);
+			LOG_WRN("Vol bin: vpu_efuse_mv=%d\n", vpu_efuse_bin_midv);
 		if (vpu_efuse_raise > 0)
-			LOG_ERR("Raise bin: vpu_efuse=%d\n", vpu_efuse_raise);
+			LOG_WRN("Raise bin: vpu_efuse=%d\n", vpu_efuse_raise);
 
 		change_opp_voltage(VPU_BUCK, &bin_highv_mv, &bin_midv_mv, &raise_mv);
 	}
