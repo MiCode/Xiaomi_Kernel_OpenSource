@@ -156,6 +156,8 @@
 #define CONFIG_LVTS_ERROR_AEE_WARNING (0)
 #endif
 
+#define LVTS_REFINE_MANUAL_RCK_WITH_EFUSE  (1)
+
 #define DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE  (1)
 
 #if CONFIG_LVTS_ERROR_AEE_WARNING
@@ -172,7 +174,7 @@
 #endif
 #define LVTS_VALID_DATA_TIME_PROFILING (0)
 
-#define LVTS_USE_DOMINATOR_SENSING_POINT (0)
+#define LVTS_USE_DOMINATOR_SENSING_POINT (1)
 
 #define CFG_THERMAL_KERNEL_IGNORE_HOT_SENSOR (0)
 /*=============================================================

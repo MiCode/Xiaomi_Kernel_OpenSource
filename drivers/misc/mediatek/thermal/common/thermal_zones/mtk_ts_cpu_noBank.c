@@ -89,6 +89,10 @@
 #define CFG_LVTS_DOMINATOR	0
 #endif
 
+#if !defined(CFG_LVTS_MCU_INTERRUPT_HANDLER)
+#define CFG_LVTS_MCU_INTERRUPT_HANDLER	0
+#endif
+
 #if !defined(CONFIG_LVTS_ERROR_AEE_WARNING)
 #define CONFIG_LVTS_ERROR_AEE_WARNING	0
 #endif
@@ -2716,6 +2720,22 @@ static int tscpu_thermal_probe(struct platform_device *dev)
 
 	if (err)
 		tscpu_warn("tscpu_init IRQ register fail\n");
+
+#if CFG_LVTS_MCU_INTERRUPT_HANDLER
+	err = request_irq(thermal_mcu_irq_number,
+#if CFG_LVTS_DOMINATOR
+#if CFG_THERM_LVTS
+				lvts_tscpu_thermal_all_tc_interrupt_handler,
+#endif /* CFG_THERM_LVTS */
+#else
+				tscpu_thermal_all_tc_interrupt_handler,
+#endif /* CFG_LVTS_DOMINATOR */
+				IRQF_TRIGGER_NONE, THERMAL_NAME, NULL);
+
+	if (err)
+		tscpu_warn("tscpu_init mcu IRQ register fail\n");
+#endif /* CFG_LVTS_MCU_INTERRUPT_HANDLER */
+
 #else
 	err = request_irq(THERM_CTRL_IRQ_BIT_ID,
 #if CFG_LVTS_DOMINATOR

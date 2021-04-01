@@ -822,6 +822,17 @@ void lvts_device_read_count_RC_N(void)
 	unsigned int data;
 	char buffer[512];
 
+#if LVTS_REFINE_MANUAL_RCK_WITH_EFUSE
+	unsigned int  rc_data;
+	int refine_data_idx[L_TS_LVTS_NUM] = {0};
+	/*
+	 * comare count_rc_now with efuse.
+	 * > 6%, use efuse RC instead of count_rc_now
+	 * < 6%, keep count_rc_now value
+	 */
+	int count_rc_delta = 0;
+#endif
+
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
 
 		offset = lvts_tscpu_g_tc[i].tc_offset;
@@ -849,8 +860,56 @@ void lvts_device_read_count_RC_N(void)
 			/* Get RCK count data (sensor-N) */
 			data = lvts_read_device(0xC1020000, 0x00, i);
 
+
+#if LVTS_REFINE_MANUAL_RCK_WITH_EFUSE
+			rc_data = (data & _BITMASK_(23:0));
+			/*
+			 * if count rc now = 0, use efuse rck insead of
+			 * count_rc_now
+			 */
+			if (rc_data == 0) {
+				refine_data_idx[s_index] = 1;
+				lvts_printk("+ rc_data %d, s_index=%d",
+					rc_data, s_index);
+			} else {
+				if (g_count_rc[i] > rc_data)
+					count_rc_delta =
+					(g_count_rc[i] * 1000) / rc_data;
+				else
+					count_rc_delta =
+					(rc_data * 1000) / g_count_rc[i];
+			/*
+			 * if delta > 6%, use efuse rck insead of
+			 * count_rc_now
+			 */
+				lvts_printk("- rc_data %d, s_index=%d delta=%d",
+					rc_data, s_index, count_rc_delta);
+
+				if (count_rc_delta > 1061) {
+					refine_data_idx[s_index] = 1;
+					lvts_printk("-delta %d, data_idx[%d]=%d",
+						count_rc_delta, j, s_index);
+				}
+			}
+			//lvts_printk("i=%d, j=%d, s_index=%d, rc_data=%d\n",
+			//	i, j, s_index, rc_data);
+			//lvts_printk("(g_count_rc[i]*1000)=%d, rc_delta=%d\n",
+			//	(g_count_rc[i]*1000), count_rc_delta);
+#endif
+
+
 			/* Get RCK value from LSB[23:0] */
 			g_count_rc_now[s_index] = (data & _BITMASK_(23:0));
+
+#if LVTS_REFINE_MANUAL_RCK_WITH_EFUSE
+			lvts_printk("-refine_data_idx[%d]=%d\n",
+						s_index, refine_data_idx[s_index]);
+				if (refine_data_idx[s_index] == 1)
+					g_count_rc_now[s_index] = g_count_rc[i];
+
+#endif
+
+
 			/* Recover Setting for Normal Access on
 			 * temperature fetch
 			 */
@@ -1271,6 +1330,16 @@ static void lvts_interrupt_handler(int tc_num)
 	lvts_printk("[Thermal IRQ] LVTS thermal controller %d, LVTSMONINTSTS=0x%08x\n",
 		tc_num, ret);
 
+	if (ret & THERMAL_PROTECTION_STAGE_3) {
+		lvts_printk("[Thermal IRQ]: Thermal protection stage 3 interrupt triggered, Thermal HW reboot\n");
+		dump_lvts_error_info_by_ctrl_num(tc_num);
+	}
+
+	if (ret & THERMAL_IMMEDIATE_INTERRUPT_3) {
+		lvts_printk("[Thermal IRQ]: Immediate sense interrupt triggered, sensor point 3\n");
+		dump_lvts_error_info_by_ctrl_num(tc_num);
+	}
+
 	if (ret & THERMAL_COLD_INTERRUPT_0)
 		lvts_dbg_printk("[Thermal IRQ]: Cold interrupt triggered, sensor point 0\n");
 
@@ -1352,11 +1421,6 @@ static void lvts_interrupt_handler(int tc_num)
 	if (ret & THERMAL_HOT2NORMAL_INTERRUPT_3)
 		lvts_dbg_printk("[Thermal IRQ]: Hot to normal interrupt triggered, sensor point 3\n");
 
-	if (ret & THERMAL_IMMEDIATE_INTERRUPT_3) {
-		lvts_printk("[Thermal IRQ]: Immediate sense interrupt triggered, sensor point 3\n");
-		dump_lvts_error_info_by_ctrl_num(tc_num);
-	}
-
 	if (ret & THERMAL_FILTER_INTERRUPT_3)
 		lvts_dbg_printk("[Thermal IRQ]: Filter sense interrupt triggered, sensor point 3\n");
 
@@ -1370,10 +1434,6 @@ static void lvts_interrupt_handler(int tc_num)
 #endif
 	}
 
-	if (ret & THERMAL_PROTECTION_STAGE_3) {
-		lvts_printk("[Thermal IRQ]: Thermal protection stage 3 interrupt triggered, Thermal HW reboot\n");
-		dump_lvts_error_info_by_ctrl_num(tc_num);
-	}
 }
 
 irqreturn_t lvts_tscpu_thermal_all_tc_interrupt_handler(int irq, void *dev_id)
@@ -1397,14 +1457,19 @@ irqreturn_t lvts_tscpu_thermal_all_tc_interrupt_handler(int irq, void *dev_id)
 	lvts_printk("%s : THERMINTST = 0x%x THERMINTST_MCU = 0x%x\n",
 		__func__, ret, ret_mcu);
 
-	ret = ((ret_mcu >> 1) << LVTS_MCU_CONTROLLER0) |
-		((ret >> 1) << LVTS_AP_CONTROLLER0);
+	ret_mcu = ((ret_mcu >> 1) << LVTS_MCU_CONTROLLER0);
+	ret = ((ret >> 1) << LVTS_AP_CONTROLLER0);
 
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
 		mask = 1 << i;
 
-		if ((ret & mask) == 0)
-			lvts_interrupt_handler(i);
+		if (i < LVTS_AP_CONTROLLER0) {
+			if ((ret_mcu & mask) == 0)
+				lvts_interrupt_handler(i);
+		} else {
+			if ((ret & mask) == 0)
+				lvts_interrupt_handler(i);
+		}
 	}
 
 	return IRQ_HANDLED;
