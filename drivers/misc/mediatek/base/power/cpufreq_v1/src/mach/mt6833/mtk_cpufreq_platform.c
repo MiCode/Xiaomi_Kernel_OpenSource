@@ -633,11 +633,14 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 
 	if (val < 3 && val > 0)
 		lv = CPU_LEVEL_0;
+	else if (val == 6)
+		lv = CPU_LEVEL_2;
 	else
 		lv = CPU_LEVEL_1;
 #ifdef MTK_5GCM_PROJECT
 	lv = CPU_LEVEL_1;
 #endif
+
 	tag_pr_info("%d, Settle time(%d, %d) efuse_val = 0x%x\n",
 		lv, UP_SRATE, DOWN_SRATE, val);
 
