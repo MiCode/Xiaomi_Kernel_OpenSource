@@ -111,6 +111,7 @@ static void aee_kdump_cpu_stop(void *arg, void *regs, void *svc_sp)
 	register int sp asm("sp");
 	struct pt_regs *ptregs = (struct pt_regs *)regs;
 	void *creg;
+	elf_gregset_t *reg;
 
 	asm volatile("mov %0, %1\n\t"
 		     "mov fp, %2\n\t"
@@ -119,13 +120,22 @@ static void aee_kdump_cpu_stop(void *arg, void *regs, void *svc_sp)
 		);
 	cpu = get_HW_cpuid();
 
+	switch (sizeof(unsigned long)) {
+	case 4:
+		reg = (elf_gregset_t *)&crash_record->cpu_reg[cpu].arm32_reg.arm32_regs;
+		creg = (void *)&crash_record->cpu_reg[cpu].arm32_reg.arm32_creg;
+		break;
+	case 8:
+		reg = (elf_gregset_t *)&crash_record->cpu_regs[cpu].arm64_reg.arm64_regs;
+		creg = (void *)&crash_record->cpu_reg[cpu].arm64_reg.arm64_creg;
+		break;
+	default:
+		BUILD_BUG();
+	}
+
 	if (cpu >= 0) {
-		elf_core_copy_kernel_regs(
-			(elf_gregset_t *)&crash_record->cpu_regs[cpu], ptregs);
 		crash_save_cpu((struct pt_regs *)regs, cpu);
-
-		creg = (void *)&crash_record->cpu_creg[cpu];
-
+		elf_core_copy_kernel_regs(reg, ptregs);
 		mrdump_save_control_register(creg);
 	}
 
@@ -164,12 +174,23 @@ static void mrdump_stop_noncore_cpu(void *unused)
 	atomic_dec(&waiting_for_crash_ipi);
 	if (cpu >= 0) {
 		crash_setup_regs(&regs, NULL);
-		elf_core_copy_kernel_regs(
-			(elf_gregset_t *)&crash_record->cpu_regs[cpu], &regs);
 		crash_save_cpu((struct pt_regs *)&regs, cpu);
-
-		creg = (void *)&crash_record->cpu_creg[cpu];
-
+		switch (sizeof(unsigned long)) {
+		case 4:
+			elf_core_copy_kernel_regs(
+				(elf_gregset_t *)&crash_record->cpu_reg[cpu].arm32_reg.arm32_regs,
+				&regs);
+			creg = (void *)&crash_record->cpu_reg[cpu].arm32_reg.arm32_creg;
+			break;
+		case 8:
+			elf_core_copy_kernel_regs(
+				(elf_gregset_t *)&crash_record->cpu_reg[cpu].arm64_reg.arm64_regs,
+				&regs);
+			creg = (void *)&crash_record->cpu_reg[cpu].arm64_reg.arm64_creg;
+			break;
+		default:
+			BUILD_BUG();
+		}
 		mrdump_save_control_register(creg);
 	}
 
@@ -213,7 +234,16 @@ void mrdump_save_ctrlreg(int cpu)
 
 	if (mrdump_cblock && cpu >= 0) {
 		crash_record = &mrdump_cblock->crash_record;
-		creg = (void *)&crash_record->cpu_creg[cpu];
+		switch (sizeof(unsigned long)) {
+		case 4:
+			creg = (void *)&crash_record->cpu_reg[cpu].arm32_reg.arm32_creg;
+			break;
+		case 8:
+			creg = (void *)&crash_record->cpu_reg[cpu].arm64_reg.arm64_creg;
+			break;
+		default:
+			BUILD_BUG();
+		}
 		mrdump_save_control_register(creg);
 	}
 }
@@ -221,17 +251,27 @@ void mrdump_save_ctrlreg(int cpu)
 void mrdump_save_per_cpu_reg(int cpu, struct pt_regs *regs)
 {
 	struct mrdump_crash_record *crash_record;
+	elf_gregset_t *reg;
+
+	if (mrdump_cblock)
+		crash_record = &mrdump_cblock->crash_record;
+
+	switch (sizeof(unsigned long)) {
+	case 4:
+		reg = (elf_gregset_t *)&crash_record->cpu_reg[cpu].arm32_reg.arm32_regs;
+		break;
+	case 8:
+		reg = (elf_gregset_t *)&crash_record->cpu_reg[cpu].arm64_reg.arm64_regs;
+		break;
+	default:
+		BUILD_BUG();
+	}
 
 	if (regs) {
 		crash_save_cpu(regs, cpu);
 
-		if (mrdump_cblock) {
-			crash_record = &mrdump_cblock->crash_record;
-			elf_core_copy_kernel_regs(
-				(elf_gregset_t *)&crash_record->cpu_regs[cpu],
-				regs
-			);
-		}
+		if (reg)
+			elf_core_copy_kernel_regs(reg, regs);
 	}
 }
 
@@ -242,6 +282,7 @@ void __mrdump_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
 	struct mrdump_crash_record *crash_record;
 	void *creg;
 	int cpu;
+	elf_gregset_t *reg;
 
 	if (mrdump_cblock) {
 		crash_record = &mrdump_cblock->crash_record;
@@ -256,19 +297,29 @@ void __mrdump_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
 #endif
 
 		cpu = get_HW_cpuid();
+
+		switch (sizeof(unsigned long)) {
+		case 4:
+			reg = (elf_gregset_t *)&crash_record->cpu_reg[cpu].arm32_reg.arm32_regs;
+			creg = (void *)&crash_record->cpu_reg[cpu].arm32_reg.arm32_creg;
+			break;
+		case 8:
+			reg = (elf_gregset_t *)&crash_record->cpu_reg[cpu].arm64_reg.arm64_regs;
+			creg = (void *)&crash_record->cpu_reg[cpu].arm32_reg.arm32_creg;
+			break;
+		default:
+			BUILD_BUG();
+		}
+
 		if (cpu >= 0 && cpu < AEE_MTK_CPU_NUMS) {
 			crashing_cpu = cpu;
 			/* null regs, no register dump */
 			if (regs) {
 				crash_save_cpu(regs, cpu);
-				elf_core_copy_kernel_regs(
-					(elf_gregset_t *)
-					&crash_record->cpu_regs[cpu],
-					regs);
+				elf_core_copy_kernel_regs(reg, regs);
 			}
-
-			creg = (void *)&crash_record->cpu_creg[cpu];
-			mrdump_save_control_register(creg);
+			if (creg)
+				mrdump_save_control_register(creg);
 		}
 
 		va_start(ap, msg);
