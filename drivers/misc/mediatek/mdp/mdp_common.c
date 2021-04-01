@@ -992,8 +992,8 @@ static s32 cmdq_mdp_consume_handle(void)
 		err = cmdq_pkt_flush_async_ex(handle, 0, 0, false);
 		if (err < 0) {
 			/* change state so waiting thread may release it */
-			CMDQ_ERR("fail to flush handle:0x%p thread:%d\n",
-				handle, handle->thread);
+			CMDQ_ERR("fail to flush handle:0x%p\n",
+				handle);
 			continue;
 		}
 
