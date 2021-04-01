@@ -230,7 +230,6 @@ void sspm_lock_emi_mpu(void)
 }
 
 
-#ifdef SSPM_SHARE_BUFFER_SUPPORT
 int sspm_sbuf_init(void)
 {
 	struct device *dev = &sspm_pdev->dev;
@@ -246,4 +245,3 @@ int sspm_sbuf_init(void)
 	}
 	return 0;
 }
-#endif
