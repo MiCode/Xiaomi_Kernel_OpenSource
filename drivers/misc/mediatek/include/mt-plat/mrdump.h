@@ -29,7 +29,7 @@
 
 #define MRDUMP_ENABLE_COOKIE 0x590d2ba3
 
-#define MRDUMP_GO_DUMP "MRDUMP09"
+#define MRDUMP_GO_DUMP "MRDUMP10"
 
 #define KSYM_32        1
 #define KSYM_64        2
@@ -62,6 +62,16 @@ struct aarch64_ctrl_regs {
 	uint64_t sp_el[4];
 };
 
+struct mrdump_arm32_reg {
+	arm32_gregset_t arm32_regs;
+	struct arm32_ctrl_regs arm32_creg;
+};
+
+struct mrdump_arm64_reg {
+	aarch64_gregset_t arm64_regs;
+	struct aarch64_ctrl_regs arm64_creg;
+};
+
 struct mrdump_crash_record {
 	int reboot_mode;
 
@@ -70,14 +80,9 @@ struct mrdump_crash_record {
 	uint32_t fault_cpu;
 
 	union {
-		arm32_gregset_t arm32_regs;
-		aarch64_gregset_t aarch64_regs;
-	} cpu_regs[MRDUMP_CPU_MAX];
-
-	union {
-		struct arm32_ctrl_regs arm32_creg;
-		struct aarch64_ctrl_regs aarch64_creg;
-	} cpu_creg[MRDUMP_CPU_MAX];
+		struct mrdump_arm32_reg arm32_reg;
+		struct mrdump_arm64_reg arm64_reg;
+	} cpu_reg[0];
 };
 
 struct mrdump_ksyms_param {
