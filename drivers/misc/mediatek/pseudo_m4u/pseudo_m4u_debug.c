@@ -805,29 +805,50 @@ static int m4u_debug_set(void *data, u64 val)
 
 #if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		pr_notice(" >> boundary 0 top 5 user\n");
+#if BITS_PER_LONG == 32
+		m4u_find_max_port_size(0, (1ULL << 32) - 1,
+					&err_port, &err_size);
+#else
 		m4u_find_max_port_size(0, (1UL << 32) - 1,
 					&err_port, &err_size);
+#endif
 		report_custom_iommu_leakage(
 					    iommu_get_port_name(err_port),
 					    err_size);
 
 		pr_notice(" >> boundary 1 top 5 user\n");
+#if BITS_PER_LONG == 32
+		m4u_find_max_port_size(1ULL << 32, (2ULL << 32) - 1,
+					&err_port, &err_size);
+#else
 		m4u_find_max_port_size(1UL << 32, (2UL << 32) - 1,
 					&err_port, &err_size);
+#endif
+
 		report_custom_iommu_leakage(
 					    iommu_get_port_name(err_port),
 					    err_size);
 
 		pr_notice(" >> boundary 2 top 5 user\n");
+#if BITS_PER_LONG == 32
+		m4u_find_max_port_size(2ULL << 32, (3ULL << 32) - 1,
+					&err_port, &err_size);
+#else
 		m4u_find_max_port_size(2UL << 32, (3UL << 32) - 1,
 					&err_port, &err_size);
+#endif
 		report_custom_iommu_leakage(
 					    iommu_get_port_name(err_port),
 					    err_size);
 
 		pr_notice(" >> boundary 3 top 5 user\n");
+#if BITS_PER_LONG == 32
+		m4u_find_max_port_size(3ULL << 32, (4ULL << 32) - 1,
+					&err_port, &err_size);
+#else
 		m4u_find_max_port_size(3UL << 32, (4UL << 32) - 1,
 					&err_port, &err_size);
+#endif
 		report_custom_iommu_leakage(
 					    iommu_get_port_name(err_port),
 					    err_size);

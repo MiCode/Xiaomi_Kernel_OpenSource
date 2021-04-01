@@ -1432,8 +1432,13 @@ static void m4u_add_port_size(unsigned int larb,
 		unknown_port_size += (unsigned int)(size / 1024);
 }
 
+#if BITS_PER_LONG == 32
+void m4u_find_max_port_size(unsigned long long base, unsigned long long max,
+	unsigned int *err_port, unsigned int *err_size)
+#else
 void m4u_find_max_port_size(unsigned long base, unsigned long max,
 	unsigned int *err_port, unsigned int *err_size)
+#endif
 {
 	int i, j, k, t;
 	int size[PORT_MAX_COUNT] = {0, 0, 0, 0, 0};
@@ -1762,7 +1767,11 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 
 ERR_EXIT:
 	if (table &&
+#if BITS_PER_LONG == 32
+	    sg_phys(table->sgl) >= (1ULL << MTK_PHYS_ADDR_BITS))
+#else
 	    sg_phys(table->sgl) >= (1UL << MTK_PHYS_ADDR_BITS))
+#endif
 		ret = -ERANGE;
 	else
 		ret = -EINVAL;
