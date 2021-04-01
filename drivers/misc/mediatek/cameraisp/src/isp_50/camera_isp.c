@@ -615,6 +615,9 @@ struct ISP_TIMESTPQ_INFO_STRUCT {
 
 static struct ISP_RAW_INT_STATUS g_ISPIntStatus[ISP_IRQ_TYPE_AMOUNT];
 static struct ISP_RAW_INT_STATUS g_ISPIntStatus_SMI[ISP_IRQ_TYPE_AMOUNT];
+/* ISP_CAM_A_IDX-ISP_CAM_C_IDX, each has 13 CQ thread. */
+static unsigned int g_cqBaseAddr[ISP_CAM_C_IDX+1][13] = { { 0 } };
+static unsigned int g_cqDoneStatus[ISP_CAM_C_IDX+1] = {0};
 
 static unsigned int g_DmaErr_CAM[ISP_IRQ_TYPE_AMOUNT][_cam_max_] = {{0} };
 
@@ -650,6 +653,13 @@ enum eLOG_TYPE {
 	_LOG_INF = 1,
 	_LOG_ERR = 2,
 	_LOG_MAX = 3,
+};
+
+enum RAW_IDX {
+	CAM_A = 0,
+	CAM_B,
+	CAM_C,
+	CAM_MAX,
 };
 
 #define NORMAL_STR_LEN (512)
@@ -3524,6 +3534,48 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				Vsync_cnt[i] = 0;
 		}
 		break;
+	case  ISP_NOTE_CQTHR0_BASE:
+	{
+		unsigned int cq0_data[CAM_MAX][2];
+
+		if (copy_from_user(&cq0_data, (void *)Param,
+			sizeof(unsigned int) * CAM_MAX * 2) != 0) {
+			LOG_NOTICE("copy to user fail");
+			Ret = -EFAULT;
+			break;
+		}
+		if ((cq0_data[CAM_A][0] >= ISP_CAM_A_IDX) &&
+			(cq0_data[CAM_A][0] <= ISP_CAM_C_IDX)) {
+			if (cq0_data[CAM_A][1] != 0) {
+				g_cqBaseAddr[cq0_data[CAM_A][0]][0] =
+					cq0_data[CAM_A][1];
+				/*LOG_NOTICE("(CAM A)CQ0 pa 0x%x, 0x%x",
+				 *cq0_data[CAM_A][0], cq0_data[CAM_A][1]);
+				 */
+			}
+		}
+		if ((cq0_data[CAM_B][0] >= ISP_CAM_A_IDX) &&
+			(cq0_data[CAM_B][0] <= ISP_CAM_C_IDX)) {
+			if (cq0_data[CAM_B][1] != 0) {
+				g_cqBaseAddr[cq0_data[CAM_B][0]][0] =
+					cq0_data[CAM_B][1];
+				/*LOG_NOTICE("(CAM B)CQ0 pa 0x%x, 0x%x",
+				 *cq0_data[CAM_B][0], cq0_data[CAM_B][1]);
+				 */
+			}
+		}
+		if ((cq0_data[CAM_C][0] >= ISP_CAM_A_IDX) &&
+			(cq0_data[CAM_C][0] <= ISP_CAM_C_IDX)) {
+			if (cq0_data[CAM_C][1] != 0) {
+				g_cqBaseAddr[cq0_data[CAM_C][0]][0] =
+					cq0_data[CAM_C][1];
+				/*LOG_NOTICE("(CAM C)CQ0 pa 0x%x, 0x%x",
+				 *cq0_data[CAM_C][0], cq0_data[CAM_C][1]);
+				 */
+			}
+		}
+	}
+	break;
 	#ifdef ENABLE_KEEP_ION_HANDLE
 	case ISP_ION_IMPORT:
 		if (copy_from_user(&IonNode, (void *)Param,
@@ -4351,6 +4403,7 @@ static long ISP_ioctl_compat(
 	case ISP_SET_PM_QOS:
 	case ISP_GET_INT_ERR:
 	case ISP_SET_SEC_DAPC_REG:
+	case ISP_NOTE_CQTHR0_BASE:
 		return filp->f_op->unlocked_ioctl(filp, cmd, arg);
 	default:
 		return -ENOIOCTLCMD;
@@ -6383,7 +6436,7 @@ enum CAM_FrameST Irq_CAM_FrameStatus(
 		return CAM_FST_NORMAL;
 }
 
-#if (TIMESTAMP_QUEUE_EN == 1)
+
 static void ISP_GetDmaPortsStatus
 	(enum ISP_DEV_NODE_ENUM reg_module, unsigned int *DmaPortsStats)
 {
@@ -6409,7 +6462,7 @@ static void ISP_GetDmaPortsStatus
 	DmaPortsStats[_rsso_] = ((dma_en & 0x8000) ? 1 : 0);
 	DmaPortsStats[_ufgo_] = ((dma_en & 0x10000) ? 1 : 0);
 }
-
+#if (TIMESTAMP_QUEUE_EN == 1)
 static enum CAM_FrameST Irq_CAM_SttFrameStatus(
 					enum ISP_DEV_NODE_ENUM module,
 					enum ISP_IRQ_TYPE_ENUM irq_mod,
@@ -7394,6 +7447,808 @@ irqreturn_t ISP_Irq_CAM_C(int  Irq, void *DeviceId)
 	return ISP_Irq_CAM(ISP_IRQ_TYPE_INT_CAM_C_ST);
 }
 
+#define P1_WAM_CQ_ERR   (1)
+
+#if P1_WAM_CQ_ERR
+static void ISP_RecordCQAddr(enum ISP_DEV_NODE_ENUM regModule)
+{
+		unsigned int i = regModule;
+
+		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR1_CTL(i)) & 0x1)
+			g_cqBaseAddr[i][1] = ISP_RD32(
+				CAM_REG_CQ_THR1_BASEADDR(i));
+		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR4_CTL(i)) & 0x1)
+			g_cqBaseAddr[i][4] = ISP_RD32(
+				CAM_REG_CQ_THR4_BASEADDR(i));
+		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR5_CTL(i)) & 0x1)
+			g_cqBaseAddr[i][5] = ISP_RD32(
+				CAM_REG_CQ_THR5_BASEADDR(i));
+		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR7_CTL(i)) & 0x1)
+			g_cqBaseAddr[i][7] = ISP_RD32(
+				CAM_REG_CQ_THR7_BASEADDR(i));
+		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR8_CTL(i)) & 0x1)
+			g_cqBaseAddr[i][8] = ISP_RD32(
+				CAM_REG_CQ_THR8_BASEADDR(i));
+		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR10_CTL(i)) & 0x1)
+			g_cqBaseAddr[i][10] = ISP_RD32(
+				CAM_REG_CQ_THR10_BASEADDR(i));
+		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR12_CTL(i)) & 0x1)
+			g_cqBaseAddr[i][12] = ISP_RD32(
+				CAM_REG_CQ_THR12_BASEADDR(i));
+}
+
+unsigned int CQ_Recover(unsigned int ErrStatus,
+	enum ISP_IRQ_TYPE_ENUM irg_module)
+{
+	if (ErrStatus & CQ_VS_ERR_ST) {
+		unsigned int val;
+		unsigned int  DmaEnStatus[ISP_CAM_C_IDX+1][_cam_max_];
+		union FBC_CTRL_1 fbc_ctrl2[ISP_CAM_C_IDX+1][_cam_max_];
+		union CAMCQ_CQ_CTL_ cq_ctrl;
+		union CAMCTL_START_ en_ctlStart;
+		union CAMCTL_RAW_INT2_STATUS_ DmaStatus2;
+		union CAMCTL_TWIN_STATUS_ twinStatus;
+		unsigned long long  sec = 0, usec = 0, m_sec = 0, m_usec = 0;
+		unsigned long long  timeoutMs = 5000000;/*5ms*/
+		unsigned int reg_module = ISP_CAM_A_IDX;
+		unsigned int reg_module_array[3];
+		unsigned int reg_module_count;
+		unsigned int i = 0, tmp_module = 0;
+		unsigned int cq_done = 0;
+		int reset_count = 100;
+		bool ret = MTRUE;
+
+		switch (irg_module) {
+		case ISP_IRQ_TYPE_INT_CAM_A_ST:
+			reg_module = ISP_CAM_A_IDX;
+			break;
+		case ISP_IRQ_TYPE_INT_CAM_B_ST:
+			reg_module = ISP_CAM_B_IDX;
+			break;
+		case ISP_IRQ_TYPE_INT_CAM_C_ST:
+			reg_module = ISP_CAM_C_IDX;
+			break;
+		default:
+			LOG_NOTICE("Wrong IRQ module: %d",
+				(unsigned int)irg_module);
+			break;
+		}
+		LOG_NOTICE("+CQ recover");
+		reg_module_array[0] = reg_module;
+		twinStatus.Raw = ISP_RD32(CAM_REG_CTL_TWIN_STATUS(reg_module));
+
+		if (twinStatus.Bits.TWIN_EN == MTRUE) {
+			if (((reg_module_array[0] == ISP_CAM_A_IDX) &&
+				(twinStatus.Bits.MASTER_MODULE != CAM_A)) ||
+				((reg_module_array[0] == ISP_CAM_B_IDX) &&
+				(twinStatus.Bits.MASTER_MODULE != CAM_B)) ||
+				((reg_module_array[0] == ISP_CAM_C_IDX) &&
+				(twinStatus.Bits.MASTER_MODULE != CAM_C)))
+				goto EXIT_CQ_RECOVER;
+			for (i = 0; i < twinStatus.Bits.SLAVE_CAM_NUM; i++) {
+				if (i == 0) {
+					switch (twinStatus.Bits.TWIN_MODULE) {
+					case CAM_A:
+					reg_module_array[1] = ISP_CAM_A_IDX;
+					break;
+					case CAM_B:
+					reg_module_array[1] = ISP_CAM_B_IDX;
+					break;
+					case CAM_C:
+					reg_module_array[1] = ISP_CAM_C_IDX;
+						break;
+					default:
+					LOG_NOTICE(
+					"twin module is invalid! recover fail");
+					goto EXIT_CQ_RECOVER;
+					}
+				} else if (i == 1) {
+					switch (twinStatus.Bits.TRIPLE_MODULE) {
+					case CAM_A:
+					reg_module_array[2] = ISP_CAM_A_IDX;
+					break;
+					case CAM_B:
+					reg_module_array[2] = ISP_CAM_B_IDX;
+					break;
+					case CAM_C:
+					reg_module_array[2] = ISP_CAM_C_IDX;
+					break;
+					default:
+					LOG_NOTICE(
+					"twin module is invalid! recover fail");
+					goto EXIT_CQ_RECOVER;
+					}
+				}
+			}
+			reg_module_count = twinStatus.Bits.SLAVE_CAM_NUM + 1;
+		} else {
+			reg_module_count = 1;
+		}
+		val = ISP_RD32(CAM_REG_DCM_STATUS(reg_module));
+
+		//if ((val & 0x100) && (!(val & 0x80)))
+		/**/
+		for (i = 0; i < reg_module_count; i++) {
+			tmp_module = reg_module_array[i];
+			ISP_GetDmaPortsStatus(tmp_module,
+				&DmaEnStatus[tmp_module][0]);
+			if (DmaEnStatus[tmp_module][_aao_]) {
+				fbc_ctrl2[tmp_module][_aao_].Raw = ISP_RD32(
+					CAM_REG_FBC_AAO_CTL2(tmp_module));
+			} else {
+				fbc_ctrl2[tmp_module][_aao_].Raw = 0;
+			}
+
+			if (DmaEnStatus[tmp_module][_afo_]) {
+				fbc_ctrl2[tmp_module][_afo_].Raw = ISP_RD32(
+					CAM_REG_FBC_AFO_CTL2(tmp_module));
+			} else {
+				fbc_ctrl2[tmp_module][_afo_].Raw = 0;
+			}
+
+			if (DmaEnStatus[tmp_module][_flko_]) {
+				fbc_ctrl2[tmp_module][_flko_].Raw = ISP_RD32(
+					CAM_REG_FBC_FLKO_CTL2(tmp_module));
+			} else {
+				fbc_ctrl2[tmp_module][_flko_].Raw = 0;
+			}
+
+			if (DmaEnStatus[tmp_module][_pdo_]) {
+				fbc_ctrl2[tmp_module][_pdo_].Raw = ISP_RD32(
+					CAM_REG_FBC_PDO_CTL2(tmp_module));
+			} else {
+				fbc_ctrl2[tmp_module][_pdo_].Raw = 0;
+			}
+
+			if (DmaEnStatus[tmp_module][_pso_]) {
+				fbc_ctrl2[tmp_module][_pso_].Raw = ISP_RD32(
+					CAM_REG_FBC_PSO_CTL2(tmp_module));
+			} else {
+				fbc_ctrl2[tmp_module][_pso_].Raw = 0;
+			}
+
+			if (DmaEnStatus[tmp_module][_imgo_]) {
+				fbc_ctrl2[tmp_module][_imgo_].Raw = ISP_RD32(
+					CAM_REG_FBC_IMGO_CTL2(tmp_module));
+			} else {
+				fbc_ctrl2[tmp_module][_imgo_].Raw = 0;
+			}
+
+			if (DmaEnStatus[tmp_module][_rrzo_]) {
+				fbc_ctrl2[tmp_module][_rrzo_].Raw = ISP_RD32(
+					CAM_REG_FBC_RRZO_CTL2(tmp_module));
+			} else {
+				fbc_ctrl2[tmp_module][_rrzo_].Raw = 0;
+			}
+
+			if (DmaEnStatus[tmp_module][_ufeo_]) {
+				fbc_ctrl2[tmp_module][_ufeo_].Raw = ISP_RD32(
+					CAM_REG_FBC_UFEO_CTL2(tmp_module));
+			} else {
+				fbc_ctrl2[tmp_module][_ufeo_].Raw = 0;
+			}
+
+			if (DmaEnStatus[tmp_module][_ufgo_]) {
+				fbc_ctrl2[tmp_module][_ufgo_].Raw = ISP_RD32(
+					CAM_REG_FBC_UFGO_CTL2(tmp_module));
+			} else {
+				fbc_ctrl2[tmp_module][_ufgo_].Raw = 0;
+			}
+
+			if (DmaEnStatus[tmp_module][_rsso_]) {
+				fbc_ctrl2[tmp_module][_rsso_].Raw = ISP_RD32(
+					CAM_REG_FBC_RSSO_CTL2(tmp_module));
+			} else {
+				fbc_ctrl2[tmp_module][_rsso_].Raw = 0;
+			}
+
+			if (DmaEnStatus[tmp_module][_lmvo_]) {
+				fbc_ctrl2[tmp_module][_lmvo_].Raw = ISP_RD32(
+					CAM_REG_FBC_LMVO_CTL2(tmp_module));
+			} else {
+				fbc_ctrl2[tmp_module][_lmvo_].Raw = 0;
+			}
+
+			if (DmaEnStatus[tmp_module][_lcso_]) {
+				fbc_ctrl2[tmp_module][_lcso_].Raw = ISP_RD32(
+					CAM_REG_FBC_LCSO_CTL2(tmp_module));
+			} else {
+				fbc_ctrl2[tmp_module][_lcso_].Raw = 0;
+			}
+		}
+
+	/* 2. turn off TG viewFinder, CMOS */
+	ISP_WR32(CAM_REG_TG_VF_CON(reg_module),
+		(ISP_RD32(CAM_REG_TG_VF_CON(reg_module)) & 0xFFFFFFFE));
+	ISP_WR32(CAM_REG_TG_SEN_MODE(reg_module),
+		(ISP_RD32(CAM_REG_TG_SEN_MODE(reg_module)) & 0xFFFFFFFE));
+	LOG_NOTICE("disable viewfinder & cmos to do CQ recover");
+
+	/* 3. disable double buffer */
+	for (i = 0; i < reg_module_count; i++) {
+		tmp_module = reg_module_array[i];
+		ISP_WR32(CAM_REG_CTL_MISC(tmp_module),
+			(ISP_RD32(CAM_REG_CTL_MISC(tmp_module)) & 0xFFFFFFEF));
+		LOG_NOTICE("disable double buffer CAM%d to do CQ recover",
+			tmp_module);
+	}
+
+	LOG_NOTICE("start HW recover due to CQ over Vsync ...\n");
+	LOG_NOTICE("fbc:imgo:0x%x,rrzo:0x%x,ufeo:0x%x, ufgo:0x%x\n",
+			fbc_ctrl2[reg_module][_imgo_].Raw,
+			fbc_ctrl2[reg_module][_rrzo_].Raw,
+			fbc_ctrl2[reg_module][_ufeo_].Raw,
+			fbc_ctrl2[reg_module][_ufgo_].Raw);
+	LOG_NOTICE("rsso:0x%x,lmvo:0x%x,lcso:0x%x\n",
+			fbc_ctrl2[reg_module][_rsso_].Raw,
+			fbc_ctrl2[reg_module][_lmvo_].Raw,
+			fbc_ctrl2[reg_module][_lcso_].Raw);
+	LOG_NOTICE("fbc:aao:0x%x,afo:0x%x,flko:0x%x,pdo:0x%x,pso:0x%x\n",
+			fbc_ctrl2[reg_module][_aao_].Raw,
+			fbc_ctrl2[reg_module][_afo_].Raw,
+			fbc_ctrl2[reg_module][_flko_].Raw,
+			fbc_ctrl2[reg_module][_pdo_].Raw,
+			fbc_ctrl2[reg_module][_pso_].Raw);
+
+	do {
+		/* Start Reset Flow */
+		ret = MTRUE;
+		g_cqDoneStatus[reg_module] = 0;
+
+		/* 4. HW reset & SW reset */
+
+		ISP_WR32(CAM_REG_CTL_SW_CTL(reg_module), 0x0);
+		ISP_WR32(CAM_REG_CTL_SW_CTL(reg_module), 0x1);
+
+		mdelay(1); /* Wait reset done */
+		ISP_WR32(CAM_REG_CTL_SW_CTL(reg_module), 0x4);
+		ISP_WR32(CAM_REG_CTL_SW_CTL(reg_module), 0x0);
+
+		/* 5. restore FBC setting*/
+
+		for (i = 0; i < reg_module_count; i++) {
+			tmp_module = reg_module_array[i];
+			/**/
+			if (DmaEnStatus[tmp_module][_aao_]) {
+				ISP_WR32(CAM_REG_FBC_AAO_CTL2(tmp_module),
+				fbc_ctrl2[tmp_module][_aao_].Raw);
+			}
+
+			if (DmaEnStatus[tmp_module][_afo_]) {
+				ISP_WR32(CAM_REG_FBC_AFO_CTL2(tmp_module),
+				fbc_ctrl2[tmp_module][_afo_].Raw);
+			}
+
+			if (DmaEnStatus[tmp_module][_flko_]) {
+				ISP_WR32(CAM_REG_FBC_FLKO_CTL2(tmp_module),
+				fbc_ctrl2[tmp_module][_flko_].Raw);
+			}
+
+			if (DmaEnStatus[tmp_module][_pdo_]) {
+				ISP_WR32(CAM_REG_FBC_PDO_CTL2(tmp_module),
+				fbc_ctrl2[tmp_module][_pdo_].Raw);
+			}
+
+			if (DmaEnStatus[tmp_module][_pso_]) {
+				ISP_WR32(CAM_REG_FBC_PSO_CTL2(tmp_module),
+				fbc_ctrl2[tmp_module][_pso_].Raw);
+			}
+
+			if (DmaEnStatus[tmp_module][_imgo_]) {
+				ISP_WR32(CAM_REG_FBC_IMGO_CTL2(tmp_module),
+				fbc_ctrl2[tmp_module][_imgo_].Raw);
+			}
+
+			if (DmaEnStatus[tmp_module][_rrzo_]) {
+				ISP_WR32(CAM_REG_FBC_RRZO_CTL2(tmp_module),
+				fbc_ctrl2[tmp_module][_rrzo_].Raw);
+			}
+
+			if (DmaEnStatus[tmp_module][_ufeo_]) {
+				ISP_WR32(CAM_REG_FBC_UFEO_CTL2(tmp_module),
+				fbc_ctrl2[tmp_module][_ufeo_].Raw);
+			}
+
+			if (DmaEnStatus[tmp_module][_ufgo_]) {
+				ISP_WR32(CAM_REG_FBC_UFGO_CTL2(tmp_module),
+				fbc_ctrl2[tmp_module][_ufgo_].Raw);
+			}
+
+			if (DmaEnStatus[tmp_module][_rsso_]) {
+				ISP_WR32(CAM_REG_FBC_RSSO_CTL2(tmp_module),
+				fbc_ctrl2[tmp_module][_rsso_].Raw);
+			}
+
+			if (DmaEnStatus[tmp_module][_lmvo_]) {
+				ISP_WR32(CAM_REG_FBC_LMVO_CTL2(tmp_module),
+				fbc_ctrl2[tmp_module][_lmvo_].Raw);
+			}
+
+			if (DmaEnStatus[tmp_module][_lcso_]) {
+				ISP_WR32(CAM_REG_FBC_LCSO_CTL2(tmp_module),
+				fbc_ctrl2[tmp_module][_lcso_].Raw);
+			}
+		}
+
+	/* 6. restore CQ base address */
+
+	for (i = 0; i < reg_module_count; i++) {
+		tmp_module = reg_module_array[i];
+		cq_ctrl.Raw = (unsigned int)ISP_RD32(
+			CAM_REG_CQ_THR0_CTL(tmp_module));
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+			ISP_WR32(CAM_REG_CQ_THR0_BASEADDR(tmp_module),
+				g_cqBaseAddr[tmp_module][0]);
+			LOG_NOTICE("CQ0 base0x%x\n",
+				g_cqBaseAddr[tmp_module][0]);
+			if ((g_cqBaseAddr[tmp_module][0] -
+				(unsigned int)ISP_RD32(
+				CAM_REG_CQ_THR0_BASEADDR(tmp_module))) != 0) {
+				ISP_WR32(CAM_REG_CQ_THR0_BASEADDR(tmp_module),
+					g_cqBaseAddr[tmp_module][0]);
+				LOG_NOTICE("restore CQ0 again\n");
+			}
+		}
+	}
+	tmp_module = reg_module_array[0];
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR1_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1)
+		ISP_WR32(CAM_REG_CQ_THR1_BASEADDR(tmp_module),
+			g_cqBaseAddr[tmp_module][1]);
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR4_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		ISP_WR32(CAM_REG_CQ_THR4_BASEADDR(tmp_module),
+			g_cqBaseAddr[tmp_module][4]);
+		LOG_NOTICE("CQ4 base0x%x\n", g_cqBaseAddr[tmp_module][4]);
+		if ((g_cqBaseAddr[tmp_module][4] - (unsigned int)ISP_RD32(
+			CAM_REG_CQ_THR4_BASEADDR(tmp_module))) != 0) {
+			ISP_WR32(CAM_REG_CQ_THR4_BASEADDR(tmp_module),
+				g_cqBaseAddr[tmp_module][4]);
+			LOG_NOTICE("restore CQ4 again\n");
+		}
+	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR5_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1)
+		ISP_WR32(CAM_REG_CQ_THR5_BASEADDR(tmp_module),
+			g_cqBaseAddr[tmp_module][5]);
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR7_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1)
+		ISP_WR32(CAM_REG_CQ_THR7_BASEADDR(tmp_module),
+			g_cqBaseAddr[tmp_module][7]);
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR8_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		ISP_WR32(CAM_REG_CQ_THR8_BASEADDR(tmp_module),
+			g_cqBaseAddr[tmp_module][8]);
+		LOG_NOTICE("CQ8 base0x%x\n", g_cqBaseAddr[tmp_module][8]);
+		if ((g_cqBaseAddr[tmp_module][8] - (unsigned int)ISP_RD32(
+			CAM_REG_CQ_THR8_BASEADDR(tmp_module))) != 0) {
+			ISP_WR32(CAM_REG_CQ_THR8_BASEADDR(tmp_module),
+				g_cqBaseAddr[tmp_module][8]);
+			LOG_NOTICE("restore CQ8 again\n");
+		}
+	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR10_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1)
+		ISP_WR32(CAM_REG_CQ_THR10_BASEADDR(tmp_module),
+			g_cqBaseAddr[tmp_module][10]);
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR12_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		ISP_WR32(CAM_REG_CQ_THR12_BASEADDR(tmp_module),
+			g_cqBaseAddr[tmp_module][12]);
+		LOG_NOTICE("CQ12 base0x%x\n", g_cqBaseAddr[tmp_module][12]);
+		if ((g_cqBaseAddr[tmp_module][12] - (unsigned int)ISP_RD32(
+			CAM_REG_CQ_THR12_BASEADDR(tmp_module))) != 0) {
+			ISP_WR32(CAM_REG_CQ_THR12_BASEADDR(tmp_module),
+				g_cqBaseAddr[tmp_module][12]);
+			LOG_NOTICE("restore CQ12 again\n");
+		}
+	}
+
+	/* 7. set CQ immediate mode */
+
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR0_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x1;
+		ISP_WR32(CAM_REG_CQ_THR0_CTL(tmp_module), cq_ctrl.Raw);
+	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR1_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x1;
+		ISP_WR32(CAM_REG_CQ_THR1_CTL(tmp_module), cq_ctrl.Raw);
+	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR4_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x1;
+		ISP_WR32(CAM_REG_CQ_THR4_CTL(tmp_module), cq_ctrl.Raw);
+	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR5_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x1;
+		ISP_WR32(CAM_REG_CQ_THR5_CTL(tmp_module), cq_ctrl.Raw);
+	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR7_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x1;
+		ISP_WR32(CAM_REG_CQ_THR7_CTL(tmp_module), cq_ctrl.Raw);
+	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR8_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x1;
+		ISP_WR32(CAM_REG_CQ_THR8_CTL(tmp_module), cq_ctrl.Raw);
+	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR10_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x1;
+		ISP_WR32(CAM_REG_CQ_THR10_CTL(tmp_module), cq_ctrl.Raw);
+	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR12_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x1;
+		ISP_WR32(CAM_REG_CQ_THR12_CTL(tmp_module), cq_ctrl.Raw);
+	}
+
+	/* 8. CQ immediate trigger */
+
+	timeoutMs = 2000; /* 2ms */
+
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR0_CTL(tmp_module));
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+			en_ctlStart.Raw = 0x0;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+			en_ctlStart.Bits.CQ_THR0_START = 0x1;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+
+			DmaStatus2.Raw = g_cqDoneStatus[tmp_module];
+			cq_done = DmaStatus2.Bits.CQ_THR0_DONE_ST;
+			m_sec = ktime_get(); /* ns */
+			do_div(m_sec, 1000); /* usec */
+			m_usec = do_div(m_sec, 1000000);/* sec and usec */
+			/* wait CQ loading done */
+			while ((ISP_RD32(CAM_REG_CTL_START(tmp_module)) &
+			en_ctlStart.Bits.CQ_THR0_START) || (cq_done == 0)) {
+				sec = ktime_get(); /* ns */
+				do_div(sec, 1000); /* usec */
+				usec = do_div(sec, 1000000);/* sec and usec */
+				if ((usec  - m_usec) > timeoutMs) {
+					LOG_NOTICE("waitCQ0 timeout0x%x,0x%x\n",
+					(unsigned int)ISP_RD32(
+					CAM_REG_CTL_START(tmp_module)),
+					cq_done);
+					ret = MFALSE;
+					break;
+				}
+				DmaStatus2.Raw = g_cqDoneStatus[tmp_module];
+				cq_done |= DmaStatus2.Bits.CQ_THR0_DONE_ST;
+			}
+			LOG_NOTICE("wait CQ0 start 0x%x, base 0x%x\n",
+			(unsigned int)ISP_RD32(CAM_REG_CTL_START(tmp_module)),
+			(unsigned int)ISP_RD32(CAM_REG_CQ_THR0_BASEADDR(
+			tmp_module)));
+			if ((g_cqBaseAddr[tmp_module][0] -
+			(unsigned int)ISP_RD32(CAM_REG_CQ_THR0_BASEADDR(
+			tmp_module))) == 0)
+				ret = MFALSE;
+		}
+
+		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR1_CTL(
+			tmp_module));
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+			en_ctlStart.Raw = 0x0;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+			en_ctlStart.Bits.CQ_THR1_START = 0x1;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+
+			DmaStatus2.Raw = g_cqDoneStatus[tmp_module];
+			cq_done = DmaStatus2.Bits.CQ_THR1_DONE_ST;
+			m_sec = ktime_get(); /* ns */
+			do_div(m_sec, 1000); /* usec */
+			m_usec = do_div(m_sec, 1000000);/* sec and usec */
+			/* wait CQ loading done */
+			while ((ISP_RD32(CAM_REG_CTL_START(tmp_module)) &
+			en_ctlStart.Bits.CQ_THR1_START) || (cq_done == 0)) {
+				sec = ktime_get(); /* ns */
+				do_div(sec, 1000); /* usec */
+				usec = do_div(sec, 1000000);/* sec and usec */
+				if ((usec  - m_usec) > timeoutMs) {
+					LOG_NOTICE("wait CQ1 timeout\n");
+					ret = MFALSE;
+					break;
+				}
+				DmaStatus2.Raw = g_cqDoneStatus[tmp_module];
+				cq_done |= DmaStatus2.Bits.CQ_THR1_DONE_ST;
+			}
+		}
+
+		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR4_CTL(
+			tmp_module));
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+			en_ctlStart.Raw = 0x0;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+			en_ctlStart.Bits.CQ_THR4_START = 0x1;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+
+			DmaStatus2.Raw = g_cqDoneStatus[tmp_module];
+			cq_done = DmaStatus2.Bits.CQ_THR4_DONE_ST;
+			m_sec = ktime_get(); /* ns */
+			do_div(m_sec, 1000); /* usec */
+			m_usec = do_div(m_sec, 1000000);/* sec and usec */
+			/* wait CQ loading done */
+			while ((ISP_RD32(CAM_REG_CTL_START(tmp_module)) &
+			en_ctlStart.Bits.CQ_THR4_START) || (cq_done == 0)) {
+				sec = ktime_get(); /* ns */
+				do_div(sec, 1000); /* usec */
+				usec = do_div(sec, 1000000);/* sec and usec */
+				if ((usec  - m_usec) > timeoutMs) {
+					LOG_NOTICE("waitCQ4 timeout0x%x,0x%x\n",
+					(unsigned int)ISP_RD32(
+					CAM_REG_CTL_START(tmp_module)),
+					cq_done);
+					ret = MFALSE;
+					break;
+				}
+				DmaStatus2.Raw = g_cqDoneStatus[tmp_module];
+				cq_done |= DmaStatus2.Bits.CQ_THR4_DONE_ST;
+			}
+			LOG_NOTICE("wait CQ4 start 0x%x, base 0x%x\n",
+			(unsigned int)ISP_RD32(CAM_REG_CTL_START(tmp_module)),
+			(unsigned int)ISP_RD32(CAM_REG_CQ_THR4_BASEADDR(
+				tmp_module)));
+			if ((g_cqBaseAddr[tmp_module][4] -
+			(unsigned int)ISP_RD32(CAM_REG_CQ_THR4_BASEADDR(
+			tmp_module))) == 0)
+				ret = MFALSE;
+		}
+
+		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR5_CTL(
+			tmp_module));
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+			en_ctlStart.Raw = 0x0;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+			en_ctlStart.Bits.CQ_THR5_START = 0x1;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+
+			DmaStatus2.Raw = g_cqDoneStatus[tmp_module];
+			cq_done = DmaStatus2.Bits.CQ_THR5_DONE_ST;
+			m_sec = ktime_get(); /* ns */
+			do_div(m_sec, 1000); /* usec */
+			m_usec = do_div(m_sec, 1000000);/* sec and usec */
+			/* wait CQ loading done */
+			while ((ISP_RD32(CAM_REG_CTL_START(tmp_module)) &
+			en_ctlStart.Bits.CQ_THR5_START) || (cq_done == 0)) {
+				sec = ktime_get(); /* ns */
+				do_div(sec, 1000); /* usec */
+				usec = do_div(sec, 1000000);/* sec and usec */
+				if ((usec  - m_usec) > timeoutMs) {
+					LOG_NOTICE("wait CQ5 timeout\n");
+					ret = MFALSE;
+					break;
+				}
+				DmaStatus2.Raw = g_cqDoneStatus[tmp_module];
+				cq_done |= DmaStatus2.Bits.CQ_THR5_DONE_ST;
+			}
+		}
+
+		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR7_CTL(
+			tmp_module));
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+			en_ctlStart.Raw = 0x0;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+			en_ctlStart.Bits.CQ_THR7_START = 0x1;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+
+			DmaStatus2.Raw = g_cqDoneStatus[tmp_module];
+			cq_done = DmaStatus2.Bits.CQ_THR7_DONE_ST;
+			m_sec = ktime_get(); /* ns */
+			do_div(m_sec, 1000); /* usec */
+			m_usec = do_div(m_sec, 1000000);/* sec and usec */
+			/* wait CQ loading done */
+			while ((ISP_RD32(CAM_REG_CTL_START(tmp_module)) &
+			en_ctlStart.Bits.CQ_THR7_START) || (cq_done == 0)) {
+				sec = ktime_get(); /* ns */
+				do_div(sec, 1000); /* usec */
+				usec = do_div(sec, 1000000);/* sec and usec */
+				if ((usec  - m_usec) > timeoutMs) {
+					LOG_NOTICE("wait CQ7 timeout\n");
+					ret = MFALSE;
+					break;
+				}
+				DmaStatus2.Raw = g_cqDoneStatus[tmp_module];
+				cq_done |= DmaStatus2.Bits.CQ_THR7_DONE_ST;
+			}
+		}
+
+		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR8_CTL(
+			tmp_module));
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+			en_ctlStart.Raw = 0x0;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+			en_ctlStart.Bits.CQ_THR8_START = 0x1;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+
+			DmaStatus2.Raw = g_cqDoneStatus[tmp_module];
+			cq_done = DmaStatus2.Bits.CQ_THR8_DONE_ST;
+			m_sec = ktime_get(); /* ns */
+			do_div(m_sec, 1000); /* usec */
+			m_usec = do_div(m_sec, 1000000);/* sec and usec */
+			/* wait CQ loading done */
+			while ((ISP_RD32(CAM_REG_CTL_START(tmp_module)) &
+			en_ctlStart.Bits.CQ_THR8_START) || (cq_done == 0)) {
+				sec = ktime_get(); /* ns */
+				do_div(sec, 1000); /* usec */
+				usec = do_div(sec, 1000000);/* sec and usec */
+				if ((usec  - m_usec) > timeoutMs) {
+					LOG_NOTICE("waitCQ8 timeout0x%x,0x%x\n",
+					(unsigned int)ISP_RD32(
+					CAM_REG_CTL_START(tmp_module)),
+					cq_done);
+					ret = MFALSE;
+					break;
+				}
+				DmaStatus2.Raw = g_cqDoneStatus[tmp_module];
+				cq_done |= DmaStatus2.Bits.CQ_THR8_DONE_ST;
+			}
+			LOG_NOTICE("wait CQ8 start 0x%x, base 0x%x\n",
+			(unsigned int)ISP_RD32(CAM_REG_CTL_START(tmp_module)),
+			(unsigned int)ISP_RD32(CAM_REG_CQ_THR8_BASEADDR(
+			tmp_module)));
+			if ((g_cqBaseAddr[tmp_module][8] -
+			(unsigned int)ISP_RD32(CAM_REG_CQ_THR8_BASEADDR(
+			tmp_module))) == 0)
+				ret = MFALSE;
+		}
+
+		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR10_CTL(
+			tmp_module));
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+			en_ctlStart.Raw = 0x0;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+			en_ctlStart.Bits.CQ_THR10_START = 0x1;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+
+			DmaStatus2.Raw = g_cqDoneStatus[tmp_module];
+			cq_done = DmaStatus2.Bits.CQ_THR10_DONE_ST;
+			m_sec = ktime_get(); /* ns */
+			do_div(m_sec, 1000); /* usec */
+			m_usec = do_div(m_sec, 1000000);/* sec and usec */
+			/* wait CQ loading done */
+			while ((ISP_RD32(CAM_REG_CTL_START(tmp_module)) &
+			en_ctlStart.Bits.CQ_THR10_START) || (cq_done == 0)) {
+				sec = ktime_get(); /* ns */
+				do_div(sec, 1000); /* usec */
+				usec = do_div(sec, 1000000);/* sec and usec */
+				if ((usec  - m_usec) > timeoutMs) {
+					LOG_NOTICE("wait CQ10 timeout\n");
+					ret = MFALSE;
+					break;
+				}
+				DmaStatus2.Raw = g_cqDoneStatus[tmp_module];
+				cq_done |= DmaStatus2.Bits.CQ_THR10_DONE_ST;
+			}
+		}
+
+		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR12_CTL(
+			tmp_module));
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+			en_ctlStart.Raw = 0x0;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+			en_ctlStart.Bits.CQ_THR12_START = 0x1;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+
+			DmaStatus2.Raw = g_cqDoneStatus[tmp_module];
+			cq_done = DmaStatus2.Bits.CQ_THR12_DONE_ST;
+			m_sec = ktime_get(); /* ns */
+			do_div(m_sec, 1000); /* usec */
+			m_usec = do_div(m_sec, 1000000);/* sec and usec */
+			/* wait CQ loading done */
+			while ((ISP_RD32(CAM_REG_CTL_START(tmp_module)) &
+			en_ctlStart.Bits.CQ_THR12_START) || (cq_done == 0)) {
+				sec = ktime_get(); /* ns */
+				do_div(sec, 1000); /* usec */
+				usec = do_div(sec, 1000000);/* sec and usec */
+				if ((usec  - m_usec) > timeoutMs) {
+					LOG_NOTICE("CQ12 timeout0x%x, 0x%x\n",
+					(unsigned int)ISP_RD32(
+					CAM_REG_CTL_START(tmp_module)),
+					cq_done);
+					ret = MFALSE;
+					break;
+				}
+				DmaStatus2.Raw = g_cqDoneStatus[tmp_module];
+				cq_done |= DmaStatus2.Bits.CQ_THR12_DONE_ST;
+			}
+			LOG_NOTICE("wait CQ12 start 0x%x, base 0x%x\n",
+			(unsigned int)ISP_RD32(CAM_REG_CTL_START(tmp_module)),
+			(unsigned int)ISP_RD32(CAM_REG_CQ_THR12_BASEADDR(
+			tmp_module)));
+			if ((g_cqBaseAddr[tmp_module][12] -
+			(unsigned int)ISP_RD32(CAM_REG_CQ_THR12_BASEADDR(
+			tmp_module))) == 0)
+				ret = MFALSE;
+		}
+		reset_count--;
+	} while ((ret == MFALSE) && (reset_count > 0));
+
+
+	/* 9. set CQ continuous mode */
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR0_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x2;
+		ISP_WR32(CAM_REG_CQ_THR0_CTL(tmp_module), cq_ctrl.Raw);
+	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR1_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x2;
+		ISP_WR32(CAM_REG_CQ_THR1_CTL(tmp_module), cq_ctrl.Raw);
+	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR4_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x2;
+		ISP_WR32(CAM_REG_CQ_THR4_CTL(tmp_module), cq_ctrl.Raw);
+	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR5_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x2;
+		ISP_WR32(CAM_REG_CQ_THR5_CTL(tmp_module), cq_ctrl.Raw);
+	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR7_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x2;
+		ISP_WR32(CAM_REG_CQ_THR7_CTL(tmp_module), cq_ctrl.Raw);
+	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR8_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x2;
+		ISP_WR32(CAM_REG_CQ_THR8_CTL(tmp_module), cq_ctrl.Raw);
+	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR10_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x2;
+		ISP_WR32(CAM_REG_CQ_THR10_CTL(tmp_module), cq_ctrl.Raw);
+	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR12_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x2;
+		ISP_WR32(CAM_REG_CQ_THR12_CTL(tmp_module), cq_ctrl.Raw);
+	}
+
+	/* 10. enable double buffer */
+	for (i = 0; i < reg_module_count; i++) {
+		tmp_module = reg_module_array[i];
+		ISP_WR32(CAM_REG_CTL_MISC(tmp_module),
+			(ISP_RD32(CAM_REG_CTL_MISC(tmp_module)) | 0x10));
+		LOG_NOTICE("en double buf CAM%d for CQ recover", tmp_module);
+	}
+	/* 11. enable TG CMOS & viewFinder */
+	ISP_WR32(CAM_REG_TG_SEN_MODE(reg_module),
+		(ISP_RD32(CAM_REG_TG_SEN_MODE(reg_module)) | 0x1));
+	ISP_WR32(CAM_REG_TG_VF_CON(reg_module),
+		(ISP_RD32(CAM_REG_TG_VF_CON(reg_module)) | 0x1));
+	LOG_NOTICE("turn on TG VF, CMOS to do CQ recover 0x%x, 0x%x",
+		(unsigned int)ISP_RD32(CAM_REG_TG_SEN_MODE(reg_module)),
+		(unsigned int)ISP_RD32(CAM_REG_TG_VF_CON(reg_module)));
+EXIT_CQ_RECOVER:
+		LOG_NOTICE("-CQ recover");
+		/**/
+	}
+	return 0;
+}
+#endif
 irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 {
 	unsigned int module = irq_module;
@@ -7448,6 +8303,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	spin_lock(&(IspInfo.SpinLockIrq[module]));
 	IrqStatus = ISP_RD32(CAM_REG_CTL_RAW_INT_STATUS(reg_module));
 	DmaStatus = ISP_RD32(CAM_REG_CTL_RAW_INT2_STATUS(reg_module));
+	g_cqDoneStatus[reg_module] = DmaStatus;
 	WarnStatus_2 = ISP_RD32(CAM_REG_CTL_RAW_INT3_STATUS(reg_module));
 	spin_unlock(&(IspInfo.SpinLockIrq[module]));
 
@@ -8007,7 +8863,10 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 				"SW ISR right on next hw p1_done\n");
 
 		}
-
+#if P1_WAM_CQ_ERR
+		if (!(ErrStatus & CQ_VS_ERR_ST))
+			ISP_RecordCQAddr(reg_module);
+#endif
 		/* update SOF time stamp for eis user
 		 * (need match with the time stamp in image header)
 		 */
@@ -8106,8 +8965,13 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 
 			g_ISPIntStatus_SMI[irq_module].ispIntErr =
 				g_ISPIntStatus_SMI[irq_module].ispInt3Err = 0;
-		} else if (g_ISPIntStatus_SMI[irq_module].ispIntErr &
-		    CQ_VS_ERR_ST) {
+		}
+		if (g_ISPIntStatus_SMI[irq_module].ispIntErr &
+			CQ_VS_ERR_ST) {
+#if P1_WAM_CQ_ERR
+			CQ_Recover(g_ISPIntStatus_SMI[irq_module].ispIntErr,
+				irq_module);
+#endif
 			LOG_NOTICE("ERR:SMI_DUMP by module:%d\n", irq_module);
 			smi_debug_bus_hang_detect(false, ISP_DEV_NAME);
 
@@ -8201,6 +9065,7 @@ static void ISP_BH_Workqueue(struct work_struct *pWork)
 
 	IRQ_LOG_PRINTER(pWorkTable->module, m_CurrentPPB, _LOG_ERR);
 	IRQ_LOG_PRINTER(pWorkTable->module, m_CurrentPPB, _LOG_INF);
+	SMI_INFO_DUMP(pWorkTable->module);
 }
 #endif
 

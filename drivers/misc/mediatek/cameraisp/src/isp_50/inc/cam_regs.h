@@ -182,10 +182,12 @@
 #define CAMSYS_REG_CG_SET               (ISP_CAMSYS_CONFIG_BASE + 0x4)
 #define CAMSYS_REG_CG_CLR               (ISP_CAMSYS_CONFIG_BASE + 0x8)
 
+#define CAM_REG_CTL_START(module)   (isp_devs[module].regs + 0x0000)
 #define CAM_REG_CTL_EN(module)  (isp_devs[module].regs + 0x0004)
 #define CAM_REG_CTL_DMA_EN(module)  (isp_devs[module].regs + 0x0008)
 #define CAM_REG_CTL_FMT_SEL(module)  (isp_devs[module].regs + 0x000C)
 #define CAM_REG_CTL_SEL(module)  (isp_devs[module].regs + 0x0010)
+#define CAM_REG_CTL_MISC(module) (isp_devs[module].regs + 0x0014)
 #define CAM_REG_CTL_EN2(module)  (isp_devs[module].regs + 0x0018)
 #define CAM_REG_CTL_RAW_INT_EN(module)  (isp_devs[module].regs + 0x0020)
 #define CAM_REG_CTL_RAW_INT_STATUS(module)  (isp_devs[module].regs + 0x0024)
@@ -215,8 +217,29 @@
 #define CAM_REG_FBC_RSSO_CTL2(module)  (isp_devs[module].regs + 0x0164)
 #define CAM_REG_FBC_UFGO_CTL1(module)  (isp_devs[module].regs + 0x0168)
 #define CAM_REG_FBC_UFGO_CTL2(module)  (isp_devs[module].regs + 0x016C)
+#define CAM_REG_FBC_AAO_CTL2(module)   (isp_devs[module].regs + 0x013c)
+#define CAM_REG_FBC_AFO_CTL2(module)   (isp_devs[module].regs + 0x0134)
+#define CAM_REG_FBC_FLKO_CTL2(module)  (isp_devs[module].regs + 0x0154)
+#define CAM_REG_FBC_PDO_CTL2(module)   (isp_devs[module].regs + 0x0144)
+#define CAM_REG_FBC_PSO_CTL2(module)   (isp_devs[module].regs + 0x014c)
 
+#define CAM_REG_CQ_THR0_CTL(module)        (isp_devs[module].regs + 0x0194)
 #define CAM_REG_CQ_THR0_BASEADDR(module)  (isp_devs[module].regs + 0x0198)
+#define CAM_REG_CQ_THR1_CTL(module)        (isp_devs[module].regs + 0x01A0)
+#define CAM_REG_CQ_THR1_BASEADDR(module)   (isp_devs[module].regs + 0x01A4)
+#define CAM_REG_CQ_THR4_CTL(module)        (isp_devs[module].regs + 0x01C4)
+#define CAM_REG_CQ_THR4_BASEADDR(module)   (isp_devs[module].regs + 0x01C8)
+#define CAM_REG_CQ_THR5_CTL(module)        (isp_devs[module].regs + 0x01D0)
+#define CAM_REG_CQ_THR5_BASEADDR(module)   (isp_devs[module].regs + 0x01D4)
+#define CAM_REG_CQ_THR7_CTL(module)        (isp_devs[module].regs + 0x01E8)
+#define CAM_REG_CQ_THR7_BASEADDR(module)   (isp_devs[module].regs + 0x01EC)
+#define CAM_REG_CQ_THR8_CTL(module)        (isp_devs[module].regs + 0x01F4)
+#define CAM_REG_CQ_THR8_BASEADDR(module)   (isp_devs[module].regs + 0x01F8)
+#define CAM_REG_CQ_THR10_CTL(module)       (isp_devs[module].regs + 0x020C)
+#define CAM_REG_CQ_THR10_BASEADDR(module)  (isp_devs[module].regs + 0x0210)
+#define CAM_REG_CQ_THR12_CTL(module)       (isp_devs[module].regs + 0x0224)
+#define CAM_REG_CQ_THR12_BASEADDR(module)  (isp_devs[module].regs + 0x0228)
+#define CAM_REG_DCM_STATUS(module)          (isp_devs[module].regs + 0x0094)
 
 #define CAM_REG_TG_SEN_MODE(module)  (isp_devs[module].regs + 0x0230)
 #define CAM_REG_TG_VF_CON(module)  (isp_devs[module].regs + 0x0234)
@@ -369,4 +392,84 @@ union FBC_CTRL_2 {
 	} Bits;
 	unsigned int Raw;
 };  /* CAM_A_FBC_IMGO_CTL2 */
+
+union CAMCQ_CQ_CTL_ {
+	struct { /* 0x1A004194 */
+		unsigned int  CAMCQ_CQ_EN         :  1;/*  0.. 0, 0x00000001 */
+		unsigned int  rsv_1               :  3;/*  1.. 3, 0x0000000E */
+		unsigned int  CAMCQ_CQ_MODE       :  2;/*  4.. 5, 0x00000030 */
+		unsigned int  rsv_6               :  2;/*  6.. 7, 0x000000C0 */
+		unsigned int  CAMCQ_CQ_DONE_SEL   :  1;/*  8.. 8, 0x00000100 */
+		unsigned int  rsv_9               : 23;/*  9..31, 0xFFFFFE00 */
+	} Bits;
+	unsigned int Raw;
+}; /* CAM_A_CQ_THR0_CTL*/
+
+union CAMCTL_START_ {
+	struct { /* 0x1A004000 */
+		unsigned int  CQ_THR0_START    :  1; /*  0.. 0, 0x00000001 */
+		unsigned int  CQ_THR1_START    :  1; /*  1.. 1, 0x00000002 */
+		unsigned int  CQ_THR2_START    :  1; /*  2.. 2, 0x00000004 */
+		unsigned int  CQ_THR3_START    :  1; /*  3.. 3, 0x00000008 */
+		unsigned int  CQ_THR4_START    :  1; /*  4.. 4, 0x00000010 */
+		unsigned int  CQ_THR5_START    :  1; /*  5.. 5, 0x00000020 */
+		unsigned int  CQ_THR6_START    :  1; /*  6.. 6, 0x00000040 */
+		unsigned int  CQ_THR7_START    :  1; /*  7.. 7, 0x00000080 */
+		unsigned int  CQ_THR8_START    :  1; /*  8.. 8, 0x00000100 */
+		unsigned int  CQ_THR9_START    :  1; /*  9.. 9, 0x00000200 */
+		unsigned int  CQ_THR10_START   :  1; /* 10..10, 0x00000400 */
+		unsigned int  rsv_11           :  1; /* 11..11, 0x00000800 */
+		unsigned int  CQ_THR12_START   :  1; /* 12..12, 0x00001000 */
+		unsigned int  rsv_13           : 19; /* 13..31, 0xFFFFE000 */
+	} Bits;
+	unsigned int Raw;
+}; /* CAM_A_CTL_START */
+
+union CAMCTL_RAW_INT2_STATUS_ {
+	struct { /* 0x1A004034 */
+		unsigned int  INT2_IMGO_DONE_ST  :  1;/*  0.. 0, 0x00000001 */
+		unsigned int  INT2_UFEO_DONE_ST  :  1;/*  1.. 1, 0x00000002 */
+		unsigned int  INT2_RRZO_DONE_ST  :  1;/*  2.. 2, 0x00000004 */
+		unsigned int  INT2_LMVO_DONE_ST  :  1;/*  3.. 3, 0x00000008 */
+		unsigned int  INT2_FLKO_DONE_ST  :  1;/*  4.. 4, 0x00000010 */
+		unsigned int  INT2_AFO_DEONE_ST  :  1;/*  5.. 5, 0x00000020 */
+		unsigned int  INT2_LCSO_DONE_ST  :  1;/*  6.. 6, 0x00000040 */
+		unsigned int  INT2_AAO_DONE_ST   :  1;/*  7.. 7, 0x00000080 */
+		unsigned int  INT2_LSC3I_DONE_ST :  1;/*  8.. 8, 0x00000100 */
+		unsigned int  INT2_BPCI_DONE_ST  :  1;/*  9.. 9, 0x00000200 */
+		unsigned int  INT2_LSCI_DONE_ST  :  1;/* 10..10, 0x00000400 */
+		unsigned int  INT2_UFGO_DONE_ST  :  1;/* 11..11, 0x00000800 */
+		unsigned int  INT2_AF_TAR_DONE_ST:  1;/* 12..12, 0x00001000 */
+		unsigned int  INT2_PDO_DONE_ST   :  1;/* 13..13, 0x00002000 */
+		unsigned int  INT2_PSO_DONE_ST   :  1;/* 14..14, 0x00004000 */
+		unsigned int  INT2_RSSO_DONE_ST  :  1;/* 15..15, 0x00008000 */
+		unsigned int  CQ_THR0_DONE_ST    :  1;/* 16..16, 0x00010000 */
+		unsigned int  CQ_THR1_DONE_ST    :  1;/* 17..17, 0x00020000 */
+		unsigned int  CQ_THR2_DONE_ST    :  1;/* 18..18, 0x00040000 */
+		unsigned int  CQ_THR3_DONE_ST    :  1;/* 19..19, 0x00080000 */
+		unsigned int  CQ_THR4_DONE_ST    :  1;/* 20..20, 0x00100000 */
+		unsigned int  CQ_THR5_DONE_ST    :  1;/* 21..21, 0x00200000 */
+		unsigned int  CQ_THR6_DONE_ST    :  1;/* 22..22, 0x00400000 */
+		unsigned int  CQ_THR7_DONE_ST    :  1;/* 23..23, 0x00800000 */
+		unsigned int  CQ_THR8_DONE_ST    :  1;/* 24..24, 0x01000000 */
+		unsigned int  CQ_THR9_DONE_ST    :  1;/* 25..25, 0x02000000 */
+		unsigned int  CQ_THR10_DONE_ST   :  1;/* 26..26, 0x04000000 */
+		unsigned int  CQ_THR11_DONE_ST   :  1;/* 27..27, 0x08000000 */
+		unsigned int  CQ_THR12_DONE_ST   :  1;/* 28..28, 0x10000000 */
+		unsigned int  rsv_29             :  3;/* 29..31, 0xE0000000 */
+	} Bits;
+	unsigned int Raw;
+};   /* CAM_A_CTL_RAW_INT2_STATUS */
+
+union CAMCTL_TWIN_STATUS_ {
+	struct { /* 0x1A004050 */
+		unsigned int  TWIN_EN           : 4;  /*  0.. 3, 0x0000000F */
+		unsigned int  MASTER_MODULE     : 4;  /*  4.. 7, 0x000000F0 */
+		unsigned int  SLAVE_CAM_NUM     : 4;  /*  8..11, 0x00000F00 */
+		unsigned int  TWIN_MODULE       : 4;  /* 12..15, 0x0000F000 */
+		unsigned int  TRIPLE_MODULE     : 4;  /* 16..19, 0x000F0000 */
+		unsigned int  SPARE0            : 12; /* 20..31, 0xFFF00000 */
+	} Bits;
+	unsigned int Raw;
+};   /* CAM_CTL_TWIN_STATUS, CAM_A_CTL_SPARE0*/
 
