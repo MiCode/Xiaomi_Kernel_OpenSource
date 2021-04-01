@@ -211,8 +211,8 @@ static int cmdq_util_status_print(struct seq_file *seq, void *data)
 static int cmdq_util_record_print(struct seq_file *seq, void *data)
 {
 	struct cmdq_record *rec;
-	u32 acq_time, irq_time, begin_wait, exec_time, total_time, hw_time;
-	u64 submit_sec;
+	u32 acq_time, irq_time, begin_wait, exec_time, total_time;
+	u64 submit_sec, hw_time;
 	unsigned long submit_rem, hw_time_rem;
 	s32 i, idx;
 
@@ -256,7 +256,7 @@ static int cmdq_util_record_print(struct seq_file *seq, void *data)
 			~rec->exec_begin + 1 + rec->exec_end;
 		hw_time_rem = (u32)CMDQ_TICK_TO_US(hw_time);
 
-		seq_printf(seq, "%u,%u,%u.%06lu,\n",
+		seq_printf(seq, "%u,%u,%llu.%06lu,\n",
 			rec->exec_begin, rec->exec_end, hw_time, hw_time_rem);
 	}
 
