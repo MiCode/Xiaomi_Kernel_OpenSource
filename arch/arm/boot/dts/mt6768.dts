@@ -2231,6 +2231,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		clock-names = "usb0",
 			"usb0_clk_top_sel",
 			"usb0_clk_univpll3_d4";
+		pericfg= <&pericfg>;
 	};
 
 	msdc0: msdc@11230000 {
