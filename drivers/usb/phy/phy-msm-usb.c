@@ -2862,6 +2862,10 @@ static void check_for_sdp_connection(struct work_struct *w)
 	msm_otg_set_vbus_state(motg->vbus_state);
 }
 
+#define DP_PULSE_WIDTH_MSEC 200
+static int
+msm_otg_phy_drive_dp_pulse(struct msm_otg *motg, unsigned int pulse_width);
+
 static void msm_otg_sm_work(struct work_struct *w)
 {
 	struct msm_otg *motg = container_of(w, struct msm_otg, sm_work);
@@ -2905,6 +2909,9 @@ static void msm_otg_sm_work(struct work_struct *w)
 				get_pm_runtime_counter(dev), 0);
 			pm_runtime_put_sync(dev);
 			break;
+		} else if (get_psy_type(motg) == POWER_SUPPLY_TYPE_USB_CDP) {
+			pr_debug("Connected to CDP, pull DP up from sm_work\n");
+			msm_otg_phy_drive_dp_pulse(motg, DP_PULSE_WIDTH_MSEC);
 		}
 		pm_runtime_put(dev);
 		/* FALL THROUGH */
@@ -3073,19 +3080,25 @@ msm_otg_phy_drive_dp_pulse(struct msm_otg *motg, unsigned int pulse_width)
 {
 	int ret = 0;
 	u32 val;
+	bool in_lpm = false;
 
 	msm_otg_dbg_log_event(&motg->phy, "DRIVE DP PULSE",
 				motg->inputs, 0);
-	ret = msm_hsusb_ldo_enable(motg, USB_PHY_REG_ON);
-	if (ret)
-		return ret;
-	msm_hsusb_config_vddcx(1);
-	ret = regulator_enable(hsusb_vdd);
-	WARN(ret, "hsusb_vdd LDO enable failed for driving pulse\n");
-	clk_prepare_enable(motg->xo_clk);
-	clk_prepare_enable(motg->phy_csr_clk);
-	clk_prepare_enable(motg->core_clk);
-	clk_prepare_enable(motg->pclk);
+	if (atomic_read(&motg->in_lpm))
+		in_lpm = true;
+
+	if (in_lpm) {
+		ret = msm_hsusb_ldo_enable(motg, USB_PHY_REG_ON);
+		if (ret)
+			return ret;
+		msm_hsusb_config_vddcx(1);
+		ret = regulator_enable(hsusb_vdd);
+		WARN(ret, "hsusb_vdd LDO enable failed for driving pulse\n");
+		clk_prepare_enable(motg->xo_clk);
+		clk_prepare_enable(motg->phy_csr_clk);
+		clk_prepare_enable(motg->core_clk);
+		clk_prepare_enable(motg->pclk);
+	}
 
 	msm_otg_exit_phy_retention(motg);
 
@@ -3131,24 +3144,27 @@ msm_otg_phy_drive_dp_pulse(struct msm_otg *motg, unsigned int pulse_width)
 
 	/* Make sure above writes are completed before clks off */
 	mb();
-	clk_disable_unprepare(motg->pclk);
-	clk_disable_unprepare(motg->core_clk);
-	clk_disable_unprepare(motg->phy_csr_clk);
-	clk_disable_unprepare(motg->xo_clk);
-	regulator_disable(hsusb_vdd);
-	msm_hsusb_config_vddcx(0);
-	msm_hsusb_ldo_enable(motg, USB_PHY_REG_OFF);
+	if (in_lpm) {
+		clk_disable_unprepare(motg->pclk);
+		clk_disable_unprepare(motg->core_clk);
+		clk_disable_unprepare(motg->phy_csr_clk);
+		clk_disable_unprepare(motg->xo_clk);
+		regulator_disable(hsusb_vdd);
+		msm_hsusb_config_vddcx(0);
+		msm_hsusb_ldo_enable(motg, USB_PHY_REG_OFF);
+	} else {
+		msm_otg_reset(&motg->phy);
+	}
 
 	msm_otg_dbg_log_event(&motg->phy, "DP PULSE DRIVEN",
 				motg->inputs, 0);
 	return 0;
 }
 
-#define DP_PULSE_WIDTH_MSEC 200
-
 static void msm_otg_set_vbus_state(int online)
 {
 	struct msm_otg *motg = the_msm_otg;
+	struct usb_otg *otg = motg->phy.otg;
 
 	motg->vbus_state = online;
 
@@ -3161,7 +3177,12 @@ static void msm_otg_set_vbus_state(int online)
 				motg->inputs, 0);
 		if (test_and_set_bit(B_SESS_VLD, &motg->inputs))
 			return;
-		if (get_psy_type(motg) == POWER_SUPPLY_TYPE_USB_CDP) {
+		/*
+		 * It might race with block reset happening in sm_work, while
+		 * state machine is in undefined state. Add check to avoid it.
+		 */
+		if ((get_psy_type(motg) == POWER_SUPPLY_TYPE_USB_CDP) &&
+		    (otg->state != OTG_STATE_UNDEFINED)) {
 			pr_debug("Connected to CDP, pull DP up\n");
 			msm_otg_phy_drive_dp_pulse(motg, DP_PULSE_WIDTH_MSEC);
 		}
