@@ -655,7 +655,13 @@ int pob_qosbm_get_last_avg(int lastcount,
 			} while (vTmp > 0);
 
 			vRet = vTotal;
+#if BITS_PER_LONG == 64
 			do_div(vRet, lastcount);
+#elif BITS_PER_LONG == 32
+			vRet /= lastcount;
+#else
+		#error "unsigned long division is not supported for this architecture"
+#endif
 		}
 		break;
 	default:
