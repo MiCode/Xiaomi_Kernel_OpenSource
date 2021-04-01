@@ -2040,7 +2040,8 @@ static int mtk_iommu_create_mapping(struct device *dev)
 		if (start >> 32 != end >> 32 ||
 		    start >> 32 != mtk_domain_array[dom->id].boundary) {
 			pr_notice("%s, %d, err start:0x%lx, end:0x%lx, boundary:%d\n",
-				  __func__, __LINE__, start, end, boundary);
+				  __func__, __LINE__, start, end,
+				  mtk_domain_array[dom->id].boundary);
 			return -EINVAL;
 		}
 #endif
@@ -2349,10 +2350,9 @@ static struct iommu_group *mtk_iommu_create_iova_space(
 #endif
 	return group;
 
-#ifdef CONFIG_ARM64
 free_group:
 	kfree(group);
-#endif
+
 free_dom:
 	kfree(dom);
 	return NULL;
