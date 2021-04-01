@@ -282,6 +282,8 @@ static int cluster_power_cb(struct notifier_block *nb,
 			    unsigned long action, void *data)
 {
 	struct lpm_cluster *cluster_gov = container_of(nb, struct lpm_cluster, genpd_nb);
+	struct lpm_cpu *cpu_gov;
+	int cpu;
 
 	switch (action) {
 	case GENPD_NOTIFY_ON:
@@ -299,6 +301,14 @@ static int cluster_power_cb(struct notifier_block *nb,
 			clear_cpu_predict_history();
 			clear_cluster_history(cluster_gov);
 			break;
+		}
+
+		for_each_cpu(cpu, cluster_gov->genpd->cpus) {
+			if (cpu_online(cpu)) {
+				cpu_gov = per_cpu_ptr(&lpm_cpu_data, cpu);
+				if (cpu_gov->ipi_pending)
+					return NOTIFY_BAD;
+			}
 		}
 
 		cluster_gov->now = ktime_get();
