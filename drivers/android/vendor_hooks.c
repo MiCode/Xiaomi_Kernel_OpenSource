@@ -197,3 +197,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_rto_next_cpu);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_em_dev_register_pd);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_logbuf);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_logbuf_pr_cont);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_post_init_entity_util_avg);
