@@ -103,19 +103,19 @@
 };
 
 &swr_dmic_01 {
-	status = "ok";
+	status = "disabled";
 };
 
 &swr_dmic_02 {
-	status = "ok";
+	status = "disabled";
 };
 
 &swr_dmic_03 {
-	status = "ok";
+	status = "disabled";
 };
 
 &swr_dmic_04 {
-	status = "ok";
+	status = "disabled";
 };
 
 &cdc_tert_mi2s_gpios {
