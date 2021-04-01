@@ -76,7 +76,6 @@ static int32_t mddp_sm_ctrl_msg_hdlr(
 	int32_t                 ret = 0;
 
 	switch (msg_id) {
-#ifdef CONFIG_MTK_MDDP_WH_SUPPORT
 	case IPC_MSG_ID_MDFPM_SUSPEND_TAG_IND:
 		MDDP_S_LOG(MDDP_LL_NOTICE,
 				"%s: MDDP suspend indication.\n", __func__);
@@ -88,8 +87,6 @@ static int32_t mddp_sm_ctrl_msg_hdlr(
 				"%s: MDDP resume indication.\n", __func__);
 		ret = mddp_f_resume_tag();
 		break;
-#endif
-
 	default:
 		MDDP_S_LOG(MDDP_LL_ERR,
 				"%s: Unaccepted msg_id(%d)!\n",
@@ -293,14 +290,12 @@ int32_t mddp_sm_msg_hdlr(
 		app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
 		break;
 
-#ifdef CONFIG_MTK_MDDP_WH_SUPPORT
 	case MDFPM_USER_ID_DPFM:
 		ret = mddp_f_msg_hdlr(msg_id, buf, buf_len);
 		if (ret)
 			ret = mddp_u_msg_hdlr(msg_id, buf, buf_len);
 
 		goto _done;
-#endif
 
 	default:
 		/*

@@ -323,13 +323,11 @@ static struct mddp_sm_entry_t mddpwh_deactivating_state_machine_s[] = {
 {MDDP_EVT_DUMMY,        MDDP_STATE_DEACTIVATING, NULL} /* End of SM. */
 };
 
-#ifdef CONFIG_MTK_MDDP_WH_SUPPORT
 static struct mddp_sm_entry_t *prev_mddpwh_state_machines_s;
 static struct mddp_sm_entry_t mddpwh_dead_state_machine_s[] = {
 /* event                new_state                action */
 {MDDP_EVT_DUMMY,        MDDP_STATE_DEACTIVATED,  NULL} /* End of SM. */
 };
-#endif
 
 struct mddp_sm_entry_t *mddpwh_state_machines_s[MDDP_STATE_CNT] = {
 	mddpwh_uninit_state_machine_s, /* UNINIT */
@@ -378,14 +376,12 @@ static void mddpw_ack_md_reset(struct work_struct *mddp_work)
 	md_msg->data_len = 0;
 	if (unlikely(mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL) >= 0)) {
 		MDDP_S_LOG(MDDP_LL_INFO, "%s: send_success.\n", __func__);
-#ifdef CONFIG_MTK_MDDP_WH_SUPPORT
 		app->state_machines[app->state] = prev_mddpwh_state_machines_s;
 		if (app->state != MDDP_STATE_UNINIT &&
 		    app->state != MDDP_STATE_WAIT_DRV_REG) {
 			app->state = MDDP_STATE_WAIT_ENABLE;
 			mddp_sm_on_event(app, MDDP_EVT_FUNC_ENABLE);
 		}
-#endif
 		if (app->drv_hdlr.wifi_handle != NULL) {
 			struct mddpw_drv_handle_t *wifi_handle =
 				app->drv_hdlr.wifi_handle;
@@ -550,12 +546,10 @@ static int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 				"%s: Received WFPM RESET IND\n", __func__);
 		if (mddpw_reset_ongoing == 0) {
 			mddpw_reset_ongoing = 1;
-#ifdef CONFIG_MTK_MDDP_WH_SUPPORT
 			prev_mddpwh_state_machines_s =
 				app->state_machines[app->state];
 			app->state_machines[app->state] =
 				mddpwh_dead_state_machine_s;
-#endif
 			mod_timer(&mddpw_timer,
 					jiffies + msecs_to_jiffies(100));
 		} else
@@ -825,11 +819,7 @@ static ssize_t mddpwh_sysfs_callback(
 	char *buf,
 	size_t buf_len)
 {
-#ifdef CONFIG_MTK_MDDP_WH_SUPPORT
 	static uint8_t                  mddpwh_state = 1;
-#else
-	static uint8_t                  mddpwh_state;
-#endif
 	struct mddpw_net_stat_t        *md_stats;
 	uint8_t                         smem_attr;
 	uint32_t                        smem_size;
@@ -866,7 +856,6 @@ static ssize_t mddpwh_sysfs_callback(
 		return show_cnt;
 	}
 #ifdef CONFIG_MTK_ENG_BUILD
-#ifdef CONFIG_MTK_MDDP_WH_SUPPORT
 	if (cmd == MDDP_SYSFS_CMD_ENABLE_WRITE) {
 		if (sysfs_streq(buf, "1")) {
 			app->state_machines[MDDP_STATE_DEACTIVATED] =
@@ -884,7 +873,6 @@ static ssize_t mddpwh_sysfs_callback(
 	} else if (cmd == MDDP_SYSFS_CMD_ENABLE_READ)
 		return scnprintf(buf, PAGE_SIZE,
 					"wh_enable(%d)\n", mddpwh_state);
-#endif
 #endif
 #ifdef MDDP_EM_SUPPORT
 	if (cmd == MDDP_SYSFS_EM_CMD_TEST_WRITE) {
