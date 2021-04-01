@@ -226,7 +226,9 @@ static int ptp3_probe(struct platform_device *pdev)
 	fll_probe(pdev);
 	cinst_probe(pdev);
 	drcc_probe(pdev);
-	iglre_probe(pdev);
+
+	/* disable iglre duplicate config via ipi */
+	/* iglre_probe(pdev); */
 
 	return 0;
 }
