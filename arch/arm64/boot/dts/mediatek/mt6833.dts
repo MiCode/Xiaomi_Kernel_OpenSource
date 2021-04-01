@@ -1033,7 +1033,6 @@ page_owner=on loop.max_part=7";
 			compatible = "mediatek,mt6853-fhctl";
 			reg = <0 0x1000ce00 0 0x200>,
 				  <0 0x1000c000 0 0xe00>;
-			num-pll = <13>;
 			map0 {
 				domain = "top";
 				method = "fhctl-mcupm";
