@@ -1517,6 +1517,18 @@ static void process_dbg_opt(const char *opt)
 		}
 
 		DAL_Clean();
+	} else if (strncmp(opt, "ata_check", 9) == 0) {
+		struct drm_crtc *crtc;
+
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+
+		if (!crtc) {
+			DDPMSG("find crtc fail\n");
+			return;
+		}
+
+		mtk_crtc_lcm_ATA(crtc);
 	} else if (strncmp(opt, "path_switch:", 11) == 0) {
 		struct drm_crtc *crtc;
 		int path_sel, ret;
