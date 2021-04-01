@@ -2540,7 +2540,6 @@ firmware_class.path=/vendor/firmware";
 		compatible = "mediatek,audio", "syscon";
 		reg = <0 0x11220000 0 0x1000>;
 		/* interrupts = <GIC_SPI 153 IRQ_TYPE_LEVEL_LOW>; */
-		mediatek,btcvsd_snd = <&btcvsd_snd>;
 	};
 
 	audgpio: mt_soc_dl1_pcm@11220000 {
