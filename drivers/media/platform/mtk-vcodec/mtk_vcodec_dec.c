@@ -732,7 +732,6 @@ static void mtk_vdec_worker(struct work_struct *work)
 		clean_free_bs_buffer(ctx, &src_buf_info->bs_buffer);
 		if (ret == -EIO) {
 			/* ipi timeout / VPUD crashed ctx abort */
-			ctx->lock_abort = true;
 			ctx->state = MTK_STATE_ABORT;
 			mtk_vdec_queue_error_event(ctx);
 			v4l2_m2m_buf_done(&src_buf_info->vb,
@@ -940,18 +939,10 @@ int mtk_vdec_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d",
 		ctx, ctx->id, hw_id, ctx->dev->dec_sem[hw_id].count);
 
-	while (hw_id < MTK_VDEC_HW_NUM && ret != 0
-		&& !ctx->lock_abort)
+	while (hw_id < MTK_VDEC_HW_NUM && ret != 0)
 		ret = down_interruptible(&ctx->dev->dec_sem[hw_id]);
 
-	if (ret != 0) {
-		ctx->hw_locked[hw_id] = -1;
-		mtk_v4l2_debug(0,
-			"fail ctx %p [%d] hw_id %d sem_cnt %d ret %d state %d",
-			ctx, ctx->id, hw_id,
-			ctx->dev->dec_sem[hw_id].count, ret, ctx->state);
-	} else
-		ctx->hw_locked[hw_id] = 1;
+	ctx->hw_locked[hw_id] = 1;
 
 	return ret;
 }
@@ -992,19 +983,8 @@ void mtk_vcodec_dec_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx)
 
 void mtk_vcodec_dec_release(struct mtk_vcodec_ctx *ctx)
 {
-	int i = 0;
-
 	vdec_if_deinit(ctx);
-	for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
-		/* user killed when holding lock */
-		if (ctx->hw_locked[i] == 1)
-			vdec_decode_unprepare(ctx, i);
-		/* user killed when waiting lock, do not unlock*/
-		if (ctx->hw_locked[i] == -1) {
-			mtk_vdec_pmqos_end_frame(ctx, i);
-			mtk_vcodec_dec_clock_off(&ctx->dev->pm, i);
-		}
-	}
+	vdec_check_release_lock(ctx);
 }
 
 void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx)
@@ -2236,6 +2216,10 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		} else if (mtk_vcodec_unsupport || last_frame_type != NON_EOS) {
 			mtk_v4l2_err("[%d]Error!! Codec driver not support the file!",
 						 ctx->id);
+			mtk_vdec_queue_error_event(ctx);
+		} else if (ret == -EIO) {
+			/* ipi timeout / VPUD crashed ctx abort */
+			ctx->state = MTK_STATE_ABORT;
 			mtk_vdec_queue_error_event(ctx);
 		}
 		return;

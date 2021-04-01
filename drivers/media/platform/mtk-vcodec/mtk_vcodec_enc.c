@@ -2873,7 +2873,7 @@ int mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id, bool sec)
 		ctx, ctx->id, hw_id, ctx->dev->enc_sem[hw_id].count, sec,
 		ctx->dev->enc_hw_locked[hw_id]);
 
-	if (!ctx->lock_abort && lock != ctx->dev->enc_hw_locked[hw_id])
+	if (lock != ctx->dev->enc_hw_locked[hw_id])
 		ret = down_trylock(&ctx->dev->enc_sem[hw_id]);
 	else
 		ret = 0;
