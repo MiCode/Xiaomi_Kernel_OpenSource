@@ -28,7 +28,7 @@
  * ############################
  */
 #define SUPPORT_DCONFIG		(1)
-#define SUPPORT_PICACHU		(1)
+#define SUPPORT_PICACHU		(0)
 #define EEM_IPI_ENABLE		(1)
 #define ENABLE_INIT_TIMER	(1)
 
