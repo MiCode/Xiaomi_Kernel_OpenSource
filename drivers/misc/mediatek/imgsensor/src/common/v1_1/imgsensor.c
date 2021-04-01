@@ -60,6 +60,7 @@ static DEFINE_MUTEX(gimgsensor_mutex);
 static DEFINE_MUTEX(gimgsensor_open_mutex);
 
 struct IMGSENSOR gimgsensor;
+MUINT32 last_id;
 
 /******************************************************************************
  * Profiling
@@ -730,6 +731,12 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 	PK_DBG("[CAMERA_HW][VD]w=0x%x, h = 0x%x\n",
 			sensor_resolution.SensorVideoWidth,
 			sensor_resolution.SensorVideoHeight);
+
+	if (pSensorGetInfo->SensorId <= last_id) {
+		memset(mtk_ccm_name, 0, camera_info_size);
+		PK_DBG("memset ok");
+	}
+	last_id = pSensorGetInfo->SensorId;
 
 	/* Add info to proc: camera_info */
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
