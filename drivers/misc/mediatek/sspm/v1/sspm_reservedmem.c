@@ -117,7 +117,6 @@ phys_addr_t sspm_reserve_mem_get_size(unsigned int id)
 }
 EXPORT_SYMBOL_GPL(sspm_reserve_mem_get_size);
 
-#ifdef SSPM_SHARE_BUFFER_SUPPORT
 void __iomem *sspm_base;
 phys_addr_t sspm_sbuf_get(unsigned int offset)
 {
@@ -135,7 +134,6 @@ phys_addr_t sspm_sbuf_get(unsigned int offset)
 	}
 }
 EXPORT_SYMBOL_GPL(sspm_sbuf_get);
-#endif
 
 int sspm_reserve_memory_init(struct platform_device *pdev)
 {
