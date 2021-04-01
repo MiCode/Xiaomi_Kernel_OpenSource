@@ -419,9 +419,10 @@ struct map_state {
 #define MAP_STATE_LVL 3
 
 static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
-			  phys_addr_t paddr, size_t size, arm_lpae_iopte prot,
-			  int lvl, arm_lpae_iopte *ptep, arm_lpae_iopte *prev_ptep,
-			  struct map_state *ms, gfp_t gfp, unsigned long *flags)
+			  phys_addr_t paddr, size_t size, size_t pgcount,
+			  arm_lpae_iopte prot, int lvl, arm_lpae_iopte *ptep,
+			  arm_lpae_iopte *prev_ptep, struct map_state *ms,
+			  gfp_t gfp, unsigned long *flags, size_t *mapped)
 {
 	arm_lpae_iopte *cptep, pte;
 	size_t block_size = ARM_LPAE_BLOCK_SIZE(lvl, data);
@@ -430,15 +431,24 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 	struct io_pgtable_cfg *cfg = &data->iop.cfg;
 	void *cookie = data->iop.cookie;
 	arm_lpae_iopte *pgtable = ptep;
+	int ret = 0, num_entries, max_entries, map_idx_start;
 
 	/* Find our entry at the current level */
-	ptep += ARM_LPAE_LVL_IDX(iova, lvl, data);
+	map_idx_start = ARM_LPAE_LVL_IDX(iova, lvl, data);
+	ptep += map_idx_start;
 
 	/* If we can install a leaf entry at this level, then do so */
 	if (size == block_size) {
-		if (!ms)
-			return arm_lpae_init_pte(data, iova, paddr, prot, lvl,
-						 1, ptep, prev_ptep, true);
+		if (!ms) {
+			max_entries = ARM_LPAE_PTES_PER_TABLE(data) - map_idx_start;
+			num_entries = min_t(int, pgcount, max_entries);
+			ret = arm_lpae_init_pte(data, iova, paddr, prot, lvl,
+						num_entries, ptep, prev_ptep, true);
+			if (!ret && mapped)
+				*mapped += size * num_entries;
+
+			return ret;
+		}
 
 		if (lvl == MAP_STATE_LVL) {
 			prev_block_size = ARM_LPAE_BLOCK_SIZE(lvl - 1, data);
@@ -470,8 +480,12 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 			ms = NULL;
 		}
 
-		return arm_lpae_init_pte(data, iova, paddr, prot, lvl, 1, ptep, prev_ptep,
-					 ms == NULL);
+		ret = arm_lpae_init_pte(data, iova, paddr, prot, lvl, 1, ptep, prev_ptep,
+					ms == NULL);
+		if (!ret && mapped)
+			*mapped += size;
+
+		return ret;
 	}
 
 	/* We can't allocate tables at the final level */
@@ -511,8 +525,8 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 	}
 
 	/* Rinse, repeat */
-	return __arm_lpae_map(data, iova, paddr, size, prot, lvl + 1, cptep, ptep,
-			      ms, gfp, flags);
+	return __arm_lpae_map(data, iova, paddr, size, pgcount, prot, lvl + 1,
+			      cptep, ptep, ms, gfp, flags, mapped);
 }
 
 static arm_lpae_iopte arm_lpae_prot_to_pte(struct arm_lpae_io_pgtable *data,
@@ -579,8 +593,9 @@ static arm_lpae_iopte arm_lpae_prot_to_pte(struct arm_lpae_io_pgtable *data,
 	return pte;
 }
 
-static int arm_lpae_map(struct io_pgtable_ops *ops, unsigned long iova,
-			phys_addr_t paddr, size_t size, int iommu_prot, gfp_t gfp)
+static int arm_lpae_map_pages(struct io_pgtable_ops *ops, unsigned long iova,
+			      phys_addr_t paddr, size_t pgsize, size_t pgcount,
+			      int iommu_prot, gfp_t gfp, size_t *mapped)
 {
 	struct arm_lpae_io_pgtable *data = io_pgtable_ops_to_data(ops);
 	struct io_pgtable_cfg *cfg = &data->iop.cfg;
@@ -594,7 +609,7 @@ static int arm_lpae_map(struct io_pgtable_ops *ops, unsigned long iova,
 	if (!(iommu_prot & (IOMMU_READ | IOMMU_WRITE)))
 		return 0;
 
-	if (WARN_ON(!size || (size & cfg->pgsize_bitmap) != size))
+	if (WARN_ON(!pgsize || (pgsize & cfg->pgsize_bitmap) != pgsize || !pgcount))
 		return -EINVAL;
 
 	if (cfg->quirks & IO_PGTABLE_QUIRK_ARM_TTBR1)
@@ -603,8 +618,10 @@ static int arm_lpae_map(struct io_pgtable_ops *ops, unsigned long iova,
 		return -ERANGE;
 
 	prot = arm_lpae_prot_to_pte(data, iommu_prot);
+
 	spin_lock_irqsave(&data->lock, flags);
-	ret = __arm_lpae_map(data, iova, paddr, size, prot, lvl, ptep, NULL, NULL, gfp, &flags);
+	ret = __arm_lpae_map(data, iova, paddr, pgsize, pgcount, prot, lvl,
+			     ptep, NULL, NULL, gfp, &flags, mapped);
 	spin_unlock_irqrestore(&data->lock, flags);
 	/*
 	 * Synchronise all PTE updates for the new mapping before there's
@@ -613,6 +630,13 @@ static int arm_lpae_map(struct io_pgtable_ops *ops, unsigned long iova,
 	wmb();
 
 	return ret;
+}
+
+static int arm_lpae_map(struct io_pgtable_ops *ops, unsigned long iova,
+			phys_addr_t paddr, size_t size, int iommu_prot, gfp_t gfp)
+{
+	return arm_lpae_map_pages(ops, iova, paddr, size, 1, iommu_prot, gfp,
+				  NULL);
 }
 
 static size_t arm_lpae_pgsize(unsigned long pgsize_bitmap, unsigned long addr_merge,
@@ -682,8 +706,9 @@ static int arm_lpae_map_by_pgsize(struct io_pgtable_ops *ops,
 					  1, ms_ptep, ms->prev_pgtable, false);
 			ms->num_pte++;
 		} else {
-			ret = __arm_lpae_map(data, iova, paddr, pgsize, prot, lvl, ptep,
-					     NULL, ms, gfp, flags);
+			ret = __arm_lpae_map(data, iova, paddr, pgsize, 1,
+					     prot, lvl, ptep, NULL, ms, gfp,
+					     flags, NULL);
 			if (ret)
 				return ret;
 		}
@@ -1089,6 +1114,7 @@ arm_lpae_alloc_pgtable(struct io_pgtable_cfg *cfg)
 
 	data->iop.ops = (struct io_pgtable_ops) {
 		.map		= arm_lpae_map,
+		.map_pages	= arm_lpae_map_pages,
 		.map_sg		= arm_lpae_map_sg,
 		.unmap		= arm_lpae_unmap,
 		.unmap_pages	= arm_lpae_unmap_pages,
