@@ -364,6 +364,11 @@ int llcc_slice_activate(struct llcc_slice_desc *desc)
 		return -EINVAL;
 
 	mutex_lock(&drv_data->lock);
+	if ((atomic_read(&drv_data->refcount)) >= 1) {
+		atomic_inc_return(&drv_data->refcount);
+		mutex_unlock(&drv_data->lock);
+		return 0;
+	}
 	if (test_bit(desc->slice_id, drv_data->bitmap)) {
 		mutex_unlock(&drv_data->lock);
 		return 0;
@@ -377,7 +382,7 @@ int llcc_slice_activate(struct llcc_slice_desc *desc)
 		mutex_unlock(&drv_data->lock);
 		return ret;
 	}
-
+	atomic_inc_return(&drv_data->refcount);
 	__set_bit(desc->slice_id, drv_data->bitmap);
 	mutex_unlock(&drv_data->lock);
 
@@ -404,6 +409,11 @@ int llcc_slice_deactivate(struct llcc_slice_desc *desc)
 		return -EINVAL;
 
 	mutex_lock(&drv_data->lock);
+	if ((atomic_read(&drv_data->refcount)) > 1) {
+		atomic_dec_return(&drv_data->refcount);
+		mutex_unlock(&drv_data->lock);
+		return 0;
+	}
 	if (!test_bit(desc->slice_id, drv_data->bitmap)) {
 		mutex_unlock(&drv_data->lock);
 		return 0;
@@ -416,7 +426,7 @@ int llcc_slice_deactivate(struct llcc_slice_desc *desc)
 		mutex_unlock(&drv_data->lock);
 		return ret;
 	}
-
+	atomic_dec_return(&drv_data->refcount);
 	__clear_bit(desc->slice_id, drv_data->bitmap);
 	mutex_unlock(&drv_data->lock);
 
@@ -654,6 +664,7 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 	drv_data->cfg = llcc_cfg;
 	drv_data->cfg_size = sz;
 	mutex_init(&drv_data->lock);
+	atomic_set(&drv_data->refcount, 0);
 	platform_set_drvdata(pdev, drv_data);
 
 	ret = qcom_llcc_cfg_program(pdev);

@@ -5,6 +5,7 @@
  */
 
 #include <linux/platform_device.h>
+#include <linux/types.h>
 #ifndef __LLCC_QCOM__
 #define __LLCC_QCOM__
 
@@ -100,6 +101,7 @@ struct llcc_drv_data {
 	int ecc_irq;
 	int llcc_ver;
 	bool cap_based_alloc_and_pwr_collapse;
+	atomic_t refcount;
 };
 
 #if IS_ENABLED(CONFIG_QCOM_LLCC)
