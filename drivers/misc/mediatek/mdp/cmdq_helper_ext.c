@@ -4504,7 +4504,13 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 				u32 cost = va[1] < va[0] ?
 					~va[0] + va[1] : va[1] - va[0];
 
+#if BITS_PER_LONG == 64
 				do_div(cost, 26);
+#elif BITS_PER_LONG == 32
+				cost /= 26;
+#else
+		#error "unsigned long division is not supported for this architecture"
+#endif
 				if (cost > 80000) {
 					CMDQ_LOG(
 						"[WARN]task executes %uus engine:%#llx caller:%llu-%s\n",
