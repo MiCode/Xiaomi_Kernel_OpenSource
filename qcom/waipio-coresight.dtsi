@@ -50,6 +50,40 @@
 		};
 	};
 
+	lpass_stm: lpass_stm {
+		compatible = "qcom,coresight-dummy";
+		coresight-name = "coresight-lpass-stm";
+		qcom,dummy-source;
+
+		atid = <25>;
+
+		out-ports {
+			port {
+				lpass_stm_out_funnel_lpass_lpi: endpoint {
+					remote-endpoint =
+					<&funnel_lpass_lpi_in_lpass_stm>;
+				};
+			};
+		};
+	};
+
+	sensor_stm: sensor_stm {
+		compatible = "qcom,coresight-dummy";
+		coresight-name = "coresight-sensor-stm";
+		qcom,dummy-source;
+
+		atid = <23>;
+
+		out-ports {
+			port {
+				sensor_stm_out_funnel_ssc: endpoint {
+					remote-endpoint =
+					<&funnel_ssc_in_sensor_stm>;
+				};
+			};
+		};
+	};
+
 	tpdm_swao_prio_0: tpdm@10b09000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb968>;
@@ -1155,13 +1189,24 @@
 		coresight-name = "coresight-funnel-ssc";
 
 		in-ports {
-			port {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
 				funnel_ssc_in_ssc_etm0: endpoint {
 					remote-endpoint =
 					<&ssc_etm0_out_funnel_ssc>;
 				};
 			};
 
+			port@1 {
+				reg = <1>;
+				funnel_ssc_in_sensor_stm: endpoint {
+					remote-endpoint =
+					<&sensor_stm_out_funnel_ssc>;
+				};
+			};
 		};
 
 		out-ports {
@@ -1188,6 +1233,14 @@
 				funnel_lpass_lpi_in_audio_etm0: endpoint {
 					remote-endpoint =
 					<&audio_etm0_out_funnel_lpass_lpi>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				funnel_lpass_lpi_in_lpass_stm: endpoint {
+					remote-endpoint =
+					<&lpass_stm_out_funnel_lpass_lpi>;
 				};
 			};
 
