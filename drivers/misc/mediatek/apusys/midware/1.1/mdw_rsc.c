@@ -757,6 +757,9 @@ static int mdw_rsc_get_norm_prio(struct mdw_dev_info *in)
 	struct mdw_apu_sc *sc = NULL;
 	int type = 0, prio = -ENOENT;
 
+	if (in->idx >= MDW_RSC_TAB_DEV_MAX || in->idx < 0)
+		return -EINVAL;
+
 	type = in->type % APUSYS_DEVICE_RT;
 	tab = mdw_rsc_get_tab(type);
 	if (!tab)
