@@ -207,11 +207,15 @@ int mt6833_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		}
 
 		/* set memif disable */
+#if defined(CONFIG_MTK_VOW_SUPPORT)
+		/* TODO: check memif->vow_barge_in_enable */
 		if (runtime->stop_threshold == ~(0U))
-			/* barge-in set stop_threshold == ~(0U), memif is set by scp */
 			ret = 0;
 		else
 			ret = mtk_memif_set_disable(afe, id);
+#else
+		ret = mtk_memif_set_disable(afe, id);
+#endif
 
 		if (ret) {
 			dev_err(afe->dev, "%s(), error, id %d, memif enable, ret %d\n",
@@ -227,11 +231,14 @@ int mt6833_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 					       0 << irq_data->irq_en_shift);
 
 		/* and clear pending IRQ */
-		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
+#if defined(CONFIG_MTK_VOW_SUPPORT)
+		/* TODO: check memif->vow_barge_in_enable */
 		if (runtime->stop_threshold != ~(0U))
+#endif
 			regmap_write(afe->regmap, irq_data->irq_clr_reg,
-				     1 << irq_data->irq_clr_shift);
+					 1 << irq_data->irq_clr_shift);
 		return ret;
+
 	default:
 		return -EINVAL;
 	}

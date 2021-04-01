@@ -237,7 +237,7 @@ int mt6853_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 
 		if (ret) {
 			dev_err(afe->dev, "%s(), error, id %d, memif enable, ret %d\n",
-				     __func__, id, ret);
+				__func__, id, ret);
 		}
 
 		/* disable interrupt */
@@ -250,15 +250,16 @@ int mt6853_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (runtime->stop_threshold != ~(0U))
 			mtk_regmap_update_bits(afe->regmap,
 					       irq_data->irq_en_reg,
-						   1 << irq_data->irq_en_shift,
-						   0 << irq_data->irq_en_shift);
+					       1 << irq_data->irq_en_shift,
+					       0 << irq_data->irq_en_shift);
 #endif
 		/* clear pending IRQ */
-		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) || defined(CONFIG_MTK_VOW_SUPPORT)
+		/* TODO: check memif->vow_barge_in_enable */
 		if (runtime->stop_threshold != ~(0U))
+#endif
 			regmap_write(afe->regmap, irq_data->irq_clr_reg,
 				     1 << irq_data->irq_clr_shift);
-
 		return ret;
 	default:
 		return -EINVAL;

@@ -216,7 +216,7 @@ int mt6785_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 			}
 		}
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	defined(CONFIG_MTK_VOW_SUPPORT)
+	defined(CONFIG_MTK_VOW_SUPPORT)  /* TODO: check memif->vow_barge_in_enable */
 		if (runtime->stop_threshold == ~(0U))
 			ret = 0;
 		else
@@ -236,7 +236,7 @@ int mt6785_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 
 		/* disable interrupt */
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	defined(CONFIG_MTK_VOW_SUPPORT)
+	defined(CONFIG_MTK_VOW_SUPPORT)  /* TODO: check memif->vow_barge_in_enable */
 		if (runtime->stop_threshold != ~(0U))
 			mtk_dsp_irq_set_disable(afe, irq_data);
 #else
@@ -249,7 +249,7 @@ int mt6785_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 #endif
 		/* and clear pending IRQ */
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	defined(CONFIG_MTK_VOW_SUPPORT)
+	defined(CONFIG_MTK_VOW_SUPPORT)  /* TODO: check memif->vow_barge_in_enable */
 		if (runtime->stop_threshold != ~(0U))
 #endif
 			regmap_write(afe->regmap, irq_data->irq_clr_reg,
