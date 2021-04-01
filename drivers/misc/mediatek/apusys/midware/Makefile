@@ -19,6 +19,8 @@ APUSYS_VERSION_REVISER = 1.0
 # mt6893 and mt6885 co-platform folder
 ifeq ($(CONFIG_MACH_MT6893),y)
 PDIR = mt6885
+else ifeq ($(CONFIG_MACH_MT6877),y)
+PDIR = mt6877
 else
 PDIR = $(MTK_PLATFORM)
 endif
