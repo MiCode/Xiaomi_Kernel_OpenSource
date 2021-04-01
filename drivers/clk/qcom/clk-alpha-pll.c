@@ -235,6 +235,8 @@ EXPORT_SYMBOL_GPL(clk_alpha_pll_regs);
 #define PLL_RUN			0x1
 #define PLL_OUT_MASK		0x7
 #define PLL_RATE_MARGIN		500
+#define PLL_5LPE_ENABLE_VOTE_RUN	BIT(21)
+#define PLL_EVO_ENABLE_VOTE_RUN		BIT(25)
 
 /* TRION PLL specific settings and offsets */
 #define TRION_PLL_CAL_VAL	0x44
@@ -247,9 +249,7 @@ EXPORT_SYMBOL_GPL(clk_alpha_pll_regs);
 #define LUCID_5LPE_PCAL_DONE		BIT(11)
 #define LUCID_5LPE_ALPHA_PLL_ACK_LATCH	BIT(13)
 #define LUCID_5LPE_PLL_LATCH_INPUT	BIT(14)
-#define LUCID_5LPE_ENABLE_VOTE_RUN	BIT(21)
 #define LUCID_EVO_PCAL_NOT_DONE		BIT(8)
-#define LUCID_EVO_ENABLE_VOTE_RUN	BIT(25)
 #define LUCID_EVO_PLL_L_VAL_MASK	GENMASK(15, 0)
 #define LUCID_EVO_PLL_CAL_L_VAL_MASK	GENMASK(31, 16)
 #define LUCID_EVO_PLL_CAL_L_VAL_SHIFT	16
@@ -262,7 +262,6 @@ EXPORT_SYMBOL_GPL(clk_alpha_pll_regs);
 #define ZONDA_PLL_OUT_MASK	0xf
 #define ZONDA_STAY_IN_CFA	BIT(16)
 #define ZONDA_PLL_FREQ_LOCK_DET	BIT(29)
-#define ZONDA_5LPE_ENABLE_VOTE_RUN	BIT(21)
 
 #define pll_alpha_width(p)					\
 		((PLL_ALPHA_VAL_U(p) - PLL_ALPHA_VAL(p) == 4) ?	\
@@ -2183,7 +2182,7 @@ static int alpha_pll_lucid_5lpe_enable(struct clk_hw *hw)
 		return ret;
 
 	/* If in FSM mode, just vote for it */
-	if (val & LUCID_5LPE_ENABLE_VOTE_RUN) {
+	if (val & PLL_5LPE_ENABLE_VOTE_RUN) {
 		ret = clk_enable_regmap(hw);
 		if (ret)
 			return ret;
@@ -2225,7 +2224,7 @@ static void alpha_pll_lucid_5lpe_disable(struct clk_hw *hw)
 		return;
 
 	/* If in FSM mode, just unvote it */
-	if (val & LUCID_5LPE_ENABLE_VOTE_RUN) {
+	if (val & PLL_5LPE_ENABLE_VOTE_RUN) {
 		clk_disable_regmap(hw);
 		return;
 	}
@@ -2300,7 +2299,7 @@ static int clk_lucid_5lpe_pll_postdiv_set_rate(struct clk_hw *hw, unsigned long 
 	if (ret)
 		return ret;
 
-	if (val & LUCID_5LPE_ENABLE_VOTE_RUN)
+	if (val & PLL_5LPE_ENABLE_VOTE_RUN)
 		return 0;
 
 	div = DIV_ROUND_UP_ULL((u64)parent_rate, rate);
@@ -2618,7 +2617,7 @@ static int clk_zonda_5lpe_pll_enable(struct clk_hw *hw)
 		return ret;
 
 	/* If in FSM mode, just vote for it */
-	if (val & ZONDA_5LPE_ENABLE_VOTE_RUN) {
+	if (val & PLL_5LPE_ENABLE_VOTE_RUN) {
 		ret = clk_enable_regmap(hw);
 		if (ret)
 			return ret;
@@ -2685,7 +2684,7 @@ static void clk_zonda_5lpe_pll_disable(struct clk_hw *hw)
 		return;
 
 	/* If in FSM mode, just unvote it */
-	if (val & ZONDA_5LPE_ENABLE_VOTE_RUN) {
+	if (val & PLL_5LPE_ENABLE_VOTE_RUN) {
 		clk_disable_regmap(hw);
 		return;
 	}
@@ -3142,7 +3141,7 @@ static int alpha_pll_lucid_evo_enable(struct clk_hw *hw)
 		return ret;
 
 	/* If in FSM mode, just vote for it */
-	if (val & LUCID_EVO_ENABLE_VOTE_RUN) {
+	if (val & PLL_EVO_ENABLE_VOTE_RUN) {
 		ret = clk_enable_regmap(hw);
 		if (ret)
 			return ret;
@@ -3199,7 +3198,7 @@ static void alpha_pll_lucid_evo_disable(struct clk_hw *hw)
 		return;
 
 	/* If in FSM mode, just unvote it */
-	if (val & LUCID_EVO_ENABLE_VOTE_RUN) {
+	if (val & PLL_EVO_ENABLE_VOTE_RUN) {
 		clk_disable_regmap(hw);
 		return;
 	}
@@ -3313,7 +3312,7 @@ static int clk_lucid_evo_pll_postdiv_set_rate(struct clk_hw *hw,
 	if (ret)
 		return ret;
 
-	if (val & LUCID_EVO_ENABLE_VOTE_RUN)
+	if (val & PLL_EVO_ENABLE_VOTE_RUN)
 		return 0;
 
 	if (!pll->post_div_table) {
@@ -3432,7 +3431,7 @@ static void lucid_evo_pll_list_registers(struct seq_file *f,
 
 	regmap_read(pll->clkr.regmap, PLL_USER_CTL(pll), &val);
 
-	if (val & LUCID_EVO_ENABLE_VOTE_RUN) {
+	if (val & PLL_EVO_ENABLE_VOTE_RUN) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 					data1[0].offset, &val);
 		clock_debug_output(f, "%20s: 0x%.8x\n", data[0].name, val);
