@@ -216,12 +216,12 @@ static int sspm_device_probe(struct platform_device *pdev)
 		return -1;
 	}
 #endif
-#ifdef SSPM_SHARE_BUFFER_SUPPORT
-	if (sspm_sbuf_init()) {
-		pr_err("[SSPM] Shared Buffer Init Failed\n");
-		return -1;
+	if (of_property_read_bool(pdev->dev.of_node, "sspm_share_buffer_supported")) {
+		if (sspm_sbuf_init()) {
+			pr_err("[SSPM] Shared Buffer Init Failed\n");
+			return -1;
+		}
 	}
-#endif
 
 	return 0;
 }
