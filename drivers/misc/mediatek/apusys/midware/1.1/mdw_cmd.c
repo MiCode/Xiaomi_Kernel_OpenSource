@@ -482,7 +482,7 @@ static int mdw_cmd_get_codebuf_info(struct mdw_apu_sc *sc)
 			c->kid, sc->idx, sc->hdr->ofs_cb_info);
 
 		/* check sc codebuf overflow */
-		if (sc->kva + sc->size >= ((uint64_t)c->u_hdr + c->size)) {
+		if (sc->kva + sc->size > ((uint64_t)c->u_hdr + c->size)) {
 			mdw_drv_err("sc(0x%llx-#%d) codebuf overflow(0x%llx/%u/0x%llx/%u)\n",
 				c->kid, sc->idx, sc->kva, sc->size,
 				(uint64_t)c->u_hdr, c->size);
