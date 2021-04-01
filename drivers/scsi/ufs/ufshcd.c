@@ -3697,52 +3697,6 @@ static int ufshcd_dme_link_startup(struct ufs_hba *hba)
 			"dme-link-startup: error code %d\n", ret);
 	return ret;
 }
-/**
- * ufshcd_dme_reset - UIC command for DME_RESET
- * @hba: per adapter instance
- *
- * DME_RESET command is issued in order to reset UniPro stack.
- * This function now deal with cold reset.
- *
- * Returns 0 on success, non-zero value on failure
- */
-static int ufshcd_dme_reset(struct ufs_hba *hba)
-{
-	struct uic_command uic_cmd = {0};
-	int ret;
-
-	uic_cmd.command = UIC_CMD_DME_RESET;
-
-	ret = ufshcd_send_uic_cmd(hba, &uic_cmd);
-	if (ret)
-		dev_err(hba->dev,
-			"dme-reset: error code %d\n", ret);
-
-	return ret;
-}
-
-/**
- * ufshcd_dme_enable - UIC command for DME_ENABLE
- * @hba: per adapter instance
- *
- * DME_ENABLE command is issued in order to enable UniPro stack.
- *
- * Returns 0 on success, non-zero value on failure
- */
-static int ufshcd_dme_enable(struct ufs_hba *hba)
-{
-	struct uic_command uic_cmd = {0};
-	int ret;
-
-	uic_cmd.command = UIC_CMD_DME_ENABLE;
-
-	ret = ufshcd_send_uic_cmd(hba, &uic_cmd);
-	if (ret)
-		dev_err(hba->dev,
-			"dme-enable: error code %d\n", ret);
-
-	return ret;
-}
 
 static inline void ufshcd_add_delay_before_dme_cmd(struct ufs_hba *hba)
 {
