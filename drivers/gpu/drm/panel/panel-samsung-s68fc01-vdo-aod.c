@@ -952,6 +952,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 		return PTR_ERR(ctx->reset_gpio);
 	}
 	devm_gpiod_put(dev, ctx->reset_gpio);
+#ifndef CONFIG_LEDS_MTK_I2C
 	ctx->bias_gpio = devm_gpiod_get(dev, "bias", GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx->bias_gpio)) {
 		dev_info(dev, "cannot get bias-gpios 0 %ld\n",
