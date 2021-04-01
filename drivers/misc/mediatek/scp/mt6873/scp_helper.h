@@ -118,9 +118,7 @@ enum scp_reserve_mem_id_t {
 	defined(CONFIG_MTK_VOW_SUPPORT)
 	AUDIO_IPI_MEM_ID,
 #endif
-#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	VOW_BARGEIN_MEM_ID,
-#endif
 #ifdef SCP_PARAMS_TO_SCP_SUPPORT
 	SCP_DRV_PARAMS_MEM_ID,
 #endif

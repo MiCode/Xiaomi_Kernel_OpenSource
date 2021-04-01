@@ -12,12 +12,12 @@
 #
 subdir-ccflags-y += -Werror
 
-#scp smartpa related code
+# scp smartpa related code
 obj-$(CONFIG_SND_SOC_MTK_SCP_SMARTPA) += scp_spk/
 obj-$(CONFIG_SND_SOC_MTK_SCP_SMARTPA) += utility/
 
-#scp vow bargein related code
-obj-$(CONFIG_MTK_VOW_BARGE_IN_SUPPORT) += scp_vow/
+# scp vow bargein related code
+obj-y += scp_vow/
 
 # dsp related code
 obj-$(CONFIG_SND_SOC_MTK_AUDIO_DSP) += audio_dsp/
@@ -38,7 +38,7 @@ obj-$(CONFIG_SND_SOC_MT6873) += mt6873/
 obj-$(CONFIG_SND_SOC_MT6885) += mt6885/
 obj-$(CONFIG_SND_SOC_MT8167) += mt8167/
 
-#mtk new arch
+# mtk new arch
 ifeq ($(CONFIG_MTK_SND_SOC_NEW_ARCH),)
 # MTK Codec Chip Support
 MTK_CODEC := $(subst ",,$(CONFIG_MTK_SND_SOC_CODEC))

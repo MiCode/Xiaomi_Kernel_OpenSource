@@ -23,9 +23,7 @@
 
 #include "mtk-afe-fe-dai.h"
 #include "mtk-base-afe.h"
-#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 #include "../scp_vow/mtk-scp-vow-common.h"
-#endif
 
 #if defined(CONFIG_MTK_ION)
 #include "mtk-mmap-ion.h"
@@ -209,7 +207,6 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 
 	substream->runtime->dma_bytes = params_buffer_bytes(params);
 
-#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 	if (memif->vow_bargein_enable) {
 		ret = allocate_vow_bargein_mem(substream,
 					       &substream->runtime->dma_addr,
@@ -222,7 +219,6 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 
 		goto BYPASS_AFE_FE_ALLOCATE_MEM;
 	}
-#endif
 
 #if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
 	if (memif->scp_spk_enable) {
@@ -312,10 +308,8 @@ END:
 		return ret;
 	}
 
-#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT) ||\
-	defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
 BYPASS_AFE_FE_ALLOCATE_MEM:
-#endif
+
 	/* set channel */
 	ret = mtk_memif_set_channel(afe, id, channels);
 	if (ret) {

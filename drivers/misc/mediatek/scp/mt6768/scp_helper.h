@@ -123,9 +123,7 @@ enum scp_reserve_mem_id_t {
 	SPK_PROTECT_MEM_ID,
 	SPK_PROTECT_DUMP_MEM_ID,
 #endif
-#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	VOW_BARGEIN_MEM_ID,
-#endif
 #ifdef SCP_PARAMS_TO_SCP_SUPPORT
 	SCP_DRV_PARAMS_MEM_ID,
 #endif
