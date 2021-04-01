@@ -21,8 +21,8 @@
 #define CH_S_FHCTL	2
 #define CH_S_MCDI	3
 #define CH_S_SUSPEND	4
-#define IPIR_C_MET      5
-#define IPIS_C_MET      6
+#define CH_IPIR_C_MET   5
+#define CH_IPIS_C_MET   6
 #define CH_S_EEMSN      7
 
 #define MCUPM_IPI_COUNT	    8
