@@ -54,7 +54,7 @@ long sec_core_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int err = 0;
 	int ret = 0;
-	unsigned int rid[4];
+	unsigned int rid[4] = {0};
 
 	/* ---------------------------------- */
 	/* IOCTL                              */
