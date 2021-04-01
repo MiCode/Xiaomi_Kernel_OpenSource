@@ -148,7 +148,12 @@ struct DDP_MMP_Events {
 	mmp_event primary_hrt_bw;
 };
 
+#ifdef CONFIG_MMPROFILE
 struct DDP_MMP_Events *ddp_mmp_get_events(void);
+#else
+#define ddp_mmp_get_events() ((struct DDP_MMP_Events *)NULL)
+#endif
+
 void init_ddp_mmp_events(void);
 void ddp_mmp_init(void);
 void ddp_mmp_ovl_layer(struct OVL_CONFIG_STRUCT *pLayer,

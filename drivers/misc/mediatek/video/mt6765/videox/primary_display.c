@@ -6775,10 +6775,12 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 			data_config->read_dum_reg[i] = 0;
 
 			/* full transparent layer */
-			cmdqRecBackupRegisterToSlot(cmdq_handle,
-				pgc->ovl_dummy_info, i,
-				disp_addr_convert
-				(DISP_REG_OVL_DUMMY_REG + ovl_base));
+			if (!primary_is_sec()) {
+				cmdqRecBackupRegisterToSlot(cmdq_handle,
+					pgc->ovl_dummy_info, i,
+					disp_addr_convert
+					(DISP_REG_OVL_DUMMY_REG + ovl_base));
+			}
 		}
 	}
 
@@ -6788,8 +6790,10 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 		/* mt6765 last OVL is DISP_MODULE_OVL0_2L */
 		unsigned long ovl_base = ovl_base_addr(DISP_MODULE_OVL0_2L);
 
-		cmdqRecBackupRegisterToSlot(cmdq_handle, pgc->ovl_status_info,
-			0, disp_addr_convert(DISP_REG_OVL_STA + ovl_base));
+		if (!primary_is_sec()) {
+			cmdqRecBackupRegisterToSlot(cmdq_handle, pgc->ovl_status_info,
+				0, disp_addr_convert(DISP_REG_OVL_STA + ovl_base));
+		}
 	}
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	/*DynFPS*/

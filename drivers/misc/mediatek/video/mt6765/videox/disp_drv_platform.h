@@ -36,7 +36,11 @@
 #endif
 #define MTK_FB_SHARE_WDMA0_SUPPORT
 
+/* defined in makefile controlled by CONFIG_MMPROFILE */
+#ifdef CONFIG_MMPROFILE
 #define SUPPORT_MMPROFILE
+#endif
+
 #define MTK_FB_ION_SUPPORT
 /* #define FPGA_DEBUG_PAN */
 /* #define DISP_SYNC_ENABLE */
