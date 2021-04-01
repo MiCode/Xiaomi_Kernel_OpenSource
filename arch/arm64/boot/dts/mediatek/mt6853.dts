@@ -2585,6 +2585,11 @@ page_owner=on loop.max_part=7";
 		io-channel-names = "thermistor-ch2";
 	};
 
+	bt: bt@00000000 {
+		compatible = "mediatek,bt";
+		pm_qos_support = <1>;
+	};
+
 	btif@1100c000 {
 		compatible = "mediatek,btif";
 			/*btif base*/
