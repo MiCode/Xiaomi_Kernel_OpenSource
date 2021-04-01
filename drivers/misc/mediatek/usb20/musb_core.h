@@ -50,11 +50,6 @@
 extern enum charger_type mt_get_charger_type(void);
 #endif
 
-/* to prevent 32 bit project misuse */
-#if defined(CONFIG_MTK_MUSB_DRV_36BIT) && !defined(CONFIG_64BIT)
-#error
-#endif
-
 #ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 #include "mtk_qmu.h"
 #endif
