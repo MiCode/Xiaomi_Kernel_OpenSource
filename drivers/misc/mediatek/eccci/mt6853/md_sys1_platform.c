@@ -706,7 +706,11 @@ void md_cd_check_emi_state(struct ccci_modem *md, int polling)
 
 void md1_pmic_setting_on(void)
 {
+	CCCI_NORMAL_LOG(-1, "POWER ON", "vmd1_pmic_setting_on() start.\n");
+	CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON] vmd1_pmic_setting_on() start.\n");
 	vmd1_pmic_setting_on();
+	CCCI_NORMAL_LOG(-1, "POWER ON", "vmd1_pmic_setting_on() end.\n");
+	CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON] vmd1_pmic_setting_on() end.\n");
 }
 
 void md1_pmic_setting_off(void)
@@ -723,6 +727,8 @@ void ccci_power_off(void)
 void __attribute__((weak)) kicker_pbm_by_md(enum pbm_kicker kicker,
 	bool status)
 {
+	CCCI_NORMAL_LOG(-1, TAG, "kicker_pbm_by_md() no support.\n");
+	CCCI_BOOTUP_LOG(-1, TAG, "kicker_pbm_by_md() no support.\n");
 }
 
 #ifdef FEATURE_CLK_BUF
@@ -804,12 +810,16 @@ static int mtk_ccci_cfg_srclken_o1_on(struct ccci_modem *md)
 	struct md_hw_info *hw_info = md->hw_info;
 
 	if (hw_info->spm_sleep_base) {
+		CCCI_NORMAL_LOG(-1, "POWER ON", "%s() start.\n", __func__);
+		CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON] %s() start.\n", __func__);
+
 		ccci_write32(hw_info->spm_sleep_base, 0, 0x0B160001);
 		val = ccci_read32(hw_info->spm_sleep_base, 0);
-		CCCI_INIT_LOG(-1, TAG, "spm_sleep_base: val:0x%x\n", val);
+		CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON] spm_sleep_base: val:0x%x\n", val);
+
 
 		val = ccci_read32(hw_info->spm_sleep_base, 8);
-		CCCI_INIT_LOG(-1, TAG, "spm_sleep_base+8: val:0x%x +\n", val);
+		CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON] spm_sleep_base+8: val:0x%x +\n", val);
 #ifdef CCCI_PLATFORM_MT6877
 		val |= 0x1<<15;
 #else
@@ -817,7 +827,10 @@ static int mtk_ccci_cfg_srclken_o1_on(struct ccci_modem *md)
 #endif
 		ccci_write32(hw_info->spm_sleep_base, 8, val);
 		val = ccci_read32(hw_info->spm_sleep_base, 8);
-		CCCI_INIT_LOG(-1, TAG, "spm_sleep_base+8: val:0x%x -\n", val);
+		CCCI_NORMAL_LOG(-1, "POWER ON", "spm_sleep_base+8: val:0x%x -\n", val);
+		CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON] spm_sleep_base+8: val:0x%x -\n", val);
+		CCCI_NORMAL_LOG(-1, "POWER ON", "%s() end.\n", __func__);
+		CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON] %s() end.\n", __func__);
 	}
 	return 0;
 }
@@ -831,9 +844,10 @@ static int md_cd_topclkgen_on(struct ccci_modem *md)
 	reg_value &= ~((1<<8) | (1<<9));
 	ccci_write32(md->hw_info->ap_topclkgen_base, 0, reg_value);
 
-	CCCI_BOOTUP_LOG(md->index, CORE, "%s: set md1_clk_mod = 0x%x\n",
+	CCCI_NORMAL_LOG(md->index, "POWER ON", "%s: set md1_clk_mod = 0x%x\n",
 		__func__, ccci_read32(md->hw_info->ap_topclkgen_base, 0));
-
+	CCCI_BOOTUP_LOG(md->index, TAG, "[POWER ON] %s: set md1_clk_mod = 0x%x\n",
+		__func__, ccci_read32(md->hw_info->ap_topclkgen_base, 0));
 	return 0;
 }
 
@@ -851,13 +865,18 @@ int md_cd_power_on(struct ccci_modem *md)
 
 #ifndef CCCI_PLATFORM_MT6877
 	/* step 2: MD srcclkena setting */
+	CCCI_NORMAL_LOG(-1, "POWER ON", "set md1 srcclkena start.\n");
+	CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON] set md1 srcclkena start.\n");
 	reg_value = ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA);
 	reg_value &= ~(0xFF);
 	reg_value |= 0x21;
 	ccci_write32(infra_ao_base, INFRA_AO_MD_SRCCLKENA, reg_value);
-	CCCI_BOOTUP_LOG(md->index, CORE,
-		"%s: set md1_srcclkena bit(0x1000_0F0C)=0x%x\n",
-		__func__, ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA));
+	CCCI_NORMAL_LOG(-1, "POWER ON",
+		"set md1 srcclkena end. bit(0x1000_0F0C)=0x%x\n",
+		ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA));
+	CCCI_BOOTUP_LOG(-1, TAG,
+		"[POWER ON] set md1 srcclkena end. bit(0x1000_0F0C)=0x%x\n",
+		ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA));
 #endif
 	mtk_ccci_cfg_srclken_o1_on(md);
 	/* steip 3: power on MD_INFRA and MODEM_TOP */
@@ -866,13 +885,15 @@ int md_cd_power_on(struct ccci_modem *md)
 #ifdef FEATURE_CLK_BUF
 		flight_mode_set_by_atf(md, false);
 #endif
-		CCCI_BOOTUP_LOG(md->index, TAG, "enable md sys clk\n");
+		CCCI_NORMAL_LOG(-1, "POWER ON", "clk_prepare_enable() start.\n");
+		CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON] clk_prepare_enable() start.\n");
 		ret = clk_prepare_enable(clk_table[0].clk_ref);
-		CCCI_BOOTUP_LOG(md->index, TAG,
-			"enable md sys clk done,ret = %d\n", ret);
+		CCCI_NORMAL_LOG(-1, "POWER ON",
+			"clk_prepare_enable() end. ret=%d\n", ret);
+		CCCI_BOOTUP_LOG(-1, TAG,
+			"[POWER ON] clk_prepare_enable() end. ret=%d\n", ret);
 		kicker_pbm_by_md(KR_MD1, true);
-		CCCI_BOOTUP_LOG(md->index, TAG,
-			"Call end kicker_pbm_by_md(0,true)\n");
+
 		break;
 	}
 	if (ret)
@@ -880,7 +901,11 @@ int md_cd_power_on(struct ccci_modem *md)
 
 #ifdef FEATURE_INFORM_NFC_VSIM_CHANGE
 	/* notify NFC */
+	CCCI_NORMAL_LOG(-1, "POWER ON", "inform_nfc_vsim_change() start.\n");
+	CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON] inform_nfc_vsim_change() start.\n");
 	inform_nfc_vsim_change(md->index, 1, 0);
+	CCCI_NORMAL_LOG(-1, "POWER ON", "inform_nfc_vsim_change() end.\n");
+	CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON] inform_nfc_vsim_change() end.\n");
 #endif
 	return 0;
 }
@@ -894,16 +919,24 @@ int md_cd_let_md_go(struct ccci_modem *md)
 {
 	struct arm_smccc_res res;
 
+	CCCI_NORMAL_LOG(-1, "POWER ON", "%s() start.\n", __func__);
+	CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON] %s() start.\n", __func__);
+
 	if (MD_IN_DEBUG(md))
 		return -1;
-	CCCI_BOOTUP_LOG(md->index, TAG, "set MD boot slave\n");
 
 	/* make boot vector take effect */
 	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
 		MD_KERNEL_BOOT_UP, 0, 0, 0, 0, 0, &res);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_NORMAL_LOG(md->index, "POWER ON",
 		"MD: boot_ret=%lu, boot_status_0=%lu, boot_status_1=%lu\n",
 		res.a0, res.a1, res.a2);
+	CCCI_BOOTUP_LOG(md->index, TAG,
+		"[POWER ON] MD: boot_ret=%lu, boot_status_0=%lu, boot_status_1=%lu\n",
+		res.a0, res.a1, res.a2);
+
+	CCCI_NORMAL_LOG(-1, "POWER ON", "%s() end.\n", __func__);
+	CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON] %s() end.\n", __func__);
 
 	return 0;
 }
@@ -916,7 +949,9 @@ static int md_cd_topclkgen_off(struct ccci_modem *md)
 	reg_value |= ((1<<8) | (1<<9));
 	ccci_write32(md->hw_info->ap_topclkgen_base, 0, reg_value);
 
-	CCCI_BOOTUP_LOG(md->index, CORE, "%s: set md1_clk_mod = 0x%x\n",
+	CCCI_NORMAL_LOG(md->index, "POWER OFF", "%s: set md1_clk_mod = 0x%x\n",
+		__func__, ccci_read32(md->hw_info->ap_topclkgen_base, 0));
+	CCCI_BOOTUP_LOG(md->index, TAG, "[POWER OFF] %s: set md1_clk_mod = 0x%x\n",
 		__func__, ccci_read32(md->hw_info->ap_topclkgen_base, 0));
 
 	return 0;
@@ -931,25 +966,39 @@ int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 
 #ifdef FEATURE_INFORM_NFC_VSIM_CHANGE
 	/* notify NFC */
+	CCCI_NORMAL_LOG(-1, "POWER OFF", "inform_nfc_vsim_change() start.\n");
+	CCCI_BOOTUP_LOG(-1, TAG, "[POWER OFF] inform_nfc_vsim_change() start.\n");
 	inform_nfc_vsim_change(md->index, 0, 0);
+	CCCI_NORMAL_LOG(-1, "POWER OFF", "inform_nfc_vsim_change() end.\n");
+	CCCI_BOOTUP_LOG(-1, TAG, "[POWER OFF] inform_nfc_vsim_change() end.\n");
 #endif
 
 	/* power off MD_INFRA and MODEM_TOP */
 	switch (md->index) {
 	case MD_SYS1:
 		/* 1. power off MD MTCMOS */
+		CCCI_NORMAL_LOG(-1, "POWER OFF", "clk_disable_unprepare() start.\n");
+		CCCI_BOOTUP_LOG(-1, TAG, "[POWER OFF] clk_disable_unprepare() start.\n");
 		clk_disable_unprepare(clk_table[0].clk_ref);
+		CCCI_NORMAL_LOG(-1, "POWER OFF", "clk_disable_unprepare() end.\n");
+		CCCI_BOOTUP_LOG(-1, TAG, "[POWER OFF] clk_disable_unprepare() end.\n");
 		/* 2. disable srcclkena */
 #ifndef CCCI_PLATFORM_MT6877
-		CCCI_BOOTUP_LOG(md->index, TAG, "disable md1 clk\n");
+		CCCI_NORMAL_LOG(-1, "POWER OFF", "set infra_ao_base start.\n");
+		CCCI_BOOTUP_LOG(-1, TAG, "[POWER OFF] set infra_ao_base start.\n");
 		reg_value = ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA);
 		reg_value &= ~(0xFF);
 		ccci_write32(infra_ao_base, INFRA_AO_MD_SRCCLKENA, reg_value);
-		CCCI_BOOTUP_LOG(md->index, CORE,
+		CCCI_NORMAL_LOG(md->index, "POWER OFF",
 			"%s: set md1_srcclkena=0x%x\n", __func__,
 			ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA));
+		CCCI_BOOTUP_LOG(md->index, TAG,
+			"[POWER OFF] %s: set md1_srcclkena=0x%x\n", __func__,
+			ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA));
+		CCCI_NORMAL_LOG(-1, "POWER OFF", "set infra_ao_base end.\n");
+		CCCI_BOOTUP_LOG(-1, TAG, "[POWER OFF] set infra_ao_base end.\n");
 #endif
-		CCCI_BOOTUP_LOG(md->index, TAG, "Call md1_pmic_setting_off\n");
+
 #ifdef FEATURE_CLK_BUF
 		flight_mode_set_by_atf(md, true);
 #endif
@@ -961,8 +1010,7 @@ int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 
 		/* 5. DLPT */
 		kicker_pbm_by_md(KR_MD1, false);
-		CCCI_BOOTUP_LOG(md->index, TAG,
-			"Call end kicker_pbm_by_md(0,false)\n");
+
 		break;
 	}
 	return ret;
