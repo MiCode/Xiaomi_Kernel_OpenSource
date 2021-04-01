@@ -368,7 +368,10 @@ static struct mtk_panel_params ext_params = {
 		.rc_tgt_offset_hi      =  DSC_RC_TGT_OFFSET_HI,
 		.rc_tgt_offset_lo      =  DSC_RC_TGT_OFFSET_LO,
 	},
-	.data_rate = MODE_0_DATA_RATE,
+	.dyn_fps = {
+		.data_rate = MODE_0_DATA_RATE,
+	},
+	.data_rate = MODE_2_DATA_RATE,
 };
 static struct mtk_panel_params ext_params_mode_1 = {
 	.cust_esd_check = 0,
@@ -416,7 +419,10 @@ static struct mtk_panel_params ext_params_mode_1 = {
 		.rc_tgt_offset_hi      =  DSC_RC_TGT_OFFSET_HI,
 		.rc_tgt_offset_lo      =  DSC_RC_TGT_OFFSET_LO,
 	},
-	.data_rate = MODE_1_DATA_RATE,
+	.dyn_fps = {
+		.data_rate = MODE_1_DATA_RATE,
+	},
+	.data_rate = MODE_2_DATA_RATE,
 };
 
 static struct mtk_panel_params ext_params_mode_2 = {
@@ -464,6 +470,9 @@ static struct mtk_panel_params ext_params_mode_2 = {
 		.rc_quant_incr_limit1  =  DSC_RC_QUANT_INCR_LIMIT1,
 		.rc_tgt_offset_hi      =  DSC_RC_TGT_OFFSET_HI,
 		.rc_tgt_offset_lo      =  DSC_RC_TGT_OFFSET_LO,
+	},
+	.dyn_fps = {
+		.data_rate = MODE_2_DATA_RATE,
 	},
 	.data_rate = MODE_2_DATA_RATE,
 };
@@ -721,13 +730,6 @@ static void mode_switch_to_60(struct drm_panel *panel,
 		tianma_dcs_write_seq_static(ctx, 0xE4, 0x33, 0xB4, 0x00,
 			0x00, 0x00, 0x75, 0x04, 0x00, 0x00);
 		tianma_dcs_write_seq_static(ctx, 0xE6, 0x01);
-
-		// tianma_dcs_write_seq_static(ctx, 0xD4, 0x93, 0x93, 0x60,
-			// 0x1E, 0xE1, 0x02, 0x08, 0x00, 0x00, 0x02, 0x22,
-			// 0x02, 0xEC, 0x03, 0x83, 0x04, 0x00, 0x04, 0x00,
-			// 0x04, 0x00, 0x04, 0x00, 0x04, 0x00, 0x01, 0x00,
-			// 0x01, 0x00);
-
 	}
 }
 
@@ -736,10 +738,8 @@ static int mode_switch(struct drm_panel *panel, unsigned int cur_mode,
 {
 	int ret = 0;
 	struct drm_display_mode *m = get_mode_by_id(panel, dst_mode);
-
 	if (cur_mode == dst_mode)
 		return ret;
-
 	if (m->vrefresh == MODE_0_FPS) { /*switch to 60 */
 		mode_switch_to_60(panel, stage);
 	} else if (m->vrefresh == MODE_1_FPS) { /*switch to 90 */
@@ -766,6 +766,8 @@ static int panel_ext_reset(struct drm_panel *panel, int on)
 
 static struct mtk_panel_funcs ext_funcs = {
 	.set_backlight_cmdq = tianma_setbacklight_cmdq,
+	/* Not real backlight cmd in AOD, just for QC purpose */
+	.set_aod_light_mode = tianma_setbacklight_cmdq,
 	.ext_param_set = mtk_panel_ext_param_set,
 	.mode_switch = mode_switch,
 	.reset = panel_ext_reset,
@@ -835,7 +837,7 @@ static int tianma_get_modes(struct drm_panel *panel)
 
 	mode_3 = drm_mode_duplicate(panel->drm, &switch_mode_2);
 	if (!mode_3) {
-		dev_info(panel->drm->dev, "failed to add mode %ux%ux@%u\n",
+		dev_err(panel->drm->dev, "failed to add mode %ux%ux@%u\n",
 			switch_mode_2.hdisplay,
 			switch_mode_2.vdisplay,
 			switch_mode_2.vrefresh);

@@ -759,6 +759,8 @@ static int panel_ext_reset(struct drm_panel *panel, int on)
 
 static struct mtk_panel_funcs ext_funcs = {
 	.set_backlight_cmdq = tianma_setbacklight_cmdq,
+	/* Not real backlight cmd in AOD, just for QC purpose */
+	.set_aod_light_mode = tianma_setbacklight_cmdq,
 	.ext_param_set = mtk_panel_ext_param_set,
 	.mode_switch = mode_switch,
 	.reset = panel_ext_reset,

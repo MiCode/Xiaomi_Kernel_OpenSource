@@ -702,6 +702,8 @@ static void mtk_dsi_clear_rxrd_irq(struct mtk_dsi *dsi)
 static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 {
 	u32 data_rate;
+	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
+	struct mtk_drm_private *priv = NULL;
 
 	/**
 	 * vm.pixelclock is in kHz, pixel_clock unit is Hz, so multiply by 1000
@@ -711,7 +713,13 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 	 * data_rate = pixel_clock * bit_per_pixel * mipi_ratio / num_lanes;
 	 */
 
-	if (dsi->ext && dsi->ext->params->data_rate) {
+	if (mtk_crtc && mtk_crtc->base.dev)
+		priv = mtk_crtc->base.dev->dev_private;
+	if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
+		MTK_DRM_OPT_DYN_MIPI_CHANGE) && dsi->ext && dsi->ext->params
+		&& dsi->ext->params->dyn_fps.data_rate) {
+		data_rate = dsi->ext->params->dyn_fps.data_rate;
+	} else if (dsi->ext && dsi->ext->params->data_rate) {
 		data_rate = dsi->ext->params->data_rate;
 	} else if (dsi->ext && dsi->ext->params->pll_clk) {
 		data_rate = dsi->ext->params->pll_clk * 2;
@@ -842,6 +850,7 @@ static int mtk_dsi_LFR_status_check(struct mtk_dsi *dsi)
 	return 0;
 }
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
 static int mtk_dsi_set_data_rate(struct mtk_dsi *dsi)
 {
 	unsigned int data_rate;
@@ -858,6 +867,7 @@ static int mtk_dsi_set_data_rate(struct mtk_dsi *dsi)
 	ret = clk_set_rate(dsi->hs_clk, mipi_tx_rate);
 	return ret;
 }
+#endif
 
 static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 {
@@ -4768,44 +4778,64 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	struct cmdq_pkt *cmdq_handle;
 	struct cmdq_pkt *cmdq_handle2;
 	struct mtk_crtc_state *state =
-	    to_mtk_crtc_state(mtk_crtc->base.state);
+		to_mtk_crtc_state(mtk_crtc->base.state);
 	struct mtk_crtc_state *old_mtk_state =
-	    to_mtk_crtc_state(old_state);
+		to_mtk_crtc_state(old_state);
 	unsigned int src_mode =
-	    old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
+		old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
 	unsigned int dst_mode =
-	    state->prop_val[CRTC_PROP_DISP_MODE_IDX];
+		state->prop_val[CRTC_PROP_DISP_MODE_IDX];
 	bool need_mipi_change = 1;
+	unsigned int clk_cnt = 0;
+	struct mtk_drm_private *priv = NULL;
 
 	/* use no mipi clk change solution */
-	if (dsi->ext && dsi->ext->params &&
-		dsi->ext->params->dyn_fps.switch_en > 0)
+	if (mtk_crtc && mtk_crtc->base.dev)
+		priv = mtk_crtc->base.dev->dev_private;
+
+	if (!(priv && mtk_drm_helper_get_opt(priv->helper_opt,
+		MTK_DRM_OPT_DYN_MIPI_CHANGE)))
 		need_mipi_change = 0;
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
-
+	if (IS_ERR_OR_NULL(cmdq_handle)) {
+		DDPPR_ERR("%s: cmdq_handle is null or err\n", __func__);
+		return;
+	}
 	/* 1. wait frame done & wait DSI not busy */
-	cmdq_pkt_wfe(cmdq_handle,
+	cmdq_pkt_wait_no_clear(cmdq_handle,
 		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 	/* Clear stream block to prevent trigger loop start */
 	cmdq_pkt_clear_event(cmdq_handle,
 		mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+	cmdq_pkt_wfe(cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+	cmdq_pkt_clear_event(cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+	cmdq_pkt_wfe(cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 	mtk_dsi_poll_for_idle(dsi, cmdq_handle);
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
 
-	if (need_mipi_change == 0)
-		goto skip_change_mipi;
-
-	/*  send lcm cmd before DSI power down if needed */
+	/*	send lcm cmd before DSI power down if needed */
 	if (dsi->ext && dsi->ext->funcs &&
 		dsi->ext->funcs->mode_switch)
 		dsi->ext->funcs->mode_switch(dsi->panel, src_mode,
 			dst_mode, BEFORE_DSI_POWERDOWN);
 
+	if (need_mipi_change == 0)
+		goto skip_change_mipi;
+
 	/* Power off DSI */
-	phy_power_off(dsi->phy);
+	mtk_dsi_mask(dsi, DSI_INTEN, ~0, 0);
+
+	mtk_dsi_reset_engine(dsi);
+
+	clk_cnt = dsi->clk_refcnt;
+	while (dsi->clk_refcnt > 0)
+		mtk_dsi_poweroff(dsi);
 
 	if (dsi->ext && dsi->ext->funcs &&
 		dsi->ext->funcs->ext_param_set)
@@ -4813,17 +4843,26 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 			state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
 
 	/* Power on DSI */
-	mtk_dsi_set_data_rate(dsi);
-	phy_power_on(dsi->phy);
+	while (dsi->clk_refcnt < clk_cnt)
+		mtk_dsi_poweron(dsi);
+
+	mtk_dsi_enable(dsi);
 	mtk_dsi_phy_timconfig(dsi, NULL);
+
+	mtk_dsi_rxtx_control(dsi);
+	mtk_dsi_ps_control_vact(dsi);
+	mtk_dsi_set_interrupt_enable(dsi);
 	//[FIXME] sw control enable will be set to 1 by mipi_tx_pll_prepare,
 	//and it needs to clear to 0
 	mtk_mipi_tx_sw_control_en(dsi->phy, 0);
 	//[FIXME] It's a temp workaround for cmd mode.
 	writel(0x0001023c, dsi->regs + DSI_TXRX_CTRL);
 
+	mtk_dsi_set_mode(dsi);
+	mtk_dsi_clk_hs_mode(dsi, 1);
+	mtk_dsi_set_mmclk_by_datarate(dsi, mtk_crtc, 1);
 skip_change_mipi:
-	/*  send lcm cmd after DSI power on if needed */
+	/*	send lcm cmd after DSI power on if needed */
 	if (dsi->ext && dsi->ext->funcs &&
 		dsi->ext->funcs->mode_switch)
 		dsi->ext->funcs->mode_switch(dsi->panel, src_mode,
@@ -4832,6 +4871,13 @@ skip_change_mipi:
 	/* set frame done */
 	mtk_crtc_pkt_create(&cmdq_handle2, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	if (IS_ERR_OR_NULL(cmdq_handle2)) {
+		DDPPR_ERR("%s: cmdq_handle2 is null or err\n", __func__);
+		return;
+	}
+	mtk_dsi_poll_for_idle(dsi, cmdq_handle2);
+	cmdq_pkt_set_event(cmdq_handle2,
+		mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 	cmdq_pkt_set_event(cmdq_handle2,
 		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 	cmdq_pkt_set_event(cmdq_handle2,

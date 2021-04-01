@@ -72,8 +72,10 @@ static struct mtk_drm_helper help_info[] = {
 	{MTK_DRM_OPT_LAYER_REC, 0, "MTK_DRM_OPT_LAYER_REC"},
 	{MTK_DRM_OPT_CLEAR_LAYER, 0, "MTK_DRM_OPT_CLEAR_LAYER"},
 	{MTK_DRM_OPT_VDS_PATH_SWITCH, 0, "MTK_DRM_OPT_VDS_PATH_SWITCH"},
+	{MTK_DRM_OPT_LFR, 0, "MTK_DRM_OPT_LFR"},
 	{MTK_DRM_OPT_SF_PF, 0, "MTK_DRM_OPT_SF_PF"},
 	{MTK_DRM_OPT_PRIM_DUAL_PIPE, 0, "MTK_DRM_OPT_PRIM_DUAL_PIPE"},
+	{MTK_DRM_OPT_DYN_MIPI_CHANGE, 0, "MTK_DRM_OPT_DYN_MIPI_CHANGE"},
 };
 
 static const char *mtk_drm_helper_opt_spy(struct mtk_drm_helper *helper_opt,
