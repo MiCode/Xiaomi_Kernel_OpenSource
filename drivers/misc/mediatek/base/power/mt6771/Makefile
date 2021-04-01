@@ -43,7 +43,11 @@ obj-$(CONFIG_MACH_MT6771) += mtk_gpufreq_core.o
 obj-$(CONFIG_MACH_MT6771) += mtk_gpu_log.o
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+ifneq ($(CONFIG_MTK_TINYSYS_SSPM_VERSION),"")
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_TINYSYS_SSPM_VERSION)
+else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
+endif
 #ccflags-y += -DCONFIG_MTK_QOS_SUPPORT
 obj-$(CONFIG_MACH_MT6771) += mtk_gpu_bw.o
 endif

@@ -26,7 +26,11 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs/
 ccflags-y += -I$(srctree)/drivers/devfreq/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+ifneq ($(CONFIG_MTK_TINYSYS_SSPM_VERSION),"")
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_TINYSYS_SSPM_VERSION)
+else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)/
+endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 
 obj-y += mtk_vcorefs_manager.o

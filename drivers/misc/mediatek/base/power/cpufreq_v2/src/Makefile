@@ -20,7 +20,11 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM)
 #sspm
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+ifneq ($(CONFIG_MTK_TINYSYS_SSPM_VERSION),"")
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_TINYSYS_SSPM_VERSION)
+else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
+endif
 # main
 obj-y := mtk_cpufreq_main.o
 obj-y += mtk_cpufreq_interface.o
