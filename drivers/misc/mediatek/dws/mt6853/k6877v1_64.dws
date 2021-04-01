@@ -2086,7 +2086,7 @@
                 <def_mode>0</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>true</inpull_selhigh>
-                <def_dir>IN</def_dir>
+                <def_dir>OUT</def_dir>
                 <out_high>false</out_high>
                 <varName0>GPIO_GPS_L1_LNA_EN_PIN</varName0>
                 <smt>false</smt>
@@ -2097,7 +2097,7 @@
                 <def_mode>0</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>true</inpull_selhigh>
-                <def_dir>IN</def_dir>
+                <def_dir>OUT</def_dir>
                 <out_high>false</out_high>
                 <varName0>GPIO_ANT_SEL1_PIN</varName0>
                 <varName1>GPIO_GPS_L5_LNA_EN_PIN</varName1>
