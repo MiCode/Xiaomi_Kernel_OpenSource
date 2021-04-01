@@ -37,7 +37,6 @@
 #define MT_CCF_BRINGUP		0
 #define CONTROL_LIMIT		1
 #define CHECK_PWR_ST		1
-#define IGNORE_MTCMOS_CHECK
 
 #define LP_CLK			1
 #define NORMAL_CLK		0
