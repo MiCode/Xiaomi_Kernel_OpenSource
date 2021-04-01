@@ -30,6 +30,7 @@
 #include <trace/events/block.h>
 #include <trace/events/ufs.h>
 #include <trace/events/writeback.h>
+#include <asm/div64.h>
 
 #define BLOCKIO_MIN_VER	"3.09"
 
@@ -1363,7 +1364,7 @@ int mtk_btag_mictx_get_data(
 	struct mtk_blocktag *btag;
 	u64 time_cur, dur, tp_dur;
 	unsigned long flags;
-	int top;
+	u64 top;
 
 	ctx = mtk_btag_mictx_get_ctx();
 	if (!ctx || !ctx->enabled || !iostat)
@@ -1446,7 +1447,8 @@ int mtk_btag_mictx_get_data(
 		}
 
 		top = ctx->req.r.size_top + ctx->req.w.size_top;
-		top = top * 100 / (ctx->req.r.size + ctx->req.w.size);
+		top = top * 100;
+		do_div(top, (ctx->req.r.size + ctx->req.w.size));
 	} else {
 		top = 0;
 	}
@@ -1454,7 +1456,7 @@ int mtk_btag_mictx_get_data(
 	iostat->top = top;
 
 	if (mtk_btag_mictx_debug) {
-		pr_info("[BLOCK_TAG] Mictx: rs:%llu,%llu, top:%llu,%llu,%u, fuse-top: %d, %d\n",
+		pr_info("[BLOCK_TAG] Mictx: rs:%llu,%llu, top:%llu,%llu,%llu, fuse-top: %d, %d\n",
 			ctx->req.r.size, ctx->req.w.size,
 			ctx->req.r.size_top, ctx->req.w.size_top, top,
 			ctx->top_r_pages,
