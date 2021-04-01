@@ -93,8 +93,8 @@
 #define VLM_CTXT_VPU_2           (VLM_CTXT_BASE + 0x24)
 
 #define VLM_CTXT_EDMA_MAX        (1)
-#define VLM_CTXT_EDMA_0          (VLM_CTXT_BASE + 0x2C)
-#define VLM_CTXT_EDMA_1          (VLM_CTXT_BASE + 0x4C)
+#define VLM_CTXT_EDMA_0          (VLM_CTXT_BASE + 0x40) //Ch5
+#define VLM_CTXT_EDMA_1          (VLM_CTXT_BASE + 0x60) //Ch5
 
 #define VLM_CTXT_UP_MAX          (0)
 

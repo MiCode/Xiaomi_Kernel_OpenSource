@@ -76,9 +76,11 @@ uint32_t  reviser_get_contex_offset_EDMA(uint32_t index)
 
 	switch (index) {
 	case 0:
+		//Use CH5 for edma
 		offset = VLM_CTXT_EDMA_0;
 		break;
 	case 1:
+		//Use CH5 for edma
 		offset = VLM_CTXT_EDMA_1;
 		break;
 	default:
