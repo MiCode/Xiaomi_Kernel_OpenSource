@@ -19,7 +19,11 @@ endif
 ccflags-y += -I$(srctree)/include/memory/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+ifneq ($(CONFIG_MTK_TINYSYS_SSPM_VERSION),"")
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_TINYSYS_SSPM_VERSION)
+else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)/
+endif
 
 ifeq ($(SSPM_VER),v2)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
