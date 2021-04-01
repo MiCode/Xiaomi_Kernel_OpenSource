@@ -220,6 +220,7 @@
 #define MUSB_DEVCTL		0x60	/* 8 bit */
 
 #define MUSB_OPSTATE    0x620
+#define MUSB_OPSTATE_HOST_WAIT_DEV 0x21
 #define OTG_IDLE 0
 
 /*

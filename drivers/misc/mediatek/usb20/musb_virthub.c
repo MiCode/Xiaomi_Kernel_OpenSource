@@ -18,6 +18,18 @@
 static int h_pre_disable = 1;
 module_param(h_pre_disable, int, 0644);
 
+static void musb_host_check_disconnect(struct musb *musb)
+{
+	u8 opstate = musb_readb(musb->mregs, MUSB_OPSTATE);
+	bool is_con = musb->port1_status & USB_PORT_STAT_CONNECTION;
+
+	if (opstate == MUSB_OPSTATE_HOST_WAIT_DEV && is_con) {
+		DBG(0, "disconnect when suspend");
+		musb->int_usb |= MUSB_INTR_DISCONNECT;
+		musb_interrupt(musb);
+	}
+}
+
 int musb_port_suspend(struct musb *musb, bool do_suspend)
 {
 	struct usb_otg *otg = musb->xceiv->otg;
@@ -350,6 +362,8 @@ int musb_hub_control(struct usb_hcd *hcd,
 			usb_hcd_poll_rh_status(musb_to_hcd(musb));
 			/* NOTE: it might really be A_WAIT_BCON ... */
 			musb->xceiv->otg->state = OTG_STATE_A_HOST;
+
+			musb_host_check_disconnect(musb);
 		}
 
 		put_unaligned(cpu_to_le32(musb->port1_status
