@@ -239,6 +239,7 @@ config ANDROID_DEFAULT_SETTING
 	select TUN
 	select UHID
 	select UID_SYS_STATS
+	select UNICODE
 	select UNIX
 	select UNMAP_KERNEL_AT_EL0 if ARM64
 	select USB
