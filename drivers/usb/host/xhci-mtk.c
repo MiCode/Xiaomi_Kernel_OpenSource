@@ -281,7 +281,8 @@ static int xhci_mtk_dbg_exit(struct xhci_hcd_mtk *mtk)
 	return 0;
 }
 
-int mtk_xhci_wakelock_lock(struct xhci_hcd_mtk *mtk)
+#if !IS_ENABLED(CONFIG_USB_XHCI_MTK_SUSPEND)
+static int mtk_xhci_wakelock_lock(struct xhci_hcd_mtk *mtk)
 {
 	struct device_node *of_node = mtk->dev->of_node;
 	struct xhci_hcd *xhci = hcd_to_xhci(mtk->hcd);
@@ -292,9 +293,8 @@ int mtk_xhci_wakelock_lock(struct xhci_hcd_mtk *mtk)
 	}
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mtk_xhci_wakelock_lock);
 
-int mtk_xhci_wakelock_unlock(struct xhci_hcd_mtk *mtk)
+static int mtk_xhci_wakelock_unlock(struct xhci_hcd_mtk *mtk)
 {
 	struct device_node *of_node = mtk->dev->of_node;
 	struct xhci_hcd *xhci = hcd_to_xhci(mtk->hcd);
@@ -305,7 +305,7 @@ int mtk_xhci_wakelock_unlock(struct xhci_hcd_mtk *mtk)
 	}
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mtk_xhci_wakelock_unlock);
+#endif
 
 enum ssusb_wakeup_src {
 	SSUSB_WK_IP_SLEEP = 1,
@@ -931,11 +931,12 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 
 	xhci_mtk_dbg_init(mtk);
 
-#if IS_ENABLED(CONFIG_USB_XHCI_MTK_SUSPEND)
+#if !IS_ENABLED(CONFIG_USB_XHCI_MTK_SUSPEND)
+	mtk_xhci_wakelock_lock(mtk);
+#else
 	device_set_wakeup_enable(&hcd->self.root_hub->dev, 1);
 	device_set_wakeup_enable(&xhci->shared_hcd->self.root_hub->dev, 1);
 #endif
-	mtk_xhci_wakelock_lock(mtk);
 	return 0;
 
 dealloc_usb2_hcd:
@@ -992,7 +993,9 @@ static int xhci_mtk_remove(struct platform_device *dev)
 	xhci_mtk_phy_exit(mtk);
 	device_init_wakeup(&dev->dev, false);
 
+#if !IS_ENABLED(CONFIG_USB_XHCI_MTK_SUSPEND)
 	mtk_xhci_wakelock_unlock(mtk);
+#endif
 	xhci_mtk_dbg_exit(mtk);
 	usb_remove_hcd(hcd);
 	usb_put_hcd(shared_hcd);

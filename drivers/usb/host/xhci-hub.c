@@ -1611,15 +1611,6 @@ int xhci_bus_suspend(struct usb_hcd *hcd)
 	hcd->state = HC_STATE_SUSPENDED;
 	bus_state->next_statechange = jiffies + msecs_to_jiffies(10);
 	spin_unlock_irqrestore(&xhci->lock, flags);
-#if IS_ENABLED(CONFIG_USB_XHCI_MTK_SUSPEND)
-	if (hcd->self.root_hub->do_remote_wakeup == 1) {
-		struct xhci_hcd_mtk *mtk = hcd_to_mtk(hcd);
-
-		dev_info(&hcd->self.root_hub->dev, "%s %d\n",
-			__func__, hcd->self.root_hub->do_remote_wakeup);
-		mtk_xhci_wakelock_unlock(mtk);
-	}
-#endif
 	return 0;
 }
 
@@ -1720,15 +1711,7 @@ int xhci_bus_resume(struct usb_hcd *hcd)
 		portsc &= ~(PORT_RWC_BITS | PORT_CEC | PORT_WAKE_BITS);
 		writel(portsc, port_array[port_index]);
 	}
-#if IS_ENABLED(CONFIG_USB_XHCI_MTK_SUSPEND)
-	if (hcd->self.root_hub->do_remote_wakeup == 1) {
-		struct xhci_hcd_mtk *mtk = hcd_to_mtk(hcd);
 
-		dev_info(&hcd->self.root_hub->dev, "%s %d\n",
-			__func__, hcd->self.root_hub->do_remote_wakeup);
-		mtk_xhci_wakelock_lock(mtk);
-	}
-#endif
 	/* USB2 specific resume signaling delay and U0 link state transition */
 	if (hcd->speed < HCD_USB3) {
 		if (bus_state->bus_suspended) {

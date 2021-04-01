@@ -141,9 +141,6 @@ static inline struct xhci_hcd_mtk *hcd_to_mtk(struct usb_hcd *hcd)
 	return dev_get_drvdata(hcd->self.controller);
 }
 
-int mtk_xhci_wakelock_lock(struct xhci_hcd_mtk *mtk);
-int mtk_xhci_wakelock_unlock(struct xhci_hcd_mtk *mtk);
-
 #if IS_ENABLED(CONFIG_USB_XHCI_MTK)
 int xhci_mtk_sch_init(struct xhci_hcd_mtk *mtk);
 void xhci_mtk_sch_exit(struct xhci_hcd_mtk *mtk);
