@@ -7278,7 +7278,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 	int comp_nr = 0;
 
 	if (!(priv && mtk_crtc && (index >= 0))) {
-		DDPPR_ERR("%s:%d:Error Invalid params\n");
+		DDPMSG("Error Invalid params\n");
 		return;
 	}
 
@@ -7288,7 +7288,6 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 	 */
 	if (priv->vds_path_switch_dirty &&
 		!priv->vds_path_switch_done && (index == 0)) {
-
 		/* kick idle */
 		mtk_drm_idlemgr_kick(__func__, crtc, 0);
 		CRTC_MMP_EVENT_START(index, path_switch, mtk_crtc->ddp_mode, 0);
@@ -7301,9 +7300,26 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
 			int keep_first_layer = false;
 
-			cmdq_handle =
-				cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+			if (mtk_crtc->sec_on) {
+				mtk_crtc_pkt_create(&cmdq_handle, crtc,
+					mtk_crtc->gce_obj.client[CLIENT_SEC_CFG]);
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+				cmdq_sec_pkt_set_data(cmdq_handle, 0, 0,
+					CMDQ_SEC_PRIMARY_DISP, CMDQ_METAEX_NONE);
+#endif
+				DDPMSG("Switch vds: Primary display is sec\n");
+			} else {
+				cmdq_handle =
+					cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
+				DDPMSG("Switch vds: Primary display is not sec\n");
+			}
+
+			if (IS_ERR_OR_NULL(cmdq_handle)) {
+				DDPMSG("Switch vds: cmdq_handle is null or err\n");
+				CRTC_MMP_EVENT_END(index, path_switch, crtc->enabled, 0);
+				return;
+			}
 			if (atomic_read(&mtk_crtc->already_config)) {
 				mtk_crtc_wait_frame_done(mtk_crtc,
 					cmdq_handle, DDP_FIRST_PATH, 0);
@@ -7360,6 +7376,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			/* Update Switch done flag */
 			priv->vds_path_switch_done = 1;
 			priv->need_vds_path_switch_back = 1;
+
 		/* Switch main display path, take back ovl0_2l to main display */
 		} else {
 			struct mtk_ddp_comp *comp_ovl0;
@@ -7369,8 +7386,25 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			struct cmdq_pkt *cmdq_handle;
 			int keep_first_layer = false;
 
-			cmdq_handle =
-				cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+			if (mtk_crtc->sec_on) {
+				mtk_crtc_pkt_create(&cmdq_handle, crtc,
+					mtk_crtc->gce_obj.client[CLIENT_SEC_CFG]);
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+				cmdq_sec_pkt_set_data(cmdq_handle, 0, 0,
+					CMDQ_SEC_PRIMARY_DISP, CMDQ_METAEX_NONE);
+#endif
+				DDPMSG("Switch vds: Primary display is sec\n");
+			} else {
+				cmdq_handle =
+					cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+				DDPMSG("Switch vds: Primary display is not sec\n");
+			}
+			if (IS_ERR_OR_NULL(cmdq_handle)) {
+				DDPMSG("Switch vds: cmdq_handle is null or err\n");
+				CRTC_MMP_EVENT_END(index, path_switch, crtc->enabled, 0);
+				return;
+			}
 			if (atomic_read(&mtk_crtc->already_config))
 				mtk_crtc_wait_frame_done(mtk_crtc,
 				cmdq_handle, DDP_FIRST_PATH, 0);
