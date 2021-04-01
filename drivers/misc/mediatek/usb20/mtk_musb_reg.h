@@ -338,6 +338,9 @@
 #define IDDIG_INT_POL        (1<<9)
 #define DRVVBUS_INT_POL      (1<<10)
 
+#define RESREG		0x700	/* Reserved Register */
+#define HSTPWRDWN_OPT	(1<<0)	/* connection detection option */
+
 /*
  * OTG 2.0 Registers
  */
