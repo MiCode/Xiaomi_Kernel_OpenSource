@@ -760,34 +760,56 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 	return data_rate;
 }
 
+static bool mtk_dsi_is_LFR_Enable(struct mtk_dsi *dsi)
+{
+	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
+	struct mtk_drm_private *priv = NULL;
+
+	if (mtk_crtc && mtk_crtc->base.dev)
+		priv = mtk_crtc->base.dev->dev_private;
+	if (!(priv && mtk_drm_helper_get_opt(priv->helper_opt,
+		MTK_DRM_OPT_LFR))) {
+		return false;
+	}
+	if (dsi->ext->params->lfr_enable == 0)
+		return false;
+
+	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
+		return false;
+	return true;
+}
+
 static int mtk_dsi_set_LFR(struct mtk_dsi *dsi, struct mtk_ddp_comp *comp,
-	void *handle)
+	void *handle, int en)
 {
 	u32 val = 0, mask = 0;
 
 	//lfr_dbg: setting value form debug mode
 	unsigned int lfr_dbg = mtk_dbg_get_lfr_dbg_value();
 	unsigned int lfr_mode = LFR_MODE_BOTH_MODE;
-	unsigned int lfr_type = 0;
-	unsigned int lfr_enable = 1;
+	unsigned int lfr_type = LFR_TYPE_HSYNC_ONLY;
+	unsigned int lfr_enable = en;
+	unsigned int lfr_vse_dis = 0;
 	unsigned int lfr_skip_num = 0;
+	struct drm_crtc *crtc = dsi->encoder.crtc;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	unsigned int refresh_rate = mtk_crtc->base.state->adjusted_mode.vrefresh;
 
-	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
+	if (!mtk_dsi_is_LFR_Enable(dsi))
 		return -1;
 
 	//Settings lfr settings to LFR_CON_REG
 	if (dsi->ext && dsi->ext->params &&
-		dsi->ext->params->dyn_fps.lfr_minimum_fps != 0 &&
-		dsi->ext->params->dyn_fps.lfr_enable == 1) {
+		dsi->ext->params->lfr_minimum_fps != 0) {
 		lfr_skip_num =
-			(dsi->ext->params->dyn_fps.vact_timing_fps /
-			dsi->ext->params->dyn_fps.lfr_minimum_fps) - 1;
+			(refresh_rate / dsi->ext->params->lfr_minimum_fps) - 1;
 	}
 
 	if (lfr_dbg) {
 		lfr_mode = mtk_dbg_get_lfr_mode_value();
 		lfr_type = mtk_dbg_get_lfr_type_value();
 		lfr_enable = mtk_dbg_get_lfr_enable_value();
+		lfr_vse_dis = mtk_dbg_get_lfr_vse_dis_value();
 		lfr_skip_num = mtk_dbg_get_lfr_skip_num_value();
 	}
 
@@ -796,7 +818,7 @@ static int mtk_dsi_set_LFR(struct mtk_dsi *dsi, struct mtk_ddp_comp *comp,
 	SET_VAL_MASK(val, mask, lfr_type, LFR_CON_FLD_REG_LFR_TYPE);
 	SET_VAL_MASK(val, mask, lfr_enable, LFR_CON_FLD_REG_LFR_EN);
 	SET_VAL_MASK(val, mask, 0, LFR_CON_FLD_REG_LFR_UPDATE);
-	SET_VAL_MASK(val, mask, 1, LFR_CON_FLD_REG_LFR_VSE_DIS);
+	SET_VAL_MASK(val, mask, lfr_vse_dis, LFR_CON_FLD_REG_LFR_VSE_DIS);
 	SET_VAL_MASK(val, mask, lfr_skip_num, LFR_CON_FLD_REG_LFR_SKIP_NUM);
 
 	if (handle == NULL)
@@ -814,7 +836,7 @@ static int mtk_dsi_LFR_update(struct mtk_dsi *dsi, struct mtk_ddp_comp *comp,
 {
 	u32 val = 0, mask = 0;
 
-	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
+	if (!mtk_dsi_is_LFR_Enable(dsi))
 		return -1;
 
 	if (comp == NULL) {
@@ -871,13 +893,15 @@ static int mtk_dsi_set_data_rate(struct mtk_dsi *dsi)
 
 static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct device *dev = dsi->dev;
+#endif
 	int ret;
 
 	DDPDBG("%s+\n", __func__);
 	if (++dsi->clk_refcnt != 1)
 		return 0;
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	ret = mtk_dsi_set_data_rate(dsi);
 	if (ret < 0) {
 		dev_err(dev, "Failed to set data rate: %d\n", ret);
@@ -905,7 +929,8 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 		dev_err(dev, "Failed to enable digital clock: %d\n", ret);
 		goto err_disable_engine_clk;
 	}
-	mtk_dsi_set_LFR(dsi, NULL, NULL);
+#endif
+	mtk_dsi_set_LFR(dsi, NULL, NULL, 1);
 #if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
 	if (dsi->driver_data->support_shadow) {
 		/* Enable shadow register and read shadow register */
@@ -5475,7 +5500,9 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case DSI_LFR_SET:
 	{
-		mtk_dsi_set_LFR(dsi, comp, handle);
+		int *en = (int *)params;
+
+		mtk_dsi_set_LFR(dsi, comp, handle, *en);
 	}
 		break;
 	case DSI_LFR_UPDATE:

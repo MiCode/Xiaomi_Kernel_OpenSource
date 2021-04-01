@@ -1879,12 +1879,7 @@ static void process_dbg_opt(const char *opt)
 		struct mtk_ddp_comp *comp;
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
-		struct mtk_dsi_lfr_con lfr_con = {0};
-
-		lfr_con.lfr_mode     = mtk_dbg_get_lfr_mode_value();
-		lfr_con.lfr_type     = mtk_dbg_get_lfr_type_value();
-		lfr_con.lfr_enable   = mtk_dbg_get_lfr_enable_value();
-		lfr_con.lfr_skip_num = mtk_dbg_get_lfr_skip_num_value();
+		int lfr_enable = 1;
 
 		/* this debug cmd only for crtc0 */
 		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
@@ -1897,7 +1892,7 @@ static void process_dbg_opt(const char *opt)
 		mtk_crtc = to_mtk_crtc(crtc);
 		comp = mtk_ddp_comp_request_output(mtk_crtc);
 		if (comp && comp->funcs && comp->funcs->io_cmd)
-			comp->funcs->io_cmd(comp, NULL, DSI_LFR_SET, &lfr_con);
+			comp->funcs->io_cmd(comp, NULL, DSI_LFR_SET, &lfr_enable);
 	} else if (strncmp(opt, "LFR_update", 10) == 0) {
 		struct mtk_ddp_comp *comp;
 		struct drm_crtc *crtc;
