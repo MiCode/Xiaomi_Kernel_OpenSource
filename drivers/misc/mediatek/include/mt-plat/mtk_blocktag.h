@@ -236,8 +236,12 @@ void mtk_btag_free(struct mtk_blocktag *btag);
 struct mtk_btag_trace *mtk_btag_curr_trace(struct mtk_btag_ringtrace *rt);
 struct mtk_btag_trace *mtk_btag_next_trace(struct mtk_btag_ringtrace *rt);
 
+#ifdef CONFIG_MMC_BLOCK_IO_LOG
 int mtk_btag_pidlog_add_mmc(struct request_queue *q, pid_t pid, __u32 len,
 	int rw);
+#else
+#define mtk_btag_pidlog_add_mmc(...)
+#endif
 #ifdef CONFIG_MTK_UFS_BLOCK_IO_LOG
 int mtk_btag_pidlog_add_ufs(struct request_queue *q, short pid, __u32 len,
 	int rw);
