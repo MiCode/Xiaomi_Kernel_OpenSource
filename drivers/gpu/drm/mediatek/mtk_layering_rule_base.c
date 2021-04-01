@@ -1589,7 +1589,7 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 		else
 			return DDP_COMPONENT_OVL0;
 	}
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6877)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6877)
 	else if (disp_idx == 1)
 		return DDP_COMPONENT_OVL2_2L;
 	else
