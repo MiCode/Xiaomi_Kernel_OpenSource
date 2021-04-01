@@ -986,6 +986,12 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 			cmdq_sec_pkt_set_data(pkt_ptr, dapc_engine,
 				port_sec_engine, CMDQ_SEC_KERNEL_CONFIG_GENERAL,
 				CMDQ_METAEX_VENC);
+
+			if (buff.cmdq_buff.secure == 3) {
+				// CMDQ MTEE hint
+				pr_debug("[VCU] Use MTEE\n");
+				cmdq_sec_pkt_set_mtee(pkt_ptr, (buff.cmdq_buff.secure == 3));
+			}
 #endif
 		}
 	}
