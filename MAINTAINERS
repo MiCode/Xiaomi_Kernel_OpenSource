@@ -11189,6 +11189,15 @@ S:	Maintained
 F:	Documentation/devicetree/bindings/power/reset/mt6323-poweroff.txt
 F:	drivers/power/reset/mt6323-poweroff.c
 
+MEDIATEK IOMMU DRIVER
+M:	Yong Wu <yong.wu@mediatek.com>
+L:	iommu@lists.linux-foundation.org
+L:	linux-mediatek@lists.infradead.org (moderated for non-subscribers)
+S:	Supported
+F:	Documentation/devicetree/bindings/iommu/mediatek*
+F:	drivers/iommu/mtk_iommu*
+F:	include/dt-bindings/memory/mt*-port.h
+
 MEDIATEK JPEG DRIVER
 M:	Rick Chang <rick.chang@mediatek.com>
 M:	Bin Liu <bin.liu@mediatek.com>

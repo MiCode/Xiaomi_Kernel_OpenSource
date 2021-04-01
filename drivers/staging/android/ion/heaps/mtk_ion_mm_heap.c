@@ -16,10 +16,14 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/iommu.h>
-#include <dt-bindings/memory/mtk-smi-larb-port.h>
+#include <dt-bindings/memory/mtk-memory-port.h>
 #include "ion_page_pool.h"
 
 #define NUM_ORDERS ARRAY_SIZE(orders)
+
+/* HACK since ion is going to be removed */
+#define MTK_M4U_DOM_NR_MAX            8
+#define MTK_M4U_TO_DOM(id)              (((id) >> 16) & 0x7)
 
 static gfp_t high_order_gfp_flags = (GFP_HIGHUSER | __GFP_ZERO | __GFP_NOWARN |
 				     __GFP_NORETRY) & ~__GFP_RECLAIM;

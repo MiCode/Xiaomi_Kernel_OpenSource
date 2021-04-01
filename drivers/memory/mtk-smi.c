@@ -16,8 +16,8 @@
 #include <linux/pm_opp.h>
 #include <linux/pm_runtime.h>
 #include <soc/mediatek/smi.h>
-#include <dt-bindings/memory/mtk-smi-larb-port.h>
 #include <dt-bindings/memory/mt2701-larb-port.h>
+#include <dt-bindings/memory/mtk-memory-port.h>
 
 /* mt8173 */
 #define SMI_LARB_MMU_EN		0xf00
@@ -46,8 +46,10 @@
 /* mt2712 */
 #define SMI_LARB_NONSEC_CON(id)	(0x380 + ((id) * 4))
 #define F_MMU_EN		BIT(0)
-#define BANK_SEL(a)		((((a) & 0x3) << 8) | (((a) & 0x3) << 10) |\
-				 (((a) & 0x3) << 12) | (((a) & 0x3) << 14))
+#define BANK_SEL(id)		({			\
+	u32 _id = (id) & 0x3;				\
+	(_id << 8 | _id << 10 | _id << 12 | _id << 14);	\
+})
 /* mt6873 */
 #define SMI_LARB_OSTDL_PORT		0x200
 #define SMI_LARB_OSTDL_PORTx(id)	(SMI_LARB_OSTDL_PORT + ((id) << 2))
@@ -134,7 +136,7 @@ struct mtk_smi_larb { /* larb: local arbiter */
 	const struct mtk_smi_larb_gen	*larb_gen;
 	int				larbid;
 	u32				*mmu;
-	u32				*bank;
+	unsigned char			*bank;
 };
 
 void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val)
@@ -219,7 +221,7 @@ mtk_smi_larb_bind(struct device *dev, struct device *master, void *data)
 		if (dev == larb_mmu[i].dev) {
 			larb->larbid = i;
 			larb->mmu = &larb_mmu[i].mmu;
-			larb->bank = &larb_mmu[i].bank[0];
+			larb->bank = larb_mmu[i].bank;
 			return 0;
 		}
 	}

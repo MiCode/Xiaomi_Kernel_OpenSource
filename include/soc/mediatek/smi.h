@@ -8,18 +8,17 @@
 
 #include <linux/bitops.h>
 #include <linux/device.h>
-#include <dt-bindings/memory/mtk-smi-larb-port.h>
 
 #if IS_ENABLED(CONFIG_MTK_SMI)
-
 
 #define MTK_SMI_MMU_EN(port)	BIT(port)
 
 struct mtk_smi_larb_iommu {
 	struct device *dev;
 	unsigned int   mmu;
-	unsigned int   bank[32];
+	unsigned char  bank[32];
 };
+
 /*
  * mtk_smi_larb_get: Enable the power domain and clocks for this local arbiter.
  *                   It also initialize some basic setting(like iommu).

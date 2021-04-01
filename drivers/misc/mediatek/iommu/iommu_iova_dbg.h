@@ -18,7 +18,10 @@
 #include <linux/export.h>
 #include <linux/atomic.h>
 #include <linux/iommu.h>
-#include <dt-bindings/memory/mtk-smi-larb-port.h>
+#include <dt-bindings/memory/mtk-memory-port.h>
+
+/* HACK since ion is going to be removed */
+#define MTK_M4U_TO_DOM(id)              (((id) >> 16) & 0x7)
 
 struct iova_info {
 	u32 dom_id;

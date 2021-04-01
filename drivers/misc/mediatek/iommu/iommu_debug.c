@@ -16,7 +16,7 @@
 #include <linux/slab.h>
 #include <linux/sched/clock.h>
 #include <linux/export.h>
-#include <dt-bindings/memory/mtk-smi-larb-port.h>
+#include <dt-bindings/memory/mtk-memory-port.h>
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aee.h>
 #endif

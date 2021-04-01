@@ -17,10 +17,12 @@
 #include <linux/spinlock.h>
 #include <linux/dma-mapping.h>
 #include <soc/mediatek/smi.h>
-#include <dt-bindings/memory/mtk-smi-larb-port.h>
+#include <dt-bindings/memory/mtk-memory-port.h>
 
 #define MTK_LARB_COM_MAX	8
 #define MTK_LARB_SUBCOM_MAX	4
+
+#define MTK_IOMMU_GROUP_MAX	8
 
 struct mtk_iommu_suspend_reg {
 	union {
@@ -44,6 +46,7 @@ enum mtk_iommu_plat {
 	M4U_MT8167,
 	M4U_MT8173,
 	M4U_MT8183,
+	M4U_MT8192,
 };
 
 struct mtk_iommu_iova_region;
@@ -53,9 +56,10 @@ struct mtk_iommu_plat_data {
 	u32                 flags;
 	bool		    is_apu;
 	u32                 inv_sel_reg;
-	unsigned char       larbid_remap[MTK_LARB_COM_MAX][MTK_LARB_SUBCOM_MAX];
-	unsigned int        iova_region_nr;
+
+	unsigned int				iova_region_nr;
 	const struct mtk_iommu_iova_region	*iova_region;
+	unsigned char       larbid_remap[MTK_LARB_COM_MAX][MTK_LARB_SUBCOM_MAX];
 };
 
 struct mtk_iommu_domain;
@@ -68,7 +72,7 @@ struct mtk_iommu_data {
 	phys_addr_t			protect_base; /* protect memory base */
 	struct mtk_iommu_suspend_reg	reg;
 	struct mtk_iommu_domain		*m4u_dom;
-	struct iommu_group		*m4u_group[MTK_M4U_DOM_NR_MAX];
+	struct iommu_group		*m4u_group[MTK_IOMMU_GROUP_MAX];
 	bool                            enable_4GB;
 	spinlock_t			tlb_lock; /* lock for tlb range flush */
 
