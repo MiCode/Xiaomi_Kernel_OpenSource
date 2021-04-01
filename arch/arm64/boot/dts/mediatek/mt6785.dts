@@ -2027,6 +2027,7 @@ page_owner=on loop.max_part=7";
 		#endif
 			<7 0x9000>,	/* SMI 36K */
 			<8 0x1000>;	/* GPU 4K */
+		sspm_share_buffer_supported; /* share_buffer supported */
 	};
 
 	adsp_common: adsp_common@10600000 {
