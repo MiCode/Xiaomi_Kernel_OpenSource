@@ -22,6 +22,9 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
+#if BITS_PER_LONG == 32
+	#include <asm/div64.h>
+#endif
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
@@ -498,6 +501,9 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 
 	unsigned int fill_rate = 0;	  /* 100 times */
 	unsigned long long consume_rate = 0; /* 100 times */
+#if BITS_PER_LONG == 32
+	unsigned long long temp = 0; /* 32 bit */
+#endif
 
 	if (if_fps == 0) {
 		DDPPR_ERR("%s invalid vrefresh %u\n",
@@ -544,10 +550,21 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 
 	/* RDMA golden setting calculation */
 	/* DISP_RDMA_MEM_GMC_SETTING_0 */
+#if BITS_PER_LONG == 64
 	gs[GS_RDMA_PRE_ULTRA_TH_LOW] =
 		DIV_ROUND_UP(consume_rate * (pre_ultra_low_us), FP);
 	gs[GS_RDMA_PRE_ULTRA_TH_HIGH] =
 		DIV_ROUND_UP(consume_rate * (pre_ultra_high_us), FP);
+#elif BITS_PER_LONG == 32
+	temp = consume_rate * (pre_ultra_low_us);
+	do_div(temp, FP);
+	gs[GS_RDMA_PRE_ULTRA_TH_LOW] = temp;
+	temp = consume_rate * (pre_ultra_high_us);
+	do_div(temp, FP);
+	gs[GS_RDMA_PRE_ULTRA_TH_HIGH] = temp;
+#else
+	#error "unsigned long division is not supported for this architecture"
+#endif
 	if (gsc->is_vdo_mode) {
 		gs[GS_RDMA_VALID_TH_FORCE_PRE_ULTRA] = 0;
 		gs[GS_RDMA_VDE_FORCE_PRE_ULTRA] = 1;

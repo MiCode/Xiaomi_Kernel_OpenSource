@@ -26,6 +26,9 @@
 #include <linux/sched.h>
 #include <uapi/linux/sched/types.h>
 #include <drm/drm_auth.h>
+#if BITS_PER_LONG == 32
+#include <asm/div64.h>
+#endif
 
 #include "drm_internal.h"
 #include "mtk_drm_crtc.h"
@@ -2470,8 +2473,16 @@ unsigned int lcm_fps_ctx_get(unsigned int crtc_id)
 		duration_max = max(duration_max, lcm_fps_ctx[index].array[i]);
 	}
 	duration_sum -= duration_min + duration_max;
+#if BITS_PER_LONG == 64
 	duration_avg = duration_sum / (lcm_fps_ctx[index].num - 2);
 	do_div(fps, duration_avg);
+#elif BITS_PER_LONG == 32
+	duration_avg = duration_sum; /* temp use */
+	do_div(duration_avg, (lcm_fps_ctx[index].num - 2));
+	do_div(fps, duration_avg);
+#else
+	#error "unsigned long division is not supported for this architecture"
+#endif
 	lcm_fps_ctx[index].fps = (unsigned int)fps;
 
 	DDPMSG("%s CRTC:%d max=%lld, min=%lld, sum=%lld, num=%d, fps=%u\n",
