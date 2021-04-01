@@ -62,6 +62,7 @@ static inline struct musb_qh *first_qh(struct list_head *q)
 void musb_h_pre_disable(struct musb *musb);
 
 extern void musb_root_disconnect(struct musb *musb);
+extern int musb_port_suspend(struct musb *musb, bool do_suspend);
 
 struct usb_hcd;
 
