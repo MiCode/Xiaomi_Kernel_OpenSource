@@ -1425,7 +1425,8 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 
 	sspm@10440000 {
 		compatible = "mediatek,sspm";
-		reg = <0 0x10440000 0 0x10000>,
+		reg = <0 0x10400000 0 0x28000>,
+			<0 0x10440000 0 0x10000>,
 			<0 0x10450000 0 0x100>,
 			<0 0x10451000 0 0x8>,
 			<0 0x10460000 0 0x100>,
@@ -1437,7 +1438,8 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			<0 0x10490000 0 0x100>,
 			<0 0x10491000 0 0x8>;
 
-		reg-names = "cfgreg",
+		reg-names = "sspm_base",
+			"cfgreg",
 			"mbox0_base",
 			"mbox0_ctrl",
 			"mbox1_base",
