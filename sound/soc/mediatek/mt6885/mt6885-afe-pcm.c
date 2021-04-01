@@ -932,7 +932,6 @@ static int mt6885_primary_scene_set(struct snd_kcontrol *kcontrol,
 		memif->use_dram_only = 1;
 	else
 		memif->use_dram_only = 0;
-
 	return 0;
 }
 

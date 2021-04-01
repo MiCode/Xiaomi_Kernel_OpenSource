@@ -21,6 +21,8 @@
 #define SGEN_MUTE_CH1_KCONTROL_NAME "Audio_SineGen_Mute_Ch1"
 #define SGEN_MUTE_CH2_KCONTROL_NAME "Audio_SineGen_Mute_Ch2"
 
+
+
 static const char * const mt6873_sgen_mode_str[] = {
 	"I0I1",   "I2",     "I3I4",   "I5I6",
 	"I7I8",   "I9",     "I10I11", "I12I13",
@@ -2177,6 +2179,8 @@ int mt6873_add_misc_control(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 				      mt6873_afe_bargein_controls,
 				      ARRAY_SIZE(mt6873_afe_bargein_controls));
+
+	//for ellipitc mixer control
 
 	return 0;
 }

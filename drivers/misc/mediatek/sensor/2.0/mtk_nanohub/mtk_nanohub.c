@@ -676,6 +676,7 @@ static void mtk_nanohub_init_sensor_info(void)
 	strlcpy(p->name, "ois", sizeof(p->name));
 	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
+
 }
 
 static void init_sensor_config_cmd(struct ConfigCmd *cmd,

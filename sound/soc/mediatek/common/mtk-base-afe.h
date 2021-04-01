@@ -155,7 +155,9 @@ struct mtk_base_afe_memif {
 #if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
 	bool scp_spk_enable;
 #endif
-
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+	bool scp_ultra_enable;
+#endif
 	int use_mmap_share_mem;  // 1 : dl   2 : ul
 
 	bool ack_enable;

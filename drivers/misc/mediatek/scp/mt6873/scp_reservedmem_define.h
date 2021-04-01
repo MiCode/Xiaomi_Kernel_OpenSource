@@ -60,6 +60,14 @@ static struct scp_reserve_mblock scp_reserve_mblock[] = {
 		.size = 0x100,  /* 256 bytes */
 	},
 #endif
+#ifdef CONFIG_MTK_ULTRASND_PROXIMITY
+	{
+		.num = ULTRA_MEM_ID,
+		.start_phys = 0,
+		.start_virt = 0,
+		.size = 0x19000,
+	},
+#endif
 };
 
 
