@@ -108,6 +108,11 @@ struct ESD_PARA {
 	char *esd_ret_buffer;
 };
 
+#ifndef CONFIG_MTK_DISPLAY_CMDQ
+// drm_dev define in mtk_fbconfig_kdebug.c, PanelMaster_Init() must be called before crtc_create
+extern struct drm_device *drm_dev;
+#endif
+
 #if 0
 struct LAYER_H_SIZE {
 	int layer_size;

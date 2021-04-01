@@ -436,7 +436,9 @@ int DAL_Printf(const char *fmt, ...)
 	if (drm_dal_enable == 0)
 		drm_dal_enable = 1;
 
+#ifdef CONFIG_MTK_DISPLAY_CMDQ
 	drm_show_dal(dal_crtc, true);
+#endif
 
 	DAL_UNLOCK();
 
