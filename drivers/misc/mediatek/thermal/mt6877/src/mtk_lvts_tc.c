@@ -102,7 +102,7 @@ const struct of_device_id mt_thermal_of_match[2] = {
  * module			LVTS Plan
  *=====================================================
  * MCU_BIG		LVTS1-0, LVTS1-1
- * MCU_LITTLE	LVTS2-0, LVTS2-1, LVTS2-2, LVTS2-3
+ * MCU_LITTLE		LVTS2-0, LVTS2-1, LVTS2-2, LVTS2-3
  * GPU			LVTS3-0, LVTS3-1
  * SOC TOP		LVTS3-2, LVTS3-3
  * VPU			LVTS4-0, LVTS4-1
@@ -1176,13 +1176,22 @@ void lvts_thermal_cal_prepare(void)
 void lvts_ipi_send_efuse_data(void)
 {
 	struct thermal_ipi_data thermal_data;
+	struct thermal_ipi_data thermal_data_sspm;
 
 	lvts_printk("%s\n", __func__);
 
 	thermal_data.u.data.arg[0] = g_golden_temp;
 	thermal_data.u.data.arg[1] = 0;
 	thermal_data.u.data.arg[2] = 0;
+
+	thermal_data_sspm.u.data.arg[0] = g_golden_temp;
+	thermal_data_sspm.u.data.arg[1] = 0;
+	thermal_data_sspm.u.data.arg[2] = 0;
+
 	while (thermal_to_mcupm(THERMAL_IPI_LVTS_INIT_GRP1, &thermal_data) != 0)
+		udelay(100);
+
+	while (thermal_to_sspm(THERMAL_IPI_LVTS_INIT_GRP1, &thermal_data_sspm) != 0)
 		udelay(100);
 }
 #endif
@@ -1193,14 +1202,24 @@ void lvts_ipi_send_efuse_data(void)
 void lvts_ipi_send_sspm_thermal_thtottle(void)
 {
 	struct thermal_ipi_data thermal_data;
+	struct thermal_ipi_data thermal_data2;
 
 	lvts_printk("%s\n", __func__);
 
 	thermal_data.u.data.arg[0] = tscpu_sspm_thermal_throttle;
 	thermal_data.u.data.arg[1] = 0;
 	thermal_data.u.data.arg[2] = 0;
+
+	thermal_data2.u.data.arg[0] = tscpu_sspm_thermal_throttle;
+	thermal_data2.u.data.arg[1] = 0;
+	thermal_data2.u.data.arg[2] = 0;
+
 	while (thermal_to_mcupm(THERMAL_IPI_SET_DIS_THERMAL_THROTTLE,
 		&thermal_data) != 0)
+		udelay(100);
+
+	while (thermal_to_sspm(THERMAL_IPI_SET_DIS_THERMAL_THROTTLE,
+		&thermal_data2) != 0)
 		udelay(100);
 }
 #endif

@@ -24,6 +24,10 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/gpu/hal/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/fakeHeader/
 ifeq ($(CONFIG_MACH_MT6877),y)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mcupm/$(MTK_PLATFORM)
+#ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/v1
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)
+#ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
 else
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mcupm/$(PDIR)
 endif

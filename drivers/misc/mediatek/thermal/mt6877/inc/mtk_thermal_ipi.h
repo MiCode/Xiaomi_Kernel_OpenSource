@@ -45,6 +45,7 @@
 
 #if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
 #include <mcupm_ipi_id.h>
+#include <sspm_ipi_id.h>
 
 
 #define THERMAL_SLOT_NUM (4)
@@ -88,6 +89,8 @@ struct thermal_ipi_data {
 	} u;
 };
 extern unsigned int thermal_to_mcupm(unsigned int cmd,
+	struct thermal_ipi_data *thermal_data);
+extern unsigned int thermal_to_sspm(unsigned int cmd,
 	struct thermal_ipi_data *thermal_data);
 extern int atm_to_sspm(unsigned int cmd, int data_len,
 	struct thermal_ipi_data *thermal_data, int *ackData);

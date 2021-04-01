@@ -12,6 +12,7 @@
  */
 
 #include "mtk_thermal_ipi.h"
+//#include "mtk_thermal_sspm_ipi.h"
 #include "mach/mtk_thermal.h"
 #include "tscpu_settings.h"
 #include "linux/mutex.h"
@@ -40,6 +41,8 @@ static int ack_data;
 
 static int register_thermal_ipi(void)
 {
+	int ret2;
+
 #ifndef THERMAL_CPUEB_USE_PLATFORM_IPI
 	int ret;
 
@@ -50,11 +53,144 @@ static int register_thermal_ipi(void)
 		return -1;
 	}
 #endif
-	is_thermal_ipi_registered = 1;
 
+	ret2 = mtk_ipi_register(&sspm_ipidev, IPIS_C_THERMAL, NULL, NULL,
+		(void *)&ack_data);
+	if (ret2 != 0) {
+		tscpu_printk("%s error ret:%d\n", __func__, ret2);
+		return -1;
+	}
+	is_thermal_ipi_registered = 1;
+tscpu_printk("%s ret2:%d\n", __func__, ret2);
 	return 0;
 }
 #endif
+unsigned int thermal_to_sspm(
+	unsigned int cmd, struct thermal_ipi_data *thermal_data)
+{
+	int ackData = -1;
+	int ret;
+
+	mutex_lock(&thermo_sspm_mutex);
+
+	if (!is_thermal_ipi_registered) {
+		if (register_thermal_ipi() != 0)
+			goto end;
+	}
+
+	switch (cmd) {
+	case THERMAL_IPI_INIT_GRP1:
+	case THERMAL_IPI_INIT_GRP2:
+	case THERMAL_IPI_INIT_GRP3:
+	case THERMAL_IPI_INIT_GRP4:
+	case THERMAL_IPI_INIT_GRP5:
+	case THERMAL_IPI_INIT_GRP6:
+		thermal_data->cmd = cmd;
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_THERMAL,
+			IPI_SEND_POLLING, thermal_data, THERMAL_SLOT_NUM, 2000);
+		if (ret != 0)
+			tscpu_printk("send init cmd(%d) error ret:%d\n",
+				cmd, ret);
+		else if (ack_data < 0)
+			tscpu_printk("cmd(%d) return error(%d)\n",
+				cmd, ack_data);
+
+		ackData = ack_data;
+
+		break;
+	case THERMAL_IPI_LVTS_INIT_GRP1:
+		thermal_data->cmd = cmd;
+		tscpu_printk("cmd(%d) lvts efuse to SSPM (%d)\n",
+				cmd, ack_data);
+
+		ackData = ack_data;
+
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_THERMAL,
+			IPI_SEND_POLLING, thermal_data, THERMAL_SLOT_NUM, 2000);
+
+
+		if (ret != 0)
+			tscpu_printk("sspm_ipi_send err cmd %d,ret:%d - %d\n",
+					cmd, ret, ackData);
+		else if (ackData < 0)
+			tscpu_printk("cmd(%d) return error(%d)\n",
+				cmd, ackData);
+		break;
+
+	case THERMAL_IPI_GET_TEMP:
+		thermal_data->cmd = cmd;
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_THERMAL,
+			IPI_SEND_POLLING, thermal_data, THERMAL_SLOT_NUM, 2000);
+		if (ret != 0)
+			tscpu_printk("send get_temp cmd(%d) error ret:%d\n",
+				cmd, ret);
+		else if (ack_data < 0)
+			tscpu_printk("cmd(%d) return error(%d)\n",
+				cmd, ack_data);
+
+		ackData = ack_data;
+
+		break;
+	case THERMAL_IPI_SET_BIG_FREQ_THRESHOLD:
+	case THERMAL_IPI_GET_BIG_FREQ_THRESHOLD:
+		thermal_data->cmd = cmd;
+
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_THERMAL,
+			IPI_SEND_POLLING, thermal_data, THERMAL_SLOT_NUM, 2000);
+
+		if (ret != 0)
+			tscpu_printk("mtk_ipi_send_compl error ret:%d - %d\n",
+					cmd, ret);
+		else if (ackData < 0)
+			tscpu_printk("cmd(%d) return error(%d)\n",
+				cmd, ackData);
+		break;
+
+	case THERMAL_IPI_SET_DIS_THERMAL_THROTTLE:
+		thermal_data->cmd = cmd;
+		tscpu_printk("cmd(%d) disable SSPM thermal throttle(%d)\n",
+				cmd, ack_data);
+
+		ackData = ack_data;
+
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_THERMAL,
+			IPI_SEND_POLLING, thermal_data, THERMAL_SLOT_NUM, 2000);
+
+		if (ret != 0)
+			tscpu_printk("sspm_ipi_send err cmd %d,ret:%d - %d\n",
+					cmd, ret, ackData);
+		else if (ackData < 0)
+			tscpu_printk("cmd(%d) return error(%d)\n",
+				cmd, ackData);
+		break;
+	case THERMAL_IPI_SUSPEND_RESUME_NOTIFY:
+		thermal_data->cmd = cmd;
+		//tscpu_printk("cmd(%d) kernel suspend/resume(%d)\n",
+		//		cmd, ack_data);
+
+		ackData = ack_data;
+
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_THERMAL,
+			IPI_SEND_POLLING, thermal_data, THERMAL_SLOT_NUM, 2000);
+
+		if (ret != 0)
+			tscpu_printk("sspm_ipi_send err cmd %d,ret:%d - %d\n",
+					cmd, ret, ackData);
+		else if (ackData < 0)
+			tscpu_printk("cmd(%d) return error(%d)\n",
+				cmd, ackData);
+		break;
+
+	default:
+		tscpu_printk("cmd(%d) wrong!!\n", cmd);
+		break;
+	}
+
+end:
+	mutex_unlock(&thermo_sspm_mutex);
+
+	return ackData; /** It's weird here. What should be returned? */
+}
 unsigned int thermal_to_mcupm(
 	unsigned int cmd, struct thermal_ipi_data *thermal_data)
 {
