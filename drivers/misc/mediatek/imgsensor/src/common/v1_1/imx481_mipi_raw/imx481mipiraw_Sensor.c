@@ -673,7 +673,7 @@ static void night_mode(kal_bool enable)
 } /* night_mode */
 
 
-#define MULTI_WRITE 0
+#define MULTI_WRITE 1
 
 #if MULTI_WRITE
 #define I2C_BUFFER_LEN 765	/* trans# max is 255, each 3 bytes */

@@ -1024,7 +1024,8 @@ static kal_uint32 streaming_control(kal_bool enable)
 }
 
 #if USE_BURST_MODE
-#define MULTI_WRITE 0
+#define MULTI_WRITE 1
+
 #define I2C_BUFFER_LEN 255 /* trans# max is 255, each 3 bytes */
 static kal_uint16 imx586_table_write_cmos_sensor(kal_uint16 *para,
 						 kal_uint32 len)
