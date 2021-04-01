@@ -1021,34 +1021,12 @@ bool mtk_crtc_get_vblank_timestamp(struct drm_device *dev, unsigned int pipe,
 /*dp 4k resolution 3840*2160*/
 bool mtk_crtc_is_dual_pipe(struct drm_crtc *crtc)
 {
-	struct mtk_panel_params *panel_ext =
-		mtk_drm_get_lcm_ext_params(crtc);
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
-
-	if ((drm_crtc_index(crtc) == 0) &&
-		panel_ext &&
-		panel_ext->output_mode == MTK_PANEL_DUAL_PORT) {
-		DDPFUNC();
-		return true;
-	}
-
 	if ((drm_crtc_index(crtc) == 1) &&
 		(crtc->state->adjusted_mode.hdisplay == 1920*2)) {
 		DDPFUNC();
 		return true;
-	}
-
-	if ((drm_crtc_index(crtc) == 0) &&
-		mtk_drm_helper_get_opt(priv->helper_opt,
-			    MTK_DRM_OPT_PRIM_DUAL_PIPE) &&
-		panel_ext &&
-		panel_ext->output_mode == MTK_PANEL_DSC_SINGLE_PORT &&
-		panel_ext->dsc_params.slice_mode == 1) {
-		DDPFUNC();
-		return true;
-	}
-
-	return false;
+	} else
+		return false;
 }
 
 void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
