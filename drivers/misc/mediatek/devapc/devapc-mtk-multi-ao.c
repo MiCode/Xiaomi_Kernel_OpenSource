@@ -692,6 +692,7 @@ static void start_devapc(void)
 	void __iomem *pd_apc_con_reg;
 	uint32_t vio_shift_sta;
 	int slave_type, i, vio_idx, index;
+	uint32_t retry = RETRY_COUNT;
 
 	print_vio_mask_sta(false);
 	ndevices = mtk_devapc_ctx->soc->ndevices;
@@ -735,15 +736,20 @@ static void start_devapc(void)
 			if ((check_vio_status(slave_type, vio_idx) ==
 					VIOLATION_TRIGGERED) &&
 					clear_vio_status(slave_type, vio_idx)) {
-				pr_warn(PFX "%s, %s:0x%x, %s:0x%x\n",
+				pr_warn(PFX "%s, %s:0x%x, %s:0x%x, %s:%d\n",
 					"clear vio status failed",
 					"slave_type", slave_type,
-					"vio_index", vio_idx);
+					"vio_index", vio_idx,
+					"retry", retry);
 
 				index = i;
 				mtk_devapc_dump_vio_dbg(slave_type, &vio_idx,
 						&index);
-				i = index - 1;
+
+				if (--retry)
+					i = index - 1;
+				else  /* reset retry and continue */
+					retry = RETRY_COUNT;
 			}
 
 			mask_module_irq(slave_type, vio_idx, false);
