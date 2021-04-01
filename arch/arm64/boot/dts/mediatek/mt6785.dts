@@ -2014,6 +2014,19 @@ page_owner=on loop.max_part=7";
 			"mbox2",
 			"mbox3",
 			"mbox4";
+		sspm_mem_key = "mediatek,reserve-memory-sspm_share";
+		sspm_mem_tbl = <0 0x100100>, /* logger header + log buffer */
+			<1 0x300>,	/* PWRAP 768bytes*/
+			<2 0xc00>,	/* PMIC 3K */
+			<3 0x1800>,	/* UPD 6K */
+			<4 0x1000>,	/* QOS 4K*/
+			<5 0x1800>,	/* SWPM 6K*/
+		#if defined(CONFIG_MTK_GMO_RAM_OPTIMIZE) || defined(CONFIG_MTK_MET_MEM_ALLOC)
+		#else
+			<6 0x400000>,	/* MET 4M */
+		#endif
+			<7 0x9000>,	/* SMI 36K */
+			<8 0x1000>;	/* GPU 4K */
 	};
 
 	adsp_common: adsp_common@10600000 {
