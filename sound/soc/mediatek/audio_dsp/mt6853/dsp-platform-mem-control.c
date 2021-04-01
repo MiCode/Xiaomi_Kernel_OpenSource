@@ -69,7 +69,7 @@ static struct mtk_adsp_task_attr adsp_task_attr[AUDIO_TASK_DAI_NUM] = {
 				      KTV_FEATURE_ID, false},
 	[AUDIO_TASK_CAPTURE_RAW_ID] = {false, -1, -1, -1,
 				       CAPTURE_RAW_FEATURE_ID, false},
-	[AUDIO_TASK_FM_ADSP_ID] = {false, -1, MT6853_MEMIF_VUL4, -1,
+	[AUDIO_TASK_FM_ADSP_ID] = {true, -1, MT6853_MEMIF_VUL4, -1,
 				      FM_ADSP_FEATURE_ID, false},
 };
 
