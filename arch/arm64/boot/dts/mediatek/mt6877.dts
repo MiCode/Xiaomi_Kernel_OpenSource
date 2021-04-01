@@ -1285,38 +1285,22 @@
 			mfgpll1 {
 				fh-id = <0>;
 				pll-id = <13>;
+				perms = <0x3>;
 			};
 			mfgpll2 {
 				fh-id = <1>;
 				pll-id = <14>;
+				perms = <0x3>;
 			};
 			mfgpll3 {
 				fh-id = <2>;
 				pll-id = <15>;
+				perms = <0x3>;
 			};
 			mfgpll4 {
 				fh-id = <3>;
 				pll-id = <16>;
-			};
-		};
-		map2 {
-			domain = "apu";
-			method = "fhctl-ap";
-			apupll1 {
-				fh-id = <0>;
-				pll-id = <17>;
-			};
-			apupll2 {
-				fh-id = <1>;
-				pll-id = <18>;
-			};
-			apupll3 {
-				fh-id = <2>;
-				pll-id = <19>;
-			};
-			apupll4 {
-				fh-id = <3>;
-				pll-id = <20>;
+				perms = <0x3>;
 			};
 		};
 	};
