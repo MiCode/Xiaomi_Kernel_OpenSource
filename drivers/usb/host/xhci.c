@@ -3645,10 +3645,6 @@ static void xhci_free_dev(struct usb_hcd *hcd, struct usb_device *udev)
 		pm_runtime_put_noidle(hcd->self.controller);
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_UAC_POWER_SAVING)
-	xhci->quirks &= ~XHCI_DEV_WITH_SYNC_EP;
-#endif
-
 	ret = xhci_check_args(hcd, udev, NULL, 0, true, __func__);
 	/* If the host is halted due to driver unload, we still need to free the
 	 * device.

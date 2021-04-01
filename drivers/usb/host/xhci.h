@@ -1513,9 +1513,6 @@ struct xhci_segment {
 	void			*bounce_buf;
 	unsigned int		bounce_offs;
 	unsigned int		bounce_len;
-#if IS_ENABLED(CONFIG_MTK_UAC_POWER_SAVING)
-	int sram_flag;
-#endif
 };
 
 struct xhci_td {
@@ -1874,10 +1871,7 @@ struct xhci_hcd {
 	u16			test_mode;
 /* Compliance Mode Timer Triggered every 2 seconds */
 #define COMP_MODE_RCVRY_MSECS 2000
-#if IS_ENABLED(CONFIG_MTK_UAC_POWER_SAVING)
-	dma_addr_t		msram_phys_addr;
-	void			*msram_virt_addr;
-#endif
+
 	/* platform-specific data -- must come last */
 	unsigned long		priv[0] __aligned(sizeof(s64));
 };

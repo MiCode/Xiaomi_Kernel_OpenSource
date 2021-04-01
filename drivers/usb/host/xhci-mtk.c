@@ -1016,9 +1016,6 @@ static int __maybe_unused xhci_mtk_runtime_suspend(struct device *dev)
 
 	xhci_info(xhci, "%s\n", __func__);
 	xhci_mtk_host_disable(mtk);
-#if IS_ENABLED(CONFIG_MTK_UAC_POWER_SAVING)
-	xhci_mtk_set_sleep(true);
-#endif
 	return 0;
 }
 
@@ -1029,9 +1026,6 @@ static int __maybe_unused xhci_mtk_runtime_resume(struct device *dev)
 
 	xhci_info(xhci, "%s\n", __func__);
 	xhci_mtk_host_enable(mtk);
-#if IS_ENABLED(CONFIG_MTK_UAC_POWER_SAVING)
-	xhci_mtk_set_sleep(false);
-#endif
 	return 0;
 }
 
@@ -1057,13 +1051,7 @@ static int __maybe_unused xhci_mtk_suspend(struct device *dev)
 
 	xhci_mtk_host_disable(mtk);
 	xhci_mtk_phy_power_off(mtk);
-#if IS_ENABLED(CONFIG_MTK_UAC_POWER_SAVING)
-	if (xhci->msram_virt_addr)
-		xhci_mtk_clks_disable(mtk);
-#else
 	xhci_mtk_clks_disable(mtk);
-#endif
-
 	usb_wakeup_enable(mtk);
 	return 0;
 }
@@ -1076,12 +1064,7 @@ static int __maybe_unused xhci_mtk_resume(struct device *dev)
 
 	xhci_info(xhci, "%s\n", __func__);
 	usb_wakeup_disable(mtk);
-#if IS_ENABLED(CONFIG_MTK_UAC_POWER_SAVING)
-	if (xhci->msram_virt_addr)
-		xhci_mtk_clks_enable(mtk);
-#else
 	xhci_mtk_clks_enable(mtk);
-#endif
 	xhci_mtk_phy_power_on(mtk);
 	xhci_mtk_host_enable(mtk);
 

@@ -275,16 +275,11 @@ static inline int room_on_ring(struct xhci_hcd *xhci, struct xhci_ring *ring,
 	if (ring->num_trbs_free < num_trbs)
 		return 0;
 
-#if IS_ENABLED(CONFIG_MTK_UAC_POWER_SAVING)
-	if (!(xhci->quirks & XHCI_MTK_HOST))
-#endif
-		if (ring->type != TYPE_COMMAND && ring->type != TYPE_EVENT) {
-			num_trbs_in_deq_seg =
-				ring->dequeue - ring->deq_seg->trbs;
-			if (ring->num_trbs_free < num_trbs +
-				num_trbs_in_deq_seg)
-				return 0;
-		}
+	if (ring->type != TYPE_COMMAND && ring->type != TYPE_EVENT) {
+		num_trbs_in_deq_seg = ring->dequeue - ring->deq_seg->trbs;
+		if (ring->num_trbs_free < num_trbs + num_trbs_in_deq_seg)
+			return 0;
+	}
 
 	return 1;
 }
@@ -3865,17 +3860,6 @@ static int xhci_queue_isoc_tx(struct xhci_hcd *xhci, gfp_t mem_flags,
 
 	giveback_first_trb(xhci, slot_id, ep_index, urb->stream_id,
 			start_cycle, start_trb);
-
-#if IS_ENABLED(CONFIG_MTK_UAC_POWER_SAVING)
-	if (!list_empty(&ep_ring->td_list) &&
-		!(xhci->quirks & XHCI_DEV_WITH_SYNC_EP)) {
-		unsigned int left_trbs = 0;
-
-		left_trbs = (ep_ring->num_segs * (TRBS_PER_SEGMENT - 1) - 1) -
-				ep_ring->num_trbs_free;
-		xhci_mtk_allow_sleep(left_trbs, urb->dev->speed);
-	}
-#endif
 	return 0;
 cleanup:
 	/* Clean up a partially enqueued isoc transfer. */
