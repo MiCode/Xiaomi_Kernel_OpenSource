@@ -1890,6 +1890,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		compatible = "mediatek,audio", "syscon";
 		reg = <0 0x11220000 0 0x1000>;
 		#clock-cells = <1>;
+		mediatek,btcvsd_snd = <&btcvsd_snd>;
 	};
 
 	audgpio: mt_soc_dl1_pcm@11220000 {
