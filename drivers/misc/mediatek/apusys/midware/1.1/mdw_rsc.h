@@ -26,6 +26,13 @@
 
 #define APUSYS_THD_TASK_FILE_PATH "/dev/stune/low_latency/tasks"
 
+enum MDW_PREEMPT_PLCY {
+	MDW_PREEMPT_PLCY_RR_SIMPLE,
+	MDW_PREEMPT_PLCY_RR_PRIORITY,
+
+	MDW_PREEMPT_PLCY_MAX,
+};
+
 enum MDW_DEV_INFO_GET_POLICY {
 	MDW_DEV_INFO_GET_POLICY_SEQ,
 	MDW_DEV_INFO_GET_POLICY_RR,
@@ -130,6 +137,8 @@ struct mdw_rsc_tab *mdw_rsc_get_tab(int type);
 struct mdw_dev_info *mdw_rsc_get_dinfo(int type, int idx);
 
 void mdw_rsc_dump(struct seq_file *s);
+int mdw_rsc_set_preempt_plcy(uint32_t preempt_policy);
+uint32_t mdw_rsc_get_preempt_plcy(void);
 
 int mdw_rsc_init(void);
 void mdw_rsc_exit(void);

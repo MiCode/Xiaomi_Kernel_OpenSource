@@ -41,6 +41,8 @@ struct mdw_rsc_mgr {
 	unsigned long cmd_avl_bmp[BITS_TO_LONGS(APUSYS_DEVICE_MAX)];
 	struct mdw_rsc_tab **tabs;
 
+	uint32_t preempt_policy;
+
 	struct list_head r_list;
 	struct mutex mtx;
 };
@@ -748,11 +750,38 @@ static struct mdw_dev_info *mdw_rsc_get_dev_sq(int type)
 	return d;
 }
 
+static int mdw_rsc_get_norm_prio(struct mdw_dev_info *in)
+{
+	struct mdw_rsc_tab *tab = NULL;
+	struct mdw_dev_info *d = NULL;
+	struct mdw_apu_sc *sc = NULL;
+	int type = 0, prio = -ENOENT;
+
+	type = in->type % APUSYS_DEVICE_RT;
+	tab = mdw_rsc_get_tab(type);
+	if (!tab)
+		return -ENODEV;
+
+	d = tab->array[in->idx];
+	if (!d)
+		return -ENODEV;
+
+	mutex_lock(&d->mtx);
+	if (d->sc) {
+		sc = (struct mdw_apu_sc *)d->sc;
+		prio = sc->parent->hdr->priority;
+	}
+	mutex_unlock(&d->mtx);
+
+	return prio;
+}
+
 static struct mdw_dev_info *mdw_rsc_get_dev_rr(int type)
 {
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct mdw_rsc_tab *tab = NULL;
-	struct mdw_dev_info *d = NULL;
+	struct mdw_dev_info *d = NULL, *d_tmp = NULL;
+	int prio = 0, tmp_prio = 0;
 
 	tab = mdw_rsc_get_tab(type);
 	if (!tab)
@@ -763,14 +792,38 @@ static struct mdw_dev_info *mdw_rsc_get_dev_rr(int type)
 		d = list_entry(list_ptr, struct mdw_dev_info, t_item);
 		if (!mdw_rsc_check_dev_state(d))
 			break;
+
+		/* record if executing sc prio lower */
+		tmp_prio = mdw_rsc_get_norm_prio(d);
+		if (prio < tmp_prio) {
+			prio = tmp_prio;
+			d_tmp = d;
+		}
+
 		d = NULL;
 	}
 
-	/* no idle device, get first device */
-	if (!d)
+	if (d)
+		goto lock_dev;
+
+	/* no idle device, get device by current plcy*/
+	switch (rsc_mgr.preempt_policy) {
+	case MDW_PREEMPT_PLCY_RR_PRIORITY:
+		if (d_tmp)
+			d = d_tmp;
+		else
+			d = list_first_entry_or_null(&tab->list,
+				struct mdw_dev_info, t_item);
+		break;
+
+	case MDW_PREEMPT_PLCY_RR_SIMPLE:
+	default:
 		d = list_first_entry_or_null(&tab->list,
 			struct mdw_dev_info, t_item);
+		break;
+	}
 
+lock_dev:
 	if (d) {
 		tab->avl_num--;
 		list_del(&d->t_item);
@@ -1098,6 +1151,21 @@ out:
 	atomic_inc(&sthd_group);
 }
 
+int mdw_rsc_set_preempt_plcy(uint32_t preempt_policy)
+{
+	if (preempt_policy >= MDW_PREEMPT_PLCY_MAX)
+		return -EINVAL;
+
+	rsc_mgr.preempt_policy = preempt_policy;
+
+	return 0;
+}
+
+uint32_t mdw_rsc_get_preempt_plcy(void)
+{
+	return rsc_mgr.preempt_policy;
+}
+
 int mdw_rsc_init(void)
 {
 	memset(&rsc_mgr, 0, sizeof(rsc_mgr));
@@ -1108,7 +1176,7 @@ int mdw_rsc_init(void)
 	bitmap_zero(rsc_mgr.dev_avl_bmp, APUSYS_DEVICE_MAX);
 	bitmap_zero(rsc_mgr.dev_sup_bmp, APUSYS_DEVICE_MAX);
 	INIT_LIST_HEAD(&rsc_mgr.r_list);
-
+	rsc_mgr.preempt_policy = MDW_PREEMPT_PLCY_RR_SIMPLE;
 	mutex_init(&rsc_mgr.mtx);
 	mdw_rsc_ws_init();
 
