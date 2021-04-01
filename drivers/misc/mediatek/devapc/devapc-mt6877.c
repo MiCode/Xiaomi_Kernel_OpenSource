@@ -1315,7 +1315,7 @@ static const char *mt6877_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 	const char *err_master = "UNKNOWN_MASTER";
 	uint8_t h_1byte;
 
-	pr_debug(PFX "[DEVAPC] %s:0x%x, %s:0x%x, %s:0x%x, %s:%d\n",
+	pr_debug(PFX "%s:0x%x, %s:0x%x, %s:0x%x, %s:%d\n",
 		"bus_id", bus_id, "vio_addr", vio_addr,
 		"slave_type", slave_type,
 		"shift_sta_bit", shift_sta_bit);
@@ -1627,8 +1627,18 @@ static uint32_t mt6877_shift_group_get(int slave_type, uint32_t vio_idx)
 	return 31;
 }
 
+static struct mtk_devapc_dbg_status mt6877_devapc_dbg_stat = {
+	.enable_ut = PLAT_DBG_UT_DEFAULT,
+	.enable_KE = PLAT_DBG_KE_DEFAULT,
+	.enable_AEE = PLAT_DBG_AEE_DEFAULT,
+	.enable_WARN = PLAT_DBG_WARN_DEFAULT,
+	.enable_dapc = PLAT_DBG_DAPC_DEFAULT,
+};
+
 void devapc_catch_illegal_range(phys_addr_t phys_addr, size_t size)
 {
+	struct mtk_devapc_dbg_status *dbg_stat = &mt6877_devapc_dbg_stat;
+
 	/*
 	 * Catch BROM addr mapped
 	 */
@@ -1637,18 +1647,12 @@ void devapc_catch_illegal_range(phys_addr_t phys_addr, size_t size)
 				"catch BROM address mapped!",
 				__func__, "phys_addr", &phys_addr,
 				"size", size);
-		BUG_ON(1);
+
+		if (dbg_stat->enable_KE)
+			BUG_ON(1);
 	}
 }
 EXPORT_SYMBOL(devapc_catch_illegal_range);
-
-static struct mtk_devapc_dbg_status mt6877_devapc_dbg_stat = {
-	.enable_ut = PLAT_DBG_UT_DEFAULT,
-	.enable_KE = PLAT_DBG_KE_DEFAULT,
-	.enable_AEE = PLAT_DBG_AEE_DEFAULT,
-	.enable_WARN = PLAT_DBG_WARN_DEFAULT,
-	.enable_dapc = PLAT_DBG_DAPC_DEFAULT,
-};
 
 static const char * const slave_type_to_str[] = {
 	"SLAVE_TYPE_INFRA",

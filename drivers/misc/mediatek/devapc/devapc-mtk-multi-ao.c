@@ -123,6 +123,10 @@ static void sramrom_vio_handler(void)
 	else if (sramrom_vio == ROM_VIOLATION)
 		pr_info(PFX "%s, ROM violation is triggered\n", __func__);
 	else {
+		pr_info(PFX "sramrom_vio:0x%x, sramrom_vio_sta:0x%zx, vio_addr:0x%x\n",
+				sramrom_vio,
+				sramrom_vio_sta,
+				vio_info->vio_addr);
 		pr_info(PFX "SRAMROM violation is not triggered\n");
 		return;
 	}
@@ -988,11 +992,22 @@ static void devapc_ut(uint32_t cmd)
 
 	} else if (cmd == DEVAPC_UT_SRAM_VIO) {
 		if (unlikely(sramrom_base == NULL)) {
-			pr_err(PFX "%s:%d NULL pointer\n", __func__, __LINE__);
-			return;
-		}
+			unsigned int reg;
+			void __iomem *test_va = NULL;
+			phys_addr_t test_pa = 0x0;
 
-		pr_info(PFX "%s, sramrom_base:0x%x\n", __func__,
+			pr_info(PFX "%s sramrom_vio test\n", __func__);
+
+			test_va = ioremap(test_pa, SZ_4K);
+			if (test_va) {
+				pr_info(PFX "%s test_pa:%pa, test_va:0x%px\n",
+							__func__, &test_pa, test_va);
+
+				reg = readl(test_va + RANDOM_OFFSET);
+				pr_info(PFX "%s readl:0x%x\n", __func__, reg);
+			}
+		} else
+			pr_info(PFX "%s, sramrom_base:0x%x\n", __func__,
 				readl(sramrom_base + RANDOM_OFFSET));
 
 		pr_info(PFX "test done, it should generate violation!\n");
@@ -1372,7 +1387,7 @@ int mtk_devapc_probe(struct platform_device *pdev,
 	}
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++)
-		pr_debug(PFX "%s:0x%x %s:%pa\n",
+		pr_debug(PFX "%s:0x%x %s:0x%px\n",
 				"slave_type", slave_type,
 				"devapc_pd_base",
 				mtk_devapc_ctx->devapc_pd_base[slave_type]);
