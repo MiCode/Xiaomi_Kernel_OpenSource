@@ -395,6 +395,14 @@ page_owner=on loop.max_part=7";
 		#size-cells = <2>;
 		ranges;
 
+		reserve-memory-ssmr {
+			compatible = "mediatek,reserve-memory-ssmr";
+			no-map;
+			size = <0 0x1000>;
+			alignment = <0 0x1000>;
+			alloc-ranges = <0 0xc0000000 4 0x00000000>;
+		};
+
 		zmc-default {
 			compatible = "mediatek,zone_movable_cma";
 			size = <0 0x2d000000>;
