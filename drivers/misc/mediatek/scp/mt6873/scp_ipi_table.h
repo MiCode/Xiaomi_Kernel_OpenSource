@@ -78,14 +78,14 @@ struct mtk_mbox_pin_recv scp_mbox_pin_recv[] = {
 	{1, 0, 0, 0, 1, 0, PIN_IN_SIZE_SCP_RAM_DUMP_0, 0,
 	 IPI_IN_SCP_RAM_DUMP_0, { 0 }, 0, 0, 0, { { { { 0 } } } },
 	{0, 0, 0, 0, 0, 0} },
-	{1, 0, 1, 0, 1, 0, PIN_OUT_R_SIZE_SLEEP_0, 0,
-	 IPI_OUT_C_SLEEP_0, { 0 }, 0, 0, 0, { { { { 0 } } } },
-	{0, 0, 0, 0, 0, 0} },
-	{1, 0, 0, 0, 1, 0, PIN_IN_SIZE_AUDIO_USND_0, 0,
-	 IPI_IN_AUDIO_USND_0, { 0 }, 0, 0, 0, { { { { 0 } } } },
+	{1, 0, 0, 0, 1, 0, PIN_IN_SIZE_AUDIO_ULTRA_SND_ACK_0, 0,
+	 IPI_IN_AUDIO_ULTRA_SND_ACK_0, { 0 }, 0, 0, 0, { { { { 0 } } } },
 	{0, 0, 0, 0, 0, 0} },
 	{1, 0, 0, 0, 1, 0, PIN_IN_SIZE_AUDIO_ULTRA_SND_0, 0,
 	 IPI_IN_AUDIO_ULTRA_SND_0, { 0 }, 0, 0, 0, { { { { 0 } } } },
+	{0, 0, 0, 0, 0, 0} },
+	{1, 0, 1, 0, 1, 0, PIN_OUT_R_SIZE_SLEEP_0, 0,
+	 IPI_OUT_C_SLEEP_0, { 0 }, 0, 0, 0, { { { { 0 } } } },
 	{0, 0, 0, 0, 0, 0} },
 	{2, 0, 0, 0, 1, 0, PIN_IN_SIZE_SCP_MPOOL, 0,
 	 IPI_IN_SCP_MPOOL_0, { 0 }, 0, 0, 0, { { { { 0 } } } },
@@ -112,7 +112,6 @@ struct mtk_mbox_pin_recv scp_mbox_pin_recv[] = {
 	 IPI_IN_SCP_MPOOL_1, { 0 }, 0, 0, 0, { { { { 0 } } } },
 	{0, 0, 0, 0, 0, 0} },
 };
-
 /*
  * mbox pin structure, this is for send defination,
  * ipi=endpoint=pin
@@ -138,9 +137,7 @@ struct mtk_mbox_pin_send scp_mbox_pin_send[] = {
 	 IPI_OUT_C_SLEEP_0, { { 0 } }, { 0 }, { { { { 0 } } } } },
 	{1, 0, 0, 0, PIN_OUT_SIZE_TEST_0, 0,
 	 IPI_OUT_TEST_0, { { 0 } }, { 0 }, { { { { 0 } } } } },
-	{1, 0, 0, 0, PIN_OUT_SIZE_AUDIO_USND_0, 0,
-	 IPI_OUT_AUDIO_USND_0, { { 0 } }, { 0 }, { { { { 0 } } } } },
-	{1, 0, 0, 0, PIN_OUT_SIZE_AUDIO_ULTRA_SND_0, 0,
+	 {1, 0, 0, 0, PIN_OUT_SIZE_AUDIO_ULTRA_SND_0, 0,
 	 IPI_OUT_AUDIO_ULTRA_SND_0, { { 0 } }, { 0 }, { { { { 0 } } } } },
 	{2, 0, 0, 0, PIN_OUT_SIZE_SCP_MPOOL, 0,
 	 IPI_OUT_SCP_MPOOL_0, { { 0 } }, { 0 }, { { { { 0 } } } } },
@@ -163,7 +160,6 @@ struct mtk_mbox_pin_send scp_mbox_pin_send[] = {
 	{4, 0, 0, 0, PIN_OUT_SIZE_SCP_MPOOL, 0,
 	 IPI_OUT_SCP_MPOOL_1, { { 0 } }, { 0 }, { { { { 0 } } } } },
 };
-
 #define SCP_TOTAL_RECV_PIN	(sizeof(scp_mbox_pin_recv) \
 				 / sizeof(struct mtk_mbox_pin_recv))
 #define SCP_TOTAL_SEND_PIN	(sizeof(scp_mbox_pin_send) \
