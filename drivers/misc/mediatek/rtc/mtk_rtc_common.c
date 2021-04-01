@@ -835,7 +835,7 @@ int mtk_set_power_on(struct device *dev, struct rtc_wkalrm *alm)
 		return err;
 	scheduled = rtc_tm_to_time64(&alm->time);
 
-	err = rtc_ops_read_alarm(dev, &tm);
+	err = rtc_ops_read_time(dev, &tm);
 	if (err != 0)
 		return err;
 	now = rtc_tm_to_time64(&tm);
