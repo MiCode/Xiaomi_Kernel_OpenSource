@@ -26,6 +26,7 @@ enum {
 	MET_MEM_ID,
 #endif
 	SMI_MEM_ID,
+	GPU_MEM_ID,
 	NUMS_MEM_ID,
 };
 
@@ -72,7 +73,14 @@ static struct sspm_reserve_mblock sspm_reserve_mblock[NUMS_MEM_ID] = {
 		.num = SMI_MEM_ID,
 		.size = 0x9000, /* 36K */
 	},
+	{
+		.num = GPU_MEM_ID,
+		.size = 0x1000,  /* 4K */
+	},
 	/* TO align 64K, total is 1M+64K. The remaining size = 0x2800 */
 };
 #endif
 #endif
+
+#define SSPM_SHARE_REGION_BASE  0x20000
+#define SSPM_SHARE_REGION_SIZE  0x8000
