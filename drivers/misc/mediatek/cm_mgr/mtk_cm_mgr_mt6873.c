@@ -40,23 +40,16 @@
 #include "mtk_cm_mgr_mt6873.h"
 #include "mtk_cm_mgr_common.h"
 
-#if IS_ENABLED(CONFIG_MTK_CPU_FREQ)
-#include <mtk_cpufreq_platform.h>
-#include <mtk_cpufreq_common_api.h>
-#endif /* CONFIG_MTK_CPU_FREQ */
-
 /* #define CREATE_TRACE_POINTS */
 /* #include "mtk_cm_mgr_events_mt6873.h" */
 #define trace_CM_MGR__perf_hint(idx, en, opp, base, hint, force_hint)
 
 #include <linux/pm_qos.h>
 
-static struct delayed_work cm_mgr_work;
-static int cm_mgr_cpu_to_dram_opp;
-
 static unsigned int prev_freq_idx[CM_MGR_CPU_CLUSTER];
 static unsigned int prev_freq[CM_MGR_CPU_CLUSTER];
 
+static int cm_mgr_init_done;
 static int cm_mgr_idx = -1;
 
 static int cm_mgr_check_dram_type(void)
@@ -256,55 +249,24 @@ static void cm_mgr_process(struct work_struct *work)
 			cm_mgr_perfs[cm_mgr_cpu_to_dram_opp]);
 }
 
-void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
+static void check_cm_mgr_status_mt6873(unsigned int cluster, unsigned int freq,
+		unsigned int idx)
 {
-	int ret = 0;
-	int dram_opp = 0;
-
-	if (!cm_mgr_cpu_map_dram_enable) {
-		if (cm_mgr_cpu_to_dram_opp != cm_mgr_num_perf) {
-			cm_mgr_cpu_to_dram_opp = cm_mgr_num_perf;
-			ret = schedule_delayed_work(&cm_mgr_work, 1);
-		}
-		return;
-	}
-
-	if ((cpu_opp >= 0) && (cpu_opp < cm_mgr_cpu_opp_size))
-		dram_opp = cm_mgr_cpu_opp_to_dram[cpu_opp];
-
-	if (cm_mgr_cpu_to_dram_opp == dram_opp)
-		return;
-
-	cm_mgr_cpu_to_dram_opp = dram_opp;
-
-	ret = schedule_delayed_work(&cm_mgr_work, 1);
-}
-
-void check_cm_mgr_status_mt6873(unsigned int cluster, unsigned int freq)
-{
-#if IS_ENABLED(CONFIG_MTK_CPU_FREQ)
-	int freq_idx = 0;
-	struct mt_cpu_dvfs *p;
-
-	p = id_to_cpu_dvfs(cluster);
-	if (p)
-		freq_idx = _search_available_freq_idx(p, freq, 0);
-
-	if (freq_idx == prev_freq_idx[cluster])
-		return;
-
-	prev_freq_idx[cluster] = freq_idx;
+	prev_freq_idx[cluster] = idx;
 	prev_freq[cluster] = freq;
-#else
-	prev_freq_idx[cluster] = 0;
-	prev_freq[cluster] = 0;
-#endif /* CONFIG_MTK_CPU_FREQ */
 
 	if (cm_mgr_use_cpu_to_dram_map)
 		cm_mgr_update_dram_by_cpu_opp
 			(prev_freq_idx[CM_MGR_CPU_CLUSTER - 1]);
 }
-EXPORT_SYMBOL_GPL(check_cm_mgr_status_mt6873);
+
+void check_cm_mgr_status(unsigned int cluster, unsigned int freq,
+		unsigned int idx)
+{
+	if (cm_mgr_init_done)
+		check_cm_mgr_status_mt6873(cluster, freq, idx);
+}
+EXPORT_SYMBOL_GPL(check_cm_mgr_status);
 
 static void cm_mgr_add_cpu_opp_to_ddr_req(void)
 {
@@ -372,10 +334,6 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-#if IS_ENABLED(CONFIG_MTK_CPU_FREQ)
-	mt_cpufreq_set_governor_freq_registerCB(check_cm_mgr_status_mt6873);
-#endif /* CONFIG_MTK_CPU_FREQ */
-
 	timer_setup(&cm_mgr_perf_timeout_timer, cm_mgr_perf_timeout_timer_fn,
 			0);
 
@@ -388,6 +346,8 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 	}
 
 	dev_pm_genpd_set_performance_state(&cm_mgr_pdev->dev, 0);
+
+	cm_mgr_init_done = 1;
 
 	pr_info("[CM_MGR] platform-cm_mgr_probe Done.\n");
 
