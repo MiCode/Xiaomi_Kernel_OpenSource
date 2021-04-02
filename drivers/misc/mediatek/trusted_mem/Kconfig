@@ -6,6 +6,7 @@
 config MTK_PROT_MEM_SUPPORT
 	bool "MTK Protect Memory Support"
 	depends on MTK_GZ_KREE && MTK_CAM_SECURITY_SUPPORT
+	default y
 	help
 	  Enable the support of MediaTek protect memory driver.
 	  This driver is in charge of protect memory region require/release
@@ -17,6 +18,8 @@ config MTK_PROT_MEM_SUPPORT
 
 config MTK_SECURE_MEM_SUPPORT
 	bool "MTK SVP SECURE Memory Support"
+	depends on TRUSTONIC_TEE_SUPPORT || MTK_TEE_GP_SUPPORT
+	default y
 	help
 	  Enable the support of MediaTek SVP secure memory driver.
 	  This driver is in charge of SVP secure memory region require/release
@@ -29,6 +32,7 @@ config MTK_SECURE_MEM_SUPPORT
 config MTK_WFD_SMEM_SUPPORT
 	bool "MTK WFD SECURE Memory Support"
 	depends on MTK_SECURE_MEM_SUPPORT && MTK_SEC_VIDEO_PATH_SUPPORT
+	default y
 	help
 	  Enable the support of MediaTek WFD secure memory driver.
 	  This driver is in charge of WFD secure memory region require/release
@@ -120,7 +124,9 @@ config MTK_MTEE_MULTI_CHUNK_SUPPORT
 
 config MTK_TRUSTED_MEMORY_SUBSYSTEM
 	tristate "MTK Trusted Memory Subsystem Support"
-	default n
+	default m
+	depends on MTK_PROT_MEM_SUPPORT || MTK_SECURE_MEM_SUPPORT || \
+		MTK_MTEE_MULTI_CHUNK_SUPPORT || MTK_GZ_KREE
 	help
 	  Enable the support of MediaTek trusted memory subsystem driver.
 	  This driver provide a general subsystem layer for trusted peer memory
@@ -147,10 +153,8 @@ config MTK_SSMR
 
 config TEST_MTK_TRUSTED_MEMORY
 	tristate "MTK Trusted Memory UT SUITE"
-	default n
-	select MTK_SECURE_MEM_SUPPORT
-	select MTK_WFD_SMEM_SUPPORT
-	select MTK_SEC_VIDEO_PATH_SUPPORT
+	default y
+	depends on MTK_TRUSTED_MEMORY_SUBSYSTEM
 	help
 	  This is a test module doing various nasty things like
 	  open/close/alloc/free operation, It is useful for testing
