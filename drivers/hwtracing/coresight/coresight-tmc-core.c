@@ -445,11 +445,6 @@ static const struct attribute_group *coresight_tmc_groups[] = {
 	NULL,
 };
 
-static bool tmc_etr_support_usb_bam(struct device *dev)
-{
-	return fwnode_property_present(dev->fwnode, "usb_bam_support");
-}
-
 static inline bool tmc_etr_can_use_sg(struct device *dev)
 {
 	return fwnode_property_present(dev->fwnode, "arm,scatter-gather");
@@ -587,12 +582,6 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		if (ret)
 			goto out;
 
-		if (tmc_etr_support_usb_bam(dev)) {
-			ret = tmc_etr_bam_init(adev, drvdata);
-			if (ret)
-				goto out;
-		}
-
 		idr_init(&drvdata->idr);
 		mutex_init(&drvdata->idr_mutex);
 		dev_list = &etr_devs;
@@ -602,6 +591,10 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 			coresight_set_csr_ops(&csr_atid_ops);
 
 		drvdata->byte_cntr = byte_cntr_init(adev, drvdata);
+
+		ret = tmc_etr_usb_init(adev, drvdata);
+		if (ret)
+			goto out;
 
 		break;
 	case TMC_CONFIG_TYPE_ETF:
@@ -660,7 +653,9 @@ static void tmc_shutdown(struct amba_device *adev)
 		goto out;
 
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR &&
-		drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+		(drvdata->out_mode == TMC_ETR_OUT_MODE_MEM ||
+		 (drvdata->out_mode == TMC_ETR_OUT_MODE_USB &&
+		  drvdata->usb_data->usb_mode == TMC_ETR_USB_SW)))
 		tmc_etr_disable_hw(drvdata);
 
 	/*

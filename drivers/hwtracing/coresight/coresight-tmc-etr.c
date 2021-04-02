@@ -10,6 +10,7 @@
 #include <linux/iommu.h>
 #include <linux/idr.h>
 #include <linux/mutex.h>
+#include <linux/qcom-iommu-util.h>
 #include <linux/refcount.h>
 #include <linux/slab.h>
 #include <linux/types.h>
@@ -52,6 +53,9 @@ struct etr_perf_buffer {
 
 /* Lower limit for ETR hardware buffer */
 #define TMC_ETR_PERF_MIN_BUF_SIZE	SZ_1M
+
+/* SW USB reserved memory size */
+#define TMC_ETR_SW_USB_BUF_SIZE SZ_64M
 
 /*
  * The TMC ETR SG has a page size of 4K. The SG table contains pointers
@@ -259,6 +263,20 @@ void tmc_free_sg_table(struct tmc_sg_table *sg_table)
 	tmc_free_data_pages(sg_table);
 }
 EXPORT_SYMBOL_GPL(tmc_free_sg_table);
+
+long tmc_sg_get_rwp_offset(struct tmc_drvdata *drvdata)
+{
+	struct etr_buf *etr_buf = drvdata->etr_buf;
+	struct etr_sg_table *etr_table = etr_buf->private;
+	struct tmc_sg_table *table = etr_table->sg_table;
+	u64 rwp;
+	long w_offset;
+
+	rwp = tmc_read_rwp(drvdata);
+	w_offset = tmc_sg_get_data_page_offset(table, rwp);
+
+	return w_offset;
+}
 
 /*
  * Alloc pages for the table. Since this will be used by the device,
@@ -863,9 +881,22 @@ static struct etr_buf *tmc_alloc_etr_buf(struct tmc_drvdata *drvdata,
 	bool has_sg, has_catu;
 	struct etr_buf *etr_buf;
 	struct device *dev = &drvdata->csdev->dev;
+	int s1_bypass = 0;
+	struct iommu_domain *domain;
 
 	has_etr_sg = tmc_etr_has_cap(drvdata, TMC_ETR_SG);
-	has_iommu = iommu_get_domain_for_dev(dev->parent);
+	domain = iommu_get_domain_for_dev(dev->parent);
+	if (domain) {
+		iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS,
+			&s1_bypass);
+		if (s1_bypass)
+			has_iommu = false;
+		else
+			has_iommu = true;
+	} else {
+		has_iommu = false;
+	}
+
 	has_catu = !!tmc_etr_get_catu_device(drvdata);
 
 	has_sg = has_catu || has_etr_sg;
@@ -1094,7 +1125,12 @@ ssize_t tmc_etr_get_sysfs_trace(struct tmc_drvdata *drvdata,
 static struct etr_buf *
 tmc_etr_setup_sysfs_buf(struct tmc_drvdata *drvdata)
 {
-	return tmc_alloc_etr_buf(drvdata, drvdata->size,
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB &&
+		drvdata->usb_data->usb_mode == TMC_ETR_USB_SW)
+		return tmc_alloc_etr_buf(drvdata, TMC_ETR_SW_USB_BUF_SIZE,
+				0, cpu_to_node(0), NULL);
+	else
+		return tmc_alloc_etr_buf(drvdata, drvdata->size,
 				 0, cpu_to_node(0), NULL);
 }
 
@@ -1168,7 +1204,10 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	 * with the lock released.
 	 */
 	spin_lock_irqsave(&drvdata->spinlock, flags);
-	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+	if ((drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+		|| (drvdata->out_mode == TMC_ETR_OUT_MODE_USB &&
+			drvdata->usb_data->usb_mode ==
+			TMC_ETR_USB_SW)) {
 		sysfs_buf = READ_ONCE(drvdata->sysfs_buf);
 		if (!sysfs_buf || (sysfs_buf->size != drvdata->size)) {
 			spin_unlock_irqrestore(&drvdata->spinlock, flags);
@@ -1202,7 +1241,10 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	 * If we don't have a buffer or it doesn't match the requested size,
 	 * use the buffer allocated above. Otherwise reuse the existing buffer.
 	 */
-	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+	if ((drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) ||
+		(drvdata->out_mode == TMC_ETR_OUT_MODE_USB &&
+			drvdata->usb_data->usb_mode ==
+			TMC_ETR_USB_SW)) {
 		sysfs_buf = READ_ONCE(drvdata->sysfs_buf);
 		if (!sysfs_buf || (new_buf && sysfs_buf->size != new_buf->size)) {
 			free_buf = sysfs_buf;
@@ -1210,7 +1252,22 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 		}
 
 		ret = tmc_etr_enable_hw(drvdata, drvdata->sysfs_buf);
-	} else if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
+		if (ret)
+			goto out;
+
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
+			spin_unlock_irqrestore(&drvdata->spinlock, flags);
+			ret = tmc_usb_enable(drvdata->usb_data);
+			if (ret) {
+				spin_lock_irqsave(&drvdata->spinlock, flags);
+				goto out;
+			}
+			spin_lock_irqsave(&drvdata->spinlock, flags);
+		}
+
+
+	} else if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB
+		&& drvdata->usb_data->usb_mode == TMC_ETR_USB_BAM_TO_BAM) {
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
 		ret = tmc_usb_enable(drvdata->usb_data);
 		if (ret) {
@@ -1692,9 +1749,16 @@ static int tmc_disable_etr_sink(struct coresight_device *csdev)
 	/* Complain if we (somehow) got out of sync */
 	WARN_ON_ONCE(drvdata->mode == CS_MODE_DISABLED);
 
-	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM ||
+		(drvdata->out_mode == TMC_ETR_OUT_MODE_USB &&
+			drvdata->usb_data->usb_mode == TMC_ETR_USB_SW)) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
+			spin_unlock_irqrestore(&drvdata->spinlock, flags);
+			tmc_usb_disable(drvdata->usb_data);
+			spin_lock_irqsave(&drvdata->spinlock, flags);
+		}
 		tmc_etr_disable_hw(drvdata);
-	else {
+	} else {
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
 		tmc_usb_disable(drvdata->usb_data);
 		spin_lock_irqsave(&drvdata->spinlock, flags);
