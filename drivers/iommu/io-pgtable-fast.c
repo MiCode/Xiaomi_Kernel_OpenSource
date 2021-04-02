@@ -309,24 +309,25 @@ static size_t av8l_fast_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 
 static int av8l_fast_map_sg(struct io_pgtable_ops *ops,
 			unsigned long iova, struct scatterlist *sgl,
-			unsigned int nents, int prot, size_t *size)
+			unsigned int nents, int prot, gfp_t gfp, size_t *mapped)
 {
 	struct scatterlist *sg;
 	int i;
 
 	for_each_sg(sgl, sg, nents, i) {
-		av8l_fast_map(ops, iova, sg_phys(sg), sg->length, prot, GFP_ATOMIC);
+		av8l_fast_map(ops, iova, sg_phys(sg), sg->length, prot, gfp);
 		iova += sg->length;
+		*mapped += sg->length;
 	}
 
-	return nents;
+	return 0;
 }
 
 int av8l_fast_map_sg_public(struct io_pgtable_ops *ops,
 			    unsigned long iova, struct scatterlist *sgl,
-			    unsigned int nents, int prot, size_t *size)
+			    unsigned int nents, int prot, size_t *mapped)
 {
-	return av8l_fast_map_sg(ops, iova, sgl, nents, prot, size);
+	return av8l_fast_map_sg(ops, iova, sgl, nents, prot, GFP_ATOMIC, mapped);
 }
 
 #if defined(CONFIG_ARM64)
@@ -405,6 +406,7 @@ av8l_fast_alloc_pgtable_data(struct io_pgtable_cfg *cfg)
 
 	data->iop.ops = (struct io_pgtable_ops) {
 		.map		= av8l_fast_map,
+		.map_sg		= av8l_fast_map_sg,
 		.unmap		= av8l_fast_unmap,
 		.iova_to_phys	= av8l_fast_iova_to_phys,
 	};
