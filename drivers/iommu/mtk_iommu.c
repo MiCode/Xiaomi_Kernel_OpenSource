@@ -62,6 +62,7 @@
 #define REG_MMU_TBW_ID				0xa0
 
 #define REG_MMU_CTRL_REG			0x110
+#define F_MMU_SYNC_INVLDT_EN			BIT(3)
 #define F_MMU_TF_PROT_TO_PROGRAM_ADDR		(2 << 4)
 #define F_MMU_PREFETCH_RT_REPLACE_MOD		BIT(4)
 #define F_MMU_TF_PROT_TO_PROGRAM_ADDR_MT8173	(2 << 5)
@@ -128,6 +129,7 @@
 #define NOT_STD_AXI_MODE		BIT(9)
 #define SET_TBW_ID			BIT(10)
 #define LINK_WITH_APU			BIT(11)
+#define TLB_SYNC_EN			BIT(12)
 
 #define MTK_IOMMU_HAS_FLAG(pdata, _x) \
 		((((pdata)->flags) & (_x)) == (_x))
@@ -766,7 +768,10 @@ static int mtk_iommu_hw_init(const struct mtk_iommu_data *data)
 			 F_MMU_TF_PROT_TO_PROGRAM_ADDR_MT8173;
 	} else {
 		regval = readl_relaxed(data->base + REG_MMU_CTRL_REG);
-		regval |= F_MMU_TF_PROT_TO_PROGRAM_ADDR;
+		if (MTK_IOMMU_HAS_FLAG(data->plat_data, TLB_SYNC_EN))
+			regval |= F_MMU_SYNC_INVLDT_EN;
+		else
+			regval |= F_MMU_TF_PROT_TO_PROGRAM_ADDR;
 	}
 	writel_relaxed(regval, data->base + REG_MMU_CTRL_REG);
 
@@ -1148,7 +1153,7 @@ static const struct mtk_iommu_plat_data mt6873_data_apu = {
 static const struct mtk_iommu_plat_data mt6983_data_disp = {
 	.m4u_plat	= M4U_MT6983,
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | WR_THROT_EN |
-			  NOT_STD_AXI_MODE,// | HAS_BCLK,
+			  NOT_STD_AXI_MODE | TLB_SYNC_EN,// | HAS_BCLK,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= DISP_IOMMU,
 	.iommu_type     = MM_IOMMU,
@@ -1165,7 +1170,7 @@ static const struct mtk_iommu_plat_data mt6983_data_disp = {
 static const struct mtk_iommu_plat_data mt6983_data_mdp = {
 	.m4u_plat	= M4U_MT6983,
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | WR_THROT_EN |
-			  NOT_STD_AXI_MODE,// | HAS_BCLK,
+			  NOT_STD_AXI_MODE | TLB_SYNC_EN,// | HAS_BCLK,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= MDP_IOMMU,
 	.iommu_type     = MM_IOMMU,
@@ -1181,7 +1186,7 @@ static const struct mtk_iommu_plat_data mt6983_data_mdp = {
 
 static const struct mtk_iommu_plat_data mt6983_data_apu0 = {
 	.m4u_plat	= M4U_MT6983,
-	.flags          = HAS_SUB_COMM,// | HAS_BCLK,
+	.flags          = HAS_SUB_COMM | TLB_SYNC_EN,// | HAS_BCLK,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= APU_IOMMU0,
 	.iommu_type     = APU_IOMMU,
@@ -1192,7 +1197,7 @@ static const struct mtk_iommu_plat_data mt6983_data_apu0 = {
 
 static const struct mtk_iommu_plat_data mt6983_data_apu1 = {
 	.m4u_plat	= M4U_MT6983,
-	.flags          = HAS_SUB_COMM,// | HAS_BCLK,
+	.flags          = HAS_SUB_COMM | TLB_SYNC_EN,// | HAS_BCLK,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= APU_IOMMU1,
 	.iommu_type     = APU_IOMMU,
@@ -1203,7 +1208,7 @@ static const struct mtk_iommu_plat_data mt6983_data_apu1 = {
 
 static const struct mtk_iommu_plat_data mt6983_data_peri_m4 = {
 	.m4u_plat	= M4U_MT6983,
-	.flags          = HAS_SUB_COMM | SET_TBW_ID,// | HAS_BCLK,
+	.flags          = HAS_SUB_COMM | SET_TBW_ID | TLB_SYNC_EN,// | HAS_BCLK,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.reg_val	= 0x3ffc3ffd,
 	.iommu_id	= PERI_IOMMU_M4,
@@ -1215,7 +1220,7 @@ static const struct mtk_iommu_plat_data mt6983_data_peri_m4 = {
 
 static const struct mtk_iommu_plat_data mt6983_data_peri_m6 = {
 	.m4u_plat	= M4U_MT6983,
-	.flags          = HAS_SUB_COMM | SET_TBW_ID,// | HAS_BCLK,
+	.flags          = HAS_SUB_COMM | SET_TBW_ID | TLB_SYNC_EN,// | HAS_BCLK,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.reg_val	= 0x03fc03fd,
 	.iommu_id	= PERI_IOMMU_M6,
@@ -1227,7 +1232,7 @@ static const struct mtk_iommu_plat_data mt6983_data_peri_m6 = {
 
 static const struct mtk_iommu_plat_data mt6983_data_peri_m7 = {
 	.m4u_plat	= M4U_MT6983,
-	.flags          = HAS_SUB_COMM,// | HAS_BCLK,
+	.flags          = HAS_SUB_COMM | TLB_SYNC_EN,// | HAS_BCLK,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= PERI_IOMMU_M7,
 	.iommu_type     = PERI_IOMMU,
