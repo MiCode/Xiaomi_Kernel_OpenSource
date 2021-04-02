@@ -1633,22 +1633,19 @@ static int mt_mic_bias_0_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE_0];
-	int is_dmic_used = mic_type == MIC_TYPE_MUX_DMIC ? 1 : 0;
 
-	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d\n",
-		 __func__, event, mic_type);
+	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d, vow_enable: %d\n",
+		 __func__, event, mic_type, priv->vow_enable);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		switch (mic_type) {
 		case MIC_TYPE_MUX_DCC_ECM_DIFF:
-		case MIC_TYPE_MUX_VOW_DCC_ECM_DIFF:
 			regmap_update_bits(priv->regmap,
 					   MT6359_AUDENC_ANA_CON15,
 					   0xff00, 0x7700);
 			break;
 		case MIC_TYPE_MUX_DCC_ECM_SINGLE:
-		case MIC_TYPE_MUX_VOW_DCC_ECM_SINGLE:
 			regmap_update_bits(priv->regmap,
 					   MT6359_AUDENC_ANA_CON15,
 					   0xff00, 0x1100);
@@ -1667,7 +1664,7 @@ static int mt_mic_bias_0_event(struct snd_soc_dapm_widget *w,
 		/* vow low power select */
 		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON15,
 				   RG_AUDMICBIAS0LOWPEN_MASK_SFT,
-				   (is_dmic_used ? 0 : 1)
+				   (priv->vow_enable ? 1 : 0)
 				   << RG_AUDMICBIAS0LOWPEN_SFT);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -1688,10 +1685,9 @@ static int mt_mic_bias_1_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE_1];
-	int is_dmic_used = mic_type == MIC_TYPE_MUX_DMIC ? 1 : 0;
 
-	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d\n",
-		 __func__, event, mic_type);
+	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d, vow_enable: %d\n",
+		 __func__, event, mic_type, priv->vow_enable);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1706,7 +1702,7 @@ static int mt_mic_bias_1_event(struct snd_soc_dapm_widget *w,
 		/* vow low power select */
 		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON16,
 				   RG_AUDMICBIAS1LOWPEN_MASK_SFT,
-				   (is_dmic_used ? 0 : 1)
+				   (priv->vow_enable ? 1 : 0)
 				   << RG_AUDMICBIAS1LOWPEN_SFT);
 		break;
 	default:
@@ -1724,20 +1720,18 @@ static int mt_mic_bias_2_event(struct snd_soc_dapm_widget *w,
 	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE_2];
 
-	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d\n",
-		 __func__, event, mic_type);
+	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d, vow_enable: %d\n",
+		 __func__, event, mic_type, priv->vow_enable);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		switch (mic_type) {
 		case MIC_TYPE_MUX_DCC_ECM_DIFF:
-		case MIC_TYPE_MUX_VOW_DCC_ECM_DIFF:
 			regmap_update_bits(priv->regmap,
 					   MT6359_AUDENC_ANA_CON17,
 					   0xff00, 0x7700);
 			break;
 		case MIC_TYPE_MUX_DCC_ECM_SINGLE:
-		case MIC_TYPE_MUX_VOW_DCC_ECM_SINGLE:
 			regmap_update_bits(priv->regmap,
 					   MT6359_AUDENC_ANA_CON17,
 					   0xff00, 0x1100);
@@ -1777,7 +1771,8 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	dev_info(priv->dev, "%s(), event 0x%x\n", __func__, event);
+	dev_info(priv->dev, "%s(), event 0x%x, single mic select: %d, vow_channel: %d\n",
+		 __func__, event, priv->vow_single_mic_select, priv->vow_channel);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1785,22 +1780,52 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 		/* Enable Audio ADC 1st Stage LPW */
 		/* Enable Audio ADC 2nd & 3rd LPW */
 		/* Enable Audio ADC flash Audio ADC flash */
-		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
-				   0x0039, 0x0039);
-		if (priv->vow_channel == 2)
+		if (priv->vow_channel == 2) {
+			/* dul mic L + R */
+			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
+					   0x0039, 0x0039);
 			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON4,
 					   0x0039, 0x0039);
+		} else {
+			/* handset single mic (R)*/
+			if (priv->vow_single_mic_select == MIC_INDEX_THIRD)
+				regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON4,
+						   0x0039, 0x0039);
+			/* handset single mic (L) or headset mic mode*/
+			else if (priv->vow_single_mic_select == MIC_INDEX_MAIN ||
+					priv->vow_single_mic_select == MIC_INDEX_HEADSET)
+				regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
+						   0x0039, 0x0039);
+			else
+				dev_info(priv->dev, "%s(), unsupport mic index %d.\n",
+					 __func__, priv->vow_single_mic_select);
+		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* Disable audio uplink LPW mode */
 		/* Disable Audio ADC 1st Stage LPW */
 		/* Disable Audio ADC 2nd & 3rd LPW */
 		/* Disable Audio ADC flash Audio ADC flash */
-		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
-				   0x0039, 0x0000);
-		if (priv->vow_channel == 2)
+		if (priv->vow_channel == 2) {
+			/* dul mic L + R */
+			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
+					   0x0039, 0x0000);
 			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON4,
 					   0x0039, 0x0000);
+		} else {
+			/* handset mic R or L */
+			if (priv->vow_single_mic_select == MIC_INDEX_THIRD)
+				regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON4,
+						   0x0039, 0x0000);
+			/* handset single mic (L) or headset mic mode*/
+			else if (priv->vow_single_mic_select == MIC_INDEX_MAIN
+					|| priv->vow_single_mic_select == MIC_INDEX_HEADSET)
+				regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
+						   0x0039, 0x0000);
+			else
+				dev_info(priv->dev, "%s(), unsupport mic index %d.\n",
+					 __func__, priv->vow_single_mic_select);
+		}
 		break;
 	default:
 		break;
@@ -1964,24 +1989,24 @@ static int mt_vow_digital_cfg_event(struct snd_soc_dapm_widget *w,
 	unsigned int vow_top_con3 = 0x0000;
 	unsigned int is_dmic = 0;
 
-	dev_info(priv->dev, "%s(), event 0x%x\n", __func__, event);
+	dev_info(priv->dev, "%s(), event 0x%x, mic_type0: %d, mic_type2: %d,vow_dmic_lp: %d\n",
+		 __func__, event, mic_type0, mic_type2, priv->vow_dmic_lp);
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		/* AMIC/DMIC VOW Config Setting */
-		if ((mic_type0 == MIC_TYPE_MUX_VOW_DMIC_LP) ||
-		    (mic_type2 == MIC_TYPE_MUX_VOW_DMIC_LP)) {
-			/* LP DMIC settings : 812.5k */
-			regmap_update_bits(priv->regmap,
-					   MT6359_AFE_VOW_TOP_CON0,
-					   0x7C00, 0x3800);
-			is_dmic = 1;
-		} else if ((mic_type0 == MIC_TYPE_MUX_VOW_DMIC) ||
-			   (mic_type2 == MIC_TYPE_MUX_VOW_DMIC)) {
-			/* DMIC settings : 1600k */
-			regmap_update_bits(priv->regmap,
-					   MT6359_AFE_VOW_TOP_CON0,
-					   0x7C00, 0x1000);
+		if ((mic_type0 == MIC_TYPE_MUX_DMIC) ||
+			   (mic_type2 == MIC_TYPE_MUX_DMIC)) {
+			if (priv->vow_dmic_lp)
+				/* LP DMIC settings : 812.5k */
+				regmap_update_bits(priv->regmap,
+						   MT6359_AFE_VOW_TOP_CON0,
+						   0x7C00, 0x3800);
+			else
+				/* DMIC settings : 1600k */
+				regmap_update_bits(priv->regmap,
+						   MT6359_AFE_VOW_TOP_CON0,
+						   0x7C00, 0x1000);
 			is_dmic = 1;
 		} else {
 			/* AMIC settings */
@@ -3238,9 +3263,9 @@ static int mt_vow_amic_connect(struct snd_soc_dapm_widget *source,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	if (IS_VOW_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_0]) ||
-	    IS_VOW_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_1]) ||
-	    IS_VOW_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_2]))
+	if (IS_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_0]) ||
+	    IS_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_1]) ||
+	    IS_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_2]))
 		return 1;
 	else
 		return 0;
@@ -3254,9 +3279,9 @@ static int mt_vow_amic_dcc_connect(struct snd_soc_dapm_widget *source,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	if (IS_VOW_DCC_BASE(priv->mux_select[MUX_MIC_TYPE_0]) ||
-	    IS_VOW_DCC_BASE(priv->mux_select[MUX_MIC_TYPE_1]) ||
-	    IS_VOW_DCC_BASE(priv->mux_select[MUX_MIC_TYPE_2]))
+	if (IS_DCC_BASE(priv->mux_select[MUX_MIC_TYPE_0]) ||
+	    IS_DCC_BASE(priv->mux_select[MUX_MIC_TYPE_1]) ||
+	    IS_DCC_BASE(priv->mux_select[MUX_MIC_TYPE_2]))
 		return 1;
 	else
 		return 0;
@@ -6131,6 +6156,15 @@ static int mt6359_parse_dt(struct mt6359_priv *priv)
 	} else {
 		for (i = MUX_MIC_TYPE_0; i <= MUX_MIC_TYPE_2; ++i)
 			priv->mux_select[i] = mic_type_mux[i];
+	}
+
+	ret = of_property_read_bool(dev->of_node, "vow_dmic_lp");
+	if (ret) {
+		priv->vow_dmic_lp = 1;
+	} else {
+		dev_info(dev, "%s() vow_dmic_lp node not exist, default off.\n",
+			 __func__);
+		priv->vow_dmic_lp = 0;
 	}
 
 	/* get auxadc channel */

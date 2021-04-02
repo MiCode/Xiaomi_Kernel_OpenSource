@@ -4955,12 +4955,14 @@ enum {
 	MIC_TYPE_MUX_DCC,
 	MIC_TYPE_MUX_DCC_ECM_DIFF,
 	MIC_TYPE_MUX_DCC_ECM_SINGLE,
-	MIC_TYPE_MUX_VOW_ACC,
-	MIC_TYPE_MUX_VOW_DMIC,
-	MIC_TYPE_MUX_VOW_DMIC_LP,
-	MIC_TYPE_MUX_VOW_DCC,
-	MIC_TYPE_MUX_VOW_DCC_ECM_DIFF,
-	MIC_TYPE_MUX_VOW_DCC_ECM_SINGLE,
+};
+
+enum {
+	MIC_INDEX_IDLE = 0,
+	MIC_INDEX_MAIN,
+	MIC_INDEX_REF,
+	MIC_INDEX_THIRD,
+	MIC_INDEX_HEADSET,
 };
 
 enum {
@@ -5161,6 +5163,9 @@ struct mt6359_priv {
 	int reg_afe_vow_periodic;
 	unsigned int vow_channel;
 	struct mt6359_vow_periodic_on_off_data vow_periodic_param;
+	/* vow dmic low power mode, 1: enable, 0: disable */
+	int vow_dmic_lp;
+	int vow_single_mic_select;
 };
 
 #define MT_SOC_ENUM_EXT_ID(xname, xenum, xhandler_get, xhandler_put, id) \
@@ -5194,16 +5199,12 @@ struct mt6359_priv {
 #define DL_GAIN_REG_MASK 0x0f9f
 
 /* mic type */
-#define IS_VOW_DCC_BASE(x) (x == MIC_TYPE_MUX_VOW_DCC || \
-			    x == MIC_TYPE_MUX_VOW_DCC_ECM_DIFF || \
-			    x == MIC_TYPE_MUX_VOW_DCC_ECM_SINGLE)
 
 #define IS_DCC_BASE(x) (x == MIC_TYPE_MUX_DCC || \
 			x == MIC_TYPE_MUX_DCC_ECM_DIFF || \
-			x == MIC_TYPE_MUX_DCC_ECM_SINGLE || \
-			IS_VOW_DCC_BASE(x))
+			x == MIC_TYPE_MUX_DCC_ECM_SINGLE)
 
-#define IS_VOW_AMIC_BASE(x) (x == MIC_TYPE_MUX_VOW_ACC || IS_VOW_DCC_BASE(x))
+#define IS_AMIC_BASE(x) (x == MIC_TYPE_MUX_ACC || IS_DCC_BASE(x))
 
 /* VOW MTKIF TX setting */
 #define VOW_MCLK 13000
