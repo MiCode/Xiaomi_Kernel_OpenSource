@@ -18,7 +18,7 @@
 #include "platform/mtk_platform_common.h"
 #include "ged_dvfs.h"
 #include "mtk_gpufreq.h"
-#ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)
 #include <mtk_gpu_power_sspm_ipi.h>
 #endif
 
@@ -166,7 +166,7 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 	mutex_lock(&g_mfg_lock);
 
 	ret = pm_callback_power_on_nolock(kbdev);
-#ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)
 	MTKGPUPower_model_resume();
 #endif
 	mutex_unlock(&g_mfg_lock);
@@ -177,7 +177,7 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 static void pm_callback_power_off(struct kbase_device *kbdev)
 {
 	mutex_lock(&g_mfg_lock);
-#ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)
 	MTKGPUPower_model_suspend();
 #endif
 	pm_callback_power_off_nolock(kbdev);
