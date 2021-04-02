@@ -1155,7 +1155,7 @@ static int emicen_probe(struct platform_device *pdev)
 	if (!cen)
 		return -ENOMEM;
 
-	cen->ver = (int)of_device_get_match_data(&pdev->dev);
+	cen->ver = *(int *)of_device_get_match_data(&pdev->dev);
 
 	ret = of_property_read_u32(emicen_node,
 		"ch_cnt", &(cen->ch_cnt));
