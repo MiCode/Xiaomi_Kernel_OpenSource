@@ -13,6 +13,15 @@ config DMABUF_HEAPS_SYSTEM
 	  Choose this option to enable the system dmabuf heap. The system heap
 	  is backed by pages from the buddy allocator. If in doubt, say Y.
 
+config DMABUF_HEAPS_MTK_MM
+	tristate "DMA-BUF MTK_MM Heap"
+	depends on DMABUF_HEAPS
+	select DMABUF_HEAPS_PAGE_POOL
+	select DMABUF_HEAPS_DEFERRED_FREE
+	help
+	  Choose this option to enable the mtk_mm dmabuf heap. The mtk_mm heap
+	  is backed by pages from the buddy allocator. If in doubt, say Y.
+
 config DMABUF_HEAPS_CMA
 	tristate "DMA-BUF CMA Heap"
 	depends on DMABUF_HEAPS && DMA_CMA
