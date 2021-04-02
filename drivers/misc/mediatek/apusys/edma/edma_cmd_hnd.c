@@ -251,15 +251,15 @@ int edma_execute(struct edma_sub *edma_sub, struct edma_ext *edma_ext)
 #endif
 	edma_setup_ext_mode_request(&req, edma_ext, EDMA_PROC_EXT_MODE);
 
-	edma_ext_by_sub(edma_sub, &req);
+	ret = edma_ext_by_sub(edma_sub, &req);
 
 #ifdef DEBUG
 	t2 = ktime_get_ns();
 	exe_time = (t2 - t1)/1000;
 
 	//pr_notice("%s:ip time = %d\n", __func__, edma_sub->ip_time);
-	LOG_DBG("%s:function done, exe_time = %d, ip time = %d\n",
-		__func__, exe_time, edma_sub->ip_time);
+	LOG_DBG("%s:func done[%d], exe_time = %d, ip time = %d\n",
+		__func__, ret, exe_time, edma_sub->ip_time);
 #endif
 	return ret;
 }

@@ -25,6 +25,12 @@ static ssize_t edma_register_show(struct device *dev,
 
 	struct edma_sub *edma_sub = edma_device->edma_sub[core];
 
+	if (core >= edma_device->edma_sub_num) {
+		count += scnprintf(buf + count, 2*PAGE_SIZE - count,
+				 "not support core: %d\n", core);
+		return count;
+	}
+
 	count += scnprintf(buf + count, 2*PAGE_SIZE - count,
 			 "core: %d\n", core);
 	for (i = 0; i < (EDMA_REG_SHOW_RANGE >> 2); i++) {

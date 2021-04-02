@@ -24,6 +24,7 @@
 #include "apusys_power.h"
 #include "edma_dbgfs.h"
 #include "edma_plat_internal.h"
+//#include "apusys_dbg.h"
 
 #define NO_INTERRUPT		0
 #define EDMA_POWEROFF_TIME_DEFAULT 2000
@@ -129,15 +130,42 @@ void edma_enable_sequence(struct edma_sub *edma_sub)
 
 void edma_sw_reset(struct edma_sub *edma_sub)
 {
-	u32 value = 0;
+	u32 value = 0, count = 0;
+	unsigned long flags;
 
 	LOG_DBG("%s\n", __func__);
+
+	spin_lock_irqsave(&edma_sub->reg_lock, flags);
+
 	edma_set_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, CLK_ENABLE);
 
 	edma_set_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, AXI_PROT_EN);
 
-	while (!(value & RST_PROT_IDLE))
+	while (!(value & RST_PROT_IDLE)) {
 		value = edma_read_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0);
+		udelay(5);
+		count++;
+		if (count > 10000) {
+			u32 status, i;
+
+			spin_unlock_irqrestore(&edma_sub->reg_lock, flags);
+
+			/* dump error log */
+			pr_notice("hang on %s direct dump...\n", __func__);
+			for (i = 0; i < (EDMA_REG_SHOW_RANGE >> 2); i++) {
+				status = edma_read_reg32(edma_sub->base_addr,
+					i*4);
+				pr_notice("hang %s edma error dump [0x%x] = 0x%x\n",
+					__func__, i*4, status);
+			}
+			//apusys_reg_dump();
+
+			/* continues do edma */
+			spin_lock_irqsave(&edma_sub->reg_lock, flags);
+
+			break;
+		}
+	}
 
 	LOG_DBG("value = 0x%x\n", value);
 
@@ -146,6 +174,9 @@ void edma_sw_reset(struct edma_sub *edma_sub)
 	edma_clear_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, DMA_SW_RST);
 	udelay(5);
 	edma_clear_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, AXI_PROT_EN);
+
+	spin_unlock_irqrestore(&edma_sub->reg_lock, flags);
+
 }
 
 
@@ -184,6 +215,7 @@ int edma_exe_v20(struct edma_sub *edma_sub, struct edma_request *req)
 {
 	int ret = 0;
 	void __iomem *base_addr;
+	unsigned long flags;
 
 
 	base_addr = edma_sub->base_addr;
@@ -191,11 +223,17 @@ int edma_exe_v20(struct edma_sub *edma_sub, struct edma_request *req)
 
 	edma_sw_reset(edma_sub); // no need in edma 3.0
 
+
+
+	spin_lock_irqsave(&edma_sub->reg_lock, flags);
+
 	edma_write_reg32(base_addr, APU_EDMA2_FILL_VALUE, req->fill_value);
 	edma_trigger_external(edma_sub->base_addr,
 				req->ext_reg_addr,
 				req->ext_count,
 				req->desp_iommu_en);
+
+	spin_unlock_irqrestore(&edma_sub->reg_lock, flags);
 
 	return ret;
 

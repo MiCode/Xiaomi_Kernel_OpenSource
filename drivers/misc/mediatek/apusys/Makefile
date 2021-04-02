@@ -76,6 +76,7 @@ apusys-objs += edma/edma_dbgfs.o
 apusys-objs += edma/edma_cmd_hnd.o
 apusys-objs += edma/edma_plat_device.o
 apusys-objs += edma/edma_v20.o
+apusys-objs += edma/edma_v30.o
 #apusys-objs += edma/apusys_power_dummy.o
 
 

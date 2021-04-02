@@ -10,7 +10,12 @@
 #include <linux/kernel.h>
 #include <linux/io.h>
 
-#define EDMA_REG_SHOW_RANGE			0X10C
+#define EDMA_REG_SHOW_RANGE			0x150
+
+#define EDMA_REG_EX_R1			0xC00
+
+#define EDMA_REG_EX_R2			0xC5C
+
 
 #define DESP_WRITE_POINTER_MASK			0x00000030
 #define NUM_DESP_MASK				0x00000007

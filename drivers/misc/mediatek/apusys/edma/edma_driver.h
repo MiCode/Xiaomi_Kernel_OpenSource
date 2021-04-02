@@ -36,6 +36,7 @@ struct edma_sub {
 	struct apusys_device adev;
 	u32 sub;
 	struct edma_device *edma_device;
+	spinlock_t reg_lock;
 
 	void __iomem *base_addr;
 
@@ -52,6 +53,7 @@ struct edma_sub {
 
 	u8 sub_name[EDMA_SUB_NAME_SIZE];
 	uint32_t ip_time;
+	unsigned int dbg_portID;
 };
 
 struct edma_device {
