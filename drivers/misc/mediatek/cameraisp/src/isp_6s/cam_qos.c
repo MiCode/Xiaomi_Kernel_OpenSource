@@ -122,8 +122,46 @@ void mtk_pmqos_remove(enum ISP_IRQ_TYPE_ENUM module)
 	}
 }
 
+/* if module and portID are valid, return true. */
+bool check_module_and_portID(enum ISP_IRQ_TYPE_ENUM module, u32 portID)
+{
+	switch (module) {
+	case ISP_IRQ_TYPE_INT_CAM_A_ST:
+	case ISP_IRQ_TYPE_INT_CAM_B_ST:
+	case ISP_IRQ_TYPE_INT_CAM_C_ST:
+		if (portID >= _cam_max_) {
+			LOG_NOTICE("CAM Wrong portID:%d\n", portID);
+			return false;
+		}
+		break;
+#if (DISABLE_CAMSV_TOP0 == 0)
+	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
+	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
+#endif
+	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
+	case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
+	case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
+	case ISP_IRQ_TYPE_INT_CAMSV_5_ST:
+	case ISP_IRQ_TYPE_INT_CAMSV_6_ST:
+	case ISP_IRQ_TYPE_INT_CAMSV_7_ST:
+		if (portID >= _camsv_max_) {
+			LOG_NOTICE("CAMSV Wrong portID:%d\n", portID);
+			return false;
+		}
+		break;
+	default:
+		LOG_NOTICE("unsupported module:%d\n", module);
+		return false;
+	}
+
+	return true;
+}
+
 void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID)
 {
+	if (check_module_and_portID(module, portID) == false)
+		return;
+
 	switch (module) {
 
 #if (DISABLE_CAMSV_TOP0 == 0)
@@ -203,8 +241,8 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 	case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 		switch (portID) {
 		case _camsv_imgo_:
-			gSV_BW_REQ[module][portID] = icc_get(dev,
-				MASTER_LARB_PORT(M4U_PORT_L13_CAM_CAMSV4),
+			gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID] =
+				icc_get(dev, MASTER_LARB_PORT(M4U_PORT_L13_CAM_CAMSV4),
 				SLAVE_LARB(13));
 			break;
 		default:
@@ -216,8 +254,8 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 	case ISP_IRQ_TYPE_INT_CAMSV_5_ST:
 		switch (portID) {
 		case _camsv_imgo_:
-			gSV_BW_REQ[module][portID] = icc_get(dev,
-				MASTER_LARB_PORT(M4U_PORT_L13_CAM_CAMSV5),
+			gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID] =
+				icc_get(dev, MASTER_LARB_PORT(M4U_PORT_L13_CAM_CAMSV5),
 				SLAVE_LARB(13));
 			break;
 		}
@@ -226,8 +264,8 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 	case ISP_IRQ_TYPE_INT_CAMSV_7_ST:
 		switch (portID) {
 		case _camsv_imgo_:
-			gSV_BW_REQ[module][portID] = icc_get(dev,
-				MASTER_LARB_PORT(M4U_PORT_L13_CAM_CAMSV6),
+			gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID] =
+				icc_get(dev, MASTER_LARB_PORT(M4U_PORT_L13_CAM_CAMSV6),
 				SLAVE_LARB(13));
 			break;
 		}
@@ -713,7 +751,8 @@ void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 			//BW_COMP_DEFAULT
 			int ret;
 
-			ret = icc_set_bw(gSV_BW_REQ[module][portID],
+			ret = icc_set_bw(
+				gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID],
 				MBps_to_icc(bw.avg), MBps_to_icc(bw.peak));
 
 			if (ret)
@@ -726,7 +765,8 @@ void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 			//BW_COMP_NONE
 			int ret;
 
-			ret = icc_set_bw(gSV_BW_REQ[module][portID],
+			ret = icc_set_bw(
+				gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID],
 				MBps_to_icc(bw.avg), MBps_to_icc(bw.peak));
 
 			if (ret)
@@ -778,7 +818,8 @@ void mtk_pmqos_clr(enum ISP_IRQ_TYPE_ENUM module)
 		int ret;
 
 		for (portID = _camsv_imgo_; portID < _camsv_max_; portID++) {
-			ret = icc_set_bw(gSV_BW_REQ[module][portID], 0, 0);
+			ret = icc_set_bw(
+				gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID], 0, 0);
 
 			if (ret)
 				LOG_NOTICE("icc_set_bw(0, 0) failed(%d)\n", ret);

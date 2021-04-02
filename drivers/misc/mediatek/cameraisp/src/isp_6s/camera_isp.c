@@ -115,7 +115,7 @@
 #define CAMERA_SMI_DISABLE 0
 
 #define ISP_DEV_NAME "camera-isp"
-#define SMI_LARB_MMU_CTL (1)
+#define SMI_LARB_MMU_CTL (0)
 /*#define ENABLE_WAITIRQ_LOG*/ /* wait irq debug logs */
 /*#define ENABLE_STT_IRQ_LOG*/ /*show STT irq debug logs */
 
@@ -458,7 +458,7 @@ static struct mutex open_isp_mutex;
 #include "inc/cam_regs.h"
 
 #if (SMI_LARB_MMU_CTL == 1)
-void __iomem *SMI_LARB_BASE[20];
+void __iomem *SMI_LARB_BASE[21];
 #endif
 
 #endif
@@ -7593,8 +7593,9 @@ static int __init ISP_Init(void)
 {
 	int Ret = 0, i, j, k;
 	void *tmp;
+#if (SMI_LARB_MMU_CTL == 1)
 	struct device_node *node = NULL;
-
+#endif
 	/*  */
 	LOG_DBG("- E.");
 	mutex_init(&open_isp_mutex);
