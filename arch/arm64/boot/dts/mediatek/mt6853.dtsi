@@ -63,7 +63,7 @@
 		bootargs = "console=tty0 root=/dev/ram vmalloc=400M \
 		rcupdate.rcu_expedited=1 swiotlb=noforce \
 		firmware_class.path=/vendor/firmware page_owner=on \
-		loop.max_part=7";
+		loop.max_part=7 earlycon=uart8250,mmio32,0x11002000 console=ttyS0,921600n1";
 		kaslr-seed = <0 0>;
 	};
 
