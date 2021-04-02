@@ -52,9 +52,9 @@ static DEFINE_SPINLOCK(imgsensor_drv_lock);
 
 #define MULTI_WRITE 1
 #if MULTI_WRITE
-static const int I2C_BUFFER_LEN = 1020; /*trans# max is 255, each 4 bytes*/
+#define I2C_BUFFER_LEN 1020
 #else
-static const int I2C_BUFFER_LEN = 4;
+#define I2C_BUFFER_LEN 4
 #endif
 
 static struct imgsensor_info_struct imgsensor_info = {
