@@ -516,6 +516,7 @@ probe_fail:
 	mutex_destroy(&chip->io_lock);
 	return ret;
 }
+EXPORT_SYMBOL(mt6660_i2c_probe);
 
 static int mt6660_i2c_remove(struct i2c_client *client)
 {
@@ -526,6 +527,7 @@ static int mt6660_i2c_remove(struct i2c_client *client)
 	mutex_destroy(&chip->io_lock);
 	return 0;
 }
+EXPORT_SYMBOL(mt6660_i2c_remove);
 
 static int __maybe_unused mt6660_i2c_runtime_suspend(struct device *dev)
 {
@@ -549,30 +551,6 @@ static const struct dev_pm_ops mt6660_dev_pm_ops = {
 	SET_RUNTIME_PM_OPS(mt6660_i2c_runtime_suspend,
 			   mt6660_i2c_runtime_resume, NULL)
 };
-
-static const struct of_device_id __maybe_unused mt6660_of_id[] = {
-	{ .compatible = "mediatek,mt6660",},
-	{},
-};
-MODULE_DEVICE_TABLE(of, mt6660_of_id);
-
-static const struct i2c_device_id mt6660_i2c_id[] = {
-	{"mt6660", 0 },
-	{},
-};
-MODULE_DEVICE_TABLE(i2c, mt6660_i2c_id);
-
-static struct i2c_driver mt6660_i2c_driver = {
-	.driver = {
-		.name = "mt6660",
-		.of_match_table = of_match_ptr(mt6660_of_id),
-		.pm = &mt6660_dev_pm_ops,
-	},
-	.probe = mt6660_i2c_probe,
-	.remove = mt6660_i2c_remove,
-	.id_table = mt6660_i2c_id,
-};
-module_i2c_driver(mt6660_i2c_driver);
 
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
 MODULE_DESCRIPTION("MT6660 SPKAMP Driver");

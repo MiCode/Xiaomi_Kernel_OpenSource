@@ -17,6 +17,7 @@
 #include "mt6885-afe-gpio.h"
 #include "../../codecs/mt6359.h"
 #include "../../codecs/mt6359p-accdet.h"
+#include "../common/mtk-sp-spk-amp.h"
 
 /*
  * if need additional control for the ext spk amp that is connected
@@ -28,8 +29,8 @@
 static const char *const mt6885_spk_type_str[] = {MTK_SPK_NOT_SMARTPA_STR,
 						  MTK_SPK_RICHTEK_RT5509_STR,
 						  MTK_SPK_MEDIATEK_MT6660_STR,
-						  MTK_SPK_GOODIX_TFA9874_STR
-						  };
+						  MTK_SPK_RICHTEK_RT5512_STR,
+						  MTK_SPK_GOODIX_TFA98XX_STR};
 static const char *const
 	mt6885_spk_i2s_type_str[] = {MTK_SPK_I2S_0_STR,
 				     MTK_SPK_I2S_1_STR,
@@ -40,8 +41,7 @@ static const char *const
 				     MTK_SPK_I2S_7_STR,
 				     MTK_SPK_I2S_8_STR,
 				     MTK_SPK_I2S_9_STR,
-				     MTK_SPK_TINYCONN_I2S_0_STR,
-				     };
+				     MTK_SPK_TINYCONN_I2S_0_STR};
 
 static const struct soc_enum mt6885_spk_type_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mt6885_spk_type_str),
@@ -50,11 +50,10 @@ static const struct soc_enum mt6885_spk_type_enum[] = {
 			    mt6885_spk_i2s_type_str),
 };
 
-/* Use speaker : MTK_SPK_MEDIATEK_TFA9874 on i2s0 and i2s3 */
 static int mt6885_spk_type_get(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
-	int idx = MTK_SPK_GOODIX_TFA9874;
+	int idx = mtk_spk_get_type();
 
 	pr_debug("%s() = %d\n", __func__, idx);
 	ucontrol->value.integer.value[0] = idx;
@@ -64,7 +63,7 @@ static int mt6885_spk_type_get(struct snd_kcontrol *kcontrol,
 static int mt6885_spk_i2s_out_type_get(struct snd_kcontrol *kcontrol,
 				       struct snd_ctl_elem_value *ucontrol)
 {
-	int idx = MTK_SPK_I2S_3;
+	int idx = mtk_spk_get_i2s_out_type();
 
 	pr_debug("%s() = %d\n", __func__, idx);
 	ucontrol->value.integer.value[0] = idx;
@@ -74,7 +73,7 @@ static int mt6885_spk_i2s_out_type_get(struct snd_kcontrol *kcontrol,
 static int mt6885_spk_i2s_in_type_get(struct snd_kcontrol *kcontrol,
 				      struct snd_ctl_elem_value *ucontrol)
 {
-	int idx = MTK_SPK_I2S_0;
+	int idx = mtk_spk_get_i2s_in_type();
 
 	pr_debug("%s() = %d\n", __func__, idx);
 	ucontrol->value.integer.value[0] = idx;
@@ -1035,19 +1034,7 @@ static struct snd_soc_dai_link mt6885_mt6359p_dai_links[] = {
 		SND_SOC_DAILINK_REG(ap_dmic_ch34),
 	},
 	{
-		.name = "Speaker Codec",
-		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS
-			| SND_SOC_DAIFMT_GATED,
-		.ops = &mt6885_mt6359p_i2s_ops,
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1,
-		.be_hw_params_fixup = mt6885_i2s_hw_params_fixup,
-		SND_SOC_DAILINK_REG(i2s3),
-	},
-	{
-		.name = "Speaker Codec Ref",
+		.name = "I2S0",
 		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS
 			| SND_SOC_DAIFMT_GATED,
 		.ops = &mt6885_mt6359p_i2s_ops,
@@ -1060,6 +1047,9 @@ static struct snd_soc_dai_link mt6885_mt6359p_dai_links[] = {
 	},
 	{
 		.name = "I2S1",
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS
+			| SND_SOC_DAIFMT_GATED,
+		.ops = &mt6885_mt6359p_i2s_ops,
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.ignore_suspend = 1,
@@ -1068,6 +1058,9 @@ static struct snd_soc_dai_link mt6885_mt6359p_dai_links[] = {
 	},
 	{
 		.name = "I2S2",
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS
+			| SND_SOC_DAIFMT_GATED,
+		.ops = &mt6885_mt6359p_i2s_ops,
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.ignore_suspend = 1,
@@ -1075,7 +1068,22 @@ static struct snd_soc_dai_link mt6885_mt6359p_dai_links[] = {
 		SND_SOC_DAILINK_REG(i2s2),
 	},
 	{
+		.name = "I2S3",
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS
+			| SND_SOC_DAIFMT_GATED,
+		.ops = &mt6885_mt6359p_i2s_ops,
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.be_hw_params_fixup = mt6885_i2s_hw_params_fixup,
+		SND_SOC_DAILINK_REG(i2s3),
+	},
+	{
 		.name = "I2S5",
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS
+			| SND_SOC_DAIFMT_GATED,
+		.ops = &mt6885_mt6359p_i2s_ops,
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.ignore_suspend = 1,
@@ -1084,6 +1092,9 @@ static struct snd_soc_dai_link mt6885_mt6359p_dai_links[] = {
 	},
 	{
 		.name = "I2S6",
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS
+			| SND_SOC_DAIFMT_GATED,
+		.ops = &mt6885_mt6359p_i2s_ops,
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.ignore_suspend = 1,
@@ -1092,6 +1103,9 @@ static struct snd_soc_dai_link mt6885_mt6359p_dai_links[] = {
 	},
 	{
 		.name = "I2S7",
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS
+			| SND_SOC_DAIFMT_GATED,
+		.ops = &mt6885_mt6359p_i2s_ops,
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.ignore_suspend = 1,
@@ -1100,6 +1114,9 @@ static struct snd_soc_dai_link mt6885_mt6359p_dai_links[] = {
 	},
 	{
 		.name = "I2S8",
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS
+			| SND_SOC_DAIFMT_GATED,
+		.ops = &mt6885_mt6359p_i2s_ops,
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.ignore_suspend = 1,
@@ -1108,6 +1125,9 @@ static struct snd_soc_dai_link mt6885_mt6359p_dai_links[] = {
 	},
 	{
 		.name = "I2S9",
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS
+			| SND_SOC_DAIFMT_GATED,
+		.ops = &mt6885_mt6359p_i2s_ops,
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.ignore_suspend = 1,
@@ -1343,6 +1363,15 @@ static int mt6885_mt6359p_dev_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "%s()\n", __func__);
 
+	/* update speaker type */
+	ret = mtk_spk_update_info(card, pdev);
+	if (ret) {
+		dev_err(&pdev->dev, "%s(), mtk_spk_update_info error\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	/* get platform node */
 	platform_node = of_parse_phandle(pdev->dev.of_node,
 					 "mediatek,platform", 0);
 	if (!platform_node) {
@@ -1350,6 +1379,7 @@ static int mt6885_mt6359p_dev_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	/* get speaker codec node */
 	spk_node = of_get_child_by_name(pdev->dev.of_node,
 					"mediatek,speaker-codec");
 	if (!spk_node) {
@@ -1364,21 +1394,18 @@ static int mt6885_mt6359p_dev_probe(struct platform_device *pdev)
 
 		if (!strcmp(dai_link->name, "Speaker Codec")) {
 			ret = snd_soc_of_get_dai_link_codecs(
-						&pdev->dev, spk_node,
-						dai_link);
+						&pdev->dev, spk_node, dai_link);
 			if (ret < 0) {
 				dev_err(&pdev->dev,
-					"Speaker Codec get_dai_link fail\n");
+					"Speaker Codec get_dai_link fail: %d\n", ret);
 				return -EINVAL;
 			}
-		} else if (!strcmp(dai_link->name,
-				   "Speaker Codec Ref")) {
+		} else if (!strcmp(dai_link->name, "Speaker Codec Ref")) {
 			ret = snd_soc_of_get_dai_link_codecs(
-						&pdev->dev, spk_node,
-						dai_link);
+						&pdev->dev, spk_node, dai_link);
 			if (ret < 0) {
 				dev_err(&pdev->dev,
-					"Speaker Codec Ref get_dai_link fail\n");
+					"Speaker Codec Ref get_dai_link fail: %d\n", ret);
 				return -EINVAL;
 			}
 		}

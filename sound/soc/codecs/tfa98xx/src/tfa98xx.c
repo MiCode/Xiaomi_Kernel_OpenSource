@@ -3224,30 +3224,6 @@ int tfa98xx_i2c_remove(struct i2c_client *i2c)
 }
 EXPORT_SYMBOL(tfa98xx_i2c_remove);
 
-static const struct of_device_id __maybe_unused tfa98xx_of_id[] = {
-	{ .compatible = "goodix,tfa9874",},
-	{},
-};
-MODULE_DEVICE_TABLE(of, tfa98xx_of_id);
-
-static const struct i2c_device_id tfa98xx_i2c_id[] = {
-	{"tfa9874", 0 },
-	{},
-};
-MODULE_DEVICE_TABLE(i2c, tfa98xx_i2c_id);
-
-static struct i2c_driver tfa98xx_i2c_driver = {
-	.driver = {
-		.name = "tfa98xx",
-		.owner = THIS_MODULE,
-		.of_match_table = of_match_ptr(tfa98xx_of_id),
-	},
-	.probe = tfa98xx_i2c_probe,
-	.remove = tfa98xx_i2c_remove,
-	.id_table = tfa98xx_i2c_id,
-};
-module_i2c_driver(tfa98xx_i2c_driver);
-
 /* Module information */
 MODULE_DESCRIPTION("Goodix Speaker Amp Codec Driver");
 MODULE_AUTHOR("Pengliang Xiao <xiaopengliang@goodix.com>");
