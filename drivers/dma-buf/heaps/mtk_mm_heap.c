@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2011 Google, Inc.
  * Copyright (C) 2019, 2020 Linaro Ltd.
+ * Copyright (C) 2021 MediaTek Inc.
  *
  * Portions based off of Andrew Davis' SRAM heap:
  * Copyright (C) 2019 Texas Instruments Incorporated - http://www.ti.com/
