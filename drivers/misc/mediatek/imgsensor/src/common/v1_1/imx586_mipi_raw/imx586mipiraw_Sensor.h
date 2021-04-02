@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0  */
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -130,6 +130,12 @@ struct imgsensor_info_struct {
 	kal_uint32 i2c_speed; /* i2c speed */
 	kal_uint8 mipi_lane_num; /* mipi lane num */
 	kal_uint8 i2c_addr_table[5];
+};
+
+struct SEAMLESS_SYS_DELAY {
+	uint32_t source_scenario;
+	uint32_t target_scenario;
+	uint32_t sys_delay;
 };
 
 /* SENSOR READ/WRITE ID */

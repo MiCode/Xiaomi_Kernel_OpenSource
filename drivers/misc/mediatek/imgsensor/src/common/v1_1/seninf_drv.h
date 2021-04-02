@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2020 MediaTek Inc. */
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
 
 #ifndef __SENINF_DRV_H__
 #define __SENINF_DRV_H__

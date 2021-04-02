@@ -247,6 +247,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.video_delay_frame = 2,	/* enter video delay frame num */
 	.hs_video_delay_frame = 2,
 	.slim_video_delay_frame = 2,	/* enter slim video delay frame num */
+	.frame_time_delay_frame = 3,
 	.custom1_delay_frame = 2,	/* enter custom1 delay frame num */
 	.custom2_delay_frame = 2,	/* enter custom2 delay frame num */
 	.custom3_delay_frame = 2,
@@ -295,20 +296,20 @@ static struct imgsensor_struct imgsensor = {
 
 /* Sensor output window information */
 static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[8] = {
-	{4656, 3496, 000, 000, 4656, 3496, 2328, 1728,
+	{4656, 3496, 000,  18, 4656, 3460, 2328, 1730,
 	0000, 0000, 2328, 1728, 0, 0, 2328, 1728}, /* Preview */
 	{4656, 3496, 000, 000, 4656, 3496, 4656, 3496,
 	0000, 0000, 4656, 3496, 0, 0, 4656, 3496}, /* capture */
-	{4656, 3496, 000, 440, 4656, 2616, 4656, 2616,
+	{4656, 3496, 000, 432, 4656, 2616, 4656, 2616,
 	0000, 0000, 4656, 2616, 0, 0, 4656, 2616}, /* video */
-	{4656, 3496, 408, 668, 3840, 2160, 1920, 1080,
-	0000, 0000, 1920, 1080, 0, 0, 1920, 1080}, /* hight speed video */
-	{4656, 3496, 408, 668, 3840, 2160, 1920, 1080,
-	0000, 0000, 1920, 1080, 0, 0, 1920, 1080}, /* slim video */
-	{4656, 3496, 1048, 1028, 2560, 1440, 1280,  720,
-	 0000, 0000, 1280,  720,    0,	  0, 1280,  720}, /*custom1*/
-	{4656, 3496, 1048, 1028, 2560, 1440, 1280,  720,
-	 0000, 0000, 1280,  720,    0,	  0, 1280,  720}, /*custom2*/
+	{4656, 3496, 000, 658, 4656, 2164, 2328, 1082,
+	 204, 0000, 1920, 1080, 0, 0, 1920, 1080}, /* hight speed video */
+	{4656, 3496, 000, 658, 4656, 2164, 2328, 1082,
+	 204, 0000, 1920, 1080, 0, 0, 1920, 1080}, /* slim video */
+	{4656, 3496, 000, 1026, 4656, 1444, 2328,  722,
+	 0524, 0000, 1280,  720,    0,	  0, 1280,  720}, /*custom1*/
+	{4656, 3496, 000, 1024, 4656, 1448, 2328,  724,
+	  524,    2, 1280,  720,    0,	  0, 1280,  720}, /*custom2*/
 	{4656, 3496,    0,    0, 4656, 3496, 2328, 1748,
 	    0,    0, 2328, 1748,    0,    0, 2328, 1748}, /* custom3 */
 };
@@ -396,7 +397,6 @@ static kal_uint16 imx519_table_write_cmos_sensor(kal_uint16 *para,
 		tosend = 0;
 #endif
 	}
-
 	return 0;
 }
 
@@ -2260,7 +2260,6 @@ static kal_uint16 imx519_custom3_setting[] = {
 	0x3E20, 0x01,
 	0x3E37, 0x00,
 };
-
 #endif
 
 #if IMX519_CAP_2TRIO
@@ -2915,6 +2914,8 @@ static kal_uint32 get_info(enum MSDK_SCENARIO_ID_ENUM scenario_id,
 		imgsensor_info.hs_video_delay_frame;
 	sensor_info->SlimVideoDelayFrame =
 		imgsensor_info.slim_video_delay_frame;
+	sensor_info->FrameTimeDelayFrame =
+		imgsensor_info.frame_time_delay_frame;
 	sensor_info->Custom1DelayFrame = imgsensor_info.custom1_delay_frame;
 	sensor_info->Custom2DelayFrame = imgsensor_info.custom2_delay_frame;
 	sensor_info->Custom3DelayFrame = imgsensor_info.custom3_delay_frame;

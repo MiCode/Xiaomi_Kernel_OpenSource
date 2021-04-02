@@ -22,7 +22,6 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 
-//#include <mt-plat/sync_write.h>
 
 #include "kd_seninf.h"
 
@@ -33,17 +32,34 @@
 #include "imgsensor_ca.h"
 #include <linux/delay.h>
 
-#define SENINF_WR32(addr, data)    mt_reg_sync_writel(data, addr)
-#define SENINF_RD32(addr)          ioread32((void *)addr)
+
+#define SENINF_WR32(addr, data) \
+do {	\
+	writel((data), (void __force __iomem *)((addr))); \
+	mb(); /* memory barrier */ \
+} while (0)
+
+#define SENINF_RD32(addr) ioread32((void *)addr)
 
 static struct SENINF gseninf;
 
-#ifdef SENINF_DUMP_REG
+
+extern MUINT32 Switch_Tg_For_Stagger(MUINT16 camtg)
+{
+#ifdef _CAM_MUX_SWITCH
+	return _switch_tg_for_stagger(camtg, &gseninf);
+#else
+	return 0;
+#endif
+}
+EXPORT_SYMBOL(Switch_Tg_For_Stagger);
+
+
+#if 1
 MINT32 seninf_dump_reg(void)
 {
 	int i = 0;
 	int k = 0;
-
 	PK_PR_ERR("- E.");
 	/*Sensor interface Top mux and Package counter */
 	PK_PR_ERR(
@@ -117,9 +133,12 @@ MINT32 seninf_dump_reg(void)
 
 static irqreturn_t seninf_irq(MINT32 Irq, void *DeviceId)
 {
-#ifdef SENINF_DUMP_REG
+#ifdef SENINF_IRQ
+	_seninf_irq(Irq, DeviceId, &gseninf);
+#else
 	seninf_dump_reg();
 #endif
+
 	return IRQ_HANDLED;
 }
 
@@ -141,7 +160,6 @@ static MINT32 seninf_open(struct inode *pInode, struct file *pFile)
 
 	mutex_unlock(&pseninf->seninf_mutex);
 #endif
-
 	return 0;
 }
 
@@ -153,7 +171,6 @@ static MINT32 seninf_release(struct inode *pInode, struct file *pFile)
 	mutex_lock(&pseninf->seninf_mutex);
 	if (atomic_dec_and_test(&pseninf->seninf_open_cnt))
 		seninf_clk_release(&pseninf->clk);
-
 #endif
 
 #ifdef IMGSENSOR_DFS_CTRL_ENABLE
@@ -176,7 +193,7 @@ static MINT32 seninf_release(struct inode *pInode, struct file *pFile)
 static MINT32 seninf_mmap(struct file *pFile, struct vm_area_struct *pVma)
 {
 	unsigned long length = 0;
-	MUINT32 pfn = 0x0;
+	unsigned long pfn = 0x0;
 
 	/*PK_DBG("- E."); */
 	length = (pVma->vm_end - pVma->vm_start);
@@ -193,30 +210,30 @@ static MINT32 seninf_mmap(struct file *pFile, struct vm_area_struct *pVma)
 	case SENINF_MAP_BASE_REG:
 		if (length > SENINF_MAP_LENGTH_REG) {
 			PK_PR_ERR(
-			"mmap range error :module(0x%x),length(0x%lx),SENINF_BASE_RANGE(0x%x)!\n",
+			"mmap range error :module(0x%lx),length(0x%lx),SENINF_BASE_RANGE(0x%x)!\n",
 			pfn, length, SENINF_MAP_LENGTH_REG);
-			return -EAGAIN;
+			return -EINVAL;
 		}
 		break;
 	case SENINF_MAP_BASE_ANA:
 		if (length > SENINF_MAP_LENGTH_ANA) {
 			PK_PR_ERR(
-			"mmap range error :module(0x%x),length(0x%lx),MIPI_RX_RANGE(0x%x)!\n",
+			"mmap range error :module(0x%lx),length(0x%lx),MIPI_RX_RANGE(0x%x)!\n",
 			pfn, length, SENINF_MAP_LENGTH_ANA);
-			return -EAGAIN;
+			return -EINVAL;
 		}
 		break;
 	case SENINF_MAP_BASE_GPIO:
 		if (length > SENINF_MAP_LENGTH_GPIO) {
 			PK_PR_ERR(
-			"mmap range error :module(0x%x),length(0x%lx),GPIO_RX_RANGE(0x%x)!\n",
+			"mmap range error :module(0x%lx),length(0x%lx),GPIO_RX_RANGE(0x%x)!\n",
 			pfn, length, SENINF_MAP_LENGTH_GPIO);
-			return -EAGAIN;
+			return -EINVAL;
 		}
 		break;
 	default:
 		PK_PR_ERR("Illegal starting HW addr for mmap!\n");
-		return -EAGAIN;
+		return -EINVAL;
 
 	}
 
@@ -226,7 +243,7 @@ static MINT32 seninf_mmap(struct file *pFile, struct vm_area_struct *pVma)
 		pVma->vm_pgoff,
 		pVma->vm_end - pVma->vm_start,
 		pVma->vm_page_prot))
-		return -EAGAIN;
+		return -EINVAL;
 
 	return 0;
 }
@@ -260,7 +277,8 @@ static long seninf_ioctl(struct file *pfile,
 				ret = -EFAULT;
 				goto SENINF_IOCTL_EXIT;
 			}
-		}
+		} else
+			memset(pbuff, 0, _IOC_SIZE(cmd));
 	} else {
 		ret = -EFAULT;
 		goto SENINF_IOCTL_EXIT;
@@ -328,7 +346,12 @@ static long seninf_ioctl(struct file *pfile,
 			ret = ERROR_TEE_CA_TA_FAIL;
 		break;
 #endif
-
+	case KDSENINFIOC_SET_CAM_MUX_FOR_SWITCH:
+#ifdef _CAM_MUX_SWITCH
+		ret = _seninf_set_tg_for_switch(
+			(*(unsigned int *)pbuff) >> 16, (*(unsigned int *)pbuff) & 0xFFFF);
+#endif
+		break;
 	default:
 		PK_DBG("No such command %d\n", cmd);
 		ret = -EPERM;
@@ -614,8 +637,8 @@ void __exit seninf_exit(void)
 	platform_driver_unregister(&gseninf_platform_driver);
 }
 
-//module_init(seninf_init);
-//module_exit(seninf_exit);
+// module_init(seninf_init);
+// module_exit(seninf_exit);
 
 MODULE_DESCRIPTION("sensor interface driver");
 MODULE_AUTHOR("Mediatek");

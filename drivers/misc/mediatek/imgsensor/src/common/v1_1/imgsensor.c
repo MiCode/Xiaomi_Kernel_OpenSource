@@ -435,6 +435,8 @@ MINT32 imgsensor_sensor_close(struct IMGSENSOR_SENSOR *psensor)
 	    psensor_func->SensorClose &&
 	    psensor_inst) {
 
+		IMGSENSOR_PROFILE_INIT(&psensor_inst->profile_time);
+
 		imgsensor_mutex_lock(psensor_inst);
 
 #ifdef IMGSENSOR_OC_ENABLE
@@ -465,6 +467,8 @@ MINT32 imgsensor_sensor_close(struct IMGSENSOR_SENSOR *psensor)
 		}
 
 		imgsensor_mutex_unlock(psensor_inst);
+
+		IMGSENSOR_PROFILE(&psensor_inst->profile_time, "SensorClose");
 	}
 
 	IMGSENSOR_FUNCTION_EXIT();
@@ -474,8 +478,8 @@ MINT32 imgsensor_sensor_close(struct IMGSENSOR_SENSOR *psensor)
 
 static void imgsensor_init_sensor_list(void)
 {
-	int i = 0;
-	int ret;
+	unsigned int i = 0;
+	int ret = 0;
 	struct IMGSENSOR             *pimgsensor   = &gimgsensor;
 	struct IMGSENSOR_SENSOR_LIST *psensor_list =  gimgsensor_sensor_list;
 	const char *penable_sensor;
@@ -549,13 +553,14 @@ static inline int imgsensor_check_is_alive(struct IMGSENSOR_SENSOR *psensor)
 int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 {
 	int ret = -EIO;
-	int i = 0;
+	unsigned int i = 0;
 	struct IMGSENSOR             *pimgsensor   = &gimgsensor;
 	struct IMGSENSOR_SENSOR_INST *psensor_inst = &psensor->inst;
 
 	imgsensor_mutex_init(psensor_inst);
 	imgsensor_i2c_init(&psensor_inst->i2c_cfg,
-		imgsensor_custom_config[psensor_inst->sensor_idx].i2c_dev);
+	imgsensor_custom_config[
+	(unsigned int)psensor_inst->sensor_idx].i2c_dev);
 	imgsensor_i2c_filter_msg(&psensor_inst->i2c_cfg, true);
 
 	while (pimgsensor->psensor_list[i] && i < MAX_NUM_OF_SUPPORT_SENSOR) {
@@ -644,7 +649,8 @@ EXPORT_SYMBOL(Get_Camera_Temperature);
 
 static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 {
-	int i;
+	unsigned int i = 0;
+	int ret = 0;
 	struct IMAGESENSOR_GETINFO_STRUCT *pSensorGetInfo;
 	struct IMGSENSOR_SENSOR *psensor;
 
@@ -718,22 +724,32 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 
 	/* Add info to proc: camera_info */
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
-	snprintf(
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
+	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
 			"\nCAM[%d]:%s;",
 			psensor->inst.sensor_idx,
 			psensor->inst.psensor_list->name);
+	if (ret < 0)
+		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
-	snprintf(
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
+	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
 			"\nSensor ID = %x;",
 			psensor->inst.psensor_list->id);
+	if (ret < 0)
+		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
-	snprintf(
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
+	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
 			"\nPre: TgGrab_w,h,x_,y=%5d,%5d,%3d,%3d, delay_frm=%2d",
@@ -742,9 +758,13 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 			info.SensorGrabStartX_PRV,
 			info.SensorGrabStartY_PRV,
 			info.PreviewDelayFrame);
+	if (ret < 0)
+		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
-	snprintf(
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
+	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
 			"\nCap: TgGrab_w,h,x_,y=%5d,%5d,%3d,%3d, delay_frm=%2d",
@@ -753,9 +773,13 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 			info.SensorGrabStartX_CAP,
 			info.SensorGrabStartY_CAP,
 			info.CaptureDelayFrame);
+	if (ret < 0)
+		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
-	snprintf(
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
+	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
 			"\nVid: TgGrab_w,h,x_,y=%5d,%5d,%3d,%3d, delay_frm=%2d",
@@ -764,9 +788,13 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 			info.SensorGrabStartX_VD,
 			info.SensorGrabStartY_VD,
 			info.VideoDelayFrame);
+	if (ret < 0)
+		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
-	snprintf(
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
+	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
 			"\nHSV: TgGrab_w,h,x_,y=%5d,%5d,%3d,%3d, delay_frm=%2d",
@@ -775,9 +803,13 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 			info.SensorGrabStartX_VD1,
 			info.SensorGrabStartY_VD1,
 			info.HighSpeedVideoDelayFrame);
+	if (ret < 0)
+		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
-	snprintf(
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
+	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
 			"\nSLV: TgGrab_w,h,x_,y=%5d,%5d,%3d,%3d, delay_frm=%2d",
@@ -786,37 +818,55 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 			info.SensorGrabStartX_VD2,
 			info.SensorGrabStartY_VD2,
 			info.SlimVideoDelayFrame);
+	if (ret < 0)
+		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
-	snprintf(
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
+	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
 			"\nSeninf_Type(0:parallel,1:mipi,2:serial)=%d, output_format(0:B,1:Gb,2:Gr,3:R)=%2d",
 			info.SensroInterfaceType,
 			info.SensorOutputDataFormat);
+	if (ret < 0)
+		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
-	snprintf(
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
+	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
 			"\nDriving_Current(0:2mA,1:4mA,2:6mA,3:8mA)=%d, mclk_freq=%2d, mipi_lane=%d",
 			info.SensorDrivingCurrent,
 			info.SensorClockFreq,
 			info.SensorMIPILaneNumber + 1);
+	if (ret < 0)
+		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
-	snprintf(
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
+	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
 			"\nPDAF_Support(0:No PD,1:PD RAW,2:VC(Full),3:VC(Bin),4:Dual Raw,5:Dual VC=%2d",
 			info.PDAF_Support);
+	if (ret < 0)
+		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
-	snprintf(
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
+	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
 			"\nHDR_Support(0:NO HDR,1: iHDR,2:mvHDR,3:zHDR)=%2d",
 			info.HDR_Support);
+	if (ret < 0)
+		return ret;
 
 	/* Resolution */
 	if (copy_to_user((void __user *)(pSensorGetInfo->pSensorResolution),
@@ -1559,6 +1609,47 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 				kfree(pGain_tbl);
 				*(pFeaturePara_64 + 1) = (uintptr_t) usr_ptr;
 			}
+		}
+		break;
+	case SENSOR_FEATURE_GET_SEAMLESS_SCENARIOS:
+	case SENSOR_FEATURE_SEAMLESS_SWITCH:
+		{
+#define _DATA_SIZE 64
+			char *p_data = NULL;
+			unsigned long long *pFeaturePara_64 =
+				(unsigned long long *)pFeaturePara;
+			void *usr_ptr =
+				(void *)(uintptr_t) (*(pFeaturePara_64 + 1));
+
+			p_data = kmalloc(
+				sizeof(char) * _DATA_SIZE, GFP_KERNEL);
+			if (p_data == NULL) {
+				kfree(pFeaturePara);
+				PK_DBG(" ioctl allocate mem failed\n");
+				return -ENOMEM;
+			}
+			if (copy_from_user((void *)p_data,
+				(void __user *)usr_ptr, _DATA_SIZE)) {
+				kfree(pFeaturePara);
+				kfree(p_data);
+				PK_DBG("[CAMERA_HW]ERROR: copy_from_user fail\n");
+				return -ENOMEM;
+			}
+
+			if (pFeaturePara_64 != NULL)
+				*(pFeaturePara_64 + 1) = (uintptr_t) p_data;
+
+			ret = imgsensor_sensor_feature_control(psensor,
+					pFeatureCtrl->FeatureId,
+					(unsigned char *)pFeaturePara,
+					(unsigned int *)&FeatureParaLen);
+
+			if (copy_to_user((void __user *)usr_ptr,
+					 (void *)p_data, _DATA_SIZE)) {
+				PK_DBG("[CAMERA_HW]ERROR: copy_to_user fail\n");
+			}
+			kfree(p_data);
+			*(pFeaturePara_64 + 1) = (uintptr_t) usr_ptr;
 		}
 		break;
 	case SENSOR_FEATURE_GET_PDAF_DATA:
