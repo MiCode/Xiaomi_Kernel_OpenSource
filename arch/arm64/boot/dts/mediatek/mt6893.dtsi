@@ -6657,7 +6657,7 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
-		suspend-method = "enable";
+		suspend-method = "disable";
 		logger-enable-states = "mcusysoff", "system_mem",
 					"system_pll", "system_bus";
 		irq-remain = <&edge_keypad &edge_mdwdt>,
