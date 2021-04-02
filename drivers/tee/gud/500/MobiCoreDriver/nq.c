@@ -218,10 +218,10 @@ static inline bool nq_notifications_flush(void)
 
 static inline void nq_update_time(void)
 {
-	struct timespec tm1, tm2;
+	struct timespec64 tm1, tm2;
 
-	getnstimeofday(&tm1);
-	getrawmonotonic(&tm2);
+	ktime_get_real_ts64(&tm1);
+	ktime_get_raw_ts64(&tm2);
 	mutex_lock(&l_ctx.mcp_time_mutex);
 	l_ctx.time->wall_clock_seconds = tm1.tv_sec;
 	l_ctx.time->wall_clock_nsec    = tm1.tv_nsec;

@@ -429,7 +429,7 @@ struct tee_mmu *tee_mmu_create(struct mm_struct *mm,
 			long gup_ret;
 
 			/* Buffer was allocated in user space */
-			down_read(&mm->mmap_sem);
+			down_read(&mm->mmap_lock);
 			/*
 			 * Always try to map read/write from a Linux PoV, so
 			 * Linux creates (page faults) the underlying pages if
@@ -447,7 +447,7 @@ struct tee_mmu *tee_mmu_create(struct mm_struct *mm,
 							   (uintptr_t)reader,
 							   nr_pages, 0, pages);
 			}
-			up_read(&mm->mmap_sem);
+			up_read(&mm->mmap_lock);
 			if (gup_ret < 0) {
 				ret = gup_ret;
 				mc_dev_err(ret, "failed to get user pages @%p",
