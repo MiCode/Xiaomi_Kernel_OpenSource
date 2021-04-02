@@ -59,3 +59,19 @@ config MTK_GPU_SWPM_RUN_TIME
 	help
 	   GPU swpm rum time if config enable
 	   GPU swpm is initial in ged dvfs
+
+config MTK_TINYSYS_GPUEB_SUPPORT
+	tristate "Support MTK GPUEB"
+	default n
+	help
+	  Choose this option to enable dedicated HW for GPU DVFS.
+	  CONFIG_MTK_TINYSYS_GPUEB_SUPPORT defines
+	  if the gpueb driver should be built, as kernel module or not supported
+
+config MTK_GPUFREQ_V2
+	bool "MTK GPUFREQ Version 2"
+	default n
+	help
+	  Support for gpufreq version 2.
+	  CONFIG_MTK_GPUFREQ_V2 defines
+	  if the gpufreq driver should go to version 2
