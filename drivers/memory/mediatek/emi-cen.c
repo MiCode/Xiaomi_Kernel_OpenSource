@@ -87,6 +87,18 @@ struct emi_cen {
 	} a2d_s6s;
 };
 
+struct mtk_emi_compatible {
+	const unsigned int ver;
+};
+
+static const struct mtk_emi_compatible mt6873_compat = {
+	.ver = 1,
+};
+
+static const struct mtk_emi_compatible mt6877_compat = {
+	.ver = 2,
+};
+
 #define EMI_CONA_DW32_EN 1
 #define EMI_CONA_CHN_POS_0 2
 #define EMI_CONA_CHN_POS_1 3
@@ -1145,6 +1157,7 @@ static int emicen_probe(struct platform_device *pdev)
 	struct device_node *emichn_node =
 		of_parse_phandle(emicen_node, "mediatek,emi-reg", 0);
 	struct emi_cen *cen;
+	struct mtk_emi_compatible *dev_comp;
 	unsigned int i;
 	int ret;
 
@@ -1155,7 +1168,9 @@ static int emicen_probe(struct platform_device *pdev)
 	if (!cen)
 		return -ENOMEM;
 
-	cen->ver = *(int *)of_device_get_match_data(&pdev->dev);
+	dev_comp = (struct mtk_emi_compatible *)
+		of_device_get_match_data(&pdev->dev);
+	cen->ver = (unsigned int)dev_comp->ver;
 
 	ret = of_property_read_u32(emicen_node,
 		"ch_cnt", &(cen->ch_cnt));
@@ -1276,9 +1291,9 @@ static int emicen_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id emicen_of_ids[] = {
-	{.compatible = "mediatek,common-emicen", .data = (void *)1 },
-	{.compatible = "mediatek,mt6873-emicen", .data = (void *)1 },
-	{.compatible = "mediatek,mt6877-emicen", .data = (void *)2 },
+	{.compatible = "mediatek,common-emicen", .data = &mt6873_compat },
+	{.compatible = "mediatek,mt6873-emicen", .data = &mt6873_compat },
+	{.compatible = "mediatek,mt6877-emicen", .data = &mt6877_compat },
 	{}
 };
 
