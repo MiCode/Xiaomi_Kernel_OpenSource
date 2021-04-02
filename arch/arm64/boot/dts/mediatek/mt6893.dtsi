@@ -3925,27 +3925,324 @@
 			compatible = "mediatek,mt6873-debug";
 		};
 
-		apu_top: apu_top@0x190f0000 {
-			compatible = "mediatek,apu_top";
-			reg = <0 0x190f0000 0 0x1000>;
-			vvpu-supply = <&mt6359p_vproc1_reg>;
-			vsram_apu-supply = <&mt6359p_vsram_md_reg>;
+		vcore_opp_table: opp_table0 {
+			compatible = "operating-points-v2";
+
+			opp-550000000 {
+				opp-hz = /bits/ 64 <550000000>;
+				opp-microvolt = <750000>;
+			};
+
+			opp-458333000 {
+				opp-hz = /bits/ 64 <458333000>;
+				opp-microvolt = <725000>;
+			};
+
+			opp-416000000 {
+				opp-hz = /bits/ 64 <416000000>;
+				opp-microvolt = <650000>;
+			};
+
+			opp-312000000 {
+				opp-hz = /bits/ 64 <312000000>;
+				opp-microvolt = <600000>;
+			};
+
+			opp-273000000 {
+				opp-hz = /bits/ 64 <273000000>;
+				opp-microvolt = <575000>;
+			};
 		};
 
-		apusys_power: apusys_power@0x190f1000 {
-			compatible = "mediatek,apusys_power";
-			reg = <0 0x190f1000 0 0x1000>,
-				  <0 0x190f0000 0 0x1000>,
-				  <0 0x19029000 0 0x1000>;
-			reg-names = "apusys_pcu",
-					"apusys_rpc",
-					"apusys_vcore";
-			nvmem-cells = <&efuse_segment &apu_pod19 &apu_pod26>;
-			nvmem-cell-names = "efuse_segment", "efuse_pod19", "efuse_pod26";
+		conn_opp_table: opp_table1 {
+			compatible = "operating-points-v2";
+
+			opp-687500000 {
+				opp-hz = /bits/ 64 <687500000>;
+				opp-microvolt = <800000>;
+				aging-volt = <18750>;
+			};
+
+			opp-550000000 {
+				opp-hz = /bits/ 64 <550000000>;
+				opp-microvolt = <750000>;
+				aging-volt = <18750>;
+			};
+
+			opp-458333000 {
+				opp-hz = /bits/ 64 <458333000>;
+				opp-microvolt = <700000>;
+				aging-volt = <12500>;
+			};
+
+			opp-312000000 {
+				opp-hz = /bits/ 64 <312000000>;
+				opp-microvolt = <650000>;
+				aging-volt = <12500>;
+			};
+
+			opp-208000000 {
+				opp-hz = /bits/ 64 <208000000>;
+				opp-microvolt = <575000>;
+				aging-volt = <6250>;
+			};
+		};
+
+		iommu_opp_table: opp_table2 {
+			compatible = "operating-points-v2";
+
+			opp-624000000 {
+				opp-hz = /bits/ 64 <624000000>;
+				opp-microvolt = <800000>;
+				aging-volt = <18750>;
+			};
+
+			opp-550000000 {
+				opp-hz = /bits/ 64 <550000000>;
+				opp-microvolt = <750000>;
+				aging-volt = <18750>;
+			};
+
+			opp-458333000 {
+				opp-hz = /bits/ 64 <458333000>;
+				opp-microvolt = <700000>;
+				aging-volt = <12500>;
+			};
+
+			opp-312000000 {
+				opp-hz = /bits/ 64 <312000000>;
+				opp-microvolt = <650000>;
+				aging-volt = <12500>;
+			};
+
+			opp-208000000 {
+				opp-hz = /bits/ 64 <208000000>;
+				opp-microvolt = <575000>;
+				aging-volt = <6250>;
+			};
+		};
+
+		vpu_opp_table: opp_table3 {
+			compatible = "operating-points-v2";
+			opp-shared;
+			opp-832000000 {
+				opp-hz = /bits/ 64 <832000000>;
+				opp-microvolt = <800000>;
+				aging-volt = <18750>;
+			};
+
+			opp-728000000 {
+				opp-hz = /bits/ 64 <728000000>;
+				opp-microvolt = <750000>;
+				aging-volt = <18750>;
+			};
+
+			opp-624000000 {
+				opp-hz = /bits/ 64 <624000000>;
+				opp-microvolt = <700000>;
+				aging-volt = <12500>;
+			};
+
+			opp-499200000 {
+				opp-hz = /bits/ 64 <499200000>;
+				opp-microvolt = <650000>;
+				aging-volt = <12500>;
+			};
+
+			opp-273000000 {
+				opp-hz = /bits/ 64 <273000000>;
+				opp-microvolt = <575000>;
+				aging-volt = <6250>;
+			};
+		};
+
+		mdla_opp_table: opp_table4 {
+			compatible = "operating-points-v2";
+			opp-900000000 {
+				opp-hz = /bits/ 64 <900000000>;
+				opp-microvolt = <825000>;
+				aging-volt = <18750>;
+			};
+
+			opp-800000000 {
+				opp-hz = /bits/ 64 <800000000>;
+				opp-microvolt = <800000>;
+				aging-volt = <18750>;
+			};
+
+			opp-700000000 {
+				opp-hz = /bits/ 64 <700000000>;
+				opp-microvolt = <750000>;
+				aging-volt = <18750>;
+			};
+
+			opp-572000000 {
+				opp-hz = /bits/ 64 <572000000>;
+				opp-microvolt = <700000>;
+				aging-volt = <12500>;
+			};
+
+			opp-457000000 {
+				opp-hz = /bits/ 64 <457000000>;
+				opp-microvolt = <650000>;
+				aging-volt = <6250>;
+			};
+
+			opp-280000000 {
+				opp-hz = /bits/ 64 <280000000>;
+				opp-microvolt = <575000>;
+				aging-volt = <6250>;
+			};
+		};
+
+		apu_rpc: apu_rpc@190f0000 {
+			compatible = "mtk68xx,apurpc";
+			reg = <0 0x190f0000 0 0x1000>, <0 0x10000000 0 0x2000>,
+			      <0 0x10006000 0 0x1000>;
+			cg-names = "vcore_cg_con", "conn_cg_con",
+				  "vpu0_cg_con", "vpu1_cg_con", "vpu2_cg_con",
+				  "mdla0_cg_con", "mdla1_cg_con";
+			cgs = <0 0x19029000 0 0x0>, <0 0x19020000 0 0x0>,
+				  <0 0x19030000 0 0x100>, <0 0x19031000 0 0x100>,
+				  <0 0x19032000 0 0x100>,
+				  <0 0x19034000 0 0x0>, <0 0x19038000 0 0x0>;
+			clock-names = "conn", "vpu0", "vpu1", "vpu2",
+					"mdla0", "mdla1", "iommu", "vcore";
+			clocks = <&topckgen_clk CLK_TOP_DSP_SEL>,
+				   <&topckgen_clk CLK_TOP_DSP1_SEL>,
+				   <&topckgen_clk CLK_TOP_DSP2_SEL>,
+				   <&topckgen_clk CLK_TOP_DSP3_SEL>,
+				   <&topckgen_clk CLK_TOP_DSP6_SEL>,
+				   <&topckgen_clk CLK_TOP_DSP6_SEL>,
+				   <&topckgen_clk CLK_TOP_DSP7_SEL>,
+				   <&topckgen_clk CLK_TOP_IPU_IF_SEL>;
+			voltage-names = "vvpu", "vmdla", "vcore", "vsram";
+			vcore-supply = <&mt6359p_vgpu11_reg>;
 			vvpu-supply = <&mt6359p_vproc1_reg>;
+			vsram-supply = <&mt6359p_vsram_md_reg>;
 			vmdla-supply = <&mt6359p_vproc2_reg>;
-			vsram_apu-supply = <&mt6359p_vsram_md_reg>;
+		};
+
+		apucore: APUCORE {
+			compatible = "mtk688x,apucore";
+			operating-points-v2 = <&vcore_opp_table>;
 			vcore-supply = <&dvfsrc_vcore>;
+			sys-mux = <&topckgen_clk CLK_TOP_IPU_IF_SEL>;
+			sys-mux-parent = <&topckgen_clk CLK_TOP_TCK_26M_MX9>,
+					 <&topckgen_clk CLK_TOP_MAINPLL_D4_D2>,
+					 <&topckgen_clk CLK_TOP_UNIVPLL_D4_D2>,
+					 <&topckgen_clk CLK_TOP_UNIVPLL_D6>,
+					 <&topckgen_clk CLK_TOP_MMPLL_D6>,
+					 <&topckgen_clk CLK_TOP_MMPLL_D5>;
+			gov = "apuuser";
+			depth = <4>;
+			apuconn: APUCONN {
+				compatible = "mtk688x,apucon";
+				operating-points-v2 = <&conn_opp_table>;
+				vvpu-supply = <&mt6359p_vproc1_reg>;
+				vsram-supply = <&mt6359p_vsram_md_reg>;
+				sys-mux = <&topckgen_clk CLK_TOP_DSP_SEL>;
+				sys-mux-parent =
+					 <&topckgen_clk CLK_TOP_UNIVPLL_D6_D2>,
+					 <&topckgen_clk CLK_TOP_UNIVPLL_D4_D2>,
+					 <&topckgen_clk CLK_TOP_MMPLL_D6>,
+					 <&topckgen_clk CLK_TOP_MMPLL_D5>,
+					 <&topckgen_clk CLK_TOP_MMPLL_D4>;
+				devfreq = <&apucore>;
+				gov = "apuconstrain";
+				depth = <3>;
+				apuiommu: APUIOMMU {
+					compatible = "mtk688x,apuiommu";
+					operating-points-v2 = <&iommu_opp_table>;
+					sys-mux = <&topckgen_clk CLK_TOP_DSP7_SEL>;
+					sys-mux-parent =
+					<&topckgen_clk CLK_TOP_UNIVPLL_D6_D2>,
+					<&topckgen_clk CLK_TOP_UNIVPLL_D4_D2>,
+					<&topckgen_clk CLK_TOP_MMPLL_D6>,
+					<&topckgen_clk CLK_TOP_MMPLL_D5>,
+					<&topckgen_clk CLK_TOP_UNIVPLL_D4>;
+					devfreq = <&apuconn>;
+					gov = "apupassive";
+					depth = <2>;
+					consumer = <&iommu2 &iommu3>;
+				};
+			};
+		};
+
+		apusys_power: apusys_power {
+			compatible = "mediatek,apusys_power";
+			user: APUCB {
+				compatible = "mediatek,apusys_cb";
+			};
+			mdla: APUMDLA {
+				compatible = "mtk688x,apumdla";
+				operating-points-v2 = <&mdla_opp_table>;
+				vmdla-supply = <&mt6359p_vproc2_reg>;
+				sys-mux = <&topckgen_clk CLK_TOP_UNIVPLL_D4_D2>;
+				top-mux = <&topckgen_clk CLK_TOP_DSP6_SEL>;
+				top-pll = <&topckgen_clk CLK_TOP_APUPLL>;
+				devfreq = <&apuiommu>;
+				gov = "apupassive";
+				depth = <1>;
+				APUMDLA@0 {
+					compatible = "mtk688x,apumdla0";
+					operating-points-v2 = <&mdla_opp_table>;
+					top-mux = <&topckgen_clk CLK_TOP_DSP6_SEL>;
+					devfreq = <&mdla>;
+					gov = "apupassive";
+					depth = <0>;
+				};
+				APUMDLA@1 {
+					compatible = "mtk688x,apumdla1";
+					operating-points-v2 = <&mdla_opp_table>;
+					top-mux = <&topckgen_clk CLK_TOP_DSP6_SEL>;
+					devfreq = <&mdla>;
+					gov = "apupassive";
+					depth = <0>;
+				};
+			};
+			vpu0: APUVPU@0 {
+				compatible = "mtk688x,apuvpu0";
+				operating-points-v2 = <&vpu_opp_table>;
+				sys-mux = <&topckgen_clk CLK_TOP_DSP1_SEL>;
+				sys-mux-parent =
+					<&topckgen_clk CLK_TOP_MAINPLL_D4_D2>,
+					<&topckgen_clk CLK_TOP_UNIVPLL_D5>,
+					<&topckgen_clk CLK_TOP_UNIVPLL_D4>,
+					<&topckgen_clk CLK_TOP_MAINPLL_D3>,
+					<&topckgen_clk CLK_TOP_UNIVPLL_D3>;
+				devfreq = <&apuiommu>;
+				gov = "apupassive";
+				depth = <0>;
+			};
+			vpu1: APUVPU@1 {
+				compatible = "mtk688x,apuvpu1";
+				operating-points-v2 = <&vpu_opp_table>;
+				sys-mux = <&topckgen_clk CLK_TOP_DSP2_SEL>;
+				sys-mux-parent =
+					<&topckgen_clk CLK_TOP_MAINPLL_D4_D2>,
+					<&topckgen_clk CLK_TOP_UNIVPLL_D5>,
+					<&topckgen_clk CLK_TOP_UNIVPLL_D4>,
+					<&topckgen_clk CLK_TOP_MAINPLL_D3>,
+					<&topckgen_clk CLK_TOP_UNIVPLL_D3>;
+				devfreq = <&apuiommu>;
+				gov = "apupassive";
+				depth = <0>;
+			};
+			vpu2: APUVPU@2 {
+				compatible = "mtk688x,apuvpu2";
+				operating-points-v2 = <&vpu_opp_table>;
+				sys-mux = <&topckgen_clk CLK_TOP_DSP3_SEL>;
+				sys-mux-parent =
+					<&topckgen_clk CLK_TOP_MAINPLL_D4_D2>,
+					<&topckgen_clk CLK_TOP_UNIVPLL_D5>,
+					<&topckgen_clk CLK_TOP_UNIVPLL_D4>,
+					<&topckgen_clk CLK_TOP_MAINPLL_D3>,
+					<&topckgen_clk CLK_TOP_UNIVPLL_D3>;
+				devfreq = <&apuiommu>;
+				gov = "apupassive";
+				depth = <0>;
+			};
 		};
 
 		seninf1@1a004000 {
