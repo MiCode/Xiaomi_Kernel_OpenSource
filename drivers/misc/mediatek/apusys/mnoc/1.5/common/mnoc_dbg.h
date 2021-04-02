@@ -17,7 +17,17 @@
 #define mnoc_aee_warn(key, format, args...)
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
 int create_debugfs(struct dentry *root);
 void remove_debugfs(void);
+#else
+static inline int create_debugfs(struct dentry *root)
+{
+	return 0;
+}
+static inline void remove_debugfs(void)
+{
+}
+#endif
 
 #endif

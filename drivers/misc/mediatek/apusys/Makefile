@@ -114,7 +114,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/mnoc/$(APUSYS_VERSION_MNO
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/mnoc/$(APUSYS_VERSION_MNOC)/utilities/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/mnoc/$(APUSYS_VERSION_MNOC)/interface/
 
-apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_dbg.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_drv.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_pmu.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_tag.o
@@ -125,6 +124,7 @@ apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/platform/v1_52/mnoc_hw_v1_52.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/utilities/mnoc_util.o
 ifneq (, $(CONFIG_MTK_QOS_FRAMEWORK))
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/qos/
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_dbg.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_qos.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_qos_sys.o
 endif
