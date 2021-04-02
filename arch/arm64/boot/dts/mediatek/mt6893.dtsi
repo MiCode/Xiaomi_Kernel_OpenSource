@@ -2924,6 +2924,17 @@
 			nvmem-cell-names = "efuse_segment_cell", "efuse_pod19";
 		};
 
+		gpufreq_wrapper: gpufreq_wrapper {
+			compatible = "mediatek,gpufreq_wrapper";
+			gpufreq-version = <2>;
+			gpufreq-supply = <&gpufreq>;
+		};
+
+		gpueb: gpueb@13C00000 {
+			compatible = "mediatek,gpueb";
+			gpueb-support = <0>;
+		};
+
 		gpufreq_mfg2: gpufreq_mfg2 {
 			compatible = "mediatek,mt6893-mfg2",
 						"mediatek,gpufreq";
@@ -2952,7 +2963,7 @@
 
 		ged: ged {
 			compatible = "mediatek,ged";
-			gpufreq-supply = <&gpufreq>;
+			gpufreq_wrapper-supply = <&gpufreq_wrapper>;
 		};
 
 		mfgcfg_clk: syscon@13fbf000 {
