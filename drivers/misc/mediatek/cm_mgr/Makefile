@@ -17,6 +17,7 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat \
 	-I$(srctree)/drivers/misc/mediatek/sspm \
 	-I$(srctree)/drivers/misc/mediatek/qos \
+	-I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/ \
 	-I$(srctree)/include \
 
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_V2),y)
