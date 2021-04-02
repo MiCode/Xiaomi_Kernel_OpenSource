@@ -39,7 +39,7 @@
 // #include "mtk_ion.h"
 // #include "ion_drv.h"
 #include <linux/iommu.h>
-
+#include <soc/mediatek/smi.h>
 
 #ifdef CONFIG_MTK_IOMMU_V2
 #include "mtk_iommu.h"
@@ -591,6 +591,10 @@ int ccu_clock_enable(void)
 
 	mutex_lock(&g_ccu_device->clk_mutex);
 
+	ret = mtk_smi_larb_get(g_ccu_device->smi_dev);
+	if (ret)
+		LOG_ERR("mtk_smi_larb_get fail.\n");
+
 	ret = pm_runtime_get_sync(g_ccu_device->dev);
 	if (ret)
 		LOG_ERR("pm_runtime_get_sync fail.\n");
@@ -635,6 +639,7 @@ void ccu_clock_disable(void)
 		clk_disable_unprepare(ccu_clk_pwr_ctrl[1]);
 		clk_disable_unprepare(ccu_clk_pwr_ctrl[0]);
 		pm_runtime_put_sync(g_ccu_device->dev);
+		mtk_smi_larb_put(g_ccu_device->smi_dev);
 		_clk_count--;
 	}
 #endif
@@ -1492,6 +1497,8 @@ static int ccu_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF
 
 	struct device_node *node;
+	struct device_node *smi_node;
+	struct platform_device *smi_pdev;
 	int ret = 0;
 	uint32_t phy_addr;
 	uint32_t phy_size;
@@ -1592,6 +1599,20 @@ if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
 
 	pm_runtime_enable(g_ccu_device->dev);
 
+	smi_node = of_parse_phandle(node, "mediatek,larbs", 0);
+	if (!smi_node) {
+		LOG_DERR(
+		g_ccu_device->dev, "get smi larb from DTS fail!\n");
+		return -ENODEV;
+	}
+	smi_pdev = of_find_device_by_node(smi_node);
+	if(WARN_ON(!smi_pdev)) {
+		of_node_put(smi_node);
+		return -ENODEV;
+	}
+	of_node_put(smi_node);
+	g_ccu_device->smi_dev = &smi_pdev->dev;
+
 	g_ccu_device->irq_num = irq_of_parse_and_map(node, 0);
 	LOG_INF_MUST("probe 1, ccu_base: 0x%lx, bin_base: 0x%lx,",
 		g_ccu_device->ccu_base, g_ccu_device->bin_base);
@@ -1641,6 +1662,7 @@ if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
 			CCU_DEV_NAME, ret);
 			goto EXIT;
 		}
+
 // #ifdef CONFIG_PM_WAKELOCKS
 //	wakeup_source_init(&ccu_wake_lock, "ccu_lock_wakelock");
 // #else

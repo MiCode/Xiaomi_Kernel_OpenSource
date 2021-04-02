@@ -23,6 +23,7 @@ enum ccu_req_type_e {
 struct ccu_device_s {
 	struct proc_dir_entry *proc_dir;
 	struct device *dev;
+	struct device *smi_dev;
 	struct dentry *debug_root;
 	unsigned long ccu_base;
 	unsigned long camsys_base;
