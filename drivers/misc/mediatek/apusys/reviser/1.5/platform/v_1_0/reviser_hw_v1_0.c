@@ -72,7 +72,6 @@ int reviser_isr(void *drvinfo)
 
 	// Check if INT is for reviser
 	if (reviser_check_int_valid(rdv)) {
-		LOG_ERR("INT NOT triggered by reviser\n");
 		return -EINVAL;
 	}
 
@@ -84,7 +83,6 @@ int reviser_isr(void *drvinfo)
 		spin_unlock_irqrestore(&rdv->lock.lock_dump, flags);
 		ret = 0;
 	} else {
-		LOG_ERR("INT NOT triggered by reviser\n");
 		ret = -EINVAL;
 	}
 
