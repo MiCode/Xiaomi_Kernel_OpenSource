@@ -25,7 +25,7 @@ $(info ************  drivers/trusty/mtee-kree mk ************)
 
 #ccflags-y := -I$(srctree)/drivers/misc/mediatek/geniezone/public -Werror $(ccflags-y)
 
-ifeq ($(CONFIG_TEE),y)
+ifneq ($(filter y m, $(CONFIG_TEE)),)
   ccflags-y += -I$(srctree)/arch/arm/mach-$(MTK_PLATFORM)/include/trustzone/utils/tlutils
   ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/utils/tlutils
   ccflags-y += -I$(src)/$(MTK_PLATFORM)
