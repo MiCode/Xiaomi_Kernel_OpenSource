@@ -99,14 +99,18 @@ static void apu_mdla_restore_default_opp(struct work_struct *work)
 		container_of(work, struct apu_regulator, deffer_work);
 	struct apu_dev *ad = dev_get_drvdata(dst->dev);
 	struct apu_clk_ops *clk_ops = ad->aclk->ops;
-#ifdef CONFIG_DEBUG_LOCK_ALLOC
+#if IS_ENABLED(CONFIG_DEBUG_LOCK_ALLOC)
 	struct apu_gov_data *pgov_data = ad->df->data;
 #endif
 	ulong rate = 0, volt = 0;
 
 	/* try to restore default voltage for MDLA */
 	apu_get_recommend_freq_volt(ad->dev, &rate, &volt, 0);
+#if IS_ENABLED(CONFIG_DEBUG_LOCK_ALLOC)
 	mutex_lock_nested(&ad->df->lock, pgov_data->depth);
+#else
+	mutex_lock(&ad->df->lock);
+#endif
 	if (round_Mhz(clk_ops->get_rate(ad->aclk), rate)) {
 		regulator_set_voltage(dst->vdd, volt, volt);
 		argul_info(ad->dev, "[%s] set voltage to %d\n", __func__, volt);
@@ -462,7 +466,6 @@ static struct apu_regulator mt688xvsram = {
 		.settling_time = 8,
 		.settling_time_up = 10000,
 		.settling_time_down = 5000,
-		.always_on = 1,
 	},
 	.def_volt = 750000,
 	.shut_volt = 750000,
@@ -497,7 +500,6 @@ static struct apu_regulator mt688xvvpu = {
 		.settling_time = 8,
 		.settling_time_up = 10000,
 		.settling_time_down = 5000,
-		.always_on = 1,
 	},
 };
 

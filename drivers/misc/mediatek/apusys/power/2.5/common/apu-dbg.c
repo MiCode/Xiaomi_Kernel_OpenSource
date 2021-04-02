@@ -13,7 +13,6 @@
 #include <linux/debugfs.h>
 #include <linux/devfreq.h>
 #include <linux/of_address.h>
-#include <linux/io.h>
 
 #include "apu_io.h"
 #include "apu_dbg.h"
@@ -132,30 +131,36 @@ INVALID:
 
 static void _apupw_set_freq_range(struct apu_dev *ad, ulong min, ulong max)
 {
-#ifdef CONFIG_DEBUG_LOCK_ALLOC
+#if IS_ENABLED(CONFIG_DEBUG_LOCK_ALLOC)
 	struct apu_gov_data *gov_data = (struct apu_gov_data *)ad->df->data;
 #endif
-
 	pr_info("[%s] [%s] max/min %dMhz/%dMhz\n",
 		apu_dev_name(ad->dev), __func__, TOMHZ(max), TOMHZ(min));
+
+#if IS_ENABLED(CONFIG_DEBUG_LOCK_ALLOC)
 	mutex_lock_nested(&ad->df->lock, gov_data->depth);
-	dev_pm_qos_update_request(&ad->df->user_max_freq_req, max);
-	dev_pm_qos_update_request(&ad->df->user_min_freq_req, min);
+#else
+	mutex_lock(&ad->df->lock);
+#endif
+	ad->df->max_freq = max;
+	ad->df->min_freq = min;
 	mutex_unlock(&ad->df->lock);
 }
 
 static void _apupw_default_freq_range(struct apu_dev *ad)
 {
-#ifdef CONFIG_DEBUG_LOCK_ALLOC
+#if IS_ENABLED(CONFIG_DEBUG_LOCK_ALLOC)
 	struct apu_gov_data *gov_data = (struct apu_gov_data *)ad->df->data;
 #endif
-
 	pr_info("[%s] [%s]\n", apu_dev_name(ad->dev), __func__);
+
+#if IS_ENABLED(CONFIG_DEBUG_LOCK_ALLOC)
 	mutex_lock_nested(&ad->df->lock, gov_data->depth);
-	dev_pm_qos_update_request(&ad->df->user_max_freq_req,
-			ad->df->scaling_max_freq);
-	dev_pm_qos_update_request(&ad->df->user_min_freq_req,
-			ad->df->scaling_min_freq);
+#else
+	mutex_lock(&ad->df->lock);
+#endif
+	ad->df->max_freq = ad->df->scaling_max_freq;
+	ad->df->min_freq = ad->df->scaling_min_freq;
 	mutex_unlock(&ad->df->lock);
 }
 
@@ -771,7 +776,7 @@ int apupw_dbg_register_nodes(struct device *dev)
 				break;
 			}
 		phyaddr = of_translate_address(dev->of_node, paddr);
-		cgaddr = ioremap(phyaddr, PAGE_SIZE);
+		cgaddr = ioremap_nocache(phyaddr, PAGE_SIZE);
 		if (!cgaddr) {
 			ret = -ENOMEM;
 			goto out;

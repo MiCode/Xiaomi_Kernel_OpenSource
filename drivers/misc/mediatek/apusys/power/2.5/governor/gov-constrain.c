@@ -15,7 +15,7 @@
 #include "apu_common.h"
 #include "apu_log.h"
 #include "apu_clk.h"
-#include "apu_dbg.h"
+#include "apu_trace.h"
 
 static int update_parent(struct apu_gov_data *gov_data)
 {
@@ -36,9 +36,19 @@ static int update_parent(struct apu_gov_data *gov_data)
 	/* Lock parent's mutex, update child's opp and get max of them */
 	mutex_lock_nested(&parent_gov->this->lock, parent_gov->depth);
 
-	/* the fastst opp that child can vote is child_opp_limit */
+	/*
+	 * The fastst opp that child can vote is child_opp_limit
+	 * and if child's opp not faster than the threshold, put child's
+	 * voting as parent's slowest opp.
+	 * That means there are only 2 possibilities for voting parent
+	 *  1. vote to parent as parent->child_opp_limit
+	 *  2. vote to parent ad parent->max_opp
+	 */
 	if (req->value <= gov_data->threshold_opp)
 		req->value = parent_gov->child_opp_limit;
+	else
+		req->value = parent_gov->max_opp;
+
 	gov_data->req_parent.value = req->value;
 	list_sort(NULL, &parent_gov->head, apu_cmp);
 	req_parent = list_first_entry(&parent_gov->head, struct apu_req, list);
@@ -69,7 +79,7 @@ static int aconstrain_get_target_freq(struct devfreq *df, unsigned long *freq)
 	if (!round_khz(*freq, df->previous_freq)) {
 		apu_dump_list(gov_data);
 		apupw_dbg_dvfs_tag_update(APUGOV_CONSTRAIN, apu_dev_name(ad->dev),
-			apu_dev_name(req->dev), req->value, TOMHZ(*freq));
+			apu_dev_name(req->dev), (u32)req->value, TOMHZ(*freq));
 		advfs_info(ad->dev, "[%s] %s vote opp/freq %d/%u\n", __func__,
 			   apu_dev_name(req->dev), req->value, TOMHZ(*freq));
 	}
@@ -148,7 +158,7 @@ static int aconstrain_event_handler(struct devfreq *df,
 			mutex_unlock(&parent_gov->this->lock);
 		}
 		break;
-	case DEVFREQ_GOV_UPDATE_INTERVAL:
+	case DEVFREQ_GOV_INTERVAL:
 	case DEVFREQ_GOV_RESUME:
 	default:
 		break;

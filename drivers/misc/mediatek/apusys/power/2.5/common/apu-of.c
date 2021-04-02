@@ -5,7 +5,6 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/io.h>
 #include <linux/of.h>
 #include <linux/slab.h>
 #include <linux/of_address.h>
@@ -171,7 +170,7 @@ int of_apu_cg_get(struct device *dev,	struct apu_cgs **dst)
 	for (idx = 0; idx < (*dst)->clk_num; idx++) {
 
 		(*dst)->cgs[idx].regs =
-			ioremap((*dst)->cgs[idx].phyaddr, PAGE_SIZE);
+			ioremap_nocache((*dst)->cgs[idx].phyaddr, PAGE_SIZE);
 		if (!((*dst)->cgs[idx].regs)) {
 			aclk_err(dev, "[%s] cannot iomap pa:0x%x\n",
 					__func__, (*dst)->cgs[idx].phyaddr);

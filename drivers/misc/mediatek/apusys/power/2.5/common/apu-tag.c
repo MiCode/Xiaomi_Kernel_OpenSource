@@ -49,7 +49,8 @@ probe_apupwr_rpc(void *data, struct apupwr_tag_rpc *rpc)
 
 /* The parameters must aligned with trace_apupwr_dvfs() */
 static void
-probe_apupwr_dvfs(void *data, char *gov_name, char *p_name, char *c_name, u32 opp, ulong freq)
+probe_apupwr_dvfs(void *data, char *gov_name, const char *p_name,
+		  const char *c_name, u32 opp, ulong freq)
 {
 	if (!apu_drv_tag)
 		return;

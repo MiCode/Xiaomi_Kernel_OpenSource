@@ -282,6 +282,45 @@ out:
 	return ret;
 }
 
+static int _clk_apu_no_fhctl_set_rate(struct apu_clk_gp *aclk, unsigned long rate)
+{
+	int ret = 0;
+	struct clk *pll_clk = NULL;
+
+	/* switch all TOP_MUX to SYS_MUX */
+	ret = _clk_apu_bulk_setparent(aclk->top_mux, aclk->sys_mux);
+	if (ret)
+		goto out;
+
+	pll_clk = aclk->top_pll->clks->clk;
+	if (IS_ERR_OR_NULL(pll_clk)) {
+		aclk_err(aclk->dev, "[%s] pll clk not exist\n", __func__);
+		ret = -ENONET;
+		goto out;
+	}
+
+	/* clk_set_rate(TOP_PLL) */
+	ret = clk_set_rate(pll_clk, rate);
+	if (ret) {
+		aclk_err(aclk->dev, "clk %s set %luMhz fail, ret %d\n",
+			 __clk_get_name(pll_clk), TOMHZ(rate), ret);
+		goto out;
+	}
+
+	/* switch all TOP_MUX to TOP PLL */
+	ret = _clk_apu_set_common_parent(aclk->top_mux, aclk->top_pll);
+	if (ret)
+		goto out;
+
+	if (apupw_dbg_get_loglvl() >= VERBOSE_LVL)
+		clk_apu_show_clk_info(aclk->top_mux, true);
+
+	aclk_info(aclk->dev, "[%s] final rate %dMhz\n", __func__, TOMHZ(rate));
+
+out:
+	return ret;
+}
+
 void clk_apu_show_clk_info(struct apu_clk *dst, bool only_active)
 {
 	int i = 0, j = 0, num_parent = 0;
@@ -336,8 +375,10 @@ static int clk_apu_set_rate(struct apu_clk_gp *aclk, unsigned long rate)
 	int ret = -ENOENT;
 
 	mutex_lock(&aclk->clk_lock);
-	if (!IS_ERR_OR_NULL(aclk->top_pll))
+	if (!IS_ERR_OR_NULL(aclk->top_pll) && aclk->fhctl)
 		ret = _clk_apu_hopping_set_rate(aclk, rate);
+	else if (!IS_ERR_OR_NULL(aclk->top_pll) && !aclk->fhctl)
+		ret = _clk_apu_no_fhctl_set_rate(aclk, rate);
 	else if (!IS_ERR_OR_NULL(aclk->sys_mux) && !aclk->sys_mux->fix_rate)
 		ret = _clk_apu_mux_set_rate(aclk->sys_mux, rate);
 	mutex_unlock(&aclk->clk_lock);

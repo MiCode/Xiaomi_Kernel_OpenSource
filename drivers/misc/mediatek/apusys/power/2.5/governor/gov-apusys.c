@@ -15,7 +15,7 @@
 #include "apu_common.h"
 #include "apu_log.h"
 #include "apu_clk.h"
-#include "apu_dbg.h"
+#include "apu_trace.h"
 
 static int update_parent(struct apu_gov_data *gov_data)
 {
@@ -64,7 +64,7 @@ static int agov_get_target_freq(struct devfreq *df, unsigned long *freq)
 	if (!round_khz(*freq, df->previous_freq)) {
 		apu_dump_list(gov_data);
 		apupw_dbg_dvfs_tag_update(APUGOV_PASSIVE, apu_dev_name(ad->dev),
-			apu_dev_name(req->dev), req->value, TOMHZ(*freq));
+			apu_dev_name(req->dev), (u32)req->value, TOMHZ(*freq));
 		advfs_info(ad->dev, "[%s] %s vote opp/freq %d/%u\n", __func__,
 			   apu_dev_name(req->dev), req->value, TOMHZ(*freq));
 	}
@@ -137,8 +137,8 @@ static int agov_event_handler(struct devfreq *df,
 		devfreq_monitor_stop(df);
 		break;
 
-	case DEVFREQ_GOV_UPDATE_INTERVAL:
-		devfreq_update_interval(df, (unsigned int *)data);
+	case DEVFREQ_GOV_INTERVAL:
+		devfreq_interval_update(df, (unsigned int *)data);
 		break;
 
 	case DEVFREQ_GOV_SUSPEND:

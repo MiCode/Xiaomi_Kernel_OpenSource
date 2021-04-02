@@ -103,8 +103,8 @@ TRACE_EVENT(apupwr_dvfs,
 		__string(gov_name, gov_name)
 		__string(p_name, p_name)
 		__string(c_name, c_name)
-		__field(unsigned int, opp)
-		__field(unsigned int, freq)
+		__field(u32, opp)
+		__field(ulong, freq)
 	),
 	TP_fast_assign(
 		__assign_str(gov_name, gov_name);

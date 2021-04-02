@@ -16,7 +16,7 @@
 #include "apu_common.h"
 #include "apu_log.h"
 #include "apu_clk.h"
-#include "apu_dbg.h"
+#include "apu_trace.h"
 
 static int ausr_get_target_freq(struct devfreq *df, unsigned long *freq)
 {
@@ -30,7 +30,7 @@ static int ausr_get_target_freq(struct devfreq *df, unsigned long *freq)
 	if (!round_khz(*freq, df->previous_freq)) {
 		apu_dump_list(gov_data);
 		apupw_dbg_dvfs_tag_update(APUGOV_USR, apu_dev_name(ad->dev),
-			apu_dev_name(req->dev), req->value, TOMHZ(*freq));
+			apu_dev_name(req->dev), (u32)req->value, TOMHZ(*freq));
 		advfs_info(ad->dev, "[%s] %s vote opp/freq %d/%u\n", __func__,
 			   apu_dev_name(req->dev), req->value, TOMHZ(*freq));
 	}
@@ -50,7 +50,7 @@ static int ausr_event_handler(struct devfreq *df,
 			gov_data->this = df;
 		break;
 	case DEVFREQ_GOV_STOP:
-	case DEVFREQ_GOV_UPDATE_INTERVAL:
+	case DEVFREQ_GOV_INTERVAL:
 	case DEVFREQ_GOV_RESUME:
 	case DEVFREQ_GOV_SUSPEND:
 	default:

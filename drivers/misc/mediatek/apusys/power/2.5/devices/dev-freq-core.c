@@ -20,6 +20,7 @@
 #include "apu_log.h"
 #include "apu_of.h"
 #include "apu_dbg.h"
+#include "apu_trace.h"
 
 static int core_devfreq_target(struct device *dev,
 				unsigned long *rate, u32 flags)
