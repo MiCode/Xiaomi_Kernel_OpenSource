@@ -2994,6 +2994,8 @@ static int accdet_probe(struct platform_device *pdev)
 	accdet->data = (struct accdet_priv *)of_id->data;
 	accdet->pdev = pdev;
 
+	INIT_LIST_HEAD(&(accdet->jack.pins));
+
 	/* parse dts attributes */
 	ret = accdet_get_dts_data();
 	if (ret) {
