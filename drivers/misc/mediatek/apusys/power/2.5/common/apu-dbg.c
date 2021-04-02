@@ -801,7 +801,7 @@ int apupw_dbg_register_nodes(struct device *dev)
 				break;
 			}
 		phyaddr = of_translate_address(dev->of_node, paddr);
-		cgaddr = ioremap_nocache(phyaddr, PAGE_SIZE);
+		cgaddr = ioremap(phyaddr, PAGE_SIZE);
 		if (!cgaddr) {
 			ret = -ENOMEM;
 			goto out;

@@ -137,8 +137,8 @@ static int agov_event_handler(struct devfreq *df,
 		devfreq_monitor_stop(df);
 		break;
 
-	case DEVFREQ_GOV_INTERVAL:
-		devfreq_interval_update(df, (unsigned int *)data);
+	case DEVFREQ_GOV_UPDATE_INTERVAL:
+		devfreq_update_interval(df, (unsigned int *)data);
 		break;
 
 	case DEVFREQ_GOV_SUSPEND:

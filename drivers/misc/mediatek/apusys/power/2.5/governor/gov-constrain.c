@@ -158,7 +158,7 @@ static int aconstrain_event_handler(struct devfreq *df,
 			mutex_unlock(&parent_gov->this->lock);
 		}
 		break;
-	case DEVFREQ_GOV_INTERVAL:
+	case DEVFREQ_GOV_UPDATE_INTERVAL:
 	case DEVFREQ_GOV_RESUME:
 	default:
 		break;
