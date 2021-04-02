@@ -22,6 +22,5 @@
 // Public functions.
 // -----------------------------------------------------------------------------
 struct mddp_app_t *mddp_get_app_inst(enum mddp_app_type_e type);
-bool mddp_is_acted_state(enum mddp_app_type_e type);
 
 #endif				/* __MDDP_CTRL_H */

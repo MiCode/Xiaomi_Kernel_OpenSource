@@ -78,11 +78,11 @@ static u32 mddp_f_jhash_initval __read_mostly;
 static int mddp_f_contentfilter;
 module_param(mddp_f_contentfilter, int, 0000);
 
-static uint32_t mddp_f_suspend_s;
-
 static struct mddp_f_track_table_list_t mddp_f_track[MDDP_F_MAX_TRACK_NUM];
 static struct mddp_f_track_table_list_t mddp_f_table_buffer;
 static unsigned int buffer_cnt;
+
+static uint32_t mddp_netfilter_is_hook;
 
 //------------------------------------------------------------------------------
 // Struct definition.
@@ -766,7 +766,7 @@ int32_t mddp_f_suspend_tag(void)
 	struct mddp_app_t              *app;
 
 	MDDP_F_LOG(MDDP_LL_NOTICE, "%s: MDDP suspend tag.\n", __func__);
-	mddp_f_suspend_s = 1;
+	mddp_netfilter_unhook();
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t), GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
@@ -793,7 +793,7 @@ int32_t mddp_f_resume_tag(void)
 	struct mddp_app_t              *app;
 
 	MDDP_F_LOG(MDDP_LL_NOTICE, "%s: MDDP resume tag.\n", __func__);
-	mddp_f_suspend_s = 0;
+	mddp_netfilter_hook();
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t), GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
@@ -901,17 +901,34 @@ static struct pernet_operations mddp_net_ops = {
 	.exit = mddp_nf_unregister,
 };
 
+
+void mddp_netfilter_hook(void)
+{
+	if (mddp_netfilter_is_hook == 0) {
+		int ret = 0;
+
+		ret = register_pernet_subsys(&mddp_net_ops);
+		if (ret < 0) {
+			MDDP_F_LOG(MDDP_LL_NOTICE,
+					"%s: Cannot register hooks(%d)!\n",
+					__func__, ret);
+		} else {
+			mddp_netfilter_is_hook = 1;
+		}
+	}
+}
+
+void mddp_netfilter_unhook(void)
+{
+	if (mddp_netfilter_is_hook == 1) {
+		unregister_pernet_subsys(&mddp_net_ops);
+		mddp_netfilter_is_hook = 0;
+	}
+}
+
 int32_t mddp_filter_init(void)
 {
 	int ret = 0;
-
-	ret = register_pernet_subsys(&mddp_net_ops);
-	if (ret < 0) {
-		MDDP_F_LOG(MDDP_LL_NOTICE,
-				"%s: Cannot register hooks(%d)!\n",
-				__func__, ret);
-		return ret;
-	}
 
 	mddp_f_init_table_buffer();
 	mddp_f_init_track_table();
@@ -938,7 +955,6 @@ int32_t mddp_filter_init(void)
 
 void mddp_filter_uninit(void)
 {
-	unregister_pernet_subsys(&mddp_net_ops);
 	dest_track_table();
 }
 

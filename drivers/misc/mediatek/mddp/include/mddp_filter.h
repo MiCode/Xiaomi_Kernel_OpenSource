@@ -26,6 +26,8 @@ int32_t mddp_f_suspend_tag(void);
 int32_t mddp_f_resume_tag(void);
 int32_t mddp_f_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len);
 int32_t mddp_f_set_ct_value(uint8_t *buf, uint32_t buf_len);
+void mddp_netfilter_hook(void);
+void mddp_netfilter_unhook(void);
 
 #else
 
@@ -41,6 +43,8 @@ int32_t mddp_f_set_ct_value(uint8_t *buf, uint32_t buf_len);
 #define mddp_f_resume_tag() 0
 #define mddp_f_msg_hdlr() 0
 #define mddp_f_set_ct_value(x, y) 0
+#define mddp_netfilter_hook() 0
+#define mddp_netfilter_unhook() 0
 
 #endif /* CONFIG_MTK_MDDP_WH_SUPPORT */
 #endif /* __MDDP_FILTER_H */
