@@ -6283,14 +6283,14 @@
 			bias-disable;
 		};
 	};
-	aud_dat_miso1_off: aud_dat_miso_off {
+	aud_dat_miso1_off: aud_dat_miso1_off {
 		pins_cmd2_dat {
 			pinmux = <PINMUX_GPIO219__FUNC_GPIO219>;
 			input-enable;
 			bias-disable;
 		};
 	};
-	aud_dat_miso1_on: aud_dat_miso_on {
+	aud_dat_miso1_on: aud_dat_miso1_on {
 		pins_cmd2_dat {
 			pinmux = <PINMUX_GPIO219__FUNC_AUD_DAT_MISO1>;
 			input-schmitt-enable;
