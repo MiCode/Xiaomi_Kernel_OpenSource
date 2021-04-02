@@ -727,6 +727,8 @@ static int qmi_sens_device_probe(struct platform_device *pdev)
 		if (ret < 0) {
 			dev_err(dev, "QMI[0x%x] handle init failed. err:%d\n",
 					ts->inst_id, ret);
+			ts_inst_cnt = idx;
+			ret = -EPROBE_DEFER;
 			goto probe_err;
 		}
 		ret = qmi_add_lookup(&ts->handle, TS_SERVICE_ID_V01,
@@ -734,6 +736,7 @@ static int qmi_sens_device_probe(struct platform_device *pdev)
 		if (ret < 0) {
 			dev_err(dev, "QMI register failed for 0x%x, ret:%d\n",
 				ts->inst_id, ret);
+			ret = -EPROBE_DEFER;
 			goto probe_err;
 		}
 	}
