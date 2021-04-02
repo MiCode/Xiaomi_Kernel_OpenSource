@@ -4534,9 +4534,13 @@ static int dwc3_msm_debug_init(struct dwc3_msm *mdwc)
 	return 0;
 }
 
+static int dwc3_core_prepare(struct device *dev);
+static void dwc3_core_complete(struct device *dev);
+
 static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 {
 	struct device_node *node = mdwc->dev->of_node, *dwc3_node;
+	struct dev_pm_ops *pm_ops;
 	struct dwc3	*dwc;
 	int ret = 0;
 	u32 val;
@@ -4601,6 +4605,15 @@ static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 		ret = PTR_ERR(mdwc->dwc3_drd_sw);
 		goto depopulate;
 	}
+
+	pm_ops = devm_kzalloc(dwc->dev, sizeof(struct dev_pm_ops), GFP_ATOMIC);
+	if (!pm_ops)
+		goto depopulate;
+
+	(*pm_ops) = (*dwc->dev->driver->pm);
+	pm_ops->prepare = dwc3_core_prepare;
+	pm_ops->complete = dwc3_core_complete;
+	dwc->dev->driver->pm = pm_ops;
 
 	val = dwc3_msm_read_reg(mdwc->base, DWC3_GSNPSID);
 	mdwc->ip = DWC3_GSNPS_ID(val);
@@ -5641,6 +5654,52 @@ static int dwc3_msm_pm_resume(struct device *dev)
 
 	return 0;
 }
+
+static int dwc3_core_prepare(struct device *dev)
+{
+	/*
+	 * It is recommended to use the PM prepare callback to handle situations
+	 * where the device is already runtime suspended, in order to avoid
+	 * executing the PM suspend callback (duplicate suspend).  When the
+	 * prepare callback returns a positive value, the PM core will set the
+	 * direct_complete parameter to true, and avoid calling the PM suspend
+	 * and PM resume callbacks, and allowing the driver to issue a resume
+	 * using PM runtime instead. (within the complete() callback)
+	 */
+	if (pm_runtime_enabled(dev) && pm_runtime_suspended(dev))
+		return 1;
+
+	return 0;
+}
+
+static void dwc3_core_complete(struct device *dev)
+{
+	struct dwc3	*dwc = dev_get_drvdata(dev);
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	u32		reg;
+	int		ret;
+
+	/*
+	 * In the PM devices documentation, while leaving system suspend when
+	 * the device is in the RPM suspended state, it is recommended to use
+	 * the direct_complete flag to determine if an explicit runtime resume
+	 * needs to be executed.
+	 */
+	if (dev->power.direct_complete) {
+		ret = pm_runtime_resume(dev);
+		if (ret < 0) {
+			dev_err(dev, "failed to runtime resume, ret %d\n", ret);
+			return;
+		}
+	}
+
+	if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_HOST &&
+			dwc->dis_split_quirk) {
+		reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUCTL3);
+		reg |= DWC3_GUCTL3_SPLITDISABLE;
+		dwc3_msm_write_reg(mdwc->base, DWC3_GUCTL3, reg);
+	}
+}
 #endif
 
 #ifdef CONFIG_PM
@@ -5657,9 +5716,16 @@ static int dwc3_msm_runtime_idle(struct device *dev)
 static int dwc3_msm_runtime_suspend(struct device *dev)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	struct dwc3 *dwc = NULL;
+
+	if (mdwc->dwc3)
+		dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(dev, "DWC3-msm runtime suspend\n");
 	dbg_event(0xFF, "RT Sus", 0);
+
+	if (dwc)
+		device_init_wakeup(dwc->dev, false);
 
 	return dwc3_msm_suspend(mdwc, false);
 }
