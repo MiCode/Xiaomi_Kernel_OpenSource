@@ -440,26 +440,6 @@ static void headset_volume_ramp(struct mt6359_priv *priv,
 	}
 }
 
-/* Mic Type MUX */
-static const char *const mic_type_mux_map[] = {
-	"Idle",
-	"ACC",
-	"DMIC",
-	"DCC",
-	"DCC_ECM_DIFF",
-	"DCC_ECM_SINGLE",
-	"VOW_ACC",
-	"VOW_DMIC",
-	"VOW_DMIC_LP",
-	"VOW_DCC",
-	"VOW_DCC_ECM_DIFF",
-	"VOW_DCC_ECM_SINGLE"
-};
-
-static const struct soc_enum mic_type_mux_enum[] = {
-	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mic_type_mux_map), mic_type_mux_map),
-};
-
 static int dmic_used_get(struct snd_kcontrol *kcontrol,
 			 struct snd_ctl_elem_value *ucontrol)
 {
@@ -471,33 +451,6 @@ static int dmic_used_get(struct snd_kcontrol *kcontrol,
 		priv->mux_select[MUX_MIC_TYPE_1] == MIC_TYPE_MUX_DMIC ||
 		priv->mux_select[MUX_MIC_TYPE_2] == MIC_TYPE_MUX_DMIC;
 
-	return 0;
-}
-
-static int mic_type_get(struct snd_kcontrol *kcontrol,
-			struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-
-	ucontrol->value.integer.value[0] =
-		priv->mux_select[kcontrol->id.device];
-	return 0;
-}
-
-static int mic_type_set(struct snd_kcontrol *kcontrol,
-			struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
-	int index = ucontrol->value.integer.value[0];
-	unsigned int id = kcontrol->id.device;
-
-	if (ucontrol->value.enumerated.item[0] >= e->items)
-		return -EINVAL;
-
-	priv->mux_select[id] = index;
 	return 0;
 }
 
@@ -588,17 +541,6 @@ static const struct snd_kcontrol_new mt6359_snd_controls[] = {
 	SOC_SINGLE_EXT_TLV("PGA3 Volume",
 			   MT6359_AUDENC_ANA_CON2, RG_AUDPREAMP3GAIN_SFT, 4, 0,
 			   snd_soc_get_volsw, mt6359_put_volsw, capture_tlv),
-
-	/* mix type mux */
-	MT_SOC_ENUM_EXT_ID("Mic_Type_Mux_0", mic_type_mux_enum[0],
-			   mic_type_get, mic_type_set,
-			   MUX_MIC_TYPE_0),
-	MT_SOC_ENUM_EXT_ID("Mic_Type_Mux_1", mic_type_mux_enum[0],
-			   mic_type_get, mic_type_set,
-			   MUX_MIC_TYPE_1),
-	MT_SOC_ENUM_EXT_ID("Mic_Type_Mux_2", mic_type_mux_enum[0],
-			   mic_type_get, mic_type_set,
-			   MUX_MIC_TYPE_2),
 };
 
 /* LOL MUX */
