@@ -783,3 +783,9 @@ int tmem_ut_cases_init(void)
 void tmem_ut_cases_exit(void)
 {
 }
+
+void tmem_ut_cases(void)
+{
+	tmem_region_on_off_stress_test(NULL, NULL);
+	tmem_regmgr_run_all(NULL, NULL);
+}

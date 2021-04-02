@@ -40,7 +40,7 @@ trusted_mem-y += mld_helper.o
 ccflags-y += -DTCORE_MEMORY_LEAK_DETECTION_SUPPORT
 endif # !TCORE_KERN_MEMORY_LEAK_DETECTION_SUPPORT
 
-ifeq ($(CONFIG_TEST_MTK_TRUSTED_MEMORY),y)
+ifeq ($(CONFIG_TEST_MTK_TRUSTED_MEMORY),m)
 trusted_mem-y += tests/ut_common.o
 trusted_mem-y += tests/ut_server.o
 trusted_mem-y += tests/ut_cases.o

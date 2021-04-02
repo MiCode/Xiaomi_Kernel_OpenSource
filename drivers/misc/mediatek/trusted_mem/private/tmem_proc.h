@@ -6,7 +6,7 @@
 #ifndef TMEM_PROC_H
 #define TMEM_PROC_H
 
-#ifdef CONFIG_TEST_MTK_TRUSTED_MEMORY
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 int get_multithread_test_wait_completion_time(void);
 int get_saturation_stress_pmem_min_chunk_size(void);
 #endif

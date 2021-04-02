@@ -236,7 +236,7 @@ static void trusted_mem_create_proc_entry(void)
 	proc_create("tmem0", 0664, NULL, &tmem_fops);
 }
 
-#ifdef CONFIG_TEST_MTK_TRUSTED_MEMORY
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 #define UT_MULTITHREAD_TEST_DEFAULT_WAIT_COMPLETION_TIMEOUT_MS (900000)
 #define UT_SATURATION_STRESS_PMEM_MIN_CHUNK_SIZE (SZ_8M)
 
@@ -273,7 +273,7 @@ static int trusted_mem_init(struct platform_device *pdev)
 
 	trusted_mem_subsys_init();
 
-#ifdef CONFIG_TEST_MTK_TRUSTED_MEMORY
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 	tmem_ut_server_init();
 	tmem_ut_cases_init();
 #endif
@@ -302,7 +302,7 @@ static int trusted_mem_exit(struct platform_device *pdev)
 	tee_smem_devs_exit();
 #endif
 
-#ifdef CONFIG_TEST_MTK_TRUSTED_MEMORY
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 	tmem_ut_cases_exit();
 	tmem_ut_server_exit();
 #endif
