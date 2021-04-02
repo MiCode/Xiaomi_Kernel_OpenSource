@@ -302,7 +302,7 @@ extern const struct csr_set_atid_op csr_atid_ops;
 ssize_t tmc_etr_get_sysfs_trace(struct tmc_drvdata *drvdata,
 				loff_t pos, size_t len, char **bufpp);
 long tmc_sg_get_rwp_offset(struct tmc_drvdata *drvdata);
-
+int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode);
 
 #define TMC_REG_PAIR(name, lo_off, hi_off)				\
 static inline u64							\

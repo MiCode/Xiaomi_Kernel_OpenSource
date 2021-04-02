@@ -404,21 +404,15 @@ static ssize_t out_mode_store(struct device *dev,
 {
 	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	char str[10] = "";
-
-	if (drvdata->mode == CS_MODE_SYSFS) {
-		pr_err("Please disable etr before set the out mode.\n");
-		return -EINVAL;
-	}
+	int ret;
 
 	if (strlen(buf) >= 10)
 		return -EINVAL;
 	if (sscanf(buf, "%10s", str) != 1)
 		return -EINVAL;
-	if (!strcmp(str, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_MEM]))
-		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
-	else if (!strcmp(str, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_USB]))
-		drvdata->out_mode = TMC_ETR_OUT_MODE_USB;
-	return size;
+
+	ret = tmc_etr_switch_mode(drvdata, str);
+	return ret ? ret : size;
 }
 static DEVICE_ATTR_RW(out_mode);
 
