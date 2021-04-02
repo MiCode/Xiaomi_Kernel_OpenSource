@@ -470,6 +470,9 @@
 
 		mt6359codec: mt6359codec {
 			compatible = "mediatek,mt6359p-sound";
+			mediatek,mic-type-0 = <3>;
+			mediatek,mic-type-1 = <3>;
+			mediatek,mic-type-2 = <3>;
 			io-channels = <&pmic_auxadc AUXADC_HPOFS_CAL>;
 			io-channel-names = "pmic_hpofs_cal";
 			nvmem = <&pmic_efuse>;
