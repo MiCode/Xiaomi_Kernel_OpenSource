@@ -744,6 +744,7 @@ unsigned int mt_gpufreq_target(unsigned int request_idx,
 	mutex_unlock(&mt_gpufreq_lock);
 	return 0;
 }
+EXPORT_SYMBOL(mt_gpufreq_target);
 
 void mt_gpufreq_set_timestamp(void)
 {
