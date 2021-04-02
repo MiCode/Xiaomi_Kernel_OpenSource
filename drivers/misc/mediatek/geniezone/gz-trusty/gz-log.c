@@ -117,6 +117,7 @@ struct gz_log_context {
 
 static struct gz_log_context glctx;
 
+#if IS_BUILTIN(CONFIG_MTK_GZ_LOG)
 static int __init gz_log_context_init(struct reserved_mem *rmem)
 {
 	if (!rmem) {
@@ -131,17 +132,52 @@ static int __init gz_log_context_init(struct reserved_mem *rmem)
 	return 0;
 }
 RESERVEDMEM_OF_DECLARE(gz_log, "mediatek,gz-log", gz_log_context_init);
+#else
+static void gz_log_find_mblock(void)
+{
+	struct device_node *mblock_root = NULL, *gz_node = NULL;
+	struct resource r;
+	int ret;
+
+	mblock_root = of_find_node_by_path("/reserved-memory");
+	if (!mblock_root) {
+		pr_info("%s not found /reserved-memory\n", __func__);
+		return;
+	}
+
+	gz_node = of_find_compatible_node(mblock_root, NULL, "mediatek,gz-log");
+	if (!gz_node) {
+		pr_info("%s not found gz-log\n", __func__);
+		return;
+	}
+
+	ret = of_address_to_resource(gz_node, 0, &r);
+	if (ret) {
+		pr_info("[%s] ERROR: not found address\n", __func__);
+		return;
+	}
+
+	glctx.paddr = r.start;
+	glctx.size = resource_size(&r);
+	glctx.flag = STATIC;
+	pr_info("[%s] rmem:%s base(0x%llx) size(0x%zx)\n",
+		__func__, gz_node->name, glctx.paddr, glctx.size);
+}
+#endif
 
 static int gz_log_page_init(void)
 {
 	if (glctx.virt)
 		return 0;
 
-	if (glctx.flag == STATIC) {
-		glctx.virt = ioremap(glctx.paddr, glctx.size);
+#if IS_MODULE(CONFIG_MTK_GZ_LOG)
+	gz_log_find_mblock();
+#endif
 
+	if (glctx.flag == STATIC) {
+		glctx.virt = memremap(glctx.paddr, glctx.size, MEMREMAP_WB);
 		if (!glctx.virt) {
-			pr_info("[%s] ERROR: ioremap failed, use dynamic\n",
+			pr_info("[%s] ERROR: memremap failed, use dynamic\n",
 				__func__);
 			glctx.flag = DYNAMIC;
 			goto dynamic_alloc;
@@ -761,7 +797,7 @@ error_callback_notifier:
 			  (u32)glctx.paddr, (u32)((u64)glctx.paddr >> 32), 0);
 error_std_call:
 	if (glctx.flag == STATIC)
-		iounmap(glctx.virt);
+		memunmap(glctx.virt);
 	else
 		kfree(glctx.virt);
 error_alloc_log:
@@ -799,7 +835,7 @@ static int trusty_gz_log_remove(struct platform_device *pdev)
 		pr_info("std call(GZ_SHARED_LOG_RM) failed: %d\n", ret);
 
 	if (glctx.flag == STATIC)
-		iounmap(glctx.virt);
+		memunmap(glctx.virt);
 	else
 		kfree(glctx.virt);
 
