@@ -569,7 +569,6 @@ static const struct snd_kcontrol_new mt6853_afe_speech_controls[] = {
 		       speech_property_get, speech_property_set),
 };
 
-#if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 /* VOW barge in control */
 static int mt6853_afe_vow_barge_in_get(struct snd_kcontrol *kcontrol,
 				      struct snd_ctl_elem_value *ucontrol)
@@ -606,7 +605,6 @@ static const struct snd_kcontrol_new mt6853_afe_barge_in_controls[] = {
 		       mt6853_afe_vow_barge_in_get,
 		       mt6853_afe_vow_barge_in_set),
 };
-#endif
 
 int mt6853_add_misc_control(struct snd_soc_component *component)
 {
@@ -626,11 +624,9 @@ int mt6853_add_misc_control(struct snd_soc_component *component)
 				      mt6853_afe_speech_controls,
 				      ARRAY_SIZE(mt6853_afe_speech_controls));
 
-#if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 	snd_soc_add_component_controls(component,
 					  mt6853_afe_barge_in_controls,
 					  ARRAY_SIZE(mt6853_afe_barge_in_controls));
-#endif
 
 	return 0;
 }

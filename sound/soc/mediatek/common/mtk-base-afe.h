@@ -146,9 +146,7 @@ struct mtk_base_afe_memif {
 	bool ack_enable;
 	int (*ack)(struct snd_pcm_substream *substream);
 	int use_mmap_share_mem;  // 1: dl, 2: ul
-#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 	bool vow_barge_in_enable;
-#endif
 };
 
 struct mtk_base_afe_irq {

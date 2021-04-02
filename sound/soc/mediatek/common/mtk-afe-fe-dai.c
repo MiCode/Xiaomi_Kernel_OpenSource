@@ -196,7 +196,7 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 				    params_format(params), false) == 0) {
 		memif->using_sram = 1;
 	} else {
-#if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
 		if (memif->vow_barge_in_enable) {
 			ret = mtk_scp_vow_barge_in_allocate_mem(substream,
 						   &substream->runtime->dma_addr,
@@ -217,8 +217,7 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 		ret = snd_pcm_lib_malloc_pages(substream,
 					       params_buffer_bytes(params));
 
-
-#if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT) || IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) || IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 MALLOC_DONE_SRAM:
 #endif
 		if (ret < 0)
@@ -227,7 +226,7 @@ MALLOC_DONE_SRAM:
 	}
 #else
 /* CONFIG_SND_SOC_MTK_SRAM not enabled */
-#if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
 	if (memif->vow_barge_in_enable) {
 		ret = mtk_scp_vow_barge_in_allocate_mem(substream,
 						   &substream->runtime->dma_addr,
@@ -247,7 +246,7 @@ MALLOC_DONE_SRAM:
 #endif
 	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
 
-#if (IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT) || IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP))
+#if (IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) || IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP))
 MALLOC_DONE:
 #endif
 	if (ret < 0)

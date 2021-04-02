@@ -135,20 +135,20 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
-#if (IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT))
-		/* with dsp enable, not to set when stop_threshold = ~(0U) */
-		if (runtime->stop_threshold == ~(0U))
+		/* set memif enable */
+		if (memif->vow_barge_in_enable)
+			/* memif will be set by scp */
 			ret = 0;
 		else
-/* only when adsp enable using hw semaphore to set memif */
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
-			ret = mtk_dsp_memif_set_enable(afe, id);
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+			/* with dsp enable, not to set when stop_threshold = ~(0U) */
+			if (runtime->stop_threshold == ~(0U))
+				ret = 0;
+			else
+				/* only when adsp enable using hw semaphore to set memif */
+				ret = mtk_dsp_memif_set_enable(afe, id);
 #else
 			ret = mtk_memif_set_enable(afe, id);
-#endif
-#else
-		ret = mtk_memif_set_enable(afe, id);
 #endif
 
 		/*
@@ -186,13 +186,13 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				   << irq_data->irq_fs_shift,
 				   fs << irq_data->irq_fs_shift);
 		/* enable interrupt */
-#if (IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT))
+		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
 		if (runtime->stop_threshold != ~(0U))
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 			mtk_dsp_irq_set_enable(afe, irq_data);
 #else
-		if (runtime->stop_threshold != ~(0U))
-			regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
+			regmap_update_bits(afe->regmap,
+					   irq_data->irq_en_reg,
 					   1 << irq_data->irq_en_shift,
 					   1 << irq_data->irq_en_shift);
 #endif
@@ -210,8 +210,10 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				}
 			}
 		}
+
+		/* set memif disable */
 #if (IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT))
+	IS_ENABLED(CONFIG_MTK_VOW_SUPPORT))  /* TODO: check memif->vow_barge_in_enable */
 		if (runtime->stop_threshold == ~(0U))
 			ret = 0;
 		else
@@ -230,22 +232,21 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		}
 
 		/* disable interrupt */
-#if (IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT))
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 		if (runtime->stop_threshold != ~(0U))
 			mtk_dsp_irq_set_disable(afe, irq_data);
 #else
+		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
 		if (runtime->stop_threshold != ~(0U))
-			regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
+			regmap_update_bits(afe->regmap,
+					   irq_data->irq_en_reg,
 					   1 << irq_data->irq_en_shift,
 					   0 << irq_data->irq_en_shift);
 
 #endif
 		/* and clear pending IRQ */
-#if (IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT))
+		/* barge-in set stop_threshold == ~(0U), interrupt is set by scp */
 		if (runtime->stop_threshold != ~(0U))
-#endif
 			regmap_write(afe->regmap, irq_data->irq_clr_reg,
 				     1 << irq_data->irq_clr_shift);
 		return ret;
@@ -1014,7 +1015,6 @@ static int mt6885_sram_size_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 static int mt6885_vow_barge_in_irq_id_get(struct snd_kcontrol *kcontrol,
 					  struct snd_ctl_elem_value *ucontrol)
 {
@@ -1027,7 +1027,7 @@ static int mt6885_vow_barge_in_irq_id_get(struct snd_kcontrol *kcontrol,
 	ucontrol->value.integer.value[0] = irq_id;
 	return 0;
 }
-#endif
+
 
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 static int mt6885_adsp_ref_mem_get(struct snd_kcontrol *kcontrol,
@@ -1188,10 +1188,8 @@ static const struct snd_kcontrol_new mt6885_pcm_kcontrols[] = {
 		       mt6885_voip_scene_get, mt6885_voip_scene_set),
 	SOC_SINGLE_EXT("sram_size", SND_SOC_NOPM, 0, 0xffffffff, 0,
 		       mt6885_sram_size_get, NULL),
-#if IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 	SOC_SINGLE_EXT("vow_barge_in_irq_id", SND_SOC_NOPM, 0, 0x3ffff, 0,
 			   mt6885_vow_barge_in_irq_id_get, NULL),
-#endif
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	SOC_SINGLE_EXT("adsp_primary_sharemem_scenario",
 		       SND_SOC_NOPM, 0, 0x1, 0,
