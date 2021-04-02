@@ -51,6 +51,7 @@ mediatek-drm-$(CONFIG_DRM_FBDEV_EMULATION) += mtk_drm_fbdev.o
 obj-$(CONFIG_DRM_MEDIATEK) += mediatek-drm.o
 
 obj-$(CONFIG_DRM_MEDIATEK) += mtk_panel_ext.o
+obj-$(CONFIG_DRM_MEDIATEK) += mtk_disp_notify.o
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
              -I$(srctree)/drivers/misc/mediatek/smi/			\
