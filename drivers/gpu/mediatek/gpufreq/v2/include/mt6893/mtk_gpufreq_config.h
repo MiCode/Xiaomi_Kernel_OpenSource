@@ -28,6 +28,8 @@
 #define GPUFREQ_DVFS_ENABLE             (1)
 #define GPUFREQ_CUST_INIT_ENABLE        (0)
 #define GPUFREQ_CUST_INIT_OPPIDX        (0)
+/* external module control */
+#define GPUFREQ_THERMAL_ENABLE          (0)
 
 /**************************************************
  * Clock Setting
@@ -83,9 +85,9 @@
 /**************************************************
  * Reference Power Setting
  **************************************************/
-#define GPU_ACT_REF_POWER               (1285)          /* mW  */
-#define GPU_ACT_REF_FREQ                (900000)        /* KHz */
-#define GPU_ACT_REF_VOLT                (90000)         /* mV x 100 */
+#define GPU_ACT_REF_POWER               (3352)          /* mW  */
+#define GPU_ACT_REF_FREQ                (886000)        /* KHz */
+#define GPU_ACT_REF_VOLT                (80000)         /* mV x 100 */
 
 /**************************************************
  * PMIC Setting

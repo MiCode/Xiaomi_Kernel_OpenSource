@@ -33,6 +33,9 @@
  * Local Variable Definition
  * ===============================================
  */
+static bool g_sudo_mode;
+static bool g_stress_test_enable;
+static bool g_aging_enable;
 static struct gpufreq_debug_status g_debug_gpu;
 static struct gpufreq_debug_status g_debug_gstack;
 static DEFINE_MUTEX(gpufreq_debug_lock);
@@ -99,6 +102,16 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		gpu_limit_info.floor,
 		gpu_limit_info.f_limiter,
 		gpu_limit_info.f_priority);
+	seq_printf(m,
+		"%-13s DVFSState: 0x%08x, ShaderPresent: 0x%08x\n",
+		"[GPU-Misc]",
+		gpu_opp_info.dvfs_state,
+		gpu_opp_info.shader_present);
+	seq_printf(m,
+		"%-13s Aging: %s, StressTest: %s\n",
+		"[GPU-Misc]",
+		gpu_opp_info.aging_enable ? "Enable" : "Disable",
+		gpu_opp_info.stress_test_enable ? "Enable" : "Disable");
 
 #if defined(GPUFREQ_DUAL_BUCK)
 	seq_printf(m,
@@ -140,9 +153,65 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		gstack_limit_info.floor,
 		gstack_limit_info.f_limiter,
 		gstack_limit_info.f_priority);
+	seq_printf(m,
+		"%-18s DVFSState: 0x%08x, ShaderPresent: 0x%08x\n",
+		"[GPUSTACK-Misc]",
+		gstack_opp_info.dvfs_state,
+		gstack_opp_info.shader_present);
+	seq_printf(m,
+		"%-18s Aging: %s, StressTest: %s\n",
+		"[GPUSTACK-Misc]",
+		gstack_opp_info.aging_enable ? "Enable" : "Disable",
+		gstack_opp_info.stress_test_enable ? "Enable" : "Disable");
 #endif
 
 	return GPUFREQ_SUCCESS;
+}
+
+/* PROCFS: show current mode of GPUFREQ-DEBUG */
+static int gpufreq_pikachu_proc_show(struct seq_file *m, void *v)
+{
+	mutex_lock(&gpufreq_debug_lock);
+
+	if (g_sudo_mode)
+		seq_puts(m, "[GPUFREQ-DEBUG] this is a SUPER pikachu\n");
+	else
+		seq_puts(m, "[GPUFREQ-DEBUG] this is a pikachu\n");
+
+	mutex_unlock(&gpufreq_debug_lock);
+
+	return GPUFREQ_SUCCESS;
+}
+
+/*
+ * PROCFS: enable sudo mode of GPUFREQ-DEBUG
+ * GPUFREQ_DBG_KEY: enable sudo mode
+ * others: disable sudo mode
+ */
+static ssize_t gpufreq_pikachu_proc_write(struct file *file,
+		const char __user *buffer, size_t count, loff_t *data)
+{
+	char buf[64];
+	unsigned int len = 0;
+	int ret = GPUFREQ_EINVAL;
+
+	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
+	if (copy_from_user(buf, buffer, len))
+		goto done;
+	buf[len] = '\0';
+
+	mutex_lock(&gpufreq_debug_lock);
+
+	if (sysfs_streq(buf, GPUFREQ_DBG_KEY))
+		g_sudo_mode = true;
+	else
+		g_sudo_mode = false;
+	ret = GPUFREQ_SUCCESS;
+
+	mutex_unlock(&gpufreq_debug_lock);
+
+done:
+	return (ret < 0) ? ret : count;
 }
 
 static int gpu_working_opp_table_proc_show(struct seq_file *m, void *v)
@@ -201,7 +270,7 @@ static int gpu_signed_opp_table_proc_show(struct seq_file *m, void *v)
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (g_debug_gpu.signed_table_enable) {
+	if (g_sudo_mode) {
 		opp_table = __gpufreq_get_signed_table_gpu();
 		if (!opp_table) {
 			GPUFREQ_LOGE(
@@ -225,32 +294,6 @@ static int gpu_signed_opp_table_proc_show(struct seq_file *m, void *v)
 	return GPUFREQ_SUCCESS;
 }
 
-static ssize_t gpu_signed_opp_table_proc_write(struct file *file,
-		const char __user *buffer, size_t count, loff_t *data)
-{
-	char buf[64];
-	unsigned int len = 0;
-	int ret = GPUFREQ_EINVAL;
-
-	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
-	if (copy_from_user(buf, buffer, len))
-		goto done;
-	buf[len] = '\0';
-
-	mutex_lock(&gpufreq_debug_lock);
-
-	if (sysfs_streq(buf, GPUFREQ_DBG_KEY))
-		g_debug_gpu.signed_table_enable = true;
-	else
-		g_debug_gpu.signed_table_enable = false;
-	ret = GPUFREQ_SUCCESS;
-
-	mutex_unlock(&gpufreq_debug_lock);
-
-done:
-	return (ret < 0) ? ret : count;
-}
-
 static int gstack_signed_opp_table_proc_show(struct seq_file *m, void *v)
 {
 	const struct gpufreq_opp_info *opp_table;
@@ -259,7 +302,7 @@ static int gstack_signed_opp_table_proc_show(struct seq_file *m, void *v)
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (g_debug_gstack.signed_table_enable) {
+	if (g_sudo_mode) {
 		opp_table = __gpufreq_get_signed_table_gstack();
 		if (!opp_table) {
 			GPUFREQ_LOGE("fail to get GPUSTACK signed OPP table (ENOENT)");
@@ -280,32 +323,6 @@ static int gstack_signed_opp_table_proc_show(struct seq_file *m, void *v)
 	mutex_unlock(&gpufreq_debug_lock);
 
 	return GPUFREQ_SUCCESS;
-}
-
-static ssize_t gstack_signed_opp_table_proc_write(struct file *file,
-		const char __user *buffer, size_t count, loff_t *data)
-{
-	char buf[64];
-	unsigned int len = 0;
-	int ret = GPUFREQ_EINVAL;
-
-	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
-	if (copy_from_user(buf, buffer, len))
-		goto done;
-	buf[len] = '\0';
-
-	mutex_lock(&gpufreq_debug_lock);
-
-	if (sysfs_streq(buf, GPUFREQ_DBG_KEY))
-		g_debug_gstack.signed_table_enable = true;
-	else
-		g_debug_gstack.signed_table_enable = false;
-	ret = GPUFREQ_SUCCESS;
-
-	mutex_unlock(&gpufreq_debug_lock);
-
-done:
-	return (ret < 0) ? ret : count;
 }
 
 static int gpu_limit_table_proc_show(struct seq_file *m, void *v)
@@ -444,7 +461,7 @@ static int fix_target_opp_index_proc_show(struct seq_file *m, void *v)
 
 /*
  * PROCFS: keep OPP index
- * -1: free run
+ * GPUFREQ_DBG_DEFAULT_IDX: free run
  * others: OPP index to be kept
  */
 static ssize_t fix_target_opp_index_proc_write(struct file *file,
@@ -521,7 +538,7 @@ static int fix_custom_freq_volt_proc_show(struct seq_file *m, void *v)
 
 /*
  * PROCFS: keep freq and volt
- * 0 0: free run
+ * GPUFREQ_DBG_DEFAULT_FREQ VOLT: free run
  * others others: freq and volt to be kept
  */
 static ssize_t fix_custom_freq_volt_proc_write(struct file *file,
@@ -539,6 +556,10 @@ static ssize_t fix_custom_freq_volt_proc_write(struct file *file,
 	buf[len] = '\0';
 
 	mutex_lock(&gpufreq_debug_lock);
+	if (!g_sudo_mode) {
+		ret = GPUFREQ_SUCCESS;
+		goto done_unlock;
+	}
 
 	if (sscanf(buf, "%d %d", &fixed_freq, &fixed_volt) == 2) {
 		if (target == TARGET_GPUSTACK) {
@@ -568,20 +589,129 @@ done:
 	return (ret < 0) ? ret : count;
 }
 
+/* PROCFS: show current state of OPP stress test */
+static int opp_stress_test_proc_show(struct seq_file *m, void *v)
+{
+	mutex_lock(&gpufreq_debug_lock);
+
+	if (g_stress_test_enable)
+		seq_puts(m, "[GPUFREQ-DEBUG] OPP stress test is enabled\n");
+	else
+		seq_puts(m, "[GPUFREQ-DEBUG] OPP stress test is disabled\n");
+
+	mutex_unlock(&gpufreq_debug_lock);
+
+	return GPUFREQ_SUCCESS;
+}
+
+/*
+ * PROCFS: enable OPP stress test by setting random OPP index
+ * enable: start stress test
+ * disable: stop stress test
+ */
+static ssize_t opp_stress_test_proc_write(struct file *file,
+		const char __user *buffer, size_t count, loff_t *data)
+{
+	char buf[64];
+	unsigned int len = 0;
+	int ret = GPUFREQ_EINVAL;
+
+	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
+	if (copy_from_user(buf, buffer, len))
+		goto done;
+	buf[len] = '\0';
+
+	mutex_lock(&gpufreq_debug_lock);
+
+	if (sysfs_streq(buf, "enable")) {
+		__gpufreq_set_stress_test(true);
+		g_stress_test_enable = true;
+	} else if (sysfs_streq(buf, "disable")) {
+		__gpufreq_set_stress_test(false);
+		g_stress_test_enable = false;
+	}
+	ret = GPUFREQ_SUCCESS;
+
+	mutex_unlock(&gpufreq_debug_lock);
+
+done:
+	return (ret < 0) ? ret : count;
+}
+
+/* PROCFS: show current state of aging mode */
+static int enforced_aging_proc_show(struct seq_file *m, void *v)
+{
+	mutex_lock(&gpufreq_debug_lock);
+
+	if (g_aging_enable)
+		seq_puts(m, "[GPUFREQ-DEBUG] enforced aging is enabled\n");
+	else
+		seq_puts(m, "[GPUFREQ-DEBUG] enforced aging is disabled\n");
+
+	mutex_unlock(&gpufreq_debug_lock);
+
+	return GPUFREQ_SUCCESS;
+}
+
+/*
+ * PROCFS: enforce aging by subtracting aging volt
+ * enable: apply aging setting
+ * disable: restore aging setting
+ */
+static ssize_t enforced_aging_proc_write(struct file *file,
+		const char __user *buffer, size_t count, loff_t *data)
+{
+	char buf[64];
+	unsigned int len = 0;
+	int ret = GPUFREQ_EINVAL;
+
+	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
+	if (copy_from_user(buf, buffer, len))
+		goto done;
+	buf[len] = '\0';
+
+	mutex_lock(&gpufreq_debug_lock);
+
+	if (sysfs_streq(buf, "enable")) {
+		/* prevent from double aging */
+		ret = __gpufreq_set_enforced_aging(true);
+		if (ret) {
+			GPUFREQ_LOGE("fail to enable enforced aging");
+			goto done_unlock;
+		}
+		g_aging_enable = true;
+	} else if (sysfs_streq(buf, "disable")) {
+		/* prevent from double aging */
+		ret = __gpufreq_set_enforced_aging(false);
+		if (ret) {
+			GPUFREQ_LOGE("fail to disable enforced aging");
+			goto done_unlock;
+		}
+		g_aging_enable = false;
+	}
+
+done_unlock:
+	mutex_unlock(&gpufreq_debug_lock);
+
+done:
+	return (ret < 0) ? ret : count;
+}
+
 /* PROCFS : initialization */
 PROC_FOPS_RO(gpufreq_status);
+PROC_FOPS_RW(gpufreq_pikachu);
 PROC_FOPS_RO(gpu_working_opp_table);
-PROC_FOPS_RW(gpu_signed_opp_table);
+PROC_FOPS_RO(gpu_signed_opp_table);
 PROC_FOPS_RO(gpu_limit_table);
 PROC_FOPS_RO(gpu_springboard_table);
 PROC_FOPS_RO(gstack_working_opp_table);
-PROC_FOPS_RW(gstack_signed_opp_table);
+PROC_FOPS_RO(gstack_signed_opp_table);
 PROC_FOPS_RO(gstack_limit_table);
 PROC_FOPS_RO(gstack_springboard_table);
 PROC_FOPS_RW(fix_target_opp_index);
 PROC_FOPS_RW(fix_custom_freq_volt);
-// PROC_FOPS_RW(opp_stress_test);
-// PROC_FOPS_RW(aging_mode);
+PROC_FOPS_RW(opp_stress_test);
+PROC_FOPS_RW(enforced_aging);
 // PROC_FOPS_RO(dfd_test);
 // PROC_FOPS_RW(dfd_force_dump);
 
@@ -597,12 +727,15 @@ static int gpufreq_create_procfs(void)
 
 	const struct pentry entries[] = {
 		PROC_ENTRY(gpufreq_status),
+		PROC_ENTRY(gpufreq_pikachu),
 		PROC_ENTRY(gpu_working_opp_table),
 		PROC_ENTRY(gpu_signed_opp_table),
 		PROC_ENTRY(gpu_limit_table),
 		PROC_ENTRY(gpu_springboard_table),
 		PROC_ENTRY(fix_target_opp_index),
 		PROC_ENTRY(fix_custom_freq_volt),
+		PROC_ENTRY(opp_stress_test),
+		PROC_ENTRY(enforced_aging),
 #if defined(GPUFREQ_DUAL_BUCK)
 		PROC_ENTRY(gstack_working_opp_table),
 		PROC_ENTRY(gstack_signed_opp_table),
@@ -644,14 +777,12 @@ int gpufreq_debug_init(void)
 	g_debug_gpu.fixed_oppidx = GPUFREQ_DBG_DEFAULT_IDX;
 	g_debug_gpu.fixed_freq = GPUFREQ_DBG_DEFAULT_FREQ;
 	g_debug_gpu.fixed_volt = GPUFREQ_DBG_DEFAULT_VOLT;
-	g_debug_gpu.signed_table_enable = false;
 
 	g_debug_gstack.opp_num = opp_num_gstack;
 	g_debug_gstack.signed_opp_num = signed_opp_num_gstack;
 	g_debug_gstack.fixed_oppidx = GPUFREQ_DBG_DEFAULT_IDX;
 	g_debug_gstack.fixed_freq = GPUFREQ_DBG_DEFAULT_FREQ;
 	g_debug_gstack.fixed_volt = GPUFREQ_DBG_DEFAULT_VOLT;
-	g_debug_gstack.signed_table_enable = false;
 
 #if defined(CONFIG_PROC_FS)
 	ret = gpufreq_create_procfs();

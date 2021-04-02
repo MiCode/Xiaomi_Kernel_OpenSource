@@ -6,7 +6,7 @@
 #ifndef __MTK_GPUFREQ_COMMON_H__
 #define __MTK_GPUFREQ_COMMON_H__
 
-#if defined(CONFIG_MTK_AEE_IPANIC)
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/mboot_params.h>
 #endif
 
@@ -104,7 +104,7 @@ enum gpufreq_vgpu_step {
  **************************************************/
 static inline void __gpufreq_footprint_vgpu(enum gpufreq_vgpu_step step)
 {
-#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_rr_rec_gpu_dvfs_vgpu(step |
 		(aee_rr_curr_gpu_dvfs_vgpu() & 0xF0));
 #else
@@ -114,14 +114,14 @@ static inline void __gpufreq_footprint_vgpu(enum gpufreq_vgpu_step step)
 
 static inline void __gpufreq_footprint_vgpu_reset(void)
 {
-#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_rr_rec_gpu_dvfs_vgpu(0);
 #endif
 }
 
 static inline void __gpufreq_footprint_oppidx(int idx)
 {
-#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_rr_rec_gpu_dvfs_oppidx(idx);
 #else
 	GPUFREQ_UNREFERENCED(idx);
@@ -130,14 +130,14 @@ static inline void __gpufreq_footprint_oppidx(int idx)
 
 static inline void __gpufreq_footprint_oppidx_reset(void)
 {
-#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_rr_rec_gpu_dvfs_oppidx(0xFF);
 #endif
 }
 
 static inline void __gpufreq_footprint_power_count(int count)
 {
-#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_rr_rec_gpu_dvfs_power_count(count);
 #else
 	GPUFREQ_UNREFERENCED(count);
@@ -146,7 +146,7 @@ static inline void __gpufreq_footprint_power_count(int count)
 
 static inline void __gpufreq_footprint_power_count_reset(void)
 {
-#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_rr_rec_gpu_dvfs_power_count(0);
 #endif
 }

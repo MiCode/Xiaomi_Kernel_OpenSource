@@ -12,7 +12,7 @@
 #define GPUFREQ_DBG_DEFAULT_IDX         (-1)
 #define GPUFREQ_DBG_DEFAULT_FREQ        (0)
 #define GPUFREQ_DBG_DEFAULT_VOLT        (0)
-#define GPUFREQ_DBG_KEY                 "lohass"
+#define GPUFREQ_DBG_KEY                 "detective"
 
 #if defined(CONFIG_PROC_FS)
 #define PROC_FOPS_RW(name)            \
@@ -68,7 +68,6 @@ struct gpufreq_debug_status {
 	int fixed_oppidx;
 	unsigned int fixed_freq;
 	unsigned int fixed_volt;
-	bool signed_table_enable;
 };
 
 struct gpufreq_debug_opp_info {
@@ -87,6 +86,10 @@ struct gpufreq_debug_opp_info {
 	unsigned int segment_id;
 	int segment_upbound;
 	int segment_lowbound;
+	unsigned int dvfs_state;
+	unsigned int shader_present;
+	bool aging_enable;
+	bool stress_test_enable;
 };
 
 struct gpufreq_debug_limit_info {

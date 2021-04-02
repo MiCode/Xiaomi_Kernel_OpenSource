@@ -25,11 +25,11 @@
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 #include <mtk_battery_oc_throttling.h>
 #endif
-#if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
-#include <mtk_low_battery_throttling.h>
-#endif
 #if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENTAGE_POWER_THROTTLING)
 #include <mtk_battery_percentage_throttling.h>
+#endif
+#if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
+#include <mtk_low_battery_throttling.h>
 #endif
 
 static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev);
@@ -71,16 +71,6 @@ unsigned int gpufreq_get_shader_present(void)
 	return __gpufreq_get_shader_present();
 }
 EXPORT_SYMBOL(gpufreq_get_shader_present);
-
-void gpufreq_apply_aging(bool aging_mode)
-{
-	GPUFREQ_TRACE_START("aging_mode=%d", aging_mode);
-
-	__gpufreq_apply_aging(aging_mode);
-
-	GPUFREQ_TRACE_END();
-}
-EXPORT_SYMBOL(gpufreq_apply_aging);
 
 void gpufreq_set_timestamp(void)
 {
@@ -631,6 +621,7 @@ done:
 }
 EXPORT_SYMBOL(gpufreq_get_cur_limiter);
 
+#if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 static void gpufreq_batt_oc_callback(BATTERY_OC_LEVEL batt_oc_level)
 {
 	int ceiling = 0;
@@ -659,7 +650,9 @@ static void gpufreq_batt_oc_callback(BATTERY_OC_LEVEL batt_oc_level)
 
 	GPUFREQ_TRACE_END();
 }
+#endif /* CONFIG_MTK_BATTERY_OC_POWER_THROTTLING */
 
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENTAGE_POWER_THROTTLING)
 static void gpufreq_batt_percent_callback(
 	BATTERY_PERCENT_LEVEL batt_percent_level)
 {
@@ -689,7 +682,9 @@ static void gpufreq_batt_percent_callback(
 
 	GPUFREQ_TRACE_END();
 }
+#endif /* CONFIG_MTK_BATTERY_PERCENTAGE_POWER_THROTTLING */
 
+#if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 static void gpufreq_low_batt_callback(LOW_BATTERY_LEVEL low_batt_level)
 {
 	int ceiling = 0;
@@ -718,6 +713,7 @@ static void gpufreq_low_batt_callback(LOW_BATTERY_LEVEL low_batt_level)
 
 	GPUFREQ_TRACE_END();
 }
+#endif /* CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING */
 
 /*
  * API: gpufreq driver probe
@@ -757,19 +753,19 @@ static int __init gpufreq_wrapper_init(void)
 	register_low_battery_notify(
 			&gpufreq_low_batt_callback,
 			LOW_BATTERY_PRIO_GPU);
-#endif
+#endif /* CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING */
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
-	register_battery_percent_notify(
+	register_bp_thl_notify(
 			&gpufreq_batt_percent_callback,
 			BATTERY_PERCENT_PRIO_GPU);
-#endif
+#endif /* CONFIG_MTK_BATTERY_PERCENT_THROTTLING */
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 	register_battery_oc_notify(
 			&gpufreq_batt_oc_callback,
 			BATTERY_OC_PRIO_GPU);
-#endif
+#endif /* CONFIG_MTK_BATTERY_OC_POWER_THROTTLING */
 
 done:
 	return ret;

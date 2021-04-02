@@ -19,6 +19,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/printk.h>
@@ -35,12 +36,19 @@
 #include <mt6893/mtk_gpufreq_config.h>
 
 #include <mtk_gpu_utility.h>
-#include <clk-fmeter.h>
-#include <mt-plat/mt6893/include/mach/upmu_sw.h>
+#if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
+#include <mtk_battery_oc_throttling.h>
+#endif
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENTAGE_POWER_THROTTLING)
+#include <mtk_battery_percentage_throttling.h>
+#endif
+#if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
+#include <mtk_low_battery_throttling.h>
+#endif
 #if IS_ENABLED(CONFIG_MTK_STATIC_POWER)
 #include <leakage_table_v2/mtk_static_power.h>
 #endif
-#if IS_ENABLED(CONFIG_THERMAL)
+#if GPUFREQ_THERMAL_ENABLE && IS_ENABLED(CONFIG_THERMAL)
 #include <mtk_thermal.h>
 #endif
 #if IS_ENABLED(CONFIG_MTK_PBM)
@@ -65,6 +73,7 @@ static void __gpufreq_kick_pbm(enum gpufreq_buck_state buck);
 static void __iomem *__gpufreq_of_ioremap(const char *node_name, int idx);
 static void __gpufreq_set_vgpu_mode(unsigned int mode);
 static void __gpufreq_interpolate_volt(void);
+static void __gpufreq_apply_aging(bool apply_aging);
 /* dvfs function */
 static int __gpufreq_custom_commit_gpu(
 	unsigned int target_freq, unsigned int target_volt,
@@ -196,6 +205,7 @@ static struct gpufreq_status g_gpu;
 // static struct gpufreq_status g_gstact;
 static unsigned int g_shader_present;
 static bool g_probe_done;
+static bool g_stress_test_enable;
 static bool g_aging_enable;
 static enum gpufreq_dvfs_state g_dvfs_state;
 static DEFINE_MUTEX(gpufreq_lock_gpu);
@@ -315,6 +325,10 @@ struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_gpu(void)
 	opp_info.segment_id = g_gpu.segment_id;
 	opp_info.segment_upbound = g_gpu.segment_upbound;
 	opp_info.segment_lowbound = g_gpu.segment_lowbound;
+	opp_info.dvfs_state = g_dvfs_state;
+	opp_info.shader_present = g_shader_present;
+	opp_info.aging_enable = g_aging_enable;
+	opp_info.stress_test_enable = g_stress_test_enable;
 	mutex_unlock(&gpufreq_lock_gpu);
 
 	ret = __gpufreq_power_control(POWER_ON, CG_ON, MTCMOS_ON, BUCK_ON);
@@ -439,7 +453,7 @@ unsigned int __gpufreq_get_lkg_pgpu(unsigned int volt)
 	int p_leakage = 0;
 	int temperature = 0;
 
-#if IS_ENABLED(CONFIG_THERMAL)
+#if GPUFREQ_THERMAL_ENABLE && IS_ENABLED(CONFIG_THERMAL)
 	temperature = get_immediate_gpu_wrap() / 1000;
 	if (temperature < -20 || temperature > 125) {
 		GPUFREQ_LOGD("temperature < -20 or > 125");
@@ -638,6 +652,13 @@ int __gpufreq_commit_gpu(
 		GPUFREQ_LOGI("unavailable dvfs state (0x%x)", g_dvfs_state);
 		ret = GPUFREQ_SUCCESS;
 		goto done_unlock;
+	}
+
+	/* randomly replace target index */
+	if (g_stress_test_enable) {
+		get_random_bytes(&target_oppidx, sizeof(target_oppidx));
+		target_oppidx = target_oppidx < 0 ?
+			(target_oppidx*-1) % opp_num : target_oppidx % opp_num;
 	}
 
 	cur_oppidx = g_gpu.cur_oppidx;
@@ -956,7 +977,7 @@ int __gpufreq_fix_target_oppidx_gstack(int oppidx)
 {
 	return GPUFREQ_EINVAL;
 }
-EXPORT_SYMBOL(__gpufreq_commit_gstack);
+EXPORT_SYMBOL(__gpufreq_fix_target_oppidx_gstack);
 
 int __gpufreq_fix_custom_freq_volt_gstack(
 	unsigned int freq, unsigned int volt)
@@ -964,37 +985,6 @@ int __gpufreq_fix_custom_freq_volt_gstack(
 	return GPUFREQ_EINVAL;
 }
 EXPORT_SYMBOL(__gpufreq_fix_custom_freq_volt_gstack);
-
-void __gpufreq_apply_aging(bool aging_mode)
-{
-	int i = 0;
-
-	GPUFREQ_TRACE_START("aging_mode=%d", aging_mode);
-
-	for (i = 0; i < g_gpu.opp_num; i++) {
-		if (aging_mode) {
-			g_gpu.working_table[i].volt -=
-				g_gpu.working_table[i].vaging;
-		} else {
-			g_gpu.working_table[i].volt +=
-				g_gpu.working_table[i].vaging;
-		}
-
-		g_gpu.working_table[i].vsram =
-			__gpufreq_get_vsram_by_vgpu(
-				g_gpu.working_table[i].volt);
-
-		GPUFREQ_LOGD("aging apply: %d, [%02d] vgpu: %d, vsram: %d",
-			aging_mode, i,
-			g_gpu.working_table[i].volt,
-			g_gpu.working_table[i].vsram);
-	}
-
-	__gpufreq_set_springboard();
-
-	GPUFREQ_TRACE_END();
-}
-EXPORT_SYMBOL(__gpufreq_apply_aging);
 
 void __gpufreq_set_timestamp(void)
 {
@@ -1139,7 +1129,8 @@ EXPORT_SYMBOL(__gpufreq_adjust_volt_by_avs);
 
 int __gpufreq_get_batt_oc_idx(int batt_oc_level)
 {
-#if GPUFREQ_BATT_OC_ENABLE
+#if (GPUFREQ_BATT_OC_ENABLE && \
+	IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING))
 	if (batt_oc_level == BATTERY_OC_LEVEL_1)
 		return GPUFREQ_BATT_OC_IDX - g_gpu.segment_upbound;
 	else
@@ -1154,7 +1145,8 @@ EXPORT_SYMBOL(__gpufreq_get_batt_oc_idx);
 
 int __gpufreq_get_batt_percent_idx(int batt_percent_level)
 {
-#if GPUFREQ_BATT_PERCENT_ENABLE
+#if (GPUFREQ_BATT_PERCENT_ENABLE && \
+	IS_ENABLED(CONFIG_MTK_BATTERY_PERCENTAGE_POWER_THROTTLING))
 	if (batt_percent_level == BATTERY_PERCENT_LEVEL_1)
 		return GPUFREQ_BATT_PERCENT_IDX - g_gpu.segment_upbound;
 	else
@@ -1169,7 +1161,8 @@ EXPORT_SYMBOL(__gpufreq_get_batt_percent_idx);
 
 int __gpufreq_get_low_batt_idx(int low_batt_level)
 {
-#if GPUFREQ_LOW_BATT_ENABLE
+#if (GPUFREQ_LOW_BATT_ENABLE && \
+	IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING))
 	if (low_batt_level == LOW_BATTERY_LEVEL_2)
 		return GPUFREQ_LOW_BATT_IDX - g_gpu.segment_upbound;
 	else
@@ -1181,6 +1174,33 @@ int __gpufreq_get_low_batt_idx(int low_batt_level)
 #endif /* GPUFREQ_LOW_BATT_ENABLE */
 }
 EXPORT_SYMBOL(__gpufreq_get_low_batt_idx);
+
+void __gpufreq_set_stress_test(bool mode)
+{
+	mutex_lock(&gpufreq_lock_gpu);
+
+	g_stress_test_enable = mode;
+
+	mutex_unlock(&gpufreq_lock_gpu);
+}
+EXPORT_SYMBOL(__gpufreq_set_stress_test);
+
+int __gpufreq_set_enforced_aging(bool mode)
+{
+	/* prevent from double aging */
+	if (g_aging_enable ^ mode) {
+		mutex_lock(&gpufreq_lock_gpu);
+
+		__gpufreq_apply_aging(mode);
+		g_aging_enable = mode;
+
+		mutex_unlock(&gpufreq_lock_gpu);
+
+		return GPUFREQ_SUCCESS;
+	} else
+		return GPUFREQ_EINVAL;
+}
+EXPORT_SYMBOL(__gpufreq_set_enforced_aging);
 
 /**
  * ===============================================
@@ -1195,6 +1215,36 @@ static unsigned int __gpufreq_custom_init_enable(void)
 static unsigned int __gpufreq_dvfs_enable(void)
 {
 	return GPUFREQ_DVFS_ENABLE;
+}
+
+static void __gpufreq_apply_aging(bool apply_aging)
+{
+	int i = 0;
+
+	GPUFREQ_TRACE_START("apply_aging=%d", apply_aging);
+
+	for (i = 0; i < g_gpu.opp_num; i++) {
+		if (apply_aging) {
+			g_gpu.working_table[i].volt -=
+				g_gpu.working_table[i].vaging;
+		} else {
+			g_gpu.working_table[i].volt +=
+				g_gpu.working_table[i].vaging;
+		}
+
+		g_gpu.working_table[i].vsram =
+			__gpufreq_get_vsram_by_vgpu(
+				g_gpu.working_table[i].volt);
+
+		GPUFREQ_LOGD("apply aging: %d, [%02d] vgpu: %d, vsram: %d",
+			apply_aging, i,
+			g_gpu.working_table[i].volt,
+			g_gpu.working_table[i].vsram);
+	}
+
+	__gpufreq_set_springboard();
+
+	GPUFREQ_TRACE_END();
 }
 
 static int __gpufreq_custom_commit_gpu(
@@ -1559,12 +1609,14 @@ static int __gpufreq_freq_scale_gpu(
 			goto done;
 		}
 	} else {
+#if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
 		ret = mt_dfs_general_pll(MFGPLL_FH_PLL, pcw);
 		if (unlikely(ret)) {
 			GPUFREQ_LOGE("fail to hopping pcw: 0x%x (%d)",
 				pcw, ret);
 			goto done;
 		}
+#endif
 	}
 
 	g_gpu.cur_freq = __gpufreq_get_real_fgpu();
@@ -2331,7 +2383,7 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 	/* set power info to OPP table */
 	__gpufreq_measure_power();
 
-#if IS_ENABLED(CONFIG_THERMAL)
+#if GPUFREQ_THERMAL_ENABLE && IS_ENABLED(CONFIG_THERMAL)
 	/* register power info to thermal */
 	mtk_gpufreq_register(g_gpu.working_table, g_gpu.opp_num);
 #endif /* CONFIG_THERMAL */
@@ -2381,7 +2433,7 @@ static int __gpufreq_init_segment_id(struct platform_device *pdev)
 	if (IS_ERR(efuse_cell)) {
 		GPUFREQ_LOGE("fail to get efuse_segment_cell (%d)",
 			PTR_ERR(efuse_cell));
-		ret = PTR_ERR(efuse_cell)
+		ret = PTR_ERR(efuse_cell);
 		goto done;
 	}
 
@@ -2390,7 +2442,7 @@ static int __gpufreq_init_segment_id(struct platform_device *pdev)
 	if (IS_ERR(efuse_buf)) {
 		GPUFREQ_LOGE("fail to get efuse_buf (%d)",
 			PTR_ERR(efuse_buf));
-		ret = PTR_ERR(efuse_buf)
+		ret = PTR_ERR(efuse_buf);
 		goto done;
 	}
 
@@ -2569,6 +2621,12 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 				POWER_ON, CG_ON, MTCMOS_ON, BUCK_ON, ret);
 	}
 
+#if defined(GPUFREQ_AGING_LOAD)
+	GPUFREQ_LOGI("aging load");
+	g_aging_enable = true;
+	__gpufreq_apply_aging(true);
+#endif /* GPUFREQ_AGING_LOAD */
+
 	/* init opp index by bootup freq */
 	__gpufreq_init_opp_idx();
 
@@ -2576,11 +2634,6 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	/* Initial leackage power usage */
 	mt_spower_init();
 #endif /* CONFIG_MTK_STATIC_POWER */
-
-#if defined(GPUFREQ_AGING_LOAD)
-	GPUFREQ_LOGI("enable aging");
-	g_aging_enable = 1;
-#endif /* GPUFREQ_AGING_LOAD */
 
 	g_probe_done = true;
 	GPUFREQ_LOGI("gpufreq driver probe done");
@@ -2668,7 +2721,7 @@ static int __gpufreq_mfg_remove(struct platform_device *pdev)
 
 static int __gpufreq_mtcmos_pdrv_probe(struct platform_device *pdev)
 {
-	struct gpufreq_mfg_fp *mfg_fp;
+	const struct gpufreq_mfg_fp *mfg_fp;
 	int ret = GPUFREQ_SUCCESS;
 
 	mfg_fp = of_device_get_match_data(&pdev->dev);
@@ -2686,7 +2739,7 @@ static int __gpufreq_mtcmos_pdrv_probe(struct platform_device *pdev)
 
 static int __gpufreq_mtcmos_pdrv_remove(struct platform_device *pdev)
 {
-	struct gpufreq_mfg_fp *mfg_fp;
+	const struct gpufreq_mfg_fp *mfg_fp;
 	int ret = GPUFREQ_SUCCESS;
 
 	mfg_fp = of_device_get_match_data(&pdev->dev);

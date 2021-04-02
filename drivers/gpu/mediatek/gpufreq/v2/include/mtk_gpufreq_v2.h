@@ -146,7 +146,6 @@ unsigned int gpufreq_power_ctrl_enable(void);
 unsigned int gpufreq_custom_init_enable(void);
 unsigned int gpufreq_get_dvfs_state(void);
 unsigned int gpufreq_get_shader_present(void);
-void gpufreq_apply_aging(bool aging_mode);
 void gpufreq_set_timestamp(void);
 void gpufreq_check_bus_idle(void);
 void gpufreq_resume_dvfs(void);

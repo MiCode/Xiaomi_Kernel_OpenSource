@@ -9,6 +9,7 @@
 /**************************************************
  * Function
  **************************************************/
+/* Common */
 unsigned int __gpufreq_bringup(void);
 unsigned int __gpufreq_power_ctrl_enable(void);
 unsigned int __gpufreq_get_dvfs_state(void);
@@ -16,7 +17,6 @@ unsigned int __gpufreq_get_shader_present(void);
 int __gpufreq_power_control(
 	enum gpufreq_power_state power, enum gpufreq_cg_state cg,
 	enum gpufreq_mtcmos_state mtcmos, enum gpufreq_buck_state buck);
-void __gpufreq_apply_aging(bool aging_mode);
 void __gpufreq_set_timestamp(void);
 void __gpufreq_check_bus_idle(void);
 void __gpufreq_resume_dvfs(void);
@@ -27,6 +27,8 @@ void __gpufreq_adjust_volt_by_avs(
 int __gpufreq_get_batt_oc_idx(int batt_oc_level);
 int __gpufreq_get_batt_percent_idx(int batt_percent_level);
 int __gpufreq_get_low_batt_idx(int low_batt_level);
+void __gpufreq_set_stress_test(bool mode);
+int __gpufreq_set_enforced_aging(bool mode);
 
 /* GPU */
 unsigned int __gpufreq_get_cur_fgpu(void);
