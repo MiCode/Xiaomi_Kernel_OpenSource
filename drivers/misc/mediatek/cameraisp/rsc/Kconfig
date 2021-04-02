@@ -1,4 +1,4 @@
-config MTK_CAMERA_ISP_RSC_SUPPORT
+config MTK_CAMERA_RSC_ISP6S
 	tristate "[RSC]Rolling Shutter Cancellation Support"
 	depends on MTK_CAMERA_ISP_SUPPORT
 	help

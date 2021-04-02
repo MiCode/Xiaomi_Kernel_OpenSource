@@ -23,6 +23,6 @@ ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/misc/mediatek/include/mt-
 
 
 #obj-y += camera_rsc_dummy.c
-obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += camera_rsc.o
-camera_rsc-objs += engine_request.o
-camera_rsc-objs += isp_6s/camera_rsc.o
+obj-$(CONFIG_MTK_CAMERA_RSC_ISP6S) += camera_rsc_isp60.o
+camera_rsc_isp60-objs += engine_request.o
+camera_rsc_isp60-objs += isp_6s/camera_rsc.o

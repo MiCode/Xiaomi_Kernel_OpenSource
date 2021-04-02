@@ -1,4 +1,4 @@
-config MTK_CAMERA_ISP_FD_SUPPORT
+config MTK_CAMERA_FD_ISP6S
 	tristate "[FD] Face Detection"
 	depends on MTK_CAMERA_ISP_SUPPORT
 	help

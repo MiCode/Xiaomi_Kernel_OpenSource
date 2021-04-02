@@ -15,9 +15,9 @@
 obj-$(CONFIG_MTK_CAMERA_ISP_DIP_SUPPORT) += dip/
 obj-$(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT) += src/
 #obj-y += owe/
-obj-y += rsc/
+obj-$(CONFIG_MTK_CAMERA_RSC_ISP6S) += rsc/
 obj-$(CONFIG_MTK_CAMERA_ISP_WPE_SUPPORT) += wpe/
 obj-$(CONFIG_MTK_CAMERA_ISP_SUPPORT) += dpe/
 #obj-y += tsf/
 obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += mfb/
-#obj-y += fdvt/
+obj-$(CONFIG_MTK_CAMERA_FD_ISP6S) += fdvt/
