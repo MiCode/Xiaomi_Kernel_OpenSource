@@ -13,8 +13,9 @@
 
 MTK_GPU_VERSION = $(subst ",,$(CONFIG_MTK_GPU_VERSION))
 
-ifneq ($(word 3,$(MTK_GPU_VERSION)),)
-    obj-y += mali-$(word 3,$(MTK_GPU_VERSION))/drivers/gpu/arm/midgard/
-else
-    obj-y += mali-EAC/drivers/
-endif
+obj-y += mali-r30p0/drivers/gpu/arm/midgard/
+#ifneq ($(word 3,$(MTK_GPU_VERSION)),)
+#    obj-y += mali-$(word 3,$(MTK_GPU_VERSION))/drivers/gpu/arm/midgard/
+#else
+#    obj-y += mali-EAC/drivers/
+#endif
