@@ -307,6 +307,13 @@ static size_t av8l_fast_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 	return __av8l_fast_unmap(ops, iova, size, false);
 }
 
+static size_t av8l_fast_unmap_pages(struct io_pgtable_ops *ops, unsigned long iova,
+				    size_t pgsize, size_t pgcount,
+				    struct iommu_iotlb_gather *gather)
+{
+	return __av8l_fast_unmap(ops, iova, pgsize * pgcount, false);
+}
+
 static int av8l_fast_map_sg(struct io_pgtable_ops *ops,
 			unsigned long iova, struct scatterlist *sgl,
 			unsigned int nents, int prot, gfp_t gfp, size_t *mapped)
@@ -408,6 +415,7 @@ av8l_fast_alloc_pgtable_data(struct io_pgtable_cfg *cfg)
 		.map		= av8l_fast_map,
 		.map_sg		= av8l_fast_map_sg,
 		.unmap		= av8l_fast_unmap,
+		.unmap_pages	= av8l_fast_unmap_pages,
 		.iova_to_phys	= av8l_fast_iova_to_phys,
 	};
 
