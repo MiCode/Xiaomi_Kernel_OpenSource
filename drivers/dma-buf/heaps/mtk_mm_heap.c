@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * DMABUF System heap exporter
+ * DMABUF mtk_mm heap exporter
  *
  * Copyright (C) 2011 Google, Inc.
  * Copyright (C) 2019, 2020 Linaro Ltd.
@@ -24,10 +24,10 @@
 #include "page_pool.h"
 #include "deferred-free-helper.h"
 
-static struct dma_heap *sys_heap;
-static struct dma_heap *sys_uncached_heap;
+static struct dma_heap *mtk_mm_heap;
+static struct dma_heap *mtk_mm_uncached_heap;
 
-struct system_heap_buffer {
+struct mtk_mm_heap_buffer {
 	struct dma_heap *heap;
 	struct list_head attachments;
 	struct mutex lock;
@@ -89,10 +89,10 @@ static struct sg_table *dup_sg_table(struct sg_table *table)
 	return new_table;
 }
 
-static int system_heap_attach(struct dma_buf *dmabuf,
+static int mtk_mm_heap_attach(struct dma_buf *dmabuf,
 			      struct dma_buf_attachment *attachment)
 {
-	struct system_heap_buffer *buffer = dmabuf->priv;
+	struct mtk_mm_heap_buffer *buffer = dmabuf->priv;
 	struct dma_heap_attachment *a;
 	struct sg_table *table;
 
@@ -120,10 +120,10 @@ static int system_heap_attach(struct dma_buf *dmabuf,
 	return 0;
 }
 
-static void system_heap_detach(struct dma_buf *dmabuf,
+static void mtk_mm_heap_detach(struct dma_buf *dmabuf,
 			       struct dma_buf_attachment *attachment)
 {
-	struct system_heap_buffer *buffer = dmabuf->priv;
+	struct mtk_mm_heap_buffer *buffer = dmabuf->priv;
 	struct dma_heap_attachment *a = attachment->priv;
 
 	mutex_lock(&buffer->lock);
@@ -135,7 +135,7 @@ static void system_heap_detach(struct dma_buf *dmabuf,
 	kfree(a);
 }
 
-static struct sg_table *system_heap_map_dma_buf(struct dma_buf_attachment *attachment,
+static struct sg_table *mtk_mm_heap_map_dma_buf(struct dma_buf_attachment *attachment,
 						enum dma_data_direction direction)
 {
 	struct dma_heap_attachment *a = attachment->priv;
@@ -154,7 +154,7 @@ static struct sg_table *system_heap_map_dma_buf(struct dma_buf_attachment *attac
 	return table;
 }
 
-static void system_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
+static void mtk_mm_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
 				      struct sg_table *table,
 				      enum dma_data_direction direction)
 {
@@ -167,10 +167,10 @@ static void system_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
 	dma_unmap_sgtable(attachment->dev, table, direction, attr);
 }
 
-static int system_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
+static int mtk_mm_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 						enum dma_data_direction direction)
 {
-	struct system_heap_buffer *buffer = dmabuf->priv;
+	struct mtk_mm_heap_buffer *buffer = dmabuf->priv;
 	struct dma_heap_attachment *a;
 
 	mutex_lock(&buffer->lock);
@@ -190,10 +190,10 @@ static int system_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 	return 0;
 }
 
-static int system_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
+static int mtk_mm_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 					      enum dma_data_direction direction)
 {
-	struct system_heap_buffer *buffer = dmabuf->priv;
+	struct mtk_mm_heap_buffer *buffer = dmabuf->priv;
 	struct dma_heap_attachment *a;
 
 	mutex_lock(&buffer->lock);
@@ -213,9 +213,9 @@ static int system_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 	return 0;
 }
 
-static int system_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
+static int mtk_mm_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 {
-	struct system_heap_buffer *buffer = dmabuf->priv;
+	struct mtk_mm_heap_buffer *buffer = dmabuf->priv;
 	struct sg_table *table = &buffer->sg_table;
 	unsigned long addr = vma->vm_start;
 	struct sg_page_iter piter;
@@ -238,7 +238,7 @@ static int system_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	return 0;
 }
 
-static void *system_heap_do_vmap(struct system_heap_buffer *buffer)
+static void *mtk_mm_heap_do_vmap(struct mtk_mm_heap_buffer *buffer)
 {
 	struct sg_table *table = &buffer->sg_table;
 	int npages = PAGE_ALIGN(buffer->len) / PAGE_SIZE;
@@ -268,9 +268,9 @@ static void *system_heap_do_vmap(struct system_heap_buffer *buffer)
 	return vaddr;
 }
 
-static void *system_heap_vmap(struct dma_buf *dmabuf)
+static void *mtk_mm_heap_vmap(struct dma_buf *dmabuf)
 {
-	struct system_heap_buffer *buffer = dmabuf->priv;
+	struct mtk_mm_heap_buffer *buffer = dmabuf->priv;
 	void *vaddr;
 
 	mutex_lock(&buffer->lock);
@@ -280,7 +280,7 @@ static void *system_heap_vmap(struct dma_buf *dmabuf)
 		goto out;
 	}
 
-	vaddr = system_heap_do_vmap(buffer);
+	vaddr = mtk_mm_heap_do_vmap(buffer);
 	if (IS_ERR(vaddr))
 		goto out;
 
@@ -292,9 +292,9 @@ out:
 	return vaddr;
 }
 
-static void system_heap_vunmap(struct dma_buf *dmabuf, void *vaddr)
+static void mtk_mm_heap_vunmap(struct dma_buf *dmabuf, void *vaddr)
 {
-	struct system_heap_buffer *buffer = dmabuf->priv;
+	struct mtk_mm_heap_buffer *buffer = dmabuf->priv;
 
 	mutex_lock(&buffer->lock);
 	if (!--buffer->vmap_cnt) {
@@ -304,7 +304,7 @@ static void system_heap_vunmap(struct dma_buf *dmabuf, void *vaddr)
 	mutex_unlock(&buffer->lock);
 }
 
-static int system_heap_zero_buffer(struct system_heap_buffer *buffer)
+static int mtk_mm_heap_zero_buffer(struct mtk_mm_heap_buffer *buffer)
 {
 	struct sg_table *sgt = &buffer->sg_table;
 	struct sg_page_iter piter;
@@ -322,18 +322,18 @@ static int system_heap_zero_buffer(struct system_heap_buffer *buffer)
 	return ret;
 }
 
-static void system_heap_buf_free(struct deferred_freelist_item *item,
+static void mtk_mm_heap_buf_free(struct deferred_freelist_item *item,
 				 enum df_reason reason)
 {
-	struct system_heap_buffer *buffer;
+	struct mtk_mm_heap_buffer *buffer;
 	struct sg_table *table;
 	struct scatterlist *sg;
 	int i, j;
 
-	buffer = container_of(item, struct system_heap_buffer, deferred_free);
+	buffer = container_of(item, struct mtk_mm_heap_buffer, deferred_free);
 	/* Zero the buffer pages before adding back to the pool */
 	if (reason == DF_NORMAL)
-		if (system_heap_zero_buffer(buffer))
+		if (mtk_mm_heap_zero_buffer(buffer))
 			reason = DF_UNDER_PRESSURE; // On failure, just free
 
 	table = &buffer->sg_table;
@@ -354,25 +354,25 @@ static void system_heap_buf_free(struct deferred_freelist_item *item,
 	kfree(buffer);
 }
 
-static void system_heap_dma_buf_release(struct dma_buf *dmabuf)
+static void mtk_mm_heap_dma_buf_release(struct dma_buf *dmabuf)
 {
-	struct system_heap_buffer *buffer = dmabuf->priv;
+	struct mtk_mm_heap_buffer *buffer = dmabuf->priv;
 	int npages = PAGE_ALIGN(buffer->len) / PAGE_SIZE;
 
-	deferred_free(&buffer->deferred_free, system_heap_buf_free, npages);
+	deferred_free(&buffer->deferred_free, mtk_mm_heap_buf_free, npages);
 }
 
-static const struct dma_buf_ops system_heap_buf_ops = {
-	.attach = system_heap_attach,
-	.detach = system_heap_detach,
-	.map_dma_buf = system_heap_map_dma_buf,
-	.unmap_dma_buf = system_heap_unmap_dma_buf,
-	.begin_cpu_access = system_heap_dma_buf_begin_cpu_access,
-	.end_cpu_access = system_heap_dma_buf_end_cpu_access,
-	.mmap = system_heap_mmap,
-	.vmap = system_heap_vmap,
-	.vunmap = system_heap_vunmap,
-	.release = system_heap_dma_buf_release,
+static const struct dma_buf_ops mtk_mm_heap_buf_ops = {
+	.attach = mtk_mm_heap_attach,
+	.detach = mtk_mm_heap_detach,
+	.map_dma_buf = mtk_mm_heap_map_dma_buf,
+	.unmap_dma_buf = mtk_mm_heap_unmap_dma_buf,
+	.begin_cpu_access = mtk_mm_heap_dma_buf_begin_cpu_access,
+	.end_cpu_access = mtk_mm_heap_dma_buf_end_cpu_access,
+	.mmap = mtk_mm_heap_mmap,
+	.vmap = mtk_mm_heap_vmap,
+	.vunmap = mtk_mm_heap_vunmap,
+	.release = mtk_mm_heap_dma_buf_release,
 };
 
 static struct page *alloc_largest_available(unsigned long size,
@@ -394,13 +394,13 @@ static struct page *alloc_largest_available(unsigned long size,
 	return NULL;
 }
 
-static struct dma_buf *system_heap_do_allocate(struct dma_heap *heap,
+static struct dma_buf *mtk_mm_heap_do_allocate(struct dma_heap *heap,
 					       unsigned long len,
 					       unsigned long fd_flags,
 					       unsigned long heap_flags,
 					       bool uncached)
 {
-	struct system_heap_buffer *buffer;
+	struct mtk_mm_heap_buffer *buffer;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 	unsigned long size_remaining = len;
 	unsigned int max_order = orders[0];
@@ -454,7 +454,7 @@ static struct dma_buf *system_heap_do_allocate(struct dma_heap *heap,
 
 	/* create the dmabuf */
 	exp_info.exp_name = dma_heap_get_name(heap);
-	exp_info.ops = &system_heap_buf_ops;
+	exp_info.ops = &mtk_mm_heap_buf_ops;
 	exp_info.size = buffer->len;
 	exp_info.flags = fd_flags;
 	exp_info.priv = buffer;
@@ -492,28 +492,28 @@ free_buffer:
 	return ERR_PTR(ret);
 }
 
-static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
+static struct dma_buf *mtk_mm_heap_allocate(struct dma_heap *heap,
 					    unsigned long len,
 					    unsigned long fd_flags,
 					    unsigned long heap_flags)
 {
-	return system_heap_do_allocate(heap, len, fd_flags, heap_flags, false);
+	return mtk_mm_heap_do_allocate(heap, len, fd_flags, heap_flags, false);
 }
 
-static const struct dma_heap_ops system_heap_ops = {
-	.allocate = system_heap_allocate,
+static const struct dma_heap_ops mtk_mm_heap_ops = {
+	.allocate = mtk_mm_heap_allocate,
 };
 
-static struct dma_buf *system_uncached_heap_allocate(struct dma_heap *heap,
+static struct dma_buf *mtk_mm_uncached_heap_allocate(struct dma_heap *heap,
 						     unsigned long len,
 						     unsigned long fd_flags,
 						     unsigned long heap_flags)
 {
-	return system_heap_do_allocate(heap, len, fd_flags, heap_flags, true);
+	return mtk_mm_heap_do_allocate(heap, len, fd_flags, heap_flags, true);
 }
 
 /* Dummy function to be used until we can call coerce_mask_and_coherent */
-static struct dma_buf *system_uncached_heap_not_initialized(struct dma_heap *heap,
+static struct dma_buf *mtk_mm_uncached_heap_not_initialized(struct dma_heap *heap,
 							    unsigned long len,
 							    unsigned long fd_flags,
 							    unsigned long heap_flags)
@@ -521,12 +521,12 @@ static struct dma_buf *system_uncached_heap_not_initialized(struct dma_heap *hea
 	return ERR_PTR(-EBUSY);
 }
 
-static struct dma_heap_ops system_uncached_heap_ops = {
-	/* After system_heap_create is complete, we will swap this */
-	.allocate = system_uncached_heap_not_initialized,
+static struct dma_heap_ops mtk_mm_uncached_heap_ops = {
+	/* After mtk_mm_heap_create is complete, we will swap this */
+	.allocate = mtk_mm_uncached_heap_not_initialized,
 };
 
-static int system_heap_create(void)
+static int mtk_mm_heap_create(void)
 {
 	struct dma_heap_export_info exp_info;
 	int i;
@@ -544,27 +544,27 @@ static int system_heap_create(void)
 		}
 	}
 
-	exp_info.name = "system";
-	exp_info.ops = &system_heap_ops;
+	exp_info.name = "mtk_mm";
+	exp_info.ops = &mtk_mm_heap_ops;
 	exp_info.priv = NULL;
 
-	sys_heap = dma_heap_add(&exp_info);
-	if (IS_ERR(sys_heap))
-		return PTR_ERR(sys_heap);
+	mtk_mm_heap = dma_heap_add(&exp_info);
+	if (IS_ERR(mtk_mm_heap))
+		return PTR_ERR(mtk_mm_heap);
 
-	exp_info.name = "system-uncached";
-	exp_info.ops = &system_uncached_heap_ops;
+	exp_info.name = "mtk_mm-uncached";
+	exp_info.ops = &mtk_mm_uncached_heap_ops;
 	exp_info.priv = NULL;
 
-	sys_uncached_heap = dma_heap_add(&exp_info);
-	if (IS_ERR(sys_uncached_heap))
-		return PTR_ERR(sys_uncached_heap);
+	mtk_mm_uncached_heap = dma_heap_add(&exp_info);
+	if (IS_ERR(mtk_mm_uncached_heap))
+		return PTR_ERR(mtk_mm_uncached_heap);
 
-	dma_coerce_mask_and_coherent(dma_heap_get_dev(sys_uncached_heap), DMA_BIT_MASK(64));
+	dma_coerce_mask_and_coherent(dma_heap_get_dev(mtk_mm_uncached_heap), DMA_BIT_MASK(64));
 	mb(); /* make sure we only set allocate after dma_mask is set */
-	system_uncached_heap_ops.allocate = system_uncached_heap_allocate;
+	mtk_mm_uncached_heap_ops.allocate = mtk_mm_uncached_heap_allocate;
 
 	return 0;
 }
-module_init(system_heap_create);
+module_init(mtk_mm_heap_create);
 MODULE_LICENSE("GPL v2");
