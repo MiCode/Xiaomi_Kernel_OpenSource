@@ -147,10 +147,10 @@ static int _apupw_set_freq_range(struct apu_dev *ad, ulong min, ulong max)
 	if (ret < 0)
 		return ret;
 
-	/* Change qos max freq to fix freq */
+	/* Change qos max freq to fix freq and input min/mas are Khz already */
 	ret = dev_pm_qos_update_request(&ad->df->user_max_freq_req, max);
 	pr_info("[%s] [%s] max/min %dMhz/%dMhz, ret = %d\n",
-		apu_dev_name(ad->dev), __func__, TOMHZ(max), TOMHZ(min), ret);
+		apu_dev_name(ad->dev), __func__, TOKHZ(max), TOKHZ(min), ret);
 
 	return ret;
 }
@@ -170,13 +170,13 @@ static int _apupw_default_freq_range(struct apu_dev *ad)
 
 	/* Change qos min freq to fix freq */
 	ret = dev_pm_qos_update_request(&ad->df->user_min_freq_req,
-					ad->df->scaling_min_freq);
+					TOKHZ(ad->df->scaling_min_freq));
 	if (ret < 0)
 		return ret;
 
 	/* Change qos max freq to fix freq */
 	ret = dev_pm_qos_update_request(&ad->df->user_max_freq_req,
-					ad->df->scaling_max_freq);
+					TOKHZ(ad->df->scaling_max_freq));
 	pr_info("[%s] [%s] restore default max/min %dMhz/%dMhz, ret = %d\n",
 		apu_dev_name(ad->dev), __func__,
 		TOMHZ(ad->df->scaling_max_freq),
@@ -489,13 +489,14 @@ static int apupw_dbg_dvfs(u8 param, int argc, int *args)
 		if (!ad)
 			continue;
 		if (args[0] >= 0)
-			ret = _apupw_set_freq_range(ad, apu_opp2freq(ad, args[0]),
-						    apu_opp2freq(ad, args[0]));
+			ret = _apupw_set_freq_range(ad, TOKHZ(apu_opp2freq(ad, args[0])),
+						    TOKHZ(apu_opp2freq(ad, args[0])));
 		else
 			ret = _apupw_default_freq_range(ad);
 	}
 
-	if (ret)
+	/* only ret < 0 is fail, since dev_pm_qos_update_request will return 1 when pass */
+	if (ret < 0)
 		pr_info("[%s] @@test%d lock opp=%d fail, ret %d\n",
 			__func__, argc, (int)(args[0]), ret);
 	return ret;
