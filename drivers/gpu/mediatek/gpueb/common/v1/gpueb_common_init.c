@@ -30,6 +30,7 @@
 
 #include "gpueb_common_helper.h"
 #include "gpueb_common_ipi.h"
+#include "gpueb_common_reserved_mem.h"
 
 /*
  * ===============================================
@@ -77,7 +78,7 @@ static int __mt_gpueb_pdrv_probe(struct platform_device *pdev)
     int ret = 0;
     struct device_node *node;
 
-    gpueb_pr_info("@%s GPUEB driver probe start\n", __func__);
+    gpueb_pr_info("@%s: GPUEB driver probe start\n", __func__);
 
 
     node = of_find_matching_node(NULL, g_gpueb_of_match);
@@ -91,6 +92,21 @@ static int __mt_gpueb_pdrv_probe(struct platform_device *pdev)
     ret = gpueb_common_ipi_init(pdev);
     if (ret != 0)
         gpueb_pr_info("@%s: ipi init fail\n", __func__);
+
+    ret = gpueb_common_reserved_mem_init(pdev);
+    if (ret != 0)
+        gpueb_pr_info("@%s: ipi init fail\n", __func__);
+
+#ifdef MT_GPUEB_LOGGER_ENABLE
+	gpueb_pr_info("@%s: logger init\n", __func__);
+	gpueb_logger_workqueue = create_singlethread_workqueue("GPUEB_LOG_WQ");
+	if (gpueb_common_logger_init(pdev,
+                gpueb_common_get_reserve_mem_virt(GPUEB_LOGGER_MEM_ID),
+                gpueb_common_get_reserve_mem_size(GPUEB_LOGGER_MEM_ID)) == -1) {
+		gpueb_pr_info("@%s: gpueb_common_logger_init\n", __func__);
+		goto err;
+	}
+#endif
 
     g_pdev = pdev;
     g_probe_done = true;
