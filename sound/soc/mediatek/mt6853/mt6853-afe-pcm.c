@@ -133,7 +133,7 @@ int mt6853_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 		/* set memif enable */
-		if (memif->vow_bargein_enable)
+		if (memif->vow_barge_in_enable)
 			/* memif will be set by scp */
 			ret = 0;
 		else
