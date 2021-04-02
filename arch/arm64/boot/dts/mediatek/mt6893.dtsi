@@ -4949,11 +4949,17 @@
 
 		ccu: ccu@1a101000 {
 			compatible = "mediatek,ccu";
+			power-domains = <&scpsys MT6893_POWER_DOMAIN_CAM>;
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
-			iommus = <&iommu0 M4U_PORT_L13_CAM_CCUI_MDP>,
-				<&iommu0 M4U_PORT_L13_CAM_CCUO_MDP>;
+			iommus = <&iommu1 M4U_PORT_L13_CAM_CCUI_MDP>,
+				 <&iommu1 M4U_PORT_L13_CAM_CCUO_MDP>;
 			reg = <0 0x1a101000 0 0x1000>;
-			interrupts = <GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 329 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&camsys_main_clk CLK_CAM_M_CCU0>,
+				<&topckgen_clk CLK_TOP_CCU_SEL>;
+			clock-names = "CCU_CLK_CAM_CCU",
+					"CCU_CLK_TOP_MUX";
+			mediatek,larbs = <&larb13>;
 		};
 
 		ipesys_clk: syscon@1b000000 {
