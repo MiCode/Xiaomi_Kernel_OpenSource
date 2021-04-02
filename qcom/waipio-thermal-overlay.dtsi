@@ -7,6 +7,16 @@
 				trip = <&socd_trip>;
 				cooling-device = <&APC1_pause 1 1>;
 			};
+
+			socd_cdsp1 {
+				trip = <&socd_trip>;
+				cooling-device = <&cdsp_sw 4 4>;
+			};
+
+			socd_gpu0 {
+				trip = <&socd_trip>;
+				cooling-device = <&msm_gpu 4 4>;
+			};
 		};
 	};
 
@@ -20,6 +30,21 @@
 			vbat_gpu0 {
 				trip = <&b_bcl_lvl0>;
 				cooling-device = <&msm_gpu 2 2>;
+			};
+
+			vbat_cdsp0 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&cdsp_sw 2 2>;
+			};
+
+			vbat_lte0 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&modem_lte_dsc 255 255>;
+			};
+
+			vbat_nr0 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
 			};
 		};
 	};
@@ -35,6 +60,11 @@
 				trip = <&b_bcl_lvl1>;
 				cooling-device = <&msm_gpu 4 4>;
 			};
+
+			vbat_cdsp1 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&cdsp_sw 4 4>;
+			};
 		};
 	};
 
@@ -43,6 +73,11 @@
 			vbat_gpu2 {
 				trip = <&b_bcl_lvl2>;
 				cooling-device = <&msm_gpu 7 THERMAL_NO_LIMIT>;
+			};
+
+			vbat_cdsp2 {
+				trip = <&b_bcl_lvl2>;
+				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
 			};
 		};
 	};
@@ -58,6 +93,21 @@
 				trip = <&c_bcl_lvl0>;
 				cooling-device = <&msm_gpu 2 2>;
 			};
+
+			vph_cdsp0 {
+				trip = <&c_bcl_lvl0>;
+				cooling-device = <&cdsp_sw 2 2>;
+			};
+
+			vph_lte0 {
+				trip = <&c_bcl_lvl0>;
+				cooling-device = <&modem_lte_dsc 255 255>;
+			};
+
+			vph_nr0 {
+				trip = <&c_bcl_lvl0>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
 		};
 	};
 
@@ -72,6 +122,11 @@
 				trip = <&c_bcl_lvl1>;
 				cooling-device = <&msm_gpu 4 4>;
 			};
+
+			vph_cdsp1 {
+				trip = <&c_bcl_lvl1>;
+				cooling-device = <&cdsp_sw 4 4>;
+			};
 		};
 	};
 
@@ -80,6 +135,11 @@
 			vph_gpu2 {
 				trip = <&c_bcl_lvl2>;
 				cooling-device = <&msm_gpu 7 THERMAL_NO_LIMIT>;
+			};
+
+			vph_cdsp2 {
+				trip = <&c_bcl_lvl2>;
+				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
 			};
 		};
 	};
@@ -123,6 +183,79 @@
 			pm8350_apc1 {
 				trip = <&pm8350_trip0>;
 				cooling-device = <&APC1_pause 1 1>;
+			};
+		};
+	};
+
+	pm8350c_tz {
+		cooling-maps {
+			pm8350c_nsp {
+				trip = <&pm8350c_trip0>;
+				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
+			};
+
+			pm8350c_lte {
+				trip = <&pm8350c_trip0>;
+				cooling-device = <&modem_lte_dsc 255 255>;
+			};
+
+			pm8350c_nr {
+				trip = <&pm8350c_trip0>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+		};
+	};
+
+	xo-therm {
+		cooling-maps {
+			cpu4_freq_cdev {
+				trip = <&xo_config0>;
+				cooling-device = <&CPU4 15 THERMAL_NO_LIMIT>;
+			};
+
+			cpu7_freq_cdev {
+				trip = <&xo_config0>;
+				cooling-device = <&CPU7 15 THERMAL_NO_LIMIT>;
+			};
+
+			apc1_cdev {
+				trip = <&xo_config0>;
+				cooling-device = <&APC1_pause 1 1>;
+			};
+
+			cdsp_cdev {
+				trip = <&xo_config0>;
+				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
+			};
+
+			gpu_cdev {
+				trip = <&xo_config0>;
+				cooling-device = <&msm_gpu 7 THERMAL_NO_LIMIT>;
+			};
+
+			cpu5_hot_cdev {
+				trip = <&xo_config1>;
+				cooling-device = <&cpu5_hotplug 1 1>;
+			};
+
+			cpu6_hot_cdev {
+				trip = <&xo_config1>;
+				cooling-device = <&cpu6_hotplug 1 1>;
+			};
+
+			cpu7_hot_cdev {
+				trip = <&xo_config1>;
+				cooling-device = <&cpu7_hotplug 1 1>;
+			};
+
+			lte_cdev {
+				trip = <&xo_config1>;
+				cooling-device = <&modem_lte_dsc 255 255>;
+			};
+
+			nr_cdev {
+				trip = <&xo_config1>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
 			};
 		};
 	};

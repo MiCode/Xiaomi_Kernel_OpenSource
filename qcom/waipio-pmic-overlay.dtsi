@@ -436,6 +436,12 @@
 				hysteresis = <10000>;
 				type = "passive";
 			};
+
+			xo_config2: xo-config2 {
+				temperature = <90000>;
+				hysteresis = <10000>;
+				type = "critical";
+			};
 		};
 	};
 };
