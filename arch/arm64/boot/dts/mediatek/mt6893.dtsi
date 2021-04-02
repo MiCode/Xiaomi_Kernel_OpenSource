@@ -3769,7 +3769,7 @@
 		apu_iommu_data: apu_iommu_data {
 			compatible = "mediatek,apu_iommu_data";
 			dma-ranges = <0x3 0x0 0x3 0x0 0x1 0x0>;
-			iommus = <&iommu2 M4U_PORT_L21_APU_FAKE_DATA>;
+			iommus = <&iommu3 M4U_PORT_L21_APU_FAKE_DATA>;
 		};
 
 		apu_conn_clk: syscon@19020000 {
@@ -3779,12 +3779,12 @@
 		};
 
 		apusys_reviser@19021000 {
-			compatible = "mediatek, mt6873-reviser";
+			compatible = "mediatek, mt6893-reviser";
 			reg = <0 0x19021000 0 0x1000>,		/* apu_sctrl_reviser  */
 				  <0 0x1d800000 0 0x200000>,	/* VLM          */
 				  <0 0x1d000000 0 0x100000>,	/* TCM          */
 				  <0 0x19001000 0 0x1000>;		/* apusys int */
-			interrupts = <GIC_SPI 407 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 406 IRQ_TYPE_LEVEL_HIGH 0>;
 			default-dram = <0x4000000>;
 			boundary = <0x3>;
 			dma-ranges = <0x3 0x0 0x3 0x0 0x1 0x0>;
@@ -3903,22 +3903,22 @@
 		};
 
 		apusys_mnoc: apusys_mnoc {
-			compatible = "mediatek,mt6873-mnoc";
+			compatible = "mediatek,mt6893-mnoc";
 			reg = <0 0x1906e000 0 0xa000>,	/* mnoc reg  */
 				<0 0x19001000 0 0x1000>,	/* apusys int */
 				<0 0x19020000 0 0x1000>,	/* apu_conn_config */
 				<0 0x10001000 0 0x1000>,	/* slp prot 1 */
 				<0 0x10215000 0 0x1000>;	/* slp prot 2 */
-			interrupts = <GIC_SPI 407 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 406 IRQ_TYPE_LEVEL_HIGH 0>;
 			interconnects = <&dvfsrc MT6873_MASTER_VPUSYS
 							&dvfsrc MT6873_SLAVE_DDR_EMI>;
 			interconnect-names = "apu-bw";
 		};
 
 		apusys_devapc@19064000 {
-			compatible = "mediatek,mt6873-apusys_devapc";
+			compatible = "mediatek,mt6893-apusys_devapc";
 			reg = <0 0x19064000 0 0x1000>;
-			interrupts = <GIC_SPI 407 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 406 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
 		apusys_debug: apusys_debug {
