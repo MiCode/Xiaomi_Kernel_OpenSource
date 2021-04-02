@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "waipiop.dtsi"
+#include "waipio-qrd-2s.dtsi"
+#include "waipio-pm8010-spmi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. WaipioP QRD with PM8010";
+	compatible = "qcom,waipiop-qrd", "qcom,waipiop", "qcom,qrd";
+	qcom,board-id = <0x2000b 0>;
+};
