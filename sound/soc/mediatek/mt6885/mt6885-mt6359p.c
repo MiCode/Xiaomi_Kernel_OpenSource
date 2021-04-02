@@ -15,7 +15,7 @@
 #include "mt6885-afe-common.h"
 #include "mt6885-afe-clk.h"
 #include "mt6885-afe-gpio.h"
-#include "../../codecs/mt6359p.h"
+#include "../../codecs/mt6359.h"
 #include "../../codecs/mt6359p-accdet.h"
 
 /*
@@ -545,12 +545,12 @@ SND_SOC_DAILINK_DEFS(hostless_src_bargein,
 /* BE */
 SND_SOC_DAILINK_DEFS(adda,
 	DAILINK_COMP_ARRAY(COMP_CPU("ADDA")),
-	DAILINK_COMP_ARRAY(COMP_CODEC("mt6359p-sound",
+	DAILINK_COMP_ARRAY(COMP_CODEC(DEVICE_MT6359_NAME,
 				      "mt6359-snd-codec-aif1")),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(adda_ch34,
 	DAILINK_COMP_ARRAY(COMP_CPU("ADDA_CH34")),
-	DAILINK_COMP_ARRAY(COMP_CODEC("mt6359p-sound",
+	DAILINK_COMP_ARRAY(COMP_CODEC(DEVICE_MT6359_NAME,
 				      "mt6359-snd-codec-aif2")),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(ap_dmic,
@@ -629,6 +629,10 @@ SND_SOC_DAILINK_DEFS(tdm,
 	DAILINK_COMP_ARRAY(COMP_CPU("TDM")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(tdm_dptx,
+	DAILINK_COMP_ARRAY(COMP_CPU("TDM_DPTX")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 
 /* hostless */
 SND_SOC_DAILINK_DEFS(hostless_ul1,
@@ -668,7 +672,7 @@ SND_SOC_DAILINK_DEFS(btcvsd,
 #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
 SND_SOC_DAILINK_DEFS(vow,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_CODEC("mt6359p-sound",
+	DAILINK_COMP_ARRAY(COMP_CODEC(DEVICE_MT6359_NAME,
 				      "mt6359-snd-codec-vow")),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 #endif
@@ -1171,6 +1175,13 @@ static struct snd_soc_dai_link mt6885_mt6359p_dai_links[] = {
 		.dpcm_playback = 1,
 		.ignore_suspend = 1,
 		SND_SOC_DAILINK_REG(tdm),
+	},
+	{
+		.name = "TDM_DPTX",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.ignore_suspend = 1,
+		SND_SOC_DAILINK_REG(tdm_dptx),
 	},
 	/* dummy BE for ul memif to record from dl memif */
 	{

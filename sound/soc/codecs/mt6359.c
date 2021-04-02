@@ -18,11 +18,7 @@
 #include <sound/tlv.h>
 #include <sound/soc.h>
 
-#if IS_ENABLED(CONFIG_SND_SOC_MT6359P)
-#include "mt6359p.h"
-#elif IS_ENABLED(CONFIG_SND_SOC_MT6359)
 #include "mt6359.h"
-#endif
 #if IS_ENABLED(CONFIG_SND_SOC_MT6359P_ACCDET)
 #include "mt6359p-accdet.h"
 #endif
@@ -571,29 +567,22 @@ static const DECLARE_TLV_DB_SCALE(capture_tlv, 0, 600, 0);
 
 static const struct snd_kcontrol_new mt6359_snd_controls[] = {
 	/* dl pga gain */
-	SOC_SINGLE_EXT_TLV("HeadsetL Volume",
-			   MT6359_ZCD_CON2, 0, 0x1E, 0,
+	SOC_DOUBLE_EXT_TLV("Headset Volume",
+			   MT6359_ZCD_CON2, 0, 7, 0x1E, 0,
 			   snd_soc_get_volsw, mt6359_put_volsw,
 			   hp_playback_tlv),
-	SOC_SINGLE_EXT_TLV("HeadsetR Volume",
-			   MT6359_ZCD_CON2, 7, 0x1E, 0,
-			   snd_soc_get_volsw, mt6359_put_volsw,
-			   hp_playback_tlv),
-	SOC_SINGLE_EXT_TLV("LineoutL Volume",
-			   MT6359_ZCD_CON1, 0, 0x12, 0,
-			   snd_soc_get_volsw, mt6359_put_volsw, playback_tlv),
-	SOC_SINGLE_EXT_TLV("LineoutR Volume",
-			   MT6359_ZCD_CON1, 7, 0x12, 0,
+	SOC_DOUBLE_EXT_TLV("Lineout Volume",
+			   MT6359_ZCD_CON1, 0, 7, 0x12, 0,
 			   snd_soc_get_volsw, mt6359_put_volsw, playback_tlv),
 	SOC_SINGLE_EXT_TLV("Handset Volume",
 			   MT6359_ZCD_CON3, 0, 0x12, 0,
 			   snd_soc_get_volsw, mt6359_put_volsw, playback_tlv),
 
 	/* ul pga gain */
-	SOC_SINGLE_EXT_TLV("PGAL Volume",
+	SOC_SINGLE_EXT_TLV("PGA1 Volume",
 			   MT6359_AUDENC_ANA_CON0, RG_AUDPREAMPLGAIN_SFT, 4, 0,
 			   snd_soc_get_volsw, mt6359_put_volsw, capture_tlv),
-	SOC_SINGLE_EXT_TLV("PGAR Volume",
+	SOC_SINGLE_EXT_TLV("PGA2 Volume",
 			   MT6359_AUDENC_ANA_CON1, RG_AUDPREAMPRGAIN_SFT, 4, 0,
 			   snd_soc_get_volsw, mt6359_put_volsw, capture_tlv),
 	SOC_SINGLE_EXT_TLV("PGA3 Volume",
@@ -6173,7 +6162,7 @@ static int mt6359_parse_dt(struct mt6359_priv *priv)
 {
 	int ret, i;
 	const int mux_num = 3;
-	unsigned int mic_type_mux[mux_num];
+	unsigned int mic_type_mux[3];
 	struct device *dev = priv->dev;
 	struct device_node *np;
 

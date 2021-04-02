@@ -1163,120 +1163,6 @@ static int mt6885_adsp_mem_set(struct snd_kcontrol *kcontrol,
 }
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_ION)
-static int mt6885_mmap_dl_scene_get(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	struct mt6885_afe_private *afe_priv = afe->platform_priv;
-
-	ucontrol->value.integer.value[0] = afe_priv->mmap_playback_state;
-	return 0;
-}
-
-static int mt6885_mmap_dl_scene_set(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	struct mt6885_afe_private *afe_priv = afe->platform_priv;
-	int memif_num = MT6885_MMAP_DL_MEMIF;
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-	unsigned long phy_addr = 0;
-	void *vir_addr = NULL;
-
-	afe_priv->mmap_playback_state = ucontrol->value.integer.value[0];
-
-	if (afe_priv->mmap_playback_state == 1) {
-		mtk_get_mmap_dl_buffer(&phy_addr, &vir_addr);
-		if (phy_addr != 0x0 && vir_addr != NULL)
-			memif->use_mmap_share_mem = 1;
-	} else
-		memif->use_mmap_share_mem = 0;
-
-	dev_info(afe->dev, "%s(), state %d, mem %d\n", __func__,
-		 afe_priv->mmap_playback_state, memif->use_mmap_share_mem);
-	return 0;
-}
-
-static int mt6885_mmap_ul_scene_get(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	struct mt6885_afe_private *afe_priv = afe->platform_priv;
-
-	ucontrol->value.integer.value[0] = afe_priv->mmap_record_state;
-	return 0;
-}
-
-static int mt6885_mmap_ul_scene_set(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	struct mt6885_afe_private *afe_priv = afe->platform_priv;
-	int memif_num = MT6885_MMAP_UL_MEMIF;
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-	unsigned long phy_addr = 0;
-	void *vir_addr = NULL;
-
-	afe_priv->mmap_record_state = ucontrol->value.integer.value[0];
-
-	if (afe_priv->mmap_record_state == 1) {
-		mtk_get_mmap_ul_buffer(&phy_addr, &vir_addr);
-		if (phy_addr != 0x0 && vir_addr != NULL)
-			memif->use_mmap_share_mem = 2;
-	} else
-		memif->use_mmap_share_mem = 0;
-
-	dev_info(afe->dev, "%s(), state %d, mem %d\n", __func__,
-		 afe_priv->mmap_record_state, memif->use_mmap_share_mem);
-	return 0;
-}
-
-static int mt6885_mmap_ion_set(struct snd_kcontrol *kcontrol,
-			       struct snd_ctl_elem_value *ucontrol)
-{
-	mtk_get_ion_buffer();
-
-	return 0;
-}
-
-static int mt6885_dl_mmap_fd_get(struct snd_kcontrol *kcontrol,
-				 struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = MT6885_MMAP_DL_MEMIF;
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	ucontrol->value.integer.value[0] = (memif->use_mmap_share_mem == 1) ?
-					    mtk_get_mmap_dl_fd() : 0;
-
-	dev_info(afe->dev, "%s, fd %ld\n", __func__,
-		 ucontrol->value.integer.value[0]);
-	return 0;
-}
-
-static int mt6885_ul_mmap_fd_get(struct snd_kcontrol *kcontrol,
-				 struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = MT6885_MMAP_UL_MEMIF;
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	ucontrol->value.integer.value[0] = (memif->use_mmap_share_mem == 2) ?
-					    mtk_get_mmap_ul_fd() : 0;
-
-	dev_info(afe->dev, "%s, fd %ld\n", __func__,
-		 ucontrol->value.integer.value[0]);
-	return 0;
-}
-#endif
-
 static const struct snd_kcontrol_new mt6885_pcm_kcontrols[] = {
 	SOC_SINGLE_EXT("Audio IRQ1 CNT", SND_SOC_NOPM, 0, 0x3ffff, 0,
 		       mt6885_irq_cnt1_get, mt6885_irq_cnt1_set),
@@ -1347,21 +1233,6 @@ static const struct snd_kcontrol_new mt6885_pcm_kcontrols[] = {
 		       SND_SOC_NOPM, 0, 0x1, 0,
 		       mt6885_adsp_mem_get,
 		       mt6885_adsp_mem_set),
-#endif
-#if IS_ENABLED(CONFIG_MTK_ION)
-	SOC_SINGLE_EXT("mmap_play_scenario", SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6885_mmap_dl_scene_get, mt6885_mmap_dl_scene_set),
-	SOC_SINGLE_EXT("mmap_record_scenario", SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6885_mmap_ul_scene_get, mt6885_mmap_ul_scene_set),
-	SOC_SINGLE_EXT("aaudio_ion",
-		       SND_SOC_NOPM, 0, 0xffffffff, 0,
-		       NULL, mt6885_mmap_ion_set),
-	SOC_SINGLE_EXT("aaudio_dl_mmap_fd",
-		       SND_SOC_NOPM, 0, 0xffffffff, 0,
-		       mt6885_dl_mmap_fd_get, NULL),
-	SOC_SINGLE_EXT("aaudio_ul_mmap_fd",
-		       SND_SOC_NOPM, 0, 0xffffffff, 0,
-		       mt6885_ul_mmap_fd_get, NULL),
 #endif
 };
 
@@ -2473,8 +2344,8 @@ static const struct mtk_base_memif_data memif_data[MT6885_MEMIF_NUM] = {
 		.fs_maskbit = -1,
 		.mono_reg = -1,
 		.mono_shift = -1,
-		.enable_reg = -1,	/* control in tdm for sync start */
-		.enable_shift = -1,
+		.enable_reg = AFE_DAC_CON0,
+		.enable_shift = HDMI_OUT_ON_SFT,
 		.hd_reg = AFE_HDMI_OUT_CON0,
 		.hd_shift = HDMI_OUT_HD_MODE_SFT,
 		.agent_disable_reg = -1,

@@ -29,7 +29,7 @@
 #include <sound/jack.h>
 #include <linux/mfd/mt6397/core.h>
 #include "mt6359p-accdet.h"
-#include "mt6359p.h"
+#include "mt6359.h"
 /* grobal variable definitions */
 #define REGISTER_VAL(x)	(x - 1)
 #define HAS_CAP(_c, _x)	(((_c) & (_x)) == (_x))
