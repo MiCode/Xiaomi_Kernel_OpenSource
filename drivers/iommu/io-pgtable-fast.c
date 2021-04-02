@@ -406,6 +406,7 @@ av8l_fast_alloc_pgtable_data(struct io_pgtable_cfg *cfg)
 
 	data->iop.ops = (struct io_pgtable_ops) {
 		.map		= av8l_fast_map,
+		.map_sg		= av8l_fast_map_sg,
 		.unmap		= av8l_fast_unmap,
 		.iova_to_phys	= av8l_fast_iova_to_phys,
 	};
