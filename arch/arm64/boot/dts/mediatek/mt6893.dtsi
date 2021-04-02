@@ -3806,13 +3806,19 @@
 		edma0: edma0@19027000 {
 			compatible = "mtk,edma-sub-v20";
 			reg = <0x0 0x19027000 0x0 0x1000>;
+			interrupts = <GIC_SPI 415 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		edma1: edma1@19028000 {
+			compatible = "mtk,edma-sub-v20";
+			reg = <0x0 0x19028000 0x0 0x1000>;
 			interrupts = <GIC_SPI 416 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
 		edma: edma {
 			compatible = "mtk,edma";
-			sub_nr = <1>;
-			mediatek,edma-sub = <&edma0>;
+			sub_nr = <2>;
+			mediatek,edma-sub = <&edma0>, <&edma1>;
 		};
 
 		apusys_vcore_clk: syscon@19029000 {
