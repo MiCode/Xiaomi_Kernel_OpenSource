@@ -69,6 +69,18 @@ static inline void gpu_dvfs_status_reset_footprint(void)
 
 static int pm_callback_power_on_nolock(struct kbase_device *kbdev)
 {
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	if (gpufreq_bringup()) {
+		mtk_set_vgpu_power_on_flag(MTK_VGPU_POWER_ON);
+		return 1;
+	}
+
+	if (!gpufreq_power_ctrl_enable()) {
+		mtk_set_vgpu_power_on_flag(MTK_VGPU_POWER_ON);
+		ged_dvfs_gpu_clock_switch_notify(1);
+		return 1;
+	}
+#else
 	if (mt_gpufreq_bringup()) {
 		mtk_set_vgpu_power_on_flag(MTK_VGPU_POWER_ON);
 		return 1;
@@ -79,6 +91,7 @@ static int pm_callback_power_on_nolock(struct kbase_device *kbdev)
 		ged_dvfs_gpu_clock_switch_notify(1);
 		return 1;
 	}
+#endif
 
 	if (mtk_get_vgpu_power_on_flag() == MTK_VGPU_POWER_ON)
 		return 0;
@@ -93,11 +106,23 @@ static int pm_callback_power_on_nolock(struct kbase_device *kbdev)
 	}
 
 	/* on,off/ SWCG(BG3D)/ MTCMOS/ BUCK */
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	if (gpufreq_power_control(POWER_ON, CG_ON, MTCMOS_ON, BUCK_ON)
+		!= GPUFREQ_SUCCESS) {
+		mali_pr_info("@%s: fail to power on\n", __func__);
+		return 0;
+	}
+#else
 	mt_gpufreq_power_control(POWER_ON, CG_ON, MTCMOS_ON, BUCK_ON);
+#endif
 
 	gpu_dvfs_status_footprint(GPU_DVFS_STATUS_STEP_2);
 
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	gpufreq_set_timestamp();
+#else
 	mt_gpufreq_set_timestamp();
+#endif
 
 	/* set a flag to enable GPU DVFS */
 	mtk_set_vgpu_power_on_flag(MTK_VGPU_POWER_ON);
@@ -120,11 +145,19 @@ static int pm_callback_power_on_nolock(struct kbase_device *kbdev)
 
 static void pm_callback_power_off_nolock(struct kbase_device *kbdev)
 {
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	if (gpufreq_bringup())
+		return;
+
+	if (!gpufreq_power_ctrl_enable())
+		return;
+#else
 	if (mt_gpufreq_bringup())
 		return;
 
 	if (!mt_gpufreq_power_ctl_en())
 		return;
+#endif
 
 	if (mtk_get_vgpu_power_on_flag() == MTK_VGPU_POWER_OFF)
 		return;
@@ -150,12 +183,24 @@ static void pm_callback_power_off_nolock(struct kbase_device *kbdev)
 	gpu_dvfs_status_footprint(GPU_DVFS_STATUS_STEP_9);
 
 	/* check MFG bus if idle */
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	gpufreq_check_bus_idle();
+#else
 	mt_gpufreq_check_bus_idle();
+#endif
 
 	gpu_dvfs_status_footprint(GPU_DVFS_STATUS_STEP_A);
 
 	/* on,off/ SWCG(BG3D)/ MTCMOS/ BUCK */
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	if (gpufreq_power_control(POWER_OFF, CG_OFF, MTCMOS_OFF, BUCK_OFF)
+		!= GPUFREQ_SUCCESS) {
+		mali_pr_info("@%s: fail to power off\n", __func__);
+		return;
+	}
+#else
 	mt_gpufreq_power_control(POWER_OFF, CG_OFF, MTCMOS_OFF, BUCK_OFF);
+#endif
 
 	gpu_dvfs_status_footprint(GPU_DVFS_STATUS_STEP_B);
 }

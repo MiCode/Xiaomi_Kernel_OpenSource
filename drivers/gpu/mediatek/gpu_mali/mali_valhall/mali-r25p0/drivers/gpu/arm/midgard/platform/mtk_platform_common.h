@@ -10,7 +10,6 @@
 #include "mtk_mfg_counter.h"
 
 #ifdef ENABLE_COMMON_DVFS
-#include "mtk_gpufreq.h"
 #include <ged_dvfs.h>
 #ifdef GED_ENABLE_DVFS_LOADING_MODE
 extern void (*ged_dvfs_cal_gpu_utilization_ex_fp)(unsigned int *pui32Loading,

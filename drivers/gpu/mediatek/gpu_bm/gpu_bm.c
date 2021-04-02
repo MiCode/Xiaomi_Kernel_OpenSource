@@ -132,8 +132,13 @@ static void bw_v1_gpu_power_change_notify(int power_on)
 	unsigned int loading, idx, min_idx;
 
 	mtk_get_gpu_loading(&loading);
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	idx = gpufreq_get_cur_oppidx(TARGET_DEFAULT);
+	min_idx = gpufreq_get_min_oppidx(TARGET_DEFAULT);
+#else
 	idx = mt_gpufreq_get_cur_freq_index();
 	min_idx = mt_gpufreq_get_dvfs_table_num()-1;
+#endif
 
 	if (!power_on) {
 		ctx = gpu_info_buf->ctx;

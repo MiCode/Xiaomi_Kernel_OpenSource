@@ -767,13 +767,17 @@ static void ged_kpi_statistics_and_remove(struct GED_KPI_HEAD *psHead,
 		<< GED_KPI_GPU_FREQ_MAX_INFO_SHIFT);
 	psKPI->frame_attr = frame_attr;
 
-#ifdef MTK_GPUFREQ_V1
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	psKPI->cpu_gpu_info.gpu.gpu_power =
+		gpufreq_get_power_by_idx(TARGET_DEFAULT,
+		gpufreq_get_oppidx_by_freq(TARGET_DEFAULT, psKPI->gpu_freq*1000));
+#elif defined(MTK_GPUFREQ_V1)
 	psKPI->cpu_gpu_info.gpu.gpu_power =
 		mt_gpufreq_get_power_by_idx(
 		mt_gpufreq_get_opp_idx_by_freq(psKPI->gpu_freq*1000));
 #else
 	psKPI->cpu_gpu_info.gpu.gpu_power = 0;
-#endif /* MTK_GPUFREQ_V1 */
+#endif /* CONFIG_MTK_GPUFREQ_V2 */
 
 #ifdef GED_ENABLE_DVFS_LOADING_MODE
 	ged_get_gpu_utli_ex(&util_ex);
@@ -1588,12 +1592,21 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 
 				/* gpu info to KPI TAG*/
 				psKPI->t_gpu = psHead->t_gpu_latest;
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+				psKPI->gpu_freq =
+					gpufreq_get_cur_freq(TARGET_DEFAULT) / 1000;
+				psKPI->gpu_freq_max =
+					gpufreq_get_freq_by_idx(TARGET_DEFAULT,
+					gpufreq_get_cur_limit_idx(TARGET_DEFAULT, GPUPPM_CEILING))
+					/ 1000;
+#else
 				psKPI->gpu_freq =
 					mt_gpufreq_get_cur_freq() / 1000;
 				psKPI->gpu_freq_max =
 					mt_gpufreq_get_freq_by_idx(
 					mt_gpufreq_get_cur_ceiling_idx())
 					/ 1000;
+#endif
 
 				psHead->pre_TimeStamp2 =
 					psHead->last_TimeStamp2;
@@ -1611,7 +1624,12 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					- psHead->pre_TimeStamp2))
 					* psKPI->gpu_loading / 100U;
 #endif /* GED_ENABLE_TIMER_BASED_DVFS_MARGIN */
-#ifdef MTK_GPUFREQ_V1
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+				psKPI->cpu_gpu_info.gpu.limit_upper =
+					gpufreq_get_cur_limiter(TARGET_DEFAULT, GPUPPM_CEILING);
+				psKPI->cpu_gpu_info.gpu.limit_lower =
+					gpufreq_get_cur_limiter(TARGET_DEFAULT, GPUPPM_FLOOR);
+#elif defined(MTK_GPUFREQ_V1)
 				psKPI->cpu_gpu_info.gpu.limit_upper =
 					mt_gpufreq_get_limit_user(1);
 				psKPI->cpu_gpu_info.gpu.limit_lower =
@@ -1619,7 +1637,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 #else
 				psKPI->cpu_gpu_info.gpu.limit_upper = 0;
 				psKPI->cpu_gpu_info.gpu.limit_lower = 0;
-#endif /* MTK_GPUFREQ_V1 */
+#endif /* CONFIG_MTK_GPUFREQ_V2 */
 #ifdef GED_ENABLE_FB_DVFS
 				cur_3D_done = psKPI->ullTimeStamp2;
 				if (psTimeStamp->i32GPUloading) {

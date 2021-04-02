@@ -160,6 +160,15 @@ GED_ERROR ged_monitor_3D_fence_add(int fence_fd)
 		if (iCount > 1) {
 			unsigned int uiFreqLevelID;
 			if (mtk_get_bottom_gpu_freq(&uiFreqLevelID)) {
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+				if (uiFreqLevelID !=
+					gpufreq_get_min_oppidx(TARGET_DEFAULT)) {
+
+					if (ged_monitor_3D_fence_switch)
+						mtk_set_bottom_gpu_freq(
+						gpufreq_get_min_oppidx(TARGET_DEFAULT));
+				}
+#else
 				if (uiFreqLevelID !=
 					mt_gpufreq_get_dvfs_table_num() - 1) {
 
@@ -168,6 +177,7 @@ GED_ERROR ged_monitor_3D_fence_add(int fence_fd)
 						mt_gpufreq_get_dvfs_table_num()
 						- 1);
 				}
+#endif
 			}
 		}
 	}

@@ -102,8 +102,13 @@ static int proc_gpu_help_show(struct seq_file *m, void *v)
 	seq_puts(m, "	 cat /proc/mali/memory_usage\n");
 	seq_puts(m, "======================================================================\n");
 	seq_puts(m, "B.For Fix GPU Frequency:\n");
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	seq_puts(m, "	 echo 0 > /proc/gpufreqv2/fix_target_opp_index\n");
+	seq_puts(m, "	 echo -1 > /proc/gpufreqv2/fix_target_opp_index(re-enable GPU DVFS)\n");
+#else
 	seq_puts(m, "	 echo > (450000, 280000) /proc/gpufreq/gpufreq_opp_freq\n");
 	seq_puts(m, "	 echo 0 > /proc/gpufreq/gpufreq_opp_freq(re-enable GPU DVFS)\n");
+#endif
 	seq_puts(m, "C.For Turn On/Off CPU core number:\n");
 	seq_puts(m, "	 echo (1, 0) > /sys/devices/system/cpu/cpu1/online\n");
 	seq_puts(m, "	 echo (1, 0) > /sys/devices/system/cpu/cpu2/online\n");
@@ -181,7 +186,11 @@ static int proc_gpu_utilization_show(struct seq_file *m, void *v)
 	unsigned long gl, cl0, cl1;
 	unsigned int iCurrentFreq;
 
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	iCurrentFreq = gpufreq_get_cur_oppidx(TARGET_DEFAULT);
+#else
 	iCurrentFreq = mt_gpufreq_get_cur_freq_index();
+#endif
 
 	gl = kbasep_get_gl_utilization();
 	cl0 = kbasep_get_cl_js0_utilization();
@@ -214,7 +223,11 @@ static int proc_gpu_frequency_show(struct seq_file *m, void *v)
 #ifdef ENABLE_COMMON_DVFS
 	unsigned int iCurrentFreq;
 
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	iCurrentFreq = gpufreq_get_cur_oppidx(TARGET_DEFAULT);
+#else
 	iCurrentFreq = mt_gpufreq_get_cur_freq_index();
+#endif
 
 	seq_printf(m, "GPU Frequency Index: %u\n", iCurrentFreq);
 #else
@@ -477,7 +490,11 @@ int mtk_set_mt_gpufreq_target(int freq_id)
 	mutex_lock(&g_flag_lock);
 
 	if (mtk_get_vgpu_power_on_flag() == MTK_VGPU_POWER_ON)
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+		ret = gpufreq_commit(TARGET_DEFAULT, freq_id);
+#else
 		ret = mt_gpufreq_target(freq_id, KIR_POLICY);
+#endif
 
 	mutex_unlock(&g_flag_lock);
 

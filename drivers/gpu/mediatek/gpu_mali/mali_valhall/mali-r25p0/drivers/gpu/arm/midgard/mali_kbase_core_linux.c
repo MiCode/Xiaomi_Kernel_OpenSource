@@ -4416,12 +4416,16 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	/* make sure gpufreq driver is ready */
 	pr_info("%s start\n", __func__);
 
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	/* deprecated */
+#else
 	/* MTK */
 	/* make sure gpufreq driver is ready */
 	if (mt_gpufreq_not_ready()) {
 		pr_info("gpufreq driver is not ready: %d\n", -EPROBE_DEFER);
 		RETURN_ERROR(-EPROBE_DEFER);
 	}
+#endif
 
 	/********/
 

@@ -582,14 +582,23 @@ KBASE_EXPORT_TEST_API(kbase_get_real_power);
 unsigned long model_static_power(struct devfreq *devfreq,
 		unsigned long voltage_mv)
 {
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	return gpufreq_get_leakage_power(TARGET_DEFAULT, voltage_mv*100);
+#else
 	(void)(voltage_mv);
 	return mt_gpufreq_get_leakage_mw();
+#endif
 }
 
 unsigned long model_dynamic_power(struct devfreq *devfreq,
 		unsigned long freqHz,	unsigned long voltage_mv)
 {
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	return gpufreq_get_dynamic_power(TARGET_DEFAULT,
+		freqHz/1000, voltage_mv*100);
+#else
 	return mt_gpufreq_get_dyn_power(freqHz/1000, voltage_mv * 100);
+#endif
 }
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0)

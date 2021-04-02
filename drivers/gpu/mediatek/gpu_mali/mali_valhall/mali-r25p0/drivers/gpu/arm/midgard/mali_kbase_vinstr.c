@@ -40,6 +40,7 @@
 #include <linux/workqueue.h>
 
 #include <platform/mtk_mfg_counter.h>
+#include <mtk_gpufreq.h>
 #if IS_ENABLED(CONFIG_MTK_SWPM)
 #include <mtk_swpm_interface.h>
 #include <mtk_gpu_swpm_plat.h>
@@ -1266,8 +1267,13 @@ void MTK_update_gpu_swpm(void)
 	mtk_get_gpu_loading(&pm_gpu_loading);
 	swpm_mem_addr_request(GPU_SWPM_TYPE, &ptr);
 	gpu_ptr = (struct gpu_swpm_rec_data *)ptr;
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	gpu_ptr->gpu_counter[gfreq] = gpufreq_get_cur_freq(TARGET_DEFAULT);
+	gpu_ptr->gpu_counter[gvolt] = gpufreq_get_cur_volt(TARGET_DEFAULT);
+#else
 	gpu_ptr->gpu_counter[gfreq] = mt_gpufreq_get_cur_freq();
 	gpu_ptr->gpu_counter[gvolt] = mt_gpufreq_get_cur_volt();
+#endif
 	gpu_ptr->gpu_counter[gloading] = pm_gpu_loading;
 	exec_active = kernel_dump[6];
 	exec_instr_fma = kernel_dump[411];
@@ -1310,8 +1316,13 @@ void MTK_update_gpu_LTR(void)
 	struct mtk_gpu_perf gpu_perf_counter;
 	unsigned int stall_counter[4] = {0};
 	mtk_get_gpu_loading(&pm_gpu_loading);
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	gpu_perf_counter.counter[VINSTR_GPU_FREQ] = gpufreq_get_cur_freq(TARGET_DEFAULT);
+	gpu_perf_counter.counter[VINSTR_GPU_VOLT] = gpufreq_get_cur_volt(TARGET_DEFAULT);
+#else
 	gpu_perf_counter.counter[VINSTR_GPU_FREQ] = mt_gpufreq_get_cur_freq();
 	gpu_perf_counter.counter[VINSTR_GPU_VOLT] = mt_gpufreq_get_cur_volt();
+#endif
 	gpu_perf_counter.counter[VINSTR_GPU_LOADING] = pm_gpu_loading;
 #if defined(CONFIG_GPU_MT6853)
 	gpu_perf_counter.counter[VINSTR_GPU_ACTIVE] = kernel_dump[6];
