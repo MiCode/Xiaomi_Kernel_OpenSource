@@ -39,7 +39,7 @@
 static struct proc_dir_entry *entry;
 
 #ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
-static int printk_ctrl = 0;
+static int printk_ctrl;
 module_param_named(disable_uart, printk_ctrl, int, 0644);
 
 bool mt_get_uartlog_status(void)
@@ -67,6 +67,7 @@ void mt_disable_uart(void)
 		}
 	}
 }
+EXPORT_SYMBOL_GPL(mt_disable_uart);
 
 void mt_enable_uart(void)
 {
@@ -81,20 +82,21 @@ void mt_enable_uart(void)
 		}
 	}
 }
+EXPORT_SYMBOL_GPL(mt_enable_uart);
 
 #else
 void mt_disable_uart(void)
 {
-	return;
+
 }
+EXPORT_SYMBOL_GPL(mt_disable_uart);
 
 void mt_enable_uart(void)
 {
-	return;
+
 }
-#endif
-EXPORT_SYMBOL_GPL(mt_disable_uart);
 EXPORT_SYMBOL_GPL(mt_enable_uart);
+#endif
 
 
 #ifdef CONFIG_LOG_TOO_MUCH_WARNING
@@ -126,31 +128,29 @@ void mt_print_much_log(void)
 	pr_info("mt log total write %ld line in 10 second.\n", print_num);
 }
 
-void set_logtoomuch_enable()
+void set_logtoomuch_enable(void)
 {
 	logmuch_enable = true;
-	return;
 }
 
-void set_logtoomuch_disable()
+void set_logtoomuch_disable(void)
 {
 	logmuch_enable = false;
-	return;
 }
 
 void set_detect_count(int val)
 {
 	pr_info("set log_much detect value %d.\n", val);
 	detect_count = val;
-	return;
 }
+EXPORT_SYMBOL_GPL(set_detect_count);
 
 int get_detect_count(void)
 {
 	pr_info("get log_much detect value %d.\n", detect_count);
 	return detect_count;
 }
-
+EXPORT_SYMBOL_GPL(get_detect_count);
 
 static int logmuch_dump_thread(void *arg)
 {
@@ -193,10 +193,9 @@ static int logmuch_dump_thread(void *arg)
 		log_count = dumper.next_seq - last_seq;
 		period = now - old;
 		do_div(period, 1000000);
-		pr_info("log_much detect count %d, time %llu-%llu, %llu.\n", log_count, old, now, period);
 		if (period / 100 * detect_count < log_count * 10) {
 			pr_info("log_much detect.\n");
-			if (log_much == NULL) 
+			if (log_much == NULL)
 				break;
 			memset((char *)log_much, 0, log_much_len);
 			kmsg_dump_rewind(&dumper);
@@ -210,7 +209,7 @@ static int logmuch_dump_thread(void *arg)
 					DB_OPT_PRINTK_TOO_MUCH | DB_OPT_DUMMY_DUMP,
 					aee_str, "Need to shrink kernel log");
 			pr_info("log_much detect %d log.\n", len);
-			wait_event_interruptible_timeout(logmuch_thread_exit, 
+			wait_event_interruptible_timeout(logmuch_thread_exit,
 				logmuch_exit == 1, 60 * CONFIG_LOG_TOO_MUCH_DETECT_GAP * HZ);
 		}
 	}
@@ -243,15 +242,18 @@ static const struct proc_ops log_much_ops = {
 #else
 void set_detect_count(int val)
 {
-	return;
+
 }
+EXPORT_SYMBOL_GPL(set_detect_count);
+
 int get_detect_count(void)
 {
 	return 0;
 }
-#endif
-EXPORT_SYMBOL_GPL(set_detect_count);
 EXPORT_SYMBOL_GPL(get_detect_count);
+#endif
+
+
 
 static int mt_printk_ctrl_show(struct seq_file *m, void *v)
 {
@@ -359,7 +361,6 @@ static int __init mt_printk_ctrl_init(void)
 		return -ENOMEM;
 
 #ifdef CONFIG_LOG_TOO_MUCH_WARNING
-//	register_trace_android_vh_printk_store(mtk_printk_store, NULL);
 	logmuch_entry = proc_create("log_much", 0444, NULL, &log_much_ops);
 	if (!logmuch_entry) {
 		pr_notice("printk: failed to create proc log_much entry\n");
@@ -387,12 +388,12 @@ static void __exit mt_printk_ctrl_exit(void)
 	if (log_much) {
 		kfree(log_much);
 		log_much = NULL;
+		logmuch_enable = false;
+		logmuch_exit = 1;
+		wake_up_interruptible(&logmuch_thread_exit);
+		while (logmuch_exit == 1)
+			ssleep(5);
 	}
-	logmuch_enable = false;
-	logmuch_exit = 1;
-	wake_up_interruptible(&logmuch_thread_exit);
-	while(logmuch_exit == 1)
-		ssleep(5);
 #endif
 pr_notice("log_much exit.");
 
