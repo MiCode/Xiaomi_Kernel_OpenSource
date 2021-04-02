@@ -42,6 +42,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
+#include <mt-plat/mtk_printk_ctrl.h>
 
 #ifdef CONFIG_MTK_IOMMU_V2
 /* #include <mach/mt_iommu.h> */ /* [GKI Modify]- */
