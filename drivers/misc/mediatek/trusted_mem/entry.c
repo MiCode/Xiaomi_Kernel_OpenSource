@@ -266,7 +266,7 @@ static int tmem_core_alloc_chunk_internal(enum TRUSTED_MEM_TYPE mem_type,
 		return ret;
 	}
 
-	pr_debug("[%d] allocated handle is 0x%x\n", mem_type, *sec_handle);
+	pr_info("[%d] alloc handle = 0x%x, size = 0x%x\n", mem_type, *sec_handle, size);
 	regmgr_region_ref_inc(mem_device->reg_mgr, mem_device->mem_type);
 	return TMEM_OK;
 }
@@ -302,7 +302,7 @@ int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
 		return TMEM_OPERATION_NOT_REGISTERED;
 	}
 
-	pr_debug("[%d] free handle is 0x%x\n", mem_type, sec_handle);
+	pr_info("[%d] free handle = 0x%x\n", mem_type, sec_handle);
 
 	if (unlikely(!is_regmgr_region_on(mem_device->reg_mgr))) {
 		pr_err("[%d] regmgr region is still not online!\n", mem_type);
@@ -335,7 +335,7 @@ bool tmem_core_is_regmgr_region_on(enum TRUSTED_MEM_TYPE mem_type)
 	is_phy_region_on = is_regmgr_region_on(mem_device->reg_mgr);
 	is_dev_busy = get_device_busy_status(mem_device);
 
-	pr_debug("device:%d is %s(%d) (phys state:%d, active mem:%d)\n",
+	pr_info("device:%d is %s(%d) (phys state:%d, active mem:%d)\n",
 		 mem_type, is_dev_busy ? "busy" : "not busy", is_dev_busy,
 		 is_phy_region_on, mem_device->reg_mgr->active_mem_type);
 	return is_dev_busy;

@@ -3,7 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#define pr_fmt(fmt) "memory-ssmr: " fmt
+#define pr_fmt(fmt) "[TMEM] ssmr: " fmt
 
 #include <linux/types.h>
 #include <linux/of.h>
@@ -16,21 +16,12 @@
 #include <linux/seq_file.h>
 #include <linux/mutex.h>
 #include <linux/highmem.h>
-
 #include <linux/kthread.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/proc_fs.h>
 #include <linux/uaccess.h>
 #include <linux/memblock.h>
-#include <asm/cacheflush.h>
-#ifdef CONFIG_ARM64
-#include <asm/tlbflush.h>
-#include <asm/pgtable.h>
-#include <asm/memory.h>
-#endif
-#include "ssmr_internal.h"
-
 #include <linux/module.h>
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
@@ -38,6 +29,9 @@
 #include <linux/sizes.h>
 #include <linux/dma-direct.h>
 #include <linux/kallsyms.h>
+#include <asm/cacheflush.h>
+
+#include "ssmr_internal.h"
 
 #define SSMR_FEATURES_DT_UNAME "memory-ssmr-features"
 
@@ -71,8 +65,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "svp",
 		.cmd_online = "svp=on",
 		.cmd_offline = "svp=off",
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) ||\
-	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) ||\
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
 	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 		.enable = "on",
 #else
@@ -85,7 +79,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "prot-sharedmem",
 		.cmd_online = "prot_sharedmem=on",
 		.cmd_offline = "prot_sharedmem=off",
-#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
 		.enable = "on",
 #else
 		.enable = "off",
@@ -98,7 +92,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "wfd",
 		.cmd_online = "wfd=on",
 		.cmd_offline = "wfd=off",
-#ifdef CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		.enable = "on",
 #else
 		.enable = "off",
@@ -110,7 +104,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "ta-elf",
 		.cmd_online = "ta_elf=on",
 		.cmd_offline = "ta_elf=off",
-#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_HAPP_MEM_SUPPORT)
 		.enable = "on",
 #else
 		.enable = "off",
@@ -123,7 +117,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "ta-stack-heap",
 		.cmd_online = "ta_stack_heap=on",
 		.cmd_offline = "ta_stack_heap=off",
-#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_HAPP_MEM_SUPPORT)
 		.enable = "on",
 #else
 		.enable = "off",
@@ -136,7 +130,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "sdsp-tee-sharedmem",
 		.cmd_online = "sdsp_tee_sharedmem=on",
 		.cmd_offline = "sdsp_tee_sharedmem=off",
-#ifdef CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)
 		.enable = "on",
 #else
 		.enable = "off",
@@ -149,7 +143,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "sdsp-firmware",
 		.cmd_online = "sdsp_firmware=on",
 		.cmd_offline = "sdsp_firmware=off",
-#ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_SDSP_MEM_SUPPORT)
 		.enable = "on",
 #else
 		.enable = "off",
@@ -161,7 +155,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "2d_fr",
 		.cmd_online = "2d_fr=on",
 		.cmd_offline = "2d_fr=off",
-#ifdef CONFIG_MTK_CAM_SECURITY_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		.enable = "on",
 #else
 		.enable = "off",
@@ -187,9 +181,9 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 
 struct SSMR_HEAP_INFO _ssmr_heap_info[__MAX_NR_SSMR_FEATURES];
 
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)                              \
-	|| IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT)                            \
-	|| IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 static int __init dedicate_svp_memory(struct reserved_mem *rmem)
 {
 	struct SSMR_Feature *feature;
@@ -406,6 +400,7 @@ static int get_reserved_cma_memory(struct device *dev)
 static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 				 unsigned long *size, u64 upper_limit)
 {
+	int offline_retry = 0;
 	struct device_node *np;
 	size_t alloc_size;
 	struct page *page;
@@ -442,24 +437,40 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 
 	feature->alloc_size = alloc_size;
 
-	pr_info("%s[%d]: upper_limit: %llx, feature{ alloc_size : 0x%lx",
+	pr_debug("%s[%d]: upper_limit: %llx, feature{ alloc_size : 0x%lx",
 		__func__, __LINE__, upper_limit, alloc_size);
 
 	/*
 	 * setup init device with rmem
 	 */
 	of_reserved_mem_device_init_by_idx(ssmr_dev, ssmr_dev->of_node, 0);
-	feature->virt_addr = dma_alloc_attrs(ssmr_dev, alloc_size,
+
+	do {
+		feature->virt_addr = dma_alloc_attrs(ssmr_dev, alloc_size,
 					     &feature->phy_addr, GFP_KERNEL, 0);
 
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
+		if (!feature->phy_addr) {
+			offline_retry++;
+			msleep(100);
+		}
+#else
+		if (feature->phy_addr == U32_MAX) {
+			feature->phy_addr = 0;
+			offline_retry++;
+			msleep(200);
+		}
+#endif
+
+	} while (!feature->phy_addr && offline_retry < 20);
+
 	if (feature->phy_addr) {
-		pr_info("%s: pa=%pad is allocated\n", __func__,
-			&feature->phy_addr);
-		pr_info("%s: virt 0x%lx\n", __func__,
-			(unsigned long)phys_to_virt(
-				dma_to_phys(ssmr_dev, feature->phy_addr)));
+		pr_info("%s: pa=%pad is allocated, retry = %d\n", __func__,
+				&feature->phy_addr, offline_retry);
+		pr_debug("%s: virt 0x%lx\n", __func__,
+				(unsigned long)phys_to_virt(dma_to_phys(ssmr_dev, feature->phy_addr)));
 	} else {
-		pr_info("%s: ssmr offline failed\n", __func__);
+		pr_info("%s: ssmr offline failed, retry = %d\n", __func__, offline_retry);
 		return -1;
 	}
 
@@ -478,10 +489,10 @@ static int _ssmr_offline_internal(phys_addr_t *pa, unsigned long *size,
 	struct SSMR_Feature *feature = NULL;
 
 	feature = &_ssmr_feats[feat];
-	pr_info("%s %d: >>>>>> feat: %s, state: %s, upper_limit:0x%llx\n",
+	pr_info("%s %d: START: feature: %s, state: %s\n",
 		__func__, __LINE__,
 		feat < __MAX_NR_SSMR_FEATURES ? feature->feat_name : "NULL",
-		ssmr_state_text[feature->state], upper_limit);
+		ssmr_state_text[feature->state]);
 
 	if (feature->state != SSMR_STATE_ON) {
 		retval = -EBUSY;
@@ -497,14 +508,13 @@ static int _ssmr_offline_internal(phys_addr_t *pa, unsigned long *size,
 		goto out;
 	}
 	feature->state = SSMR_STATE_OFF;
-	pr_info("%s %d: [reserve done]: pa: %pad, size: 0x%lx\n", __func__,
+	pr_info("%s %d: reserve done: pa: %pad, size: 0x%lx\n", __func__,
 		__LINE__, &feature->phy_addr, feature->alloc_size);
 
 out:
-	pr_info("%s %d: <<<<< request feat: %s, state: %s, retval: %d\n",
+	pr_info("%s %d: END: feature: %s, state: %s, retval: %d\n",
 		__func__, __LINE__,
-		feat < __MAX_NR_SSMR_FEATURES ? _ssmr_feats[feat].feat_name
-					      : "NULL",
+		feat < __MAX_NR_SSMR_FEATURES ? _ssmr_feats[feat].feat_name : "NULL",
 		ssmr_state_text[feature->state], retval);
 
 	if (retval < 0)
@@ -555,7 +565,8 @@ static int _ssmr_online_internal(unsigned int feat)
 	struct SSMR_Feature *feature = NULL;
 
 	feature = &_ssmr_feats[feat];
-	pr_info("%s %d: >>>>>> enter state: %s\n", __func__, __LINE__,
+	pr_info("%s %d: START: feature: %s, state: %s\n", __func__, __LINE__,
+		feat < __MAX_NR_SSMR_FEATURES ? _ssmr_feats[feat].feat_name : "NULL",
 		ssmr_state_text[feature->state]);
 
 	if (feature->state != SSMR_STATE_OFF) {
@@ -568,10 +579,9 @@ static int _ssmr_online_internal(unsigned int feat)
 	feature->state = SSMR_STATE_ON;
 
 out:
-	pr_info("%s %d: <<<<<< request feature: %s, ", __func__, __LINE__,
-		feat < __MAX_NR_SSMR_FEATURES ? _ssmr_feats[feat].feat_name
-					      : "NULL");
-	pr_info("leave state: %s, retval: %d\n",
+	pr_info("%s %d: END: feature: %s, state: %s, retval: %d",
+		__func__, __LINE__,
+		feat < __MAX_NR_SSMR_FEATURES ? _ssmr_feats[feat].feat_name : "NULL",
 		ssmr_state_text[feature->state], retval);
 
 	return retval;
@@ -657,7 +667,7 @@ static ssize_t ssmr_store(struct kobject *kobj, struct kobj_attribute *attr,
 			}
 		}
 	} else {
-		pr_err("%s[%d]: get invalid cmd\n", __func__, __LINE__);
+		pr_info("%s[%d]: get invalid cmd\n", __func__, __LINE__);
 	}
 
 	return count;
@@ -685,11 +695,11 @@ static int memory_ssmr_sysfs_init(void)
 	if (ssmr_kobject) {
 		error = sysfs_create_file(ssmr_kobject, &ssmr_attribute.attr);
 		if (error) {
-			pr_err("SSMR: sysfs create failed\n");
+			pr_info("SSMR: sysfs create failed\n");
 			return -ENOMEM;
 		}
 	} else {
-		pr_err("SSMR: Cannot find module %s object\n", KBUILD_MODNAME);
+		pr_info("SSMR: Cannot find module %s object\n", KBUILD_MODNAME);
 		return -EINVAL;
 	}
 
@@ -712,9 +722,9 @@ int ssmr_probe(struct platform_device *pdev)
 	/* ssmr region init */
 	finalize_scenario_size();
 
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)                              \
-	|| IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT)                            \
-	|| IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) ||\
+	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) ||\
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 	/* check svp statis reserved status */
 	get_svp_memory_info();
 #endif
@@ -725,7 +735,7 @@ int ssmr_probe(struct platform_device *pdev)
 			&_ssmr_feats[i], _ssmr_feats[i].proc_entry_fops);
 	}
 
-/* ssmr sys file init */
+	/* ssmr sys file init */
 #if IS_ENABLED(CONFIG_SYSFS)
 	memory_ssmr_sysfs_init();
 #endif

@@ -25,7 +25,7 @@ trusted_mem-y += ssmr_mgr.o
 trusted_mem-y += peer_mgr.o
 trusted_mem-y += proc.o
 trusted_mem-y += alloc_api.o
-trusted_mem-y += ssmr/memory_ssmr_module.o
+trusted_mem-y += ssmr/memory_ssmr.o
 
 ifeq ($(TCORE_PROFILING_SUPPORT),y)
 trusted_mem-y += profiler.o
