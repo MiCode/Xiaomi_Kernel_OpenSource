@@ -11,8 +11,10 @@
 # GNU General Public License for more details.
 #
 
-ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6885")
+ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6893")
   obj-y += isp_6s/
+  subdir-ccflags-y += -DCAMERA_ISP_MT6893
+  subdir-ccflags-y += -DDISABLE_CAMSV_TOP0=0
 endif
 
 ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6873")

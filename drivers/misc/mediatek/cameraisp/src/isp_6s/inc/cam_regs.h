@@ -108,6 +108,48 @@ enum{
 	/* _MLSCI_R1_EN_  = (1L<<4), */
 } ENUM_DMA2_EN;
 
+
+/* debug_data port sequence */
+enum{
+	BPCI_R1_DEBUG   = 0,
+	LSCI_R1_DEBUG,
+	RAWI_R2_DEBUG,
+	IMGO_R1_DEBUG,
+	RRZO_R1_DEBUG,
+	AAO_R1_DEBUG,
+	AFO_R1_DEBUG,
+	LCESO_R1_DEBUG,
+	UFEO_R1_DEBUG,
+	PDO_R1_DEBUG,
+	rsv_0_DEBUG,
+	TSFSO_R1_DEBUG,
+	PDI_R1_DEBUG,
+	LMVO_R1_DEBUG,
+	FLKO_R1_DEBUG,
+	RSSO_R1_DEBUG,
+	UFGO_R1_DEBUG,
+	RAWI_R3_DEBUG,
+	CQI_R1_DEBUG,
+	CQI_R2_DEBUG,
+	BPCI_R2_DEBUG,
+	BPCI_R3_DEBUG,
+	rsv_1_DEBUG,
+	UFDI_R2_DEBUG,
+	rsv_2_DEBUG,
+	rsv_3_DEBUG,
+	LTMSO_R1_DEBUG,
+	LCESHO_R1_DEBUG,
+	rsv_4_DEBUG,
+	RSSO_R2_DEBUG,
+	CRZO_R1_DEBUG,
+	CRZBO_R1_DEBUG,
+	CRZO_R2_DEBUG,
+	rsv_5_DEBUG,
+	YUVO_R1_DEBUG,
+	YUVBO_R1_DEBUG,
+	YUVCO_R1_DEBUG,
+} DEBUG_DATA;
+
 /**
  *    CAMSV_DMA_SOFT_RSTSTAT
  */
@@ -335,6 +377,8 @@ enum{
 #define CAM_REG_CTL_CD_DONE_SEL(module)         (isp_devs[module].regs + 0x0058)
 #define CAM_REG_CTL_TWIN_STATUS(module)         (isp_devs[module].regs + 0x00A8)
 #define CAM_REG_CTL_MISC(module)                (isp_devs[module].regs + 0x0054)
+#define CAM_REG_CTL_DONE_SEL(module)            (isp_devs[module].regs + 0x0058)
+#define CAM_REG_CTL_DONE_SEL2(module)           (isp_devs[module].regs + 0x005C)
 #define CAM_REG_CTL_SW_PASS1_DONE(module)       (isp_devs[module].regs + 0x0080)
 #define CAM_REG_CTL_SW_SUB_CTL(module)          (isp_devs[module].regs + 0x0084)
 
@@ -458,6 +502,7 @@ enum{
 #define CAM_REG_PDO_BASE_ADDR(module)          (isp_devs[module].regs + 0x4260)
 #define CAM_REG_FLKO_BASE_ADDR(module)         (isp_devs[module].regs + 0x4580)
 #define CAM_REG_LTMSO_BASE_ADDR(module)        (isp_devs[module].regs + 0x45F0)
+#define CAM_REG_TSFSO_BASE_ADDR(module)        (isp_devs[module].regs + 0x43C0)
 
 #define CAM_REG_IMGO_DRS(module)                (isp_devs[module].regs + 0x4828)
 #define CAM_REG_IMGO_CON(module)                (isp_devs[module].regs + 0x4838)
@@ -617,6 +662,11 @@ enum{
 #define CAM_REG_BPCI_R2_CON3(module)            (isp_devs[module].regs + 0x4320)
 #define CAM_REG_BPCI_R2_CON4(module)            (isp_devs[module].regs + 0x4328)
 
+#define CAM_REG_BPCI_R3_DRS(module)             (isp_devs[module].regs + 0x4338)
+#define CAM_REG_BPCI_R3_CON(module)             (isp_devs[module].regs + 0x4348)
+#define CAM_REG_BPCI_R3_CON2(module)            (isp_devs[module].regs + 0x434C)
+#define CAM_REG_BPCI_R3_CON3(module)            (isp_devs[module].regs + 0x4350)
+
 #define CAM_REG_LSCI_DRS(module)                (isp_devs[module].regs + 0x4398)
 #define CAM_REG_LSCI_CON(module)                (isp_devs[module].regs + 0x43A8)
 #define CAM_REG_LSCI_CON2(module)               (isp_devs[module].regs + 0x43AC)
@@ -644,6 +694,7 @@ enum{
 #define CAM_REG_BPCI_R3_ERR_STAT(module)        (isp_devs[module].regs + 0x4034)
 #define CAM_REG_UFDI_R2_ERR_STAT(module)        (isp_devs[module].regs + 0x4038)
 #define CAM_REG_LSCI_ERR_STAT(module)           (isp_devs[module].regs + 0x403C)
+#define CAM_REG_RAWI_R3_ERR_STAT(module)        (isp_devs[module].regs + 0x5020)
 
 #define CAM_REG_TSFSO_ERR_STAT(module)          (isp_devs[module].regs + 0x4040)
 #define CAM_REG_AAHO_ERR_STAT(module)           (isp_devs[module].regs + 0x4044)
@@ -692,6 +743,9 @@ enum{
 #define CAM_REG_AAO_YSIZE(module)               (isp_devs[module].regs + 0x44B0)
 #define CAM_REG_AAHO_XSIZE(module)              (isp_devs[module].regs + 0x443C)
 #define CAM_REG_AAHO_YSIZE(module)              (isp_devs[module].regs + 0x4440)
+
+#define CAM_REG_FLKO_FH_FH_SPARE_9(module)      (isp_devs[module].regs + 0x45CC)
+#define CAM_REG_FLKO_FH_FH_SPARE_10(module)     (isp_devs[module].regs + 0x45D0)
 
 
 /* MRAW */

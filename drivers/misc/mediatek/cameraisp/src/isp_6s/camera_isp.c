@@ -34,12 +34,12 @@
 #include <linux/vmalloc.h>
 #include <linux/dma-mapping.h>
 
-//#include "mach/pseudo_m4u.h"
-//#include <clk-mt6873-pg.h>
 
-/* MET: define to enable MET*/
+/* MET: define to enable MET */
+/* GKI: not support MET yet */
 // #define ISP_MET_READY
 
+/* GKI: no need to adjust upper bound of kernel log count due to no supported related API. */
 #define EP_NO_K_LOG_ADJUST
 
 /* Device link is not ready. So, we should use smi api to get smi. */
@@ -50,16 +50,14 @@
 
 /* #define EP_STAGE */
 #ifdef EP_STAGE
-//#define EP_MARK_SMI /* disable SMI related for EP */
+#define EP_MARK_SMI /* disable SMI related for EP */
 //#define DUMMY_INT   /* For early if load dont need to use camera */
 
 /* Clkmgr is not ready in early porting, en/disable clock by hardcode */
-#ifdef CONFIG_FPGA_EARLY_PORTING
 #define EP_NO_CLKMGR
-#endif
 
 /* EP no need to adjust upper bound of kernel log count */
-#define EP_NO_K_LOG_ADJUST
+//#define EP_NO_K_LOG_ADJUST
 #endif
 #define ENABLE_TIMESYNC_HANDLE /* able/disable TimeSync related for EP */
 
@@ -101,8 +99,6 @@
 #include <archcounter_timesync.h>
 #endif
 
-#define ENABLE_IRQ_LOG_PRINTER
-
 /*  */
 #ifndef MTRUE
 #define MTRUE 1
@@ -119,12 +115,7 @@
 /*#define ENABLE_WAITIRQ_LOG*/ /* wait irq debug logs */
 /*#define ENABLE_STT_IRQ_LOG*/ /*show STT irq debug logs */
 
-#ifdef CAMERA_ISP_MT6873
-#define Lafi_WAM_CQ_ERR (0)
-#elif defined(CAMERA_ISP_MT6853)
 #define Lafi_WAM_CQ_ERR (1)
-#endif
-
 /* Queue timestamp for deque. Update when non-drop frame @SOF */
 #define TIMESTAMP_QUEUE_EN (0)
 #if (TIMESTAMP_QUEUE_EN == 1)
@@ -373,22 +364,29 @@ struct ISP_CLK_STRUCT {
 	struct clk *ISP_CAM_CAMSV0;
 	struct clk *ISP_CAM_CAMSV1;
 	struct clk *ISP_CAM_CAMSV2;
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 	struct clk *ISP_CAM_CAMSV3;
 #endif
 	struct clk *CAMSYS_SENINF_CGPDN;
+
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6853)
 	struct clk *CAMSYS_CAM2MM_GALS_CGPDN;
+#endif
+
 	struct clk *CAMSYS_TOP_MUX_CCU;
 	struct clk *CAMSYS_CCU0_CGPDN;
 	struct clk *CAMSYS_LARB13_CGPDN;
 	struct clk *CAMSYS_LARB14_CGPDN;
+#ifdef CAMERA_ISP_MT6893
+	struct clk *CAMSYS_LARB15_CGPDN;
+#endif
 	struct clk *ISP_CAM_LARB16_RAWA;
 	struct clk *ISP_CAM_SUBSYS_RAWA;
 	struct clk *ISP_CAM_TG_RAWA;
 	struct clk *ISP_CAM_LARB17_RAWB;
 	struct clk *ISP_CAM_SUBSYS_RAWB;
 	struct clk *ISP_CAM_TG_RAWB;
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 	struct clk *ISP_CAM_LARB18_RAWC;
 	struct clk *ISP_CAM_SUBSYS_RAWC;
 	struct clk *ISP_CAM_TG_RAWC;
@@ -422,6 +420,9 @@ static struct isp_device isp_devs[ISP_DEV_NODE_NUM];
 static unsigned int m_CurrentPPB;
 static struct isp_sec_dapc_reg lock_reg;
 static unsigned int sec_on;
+static int irq3a_wait_cnt = 1;
+static int irq3a_print_vf_off[ISP_IRQ_TYPE_AMOUNT] = {-1};
+static unsigned int cq_recovery[ISP_IRQ_TYPE_AMOUNT];
 
 #ifdef CONFIG_PM_WAKELOCKS
 struct wakeup_source *isp_wake_lock;
@@ -479,6 +480,10 @@ static int32_t ISP_PopBufTimestamp(unsigned int module, unsigned int dma_id,
 
 static int32_t ISP_WaitTimestampReady(unsigned int module, unsigned int dma_id);
 #endif
+#if ((TIMESTAMP_QUEUE_EN == 1) || (Lafi_WAM_CQ_ERR == 1))
+static void ISP_GetDmaPortsStatus(enum ISP_DEV_NODE_ENUM reg_module,
+			unsigned int *DmaPortsStats);
+#endif
 
 /******************************************************************************
  *
@@ -498,51 +503,8 @@ static atomic_t G_u4DevNodeCt;
 
 int pr_detect_count;
 
-/*save ion fd*/
-// #define ENABLE_KEEP_ION_HANDLE /* able/disable ION related for EP */
-#define ENABLE_AOSP_ION /* able/disable AOSP ION related for EP */
-
-#ifdef ENABLE_AOSP_ION
-#include <linux/seq_file.h>
-#include <linux/dma-buf.h>
-static struct mutex aosp_ion_mutex;
-
-struct ION_BUFFER {
-	/* ION case only */
-	struct dma_buf        *dmaBuf;
-	struct dma_buf_attachment *attach;
-	struct sg_table *sgt;
-	dma_addr_t dmaAddr;
-};
-
-/* A list to store the ION_BUFFER which mapped the dmaAddr(PA) by the ioctl,
- * "ISP_ION_MAP_PA". When "ISP_ION_UNMAP_PA", it could be traversed to unmap
- * the proper ION_BUFFER.
- */
-struct ION_BUFFER_LIST {
-	struct list_head list;
-	struct dma_buf        *dmaBuf;
-	struct dma_buf_attachment *attach;
-	struct sg_table *sgt;
-	dma_addr_t dmaAddr; /* physical addr */
-	unsigned long long va;
-	int memID; /* ion fd */
-	enum ISP_DEV_NODE_ENUM devNode;
-	enum ISP_WRDMA_ENUM dmaPort;
-	unsigned int size;
-	unsigned int refCnt;
-	char username[64]; /* userspace user name */
-};
-static struct ION_BUFFER_LIST g_ion_buf_list;
-
-struct T_ION_TBL {
-	enum ISP_DEV_NODE_ENUM node;
-	int *pIonCt;
-	int *pIonFd;
-	struct ION_BUFFER **pIonBuf;
-	spinlock_t *pLock;
-};
-#endif
+/* use to prevent CQ recovery when in-complete frame occurs*/
+static unsigned int pre_magic_num;
 
 /******************************************************************************
  *
@@ -595,8 +557,15 @@ struct ISP_IRQ_ERR_WAN_CNT_STRUCT {
 };
 
 static int FirstUnusedIrqUserKey = 1;
+#define USERKEY_USERNAME_STR_LEN 128
+
+struct UserKeyInfo {
+	/* name for the user that register a userKey */
+	char userName[USERKEY_USERNAME_STR_LEN];
+	int userKey; /* the user key for that user */
+};
 /* array for recording the user name for a specific user key */
-static struct ISP_REGISTER_USERKEY_STRUCT IrqUserKey_UserInfo[IRQ_USER_NUM_MAX];
+static struct UserKeyInfo IrqUserKey_UserInfo[IRQ_USER_NUM_MAX];
 
 struct ISP_IRQ_INFO_STRUCT {
 	/* Add an extra index for status type in mt6797 -> signal or dma */
@@ -671,12 +640,10 @@ static struct ISP_RAW_INT_STATUS g_ISPIntStatus_SMI[ISP_IRQ_TYPE_AMOUNT];
 
 /* ISP_CAM_A_IDX-ISP_CAM_C_IDX, each has 25 CQ thread. */
 static unsigned int g_cqBaseAddr[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][25] = {{0} };
+static unsigned int g_cq0NextBA[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][1] = {{0} };
 #if Lafi_WAM_CQ_ERR
-#define MAX_RECOVER_CNT 3
-//#define TG_ERR_RECOVER
 static unsigned int g_cqDoneStatus[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1] = {0};
 static union FBC_CTRL_2 g_fbc_ctrl2[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][_cam_max_];
-static int g_tgErrRecoverCnt[ISP_IRQ_TYPE_AMOUNT] = {0};
 #endif
 static unsigned int g_DmaErr_CAM[ISP_IRQ_TYPE_AMOUNT][_cam_max_] = {{0} };
 
@@ -749,7 +716,7 @@ enum RAW_IDX {
 	CAM_C,
 	CAM_MAX,
 };
-#define P1DONE_STR_LEN (112)
+#define P1DONE_STR_LEN (256)
 struct RAW_LOG {
 	char module;
 	char _str[P1DONE_STR_LEN];
@@ -810,10 +777,12 @@ static bool g_is_dumping[ISP_DEV_NODE_NUM] = {0};
 	\
 	avaLen = str_leng - 1 - gSvLog[irq]._cnt[ppb][logT];\
 	if (avaLen > 1) {\
-		snprintf((char *)(pDes), avaLen, "[%d.%06d]" fmt,\
+		if (snprintf((char *)(pDes), avaLen, "[%d.%06d]" fmt,\
 			gSvLog[irq]._lastIrqTime.sec,\
 			gSvLog[irq]._lastIrqTime.usec,\
-			##__VA_ARGS__);   \
+			##__VA_ARGS__) < 0) {\
+			LOG_NOTICE("[Error] %s: snprintf failed", __func__);\
+		} \
 		if ('\0' != gSvLog[irq]._str[ppb][logT][str_leng - 1]) {\
 			LOG_NOTICE("log str over flow(%d)", irq);\
 		} \
@@ -879,7 +848,11 @@ static bool g_is_dumping[ISP_DEV_NODE_NUM] = {0};
 				_str[ppb][logT][pSrc->_cnt[ppb][logT]]);\
 			\
 			ptr2 = &(pSrc->_cnt[ppb][logT]);\
-			snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__);\
+			if (snprintf((char *)(pDes), avaLen,\
+				fmt, ##__VA_ARGS__) < 0) {\
+				LOG_NOTICE("[Error] %s: snprintf failed",\
+					    __func__);\
+			} \
 			while (*ptr++ != '\0') {\
 				(*ptr2)++;\
 			} \
@@ -887,13 +860,13 @@ static bool g_is_dumping[ISP_DEV_NODE_NUM] = {0};
 	} \
 } while (0)
 
-#ifdef ENABLE_IRQ_LOG_PRINTER
+#if 1
 #define IRQ_LOG_PRINTER(irq, ppb_in, logT_in) do {\
 		struct SV_LOG_STR *pSrc = &gSvLog[irq];\
 		char *ptr;\
 		unsigned int i;\
-		int ppb = 0;\
-		int logT = 0;\
+		unsigned int ppb = 0;\
+		unsigned int logT = 0;\
 		if (ppb_in > 1) {\
 			ppb = 1;\
 		} else {\
@@ -1061,7 +1034,7 @@ void __iomem *CAMX_REG_TG_SEN_MODE(int reg_module)
 
 /* if isp has been suspend, frame cnt needs to add previous value*/
 /* CAM_REG_TG_INTER_ST 0x3b3c, CAMSV_REG_TG_INTER_ST 0x016C */
-unsigned int ISP_RD32_TG_CAMX_FRM_CNT(int IrqType, int reg_module)
+unsigned int ISP_RD32_TG_CAMX_FRM_CNT(unsigned int IrqType, int reg_module)
 {
 	unsigned int _regVal;
 
@@ -1397,13 +1370,14 @@ static void ISP_RecordCQAddr(enum ISP_DEV_NODE_ENUM regModule)
 {
 	unsigned int i = 0, tmp_module = 0, index = 0;
 	union CAMCTL_TWIN_STATUS_ twinStatus;
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 	unsigned int reg_module_array[3];
 #elif defined(CAMERA_ISP_MT6853)
 	unsigned int reg_module_array[2];
 #endif
 	unsigned int reg_module_count = 0;
 	unsigned int reg_value = 0;
+	unsigned int DmaEnStatus[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][_cam_max_];
 
 	reg_module_array[0] = regModule;
 	twinStatus.Raw = ISP_RD32(CAM_REG_CTL_TWIN_STATUS(regModule));
@@ -1427,7 +1401,7 @@ static void ISP_RecordCQAddr(enum ISP_DEV_NODE_ENUM regModule)
 				case CAM_B:
 				reg_module_array[1] = ISP_CAM_B_IDX;
 				break;
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 				case CAM_C:
 				reg_module_array[1] = ISP_CAM_C_IDX;
 				break;
@@ -1444,7 +1418,7 @@ static void ISP_RecordCQAddr(enum ISP_DEV_NODE_ENUM regModule)
 				case CAM_B:
 				reg_module_array[2] = ISP_CAM_B_IDX;
 				break;
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 				case CAM_C:
 				reg_module_array[2] = ISP_CAM_C_IDX;
 				break;
@@ -1538,186 +1512,184 @@ static void ISP_RecordCQAddr(enum ISP_DEV_NODE_ENUM regModule)
 			g_cqBaseAddr[index][24] =
 				ISP_RD32(CAM_REG_CQ_THR24_BASEADDR(tmp_module));
 	}
+
+	/* record current FBC value */
+	for (i = 0; i < reg_module_count; i++) {
+		tmp_module = reg_module_array[i];
+		index = tmp_module - ISP_CAM_A_IDX;
+		if (index > (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
+			LOG_NOTICE(
+				"index is invalid! recover fail");
+				return;
+		}
+		ISP_GetDmaPortsStatus(tmp_module,
+			&DmaEnStatus[index][0]);
+		//read inner register
+		tmp_module = reg_module_array[i] - ISP_CAMSYS_RAWC_CONFIG_IDX;
+		if (DmaEnStatus[index][_aao_])
+			g_fbc_ctrl2[index][_aao_].Raw =
+				ISP_RD32(CAM_REG_FBC_AAO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_aao_].Raw = 0;
+
+		if (DmaEnStatus[index][_aaho_])
+			g_fbc_ctrl2[index][_aaho_].Raw =
+				ISP_RD32(CAM_REG_FBC_AAHO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_aaho_].Raw = 0;
+
+		if (DmaEnStatus[index][_afo_])
+			g_fbc_ctrl2[index][_afo_].Raw =
+				ISP_RD32(CAM_REG_FBC_AFO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_afo_].Raw = 0;
+
+		if (DmaEnStatus[index][_flko_])
+			g_fbc_ctrl2[index][_flko_].Raw =
+				ISP_RD32(CAM_REG_FBC_FLKO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_flko_].Raw = 0;
+
+		if (DmaEnStatus[index][_pdo_])
+			g_fbc_ctrl2[index][_pdo_].Raw =
+				ISP_RD32(CAM_REG_FBC_PDO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_pdo_].Raw = 0;
+
+		if (DmaEnStatus[index][_imgo_])
+			g_fbc_ctrl2[index][_imgo_].Raw =
+				ISP_RD32(CAM_REG_FBC_IMGO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_imgo_].Raw = 0;
+
+		if (DmaEnStatus[index][_rrzo_])
+			g_fbc_ctrl2[index][_rrzo_].Raw =
+				ISP_RD32(CAM_REG_FBC_RRZO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_rrzo_].Raw = 0;
+
+		if (DmaEnStatus[index][_ufeo_])
+			g_fbc_ctrl2[index][_ufeo_].Raw =
+				ISP_RD32(CAM_REG_FBC_UFEO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_ufeo_].Raw = 0;
+
+		if (DmaEnStatus[index][_ufgo_])
+			g_fbc_ctrl2[index][_ufgo_].Raw =
+				ISP_RD32(CAM_REG_FBC_UFGO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_ufgo_].Raw = 0;
+
+		if (DmaEnStatus[index][_rsso_])
+			g_fbc_ctrl2[index][_rsso_].Raw =
+				ISP_RD32(CAM_REG_FBC_RSSO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_rsso_].Raw = 0;
+
+		if (DmaEnStatus[index][_lmvo_])
+			g_fbc_ctrl2[index][_lmvo_].Raw =
+				ISP_RD32(CAM_REG_FBC_LMVO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_lmvo_].Raw = 0;
+
+		if (DmaEnStatus[index][_lcso_])
+			g_fbc_ctrl2[index][_lcso_].Raw =
+				ISP_RD32(CAM_REG_FBC_LCESO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_lcso_].Raw = 0;
+
+		if (DmaEnStatus[index][_lcesho_])
+			g_fbc_ctrl2[index][_lcesho_].Raw =
+				ISP_RD32(CAM_REG_FBC_LCESHO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_lcesho_].Raw = 0;
+
+		if (DmaEnStatus[index][_ltmso_])
+			g_fbc_ctrl2[index][_ltmso_].Raw =
+				ISP_RD32(CAM_REG_FBC_LTMSO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_ltmso_].Raw = 0;
+
+		if (DmaEnStatus[index][_tsfso_])
+			g_fbc_ctrl2[index][_tsfso_].Raw =
+				ISP_RD32(CAM_REG_FBC_TSFSO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_tsfso_].Raw = 0;
+
+		if (DmaEnStatus[index][_yuvo_])
+			g_fbc_ctrl2[index][_yuvo_].Raw =
+				ISP_RD32(CAM_REG_FBC_YUVO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_yuvo_].Raw = 0;
+
+		if (DmaEnStatus[index][_yuvbo_])
+			g_fbc_ctrl2[index][_yuvbo_].Raw =
+				ISP_RD32(CAM_REG_FBC_YUVBO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_yuvbo_].Raw = 0;
+
+		if (DmaEnStatus[index][_yuvco_])
+			g_fbc_ctrl2[index][_yuvco_].Raw =
+				ISP_RD32(CAM_REG_FBC_YUVCO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_yuvco_].Raw = 0;
+
+		if (DmaEnStatus[index][_crzo_])
+			g_fbc_ctrl2[index][_crzo_].Raw =
+				ISP_RD32(CAM_REG_FBC_CRZO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_crzo_].Raw = 0;
+
+		if (DmaEnStatus[index][_crzbo_])
+			g_fbc_ctrl2[index][_crzbo_].Raw =
+				ISP_RD32(CAM_REG_FBC_CRZBO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_crzbo_].Raw = 0;
+
+		if (DmaEnStatus[index][_crzo_r2_])
+			g_fbc_ctrl2[index][_crzo_r2_].Raw =
+				ISP_RD32(CAM_REG_FBC_CRZO_R2_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_crzo_r2_].Raw = 0;
+
+		if (DmaEnStatus[index][_rsso_r2_])
+			g_fbc_ctrl2[index][_rsso_r2_].Raw =
+				ISP_RD32(CAM_REG_FBC_RSSO_R2_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_rsso_r2_].Raw = 0;
+	}
 }
 #endif
 /*******************************************************************************
  *
  ******************************************************************************/
-#define Rdy_ReqDump
-static void ISP_DumpDmaDbgPort(enum ISP_DEV_NODE_ENUM module,
-		enum _isp_dma_enum_ dma_port)
+static void ISP_DumpDebugData(enum ISP_IRQ_TYPE_ENUM module, unsigned int debug_idx)
 {
-	unsigned int checksum = 0;
-	unsigned int pix_cnt_tmp = 0;
-	unsigned int pix_cnt = 0;
-	unsigned int data_cnt = 0;
-	unsigned int addr_dbg_sel_1 = 0x0000000B;
-	unsigned int addr_dbg_sel_2 = 0x0000010B;
-	unsigned int addr_dbg_sel_3 = 0x0000020B;
-	unsigned int addr_dbg_sel_4 = 0x0000030B;
-	unsigned int addr_dbg_sel_5 = 0;
-	unsigned int addr_dbg_sel_6 = 0;
-	unsigned int off_set = 0;
-	unsigned int smi_dbg_data = 0;
-	unsigned int fifo_case_1 = 0, fifo_case_3 = 0;
+	unsigned int checksum, data_cnt, lpix_cnt, lpix_cnt_tmp;
+	unsigned int smi_dbg_data_local, smi_dbg_data_case0;
+	unsigned int smi_dbg_data_local_be, smi_dbg_data_case1;
+	unsigned int fifo_dbg_data_case0, fifo_dbg_data_case1;
+	unsigned int fifo_dbg_data_case2, fifo_dbg_data_case3;
+	unsigned int debug_sel = 0, wdma_smi = 0x300, wdma_fifo = 0x0;
 
-	ISP_WR32(CAM_REG_DBG_SET(module), 0x2);
-
-	switch (dma_port) {
-	case _imgo_:
-		off_set = 0xC00;
-		addr_dbg_sel_5 = 0x00000403;
-		addr_dbg_sel_6 = 0x00000303;
-		break;
-	case _rrzo_:
-		off_set = 0x1000;
-		addr_dbg_sel_5 = 0x00000404;
-		addr_dbg_sel_6 = 0x00000304;
-		break;
-	case _yuvo_:
-		off_set = 0x8800;
-		addr_dbg_sel_5 = 0x00000424;
-		addr_dbg_sel_6 = 0x00000324;
-		break;
-	case _yuvbo_:
-		off_set = 0x8C00;
-		addr_dbg_sel_5 = 0x00000425;
-		addr_dbg_sel_6 = 0x00000325;
-		break;
-	case _tsfso_:
-		off_set = 0x2C00;
-		addr_dbg_sel_5 = 0x0000040D;
-		addr_dbg_sel_6 = 0x0000020D;
-		break;
-	case _flko_:
-		off_set = 0x3800;
-		addr_dbg_sel_5 = 0x00000410;
-		addr_dbg_sel_6 = 0x00000310;
-		break;
-	case _lcso_:
-		off_set = 0x1C00;
-		addr_dbg_sel_5 = 0x00000407;
-		addr_dbg_sel_6 = 0x00000307;
-		break;
-	case _lcesho_:
-		off_set = 0x6C00;
-		addr_dbg_sel_5 = 0x0000041D;
-		addr_dbg_sel_6 = 0x0000031D;
-		break;
-	case _lmvo_:
-		off_set = 0x3400;
-		addr_dbg_sel_5 = 0x0000040F;
-		addr_dbg_sel_6 = 0x0000030F;
-		break;
-	case _rsso_:
-		off_set = 0x3C00;
-		addr_dbg_sel_5 = 0x00000411;
-		addr_dbg_sel_6 = 0x00000311;
-		break;
-	case _crzo_:
-		off_set = 0x8000;
-		addr_dbg_sel_5 = 0x00000420;
-		addr_dbg_sel_6 = 0x00000320;
-		break;
-	case _ltmso_:
-		off_set = 0x6800;
-		addr_dbg_sel_5 = 0x0000041C;
-		addr_dbg_sel_6 = 0x0000031C;
-		break;
-	case _aao_:
-		off_set = 0x1400;
-		addr_dbg_sel_5 = 0x00000405;
-		addr_dbg_sel_6 = 0x00000305;
-		break;
-	case _afo_:
-		off_set = 0x1800;
-		addr_dbg_sel_5 = 0x00000406;
-		addr_dbg_sel_6 = 0x00000306;
-		break;
-	default:
-		break;
-	}
-	//checksum debug
-	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(module), addr_dbg_sel_1 + off_set);
-	checksum = ISP_RD32(CAM_REG_DBG_PORT(module));
-	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(module), addr_dbg_sel_2 + off_set);
-	pix_cnt_tmp = ISP_RD32(CAM_REG_DBG_PORT(module));
-	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(module), addr_dbg_sel_3 + off_set);
-	pix_cnt = ISP_RD32(CAM_REG_DBG_PORT(module));
-	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(module), addr_dbg_sel_4 + off_set);
-	data_cnt = ISP_RD32(CAM_REG_DBG_PORT(module));
-
-	/* smi debug */
-	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(module), addr_dbg_sel_5);
-	/* case 0 */
-	smi_dbg_data = ISP_RD32(CAM_REG_DBG_PORT(module));
-
-	/* fifo debug */
-	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(module), addr_dbg_sel_6 + 0x10000);
-	fifo_case_1 = ISP_RD32(CAM_REG_DBG_PORT(module));
-
-	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(module), addr_dbg_sel_6 + 0x30000);
-	fifo_case_3 = ISP_RD32(CAM_REG_DBG_PORT(module));
-
-	IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR,
-			"mod:%d dma:%d|0x%x_0x%x_0x%x_0x%x_0x%x_0x%x_0x%x\n",
-			module, dma_port, checksum,
-			pix_cnt_tmp, pix_cnt, data_cnt,
-			smi_dbg_data, fifo_case_1, fifo_case_3);
-}
-
-#define DMA_ERR_STR_LEN (512)
-#define update_dma_err_str(dma_err_str, _dma_, DMA_STR)	do { \
-	if (dmaerr[_dma_] != 0xffff0000) { \
-		if ((size_remain <= 0) || (c_num >= DMA_ERR_STR_LEN)) { \
-			LOG_NOTICE("dma_err_str buf size is not enough\n"); \
-		} else {\
-			int tmp = 0; \
-			tmp = snprintf(dma_err_str + c_num, size_remain, DMA_STR, dmaerr[_dma_]); \
-			if (tmp < 0) \
-				LOG_NOTICE("snprintf failed\n"); \
-			else { \
-				c_num += tmp; \
-				size_remain -= c_num; \
-			} \
-		} \
-	} \
-} while (0)
-
-static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
-{
-#ifdef Rdy_ReqDump
-#define ISP_MODULE_GROUPS 7
-	unsigned int moduleReqStatus[ISP_MODULE_GROUPS];
-	unsigned int moduleRdyStatus[ISP_MODULE_GROUPS];
-	unsigned int i;
-#endif
-	unsigned int dmaerr[_cam_max_];
 	char cam[10] = {'\0'};
-	enum ISP_DEV_NODE_ENUM regModule; /* for read/write register */
-	enum ISP_DEV_NODE_ENUM inner_regModule;
-	unsigned int dma_en = 0, dma2_en = 0;
-	unsigned int int3_en = 0, int4_en = 0;
-	unsigned int Irq3StatusX = 0, Irq4StatusX = 0;
-	char dmao_err_str[DMA_ERR_STR_LEN];
-	int c_num = 0;
-	int size_remain = DMA_ERR_STR_LEN;
-	char dmai_err_str[DMA_ERR_STR_LEN];
+	enum ISP_DEV_NODE_ENUM innerRegModule; /* for read/write register */
+	enum ISP_DEV_NODE_ENUM outerRegModule; /* for read/write register */
 
 	switch (module) {
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
-		regModule = ISP_CAM_A_IDX;
-		inner_regModule = ISP_CAM_A_INNER_IDX;
+		innerRegModule = ISP_CAM_A_INNER_IDX;
+		outerRegModule = ISP_CAM_A_IDX;
 		strncpy(cam, "CAM_A", sizeof("CAM_A"));
 		break;
 	case ISP_IRQ_TYPE_INT_CAM_B_ST:
-		regModule = ISP_CAM_B_IDX;
-		inner_regModule = ISP_CAM_B_INNER_IDX;
+		innerRegModule = ISP_CAM_B_INNER_IDX;
+		outerRegModule = ISP_CAM_B_IDX;
 		strncpy(cam, "CAM_B", sizeof("CAM_B"));
 		break;
 	case ISP_IRQ_TYPE_INT_CAM_C_ST:
-		regModule = ISP_CAM_C_IDX;
-		inner_regModule = ISP_CAM_C_INNER_IDX;
+		innerRegModule = ISP_CAM_C_INNER_IDX;
+		outerRegModule = ISP_CAM_C_IDX;
 		strncpy(cam, "CAM_C", sizeof("CAM_C"));
 		break;
 	default:
@@ -1725,194 +1697,387 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 		return;
 	}
 
+	ISP_WR32(CAM_REG_DBG_SET(innerRegModule), 0x2);
+	switch (debug_idx) {
+	case BPCI_R1_DEBUG:
+	case LSCI_R1_DEBUG:
+	case RAWI_R2_DEBUG:
+	case RAWI_R3_DEBUG:
+	case CQI_R1_DEBUG:
+	case CQI_R2_DEBUG:
+	case BPCI_R2_DEBUG:
+	case BPCI_R3_DEBUG:
+	case UFDI_R2_DEBUG:
+		wdma_smi = 0x0;
+		wdma_fifo = 0x0;
+		break;
+	default:
+		wdma_smi = 0x300;
+		wdma_fifo = 0x100;
+	}
+
+	debug_sel = 0x400 * debug_idx + 0xB;
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(innerRegModule), debug_sel);
+	checksum = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(innerRegModule), (debug_sel + 0x100));
+	lpix_cnt_tmp = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(innerRegModule), (debug_sel + 0x200));
+	lpix_cnt = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(innerRegModule), (debug_sel + 0x300));
+	data_cnt = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
+
+	debug_sel = 0x00000100 + debug_idx + wdma_smi;
+
+	if (debug_idx > PDO_R1_DEBUG)
+		debug_sel = debug_sel + 4;
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(innerRegModule), debug_sel + 0x80000);
+	smi_dbg_data_local = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(innerRegModule), debug_sel + 0x90000);
+	smi_dbg_data_local_be = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(innerRegModule), debug_sel);
+	smi_dbg_data_case0 = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(innerRegModule), debug_sel + 0x10000);
+	smi_dbg_data_case1 = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
+
+	debug_sel = 0x00000200 + debug_idx + wdma_fifo;
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(innerRegModule), debug_sel);
+	fifo_dbg_data_case0 = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(innerRegModule), debug_sel + 0x10000);
+	fifo_dbg_data_case1 = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(innerRegModule), debug_sel + 0x20000);
+	fifo_dbg_data_case2 = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(innerRegModule), debug_sel + 0x30000);
+	fifo_dbg_data_case3 = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
+
+	IRQ_LOG_KEEPER(
+		module, m_CurrentPPB, _LOG_INF,
+		"debug port = %d checksum=0x%x,lpix_cnt_tmp=0x%x,lpix_cnt=0x%x,data_cnt=0x%x,smi_dbg_data_local=0x%x,smi_dbg_data_local_be=0x%x,smi_dbg_data_case0=0x%x,smi_dbg_data_case1=0x%x,fifo case0=0x%x,case1=0x%x,case2=0x%x,case3=0x%x\n",
+		debug_idx, checksum, lpix_cnt_tmp, lpix_cnt, data_cnt,
+		smi_dbg_data_local, smi_dbg_data_local_be,
+		smi_dbg_data_case0, smi_dbg_data_case0,
+		fifo_dbg_data_case0, fifo_dbg_data_case1,
+		fifo_dbg_data_case2, fifo_dbg_data_case3);
+
+	/* Reset SNAPSHOT_SEL to dma_error for RAWI debug */
+	ISP_WR32(CAM_REG_DBG_SET(innerRegModule), 0x00040000);
+}
+
+void dumpAllRegs(enum ISP_DEV_NODE_ENUM module)
+{
+	unsigned int i = 0;
+	unsigned int log_ba = 0;
+
+	if (g_is_dumping[module])
+		return;
+
+	switch (module) {
+	case ISP_CAM_A_INNER_IDX:
+		log_ba = CAM_A_BASE_HW;
+		break;
+	case ISP_CAM_B_INNER_IDX:
+		log_ba = CAM_B_BASE_HW;
+		break;
+	case ISP_CAM_C_INNER_IDX:
+		log_ba = CAM_C_BASE_HW;
+		break;
+	default:
+		break;
+	}
+
+	g_is_dumping[module] = MTRUE;
+	LOG_INF("----%s(module:%d)----\n", __func__, module);
+
+	for (i = 0 ; i < ISP_REG_RANGE; i += 0x0020) {
+		LOG_INF(STR_REG,
+			log_ba + i,
+			ISP_RD32(isp_devs[module].regs + i),
+			ISP_RD32(isp_devs[module].regs + i + 0x0004),
+			ISP_RD32(isp_devs[module].regs + i + 0x0008),
+			ISP_RD32(isp_devs[module].regs + i + 0x000C),
+			ISP_RD32(isp_devs[module].regs + i + 0x0010),
+			ISP_RD32(isp_devs[module].regs + i + 0x0014),
+			ISP_RD32(isp_devs[module].regs + i + 0x0018),
+			ISP_RD32(isp_devs[module].regs + i + 0x001C));
+	}
+	g_is_dumping[module] = MFALSE;
+}
+
+int STT_FBC_Reset(unsigned int reg_module)
+{
+	unsigned int DmaEnStatus[_cam_max_];
+	union FBC_CTRL_2 fbc_ctrl2[_cam_max_ + 1];
+
+	ISP_GetDmaPortsStatus(reg_module, &DmaEnStatus[0]);
+	LOG_INF("STT recover start  reg_module:%d\n", reg_module);
+	if (DmaEnStatus[_aao_]) {
+		fbc_ctrl2[_aao_].Raw = ISP_RD32(CAM_REG_FBC_AAO_CTL2(reg_module));
+		ISP_WR32(CAM_REG_FBC_AAO_CTL1(reg_module),
+			(ISP_RD32(CAM_REG_FBC_AAO_CTL1(reg_module))|0x100));
+		ISP_WR32(CAM_REG_FBC_AAO_CTL1(reg_module),
+			(ISP_RD32(CAM_REG_FBC_AAO_CTL1(reg_module)) & (~(0x100))));
+		ISP_WR32(CAM_REG_FBC_AAO_CTL2(reg_module), fbc_ctrl2[_aao_].Raw);
+	}
+
+	if (DmaEnStatus[_flko_]) {
+		fbc_ctrl2[_flko_].Raw = ISP_RD32(CAM_REG_FBC_FLKO_CTL2(reg_module));
+		ISP_WR32(CAM_REG_FBC_FLKO_CTL1(reg_module),
+			(ISP_RD32(CAM_REG_FBC_FLKO_CTL1(reg_module))|0x100));
+		ISP_WR32(CAM_REG_FBC_FLKO_CTL1(reg_module),
+			(ISP_RD32(CAM_REG_FBC_FLKO_CTL1(reg_module)) & (~(0x100))));
+		ISP_WR32(CAM_REG_FBC_FLKO_CTL2(reg_module), fbc_ctrl2[_flko_].Raw);
+	}
+
+	if (DmaEnStatus[_aaho_]) {
+		fbc_ctrl2[_aaho_].Raw = ISP_RD32(CAM_REG_FBC_AAHO_CTL2(reg_module));
+		ISP_WR32(CAM_REG_FBC_AAHO_CTL1(reg_module),
+			(ISP_RD32(CAM_REG_FBC_AAHO_CTL1(reg_module))|0x100));
+		ISP_WR32(CAM_REG_FBC_AAHO_CTL1(reg_module),
+			(ISP_RD32(CAM_REG_FBC_AAHO_CTL1(reg_module)) & (~(0x100))));
+		ISP_WR32(CAM_REG_FBC_AAHO_CTL2(reg_module), fbc_ctrl2[_aaho_].Raw);
+	}
+
+	if (DmaEnStatus[_afo_]) {
+		fbc_ctrl2[_afo_].Raw = ISP_RD32(CAM_REG_FBC_AFO_CTL2(reg_module));
+		ISP_WR32(CAM_REG_FBC_AFO_CTL1(reg_module),
+			(ISP_RD32(CAM_REG_FBC_AFO_CTL1(reg_module))|0x100));
+		ISP_WR32(CAM_REG_FBC_AFO_CTL1(reg_module),
+			(ISP_RD32(CAM_REG_FBC_AFO_CTL1(reg_module)) & (~(0x100))));
+		ISP_WR32(CAM_REG_FBC_AFO_CTL2(reg_module), fbc_ctrl2[_afo_].Raw);
+	}
+
+	if (DmaEnStatus[_pdo_]) {
+		fbc_ctrl2[_pdo_].Raw = ISP_RD32(CAM_REG_FBC_PDO_CTL2(reg_module));
+		ISP_WR32(CAM_REG_FBC_PDO_CTL1(reg_module),
+			(ISP_RD32(CAM_REG_FBC_PDO_CTL1(reg_module))|0x100));
+		ISP_WR32(CAM_REG_FBC_PDO_CTL1(reg_module),
+			(ISP_RD32(CAM_REG_FBC_PDO_CTL1(reg_module)) & (~(0x100))));
+		ISP_WR32(CAM_REG_FBC_PDO_CTL2(reg_module), fbc_ctrl2[_pdo_].Raw);
+	}
+
+	if (DmaEnStatus[_tsfso_]) {
+		fbc_ctrl2[_tsfso_].Raw = ISP_RD32(CAM_REG_FBC_TSFSO_CTL2(reg_module));
+		ISP_WR32(CAM_REG_FBC_TSFSO_CTL1(reg_module),
+			(ISP_RD32(CAM_REG_FBC_TSFSO_CTL1(reg_module))|0x100));
+		ISP_WR32(CAM_REG_FBC_TSFSO_CTL1(reg_module),
+			(ISP_RD32(CAM_REG_FBC_TSFSO_CTL1(reg_module)) & (~(0x100))));
+		ISP_WR32(CAM_REG_FBC_TSFSO_CTL2(reg_module), fbc_ctrl2[_tsfso_].Raw);
+	}
+
+	if (DmaEnStatus[_ltmso_]) {
+		fbc_ctrl2[_ltmso_].Raw = ISP_RD32(CAM_REG_FBC_LTMSO_CTL2(reg_module));
+		ISP_WR32(CAM_REG_FBC_LTMSO_CTL1(reg_module),
+			(ISP_RD32(CAM_REG_FBC_LTMSO_CTL1(reg_module))|0x100));
+		ISP_WR32(CAM_REG_FBC_LTMSO_CTL1(reg_module),
+			(ISP_RD32(CAM_REG_FBC_LTMSO_CTL1(reg_module)) & (~(0x100))));
+		ISP_WR32(CAM_REG_FBC_LTMSO_CTL2(reg_module), fbc_ctrl2[_ltmso_].Raw);
+	}
+	LOG_INF("STT recover done  reg_module:%d\n", reg_module);
+	return 0;
+}
+
+#define Rdy_ReqDump
+static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module, unsigned int ErrStatus)
+{
+#ifdef Rdy_ReqDump
+#define ISP_MODULE_GROUPS 7
+	unsigned int moduleReqStatus[ISP_MODULE_GROUPS];
+	unsigned int moduleRdyStatus[ISP_MODULE_GROUPS];
+	unsigned int i;
+#endif
+	unsigned int dmaerr[_cam_max_] = {0};
+	char cam[10] = {'\0'};
+	enum ISP_DEV_NODE_ENUM regModule; /* for read/write register */
+	enum ISP_DEV_NODE_ENUM innerRegModule; /* for read/write register */
+	union CAMCTL_TWIN_STATUS_ twin_status;
+	unsigned int dump_all = 0;
+
+	switch (module) {
+	case ISP_IRQ_TYPE_INT_CAM_A_ST:
+		regModule = ISP_CAM_A_IDX;
+		innerRegModule = ISP_CAM_A_INNER_IDX;
+		strncpy(cam, "CAM_A", sizeof("CAM_A"));
+		break;
+	case ISP_IRQ_TYPE_INT_CAM_B_ST:
+		regModule = ISP_CAM_B_IDX;
+		innerRegModule = ISP_CAM_B_INNER_IDX;
+		strncpy(cam, "CAM_B", sizeof("CAM_B"));
+		break;
+	case ISP_IRQ_TYPE_INT_CAM_C_ST:
+		regModule = ISP_CAM_C_IDX;
+		innerRegModule = ISP_CAM_C_INNER_IDX;
+		strncpy(cam, "CAM_C", sizeof("CAM_C"));
+		break;
+	default:
+		LOG_NOTICE("unsupported module:0x%x\n", module);
+		return;
+	}
+
+	if (ErrStatus & TG_ERR_ST) {
+		STT_FBC_Reset(regModule);
+		twin_status.Raw =
+			ISP_RD32(CAM_REG_CTL_TWIN_STATUS(innerRegModule));
+		IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF, "twin status en:%d, master:%d\n",
+			twin_status.Bits.TWIN_EN,
+			twin_status.Bits.MASTER_MODULE);
+		if (twin_status.Bits.TWIN_EN == MTRUE) {
+			for (i = 0 ; i < twin_status.Bits.SLAVE_CAM_NUM ; i++) {
+				switch (i) {
+				case 0:
+					if (twin_status.Bits.TWIN_MODULE == CAM_B)
+						STT_FBC_Reset(ISP_CAM_B_IDX);
+					else if (twin_status.Bits.TWIN_MODULE == CAM_C)
+						STT_FBC_Reset(ISP_CAM_C_IDX);
+					break;
+				case 1:
+					LOG_INF("2nd slave%d cam:%d\n", i,
+						twin_status.Bits.TRIPLE_MODULE);
+						STT_FBC_Reset(ISP_CAM_C_IDX);
+					break;
+				default:
+					LOG_INF("unexpected slave cam\n");
+					break;
+				}
+			}
+		}
+	}
+
 	/* DMAO */
 	dmaerr[_imgo_] =
 		(unsigned int)ISP_RD32(CAM_REG_IMGO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _imgo_, "IMGO:0x%x,");
 
 	dmaerr[_ltmso_] =
 		(unsigned int)ISP_RD32(CAM_REG_LTMSO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _ltmso_, "LTMSO:0x%x,");
 
 	dmaerr[_rrzo_] =
 		(unsigned int)ISP_RD32(CAM_REG_RRZO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _rrzo_, "RRZO:0x%x,");
 
 	dmaerr[_lcso_] =
 		(unsigned int)ISP_RD32(CAM_REG_LCESO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _lcso_, "LCSO:0x%x,");
 
 	dmaerr[_lcesho_] =
 		(unsigned int)ISP_RD32(CAM_REG_LCESHO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _lcesho_, "LCESHO:0x%x,");
 
 	dmaerr[_aao_] =
 		(unsigned int)ISP_RD32(CAM_REG_AAO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _aao_, "AAO:0x%x,");
 
 	dmaerr[_aaho_] =
 		(unsigned int)ISP_RD32(CAM_REG_AAHO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _aaho_, "AAHO:0x%x,");
 
 	dmaerr[_flko_] =
 		(unsigned int)ISP_RD32(CAM_REG_FLKO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _flko_, "FLKO:0x%x,");
 
 	dmaerr[_ufeo_] =
 		(unsigned int)ISP_RD32(CAM_REG_UFEO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _ufeo_, "UFEO:0x%x,");
 
 	dmaerr[_afo_] =
 		(unsigned int)ISP_RD32(CAM_REG_AFO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _afo_, "AFO:0x%x,");
 
 	dmaerr[_ufgo_] =
 		(unsigned int)ISP_RD32(CAM_REG_UFGO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _ufgo_, "UFGO:0x%x,");
 
 	dmaerr[_rsso_] =
 		(unsigned int)ISP_RD32(CAM_REG_RSSO_A_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _rsso_, "RSSO:0x%x,");
 
 	dmaerr[_lmvo_] =
 		(unsigned int)ISP_RD32(CAM_REG_LMVO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _lmvo_, "LMVO:0x%x,");
 
 	dmaerr[_yuvbo_] =
 		(unsigned int)ISP_RD32(CAM_REG_YUVBO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _yuvbo_, "YUVBO:0x%x,");
 
 	dmaerr[_tsfso_] =
 		(unsigned int)ISP_RD32(CAM_REG_TSFSO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _tsfso_, "TSFSO:0x%x,");
 
 	dmaerr[_pdo_] =
 		(unsigned int)ISP_RD32(CAM_REG_PDO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _pdo_, "PDO:0x%x,");
 
 	dmaerr[_crzo_] =
 		(unsigned int)ISP_RD32(CAM_REG_CRZO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _crzo_, "CRZO:0x%x,");
 
 	dmaerr[_crzbo_] =
 		(unsigned int)ISP_RD32(CAM_REG_CRZBO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _crzbo_, "CRZBO:0x%x,");
 
 	dmaerr[_yuvco_] =
 		(unsigned int)ISP_RD32(CAM_REG_YUVCO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _yuvco_, "YUVCO:0x%x,");
 
 	dmaerr[_crzo_r2_] =
 		(unsigned int)ISP_RD32(CAM_REG_CRZO_R2_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _crzo_r2_, "CRZO_R2:0x%x,");
 
 	dmaerr[_rsso_r2_] =
 		(unsigned int)ISP_RD32(CAM_REG_RSSO_R2_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _rsso_r2_, "RSSO_R2:0x%x,");
 
 	dmaerr[_yuvo_] =
 		(unsigned int)ISP_RD32(CAM_REG_YUVO_ERR_STAT(regModule));
-	update_dma_err_str(dmao_err_str, _yuvo_, "YUVO:0x%x,");
 
 	/* DMAI */
-	c_num = 0;
-	size_remain = DMA_ERR_STR_LEN;
 	dmaerr[_rawi_] =
 		(unsigned int)ISP_RD32(CAM_REG_RAWI_R2_ERR_STAT(regModule));
-	update_dma_err_str(dmai_err_str, _rawi_, "RAWI:0x%x,");
+
+	dmaerr[_rawi_r3_] =
+		(unsigned int)ISP_RD32(CAM_REG_RAWI_R3_ERR_STAT(regModule));
 
 	dmaerr[_bpci_] =
 		(unsigned int)ISP_RD32(CAM_REG_BPCI_ERR_STAT(regModule));
-	update_dma_err_str(dmai_err_str, _bpci_, "BPCI:0x%x,");
 
 	dmaerr[_lsci_] =
 		(unsigned int)ISP_RD32(CAM_REG_LSCI_ERR_STAT(regModule));
-	update_dma_err_str(dmai_err_str, _lsci_, "LSCI:0x%x,");
 
 	dmaerr[_bpci_r2_] =
 		(unsigned int)ISP_RD32(CAM_REG_BPCI_R2_ERR_STAT(regModule));
-	update_dma_err_str(dmai_err_str, _bpci_r2_, "BPCI_R2:0x%x,");
 
 	dmaerr[_bpci_r3_] =
 		(unsigned int)ISP_RD32(CAM_REG_BPCI_R3_ERR_STAT(regModule));
-	update_dma_err_str(dmai_err_str, _bpci_r3_, "BPCI_R3:0x%x,");
 
 	dmaerr[_pdi_] =
 		(unsigned int)ISP_RD32(CAM_REG_PDI_ERR_STAT(regModule));
-	update_dma_err_str(dmai_err_str, _pdi_, "PDI:0x%x,");
 
 	dmaerr[_ufdi_r2_] =
 		(unsigned int)ISP_RD32(CAM_REG_UFDI_R2_ERR_STAT(regModule));
-	update_dma_err_str(dmai_err_str, _ufdi_r2_, "UFDI_R2:0x%x,");
-
-	int3_en = ISP_RD32(CAM_REG_CTL_RAW_INT3_EN(regModule));
-	int4_en = ISP_RD32(CAM_REG_CTL_RAW_INT4_EN(regModule));
-
-	Irq3StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT3_STATUSX(inner_regModule));
-	Irq4StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT4_STATUSX(inner_regModule));
-
-	IRQ_LOG_KEEPER(
-		module, m_CurrentPPB, _LOG_ERR,
-		"int3_en:0x%x|0x%x,int4_en:0x%x|0x%x\n",
-		       int3_en, Irq3StatusX,
-		       int4_en, Irq4StatusX);
 
 	IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR, "camsys:0x%x",
 		       ISP_RD32(ISP_CAMSYS_CONFIG_BASE));
 
-	/* print dmao err. */
 	IRQ_LOG_KEEPER(
 		module, m_CurrentPPB, _LOG_ERR,
-		"%s:%s\n",
-		cam, dmao_err_str);
+		"%s:IMGO:0x%x,LTMSO:0x%x,RRZO:0x%x,LCSO=0x%x,LCESHO=0x%x,AAO=0x%x,",
+		cam, dmaerr[_imgo_], dmaerr[_ltmso_], dmaerr[_rrzo_],
+		dmaerr[_lcso_], dmaerr[_lcesho_], dmaerr[_aao_]);
 
 	IRQ_LOG_KEEPER(
 		module, m_CurrentPPB, _LOG_ERR,
-		"DMA_DBG_SEL=0x%x,TOP_DBG_PORT=0x%x\n",
-		(unsigned int)ISP_RD32(CAM_REG_DMA_DEBUG_SEL(regModule)), 0);
+		"AAHO=0x%x,FLKO=0x%x,UFEO=0x%x,AFO=0x%x,UFGO=0x%x,RSSO=0x%x\n",
+		dmaerr[_aaho_], dmaerr[_flko_], dmaerr[_ufeo_], dmaerr[_afo_],
+		dmaerr[_ufgo_], dmaerr[_rsso_]);
 
-	/* print dmai err. */
 	IRQ_LOG_KEEPER(
 		module, m_CurrentPPB, _LOG_ERR,
-		"%s:%s\n",
-		cam, dmai_err_str);
+		"EISO=0x%x,YUVBO=0x%x,TSFSO=0x%x,PDO=0x%x,CRZO=0x%x,CRZBO=0x%x\n",
+		dmaerr[_lmvo_], dmaerr[_yuvbo_], dmaerr[_tsfso_], dmaerr[_pdo_],
+		dmaerr[_crzo_], dmaerr[_crzbo_]);
 
-	if (sec_on) {
-		dma_en = lock_reg.CAM_REG_CTL_DMA_EN[regModule];
-		dma2_en = lock_reg.CAM_REG_CTL_DMA2_EN[regModule];
-	} else {
-		dma_en = ISP_RD32(CAM_REG_CTL_DMA_EN(regModule));
-		dma2_en = ISP_RD32(CAM_REG_CTL_DMA2_EN(regModule));
-	}
+	IRQ_LOG_KEEPER(
+		module, m_CurrentPPB, _LOG_ERR,
+		"YUVCO=0x%x,CRZO_R2=0x%x,RSSO_R2=0x%x,YUVO=0x%x\n",
+		dmaerr[_yuvco_], dmaerr[_crzo_r2_],	dmaerr[_rsso_r2_],
+		dmaerr[_yuvo_]);
 
-	if (dma_en & _IMGO_R1_EN_)
-		ISP_DumpDmaDbgPort(inner_regModule, _imgo_);
-	if (dma_en & _RRZO_R1_EN_)
-		ISP_DumpDmaDbgPort(inner_regModule, _rrzo_);
-	if (dma_en & _YUVO_R1_EN_)
-		ISP_DumpDmaDbgPort(inner_regModule, _yuvo_);
-	if (dma_en & _YUVBO_R1_EN_)
-		ISP_DumpDmaDbgPort(inner_regModule, _yuvbo_);
-	if (dma_en & _TSFSO_R1_EN_)
-		ISP_DumpDmaDbgPort(inner_regModule, _tsfso_);
-	if (dma_en & _FLKO_R1_EN_)
-		ISP_DumpDmaDbgPort(inner_regModule, _flko_);
-	if (dma_en & _LCESO_R1_EN_)
-		ISP_DumpDmaDbgPort(inner_regModule, _lcso_);
-	if (dma_en & _LCESHO_R1_EN_)
-		ISP_DumpDmaDbgPort(inner_regModule, _lcesho_);
-	if (dma_en & _LMVO_R1_EN_)
-		ISP_DumpDmaDbgPort(inner_regModule, _lmvo_);
-	if (dma_en & _RSSO_R1_EN_)
-		ISP_DumpDmaDbgPort(inner_regModule, _rsso_);
-	if (dma_en & _CRZO_R1_EN_)
-		ISP_DumpDmaDbgPort(inner_regModule, _crzo_);
-	if (dma_en & _LTMSO_R1_EN_)
-		ISP_DumpDmaDbgPort(inner_regModule, _ltmso_);
-	if (dma_en & _AAO_R1_EN_)
-		ISP_DumpDmaDbgPort(inner_regModule, _aao_);
-	if (dma_en & _AFO_R1_EN_)
-		ISP_DumpDmaDbgPort(inner_regModule, _afo_);
+	IRQ_LOG_KEEPER(
+		module, m_CurrentPPB, _LOG_ERR,
+		"DMA_DBG_SEL=0x%x,TOP_DBG_PORT=0x%x,RAWI_R2=0x%x,RAWI_R3=0x%x\n",
+		(unsigned int)ISP_RD32(CAM_REG_DMA_DEBUG_SEL(regModule)), 0,
+		dmaerr[_rawi_], dmaerr[_rawi_r3_]);
+
+	IRQ_LOG_KEEPER(
+		module, m_CurrentPPB, _LOG_ERR,
+		"%s:BPCI:0x%x,LSCI=0x%x,BPCI_R2=0x%x,PDI=0x%x,UFDI_R2=0x%x,\n",
+		cam, dmaerr[_bpci_], dmaerr[_lsci_],
+		dmaerr[_bpci_r2_], dmaerr[_pdi_], dmaerr[_ufdi_r2_]);
 
 	/* DMAO */
 	g_DmaErr_CAM[module][_imgo_] |= dmaerr[_imgo_];
@@ -1945,35 +2110,25 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 	g_DmaErr_CAM[module][_bpci_r3_] |= dmaerr[_bpci_r3_];
 	g_DmaErr_CAM[module][_pdi_] |= dmaerr[_pdi_];
 	g_DmaErr_CAM[module][_ufdi_r2_] |= dmaerr[_ufdi_r2_];
+
 #ifdef Rdy_ReqDump
 	/* Module DebugInfo when no p1_done */
+
 	for (i = 0; i < ISP_MODULE_GROUPS; i++) {
-#ifdef CAMERA_ISP_MT6873
-		ISP_WR32(CAM_REG_DBG_SET(inner_regModule),
-			 (0x00040101 + (i * 0x100)));
-#elif defined(CAMERA_ISP_MT6853)
-		ISP_WR32(CAM_REG_DBG_SET(regModule),
-			 (0x00800100 + (i * 0x100)));
-#endif
-		moduleReqStatus[i] =
-			ISP_RD32(CAM_REG_DBG_PORT(inner_regModule));
+		ISP_WR32(CAM_REG_DBG_SET(innerRegModule),
+			 (0x00200101 + (i * 0x100)));
+		moduleReqStatus[i] = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
 	}
 
 	for (i = 0; i < ISP_MODULE_GROUPS; i++) {
-#ifdef CAMERA_ISP_MT6873
-		ISP_WR32(CAM_REG_DBG_SET(inner_regModule),
-			 (0x00041101 + (i * 0x100)));
-#elif defined(CAMERA_ISP_MT6853)
-		ISP_WR32(CAM_REG_DBG_SET(regModule),
-			 (0x00801100 + (i * 0x100)));
-#endif
-		moduleRdyStatus[i] =
-			ISP_RD32(CAM_REG_DBG_PORT(inner_regModule));
+		ISP_WR32(CAM_REG_DBG_SET(innerRegModule),
+			 (0x00201101 + (i * 0x100)));
+		moduleRdyStatus[i] = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
 	}
 
 	IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR,
 		"%s Module[%d] Req/Rdy Status: 0=(0x%08x 0x%08x)",
-		cam, inner_regModule,
+		cam, innerRegModule,
 		moduleReqStatus[0], moduleRdyStatus[0]);
 	IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR,
 		"1=(0x%08x 0x%08x), 2=(0x%08x 0x%08x)",
@@ -1988,6 +2143,70 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 		moduleReqStatus[5], moduleRdyStatus[5],
 		moduleReqStatus[6], moduleRdyStatus[6]);
 
+	if (dmaerr[_imgo_] != 0xFFFF0000) {
+		ISP_DumpDebugData(module, IMGO_R1_DEBUG);
+		dump_all = 1;
+	}
+
+	if (dmaerr[_ltmso_] != 0xFFFF0000) {
+		ISP_DumpDebugData(module, LTMSO_R1_DEBUG);
+		dump_all = 1;
+	}
+
+	if (dmaerr[_rrzo_] != 0xFFFF0000) {
+		ISP_DumpDebugData(module, RRZO_R1_DEBUG);
+		dump_all = 1;
+	}
+
+	if (dmaerr[_lcesho_] != 0xFFFF0000) {
+		ISP_DumpDebugData(module, LCESO_R1_DEBUG);
+		dump_all = 1;
+	}
+
+	if (dmaerr[_rawi_] != 0xFFFF0000) {
+		ISP_DumpDebugData(module, RAWI_R2_DEBUG);
+		dump_all = 1;
+	}
+
+	if (ErrStatus & TG_ERR_ST) {
+		dump_all = 1;
+	}
+
+	if (dump_all) {
+
+		/* single/master case*/
+		dumpAllRegs(innerRegModule);
+
+		/* twin case*/
+		if (twin_status.Bits.TWIN_EN == MTRUE) {
+			for (i = 0 ; i < twin_status.Bits.SLAVE_CAM_NUM ; i++) {
+				switch (i) {
+				case 0:
+					LOG_INF("1st slave%d cam:%d\n", i,
+						twin_status.Bits.TWIN_MODULE);
+					if (twin_status.Bits.TWIN_MODULE ==
+									CAM_B)
+						innerRegModule =
+							ISP_CAM_B_INNER_IDX;
+					else if (twin_status.Bits.TWIN_MODULE ==
+									CAM_C)
+						innerRegModule =
+							ISP_CAM_C_INNER_IDX;
+					dumpAllRegs(innerRegModule);
+					break;
+				case 1:
+					LOG_INF("2nd slave%d cam:%d\n", i,
+						twin_status.Bits.TRIPLE_MODULE);
+					innerRegModule = ISP_CAM_C_INNER_IDX;
+					dumpAllRegs(innerRegModule);
+					break;
+				default:
+					LOG_INF("unexpected slave cam\n");
+					break;
+				}
+			}
+		}
+	}
 #undef ISP_MODULE_GROUPS
 #endif
 }
@@ -2039,11 +2258,13 @@ static inline void Prepare_Enable_ccf_clock(void)
 	ret = pm_runtime_get_sync(isp_devs[ISP_CAM_B_IDX].dev);
 	if (ret < 0)
 		LOG_NOTICE("cannot pm runtime get ISP_CAM_B_IDX mtcmos\n");
-#ifdef CAMERA_ISP_MT6873
+
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 	ret = pm_runtime_get_sync(isp_devs[ISP_CAM_C_IDX].dev);
 	if (ret < 0)
 		LOG_NOTICE("cannot pm runtime get ISP_CAM_C_IDX mtcmos\n");
 #endif
+
 	ret = clk_prepare_enable(isp_clk.CAMSYS_LARB13_CGPDN);
 	if (ret)
 		LOG_NOTICE("cannot pre-en CAMSYS_LARB13_CGPDN clock\n");
@@ -2052,13 +2273,21 @@ static inline void Prepare_Enable_ccf_clock(void)
 	if (ret)
 		LOG_NOTICE("cannot pre-en CAMSYS_LARB14_CGPDN clock\n");
 
+#ifdef CAMERA_ISP_MT6893
+	ret = clk_prepare_enable(isp_clk.CAMSYS_LARB15_CGPDN);
+	if (ret)
+		LOG_NOTICE("cannot pre-en CAMSYS_LARB15_CGPDN clock\n");
+#endif
+
 	ret = clk_prepare_enable(isp_clk.CAMSYS_SENINF_CGPDN);
 	if (ret)
 		LOG_NOTICE("cannot pre-en CAMSYS_SENINF_CGPDN clock\n");
 
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6853)
 	ret = clk_prepare_enable(isp_clk.CAMSYS_CAM2MM_GALS_CGPDN);
 	if (ret)
 		LOG_NOTICE("cannot pre-en CAMSYS_CAM2MM_GALS_CGPDN clock\n");
+#endif
 
 	ret = clk_prepare_enable(isp_clk.CAMSYS_TOP_MUX_CCU);
 	if (ret)
@@ -2087,7 +2316,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 	ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSV2);
 	if (ret)
 		LOG_NOTICE("cannot pre-en ISP_CAM_CAMSV2 clock\n");
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 	ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSV3);
 	if (ret)
 		LOG_NOTICE("cannot pre-en ISP_CAM_CAMSV3 clock\n");
@@ -2110,7 +2339,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 	ret = clk_prepare_enable(isp_clk.ISP_CAM_TG_RAWB);
 	if (ret)
 		LOG_NOTICE("cannot pre-en ISP_CAM_TG_RAWB clock\n");
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 	ret = clk_prepare_enable(isp_clk.ISP_CAM_LARB18_RAWC);
 	if (ret)
 		LOG_NOTICE("cannot pre-en ISP_CAM_LARB18_RAWC clock\n");
@@ -2133,7 +2362,7 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	/* must keep this clk close order: */
 	/* CAMTG/CAMSV clock -> ISP PM domain */
 	clk_disable_unprepare(isp_clk.ISP_TOP_MUX_CAMTM);
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 	clk_disable_unprepare(isp_clk.ISP_CAM_TG_RAWC);
 	clk_disable_unprepare(isp_clk.ISP_CAM_SUBSYS_RAWC);
 	clk_disable_unprepare(isp_clk.ISP_CAM_LARB18_RAWC);
@@ -2147,18 +2376,26 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV0);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV1);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV2);
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV3);
 #endif
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMTG);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSYS);
 	clk_disable_unprepare(isp_clk.CAMSYS_CCU0_CGPDN);
 	clk_disable_unprepare(isp_clk.CAMSYS_TOP_MUX_CCU);
+
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6853)
 	clk_disable_unprepare(isp_clk.CAMSYS_CAM2MM_GALS_CGPDN);
+#endif
+
 	clk_disable_unprepare(isp_clk.CAMSYS_SENINF_CGPDN);
+#ifdef CAMERA_ISP_MT6893
+	clk_disable_unprepare(isp_clk.CAMSYS_LARB15_CGPDN);
+#endif
 	clk_disable_unprepare(isp_clk.CAMSYS_LARB14_CGPDN);
 	clk_disable_unprepare(isp_clk.CAMSYS_LARB13_CGPDN);
-#ifdef CAMERA_ISP_MT6873
+
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 	ret = pm_runtime_put_sync(isp_devs[ISP_CAM_C_IDX].dev);
 	if (ret < 0)
 		LOG_NOTICE("cannot pm runtime put ISP_CAM_C_IDX mtcmos\n");
@@ -2225,7 +2462,7 @@ static void ISP_ConfigDMAControl(void)
 
 	for (; module < ISP_CAMSV_START_IDX; module++) {
 		/* WDMA */
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 		ISP_WR32(CAM_REG_IMGO_CON(module), 0x80000800);//IMGO 2048
 		ISP_WR32(CAM_REG_IMGO_CON2(module), 0x04000300);//1/2~3/8
 		ISP_WR32(CAM_REG_IMGO_CON3(module), 0x02000100);//1/4~1/8
@@ -2377,6 +2614,11 @@ static void ISP_ConfigDMAControl(void)
 		ISP_WR32(CAM_REG_BPCI_R2_CON3(module), 0x0018000C);
 		ISP_WR32(CAM_REG_BPCI_R2_DRS(module), 0x80400034);
 
+		ISP_WR32(CAM_REG_BPCI_R3_CON(module), 0x80000060);//BPCI_R3 96
+		ISP_WR32(CAM_REG_BPCI_R3_CON2(module), 0x00300024);
+		ISP_WR32(CAM_REG_BPCI_R3_CON3(module), 0x0018000C);
+		ISP_WR32(CAM_REG_BPCI_R3_DRS(module), 0x80400034);
+
 		ISP_WR32(CAM_REG_LSCI_CON(module), 0x80000040);//LCSI 128
 		ISP_WR32(CAM_REG_LSCI_CON2(module), 0x00400030);
 		ISP_WR32(CAM_REG_LSCI_CON3(module), 0x00200010);
@@ -2512,12 +2754,12 @@ static inline void ISP_Reset(int module)
 	unsigned long long timeoutMs = 5000; /*5ms */
 	bool bDumped = MFALSE;
 
-	LOG_DBG(" Reset module(%d)\n", module);
+	LOG_INF(" Reset module(%d)\n", module);
 
 	switch (module) {
 	case ISP_CAM_A_IDX:
 	case ISP_CAM_B_IDX:
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 	case ISP_CAM_C_IDX:
 #endif
 	{
@@ -2560,7 +2802,6 @@ static inline void ISP_Reset(int module)
 				(unsigned int)ISP_RD32(CAMSYS_REG_CG_SET),
 				(unsigned int)ISP_RD32(CAMSYS_REG_CG_CLR));
 				//dump smi for debugging
-#ifndef EP_MARK_SMI
 #ifdef CONFIG_MTK_SMI_EXT
 				if (smi_debug_bus_hang_detect(
 					false, "camera_isp") != 0)
@@ -2569,7 +2810,6 @@ static inline void ISP_Reset(int module)
 #endif
 				bDumped = MTRUE;
 				break;
-#endif
 			}
 		}
 
@@ -2658,56 +2898,55 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 	switch (pReg->module) {
 	case ISP_CAM_A_IDX:
 		regBase = ISP_CAM_A_BASE;
-		ispRange = ISP_REG_RANGE;
 		break;
 	case ISP_CAM_B_IDX:
 		regBase = ISP_CAM_B_BASE;
-		ispRange = ISP_REG_RANGE;
 		break;
 	case ISP_CAM_C_IDX:
 		regBase = ISP_CAM_C_BASE;
-		ispRange = ISP_REG_RANGE;
 		break;
 #if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_CAMSV0_IDX:
 		regBase = ISP_CAMSV0_BASE;
-		ispRange = ISPSV_REG_RANGE;
 		break;
 	case ISP_CAMSV1_IDX:
 		regBase = ISP_CAMSV1_BASE;
-		ispRange = ISPSV_REG_RANGE;
 		break;
 #endif
 	case ISP_CAMSV2_IDX:
 		regBase = ISP_CAMSV2_BASE;
-		ispRange = ISPSV_REG_RANGE;
 		break;
 	case ISP_CAMSV3_IDX:
 		regBase = ISP_CAMSV3_BASE;
-		ispRange = ISPSV_REG_RANGE;
 		break;
 	case ISP_CAMSV4_IDX:
 		regBase = ISP_CAMSV4_BASE;
-		ispRange = ISPSV_REG_RANGE;
 		break;
 	case ISP_CAMSV5_IDX:
 		regBase = ISP_CAMSV5_BASE;
-		ispRange = ISPSV_REG_RANGE;
 		break;
 	case ISP_CAMSV6_IDX:
 		regBase = ISP_CAMSV6_BASE;
-		ispRange = ISPSV_REG_RANGE;
 		break;
 	case ISP_CAMSV7_IDX:
 		regBase = ISP_CAMSV7_BASE;
-		ispRange = ISPSV_REG_RANGE;
 		break;
 	default:
 		LOG_NOTICE("Unsupported module(%x) !!!\n", pReg->module);
 		Ret = -EFAULT;
 		goto EXIT;
 	}
-
+#if (DISABLE_CAMSV_TOP0 == 0)
+	if (regBase < ISP_CAMSV0_BASE)
+		ispRange = ISP_REG_RANGE;
+	else
+		ispRange = PAGE_SIZE;
+#else
+	if (regBase < ISP_CAMSV2_BASE)
+		ispRange = ISP_REG_RANGE;
+	else
+		ispRange = PAGE_SIZE;
+#endif
 	for (i = 0; i < pRegIo->Count; i++) {
 		if (get_user(reg.Addr, (unsigned int *)&pReg->Addr) != 0) {
 			LOG_NOTICE("get_user failed\n");
@@ -2731,9 +2970,9 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 			goto EXIT;
 		}
 		pReg++;
-		/*  */
+		/* */
 	}
-/*  */
+/* */
 EXIT:
 	if (pReg != NULL) {
 		kfree(pReg);
@@ -2764,49 +3003,38 @@ static int ISP_WriteRegToHw(struct ISP_REG_STRUCT *pReg, unsigned int Count)
 	switch (pReg->module) {
 	case ISP_CAM_A_IDX:
 		regBase = ISP_CAM_A_BASE;
-		ispRange = ISP_REG_RANGE;
 		break;
 	case ISP_CAM_B_IDX:
 		regBase = ISP_CAM_B_BASE;
-		ispRange = ISP_REG_RANGE;
 		break;
 	case ISP_CAM_C_IDX:
 		regBase = ISP_CAM_C_BASE;
-		ispRange = ISP_REG_RANGE;
 		break;
 #if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_CAMSV0_IDX:
 		regBase = ISP_CAMSV0_BASE;
-		ispRange = ISPSV_REG_RANGE;
 		break;
 	case ISP_CAMSV1_IDX:
 		regBase = ISP_CAMSV1_BASE;
-		ispRange = ISPSV_REG_RANGE;
 		break;
 #endif
 	case ISP_CAMSV2_IDX:
 		regBase = ISP_CAMSV2_BASE;
-		ispRange = ISPSV_REG_RANGE;
 		break;
 	case ISP_CAMSV3_IDX:
 		regBase = ISP_CAMSV3_BASE;
-		ispRange = ISPSV_REG_RANGE;
 		break;
 	case ISP_CAMSV4_IDX:
 		regBase = ISP_CAMSV4_BASE;
-		ispRange = ISPSV_REG_RANGE;
 		break;
 	case ISP_CAMSV5_IDX:
 		regBase = ISP_CAMSV5_BASE;
-		ispRange = ISPSV_REG_RANGE;
 		break;
 	case ISP_CAMSV6_IDX:
 		regBase = ISP_CAMSV6_BASE;
-		ispRange = ISPSV_REG_RANGE;
 		break;
 	case ISP_CAMSV7_IDX:
 		regBase = ISP_CAMSV7_BASE;
-		ispRange = ISPSV_REG_RANGE;
 		break;
 	default:
 		LOG_NOTICE("Unsupported module(%x) !!!\n", pReg->module);
@@ -2816,7 +3044,17 @@ static int ISP_WriteRegToHw(struct ISP_REG_STRUCT *pReg, unsigned int Count)
 	/*  */
 	if (dbgWriteReg)
 		LOG_DBG("- E.\n");
-
+#if (DISABLE_CAMSV_TOP0 == 0)
+	if (regBase < ISP_CAMSV0_BASE)
+		ispRange = ISP_REG_RANGE;
+	else
+		ispRange = PAGE_SIZE;
+#else
+	if (regBase < ISP_CAMSV2_BASE)
+		ispRange = ISP_REG_RANGE;
+	else
+		ispRange = PAGE_SIZE;
+#endif
 	/*  */
 	for (i = 0; i < Count; i++) {
 		if (dbgWriteReg)
@@ -2939,7 +3177,8 @@ static long ISP_Buf_CTRL_FUNC(unsigned long Param)
 	if (copy_from_user(&rt_buf_ctrl, (void __user *)Param,
 			   sizeof(struct ISP_BUFFER_CTRL_STRUCT)) == 0) {
 
-		if (rt_buf_ctrl.module >= ISP_IRQ_TYPE_AMOUNT) {
+		if (rt_buf_ctrl.module >= ISP_IRQ_TYPE_AMOUNT ||
+		    rt_buf_ctrl.module < 0) {
 			LOG_NOTICE("[rtbc]not supported module:0x%x\n",
 				   rt_buf_ctrl.module);
 
@@ -2954,7 +3193,8 @@ static long ISP_Buf_CTRL_FUNC(unsigned long Param)
 		}
 
 		rt_dma = rt_buf_ctrl.buf_id;
-		if (rt_dma >= _cam_max_) {
+		if (rt_dma >= _cam_max_ ||
+		    rt_dma < 0) {
 			LOG_NOTICE("[rtbc]buf_id error:0x%x\n", rt_dma);
 			return -EFAULT;
 		}
@@ -3169,7 +3409,7 @@ static int ISP_REGISTER_IRQ_USERKEY(char *userName)
 			       sizeof(IrqUserKey_UserInfo[i].userName));
 
 			strncpy((void *)IrqUserKey_UserInfo[i].userName,
-				userName, USERKEY_STR_LEN - 1);
+				userName, USERKEY_USERNAME_STR_LEN - 1);
 
 			IrqUserKey_UserInfo[i].userKey = FirstUnusedIrqUserKey;
 			key = FirstUnusedIrqUserKey;
@@ -3194,12 +3434,17 @@ static int ISP_FLUSH_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 			irqinfo->Type, irqinfo->EventInfo.UserKey,
 			irqinfo->EventInfo.St_type, irqinfo->EventInfo.Status);
 
-	if (irqinfo->Type >= ISP_IRQ_TYPE_AMOUNT) {
+	if (irqinfo->EventInfo.UserKey == 1)
+		LOG_NOTICE("++FLUSH 3a waitirq cnt = %d\n", irq3a_wait_cnt);
+
+	if (irqinfo->Type >= ISP_IRQ_TYPE_AMOUNT ||
+	    irqinfo->Type < 0) {
 		LOG_NOTICE("FLUSH_IRQ: type error(%d)", irqinfo->Type);
 		return -EFAULT;
 	}
 
-	if (irqinfo->EventInfo.St_type >= ISP_IRQ_ST_AMOUNT) {
+	if (irqinfo->EventInfo.St_type >= ISP_IRQ_ST_AMOUNT ||
+	    irqinfo->EventInfo.St_type < 0) {
 		LOG_NOTICE("FLUSH_IRQ: st_type error(%d)",
 			   irqinfo->EventInfo.St_type);
 		return -EFAULT;
@@ -3207,10 +3452,8 @@ static int ISP_FLUSH_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 
 	if (irqinfo->EventInfo.UserKey >= IRQ_USER_NUM_MAX ||
 	    irqinfo->EventInfo.UserKey < 0) {
-
 		LOG_NOTICE("FLUSH_IRQ: userkey error(%d)",
 			   irqinfo->EventInfo.UserKey);
-
 		return -EFAULT;
 	}
 
@@ -3263,6 +3506,9 @@ static int ISP_FLUSH_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 		wake_up_interruptible(&IspInfo.WaitQueueHead[irqinfo->Type]);
 	}
 
+	if (irqinfo->EventInfo.UserKey == 1)
+		LOG_NOTICE("--FLUSH 3a waitirq cnt = %d\n", irq3a_wait_cnt);
+
 	return 0;
 }
 
@@ -3283,24 +3529,23 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 
 	ktime_get_ts64(&time_getrequest);
 
-	if (WaitIrq->Type >= ISP_IRQ_TYPE_AMOUNT) {
+	if (WaitIrq->Type >= ISP_IRQ_TYPE_AMOUNT ||
+	    WaitIrq->Type < 0) {
 		LOG_NOTICE("WaitIrq: type error(%d)", WaitIrq->Type);
 		return -EFAULT;
 	}
 
-	if (WaitIrq->EventInfo.St_type >= ISP_IRQ_ST_AMOUNT) {
+	if (WaitIrq->EventInfo.St_type >= ISP_IRQ_ST_AMOUNT ||
+	    WaitIrq->EventInfo.St_type < 0) {
 		LOG_NOTICE("WaitIrq: st_type error(%d)",
 			   WaitIrq->EventInfo.St_type);
-
 		return -EFAULT;
 	}
 
 	if (WaitIrq->EventInfo.UserKey >= IRQ_USER_NUM_MAX ||
 	    WaitIrq->EventInfo.UserKey < 0) {
-
 		LOG_NOTICE("WaitIrq: userkey error(%d)",
 			   WaitIrq->EventInfo.UserKey);
-
 		return -EFAULT;
 	}
 #ifdef ENABLE_WAITIRQ_LOG
@@ -3462,6 +3707,19 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 		WaitIrq->EventInfo.UserKey);
 #endif
 
+	if (WaitIrq->EventInfo.UserKey == 1) {
+		irq3a_wait_cnt++;
+		if (irq3a_print_vf_off[WaitIrq->Type]) {
+			LOG_NOTICE(
+			"VF off IRQ 3A  irq3a_wait_cnt++ =%d Clear(%d) Type(%d) StType(%d) Status(0x%08X) WaitStatus(0x%08X) Timeout(%d) key(%d)\n",
+			irq3a_wait_cnt,
+			WaitIrq->EventInfo.Clear, WaitIrq->Type,
+			WaitIrq->EventInfo.St_type, irqStatus,
+			WaitIrq->EventInfo.Status, WaitIrq->EventInfo.Timeout,
+			WaitIrq->EventInfo.UserKey);
+		}
+	}
+
 	/* 2. start to wait signal */
 	if (ISP_CheckUseCamWaitQ(WaitIrq->Type, WaitIrq->EventInfo.St_type,
 				 WaitIrq->EventInfo.Status)) {
@@ -3500,6 +3758,18 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 			ISP_MsToJiffies(WaitIrq->EventInfo.Timeout));
 	}
 
+	if (WaitIrq->EventInfo.UserKey == 1) {
+		irq3a_wait_cnt--;
+		if (irq3a_print_vf_off[WaitIrq->Type]) {
+			LOG_NOTICE(
+			"VF off IRQ 3A  irq3a_wait_cnt-- =%d Clear(%d) Type(%d) StType(%d) Status(0x%08X) WaitStatus(0x%08X) Timeout(%d) key(%d)\n",
+			irq3a_wait_cnt,
+			WaitIrq->EventInfo.Clear, WaitIrq->Type,
+			WaitIrq->EventInfo.St_type, irqStatus,
+			WaitIrq->EventInfo.Status, WaitIrq->EventInfo.Timeout,
+			WaitIrq->EventInfo.UserKey);
+		}
+	}
 	/* check if user is interrupted by system signal */
 	if ((Timeout != 0) &&
 	    (!ISP_GetIRQState(WaitIrq->Type, WaitIrq->EventInfo.St_type,
@@ -3609,144 +3879,6 @@ EXIT:
 /*******************************************************************************
  *
  ******************************************************************************/
-
-#ifdef ENABLE_AOSP_ION
-static bool isp_mmu_get_dma_buffer(struct ION_BUFFER *mmu, int va)
-{
-#ifdef CONFIG_DMA_SHARED_BUFFER
-	struct dma_buf *buf;
-
-	if (va == -1) {
-		LOG_NOTICE("invalid ion fd!\n");
-		return false;
-	}
-	/* va: buffer fd from user space, we get dmabuf from buffer fd. */
-	buf = dma_buf_get(va);
-	if (IS_ERR(buf))
-		return false;
-
-	mmu->dmaBuf = buf;
-	mmu->attach = dma_buf_attach(mmu->dmaBuf, isp_devs[
-		ISP_CAMSYS_CONFIG_IDX].dev);
-	if (IS_ERR(mmu->attach))
-		goto err_attach;
-	/* buffer and iova map */
-	mmu->sgt = dma_buf_map_attachment(mmu->attach, DMA_BIDIRECTIONAL);
-	if (IS_ERR(mmu->sgt))
-		goto err_map;
-	return true;
-
-err_map:
-	dma_buf_detach(mmu->dmaBuf, mmu->attach);
-err_attach:
-	dma_buf_put(mmu->dmaBuf);
-#endif
-	return false;
-}
-
-/*******************************************************************************
- *
- ******************************************************************************/
-
-static void isp_mmu_put_dma_buffer(struct ION_BUFFER *mmu)
-{
-#ifdef CONFIG_DMA_SHARED_BUFFER
-	if (mmu->dmaBuf) {
-		dma_buf_unmap_attachment(mmu->attach, mmu->sgt,
-			DMA_BIDIRECTIONAL);
-		dma_buf_detach(mmu->dmaBuf, mmu->attach);
-		dma_buf_put(mmu->dmaBuf);
-	} else
-		LOG_NOTICE("mmu->dmaBuf is NULL\n");
-#endif
-}
-
-/*******************************************************************************
- *
- ******************************************************************************/
-void dumpIonBufferList(unsigned int entry_num, bool TurnOn)
-{
-	struct ION_BUFFER_LIST *entry;
-	struct list_head *pos;
-	int i = 0;
-	unsigned int list_length = 0;
-
-	if (TurnOn == false)
-		return;
-
-	if (list_empty(&g_ion_buf_list.list))
-		return;
-
-	list_for_each(pos, &g_ion_buf_list.list) {
-		list_length++;
-	}
-
-	LOG_DBG("## ion buf list length(%d); show %d newer entry ##\n",
-		list_length, entry_num);
-	list_for_each(pos, &g_ion_buf_list.list) {
-		if (i < entry_num) {
-			entry = list_entry(pos, struct ION_BUFFER_LIST, list);
-			LOG_DBG("#%3d: dump: memID(%3d); dev/Port(%2d,%2d);"
-				" va/pa(0x%lx/0x%lx); size(0x%x); refCnt(%d); user(%s)\n", i,
-				entry->memID, entry->devNode, entry->dmaPort,
-				entry->va,
-				entry->dmaAddr, entry->size, entry->refCnt, entry->username);
-			i++;
-		} else
-			break;
-	}
-	LOG_DBG("##################\n");
-}
-
-/*******************************************************************************
- *
- ******************************************************************************/
-static int ion_buf_list_read(struct seq_file *m, void *v)
-{
-	struct ION_BUFFER_LIST *entry;
-	struct list_head *pos;
-	int i = 0;
-
-	mutex_lock(&aosp_ion_mutex);
-
-	if (list_empty(&g_ion_buf_list.list)) {
-		seq_puts(m, "aosp ion buf list is empty\n");
-		mutex_unlock(&aosp_ion_mutex);
-		return 0;
-	}
-
-	seq_puts(m, " idx memID        va           pa        size/aligned   refCnt    user\n");
-	seq_puts(m, "===================================================================\n");
-
-	list_for_each(pos, &g_ion_buf_list.list) {
-		entry = list_entry(pos, struct ION_BUFFER_LIST, list);
-
-		seq_printf(m, "#%03d   %3d   0x%10lx  0x%09lx 0x%06x/0x%06x  %2d  %s\n", i,
-			entry->memID,
-			entry->va, entry->dmaAddr, entry->size, entry->dmaBuf->size,
-			entry->refCnt, entry->username);
-			i++;
-	}
-
-	mutex_unlock(&aosp_ion_mutex);
-
-	return 0;
-};
-
-static int proc_open_aosp_ion_list(struct inode *inode, struct file *file)
-{
-	return single_open(file, ion_buf_list_read, NULL);
-};
-
-static const struct proc_ops faosp_ion_proc_fops = {
-	.proc_open = proc_open_aosp_ion_list,
-	.proc_read = seq_read,
-};
-#endif
-
-/*******************************************************************************
- *
- ******************************************************************************/
 static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 {
 	int Ret = 0;
@@ -3764,8 +3896,6 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	int userKey = -1;
 	struct ISP_REGISTER_USERKEY_STRUCT RegUserKey;
 	int i;
-
-	struct ISP_DEV_ION_NODE_STRUCT IonNode;
 
 	/*  */
 	if (pFile->private_data == NULL) {
@@ -3972,16 +4102,6 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 				IrqInfo.EventInfo.UserKey = 0;
 			}
-#ifdef ENABLE_WAITIRQ_LOG
-			LOG_INF(
-				"IRQ type(%d), userKey(%d), timeout(%d), userkey(%d), st_status(%d), status(%d)\n",
-				IrqInfo.Type,
-				IrqInfo.EventInfo.UserKey,
-				IrqInfo.EventInfo.Timeout,
-				IrqInfo.EventInfo.UserKey,
-				IrqInfo.EventInfo.St_type,
-				IrqInfo.EventInfo.Status);
-#endif
 			Ret = ISP_WaitIrq(&IrqInfo);
 		} else {
 			LOG_NOTICE("copy_from_user failed\n");
@@ -4050,14 +4170,10 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	}
 	/*  */
 	case ISP_REGISTER_IRQ_USER_KEY:
-		if (copy_from_user(&RegUserKey, (void *)Param,
+		if (copy_from_user(
+			    &RegUserKey, (void *)Param,
 			    sizeof(struct ISP_REGISTER_USERKEY_STRUCT)) == 0) {
-			if (strnlen(RegUserKey.userName, USERKEY_STR_LEN) >=
-					USERKEY_STR_LEN) {
-				LOG_NOTICE("userName > Max string size\n");
-				Ret = -1;
-				break;
-			}
+			RegUserKey.userName[sizeof(RegUserKey.userName)-1] = '\0';
 			userKey = ISP_REGISTER_IRQ_USERKEY(RegUserKey.userName);
 			RegUserKey.userKey = userKey;
 			if (copy_to_user((void *)Param, &RegUserKey,
@@ -4216,7 +4332,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					cam_dmao = ISP_RD32(CAM_REG_CTL_DMA_EN(
 						DebugFlag[1]));
 				}
-
+				irq3a_print_vf_off[module] = 0;
 				LOG_INF(
 					"CAM_%d viewFinder is ON (SecOn:0x%x)\n",
 					module, sec_on);
@@ -4229,12 +4345,18 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					ISP_WR32(
 						CAM_REG_TG_VF_CON(DebugFlag[1]),
 						(vf + 0x1));
-#ifdef CAMERA_ISP_MT6873
-					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_A_IDX), 0x00040000);
-					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_B_IDX), 0x00040000);
-					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_C_IDX), 0x00040000);
-#endif
+					/*For RAWI DMA Err debug*/
+					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_A_IDX),
+						0x00040000);
+					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_B_IDX),
+						0x00040000);
+					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_C_IDX),
+						0x00040000);
 				}
+				/*SCQ does not support CQ covery */
+				cq_recovery[module] = (((ISP_RD32(CAM_REG_CAMCQ_CQ_EN(
+						DebugFlag[1])) >> 20)
+						& 0x1) ? 0 : 1);
 
 #if (TIMESTAMP_QUEUE_EN == 1)
 				memset((void *)&(IspInfo.TstpQInfo[module]), 0,
@@ -4269,12 +4391,14 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				break;
 			}
 			case 0: {
+				irq3a_print_vf_off[module] = 1;
 				LOG_INF("CAM_%d viewFinder is OFF\n", module);
 
 				if (vf & 0x1) {
 					ISP_WR32(
 						CAM_REG_TG_VF_CON(DebugFlag[1]),
 						(vf - 0x1));
+					cq_recovery[module] = 0;
 				} else {
 					LOG_NOTICE(
 						"CAM_%d: vf already disabled\n",
@@ -4620,9 +4744,8 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 		if (copy_from_user(&dfs_update, (void *)Param,
 				   sizeof(unsigned int)) == 0) {
-			SV_SetPMQOS(E_CLK_UPDATE,
-					ISP_IRQ_TYPE_INT_CAMSV_START_ST,
-					&dfs_update);
+			SV_SetPMQOS(E_CLK_UPDATE, ISP_IRQ_TYPE_INT_CAMSV_START_ST,
+				    &dfs_update);
 		} else {
 			LOG_NOTICE("SV_DFS_UPDATE copy_from_user failed\n");
 			Ret = -EFAULT;
@@ -4680,8 +4803,10 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		if (index <= (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
 			if (cq0_data[CAM_A][1] != 0) {
 				g_cqBaseAddr[index][0] = cq0_data[CAM_A][1];
-				/*LOG_NOTICE("(CAM A)CQ0 pa 0x%x, 0x%x",
-				 *cq0_data[CAM_A][0], cq0_data[CAM_A][1]);
+				g_cq0NextBA[index][0] = cq0_data[CAM_A][2];
+				/*LOG_NOTICE("(CAM A)CQ0 pa 0x%x, 0x%x, 0x%x",
+				 *cq0_data[CAM_A][0], cq0_data[CAM_A][1],
+				 * cq0_data[CAM_A][2]);
 				 */
 			}
 		}
@@ -4689,375 +4814,28 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		if (index <= (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
 			if (cq0_data[CAM_B][1] != 0) {
 				g_cqBaseAddr[index][0] = cq0_data[CAM_B][1];
-				/*LOG_NOTICE("(CAM B)CQ0 pa 0x%x, 0x%x",
-				 *cq0_data[CAM_B][0], cq0_data[CAM_B][1]);
+				g_cq0NextBA[index][0] = cq0_data[CAM_B][2];
+				/*LOG_NOTICE("(CAM B)CQ0 pa 0x%x, 0x%x, 0x%x",
+				 *cq0_data[CAM_B][0], cq0_data[CAM_B][1],
+				 *cq0_data[CAM_B][2]);
 				 */
 			}
 		}
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 		index = cq0_data[CAM_C][0] - ISP_CAM_A_IDX;
 		if (index <= (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
 			if (cq0_data[CAM_C][1] != 0) {
 				g_cqBaseAddr[index][0] = cq0_data[CAM_C][1];
-				/*LOG_NOTICE("(CAM C)CQ0 pa 0x%x, 0x%x",
-				 *cq0_data[CAM_C][0], cq0_data[CAM_C][1]);
+				g_cq0NextBA[index][0] = cq0_data[CAM_C][2];
+				/*LOG_NOTICE("(CAM C)CQ0 pa 0x%x, 0x%x, 0x%x",
+				 *cq0_data[CAM_C][0], cq0_data[CAM_C][1],
+				 *cq0_data[CAM_C][2]);
 				 */
 			}
 		}
 #endif
 	} break;
-#ifdef ENABLE_AOSP_ION
-	case ISP_ION_MAP_PA:
-		if (copy_from_user(&IonNode, (void *)Param,
-			sizeof(struct ISP_DEV_ION_NODE_STRUCT)) == 0) {
-			dma_addr_t dmaPa;
-			struct list_head *pos;
-			/* tmp ION_BUFFER_LIST node to add into the list. */
-			struct ION_BUFFER_LIST *tmp;
-			struct ION_BUFFER_LIST *entry;
-			struct ION_BUFFER mmu = {NULL, NULL, NULL, 0};
-			bool bMapped = false;
 
-			if (IonNode.memID <= 0) {
-				LOG_NOTICE(
-					"[ISP_ION_MAP_PA] invalid ion fd(%d)\n",
-					IonNode.memID);
-				Ret = -EFAULT;
-				break;
-			}
-
-			mutex_lock(&aosp_ion_mutex);
-
-			/* Check if the memID has been mapped.
-			 * If Yes, don't map it again. Just increase the refCnt in the list.
-			 * If No, map it.
-			 */
-			list_for_each(pos, &g_ion_buf_list.list) {
-				entry = list_entry(pos, struct ION_BUFFER_LIST, list);
-				if (entry->memID != IonNode.memID)
-					continue;
-
-				bMapped = true;
-				IonNode.dma_pa = entry->dmaAddr;
-				entry->refCnt++;
-				LOG_DBG("Mapped: memID(%d),dev/Port(%d,%d);va/pa=(0x%lx/0x%lx);"
-					" size(%d); RefCnt(%d); user(%s)\n",
-					entry->memID, IonNode.devNode, IonNode.dmaPort,
-					entry->va, entry->dmaAddr, entry->size, entry->refCnt,
-					entry->username);
-				break;
-			}
-
-			if (!bMapped) {
-				/* Map physical addr. */
-				LOG_DBG("ISP_ION_MAP_PA: do map. memID(%d)\n", IonNode.memID);
-				if (isp_mmu_get_dma_buffer(&mmu,
-					IonNode.memID) == false) {
-					LOG_NOTICE(
-						"ISP_ION_MAP_PA: map pa failed, memID(%d)\n",
-						IonNode.memID);
-					Ret = -EFAULT;
-					mutex_unlock(&aosp_ion_mutex);
-					break;
-				}
-				/* get iova */
-				dmaPa = sg_dma_address(mmu.sgt->sgl);
-				if (!dmaPa) {
-					Ret = -EFAULT;
-					LOG_NOTICE(
-						"ISP_ION_MAP_PA: sg_dma_address fail, memID(%d)\n",
-						IonNode.memID);
-					mutex_unlock(&aosp_ion_mutex);
-					break;
-				}
-				IonNode.dma_pa = mmu.dmaAddr = dmaPa;
-
-				/* Add an entry to global ION_BUFFER list. */
-				tmp = kmalloc(
-					sizeof(struct ION_BUFFER_LIST), GFP_KERNEL);
-				if (tmp == NULL) {
-					LOG_NOTICE("alloc Ion buf list fail, memID(%d)\n",
-						IonNode.memID);
-					Ret = -EFAULT;
-					mutex_unlock(&aosp_ion_mutex);
-					break;
-				}
-				tmp->attach = mmu.attach;
-				tmp->dmaBuf = mmu.dmaBuf;
-				tmp->sgt = mmu.sgt;
-				tmp->va = IonNode.va;
-				tmp->dmaAddr = IonNode.dma_pa;
-				tmp->memID = IonNode.memID;
-				tmp->devNode = IonNode.devNode;
-				tmp->dmaPort = IonNode.dmaPort;
-				tmp->size = IonNode.size;
-				tmp->refCnt = 1;
-
-				strncpy(tmp->username, IonNode.username, strlen(IonNode.username));
-				tmp->username[strlen(IonNode.username)] = '\0';
-
-				list_add(&(tmp->list), &(g_ion_buf_list.list));
-				LOG_DBG("Add: memID(%d), dev/Port(%d,%d); va/pa=(0x%lx/0x%lx);"
-					" size(%d); RefCnt(%d); user(%s)\n",
-					tmp->memID, IonNode.devNode, IonNode.dmaPort,
-					tmp->va, tmp->dmaAddr, tmp->size, tmp->refCnt,
-					tmp->username);
-			}
-
-			dumpIonBufferList(10, false);
-
-			mutex_unlock(&aosp_ion_mutex);
-			if (copy_to_user((void *)Param, &IonNode,
-				sizeof(struct ISP_DEV_ION_NODE_STRUCT)) != 0) {
-				LOG_NOTICE("ISP_ION_MAP_PA: copy to user fail\n");
-				Ret = -EFAULT;
-			}
-
-		} else {
-			LOG_NOTICE(
-				"ISP_ION_MAP_PA: copy_from_user failed\n");
-			Ret = -EFAULT;
-		}
-		break;
-	case ISP_ION_UNMAP_PA:
-		if (copy_from_user(&IonNode, (void *)Param,
-			sizeof(struct ISP_DEV_ION_NODE_STRUCT)) == 0) {
-			struct ION_BUFFER_LIST *tmp; /* for delete the mapped node */
-			struct list_head *pos, *q;
-			struct ION_BUFFER pIonBuf = {NULL, NULL, NULL, 0};
-			bool foundFD = false;
-
-			LOG_DBG("unmap: try memID(%d); VA/PA(0x%lx/0x%lx); (%d,%d,%s,0x%x)\n",
-				IonNode.memID, IonNode.va, IonNode.dma_pa, IonNode.devNode,
-				IonNode.dmaPort, IonNode.username, IonNode.size);
-
-			if (IonNode.memID <= 0) {
-				LOG_NOTICE("ISP_ION_UNMAP_PA: invalid memID(%d)\n",
-					IonNode.memID);
-				Ret = -EFAULT;
-				break;
-			}
-			mutex_lock(&aosp_ion_mutex);
-			if (list_empty(&g_ion_buf_list.list)) {
-				LOG_NOTICE("ISP_ION_UNMAP_PA: fail. list is empty. memID(%d)\n",
-					IonNode.memID);
-				Ret = -EFAULT;
-				mutex_unlock(&aosp_ion_mutex);
-				break;
-			}
-
-			/* Decrease the refCnt, if memID is found. */
-			list_for_each_safe(pos, q, &g_ion_buf_list.list) {
-				tmp = list_entry(pos, struct ION_BUFFER_LIST, list);
-				if (tmp->memID != IonNode.memID)
-					continue;
-
-				foundFD = true;
-				tmp->refCnt--;
-				if (tmp->refCnt > 0) {
-					LOG_DBG(
-						"unmap: memID(%d):va/pa=(0x%lx/0x%lx);"
-						" (%d,%d,%s); size(0x%x), refCnt(%d)\n",
-						tmp->memID, tmp->va, tmp->dmaAddr,
-						tmp->devNode, tmp->dmaPort,
-						tmp->username, tmp->size, tmp->refCnt);
-					break;
-				}
-				LOG_DBG(
-					"Del: memID(%d): va/pa=(0x%lx/0x%lx);"
-					" (%d,%d,%s); size(0x%x)\n",
-					tmp->memID, tmp->va, tmp->dmaAddr,
-					tmp->devNode, tmp->dmaPort,
-					tmp->username, tmp->size);
-
-				pIonBuf.dmaBuf = tmp->dmaBuf;
-				pIonBuf.attach = tmp->attach;
-				pIonBuf.sgt = tmp->sgt;
-				LOG_DBG("ISP_ION_UNMAP_PA: do unmap. memID(%d) pa(0x%lx)\n",
-					IonNode.memID, IonNode.dma_pa);
-				isp_mmu_put_dma_buffer(&pIonBuf);
-				IonNode.dma_pa = 0;
-
-				/* delete a mapped node in the list. */
-				list_del(pos);
-				kfree(tmp);
-
-				break;
-			}
-
-			if (!foundFD) {
-				LOG_NOTICE("Err: unmap: memID(%d); VA/PA(0x%lx/0x%lx);"
-					"(%d,%d,%s) not found.\n",
-					IonNode.memID, IonNode.va, IonNode.dma_pa,
-					IonNode.devNode,
-					IonNode.dmaPort, IonNode.username);
-				Ret = -EFAULT;
-				mutex_unlock(&aosp_ion_mutex);
-				break;
-			}
-
-			dumpIonBufferList(10, false);
-
-			mutex_unlock(&aosp_ion_mutex);
-		} else {
-			LOG_NOTICE("ISP_ION_UNMAP_PA: copy_from_user failed\n");
-			Ret = -EFAULT;
-		}
-		break;
-
-	case ISP_ION_UNMAP_PA_BY_HWMODULE:
-		if (copy_from_user(&module, (void *)Param,
-				sizeof(unsigned int)) == 0) {
-			struct ION_BUFFER_LIST *tmp; /* for delete the mapped node */
-			struct ION_BUFFER_LIST *entry; /* for traverse. */
-			struct list_head *pos, *q;
-			bool unmap_complete = false;
-			int foundCnt = 0;
-
-			if (module >= ISP_DEV_NODE_NUM) {
-				LOG_NOTICE(
-					"module should be smaller than ISP_DEV_NODE_NUM\n");
-				Ret = -EFAULT;
-				break;
-			}
-
-			LOG_NOTICE("ISP_ION_UNMAP_PA_BY_HWMODULE: module= %d\n", module);
-			mutex_lock(&aosp_ion_mutex);
-			if (list_empty(&g_ion_buf_list.list)) {
-				LOG_NOTICE("ISP_ION_UNMAP_PA_BY_HWMODULE: no mapped addr.\n");
-				Ret = -EFAULT;
-				mutex_unlock(&aosp_ion_mutex);
-				break;
-			}
-
-			/* Delete a node with the mapped address in the list,
-			 * if it's found.
-			 */
-			while (!unmap_complete) {
-				bool foundPA = false;
-				struct dma_buf_attachment *mapped_attach;
-				dma_addr_t mapped_PA = 0;
-				struct dma_buf *mapped_dmaBuf;
-				struct sg_table *mapped_sgt;
-
-				list_for_each_safe(pos, q, &g_ion_buf_list.list) {
-					tmp = list_entry(pos, struct ION_BUFFER_LIST, list);
-					if (tmp->devNode == module) {
-						mapped_PA = tmp->dmaAddr;
-						mapped_attach = tmp->attach;
-						mapped_dmaBuf = tmp->dmaBuf;
-						mapped_sgt = tmp->sgt;
-						LOG_NOTICE("by hwmodule: Del memID(%d): pa=0x%lx;"
-							" (%d,%d,%s)\n",
-							tmp->memID, tmp->dmaAddr,
-							tmp->devNode, tmp->dmaPort, tmp->username);
-						/* delete a mapped node in the list. */
-						list_del(pos);
-						kfree(tmp);
-						foundPA = true;
-						foundCnt++;
-						break;
-					}
-				}
-
-				if ((!foundPA) && foundCnt == 0) {
-					LOG_NOTICE("Error: No mapped PA for module(%d) is found\n",
-						module);
-					Ret = -EFAULT;
-					break;
-				}
-
-				/* Terminate condition */
-				if ((!foundPA) && foundCnt > 0) {
-					unmap_complete = true;
-					break;
-				}
-
-				foundPA = false;
-				list_for_each(pos, &g_ion_buf_list.list) {
-					entry = list_entry(pos, struct ION_BUFFER_LIST, list);
-					if (entry->dmaAddr == mapped_PA) {
-						foundPA = true;
-						break;
-					}
-				}
-				if (!foundPA) {
-					struct ION_BUFFER pIonBuf = {NULL, NULL, NULL, 0};
-					/* unmap */
-					pIonBuf.dmaBuf = mapped_dmaBuf;
-					pIonBuf.attach = mapped_attach;
-					pIonBuf.sgt = mapped_sgt;
-					LOG_NOTICE("by hwmodule(%d): unmap pa=0x%lx\n", module,
-						mapped_PA);
-					isp_mmu_put_dma_buffer(&pIonBuf);
-				}
-			}
-			mutex_unlock(&aosp_ion_mutex);
-		} else {
-			LOG_NOTICE(
-				"[ion unmap pa by module] copy_from_user failed\n");
-
-			Ret = -EFAULT;
-		}
-		break;
-	case ISP_ION_GET_PA:
-		if (copy_from_user(&IonNode, (void *)Param,
-			sizeof(struct ISP_DEV_ION_NODE_STRUCT)) == 0) {
-			struct list_head *pos;
-			struct ION_BUFFER_LIST *entry;
-			bool bMapped = false;
-
-			if (IonNode.memID <= 0) {
-				LOG_NOTICE(
-					"ISP_ION_GET_PA: invalid ion fd(%d)\n",
-					IonNode.memID);
-				Ret = -EFAULT;
-				break;
-			}
-
-			mutex_lock(&aosp_ion_mutex);
-
-			if (list_empty(&g_ion_buf_list.list)) {
-				LOG_NOTICE(
-					"ISP_ION_GET_PA: no mapped PA for memID(%d)\n",
-					IonNode.memID);
-				mutex_unlock(&aosp_ion_mutex);
-				break;
-			}
-
-			list_for_each(pos, &g_ion_buf_list.list) {
-				entry = list_entry(pos, struct ION_BUFFER_LIST, list);
-				if (entry->memID == IonNode.memID) {
-					if (entry->va != IonNode.va)
-						LOG_DBG("GET_PA: different va: (0x%lx,0x%lx)\n",
-							entry->va, IonNode.va);
-
-					IonNode.dma_pa = entry->dmaAddr;
-					bMapped = true;
-					break;
-				}
-			}
-
-			if (!bMapped) {
-				IonNode.dma_pa = 0;
-				LOG_DBG("ISP_ION_GET_PA: never mapped for memID(%d),name(%s)\n",
-					IonNode.memID, IonNode.username);
-			} else
-				LOG_DBG("ISP_ION_GET_PA: memID(%d) get pa(0x%lx), name(%s)\n",
-					IonNode.memID, IonNode.dma_pa, IonNode.username);
-			mutex_unlock(&aosp_ion_mutex);
-			if (copy_to_user((void *)Param, &IonNode,
-				sizeof(struct ISP_DEV_ION_NODE_STRUCT)) != 0) {
-				LOG_NOTICE("copy to user fail\n");
-				Ret = -EFAULT;
-			}
-		} else {
-			LOG_NOTICE(
-				"[ISP_ION_GET_PA]copy_from_user failed\n");
-			Ret = -EFAULT;
-		}
-		break;
-#endif
 	case ISP_CQ_SW_PATCH: {
 		static struct ISP_MULTI_RAW_CONFIG multiRAWConfig = {
 			0,
@@ -5682,10 +5460,6 @@ static long ISP_ioctl_compat(struct file *filp, unsigned int cmd,
 	case ISP_SET_SEC_DAPC_REG:
 	case ISP_NOTE_CQTHR0_BASE:
 	case ISP_GET_CUR_HWP1DONE:
-	case ISP_ION_MAP_PA:
-	case ISP_ION_UNMAP_PA:
-	case ISP_ION_UNMAP_PA_BY_HWMODULE:
-	case ISP_ION_GET_PA:
 	case ISP_SET_VIR_CQCNT:
 		return filp->f_op->unlocked_ioctl(filp, cmd, arg);
 	default:
@@ -5767,7 +5541,7 @@ static int ISP_open(struct inode *pInode, struct file *pFile)
 		FirstUnusedIrqUserKey = 1;
 
 		strncpy((void *)IrqUserKey_UserInfo[i].userName,
-			"DefaultUserNametoAllocMem", USERKEY_STR_LEN);
+			"DefaultUserNametoAllocMem", USERKEY_USERNAME_STR_LEN);
 
 		IrqUserKey_UserInfo[i].userKey = -1;
 	}
@@ -5849,11 +5623,11 @@ static inline void ISP_StopHW(int module)
 	unsigned int regTGSt = 0, loopCnt = 3;
 	int ret = 0;
 	struct ISP_WAIT_IRQ_STRUCT waitirq;
+	ktime_t time;
 	unsigned long long sec = 0, m_sec = 0;
-	unsigned long long usec = 0, m_usec = 0;
-	unsigned long long timeoutMs = 5000; /*5ms */
+	unsigned long long timeoutMs = 500000000; /*500ms */
 	//3ms * (CAM_A~C + CAMSV0~7) = 33ms(if all timeout)
-	unsigned long long timeoutMsRst = 3000; /*3ms */
+	unsigned long long timeoutMsRst = 3000000; /*3ms */
 	char moduleName[128];
 
 	/* wait TG idle */
@@ -5902,9 +5676,8 @@ static inline void ISP_StopHW(int module)
 			moduleName);
 
 		/* timer */
-		m_sec = ktime_get(); /* ns */
-		do_div(m_sec, 1000); /* usec */
-		m_usec = do_div(m_sec, 1000000); /* sec and usec */
+		time = ktime_get();
+		m_sec = time;
 
 		while (regTGSt != 1) {
 			regTGSt = (ISP_RD32(CAM_REG_TG_INTER_ST(module)) &
@@ -5912,11 +5685,10 @@ static inline void ISP_StopHW(int module)
 				  8;
 
 			/*timer */
-			sec = ktime_get(); /* ns */
-			do_div(sec, 1000); /* sec */
-			usec = do_div(sec, 1000000); /* sec and usec */
+			time = ktime_get();
+			sec = time;
 			/* wait time>timeoutMs, break */
-			if ((usec - m_usec) > timeoutMs)
+			if ((sec - m_sec) > timeoutMs)
 				break;
 			//add "regTGSt == 0" for workaround
 			if (regTGSt == 0)
@@ -5928,16 +5700,15 @@ static inline void ISP_StopHW(int module)
 			LOG_INF("%s: plz check regTGSt value\n", moduleName);
 		} else {
 			LOG_INF("%s: wait idle timeout(%lld)\n", moduleName,
-				(usec - m_usec));
+				(sec - m_sec));
 		}
 	}
 
 RESET:
 	LOG_INF("%s: reset\n", moduleName);
 	/* timer */
-	m_sec = ktime_get(); /* ns */
-	do_div(m_sec, 1000); /* usec */
-	m_usec = do_div(m_sec, 1000000); /* sec and usec */
+	time = ktime_get();
+	m_sec = time;
 
 	/* Reset */
 	ISP_WR32(CAM_REG_CTL_SW_CTL(module), 0x0);
@@ -5945,11 +5716,10 @@ RESET:
 	while ((ISP_RD32(CAM_REG_CTL_SW_CTL(module)) & 0x2) != 0x2) {
 		/*LOG_DBG("%s resetting...\n", moduleName); */
 		/*timer */
-		sec = ktime_get(); /* ns */
-		do_div(sec, 1000); /* usec */
-		usec = do_div(sec, 1000000); /* sec and usec */
+		time = ktime_get();
+		sec = time;
 		/* wait time>timeoutMs, break */
-		if ((usec - m_usec) > timeoutMsRst) {
+		if ((sec - m_sec) > timeoutMsRst) {
 			LOG_INF("%s: wait SW idle timeout\n", moduleName);
 			if (sec_on) {
 				LOG_INF(
@@ -5989,13 +5759,11 @@ RESET:
 				(unsigned int)ISP_RD32(CAMSYS_REG_CG_CLR));
 			}
 			//dump smi for debugging
-#ifndef EP_MARK_SMI
 #ifdef CONFIG_MTK_SMI_EXT
 			if (smi_debug_bus_hang_detect(false, "camera_isp") != 0)
 				LOG_NOTICE("ERR:smi_debug_bus_hang_detect");
 #endif
 			break;
-#endif
 		}
 		//add "regTGSt == 0" for workaround
 		if (regTGSt == 0)
@@ -6021,10 +5789,10 @@ static inline void ISP_StopSVHW(int module)
 	unsigned int regTGSt = 0, loopCnt = 3;
 	int ret = 0;
 	struct ISP_WAIT_IRQ_STRUCT waitirq;
+	ktime_t time;
 	unsigned long long sec = 0, m_sec = 0;
-	unsigned long long usec = 0, m_usec = 0;
-	unsigned long long timeoutMs = 5000; /*5ms */
-	unsigned long long timeoutMsRst = 3000; /*3ms */
+	unsigned long long timeoutMs = 500000000; /*500ms */
+	unsigned long long timeoutMsRst = 3000000; /*3ms */
 	char moduleName[128];
 
 	/* wait TG idle */
@@ -6097,9 +5865,8 @@ static inline void ISP_StopSVHW(int module)
 			moduleName);
 
 		/* timer */
-		m_sec = ktime_get(); /* ns */
-		do_div(m_sec, 1000); /* usec */
-		m_usec = do_div(m_sec, 1000000); /* sec and usec */
+		time = ktime_get();
+		m_sec = time;
 
 		while (regTGSt != 1) {
 			regTGSt = (ISP_RD32(CAMSV_REG_TG_INTER_ST(module)) &
@@ -6107,11 +5874,10 @@ static inline void ISP_StopSVHW(int module)
 				  8;
 
 			/*timer */
-			sec = ktime_get(); /* ns */
-			do_div(sec, 1000); /* usec */
-			usec = do_div(sec, 1000000); /* sec and usec */
+			time = ktime_get();
+			sec = time;
 			/* wait time>timeoutMs, break */
-			if ((usec - m_usec) > timeoutMs)
+			if ((sec - m_sec) > timeoutMs)
 				break;
 			//add "regTGSt == 0" for workaround
 			if (regTGSt == 0)
@@ -6123,15 +5889,14 @@ static inline void ISP_StopSVHW(int module)
 			LOG_INF("%s: plz check regTGSt value\n", moduleName);
 		} else {
 			LOG_INF("%s: wait idle timeout(%lld)\n", moduleName,
-				(usec - m_usec));
+				(sec - m_sec));
 		}
 	}
 	if ((module >= ISP_CAMSV_START_IDX) && (module <= ISP_CAMSV_END_IDX))
 		LOG_INF("%s: reset\n", moduleName);
 	/* timer */
-	m_sec = ktime_get(); /* ns */
-	do_div(m_sec, 1000); /* usec */
-	m_usec = do_div(m_sec, 1000000); /* sec and usec */
+	time = ktime_get();
+	m_sec = time;
 
 	/* Reset */
 	ISP_WR32(CAMSV_REG_SW_CTL(module), 0x0);
@@ -6149,12 +5914,10 @@ static inline void ISP_StopSVHW(int module)
 #endif
 		/*LOG_DBG("%s resetting...\n", moduleName); */
 		/*timer */
-		sec = ktime_get(); /* ns */
-		do_div(sec, 1000); /* usec */
-		usec = do_div(sec, 1000000); /* sec and usec */
-
+		time = ktime_get();
+		sec = time;
 		/* wait time>timeoutMs, break */
-		if ((usec - m_usec) > timeoutMsRst) {
+		if ((sec - m_sec) > timeoutMsRst) {
 			LOG_INF("%s: wait SW idle timeout\n", moduleName);
 			break;
 		}
@@ -6199,8 +5962,8 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 	if (IspInfo.UserCount > 0) {
 		spin_unlock(&(IspInfo.SpinLockIspRef));
 
-		LOG_DBG(
-			"Curr UserCount(%d), (process, pid, tgid) = (%s, %d, %d),users exist",
+		LOG_DBG("Curr UserCount(%d), (process, pid, tgid)="
+			"(%s, %d, %d),	users exist",
 			IspInfo.UserCount, current->comm, current->pid,
 			current->tgid);
 
@@ -6214,8 +5977,8 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 	set_detect_count(pr_detect_count);
 #endif
 	/*      */
-	LOG_DBG(
-		"Curr UserCount(%d), (process, pid, tgid) = (%s, %d, %d), log_limit_line(%d),last user",
+	LOG_DBG("Curr UserCount(%d), (process, pid, tgid)="
+		"(%s, %d, %d), log_limit_line(%d),	last user",
 		IspInfo.UserCount, current->comm, current->pid, current->tgid,
 		pr_detect_count);
 
@@ -6273,7 +6036,7 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 		FirstUnusedIrqUserKey = 1;
 
 		strncpy((void *)IrqUserKey_UserInfo[i].userName,
-			"DefaultUserNametoAllocMem", USERKEY_STR_LEN);
+			"DefaultUserNametoAllocMem", USERKEY_USERNAME_STR_LEN);
 
 		IrqUserKey_UserInfo[i].userKey = -1;
 	}
@@ -6287,19 +6050,13 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 	/* reset backup regs */
 	memset(g_BkReg, 0, sizeof(struct _isp_bk_reg_t) * ISP_IRQ_TYPE_AMOUNT);
 
-
-#if Lafi_WAM_CQ_ERR
-    /*reset g_tgErrRecoverCnt*/
-	g_tgErrRecoverCnt[ISP_IRQ_TYPE_INT_CAM_A_ST] = 0;
-	g_tgErrRecoverCnt[ISP_IRQ_TYPE_INT_CAM_B_ST] = 0;
-#endif
 	/*  */
 	for (i = ISP_CAMSV_START_IDX; i <= ISP_CAMSV_END_IDX; i++)
 		ISP_StopSVHW(i);
 
 	ISP_StopHW(ISP_CAM_A_IDX);
 	ISP_StopHW(ISP_CAM_B_IDX);
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 	ISP_StopHW(ISP_CAM_C_IDX);
 #endif
 	/* reset secure cam info */
@@ -6358,7 +6115,7 @@ static int ISP_mmap(struct file *pFile, struct vm_area_struct *pVma)
 	case CAM_C_INNER_BASE_HW:
 		if (length > ISP_REG_RANGE) {
 			LOG_NOTICE("range err:mod:0x%x len:0x%x RANGE:0x%x\n",
-				   (unsigned int)pfn, (unsigned int)length,
+				  (unsigned int)pfn, (unsigned int)length,
 				   (unsigned int)ISP_REG_RANGE);
 			return -EAGAIN;
 		}
@@ -6373,7 +6130,7 @@ static int ISP_mmap(struct file *pFile, struct vm_area_struct *pVma)
 	case CAMSV_7_BASE_HW:
 		if (length > ISPSV_REG_RANGE) {
 			LOG_NOTICE("range err:mod:0x%x len:0x%x RANGE:0x%x\n",
-				   (unsigned int)pfn, (unsigned int)length,
+				  (unsigned int)pfn, (unsigned int)length,
 				   (unsigned int)ISPSV_REG_RANGE);
 			return -EAGAIN;
 		}
@@ -6523,7 +6280,7 @@ static unsigned int NodeName_to_DevIdx(const char *name)
  *
  ******************************************************************************/
 /*
- * Before common kernel 5.4 iommu's device link ready.
+ * Before common kernel iommu's device link ready.
  * we need to use SMI API to power on bus directly.
  */
 void ISP_get_larb(struct platform_device *pDev, unsigned int dev_idx, int larb_num)
@@ -6753,13 +6510,18 @@ static int ISP_probe(struct platform_device *pDev)
 
 		isp_clk.CAMSYS_LARB14_CGPDN =
 			devm_clk_get(&pDev->dev, "CAMSYS_LARB14_CGPDN");
-
+#ifdef CAMERA_ISP_MT6893
+		isp_clk.CAMSYS_LARB15_CGPDN =
+			devm_clk_get(&pDev->dev, "CAMSYS_LARB15_CGPDN");
+#endif
 		isp_clk.CAMSYS_SENINF_CGPDN =
 			devm_clk_get(&pDev->dev, "CAMSYS_SENINF_CGPDN");
 
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6853)
 		isp_clk.CAMSYS_CAM2MM_GALS_CGPDN =
 			devm_clk_get(&pDev->dev,
 				"CAMSYS_MAIN_CAM2MM_GALS_CGPDN");
+#endif
 
 		isp_clk.CAMSYS_TOP_MUX_CCU =
 			devm_clk_get(&pDev->dev, "TOPCKGEN_TOP_MUX_CCU");
@@ -6781,7 +6543,7 @@ static int ISP_probe(struct platform_device *pDev)
 
 		isp_clk.ISP_CAM_CAMSV2 =
 			devm_clk_get(&pDev->dev, "CAMSYS_CAMSV2_CGPDN");
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 		isp_clk.ISP_CAM_CAMSV3 =
 			devm_clk_get(&pDev->dev, "CAMSYS_CAMSV3_CGPDN");
 #endif
@@ -6797,7 +6559,7 @@ static int ISP_probe(struct platform_device *pDev)
 			devm_clk_get(&pDev->dev, "CAMSYS_RAWBCAM_CGPDN");
 		isp_clk.ISP_CAM_TG_RAWB =
 			devm_clk_get(&pDev->dev, "CAMSYS_RAWBTG_CGPDN");
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 		isp_clk.ISP_CAM_LARB18_RAWC =
 			devm_clk_get(&pDev->dev, "CAMSYS_RAWCLARB18_CGPDN");
 		isp_clk.ISP_CAM_SUBSYS_RAWC =
@@ -6816,18 +6578,23 @@ static int ISP_probe(struct platform_device *pDev)
 			LOG_NOTICE("cannot get CAMSYS_LARB14_CGPDN clock\n");
 			return PTR_ERR(isp_clk.CAMSYS_LARB14_CGPDN);
 		}
-
+#ifdef CAMERA_ISP_MT6893
+		if (IS_ERR(isp_clk.CAMSYS_LARB15_CGPDN)) {
+			LOG_NOTICE("cannot get CAMSYS_LARB15_CGPDN clock\n");
+			return PTR_ERR(isp_clk.CAMSYS_LARB15_CGPDN);
+		}
+#endif
 		if (IS_ERR(isp_clk.CAMSYS_SENINF_CGPDN)) {
 			LOG_NOTICE("cannot get CAMSYS_SENINF_CGPDN clock\n");
 			return PTR_ERR(isp_clk.CAMSYS_SENINF_CGPDN);
 		}
-
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6853)
 		if (IS_ERR(isp_clk.CAMSYS_CAM2MM_GALS_CGPDN)) {
 			LOG_NOTICE(
 				"cannot get CAMSYS_CAM2MM_GALS_CGPDN clock\n");
 			return PTR_ERR(isp_clk.CAMSYS_CAM2MM_GALS_CGPDN);
 		}
-
+#endif
 		if (IS_ERR(isp_clk.CAMSYS_TOP_MUX_CCU)) {
 			LOG_NOTICE("cannot get CAMSYS_TOP_MUX_CCU clock\n");
 			return PTR_ERR(isp_clk.CAMSYS_TOP_MUX_CCU);
@@ -6856,7 +6623,7 @@ static int ISP_probe(struct platform_device *pDev)
 			LOG_NOTICE("cannot get ISP_CAM_CAMSV2 clock\n");
 			return PTR_ERR(isp_clk.ISP_CAM_CAMSV2);
 		}
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 		if (IS_ERR(isp_clk.ISP_CAM_CAMSV3)) {
 			LOG_NOTICE("cannot get ISP_CAM_CAMSV3 clock\n");
 			return PTR_ERR(isp_clk.ISP_CAM_CAMSV3);
@@ -6886,7 +6653,7 @@ static int ISP_probe(struct platform_device *pDev)
 			LOG_NOTICE("cannot get ISP_CAM_TG_RAWB clock\n");
 			return PTR_ERR(isp_clk.ISP_CAM_TG_RAWB);
 		}
-#ifdef CAMERA_ISP_MT6873
+#if defined(CAMERA_ISP_MT6873) || defined(CAMERA_ISP_MT6893)
 		if (IS_ERR(isp_clk.ISP_CAM_LARB18_RAWC)) {
 			LOG_NOTICE("cannot get ISP_CAM_LARB18_RAWC clock\n");
 			return PTR_ERR(isp_clk.ISP_CAM_LARB18_RAWC);
@@ -7059,10 +6826,6 @@ static int ISP_probe(struct platform_device *pDev)
 			IspInfo.IrqCntInfo.m_int_usec[i] = 0;
 		}
 
-#ifdef ENABLE_AOSP_ION
-		proc_create("driver/isp_ion_buf_list", 0000, NULL, &faosp_ion_proc_fops);
-#endif
-
 EXIT:
 		if (Ret < 0)
 			ISP_UnregCharDev();
@@ -7102,10 +6865,6 @@ static int ISP_remove(struct platform_device *pDev)
 	/*  */
 	class_destroy(pIspClass);
 	pIspClass = NULL;
-	/*  */
-#ifdef ENABLE_AOSP_ION
-	remove_proc_entry("driver/isp_ion_buf_list", NULL);
-#endif
 
 #if (ISP_BOTTOMHALF_WORKQ == 1)
 	destroy_workqueue(isr_log_wq);
@@ -7116,8 +6875,9 @@ static int ISP_remove(struct platform_device *pDev)
 static int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 {
 	unsigned int regVal;
-	int IrqType, ret, module;
-	char moduleName[128];
+	unsigned int IrqType;
+	int ret, module;
+	char moduleName[128] = {'\0'};
 
 	unsigned int regTGSt, loopCnt;
 	struct ISP_WAIT_IRQ_STRUCT waitirq;
@@ -7127,7 +6887,8 @@ static int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 
 	ret = 0;
 	module = -1;
-	strncpy(moduleName, pDev->dev.of_node->name, 127);
+	strncpy(moduleName, pDev->dev.of_node->name, sizeof(moduleName)-1);
+	moduleName[sizeof(moduleName)-1] = '\0';
 
 	/* update device node count */
 	atomic_dec(&G_u4DevNodeCt);
@@ -7141,7 +6902,7 @@ static int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 		/* Only print cama log */
 		if (strcmp(moduleName,
 			IRQ_CB_TBL[ISP_IRQ_TYPE_INT_CAM_A_ST].device_name) ==
-			0) {
+				0) {
 
 			LOG_DBG("%s - X. UserCount=%d,wakelock:%d,devct:%d\n",
 				moduleName, IspInfo.UserCount,
@@ -7290,7 +7051,6 @@ static int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 		LOG_INF("%s_suspend,wakelock:%d,clk:%d,devct:%d\n", moduleName,
 			g_WaitLockCt, G_u4EnableClockCount,
 			atomic_read(&G_u4DevNodeCt));
-
 		SuspnedRecord[module] = 0;
 	}
 
@@ -7318,12 +7078,14 @@ EXIT:
 static int ISP_resume(struct platform_device *pDev)
 {
 	unsigned int regVal;
-	int IrqType, ret, module;
-	char moduleName[128];
+	unsigned int IrqType;
+	int ret, module;
+	char moduleName[128] = {'\0'};
 
 	ret = 0;
 	module = -1;
-	strncpy(moduleName, pDev->dev.of_node->name, 127);
+	strncpy(moduleName, pDev->dev.of_node->name, sizeof(moduleName)-1);
+	moduleName[sizeof(moduleName)-1] = '\0';
 
 	/* update device node count */
 	atomic_inc(&G_u4DevNodeCt);
@@ -7546,45 +7308,6 @@ static const struct proc_ops fcameraio_proc_fops = {
 	.proc_write = CAMIO_RegDebug,
 };
 
-void dumpAllRegs(enum ISP_DEV_NODE_ENUM module)
-{
-	unsigned int i = 0;
-	unsigned int log_ba = 0;
-
-	if (g_is_dumping[module])
-		return;
-
-	switch (module) {
-	case ISP_CAM_A_INNER_IDX:
-		log_ba = CAM_A_BASE_HW;
-		break;
-	case ISP_CAM_B_INNER_IDX:
-		log_ba = CAM_B_BASE_HW;
-		break;
-	case ISP_CAM_C_INNER_IDX:
-		log_ba = CAM_C_BASE_HW;
-		break;
-	default:
-		break;
-	}
-
-	g_is_dumping[module] = MTRUE;
-	LOG_INF("----%s(module:%d)----\n", __func__, module);
-
-	for (i = 0 ; i < ISP_REG_RANGE; i += 0x0020) {
-		LOG_INF(STR_REG,
-			log_ba + i,
-			ISP_RD32(isp_devs[module].regs + i),
-			ISP_RD32(isp_devs[module].regs + i + 0x0004),
-			ISP_RD32(isp_devs[module].regs + i + 0x0008),
-			ISP_RD32(isp_devs[module].regs + i + 0x000C),
-			ISP_RD32(isp_devs[module].regs + i + 0x0010),
-			ISP_RD32(isp_devs[module].regs + i + 0x0014),
-			ISP_RD32(isp_devs[module].regs + i + 0x0018),
-			ISP_RD32(isp_devs[module].regs + i + 0x001C));
-	}
-	g_is_dumping[module] = MFALSE;
-}
 /*******************************************************************************
  *
  ******************************************************************************/
@@ -7600,9 +7323,6 @@ static int __init ISP_Init(void)
 	LOG_DBG("- E.");
 	mutex_init(&open_isp_mutex);
 
-#ifdef ENABLE_AOSP_ION
-	mutex_init(&aosp_ion_mutex);
-#endif
 	/*  */
 	atomic_set(&G_u4DevNodeCt, 0);
 	/*  */
@@ -7627,6 +7347,8 @@ static int __init ISP_Init(void)
 			node = of_find_compatible_node(node, NULL, "mediatek,mt6873-smi-larb");
 #elif defined(CAMERA_ISP_MT6853)
 			node = of_find_compatible_node(node, NULL, "mediatek,mt6853-smi-larb");
+#elif defined(CAMERA_ISP_MT6893)
+			node = of_find_compatible_node(node, NULL, "mediatek,mt6893-smi-larb");
 #endif
 			if (!node) {
 				if (i == 0) {
@@ -7797,10 +7519,6 @@ static int __init ISP_Init(void)
 
 	SV_SetPMQOS(E_CLK_ADD, ISP_IRQ_TYPE_INT_CAMSV_START_ST, NULL);
 
-#ifdef ENABLE_AOSP_ION
-	INIT_LIST_HEAD(&g_ion_buf_list.list);
-#endif
-
 	LOG_DBG("- E. Ret: %d.", Ret);
 	return Ret;
 }
@@ -7874,17 +7592,10 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 				module, m_CurrentPPB, _LOG_ERR,
 				"CAM_A:raw_int_err:0x%x, raw_int5_wrn:0x%x,lsci_wrn:0x%x\n",
 				ErrStatus, WarnStatus, warnTwo);
-#ifdef CAMERA_ISP_MT6873
-			/* TG ERR print */
-			if (ErrStatus & TG_ERR_ST) {
-				ISP_DumpDmaDeepDbg(ISP_IRQ_TYPE_INT_CAM_A_ST);
-				ISP_DumpDmaDeepDbg(ISP_IRQ_TYPE_INT_CAM_B_ST);
-				ISP_DumpDmaDeepDbg(ISP_IRQ_TYPE_INT_CAM_C_ST);
-			}
-#endif
+
 			/* DMA ERR print */
-			if (ErrStatus & DMA_ERR_ST)
-				ISP_DumpDmaDeepDbg(module);
+			if (ErrStatus & (DMA_ERR_ST | TG_ERR_ST))
+				ISP_DumpDmaDeepDbg(module, ErrStatus);
 
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
@@ -7910,8 +7621,8 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 				ErrStatus, WarnStatus, warnTwo);
 
 			/* DMA ERR print */
-			if (ErrStatus & DMA_ERR_ST)
-				ISP_DumpDmaDeepDbg(module);
+			if (ErrStatus & (DMA_ERR_ST | TG_ERR_ST))
+				ISP_DumpDmaDeepDbg(module, ErrStatus);
 
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
@@ -7937,8 +7648,8 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 				ErrStatus, WarnStatus, warnTwo);
 
 			/* DMA ERR print */
-			if (ErrStatus & DMA_ERR_ST)
-				ISP_DumpDmaDeepDbg(module);
+			if (ErrStatus & (DMA_ERR_ST | TG_ERR_ST))
+				ISP_DumpDmaDeepDbg(module, ErrStatus);
 
 			break;
 #if (DISABLE_CAMSV_TOP0 == 0)
@@ -8058,9 +7769,9 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 
 enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 				     enum ISP_IRQ_TYPE_ENUM irq_mod,
-				     unsigned int delayCheck)
+				     unsigned int delayCheck, unsigned int *FBCurStat)
 {
-	static const int dma_arry_map[_cam_max_] = {
+	static const unsigned int dma_arry_map[_cam_max_] = {
 		0,	/* _imgo_     */
 		1,	/* _ufeo_	   */
 		2,	/* _rrzo_	   */
@@ -8088,6 +7799,7 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 	unsigned int dma_en, dma2_en;
 	union FBC_CTRL_1 fbc_ctrl1[_cam_max_ + 1];
 	union FBC_CTRL_2 fbc_ctrl2[_cam_max_ + 1];
+	union FBC_CTRL_2 fbc_ctrl2_STT;
 	bool bQueMode = MFALSE;
 	unsigned int product = 1;
 	/* TSTP_V3 unsigned int frmPeriod = */
@@ -8113,6 +7825,10 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 
 		fbc_ctrl2[dma_arry_map[_imgo_]].Raw =
 			ISP_RD32(CAM_REG_FBC_IMGO_CTL2(module));
+
+		if (fbc_ctrl2[dma_arry_map[_imgo_]].Bits.FBC_CNT > 0) {
+			(*FBCurStat) = (*FBCurStat) | _IMGO_R1_EN_;
+		}
 	} else {
 		fbc_ctrl1[dma_arry_map[_imgo_]].Raw = 0x0;
 		fbc_ctrl2[dma_arry_map[_imgo_]].Raw = 0x0;
@@ -8124,6 +7840,11 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 
 		fbc_ctrl2[dma_arry_map[_rrzo_]].Raw =
 			ISP_RD32(CAM_REG_FBC_RRZO_CTL2(module));
+
+		if (fbc_ctrl2[dma_arry_map[_rrzo_]].Bits.FBC_CNT > 0) {
+			(*FBCurStat) = (*FBCurStat) | _RRZO_R1_EN_;
+		}
+
 	} else {
 		fbc_ctrl1[dma_arry_map[_rrzo_]].Raw = 0x0;
 		fbc_ctrl2[dma_arry_map[_rrzo_]].Raw = 0x0;
@@ -8135,6 +7856,10 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 
 		fbc_ctrl2[dma_arry_map[_lcso_]].Raw =
 			ISP_RD32(CAM_REG_FBC_LCESO_CTL2(module));
+
+		if (fbc_ctrl2[dma_arry_map[_lcso_]].Bits.FBC_CNT > 0) {
+			(*FBCurStat) = (*FBCurStat) | _LCESO_R1_EN_;
+		}
 	} else {
 		fbc_ctrl1[dma_arry_map[_lcso_]].Raw = 0x0;
 		fbc_ctrl2[dma_arry_map[_lcso_]].Raw = 0x0;
@@ -8146,6 +7871,10 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 
 		fbc_ctrl2[dma_arry_map[_lcesho_]].Raw =
 			ISP_RD32(CAM_REG_FBC_LCESHO_CTL2(module));
+
+		if (fbc_ctrl2[dma_arry_map[_lcesho_]].Bits.FBC_CNT > 0) {
+			(*FBCurStat) = (*FBCurStat) | _LCESHO_R1_EN_;
+		}
 	} else {
 		fbc_ctrl1[dma_arry_map[_lcesho_]].Raw = 0x0;
 		fbc_ctrl2[dma_arry_map[_lcesho_]].Raw = 0x0;
@@ -8157,6 +7886,10 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 
 		fbc_ctrl2[dma_arry_map[_ufeo_]].Raw =
 			ISP_RD32(CAM_REG_FBC_UFEO_CTL2(module));
+
+		if (fbc_ctrl2[dma_arry_map[_ufeo_]].Bits.FBC_CNT > 0) {
+			(*FBCurStat) = (*FBCurStat) | _UFEO_R1_EN_;
+		}
 	} else {
 		fbc_ctrl1[dma_arry_map[_ufeo_]].Raw = 0x0;
 		fbc_ctrl2[dma_arry_map[_ufeo_]].Raw = 0x0;
@@ -8168,6 +7901,10 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 
 		fbc_ctrl2[dma_arry_map[_ufgo_]].Raw =
 			ISP_RD32(CAM_REG_FBC_UFGO_CTL2(module));
+
+		if (fbc_ctrl2[dma_arry_map[_ufgo_]].Bits.FBC_CNT > 0) {
+			(*FBCurStat) = (*FBCurStat) | _UFGO_R1_EN_;
+		}
 	} else {
 		fbc_ctrl1[dma_arry_map[_ufgo_]].Raw = 0x0;
 		fbc_ctrl2[dma_arry_map[_ufgo_]].Raw = 0x0;
@@ -8179,6 +7916,10 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 
 		fbc_ctrl2[dma_arry_map[_rsso_]].Raw =
 			ISP_RD32(CAM_REG_FBC_RSSO_CTL2(module));
+
+		if (fbc_ctrl2[dma_arry_map[_rsso_]].Bits.FBC_CNT > 0) {
+			(*FBCurStat) = (*FBCurStat) | _RSSO_R1_EN_;
+		}
 	} else {
 		fbc_ctrl1[dma_arry_map[_rsso_]].Raw = 0x0;
 		fbc_ctrl2[dma_arry_map[_rsso_]].Raw = 0x0;
@@ -8190,6 +7931,10 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 
 		fbc_ctrl2[dma_arry_map[_lmvo_]].Raw =
 			ISP_RD32(CAM_REG_FBC_LMVO_CTL2(module));
+
+		if (fbc_ctrl2[dma_arry_map[_lmvo_]].Bits.FBC_CNT > 0) {
+			(*FBCurStat) = (*FBCurStat) | _LMVO_R1_EN_;
+		}
 	} else {
 		fbc_ctrl1[dma_arry_map[_lmvo_]].Raw = 0x0;
 		fbc_ctrl2[dma_arry_map[_lmvo_]].Raw = 0x0;
@@ -8201,6 +7946,10 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 
 		fbc_ctrl2[dma_arry_map[_yuvbo_]].Raw =
 			ISP_RD32(CAM_REG_FBC_YUVBO_CTL2(module));
+
+		if (fbc_ctrl2[dma_arry_map[_yuvbo_]].Bits.FBC_CNT > 0) {
+			(*FBCurStat) = (*FBCurStat) | _YUVBO_R1_EN_;
+		}
 	} else {
 		fbc_ctrl1[dma_arry_map[_yuvbo_]].Raw = 0x0;
 		fbc_ctrl2[dma_arry_map[_yuvbo_]].Raw = 0x0;
@@ -8212,6 +7961,10 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 
 		fbc_ctrl2[dma_arry_map[_crzo_]].Raw =
 			ISP_RD32(CAM_REG_FBC_CRZO_CTL2(module));
+
+		if (fbc_ctrl2[dma_arry_map[_crzo_]].Bits.FBC_CNT > 0) {
+			(*FBCurStat) = (*FBCurStat) | _CRZO_R1_EN_;
+		}
 	} else {
 		fbc_ctrl1[dma_arry_map[_crzo_]].Raw = 0x0;
 		fbc_ctrl2[dma_arry_map[_crzo_]].Raw = 0x0;
@@ -8223,6 +7976,10 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 
 		fbc_ctrl2[dma_arry_map[_crzbo_]].Raw =
 			ISP_RD32(CAM_REG_FBC_CRZBO_CTL2(module));
+
+		if (fbc_ctrl2[dma_arry_map[_crzbo_]].Bits.FBC_CNT > 0) {
+			(*FBCurStat) = (*FBCurStat) | _CRZBO_R1_EN_;
+		}
 	} else {
 		fbc_ctrl1[dma_arry_map[_crzbo_]].Raw = 0x0;
 		fbc_ctrl2[dma_arry_map[_crzbo_]].Raw = 0x0;
@@ -8234,6 +7991,10 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 
 		fbc_ctrl2[dma_arry_map[_yuvco_]].Raw =
 			ISP_RD32(CAM_REG_FBC_YUVCO_CTL2(module));
+
+		if (fbc_ctrl2[dma_arry_map[_yuvco_]].Bits.FBC_CNT > 0) {
+			(*FBCurStat) = (*FBCurStat) | _YUVCO_R1_EN_;
+		}
 	} else {
 		fbc_ctrl1[dma_arry_map[_yuvco_]].Raw = 0x0;
 		fbc_ctrl2[dma_arry_map[_yuvco_]].Raw = 0x0;
@@ -8245,6 +8006,10 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 
 		fbc_ctrl2[dma_arry_map[_crzo_r2_]].Raw =
 			ISP_RD32(CAM_REG_FBC_CRZO_R2_CTL2(module));
+
+		if (fbc_ctrl2[dma_arry_map[_crzo_r2_]].Bits.FBC_CNT > 0) {
+			(*FBCurStat) = (*FBCurStat) | _CRZO_R2_EN_;
+		}
 	} else {
 		fbc_ctrl1[dma_arry_map[_crzo_r2_]].Raw = 0x0;
 		fbc_ctrl2[dma_arry_map[_crzo_r2_]].Raw = 0x0;
@@ -8256,6 +8021,10 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 
 		fbc_ctrl2[dma_arry_map[_rsso_r2_]].Raw =
 			ISP_RD32(CAM_REG_FBC_RSSO_R2_CTL2(module));
+
+		if (fbc_ctrl2[dma_arry_map[_rsso_r2_]].Bits.FBC_CNT > 0) {
+			(*FBCurStat) = (*FBCurStat) | _RSSO_R2_EN_;
+		}
 	} else {
 		fbc_ctrl1[dma_arry_map[_rsso_r2_]].Raw = 0x0;
 		fbc_ctrl2[dma_arry_map[_rsso_r2_]].Raw = 0x0;
@@ -8267,9 +8036,76 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 
 		fbc_ctrl2[dma_arry_map[_yuvo_]].Raw =
 			ISP_RD32(CAM_REG_FBC_YUVO_CTL2(module));
+
+		if (fbc_ctrl2[dma_arry_map[_yuvo_]].Bits.FBC_CNT > 0) {
+			(*FBCurStat) = (*FBCurStat) | _YUVO_R1_EN_;
+		}
 	} else {
 		fbc_ctrl1[dma_arry_map[_yuvo_]].Raw = 0x0;
 		fbc_ctrl2[dma_arry_map[_yuvo_]].Raw = 0x0;
+	}
+	/*STT FBC Status record*/
+	if (dma_en & _TSFSO_R1_EN_) {
+
+		fbc_ctrl2_STT.Raw =
+			ISP_RD32(CAM_REG_FBC_TSFSO_CTL2(module));
+
+		if (fbc_ctrl2_STT.Bits.FBC_CNT > 0)
+			(*FBCurStat) = (*FBCurStat) | _TSFSO_R1_EN_;
+	}
+
+	if (dma_en & _AAO_R1_EN_) {
+
+		fbc_ctrl2_STT.Raw =
+			ISP_RD32(CAM_REG_FBC_AAO_CTL2(module));
+
+		if (fbc_ctrl2_STT.Bits.FBC_CNT > 0)
+			(*FBCurStat) = (*FBCurStat) | _AAO_R1_EN_;
+	}
+
+	if (dma_en & _AAHO_R1_EN_) {
+
+		fbc_ctrl2_STT.Raw =
+			ISP_RD32(CAM_REG_FBC_AAHO_CTL2(module));
+
+		if (fbc_ctrl2_STT.Bits.FBC_CNT > 0)
+			(*FBCurStat) = (*FBCurStat) | _AAHO_R1_EN_;
+	}
+
+	if (dma_en & _FLKO_R1_EN_) {
+
+		fbc_ctrl2_STT.Raw =
+			ISP_RD32(CAM_REG_FBC_FLKO_CTL2(module));
+
+		if (fbc_ctrl2_STT.Bits.FBC_CNT > 0)
+			(*FBCurStat) = (*FBCurStat) | _FLKO_R1_EN_;
+	}
+
+	if (dma_en & _AFO_R1_EN_) {
+
+		fbc_ctrl2_STT.Raw =
+			ISP_RD32(CAM_REG_FBC_AFO_CTL2(module));
+
+		if (fbc_ctrl2_STT.Bits.FBC_CNT > 0)
+			(*FBCurStat) = (*FBCurStat) | _AFO_R1_EN_;
+	}
+
+	if (dma_en & _PDO_R1_EN_) {
+
+		fbc_ctrl2_STT.Raw =
+			ISP_RD32(CAM_REG_FBC_PDO_CTL2(module));
+
+		if (fbc_ctrl2_STT.Bits.FBC_CNT > 0)
+			(*FBCurStat) = (*FBCurStat) | _PDO_R1_EN_;
+	}
+
+	if (dma_en & _LTMSO_R1_EN_) {
+
+		fbc_ctrl2_STT.Raw =
+			ISP_RD32(CAM_REG_FBC_LTMSO_CTL2(module));
+
+		if (fbc_ctrl2_STT.Bits.FBC_CNT > 0)
+			(*FBCurStat) = (*FBCurStat) | _LTMSO_R1_EN_;
 	}
 
 	for (i = 0; i < _cam_max_; i++) {
@@ -8291,7 +8127,6 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 			if (fbc_ctrl1[dma_arry_map[i]].Raw != 0) {
 				product *=
 					fbc_ctrl2[dma_arry_map[i]].Bits.FBC_CNT;
-
 				if (product == 0)
 					return CAM_FST_DROP_FRAME;
 			}
@@ -8351,10 +8186,9 @@ static void ISP_GetDmaPortsStatus(enum ISP_DEV_NODE_ENUM reg_module,
 	DmaPortsStats[_crzo_] = ((dma_en & _CRZO_R1_EN_) ? 1 : 0);
 	DmaPortsStats[_crzbo_] = ((dma_en & _CRZBO_R1_EN_) ? 1 : 0);
 	DmaPortsStats[_yuvco_] = ((dma_en & _YUVCO_R1_EN_) ? 1 : 0);
-	/* dma2_en */
-	DmaPortsStats[_crzo_r2_] = ((dma2_en & _CRZO_R2_EN_) ? 1 : 0);
-	DmaPortsStats[_rsso_r2_] = ((dma2_en & _RSSO_R2_EN_) ? 1 : 0);
-	DmaPortsStats[_yuvo_] = ((dma2_en & _YUVO_R1_EN_) ? 1 : 0);
+	DmaPortsStats[_crzo_r2_] = ((dma_en & _CRZO_R2_EN_) ? 1 : 0);
+	DmaPortsStats[_rsso_r2_] = ((dma_en & _RSSO_R2_EN_) ? 1 : 0);
+	DmaPortsStats[_yuvo_] = ((dma_en & _YUVO_R1_EN_) ? 1 : 0);
 }
 
 #endif
@@ -9367,7 +9201,7 @@ irqreturn_t ISP_Irq_CAMSV(enum ISP_IRQ_TYPE_ENUM irq_module,
 					CAMSV_REG_FBC_IMGO_CTL2(reg_module))),
 				ISP_RD32(CAMSV_REG_IMGO_BASE_ADDR(reg_module)),
 				(unsigned int)((sec * 1000000 + usec) -
-				(1000000 * m_sec + m_usec)),
+					       (1000000 * m_sec + m_usec)),
 				time_stamp);
 			/* keep current time */
 			m_sec = sec;
@@ -9614,13 +9448,11 @@ static void Set_CQ_immediate(unsigned int tmp_module)
 		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x1;
 		ISP_WR32(CAM_REG_CQ_THR16_CTL(tmp_module), cq_ctrl.Raw);
 	}
-#ifdef CAMERA_ISP_MT6853
 	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR17_CTL(tmp_module));
 	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
 		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x1;
 		ISP_WR32(CAM_REG_CQ_THR17_CTL(tmp_module), cq_ctrl.Raw);
 	}
-#endif
 	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR20_CTL(tmp_module));
 	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
 		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x1;
@@ -9692,14 +9524,12 @@ static void Set_CQ_continuous(unsigned int tmp_module)
 		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x2;
 		ISP_WR32(CAM_REG_CQ_THR16_CTL(tmp_module), cq_ctrl.Raw);
 	}
-#ifdef CAMERA_ISP_MT6853
 	cq_ctrl.Raw =
 		(unsigned int)ISP_RD32(CAM_REG_CQ_THR17_CTL(tmp_module));
 	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
 		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x2;
 		ISP_WR32(CAM_REG_CQ_THR17_CTL(tmp_module), cq_ctrl.Raw);
 	}
-#endif
 	cq_ctrl.Raw =
 		(unsigned int)ISP_RD32(CAM_REG_CQ_THR20_CTL(tmp_module));
 	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
@@ -9719,7 +9549,6 @@ unsigned int *reg_module, unsigned int *reg_module_array,
 unsigned int *reg_module_count)
 {
 	union CAMCTL_TWIN_STATUS_ twinStatus;
-	unsigned int  DmaEnStatus[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][_cam_max_];
 	unsigned int i = 0, tmp_module = 0, index = 0;
 
 	switch (irq_module) {
@@ -9738,15 +9567,6 @@ unsigned int *reg_module_count)
 		break;
 	}
 	LOG_NOTICE("+CQ recover");
-
-
-	if (g_tgErrRecoverCnt[irq_module] >= MAX_RECOVER_CNT) {
-		LOG_NOTICE("TG err recover over 3 times");
-		return -1;
-	}
-	if (g_ISPIntStatus_SMI[irq_module].ispIntErr & TG_ERR_ST)
-		g_tgErrRecoverCnt[irq_module]++;
-
 	reg_module_array[0] = *reg_module;
 	twinStatus.Raw = ISP_RD32(CAM_REG_CTL_TWIN_STATUS(*reg_module));
 
@@ -9798,150 +9618,9 @@ unsigned int *reg_module_count)
 		*reg_module_count = 1;
 	}
 
-	/* 1. record current FBC value */
-	for (i = 0; i < *reg_module_count; i++) {
-		tmp_module = reg_module_array[i];
-		index = tmp_module - ISP_CAM_A_IDX;
-		if (index > (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
-			LOG_NOTICE(
-				"index is invalid! recover fail");
-				return -1;
-		}
-		ISP_GetDmaPortsStatus(tmp_module,
-			&DmaEnStatus[index][0]);
-		if (DmaEnStatus[index][_aao_])
-			g_fbc_ctrl2[index][_aao_].Raw =
-				ISP_RD32(CAM_REG_FBC_AAO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_aao_].Raw = 0;
-
-		if (DmaEnStatus[index][_aaho_])
-			g_fbc_ctrl2[index][_aaho_].Raw =
-				ISP_RD32(CAM_REG_FBC_AAHO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_aaho_].Raw = 0;
-
-		if (DmaEnStatus[index][_afo_])
-			g_fbc_ctrl2[index][_afo_].Raw =
-				ISP_RD32(CAM_REG_FBC_AFO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_afo_].Raw = 0;
-
-		if (DmaEnStatus[index][_flko_])
-			g_fbc_ctrl2[index][_flko_].Raw =
-				ISP_RD32(CAM_REG_FBC_FLKO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_flko_].Raw = 0;
-
-		if (DmaEnStatus[index][_pdo_])
-			g_fbc_ctrl2[index][_pdo_].Raw =
-				ISP_RD32(CAM_REG_FBC_PDO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_pdo_].Raw = 0;
-
-		if (DmaEnStatus[index][_imgo_])
-			g_fbc_ctrl2[index][_imgo_].Raw =
-				ISP_RD32(CAM_REG_FBC_IMGO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_imgo_].Raw = 0;
-
-		if (DmaEnStatus[index][_rrzo_])
-			g_fbc_ctrl2[index][_rrzo_].Raw =
-				ISP_RD32(CAM_REG_FBC_RRZO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_rrzo_].Raw = 0;
-
-		if (DmaEnStatus[index][_ufeo_])
-			g_fbc_ctrl2[index][_ufeo_].Raw =
-				ISP_RD32(CAM_REG_FBC_UFEO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_ufeo_].Raw = 0;
-
-		if (DmaEnStatus[index][_ufgo_])
-			g_fbc_ctrl2[index][_ufgo_].Raw =
-				ISP_RD32(CAM_REG_FBC_UFGO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_ufgo_].Raw = 0;
-
-		if (DmaEnStatus[index][_rsso_])
-			g_fbc_ctrl2[index][_rsso_].Raw =
-				ISP_RD32(CAM_REG_FBC_RSSO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_rsso_].Raw = 0;
-
-		if (DmaEnStatus[index][_lmvo_])
-			g_fbc_ctrl2[index][_lmvo_].Raw =
-				ISP_RD32(CAM_REG_FBC_LMVO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_lmvo_].Raw = 0;
-
-		if (DmaEnStatus[index][_lcso_])
-			g_fbc_ctrl2[index][_lcso_].Raw =
-				ISP_RD32(CAM_REG_FBC_LCESO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_lcso_].Raw = 0;
-
-		if (DmaEnStatus[index][_lcesho_])
-			g_fbc_ctrl2[index][_lcesho_].Raw =
-				ISP_RD32(CAM_REG_FBC_LCESHO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_lcesho_].Raw = 0;
-
-		if (DmaEnStatus[index][_ltmso_])
-			g_fbc_ctrl2[index][_ltmso_].Raw =
-				ISP_RD32(CAM_REG_FBC_LTMSO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_ltmso_].Raw = 0;
-
-		if (DmaEnStatus[index][_tsfso_])
-			g_fbc_ctrl2[index][_tsfso_].Raw =
-				ISP_RD32(CAM_REG_FBC_TSFSO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_tsfso_].Raw = 0;
-
-		if (DmaEnStatus[index][_yuvo_])
-			g_fbc_ctrl2[index][_yuvo_].Raw =
-				ISP_RD32(CAM_REG_FBC_YUVO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_yuvo_].Raw = 0;
-
-		if (DmaEnStatus[index][_yuvbo_])
-			g_fbc_ctrl2[index][_yuvbo_].Raw =
-				ISP_RD32(CAM_REG_FBC_YUVBO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_yuvbo_].Raw = 0;
-
-		if (DmaEnStatus[index][_yuvco_])
-			g_fbc_ctrl2[index][_yuvco_].Raw =
-				ISP_RD32(CAM_REG_FBC_YUVCO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_yuvco_].Raw = 0;
-
-		if (DmaEnStatus[index][_crzo_])
-			g_fbc_ctrl2[index][_crzo_].Raw =
-				ISP_RD32(CAM_REG_FBC_CRZO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_crzo_].Raw = 0;
-
-		if (DmaEnStatus[index][_crzbo_])
-			g_fbc_ctrl2[index][_crzbo_].Raw =
-				ISP_RD32(CAM_REG_FBC_CRZBO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_crzbo_].Raw = 0;
-
-		if (DmaEnStatus[index][_crzo_r2_])
-			g_fbc_ctrl2[index][_crzo_r2_].Raw =
-				ISP_RD32(CAM_REG_FBC_CRZO_R2_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_crzo_r2_].Raw = 0;
-
-
-		if (DmaEnStatus[index][_rsso_r2_])
-			g_fbc_ctrl2[index][_rsso_r2_].Raw =
-				ISP_RD32(CAM_REG_FBC_RSSO_R2_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_rsso_r2_].Raw = 0;
-	}
+	/* 1. record current FBC value.
+	 *    Change to ISP_RecordCQAddr @SOF because FBC may be empty buffer at CQ over vsync.
+	 */
 
 	/* 2. turn off TG viewFinder, CMOS */
 	ISP_WR32(
@@ -9952,7 +9631,7 @@ unsigned int *reg_module_count)
 		  0xFFFFFFFE));
 	LOG_NOTICE("disable viewfinder & cmos to do CQ recover");
 
-	/* 3. disable double buffer */
+	/* 3. disable double buffer and enable CQ done control*/
 	for (i = 0; i < *reg_module_count; i++) {
 		tmp_module = reg_module_array[i];
 		ISP_WR32(CAM_REG_CTL_MISC(tmp_module),
@@ -9960,9 +9639,7 @@ unsigned int *reg_module_count)
 		LOG_NOTICE(
 			"disable double buffer CAM%d to do CQ recover",
 			tmp_module);
-#ifdef CAMERA_ISP_MT6853
 		ISP_WR32(CAM_REG_CTL_RAW_INT6_EN(tmp_module), 0xFFFFFFFF);
-#endif
 	}
 	index = *reg_module - ISP_CAM_A_IDX;
 	if (index > (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
@@ -9981,13 +9658,16 @@ unsigned int *reg_module_count)
 		   g_fbc_ctrl2[index][_lmvo_].Raw,
 		   g_fbc_ctrl2[index][_lcso_].Raw,
 		   g_fbc_ctrl2[index][_lcesho_].Raw);
-
+	LOG_NOTICE("fbc:yuvo:0x%x,yuvbo:0x%x,yuvco:0x%x,crzo:0x%x\n",
+		   g_fbc_ctrl2[index][_yuvo_].Raw,
+		   g_fbc_ctrl2[index][_yuvbo_].Raw,
+		   g_fbc_ctrl2[index][_yuvco_].Raw,
+		   g_fbc_ctrl2[index][_crzo_].Raw);
 	LOG_NOTICE("fbc:aao:0x%x,aaho:0x%x,afo:0x%x,flko:0x%x\n",
 		   g_fbc_ctrl2[index][_aao_].Raw,
 		   g_fbc_ctrl2[index][_aaho_].Raw,
 		   g_fbc_ctrl2[index][_afo_].Raw,
-		   g_fbc_ctrl2[index][_flko_].Raw
-		   );
+		   g_fbc_ctrl2[index][_flko_].Raw);
 	LOG_NOTICE("fbc:pdo:0x%x,tsfso:0x%x,ltmso:0x%x\n",
 		   g_fbc_ctrl2[index][_pdo_].Raw,
 		   g_fbc_ctrl2[index][_tsfso_].Raw,
@@ -10030,7 +9710,7 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 			CAM_REG_CTL_SW_CTL(tmp_module), 0x0);
 		}
 
-		/* 5. restore FBC setting*/
+		/* 5. restore FBC setting, only STT port*/
 
 		for (i = 0; i < reg_module_count; i++) {
 			tmp_module = reg_module_array[i];
@@ -10062,7 +9742,7 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 			if (DmaEnStatus[index][_pdo_])
 				ISP_WR32(CAM_REG_FBC_PDO_CTL2(tmp_module),
 					g_fbc_ctrl2[index][_pdo_].Raw);
-
+#if 0
 			if (DmaEnStatus[index][_imgo_])
 				ISP_WR32(CAM_REG_FBC_IMGO_CTL2(tmp_module),
 					g_fbc_ctrl2[index][_imgo_].Raw);
@@ -10094,7 +9774,7 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 			if (DmaEnStatus[index][_lcesho_])
 				ISP_WR32(CAM_REG_FBC_LCESHO_CTL2(tmp_module),
 					g_fbc_ctrl2[index][_lcesho_].Raw);
-
+#endif
 			if (DmaEnStatus[index][_ltmso_])
 				ISP_WR32(CAM_REG_FBC_LTMSO_CTL2(tmp_module),
 					g_fbc_ctrl2[index][_ltmso_].Raw);
@@ -10102,7 +9782,7 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 			if (DmaEnStatus[index][_tsfso_])
 				ISP_WR32(CAM_REG_FBC_TSFSO_CTL2(tmp_module),
 					g_fbc_ctrl2[index][_tsfso_].Raw);
-
+#if 0
 			if (DmaEnStatus[index][_yuvo_])
 				ISP_WR32(CAM_REG_FBC_YUVO_CTL2(tmp_module),
 					g_fbc_ctrl2[index][_yuvo_].Raw);
@@ -10130,14 +9810,7 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 			if (DmaEnStatus[index][_rsso_r2_])
 				ISP_WR32(CAM_REG_FBC_RSSO_R2_CTL2(tmp_module),
 					g_fbc_ctrl2[index][_rsso_r2_].Raw);
-
-		}
-
-		if (g_ISPIntStatus_SMI[
-			reg_module - ISP_CAM_A_IDX].ispIntErr
-			& TG_ERR_ST) {
-			LOG_NOTICE("TG recover skip CQ restore");
-			break;
+#endif
 		}
 
 		/* 6. restore CQ base address */
@@ -10150,7 +9823,6 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 					"index is invalid! recover fail");
 					return -1;
 			}
-
 			cq_ctrl.Raw = (unsigned int)ISP_RD32(
 				CAM_REG_CQ_THR0_CTL(tmp_module));
 			if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
@@ -10165,20 +9837,13 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 					CAM_REG_CQ_THR0_BASEADDR(tmp_module)))
 					!= 0) {
 					ISP_WR32(CAM_REG_CQ_THR0_BASEADDR(
-					  tmp_module), g_cqBaseAddr[index][0]);
+						tmp_module),
+						g_cqBaseAddr[index][0]);
 					LOG_NOTICE("restore CQ0 again\n");
+
 				}
 			}
-		}
-
-		tmp_module = reg_module_array[0];
-		index = tmp_module - ISP_CAM_A_IDX;
-
-		if (index > (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
-			LOG_NOTICE(
-				"index is invalid! recover fail");
-				return -1;
-		}
+		//CQ1
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR1_CTL(
 			tmp_module));
 		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
@@ -10189,6 +9854,7 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 				(unsigned int)ISP_RD32(
 					CAM_REG_CQ_THR1_BASEADDR(tmp_module)));
 		}
+		//CQ9(TSFSO)
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR9_CTL(
 			tmp_module));
 		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
@@ -10205,6 +9871,7 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 				LOG_NOTICE("restore CQ9 again\n");
 			}
 		}
+		//CQ10(AAO)
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR10_CTL(
 			tmp_module));
 		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
@@ -10298,7 +9965,6 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 			LOG_NOTICE("[%d]CQ16 base:0x%x\n",
 					index, g_cqBaseAddr[index][16]);
 		}
-#ifdef CAMERA_ISP_MT6853
 		//CQ17(LTMSO)
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR17_CTL(
 			tmp_module));
@@ -10316,7 +9982,6 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 				LOG_NOTICE("restore CQ17 again\n");
 			}
 		}
-#endif
 		//CQ20
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR20_CTL(
 			tmp_module));
@@ -10684,7 +10349,6 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 				ret = MFALSE;
 		}
 
-#ifdef CAMERA_ISP_MT6853
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR17_CTL(
 			tmp_module));
 		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
@@ -10726,8 +10390,7 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 				CAM_REG_CQ_THR17_BASEADDR(tmp_module))) == 0)
 				ret = MFALSE;
 		}
-#endif
-#ifdef CAMERA_ISP_MT6873
+#if 0
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR20_CTL(
 			tmp_module));
 		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
@@ -10795,6 +10458,7 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 				cq_done |= DmaStatus6.Bits.CQ_THR24_DONE_ST;
 			}
 		}
+		}
 		reset_count--;
 	} while ((ret == MFALSE) && (reset_count > 0));
 
@@ -10813,15 +10477,9 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 		tmp_module = reg_module_array[i];
 		Set_CQ_continuous(tmp_module);
 		ISP_WR32(CAM_REG_CTL_RAW_INT6_EN(tmp_module), 0x0);
-
-		if ((g_ISPIntStatus_SMI[
-		  reg_module - ISP_CAM_A_IDX].ispIntErr
-		  & TG_ERR_ST) == 0) {
-			ISP_WR32(CAM_REG_CTL_MISC(tmp_module),
-			  (ISP_RD32(CAM_REG_CTL_MISC(tmp_module)) | 0x10));
-			LOG_NOTICE(
-			  "en double buf CAM%d for CQ recover", tmp_module);
-		}
+		ISP_WR32(CAM_REG_CTL_MISC(tmp_module),
+			 (ISP_RD32(CAM_REG_CTL_MISC(tmp_module)) | 0x10));
+		LOG_NOTICE("en double buf CAM%d for CQ recover", tmp_module);
 	}
 	/* 11. enable TG CMOS & viewFinder */
 	ISP_WR32(CAM_REG_TG_SEN_MODE(reg_module),
@@ -10840,11 +10498,15 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 {
 	unsigned int module = irq_module;
 	unsigned int reg_module = ISP_CAM_A_IDX;
+	unsigned int inner_reg_module = ISP_CAM_A_INNER_IDX;
 	unsigned int i, cardinalNum = 0, IrqStatus, ErrStatus, WarnStatus;
 	unsigned int DmaStatus, WarnStatus_2 = 0, cur_v_cnt = 0;
+	unsigned int Dma2Status = 0, DropStatus = 0;
+	unsigned int IrqStatusX = 0, Irq2StatusX = 0, Irq3StatusX;
+	unsigned int Irq4StatusX, Irq5StatusX;
 	unsigned int cqDoneIndex = 0;
-	unsigned int dmaiStatus, dropStatus;
-
+	unsigned int dma_en = 0, dma2_en = 0;
+	unsigned int int_en = 0, int3_en = 0, int4_en = 0;
 	union FBC_CTRL_1 fbc_ctrl1[2];
 	union FBC_CTRL_2 fbc_ctrl2[2];
 
@@ -10855,6 +10517,8 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	static unsigned int usec_sof[ISP_IRQ_TYPE_INT_CAMSV_START_ST] = {0};
 	ktime_t time;
 	unsigned int IrqEnableOrig, IrqEnableNew;
+	union CAMCTL_TWIN_STATUS_ twinStatus;
+	unsigned int isStagger = 0, FBC_CurState = 0;
 
 	/* Avoid touch hwmodule when clock is disable. */
 	/* DEVAPC will moniter this kind of err */
@@ -10871,14 +10535,17 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	switch (irq_module) {
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
 		reg_module = ISP_CAM_A_IDX;
+		inner_reg_module = ISP_CAM_A_INNER_IDX;
 		cardinalNum = 0;
 		break;
 	case ISP_IRQ_TYPE_INT_CAM_B_ST:
 		reg_module = ISP_CAM_B_IDX;
+		inner_reg_module = ISP_CAM_B_INNER_IDX;
 		cardinalNum = 1;
 		break;
 	case ISP_IRQ_TYPE_INT_CAM_C_ST:
 		reg_module = ISP_CAM_C_IDX;
+		inner_reg_module = ISP_CAM_C_INNER_IDX;
 		cardinalNum = 2;
 		break;
 	default:
@@ -10886,26 +10553,31 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		return IRQ_HANDLED;
 	}
 
+	isStagger = ((ISP_RD32(CAM_REG_TG_SEN_MODE(reg_module)) &
+				0x00400000)) >> 22;
+
 	spin_lock(&(IspInfo.SpinLockIrq[module]));
 	IrqStatus = ISP_RD32(CAM_REG_CTL_RAW_INT_STATUS(reg_module));
 	DmaStatus = ISP_RD32(CAM_REG_CTL_RAW_INT2_STATUS(reg_module));
 	cqDoneIndex = reg_module - ISP_CAM_A_IDX;
 	if (cqDoneIndex <= (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
-#if Lafi_WAM_CQ_ERR
 		g_cqDoneStatus[cqDoneIndex] =
 			ISP_RD32(CAM_REG_CTL_RAW_INT6_STATUS(reg_module));
-#endif
 	}
+	int_en = IrqStatus;
+	int3_en = ISP_RD32(CAM_REG_CTL_RAW_INT3_EN(reg_module));
+	int4_en = ISP_RD32(CAM_REG_CTL_RAW_INT4_EN(reg_module));
 
+	Dma2Status = ISP_RD32(CAM_REG_CTL_RAW_INT3_STATUS(reg_module));
+	DropStatus = ISP_RD32(CAM_REG_CTL_RAW_INT4_STATUS(reg_module));
 	WarnStatus = ISP_RD32(CAM_REG_CTL_RAW_INT5_STATUS(reg_module));
-	dmaiStatus = ISP_RD32(CAM_REG_CTL_RAW_INT3_STATUS(reg_module));
-	dropStatus = ISP_RD32(CAM_REG_CTL_RAW_INT4_STATUS(reg_module));
 
 	spin_unlock(&(IspInfo.SpinLockIrq[module]));
 
 	ErrStatus = IrqStatus & IspInfo.IrqInfo.ErrMask[module][SIGNAL_INT];
-
-	if (((IrqStatus & SOF_INT_ST) == 0) && (IrqStatus & VS_INT_ST)) {
+#if Lafi_WAM_CQ_ERR
+	if (((IrqStatus & SOF_INT_ST) == 0) && (IrqStatus & VS_INT_ST)
+				&& (cq_recovery[module] == 1)) {
 		if ((ISP_RD32(CAMX_REG_TG_VF_CON(reg_module)) == 0x1) &&
 		    (g1stSof[module] == MFALSE)) {
 			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR,
@@ -10913,6 +10585,64 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 			ErrStatus |= CQ_VS_ERR_ST;
 		}
 	}
+
+	twinStatus.Raw = ISP_RD32(CAM_REG_CTL_TWIN_STATUS(reg_module));
+
+	if ((IrqStatus & SOF_INT_ST) &&
+		(((ISP_RD32(CAM_REG_TG_SEN_MODE(reg_module)) &
+				0x00040000) >> 18) == 0x1) &&
+			(twinStatus.Bits.TWIN_EN == MTRUE) &&
+				(cq_recovery[module] == 1)) {
+		if ((ISP_RD32(CAM_REG_RRZO_FH_SPARE_2(reg_module))
+			!= pre_magic_num) && (CAM_FST_LAST_WORKING_FRAME ==
+				Irq_CAM_FrameStatus(reg_module, module, 0, &FBC_CurState))) {
+			if (g_cq0NextBA[CAM_A][0] != 0 &&
+				twinStatus.Bits.SLAVE_CAM_NUM == 0x1) {
+				if (ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(
+					reg_module)) !=
+					g_cq0NextBA[CAM_A][0] ||
+					ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(
+					ISP_CAM_B_IDX)) !=
+					g_cq0NextBA[CAM_B][0]) {
+					IRQ_LOG_KEEPER(module,
+					m_CurrentPPB, _LOG_ERR,
+					"[Twin]CQ Pages wrong...CQ Recovery master(0x%08x_0x%08x) slave(0x%08x_0x%08x)\n",
+					ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(
+					reg_module)),
+					g_cq0NextBA[CAM_A][0],
+					ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(
+					ISP_CAM_B_IDX)),
+					g_cq0NextBA[CAM_B][0]);
+					ErrStatus |= CQ_VS_ERR_ST;
+				}
+			} else if (g_cq0NextBA[CAM_A][0] != 0
+					&& twinStatus.Bits.SLAVE_CAM_NUM
+								== 0x2) {
+				if ((ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(
+					reg_module)) !=
+					g_cq0NextBA[CAM_A][0]) ||
+					(ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(
+					ISP_CAM_B_IDX)) !=
+					g_cq0NextBA[CAM_B][0]) ||
+					(ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(
+					ISP_CAM_C_IDX)) !=
+					g_cq0NextBA[CAM_C][0])) {
+					IRQ_LOG_KEEPER(module,
+					m_CurrentPPB, _LOG_ERR,
+						"[Triple]CQ Pages wrong...CQ Recovery\n");
+					ErrStatus |= CQ_VS_ERR_ST;
+				}
+			}
+		}
+	}
+#endif
 	WarnStatus_2 =
 		IrqStatus & IspInfo.IrqInfo.Warn2Mask[module][SIGNAL_INT];
 
@@ -10978,6 +10708,14 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	fbc_ctrl2[0].Raw = ISP_RD32(CAM_REG_FBC_IMGO_CTL2(reg_module));
 	fbc_ctrl2[1].Raw = ISP_RD32(CAM_REG_FBC_RRZO_CTL2(reg_module));
 
+	if (sec_on) {
+		dma_en = lock_reg.CAM_REG_CTL_DMA_EN[reg_module];
+		dma2_en = lock_reg.CAM_REG_CTL_DMA2_EN[reg_module];
+	} else {
+		dma_en = ISP_RD32(CAM_REG_CTL_DMA_EN(reg_module));
+		dma2_en = ISP_RD32(CAM_REG_CTL_DMA2_EN(reg_module));
+	}
+
 #if defined(ISP_MET_READY)
 	if (trace_ISP__Pass1_CAM_enter_enabled()) {
 		/*MET:ISP EOF */
@@ -11008,15 +10746,71 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		HwP1Done_cnt[module]++;
 		if (HwP1Done_cnt[module] > 255)
 			HwP1Done_cnt[module] -= 256;
+
+	/* these INT should read once per frame, correct timing is p1 done */
+	spin_lock(&(IspInfo.SpinLockIrq[module]));
+	IrqStatusX = ISP_RD32(CAM_REG_CTL_RAW_INT_STATUSX(inner_reg_module));
+	Irq2StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT2_STATUSX(inner_reg_module));
+	Irq3StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT3_STATUSX(inner_reg_module));
+	Irq4StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT4_STATUSX(inner_reg_module));
+	Irq5StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT5_STATUSX(inner_reg_module));
+	spin_unlock(&(IspInfo.SpinLockIrq[module]));
+#if 0
+		if (dma2_en & _RAWI_R2_EN_) {
+			IRQ_LOG_KEEPER(
+			       module, m_CurrentPPB, _LOG_INF,
+			       "module:%d, int_st=0x%x,int2_st=0x%x,int3_st=0x%x,int4_st=0x%x,int5_st=0x%x,DmaEn=0x%x,Dma2En=0x%x,int_stx=0x%x,int2_stx=0x%x,int3_stx=0x%x,int4_stx=0x%x,int5_stx=0x%x\n",
+			       module, int_en, DmaStatus, Dma2Status,
+			       DropStatus, WarnStatus, dma_en, dma2_en,
+			       IrqStatusX, Irq2StatusX,
+			       Irq3StatusX, Irq4StatusX, Irq5StatusX);
+
+			ISP_DumpDebugData(module, RAWI_R2_DEBUG);
+		}
+#endif
 	}
 
-	if ((IrqStatus & HW_PASS1_DON_ST) &&
-	    (IspInfo.DebugMask & ISP_DBG_HW_DON)) {
-
-		IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
-			       "CAM%c P1_HW_DON_%d\n", 'A' + cardinalNum,
-			       (sof_count[module]) ? (sof_count[module] - 1)
-						   : (sof_count[module]));
+	if (IrqStatus & HW_PASS1_DON_ST) {
+		if (FrameStatus[module] == CAM_FST_DROP_FRAME) {
+			/* reduce SMVR case hw p1 done log */
+			if (Irq2StatusX != 0) {
+				IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
+					"CAM%c P1_HW_DON_%d_%d dma done(0x%x,0x%x,0x%x)int(0x%x,0x%x,0x%x)FLKBA(0x%x,0x%x,0x%x)SPR(9:0x%x,0x%x,0x%x,10:0x%x,0x%x,0x%x)THR14(0x%x,0x%x,0x%x)FBC(0x%x,0x%x,0x%x)\n",
+		'A' + cardinalNum,
+		(sof_count[module]) ? (sof_count[module] - 1)
+		: (sof_count[module]),
+		HwP1Done_cnt[module],
+		Irq2StatusX,
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT2_STATUSX(
+		ISP_CAM_B_INNER_IDX)),
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT2_STATUSX(
+		ISP_CAM_C_INNER_IDX)),
+		IrqStatusX,
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT_STATUSX(
+		ISP_CAM_B_INNER_IDX)),
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT_STATUSX(
+		ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_BASE_ADDR(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_BASE_ADDR(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_BASE_ADDR(ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_FH_FH_SPARE_9(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_FH_FH_SPARE_9(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_FH_FH_SPARE_9(ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_FH_FH_SPARE_10(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_FH_FH_SPARE_10(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_FH_FH_SPARE_10(ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_FBC_FLKO_CTL2(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_FBC_FLKO_CTL2(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_FBC_FLKO_CTL2(ISP_CAM_C_INNER_IDX)));
+			}
+		}
 	}
 
 	spin_lock(&(IspInfo.SpinLockIrq[module]));
@@ -11038,61 +10832,52 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		IspInfo.IrqInfo.LastestSigTime_sec[module][10] =
 			(unsigned int)(sec);
 
-#if Lafi_WAM_CQ_ERR
-		//after recover success, clear reset count
-		g_tgErrRecoverCnt[module] = 0;
-#endif
-
 		if (IspInfo.DebugMask & ISP_DBG_INT) {
 			/*SW p1_don is not reliable */
 			if (FrameStatus[module] != CAM_FST_DROP_FRAME) {
 				gPass1doneLog[module].module = module;
-				snprintf(gPass1doneLog[module]._str,
+				if (snprintf(gPass1doneLog[module]._str,
 				P1DONE_STR_LEN,
-				"CAM_%c P1_DON_%d(0x%08x_0x%08x,0x%08x_0x%08x)dma done(0x%x,0x%x,0x%x)exe_us:%d",
-					'A' + cardinalNum,
-					(sof_count[module])
-						? (sof_count[module] - 1)
-						: (sof_count[module]),
-					(unsigned int)(fbc_ctrl1[0].Raw),
-					(unsigned int)(fbc_ctrl2[0].Raw),
-					(unsigned int)(fbc_ctrl1[1].Raw),
-					(unsigned int)(fbc_ctrl2[1].Raw),
-					(unsigned int)ISP_RD32(
-						CAM_REG_CTL_RAW_INT2_STATUSX(
-						ISP_CAM_A_IDX)),
-					(unsigned int)ISP_RD32(
-						CAM_REG_CTL_RAW_INT2_STATUSX(
-						ISP_CAM_B_IDX)),
-					(unsigned int)ISP_RD32(
-						CAM_REG_CTL_RAW_INT2_STATUSX(
-						ISP_CAM_C_IDX)),
-					(unsigned int)((sec * 1000000 + usec) -
-					       (1000000 * sec_sof[module] +
-						usec_sof[module])));
-		/*
-		 *IRQ_LOG_KEEPER(
-		 *	module, m_CurrentPPB, _LOG_INF,
-		 *"CAM_%c P1_DON_%d(0x%08x_0x%08x,0x%08x_0x%08x)
-		 *dma done(0x%x,0x%x,0x%x)\n",
-		 *	'A' + cardinalNum,
-		 *	(sof_count[module])
-		 *		? (sof_count[module] - 1)
-		 *		: (sof_count[module]),
-		 *	(unsigned int)(fbc_ctrl1[0].Raw),
-		 *	(unsigned int)(fbc_ctrl2[0].Raw),
-		 *	(unsigned int)(fbc_ctrl1[1].Raw),
-		 *	(unsigned int)(fbc_ctrl2[1].Raw),
-		 *	(unsigned int)ISP_RD32(
-		 *		CAM_REG_CTL_RAW_INT2_STATUSX(
-		 *		ISP_CAM_A_IDX)),
-		 *	(unsigned int)ISP_RD32(
-		 *		CAM_REG_CTL_RAW_INT2_STATUSX(
-		 *		ISP_CAM_B_IDX)),
-		 *	(unsigned int)ISP_RD32(
-		 *		CAM_REG_CTL_RAW_INT2_STATUSX(
-		 *		ISP_CAM_C_IDX)));
-		 */
+				"CAM_%c P1_DON_%d(0x%08x_0x%08x,0x%08x_0x%08x)dma done(0x%x,0x%x,0x%x)int(0x%x,0x%x,0x%x)FLKBA(0x%x,0x%x,0x%x)AAO(0x%x,0x%x,0x%x)THR14(0x%x,0x%x,0x%x)FBC(0x%x,0x%x,0x%x)exe_us:%d ",
+		'A' + cardinalNum,
+		(sof_count[module])
+			? (sof_count[module] - 1)
+			: (sof_count[module]),
+		(unsigned int)(fbc_ctrl1[0].Raw),
+		(unsigned int)(fbc_ctrl2[0].Raw),
+		(unsigned int)(fbc_ctrl1[1].Raw),
+		(unsigned int)(fbc_ctrl2[1].Raw),
+		Irq2StatusX,
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT2_STATUSX(
+		ISP_CAM_B_INNER_IDX)),
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT2_STATUSX(
+		ISP_CAM_C_INNER_IDX)),
+		IrqStatusX,
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT_STATUSX(
+		ISP_CAM_B_INNER_IDX)),
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT_STATUSX(
+		ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_BASE_ADDR(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_BASE_ADDR(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_BASE_ADDR(ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_AAO_BASE_ADDR(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_AAO_BASE_ADDR(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_AAO_BASE_ADDR(ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_FBC_FLKO_CTL2(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_FBC_FLKO_CTL2(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_FBC_FLKO_CTL2(ISP_CAM_C_INNER_IDX)),
+		(unsigned int)((sec * 1000000 + usec) -
+		(1000000 * sec_sof[module] +
+		usec_sof[module]))) < 0) {
+					LOG_NOTICE("Error: snprintf fail\n");
+				}
 			}
 		}
 #if (TSTMP_SUBSAMPLE_INTPL == 1)
@@ -11154,7 +10939,12 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		}
 	}
 
-	if (IrqStatus & SOF_INT_ST) {
+	if ((IrqStatus & SOF_INT_ST) && isStagger == 1)
+		IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR, "CAM%c DCIF_SOF", 'A' + cardinalNum);
+
+	if (((IrqStatus & SOF_INT_ST) && isStagger == 0) ||
+		((IrqStatus & VS_INT_ST) && isStagger == 1 &&
+		(ISP_RD32(CAMX_REG_TG_VF_CON(reg_module)) == 0x1))) {
 		unsigned int frmPeriod =
 			((ISP_RD32(CAM_REG_TG_SUB_PERIOD(reg_module)) >> 8) &
 			 0x1F) +
@@ -11167,6 +10957,12 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		do_div(sec, 1000);	   /* usec */
 		usec = do_div(sec, 1000000); /* sec and usec */
 
+		cur_v_cnt = ISP_RD32_TG_CAMX_FRM_CNT(module, reg_module);
+#if (Lafi_WAM_CQ_ERR == 1)
+		if (!(ErrStatus & CQ_VS_ERR_ST))
+			ISP_RecordCQAddr(reg_module);
+#endif
+
 		if (frmPeriod == 0) {
 			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR,
 				       "ERROR: Wrong sub-sample period: 0");
@@ -11175,14 +10971,19 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 
 		/* chk this frame have EOF or not, dynimic dma port chk */
 		FrameStatus[module] =
-			Irq_CAM_FrameStatus(reg_module, module, irqDelay);
+			Irq_CAM_FrameStatus(reg_module, module, irqDelay, &FBC_CurState);
+
+		if (ErrStatus & CQ_VS_ERR_ST)
+			FrameStatus[module] = CAM_FST_BLOCK_FRAME;
 
 		if (FrameStatus[module] == CAM_FST_DROP_FRAME) {
 			gLostPass1doneLog[module].module = module;
-			snprintf(gLostPass1doneLog[module]._str, P1DONE_STR_LEN,
+			if (snprintf(gLostPass1doneLog[module]._str, P1DONE_STR_LEN,
 				"CAM%c Lost p1 done_%d (0x%x): ",
 				'A' + cardinalNum, sof_count[module],
-				cur_v_cnt);
+				cur_v_cnt) < 0) {
+				LOG_NOTICE("Error: snprintf fail\n");
+			}
 			/*
 			 *IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
 			 *	       "CAM%c Lost p1 done_%d (0x%x): ",
@@ -11524,10 +11325,11 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 #endif
 			}
 #endif /* (TIMESTAMP_QUEUE_EN == 1) */
-			if (sec_on)
-				IRQ_LOG_KEEPER(
+
+#if 0
+			IRQ_LOG_KEEPER(
 				module, m_CurrentPPB, _LOG_INF,
-				"%s,%s,CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x),int_us:%d,cq:0x%08x_0x%08x_0x%08x,DMA(0x%x_0x%x,0x%x_0x%x),YUVO(0x%x_0x%x 0x%x_0x%x, 0x%x_0x%x 0x%x_0x%x, 0x%x_0x%x 0x%x_0x%x)\n",
+				"%s,%s,CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x),int_us:%d,cq:0x%08x, DMA 0x%x,0x%x, LTMS/FLK/AA/AAH/TSFS(0x%x, 0x%x, 0x%x, 0x%x, 0x%x) pa(0x%x,0x%x,0x%x,0x%x,0x%x),0x%x,0x%x,0x%x)\n",
 				gPass1doneLog[module]._str,
 				gLostPass1doneLog[module]._str,
 				'A' + cardinalNum, sof_count[module], cur_v_cnt,
@@ -11547,11 +11349,110 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 				(unsigned int)ISP_RD32(
 					CAM_REG_CQ_THR0_BASEADDR(reg_module)),
 				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_DMA_EN(reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_DMA_EN(
+						inner_reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FBC_LTMSO_CTL2(reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FBC_FLKO_CTL2(
+						reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FBC_AAO_CTL2(reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FBC_AAHO_CTL2(
+						reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FBC_TSFSO_CTL2(
+						reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_LTMSO_BASE_ADDR(reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FLKO_BASE_ADDR(
+						reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_AAO_BASE_ADDR(reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_AAHO_BASE_ADDR(
+						reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_TSFSO_BASE_ADDR(
+						reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FLKO_FH_BASE_ADDR(
+						reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_AAO_FH_BASE_ADDR(
+						reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_AAHO_FH_BASE_ADDR(
+						reg_module)));
+#else
+			if (sec_on)
+				IRQ_LOG_KEEPER(
+				module, m_CurrentPPB, _LOG_INF,
+				"CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x/0x%x),int_us:%d,cq:0x%08x_0x%08x 0x%08x_0x%08x,Don(0x%08x_0x%08x 0x%08x_0x%08x,0x%08x_0x%08x 0x%08x_0x%08x 0x%08x_0x%08x),DMA(0x%x_0x%x,0x%x_0x%x,0x%x_0x%x),CRZO(0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x),YUVO(0x%x_0x%x 0x%x_0x%x, 0x%x_0x%x 0x%x_0x%x, 0x%x_0x%x 0x%x_0x%x)\n",
+				'A' + cardinalNum, sof_count[module], cur_v_cnt,
+				(unsigned int)(ISP_RD32(
+					CAM_REG_FBC_IMGO_CTL1(reg_module))),
+				(unsigned int)(ISP_RD32(
+					CAM_REG_FBC_IMGO_CTL2(reg_module))),
+				(unsigned int)(ISP_RD32(
+					CAM_REG_FBC_RRZO_CTL1(reg_module))),
+				(unsigned int)(ISP_RD32(
+					CAM_REG_FBC_RRZO_CTL2(reg_module))),
+				ISP_RD32(CAM_REG_IMGO_BASE_ADDR(reg_module)),
+				ISP_RD32(CAM_REG_RRZO_BASE_ADDR(reg_module)),
+				magic_num, pre_magic_num,
+				(unsigned int)((sec * 1000000 + usec) -
+					       (1000000 * m_sec[module] + m_usec[module])),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(
+						ISP_CAM_A_INNER_IDX)),
+				(unsigned int)ISP_RD32(
 					CAM_REG_CQ_THR0_BASEADDR(
 						ISP_CAM_B_IDX)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_CQ_THR0_BASEADDR(
+						ISP_CAM_B_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_MISC(ISP_CAM_A_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_MISC(
+						ISP_CAM_A_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_MISC(
+						ISP_CAM_B_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_MISC(
+						ISP_CAM_B_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_MISC(
 						ISP_CAM_C_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_MISC(
+						ISP_CAM_C_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_DONE_SEL(
+						ISP_CAM_A_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_DONE_SEL(
+						ISP_CAM_A_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_DONE_SEL(
+						ISP_CAM_B_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_DONE_SEL(
+						ISP_CAM_B_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_DMA_FRAME_HEADER_EN1(
+						reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_DMA_FRAME_HEADER_EN1(
+						ISP_CAM_A_INNER_IDX)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_DMA_FRAME_HEADER_EN1(
 						ISP_CAM_B_IDX)),
@@ -11563,6 +11464,38 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 						ISP_CAM_C_IDX)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_DMA_FRAME_HEADER_EN1(
+						ISP_CAM_C_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FBC_CRZO_CTL2(ISP_CAM_B_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FBC_CRZO_CTL2(
+						ISP_CAM_B_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FBC_CRZO_CTL2(ISP_CAM_C_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FBC_CRZO_CTL2(
+						ISP_CAM_C_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CRZO_BASE_ADDR(ISP_CAM_B_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CRZO_BASE_ADDR(
+						ISP_CAM_B_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CRZO_BASE_ADDR(ISP_CAM_C_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CRZO_BASE_ADDR(
+						ISP_CAM_C_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CRZO_FH_BASE_ADDR(
+						ISP_CAM_B_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CRZO_FH_BASE_ADDR(
+						ISP_CAM_B_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CRZO_FH_BASE_ADDR(
+						ISP_CAM_C_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CRZO_FH_BASE_ADDR(
 						ISP_CAM_C_INNER_IDX)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_FBC_YUVO_CTL2(ISP_CAM_B_IDX)),
@@ -11599,7 +11532,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 			else
 				IRQ_LOG_KEEPER(
 				module, m_CurrentPPB, _LOG_INF,
-				"%s,%s,CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x),int_us:%d,cq:0x%08x_0x%08x_0x%08x,DMA(0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x),YUVO(0x%x_0x%x 0x%x_0x%x, 0x%x_0x%x 0x%x_0x%x, 0x%x_0x%x 0x%x_0x%x)\n",
+				"%s,%s,CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x/0x%x),int_us:%d,FBC:0x%08x,cq:0x%08x_0x%08x 0x%08x_0x%08x 0x%08x_0x%08x,cq14:0x%08x_0x%08x 0x%08x_0x%08x 0x%08x_0x%08x,Don(0x%08x_0x%08x 0x%08x_0x%08x,0x%08x_0x%08x 0x%08x_0x%08x),DMA(0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x),CTL_EN(0x%x_0x%x 0x%x_0x%x 0x%x_0x%x),CTL_EN2(0x%x_0x%x 0x%x_0x%x 0x%x_0x%x),FLKO BASE(0x%x_0x%x 0x%x_0x%x 0x%x_0x%x),FLKO FHBase(0x%x_0x%x 0x%x_0x%x 0x%x_0x%x)\n",
 				gPass1doneLog[module]._str,
 				gLostPass1doneLog[module]._str,
 				'A' + cardinalNum, sof_count[module], cur_v_cnt,
@@ -11613,17 +11546,72 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 					CAM_REG_FBC_RRZO_CTL2(reg_module))),
 				ISP_RD32(CAM_REG_IMGO_BASE_ADDR(reg_module)),
 				ISP_RD32(CAM_REG_RRZO_BASE_ADDR(reg_module)),
-				magic_num,
+				magic_num, pre_magic_num,
 				(unsigned int)((sec * 1000000 + usec) -
 				(1000000 * m_sec[module] + m_usec[module])),
+				FBC_CurState,
 				(unsigned int)ISP_RD32(
-					CAM_REG_CQ_THR0_BASEADDR(reg_module)),
+					CAM_REG_CQ_THR0_BASEADDR(ISP_CAM_A_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(
+						ISP_CAM_A_INNER_IDX)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_CQ_THR0_BASEADDR(
 						ISP_CAM_B_IDX)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_CQ_THR0_BASEADDR(
+						ISP_CAM_B_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(
 						ISP_CAM_C_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(
+						ISP_CAM_C_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_A_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR14_BASEADDR(
+						ISP_CAM_A_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR14_BASEADDR(
+						ISP_CAM_B_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR14_BASEADDR(
+						ISP_CAM_B_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR14_BASEADDR(
+						ISP_CAM_C_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR14_BASEADDR(
+						ISP_CAM_C_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_MISC(ISP_CAM_A_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_MISC(
+						ISP_CAM_A_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_MISC(
+						ISP_CAM_B_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_MISC(
+						ISP_CAM_B_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_DONE_SEL(
+						ISP_CAM_A_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_DONE_SEL(
+						ISP_CAM_A_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_DONE_SEL(
+						ISP_CAM_B_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_DONE_SEL(
+						ISP_CAM_B_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_DMA_EN(ISP_CAM_A_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_DMA_EN(
+						ISP_CAM_A_INNER_IDX)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_CTL_DMA_EN(ISP_CAM_B_IDX)),
 				(unsigned int)ISP_RD32(
@@ -11636,6 +11624,12 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 						ISP_CAM_C_INNER_IDX)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_DMA_FRAME_HEADER_EN1(
+						ISP_CAM_A_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_DMA_FRAME_HEADER_EN1(
+						ISP_CAM_A_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_DMA_FRAME_HEADER_EN1(
 						ISP_CAM_B_IDX)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_DMA_FRAME_HEADER_EN1(
@@ -11647,39 +11641,78 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 					CAM_REG_DMA_FRAME_HEADER_EN1(
 						ISP_CAM_C_INNER_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_FBC_YUVO_CTL2(ISP_CAM_B_IDX)),
+					CAM_REG_CTL_EN(ISP_CAM_A_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_FBC_YUVO_CTL2(
+					CAM_REG_CTL_EN(
+						ISP_CAM_A_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_EN(ISP_CAM_B_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_EN(
 						ISP_CAM_B_INNER_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_FBC_YUVO_CTL2(ISP_CAM_C_IDX)),
+					CAM_REG_CTL_EN(ISP_CAM_C_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_FBC_YUVO_CTL2(
+					CAM_REG_CTL_EN(
 						ISP_CAM_C_INNER_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_YUVO_BASE_ADDR(ISP_CAM_B_IDX)),
+					CAM_REG_CTL_EN2(ISP_CAM_A_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_YUVO_BASE_ADDR(
+					CAM_REG_CTL_EN2(
+						ISP_CAM_A_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_EN2(ISP_CAM_B_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_EN2(
 						ISP_CAM_B_INNER_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_YUVO_BASE_ADDR(ISP_CAM_C_IDX)),
+					CAM_REG_CTL_EN2(ISP_CAM_C_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_YUVO_BASE_ADDR(
+					CAM_REG_CTL_EN2(
 						ISP_CAM_C_INNER_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_YUVO_FH_BASE_ADDR(
+					CAM_REG_FLKO_BASE_ADDR(
+						ISP_CAM_A_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FLKO_BASE_ADDR(
+						ISP_CAM_A_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FLKO_BASE_ADDR(
 						ISP_CAM_B_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_YUVO_FH_BASE_ADDR(
+					CAM_REG_FLKO_BASE_ADDR(
 						ISP_CAM_B_INNER_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_YUVO_FH_BASE_ADDR(
+					CAM_REG_FLKO_BASE_ADDR(
 						ISP_CAM_C_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_YUVO_FH_BASE_ADDR(
+					CAM_REG_FLKO_BASE_ADDR(
+						ISP_CAM_C_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FLKO_FH_BASE_ADDR(
+						ISP_CAM_A_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FLKO_FH_BASE_ADDR(
+						ISP_CAM_A_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FLKO_FH_BASE_ADDR(
+						ISP_CAM_B_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FLKO_FH_BASE_ADDR(
+						ISP_CAM_B_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FLKO_FH_BASE_ADDR(
+						ISP_CAM_C_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FLKO_FH_BASE_ADDR(
 						ISP_CAM_C_INNER_IDX)));
-		snprintf(gPass1doneLog[module]._str, P1DONE_STR_LEN, "\\");
-		snprintf(gLostPass1doneLog[module]._str, P1DONE_STR_LEN, "\\");
+#endif
+
+			if (snprintf(gPass1doneLog[module]._str, P1DONE_STR_LEN, "\\") < 0)
+				LOG_NOTICE("Error: snprintf fail\n");
+
+			if (snprintf(gLostPass1doneLog[module]._str, P1DONE_STR_LEN, "\\") < 0)
+				LOG_NOTICE("Error: snprintf fail\n");
 
 #ifdef ENABLE_STT_IRQ_LOG /*STT addr */
 			IRQ_LOG_KEEPER(
@@ -11740,10 +11773,10 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 					module, m_CurrentPPB, _LOG_INF,
 					"SW ISR right on next hw p1_done\n");
 			}
+
+			/*keep previous magic number */
+			pre_magic_num = magic_num;
 		}
-#if (Lafi_WAM_CQ_ERR == 1)
-		ISP_RecordCQAddr(reg_module);
-#endif
 		/* update SOF time stamp for eis user */
 		/* (need match with the time stamp in image header) */
 		IspInfo.IrqInfo.LastestSigTime_usec[module][12] =
@@ -11810,22 +11843,9 @@ LB_CAM_SOF_IGNORE:
 	spin_unlock(&(IspInfo.SpinLockIrq[module]));
 	/*  */
 	if (IrqStatus & SOF_INT_ST) {
-#if Lafi_WAM_CQ_ERR
-		//after TG err recover skip 1st sof coming
-		if (g_tgErrRecoverCnt[module]) {
-			ISP_WR32(CAM_REG_CTL_MISC(reg_module),
-			  (ISP_RD32(CAM_REG_CTL_MISC(reg_module)) | 0x10));
-			LOG_NOTICE("1st sof after cq recover done\n");
-		} else {
-			wake_up_interruptible(
-				&IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(module)]
-				[ISP_WAITQ_HEAD_IRQ_SOF]);
-		}
-#else
 		wake_up_interruptible(
 			&IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(module)]
-			[ISP_WAITQ_HEAD_IRQ_SOF]);
-#endif
+					     [ISP_WAITQ_HEAD_IRQ_SOF]);
 	}
 	if (IrqStatus & SW_PASS1_DON_ST) {
 		wake_up_interruptible(
@@ -11875,7 +11895,7 @@ LB_CAM_SOF_IGNORE:
 	wake_up_interruptible(&IspInfo.WaitQueueHead[module]);
 
 	/* dump log, use workq */
-	if ((IrqStatus & (SOF_INT_ST | SW_PASS1_DON_ST | VS_INT_ST)) ||
+	if ((IrqStatus & (SOF_INT_ST | HW_PASS1_DON_ST | VS_INT_ST)) ||
 		ErrStatus) {
 #if (ISP_BOTTOMHALF_WORKQ == 1)
 		queue_work(isr_log_wq, &isp_workque[module].isp_bh_work);
@@ -11895,7 +11915,9 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
 	case ISP_IRQ_TYPE_INT_CAM_B_ST:
 	case ISP_IRQ_TYPE_INT_CAM_C_ST:
-		if (g_ISPIntStatus_SMI[irq_module].ispIntErr & DMA_ERR_ST) {
+		if ((g_ISPIntStatus_SMI[irq_module].ispIntErr & DMA_ERR_ST) &&
+			!(g_ISPIntStatus_SMI[irq_module].ispIntErr
+			& TG_GBERR_ST)){
 			if (g_ISPIntStatus_SMI[irq_module].ispInt5Err &
 			    INT_ST_MASK_CAM_WARN) {
 
@@ -11909,12 +11931,7 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 			g_ISPIntStatus_SMI[irq_module].ispIntErr =
 				g_ISPIntStatus_SMI[irq_module].ispInt5Err = 0;
 		}
-		if (g_ISPIntStatus_SMI[irq_module].ispIntErr &
-#ifdef TG_ERR_RECOVER
-			(CQ_VS_ERR_ST | TG_ERR_ST)) {
-#else
-			CQ_VS_ERR_ST) {
-#endif
+		if (g_ISPIntStatus_SMI[irq_module].ispIntErr & CQ_VS_ERR_ST) {
 /* sw workaround for CQ byebye */
 #if Lafi_WAM_CQ_ERR
 			unsigned int reg_module_array[3];
@@ -11926,7 +11943,7 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 				reg_module_array, &reg_module_count);
 			if (ret == -1)
 				goto EXIT_CQ_RECOVER;
-			ISP_DumpDbgPort(reg_module_array, reg_module_count);
+			//ISP_DumpDbgPort(reg_module_array, reg_module_count);
 			ret = CQ_Recover_middle(reg_module,
 				reg_module_array, reg_module_count);
 			if (ret == -1)
