@@ -54,7 +54,7 @@ bool mtk_cpuidle_ctrl_log_sta_get(void);
 void mtk_cpuidle_state_enable(bool en);
 long mtk_cpuidle_state_enabled(void);
 
-int __init mtk_cpuidle_status_init(void);
-void __exit mtk_cpuidle_status_exit(void);
+int mtk_cpuidle_status_init(void);
+void mtk_cpuidle_status_exit(void);
 
 #endif /* __MTK_CPUIDLE_STATUS_H__ */

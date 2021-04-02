@@ -204,7 +204,7 @@ struct lpm_gs_pmic_info mt6873_pmic_infos = {
 	.attach = mt6873_power_gs_pmic_user_attach,
 };
 
-int __init mt6873_power_gs_init(void)
+int mt6873_power_gs_init(void)
 {
 	lpm_callee_registry(&mt6873_pwr_gs_callee);
 	/* initial gs compare method */
@@ -218,7 +218,7 @@ int __init mt6873_power_gs_init(void)
 	return 0;
 }
 
-void __exit mt6873_power_gs_deinit(void)
+void mt6873_power_gs_deinit(void)
 {
 	lpm_pwr_gs_common_deinit();
 }

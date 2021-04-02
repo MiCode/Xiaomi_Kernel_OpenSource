@@ -63,11 +63,6 @@ struct spm_wakesrc_irq_list {
 	unsigned int irq_no;
 };
 
-void lpm_get_spm_wakesrc_irq(void);
-int lpm_get_wakeup_status(struct lpm_log_helper *help);
-void lpm_save_sleep_info(void);
-int lpm_show_message(struct lpm_spm_wake_status *wakesrc, int type,
-					const char *prefix, void *data);
 int lpm_spm_fs_init(void);
 int lpm_spm_fs_deinit(void);
 

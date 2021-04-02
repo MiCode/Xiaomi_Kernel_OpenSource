@@ -17,6 +17,7 @@
 #include <mt6873_lpm_trace_event.h>
 #include <mt6873_dbg_fs.h>
 #include <mt6873_dbg_power_gs.h>
+#include <mt6873_lpm_logger.h>
 
 static int __init mt6873_dbg_early_initcall(void)
 {
@@ -28,6 +29,7 @@ subsys_initcall(mt6873_dbg_early_initcall);
 
 static int __init mt6873_dbg_device_initcall(void)
 {
+	mt6873_dbg_ops_register();
 	lpm_dbg_common_fs_init();
 	mt6873_dbg_fs_init();
 	mtk_cpupm_dbg_init();

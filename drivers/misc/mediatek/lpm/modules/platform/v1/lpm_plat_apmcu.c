@@ -15,7 +15,6 @@
 
 #include <lpm.h>
 
-#include <lpm_plat_reg.h>
 #include <lpm_plat_apmcu.h>
 #include <lpm_module.h>
 

@@ -96,7 +96,7 @@ void mtk_cpc_prof_stop(void);
 void mtk_cpc_prof_lat_dump(char **ToUserBuf, size_t *sz);
 void mtk_cpuidle_cpc_init(void);
 
-int __init mtk_cpc_init(void);
-void __exit mtk_cpc_exit(void);
+int  mtk_cpc_init(void);
+void mtk_cpc_exit(void);
 
 #endif /* __MTK_CPUIDLE_CPC_H__ */

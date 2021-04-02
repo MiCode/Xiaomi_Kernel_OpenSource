@@ -13,6 +13,7 @@
 #include <lpm_resource_constraint_v1.h>
 
 #include <lpm_dbg_fs_common.h>
+#include <lpm_dbg_syssram_v1.h>
 
 #include <mtk_lpm_sysfs.h>
 #include <mtk_lp_sysfs.h>
@@ -221,6 +222,7 @@ int lpm_dbg_init(void)
 				&lpm_trace_node_suspend.handle);
 	return 0;
 }
+EXPORT_SYMBOL(lpm_dbg_init);
 
 int lpm_dbg_deinit(void)
 {
@@ -230,3 +232,4 @@ int lpm_dbg_deinit(void)
 	mtk_lpm_sysfs_entry_node_remove(&lpm_entry_trace);
 	return 0;
 }
+EXPORT_SYMBOL(lpm_dbg_deinit);

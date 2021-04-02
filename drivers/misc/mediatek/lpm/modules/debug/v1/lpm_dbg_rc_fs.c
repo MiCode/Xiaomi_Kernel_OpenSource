@@ -744,6 +744,7 @@ int lpm_rc_fs_init(void)
 
 	return 0;
 }
+EXPORT_SYMBOL(lpm_rc_fs_init);
 
 int lpm_rc_fs_deinit(void)
 {
@@ -763,3 +764,4 @@ int lpm_rc_fs_deinit(void)
 	return 0;
 
 }
+EXPORT_SYMBOL(lpm_rc_fs_deinit);

@@ -59,8 +59,10 @@ int lpm_dbg_pm_init(void)
 
 	return 0;
 }
+EXPORT_SYMBOL(lpm_dbg_pm_init);
 
 void lpm_dbg_pm_exit(void)
 {
 	platform_driver_unregister(&lpm_dbg_driver);
 }
+EXPORT_SYMBOL(lpm_dbg_pm_exit);

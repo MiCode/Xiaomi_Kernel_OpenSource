@@ -19,11 +19,11 @@
 
 #include <mtk_lpm_sysfs.h>
 #include <mtk_cpupm_dbg.h>
-#include <lpm_spm_comm.h>
 #include <lpm_dbg_common_v1.h>
 #include <lpm_timer.h>
 #include <lpm_module.h>
-#include <lpm_plat_reg.h>
+#include <lpm_dbg_cpc_v3.h>
+#include <lpm_dbg_syssram_v1.h>
 
 #define LPM_LOG_DEFAULT_MS		5000
 
@@ -41,11 +41,15 @@
 			buf_##Cnt[ix_##Cnt] = toupper(*str_##Cnt); \
 	buf_##Cnt; })
 
-static struct lpm_spm_wake_status lpm_wake;
+//static struct lpm_spm_wake_status lpm_wake;
+static struct lpm_dbg_plat_ops _lpm_dbg_plat_ops;
+
 void __iomem *lpm_spm_base;
+EXPORT_SYMBOL(lpm_spm_base);
 
 struct lpm_log_helper lpm_logger_help = {
-	.wakesrc = &lpm_wake,
+	//.wakesrc = &lpm_wake,
+	.wakesrc = NULL,
 	.cur = 0,
 	.prev = 0,
 };
@@ -99,15 +103,35 @@ static void lpm_check_cg_pll(void)
 
 }
 
+int lpm_dbg_plat_ops_register(struct lpm_dbg_plat_ops *lpm_dbg_plat_ops)
+{
+	if (!lpm_dbg_plat_ops)
+		return -1;
+
+	_lpm_dbg_plat_ops.lpm_show_message = lpm_dbg_plat_ops->lpm_show_message;
+	_lpm_dbg_plat_ops.lpm_save_sleep_info = lpm_dbg_plat_ops->lpm_save_sleep_info;
+	_lpm_dbg_plat_ops.lpm_get_spm_wakesrc_irq = lpm_dbg_plat_ops->lpm_get_spm_wakesrc_irq;
+	_lpm_dbg_plat_ops.lpm_get_wakeup_status = lpm_dbg_plat_ops->lpm_get_wakeup_status;
+	return 0;
+}
+EXPORT_SYMBOL(lpm_dbg_plat_ops_register);
+
+
 int lpm_issuer_func(int type, const char *prefix, void *data)
 {
-	lpm_get_wakeup_status(&lpm_logger_help);
+	if (!_lpm_dbg_plat_ops.lpm_get_wakeup_status)
+		return -1;
+
+	_lpm_dbg_plat_ops.lpm_get_wakeup_status();
 
 	if (type == LPM_ISSUER_SUSPEND)
 		lpm_check_cg_pll();
 
-	return lpm_show_message(lpm_logger_help.wakesrc,
-					type, prefix, data);
+	if (_lpm_dbg_plat_ops.lpm_show_message)
+		return _lpm_dbg_plat_ops.lpm_show_message(
+			 type, prefix, data);
+	else
+		return -1;
 }
 
 struct lpm_issuer issuer = {
@@ -121,7 +145,8 @@ static int lpm_idle_save_sleep_info_nb_func(struct notifier_block *nb,
 	struct lpm_nb_data *nb_data = (struct lpm_nb_data *)data;
 
 	if (nb_data && (action == LPM_NB_BEFORE_REFLECT))
-		lpm_save_sleep_info();
+		if (_lpm_dbg_plat_ops.lpm_save_sleep_info)
+			_lpm_dbg_plat_ops.lpm_save_sleep_info();
 
 	return NOTIFY_OK;
 }
@@ -132,7 +157,8 @@ struct notifier_block lpm_idle_save_sleep_info_nb = {
 
 static void lpm_suspend_save_sleep_info_func(void)
 {
-	lpm_save_sleep_info();
+	if (_lpm_dbg_plat_ops.lpm_save_sleep_info)
+		_lpm_dbg_plat_ops.lpm_save_sleep_info();
 }
 
 static struct syscore_ops lpm_suspend_save_sleep_info_syscore_ops = {
@@ -250,7 +276,7 @@ int lpm_logger_timer_debugfs_init(void)
 	return 0;
 }
 
-int __init lpm_logger_init(void)
+int lpm_logger_init(void)
 {
 	struct device_node *node = NULL;
 	struct cpuidle_driver *drv = NULL;
@@ -273,7 +299,9 @@ int __init lpm_logger_init(void)
 		pr_info("[name:mtk_lpm][P] - Don't register the issue by error! (%s:%d)\n",
 			__func__, __LINE__);
 
-	lpm_get_spm_wakesrc_irq();
+	if (_lpm_dbg_plat_ops.lpm_get_spm_wakesrc_irq)
+		_lpm_dbg_plat_ops.lpm_get_spm_wakesrc_irq();
+
 	mtk_lpm_sysfs_root_entry_create();
 	lpm_logger_timer_debugfs_init();
 
@@ -355,6 +383,7 @@ int __init lpm_logger_init(void)
 
 	return 0;
 }
+EXPORT_SYMBOL(lpm_logger_init);
 
 void __exit lpm_logger_deinit(void)
 {
@@ -381,3 +410,4 @@ void __exit lpm_logger_deinit(void)
 	if (node)
 		of_node_put(node);
 }
+EXPORT_SYMBOL(lpm_logger_deinit);

@@ -125,9 +125,18 @@ struct mt6873_logger_fired_info {
 	int fired_index;
 };
 
+static struct lpm_spm_wake_status mt6873_wakesrc;
+
+static struct lpm_log_helper mt6873_log_help = {
+	.wakesrc = &mt6873_wakesrc,
+	.cur = 0,
+	.prev = 0,
+};
+
+
 #define IRQ_NUMBER	\
 	(sizeof(mt6873_spm_wakesrc_irqs)/sizeof(struct spm_wakesrc_irq_list))
-void lpm_get_spm_wakesrc_irq(void)
+static void lpm_get_spm_wakesrc_irq(void)
 {
 	int i;
 	struct device_node *node = NULL;
@@ -155,8 +164,10 @@ void lpm_get_spm_wakesrc_irq(void)
 	}
 }
 
-int lpm_get_wakeup_status(struct lpm_log_helper *help)
+static int lpm_get_wakeup_status(void)
 {
+	struct lpm_log_helper *help = &mt6873_log_help;
+
 	if (!help->wakesrc || !lpm_spm_base)
 		return -EINVAL;
 
@@ -220,7 +231,7 @@ int lpm_get_wakeup_status(struct lpm_log_helper *help)
 	return 0;
 }
 
-void lpm_save_sleep_info(void)
+static void lpm_save_sleep_info(void)
 {
 #define AVOID_OVERFLOW (0xFFFFFFFF00000000)
 	u32 off_26M_duration;
@@ -353,9 +364,11 @@ static u32 is_blocked_cnt;
 	WARN_ON(strlen(log_buf) >= LOG_BUF_SIZE);
 }
 
-int lpm_show_message(struct lpm_spm_wake_status *wakesrc, int type,
-					const char *prefix, void *data)
+static int lpm_show_message(int type, const char *prefix, void *data)
 {
+	struct lpm_spm_wake_status *wakesrc = mt6873_log_help.wakesrc ;
+
+
 #undef LOG_BUF_SIZE
 	#define LOG_BUF_SIZE		256
 	#define LOG_BUF_OUT_SZ		768
@@ -572,4 +585,21 @@ int lpm_show_message(struct lpm_spm_wake_status *wakesrc, int type,
 
 end:
 	return wr;
+}
+
+
+static struct lpm_dbg_plat_ops mt6873_dbg_ops = {
+	.lpm_show_message = lpm_show_message,
+	.lpm_save_sleep_info = lpm_save_sleep_info,
+	.lpm_get_spm_wakesrc_irq = lpm_get_spm_wakesrc_irq,
+	.lpm_get_wakeup_status = lpm_get_wakeup_status,
+};
+
+int mt6873_dbg_ops_register(void)
+{
+	int ret;
+
+	ret = lpm_dbg_plat_ops_register(&mt6873_dbg_ops);
+
+	return ret;
 }

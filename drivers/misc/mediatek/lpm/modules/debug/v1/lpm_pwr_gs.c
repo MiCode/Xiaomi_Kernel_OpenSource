@@ -59,6 +59,7 @@ int lpm_pwr_gs_compare(int comparer, int user)
 
 	return ret;
 }
+EXPORT_SYMBOL(lpm_pwr_gs_compare);
 
 int lpm_pwr_gs_compare_by_type(int comparer, int user,
 						      unsigned int type)
@@ -97,4 +98,4 @@ int lpm_pwr_gs_compare_init(int comparer, void *info)
 		ret = -EACCES;
 	return ret;
 }
-
+EXPORT_SYMBOL(lpm_pwr_gs_compare_init);

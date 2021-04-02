@@ -2,9 +2,10 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
-#include <lpm_plat_reg.h>
 #include <mtk_cpuidle_sysfs.h>
 #include <lpm_dbg_fs_common.h>
+#include <lpm_dbg_cpc_v3.h>
+#include <lpm_dbg_syssram_v1.h>
 
 #include "mtk_cpupm_dbg.h"
 #include "mtk_cpuidle_status.h"
@@ -122,8 +123,10 @@ int lpm_cpuidle_fs_init(void)
 
 	return 0;
 }
+EXPORT_SYMBOL(lpm_cpuidle_fs_init);
 
 int lpm_cpuidle_fs_deinit(void)
 {
 	return 0;
 }
+EXPORT_SYMBOL(lpm_cpuidle_fs_deinit);

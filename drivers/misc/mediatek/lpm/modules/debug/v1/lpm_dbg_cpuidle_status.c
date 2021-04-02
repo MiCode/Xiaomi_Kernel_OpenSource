@@ -14,7 +14,8 @@
 #include <linux/timer.h>
 
 #include <lpm.h>
-#include <lpm_plat_reg.h>
+#include <lpm_dbg_cpc_v3.h>
+#include <lpm_dbg_syssram_v1.h>
 #include <mtk_cpuidle_sysfs.h>
 
 #include "mtk_cpupm_dbg.h"
@@ -571,7 +572,7 @@ static void mtk_cpuidle_init_per_cpu(void *info)
 	mtk_idle->state_count = mtk_cpupm_get_idle_state_count(cpu);
 }
 
-int __init mtk_cpuidle_status_init(void)
+int mtk_cpuidle_status_init(void)
 {
 	mtk_cpuidle_ctrl.prof_en = false;
 	mtk_cpuidle_ctrl.log_en = true;
@@ -584,9 +585,10 @@ int __init mtk_cpuidle_status_init(void)
 	lpm_notifier_register(&mtk_cpuidle_status_nb);
 	return 0;
 }
+EXPORT_SYMBOL(mtk_cpuidle_status_init);
 
-void __exit mtk_cpuidle_status_exit(void)
+void mtk_cpuidle_status_exit(void)
 {
 	lpm_notifier_unregister(&mtk_cpuidle_status_nb);
 }
-
+EXPORT_SYMBOL(mtk_cpuidle_status_exit);
