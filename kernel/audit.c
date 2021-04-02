@@ -885,6 +885,19 @@ main_queue:
 	return 0;
 }
 
+#ifdef CONFIG_MTK_SELINUX_AEE_WARNING
+/*
+ * return skb field of audit buffer
+ */
+struct sk_buff *audit_get_skb(struct audit_buffer *ab)
+{
+	if (ab)
+		return (struct sk_buff *)(ab->skb);
+	else
+		return NULL;
+}
+#endif
+
 int audit_send_list_thread(void *_dest)
 {
 	struct audit_netlink_list *dest = _dest;

@@ -194,5 +194,10 @@ void avc_disable(void);
 DECLARE_PER_CPU(struct avc_cache_stats, avc_cache_stats);
 #endif
 
+#ifdef CONFIG_MTK_SELINUX_AEE_WARNING
+extern struct sk_buff *audit_get_skb(struct audit_buffer *ab);
+extern void __attribute__((weak)) mtk_audit_hook(char *data);
+#endif
+
 #endif /* _SELINUX_AVC_H_ */
 

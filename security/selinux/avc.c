@@ -737,9 +737,24 @@ static void avc_audit_post_callback(struct audit_buffer *ab, void *a)
 	tclass = secclass_map[sad->tclass-1].name;
 	audit_log_format(ab, " tclass=%s", tclass);
 
-	if (sad->denied)
+	if (sad->denied){
 		audit_log_format(ab, " permissive=%u", sad->result ? 0 : 1);
+#ifdef CONFIG_MTK_SELINUX_AEE_WARNING
+		{
+			struct nlmsghdr *nlh;
+			char *selinux_data;
+			if (enforcing_enabled(sad->state) && ab) {
+				nlh = nlmsg_hdr(audit_get_skb(ab));
+				selinux_data = nlmsg_data(nlh);
 
+				if (mtk_audit_hook
+						&& nlh->nlmsg_type != AUDIT_EOE
+						&& nlh->nlmsg_type == 1400)
+					mtk_audit_hook(selinux_data);
+			}
+		}
+#endif
+	}
 	trace_selinux_audited(sad, scontext, tcontext, tclass);
 	kfree(tcontext);
 	kfree(scontext);

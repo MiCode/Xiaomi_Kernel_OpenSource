@@ -70,3 +70,6 @@ obj-$(CONFIG_MTK_SENSOR_SUPPORT) += sensor/
 obj-$(CONFIG_MTK_DRAM_LOG_STORE) += log_store/
 obj-$(CONFIG_MTK_PRINTK) += mtprintk/
 obj-$(CONFIG_MTK_TASK_TURBO) += task_turbo/
+ifneq ($(wildcard $(srctree)/../vendor/mediatek/internal/selinux_warning_enable),)
+obj-$(CONFIG_MTK_SELINUX_AEE_WARNING)   += selinux_warning/
+endif
