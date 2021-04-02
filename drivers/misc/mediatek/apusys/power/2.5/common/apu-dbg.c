@@ -129,39 +129,60 @@ INVALID:
 	return false;
 }
 
-static void _apupw_set_freq_range(struct apu_dev *ad, ulong min, ulong max)
+static int _apupw_set_freq_range(struct apu_dev *ad, ulong min, ulong max)
 {
-#if IS_ENABLED(CONFIG_DEBUG_LOCK_ALLOC)
-	struct apu_gov_data *gov_data = (struct apu_gov_data *)ad->df->data;
-#endif
-	pr_info("[%s] [%s] max/min %dMhz/%dMhz\n",
-		apu_dev_name(ad->dev), __func__, TOMHZ(max), TOMHZ(min));
+	int ret = 0;
 
-#if IS_ENABLED(CONFIG_DEBUG_LOCK_ALLOC)
-	mutex_lock_nested(&ad->df->lock, gov_data->depth);
-#else
-	mutex_lock(&ad->df->lock);
-#endif
-	ad->df->max_freq = max;
-	ad->df->min_freq = min;
-	mutex_unlock(&ad->df->lock);
+	/*
+	 * Protect against theoretical sysfs writes between
+	 * device_add and dev_pm_qos_add_request
+	 */
+	if (!dev_pm_qos_request_active(&ad->df->user_max_freq_req))
+		return -EINVAL;
+	if (!dev_pm_qos_request_active(&ad->df->user_min_freq_req))
+		return -EAGAIN;
+
+	/* Change qos min freq to fix freq */
+	ret = dev_pm_qos_update_request(&ad->df->user_min_freq_req, min);
+	if (ret < 0)
+		return ret;
+
+	/* Change qos max freq to fix freq */
+	ret = dev_pm_qos_update_request(&ad->df->user_max_freq_req, max);
+	pr_info("[%s] [%s] max/min %dMhz/%dMhz, ret = %d\n",
+		apu_dev_name(ad->dev), __func__, TOMHZ(max), TOMHZ(min), ret);
+
+	return ret;
 }
 
-static void _apupw_default_freq_range(struct apu_dev *ad)
+static int _apupw_default_freq_range(struct apu_dev *ad)
 {
-#if IS_ENABLED(CONFIG_DEBUG_LOCK_ALLOC)
-	struct apu_gov_data *gov_data = (struct apu_gov_data *)ad->df->data;
-#endif
-	pr_info("[%s] [%s]\n", apu_dev_name(ad->dev), __func__);
+	int ret = 0;
 
-#if IS_ENABLED(CONFIG_DEBUG_LOCK_ALLOC)
-	mutex_lock_nested(&ad->df->lock, gov_data->depth);
-#else
-	mutex_lock(&ad->df->lock);
-#endif
-	ad->df->max_freq = ad->df->scaling_max_freq;
-	ad->df->min_freq = ad->df->scaling_min_freq;
-	mutex_unlock(&ad->df->lock);
+	/*
+	 * Protect against theoretical sysfs writes between
+	 * device_add and dev_pm_qos_add_request
+	 */
+	if (!dev_pm_qos_request_active(&ad->df->user_max_freq_req))
+		return -EINVAL;
+	if (!dev_pm_qos_request_active(&ad->df->user_min_freq_req))
+		return -EAGAIN;
+
+	/* Change qos min freq to fix freq */
+	ret = dev_pm_qos_update_request(&ad->df->user_min_freq_req,
+					ad->df->scaling_min_freq);
+	if (ret < 0)
+		return ret;
+
+	/* Change qos max freq to fix freq */
+	ret = dev_pm_qos_update_request(&ad->df->user_max_freq_req,
+					ad->df->scaling_max_freq);
+	pr_info("[%s] [%s] restore default max/min %dMhz/%dMhz, ret = %d\n",
+		apu_dev_name(ad->dev), __func__,
+		TOMHZ(ad->df->scaling_max_freq),
+		TOMHZ(ad->df->scaling_min_freq), ret);
+
+	return ret;
 }
 
 enum LOG_LEVEL apupw_dbg_get_loglvl(void)
@@ -460,6 +481,7 @@ static int apupw_dbg_dvfs(u8 param, int argc, int *args)
 {
 	enum DVFS_USER user;
 	struct apu_dev *ad = NULL;
+	int ret = 0;
 
 	pr_info("[%s] @@test%d lock opp=%d\n", __func__, argc, (int)(args[0]));
 	for (user = MDLA; user < APUSYS_POWER_USER_NUM; user++) {
@@ -467,13 +489,16 @@ static int apupw_dbg_dvfs(u8 param, int argc, int *args)
 		if (!ad)
 			continue;
 		if (args[0] >= 0)
-			_apupw_set_freq_range(ad, apu_opp2freq(ad, args[0]),
-				apu_opp2freq(ad, args[0]));
+			ret = _apupw_set_freq_range(ad, apu_opp2freq(ad, args[0]),
+						    apu_opp2freq(ad, args[0]));
 		else
-			_apupw_default_freq_range(ad);
+			ret = _apupw_default_freq_range(ad);
 	}
 
-	return 0;
+	if (ret)
+		pr_info("[%s] @@test%d lock opp=%d fail, ret %d\n",
+			__func__, argc, (int)(args[0]), ret);
+	return ret;
 }
 
 static int apupw_dbg_dump_table(struct seq_file *s)
@@ -619,11 +644,11 @@ static int apupw_dbg_set_parameter(u8 param, int argc, int *args)
 			goto out;
 		}
 		if (param == POWER_PARAM_SET_POWER_HAL_OPP)
-			_apupw_set_freq_range(ad, apu_opp2freq(ad, args[2]),
-				apu_opp2freq(ad, args[1]));
+			ret = _apupw_set_freq_range(ad, apu_opp2freq(ad, args[2]),
+						    apu_opp2freq(ad, args[1]));
 		else if (param == POWER_HAL_CTL)
-			_apupw_set_freq_range(ad, apu_boost2freq(ad, args[2]),
-				apu_boost2freq(ad, args[1]));
+			ret = _apupw_set_freq_range(ad, apu_boost2freq(ad, args[2]),
+						    apu_boost2freq(ad, args[1]));
 		break;
 	case POWER_PARAM_POWER_STRESS:
 		/*
