@@ -196,7 +196,7 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 						js_devdata->scheduling_period_ns
 								/ 1000000u;
 #if defined(CONFIG_MTK_GPUFREQ_V2)
-					/* lohass: gpudfd */
+					gpufreq_dump_infra_status();
 #else
 					/* MTK add for gpu_freq information */
 					mt_gpufreq_dump_infra_status();
@@ -253,7 +253,7 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 								/ 1000000u;
 
 #if defined(CONFIG_MTK_GPUFREQ_V2)
-					/* lohass: gpudfd */
+					gpufreq_dump_infra_status();
 #else
 					/* MTK add for gpu_freq information */
 					mt_gpufreq_dump_infra_status();

@@ -130,7 +130,7 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx,
 	source_id = (fault->status >> 16);
 
 #if defined(CONFIG_MTK_GPUFREQ_V2)
-	/* lohass: gpudfd */
+	gpufreq_dump_infra_status();
 #else
 	/* MTK add for gpu_freq information */
 	mt_gpufreq_dump_infra_status();

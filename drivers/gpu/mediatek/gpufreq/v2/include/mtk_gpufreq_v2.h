@@ -73,19 +73,16 @@ enum gpufreq_power_state {
 enum gpufreq_cg_state {
 	CG_OFF = 0,
 	CG_ON,
-	CG_KEEP,
 };
 
 enum gpufreq_mtcmos_state {
 	MTCMOS_OFF = 0,
 	MTCMOS_ON,
-	MTCMOS_KEEP,
 };
 
 enum gpufreq_buck_state {
 	BUCK_OFF = 0,
 	BUCK_ON,
-	BUCK_KEEP,
 };
 
 enum gpuppm_reserved_idx {
@@ -148,6 +145,7 @@ unsigned int gpufreq_get_dvfs_state(void);
 unsigned int gpufreq_get_shader_present(void);
 void gpufreq_set_timestamp(void);
 void gpufreq_check_bus_idle(void);
+void gpufreq_dump_infra_status(void);
 void gpufreq_resume_dvfs(void);
 int gpufreq_pause_dvfs(void);
 int gpufreq_map_avs_idx(int avsidx);

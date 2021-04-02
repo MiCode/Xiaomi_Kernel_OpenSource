@@ -88,6 +88,7 @@
 #define GPU_ACT_REF_POWER               (3352)          /* mW  */
 #define GPU_ACT_REF_FREQ                (886000)        /* KHz */
 #define GPU_ACT_REF_VOLT                (80000)         /* mV x 100 */
+#define GPU_LEAKAGE_POWER               (130)
 
 /**************************************************
  * PMIC Setting

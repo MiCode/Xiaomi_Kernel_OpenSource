@@ -9,15 +9,15 @@
 /**************************************************
  * Definition
  **************************************************/
-#define LIMITOP(l, n, p, c, c_en, f, f_en) \
+#define LIMITOP(_limiter, _name, _priority, _ceiling, _c_en, _floor, _f_en) \
 	{                                      \
-		.limiter = l,                      \
-		.name = n,                         \
-		.priority = p,                     \
-		.ceiling = c,                      \
-		.ceiling_enable = c_en,            \
-		.floor = f,                        \
-		.floor_enable = f_en,              \
+		.limiter = _limiter,               \
+		.name = _name,                     \
+		.priority = _priority,             \
+		.ceiling = _ceiling,               \
+		.c_enable = _c_en,                 \
+		.floor = _floor,                   \
+		.f_enable = _f_en,                 \
 	}
 
 /**************************************************
@@ -59,9 +59,9 @@ struct gpuppm_limit_info {
 	char *name;
 	unsigned int priority;
 	int ceiling;
-	unsigned int ceiling_enable;
+	unsigned int c_enable;
 	int floor;
-	unsigned int floor_enable;
+	unsigned int f_enable;
 };
 
 /**************************************************
@@ -72,8 +72,12 @@ int gpuppm_limited_commit_gpu(int oppidx);
 int gpuppm_limited_commit_gstack(int oppidx);
 int gpuppm_set_limit_gpu(
 	unsigned int limiter, int ceiling, int floor);
+int gpuppm_switch_limit_gpu(
+	unsigned int limiter, int c_enable, int f_enable);
 int gpuppm_set_limit_gstack(
 	unsigned int limiter, int ceiling, int floor);
+int gpuppm_switch_limit_gstack(
+	unsigned int limiter, int c_enable, int f_enable);
 int gpuppm_get_ceiling_gpu(void);
 int gpuppm_get_floor_gpu(void);
 unsigned int gpuppm_get_c_limiter_gpu(void);

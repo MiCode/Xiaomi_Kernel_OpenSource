@@ -19,6 +19,7 @@ int __gpufreq_power_control(
 	enum gpufreq_mtcmos_state mtcmos, enum gpufreq_buck_state buck);
 void __gpufreq_set_timestamp(void);
 void __gpufreq_check_bus_idle(void);
+void __gpufreq_dump_infra_status(void);
 void __gpufreq_resume_dvfs(void);
 int __gpufreq_pause_dvfs(void);
 int __gpufreq_map_avs_idx(int avsidx);

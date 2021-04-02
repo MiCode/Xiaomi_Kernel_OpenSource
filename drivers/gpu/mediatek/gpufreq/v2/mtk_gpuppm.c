@@ -101,6 +101,7 @@ static void __gpuppm_sort_limit(enum gpufreq_target target)
 	for (i = 0; i < LIMIT_NUM; i++) {
 		/* skip default value */
 		if (limit_table[i].ceiling != GPUPPM_DEFAULT_IDX &&
+			limit_table[i].c_enable == LIMIT_ENABLE &&
 			limit_table[i].ceiling > cur_ceiling) {
 			cur_ceiling = limit_table[i].ceiling;
 			cur_c_limiter = limit_table[i].limiter;
@@ -112,6 +113,7 @@ static void __gpuppm_sort_limit(enum gpufreq_target target)
 	for (i = 0; i < LIMIT_NUM; i++) {
 		/* skip default value */
 		if (limit_table[i].floor != GPUPPM_DEFAULT_IDX &&
+			limit_table[i].f_enable == LIMIT_ENABLE &&
 			limit_table[i].floor < cur_floor) {
 			cur_floor = limit_table[i].floor;
 			cur_f_limiter = limit_table[i].limiter;
@@ -267,12 +269,12 @@ int gpuppm_set_limit_gpu(
 
 	mutex_lock(&gpuppm_lock_gpu);
 
-	if (ceiling == GPUPPM_RESET_IDX)
+	if (ceiling == GPUPPM_RESET_IDX || ceiling == GPUPPM_DEFAULT_IDX)
 		g_gpu_limit_table[limiter].ceiling = GPUPPM_DEFAULT_IDX;
 	else if (ceiling >= 0 && ceiling < g_gpu.opp_num)
 		g_gpu_limit_table[limiter].ceiling = ceiling;
 
-	if (floor == GPUPPM_RESET_IDX)
+	if (floor == GPUPPM_RESET_IDX || floor == GPUPPM_DEFAULT_IDX)
 		g_gpu_limit_table[limiter].floor = GPUPPM_DEFAULT_IDX;
 	else if (floor >= 0 && floor < g_gpu.opp_num)
 		g_gpu_limit_table[limiter].floor = floor;
@@ -299,12 +301,102 @@ done:
 }
 EXPORT_SYMBOL(gpuppm_set_limit_gpu);
 
+int gpuppm_switch_limit_gpu(
+	unsigned int limiter, int c_enable, int f_enable)
+{
+	int cur_oppidx = 0;
+	int cur_ceiling = 0, cur_floor = 0;
+	int ret = GPUFREQ_SUCCESS;
+
+	if (limiter < 0 || limiter >= LIMIT_NUM) {
+		GPUFREQ_LOGE("invalid limiter: %d (EINVAL)", limiter);
+		ret = GPUFREQ_EINVAL;
+		goto done;
+	}
+
+	mutex_lock(&gpuppm_lock_gpu);
+
+	if (c_enable == LIMIT_ENABLE)
+		g_gpu_limit_table[limiter].c_enable = LIMIT_ENABLE;
+	else if (c_enable == LIMIT_DISABLE)
+		g_gpu_limit_table[limiter].c_enable = LIMIT_DISABLE;
+
+	if (f_enable == LIMIT_ENABLE)
+		g_gpu_limit_table[limiter].f_enable = LIMIT_ENABLE;
+	else if (f_enable == LIMIT_DISABLE)
+		g_gpu_limit_table[limiter].f_enable = LIMIT_DISABLE;
+
+	/* update current limit status */
+	__gpuppm_sort_limit(TARGET_GPU);
+
+	cur_oppidx = __gpufreq_get_cur_idx_gpu();
+	cur_ceiling = g_gpu.ceiling;
+	cur_floor = g_gpu.floor;
+
+	/* update opp idx if necessary */
+	if (cur_oppidx < cur_ceiling)
+		ret = __gpufreq_commit_gpu(cur_ceiling, DVFS_FREE);
+	else if (cur_oppidx > cur_floor)
+		ret = __gpufreq_commit_gpu(cur_floor, DVFS_FREE);
+
+	mutex_unlock(&gpuppm_lock_gpu);
+
+done:
+	return ret;
+}
+EXPORT_SYMBOL(gpuppm_switch_limit_gpu);
+
 int gpuppm_set_limit_gstack(
 	unsigned int limiter, int ceiling, int floor)
 {
 	return GPUFREQ_SUCCESS;
 }
 EXPORT_SYMBOL(gpuppm_set_limit_gstack);
+
+int gpuppm_switch_limit_gstack(
+	unsigned int limiter, int c_enable, int f_enable)
+{
+	int cur_oppidx = 0;
+	int cur_ceiling = 0, cur_floor = 0;
+	int ret = GPUFREQ_SUCCESS;
+
+	if (limiter < 0 || limiter >= LIMIT_NUM) {
+		GPUFREQ_LOGE("invalid limiter: %d (EINVAL)", limiter);
+		ret = GPUFREQ_EINVAL;
+		goto done;
+	}
+
+	mutex_lock(&gpuppm_lock_gstack);
+
+	if (c_enable == LIMIT_ENABLE)
+		g_gstack_limit_table[limiter].c_enable = LIMIT_ENABLE;
+	else if (c_enable == LIMIT_DISABLE)
+		g_gstack_limit_table[limiter].c_enable = LIMIT_DISABLE;
+
+	if (f_enable == LIMIT_ENABLE)
+		g_gstack_limit_table[limiter].f_enable = LIMIT_ENABLE;
+	else if (f_enable == LIMIT_DISABLE)
+		g_gstack_limit_table[limiter].f_enable = LIMIT_DISABLE;
+
+	/* update current limit status */
+	__gpuppm_sort_limit(TARGET_GPUSTACK);
+
+	cur_oppidx = __gpufreq_get_cur_idx_gstack();
+	cur_ceiling = g_gstack.ceiling;
+	cur_floor = g_gstack.floor;
+
+	/* update opp idx if necessary */
+	if (cur_oppidx < cur_ceiling)
+		ret = __gpufreq_commit_gstack(cur_ceiling, DVFS_FREE);
+	else if (cur_oppidx > cur_floor)
+		ret = __gpufreq_commit_gstack(cur_floor, DVFS_FREE);
+
+	mutex_unlock(&gpuppm_lock_gstack);
+
+done:
+	return ret;
+}
+EXPORT_SYMBOL(gpuppm_switch_limit_gstack);
 
 int gpuppm_limited_commit_gpu(int oppidx)
 {

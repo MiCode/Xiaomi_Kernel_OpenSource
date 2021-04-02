@@ -48,9 +48,6 @@
 #if IS_ENABLED(CONFIG_MTK_STATIC_POWER)
 #include <leakage_table_v2/mtk_static_power.h>
 #endif
-#if GPUFREQ_THERMAL_ENABLE && IS_ENABLED(CONFIG_THERMAL)
-#include <mtk_thermal.h>
-#endif
 #if IS_ENABLED(CONFIG_MTK_PBM)
 #include <mtk_pbm.h>
 #endif
@@ -198,6 +195,12 @@ static struct platform_driver g_gpufreq_mtcmos_pdrv = {
 static void __iomem *g_apmixed_base;
 static void __iomem *g_mfg_base;
 static void __iomem *g_sleep;
+static void __iomem *g_infracfg_base;
+static void __iomem *g_infra_bpi_bsi_slv0;
+static void __iomem *g_infra_peri_debug1;
+static void __iomem *g_infra_peri_debug2;
+static void __iomem *g_infra_peri_debug3;
+static void __iomem *g_infra_peri_debug4;
 static struct gpufreq_pmic_info *g_pmic;
 static struct gpufreq_clk_info *g_clk;
 static struct gpufreq_mtcmos_info *g_mtcmos;
@@ -450,30 +453,9 @@ EXPORT_SYMBOL(__gpufreq_get_vsram_by_vgpu);
 /* API: get leakage power of GPU */
 unsigned int __gpufreq_get_lkg_pgpu(unsigned int volt)
 {
-	int p_leakage = 0;
-	int temperature = 0;
+	GPUFREQ_UNREFERENCED(volt);
 
-#if GPUFREQ_THERMAL_ENABLE && IS_ENABLED(CONFIG_THERMAL)
-	temperature = get_immediate_gpu_wrap() / 1000;
-	if (temperature < -20 || temperature > 125) {
-		GPUFREQ_LOGD("temperature < -20 or > 125");
-		temperature = 65;
-	}
-#else
-	temperature = 40;
-#endif /* CONFIG_THERMAL */
-	GPUFREQ_LOGD("GPU temperature: %d", temperature);
-
-#if IS_ENABLED(CONFIG_MTK_STATIC_POWER)
-	p_leakage = mt_spower_get_leakage(MTK_SPOWER_GPU,
-		(volt / 100), temperature);
-	if (!g_gpu.buck_count || p_leakage < 0)
-		p_leakage = 0;
-#else
-	p_leakage = 130;
-#endif /* CONFIG_MTK_STATIC_POWER */
-
-	return p_leakage;
+	return GPU_LEAKAGE_POWER;
 }
 EXPORT_SYMBOL(__gpufreq_get_lkg_pgpu);
 
@@ -1011,6 +993,84 @@ void __gpufreq_check_bus_idle(void)
 	} while ((val & 0x4) != 0x4);
 }
 EXPORT_SYMBOL(__gpufreq_check_bus_idle);
+
+void __gpufreq_dump_infra_status(void)
+{
+	GPUFREQ_LOGI("== [GPUFREQ INFRA STATUS] ==");
+	GPUFREQ_LOGI("[%d] freq: %d, vgpu: %d, vsram: %d",
+		g_gpu.cur_oppidx, g_gpu.cur_freq,
+		g_gpu.cur_volt, g_gpu.cur_vsram);
+
+	// 0x1020E
+	if (g_infracfg_base) {
+		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+			0x1020E810, readl(g_infracfg_base + 0x810));
+
+		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+			0x1020E814, readl(g_infracfg_base + 0x814));
+	}
+
+	// 0x1021E
+	if (g_infra_bpi_bsi_slv0) {
+		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+			0x1021E230, readl(g_infra_bpi_bsi_slv0 + 0x230));
+
+		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+			0x1021E234, readl(g_infra_bpi_bsi_slv0 + 0x234));
+	}
+
+	// 0x10023000
+	if (g_infra_peri_debug1) {
+		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+			0x10023000, readl(g_infra_peri_debug1 + 0x000));
+
+		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+			0x10023440, readl(g_infra_peri_debug1 + 0x440));
+
+		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+			0x10023444, readl(g_infra_peri_debug1 + 0x444));
+	}
+
+	// 0x10025000
+	if (g_infra_peri_debug2) {
+		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+			0x10025000, readl(g_infra_peri_debug2 + 0x000));
+
+		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+			0x1002542C, readl(g_infra_peri_debug2 + 0x42C));
+	}
+
+	// 0x1002B000
+	if (g_infra_peri_debug3) {
+		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+			0x1002B000, readl(g_infra_peri_debug3 + 0x000));
+	}
+
+	// 0x1002E000
+	if (g_infra_peri_debug4) {
+		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+			0x1002E000, readl(g_infra_peri_debug4 + 0x000));
+	}
+
+	// 0x10006000
+	if (g_sleep) {
+		GPUFREQ_LOGI("pwr status (0x%x): 0x%08x 0x%08x 0x%08x 0x%08x",
+			0x10006000 + 0x308, readl(g_sleep + 0x308),
+			readl(g_sleep + 0x30C), readl(g_sleep + 0x310),
+			readl(g_sleep + 0x314));
+
+		GPUFREQ_LOGI("pwr status (0x%x) :0x%08x 0x%08x 0x%08x",
+			0x10006000 + 0x318, readl(g_sleep + 0x318),
+			readl(g_sleep + 0x31C), readl(g_sleep + 0x320));
+
+		GPUFREQ_LOGI("pwr status (0x%x): 0x%08x",
+			0x10006000 + 0x16C, readl(g_sleep + 0x16C));
+
+		GPUFREQ_LOGI("pwr status (0x%x): 0x%08x",
+			0x10006000 + 0x170, readl(g_sleep + 0x170));
+	}
+}
+EXPORT_SYMBOL(__gpufreq_dump_infra_status);
 
 void __gpufreq_resume_dvfs(void)
 {
@@ -2383,11 +2443,6 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 	/* set power info to OPP table */
 	__gpufreq_measure_power();
 
-#if GPUFREQ_THERMAL_ENABLE && IS_ENABLED(CONFIG_THERMAL)
-	/* register power info to thermal */
-	mtk_gpufreq_register(g_gpu.working_table, g_gpu.opp_num);
-#endif /* CONFIG_THERMAL */
-
 	/* init springboard table */
 	g_gpu.sb_table = kcalloc(g_gpu.opp_num,
 		sizeof(struct gpufreq_sb_info), GFP_KERNEL);
@@ -2527,6 +2582,64 @@ static int __gpufreq_init_clk(struct platform_device *pdev)
 		ret = PTR_ERR(g_clk->subsys_mfg_cg);
 		goto done;
 	}
+
+	g_sleep =
+		__gpufreq_of_ioremap("mediatek,sleep", 0);
+	if (!g_sleep) {
+		GPUFREQ_LOGE("fail to ioremap sleep (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+#if defined(GPUFREQ_TODO)
+	g_infracfg_base =
+		__gpufreq_of_ioremap("mediatek,infracfg", 0);
+	if (!g_infracfg_base) {
+		GPUFREQ_LOGE("fail to ioremap infracfg (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	g_infra_bpi_bsi_slv0 =
+		__gpufreq_of_ioremap("mediatek,bpi_bsi_slv0", 0);
+	if (!g_infra_bpi_bsi_slv0) {
+		GPUFREQ_LOGE("fail to ioremap bpi_bsi_slv0 (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	g_infra_peri_debug1 = __gpufreq_of_ioremap(
+		"mediatek,devapc_ao_infra_peri_debug1", 0);
+	if (!g_infra_peri_debug1) {
+		GPUFREQ_LOGE("fail to ioremap devapc_ao_infra_peri_debug1 (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	g_infra_peri_debug2 = __gpufreq_of_ioremap(
+		"mediatek,devapc_ao_infra_peri_debug2", 0);
+	if (!g_infra_peri_debug2) {
+		GPUFREQ_LOGE("fail to ioremap devapc_ao_infra_peri_debug2 (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	g_infra_peri_debug3 = __gpufreq_of_ioremap(
+		"mediatek,devapc_ao_infra_peri_debug3", 0);
+	if (!g_infra_peri_debug3) {
+		GPUFREQ_LOGE("fail to ioremap devapc_ao_infra_peri_debug3 (ENOENT)",);
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	g_infra_peri_debug4 = __gpufreq_of_ioremap(
+		"mediatek,devapc_ao_infra_peri_debug4", 0);
+	if (!g_infra_peri_debug4) {
+		GPUFREQ_LOGE("fail to ioremap devapc_ao_infra_peri_debug4 (ENOENT)");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+#endif /* GPUFREQ_TODO */
 
 done:
 	GPUFREQ_TRACE_END();

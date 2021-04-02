@@ -84,6 +84,12 @@ void gpufreq_check_bus_idle(void)
 }
 EXPORT_SYMBOL(gpufreq_check_bus_idle);
 
+void gpufreq_dump_infra_status(void)
+{
+	__gpufreq_dump_infra_status();
+}
+EXPORT_SYMBOL(gpufreq_dump_infra_status);
+
 void gpufreq_resume_dvfs(void)
 {
 	GPUFREQ_TRACE_START();
