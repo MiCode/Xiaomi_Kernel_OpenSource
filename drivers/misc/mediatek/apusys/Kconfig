@@ -77,12 +77,4 @@ config MTK_APUSYS_EDMA_SUPPORT
 	  DRAM/TCM, It will cooperate with MDLA. eDMA
 	  support different modes for image process.
 
-config MTK_APUSYS_POWER_MT6873
-	bool "MTK APUSYS_POWER for MT6873"
-	help
-	  This kernel config can be used to enable APUSYS_POWER MT6873.
-	  When enable this option, power ctl & opp level will be changed
-	  depending on power resources & power table.
-	  Disable, if you don't need them.
-
 source "drivers/misc/mediatek/apusys/apu_top/Kconfig"

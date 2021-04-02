@@ -20,9 +20,6 @@ APUSYS_VERSION_SAMPLE = 1.5
 APUSYS_VERSION_DEBUG = 1.0
 APUSYS_VERSION_MNOC = 1.5
 APUSYS_VERSION_VPU = 4.5
-ifeq ($(CONFIG_MTK_APUSYS_POWER_MT6873),y)
-APUSYS_VERSION_POWER_PLATFORM = mar
-endif
 APUSYS_VERSION_REVISER = 1.5
 
 # target object
@@ -147,35 +144,10 @@ endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(APUSYS_VERSION_MIDWARE)/
-ifeq ($(APUSYS_VERSION_POWER_PLATFORM),mar)
-subdir-ccflags-y += -DCONFIG_MACH_MT6873
-endif
 
-
-ifeq ($(CONFIG_MTK_APUSYS_POWER_MT6873),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/
-apusys-objs += power/2.0/apusys_power_driver.o
-apusys-objs += power/2.0/apusys_power_ctl.o
-apusys-objs += power/2.0/apusys_power_debug.o
-apusys-objs += power/2.0/mar/hal_config_power.o
-apusys-objs += power/2.0/mar/apu_power_regulator.o
-apusys-objs += power/2.0/mar/apu_power_clock.o
-apusys-objs += power/2.0/mar/apusys_power_cust.o
-apusys-objs += power/2.0/mar/apu_power_table.o
-apusys-objs += power/2.0/mar/apu_platform_resource.o
-apusys-objs += power/2.0/mar/apu_platform_debug.o
-apusys-objs += power/2.0/mar/apusys_power_rule_check.o
-apusys-objs += power/2.0/mar/apu_power_tag.o
-#apusys-objs += power/2.0/mar/dummy_vpu_driver.o
-#apusys-objs += power/2.0/mar/dummy_mdla_driver.o
-# apu_top target
-obj-$(CONFIG_MTK_APUSYS_SUPPORT) += apu_top/
-else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.5/inc/
 apusys-objs += power/2.5/common/apu-tag.o
 obj-$(CONFIG_MTK_APUSYS_SUPPORT) += power/2.5/
-endif
 
 
 # mdla
