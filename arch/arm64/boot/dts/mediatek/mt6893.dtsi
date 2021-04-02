@@ -4691,6 +4691,10 @@
 			compatible = "mediatek,flashlight_core";
 		};
 
+		camera_af_hw_node: camera_af_hw_node {
+			compatible = "mediatek,camera_af_lens";
+		};
+
 		mtk_composite_v4l2_1: mtk_composite_v4l2_1 {
 			compatible = "mediatek,mtk_composite_v4l2_1";
 		};
