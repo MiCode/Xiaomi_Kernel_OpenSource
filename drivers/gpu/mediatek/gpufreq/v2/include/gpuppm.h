@@ -3,8 +3,8 @@
  * Copyright (C) 2021 MediaTek Inc.
  */
 
-#ifndef __MTK_GPUPPM_H__
-#define __MTK_GPUPPM_H__
+#ifndef __GPUPPM_H__
+#define __GPUPPM_H__
 
 /**************************************************
  * Definition
@@ -91,4 +91,4 @@ unsigned int gpuppm_get_f_limiter_gstack(void);
 const struct gpuppm_limit_info *gpuppm_get_limit_table_gstack(void);
 struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info_gstack(void);
 
-#endif /* __MTK_GPUPPM_H__ */
+#endif /* __GPUPPM_H__ */

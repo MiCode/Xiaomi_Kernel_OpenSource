@@ -3,8 +3,8 @@
  * Copyright (C) 2021 MediaTek Inc.
  */
 
-#ifndef __MTK_GPUFREQ_COMMON_H__
-#define __MTK_GPUFREQ_COMMON_H__
+#ifndef __GPUFREQ_COMMON_H__
+#define __GPUFREQ_COMMON_H__
 
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/mboot_params.h>
@@ -39,19 +39,6 @@
 #define T7C1  (1 << 23)
 
 /**************************************************
- * GPUFREQ Log Setting
- **************************************************/
-#define GPUFERQ_TAG "[GPU/FREQ]"
-#define GPUFREQ_LOGE(fmt, args...) \
-	pr_err(GPUFERQ_TAG"[ERROR]@%s: "fmt"\n", __func__, ##args)
-#define GPUFREQ_LOGW(fmt, args...) \
-	pr_debug(GPUFERQ_TAG"[WARN]@%s: "fmt"\n", __func__, ##args)
-#define GPUFREQ_LOGI(fmt, args...) \
-	pr_info(GPUFERQ_TAG"[INFO]@%s: "fmt"\n", __func__, ##args)
-#define GPUFREQ_LOGD(fmt, args...) \
-	pr_debug(GPUFERQ_TAG"[DEBUG]@%s: "fmt"\n", __func__, ##args)
-
-/**************************************************
  * Register Manipulations
  **************************************************/
 #define READ_REGISTER_UINT32(reg) \
@@ -72,11 +59,6 @@
 #define DRV_WriteReg32(addr, data)  OUTREG32(addr, data)
 #define DRV_SetReg32(addr, data)    SETREG32(addr, data)
 #define DRV_ClrReg32(addr, data)    CLRREG32(addr, data)
-
-/**************************************************
- * Misc. Definition
- **************************************************/
-#define GPUFREQ_UNREFERENCED(param) ((void)(param))
 
 /**************************************************
  * Enumeration
@@ -151,4 +133,4 @@ static inline void __gpufreq_footprint_power_count_reset(void)
 #endif
 }
 
-#endif /* __MTK_GPUFREQ_COMMON_H__ */
+#endif /* __GPUFREQ_COMMON_H__ */

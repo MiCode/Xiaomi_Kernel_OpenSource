@@ -7,7 +7,7 @@
 #define __MTK_GPUFREQ_H__
 
 #if defined(CONFIG_MTK_GPUFREQ_V2)
-#include "../v2/include/mtk_gpufreq_v2.h"
+#include "../v2/include/gpufreq_v2.h"
 #else
 #include "../v1/include/mtk_gpufreq_v1.h"
 #endif

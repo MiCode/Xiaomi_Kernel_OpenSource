@@ -26,13 +26,13 @@ ifeq ($(findstring aging,$(PROJECT_DTB_NAMES)),aging)
 	ccflags-y += -DGPUFREQ_AGING_LOAD
 endif
 
-mtk_gpufreqv2_wrapper-y := \
-	mtk_gpufreq_v2.o \
-	mtk_gpufreq_debug.o
+mtk_gpufreq_v2-y := \
+	gpufreq_v2.o \
+	gpufreq_debug.o
 
-mtk_gpufreqv2_core-y := \
-	mtk_gpuppm.o \
-	$(MTK_PLATFORM)/mtk_gpufreq_core.o
+mtk_gpufreq_mt6893-y := \
+	gpuppm.o \
+	gpufreq_mt6893.o
 
-obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreqv2_wrapper.o
-obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreqv2_core.o
+obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreq_v2.o
+obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreq_mt6893.o

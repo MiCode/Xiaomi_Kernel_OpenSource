@@ -7,20 +7,23 @@
  * @file    mtk_gpufreq_v2.c
  * @brief   GPU-DVFS Driver Common Wrapper
  */
+
+/**
+ * ===============================================
+ * Include
+ * ===============================================
+ */
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/export.h>
 #include <linux/printk.h>
 #include <linux/mutex.h>
 
-#include <mtk_gpufreq_v2.h>
-#include <mtk_gpufreq_debug.h>
-#include <mtk_gpufreq_common.h>
-#include <mtk_gpuppm.h>
-#if defined(CONFIG_GPU_MT6893)
-#include <mt6893/mtk_gpufreq_core.h>
-#endif
+#include <gpufreq_v2.h>
+#include <gpufreq_debug.h>
+#include <gpuppm.h>
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 #include <mtk_battery_oc_throttling.h>
@@ -32,8 +35,18 @@
 #include <mtk_low_battery_throttling.h>
 #endif
 
+/**
+ * ===============================================
+ * Local Function Declaration
+ * ===============================================
+ */
 static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev);
 
+/**
+ * ===============================================
+ * Local Variable Definition
+ * ===============================================
+ */
 static const struct of_device_id g_gpufreq_wrapper_of_match[] = {
 	{ .compatible = "mediatek,gpufreq_wrapper" },
 	{ /* sentinel */ }
@@ -48,6 +61,13 @@ static struct platform_driver g_gpufreq_wrapper_pdrv = {
 	},
 };
 
+static unsigned int g_gpueb_support;
+
+/**
+ * ===============================================
+ * External Function Definition
+ * ===============================================
+ */
 unsigned int gpufreq_bringup(void)
 {
 	return __gpufreq_bringup();
@@ -722,12 +742,39 @@ static void gpufreq_low_batt_callback(LOW_BATTERY_LEVEL low_batt_level)
 #endif /* CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING */
 
 /*
- * API: gpufreq driver probe
+ * API: gpufreq wrapper driver probe
  */
 static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev)
 {
+	struct device_node *wrapper, *gpueb;
 	int ret = GPUFREQ_SUCCESS;
 
+	GPUFREQ_LOGI("start to probe gpufreq wrapper driver");
+
+	wrapper = of_find_matching_node(NULL, g_gpufreq_wrapper_of_match);
+	if (!wrapper) {
+		GPUFREQ_LOGE("fail to find gpufreq wrapper node");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	gpueb = of_find_compatible_node(NULL, NULL, "mediatek,gpueb");
+	if (!gpueb) {
+		GPUFREQ_LOGE("fail to find gpueb node");
+		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	ret = of_property_read_u32(gpueb, "gpueb-support", &g_gpueb_support);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to read gpueb_support (%d)", ret);
+		goto done;
+	}
+
+	GPUFREQ_LOGI("gpufreq wrapper driver probe done, gpueb: %s",
+		g_gpueb_support ? "on" : "off");
+
+done:
 	return ret;
 }
 

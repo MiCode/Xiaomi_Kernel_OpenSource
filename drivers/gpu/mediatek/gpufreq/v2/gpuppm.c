@@ -15,13 +15,9 @@
  */
 #include <linux/mutex.h>
 
-#include <mtk_gpufreq_v2.h>
-#include <mtk_gpufreq_debug.h>
-#include <mtk_gpufreq_common.h>
-#include <mtk_gpuppm.h>
-#if defined(CONFIG_GPU_MT6893)
-#include <mt6893/mtk_gpufreq_core.h>
-#endif
+#include <gpufreq_v2.h>
+#include <gpufreq_debug.h>
+#include <gpuppm.h>
 
 /**
  * ===============================================

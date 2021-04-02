@@ -28,12 +28,11 @@
 #include <linux/nvmem-consumer.h>
 #endif
 
-#include <mtk_gpufreq_v2.h>
-#include <mtk_gpufreq_debug.h>
-#include <mtk_gpufreq_common.h>
-#include <mtk_gpuppm.h>
-#include <mt6893/mtk_gpufreq_core.h>
-#include <mt6893/mtk_gpufreq_config.h>
+#include <gpufreq_v2.h>
+#include <gpufreq_debug.h>
+#include <gpuppm.h>
+#include <gpufreq_common.h>
+#include <gpufreq_mt6893.h>
 
 #include <mtk_gpu_utility.h>
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)

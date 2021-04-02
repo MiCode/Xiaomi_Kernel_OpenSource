@@ -3,8 +3,8 @@
  * Copyright (C) 2021 MediaTek Inc.
  */
 
-#ifndef __MTK_GPUFREQ_DEBUG_H__
-#define __MTK_GPUFREQ_DEBUG_H__
+#ifndef __GPUFREQ_DEBUG_H__
+#define __GPUFREQ_DEBUG_H__
 
 /**************************************************
  * Definition
@@ -106,4 +106,4 @@ struct gpufreq_debug_limit_info {
  **************************************************/
 int gpufreq_debug_init(void);
 
-#endif /* __MTK_GPUFREQ_DEBUG_H__ */
+#endif /* __GPUFREQ_DEBUG_H__ */

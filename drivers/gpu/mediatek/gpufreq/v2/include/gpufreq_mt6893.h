@@ -3,8 +3,8 @@
  * Copyright (C) 2021 MediaTek Inc.
  */
 
-#ifndef __MTK_GPUFREQ_CONFIG_H__
-#define __MTK_GPUFREQ_CONFIG_H__
+#ifndef __GPUFREQ_MT6893_H__
+#define __GPUFREQ_MT6893_H__
 
 /**************************************************
  * GPUFREQ Local Config
@@ -302,4 +302,4 @@ struct gpufreq_adj_info g_adj_gpu_custom[] = {
 	ADJOP(0, 0, 0, 0),
 };
 
-#endif /* __MTK_GPUFREQ_CONFIG_H__ */
+#endif /* __GPUFREQ_MT6893_H__ */
