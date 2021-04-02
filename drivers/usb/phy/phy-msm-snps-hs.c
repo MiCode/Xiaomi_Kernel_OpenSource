@@ -116,6 +116,8 @@ struct msm_hsphy {
 	struct regulator_dev	*dpdm_rdev;
 
 	struct power_supply	*usb_psy;
+	unsigned int		vbus_draw;
+	struct work_struct	vbus_draw_work;
 
 	/* debugfs entries */
 	struct dentry		*root;
@@ -551,9 +553,10 @@ static int msm_hsphy_notify_disconnect(struct usb_phy *uphy,
 	return 0;
 }
 
-static int msm_hsphy_set_power(struct usb_phy *uphy, unsigned int mA)
+static void msm_hsphy_vbus_draw_work(struct work_struct *w)
 {
-	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
+	struct msm_hsphy *phy = container_of(w, struct msm_hsphy,
+			vbus_draw_work);
 	union power_supply_propval val = {0};
 	int ret;
 
@@ -561,19 +564,27 @@ static int msm_hsphy_set_power(struct usb_phy *uphy, unsigned int mA)
 		phy->usb_psy = power_supply_get_by_name("usb");
 		if (!phy->usb_psy) {
 			dev_err(phy->phy.dev, "Could not get usb psy\n");
-			return -ENODEV;
+			return;
 		}
 	}
 
-	dev_info(phy->phy.dev, "Avail curr from USB = %u\n", mA);
+	dev_info(phy->phy.dev, "Avail curr from USB = %u\n", phy->vbus_draw);
 
 	/* Set max current limit in uA */
-	val.intval = 1000 * mA;
+	val.intval = 1000 * phy->vbus_draw;
 	ret = power_supply_set_property(phy->usb_psy, POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT, &val);
 	if (ret) {
 		dev_dbg(phy->phy.dev, "Error (%d) setting input current limit\n", ret);
-		return ret;
+		return;
 	}
+}
+
+static int msm_hsphy_set_power(struct usb_phy *uphy, unsigned int mA)
+{
+	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
+
+	phy->vbus_draw = mA;
+	schedule_work(&phy->vbus_draw_work);
 
 	return 0;
 }
@@ -860,6 +871,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	INIT_WORK(&phy->vbus_draw_work, msm_hsphy_vbus_draw_work);
 	msm_hsphy_create_debugfs(phy);
 
 	/*
