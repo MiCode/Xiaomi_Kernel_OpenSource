@@ -1673,6 +1673,17 @@
 				"mbox4";
 		};
 
+		/* Trustonic Mobicore SW IRQ number 536 = 32 + 504 */
+		mobicore {
+			compatible = "trustonic,mobicore";
+			interrupts = <GIC_SPI 504 IRQ_TYPE_EDGE_RISING 0>;
+		};
+
+		tee_sanity {
+			compatible = "mediatek,tee_sanity";
+			interrupts = <GIC_SPI 505 IRQ_TYPE_EDGE_RISING 0>;
+		};
+
 		scp_adsp: scp_adsp@10720000 {
 			compatible = "mediatek,mt8192-scp_adsp", "syscon";
 			reg = <0 0x10720000 0 0x1000>;
