@@ -80,6 +80,18 @@ struct cache_parity {
 	union err_record *record;
 };
 
+struct mtk_cache_parity_compatible {
+	const unsigned int ver;
+};
+
+static const struct mtk_cache_parity_compatible mt6785_compat = {
+	.ver = 1,
+};
+
+static const struct mtk_cache_parity_compatible mt6873_compat = {
+	.ver = 2,
+};
+
 #define ECC_LOG(fmt, ...) \
 	do { \
 		pr_notice(fmt, __VA_ARGS__); \
@@ -542,10 +554,14 @@ static int cache_parity_probe(struct platform_device *pdev)
 {
 	int ret;
 	size_t size;
+	struct mtk_cache_parity_compatible *dev_comp;
 
 	dev_info(&pdev->dev, "driver probed\n");
 
-	cache_parity.ver = (int)of_device_get_match_data(&pdev->dev);
+	dev_comp = (struct mtk_cache_parity_compatible *)
+		of_device_get_match_data(&pdev->dev);
+
+	cache_parity.ver = (unsigned int)dev_comp->ver;
 
 	atomic_set(&cache_parity.nr_err, 0);
 
@@ -610,8 +626,8 @@ static int cache_parity_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id cache_parity_of_ids[] = {
-	{ .compatible = "mediatek,mt6785-cache-parity", .data = (void *)1 },
-	{ .compatible = "mediatek,mt6873-cache-parity", .data = (void *)2 },
+	{ .compatible = "mediatek,mt6785-cache-parity", .data = &mt6785_compat },
+	{ .compatible = "mediatek,mt6873-cache-parity", .data = &mt6873_compat },
 	{}
 };
 
