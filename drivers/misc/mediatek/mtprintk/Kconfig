@@ -1,0 +1,35 @@
+config MTK_PRINTK
+	tristate "mtk printk enhance"
+	help
+	  mtk printk enhance feature, it include
+	  uart console control and kernel log
+	  much detect. It can build in or insmode.
+	  kernel log much detect only enable in eng load.
+
+config MTK_PRINTK_UART_CONSOLE
+	bool "MTK printk UART controller"
+	default y
+	help
+	  MTK_PRINTK_UART_CONSOLE which is used to control whether to
+	  control printk to uart console.  when boot up finish
+	  uart console do not output printk log.
+	  also RD can set the setting by command.
+
+config LOG_TOO_MUCH_WARNING
+	bool "printk too much warning"
+	default n
+	help
+	  LOG_TOO_MUCH_WARNING which is used to control whether to
+	  detect printk too much issue. kernel log too much will detect and
+	  create a exception when printk log large than
+	  LOG_TOO_MUCH_DETECT_COUNT in one second.
+
+config LOG_TOO_MUCH_DETECT_COUNT
+	hex "printk too much detect count"
+	default 0xC8
+	depends on LOG_TOO_MUCH_WARNING
+
+config LOG_TOO_MUCH_DETECT_GAP
+	hex "detect log too much delay time"
+	default 30
+	depends on LOG_TOO_MUCH_WARNING

@@ -71,6 +71,7 @@ source "drivers/misc/mediatek/subpmic/Kconfig"
 source "drivers/misc/mediatek/monitor_hang/Kconfig"
 source "drivers/misc/mediatek/memblock/Kconfig"
 source "drivers/misc/mediatek/log_store/Kconfig"
+source "drivers/misc/mediatek/mtprintk/Kconfig"
 endmenu # Debug
 
 menu "Modem & Connectivity"
