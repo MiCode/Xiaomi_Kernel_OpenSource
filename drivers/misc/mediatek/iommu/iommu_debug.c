@@ -24,10 +24,10 @@
 
 #define ERROR_LARB_PORT_ID		0xFFFF
 #define F_MMU_INT_TF_MSK		GENMASK(12, 2)
-#define F_MMU_INT_TF_CCU		GENMASK(12, 7)
-#define F_MMU_INT_TF_COM_MISC		GENMASK(12, 10)
-#define F_MMU_INT_TF_SUB_MISC		GENMASK(1, 0)
-#define F_APU_MMU_INT_TF_MSK(id)	FIELD_GET(GENMASK(10, 7), id)
+#define F_MMU_INT_TF_CCU(id)		FIELD_GET(GENMASK(12, 7), id)
+#define F_MMU_INT_TF_COM_MISC(id)	FIELD_GET(GENMASK(12, 10), id)
+#define F_MMU_INT_TF_SUB_MISC(id)	FIELD_GET(GENMASK(1, 0), id)
+#define F_APU_MMU_INT_TF_MSK(id)	FIELD_GET(GENMASK(11, 7), id)
 
 enum mtk_iova_space {
 	MTK_IOVA_SPACE0, /* 0GB ~ 4GB */
@@ -1786,27 +1786,66 @@ static const struct mtk_iommu_port mm_port_mt6983[] = {
 	MM_IOMMU_PORT_INIT("CCU1", MDP_IOMMU, 31, 0x37, 1),
 
 	/* Larb32 -- 2 */
-	MM_IOMMU_PORT_INIT("GCE_D_M", MDP_IOMMU, 32, 0x38, 1),
-	MM_IOMMU_PORT_INIT("GCE_M_M", MDP_IOMMU, 32, 0x38, 2),
-
-	/* Larb33 -- 2 */
-	MM_IOMMU_PORT_INIT("VIDEO_uP", MDP_IOMMU, 33, 0x36, 0),
+	MM_IOMMU_PORT_INIT("VIDEO_uP", MDP_IOMMU, 32, 0x7, 0),
+	MM_IOMMU_PORT_INIT("GCE_D_M", MDP_IOMMU, 32, 0x7, 1),
+	MM_IOMMU_PORT_INIT("GCE_M_M", MDP_IOMMU, 32, 0x7, 2),
 
 	MM_IOMMU_PORT_INIT("MM_UNKNOWN", 0, 0, 0, 0)
 };
 
 static const struct mtk_iommu_port apu_port_mt6983[] = {
-	/* 8 */
-	APU_IOMMU_PORT_INIT("APU_VP6_0", 0, 0, 0, 0x0),
-	APU_IOMMU_PORT_INIT("APU_VP6_1", 0, 0, 0, 0x1),
-	APU_IOMMU_PORT_INIT("APU_UP", 0, 0, 0, 0x2),
-	APU_IOMMU_PORT_INIT("APU_RESERVED", 0, 0, 0, 0x3),
-	APU_IOMMU_PORT_INIT("APU_XPU", 0, 0, 0, 0x4),
-	APU_IOMMU_PORT_INIT("APU_EDMA", 0, 0, 0, 0x5),
-	APU_IOMMU_PORT_INIT("APU_MDLA0", 0, 0, 0, 0x6),
-	APU_IOMMU_PORT_INIT("APU_MDLA1", 0, 0, 0, 0x7),
+	APU_IOMMU_PORT_INIT("APU_MVPU0_AXI0", 0, 0, 0, 0),
+	APU_IOMMU_PORT_INIT("APU_MVPU0_AXI1", 0, 0, 0, 1),
+	APU_IOMMU_PORT_INIT("APU_EDMA", 0, 0, 0, 2),
+	APU_IOMMU_PORT_INIT("APU_MDLA0_AXI0", 0, 0, 0, 3),
+	APU_IOMMU_PORT_INIT("APU_MDLA0_AXI1", 0, 0, 0, 4),
+	APU_IOMMU_PORT_INIT("APU_MDLA0_AXI2", 0, 0, 0, 5),
+	APU_IOMMU_PORT_INIT("APU_MDLA0_AXI3", 0, 0, 0, 6),
+	APU_IOMMU_PORT_INIT("APU_MDLA1_AXI0", 0, 0, 0, 7),
+	APU_IOMMU_PORT_INIT("APU_MDLA1_AXI1", 0, 0, 0, 8),
+	APU_IOMMU_PORT_INIT("APU_MDLA1_AXI2", 0, 0, 0, 9),
+	APU_IOMMU_PORT_INIT("APU_MDLA1_AXI3", 0, 0, 0, 10),
+	APU_IOMMU_PORT_INIT("APU_MVPU0_AXI0", 0, 0, 0, 11),
+	APU_IOMMU_PORT_INIT("APU_MVPU0_AXI1", 0, 0, 0, 12),
+	APU_IOMMU_PORT_INIT("APU_EDMA", 0, 0, 0, 13),
+	APU_IOMMU_PORT_INIT("APU_MDLA0_AXI0", 0, 0, 0, 14),
+	APU_IOMMU_PORT_INIT("APU_MDLA0_AXI1", 0, 0, 0, 15),
+	APU_IOMMU_PORT_INIT("APU_MDLA0_AXI2", 0, 0, 0, 16),
+	APU_IOMMU_PORT_INIT("APU_MDLA0_AXI3", 0, 0, 0, 17),
+	APU_IOMMU_PORT_INIT("APU_MDLA1_AXI0", 0, 0, 0, 18),
+	APU_IOMMU_PORT_INIT("APU_MDLA1_AXI1", 0, 0, 0, 19),
+	APU_IOMMU_PORT_INIT("APU_MDLA1_AXI2", 0, 0, 0, 20),
+	APU_IOMMU_PORT_INIT("APU_MDLA1_AXI3", 0, 0, 0, 21),
+	APU_IOMMU_PORT_INIT("APU_uP", 0, 0, 0, 22),
+	APU_IOMMU_PORT_INIT("APU_LOGGER", 0, 0, 0, 23),
+	APU_IOMMU_PORT_INIT("APU_APB2AXI", 0, 0, 0, 24),
+	APU_IOMMU_PORT_INIT("APU_MVPU0_AXI0", 1, 0, 0, 0),
+	APU_IOMMU_PORT_INIT("APU_MVPU0_AXI1", 1, 0, 0, 1),
+	APU_IOMMU_PORT_INIT("APU_EDMA", 1, 0, 0, 2),
+	APU_IOMMU_PORT_INIT("APU_MDLA0_AXI0", 1, 0, 0, 3),
+	APU_IOMMU_PORT_INIT("APU_MDLA0_AXI1", 1, 0, 0, 4),
+	APU_IOMMU_PORT_INIT("APU_MDLA0_AXI2", 1, 0, 0, 5),
+	APU_IOMMU_PORT_INIT("APU_MDLA0_AXI3", 1, 0, 0, 6),
+	APU_IOMMU_PORT_INIT("APU_MDLA1_AXI0", 1, 0, 0, 7),
+	APU_IOMMU_PORT_INIT("APU_MDLA1_AXI1", 1, 0, 0, 8),
+	APU_IOMMU_PORT_INIT("APU_MDLA1_AXI2", 1, 0, 0, 9),
+	APU_IOMMU_PORT_INIT("APU_MDLA1_AXI3", 1, 0, 0, 10),
+	APU_IOMMU_PORT_INIT("APU_MVPU0_AXI0", 1, 0, 0, 11),
+	APU_IOMMU_PORT_INIT("APU_MVPU0_AXI1", 1, 0, 0, 12),
+	APU_IOMMU_PORT_INIT("APU_EDMA", 1, 0, 0, 13),
+	APU_IOMMU_PORT_INIT("APU_MDLA0_AXI0", 1, 0, 0, 14),
+	APU_IOMMU_PORT_INIT("APU_MDLA0_AXI1", 1, 0, 0, 15),
+	APU_IOMMU_PORT_INIT("APU_MDLA0_AXI2", 1, 0, 0, 16),
+	APU_IOMMU_PORT_INIT("APU_MDLA0_AXI3", 1, 0, 0, 17),
+	APU_IOMMU_PORT_INIT("APU_MDLA1_AXI0", 1, 0, 0, 18),
+	APU_IOMMU_PORT_INIT("APU_MDLA1_AXI1", 1, 0, 0, 19),
+	APU_IOMMU_PORT_INIT("APU_MDLA1_AXI2", 1, 0, 0, 20),
+	APU_IOMMU_PORT_INIT("APU_MDLA1_AXI3", 1, 0, 0, 21),
+	APU_IOMMU_PORT_INIT("APU_uP", 1, 0, 0, 22),
+	APU_IOMMU_PORT_INIT("APU_LOGGER", 1, 0, 0, 23),
+	APU_IOMMU_PORT_INIT("APU_APB2AXI", 1, 0, 0, 24),
 
-	APU_IOMMU_PORT_INIT("APU_UNKNOWN", 0, 0, 0, 0xf)
+	APU_IOMMU_PORT_INIT("APU_UNKNOWN", 0, 0, 0, 0x1f)
 };
 
 static const struct mtk_iommu_port peri_port_mt6983[] = {
@@ -1957,15 +1996,15 @@ static int mtk_iommu_get_tf_port_idx(int tf_id, enum mtk_iommu_type type, int id
 	}
 	/* check larb for smi_common */
 	for (i = 0; i < port_nr; i++) {
-		if (port_list[i].tf_id == (vld_id & F_MMU_INT_TF_CCU) &&
+		if (port_list[i].tf_id == F_MMU_INT_TF_CCU(vld_id) &&
 		    port_list[i].m4u_id == id)
 			return i;
 	}
 
 	/* check gce/video_uP */
 	for (i = 0; i < port_nr; i++) {
-		if (port_list[i].tf_id == (vld_id & F_MMU_INT_TF_COM_MISC) &&
-		    port_list[i].port_id == (tf_id & F_MMU_INT_TF_SUB_MISC) &&
+		if (port_list[i].tf_id == (F_MMU_INT_TF_COM_MISC(tf_id)) &&
+		    port_list[i].port_id == (F_MMU_INT_TF_SUB_MISC(tf_id)) &&
 		    port_list[i].m4u_id == id)
 			return i;
 	}

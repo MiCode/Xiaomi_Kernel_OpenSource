@@ -195,10 +195,6 @@ static const struct mtk_iommu_iova_region mt6873_multi_dom[] = {
 	{ .iova_base = 0x370000000ULL, .size = 0x12600000}, /* APU REG */
 };
 
-/*
- * CCU: 0x1_0000_0000 ~ 0x1_03ff_ffff(64MB) + 0x1_0400_0000 + 0x1_04ff_ffff(64MB)
- * VDEC + APU : 0x0 ~ 0xffff_ffff (4GB)
- */
 static const struct mtk_iommu_iova_region mt6983_multi_dom[] = {
 	{ .iova_base = 0x0, .size = SZ_512M},	  /* 0,RESERVE */
 	{ .iova_base = SZ_512M, .size = SZ_512M}, /* 1,APU_SECURE: 0x2000_0000~0x3FFF_FFFF */
@@ -206,6 +202,10 @@ static const struct mtk_iommu_iova_region mt6983_multi_dom[] = {
 	{ .iova_base = SZ_4G, .size = SZ_4G * 3}, /* 3,NORMAL: 0x1_0000_0000~0x3_FFFF_FFFF */
 	{ .iova_base = 0x100000000ULL, .size = 0x4000000}, /* 4,CCU0 */
 	{ .iova_base = 0x104000000ULL, .size = 0x4000000}, /* 5,CCU1 */
+	{ .iova_base = 0x110000000ULL, .size = SZ_512M}, /* 6,VDO_UP_512MB_1 */
+	{ .iova_base = 0x130000000ULL, .size = SZ_512M}, /* 7,VDO_UP_512MB_2 */
+	{ .iova_base = 0x150000000ULL, .size = SZ_256M}, /* 8,VDO_UP_256MB_1 */
+	{ .iova_base = 0x160000000ULL, .size = SZ_256M}, /* 9,VDO_UP_256MB_1 */
 };
 
 /*
@@ -327,9 +327,7 @@ static phys_addr_t mtk_iommu_iova_to_phys(struct iommu_domain *domain,
 static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 {
 	struct mtk_iommu_data *data = dev_id;
-	struct mtk_iommu_domain *dom = data->m4u_dom;
 	u32 int_state, regval, fault_iova, fault_pa;
-	unsigned int fault_larb, fault_port, sub_comm = 0;
 	bool layer, write;
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	int i;
@@ -338,6 +336,9 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	u64 tf_iova_tmp;
 	phys_addr_t fault_pgpa;
 	#define TF_IOVA_DUMP_NUM	5
+#else
+	struct mtk_iommu_domain *dom = data->m4u_dom;
+	unsigned int fault_larb, fault_port, sub_comm = 0;
 #endif
 
 	/* Read error info from registers */
@@ -353,6 +354,23 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	}
 	layer = fault_iova & F_MMU_FAULT_VA_LAYER_BIT;
 	write = fault_iova & F_MMU_FAULT_VA_WRITE_BIT;
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+		for (i = 0, tf_iova_tmp = fault_iova; i < TF_IOVA_DUMP_NUM; i++) {
+			if (i > 0)
+				tf_iova_tmp -= SZ_4K;
+			fault_pgpa = mtk_iommu_iova_to_phys(&data->m4u_dom->domain, tf_iova_tmp);
+			pr_info("[iommu_debug] error, index:%d, falut_iova:0x%lx, fault_pa(pg):%pa\n",
+				i, tf_iova_tmp, &fault_pgpa);
+			if (!fault_pgpa && i > 0)
+				break;
+		}
+		if (fault_iova) /* skip dump when fault iova = 0 */
+			mtk_iova_map_dump(fault_iova);
+		report_custom_iommu_fault(fault_iova, fault_pa, regval, type, id);
+		dev_info(data->dev, "fault type=0x%x iova=0x%llx pa=0x%llx layer=%d %s\n",
+			int_state, fault_iova, fault_pa, layer, write ? "write" : "read");
+#else
 	fault_port = F_MMU_INT_ID_PORT_ID(regval);
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, HAS_SUB_COMM)) {
 		fault_larb = F_MMU_INT_ID_COMM_ID(regval);
@@ -361,21 +379,6 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		fault_larb = F_MMU_INT_ID_LARB_ID(regval);
 	}
 	fault_larb = data->plat_data->larbid_remap[fault_larb][sub_comm];
-
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-	for (i = 0, tf_iova_tmp = fault_iova; i < TF_IOVA_DUMP_NUM; i++) {
-		if (i > 0)
-			tf_iova_tmp -= SZ_4K;
-		fault_pgpa = mtk_iommu_iova_to_phys(&data->m4u_dom->domain, tf_iova_tmp);
-		pr_info("[iommu_debug] error, index:%d, falut_iova:0x%lx, fault_pa(pg):%pa\n",
-			i, tf_iova_tmp, &fault_pgpa);
-		if (!fault_pgpa && i > 0)
-			break;
-	}
-	if (fault_iova) /* skip dump when fault iova = 0 */
-		mtk_iova_map_dump(fault_iova);
-	report_custom_iommu_fault(fault_iova, fault_pa, regval, type, id);
-#endif
 	if (report_iommu_fault(&dom->domain, data->dev, fault_iova,
 			       write ? IOMMU_FAULT_WRITE : IOMMU_FAULT_READ)) {
 		dev_err_ratelimited(
@@ -384,6 +387,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 			int_state, fault_iova, fault_pa, fault_larb, fault_port,
 			layer, write ? "write" : "read");
 	}
+#endif
 
 	/* Interrupt clear */
 	regval = readl_relaxed(data->base + REG_MMU_INT_CONTROL0);
@@ -1125,7 +1129,7 @@ static const struct mtk_iommu_plat_data mt6873_data = {
 	.iommu_type     = MM_IOMMU,
 	.iova_region    = mt6873_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6873_multi_dom),
-
+	/* not use larbid_remap */
 	.larbid_remap = {{0}, {1}, {4, 5}, {7}, {2}, {9, 11, 19, 20},
 			 {0, 14, 16}, {0, 13, 18, 17}},
 };
@@ -1136,6 +1140,7 @@ static const struct mtk_iommu_plat_data mt6873_data_apu = {
 	.inv_sel_reg     = REG_MMU_INV_SEL_GEN2,
 	.iommu_type      = APU_IOMMU,
 	.iova_region     = mt6873_multi_dom,
+	/* not use larbid_remap */
 	.larbid_remap    = {{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}},
 	.iova_region_nr  = ARRAY_SIZE(mt6873_multi_dom),
 };
@@ -1149,6 +1154,7 @@ static const struct mtk_iommu_plat_data mt6983_data_disp = {
 	.iommu_type     = MM_IOMMU,
 	.iova_region    = mt6983_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
+	/* not use larbid_remap */
 	.larbid_remap	= {{0}, {0}, {21}, {0},         /*0 ~ 3*/
 	                  {2}, {0}, {5}, {0},           /*4 ~ 7*/
 	                  {7}, {0}, {9, 10, 11, 23},    /*8 ~ 10*/
@@ -1165,6 +1171,7 @@ static const struct mtk_iommu_plat_data mt6983_data_mdp = {
 	.iommu_type     = MM_IOMMU,
 	.iova_region    = mt6983_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
+	/* not use larbid_remap */
 	.larbid_remap	= {{1}, {0}, {20}, {0},         /*0 ~ 3*/
 	                  {3}, {0}, {4}, {0},           /*4 ~ 7*/
 	                  {8}, {0}, {22, 12, 15, 18},   /*8 ~ 10*/
@@ -1180,10 +1187,7 @@ static const struct mtk_iommu_plat_data mt6983_data_apu0 = {
 	.iommu_type     = APU_IOMMU,
 	.iova_region    = mt6983_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
-	/*
-	.larbid_remap	= {{0}, {1}, {4, 5}, {7}, {2}, {9, 11, 19, 20},
-			 {0, 14, 16}, {0, 13, 18, 17}},
-	*/
+	/* not use larbid_remap */
 };
 
 static const struct mtk_iommu_plat_data mt6983_data_apu1 = {
@@ -1194,10 +1198,7 @@ static const struct mtk_iommu_plat_data mt6983_data_apu1 = {
 	.iommu_type     = APU_IOMMU,
 	.iova_region    = mt6983_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
-	/*
-	.larbid_remap	= {{0}, {1}, {4, 5}, {7}, {2}, {9, 11, 19, 20},
-			 {0, 14, 16}, {0, 13, 18, 17}},
-	*/
+	/* not use larbid_remap */
 };
 
 static const struct mtk_iommu_plat_data mt6983_data_peri_m4 = {
@@ -1209,10 +1210,7 @@ static const struct mtk_iommu_plat_data mt6983_data_peri_m4 = {
 	.iommu_type     = PERI_IOMMU,
 	.iova_region    = mt6983_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
-	/*
-	.larbid_remap	= {{0}, {1}, {4, 5}, {7}, {2}, {9, 11, 19, 20},
-			 {0, 14, 16}, {0, 13, 18, 17}},
-	*/
+	/* not use larbid_remap */
 };
 
 static const struct mtk_iommu_plat_data mt6983_data_peri_m6 = {
@@ -1224,10 +1222,7 @@ static const struct mtk_iommu_plat_data mt6983_data_peri_m6 = {
 	.iommu_type     = PERI_IOMMU,
 	.iova_region    = mt6983_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
-	/*
-	.larbid_remap	= {{0}, {1}, {4, 5}, {7}, {2}, {9, 11, 19, 20},
-			 {0, 14, 16}, {0, 13, 18, 17}},
-	*/
+	/* not use larbid_remap */
 };
 
 static const struct mtk_iommu_plat_data mt6983_data_peri_m7 = {
@@ -1238,10 +1233,7 @@ static const struct mtk_iommu_plat_data mt6983_data_peri_m7 = {
 	.iommu_type     = PERI_IOMMU,
 	.iova_region    = mt6983_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6983_multi_dom),
-	/*
-	.larbid_remap	= {{0}, {1}, {4, 5}, {7}, {2}, {9, 11, 19, 20},
-			 {0, 14, 16}, {0, 13, 18, 17}},
-	*/
+	/* not use larbid_remap */
 };
 
 static const struct mtk_iommu_plat_data mt8167_data = {
@@ -1255,6 +1247,7 @@ static const struct mtk_iommu_plat_data mt8167_data = {
 static const struct mtk_iommu_plat_data mt6893_data_iommu0 = {
 	.m4u_plat        = M4U_MT6893,
 	.flags           = NOT_STD_AXI_MODE,
+	/* not use larbid_remap */
 	.larbid_remap    = {{0}, {1}, {4, 5}, {7}, {2}, {9, 11, 19, 20},
 			    {0, 14, 16}, {0, 13, 18, 17}},
 	.flags           = HAS_SUB_COMM | OUT_ORDER_WR_EN | WR_THROT_EN | HAS_BCLK,
@@ -1267,6 +1260,7 @@ static const struct mtk_iommu_plat_data mt6893_data_iommu0 = {
 static const struct mtk_iommu_plat_data mt6893_data_iommu1 = {
 	.m4u_plat        = M4U_MT6893,
 	.flags           = NOT_STD_AXI_MODE,
+	/* not use larbid_remap */
 	.larbid_remap    = {{0}, {1}, {4, 5}, {7}, {2}, {9, 11, 19, 20},
 			    {0, 14, 16}, {0, 13, 18, 17}},
 	.flags           = HAS_SUB_COMM | OUT_ORDER_WR_EN | WR_THROT_EN | HAS_BCLK,
@@ -1282,6 +1276,7 @@ static const struct mtk_iommu_plat_data mt6893_data_iommu2 = {
 	.iommu_type      = APU_IOMMU,
 	.inv_sel_reg	 = REG_MMU_INV_SEL_GEN2,
 	.iova_region	 = mt6873_multi_dom,
+	/* not use larbid_remap */
 	.larbid_remap    = {{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}},
 	.iova_region_nr  = ARRAY_SIZE(mt6873_multi_dom),
 };
@@ -1292,6 +1287,7 @@ static const struct mtk_iommu_plat_data mt6893_data_iommu3 = {
 	.iommu_type      = APU_IOMMU,
 	.inv_sel_reg	 = REG_MMU_INV_SEL_GEN2,
 	.iova_region	 = mt6873_multi_dom,
+	/* not use larbid_remap */
 	.larbid_remap    = {{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}},
 	.iova_region_nr  = ARRAY_SIZE(mt6873_multi_dom),
 };
