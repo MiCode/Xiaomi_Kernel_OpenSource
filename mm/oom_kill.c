@@ -339,7 +339,24 @@ static int oom_evaluate_task(struct task_struct *task, void *arg)
 	}
 
 	points = oom_badness(task, oc->totalpages);
-	if (points == LONG_MIN || points < oc->chosen_points)
+
+	if (points == LONG_MIN)
+		goto next;
+
+	/*
+	 * Check to see if this is the worst task with a non-negative
+	 * ADJ score seen so far
+	 */
+	if (task->signal->oom_score_adj >= 0 &&
+	    points > oc->chosen_non_negative_adj_points) {
+		if (oc->chosen_non_negative_adj)
+			put_task_struct(oc->chosen_non_negative_adj);
+		get_task_struct(task);
+		oc->chosen_non_negative_adj = task;
+		oc->chosen_non_negative_adj_points = points;
+	}
+
+	if (points < oc->chosen_points)
 		goto next;
 
 select:
@@ -351,8 +368,11 @@ select:
 next:
 	return 0;
 abort:
+	if (oc->chosen_non_negative_adj)
+		put_task_struct(oc->chosen_non_negative_adj);
 	if (oc->chosen)
 		put_task_struct(oc->chosen);
+	oc->chosen_non_negative_adj = NULL;
 	oc->chosen = (void *)-1UL;
 	return 1;
 }
@@ -364,6 +384,8 @@ abort:
 static void select_bad_process(struct oom_control *oc)
 {
 	oc->chosen_points = LONG_MIN;
+	oc->chosen_non_negative_adj_points = LONG_MIN;
+	oc->chosen_non_negative_adj = NULL;
 
 	if (is_memcg_oom(oc))
 		mem_cgroup_scan_tasks(oc->memcg, oom_evaluate_task, oc);
@@ -375,6 +397,20 @@ static void select_bad_process(struct oom_control *oc)
 			if (oom_evaluate_task(p, oc))
 				break;
 		rcu_read_unlock();
+	}
+
+	if (oc->chosen_non_negative_adj) {
+		/*
+		 * If oc->chosen has a negative ADJ, and we found a task with
+		 * a postive ADJ to kill, kill the task with the positive ADJ
+		 * instead.
+		 */
+		if (oc->chosen && oc->chosen->signal->oom_score_adj < 0) {
+			put_task_struct(oc->chosen);
+			oc->chosen = oc->chosen_non_negative_adj;
+			oc->chosen_points = oc->chosen_non_negative_adj_points;
+		} else
+			put_task_struct(oc->chosen_non_negative_adj);
 	}
 }
 
@@ -686,6 +722,20 @@ static inline void wake_oom_reaper(struct task_struct *tsk)
 #endif /* CONFIG_MMU */
 
 /**
+ * tsk->mm has to be non NULL and caller has to guarantee it is stable (either
+ * under task_lock or operate on the current).
+ */
+static void __mark_oom_victim(struct task_struct *tsk)
+{
+	struct mm_struct *mm = tsk->mm;
+
+	if (!cmpxchg(&tsk->signal->oom_mm, NULL, mm)) {
+		mmgrab(tsk->signal->oom_mm);
+		set_bit(MMF_OOM_VICTIM, &mm->flags);
+	}
+}
+
+/**
  * mark_oom_victim - mark the given task as OOM victim
  * @tsk: task to mark
  *
@@ -697,18 +747,13 @@ static inline void wake_oom_reaper(struct task_struct *tsk)
  */
 static void mark_oom_victim(struct task_struct *tsk)
 {
-	struct mm_struct *mm = tsk->mm;
-
 	WARN_ON(oom_killer_disabled);
 	/* OOM killer might race with memcg OOM */
 	if (test_and_set_tsk_thread_flag(tsk, TIF_MEMDIE))
 		return;
 
 	/* oom_mm is bound to the signal struct life time. */
-	if (!cmpxchg(&tsk->signal->oom_mm, NULL, mm)) {
-		mmgrab(tsk->signal->oom_mm);
-		set_bit(MMF_OOM_VICTIM, &mm->flags);
-	}
+	__mark_oom_victim(tsk);
 
 	/*
 	 * Make sure that the task is woken up from uninterruptible sleep
@@ -1139,4 +1184,19 @@ void pagefault_out_of_memory(void)
 		return;
 	out_of_memory(&oc);
 	mutex_unlock(&oom_lock);
+}
+
+void add_to_oom_reaper(struct task_struct *p)
+{
+	p = find_lock_task_mm(p);
+	if (!p)
+		return;
+
+	get_task_struct(p);
+	if (task_will_free_mem(p)) {
+		__mark_oom_victim(p);
+		wake_oom_reaper(p);
+	}
+	task_unlock(p);
+	put_task_struct(p);
 }

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -180,6 +181,14 @@ static inline unsigned int get_secindex(const struct elf_info *info,
 	return info->symtab_shndx_start[sym - info->symtab_start];
 }
 
+static inline bool strends(const char *str, const char *postfix)
+{
+	if (strlen(str) < strlen(postfix))
+		return false;
+
+	return strcmp(str + strlen(str) - strlen(postfix), postfix) == 0;
+}
+
 /* file2alias.c */
 extern unsigned int cross_build;
 void handle_moddevtable(struct module *mod, struct elf_info *info,
@@ -201,6 +210,19 @@ enum loglevel {
 
 void modpost_log(enum loglevel loglevel, const char *fmt, ...);
 
+/*
+ * warn - show the given message, then let modpost continue running, still
+ *        allowing modpost to exit successfully. This should be used when
+ *        we still allow to generate vmlinux and modules.
+ *
+ * error - show the given message, then let modpost continue running, but fail
+ *         in the end. This should be used when we should stop building vmlinux
+ *         or modules, but we can continue running modpost to catch as many
+ *         issues as possible.
+ *
+ * fatal - show the given message, and bail out immediately. This should be
+ *         used when there is no point to continue running modpost.
+ */
 #define warn(fmt, args...)	modpost_log(LOG_WARN, fmt, ##args)
-#define merror(fmt, args...)	modpost_log(LOG_ERROR, fmt, ##args)
+#define error(fmt, args...)	modpost_log(LOG_ERROR, fmt, ##args)
 #define fatal(fmt, args...)	modpost_log(LOG_FATAL, fmt, ##args)

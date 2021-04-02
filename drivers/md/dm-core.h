@@ -53,9 +53,6 @@ struct mapped_device {
 
 	int numa_node_id;
 	struct request_queue *queue;
-#ifdef CONFIG_BLK_INLINE_ENCRYPTION
-	struct blk_keyslot_manager ksm;
-#endif
 
 	atomic_t holders;
 	atomic_t open_count;
@@ -100,11 +97,6 @@ struct mapped_device {
 	 */
 	struct workqueue_struct *wq;
 
-	/*
-	 * freeze/thaw support require holding onto a super block
-	 */
-	struct super_block *frozen_sb;
-
 	/* forced geometry settings */
 	struct hd_geometry geometry;
 
@@ -112,6 +104,10 @@ struct mapped_device {
 	struct dm_kobject_holder kobj_holder;
 
 	struct block_device *bdev;
+
+	int swap_bios;
+	struct semaphore swap_bios_semaphore;
+	struct mutex swap_bios_lock;
 
 	struct dm_stats stats;
 
@@ -173,6 +169,10 @@ struct dm_table {
 	void *event_context;
 
 	struct dm_md_mempools *mempools;
+
+#ifdef CONFIG_BLK_INLINE_ENCRYPTION
+	struct blk_keyslot_manager *ksm;
+#endif
 };
 
 static inline struct completion *dm_get_completion_from_kobject(struct kobject *kobj)

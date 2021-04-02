@@ -2331,6 +2331,7 @@ struct task_struct *cgroup_taskset_first(struct cgroup_taskset *tset,
 
 	return cgroup_taskset_next(tset, dst_cssp);
 }
+EXPORT_SYMBOL_GPL(cgroup_taskset_first);
 
 /**
  * cgroup_taskset_next - iterate to the next task in taskset
@@ -2377,6 +2378,7 @@ struct task_struct *cgroup_taskset_next(struct cgroup_taskset *tset,
 
 	return NULL;
 }
+EXPORT_SYMBOL_GPL(cgroup_taskset_next);
 
 /**
  * cgroup_taskset_migrate - migrate a taskset
@@ -3567,6 +3569,7 @@ static ssize_t cgroup_pressure_write(struct kernfs_open_file *of, char *buf,
 {
 	struct psi_trigger *new;
 	struct cgroup *cgrp;
+	struct psi_group *psi;
 
 	cgrp = cgroup_kn_lock_live(of->kn, false);
 	if (!cgrp)
@@ -3575,7 +3578,8 @@ static ssize_t cgroup_pressure_write(struct kernfs_open_file *of, char *buf,
 	cgroup_get(cgrp);
 	cgroup_kn_unlock(of->kn);
 
-	new = psi_trigger_create(&cgrp->psi, buf, nbytes, res);
+	psi = cgroup_ino(cgrp) == 1 ? &psi_system : &cgrp->psi;
+	new = psi_trigger_create(psi, buf, nbytes, res);
 	if (IS_ERR(new)) {
 		cgroup_put(cgrp);
 		return PTR_ERR(new);

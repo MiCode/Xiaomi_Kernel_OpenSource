@@ -5,6 +5,7 @@
 #include <linux/crc32.h>
 #include <linux/delay.h>
 #include <linux/file.h>
+#include <linux/fsverity.h>
 #include <linux/gfp.h>
 #include <linux/ktime.h>
 #include <linux/lz4.h>
@@ -18,6 +19,7 @@
 #include "data_mgmt.h"
 #include "format.h"
 #include "integrity.h"
+#include "verity.h"
 
 static int incfs_scan_metadata_chain(struct data_file *df);
 
@@ -123,6 +125,7 @@ int incfs_realloc_mount_info(struct mount_info *mi,
 
 void incfs_free_mount_info(struct mount_info *mi)
 {
+	int i;
 	if (!mi)
 		return;
 
@@ -136,8 +139,8 @@ void incfs_free_mount_info(struct mount_info *mi)
 	mutex_destroy(&mi->mi_zstd_workspace_mutex);
 	put_cred(mi->mi_owner);
 	kfree(mi->mi_log.rl_ring_buf);
-	kfree(mi->log_xattr);
-	kfree(mi->pending_read_xattr);
+	for (i = 0; i < ARRAY_SIZE(mi->pseudo_file_xattr); ++i)
+		kfree(mi->pseudo_file_xattr[i].data);
 	kfree(mi->mi_per_uid_read_timeouts);
 	kfree(mi);
 }
@@ -189,6 +192,7 @@ static struct data_file *handle_mapped_file(struct mount_info *mi,
 	struct path path;
 	struct file *bf;
 	struct data_file *result = NULL;
+	const struct cred *old_cred;
 
 	file_id_str = file_id_to_str(df->df_id);
 	if (!file_id_str)
@@ -211,7 +215,11 @@ static struct data_file *handle_mapped_file(struct mount_info *mi,
 		.dentry = index_file_dentry
 	};
 
-	bf = dentry_open(&path, O_RDWR | O_NOATIME | O_LARGEFILE, mi->mi_owner);
+	old_cred = override_creds(mi->mi_owner);
+	bf = dentry_open(&path, O_RDWR | O_NOATIME | O_LARGEFILE,
+			 current_cred());
+	revert_creds(old_cred);
+
 	if (IS_ERR(bf)) {
 		result = (struct data_file *)bf;
 		goto out;
@@ -253,6 +261,8 @@ struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
 		error = -ENOMEM;
 		goto out;
 	}
+
+	mutex_init(&df->df_enable_verity);
 
 	df->df_backing_file_context = bfc;
 	df->df_mount_info = mi;
@@ -322,6 +332,10 @@ void incfs_free_data_file(struct data_file *df)
 
 	incfs_free_mtree(df->df_hash_tree);
 	incfs_free_bfc(df->df_backing_file_context);
+	kfree(df->df_signature);
+	kfree(df->df_verity_file_digest.data);
+	kfree(df->df_verity_signature);
+	mutex_destroy(&df->df_enable_verity);
 	kfree(df);
 }
 
@@ -587,7 +601,11 @@ static int validate_hash_tree(struct backing_file_context *bfc, struct file *f,
 	int hash_per_block;
 	pgoff_t file_pages;
 
-	tree = df->df_hash_tree;
+	/*
+	 * Memory barrier to make sure tree is fully present if added via enable
+	 * verity
+	 */
+	tree = smp_load_acquire(&df->df_hash_tree);
 	sig = df->df_signature;
 	if (!tree || !sig)
 		return 0;
@@ -644,7 +662,7 @@ static int validate_hash_tree(struct backing_file_context *bfc, struct file *f,
 			int i;
 			bool zero = true;
 
-			pr_debug("incfs: Hash mismatch lvl:%d blk:%d\n",
+			pr_warn("incfs: Hash mismatch lvl:%d blk:%d\n",
 				lvl, block_index);
 			for (i = 0; i < digest_size; i++)
 				if (stored_digest[i]) {
@@ -653,7 +671,7 @@ static int validate_hash_tree(struct backing_file_context *bfc, struct file *f,
 				}
 
 			if (zero)
-				pr_debug("incfs: Note saved_digest all zero - did you forget to load the hashes?\n");
+				pr_debug("Note saved_digest all zero - did you forget to load the hashes?\n");
 			return -EBADMSG;
 		}
 
@@ -678,7 +696,7 @@ static int validate_hash_tree(struct backing_file_context *bfc, struct file *f,
 		return res;
 
 	if (memcmp(stored_digest, calculated_digest, digest_size)) {
-		pr_debug("incfs: Leaf hash mismatch blk:%d\n", block_index);
+		pr_debug("Leaf hash mismatch blk:%d\n", block_index);
 		return -EBADMSG;
 	}
 
@@ -1128,7 +1146,7 @@ static int wait_for_data_block(struct data_file *df, int block_index,
 			 * Somehow wait finished successfully bug block still
 			 * can't be found. It's not normal.
 			 */
-			pr_warn("incfs:Wait succeeded, but block not found.\n");
+			pr_warn("incfs: Wait succeeded but block not found.\n");
 			error = -ENODATA;
 		}
 	}
@@ -1460,7 +1478,31 @@ static int process_status_md(struct incfs_status *is,
 		   df->df_initial_hash_blocks_written);
 
 	df->df_status_offset = handler->md_record_offset;
+	return 0;
+}
 
+static int process_file_verity_signature_md(
+		struct incfs_file_verity_signature *vs,
+		struct metadata_handler *handler)
+{
+	struct data_file *df = handler->context;
+	struct incfs_df_verity_signature *verity_signature;
+
+	if (!df)
+		return -EFAULT;
+
+	verity_signature = kzalloc(sizeof(*verity_signature), GFP_NOFS);
+	if (!verity_signature)
+		return -ENOMEM;
+
+	verity_signature->offset = le64_to_cpu(vs->vs_offset);
+	verity_signature->size = le32_to_cpu(vs->vs_size);
+	if (verity_signature->size > FS_VERITY_MAX_SIGNATURE_SIZE) {
+		kfree(verity_signature);
+		return -EFAULT;
+	}
+
+	df->df_verity_signature = verity_signature;
 	return 0;
 }
 
@@ -1471,6 +1513,7 @@ static int incfs_scan_metadata_chain(struct data_file *df)
 	int records_count = 0;
 	int error = 0;
 	struct backing_file_context *bfc = NULL;
+	int nondata_block_count;
 
 	if (!df || !df->df_backing_file_context)
 		return -EFAULT;
@@ -1486,6 +1529,7 @@ static int incfs_scan_metadata_chain(struct data_file *df)
 	handler->handle_blockmap = process_blockmap_md;
 	handler->handle_signature = process_file_signature_md;
 	handler->handle_status = process_status_md;
+	handler->handle_verity_signature = process_file_verity_signature_md;
 
 	while (handler->md_record_offset > 0) {
 		error = incfs_read_next_metadata_record(bfc, handler);
@@ -1504,15 +1548,25 @@ static int incfs_scan_metadata_chain(struct data_file *df)
 	} else
 		result = records_count;
 
+	nondata_block_count = df->df_total_block_count -
+		df->df_data_block_count;
 	if (df->df_hash_tree) {
 		int hash_block_count = get_blocks_count_for_size(
 			df->df_hash_tree->hash_tree_area_size);
 
-		if (df->df_data_block_count + hash_block_count !=
-		    df->df_total_block_count)
+		/*
+		 * Files that were created with a hash tree have the hash tree
+		 * included in the block map, i.e. nondata_block_count ==
+		 * hash_block_count.  Files whose hash tree was added by
+		 * FS_IOC_ENABLE_VERITY will still have the original block
+		 * count, i.e. nondata_block_count == 0.
+		 */
+		if (nondata_block_count != hash_block_count &&
+		    nondata_block_count != 0)
 			result = -EINVAL;
-	} else if (df->df_data_block_count != df->df_total_block_count)
+	} else if (nondata_block_count != 0) {
 		result = -EINVAL;
+	}
 
 	kfree(handler);
 	return result;

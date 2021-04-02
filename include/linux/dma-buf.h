@@ -378,6 +378,12 @@ struct dma_buf_ops {
  * @poll: for userspace poll support
  * @cb_excl: for userspace poll support
  * @cb_shared: for userspace poll support
+ * @sysfs_entry: for exposing information about this buffer in sysfs.
+ * The attachment_uid member of @sysfs_entry is protected by dma_resv lock
+ * and is incremented on each attach.
+ * @mmap_count: number of times buffer has been mmapped.
+ * @exp_vm_ops: the vm ops provided by the buffer exporter.
+ * @vm_ops: the overridden vm_ops used to track mmap_count of the buffer.
  *
  * This represents a shared buffer, created by calling dma_buf_export(). The
  * userspace representation is a normal file descriptor, which can be created by
@@ -413,6 +419,18 @@ struct dma_buf {
 
 		__poll_t active;
 	} cb_excl, cb_shared;
+#ifdef CONFIG_DMABUF_SYSFS_STATS
+	/* for sysfs stats */
+	struct dma_buf_sysfs_entry {
+		struct kobject kobj;
+		struct dma_buf *dmabuf;
+		unsigned int attachment_uid;
+		struct kset *attach_stats_kset;
+	} *sysfs_entry;
+	int mmap_count;
+	const struct vm_operations_struct *exp_vm_ops;
+	struct vm_operations_struct vm_ops;
+#endif
 };
 
 /**
@@ -464,6 +482,7 @@ struct dma_buf_attach_ops {
  * @importer_priv: importer specific attachment data.
  * @dma_map_attrs: DMA attributes to be used when the exporter maps the buffer
  * through dma_buf_map_attachment.
+ * @sysfs_entry: For exposing information about this attachment in sysfs.
  *
  * This structure holds the attachment information between the dma_buf buffer
  * and its user device(s). The list contains one attachment struct per device
@@ -485,6 +504,13 @@ struct dma_buf_attachment {
 	void *importer_priv;
 	void *priv;
 	unsigned long dma_map_attrs;
+#ifdef CONFIG_DMABUF_SYSFS_STATS
+	/* for sysfs stats */
+	struct dma_buf_attach_sysfs_entry {
+		struct kobject kobj;
+		unsigned int map_counter;
+	} *sysfs_entry;
+#endif
 };
 
 /**
@@ -562,6 +588,9 @@ dma_buf_attachment_is_dynamic(struct dma_buf_attachment *attach)
 	return !!attach->importer_ops;
 }
 
+int get_each_dmabuf(int (*callback)(const struct dma_buf *dmabuf,
+		    void *private), void *private);
+int is_dma_buf_file(struct file *file);
 struct dma_buf_attachment *dma_buf_attach(struct dma_buf *dmabuf,
 					  struct device *dev);
 struct dma_buf_attachment *

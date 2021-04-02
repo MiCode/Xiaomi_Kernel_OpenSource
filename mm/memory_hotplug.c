@@ -714,7 +714,7 @@ void __ref move_pfn_range_to_zone(struct zone *zone, unsigned long start_pfn,
 	 * expects the zone spans the pfn range. All the pages in the range
 	 * are reserved so nobody should be touching them so we should be safe
 	 */
-	memmap_init_zone(nr_pages, nid, zone_idx(zone), start_pfn,
+	memmap_init_zone(nr_pages, nid, zone_idx(zone), start_pfn, 0,
 			 MEMINIT_HOTPLUG, altmap, migratetype);
 
 	set_zone_contiguous(zone);
@@ -1020,7 +1020,7 @@ static int online_memory_block(struct memory_block *mem, void *arg)
  */
 int __ref add_memory_resource(int nid, struct resource *res, mhp_t mhp_flags)
 {
-	struct mhp_params params = { .pgprot = PAGE_KERNEL };
+	struct mhp_params params = { .pgprot = pgprot_mhp(PAGE_KERNEL) };
 	u64 start, size;
 	bool new_node = false;
 	int ret;
@@ -1130,6 +1130,46 @@ int add_memory(int nid, u64 start, u64 size, mhp_t mhp_flags)
 	return rc;
 }
 EXPORT_SYMBOL_GPL(add_memory);
+
+int add_memory_subsection(int nid, u64 start, u64 size)
+{
+	struct mhp_params params = { .pgprot = PAGE_KERNEL };
+	struct resource *res;
+	int ret;
+
+	if (size == memory_block_size_bytes())
+		return add_memory(nid, start, size, MHP_NONE);
+
+	if (!IS_ALIGNED(start, SUBSECTION_SIZE) ||
+	    !IS_ALIGNED(size, SUBSECTION_SIZE)) {
+		pr_err("%s: start 0x%lx size 0x%lx not aligned to subsection size\n",
+			   __func__, start, size);
+		return -EINVAL;
+	}
+
+	res = register_memory_resource(start, size, "System RAM");
+	if (IS_ERR(res))
+		return PTR_ERR(res);
+
+	mem_hotplug_begin();
+
+	nid = memory_add_physaddr_to_nid(start);
+
+	if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK))
+		memblock_add_node(start, size, nid);
+
+	ret = arch_add_memory(nid, start, size, &params);
+	if (ret) {
+		if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK))
+			memblock_remove(start, size);
+		pr_err("%s failed to add subsection start 0x%lx size 0x%lx\n",
+			   __func__, start, size);
+	}
+	mem_hotplug_done();
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(add_memory_subsection);
 
 /*
  * Add special, driver-managed memory to the system as system RAM. Such
@@ -1304,7 +1344,7 @@ do_migrate_range(unsigned long start_pfn, unsigned long end_pfn)
 			if (WARN_ON(PageLRU(page)))
 				isolate_lru_page(page);
 			if (page_mapped(page))
-				try_to_unmap(page, TTU_IGNORE_MLOCK | TTU_IGNORE_ACCESS);
+				try_to_unmap(page, TTU_IGNORE_MLOCK);
 			continue;
 		}
 
@@ -1464,6 +1504,7 @@ int __ref offline_pages(unsigned long start_pfn, unsigned long nr_pages)
 			 !IS_ALIGNED(start_pfn | nr_pages, PAGES_PER_SECTION)))
 		return -EINVAL;
 
+	lru_cache_disable();
 	mem_hotplug_begin();
 
 	/*
@@ -1522,7 +1563,6 @@ int __ref offline_pages(unsigned long start_pfn, unsigned long nr_pages)
 			}
 
 			cond_resched();
-			lru_add_drain_all();
 
 			ret = scan_movable_pages(pfn, end_pfn, &pfn);
 			if (!ret) {
@@ -1607,6 +1647,8 @@ int __ref offline_pages(unsigned long start_pfn, unsigned long nr_pages)
 	memory_notify(MEM_OFFLINE, &arg);
 	remove_pfn_range_from_zone(zone, start_pfn, nr_pages);
 	mem_hotplug_done();
+	lru_cache_enable();
+
 	return 0;
 
 failed_removal_isolated:
@@ -1619,6 +1661,7 @@ failed_removal:
 		 reason);
 	/* pushback to free area */
 	mem_hotplug_done();
+	lru_cache_enable();
 	return ret;
 }
 
@@ -1787,6 +1830,57 @@ int remove_memory(int nid, u64 start, u64 size)
 	return rc;
 }
 EXPORT_SYMBOL_GPL(remove_memory);
+
+static bool __check_sections_offline(unsigned long start_pfn,
+		unsigned long nr_pages)
+{
+	const unsigned long end_pfn = start_pfn + nr_pages;
+	unsigned long pfn, sec_nr;
+
+	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
+		sec_nr = pfn_to_section_nr(pfn);
+
+		if (!valid_section_nr(sec_nr) || online_section_nr(sec_nr))
+			return false;
+	}
+
+	return true;
+}
+
+int remove_memory_subsection(int nid, u64 start, u64 size)
+{
+	if (size ==  memory_block_size_bytes())
+		return remove_memory(nid, start, size);
+
+	if (!IS_ALIGNED(start, SUBSECTION_SIZE) ||
+	    !IS_ALIGNED(size, SUBSECTION_SIZE)) {
+		pr_err("%s: start 0x%lx size 0x%lx not aligned to subsection size\n",
+			   __func__, start, size);
+		return -EINVAL;
+	}
+
+	mem_hotplug_begin();
+
+	/* we cannot remove subsections that are invalid or online */
+	if(!__check_sections_offline(PHYS_PFN(start), size >> PAGE_SHIFT)) {
+		pr_err("%s: [%lx, %lx) sections are not offlined\n",
+			   __func__, start, start + size);
+		mem_hotplug_done();
+		return -EBUSY;
+	}
+
+	arch_remove_memory(nid, start, size, NULL);
+
+	if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK))
+		memblock_remove(start, size);
+
+	release_mem_region_adjustable(start, size);
+
+	mem_hotplug_done();
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(remove_memory_subsection);
 
 /*
  * Try to offline and remove a memory block. Might take a long time to

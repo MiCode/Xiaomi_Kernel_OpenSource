@@ -2497,7 +2497,6 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 			return -EFAULT;
 		set_task_comm(me, comm);
 		proc_comm_connector(me);
-		trace_android_vh_sys_set_task(me);
 		break;
 	case PR_GET_NAME:
 		get_task_comm(comm, me);
@@ -2689,6 +2688,7 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 		error = -EINVAL;
 		break;
 	}
+	trace_android_vh_syscall_prctl_finished(option, me);
 	return error;
 }
 

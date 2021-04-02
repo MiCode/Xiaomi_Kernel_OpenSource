@@ -434,40 +434,43 @@ bool fscrypt_dio_supported(struct kiocb *iocb, struct iov_iter *iter)
 EXPORT_SYMBOL_GPL(fscrypt_dio_supported);
 
 /**
- * fscrypt_limit_dio_pages() - limit I/O pages to avoid discontiguous DUNs
+ * fscrypt_limit_io_blocks() - limit I/O blocks to avoid discontiguous DUNs
  * @inode: the file on which I/O is being done
- * @pos: the file position (in bytes) at which the I/O is being done
- * @nr_pages: the number of pages we want to submit starting at @pos
+ * @lblk: the block at which the I/O is being started from
+ * @nr_blocks: the number of blocks we want to submit starting at @pos
  *
- * For direct I/O: limit the number of pages that will be submitted in the bio
- * targeting @pos, in order to avoid crossing a data unit number (DUN)
- * discontinuity.  This is only needed for certain IV generation methods.
+ * Determine the limit to the number of blocks that can be submitted in the bio
+ * targeting @pos without causing a data unit number (DUN) discontinuity.
  *
- * This assumes block_size == PAGE_SIZE; see fscrypt_dio_supported().
+ * This is normally just @nr_blocks, as normally the DUNs just increment along
+ * with the logical blocks.  (Or the file is not encrypted.)
  *
- * Return: the actual number of pages that can be submitted
+ * In rare cases, fscrypt can be using an IV generation method that allows the
+ * DUN to wrap around within logically continuous blocks, and that wraparound
+ * will occur.  If this happens, a value less than @nr_blocks will be returned
+ * so that the wraparound doesn't occur in the middle of the bio.
+ *
+ * Return: the actual number of blocks that can be submitted
  */
-int fscrypt_limit_dio_pages(const struct inode *inode, loff_t pos, int nr_pages)
+u64 fscrypt_limit_io_blocks(const struct inode *inode, u64 lblk, u64 nr_blocks)
 {
 	const struct fscrypt_info *ci = inode->i_crypt_info;
 	u32 dun;
 
 	if (!fscrypt_inode_uses_inline_crypto(inode))
-		return nr_pages;
+		return nr_blocks;
 
-	if (nr_pages <= 1)
-		return nr_pages;
+	if (nr_blocks <= 1)
+		return nr_blocks;
 
 	if (!(fscrypt_policy_flags(&ci->ci_policy) &
 	      FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32))
-		return nr_pages;
-
-	if (WARN_ON_ONCE(i_blocksize(inode) != PAGE_SIZE))
-		return 1;
+		return nr_blocks;
 
 	/* With IV_INO_LBLK_32, the DUN can wrap around from U32_MAX to 0. */
 
-	dun = ci->ci_hashed_ino + (pos >> inode->i_blkbits);
+	dun = ci->ci_hashed_ino + lblk;
 
-	return min_t(u64, nr_pages, (u64)U32_MAX + 1 - dun);
+	return min_t(u64, nr_blocks, (u64)U32_MAX + 1 - dun);
 }
+EXPORT_SYMBOL_GPL(fscrypt_limit_io_blocks);

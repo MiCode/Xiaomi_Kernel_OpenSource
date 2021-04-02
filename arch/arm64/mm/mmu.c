@@ -502,7 +502,8 @@ static void __init map_mem(pgd_t *pgdp)
 		 * if MTE is present. Otherwise, it has the same attributes as
 		 * PAGE_KERNEL.
 		 */
-		__map_memblock(pgdp, start, end, PAGE_KERNEL_TAGGED, flags);
+		__map_memblock(pgdp, start, end, pgprot_tagged(PAGE_KERNEL),
+			       flags);
 	}
 
 	/*
@@ -633,7 +634,7 @@ static bool arm64_early_this_cpu_has_bti(void)
 	if (!IS_ENABLED(CONFIG_ARM64_BTI_KERNEL))
 		return false;
 
-	pfr1 = read_sysreg_s(SYS_ID_AA64PFR1_EL1);
+	pfr1 = __read_sysreg_by_encoding(SYS_ID_AA64PFR1_EL1);
 	return cpuid_feature_extract_unsigned_field(pfr1,
 						    ID_AA64PFR1_BT_SHIFT);
 }
@@ -1132,8 +1133,11 @@ int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node,
 			void *p = NULL;
 
 			p = vmemmap_alloc_block_buf(PMD_SIZE, node, altmap);
-			if (!p)
-				return -ENOMEM;
+			if (!p) {
+				if (vmemmap_populate_basepages(addr, next, node, altmap))
+					return -ENOMEM;
+				continue;
+			}
 
 			pmd_set_huge(pmdp, __pa(p), __pgprot(PROT_SECT_NORMAL));
 		} else
@@ -1466,7 +1470,12 @@ int arch_add_memory(int nid, u64 start, u64 size,
 		return -EINVAL;
 	}
 
-	if (rodata_full || debug_pagealloc_enabled())
+	/*
+	 * KFENCE requires linear map to be mapped at page granularity, so that
+	 * it is possible to protect/unprotect single pages in the KFENCE pool.
+	 */
+	if (rodata_full || debug_pagealloc_enabled() ||
+	    IS_ENABLED(CONFIG_KFENCE))
 		flags = NO_BLOCK_MAPPINGS | NO_CONT_MAPPINGS;
 
 	__create_pgd_mapping(swapper_pg_dir, start, __phys_to_virt(start),
@@ -1492,6 +1501,71 @@ void arch_remove_memory(int nid, u64 start, u64 size,
 	__remove_pages(start_pfn, nr_pages, altmap);
 	__remove_pgd_mapping(swapper_pg_dir, __phys_to_virt(start), size);
 }
+
+int check_range_driver_managed(u64 start, u64 size, const char *resource_name)
+{
+	struct mem_section *ms;
+	unsigned long pfn = __phys_to_pfn(start);
+	unsigned long end_pfn = __phys_to_pfn(start + size);
+	struct resource *res;
+	unsigned long flags;
+
+	res = lookup_resource(&iomem_resource, start);
+	if (!res) {
+		pr_err("%s: couldn't find memory resource for start 0x%lx\n",
+			   __func__, start);
+		return -EINVAL;
+	}
+
+	flags = res->flags;
+
+	if (!(flags & IORESOURCE_SYSRAM_DRIVER_MANAGED) ||
+	    strstr(resource_name, "System RAM (") != resource_name)
+		return -EINVAL;
+
+	for (; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
+		ms = __pfn_to_section(pfn);
+		if (early_section(ms))
+			return -EINVAL;
+	}
+
+	return 0;
+}
+
+int populate_range_driver_managed(u64 start, u64 size,
+			const char *resource_name)
+{
+	unsigned long virt = (unsigned long)phys_to_virt(start);
+	int flags = 0;
+
+	if (check_range_driver_managed(start, size, resource_name))
+		return -EINVAL;
+
+	/*
+	 * When rodata_full is enabled, memory is mapped at page size granule,
+	 * as opposed to block mapping.
+	 */
+	if (rodata_full || debug_pagealloc_enabled())
+		flags = NO_BLOCK_MAPPINGS | NO_CONT_MAPPINGS;
+
+	__create_pgd_mapping(init_mm.pgd, start, virt, size,
+			     PAGE_KERNEL, NULL, flags);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(populate_range_driver_managed);
+
+int depopulate_range_driver_managed(u64 start, u64 size,
+			const char *resource_name)
+{
+	if (check_range_driver_managed(start, size, resource_name))
+		return -EINVAL;
+
+	unmap_hotplug_range(start, start + size, false, NULL);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(depopulate_range_driver_managed);
 
 /*
  * This memory hotplug notifier helps prevent boot memory from being

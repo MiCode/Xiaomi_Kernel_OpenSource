@@ -9,6 +9,8 @@
 #include "ufs.h"
 #include "ufs-sysfs.h"
 
+#include <trace/hooks/ufshcd.h>
+
 static const char *ufschd_uic_link_state_to_string(
 			enum uic_link_state state)
 {
@@ -785,7 +787,8 @@ static ssize_t _pname##_show(struct device *dev,			\
 	struct scsi_device *sdev = to_scsi_device(dev);			\
 	struct ufs_hba *hba = shost_priv(sdev->host);			\
 	u8 lun = ufshcd_scsi_to_upiu_lun(sdev->lun);			\
-	if (!ufs_is_valid_unit_desc_lun(&hba->dev_info, lun))		\
+	if (!ufs_is_valid_unit_desc_lun(&hba->dev_info, lun,		\
+				_duname##_DESC_PARAM##_puname))		\
 		return -EINVAL;						\
 	return ufs_sysfs_read_desc_param(hba, QUERY_DESC_IDN_##_duname,	\
 		lun, _duname##_DESC_PARAM##_puname, buf, _size);	\
@@ -874,11 +877,7 @@ void ufs_sysfs_add_nodes(struct ufs_hba *hba)
 		return;
 	}
 
-	ret = ufshcd_vops_update_sysfs(hba);
-	if (ret)
-		dev_err(hba->dev,
-			"%s: vops sysfs groups update failed (err = %d)\n",
-			__func__, ret);
+	trace_android_vh_ufs_update_sysfs(hba);
 }
 
 void ufs_sysfs_remove_nodes(struct device *dev)

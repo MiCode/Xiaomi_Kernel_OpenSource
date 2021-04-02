@@ -8,6 +8,7 @@
 
 #include <linux/dma-mapping.h>
 #include <linux/pgtable.h>
+#include <linux/android_kabi.h>
 
 struct cma;
 
@@ -69,6 +70,11 @@ struct dma_map_ops {
 	u64 (*get_required_mask)(struct device *dev);
 	size_t (*max_mapping_size)(struct device *dev);
 	unsigned long (*get_merge_boundary)(struct device *dev);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 #ifdef CONFIG_DMA_OPS
@@ -256,6 +262,14 @@ void arch_dma_free(struct device *dev, size_t size, void *cpu_addr,
  */
 #ifndef pgprot_dmacoherent
 #define pgprot_dmacoherent(prot)	pgprot_noncached(prot)
+#endif
+
+/*
+ * If there is no system cache pgprot, then fallback to dmacoherent
+ * pgprot, as the expectation is that the device is not coherent.
+ */
+#ifndef pgprot_syscached
+#define pgprot_syscached(prot)		pgprot_dmacoherent(prot)
 #endif
 
 pgprot_t dma_pgprot(struct device *dev, pgprot_t prot, unsigned long attrs);

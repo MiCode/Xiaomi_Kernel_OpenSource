@@ -146,7 +146,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&rgmii_pins>;
 	phy-mode = "rgmii-id";
-	phy = <&phy1>;
+	phy-handle = <&phy1>;
 	status = "okay";
 };
 
@@ -204,7 +204,7 @@
 			};
 
 			partition@20000 {
-				label = "u-boot";
+				label = "a53-firmware";
 				reg = <0x20000 0x160000>;
 			};
 

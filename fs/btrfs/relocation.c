@@ -669,9 +669,7 @@ static void __del_reloc_root(struct btrfs_root *root)
 			RB_CLEAR_NODE(&node->rb_node);
 		}
 		spin_unlock(&rc->reloc_root_tree.lock);
-		if (!node)
-			return;
-		BUG_ON((struct btrfs_root *)node->data != root);
+		ASSERT(!node || (struct btrfs_root *)node->data == root);
 	}
 
 	/*
@@ -3027,11 +3025,16 @@ static int delete_v1_space_cache(struct extent_buffer *leaf,
 		return 0;
 
 	for (i = 0; i < btrfs_header_nritems(leaf); i++) {
+		u8 type;
+
 		btrfs_item_key_to_cpu(leaf, &key, i);
 		if (key.type != BTRFS_EXTENT_DATA_KEY)
 			continue;
 		ei = btrfs_item_ptr(leaf, i, struct btrfs_file_extent_item);
-		if (btrfs_file_extent_type(leaf, ei) == BTRFS_FILE_EXTENT_REG &&
+		type = btrfs_file_extent_type(leaf, ei);
+
+		if ((type == BTRFS_FILE_EXTENT_REG ||
+		     type == BTRFS_FILE_EXTENT_PREALLOC) &&
 		    btrfs_file_extent_disk_bytenr(leaf, ei) == data_bytenr) {
 			found = true;
 			space_cache_ino = key.objectid;

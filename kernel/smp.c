@@ -14,6 +14,7 @@
 #include <linux/export.h>
 #include <linux/percpu.h>
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/gfp.h>
 #include <linux/smp.h>
 #include <linux/cpu.h>
@@ -23,6 +24,7 @@
 #include <linux/sched/clock.h>
 #include <linux/nmi.h>
 #include <linux/sched/debug.h>
+#include <linux/suspend.h>
 
 #include "smpboot.h"
 #include "sched/smp.h"
@@ -449,6 +451,9 @@ void flush_smp_call_function_from_idle(void)
 
 	local_irq_save(flags);
 	flush_smp_call_function_queue(true);
+	if (local_softirq_pending())
+		do_softirq();
+
 	local_irq_restore(flags);
 }
 
@@ -953,7 +958,10 @@ void wake_up_all_idle_cpus(void)
 		if (cpu == smp_processor_id())
 			continue;
 
-		wake_up_if_idle(cpu);
+#if CONFIG_SUSPEND
+		if (s2idle_state == S2IDLE_STATE_ENTER || cpu_active(cpu))
+#endif
+			wake_up_if_idle(cpu);
 	}
 	preempt_enable();
 }

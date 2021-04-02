@@ -19,6 +19,10 @@ enum typec_cc_status {
 	TYPEC_CC_RP_3_0,
 };
 
+/* Collision Avoidance */
+#define SINK_TX_NG	TYPEC_CC_RP_1_5
+#define SINK_TX_OK	TYPEC_CC_RP_3_0
+
 enum typec_cc_polarity {
 	TYPEC_POLARITY_CC1,
 	TYPEC_POLARITY_CC2,
@@ -104,6 +108,10 @@ enum tcpm_transmit_type {
  *		is supported by TCPC, set this callback for TCPM to query
  *		whether vbus is at VSAFE0V when needed.
  *		Returns true when vbus is at VSAFE0V, false otherwise.
+ * @set_partner_usb_comm_capable:
+ *              Optional; The USB Communications Capable bit indicates if port
+ *              partner is capable of communication over the USB data lines
+ *              (e.g. D+/- or SS Tx/Rx). Called to notify the status of the bit.
  * @check_contaminant:
  *		Optional; The callback is called when CC pins report open status
  *		at the end of the toggling period. Chip level drivers are
@@ -144,6 +152,7 @@ struct tcpc_dev {
 						 bool pps_active, u32 requested_vbus_voltage);
 	int (*check_contaminant)(struct tcpc_dev *dev);
 	bool (*is_vbus_vsafe0v)(struct tcpc_dev *dev);
+	void (*set_partner_usb_comm_capable)(struct tcpc_dev *dev, bool enable);
 };
 
 struct tcpm_port;
@@ -166,5 +175,6 @@ void tcpm_pd_transmit_complete(struct tcpm_port *port,
 void tcpm_pd_hard_reset(struct tcpm_port *port);
 void tcpm_tcpc_reset(struct tcpm_port *port);
 bool tcpm_is_debouncing(struct tcpm_port *tcpm);
+bool tcpm_is_toggling(struct tcpm_port *port);
 
 #endif /* __LINUX_USB_TCPM_H */

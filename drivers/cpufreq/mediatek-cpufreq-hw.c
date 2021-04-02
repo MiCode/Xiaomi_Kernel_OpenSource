@@ -179,7 +179,8 @@ static int mtk_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 		pr_info("SVS of CPU%d is not enabled\n", policy->cpu);
 	}
 
-	em_dev_register_perf_domain(cpu_dev, c->nr_opp, &em_cb, policy->cpus);
+	em_dev_register_perf_domain(cpu_dev, c->nr_opp, &em_cb, policy->cpus,
+			true);
 	cpu_latency_qos_remove_request(qos_request);
 	kfree(qos_request);
 

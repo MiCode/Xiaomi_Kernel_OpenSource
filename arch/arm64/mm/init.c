@@ -34,6 +34,7 @@
 #include <asm/fixmap.h>
 #include <asm/kasan.h>
 #include <asm/kernel-pgtable.h>
+#include <asm/kvm_host.h>
 #include <asm/memory.h>
 #include <asm/numa.h>
 #include <asm/sections.h>
@@ -60,7 +61,7 @@ EXPORT_SYMBOL(memstart_addr);
  * bit addressable memory area.
  */
 phys_addr_t arm64_dma_phys_limit __ro_after_init;
-static phys_addr_t arm64_dma32_phys_limit __ro_after_init;
+phys_addr_t arm64_dma32_phys_limit __ro_after_init;
 
 #ifdef CONFIG_KEXEC_CORE
 /*
@@ -422,6 +423,8 @@ void __init bootmem_init(void)
 #endif
 
 	dma_pernuma_cma_reserve();
+
+	kvm_hyp_reserve();
 
 	/*
 	 * sparse_init() tries to allocate memory from memblock, so must be

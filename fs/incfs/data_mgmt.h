@@ -20,6 +20,7 @@
 #include <uapi/linux/incrementalfs.h>
 
 #include "internal.h"
+#include "pseudo_files.h"
 
 #define SEGMENTS_PER_FILE 3
 
@@ -151,11 +152,8 @@ struct mount_info {
 	/* Temporary buffer for read logger. */
 	struct read_log mi_log;
 
-	void *log_xattr;
-	size_t log_xattr_size;
-
-	void *pending_read_xattr;
-	size_t pending_read_xattr_size;
+	/* SELinux needs special xattrs on our pseudo files */
+	struct mem_range pseudo_file_xattr[PSEUDO_FILE_COUNT];
 
 	/* A queue of waiters who want to be notified about blocks_written */
 	wait_queue_head_t mi_blocks_written_notif_wq;
@@ -275,9 +273,32 @@ struct data_file {
 	/* Offset to status metadata header */
 	loff_t df_status_offset;
 
+	/*
+	 * Mutex acquired while enabling verity. Note that df_hash_tree is set
+	 * by enable verity.
+	 *
+	 * The backing file mutex bc_mutex  may be taken while this mutex is
+	 * held.
+	 */
+	struct mutex df_enable_verity;
+
+	/*
+	 * Set either at construction time or during enabling verity. In the
+	 * latter case, set via smp_store_release, so use smp_load_acquire to
+	 * read it.
+	 */
 	struct mtree *df_hash_tree;
 
+	/* Guaranteed set if df_hash_tree is set. */
 	struct incfs_df_signature *df_signature;
+
+	/*
+	 * The verity file digest, set when verity is enabled and the file has
+	 * been opened
+	 */
+	struct mem_range df_verity_file_digest;
+
+	struct incfs_df_verity_signature *df_verity_signature;
 };
 
 struct dir_file {

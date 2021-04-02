@@ -1046,15 +1046,17 @@ int mt7615_mac_wtbl_update_key(struct mt7615_dev *dev,
 	if (cmd == SET_KEY) {
 		if (cipher == MT_CIPHER_TKIP) {
 			/* Rx/Tx MIC keys are swapped */
+			memcpy(data, key, 16);
 			memcpy(data + 16, key + 24, 8);
 			memcpy(data + 24, key + 16, 8);
+		} else {
+			if (cipher != MT_CIPHER_BIP_CMAC_128 && wcid->cipher)
+				memmove(data + 16, data, 16);
+			if (cipher != MT_CIPHER_BIP_CMAC_128 || !wcid->cipher)
+				memcpy(data, key, keylen);
+			else if (cipher == MT_CIPHER_BIP_CMAC_128)
+				memcpy(data + 16, key, 16);
 		}
-		if (cipher != MT_CIPHER_BIP_CMAC_128 && wcid->cipher)
-			memmove(data + 16, data, 16);
-		if (cipher != MT_CIPHER_BIP_CMAC_128 || !wcid->cipher)
-			memcpy(data, key, keylen);
-		else if (cipher == MT_CIPHER_BIP_CMAC_128)
-			memcpy(data + 16, key, 16);
 	} else {
 		if (wcid->cipher & ~BIT(cipher)) {
 			if (cipher != MT_CIPHER_BIP_CMAC_128)
@@ -2096,6 +2098,23 @@ void mt7615_dma_reset(struct mt7615_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt7615_dma_reset);
 
+void mt7615_tx_token_put(struct mt7615_dev *dev)
+{
+	struct mt76_txwi_cache *txwi;
+	int id;
+
+	spin_lock_bh(&dev->token_lock);
+	idr_for_each_entry(&dev->token, txwi, id) {
+		mt7615_txp_skb_unmap(&dev->mt76, txwi);
+		if (txwi->skb)
+			dev_kfree_skb_any(txwi->skb);
+		mt76_put_txwi(&dev->mt76, txwi);
+	}
+	spin_unlock_bh(&dev->token_lock);
+	idr_destroy(&dev->token);
+}
+EXPORT_SYMBOL_GPL(mt7615_tx_token_put);
+
 void mt7615_mac_reset_work(struct work_struct *work)
 {
 	struct mt7615_phy *phy2;
@@ -2138,6 +2157,9 @@ void mt7615_mac_reset_work(struct work_struct *work)
 	mt7615_mutex_acquire(dev);
 
 	mt76_wr(dev, MT_MCU_INT_EVENT, MT_MCU_INT_EVENT_PDMA_STOPPED);
+
+	mt7615_tx_token_put(dev);
+	idr_init(&dev->token);
 
 	if (mt7615_wait_reset_state(dev, MT_MCU_CMD_RESET_DONE)) {
 		mt7615_dma_reset(dev);

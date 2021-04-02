@@ -29,6 +29,9 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/irq.h>
 
+EXPORT_TRACEPOINT_SYMBOL_GPL(irq_handler_entry);
+EXPORT_TRACEPOINT_SYMBOL_GPL(irq_handler_exit);
+
 /*
    - No shared variables, all the data are CPU local.
    - If a softirq needs serialization, let it serialize itself

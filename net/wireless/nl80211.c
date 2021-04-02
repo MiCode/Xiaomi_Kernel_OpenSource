@@ -715,6 +715,9 @@ static const struct nla_policy nl80211_policy[NUM_NL80211_ATTR] = {
 		NLA_POLICY_EXACT_LEN(IEEE80211_S1G_CAPABILITY_LEN),
 	[NL80211_ATTR_S1G_CAPABILITY_MASK] =
 		NLA_POLICY_EXACT_LEN(IEEE80211_S1G_CAPABILITY_LEN),
+	[NL80211_ATTR_SAE_PWE] =
+		NLA_POLICY_RANGE(NLA_U8, NL80211_SAE_PWE_HUNT_AND_PECK,
+				 NL80211_SAE_PWE_BOTH),
 };
 
 /* policy for the key attributes */
@@ -4260,9 +4263,6 @@ static int nl80211_del_key(struct sk_buff *skb, struct genl_info *info)
 	if (err)
 		return err;
 
-	if (key.idx < 0)
-		return -EINVAL;
-
 	if (info->attrs[NL80211_ATTR_MAC])
 		mac_addr = nla_data(info->attrs[NL80211_ATTR_MAC]);
 
@@ -4276,6 +4276,10 @@ static int nl80211_del_key(struct sk_buff *skb, struct genl_info *info)
 	/* for now */
 	if (key.type != NL80211_KEYTYPE_PAIRWISE &&
 	    key.type != NL80211_KEYTYPE_GROUP)
+		return -EINVAL;
+
+	if (!cfg80211_valid_key_idx(rdev, key.idx,
+				    key.type == NL80211_KEYTYPE_PAIRWISE))
 		return -EINVAL;
 
 	if (!rdev->ops->del_key)
@@ -9731,6 +9735,12 @@ static int nl80211_crypto_settings(struct cfg80211_registered_device *rdev,
 		settings->sae_pwd_len =
 			nla_len(info->attrs[NL80211_ATTR_SAE_PASSWORD]);
 	}
+
+	if (info->attrs[NL80211_ATTR_SAE_PWE])
+		settings->sae_pwe =
+			nla_get_u8(info->attrs[NL80211_ATTR_SAE_PWE]);
+	else
+		settings->sae_pwe = NL80211_SAE_PWE_UNSPECIFIED;
 
 	return 0;
 }

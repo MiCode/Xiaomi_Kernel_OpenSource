@@ -63,6 +63,10 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/module.h>
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/module.h>
+#include <trace/hooks/memory.h>
+
 #ifndef ARCH_SHF_SMALL
 #define ARCH_SHF_SMALL 0
 #endif
@@ -807,6 +811,7 @@ static struct module_attribute modinfo_##field = {                    \
 
 MODINFO_ATTR(version);
 MODINFO_ATTR(srcversion);
+MODINFO_ATTR(scmversion);
 
 static char last_unloaded_module[MODULE_NAME_LEN+1];
 
@@ -1269,6 +1274,7 @@ static struct module_attribute *modinfo_attrs[] = {
 	&module_uevent,
 	&modinfo_version,
 	&modinfo_srcversion,
+	&modinfo_scmversion,
 	&modinfo_initstate,
 	&modinfo_coresize,
 	&modinfo_initsize,
@@ -1895,7 +1901,6 @@ static int mod_sysfs_init(struct module *mod)
 	if (err)
 		mod_kobject_put(mod);
 
-	/* delay uevent until full sysfs population */
 out:
 	return err;
 }
@@ -1932,7 +1937,6 @@ static int mod_sysfs_setup(struct module *mod,
 	add_sect_attrs(mod, info);
 	add_notes_attrs(mod, info);
 
-	kobject_uevent(&mod->mkobj.kobj, KOBJ_ADD);
 	return 0;
 
 out_unreg_modinfo_attrs:
@@ -2211,6 +2215,8 @@ void __weak module_arch_freeing_init(struct module *mod)
 {
 }
 
+static void cfi_cleanup(struct module *mod);
+
 /* Free a module, remove from lists, etc. */
 static void free_module(struct module *mod)
 {
@@ -2250,8 +2256,15 @@ static void free_module(struct module *mod)
 	synchronize_rcu();
 	mutex_unlock(&module_mutex);
 
+	/* Clean up CFI for the module. */
+	cfi_cleanup(mod);
+
 	/* This may be empty, but that's OK */
 	module_arch_freeing_init(mod);
+	trace_android_vh_set_memory_rw((unsigned long)mod->init_layout.base,
+		(mod->init_layout.size)>>PAGE_SHIFT);
+	trace_android_vh_set_memory_nx((unsigned long)mod->init_layout.base,
+		(mod->init_layout.size)>>PAGE_SHIFT);
 	module_memfree(mod->init_layout.base);
 	kfree(mod->args);
 	percpu_modfree(mod);
@@ -2260,6 +2273,10 @@ static void free_module(struct module *mod)
 	lockdep_free_key_range(mod->core_layout.base, mod->core_layout.size);
 
 	/* Finally, free the core (containing the module structure) */
+	trace_android_vh_set_memory_rw((unsigned long)mod->core_layout.base,
+		(mod->core_layout.size)>>PAGE_SHIFT);
+	trace_android_vh_set_memory_nx((unsigned long)mod->core_layout.base,
+		(mod->core_layout.size)>>PAGE_SHIFT);
 	module_memfree(mod->core_layout.base);
 }
 
@@ -2317,6 +2334,21 @@ static int verify_exported_symbols(struct module *mod)
 	return 0;
 }
 
+static bool ignore_undef_symbol(Elf_Half emachine, const char *name)
+{
+	/*
+	 * On x86, PIC code and Clang non-PIC code may have call foo@PLT. GNU as
+	 * before 2.37 produces an unreferenced _GLOBAL_OFFSET_TABLE_ on x86-64.
+	 * i386 has a similar problem but may not deserve a fix.
+	 *
+	 * If we ever have to ignore many symbols, consider refactoring the code to
+	 * only warn if referenced by a relocation.
+	 */
+	if (emachine == EM_386 || emachine == EM_X86_64)
+		return !strcmp(name, "_GLOBAL_OFFSET_TABLE_");
+	return false;
+}
+
 /* Change all symbols so that st_value encodes the pointer directly. */
 static int simplify_symbols(struct module *mod, const struct load_info *info)
 {
@@ -2362,8 +2394,10 @@ static int simplify_symbols(struct module *mod, const struct load_info *info)
 				break;
 			}
 
-			/* Ok if weak.  */
-			if (!ksym && ELF_ST_BIND(sym[i].st_info) == STB_WEAK)
+			/* Ok if weak or ignored.  */
+			if (!ksym &&
+			    (ELF_ST_BIND(sym[i].st_info) == STB_WEAK ||
+			     ignore_undef_symbol(info->hdr->e_machine, name)))
 				break;
 
 			ret = PTR_ERR(ksym) ?: -ENOENT;
@@ -3515,7 +3549,15 @@ static void module_deallocate(struct module *mod, struct load_info *info)
 {
 	percpu_modfree(mod);
 	module_arch_freeing_init(mod);
+	trace_android_vh_set_memory_rw((unsigned long)mod->init_layout.base,
+		(mod->init_layout.size)>>PAGE_SHIFT);
+	trace_android_vh_set_memory_nx((unsigned long)mod->init_layout.base,
+		(mod->init_layout.size)>>PAGE_SHIFT);
 	module_memfree(mod->init_layout.base);
+	trace_android_vh_set_memory_rw((unsigned long)mod->core_layout.base,
+		(mod->core_layout.size)>>PAGE_SHIFT);
+	trace_android_vh_set_memory_nx((unsigned long)mod->core_layout.base,
+		(mod->core_layout.size)>>PAGE_SHIFT);
 	module_memfree(mod->core_layout.base);
 }
 
@@ -3639,6 +3681,9 @@ static noinline int do_init_module(struct module *mod)
 	blocking_notifier_call_chain(&module_notify_list,
 				     MODULE_STATE_LIVE, mod);
 
+	/* Delay uevent until module has finished its init routine */
+	kobject_uevent(&mod->mkobj.kobj, KOBJ_ADD);
+
 	/*
 	 * We need to finish all async code before the module init sequence
 	 * is done.  This has potential to deadlock.  For example, a newly
@@ -3670,8 +3715,13 @@ static noinline int do_init_module(struct module *mod)
 	rcu_assign_pointer(mod->kallsyms, &mod->core_kallsyms);
 #endif
 	module_enable_ro(mod, true);
+	trace_android_vh_set_module_permit_after_init(mod);
 	mod_tree_remove_init(mod);
 	module_arch_freeing_init(mod);
+	trace_android_vh_set_memory_rw((unsigned long)mod->init_layout.base,
+		(mod->init_layout.size)>>PAGE_SHIFT);
+	trace_android_vh_set_memory_nx((unsigned long)mod->init_layout.base,
+		(mod->init_layout.size)>>PAGE_SHIFT);
 	mod->init_layout.base = NULL;
 	mod->init_layout.size = 0;
 	mod->init_layout.ro_size = 0;
@@ -3778,6 +3828,7 @@ static int complete_formation(struct module *mod, struct load_info *info)
 	module_enable_ro(mod, false);
 	module_enable_nx(mod);
 	module_enable_x(mod);
+	trace_android_vh_set_module_permit_before_init(mod);
 
 	/* Mark state as coming so strong_try_module_get() ignores us,
 	 * but kallsyms etc. can see us. */
@@ -3826,6 +3877,8 @@ static int unknown_module_param_cb(char *param, char *val, const char *modname,
 		pr_warn("%s: unknown parameter '%s' ignored\n", modname, param);
 	return 0;
 }
+
+static void cfi_init(struct module *mod);
 
 /* Allocate and load the module: note that size of section 0 is always
    zero, and we rely on this for optional sections. */
@@ -3930,6 +3983,9 @@ static int load_module(struct load_info *info, const char __user *uargs,
 
 	flush_module_icache(mod);
 
+	/* Setup CFI for the module. */
+	cfi_init(mod);
+
 	/* Now copy in args */
 	mod->args = strndup_user(uargs, ~0UL >> 1);
 	if (IS_ERR(mod->args)) {
@@ -3991,6 +4047,7 @@ static int load_module(struct load_info *info, const char __user *uargs,
 				     MODULE_STATE_GOING, mod);
 	klp_module_going(mod);
  bug_cleanup:
+	mod->state = MODULE_STATE_GOING;
 	/* module_bug_cleanup needs module_mutex protection */
 	mutex_lock(&module_mutex);
 	module_bug_cleanup(mod);
@@ -4002,6 +4059,7 @@ static int load_module(struct load_info *info, const char __user *uargs,
 	synchronize_rcu();
 	kfree(mod->args);
  free_arch_cleanup:
+	cfi_cleanup(mod);
 	module_arch_cleanup(mod);
  free_modinfo:
 	free_modinfo(mod);
@@ -4338,6 +4396,36 @@ int module_kallsyms_on_each_symbol(int (*fn)(void *, const char *,
 	return 0;
 }
 #endif /* CONFIG_KALLSYMS */
+
+static void cfi_init(struct module *mod)
+{
+#ifdef CONFIG_CFI_CLANG
+	initcall_t *init;
+	exitcall_t *exit;
+
+	rcu_read_lock_sched();
+	mod->cfi_check = (cfi_check_fn)
+		find_kallsyms_symbol_value(mod, "__cfi_check");
+	init = (initcall_t *)
+		find_kallsyms_symbol_value(mod, "__cfi_jt_init_module");
+	exit = (exitcall_t *)
+		find_kallsyms_symbol_value(mod, "__cfi_jt_cleanup_module");
+	rcu_read_unlock_sched();
+
+	/* Fix init/exit functions to point to the CFI jump table */
+	if (init) mod->init = *init;
+	if (exit) mod->exit = *exit;
+
+	cfi_module_add(mod, module_addr_min);
+#endif
+}
+
+static void cfi_cleanup(struct module *mod)
+{
+#ifdef CONFIG_CFI_CLANG
+	cfi_module_remove(mod, module_addr_min);
+#endif
+}
 
 /* Maximum number of characters written by module_flags() */
 #define MODULE_FLAGS_BUF_SIZE (TAINT_FLAGS_COUNT + 4)

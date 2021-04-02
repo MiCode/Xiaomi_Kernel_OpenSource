@@ -8,15 +8,10 @@
 #include <linux/tracepoint.h>
 #include <trace/hooks/vendor_hooks.h>
 
-#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
 struct task_struct;
-DECLARE_HOOK(android_vh_sys_set_task,
-	TP_PROTO(struct task_struct *task),
-	TP_ARGS(task));
-#else
-#define trace_android_vh_sys_set_task(task)
-#endif
+DECLARE_HOOK(android_vh_syscall_prctl_finished,
+	TP_PROTO(int option, struct task_struct *task),
+	TP_ARGS(option, task));
 #endif
 
 #include <trace/define_trace.h>
-

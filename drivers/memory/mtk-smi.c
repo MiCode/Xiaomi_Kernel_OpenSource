@@ -221,7 +221,7 @@ int mtk_smi_larb_get(struct device *larbdev)
 	int ret;
 
 	larb->larb_ref_count[larb->larbid]++;
-	ret = pm_runtime_get_sync(larbdev);
+	ret = pm_runtime_resume_and_get(larbdev);
 	if (ret < 0)
 		larb->larb_ref_count[larb->larbid]--;
 
@@ -739,7 +739,7 @@ static int __maybe_unused mtk_smi_larb_resume(struct device *dev)
 
 	/* Power on smi-common. */
 	larb->common_ref_count++;
-	ret = pm_runtime_get_sync(larb->smi_common_dev);
+	ret = pm_runtime_resume_and_get(larb->smi_common_dev);
 	if (ret < 0) {
 		larb->common_ref_count--;
 		dev_err(dev, "Failed to pm get for smi-common(%d).\n", ret);

@@ -40,6 +40,7 @@
 #include <linux/security.h>
 #include <linux/smp.h>
 #include <linux/profile.h>
+#include <linux/kfence.h>
 #include <linux/rcupdate.h>
 #include <linux/moduleparam.h>
 #include <linux/kallsyms.h>
@@ -98,6 +99,7 @@
 #include <linux/mem_encrypt.h>
 #include <linux/kcsan.h>
 #include <linux/init_syscalls.h>
+#include <linux/stackdepot.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
@@ -826,7 +828,9 @@ static void __init mm_init(void)
 	 */
 	page_ext_init_flatmem();
 	init_debug_pagealloc();
+	kfence_alloc_pool();
 	report_meminit();
+	stack_depot_init();
 	mem_init();
 	kmem_cache_init();
 	kmemleak_init();
@@ -955,6 +959,7 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	hrtimers_init();
 	softirq_init();
 	timekeeping_init();
+	kfence_init();
 
 	/*
 	 * For best initial stack canary entropy, prepare it after:
@@ -1417,6 +1422,7 @@ static int __ref kernel_init(void *unused)
 	async_synchronize_full();
 	kprobe_free_init_mem();
 	ftrace_free_init_mem();
+	kgdb_free_init_mem();
 	free_initmem();
 	mark_readonly();
 
@@ -1512,6 +1518,7 @@ static noinline void __init kernel_init_freeable(void)
 
 	init_mm_internals();
 
+	rcu_init_tasks_generic();
 	do_pre_smp_initcalls();
 	lockup_detector_init();
 

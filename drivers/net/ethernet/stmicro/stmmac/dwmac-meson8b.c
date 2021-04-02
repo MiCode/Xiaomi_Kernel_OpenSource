@@ -135,7 +135,7 @@ static int meson8b_init_rgmii_tx_clk(struct meson8b_dwmac *dwmac)
 	struct device *dev = dwmac->dev;
 	static const struct clk_parent_data mux_parents[] = {
 		{ .fw_name = "clkin0", },
-		{ .fw_name = "clkin1", },
+		{ .index = -1, },
 	};
 	static const struct clk_div_table div_table[] = {
 		{ .div = 2, .val = 2, },
@@ -301,7 +301,7 @@ static int meson8b_init_prg_eth(struct meson8b_dwmac *dwmac)
 		return -EINVAL;
 	};
 
-	if (rx_dly_config & PRG_ETH0_ADJ_ENABLE) {
+	if (delay_config & PRG_ETH0_ADJ_ENABLE) {
 		if (!dwmac->timing_adj_clk) {
 			dev_err(dwmac->dev,
 				"The timing-adjustment clock is mandatory for the RX delay re-timing\n");

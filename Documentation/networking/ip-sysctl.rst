@@ -630,16 +630,15 @@ tcp_rmem - vector of 3 INTEGERs: min, default, max
 
 	default: initial size of receive buffer used by TCP sockets.
 	This value overrides net.core.rmem_default used by other protocols.
-	Default: 87380 bytes. This value results in window of 65535 with
-	default setting of tcp_adv_win_scale and tcp_app_win:0 and a bit
-	less for default tcp_app_win. See below about these variables.
+	Default: 131072 bytes.
+	This value results in initial window of 65535.
 
 	max: maximal size of receive buffer allowed for automatically
 	selected receiver buffers for TCP socket. This value does not override
 	net.core.rmem_max.  Calling setsockopt() with SO_RCVBUF disables
 	automatic tuning of that socket's receive buffer size, in which
 	case this value is ignored.
-	Default: between 87380B and 6MB, depending on RAM size.
+	Default: between 131072 and 6MB, depending on RAM size.
 
 tcp_sack - BOOLEAN
 	Enable select acknowledgments (SACKS).
@@ -1054,6 +1053,19 @@ ip_local_reserved_ports - list of comma separated ranges
 	although this is redundant. However such a setting is useful
 	if later the port range is changed to a value that will
 	include the reserved ports.
+
+	Default: Empty
+
+ip_local_unbindable_ports - list of comma separated ranges
+	Specify the ports which are not directly bind()able.
+
+	Usually you would use this to block the use of ports which
+	are invalid due to something outside of the control of the
+	kernel.  For example a port stolen by the nic for serial
+	console, remote power management or debugging.
+
+	There's a relatively high chance you will also want to list
+	these ports in 'ip_local_reserved_ports' to prevent autobinding.
 
 	Default: Empty
 

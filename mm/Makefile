@@ -57,6 +57,7 @@ obj-y			:= filemap.o mempool.o oom_kill.o fadvise.o \
 # Give 'page_alloc' its own module-parameter namespace
 page-alloc-y := page_alloc.o
 page-alloc-$(CONFIG_SHUFFLE_PAGE_ALLOCATOR) += shuffle.o
+CFLAGS_page_alloc.o += -DDYNAMIC_DEBUG_MODULE
 
 obj-y += page-alloc.o
 obj-y += init-mm.o
@@ -81,6 +82,7 @@ obj-$(CONFIG_PAGE_POISONING) += page_poison.o
 obj-$(CONFIG_SLAB) += slab.o
 obj-$(CONFIG_SLUB) += slub.o
 obj-$(CONFIG_KASAN)	+= kasan/
+obj-$(CONFIG_KFENCE) += kfence/
 obj-$(CONFIG_FAILSLAB) += failslab.o
 obj-$(CONFIG_MEMORY_HOTPLUG) += memory_hotplug.o
 obj-$(CONFIG_MEMTEST)		+= memtest.o

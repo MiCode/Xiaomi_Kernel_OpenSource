@@ -49,6 +49,7 @@ static int bcache_major;
 static DEFINE_IDA(bcache_device_idx);
 static wait_queue_head_t unregister_wait;
 struct workqueue_struct *bcache_wq;
+struct workqueue_struct *bch_flush_wq;
 struct workqueue_struct *bch_journal_wq;
 
 
@@ -64,9 +65,25 @@ static unsigned int get_bucket_size(struct cache_sb *sb, struct cache_sb_disk *s
 {
 	unsigned int bucket_size = le16_to_cpu(s->bucket_size);
 
-	if (sb->version >= BCACHE_SB_VERSION_CDEV_WITH_FEATURES &&
-	     bch_has_feature_large_bucket(sb))
-		bucket_size |= le16_to_cpu(s->bucket_size_hi) << 16;
+	if (sb->version >= BCACHE_SB_VERSION_CDEV_WITH_FEATURES) {
+		if (bch_has_feature_large_bucket(sb)) {
+			unsigned int max, order;
+
+			max = sizeof(unsigned int) * BITS_PER_BYTE - 1;
+			order = le16_to_cpu(s->bucket_size);
+			/*
+			 * bcache tool will make sure the overflow won't
+			 * happen, an error message here is enough.
+			 */
+			if (order > max)
+				pr_err("Bucket size (1 << %u) overflows\n",
+					order);
+			bucket_size = 1 << order;
+		} else if (bch_has_feature_obso_large_bucket(sb)) {
+			bucket_size +=
+				le16_to_cpu(s->obso_bucket_size_hi) << 16;
+		}
+	}
 
 	return bucket_size;
 }
@@ -228,6 +245,20 @@ static const char *read_super(struct cache_sb *sb, struct block_device *bdev,
 		sb->feature_compat = le64_to_cpu(s->feature_compat);
 		sb->feature_incompat = le64_to_cpu(s->feature_incompat);
 		sb->feature_ro_compat = le64_to_cpu(s->feature_ro_compat);
+
+		/* Check incompatible features */
+		err = "Unsupported compatible feature found";
+		if (bch_has_unknown_compat_features(sb))
+			goto err;
+
+		err = "Unsupported read-only compatible feature found";
+		if (bch_has_unknown_ro_compat_features(sb))
+			goto err;
+
+		err = "Unsupported incompatible feature found";
+		if (bch_has_unknown_incompat_features(sb))
+			goto err;
+
 		err = read_super_common(sb, bdev, s);
 		if (err)
 			goto err;
@@ -1311,6 +1342,12 @@ int bch_cached_dev_attach(struct cached_dev *dc, struct cache_set *c,
 	bcache_device_link(&dc->disk, c, "bdev");
 	atomic_inc(&c->attached_dev_nr);
 
+	if (bch_has_feature_obso_large_bucket(&(c->cache->sb))) {
+		pr_err("The obsoleted large bucket layout is unsupported, set the bcache device into read-only\n");
+		pr_err("Please update to the latest bcache-tools to create the cache device\n");
+		set_disk_ro(dc->disk.disk, 1);
+	}
+
 	/* Allow the writeback thread to proceed */
 	up_write(&dc->writeback_lock);
 
@@ -1533,6 +1570,12 @@ static int flash_dev_run(struct cache_set *c, struct uuid_entry *u)
 		goto err;
 
 	bcache_device_link(d, c, "volume");
+
+	if (bch_has_feature_obso_large_bucket(&c->cache->sb)) {
+		pr_err("The obsoleted large bucket layout is unsupported, set the bcache device into read-only\n");
+		pr_err("Please update to the latest bcache-tools to create the cache device\n");
+		set_disk_ro(d->disk, 1);
+	}
 
 	return 0;
 err:
@@ -2092,6 +2135,9 @@ static int run_cache_set(struct cache_set *c)
 	closure_sync(&cl);
 	c->cache->sb.last_mount = (u32)ktime_get_real_seconds();
 	bcache_write_super(c);
+
+	if (bch_has_feature_obso_large_bucket(&c->cache->sb))
+		pr_err("Detect obsoleted large bucket layout, all attached bcache device will be read-only\n");
 
 	list_for_each_entry_safe(dc, t, &uncached_devices, list)
 		bch_cached_dev_attach(dc, c, NULL);
@@ -2788,6 +2834,9 @@ static void bcache_exit(void)
 		destroy_workqueue(bcache_wq);
 	if (bch_journal_wq)
 		destroy_workqueue(bch_journal_wq);
+	if (bch_flush_wq)
+		destroy_workqueue(bch_flush_wq);
+	bch_btree_exit();
 
 	if (bcache_major)
 		unregister_blkdev(bcache_major, "bcache");
@@ -2843,8 +2892,24 @@ static int __init bcache_init(void)
 		return bcache_major;
 	}
 
+	if (bch_btree_init())
+		goto err;
+
 	bcache_wq = alloc_workqueue("bcache", WQ_MEM_RECLAIM, 0);
 	if (!bcache_wq)
+		goto err;
+
+	/*
+	 * Let's not make this `WQ_MEM_RECLAIM` for the following reasons:
+	 *
+	 * 1. It used `system_wq` before which also does no memory reclaim.
+	 * 2. With `WQ_MEM_RECLAIM` desktop stalls, increased boot times, and
+	 *    reduced throughput can be observed.
+	 *
+	 * We still want to user our own queue to not congest the `system_wq`.
+	 */
+	bch_flush_wq = alloc_workqueue("bch_flush", 0, 0);
+	if (!bch_flush_wq)
 		goto err;
 
 	bch_journal_wq = alloc_workqueue("bch_journal", WQ_MEM_RECLAIM, 0);

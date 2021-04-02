@@ -291,12 +291,6 @@ struct ufs_pwr_mode_info {
  * @phy_initialization: used to initialize phys
  * @device_reset: called to issue a reset pulse on the UFS device
  * @program_key: program or evict an inline encryption key
- * @fill_prdt: called after initializing the standard PRDT fields so that any
- *	       variant-specific PRDT fields can be initialized too
- * @prepare_command: called when receiving a request in the first place
- * @update_sysfs: adds vendor-specific sysfs entries
- * @send_command: adds vendor-specific work when sending a command
- * @compl_command: adds vendor-specific work when completing a command
  */
 struct ufs_hba_variant_ops {
 	const char *name;
@@ -327,19 +321,12 @@ struct ufs_hba_variant_ops {
 	int     (*resume)(struct ufs_hba *, enum ufs_pm_op);
 	void	(*dbg_register_dump)(struct ufs_hba *hba);
 	int	(*phy_initialization)(struct ufs_hba *);
-	void	(*device_reset)(struct ufs_hba *hba);
+	int	(*device_reset)(struct ufs_hba *hba);
 	void	(*config_scaling_param)(struct ufs_hba *hba,
 					struct devfreq_dev_profile *profile,
 					void *data);
 	int	(*program_key)(struct ufs_hba *hba,
 			       const union ufs_crypto_cfg_entry *cfg, int slot);
-	int	(*fill_prdt)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp,
-			     unsigned int segments);
-	int	(*prepare_command)(struct ufs_hba *hba,
-				struct request *rq, struct ufshcd_lrb *lrbp);
-	int     (*update_sysfs)(struct ufs_hba *hba);
-	void	(*send_command)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
-	void	(*compl_command)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
 };
 
 /* clock gating state  */
@@ -559,6 +546,17 @@ enum ufshcd_quirks {
 	 * This quirk needs to disable manual flush for write booster
 	 */
 	UFSHCI_QUIRK_SKIP_MANUAL_WB_FLUSH_CTRL		= 1 << 12,
+
+	/*
+	 * This quirk needs to disable unipro timeout values
+	 * before power mode change
+	 */
+	UFSHCD_QUIRK_SKIP_DEF_UNIPRO_TIMEOUT_SETTING	= 1 << 13,
+
+	/*
+	 * This quirk allows only sg entries aligned with page size.
+	 */
+	UFSHCD_QUIRK_ALIGN_SG_WITH_PAGE_SIZE		= 1 << 14,
 
 	/*
 	 * This quirk needs to be enabled if the host controller supports inline
@@ -1249,9 +1247,17 @@ static inline void ufshcd_vops_dbg_register_dump(struct ufs_hba *hba)
 static inline void ufshcd_vops_device_reset(struct ufs_hba *hba)
 {
 	if (hba->vops && hba->vops->device_reset) {
-		hba->vops->device_reset(hba);
-		ufshcd_set_ufs_dev_active(hba);
-		ufshcd_update_reg_hist(&hba->ufs_stats.dev_reset, 0);
+		int err = hba->vops->device_reset(hba);
+
+		if (!err) {
+			ufshcd_set_ufs_dev_active(hba);
+			if (ufshcd_is_wb_allowed(hba)) {
+				hba->wb_enabled = false;
+				hba->wb_buf_flush_enabled = false;
+			}
+		}
+		if (err != -EOPNOTSUPP)
+			ufshcd_update_reg_hist(&hba->ufs_stats.dev_reset, err);
 	}
 }
 
@@ -1261,45 +1267,6 @@ static inline void ufshcd_vops_config_scaling_param(struct ufs_hba *hba,
 {
 	if (hba->vops && hba->vops->config_scaling_param)
 		hba->vops->config_scaling_param(hba, profile, data);
-}
-
-static inline int ufshcd_vops_fill_prdt(struct ufs_hba *hba,
-					struct ufshcd_lrb *lrbp,
-					unsigned int segments)
-{
-	if (hba->vops && hba->vops->fill_prdt)
-		return hba->vops->fill_prdt(hba, lrbp, segments);
-
-	return 0;
-}
-
-static inline int ufshcd_vops_prepare_command(struct ufs_hba *hba,
-		struct request *rq, struct ufshcd_lrb *lrbp)
-{
-	if (hba->vops && hba->vops->prepare_command)
-		return hba->vops->prepare_command(hba, rq, lrbp);
-	return 0;
-}
-
-static inline int ufshcd_vops_update_sysfs(struct ufs_hba *hba)
-{
-	if (hba->vops && hba->vops->update_sysfs)
-		return hba->vops->update_sysfs(hba);
-	return 0;
-}
-
-static inline void ufshcd_vops_send_command(struct ufs_hba *hba,
-				struct ufshcd_lrb *lrbp)
-{
-	if (hba->vops && hba->vops->send_command)
-		hba->vops->send_command(hba, lrbp);
-}
-
-static inline void ufshcd_vops_compl_command(struct ufs_hba *hba,
-				struct ufshcd_lrb *lrbp)
-{
-	if (hba->vops && hba->vops->compl_command)
-		hba->vops->compl_command(hba, lrbp);
 }
 
 extern struct ufs_pm_lvl_states ufs_pm_lvl_states[];

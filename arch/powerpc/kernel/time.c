@@ -53,6 +53,7 @@
 #include <linux/of_clk.h>
 #include <linux/suspend.h>
 #include <linux/sched/cputime.h>
+#include <linux/sched/clock.h>
 #include <linux/processor.h>
 #include <asm/trace.h>
 
@@ -552,14 +553,11 @@ void timer_interrupt(struct pt_regs *regs)
 	struct pt_regs *old_regs;
 	u64 now;
 
-	/* Some implementations of hotplug will get timer interrupts while
-	 * offline, just ignore these and we also need to set
-	 * decrementers_next_tb as MAX to make sure __check_irq_replay
-	 * don't replay timer interrupt when return, otherwise we'll trap
-	 * here infinitely :(
+	/*
+	 * Some implementations of hotplug will get timer interrupts while
+	 * offline, just ignore these.
 	 */
 	if (unlikely(!cpu_online(smp_processor_id()))) {
-		*next_tb = ~(u64)0;
 		set_dec(decrementer_max);
 		return;
 	}
@@ -1098,6 +1096,7 @@ void __init time_init(void)
 	tick_setup_hrtimer_broadcast();
 
 	of_clk_init(NULL);
+	enable_sched_clock_irqtime();
 }
 
 /*

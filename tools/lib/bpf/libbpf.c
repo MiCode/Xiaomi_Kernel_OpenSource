@@ -865,22 +865,22 @@ static int bpf_map__init_kern_struct_ops(struct bpf_map *map,
 		if (btf_is_ptr(mtype)) {
 			struct bpf_program *prog;
 
-			mtype = skip_mods_and_typedefs(btf, mtype->type, &mtype_id);
+			prog = st_ops->progs[i];
+			if (!prog)
+				continue;
+
 			kern_mtype = skip_mods_and_typedefs(kern_btf,
 							    kern_mtype->type,
 							    &kern_mtype_id);
-			if (!btf_is_func_proto(mtype) ||
-			    !btf_is_func_proto(kern_mtype)) {
-				pr_warn("struct_ops init_kern %s: non func ptr %s is not supported\n",
+
+			/* mtype->type must be a func_proto which was
+			 * guaranteed in bpf_object__collect_st_ops_relos(),
+			 * so only check kern_mtype for func_proto here.
+			 */
+			if (!btf_is_func_proto(kern_mtype)) {
+				pr_warn("struct_ops init_kern %s: kernel member %s is not a func ptr\n",
 					map->name, mname);
 				return -ENOTSUP;
-			}
-
-			prog = st_ops->progs[i];
-			if (!prog) {
-				pr_debug("struct_ops init_kern %s: func ptr %s is not set\n",
-					 map->name, mname);
-				continue;
 			}
 
 			prog->attach_btf_id = kern_type_id;
@@ -7649,6 +7649,16 @@ bool bpf_map__is_pinned(const struct bpf_map *map)
 	return map->pinned;
 }
 
+static void sanitize_pin_path(char *s)
+{
+	/* bpffs disallows periods in path names */
+	while (*s) {
+		if (*s == '.')
+			*s = '_';
+		s++;
+	}
+}
+
 int bpf_object__pin_maps(struct bpf_object *obj, const char *path)
 {
 	struct bpf_map *map;
@@ -7678,6 +7688,7 @@ int bpf_object__pin_maps(struct bpf_object *obj, const char *path)
 				err = -ENAMETOOLONG;
 				goto err_unpin_maps;
 			}
+			sanitize_pin_path(buf);
 			pin_path = buf;
 		} else if (!map->pin_path) {
 			continue;
@@ -7722,6 +7733,7 @@ int bpf_object__unpin_maps(struct bpf_object *obj, const char *path)
 				return -EINVAL;
 			else if (len >= PATH_MAX)
 				return -ENAMETOOLONG;
+			sanitize_pin_path(buf);
 			pin_path = buf;
 		} else if (!map->pin_path) {
 			continue;

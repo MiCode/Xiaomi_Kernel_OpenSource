@@ -25,7 +25,6 @@
 #include <asm/ptrace.h>
 #include <asm/kvm_arm.h>
 #include <asm/kvm_asm.h>
-#include <asm/kvm_coproc.h>
 #include <asm/kvm_emulate.h>
 #include <asm/kvm_mmu.h>
 #include <asm/virt.h>
@@ -41,58 +40,6 @@ static u32 kvm_ipa_limit;
 
 #define VCPU_RESET_PSTATE_SVC	(PSR_AA32_MODE_SVC | PSR_AA32_A_BIT | \
 				 PSR_AA32_I_BIT | PSR_AA32_F_BIT)
-
-static bool system_has_full_ptr_auth(void)
-{
-	return system_supports_address_auth() && system_supports_generic_auth();
-}
-
-/**
- * kvm_arch_vm_ioctl_check_extension
- *
- * We currently assume that the number of HW registers is uniform
- * across all CPUs (see cpuinfo_sanity_check).
- */
-int kvm_arch_vm_ioctl_check_extension(struct kvm *kvm, long ext)
-{
-	int r;
-
-	switch (ext) {
-	case KVM_CAP_ARM_EL1_32BIT:
-		r = cpus_have_const_cap(ARM64_HAS_32BIT_EL1);
-		break;
-	case KVM_CAP_GUEST_DEBUG_HW_BPS:
-		r = get_num_brps();
-		break;
-	case KVM_CAP_GUEST_DEBUG_HW_WPS:
-		r = get_num_wrps();
-		break;
-	case KVM_CAP_ARM_PMU_V3:
-		r = kvm_arm_support_pmu_v3();
-		break;
-	case KVM_CAP_ARM_INJECT_SERROR_ESR:
-		r = cpus_have_const_cap(ARM64_HAS_RAS_EXTN);
-		break;
-	case KVM_CAP_SET_GUEST_DEBUG:
-	case KVM_CAP_VCPU_ATTRIBUTES:
-		r = 1;
-		break;
-	case KVM_CAP_ARM_VM_IPA_SIZE:
-		r = kvm_ipa_limit;
-		break;
-	case KVM_CAP_ARM_SVE:
-		r = system_supports_sve();
-		break;
-	case KVM_CAP_ARM_PTRAUTH_ADDRESS:
-	case KVM_CAP_ARM_PTRAUTH_GENERIC:
-		r = system_has_full_ptr_auth();
-		break;
-	default:
-		r = 0;
-	}
-
-	return r;
-}
 
 unsigned int kvm_sve_max_vl;
 
@@ -125,10 +72,6 @@ int kvm_arm_init_sve(void)
 static int kvm_vcpu_enable_sve(struct kvm_vcpu *vcpu)
 {
 	if (!system_supports_sve())
-		return -EINVAL;
-
-	/* Verify that KVM startup enforced this when SVE was detected: */
-	if (WARN_ON(!has_vhe()))
 		return -EINVAL;
 
 	vcpu->arch.sve_max_vl = kvm_sve_max_vl;
@@ -286,6 +229,10 @@ int kvm_reset_vcpu(struct kvm_vcpu *vcpu)
 			pstate = VCPU_RESET_PSTATE_EL1;
 		}
 
+		if (kvm_vcpu_has_pmu(vcpu) && !kvm_arm_support_pmu_v3()) {
+			ret = -EINVAL;
+			goto out;
+		}
 		break;
 	}
 
@@ -373,27 +320,17 @@ int kvm_set_ipa_limit(void)
 	}
 
 	kvm_ipa_limit = id_aa64mmfr0_parange_to_phys_shift(parange);
-	WARN(kvm_ipa_limit < KVM_PHYS_SHIFT,
-	     "KVM IPA Size Limit (%d bits) is smaller than default size\n",
-	     kvm_ipa_limit);
-	kvm_info("IPA Size Limit: %d bits\n", kvm_ipa_limit);
+	kvm_info("IPA Size Limit: %d bits%s\n", kvm_ipa_limit,
+		 ((kvm_ipa_limit < KVM_PHYS_SHIFT) ?
+		  " (Reduced IPA size, limited VM/VMM compatibility)" : ""));
 
 	return 0;
 }
 
-/*
- * Configure the VTCR_EL2 for this VM. The VTCR value is common
- * across all the physical CPUs on the system. We use system wide
- * sanitised values to fill in different fields, except for Hardware
- * Management of Access Flags. HA Flag is set unconditionally on
- * all CPUs, as it is safe to run with or without the feature and
- * the bit is RES0 on CPUs that don't support it.
- */
 int kvm_arm_setup_stage2(struct kvm *kvm, unsigned long type)
 {
-	u64 vtcr = VTCR_EL2_FLAGS, mmfr0;
-	u32 parange, phys_shift;
-	u8 lvls;
+	u64 mmfr0, mmfr1;
+	u32 phys_shift;
 
 	if (type & ~KVM_VM_TYPE_ARM_IPA_SIZE_MASK)
 		return -EINVAL;
@@ -405,36 +342,16 @@ int kvm_arm_setup_stage2(struct kvm *kvm, unsigned long type)
 			return -EINVAL;
 	} else {
 		phys_shift = KVM_PHYS_SHIFT;
+		if (phys_shift > kvm_ipa_limit) {
+			pr_warn_once("%s using unsupported default IPA limit, upgrade your VMM\n",
+				     current->comm);
+			return -EINVAL;
+		}
 	}
 
 	mmfr0 = read_sanitised_ftr_reg(SYS_ID_AA64MMFR0_EL1);
-	parange = cpuid_feature_extract_unsigned_field(mmfr0,
-				ID_AA64MMFR0_PARANGE_SHIFT);
-	if (parange > ID_AA64MMFR0_PARANGE_MAX)
-		parange = ID_AA64MMFR0_PARANGE_MAX;
-	vtcr |= parange << VTCR_EL2_PS_SHIFT;
+	mmfr1 = read_sanitised_ftr_reg(SYS_ID_AA64MMFR1_EL1);
+	kvm->arch.vtcr = kvm_get_vtcr(mmfr0, mmfr1, phys_shift);
 
-	vtcr |= VTCR_EL2_T0SZ(phys_shift);
-	/*
-	 * Use a minimum 2 level page table to prevent splitting
-	 * host PMD huge pages at stage2.
-	 */
-	lvls = stage2_pgtable_levels(phys_shift);
-	if (lvls < 2)
-		lvls = 2;
-	vtcr |= VTCR_EL2_LVLS_TO_SL0(lvls);
-
-	/*
-	 * Enable the Hardware Access Flag management, unconditionally
-	 * on all CPUs. The features is RES0 on CPUs without the support
-	 * and must be ignored by the CPUs.
-	 */
-	vtcr |= VTCR_EL2_HA;
-
-	/* Set the vmid bits */
-	vtcr |= (kvm_get_vmid_bits() == 16) ?
-		VTCR_EL2_VS_16BIT :
-		VTCR_EL2_VS_8BIT;
-	kvm->arch.vtcr = vtcr;
 	return 0;
 }

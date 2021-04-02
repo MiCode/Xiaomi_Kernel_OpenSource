@@ -41,6 +41,7 @@
 
 #undef CREATE_TRACE_POINTS
 #include <trace/hooks/sched.h>
+#include <trace/hooks/cpu.h>
 
 #include "smpboot.h"
 
@@ -1004,7 +1005,7 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen,
 	struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
 	int prev_state, ret = 0;
 
-	if (num_active_cpus() == 1)
+	if (num_active_cpus() == 1 && cpu_active(cpu))
 		return -EBUSY;
 
 	if (!cpu_present(cpu))
@@ -1069,6 +1070,8 @@ static int cpu_down_maps_locked(unsigned int cpu, enum cpuhp_state target)
 static int cpu_down(unsigned int cpu, enum cpuhp_state target)
 {
 	int err;
+
+	trace_android_vh_cpu_down(NULL);
 
 	cpu_maps_update_begin();
 	err = cpu_down_maps_locked(cpu, target);
@@ -1135,6 +1138,9 @@ int pause_cpus(struct cpumask *cpus)
 {
 	int err = 0;
 	int cpu;
+	u64 start_time = 0;
+
+	start_time = sched_clock();
 
 	cpu_maps_update_begin();
 
@@ -1147,7 +1153,8 @@ int pause_cpus(struct cpumask *cpus)
 	cpumask_and(cpus, cpus, cpu_active_mask);
 
 	for_each_cpu(cpu, cpus) {
-		if (!cpu_online(cpu) || dl_cpu_busy(cpu)) {
+		if (!cpu_online(cpu) || dl_cpu_busy(cpu) ||
+			get_cpu_device(cpu)->offline_disabled == true) {
 			err = -EBUSY;
 			goto err_cpu_maps_update;
 		}
@@ -1232,6 +1239,8 @@ err_cpus_write_unlock:
 err_cpu_maps_update:
 	cpu_maps_update_done();
 
+	trace_cpuhp_pause(cpus, start_time, 1);
+
 	return err;
 }
 EXPORT_SYMBOL_GPL(pause_cpus);
@@ -1240,6 +1249,9 @@ int resume_cpus(struct cpumask *cpus)
 {
 	unsigned int cpu;
 	int err = 0;
+	u64 start_time = 0;
+
+	start_time = sched_clock();
 
 	cpu_maps_update_begin();
 
@@ -1297,6 +1309,8 @@ err_cpus_write_unlock:
 	cpus_write_unlock();
 err_cpu_maps_update:
 	cpu_maps_update_done();
+
+	trace_cpuhp_pause(cpus, start_time, 0);
 
 	return err;
 }
@@ -1488,6 +1502,8 @@ static int cpu_up(unsigned int cpu, enum cpuhp_state target)
 #endif
 		return -EINVAL;
 	}
+
+	trace_android_vh_cpu_up(NULL);
 
 	/*
 	 * CPU hotplug operations consists of many steps and each step

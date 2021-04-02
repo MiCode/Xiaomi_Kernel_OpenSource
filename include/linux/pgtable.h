@@ -857,6 +857,10 @@ static inline void ptep_modify_prot_commit(struct vm_area_struct *vma,
 #define pgprot_device pgprot_noncached
 #endif
 
+#ifndef pgprot_mhp
+#define pgprot_mhp(prot)	(prot)
+#endif
+
 #ifdef CONFIG_MMU
 #ifndef pgprot_modify
 #define pgprot_modify pgprot_modify
@@ -1257,6 +1261,17 @@ static inline int pmd_trans_unstable(pmd_t *pmd)
 #else
 	return 0;
 #endif
+}
+
+/*
+ * the ordering of these checks is important for pmds with _page_devmap set.
+ * if we check pmd_trans_unstable() first we will trip the bad_pmd() check
+ * inside of pmd_none_or_trans_huge_or_clear_bad(). this will end up correctly
+ * returning 1 but not before it spams dmesg with the pmd_clear_bad() output.
+ */
+static inline int pmd_devmap_trans_unstable(pmd_t *pmd)
+{
+	return pmd_devmap(*pmd) || pmd_trans_unstable(pmd);
 }
 
 #ifndef CONFIG_NUMA_BALANCING

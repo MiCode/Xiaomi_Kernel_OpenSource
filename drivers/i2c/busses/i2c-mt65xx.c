@@ -47,6 +47,7 @@
 #define I2C_RD_TRANAC_VALUE		0x0001
 #define I2C_CHN_CLR_FLAG		0x0000
 #define I2C_SCL_MIS_COMP_VALUE		0x0000
+#define I2C_CHN_CLR_FLAG		0x0000
 
 #define I2C_DMA_CON_TX			0x0000
 #define I2C_DMA_CON_RX			0x0001
@@ -513,8 +514,10 @@ static void mtk_i2c_init_hw(struct mtk_i2c *i2c)
 		udelay(10);
 		writel(I2C_DMA_CLR_FLAG, i2c->pdmabase + OFFSET_RST);
 		udelay(10);
-		writel(I2C_DMA_HANDSHAKE_RST | I2C_DMA_HARD_RST, i2c->pdmabase + OFFSET_RST);
-		mtk_i2c_writew(i2c, I2C_HANDSHAKE_RST | I2C_SOFT_RST, OFFSET_SOFTRESET);
+		writel(I2C_DMA_HANDSHAKE_RST | I2C_DMA_HARD_RST,
+		       i2c->pdmabase + OFFSET_RST);
+		mtk_i2c_writew(i2c, I2C_HANDSHAKE_RST | I2C_SOFT_RST,
+			       OFFSET_SOFTRESET);
 		udelay(10);
 		writel(I2C_DMA_CLR_FLAG, i2c->pdmabase + OFFSET_RST);
 		mtk_i2c_writew(i2c, I2C_CHN_CLR_FLAG, OFFSET_SOFTRESET);
@@ -1434,7 +1437,8 @@ static int mtk_i2c_probe(struct platform_device *pdev)
 	mtk_i2c_clock_disable(i2c);
 
 	ret = devm_request_irq(&pdev->dev, irq, mtk_i2c_irq,
-			       IRQF_TRIGGER_NONE, I2C_DRV_NAME, i2c);
+			       IRQF_NO_SUSPEND | IRQF_TRIGGER_NONE,
+			       I2C_DRV_NAME, i2c);
 	if (ret < 0) {
 		dev_err(&pdev->dev,
 			"Request I2C IRQ %d fail\n", irq);
@@ -1461,7 +1465,7 @@ static int mtk_i2c_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
-static int mtk_i2c_suspend_no_irq(struct device *dev)
+static int mtk_i2c_suspend_noirq(struct device *dev)
 {
 	struct mtk_i2c *i2c = dev_get_drvdata(dev);
 
@@ -1469,7 +1473,8 @@ static int mtk_i2c_suspend_no_irq(struct device *dev)
 
 	return 0;
 }
-static int mtk_i2c_resume_no_irq(struct device *dev)
+
+static int mtk_i2c_resume_noirq(struct device *dev)
 {
 	int ret;
 	struct mtk_i2c *i2c = dev_get_drvdata(dev);
@@ -1491,8 +1496,8 @@ static int mtk_i2c_resume_no_irq(struct device *dev)
 #endif
 
 static const struct dev_pm_ops mtk_i2c_pm = {
-	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(mtk_i2c_suspend_no_irq,
-				      mtk_i2c_resume_no_irq)
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(mtk_i2c_suspend_noirq,
+				      mtk_i2c_resume_noirq)
 };
 
 static struct platform_driver mtk_i2c_driver = {

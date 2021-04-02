@@ -162,6 +162,11 @@ struct mmc_request {
 	bool			cap_cmd_during_tfr;
 
 	int			tag;
+
+#ifdef CONFIG_MMC_CRYPTO
+	const struct bio_crypt_ctx *crypto_ctx;
+	int			crypto_key_slot;
+#endif
 };
 
 struct mmc_card;

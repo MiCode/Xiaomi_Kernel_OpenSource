@@ -72,9 +72,11 @@ mt76_free_pending_txwi(struct mt76_dev *dev)
 {
 	struct mt76_txwi_cache *t;
 
+	local_bh_disable();
 	while ((t = __mt76_get_txwi(dev)) != NULL)
 		dma_unmap_single(dev->dev, t->dma_addr, dev->drv->txwi_size,
 				 DMA_TO_DEVICE);
+	local_bh_enable();
 }
 
 static int
@@ -517,15 +519,17 @@ static void
 mt76_add_fragment(struct mt76_dev *dev, struct mt76_queue *q, void *data,
 		  int len, bool more)
 {
-	struct page *page = virt_to_head_page(data);
-	int offset = data - page_address(page);
 	struct sk_buff *skb = q->rx_head;
 	struct skb_shared_info *shinfo = skb_shinfo(skb);
 
 	if (shinfo->nr_frags < ARRAY_SIZE(shinfo->frags)) {
-		offset += q->buf_offset;
+		struct page *page = virt_to_head_page(data);
+		int offset = data - page_address(page) + q->buf_offset;
+
 		skb_add_rx_frag(skb, shinfo->nr_frags, page, offset, len,
 				q->buf_size);
+	} else {
+		skb_free_frag(data);
 	}
 
 	if (more)

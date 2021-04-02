@@ -93,7 +93,7 @@ fi
 
 if [ "$mode" == "p" ]
 then
-target_commit=b9e54f8e02e2838d055c8ff1fef5c06c6bd30cd5 #Merge v5.10 into android12-5.10
+target_commit=892e6188528c64ec11fe30e90b21705a2a10380b #FROMGIT: f2fs: add sysfs nodes to get runtime compression stat
 echo src_commit=$src_commit
 echo target_commit=$target_commit
 fi

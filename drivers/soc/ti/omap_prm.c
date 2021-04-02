@@ -484,6 +484,10 @@ static int omap_reset_deassert(struct reset_controller_dev *rcdev,
 	struct ti_prm_platform_data *pdata = dev_get_platdata(reset->dev);
 	int ret = 0;
 
+	/* Nothing to do if the reset is already deasserted */
+	if (!omap_reset_status(rcdev, id))
+		return 0;
+
 	has_rstst = reset->prm->data->rstst ||
 		(reset->prm->data->flags & OMAP_PRM_HAS_RSTST);
 
@@ -548,6 +552,7 @@ static int omap_prm_reset_init(struct platform_device *pdev,
 	const struct omap_rst_map *map;
 	struct ti_prm_platform_data *pdata = dev_get_platdata(&pdev->dev);
 	char buf[32];
+	u32 v;
 
 	/*
 	 * Check if we have controllable resets. If either rstctrl is non-zero
@@ -593,6 +598,16 @@ static int omap_prm_reset_init(struct platform_device *pdev,
 	while (map->rst >= 0) {
 		reset->mask |= BIT(map->rst);
 		map++;
+	}
+
+	/* Quirk handling to assert rst_map_012 bits on reset and avoid errors */
+	if (prm->data->rstmap == rst_map_012) {
+		v = readl_relaxed(reset->prm->base + reset->prm->data->rstctrl);
+		if ((v & reset->mask) != reset->mask) {
+			dev_dbg(&pdev->dev, "Asserting all resets: %08x\n", v);
+			writel_relaxed(reset->mask, reset->prm->base +
+				       reset->prm->data->rstctrl);
+		}
 	}
 
 	return devm_reset_controller_register(&pdev->dev, &reset->rcdev);

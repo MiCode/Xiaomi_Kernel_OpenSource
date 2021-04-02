@@ -1432,7 +1432,7 @@ mcp251xfd_handle_rxif_one(struct mcp251xfd_priv *priv,
 	else
 		skb = alloc_can_skb(priv->ndev, (struct can_frame **)&cfd);
 
-	if (!cfd) {
+	if (!skb) {
 		stats->rx_dropped++;
 		return 0;
 	}
@@ -2824,7 +2824,7 @@ static int mcp251xfd_probe(struct spi_device *spi)
 			spi_get_device_id(spi)->driver_data;
 
 	/* Errata Reference:
-	 * mcp2517fd: DS80000789B, mcp2518fd: DS80000792C 4.
+	 * mcp2517fd: DS80000792C 5., mcp2518fd: DS80000789C 4.
 	 *
 	 * The SPI can write corrupted data to the RAM at fast SPI
 	 * speeds:
