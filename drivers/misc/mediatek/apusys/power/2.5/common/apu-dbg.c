@@ -678,10 +678,10 @@ out:
 static ssize_t apupw_dbg_write(struct file *flip, const char __user *buffer,
 			       size_t count, loff_t *f_pos)
 {
+#define MAX_ARG 5
 	char *tmp, *token, *cursor;
 	int ret, i, param;
-	const int max_arg = 5;
-	unsigned int args[max_arg];
+	unsigned int args[MAX_ARG];
 
 	tmp = kzalloc(count + 1, GFP_KERNEL);
 	if (!tmp)
@@ -720,7 +720,7 @@ static ssize_t apupw_dbg_write(struct file *flip, const char __user *buffer,
 	}
 
 	/* parse arguments */
-	for (i = 0; i < max_arg && (token = strsep(&cursor, " ")); i++) {
+	for (i = 0; i < MAX_ARG && (token = strsep(&cursor, " ")); i++) {
 		ret = kstrtoint(token, 10, &args[i]);
 		if (ret) {
 			pr_info("fail to parse args[%d](%s)", i, token);

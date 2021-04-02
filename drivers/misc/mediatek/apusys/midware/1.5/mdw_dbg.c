@@ -295,10 +295,10 @@ static ssize_t mdw_dbg_write_test(struct file *flip,
 		const char __user *buffer,
 		size_t count, loff_t *f_pos)
 {
+#define MAX_ARG 2
 	char *tmp, *token, *cursor;
 	int ret, i, test;
-	const int max_arg = 2;
-	unsigned int args[max_arg];
+	unsigned int args[MAX_ARG];
 
 	tmp = kzalloc(count + 1, GFP_KERNEL);
 	if (!tmp)
@@ -338,7 +338,7 @@ static ssize_t mdw_dbg_write_test(struct file *flip,
 	}
 
 	/* parse arguments */
-	for (i = 0; i < max_arg && (token = strsep(&cursor, " ")); i++) {
+	for (i = 0; i < MAX_ARG && (token = strsep(&cursor, " ")); i++) {
 		ret = kstrtouint(token, 10, &args[i]);
 		if (ret) {
 			mdw_drv_err("fail to parse args[%d]\n", i);
