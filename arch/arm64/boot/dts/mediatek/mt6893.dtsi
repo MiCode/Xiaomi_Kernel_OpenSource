@@ -4500,13 +4500,21 @@
 				<&iommu0 M4U_PORT_L16_CAM_UFDI_R2_A_MDP>,
 				<&iommu0 M4U_PORT_L17_CAM_UFDI_R2_B_DISP>,
 				<&iommu0 M4U_PORT_L18_CAM_UFDI_R2_C_MDP>,
+				<&iommu0 M4U_PORT_L19_IPE_DVS_RDMA_DISP>,
+				<&iommu0 M4U_PORT_L19_IPE_DVS_WDMA_DISP>,
+				<&iommu0 M4U_PORT_L19_IPE_DVP_RDMA_DISP>,
+				<&iommu0 M4U_PORT_L19_IPE_DVP_WDMA_DISP>,
+				<&iommu0 M4U_PORT_L20_IPE_FDVT_RDA_DISP>,
+				<&iommu0 M4U_PORT_L20_IPE_FDVT_RDB_DISP>,
+				<&iommu0 M4U_PORT_L20_IPE_FDVT_WRA_DISP>,
+				<&iommu0 M4U_PORT_L20_IPE_FDVT_WRB_DISP>,
 
 				/* rsc */
 				<&iommu0 M4U_PORT_L20_IPE_RSC_RDMA0_DISP>,
 				<&iommu0 M4U_PORT_L20_IPE_RSC_WDMA_DISP>;
 
 			mediatek,larbs =
-				<&larb9 &larb11 &larb20>;
+				<&larb9 &larb11 &larb19 &larb20>;
 		};
 
 		camisp_legacy: camisp_legacy@1a000000 {
@@ -5117,14 +5125,48 @@
 
 		dvs: dvs@1b100000 {
 			compatible = "mediatek,dvs";
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			iommus = <&iommu0 M4U_PORT_L19_IPE_DVS_RDMA_DISP>,
+			<&iommu0 M4U_PORT_L19_IPE_DVS_WDMA_DISP>,
+			<&iommu0 M4U_PORT_L19_IPE_DVP_RDMA_DISP>,
+			<&iommu0 M4U_PORT_L19_IPE_DVP_WDMA_DISP>;
 			reg = <0 0x1b100000 0 0x1000>;
-			#clock-cells = <1>;
+			mediatek,larbs = <&larb19 &larb20>;
+			power-domains = <&scpsys MT6893_POWER_DOMAIN_IPE>;
+			interrupts = <GIC_SPI 360 IRQ_TYPE_LEVEL_HIGH 0>;
+			EVENT_IPE_DVS_DONE = <CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_3>;
+			mediatek,smi = <&smi_common>;
+			mboxes = <&gce 16 0 CMDQ_THR_PRIO_1>;
+			clocks =  <&topckgen_clk CLK_TOP_DPE_SEL>,
+			<&ipesys_clk CLK_IPE_SMI_SUBCOM>,
+			<&ipesys_clk CLK_IPE_DPE>,
+			<&ipesys_clk CLK_IPE_LARB19>,
+			<&ipesys_clk CLK_IPE_LARB20>;
+			clock-names = "DPE_TOP_MUX","DPE_CLK_IPE_SMI_SUBCOM","DPE_CLK_IPE_DPE",
+			"DPE_CLK_IPE_LARB19","DPE_CLK_IPE_LARB20";
 		};
 
 		dvp: dvp@1b100800 {
 			compatible = "mediatek,dvp";
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			iommus = <&iommu0 M4U_PORT_L19_IPE_DVS_RDMA_DISP>,
+			<&iommu0 M4U_PORT_L19_IPE_DVS_WDMA_DISP>,
+			<&iommu0 M4U_PORT_L19_IPE_DVP_RDMA_DISP>,
+			<&iommu0 M4U_PORT_L19_IPE_DVP_WDMA_DISP>;
 			reg = <0 0x1b100000 0 0x1000>;
-			#clock-cells = <1>;
+			mediatek,larbs = <&larb19 &larb20>;
+			power-domains = <&scpsys MT6893_POWER_DOMAIN_IPE>;
+			interrupts = <GIC_SPI 361 IRQ_TYPE_LEVEL_HIGH 0>;
+			mediatek,smi = <&smi_common>;
+			EVENT_IPE_DVP_DONE = <CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_4>;
+			mboxes = <&gce 16 0 CMDQ_THR_PRIO_1>;
+			clocks =  <&topckgen_clk CLK_TOP_DPE_SEL>,
+			<&ipesys_clk CLK_IPE_SMI_SUBCOM>,
+			<&ipesys_clk CLK_IPE_DPE>,
+			<&ipesys_clk CLK_IPE_LARB19>,
+			<&ipesys_clk CLK_IPE_LARB20>;
+			clock-names = "DPE_TOP_MUX","DPE_CLK_IPE_SMI_SUBCOM","DPE_CLK_IPE_DPE",
+			"DPE_CLK_IPE_LARB19","DPE_CLK_IPE_LARB20";
 		};
 
 		larb19: larb@1b10f000 {
