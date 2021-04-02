@@ -571,13 +571,6 @@
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x50000000 0 0x40000000>;
 		};
-		ssmr_cma_mem: ssmr-reserved-cma_memory {
-			compatible = "shared-dma-pool";
-			reusable;
-			size = <0 0x10000000>;
-			alignment = <0 0x1000000>;
-			alloc-ranges = <0 0xc0000000 0 0x10000000>;
-		};
 
 		consys_mem: consys-reserve-memory {
 			compatible = "mediatek,consys-reserve-memory";
@@ -593,6 +586,14 @@
 			size = <0 0xf20000>;
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
+		};
+
+		ssmr_cma_mem: ssmr-reserved-cma_memory {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x10000000>;
+			alignment = <0 0x1000000>;
+			alloc-ranges = <0 0x80000000 0 0x80000000>;
 		};
 
 		gps_mem: gps-reserve-memory {
