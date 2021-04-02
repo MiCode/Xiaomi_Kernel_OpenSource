@@ -397,13 +397,13 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 
 int mtk_drm_idlemgr_init(struct drm_crtc *crtc, int index)
 {
+#define LEN 50
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_idlemgr *idlemgr =
 		kzalloc(sizeof(struct mtk_drm_idlemgr), GFP_KERNEL);
 	struct mtk_drm_idlemgr_context *idlemgr_ctx =
 		kzalloc(sizeof(struct mtk_drm_idlemgr_context), GFP_KERNEL);
-	const int len = 50;
-	char name[len];
+	char name[LEN];
 
 	if (!idlemgr) {
 		DDPPR_ERR("struct mtk_drm_idlemgr allocate fail\n");
@@ -427,7 +427,7 @@ int mtk_drm_idlemgr_init(struct drm_crtc *crtc, int index)
 	idlemgr_ctx->cur_lp_cust_mode = 0;
 	idlemgr_ctx->idle_check_interval = 50;
 
-	snprintf(name, len, "mtk_drm_disp_idlemgr-%d", index);
+	snprintf(name, LEN, "mtk_drm_disp_idlemgr-%d", index);
 	idlemgr->idlemgr_task =
 		kthread_create(mtk_drm_idlemgr_monitor_thread, crtc, name);
 	init_waitqueue_head(&idlemgr->idlemgr_wq);

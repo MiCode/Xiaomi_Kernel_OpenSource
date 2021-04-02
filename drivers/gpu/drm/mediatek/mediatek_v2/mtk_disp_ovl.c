@@ -444,6 +444,7 @@ int mtk_ovl_layer_num(struct mtk_ddp_comp *comp)
 static void dump_ovl_layer_trace(struct mtk_drm_crtc *mtk_crtc,
 				 struct mtk_ddp_comp *ovl)
 {
+#define LEN 1000
 	struct cmdq_pkt_buffer *cmdq_buf = NULL;
 	u32 offset = 0;
 	u32 idx = 0;
@@ -455,8 +456,7 @@ static void dump_ovl_layer_trace(struct mtk_drm_crtc *mtk_crtc,
 	u32 w = 0, h = 0, size = 0, con = 0, fmt = 0, src = 0;
 
 	struct mtk_drm_private *priv = NULL;
-	const int len = 1000;
-	char msg[len];
+	char msg[LEN];
 	int n = 0;
 
 	if (!mtk_crtc)
@@ -479,7 +479,7 @@ static void dump_ovl_layer_trace(struct mtk_drm_crtc *mtk_crtc,
 
 	gdrdy_num = *(u32 *)(cmdq_buf->va_base + offset);
 	gdrdy_num <<= 4;
-	n = snprintf(msg, len, "idx:%u,ovl%s:bw:%u", idx,
+	n = snprintf(msg, LEN, "idx:%u,ovl%s:bw:%u", idx,
 		     ovl->id == DDP_COMPONENT_OVL0 ? "0" : "0_2l", gdrdy_num);
 
 	offset += 4;
@@ -519,11 +519,11 @@ static void dump_ovl_layer_trace(struct mtk_drm_crtc *mtk_crtc,
 		h = (size >> 16) & 0x1fff;
 
 		if (i < lnr) {
-			n += snprintf(msg + n, len - n,
+			n += snprintf(msg + n, LEN - n,
 				      "|L%d:%dx%d,f:0x%x,c:%d,src:%d",
 				      i, w, h, fmt, compress & 0x1, src);
 		} else {
-			n += snprintf(msg + n, len - n,
+			n += snprintf(msg + n, LEN - n,
 				      "|L%d:%dx%d,f:0x%x,c:%d,src:%d",
 				      i, w, h, fmt, ext_layer_compress & 0x1,
 				      src);
@@ -539,7 +539,7 @@ next:
 		}
 	}
 
-	n += snprintf(msg + n, len - n, "\n");
+	n += snprintf(msg + n, LEN - n, "\n");
 	trace_layer_bw(msg);
 }
 
