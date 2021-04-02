@@ -43,6 +43,29 @@ static struct trusted_mem_configs mchunk_general_configs = {
 };
 
 static struct tmem_device_description mtee_mchunks[] = {
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT) && \
+	IS_ENABLED(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
+	{
+		.kern_tmem_type = TRUSTED_MEM_SVP,
+		.tee_smem_type = TEE_SMEM_SVP,
+		.mtee_chunks_id = MTEE_MCHUNKS_SVP,
+#if IS_ENABLED(CONFIG_MTK_SSMR) || \
+	(IS_ENABLED(CONFIG_CMA) && IS_ENABLED(CONFIG_MTK_SVP))
+		.ssmr_feature_id = SSMR_FEAT_SVP,
+#endif
+		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_SVP},
+#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+		.notify_remote = true,
+		.notify_remote_fn = secmem_fr_set_svp_region,
+#else
+		.notify_remote = false,
+		.notify_remote_fn = NULL,
+#endif
+		.mem_cfg = &mchunk_general_configs,
+		.dev_name = "MTEE_SVP",
+	},
+#endif
 #if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
 	{
 		.kern_tmem_type = TRUSTED_MEM_PROT,
@@ -50,8 +73,8 @@ static struct tmem_device_description mtee_mchunks[] = {
 		.mtee_chunks_id = MTEE_MCHUNKS_PROT,
 		.ssmr_feature_id = SSMR_FEAT_PROT_SHAREDMEM,
 		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_PROT},
-#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)                                  \
-	&& IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT) && \
+	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		.notify_remote = true,
 		.notify_remote_fn = secmem_fr_set_prot_shared_region,
 #else
@@ -102,9 +125,9 @@ static struct tmem_device_description mtee_mchunks[] = {
 	},
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                             \
-	&& (IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)                   \
-	    || IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE))
+#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT) && \
+	(IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE) || \
+	 IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE))
 	{
 		.kern_tmem_type = TRUSTED_MEM_SDSP_SHARED,
 		.tee_smem_type = TEE_SMEM_SDSP_SHARED,

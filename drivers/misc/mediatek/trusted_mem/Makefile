@@ -57,13 +57,19 @@ trusted_mem-y += tee_devices.o
 ccflags-y += -DTEE_DEVICES_SUPPORT
 trusted_mem-y += tee_impl/tee_invoke.o
 
+ifneq ($(filter y m,$(CONFIG_MICROTRUST_TEE_SUPPORT) \
+					$(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
+tee_impl-y += tee_impl/tee_ops.o
+endif
+
 endif
 
 #==========================================================================
 # MTEE Multiple Chunk Devices & Geniezone Peer Driver
 #==========================================================================
 ifneq ($(filter y m,$(CONFIG_MTK_PROT_MEM_SUPPORT) \
-					$(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)),)
+					$(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT) \
+					$(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)),)
 trusted_mem-y += mtee_devices.o
 ccflags-y += -DMTEE_DEVICES_SUPPORT
 endif

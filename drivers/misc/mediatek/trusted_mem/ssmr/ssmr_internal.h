@@ -83,7 +83,19 @@ enum ssmr_scheme_state {
 };
 
 /* clang-format off */
-extern const char *const ssmr_state_text[NR_STATES];
+const char *const ssmr_state_text[NR_STATES] = {
+	[SSMR_STATE_DISABLED]   = "[DISABLED]",
+	[SSMR_STATE_ONING_WAIT] = "[ONING_WAIT]",
+	[SSMR_STATE_ONING]      = "[ONING]",
+	[SSMR_STATE_ON]         = "[ON]",
+	[SSMR_STATE_OFFING]     = "[OFFING]",
+	[SSMR_STATE_OFF]        = "[OFF]",
+};
+
+struct page_change_data {
+	pgprot_t set_mask;
+	pgprot_t clear_mask;
+};
 /* clang-format on */
 
 struct SSMR_Scheme {
@@ -113,6 +125,126 @@ static struct SSMR_Scheme _ssmrscheme[__MAX_NR_SCHEME] = {
 	[SSMR_TUI_SCHEME] = {
 		.name = "tui_scheme",
 		.flags = TUI_FLAGS
+	}
+};
+
+static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
+	[SSMR_FEAT_SVP] = {
+		.dt_prop_name = "svp-size",
+		.feat_name = "svp",
+		.cmd_online = "svp=on",
+		.cmd_offline = "svp=off",
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = SVP_FLAGS
+	},
+	[SSMR_FEAT_PROT_SHAREDMEM] = {
+		.dt_prop_name = "prot-sharedmem-size",
+		.feat_name = "prot-sharedmem",
+		.cmd_online = "prot_sharedmem=on",
+		.cmd_offline = "prot_sharedmem=off",
+#if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS | SVP_FLAGS
+	},
+	[SSMR_FEAT_WFD] = {
+		.dt_prop_name = "wfd-size",
+		.feat_name = "wfd",
+		.cmd_online = "wfd=on",
+		.cmd_offline = "wfd=off",
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = SVP_FLAGS
+	},
+	[SSMR_FEAT_TA_ELF] = {
+		.dt_prop_name = "ta-elf-size",
+		.feat_name = "ta-elf",
+		.cmd_online = "ta_elf=on",
+		.cmd_offline = "ta_elf=off",
+#if IS_ENABLED(CONFIG_MTK_HAPP_MEM_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS
+	},
+	[SSMR_FEAT_TA_STACK_HEAP] = {
+		.dt_prop_name = "ta-stack-heap-size",
+		.feat_name = "ta-stack-heap",
+		.cmd_online = "ta_stack_heap=on",
+		.cmd_offline = "ta_stack_heap=off",
+#if IS_ENABLED(CONFIG_MTK_HAPP_MEM_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS
+	},
+	[SSMR_FEAT_SDSP_TEE_SHAREDMEM] = {
+		.dt_prop_name = "sdsp-tee-sharedmem-size",
+		.feat_name = "sdsp-tee-sharedmem",
+		.cmd_online = "sdsp_tee_sharedmem=on",
+		.cmd_offline = "sdsp_tee_sharedmem=off",
+#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS
+	},
+	[SSMR_FEAT_SDSP_FIRMWARE] = {
+		.dt_prop_name = "sdsp-firmware-size",
+		.feat_name = "sdsp-firmware",
+		.cmd_online = "sdsp_firmware=on",
+		.cmd_offline = "sdsp_firmware=off",
+#if IS_ENABLED(CONFIG_MTK_SDSP_MEM_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = FACE_UNLOCK_FLAGS
+	},
+	[SSMR_FEAT_2D_FR] = {
+		.dt_prop_name = "2d_fr-size",
+		.feat_name = "2d_fr",
+		.cmd_online = "2d_fr=on",
+		.cmd_offline = "2d_fr=off",
+#if IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS
+	},
+	[SSMR_FEAT_TUI] = {
+		.dt_prop_name = "tui-size",
+		.feat_name = "tui",
+		.cmd_online = "tui=on",
+		.cmd_offline = "tui=off",
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI) ||\
+	IS_ENABLED(CONFIG_BLOWFISH_TUI_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = TUI_FLAGS
 	}
 };
 /* clang-format on */

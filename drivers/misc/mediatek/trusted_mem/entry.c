@@ -465,14 +465,17 @@ bool tmem_core_get_region_info(enum TRUSTED_MEM_TYPE mem_type, u64 *pa,
 bool is_mtee_mchunks(enum TRUSTED_MEM_TYPE mem_type)
 {
 	switch (mem_type) {
+#if IS_ENABLED(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
+	case TRUSTED_MEM_SVP:
+#endif
 	case TRUSTED_MEM_PROT:
 	case TRUSTED_MEM_HAPP:
 	case TRUSTED_MEM_HAPP_EXTRA:
 	case TRUSTED_MEM_SDSP:
 		return true;
 	case TRUSTED_MEM_SDSP_SHARED:
-#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                             \
-	&& (IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)                   \
+#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT) \
+	&& (IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE) \
 	    || IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE))
 		return true;
 #else
