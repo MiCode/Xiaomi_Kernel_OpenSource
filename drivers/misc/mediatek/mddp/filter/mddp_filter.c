@@ -704,10 +704,10 @@ static int mddp_f_tag_packet(
 				skb_tag->v2.port, skb_tag->v2.ip,
 				skb, fake_skb);
 
-		dev_queue_xmit(fake_skb);
-
 		mddp_enqueue_dstate(MDDP_DSTATE_ID_NEW_TAG,
 					skb_tag->v2.ip, skb_tag->v2.port);
+
+		dev_queue_xmit(fake_skb);
 	}
 
 	return ret;
