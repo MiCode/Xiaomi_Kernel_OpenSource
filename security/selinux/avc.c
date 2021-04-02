@@ -747,8 +747,7 @@ static void avc_audit_post_callback(struct audit_buffer *ab, void *a)
 				nlh = nlmsg_hdr(audit_get_skb(ab));
 				selinux_data = nlmsg_data(nlh);
 
-				if (mtk_audit_hook
-						&& nlh->nlmsg_type != AUDIT_EOE
+				if (nlh->nlmsg_type != AUDIT_EOE
 						&& nlh->nlmsg_type == 1400)
 					mtk_audit_hook(selinux_data);
 			}

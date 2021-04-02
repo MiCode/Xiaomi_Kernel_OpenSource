@@ -10,5 +10,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
+ifneq ($(wildcard $(srctree)/../vendor/mediatek/internal/selinux_warning_enable),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 obj-y += mtk_selinux_warning.o
+else
+obj-y += dummy.o
+endif
