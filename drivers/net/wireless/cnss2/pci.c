@@ -218,42 +218,42 @@ static const struct mhi_controller_config cnss_mhi_config = {
 };
 
 static struct cnss_pci_reg ce_src[] = {
-	{ "SRC_RING_BASE_LSB", QCA6390_CE_SRC_RING_BASE_LSB_OFFSET },
-	{ "SRC_RING_BASE_MSB", QCA6390_CE_SRC_RING_BASE_MSB_OFFSET },
-	{ "SRC_RING_ID", QCA6390_CE_SRC_RING_ID_OFFSET },
-	{ "SRC_RING_MISC", QCA6390_CE_SRC_RING_MISC_OFFSET },
-	{ "SRC_CTRL", QCA6390_CE_SRC_CTRL_OFFSET },
-	{ "SRC_R0_CE_CH_SRC_IS", QCA6390_CE_SRC_R0_CE_CH_SRC_IS_OFFSET },
-	{ "SRC_RING_HP", QCA6390_CE_SRC_RING_HP_OFFSET },
-	{ "SRC_RING_TP", QCA6390_CE_SRC_RING_TP_OFFSET },
+	{ "SRC_RING_BASE_LSB", CE_SRC_RING_BASE_LSB_OFFSET },
+	{ "SRC_RING_BASE_MSB", CE_SRC_RING_BASE_MSB_OFFSET },
+	{ "SRC_RING_ID", CE_SRC_RING_ID_OFFSET },
+	{ "SRC_RING_MISC", CE_SRC_RING_MISC_OFFSET },
+	{ "SRC_CTRL", CE_SRC_CTRL_OFFSET },
+	{ "SRC_R0_CE_CH_SRC_IS", CE_SRC_R0_CE_CH_SRC_IS_OFFSET },
+	{ "SRC_RING_HP", CE_SRC_RING_HP_OFFSET },
+	{ "SRC_RING_TP", CE_SRC_RING_TP_OFFSET },
 	{ NULL },
 };
 
 static struct cnss_pci_reg ce_dst[] = {
-	{ "DEST_RING_BASE_LSB", QCA6390_CE_DEST_RING_BASE_LSB_OFFSET },
-	{ "DEST_RING_BASE_MSB", QCA6390_CE_DEST_RING_BASE_MSB_OFFSET },
-	{ "DEST_RING_ID", QCA6390_CE_DEST_RING_ID_OFFSET },
-	{ "DEST_RING_MISC", QCA6390_CE_DEST_RING_MISC_OFFSET },
-	{ "DEST_CTRL", QCA6390_CE_DEST_CTRL_OFFSET },
-	{ "CE_CH_DST_IS", QCA6390_CE_CH_DST_IS_OFFSET },
-	{ "CE_CH_DEST_CTRL2", QCA6390_CE_CH_DEST_CTRL2_OFFSET },
-	{ "DEST_RING_HP", QCA6390_CE_DEST_RING_HP_OFFSET },
-	{ "DEST_RING_TP", QCA6390_CE_DEST_RING_TP_OFFSET },
-	{ "STATUS_RING_BASE_LSB", QCA6390_CE_STATUS_RING_BASE_LSB_OFFSET },
-	{ "STATUS_RING_BASE_MSB", QCA6390_CE_STATUS_RING_BASE_MSB_OFFSET },
-	{ "STATUS_RING_ID", QCA6390_CE_STATUS_RING_ID_OFFSET },
-	{ "STATUS_RING_MISC", QCA6390_CE_STATUS_RING_MISC_OFFSET },
-	{ "STATUS_RING_HP", QCA6390_CE_STATUS_RING_HP_OFFSET },
-	{ "STATUS_RING_TP", QCA6390_CE_STATUS_RING_TP_OFFSET },
+	{ "DEST_RING_BASE_LSB", CE_DEST_RING_BASE_LSB_OFFSET },
+	{ "DEST_RING_BASE_MSB", CE_DEST_RING_BASE_MSB_OFFSET },
+	{ "DEST_RING_ID", CE_DEST_RING_ID_OFFSET },
+	{ "DEST_RING_MISC", CE_DEST_RING_MISC_OFFSET },
+	{ "DEST_CTRL", CE_DEST_CTRL_OFFSET },
+	{ "CE_CH_DST_IS", CE_CH_DST_IS_OFFSET },
+	{ "CE_CH_DEST_CTRL2", CE_CH_DEST_CTRL2_OFFSET },
+	{ "DEST_RING_HP", CE_DEST_RING_HP_OFFSET },
+	{ "DEST_RING_TP", CE_DEST_RING_TP_OFFSET },
+	{ "STATUS_RING_BASE_LSB", CE_STATUS_RING_BASE_LSB_OFFSET },
+	{ "STATUS_RING_BASE_MSB", CE_STATUS_RING_BASE_MSB_OFFSET },
+	{ "STATUS_RING_ID", CE_STATUS_RING_ID_OFFSET },
+	{ "STATUS_RING_MISC", CE_STATUS_RING_MISC_OFFSET },
+	{ "STATUS_RING_HP", CE_STATUS_RING_HP_OFFSET },
+	{ "STATUS_RING_TP", CE_STATUS_RING_TP_OFFSET },
 	{ NULL },
 };
 
 static struct cnss_pci_reg ce_cmn[] = {
-	{ "GXI_ERR_INTS", QCA6390_CE_COMMON_GXI_ERR_INTS },
-	{ "GXI_ERR_STATS", QCA6390_CE_COMMON_GXI_ERR_STATS },
-	{ "GXI_WDOG_STATUS", QCA6390_CE_COMMON_GXI_WDOG_STATUS },
-	{ "TARGET_IE_0", QCA6390_CE_COMMON_TARGET_IE_0 },
-	{ "TARGET_IE_1", QCA6390_CE_COMMON_TARGET_IE_1 },
+	{ "GXI_ERR_INTS", CE_COMMON_GXI_ERR_INTS },
+	{ "GXI_ERR_STATS", CE_COMMON_GXI_ERR_STATS },
+	{ "GXI_WDOG_STATUS", CE_COMMON_GXI_WDOG_STATUS },
+	{ "TARGET_IE_0", CE_COMMON_TARGET_IE_0 },
+	{ "TARGET_IE_1", CE_COMMON_TARGET_IE_1 },
 	{ NULL },
 };
 
@@ -2069,13 +2069,13 @@ static int cnss_pci_get_device_timestamp(struct cnss_pci_data *pci_priv,
 static void cnss_pci_enable_time_sync_counter(struct cnss_pci_data *pci_priv)
 {
 	cnss_pci_reg_write(pci_priv, WLAON_GLOBAL_COUNTER_CTRL5,
-			   QCA6390_TIME_SYNC_ENABLE);
+			   TIME_SYNC_ENABLE);
 }
 
 static void cnss_pci_clear_time_sync_counter(struct cnss_pci_data *pci_priv)
 {
 	cnss_pci_reg_write(pci_priv, WLAON_GLOBAL_COUNTER_CTRL5,
-			   QCA6390_TIME_SYNC_CLEAR);
+			   TIME_SYNC_CLEAR);
 }
 
 static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
@@ -2119,15 +2119,15 @@ static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 	low = offset & 0xFFFFFFFF;
 	high = offset >> 32;
 
-	cnss_pci_reg_write(pci_priv, QCA6390_PCIE_SHADOW_REG_VALUE_34, low);
-	cnss_pci_reg_write(pci_priv, QCA6390_PCIE_SHADOW_REG_VALUE_35, high);
+	cnss_pci_reg_write(pci_priv, PCIE_SHADOW_REG_VALUE_34, low);
+	cnss_pci_reg_write(pci_priv, PCIE_SHADOW_REG_VALUE_35, high);
 
-	cnss_pci_reg_read(pci_priv, QCA6390_PCIE_SHADOW_REG_VALUE_34, &low);
-	cnss_pci_reg_read(pci_priv, QCA6390_PCIE_SHADOW_REG_VALUE_35, &high);
+	cnss_pci_reg_read(pci_priv, PCIE_SHADOW_REG_VALUE_34, &low);
+	cnss_pci_reg_read(pci_priv, PCIE_SHADOW_REG_VALUE_35, &high);
 
 	cnss_pr_dbg("Updated time sync regs [0x%x] = 0x%x, [0x%x] = 0x%x\n",
-		    QCA6390_PCIE_SHADOW_REG_VALUE_34, low,
-		    QCA6390_PCIE_SHADOW_REG_VALUE_35, high);
+		    PCIE_SHADOW_REG_VALUE_34, low,
+		    PCIE_SHADOW_REG_VALUE_35, high);
 
 force_wake_put:
 	cnss_pci_force_wake_put(pci_priv);
@@ -2466,7 +2466,7 @@ static void cnss_pci_dump_shadow_reg(struct cnss_pci_data *pci_priv)
 	cnss_pr_dbg("Start to dump shadow registers\n");
 
 	for (i = 0; i < SHADOW_REG_COUNT; i++, j++) {
-		reg_offset = QCA6390_PCIE_SHADOW_REG_VALUE_0 + i * 4;
+		reg_offset = PCIE_SHADOW_REG_VALUE_0 + i * 4;
 		pci_priv->debug_reg[j].offset = reg_offset;
 		if (cnss_pci_reg_read(pci_priv, reg_offset,
 				      &pci_priv->debug_reg[j].val))
@@ -2474,7 +2474,7 @@ static void cnss_pci_dump_shadow_reg(struct cnss_pci_data *pci_priv)
 	}
 
 	for (i = 0; i < SHADOW_REG_INTER_COUNT; i++, j++) {
-		reg_offset = QCA6390_PCIE_SHADOW_REG_INTER_0 + i * 4;
+		reg_offset = PCIE_SHADOW_REG_INTER_0 + i * 4;
 		pci_priv->debug_reg[j].offset = reg_offset;
 		if (cnss_pci_reg_read(pci_priv, reg_offset,
 				      &pci_priv->debug_reg[j].val))
@@ -4731,15 +4731,29 @@ static void cnss_pci_dump_ce_reg(struct cnss_pci_data *pci_priv,
 				 enum cnss_ce_index ce)
 {
 	int i;
-	u32 ce_base = ce * QCA6390_CE_REG_INTERVAL;
-	u32 reg_offset, val;
+	u32 ce_base = ce * CE_REG_INTERVAL;
+	u32 reg_offset, src_ring_base, dst_ring_base, cmn_base, val;
+
+	switch (pci_priv->device_id) {
+	case QCA6390_DEVICE_ID:
+		src_ring_base = QCA6390_CE_SRC_RING_REG_BASE;
+		dst_ring_base = QCA6390_CE_DST_RING_REG_BASE;
+		cmn_base = QCA6390_CE_COMMON_REG_BASE;
+		break;
+	case QCA6490_DEVICE_ID:
+		src_ring_base = QCA6490_CE_SRC_RING_REG_BASE;
+		dst_ring_base = QCA6490_CE_DST_RING_REG_BASE;
+		cmn_base = QCA6490_CE_COMMON_REG_BASE;
+		break;
+	default:
+		return;
+	}
 
 	switch (ce) {
 	case CNSS_CE_09:
 	case CNSS_CE_10:
 		for (i = 0; ce_src[i].name; i++) {
-			reg_offset = QCA6390_CE_SRC_RING_REG_BASE +
-				ce_base + ce_src[i].offset;
+			reg_offset = src_ring_base + ce_base + ce_src[i].offset;
 			if (cnss_pci_reg_read(pci_priv, reg_offset, &val))
 				return;
 			cnss_pr_dbg("CE_%02d_%s[0x%x] = 0x%x\n",
@@ -4747,8 +4761,7 @@ static void cnss_pci_dump_ce_reg(struct cnss_pci_data *pci_priv,
 		}
 
 		for (i = 0; ce_dst[i].name; i++) {
-			reg_offset = QCA6390_CE_DST_RING_REG_BASE +
-				ce_base + ce_dst[i].offset;
+			reg_offset = dst_ring_base + ce_base + ce_dst[i].offset;
 			if (cnss_pci_reg_read(pci_priv, reg_offset, &val))
 				return;
 			cnss_pr_dbg("CE_%02d_%s[0x%x] = 0x%x\n",
@@ -4757,8 +4770,7 @@ static void cnss_pci_dump_ce_reg(struct cnss_pci_data *pci_priv,
 		break;
 	case CNSS_CE_COMMON:
 		for (i = 0; ce_cmn[i].name; i++) {
-			reg_offset = QCA6390_CE_COMMON_REG_BASE +
-				ce_cmn[i].offset;
+			reg_offset = cmn_base  + ce_cmn[i].offset;
 			if (cnss_pci_reg_read(pci_priv, reg_offset, &val))
 				return;
 			cnss_pr_dbg("CE_COMMON_%s[0x%x] = 0x%x\n",
