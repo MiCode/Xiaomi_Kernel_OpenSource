@@ -78,6 +78,24 @@ static int mtk_common_devfreq_target(struct device *dev,
 	 * and apply legacy throttle flow
 	 */
 
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	(void)(pow);
+	opp_idx = gpufreq_get_oppidx_by_freq(TARGET_DEFAULT, *freq);
+	if (opp_idx) {
+		gpufreq_set_limit(TARGET_DEFAULT, LIMIT_THERMAL,
+			opp_idx, GPUPPM_KEEP_IDX);
+		resume = 0;
+	} else {
+		if (!resume) {
+			gpufreq_set_limit(TARGET_DEFAULT, LIMIT_THERMAL,
+				GPUPPM_RESET_IDX, GPUPPM_KEEP_IDX);
+			resume = 1;
+		}
+	}
+
+	kbdev->current_nominal_freq =
+		gpufreq_get_cur_freq(TARGET_DEFAULT) * 1000; /* khz to hz*/
+#else
 	opp_idx = mt_gpufreq_get_opp_idx_by_freq(*freq);
 	if (opp_idx) {
 		pow = mt_gpufreq_get_power_by_idx(opp_idx);
@@ -92,6 +110,7 @@ static int mtk_common_devfreq_target(struct device *dev,
 
 	opp_idx = mt_gpufreq_get_cur_freq_index();
 	kbdev->current_nominal_freq = mt_gpufreq_get_freq_by_idx(opp_idx) * 1000;
+#endif /* CONFIG_MTK_GPUFREQ_V2 */
 
 	return 0;
 }

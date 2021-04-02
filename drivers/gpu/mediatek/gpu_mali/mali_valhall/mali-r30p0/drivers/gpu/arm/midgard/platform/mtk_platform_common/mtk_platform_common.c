@@ -59,7 +59,11 @@ int mtk_common_gpufreq_commit(int opp_idx)
 
 	mutex_lock(&mfg_pm_lock);
 	if (opp_idx >= 0 && mtk_common_pm_is_mfg_active()) {
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+		ret = gpufreq_commit(TARGET_DEFAULT, opp_idx);
+#else
 		ret = mt_gpufreq_target(opp_idx, KIR_POLICY);
+#endif /* CONFIG_MTK_GPUFREQ_V2 */
 	}
 	mutex_unlock(&mfg_pm_lock);
 
@@ -83,7 +87,11 @@ static int mtk_common_gpu_utilization_show(struct seq_file *m, void *v)
 
 	mtk_common_update_gpu_utilization();
 
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	cur_opp_idx = gpufreq_get_cur_oppidx(TARGET_DEFAULT);
+#else
 	cur_opp_idx = mt_gpufreq_get_cur_freq_index();
+#endif /* CONFIG_MTK_GPUFREQ_V2 */
 
 	util_active = mtk_common_get_util_active();
 	util_3d = mtk_common_get_util_3d();

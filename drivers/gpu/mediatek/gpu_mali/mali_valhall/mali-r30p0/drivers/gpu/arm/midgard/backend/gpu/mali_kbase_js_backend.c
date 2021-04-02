@@ -202,7 +202,11 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 						js_devdata->scheduling_period_ns
 								/ 1000000u;
 #if IS_ENABLED(CONFIG_MALI_MTK_DEBUG)
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+					/* lohass: gpudfd */
+#else
 					mt_gpufreq_dump_infra_status();
+#endif /* CONFIG_MTK_GPUFREQ_V2 */
 #endif
 					dev_warn(kbdev->dev, "JS: Job Hard-Stopped (took more than %lu ticks at %lu ms/tick)",
 							(unsigned long)ticks,
@@ -210,12 +214,16 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 					kbase_job_slot_hardstop(atom->kctx, s,
 									atom);
 #if IS_ENABLED(CONFIG_MALI_MTK_DEBUG_DFD)
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+					/* lohass: gpudfd */
+#else
 					if (mt_gpufreq_is_dfd_force_dump() == 1 ||
 						mt_gpufreq_is_dfd_force_dump() == 2) {
 						pr_info("gpu dfd force dump\n");
 						mt_gpufreq_software_trigger_dfd();
 						BUG_ON(1);
 					}
+#endif /* CONFIG_MTK_GPUFREQ_V2 */
 #endif
 #endif
 				} else if (ticks == gpu_reset_ticks) {
