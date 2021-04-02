@@ -9,13 +9,14 @@
 #include <linux/fs.h>
 #include <linux/of.h>
 
+#include "mtk_iommu.h"
+
 typedef int (*mtk_iommu_fault_callback_t)(int port,
 				dma_addr_t mva, void *cb_data);
 
 void report_custom_iommu_fault(
-	u64 fault_iova,
-	u64 fault_pa,
-	u32 fault_id, bool is_vpu);
+	u64 fault_iova, u64 fault_pa, u32 fault_id,
+	enum mtk_iommu_type type, int id);
 
 int mtk_iommu_register_fault_callback(int port,
 			       mtk_iommu_fault_callback_t fn,

@@ -19,7 +19,7 @@
 #include <soc/mediatek/smi.h>
 #include <dt-bindings/memory/mtk-smi-larb-port.h>
 
-#define MTK_LARB_COM_MAX	8
+#define MTK_LARB_COM_MAX	16
 #define MTK_LARB_SUBCOM_MAX	4
 
 struct mtk_iommu_suspend_reg {
@@ -34,6 +34,7 @@ struct mtk_iommu_suspend_reg {
 	u32				ivrp_paddr;
 	u32				vld_pa_rng;
 	u32				wr_len_ctrl;
+	u32				tbw_id;
 };
 
 enum mtk_iommu_plat {
@@ -41,10 +42,37 @@ enum mtk_iommu_plat {
 	M4U_MT2712,
 	M4U_MT6779,
 	M4U_MT6873,
+	M4U_MT6983,
 	M4U_MT8167,
 	M4U_MT6893,
 	M4U_MT8173,
 	M4U_MT8183,
+};
+
+enum mtk_iommu_type {
+	MM_IOMMU,
+	APU_IOMMU,
+	PERI_IOMMU,
+	TYPE_NUM
+};
+
+enum mm_iommu{
+	DISP_IOMMU,
+	MDP_IOMMU,
+	MM_IOMMU_NUM
+};
+
+enum apu_iommu{
+	APU_IOMMU0,
+	APU_IOMMU1,
+	APU_IOMMU_NUM
+};
+
+enum peri_iommu{
+	PERI_IOMMU_M4,
+	PERI_IOMMU_M6,
+	PERI_IOMMU_M7,
+	PERI_IOMMU_NUM
 };
 
 struct mtk_iommu_iova_region;
@@ -52,8 +80,10 @@ struct mtk_iommu_iova_region;
 struct mtk_iommu_plat_data {
 	enum mtk_iommu_plat m4u_plat;
 	u32                 flags;
-	bool		    is_apu;
 	u32                 inv_sel_reg;
+	u32		    reg_val;
+	int		    iommu_id;
+	enum mtk_iommu_type iommu_type;
 	unsigned char       larbid_remap[MTK_LARB_COM_MAX][MTK_LARB_SUBCOM_MAX];
 	unsigned int        iova_region_nr;
 	const struct mtk_iommu_iova_region	*iova_region;
