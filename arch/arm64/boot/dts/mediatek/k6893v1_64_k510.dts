@@ -397,7 +397,7 @@
 	};
 };
 
-#include "mediatek/cust_mt6873_camera.dtsi"
+#include "mediatek/cust_mt6893_camera.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
 
 /* GPS GPIO standardization start */
