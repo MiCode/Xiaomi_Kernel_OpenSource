@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -547,7 +547,7 @@ static int adc_tm7_set_trip_temp(struct adc_tm_sensor *sensor,
 	} else
 		sensor->low_thr_en = 0;
 
-	if (low_temp != INT_MIN) {
+	if (low_temp != INT_MIN && low_temp != -INT_MAX) {
 		sensor->high_thr_voltage = tm_config.high_thr_voltage;
 		sensor->high_thr_en = 1;
 	} else
