@@ -411,6 +411,7 @@ static const struct virtio_cc_map clk_virtio_map_table[] = {
 	{ .cc_name = "sm6150-gcc", .desc = &clk_virtio_sm6150_gcc, },
 	{ .cc_name = "sm6150-scc", .desc = &clk_virtio_sm6150_scc, },
 	{ .cc_name = "sa8195p-gcc", .desc = &clk_virtio_sa8195p_gcc, },
+	{ .cc_name = "direwolf-gcc", .desc = &clk_virtio_direwolf_gcc, },
 	{ }
 };
 
