@@ -1544,10 +1544,10 @@ static int clk_zonda_pll_enable(struct clk_hw *hw)
 static void clk_zonda_pll_disable(struct clk_hw *hw)
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
-	u32 val, mask, off = pll->offset;
+	u32 val, mask;
 	int ret;
 
-	ret = regmap_read(pll->clkr.regmap, off + PLL_MODE(pll), &val);
+	ret = regmap_read(pll->clkr.regmap, PLL_MODE(pll), &val);
 	if (ret)
 		return;
 
@@ -2689,6 +2689,9 @@ void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 
 	clk_alpha_pll_custom_configure(pll, regmap, config);
 
+	if (pll->flags & SUPPORTS_FSM_LEGACY_MODE)
+		regmap_update_bits(regmap, PLL_MODE(pll), PLL_FSM_LEGACY_MODE,
+						PLL_FSM_LEGACY_MODE);
 	regmap_update_bits(regmap, PLL_MODE(pll),
 				 PLL_UPDATE_BYPASS,
 				 PLL_UPDATE_BYPASS);
