@@ -1349,6 +1349,10 @@ int adreno_hwsched_init(struct adreno_device *adreno_dev)
 
 	memset(hwsched, 0, sizeof(*hwsched));
 
+	hwsched->worker = kthread_create_worker(0, "kgsl_hwsched");
+	if (IS_ERR(hwsched->worker))
+		return PTR_ERR(hwsched->worker);
+
 	mutex_init(&hwsched->mutex);
 
 	kthread_init_work(&hwsched->work, adreno_hwsched_work);
@@ -1362,10 +1366,6 @@ int adreno_hwsched_init(struct adreno_device *adreno_dev)
 		init_llist_head(&hwsched->jobs[i]);
 		init_llist_head(&hwsched->requeue[i]);
 	}
-
-	hwsched->worker = kthread_create_worker(0, "kgsl_hwsched");
-	if (IS_ERR(hwsched->worker))
-		return PTR_ERR(hwsched->worker);
 
 	sched_set_fifo(hwsched->worker->task);
 
