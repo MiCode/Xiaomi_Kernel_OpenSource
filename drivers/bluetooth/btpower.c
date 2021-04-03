@@ -35,6 +35,31 @@
 #define PWR_SRC_NOT_AVAILABLE -2
 #define DEFAULT_INVALID_VALUE -1
 #define PWR_SRC_INIT_STATE_IDX 0
+#define BTPOWER_MBOX_MSG_MAX_LEN 64
+#define BTPOWER_MBOX_TIMEOUT_MS 1000
+/**
+ * enum btpower_vreg_param: Voltage regulator TCS param
+ * @BTPOWER_VREG_VOLTAGE: Provides voltage level to be configured in TCS
+ * @BTPOWER_VREG_MODE: Regulator mode
+ * @BTPOWER_VREG_TCS_ENABLE: Set Voltage regulator enable config in TCS
+ */
+enum btpower_vreg_param {
+	BTPOWER_VREG_VOLTAGE,
+	BTPOWER_VREG_MODE,
+	BTPOWER_VREG_ENABLE,
+};
+
+/**
+ * enum btpower_tcs_seq: TCS sequence ID for trigger
+ * BTPOWER_TCS_UP_SEQ: TCS Sequence based on up trigger / Wake TCS
+ * BTPOWER_TCS_DOWN_SEQ: TCS Sequence based on down trigger / Sleep TCS
+ * BTPOWER_TCS_ALL_SEQ: Update for both up and down triggers
+ */
+enum btpower_tcs_seq {
+	BTPOWER_TCS_UP_SEQ,
+	BTPOWER_TCS_DOWN_SEQ,
+	BTPOWER_TCS_ALL_SEQ,
+};
 
 enum power_src_pos {
 	BT_RESET_GPIO = PWR_SRC_INIT_STATE_IDX,
@@ -126,14 +151,10 @@ static const struct of_device_id bt_power_match_table[] = {
 };
 
 static int bt_power_vreg_set(enum bt_power_modes mode);
-static int btpower_get_tcs_table_info(struct platform_device *plat_dev,
-			struct bluetooth_power_platform_data *bt_power_pdata);
-static int btpower_enable_ipa_vreg(struct platform_device *plat_dev,
-			struct bluetooth_power_platform_data *bt_power_pdata);
+static int btpower_enable_ipa_vreg(struct btpower_platform_data *pdata);
 
 static int bt_power_src_status[BT_POWER_SRC_SIZE];
-static struct bluetooth_power_platform_data *bt_power_pdata;
-static struct platform_device *btpdev;
+static struct btpower_platform_data *bt_power_pdata;
 static bool previous;
 static int pwr_state;
 static struct class *bt_class;
@@ -255,7 +276,7 @@ static int bt_clk_enable(struct bt_power_clk_data *clk)
 {
 	int rc = 0;
 
-	pr_debug("%s: %s\n", __func__, clk->name);
+	pr_info("%s: %s\n", __func__, clk->name);
 
 	/* Get the clock handle for vreg */
 	if (!clk->clk || clk->is_enabled) {
@@ -477,13 +498,13 @@ regulator_fail:
 	return rc;
 }
 
-static int bluetooth_toggle_radio(void *data, bool blocked)
+static int btpower_toggle_radio(void *data, bool blocked)
 {
 	int ret = 0;
 	int (*power_control)(int enable);
 
 	power_control =
-		((struct bluetooth_power_platform_data *)data)->bt_power_setup;
+		((struct btpower_platform_data *)data)->bt_power_setup;
 
 	if (previous != blocked)
 		ret = (*power_control)(!blocked);
@@ -492,8 +513,8 @@ static int bluetooth_toggle_radio(void *data, bool blocked)
 	return ret;
 }
 
-static const struct rfkill_ops bluetooth_power_rfkill_ops = {
-	.set_block = bluetooth_toggle_radio,
+static const struct rfkill_ops btpower_rfkill_ops = {
+	.set_block = btpower_toggle_radio,
 };
 
 static ssize_t extldo_show(struct device *dev, struct device_attribute *attr,
@@ -504,13 +525,13 @@ static ssize_t extldo_show(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR_RO(extldo);
 
-static int bluetooth_power_rfkill_probe(struct platform_device *pdev)
+static int btpower_rfkill_probe(struct platform_device *pdev)
 {
 	struct rfkill *rfkill;
 	int ret;
 
 	rfkill = rfkill_alloc("bt_power", &pdev->dev, RFKILL_TYPE_BLUETOOTH,
-						&bluetooth_power_rfkill_ops,
+						&btpower_rfkill_ops,
 						pdev->dev.platform_data);
 
 	if (!rfkill) {
@@ -539,7 +560,7 @@ static int bluetooth_power_rfkill_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static void bluetooth_power_rfkill_remove(struct platform_device *pdev)
+static void btpower_rfkill_remove(struct platform_device *pdev)
 {
 	struct rfkill *rfkill;
 
@@ -800,6 +821,7 @@ static int bt_power_probe(struct platform_device *pdev)
 	if (!bt_power_pdata)
 		return -ENOMEM;
 
+	bt_power_pdata->pdev = pdev;
 	if (pdev->dev.of_node) {
 		ret = bt_power_populate_dt_pinfo(pdev);
 		if (ret < 0) {
@@ -810,26 +832,24 @@ static int bt_power_probe(struct platform_device *pdev)
 		pdev->dev.platform_data = bt_power_pdata;
 	} else if (pdev->dev.platform_data) {
 		/* Optional data set to default if not provided */
-		if (!((struct bluetooth_power_platform_data *)
+		if (!((struct btpower_platform_data *)
 			(pdev->dev.platform_data))->bt_power_setup)
-			((struct bluetooth_power_platform_data *)
+			((struct btpower_platform_data *)
 				(pdev->dev.platform_data))->bt_power_setup =
 						bluetooth_power;
 
 		memcpy(bt_power_pdata, pdev->dev.platform_data,
-			sizeof(struct bluetooth_power_platform_data));
+			sizeof(struct btpower_platform_data));
 		pwr_state = 0;
 	} else {
 		pr_err("%s: Failed to get platform data\n", __func__);
 		goto free_pdata;
 	}
 
-	if (bluetooth_power_rfkill_probe(pdev) < 0)
+	if (btpower_rfkill_probe(pdev) < 0)
 		goto free_pdata;
 
-	btpdev = pdev;
-	if (btpower_get_tcs_table_info(pdev, bt_power_pdata) < 0)
-		pr_err("%s: Failed to get TCS table info\n", __func__);
+	btpower_aop_mbox_init(bt_power_pdata);
 
 	return 0;
 
@@ -842,7 +862,7 @@ static int bt_power_remove(struct platform_device *pdev)
 {
 	dev_dbg(&pdev->dev, "%s\n", __func__);
 
-	bluetooth_power_rfkill_remove(pdev);
+	btpower_rfkill_remove(pdev);
 	bt_power_vreg_put();
 
 	kfree(bt_power_pdata);
@@ -1006,7 +1026,7 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case BT_CMD_SET_IPA_TCS_INFO:
 		pr_err("%s: BT_CMD_SET_IPA_TCS_INFO\n", __func__);
-		btpower_enable_ipa_vreg(btpdev, bt_power_pdata);
+		btpower_enable_ipa_vreg(bt_power_pdata);
 		break;
 	default:
 		return -ENOIOCTLCMD;
@@ -1028,7 +1048,7 @@ static const struct file_operations bt_dev_fops = {
 	.compat_ioctl = bt_ioctl,
 };
 
-static int __init bluetooth_power_init(void)
+static int __init btpower_init(void)
 {
 	int ret = 0;
 
@@ -1071,79 +1091,93 @@ driver_err:
 	return ret;
 }
 
-static int btpower_get_tcs_table_info(struct platform_device *dev,
-			struct bluetooth_power_platform_data *bt_power_pdata)
+int btpower_aop_mbox_init(struct btpower_platform_data *pdata)
 {
-	struct platform_device *plat_dev = dev;
-	struct btpower_tcs_table_info *tcs_table_info =
-			&bt_power_pdata->tcs_table_info;
-	struct resource *res;
-	resource_size_t addr_len;
-	void __iomem *tcs_cmd_base_addr;
-	int ret = -1;
+	struct mbox_client *mbox = &pdata->mbox_client_data;
+	struct mbox_chan *chan;
+	int ret = 0;
 
-	res = platform_get_resource_byname(plat_dev, IORESOURCE_MEM, "tcs_cmd");
-	if (!res) {
-		pr_err("No TCS CMD entry found in DTSI\n");
-		goto out;
+	mbox->dev = &pdata->pdev->dev;
+	mbox->tx_block = true;
+	mbox->tx_tout = BTPOWER_MBOX_TIMEOUT_MS;
+	mbox->knows_txdone = false;
+
+	pdata->mbox_chan = NULL;
+	chan = mbox_request_channel(mbox, 0);
+	if (IS_ERR(chan)) {
+		pr_err("%s: failed to get mbox channel\n", __func__);
+		return PTR_ERR(chan);
 	}
+	pdata->mbox_chan = chan;
 
-	tcs_table_info->tcs_cmd_base_addr = res->start;
-	addr_len = resource_size(res);
-	pr_info("TCS CMD base address is %pa with length %pa\n",
-		    &tcs_table_info->tcs_cmd_base_addr, &addr_len);
-
-	tcs_cmd_base_addr = devm_ioremap(&plat_dev->dev, res->start, addr_len);
-	if (!tcs_cmd_base_addr) {
-		ret = -EINVAL;
-		pr_err("Failed to map TCS CMD address, err = %d\n",
-			    ret);
-		goto out;
-	}
-
-	tcs_table_info->tcs_cmd_base_addr_io = tcs_cmd_base_addr;
+	ret = of_property_read_string(pdata->pdev->dev.of_node,
+				      "qcom,vreg_ipa",
+				      &pdata->vreg_ipa);
+	if (ret)
+		pr_info("%s: vreg for iPA not configured\n", __func__);
+	else
+		pr_info("%s: Mbox channel initialized\n", __func__);
 
 	return 0;
+}
 
-out:
+static int btpower_aop_set_vreg_param(struct btpower_platform_data *pdata,
+				   const char *vreg_name,
+				   enum btpower_vreg_param param,
+				   enum btpower_tcs_seq seq, int val)
+{
+	struct qmp_pkt pkt;
+	char mbox_msg[BTPOWER_MBOX_MSG_MAX_LEN];
+	static const char * const vreg_param_str[] = {"v", "m", "e"};
+	static const char *const tcs_seq_str[] = {"upval", "dwnval", "enable"};
+	int ret = 0;
+
+	if (param > BTPOWER_VREG_ENABLE || seq > BTPOWER_TCS_ALL_SEQ || !vreg_name)
+		return -EINVAL;
+
+	snprintf(mbox_msg, BTPOWER_MBOX_MSG_MAX_LEN,
+		 "{class: wlan_pdc, res: %s.%s, %s: %d}", vreg_name,
+		 vreg_param_str[param], tcs_seq_str[seq], val);
+
+	pr_info("%s: sending AOP Mbox msg: %s\n", __func__, mbox_msg);
+	pkt.size = BTPOWER_MBOX_MSG_MAX_LEN;
+	pkt.data = mbox_msg;
+
+	ret = mbox_send_message(pdata->mbox_chan, &pkt);
+	if (ret < 0)
+		pr_err("%s:Failed to send AOP mbox msg(%s), err(%d)\n",
+					__func__, mbox_msg, ret);
+
 	return ret;
 }
 
-static int btpower_enable_ipa_vreg(struct platform_device *dev,
-			struct bluetooth_power_platform_data *bt_power_pdata)
+static int btpower_enable_ipa_vreg(struct btpower_platform_data *pdata)
 {
-	struct platform_device *plat_dev = dev;
-	struct btpower_tcs_table_info *tcs_table_info =
-					&bt_power_pdata->tcs_table_info;
-	u32 offset, addr_val, data_val;
-	void __iomem *tcs_cmd;
 	int ret = 0;
+	static bool config_done;
 
-	if (!tcs_table_info->tcs_cmd_base_addr_io) {
-		pr_err("TCS command not configured\n");
-		return -EINVAL;
+	if (config_done) {
+		pr_info("%s: IPA Vreg already configured\n", __func__);
+		return 0;
 	}
 
-	ret = of_property_read_u32(plat_dev->dev.of_node,
-					"qcom,tcs_offset_ipa",
-					&offset);
-	if (ret) {
-		pr_err("iPA failed to configure\n");
-		return -EINVAL;
+	if (!pdata->vreg_ipa || !pdata->mbox_chan) {
+		pr_info("%s: mbox/iPA vreg not configured\n", __func__);
+	} else {
+		ret = btpower_aop_set_vreg_param(pdata,
+					       pdata->vreg_ipa,
+					       BTPOWER_VREG_ENABLE,
+					       BTPOWER_TCS_ALL_SEQ, 1);
+		if (ret >=  0) {
+			pr_info("%s:Enabled iPA\n", __func__);
+			config_done = true;
+		}
 	}
-	tcs_cmd = tcs_table_info->tcs_cmd_base_addr_io + offset;
-	addr_val = readl_relaxed(tcs_cmd);
-	tcs_cmd += TCS_CMD_IO_ADDR_OFFSET;
 
-	writel_relaxed(1, tcs_cmd);
-
-	data_val = readl_relaxed(tcs_cmd);
-	pr_info("Configure S3E TCS Addr for iPA: %x with Data: %d\n"
-		, addr_val, data_val);
-	return 0;
+	return ret;
 }
 
-static void __exit bluetooth_power_exit(void)
+static void __exit btpower_exit(void)
 {
 	platform_driver_unregister(&bt_power_driver);
 }
@@ -1151,5 +1185,5 @@ static void __exit bluetooth_power_exit(void)
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MSM Bluetooth power control driver");
 
-module_init(bluetooth_power_init);
-module_exit(bluetooth_power_exit);
+module_init(btpower_init);
+module_exit(btpower_exit);
