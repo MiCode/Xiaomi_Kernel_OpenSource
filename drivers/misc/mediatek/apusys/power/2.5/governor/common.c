@@ -97,10 +97,33 @@ void apu_dump_list(struct apu_gov_data *gov_data)
 
 	if (apupw_dbg_get_loglvl() >= VERBOSE_LVL) {
 		n_pos += scnprintf(buffer + n_pos, (sizeof(buffer) - n_pos),
-				  "[%s] head:", apu_dev_name(gov_data->this->dev.parent));
+				   "[%s] head:", apu_dev_name(gov_data->this->dev.parent));
 		list_for_each_entry(ptr, &gov_data->head, list)
-			n_pos += scnprintf(buffer + n_pos, (sizeof(buffer) - n_pos), "->%s[%d]",
-					  apu_dev_name(ptr->dev), ptr->value);
+			if (ptr->pe_flag && !gov_data->depth)
+				n_pos += scnprintf(buffer + n_pos, (sizeof(buffer) - n_pos),
+						   "->%s_pe[%d]",
+						   apu_dev_name(ptr->dev), ptr->value);
+			else if (!ptr->pe_flag)
+				n_pos += scnprintf(buffer + n_pos, (sizeof(buffer) - n_pos),
+						   "->%s[%d]",
+						   apu_dev_name(ptr->dev), ptr->value);
+		pr_info("%s", buffer);
+	}
+}
+
+void apu_dump_pe_gov(struct apu_dev *ad, struct list_head *head)
+{
+	struct apu_req *ptr;
+	char buffer[__LOG_BUF_LEN];
+	int n_pos = 0;
+
+	if (apupw_dbg_get_loglvl() >= VERBOSE_LVL) {
+		n_pos += scnprintf(buffer + n_pos, (sizeof(buffer) - n_pos),
+				   "[%s][pe_gov] head:", ad->name);
+		list_for_each_entry(ptr, head, list)
+			n_pos += scnprintf(buffer + n_pos, (sizeof(buffer) - n_pos),
+					   "->%s[%d]",
+					   apu_dev_name(ptr->dev), ptr->value);
 		pr_info("%s", buffer);
 	}
 }
@@ -135,7 +158,7 @@ int apu_gov_setup(struct apu_dev *ad, void *data)
 	gov_data->req.value = gov_data->max_opp;
 	gov_data->req.dev = ad->dev;
 
-	/* hook req to self's head */
+	/* hook user and pe reqs to self's head */
 	list_add(&gov_data->req.list, &gov_data->head);
 	apu_dump_list(gov_data);
 

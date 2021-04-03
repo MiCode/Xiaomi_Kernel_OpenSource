@@ -254,10 +254,11 @@ void apu_qos_set_vcore(int opp)
 	 */
 	freq = ad->aclk->ops->get_rate(ad->aclk);
 	n_freq = apu_opp2freq(ad, opp);
-	apower_info(ad->dev, "[%s] set opp %d, cur/next %dMhz/%dMhz",
-			__func__, opp, TOMHZ(freq), TOMHZ(n_freq));
 	if (round_Mhz(freq, n_freq))
 		return;
+
+	apower_info(ad->dev, "[%s] set opp %d, cur/next %dMhz/%dMhz",
+		    __func__, opp, TOMHZ(freq), TOMHZ(n_freq));
 
 	/* get governor data and synchronize calling update_devfreq */
 	pgov_data = ad->df->data;
@@ -350,6 +351,9 @@ static int __init apu_power_init(void)
 	ret = devfreq_add_governor(&agov_constrain);
 	if (ret)
 		return ret;
+	ret = devfreq_add_governor(&agov_passive_pe);
+	if (ret)
+		return ret;
 	ret = platform_driver_register(&apusys_power_driver);
 	if (ret)
 		return ret;
@@ -406,6 +410,11 @@ static void __exit apu_power_exit(void)
 	if (ret)
 		pr_info("[%s] failed remove gov %s %d\n",
 			__func__, agov_userspace.name, ret);
+
+	ret = devfreq_remove_governor(&agov_passive_pe);
+	if (ret)
+		pr_info("[%s] failed remove gov %s %d\n",
+			__func__, agov_passive_pe.name, ret);
 }
 module_exit(apu_power_exit)
 MODULE_LICENSE("GPL");
