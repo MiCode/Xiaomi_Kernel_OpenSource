@@ -455,6 +455,12 @@
 		#clock-cells = <1>;
 	};
 
+	lastbus@10001000 {
+		compatible = "mediatek,lastbus-v1";
+		reg = <0 0x10001000 0 0x1000>,
+			<0 0x10003000 0 0x1000>;
+	};
+
 	scp_dvfs {
 		compatible = "mediatek,scp_dvfs";
 		clocks = <&topckgen TOP_MUX_SCP>,
