@@ -42,7 +42,7 @@ static const char *aud_clks[CLK_NUM] = {
 	[CLK_APLL2_TUNER] = "aud_apll2_tuner_clk",
 	[CLK_NLE] = "aud_nle",
 	[CLK_INFRA_SYS_AUDIO] = "aud_infra_clk",
-	/*[CLK_MTKAIF_26M] = "mtkaif_26m_clk",*/
+	[CLK_INFRA_AUDIO_26M] = "mtkaif_26m_clk",
 	[CLK_MUX_AUDIO] = "top_mux_audio",
 	[CLK_MUX_AUDIOINTBUS] = "top_mux_audio_int",
 	[CLK_TOP_MAINPLL_D2_D4] = "top_mainpll_d2_d4",
@@ -229,6 +229,13 @@ int mt6781_afe_enable_clock(struct mtk_base_afe *afe)
 		goto CLK_INFRA_SYS_AUDIO_ERR;
 	}
 
+	ret = clk_prepare_enable(afe_priv->clk[CLK_INFRA_AUDIO_26M]);
+	if (ret) {
+		dev_err(afe->dev, "%s clk_prepare_enable %s fail %d\n",
+			__func__, aud_clks[CLK_INFRA_AUDIO_26M], ret);
+		goto CLK_INFRA_AUDIO_26M_ERR;
+	}
+
 	ret = clk_prepare_enable(afe_priv->clk[CLK_MUX_AUDIO]);
 	if (ret) {
 		dev_err(afe->dev, "%s clk_prepare_enable %s fail %d\n",
@@ -284,6 +291,8 @@ CLK_MUX_AUDIO_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIO]);
 CLK_INFRA_SYS_AUDIO_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_INFRA_SYS_AUDIO]);
+CLK_INFRA_AUDIO_26M_ERR:
+	clk_disable_unprepare(afe_priv->clk[CLK_INFRA_AUDIO_26M]);
 
 	return ret;
 
@@ -300,7 +309,7 @@ void mt6781_afe_disable_clock(struct mtk_base_afe *afe)
 	mt6781_set_audio_int_bus_parent(afe, CLK_CLK26M);
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIOINTBUS]);
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIO]);
-
+	clk_disable_unprepare(afe_priv->clk[CLK_INFRA_AUDIO_26M]);
 	clk_disable_unprepare(afe_priv->clk[CLK_INFRA_SYS_AUDIO]);
 }
 
