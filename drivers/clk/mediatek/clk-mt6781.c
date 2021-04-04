@@ -2725,8 +2725,8 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 	/* MPLL, CCIPLL, MAINPLL, TDCLKSQ, CLKSQ1 */
 	/*clk_writel(AP_PLL_CON3, clk_readl(AP_PLL_CON3) & 0x007d5550);*/
 	/*clk_writel(AP_PLL_CON4, clk_readl(AP_PLL_CON4) & 0x7f5);*/
-	clk_writel(AP_PLL_CON3, clk_readl(AP_PLL_CON3) & 0x00044440);
-	clk_writel(AP_PLL_CON4, clk_readl(AP_PLL_CON4) & 0x004);
+	clk_writel(AP_PLL_CON3, 0xFFFF7770);
+	clk_writel(AP_PLL_CON4, 0xFFFAA007);
 	/* [17] = 0 */
 	clk_writel(AP_PLL_CON6, clk_readl(AP_PLL_CON6) & 0xfffdffff);
 	#if 0 /* race condition access */
