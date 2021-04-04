@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--dct_version="2.5" buid_sn="161102" dws_modification_time="03.17.2021.10:55:08"-->
+<!--dct_version="2.5" buid_sn="161102" dws_modification_time="03.26.2021.13:59:37"-->
 <dct_cfg>
     <general chip="MT6781">
         <proj>MT6781</proj>
@@ -2241,11 +2241,6 @@
                 <channel>I2C_CHANNEL_4</channel>
                 <address>0x10</address>
             </device5>
-            <device6>
-                <varName>CAMERA_MAIN_TWO_EEPROM</varName>
-                <channel>I2C_CHANNEL_4</channel>
-                <address>0x51</address>
-            </device6>
             <device7>
                 <varName>CAMERA_MAIN_TWO_AF</varName>
                 <channel>I2C_CHANNEL_4</channel>
@@ -2261,11 +2256,6 @@
                 <channel>I2C_CHANNEL_4</channel>
                 <address>0x1A</address>
             </device11>
-            <device12>
-                <varName>CAMERA_SUB_EEPROM</varName>
-                <channel>I2C_CHANNEL_4</channel>
-                <address>0x50</address>
-            </device12>
             <device14>
                 <varName>SUBPMIC_PMU</varName>
                 <channel>I2C_CHANNEL_5</channel>
@@ -2281,11 +2271,6 @@
                 <channel>I2C_CHANNEL_8</channel>
                 <address>0x36</address>
             </device24>
-            <device25>
-                <varName>CAMERA_MAIN_EEPROM</varName>
-                <channel>I2C_CHANNEL_8</channel>
-                <address>0x50</address>
-            </device25>
             <device26>
                 <varName>CAMERA_MAIN_AF</varName>
                 <channel>I2C_CHANNEL_8</channel>
