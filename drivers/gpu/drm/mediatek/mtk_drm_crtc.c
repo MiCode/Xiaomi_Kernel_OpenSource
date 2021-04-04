@@ -4588,7 +4588,7 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 		sec_disp_port = (idx == 1) ? 0 :
 			mtk_crtc_secure_port_lookup(comp);
 	}
-	DDPINFO("%s+ crtc%d\n", __func__, drm_crtc_index(crtc));
+	DDPDBG("%s+ crtc%d\n", __func__, drm_crtc_index(crtc));
 	mtk_crtc_pkt_create(&cmdq_handle, crtc,
 		mtk_crtc->gce_obj.client[CLIENT_SEC_CFG]);
 	/* Secure path only support DL mode, so we just wait
@@ -4602,6 +4602,9 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 		sec_disp_port,
 		sec_disp_type,
 		CMDQ_METAEX_NONE);
+#ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
+	cmdq_sec_pkt_set_mtee(cmdq_handle, true);
+#endif
 
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
@@ -4645,6 +4648,9 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 		cmdq_sec_pkt_set_data(cmdq_handle, 0,
 			sec_disp_port, sec_disp_type,
 			CMDQ_METAEX_NONE);
+#ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
+		cmdq_sec_pkt_set_mtee(cmdq_handle, true);
+#endif
 	#endif
 		DDPDBG("%s:%d crtc:0x%p, sec_on:%d +\n",
 			__func__, __LINE__,
