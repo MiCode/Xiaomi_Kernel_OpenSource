@@ -68,12 +68,14 @@
 				regulator-name = "rt5133,base";
 				oc_shutdown_all = <0>;
 				pgb_shutdown_all = <0>;
+				regulator-always-on;
 			};
 			rt5133_ldo1: LDO1 {
 				regulator-name = "rt5133-ldo1";
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <1800000>;
 				regulator-active-discharge;
+				regulator-always-on;
 				oc_ptsel = <1>;
 				pgb_ptsel = <1>;
 				soft_start_time_sel = <1>;
@@ -119,6 +121,7 @@
 				regulator-min-microvolt = <1700000>;
 				regulator-max-microvolt = <3000000>;
 				regulator-active-discharge;
+				regulator-always-on;
 				oc_ptsel = <1>;
 				pgb_ptsel = <1>;
 				soft_start_time_sel = <1>;
@@ -128,6 +131,7 @@
 				regulator-min-microvolt = <900000>;
 				regulator-max-microvolt = <1200000>;
 				regulator-active-discharge;
+				regulator-always-on;
 				oc_ptsel = <1>;
 				pgb_ptsel = <1>;
 				soft_start_time_sel = <1>;
