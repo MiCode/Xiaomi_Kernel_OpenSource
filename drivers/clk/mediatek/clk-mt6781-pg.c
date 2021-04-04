@@ -2446,7 +2446,7 @@ static int sys_get_state_op(struct subsys *sys)
 	return (sta & sys->sta_mask) && (sta_s & sys->sta_mask);
 }
 
-#if 0
+
 static int sys_get_md1_state_op(struct subsys *sys)//check if need
 {
 	unsigned int sta = clk_readl(MD1_PWR_CON);
@@ -2454,7 +2454,7 @@ static int sys_get_md1_state_op(struct subsys *sys)//check if need
 	return (sta & sys->sta_mask);
 }
 
-
+#if 0
 static int sys_get_conn_state_op(struct subsys *sys)
 {
 	unsigned int sta = clk_readl(INFRA_TOPAXI_PROTECTEN);
@@ -2477,7 +2477,7 @@ static int sys_get_conn_state_op(struct subsys *sys)
 static struct subsys_ops MD1_sys_ops = {
 	.enable = MD1_sys_enable_op,
 	.disable = MD1_sys_disable_op,
-	.get_state = sys_get_state_op,
+	.get_state = sys_get_md1_state_op,
 };
 
 static struct subsys_ops CONN_sys_ops = {
