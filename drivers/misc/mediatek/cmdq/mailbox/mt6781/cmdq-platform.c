@@ -26,7 +26,7 @@ const char *cmdq_thread_module_dispatch(phys_addr_t gce_pa, s32 thread)
 	case 15:
 		return "CMDQ";
 	case 23:
-		return "VDEC";
+		return "VFMT";
 	default:
 		return "CMDQ";
 	}
@@ -36,14 +36,18 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 	s32 thread)
 {
 	switch (event) {
-	case CMDQ_EVENT_LINE_COUNT_THRESHOLD_INTERRUPT ... CMDQ_EVENT_VDEC_MINI_MDP_EVENT_15:
+	case CMDQ_EVENT_LINE_COUNT_THRESHOLD_INTERRUPT ... CMDQ_EVENT_GCE_CNT_OP_THRESHOLD:
 		return "VDEC";
+	case CMDQ_EVENT_VDEC_MINI_MDP_EVENT_0 ... CMDQ_EVENT_VDEC_MINI_MDP_EVENT_15:
+		return "VFMT";
 	case CMDQ_EVENT_ISP_FRAME_DONE_A ... CMDQ_EVENT_CQ_VR_SNAP_B_INT:
 		return "CAM";
 	case CMDQ_EVENT_VENC_CMDQ_FRAME_DONE ... CMDQ_EVENT_VENC_CMDQ_VPS_DONE:
 		return "VENC";
 	case CMDQ_EVENT_FDVT_DONE ... CMDQ_EVENT_DVP_DONE_ASYNC_SHOT:
 		return "IPE";
+	case CMDQ_EVENT_GCE_IMG2_EVENT0 ... CMDQ_EVENT_GCE_IMG1_EVENT23:
+		return "IMG";
 	case CMDQ_EVENT_MDP_RDMA0_SOF ... CMDQ_EVENT_MDP_RDMA0_SW_RST_DONE_ENG_EVENT:
 		return "MDP";
 	case CMDQ_EVENT_DISP_OVL0_SOF ... CMDQ_EVENT_BUF_UNDERRUN_ENG_EVENT_7:
