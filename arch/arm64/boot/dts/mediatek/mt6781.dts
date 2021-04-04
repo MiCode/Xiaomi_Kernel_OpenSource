@@ -1255,7 +1255,7 @@
 		/* 3. Auxadc cali oe bits shift */
 		mediatek,cali-oe-bit = <0>;
 		/* 4. Auxadc cali efuse index */
-		mediatek,cali-efuse-index = <116>;
+		mediatek,cali-efuse-index = <106>;
 	};
 
 	apdma: dma-controller@10200d80 {
