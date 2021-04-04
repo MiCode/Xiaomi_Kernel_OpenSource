@@ -214,6 +214,11 @@
 			reg = <0 0x0011b000 0 0x500>;
 		};
 
+		mcusys_ctrl: mcusys-ctrl@0c53a000 {
+			compatible = "mediatek,mcusys-ctrl";
+			reg = <0 0x0c53a000 0 0x1000>;
+		};
+
 		lpm_sysram: lpm_sysram@0011b500 {
 			compatible = "mediatek,lpm-sysram";
 			reg = <0 0x0011b500 0 0x300>;
