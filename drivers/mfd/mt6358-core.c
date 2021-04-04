@@ -77,6 +77,9 @@ static const struct mfd_cell mt6358_devs[] = {
 	}, {
 		.name = "mt6358-misc",
 		.of_compatible = "mediatek,mt6358-misc",
+	}, {
+		.name = "pmic-oc-debug",
+		.of_compatible = "mediatek,pmic-oc-debug",
 	},
 };
 

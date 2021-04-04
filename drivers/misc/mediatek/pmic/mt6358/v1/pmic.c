@@ -20,8 +20,31 @@
 #include "include/pmic.h"
 #include "include/regulator_codegen.h"
 
+#if defined(CONFIG_MACH_MT6781)
+#include <linux/gpio.h>
+#define IS_NEW_POWER_GRID_GPIO		200
+
+static unsigned int g_is_new_power_grid;
+
+unsigned int is_pmic_new_power_grid(void)
+{
+	return g_is_new_power_grid;
+}
+
+static void record_is_pmic_new_power_grid(void)
+{
+	if (gpio_get_value(IS_NEW_POWER_GRID_GPIO))
+		g_is_new_power_grid = 1;
+	pr_info("[PMIC] (%d) = %d\n"
+		, IS_NEW_POWER_GRID_GPIO, g_is_new_power_grid);
+}
+#endif
+
 void record_md_vosel(void)
 {
+#if defined(CONFIG_MACH_MT6781)
+	record_is_pmic_new_power_grid();
+#endif
 	g_vmodem_vosel = pmic_get_register_value(PMIC_RG_BUCK_VMODEM_VOSEL);
 	pr_info("[%s] vmodem_vosel = 0x%x\n", __func__, g_vmodem_vosel);
 }
@@ -34,8 +57,12 @@ void vmd1_pmic_setting_on(void)
 
 	/* 1.Call PMIC driver API configure VMODEM voltage */
 	if (g_vmodem_vosel != 0) {
-		/* TODO: Swap vsram_others to vsram_core */
-		pmic_set_register_value(PMIC_RG_LDO_VSRAM_OTHERS_VOSEL, vsram_md_vosel);
+		if (is_pmic_new_power_grid())
+			pmic_config_interface(PMIC_RG_LDO_VSRAM_CORE_VOSEL_ADDR, vsram_md_vosel,
+					      PMIC_RG_LDO_VSRAM_CORE_VOSEL_MASK,
+					      PMIC_RG_LDO_VSRAM_CORE_VOSEL_SHIFT);
+		else
+			pmic_set_register_value(PMIC_RG_LDO_VSRAM_OTHERS_VOSEL, vsram_md_vosel);
 		pmic_set_register_value(PMIC_RG_BUCK_VMODEM_VOSEL, g_vmodem_vosel);
 		pr_info("[%s] set vmodem=0x%x vsram_md=0x%x\n"
 			, __func__, g_vmodem_vosel, vsram_md_vosel);

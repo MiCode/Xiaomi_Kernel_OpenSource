@@ -68,5 +68,8 @@ extern unsigned int pmic_scp_set_vcore_sleep(unsigned int voltage);
 extern unsigned int pmic_scp_set_vsram_vcore(unsigned int voltage);
 extern unsigned int pmic_scp_set_vsram_vcore_sleep(unsigned int voltage);
 extern void wk_pmic_enable_sdn_delay(void);
+#if defined(CONFIG_MACH_MT6781)
+extern unsigned int is_pmic_new_power_grid(void);
+#endif
 
 #endif				/* _MT_PMIC_INFO_H_ */

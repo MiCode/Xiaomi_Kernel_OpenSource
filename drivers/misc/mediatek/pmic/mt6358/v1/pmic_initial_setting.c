@@ -146,9 +146,7 @@ void PMIC_CUST_SETTING(void)
 void PMIC_LP_INIT_SETTING(void)
 {
 	g_pmic_chip_version = PMIC_CHIP_VER();
-#if 0
-	//TODO: LP_INIT_SETTING_VERIFIED
-	//TODO: Swap vsram_others to vsram_core
+#if LP_INIT_SETTING_VERIFIED
 	/*SODI3*/
 	pmic_buck_vproc11_lp(SW, 1, SW_OFF);
 	pmic_buck_vcore_lp(SRCLKEN0, 1, HW_LP);
@@ -160,7 +158,6 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_buck_vdram1_lp(SRCLKEN0, 1, HW_LP);
 	pmic_buck_vproc12_lp(SW, 1, SW_OFF);
 	pmic_ldo_vsram_gpu_lp(SW, 1, SW_OFF);
-	pmic_ldo_vsram_others_lp(SW, 1, SW_ON);
 	pmic_ldo_vsram_proc11_lp(SW, 1, SW_OFF);
 	pmic_ldo_vxo22_lp(SRCLKEN0, 1, HW_LP);
 	pmic_ldo_vrf18_lp(SRCLKEN1, 1, HW_OFF);
@@ -172,8 +169,14 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_ldo_vcn18_lp(SW, 1, SW_OFF);
 	pmic_ldo_vmddr_lp(SRCLKEN0, 1, HW_LP);
 	pmic_ldo_vsram_proc12_lp(SW, 1, SW_OFF);
-	/* disable HW LP mode (wk_sshub) */
-	/*pmic_ldo_vsram_core_lp(SRCLKEN0, 1, HW_LP);*/
+	if (is_pmic_new_power_grid()) {
+		pmic_ldo_vsram_others_lp(SRCLKEN0, 1, HW_LP);
+		pmic_ldo_vsram_core_lp(SW, 1, SW_ON);
+	} else {
+		pmic_ldo_vsram_others_lp(SW, 1, SW_ON);
+		/* disable HW LP mode (wk_sshub) */
+		pmic_ldo_vsram_core_lp(SW, 1, SW_ON);
+	}
 	pmic_ldo_va12_lp(SRCLKEN0, 1, HW_LP);
 	pmic_ldo_vaux18_lp(SRCLKEN0, 1, HW_LP);
 	pmic_ldo_vaud28_lp(SRCLKEN0, 1, HW_LP);
@@ -201,7 +204,6 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_buck_vdram1_lp(SRCLKEN2, 1, HW_LP);
 	pmic_buck_vproc12_lp(SW, 1, SW_OFF);
 	pmic_ldo_vsram_gpu_lp(SW, 1, SW_OFF);
-	pmic_ldo_vsram_others_lp(SW, 1, SW_ON);
 	pmic_ldo_vsram_proc11_lp(SW, 1, SW_OFF);
 	pmic_ldo_vxo22_lp(SRCLKEN2, 1, HW_LP);
 	pmic_ldo_vrf18_lp(SRCLKEN1, 1, HW_OFF);
@@ -213,7 +215,14 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_ldo_vcn18_lp(SW, 1, SW_OFF);
 	pmic_ldo_vmddr_lp(SRCLKEN2, 1, HW_LP);
 	pmic_ldo_vsram_proc12_lp(SW, 1, SW_OFF);
-	/*pmic_ldo_vsram_core_lp(SRCLKEN2, 1, HW_LP);*/
+	if (is_pmic_new_power_grid()) {
+		pmic_ldo_vsram_others_lp(SRCLKEN2, 1, HW_LP);
+		pmic_ldo_vsram_core_lp(SW, 1, SW_ON);
+	} else {
+		pmic_ldo_vsram_others_lp(SW, 1, SW_ON);
+		/* disable HW LP mode (wk_sshub) */
+		pmic_ldo_vsram_core_lp(SW, 1, SW_ON);
+	}
 	pmic_ldo_va12_lp(SRCLKEN2, 1, HW_LP);
 	pmic_ldo_vaux18_lp(SRCLKEN2, 1, HW_LP);
 	pmic_ldo_vaud28_lp(SW, 1, SW_ON);
