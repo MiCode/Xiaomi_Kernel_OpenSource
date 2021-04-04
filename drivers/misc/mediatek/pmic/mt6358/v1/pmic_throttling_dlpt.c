@@ -54,6 +54,9 @@
 #endif
 #endif
 
+#define _BITMASK_(_bits_)	(((unsigned int) -1 >> (31 - ((1) ? _bits_))) \
+						& ~((1U << ((0) ? _bits_)) - 1))
+
 /*****************************************************************************
  * PMIC related define
  ******************************************************************************/
@@ -208,7 +211,7 @@ void low_battery_protect_init(void)
 {
 	int ret = 0;
 #ifdef LBAT_LIMIT_BCPU_OPP
-	//u32 seg = 0;
+	u32 fab_info = 0, ptp_info = 0;
 #endif
 
 	ret = lbat_user_register(&lbat_pt, "power throttling"
@@ -216,13 +219,20 @@ void low_battery_protect_init(void)
 			, POWER_INT2_VOLT, exec_low_battery_callback);
 
 #ifdef LBAT_LIMIT_BCPU_OPP
-	//seg = get_devinfo_with_index(12);
+	fab_info = get_devinfo_with_index(130);
+	ptp_info = get_devinfo_with_index(46);
 
-	//if (seg != 0xffaa) {
+	pr_info("[%s] fab_info=0x%x ptp_info=0x%x\n"
+			, __func__, fab_info, ptp_info);
+
+	fab_info = (fab_info & _BITMASK_(3:2)) >> 2;
+	ptp_info = (ptp_info & _BITMASK_(31:30)) >> 30;
+
+	if (!(fab_info == 0x2 || (fab_info == 0x0 && ptp_info == 0x1))) {
 		ret = lbat_user_register(&lbat_pt_ext, "power throttling ext"
 			, POWER_INT0_VOLT_EXT, POWER_INT1_VOLT_EXT
 			, POWER_INT2_VOLT_EXT, exec_low_battery_callback_ext);
-	//}
+	}
 #endif
 
 #if PMIC_THROTTLING_DLPT_UT

@@ -11,20 +11,10 @@
 # GNU General Public License for more details.
 #
 
-ifeq ($(CONFIG_MACH_MT6833),y)
-	PDIR = mt6833
-else ifeq ($(CONFIG_MACH_MT6781),y)
-	PDIR = mt6781
-else
-	PDIR = $(MTK_PLATFORM)
-endif
-
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/spm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/mdpm_v2/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/mdpm_v2/$(PDIR)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/mdpm_v2/mt6781/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach/
+ccflags-y += -I$(srctree)/drivers/devfreq
 
-obj-y += mtk_mdpm_common.o
-obj-y += $(subst ",,$(PDIR))/
+obj-y += mtk_mdpm_platform.o

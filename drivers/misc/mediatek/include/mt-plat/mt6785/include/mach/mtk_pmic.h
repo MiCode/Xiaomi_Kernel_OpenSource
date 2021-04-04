@@ -18,11 +18,7 @@
 
 #define LOW_POWER_LIMIT_LEVEL_1 15
 
-#if defined(CONFIG_MACH_MT6781)
-#define PT_DLPT_BRINGUP 1
-#else
 #define PT_DLPT_BRINGUP 0
-#endif
 
 #if defined(CONFIG_FPGA_EARLY_PORTING) || PT_DLPT_BRINGUP
 /* Define for disable low battery protect feature,
