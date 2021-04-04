@@ -275,11 +275,11 @@ void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
 				ccci_write32(hw_info->md_ccif4_base, 0x14,
 					0xFF); /* special use ccci_write32 */
 			}
-			devapc_check_flag = 0;
 			if (strcmp(clk_table[idx].clk_name, "infra-ccif-ap")
 				== 0) {
 				ccif_set_irq_on_poweroff(CCIF_HIF_ID);
 			}
+			devapc_check_flag = 0;
 			clk_disable_unprepare(clk_table[idx].clk_ref);
 		}
 	}
