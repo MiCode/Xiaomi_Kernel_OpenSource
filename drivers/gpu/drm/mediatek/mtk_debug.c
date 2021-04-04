@@ -81,9 +81,9 @@ bool g_irq_log = 1;
 bool g_detail_log = 1;
 #else
 bool g_mobile_log;
-bool g_fence_log = 1;
-bool g_irq_log = 1;
-bool g_detail_log = 1;
+bool g_fence_log;
+bool g_irq_log;
+bool g_detail_log;
 #endif
 bool g_trace_log;
 unsigned int mipi_volt;
