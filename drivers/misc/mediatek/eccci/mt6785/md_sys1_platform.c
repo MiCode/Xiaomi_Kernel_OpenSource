@@ -261,6 +261,10 @@ void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
 					"%s: on=%d,ret=%d\n",
 					__func__, on, ret);
 			devapc_check_flag = 1;
+			if (strcmp(clk_table[idx].clk_name, "infra-ccif-ap")
+				== 0) {
+				ccif_set_irq_on_poweron(CCIF_HIF_ID);
+			}
 		} else {
 			if (strcmp(clk_table[idx].clk_name, "infra-ccif4-md")
 				== 0) {
@@ -272,6 +276,10 @@ void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
 					0xFF); /* special use ccci_write32 */
 			}
 			devapc_check_flag = 0;
+			if (strcmp(clk_table[idx].clk_name, "infra-ccif-ap")
+				== 0) {
+				ccif_set_irq_on_poweroff(CCIF_HIF_ID);
+			}
 			clk_disable_unprepare(clk_table[idx].clk_ref);
 		}
 	}

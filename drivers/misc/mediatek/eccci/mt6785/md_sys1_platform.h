@@ -102,4 +102,7 @@ extern unsigned long infra_ao_base;
 extern unsigned int devapc_check_flag;
 extern void ccci_mem_dump(int md_id, void *start_addr, int len);
 extern void dump_emi_outstanding(void);
+extern void ccif_set_irq_on_poweron(unsigned char hif_id);
+extern void ccif_set_irq_on_poweroff(unsigned char hif_id);
+
 #endif				/* __MD_SYS1_PLATFORM_H__ */
