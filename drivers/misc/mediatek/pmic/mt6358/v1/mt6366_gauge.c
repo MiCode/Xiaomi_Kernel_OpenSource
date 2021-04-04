@@ -901,7 +901,7 @@ static int fgauge_initial(struct gauge_device *gauge_dev)
 {
 	int bat_flag = 0;
 	int is_charger_exist;
-	unsigned int temps = 0;
+	unsigned int temps = 0, vbif28en = 0;
 	unsigned int slp_cur_th = 0;
 
 	temps = pmic_get_register_value(PMIC_RG_FG_OFFSET_SWAP);
@@ -913,6 +913,10 @@ static int fgauge_initial(struct gauge_device *gauge_dev)
 	/* set BATON_DEBOUNCE_THD to 0x0, set BATON_DEBOUNCE_WND to 0x10 */
 	pmic_set_register_value(PMIC_RG_BATON_DEBOUNCE_THD, 0);
 	pmic_set_register_value(PMIC_RG_BATON_DEBOUNCE_WND, 2);
+
+	vbif28en = pmic_get_register_value(PMIC_RG_LDO_VBIF28_EN);
+	pmic_set_register_value(PMIC_RG_LDO_VBIF28_EN, 1);
+	bm_err("set PMIC_RG_LDO_VBIF28_EN from %d,to 1\n", vbif28en);
 
 
 	pmic_set_register_value(PMIC_AUXADC_NAG_PRD, 10);
