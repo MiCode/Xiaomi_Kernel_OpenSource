@@ -182,6 +182,7 @@ config MACH_MT6781
 	select CRYPTO_AES_ARM64_CE_BLK
 	select MTK_UNIFIED_DEBUG_INTERFACE
 	select PM_DEVFREQ
+	select MTK_GIC_TARGET_ALL
 	help
 	  This enables support for MediaTek MT6781
 	  Support for aarch64 Architecture
