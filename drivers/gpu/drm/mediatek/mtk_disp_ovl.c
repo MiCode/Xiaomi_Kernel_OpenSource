@@ -290,6 +290,15 @@
 #define OVL_SECURE 0xfc0
 #define EXT_SECURE_OFFSET 4
 
+#define OVL_LAYER_DOMAIN 0xfc4
+#define OVL_LAYER_EXT_DOMAIN 0xfc8
+#define OVL_LAYER_Lx_DOMAIN(id)		REG_FLD_MSB_LSB((4 + 8 * id), (0 + 8 * id))
+#define OVL_LAYER_ELx_DOMAIN(id)		REG_FLD_MSB_LSB((4 + 8 * id), (0 + 8 * id))
+
+#ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
+#define OVL_LAYER_SVP_DOMAIN_INDEX  (4)
+#endif
+
 #define OVL_RDMA_DEBUG_OFFSET (0x4)
 
 #define OVL_RDMA_MEM_GMC 0x40402020
@@ -1261,6 +1270,9 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	unsigned int clip = 0;
 	unsigned int buf_size = 0;
 	int rotate = 0;
+#ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
+	unsigned int domain_val = 0, domain_mask = 0;
+#endif
 
 	if (fmt == DRM_FORMAT_YUYV || fmt == DRM_FORMAT_YVYU ||
 	    fmt == DRM_FORMAT_UYVY || fmt == DRM_FORMAT_VYUY) {
@@ -1318,26 +1330,47 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
 					pending->addr, meta_type,
 					offset, size, 0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
 					BIT(id + EXT_SECURE_OFFSET),
 					BIT(id + EXT_SECURE_OFFSET));
-
-				DDPDBG("%s:%d, addr:(%pad,0x%x), size:%d\n",
-					__func__, __LINE__,
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					OVL_LAYER_SVP_DOMAIN_INDEX, OVL_LAYER_ELx_DOMAIN(id));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d, EL%d set domain(0x%x, 0x%x, 0x%x) set domain, addr:(0x%x+0x%x), size:%d\n",
+					__func__, __LINE__, id,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask,
 					&pending->addr,
 					offset,
 					size);
+#endif
 			} else {
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					regs_addr, addr, ~0);
-				DDPDBG("%s:%d, addr:0x%x, size:%d\n",
-					__func__, __LINE__,
-					addr,
-					size);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
 					0, BIT(id + EXT_SECURE_OFFSET));
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					0, OVL_LAYER_ELx_DOMAIN(id));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d, EL%d, clear domain(0x%x, 0x%x, 0x%x), addr:0x%x, size:%d\n",
+					__func__, __LINE__, id,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask,
+					addr,
+					size);
+#endif
 			}
 		} else  {
 #endif
@@ -1345,9 +1378,24 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_REG_OVL_EL_ADDR(id),
 				addr, ~0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + OVL_SECURE,
 				0, BIT(id + EXT_SECURE_OFFSET));
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					0, OVL_LAYER_ELx_DOMAIN(id));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d, EL%d(0x%x, 0x%x, 0x%x), clear domain, addr:0x%x, size:%d\n",
+					__func__, __LINE__, id,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask,
+					addr,
+					0);
+#endif
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		}
 #endif
@@ -1376,29 +1424,72 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
 					pending->addr, meta_type,
 					offset, size, 0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
 					BIT(lye_idx), BIT(lye_idx));
-				DDPDBG("%s:%d, addr:(%pad,0x%x), size:%d\n",
-					__func__, __LINE__,
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					OVL_LAYER_SVP_DOMAIN_INDEX, OVL_LAYER_Lx_DOMAIN(lye_idx));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d, L%d set domain(0x%x, 0x%x, 0x%x), addr:(%pad,0x%x), size:%d\n",
+					__func__, __LINE__, lye_idx,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask,
 					&pending->addr,
 					offset,
 					size);
+#endif
 			} else {
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					regs_addr, addr, ~0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
 					0, BIT(lye_idx));
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					0, OVL_LAYER_Lx_DOMAIN(lye_idx));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d, L%d clear domain(0x%x, 0x%x, 0x%x), addr:(%pad,0x%x), size:%d\n",
+					__func__, __LINE__, lye_idx,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask,
+					&pending->addr,
+					offset,
+					size);
+#endif
 			}
 		} else {
 #endif
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_REG_OVL_ADDR(ovl, lye_idx),
 				addr, ~0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + OVL_SECURE,
 				0, BIT(lye_idx));
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					0, OVL_LAYER_Lx_DOMAIN(lye_idx));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d, L%d clear domain (0x%x, 0x%x, 0x%x), addr:(%pad,0x%x), size:%d\n",
+					__func__, __LINE__, lye_idx,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask,
+					&pending->addr,
+					offset,
+					0);
+#endif
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		}
 #endif
@@ -1644,6 +1735,9 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 	unsigned int lx_addr, lx_pitch;
 	unsigned int lx_hdr_addr, lx_hdr_pitch;
 	unsigned int lx_clip, lx_src_size;
+#ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
+	unsigned int domain_val = 0, domain_mask = 0;
+#endif
 
 #ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
 	if (drm_crtc_index(&comp->mtk_crtc->base) == 0)
@@ -1765,29 +1859,70 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 				meta_type = CMDQ_IWC_H_2_MVA;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
 					pending->addr, meta_type, 0, size, 0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
 					BIT(id + EXT_SECURE_OFFSET),
 					BIT(id + EXT_SECURE_OFFSET));
-				DDPDBG("%s:%d, addr:%pad, size:%d\n",
-					__func__, __LINE__,
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					OVL_LAYER_SVP_DOMAIN_INDEX, OVL_LAYER_ELx_DOMAIN(id));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d,EL%d set domain(0x%x, 0x%x, 0x%x) addr:%pad, size:%d\n",
+					__func__, __LINE__, id,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask,
 					&pending->addr,
 					size);
+#endif
 			} else {
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					regs_addr, lx_addr, ~0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
 					0, BIT(id + EXT_SECURE_OFFSET));
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					0, OVL_LAYER_ELx_DOMAIN(id));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d,EL%d clear domain(0x%x, 0x%x, 0x%x) addr:%pad, size:%d\n",
+					__func__, __LINE__, id,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask,
+					&pending->addr,
+					size);
+#endif
 			}
 		} else {
 #endif
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_REG_OVL_EL_ADDR(id),
 				lx_addr, ~0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + OVL_SECURE,
 				0, BIT(id + EXT_SECURE_OFFSET));
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					0, OVL_LAYER_ELx_DOMAIN(id));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d,EL%d clear domain(0x%x, 0x%x, 0x%x) addr:%pad, size:%d\n",
+					__func__, __LINE__, id,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask,
+					&pending->addr,
+					0);
+#endif
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		}
 #endif
@@ -1820,28 +1955,69 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 				meta_type = CMDQ_IWC_H_2_MVA;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
 					pending->addr, meta_type, 0, size, 0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
 					BIT(lye_idx), BIT(lye_idx));
-				DDPDBG("%s:%d, addr:%pad, size:%d\n",
-					__func__, __LINE__,
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					OVL_LAYER_SVP_DOMAIN_INDEX, OVL_LAYER_Lx_DOMAIN(lye_idx));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d, L%d set domain(0x%x, 0x%x, 0x%x) addr:%pad, size:%d\n",
+					__func__, __LINE__, lye_idx,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask,
 					&pending->addr,
 					size);
+#endif
 			} else {
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					regs_addr, lx_addr, ~0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
 					0, BIT(lye_idx));
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					0, OVL_LAYER_Lx_DOMAIN(lye_idx));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d, L%d clear domain(0x%x, 0x%x, 0x%x) addr:%pad, size:%d\n",
+					__func__, __LINE__, lye_idx,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask,
+					&pending->addr,
+					size);
+#endif
 			}
 		} else {
 #endif
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_REG_OVL_ADDR(ovl, lye_idx),
 				lx_addr, ~0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + OVL_SECURE,
 				0, BIT(lye_idx));
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					0, OVL_LAYER_Lx_DOMAIN(lye_idx));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d, L%d clear domain(0x%x, 0x%x, 0x%x) addr:%pad, size:%d\n",
+					__func__, __LINE__, lye_idx,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask,
+					&pending->addr,
+					0);
+#endif
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		}
 #endif
@@ -1909,6 +2085,9 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	unsigned int lx_clip, lx_src_size;
 	unsigned int lx_2nd_subbuf = 0;
 	unsigned int lx_pitch_msb = 0;
+#ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
+	unsigned int domain_val = 0, domain_mask = 0;
+#endif
 
 	DDPDBG("%s:%d, addr:0x%x, pitch:%d, vpitch:%d\n",
 		__func__, __LINE__, addr,
@@ -2058,29 +2237,70 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 				meta_type = CMDQ_IWC_H_2_MVA;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
 					pending->addr, meta_type, 0, size, 0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
 					BIT(id + EXT_SECURE_OFFSET),
 					BIT(id + EXT_SECURE_OFFSET));
-				DDPDBG("%s:%d, addr:%pad, size:%d\n",
-					__func__, __LINE__,
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					OVL_LAYER_SVP_DOMAIN_INDEX, OVL_LAYER_ELx_DOMAIN(id));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d, EL%d set domain(0x%x, 0x%x, 0x%x), addr:%pad, size:%d\n",
+					__func__, __LINE__, id,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask,
 					&pending->addr,
 					size);
+#endif
 			} else {
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					regs_addr, lx_addr, ~0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
 					0, BIT(id + EXT_SECURE_OFFSET));
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					0, OVL_LAYER_ELx_DOMAIN(id));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d, EL%d clear domain(0x%x, 0x%x, 0x%x), addr:%pad, size:%d\n",
+					__func__, __LINE__, id,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask,
+					&pending->addr,
+					size);
+#endif
 			}
 		} else {
 #endif
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_REG_OVL_EL_ADDR(id),
 				lx_addr, ~0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + OVL_SECURE,
 				0, BIT(id + EXT_SECURE_OFFSET));
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					0, OVL_LAYER_ELx_DOMAIN(id));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d, EL%d clear domain(0x%x, 0x%x, 0x%x), addr:%pad, size:%d\n",
+					__func__, __LINE__, id,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask,
+					&pending->addr,
+					0);
+#endif
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		}
 #endif
@@ -2120,28 +2340,69 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 				meta_type = CMDQ_IWC_H_2_MVA;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
 					pending->addr, meta_type, 0, size, 0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
 					BIT(lye_idx), BIT(lye_idx));
-				DDPDBG("%s:%d, addr:%pad, size:%d\n",
-					__func__, __LINE__,
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					OVL_LAYER_SVP_DOMAIN_INDEX, OVL_LAYER_Lx_DOMAIN(lye_idx));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d, L%d set domain(0x%x, 0x%x, 0x%x) addr:%pad, size:%d\n",
+					__func__, __LINE__, lye_idx,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask,
 					&pending->addr,
 					size);
+#endif
 			} else {
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					regs_addr, lx_addr, ~0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
 					0, BIT(lye_idx));
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					0, OVL_LAYER_Lx_DOMAIN(lye_idx));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d, L%d clear domain(0x%x, 0x%x, 0x%x) addr:%pad, size:%d\n",
+					__func__, __LINE__, lye_idx,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask,
+					&pending->addr,
+					size);
+#endif
 			}
 		} else {
 #endif
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_REG_OVL_ADDR(ovl, lye_idx),
 				lx_addr, ~0);
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + OVL_SECURE,
 				0, BIT(lye_idx));
+#else
+				SET_VAL_MASK(domain_val, domain_mask,
+					0, OVL_LAYER_Lx_DOMAIN(lye_idx));
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask);
+				DDPINFO(
+					"%s:%d, L%d clear domain(0x%x, 0x%x, 0x%x) addr:%pad, size:%d\n",
+					__func__, __LINE__, lye_idx,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask,
+					&pending->addr,
+					0);
+#endif
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		}
 #endif
