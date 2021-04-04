@@ -382,7 +382,7 @@
 
 	/* main (wide) : ldo4 ldo8 --- AVDD_CAM_W, DVDD_CAM_W */
 	cam0_vcama-supply = <&rt5133_ldo4>;
-	cam0_vcama1-supply = <&rt5133_ldo2>;
+	cam0_vcama1-supply = <&rt5133_ldo5>;
 	cam0_vcamd-supply = <&rt5133_ldo8>;
 	cam0_vcamio-supply = <&rt5133_ldo1>;
 
