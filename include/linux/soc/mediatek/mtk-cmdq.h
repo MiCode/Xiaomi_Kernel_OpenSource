@@ -409,7 +409,7 @@ void cmdq_buf_print_wfe(char *text, u32 txt_sz,
 	u32 offset, void *inst);
 
 void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
-	dma_addr_t cur_pa, const char *info);
+	dma_addr_t cur_pa, const char *info, void *chan);
 
 s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa);
 

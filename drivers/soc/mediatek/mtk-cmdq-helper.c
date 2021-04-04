@@ -1516,10 +1516,10 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 	cmdq_util_dump_lock();
 	cmdq_util_error_enable();
 
-	cmdq_util_err("begin of error irq %u", err_num++);
+	cmdq_util_user_err(client->chan, "begin of error irq %u", err_num++);
 	cmdq_util_dump_dbg_reg(client->chan);
 	cmdq_task_get_thread_pc(client->chan, &pc);
-	cmdq_util_err("pkt:%lx thread:%d pc:%lx",
+	cmdq_util_user_err(client->chan, "pkt:%lx thread:%d pc:%lx",
 		(unsigned long)pkt, thread_id, (unsigned long)pc);
 
 	if (pc) {
@@ -1527,7 +1527,8 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 			if (pc < buf->pa_base ||
 				pc > buf->pa_base + CMDQ_CMD_BUFFER_SIZE) {
 				size -= CMDQ_CMD_BUFFER_SIZE;
-				cmdq_util_msg("buffer %u va:0x%p pa:%pa",
+				cmdq_util_user_msg(client->chan,
+					"buffer %u va:0x%p pa:%pa",
 					cnt, buf->va_base, &buf->pa_base);
 				cnt++;
 				continue;
@@ -1538,10 +1539,11 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 			if (size > CMDQ_CMD_BUFFER_SIZE)
 				size = CMDQ_CMD_BUFFER_SIZE;
 
-			cmdq_util_msg("error irq buffer %u va:0x%p pa:%pa",
+			cmdq_util_user_msg(client->chan,
+				"error irq buffer %u va:0x%p pa:%pa",
 				cnt, buf->va_base, &buf->pa_base);
 			cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
-				buf->pa_base, pc, NULL);
+				buf->pa_base, pc, NULL, client->chan);
 
 			break;
 		}
@@ -1608,7 +1610,7 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 				len, ARRAY_SIZE(text_gpr));
 	}
 
-	cmdq_util_msg("curr inst: %s value:%u%s",
+	cmdq_util_user_msg(chan, "curr inst: %s value:%u%s",
 		text, cmdq_get_event(chan, inst->arg_a), text_gpr);
 }
 #endif
@@ -1636,7 +1638,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	if (err_num == 0)
 		cmdq_util_error_enable();
 
-	cmdq_util_err("Begin of Error %u", err_num);
+	cmdq_util_user_err(client->chan, "Begin of Error %u", err_num);
 
 	cmdq_dump_core(client->chan);
 
@@ -1663,7 +1665,8 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	if (inst && inst->op == CMDQ_CODE_WFE)
 		cmdq_print_wait_summary(client->chan, pc, inst);
 	else if (inst)
-		cmdq_buf_cmd_parse((u64 *)inst, 1, pc, pc, "curr inst:");
+		cmdq_buf_cmd_parse((u64 *)inst, 1, pc, pc,
+			"curr inst:", client->chan);
 	else
 		cmdq_util_msg("curr inst: Not Available");
 
@@ -1713,7 +1716,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	}
 
 done:
-	cmdq_util_err("End of Error %u", err_num);
+	cmdq_util_user_err(client->chan, "End of Error %u", err_num);
 	if (err_num == 0) {
 		cmdq_util_error_disable();
 		cmdq_util_set_first_err_mod(client->chan, mod);
@@ -1786,7 +1789,7 @@ void cmdq_dump_summary(struct cmdq_client *client, struct cmdq_pkt *pkt)
 		cmdq_print_wait_summary(client->chan, pc, inst);
 	else if (inst)
 		cmdq_buf_cmd_parse((u64 *)inst, 1, pc, pc,
-			"curr inst:");
+			"curr inst:", client->chan);
 	else
 		cmdq_msg("curr inst: Not Available");
 	cmdq_dump_pkt(pkt, pc, false);
@@ -1832,7 +1835,8 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 			break;
 
 		cmdq_util_dump_lock();
-		cmdq_msg("===== SW timeout Pre-dump %u =====", cnt++);
+		cmdq_util_user_msg(client->chan,
+			"===== SW timeout Pre-dump %u =====", cnt++);
 		cmdq_dump_summary(client, pkt);
 		cmdq_util_dump_unlock();
 	}
@@ -2261,7 +2265,7 @@ static void cmdq_buf_print_misc(char *text, u32 txt_sz,
 }
 
 void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
-	dma_addr_t cur_pa, const char *info)
+	dma_addr_t cur_pa, const char *info, void *chan)
 {
 #define txt_sz 128
 	static char text[txt_sz];
@@ -2309,7 +2313,7 @@ void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
 				&cmdq_inst[i]);
 			break;
 		}
-		cmdq_util_msg("%s%s",
+		cmdq_util_user_msg(chan, "%s%s",
 			info ? info : (buf_pa == cur_pa ? ">>" : "  "),
 			text);
 		buf_pa += CMDQ_INST_SIZE;
@@ -2318,6 +2322,7 @@ void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
 
 s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 {
+	struct cmdq_client *client = (struct cmdq_client *)pkt->cl;
 	struct cmdq_pkt_buffer *buf;
 	u32 size, cnt = 0;
 
@@ -2326,7 +2331,7 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 			size = CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
 		} else if (cnt > 2 && !(curr_pa >= buf->pa_base &&
 			curr_pa < buf->pa_base + CMDQ_BUF_ALLOC_SIZE)) {
-			cmdq_util_msg(
+			cmdq_util_user_msg(client->chan,
 				"buffer %u va:0x%p pa:%pa %#018llx (skip detail) %#018llx",
 				cnt, buf->va_base, &buf->pa_base,
 				*((u64 *)buf->va_base),
@@ -2337,10 +2342,10 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 		} else {
 			size = CMDQ_CMD_BUFFER_SIZE;
 		}
-		cmdq_util_msg("buffer %u va:0x%p pa:%pa",
+		cmdq_util_user_msg(client->chan, "buffer %u va:0x%p pa:%pa",
 			cnt, buf->va_base, &buf->pa_base);
 		cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
-			buf->pa_base, curr_pa, NULL);
+			buf->pa_base, curr_pa, NULL, client->chan);
 		cnt++;
 	}
 
@@ -2350,16 +2355,18 @@ EXPORT_SYMBOL(cmdq_pkt_dump_buf);
 
 int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 {
+	struct cmdq_client *client = (struct cmdq_client *)pkt->cl;
+
 	if (!pkt)
 		return -EINVAL;
 
-	cmdq_util_msg(
+	cmdq_util_user_msg(client->chan,
 		"pkt:0x%p(%#x) size:%zu/%zu avail size:%zu priority:%u%s",
 		pkt, (u32)(unsigned long)pkt, pkt->cmd_buf_size,
 		pkt->buf_size, pkt->avail_buf_size,
 		pkt->priority, pkt->loop ? " loop" : "");
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	cmdq_util_msg(
+	cmdq_util_user_msg(client->chan,
 		"submit:%llu trigger:%llu wait:%llu irq:%llu",
 		pkt->rec_submit, pkt->rec_trigger,
 		pkt->rec_wait, pkt->rec_irq);

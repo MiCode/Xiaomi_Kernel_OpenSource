@@ -778,7 +778,8 @@ static void cmdq_buf_dump_schedule(struct cmdq_task *task, bool timeout,
 		break;
 	}
 
-	cmdq_err("task:0x%p timeout:%s pkt:0x%p size:%zu pc:0x%08x inst:0x%016llx",
+	cmdq_util_user_err(task->thread->chan,
+		"task:0x%p timeout:%s pkt:0x%p size:%zu pc:0x%08x inst:0x%016llx",
 		task, timeout ? "true" : "false", task->pkt,
 		task->pkt->cmd_buf_size, pa_curr,
 		inst ? *inst : -1);
@@ -1051,7 +1052,8 @@ static void cmdq_thread_handle_timeout_work(struct work_struct *work_item)
 		goto unlock_free_done;
 	}
 
-	cmdq_err("timeout for thread:0x%p idx:%u usage:%d",
+	cmdq_util_user_err(thread->chan,
+		"timeout for thread:0x%p idx:%u usage:%d",
 		thread->base, thread->idx, atomic_read(&cmdq->usage));
 
 	pa_curr = cmdq_thread_get_pc(thread);
@@ -1157,7 +1159,7 @@ void cmdq_dump_core(struct mbox_chan *chan)
 	tpr_mask = readl(cmdq->base + CMDQ_TPR_MASK);
 	tpr_en = readl(cmdq->base + CMDQ_TPR_TIMEOUT_EN);
 
-	cmdq_util_msg(
+	cmdq_util_user_msg(chan,
 		"irq:%#x loaded:%#x cycle:%#x thd timer:%#x mask:%#x en:%#x",
 		irq, loaded, cycle, thd_timer, tpr_mask, tpr_en);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
@@ -1176,13 +1178,14 @@ void cmdq_thread_dump_spr(struct cmdq_thread *thread)
 	dbg[0] = readl(cmdq->base + GCE_DEBUG_START_ADDR);
 	dbg[1] = readl(cmdq->base + GCE_DEBUG_END_ADDR);
 
-	cmdq_util_msg("thrd:%u spr:%#x %#x %#x %#x dbg:%#x %#x",
+	cmdq_util_user_msg(thread->chan,
+		"thrd:%u spr:%#x %#x %#x %#x dbg:%#x %#x",
 		thread->idx, spr[0], spr[1], spr[2], spr[3], dbg[0], dbg[1]);
 
 	for (i = 0; i < 16; i++)
 		gpr[i] = readl(cmdq->base + GCE_GPR_R0_START + i * 4);
 
-	cmdq_util_msg(
+	cmdq_util_user_msg(thread->chan,
 		"cmdq:%pa gpr:%#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x",
 		&cmdq->base_pa, gpr[0], gpr[1], gpr[2], gpr[3], gpr[4], gpr[5],
 		gpr[6], gpr[7], gpr[8], gpr[9], gpr[10], gpr[11], gpr[12],
@@ -1260,25 +1263,25 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	}
 	spin_unlock_irqrestore(&chan->lock, flags);
 
-	cmdq_util_msg(
+	cmdq_util_user_msg(chan,
 		"thd:%u pc:%#010x(%p) inst:%#018llx end:%#010x cnt:%#x token:%#010x",
 		thread->idx, curr_pa, curr_va, inst, end_pa, cnt, wait_token);
-	cmdq_util_msg(
+	cmdq_util_user_msg(chan,
 		"rst:%#x en:%#x suspend:%#x status:%#x irq:%x en:%#x cfg:%#x",
 		warn_rst, en, suspend, status, irq, irq_en, cfg);
 	cmdq_thread_dump_spr(thread);
 
 	if (pkt) {
-		cmdq_util_msg(
+		cmdq_util_user_msg(chan,
 			"cur pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",
 			pkt, size, va_base, &pa_base, pri);
-		cmdq_util_msg("last inst %#018llx %#018llx",
+		cmdq_util_user_msg(chan, "last inst %#018llx %#018llx",
 			last_inst[0], last_inst[1]);
 
 		if (cl_pkt && cl_pkt != pkt) {
 			buf = list_first_entry(&cl_pkt->buf, typeof(*buf),
 				list_entry);
-			cmdq_util_msg(
+			cmdq_util_user_msg(chan,
 				"expect pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",
 				cl_pkt, cl_pkt->cmd_buf_size, buf->va_base,
 				&buf->pa_base, cl_pkt->priority);
