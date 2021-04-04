@@ -678,6 +678,7 @@ static struct mtk_panel_params ext_params = {
 		.count = 1,
 		.para_list[0] = 0x1c,
 	},
+
 };
 
 static struct mtk_panel_funcs ext_funcs = {
