@@ -655,9 +655,9 @@ int base_ops_mon_mode(struct eem_det *det)
 	else if (det_to_id(det) == EEM_DET_B)
 		ts_bank = THERMAL_BANK1;
 	else if (det_to_id(det) == EEM_DET_CCI)
-		ts_bank = THERMAL_BANK2;
+		ts_bank = THERMAL_BANK0;
 	else if (det_to_id(det) == EEM_DET_GPU)
-		ts_bank = THERMAL_BANK3;
+		ts_bank = THERMAL_BANK2;
 #if ENABLE_VPU
 	else if (det_to_id(det) == EEM_DET_VPU)
 		ts_bank = THERMAL_BANK5;
@@ -669,7 +669,7 @@ int base_ops_mon_mode(struct eem_det *det)
 
 #if ENABLE_LOO_G
 	else if (det_to_id(det) == EEM_DET_GPU_HI)
-		ts_bank = THERMAL_BANK3;
+		ts_bank = THERMAL_BANK2;
 #endif
 #if ENABLE_LOO_B
 	else if (det_to_id(det) == EEM_DET_B_HI)
@@ -987,13 +987,13 @@ int base_ops_get_temp(struct eem_det *det)
 	else if (det_to_id(det) == EEM_DET_B)
 		ts_bank = THERMAL_BANK1;
 	else if (det_to_id(det) == EEM_DET_CCI)
-		ts_bank = THERMAL_BANK2;
+		ts_bank = THERMAL_BANK0;
 	else if (det_to_id(det) == EEM_DET_GPU)
-		ts_bank = THERMAL_BANK3;
+		ts_bank = THERMAL_BANK2;
 
 #if ENABLE_LOO_G
 	else if (det_to_id(det) == EEM_DET_GPU_HI)
-		ts_bank = THERMAL_BANK3;
+		ts_bank = THERMAL_BANK2;
 #endif
 #if ENABLE_MDLA
 	else if (det_to_id(det) == EEM_DET_MDLA)
@@ -2805,8 +2805,8 @@ static inline void handle_mon_mode_isr(struct eem_det *det)
 	eem_debug("LL_temp=%d, L_temp=%d, CCI_temp=%d, GPU_temp=%d\n",
 		tscpu_get_temp_by_bank(THERMAL_BANK0),
 		tscpu_get_temp_by_bank(THERMAL_BANK1),
-		tscpu_get_temp_by_bank(THERMAL_BANK2),
-		tscpu_get_temp_by_bank(THERMAL_BANK3)
+		tscpu_get_temp_by_bank(THERMAL_BANK0),
+		tscpu_get_temp_by_bank(THERMAL_BANK2)
 		);
 #endif
 
@@ -2853,11 +2853,11 @@ static inline void handle_mon_mode_isr(struct eem_det *det)
 #ifdef CONFIG_THERMAL
 #if defined(__LP64__) || defined(_LP64)
 		temp_long =
-		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK2)/1000;
+		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK0)/1000;
 #else
 		temp_long =
 		div_u64
-		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK2),
+		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK0),
 		1000);
 #endif
 		if (temp_long != 0) {
@@ -2872,10 +2872,10 @@ static inline void handle_mon_mode_isr(struct eem_det *det)
 #ifdef CONFIG_THERMAL
 #if defined(__LP64__) || defined(_LP64)
 		temp_long =
-		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK3)/1000;
+		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK2)/1000;
 #else
 		temp_long = div_u64
-		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK3),
+		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK2),
 		 1000);
 #endif
 		if (temp_long != 0) {
@@ -2891,10 +2891,10 @@ static inline void handle_mon_mode_isr(struct eem_det *det)
 #ifdef CONFIG_THERMAL
 #if defined(__LP64__) || defined(_LP64)
 		temp_long =
-		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK3)/1000;
+		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK2)/1000;
 #else
 		temp_long = div_u64
-		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK3),
+		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK2),
 		 1000);
 #endif
 		if (temp_long != 0) {
@@ -3579,12 +3579,12 @@ void mt_eem_opp_status(enum eem_det_id id, unsigned int *temp,
 	else if (id == EEM_DET_B)
 		*temp = tscpu_get_temp_by_bank(THERMAL_BANK1);
 	else if (id == EEM_DET_CCI)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK2);
+		*temp = tscpu_get_temp_by_bank(THERMAL_BANK0);
 	else if (id == EEM_DET_GPU)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK3);
+		*temp = tscpu_get_temp_by_bank(THERMAL_BANK2);
 #if ENABLE_LOO_G
 	else if (id == EEM_DET_GPU_HI)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK3);
+		*temp = tscpu_get_temp_by_bank(THERMAL_BANK2);
 #endif
 #if ENABLE_MDLA
 	else if (id == EEM_DET_MDLA)
