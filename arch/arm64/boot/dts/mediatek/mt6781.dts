@@ -4010,8 +4010,9 @@
 	ipe_smi_subcom@1c00e000 {
 		compatible = "mediatek,ipe_smi_subcom", "mediatek,smi_common";
 		reg = <0 0x1c00e000 0 0x1000>;
-		clocks = <&scpsys SCP_SYS_IPE>;
-		clock-names = "scp-ipe";
+		clocks = <&scpsys SCP_SYS_IPE>,
+				<&ipesys CLK_IPE_SMI_SUBCOM>;
+		clock-names = "scp-ipe", "ipe-smisubcom";
 		mediatek,smi-id = <25>;
 	};
 
