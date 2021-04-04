@@ -385,14 +385,47 @@ int Ripi_cpu_dvfs_thread(void *data)
 						p->mt_policy->min);
 				}
 #endif
+
+#if defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
+				if (p->mt_policy->cur > p->mt_policy->max) {
+					freqs.old = p->mt_policy->cur;
+					freqs.new = p->mt_policy->max;
+					cpufreq_freq_transition_begin(p->mt_policy, &freqs);
+					cpufreq_freq_transition_end(p->mt_policy, &freqs, 0);
+					p->idx_opp_tbl = _search_available_freq_idx(p,
+										    freqs.new,
+										    0);
+				} else if (p->mt_policy->cur < p->mt_policy->min) {
+					freqs.old = p->mt_policy->cur;
+					freqs.new = p->mt_policy->min;
+					cpufreq_freq_transition_begin(p->mt_policy, &freqs);
+					cpufreq_freq_transition_end(p->mt_policy, &freqs, 0);
+					p->idx_opp_tbl = _search_available_freq_idx(p,
+										    freqs.new,
+										    0);
+				} else if (cpu_dvfs_get_freq_by_idx(p, p->idx_opp_tbl) !=
+					   p->mt_policy->cur) {
+					freqs.old = cpu_dvfs_get_freq_by_idx(p, p->idx_opp_tbl);
+					freqs.new = p->mt_policy->cur;
+					cpufreq_freq_transition_begin(p->mt_policy, &freqs);
+					cpufreq_freq_transition_end(p->mt_policy, &freqs, 0);
+					p->idx_opp_tbl = _search_available_freq_idx(p,
+										    freqs.new,
+										    0);
+				}
+#endif
 				trace_cpu_frequency_limits(p->mt_policy->max,
-						p->mt_policy->min,
-						p->mt_policy->cpu);
+					p->mt_policy->min,
+					p->mt_policy->cpu);
 
 				/* Policy notification */
 				if (p->idx_opp_tbl != j ||
 				(p->idx_opp_ppm_limit != previous_limit) ||
 				(p->idx_opp_ppm_base != previous_base)) {
+#if defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
+#else
 					freqs.old = cpu_dvfs_get_cur_freq(p);
 					freqs.new =
 					cpu_dvfs_get_freq_by_idx(p, j);
@@ -402,6 +435,7 @@ int Ripi_cpu_dvfs_thread(void *data)
 					p->mt_policy, &freqs);
 					cpufreq_freq_transition_end(
 					p->mt_policy, &freqs, 0);
+#endif
 				}
 			}
 		}
@@ -1559,6 +1593,12 @@ void cpuhvfs_update_cci_map_tbl(unsigned int idx_1, unsigned int idx_2,
 
 void cpuhvfs_update_cci_mode(unsigned int mode, unsigned int use_id)
 {
+#ifdef ENABLE_DOE
+	struct cpudvfs_doe *d = &dvfs_doe;
+
+	if (!d->state)
+		return;
+#endif
 	if (mode < NR_CCI_TBL) {
 		csram_write(OFFS_CCI_TBL_USER, use_id);
 		/* mode = 0(Normal as 50%) mode = 1(Perf as 70%) */
@@ -1970,7 +2010,10 @@ static int cpuhvfs_pre_module_init(void)
 		tag_pr_notice("FAILED TO INIT DVFS MODULE(%d)\n", r);
 		return r;
 	}
-#ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
+
+#if defined(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT) \
+	|| (defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) \
+	&& defined(USE_SSPM_VER_V2))
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_SSPM_VER_V2)
 	ret = mtk_ipi_register(&sspm_ipidev, IPIS_C_GPU_DVFS, NULL, NULL,
 		(void *) &cpufreq_ipi_ackdata);

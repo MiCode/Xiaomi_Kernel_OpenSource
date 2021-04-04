@@ -17,7 +17,6 @@
 #include "mtk_cpufreq_internal.h"
 
 #define CPU_DVFS_DT_REG	1
-
 #if defined(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT) || \
 	(defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && \
 	defined(USE_SSPM_VER_V2))
@@ -32,7 +31,7 @@
 #define IMAX_INIT_STATE         1
 #define CPU_DVFS_NOT_READY	1
 #define REPORT_IDLE_FREQ	1
-#define ENABLE_CLUSTER_ONOFF_SRAM	1
+//#define ENABLE_CLUSTER_ONOFF_SRAM	1
 #else
 #define SUPPORT_VOLT_HW_AUTO_TRACK 1
 #define CPU_DVFS_NOT_READY	1
@@ -54,7 +53,7 @@
 #define MAX_VPROC_VOLT			100000
 
 #define VPROC_STEP					625
-#define VPROC_BASE					40000
+#define VPROC_BASE					50000
 #define VSRAM_STEP					625
 #define VSRAM_BASE					50000
 

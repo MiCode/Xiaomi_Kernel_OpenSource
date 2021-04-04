@@ -38,8 +38,8 @@ static struct regulator *regulator_sram2;
 static unsigned long apmixed_base	= 0x1000c000;
 static unsigned long mcucfg_base	= 0x0c530000;
 
-#define APMIXED_NODE	"mediatek,mt6833-apmixedsys"
-#define MCUCFG_NODE		"mediatek,mcucfg-dvfs"
+#define APMIXED_NODE		"mediatek,apmixed"
+#define MCUCFG_NODE		"mediatek,mcucfg"
 #define ARMPLL_LL_CON1		(apmixed_base + 0x20c)	/* ARMPLL1 */
 #define ARMPLL_L_CON1		(apmixed_base + 0x21c)	/* ARMPLL2 */
 #define CCIPLL_CON1			(apmixed_base + 0x25c)
@@ -572,31 +572,32 @@ int mt_cpufreq_turbo_config(enum mt_cpu_dvfs_id id,
 
 int mt_cpufreq_regulator_map(struct platform_device *pdev)
 {
-	regulator_proc1 = devm_regulator_get_optional(&pdev->dev, "proc1");
+	regulator_proc1 = regulator_get_optional(&pdev->dev, "proc1");
 	if (GEN_DB_ON(IS_ERR(regulator_proc1), "vproc1 Get Failed")) {
-		tag_pr_info("@@6vbuck1 Get Failed\n");
-		return -ENODEV;
+		tag_pr_info("@@proc1 Get Failed\n");
 	}
 
-	regulator_proc2 = devm_regulator_get_optional(&pdev->dev, "proc2");
+	regulator_proc2 = regulator_get_optional(&pdev->dev, "proc2");
 	if (GEN_DB_ON(IS_ERR(regulator_proc2), "6vbuck3 Get Failed")) {
-		tag_pr_info("@@6vbuck3 Get Failed\n");
+		tag_pr_info("@@proc2 Get Failed\n");
 		return -ENODEV;
 	}
 
-	regulator_sram1 = devm_regulator_get_optional(&pdev->dev, "sram_proc1");
+	regulator_sram1 = regulator_get_optional(&pdev->dev, "sram_proc1");
 	if (GEN_DB_ON(IS_ERR(regulator_sram1), "vsram_proc1 Get Failed")) {
-		tag_pr_info("@@vsram1 Get Failed\n");
+		tag_pr_info("@@sram_proc1 Get Failed\n");
 		return -ENODEV;
 	}
 
-	regulator_sram2 = devm_regulator_get_optional(&pdev->dev, "sram_proc2");
+	regulator_sram2 = regulator_get_optional(&pdev->dev, "sram_proc2");
 	if (GEN_DB_ON(IS_ERR(regulator_sram2), "vsram_proc2 Get Failed")) {
-		tag_pr_info("@@vsram2 Get Failed\n");
+		tag_pr_info("@@sram_proc2 Get Failed\n");
 		return -ENODEV;
 	}
+
 	pmic_ready_flag = 1;
 	tag_pr_info("@@regulator map success!!\n");
+
 	return 0;
 }
 
@@ -619,7 +620,6 @@ int mt_cpufreq_dts_map(void)
 		return -ENODEV;
 
 	mcucfg_base = (unsigned long)of_iomap(node, 0);
-
 	if (GEN_DB_ON(!mcucfg_base, "MCUCFG Map Failed"))
 		return -ENOMEM;
 
