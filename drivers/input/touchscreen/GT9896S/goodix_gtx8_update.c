@@ -1395,14 +1395,14 @@ static ssize_t gt9896s_sysfs_force_update_store(
 }
 
 static struct gt9896s_ext_attribute gt9896s_fwu_attrs[] = {
-	__EXTMOD_ATTR(update_en, S_IWUGO, NULL, gt9896s_sysfs_update_en_store),
+	__EXTMOD_ATTR(update_en, 0220, NULL, gt9896s_sysfs_update_en_store),
 	__EXTMOD_ATTR(progress, S_IRUGO, gt9896s_sysfs_update_progress_show, NULL),
 	__EXTMOD_ATTR(result, S_IRUGO, gt9896s_sysfs_update_result_show, NULL),
 	__EXTMOD_ATTR(fwversion, S_IRUGO,
 			gt9896s_sysfs_update_fwversion_show, NULL),
-	__EXTMOD_ATTR(fwsize, S_IRUGO | S_IWUGO, gt9896s_sysfs_fwsize_show,
+	__EXTMOD_ATTR(fwsize, 0660, gt9896s_sysfs_fwsize_show,
 			gt9896s_sysfs_fwsize_store),
-	__EXTMOD_ATTR(force_update, S_IWUGO, NULL,
+	__EXTMOD_ATTR(force_update, 0220, NULL,
 			gt9896s_sysfs_force_update_store),
 };
 
@@ -1438,7 +1438,7 @@ static int gt9896s_fw_sysfs_init(struct gt9896s_ts_core *core_data,
 	}
 
 	fw_ctrl->attr_fwimage.attr.name = "fwimage";
-	fw_ctrl->attr_fwimage.attr.mode = S_IRUGO | S_IWUGO;
+	fw_ctrl->attr_fwimage.attr.mode = 0660;
 	fw_ctrl->attr_fwimage.size = 0;
 	fw_ctrl->attr_fwimage.write = gt9896s_sysfs_fwimage_store;
 	ret = sysfs_create_bin_file(&module->kobj,
