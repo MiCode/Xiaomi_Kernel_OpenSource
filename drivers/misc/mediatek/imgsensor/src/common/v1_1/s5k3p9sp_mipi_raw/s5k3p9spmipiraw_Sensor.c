@@ -5060,20 +5060,19 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 
 	LOG_INF("feature_id = %d\n", feature_id);
 	switch (feature_id) {
-/*
- *		case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:
- *		*(feature_data + 1) = imgsensor_info.min_gain;
- *		*(feature_data + 2) = imgsensor_info.max_gain;
- *		break;
- *	case SENSOR_FEATURE_GET_BASE_GAIN_ISO_AND_STEP:
- *		*(feature_data + 0) = imgsensor_info.min_gain_iso;
- *		*(feature_data + 1) = imgsensor_info.gain_step;
- *		*(feature_data + 2) = imgsensor_info.gain_type;
- *		break;
- *	case SENSOR_FEATURE_GET_MIN_SHUTTER_BY_SCENARIO:
- *		*(feature_data + 1) = imgsensor_info.min_shutter;
- *		break;
- */
+
+	case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:
+		*(feature_data + 1) = imgsensor_info.min_gain;
+		*(feature_data + 2) = imgsensor_info.max_gain;
+		break;
+	case SENSOR_FEATURE_GET_BASE_GAIN_ISO_AND_STEP:
+		*(feature_data + 0) = imgsensor_info.min_gain_iso;
+		*(feature_data + 1) = imgsensor_info.gain_step;
+		*(feature_data + 2) = imgsensor_info.gain_type;
+		break;
+	case SENSOR_FEATURE_GET_MIN_SHUTTER_BY_SCENARIO:
+		*(feature_data + 1) = imgsensor_info.min_shutter;
+		break;
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
 		switch (*feature_data) {
 		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
