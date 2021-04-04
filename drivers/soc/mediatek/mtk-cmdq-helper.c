@@ -515,7 +515,7 @@ struct cmdq_pkt *cmdq_pkt_create(struct cmdq_client *client)
 	if (client && cmdq_util_is_feature_en(CMDQ_LOG_FEAT_PERF))
 		cmdq_pkt_perf_begin(pkt);
 #endif
-
+	pkt->task_alive = true;
 	return pkt;
 }
 EXPORT_SYMBOL(cmdq_pkt_create);
@@ -526,6 +526,7 @@ void cmdq_pkt_destroy(struct cmdq_pkt *pkt)
 
 	if (client)
 		mutex_lock(&client->chan_mutex);
+	pkt->task_alive = false;
 	cmdq_pkt_free_buf(pkt);
 	kfree(pkt->flush_item);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
@@ -2322,10 +2323,20 @@ void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
 
 s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 {
-	struct cmdq_client *client = (struct cmdq_client *)pkt->cl;
+	struct cmdq_client *client;
 	struct cmdq_pkt_buffer *buf;
 	u32 size, cnt = 0;
 
+	if (!pkt) {
+		cmdq_err("%s pkt is empty");
+		return -EINVAL;
+	}
+	if (!pkt->task_alive) {
+		cmdq_err("%s task_alive:%d", pkt->task_alive);
+		return -EINVAL;
+	}
+
+	client = (struct cmdq_client *)pkt->cl;
 	list_for_each_entry(buf, &pkt->buf, list_entry) {
 		if (list_is_last(&buf->list_entry, &pkt->buf)) {
 			size = CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
@@ -2344,8 +2355,10 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 		}
 		cmdq_util_user_msg(client->chan, "buffer %u va:0x%p pa:%pa",
 			cnt, buf->va_base, &buf->pa_base);
-		cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
-			buf->pa_base, curr_pa, NULL, client->chan);
+		if (buf->va_base) {
+			cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
+				buf->pa_base, curr_pa, NULL, client->chan);
+		}
 		cnt++;
 	}
 
@@ -2357,8 +2370,14 @@ int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 {
 	struct cmdq_client *client = (struct cmdq_client *)pkt->cl;
 
-	if (!pkt)
+	if (!pkt) {
+		cmdq_err("%s pkt is empty");
 		return -EINVAL;
+	}
+	if (!pkt->task_alive) {
+		cmdq_err("%s task_alive:%d", pkt->task_alive);
+		return -EINVAL;
+	}
 
 	cmdq_util_user_msg(client->chan,
 		"pkt:0x%p(%#x) size:%zu/%zu avail size:%zu priority:%u%s",

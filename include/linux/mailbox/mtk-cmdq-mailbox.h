@@ -144,6 +144,7 @@ struct cmdq_pkt {
 #endif
 #endif	/* end of CONFIG_MTK_CMDQ_MBOX_EXT */
 	bool			task_alloc;
+	bool			task_alive;
 };
 
 struct cmdq_thread {
