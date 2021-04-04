@@ -45,6 +45,8 @@
 #define CCU_I2C_4_HW_DRVNAME  "ccu_i2c_4_hwtrg"
 #define CCU_I2C_7_HW_DRVNAME  "ccu_i2c_7_hwtrg"
 
+static DEFINE_MUTEX(ccu_i2c_mutex);
+
 /*i2c driver hook*/
 static int ccu_i2c_probe_2(struct i2c_client *client,
 	const struct i2c_device_id *id);
@@ -196,6 +198,7 @@ int ccu_i2c_register_driver(void)
 {
 	int i2c_ret = 0;
 
+	mutex_lock(&ccu_i2c_mutex);
 	LOG_DBG_MUST("i2c_add_driver(&ccu_i2c_2_driver)++\n");
 	i2c_ret = i2c_add_driver(&ccu_i2c_2_driver);
 	LOG_DBG_MUST("i2c_add_driver(&ccu_i2c_2_driver), ret: %d--\n",
@@ -208,22 +211,26 @@ int ccu_i2c_register_driver(void)
 	i2c_ret = i2c_add_driver(&ccu_i2c_7_driver);
 	LOG_DBG_MUST("i2c_add_driver(&ccu_i2c_7_driver), ret: %d--\n",
 		i2c_ret);
+	mutex_unlock(&ccu_i2c_mutex);
 	return 0;
 }
 
 int ccu_i2c_delete_driver(void)
 {
+	mutex_lock(&ccu_i2c_mutex);
 	i2c_del_driver(&ccu_i2c_2_driver);
 	i2c_del_driver(&ccu_i2c_4_driver);
 	i2c_del_driver(&ccu_i2c_7_driver);
-
+	mutex_unlock(&ccu_i2c_mutex);
 	return 0;
 }
 
 int ccu_i2c_controller_init(uint32_t i2c_id)
 {
+	mutex_lock(&ccu_i2c_mutex);
 	if (i2c_id >= I2C_MAX_CHANNEL) {
 		LOG_ERR("i2c_id %d is invalid\n", i2c_id);
+		mutex_unlock(&ccu_i2c_mutex);
 		return -EINVAL;
 	}
 
@@ -233,11 +240,12 @@ int ccu_i2c_controller_init(uint32_t i2c_id)
 	}
 	if (ccu_i2c_controller_en(i2c_id, 1) == -1) {
 		LOG_DBG("ccu_i2c_controller_en 1 fail\n");
+		mutex_unlock(&ccu_i2c_mutex);
 		return -1;
 	}
 
 	LOG_DBG_MUST("%s done.\n", __func__);
-
+	mutex_unlock(&ccu_i2c_mutex);
 	return 0;
 }
 
@@ -245,6 +253,7 @@ int ccu_i2c_controller_uninit_all(void)
 {
 	int i;
 
+	mutex_lock(&ccu_i2c_mutex);
 	for (i = 0 ; i < I2C_MAX_CHANNEL ; i++) {
 		if (ccu_i2c_initialized[i])
 			ccu_i2c_controller_uninit(i);
@@ -252,6 +261,7 @@ int ccu_i2c_controller_uninit_all(void)
 
 	LOG_INF_MUST("%s done.\n", __func__);
 
+	mutex_unlock(&ccu_i2c_mutex);
 	return 0;
 }
 
@@ -260,16 +270,20 @@ int ccu_get_i2c_dma_buf_addr(struct ccu_i2c_buf_mva_ioarg *ioarg)
 	int ret = 0;
 	void *va;
 
+	mutex_lock(&ccu_i2c_mutex);
 	ret = i2c_query_dma_buffer_addr(ioarg->sensor_idx,
 		&va, &ioarg->va_h, &ioarg->va_l, &ioarg->i2c_id);
 
-	if (ret != 0)
+	if (ret != 0) {
+		mutex_unlock(&ccu_i2c_mutex);
 		return ret;
+	}
 
 	/*If there is existing i2c buffer mva allocated, deallocate it first*/
 	ccu_deallocate_mva(i2c_mva[ioarg->sensor_idx]);
 	ret = ccu_allocate_mva(&i2c_mva[ioarg->sensor_idx], va, 4096);
 	ioarg->mva = i2c_mva[ioarg->sensor_idx];
+	mutex_unlock(&ccu_i2c_mutex);
 	return ret;
 }
 
@@ -278,11 +292,15 @@ int ccu_i2c_free_dma_buf_mva_all(void)
 {
 	uint32_t i;
 
+	mutex_lock(&ccu_i2c_mutex);
 	for (i = IMGSENSOR_SENSOR_IDX_MIN_NUM;
-		i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++)
-		ccu_deallocate_mva(i2c_mva[i]);
+		i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
+		if (!ccu_deallocate_mva(i2c_mva[i]))
+			i2c_mva[i] = 0;
+	}
 
 	LOG_INF_MUST("%s done.\n", __func__);
+	mutex_unlock(&ccu_i2c_mutex);
 
 	return 0;
 }

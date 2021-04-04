@@ -74,6 +74,7 @@ struct ccu_mailbox_t *pMailBox[MAX_MAILBOX_NUM];
 static struct ccu_msg_t receivedCcuCmd;
 static struct ccu_msg_t CcuAckCmd;
 static uint32_t i2c_buffer_mva;
+static DEFINE_MUTEX(ccu_i2c_mutex);
 
 /*isr work management*/
 struct ap_task_manage_t {
@@ -532,8 +533,11 @@ out:
 
 int ccu_uninit_hw(struct ccu_device_s *device)
 {
-	if (ccu_ion_client != NULL)
+	if (ccu_ion_client != NULL) {
+		mutex_lock(&ccu_i2c_mutex);
 		_ccu_deallocate_mva(&ccu_ion_client, &i2c_buffer_handle);
+		mutex_unlock(&ccu_i2c_mutex);
+	}
 
 	if (enque_task) {
 		kthread_stop(enque_task);
@@ -557,10 +561,13 @@ int ccu_get_i2c_dma_buf_addr(uint32_t *mva,
 	int ret = 0;
 	void *va;
 
+	mutex_lock(&ccu_i2c_mutex);
 	ret = i2c_get_dma_buffer_addr(&va, pa_h, pa_l, i2c_id);
 	LOG_DBG_MUST("got i2c buf pa: %d, %d\n", *pa_l, *pa_h);
-	if (ret != 0)
+	if (ret != 0) {
+		mutex_unlock(&ccu_i2c_mutex);
 		return ret;
+	}
 
 	/*If there is existing i2c buffer mva allocated, deallocate it first*/
 	_ccu_deallocate_mva(&ccu_ion_client, &i2c_buffer_handle);
@@ -571,6 +578,7 @@ int ccu_get_i2c_dma_buf_addr(uint32_t *mva,
 	 */
 	i2c_buffer_mva = *mva;
 
+	mutex_unlock(&ccu_i2c_mutex);
 	return ret;
 }
 
@@ -757,8 +765,12 @@ int ccu_power(struct ccu_power_s *power)
 		ccu_write_reg_bit(ccu_base, RESET, CCU_HW_RST, 1);
 
 		ccuInfo.IsCcuPoweredOn = 0;
-	if (ccu_ion_client != NULL)
-		_ccu_deallocate_mva(&ccu_ion_client, &i2c_buffer_handle);
+		if (ccu_ion_client != NULL) {
+			mutex_lock(&ccu_i2c_mutex);
+			_ccu_deallocate_mva(&ccu_ion_client,
+				&i2c_buffer_handle);
+			mutex_unlock(&ccu_i2c_mutex);
+		}
 	} else if (power->bON == 4) {
 		/*CCU boot fail, just enable CG*/
 		if (ccuInfo.IsCcuPoweredOn == 1) {
@@ -879,9 +891,11 @@ static int _ccu_powerdown(void)
 	ccuInfo.IsI2cPowerDisabling = 0;
 	ccuInfo.IsCcuPoweredOn = 0;
 
-	if (ccu_ion_client != NULL)
+	if (ccu_ion_client != NULL) {
+		mutex_lock(&ccu_i2c_mutex);
 		_ccu_deallocate_mva(&ccu_ion_client, &i2c_buffer_handle);
-
+		mutex_unlock(&ccu_i2c_mutex);
+	}
 	return 0;
 }
 

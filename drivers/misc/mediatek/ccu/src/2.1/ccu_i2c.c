@@ -48,6 +48,8 @@
 #define CCU_I2C_SUB_HW_DRVNAME  "ccu_i2c_sub_hwtrg"
 #define CCU_I2C_SUB2_HW_DRVNAME  "ccu_i2c_sub2_hwtrg"
 
+static DEFINE_MUTEX(ccu_i2c_mutex);
+
 /*i2c driver hook*/
 
 static int ccu_i2c_probe_main(struct i2c_client *client,
@@ -286,6 +288,7 @@ int ccu_i2c_register_driver(void)
 {
 	int i2c_ret = 0;
 
+	mutex_lock(&ccu_i2c_mutex);
 	LOG_DBG_MUST("i2c_add_driver(&ccu_i2c_main_driver)++\n");
 	i2c_ret = i2c_add_driver(&ccu_i2c_main_driver);
 	LOG_DBG_MUST("i2c_add_driver(&ccu_i2c_main_driver), ret: %d--\n",
@@ -305,17 +308,20 @@ int ccu_i2c_register_driver(void)
 	LOG_DBG_MUST("i2c_add_driver(&ccu_i2c_sub2_driver)++\n");
 	i2c_ret = i2c_add_driver(&ccu_i2c_sub2_driver);
 	LOG_DBG_MUST("i2c_add_driver(&sub2_driver),ret:%d--\n", i2c_ret);
+	mutex_unlock(&ccu_i2c_mutex);
 
 	return 0;
 }
 
 int ccu_i2c_delete_driver(void)
 {
+	mutex_lock(&ccu_i2c_mutex);
 	i2c_del_driver(&ccu_i2c_main_driver);
 	i2c_del_driver(&ccu_i2c_main2_driver);
 	i2c_del_driver(&ccu_i2c_main3_driver);
 	i2c_del_driver(&ccu_i2c_sub_driver);
 	i2c_del_driver(&ccu_i2c_sub2_driver);
+	mutex_unlock(&ccu_i2c_mutex);
 
 	return 0;
 }
@@ -323,22 +329,28 @@ int ccu_i2c_delete_driver(void)
 int ccu_i2c_set_channel(enum CCU_I2C_CHANNEL channel)
 {
 
+	mutex_lock(&ccu_i2c_mutex);
 	if ((channel == CCU_I2C_CHANNEL_MAINCAM) ||
 		(channel == CCU_I2C_CHANNEL_SUBCAM) ||
 		(channel == CCU_I2C_CHANNEL_MAINCAM2) ||
 		(channel == CCU_I2C_CHANNEL_SUBCAM2) ||
 		(channel == CCU_I2C_CHANNEL_MAINCAM3)) {
 		g_ccuI2cChannel = channel;
+		mutex_unlock(&ccu_i2c_mutex);
 		return 0;
-	} else
+	} else {
+		mutex_unlock(&ccu_i2c_mutex);
 		return -EFAULT;
+	}
 }
 
 int ccu_i2c_controller_init(enum CCU_I2C_CHANNEL
 			    i2c_controller_id)
 {
+	mutex_lock(&ccu_i2c_mutex);
 	if (i2c_controller_id >= CCU_I2C_CHANNEL_MAX) {
 		LOG_ERR("i2c_id %d is invalid\n", i2c_controller_id);
+		mutex_unlock(&ccu_i2c_mutex);
 		return -EINVAL;
 	}
 
@@ -348,11 +360,13 @@ int ccu_i2c_controller_init(enum CCU_I2C_CHANNEL
 	}
 	if (ccu_i2c_controller_en(i2c_controller_id, 1) == -1) {
 		LOG_DBG("ccu_i2c_controller_en 1 fail\n");
+		mutex_unlock(&ccu_i2c_mutex);
 		return -1;
 	}
 
 	LOG_DBG_MUST("%s done.\n", __func__);
 
+	mutex_unlock(&ccu_i2c_mutex);
 	return 0;
 }
 
@@ -360,6 +374,7 @@ int ccu_i2c_controller_uninit_all(void)
 {
 	int i;
 
+	mutex_lock(&ccu_i2c_mutex);
 	for (i = CCU_I2C_CHANNEL_MIN ; i < CCU_I2C_CHANNEL_MAX ; i++) {
 		if (ccu_i2c_initialized[i])
 			ccu_i2c_controller_uninit((enum CCU_I2C_CHANNEL)i);
@@ -367,6 +382,7 @@ int ccu_i2c_controller_uninit_all(void)
 
 	LOG_INF_MUST("%s done.\n", __func__);
 
+	mutex_unlock(&ccu_i2c_mutex);
 	return 0;
 }
 
@@ -375,10 +391,12 @@ int ccu_get_i2c_dma_buf_addr(struct ccu_device_s *g_ccu_device,
 {
 	int ret = 0;
 
+	mutex_lock(&ccu_i2c_mutex);
 	ret = i2c_query_dma_buffer_addr(
 		g_ccu_device, ioarg->i2c_controller_id,
 		&ioarg->mva, &ioarg->va_h, &ioarg->va_l, &ioarg->i2c_id);
 
+	mutex_unlock(&ccu_i2c_mutex);
 	return ret;
 }
 
@@ -386,10 +404,12 @@ int ccu_get_i2c_dma_buf_addr(struct ccu_device_s *g_ccu_device,
 int ccu_i2c_free_dma_buf_mva_all(struct ccu_device_s *g_ccu_device)
 {
 
+	mutex_lock(&ccu_i2c_mutex);
 	ccu_deallocate_mva(g_ccu_device->i2c_dma_mva);
 
 	LOG_INF_MUST("%s done.\n", __func__);
 
+	mutex_unlock(&ccu_i2c_mutex);
 	return 0;
 }
 
