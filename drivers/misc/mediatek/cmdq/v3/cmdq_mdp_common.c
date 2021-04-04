@@ -117,6 +117,7 @@ struct mdp_thread {
 	bool acquired;
 	bool allow_dispatch;
 	bool secure;
+	bool mtee;
 };
 
 struct mdp_context {
@@ -653,6 +654,10 @@ static void cmdq_mdp_lock_thread(struct cmdqRecStruct *handle)
 
 	/* make this thread can be dispath again */
 	mdp_ctx.thread[thread].allow_dispatch = true;
+
+	if (!mdp_ctx.thread[thread].task_count)
+		mdp_ctx.thread[thread].mtee = handle->secData.mtee;
+
 	mdp_ctx.thread[thread].task_count++;
 
 	CMDQ_PROF_END(current->pid, __func__);
@@ -702,6 +707,8 @@ void cmdq_mdp_unlock_thread(struct cmdqRecStruct *handle)
 			mdp_ctx.thread[thread].acquired ? "true" : "false");
 	mdp_ctx.thread[thread].task_count--;
 
+	if (!mdp_ctx.thread[thread].task_count)
+		mdp_ctx.thread[thread].mtee = false;
 	/* if no task on thread, release to cmdq core */
 	/* no need to release thread since secure path use static thread */
 	if (!mdp_ctx.thread[thread].task_count && !handle->secData.is_secure) {
@@ -838,8 +845,15 @@ static s32 cmdq_mdp_find_free_thread(struct cmdqRecStruct *handle)
 	if (cmdq_mdp_check_engine_waiting_unlock(handle) < 0)
 		return CMDQ_INVALID_THREAD;
 
-	if (handle->secData.is_secure)
-		return handle->ctrl->get_thread_id(handle->scenario);
+	if (handle->secData.is_secure) {
+		thread = handle->ctrl->get_thread_id(handle->scenario);
+
+		if (mdp_ctx.thread[thread].task_count &&
+			mdp_ctx.thread[thread].mtee != handle->secData.mtee)
+			return CMDQ_INVALID_THREAD;
+
+		return thread;
+	}
 #endif
 	conflict = cmdq_mdp_check_engine_conflict(handle, &thread);
 	if (conflict) {
