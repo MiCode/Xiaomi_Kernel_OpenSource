@@ -42,6 +42,8 @@
 #include "scp_helper.h"
 #include "scp_excep.h"
 #include "scp_dvfs.h"
+#include <linux/of_gpio.h>
+#include <linux/gpio.h>
 
 #ifdef CONFIG_MTK_CLKMGR
 #include <mach/mt_clkmgr.h>
@@ -119,9 +121,9 @@ static void mt_scp_dvfs_ipi_init(void);
 #define BIT_GPIO_DIN6_GPIO200 8
 #define MAK_GPIO_DIN6_GPIO200 0x1
 
-#define USE_VSRAM_CORE_LDO		1
-#define USE_VSRAM_OTHERS_LDO	2
-int Scp_Vsram_Ldo_usage;
+#define USE_VSRAM_CORE		1
+#define USE_VSRAM_OTHERS	2
+int Scp_Vsram_Ldo_usage = USE_VSRAM_OTHERS;
 #endif
 
 #if 0
@@ -937,6 +939,9 @@ static int mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 {
 	struct device_node *node;
 	unsigned int gpio_mode;
+#if defined(CONFIG_MACH_MT6781)
+	int gpio_idx, gpio_val;
+#endif
 
 	pr_debug("%s()\n", __func__);
 
@@ -1029,6 +1034,19 @@ static int mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	}
 
 #if defined(CONFIG_MACH_MT6781)
+#if 1 /* get GPIO value by GPIO API */
+	/* get high/low level of gpio pin */
+	gpio_idx = of_get_named_gpio(pdev->dev.of_node, "vsram_chk_gpio", 0);
+	gpio_val = gpio_get_value(gpio_idx);
+	pr_notice("vsram_chk_gpio value: %d\n", gpio_val);
+	if (gpio_val == 0) {
+		Scp_Vsram_Ldo_usage = USE_VSRAM_CORE;
+		pr_notice("VSRAM LDO: VSRAM_CORE\n");
+	} else {
+		Scp_Vsram_Ldo_usage = USE_VSRAM_OTHERS;
+		pr_notice("VSRAM LDO: VSRAM_OTHERS\n");
+	}
+#else /* get GPIO value by reading RG */
 	/* check GPIO200 dirction */
 	if (((DRV_Reg32(ADR_GPIO_DIR6) >>
 			BIT_GPIO_DIR6_GPIO200) &
@@ -1043,12 +1061,13 @@ static int mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	if (((DRV_Reg32(ADR_GPIO_DIN6) >>
 			BIT_GPIO_DIN6_GPIO200) &
 			MAK_GPIO_DIN6_GPIO200) == 0) {
-		Scp_Vsram_Ldo_usage = USE_VSRAM_CORE_LDO;
-		pr_notice("SCP's VSRAM LDO: VSRAM_CORE\n");
+		Scp_Vsram_Ldo_usage = USE_VSRAM_CORE;
+		pr_notice("VSRAM LDO: VSRAM_CORE\n");
 	} else {
-		Scp_Vsram_Ldo_usage = USE_VSRAM_OTHERS_LDO;
-		pr_notice("SCP's VSRAM LDO: VSRAM_OTHERS\n");
+		Scp_Vsram_Ldo_usage = USE_VSRAM_OTHERS;
+		pr_notice("VSRAM LDO: VSRAM_OTHERS\n");
 	}
+#endif
 #endif
 
 	wakeup_source_init(&scp_suspend_lock, "scp wakelock");
@@ -1110,12 +1129,12 @@ static void mt_pmic_sshub_init(void)
 	pmic_set_register_value(
 		PMIC_RG_BUCK_VCORE_SSHUB_SLEEP_VOSEL_EN, 0);
 
-	if (Scp_Vsram_Ldo_usage == USE_VSRAM_OTHERS_LDO)
+	if (Scp_Vsram_Ldo_usage == USE_VSRAM_OTHERS)
 		pr_notice("SCP VSRAM: VSRAM_OTHERS\n");
-	else if (Scp_Vsram_Ldo_usage == USE_VSRAM_CORE_LDO)
+	else if (Scp_Vsram_Ldo_usage == USE_VSRAM_CORE)
 		pr_notice("SCP VSRAM: VSRAM_CORE\n");
 	else {
-		Scp_Vsram_Ldo_usage = USE_VSRAM_OTHERS_LDO;
+		Scp_Vsram_Ldo_usage = USE_VSRAM_OTHERS;
 		pr_notice("ERROR: unknown VSRAM LDO usage before PMIC setting\n");
 		WARN_ON(1);
 	}
@@ -1123,7 +1142,7 @@ static void mt_pmic_sshub_init(void)
 	pmic_scp_set_vsram_vcore(850000);
 	pmic_scp_set_vsram_vcore_sleep(850000);
 
-	if (Scp_Vsram_Ldo_usage == USE_VSRAM_CORE_LDO) {
+	if (Scp_Vsram_Ldo_usage == USE_VSRAM_CORE) {
 		pmic_set_register_value(
 			PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_EN, 0);
 	} else {
