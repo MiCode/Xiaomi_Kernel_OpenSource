@@ -1803,8 +1803,10 @@ static void mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 					return;
 				}
 			}
+			mutex_lock(&mhi->ch[ch_id].ch_lock);
 			mhi_dev_alloc_evt_buf_evt_req(mhi, &mhi->ch[ch_id],
 					evt_ring);
+			mutex_unlock(&mhi->ch[ch_id].ch_lock);
 		}
 
 		if (MHI_USE_DMA(mhi))
@@ -3429,14 +3431,25 @@ static void mhi_dev_enable(struct work_struct *work)
 		pr_err("%s: get mhi state failed\n", __func__);
 		return;
 	}
+	if (mhi_reset) {
+		mhi_dev_mmio_clear_reset(mhi);
+		mhi_log(MHI_MSG_VERBOSE,
+			"Cleared reset before waiting for M0\n");
+	}
 
-	while (state != MHI_DEV_M0_STATE && max_cnt < MHI_SUSPEND_TIMEOUT) {
+	while (state != MHI_DEV_M0_STATE &&
+		((max_cnt < MHI_SUSPEND_TIMEOUT) || mhi->no_m0_timeout)) {
 		/* Wait for Host to set the M0 state */
 		msleep(MHI_SUSPEND_MIN);
 		rc = mhi_dev_mmio_get_mhi_state(mhi, &state, &mhi_reset);
 		if (rc) {
 			pr_err("%s: get mhi state failed\n", __func__);
 			return;
+		}
+		if (mhi_reset) {
+			mhi_dev_mmio_clear_reset(mhi);
+			mhi_log(MHI_MSG_VERBOSE,
+				"Cleared reset while waiting for M0\n");
 		}
 		max_cnt++;
 	}
@@ -3693,6 +3706,9 @@ static int get_device_tree_data(struct platform_device *pdev)
 
 	mhi->enable_m2 = of_property_read_bool((&pdev->dev)->of_node,
 				"qcom,enable-m2");
+
+	mhi->no_m0_timeout = of_property_read_bool((&pdev->dev)->of_node,
+		"qcom,no-m0-timeout");
 
 	mhi_log(MHI_MSG_VERBOSE, "acquiring wakelock\n");
 
