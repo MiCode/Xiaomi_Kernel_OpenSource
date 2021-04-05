@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -20,7 +20,7 @@
 #include "clk-regmap.h"
 #include "common.h"
 #include "reset.h"
-#include "vdd-level.h"
+#include "vdd-level-sdxnightjar.h"
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_cx_ao, VDD_NUM, 1, vdd_corner);
@@ -1599,11 +1599,17 @@ static int gcc_sdxnightjar_probe(struct platform_device *pdev)
 	return ret;
 }
 
+static void gcc_sdxnightjar_sync_state(struct device *dev)
+{
+	qcom_cc_sync_state(dev, &gcc_sdxnightjar_desc);
+}
+
 static struct platform_driver gcc_sdxnightjar_driver = {
 	.probe = gcc_sdxnightjar_probe,
 	.driver = {
 		.name = "gcc-sdxnightjar",
 		.of_match_table = gcc_sdxnightjar_match_table,
+		.sync_state = gcc_sdxnightjar_sync_state,
 	},
 };
 
