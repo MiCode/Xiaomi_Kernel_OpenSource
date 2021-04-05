@@ -168,6 +168,28 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		true
 	},
 	{
+		MHI_CLIENT_DIAG_OUT,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_OUT,
+		NULL,
+		NULL,
+		NULL,
+		false,
+		true
+	},
+	{
+		MHI_CLIENT_DIAG_IN,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_IN,
+		NULL,
+		NULL,
+		NULL,
+		false,
+		true
+	},
+	{
 		MHI_CLIENT_QMI_OUT,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
