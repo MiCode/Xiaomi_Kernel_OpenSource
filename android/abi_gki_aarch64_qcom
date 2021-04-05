@@ -30,6 +30,7 @@
   amba_driver_unregister
   android_debug_per_cpu_symbol
   android_debug_symbol
+  android_rvh_probe_register
   anon_inode_getfile
   __arch_clear_user
   __arch_copy_from_user
@@ -509,6 +510,7 @@
   dev_pm_opp_unregister_notifier
   dev_pm_qos_add_notifier
   dev_pm_qos_add_request
+  dev_pm_qos_read_value
   dev_pm_qos_remove_notifier
   dev_pm_qos_remove_request
   dev_pm_qos_update_request
@@ -1047,6 +1049,8 @@
   iio_channel_get_all
   iio_read_channel_processed
   import_iovec
+  in4_pton
+  in6_pton
   inc_zone_page_state
   in_egroup_p
   init_dummy_netdev
@@ -1127,6 +1131,7 @@
   iput
   __ipv6_addr_type
   ipv6_ext_hdr
+  ipv6_find_hdr
   ipv6_skip_exthdr
   irq_chip_ack_parent
   irq_chip_disable_parent
@@ -1281,6 +1286,7 @@
   ktime_get_seconds
   ktime_get_with_offset
   kvfree
+  kvfree_call_rcu
   kvmalloc_node
   led_classdev_flash_register_ext
   led_classdev_flash_unregister
@@ -1962,6 +1968,7 @@
   rtnl_lock
   rtnl_register_module
   rtnl_trylock
+  rtnl_unicast
   rtnl_unlock
   rtnl_unregister
   runqueues
@@ -2316,6 +2323,7 @@
   trace_event_reg
   trace_handle_return
   __traceiter_cpu_frequency
+  __traceiter_gpu_mem_total
   __tracepoint_android_rvh_account_irq
   __tracepoint_android_rvh_build_perf_domains
   __tracepoint_android_rvh_can_migrate_task
@@ -2361,6 +2369,9 @@
   __tracepoint_android_rvh_update_misfit_status
   __tracepoint_android_rvh_wake_up_new_task
   __tracepoint_android_vh_allow_domain_state
+  __tracepoint_android_vh_binder_restore_priority
+  __tracepoint_android_vh_binder_set_priority
+  __tracepoint_android_vh_binder_transaction_init
   __tracepoint_android_vh_binder_wakeup_ilocked
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
@@ -2384,6 +2395,7 @@
   __tracepoint_cpu_frequency
   __tracepoint_cpu_frequency_limits
   __tracepoint_cpu_idle
+  __tracepoint_gpu_mem_total
   __tracepoint_ipi_entry
   __tracepoint_ipi_raise
   __tracepoint_irq_handler_entry
