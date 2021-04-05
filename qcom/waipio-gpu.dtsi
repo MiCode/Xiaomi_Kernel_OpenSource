@@ -232,5 +232,8 @@
 
 		iommus = <&kgsl_smmu 0x5 0x400>;
 		qcom,iommu-dma = "disabled";
+
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
 	};
 };
