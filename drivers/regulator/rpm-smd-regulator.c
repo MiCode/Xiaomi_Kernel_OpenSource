@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2012-2015, 2018-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2012-2015, 2018-2021, The Linux Foundation. All rights reserved. */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
@@ -1541,13 +1541,13 @@ static int rpm_vreg_device_probe(struct platform_device *pdev)
 		goto fail_free_reg;
 	}
 
+	reg->set_active = !!(val & RPM_SET_CONFIG_ACTIVE);
+	reg->set_sleep = !!(val & RPM_SET_CONFIG_SLEEP);
+
 	rc = of_property_read_u32(node, "qcom,min-dropout-voltage",
 		&val);
 	if (!rc)
 		reg->rdesc.min_dropout_uV = val;
-
-	reg->set_active = !!(val & RPM_SET_CONFIG_ACTIVE);
-	reg->set_sleep = !!(val & RPM_SET_CONFIG_SLEEP);
 
 	init_data = of_get_regulator_init_data(dev, node, &reg->rdesc);
 	if (init_data == NULL) {
