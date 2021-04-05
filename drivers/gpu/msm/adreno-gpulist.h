@@ -1822,7 +1822,8 @@ static const struct adreno_genc_core adreno_gpu_core_c500 = {
 		.compatible = "qcom,adreno-gpu-c500",
 		.chipid = 0x07030000,
 		.features = ADRENO_APRIV | ADRENO_IOCOHERENT |
-				ADRENO_CONTENT_PROTECTION | ADRENO_IFPC,
+				ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
+				ADRENO_ACD,
 		.gpudev = &adreno_genc_gmu_gpudev.base,
 		.perfcounters = &adreno_genc_perfcounters,
 		.gmem_base = 0,
