@@ -91,8 +91,7 @@ static int genc_counter_inline_enable(struct adreno_device *adreno_dev,
 		 * either due to soft reset or adreno_stop, ignore the
 		 * error and return 0 here. The perfcounter is already
 		 * set up in software and it will be programmed in
-		 * hardware when we wake up or come up after soft reset,
-		 * by adreno_perfcounter_restore.
+		 * hardware when we wake up or come up after soft reset
 		 */
 		if (ret == -EAGAIN)
 			ret = 0;
