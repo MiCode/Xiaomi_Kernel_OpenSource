@@ -581,6 +581,17 @@ static struct adreno_perfcount_register genc_perfcounters_cmp[] = {
 		GENC_RBBM_PERFCTR_CMP_3_HI, 124, GENC_RB_PERFCTR_CMP_SEL_3 },
 };
 
+static struct adreno_perfcount_register genc_perfcounters_ufc[] = {
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, GENC_RBBM_PERFCTR_UFC_0_LO,
+		GENC_RBBM_PERFCTR_UFC_0_HI, 125, GENC_RB_PERFCTR_UFC_SEL_0 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, GENC_RBBM_PERFCTR_UFC_1_LO,
+		GENC_RBBM_PERFCTR_UFC_1_HI, 126, GENC_RB_PERFCTR_UFC_SEL_1 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, GENC_RBBM_PERFCTR_UFC_2_LO,
+		GENC_RBBM_PERFCTR_UFC_2_HI, 127, GENC_RB_PERFCTR_UFC_SEL_2 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, GENC_RBBM_PERFCTR_UFC_3_LO,
+		GENC_RBBM_PERFCTR_UFC_3_HI, 128, GENC_RB_PERFCTR_UFC_SEL_3 },
+};
+
 static struct adreno_perfcount_register genc_perfcounters_gbif[] = {
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, GENC_GBIF_PERF_CNT_LOW0,
 		GENC_GBIF_PERF_CNT_HIGH0, -1, GENC_GBIF_PERF_CNT_SEL },
@@ -731,6 +742,7 @@ static const struct adreno_perfcount_group genc_perfcounter_groups
 		genc_counter_gmu_gmuclk_enable, genc_counter_read_norestore),
 	GENC_PERFCOUNTER_GROUP_FLAGS(genc, GMU_PERF, gmu_perf, 0,
 		genc_counter_gmu_perf_enable, genc_counter_read_norestore),
+	GENC_REGULAR_PERFCOUNTER_GROUP(UFC, ufc),
 };
 
 const struct adreno_perfcounters adreno_genc_perfcounters = {
