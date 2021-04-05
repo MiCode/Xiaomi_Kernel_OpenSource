@@ -2339,6 +2339,17 @@ static int adreno_prop_device_info(struct kgsl_device *device,
 	return copy_prop(param, &devinfo, sizeof(devinfo));
 }
 
+static int adreno_prop_gpu_model(struct kgsl_device *device,
+		struct kgsl_device_getproperty *param)
+{
+	struct kgsl_gpu_model model = {0};
+
+	strlcpy(model.gpu_model, adreno_get_gpu_model(device),
+			sizeof(model.gpu_model));
+
+	return copy_prop(param, &model, sizeof(model));
+}
+
 static int adreno_prop_device_shadow(struct kgsl_device *device,
 		struct kgsl_device_getproperty *param)
 {
@@ -2482,6 +2493,7 @@ static const struct {
 	{ KGSL_PROP_DEVICE_BITNESS, adreno_prop_u32 },
 	{ KGSL_PROP_SPEED_BIN, adreno_prop_u32 },
 	{ KGSL_PROP_GAMING_BIN, adreno_prop_gaming_bin },
+	{ KGSL_PROP_GPU_MODEL, adreno_prop_gpu_model},
 };
 
 static int adreno_getproperty(struct kgsl_device *device,
