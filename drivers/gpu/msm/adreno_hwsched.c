@@ -1421,3 +1421,27 @@ void adreno_hwsched_parse_fault_cmdobj(struct adreno_device *adreno_dev,
 		}
 	}
 }
+
+static int unregister_context(int id, void *ptr, void *data)
+{
+	struct kgsl_context *context = ptr;
+
+	/*
+	 * We don't need to send the unregister hfi packet because
+	 * we are anyway going to lose the gmu state of registered
+	 * contexts. So just reset the flag so that the context
+	 * registers with gmu on its first submission post slumber.
+	 */
+	context->gmu_registered = false;
+
+	return 0;
+}
+
+void adreno_hwsched_unregister_contexts(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	read_lock(&device->context_lock);
+	idr_for_each(&device->context_idr, unregister_context, NULL);
+	read_unlock(&device->context_lock);
+}

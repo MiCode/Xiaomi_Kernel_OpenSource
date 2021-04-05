@@ -1583,6 +1583,8 @@ err:
 		return ret;
 	}
 
+	genc_gmu_irq_disable(adreno_dev);
+
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
@@ -1645,6 +1647,8 @@ err:
 		genc_gmu_suspend(adreno_dev);
 		return ret;
 	}
+
+	genc_gmu_irq_disable(adreno_dev);
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);

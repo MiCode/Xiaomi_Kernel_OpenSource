@@ -185,7 +185,7 @@ static int genc_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 	/* Vote for minimal DDR BW for GMU to init */
 	level = pwr->pwrlevels[pwr->default_pwrlevel].bus_min;
 
-	icc_set_bw(pwr->icc_path, 0, MBps_to_icc(pwr->ddr_table[level]));
+	icc_set_bw(pwr->icc_path, 0, kBps_to_icc(pwr->ddr_table[level]));
 
 	ret = genc_gmu_device_start(adreno_dev);
 	if (ret)
@@ -204,10 +204,13 @@ static int genc_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 	return 0;
 
 err:
-	if (device->gmu_fault)
+	if (device->gmu_fault) {
 		genc_gmu_suspend(adreno_dev);
 
-	return ret;
+		return ret;
+	}
+
+	genc_gmu_irq_disable(adreno_dev);
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
@@ -262,10 +265,13 @@ static int genc_hwsched_gmu_boot(struct adreno_device *adreno_dev)
 
 	return 0;
 err:
-	if (device->gmu_fault)
+	if (device->gmu_fault) {
 		genc_gmu_suspend(adreno_dev);
 
-	return ret;
+		return ret;
+	}
+
+	genc_gmu_irq_disable(adreno_dev);
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
@@ -299,21 +305,6 @@ static void genc_hwsched_active_count_put(struct adreno_device *adreno_dev)
 		(unsigned long) __builtin_return_address(0));
 
 	wake_up(&device->active_cnt_wq);
-}
-
-static int unregister_context_hwsched(int id, void *ptr, void *data)
-{
-	struct kgsl_context *context = ptr;
-
-	/*
-	 * We don't need to send the unregister hfi packet because
-	 * we are anyway going to lose the gmu state of registered
-	 * contexts. So just reset the flag so that the context
-	 * registers with gmu on its first submission post slumber.
-	 */
-	context->gmu_registered = false;
-
-	return 0;
 }
 
 static int genc_hwsched_notify_slumber(struct adreno_device *adreno_dev)
@@ -622,9 +613,7 @@ no_gx_power:
 
 	genc_hwsched_gmu_power_off(adreno_dev);
 
-	read_lock(&device->context_lock);
-	idr_for_each(&device->context_idr, unregister_context_hwsched, NULL);
-	read_unlock(&device->context_lock);
+	adreno_hwsched_unregister_contexts(adreno_dev);
 
 	if (!IS_ERR_OR_NULL(adreno_dev->gpu_llc_slice))
 		llcc_slice_deactivate(adreno_dev->gpu_llc_slice);
@@ -945,7 +934,6 @@ static void genc_hwsched_drain_ctxt_unregister(struct adreno_device *adreno_dev)
 void genc_hwsched_restart(struct adreno_device *adreno_dev)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
 	/*
@@ -956,10 +944,7 @@ void genc_hwsched_restart(struct adreno_device *adreno_dev)
 	 */
 	genc_hwsched_drain_ctxt_unregister(adreno_dev);
 
-	read_lock(&device->context_lock);
-	idr_for_each(&device->context_idr, unregister_context_hwsched, NULL);
-	read_unlock(&device->context_lock);
-
+	adreno_hwsched_unregister_contexts(adreno_dev);
 
 	if (!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
 		return;
