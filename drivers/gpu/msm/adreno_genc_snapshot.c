@@ -159,9 +159,7 @@ static size_t genc_legacy_snapshot_shader(struct kgsl_device *device,
 	struct genc_shader_block *block = info->block;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	unsigned int read_sel;
-
-	if (!device->snapshot_legacy)
-		return 0;
+	int i;
 
 	if (remain < (sizeof(*header) + (block->size << 2))) {
 		SNAPSHOT_ERR_NOMEM(device, "SHADER MEMORY");
@@ -186,8 +184,8 @@ static size_t genc_legacy_snapshot_shader(struct kgsl_device *device,
 	 */
 	mb();
 
-	kgsl_regmap_bulk_read(&device->regmap, GENC_SP_AHB_READ_APERTURE,
-			&data, block->size);
+	for (i = 0; i < block->size; i++)
+		data[i] = kgsl_regmap_read(&device->regmap, GENC_SP_AHB_READ_APERTURE + i);
 
 	return (sizeof(*header) + (block->size << 2));
 }
@@ -321,9 +319,6 @@ static size_t genc_legacy_snapshot_cluster_dbgahb(struct kgsl_device *device,
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	int j;
 	unsigned int size = adreno_snapshot_regs_count(ptr) * 4;
-
-	if (!device->snapshot_legacy)
-		return 0;
 
 	if (remain < (sizeof(*header) + size)) {
 		SNAPSHOT_ERR_NOMEM(device, "MVC REGISTERS");
@@ -565,12 +560,12 @@ static void genc_snapshot_mvc_regs(struct kgsl_device *device,
 		struct genc_cluster_registers *cluster = &genc_clusters[i];
 		const u32 *regs = cluster->regs;
 
-		if (cluster->sel)
-			ptr += CD_WRITE(ptr, cluster->sel->cd_reg, cluster->sel->val);
-
 		cluster->offset = offset;
 		ptr += CD_WRITE(ptr, GENC_CP_APERTURE_CNTL_CD, GENC_CP_APERTURE_REG_VAL
 			(cluster->pipe_id, cluster->cluster_id, cluster->context_id));
+
+		if (cluster->sel)
+			ptr += CD_WRITE(ptr, cluster->sel->cd_reg, cluster->sel->val);
 
 		for (; regs[0] != UINT_MAX; regs += 2) {
 			count = REG_COUNT(regs);
