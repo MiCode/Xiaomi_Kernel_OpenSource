@@ -135,6 +135,7 @@
 #define IPA_IOCTL_GET_PHERIPHERAL_EP_INFO       82
 #define IPA_IOCTL_ADD_UC_ACT_ENTRY              83
 #define IPA_IOCTL_DEL_UC_ACT_ENTRY              84
+#define IPA_IOCTL_SET_SW_FLT                    85
 
 /**
  * max size of the header to be inserted
@@ -180,7 +181,11 @@
 /**
  * Max number of clients supported for mac based exception
  */
+
 #define IPA_MAX_NUM_MAC_FLT 5
+#define IPA_MAX_NUM_IPv4_SEGS_FLT 16
+#define IPA_MAX_NUM_IFACE_FLT 4
+
 
 /**
  * MAX number of the FLT_RT stats counter supported.
@@ -796,7 +801,13 @@ enum ipa_sockv5_event {
 #define IPA_SOCKV5_EVENT_MAX IPA_SOCKV5_EVENT_MAX
 };
 
-#define IPA_EVENT_MAX_NUM (IPA_SOCKV5_EVENT_MAX)
+enum ipa_sw_flt_event {
+	IPA_SW_FLT_EVENT = IPA_SOCKV5_EVENT_MAX,
+	IPA_SW_FLT_EVENT_MAX
+#define IPA_SW_FLT_EVENT_MAX IPA_SW_FLT_EVENT_MAX
+};
+
+#define IPA_EVENT_MAX_NUM (IPA_SW_FLT_EVENT_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
@@ -3030,6 +3041,49 @@ struct ipa_ioc_mac_client_list_type {
 };
 
 /**
+ * struct ipa_sw_flt_list_type- exception list
+ * @mac_enable: true to block current mac addrs and false to clean
+ *		up all previous mac addrs
+ * @num_of_mac: holds num of clients to blacklist
+ * @mac_addr: an array to hold clients mac addrs
+ * @ipv4_segs_enable: true to block current ipv4 addrs and false to clean
+ *		up all previous ipv4 addrs
+ * @ipv4_segs_ipv6_offload: reserved flexibility for future use.
+ *		true will indicate ipv6 could be still offloaded and
+ *		default is set to false as sw-path for ipv6 as well.
+ * @num_of_ipv4_segs: holds num of ipv4 segs to blacklist
+ * @ipv4_segs: an array to hold clients ipv4 segs addrs
+ * @iface_enable: true to block current ifaces and false to clean
+ *		up all previous ifaces
+ * @num_of_iface: holds num of ifaces to blacklist
+ * @iface: an array to hold netdev ifaces
+ */
+struct ipa_sw_flt_list_type {
+	uint8_t mac_enable;
+	int num_of_mac;
+	uint8_t mac_addr[IPA_MAX_NUM_MAC_FLT][IPA_MAC_ADDR_SIZE];
+	uint8_t ipv4_segs_enable;
+	uint8_t ipv4_segs_ipv6_offload;
+	int num_of_ipv4_segs;
+	uint32_t ipv4_segs[IPA_MAX_NUM_IPv4_SEGS_FLT][2];
+	uint8_t iface_enable;
+	int num_of_iface;
+	char iface[IPA_MAX_NUM_IFACE_FLT][IPA_RESOURCE_NAME_MAX];
+};
+
+/**
+ * struct ipa_ioc_sw_flt_list_type
+ * @ioctl_ptr: has to be typecasted to (__u64)(uintptr_t)
+ * @ioctl_data_size:
+ * Eg: For ipa_sw_flt_list_type = sizeof(ipa_sw_flt_list_type)
+ */
+struct ipa_ioc_sw_flt_list_type {
+	__u64 ioctl_ptr;
+	__u32 ioctl_data_size;
+	__u32 padding;
+};
+
+/**
  *   actual IOCTLs supported by IPA driver
  */
 #define IPA_IOC_ADD_HDR _IOWR(IPA_IOC_MAGIC, \
@@ -3310,6 +3364,9 @@ struct ipa_ioc_mac_client_list_type {
 				IPA_IOCTL_DEL_UC_ACT_ENTRY, \
 				__u16)
 
+#define IPA_IOC_SET_SW_FLT _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_SET_SW_FLT, \
+				struct ipa_ioc_sw_flt_list_type)
 /*
  * unique magic number of the Tethering bridge ioctls
  */
