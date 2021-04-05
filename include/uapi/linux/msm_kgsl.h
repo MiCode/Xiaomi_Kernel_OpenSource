@@ -342,6 +342,7 @@ enum kgsl_timestamp_type {
 #define KGSL_PROP_GAMING_BIN		0x26
 #define KGSL_PROP_QUERY_CAPABILITIES	0x27
 #define KGSL_PROP_CONTEXT_PROPERTY	0x28
+#define KGSL_PROP_GPU_MODEL		0x29
 
 /*
  * kgsl_capabilities_properties returns a list of supported properties.
@@ -422,6 +423,10 @@ struct kgsl_context_property {
 struct kgsl_context_property_fault {
 	__s32 faults;
 	__u32 timestamp;
+};
+
+struct kgsl_gpu_model {
+	char gpu_model[32];
 };
 
 /* Context property sub types */
