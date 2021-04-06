@@ -158,6 +158,12 @@
 		qcom,pre-scaling = <1000 305185>;
 	};
 
+	pm8350b_usb_in_v_div_16 {
+		reg = <PM8350B_ADC7_USB_IN_V_16>;
+		label = "pm8350b_usb_in_v_div_16";
+		qcom,pre-scaling = <1 16>;
+	};
+
 	smb139x_1_smb_temp {
 		reg = <SMB1394_1_ADC7_SMB_TEMP>;
 		label = "smb139x_1_smb_temp";
