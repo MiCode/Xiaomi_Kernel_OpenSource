@@ -1430,7 +1430,6 @@ static int stop_rx_sequencer(struct uart_port *uport)
 	}
 
 	if (!uart_console(uport)) {
-		msm_geni_serial_set_manual_flow(false, port);
 		/*
 		 * Wait for the stale timeout to happen if there
 		 * is any data pending in the rx fifo.
@@ -1547,9 +1546,6 @@ static int stop_rx_sequencer(struct uart_port *uport)
 	port->s_cmd = false;
 
 exit_rx_seq:
-	if (!uart_console(uport))
-		msm_geni_serial_set_manual_flow(true, port);
-
 	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
 	IPC_LOG_MSG(port->ipc_log_misc, "%s: End 0x%x dma_dbg:0x%x\n",
 		    __func__, geni_status,
@@ -3304,9 +3300,10 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 							SE_GENI_STATUS);
 
 	IPC_LOG_MSG(port->ipc_log_pwr, "%s: Start\n", __func__);
+	/* Flow off from UART */
+	msm_geni_serial_set_manual_flow(false, port);
 	wait_for_transfers_inflight(&port->uport);
 	/*
-	 * Manual RFR On.
 	 * Stop Rx.
 	 * Disable Interrupt
 	 * Resources off
@@ -3315,6 +3312,8 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 	if (ret) {
 		IPC_LOG_MSG(port->ipc_log_pwr, "%s: stop rx failed %d\n",
 							__func__, ret);
+		/* Flow on from UART */
+		msm_geni_serial_allow_rx(port);
 		return -EBUSY;
 	}
 
@@ -3325,7 +3324,8 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 	disable_irq(port->uport.irq);
 
 	/*
-	 * Above stop_rx disabled the flow so we need to enable it here
+	 * Flow on from UART
+	 * Above before stop_rx disabled the flow so we need to enable it here
 	 * Make sure wake up interrupt is enabled before RFR is made low
 	 */
 	msm_geni_serial_allow_rx(port);
