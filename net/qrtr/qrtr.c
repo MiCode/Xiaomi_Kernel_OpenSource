@@ -370,7 +370,7 @@ static void __qrtr_node_release(struct kref *kref)
 			kfree(waiter);
 		}
 		radix_tree_iter_delete(&node->qrtr_tx_flow, &iter, slot);
-		kfree(*slot);
+		kfree(flow);
 	}
 	mutex_unlock(&node->qrtr_tx_lock);
 
