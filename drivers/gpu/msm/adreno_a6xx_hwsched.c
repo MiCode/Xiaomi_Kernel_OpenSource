@@ -951,7 +951,7 @@ static void a6xx_hwsched_drain_ctxt_unregister(struct adreno_device *adreno_dev)
 	read_unlock(&hfi->msglock);
 }
 
-void a6xx_hwsched_restart(struct adreno_device *adreno_dev)
+int a6xx_hwsched_reset(struct adreno_device *adreno_dev)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	int ret;
@@ -967,7 +967,7 @@ void a6xx_hwsched_restart(struct adreno_device *adreno_dev)
 	adreno_hwsched_unregister_contexts(adreno_dev);
 
 	if (!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
-		return;
+		return 0;
 
 	a6xx_hwsched_hfi_stop(adreno_dev);
 
@@ -980,6 +980,8 @@ void a6xx_hwsched_restart(struct adreno_device *adreno_dev)
 	ret = a6xx_hwsched_boot(adreno_dev);
 
 	BUG_ON(ret);
+
+	return ret;
 }
 
 const struct adreno_power_ops a6xx_hwsched_power_ops = {
@@ -992,6 +994,11 @@ const struct adreno_power_ops a6xx_hwsched_power_ops = {
 	.pm_resume = a6xx_hwsched_pm_resume,
 	.gpu_clock_set = a6xx_hwsched_clock_set,
 	.gpu_bus_set = a6xx_hwsched_bus_set,
+};
+
+const struct adreno_hwsched_ops a6xx_hwsched_ops = {
+	.submit_cmdobj = a6xx_hwsched_submit_cmdobj,
+	.preempt_count = a6xx_hwsched_preempt_count_get,
 };
 
 int a6xx_hwsched_probe(struct platform_device *pdev,
@@ -1021,5 +1028,5 @@ int a6xx_hwsched_probe(struct platform_device *pdev,
 
 	adreno_dev->irq_mask = A6XX_HWSCHED_INT_MASK;
 
-	return adreno_hwsched_init(adreno_dev);
+	return adreno_hwsched_init(adreno_dev, &a6xx_hwsched_ops);
 }

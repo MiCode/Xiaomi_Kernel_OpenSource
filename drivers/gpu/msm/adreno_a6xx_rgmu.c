@@ -1092,9 +1092,8 @@ no_gx_power:
 	return ret;
 }
 
-int a6xx_rgmu_restart(struct kgsl_device *device)
+int a6xx_rgmu_reset(struct adreno_device *adreno_dev)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(adreno_dev);
 
 	a6xx_disable_gpu_irq(adreno_dev);

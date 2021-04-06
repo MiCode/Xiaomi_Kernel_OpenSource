@@ -22,7 +22,6 @@
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
-#include "adreno_hwsched.h"
 #include "adreno_trace.h"
 #include "kgsl_bus.h"
 #include "kgsl_device.h"
@@ -3313,9 +3312,8 @@ int a6xx_gmu_device_probe(struct platform_device *pdev,
 	return 0;
 }
 
-int a6xx_gmu_restart(struct kgsl_device *device)
+int a6xx_gmu_reset(struct adreno_device *adreno_dev)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 
 	a6xx_hfi_stop(adreno_dev);
