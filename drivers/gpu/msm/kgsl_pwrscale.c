@@ -337,14 +337,8 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 
 	/* If the governor recommends a new frequency, update it here */
 	if (rec_freq != cur_freq) {
-		level = pwr->max_pwrlevel;
-		/*
-		 * Array index of pwrlevels[] should be within the permitted
-		 * power levels, i.e., from max_pwrlevel to min_pwrlevel.
-		 */
-		for (i = pwr->min_pwrlevel; (i >= pwr->max_pwrlevel
-					  && i <= pwr->min_pwrlevel); i--)
-			if (rec_freq <= pwr->pwrlevels[i].gpu_freq) {
+		for (i = 0; i < pwr->num_pwrlevels; i++)
+			if (rec_freq == pwr->pwrlevels[i].gpu_freq) {
 				level = i;
 				break;
 			}
