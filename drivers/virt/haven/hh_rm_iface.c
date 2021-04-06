@@ -553,7 +553,7 @@ int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name, int *vmid)
 	struct hh_vm_allocate_resp_payload *resp_payload;
 	struct hh_vm_allocate_req_payload req_payload = {0};
 	size_t resp_payload_size;
-	struct hh_vm_property vm_prop;
+	struct hh_vm_property vm_prop = {0};
 	int err, reply_err_code;
 
 	/* Look up for the vm_name<->vmid pair if already present.

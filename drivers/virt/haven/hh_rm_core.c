@@ -986,7 +986,7 @@ static void hh_rm_get_svm_res_work_fn(struct work_struct *work)
 static int hh_vm_probe(struct device *dev, struct device_node *hyp_root)
 {
 	struct device_node *node;
-	struct hh_vm_property temp_property;
+	struct hh_vm_property temp_property = {0};
 	int vmid, owner_vmid, ret;
 
 	node = of_find_compatible_node(hyp_root, NULL, "qcom,haven-vm-id-1.0");
