@@ -1504,7 +1504,7 @@ int pil_desc_init(struct pil_desc *desc)
 	}
 	if (of_property_read_u32(ofnode, "qcom,minidump-id",
 		&desc->minidump_id))
-		pr_err("minidump-id not found for %s\n", desc->name);
+		pr_warn("minidump-id not found for %s\n", desc->name);
 	else {
 		if (IS_ERR_OR_NULL(g_md_toc)) {
 			/* Get Global minidump ToC*/
