@@ -932,6 +932,7 @@
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "xo";
 
+		qcom,qmp = <&aoss_qmp>;
 
 		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
 		interconnect-names = "crypto_ddr";
@@ -1034,6 +1035,8 @@
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "xo";
 
+		qcom,qmp = <&aoss_qmp>;
+
 		interconnects = <&nsp_noc MASTER_CDSP_PROC &mc_virt SLAVE_EBI1>,
 				<&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
 		interconnect-names = "rproc_ddr", "crypto_ddr";
@@ -1109,6 +1112,8 @@
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "xo";
+
+		qcom,qmp = <&aoss_qmp>;
 
 		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
 		interconnect-names = "crypto_ddr";
@@ -1194,6 +1199,8 @@
 		mx-supply = <&VDD_MODEM_LEVEL>;
 		mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 		reg-names = "cx", "mx";
+
+		qcom,qmp = <&aoss_qmp>;
 
 		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
 		interconnect-names = "crypto_ddr";
