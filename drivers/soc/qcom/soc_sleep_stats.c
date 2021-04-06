@@ -48,6 +48,7 @@ static struct subsystem_data subsystems[] = {
 	{ "slpi_island", 613, 3 },
 	{ "gpu", 609, 0 },
 	{ "display", 610, 0 },
+	{ "apss", 631, QCOM_SMEM_HOST_ANY },
 };
 #endif
 
