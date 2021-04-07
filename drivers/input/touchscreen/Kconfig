@@ -11,6 +11,15 @@ menuconfig INPUT_TOUCHSCREEN
 
 if INPUT_TOUCHSCREEN
 
+source "drivers/input/touchscreen/xiaomi/Kconfig"
+source "drivers/input/touchscreen/nt36672c/Kconfig"
+
+config SECURE_TOUCH
+	bool "Secure Touch"
+
+config I2C_BY_DMA
+    bool "I2C BY DMA"
+
 config TOUCHSCREEN_PROPERTIES
 	def_tristate INPUT
 	depends on INPUT
@@ -1246,6 +1255,12 @@ config TOUCHSCREEN_ROHM_BU21023
 	  To compile this driver as a module, choose M here: the
 	  module will be called bu21023_ts.
 
+config INPUT_PRESS_NDT
+	bool "ndt"
+	depends on I2C
+	help
+	  Say Y here if you have a press ic ndt.
+
 config TOUCHSCREEN_ST
 	bool "STMicroelectronics Touchscreen Driver"
 	depends on I2C
@@ -1267,6 +1282,13 @@ config TOUCHSCREEN_HIMAX_CHIPSET
 	  If unsure, say N.
 
 source "drivers/input/touchscreen/hxchipset/Kconfig"
+
+config SPI_XIAOMI_TP
+	bool
+	depends on SPI
+	default y if TOUCHSCREEN_NT36xxx_HOSTDL_SPI
+	help
+	Say Y if want use xiaomi touch panel.
 
 config TOUCHSCREEN_SYNAPTICS_DSX
         bool "Synaptics DSX Touchscreen Driver"

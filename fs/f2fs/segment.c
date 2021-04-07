@@ -2875,15 +2875,6 @@ int f2fs_trim_fs(struct f2fs_sb_info *sbi, struct fstrim_range *range)
 	if (err)
 		goto out;
 
-	/*
-	 * We filed discard candidates, but actually we don't need to wait for
-	 * all of them, since they'll be issued in idle time along with runtime
-	 * discard option. User configuration looks like using runtime discard
-	 * or periodic fstrim instead of it.
-	 */
-	if (f2fs_realtime_discard_enable(sbi))
-		goto out;
-
 	start_block = START_BLOCK(sbi, start_segno);
 	end_block = START_BLOCK(sbi, end_segno + 1);
 

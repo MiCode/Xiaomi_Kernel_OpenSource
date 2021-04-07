@@ -16,6 +16,7 @@
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
 
 &snd_9360 {
+	status = "disabled";
 	qcom,ext-disp-audio-rx = <1>;
 	qcom,wcn-btfm = <1>;
 	qcom,mi2s-audio-intf = <1>;
@@ -72,9 +73,10 @@
 		"MADINPUT", "MCLK",
 		"hifi amp", "LINEOUT1",
 		"hifi amp", "LINEOUT2",
+		"AMIC1", "MIC BIAS1",
 		"AMIC2", "MIC BIAS2",
 		"MIC BIAS2", "Headset Mic",
-		"AMIC3", "MIC BIAS2",
+		"AMIC3", "MIC BIAS3",
 		"MIC BIAS2", "ANCRight Headset Mic",
 		"AMIC4", "MIC BIAS2",
 		"MIC BIAS2", "ANCLeft Headset Mic",
@@ -95,8 +97,8 @@
 		"SpkrLeft IN", "SPK1 OUT",
 		"SpkrRight IN", "SPK2 OUT";
 
-	qcom,msm-mbhc-hphl-swh = <1>;
-	qcom,msm-mbhc-gnd-swh = <1>;
+	qcom,msm-mbhc-hphl-swh = <0>;
+	qcom,msm-mbhc-gnd-swh = <0>;
 	qcom,msm-mbhc-hs-mic-max-threshold-mv = <1700>;
 	qcom,msm-mbhc-hs-mic-min-threshold-mv = <50>;
 	qcom,hph-en0-gpio = <&tavil_hph_en0>;
@@ -107,11 +109,21 @@
 	asoc-codec-names = "msm-stub-codec.1",
 			   "msm-ext-disp-audio-codec-rx";
 
-	qcom,wsa-max-devs = <2>;
+	qcom,wsa-max-devs = <0>;
 	qcom,wsa-devs = <&wsa881x_70211>, <&wsa881x_70212>,
 			<&wsa881x_70213>, <&wsa881x_70214>;
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 				  "SpkrLeft", "SpkrRight";
+
+	/* pinctrl-names = "quat-mi2s-active", "quat-mi2s-sleep"; */
+	pinctrl-names = "quat_mi2s_enable", "quat_mi2s_disable",
+			"quat_tdm_enable", "quat_tdm_disable";
+	pinctrl-0 = <&quat_mi2s_active &quat_mi2s_sd0_active
+					&quat_mi2s_sd1_active>;
+	pinctrl-1 = <&quat_mi2s_sleep &quat_mi2s_sd0_sleep
+					&quat_mi2s_sd1_sleep>;
+	pinctrl-2 = <&quat_tdm_active &quat_tdm_dout_active>;
+	pinctrl-3 = <&quat_tdm_sleep &quat_tdm_dout_sleep>;
 };
 
 &soc {
@@ -290,10 +302,10 @@
 					   "cdc-vddpx-1",
 					   "cdc-vdd-3v3";
 
-		qcom,cdc-micbias1-mv = <1800>;
+		qcom,cdc-micbias1-mv = <2700>;
 		qcom,cdc-micbias2-mv = <1800>;
-		qcom,cdc-micbias3-mv = <1800>;
-		qcom,cdc-micbias4-mv = <1800>;
+		qcom,cdc-micbias3-mv = <2700>;
+		qcom,cdc-micbias4-mv = <2700>;
 
 		qcom,cdc-mclk-clk-rate = <9600000>;
 		qcom,cdc-slim-ifd = "tavil-slim-ifd";

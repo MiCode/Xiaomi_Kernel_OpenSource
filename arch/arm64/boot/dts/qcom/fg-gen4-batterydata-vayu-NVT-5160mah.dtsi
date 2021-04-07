@@ -1,0 +1,153 @@
+qcom,xiaomi_j20s_nvt_5160mah_averaged_masterslave_aug26th2019 {
+	qcom,profile-revision = <24>;
+	/* #4174016_Xiaomi_J20S_5160mAh_averaged_MasterSlave_Aug26th2019*/
+	qcom,max-voltage-uv = <4475000>;
+        qcom,fastchg-current-ma = <5900>;
+	qcom,jeita-fcc-ranges = <(-100)  0   500000
+                                1  50   1000000
+				51  100  2500000
+				101 150  4000000
+				151 450  5900000
+				451 580  2500000>;
+	qcom,jeita-fv-ranges = <(-100)   0   4450000
+                                1   50   4450000
+				51  100  4450000
+				101 150  4450000
+				151 450  4475000
+				451 600  4100000>;
+	qcom,step-chg-ranges = <3001000  4150000  5900000
+				4150001  4230000  5900000
+				4230001  4350000  5400000
+				4350001  4400000  5400000
+				4400001  4430000  5400000
+				4430001  4475000  4000000>;
+	qcom,taper-fcc;
+	qcom,jeita-too-hot = <590>;
+	qcom,jeita-too-cold = <(-100)>;
+	qcom,jeita-warm-th= <450>;
+	qcom,jeita-cool-th= <150>;
+	qcom,use-bq-pump;
+	mi,six-pin-battery;
+	qcom,ffc-low-temp-term-current-ma = <(-723)>;
+	qcom,ffc-high-temp-term-current-ma = <(-774)>;
+	qcom,fg-cc-cv-threshold-mv = <4440>;
+	qcom,fg-ffc-cc-cv-threshold-mv = <4490>;
+	qcom,nom-batt-capacity-mah = <5160>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-beta = <4250>;
+	qcom,therm-room-temp = <100000>;
+	qcom,battery-type = "J20S_nvt_5160mah";
+	qcom,therm-coefficients = <0x2318 0xd0c 0xdaf7 0xc556 0x848d>;
+	qcom,therm-center-offset = <0x70>;
+	qcom,therm-pull-up = <100>;
+	qcom,rslow-normal-coeffs = <0x3c 0x05 0x2a 0x0b>;
+	qcom,rslow-low-coeffs = <0xe7 0x00 0x6a 0x12>;
+	qcom,checksum = <0x65B6>;
+	qcom,gui-version = "PM855GUI - 1.0.0.14";
+	qcom,fg-profile-data = [
+		 09 00 6B E2
+		 D8 DD C7 DB
+		 FD DD 00 00
+		 FD B4 92 83
+		 FA 87 9C 80
+		 06 8D 19 80
+		 20 00 3C 05
+		 2A 0B BF 04
+		 44 02 CE 07
+		 32 00 6C EA
+		 29 E4 A4 DB
+		 C8 03 54 DD
+		 9F 86 4B 23
+		 4D 0A 88 D5
+		 60 00 41 00
+		 45 00 3D 00
+		 2E 00 30 00
+		 39 00 43 00
+		 40 00 44 00
+		 3D 00 60 00
+		 39 00 36 00
+		 47 00 40 00
+		 3A 00 79 00
+		 52 64 45 00
+		 46 00 47 10
+		 60 00 47 00
+		 4C 08 71 10
+		 5C 10 53 00
+		 99 28 6A 48
+		 5B 60 53 0C
+		 4E 00 D8 08
+		 7D 20 0B 14
+		 03 0A AD FC
+		 36 1C 0D 02
+		 F5 0C 66 23
+		 FA 17 3F 42
+		 28 5D 83 02
+		 66 11 41 22
+		 2B 0D 96 12
+		 D2 05 F0 1C
+		 6B 03 B5 04
+		 05 02 B4 17
+		 CD 23 83 44
+		 2F 5A 8A 11
+		 0C 21 DE E5
+		 15 C2 8D AC
+		 E2 1C A2 C1
+		 2C 05 92 B3
+		 63 17 DF 83
+		 8C 84 1A A2
+		 87 A0 09 80
+		 3C 02 5B 04
+		 1C 05 54 FB
+		 00 00 5C BD
+		 FC E2 FC 07
+		 1D E2 D3 C5
+		 10 18 19 00
+		 A7 E6 33 03
+		 9A 05 1F 03
+		 CE 07 32 00
+		 96 01 BE 05
+		 0F 05 27 03
+		 67 04 6E 03
+		 AE 02 2B 03
+		 38 05 55 00
+		 3A 00 42 00
+		 44 64 46 00
+		 4C 00 42 08
+		 43 00 46 00
+		 47 08 3B 10
+		 43 10 3E 00
+		 52 28 54 50
+		 5A 68 64 0A
+		 47 00 4C 00
+		 56 10 55 00
+		 46 00 4B 00
+		 45 10 59 10
+		 52 00 62 20
+		 77 40 4C 58
+		 59 0E 5B 00
+		 50 08 2E 10
+		 D8 08 83 20
+		 B0 04 4E 0B
+		 6B 0D 9F 1C
+		 02 22 0F 45
+		 34 53 23 18
+		 D1 02 D7 05
+		 4D 02 66 11
+		 3F 0A D1 20
+		 08 04 02 02
+		 9E 04 C4 1C
+		 33 03 C8 05
+		 7B 02 86 18
+		 B6 03 18 04
+		 DB 02 6C 00
+		 04 22 59 05
+		 7E 02 DD 05
+		 F3 1C 02 02
+		 F2 05 61 02
+		 98 18 34 03
+		 17 05 A4 03
+		 85 00 C2 00
+		 C0 00 FA 00
+		 64 14 00 00
+	];
+};

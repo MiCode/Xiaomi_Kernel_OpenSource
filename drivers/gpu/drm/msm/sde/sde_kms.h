@@ -80,6 +80,8 @@
 
 #define SDE_ERROR(fmt, ...) pr_err("[sde error]" fmt, ##__VA_ARGS__)
 
+#define SDE_DEFERRED_ERROR(fmt, ...) printk_deferred(KERN_ERR "[sde error]" fmt, ##__VA_ARGS__)
+
 #define POPULATE_RECT(rect, a, b, c, d, Q16_flag) \
 	do {						\
 		(rect)->x = (Q16_flag) ? (a) >> 16 : (a);    \

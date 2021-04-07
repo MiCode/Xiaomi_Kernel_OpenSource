@@ -105,7 +105,7 @@
  * The RGB data type definition below are defined
  * to follow Errata i819.
  * The initial values were taken from:
- * VPDMA_data_type_mapping_v0.2vayu_c.pdf
+ * VPDMA_data_type_mapping_v0.2xxxx_c.pdf
  * But some of the ARGB definition appeared to be wrong
  * in the document also. As they would yield RGBA instead.
  * They have been corrected based on experimentation.

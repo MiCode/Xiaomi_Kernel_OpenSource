@@ -1452,6 +1452,11 @@ static int _ce_setup_aead_direct(struct qce_device *pce_dev,
 
 	/* write CNTR0_IV0_REG */
 	if (q_req->mode !=  QCE_MODE_ECB) {
+		if (ivsize > MAX_IV_LENGTH) {
+			pr_err("%s: error: Invalid length parameter\n",
+				 __func__);
+			return -EINVAL;
+		}
 		_byte_stream_to_net_words(enciv32, q_req->iv, ivsize);
 		for (i = 0; i < enciv_in_word; i++)
 			QCE_WRITE_REG(enciv32[i], pce_dev->iobase +

@@ -13,7 +13,23 @@
 #ifndef __STEP_CHG_H__
 #define __STEP_CHG_H__
 
-#define MAX_STEP_CHG_ENTRIES	8
+#ifdef CONFIG_QPNP_SMB5_VAYU
+#define MAX_STEP_CHG_ENTRIES	6
+#else
+#define MAX_STEP_CHG_ENTRIES    5
+#endif
+
+#define BATT_CP_COOL_THRESHOLD		100
+#define BATT_CP_WARM_THRESHOLD		450
+
+#define BATT_COOL_THRESHOLD		150
+#define BATT_WARM_THRESHOLD		450
+#define FFC_CHG_TERM_TEMP_THRESHOLD	350
+enum hvdcp3_class_type {
+	HVDCP3_CLASS_NONE = 0,
+	HVDCP3_CLASS_A_18W,
+	HVDCP3_CLASS_B_27W,
+};
 
 struct step_chg_jeita_param {
 	u32			psy_prop;
@@ -32,6 +48,7 @@ int qcom_step_chg_init(struct device *dev,
 		bool step_chg_enable, bool sw_jeita_enable, bool jeita_arb_en);
 void qcom_step_chg_deinit(void);
 int read_range_data_from_node(struct device_node *node,
-		const char *prop_str, struct range_data *ranges,
-		int max_threshold, u32 max_value);
+                const char *prop_str, struct range_data *ranges,
+                int max_threshold, u32 max_value);
+int qcom_step_chg_get_step_index(void);
 #endif /* __STEP_CHG_H__ */

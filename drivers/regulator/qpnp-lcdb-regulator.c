@@ -1283,6 +1283,17 @@ static int qpnp_lcdb_get_voltage(struct qpnp_lcdb *lcdb,
 		return rc;
 	}
 
+	if ((val & 0x80) && (type == NCP))//NCP follow 0x71 LDO
+	{
+		offset = LCDB_LDO_OUTPUT_VOLTAGE_REG;
+
+		rc = qpnp_lcdb_read(lcdb, lcdb->base + offset, &val, 1);
+		if (rc < 0) {
+				 pr_err("Failed to read NCP volatge rc=%d\n", rc);
+				 return rc;
+		}
+	}
+
 	val &= SET_OUTPUT_VOLTAGE_MASK;
 	if (val < VOLTAGE_STEP_50MV_OFFSET) {
 		*voltage_mv = VOLTAGE_MIN_STEP_100_MV +

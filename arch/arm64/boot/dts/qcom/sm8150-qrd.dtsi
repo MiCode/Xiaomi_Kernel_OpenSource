@@ -95,6 +95,19 @@
 		pinctrl-0 = <&key_home_default>;
 		qcom,finger-detect-gpio = <&pm8150_gpios 1 0>;
 	};
+
+	display_panel_avdd_eldo: display-gpio-regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "display_panel_avdd_eldo";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-enable-ramp-delay = <233>;
+		gpio = <&tlmm 130 0>;
+		enable-active-high;
+		regulator-boot-on;
+		pinctrl-names = "default";
+		pintctrl-0 = <&display_panel_avdd_eldo_default>;
+	};
 };
 
 &qupv3_se17_i2c {
@@ -114,7 +127,7 @@
 		pinctrl-0 = <&ts_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 		st,irq-gpio = <&tlmm 122 0x2008>;
-		st,reset-gpio = <&tlmm 54 0x00>;
+		//st,reset-gpio = <&tlmm 54 0x00>;
 		st,regulator_dvdd = "vdd";
 		st,regulator_avdd = "avdd";
 	};
@@ -222,6 +235,21 @@
 
 &sde_dsi {
 	vdd-supply = <&display_panel_avdd_eldo>;
+};
+
+&tlmm {
+	display_panel_avdd_eldo_default: display_panel_avdd_eldo_default {
+		mux {
+			pins = "gpio130";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio130";
+			drive-strength = <8>;
+			bias-disable = <0>;
+			output-high;
+		};
+	};
 };
 
 &qupv3_se12_2uart {

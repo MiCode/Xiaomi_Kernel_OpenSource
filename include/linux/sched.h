@@ -779,7 +779,6 @@ struct task_struct {
 	struct sched_entity		se;
 	struct sched_rt_entity		rt;
 	u64				 last_sleep_ts;
-
 	int				boost;
 	u64				boost_period;
 	u64				boost_expires;

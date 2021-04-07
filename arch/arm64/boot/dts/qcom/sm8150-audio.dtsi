@@ -96,6 +96,7 @@
 		compatible = "qcom,sm8150-asoc-snd-tavil";
 		qcom,model = "sm8150-tavil-snd-card";
 
+		qcom,msm-mbhc-usbc-audio-supported = <1>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&compr>,
@@ -155,15 +156,16 @@
 				"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913",
 				"msm-dai-q6-tdm.36914",
 				"msm-dai-q6-tdm.36928", "msm-dai-q6-tdm.36929";
-		fsa4480-i2c-handle = <&fsa4480>;
+
+		/*fsa4480-i2c-handle = <&fsa4480>;*/
 	};
 };
 
 &qupv3_se4_i2c {
 	status = "ok";
-	fsa4480: fsa4480@43 {
+	fsa4480: fsa4480@42 {
 		compatible = "qcom,fsa4480-i2c";
-		reg = <0x43>;
+		reg = <0x42>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&fsa_usbc_ana_en>;
 	};

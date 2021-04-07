@@ -139,6 +139,9 @@ module_param_named(print_parsed_dt, print_parsed_dt, bool, 0664);
 static bool sleep_disabled;
 module_param_named(sleep_disabled, sleep_disabled, bool, 0664);
 
+bool sleep_disabled_touch;
+module_param_named(sleep_disabled_touch, sleep_disabled_touch, bool, 0664);
+
 /**
  * msm_cpuidle_get_deep_idle_latency - Get deep idle latency value
  *
@@ -159,6 +162,13 @@ uint32_t register_system_pm_ops(struct system_pm_ops *pm_ops)
 
 	return 0;
 }
+
+void lpm_disable_for_input(bool on)
+{
+	sleep_disabled_touch = !!on;
+	return;
+}
+EXPORT_SYMBOL(lpm_disable_for_input);
 
 static uint32_t least_cluster_latency(struct lpm_cluster *cluster,
 					struct latency_level *lat_level)
@@ -699,7 +709,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 	struct power_params *pwr_params;
 	uint64_t bias_time = 0;
 
-	if ((sleep_disabled && !cpu_isolated(dev->cpu)) || sleep_us < 0)
+	if (((sleep_disabled || sleep_disabled_touch) && !cpu_isolated(dev->cpu)) || sleep_us < 0)
 		return best_level;
 
 	idx_restrict = cpu->nlevels + 1;
@@ -1755,7 +1765,9 @@ static void lpm_suspend_wake(void)
 	suspend_in_progress = false;
 	lpm_stats_suspend_exit();
 }
-
+#ifdef CONFIG_DEBUG_FS
+extern void gpio_debug_print(void);
+#endif
 static int lpm_suspend_enter(suspend_state_t state)
 {
 	int cpu = raw_smp_processor_id();
@@ -1777,6 +1789,9 @@ static int lpm_suspend_enter(suspend_state_t state)
 	cluster_prepare(cluster, cpumask, idx, false, 0);
 
 	success = psci_enter_sleep(lpm_cpu, idx, false);
+#ifdef CONFIG_DEBUG_FS
+	gpio_debug_print();
+#endif
 
 	cluster_unprepare(cluster, cpumask, idx, false, 0, success);
 	cpu_unprepare(lpm_cpu, idx, false);

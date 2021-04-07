@@ -187,7 +187,12 @@ struct input_dev {
 	struct input_value *vals;
 
 	bool devres_managed;
+
+#ifdef CONFIG_LAST_TOUCH_EVENTS
+	struct touch_event_info *touch_events;
+#endif
 };
+
 #define to_input_dev(d) container_of(d, struct input_dev, dev)
 
 /*

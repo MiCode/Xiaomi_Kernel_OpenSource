@@ -729,7 +729,7 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 	},
 #endif
 	{
-	}
+	},
 };
 
 ssize_t cpu_show_spectre_v1(struct device *dev, struct device_attribute *attr,

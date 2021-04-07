@@ -157,6 +157,7 @@ void cycle_count_update(struct cycle_counter *counter, int batt_soc,
 		int charge_status, bool charge_done, bool input_present);
 int get_cycle_count(struct cycle_counter *counter, int *count);
 int get_cycle_counts(struct cycle_counter *counter, const char **buf);
+int set_cycle_count(struct cycle_counter *counter, u16 count);
 int cycle_count_init(struct cycle_counter *counter);
 void cap_learning_abort(struct cap_learning *cl);
 void cap_learning_update(struct cap_learning *cl, int batt_temp,

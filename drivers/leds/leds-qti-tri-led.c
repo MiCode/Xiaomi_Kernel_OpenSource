@@ -83,6 +83,14 @@ struct qpnp_tri_led_chip {
 	u8			bitmap;
 };
 
+enum SYSFS_NODE{
+	BREATH = 0,
+	STEP_MS,
+	PAUSE_LO,
+	LUT_PATTERN,
+	LO_IDX,
+};
+
 static int qpnp_tri_led_read(struct qpnp_tri_led_chip *chip, u16 addr, u8 *val)
 {
 	int rc;
@@ -403,10 +411,176 @@ static const struct attribute *breath_attrs[] = {
 	NULL
 };
 
+extern int qpnp_lpg_ramp_step_ms_get(struct pwm_device *pwm);
+extern int qpnp_lpg_ramp_step_ms_set(struct pwm_device *pwm, u16 step_ms);
+
+static ssize_t step_ms_show(struct device *dev, struct device_attribute *attr,
+							char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct qpnp_led_dev *led =
+		container_of(led_cdev, struct qpnp_led_dev, cdev);
+
+	int step_ms;
+
+	step_ms = qpnp_lpg_ramp_step_ms_get(led->pwm_dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", step_ms);
+}
+
+static ssize_t step_ms_store(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t count)
+{
+	int rc;
+	u16 step_ms;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct qpnp_led_dev *led =
+		container_of(led_cdev, struct qpnp_led_dev, cdev);
+
+	rc = kstrtou16(buf, 0, &step_ms);
+	if (rc < 0)
+		return rc;
+
+	mutex_lock(&led->lock);
+
+	pr_debug("%s: step_ms set to %d\n", led->cdev.name, step_ms);
+	qpnp_lpg_ramp_step_ms_set(led->pwm_dev, step_ms);
+
+	mutex_unlock(&led->lock);
+	return (rc < 0) ? rc : count;
+}
+
+static DEVICE_ATTR(step_ms, 0644, step_ms_show, step_ms_store);
+static const struct attribute *step_ms_attrs[] = {
+	&dev_attr_step_ms.attr,
+	NULL
+};
+
+extern int qpnp_lpg_pause_lo_count_get(struct pwm_device *pwm);
+extern int qpnp_lpg_pause_lo_count_set(struct pwm_device *pwm, u8 pause_lo_count);
+
+static ssize_t pause_lo_count_show(struct device *dev, struct device_attribute *attr,
+							char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct qpnp_led_dev *led =
+		container_of(led_cdev, struct qpnp_led_dev, cdev);
+
+	u8 pause_lo_count;
+
+	pause_lo_count = qpnp_lpg_pause_lo_count_get(led->pwm_dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", pause_lo_count);
+}
+
+static ssize_t pause_lo_count_store(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t count)
+{
+	int rc;
+	u8 pause_lo_count;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct qpnp_led_dev *led =
+		container_of(led_cdev, struct qpnp_led_dev, cdev);
+
+	rc = kstrtou8(buf, 0, &pause_lo_count);
+	if (rc < 0)
+		return rc;
+
+	mutex_lock(&led->lock);
+
+	pr_debug("%s: pause_lo_count set to %d\n", led->cdev.name, pause_lo_count);
+	qpnp_lpg_pause_lo_count_set(led->pwm_dev, pause_lo_count);
+
+	mutex_unlock(&led->lock);
+	return (rc < 0) ? rc : count;
+}
+
+static DEVICE_ATTR(pause_lo_count, 0644, pause_lo_count_show, pause_lo_count_store);
+static const struct attribute *pause_lo_count_attrs[] = {
+	&dev_attr_pause_lo_count.attr,
+	NULL
+};
+
+extern int qpnp_lpg_lo_idx_get(struct pwm_device *pwm);
+extern int qpnp_lpg_lo_idx_set(struct pwm_device *pwm, u8 lo_idx);
+
+static ssize_t lo_idx_show(struct device *dev, struct device_attribute *attr,
+							char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct qpnp_led_dev *led =
+		container_of(led_cdev, struct qpnp_led_dev, cdev);
+
+	u8 lo_idx;
+
+	lo_idx = qpnp_lpg_lo_idx_get(led->pwm_dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", lo_idx);
+}
+
+static ssize_t lo_idx_store(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t count)
+{
+	int rc;
+	u8 lo_idx;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct qpnp_led_dev *led =
+		container_of(led_cdev, struct qpnp_led_dev, cdev);
+
+	rc = kstrtou8(buf, 0, &lo_idx);
+	if (rc < 0)
+		return rc;
+
+	mutex_lock(&led->lock);
+
+	pr_debug("%s: lo_idx set to %d\n", led->cdev.name, lo_idx);
+	qpnp_lpg_lo_idx_set(led->pwm_dev, lo_idx);
+
+	mutex_unlock(&led->lock);
+	return (rc < 0) ? rc : count;
+}
+
+static DEVICE_ATTR(lo_idx, 0644, lo_idx_show, lo_idx_store);
+static const struct attribute *lo_idx_attrs[] = {
+	&dev_attr_lo_idx.attr,
+	NULL
+};
+
+extern u8 qpnp_lpg_switch_lut_pattern(struct pwm_device *pwm, int index);
+
+static ssize_t lut_pattern_store(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t count)
+{
+	int rc;
+	int lut_pattern_index;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct qpnp_led_dev *led =
+		container_of(led_cdev, struct qpnp_led_dev, cdev);
+
+	rc = kstrtoint(buf, 0, &lut_pattern_index);
+	if (rc < 0)
+		return rc;
+
+	mutex_lock(&led->lock);
+
+	pr_debug("%s: lut_pattern switch to %d\n", led->cdev.name, lut_pattern_index);
+	qpnp_lpg_switch_lut_pattern(led->pwm_dev, lut_pattern_index);
+
+	mutex_unlock(&led->lock);
+	return (rc < 0) ? rc : count;
+}
+
+static DEVICE_ATTR(lut_pattern, 0644, NULL, lut_pattern_store);
+static const struct attribute *lut_pattern_attrs[] = {
+	&dev_attr_lut_pattern.attr,
+	NULL
+};
+
 static int qpnp_tri_led_register(struct qpnp_tri_led_chip *chip)
 {
 	struct qpnp_led_dev *led;
 	int rc, i, j;
+	int sysfs_index = 0;
 
 	for (i = 0; i < chip->num_leds; i++) {
 		led = &chip->leds[i];
@@ -431,11 +605,44 @@ static int qpnp_tri_led_register(struct qpnp_tri_led_chip *chip)
 				& PWM_OUTPUT_MODULATED) {
 			rc = sysfs_create_files(&led->cdev.dev->kobj,
 					breath_attrs);
+			sysfs_index = BREATH;
 			if (rc < 0) {
 				dev_err(chip->dev, "Create breath file for %s led failed, rc=%d\n",
 						led->label, rc);
 				goto err_out;
 			}
+		}
+
+		rc = sysfs_create_files(&led->cdev.dev->kobj, step_ms_attrs);
+		sysfs_index = STEP_MS;
+		if (rc < 0) {
+			dev_err(chip->dev, "Create step_ms file for %s led failed, rc=%d\n",
+					led->label, rc);
+			goto err_out;
+		}
+
+		rc = sysfs_create_files(&led->cdev.dev->kobj, pause_lo_count_attrs);
+		sysfs_index = PAUSE_LO;
+		if (rc < 0) {
+			dev_err(chip->dev, "Create pause_lo_count file for %s led failed, rc=%d\n",
+					led->label, rc);
+			goto err_out;
+		}
+
+		rc = sysfs_create_files(&led->cdev.dev->kobj, lut_pattern_attrs);
+		sysfs_index = LUT_PATTERN;
+		if (rc < 0) {
+			dev_err(chip->dev, "Create lut_pattern file for %s led failed, rc=%d\n",
+					led->label, rc);
+			goto err_out;
+		}
+
+		rc = sysfs_create_files(&led->cdev.dev->kobj, lo_idx_attrs);
+		sysfs_index = LO_IDX;
+		if (rc < 0) {
+			dev_err(chip->dev, "Create lo_idx file for %s led failed, rc=%d\n",
+					led->label, rc);
+			goto err_out;
 		}
 	}
 
@@ -443,9 +650,53 @@ static int qpnp_tri_led_register(struct qpnp_tri_led_chip *chip)
 
 err_out:
 	for (j = 0; j <= i; j++) {
-		if (j < i)
+		if (j < i) {
 			sysfs_remove_files(&chip->leds[j].cdev.dev->kobj,
-					breath_attrs);
+				breath_attrs);
+			sysfs_remove_files(&chip->leds[j].cdev.dev->kobj,
+				step_ms_attrs);
+			sysfs_remove_files(&chip->leds[j].cdev.dev->kobj,
+				pause_lo_count_attrs);
+			sysfs_remove_files(&chip->leds[j].cdev.dev->kobj,
+				lut_pattern_attrs);
+			sysfs_remove_files(&chip->leds[j].cdev.dev->kobj,
+				lo_idx_attrs);
+		} else {
+			switch (sysfs_index) {
+				case LO_IDX:
+					sysfs_remove_files(&chip->leds[j].cdev.dev->kobj,
+						breath_attrs);
+					sysfs_remove_files(&chip->leds[j].cdev.dev->kobj,
+						step_ms_attrs);
+					sysfs_remove_files(&chip->leds[j].cdev.dev->kobj,
+						pause_lo_count_attrs);
+					sysfs_remove_files(&chip->leds[j].cdev.dev->kobj,
+						lut_pattern_attrs);
+					break;
+				case LUT_PATTERN:
+					sysfs_remove_files(&chip->leds[j].cdev.dev->kobj,
+						breath_attrs);
+					sysfs_remove_files(&chip->leds[j].cdev.dev->kobj,
+						step_ms_attrs);
+					sysfs_remove_files(&chip->leds[j].cdev.dev->kobj,
+						pause_lo_count_attrs);
+					break;
+				case PAUSE_LO:
+					sysfs_remove_files(&chip->leds[j].cdev.dev->kobj,
+						breath_attrs);
+					sysfs_remove_files(&chip->leds[j].cdev.dev->kobj,
+						step_ms_attrs);
+					break;
+				case STEP_MS:
+					sysfs_remove_files(&chip->leds[j].cdev.dev->kobj,
+						breath_attrs);
+					break;
+				case BREATH:
+				default:
+					break;
+			}
+		}
+
 		mutex_destroy(&chip->leds[j].lock);
 	}
 	return rc;

@@ -279,6 +279,7 @@ static int setup_v1_file_key_derived(struct fscrypt_info *ci,
 	if ((fscrypt_policy_contents_mode(&ci->ci_policy) ==
 					  FSCRYPT_MODE_PRIVATE) &&
 					  fscrypt_using_inline_encryption(ci)) {
+		ci->ci_owns_key = true;
 		memcpy(key_new.bytes, raw_master_key, ci->ci_mode->keysize);
 
 		for (i = 0; i < ARRAY_SIZE(key_new.words); i++)

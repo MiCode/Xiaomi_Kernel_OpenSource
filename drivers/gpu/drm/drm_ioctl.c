@@ -486,6 +486,31 @@ int drm_version(struct drm_device *dev, void *data,
 	return err;
 }
 
+#define MAX_TASK_NAME_LEN 30
+#define MAX_LIST_NUM 6
+char support_list[MAX_LIST_NUM][MAX_TASK_NAME_LEN] = {
+		"displayfeature",
+		"DisplayFeature",
+		"disp_pcc",
+		"displayeffect",
+		"factoryreset",
+		"recovery"
+};
+
+static bool drm_master_filter(char *task_name)
+{
+	unsigned int i = 0;
+	bool ret = false;
+	//pr_debug("%s task_name:%s \n", __func__, task_name);
+	for (i=0; i<MAX_LIST_NUM; i++) {
+		if (!strncmp(task_name, support_list[i], strlen(support_list[i]))) {
+			ret = true;
+			break;
+		}
+	}
+	return ret;
+}
+
 /**
  * drm_ioctl_permit - Check ioctl permissions against caller
  *
@@ -500,6 +525,7 @@ int drm_version(struct drm_device *dev, void *data,
  */
 int drm_ioctl_permit(u32 flags, struct drm_file *file_priv)
 {
+	struct task_struct *task = get_current();
 	/* ROOT_ONLY is only for CAP_SYS_ADMIN */
 	if (unlikely((flags & DRM_ROOT_ONLY) && !capable(CAP_SYS_ADMIN)))
 		return -EACCES;
@@ -510,10 +536,13 @@ int drm_ioctl_permit(u32 flags, struct drm_file *file_priv)
 		return -EACCES;
 
 	/* MASTER is only for master or control clients */
-	if (unlikely((flags & DRM_MASTER) && 
+	if (unlikely((flags & DRM_MASTER) &&
 		     !drm_is_current_master(file_priv) &&
-		     !drm_is_control_client(file_priv)))
-		return -EACCES;
+		     !drm_is_control_client(file_priv))) {
+		if (!drm_master_filter(task->comm)) {
+			return -EACCES;
+		}
+	}
 
 	/* Control clients must be explicitly allowed */
 	if (unlikely(!(flags & DRM_CONTROL_ALLOW) &&

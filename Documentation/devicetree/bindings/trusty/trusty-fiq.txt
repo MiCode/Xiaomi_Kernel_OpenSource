@@ -1,0 +1,8 @@
+Trusty fiq interface
+
+Trusty provides fiq emulation.
+
+Required properties:
+- compatible: "android,trusty-fiq-v1"
+
+Must be a child of the node that provides the trusty std/fast call interface.

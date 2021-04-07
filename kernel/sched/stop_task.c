@@ -74,7 +74,6 @@ static void put_prev_task_stop(struct rq *rq, struct task_struct *prev)
 
 	curr->se.sum_exec_runtime += delta_exec;
 	account_group_exec_runtime(curr, delta_exec);
-
 	curr->se.exec_start = rq_clock_task(rq);
 	cpuacct_charge(curr, delta_exec);
 }

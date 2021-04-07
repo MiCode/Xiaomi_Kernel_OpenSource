@@ -430,14 +430,7 @@ static inline bool gfpflags_normal_context(const gfp_t gfp_flags)
 static inline enum zone_type gfp_zone(gfp_t flags)
 {
 	enum zone_type z;
-	int bit;
-
-	if (!IS_ENABLED(CONFIG_HIGHMEM)) {
-		if ((flags & __GFP_MOVABLE) && !(flags & __GFP_CMA))
-			flags &= ~__GFP_HIGHMEM;
-	}
-
-	bit = (__force int) (flags & GFP_ZONEMASK);
+	int bit = (__force int) (flags & GFP_ZONEMASK);
 
 	z = (GFP_ZONE_TABLE >> (bit * GFP_ZONES_SHIFT)) &
 					 ((1 << GFP_ZONES_SHIFT) - 1);

@@ -487,12 +487,20 @@ int vote(struct votable *votable, const char *client_str, bool enabled, int val)
 	 */
 	if (!votable->voted_on
 			|| (effective_result != votable->effective_result)) {
+		if (strcmp(votable->name, "FG_WS") != 0) {
+			if (votable->override_result == -EINVAL) {
+				pr_info("%s: current vote is now %d voted by %s,%d, previous voted %d\n",
+						votable->name, effective_result,
+						get_client_str(votable, effective_id),
+						effective_id, votable->effective_result);
+			} else {
+				pr_info("%s: current override_result %d, %s set %d is miss\n",
+						votable->name, votable->override_result,
+						client_str, val);
+			}
+		}
 		votable->effective_client_id = effective_id;
 		votable->effective_result = effective_result;
-		pr_debug("%s: effective vote is now %d voted by %s,%d\n",
-			votable->name, effective_result,
-			get_client_str(votable, effective_id),
-			effective_id);
 		if (votable->callback && !votable->force_active
 				&& (votable->override_result == -EINVAL))
 			rc = votable->callback(votable, votable->data,
@@ -536,6 +544,11 @@ int vote_override(struct votable *votable, const char *override_client,
 		return -EINVAL;
 
 	lock_votable(votable);
+
+	pr_info("%s:client %s,enabled:%d,val:%d\n",
+			votable->name, override_client,
+			enabled, val);
+
 	if (votable->force_active) {
 		votable->override_result = enabled ? val : -EINVAL;
 		goto out;

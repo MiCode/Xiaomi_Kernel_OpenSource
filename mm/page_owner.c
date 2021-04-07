@@ -74,7 +74,7 @@ static __always_inline depot_stack_handle_t create_dummy_stack(void)
 	dummy.skip = 0;
 
 	save_stack_trace(&dummy);
-	return depot_save_stack(&dummy, GFP_KERNEL);
+	return depot_save_stack(&dummy, GFP_KERNEL, 0);
 }
 
 static noinline void register_dummy_stack(void)
@@ -170,7 +170,7 @@ static noinline depot_stack_handle_t save_stack(gfp_t flags)
 	if (check_recursive_alloc(&trace, _RET_IP_))
 		return dummy_handle;
 
-	handle = depot_save_stack(&trace, flags);
+	handle = depot_save_stack(&trace, flags, 0);
 	if (!handle)
 		handle = failure_handle;
 

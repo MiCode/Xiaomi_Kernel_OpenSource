@@ -267,7 +267,6 @@ struct ufs_desc_size {
 	int interc_desc;
 	int unit_desc;
 	int conf_desc;
-	int hlth_desc;
 };
 
 /**

@@ -4063,6 +4063,12 @@ static void msm_pcie_release_resources(struct msm_pcie_dev_t *dev)
 	dev->dm_core = NULL;
 	dev->conf = NULL;
 	dev->tcsr = NULL;
+
+	if (dev->bus_scale_table) {
+		if (dev->bus_client)
+			msm_bus_scale_unregister_client(dev->bus_client);
+		msm_bus_cl_clear_pdata(dev->bus_scale_table);
+	}
 }
 
 static void msm_pcie_scale_link_bandwidth(struct msm_pcie_dev_t *pcie_dev,

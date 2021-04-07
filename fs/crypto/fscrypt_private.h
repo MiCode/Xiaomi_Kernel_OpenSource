@@ -12,6 +12,7 @@
 #define _FSCRYPT_PRIVATE_H
 
 #include <linux/fscrypt.h>
+#include <uapi/linux/fscrypt.h>
 #include <linux/siphash.h>
 #include <crypto/hash.h>
 #include <linux/bio-crypt-ctx.h>

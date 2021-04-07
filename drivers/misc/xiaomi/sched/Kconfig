@@ -1,0 +1,8 @@
+config SCHED_USF
+	tristate "Support user sensitive factors"
+	depends on SMP
+	help
+	  Select this option to enable the adjustment on the cpufreq with
+	  the user sensitive factors.
+
+	  If unsure, say N.

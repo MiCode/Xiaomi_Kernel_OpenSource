@@ -1358,7 +1358,6 @@ static void dfc_svc_init(struct work_struct *work)
 				  data->svc.instance,
 				  data->svc.ep_type,
 				  data->svc.iface_id);
-
 	rtnl_unlock();
 
 	pr_info("Connection established with the DFC Service\n");

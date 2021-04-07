@@ -197,4 +197,7 @@ config DRM_SDE_RSC
 	  can vote their active state. Any active request from any client
 	  avoids the display core power collapse. A client can also register
 	  for display core power collapse events on rsc.
-
+config DRM_SDE_XLOG_DEBUG
+	bool "Trigger a panic after the dumping work has completed when SDE error"
+	default n
+	depends on DRM_MSM

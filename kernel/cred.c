@@ -341,6 +341,7 @@ int copy_creds(struct task_struct *p, unsigned long clone_flags)
 		kdebug("share_creds(%p{%d,%d})",
 		       p->cred, atomic_read(&p->cred->usage),
 		       read_cred_subscribers(p->cred));
+
 		atomic_inc(&p->cred->user->processes);
 		return 0;
 	}
@@ -479,8 +480,10 @@ int commit_creds(struct cred *new)
 		atomic_inc(&new->user->processes);
 	rcu_assign_pointer(task->real_cred, new);
 	rcu_assign_pointer(task->cred, new);
+
 	if (new->user != old->user)
 		atomic_dec(&old->user->processes);
+
 	alter_cred_subscribers(old, -2);
 
 	/* send notifications */

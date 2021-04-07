@@ -771,4 +771,14 @@ config CRYPTO_DEV_ARTPEC6
 
 	  To compile this driver as a module, choose M here.
 
+config CRYPTO_DEV_QCOM_ICE
+        tristate "Inline Crypto Module"
+        default n
+        depends on BLK_DEV_DM
+        help
+          This driver supports Inline Crypto Engine for QTI chipsets, MSM8994
+          and later, to accelerate crypto operations for storage needs.
+          To compile this driver as a module, choose M here: the
+          module will be called ice.
+
 endif # CRYPTO_HW

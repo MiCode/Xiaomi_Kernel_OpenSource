@@ -52,6 +52,7 @@ struct default_key_c {
 	struct blk_crypto_key key;
 	bool is_hw_wrapped;
 	u64 max_dun;
+	bool set_dun;
 };
 
 static const struct dm_default_key_cipher *
@@ -122,6 +123,8 @@ static int default_key_ctr_optional(struct dm_target *ti,
 			iv_large_sectors = true;
 		} else if (!strcmp(opt_string, "wrappedkey_v0")) {
 			dkc->is_hw_wrapped = true;
+		} else if (!strcmp(opt_string, "set_dun")) {
+			dkc->set_dun = true;
 		} else {
 			ti->error = "Invalid feature arguments";
 			return -EINVAL;
@@ -160,7 +163,9 @@ static void default_key_adjust_sector_size_and_iv(char **argv,
 
 		memcpy(raw, key_new.bytes, size);
 
-		if (ti->len & (((*dkc)->sector_size >> SECTOR_SHIFT) - 1))
+		if ((ti->len & (((*dkc)->sector_size >> SECTOR_SHIFT) - 1)) ||
+		    ((*dkc)->dev->bdev->bd_disk->disk_name[0] &&
+		     !strcmp((*dkc)->dev->bdev->bd_disk->disk_name, "mmcblk0")))
 			(*dkc)->sector_size = SECTOR_SIZE;
 
 		if (dev->bdev->bd_part)

@@ -120,6 +120,8 @@ struct dsi_backlight_config {
 	u32 bl_scale_ad;
 
 	int en_gpio;
+	bool bl_remap_flag;
+	bool dcs_type_ss;
 	/* PWM params */
 	struct pwm_device *pwm_bl;
 	bool pwm_enabled;
@@ -165,6 +167,17 @@ struct drm_panel_esd_config {
 	u8 *return_buf;
 	u8 *status_buf;
 	u32 groups;
+	int esd_err_irq_gpio;
+	int esd_err_irq;
+	int esd_err_irq_flags;
+};
+
+struct dsi_read_config {
+	bool enabled;
+	struct dsi_panel_cmd_set read_cmd;
+	u32 cmds_rlen;
+	u32 valid_bits;
+	u8 rbuf[64];
 };
 
 struct dsi_panel {
@@ -211,10 +224,67 @@ struct dsi_panel {
 	bool te_using_watchdog_timer;
 	u32 qsync_min_fps;
 
+	bool dispparam_enabled;
+	u32 skip_dimmingon;
+
 	char dsc_pps_cmd[DSI_CMD_PPS_SIZE];
 	enum dsi_dms_mode dms_mode;
 
 	bool sync_broadcast_en;
+
+	u32 panel_on_dimming_delay;
+	struct delayed_work cmds_work;
+	struct delayed_work fod_work;
+	u32 last_bl_lvl;
+	s32 backlight_delta;
+
+	bool fod_hbm_enabled; /* prevent set DISPPARAM_DOZE_BRIGHTNESS_HBM/LBM in FOD HBM */
+	bool fod_dimlayer_enabled;
+	bool fod_dimlayer_hbm_enabled;
+	u32 fod_ui_ready;
+	u32 doze_backlight_threshold;
+	u32 fod_off_dimming_delay;
+	ktime_t fod_hbm_off_time;
+	ktime_t fod_backlight_off_time;
+
+	u32 panel_p3_mode;
+	u32 close_crc;
+
+	bool elvss_dimming_check_enable;
+	struct dsi_read_config elvss_dimming_cmds;
+	struct dsi_panel_cmd_set elvss_dimming_offset;
+	struct dsi_panel_cmd_set hbm_fod_on;
+	struct dsi_panel_cmd_set hbm_fod_off;
+	struct dsi_panel_cmd_set hbm_fod_off_doze_hbm_on;
+	struct dsi_panel_cmd_set hbm_fod_off_doze_lbm_on;
+
+	bool fod_backlight_flag;
+	u32 fod_target_backlight;
+	bool fod_flag;
+	bool in_aod; /* set  DISPPARAM_DOZE_BRIGHTNESS_HBM/LBM only in AOD */
+	bool crc_flag;
+	bool is_tddi_flag;
+	bool tddi_doubleclick_flag;
+	bool panel_dead_flag;
+
+	/* Display count */
+	bool panel_active_count_enable;
+	u64 boottime;
+	u64 bootRTCtime;
+	u64 bootdays;
+	u64 panel_active;
+	u64 kickoff_count;
+	u64 bl_duration;
+	u64 bl_level_integral;
+	u64 bl_highlevel_duration;
+	u64 bl_lowlevel_duration;
+	u64 hbm_duration;
+	u64 hbm_times;
+	u32 dc_threshold;
+	bool dc_enable;
+	bool dim_layer_replace_dc;
+	bool fod_dimlayer_bl_block;
+	bool fodflag;
 	int power_mode;
 	enum dsi_panel_physical_type panel_type;
 };
@@ -336,5 +406,9 @@ struct dsi_panel *dsi_panel_ext_bridge_get(struct device *parent,
 int dsi_panel_parse_esd_reg_read_configs(struct dsi_panel *panel);
 
 void dsi_panel_ext_bridge_put(struct dsi_panel *panel);
+
+int dsi_panel_write_cmd_set(struct dsi_panel *panel, struct dsi_panel_cmd_set *cmd_sets);
+
+int dsi_panel_read_cmd_set(struct dsi_panel *panel, struct dsi_read_config *read_config);
 
 #endif /* _DSI_PANEL_H_ */

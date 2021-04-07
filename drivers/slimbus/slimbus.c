@@ -2082,6 +2082,8 @@ int slim_define_ch(struct slim_device *sb, struct slim_ch *prop, u16 *chanh,
 
 	if (!ctrl || !chanh || !prop || !nchan)
 		return -EINVAL;
+	if (prop->ratem == 0)
+		return -EINVAL;
 	mutex_lock(&ctrl->sched.m_reconf);
 	for (i = 0; i < nchan; i++) {
 		u8 chan = SLIM_HDL_TO_CHIDX(chanh[i]);

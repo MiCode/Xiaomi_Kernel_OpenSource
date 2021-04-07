@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,11 +62,17 @@ smb1390_slave: qcom,smb1390_slave@18 {
 	reg = <0x18>;
 	#address-cells = <1>;
 	#size-cells = <0>;
+	interrupt-parent = <&spmi_bus>;
+	interrupts = <0x2 0xC5 0x0 IRQ_TYPE_LEVEL_LOW>;
+	interrupt_names = "smb1390_slave";
+	interrupt-controller;
+	#interrupt-cells = <3>;
 	qcom,periph-map = <0x10>;
 	status = "disabled";
 
 	smb1390_slave_charger: qcom,charge_pump_slave {
 		compatible = "qcom,smb1390-slave";
+		interrupt-parent = <&smb1390_slave>;
 		status = "disabled";
 	};
 };

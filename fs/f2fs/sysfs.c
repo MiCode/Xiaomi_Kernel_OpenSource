@@ -17,7 +17,7 @@
 #include "gc.h"
 #include <trace/events/f2fs.h>
 
-static struct proc_dir_entry *f2fs_proc_root;
+struct proc_dir_entry *f2fs_proc_root;
 
 /* Sysfs support for f2fs */
 enum {

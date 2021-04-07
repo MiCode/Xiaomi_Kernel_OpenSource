@@ -162,9 +162,13 @@ static int ipa_eth_deinit_device(struct ipa_eth_device *eth_dev)
 	return 0;
 }
 
+static void ipa_eth_free_msg(void *buff, u32 len, u32 type) {}
+
 static int ipa_eth_start_device(struct ipa_eth_device *eth_dev)
 {
 	int rc;
+	struct ipa_msg_meta msg_meta;
+	struct ipa_ecm_msg ecm_msg;
 
 	if (eth_dev->of_state == IPA_ETH_OF_ST_STARTED)
 		return 0;
@@ -223,6 +227,18 @@ static int ipa_eth_start_device(struct ipa_eth_device *eth_dev)
 static int ipa_eth_stop_device(struct ipa_eth_device *eth_dev)
 {
 	int rc;
+	struct ipa_msg_meta msg_meta;
+	struct ipa_ecm_msg ecm_msg;
+
+	memset(&msg_meta, 0, sizeof(msg_meta));
+	memset(&ecm_msg, 0, sizeof(ecm_msg));
+
+	ecm_msg.ifindex = eth_dev->net_dev->ifindex;
+	strlcpy(ecm_msg.name, eth_dev->net_dev->name, IPA_RESOURCE_NAME_MAX);
+
+	msg_meta.msg_type = ECM_DISCONNECT;
+	msg_meta.msg_len = sizeof(struct ipa_ecm_msg);
+	(void) ipa_send_msg(&msg_meta, &ecm_msg, ipa_eth_free_msg);
 
 	if (eth_dev->of_state == IPA_ETH_OF_ST_DEINITED)
 		return 0;

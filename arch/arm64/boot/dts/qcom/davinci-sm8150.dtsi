@@ -1,0 +1,584 @@
+/*
+this file is for attribution only of davinci
+And public attribution of xiaomi platforms
+*/
+#include "davinci-pinctrl.dtsi"
+#include "xiaomi-sm8150-common.dtsi"
+
+#include "davinci-sm8150-camera-sensor.dtsi"
+
+&qupv3_se4_i2c {
+#include "smb1355.dtsi"
+};
+
+
+&vendor {
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "fg-gen4-batterydata-alium-3600mah_F10.dtsi"
+	};
+};
+
+&pm8150b_fg {
+	qcom,battery-data = <&mtp_batterydata>;
+	qcom,rapid-soc-dec-en;
+	qcom,fg-sys-term-current = <(-300)>;
+	qcom,fg-cutoff-voltage = <3400>;
+	qcom,fg-cutoff-current = <200>;
+	qcom,fg-empty-voltage = <3100>;
+	qcom,fg-force-load-profile;
+	/* ESR fast calibration */
+	qcom,fg-esr-timer-chg-fast = <0 7>;
+	qcom,fg-esr-timer-dischg-fast = <0 7>;
+	qcom,fg-esr-timer-chg-slow = <0 96>;
+	qcom,fg-esr-timer-dischg-slow = <0 96>;
+	qcom,fg-esr-cal-soc-thresh = <26 230>;
+	qcom,fg-esr-cal-temp-thresh = <10 40>;
+};
+
+&pm8150b_charger {
+	qcom,sec-charger-config = <2>;
+	qcom,usb-icl-ua = <2800000>;
+	qcom,fcc-max-ua = <3000000>;
+	qcom,fv-max-uv = <4400000>;
+	qcom,auto-recharge-soc = <99>;
+	qcom,chg-term-src = <1>;
+	qcom,chg-term-current-ma = <(-200)>;
+	qcom,thermal-mitigation = <3000000 2800000 2600000 2400000 2200000 2100000 2000000
+				   1800000 1600000 1500000 1400000 1200000 1000000 900000
+				   800000 500000>;
+	qcom,thermal-mitigation-icl
+				= <2800000 2700000 2600000 2400000 2200000 2100000 2000000
+				   1800000 1700000 1700000 1600000 1500000 1400000 1300000
+				   950000 750000>;
+	qcom,thermal-mitigation-dcp
+				= <1800000 1800000 1800000 1800000 1800000 1800000 1800000
+				   1800000 1800000 1700000 1600000 1400000 1200000 1100000
+				   1100000 1000000>;
+	qcom,thermal-mitigation-qc2
+				= <1500000 1500000 1500000 1500000 1450000 1400000 1350000
+				   1300000 1150000 1100000 1000000 900000 850000 750000
+				   650000 500000>;
+	qcom,thermal-fcc-qc3-normal
+				= <3200000 3000000 2800000 2600000 2500000 2400000 2300000
+				   2200000 2100000 1800000 1600000 1400000 1200000 1000000
+				   750000 750000>;
+	qcom,thermal-fcc-qc3-cp
+				= <4800000 4700000 4600000 4500000 4400000 4200000 3800000
+				   3600000 3200000 2800000 2400000 2200000 2000000 1300000
+				   750000 700000>;
+	qcom,thermal-mitigation-pd-base
+				= <3000000 2800000 2600000 2500000 2300000 2200000 2100000
+				   1900000 1800000 1600000 1500000 1400000 1200000 1000000
+				   950000 500000>;
+	qcom,thermal-fcc-pps-cp
+				= <4800000 4700000 4600000 4500000 4400000 4200000 3800000
+				   3600000 3200000 2800000 2400000 2200000 2000000 1300000
+				   750000 750000>;
+	qcom,thermal-mitigation-dc
+				= <2200000 2000000 1800000 1600000 1400000 1200000 1100000
+				   1000000 900000  800000  700000  600000  500000  400000
+				   300000  200000>;
+	io-channels = <&pm8150b_vadc ADC_MID_CHG_DIV6>,
+		      <&pm8150b_vadc ADC_USB_IN_V_16>,
+		      <&pm8150b_vadc ADC_USB_IN_I>,
+		      <&pm8150b_vadc ADC_SBUx>,
+		      <&pm8150b_vadc ADC_VPH_PWR>,
+		      <&pm8150b_vadc ADC_CHG_TEMP>;
+	io-channel-names = "mid_voltage",
+			   "usb_in_voltage",
+			   "usb_in_current",
+			   "sbux_res",
+			   "vph_voltage",
+			   "chg_temp";
+	qcom,battery-data = <&mtp_batterydata>;
+	dpdm-supply = <&usb2_phy0>;
+	qcom,sw-jeita-enable;
+};
+
+&qupv3_se9_i2c {
+	status = "ok";
+	tfa98xx@34 {
+		compatible = "nxp,tfa98xx";
+		reset-gpio = <&tlmm 59 0>;
+		irq-gpio = <&tlmm 60 0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <60 0>;
+		interrupt-names = "smartpa_irq";
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&smartpa_int_active &smartpa_enable_active>;
+		pinctrl-1 = <&smartpa_int_suspend &smartpa_enable_suspend>;
+		reg = <0x34>;
+		status = "ok";
+	};
+};
+
+&qupv3_se4_i2c {
+	status = "ok";
+	fsa4480@42 {
+		status = "disabled";
+	};
+
+};
+
+&smb1355 {
+        pinctrl-names = "default";
+        pinctrl-0 = <&smb_stat_default>;
+        status = "ok";
+};
+
+&smb1355_charger {
+        io-channels = <&pm8150b_vadc ADC_AMUX_THM2>;
+        io-channel-names = "charger_temp";
+        status = "ok";
+};
+
+&usb0 {
+	dwc3@a600000 {
+		usb-phy = <&usb2_phy0>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+	};
+};
+
+&usb2_phy0 {
+	qcom,param-override-seq =
+		<0x85 0x70
+		 0x2d 0x74>;
+};
+
+&usb_qmp_dp_phy {
+	status = "disabled";
+};
+
+&usb1 {
+	extcon = <&extcon_usb1>;
+        status = "disabled";
+};
+
+&usb2_phy1 {
+        status = "disabled";
+};
+
+&usb_qmp_phy {
+        status = "disabled";
+};
+
+&soc {
+	touch_vddio_vreg: touch_vddio_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "disp_vddio_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		regulator-boot-on;
+		gpio = <&tlmm 99 0>;
+	 };
+
+	vdd_boost_vreg: vdd_boost_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_boost_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		regulator-always-on;
+		gpio = <&pm8150b_gpios 5 0>;
+	 };
+
+	fp_vdd_vreg: fp_vdd_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "fp_vdd_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&tlmm 125 0>;
+		regulator-always-on;
+	};
+
+	fingerprint_fpc {
+		status = "ok";
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <118 0x0>;
+		fpc,gpio_irq    = <&tlmm 118 0x0>;
+		/* fpc,enable-on-boot; */
+		/* fpc,enable-wakeup;  */
+
+		pinctrl-names = "fpc1020_reset_reset",
+			"fpc1020_reset_active";
+
+		pinctrl-0 = <&msm_gpio_37>;
+		pinctrl-1 = <&msm_gpio_37_output_high>;
+	};
+
+	fingerprint_goodix {
+		compatible = "goodix,fingerprint";
+		goodix,gpio-reset = <&tlmm 37 0x0>;
+		goodix,gpio-irq = <&tlmm 118 0x0>;
+		fp-gpio-pwr = <&tlmm 125 0>;
+		status = "ok";
+	};
+
+	gpio_keys {
+		hall_key {
+			label = "hall_key";
+			gpios = <&tlmm 120 GPIO_ACTIVE_LOW>;
+			linux,input-type = <5>;
+			linux,code = <0>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+	};
+};
+
+&qupv3_se19_i2c {
+	status = "ok";
+	novatek@62 {
+		compatible = "novatek,NVT-ts";
+		reg = <0x62>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <122 0x2001>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		avdd-supply = <&pm8150l_l1>;
+		novatek,vddio-reg-name = "avdd";
+		novatek,irq-gpio = <&tlmm 122 0x2001>;
+		novatek,reset-gpio = <&tlmm 54 0x00>;
+		novatek,reset-tddi = <&tlmm 6 0x00>;
+		novatek,config-array-size = <1>;
+		novatek,dump-click-count;
+		novatek,cfg_0 {
+			novatek,tp-vendor = <0x46>;
+			novatek,hw-version = <0x1>;
+			novatek,fw-name = "novatek_nt36672_f10.fw";
+			novatek,clicknum-file-name = "nvt+tianma";
+		};
+	};
+};
+
+&qupv3_se17_i2c {
+	status = "ok";
+	idtp9220: idtp9220@3b {
+		compatible = "idt,p9220";
+		reg = <0x3b>;
+		idt,irq = <&tlmm 114 0x00>;
+		idt,enable = <&tlmm 115 0x00>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <114 0>;
+		interrupt-names = "idt_irq";
+		pinctrl-names = "idt_active", "idt_suspend";
+		pinctrl-0 = <&idt_int_active &idt_enable_active>;
+		pinctrl-1 = <&idt_int_suspend &idt_enable_suspend>;
+	};
+};
+
+&pm8150b_vadc {
+	vph_pwr {
+		reg = <ADC_VPH_PWR>;
+		label = "vph_pwr";
+		qcom,pre-scaling = <1 3>;
+	};
+
+	wp_therm {
+		reg = <ADC_AMUX_THM1_PU2>;
+		label = "wp_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	vcoin {
+		reg = <ADC_VCOIN>;
+		label = "vcoin";
+		qcom,pre-scaling = <1 3>;
+	};
+
+	conn_therm {
+		reg = <ADC_AMUX_THM3_PU2>;
+		label = "conn_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	chg_sbux {
+		reg = <ADC_SBUx>;
+		label = "chg_sbux";
+		qcom,pre-scaling = <1 3>;
+	};
+
+	mid_chg_div6 {
+		reg = <ADC_MID_CHG_DIV6>;
+		label = "chg_mid";
+		qcom,pre-scaling = <1 6>;
+	};
+
+	usb_in_i_uv {
+		reg = <ADC_USB_IN_I>;
+		label = "usb_in_i_uv";
+		qcom,pre-scaling = <1 1>;
+	};
+
+	usb_in_v_div_16 {
+		reg = <ADC_USB_IN_V_16>;
+		label = "usb_in_v_div_16";
+		qcom,pre-scaling = <1 16>;
+	};
+};
+
+&pm8150_vadc {
+	vph_pwr {
+		reg = <ADC_VPH_PWR>;
+		label = "vph_pwr";
+		qcom,pre-scaling = <1 3>;
+	};
+
+	vcoin {
+		reg = <ADC_VCOIN>;
+		label = "vcoin";
+		qcom,pre-scaling = <1 3>;
+	};
+
+	xo_therm {
+		reg = <ADC_XO_THERM_PU2>;
+		label = "xo_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	quiet_therm {
+		reg = <ADC_AMUX_THM1_PU2>;
+		label = "quiet_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	pa_therm0 {
+		reg = <ADC_AMUX_THM2_PU2>;
+		label = "pa_therm0";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+};
+
+&pm8150l_vadc {
+	vph_pwr {
+		reg = <ADC_VPH_PWR>;
+		label = "vph_pwr";
+		qcom,pre-scaling = <1 3>;
+	};
+
+	cam_therm0 {
+		reg = <ADC_AMUX_THM1_PU2>;
+		label = "camera_flash_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	cam_therm1 {
+		reg = <ADC_AMUX_THM2_PU2>;
+		label = "skin_msm_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	pa_therm1 {
+		reg = <ADC_AMUX_THM3_PU2>;
+		label = "pa_therm1";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+};
+
+&pm8150b_adc_tm {
+	wp_therm {
+		reg = <ADC_AMUX_THM1_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+};
+
+&pm8150_adc_tm {
+	xo_therm {
+		reg = <ADC_XO_THERM_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+        quiet_therm {
+                reg = <ADC_AMUX_THM1_PU2>;
+                qcom,ratiometric;
+                qcom,hw-settle-time = <200>;
+        };
+
+        pa_therm0 {
+                reg = <ADC_AMUX_THM2_PU2>;
+                qcom,ratiometric;
+                qcom,hw-settle-time = <200>;
+        };
+};
+
+&pm8150l_adc_tm {
+	cam_therm0 {
+		reg = <ADC_AMUX_THM1_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	cam_therm1 {
+		reg = <ADC_AMUX_THM2_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	pa_therm1 {
+		reg = <ADC_AMUX_THM3_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+};
+
+&thermal_zones {
+	wp_therm {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pm8150b_adc_tm ADC_AMUX_THM1_PU2>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	xo_therm {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pm8150_adc_tm ADC_XO_THERM_PU2>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+        quiet_therm {
+                polling-delay-passive = <0>;
+                polling-delay = <0>;
+                thermal-governor = "user_space";
+                thermal-sensors = <&pm8150_adc_tm ADC_AMUX_THM1_PU2>;
+                trips {
+                       active-config0 {
+                               temperature = <125000>;
+                               hysteresis = <1000>;
+                               type = "passive";
+                       };
+                };
+        };
+
+        pa_therm0 {
+                polling-delay-passive = <0>;
+                polling-delay = <0>;
+                thermal-governor = "user_space";
+                thermal-sensors = <&pm8150_adc_tm ADC_AMUX_THM2_PU2>;
+                trips {
+                       active-config0 {
+                               temperature = <125000>;
+                               hysteresis = <1000>;
+                               type = "passive";
+                       };
+                };
+        };
+
+	cam_therm0 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pm8150l_adc_tm ADC_AMUX_THM1_PU2>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	cam_therm1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pm8150l_adc_tm ADC_AMUX_THM2_PU2>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	pa_therm1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pm8150l_adc_tm ADC_AMUX_THM3_PU2>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+};
+
+&pm8150b_haptics {
+		qcom,vmax-mv = <2545>;
+		qcom,play-rate-us = <4878>;
+		qcom,lra-resonance-sig-shape = "sine";
+		qcom,lra-auto-resonance-mode = "qwd";
+		qcom,lra-allow-variable-play-rate;
+};
+
+&pm8150l_lpg {
+	qcom,lut-patterns = <0 10 20 30 40 50 60 70 80 90 100
+				90 80 70 60 50 40 30 20 10 0>;
+};
+
+&pwm_lpg1 {
+	qcom,lpg-chan-id = <1>;
+	qcom,ramp-step-ms = <100>;
+	qcom,ramp-pause-hi-count = <2>;
+	qcom,ramp-pause-lo-count = <2>;
+	qcom,ramp-low-index = <0>;
+	qcom,ramp-high-index = <20>;
+	qcom,ramp-from-low-to-high;
+	qcom,ramp-pattern-repeat;
+};
+
+&red_led {
+	label = "white";
+};
+
+&green_led {
+	status = "disabled";
+};
+
+&blue_led {
+	status = "disabled";
+};
+
+&pm8150l_wled {
+	qcom,string-cfg= <15>;// if use 2 string, the number is 3
+	qcom,leds-per-string = <5>;
+	status = "ok";
+};
+

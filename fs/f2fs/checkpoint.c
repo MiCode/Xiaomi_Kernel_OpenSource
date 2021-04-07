@@ -1168,6 +1168,11 @@ static int block_operations(struct f2fs_sb_info *sbi)
 	};
 	int err = 0, cnt = 0;
 
+	/*
+	 * Let's flush inline_data in dirty node pages.
+	 */
+	f2fs_flush_inline_data(sbi);
+
 retry_flush_quotas:
 	f2fs_lock_all(sbi);
 	if (__need_flush_quota(sbi)) {
@@ -1260,6 +1265,9 @@ void f2fs_wait_on_all_pages(struct f2fs_sb_info *sbi, int type)
 
 		if (unlikely(f2fs_cp_error(sbi)))
 			break;
+
+		if (type == F2FS_DIRTY_META)
+			f2fs_sync_meta_pages(sbi, META, LONG_MAX,FS_CP_META_IO);
 
 		io_schedule_timeout(DEFAULT_IO_TIMEOUT);
 	}

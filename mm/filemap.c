@@ -2311,7 +2311,6 @@ generic_file_read_iter(struct kiocb *iocb, struct iov_iter *iter)
 		    IS_DAX(inode))
 			goto out;
 	}
-
 	retval = generic_file_buffered_read(iocb, iter, retval);
 out:
 	return retval;

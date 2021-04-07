@@ -1050,7 +1050,6 @@ static int ufsdbg_dump_device_desc_open(struct inode *inode, struct file *file)
 static const struct file_operations ufsdbg_dump_device_desc = {
 	.open		= ufsdbg_dump_device_desc_open,
 	.read		= seq_read,
-	.release	= single_release,
 };
 
 static int ufsdbg_power_mode_show(struct seq_file *file, void *data)
@@ -1769,7 +1768,7 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	}
 
 	hba->debugfs_files.err_state =
-		debugfs_create_file("err_state", S_IRUSR | S_IWUSR,
+		debugfs_create_file("err_state", S_IRUSR | S_IWUSR | S_IRUGO,
 			hba->debugfs_files.debugfs_root, hba,
 			&ufsdbg_err_state);
 	if (!hba->debugfs_files.err_state) {

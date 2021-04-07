@@ -294,6 +294,10 @@ int ipa_setup_odl_pipe(void)
 
 	ipa_odl_ep_cfg->ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_AGGR;
 	ipa_odl_ep_cfg->ipa_ep_cfg.aggr.aggr_hard_byte_limit_en = 1;
+	if (ipa3_is_mhip_offload_enabled()) {
+		IPADBG("MHIP is enabled, disable aggregation for ODL pipe");
+		ipa_odl_ep_cfg->ipa_ep_cfg.aggr.aggr_en = IPA_BYPASS_AGGR;
+	}
 	ipa_odl_ep_cfg->ipa_ep_cfg.aggr.aggr = IPA_GENERIC;
 	ipa_odl_ep_cfg->ipa_ep_cfg.aggr.aggr_byte_limit =
 						IPA_ODL_AGGR_BYTE_LIMIT;

@@ -2818,6 +2818,220 @@
 		};
 	};
 
+	ipa_smmu_ap: ipa_smmu_ap {
+		compatible = "qcom,ipa-smmu-ap-cb";
+		qcom,smmu-s1-bypass;
+		iommus = <&apps_smmu 0x520 0x0>;
+		qcom,iova-mapping = <0x20000000 0x40000000>;
+		/* modem tables in IMEM */
+		qcom,additional-mapping = <0x146bd000 0x146bd000 0x2000>;
+	};
+
+	ipa_smmu_wlan: ipa_smmu_wlan {
+		compatible = "qcom,ipa-smmu-wlan-cb";
+		qcom,smmu-s1-bypass;
+		iommus = <&apps_smmu 0x521 0x0>;
+		/* ipa-uc ram */
+		qcom,additional-mapping = <0x1e60000 0x1e60000 0x80000>;
+	};
+
+	ipa_smmu_uc: ipa_smmu_uc {
+		compatible = "qcom,ipa-smmu-uc-cb";
+		qcom,smmu-s1-bypass;
+		iommus = <&apps_smmu 0x522 0x0>;
+		qcom,iova-mapping = <0x40400000 0x1fc00000>;
+	};
+
+	qcom,ipa_fws {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <0xf>;
+		qcom,firmware-name = "ipa_fws";
+		qcom,pil-force-shutdown;
+		memory-region = <&pil_ipa_fw_mem>;
+	};
+
+};
+
+#include "sdmmagpie-gdsc.dtsi"
+#include "sdmmagpie-bus.dtsi"
+#include "sdmmagpie-qupv3.dtsi"
+#include "sdmmagpie-vidc.dtsi"
+#include "sdmmagpie-sde-pll.dtsi"
+#include "sdmmagpie-sde.dtsi"
+#include "sdmmagpie-camera.dtsi"
+
+&pcie_0_gdsc {
+	status = "ok";
+};
+
+&pcie_tbu_gdsc {
+	status = "ok";
+};
+
+&usb30_prim_gdsc {
+	status = "ok";
+};
+
+&ufs_phy_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_aggre_noc_mmu_audio_tbu_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_aggre_noc_mmu_pcie_tbu_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_aggre_noc_mmu_tbu1_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_aggre_noc_mmu_tbu2_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_sf_gdsc {
+	status = "ok";
+};
+
+&bps_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&ife_0_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+	status = "ok";
+};
+
+&ife_1_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+	status = "ok";
+};
+
+&ipe_0_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&ipe_1_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&titan_top_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+	status = "ok";
+};
+
+&mdss_core_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_DISP_AHB_CLK>;
+	status = "ok";
+};
+
+&gpu_cx_gdsc {
+	parent-supply = <&VDD_CX_LEVEL>;
+	status = "ok";
+};
+
+&gpu_gx_gdsc {
+	clock-names = "core_root_clk";
+	clocks = <&clock_gpucc GPU_CC_GX_GFX3D_CLK_SRC>;
+	qcom,force-enable-root-clk;
+	parent-supply = <&VDD_GFX_LEVEL>;
+	qcom,reset-aon-logic;
+	status = "ok";
+};
+
+&mvsc_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
+	status = "ok";
+};
+
+&mvs0_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&mvs1_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&npu_core_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_NPU_CFG_AHB_CLK>;
+	status = "ok";
+};
+
+#include "sdmmagpie-ion.dtsi"
+#include "msm-arm-smmu-sdmmagpie.dtsi"
+#include "sdmmagpie-pm.dtsi"
+#include "pm6150.dtsi"
+#include "pm6150l.dtsi"
+#include "sdmmagpie-pinctrl.dtsi"
+#include "pm8009.dtsi"
+#include "sdmmagpie-regulator.dtsi"
+#include "sdmmagpie-camera.dtsi"
+#include "sdmmagpie-coresight.dtsi"
+#include "sdmmagpie-usb.dtsi"
+#include "sdmmagpie-thermal.dtsi"
+#include "sdmmagpie-audio.dtsi"
+
+&usb0 {
+	extcon = <&pm6150_pdphy>, <&pm6150_charger>, <&eud>;
+};
+
+&pm6150_vadc {
+	rf_pa0_therm {
+		reg = <ADC_AMUX_THM2_PU2>;
+		label = "rf_pa0_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	rf_pa1_therm {
+		reg = <ADC_AMUX_THM3_PU2>;
+		label = "rf_pa1_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	quiet_therm {
+		reg = <ADC_AMUX_THM4_PU2>;
+		label = "quiet_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
 	llcc_pmu: llcc-pmu@90cc000 {
 		compatible = "qcom,qcom-llcc-pmu";
 		reg = <0x090cc000 0x300>;

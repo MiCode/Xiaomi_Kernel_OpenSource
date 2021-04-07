@@ -1512,7 +1512,8 @@ static void free_proc(struct dma_proc *proc)
 	int i;
 
 	hash_for_each_safe(proc->dma_bufs, i, n, tmp, head) {
-		fput(tmp->dmabuf->file);
+		if(tmp->dmabuf && tmp->dmabuf->file)
+			fput(tmp->dmabuf->file);
 		hash_del(&tmp->head);
 		kfree(tmp);
 	}

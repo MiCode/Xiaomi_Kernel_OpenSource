@@ -30,4 +30,10 @@ void cmdq_crypto_qti_set_vops(struct cmdq_host *host);
 
 int cmdq_crypto_qti_resume(struct cmdq_host *host);
 
+int cmdq_crypto_qti_prep_desc(struct cmdq_host *host,
+			      struct mmc_request *mrq,
+			      u64 *ice_ctx);
+
+int cmdq_crypto_qti_reset(struct cmdq_host *host);
+
 #endif /* _CMDQ_HCI_CRYPTO_QTI_H */

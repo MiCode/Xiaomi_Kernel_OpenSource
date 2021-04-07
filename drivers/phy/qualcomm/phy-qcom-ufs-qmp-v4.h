@@ -19,6 +19,8 @@
 /* QCOM UFS PHY control registers */
 #define COM_BASE	0x000
 #define COM_SIZE	0x1C0
+#define PHY_PCS2_BASE	0x200
+#define PHY_PCS2_SIZE	0x040
 #define PHY_BASE	0xC00
 #define PHY_SIZE	0x200
 #define TX_BASE(n)	(0x400 + (0x400 * n))

@@ -147,12 +147,12 @@
 				0x0844 0x03 0x0>;
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&pcie0_clkreq_default
-			&pcie0_perst_default
-			&pcie0_wake_default>;
+		pinctrl-0 = <&pcie0_clkreq_default>;
+			/* &pcie0_perst_default>; */
+			/*&pcie0_wake_default>;*/
 
-		perst-gpio = <&tlmm 35 0>;
-		wake-gpio = <&tlmm 37 0>;
+		/*perst-gpio = <&tlmm 35 0>;*/
+		/*wake-gpio = <&tlmm 37 0>;*/
 
 		gdsc-vdd-supply = <&pcie_0_gdsc>;
 		vreg-1.8-supply = <&pm8150l_l3>;

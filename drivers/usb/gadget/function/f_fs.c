@@ -1198,7 +1198,7 @@ static int ffs_aio_cancel(struct kiocb *kiocb)
 	ENTER();
 
 	ffs_log("enter:state %d setup_state %d flag %lu", ffs->state,
-		ffs->setup_state, ffs->flags);
+	ffs->setup_state, ffs->flags);
 
 	spin_lock_irqsave(&epfile->ffs->eps_lock, flags);
 

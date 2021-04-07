@@ -468,6 +468,8 @@ struct atl_fwd_ring *atl_fwd_request_ring(struct net_device *ndev,
 		goto free_ring;
 	}
 
+	memset(hwring->descs, 0, hwring->size * sizeof(*hwring->descs));
+
 	hwring->reg_base = dir_tx ? ATL_TX_RING(idx) : ATL_RX_RING(idx);
 
 	ret = atl_fwd_alloc_bufs(ring, page_order);

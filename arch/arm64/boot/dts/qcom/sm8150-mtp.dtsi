@@ -250,6 +250,21 @@
 	qcom,platform-reset-gpio = <&tlmm 6 0>;
 };
 
+&dsi_samsung_fhd_ea8076_cmd {
+	qcom,panel-supply-entries = <&dsi_amoled_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <2>;
+	qcom,mdss-dsi-bl-max-level = <1023>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
+	//qcom,panel-mode-gpio = <&tlmm 7 0>;
+	qcom,platform-te-gpio = <&tlmm 8 0>;
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
+&dsi_samsung_fhd_ea8076_cmd_display {
+	qcom,dsi-display-active;
+};
+
 &qupv3_se9_i2c {
 	status = "ok";
 
