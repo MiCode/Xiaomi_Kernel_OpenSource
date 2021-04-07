@@ -382,6 +382,8 @@ out:
 static int apupw_dbg_power_stress(int type, int device, int opp)
 {
 	int id = 0;
+	struct apu_dev *ad = NULL;
+	struct apu_gov_data *gov_data = NULL;
 
 	pr_info("%s begin with type %d +++\n", __func__, type);
 	pr_info("%s type %d, device %d, opp %d\n", __func__, type, device, opp);
@@ -397,7 +399,14 @@ static int apupw_dbg_power_stress(int type, int device, int opp)
 			for (id = 0 ; id < APUSYS_POWER_USER_NUM ; id++) {
 				if (IS_ERR_OR_NULL(apu_find_device(id)) || id == APUCB)
 					continue;
-				apu_device_set_opp(id, opp);
+				/*
+				 * if vcore adopt user devine governor,
+				 * it may not activate update_devfreq
+				 */
+				if (id != APUCORE)
+					apu_device_set_opp(id, opp);
+				else
+					apu_qos_set_vcore(opp);
 			}
 		} else {
 			id = _apupw_dbg_id2user(device);
@@ -428,17 +437,48 @@ static int apupw_dbg_power_stress(int type, int device, int opp)
 
 	case 2: /* config power off */
 		if (device == 9) { /* all devices */
+			/* set all devices to slowest opp */
+			for (id = 0 ; id < APUSYS_POWER_USER_NUM ; id++) {
+				ad = apu_find_device(id);
+				if (IS_ERR_OR_NULL(ad) || id == APUCB)
+					continue;
+
+				/*
+				 * if vcore adopt user devine governor,
+				 * it may not activate update_devfreq
+				 */
+				gov_data = ad->df->data;
+				if (id != APUCORE)
+					apu_device_set_opp(id, gov_data->max_opp);
+				else
+					apu_qos_set_vcore(gov_data->max_opp);
+			}
+			/* turn all devices off */
 			for (id = 0 ; id < APUSYS_POWER_USER_NUM ; id++) {
 				if (IS_ERR_OR_NULL(_apupw_valid_leaf_df(id)))
 					continue;
 				apu_device_power_off(id);
 			}
+
 		} else {
 			id = _apupw_dbg_id2user(device);
 			if (id < 0) {
 				pr_info("%s err with device = %d\n", __func__, device);
 				return -1;
 			}
+			ad = apu_find_device(id);
+			if (IS_ERR_OR_NULL(ad))
+				break;
+
+			/*
+			 * 1. set specific device's opp as slowest.
+			 * 2. turn the specific device off
+			 */
+			gov_data = ad->df->data;
+			if (id != APUCORE)
+				apu_device_set_opp(id, gov_data->max_opp);
+			else
+				apu_qos_set_vcore(gov_data->max_opp);
 			apu_device_power_off(id);
 		}
 		break;
