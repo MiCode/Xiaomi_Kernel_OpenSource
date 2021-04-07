@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019, 2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SYNX_API_H__
@@ -98,11 +98,14 @@ struct synx_create_params {
  * @secure_key : Pointer to Key generated for authentication
  *               (filled by the function)
  * @fence      : Pointer to dma fence for external synx object
+ * @type       : Global fence type
  */
 struct synx_export_params {
 	s32 h_synx;
 	u32 *secure_key;
 	struct dma_fence *fence;
+	u32 type;
+	u32 reserved;
 };
 
 /**
