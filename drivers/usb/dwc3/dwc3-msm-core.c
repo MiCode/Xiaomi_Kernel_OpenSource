@@ -4648,12 +4648,14 @@ static int dwc3_msm_parse_core_params(struct dwc3_msm *mdwc, struct device_node 
 
 	mdwc->core_irq = of_irq_get(dwc3_node, 0);
 	if (mdwc->core_irq > 0) {
-		irq_set_status_flags(mdwc->core_irq, IRQ_NOAUTOEN);
 		ret = devm_request_irq(mdwc->dev, mdwc->core_irq, dwc3_msm_core_irq,
 					IRQF_SHARED, "dwc3-msm", mdwc);
-		if (ret)
+		if (ret) {
 			dev_err(mdwc->dev, "failed to request irq #%d --> %d\n",
 					mdwc->core_irq, ret);
+			return ret;
+		}
+		disable_irq(mdwc->core_irq);
 	}
 
 	return ret;
