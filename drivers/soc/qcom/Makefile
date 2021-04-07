@@ -99,3 +99,4 @@ obj-$(CONFIG_QTI_HW_MEMLAT_LOG)	+= rimps_log.o
 obj-$(CONFIG_QCOM_DCVS) += dcvs/
 obj-$(CONFIG_QCOM_CPU_VENDOR_HOOKS) += qcom_cpu_vendor_hooks.o
 obj-$(CONFIG_QCOM_PANEL_EVENT_NOTIFIER) += panel_event_notifier.o
+obj-$(CONFIG_QCOM_SPEC_SYNC)  += sync_fence/

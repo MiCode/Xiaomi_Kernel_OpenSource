@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Sync fence drivers
+#
+config QCOM_SPEC_SYNC
+	tristate "Qualcomm Technologies, Inc. Speculative sync driver"
+	depends on SYNC_FILE
+	default m if SYNC_FILE
+	help
+	  This option allows to enable a speculative fence driver which
+	  can help to create an early fence for the clients, that can
+	  be binded with an actual fence at a later point in the timeline.
