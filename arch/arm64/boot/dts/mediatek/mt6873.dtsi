@@ -55,9 +55,10 @@
 	/* chosen */
 	chosen: chosen {
 		bootargs = "console=tty0 root=/dev/ram vmalloc=400M \
-		rcupdate.rcu_expedited=1 swiotlb=noforce \
-		firmware_class.path=/vendor/firmware page_owner=on \
-		loop.max_part=7 snd-usb-audio.use_vmalloc=0";
+rcupdate.rcu_expedited=1 swiotlb=noforce \
+firmware_class.path=/vendor/firmware page_owner=on \
+loop.max_part=7 snd-usb-audio.use_vmalloc=0 \
+fw_devlink.strict=on";
 		kaslr-seed = <0 0>;
 	};
 
