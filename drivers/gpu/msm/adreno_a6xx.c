@@ -285,11 +285,21 @@ bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
 	ktime_t tout = ktime_add_us(ktime_get(), timeout * 1000);
 	unsigned int val;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 
 	if (IS_ERR_OR_NULL(reg))
 		return true;
 
 	regulator_disable(reg);
+
+	/*
+	 * Check logical enable state of CX GDSC using regulator_is_enabled()
+	 * instead of checking physical state by CX_GDSCR register because
+	 * in a640 and a680, CX_GDSCR will not be disabled from kernel. It can
+	 * be turned off by AOP for CX Power collapse.
+	 */
+	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev))
+		return !(regulator_is_enabled(gmu->cx_gdsc));
 
 	for (;;) {
 		if (adreno_is_a619_holi(adreno_dev))
