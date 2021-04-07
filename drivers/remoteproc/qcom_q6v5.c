@@ -224,7 +224,7 @@ int qcom_q6v5_init(struct qcom_q6v5 *q6v5, struct platform_device *pdev,
 
 	ret = devm_request_threaded_irq(&pdev->dev, q6v5->wdog_irq,
 					NULL, q6v5_wdog_interrupt,
-					IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+					IRQF_ONESHOT,
 					"q6v5 wdog", q6v5);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to acquire wdog IRQ\n");
