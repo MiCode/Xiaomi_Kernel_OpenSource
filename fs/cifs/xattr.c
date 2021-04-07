@@ -101,6 +101,7 @@ static int cifs_creation_time_set(unsigned int xid, struct cifs_tcon *pTcon,
 }
 
 static int cifs_xattr_set(const struct xattr_handler *handler,
+			  struct user_namespace *mnt_userns,
 			  struct dentry *dentry, struct inode *inode,
 			  const char *name, const void *value,
 			  size_t size, int flags)
@@ -288,7 +289,7 @@ static int cifs_creation_time_get(struct dentry *dentry, struct inode *inode,
 
 static int cifs_xattr_get(const struct xattr_handler *handler,
 			  struct dentry *dentry, struct inode *inode,
-			  const char *name, void *value, size_t size, int flags)
+			  const char *name, void *value, size_t size)
 {
 	ssize_t rc = -EOPNOTSUPP;
 	unsigned int xid;

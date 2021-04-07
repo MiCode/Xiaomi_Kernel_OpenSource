@@ -44,7 +44,7 @@ static void xattr_free(struct f2fs_sb_info *sbi, void *xattr_addr,
 
 static int f2fs_xattr_generic_get(const struct xattr_handler *handler,
 		struct dentry *unused, struct inode *inode,
-		const char *name, void *buffer, size_t size, int flags)
+		const char *name, void *buffer, size_t size)
 {
 	struct f2fs_sb_info *sbi = F2FS_SB(inode->i_sb);
 
@@ -64,6 +64,7 @@ static int f2fs_xattr_generic_get(const struct xattr_handler *handler,
 }
 
 static int f2fs_xattr_generic_set(const struct xattr_handler *handler,
+		struct user_namespace *mnt_userns,
 		struct dentry *unused, struct inode *inode,
 		const char *name, const void *value,
 		size_t size, int flags)
@@ -99,7 +100,7 @@ static bool f2fs_xattr_trusted_list(struct dentry *dentry)
 
 static int f2fs_xattr_advise_get(const struct xattr_handler *handler,
 		struct dentry *unused, struct inode *inode,
-		const char *name, void *buffer, size_t size, int flags)
+		const char *name, void *buffer, size_t size)
 {
 	if (buffer)
 		*((char *)buffer) = F2FS_I(inode)->i_advise;
@@ -107,6 +108,7 @@ static int f2fs_xattr_advise_get(const struct xattr_handler *handler,
 }
 
 static int f2fs_xattr_advise_set(const struct xattr_handler *handler,
+		struct user_namespace *mnt_userns,
 		struct dentry *unused, struct inode *inode,
 		const char *name, const void *value,
 		size_t size, int flags)
@@ -114,7 +116,7 @@ static int f2fs_xattr_advise_set(const struct xattr_handler *handler,
 	unsigned char old_advise = F2FS_I(inode)->i_advise;
 	unsigned char new_advise;
 
-	if (!inode_owner_or_capable(inode))
+	if (!inode_owner_or_capable(&init_user_ns, inode))
 		return -EPERM;
 	if (value == NULL)
 		return -EINVAL;
