@@ -23,14 +23,14 @@ struct kgsl_timeline_fence {
 };
 
 struct dma_fence *kgsl_timelines_to_fence_array(struct kgsl_device *device,
-		u64 timelines, u64 count, u64 usize, bool any)
+		u64 timelines, u32 count, u64 usize, bool any)
 {
 	void __user *uptr = u64_to_user_ptr(timelines);
 	struct dma_fence_array *array;
 	struct dma_fence **fences;
 	int i, ret = 0;
 
-	if (!count)
+	if (!count || count > INT_MAX)
 		return ERR_PTR(-EINVAL);
 
 	fences = kcalloc(count, sizeof(*fences),
