@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/interconnect.h>
@@ -837,7 +837,7 @@ static int set_user_profiling(struct adreno_device *adreno_dev,
 	u64 ib_gpuaddr;
 	u32 *ib;
 
-	if (!rb->profile_desc->hostptr)
+	if (IS_ERR(rb->profile_desc))
 		return 0;
 
 	ib = ((u32 *) rb->profile_desc->hostptr) +
