@@ -82,7 +82,6 @@ arch/arm64/include/asm/kgdb.h
 arch/arm64/include/asm/kprobes.h
 arch/arm64/include/asm/kvm_arm.h
 arch/arm64/include/asm/kvm_asm.h
-arch/arm64/include/asm/kvm_cpufeature.h
 arch/arm64/include/asm/kvm_emulate.h
 arch/arm64/include/asm/kvm_host.h
 arch/arm64/include/asm/kvm_hyp.h
