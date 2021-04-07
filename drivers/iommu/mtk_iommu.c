@@ -451,21 +451,12 @@ static int mtk_iommu_domain_finalise(struct mtk_iommu_domain *dom,
 		goto update_iova_region;
 	}
 
-	/* Use the exist domain as there is only one m4u pgtable here. */
-	if (data->m4u_dom) {
-		dom->iop = data->m4u_dom->iop;
-		dom->cfg = data->m4u_dom->cfg;
-		dom->domain.pgsize_bitmap = data->m4u_dom->cfg.pgsize_bitmap;
-		return 0;
-	}
-
 	dom->cfg = (struct io_pgtable_cfg) {
 		.quirks = IO_PGTABLE_QUIRK_ARM_NS |
 			IO_PGTABLE_QUIRK_NO_PERMS |
 			IO_PGTABLE_QUIRK_ARM_MTK_EXT,
 		.pgsize_bitmap = mtk_iommu_ops.pgsize_bitmap,
 		.ias = MTK_IOMMU_HAS_FLAG(data->plat_data, IOVA_34_EN) ? 34 : 32,
-		.oas = 35,
 		.iommu_dev = data->dev,
 	};
 
@@ -918,9 +909,6 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	if (data->irq < 0)
 		return data->irq;
 
-	if (dev->pm_domain)
-		pm_runtime_enable(dev);
-
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, HAS_BCLK)) {
 		data->bclk = devm_clk_get(dev, "bclk");
 		if (IS_ERR(data->bclk))
@@ -931,6 +919,8 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 		struct device_node *apunode;
 		struct platform_device *apudev;
 		struct device_link *link;
+
+		pm_runtime_enable(dev);
 
 		apunode = of_parse_phandle(dev->of_node, "mediatek,apu_power", 0);
 		if (!apunode) {
@@ -943,6 +933,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 			dev_warn(dev, "Find apudev fail!\n");
 			return -EPROBE_DEFER;
 		}
+
 		link = device_link_add(&apudev->dev, dev, DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME);
 		if (!link)
 			dev_err(dev, "Unable link %s.\n", apudev->name);
@@ -979,35 +970,30 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 
 		component_match_add_release(dev, &match, release_of,
 					    compare_of, larbnode);
-
-		/* Get smi-common dev from the last larb. */
-		smicomm_node = of_parse_phandle(larbnode, "mediatek,smi", 0);
-		if (!smicomm_node)
-			return -EINVAL;
-
-		plarbdev = of_find_device_by_node(smicomm_node);
-		of_node_put(smicomm_node);
-		data->smicomm_dev = &plarbdev->dev;
-
-		pm_runtime_enable(dev);
-
-		link = device_link_add(data->smicomm_dev, dev,
-				DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME);
-		if (!link) {
-			dev_err(dev, "Unable to link %s.\n", dev_name(data->smicomm_dev));
-			ret = -EINVAL;
-			goto out_runtime_disable;
-		}
-
-		platform_set_drvdata(pdev, data);
-
-		link = device_link_add(&plarbdev->dev, dev,
-				       DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME);
-		if (!link)
-			dev_err(dev, "Unable link %s.\n", plarbdev->name);
 	}
+
+	/* Get smi-common dev from the last larb. */
+	smicomm_node = of_parse_phandle(larbnode, "mediatek,smi", 0);
+	if (!smicomm_node)
+		return -EINVAL;
+
+	plarbdev = of_find_device_by_node(smicomm_node);
+	of_node_put(smicomm_node);
+	data->smicomm_dev = &plarbdev->dev;
+
+	pm_runtime_enable(dev);
+
+	link = device_link_add(data->smicomm_dev, dev,
+			DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME);
+	if (!link) {
+		dev_err(dev, "Unable to link %s.\n", dev_name(data->smicomm_dev));
+		ret = -EINVAL;
+		goto out_runtime_disable;
+	}
+
 skip_smi:
 	platform_set_drvdata(pdev, data);
+
 	ret = iommu_device_sysfs_add(&data->iommu, dev, NULL,
 				     "mtk-iommu.%pa", &ioaddr);
 	if (ret)
@@ -1140,9 +1126,9 @@ static const struct mtk_iommu_plat_data mt6779_data = {
 
 static const struct mtk_iommu_plat_data mt6873_data = {
 	.m4u_plat = M4U_MT6873,
-	.flags         = HAS_SUB_COMM | OUT_ORDER_WR_EN | WR_THROT_EN |
-			 HAS_BCLK | IOVA_34_EN,
-	.inv_sel_reg   = REG_MMU_INV_SEL_GEN2,
+	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | WR_THROT_EN |
+			  HAS_BCLK | IOVA_34_EN,
+	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iova_region    = mt6873_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6873_multi_dom),
 
@@ -1152,6 +1138,7 @@ static const struct mtk_iommu_plat_data mt6873_data = {
 
 static const struct mtk_iommu_plat_data mt6873_data_apu = {
 	.m4u_plat        = M4U_MT6873,
+	.flags           = IOVA_34_EN,
 	.is_apu          = true,
 	.inv_sel_reg     = REG_MMU_INV_SEL_GEN2,
 	.iova_region     = mt6873_multi_dom,
