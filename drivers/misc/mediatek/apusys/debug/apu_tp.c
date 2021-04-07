@@ -56,7 +56,7 @@ static void for_each_apu_tracepoint(
 	void (*fct)(struct tracepoint *tp, void *priv),
 	void *priv, const char *mod_name)
 {
-#if IS_ENABLED(CONFIG_TRACEPOINTS)
+#if 0
 	struct module *mod;
 	tracepoint_ptr_t *iter, *begin, *end;
 
