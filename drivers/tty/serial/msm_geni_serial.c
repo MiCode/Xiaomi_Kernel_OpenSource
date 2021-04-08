@@ -499,12 +499,12 @@ static int vote_clock_on(struct uart_port *uport)
 	int usage_count;
 	int ret = 0;
 
+	port->ioctl_count++;
 	ret = msm_geni_serial_power_on(uport);
 	if (ret) {
 		dev_err(uport->dev, "Failed to vote clock on\n");
 		return ret;
 	}
-	port->ioctl_count++;
 	usage_count = atomic_read(&uport->dev->power.usage_count);
 	IPC_LOG_MSG(port->ipc_log_pwr,
 		"%s :%s ioctl:%d usage_count:%d edge-Count:%d\n",
@@ -2198,8 +2198,10 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 			"%s: Failed to suspend:%d\n", __func__, ret);
 		}
 
-		if (msm_port->wakeup_irq > 0)
+		if (msm_port->wakeup_irq > 0) {
 			irq_set_irq_wake(msm_port->wakeup_irq, 0);
+			disable_irq(msm_port->wakeup_irq);
+		}
 	}
 	IPC_LOG_MSG(msm_port->ipc_log_misc, "%s: End\n", __func__);
 }
@@ -3308,7 +3310,11 @@ static int msm_geni_serial_runtime_resume(struct device *dev)
 	 */
 	__pm_relax(port->geni_wake);
 	__pm_stay_awake(port->geni_wake);
-	if (port->wakeup_irq > 0)
+	/*
+	 * check for ioctl count before disabling the wakeup_irq as
+	 * this might be disabled from shutdown as well.
+	 */
+	if (port->wakeup_irq > 0 && port->ioctl_count)
 		disable_irq(port->wakeup_irq);
 
 	/*
