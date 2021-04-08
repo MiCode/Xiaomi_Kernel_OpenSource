@@ -21,7 +21,7 @@ static ssize_t iommu_debug_dma_atos_read(struct file *file, char __user *ubuf,
 					 size_t count, loff_t *offset)
 {
 	struct iommu_debug_device *ddev = file->private_data;
-	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(ddev->test_dev);
+	struct iommu_fwspec *fwspec;
 	phys_addr_t phys;
 	char buf[100] = {0};
 	struct qcom_iommu_atos_txn txn;
@@ -30,16 +30,18 @@ static ssize_t iommu_debug_dma_atos_read(struct file *file, char __user *ubuf,
 	if (*offset)
 		return 0;
 
-	if (!fwspec) {
-		pr_err("%s: No fwspec.\n", __func__);
-		return 0;
-	}
-
 	mutex_lock(&ddev->state_lock);
 	if (!ddev->domain) {
 		pr_err("%s: No domain. Have you selected a usecase?\n", __func__);
 		mutex_unlock(&ddev->state_lock);
 		return -EINVAL;
+	}
+
+	fwspec = dev_iommu_fwspec_get(ddev->test_dev);
+	if (!fwspec) {
+		pr_err("%s: No fwspec.\n", __func__);
+		mutex_unlock(&ddev->state_lock);
+		return 0;
 	}
 
 	txn.addr = ddev->iova;
@@ -63,9 +65,17 @@ static ssize_t iommu_debug_atos_write(struct file *file,
 	phys_addr_t phys;
 	unsigned long pfn;
 
+	mutex_lock(&ddev->state_lock);
+	if (!ddev->domain) {
+		pr_err("%s: No domain. Have you selected a usecase?\n", __func__);
+		mutex_unlock(&ddev->state_lock);
+		return -EINVAL;
+	}
+
 	if (kstrtox_from_user(ubuf, count, 0, &iova)) {
 		dev_err(ddev->test_dev, "Invalid format for iova\n");
 		ddev->iova = 0;
+		mutex_unlock(&ddev->state_lock);
 		return -EINVAL;
 	}
 
@@ -73,10 +83,12 @@ static ssize_t iommu_debug_atos_write(struct file *file,
 	pfn = __phys_to_pfn(phys);
 	if (!pfn_valid(pfn)) {
 		dev_err(ddev->test_dev, "Invalid ATOS operation page %pa\n", &phys);
+		mutex_unlock(&ddev->state_lock);
 		return -EINVAL;
 	}
 	ddev->iova = iova;
 
+	mutex_unlock(&ddev->state_lock);
 	pr_info("Saved iova=%pa for future ATOS commands\n", &iova);
 	return count;
 }
