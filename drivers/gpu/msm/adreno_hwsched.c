@@ -4,8 +4,7 @@
  */
 
 #include "adreno.h"
-#include "adreno_a6xx.h"
-#include "adreno_a6xx_hwsched.h"
+#include "adreno_hfi.h"
 #include "adreno_snapshot.h"
 #include "adreno_sysfs.h"
 #include "adreno_trace.h"

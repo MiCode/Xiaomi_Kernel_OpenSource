@@ -235,6 +235,7 @@ static void process_dbgq_irq(struct adreno_device *adreno_dev)
 		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_ERR) {
 			adreno_a6xx_receive_err_req(gmu, rcvd);
 			recovery = true;
+			break;
 		}
 
 		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_DEBUG)

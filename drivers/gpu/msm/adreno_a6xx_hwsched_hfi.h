@@ -6,11 +6,6 @@
 #ifndef _ADRENO_A6XX_HWSCHED_HFI_H_
 #define _ADRENO_A6XX_HWSCHED_HFI_H_
 
-/* Maximum number of IBs in a submission */
-#define HWSCHED_MAX_NUMIBS \
-	((HFI_MAX_MSG_SIZE - offsetof(struct hfi_issue_cmd_cmd, ibs)) \
-		/ sizeof(struct hfi_issue_ib))
-
 struct a6xx_hwsched_hfi {
 	struct hfi_mem_alloc_entry mem_alloc_table[32];
 	u32 mem_alloc_entries;
