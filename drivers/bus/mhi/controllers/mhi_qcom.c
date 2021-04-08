@@ -242,7 +242,7 @@ static const struct mhi_pci_dev_info mhi_qcom_sdx65_info = {
 	.bar_num = MHI_PCI_BAR_NUM,
 	.dma_data_width = 64,
 	.allow_m1 = false,
-	.skip_forced_suspend = false,
+	.skip_forced_suspend = true,
 	.sfr_support = true,
 	.timesync = true
 };
