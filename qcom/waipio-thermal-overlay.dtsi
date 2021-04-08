@@ -22,9 +22,9 @@
 
 	pm8350b-bcl-lvl0 {
 		cooling-maps {
-			vbat_cpu_4_5 {
+			vbat_cpu_5 {
 				trip = <&b_bcl_lvl0>;
-				cooling-device = <&cpu_4_5_pause 1 1>;
+				cooling-device = <&cpu5_pause 1 1>;
 			};
 
 			vbat_gpu0 {
@@ -84,9 +84,9 @@
 
 	pm8350c-bcl-lvl0 {
 		cooling-maps {
-			vph_cpu_4_5 {
+			vph_cpu_5 {
 				trip = <&c_bcl_lvl0>;
-				cooling-device = <&cpu_4_5_pause 1 1>;
+				cooling-device = <&cpu5_pause 1 1>;
 			};
 
 			vph_gpu0 {
