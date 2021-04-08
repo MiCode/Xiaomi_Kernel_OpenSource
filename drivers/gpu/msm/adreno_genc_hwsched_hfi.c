@@ -291,7 +291,7 @@ static irqreturn_t genc_hwsched_hfi_handler(int irq, void *data)
 	}
 
 	/* Ignore OOB bits */
-	status &= GENMASK(31, 31 - (oob_max - 1));
+	status &= GENMASK(31 - (oob_max - 1), 0);
 
 	if (status & ~hfi->irq_mask)
 		dev_err_ratelimited(&gmu->pdev->dev,
@@ -527,6 +527,9 @@ static struct hfi_mem_alloc_entry *get_mem_alloc_entry(
 
 	if (!(desc->flags & HFI_MEMFLAG_GFX_WRITEABLE))
 		flags |= KGSL_MEMFLAGS_GPUREADONLY;
+
+	if (desc->flags & HFI_MEMFLAG_GFX_SECURE)
+		flags |= KGSL_MEMFLAGS_SECURE;
 
 	entry->gpu_md = kgsl_allocate_global(device, desc->size, 0, flags, priv,
 		memkind_string);
