@@ -436,8 +436,8 @@ int mem_buf_lend_internal(struct dma_buf *dmabuf,
 		}
 
 		/* Due to memory-hotplug */
-		if ((sg_virt(sgt->sgl) && (SUBSECTION_SIZE - 1)) ||
-				(sgt->sgl->length % SUBSECTION_SIZE)) {
+		if (!IS_ALIGNED(sg_phys(sgt->sgl), SUBSECTION_SIZE) ||
+		    !IS_ALIGNED(sgt->sgl->length, SUBSECTION_SIZE)) {
 			pr_err_ratelimited("Operation requires SUBSECTION_SIZE alignemnt\n");
 			return -EINVAL;
 		}
