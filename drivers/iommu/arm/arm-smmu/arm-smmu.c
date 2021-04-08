@@ -155,8 +155,10 @@ static inline int arm_smmu_rpm_get(struct arm_smmu_device *smmu)
 
 static inline void arm_smmu_rpm_put(struct arm_smmu_device *smmu)
 {
-	if (pm_runtime_enabled(smmu->dev))
+	if (pm_runtime_enabled(smmu->dev)) {
+		pm_runtime_mark_last_busy(smmu->dev);
 		pm_runtime_put_autosuspend(smmu->dev);
+	}
 }
 
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
@@ -2256,6 +2258,18 @@ out_power_off:
 	return ret;
 }
 
+static gfp_t arm_smmu_domain_gfp_flags(struct arm_smmu_domain *smmu_domain)
+{
+	/*
+	 * The dma layer always uses GFP_ATOMIC, which isn't indicative of
+	 * the actual client needs.
+	 */
+	if (test_bit(DOMAIN_ATTR_ATOMIC, smmu_domain->attributes))
+		return GFP_ATOMIC;
+
+	return GFP_KERNEL;
+}
+
 static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 			phys_addr_t paddr, size_t size, int prot, gfp_t gfp)
 {
@@ -2266,6 +2280,7 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	if (!ops)
 		return -ENODEV;
 
+	gfp = arm_smmu_domain_gfp_flags(smmu_domain);
 	arm_smmu_secure_domain_lock(smmu_domain);
 	ret = ops->map(ops, iova, paddr, size, prot, gfp);
 
@@ -2286,6 +2301,7 @@ static int arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	if (!ops)
 		return -ENODEV;
 
+	gfp = arm_smmu_domain_gfp_flags(smmu_domain);
 	arm_smmu_secure_domain_lock(smmu_domain);
 	ret = ops->map_sg(ops, iova, sg, nents, prot, gfp, mapped);
 
