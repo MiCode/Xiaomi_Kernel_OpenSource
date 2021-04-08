@@ -256,6 +256,7 @@
 		focaltech,display-coords = <0 0 1080 2340>;
 		focaltech,max-touch-number = <5>;
 		focaltech,ic-type = <0x3658D488>;
+		focaltech,touch-type = "primary";
 
 		vdd-supply = <&L3C>;
 
