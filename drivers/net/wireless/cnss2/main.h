@@ -479,5 +479,6 @@ int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
 				void *va, phys_addr_t pa, size_t size);
 unsigned int cnss_get_timeout(struct cnss_plat_data *plat_priv,
 			      enum cnss_timeout_type);
-
+int cnss_pci_update_qtime_sync_period(struct device *dev,
+				      unsigned int qtime_sync_period);
 #endif /* _CNSS_MAIN_H */

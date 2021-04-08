@@ -1502,6 +1502,24 @@ static void cnss_pci_stop_time_sync_update(struct cnss_pci_data *pci_priv)
 	cancel_delayed_work_sync(&pci_priv->time_sync_work);
 }
 
+int cnss_pci_update_qtime_sync_period(struct device *dev,
+				      unsigned int qtime_sync_period)
+{
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
+
+	if (!plat_priv || !pci_priv)
+		return -ENODEV;
+
+	cnss_pci_stop_time_sync_update(pci_priv);
+	plat_priv->ctrl_params.time_sync_period = qtime_sync_period;
+	cnss_pci_start_time_sync_update(pci_priv);
+	cnss_pr_dbg("WLAN qtime sync period %u\n",
+		    plat_priv->ctrl_params.time_sync_period);
+
+	return 0;
+}
+
 int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
