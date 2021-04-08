@@ -212,28 +212,27 @@ static const struct llcc_slice_config shima_data[] =  {
 };
 
 static const struct llcc_slice_config waipio_data[] =  {
-	{LLCC_CPUSS,     1, 2048, 1, 0, 0xFFF,  0x0,   0, 0, 0, 1, 1, 0, 0 },
+	{LLCC_CPUSS,     1, 2048, 1, 0, 0x0FFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
 	{LLCC_VIDSC0,    2,  512, 3, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_CPUSS1,    3, 1024, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_CAMEXP0,   4,  256, 3, 1, 0xF000, 0x0,   2, 0, 0, 1, 0, 0, 0 },
+	{LLCC_CPUHWT,    5,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
 	{LLCC_AUDIO,     6, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
 	{LLCC_MDMHPGRW,  7, 1024, 3, 0, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_MDMHW,     9, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_CMPT,     10, 4096, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_GPUHTW,   11, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_GPU,      12, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 1, 0 },
-	{LLCC_MMUHWT,   13, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
+	{LLCC_MMUHWT,   13,  768, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
 	{LLCC_DISP,     16, 4096, 2, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_CVPFW,    17,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_MDMPNG,   21, 1024, 0, 1, 0xF000, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_AUDHW,    22, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CPUMTE,   23,  256, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
+	{LLCC_CAMEXP1,  27,  256, 3, 1, 0xF000, 0x0,   2, 0, 0, 1, 0, 0, 0 },
 	{LLCC_CVP,      28,  256, 3, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_MDMVPE,   29,   64, 1, 1, 0xF000, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_WRTCH,    31,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
-	{LLCC_CVPFW,    17,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CPUSS1,    3, 1024, 1, 1, 0xFFF,  0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CAMSHORT,  4,  512, 3, 1, 0xFFFF, 0x0,   2, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CPUMTE,   23,  256, 1, 1, 0xFFF,  0x0,   0, 0, 0, 0, 1, 0, 0 },
-	{LLCC_CPUHWT,    5,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
-	{LLCC_MDMCLAD2, 25,  128, 0, 1, 0x0,    0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CAMLONG,  27,  256, 3, 1, 0xFFFF, 0x0,   2, 0, 0, 1, 0, 0, 0 },
 };
 
 static const struct qcom_llcc_config sc7180_cfg = {
