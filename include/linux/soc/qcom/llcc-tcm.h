@@ -6,6 +6,8 @@
 #ifndef _TCM_QCOM_H_
 #define _TCM_QCOM_H_
 
+#include <linux/soc/qcom/llcc-qcom.h>
+
 struct llcc_tcm_data {
 	phys_addr_t phys_addr;
 	void __iomem *virt_addr;
@@ -16,6 +18,8 @@ int qcom_llcc_tcm_probe(struct platform_device *pdev,
 		const struct llcc_slice_config *table, size_t size,
 		struct device_node *node);
 
+#if IS_ENABLED(CONFIG_QCOM_LLCC)
+
 struct llcc_tcm_data *llcc_tcm_activate(void);
 
 phys_addr_t llcc_tcm_get_phys_addr(struct llcc_tcm_data *tcm_data);
@@ -25,5 +29,21 @@ void __iomem *llcc_tcm_get_virt_addr(struct llcc_tcm_data *tcm_data);
 size_t llcc_tcm_get_slice_size(struct llcc_tcm_data *tcm_data);
 
 void llcc_tcm_deactivate(struct llcc_tcm_data *tcm_data);
+#else
+static struct llcc_tcm_data *llcc_tcm_activate(void)
+{ return NULL; }
+
+static phys_addr_t llcc_tcm_get_phys_addr(struct llcc_tcm_data *tcm_data)
+{ return 0; }
+
+static void __iomem *llcc_tcm_get_virt_addr(struct llcc_tcm_data *tcm_data)
+{ return NULL; }
+
+static size_t llcc_tcm_get_slice_size(struct llcc_tcm_data *tcm_data)
+{ return 0; }
+
+static void llcc_tcm_deactivate(struct llcc_tcm_data *tcm_data)
+{ }
+#endif
 
 #endif //_TCM_QCOM_H_

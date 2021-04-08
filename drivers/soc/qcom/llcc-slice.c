@@ -15,7 +15,6 @@
 #include <linux/regmap.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
-#include <linux/soc/qcom/llcc-qcom.h>
 #include <linux/soc/qcom/llcc-tcm.h>
 
 #define ACTIVATE                      BIT(0)
