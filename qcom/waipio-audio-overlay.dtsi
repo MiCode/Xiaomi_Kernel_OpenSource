@@ -126,6 +126,8 @@
 		qcom,rx_mclk_mode_muxsel = <0x033A40D8>;
 		qcom,rx-bcl-pmic-params = /bits/ 8 <0x00 0x03 0x48>;
 		qcom,default-clk-id = <RX_TX_CORE_CLK>;
+		clock-names = "rx_mclk2_2x_clk";
+		clocks = <&clock_audio_rx_mclk2_2x_clk 0>;
 		swr1: rx_swr_master {
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
