@@ -723,12 +723,11 @@ static void genc_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int status1, status2;
 	struct device *dev = device->dev;
+	unsigned int opcode;
 
 	kgsl_regread(device, GENC_CP_INTERRUPT_STATUS, &status1);
 
 	if (status1 & BIT(CP_INT_OPCODEERROR)) {
-		unsigned int opcode;
-
 		kgsl_regwrite(device, GENC_CP_SQE_STAT_ADDR, 1);
 		kgsl_regread(device, GENC_CP_SQE_STAT_DATA, &opcode);
 		dev_crit_ratelimited(dev,
@@ -773,17 +772,28 @@ static void genc_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 	if (status1 & BIT(CP_INT_ILLEGALINSTRUCTIONLPAC))
 		dev_crit_ratelimited(dev, "CP illegal instruction LPAC\n");
 
-	if (status1 & BIT(CP_INT_OPCODEERRORBV))
-		dev_crit_ratelimited(dev, "CP opcode error BV\n");
+	if (status1 & BIT(CP_INT_OPCODEERRORBV)) {
+		kgsl_regwrite(device, GENC_CP_BV_SQE_STAT_ADDR, 1);
+		kgsl_regread(device, GENC_CP_BV_SQE_STAT_DATA, &opcode);
+		dev_crit_ratelimited(dev, "CP opcode error BV | opcode=0x%8.8x\n", opcode);
+	}
 
 	if (status1 & BIT(CP_INT_UCODEERRORBV))
 		dev_crit_ratelimited(dev, "CP ucode error BV\n");
 
-	if (status1 & BIT(CP_INT_CPHWFAULTBV))
-		dev_crit_ratelimited(dev, "CP hw fault BV\n");
+	if (status1 & BIT(CP_INT_CPHWFAULTBV)) {
+		kgsl_regread(device, GENC_CP_BV_HW_FAULT, &status2);
+		dev_crit_ratelimited(dev,
+			"CP BV | Ringbuffer HW fault | status=%x\n", status2);
+	}
 
-	if (status1 & BIT(CP_INT_REGISTERPROTECTIONBV))
-		dev_crit_ratelimited(dev, "CP register protection BV\n");
+	if (status1 & BIT(CP_INT_REGISTERPROTECTIONBV)) {
+		kgsl_regread(device, GENC_CP_BV_PROTECT_STATUS, &status2);
+		dev_crit_ratelimited(dev,
+			"CP BV | Protected mode error | %s | addr=%x | status=%x\n",
+			status2 & BIT(20) ? "READ" : "WRITE",
+			status2 & 0x3ffff, status2);
+	}
 
 	if (status1 & BIT(CP_INT_ILLEGALINSTRUCTIONBV))
 		dev_crit_ratelimited(dev, "CP illegal instruction BV\n");
