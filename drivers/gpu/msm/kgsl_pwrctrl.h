@@ -75,7 +75,6 @@ struct kgsl_pwrlevel {
  * @grp_clks - Array of clocks structures that we control
  * @power_flags - Control flags for power
  * @pwrlevels - List of supported power levels
- * @nb - Notifier block to receive GPU OPP change event
  * @active_pwrlevel - The currently active power level
  * @previous_pwrlevel - The power level before transition
  * @thermal_pwrlevel - maximum powerlevel constraint from thermal
@@ -118,7 +117,6 @@ struct kgsl_pwrctrl {
 	unsigned long power_flags;
 	unsigned long ctrl_flags;
 	struct kgsl_pwrlevel pwrlevels[KGSL_MAX_PWRLEVELS];
-	struct notifier_block nb;
 	unsigned int active_pwrlevel;
 	unsigned int previous_pwrlevel;
 	unsigned int thermal_pwrlevel;
