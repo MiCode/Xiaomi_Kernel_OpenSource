@@ -276,7 +276,6 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 
 			dev_warn(data->dev,
 				 "Partial TLB flush timed out, falling back to full flush\n");
-
 			pr_info("[iommu_debug] dump info power_status:%d, 0x0:0x%x, 0x24:0x%x, 0x28:0x%x, 0x120:0x%x, 0x124:0x%x, iova:0x%lx\n",
 				genpd->status,
 				readl_relaxed(data->base + REG_MMU_INVLD_START_A),
@@ -508,7 +507,6 @@ static void mtk_iommu_domain_free(struct iommu_domain *domain)
 	kfree(to_mtk_domain(domain));
 }
 
-static int mtk_iommu_hw_init(const struct mtk_iommu_data *data);
 static int mtk_iommu_attach_device(struct iommu_domain *domain,
 				   struct device *dev)
 {
