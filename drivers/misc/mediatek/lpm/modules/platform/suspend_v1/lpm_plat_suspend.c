@@ -359,12 +359,12 @@ static irqreturn_t spm_irq0_handler(int irq, void *dev_id)
 
 static inline unsigned int virq_to_hwirq(unsigned int virq)
 {
-	struct irq_desc *desc;
+	struct irq_data	*irq_data;
 	unsigned int hwirq;
 
-	desc = irq_to_desc(virq);
-	WARN_ON(!desc);
-	hwirq = desc ? desc->irq_data.hwirq : 0;
+	irq_data = irq_get_irq_data(virq);
+	WARN_ON(!irq_data);
+	hwirq = irq_data ? irq_data->hwirq : 0;
 	return hwirq;
 }
 
