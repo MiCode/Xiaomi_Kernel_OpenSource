@@ -9,7 +9,6 @@
 #include <linux/init.h>		/* For init/exit macros */
 #include <linux/interrupt.h>
 #include <linux/irq.h>
-#include <linux/irqdesc.h>	/*irq_to_desc*/
 #include <linux/kernel.h>
 #include <linux/kthread.h>	/* For Kthread_run */
 #include <linux/math64.h>
@@ -77,36 +76,22 @@ void __attribute__ ((weak))
 void enable_gauge_irq(struct mtk_gauge *gauge,
 	enum gauge_irq irq)
 {
-	struct irq_desc *desc;
-
 	if (irq >= GAUGE_IRQ_MAX)
 		return;
 
-	desc = irq_to_desc(gauge->irq_no[irq]);
-	bm_err("%s irq_no:%d:%d depth:%d\n",
-		__func__, irq, gauge->irq_no[irq],
-		desc->depth);
-	if (desc->depth == 1)
-		enable_irq(gauge->irq_no[irq]);
+	enable_irq(gauge->irq_no[irq]);
 }
 
 void disable_gauge_irq(struct mtk_gauge *gauge,
 	enum gauge_irq irq)
 {
-	struct irq_desc *desc;
-
 	if (irq >= GAUGE_IRQ_MAX)
 		return;
 
 	if (gauge->irq_no[irq] == 0)
 		return;
 
-	desc = irq_to_desc(gauge->irq_no[irq]);
-	bm_err("%s irq_no:%d:%d depth:%d\n",
-		__func__, irq, gauge->irq_no[irq],
-		desc->depth);
-	if (desc->depth == 0)
-		disable_irq_nosync(gauge->irq_no[irq]);
+	disable_irq_nosync(gauge->irq_no[irq]);
 }
 
 struct mtk_battery *get_mtk_battery(void)
