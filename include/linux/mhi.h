@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved. */
 
 #ifndef _MHI_H_
 #define _MHI_H_
@@ -305,6 +305,7 @@ struct mhi_controller {
 	size_t seg_len;
 	u32 session_id;
 	u32 sequence_id;
+	u32 bhie_offset;
 
 	bool img_pre_alloc;
 	struct image_info *fbc_image;

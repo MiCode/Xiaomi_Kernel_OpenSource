@@ -1494,7 +1494,6 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 	int ret;
 	enum mhi_ee i;
 	u32 *ee;
-	u32 bhie_offset;
 
 	/* parse MHI channel configuration */
 	ret = of_parse_ch_cfg(mhi_cntrl, of_node);
@@ -1535,9 +1534,9 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 		of_property_read_u32_index(of_node, "mhi,ee", ret, ee);
 	}
 
-	ret = of_property_read_u32(of_node, "mhi,bhie-offset", &bhie_offset);
+	ret = of_property_read_u32(of_node, "mhi,bhie-offset", &mhi_cntrl->bhie_offset);
 	if (!ret)
-		mhi_cntrl->bhie = mhi_cntrl->regs + bhie_offset;
+		MHI_LOG("bhie-offset = 0x%x\n", mhi_cntrl->bhie_offset);
 
 	of_property_read_string(of_node, "mhi,name", &mhi_cntrl->name);
 
@@ -1776,7 +1775,6 @@ EXPORT_SYMBOL(mhi_alloc_controller);
 int mhi_prepare_for_power_up(struct mhi_controller *mhi_cntrl)
 {
 	int ret;
-	u32 bhie_off;
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 
@@ -1798,23 +1796,23 @@ int mhi_prepare_for_power_up(struct mhi_controller *mhi_cntrl)
 		 * This controller supports rddm, we need to manually clear
 		 * BHIE RX registers since por values are undefined.
 		 */
-		if (!mhi_cntrl->bhie) {
+		if (!mhi_cntrl->bhie_offset) {
 			ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs, BHIEOFF,
-					   &bhie_off);
+					   &mhi_cntrl->bhie_offset);
 			if (ret) {
 				MHI_CNTRL_ERR("Error getting bhie offset\n");
 				goto bhie_error;
 			}
 
-			if (bhie_off >= mhi_cntrl->len) {
+			if (mhi_cntrl->bhie_offset >= mhi_cntrl->len) {
 				MHI_ERR("Invalid BHIE=0x%x  len=0x%x\n",
-					bhie_off, mhi_cntrl->len);
+					mhi_cntrl->bhie_offset, mhi_cntrl->len);
 				ret = -EINVAL;
 				goto bhie_error;
 			}
-
-			mhi_cntrl->bhie = mhi_cntrl->regs + bhie_off;
 		}
+
+		mhi_cntrl->bhie = mhi_cntrl->regs + mhi_cntrl->bhie_offset;
 
 		memset_io(mhi_cntrl->bhie + BHIE_RXVECADDR_LOW_OFFS, 0,
 			  BHIE_RXVECSTATUS_OFFS - BHIE_RXVECADDR_LOW_OFFS + 4);
