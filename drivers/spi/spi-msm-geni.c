@@ -166,7 +166,6 @@ struct spi_geni_master {
 	bool shared_ee; /* Dual EE use case */
 	bool shared_se; /* True Multi EE use case */
 	bool is_le_vm;	/* LE VM usecase */
-	bool is_la_vm;	/* LA VM property */
 	bool dis_autosuspend;
 	bool cmd_done;
 	bool set_miso_sampling;
@@ -1359,10 +1358,6 @@ static int spi_geni_unprepare_transfer_hardware(struct spi_master *spi)
 	if (mas->shared_ee || mas->is_le_vm)
 		return 0;
 
-	if (mas->is_la_vm)
-		/* Client on LA VM to controls resources, hence return */
-		return 0;
-
 	if (mas->gsi_mode) {
 		struct se_geni_rsc *rsc;
 		int ret = 0;
@@ -1932,11 +1927,6 @@ static int spi_geni_probe(struct platform_device *pdev)
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,le-vm")) {
 		geni_mas->is_le_vm = true;
 		dev_info(&pdev->dev, "LE-VM usecase\n");
-	}
-
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,la-vm")) {
-		geni_mas->is_la_vm = true;
-		dev_info(&pdev->dev, "LA-VM usecase\n");
 	}
 
 	/*
