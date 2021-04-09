@@ -26,11 +26,12 @@
 static int usb_bypass_start(struct byte_cntr *byte_cntr_data)
 {
 	long offset;
-	struct tmc_drvdata *tmcdrvdata = byte_cntr_data->tmcdrvdata;
+	struct tmc_drvdata *tmcdrvdata;
 
 	if (!byte_cntr_data)
 		return -ENOMEM;
 
+	tmcdrvdata = byte_cntr_data->tmcdrvdata;
 	mutex_lock(&byte_cntr_data->usb_bypass_lock);
 
 
