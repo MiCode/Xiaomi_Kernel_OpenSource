@@ -2041,14 +2041,6 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 
 	mutex_lock(&ts->lock);
 
-#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-#ifndef CONFIG_ARCH_QTI_VM
-	if (nvt_ts_trusted_touch_get_pvm_driver_state(ts) !=
-					TRUSTED_TOUCH_PVM_INIT)
-		return IRQ_HANDLED;
-#endif
-#endif
-
 	ret = CTP_I2C_READ(ts->client, I2C_FW_Address, point_data, POINT_DATA_LEN + 1);
 	if (ret < 0) {
 		NVT_ERR("CTP_I2C_READ failed.(%d)\n", ret);
@@ -3131,7 +3123,7 @@ static int32_t nvt_ts_resume(struct device *dev)
 		return 0;
 	}
 
-#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+#ifdef CONFIG_ST_TRUSTED_TOUCH
 	if (atomic_read(&ts->trusted_touch_enabled))
 		wait_for_completion_interruptible(
 			&ts->trusted_touch_powerdown);
