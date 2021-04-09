@@ -592,7 +592,6 @@ static ssize_t gt9896s_ts_irq_info_show(struct device *dev,
 				       char *buf)
 {
 	struct gt9896s_ts_core *core_data = dev_get_drvdata(dev);
-	struct irq_desc *desc;
 	size_t offset = 0;
 	int r;
 
@@ -604,13 +603,6 @@ static ssize_t gt9896s_ts_irq_info_show(struct device *dev,
 	r = snprintf(&buf[offset], PAGE_SIZE - offset, "state:%s\n",
 		     atomic_read(&core_data->irq_enabled) ?
 		     "enabled" : "disabled");
-	if (r < 0)
-		return -EINVAL;
-
-	desc = irq_to_desc(core_data->irq);
-	offset += r;
-	r = snprintf(&buf[offset], PAGE_SIZE - offset, "disable-depth:%d\n",
-		     desc->depth);
 	if (r < 0)
 		return -EINVAL;
 
