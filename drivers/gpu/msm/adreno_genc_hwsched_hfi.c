@@ -750,7 +750,7 @@ int genc_hwsched_hfi_start(struct adreno_device *adreno_dev)
 
 	ret = genc_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_KPROF, 1, 0);
 	if (ret)
-		return ret;
+		goto err;
 
 	if (gmu->log_stream_enable)
 		genc_hfi_send_set_value(adreno_dev,
