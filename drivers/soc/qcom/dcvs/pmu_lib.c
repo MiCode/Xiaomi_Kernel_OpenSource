@@ -11,11 +11,14 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/errno.h>
+#include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/of_fdt.h>
 #include <linux/of_device.h>
 #include <linux/slab.h>
+#include <linux/cpu_pm.h>
 #include <linux/cpu.h>
 #include <linux/mutex.h>
 #include <linux/cpu.h>
@@ -28,6 +31,12 @@
 
 #define MAX_PMU_EVS	QCOM_PMU_MAX_EVS
 #define INVALID_ID	0xFF
+static void __iomem *pmu_base;
+
+struct cpucp_pmu_ctrs {
+	u64 evctrs[MAX_CPUCP_EVT];
+	u32 valid;
+};
 
 struct event_data {
 	u32			event_id;
@@ -47,6 +56,7 @@ struct amu_data {
 struct cpu_data {
 	bool			is_idle;
 	bool			is_hp;
+	bool			is_pc;
 	struct event_data	events[MAX_PMU_EVS];
 	u32			num_evs;
 	atomic_t		read_cnt;
@@ -223,7 +233,7 @@ static int __qcom_pmu_read(int cpu, u32 event_id, u64 *pmu_data, bool local)
 		return -ENOENT;
 
 	spin_lock_irqsave(&cpu_data->read_lock, flags);
-	if (cpu_data->is_hp || cpu_data->is_idle) {
+	if (cpu_data->is_hp || cpu_data->is_idle || cpu_data->is_pc) {
 		spin_unlock_irqrestore(&cpu_data->read_lock, flags);
 		*pmu_data = event->cached_count;
 		return 0;
@@ -252,7 +262,7 @@ int __qcom_pmu_read_all(int cpu, struct qcom_pmu_data *data, bool local)
 
 	cpu_data = per_cpu(cpu_ev_data, cpu);
 	spin_lock_irqsave(&cpu_data->read_lock, flags);
-	if (cpu_data->is_hp || cpu_data->is_idle)
+	if (cpu_data->is_hp || cpu_data->is_idle || cpu_data->is_pc)
 		use_cache = true;
 	else
 		atomic_inc(&cpu_data->read_cnt);
@@ -415,7 +425,7 @@ static void qcom_pmu_idle_enter_notif(void *unused, int *state,
 	unsigned long flags;
 
 	spin_lock_irqsave(&cpu_data->read_lock, flags);
-	if (cpu_data->is_idle || cpu_data->is_hp) {
+	if (cpu_data->is_idle || cpu_data->is_hp || cpu_data->is_pc) {
 		spin_unlock_irqrestore(&cpu_data->read_lock, flags);
 		return;
 	}
@@ -439,6 +449,61 @@ static void qcom_pmu_idle_enter_notif(void *unused, int *state,
 		idle_node->idle_cb(&pmu_data, cpu, state);
 }
 
+static int memlat_pm_notif(struct notifier_block *nb, unsigned long action,
+			   void *data)
+{
+	int cpu = smp_processor_id();
+	struct cpu_data *cpu_data = per_cpu(cpu_ev_data, cpu);
+	struct event_data *ev;
+	int i;
+	bool pmu_valid = false;
+	bool read_ev  = true;
+	struct cpucp_pmu_ctrs *base = pmu_base + (sizeof(struct cpucp_pmu_ctrs) * cpu);
+
+	if (action == CPU_PM_EXIT) {
+		if (pmu_base)
+			writel_relaxed(0, &base->valid);
+		cpu_data->is_pc = false;
+		return NOTIFY_OK;
+	}
+
+	spin_lock(&cpu_data->read_lock);
+	if (cpu_data->is_idle || cpu_data->is_hp || cpu_data->is_pc)
+		read_ev = false;
+	else
+		atomic_inc(&cpu_data->read_cnt);
+	cpu_data->is_pc = true;
+	spin_unlock(&cpu_data->read_lock);
+
+	if (!pmu_base)
+		goto dec_read_cnt;
+
+	for (i = 0; i < cpu_data->num_evs; i++) {
+		ev = &cpu_data->events[i];
+		if (!ev->event_id || (!ev->pevent && !is_amu_valid(ev->amu_id))
+		    || !is_cid_valid(ev->cid) || !cpucp_map[ev->cid].shared)
+			continue;
+		if (read_ev)
+			ev->cached_count = read_event(ev, true);
+		/* Store pmu values in allocated cpucp pmu region */
+		pmu_valid = true;
+		writel_relaxed(ev->cached_count, &base->evctrs[ev->cid]);
+	}
+	/* Set valid cache flag to allow cpucp to read from this memory location */
+	if (pmu_valid)
+		writel_relaxed(1, &base->valid);
+
+dec_read_cnt:
+	if (read_ev)
+		atomic_dec(&cpu_data->read_cnt);
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block memlat_event_pm_nb = {
+	.notifier_call = memlat_pm_notif,
+};
+
 #if IS_ENABLED(CONFIG_HOTPLUG_CPU)
 static int qcom_pmu_hotplug_coming_up(unsigned int cpu)
 {
@@ -447,6 +512,8 @@ static int qcom_pmu_hotplug_coming_up(unsigned int cpu)
 	int i, ret = 0;
 	unsigned long flags;
 	struct event_data *event;
+	struct cpucp_pmu_ctrs *base = pmu_base + (sizeof(struct cpucp_pmu_ctrs) * cpu);
+	cpumask_t mask;
 
 	if (!attr)
 		return -ENOMEM;
@@ -463,10 +530,15 @@ static int qcom_pmu_hotplug_coming_up(unsigned int cpu)
 			break;
 		}
 	}
+	cpumask_clear(&mask);
+	cpumask_set_cpu(cpu, &mask);
+	configure_cpucp_map(mask);
+	/* Set valid as 0 as exiting hotplug */
+	if (pmu_base)
+		writel_relaxed(0, &base->valid);
 	spin_lock_irqsave(&cpu_data->read_lock, flags);
 	cpu_data->is_hp = false;
 	spin_unlock_irqrestore(&cpu_data->read_lock, flags);
-
 out:
 	kfree(attr);
 	return 0;
@@ -476,8 +548,10 @@ static int qcom_pmu_hotplug_going_down(unsigned int cpu)
 {
 	struct cpu_data *cpu_data = per_cpu(cpu_ev_data, cpu);
 	struct event_data *event;
-	int i;
+	int i, cid;
 	unsigned long flags;
+	bool pmu_valid = false;
+	struct cpucp_pmu_ctrs *base = pmu_base + (sizeof(struct cpucp_pmu_ctrs) * cpu);
 
 	if (!qcom_pmu_inited)
 		return 0;
@@ -489,12 +563,20 @@ static int qcom_pmu_hotplug_going_down(unsigned int cpu)
 		udelay(10);
 	for (i = 0; i < cpu_data->num_evs; i++) {
 		event = &cpu_data->events[i];
+		cid = event->cid;
 		if (!event->event_id || (!event->pevent && !is_amu_valid(event->amu_id)))
 			continue;
 		event->cached_count = read_event(event, false);
+		/* Store pmu values in allocated cpucp pmu region */
+		if (pmu_base && is_cid_valid(cid) && cpucp_map[cid].shared) {
+			pmu_valid = true;
+			writel_relaxed(event->cached_count, &base->evctrs[cid]);
+		}
 		delete_event(event);
 	}
 
+	if (pmu_valid)
+		writel_relaxed(1, &base->valid);
 	return 0;
 }
 
@@ -633,11 +715,30 @@ static int setup_pmu_events(struct device *dev)
 static int qcom_pmu_driver_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	int ret = 0;
+	int ret = 0, idx;
 	unsigned int cpu;
 	struct cpu_data *cpu_data;
+	struct resource res;
 
 	get_online_cpus();
+	if (!pmu_base) {
+		idx = of_property_match_string(dev->of_node, "reg-names", "pmu-base");
+		if (idx < 0) {
+			dev_dbg(dev, "pmu base not found\n");
+			goto skip_pmu;
+		}
+		ret = of_address_to_resource(dev->of_node, idx, &res);
+		if (ret < 0) {
+			dev_err(dev, "failed to get resource ret %d\n", ret);
+			goto skip_pmu;
+		}
+		pmu_base = devm_ioremap(dev, res.start, resource_size(&res));
+		if (!pmu_base)
+			goto skip_pmu;
+		/* Zero out the pmu memory region */
+		memset_io(pmu_base, 0, resource_size(&res));
+	}
+skip_pmu:
 	for_each_possible_cpu(cpu) {
 		cpu_data = devm_kzalloc(dev, sizeof(*cpu_data), GFP_KERNEL);
 		if (!cpu_data) {
@@ -663,7 +764,10 @@ static int qcom_pmu_driver_probe(struct platform_device *pdev)
 		dev_err(dev, "qcom pmu driver failed to probe: %d\n", ret);
 		goto out;
 	}
-	register_trace_android_vh_cpu_idle(qcom_pmu_idle_notif, NULL);
+
+	register_trace_android_vh_cpu_idle_enter(qcom_pmu_idle_enter_notif, NULL);
+	register_trace_android_vh_cpu_idle_exit(qcom_pmu_idle_exit_notif, NULL);
+	cpu_pm_register_notifier(&memlat_event_pm_nb);
 	qcom_pmu_inited = true;
 
 out:
@@ -679,13 +783,17 @@ static int qcom_pmu_driver_remove(struct platform_device *pdev)
 	unsigned long flags;
 
 	qcom_pmu_inited = false;
-	cpuhp_remove_state_nocalls(CPUHP_AP_ONLINE_DYN);
-	unregister_trace_android_vh_cpu_idle(qcom_pmu_idle_notif, NULL);
+	if (cpuhp_state > 0)
+		cpuhp_remove_state_nocalls(cpuhp_state);
+	unregister_trace_android_vh_cpu_idle_enter(qcom_pmu_idle_enter_notif, NULL);
+	unregister_trace_android_vh_cpu_idle_exit(qcom_pmu_idle_exit_notif, NULL);
+	cpu_pm_unregister_notifier(&memlat_event_pm_nb);
 	for_each_possible_cpu(cpu) {
 		cpu_data = per_cpu(cpu_ev_data, cpu);
 		spin_lock_irqsave(&cpu_data->read_lock, flags);
 		cpu_data->is_hp = true;
 		cpu_data->is_idle = true;
+		cpu_data->is_pc = true;
 		spin_unlock_irqrestore(&cpu_data->read_lock, flags);
 	}
 
