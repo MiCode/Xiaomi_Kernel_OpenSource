@@ -30,6 +30,10 @@ struct boot_stats {
 	uint32_t bootloader_end;
 	uint32_t bootloader_display;
 	uint32_t bootloader_load_kernel;
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
+	uint32_t bootloader_load_kernel_start;
+	uint32_t bootloader_load_kernel_end;
+#endif
 };
 
 static void __iomem *mpm_counter_base;
