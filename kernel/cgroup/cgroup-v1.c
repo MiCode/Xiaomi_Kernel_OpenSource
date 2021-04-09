@@ -17,10 +17,7 @@
 #include <linux/fs_parser.h>
 
 #include <trace/events/cgroup.h>
-
 #include <trace/hooks/cgroup.h>
-
-#define cg_invalf(fc, fmt, ...) invalf(fc, fmt, ## __VA_ARGS__)
 
 /*
  * pidlists linger the following amount before being destroyed.  The goal
