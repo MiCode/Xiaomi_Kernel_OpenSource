@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, Linaro Limited
- * Copyright (c) 2014, 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016-2021, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1190,6 +1190,7 @@ static const struct of_device_id rpm_smd_clk_match_table[] = {
 	{ .compatible = "qcom,rpmcc-scuba", .data = &rpm_clk_scuba},
 	{ .compatible = "qcom,rpmcc-sdm660",  .data = &rpm_clk_sdm660  },
 	{ .compatible = "qcom,rpmcc-qm215",  .data = &rpm_clk_qm215 },
+	{ .compatible = "qcom,rpmcc-sdm439",  .data = &rpm_clk_qm215 },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, rpm_smd_clk_match_table);
@@ -1200,7 +1201,7 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 	struct clk *clk;
 	struct rpm_cc *rcc;
 	struct clk_onecell_data *data;
-	int ret, is_bengal, is_scuba, is_sdm660, is_qm215;
+	int ret, is_bengal, is_scuba, is_sdm660, is_qm215, is_sdm439;
 	size_t num_clks, i;
 	struct clk_hw **hw_clks;
 	const struct rpm_smd_clk_desc *desc;
@@ -1222,13 +1223,16 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 	is_qm215 = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,rpmcc-qm215");
 
+	is_sdm439 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,rpmcc-sdm439");
+
 	if (is_sdm660) {
 		ret = clk_vote_bimc(&sdm660_bimc_clk.hw, INT_MAX);
 		if (ret < 0)
 			return ret;
 	}
 
-	if (is_qm215) {
+	if (is_qm215 || is_sdm439) {
 		ret = clk_vote_bimc(&sdm429w_bimc_clk.hw, INT_MAX);
 		if (ret < 0)
 			return ret;
@@ -1250,6 +1254,11 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 	data = &rcc->data;
 	data->clks = clks;
 	data->clk_num = num_clks;
+
+	if (is_sdm439) {
+		rpm_clk_qm215.clks[RPM_SMD_BIMC_GPU_CLK] = NULL;
+		rpm_clk_qm215.clks[RPM_SMD_BIMC_GPU_A_CLK] = NULL;
+	}
 
 	for (i = 0; i <= desc->num_rpm_clks; i++) {
 		if (!hw_clks[i]) {
@@ -1317,7 +1326,7 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 		/* Hold an active set vote for the cnoc_periph resource */
 		clk_set_rate(cnoc_periph_keepalive_a_clk.hw.clk, 19200000);
 		clk_prepare_enable(cnoc_periph_keepalive_a_clk.hw.clk);
-	} else if (is_qm215) {
+	} else if (is_qm215 || is_sdm439) {
 		clk_prepare_enable(sdm429w_bi_tcxo_ao.hw.clk);
 
 		/*
