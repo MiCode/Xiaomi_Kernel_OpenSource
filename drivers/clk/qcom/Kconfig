@@ -757,6 +757,24 @@ config SDW_GCC_MONACO
 	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
 	  USB, SD/eMMC, etc.
 
+config SDW_GPUCC_MONACO
+	tristate "MONACO Graphics Clock Controller"
+	select SDW_GCC_MONACO
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
+	  MONACO devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
+config SM_GCC_BLAIR
+	tristate "BLAIR Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc.
+	  BLAIR devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC etc.
+
 endif
 
 config VIRTIO_CLK

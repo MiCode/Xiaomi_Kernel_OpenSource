@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -2284,6 +2284,30 @@ static const struct msm_pingroup direwolf_groups[] = {
 	[231] = SDC_QDSD_PINGROUP(sdc2_data, 0x1e8000, 9, 0),
 };
 
+static const struct msm_gpio_wakeirq_map direwolf_pdc_map[] = {
+	{ 3, 245 }, { 4, 263 }, { 7, 254 }, { 21, 220 }, { 25, 244 },
+	{ 26, 211 }, { 27, 172 }, { 29, 203 }, { 30, 169 }, { 31, 180 },
+	{ 32, 181 }, { 33, 182 }, { 36, 206 }, { 39, 246 }, { 40, 183 },
+	{ 42, 179 }, { 46, 247 }, { 53, 248 }, { 54, 190 }, { 55, 249 },
+	{ 56, 250 }, { 58, 251 }, { 59, 207 }, { 62, 252 }, { 63, 191 },
+	{ 64, 192 }, { 65, 193 }, { 69, 253 }, { 73, 255 }, { 84, 256 },
+	{ 85, 208 }, { 90, 257 }, { 102, 214 }, { 103, 215 }, { 104, 216 },
+	{ 107, 217 }, { 110, 218 }, { 124, 224 }, { 125, 189 },
+	{ 126, 200 }, { 127, 225 }, { 128, 262 }, { 129, 201 },
+	{ 130, 209 }, { 131, 173 }, { 132, 202 }, { 136, 210 },
+	{ 138, 171 }, { 139, 226 }, { 140, 227 }, { 142, 228 },
+	{ 144, 229 }, { 145, 230 }, { 146, 231 }, { 148, 232 },
+	{ 149, 233 }, { 150, 234 }, { 152, 235 }, { 154, 212 },
+	{ 157, 213 }, { 161, 219 }, { 170, 236 }, { 171, 221 },
+	{ 174, 222 }, { 175, 237 }, { 176, 223 }, { 177, 170 },
+	{ 180, 238 }, { 181, 239 }, { 182, 240 }, { 183, 241 },
+	{ 184, 242 }, { 185, 243 }, { 190, 178 }, { 193, 184 },
+	{ 196, 185 }, { 198, 186 }, { 200, 174 }, { 201, 175 },
+	{ 205, 176 }, { 206, 177 }, { 208, 187 }, { 210, 198 },
+	{ 211, 199 }, { 212, 204 }, { 215, 205 }, { 220, 188 },
+	{ 221, 194 }, { 223, 195 }, { 225, 196 }, { 227, 197 },
+};
+
 static const struct msm_pinctrl_soc_data direwolf_pinctrl = {
 	.pins = direwolf_pins,
 	.npins = ARRAY_SIZE(direwolf_pins),
@@ -2292,6 +2316,8 @@ static const struct msm_pinctrl_soc_data direwolf_pinctrl = {
 	.groups = direwolf_groups,
 	.ngroups = ARRAY_SIZE(direwolf_groups),
 	.ngpios = 229,
+	.wakeirq_map = direwolf_pdc_map,
+	.nwakeirq_map = ARRAY_SIZE(direwolf_pdc_map),
 };
 
 static int direwolf_pinctrl_probe(struct platform_device *pdev)

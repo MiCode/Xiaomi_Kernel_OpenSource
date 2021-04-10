@@ -1,3 +1,19 @@
+Version 1.1.18
+Date 21/02/2021
+==============
+- Hotfix to increase reset tmo on A2 to 2secs
+
+Version 1.1.17
+Date 19/02/2021
+==============
+- Hotfix to disable macsec load on A2
+
+Version 1.1.16
+Date 13/02/2021
+==============
+- Fixes for compilation without PTP
+[ATLDRV-1649]: WOL was not functional. MAC address was invalid.
+
 Version 1.1.15
 ==============
 [ATLDRV-1613] - Atlantic_fwd driver hitting NULL pointer dereference at 0000000000000678 while requesting rx rings

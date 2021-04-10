@@ -993,12 +993,14 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct phy *phy = host->generic_phy;
 	struct device *dev = hba->dev;
+	struct device_node *np = dev->of_node;
 
 	switch (status) {
 	case PRE_CHANGE:
-		if (strlen(android_boot_dev) && strcmp(android_boot_dev, dev_name(dev))) {
+		if (!of_property_read_bool(np, "secondary-storage") &&
+		    strlen(android_boot_dev) &&
+		    strcmp(android_boot_dev, dev_name(dev)))
 			return -ENODEV;
-		}
 
 		if (ufs_qcom_cfg_timers(hba, UFS_PWM_G1, SLOWAUTO_MODE,
 					0, true)) {

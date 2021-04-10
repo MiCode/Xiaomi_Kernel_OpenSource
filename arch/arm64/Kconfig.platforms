@@ -219,6 +219,14 @@ config ARCH_HOLI
 	  HOLI chipset. If you do not wish to build a kernel that
 	  runs on this chipset or if you are unsure, say 'N' here.
 
+config ARCH_BLAIR
+	bool "Enable Support for Qualcomm Technologies, Inc. BLAIR"
+	depends on ARCH_QCOM
+	help
+	  This enables support for the Qualcomm Technologies, Inc.'s
+	  BLAIR chipset. If you do not wish to build a kernel that
+	  runs on this chipset or if you are unsure, say 'N' here.
+
 config ARCH_YUPIK
 	bool "Enable Support for Qualcomm Technologies, Inc. YUPIK"
 	depends on ARCH_QCOM

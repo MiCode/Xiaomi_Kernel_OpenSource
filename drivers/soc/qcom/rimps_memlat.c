@@ -252,6 +252,9 @@ static ssize_t store_min_freq(struct kobject *kobj,
 	unsigned int min_freq;
 	unsigned int max_freq;
 
+	if (!ops)
+		return -ENODEV;
+
 	if (mon->mon_type == L3_MEMLAT) {
 		min_freq = l3_freqs[0];
 		max_freq = l3_freqs[l3_pstates];
@@ -290,6 +293,9 @@ static ssize_t store_max_freq(struct kobject *kobj,
 	struct scmi_memlat_vendor_ops *ops = cpu_grp->handle->memlat_ops;
 	unsigned int min_freq;
 	unsigned int max_freq;
+
+	if (!ops)
+		return -ENODEV;
 
 	if (mon->mon_type == L3_MEMLAT) {
 		min_freq = l3_freqs[0];

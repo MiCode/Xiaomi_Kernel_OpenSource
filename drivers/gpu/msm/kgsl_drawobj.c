@@ -900,6 +900,7 @@ err:
 		kgsl_timeline_put(timelineobj->timelines[i].timeline);
 
 	kvfree(timelineobj->timelines);
+	timelineobj->timelines = NULL;
 	return ret;
 }
 

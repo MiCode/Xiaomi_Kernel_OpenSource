@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1169,6 +1169,22 @@ static const struct msm_pingroup sdxnightjar_groups[] = {
 	SDC_QDSD_PINGROUP(qdsd_data3, 0x19c000, 28, 25),
 };
 
+static const struct msm_gpio_wakeirq_map sdxnightjar_mpm_map[] = {
+	{86, 3}, {91, 4}, {1, 5}, {2, 6},
+	{92, 7}, {93, 8}, {5, 9}, {6, 10},
+	{94, 11}, {9, 13}, {10, 14}, {11, 15},
+	{12, 16}, {13, 17}, {14, 18}, {88, 19},
+	{16, 20}, {17, 21}, {18, 22}, {19, 23},
+	{22, 24}, {21, 25}, {24, 26}, {25, 27},
+	{51, 28}, {87, 29}, {62, 30}, {63, 31},
+	{64, 32}, {65, 33}, {66, 34}, {67, 35},
+	{43, 36}, {50, 37}, {53, 38}, {54, 39},
+	{55, 40}, {15, 41}, {56, 42}, {82, 43},
+	{77, 47}, {61, 48}, {83, 50}, {84, 51},
+	{85, 52}, {58, 53}, {81, 55}, {60, 56},
+	{68, 57}, {70, 59}, {41, 60},
+};
+
 static const struct msm_pinctrl_soc_data sdxnightjar_pinctrl = {
 	.pins = sdxnightjar_pins,
 	.npins = ARRAY_SIZE(sdxnightjar_pins),
@@ -1177,6 +1193,8 @@ static const struct msm_pinctrl_soc_data sdxnightjar_pinctrl = {
 	.groups = sdxnightjar_groups,
 	.ngroups = ARRAY_SIZE(sdxnightjar_groups),
 	.ngpios = 100,
+	.wakeirq_map = sdxnightjar_mpm_map,
+	.nwakeirq_map = ARRAY_SIZE(sdxnightjar_mpm_map),
 };
 
 static int sdxnightjar_pinctrl_probe(struct platform_device *pdev)

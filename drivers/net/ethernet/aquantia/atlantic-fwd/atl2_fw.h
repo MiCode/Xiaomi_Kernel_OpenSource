@@ -82,6 +82,11 @@ struct mac_address_s {
 	uint8_t mac_address[6];
 };
 
+struct mac_address_aligned_s {
+	struct mac_address_s aligned;
+	u16 rsvd;
+};
+
 struct sleep_proxy_s {
 	struct wake_on_lan_s {
 		uint32_t wake_on_magic_packet:1;
@@ -555,8 +560,7 @@ struct request_policy_s {
 struct fw_interface_in {
 	uint32_t mtu;
 	uint32_t rsvd1:32;
-	struct mac_address_s mac_address;
-	uint16_t rsvd;
+	struct mac_address_aligned_s mac_address;
 	struct link_control_s link_control;
 	uint32_t rsvd2:32;
 	struct link_options_s link_options;

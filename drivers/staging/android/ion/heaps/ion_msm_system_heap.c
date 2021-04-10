@@ -3,7 +3,7 @@
  * ION Memory Allocator system heap exporter
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -291,7 +291,7 @@ static bool check_valid_vmid(int dest_vmid, struct ion_msm_system_heap *sys_heap
 
 	page = ion_msm_page_pool_alloc(sys_heap->uncached_pools[order_ind],
 				       &from_pool);
-	if (!page)
+	if (IS_ERR(page))
 		return false;
 
 	if (!from_pool)

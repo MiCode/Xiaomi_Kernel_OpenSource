@@ -760,8 +760,8 @@ static inline bool dwc3_msm_is_dev_superspeed(struct dwc3_msm *mdwc)
 	u8 speed;
 
 	speed = dwc3_msm_read_reg(mdwc->base, DWC3_DSTS) & DWC3_DSTS_CONNECTSPD;
-	if ((speed & DWC3_DSTS_SUPERSPEED) ||
-			(speed & DWC3_DSTS_SUPERSPEED_PLUS)) {
+	if ((speed == DWC3_DSTS_SUPERSPEED) ||
+			(speed == DWC3_DSTS_SUPERSPEED_PLUS)) {
 		mdwc->ss_phy->flags |= DEVICE_IN_SS_MODE;
 		return true;
 	}
@@ -2716,7 +2716,7 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc, bool ignore_p3_state)
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	unsigned long timeout;
 	u32 reg = 0;
-	bool ssphy0_sus, ssphy1_sus;
+	bool ssphy0_sus = false, ssphy1_sus = false;
 
 	/* Allow SSPHY(s) to go to P3 state if SSPHY autosuspend is disabled */
 	if (dwc->dis_u3_susphy_quirk) {
@@ -5148,7 +5148,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 
 		mdwc->host_nb.notifier_call = dwc3_msm_host_notifier;
-#ifdef USB_CONFIG
+#ifdef CONFIG_USB
 		usb_register_notify(&mdwc->host_nb);
 #endif
 
@@ -5250,7 +5250,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		dwc3_msm_clear_ssphy_flags(mdwc, PHY_HOST_MODE);
 		dwc3_msm_clear_hsphy_flags(mdwc, PHY_HOST_MODE);
 		dwc3_host_exit(dwc);
-#ifdef USB_CONFIG
+#ifdef CONFIG_USB
 		usb_unregister_notify(&mdwc->host_nb);
 #endif
 

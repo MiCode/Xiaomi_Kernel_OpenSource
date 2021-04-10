@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -16,6 +16,7 @@
 #include <linux/sizes.h>
 #include <linux/slab.h>
 #include <linux/soc/qcom/llcc-qcom.h>
+#include <linux/soc/qcom/llcc-tcm.h>
 
 #define ACTIVATE                      BIT(0)
 #define DEACTIVATE                    BIT(1)
@@ -377,6 +378,7 @@ int qcom_llcc_probe(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	int ret, i;
 	struct platform_device *llcc_edac, *llcc_perfmon;
+	struct device_node *tcm_memory_node;
 
 	drv_data = devm_kzalloc(dev, sizeof(*drv_data), GFP_KERNEL);
 	if (!drv_data) {
@@ -459,7 +461,20 @@ int qcom_llcc_probe(struct platform_device *pdev,
 	if (IS_ERR(llcc_perfmon))
 		dev_err(dev, "Failed to register llcc perfmon device\n");
 
+	tcm_memory_node = of_parse_phandle(dev->of_node, "memory-region", 0);
+	if (tcm_memory_node) {
+		ret = qcom_llcc_tcm_probe(pdev, llcc_cfg, sz, tcm_memory_node);
+		if (ret) {
+			dev_err(dev, "Failed to probe TCM manager\n");
+			goto err_dereg;
+		}
+	}
+
 	return 0;
+
+err_dereg:
+	platform_device_unregister(llcc_edac);
+	platform_device_unregister(llcc_perfmon);
 err:
 	drv_data = ERR_PTR(-ENODEV);
 	return ret;

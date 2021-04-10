@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __KGSL_TIMELINE_H
@@ -24,6 +24,8 @@ struct kgsl_timeline {
 	struct list_head fences;
 	/** @name: Name of the timeline for debugging */
 	const char name[32];
+	/** @dev_priv: pointer to the owning device instance */
+	struct kgsl_device_private *dev_priv;
 };
 
 /**

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -20,6 +20,11 @@
 
 #include "icc-rpm.h"
 #include "rpm-ids.h"
+
+static LIST_HEAD(qnoc_probe_list);
+static DEFINE_MUTEX(probe_list_lock);
+
+static int probe_count;
 
 static const struct clk_bulk_data bus_clocks[] = {
 	{ .id = "bus" },
@@ -921,6 +926,10 @@ static int qnoc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, qp);
 
+	mutex_lock(&probe_list_lock);
+	list_add_tail(&qp->probe_list, &qnoc_probe_list);
+	mutex_unlock(&probe_list_lock);
+
 	dev_info(dev, "Registered SDXNIGHTJAR ICC\n");
 
 	return 0;
@@ -961,12 +970,54 @@ static const struct of_device_id qnoc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, qnoc_of_match);
 
+static void qnoc_sync_state(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct qcom_icc_provider *qp = platform_get_drvdata(pdev);
+	int ret = 0, i;
+
+	mutex_lock(&probe_list_lock);
+	probe_count++;
+
+	if (probe_count < ARRAY_SIZE(qnoc_of_match) - 1) {
+		mutex_unlock(&probe_list_lock);
+		return;
+	}
+
+	list_for_each_entry(qp, &qnoc_probe_list, probe_list) {
+		qp->init = false;
+
+		if (!qp->keepalive)
+			continue;
+
+		for (i = 0; i < RPM_NUM_CXT; i++) {
+			if (i == RPM_ACTIVE_CXT) {
+				if (qp->bus_clk_cur_rate[i] == 0)
+					ret = clk_set_rate(qp->bus_clks[i].clk,
+						RPM_CLK_MIN_LEVEL);
+				else
+					ret = clk_set_rate(qp->bus_clks[i].clk,
+						qp->bus_clk_cur_rate[i]);
+
+				if (ret)
+					pr_err("%s clk_set_rate error: %d\n",
+						qp->bus_clks[i].id, ret);
+			}
+		}
+	}
+
+	mutex_unlock(&probe_list_lock);
+
+	pr_err("SDXNIGHTJAR ICC Sync State done\n");
+}
+
 static struct platform_driver qnoc_driver = {
 	.probe = qnoc_probe,
 	.remove = qnoc_remove,
 	.driver = {
 		.name = "qnoc-sdxnightjar",
 		.of_match_table = qnoc_of_match,
+		.sync_state = qnoc_sync_state,
 	},
 };
 

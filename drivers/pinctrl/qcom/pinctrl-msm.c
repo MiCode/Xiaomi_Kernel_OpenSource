@@ -997,10 +997,11 @@ static void msm_dirconn_uncfg_reg(struct irq_data *d, u32 offset)
 	raw_spin_lock_irqsave(&pctrl->lock, flags);
 	g = &pctrl->soc->groups[d->hwirq];
 
-	writel_relaxed(val, pctrl->regs + g->dir_conn_reg + (offset * 4));
-	val = readl_relaxed(pctrl->regs + g->intr_cfg_reg);
+	writel_relaxed(val, pctrl->regs[g->tile] + g->dir_conn_reg
+		       + (offset * 4));
+	val = msm_readl_intr_cfg(pctrl, g);
 	val &= ~BIT(g->dir_conn_en_bit);
-	writel_relaxed(val, pctrl->regs + g->intr_cfg_reg);
+	msm_writel_intr_cfg(val, pctrl, g);
 	raw_spin_unlock_irqrestore(&pctrl->lock, flags);
 }
 
@@ -1284,11 +1285,13 @@ static int msm_gpio_wakeirq(struct gpio_chip *gc,
 	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
 	const struct msm_gpio_wakeirq_map *map;
 	int i;
+	bool skip;
 
 	*parent = GPIO_NO_WAKE_IRQ;
 	*parent_type = IRQ_TYPE_EDGE_RISING;
 
-	if (!test_bit(child, pctrl->skip_wake_irqs))
+	skip = irq_domain_qcom_handle_wakeup(gc->irq.parent_domain);
+	if (!test_bit(child, pctrl->skip_wake_irqs) && skip)
 		return 0;
 
 	for (i = 0; i < pctrl->soc->nwakeirq_map; i++) {

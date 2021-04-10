@@ -4263,7 +4263,7 @@ int __handle_speculative_fault(struct mm_struct *mm, unsigned long address,
 	if (unlikely((vma_is_anonymous(vmf.vma) && !vmf.vma->anon_vma) ||
 		(!vma_is_anonymous(vmf.vma) &&
 			!(vmf.vma->vm_flags & VM_SHARED) &&
-			(vmf.flags & FAULT_FLAG_WRITE) &&
+			(flags & FAULT_FLAG_WRITE) &&
 			!vmf.vma->anon_vma)))
 		return VM_FAULT_RETRY;
 

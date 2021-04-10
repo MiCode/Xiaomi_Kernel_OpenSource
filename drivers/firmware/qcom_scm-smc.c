@@ -877,6 +877,38 @@ int __qcom_scm_set_cold_boot_addr(struct device *dev, void *entry,
 }
 
 /**
+ * scm_set_boot_addr_mc - Set entry physical address for cpus
+ * @addr: 32bit physical address
+ * @aff0: Collective bitmask of the affinity-level-0 of the mpidr
+ *	  1<<aff0_CPU0| 1<<aff0_CPU1....... | 1<<aff0_CPU32
+ *	  Supports maximum 32 cpus under any affinity level.
+ * @aff1:  Collective bitmask of the affinity-level-1 of the mpidr
+ * @aff2:  Collective bitmask of the affinity-level-2 of the mpidr
+ * @flags: Flag to differentiate between coldboot vs warmboot
+ */
+int __qcom_scm_set_warm_boot_addr_mc(struct device *dev, void *entry, u32 aff0,
+				     u32 aff1, u32 aff2, u32 flags)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_BOOT,
+		.cmd = QCOM_SCM_BOOT_SET_ADDR_MC,
+		.owner = ARM_SMCCC_OWNER_SIP,
+	};
+
+	desc.args[0] = virt_to_phys(entry);
+	desc.args[1] = aff0;
+	desc.args[2] = aff1;
+	desc.args[3] = aff2;
+	desc.args[4] = ~0ULL;
+	desc.args[5] = flags;
+	desc.arginfo = QCOM_SCM_ARGS(6);
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret;
+}
+
+/**
  * qcom_scm_set_warm_boot_addr() - Set the warm boot address for cpus
  * @dev: Device pointer
  * @entry: Entry point function for the cpus
@@ -894,6 +926,7 @@ int __qcom_scm_set_warm_boot_addr(struct device *dev, void *entry,
 	struct qcom_scm_desc desc = {
 		.svc = QCOM_SCM_SVC_BOOT,
 		.cmd = QCOM_SCM_BOOT_SET_ADDR,
+		.owner = ARM_SMCCC_OWNER_SIP,
 	};
 
 	/*
@@ -912,6 +945,7 @@ int __qcom_scm_set_warm_boot_addr(struct device *dev, void *entry,
 
 	desc.args[0] = virt_to_phys(entry);
 	desc.args[1] = flags;
+	desc.arginfo = QCOM_SCM_ARGS(2);
 	ret = qcom_scm_call(dev, &desc);
 	if (!ret) {
 		for_each_cpu(cpu, cpus)
@@ -919,6 +953,19 @@ int __qcom_scm_set_warm_boot_addr(struct device *dev, void *entry,
 	}
 
 	return ret;
+}
+
+void __qcom_scm_cpu_hp(struct device *dev, u32 flags)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_BOOT,
+		.cmd = QCOM_SCM_BOOT_TERMINATE_PC,
+		.args[0] = flags,
+		.arginfo = QCOM_SCM_ARGS(1),
+		.owner = ARM_SMCCC_OWNER_SIP,
+	};
+
+	qcom_scm_call_atomic(dev, &desc);
 }
 
 /**

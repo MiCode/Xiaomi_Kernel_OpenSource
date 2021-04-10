@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015,2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of_irq.h>
@@ -46,7 +46,7 @@ static struct msm_edp *edp_init(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto fail;
 	}
-	DBG("eDP probed=%p", edp);
+	DBG("eDP probed=%pK", edp);
 
 	edp->pdev = pdev;
 	platform_set_drvdata(pdev, edp);

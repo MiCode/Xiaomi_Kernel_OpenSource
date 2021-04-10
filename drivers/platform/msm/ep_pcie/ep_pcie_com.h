@@ -176,7 +176,7 @@
 #define MAX_IATU_ENTRY_NUM 2
 
 #define EP_PCIE_LOG_PAGES 50
-#define EP_PCIE_MAX_VREG 3
+#define EP_PCIE_MAX_VREG 4
 #define EP_PCIE_MAX_CLK 10
 #define EP_PCIE_MAX_PIPE_CLK 1
 #define EP_PCIE_MAX_RESET 2
@@ -367,6 +367,7 @@ struct ep_pcie_dev_t {
 
 	u32                          rev;
 	u32                          phy_rev;
+	u32			     aux_clk_val;
 	void                         *ipc_log_sel;
 	void                         *ipc_log_ful;
 	void                         *ipc_log_dump;

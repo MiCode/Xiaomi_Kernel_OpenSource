@@ -1297,6 +1297,8 @@ static int hgsl_release(struct inode *inodep, struct file *filep)
 		}
 	}
 
+	hgsl_isync_fini(priv);
+
 	kfree(priv);
 	return 0;
 }

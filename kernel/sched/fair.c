@@ -4091,11 +4091,17 @@ place_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int initial)
 		vruntime -= thresh;
 #ifdef CONFIG_SCHED_WALT
 		if (entity_is_task(se)) {
-			if ((per_task_boost(task_of(se)) ==
-					TASK_BOOST_STRICT_MAX) ||
-					walt_low_latency_task(task_of(se)) ||
-					task_rtg_high_prio(task_of(se))) {
+			if (per_task_boost(task_of(se)) == TASK_BOOST_STRICT_MAX) {
+				vruntime -= thresh;
 				vruntime -= sysctl_sched_latency;
+				se->vruntime = vruntime;
+				return;
+			} else if (walt_binder_low_latency_task(task_of(se))) {
+				vruntime -= sysctl_sched_latency;
+				se->vruntime = vruntime;
+				return;
+			} else if (task_rtg_high_prio(task_of(se)) ||
+					walt_procfs_low_latency_task(task_of(se))) {
 				vruntime -= thresh;
 				se->vruntime = vruntime;
 				return;
