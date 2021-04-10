@@ -241,7 +241,7 @@ static const char * const gcc_parent_names_12[] = {
 static const struct parent_map gcc_parent_map_14[] = {
 	{ P_BI_TCXO, 0 },
 	{ P_GPLL0_OUT_MAIN, 1 },
-	{ P_GPLL3_OUT_MAIN, 2 },
+	{ P_GPLL3_OUT_MAIN_DIV, 2 },
 	{ P_GPLL6_OUT_AUX, 3 },
 	{ P_GPLL4_OUT_AUX, 4 },
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
@@ -1719,13 +1719,13 @@ static const struct freq_tbl ftbl_gfx3d_clk_src[] = {
 	F_SLEW(240000000, P_GPLL6_OUT_AUX, 4.5, 0, 0, FIXED_FREQ_SRC),
 	F_SLEW(266666667, P_GPLL0_OUT_MAIN, 3, 0, 0, FIXED_FREQ_SRC),
 	F_SLEW(320000000, P_GPLL0_OUT_MAIN, 2.5, 0, 0, FIXED_FREQ_SRC),
-	F_SLEW(355200000, P_GPLL3_OUT_MAIN, 1, 0, 0, 710400000),
-	F_SLEW(375000000, P_GPLL3_OUT_MAIN, 1, 0, 0, 750000000),
+	F_SLEW(355200000, P_GPLL3_OUT_MAIN_DIV, 1, 0, 0, 710400000),
+	F_SLEW(375000000, P_GPLL3_OUT_MAIN_DIV, 1, 0, 0, 750000000),
 	F_SLEW(400000000, P_GPLL0_OUT_MAIN, 2, 0, 0, FIXED_FREQ_SRC),
-	F_SLEW(450000000, P_GPLL3_OUT_MAIN, 1, 0, 0, 900000000),
-	F_SLEW(510000000, P_GPLL3_OUT_MAIN, 1, 0, 0, 1020000000),
-	F_SLEW(560000000, P_GPLL3_OUT_MAIN, 1, 0, 0, 1120000000),
-	F_SLEW(650000000, P_GPLL3_OUT_MAIN, 1, 0, 0, 1300000000),
+	F_SLEW(450000000, P_GPLL3_OUT_MAIN_DIV, 1, 0, 0, 900000000),
+	F_SLEW(510000000, P_GPLL3_OUT_MAIN_DIV, 1, 0, 0, 1020000000),
+	F_SLEW(560000000, P_GPLL3_OUT_MAIN_DIV, 1, 0, 0, 1120000000),
+	F_SLEW(650000000, P_GPLL3_OUT_MAIN_DIV, 1, 0, 0, 1300000000),
 	{ }
 };
 
@@ -4287,9 +4287,19 @@ static void fixup_for_qm215(struct platform_device *pdev,
 	gcc_sdm429w_desc.clks[GCC_MDSS_ESC1_CLK] = NULL;
 }
 
+static void fixup_for_sdm439_429(void)
+{
+	/*
+	 * Below clocks are not available on SDM429/439, thus mark them NULL.
+	 */
+	gcc_sdm429w_desc.clks[GCC_GFX_TCU_CLK] = NULL;
+	gcc_sdm429w_desc.clks[GCC_GFX_TBU_CLK] = NULL;
+	gcc_sdm429w_desc.clks[GCC_GTCU_AHB_CLK] = NULL;
+}
 static const struct of_device_id gcc_sdm429w_match_table[] = {
 	{ .compatible = "qcom,gcc-sdm429w" },
 	{ .compatible = "qcom,gcc-qm215" },
+	{ .compatible = "qcom,gcc-sdm439" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gcc_sdm429w_match_table);
@@ -4299,10 +4309,13 @@ static int gcc_sdm429w_probe(struct platform_device *pdev)
 	struct regmap *regmap;
 	struct clk *clk;
 	int ret, speed_bin;
-	bool qm215;
+	bool qm215, is_sdm439;
 
 	qm215 = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,gcc-qm215");
+
+	is_sdm439 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gcc-sdm439");
 
 	clk = clk_get(&pdev->dev, "bi_tcxo");
 	if (IS_ERR(clk)) {
@@ -4332,6 +4345,9 @@ static int gcc_sdm429w_probe(struct platform_device *pdev)
 		regmap_update_bits(regmap, gcc_oxili_gmem_clk.clkr.enable_reg,
 				0xff0, 0xff0);
 	}
+
+	if (is_sdm439)
+		fixup_for_sdm439_429();
 
 	clk_alpha_pll_configure(&gpll3_out_main, regmap, &gpll3_config);
 
@@ -4421,6 +4437,7 @@ static void fixup_for_qm215_gcc_mdss(void)
 static const struct of_device_id mdss_sdm429w_match_table[] = {
 	{ .compatible = "qcom,gcc-mdss-sdm429w" },
 	{ .compatible = "qcom,gcc-mdss-qm215" },
+	{ .compatible = "qcom,gcc-mdss-sdm439" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, mdss_sdm429w_match_table);
