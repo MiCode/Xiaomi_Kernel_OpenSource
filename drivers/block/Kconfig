@@ -432,6 +432,15 @@ config VIRTIO_BLK
 	  This is the virtual block driver for virtio.  It can be used with
           QEMU based VMMs (like KVM or Xen).  Say Y or M.
 
+config VIRTIO_BLK_QTI_CRYPTO
+	tristate "Vendor specific VIRTIO Crypto Engine Support"
+	depends on VIRTIO_BLK
+	help
+	 Enable storage inline crypto engine support for guest virtual machine.
+	 Enabling this allows kernel to use crypto operations defined
+	 and implemented by QTI.
+	 Say Y or M.
+
 config VIRTIO_BLK_SCSI
 	bool "SCSI passthrough request for the Virtio block driver"
 	depends on VIRTIO_BLK

@@ -606,8 +606,8 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 		ret = cnss_request_firmware_direct(plat_priv, &fw_entry,
 						   filename);
 	else
-		ret = request_firmware(&fw_entry, filename,
-				       &plat_priv->plat_dev->dev);
+		ret = firmware_request_nowarn(&fw_entry, filename,
+					      &plat_priv->plat_dev->dev);
 
 	if (ret) {
 		cnss_pr_err("Failed to load BDF: %s\n", filename);

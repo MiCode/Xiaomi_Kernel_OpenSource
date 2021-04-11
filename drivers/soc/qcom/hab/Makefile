@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
+CFLAGS_hab.o := -I$(src)
+
 msm_hab-objs = \
 	hab.o \
 	hab_msg.o \

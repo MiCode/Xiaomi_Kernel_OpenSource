@@ -666,7 +666,7 @@ config QCOM_SECURE_BUFFER
 
 config QCOM_GLINK_PKT
 	tristate "Enable device interface for GLINK packet channels"
-	depends on QCOM_GLINK
+	depends on QCOM_GLINK || RPMSG_QCOM_GLINK_SLATECOM
 	help
 	  G-link packet driver provides the interface for the userspace
 	  clients to communicate over G-Link via device nodes.
@@ -1222,6 +1222,16 @@ config QTI_CRYPTO_FDE
 	 of KSM(Key Slot Manager) for the FDE. Making one less slot available for FBE
 	 (File based encryption) in case both encryption mechanism are enabled on device.
 
+config QTI_CRYPTO_VIRTUALIZATION
+	tristate "Enable hypervysor to be used for FBE"
+	depends on FS_ENCRYPTION_INLINE_CRYPT
+	depends on MSM_HAB
+	help
+	 Say 'Y' to enable routing of crypto requests to different operating
+	 system in virtualized environment. Driver uses a hardware abstraction(hab)
+	 layer where the APIs exposed by that operationg systems are used to send
+	 requests to perform the hardware crypto operation.
+
 config QTI_HW_KEY_MANAGER
 	tristate "Enable QTI Hardware Key Manager for storage encryption"
 	default n
@@ -1281,6 +1291,15 @@ config QCOM_AOP_SET_DDR
 	  to Alway On processor using QMP transport. Users can echo a frequency
 	  into an exposed sysfs node to send to AOP. The driver expects the Cap
 	  frequency of DDR based on SKU.
+
+config DUMP_XBL_LOG
+	bool "print xbl log on console from fs"
+	help
+	  This driver is used to capture xbl log from reserved memory  region
+	  defined separately in each device tree and print on console when user
+	  requests. User can perform below command to print xbl log stored in
+	  reserved memory region:
+		cat /sys/module/xbl_log/xbl_log
 
 source "drivers/soc/qcom/icnss2/Kconfig"
 endmenu

@@ -96,6 +96,14 @@ config IPA_WDI_UNIFIED_API
 	  The IPA WDI unified API supports all WDI versions through a unified
 	  interface.
 
+config VETH_IPA
+        tristate "VETH_IPA Network Interface Driver Support"
+        help
+          Enables EMAC Ethernet Front end driver.
+          Register net device and configure VETH0 iface. This driver will
+          configure EMAC IPA offload channels with help of a backend driver
+          running on GVM Host.
+
 config USB_BAM
 	tristate "USB BAM Driver"
 	depends on SPS && USB_GADGET

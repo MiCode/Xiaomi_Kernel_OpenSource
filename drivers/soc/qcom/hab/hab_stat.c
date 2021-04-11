@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 #include "hab.h"
 #include "hab_grantable.h"
@@ -61,9 +61,12 @@ int hab_stat_show_vchan(struct hab_driver *driver,
 			read_lock(&pchan->vchans_lock);
 			list_for_each_entry(vc, &pchan->vchannels, pnode) {
 				ret = hab_stat_buffer_print(buf, size,
-					"%08X(%d:%d) ", vc->id,
+					"%08X(%d:%d:%lu:%lu:%d) ", vc->id,
 					get_refcnt(vc->refcount),
-					vc->otherend_closed);
+					vc->otherend_closed,
+					(unsigned long)vc->tx_cnt,
+					(unsigned long)vc->rx_cnt,
+					vc->rx_inflight);
 			}
 			ret = hab_stat_buffer_print(buf, size, "\n");
 			read_unlock(&pchan->vchans_lock);

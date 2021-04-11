@@ -1760,8 +1760,13 @@ static int ffs_fs_get_tree(struct fs_context *fc)
 		return invalf(fc, "No source specified");
 
 	ffs = ffs_data_new(fc->source);
-	if (unlikely(!ffs))
-		return -ENOMEM;
+	if (IS_ERR_OR_NULL(ffs)) {
+		if (!ffs)
+			return -ENOMEM;
+		else
+			return PTR_ERR(ffs);
+	}
+
 	ffs->file_perms = ctx->perms;
 	ffs->no_disconnect = ctx->no_disconnect;
 

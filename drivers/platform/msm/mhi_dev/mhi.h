@@ -421,7 +421,8 @@ static inline void mhi_dev_ring_inc_index(struct mhi_dev_ring *ring,
 #define TRACE_DATA_MAX				128
 #define MHI_DEV_DATA_MAX			512
 
-#define MHI_DEV_MMIO_RANGE			0xc80
+#define MHI_DEV_MMIO_RANGE			0xb80
+#define MHI_DEV_MMIO_OFFSET			0x100
 
 struct ring_cache_req {
 	struct completion	*done;
@@ -609,8 +610,12 @@ struct mhi_dev {
 	/*Register for interrupt*/
 	bool				mhi_int;
 	bool				mhi_int_en;
+
 	/* Enable M2 autonomous mode from MHI */
 	bool				enable_m2;
+
+	/* Dont timeout waiting for M0 */
+	bool				no_m0_timeout;
 
 	/* Registered client callback list */
 	struct list_head		client_cb_list;
@@ -979,6 +984,12 @@ int mhi_dev_mmio_get_cmd_db(struct mhi_dev_ring *ring, uint64_t *wr_offset);
  * @value:	Value of the EXEC EVN.
  */
 int mhi_dev_mmio_set_env(struct mhi_dev *dev, uint32_t value);
+
+/**
+ * mhi_dev_mmio_clear_reset() - Clear the reset bit
+ * @dev:	MHI device structure.
+ */
+int mhi_dev_mmio_clear_reset(struct mhi_dev *dev);
 
 /**
  * mhi_dev_mmio_reset() - Reset the MMIO done as part of initialization.

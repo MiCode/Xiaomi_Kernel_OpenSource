@@ -4,6 +4,8 @@
 #ifndef	_DWMAC_QCOM_ETHQOS_H
 #define	_DWMAC_QCOM_ETHQOS_H
 
+//#include <linux/msm-bus.h>
+
 #define DRV_NAME "qcom-ethqos"
 #define ETHQOSDBG(fmt, args...) \
 	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
@@ -40,6 +42,12 @@
 #define MAC_PPSX_INTERVAL(x)		(0x00000b88 + ((x) * 0x10))
 #define MAC_PPSX_WIDTH(x)		(0x00000b8c + ((x) * 0x10))
 
+#define PPS_START_DELAY 100000000
+#define ONE_NS 1000000000
+#define PPS_ADJUST_NS 32
+
+#define DWC_ETH_QOS_PPS_CH_0 0
+#define DWC_ETH_QOS_PPS_CH_1 1
 #define DWC_ETH_QOS_PPS_CH_2 2
 #define DWC_ETH_QOS_PPS_CH_3 3
 
@@ -49,6 +57,11 @@
 
 #define AVB_CLASS_A_CHANNEL_NUM 2
 #define AVB_CLASS_B_CHANNEL_NUM 3
+
+#define VOTE_IDX_0MBPS 0
+#define VOTE_IDX_10MBPS 1
+#define VOTE_IDX_100MBPS 2
+#define VOTE_IDX_1000MBPS 3
 
 static inline u32 PPSCMDX(u32 x, u32 val)
 {
@@ -66,6 +79,12 @@ static inline u32 PPSX_MASK(u32 x)
 {
 	return GENMASK(PPS_MAXIDX(x), PPS_MINIDX(x));
 }
+
+enum IO_MACRO_PHY_MODE {
+		RGMII_MODE,
+		RMII_MODE,
+		MII_MODE
+};
 
 struct ethqos_emac_por {
 	unsigned int offset;
@@ -94,9 +113,12 @@ struct qcom_ethqos {
 	struct platform_device *pdev;
 	void __iomem *rgmii_base;
 
+	struct msm_bus_scale_pdata *bus_scale_vec;
+	u32 bus_hdl;
 	unsigned int rgmii_clk_rate;
 	struct clk *rgmii_clk;
 	unsigned int speed;
+	unsigned int vote_idx;
 
 	int gpio_phy_intr_redirect;
 	u32 phy_intr;
@@ -129,6 +151,17 @@ struct qcom_ethqos {
 
 	unsigned long avb_class_a_intr_cnt;
 	unsigned long avb_class_b_intr_cnt;
+
+	/* saving state for Wake-on-LAN */
+	int wolopts;
+	/* state of enabled wol options in PHY*/
+	u32 phy_wol_wolopts;
+	/* state of supported wol options in PHY*/
+	u32 phy_wol_supported;
+	/* Boolean to check if clock is suspended*/
+	int clks_suspended;
+	/* Structure which holds done and wait members */
+	struct completion clk_enable_done;
 };
 
 struct pps_cfg {
@@ -137,6 +170,8 @@ struct pps_cfg {
 	unsigned int ppsout_ch;
 	unsigned int ppsout_duty;
 	unsigned int ppsout_start;
+	unsigned int ppsout_align;
+	unsigned int ppsout_align_ns;
 };
 
 struct ifr_data_struct {
@@ -164,7 +199,10 @@ int create_pps_interrupt_device_node(dev_t *pps_dev_t,
 				     struct cdev **pps_cdev,
 				     struct class **pps_class,
 				     char *pps_dev_node_name);
-int ppsout_config(struct stmmac_priv *priv, struct ifr_data_struct *req);
+bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos);
+void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos);
+
+int ppsout_config(struct stmmac_priv *priv, struct pps_cfg *eth_pps_cfg);
 
 u16 dwmac_qcom_select_queue(struct net_device *dev,
 			    struct sk_buff *skb,
@@ -195,6 +233,8 @@ u16 dwmac_qcom_select_queue(struct net_device *dev,
 #define IP_PKT_INT_MOD 32
 #define PTP_INT_MOD 1
 
+#define PPS_19_2_FREQ 19200000
+
 enum dwmac_qcom_queue_operating_mode {
 	DWMAC_QCOM_QDISABLED = 0X0,
 	DWMAC_QCOM_QAVB,
@@ -221,4 +261,5 @@ struct dwmac_qcom_avb_algorithm {
 void dwmac_qcom_program_avb_algorithm(struct stmmac_priv *priv,
 				      struct ifr_data_struct *req);
 unsigned int dwmac_qcom_get_plat_tx_coal_frames(struct sk_buff *skb);
+void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat);
 #endif

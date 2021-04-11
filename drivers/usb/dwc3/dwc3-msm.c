@@ -760,8 +760,8 @@ static inline bool dwc3_msm_is_dev_superspeed(struct dwc3_msm *mdwc)
 	u8 speed;
 
 	speed = dwc3_msm_read_reg(mdwc->base, DWC3_DSTS) & DWC3_DSTS_CONNECTSPD;
-	if ((speed & DWC3_DSTS_SUPERSPEED) ||
-			(speed & DWC3_DSTS_SUPERSPEED_PLUS)) {
+	if ((speed == DWC3_DSTS_SUPERSPEED) ||
+			(speed == DWC3_DSTS_SUPERSPEED_PLUS)) {
 		mdwc->ss_phy->flags |= DEVICE_IN_SS_MODE;
 		return true;
 	}
@@ -5148,7 +5148,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 
 		mdwc->host_nb.notifier_call = dwc3_msm_host_notifier;
-#ifdef USB_CONFIG
+#ifdef CONFIG_USB
 		usb_register_notify(&mdwc->host_nb);
 #endif
 
@@ -5250,7 +5250,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		dwc3_msm_clear_ssphy_flags(mdwc, PHY_HOST_MODE);
 		dwc3_msm_clear_hsphy_flags(mdwc, PHY_HOST_MODE);
 		dwc3_host_exit(dwc);
-#ifdef USB_CONFIG
+#ifdef CONFIG_USB
 		usb_unregister_notify(&mdwc->host_nb);
 #endif
 
