@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -330,13 +330,19 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 	struct diag_md_info *ch = NULL;
 	struct diag_buf_tbl_t *entry = NULL;
 	uint8_t drain_again = 0;
-	int peripheral = 0;
+	int peripheral = 0, tmp_len = 0;
 	struct diag_md_session_t *session_info = NULL;
 	struct pid *pid_struct = NULL;
 	struct task_struct *task_s = NULL;
+	unsigned char *tmp_buf = NULL;
 
 	if (!info)
 		return -EINVAL;
+
+	tmp_buf = vzalloc(MAX_PERIPHERAL_HDLC_BUF_SZ);
+	if (!tmp_buf)
+		return -ENOMEM;
+
 	for (i = 0; i < NUM_DIAG_MD_DEV && !err; i++) {
 		ch = &diag_md[i];
 		if (!ch->md_info_inited)
@@ -348,6 +354,8 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 				spin_unlock_irqrestore(&ch->lock, flags);
 				continue;
 			}
+			tmp_len = entry->len;
+			memcpy(tmp_buf, entry->buf, entry->len);
 			peripheral = diag_md_get_peripheral(entry->ctx);
 			if (peripheral < 0) {
 				spin_unlock_irqrestore(&ch->lock, flags);
@@ -383,14 +391,6 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 					drain_again = 1;
 					break;
 				}
-			} else {
-				if ((ret + (2 * sizeof(int)) + entry->len) >=
-						buf_size) {
-					drain_again = 1;
-					break;
-				}
-			}
-			if (i > 0) {
 				remote_token = diag_get_remote(i);
 				task_s = get_pid_task(pid_struct, PIDTYPE_PID);
 				if (task_s) {
@@ -404,23 +404,20 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 					ret += sizeof(int);
 					put_task_struct(task_s);
 				}
+			} else {
+				if ((ret + (2 * sizeof(int)) + entry->len) >=
+						buf_size) {
+					drain_again = 1;
+					break;
+				}
 			}
 
 			task_s = get_pid_task(pid_struct, PIDTYPE_PID);
 			if (task_s) {
-				spin_lock_irqsave(&ch->lock, flags);
-				entry = &ch->tbl[j];
-				if (entry->len <= 0 || entry->buf == NULL) {
-					spin_unlock_irqrestore(&ch->lock,
-						flags);
-					continue;
-				}
-				spin_unlock_irqrestore(&ch->lock,
-						flags);
 				/* Copy the length of data being passed */
-				if (entry->len) {
+				if (tmp_len) {
 					err = copy_to_user(buf + ret,
-							(void *)&(entry->len),
+							(void *)&(tmp_len),
 							sizeof(int));
 					if (err) {
 						put_task_struct(task_s);
@@ -430,10 +427,10 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 				}
 
 				/* Copy the actual data being passed */
-				if (entry->buf) {
+				if (tmp_buf) {
 					err = copy_to_user(buf + ret,
-							(void *)entry->buf,
-							entry->len);
+							(void *)tmp_buf,
+							tmp_len);
 					if (err) {
 						put_task_struct(task_s);
 						goto drop_data;
@@ -467,6 +464,8 @@ drop_data:
 			spin_unlock_irqrestore(&ch->lock, flags);
 
 			put_pid(pid_struct);
+			memset(tmp_buf, 0, MAX_PERIPHERAL_HDLC_BUF_SZ);
+			tmp_len = 0;
 		}
 	}
 
@@ -482,6 +481,8 @@ drop_data:
 		}
 		put_pid(pid_struct);
 	}
+	vfree(tmp_buf);
+	tmp_buf = NULL;
 	diag_ws_on_copy_complete(DIAG_WS_MUX);
 	if (drain_again)
 		chk_logging_wakeup();
