@@ -1939,19 +1939,6 @@ static const struct scp_domain_data scp_domain_data_mt8192[] = {
 				MT8192_TOP_AXI_PROT_EN_2_AUDIO),
 		},
 	},
-	[MT8192_POWER_DOMAIN_ADSP] = {
-		.name = "adsp",
-		.sta_mask = BIT(22),
-		.ctl_offs = 0x0358,
-		.sram_slp_bits = GENMASK(9, 9),
-		.sram_slp_ack_bits = GENMASK(13, 13),
-		.basic_clk_name = {"adsp"},
-		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x714, 0x718, 0x710, 0x724,
-				MT8192_TOP_AXI_PROT_EN_2_ADSP),
-		},
-		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP,
-	},
 	[MT8192_POWER_DOMAIN_CAM] = {
 		.name = "cam",
 		.sta_mask = BIT(23),
@@ -1996,6 +1983,19 @@ static const struct scp_domain_data scp_domain_data_mt8192[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "cam_rawc",
+	},
+	[MT6873_POWER_DOMAIN_ADSP] = {
+		.name = "adsp",
+		.sta_mask = BIT(22),
+		.ctl_offs = 0x0358,
+		.sram_slp_bits = GENMASK(9, 9),
+		.sram_slp_ack_bits = GENMASK(13, 13),
+		.basic_clk_name = {"adsp"},
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x714, 0x718, 0x710, 0x724,
+				MT8192_TOP_AXI_PROT_EN_2_ADSP),
+		},
+		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP,
 	},
 	/*
 	 * MT6873 shares most of MT8192's HW IP except modem.
@@ -2074,7 +2074,7 @@ static const struct scp_soc_data mt6797_data = {
 
 static const struct scp_soc_data mt6873_data = {
 	.domains = scp_domain_data_mt8192,
-	.num_domains = ARRAY_SIZE(scp_domain_data_mt8192)
+	.num_domains = MT6873_POWER_DOMAIN_NR,
 	.subdomains = scp_subdomain_mt8192,
 	.num_subdomains = ARRAY_SIZE(scp_subdomain_mt8192),
 	.regs = {
@@ -2085,7 +2085,7 @@ static const struct scp_soc_data mt6873_data = {
 
 static const struct scp_soc_data mt6853_data = {
 	.domains = scp_domain_data_mt6853,
-	.num_domains = ARRAY_SIZE(scp_domain_data_mt6853)
+	.num_domains = MT6853_POWER_DOMAIN_NR,
 	.subdomains = scp_subdomain_mt6853,
 	.num_subdomains = ARRAY_SIZE(scp_subdomain_mt6853),
 	.regs = {
