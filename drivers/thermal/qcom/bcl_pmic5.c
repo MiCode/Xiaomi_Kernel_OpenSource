@@ -384,6 +384,21 @@ static struct thermal_zone_params vbat_tzp = {
 	.offset = 0
 };
 
+static int bcl_get_trend(void *data, int trip, enum thermal_trend *trend)
+{
+	struct bcl_peripheral_data *bat_data =
+		(struct bcl_peripheral_data *)data;
+
+	mutex_lock(&bat_data->state_trans_lock);
+	if (!bat_data->last_val)
+		*trend = THERMAL_TREND_DROPPING;
+	else
+		*trend = THERMAL_TREND_RAISING;
+	mutex_unlock(&bat_data->state_trans_lock);
+
+	return 0;
+}
+
 static int bcl_set_lbat(void *data, int low, int high)
 {
 	struct bcl_peripheral_data *bat_data =
@@ -620,6 +635,7 @@ static void bcl_lvl_init(struct platform_device *pdev,
 
 	lbat->ops.get_temp = bcl_read_lbat;
 	lbat->ops.set_trips = bcl_set_lbat;
+	lbat->ops.get_trend = bcl_get_trend;
 
 	lbat->tz_dev = thermal_zone_of_sensor_register(&pdev->dev,
 				type, lbat, &lbat->ops);
