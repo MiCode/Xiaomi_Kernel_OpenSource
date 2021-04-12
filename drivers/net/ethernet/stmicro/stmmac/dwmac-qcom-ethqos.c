@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-// Copyright (c) 2018-19, Linaro Limited
+// Copyright (c) 2018-19,21 Linaro Limited
 
 #include <linux/module.h>
 #include <linux/of.h>
@@ -381,6 +381,13 @@ static int qcom_ethqos_add_ipaddr(struct ip_params *ip_info,
 		ETHQOSINFO("Sock is null, unable to assign ipv4 address\n");
 		return res;
 	}
+
+	if (!net->ipv4.devconf_dflt) {
+		ETHQOSERR("ipv4.devconf_dflt is null, schedule wq\n");
+		schedule_delayed_work(&pethqos->ipv4_addr_assign_wq,
+				      msecs_to_jiffies(1000));
+		return res;
+	}
 	/*For valid Ipv4 address*/
 	memset(&ir, 0, sizeof(ir));
 	memcpy(&sin->sin_addr.s_addr, &ip_info->ipv4_addr,
@@ -414,8 +421,10 @@ static int qcom_ethqos_add_ipv6addr(struct ip_params *ip_info,
 	struct net *net = dev_net(dev);
 	/*For valid IPv6 address*/
 
-	if (!net || !net->genl_sock || !net->genl_sock->sk_socket)
+	if (!net || !net->genl_sock || !net->genl_sock->sk_socket) {
 		ETHQOSERR("Sock is null, unable to assign ipv6 address\n");
+		return -EFAULT;
+	}
 
 	if (!net->ipv6.devconf_dflt) {
 		ETHQOSERR("ipv6.devconf_dflt is null, schedule wq\n");
@@ -1247,7 +1256,7 @@ static void ethqos_is_ipv4_NW_stack_ready(struct work_struct *work)
 	struct net_device *ndev = NULL;
 	int ret;
 
-	ETHQOSINFO("\n");
+	ETHQOSDBG("\n");
 	dwork = container_of(work, struct delayed_work, work);
 	ethqos = container_of(dwork, struct qcom_ethqos, ipv4_addr_assign_wq);
 
@@ -1277,7 +1286,7 @@ static void ethqos_is_ipv6_NW_stack_ready(struct work_struct *work)
 	struct net_device *ndev = NULL;
 	int ret;
 
-	ETHQOSINFO("\n");
+	ETHQOSDBG("\n");
 	dwork = container_of(work, struct delayed_work, work);
 	ethqos = container_of(dwork, struct qcom_ethqos, ipv6_addr_assign_wq);
 
@@ -1308,16 +1317,11 @@ static int ethqos_set_early_eth_param(struct stmmac_priv *priv,
 		priv->plat->mdio_bus_data->phy_mask =
 		 priv->plat->mdio_bus_data->phy_mask | DUPLEX_FULL | SPEED_100;
 
-	priv->early_eth = ethqos->early_eth_enabled;
-	qcom_ethqos_add_ipaddr(&pparams, priv->dev);
 
 	if (pparams.is_valid_ipv4_addr) {
 		INIT_DELAYED_WORK(&ethqos->ipv4_addr_assign_wq,
 				  ethqos_is_ipv4_NW_stack_ready);
-		ret = qcom_ethqos_add_ipaddr(&pparams, priv->dev);
-		if (ret)
-			schedule_delayed_work(&ethqos->ipv4_addr_assign_wq,
-					      msecs_to_jiffies(1000));
+		schedule_delayed_work(&ethqos->ipv4_addr_assign_wq, 0);
 	}
 
 	if (pparams.is_valid_ipv6_addr) {
@@ -1340,17 +1344,25 @@ static ssize_t read_phy_reg_dump(struct file *file, char __user *user_buf,
 				 size_t count, loff_t *ppos)
 {
 	struct qcom_ethqos *ethqos = file->private_data;
+	struct platform_device *pdev;
+	struct net_device *dev;
+	struct stmmac_priv *priv;
 	unsigned int len = 0, buf_len = 2000;
 	char *buf;
 	ssize_t ret_cnt;
 	int phydata = 0;
 	int i = 0;
 
-	struct platform_device *pdev = ethqos->pdev;
-	struct net_device *dev = platform_get_drvdata(pdev);
-	struct stmmac_priv *priv = netdev_priv(dev);
+	if (!ethqos) {
+		ETHQOSERR("NULL Pointer\n");
+		return -EINVAL;
+	}
 
-	if (!ethqos || !dev->phydev) {
+	pdev = ethqos->pdev;
+	dev = platform_get_drvdata(pdev);
+	priv = netdev_priv(dev);
+
+	if (!dev->phydev) {
 		ETHQOSERR("NULL Pointer\n");
 		return -EINVAL;
 	}
@@ -1384,15 +1396,22 @@ static ssize_t read_rgmii_reg_dump(struct file *file,
 				   loff_t *ppos)
 {
 	struct qcom_ethqos *ethqos = file->private_data;
+	struct platform_device *pdev;
+	struct net_device *dev;
 	unsigned int len = 0, buf_len = 2000;
 	char *buf;
 	ssize_t ret_cnt;
 	int rgmii_data = 0;
-	struct platform_device *pdev = ethqos->pdev;
 
-	struct net_device *dev = platform_get_drvdata(pdev);
+	if (!ethqos) {
+		ETHQOSERR("NULL Pointer\n");
+		return -EINVAL;
+	}
 
-	if (!ethqos || !dev->phydev) {
+	pdev = ethqos->pdev;
+	dev = platform_get_drvdata(pdev);
+
+	if (!dev->phydev) {
 		ETHQOSERR("NULL Pointer\n");
 		return -EINVAL;
 	}
@@ -1534,8 +1553,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 
 	ethqos = devm_kzalloc(&pdev->dev, sizeof(*ethqos), GFP_KERNEL);
 	if (!ethqos) {
-		ret = -ENOMEM;
-		goto err_mem;
+		return -ENOMEM;
 	}
 
 	ethqos->pdev = pdev;
@@ -1596,6 +1614,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	plat_dat->has_gmac4 = 1;
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
+	plat_dat->early_eth = ethqos->early_eth_enabled;
 
 	if (of_property_read_bool(pdev->dev.of_node,
 				  "emac-core-version")) {
@@ -1665,6 +1684,10 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		/*Set early eth parameters*/
 		ethqos_set_early_eth_param(priv, ethqos);
 	}
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+	place_marker("M - Ethernet probe end");
+#endif
+
 	return ret;
 
 err_clk:
@@ -1705,6 +1728,7 @@ static int qcom_ethqos_suspend(struct device *dev)
 	struct qcom_ethqos *ethqos;
 	struct net_device *ndev = NULL;
 	int ret;
+	struct stmmac_priv *priv;
 
 	if (of_device_is_compatible(dev->of_node, "qcom,emac-smmu-embedded")) {
 		ETHQOSDBG("smmu return\n");
@@ -1720,9 +1744,11 @@ static int qcom_ethqos_suspend(struct device *dev)
 	if (!ndev || !netif_running(ndev))
 		return -EINVAL;
 
+	priv = netdev_priv(ndev);
 	ret = stmmac_suspend(dev);
 	qcom_ethqos_phy_suspend_clks(ethqos);
 
+	priv->boot_kpi = false;
 	ETHQOSDBG(" ret = %d\n", ret);
 	return ret;
 }
@@ -1778,7 +1804,7 @@ static int __init qcom_ethqos_init_module(void)
 {
 	int ret = 0;
 
-	ETHQOSINFO("\n");
+	ETHQOSDBG("enter\n");
 
 	ret = platform_driver_register(&qcom_ethqos_driver);
 	if (ret < 0) {
@@ -1786,18 +1812,18 @@ static int __init qcom_ethqos_init_module(void)
 		return ret;
 	}
 
-	ETHQOSINFO("\n");
+	ETHQOSDBG("Exit\n");
 
 	return ret;
 }
 
 static void __exit qcom_ethqos_exit_module(void)
 {
-	ETHQOSINFO("\n");
+	ETHQOSDBG("Enter\n");
 
 	platform_driver_unregister(&qcom_ethqos_driver);
 
-	ETHQOSINFO("\n");
+	ETHQOSDBG("Exit\n");
 }
 
 /*!

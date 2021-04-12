@@ -219,7 +219,6 @@ struct stmmac_priv {
 	void __iomem *ptpaddr;
 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
 	bool boot_kpi;
-	bool early_eth;
 	bool early_eth_config_set;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dbgfs_dir;

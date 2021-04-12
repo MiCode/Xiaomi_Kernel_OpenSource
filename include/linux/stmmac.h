@@ -186,5 +186,6 @@ struct plat_stmmacenet_data {
 		 struct net_device *sb_dev);
 	unsigned int (*get_plat_tx_coal_frames)
 		(struct sk_buff *skb);
+	bool early_eth;
 };
 #endif
