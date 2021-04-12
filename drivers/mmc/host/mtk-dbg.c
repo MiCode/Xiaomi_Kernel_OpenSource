@@ -3,9 +3,19 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
+#include "cqhci.h"
 #include "mtk-dbg.h"
 #include "mtk-mmc.h"
+#include "../core/queue.h"
 #include <linux/clk-provider.h>
+#include <linux/module.h>
+#include <linux/slab.h>
+#include <linux/sched/clock.h>
+#include <linux/seq_file.h>
+#include <linux/tracepoint.h>
+#include <linux/proc_fs.h>
+#include <linux/uaccess.h>
+#include <linux/uidgid.h>
 
 /*  For msdc register dump  */
 u16 msdc_offsets[] = {
@@ -76,6 +86,56 @@ u16 msdc_offsets_top[] = {
 	0xFFFF /*as mark of end */
 };
 
+/*---------------------------------------------------------------------*/
+/* Command dump                                                        */
+/*---------------------------------------------------------------------*/
+struct mmc_host *mtk_mmc_host[] = {NULL, NULL};
+/*#define MTK_MSDC_ERROR_TUNE_DEBUG*/
+
+#define dbg_max_cnt (4000)
+#define sd_dbg_max_cnt (500)
+
+struct dbg_run_host_log {
+	unsigned long long time_sec;
+	unsigned long long time_usec;
+	int type;
+	int cmd;
+	int arg;
+	int skip;
+};
+
+struct dbg_task_log {
+	u32 address;
+	unsigned long long size;
+};
+struct dbg_dma_cmd_log {
+	unsigned long long time;
+	int cmd;
+	int arg;
+};
+
+static unsigned int dbg_host_cnt;
+static unsigned int dbg_sd_cnt;
+
+static struct dbg_run_host_log dbg_run_host_log_dat[dbg_max_cnt];
+static struct dbg_run_host_log *dbg_run_sd_log_dat_p;
+
+static unsigned int print_cpu_test = UINT_MAX;
+
+static spinlock_t cmd_hist_lock;
+static bool cmd_hist_init;
+static bool cmd_hist_enabled;
+
+/**
+ * Data structures to store tracepoints information
+ */
+struct tracepoints_table {
+	const char *name;
+	void *func;
+	struct tracepoint *tp;
+	bool init;
+};
+/***********************************************************************/
 static void msdc_dump_clock_sts_core(char **buff, unsigned long *size,
 	struct seq_file *m, struct msdc_host *host)
 {
@@ -421,6 +481,609 @@ void msdc_dump_info(char **buff, unsigned long *size, struct seq_file *m,
 	msdc_dump_dbg_register(buff, size, m, host);
 }
 EXPORT_SYMBOL(msdc_dump_info);
+
+static inline u8 *dbg_get_desc(struct cqhci_host *cq_host, u8 tag)
+{
+	return cq_host->desc_base + (tag * cq_host->slot_sz);
+}
+
+static void cqhci_prep_task_desc_dbg(struct mmc_request *mrq,
+					u64 *data, bool intr)
+{
+	u32 req_flags = mrq->data->flags;
+
+	*data = CQHCI_VALID(1) |
+		CQHCI_END(1) |
+		CQHCI_INT(intr) |
+		CQHCI_ACT(0x5) |
+		CQHCI_FORCED_PROG(!!(req_flags & MMC_DATA_FORCED_PRG)) |
+		CQHCI_DATA_TAG(!!(req_flags & MMC_DATA_DAT_TAG)) |
+		CQHCI_DATA_DIR(!!(req_flags & MMC_DATA_READ)) |
+		CQHCI_PRIORITY(!!(req_flags & MMC_DATA_PRIO)) |
+		CQHCI_QBAR(!!(req_flags & MMC_DATA_QBR)) |
+		CQHCI_REL_WRITE(!!(req_flags & MMC_DATA_REL_WR)) |
+		CQHCI_BLK_COUNT(mrq->data->blocks) |
+		CQHCI_BLK_ADDR((u64)mrq->data->blk_addr);
+
+}
+
+static bool is_dcmd_request(struct mmc_request *mrq)
+{
+	struct mmc_queue_req *mqrq = container_of(mrq, struct mmc_queue_req, brq.mrq);
+	struct request *req = blk_mq_rq_from_pdu(mqrq);
+	struct mmc_queue *mq;
+	struct mmc_host *host;
+
+	if (!req || !req->q || !req->q->queuedata)
+		return false;
+
+	mq = (struct mmc_queue *)(req->q->queuedata);
+
+	if (IS_ERR_OR_NULL(mq->card) || !mq->card->host)
+		return false;
+
+	host = mq->card->host;
+
+	if (mq->use_cqe && !host->hsq_enabled) {
+		if (req_op(req) == REQ_OP_FLUSH)
+			return (host->caps2 & MMC_CAP2_CQE_DCMD) ? true : false;
+	}
+	return false;
+}
+
+static void __emmc_store_buf_start(void *__data, struct mmc_host *mmc,
+	struct mmc_request *mrq)
+{
+	unsigned long long t, tn;
+	unsigned long long nanosec_rem = 0;
+	static int last_cmd, last_arg, skip;
+	int l_skip = 0;
+	u64 *task_desc = NULL;
+	u64 data;
+	struct cqhci_host *cq_host = mmc->cqe_private;
+
+	if (!cmd_hist_enabled)
+		return;
+
+	if (!mmc)
+		return;
+
+	t = cpu_clock(print_cpu_test);
+	tn = t;
+	nanosec_rem = do_div(t, 1000000000)/1000;
+	if (!(mrq->cmd) && cq_host && cq_host->desc_base) { /* CQE */
+		task_desc = (__le64 __force *)dbg_get_desc(cq_host, mrq->tag);
+		cqhci_prep_task_desc_dbg(mrq, &data, 1);
+		*task_desc = cpu_to_le64(data);
+
+		dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
+		dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
+		dbg_run_host_log_dat[dbg_host_cnt].type = 5;
+		dbg_run_host_log_dat[dbg_host_cnt].cmd = MAGIC_CQHCI_DBG_NUM_L + mrq->tag;
+		dbg_run_host_log_dat[dbg_host_cnt].arg = lower_32_bits(*task_desc);
+		dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
+		dbg_host_cnt++;
+		dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
+		dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
+		dbg_run_host_log_dat[dbg_host_cnt].type = 5;
+		dbg_run_host_log_dat[dbg_host_cnt].cmd = MAGIC_CQHCI_DBG_NUM_U + mrq->tag;
+		dbg_run_host_log_dat[dbg_host_cnt].arg = upper_32_bits(*task_desc);
+		dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
+		dbg_host_cnt++;
+	} else if (mrq->cmd) { /* non-CQE */
+		/* skip log if last cmd rsp are the same */
+		if (last_cmd == mrq->cmd->opcode &&
+			last_arg == mrq->cmd->arg && mrq->cmd->opcode == 13) {
+			skip++;
+			if (dbg_host_cnt == 0)
+				dbg_host_cnt = dbg_max_cnt;
+			/* remove type = 0, command */
+			dbg_host_cnt--;
+			return;
+		}
+		last_cmd = mrq->cmd->opcode;
+		last_arg = mrq->cmd->arg;
+		l_skip = skip;
+		skip = 0;
+
+		if (is_dcmd_request(mrq)) {
+			dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
+			dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
+			dbg_run_host_log_dat[dbg_host_cnt].type = 60;
+			dbg_run_host_log_dat[dbg_host_cnt].cmd = mrq->cmd->opcode;
+			dbg_run_host_log_dat[dbg_host_cnt].arg = mrq->cmd->arg;
+			dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
+			dbg_host_cnt++;
+		} else {
+			dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
+			dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
+			dbg_run_host_log_dat[dbg_host_cnt].type = 0;
+			dbg_run_host_log_dat[dbg_host_cnt].cmd = mrq->cmd->opcode;
+			dbg_run_host_log_dat[dbg_host_cnt].arg = mrq->cmd->arg;
+			dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
+			dbg_host_cnt++;
+		}
+	}
+
+	if (dbg_host_cnt >= dbg_max_cnt)
+		dbg_host_cnt = 0;
+}
+
+static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
+	struct mmc_request *mrq)
+{
+	unsigned long long t;
+	unsigned long long nanosec_rem = 0;
+	static int last_cmd, last_arg, skip;
+	int l_skip = 0;
+	struct cqhci_host *cq_host = mmc->cqe_private;
+
+	if (!cmd_hist_enabled)
+		return;
+
+	if (!mmc)
+		return;
+
+	t = cpu_clock(print_cpu_test);
+
+	nanosec_rem = do_div(t, 1000000000)/1000;
+
+	if (!(mrq->cmd)) { /* CQE */
+		dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
+		dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
+		dbg_run_host_log_dat[dbg_host_cnt].type = 5;
+		dbg_run_host_log_dat[dbg_host_cnt].cmd = MAGIC_CQHCI_DBG_NUM_RI + mrq->tag;
+		dbg_run_host_log_dat[dbg_host_cnt].arg = cqhci_readl(cq_host, CQHCI_CRA);
+		dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
+		dbg_host_cnt++;
+	} else if (mrq->cmd) { /* non-CQE */
+		/* skip log if last cmd rsp are the same */
+		if (last_cmd == mrq->cmd->opcode &&
+			last_arg == mrq->cmd->arg && mrq->cmd->opcode == 13) {
+			skip++;
+			if (dbg_host_cnt == 0)
+				dbg_host_cnt = dbg_max_cnt;
+			/* remove type = 0, command */
+			dbg_host_cnt--;
+			return;
+		}
+		last_cmd = mrq->cmd->opcode;
+		last_arg = mrq->cmd->resp[0];
+		l_skip = skip;
+		skip = 0;
+
+		if (is_dcmd_request(mrq)) {
+			dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
+			dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
+			dbg_run_host_log_dat[dbg_host_cnt].type = 61;
+			dbg_run_host_log_dat[dbg_host_cnt].cmd = mrq->cmd->opcode;
+			dbg_run_host_log_dat[dbg_host_cnt].arg = cqhci_readl(cq_host, CQHCI_CRDCT);
+			dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
+			dbg_host_cnt++;
+		} else {
+			dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
+			dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
+			dbg_run_host_log_dat[dbg_host_cnt].type = 1;
+			dbg_run_host_log_dat[dbg_host_cnt].cmd = mrq->cmd->opcode;
+			dbg_run_host_log_dat[dbg_host_cnt].arg = mrq->cmd->resp[0];
+			dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
+			dbg_host_cnt++;
+		}
+	}
+	if (dbg_host_cnt >= dbg_max_cnt)
+		dbg_host_cnt = 0;
+}
+
+static void __sd_store_buf_start(void *__data, struct mmc_host *mmc,
+	struct mmc_request *mrq)
+{
+	unsigned long long t, tn;
+	unsigned long long nanosec_rem;
+
+	if (!cmd_hist_enabled)
+		return;
+
+	if (!mmc)
+		return;
+
+	t = cpu_clock(print_cpu_test);
+	tn = t;
+	nanosec_rem = do_div(t, 1000000000)/1000;
+
+	dbg_run_sd_log_dat_p[dbg_sd_cnt].time_sec = t;
+	dbg_run_sd_log_dat_p[dbg_sd_cnt].time_usec = nanosec_rem;
+	dbg_run_sd_log_dat_p[dbg_sd_cnt].type = 0;
+	dbg_run_sd_log_dat_p[dbg_sd_cnt].cmd = mrq->cmd->opcode;
+	dbg_run_sd_log_dat_p[dbg_sd_cnt].arg = mrq->cmd->arg;
+	dbg_run_sd_log_dat_p[dbg_sd_cnt].skip = 0;
+	dbg_sd_cnt++;
+
+	if (dbg_sd_cnt >= sd_dbg_max_cnt)
+		dbg_sd_cnt = 0;
+}
+
+static void __sd_store_buf_end(void *__data, struct mmc_host *mmc,
+	struct mmc_request *mrq)
+{
+	unsigned long long t, tn;
+	unsigned long long nanosec_rem;
+	static int last_cmd, last_arg, skip;
+	int l_skip = 0;
+
+	if (!cmd_hist_enabled)
+		return;
+
+	if (!mmc)
+		return;
+
+	t = cpu_clock(print_cpu_test);
+	tn = t;
+	nanosec_rem = do_div(t, 1000000000)/1000;
+
+	/* skip log if last cmd rsp are the same */
+	if (last_cmd == mrq->cmd->opcode &&
+		last_arg == mrq->cmd->arg && mrq->cmd->opcode == 13) {
+		skip++;
+		if (dbg_sd_cnt == 0)
+			dbg_sd_cnt = sd_dbg_max_cnt;
+		/* remove type = 0, command */
+		dbg_sd_cnt--;
+		return;
+	}
+	last_cmd = mrq->cmd->opcode;
+	last_arg = mrq->cmd->arg;
+	l_skip = skip;
+	skip = 0;
+
+	dbg_run_sd_log_dat_p[dbg_sd_cnt].time_sec = t;
+	dbg_run_sd_log_dat_p[dbg_sd_cnt].time_usec = nanosec_rem;
+	dbg_run_sd_log_dat_p[dbg_sd_cnt].type = 1;
+	dbg_run_sd_log_dat_p[dbg_sd_cnt].cmd = mrq->cmd->opcode;
+	dbg_run_sd_log_dat_p[dbg_sd_cnt].arg = mrq->cmd->resp[0];
+	dbg_run_sd_log_dat_p[dbg_sd_cnt].skip = l_skip;
+	dbg_sd_cnt++;
+
+	if (dbg_sd_cnt >= sd_dbg_max_cnt)
+		dbg_sd_cnt = 0;
+}
+
+/* all cases which except softirq of IO */
+static void record_mmc_send_command(void *__data,
+	struct mmc_host *mmc, struct mmc_request *mrq)
+{
+	if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+		__emmc_store_buf_start(__data, mmc, mrq);
+	else if ((mmc->caps2 & MMC_CAP2_NO_MMC) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+		__sd_store_buf_start(__data, mmc, mrq);
+}
+
+static void record_mmc_receive_command(void *__data,
+	struct mmc_host *mmc, struct mmc_request *mrq)
+{
+	if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+		__emmc_store_buf_end(__data, mmc, mrq);
+	else if ((mmc->caps2 & MMC_CAP2_NO_MMC) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+		__sd_store_buf_end(__data, mmc, mrq);
+}
+
+void mmc_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
+	struct mmc_host *mmc, u32 latest_cnt)
+{
+	int i, j;
+	unsigned long long time_sec, time_usec;
+	int type, cmd, arg, skip;
+	u32 dump_cnt;
+
+	if (!mmc || !mmc->card)
+		return;
+
+	dump_cnt = min_t(u32, latest_cnt, dbg_max_cnt);
+
+	i = dbg_host_cnt - 1;
+	if (i < 0)
+		i = dbg_max_cnt - 1;
+
+	for (j = 0; j < dump_cnt; j++) {
+		time_sec = dbg_run_host_log_dat[i].time_sec;
+		time_usec = dbg_run_host_log_dat[i].time_usec;
+		type = dbg_run_host_log_dat[i].type;
+		cmd = dbg_run_host_log_dat[i].cmd;
+		arg = dbg_run_host_log_dat[i].arg;
+		skip = dbg_run_host_log_dat[i].skip;
+
+		SPREAD_PRINTF(buff, size, m,
+		"%03d [%5llu.%06llu]%2d %3d %08x (%d)\n",
+			j, time_sec, time_usec,
+			type, cmd, arg, skip);
+		i--;
+		if (i < 0)
+			i = dbg_max_cnt - 1;
+	}
+
+	SPREAD_PRINTF(buff, size, m,
+		"eMMC claimed(%d), claim_cnt(%d), claimer pid(%d), comm %s\n",
+		mmc->claimed, mmc->claim_cnt,
+		mmc->claimer && mmc->claimer->task ?
+			mmc->claimer->task->pid : 0,
+		mmc->claimer && mmc->claimer->task ?
+			mmc->claimer->task->comm : "NULL");
+}
+
+void sd_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
+	struct mmc_host *mmc, u32 latest_cnt)
+{
+	int i, j;
+	unsigned long long time_sec, time_usec;
+	int type, cmd, arg, skip;
+	u32 dump_cnt;
+
+	if (!mmc)
+		return;
+
+	dump_cnt = min_t(u32, latest_cnt, sd_dbg_max_cnt);
+
+	i = dbg_sd_cnt - 1;
+	if (i < 0)
+		i = sd_dbg_max_cnt - 1;
+
+	for (j = 0; j < dump_cnt; j++) {
+		time_sec = dbg_run_sd_log_dat_p[i].time_sec;
+		time_usec = dbg_run_sd_log_dat_p[i].time_usec;
+		type = dbg_run_sd_log_dat_p[i].type;
+		cmd = dbg_run_sd_log_dat_p[i].cmd;
+		arg = dbg_run_sd_log_dat_p[i].arg;
+		skip = dbg_run_sd_log_dat_p[i].skip;
+
+		SPREAD_PRINTF(buff, size, m,
+		"%03d [%5llu.%06llu]%2d %3d %08x (%d)\n",
+			j, time_sec, time_usec,
+			type, cmd, arg, skip);
+		i--;
+		if (i < 0)
+			i = sd_dbg_max_cnt - 1;
+	}
+
+	SPREAD_PRINTF(buff, size, m,
+		"SD claimed(%d), claim_cnt(%d), claimer pid(%d), comm %s\n",
+		mmc->claimed, mmc->claim_cnt,
+		mmc->claimer ? mmc->claimer->task->pid : 0,
+		mmc->claimer ? mmc->claimer->task->comm : "NULL");
+}
+
+
+void msdc_dump_host_state(char **buff, unsigned long *size,
+	struct seq_file *m)
+{
+	/* add log description*/
+	SPREAD_PRINTF(buff, size, m,
+		"column 1   : log number(Reverse order);\n");
+	SPREAD_PRINTF(buff, size, m,
+		"column 2   : kernel time\n");
+	SPREAD_PRINTF(buff, size, m,
+		"column 3   : type(0-cmd, 1-resp, 5-cqhci cmd, 60-cqhci dcmd doorbell,");
+	SPREAD_PRINTF(buff, size, m,
+		"61-cqhci dcmd complete(irq in));\n");
+	SPREAD_PRINTF(buff, size, m,
+		"column 4&5 : cmd index&arg(1XX-task XX's task descriptor low 32bit, ");
+	SPREAD_PRINTF(buff, size, m,
+		"2XX-task XX's task descriptor high 32bit, ");
+	SPREAD_PRINTF(buff, size, m,
+		"5XX-task XX's task completion(irq in), ");
+	SPREAD_PRINTF(buff, size, m,
+		"others index-command index) ");
+	SPREAD_PRINTF(buff, size, m,
+		"others arg-command arg);\n");
+}
+
+static int cmd_hist_on(void)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&cmd_hist_lock, flags);
+	cmd_hist_enabled = true;
+	spin_unlock_irqrestore(&cmd_hist_lock, flags);
+
+	return 0;
+}
+
+static int cmd_hist_off(void)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&cmd_hist_lock, flags);
+	cmd_hist_enabled = false;
+	spin_unlock_irqrestore(&cmd_hist_lock, flags);
+
+	return 0;
+}
+
+static struct tracepoints_table interests[] = {
+	{.name = "mmc_request_start", .func = record_mmc_send_command},
+	{.name = "mmc_request_done", .func = record_mmc_receive_command},
+};
+
+#define FOR_EACH_INTEREST(i) \
+	for (i = 0; i < sizeof(interests) / sizeof(struct tracepoints_table); \
+	i++)
+
+/**
+ * Find the struct tracepoint* associated with a given tracepoint
+ * name.
+ */
+static void lookup_tracepoints(struct tracepoint *tp, void *ignore)
+{
+	int i;
+
+	FOR_EACH_INTEREST(i) {
+		if (strcmp(interests[i].name, tp->name) == 0)
+			interests[i].tp = tp;
+	}
+}
+
+#ifndef USER_BUILD_KERNEL
+#define PROC_PERM		0660
+#else
+#define PROC_PERM		0440
+#endif
+
+static ssize_t mmc_debug_proc_write(struct file *file, const char *buf,
+				 size_t count, loff_t *data)
+{
+	unsigned long op = MMCDBG_UNKNOWN;
+	char cmd_buf[16];
+
+	if (count == 0 || count > 15)
+		return -EINVAL;
+
+	if (copy_from_user(cmd_buf, buf, count))
+		return -EINVAL;
+
+	cmd_buf[count] = '\0';
+	if (kstrtoul(cmd_buf, 15, &op))
+		return -EINVAL;
+
+	if (op == MMCDBG_CMD_LIST_ENABLE) {
+		cmd_hist_on();
+		pr_info("mmc_mtk_dbg: cmd history on\n");
+	} else if (op == MMCDBG_CMD_LIST_DISABLE) {
+		cmd_hist_off();
+		pr_info("mmc_mtk_dbg: cmd history off\n");
+	} else
+		return -EINVAL;
+
+	return count;
+}
+
+static int mmc_debug_proc_show(struct seq_file *m, void *v)
+{
+	msdc_dump_host_state(NULL, NULL, m);
+	mmc_cmd_dump(NULL, NULL, m, mtk_mmc_host[0], dbg_max_cnt);
+	sd_cmd_dump(NULL, NULL, m, mtk_mmc_host[1], sd_dbg_max_cnt);
+
+	return 0;
+}
+
+static int mmc_debug_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mmc_debug_proc_show, inode->i_private);
+}
+
+static const struct file_operations mmc_debug_proc_fops = {
+	.open = mmc_debug_proc_open,
+	.write = mmc_debug_proc_write,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+int mmc_debug_init_procfs(void)
+{
+	struct proc_dir_entry *prEntry;
+	kuid_t uid;
+	kgid_t gid;
+
+	uid = make_kuid(&init_user_ns, 0);
+	gid = make_kgid(&init_user_ns, 1001);
+
+	/* Create "mmc_debug" node */
+	prEntry = proc_create("mmc_debug", PROC_PERM, NULL,
+			      &mmc_debug_proc_fops);
+
+	if (!prEntry)
+		return -ENOENT;
+
+	proc_set_user(prEntry, uid, gid);
+
+	return 0;
+}
+
+static void cmd_hist_cleanup(void)
+{
+	memset(dbg_run_host_log_dat, 0, sizeof(dbg_run_host_log_dat));
+}
+
+static void mmc_dbg_cleanup(void)
+{
+	int i;
+
+	FOR_EACH_INTEREST(i) {
+		if (interests[i].init) {
+			tracepoint_probe_unregister(interests[i].tp,
+						    interests[i].func,
+						    NULL);
+		}
+	}
+
+	cmd_hist_cleanup();
+}
+
+int mmc_dbg_register(struct mmc_host *mmc)
+{
+	int i, ret;
+
+	if (cmd_hist_enabled)
+		return -EINVAL;
+
+	if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+		mtk_mmc_host[0] = mmc;
+	else if ((mmc->caps2 & MMC_CAP2_NO_MMC) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+		mtk_mmc_host[1] = mmc;
+
+	/* avoid init repeatedly */
+	if (cmd_hist_init == true)
+		return 0;
+
+	spin_lock_init(&cmd_hist_lock);
+	cmd_hist_init = true;
+
+	/* Install the tracepoints */
+	for_each_kernel_tracepoint(lookup_tracepoints, NULL);
+
+	FOR_EACH_INTEREST(i) {
+		if (interests[i].tp == NULL) {
+			pr_info("Error: %s not found\n",
+				interests[i].name);
+			/* Unload previously loaded */
+			mmc_dbg_cleanup();
+			return -EINVAL;
+		}
+
+		tracepoint_probe_register(interests[i].tp,
+					  interests[i].func,
+					  NULL);
+		interests[i].init = true;
+	}
+
+	/* Create control nodes in procfs */
+	ret = mmc_debug_init_procfs();
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mmc_dbg_register);
+
+static int __init mmc_mtk_dbg_init(void)
+{
+	dbg_host_cnt = 0;
+	dbg_sd_cnt = 0;
+
+	dbg_run_sd_log_dat_p = kcalloc(sd_dbg_max_cnt,
+			   sizeof(struct dbg_run_host_log),
+			   GFP_KERNEL);
+
+	/* if true, mmc_dbg_register() will do nothing */
+	if (!dbg_run_sd_log_dat_p)
+		cmd_hist_enabled = true;
+
+	return 0;
+}
+
+static void __exit mmc_mtk_dbg_exit(void)
+{
+	kfree(dbg_run_sd_log_dat_p);
+}
+
+module_init(mmc_mtk_dbg_init);
+module_exit(mmc_mtk_dbg_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MediaTek SD/MMC Debug Driver");

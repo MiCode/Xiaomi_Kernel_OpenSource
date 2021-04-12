@@ -2162,6 +2162,11 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	if (ret)
 		goto end;
 
+#if IS_ENABLED(CONFIG_MMC_DEBUG)
+	if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+		ret = mmc_dbg_register(mmc);
+#endif
+
 	return 0;
 end:
 	pm_runtime_disable(host->dev);

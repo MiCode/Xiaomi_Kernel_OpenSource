@@ -7,7 +7,7 @@
 #define _MTK_DBG_H_
 
 #if IS_ENABLED(CONFIG_MMC_DEBUG)
-
+#include <linux/mmc/host.h>
 #include <linux/seq_file.h>
 
 #define MSDC_DEBUG_REGISTER_COUNT		0x63
@@ -64,16 +64,36 @@ do { \
 } while (0)
 
 /**********************************************************
+ * Command dump                                           *
+ **********************************************************/
+#define MAGIC_CQHCI_DBG_TYPE 5
+#define MAGIC_CQHCI_DBG_NUM_L 100
+#define MAGIC_CQHCI_DBG_NUM_U 200
+#define MAGIC_CQHCI_DBG_NUM_RI 500
+
+#define MAGIC_CQHCI_DBG_TYPE_DCMD 60
+/* softirq type */
+#define MAGIC_CQHCI_DBG_TYPE_SIRQ 70
+
+enum mmcdbg_cmd_type {
+	MMCDBG_CMD_LIST_DUMP	= 0,
+	MMCDBG_PWR_MODE_DUMP	= 1,
+	MMCDBG_HEALTH_DUMP		= 2,
+	MMCDBG_CMD_LIST_ENABLE	= 3,
+	MMCDBG_CMD_LIST_DISABLE = 4,
+	MMCDBG_UNKNOWN
+};
+
+/**********************************************************
  * Function Declaration                                   *
  **********************************************************/
 struct msdc_host;
 extern void msdc_dump_info(char **buff, unsigned long *size, struct seq_file *m,
 	struct msdc_host *host);
-
+extern int mmc_dbg_register(struct mmc_host *mmc);
 #else
-
 #define msdc_dump_info(...)
-
+#define mmc_dbg_register(...)
 #endif
 
 #endif  /* _MTK_DBG_H_ */
