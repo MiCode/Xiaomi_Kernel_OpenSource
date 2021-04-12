@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __ICNSS_QMI_H__
 #define __ICNSS_QMI_H__
+
+#include "device_management_service_v01.h"
 
 #define QDSS_TRACE_SEG_LEN_MAX 32
 #define QDSS_TRACE_FILE_NAME_MAX 16
@@ -172,6 +174,27 @@ int icnss_wlfw_m3_dump_upload_done_send_sync(struct icnss_priv *priv,
 {
 	return 0;
 }
+
+int icnss_qmi_get_dms_mac(struct icnss_priv *priv)
+{
+	return 0;
+}
+
+int icnss_wlfw_wlan_mac_req_send_sync(struct icnss_priv *priv,
+				      u8 *mac, u32 mac_len)
+{
+	return 0;
+}
+
+int icnss_dms_init(struct icns_priv *priv)
+{
+	return 0;
+}
+
+void icnss_dms_deinit(struct icnss_priv *priv)
+{
+}
+
 #else
 int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv);
 int icnss_connect_to_fw_server(struct icnss_priv *priv, void *data);
@@ -220,6 +243,11 @@ int wlfw_send_soc_wake_msg(struct icnss_priv *priv,
 			   enum wlfw_soc_wake_enum_v01 type);
 int icnss_wlfw_m3_dump_upload_done_send_sync(struct icnss_priv *priv,
 					     u32 pdev_id, int status);
+int icnss_qmi_get_dms_mac(struct icnss_priv *priv);
+int icnss_wlfw_wlan_mac_req_send_sync(struct icnss_priv *priv,
+				      u8 *mac, u32 mac_len);
+int icnss_dms_init(struct icnss_priv *priv);
+void icnss_dms_deinit(struct icnss_priv *priv);
 #endif
 
 #endif /* __ICNSS_QMI_H__*/
