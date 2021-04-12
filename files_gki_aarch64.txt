@@ -719,6 +719,10 @@ drivers/dma-buf/dma-fence.c
 drivers/dma-buf/dma-fence-chain.c
 drivers/dma-buf/dma-heap.c
 drivers/dma-buf/dma-resv.c
+drivers/dma-buf/heaps/deferred-free-helper.c
+drivers/dma-buf/heaps/deferred-free-helper.h
+drivers/dma-buf/heaps/page_pool.c
+drivers/dma-buf/heaps/page_pool.h
 drivers/dma-buf/seqno-fence.c
 drivers/dma-buf/sync_file.c
 drivers/dma/dmaengine.c
@@ -3851,6 +3855,7 @@ include/trace/hooks/preemptirq.h
 include/trace/hooks/printk.h
 include/trace/hooks/rwsem.h
 include/trace/hooks/sched.h
+include/trace/hooks/signal.h
 include/trace/hooks/softlockup.h
 include/trace/hooks/sys.h
 include/trace/hooks/sysrqcrash.h
@@ -3861,6 +3866,7 @@ include/trace/hooks/traps.h
 include/trace/hooks/typec.h
 include/trace/hooks/ufshcd.h
 include/trace/hooks/vendor_hooks.h
+include/trace/hooks/workqueue.h
 include/trace/hooks/wqlockup.h
 include/trace/perf.h
 include/trace/syscall.h

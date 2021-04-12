@@ -376,7 +376,6 @@ void bpf_trampoline_put(struct bpf_trampoline *tr)
 	 * for tasks to get out of trampoline code before freeing it.
 	 */
 	synchronize_rcu_tasks();
-	trace_android_vh_set_memory_nx((unsigned long)tr->image, 1);
 	bpf_jit_free_exec(tr->image);
 	hlist_del(&tr->hlist);
 	kfree(tr);
