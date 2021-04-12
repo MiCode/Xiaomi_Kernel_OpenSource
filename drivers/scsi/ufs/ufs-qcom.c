@@ -3571,21 +3571,26 @@ static ssize_t clk_status_show(struct device *dev,
 
 static DEVICE_ATTR_RO(clk_status);
 
-static unsigned int ufs_qcom_gec(struct ufs_hba *hba,
-				 struct ufs_err_reg_hist *err_hist,
+static unsigned int ufs_qcom_gec(struct ufs_hba *hba, u32 id,
 				 char *err_name)
 {
 	unsigned long flags;
 	int i, cnt_err = 0;
+	struct ufs_event_hist *e;
+
+	if (id >= UFS_EVT_CNT)
+		return -EINVAL;
+
+	e = &hba->ufs_stats.event[id];
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
-	for (i = 0; i < UFS_ERR_REG_HIST_LENGTH; i++) {
-		int p = (i + err_hist->pos) % UFS_ERR_REG_HIST_LENGTH;
+	for (i = 0; i < UFS_EVENT_HIST_LENGTH; i++) {
+		int p = (i + e->pos) % UFS_EVENT_HIST_LENGTH;
 
-		if (err_hist->tstamp[p] == 0)
+		if (e->tstamp[p] == 0)
 			continue;
 		dev_err(hba->dev, "%s[%d] = 0x%x at %lld us\n", err_name, p,
-			err_hist->reg[p], ktime_to_us(err_hist->tstamp[p]));
+			e->val[p], ktime_to_us(e->tstamp[p]));
 
 		++cnt_err;
 	}
@@ -3602,13 +3607,13 @@ static ssize_t err_count_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE,
 			 "%s: %d\n%s: %d\n%s: %d\n",
 			 "pa_err_cnt_total",
-			 ufs_qcom_gec(hba, &hba->ufs_stats.pa_err,
+			 ufs_qcom_gec(hba, UFS_EVT_PA_ERR,
 				      "pa_err_cnt_total"),
 			 "dl_err_cnt_total",
-			 ufs_qcom_gec(hba, &hba->ufs_stats.dl_err,
+			 ufs_qcom_gec(hba, UFS_EVT_DL_ERR,
 				      "dl_err_cnt_total"),
 			 "dme_err_cnt",
-			 ufs_qcom_gec(hba, &hba->ufs_stats.dme_err,
+			 ufs_qcom_gec(hba, UFS_EVT_DME_ERR,
 				      "dme_err_cnt"));
 }
 

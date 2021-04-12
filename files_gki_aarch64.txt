@@ -1426,6 +1426,8 @@ drivers/scsi/ufs/tc-dwc-g210.h
 drivers/scsi/ufs/tc-dwc-g210-pltfrm.c
 drivers/scsi/ufs/ufs_bsg.c
 drivers/scsi/ufs/ufs_bsg.h
+drivers/scsi/ufs/ufs-debugfs.c
+drivers/scsi/ufs/ufs-debugfs.h
 drivers/scsi/ufs/ufs.h
 drivers/scsi/ufs/ufshcd.c
 drivers/scsi/ufs/ufshcd-crypto.c
@@ -2967,6 +2969,7 @@ include/linux/page-isolation.h
 include/linux/pagemap.h
 include/linux/page_owner.h
 include/linux/page_ref.h
+include/linux/page_reporting.h
 include/linux/pagevec.h
 include/linux/pagewalk.h
 include/linux/parser.h
@@ -4872,6 +4875,7 @@ lib/zstd/zstd_common.c
 lib/zstd/zstd_internal.h
 lib/zstd/zstd_opt.h
 mm/backing-dev.c
+mm/balloon_compaction.c
 mm/cleancache.c
 mm/cma.c
 mm/cma_debug.c
@@ -4925,6 +4929,7 @@ mm/page_ext.c
 mm/page_io.c
 mm/page_isolation.c
 mm/page_owner.c
+mm/page_reporting.c
 mm/page_reporting.h
 mm/page_vma_mapped.c
 mm/pagewalk.c

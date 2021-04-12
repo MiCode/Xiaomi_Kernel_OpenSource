@@ -2286,7 +2286,6 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 
 	arm_smmu_assign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
-
 	return ret;
 }
 
