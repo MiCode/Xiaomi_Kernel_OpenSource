@@ -172,6 +172,7 @@ struct msm_pinctrl_soc_data {
 	unsigned int gpio_func;
 	const struct msm_spare_tlmm *spare_regs;
 	unsigned int nspare_regs;
+	u32 *dir_conn_addr;
 };
 
 extern const struct dev_pm_ops msm_pinctrl_dev_pm_ops;
