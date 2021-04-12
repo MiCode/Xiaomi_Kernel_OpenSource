@@ -1681,10 +1681,10 @@ static const struct adreno_a6xx_core adreno_gpu_core_a660v2 = {
 	.ctxt_record_size = 2496 * 1024,
 };
 
-static const struct adreno_a6xx_core adreno_gpu_core_a660_shima = {
+static const struct adreno_a6xx_core adreno_gpu_core_a642 = {
 	.base = {
-		DEFINE_ADRENO_REV(ADRENO_REV_A660, 6, 6, 0, ANY_ID),
-		.compatible = "qcom,adreno-gpu-a660-shima",
+		DEFINE_ADRENO_REV(ADRENO_REV_A642, ANY_ID, ANY_ID, ANY_ID, ANY_ID),
+		.compatible = "qcom,adreno-gpu-a642",
 		.features = ADRENO_RPMH | ADRENO_GPMU | ADRENO_APRIV |
 				ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
 				ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_ACD |
@@ -1861,6 +1861,6 @@ static const struct adreno_gpu_core *adreno_gpulist[] = {
 	&adreno_gpu_core_a612.base,
 	&adreno_gpu_core_a616.base,
 	&adreno_gpu_core_a610.base,
-	&adreno_gpu_core_a660_shima.base,
+	&adreno_gpu_core_a642.base,
 	&adreno_gpu_core_a702.base,
 };

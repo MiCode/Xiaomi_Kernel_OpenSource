@@ -169,7 +169,7 @@ int a6xx_init(struct adreno_device *adreno_dev)
 
 	/* If the memory type is DDR 4, override the existing configuration */
 	if (of_fdt_get_ddrtype() == 0x7) {
-		if (adreno_is_a660_shima(adreno_dev) ||
+		if (adreno_is_a642(adreno_dev) ||
 			adreno_is_a635(adreno_dev))
 			adreno_dev->highest_bank_bit = 14;
 		else if ((adreno_is_a650(adreno_dev) ||
