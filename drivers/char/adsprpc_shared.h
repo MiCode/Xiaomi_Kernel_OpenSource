@@ -403,6 +403,9 @@ enum dsp_map_flags {
 	/* Add memory to static PD pool, protection thru XPU */
 	ADSP_MMAP_HEAP_ADDR = 4,
 
+	/* MAP static DMA buffer on DSP User PD */
+	ADSP_MMAP_DMA_BUFFER = 6,
+
 	/* Add memory to static PD pool, protection thru hypervisor */
 	ADSP_MMAP_REMOTE_HEAP_ADDR = 8,
 
