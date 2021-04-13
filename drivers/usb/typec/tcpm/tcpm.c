@@ -2276,6 +2276,9 @@ static void tcpm_pd_data_request(struct tcpm_port *port,
 		tcpm_validate_caps(port, port->source_caps,
 				   port->nr_source_caps);
 
+		trace_android_vh_typec_store_partner_src_caps(port, &port->nr_source_caps,
+							      &port->source_caps);
+
 		/*
 		 * Adjust revision in subsequent message headers, as required,
 		 * to comply with 6.2.1.1.5 of the USB PD 3.0 spec. We don't
@@ -3726,6 +3729,8 @@ static void run_state_machine(struct tcpm_port *port)
 	unsigned int msecs, timer_val_msecs;
 	enum tcpm_state upcoming_state;
 	const char *state_name;
+	u32 current_limit;
+	bool adjust;
 
 	port->enter_state = port->state;
 	switch (port->state) {
@@ -4099,9 +4104,13 @@ static void run_state_machine(struct tcpm_port *port)
 		break;
 	case SNK_DISCOVERY:
 		if (port->vbus_present) {
-			tcpm_set_current_limit(port,
-					       tcpm_get_current_limit(port),
-					       5000);
+			current_limit = tcpm_get_current_limit(port);
+			trace_android_vh_typec_tcpm_adj_current_limit(tcpm_states[SNK_DISCOVERY],
+								      port->current_limit,
+								      port->supply_voltage,
+								      port->pd_capable,
+								      &current_limit, &adjust);
+			tcpm_set_current_limit(port, current_limit, 5000);
 			tcpm_set_charge(port, true);
 			tcpm_set_state(port, SNK_WAIT_CAPABILITIES, 0);
 			break;
@@ -4200,6 +4209,17 @@ static void run_state_machine(struct tcpm_port *port)
 					     TYPEC_PWR_MODE_PD);
 			port->pwr_opmode = TYPEC_PWR_MODE_PD;
 		}
+
+		current_limit = tcpm_get_current_limit(port);
+		adjust = false;
+		trace_android_vh_typec_tcpm_adj_current_limit(tcpm_states[SNK_READY],
+							      port->current_limit,
+							      port->supply_voltage,
+							      port->pd_capable,
+							      &current_limit,
+							      &adjust);
+		if (adjust)
+			tcpm_set_current_limit(port, current_limit, 5000);
 
 		tcpm_swap_complete(port, 0);
 		tcpm_typec_connect(port);
