@@ -499,6 +499,14 @@ config HDCP_QSEECOM
           via the QSEECOM Driver and also communicates with the Receiver via
           APIs exposed by the interface driver.
 
+config PROFILER
+	tristate "Qualcomm Technologies, Inc. trustzone Communicator driver"
+	help
+	  Provides a communication interface between userspace and
+	  trustzone using Secure Channel Manager (SCM) interface.
+	  It exposes APIs for userspace to get system profiling
+	  information.
+
 config WIGIG_SENSING_SPI
 	tristate "Sensing over 60GHz using wil6210 / SPI bus"
 	depends on SPI && WIL6210
