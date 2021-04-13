@@ -2074,7 +2074,7 @@ static const struct scp_soc_data mt6797_data = {
 
 static const struct scp_soc_data mt6873_data = {
 	.domains = scp_domain_data_mt8192,
-	.num_domains = ARRAY_SIZE(scp_domain_data_mt8192),
+	.num_domains = ARRAY_SIZE(scp_domain_data_mt8192)
 	.subdomains = scp_subdomain_mt8192,
 	.num_subdomains = ARRAY_SIZE(scp_subdomain_mt8192),
 	.regs = {
@@ -2085,7 +2085,7 @@ static const struct scp_soc_data mt6873_data = {
 
 static const struct scp_soc_data mt6853_data = {
 	.domains = scp_domain_data_mt6853,
-	.num_domains = ARRAY_SIZE(scp_domain_data_mt6853),
+	.num_domains = ARRAY_SIZE(scp_domain_data_mt6853)
 	.subdomains = scp_subdomain_mt6853,
 	.num_subdomains = ARRAY_SIZE(scp_subdomain_mt6853),
 	.regs = {
@@ -2125,7 +2125,7 @@ static const struct scp_soc_data mt8173_data = {
 
 static const struct scp_soc_data mt8192_data = {
 	.domains = scp_domain_data_mt8192,
-	.num_domains = ARRAY_SIZE(scp_domain_data_mt8192),
+	.num_domains = MT8192_POWER_DOMAIN_NR,
 	.subdomains = scp_subdomain_mt8192,
 	.num_subdomains = ARRAY_SIZE(scp_subdomain_mt8192),
 	.regs = {
