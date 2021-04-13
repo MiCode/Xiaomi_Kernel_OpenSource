@@ -49,6 +49,10 @@
 #define RESULT_SUCCESS 0
 #define RESULT_FAILURE -1
 
+#define SLATECOM_INTF_N_FILES 2
+static char btss_state[10] = "offline";
+static char dspss_state[10] = "offline";
+
 /* tzapp command list.*/
 enum slate_tz_commands {
 	SLATEPIL_RAMDUMP,
@@ -119,9 +123,45 @@ static  int                      device_open;
 static  void                     *handle;
 static	bool                     twm_exit;
 static	bool                     slate_app_running;
+static	bool                     slate_dsp_error;
+static	bool                     slate_bt_error;
 static  struct   slatecom_open_config_type   config_type;
 static DECLARE_COMPLETION(slate_modem_down_wait);
 static DECLARE_COMPLETION(slate_adsp_down_wait);
+
+static ssize_t slate_bt_state_sysfs_read
+			(struct class *class, struct class_attribute *attr, char *buf)
+{
+	pr_debug("In %s\n", __func__);
+	return scnprintf(buf, "%s", btss_state);
+}
+
+static ssize_t slate_dsp_state_sysfs_read
+			(struct class *class, struct class_attribute *attr, char *buf)
+{
+	pr_debug("In %s\n", __func__);
+	return	scnprintf(buf, "%s", dspss_state);
+}
+
+struct class_attribute slatecom_attr[] = {
+	{
+		.attr = {
+			.name = "slate_bt_state",
+			.mode = 0644
+		},
+		.show	= slate_bt_state_sysfs_read,
+	},
+	{
+		.attr = {
+			.name = "slate_dsp_state",
+			.mode = 0644
+		},
+		.show	= slate_dsp_state_sysfs_read,
+	},
+};
+struct class slatecom_intf_class = {
+	.name = "slatecom"
+};
 
 /**
  * send_uevent(): send events to user space
@@ -506,6 +546,38 @@ bool is_slate_running(void)
 }
 EXPORT_SYMBOL(is_slate_running);
 
+void set_slate_dsp_state(bool status)
+{
+	struct slate_event statee;
+
+	slate_dsp_error = status;
+	if (status) {
+		statee.e_type = SLATE_DSP_ERROR;
+		strlcpy(dspss_state, "error");
+	} else {
+		statee.e_type = SLATE_DSP_READY;
+		strlcpy(dspss_state, "ready");
+	}
+	send_uevent(&statee);
+}
+EXPORT_SYMBOL(set_slate_dsp_state);
+
+void set_slate_bt_state(bool status)
+{
+	struct slate_event statee;
+
+	slate_bt_error = status;
+	if (status) {
+		statee.e_type = SLATE_BT_ERROR;
+		strlcpy(btss_state, "error");
+	} else {
+		statee.e_type = SLATE_BT_READY;
+		strlcpy(btss_state, "ready");
+	}
+	send_uevent(&statee);
+}
+EXPORT_SYMBOL(set_slate_bt_state);
+
 static struct notifier_block ssr_modem_nb = {
 	.notifier_call = ssr_modem_cb,
 	.priority = 0,
@@ -572,7 +644,7 @@ static void ssr_register(void)
 
 static int __init init_slate_com_dev(void)
 {
-	int ret;
+	int ret, i;
 
 	ret = alloc_chrdev_region(&slate_dev, 0, 1, SLATECOM);
 	if (ret  < 0) {
@@ -604,6 +676,17 @@ static int __init init_slate_com_dev(void)
 		return PTR_ERR(dev_ret);
 	}
 
+	ret = class_register(&slatecom_intf_class);
+	if (ret < 0) {
+		pr_err("Failed to register slatecom_intf_class rc=%d\n", ret);
+		return ret;
+	}
+
+	for (i = 0; i < SLATECOM_INTF_N_FILES; i++) {
+		if (class_create_file(&slatecom_intf_class, &slatecom_attr[i]))
+			pr_err("%s: failed to create slate-bt/dsp entry\n", __func__);
+	}
+
 	if (platform_driver_register(&slate_daemon_driver))
 		pr_err("%s: failed to register slate-daemon register\n", __func__);
 
@@ -614,8 +697,12 @@ static int __init init_slate_com_dev(void)
 
 static void __exit exit_slate_com_dev(void)
 {
+	int i;
 	device_destroy(slate_class, slate_dev);
 	class_destroy(slate_class);
+	for (i = 0; i < SLATECOM_INTF_N_FILES; i++)
+		class_remove_file(&slatecom_intf_class, &slatecom_attr[i]);
+	class_unregister(&slatecom_intf_class);
 	cdev_del(&slate_cdev);
 	unregister_chrdev_region(slate_dev, 1);
 	platform_driver_unregister(&slate_daemon_driver);

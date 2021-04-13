@@ -20,6 +20,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/pm_runtime.h>
 #include "slatecom.h"
+#include "slatecom_interface.h"
 
 #define SLATE_SPI_WORD_SIZE (0x04)
 #define SLATE_SPI_READ_LEN (0x04)
@@ -422,6 +423,22 @@ static void send_back_notification(uint32_t slav_status_reg,
 			event_data.ahb_ready = true;
 			send_event(SLATECOM_EVENT_AHB_READY,
 				&event_data);
+		}
+
+		if (slav_status_reg & BIT(26)) {
+			pr_debug("Slate DSP DOWN\n", __func__);
+			set_slate_dsp_state(false);
+		} else if (slav_status_reg & BIT(30)) {
+			pr_debug("Slate DSP UP\n", __func__);
+			set_slate_dsp_state(true);
+		}
+
+		if (slav_status_reg & BIT(25)) {
+			pr_debug("Slate BT DOWN\n", __func__);
+			set_slate_bt_state(false);
+		} else if (slav_status_reg & BIT(30)) {
+			pr_debug("Slate BT UP\n", __func__);
+			set_slate_bt_state(true);
 		}
 	}
 
