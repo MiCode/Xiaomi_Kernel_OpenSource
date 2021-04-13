@@ -113,7 +113,12 @@ void lkdtm_WRITE_KERN(void)
 	size_t size;
 	volatile unsigned char *ptr;
 
-	size = (unsigned long)do_overwritten - (unsigned long)do_nothing;
+	if ((unsigned long)do_overwritten < (unsigned long)do_nothing)
+		size = (unsigned long)do_nothing -
+			(unsigned long)do_overwritten;
+	else
+		size = (unsigned long)do_overwritten -
+			(unsigned long)do_nothing;
 	ptr = (unsigned char *)do_overwritten;
 
 	pr_info("attempting bad %zu byte write at %px\n", size, ptr);
