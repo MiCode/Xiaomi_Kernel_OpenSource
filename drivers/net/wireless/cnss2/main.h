@@ -97,6 +97,7 @@ struct cnss_pinctrl_info {
 	struct pinctrl_state *wlan_en_sleep;
 	int bt_en_gpio;
 	int xo_clk_gpio; /*qca6490 only */
+	int sw_ctrl_gpio;
 };
 
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
@@ -569,5 +570,5 @@ int cnss_request_firmware_direct(struct cnss_plat_data *plat_priv,
 				 const struct firmware **fw_entry,
 				 const char *filename);
 void cnss_disable_redundant_vreg(struct cnss_plat_data *plat_priv);
-
+int cnss_gpio_get_value(struct cnss_plat_data *plat_priv, int gpio_num);
 #endif /* _CNSS_MAIN_H */
