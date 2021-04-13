@@ -497,6 +497,7 @@ static int sdhci_msm_dt_get_array(struct device *dev, const char *prop_name,
 
 static unsigned int sdhci_msm_get_sup_clk_rate(struct sdhci_host *host,
 				u32 req_clk);
+static void sdhci_msm_dump_pwr_ctrl_regs(struct sdhci_host *host);
 
 static const struct sdhci_msm_offset *sdhci_priv_msm_offset(struct sdhci_host *host)
 {
@@ -2013,10 +2014,13 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 	if (!done) {
 		if (!wait_event_timeout(msm_host->pwr_irq_wait,
 				msm_host->pwr_irq_flag,
-				msecs_to_jiffies(MSM_PWR_IRQ_TIMEOUT_MS)))
+				msecs_to_jiffies(MSM_PWR_IRQ_TIMEOUT_MS))) {
 			dev_warn(&msm_host->pdev->dev,
 				 "%s: pwr_irq for req: (%d) timed out\n",
 				 mmc_hostname(host->mmc), req_type);
+			sdhci_msm_dump_pwr_ctrl_regs(host);
+		}
+
 	}
 
 	if (mmc->card && mmc->ops->get_cd && !mmc->ops->get_cd(mmc) &&
@@ -3432,6 +3436,7 @@ static void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 		readl_relaxed(host->ioaddr +
 			msm_offset->core_vendor_spec_func2),
 		readl_relaxed(host->ioaddr + msm_offset->core_vendor_spec3));
+	sdhci_msm_dump_pwr_ctrl_regs(host);
 
 	/*
 	 * tbsel indicates [2:0] bits and tbsel2 indicates [7:4] bits
