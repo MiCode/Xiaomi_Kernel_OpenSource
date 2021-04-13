@@ -5038,7 +5038,6 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 
 	if (fl->device && is_driver_closed) {
 		device_unregister(&fl->device->dev);
-		fl->device->fl = NULL;
 	}
 
 	if (fl->sctx)
