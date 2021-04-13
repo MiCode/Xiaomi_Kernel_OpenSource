@@ -10,6 +10,7 @@
 #include <linux/fs_stack.h>
 #include <linux/fsnotify.h>
 #include <linux/fsverity.h>
+#include <linux/mmap_lock.h>
 #include <linux/namei.h>
 #include <linux/parser.h>
 #include <linux/seq_file.h>
@@ -113,11 +114,36 @@ static const struct address_space_operations incfs_address_space_ops = {
 	/* .readpages = readpages */
 };
 
+static vm_fault_t incfs_fault(struct vm_fault *vmf)
+{
+	vmf->flags &= ~FAULT_FLAG_ALLOW_RETRY;
+	return filemap_fault(vmf);
+}
+
+static const struct vm_operations_struct incfs_file_vm_ops = {
+	.fault		= incfs_fault,
+	.map_pages	= filemap_map_pages,
+	.page_mkwrite	= filemap_page_mkwrite,
+};
+
+/* This is used for a general mmap of a disk file */
+
+static int incfs_file_mmap(struct file *file, struct vm_area_struct *vma)
+{
+	struct address_space *mapping = file->f_mapping;
+
+	if (!mapping->a_ops->readpage)
+		return -ENOEXEC;
+	file_accessed(file);
+	vma->vm_ops = &incfs_file_vm_ops;
+	return 0;
+}
+
 const struct file_operations incfs_file_ops = {
 	.open = file_open,
 	.release = file_release,
 	.read_iter = generic_file_read_iter,
-	.mmap = generic_file_mmap,
+	.mmap = incfs_file_mmap,
 	.splice_read = generic_file_splice_read,
 	.llseek = generic_file_llseek,
 	.unlocked_ioctl = dispatch_ioctl,
@@ -625,6 +651,7 @@ out:
 static void maybe_delete_incomplete_file(struct file *f,
 					 struct data_file *df)
 {
+	struct backing_file_context *bfc;
 	struct mount_info *mi = df->df_mount_info;
 	char *file_id_str = NULL;
 	struct dentry *incomplete_file_dentry = NULL;
@@ -633,6 +660,22 @@ static void maybe_delete_incomplete_file(struct file *f,
 
 	if (atomic_read(&df->df_data_blocks_written) < df->df_data_block_count)
 		goto out;
+
+	/* Truncate file to remove any preallocated space */
+	bfc = df->df_backing_file_context;
+	if (bfc) {
+		struct file *f = bfc->bc_file;
+
+		if (f) {
+			loff_t size = i_size_read(file_inode(f));
+
+			error = vfs_truncate(&f->f_path, size);
+			if (error)
+				/* No useful action on failure */
+				pr_warn("incfs: Failed to truncate complete file: %d\n",
+					error);
+		}
+	}
 
 	/* This is best effort - there is no useful action to take on failure */
 	file_id_str = file_id_to_str(df->df_id);
