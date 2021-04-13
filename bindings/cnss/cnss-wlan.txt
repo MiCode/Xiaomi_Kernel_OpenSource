@@ -21,7 +21,8 @@ Required properties:
   - pinctrl-names: Names corresponding to the numbered pinctrl states
   - pinctrl-<n>: Pinctrl states as described in
                  bindings/pinctrl/pinctrl-bindings.txt
-  - qcom,wlan-rc-num: PCIe root complex number which WLAN chip is attached to
+  - qcom,wlan-rc-num: List of PCIe root complex numbers which WLAN device may
+                      attach to
 
 Optional properties:
   - qcom,notify-modem-status: Boolean property to decide whether modem
