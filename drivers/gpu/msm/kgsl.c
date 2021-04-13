@@ -4387,15 +4387,21 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	idr_init(&device->timelines);
 	spin_lock_init(&device->timelines_lock);
 
+	device->events_wq = alloc_workqueue("kgsl-events",
+		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS | WQ_HIGHPRI, 0);
+
+	if (!device->events_wq) {
+		dev_err(device->dev, "Failed to allocate events workqueue\n");
+		status = -ENOMEM;
+		goto error_pwrctrl_close;
+	}
+
 	kgsl_device_debugfs_init(device);
 
 	dma_set_coherent_mask(&pdev->dev, KGSL_DMA_BIT_MASK);
 
 	/* Set up the GPU events for the device */
 	kgsl_device_events_probe(device);
-
-	device->events_wq = alloc_workqueue("kgsl-events",
-		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS | WQ_HIGHPRI, 0);
 
 	/* Initialize common sysfs entries */
 	kgsl_pwrctrl_init_sysfs(device);
@@ -4411,7 +4417,10 @@ error:
 
 void kgsl_device_platform_remove(struct kgsl_device *device)
 {
-	destroy_workqueue(device->events_wq);
+	if (device->events_wq) {
+		destroy_workqueue(device->events_wq);
+		device->events_wq = NULL;
+	}
 
 	kgsl_device_snapshot_close(device);
 
@@ -4440,6 +4449,16 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 void kgsl_core_exit(void)
 {
 	kgsl_exit_page_pools();
+
+	if (kgsl_driver.workqueue) {
+		destroy_workqueue(kgsl_driver.workqueue);
+		kgsl_driver.workqueue = NULL;
+	}
+
+	if (kgsl_driver.mem_workqueue) {
+		destroy_workqueue(kgsl_driver.mem_workqueue);
+		kgsl_driver.mem_workqueue = NULL;
+	}
 
 	kgsl_events_exit();
 	kgsl_core_debugfs_close();
@@ -4540,8 +4559,20 @@ int __init kgsl_core_init(void)
 	kgsl_driver.workqueue = alloc_workqueue("kgsl-workqueue",
 		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS, 0);
 
+	if (!kgsl_driver.workqueue) {
+		pr_err("kgsl: Failed to allocate kgsl workqueue\n");
+		result = -ENOMEM;
+		goto err;
+	}
+
 	kgsl_driver.mem_workqueue = alloc_workqueue("kgsl-mementry",
 		WQ_UNBOUND | WQ_MEM_RECLAIM, 0);
+
+	if (!kgsl_driver.mem_workqueue) {
+		pr_err("kgsl: Failed to allocate mem workqueue\n");
+		result = -ENOMEM;
+		goto err;
+	}
 
 	kthread_init_worker(&kgsl_driver.worker);
 
