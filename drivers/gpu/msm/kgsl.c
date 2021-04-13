@@ -2639,8 +2639,8 @@ static long _gpuobj_map_useraddr(struct kgsl_device *device,
 
 	kgsl_memdesc_init(device, &entry->memdesc, param->flags);
 
-	if (copy_struct_from_user(&useraddr, sizeof(useraddr),
-		u64_to_user_ptr(param->priv), param->priv_len))
+	if (copy_from_user(&useraddr,
+		u64_to_user_ptr(param->priv), sizeof(useraddr)))
 		return -EINVAL;
 
 	/* Verify that the virtaddr and len are within bounds */
