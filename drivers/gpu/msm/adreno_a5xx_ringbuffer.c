@@ -211,7 +211,7 @@ int a5xx_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 
 	/* 4 dwords */
 	profile_gpuaddr = adreno_profile_postib_processing(adreno_dev,
-		&profile_dwords);
+		drawctxt, &profile_dwords);
 
 	if (profile_gpuaddr) {
 		cmds[index++] = cp_type7_packet(CP_INDIRECT_BUFFER_PFE, 3);

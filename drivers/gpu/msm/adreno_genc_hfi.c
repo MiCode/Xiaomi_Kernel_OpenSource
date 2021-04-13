@@ -254,6 +254,7 @@ static int poll_gmu_reg(struct adreno_device *adreno_dev,
 	}
 
 	/* Check one last time */
+	gmu_core_regread(device, offsetdwords, &val);
 	if ((val & mask) == expected_val)
 		return 0;
 
