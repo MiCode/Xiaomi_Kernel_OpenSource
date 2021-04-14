@@ -349,12 +349,6 @@ void hsr_forward_skb(struct sk_buff *skb, struct hsr_port *port)
 {
 	struct hsr_frame_info frame;
 
-	if (skb_mac_header(skb) != skb->data) {
-		WARN_ONCE(1, "%s:%d: Malformed frame (port_src %s)\n",
-			  __FILE__, __LINE__, port->dev->name);
-		goto out_drop;
-	}
-
 	if (hsr_fill_frame_info(&frame, skb, port) < 0)
 		goto out_drop;
 	hsr_register_frame_in(frame.node_src, port, frame.sequence_nr);
