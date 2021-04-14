@@ -58,6 +58,7 @@
 		qcom,display {
 			qcom,dma-heap-name = "qcom,display";
 			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
+			qcom,max-align = <9>;
 			memory-region = <&non_secure_display_memory>;
 		};
 
