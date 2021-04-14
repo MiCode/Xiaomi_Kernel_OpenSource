@@ -708,6 +708,40 @@ static inline int ufshcd_get_tr_ocs(struct ufshcd_lrb *lrbp)
 }
 
 /**
+ * ufshcd_get_tm_free_slot - get a free slot for task management request
+ * @hba: per adapter instance
+ * @free_slot: pointer to variable with available slot value
+ *
+ * Get a free tag and lock it until ufshcd_put_tm_slot() is called.
+ * Returns 0 if free slot is not available, else return 1 with tag value
+ * in @free_slot.
+ */
+static bool ufshcd_get_tm_free_slot(struct ufs_hba *hba, int *free_slot)
+{
+	int tag;
+	bool ret = false;
+
+	if (!free_slot)
+		goto out;
+
+	do {
+		tag = find_first_zero_bit(&hba->tm_slots_in_use, hba->nutmrs);
+		if (tag >= hba->nutmrs)
+			goto out;
+	} while (test_and_set_bit_lock(tag, &hba->tm_slots_in_use));
+
+	*free_slot = tag;
+	ret = true;
+out:
+	return ret;
+}
+
+static inline void ufshcd_put_tm_slot(struct ufs_hba *hba, int slot)
+{
+	clear_bit_unlock(slot, &hba->tm_slots_in_use);
+}
+
+/**
  * ufshcd_utrl_clear - Clear a bit in UTRLCLR register
  * @hba: per adapter instance
  * @pos: position of the bit to be cleared
@@ -6103,27 +6137,6 @@ static irqreturn_t ufshcd_check_errors(struct ufs_hba *hba)
 	return retval;
 }
 
-struct ctm_info {
-	struct ufs_hba	*hba;
-	unsigned long	pending;
-	unsigned int	ncpl;
-};
-
-static bool ufshcd_compl_tm(struct request *req, void *priv, bool reserved)
-{
-	struct ctm_info *const ci = priv;
-	struct completion *c;
-
-	WARN_ON_ONCE(reserved);
-	if (test_bit(req->tag, &ci->pending))
-		return true;
-	ci->ncpl++;
-	c = req->end_io_data;
-	if (c)
-		complete(c);
-	return true;
-}
-
 /**
  * ufshcd_tmc_handler - handle task management function completion
  * @hba: per adapter instance
@@ -6134,14 +6147,16 @@ static bool ufshcd_compl_tm(struct request *req, void *priv, bool reserved)
  */
 static irqreturn_t ufshcd_tmc_handler(struct ufs_hba *hba)
 {
-	struct request_queue *q = hba->tmf_queue;
-	struct ctm_info ci = {
-		.hba	 = hba,
-		.pending = ufshcd_readl(hba, REG_UTP_TASK_REQ_DOOR_BELL),
-	};
+	u32 tm_doorbell;
 
-	blk_mq_tagset_busy_iter(q->tag_set, ufshcd_compl_tm, &ci);
-	return ci.ncpl ? IRQ_HANDLED : IRQ_NONE;
+	tm_doorbell = ufshcd_readl(hba, REG_UTP_TASK_REQ_DOOR_BELL);
+	hba->tm_condition = tm_doorbell ^ hba->outstanding_tasks;
+	if (hba->tm_condition) {
+		wake_up(&hba->tm_wq);
+		return IRQ_HANDLED;
+	} else {
+		return IRQ_NONE;
+	}
 }
 
 /**
@@ -6249,10 +6264,7 @@ out:
 static int __ufshcd_issue_tm_cmd(struct ufs_hba *hba,
 		struct utp_task_req_desc *treq, u8 tm_function)
 {
-	struct request_queue *q = hba->tmf_queue;
 	struct Scsi_Host *host = hba->host;
-	DECLARE_COMPLETION_ONSTACK(wait);
-	struct request *req;
 	unsigned long flags;
 	int free_slot, task_tag, err;
 
@@ -6261,10 +6273,7 @@ static int __ufshcd_issue_tm_cmd(struct ufs_hba *hba,
 	 * Even though we use wait_event() which sleeps indefinitely,
 	 * the maximum wait time is bounded by %TM_CMD_TIMEOUT.
 	 */
-	req = blk_get_request(q, REQ_OP_DRV_OUT, BLK_MQ_REQ_RESERVED);
-	req->end_io_data = &wait;
-	free_slot = req->tag;
-	WARN_ON_ONCE(free_slot < 0 || free_slot >= hba->nutmrs);
+	wait_event(hba->tm_tag_wq, ufshcd_get_tm_free_slot(hba, &free_slot));
 	ufshcd_hold(hba, false);
 
 	spin_lock_irqsave(host->host_lock, flags);
@@ -6290,14 +6299,10 @@ static int __ufshcd_issue_tm_cmd(struct ufs_hba *hba,
 	ufshcd_add_tm_upiu_trace(hba, task_tag, "tm_send");
 
 	/* wait until the task management command is completed */
-	err = wait_for_completion_io_timeout(&wait,
+	err = wait_event_timeout(hba->tm_wq,
+			test_bit(free_slot, &hba->tm_condition),
 			msecs_to_jiffies(TM_CMD_TIMEOUT));
 	if (!err) {
-		/*
-		 * Make sure that ufshcd_compl_tm() does not trigger a
-		 * use-after-free.
-		 */
-		req->end_io_data = NULL;
 		ufshcd_add_tm_upiu_trace(hba, task_tag, "tm_complete_err");
 		dev_err(hba->dev, "%s: task management cmd 0x%.2x timed-out\n",
 				__func__, tm_function);
@@ -6316,7 +6321,9 @@ static int __ufshcd_issue_tm_cmd(struct ufs_hba *hba,
 	__clear_bit(free_slot, &hba->outstanding_tasks);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
-	blk_put_request(req);
+	clear_bit(free_slot, &hba->tm_condition);
+	ufshcd_put_tm_slot(hba, free_slot);
+	wake_up(&hba->tm_tag_wq);
 
 	ufshcd_release(hba);
 	return err;
@@ -8984,8 +8991,6 @@ void ufshcd_remove(struct ufs_hba *hba)
 {
 	ufs_bsg_remove(hba);
 	ufs_sysfs_remove_nodes(hba->dev);
-	blk_cleanup_queue(hba->tmf_queue);
-	blk_mq_free_tag_set(&hba->tmf_tag_set);
 	blk_cleanup_queue(hba->cmd_queue);
 	scsi_remove_host(hba->host);
 	/* disable interrupts */
@@ -9066,18 +9071,6 @@ out_error:
 }
 EXPORT_SYMBOL(ufshcd_alloc_host);
 
-/* This function exists because blk_mq_alloc_tag_set() requires this. */
-static blk_status_t ufshcd_queue_tmf(struct blk_mq_hw_ctx *hctx,
-				     const struct blk_mq_queue_data *qd)
-{
-	WARN_ON_ONCE(true);
-	return BLK_STS_NOTSUPP;
-}
-
-static const struct blk_mq_ops ufshcd_tmf_ops = {
-	.queue_rq = ufshcd_queue_tmf,
-};
-
 /**
  * ufshcd_init - Driver initialization routine
  * @hba: per-adapter instance
@@ -9149,6 +9142,10 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 	hba->max_pwr_info.is_valid = false;
 
+	/* Initailize wait queue for task management */
+	init_waitqueue_head(&hba->tm_wq);
+	init_waitqueue_head(&hba->tm_tag_wq);
+
 	/* Initialize work queues */
 	snprintf(eh_wq_name, sizeof(eh_wq_name), "ufs_eh_wq_%d",
 		 hba->host->host_no);
@@ -9209,21 +9206,6 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 		goto out_remove_scsi_host;
 	}
 
-	hba->tmf_tag_set = (struct blk_mq_tag_set) {
-		.nr_hw_queues	= 1,
-		.queue_depth	= hba->nutmrs,
-		.ops		= &ufshcd_tmf_ops,
-		.flags		= BLK_MQ_F_NO_SCHED,
-	};
-	err = blk_mq_alloc_tag_set(&hba->tmf_tag_set);
-	if (err < 0)
-		goto free_cmd_queue;
-	hba->tmf_queue = blk_mq_init_queue(&hba->tmf_tag_set);
-	if (IS_ERR(hba->tmf_queue)) {
-		err = PTR_ERR(hba->tmf_queue);
-		goto free_tmf_tag_set;
-	}
-
 	/* Reset the attached device */
 	ufshcd_vops_device_reset(hba);
 
@@ -9240,7 +9222,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 		dev_err(hba->dev, "Host controller enable failed\n");
 		ufshcd_print_host_regs(hba);
 		ufshcd_print_host_state(hba);
-		goto free_tmf_queue;
+		goto free_cmd_queue;
 	}
 
 	/*
@@ -9280,10 +9262,6 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 	return 0;
 
-free_tmf_queue:
-	blk_cleanup_queue(hba->tmf_queue);
-free_tmf_tag_set:
-	blk_mq_free_tag_set(&hba->tmf_tag_set);
 free_cmd_queue:
 	blk_cleanup_queue(hba->cmd_queue);
 out_remove_scsi_host:
