@@ -23,6 +23,14 @@ struct qcom_pmu_notif_node {
 	struct list_head	node;
 };
 
+enum amu_counters {
+	SYS_AMU_CONST_CYC,
+	SYS_AMU_CORE_CYC,
+	SYS_AMU_INST_RET,
+	SYS_AMU_STALL_MEM,
+	SYS_AMU_MAX,
+};
+
 #if IS_ENABLED(CONFIG_QCOM_PMU_LIB)
 int qcom_pmu_event_supported(u32 event_id, int cpu);
 int qcom_pmu_read(int cpu, u32 event_id, u64 *pmu_data);

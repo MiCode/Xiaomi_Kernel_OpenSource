@@ -34,6 +34,12 @@ struct event_data {
 	int			cpu;
 	u64			cached_count;
 	u32			ref_cnt;
+	enum amu_counters	amu_id;
+};
+
+struct amu_data {
+	enum amu_counters	amu_id;
+	u64			count;
 };
 
 struct cpu_data {
@@ -52,6 +58,18 @@ static int cpuhp_state;
 static LIST_HEAD(idle_notif_list);
 static DEFINE_SPINLOCK(idle_list_lock);
 
+/*
+ * is_amu_valid: Check if AMUs are supported and if the id corresponds to the
+ * four supported AMU counters i.e. SYS_AMEVCNTR0_CONST_EL0,
+ * SYS_AMEVCNTR0_CORE_EL0, SYS_AMEVCNTR0_INST_RET_EL0, SYS_AMEVCNTR0_MEM_STALL
+ */
+static inline bool is_amu_valid(enum amu_counters amu_id)
+{
+	return (amu_id >= SYS_AMU_CONST_CYC && amu_id < SYS_AMU_MAX &&
+		IS_ENABLED(CONFIG_ARM64_AMU_EXTN));
+}
+
+
 static struct perf_event_attr *alloc_attr(void)
 {
 	struct perf_event_attr *attr;
@@ -67,11 +85,17 @@ static struct perf_event_attr *alloc_attr(void)
 }
 
 static int set_event(struct event_data *ev, int cpu,
-			     struct perf_event_attr *attr)
+		     struct perf_event_attr *attr)
 {
 	struct perf_event *pevent;
 	u32 type = PERF_TYPE_RAW;
 	int ret;
+
+	/* Set the cpu and exit if amu is supported */
+	if (is_amu_valid(ev->amu_id))
+		goto set_cpu;
+	else
+		ev->amu_id = SYS_AMU_MAX;
 
 	if (!ev->event_id)
 		return 0;
@@ -93,6 +117,7 @@ static int set_event(struct event_data *ev, int cpu,
 
 	perf_event_enable(pevent);
 	ev->pevent = pevent;
+set_cpu:
 	ev->cpu = cpu;
 
 	return 0;
@@ -100,22 +125,60 @@ static int set_event(struct event_data *ev, int cpu,
 
 static inline void delete_event(struct event_data *event)
 {
-	perf_event_release_kernel(event->pevent);
-	event->pevent = NULL;
+	if (event->pevent) {
+		perf_event_release_kernel(event->pevent);
+		event->pevent = NULL;
+	}
+}
+
+static void read_amu_reg(void *amu_data)
+{
+	struct amu_data *data = amu_data;
+
+	switch (data->amu_id) {
+	case SYS_AMU_CONST_CYC:
+		data->count = read_sysreg_s(SYS_AMEVCNTR0_CONST_EL0);
+		break;
+	case SYS_AMU_CORE_CYC:
+		data->count = read_sysreg_s(SYS_AMEVCNTR0_CORE_EL0);
+		break;
+	case SYS_AMU_INST_RET:
+		data->count = read_sysreg_s(SYS_AMEVCNTR0_INST_RET_EL0);
+		break;
+	case SYS_AMU_STALL_MEM:
+		data->count = read_sysreg_s(SYS_AMEVCNTR0_MEM_STALL);
+		break;
+	default:
+		pr_err("AMU counter %d not supported!\n", data->amu_id);
+	}
 }
 
 static inline u64 read_event(struct event_data *event, bool local)
 {
 	u64 enabled, running, total = 0;
+	struct amu_data data;
+	int ret = 0;
 
-	if (!event->pevent)
-		return event->cached_count;
-
-	if (local)
-		perf_event_read_local(event->pevent, &total, NULL, NULL);
-	else
-		total = perf_event_read_value(event->pevent, &enabled,
+	if (is_amu_valid(event->amu_id)) {
+		data.amu_id = event->amu_id;
+		if (local)
+			read_amu_reg(&data);
+		else {
+			ret = smp_call_function_single(event->cpu, read_amu_reg,
+							&data, true);
+			if (ret < 0)
+				return event->cached_count;
+		}
+		total = data.count;
+	} else {
+		if (!event->pevent)
+			return event->cached_count;
+		if (local)
+			perf_event_read_local(event->pevent, &total, NULL, NULL);
+		else
+			total = perf_event_read_value(event->pevent, &enabled,
 								&running);
+	}
 	event->cached_count = total;
 
 	return total;
@@ -307,7 +370,7 @@ static void qcom_pmu_idle_notif(void *unused, int event, int state, int cpu)
 	spin_unlock_irqrestore(&cpu_data->read_lock, flags);
 	for (i = 0; i < cpu_data->num_evs; i++) {
 		ev = &cpu_data->events[i];
-		if (!ev->event_id || !ev->pevent)
+		if (!ev->event_id || (!ev->pevent && !is_amu_valid(ev->amu_id)))
 			continue;
 		ev->cached_count = read_event(ev, true);
 		pmu_data.event_ids[cnt] = ev->event_id;
@@ -329,6 +392,7 @@ static int qcom_pmu_hotplug_coming_up(unsigned int cpu)
 	struct cpu_data *cpu_data = per_cpu(cpu_ev_data, cpu);
 	int i, ret = 0;
 	unsigned long flags;
+	struct event_data *event;
 
 	if (!attr)
 		return -ENOMEM;
@@ -337,10 +401,11 @@ static int qcom_pmu_hotplug_coming_up(unsigned int cpu)
 		goto out;
 
 	for (i = 0; i < cpu_data->num_evs; i++) {
-		ret = set_event(&cpu_data->events[i], cpu, attr);
+		event = &cpu_data->events[i];
+		ret = set_event(event, cpu, attr);
 		if (ret < 0) {
 			pr_err("event %d not set for cpu %d ret %d\n",
-				cpu_data->events[i].event_id, cpu, ret);
+				event->event_id, cpu, ret);
 			break;
 		}
 	}
@@ -370,7 +435,7 @@ static int qcom_pmu_hotplug_going_down(unsigned int cpu)
 		udelay(10);
 	for (i = 0; i < cpu_data->num_evs; i++) {
 		event = &cpu_data->events[i];
-		if (!event->event_id || !event->pevent)
+		if (!event->event_id || (!event->pevent && !is_amu_valid(event->amu_id)))
 			continue;
 		event->cached_count = read_event(event, false);
 		delete_event(event);
@@ -397,7 +462,7 @@ static int qcom_pmu_cpu_hp_init(void)
 static int qcom_pmu_cpu_hp_init(void) { return 0; }
 #endif
 
-static int configure_pmu_event(u32 event_id, int cpu)
+static int configure_pmu_event(u32 event_id, int amu_id, int cpu)
 {
 	struct cpu_data *cpu_data;
 	struct event_data *event;
@@ -419,6 +484,7 @@ static int configure_pmu_event(u32 event_id, int cpu)
 	}
 	event = &cpu_data->events[cpu_data->num_evs];
 	event->event_id = event_id;
+	event->amu_id = amu_id;
 	ret = set_event(event, cpu, attr);
 	if (ret < 0)
 		event->event_id = 0;
@@ -431,13 +497,14 @@ out:
 }
 
 #define PMU_TBL_PROP	"qcom,pmu-events-tbl"
-#define NUM_COLS	2
+#define NUM_COL		3
 static int setup_pmu_events(struct device *dev)
 {
 	struct device_node *of_node = dev->of_node;
 	int ret, len, i, j, cpu;
-	u32 data, event_id;
+	u32 data = 0, event_id;
 	unsigned long cpus;
+	int amu_id;
 
 	if (of_find_property(of_node, "qcom,long-counter", &len))
 		pmu_long_counter = true;
@@ -445,13 +512,13 @@ static int setup_pmu_events(struct device *dev)
 	if (!of_find_property(of_node, PMU_TBL_PROP, &len))
 		return -ENODEV;
 	len /= sizeof(data);
-	if (len % NUM_COLS || len == 0)
+	if (len % NUM_COL || len == 0)
 		return -EINVAL;
-	len /= NUM_COLS;
+	len /= NUM_COL;
 	if (len >= MAX_PMU_EVS)
 		return -ENOSPC;
 
-	for (i = 0, j = 0; i < len; i++, j += 2) {
+	for (i = 0, j = 0; i < len; i++, j += NUM_COL) {
 		ret = of_property_read_u32_index(of_node, PMU_TBL_PROP, j,
 							&event_id);
 		if (ret < 0 || !event_id)
@@ -463,9 +530,13 @@ static int setup_pmu_events(struct device *dev)
 			return -EINVAL;
 		cpus = (unsigned long)data;
 
-		dev_dbg(dev, "entry=%d: ev=%lu, cpus=%lu\n", i, event_id, cpus);
+		ret = of_property_read_u32_index(of_node, PMU_TBL_PROP, j + 2,
+							&amu_id);
+		if (ret < 0)
+			return -EINVAL;
+
 		for_each_cpu(cpu, to_cpumask(&cpus)) {
-			ret = configure_pmu_event(event_id, cpu);
+			ret = configure_pmu_event(event_id, amu_id, cpu);
 			if (!ret)
 				continue;
 			else if (ret != -EPROBE_DEFER)
@@ -543,12 +614,14 @@ static int qcom_pmu_driver_remove(struct platform_device *pdev)
 			udelay(10);
 		for (i = 0; i < cpu_data->num_evs; i++) {
 			event = &cpu_data->events[i];
-			if (!event->event_id || !event->pevent)
+			if (!event->event_id || (!event->pevent &&
+			     !is_amu_valid(event->amu_id)))
 				continue;
 			event->event_id = 0;
 			delete_event(event);
 			event->cached_count = 0;
 			event->ref_cnt = 0;
+			event->amu_id = SYS_AMU_MAX;
 		}
 		cpu_data->num_evs = 0;
 	}
