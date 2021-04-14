@@ -1116,7 +1116,7 @@ out:
 	hash_del(&cb_txn->hash);
 	if (ret == 0) {
 		pr_err("CBObj timed out! No more retries\n");
-		cb_req->result = OBJECT_ERROR_ABORT;
+		cb_req->result = Object_ERROR_TIMEOUT;
 	} else if (ret == -ERESTARTSYS) {
 		pr_err("wait event interruped, ret: %d\n", ret);
 		cb_req->result = OBJECT_ERROR_ABORT;
