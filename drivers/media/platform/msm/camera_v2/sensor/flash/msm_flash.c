@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <linux/of_gpio.h>
 #include <linux/leds-qpnp-flash.h>
 #include "msm_flash.h"
+#include "msm_camera_io_util.h"
 #include "msm_camera_dt_util.h"
 #include "msm_cci.h"
 
@@ -491,6 +492,8 @@ static int32_t msm_flash_init(
 			__func__, __LINE__,
 			flash_data->cfg.flash_init_info->flash_driver_type);
 	}
+	if (flash_ctrl->platform_flash_init)
+		flash_ctrl->platform_flash_init(flash_ctrl, flash_data);
 
 	if (flash_ctrl->func_tbl->camera_flash_init) {
 		rc = flash_ctrl->func_tbl->camera_flash_init(
@@ -577,6 +580,8 @@ static int32_t msm_flash_prepare(
 		__func__, __LINE__, flash_ctrl->flash_state);
 
 	if (flash_ctrl->switch_trigger == NULL) {
+		if (flash_ctrl->platform_flash_init)
+			return ret;
 		pr_err("%s:%d Invalid argument\n",
 				__func__, __LINE__);
 		return -EINVAL;
@@ -1263,6 +1268,8 @@ static int32_t msm_flash_platform_probe(struct platform_device *pdev)
 		kfree(flash_ctrl);
 		return -EINVAL;
 	}
+	if (flash_ctrl->flash_driver_type == FLASH_DRIVER_GPIO)
+		platform_set_drvdata(pdev, flash_ctrl);
 
 	flash_ctrl->flash_state = MSM_CAMERA_FLASH_RELEASE;
 	flash_ctrl->power_info.dev = &flash_ctrl->pdev->dev;
@@ -1310,6 +1317,11 @@ static int32_t msm_flash_platform_probe(struct platform_device *pdev)
 
 	CDBG("probe success\n");
 	return rc;
+}
+
+int32_t camera_flash_platform_probe(struct platform_device *pdev)
+{
+	return msm_flash_platform_probe(pdev);
 }
 
 MODULE_DEVICE_TABLE(of, msm_flash_dt_match);
