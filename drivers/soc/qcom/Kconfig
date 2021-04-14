@@ -395,9 +395,9 @@ config MSM_BOOT_STATS
 	  This figures are reported in mpm sleep clock cycles and have a
 	  resolution of 31 bits as 1 bit is used as an overflow check.
 
-config MSM_BOOT_TIME_MARKER
+config QGKI_MSM_BOOT_TIME_MARKER
 	bool "Use MSM boot time marker reporting"
-	depends on MSM_BOOT_STATS
+	depends on MSM_BOOT_STATS && QGKI
 	help
 	  Use this to mark msm boot kpi for measurement.
 	  An instrumentation for boot time measurement.
