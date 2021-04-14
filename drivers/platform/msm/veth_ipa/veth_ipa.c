@@ -596,7 +596,7 @@ static int veth_map_rx_tx_setup_info_params(
 	}
 
 
-	for (i = 0; i <= rx_setup_info->num_buffers; i++) {
+	for (i = 0; i < rx_setup_info->num_buffers; i++) {
 		rx_setup_info->data_buff_list[i].iova =
 			rx_setup_info->data_buff_list[0].iova +
 			i*VETH_ETH_FRAME_LEN_IPA;
@@ -629,7 +629,7 @@ static int veth_map_rx_tx_setup_info_params(
 		tx_setup_info->data_buff_list[0].iova =
 			veth_emac_mem->tx_buf_mem_iova;
 	}
-	for (i = 0; i <= tx_setup_info->num_buffers; i++) {
+	for (i = 0; i < tx_setup_info->num_buffers; i++) {
 		tx_setup_info->data_buff_list[i].iova =
 			tx_setup_info->data_buff_list[0].iova +
 			i*VETH_ETH_FRAME_LEN_IPA;
