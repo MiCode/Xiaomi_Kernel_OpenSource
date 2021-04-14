@@ -2440,8 +2440,8 @@ static irqreturn_t ep_pcie_handle_perst_irq(int irq, void *data)
 
 out:
 	/* Set trigger type based on the next expected value of perst gpio */
-	irq_set_irq_type(gpio_to_irq(dev->gpio[EP_PCIE_GPIO_PERST].num),
-		(perst ? IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH));
+	irq_set_irq_type(dev->perst_irq, (perst ? IRQF_TRIGGER_LOW :
+						  IRQF_TRIGGER_HIGH));
 
 	spin_unlock_irqrestore(&dev->isr_lock, irqsave_flags);
 
@@ -2559,7 +2559,6 @@ int32_t ep_pcie_irq_init(struct ep_pcie_dev_t *dev)
 {
 	int ret;
 	struct device *pdev = &dev->pdev->dev;
-	u32 perst_irq;
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
 
@@ -2674,26 +2673,31 @@ perst_irq:
 	if (gpio_get_value(dev->gpio[EP_PCIE_GPIO_PERST].num) == 1)
 		atomic_set(&dev->perst_deast, 1);
 
+	dev->perst_irq = gpio_to_irq(dev->gpio[EP_PCIE_GPIO_PERST].num);
+	if (dev->perst_irq < 0) {
+		EP_PCIE_ERR(dev,
+			"PCIe V%d: Unable to get IRQ from GPIO_PERST %d\n",
+			dev->rev, dev->perst_irq);
+		return dev->perst_irq;
+	}
+
 	/* register handler for PERST interrupt */
-	perst_irq = gpio_to_irq(dev->gpio[EP_PCIE_GPIO_PERST].num);
-	ret = devm_request_irq(pdev, perst_irq,
-		ep_pcie_handle_perst_irq,
-		((atomic_read(&dev->perst_deast) ?
-			IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH)
-			| IRQF_EARLY_RESUME),
-		"ep_pcie_perst", dev);
+	ret = devm_request_irq(pdev, dev->perst_irq, ep_pcie_handle_perst_irq,
+			       ((atomic_read(&dev->perst_deast) ?
+				 IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH) |
+			       IRQF_EARLY_RESUME), "ep_pcie_perst", dev);
 	if (ret) {
 		EP_PCIE_ERR(dev,
 			"PCIe V%d: Unable to request PERST interrupt %d\n",
-			dev->rev, perst_irq);
+			dev->rev, dev->perst_irq);
 		return ret;
 	}
 
-	ret = enable_irq_wake(perst_irq);
+	ret = enable_irq_wake(dev->perst_irq);
 	if (ret) {
 		EP_PCIE_ERR(dev,
 			"PCIe V%d: Unable to enable PERST interrupt %d\n",
-			dev->rev, perst_irq);
+			dev->rev, dev->perst_irq);
 		return ret;
 	}
 
@@ -2723,7 +2727,8 @@ void ep_pcie_irq_deinit(struct ep_pcie_dev_t *dev)
 {
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
 
-	disable_irq(gpio_to_irq(dev->gpio[EP_PCIE_GPIO_PERST].num));
+	if (dev->perst_irq >= 0)
+		disable_irq(dev->perst_irq);
 }
 
 int ep_pcie_core_register_event(struct ep_pcie_register_event *reg)
