@@ -211,6 +211,20 @@ struct ipa_fmwk_contex {
 
 	int (*ipa_deregister_intf)(const char *name);
 
+	/* rmnet_ll APIs */
+	int (*ipa_rmnet_ll_xmit)(struct sk_buff *skb);
+
+	int (*ipa_register_rmnet_ll_cb)(
+		void (*ipa_rmnet_ll_ready_cb)(void *user_data1),
+		void *user_data1,
+		void (*ipa_rmnet_ll_stop_cb)(void *user_data2),
+		void *user_data2,
+		void (*ipa_rmnet_ll_rx_notify_cb)(
+			void *user_data3, void *rx_data),
+		void *user_data3);
+
+	int (*ipa_unregister_rmnet_ll_cb)(void);
+
 	/* ipa_usb APIs */
 	int (*ipa_usb_init_teth_prot)(enum ipa_usb_teth_prot teth_prot,
 		struct ipa_usb_teth_params *teth_params,
@@ -526,6 +540,10 @@ int ipa_fmwk_register_ipa(const struct ipa_core_data *in)
 	ipa_fmwk_ctx->ipa_disconnect_wdi_pipe = in->ipa_disconnect_wdi_pipe;
 	ipa_fmwk_ctx->ipa_reg_uc_rdyCB = in->ipa_uc_reg_rdyCB;
 	ipa_fmwk_ctx->ipa_dereg_uc_rdyCB = in->ipa_uc_dereg_rdyCB;
+	ipa_fmwk_ctx->ipa_rmnet_ll_xmit = in->ipa_rmnet_ll_xmit;
+	ipa_fmwk_ctx->ipa_register_rmnet_ll_cb = in->ipa_register_rmnet_ll_cb;
+	ipa_fmwk_ctx->ipa_unregister_rmnet_ll_cb =
+		in->ipa_unregister_rmnet_ll_cb;
 
 	ipa_fmwk_ctx->ipa_ready = true;
 	ipa_trigger_ipa_ready_cbs();
@@ -983,6 +1001,47 @@ int ipa_unregister_rmnet_ctl_cb(void)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_unregister_rmnet_ctl_cb);
+
+/* registration API for rmnet_ll module */
+int ipa_rmnet_ll_xmit(struct sk_buff *skb)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_rmnet_ll_xmit, skb);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_rmnet_ll_xmit);
+
+int ipa_register_rmnet_ll_cb(
+	void (*ipa_rmnet_ll_ready_cb)(void *user_data1),
+	void *user_data1,
+	void (*ipa_rmnet_ll_stop_cb)(void *user_data2),
+	void *user_data2,
+	void (*ipa_rmnet_ll_rx_notify_cb)(
+		void *user_data3, void *rx_data),
+	void *user_data3)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_register_rmnet_ll_cb,
+		ipa_rmnet_ll_ready_cb, user_data1,
+		ipa_rmnet_ll_stop_cb, user_data2,
+		ipa_rmnet_ll_rx_notify_cb, user_data3);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_register_rmnet_ll_cb);
+
+int ipa_unregister_rmnet_ll_cb(void)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_unregister_rmnet_ll_cb);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_unregister_rmnet_ll_cb);
 
 /* registration API for IPA usb module */
 int ipa_fmwk_register_ipa_usb(const struct ipa_usb_data *in)
