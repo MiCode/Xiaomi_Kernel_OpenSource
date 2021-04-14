@@ -927,8 +927,7 @@
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "xo";
 
-		power-domains = <&aoss_qmp AOSS_QMP_LS_LPASS>;
-		power-domain-names = "load_state";
+		qcom,qmp = <&aoss_qmp>;
 
 		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
 		interconnect-names = "crypto_ddr";
@@ -1008,8 +1007,7 @@
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "xo";
 
-		power-domains = <&aoss_qmp AOSS_QMP_LS_CDSP>;
-		power-domain-names = "load_state";
+		qcom,qmp = <&aoss_qmp>;
 
 		interconnects = <&nsp_noc MASTER_CDSP_PROC &mc_virt SLAVE_EBI1>,
 				<&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
@@ -1087,8 +1085,7 @@
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "xo";
 
-		power-domains = <&aoss_qmp AOSS_QMP_LS_SLPI>;
-		power-domain-names = "load_state";
+		qcom,qmp = <&aoss_qmp>;
 
 		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
 		interconnect-names = "crypto_ddr";
@@ -1183,8 +1180,7 @@
 		mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 		reg-names = "cx", "mx";
 
-		power-domains = <&aoss_qmp AOSS_QMP_LS_MODEM>;
-		power-domain-names = "load_state";
+		qcom,qmp = <&aoss_qmp>;
 
 		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
 		interconnect-names = "crypto_ddr";
