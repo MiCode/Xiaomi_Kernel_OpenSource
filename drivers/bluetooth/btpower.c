@@ -388,6 +388,8 @@ retry_gpio_req:
 		gpio_direction_output(xo_reset_gpio, 0);
 	}
 
+	pr_info("%s:gpio(%d) success\n", __func__, xo_reset_gpio);
+
 	gpio_free(xo_reset_gpio);
 }
 
