@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -405,9 +405,11 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 		}
 
 		/* override hardware control for reset of qmp phy */
-		writel_relaxed(SW_DPPHY_RESET_MUX | SW_DPPHY_RESET |
-			SW_USB3PHY_RESET_MUX | SW_USB3PHY_RESET,
-			phy->base + phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
+		if (!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE))
+			writel_relaxed(SW_DPPHY_RESET_MUX | SW_DPPHY_RESET |
+				SW_USB3PHY_RESET_MUX | SW_USB3PHY_RESET,
+				phy->base +
+				phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
 
 		/* update port select */
 		if (val > 0) {
@@ -417,11 +419,13 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 				phy->phy_reg[USB3_DP_COM_TYPEC_CTRL]);
 		}
 
-		msm_ssphy_qmp_setmode(phy, USB3_DP_COMBO_MODE);
+		if (!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE)) {
+			msm_ssphy_qmp_setmode(phy, USB3_DP_COMBO_MODE);
 
-		/* bring both USB and DP PHYs PCS block out of reset */
-		writel_relaxed(0x00, phy->base +
-			phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
+			/* bring both USB and DP PHYs PCS block out of reset */
+			writel_relaxed(0x00, phy->base +
+				phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
+		}
 		break;
 	case  USB3_OR_DP:
 		if (val > 0) {
@@ -513,6 +517,12 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		goto fail;
 	}
 
+	/* perform software reset of PHY common logic */
+	if (phy->phy_type == USB3_AND_DP &&
+				!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE))
+		writel_relaxed(0x00,
+			phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
+
 	/* perform software reset of PCS/Serdes */
 	writel_relaxed(0x00, phy->base + phy->phy_reg[USB3_PHY_SW_RESET]);
 	/* start PCS/Serdes to operation mode */
@@ -555,6 +565,25 @@ static int msm_ssphy_qmp_dp_combo_reset(struct usb_phy *uphy)
 	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
 					phy);
 	int ret = 0;
+
+	if (phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE) {
+		dev_dbg(uphy->dev, "Resetting USB part of QMP phy\n");
+
+		/* Assert USB3 PHY CSR reset */
+		ret = reset_control_assert(phy->phy_reset);
+		if (ret) {
+			dev_err(uphy->dev, "phy_reset assert failed\n");
+			goto exit;
+		}
+
+		/* Deassert USB3 PHY CSR reset */
+		ret = reset_control_deassert(phy->phy_reset);
+		if (ret) {
+			dev_err(uphy->dev, "phy_reset deassert failed\n");
+			goto exit;
+		}
+		return 0;
+	}
 
 	dev_dbg(uphy->dev, "Global reset of QMP DP combo phy\n");
 	/* Assert global PHY reset */
