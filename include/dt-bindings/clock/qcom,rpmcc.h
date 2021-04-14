@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright 2015-2021, Linaro Limited
+ * Copyright 2015-2020, Linaro Limited
  */
 
 #ifndef _DT_BINDINGS_CLK_MSM_RPMCC_H
