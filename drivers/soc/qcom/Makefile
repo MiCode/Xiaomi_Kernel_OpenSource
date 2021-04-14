@@ -73,6 +73,7 @@ obj-$(CONFIG_QCOM_GLINK) += glink_probe.o
 obj-$(CONFIG_MSM_GLINK_SSR) += msm_glink_ssr.o
 obj-$(CONFIG_QTI_PMIC_GLINK) += pmic_glink.o
 obj-$(CONFIG_QTI_BATTERY_GLINK_DEBUG) += qti_battery_debug.o
+obj-$(CONFIG_QTI_CHARGER_ULOG_GLINK) += charger-ulog-glink.o
 obj-$(CONFIG_QTI_ALTMODE_GLINK) += altmode-glink.o
 obj-$(CONFIG_QTI_PMIC_PON_LOG) += pmic-pon-log.o
 obj-$(CONFIG_MSM_REMOTEQDSS) += remoteqdss.o
