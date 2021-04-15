@@ -1047,6 +1047,10 @@ static void _opp_table_kref_release(struct kref *kref)
 	struct opp_table *opp_table = container_of(kref, struct opp_table, kref);
 	struct opp_device *opp_dev, *temp;
 
+	/* Drop the lock as soon as we can */
+	list_del(&opp_table->node);
+	mutex_unlock(&opp_table_lock);
+
 	_of_clear_opp_table(opp_table);
 
 	/* Release clk */
@@ -1068,10 +1072,7 @@ static void _opp_table_kref_release(struct kref *kref)
 
 	mutex_destroy(&opp_table->genpd_virt_dev_lock);
 	mutex_destroy(&opp_table->lock);
-	list_del(&opp_table->node);
 	kfree(opp_table);
-
-	mutex_unlock(&opp_table_lock);
 }
 
 void _opp_remove_all_static(struct opp_table *opp_table)
@@ -1806,6 +1807,9 @@ static void _opp_detach_genpd(struct opp_table *opp_table)
 {
 	int index;
 
+	if (!opp_table->genpd_virt_devs)
+		return;
+
 	for (index = 0; index < opp_table->required_opp_count; index++) {
 		if (!opp_table->genpd_virt_devs[index])
 			continue;
@@ -1851,6 +1855,9 @@ struct opp_table *dev_pm_opp_attach_genpd(struct device *dev,
 	opp_table = dev_pm_opp_get_opp_table(dev);
 	if (!opp_table)
 		return ERR_PTR(-ENOMEM);
+
+	if (opp_table->genpd_virt_devs)
+		return opp_table;
 
 	/*
 	 * If the genpd's OPP table isn't already initialized, parsing of the

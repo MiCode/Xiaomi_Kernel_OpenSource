@@ -210,6 +210,8 @@
   clk_hw_round_rate
   __clk_is_enabled
   __clk_mux_determine_rate_closest
+  clk_notifier_register
+  clk_notifier_unregister
   clk_prepare
   clk_put
   clk_register
@@ -1041,7 +1043,6 @@
   hrtimer_init_sleeper
   hrtimer_start_range_ns
   hrtimer_try_to_cancel
-  hrtimer_init_sleeper
   hvc_alloc
   hvc_instantiate
   hvc_kick
@@ -1082,6 +1083,7 @@
   ida_free
   idr_alloc
   idr_alloc_cyclic
+  idr_alloc_u32
   idr_destroy
   idr_find
   idr_for_each
@@ -1647,6 +1649,7 @@
   pci_device_group
   pci_disable_device
   pci_disable_msi
+  pcie_bus_configure_settings
   pcie_capability_read_word
   pci_enable_device
   pci_find_capability
@@ -1889,7 +1892,6 @@
   __refrigerator
   regcache_cache_bypass
   regcache_cache_only
-  regcache_cache_bypass
   regcache_mark_dirty
   regcache_sync
   regcache_sync_region
@@ -1976,6 +1978,7 @@
   reset_control_put
   reset_control_reset
   revalidate_disk
+  revert_creds
   rfkill_alloc
   rfkill_destroy
   rfkill_init_sw_state
@@ -2722,6 +2725,7 @@
   vb2_create_bufs
   vb2_create_framevec
   vb2_destroy_framevec
+  vb2_dma_contig_memops
   vb2_dqbuf
   vb2_expbuf
   vb2_fop_mmap
