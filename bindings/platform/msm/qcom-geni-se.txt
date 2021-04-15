@@ -16,6 +16,12 @@ Optional properties:
 - qcom,msm-bus,num-paths: Number of paths to put vote for.
 - qcom,msm-bus,vectors-bus-ids: Master and slave Endpoint IDs for DDR
 				and Corex/2x paths.
+- interconnect-names:	"qup-core" for the qup master to slave path
+			"snoc-llcc" middle path from SNOC to GEMNOC
+			"qup-ddr" for the qup master to DDR path
+			This way ensure the path from aggre1_noc ->
+			system_noc -> gem_noc -> mc_virt is complete.
+- interconnects:	Master to Slave endpoint nodes for the required paths.
 
 Optional subnodes:
 qcom,iommu_qupv3_geni_se_cb:	Child node representing the QUPV3 context
