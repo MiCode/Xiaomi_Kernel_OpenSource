@@ -997,7 +997,7 @@ static void stmmac_mac_link_up(struct phylink_config *config,
 		priv->eee_enabled = stmmac_eee_init(priv);
 		stmmac_set_eee_pls(priv, priv->hw, true);
 	}
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
 	if ((phy && phy->link == 1) && !priv->boot_kpi) {
 		place_marker("M - Ethernet is Ready.Link is UP");
 		priv->boot_kpi = true;
@@ -1998,7 +1998,7 @@ static int stmmac_tx_clean(struct stmmac_priv *priv, int budget, u32 queue)
 				priv->dev->stats.tx_packets++;
 				priv->xstats.tx_pkt_n++;
 				priv->xstats.q_tx_pkt_n[queue]++;
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
 if (priv->dev->stats.tx_packets == 1)
 	place_marker("M - Ethernet first packet transmitted");
 #endif
@@ -3783,7 +3783,7 @@ read_again:
 		napi_gro_receive(&ch->rx_napi, skb);
 
 		priv->dev->stats.rx_packets++;
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
 	if (priv->dev->stats.rx_packets == 1)
 		place_marker("M - Ethernet first packet received");
 #endif

@@ -405,7 +405,7 @@ static int qcom_ethqos_add_ipaddr(struct ip_params *ip_info,
 		} else {
 			ETHQOSINFO("Assigned IPv4 address: %s\r\n",
 				   ip_info->ipv4_addr_str);
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
 place_marker("M - Etherent Assigned IPv4 address");
 #endif
 		}
@@ -453,7 +453,7 @@ static int qcom_ethqos_add_ipv6addr(struct ip_params *ip_info,
 		} else {
 			ETHQOSDBG("Assigned IPv6 address: %s\r\n",
 				  ip_info->ipv6_addr_str);
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
 		place_marker("M - Ethernet Assigned IPv6 address");
 #endif
 		}
@@ -1537,7 +1537,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 				    "qcom,emac-smmu-embedded"))
 		return emac_emb_smmu_cb_probe(pdev);
 
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
 	place_marker("M - Ethernet probe start");
 #endif
 
@@ -1684,7 +1684,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		/*Set early eth parameters*/
 		ethqos_set_early_eth_param(priv, ethqos);
 	}
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
 	place_marker("M - Ethernet probe end");
 #endif
 
