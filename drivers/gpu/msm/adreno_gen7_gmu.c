@@ -52,6 +52,11 @@ static struct gmu_vma_entry gen7_gmu_vma[] = {
 			.size = SZ_512M,
 			.next_va = 0x60000000,
 		},
+	[GMU_NONCACHED_KERNEL_EXTENDED] = {
+			.start = 0xc0000000,
+			.size = SZ_512M,
+			.next_va = 0xc0000000,
+		},
 };
 
 static ssize_t log_stream_enable_store(struct kobject *kobj,
