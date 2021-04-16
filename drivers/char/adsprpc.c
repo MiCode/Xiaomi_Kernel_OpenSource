@@ -5072,6 +5072,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	kfree(fl->gidlist.gids);
 
 	if (!fl->sctx) {
+		kfree(fl->dev_pm_qos_req);
 		kfree(fl);
 		return 0;
 	}
