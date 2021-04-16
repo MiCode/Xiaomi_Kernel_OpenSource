@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CRYPTO_INLINE_CRYPTO_ENGINE_REGS_H_
@@ -148,9 +148,9 @@
 			 ICE_QTIC_DBG_OPEN_EVENT |	  \
 			 ICE_KEYS_RAM_RESET_COMPLETED)
 
-#define ice_writel(ice_entry, val, reg)	\
-	writel_relaxed((val), (ice_entry)->icemmio_base + (reg))
-#define ice_readl(ice_entry, reg)	\
-	readl_relaxed((ice_entry)->icemmio_base + (reg))
+#define ice_writel(ice_mmio, val, reg)	\
+	writel_relaxed((val), ice_mmio + (reg))
+#define ice_readl(ice_mmio, reg)	\
+	readl_relaxed(ice_mmio + (reg))
 
 #endif /* _CRYPTO_INLINE_CRYPTO_ENGINE_REGS_H_ */

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2020, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, Linux Foundation. All rights reserved.
  */
 
 #include <linux/acpi.h>
@@ -633,12 +633,17 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 		 * is initialized.
 		 */
 		err = ufs_qcom_enable_lane_clks(host);
+		/*
+		 * ICE enable needs to be called before ufshcd_crypto_enable
+		 * during resume as it is needed before reprogramming all
+		 * keys. So moving it to PRE_CHANGE.
+		 */
+		ufs_qcom_ice_enable(host);
 		break;
 	case POST_CHANGE:
 		/* check if UFS PHY moved from DISABLED to HIBERN8 */
 		err = ufs_qcom_check_hibern8(hba);
 		ufs_qcom_enable_hw_clk_gating(hba);
-		ufs_qcom_ice_enable(host);
 		break;
 	default:
 		dev_err(hba->dev, "%s: invalid status %d\n", __func__, status);
@@ -1160,6 +1165,8 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	if (!err && ufs_qcom_is_link_off(hba) && host->device_reset)
 		ufs_qcom_device_reset_ctrl(hba, true);
+
+	ufs_qcom_ice_disable(host);
 
 	return err;
 }
@@ -1845,6 +1852,10 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 
 	if (host->disable_lpm)
 		hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
+
+#if IS_ENABLED(CONFIG_SCSI_UFS_CRYPTO_QTI)
+	hba->quirks |= UFSHCD_QUIRK_CUSTOM_KEYSLOT_MANAGER;
+#endif
 }
 
 static void ufs_qcom_set_caps(struct ufs_hba *hba)
@@ -2750,12 +2761,6 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 		goto out_variant_clear;
 	}
 
-	/*
-	 * Set the vendor specific ops needed for ICE.
-	 * Default implementation if the ops are not set.
-	 */
-	ufshcd_crypto_qti_set_vops(hba);
-
 	err = ufs_qcom_bus_register(host);
 	if (err)
 		goto out_variant_clear;
@@ -2842,6 +2847,14 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	err = ufs_qcom_ice_init(host);
 	if (err)
 		goto out_variant_clear;
+
+	/*
+	 * Instantiate crypto capabilities for wrapped keys.
+	 * It is controlled by CONFIG_SCSI_UFS_CRYPTO_QTI.
+	 * If this is not defined, this API would return zero and
+	 * non-wrapped crypto capabilities will be instantiated.
+	 */
+	ufshcd_qti_hba_init_crypto_capabilities(hba);
 
 	ufs_qcom_set_bus_vote(hba, true);
 	/* enable the device ref clock for HS mode*/
