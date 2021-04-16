@@ -269,6 +269,14 @@ config ARCH_DIREWOLF
 	  kernel that runs on this chipset or if you are unsure,
 	  say 'N' here.
 
+config ARCH_SCUBA
+	bool "Enable Support for Qualcomm Technologies, Inc. SCUBA"
+	depends on ARCH_QCOM
+	help
+	  This enables support for the Qualcomm Technologies, Inc.'s
+	  SCUBA chipset. If you do not wish to build a kernel that
+	  runs on this chipset or if you are unsure, say 'N' here.
+
 config ARCH_REALTEK
 	bool "Realtek Platforms"
 	help
