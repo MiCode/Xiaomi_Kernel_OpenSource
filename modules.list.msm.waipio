@@ -5,6 +5,8 @@ clk-qcom.ko
 clk-rpmh.ko
 cmd-db.ko
 cqhci.ko
+crypto-qti-common.ko
+crypto-qti-tz.ko
 dcvs_fp.ko
 debug-regulator.ko
 deferred-free-helper.ko
@@ -71,4 +73,5 @@ smem.ko
 socinfo.ko
 spmi-pmic-arb.ko
 stub-regulator.ko
+ufshcd-crypto-qti.ko
 ufs_qcom.ko
