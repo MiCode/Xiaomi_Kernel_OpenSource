@@ -20,6 +20,10 @@
 extern unsigned char mem_buf_capability;
 extern struct device *mem_buf_dev;
 
+struct gh_acl_desc *mem_buf_vmid_perm_list_to_gh_acl(int *vmids, int *perms,
+		unsigned int nr_acl_entries);
+struct gh_sgl_desc *mem_buf_sgt_to_gh_sgl_desc(struct sg_table *sgt);
+
 /* Hypervisor Interface */
 int mem_buf_assign_mem(struct sg_table *sgt, int *dst_vmids,
 			      int *dst_perms, unsigned int nr_acl_entries);

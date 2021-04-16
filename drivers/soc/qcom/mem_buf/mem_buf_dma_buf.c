@@ -195,33 +195,12 @@ static int __mem_buf_vmperm_reclaim(struct mem_buf_vmperm *vmperm)
 	return 0;
 }
 
-static struct gh_sgl_desc *dup_sgt_to_gh_sgl_desc(struct sg_table *sgt)
-{
-	struct gh_sgl_desc *gh_sgl;
-	size_t size;
-	int i;
-	struct scatterlist *sg;
-
-	size = offsetof(struct gh_sgl_desc, sgl_entries[sgt->orig_nents]);
-	gh_sgl = kvmalloc(size, GFP_KERNEL);
-	if (!gh_sgl)
-		return ERR_PTR(-ENOMEM);
-
-	gh_sgl->n_sgl_entries = sgt->orig_nents;
-	for_each_sgtable_sg(sgt, sg, i) {
-		gh_sgl->sgl_entries[i].ipa_base = sg_phys(sg);
-		gh_sgl->sgl_entries[i].size = sg->length;
-	}
-
-	return gh_sgl;
-}
-
 static int mem_buf_vmperm_relinquish(struct mem_buf_vmperm *vmperm)
 {
 	int ret;
 	struct gh_sgl_desc *sgl_desc;
 
-	sgl_desc = dup_sgt_to_gh_sgl_desc(vmperm->sgt);
+	sgl_desc = mem_buf_sgt_to_gh_sgl_desc(vmperm->sgt);
 	if (IS_ERR(sgl_desc))
 		return PTR_ERR(sgl_desc);
 

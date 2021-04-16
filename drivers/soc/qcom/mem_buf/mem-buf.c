@@ -338,27 +338,6 @@ static int mem_buf_gh_acl_desc_to_vmid_perm_list(struct gh_acl_desc *acl_desc,
 	return 0;
 }
 
-static struct gh_acl_desc *mem_buf_vmid_perm_list_to_gh_acl(int *vmids, int *perms,
-		unsigned int nr_acl_entries)
-{
-	struct gh_acl_desc *gh_acl;
-	size_t size;
-	unsigned int i;
-
-	size = offsetof(struct gh_acl_desc, acl_entries[nr_acl_entries]);
-	gh_acl = kmalloc(size, GFP_KERNEL);
-	if (!gh_acl)
-		return ERR_PTR(-ENOMEM);
-
-	gh_acl->n_acl_entries = nr_acl_entries;
-	for (i = 0; i < nr_acl_entries; i++) {
-		gh_acl->acl_entries[i].vmid = vmids[i];
-		gh_acl->acl_entries[i].perms = perms[i];
-	}
-
-	return gh_acl;
-}
-
 static
 struct mem_buf_xfer_dmaheap_mem *mem_buf_alloc_dmaheap_xfer_mem_type_data(
 								void *rmt_data)

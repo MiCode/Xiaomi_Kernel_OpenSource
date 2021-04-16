@@ -32,6 +32,50 @@ EXPORT_SYMBOL(mem_buf_dev);
 unsigned char mem_buf_capability;
 EXPORT_SYMBOL(mem_buf_capability);
 
+struct gh_acl_desc *mem_buf_vmid_perm_list_to_gh_acl(int *vmids, int *perms,
+		unsigned int nr_acl_entries)
+{
+	struct gh_acl_desc *gh_acl;
+	size_t size;
+	unsigned int i;
+
+	size = offsetof(struct gh_acl_desc, acl_entries[nr_acl_entries]);
+	gh_acl = kmalloc(size, GFP_KERNEL);
+	if (!gh_acl)
+		return ERR_PTR(-ENOMEM);
+
+	gh_acl->n_acl_entries = nr_acl_entries;
+	for (i = 0; i < nr_acl_entries; i++) {
+		gh_acl->acl_entries[i].vmid = vmids[i];
+		gh_acl->acl_entries[i].perms = perms[i];
+	}
+
+	return gh_acl;
+}
+EXPORT_SYMBOL(mem_buf_vmid_perm_list_to_gh_acl);
+
+struct gh_sgl_desc *mem_buf_sgt_to_gh_sgl_desc(struct sg_table *sgt)
+{
+	struct gh_sgl_desc *gh_sgl;
+	size_t size;
+	int i;
+	struct scatterlist *sg;
+
+	size = offsetof(struct gh_sgl_desc, sgl_entries[sgt->orig_nents]);
+	gh_sgl = kvmalloc(size, GFP_KERNEL);
+	if (!gh_sgl)
+		return ERR_PTR(-ENOMEM);
+
+	gh_sgl->n_sgl_entries = sgt->orig_nents;
+	for_each_sgtable_sg(sgt, sg, i) {
+		gh_sgl->sgl_entries[i].ipa_base = sg_phys(sg);
+		gh_sgl->sgl_entries[i].size = sg->length;
+	}
+
+	return gh_sgl;
+}
+EXPORT_SYMBOL(mem_buf_sgt_to_gh_sgl_desc);
+
 int mem_buf_assign_mem(struct sg_table *sgt, int *dst_vmids,
 			      int *dst_perms, unsigned int nr_acl_entries)
 {
