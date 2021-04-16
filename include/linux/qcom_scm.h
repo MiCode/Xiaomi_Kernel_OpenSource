@@ -193,6 +193,8 @@ extern int qcom_scm_config_set_ice_key(uint32_t index, phys_addr_t paddr,
 				       unsigned int data_unit,
 				       unsigned int ce);
 extern int qcom_scm_clear_ice_key(uint32_t index, unsigned int ce);
+extern int qcom_scm_derive_raw_secret(phys_addr_t paddr_key, size_t size_key,
+		phys_addr_t paddr_secret, size_t size_secret);
 extern bool qcom_scm_ice_available(void);
 extern int qcom_scm_ice_invalidate_key(u32 index);
 extern int qcom_scm_ice_set_key(u32 index, const u8 *key, u32 key_size,
@@ -372,6 +374,9 @@ static inline int qcom_scm_config_set_ice_key(uint32_t index, phys_addr_t paddr,
 		unsigned int food) { return -ENODEV; }
 static inline int qcom_scm_clear_ice_key(uint32_t index, unsigned int food)
 		{ return -ENODEV; }
+static inline int qcom_scm_derive_raw_secret(phys_addr_t paddr_key,
+		size_t size_key, phys_addr_t paddr_secret,
+		size_t size_secret) { return -ENODEV; }
 static inline bool qcom_scm_ice_available(void) { return false; }
 static inline int qcom_scm_ice_invalidate_key(u32 index) { return -ENODEV; }
 static inline int qcom_scm_ice_set_key(u32 index, const u8 *key, u32 key_size,

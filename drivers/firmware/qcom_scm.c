@@ -1775,6 +1775,25 @@ int qcom_scm_clear_ice_key(uint32_t index,  unsigned int ce)
 }
 EXPORT_SYMBOL(qcom_scm_clear_ice_key);
 
+int qcom_scm_derive_raw_secret(phys_addr_t paddr_key, size_t size_key,
+		phys_addr_t paddr_secret, size_t size_secret)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_ES,
+		.cmd = QCOM_SCM_ES_DERIVE_RAW_SECRET,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = paddr_key;
+	desc.args[1] = size_key;
+	desc.args[2] = paddr_secret;
+	desc.args[3] = size_secret;
+	desc.arginfo = QCOM_SCM_ARGS(4, QCOM_SCM_RW, QCOM_SCM_VAL,
+					QCOM_SCM_RW, QCOM_SCM_VAL);
+	return qcom_scm_call_noretry(__scm->dev, &desc, NULL);
+}
+EXPORT_SYMBOL(qcom_scm_derive_raw_secret);
+
 /**
  * qcom_scm_hdcp_available() - Check if secure environment supports HDCP.
  *
