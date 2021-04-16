@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/devfreq.h>
@@ -96,7 +96,7 @@ static int devfreq_gpubw_get_target(struct devfreq *df,
 					struct msm_busmon_extended_profile,
 					profile);
 	struct devfreq_dev_status *stats = &df->last_status;
-	struct xstats b;
+	struct xstats b = {0};
 	int result;
 	int act_level;
 	int norm_max_cycles;
