@@ -74,8 +74,8 @@ unsigned int cpu_power_ratio_down0[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100, 0
 unsigned int debounce_times_up_adb0[CM_MGR_EMI_OPP] = {0, 0, 0, 0, 0, 0};
 unsigned int debounce_times_down_adb0[CM_MGR_EMI_OPP] = {3, 0, 0, 0, 0, 0};
 
-unsigned int cpu_power_ratio_up1[CM_MGR_EMI_OPP] = {100, 120, 140, 100, 100, 0};
-unsigned int cpu_power_ratio_down1[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100, 0};
+unsigned int cpu_power_ratio_up1[CM_MGR_EMI_OPP] = {100, 120, 140, 100, 100, 100};
+unsigned int cpu_power_ratio_down1[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100, 100};
 unsigned int debounce_times_up_adb1[CM_MGR_EMI_OPP] = {0, 0, 0, 0, 0, 0};
 unsigned int debounce_times_down_adb1[CM_MGR_EMI_OPP] = {3, 0, 0, 0, 0, 0};
 

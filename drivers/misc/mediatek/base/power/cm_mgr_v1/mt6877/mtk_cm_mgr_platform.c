@@ -579,7 +579,7 @@ int debounce_times_perf_down_force_local = -1;
 int pm_qos_update_request_status;
 int cm_mgr_dram_opp_base = -1;
 int cm_mgr_dram_opp = -1;
-int cm_mgr_dram_perf_opp = -1;
+int cm_mgr_dram_perf_opp = 2;
 int cm_mgr_dram_step_opp = 2;
 
 static int cm_mgr_fb_notifier_callback(struct notifier_block *self,
@@ -1067,24 +1067,6 @@ void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
 	ret = schedule_delayed_work(&cm_mgr_work, 1);
 }
 #endif /* USE_CPU_TO_DRAM_MAP */
-
-void cm_mgr_setup_cpu_dvfs_info(void)
-{
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM) && \
-	defined(CONFIG_MTK_CPU_FREQ)
-	int i, j;
-	unsigned int val;
-
-	for (j = 0; j < CM_MGR_CPU_CLUSTER; j++) {
-		for (i = 0; i < CM_MGR_CPU_OPP_SIZE; i++) {
-			val = (j*16+i) << 24 | mt_cpufreq_get_freq_by_idx(j, i);
-			cm_mgr_to_sspm_command(IPI_CM_MGR_OPP_FREQ_SET, val);
-			val = (j*16+i) << 24 | mt_cpufreq_get_volt_by_idx(j, i);
-			cm_mgr_to_sspm_command(IPI_CM_MGR_OPP_VOLT_SET, val);
-		}
-	}
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
-}
 
 void cm_mgr_ddr_setting_init(void)
 {
