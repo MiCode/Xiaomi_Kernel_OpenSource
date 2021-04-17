@@ -4533,8 +4533,7 @@ int pg_prepare(struct clk_hw *hw)
 
 	mtk_mtcmos_lock(flags);
 #if CHECK_PWR_ST
-	if (pg_is_enabled(hw) == SUBSYS_PWR_ON &&
-		!isNeedMfgFakePowerOn(pg->pd_id))
+	if (pg_is_enabled(hw) == SUBSYS_PWR_ON)
 		skip_pg = 1;
 #endif				/* CHECK_PWR_ST */
 

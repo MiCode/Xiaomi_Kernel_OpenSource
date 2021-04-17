@@ -431,9 +431,9 @@ void mt_gpufreq_dump_infra_status(void)
 				readl(g_sleep + 0xE9C));
 
 		gpufreq_pr_info("[GPU_DFD] pwr info 0x%X:0x%08X 0x%08X\n",
-				0x10006000 + 0xEF0,
-				readl(g_sleep + 0xEF0),
-				readl(g_sleep + 0xEF4));
+				0x10006000 + 0xEF8,
+				readl(g_sleep + 0xEF8),
+				readl(g_sleep + 0xEFC));
 	}
 
 	// 0x13FBF000
@@ -951,7 +951,7 @@ static void __mt_gpufreq_dfd_debug_exception(void)
 		"dfd status 0x%x, WDT_STA 0x%x, WDT_REQ_MODE 0x%x\n"
 		"pwr info 0x%x, 0x1000D060 0x%x\n",
 		status, readl(g_toprgu + 0x00C), readl(g_toprgu + 0x030),
-		readl(g_sleep + 0xEF0), readl(g_dbgtop + 0x060));
+		readl(g_sleep + 0xEF8), readl(g_dbgtop + 0x060));
 
 #endif
 }
@@ -1018,9 +1018,9 @@ static void __mt_gpufreq_config_dfd(bool enable)
 		if (mt_gpufreq_is_dfd_force_dump())
 			writel(0xFFFFFFFF, g_mfg_base + 0x8F8);
 
-		writel(0x00018E90, g_mfg_base + 0xA04);
+		writel(0x000138A3, g_mfg_base + 0xA04);
 		writel(0x0001829F, g_mfg_base + 0xA08);
-		writel(0x00100014, g_mfg_base + 0xA0C);
+		writel(0x00100027, g_mfg_base + 0xA0C);
 		writel(0x00000000, g_mfg_base + 0xA10);
 		writel(0x00000000, g_mfg_base + 0xA14);
 		writel(0x00000000, g_mfg_base + 0xA18);
@@ -1070,8 +1070,8 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 
 		gpufreq_pr_info("[GPU_DFD] power %d, pwr info 0x%X:0x%08X\n",
 				power,
-				0x10006000 + 0xEF0,
-				readl(g_sleep + 0xEF0));
+				0x10006000 + 0xEF8,
+				readl(g_sleep + 0xEF8));
 #endif
 		if (g_probe_done) {
 			gpufreq_pr_info("@%s: power=%d g_power_count=%d, skip by dfd_trigger\n",
@@ -3564,14 +3564,16 @@ static void __mt_gpufreq_gpu_hard_reset(void)
 {
 	/*
 	 * // [2] = mfg_rst, reset mfg
-	 * Write register WDT_SWSYSRST (@ 0x1000_7018) = 0x88000004;
+	 * Write register WDT_SWSYSRST (@ 0x1000_7208) = 0x88000004;
 	 * Wait 10us;
 	 * // [2] = mfg_rst, release reset
-	 * Write register WDT_SWSYSRST (@ 0x1000_7018) = 0x88000000;
+	 * Write register WDT_SWSYSRST (@ 0x1000_7208) = 0x88000000;
+	 * Wait 10us;
 	 */
-	writel(0x88000004, g_toprgu + 0x018);
+	writel(0x88000004, g_toprgu + 0x208);
 	udelay(10);
-	writel(0x88000000, g_toprgu + 0x018);
+	writel(0x88000000, g_toprgu + 0x208);
+	udelay(10);
 }
 
 /*
