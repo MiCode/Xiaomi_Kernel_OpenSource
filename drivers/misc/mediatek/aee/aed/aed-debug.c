@@ -48,7 +48,7 @@ static struct notifier_block panic_test = {
 
 void notrace wdt_atf_hang(void)
 {
-	int cpu = get_HW_cpuid();
+	int cpu = raw_smp_processor_id();
 
 	pr_notice(" CPU %d : %s\n", cpu, __func__);
 
@@ -61,7 +61,7 @@ void notrace wdt_atf_hang(void)
 static int kwdt_thread_test(void *arg)
 {
 	struct sched_param param = {.sched_priority = 99 };
-	int cpu = get_HW_cpuid();
+	int cpu = raw_smp_processor_id();
 
 	sched_setscheduler(current, SCHED_FIFO, &param);
 	set_current_state(TASK_INTERRUPTIBLE);

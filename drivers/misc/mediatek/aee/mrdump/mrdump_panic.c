@@ -127,7 +127,7 @@ static void mrdump_cblock_update(enum AEE_REBOOT_MODE reboot_mode,
 	if (mrdump_cblock) {
 		crash_record = &mrdump_cblock->crash_record;
 
-		cpu = get_HW_cpuid();
+		cpu = raw_smp_processor_id();
 
 		switch (sizeof(unsigned long)) {
 		case 4:
