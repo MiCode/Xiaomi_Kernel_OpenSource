@@ -25,14 +25,9 @@ extern phys_addr_t aee_memblock_end_of_DRAM(void);
 #ifdef CONFIG_SYSFS
 extern struct kset *aee_get_module_kset(void);
 #endif
-#ifdef __aarch64__
-extern bool aee_on_irq_stack(unsigned long sp, struct stack_info *info);
-#endif
 extern struct list_head *aee_get_modules(void);
 extern void aee_show_regs(struct pt_regs *regs);
 extern pgd_t *aee_pgd_offset_k(unsigned long addr);
-extern unsigned long aee_cpu_rq(int cpu);
-extern struct task_struct *aee_cpu_curr(int cpu);
 extern int get_HW_cpuid(void);
 extern unsigned long aee_get_kallsyms_addresses(void);
 extern unsigned long aee_get_kti_addresses(void);

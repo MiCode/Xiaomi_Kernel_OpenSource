@@ -6,7 +6,6 @@
 #include <linux/bug.h>
 #include <linux/compiler.h>
 #include <linux/elf.h>
-#include <linux/fs.h>
 #include <linux/highmem.h>
 #include <linux/init.h>
 #include <linux/kdebug.h>
@@ -168,44 +167,6 @@ void unload_ko_addr_list(struct module *module)
 
 	memset(&ko_info_list[i], 0, sizeof(struct ko_info));
 }
-#endif
-
-#ifdef MODULE
-static char __aee_cmdline[COMMAND_LINE_SIZE];
-static char *aee_cmdline = __aee_cmdline;
-
-const char *mrdump_get_cmd(void)
-{
-	struct file *fd;
-	mm_segment_t fs;
-	loff_t pos = 0;
-
-	if (__aee_cmdline[0] != 0)
-		return aee_cmdline;
-
-	fs = get_fs();
-	set_fs(KERNEL_DS);
-	fd = filp_open("/proc/cmdline", O_RDONLY, 0);
-	if (IS_ERR(fd)) {
-		pr_info("kedump: Unable to open /proc/cmdline (%ld)",
-			PTR_ERR(fd));
-		set_fs(fs);
-		return aee_cmdline;
-	}
-	kernel_read(fd, (void *)aee_cmdline, COMMAND_LINE_SIZE, &pos);
-	filp_close(fd, NULL);
-	fd = NULL;
-	set_fs(fs);
-	return aee_cmdline;
-}
-EXPORT_SYMBOL(mrdump_get_cmd);
-#else
-const char *mrdump_get_cmd(void)
-{
-	return saved_command_line;
-}
-EXPORT_SYMBOL(mrdump_get_cmd);
-
 #endif
 
 __weak void get_gz_log_buffer(unsigned long *addr, unsigned long *paddr,
@@ -409,7 +370,7 @@ static int fill_psinfo(struct elf_prpsinfo *psinfo)
 {
 	unsigned int i;
 
-	strncpy(psinfo->pr_psargs, mrdump_get_cmd(), ELF_PRARGSZ - 1);
+	strncpy(psinfo->pr_psargs, "proc_cmdline", ELF_PRARGSZ - 1);
 	for (i = 0; i < ELF_PRARGSZ - 1; i++)
 		if (psinfo->pr_psargs[i] == 0)
 			psinfo->pr_psargs[i] = ' ';

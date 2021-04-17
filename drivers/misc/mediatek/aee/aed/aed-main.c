@@ -2288,10 +2288,6 @@ static int __init aed_init(void)
 	if (err != 0)
 		return err;
 
-	err = ksysfs_bootinfo_init();
-	if (err != 0)
-		return err;
-
 	spin_lock_init(&ke_queue.lock);
 	spin_lock_init(&ee_queue.lock);
 	INIT_LIST_HEAD(&ke_queue.list);
@@ -2333,7 +2329,6 @@ static void __exit aed_exit(void)
 	ke_destroy_log();
 
 	aed_proc_done();
-	ksysfs_bootinfo_exit();
 	aed_hrtimer_exit();
 }
 module_init(aed_init);
