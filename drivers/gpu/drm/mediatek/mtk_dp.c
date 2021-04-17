@@ -2405,11 +2405,12 @@ void mdrv_DPTx_HPD_HandleInISR(struct mtk_dp *mtk_dp)
 			mtk_dp->training_info.usPHY_STS &= ~HPD_DISCONNECT;
 	}
 
+#if 0
 	if (mtk_dp->training_info.bCablePlugIn)
 		mtk_dp->training_info.usPHY_STS &= ~HPD_CONNECT;
 	else
 		mtk_dp->training_info.usPHY_STS &= ~HPD_DISCONNECT;
-
+#endif
 
 	if (mtk_dp->training_info.usPHY_STS & HPD_CONNECT) {
 		mtk_dp->training_info.usPHY_STS &= ~HPD_CONNECT;
@@ -2434,7 +2435,9 @@ void mdrv_DPTx_USBC_HPD_Event(u16 ubSWStatus)
 	struct mtk_dp *mtk_dp = g_mtk_dp;
 
 	mtk_dp->training_info.usPHY_STS |= ubSWStatus;
-	DPTXMSG("SW status = 0x%x\n", ubSWStatus);
+	DPTXMSG("SW status = 0x%x, usPHY_STS = 0x%x\n",
+		ubSWStatus,
+		mtk_dp->training_info.usPHY_STS);
 
 	mdrv_DPTx_HPD_HandleInISR(mtk_dp);
 
@@ -3377,7 +3380,7 @@ static enum drm_mode_status mtk_dp_conn_mode_valid(struct drm_connector *conn,
 
 	if (mode->hdisplay == 3840 && mode->vdisplay == 2160 &&
 		mode->vrefresh == 60 && mtk_dp->has_dsc)
-		bandwidth = bandwidth * 594 / 202.5;
+		bandwidth = bandwidth * 594 * 10 / 2025;
 
 	if (fakecablein == true)
 		bandwidth = dp_plat_limit[0].clock;
