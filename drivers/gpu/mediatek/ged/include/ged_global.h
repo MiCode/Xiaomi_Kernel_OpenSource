@@ -9,30 +9,16 @@
 #include "ged_dvfs.h"
 
 extern GED_LOG_BUF_HANDLE ghLogBuf_DVFS;
-extern void (*mtk_boost_gpu_freq_fp)(void);
 extern void (*mtk_set_bottom_gpu_freq_fp)(unsigned int idx);
 extern unsigned int (*mtk_get_bottom_gpu_freq_fp)(void);
 extern unsigned int (*mtk_custom_get_gpu_freq_level_count_fp)(void);
 extern void (*mtk_custom_boost_gpu_freq_fp)(unsigned int ui32FreqLevel);
 extern void (*mtk_custom_upbound_gpu_freq_fp)(unsigned int ui32FreqLevel);
-extern unsigned int (*mtk_get_custom_boost_gpu_freq_fp)(void);
-extern unsigned int (*mtk_get_custom_upbound_gpu_freq_fp)(void);
 extern unsigned int (*mtk_get_gpu_loading_fp)(void);
-extern unsigned int (*mtk_get_gpu_loading2_fp)(int load);
 extern unsigned int (*mtk_get_gpu_block_fp)(void);
 extern unsigned int (*mtk_get_gpu_idle_fp)(void);
-extern void (*mtk_do_gpu_dvfs_fp)(unsigned long t, long phase,
-	unsigned long ul3DFenceDoneTime);
-extern void (*mtk_gpu_dvfs_set_mode_fp)(int eMode);
-
-extern unsigned int (*mtk_get_gpu_sub_loading_fp)(void);
-extern unsigned long (*mtk_get_vsync_based_target_freq_fp)(void);
-extern void (*mtk_GetGpuDVFSfromFp)(enum MTK_GPU_DVFS_TYPE *peType,
-	unsigned long *pulFreq);
 
 extern unsigned long (*mtk_get_gpu_bottom_freq_fp)(void);
-extern unsigned long (*mtk_get_gpu_custom_boost_freq_fp)(void);
-extern unsigned long (*mtk_get_gpu_custom_upbound_freq_fp)(void);
 
 extern void ged_monitor_3D_fence_set_enable(GED_BOOL bEnable);
 
@@ -56,9 +42,6 @@ extern bool ged_gpu_power_off_notified;
 
 extern bool mtk_get_bottom_gpu_freq(unsigned int *pui32FreqLevel);
 extern GED_LOG_BUF_HANDLE ghLogBuf_GED;
-
-extern void (*mtk_gpu_sodi_entry_fp)(void);
-extern void (*mtk_gpu_sodi_exit_fp)(void);
 
 extern unsigned int g_gpu_timer_based_emu;
 // calculate loading reset time stamp

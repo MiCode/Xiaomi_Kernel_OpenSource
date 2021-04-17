@@ -34,7 +34,6 @@
 #include <gpufreq_common.h>
 #include <gpufreq_mt6893.h>
 
-#include <mtk_gpu_utility.h>
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 #include <mtk_battery_oc_throttling.h>
 #endif
@@ -544,8 +543,6 @@ int __gpufreq_power_control(
 		}
 		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_4);
 
-		mtk_notify_gpu_power_change(POWER_ON);
-
 		if (g_gpu.power_count == 1)
 			g_dvfs_state &= ~DVFS_POWEROFF;
 	} else {
@@ -553,8 +550,6 @@ int __gpufreq_power_control(
 			g_dvfs_state |= DVFS_POWEROFF;
 
 		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_5);
-
-		mtk_notify_gpu_power_change(POWER_OFF);
 
 		if (cg == CG_OFF) {
 			ret = __gpufreq_cg_control(cg);

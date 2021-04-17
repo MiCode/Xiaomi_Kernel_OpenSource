@@ -118,6 +118,8 @@ int ged_dvfs_vsync_offset_level_get(void);
 unsigned int ged_dvfs_get_gpu_loading(void);
 unsigned int ged_dvfs_get_gpu_blocking(void);
 unsigned int ged_dvfs_get_gpu_idle(void);
+unsigned int ged_dvfs_get_custom_ceiling_gpu_freq(void);
+unsigned int ged_dvfs_get_custom_boost_gpu_freq(void);
 
 unsigned long ged_query_info(GED_INFO eType);
 
@@ -148,9 +150,6 @@ extern int (*ged_kpi_gpu_dvfs_fp)(int t_gpu, int t_gpu_target,
 extern void (*ged_kpi_trigger_fb_dvfs_fp)(void);
 extern int (*ged_kpi_check_if_fallback_mode_fp)(void);
 #endif
-
-extern void (*mtk_get_gpu_dvfs_cal_freq_fp)(unsigned long *pulGpu_tar_freq,
-	int *pmode);
 
 extern void mtk_gpu_ged_hint(int a, int b);
 int ged_dvfs_boost_value(void);

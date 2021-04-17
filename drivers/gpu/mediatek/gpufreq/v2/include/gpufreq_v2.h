@@ -286,4 +286,14 @@ extern int __gpufreq_fix_custom_freq_volt_gstack(
 	unsigned int freq, unsigned int volt);
 extern void __gpufreq_restore_opp_gstack(void);
 
+/**************************************************
+ * GPU HAL Interface
+ **************************************************/
+extern int (*mtk_get_gpu_limit_index_fp)(enum gpufreq_target target,
+	enum gpuppm_limit_type limit);
+extern unsigned int (*mtk_get_gpu_limiter_fp)(enum gpufreq_target target,
+	enum gpuppm_limit_type limit);
+extern unsigned int (*mtk_get_gpu_cur_freq_fp)(enum gpufreq_target target);
+extern int (*mtk_get_gpu_cur_oppidx_fp)(enum gpufreq_target target);
+
 #endif /* __GPUFREQ_V2_H__ */

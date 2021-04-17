@@ -543,9 +543,6 @@ GED_ERROR ged_notify_sw_vsync_system_init(void)
 	hrtimer_init(&g_HT_hwvsync_emu, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	g_HT_hwvsync_emu.function = ged_sw_vsync_check_cb;
 
-	mtk_gpu_sodi_entry_fp = ged_sodi_start;
-	mtk_gpu_sodi_exit_fp = ged_sodi_stop;
-
 	return GED_OK;
 }
 

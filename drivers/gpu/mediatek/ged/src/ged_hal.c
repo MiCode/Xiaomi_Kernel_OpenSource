@@ -78,10 +78,9 @@ static ssize_t custom_boost_gpu_freq_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	unsigned int ui32BoostGpuFreqLevel;
+	unsigned int ui32BoostGpuFreqLevel = 0;
 
-	if (false == mtk_get_custom_boost_gpu_freq(&ui32BoostGpuFreqLevel))
-		ui32BoostGpuFreqLevel = 0;
+	ui32BoostGpuFreqLevel = ged_dvfs_get_custom_boost_gpu_freq();
 
 	return scnprintf(buf, PAGE_SIZE, "%u\n", ui32BoostGpuFreqLevel);
 }
@@ -112,22 +111,11 @@ static ssize_t custom_upbound_gpu_freq_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	unsigned int ui32UpboundGpuFreqLevel;
-	int pos = 0;
-	int length;
+	unsigned int ui32UpboundGpuFreqLevel = 0;
 
-	if (false == mtk_get_custom_upbound_gpu_freq(
-			&ui32UpboundGpuFreqLevel)) {
-		ui32UpboundGpuFreqLevel = 0;
-		length = scnprintf(buf + pos, PAGE_SIZE - pos,
-				"call mtk_get_custom_upbound_gpu_freq false\n");
-		pos += length;
-	}
-	length = scnprintf(buf + pos, PAGE_SIZE - pos,
-			"%u\n", ui32UpboundGpuFreqLevel);
-	pos += length;
+	ui32UpboundGpuFreqLevel = ged_dvfs_get_custom_ceiling_gpu_freq();
 
-	return pos;
+	return scnprintf(buf, PAGE_SIZE, "%u\n", ui32UpboundGpuFreqLevel);
 }
 
 static ssize_t custom_upbound_gpu_freq_store(struct kobject *kobj,

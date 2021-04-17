@@ -24,6 +24,7 @@
 #include <gpufreq_v2.h>
 #include <gpufreq_debug.h>
 #include <gpuppm.h>
+#include <mtk_gpu_utility.h>
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 #include <mtk_battery_oc_throttling.h>
@@ -41,6 +42,7 @@
  * ===============================================
  */
 static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev);
+static int gpufreq_gpuhal_init(void);
 
 /**
  * ===============================================
@@ -741,6 +743,16 @@ static void gpufreq_low_batt_callback(LOW_BATTERY_LEVEL low_batt_level)
 }
 #endif /* CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING */
 
+static int gpufreq_gpuhal_init(void)
+{
+	mtk_get_gpu_limit_index_fp = gpufreq_get_cur_limit_idx;
+	mtk_get_gpu_limiter_fp = gpufreq_get_cur_limiter;
+	mtk_get_gpu_cur_freq_fp = gpufreq_get_cur_freq;
+	mtk_get_gpu_cur_oppidx_fp = gpufreq_get_cur_oppidx;
+
+	return GPUFREQ_SUCCESS;
+}
+
 /*
  * API: gpufreq wrapper driver probe
  */
@@ -767,7 +779,7 @@ static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev)
 
 	ret = of_property_read_u32(gpueb, "gpueb-support", &g_gpueb_support);
 	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to read gpueb_support (%d)", ret);
+		GPUFREQ_LOGE("fail to read gpueb-support (%d)", ret);
 		goto done;
 	}
 
@@ -798,6 +810,12 @@ static int __init gpufreq_wrapper_init(void)
 	ret = gpufreq_debug_init();
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to init gpufreq debug (%d)", ret);
+		goto done;
+	}
+
+	ret = gpufreq_gpuhal_init();
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to init gpufreq gpuhal interfaces (%d)", ret);
 		goto done;
 	}
 

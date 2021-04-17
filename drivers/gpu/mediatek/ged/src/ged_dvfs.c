@@ -258,9 +258,6 @@ unsigned long ged_query_info(GED_INFO eType)
 	gpu_block = 0;
 
 	switch (eType) {
-	case GED_LOADING:
-		mtk_get_gpu_loading2(&gpu_loading, 1);
-		return gpu_loading;
 	case GED_IDLE:
 		mtk_get_gpu_idle(&gpu_idle);
 		return gpu_idle;
@@ -1825,11 +1822,6 @@ static unsigned int ged_dvfs_get_bottom_gpu_freq(void)
 	return ui32MaxLevel - g_bottom_freq_id;
 }
 
-static unsigned int ged_dvfs_get_custom_ceiling_gpu_freq(void)
-{
-	return g_cust_upbound_freq_id;
-}
-
 static unsigned long ged_get_gpu_bottom_freq(void)
 {
 #if defined(CONFIG_MTK_GPUFREQ_V2)
@@ -1838,25 +1830,12 @@ static unsigned long ged_get_gpu_bottom_freq(void)
 	return mt_gpufreq_get_freq_by_idx(g_bottom_freq_id);
 #endif
 }
+#endif
 
-static unsigned long ged_get_gpu_custom_boost_freq(void)
+unsigned int ged_dvfs_get_custom_ceiling_gpu_freq(void)
 {
-#if defined(CONFIG_MTK_GPUFREQ_V2)
-	return gpufreq_get_freq_by_idx(TARGET_DEFAULT, g_cust_boost_freq_id);
-#else
-	return mt_gpufreq_get_freq_by_idx(g_cust_boost_freq_id);
-#endif
+	return g_cust_upbound_freq_id;
 }
-
-static unsigned long ged_get_gpu_custom_upbound_freq(void)
-{
-#if defined(CONFIG_MTK_GPUFREQ_V2)
-	return gpufreq_get_freq_by_idx(TARGET_DEFAULT, g_cust_upbound_freq_id);
-#else
-	return mt_gpufreq_get_freq_by_idx(g_cust_upbound_freq_id);
-#endif
-}
-#endif
 
 unsigned int ged_dvfs_get_custom_boost_gpu_freq(void)
 {
@@ -2470,32 +2449,17 @@ GED_ERROR ged_dvfs_system_init(void)
 	/* GPU HAL fp mount */
 	mt_gpufreq_power_limit_notify_registerCB(ged_dvfs_freq_thermal_limitCB);
 #endif
-#ifdef ENABLE_COMMON_DVFS
-	mtk_boost_gpu_freq_fp = ged_dvfs_boost_gpu_freq;
-#endif
 	mtk_set_bottom_gpu_freq_fp = ged_dvfs_set_bottom_gpu_freq;
 	mtk_get_bottom_gpu_freq_fp = ged_dvfs_get_bottom_gpu_freq;
 	mtk_custom_get_gpu_freq_level_count_fp =
 		ged_dvfs_get_gpu_freq_level_count;
 	mtk_custom_boost_gpu_freq_fp = ged_dvfs_custom_boost_gpu_freq;
 	mtk_custom_upbound_gpu_freq_fp = ged_dvfs_custom_ceiling_gpu_freq;
-	mtk_get_custom_boost_gpu_freq_fp = ged_dvfs_get_custom_boost_gpu_freq;
-	mtk_get_custom_upbound_gpu_freq_fp =
-		ged_dvfs_get_custom_ceiling_gpu_freq;
 	mtk_get_gpu_loading_fp = ged_dvfs_get_gpu_loading;
-	mtk_get_gpu_loading2_fp = ged_dvfs_get_gpu_loading2;
 	mtk_get_gpu_block_fp = ged_dvfs_get_gpu_blocking;
 	mtk_get_gpu_idle_fp = ged_dvfs_get_gpu_idle;
-	mtk_do_gpu_dvfs_fp = ged_dvfs_run;
-	mtk_gpu_dvfs_set_mode_fp = ged_dvfs_set_tuning_mode_wrap;
-
-	mtk_get_gpu_sub_loading_fp = ged_dvfs_get_sub_gpu_loading;
-	mtk_get_vsync_based_target_freq_fp = ged_dvfs_get_gpu_tar_freq;
-	mtk_GetGpuDVFSfromFp = ged_dvfs_track_latest_record;
 
 	mtk_get_gpu_bottom_freq_fp = ged_get_gpu_bottom_freq;
-	mtk_get_gpu_custom_boost_freq_fp = ged_get_gpu_custom_boost_freq;
-	mtk_get_gpu_custom_upbound_freq_fp = ged_get_gpu_custom_upbound_freq;
 
 	ged_kpi_set_gpu_dvfs_hint_fp = ged_dvfs_last_and_target_cb;
 
@@ -2515,9 +2479,6 @@ GED_ERROR ged_dvfs_system_init(void)
 	mtk_dvfs_loading_mode_fp = ged_dvfs_loading_mode;
 	mtk_get_dvfs_loading_mode_fp = ged_get_dvfs_loading_mode;
 #endif
-
-	/* CAP query */
-	mtk_get_gpu_dvfs_cal_freq_fp = ged_get_gpu_dvfs_cal_freq;
 
 	spin_lock_init(&g_sSpinLock);
 #else
