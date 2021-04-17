@@ -99,7 +99,7 @@ void set_afe_dl_irq_target(int scp_enable)
 	} else {
 		regmap_update_bits(afe->regmap,
 				irq_data->irq_scp_en_reg,
-				0x1 << irq_data->irq_ap_en_shift,
+				0x1 << irq_data->irq_scp_en_shift,
 				0);
 		regmap_update_bits(afe->regmap,
 				   irq_data->irq_ap_en_reg,
