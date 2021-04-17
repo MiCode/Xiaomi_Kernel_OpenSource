@@ -45,6 +45,7 @@ struct mt6360_ldo_platform_data {
 	struct resource *irq_res;
 	int irq_res_cnt;
 	u32 sdcard_det_en;
+	u32 sdcard_hlact;
 };
 
 struct mt6360_ldo_info {
