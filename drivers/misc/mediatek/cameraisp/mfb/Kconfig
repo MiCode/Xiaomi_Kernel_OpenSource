@@ -1,4 +1,4 @@
-config MTK_CAMERA_ISP_MFB_SUPPORT
+config MTK_CAMERA_MFB_ISP6S
 	tristate "[MFB] Multi Frame Blending"
 	depends on MTK_CAMERA_ISP_SUPPORT
 	help

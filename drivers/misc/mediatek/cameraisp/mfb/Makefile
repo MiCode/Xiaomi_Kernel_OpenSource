@@ -18,17 +18,9 @@ ccflags-y += -I$(srctree)/drivers/staging/android/ion \
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
 
-obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += camera_mfb.o
-camera_mfb-objs += isp_6s/engine_request.o
-camera_mfb-objs += isp_6s/camera_mfb.o
+obj-$(CONFIG_MTK_CAMERA_MFB_ISP6S) += camera_mfb_isp6s.o
+camera_mfb_isp6s-objs += isp_6s/engine_request.o
+camera_mfb_isp6s-objs += isp_6s/camera_mfb.o
 
-ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6873")
-MTK_MFB_REG_VERSION := 2
-endif
-
-ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6853")
-MTK_MFB_REG_VERSION := 3
-endif
-
-subdir-ccflags-y += -DMTK_MFB_REG_VERSION=$(MTK_MFB_REG_VERSION)

@@ -33,14 +33,11 @@
 #include <cmdq-util.h>
 #endif
 #include <soc/mediatek/smi.h>
-
-#define TODO
-#ifndef TODO
-#define MFB_PMQOS
-#endif
+//#define MFB_PMQOS
 #ifdef MFB_PMQOS
-#include <linux/pm_qos.h>
-#include <mmdvfs_pmqos.h>
+#include <linux/pm_opp.h>
+#include <linux/regulator/consumer.h>
+#include "mtk-interconnect.h"
 #endif
 
 #define USE_SW_TOKEN
@@ -79,31 +76,14 @@
 #ifndef __MFB_EP_NO_CLKMGR__
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 #include <linux/clk.h>
-#if (MTK_MFB_REG_VERSION == 3)
 struct MFB_CLK_STRUCT {
-	struct clk *CG_IMG2_LARB11;
-	struct clk *CG_IMG2_MSS;
-	struct clk *CG_IMG2_MFB;
-	struct clk *CG_IMG2_GALS;
-	struct clk *CG_IMG1_GALS;
+	struct clk *CG_MFB_IMG_0;
+	struct clk *CG_MFB_IMG_1;
+	struct clk *CG_MFB_IMG_2;
+	struct clk *CG_MFB_IMG_3;
+	struct clk *CG_MFB_IMG_4;
 };
 struct MFB_CLK_STRUCT mfb_clk;
-#elif (MTK_MFB_REG_VERSION == 2)
-struct MFB_CLK_STRUCT {
-	struct clk *CG_IMG2_LARB11;
-	struct clk *CG_IMG2_MSS;
-	struct clk *CG_IMG2_MFB;
-	struct clk *CG_IMG2_GALS;
-};
-struct MFB_CLK_STRUCT mfb_clk;
-#else
-struct MFB_CLK_STRUCT {
-	struct clk *CG_IMG1_LARB9;
-	struct clk *CG_IMG1_MSS;
-	struct clk *CG_IMG1_MFB;
-};
-struct MFB_CLK_STRUCT mfb_clk;
-#endif
 #endif	/* !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK)  */
 #endif
 
@@ -242,6 +222,7 @@ struct MFB_device {
 	struct device *dev;
 	int irq;
 	struct device *larb;
+	struct device *larb_b;
 };
 
 static struct MFB_device *MFB_devs;
@@ -266,10 +247,6 @@ static u16 mss_token_id, msf_token_id;
 #define ISP_IMGSYS_BASE		(MFB_devs[IMGSYS_DEV_MODE_IDX].regs)
 /* #define ISP_MFB_BASE	(gISPSYS_Reg[MFB_DEV_NODE_IDX]) */
 
-#else
-#define ISP_MSS_BASE		(0x15012000)/*YWtodo*/
-#define ISP_MSF_BASE		(0x15010000)/*YWtodo*/
-
 #endif
 
 
@@ -282,14 +259,16 @@ static unsigned int g_SuspendCnt;
 #define GKI_BUF_NUM_MAX 200
 
 #ifdef MFB_PMQOS
-static struct pm_qos_request mfb_pmqos_request;
-static u64 max_img_freq[4];
-struct plist_head module_request_list;  /* all module list */
-struct mm_qos_request mfb_mmqos_request;
+static struct regulator *regu;
+static u64 *speeds;
 
 static spinlock_t SpinLockMfbPmqos;
 static unsigned int qos_scen[4];
 static unsigned int qos_total;
+
+#define MFB_PORT_NUM 8
+static struct icc_path *path_mfb[MFB_PORT_NUM];
+
 #endif
 
 struct  MSS_CONFIG_STRUCT {
@@ -324,6 +303,8 @@ struct gki_buf {
 };
 static int qq_get_cnt;
 static int qq_put_cnt;
+static unsigned int mss_base;
+static unsigned int msf_base;
 
 /******************************************************************************
  *
@@ -604,13 +585,8 @@ static struct SV_LOG_STR gSvLog[MFB_IRQ_TYPE_AMOUNT];
 #define MFB_MSS_TOP_DBG_OUT3    (ISP_MSS_BASE + 0x444)
 #define MFB_MSS_DMA_DEBUG_SEL   (ISP_MSS_BASE + 0x888)
 
-#if (MTK_MFB_REG_VERSION >= 2)
-#define MSS_BASE 0x15812000
-#define MSF_BASE 0x15810000
-#else
-#define MSS_BASE 0x15012000
-#define MSF_BASE 0x15010000
-#endif
+#define MSS_BASE (mss_base)
+#define MSF_BASE (msf_base)
 
 #define MFB_MSS_INT_STATUS_HW  (MSS_BASE + 0x508)
 #define MFB_MSF_INT_STATUS_HW  (MSF_BASE + 0x7c8)
@@ -748,58 +724,12 @@ static inline unsigned int MFB_JiffiesToMs(unsigned int Jiffies)
 }
 
 #ifdef MFB_PMQOS
-void MFBQOS_Init(void)
-{
-	s32 result = 0;
-	u64 img_freq_steps[MAX_FREQ_STEP];
-	u32 step_size;
-
-	/* Call pm_qos_add_request when initialize module or driver prob */
-	pm_qos_add_request(
-		&mfb_pmqos_request,
-		PM_QOS_IMG_FREQ,
-		PM_QOS_MM_FREQ_DEFAULT_VALUE);
-
-	/* Call mmdvfs_qos_get_freq_steps to get supported frequency */
-	result = mmdvfs_qos_get_freq_steps(
-		PM_QOS_IMG_FREQ,
-		img_freq_steps,
-		&step_size);
-
-	if (result < 0 || step_size == 0)
-		LOG_INF("get MMDVFS freq steps failed, result: %d\n", result);
-	else {
-		max_img_freq[0] = img_freq_steps[0];
-		max_img_freq[1] = img_freq_steps[1];
-		max_img_freq[2] = img_freq_steps[2];
-		max_img_freq[3] = img_freq_steps[3];
-	}
-
-	/* Initialize owner list */
-	plist_head_init(&module_request_list);
-
-	/* Call mm_qos_add_request */
-	/* when initialize module or driver prob */
-#if (MTK_MFB_REG_VERSION >= 2)
-	mm_qos_add_request(&module_request_list,
-		&mfb_mmqos_request, M4U_PORT_L11_IMG_MFB_RDMA0);
-#else
-	mm_qos_add_request(&module_request_list,
-		&mfb_mmqos_request, M4U_PORT_L9_IMG_MFB_RDMA0_MDP);
-#endif
-}
-
-void MFBQOS_Uninit(void)
-{
-	pm_qos_remove_request(&mfb_pmqos_request);
-
-	/* Call mm_qos_remove_request */
-	/* when de-initialize module or driver remove */
-	mm_qos_remove_all_request(&module_request_list);
-}
-
 void MFBQOS_Update(bool start, unsigned int scen, unsigned long bw)
 {
+	int volt, ret, i;
+	unsigned long freq;
+	struct dev_pm_opp *opp;
+
 	LOG_DBG("start: %d, MFB scen: %d, bw: %lu", start, scen, bw);
 	if (start) { /* start MFB, configure MMDVFS to highest CLK */
 		LOG_DBG("MFB total: %ld", qos_total);
@@ -809,19 +739,28 @@ void MFBQOS_Update(bool start, unsigned int scen, unsigned long bw)
 		qos_total = qos_total + bw;
 		if (qos_total > 600000000) {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request,
-						max_img_freq[0]);
+			freq = speeds[0];
+			opp = dev_pm_opp_find_freq_ceil(
+					MFB_devs[0].dev, &freq);
+			volt = dev_pm_opp_get_voltage(opp);
+			dev_pm_opp_put(opp);
 		} else if (qos_total > 300000000) {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request,
-						max_img_freq[1]);
+			freq = speeds[1];
+			opp = dev_pm_opp_find_freq_ceil(
+					MFB_devs[0].dev, &freq);
+			volt = dev_pm_opp_get_voltage(opp);
+			dev_pm_opp_put(opp);
 		} else if (qos_total > 100000000) {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request,
-						max_img_freq[2]);
+			freq = speeds[2];
+			opp = dev_pm_opp_find_freq_ceil(
+					MFB_devs[0].dev, &freq);
+			volt = dev_pm_opp_get_voltage(opp);
+			dev_pm_opp_put(opp);
 		} else {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request, 0);
+			volt = 0;
 		}
 	} else { /* finish MFB, config MMDVFS to lowest CLK */
 		LOG_DBG("MFB total: %ld", qos_total);
@@ -829,34 +768,36 @@ void MFBQOS_Update(bool start, unsigned int scen, unsigned long bw)
 		qos_total = qos_total - qos_scen[scen];
 		if (qos_total > 600000000) {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request,
-						max_img_freq[0]);
+			freq = speeds[0];
+			opp = dev_pm_opp_find_freq_ceil(
+					MFB_devs[0].dev, &freq);
+			volt = dev_pm_opp_get_voltage(opp);
+			dev_pm_opp_put(opp);
 		} else if (qos_total > 300000000) {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request,
-						max_img_freq[1]);
+			freq = speeds[1];
+			opp = dev_pm_opp_find_freq_ceil(
+					MFB_devs[0].dev, &freq);
+			volt = dev_pm_opp_get_voltage(opp);
+			dev_pm_opp_put(opp);
 		} else if (qos_total > 100000000) {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request,
-						max_img_freq[2]);
+			freq = speeds[2];
+			opp = dev_pm_opp_find_freq_ceil(
+					MFB_devs[0].dev, &freq);
+			volt = dev_pm_opp_get_voltage(opp);
+			dev_pm_opp_put(opp);
 		} else {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request, 0);
+			volt = 0;
 		}
 	}
-#if CHECK_SERVICE_IF_0 /*YWtodo*/
-	if (start) {
-		/* Call mm_qos_set_request API to setup estimated data bw */
-		mm_qos_set_request(&mfb_mmqos_request,
-					bw/1000000, 0, BW_COMP_NONE);
-		/* Call mm_qos_update_all_requests API */
-		/* update necessary HW configuration for MM BW */
-		mm_qos_update_all_request(&module_request_list);
-	} else {
-		mm_qos_set_request(&mfb_mmqos_request, 0, 0, BW_COMP_NONE);
-		mm_qos_update_all_request(&module_request_list);
-	}
-#endif
+	ret = regulator_set_voltage(regu, volt, INT_MAX);
+	if (ret)
+		LOG_ERR("PMQOS error ret = %d", ret);
+
+	for (i = 0; i < MFB_PORT_NUM; i++)
+		mtk_icc_set_bw(path_mfb[i], Bps_to_icc(qos_total), 0);
 }
 #endif
 
@@ -1713,60 +1654,34 @@ static inline void MFB_Prepare_Enable_ccf_clock(void)
 	 */
 	pm_runtime_get_sync(MFB_devs[0].dev);
 	ret = mtk_smi_larb_get(MFB_devs[0].larb);
+	if (MFB_devs[0].larb_b != NULL)
+		ret = mtk_smi_larb_get(MFB_devs[0].larb_b);
 	if (ret)
 		LOG_ERR("mtk_smi_larb_get error\n");
-#if (MTK_MFB_REG_VERSION == 3)
 	//smi_bus_prepare_enable(SMI_LARB11, MFB_DEV_NAME);
-	ret = clk_prepare_enable(mfb_clk.CG_IMG2_LARB11);
+	ret = clk_prepare_enable(mfb_clk.CG_MFB_IMG_0);
 	if (ret)
-		LOG_ERR("cannot prepare and enable CG_IMG2_LARB11 clock\n");
+		LOG_ERR("cannot prepare and enable CG_MFB_IMG_0 clock\n");
 
-	ret = clk_prepare_enable(mfb_clk.CG_IMG2_MSS);
+	ret = clk_prepare_enable(mfb_clk.CG_MFB_IMG_1);
 	if (ret)
-		LOG_ERR("cannot prepare and enable CG_IMG2_MSS clock\n");
+		LOG_ERR("cannot prepare and enable CG_MFB_IMG_1 clock\n");
 
-	ret = clk_prepare_enable(mfb_clk.CG_IMG2_MFB);
+	ret = clk_prepare_enable(mfb_clk.CG_MFB_IMG_2);
 	if (ret)
-		LOG_ERR("cannot prepare and enable CG_IMG2_MFB clock\n");
+		LOG_ERR("cannot prepare and enable CG_MFB_IMG_2 clock\n");
 
-	ret = clk_prepare_enable(mfb_clk.CG_IMG2_GALS);
+	if (mfb_clk.CG_MFB_IMG_3 == NULL)
+		return;
+	ret = clk_prepare_enable(mfb_clk.CG_MFB_IMG_3);
 	if (ret)
-		LOG_ERR("cannot prepare and enable CG_IMG2_GALS clock\n");
+		LOG_ERR("cannot prepare and enable CG_MFB_IMG_3 clock\n");
 
-	ret = clk_prepare_enable(mfb_clk.CG_IMG1_GALS);
+	if (mfb_clk.CG_MFB_IMG_4 == NULL)
+		return;
+	ret = clk_prepare_enable(mfb_clk.CG_MFB_IMG_4);
 	if (ret)
-		LOG_ERR("cannot prepare and enable CG_IMG1_GALS clock\n");
-#elif (MTK_MFB_REG_VERSION == 2)
-	//smi_bus_prepare_enable(SMI_LARB11, MFB_DEV_NAME);
-	ret = clk_prepare_enable(mfb_clk.CG_IMG2_LARB11);
-	if (ret)
-		LOG_ERR("cannot prepare and enable CG_IMG2_LARB11 clock\n");
-
-	ret = clk_prepare_enable(mfb_clk.CG_IMG2_MSS);
-	if (ret)
-		LOG_ERR("cannot prepare and enable CG_IMG2_MSS clock\n");
-
-	ret = clk_prepare_enable(mfb_clk.CG_IMG2_MFB);
-	if (ret)
-		LOG_ERR("cannot prepare and enable CG_IMG2_MFB clock\n");
-
-	ret = clk_prepare_enable(mfb_clk.CG_IMG2_GALS);
-	if (ret)
-		LOG_ERR("cannot prepare and enable CG_IMG2_GALS clock\n");
-#else
-	//smi_bus_prepare_enable(SMI_LARB9, MFB_DEV_NAME);
-	ret = clk_prepare_enable(mfb_clk.CG_IMG1_LARB9);
-	if (ret)
-		LOG_ERR("cannot prepare and enable CG_IMG1_LARB9 clock\n");
-
-	ret = clk_prepare_enable(mfb_clk.CG_IMG1_MSS);
-	if (ret)
-		LOG_ERR("cannot prepare and enable CG_IMG1_MSS clock\n");
-
-	ret = clk_prepare_enable(mfb_clk.CG_IMG1_MFB);
-	if (ret)
-		LOG_ERR("cannot prepare and enable CG_IMG1_MFB clock\n");
-#endif
+		LOG_ERR("cannot prepare and enable CG_MFB_IMG_4 clock\n");
 }
 
 static inline void MFB_Disable_Unprepare_ccf_clock(void)
@@ -1774,25 +1689,16 @@ static inline void MFB_Disable_Unprepare_ccf_clock(void)
 	/* must keep this clk close order:
 	 * MFB clk -> CG_SCP_SYS_ISP -> CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS
 	 */
-#if (MTK_MFB_REG_VERSION == 3)
-	clk_disable_unprepare(mfb_clk.CG_IMG1_GALS);
-	clk_disable_unprepare(mfb_clk.CG_IMG2_GALS);
-	clk_disable_unprepare(mfb_clk.CG_IMG2_MFB);
-	clk_disable_unprepare(mfb_clk.CG_IMG2_MSS);
-	clk_disable_unprepare(mfb_clk.CG_IMG2_LARB11);
+	if (mfb_clk.CG_MFB_IMG_4 != NULL)
+		clk_disable_unprepare(mfb_clk.CG_MFB_IMG_4);
+	if (mfb_clk.CG_MFB_IMG_3 != NULL)
+		clk_disable_unprepare(mfb_clk.CG_MFB_IMG_3);
+	clk_disable_unprepare(mfb_clk.CG_MFB_IMG_2);
+	clk_disable_unprepare(mfb_clk.CG_MFB_IMG_1);
+	clk_disable_unprepare(mfb_clk.CG_MFB_IMG_0);
 	/*smi_bus_disable_unprepare(SMI_LARB11, MFB_DEV_NAME);*/
-#elif (MTK_MFB_REG_VERSION == 2)
-	clk_disable_unprepare(mfb_clk.CG_IMG2_GALS);
-	clk_disable_unprepare(mfb_clk.CG_IMG2_MFB);
-	clk_disable_unprepare(mfb_clk.CG_IMG2_MSS);
-	clk_disable_unprepare(mfb_clk.CG_IMG2_LARB11);
-	/*smi_bus_disable_unprepare(SMI_LARB11, MFB_DEV_NAME);*/
-#else
-	clk_disable_unprepare(mfb_clk.CG_IMG1_MFB);
-	clk_disable_unprepare(mfb_clk.CG_IMG1_MSS);
-	clk_disable_unprepare(mfb_clk.CG_IMG1_LARB9);
-	/*smi_bus_disable_unprepare(SMI_LARB9, MFB_DEV_NAME);*/
-#endif
+	if (MFB_devs[0].larb_b != NULL)
+		mtk_smi_larb_put(MFB_devs[0].larb_b);
 	mtk_smi_larb_put(MFB_devs[0].larb);
 	pm_runtime_put_sync(MFB_devs[0].dev);
 }
@@ -4029,7 +3935,7 @@ EXIT:
 static signed int MFB_probe(struct platform_device *pDev)
 {
 	signed int Ret = 0;
-	/*struct resource *pRes = NULL;*/
+	struct resource *pRes = NULL;
 	signed int i = 0;
 	unsigned char n;
 	unsigned int irq_info[3];/* Record interrupts info from device tree */
@@ -4037,6 +3943,11 @@ static signed int MFB_probe(struct platform_device *pDev)
 	struct MFB_device *_mfb_dev = NULL;
 	struct device_node *node;
 	struct platform_device *pdev;
+#ifdef MFB_PMQOS
+	int num_available, avail_size, j = 0;
+	unsigned long freq;
+	struct dev_pm_opp *opp;
+#endif
 
 #ifdef CONFIG_OF
 	struct MFB_device *MFB_dev;
@@ -4138,6 +4049,19 @@ static signed int MFB_probe(struct platform_device *pDev)
 			nr_MFB_devs,
 			pDev->dev.of_node->name, MFB_dev->irq);
 	}
+
+	pRes = platform_get_resource(pDev, IORESOURCE_MEM, 0);
+	if (pRes == NULL)
+		return -ENOMEM;
+	if (nr_MFB_devs == 2) {
+		mss_base = pRes->start;
+		LOG_INF("mss ba 0x%08X\n",mss_base);
+	}
+	if (nr_MFB_devs == 1) {
+		msf_base = pRes->start;
+		LOG_INF("msf ba 0x%08X\n",msf_base);
+	}
+
 #ifdef CMDQ_COMMON
 	/*cmdq*/
 	MFB_cmdq_dev = &pDev->dev;
@@ -4148,7 +4072,6 @@ static signed int MFB_probe(struct platform_device *pDev)
 				"mss_frame_done", &mss_done_event_id);
 		of_property_read_u16(MFB_cmdq_dev->of_node,
 				"mss_token", &mss_token_id);
-
 	}
 	if (nr_MFB_devs == 1) {
 		msf_clt = cmdq_mbox_create(MFB_cmdq_dev, 0);
@@ -4174,85 +4097,31 @@ static signed int MFB_probe(struct platform_device *pDev)
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 		    /*CCF: Grab clock pointer (struct clk*) */
 #ifdef CLK_COMMON
-#if (MTK_MFB_REG_VERSION == 3)
-		mfb_clk.CG_IMG2_LARB11 = devm_clk_get(&pDev->dev,
-				"MFB_CG_IMG2_LARB11");
-		mfb_clk.CG_IMG2_MSS = devm_clk_get(&pDev->dev,
-				"MFB_CG_IMG2_MSS");
-		mfb_clk.CG_IMG2_MFB = devm_clk_get(&pDev->dev,
-				"MFB_CG_IMG2_MFB");
-		mfb_clk.CG_IMG2_GALS = devm_clk_get(&pDev->dev,
-				"MFB_CG_IMG2_GALS");
-		mfb_clk.CG_IMG1_GALS = devm_clk_get(&pDev->dev,
-				"MFB_CG_IMG1_GALS");
+		mfb_clk.CG_MFB_IMG_0 = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG_0");
+		mfb_clk.CG_MFB_IMG_1 = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG_1");
+		mfb_clk.CG_MFB_IMG_2 = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG_2");
+		mfb_clk.CG_MFB_IMG_3 = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG_3");
+		mfb_clk.CG_MFB_IMG_4 = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG_4");
 
-		if (IS_ERR(mfb_clk.CG_IMG2_LARB11)) {
-			LOG_ERR("cannot get CG_IMG2_LARB11 clock\n");
-			return PTR_ERR(mfb_clk.CG_IMG2_LARB11);
+		if (IS_ERR(mfb_clk.CG_MFB_IMG_0))
+			LOG_ERR("cannot get CG_MFB_IMG_0 clock\n");
+		if (IS_ERR(mfb_clk.CG_MFB_IMG_1))
+			LOG_ERR("cannot get CG_MFB_IMG_1 clock\n");
+		if (IS_ERR(mfb_clk.CG_MFB_IMG_2))
+			LOG_ERR("cannot get CG_MFB_IMG_2 clock\n");
+		if (IS_ERR(mfb_clk.CG_MFB_IMG_3)) {
+			mfb_clk.CG_MFB_IMG_3 = NULL; 
+			LOG_ERR("cannot get CG_MFB_IMG_3 clock\n");
+		} 
+		if (IS_ERR(mfb_clk.CG_MFB_IMG_4)) {
+			mfb_clk.CG_MFB_IMG_4 = NULL; 
+			LOG_ERR("cannot get CG_MFB_IMG_4 clock\n");
 		}
-		if (IS_ERR(mfb_clk.CG_IMG2_MSS)) {
-			LOG_ERR("cannot get CG_IMG2_MSS clock\n");
-			return PTR_ERR(mfb_clk.CG_IMG2_MSS);
-		}
-		if (IS_ERR(mfb_clk.CG_IMG2_MFB)) {
-			LOG_ERR("cannot get CG_IMG2_MFB clock\n");
-			return PTR_ERR(mfb_clk.CG_IMG2_MFB);
-		}
-		if (IS_ERR(mfb_clk.CG_IMG2_GALS)) {
-			LOG_ERR("cannot get CG_IMG2_GALS clock\n");
-			return PTR_ERR(mfb_clk.CG_IMG2_GALS);
-		}
-		if (IS_ERR(mfb_clk.CG_IMG1_GALS)) {
-			LOG_ERR("cannot get CG_IMG1_GALS clock\n");
-			return PTR_ERR(mfb_clk.CG_IMG1_GALS);
-		}
-#elif (MTK_MFB_REG_VERSION == 2)
-		mfb_clk.CG_IMG2_LARB11 = devm_clk_get(&pDev->dev,
-				"MFB_CG_IMG2_LARB11");
-		mfb_clk.CG_IMG2_MSS = devm_clk_get(&pDev->dev,
-				"MFB_CG_IMG2_MSS");
-		mfb_clk.CG_IMG2_MFB = devm_clk_get(&pDev->dev,
-				"MFB_CG_IMG2_MFB");
-		mfb_clk.CG_IMG2_GALS = devm_clk_get(&pDev->dev,
-				"MFB_CG_IMG2_GALS");
-
-		if (IS_ERR(mfb_clk.CG_IMG2_LARB11)) {
-			LOG_ERR("cannot get CG_IMG2_LARB11 clock\n");
-			return PTR_ERR(mfb_clk.CG_IMG2_LARB11);
-		}
-		if (IS_ERR(mfb_clk.CG_IMG2_MSS)) {
-			LOG_ERR("cannot get CG_IMG2_MSS clock\n");
-			return PTR_ERR(mfb_clk.CG_IMG2_MSS);
-		}
-		if (IS_ERR(mfb_clk.CG_IMG2_MFB)) {
-			LOG_ERR("cannot get CG_IMG2_MFB clock\n");
-			return PTR_ERR(mfb_clk.CG_IMG2_MFB);
-		}
-		if (IS_ERR(mfb_clk.CG_IMG2_GALS)) {
-			LOG_ERR("cannot get CG_IMG2_GALS clock\n");
-			return PTR_ERR(mfb_clk.CG_IMG2_GALS);
-		}
-#else
-		mfb_clk.CG_IMG1_LARB9 = devm_clk_get(&pDev->dev,
-				"MFB_CG_IMG1_LARB9");
-		mfb_clk.CG_IMG1_MSS = devm_clk_get(&pDev->dev,
-				"MFB_CG_IMG1_MSS");
-		mfb_clk.CG_IMG1_MFB = devm_clk_get(&pDev->dev,
-				"MFB_CG_IMG1_MFB");
-
-		if (IS_ERR(mfb_clk.CG_IMG1_LARB9)) {
-			LOG_ERR("cannot get CG_IMG1_LARB9 clock\n");
-			return PTR_ERR(mfb_clk.CG_IMG1_LARB9);
-		}
-		if (IS_ERR(mfb_clk.CG_IMG1_MSS)) {
-			LOG_ERR("cannot get CG_IMG1_MSS clock\n");
-			return PTR_ERR(mfb_clk.CG_IMG1_MSS);
-		}
-		if (IS_ERR(mfb_clk.CG_IMG1_MFB)) {
-			LOG_ERR("cannot get CG_IMG1_MFB clock\n");
-			return PTR_ERR(mfb_clk.CG_IMG1_MFB);
-		}
-#endif
 #endif
 #endif	/* !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK)  */
 #endif
@@ -4273,6 +4142,47 @@ static signed int MFB_probe(struct platform_device *pDev)
 		}
 		of_node_put(node);
 		MFB_dev->larb = &pdev->dev;
+		/*larb_b*/
+		node = of_parse_phandle(MFB_dev->dev->of_node, "mediatek,larb", 1);
+		if (!node) {
+			MFB_dev->larb_b = NULL;
+			goto PM_OK;
+		}
+		pdev = of_find_device_by_node(node);
+		if (WARN_ON(!pdev)) {
+			of_node_put(node);
+			MFB_dev->larb_b = NULL;
+			goto PM_OK;
+		}
+		of_node_put(node);
+		MFB_dev->larb_b = &pdev->dev;
+PM_OK:
+		/*gki pmqos*/
+#ifdef MFB_PMQOS
+		dev_pm_opp_of_add_table(MFB_dev->dev);
+		regu = devm_regulator_get(MFB_dev->dev, "dvfsrc-vcore");
+		num_available = dev_pm_opp_get_opp_count(MFB_dev->dev);
+		/* number of available opp */
+		avail_size = sizeof(u32) * num_available;
+		speeds = kzalloc(avail_size, GFP_KERNEL);
+		freq = 0;
+		while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(MFB_dev->dev, &freq))) {
+			speeds[j] = freq;
+			/* available freq is stored in speeds[i] */
+			freq++;
+			j++;
+			dev_pm_opp_put(opp);
+		}
+
+		path_mfb[0] = of_mtk_icc_get(MFB_dev->dev, "l11_img_mfb_rdma0");
+		path_mfb[1] = of_mtk_icc_get(MFB_dev->dev, "l11_img_mfb_rdma1");
+		path_mfb[2] = of_mtk_icc_get(MFB_dev->dev, "l11_img_mfb_rdma2");
+		path_mfb[3] = of_mtk_icc_get(MFB_dev->dev, "l11_img_mfb_rdma3");
+		path_mfb[4] = of_mtk_icc_get(MFB_dev->dev, "l11_img_mfb_rdma4");
+		path_mfb[5] = of_mtk_icc_get(MFB_dev->dev, "l11_img_mfb_rdma5");
+		path_mfb[6] = of_mtk_icc_get(MFB_dev->dev, "l11_img_mfb_wdma0");
+		path_mfb[7] = of_mtk_icc_get(MFB_dev->dev, "l11_img_mfb_wdma1");
+#endif
 
 		/* Create class register */
 		pMFBClass = class_create(THIS_MODULE, "MFBdrv");
@@ -4504,21 +4414,13 @@ int MFB_pm_restore_noirq(struct device *device)
  * Note!!! The order and member of .compatible must be the same with that in
  *  "MFB_DEV_NODE_ENUM" in camera_MFB.h
  */
-#if (MTK_MFB_REG_VERSION >= 2)
-static const struct of_device_id MFB_of_ids[] = {
-	{.compatible = "mediatek,msf_b",},
-	{.compatible = "mediatek,mss_b",},
-	{.compatible = "mediatek,imgsys_mfb_b",},
-	{}
-};
-#else
+
 static const struct of_device_id MFB_of_ids[] = {
 	{.compatible = "mediatek,msf",},
 	{.compatible = "mediatek,mss",},
 	{.compatible = "mediatek,imgsys_mfb",},
 	{}
 };
-#endif
 #endif
 
 const struct dev_pm_ops MFB_pm_ops = {
@@ -4673,9 +4575,6 @@ static signed int __init MFB_Init(void)
 			   MFB_ClockOffCallback);
 #endif
 
-#ifdef MFB_PMQOS
-	MFBQOS_Init();
-#endif
 	LOG_DBG("- X. Ret: %d.", Ret);
 	return Ret;
 }
@@ -4689,9 +4588,6 @@ static void __exit MFB_Exit(void)
 
 	LOG_DBG("- E.");
 
-#ifdef MFB_PMQOS
-	MFBQOS_Uninit();
-#endif
 	platform_driver_unregister(&MFBDriver);
 	/* Cmdq */
 	/* Unregister MFB callback */
