@@ -117,20 +117,24 @@ static unsigned int prv_adp_mdla_pwr_lim;
 unsigned int gv_cpu_power_limit = 0x7FFFFFFF;
 unsigned int gv_gpu_power_limit = 0x7FFFFFFF;
 #if CPT_ADAPTIVE_AP_COOLER
-static int TARGET_TJ = 65000;
-static int cpu_target_tj = 65000;
-static int cpu_target_offset = 10000;
+static int TARGET_TJ = CLATM_INIT_CFG_0_TARGET_TJ;
+static int cpu_target_tj = 65000;/*not use*/
+static int cpu_target_offset = 10000;/*not use*/
+/*not used when tscpu_atm = 3*/
 static int TARGET_TJ_HIGH = 66000;
+/*not used when tscpu_atm = 3*/
 static int TARGET_TJ_LOW = 64000;
 static int PACKAGE_THETA_JA_RISE = 10;
 static int PACKAGE_THETA_JA_FALL = 10;
-static int MINIMUM_CPU_POWER = 500;
-static int MAXIMUM_CPU_POWER = 1240;
-static int MINIMUM_GPU_POWER = 676;
-static int MAXIMUM_GPU_POWER = 676;
-static int MINIMUM_TOTAL_POWER = 500 + 676;
-static int MAXIMUM_TOTAL_POWER = 1240 + 676;
-static int FIRST_STEP_TOTAL_POWER_BUDGET = 1750;
+static int MINIMUM_CPU_POWER = CLATM_INIT_CFG_0_MIN_CPU_PWR;
+static int MAXIMUM_CPU_POWER = CLATM_INIT_CFG_0_MAX_CPU_PWR;
+static int MINIMUM_GPU_POWER = CLATM_INIT_CFG_0_MIN_GPU_PWR;
+static int MAXIMUM_GPU_POWER = CLATM_INIT_CFG_0_MAX_GPU_PWR;
+static int MINIMUM_TOTAL_POWER = CLATM_INIT_CFG_0_MIN_CPU_PWR +
+	CLATM_INIT_CFG_0_MIN_GPU_PWR;
+static int MAXIMUM_TOTAL_POWER = CLATM_INIT_CFG_0_MAX_CPU_PWR +
+	CLATM_INIT_CFG_0_MAX_GPU_PWR;
+static int FIRST_STEP_TOTAL_POWER_BUDGET = CLATM_INIT_CFG_0_FIRST_STEP;
 #if defined(THERMAL_VPU_SUPPORT)
 static int MINIMUM_VPU_POWER = 300;
 static int MAXIMUM_VPU_POWER = 1000;
@@ -2040,10 +2044,15 @@ static int decide_ttj(void)
 
 			if (ret == TARGET_TJS[i])
 				active_cooler_id = i;
+
 		}
 	}
+
+
+
 	cl_dev_adp_cpu_state_active = temp_cl_dev_adp_cpu_state_active;
-	TARGET_TJ = ret;
+//	TARGET_TJ = ret;
+
 #if CONTINUOUS_TM
 	if (ctm_on) {
 		int curr_tpcb = mtk_thermal_get_temp(MTK_THERMAL_SENSOR_AP);
@@ -2057,8 +2066,12 @@ static int decide_ttj(void)
 		} else if (ctm_on == 2) {
 			/* +++ cATM+ +++ */
 			TARGET_TJ = ta_get_ttj();
+			/*if userspace cATM+ not ready*/
+			if (TARGET_TJ == 0)
+				TARGET_TJ = CLATM_INIT_CFG_0_TARGET_TJ;
 			/* --- cATM+ --- */
-		}
+		} else /*ctm_on = 0*/
+			TARGET_TJ = ret;
 
 		current_ETJ = MIN(MAX_EXIT_TJ,
 				MAX(STEADY_EXIT_TJ,
