@@ -53,7 +53,7 @@ static int __init apusys_init(void)
 			pr_info("init function(%d) fail(%d)", i, ret);
 
 			/* exit device */
-			for (j = 0; j < i; j--)
+			for (j = i-1; j >= 0; j--)
 				apusys_exit_func[j]();
 
 			destroy_dbg_root();
