@@ -2941,6 +2941,21 @@
 		#clock-cells = <1>;
 	};
 
+	cpe_controller_sensor@13fb7000 {
+		compatible = "mediatek,cpe_controller_sensor";
+		reg = <0 0x13fb7000 0 0x100>;
+	};
+
+	cpe_controller_mcu@13fb9c00 {
+		compatible = "mediatek,cpe_controller_mcu";
+		reg = <0 0x13fb9c00 0 0x100>;
+	};
+
+	sensor_network_0@13fcf000 {
+		compatible = "mediatek,sensor_network_0";
+		reg = <0 0x13fcf000 0 0x1000>;
+	};
+
 	disp_pwm: disp_pwm0@1100e000 {
 		compatible = "mediatek,disp_pwm0",
 				"mediatek,mt6877-disp-pwm";
