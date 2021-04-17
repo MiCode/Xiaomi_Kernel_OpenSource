@@ -1,0 +1,8 @@
+config MTK_PBM
+	tristate "MTK power budget management"
+	select MTK_MDPM
+	help
+	  This kernel config can be used to enable power budget management.
+	  When enable this option, pbm will allocate limit power budget to
+	  CPU and GPU when battery voltage is low.
+	  If unsure, say N.

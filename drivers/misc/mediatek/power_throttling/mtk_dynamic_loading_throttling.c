@@ -149,6 +149,7 @@ void register_dlpt_notify(dlpt_callback dlpt_cb,
 			dlpt_cb(dlpt.imix);
 	}
 }
+EXPORT_SYMBOL(register_dlpt_notify);
 
 static void exec_dlpt_callback(int dlpt_val)
 {
@@ -198,10 +199,12 @@ static int dlpt_check_power_off(void)
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 static void dlpt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level)
 {
 	dlpt.lbat_level = level;
 }
+#endif
 
 static struct power_supply *get_mtk_gauge_psy(void)
 {
@@ -407,8 +410,10 @@ static void dlpt_notify_init(void)
 	if (IS_ERR(dlpt.notify_thread))
 		pr_notice("Failed to create dlpt_notify_thread\n");
 
+#if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 	register_low_battery_notify(&dlpt_low_battery_cb,
 				    LOW_BATTERY_PRIO_DLPT);
+#endif
 }
 
 static void pmic_uvlo_init(int uvlo_level)

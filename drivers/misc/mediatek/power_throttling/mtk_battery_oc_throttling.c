@@ -253,6 +253,7 @@ static int battery_oc_throttling_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "%dmA(0x%x), %dmA(0x%x) Done\n",
 		 priv->oc_thd_h, to_fg_code(priv, priv->oc_thd_h),
 		 priv->oc_thd_l, to_fg_code(priv, priv->oc_thd_l));
+
 	return ret;
 }
 
