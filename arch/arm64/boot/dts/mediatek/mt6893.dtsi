@@ -4037,6 +4037,7 @@
 		mtk_mdla: mdla@19036000 {
 			compatible = "mediatek, mt6893-mdla";
 			core_num = <2>;
+			version = <0x68930105>;
 			reg = <0 0x19034000 0 0x1000>,  /* dla0 config  */
 			      <0 0x19036000 0 0x1000>,  /* dla0 command */
 			      <0 0x19035000 0 0x1000>,  /* dla0 biu     */
