@@ -87,8 +87,6 @@ struct GED_DVFS_BW_DATA {
 
 #define MAX_BW_PROFILE 5
 
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-
 struct GpuUtilization_Ex {
 	unsigned int util_active;
 	unsigned int util_3d;
@@ -99,10 +97,6 @@ struct GpuUtilization_Ex {
 bool ged_dvfs_cal_gpu_utilization_ex(unsigned int *pui32Loading,
 	unsigned int *pui32Block, unsigned int *pui32Idle,
 	struct GpuUtilization_Ex *Util_Ex);
-#else
-bool ged_dvfs_cal_gpu_utilization(unsigned int *pui32Loading,
-	unsigned int *pui32Block, unsigned int *pui32Idle);
-#endif
 
 
 void ged_dvfs_run(unsigned long t, long phase, unsigned long ul3DFenceDoneTime);
@@ -144,27 +138,23 @@ unsigned long ged_dvfs_get_last_commit_idx(void);
 extern void (*ged_kpi_set_gpu_dvfs_hint_fp)(int t_gpu_target,
 	int boost_accum_gpu);
 
-#ifdef GED_ENABLE_FB_DVFS
 extern int (*ged_kpi_gpu_dvfs_fp)(int t_gpu, int t_gpu_target,
 	int target_fps_margin, unsigned int force_fallback);
 extern void (*ged_kpi_trigger_fb_dvfs_fp)(void);
 extern int (*ged_kpi_check_if_fallback_mode_fp)(void);
-#endif
 
 extern void mtk_gpu_ged_hint(int a, int b);
 int ged_dvfs_boost_value(void);
 
-#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
 extern void (*mtk_dvfs_margin_value_fp)(int i32MarginValue);
 extern int (*mtk_get_dvfs_margin_value_fp)(void);
 extern int ged_get_dvfs_margin(void);
 extern unsigned int ged_get_dvfs_margin_mode(void);
-#endif
 
 #ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 extern void (*mtk_loading_base_dvfs_step_fp)(int i32MarginValue);
 extern int (*mtk_get_loading_base_dvfs_step_fp)(void);
-#endif
+#endif /* GED_CONFIGURE_LOADING_BASE_DVFS_STEP */
 
 #ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 extern void (*mtk_timer_base_dvfs_margin_fp)(int i32MarginValue);
@@ -174,9 +164,9 @@ extern GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real,
 	int *pT_gpu_pipe, int *pT_gpu_target, unsigned long long *pullWnd);
 int ged_dvfs_get_tb_dvfs_margin_cur(void);
 unsigned int ged_dvfs_get_tb_dvfs_margin_mode(void);
-#endif
+#endif /* GED_ENABLE_TIMER_BASED_DVFS_MARGIN */
 
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
+
 #define LOADING_ACTIVE 0
 #define LOADING_MAX_3DTA_COM 1
 #define LOADING_MAX_3DTA 2
@@ -185,7 +175,6 @@ extern void (*mtk_dvfs_loading_mode_fp)(int i32LoadingMode);
 extern int (*mtk_get_dvfs_loading_mode_fp)(void);
 extern void ged_get_gpu_utli_ex(struct GpuUtilization_Ex *util_ex);
 #define MAX(x, y)	((x) < (y) ? (y) : (x))
-#endif
 
 extern unsigned int ged_log_perf_trace_enable;
 #endif

@@ -14,15 +14,6 @@ static unsigned int current_util_active;
 static unsigned int current_util_3d;
 static unsigned int current_util_ta;
 static unsigned int current_util_compute;
-
-#if IS_ENABLED(CONFIG_MALI_MTK_DVFS_LOADING_MODE)
-struct GpuUtilization_Ex {
-	unsigned int util_active;
-	unsigned int util_3d;
-	unsigned int util_ta;
-	unsigned int util_compute;
-};
-#endif
 #endif
 
 #if IS_ENABLED(CONFIG_MALI_MIDGARD_DVFS) && IS_ENABLED(CONFIG_MALI_MTK_DVFS_POLICY)

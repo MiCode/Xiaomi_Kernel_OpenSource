@@ -16,72 +16,26 @@ MTK_TOP = $(srctree)/drivers/misc/mediatek/
 GPU_TOP = $(srctree)/drivers/gpu/mediatek/
 
 subdir-ccflags-y += -Wno-error
-#ccflags-y += -DGED_KPI_DEBUG
 
+# ccflags-y += -DMTK_CPUFREQ
+# ccflags-y += -DGED_KPI_DEBUG
+ccflags-y += -DMTK_GPUFREQ_V2
+ccflags-y += -DMTK_GED_KPI
 
-ifneq (,$(filter $(MTK_PLATFORM), mt6873 mt6885 mt6893))
+# No more used:
+# ccflags-y += -DGED_KPI_DEBUG
+# ccflags-y += -DGED_ENABLE_FB_DVFS
+
+# TODO: remove the LB-DVFS MACRO
+ccflags-y += -DGED_CONFIGURE_LOADING_BASE_DVFS_STEP
+ccflags-y += -DGED_ENABLE_TIMER_BASED_DVFS_MARGIN
+
+# TODO: decouple gpufreq_v1 and v2
+ifneq (,$(filter $(MTK_PLATFORM), mt6853))
 ccflags-y += -DMTK_GPUFREQ_V1
 endif
 
-ifneq (,$(filter $(MTK_PLATFORM), mt6759 mt6799 mt6763 mt6739 mt6758 mt6775 mt6771 mt6765 mt6761 mt3967 mt6779 mt6768 mt6785 mt6885 mt6873 mt6893))
-#ccflags-y += -DGED_KPI_MET_DEBUG
-ccflags-y += -DMTK_GED_KPI
-ccflags-y += -DGED_KPI_CPU_BOOST
-endif
-
-ifneq (,$(filter $(MTK_PLATFORM), mt6775 mt6771 mt6765 mt6761 mt6763 mt6779 mt6768 mt6785 mt6739 mt6885 mt6873 mt6893))
-ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
-ccflags-y += -DGED_ENABLE_FB_DVFS
-endif
-endif
-
-ifneq (,$(filter $(MTK_PLATFORM), mt6761 mt6765 mt6779 mt6768 mt6771 mt6785 mt6885 mt6873 mt6893))
-ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
-ccflags-y += -DGED_ENABLE_DYNAMIC_DVFS_MARGIN
-ccflags-y += -DGED_CONFIGURE_LOADING_BASE_DVFS_STEP
-ccflags-y += -DGED_ENABLE_TIMER_BASED_DVFS_MARGIN
-endif
-endif
-
-ifneq (,$(filter $(MTK_PLATFORM), mt6885 mt6873 mt6893))
-ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
-ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
-endif
-endif
-
-
-ifneq (,$(filter $(MTK_PLATFORM), mt6775 mt6771))
-#ccflags-y += -DGED_KPI_CPU_INFO
-endif
-
-ifneq (,$(filter $(MTK_PLATFORM), mt6759 mt6799 mt6763 mt6775 mt6771))
-#ccflags-y += -DGED_KPI_DFRC
-endif
-
-ifneq (,$(filter $(MTK_PLATFORM), mt6759 mt6799))
-#ccflags-y += -DGED_KPI_CPU_TRI_CLUSTER
-endif
-
-ifneq (,$(filter $(MTK_PLATFORM), mt6739))
-#ccflags-y += -DGED_KPI_CPU_SINGLE_CLUSTER
-endif
-
-ifneq (,$(filter $(MTK_PLATFORM), mt6765))
-#ccflags-y += -DCONFIG_MTK_QOS_V1_SUPPORT
-endif
-
-ifneq (,$(filter $(MTK_PLATFORM), mt6768 mt6771))
-ccflags-y += -DCONFIG_MTK_QOS_V1_SUPPORT
-endif
-
-ifneq (,$(filter $(MTK_PLATFORM), mt6779))
-ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
-#ccflags-y += -DGED_MODULE_LATE_INIT
-endif
-endif
-
 ifeq ($(CONFIG_MTK_ENABLE_GMO), y)
-ccflags-y += -DGED_LOG_SIZE_LIMITED
 ccflags-y += -DGED_BUFFER_LOG_DISABLE
 endif
 
@@ -98,43 +52,24 @@ ccflags-y += \
 	     -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox \
 	     -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/dispsys \
 	     -I$(srctree)/drivers/misc/mediatek/lcm/inc/ \
-	     -I$(srctree)/drivers/misc/mediatek/dfrc/ \
 	     -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/ \
 	     -I$(srctree)/drivers/misc/mediatek/performance/fpsgo_v3
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)
 
-ifneq (,$(filter $(MTK_PLATFORM), "mt6757" "mt8167" "kiboplus"))
-ccflags-y += \
-		 -I$(srctree)/drivers/misc/mediatek/cmdq/v2 \
-		 -I$(srctree)/drivers/misc/mediatek/cmdq/v2/$(subst ",,$(MTK_PLATFORM))
-else
-#$(info *MTK_PLATFORM 1 = $(word 1,$(MTK_PLATFORM)))
 ccflags-y += \
 		 -I$(srctree)/drivers/misc/mediatek/cmdq/v3
-
-ifeq ($(CONFIG_GPU_MT6761),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/mt6765/
-else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(subst ",,$(MTK_PLATFORM))
-endif
-endif
+
 
 #$(info $$CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT is [${CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT}])
-
-#ccflags-$(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) += -DGED_SSPM
-ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT),y)
-#ccflags-y += -DGED_SSPM
-endif
 
 ifneq ($(CONFIG_FPGA_EARLY_PORTING), y)
 ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
 ccflags-y += -DENABLE_COMMON_DVFS \
              -DENABLE_TIMER_BACKUP \
              -DGED_DVFS_ENABLE
-else
-ccflags-y += -DGED_FDVFS_ENABLE
 endif
 else
 $(info $[GED]CONFIG_FPGA_EARLY_PORTING is [${CONFIG_FPGA_EARLY_PORTING}])

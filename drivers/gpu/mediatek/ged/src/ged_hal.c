@@ -247,7 +247,6 @@ static ssize_t ged_kpi_show(struct kobject *kobj, struct kobj_attribute *attr,
 static KOBJ_ATTR_RO(ged_kpi);
 #endif /* MTK_GED_KPI */
 //-----------------------------------------------------------------------------
-#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
 static ssize_t dvfs_margin_value_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -287,7 +286,6 @@ static ssize_t dvfs_margin_value_store(struct kobject *kobj,
 }
 
 static KOBJ_ATTR_RW(dvfs_margin_value);
-#endif /* (defined(GED_ENABLE_FB_DVFS) && ...) */
 //-----------------------------------------------------------------------------
 #ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 static ssize_t loading_base_dvfs_step_show(struct kobject *kobj,
@@ -372,8 +370,8 @@ static ssize_t timer_base_dvfs_margin_store(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(timer_base_dvfs_margin);
 #endif /* GED_ENABLE_TIMER_BASED_DVFS_MARGIN */
-//-----------------------------------------------------------------------------
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
+
+
 static ssize_t dvfs_loading_mode_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -413,7 +411,6 @@ static ssize_t dvfs_loading_mode_store(struct kobject *kobj,
 }
 
 static KOBJ_ATTR_RW(dvfs_loading_mode);
-#endif /* GED_ENABLE_DVFS_LOADING_MODE */
 
 //-----------------------------------------------------------------------------
 static struct notifier_block ged_fb_notifier;
@@ -592,13 +589,11 @@ GED_ERROR ged_hal_init(void)
 	}
 #endif
 
-#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_dvfs_margin_value);
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("Failed to create dvfs_margin_value entry!\n");
 		goto ERROR;
 	}
-#endif
 
 #ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 	err = ged_sysfs_create_file(hal_kobj,
@@ -620,13 +615,11 @@ GED_ERROR ged_hal_init(void)
 	}
 #endif
 
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_dvfs_loading_mode);
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("Failed to create dvfs_loading_mode entry!\n");
 		goto ERROR;
 	}
-#endif
 
 	ged_fb_notifier.notifier_call = ged_fb_notifier_callback;
 	if (fb_register_client(&ged_fb_notifier))
@@ -643,18 +636,17 @@ ERROR:
 //-----------------------------------------------------------------------------
 void ged_hal_exit(void)
 {
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dvfs_loading_mode);
-#endif
+
 #ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_timer_base_dvfs_margin);
 #endif
 #ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_loading_base_dvfs_step);
 #endif
-#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
+
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dvfs_margin_value);
-#endif
+
 #ifdef MTK_GED_KPI
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_ged_kpi);
 #endif
