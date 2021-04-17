@@ -19,6 +19,7 @@
 #include <linux/stacktrace.h>
 #include <linux/tracepoint.h>
 #include <mt-plat/mboot_params.h>
+#include <mt-plat/mrdump.h>
 
 #include <trace/events/ipi.h>
 #include <trace/events/irq.h>
@@ -527,7 +528,9 @@ static int __init irq_monitor_init(void)
 	irq_mon_tracepoint_init();
 	irq_count_tracer_init();
 	irq_mon_proc_init();
-
+#if IS_ENABLED(CONFIG_MTK_AEE_HANGDET)
+	kwdt_regist_irq_info(mt_aee_dump_irq_info);
+#endif
 	return 0;
 }
 
@@ -550,6 +553,9 @@ static int irq_mon_tracepoint_exit(void)
 
 static void __exit irq_monitor_exit(void)
 {
+#if IS_ENABLED(CONFIG_MTK_AEE_HANGDET)
+	kwdt_regist_irq_info(NULL);
+#endif
 	irq_mon_tracepoint_exit();
 	remove_proc_subtree("mtmon", NULL);
 }

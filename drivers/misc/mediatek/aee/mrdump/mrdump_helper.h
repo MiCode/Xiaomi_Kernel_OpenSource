@@ -36,5 +36,5 @@ extern void aee_reinit_die_lock(void);
 #ifdef MODULE
 int mrdump_ka_init(void);
 #endif
-
+extern void sysrq_sched_debug_show_at_AEE(void);
 #endif
