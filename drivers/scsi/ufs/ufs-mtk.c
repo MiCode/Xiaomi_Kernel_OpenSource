@@ -1168,8 +1168,10 @@ static int ufs_mtk_hce_enable_notify(struct ufs_hba *hba,
 	case PRE_CHANGE:
 		if (host->unipro_lpm)
 			hba->hba_enable_delay_us = 0;
-		else
+		else {
 			hba->hba_enable_delay_us = 600;
+			ufs_mtk_pltfrm_host_sw_rst(hba, SW_RST_TARGET_UFSHCI);
+		}
 		break;
 	case POST_CHANGE:
 		ret = ufs_mtk_enable_crypto(hba);
