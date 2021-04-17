@@ -1525,7 +1525,7 @@ static int mem_buf_lend_user(struct mem_buf_lend_ioctl_arg *uarg, bool is_lend)
 	int *vmids, *perms;
 	int ret;
 	struct dma_buf *dmabuf;
-	struct mem_buf_lend_kernel_arg karg;
+	struct mem_buf_lend_kernel_arg karg = {0};
 
 	if (!uarg->nr_acl_entries || !uarg->acl_list ||
 	    uarg->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS ||
@@ -1563,7 +1563,7 @@ static int mem_buf_retrieve_user(struct mem_buf_retrieve_ioctl_arg *uarg)
 	int ret, fd;
 	int *vmids, *perms;
 	struct dma_buf *dmabuf;
-	struct mem_buf_retrieve_kernel_arg karg;
+	struct mem_buf_retrieve_kernel_arg karg = {0};
 
 	if (!uarg->nr_acl_entries || !uarg->acl_list ||
 	    uarg->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS ||
