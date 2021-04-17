@@ -142,12 +142,9 @@ static void ufs_mtk_pr_tsk(struct ufs_mtk_bio_context_task *tsk,
 
 extern void mtk_btag_commit_req(struct request *rq);
 
-void ufs_mtk_biolog_clk_gating(bool gated)
+void ufs_mtk_biolog_clk_gating(bool clk_on)
 {
-	if (gated)
-		mtk_btag_earaio_boost(false);
-	else
-		mtk_btag_earaio_boost(true);
+	mtk_btag_earaio_boost(clk_on);
 }
 
 void ufs_mtk_biolog_send_command(unsigned int task_id,
@@ -458,13 +455,12 @@ static struct mtk_btag_vops ufs_mtk_btag_vops = {
 	.mictx_eval_wqd = ufs_mtk_bio_mictx_eval_wqd,
 };
 
-int ufs_mtk_biolog_init(void)
+int ufs_mtk_biolog_init(bool qos_allowed)
 {
 	struct mtk_blocktag *btag;
 
-#ifdef UFS_MTK_PLATFORM_EARA_IO
-	ufs_mtk_btag_vops.earaio_enabled = true;
-#endif
+	if (qos_allowed)
+		ufs_mtk_btag_vops.earaio_enabled = true;
 
 	btag = mtk_btag_alloc("ufs",
 		UFS_BIOLOG_RINGBUF_MAX,

@@ -564,8 +564,9 @@ static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 	size_t count, loff_t *data)
 {
 	unsigned long op = UFS_CMD_UNKNOWN;
-	bool handled = false;
+	bool handled = true;
 	struct ufs_hba *hba = ufs_mtk_hba;
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 
 	if (count == 0 || count > 255)
 		return -EINVAL;
@@ -586,11 +587,21 @@ static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 	if (op == UFS_CMD_HIST_BEGIN) {
 		atomic_set(&cmd_hist_enabled, 1);
 		dev_info(hba->dev, "cmd history on\n");
-		handled = true;
 	} else if (op == UFS_CMD_HIST_STOP) {
 		atomic_set(&cmd_hist_enabled, 0);
 		dev_info(hba->dev, "cmd history off\n");
-		handled = true;
+	} else if (op == UFS_CMD_QOS_ON) {
+		if (host && host->qos_allowed) {
+			host->qos_enabled = true;
+			dev_info(hba->dev, "QoS on\n");
+		}
+	} else if (op == UFS_CMD_QOS_OFF) {
+		if (host && host->qos_allowed) {
+			host->qos_enabled = false;
+			dev_info(hba->dev, "QoS off\n");
+		}
+	} else {
+		handled = false;
 	}
 
 	ufs_mtk_dbg_add_trace(hba,

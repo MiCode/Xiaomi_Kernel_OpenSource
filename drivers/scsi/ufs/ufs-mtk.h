@@ -205,6 +205,8 @@ struct ufs_mtk_host {
 
 	/* passthrough keyhint if number of key slots is enough */
 	bool passthrough_keyhint;
+	bool qos_allowed;
+	bool qos_enabled;
 };
 
 enum {

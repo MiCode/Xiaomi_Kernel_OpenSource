@@ -804,9 +804,9 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 			ret = ufs_mtk_pltfrm_ref_clk_ctrl(hba, false);
 			if (ret)
 				goto out;
-#ifdef UFS_MTK_PLATFORM_EARA_IO
-			ufs_mtk_biolog_clk_gating(true);
-#endif
+
+			if (host && host->qos_enabled)
+				ufs_mtk_biolog_clk_gating(on);
 		}
 		break;
 	case POST_CHANGE:
@@ -827,9 +827,9 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 				if (ret)
 					goto out;
 			}
-#ifdef UFS_MTK_PLATFORM_EARA_IO
-			ufs_mtk_biolog_clk_gating(false);
-#endif
+
+			if (host && host->qos_enabled)
+				ufs_mtk_biolog_clk_gating(on);
 		}
 		break;
 	default:
@@ -972,6 +972,8 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 			   PM_QOS_MM_MEMORY_BANDWIDTH, 0);
 
 	host->pm_qos_init = true;
+
+	ufs_mtk_biolog_init(host->qos_allowed);
 
 #if !defined(DISABLE_LOW_BATTERY_PROTECT) && defined(LOW_BATTERY_PT_SETTING_V2)
 	register_low_battery_notify(&ufs_mtk_low_batt_callback,
@@ -1500,6 +1502,11 @@ void ufs_mtk_parse_dt(struct ufs_hba *hba)
 			&ufs_mtk_hs_gear))
 			ufs_mtk_hs_gear = UFS_HS_G3;
 	}
+
+#ifdef UFS_MTK_PLATFORM_EARA_IO
+	host->qos_allowed = true;
+	host->qos_enabled = true;
+#endif
 }
 
 void ufs_mtk_parse_auto_hibern8_timer(struct ufs_hba *hba)
@@ -2880,8 +2887,6 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 #endif
 		return -ENODEV;
 	}
-
-	ufs_mtk_biolog_init();
 
 	/* perform generic probe */
 	err = ufshcd_pltfrm_init(pdev, &ufs_hba_mtk_vops);
