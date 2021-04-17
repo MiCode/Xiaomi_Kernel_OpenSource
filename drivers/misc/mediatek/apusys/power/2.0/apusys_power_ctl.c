@@ -105,6 +105,29 @@ int32_t apusys_thermal_dis_throttle_cb(enum DVFS_USER user)
 	return 0;
 }
 
+int apusys_opp_to_boost_value(enum DVFS_USER user, uint8_t opp)
+{
+	int boost_value;
+	uint32_t max_freq = 0, freq = 0;
+	enum DVFS_VOLTAGE_DOMAIN buck_domain = apusys_user_to_buck_domain[user];
+
+	if (opp < 0 && opp >= APUSYS_MAX_NUM_OPPS) {
+		PWR_LOG_ERR("%s invalid opp : %d\n", __func__, opp);
+		return -1;
+	}
+
+	max_freq = apusys_opps.opps[0][buck_domain].freq;
+	freq = apusys_opps.opps[opp][buck_domain].freq;
+	boost_value = (freq * 100) / max_freq;
+
+	if (boost_value > 100 || boost_value < 0) {
+		PWR_LOG_ERR("%s invalid boost : %d\n", __func__, boost_value);
+		return -1;
+	}
+
+	return boost_value;
+}
+
 uint8_t apusys_boost_value_to_opp(enum DVFS_USER user, uint8_t boost_value)
 {
 	uint8_t i = 0;

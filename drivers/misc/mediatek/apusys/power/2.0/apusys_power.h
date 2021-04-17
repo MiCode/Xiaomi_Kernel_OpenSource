@@ -39,6 +39,7 @@ extern int apu_power_callback_device_register(enum POWER_CALLBACK_USER user,
 					void (*power_on_callback)(void *para),
 					void (*power_off_callback)(void *para));
 extern void apu_power_callback_device_unregister(enum POWER_CALLBACK_USER user);
+extern int apusys_opp_to_boost_value(enum DVFS_USER user, uint8_t opp);
 extern uint8_t apusys_boost_value_to_opp
 				(enum DVFS_USER user, uint8_t boost_value);
 extern enum DVFS_FREQ apusys_opp_to_freq(enum DVFS_USER user, uint8_t opp);

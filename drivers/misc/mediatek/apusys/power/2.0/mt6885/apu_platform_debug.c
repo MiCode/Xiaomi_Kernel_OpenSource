@@ -26,26 +26,37 @@ void apu_power_dump_opp_table(struct seq_file *s)
 {
 	int opp_num;
 	int buck_domain;
+	int boost_val;
 
 	seq_printf(s,
-		"|opp| vpu0| volt| vpu1| volt| vpu2| volt| dla0| volt| dla1| volt| conn| volt| iomm| volt| ipui| volt|\n");
+		"|opp| vpu0|boost| vpu1|boost| vpu2|boost| dla0|boost| dla1|boost| conn|iommu|ipuif|\n");
 	seq_printf(s,
-		"|---------------------------------------------------------------------------------------------------|\n");
+		"|---------------------------------------------------------------------------------|\n");
 	for (opp_num = 0 ; opp_num < APUSYS_MAX_NUM_OPPS ; opp_num++) {
 		seq_printf(s, "| %d |", opp_num);
 		for (buck_domain = 0 ; buck_domain < APUSYS_BUCK_DOMAIN_NUM;
 			buck_domain++) {
-#if defined(CONFIG_MACH_MT6893)
-			seq_printf(s, " %d |.%d |",
-			apusys_opps.opps[opp_num][buck_domain].freq / 1000,
-			apusys_opps.opps[opp_num][buck_domain].voltage / 1000);
-#else
-			seq_printf(s, " %d | --- |",
-			apusys_opps.opps[opp_num][buck_domain].freq / 1000);
-#endif
+
+			if (buck_domain == V_APU_CONN
+				|| buck_domain == V_TOP_IOMMU
+				|| buck_domain == V_VCORE) {
+
+				seq_printf(s, " %d |",
+					apusys_opps.opps[opp_num][buck_domain]
+					.freq / 1000);
+
+			} else {
+				boost_val = apusys_opp_to_boost_value(
+					apusys_buck_domain_to_user[buck_domain],
+					opp_num);
+
+				seq_printf(s, " %d | %03d |",
+					apusys_opps.opps[opp_num][buck_domain]
+					.freq / 1000, boost_val);
+			}
 		}
 		seq_printf(s,
-			"\n|---------------------------------------------------------------------------------------------------|\n");
+			"\n|---------------------------------------------------------------------------------|\n");
 	}
 }
 
