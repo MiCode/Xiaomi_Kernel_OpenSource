@@ -30,7 +30,7 @@ struct share_mem_debug {
 	uint8_t sensor_type;
 	uint8_t padding[3];
 	uint32_t written;
-	uint8_t buffer[1984] __aligned(4); //1024+512+256+128+64
+	uint8_t buffer[4032] __aligned(4); //2048+1024+512+256+128+64
 } __packed __aligned(4);
 
 struct share_mem_info {

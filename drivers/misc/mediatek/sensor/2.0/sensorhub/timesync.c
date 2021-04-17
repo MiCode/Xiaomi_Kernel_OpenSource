@@ -12,26 +12,11 @@
 #include <asm/arch_timer.h>
 #include <linux/workqueue.h>
 #include <linux/atomic.h>
+#include <linux/spinlock.h>
 
 #include "timesync.h"
 #include "sensor_comm.h"
 
-#define TIMESYNC_DURATION	10000
-#define TIMESYNC_START_DURATION	3000
-#define FILTER_DATA_POINTS	16
-#define FILTER_TIMEOUT		10000000000ULL /* 10 seconds, ~100us drift */
-#define FILTER_FREQ		10000000ULL /* 10 ms */
-
-struct moving_average {
-	int64_t last_time;
-	int64_t input[FILTER_DATA_POINTS];
-	atomic64_t output;
-	int64_t output_debug;
-	uint8_t cnt;
-	uint8_t tail;
-};
-
-static struct moving_average timesync_filter;
 static bool timesync_suspend_flag;
 static struct timer_list timesync_timer;
 static struct work_struct timesync_work;
@@ -46,39 +31,42 @@ static inline int64_t arch_counter_to_ns(int64_t cyc)
 	return (cyc * ARCH_TIMER_MULT) >> ARCH_TIMER_SHIFT;
 }
 
-static void moving_average_filter(struct moving_average *filter,
+static void timesync_filter_calculate(struct timesync_filter *filter,
 		int64_t host_time, int64_t scp_time)
 {
 	int i = 0;
-	int64_t avg = 0, ret_avg = 0, delta = 0;
+	int64_t avg = 0, delta = 0;
+	unsigned long flags;
 
-	if (host_time > filter->last_time + FILTER_TIMEOUT ||
-	    filter->last_time == 0) {
+	spin_lock_irqsave(&filter->lock, flags);
+	if (host_time > filter->last_time + filter->max_diff ||
+			filter->last_time == 0) {
 		filter->tail = 0;
 		filter->cnt = 0;
-	} else if (host_time < filter->last_time + FILTER_FREQ) {
+	} else if (host_time < filter->last_time + filter->min_diff) {
+		spin_unlock_irqrestore(&filter->lock, flags);
 		return;
 	}
 	filter->last_time = host_time;
 
-	filter->input[filter->tail++] = host_time - scp_time;
-	filter->tail &= (FILTER_DATA_POINTS - 1);
-	if (filter->cnt < FILTER_DATA_POINTS)
+	filter->buffer[filter->tail++] = host_time - scp_time;
+	filter->tail &= (filter->bufsize - 1);
+	if (filter->cnt < filter->bufsize)
 		filter->cnt++;
 
 	for (i = 1, avg = 0; i < filter->cnt; i++)
-		avg += (filter->input[i] - filter->input[0]);
-	ret_avg = div_s64(avg, filter->cnt) + filter->input[0];
-	if (!filter->output_debug) {
-		filter->output_debug = ret_avg;
+		avg += (filter->buffer[i] - filter->buffer[0]);
+	filter->offset = div_s64(avg, filter->cnt) + filter->buffer[0];
+	if (!filter->offset_debug) {
+		filter->offset_debug = filter->offset;
 	} else {
-		delta = filter->output_debug - ret_avg;
+		delta = filter->offset_debug - filter->offset;
 		if (unlikely(delta >= 2500000) || unlikely(delta <= -2500000))
-			pr_err("host with scp jump too large %lld\n", delta);
-		filter->output_debug = ret_avg;
+			pr_err("%s host with scp jump too large %lld\n",
+				filter->name, delta);
+		filter->offset_debug = filter->offset;
 	}
-
-	atomic64_set(&filter->output, ret_avg);
+	spin_unlock_irqrestore(&filter->lock, flags);
 }
 
 static int timesync_comm_with_nolock(void)
@@ -138,7 +126,8 @@ static void timesync_timer_func(unsigned long data)
 	timesync_start();
 }
 
-void timesync_filter_set(int64_t scp_timestamp, int64_t scp_archcounter)
+void timesync_filter_set(struct timesync_filter *filter,
+		int64_t scp_timestamp, int64_t scp_archcounter)
 {
 	unsigned long flags;
 	int64_t host_timestamp = 0, host_archcounter = 0;
@@ -157,18 +146,47 @@ void timesync_filter_set(int64_t scp_timestamp, int64_t scp_archcounter)
 		scp_archcounter);
 	scp_timestamp = scp_timestamp + ipi_transfer_time;
 
-	moving_average_filter(&timesync_filter, host_timestamp, scp_timestamp);
+	timesync_filter_calculate(filter, host_timestamp, scp_timestamp);
 }
 
-int64_t timesync_filter_get(void)
+int64_t timesync_filter_get(struct timesync_filter *filter)
 {
-	return atomic64_read(&timesync_filter.output);
+	unsigned long flags;
+	int64_t offset = 0;
+
+	spin_lock_irqsave(&filter->lock, flags);
+	offset = filter->offset;
+	spin_unlock_irqrestore(&filter->lock, flags);
+	return offset;
+}
+
+int timesync_filter_init(struct timesync_filter *filter)
+{
+	if (!filter->max_diff)
+		filter->max_diff = 10000000000LL;
+	if (!filter->min_diff)
+		filter->min_diff = 10000000LL;
+	if (!filter->bufsize)
+		filter->bufsize = 16;
+	WARN_ON(!filter->name);
+	spin_lock_init(&filter->lock);
+	filter->bufsize = roundup_pow_of_two(filter->bufsize);
+	filter->buffer = kcalloc(filter->bufsize, sizeof(*filter->buffer),
+			GFP_KERNEL);
+	if (!filter->buffer)
+		return -ENOMEM;
+	return 0;
+}
+
+void timesync_filter_exit(struct timesync_filter *filter)
+{
+	kfree(filter->buffer);
+	filter->buffer = NULL;
 }
 
 void timesync_start(void)
 {
-	mod_timer(&timesync_timer,
-		  jiffies + msecs_to_jiffies(TIMESYNC_DURATION));
+	mod_timer(&timesync_timer, jiffies + msecs_to_jiffies(10000));
 }
 
 void timesync_stop(void)
@@ -192,8 +210,6 @@ void timesync_suspend(void)
 int timesync_init(void)
 {
 	INIT_WORK(&timesync_work, timesync_work_func);
-	timesync_timer.expires =
-		jiffies + msecs_to_jiffies(TIMESYNC_START_DURATION);
 	timesync_timer.function = timesync_timer_func;
 	init_timer(&timesync_timer);
 	wakeup_source_init(&wakeup_src, "timesync");

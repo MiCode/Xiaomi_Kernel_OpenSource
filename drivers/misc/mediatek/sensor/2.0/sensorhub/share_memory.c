@@ -74,14 +74,19 @@ static void share_mem_buffer_full_detect(struct share_mem *shm,
 		uint32_t curr_written)
 {
 	int ret = 0;
+	uint32_t rp = 0, wp = 0, buffer_size = 0;
 	struct share_mem_notify notify;
 
 	shm->buffer_full_written += curr_written;
 	if (shm->buffer_full_written < shm->buffer_full_threshold)
 		return;
 
-	shm->buffer_full_written = shm->base->wp - shm->base->rp;
+	rp = shm->base->rp;
+	wp = shm->base->wp;
+	buffer_size = shm->base->buffer_size;
 
+	shm->buffer_full_written = (wp > rp) ?
+		(wp - rp) : (buffer_size - rp + wp);
 	if (shm->buffer_full_written >= shm->buffer_full_threshold) {
 		notify.sequence = 0;
 		notify.sensor_type = SENSOR_TYPE_INVALID;
@@ -137,7 +142,7 @@ static int share_mem_read_dram(struct share_mem *shm,
 {
 	uint32_t rp = 0, wp = 0, buffer_size = 0, item_size = 0;
 	uint8_t *src = NULL, *dst = buf;
-	uint32_t len = 0, off = 0, l = 0;
+	uint32_t first = 0, second = 0, read = 0;
 
 	if (!shm->item_size || count % shm->item_size)
 		return -EINVAL;
@@ -154,16 +159,22 @@ static int share_mem_read_dram(struct share_mem *shm,
 	if (wp == rp)
 		return 0;
 
-	len = wp - rp;
-	if (len > buffer_size)
-		return -EFAULT;
+	if (wp > rp) {
+		first = wp - rp;
+		second = 0;
+	} else {
+		first = buffer_size - rp;
+		second = wp;
+	}
 
-	len = min(len, count);
-	off = rp % buffer_size;
-	l = min(len, buffer_size - off);
-	memcpy_fromio(dst, src + off, l);
-	memcpy_fromio(dst + l, src, len - l);
-	rp += len;
+	first = min(first, count);
+	second = min(count - first, second);
+
+	memcpy_fromio(dst, src + rp, first);
+	memcpy_fromio(dst + first, src, second);
+	read = first + second;
+	rp += read;
+	rp %= buffer_size;
 
 	/*
 	 * make sure that the data is copied before
@@ -172,7 +183,7 @@ static int share_mem_read_dram(struct share_mem *shm,
 	smp_wmb();
 	shm->base->rp = rp;
 
-	return len;
+	return read;
 }
 
 int share_mem_read(struct share_mem *shm, void *buf, uint32_t count)
@@ -191,9 +202,8 @@ int share_mem_read(struct share_mem *shm, void *buf, uint32_t count)
 static int share_mem_write_dram(struct share_mem *shm,
 		void *buf, uint32_t count)
 {
-	uint32_t rp = 0, wp = 0, buffer_size = 0, item_size = 0;
+	uint32_t rp = 0, wp = 0, buffer_size = 0, item_size = 0, write = 0;
 	uint8_t *src = buf, *dst = NULL;
-	uint32_t len = 0, off = 0, l = 0;
 
 	if (!shm->item_size || count % shm->item_size)
 		return -EINVAL;
@@ -204,23 +214,19 @@ static int share_mem_write_dram(struct share_mem *shm,
 	item_size = shm->base->item_size;
 	dst = (uint8_t *)shm->base + offsetof(struct share_mem_base, data);
 
-	if (item_size != shm->item_size || count > buffer_size)
+	if (item_size != shm->item_size)
 		return -EIO;
 
-	len = wp - rp;
-	if (len > buffer_size)
-		return -EFAULT;
+	/* remain 1 count */
+	while ((write < count) && ((wp + item_size) % buffer_size != rp)) {
+		memcpy_toio(dst + wp, src + write, item_size);
+		write += item_size;
+		wp += item_size;
+		wp %= buffer_size;
+	}
 
-	len = buffer_size - len;
-	if (!len)
+	if (!write)
 		return 0;
-
-	len = min(len, count);
-	off = wp % buffer_size;
-	l = min(len, buffer_size - off);
-	memcpy_toio(dst + off, src, l);
-	memcpy_toio(dst, src + l, len - l);
-	wp += len;
 
 	/*
 	 * make sure that the data is copied before
@@ -231,9 +237,9 @@ static int share_mem_write_dram(struct share_mem *shm,
 	shm->write_position = wp;
 
 	if (shm->buffer_full_detect)
-		share_mem_buffer_full_detect(shm, len);
+		share_mem_buffer_full_detect(shm, write);
 
-	return len;
+	return write;
 }
 
 int share_mem_write(struct share_mem *shm, void *buf, uint32_t count)
@@ -285,8 +291,9 @@ int share_mem_init(struct share_mem *shm, struct share_mem_config *cfg)
 	if (shm->buffer_full_detect) {
 		shm->buffer_full_written = 0;
 		shm->buffer_full_threshold =
-			((uint32_t)((cfg->base->buffer_size / shm->item_size) *
-			SHARE_MEM_FULL_THRESHOLD_SCALE)) * shm->item_size;
+			((uint32_t)(((cfg->base->buffer_size - shm->item_size) /
+			shm->item_size) * SHARE_MEM_FULL_THRESHOLD_SCALE)) *
+			shm->item_size;
 		if (shm->buffer_full_threshold <= shm->item_size) {
 			ret = -EINVAL;
 			goto exit;

@@ -22,7 +22,6 @@
 
 #include "hf_manager.h"
 
-#define HF_MANAGER_DEBUG
 
 static int major;
 static struct class *hf_manager_class;
@@ -589,6 +588,7 @@ static void hf_manager_find_best_param(struct hf_core *core,
 	bool tmp_enable = false;
 	int64_t tmp_delay = S64_MAX;
 	int64_t tmp_latency = S64_MAX;
+	const int64_t max_latency_ns = 2000000000000LL;
 
 	spin_lock_irqsave(&core->client_lock, flags);
 	list_for_each_entry(client, &core->client_list, list) {
@@ -603,8 +603,8 @@ static void hf_manager_find_best_param(struct hf_core *core,
 	}
 	spin_unlock_irqrestore(&core->client_lock, flags);
 	*action = tmp_enable;
-	*delay = tmp_delay;
-	*latency = tmp_latency;
+	*delay = tmp_delay > 0 ? tmp_delay : 0;
+	*latency = tmp_latency < max_latency_ns ? tmp_latency : max_latency_ns;
 
 #ifdef HF_MANAGER_DEBUG
 	if (tmp_enable)
@@ -925,9 +925,9 @@ static int hf_manager_drive_device(struct hf_client *client,
 	}
 
 #ifdef HF_MANAGER_DEBUG
-	pr_notice("Drive device:%s command %u %u %lld %lld\n",
+	pr_notice("Drive device:%s command %u %u %u\n",
 		device->dev_name, cmd->sensor_type, cmd->action,
-		cmd->delay, cmd->latency);
+		cmd->padding);
 #endif
 
 	switch (cmd->action) {
@@ -1350,7 +1350,7 @@ static int hf_manager_proc_show(struct seq_file *m, void *v)
 	struct hf_manager *manager = NULL;
 	struct hf_client *client = NULL;
 	struct hf_device *device = NULL;
-	const unsigned int debug_len = 2048;
+	const unsigned int debug_len = 4096;
 	uint8_t *debug_buffer = NULL;
 
 	seq_puts(m, "**************************************************\n");

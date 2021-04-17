@@ -41,6 +41,8 @@ struct transceiver_state {
 struct transceiver_device {
 	struct hf_device hf_dev;
 
+	struct timesync_filter filter;
+
 	struct mutex enable_lock;
 	struct mutex flush_lock;
 	struct mutex config_lock;
@@ -71,6 +73,7 @@ static void transceiver_notify_func(struct sensor_comm_notify *n,
 		void *private_data)
 {
 	uint32_t wp = 0;
+	struct transceiver_device *dev = private_data;
 	struct data_notify *dnotify = (struct data_notify *)n->value;
 
 	if (n->command != SENS_COMM_NOTIFY_DATA_CMD &&
@@ -78,7 +81,8 @@ static void transceiver_notify_func(struct sensor_comm_notify *n,
 		return;
 
 	spin_lock(&transceiver_fifo_lock);
-	timesync_filter_set(dnotify->scp_timestamp, dnotify->scp_archcounter);
+	timesync_filter_set(&dev->filter,
+		dnotify->scp_timestamp, dnotify->scp_archcounter);
 	if (kfifo_is_full(&transceiver_fifo)) {
 		kfifo_out(&transceiver_fifo, &wp, 1);
 		pr_err_ratelimited("drop old normal write position\n");
@@ -93,6 +97,7 @@ static void transceiver_super_notify_func(struct sensor_comm_notify *n,
 		void *private_data)
 {
 	uint32_t wp = 0;
+	struct transceiver_device *dev = private_data;
 	struct data_notify *dnotify = (struct data_notify *)n->value;
 
 	if (n->command != SENS_COMM_NOTIFY_SUPER_DATA_CMD &&
@@ -100,7 +105,8 @@ static void transceiver_super_notify_func(struct sensor_comm_notify *n,
 		return;
 
 	spin_lock(&transceiver_fifo_lock);
-	timesync_filter_set(dnotify->scp_timestamp, dnotify->scp_archcounter);
+	timesync_filter_set(&dev->filter,
+		dnotify->scp_timestamp, dnotify->scp_archcounter);
 	if (kfifo_is_full(&transceiver_super_fifo)) {
 		kfifo_out(&transceiver_super_fifo, &wp, 1);
 		pr_err_ratelimited("drop old super write position\n");
@@ -250,7 +256,8 @@ static void transceiver_report(struct transceiver_device *dev,
 	} while (ret < 0);
 }
 
-static int transceiver_translate(struct hf_manager_event *dst,
+static int transceiver_translate(struct transceiver_device *dev,
+		struct hf_manager_event *dst,
 		const struct share_mem_data *src)
 {
 	int64_t remap_timestamp = 0;
@@ -262,7 +269,7 @@ static int transceiver_translate(struct hf_manager_event *dst,
 		return -EINVAL;
 	}
 
-	remap_timestamp = src->timestamp + timesync_filter_get();
+	remap_timestamp = src->timestamp + timesync_filter_get(&dev->filter);
 	if (src->action == DATA_ACTION) {
 		dst->timestamp = remap_timestamp;
 		dst->sensor_type = src->sensor_type;
@@ -366,7 +373,7 @@ static void transceiver_read(struct transceiver_device *dev,
 			break;
 		}
 		for (i = 0; i < (ret / item_size); i++) {
-			if (transceiver_translate(&evt, &buffer[i]) < 0)
+			if (transceiver_translate(dev, &evt, &buffer[i]) < 0)
 				continue;
 			transceiver_report(dev, &evt);
 		}
@@ -389,7 +396,8 @@ static void transceiver_process(struct transceiver_device *dev)
 	}
 }
 
-static int transceiver_translate_super(struct hf_manager_event *dst,
+static int transceiver_translate_super(struct transceiver_device *dev,
+		struct hf_manager_event *dst,
 		const struct share_mem_super_data *src)
 {
 	if (src->sensor_type >= SENSOR_TYPE_SENSOR_MAX ||
@@ -399,7 +407,7 @@ static int transceiver_translate_super(struct hf_manager_event *dst,
 		return -EINVAL;
 	}
 
-	dst->timestamp = src->timestamp + timesync_filter_get();
+	dst->timestamp = src->timestamp + timesync_filter_get(&dev->filter);
 	dst->sensor_type = src->sensor_type;
 	dst->accurancy = src->accurancy;
 	dst->action = src->action;
@@ -438,7 +446,8 @@ static void transceiver_read_super(struct transceiver_device *dev,
 			break;
 		}
 		for (i = 0; i < (ret / item_size); i++) {
-			if (transceiver_translate_super(&evt, &buffer[i]) < 0)
+			if (transceiver_translate_super(dev,
+					&evt, &buffer[i]) < 0)
 				continue;
 			transceiver_report(dev, &evt);
 		}
@@ -854,10 +863,20 @@ static int __init transceiver_init(void)
 		goto out_sensor_list;
 	}
 
+	dev->filter.max_diff = 10000000000LL;
+	dev->filter.min_diff = 10000000LL;
+	dev->filter.bufsize = 16;
+	dev->filter.name = "transceiver";
+	ret = timesync_filter_init(&dev->filter);
+	if (ret < 0) {
+		pr_err("timesync filter init fail %d\n", ret);
+		goto out_debug;
+	}
+
 	ret = timesync_init();
 	if (ret < 0) {
 		pr_err("timesync init fail %d\n", ret);
-		goto out_debug;
+		goto out_put_filter;
 	}
 
 	ret = register_pm_notifier(&transceiver_pm_notifier);
@@ -875,13 +894,13 @@ static int __init transceiver_init(void)
 	sched_setscheduler(dev->task, SCHED_FIFO, &param);
 
 	sensor_comm_notify_handler_register(SENS_COMM_NOTIFY_DATA_CMD,
-		transceiver_notify_func, NULL);
+		transceiver_notify_func, dev);
 	sensor_comm_notify_handler_register(SENS_COMM_NOTIFY_FULL_CMD,
-		transceiver_notify_func, NULL);
+		transceiver_notify_func, dev);
 	sensor_comm_notify_handler_register(SENS_COMM_NOTIFY_SUPER_DATA_CMD,
-		transceiver_super_notify_func, NULL);
+		transceiver_super_notify_func, dev);
 	sensor_comm_notify_handler_register(SENS_COMM_NOTIFY_SUPER_FULL_CMD,
-		transceiver_super_notify_func, NULL);
+		transceiver_super_notify_func, dev);
 	share_mem_config_handler_register(SENS_COMM_NOTIFY_DATA_CMD,
 		transceiver_shm_cfg, dev);
 	share_mem_config_handler_register(SENS_COMM_NOTIFY_SUPER_DATA_CMD,
@@ -893,6 +912,8 @@ out_pm_notify:
 	unregister_pm_notifier(&transceiver_pm_notifier);
 out_timesync:
 	timesync_exit();
+out_put_filter:
+	timesync_filter_exit(&dev->filter);
 out_debug:
 	debug_exit();
 out_sensor_list:

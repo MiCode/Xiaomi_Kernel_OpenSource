@@ -2452,11 +2452,8 @@ static int mtk_nanohub_create_manager(void)
 	device->hf_dev.support_list = support_sensors;
 	device->hf_dev.support_size = support_size;
 	err = hf_manager_create(&device->hf_dev);
-	mtk_nanohub_get_sensor_info();
-
-	err = hf_manager_create(hf_dev);
 	if (err < 0) {
-		pr_err("hf_manager_create fail\n");
+		pr_err("%s hf_manager_create fail\n", __func__);
 		return err;
 	}
 
@@ -2604,8 +2601,6 @@ static int mtk_nanohub_probe(struct platform_device *pdev)
 	atomic_set(&device->cfg_data_after_reboot, 0);
 	atomic_set(&device->start_timesync_first_boot, 0);
 	atomic_set(&device->create_manager_first_boot, 0);
-	atomic_set(&device->mtk_nanohub_ready, 0);
-	atomic64_set(&device->mtk_nanohub_ready_time, 0);
 
 	/* init timestamp sync worker */
 	INIT_WORK(&device->sync_time_worker, mtk_nanohub_sync_time_work);
