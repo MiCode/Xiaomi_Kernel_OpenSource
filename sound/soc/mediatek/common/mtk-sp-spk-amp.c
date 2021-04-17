@@ -40,6 +40,7 @@
 
 #define MTK_SPK_NAME "Speaker Codec"
 #define MTK_SPK_REF_NAME "Speaker Codec Ref"
+
 static unsigned int mtk_spk_type;
 static int mtk_spk_i2s_out, mtk_spk_i2s_in;
 static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
@@ -170,6 +171,9 @@ int mtk_spk_update_info(struct snd_soc_card *card,
 	const int i2s_num = 2;
 	unsigned int i2s_set[2];
 
+	if (mtk_spk_type == MTK_SPK_NOT_SMARTPA)
+		goto BYPASS_UPDATE;
+
 	/* get spk i2s set */
 	ret = of_property_read_u32_array(pdev->dev.of_node, "mediatek,spk-i2s",
 					 i2s_set, i2s_num);
@@ -197,17 +201,23 @@ int mtk_spk_update_info(struct snd_soc_card *card,
 		    strcmp(dai_link->cpus->dai_name, "I2S1") == 0 &&
 		    mtk_spk_i2s_out == MTK_SPK_I2S_1) {
 			i2s_out_dai_link_idx = i;
-			dai_link->name = "Speaker Codec";
+			dai_link->name = MTK_SPK_NAME;
+			dai_link->codecs->name = NULL;
+			dai_link->codecs->dai_name = NULL;
 		} else if (i2s_out_dai_link_idx < 0 &&
 			   strcmp(dai_link->cpus->dai_name, "I2S3") == 0 &&
 			   mtk_spk_i2s_out == MTK_SPK_I2S_3) {
 			i2s_out_dai_link_idx = i;
-			dai_link->name = "Speaker Codec";
+			dai_link->name = MTK_SPK_NAME;
+			dai_link->codecs->name = NULL;
+			dai_link->codecs->dai_name = NULL;
 		} else if (i2s_out_dai_link_idx < 0 &&
 			   strcmp(dai_link->cpus->dai_name, "I2S5") == 0 &&
 			   mtk_spk_i2s_out == MTK_SPK_I2S_5) {
 			i2s_out_dai_link_idx = i;
-			dai_link->name = "Speaker Codec";
+			dai_link->name = MTK_SPK_NAME;
+			dai_link->codecs->name = NULL;
+			dai_link->codecs->dai_name = NULL;
 		}
 
 		if (i2s_in_dai_link_idx < 0 &&
@@ -215,13 +225,17 @@ int mtk_spk_update_info(struct snd_soc_card *card,
 		    (mtk_spk_i2s_in == MTK_SPK_I2S_0 ||
 		     mtk_spk_i2s_in == MTK_SPK_TINYCONN_I2S_0)) {
 			i2s_in_dai_link_idx = i;
-			dai_link->name = "Speaker Codec Ref";
+			dai_link->name = MTK_SPK_REF_NAME;
+			dai_link->codecs->name = NULL;
+			dai_link->codecs->dai_name = NULL;
 		} else if (i2s_in_dai_link_idx < 0 &&
 			   strcmp(dai_link->cpus->dai_name, "I2S2") == 0 &&
 			   (mtk_spk_i2s_in == MTK_SPK_I2S_2 ||
 			    mtk_spk_i2s_in == MTK_SPK_TINYCONN_I2S_2)) {
 			i2s_in_dai_link_idx = i;
-			dai_link->name = "Speaker Codec Ref";
+			dai_link->name = MTK_SPK_REF_NAME;
+			dai_link->codecs->name = NULL;
+			dai_link->codecs->dai_name = NULL;
 		}
 
 		if (i2s_out_dai_link_idx >= 0 && i2s_in_dai_link_idx >= 0)
@@ -235,6 +249,7 @@ int mtk_spk_update_info(struct snd_soc_card *card,
 		return -ENODEV;
 	}
 
+BYPASS_UPDATE:
 	dev_info(&pdev->dev,
 		 "%s(), mtk_spk_type %d, spk_in_dai_link_idx %d, spk_out_dai_link_idx %d\n",
 		 __func__,
