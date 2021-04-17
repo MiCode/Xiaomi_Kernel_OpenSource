@@ -87,12 +87,6 @@ update_system_overutilized(struct lb_env *env)
 				continue;
 
 			group_util += cpu_util(i);
-			if (cpu_overutilized(i)) {
-				if (capacity_orig_of(i) == min_capacity) {
-					intra_overutil = true;
-					break;
-				}
-			}
 		}
 
 		/*

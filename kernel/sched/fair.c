@@ -6637,7 +6637,7 @@ static inline int select_energy_cpu_idx(struct energy_env *eenv)
 	for (cpu_idx = EAS_CPU_PRV; cpu_idx < eenv->max_cpu_count; ++cpu_idx) {
 		int cpu = eenv->cpu[cpu_idx].cpu_id;
 
-		if (cpu < 0 && cpu_isolated(cpu))
+		if (cpu < 0 || cpu_isolated(cpu))
 			continue;
 		cpumask_set_cpu(cpu, &eenv->cpus_mask);
 	}
@@ -7525,7 +7525,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	unsigned long target_capacity = ULONG_MAX;
 	unsigned long min_wake_util = ULONG_MAX;
 	unsigned long target_max_spare_cap = 0;
-	unsigned long target_orig_max_spare_cap = 0;
+	long target_orig_max_spare_cap = 0;
 	unsigned long target_util = ULONG_MAX;
 	unsigned long best_active_util = ULONG_MAX;
 	unsigned long max_capacity = cluster_max_capacity();
