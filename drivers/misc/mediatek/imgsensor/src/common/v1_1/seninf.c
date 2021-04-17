@@ -23,6 +23,7 @@
 #include <linux/of_address.h>
 
 
+#include "kd_imgsensor_api.h"
 #include "kd_seninf.h"
 
 #include "seninf_common.h"
@@ -44,7 +45,7 @@ do {	\
 static struct SENINF gseninf;
 
 
-extern MUINT32 Switch_Tg_For_Stagger(MUINT16 camtg)
+unsigned int Switch_Tg_For_Stagger(unsigned int camtg)
 {
 #ifdef _CAM_MUX_SWITCH
 	return _switch_tg_for_stagger(camtg, &gseninf);
@@ -52,7 +53,7 @@ extern MUINT32 Switch_Tg_For_Stagger(MUINT16 camtg)
 	return 0;
 #endif
 }
-EXPORT_SYMBOL(Switch_Tg_For_Stagger);
+// EXPORT_SYMBOL(Switch_Tg_For_Stagger);
 
 
 #if 1

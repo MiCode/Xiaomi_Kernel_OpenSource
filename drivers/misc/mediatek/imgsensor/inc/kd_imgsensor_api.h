@@ -6,12 +6,14 @@
 #ifndef _KD_IMGSENSOR_API_H_
 #define _KD_IMGSENSOR_API_H_
 
+#include "kd_camera_feature.h"
+
 /* API for termal driver use*/
-extern MUINT32 Get_Camera_Temperature(
+unsigned int Get_Camera_Temperature(
 	enum CAMERA_DUAL_CAMERA_SENSOR_ENUM senDevId,
-	MUINT8 *valid,
-	MUINT32 *temp);
-extern unsigned int Switch_Tg_For_Stagger(unsigned int camtg);
+	unsigned char *valid,
+	unsigned int *temp);
+unsigned int Switch_Tg_For_Stagger(unsigned int camtg);
 
 
 #endif

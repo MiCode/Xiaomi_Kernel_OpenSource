@@ -158,5 +158,3 @@ extern MINT32 _seninf_irq(MINT32 Irq, void *DeviceId, struct SENINF *pseninf)
 	return 0;
 }
 #endif
-
-

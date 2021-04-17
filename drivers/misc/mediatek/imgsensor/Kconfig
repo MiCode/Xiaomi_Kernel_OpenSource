@@ -14,6 +14,30 @@ config CUSTOM_KERNEL_IMGSENSOR
 	  CUSTOM_KERNEL_MAIN_BACKUP_IMGSENSOR, CUSTOM_KERNEL_SUB_IMGSENSOR,
 	  and CUSTOM_KERNEL_SUB_BACKUP_IMGSENSOR
 
+config MTK_IMGSENSOR_PLATFORM_SUPPORT
+	bool "MTK PLATFORM for ALL PLATFORM"
+	help
+	  This is a config for the MediaTek
+	  image sensors with layer decoupling 2.0.
+	  To compare to legacy config, this new option type is boolean.
+	  To compile all platform driver as modules, choose y here.
+
+config MTK_IMGSENSOR_MT6853
+	tristate "MTK PLATFORM for MT6853"
+	help
+	  This is a driver for the MediaTek
+	  image sensors.
+	  To compile this driver as a module, choose M here: the
+	  module will be called imgsensor_mt6853.
+
+config MTK_IMGSENSOR_MT6893
+	tristate "MTK PLATFORM for MT6893"
+	help
+	  This is a driver for the MediaTek
+	  image sensors.
+	  To compile this driver as a module, choose M here: the
+	  module will be called imgsensor_mt6893.
+
 config MTK_IMGSENSOR_PLATFORM
 	string "set imgsensor platform name"
 	default MTK_PLATFORM if MTK_PLATFORM != ""

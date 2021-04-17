@@ -33,6 +33,7 @@
 #include "kd_imgsensor_define.h"
 #include "kd_camera_feature.h"
 #include "kd_imgsensor_errcode.h"
+#include "kd_imgsensor_api.h"
 
 #include "imgsensor_cfg_table.h"
 #include "imgsensor_sensor_list.h"
@@ -603,10 +604,10 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 	return ret;
 }
 
-MUINT32 Get_Camera_Temperature(
+unsigned int Get_Camera_Temperature(
 	enum CAMERA_DUAL_CAMERA_SENSOR_ENUM indexDual,
-	MUINT8 *valid,
-	MINT32 *temp)
+	unsigned char *valid,
+	unsigned int *temp)
 {
 	MUINT32 ret = IMGSENSOR_RETURN_SUCCESS;
 	MUINT32 FeatureParaLen = 0;
@@ -646,7 +647,7 @@ MUINT32 Get_Camera_Temperature(
 
 	return ret;
 }
-EXPORT_SYMBOL(Get_Camera_Temperature);
+// EXPORT_SYMBOL(Get_Camera_Temperature);
 
 static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 {

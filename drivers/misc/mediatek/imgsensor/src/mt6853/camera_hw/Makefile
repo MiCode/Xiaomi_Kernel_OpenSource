@@ -1,12 +1,19 @@
 # SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2020 MediaTek Inc.
 
-#
-# Makefile for misc devices that really don't fit anywhere else.
-#
-ccflags-y += -I$(MTK_CUSTOM_PATH)/imgsensor/inc \
+# $(info camera_hw for LD2.0 mt6853)
+ifeq ($(CONFIG_MTK_IMGSENSOR_MT6853),m)
+imgsensor_mt6853-objs += \
+	$(subdrv-rpath)/imgsensor_cfg_table.o \
+	$(subdrv-rpath)/regulator/regulator.o \
+	$(subdrv-rpath)/gpio/gpio.o \
+	$(subdrv-rpath)/mclk/mclk.o
 
-obj-y		+= regulator/
-obj-y		+= gpio/
-obj-y		+= mclk/
-obj-y		+= imgsensor_cfg_table.o
-#obj-y           += imgsensor_oc.o
+# $(info camera_hw for LD1.0)
+else
+imgsensor-objs += \
+	$(subdrv-rpath)/imgsensor_cfg_table.o \
+	$(subdrv-rpath)/regulator/regulator.o \
+	$(subdrv-rpath)/gpio/gpio.o \
+	$(subdrv-rpath)/mclk/mclk.o
+endif
