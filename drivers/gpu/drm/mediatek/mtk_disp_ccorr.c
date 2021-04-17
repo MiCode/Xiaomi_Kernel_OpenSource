@@ -27,6 +27,7 @@
 #include "mtk_disp_color.h"
 #include "mtk_log.h"
 #include "mtk_dump.h"
+#include "mtk_drm_helper.h"
 
 #define DISP_REG_CCORR_EN (0x000)
 #define DISP_REG_CCORR_INTEN                     (0x008)
@@ -199,6 +200,18 @@ static void disp_ccorr_multiply_3x3(unsigned int ccorrCoef[3][3],
 			resultCoef[i][1],
 			resultCoef[i][2]);
 	}
+}
+
+static int disp_ccorr_color_matrix_to_dispsys(struct drm_device *dev)
+{
+	int ret = 0;
+	struct mtk_drm_private *private = dev->dev_private;
+
+	// All Support 3*4 matrix on drm architecture
+	ret = mtk_drm_helper_set_opt_by_name(private->helper_opt,
+		"MTK_DRM_OPT_PQ_34_COLOR_MATRIX", 1);
+
+	return ret;
 }
 
 static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
@@ -1068,6 +1081,7 @@ static int mtk_disp_ccorr_bind(struct device *dev, struct device *master,
 		return ret;
 	}
 
+	disp_ccorr_color_matrix_to_dispsys(drm_dev);
 	return 0;
 }
 

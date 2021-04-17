@@ -2298,6 +2298,10 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 		caps_info->disp_feature_flag |=
 				DRM_DISP_FEATURE_SF_PRESENT_FENCE;
 
+	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_PQ_34_COLOR_MATRIX))
+		caps_info->disp_feature_flag |=
+				DRM_DISP_FEATURE_PQ_34_COLOR_MATRIX;
+
 	return ret;
 }
 
