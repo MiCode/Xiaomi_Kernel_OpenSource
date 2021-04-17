@@ -688,6 +688,25 @@ struct simulator_log {
 
 };
 
+#define ZCV_LOG_LEN 10
+
+struct zcv_log {
+	struct timespec time;
+	int car;
+	int dtime;
+	int dcar;
+	int avgcurrent;
+};
+
+struct zcv_filter {
+	int fidx;
+	int lidx;
+	int size;
+	int zcvtime;
+	int zcvcurrent;
+	struct zcv_log log[ZCV_LOG_LEN];
+};
+
 struct mtk_battery {
 
 	int fix_coverity;
@@ -711,6 +730,8 @@ struct mtk_battery {
 
 /*custom related*/
 	int battery_id;
+
+	struct zcv_filter zcvf;
 
 /*simulator log*/
 	struct simulator_log log;
@@ -987,5 +1008,9 @@ extern int gauge_enable_interrupt(int intr_number, int en);
 int en_intr_VBATON_UNDET(int en);
 int reg_VBATON_UNDET(void (*callback)(void));
 
+/* zcvf */
+int zcv_filter_add(struct zcv_filter *zf);
+void zcv_filter_dump(struct zcv_filter *zf);
+bool zcv_check(struct zcv_filter *zf);
 
 #endif /* __MTK_BATTERY_INTF_H__ */

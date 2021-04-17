@@ -343,6 +343,225 @@ int gauge_get_nag_dltv(void)
 	return nafg_dltv;
 }
 
+/* ============================================================ */
+/* zcv filter methods */
+/* ============================================================ */
+void zcv_filter_init(struct zcv_filter *zf)
+{
+	memset(zf->log, 0, sizeof(struct zcv_log) * ZCV_LOG_LEN);
+	zf->fidx = -1;
+	zf->lidx = -1;
+	zf->size = 0;
+	zf->zcvtime = 16 * 60;
+	zf->zcvcurrent = 20;
+}
+
+int zcv_add(struct zcv_filter *zf, int car, struct timespec *t)
+{
+	int nidx;
+	int ret = 0;
+
+	nidx = (zf->lidx+1) % ZCV_LOG_LEN;
+
+	bm_debug("badd fidx:%d lidx:%d nidx:%d\n",
+			zf->fidx,
+			zf->lidx,
+			nidx);
+
+	if (zf->fidx == -1) {
+		/* array empty */
+		zf->fidx = 0;
+		zf->lidx = 0;
+		zf->size++;
+		zf->log[0].car = car;
+		zf->log[0].time = *t;
+	} else {
+		if (nidx == zf->fidx) /* array full */
+			ret = -1;
+		else {
+		/* array not full */
+			zf->lidx = nidx;
+			zf->log[nidx].car = car;
+			zf->log[nidx].time = *t;
+			zf->log[nidx].dtime = 0;
+			zf->log[nidx].dcar = 0;
+			zf->log[nidx].avgcurrent = 0;
+			zf->size++;
+		}
+	}
+
+	bm_debug("aadd fidx:%d lidx:%d nidx:%d\n",
+			zf->fidx,
+			zf->lidx,
+			nidx);
+	return ret;
+}
+
+void zcv_remove(struct zcv_filter *zf)
+{
+	int nidx;
+
+	nidx = (zf->fidx+1)%ZCV_LOG_LEN;
+	if (zf->fidx == -1)
+		return;
+
+	zf->log[zf->fidx].car = 0;
+	zf->log[zf->fidx].time.tv_sec = 0;
+	zf->log[zf->fidx].time.tv_nsec = 0;
+	zf->log[zf->fidx].dtime = 0;
+	zf->log[zf->fidx].dcar = 0;
+	zf->log[zf->fidx].avgcurrent = 0;
+	if (zf->fidx == zf->lidx) {
+		zf->fidx = -1;
+		zf->lidx = -1;
+		zf->size = 0;
+	} else {
+		zf->fidx = nidx;
+		zf->size--;
+	}
+}
+
+void zcv_filter_remove(struct zcv_filter *zf)
+{
+	zcv_remove(zf);
+}
+
+int zcv_filter_add(struct zcv_filter *zf)
+{
+	int ret = 0;
+	struct zcv_log *old;
+	struct timespec dtime, now;
+	int dcar = 0;
+	int avgc = 0;
+	int time_thread = 0;
+	int avgc_thread = 0;
+	int car = 0;
+
+	car = gauge_get_coulomb();
+	get_monotonic_boottime(&now);
+
+	dtime.tv_sec = 0;
+	dtime.tv_nsec = 0;
+
+	time_thread = (fg_cust_data.zcv_suspend_time + 1) * 4 * 60 / 10;
+	avgc_thread = fg_cust_data.sleep_current_avg / 10;
+
+	if (zf->lidx != -1) {
+		old = &zf->log[zf->lidx];
+		dtime = timespec_sub(now, old->time);
+		dcar = abs(car - old->car);
+		if (dtime.tv_sec != 0)
+			avgc = dcar * 360 / dtime.tv_sec;
+		else
+			avgc = 0;
+
+		if (dtime.tv_sec < time_thread && avgc < avgc_thread) {
+			bm_err("zcvf, no update time:%ld %d avgc:%d avgc_thread\n",
+				(long)dtime.tv_sec, time_thread,
+				avgc, avgc_thread);
+			return 0;
+		}
+	}
+
+	ret = zcv_add(zf, car, &now);
+	if (ret == -1) {
+		zcv_remove(zf);
+		ret = zcv_add(zf, car, &now);
+	}
+
+	zf->log[zf->lidx].dcar = dcar;
+	zf->log[zf->lidx].dtime = dtime.tv_sec;
+	zf->log[zf->lidx].avgcurrent = avgc;
+
+	return 0;
+}
+
+void zcv_filter_dump(struct zcv_filter *zf)
+{
+	int i;
+	struct timespec dtime;
+	struct timespec now_time;
+
+	get_monotonic_boottime(&now_time);
+	dtime.tv_sec = 0;
+	dtime.tv_nsec = 0;
+	bm_debug("zcvf dump:fidx:%d lidx:%d size:%d now:%ld zcvt:%d avgc:%d\n",
+			zf->fidx,
+			zf->lidx,
+			zf->size,
+			now_time.tv_sec,
+			(fg_cust_data.zcv_suspend_time + 1) * 4 * 60,
+			fg_cust_data.sleep_current_avg / 10);
+	for (i = 0; i < ZCV_LOG_LEN; i++) {
+		dtime = timespec_sub(now_time, zf->log[i].time);
+		bm_debug("zcvf idx:%d car:%d avgc:%d dcar:%d time:%ld dtime_p:%d dtime_n:%ld\n",
+			i,
+			zf->log[i].car,
+			zf->log[i].avgcurrent,
+			zf->log[i].dcar,
+			zf->log[i].time.tv_sec,
+			zf->log[i].dtime,
+			dtime.tv_sec);
+	}
+}
+
+bool zcv_check(struct zcv_filter *zf)
+{
+	struct timespec now_time, dtime;
+	int idx = 0;
+	int time_thread = 0;
+	int avgc_thread = 0;
+	int i = 0;
+	int dcar = 0;
+	int avgc = 0;
+	struct zcv_log *log;
+	int fg_coulomb = gauge_get_coulomb();
+	bool oc = false;
+	int i_intime = -1;
+
+	get_monotonic_boottime(&now_time);
+	time_thread = (fg_cust_data.zcv_suspend_time + 1) * 4 * 60;
+	avgc_thread = fg_cust_data.sleep_current_avg / 10;
+
+
+	for (i = 0; i < zf->size; i++) {
+		idx = zf->fidx;
+		idx = (idx + i) % ZCV_LOG_LEN;
+		log = &zf->log[idx];
+		dtime = timespec_sub(now_time, log->time);
+
+		bm_err("zcvf i:%d i_intime:%d idx:%d dtime_now:%ld avgc_prev:%d ot:%d\n",
+			i, i_intime, idx, dtime.tv_sec, log->avgcurrent,
+			dtime.tv_sec > time_thread);
+		if (dtime.tv_sec <= time_thread) {
+			if (i_intime == -1)
+				i_intime = i;
+
+			if (i_intime != i && log->avgcurrent > avgc_thread) {
+				oc = true;
+				bm_err("zcvf (1) idx:%d,%d avgc_prev:%d avgc_t:%d\n",
+					idx, i, log->avgcurrent, avgc_thread);
+			} else {
+				dcar = abs(fg_coulomb - log->car);
+				if (dtime.tv_sec != 0)
+					avgc = dcar * 360 / dtime.tv_sec;
+				else
+					avgc = 0;
+				if (avgc > avgc_thread) {
+					oc = true;
+					bm_err("zcvf (2) idx:%d:%d avgc_pre:%d avgc_now:%d avgc_t:%d cou:%d %d\n",
+						idx, i, log->avgcurrent, avgc, avgc_thread,
+						fg_coulomb, log->car);
+				}
+			}
+		}
+	}
+
+	bm_err("zcvf check:%d\n", oc);
+
+	return oc;
+}
+
 
 /* ============================================================ */
 /* weak function for other module */
@@ -1905,10 +2124,11 @@ void fg_zcv_int_handler(void)
 	fg_coulomb = gauge_get_coulomb();
 	gauge_get_zcv_current(&zcv_intr_curr);
 	gauge_get_zcv(&zcv);
-	bm_err("[%s] car:%d zcv_curr:%d zcv:%d, slp_cur_avg:%d\n",
+	bm_err("[%s] car:%d zcv_curr:%d zcv:%d, slp_cur_avg:%d zcv_check:%d\n",
 		__func__,
 		fg_coulomb, zcv_intr_curr, zcv,
-		fg_cust_data.sleep_current_avg);
+		fg_cust_data.sleep_current_avg,
+		zcv_check(&gm.zcvf));
 
 	if (abs(zcv_intr_curr) < fg_cust_data.sleep_current_avg) {
 		wakeup_fg_algo(FG_INTR_FG_ZCV);
@@ -4369,6 +4589,7 @@ void mtk_battery_init(struct platform_device *dev)
 
 	}
 
+	zcv_filter_init(&gm.zcvf);
 
 	gm3_log_init();
 

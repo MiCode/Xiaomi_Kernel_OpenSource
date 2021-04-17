@@ -1883,6 +1883,10 @@ int wakeup_fg_algo(unsigned int flow_state)
 		return 0;
 	}
 
+	zcv_filter_add(&gm.zcvf);
+	zcv_filter_dump(&gm.zcvf);
+	zcv_check(&gm.zcvf);
+
 	gm3_log_notify(flow_state);
 
 	if (gm.g_fgd_pid != 0) {
@@ -4303,6 +4307,10 @@ static int battery_suspend(struct platform_device *dev, pm_message_t state)
 
 static int battery_resume(struct platform_device *dev)
 {
+	zcv_filter_add(&gm.zcvf);
+	zcv_filter_dump(&gm.zcvf);
+	zcv_check(&gm.zcvf);
+
 	bm_err("******** %s!! iavg=%d ***GM3 disable:%d %d %d %d***\n",
 		__func__,
 		gm.hw_status.iavg_intr_flag,
