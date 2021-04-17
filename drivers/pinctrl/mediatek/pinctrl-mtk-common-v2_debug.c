@@ -374,8 +374,11 @@ static int mtk_gpio_create_attr(void)
 	list_for_each_entry(gdev, &gpio_devices, list) {
 
 		chip = gdev->chip;
-		hw = gpiochip_get_data(chip);
-		break;
+		if (!strncmp(pinctrl_paris_modname, chip->label,
+				strlen(pinctrl_paris_modname))) {
+			hw = gpiochip_get_data(chip);
+			break;
+		}
 	}
 
 	spin_unlock_irqrestore(&gpio_lock, flags);
