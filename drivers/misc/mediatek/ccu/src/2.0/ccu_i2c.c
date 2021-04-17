@@ -281,6 +281,7 @@ int ccu_get_i2c_dma_buf_addr(struct ccu_i2c_buf_mva_ioarg *ioarg)
 
 	/*If there is existing i2c buffer mva allocated, deallocate it first*/
 	ccu_deallocate_mva(i2c_mva[ioarg->sensor_idx]);
+	i2c_mva[ioarg->sensor_idx] = 0;
 	ret = ccu_allocate_mva(&i2c_mva[ioarg->sensor_idx], va, 4096);
 	ioarg->mva = i2c_mva[ioarg->sensor_idx];
 	mutex_unlock(&ccu_i2c_mutex);
@@ -295,8 +296,8 @@ int ccu_i2c_free_dma_buf_mva_all(void)
 	mutex_lock(&ccu_i2c_mutex);
 	for (i = IMGSENSOR_SENSOR_IDX_MIN_NUM;
 		i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
-		if (!ccu_deallocate_mva(i2c_mva[i]))
-			i2c_mva[i] = 0;
+		ccu_deallocate_mva(i2c_mva[i]);
+		i2c_mva[i] = 0;
 	}
 
 	LOG_INF_MUST("%s done.\n", __func__);
