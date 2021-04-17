@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
  */
 
 #define ANY_ID (~0)
@@ -275,7 +275,8 @@ static const struct adreno_reglist a50x_hwcg_regs[] = {
 static const struct adreno_a5xx_core adreno_gpu_core_a505 = {
 	.base = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A505, 5, 0, 5, ANY_ID),
-		.features = ADRENO_PREEMPTION | ADRENO_64BIT,
+		.features = ADRENO_PREEMPTION | ADRENO_64BIT |
+			ADRENO_CONTENT_PROTECTION | ADRENO_CPZ_RETENTION,
 		.gpudev = &adreno_a5xx_gpudev,
 		.gmem_size = (SZ_128K + SZ_8K),
 		.busy_mask = 0xfffffffe,
@@ -283,6 +284,7 @@ static const struct adreno_a5xx_core adreno_gpu_core_a505 = {
 	},
 	.pm4fw_name = "a530_pm4.fw",
 	.pfpfw_name = "a530_pfp.fw",
+	.zap_name = "a506_zap",
 	.hwcg = a50x_hwcg_regs,
 	.hwcg_count = ARRAY_SIZE(a50x_hwcg_regs),
 	.vbif = a530_vbif_regs,
