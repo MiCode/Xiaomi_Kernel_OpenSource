@@ -5378,6 +5378,7 @@
 		compatible = "mediatek,i2c_common";
 		dma_support = /bits/ 8 <3>;
 		fifo_support = /bits/ 8 <1>;
+		i2c_dma_handshake_rst = /bits/ 8 <2>;
 		idvfs = /bits/ 8 <1>;
 		set_dt_div = /bits/ 8 <1>;
 		check_max_freq = /bits/ 8 <1>;
