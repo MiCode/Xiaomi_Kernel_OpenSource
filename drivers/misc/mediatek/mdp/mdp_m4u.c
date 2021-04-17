@@ -116,7 +116,7 @@ void mdp_ion_cache_flush(struct ion_handle *handle)
 {
 #if defined(CONFIG_MTK_IOMMU_V2)
 	struct ion_sys_data sys_data;
-	void *buffer_va;
+	void *buffer_va = NULL;
 
 	if (!g_mdp_ion_client || !handle)
 		return;
