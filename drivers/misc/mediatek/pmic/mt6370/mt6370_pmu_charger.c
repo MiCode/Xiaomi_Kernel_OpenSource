@@ -84,6 +84,7 @@ struct mt6370_pmu_charger_desc {
 	u32 lbp_dt;
 	bool en_te;
 	bool en_wdt;
+	bool en_otg_wdt;
 	bool en_polling;
 	bool disable_vlgc;
 	bool fast_unknown_ta_dect;
@@ -2168,7 +2169,7 @@ static int mt6370_enable_otg(struct charger_device *chg_dev, bool en)
 				__func__);
 #endif /* CONFIG_MT6370_PMU_CHARGER_TYPE_DETECT */
 
-		if (chg_data->chg_desc->en_wdt) {
+		if (chg_data->chg_desc->en_otg_wdt) {
 			ret = mt6370_enable_wdt(chg_data, true);
 			if (ret < 0)
 				dev_err(chg_data->dev, "%s: en wdt fail\n",
@@ -3779,6 +3780,7 @@ static inline int mt_parse_dt(struct device *dev,
 
 	chg_desc->en_te = of_property_read_bool(np, "enable_te");
 	chg_desc->en_wdt = of_property_read_bool(np, "enable_wdt");
+	chg_desc->en_otg_wdt = of_property_read_bool(np, "enable_otg_wdt");
 	chg_desc->en_polling = of_property_read_bool(np, "enable_polling");
 	chg_desc->disable_vlgc = of_property_read_bool(np, "disable_vlgc");
 	chg_desc->fast_unknown_ta_dect =
