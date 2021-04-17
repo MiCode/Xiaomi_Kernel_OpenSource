@@ -79,7 +79,7 @@ struct mt_gpufreq_power_table_info {
 enum mt_gpufreq_kicker {
 	KIR_STRESS,
 	KIR_PROC,
-	KIR_PTPOD,
+	KIR_ASENSOR,
 	KIR_THERMAL,
 	KIR_BATT_OC,
 	KIR_BATT_LOW,
@@ -146,8 +146,6 @@ extern struct mt_gpufreq_power_table_info *pass_gpu_table_to_eara(void);
 extern unsigned int mt_gpufreq_get_seg_max_opp_index(void);
 extern void mt_gpufreq_thermal_protect(unsigned int limited_power);
 extern void mt_gpufreq_restore_default_volt(void);
-extern void mt_gpufreq_enable_by_ptpod(void);
-extern void mt_gpufreq_disable_by_ptpod(void);
 extern unsigned int mt_gpufreq_get_max_power(void);
 extern unsigned int mt_gpufreq_get_min_power(void);
 extern unsigned int mt_gpufreq_get_thermal_limit_index(void);

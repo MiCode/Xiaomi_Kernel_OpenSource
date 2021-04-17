@@ -113,7 +113,6 @@
 #define GPU_ACT_REF_POWER               (1285)                /* mW  */
 #define GPU_ACT_REF_FREQ                (900000)              /* KHz */
 #define GPU_ACT_REF_VOLT                (90000)               /* mV x 100 */
-#define PTPOD_DISABLE_VOLT              (75000)
 
 /**************************************************
  * Battery Over Current Protect
@@ -145,9 +144,14 @@
 #define MT_GPUFREQ_GPM_ENABLE 0
 
 /**************************************************
- * PTPOD Calibration
+ * ASENSOR (Aging Sensor) = Sensor network0
  **************************************************/
-#define MT_GPUFREQ_PTPOD_CALIBRATION_ENABLE 0
+#define MT_GPUFREQ_ASENSOR_ENABLE		1
+#define ASENSOR_DISABLE_VOLT            (55000)
+#define MT_GPUFREQ_AGING_GAP0			(-3)
+#define MT_GPUFREQ_AGING_GAP1			(2)
+#define MT_GPUFREQ_AGING_GAP2			(4)
+#define MT_GPUFREQ_AGING_GAP3			(6)
 
 /**************************************************
  * Register Manipulations
@@ -221,9 +225,22 @@
  **************************************************/
 #define VOLT_NORMALIZATION(volt)	\
 	((volt % PMIC_STEP) ? (volt - (volt % PMIC_STEP) + PMIC_STEP) : volt)
+
+#ifndef MAX
+#define MAX(x, y)	(((x) < (y)) ? (y) : (x))
+#endif
+
 #ifndef MIN
 #define MIN(x, y)	(((x) < (y)) ? (x) : (y))
 #endif
+
+static int ceil(float a)
+{
+	if (a == (int)(a))
+		return a;
+	else
+		return (int)(a)+1;
+}
 
 #define GPUOP(khz, vgpu, vsram, post_divider, aging_margin)	\
 	{							\
@@ -290,7 +307,7 @@ struct gpudvfs_limit limit_table[] = {
 	{KIR_PROC,			"PROC",		GPUFREQ_LIMIT_PRIO_7,
 		LIMIT_IDX_DEFAULT, LIMIT_ENABLE,
 		LIMIT_IDX_DEFAULT, LIMIT_ENABLE},
-	{KIR_PTPOD,			"PTPOD",	GPUFREQ_LIMIT_PRIO_6,
+	{KIR_ASENSOR,			"ASENSOR",	GPUFREQ_LIMIT_PRIO_6,
 		LIMIT_IDX_DEFAULT, LIMIT_ENABLE,
 		LIMIT_IDX_DEFAULT, LIMIT_ENABLE},
 	{KIR_THERMAL,		"THERMAL",	GPUFREQ_LIMIT_PRIO_5,
@@ -486,6 +503,44 @@ struct opp_table_info g_opp_table_segment_3[] = {
 	GPUOP(420000, 60625, 75000, POSDIV_POWER_4,  625), /*35 */
 	GPUOP(402000, 60625, 75000, POSDIV_POWER_4,  625), /*36 */
 	GPUOP(385000, 60000, 75000, POSDIV_POWER_4,  625), /*37 sign off */
+};
+
+/**************************************************
+ * Aging table
+ **************************************************/
+struct g_asensor_info {
+	u32 efuse_val1, efuse_val2;
+	u32 a_t0_lvt_rt, a_t0_ulvt_rt;
+	u32 a_tn_lvt_cnt, a_tn_ulvt_cnt;
+	int tj1, tj2;
+	int adiff1, adiff2;
+	int leak_power;
+};
+unsigned int g_aging_table[][NUM_OF_OPP_IDX] = {
+	/* Aging Table 0 */
+	{1875, 1875, 1875, 1875, 1875, 1875, 1875, 1875,
+	 1875, 1875, 1875, 1875, 1875, 1875, 1875, 1250,
+	 1250, 1250, 1250, 1250, 1250, 1250, 1250, 1250,
+	 1250, 1250, 1250,  625,  625,  625,  625,  625,
+	  625,  625,  625,  625,  625,  625},
+	/* Aging Table 1 */
+	{1250, 1250, 1250, 1250, 1250, 1250, 1250, 1250,
+	 1250, 1250, 1250, 1250, 1250, 1250, 1250,  625,
+	  625,  625,  625,  625,  625,  625,  625,  625,
+	  625,  625,  625,    0,    0,    0,    0,    0,
+	    0,    0,    0,    0,    0,    0},
+	/* Aging Table 2 */
+	{ 625,  625,  625,  625,  625,  625,  625,  625,
+	  625,  625,  625,  625,  625,  625,  625,    0,
+	    0,    0,    0,    0,    0,    0,    0,    0,
+	    0,    0,    0,    0,    0,    0,    0,    0,
+	    0,    0,    0,    0,    0,    0},
+	/* Aging Table 3 */
+	{   0,    0,    0,    0,    0,    0,    0,    0,
+	    0,    0,    0,    0,    0,    0,    0,    0,
+	    0,    0,    0,    0,    0,    0,    0,    0,
+	    0,    0,    0,    0,    0,    0,    0,    0,
+	    0,    0,    0,    0,    0,    0},
 };
 
 #endif /* ___MT_GPUFREQ_INTERNAL_PLAT_H___ */

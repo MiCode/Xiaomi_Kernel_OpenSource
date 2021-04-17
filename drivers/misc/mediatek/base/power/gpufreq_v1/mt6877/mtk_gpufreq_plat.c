@@ -175,12 +175,16 @@ static void __mt_update_gpufreqs_power_table(void);
 #endif
 
 static void __mt_gpufreq_setup_opp_power_table(int num);
+static void mt_gpufreq_apply_aging(bool apply);
 static void mt_gpufreq_cal_sb_opp_index(void);
 
 static unsigned int __calculate_vgpu_settletime(bool mode, int deltaV);
 static unsigned int __calculate_vsram_settletime(bool mode, int deltaV);
 
 static void __mt_gpufreq_switch_to_clksrc(enum g_clock_source_enum clksrc);
+
+static void __mt_gpufreq_enable_by_asensor(void);
+static void __mt_gpufreq_disable_by_asensor(void);
 
 /**
  * ===============================================
@@ -220,7 +224,7 @@ static struct platform_driver g_gpufreq_pdrv = {
 	},
 };
 
-static bool g_DVFS_is_paused_by_ptpod;
+static bool g_DVFS_is_paused_by_asensor;
 static bool g_cg_on;
 static bool g_mtcmos_on;
 static bool g_buck_on;
@@ -231,7 +235,10 @@ static unsigned int g_opp_stress_test_state;
 static unsigned int g_max_opp_idx_num;
 static unsigned int g_segment_max_opp_idx;
 static unsigned int g_segment_min_opp_idx;
-static unsigned int g_aging_enable;
+static unsigned int g_aging_enable = 1;
+static int g_aging_table_id = -1;
+static struct g_asensor_info g_asensor;
+static unsigned int g_aging_most_agrresive;
 static unsigned int g_cur_opp_freq;
 static unsigned int g_cur_opp_vgpu;
 static unsigned int g_cur_opp_vsram_gpu;
@@ -273,6 +280,11 @@ static void __iomem *g_infracfg_ao;
 static void __iomem *g_dbgtop;
 static void __iomem *g_sleep;
 static void __iomem *g_toprgu;
+#if MT_GPUFREQ_ASENSOR_ENABLE
+static void __iomem *g_cpe_controller_sensor;
+static void __iomem *g_sensor_network_0_base;
+static void __iomem *g_cpe_controller_mcu_base;
+#endif
 
 static struct pwr_status g_mfg_clk_pwr_status =
 	GATE_PWR_STAT(PWR_STATUS_OFS, PWR_STATUS_2ND_OFS,
@@ -346,6 +358,7 @@ void mt_gpufreq_wdt_reset(void)
 
 void mt_gpufreq_dump_infra_status(void)
 {
+	int i;
 	unsigned int start, offset, val;
 
 	gpufreq_pr_info("[GPU_DFD] ====\n");
@@ -354,6 +367,20 @@ void mt_gpufreq_dump_infra_status(void)
 			g_cur_opp_freq,
 			g_cur_opp_vgpu,
 			g_cur_opp_vsram_gpu);
+
+	gpufreq_pr_info("[GPU_DFD] g_aging_table_id=%d, g_aging_most_agrresive = %d\n",
+			g_aging_table_id,
+			g_aging_most_agrresive);
+
+	for (i = g_segment_max_opp_idx; i <= g_segment_min_opp_idx; i++) {
+		gpufreq_pr_info("[%02d] freq = %d, vgpu = %d, vsram = %d, posdiv = %d, aging = %d\n",
+			i - g_segment_max_opp_idx,
+			g_opp_table[i].gpufreq_khz,
+			g_opp_table[i].gpufreq_vgpu,
+			g_opp_table[i].gpufreq_vsram,
+			1 << g_opp_table[i].gpufreq_post_divider,
+			g_opp_table[i].gpufreq_aging_margin);
+	}
 
 	// 0x10000000
 	if (g_topckgen_base) {
@@ -501,7 +528,7 @@ static unsigned int mt_gpufreq_return_by_condition(
 	if (!mt_gpufreq_get_dvfs_en())
 		ret |= (1 << 0);
 
-	if (kicker != KIR_PTPOD) {
+	if (kicker != KIR_ASENSOR) {
 		if (limit_idx > g_segment_min_opp_idx ||
 					limit_idx < g_segment_max_opp_idx) {
 			ret |= (1 << 1);
@@ -509,7 +536,7 @@ static unsigned int mt_gpufreq_return_by_condition(
 					__func__, limit_idx,
 					g_segment_min_opp_idx);
 		}
-		if (g_DVFS_is_paused_by_ptpod)
+		if (g_DVFS_is_paused_by_asensor)
 			ret |= (1 << 2);
 	}
 
@@ -784,6 +811,50 @@ void mt_gpufreq_set_gpm(void)
 #endif
 }
 
+static void __mt_gpufreq_get_asensor_val(u32 *val1, u32 *val2)
+{
+#if MT_GPUFREQ_ASENSOR_ENABLE
+	__mt_gpufreq_disable_by_asensor();
+
+	gpufreq_pr_debug("@%s\n", __func__);
+
+	if (g_mfg_base) {
+		/* enable CPE pclk cg  (0x13fb_ff80) = 0x1  */
+		writel(0x1, g_mfg_base + 0xf80);
+
+		/* enable sensor bclk cg (0x13fb_ff98) 0x1 */
+		writel(0x1, g_mfg_base + 0xf98);
+	}
+
+	if (g_cpe_controller_mcu_base) {
+		/* CPE_CTRL_MCU_REG_CPEMONCTL (window setting) */
+		/* 0x13fb_9c00  = 0x09010103 */
+		writel(0x0901031f, g_cpe_controller_mcu_base + 0x0);
+
+		/* CPE_CTRL_MCU_REG_CEPEN (Enable CPE) */
+		/* 0x13fb9c04 = 0xff */
+		writel(0xff, g_cpe_controller_mcu_base + 0x4);
+	}
+
+	/* Wait 50us */
+	udelay(50);
+
+	if (g_cpe_controller_sensor) {
+		/* Read 0x13FB7000 [31:16] & 0x13FB7004 [15:0] */
+		*val1 = readl(g_cpe_controller_sensor + 0x0);
+		*val2 = readl(g_cpe_controller_sensor + 0x4);
+
+		gpufreq_pr_info("@%s: val1 = 0x%08x, val2 = 0x%08x\n",
+				__func__, *val1, *val2);
+
+		*val1 = (*val1 & 0xFFFF0000) >> 16;
+		*val2 = (*val2 & 0xFFFF);
+	}
+
+	__mt_gpufreq_enable_by_asensor();
+#endif
+}
+
 void mt_gpufreq_check_bus_idle(void)
 {
 	u32 val;
@@ -1038,7 +1109,7 @@ static void __mt_gpufreq_dbgtop_pwr_on(bool enable)
 		rgu_pwr = readl(g_dbgtop + 0x060);
 
 		if ((enable && (rgu_pwr & 0x1)) ||
-		    (!enable && !(rgu_pwr & 0x1)))
+			(!enable && !(rgu_pwr & 0x1)))
 			break;
 
 		retry--;
@@ -1193,55 +1264,49 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 	mutex_unlock(&mt_gpufreq_lock);
 }
 
-// DEPRECATED: there is no needed for PTPOD calibration in normal temperature
-void mt_gpufreq_enable_by_ptpod(void)
+static void __mt_gpufreq_enable_by_asensor(void)
 {
-#if MT_GPUFREQ_PTPOD_CALIBRATION_ENABLE
 	__mt_gpufreq_vgpu_set_mode(REGULATOR_MODE_NORMAL); /* NORMAL */
 
 	mt_gpufreq_power_control(POWER_OFF, CG_OFF,
 					MTCMOS_OFF, BUCK_OFF);
 
-	mt_gpufreq_update_limit_idx(KIR_PTPOD,
+	mt_gpufreq_update_limit_idx(KIR_ASENSOR,
 		LIMIT_IDX_DEFAULT,
 		LIMIT_IDX_DEFAULT);
 
-	g_DVFS_is_paused_by_ptpod = false;
+	g_DVFS_is_paused_by_asensor = false;
 
-	gpufreq_pr_debug("@%s: g_DVFS_is_paused_by_ptpod=%d\n",
-			__func__, g_DVFS_is_paused_by_ptpod);
-#endif
+	gpufreq_pr_debug("@%s: g_DVFS_is_paused_by_asensor=%d\n",
+			__func__, g_DVFS_is_paused_by_asensor);
 }
 
-// DEPRECATED: there is no needed for PTPOD calibration in normal temperature
-void mt_gpufreq_disable_by_ptpod(void)
+static void __mt_gpufreq_disable_by_asensor(void)
 {
-#if MT_GPUFREQ_PTPOD_CALIBRATION_ENABLE
 	struct opp_table_info *opp_table = g_opp_table;
 	unsigned int i = 0;
 	unsigned int target_idx = 0;
 
 	for (i = 0; i < NUM_OF_OPP_IDX; i++) {
-		if (opp_table[i].gpufreq_vgpu <= PTPOD_DISABLE_VOLT) {
+		if (opp_table[i].gpufreq_vgpu <= ASENSOR_DISABLE_VOLT) {
 			target_idx = i;
 			break;
 		}
 	}
 
-	mt_gpufreq_update_limit_idx(KIR_PTPOD, target_idx, target_idx);
+	mt_gpufreq_update_limit_idx(KIR_ASENSOR, target_idx, target_idx);
 
-	g_DVFS_is_paused_by_ptpod = true;
+	g_DVFS_is_paused_by_asensor = true;
 
-	gpufreq_pr_debug("@%s: g_DVFS_is_paused_by_ptpod=%d target_idx=%d(%d)\n",
-			__func__, g_DVFS_is_paused_by_ptpod, target_idx,
+	gpufreq_pr_debug("@%s: g_DVFS_is_paused_by_asensor=%d target_idx=%d(%d)\n",
+			__func__, g_DVFS_is_paused_by_asensor, target_idx,
 			opp_table[target_idx].gpufreq_vgpu);
 
 	mt_gpufreq_power_control(POWER_ON, CG_ON, MTCMOS_ON, BUCK_ON);
 
-	mt_gpufreq_target(target_idx, KIR_PTPOD);
+	mt_gpufreq_target(target_idx, KIR_ASENSOR);
 
 	__mt_gpufreq_vgpu_set_mode(REGULATOR_MODE_FAST); /* PWM */
-#endif
 }
 
 /*
@@ -1269,7 +1334,10 @@ void mt_gpufreq_restore_default_volt(void)
 				g_opp_table[i].gpufreq_vsram);
 	}
 
-	mt_gpufreq_cal_sb_opp_index();
+	if (g_aging_enable)
+		mt_gpufreq_apply_aging(true);
+	else
+		mt_gpufreq_cal_sb_opp_index();
 
 	/* update volt if powered */
 	if (g_buck_on && !g_fixed_freq_volt_state) {
@@ -1340,7 +1408,138 @@ void mt_gpufreq_update_volt_interpolation(void)
 	}
 }
 
-void mt_gpufreq_apply_aging(bool apply)
+static void __mt_gpufreq_update_table_by_asensor(void)
+{
+	int aging_table_id;
+	u32 efuse_val1, efuse_val2;
+	u32 a_t0_lvt_rt, a_t0_ulvt_rt;
+	u32 a_tn_lvt_cnt, a_tn_ulvt_cnt;
+	int tj, tj1, tj2;
+	bool error_bit = false;
+	int adiff, adiff1, adiff2;
+	int i;
+	int leak_power;
+
+	if (g_aging_table_id != -1)
+		return;
+
+	/*
+	 * 1. Get efuse val : 0x11F10A90(181) & 0x11F10A94(182)
+	 * A_T0_LVT_RT   : 0x11F10A90 [9:0]
+	 * A_T0_ULVT_RT  : 0x11F10A90 [19:10]
+	 * A_shift_error : 0x11F10A90 [31]
+	 * efuse_error   : 0x11F10A94 [31]
+	 */
+
+	efuse_val1 = get_devinfo_with_index(181);
+	efuse_val2 = get_devinfo_with_index(182);
+
+	a_t0_lvt_rt = (efuse_val1 & 0x3FF);
+	a_t0_ulvt_rt = ((efuse_val1 & 0xFFC00) >> 10);
+
+	error_bit = efuse_val1 >> 31;
+
+	/*
+	 * 2. Get a sensor counter val
+	 * SN trigger A_Tn_LVT counter value  : 0x13FB7000 [31:16]
+	 * SN trigger A_Tn_ULVT counter value : 0x13FB7004 [15:0]
+	 */
+
+	__mt_gpufreq_get_asensor_val(&a_tn_lvt_cnt, &a_tn_ulvt_cnt);
+
+	/* 3. Get thermal zone temp */
+#ifdef CONFIG_THERMAL
+	tj1 = get_immediate_tslvts3_0_wrap() / 1000;
+	tj2 = get_immediate_tslvts3_1_wrap() / 1000;
+#else
+	tj1 = 40;
+	tj2 = 40;
+#endif
+
+	tj = (((MAX(tj1, tj2) - 25) * 5) / 40) + 1;
+
+	/* 4. Calculate adiff (aging diff)
+	 * (EfuseRead + (((MAX(tj1, tj2) - 25) * 5) / 40) + 1) - SNRead
+	 */
+
+	adiff1 = a_t0_lvt_rt + tj - a_tn_lvt_cnt;
+	adiff2 = a_t0_ulvt_rt + tj - a_tn_ulvt_cnt;
+	adiff = MAX(adiff1, adiff2);
+
+	/* apply volt=0.8V, temp=30C to get leakage information.
+	 * For leakage < 16 (mW), DISABLE aging reduction.
+	 */
+	leak_power = mt_spower_get_leakage(MTK_SPOWER_GPU, (80000 / 100), 30);
+
+	/* 5. Deside aging_table_id */
+	if (efuse_val1 == 0 || efuse_val2 == 0)
+		aging_table_id = 3;
+	else if (MIN(tj1, tj2) < 25)
+		aging_table_id = 3;
+	else if (error_bit)
+		aging_table_id = 3;
+	else if (leak_power < 16)
+		aging_table_id = 3;
+	else if (adiff < MT_GPUFREQ_AGING_GAP0)
+		aging_table_id = 3;
+	else if ((adiff >= MT_GPUFREQ_AGING_GAP0)
+		&& (adiff < MT_GPUFREQ_AGING_GAP1))
+		aging_table_id = 0;
+	else if ((adiff >= MT_GPUFREQ_AGING_GAP1)
+		&& (adiff < MT_GPUFREQ_AGING_GAP2))
+		aging_table_id = 1;
+	else if ((adiff >= MT_GPUFREQ_AGING_GAP2)
+		&& (adiff < MT_GPUFREQ_AGING_GAP3))
+		aging_table_id = 2;
+	else if (adiff >= MT_GPUFREQ_AGING_GAP3)
+		aging_table_id = 3;
+	else {
+		gpufreq_pr_debug("@%s: non of the condition is true\n",
+				__func__);
+		aging_table_id = 3;
+	}
+
+	/* 6. Check the MostAgrresive setting */
+	aging_table_id = MAX(aging_table_id, g_aging_most_agrresive);
+
+	/* 7. Use worst case if aging load */
+#if defined(AGING_LOAD)
+	gpufreq_pr_info("@%s: AGING load\n", __func__);
+	aging_table_id = 0;
+#endif
+
+	g_aging_table_id = aging_table_id;
+	g_asensor.efuse_val1 = efuse_val1;
+	g_asensor.efuse_val2 = efuse_val2;
+	g_asensor.a_t0_lvt_rt = a_t0_lvt_rt;
+	g_asensor.a_t0_ulvt_rt = a_t0_ulvt_rt;
+	g_asensor.a_tn_lvt_cnt = a_tn_lvt_cnt;
+	g_asensor.a_tn_ulvt_cnt = a_tn_ulvt_cnt;
+	g_asensor.tj1 = tj1;
+	g_asensor.tj2 = tj2;
+	g_asensor.adiff1 = adiff1;
+	g_asensor.adiff2 = adiff2;
+	g_asensor.leak_power = leak_power;
+
+	/* 8. Update aginge value */
+	for (i = 0; i < NUM_OF_OPP_IDX; i++)
+		g_opp_table[i].gpufreq_aging_margin =
+		g_aging_table[aging_table_id][i];
+
+	gpufreq_pr_info("@%s: efuse_val1 = 0x%08x, efuse_val2 = 0x%08x, error_bit = %d, leak_power = %d, a_t0_lvt_rt = %d, a_t0_ulvt_rt = %d, a_tn_lvt_cnt = %d, a_tn_ulvt_cnt = %d\n",
+				__func__,
+				efuse_val1, efuse_val2, error_bit, leak_power,
+				a_t0_lvt_rt, a_t0_ulvt_rt,
+				a_tn_lvt_cnt, a_tn_ulvt_cnt);
+
+	gpufreq_pr_info("@%s: tj = %d, tj1 = %d, tj2 = %d, adiff = %d, adiff1 = %d, adiff2 = %d, aging_table_id = %d, g_aging_most_agrresive = %d\n",
+				__func__,
+				tj, tj1, tj2,
+				adiff, adiff1, adiff2,
+				aging_table_id, g_aging_most_agrresive);
+}
+
+static void mt_gpufreq_apply_aging(bool apply)
 {
 	int i;
 
@@ -1375,6 +1574,8 @@ unsigned int mt_gpufreq_update_volt(
 {
 	int i;
 	int target_idx;
+
+	__mt_gpufreq_update_table_by_asensor();
 
 	mutex_lock(&mt_gpufreq_lock);
 
@@ -2143,7 +2344,26 @@ out:
 
 static int mt_gpufreq_aging_enable_proc_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "g_aging_enable = %d\n", g_aging_enable);
+	seq_printf(m, "g_aging_enable = %d\n\n", g_aging_enable);
+	seq_printf(m, "g_aging_table_id = %d, g_aging_most_agrresive = %d\n",
+		g_aging_table_id, g_aging_most_agrresive);
+	seq_printf(m, "efuse_val1 = 0x%08x, efuse_val2 = 0x%08x\n"
+					"a_t0_lvt_rt = %d, a_t0_ulvt_rt = %d\n"
+					"a_tn_lvt_cnt = %d, a_tn_ulvt_cnt = %d\n"
+					"tj1 = %d, tj2 = %d\n"
+					"adiff1 = %d, adiff2 = %d, leak_power = %d\n",
+					g_asensor.efuse_val1,
+					g_asensor.efuse_val2,
+					g_asensor.a_t0_lvt_rt,
+					g_asensor.a_t0_ulvt_rt,
+					g_asensor.a_tn_lvt_cnt,
+					g_asensor.a_tn_ulvt_cnt,
+					g_asensor.tj1,
+					g_asensor.tj2,
+					g_asensor.adiff1,
+					g_asensor.adiff2,
+					g_asensor.leak_power);
+
 	return 0;
 }
 
@@ -3039,7 +3259,7 @@ static unsigned int __calculate_vsram_settletime(bool mode, int deltaV)
 
 	if (mode) {
 		/* rising 10 mV/us */
-		settleTime = deltaV / (12.5 * 100) + 8;
+		settleTime = deltaV / (125 * 10) + 8;
 	} else {
 		/* falling 5 mV/us */
 		settleTime = deltaV / (5 * 100) + 8;
@@ -3441,6 +3661,35 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
+#if MT_GPUFREQ_ASENSOR_ENABLE
+	// 0x13FB7000
+	g_cpe_controller_sensor =
+		__mt_gpufreq_of_ioremap("mediatek,cpe_controller_sensor", 0);
+	if (!g_cpe_controller_sensor) {
+		gpufreq_pr_info("@%s: ioremap failed at cpe_controller_sensor\n",
+			__func__);
+		return -ENOENT;
+	}
+
+	// 0x13FB9C00
+	g_cpe_controller_mcu_base =
+		__mt_gpufreq_of_ioremap("mediatek,cpe_controller_mcu", 0);
+	if (!g_cpe_controller_mcu_base) {
+		gpufreq_pr_info("@%s: ioremap failed at cpe_controller_mcu\n",
+			__func__);
+		return -ENOENT;
+	}
+
+	// 0x13FCF000
+	g_sensor_network_0_base =
+		__mt_gpufreq_of_ioremap("mediatek,sensor_network_0", 0);
+	if (!g_sensor_network_0_base) {
+		gpufreq_pr_info("@%s: ioremap failed at sensor_network_0\n",
+			__func__);
+		return -ENOENT;
+	}
+#endif
+
 	if (g_clk == NULL)
 		g_clk = kzalloc(sizeof(struct g_clk_info), GFP_KERNEL);
 	if (g_clk == NULL)
@@ -3778,20 +4027,17 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	__mt_gpufreq_dbgtop_pwr_on(true);
 #endif
 
-	if (!mt_gpufreq_power_ctl_en()) {
-		gpufreq_pr_info("@%s: Power Control Always On !!!\n", __func__);
-		mt_gpufreq_power_control(POWER_ON, CG_ON, MTCMOS_ON, BUCK_ON);
-	}
+	mt_gpufreq_power_control(POWER_ON, CG_ON, MTCMOS_ON, BUCK_ON);
 
 	/* init Vgpu/Vsram_gpu by bootup freq index */
 	__mt_gpufreq_init_volt_by_freq();
 
-	__mt_gpufreq_init_power();
+	if (mt_gpufreq_power_ctl_en())
+		mt_gpufreq_power_control(POWER_OFF, CG_OFF, MTCMOS_OFF, BUCK_OFF);
+	else
+		gpufreq_pr_info("@%s: Power Control Always On !!!\n", __func__);
 
-#if defined(AGING_LOAD)
-	gpufreq_pr_info("@%s: AGING load\n", __func__);
-	g_aging_enable = 1;
-#endif
+	__mt_gpufreq_init_power();
 
 #if MT_GPUFREQ_DFD_DEBUG
 	// for debug only. simulate gpu dfd trigger state
