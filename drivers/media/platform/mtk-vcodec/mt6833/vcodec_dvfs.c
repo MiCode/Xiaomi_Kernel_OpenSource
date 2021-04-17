@@ -319,10 +319,17 @@ int est_new_kcy(struct codec_history *hist)
 			/* Sum SW time*/
 			tot_time += hist->sw_time[i];
 		}
+#if BITS_PER_LONG == 32
+		tot_time = div_u64(tot_time, MAX_HISTORY);
+
+		return (hist->tot_kcy / hist->cur_cnt) +
+			div_u64((tot_time * 364LL), 1000LL);
+#else
 		tot_time = tot_time / MAX_HISTORY;
 
 		return (hist->tot_kcy / hist->cur_cnt) +
 			((tot_time * 364LL) / 1000LL);
+#endif
 	}
 
 	return (hist->tot_kcy / hist->cur_cnt);

@@ -343,11 +343,19 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx)
 		ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
 		V4L2_PIX_FMT_VP9)) {
 
+#if BITS_PER_LONG == 32
+		op_rate_to_freq = 312LL *
+				ctx->q_data[MTK_Q_DATA_DST].coded_width *
+				ctx->q_data[MTK_Q_DATA_DST].coded_height *
+				div_u64(ctx->dec_params.operating_rate,
+				3840LL * 2160LL * 30LL);
+#else
 		op_rate_to_freq = 312LL *
 				ctx->q_data[MTK_Q_DATA_DST].coded_width *
 				ctx->q_data[MTK_Q_DATA_DST].coded_height *
 				ctx->dec_params.operating_rate /
 				3840LL / 2160LL / 30LL;
+#endif
 		target_freq_64 = match_freq((int)op_rate_to_freq,
 					&vdec_freq_steps[0],
 					vdec_freq_step_size);
@@ -425,9 +433,15 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 		b_freq_idx = vdec_freq_step_size - 1;
 
 	emi_bw = 8L * 1920 * 1080 * 2 * 10 * vdec_freq;
+#if BITS_PER_LONG == 32
+	emi_bw_input = div_u64(8 * vdec_freq, STD_VDEC_FREQ);
+	emi_bw_output = div_u64((1920 * 1088 * 3 * 20 * 10 * vdec_freq),
+			(2 * 3 * STD_VDEC_FREQ * 1024 * 1024));
+#else
 	emi_bw_input = 8 * vdec_freq / STD_VDEC_FREQ;
 	emi_bw_output = 1920 * 1088 * 3 * 20 * 10 * vdec_freq /
 			2 / 3 / STD_VDEC_FREQ / 1024 / 1024;
+#endif
 
 	switch (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc) {
 	case V4L2_PIX_FMT_H264:

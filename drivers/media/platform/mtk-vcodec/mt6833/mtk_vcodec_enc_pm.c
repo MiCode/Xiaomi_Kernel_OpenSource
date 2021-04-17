@@ -374,10 +374,17 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 		boost_perc = 30;
 
 	/* Input BW scaling to venc_freq & config */
+#if BITS_PER_LONG == 32
+	cur_luma_bw = div_u64(STD_LUMA_BW * venc_freq * (100 + boost_perc),
+			 (STD_VENC_FREQ * 100));
+	cur_chroma_bw = div_u64(STD_CHROMA_BW * venc_freq * (100 + boost_perc),
+			 (STD_VENC_FREQ * 100));
+#else
 	cur_luma_bw = STD_LUMA_BW * venc_freq * (100 + boost_perc)
 			/ STD_VENC_FREQ / 100;
 	cur_chroma_bw = STD_CHROMA_BW * venc_freq * (100 + boost_perc)
 			/ STD_VENC_FREQ / 100;
+#endif
 
 	/* BW in venc_freq */
 	if (f_type == 0) {
