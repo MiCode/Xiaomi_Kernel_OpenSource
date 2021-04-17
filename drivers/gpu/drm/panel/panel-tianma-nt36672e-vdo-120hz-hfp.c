@@ -601,6 +601,9 @@ static int tianma_prepare(struct drm_panel *panel)
 	lcm_i2c_write_bytes(0x0c, 0x24);
 	lcm_i2c_write_bytes(0x0d, 0x1c);
 	lcm_i2c_write_bytes(0x0e, 0x1c);
+	/* set FPWM mode */
+	lcm_i2c_write_bytes(0xF0, 0x69);
+	lcm_i2c_write_bytes(0xB1, 0x6C);
 	/*bias enable*/
 	lcm_i2c_write_bytes(0x09, 0x9e);
 #endif

@@ -725,6 +725,9 @@ static int lcm_prepare(struct drm_panel *panel)
 	_lcm_i2c_write_bytes(0x0c, 0x24);
 	_lcm_i2c_write_bytes(0x0d, 0x1c);
 	_lcm_i2c_write_bytes(0x0e, 0x1c);
+	/* set FPWM mode */
+	_lcm_i2c_write_bytes(0xF0, 0x69);
+	_lcm_i2c_write_bytes(0xB1, 0x6C);
 	/*bias enable*/
 	_lcm_i2c_write_bytes(0x09, 0x9e);
 	_lcm_i2c_write_bytes(0x08, 0x13);
