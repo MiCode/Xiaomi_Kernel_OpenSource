@@ -130,6 +130,7 @@ struct mtk_btag_mictx_struct {
 	__u16 q_depth_top;
 	spinlock_t lock;
 	bool enabled;
+	bool boosted;
 };
 
 struct mtk_btag_vmstat {
