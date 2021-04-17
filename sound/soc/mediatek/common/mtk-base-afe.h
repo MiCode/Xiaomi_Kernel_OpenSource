@@ -76,6 +76,9 @@ struct regmap;
 struct snd_pcm_substream;
 struct snd_soc_dai;
 struct snd_soc_dai_driver;
+typedef int (*mtk_sp_copy_f)(struct snd_pcm_substream *substream,
+			     int channel, unsigned long hwoff,
+			     void *buf, unsigned long bytes);
 
 struct mtk_base_afe {
 	void __iomem *base_addr;
@@ -118,6 +121,11 @@ struct mtk_base_afe {
 	const struct mtk_afe_debug_cmd *debug_cmds;
 
 	void *platform_priv;
+
+	int (*copy)(struct snd_pcm_substream *substream,
+		    int channel, unsigned long hwoff,
+		    void *buf, unsigned long bytes,
+		    mtk_sp_copy_f sp_copy);
 };
 
 struct mtk_base_afe_memif {
