@@ -23,20 +23,20 @@ clkbuf-pmic-$(CONFIG_MTK_CLK_BUFFER) +=  src/mtk-clkbuf-pmic.o
 # common clkbuf driver
 obj-$(CONFIG_MTK_CLKBUF) += clkbuf.o
 ifneq ($(CONFIG_MTK_CLKBUF),)
-	clkbuf-y += merged/src/mtk_clkbuf_common.o
-	ccflags-y += -I$(srctree)/$(src)/merged/inc
+	clkbuf-y += v1/src/mtk_clkbuf_common.o
+	ccflags-y += -I$(srctree)/$(src)/v1/inc
 endif
 
-clkbuf-$(CONFIG_MTK_CLKBUF_V1) += merged/src/mtk_clkbuf_ctl.o
-clkbuf-$(CONFIG_MTK_CLKBUF_V1) += merged/src/mtk-clkbuf-pmif.o
+clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk_clkbuf_ctl.o
+clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-clkbuf-pmif.o
 
-clkbuf-$(CONFIG_MT6359P_CLKBUF) += merged/src/mtk-clkbuf-dcxo.o
-clkbuf-$(CONFIG_MT6359P_CLKBUF) += merged/src/mtk-clkbuf-dcxo-6359p.o
+clkbuf-$(CONFIG_MT6359P_CLKBUF) += v1/src/mtk-clkbuf-dcxo.o
+clkbuf-$(CONFIG_MT6359P_CLKBUF) += v1/src/mtk-clkbuf-dcxo-6359p.o
 ccflags-$(CONFIG_MT6359P_CLKBUF) += -D PMIC_CLKBUF_SUPPORT
 ccflags-$(CONFIG_MT6359P_CLKBUF) += -D LEGACY_DCXO_REG
 ccflags-$(CONFIG_MT6359P_CLKBUF) += -D DCXO_HWBBLPM_SUPPORT
 ccflags-$(CONFIG_MT6359P_CLKBUF) += -D CONN_FROM_SRCLKEN_I3
 
-clkbuf-$(CONFIG_MTK_SRCLKEN_RC_V1) += merged/src/mtk-srclken-rc-hw.o
-clkbuf-$(CONFIG_MTK_SRCLKEN_RC_V1) += merged/src/mtk-srclken-rc-hw-v1.o
+clkbuf-$(CONFIG_MTK_SRCLKEN_RC_V1) += v1/src/mtk-srclken-rc-hw.o
+clkbuf-$(CONFIG_MTK_SRCLKEN_RC_V1) += v1/src/mtk-srclken-rc-hw-v1.o
 ccflags-$(CONFIG_MTK_SRCLKEN_RC_V1) += -D SRCLKEN_RC_SUPPORT
