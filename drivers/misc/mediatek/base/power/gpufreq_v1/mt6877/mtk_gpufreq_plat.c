@@ -37,7 +37,11 @@
 #include "mtk_gpufreq_internal.h"
 #include "mtk_gpufreq_common.h"
 
+#include "clk-mtk.h"
+#include "clk-gate.h"
 #include "clk-fmeter.h"
+#include "clk-mt6877.h"
+#include "dt-bindings/clock/mt6877-clk.h"
 
 #include "mtk_pmic_wrap.h"
 #include "mtk_devinfo.h"
@@ -138,6 +142,7 @@ static inline void gpu_dvfs_power_count_reset_footprint(void)
  * ===============================================
  */
 static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev);
+static int __mt_gpufreq_mfgpll_probe(struct platform_device *pdev);
 static void __mt_gpufreq_set(
 		unsigned int idx_old,
 		unsigned int idx_new,
@@ -187,6 +192,19 @@ static struct mt_gpufreq_power_table_info *g_power_table;
 static struct g_pmic_info *g_pmic;
 static struct g_clk_info *g_clk;
 
+static const struct of_device_id g_mfgpll_of_match[] = {
+	{ .compatible = "mediatek,mt6877-gpu_pll_ctrl" },
+	{ /* sentinel */ }
+};
+static struct platform_driver g_gpufreq_mfgpll_pdrv = {
+	.probe = __mt_gpufreq_mfgpll_probe,
+	.remove = NULL,
+	.driver = {
+		.name = "gpufreq_mfgpll",
+		.owner = THIS_MODULE,
+		.of_match_table = g_mfgpll_of_match,
+	},
+};
 
 static const struct of_device_id g_gpufreq_of_match[] = {
 	{ .compatible = "mediatek,gpufreq" },
@@ -255,6 +273,26 @@ static void __iomem *g_infracfg_ao;
 static void __iomem *g_dbgtop;
 static void __iomem *g_sleep;
 static void __iomem *g_toprgu;
+
+static struct pwr_status g_mfg_clk_pwr_status =
+	GATE_PWR_STAT(PWR_STATUS_OFS, PWR_STATUS_2ND_OFS,
+		INV_OFS, 0x3F, 0x3F);
+static const struct mtk_pll_data g_mfg_plls[] = {
+	PLL_PWR(CLK_MFG_AO_MFGPLL1, "mfg_ao_mfgpll1",
+		MFGPLL1_CON0_OFS/*base*/,
+		MFGPLL1_CON0_OFS, BIT(0)/*en*/,
+		MFGPLL1_CON3_OFS/*pwr*/, 0/*flags*/,
+		MFGPLL1_CON1_OFS, 24/*pd*/,
+		MFGPLL1_CON1_OFS, 0, 22/*pcw*/,
+		&g_mfg_clk_pwr_status),
+	PLL_PWR(CLK_MFG_AO_MFGPLL4, "mfg_ao_mfgpll4",
+		MFGPLL4_CON0_OFS/*base*/,
+		MFGPLL4_CON0_OFS, BIT(0)/*en*/,
+		MFGPLL4_CON3_OFS/*pwr*/, 0/*flags*/,
+		MFGPLL4_CON1_OFS, 24/*pd*/,
+		MFGPLL4_CON1_OFS, 0, 22/*pcw*/,
+		&g_mfg_clk_pwr_status),
+};
 
 unsigned int mt_gpufreq_get_shader_present(void)
 {
@@ -3356,6 +3394,22 @@ static int __mt_gpufreq_init_pmic(struct platform_device *pdev)
 
 static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 {
+	int ret = 0;
+	struct fm_pwr_sta mfg_fm_pwr_status = {
+		.ofs = PWR_STATUS_OFS,
+		.msk = 0x3F,
+	};
+	struct fm_subsys mfg_fm[] = {
+		{
+		.id = FM_MFGPLL1,
+		.name = "fm_mfgpll1",
+		.base = 0,
+		.con0 = PLL4H_FQMTR_CON0_OFS,
+		.con1 = PLL4H_FQMTR_CON1_OFS,
+		.pwr_sta = mfg_fm_pwr_status,
+		}
+	};
+
 	/* MFGPLL1 & MFGPLL4 are from GPU_PLL_CTRL */
 	// 0x13fa0000
 	g_gpu_pll_ctrl =
@@ -3364,6 +3418,13 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 	if (!g_gpu_pll_ctrl) {
 		gpufreq_pr_info("@%s: ioremap failed at GPU_PLL_CTRL\n", __func__);
 		return -ENOENT;
+	}
+
+	mfg_fm[0].base = g_gpu_pll_ctrl;
+	ret = mt_subsys_freq_register(&mfg_fm[0], ARRAY_SIZE(mfg_fm));
+	if (ret) {
+		gpufreq_pr_info("@%s: failed to register fmeter\n", __func__);
+		return ret;
 	}
 
 	// 0x10000000
@@ -3666,8 +3727,8 @@ static void __mt_gpufreq_dump_bringup_status(void)
 	// [SPM] pwr_status_2nd: pwr_ack_2nd (@x1000_6EFC)
 	gpufreq_pr_info("@%s: [PWR_ACK] PWR_STATUS=0x%08X, PWR_STATUS_2ND=0x%08X\n",
 			__func__,
-			readl(g_sleep + 0xEF8),
-			readl(g_sleep + 0xEFC));
+			readl(g_sleep + PWR_STATUS_OFS),
+			readl(g_sleep + PWR_STATUS_2ND_OFS));
 	gpufreq_pr_info("@%s: [MUX] =0x%08X\n",
 			__func__,
 			readl(g_topckgen_base + 0x120));
@@ -3694,7 +3755,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 #if MT_GPUFREQ_DFD_ENABLE
 	if (mtk_dbgtop_mfg_pwr_en(1)) {
 		gpufreq_pr_info("[GPU_DFD] wait dbgtop ready\n");
-		return EPROBE_DEFER;
+		return -EPROBE_DEFER;
 	}
 #endif
 
@@ -3741,6 +3802,24 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	gpufreq_pr_info("@%s: driver init is finished\n", __func__);
 
 	return 0;
+}
+
+static int __mt_gpufreq_mfgpll_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	gpufreq_pr_info("@%s: driver init is started\n", __func__);
+
+	ret = clk_mt6877_pll_registration(GPU_PLL_CTRL, g_mfg_plls,
+		pdev, ARRAY_SIZE(g_mfg_plls));
+	if (ret) {
+		gpufreq_pr_info("@%s: failed to register pll\n", __func__);
+		return ret;
+	}
+
+	gpufreq_pr_info("@%s: driver init is finished\n", __func__);
+
+	return ret;
 }
 
 /*
@@ -3790,9 +3869,30 @@ static void __exit __mt_gpufreq_exit(void)
 	platform_driver_unregister(&g_gpufreq_pdrv);
 }
 
+/*
+ * register the gpufreq mfgpll driver
+ */
+static int __init __mt_gpufreq_mfgpll_init(void)
+{
+	int ret = 0;
+
+	gpufreq_pr_debug("@%s: start to initialize mfgpll driver\n",
+			__func__);
+
+	/* register platform driver */
+	ret = platform_driver_register(&g_gpufreq_mfgpll_pdrv);
+	if (ret)
+		gpufreq_pr_info("@%s: fail to register mfgpll driver\n",
+			__func__);
+
+	return ret;
+}
+
+arch_initcall_sync(__mt_gpufreq_mfgpll_init);
 module_init(__mt_gpufreq_init);
 module_exit(__mt_gpufreq_exit);
 
+MODULE_DEVICE_TABLE(of, g_mfgpll_of_match);
 MODULE_DEVICE_TABLE(of, g_gpufreq_of_match);
 MODULE_DESCRIPTION("MediaTek GPU-DVFS-PLAT driver");
 MODULE_LICENSE("GPL");
