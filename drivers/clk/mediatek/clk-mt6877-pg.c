@@ -4704,11 +4704,11 @@ struct cg_list ipe_cg2 = {
 
 struct cg_list ven_cg1 = {.cg = {"venc_sel"},};
 
-struct cg_list ven_cg2 = {.cg = {"venc_set1_venc"},};
+struct cg_list ven_cg2 = {.cg = {"ven1_cke1_venc"},};
 
 struct cg_list vde_cg1 = {.cg = {"vdec_sel"},};
 
-struct cg_list vde_cg2 = {.cg = {"vde2_vdec_cken", "vde2_larb1_cken"},};
+struct cg_list vde_cg2 = {.cg = {"vde2_vdec_cken"},};
 
 struct cg_list cam_cg1 = {.cg = {"cam_sel"},};
 

@@ -180,20 +180,35 @@ enum fm_sys_id {
 	FM_SYS_NUM = 2,
 };
 
+struct fm_pwr_sta {
+	unsigned int ofs;
+	unsigned int msk;
+};
+
+struct fm_subsys {
+	unsigned int id;
+	const char *name;
+	void __iomem *base;
+	unsigned int con0;
+	unsigned int con1;
+	struct fm_pwr_sta pwr_sta;
+};
+
 #define FM_MFGPLL1				((FM_GPU_PLL_CTRL << 8) | 0)
 #define FM_MFGPLL2				((FM_GPU_PLL_CTRL << 8) | 1)
 #define FM_MFGPLL3				((FM_GPU_PLL_CTRL << 8) | 2)
 #define FM_MFGPLL4				((FM_GPU_PLL_CTRL << 8) | 3)
 
-#define FM_APUPLL				((FM_APU_PLL_CTRL << 8) | 0)
-#define FM_APUPLL1				((FM_APU_PLL_CTRL << 8) | 1)
-#define FM_APUPLL2				((FM_APU_PLL_CTRL << 8) | 2)
-#define FM_NPUPLL				((FM_APU_PLL_CTRL << 8) | 3)
+#define FM_APUPLL1				((FM_APU_PLL_CTRL << 8) | 0)
+#define FM_APUPLL2				((FM_APU_PLL_CTRL << 8) | 1)
+#define FM_APUPLL3				((FM_APU_PLL_CTRL << 8) | 2)
+#define FM_APUPLL4				((FM_APU_PLL_CTRL << 8) | 3)
 
 extern unsigned int mt_get_ckgen_freq(unsigned int ID);
 extern unsigned int mt_get_abist_freq(unsigned int ID);
 extern unsigned int mt_get_abist2_freq(unsigned int ID);
 extern unsigned int mt_get_subsys_freq(unsigned int ID);
 extern const struct fmeter_clk *get_fmeter_clks(void);
+extern int mt_subsys_freq_register(struct fm_subsys *fm, unsigned int size);
 
 #endif /* _CLK_MT6877_FMETER_H */

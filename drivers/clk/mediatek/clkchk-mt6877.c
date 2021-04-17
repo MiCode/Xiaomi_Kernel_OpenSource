@@ -21,7 +21,7 @@
 #include "clkchk-mt6877.h"
 
 #define TAG			"[clkchk] "
-#define	BUG_ON_CHK_ENABLE	0
+#define	BUG_ON_CHK_ENABLE	1
 
 int __attribute__((weak)) get_sw_req_vcore_opp(void)
 {
@@ -368,12 +368,6 @@ static const char * const clks[] = {
 	"apum0_apb",
 	"apum0_axi_m",
 
-	/* apu_pll_ctrl */
-	"apu_ao_apupll",
-	"apu_ao_npupll",
-	"apu_ao_apupll1",
-	"apu_ao_apupll2",
-
 	/* camsys_main */
 	"cam_m_larb13",
 	"cam_m_larb14",
@@ -473,10 +467,6 @@ static const char * const off_pll_names[] = {
 	"usbpll",
 	"mfg_ao_mfgpll1",
 	"mfg_ao_mfgpll4",
-	"apu_ao_apupll",
-	"apu_ao_npupll",
-	"apu_ao_apupll1",
-	"apu_ao_apupll2",
 	NULL
 };
 
@@ -1191,8 +1181,6 @@ static void devapc_dump(void)
 	print_subsys_reg(ifrao);
 	print_subsys_reg(infracfg_ao_bus);
 	print_subsys_reg(apmixed);
-	print_subsys_reg(mfg_ao);
-	print_subsys_reg(apu_ao);
 }
 
 static void __init init_regbase(void)

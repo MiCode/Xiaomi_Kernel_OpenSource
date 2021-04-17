@@ -24,17 +24,14 @@
 #include "clk-mtk.h"
 #include "clk-mux.h"
 #include "clk-gate.h"
+#include "clk-mt6877.h"
 
 #include <dt-bindings/clock/mt6877-clk.h>
+#include <memory/mediatek/dramc.h>
 
 /* bringup config */
 #define MT_CCF_BRINGUP		1
 #define MT_CCF_MUX_DISABLE	0
-#define MT_CCF_PLL_DISABLE	0
-
-/* Regular Number Definition */
-#define INV_OFS	-1
-#define INV_BIT	-1
 
 /* TOPCK MUX SEL REG */
 #define CLK_CFG_UPDATE				0x0004
@@ -223,39 +220,15 @@
 #define USBPLL_CON1				0x31C
 #define USBPLL_CON2				0x320
 #define USBPLL_CON3				0x324
-#define MFGPLL1_CON0				0x008
-#define MFGPLL1_CON1				0x00C
-#define MFGPLL1_CON2				0x010
-#define MFGPLL1_CON3				0x014
-#define MFGPLL4_CON0				0x038
-#define MFGPLL4_CON1				0x03C
-#define MFGPLL4_CON2				0x040
-#define MFGPLL4_CON3				0x044
-#define APUPLL_CON0				0x008
-#define APUPLL_CON1				0x00C
-#define APUPLL_CON2				0x010
-#define APUPLL_CON3				0x014
-#define NPUPLL_CON0				0x018
-#define NPUPLL_CON1				0x01C
-#define NPUPLL_CON2				0x020
-#define NPUPLL_CON3				0x024
-#define APUPLL1_CON0				0x028
-#define APUPLL1_CON1				0x02C
-#define APUPLL1_CON2				0x030
-#define APUPLL1_CON3				0x034
-#define APUPLL2_CON0				0x038
-#define APUPLL2_CON1				0x03C
-#define APUPLL2_CON2				0x040
-#define APUPLL2_CON3				0x044
-
+#define IMGPLL_CON0				0x370
+#define IMGPLL_CON1				0x374
+#define IMGPLL_CON2				0x378
+#define IMGPLL_CON3				0x37C
 
 static DEFINE_SPINLOCK(mt6877_clk_lock);
 
-static void __iomem *apmixed_plls_base;
-
-static void __iomem *mfg_ao_plls_base;
-
-static void __iomem *apu_ao_plls_base;
+static const struct mtk_pll_data *plls_data[PLL_SYS_NUM];
+static void __iomem *plls_base[PLL_SYS_NUM];
 
 static const struct mtk_fixed_factor top_divs[] = {
 	FACTOR(CLK_TOP_MFGPLL1, "mfgpll1_ck",
@@ -372,14 +345,6 @@ static const struct mtk_fixed_factor top_divs[] = {
 			"mmpll", 1, 7),
 	FACTOR(CLK_TOP_MMPLL_D9, "mmpll_d9",
 			"mmpll", 1, 9),
-	FACTOR(CLK_TOP_APUPLL, "apupll_ck",
-			"apu_ao_apupll", 1, 1),
-	FACTOR(CLK_TOP_NPUPLL, "npupll_ck",
-			"apu_ao_npupll", 1, 1),
-	FACTOR(CLK_TOP_APUPLL1, "apupll1_ck",
-			"apu_ao_apupll1", 1, 1),
-	FACTOR(CLK_TOP_APUPLL2, "apupll2_ck",
-			"apu_ao_apupll2", 1, 1),
 	FACTOR(CLK_TOP_TVDPLL, "tvdpll_ck",
 			"tvdpll", 1, 1),
 	FACTOR(CLK_TOP_TVDPLL_D2, "tvdpll_d2",
@@ -2148,23 +2113,11 @@ static const struct mtk_gate ifrao_clks[] = {
 			"aes_msdcfde_ck"/* parent */, 18),
 };
 
-
-#define MT6877_PLL_FMAX		(3800UL * MHZ)
-#define MT6877_PLL_FMIN		(1500UL * MHZ)
-#define MT6877_INTEGER_BITS	8
-
-#if MT_CCF_PLL_DISABLE
-#define PLL_CFLAGS		PLL_AO
-#else
-#define PLL_CFLAGS		(0)
-#endif
-
-#define PLL_PWR(_id, _name, _reg, _en_reg, _en_mask,		\
+#define PLL(_id, _name, _reg, _en_reg, _en_mask,		\
 			_pwr_reg, _flags, _rst_bar_mask,		\
 			_pd_reg, _pd_shift, _tuner_reg,			\
 			_tuner_en_reg, _tuner_en_bit,			\
-			_pcw_reg, _pcw_shift, _pcwbits,			\
-			_pwr_stat) {					\
+			_pcw_reg, _pcw_shift, _pcwbits) {		\
 		.id = _id,						\
 		.name = _name,						\
 		.reg = _reg,						\
@@ -2184,20 +2137,7 @@ static const struct mtk_gate ifrao_clks[] = {
 		.pcw_shift = _pcw_shift,				\
 		.pcwbits = _pcwbits,					\
 		.pcwibits = MT6877_INTEGER_BITS,			\
-		.pwr_stat = _pwr_stat,					\
 	}
-
-#define PLL(_id, _name, _reg, _en_reg, _en_mask,		\
-			_pwr_reg, _flags, _rst_bar_mask,		\
-			_pd_reg, _pd_shift, _tuner_reg,			\
-			_tuner_en_reg, _tuner_en_bit,			\
-			_pcw_reg, _pcw_shift, _pcwbits)			\
-		PLL_PWR(_id, _name, _reg, _en_reg, _en_mask,		\
-			_pwr_reg, _flags, _rst_bar_mask,		\
-			_pd_reg, _pd_shift, _tuner_reg,			\
-			_tuner_en_reg, _tuner_en_bit,			\
-			_pcw_reg, _pcw_shift, _pcwbits,			\
-			NULL)
 
 #define PLL_B(_id, _name, _reg, _en_mask, _pwr_reg, _flags,		\
 			_rst_bar_mask, _pd_reg, _pd_shift,		\
@@ -2290,169 +2230,157 @@ static const struct mtk_pll_data apmixed_plls[] = {
 		USBPLL_CON1, 0, 22/*pcw*/),
 };
 
-/* get spm power status struct to register inside clk_data */
-static struct pwr_status mfg_ao_pwr_stat = GATE_PWR_STAT(0xEF8,
-		0xEFC, INV_OFS, 0x3f, 0x3f);
-
-static const struct mtk_pll_data mfg_ao_plls[] = {
-	PLL_PWR(CLK_MFG_AO_MFGPLL1, "mfg_ao_mfgpll1", MFGPLL1_CON0/*base*/,
-		MFGPLL1_CON0, BIT(0)/*en*/,
-		MFGPLL1_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
-		MFGPLL1_CON1, 24/*pd*/,
+static const struct mtk_pll_data lp5_apmixed_plls[] = {
+	PLL(CLK_APMIXED_ARMPLL_LL, "armpll_ll", ARMPLL_LL_CON0/*base*/,
+		ARMPLL_LL_CON0, BIT(0)/*en*/,
+		ARMPLL_LL_CON3/*pwr*/, PLL_AO, BIT(0)/*rstb*/,
+		ARMPLL_LL_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
-		MFGPLL1_CON1, 0, 22/*pcw*/,
-		&mfg_ao_pwr_stat),
-	PLL_PWR(CLK_MFG_AO_MFGPLL4, "mfg_ao_mfgpll4", MFGPLL4_CON0/*base*/,
-		MFGPLL4_CON0, BIT(0)/*en*/,
-		MFGPLL4_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
-		MFGPLL4_CON1, 24/*pd*/,
+		ARMPLL_LL_CON1, 0, 22/*pcw*/),
+	PLL(CLK_APMIXED_ARMPLL_BL, "armpll_bl", ARMPLL_BL_CON0/*base*/,
+		ARMPLL_BL_CON0, BIT(0)/*en*/,
+		ARMPLL_BL_CON3/*pwr*/, PLL_AO, BIT(0)/*rstb*/,
+		ARMPLL_BL_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
-		MFGPLL4_CON1, 0, 22/*pcw*/,
-		&mfg_ao_pwr_stat),
+		ARMPLL_BL_CON1, 0, 22/*pcw*/),
+	PLL(CLK_APMIXED_CCIPLL, "ccipll", CCIPLL_CON0/*base*/,
+		CCIPLL_CON0, BIT(0)/*en*/,
+		CCIPLL_CON3/*pwr*/, PLL_AO, BIT(0)/*rstb*/,
+		CCIPLL_CON1, 24/*pd*/,
+		0, 0, 0/*tuner*/,
+		CCIPLL_CON1, 0, 22/*pcw*/),
+	PLL(CLK_APMIXED_MAINPLL, "mainpll", MAINPLL_CON0/*base*/,
+		MAINPLL_CON0, BIT(0)/*en*/,
+		MAINPLL_CON3/*pwr*/, HAVE_RST_BAR | PLL_AO, BIT(23)/*rstb*/,
+		MAINPLL_CON1, 24/*pd*/,
+		0, 0, 0/*tuner*/,
+		MAINPLL_CON1, 0, 22/*pcw*/),
+	PLL(CLK_APMIXED_UNIVPLL, "univpll", IMGPLL_CON0/*base*/,
+		IMGPLL_CON0, BIT(0)/*en*/,
+		IMGPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
+		UNIVPLL_CON1, 24/*pd*/,
+		0, 0, 0/*tuner*/,
+		UNIVPLL_CON1, 0, 22/*pcw*/),
+	PLL(CLK_APMIXED_MSDCPLL, "msdcpll", MSDCPLL_CON0/*base*/,
+		MSDCPLL_CON0, BIT(0)/*en*/,
+		MSDCPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
+		MSDCPLL_CON1, 24/*pd*/,
+		0, 0, 0/*tuner*/,
+		MSDCPLL_CON1, 0, 22/*pcw*/),
+	PLL(CLK_APMIXED_MMPLL, "mmpll", MMPLL_CON0/*base*/,
+		MMPLL_CON0, BIT(0)/*en*/,
+		MMPLL_CON3/*pwr*/, HAVE_RST_BAR, BIT(23)/*rstb*/,
+		MMPLL_CON1, 24/*pd*/,
+		0, 0, 0/*tuner*/,
+		MMPLL_CON1, 0, 22/*pcw*/),
+	PLL(CLK_APMIXED_ADSPPLL, "adsppll", ADSPPLL_CON0/*base*/,
+		ADSPPLL_CON0, BIT(0)/*en*/,
+		ADSPPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
+		ADSPPLL_CON1, 24/*pd*/,
+		0, 0, 0/*tuner*/,
+		ADSPPLL_CON1, 0, 22/*pcw*/),
+	PLL(CLK_APMIXED_TVDPLL, "tvdpll", TVDPLL_CON0/*base*/,
+		TVDPLL_CON0, BIT(0)/*en*/,
+		TVDPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
+		TVDPLL_CON1, 24/*pd*/,
+		0, 0, 0/*tuner*/,
+		TVDPLL_CON1, 0, 22/*pcw*/),
+	PLL(CLK_APMIXED_APLL1, "apll1", APLL1_CON0/*base*/,
+		APLL1_CON0, BIT(0)/*en*/,
+		APLL1_CON4/*pwr*/, 0, BIT(0)/*rstb*/,
+		APLL1_CON1, 24/*pd*/,
+		0, AP_PLL_CON3, 0/*tuner*/,
+		APLL1_CON2, 0, 32/*pcw*/),
+	PLL(CLK_APMIXED_APLL2, "apll2", APLL2_CON0/*base*/,
+		APLL2_CON0, BIT(0)/*en*/,
+		APLL2_CON4/*pwr*/, 0, BIT(0)/*rstb*/,
+		APLL2_CON1, 24/*pd*/,
+		0, AP_PLL_CON3, 5/*tuner*/,
+		APLL2_CON2, 0, 32/*pcw*/),
+	PLL(CLK_APMIXED_MPLL, "mpll", MPLL_CON0/*base*/,
+		MPLL_CON0, BIT(0)/*en*/,
+		MPLL_CON3/*pwr*/, PLL_AO, BIT(0)/*rstb*/,
+		MPLL_CON1, 24/*pd*/,
+		0, 0, 0/*tuner*/,
+		MPLL_CON1, 0, 22/*pcw*/),
+	PLL(CLK_APMIXED_USBPLL, "usbpll", USBPLL_CON0/*base*/,
+		USBPLL_CON0, BIT(0)/*en*/,
+		USBPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
+		USBPLL_CON1, 24/*pd*/,
+		0, 0, 0/*tuner*/,
+		USBPLL_CON1, 0, 22/*pcw*/),
 };
 
-static const struct mtk_pll_data apu_ao_plls[] = {
-	PLL(CLK_APU_AO_APUPLL, "apu_ao_apupll", APUPLL_CON0/*base*/,
-		APUPLL_CON0, BIT(0)/*en*/,
-		APUPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
-		APUPLL_CON1, 24/*pd*/,
-		0, 0, 0/*tuner*/,
-		APUPLL_CON1, 0, 22/*pcw*/),
-	PLL(CLK_APU_AO_NPUPLL, "apu_ao_npupll", NPUPLL_CON0/*base*/,
-		NPUPLL_CON0, BIT(0)/*en*/,
-		NPUPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
-		NPUPLL_CON1, 24/*pd*/,
-		0, 0, 0/*tuner*/,
-		NPUPLL_CON1, 0, 22/*pcw*/),
-	PLL(CLK_APU_AO_APUPLL1, "apu_ao_apupll1", APUPLL1_CON0/*base*/,
-		APUPLL1_CON0, BIT(0)/*en*/,
-		APUPLL1_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
-		APUPLL1_CON1, 24/*pd*/,
-		0, 0, 0/*tuner*/,
-		APUPLL1_CON1, 0, 22/*pcw*/),
-	PLL(CLK_APU_AO_APUPLL2, "apu_ao_apupll2", APUPLL2_CON0/*base*/,
-		APUPLL2_CON0, BIT(0)/*en*/,
-		APUPLL2_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
-		APUPLL2_CON1, 24/*pd*/,
-		0, 0, 0/*tuner*/,
-		APUPLL2_CON1, 0, 22/*pcw*/),
-};
+int clk_mt6877_pll_registration(enum subsys_id id,
+		const struct mtk_pll_data *plls,
+		struct platform_device *pdev,
+		int num_plls)
+{
+	struct clk_onecell_data *clk_data;
+	int r;
+	struct device_node *node = pdev->dev.of_node;
+
+	void __iomem *base;
+	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+#if MT_CCF_BRINGUP
+	pr_notice("%s init begin\n", __func__);
+#endif
+
+	base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(base)) {
+		pr_err("%s(): ioremap failed\n", __func__);
+		return PTR_ERR(base);
+	}
+
+	clk_data = mtk_alloc_clk_data(num_plls);
+
+	mtk_clk_register_plls(node, plls, num_plls,
+			clk_data);
+
+	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+
+	if (r)
+		pr_err("%s(): could not register clock provider: %d\n",
+			__func__, r);
+
+	plls_data[id] = plls;
+	plls_base[id] = base;
+
+#if MT_CCF_BRINGUP
+	pr_notice("%s init end\n", __func__);
+#endif
+
+	return r;
+}
 
 static int clk_mt6877_apmixed_probe(struct platform_device *pdev)
 {
-	struct clk_onecell_data *clk_data;
-	int r;
-	struct device_node *node = pdev->dev.of_node;
+	struct device_node *node;
+	unsigned int dram_type;
+	int ret = 0;
 
-	void __iomem *base;
-	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	node = of_find_compatible_node(NULL, NULL,
+		"mediatek,mt6877-dramc");
+	if (node) {
+		ret = of_property_read_u32(node, "dram_type", &dram_type);
+		if (ret) {
+			pr_err("%s(): get property failed\n", __func__);
+			return -EINVAL;
+		}
 
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	base = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(base)) {
-		pr_err("%s(): ioremap failed\n", __func__);
-		return PTR_ERR(base);
+		if (dram_type == TYPE_LPDDR5)
+			ret = clk_mt6877_pll_registration(APMIXEDSYS,
+					lp5_apmixed_plls, pdev, ARRAY_SIZE(apmixed_plls));
+		else
+			ret = clk_mt6877_pll_registration(APMIXEDSYS,
+					apmixed_plls, pdev, ARRAY_SIZE(apmixed_plls));
+	} else {
+		pr_err("%s(): get dram node failed\n", __func__);
+		return PTR_ERR(node);
 	}
 
-	clk_data = mtk_alloc_clk_data(CLK_APMIXED_NR_CLK);
-
-	mtk_clk_register_plls(node, apmixed_plls, ARRAY_SIZE(apmixed_plls),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-	apmixed_plls_base = base;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6877_apu_ao_probe(struct platform_device *pdev)
-{
-	struct clk_onecell_data *clk_data;
-	int r;
-	struct device_node *node = pdev->dev.of_node;
-
-	void __iomem *base;
-	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	base = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(base)) {
-		pr_err("%s(): ioremap failed\n", __func__);
-		return PTR_ERR(base);
-	}
-
-	clk_data = mtk_alloc_clk_data(CLK_APU_AO_NR_CLK);
-
-	mtk_clk_register_plls(node, apu_ao_plls, ARRAY_SIZE(apu_ao_plls),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-	apu_ao_plls_base = base;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
-}
-
-static int clk_mt6877_mfg_ao_probe(struct platform_device *pdev)
-{
-	struct clk_onecell_data *clk_data;
-	int r;
-	struct device_node *node = pdev->dev.of_node;
-
-	void __iomem *base;
-	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-
-	base = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(base)) {
-		pr_err("%s(): ioremap failed\n", __func__);
-		return PTR_ERR(base);
-	}
-
-	clk_data = mtk_alloc_clk_data(CLK_MFG_AO_NR_CLK);
-
-	mtk_clk_register_plls(node, mfg_ao_plls, ARRAY_SIZE(mfg_ao_plls),
-			clk_data);
-
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-
-	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
-			__func__, r);
-
-	mfg_ao_plls_base = base;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-
-	return r;
+	return ret;
 }
 
 static int clk_mt6877_ifrao_probe(struct platform_device *pdev)
@@ -2560,21 +2488,16 @@ void pll_force_off_internal(const struct mtk_pll_data *plls,
 
 void pll_force_off(void)
 {
-	pll_force_off_internal(apmixed_plls, apmixed_plls_base);
-	pll_force_off_internal(mfg_ao_plls, mfg_ao_plls_base);
-	pll_force_off_internal(apu_ao_plls, apu_ao_plls_base);
+	int i;
+
+	for (i = 0; i < PLL_SYS_NUM; i++)
+		pll_force_off_internal(plls_data[i], plls_base[i]);
 }
 
 static const struct of_device_id of_match_clk_mt6877[] = {
 	{
 		.compatible = "mediatek,mt6877-apmixedsys",
 		.data = clk_mt6877_apmixed_probe,
-	}, {
-		.compatible = "mediatek,mt6877-apu_pll_ctrl",
-		.data = clk_mt6877_apu_ao_probe,
-	}, {
-		.compatible = "mediatek,mt6877-gpu_pll_ctrl",
-		.data = clk_mt6877_mfg_ao_probe,
 	}, {
 		.compatible = "mediatek,mt6877-infracfg_ao",
 		.data = clk_mt6877_ifrao_probe,
