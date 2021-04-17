@@ -46,20 +46,20 @@ trusted_mem-y += tests/ut_server.o
 trusted_mem-y += tests/ut_cases.o
 endif # !CONFIG_TEST_MTK_TRUSTED_MEMORY
 
-ifneq ($(filter y m,$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)),)
+ifneq ($(filter m,$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)),)
 #==========================================================================
 # TEE Seecure Memory Devices & Trustzone Peer Driver
 #==========================================================================
-ifneq ($(filter y m,$(CONFIG_MTK_SECURE_MEM_SUPPORT) \
-					$(CONFIG_MTK_WFD_SMEM_SUPPORT) \
-					$(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE)),)
+ifneq ($(filter y,$(CONFIG_MTK_SECURE_MEM_SUPPORT) \
+				  $(CONFIG_MTK_WFD_SMEM_SUPPORT) \
+				  $(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE)),)
 trusted_mem-y += tee_devices.o
 ccflags-y += -DTEE_DEVICES_SUPPORT
 trusted_mem-y += tee_impl/tee_invoke.o
 
-ifneq ($(filter y m,$(CONFIG_MICROTRUST_TEE_SUPPORT) \
-					$(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
-tee_impl-y += tee_impl/tee_ops.o
+ifneq ($(filter m,$(CONFIG_MICROTRUST_TEE_SUPPORT) \
+				  $(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
+trusted_mem-y += tee_impl/tee_ops.o
 endif
 
 endif
