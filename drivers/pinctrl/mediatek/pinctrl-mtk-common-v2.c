@@ -120,14 +120,10 @@ static int mtk_hw_pin_field_lookup(struct mtk_pinctrl *hw,
 	u32 bits, found = 0;
 	int start = 0, end, check;
 
-	if (hw->soc->reg_cal && hw->soc->reg_cal[field].range) {
+	if (hw->soc->reg_cal && hw->soc->reg_cal[field].range)
 		rc = &hw->soc->reg_cal[field];
-	} else {
-		dev_dbg(hw->dev,
-			"Not support field %d for pin %d (%s)\n",
-			field, desc->number, desc->name);
+	else
 		return -ENOTSUPP;
-	}
 
 	end = rc->nranges - 1;
 	c = rc->range;
@@ -147,11 +143,8 @@ static int mtk_hw_pin_field_lookup(struct mtk_pinctrl *hw,
 			start = check + 1;
 	}
 
-	if (!found) {
-		dev_dbg(hw->dev, "Not support field %d for pin = %d (%s)\n",
-			field, desc->number, desc->name);
+	if (!found)
 		return -ENOTSUPP;
-	}
 
 	c = rc->range + check;
 
