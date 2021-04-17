@@ -47,14 +47,23 @@
 #define MTK_FILL_MIPI_IMPEDANCE
 #if (defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)\
 	|| defined(CONFIG_MACH_MT6893) ||\
-	defined(CONFIG_MACH_MT6853) || \
+	defined(CONFIG_MACH_MT6853) ||\
 	defined(CONFIG_MACH_MT6833)) &&\
 	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 #define MTK_DRM_DELAY_PRESENT_FENCE
 /* Delay present fence would cause config merge */
 #endif
 
-#if defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6877)
+/*
+ * MTK_DRM_DELAY_PRESENT_FENCE can not be defined,
+ * but SF present fence must be enabled in platform dts
+ */
+#define MTK_DRM_DELAY_PRESENT_FENCE_SOF
+#endif
+
+#if defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6853)\
+	|| defined(CONFIG_MACH_MT6877)
 #define CONFIG_MTK_DYN_SWITCH_BY_CMD
 #endif
 
