@@ -2989,7 +2989,7 @@
 		opp_table_disp: opp-table-disp {
 			compatible = "operating-points-v2";
 			opp-0 {
-				opp-hz = /bits/ 64 <208000000>;
+				opp-hz = /bits/ 64 <249000000>;
 				opp-microvolt = <575000>;
 			};
 			opp-1 {
@@ -3009,7 +3009,7 @@
 		opp_table_cam: opp-table-cam {
 			compatible = "operating-points-v2";
 			opp-0 {
-				opp-hz = /bits/ 64 <273000000>;
+				opp-hz = /bits/ 64 <312000000>;
 				opp-microvolt = <575000>;
 			};
 			opp-1 {
@@ -3029,7 +3029,7 @@
 		opp_table_img: opp-table-img {
 			compatible = "operating-points-v2";
 			opp-0 {
-				opp-hz = /bits/ 64 <229000000>;
+				opp-hz = /bits/ 64 <273000000>;
 				opp-microvolt = <575000>;
 			};
 			opp-1 {
@@ -3049,7 +3049,7 @@
 		opp_table_img2: opp-table-img2 {
 			compatible = "operating-points-v2";
 			opp-0 {
-				opp-hz = /bits/ 64 <229000000>;
+				opp-hz = /bits/ 64 <273000000>;
 				opp-microvolt = <575000>;
 			};
 			opp-1 {
@@ -3069,7 +3069,7 @@
 		opp_table_dpe: opp-table-dpe {
 			compatible = "operating-points-v2";
 			opp-0 {
-				opp-hz = /bits/ 64 <249000000>;
+				opp-hz = /bits/ 64 <312000000>;
 				opp-microvolt = <575000>;
 			};
 			opp-1 {
@@ -3089,7 +3089,7 @@
 		opp_table_ipe: opp-table-ipe {
 			compatible = "operating-points-v2";
 			opp-0 {
-				opp-hz = /bits/ 64 <229000000>;
+				opp-hz = /bits/ 64 <273000000>;
 				opp-microvolt = <575000>;
 			};
 			opp-1 {
@@ -3109,15 +3109,15 @@
 		opp_table_venc: opp-table-venc {
 			compatible = "operating-points-v2";
 			opp-0 {
-				opp-hz = /bits/ 64 <249000000>;
+				opp-hz = /bits/ 64 <273000000>;
 				opp-microvolt = <575000>;
 			};
 			opp-1 {
-				opp-hz = /bits/ 64 <364000000>;
+				opp-hz = /bits/ 64 <312000000>;
 				opp-microvolt = <600000>;
 			};
 			opp-2 {
-				opp-hz = /bits/ 64 <458000000>;
+				opp-hz = /bits/ 64 <416000000>;
 				opp-microvolt = <650000>;
 			};
 			opp-3 {
@@ -3129,7 +3129,7 @@
 		opp_table_vdec: opp-table-vdec {
 			compatible = "operating-points-v2";
 			opp-0 {
-				opp-hz = /bits/ 64 <218000000>;
+				opp-hz = /bits/ 64 <249000000>;
 				opp-microvolt = <575000>;
 			};
 			opp-1 {
@@ -3149,11 +3149,11 @@
 		opp_table_mdp: opp-table-mdp {
 			compatible = "operating-points-v2";
 			opp-0 {
-				opp-hz = /bits/ 64 <229000000>;
+				opp-hz = /bits/ 64 <273000000>;
 				opp-microvolt = <575000>;
 			};
 			opp-1 {
-				opp-hz = /bits/ 64 <343000000>;
+				opp-hz = /bits/ 64 <312000000>;
 				opp-microvolt = <600000>;
 			};
 			opp-2 {
@@ -3169,7 +3169,7 @@
 		opp_table_ccu: opp-table-ccu {
 			compatible = "operating-points-v2";
 			opp-0 {
-				opp-hz = /bits/ 64 <229000000>;
+				opp-hz = /bits/ 64 <312000000>;
 				opp-microvolt = <575000>;
 			};
 			opp-1 {
@@ -3194,43 +3194,84 @@
 			"img", "img2", "dpe",
 			"ipe","venc", "vdec",
 			"mdp", "ccu";
-			mediatek,mux_disp = "TOP_UNIVPLL_D6_D2",
+			mediatek,mux_disp = "TOP_UNIVPLL_D5_D2",
 				"TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
 				"TOP_MAINPLL_D4";
-			mediatek,mux_cam = "TOP_MAINPLL_D4_D2",
+			mediatek,mux_cam = "TOP_UNIVPLL_D4_D2",
 				"TOP_MMPLL_D7", "TOP_UNIVPLL_D5",
 				"TOP_UNIVPLL_D4";
-			mediatek,mux_img = "TOP_MMPLL_D5_D2",
+			mediatek,mux_img = "TOP_MAINPLL_D4_D2",
 				"TOP_MMPLL_D4_D2", "TOP_UNIVPLL_D6",
 				"TOP_UNIVPLL_D4";
-			mediatek,mux_img2 = "TOP_MMPLL_D5_D2",
+			mediatek,mux_img2 = "TOP_MAINPLL_D4_D2",
 				"TOP_MMPLL_D4_D2", "TOP_UNIVPLL_D6",
 				"TOP_UNIVPLL_D4";
-			mediatek,mux_dpe = "TOP_UNIVPLL_D5_D2",
+			mediatek,mux_dpe = "TOP_UNIVPLL_D4_D2",
 				"TOP_MAINPLL_D6", "TOP_MMPLL_D6",
 				"TOP_MAINPLL_D4";
-			mediatek,mux_ipe = "TOP_MMPLL_D5_D2",
+			mediatek,mux_ipe = "TOP_MAINPLL_D4_D2",
 				"TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
 				"TOP_MAINPLL_D4";
-			mediatek,mux_venc = "TOP_UNIVPLL_D5_D2",
-				"TOP_MAINPLL_D6", "TOP_MMPLL_D6",
+			mediatek,mux_venc = "TOP_MAINPLL_D4_D2",
+				"TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
 				"TOP_UNIVPLL_D4";
-			mediatek,mux_vdec = "TOP_MAINPLL_D5_D2",
+			mediatek,mux_vdec = "TOP_UNIVPLL_D5_D2",
 				"TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
 				"TOP_MAINPLL_D4";
-			mediatek,mux_mdp = "TOP_MMPLL_D5_D2",
-				"TOP_MMPLL_D4_D2", "TOP_UNIVPLL_D6",
+			mediatek,mux_mdp = "TOP_MAINPLL_D4_D2",
+				"TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
 				"TOP_TVDPLL_CK";
-			mediatek,mux_ccu = "TOP_MMPLL_D5_D2",
+			mediatek,mux_ccu = "TOP_UNIVPLL_D4_D2",
 				"TOP_MAINPLL_D6", "TOP_MMPLL_D7",
 				"TOP_UNIVPLL_D5";
 
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 
-			mediatek,support_hopping = "clk_mmpll_ck";
-			mediatek,hopping_clk_mmpll_ck = <2290000000 2750000000
-				 2750000000 2750000000>;
-			mediatek,action = <1>;
+			clocks = <&topckgen_clk CLK_TOP_DISP_SEL>,	/* 0 */
+				<&topckgen_clk CLK_TOP_CAM_SEL>,	/* 1 */
+				<&topckgen_clk CLK_TOP_IMG1_SEL>,	/* 2 */
+				<&topckgen_clk CLK_TOP_IMG2_SEL>,	/* 3 */
+				<&topckgen_clk CLK_TOP_DPE_SEL>,	/* 4 */
+				<&topckgen_clk CLK_TOP_IPE_SEL>,	/* 5 */
+				<&topckgen_clk CLK_TOP_VENC_SEL>,	/* 6 */
+				<&topckgen_clk CLK_TOP_VDEC_SEL>,	/* 7 */
+				<&topckgen_clk CLK_TOP_MDP_SEL>,	/* 8 */
+				<&topckgen_clk CLK_TOP_CCU_SEL>,	/* 9 */
+				<&topckgen_clk CLK_TOP_MAINPLL_D4>,	/* 10 */
+				<&topckgen_clk CLK_TOP_UNIVPLL_D6>,	/* 11 */
+				<&topckgen_clk CLK_TOP_UNIVPLL_D4_D2>,	/* 12 */
+				<&topckgen_clk CLK_TOP_UNIVPLL_D5_D2>,	/* 13 */
+				<&topckgen_clk CLK_TOP_TVDPLL>,	/* 14 */
+				<&topckgen_clk CLK_TOP_MAINPLL_D4_D2>,	/* 15 */
+				<&topckgen_clk CLK_TOP_UNIVPLL_D4>,	/* 16 */
+				<&topckgen_clk CLK_TOP_UNIVPLL_D5>,	/* 17 */
+				<&topckgen_clk CLK_TOP_MMPLL_D7>,	/* 18 */
+				<&topckgen_clk CLK_TOP_MMPLL_D4_D2>,	/* 19 */
+				<&topckgen_clk CLK_TOP_MMPLL_D6>,	/* 20 */
+				<&topckgen_clk CLK_TOP_MAINPLL_D6>;
+			clock-names = "disp",	/* 0 */
+				"cam",	/* 1 */
+				"img",	/* 2 */
+				"img2",	/* 3 */
+				"dpe",	/* 4 */
+				"ipe",	/* 5 */
+				"venc",	/* 6 */
+				"vdec",	/* 7 */
+				"mdp",	/* 8 */
+				"ccu",	/* 9 */
+				"TOP_MAINPLL_D4",	/* 10 */
+				"TOP_UNIVPLL_D6",	/* 11 */
+				"TOP_UNIVPLL_D4_D2",	/* 12 */
+				"TOP_UNIVPLL_D5_D2",	/* 13 */
+				"TOP_TVDPLL_CK",	/* 14 */
+				"TOP_MAINPLL_D4_D2",	/* 15 */
+				"TOP_UNIVPLL_D4",	/* 16 */
+				"TOP_UNIVPLL_D5",	/* 17 */
+				"TOP_MMPLL_D7",	/* 18 */
+				"TOP_MMPLL_D4_D2",	/* 19 */
+				"TOP_MMPLL_D6",	/* 20 */
+				"TOP_MAINPLL_D6";
+
 		};
 
 		mmsys_config_clk: syscon@14116000 {
@@ -3278,13 +3319,16 @@
 		};
 
 		mmqos: interconnect {
-			compatible = "mediatek,mt6873-mmqos";
+			compatible = "mediatek,mt6893-mmqos";
 			#interconnect-cells = <1>;
-			mediatek,larbs = <&larb0 &larb1 &larb2 &larb4
-					  &larb5 &larb7 &larb9 &larb11
-					  &larb13 &larb14 &larb16 &larb17
-					  &larb18 &larb19 &larb20>;
-			mediatek,commons = <&smi_common>;
+			mediatek,larbs = <&larb0 &larb1 &larb2 &larb3
+					  &larb4 &larb5 &larb7 &larb8 &larb9
+					  &larb11 &larb13 &larb14 &larb15
+					  &larb16 &larb17 &larb18 &larb19
+					  &larb20>;
+			mediatek,commons = <&smi_common>, <&mdp_smi_common>;
+			clocks = <&topckgen_clk CLK_TOP_DISP_SEL>, <&topckgen_clk CLK_TOP_MDP_SEL>;
+			clock-names = "mm", "mdp";
 			interconnects = <&dvfsrc MT6873_MASTER_MMSYS &dvfsrc MT6873_SLAVE_DDR_EMI>,
 					<&dvfsrc MT6873_MASTER_HRT_MMSYS
 					 &dvfsrc MT6873_SLAVE_HRT_DDR_EMI>;
