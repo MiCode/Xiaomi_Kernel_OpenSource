@@ -30,20 +30,17 @@ static void mtk_gpio_find_mtk_pinctrl_dev(void)
 
 	do {
 		gdesc = gpio_to_desc(pin);
-		if (gdesc
-		 && !strncmp(pinctrl_paris_modname,
+		if (!gdesc)
+			break;
+		if (!strncmp(pinctrl_paris_modname,
 				gdesc->gdev->chip->label,
 				strlen(pinctrl_paris_modname))) {
 			g_hw = gpiochip_get_data(gdesc->gdev->chip);
 			return;
 		}
-		if (gdesc)
-			pin = (pin + 1) - gdesc->gdev->chip->base;
-		if (pin == 0 || !gdesc)
-			break;
-	} while (1);
 
-	pr_notice("[pinctrl]cannot find %s gpiochip\n", pinctrl_paris_modname);
+		pin = (pin + 1) - gdesc->gdev->chip->base;
+	} while (pin > 0);
 }
 
 int gpio_get_tristate_input(unsigned int pin)
@@ -57,6 +54,28 @@ int gpio_get_tristate_input(unsigned int pin)
 	if (!g_hw)
 		return  -ENOTSUPP;
 	hw = g_hw;
+
+	if (!hw->soc) {
+		pr_notice("invalid gpio chip\n");
+		return -EINVAL;
+	}
+
+	if (!hw->soc->bias_set_combo) {
+		pr_notice("not supported gpio chip\n");
+		return -ENOTSUPP;
+	}
+
+	if (pin < hw->chip.base) {
+		pr_notice(FUN_3STATE ": please use virtual pin number\n");
+		return -EINVAL;
+	}
+
+	pin -= hw->chip.base;
+	if (pin >= hw->soc->npins) {
+		pr_notice(FUN_3STATE ": invalid pin number: %u\n",
+			pin);
+		return -EINVAL;
+	}
 
 	desc = (const struct mtk_pin_desc *)&hw->soc->pins[pin - hw->chip.base];
 	ret = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_MODE, &val);
@@ -168,7 +187,7 @@ static ssize_t mtk_gpio_show_pin(struct device *dev,
 	chip = &hw->chip;
 
 	len += snprintf(buf+len, bufLen-len,
-		"pins base: %d, pins count: %d\n", chip->base, chip->ngpio);
+		"pins base: %d\n", chip->base);
 	len += snprintf(buf+len, bufLen-len,
 		"PIN: (MODE)(DIR)(DOUT)(DIN)(DRIVE)(SMT)(IES)(PULL_EN)(PULL_SEL)(R1 R0)\n");
 
@@ -203,6 +222,8 @@ void gpio_dump_regs_range(int start, int end)
 		start = 0;
 		end = chip->ngpio - 1;
 	}
+	if (end < 0)
+		end = chip->ngpio - 1;
 	if (end > chip->ngpio - 1)
 		end = chip->ngpio - 1;
 
@@ -232,8 +253,9 @@ static ssize_t mtk_gpio_store_pin(struct device *dev,
 	int r1r0_en[4] = {MTK_PUPD_SET_R1R0_00, MTK_PUPD_SET_R1R0_01,
 			  MTK_PUPD_SET_R1R0_10, MTK_PUPD_SET_R1R0_11};
 
-	if (!hw) {
-		pr_debug("[pinctrl] Err: NULL pointer!\n");
+	if (!hw || !hw->soc) {
+		pr_notice("[pinctrl]cannot find %s device\n",
+			pinctrl_paris_modname);
 		return count;
 	}
 
@@ -257,6 +279,8 @@ static ssize_t mtk_gpio_store_pin(struct device *dev,
 			goto out;
 		}
 		desc = (const struct mtk_pin_desc *)&hw->soc->pins[gpio];
+		if (!hw->soc->bias_get_combo || !hw->soc->bias_set_combo)
+			goto no_bias_combo_out;
 		hw->soc->bias_get_combo(hw, desc, &pullup, &pullen);
 		if (pullen < MTK_PUPD_SET_R1R0_00) {
 			pullen = !!val;
@@ -275,6 +299,8 @@ static ssize_t mtk_gpio_store_pin(struct device *dev,
 			goto out;
 		}
 		desc = (const struct mtk_pin_desc *)&hw->soc->pins[gpio];
+		if (!hw->soc->bias_get_combo || !hw->soc->bias_set_combo)
+			goto no_bias_combo_out;
 		hw->soc->bias_get_combo(hw, desc, &pullup, &pullen);
 		hw->soc->bias_set_combo(hw, desc, !!val, pullen);
 	} else if ((!strncmp(buf, "ies", 3))
@@ -298,6 +324,8 @@ static ssize_t mtk_gpio_store_pin(struct device *dev,
 			goto out;
 		}
 		desc = (const struct mtk_pin_desc *)&hw->soc->pins[gpio];
+		if (!hw->soc->bias_get_combo || !hw->soc->bias_set_combo)
+			goto no_bias_combo_out;
 		hw->soc->bias_get_combo(hw, desc, &pullup, &pullen);
 		pullen = r1r0_en[(((!!val) << 1) + !!val2)];
 		hw->soc->bias_set_combo(hw, desc, pullup, pullen);
@@ -310,6 +338,8 @@ static ssize_t mtk_gpio_store_pin(struct device *dev,
 			pr_notice("invalid input count %d\n", val);
 			goto out;
 		}
+		if (!hw->soc->bias_get_combo || !hw->soc->bias_set_combo)
+			goto no_bias_combo_out;
 		for (i = 0; i < ARRAY_SIZE(attrs); i++) {
 			if ((attrs[i] >= '0') && (attrs[i] <= '9'))
 				vals[i] = attrs[i] - '0';
@@ -350,37 +380,46 @@ static ssize_t mtk_gpio_store_pin(struct device *dev,
 
 out:
 	return count;
+
+no_bias_combo_out:
+	pr_notice("[pinctrl]bias_set_combo/bias_get_combo not supported\n");
+	return count;
 }
 
 static DEVICE_ATTR(mt_gpio, 0444, mtk_gpio_show_pin, mtk_gpio_store_pin);
 
-static struct device_attribute *gpio_attr_list[] = {
-	&dev_attr_mt_gpio,
-};
-
 static int mtk_gpio_create_attr(void)
 {
-	struct device *dev;
-	int idx, err = 0;
-	int num = ARRAY_SIZE(gpio_attr_list);
+	struct mtk_pinctrl *hw = NULL;
+	struct gpio_desc *gdesc;
+	unsigned int pin = ARCH_NR_GPIOS - 1;
+	int err = 0;
 
-	mtk_gpio_find_mtk_pinctrl_dev();
-	if (!g_hw)
-		return  -ENOTSUPP;
-
-	dev = g_hw->dev;
-
-	for (idx = 0; idx < num; idx++) {
-		err = device_create_file(dev, gpio_attr_list[idx]);
-		if (err) {
-			pr_notice("[pinctrl]mtk_gpio create attribute error\n");
+	do {
+		gdesc = gpio_to_desc(pin);
+		if (!gdesc)
 			break;
+		if (!strncmp(pinctrl_paris_modname,
+				gdesc->gdev->chip->label,
+				strlen(pinctrl_paris_modname))) {
+			hw = gpiochip_get_data(gdesc->gdev->chip);
+			if (!hw || !hw->soc || !hw->dev) {
+				pr_notice("invalid gpio chip\n");
+				return -EINVAL;
+			}
+
+			err = device_create_file(hw->dev, &dev_attr_mt_gpio);
+			if (err) {
+				pr_notice("[pinctrl]error create mtk_gpio\n");
+				break;
+			}
 		}
-	}
+
+		pin = (pin + 1) - gdesc->gdev->chip->base;
+	} while (pin > 0);
 
 	return err;
 }
-
 static int __init pinctrl_mtk_debug_v2_init(void)
 {
 	return mtk_gpio_create_attr();

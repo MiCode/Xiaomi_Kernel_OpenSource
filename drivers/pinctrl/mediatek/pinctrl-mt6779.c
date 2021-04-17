@@ -744,6 +744,7 @@ static const struct mtk_pin_soc mt6779_data = {
 	.pins = mtk_pins_mt6779,
 	.npins = ARRAY_SIZE(mtk_pins_mt6779),
 	.ngrps = ARRAY_SIZE(mtk_pins_mt6779),
+	.nfuncs = 8,
 	.eint_hw = &mt6779_eint_hw,
 	.gpio_m = 0,
 	.base_names = mt6779_pinctrl_register_base_names,

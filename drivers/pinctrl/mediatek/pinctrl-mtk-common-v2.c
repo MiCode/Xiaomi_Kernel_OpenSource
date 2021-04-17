@@ -19,6 +19,21 @@
 #include "mtk-eint.h"
 #include "pinctrl-mtk-common-v2.h"
 
+/* Some SOC provide more control register other than value register.
+ * Generally, a value register need read-modify-write is at offset 0xXXXXXXXX0.
+ * A corresponding SET register is at offset 0xXXXXXXX4. Write 1s' to some bits
+ *  of SET register will set same bits in value register.
+ * A corresponding CLR register is at offset 0xXXXXXXX8. Write 1s' to some bits
+ *  of CLR register will clr same bits in value register.
+ * For GPIO mode control, MWR register is provided at offset 0xXXXXXXXC.
+ *  With MWR, the MSBit of GPIO mode contrl is for modification-enable, not for
+ *  GPIO mode selection.
+ */
+
+#define SET_OFFSET 0x4
+#define CLR_OFFSET 0x8
+#define MWR_OFFSET 0xC
+
 /**
  * struct mtk_drive_desc - the structure that holds the information
  *			    of the driving current
@@ -63,6 +78,37 @@ void mtk_rmw(struct mtk_pinctrl *pctl, u8 i, u32 reg, u32 mask, u32 set)
 	val &= ~mask;
 	val |= set;
 	mtk_w32(pctl, i, reg, val);
+}
+
+void mtk_hw_set_value_race_free(struct mtk_pinctrl *pctl,
+		struct mtk_pin_field *pf, u32 value)
+{
+	unsigned int set, clr;
+
+	set = value & pf->mask;
+	clr = (~set) & pf->mask;
+
+	if (set)
+		mtk_w32(pctl, pf->index, pf->offset + SET_OFFSET,
+			set << pf->bitpos);
+	if (clr)
+		mtk_w32(pctl, pf->index, pf->offset + CLR_OFFSET,
+			clr << pf->bitpos);
+}
+
+void mtk_hw_set_mode_race_free(struct mtk_pinctrl *pctl,
+		struct mtk_pin_field *pf, u32 value)
+{
+	unsigned int value_new;
+
+	/* MSB of mask is modification-enable bit, set this bit */
+	value_new = 0x8 | value;
+	if (value_new == value)
+		dev_notice(pctl->dev,
+			"invalid mode 0x%x, use it by ignoring MSBit!\n",
+			value);
+	mtk_w32(pctl, pf->index, pf->offset + MWR_OFFSET,
+		value_new << pf->bitpos);
 }
 
 static int mtk_hw_pin_field_lookup(struct mtk_pinctrl *hw,
@@ -194,10 +240,16 @@ int mtk_hw_set_value(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
 	if (value < 0 || value > pf.mask)
 		return -EINVAL;
 
-	if (!pf.next)
-		mtk_rmw(hw, pf.index, pf.offset, pf.mask << pf.bitpos,
-			(value & pf.mask) << pf.bitpos);
-	else
+	if (!pf.next) {
+		if (hw->soc->race_free_access) {
+			if (field == PINCTRL_PIN_REG_MODE)
+				mtk_hw_set_mode_race_free(hw, &pf, value);
+			else
+				mtk_hw_set_value_race_free(hw, &pf, value);
+		} else
+			mtk_rmw(hw, pf.index, pf.offset, pf.mask << pf.bitpos,
+				(value & pf.mask) << pf.bitpos);
+	} else
 		mtk_hw_write_cross_field(hw, &pf, value);
 
 	return 0;
