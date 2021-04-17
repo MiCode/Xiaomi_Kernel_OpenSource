@@ -1441,12 +1441,6 @@ static int mtk_wdt_probe(struct platform_device *dev)
 	wdt_enable = 0;
 	#endif
 
-	/* Reset External debug key */
-	mtk_wdt_request_en_set(MTK_WDT_REQ_MODE_SYSRST, WD_REQ_DIS);
-	mtk_wdt_request_en_set(MTK_WDT_REQ_MODE_EINT, WD_REQ_DIS);
-	mtk_wdt_request_mode_set(MTK_WDT_REQ_MODE_SYSRST, WD_REQ_IRQ_MODE);
-	mtk_wdt_request_mode_set(MTK_WDT_REQ_MODE_EINT, WD_REQ_IRQ_MODE);
-
 #else /* __USING_DUMMY_WDT_DRV__ */
 
 	/* dummy assignment */
