@@ -187,10 +187,12 @@ static int lpm_log_timer_func(unsigned long long dur, void *priv)
 
 		issuer.log(LPM_ISSUER_CPUIDLE,
 			info->state_name[info->fired_index], (void *)&issuer);
-	} else
+	} else {
 		pr_info("[name:spm&][SPM] %s didn't enter low power scenario\n",
-				info->state_name[info->fired_index]);
-
+			info->state_name && info->state_name[info->fired_index] ?
+			info->state_name[info->fired_index] :
+			"LPM");
+	}
 	timer->fired = info->fired;
 	return 0;
 }
@@ -351,7 +353,7 @@ int lpm_logger_init(void)
 					}
 
 					strncat(info->state_name[idx],
-					TO_UPPERCASE(drv->states[idx].name),
+					drv->states[idx].name,
 					strlen(drv->states[idx].name));
 				}
 			}

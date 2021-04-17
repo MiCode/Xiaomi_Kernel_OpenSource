@@ -553,6 +553,7 @@ int spm_cond_init(void)
 			if (ret != 0 || rc_id == -1 || rc_name == NULL) {
 				pr_info("[%s:%d] - abnormal rc\n",
 					__func__, __LINE__);
+				idx++;
 				continue;
 			}
 
