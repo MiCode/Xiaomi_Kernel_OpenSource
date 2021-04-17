@@ -66,7 +66,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			opp-microvolt = <637500>;
 		};
 		opp1 {
-			opp-hz = /bits/ 64 <825000000>;
+			opp-hz = /bits/ 64 <850000000>;
 			opp-microvolt = <662500>;
 		};
 		opp2 {
