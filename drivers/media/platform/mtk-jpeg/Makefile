@@ -5,4 +5,4 @@ mtk_jpeg-objs := mtk_jpeg_core.o \
 		 mtk_jpeg_enc_hw.o
 obj-$(CONFIG_VIDEO_MEDIATEK_JPEG) += mtk_jpeg.o
 
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/ \
+

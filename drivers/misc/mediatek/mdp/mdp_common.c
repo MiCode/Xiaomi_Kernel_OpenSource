@@ -32,8 +32,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/sched/clock.h>
 #include <linux/timekeeping.h>
-//#include <linux/interconnect-provider.h>
-#include "mtk-interconnect.h"
+#include <linux/interconnect-provider.h>
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
 #include <soc/mediatek/smi.h>
@@ -2518,7 +2517,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 				total_pixel,
 				isp_throughput,
 				isp_curr_bandwidth);
-			mtk_icc_set_bw(port_path,
+			icc_set_bw(port_path,
 				MBps_to_icc(isp_curr_bandwidth), 0);
 		}
 
@@ -2542,7 +2541,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 				target_pmqos->mdp_total_pixel,
 				mdp_throughput,
 				mdp_curr_bandwidth);
-			mtk_icc_set_bw(port_path,
+			icc_set_bw(port_path,
 				MBps_to_icc(mdp_curr_bandwidth), 0);
 		}
 	}
@@ -2793,7 +2792,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 				curr_pixel_size,
 				isp_throughput,
 				isp_curr_bandwidth);
-			mtk_icc_set_bw(port_path,
+			icc_set_bw(port_path,
 				MBps_to_icc(isp_curr_bandwidth), 0);
 		}
 	} else if (mdp_curr_pmqos->isp_total_datasize) {
@@ -2818,7 +2817,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 				mdp_throughput,
 				mdp_curr_bandwidth);
 
-			mtk_icc_set_bw(port_path,
+			icc_set_bw(port_path,
 				MBps_to_icc(mdp_curr_bandwidth), 0);
 		}
 	} else if (target_pmqos && target_pmqos->mdp_total_datasize) {
@@ -2841,7 +2840,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 				mdp_throughput,
 				mdp_curr_bandwidth);
 
-			mtk_icc_set_bw(port_path,
+			icc_set_bw(port_path,
 				MBps_to_icc(mdp_curr_bandwidth), 0);
 		}
 	}

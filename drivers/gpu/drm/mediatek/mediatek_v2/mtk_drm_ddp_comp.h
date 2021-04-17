@@ -13,8 +13,7 @@
 #include "mtk_disp_pmqos.h"
 #include "mtk_drm_ddp_addon.h"
 #include <linux/pm_runtime.h>
-//#include <linux/interconnect-provider.h>
-#include "mtk-interconnect.h"
+#include <linux/interconnect-provider.h>
 
 struct device;
 struct device_node;
