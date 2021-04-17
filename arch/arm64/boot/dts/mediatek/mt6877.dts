@@ -6121,6 +6121,12 @@
 		compatible = "mediatek,fusb340";
 		status = "disabled";
 	};
+
+	ssusb_ip_sleep: ssusb_ip_sleep {
+		compatible = "mediatek,usb_ipsleep";
+		interrupt-parent = <&pio>;
+		interrupts = <119 IRQ_TYPE_LEVEL_LOW 217 0>;
+	};
 };
 
 &spmi_bus {
