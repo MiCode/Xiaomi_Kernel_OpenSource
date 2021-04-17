@@ -2923,12 +2923,8 @@
 				"subsys_mfg_cg";
 			nvmem-cells = <&efuse_segment &apu_pod19>;
 			nvmem-cell-names = "efuse_segment_cell", "efuse_pod19";
-		};
-
-		gpufreq_wrapper: gpufreq_wrapper {
-			compatible = "mediatek,gpufreq_wrapper";
 			gpufreq-version = <2>;
-			gpufreq-supply = <&gpufreq>;
+			dual-buck = <0>;
 		};
 
 		gpueb: gpueb@13C00000 {
@@ -2964,7 +2960,7 @@
 
 		ged: ged {
 			compatible = "mediatek,ged";
-			gpufreq_wrapper-supply = <&gpufreq_wrapper>;
+			gpufreq-supply = <&gpufreq>;
 		};
 
 		mfgcfg_clk: syscon@13fbf000 {
