@@ -430,13 +430,12 @@ void disp_aal_refresh_by_kernel(void)
 		spin_lock_irqsave(&g_aal_irq_en_lock, flags);
 		atomic_set(&g_aal_force_enable_irq, 1);
 
-		if (spin_trylock_irqsave(&g_aal_clock_lock, clockflags)) {
-			if (atomic_read(&g_aal_data->is_clock_on) != 1)
-				AALFLOW_LOG("clock is off\n");
-			else
-				disp_aal_set_interrupt(NULL, true);
-			spin_unlock_irqrestore(&g_aal_clock_lock, clockflags);
-		}
+		spin_lock_irqsave(&g_aal_clock_lock, clockflags);
+		if (atomic_read(&g_aal_data->is_clock_on) != 1)
+			AALFLOW_LOG("clock is off\n");
+		else
+			disp_aal_set_interrupt(NULL, true);
+		spin_unlock_irqrestore(&g_aal_clock_lock, clockflags);
 
 		spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
 		/* Backlight or Kernel API latency should be smallest */
