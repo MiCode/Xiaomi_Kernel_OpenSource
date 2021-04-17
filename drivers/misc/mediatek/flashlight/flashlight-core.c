@@ -62,16 +62,6 @@ static int pt_is_low(int pt_low_vol, int pt_low_bat, int pt_over_cur);
 #endif
 
 /******************************************************************************
- * Weak functions
- *****************************************************************************/
-#ifdef CONFIG_MTK_FLASHLIGHT_DLPT
-void __attribute__ ((weak)) kicker_pbm_by_flash(bool status)
-{
-	pr_info("No dlpt support\n");
-}
-#endif
-
-/******************************************************************************
  * Flashlight operations
  *****************************************************************************/
 static int fl_set_level(struct flashlight_dev *fdev, int level)
