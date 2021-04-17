@@ -104,6 +104,6 @@ struct gpufreq_debug_limit_info {
 /**************************************************
  * Function
  **************************************************/
-int gpufreq_debug_init(void);
+int gpufreq_debug_init(unsigned int dual_buck, unsigned int gpueb_support);
 
 #endif /* __GPUFREQ_DEBUG_H__ */

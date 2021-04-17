@@ -37,8 +37,8 @@
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 #include <mtk_battery_oc_throttling.h>
 #endif
-#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENTAGE_POWER_THROTTLING)
-#include <mtk_battery_percentage_throttling.h>
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
+#include <mtk_bp_thl.h>
 #endif
 #if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 #include <mtk_low_battery_throttling.h>
@@ -520,13 +520,14 @@ int __gpufreq_power_control(
 
 		if (mtcmos == MTCMOS_ON) {
 			ret = __gpufreq_mtcmos_control(mtcmos);
-			if (unlikely(ret)) {
+			if (unlikely(ret < 0)) {
 				GPUFREQ_LOGE("fail to control mtcmos: MTCMOS_ON (%d)",
 					ret);
 				g_gpu.power_count--;
 				g_gpu.buck_count--;
 				goto done_unlock;
 			}
+			ret = GPUFREQ_SUCCESS;
 		}
 		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_3);
 
@@ -564,13 +565,14 @@ int __gpufreq_power_control(
 
 		if (mtcmos == MTCMOS_OFF) {
 			ret = __gpufreq_mtcmos_control(mtcmos);
-			if (unlikely(ret)) {
+			if (unlikely(ret < 0)) {
 				GPUFREQ_LOGE("fail to control mtcmos: MTCMOS_OFF (%d)",
 					ret);
 				g_gpu.power_count++;
 				g_gpu.cg_count++;
 				goto done_unlock;
 			}
+			ret = GPUFREQ_SUCCESS;
 		}
 		__gpufreq_footprint_vgpu(GPUFREQ_VGPU_STEP_7);
 
@@ -1200,7 +1202,7 @@ EXPORT_SYMBOL(__gpufreq_get_batt_oc_idx);
 int __gpufreq_get_batt_percent_idx(int batt_percent_level)
 {
 #if (GPUFREQ_BATT_PERCENT_ENABLE && \
-	IS_ENABLED(CONFIG_MTK_BATTERY_PERCENTAGE_POWER_THROTTLING))
+	IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING))
 	if (batt_percent_level == BATTERY_PERCENT_LEVEL_1)
 		return GPUFREQ_BATT_PERCENT_IDX - g_gpu.segment_upbound;
 	else
@@ -2679,6 +2681,11 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	struct device_node *node;
 	int ret = GPUFREQ_SUCCESS;
 
+	if (__gpufreq_bringup()) {
+		GPUFREQ_LOGI("skip gpufreq driver probe when bringup");
+		goto done;
+	}
+
 	GPUFREQ_LOGI("start to probe gpufreq driver");
 
 	node = of_find_matching_node(NULL, g_gpufreq_of_match);
@@ -2831,16 +2838,23 @@ static int __gpufreq_mtcmos_pdrv_probe(struct platform_device *pdev)
 	const struct gpufreq_mfg_fp *mfg_fp;
 	int ret = GPUFREQ_SUCCESS;
 
+	if (__gpufreq_bringup()) {
+		GPUFREQ_LOGI("skip gpufreq mtcmos probe when bringup");
+		goto done;
+	}
+
 	mfg_fp = of_device_get_match_data(&pdev->dev);
 	if (!mfg_fp) {
 		GPUFREQ_LOGE("fail to get mtcmos match data");
-		return GPUFREQ_EINVAL;
+		ret = GPUFREQ_EINVAL;
+		goto done;
 	}
 
 	ret = mfg_fp->probe(pdev);
 	if (unlikely(ret))
 		GPUFREQ_LOGE("fail to probe mtcmos device");
 
+done:
 	return ret;
 }
 
@@ -2849,16 +2863,23 @@ static int __gpufreq_mtcmos_pdrv_remove(struct platform_device *pdev)
 	const struct gpufreq_mfg_fp *mfg_fp;
 	int ret = GPUFREQ_SUCCESS;
 
+	if (__gpufreq_bringup()) {
+		GPUFREQ_LOGI("skip gpufreq mtcmos remove when bringup");
+		goto done;
+	}
+
 	mfg_fp = of_device_get_match_data(&pdev->dev);
 	if (!mfg_fp) {
 		GPUFREQ_LOGE("fail to get mtcmos match data");
-		return GPUFREQ_EINVAL;
+		ret = GPUFREQ_EINVAL;
+		goto done;
 	}
 
 	ret = mfg_fp->remove(pdev);
 	if (unlikely(ret))
 		GPUFREQ_LOGE("fail to remove mtcmos device");
 
+done:
 	return ret;
 }
 
@@ -2869,13 +2890,7 @@ static int __init __gpufreq_init(void)
 {
 	int ret = GPUFREQ_SUCCESS;
 
-	if (__gpufreq_bringup()) {
-		__gpufreq_dump_bringup_status();
-		GPUFREQ_LOGI("skip gpufreq driver init when bringup");
-		goto done;
-	}
-
-	GPUFREQ_LOGI("start to initialize gpufreq platform driver");
+	GPUFREQ_LOGI("start to init gpufreq platform driver");
 
 	g_mtcmos = kzalloc(sizeof(struct gpufreq_mtcmos_info), GFP_KERNEL);
 	if (!g_mtcmos) {
@@ -2913,16 +2928,31 @@ static int __init __gpufreq_init(void)
 		goto done;
 	}
 
-	/* init GPU PPM */
+	if (__gpufreq_bringup()) {
+		__gpufreq_dump_bringup_status();
+		GPUFREQ_LOGI("skip the rest of gpufreq init when bringup");
+		goto done;
+	}
+
+	/* init gpu ppm */
 	ret = gpuppm_init();
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to init gpuppm (%d)", ret);
 		goto done;
 	}
 
+	/* init gpufreq wrapper */
+	ret = gpufreq_wrapper_init();
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to init gpufreq wrapper driver (%d)", ret);
+		goto done;
+	}
+
 	__gpufreq_footprint_vgpu_reset();
 	__gpufreq_footprint_oppidx_reset();
 	__gpufreq_footprint_power_count_reset();
+
+	GPUFREQ_LOGI("gpufreq platform driver init done");
 
 done:
 	return ret;

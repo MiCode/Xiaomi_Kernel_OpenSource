@@ -17,6 +17,8 @@ ccflags-y += -I$(srctree)/drivers/gpu/mediatek/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/power_throttling/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/pbm/
 
 ccflags-y += \
 	-Wno-unused-variable \
@@ -26,13 +28,10 @@ ifeq ($(findstring aging,$(PROJECT_DTB_NAMES)),aging)
 	ccflags-y += -DGPUFREQ_AGING_LOAD
 endif
 
-mtk_gpufreq_v2-y := \
+mtk_gpufreq_mt6893-y := \
+	gpufreq_mt6893.o \
+	gpuppm.o \
 	gpufreq_v2.o \
 	gpufreq_debug.o
 
-mtk_gpufreq_mt6893-y := \
-	gpuppm.o \
-	gpufreq_mt6893.o
-
-obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreq_v2.o
 obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreq_mt6893.o

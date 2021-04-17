@@ -70,17 +70,10 @@ enum gpufreq_dvfs_state {
 };
 
 enum gpufreq_target {
-#if defined(GPUFREQ_DUAL_BUCK)
-	TARGET_GPUSTACK = 0,
+	TARGET_DEFAULT = 0,
 	TARGET_GPU = 1,
-	TARGET_INVALID = 2,
-	TARGET_DEFAULT = TARGET_GPUSTACK,
-#else
-	TARGET_GPU = 0,
-	TARGET_INVALID = 1,
-	TARGET_GPUSTACK = 2,
-	TARGET_DEFAULT = TARGET_GPU,
-#endif
+	TARGET_GPUSTACK,
+	TARGET_INVALID,
 };
 
 enum gpufreq_power_state {
@@ -201,6 +194,7 @@ int gpufreq_commit(enum gpufreq_target target, int oppidx);
 int gpufreq_set_limit(
 	enum gpufreq_target target, unsigned int limiter,
 	int ceiling, int floor);
+int gpufreq_wrapper_init(void);
 
 /**************************************************
  * Platform Implementation

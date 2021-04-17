@@ -29,11 +29,14 @@
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 #include <mtk_battery_oc_throttling.h>
 #endif
-#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENTAGE_POWER_THROTTLING)
-#include <mtk_battery_percentage_throttling.h>
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
+#include <mtk_bp_thl.h>
 #endif
 #if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 #include <mtk_low_battery_throttling.h>
+#endif
+#if IS_ENABLED(CONFIG_MTK_PBM)
+#include <mtk_pbm.h>
 #endif
 
 /**
@@ -49,20 +52,7 @@ static int gpufreq_gpuhal_init(void);
  * Local Variable Definition
  * ===============================================
  */
-static const struct of_device_id g_gpufreq_wrapper_of_match[] = {
-	{ .compatible = "mediatek,gpufreq_wrapper" },
-	{ /* sentinel */ }
-};
-static struct platform_driver g_gpufreq_wrapper_pdrv = {
-	.probe = gpufreq_wrapper_pdrv_probe,
-	.remove = NULL,
-	.driver = {
-		.name = "gpufreq_wrapper",
-		.owner = THIS_MODULE,
-		.of_match_table = g_gpufreq_wrapper_of_match,
-	},
-};
-
+static unsigned int g_dual_buck;
 static unsigned int g_gpueb_support;
 
 /**
@@ -158,8 +148,16 @@ void gpufreq_restore_opp(enum gpufreq_target target)
 {
 	GPUFREQ_TRACE_START("target=%d", target);
 
-	if (target >= TARGET_INVALID || target < 0)
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck))
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
+	}
 
 	if (target == TARGET_GPUSTACK)
 		__gpufreq_restore_opp_gstack();
@@ -174,9 +172,17 @@ unsigned int gpufreq_get_cur_freq(enum gpufreq_target target)
 {
 	unsigned int freq = 0;
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	if (target == TARGET_GPUSTACK)
@@ -197,9 +203,17 @@ unsigned int gpufreq_get_cur_volt(enum gpufreq_target target)
 {
 	unsigned int volt = 0;
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	if (target == TARGET_GPUSTACK)
@@ -220,9 +234,17 @@ int gpufreq_get_cur_oppidx(enum gpufreq_target target)
 {
 	int oppidx = 0;
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	if (target == TARGET_GPUSTACK)
@@ -243,9 +265,17 @@ int gpufreq_get_max_oppidx(enum gpufreq_target target)
 {
 	int oppidx = 0;
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	if (target == TARGET_GPUSTACK)
@@ -266,9 +296,17 @@ int gpufreq_get_min_oppidx(enum gpufreq_target target)
 {
 	int oppidx = 0;
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	if (target == TARGET_GPUSTACK)
@@ -289,9 +327,17 @@ unsigned int gpufreq_get_opp_num(enum gpufreq_target target)
 {
 	unsigned int opp_num = 0;
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	if (target == TARGET_GPUSTACK)
@@ -313,9 +359,17 @@ unsigned int gpufreq_get_freq_by_idx(
 {
 	unsigned int freq = 0;
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	if (target == TARGET_GPUSTACK)
@@ -337,9 +391,17 @@ unsigned int gpufreq_get_volt_by_idx(
 {
 	unsigned int volt = 0;
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	if (target == TARGET_GPUSTACK)
@@ -361,9 +423,17 @@ unsigned int gpufreq_get_power_by_idx(
 {
 	unsigned int power = 0;
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	if (target == TARGET_GPUSTACK)
@@ -385,9 +455,17 @@ int gpufreq_get_oppidx_by_freq(
 {
 	int oppidx = 0;
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	if (target == TARGET_GPUSTACK)
@@ -409,9 +487,17 @@ int gpufreq_get_oppidx_by_power(
 {
 	int oppidx = 0;
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	if (target == TARGET_GPUSTACK)
@@ -433,9 +519,17 @@ unsigned int gpufreq_get_leakage_power(
 {
 	unsigned int p_leakage = 0;
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	if (target == TARGET_GPUSTACK)
@@ -457,9 +551,17 @@ unsigned int gpufreq_get_dynamic_power(
 {
 	unsigned int p_dynamic = 0;
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	if (target == TARGET_GPUSTACK)
@@ -510,10 +612,18 @@ int gpufreq_commit(enum gpufreq_target target, int oppidx)
 
 	GPUFREQ_TRACE_START("target=%d, oppidx=%d", target, oppidx);
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		ret = GPUFREQ_EINVAL;
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	GPUFREQ_LOGD("target: %s, oppidx: %d",
@@ -548,10 +658,18 @@ int gpufreq_set_limit(
 	GPUFREQ_TRACE_START("target=%d, limiter=%d, ceiling=%d, floor=%d",
 		target, limiter, ceiling, floor);
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		ret = GPUFREQ_EINVAL;
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	GPUFREQ_LOGD("target: %s, limiter: %d, ceiling: %d, floor: %d",
@@ -580,7 +698,8 @@ int gpufreq_get_cur_limit_idx(
 {
 	int limit_idx = 0;
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
@@ -588,6 +707,13 @@ int gpufreq_get_cur_limit_idx(
 	if (limit >= GPUPPM_INVALID || limit < 0) {
 		GPUFREQ_LOGE("invalid limit target: %d (EINVAL)", limit);
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	if (target == TARGET_GPUSTACK) {
@@ -617,7 +743,8 @@ unsigned int gpufreq_get_cur_limiter(
 {
 	unsigned int limiter = 0;
 
-	if (target >= TARGET_INVALID || target < 0) {
+	if (target >= TARGET_INVALID || target < 0 ||
+		(target == TARGET_GPUSTACK && !g_dual_buck)) {
 		GPUFREQ_LOGE("invalid OPP target: %d (EINVAL)", target);
 		goto done;
 	}
@@ -625,6 +752,13 @@ unsigned int gpufreq_get_cur_limiter(
 	if (limit >= GPUPPM_INVALID || limit < 0) {
 		GPUFREQ_LOGE("invalid limit target: %d (EINVAL)", limit);
 		goto done;
+	}
+
+	if (target == TARGET_DEFAULT) {
+		if (g_dual_buck)
+			target = TARGET_GPUSTACK;
+		else
+			target = TARGET_GPU;
 	}
 
 	if (target == TARGET_GPUSTACK) {
@@ -650,7 +784,7 @@ done:
 EXPORT_SYMBOL(gpufreq_get_cur_limiter);
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
-static void gpufreq_batt_oc_callback(BATTERY_OC_LEVEL batt_oc_level)
+static void gpufreq_batt_oc_callback(enum BATTERY_OC_LEVEL_TAG batt_oc_level)
 {
 	int ceiling = 0;
 	int ret = GPUFREQ_SUCCESS;
@@ -658,11 +792,12 @@ static void gpufreq_batt_oc_callback(BATTERY_OC_LEVEL batt_oc_level)
 
 	GPUFREQ_TRACE_START("batt_oc_level=%d", batt_oc_level);
 
-	ceiling = __gpufreq_get_batt_oc_idx(batt_oc_level);
+	if (g_dual_buck)
+		target = TARGET_GPUSTACK;
+	else
+		target = TARGET_GPU;
 
-	GPUFREQ_LOGD("target: %s, limiter: %d, battery_oc_level: %d, ceiling: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
-		LIMIT_BATT_OC, batt_oc_level, ceiling);
+	ceiling = __gpufreq_get_batt_oc_idx(batt_oc_level);
 
 	if (target == TARGET_GPUSTACK) {
 		ret = gpuppm_set_limit_gstack(LIMIT_BATT_OC,
@@ -676,13 +811,17 @@ static void gpufreq_batt_oc_callback(BATTERY_OC_LEVEL batt_oc_level)
 			GPUFREQ_LOGE("fail to set GPU limit (%d)", ret);
 	}
 
+	GPUFREQ_LOGD("target: %s, limiter: %d, battery_oc_level: %d, ceiling: %d",
+		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		LIMIT_BATT_OC, batt_oc_level, ceiling);
+
 	GPUFREQ_TRACE_END();
 }
 #endif /* CONFIG_MTK_BATTERY_OC_POWER_THROTTLING */
 
-#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENTAGE_POWER_THROTTLING)
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
 static void gpufreq_batt_percent_callback(
-	BATTERY_PERCENT_LEVEL batt_percent_level)
+	enum BATTERY_PERCENT_LEVEL_TAG batt_percent_level)
 {
 	int ceiling = 0;
 	int ret = GPUFREQ_SUCCESS;
@@ -690,11 +829,12 @@ static void gpufreq_batt_percent_callback(
 
 	GPUFREQ_TRACE_START("batt_percent_level=%d", batt_percent_level);
 
-	ceiling = __gpufreq_get_batt_percent_idx(batt_percent_level);
+	if (g_dual_buck)
+		target = TARGET_GPUSTACK;
+	else
+		target = TARGET_GPU;
 
-	GPUFREQ_LOGD("target: %s, limiter: %d, battery_percent_level: %d, ceiling: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
-		LIMIT_BATT_PERCENT, batt_percent_level, ceiling);
+	ceiling = __gpufreq_get_batt_percent_idx(batt_percent_level);
 
 	if (target == TARGET_GPUSTACK) {
 		ret = gpuppm_set_limit_gstack(LIMIT_BATT_PERCENT,
@@ -708,12 +848,16 @@ static void gpufreq_batt_percent_callback(
 			GPUFREQ_LOGE("fail to set GPU limit (%d)", ret);
 	}
 
+	GPUFREQ_LOGD("target: %s, limiter: %d, battery_percent_level: %d, ceiling: %d",
+		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		LIMIT_BATT_PERCENT, batt_percent_level, ceiling);
+
 	GPUFREQ_TRACE_END();
 }
-#endif /* CONFIG_MTK_BATTERY_PERCENTAGE_POWER_THROTTLING */
+#endif /* CONFIG_MTK_BATTERY_PERCENT_THROTTLING */
 
 #if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
-static void gpufreq_low_batt_callback(LOW_BATTERY_LEVEL low_batt_level)
+static void gpufreq_low_batt_callback(enum LOW_BATTERY_LEVEL_TAG low_batt_level)
 {
 	int ceiling = 0;
 	int ret = GPUFREQ_SUCCESS;
@@ -721,11 +865,12 @@ static void gpufreq_low_batt_callback(LOW_BATTERY_LEVEL low_batt_level)
 
 	GPUFREQ_TRACE_START("low_batt_level=%d", low_batt_level);
 
-	ceiling = __gpufreq_get_low_batt_idx(low_batt_level);
+	if (g_dual_buck)
+		target = TARGET_GPUSTACK;
+	else
+		target = TARGET_GPU;
 
-	GPUFREQ_LOGD("target: %s, limiter: %d, low_battery_level: %d, ceiling: %d",
-		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
-		LIMIT_LOW_BATT, low_batt_level, ceiling);
+	ceiling = __gpufreq_get_low_batt_idx(low_batt_level);
 
 	if (target == TARGET_GPUSTACK) {
 		ret = gpuppm_set_limit_gstack(LIMIT_LOW_BATT,
@@ -739,9 +884,55 @@ static void gpufreq_low_batt_callback(LOW_BATTERY_LEVEL low_batt_level)
 			GPUFREQ_LOGE("fail to set GPU limit (%d)", ret);
 	}
 
+	GPUFREQ_LOGD("target: %s, limiter: %d, low_battery_level: %d, ceiling: %d",
+		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		LIMIT_LOW_BATT, low_batt_level, ceiling);
+
 	GPUFREQ_TRACE_END();
 }
 #endif /* CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING */
+
+#if IS_ENABLED(CONFIG_MTK_PBM)
+static void gpufreq_pbm_callback(unsigned int limited_power)
+{
+	int ceiling = 0;
+	int ret = GPUFREQ_SUCCESS;
+	enum gpufreq_target target = TARGET_DEFAULT;
+
+	GPUFREQ_TRACE_START("limited_power=%d", limited_power);
+
+	if (g_dual_buck)
+		target = TARGET_GPUSTACK;
+	else
+		target = TARGET_GPU;
+
+	if (target == TARGET_GPUSTACK) {
+		if (limited_power)
+			ceiling = __gpufreq_get_idx_by_pgstack(limited_power);
+		else
+			ceiling = GPUPPM_RESET_IDX;
+		ret = gpuppm_set_limit_gstack(LIMIT_PBM,
+			ceiling, GPUPPM_KEEP_IDX);
+		if (unlikely(ret))
+			GPUFREQ_LOGE("fail to set GPUSTACK limit (%d)", ret);
+	} else if (target == TARGET_GPU) {
+		if (limited_power)
+			ceiling = __gpufreq_get_idx_by_pgpu(limited_power);
+		else
+			ceiling = GPUPPM_RESET_IDX;
+		ret = gpuppm_set_limit_gpu(LIMIT_PBM,
+			ceiling, GPUPPM_KEEP_IDX);
+		if (unlikely(ret))
+			GPUFREQ_LOGE("fail to set GPU limit (%d)", ret);
+	}
+
+	GPUFREQ_LOGD("target: %s, limiter: %d, limited_power: %d, ceiling: %d",
+		target == TARGET_GPUSTACK ? "GPUSTACK" : "GPU",
+		LIMIT_PBM, limited_power, ceiling);
+
+	GPUFREQ_TRACE_END();
+}
+#endif /* CONFIG_MTK_PBM */
 
 static int gpufreq_gpuhal_init(void)
 {
@@ -753,20 +944,23 @@ static int gpufreq_gpuhal_init(void)
 	return GPUFREQ_SUCCESS;
 }
 
-/*
- * API: gpufreq wrapper driver probe
- */
-static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev)
+int gpufreq_wrapper_init(void)
 {
-	struct device_node *wrapper, *gpueb;
+	struct device_node *gpufreq, *gpueb;
 	int ret = GPUFREQ_SUCCESS;
 
-	GPUFREQ_LOGI("start to probe gpufreq wrapper driver");
+	GPUFREQ_LOGI("start to init gpufreq wrapper driver");
 
-	wrapper = of_find_matching_node(NULL, g_gpufreq_wrapper_of_match);
-	if (!wrapper) {
-		GPUFREQ_LOGE("fail to find gpufreq wrapper node");
+	gpufreq = of_find_compatible_node(NULL, NULL, "mediatek,gpufreq");
+	if (!gpufreq) {
+		GPUFREQ_LOGE("fail to find gpufreq node");
 		ret = GPUFREQ_ENOENT;
+		goto done;
+	}
+
+	ret = of_property_read_u32(gpufreq, "dual-buck", &g_dual_buck);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to read dual-buck (%d)", ret);
 		goto done;
 	}
 
@@ -783,31 +977,7 @@ static int gpufreq_wrapper_pdrv_probe(struct platform_device *pdev)
 		goto done;
 	}
 
-	GPUFREQ_LOGI("gpufreq wrapper driver probe done, gpueb: %s",
-		g_gpueb_support ? "on" : "off");
-
-done:
-	return ret;
-}
-
-/*
- * API: register gpufreq wrapper driver
- */
-static int __init gpufreq_wrapper_init(void)
-{
-	int ret = GPUFREQ_SUCCESS;
-
-	GPUFREQ_LOGI("start to initialize gpufreq wrapper driver");
-
-	/* register platform driver */
-	ret = platform_driver_register(&g_gpufreq_wrapper_pdrv);
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to register gpufreq wrapper driver (%d)",
-			ret);
-		goto done;
-	}
-
-	ret = gpufreq_debug_init();
+	ret = gpufreq_debug_init(g_dual_buck, g_gpueb_support);
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to init gpufreq debug (%d)", ret);
 		goto done;
@@ -821,38 +991,28 @@ static int __init gpufreq_wrapper_init(void)
 
 	/* init power throttling */
 #if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
-	register_low_battery_notify(
-			&gpufreq_low_batt_callback,
-			LOW_BATTERY_PRIO_GPU);
+	register_low_battery_notify(&gpufreq_low_batt_callback,
+		LOW_BATTERY_PRIO_GPU);
 #endif /* CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING */
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
-	register_bp_thl_notify(
-			&gpufreq_batt_percent_callback,
-			BATTERY_PERCENT_PRIO_GPU);
+	register_bp_thl_notify(&gpufreq_batt_percent_callback,
+		BATTERY_PERCENT_PRIO_GPU);
 #endif /* CONFIG_MTK_BATTERY_PERCENT_THROTTLING */
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
-	register_battery_oc_notify(
-			&gpufreq_batt_oc_callback,
-			BATTERY_OC_PRIO_GPU);
+	register_battery_oc_notify(&gpufreq_batt_oc_callback,
+		BATTERY_OC_PRIO_GPU);
 #endif /* CONFIG_MTK_BATTERY_OC_POWER_THROTTLING */
+
+#if IS_ENABLED(CONFIG_MTK_PBM)
+	register_pbm_notify(&gpufreq_pbm_callback, PBM_PRIO_GPU);
+#endif /* CONFIG_MTK_PBM */
+
+	GPUFREQ_LOGI("gpufreq wrapper driver init done, dual_buck: %s, gpueb: %s",
+		g_dual_buck ? "true" : "false",
+		g_gpueb_support ? "on" : "off");
 
 done:
 	return ret;
 }
-
-/*
- * API: unregister gpufreq wrapper driver
- */
-static void __exit gpufreq_wrapper_exit(void)
-{
-	platform_driver_unregister(&g_gpufreq_wrapper_pdrv);
-}
-
-late_initcall(gpufreq_wrapper_init);
-module_exit(gpufreq_wrapper_exit);
-
-MODULE_DEVICE_TABLE(of, g_gpufreq_wrapper_of_match);
-MODULE_DESCRIPTION("MediaTek GPU-DVFS wrapper driver");
-MODULE_LICENSE("GPL");
