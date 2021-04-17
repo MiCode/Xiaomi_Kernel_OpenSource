@@ -99,22 +99,6 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 			;
 		ret = 0;
 		break;
-#ifdef CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
-#ifdef ENABLE_SIM_LOCK_RANDOM
-	case CCCI_IOC_SIM_LOCK_RANDOM_PATTERN: /* Fix me */
-		if (copy_from_user(&val, (void __user *)arg,
-				sizeof(unsigned int)))
-			CCCI_ERROR_LOG(md_id, FSM,
-			"CCCI_IOC_SIM_LOCK_RANDOM_PATTERN: copy_from_user fail\n");
-
-		CCCI_NORMAL_LOG(md_id, FSM,
-			"get SIM lock random pattern %x\n", data);
-
-		snprintf(buffer, sizeof(buffer), "%x", data);
-		set_env("sml_sync", buffer);
-		break;
-#endif
-#endif
 	case CCCI_IOC_SET_MD_BOOT_MODE:
 		if (copy_from_user(&data, (void __user *)arg,
 				sizeof(unsigned int))) {
