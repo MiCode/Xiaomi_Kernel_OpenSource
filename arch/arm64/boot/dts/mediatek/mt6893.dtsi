@@ -3492,7 +3492,7 @@
 			compatible = "mediatek,msf";
 			reg = <0 0x15010000 0 0x1000>;
 			interrupts = <GIC_SPI 346 IRQ_TYPE_LEVEL_HIGH 0>;
-			mboxes = <&gce 20 0 CMDQ_THR_PRIO_1>;
+			mboxes = <&gce_m 20 0 CMDQ_THR_PRIO_1>;
 			msf_frame_done =
 			/bits/ 16 <CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_21>;
 			msf_token =
@@ -3534,7 +3534,7 @@
 			compatible = "mediatek,mss";
 			reg = <0 0x15012000 0 0x1000>;
 			interrupts = <GIC_SPI 349 IRQ_TYPE_LEVEL_HIGH 0>;
-			mboxes = <&gce 19 0 CMDQ_THR_PRIO_1>;
+			mboxes = <&gce_m 19 0 CMDQ_THR_PRIO_1>;
 			mss_frame_done =
 			/bits/ 16 <CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_23>;
 			mss_token =
@@ -4511,7 +4511,7 @@
 			compatible = "mediatek,cam_mem";
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 
-			iommus = /* imgsys_config, msf_b and wpe */
+			iommus = /* imgsys_config, msf and wpe */
 				<&iommu1 M4U_PORT_L9_IMG_IMGI_D1_MDP>,
 				<&iommu1 M4U_PORT_L9_IMG_IMGBI_D1_MDP>,
 				<&iommu1 M4U_PORT_L9_IMG_DMGI_D1_MDP>,
@@ -4527,7 +4527,10 @@
 				<&iommu1 M4U_PORT_L9_IMG_TIMGO_D1_MDP>,
 				<&iommu1 M4U_PORT_L9_IMG_UFBC_W0_MDP>,
 				<&iommu1 M4U_PORT_L9_IMG_UFBC_R0_MDP>,
-                <&iommu1 M4U_PORT_L9_IMG_MFB_RDMA0_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_WPE_RDMA1_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_WPE_RDMA0_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_WPE_WDMA_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA0_MDP>,
 				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA1_MDP>,
 				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA2_MDP>,
 				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA3_MDP>,
