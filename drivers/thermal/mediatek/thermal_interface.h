@@ -10,9 +10,10 @@
 #define CPU_HEADROOM_OFFSET         (0x20)
 #define CPU_HEADROOM_RATIO_OFFSET   (0x40)
 #define CPU_PREDICT_TEMP_OFFSET     (0x60)
-#define CPU_TTJ_OFFSET              (0x80)
-#define CPU_MIN_OPP_OFFSET          (0x84)
-#define AP_NTC_HEADROOM_OFFSET      (0xA0)
+#define AP_NTC_HEADROOM_OFFSET      (0x80)
+#define TTJ_OFFSET                 (0x100)
+#define POWER_BUDGET_OFFSET        (0x110)
+#define CPU_MIN_OPP_HINT_OFFSET    (0x120)
 
 struct headroom_info {
     int temp;

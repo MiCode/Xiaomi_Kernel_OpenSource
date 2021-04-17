@@ -104,7 +104,7 @@ int set_cpu_min_opp(int gear, int opp)
 	if (gear >= tm_data.cpu_cluster_num)
 		return -EINVAL;
 
-	writel(opp, tm_data.csram_base + CPU_MIN_OPP_OFFSET + 4 * gear);
+	writel(opp, tm_data.csram_base + CPU_MIN_OPP_HINT_OFFSET + 4 * gear);
 
 	return 0;
 }
@@ -124,27 +124,88 @@ static int therm_intf_hr_info_show(struct seq_file *m, void *unused)
 	return 0;
 }
 THERM_INTF_DEBUGFS_ENTRY_RO(hr_info);
+static void write_ttj(unsigned int cpu_ttj, unsigned int gpu_ttj,
+	unsigned int apu_ttj)
+{
+	void __iomem *addr = tm_data.csram_base + TTJ_OFFSET;
+
+	writel(cpu_ttj, addr);
+	writel(gpu_ttj, addr + 4);
+	writel(apu_ttj, addr + 8);
+}
+
+static ssize_t ttj_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+	void __iomem *addr = tm_data.csram_base + TTJ_OFFSET;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%u, %u, %u\n",
+		readl(addr), readl(addr + 4), readl(addr + 8));
+
+	return len;
+}
 
 static ssize_t ttj_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	char cmd[10];
-	void __iomem *addr = tm_data.csram_base + CPU_TTJ_OFFSET;
-	int ttj = 0;
+	unsigned int cpu_ttj, gpu_ttj, apu_ttj;
 
-	if (sscanf(buf, "%4s %d", cmd, &ttj) == 2) {
-		if ((strncmp(cmd, "TTJ", 3) == 0)
-			&& (ttj >= 0) && (ttj <= 100))
-			writel(ttj, addr);
-		else
-			pr_info("get ttj fail\n");
-	} else {
-		pr_info("[thermal_ttj] invalid input\n");
-		return -EINVAL;
+	if (sscanf(buf, "%4s %u %u %u", cmd, &cpu_ttj, &gpu_ttj, &apu_ttj)
+		== 4) {
+		if (strncmp(cmd, "TTJ", 3) == 0) {
+			write_ttj(cpu_ttj, gpu_ttj, apu_ttj);
+
+			return count;
+		}
 	}
 
-	return count;
+	pr_info("[thermal_ttj] invalid input\n");
+
+	return -EINVAL;
 }
+
+static void write_power_budget(unsigned int cpu_pb, unsigned int gpu_pb,
+	unsigned int apu_pb)
+{
+	void __iomem *addr = tm_data.csram_base + POWER_BUDGET_OFFSET;
+
+	writel(cpu_pb, addr);
+	writel(gpu_pb, addr + 4);
+	writel(apu_pb, addr + 8);
+}
+
+static ssize_t power_budget_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+	void __iomem *addr = tm_data.csram_base + POWER_BUDGET_OFFSET;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%u, %u, %u\n",
+		readl(addr), readl(addr + 4), readl(addr + 8));
+
+	return len;
+}
+
+static ssize_t power_budget_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	char cmd[10];
+	unsigned int cpu_pb, gpu_pb, apu_pb;
+
+	if (sscanf(buf, "%3s %u %u %u", cmd, &cpu_pb, &gpu_pb, &apu_pb) == 4) {
+		if (strncmp(cmd, "pb", 2) == 0) {
+			write_power_budget(cpu_pb, gpu_pb, apu_pb);
+			return count;
+		}
+	}
+
+	pr_info("[thermal_power_budget] invalid input\n");
+
+	return -EINVAL;
+}
+
 static ssize_t ap_headroom_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
@@ -177,11 +238,13 @@ static ssize_t ap_headroom_store(struct kobject *kobj,
 	return count;
 }
 
-static struct kobj_attribute ttj_attr = __ATTR_WO(ttj);
+static struct kobj_attribute ttj_attr = __ATTR_RW(ttj);
+static struct kobj_attribute power_budget_attr = __ATTR_RW(power_budget);
 static struct kobj_attribute ap_ntc_headroom_attr = __ATTR_RW(ap_headroom);
 
 static struct attribute *thermal_attrs[] = {
 	&ttj_attr.attr,
+	&power_budget_attr.attr,
 	&ap_ntc_headroom_attr.attr,
 	NULL
 };
@@ -201,9 +264,12 @@ static int therm_intf_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	void __iomem *csram;
+/* TODO Wait until CPU DVFS owner ready */
+#if 0
 	struct device_node *cpu_np;
 	struct of_phandle_args args;
 	unsigned int cpu, max_perf_domain = 0;
+#endif
 	int ret;
 
 	if (!pdev->dev.of_node) {
@@ -221,6 +287,8 @@ static int therm_intf_probe(struct platform_device *pdev)
 	tm_data.csram_base = csram;
 	thermal_csram_base = csram;
 
+/* TODO Wait until CPU DVFS owner ready */
+#if 0
 	/* get CPU cluster num */
 	for_each_possible_cpu(cpu) {
 		cpu_np = of_cpu_device_node_get(cpu);
@@ -242,6 +310,10 @@ static int therm_intf_probe(struct platform_device *pdev)
 	tm_data.cpu_cluster_num = max_perf_domain + 1;
 	dev_info(&pdev->dev, "cpu_cluster_num = %d\n", tm_data.cpu_cluster_num);
 
+#else
+	tm_data.cpu_cluster_num = 3;
+#endif
+
 	/* debugfs */
 	tm_data.debug_dir = debugfs_create_dir("therm_intf", NULL);
 	if (!tm_data.debug_dir) {
@@ -257,7 +329,10 @@ static int therm_intf_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "failed to create thermal sysfs, ret=%d!\n", ret);
 		return ret;
 	}
+
 	writel(100, tm_data.csram_base + AP_NTC_HEADROOM_OFFSET);
+	write_ttj(0, 0, 0);
+	write_power_budget(0, 0, 0);
 
 	mutex_init(&tm_data.lock);
 
