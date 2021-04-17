@@ -3410,13 +3410,11 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		    comp_type == MTK_DISP_RSZ ||
 		    comp_type == MTK_DISP_POSTMASK || comp_type == MTK_DSI
 		    || comp_type == MTK_DISP_DSC || comp_type == MTK_DPI
-#ifndef DRM_BYPASS_PQ
 		    || comp_type == MTK_DISP_COLOR ||
 		    comp_type == MTK_DISP_CCORR ||
 		    comp_type == MTK_DISP_GAMMA || comp_type == MTK_DISP_AAL ||
 		    comp_type == MTK_DISP_DITHER ||
 		    comp_type == MTK_DMDP_AAL
-#endif
 #ifdef CONFIG_MTK_HDMI_SUPPORT
 		    || comp_type == MTK_DP_INTF || comp_type == MTK_DISP_DPTX
 #endif
