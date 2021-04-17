@@ -44,59 +44,35 @@ static struct SSMR_HEAP_INFO _ssmr_heap_info[__MAX_NR_SSMR_FEATURES];
 #if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
 	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
-static int __init dedicate_svp_memory(struct reserved_mem *rmem)
+static void set_svp_reserve_memory(void)
 {
+	struct device_node *rmem_node;
+	struct reserved_mem *rmem;
 	struct SSMR_Feature *feature;
-
-	feature = &_ssmr_feats[SSMR_FEAT_SVP_REGION];
-
-	pr_info("%s, name: %s, base: 0x%pa, size: 0x%pa\n", __func__,
-		rmem->name, &rmem->base, &rmem->size);
-
-	feature->use_cache_memory = true;
-	feature->count = rmem->size / PAGE_SIZE;
-	feature->cache_page = phys_to_page(rmem->base);
-
-	return 0;
-}
-RESERVEDMEM_OF_DECLARE(svp_memory, "mediatek,memory-svp", dedicate_svp_memory);
-
-static u64 dt_mem_read(int s, const __be32 **cellp)
-{
-	const __be32 *p = *cellp;
-	u64 r = 0;
-
-	*cellp = p + s;
-	for (; s--; p++)
-		r = (r << 32) | be32_to_cpu(*p);
-	return r;
-}
-
-static int get_svp_memory_info(void)
-{
-	struct device_node *node;
-	struct SSMR_Feature *feature;
-	const __be32 *reg;
 	u64 base, size;
 
 	feature = &_ssmr_feats[SSMR_FEAT_SVP_REGION];
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,memory-svp");
-	if (!node) {
-		pr_info("%s, svp no use static reserved memory\n", __func__);
-		return 1;
+	/* Get reserved memory */
+	rmem_node = of_find_compatible_node(NULL, NULL, "mediatek,reserve-memory-svp");
+	if (!rmem_node) {
+		pr_info("no memory-svp node for reserved memory\n");
+		return;
 	}
 
-	reg = of_get_property(node, "reg", NULL);
-	base = dt_mem_read(2, &reg);
-	size = dt_mem_read(2, &reg);
-	pr_info("%s, svp base : 0x%llx, size : 0x%llx", __func__, base, size);
+	rmem = of_reserved_mem_lookup(rmem_node);
+	if (!rmem) {
+		pr_info("svp cannot lookup reserved memory\n");
+		return;
+	}
+
+	base = rmem->base;
+	size = rmem->size;
+	pr_info("%s, svp reserved pa base=0x%lx, size=0x%lx\n", __func__, base, size);
+
 	feature->use_cache_memory = true;
 	feature->count = size / PAGE_SIZE;
 	feature->cache_page = phys_to_page(base);
-	pr_info("%s, feature->count 0x%lx\n", __func__, feature->count);
-
-	return 0;
 }
 #endif
 
@@ -591,7 +567,7 @@ int ssmr_init(struct platform_device *pdev)
 	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) ||\
 	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 	/* check svp statis reserved status */
-	get_svp_memory_info();
+	set_svp_reserve_memory();
 #endif
 
 	for (i = 0; i < __MAX_NR_SSMR_FEATURES; i++) {
