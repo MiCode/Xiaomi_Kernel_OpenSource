@@ -79,9 +79,11 @@ struct hf_device {
 	int (*flush)(struct hf_device *hfdev, int sensor_type);
 	int (*calibration)(struct hf_device *hfdev, int sensor_type);
 	int (*config_cali)(struct hf_device *hfdev,
-		int sensor_type, int32_t *data);
+		int sensor_type, void *data, uint8_t length);
 	int (*selftest)(struct hf_device *hfdev, int sensor_type);
 	int (*rawdata)(struct hf_device *hfdev, int sensor_type, int en);
+	int (*debug)(struct hf_device *hfdev, int sensor_type,
+		uint8_t *buffer, unsigned int len);
 	int (*custom_cmd)(struct hf_device *hfdev, int sensor_type,
 		struct custom_cmd *cust_cmd);
 

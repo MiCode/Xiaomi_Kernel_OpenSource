@@ -58,7 +58,7 @@ struct sensor_comm_ctrl {
 	uint8_t command;
 	uint8_t length;
 	uint8_t crc8;
-	uint8_t data[0]__aligned(4);
+	uint8_t data[0] __aligned(4);
 } __packed __aligned(4);
 
 struct sensor_comm_ack {
@@ -81,10 +81,7 @@ struct sensor_comm_notify {
 	uint8_t command;
 	uint8_t length;
 	uint8_t crc8;
-	union {
-		struct data_notify dnotify;
-		int32_t value[5];
-	};
+	int32_t value[5] __aligned(4);
 } __packed __aligned(4);
 
 int sensor_comm_ctrl_send(struct sensor_comm_ctrl *ctrl, unsigned int size);

@@ -29,33 +29,39 @@ enum {
 	RAW_ACTION,
 };
 
+struct hf_manager_batch {
+	int64_t delay;
+	int64_t latency;
+} __packed __aligned(4);
+
 struct hf_manager_cmd {
 	uint8_t sensor_type;
 	uint8_t action;
-	int64_t delay;
-	int64_t latency;
-	int32_t data[12];
-} __packed;
+	uint8_t length;
+	uint8_t padding[1];
+	int8_t data[48] __aligned(4);
+} __packed __aligned(4);
 
 struct hf_manager_event {
 	int64_t timestamp;
 	uint8_t sensor_type;
 	uint8_t accurancy;
 	uint8_t action;
-	uint8_t reserved;
+	uint8_t padding[1];
 	union {
 		int32_t word[6];
 		int8_t byte[0];
 	};
-} __packed;
+} __packed __aligned(4);
 
 struct ioctl_packet {
 	uint8_t sensor_type;
+	uint8_t padding[3];
 	union {
 		bool status;
 		int8_t byte[64];
 	};
-} __packed;
+} __packed __aligned(4);
 
 #define HF_MANAGER_REQUEST_REGISTER_STATUS  _IOWR('a', 1, struct ioctl_packet)
 #define HF_MANAGER_REQUEST_BIAS_DATA        _IOW('a', 2, struct ioctl_packet)

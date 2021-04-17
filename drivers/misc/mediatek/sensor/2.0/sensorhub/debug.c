@@ -107,7 +107,9 @@ static int debug_seq_get_debug(uint8_t sensor_type, uint8_t *buffer,
 		ret = -EPROTO;
 		goto out2;
 	}
+	len = len < shm_debug->written ? len : shm_debug->written;
 	strlcpy(buffer, shm_debug->buffer, len);
+	ret = len;
 out2:
 	kfree(shm_debug);
 out1:

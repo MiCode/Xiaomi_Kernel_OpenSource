@@ -147,9 +147,8 @@ static int share_mem_read_dram(struct share_mem *shm,
 	if (item_size != shm->item_size)
 		return -EIO;
 
-	if (wp == rp) {
+	if (wp == rp)
 		return 0;
-	}
 
 	len = wp - rp;
 	if (len > buffer_size)

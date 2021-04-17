@@ -476,6 +476,7 @@ static struct hf_manager *hf_manager_find_manager(struct hf_core *core,
 static void hf_manager_update_client_param(struct hf_client *client,
 		struct hf_manager_cmd *cmd, struct sensor_state *old)
 {
+	struct hf_manager_batch *batch = (struct hf_manager_batch *)cmd->data;
 	struct sensor_state *request = &client->request[cmd->sensor_type];
 
 	/* only enable disable update action delay and latency */
@@ -491,8 +492,8 @@ static void hf_manager_update_client_param(struct hf_client *client,
 			atomic64_set(&request->start_time,
 				ktime_get_boottime_ns());
 		request->enable = true;
-		request->delay = cmd->delay;
-		request->latency = cmd->latency;
+		request->delay = batch->delay;
+		request->latency = batch->latency;
 	} else if (cmd->action == HF_MANAGER_SENSOR_DISABLE) {
 		atomic64_set(&request->start_time, S64_MAX);
 		request->enable = false;
@@ -735,10 +736,10 @@ static int hf_manager_device_calibration(struct hf_device *device,
 }
 
 static int hf_manager_device_config_cali(struct hf_device *device,
-		uint8_t sensor_type, int32_t *data)
+		uint8_t sensor_type, void *data, uint8_t length)
 {
 	if (device->config_cali)
-		return device->config_cali(device, sensor_type, data);
+		return device->config_cali(device, sensor_type, data, length);
 	return 0;
 }
 
@@ -895,7 +896,7 @@ static int hf_manager_drive_device(struct hf_client *client,
 		break;
 	case HF_MANAGER_SENSOR_CONFIG_CALI:
 		err = hf_manager_device_config_cali(device,
-			sensor_type, cmd->data);
+			sensor_type, cmd->data, cmd->length);
 		break;
 	case HF_MANAGER_SENSOR_SELFTEST:
 		err = hf_manager_device_selftest(device, sensor_type);
@@ -1279,6 +1280,8 @@ static int hf_manager_proc_show(struct seq_file *m, void *v)
 	struct hf_manager *manager = NULL;
 	struct hf_client *client = NULL;
 	struct hf_device *device = NULL;
+	const unsigned int debug_len = 2048;
+	uint8_t *debug_buffer = NULL;
 
 	seq_puts(m, "**************************************************\n");
 	seq_puts(m, "Manager List:\n");
@@ -1342,12 +1345,29 @@ static int hf_manager_proc_show(struct seq_file *m, void *v)
 	for (i = 0; i < SENSOR_TYPE_SENSOR_MAX; ++i) {
 		if (!core->state[i].enable)
 			continue;
-		seq_printf(m, " (%d) type:%d param:[%lld,%lld]\n",
+		seq_printf(m, "%d. type:%d param:[%lld,%lld]\n",
 			j++,
 			i,
 			core->state[i].delay,
 			core->state[i].latency);
 	}
+	mutex_unlock(&core->manager_lock);
+
+	seq_puts(m, "**************************************************\n");
+	mutex_lock(&core->manager_lock);
+	debug_buffer = kzalloc(debug_len, GFP_KERNEL);
+	list_for_each_entry(manager, &core->manager_list, list) {
+		device = READ_ONCE(manager->hf_dev);
+		if (!device || !device->support_list || !device->debug)
+			continue;
+		if (device->debug(device, SENSOR_TYPE_INVALID, debug_buffer,
+				debug_len) > 0) {
+			seq_printf(m, "Debug Sub Module: %s\n",
+				device->dev_name);
+			seq_printf(m, "%s\n", debug_buffer);
+		}
+	}
+	kfree(debug_buffer);
 	mutex_unlock(&core->manager_lock);
 	return 0;
 }

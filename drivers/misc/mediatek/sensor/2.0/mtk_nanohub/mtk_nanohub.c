@@ -1909,9 +1909,8 @@ static int mtk_nanohub_calibration(struct hf_device *hfdev,
 }
 
 static int mtk_nanohub_config(struct hf_device *hfdev,
-		int sensor_type, int32_t *data)
+		int sensor_type, void *data, uint8_t length)
 {
-	int length = 0;
 	struct mtk_nanohub_device *device = mtk_nanohub_dev;
 
 	if (sensor_type <= 0)
@@ -1920,49 +1919,57 @@ static int mtk_nanohub_config(struct hf_device *hfdev,
 	pr_notice("%s [%d]\n", __func__, sensor_type);
 	switch (type_to_id(sensor_type)) {
 	case ID_ACCELEROMETER:
-		length = sizeof(device->acc_config_data);
+		if (sizeof(device->acc_config_data) < length)
+			length = sizeof(device->acc_config_data);
 		spin_lock(&config_data_lock);
 		memcpy(device->acc_config_data, data, length);
 		spin_unlock(&config_data_lock);
 		break;
 	case ID_GYROSCOPE:
-		length = sizeof(device->gyro_config_data);
+		if (sizeof(device->gyro_config_data) < length)
+			length = sizeof(device->gyro_config_data);
 		spin_lock(&config_data_lock);
 		memcpy(device->gyro_config_data, data, length);
 		spin_unlock(&config_data_lock);
 		break;
 	case ID_MAGNETIC_FIELD:
-		length = sizeof(device->mag_config_data);
+		if (sizeof(device->mag_config_data) < length)
+			length = sizeof(device->mag_config_data);
 		spin_lock(&config_data_lock);
 		memcpy(device->mag_config_data, data, length);
 		spin_unlock(&config_data_lock);
 		break;
 	case ID_LIGHT:
-		length = sizeof(device->light_config_data);
+		if (sizeof(device->light_config_data) < length)
+			length = sizeof(device->light_config_data);
 		spin_lock(&config_data_lock);
 		memcpy(device->light_config_data, data, length);
 		spin_unlock(&config_data_lock);
 		break;
 	case ID_PROXIMITY:
-		length = sizeof(device->proximity_config_data);
+		if (sizeof(device->proximity_config_data) < length)
+			length = sizeof(device->proximity_config_data);
 		spin_lock(&config_data_lock);
 		memcpy(device->proximity_config_data, data, length);
 		spin_unlock(&config_data_lock);
 		break;
 	case ID_PRESSURE:
-		length = sizeof(device->pressure_config_data);
+		if (sizeof(device->pressure_config_data) < length)
+			length = sizeof(device->pressure_config_data);
 		spin_lock(&config_data_lock);
 		memcpy(device->pressure_config_data, data, length);
 		spin_unlock(&config_data_lock);
 		break;
 	case ID_SAR:
-		length = sizeof(device->sar_config_data);
+		if (sizeof(device->sar_config_data) < length)
+			length = sizeof(device->sar_config_data);
 		spin_lock(&config_data_lock);
 		memcpy(device->sar_config_data, data, length);
 		spin_unlock(&config_data_lock);
 		break;
 	case ID_OIS:
-		length = sizeof(device->ois_config_data);
+		if (sizeof(device->ois_config_data) < length)
+			length = sizeof(device->ois_config_data);
 		spin_lock(&config_data_lock);
 		memcpy(device->ois_config_data, data, length);
 		spin_unlock(&config_data_lock);

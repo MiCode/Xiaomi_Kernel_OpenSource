@@ -34,6 +34,7 @@ static void transceiver_notify_func(struct sensor_comm_notify *n,
 		void *private_data)
 {
 	uint32_t wp = 0;
+	struct data_notify *dnotify = (struct data_notify *)n->value;
 
 	if (n->command != SENS_COMM_NOTIFY_DATA_CMD &&
 	    n->command != SENS_COMM_NOTIFY_FULL_CMD)
@@ -44,7 +45,7 @@ static void transceiver_notify_func(struct sensor_comm_notify *n,
 		kfifo_out(&transceiver_wp_fifo, &wp, 1);
 		pr_err_ratelimited("drop old write position\n");
 	}
-	wp = n->dnotify.write_position;
+	wp = dnotify->write_position;
 	kfifo_in(&transceiver_wp_fifo, &wp, 1);
 	complete(&transceiver_wp_done);
 	spin_unlock(&transceiver_wp_fifo_lock);

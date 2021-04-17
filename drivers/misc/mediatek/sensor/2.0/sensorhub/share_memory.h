@@ -11,18 +11,21 @@
 struct share_mem_data {
 	uint8_t sensor_type;
 	uint8_t action;
+	uint8_t padding[2];
 	int64_t timestamp;
-	int32_t value[6];
+	int32_t value[6] __aligned(4);
 } __packed __aligned(4);
 
 struct share_mem_debug {
 	uint8_t sensor_type;
+	uint8_t padding[3];
 	uint32_t written;
-	uint8_t buffer[960] __aligned(4); //512+256+128+64
+	uint8_t buffer[1984] __aligned(4); //1024+512+256+128+64
 } __packed __aligned(4);
 
 struct share_mem_info {
 	uint8_t sensor_type;
+	uint8_t padding[3];
 	uint32_t gain;
 	uint8_t name[16];
 	uint8_t vendor[16];
@@ -33,7 +36,7 @@ struct share_mem_base {
 	uint32_t wp;
 	uint32_t buffer_size;
 	uint32_t item_size;
-	uint8_t data[0]__aligned(4);
+	uint8_t data[0] __aligned(4);
 } __packed __aligned(4);
 
 struct share_mem {
