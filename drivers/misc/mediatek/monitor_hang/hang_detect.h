@@ -3,8 +3,8 @@
  * Copyright (C) 2019 MediaTek Inc.
  */
 
-#if !defined(__MONITOR_HANG_H__)
-#define __MONITOR_HANG_H__
+#ifndef __HANG_DETECT_H__
+#define __HANG_DETECT_H__
 
 #define HD_PROC "hang_detect"
 #define HD_INTER 30	/* 1 tick is 30 seconds*/
