@@ -25,3 +25,9 @@ config TYPEC_MUX_PTN36241G
 	  Say Y or M if your system has a NXP PTN36241G USB3.0 Redriver.
 	  Works with Type-C Port Controller Manager.
 
+config TYPEC_MUX_PS5169
+	tristate "Parade PS5169 USB Type-C Linear Redriver"
+	depends on MTK_USB_TYPEC_MUX
+	help
+	  Say Y or M if your system has a PS5169 USB Type-C Linear Redriver.
+	  Works with Type-C Port Controller Manager.
