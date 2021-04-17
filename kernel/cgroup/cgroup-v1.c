@@ -19,10 +19,6 @@
 #include <trace/events/cgroup.h>
 #include <trace/hooks/cgroup.h>
 
-#include <trace/hooks/cgroup.h>
-
-#define cg_invalf(fc, fmt, ...) invalf(fc, fmt, ## __VA_ARGS__)
-
 /*
  * pidlists linger the following amount before being destroyed.  The goal
  * is avoiding frequent destruction in the middle of consecutive read calls
