@@ -50,7 +50,7 @@ static int sensor_list_seq_get_list(struct sensor_info *list,
 	}
 
 	/*
-	 * must init_completion before sensor_comm_notify
+	 * NOTE: must init_completion before sensor_comm_notify
 	 * wrong sequence:
 	 * sensor_comm_notify -----> init_completion -> wait_for_completion
 	 *                      |
@@ -95,7 +95,8 @@ static int sensor_list_seq_get_list(struct sensor_info *list,
 		pr_err("seek fail %d\n", ret);
 		return ret;
 	}
-	for (i = 0; i < num; i++) {
+	/* NOTE: i++ must not put into for loop */
+	for (i = 0; i < num; ) {
 		ret = share_mem_read(&sensor_list_shm_reader,
 			&info, sizeof(info));
 		if (ret == 0)
@@ -104,10 +105,16 @@ static int sensor_list_seq_get_list(struct sensor_info *list,
 			pr_err("read fail %d\n", ret);
 			break;
 		}
+		if (info.sensor_type >= SENSOR_TYPE_SENSOR_MAX ||
+				!info.sensor_type || !info.gain) {
+			pr_err("read wrong sensor info\n");
+			continue;
+		}
 		list[i].sensor_type = info.sensor_type;
 		list[i].gain = info.gain;
 		strlcpy(list[i].name, info.name, sizeof(list[i].name));
 		strlcpy(list[i].vendor, info.vendor, sizeof(list[i].vendor));
+		i++;
 	}
 	return i;
 }

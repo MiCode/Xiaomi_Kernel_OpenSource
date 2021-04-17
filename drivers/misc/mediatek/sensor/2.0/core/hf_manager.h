@@ -26,11 +26,6 @@
 
 #define HF_CLIENT_FIFO_SIZE 128
 
-struct coordinate {
-	int8_t sign[3];
-	uint8_t map[3];
-};
-
 struct sensor_state {
 	bool enable;
 	bool bias;

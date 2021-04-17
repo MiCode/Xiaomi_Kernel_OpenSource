@@ -49,7 +49,7 @@ static int debug_seq_get_debug(uint8_t sensor_type, uint8_t *buffer,
 	}
 
 	/*
-	 * must init_completion before sensor_comm_notify
+	 * NOTE: must init_completion before sensor_comm_notify
 	 * wrong sequence:
 	 * sensor_comm_ctrl_send -----> init_completion -> wait_for_completion
 	 *                         |

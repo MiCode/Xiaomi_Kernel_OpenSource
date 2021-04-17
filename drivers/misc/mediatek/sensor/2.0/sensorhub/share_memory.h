@@ -76,7 +76,7 @@ int share_mem_read(struct share_mem *shm, void *buf, uint32_t count);
 int share_mem_write(struct share_mem *shm, void *buf, uint32_t count);
 int share_mem_flush(struct share_mem *shm, struct share_mem_notify *notify);
 int share_mem_init(struct share_mem *shm, struct share_mem_config *cfg);
-void share_mem_config(void);
+int share_mem_config(void);
 void share_mem_config_handler_register(uint8_t notify_cmd,
 	int (*f)(struct share_mem_config *cfg, void *private_data),
 	void *private_data);

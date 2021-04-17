@@ -86,6 +86,7 @@ struct sensor_comm_notify {
 
 int sensor_comm_ctrl_send(struct sensor_comm_ctrl *ctrl, unsigned int size);
 int sensor_comm_notify(struct sensor_comm_notify *notify);
+int sensor_comm_notify_bypass(struct sensor_comm_notify *notify);
 void sensor_comm_notify_handler_register(uint8_t cmd,
 		void (*f)(struct sensor_comm_notify *n, void *private_data),
 		void *private_data);

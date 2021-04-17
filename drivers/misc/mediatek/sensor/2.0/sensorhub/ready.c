@@ -29,7 +29,7 @@ void sensor_ready_notifier_chain_register(struct notifier_block *nb)
 
 	blocking_notifier_chain_register(&sensor_ready_notifier_head, nb);
 	/*
-	 * must copy sensor_ready to status to avoid sensor_ready
+	 * NOTE: must copy sensor_ready to status to avoid sensor_ready
 	 * modified during notifier calling, keep notify the same status.
 	 */
 	spin_lock_irqsave(&sensor_ready_lock, flags);
@@ -79,7 +79,7 @@ static int platform_ready_notifier_call(struct notifier_block *this,
 		notify.sensor_type = SENSOR_TYPE_INVALID;
 		notify.command = SENS_COMM_NOTIFY_READY_CMD;
 		notify.length = 0;
-		ret = sensor_comm_notify(&notify);
+		ret = sensor_comm_notify_bypass(&notify);
 		if (ret < 0)
 			pr_err("notify ready to scp fail %d\n", ret);
 		queue_delayed_work(sensor_ready_workqueue,

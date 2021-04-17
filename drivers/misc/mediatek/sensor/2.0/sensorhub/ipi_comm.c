@@ -37,7 +37,7 @@ struct ipi_hw_transfer {
 	void *context;
 };
 
-#define ipi_len(x) ((x + MBOX_SLOT_SIZE - 1) / MBOX_SLOT_SIZE)
+#define ipi_len(x) (((x) + MBOX_SLOT_SIZE - 1) / MBOX_SLOT_SIZE)
 
 static struct ipi_controller controller;
 static struct ipi_hw_transfer hw_transfer;

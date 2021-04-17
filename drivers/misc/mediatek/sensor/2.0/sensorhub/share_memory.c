@@ -339,7 +339,7 @@ static int share_mem_send_config(void)
 	return ret;
 }
 
-void share_mem_config(void)
+int share_mem_config(void)
 {
 	int ret = 0;
 	uint32_t i = 0;
@@ -369,9 +369,7 @@ void share_mem_config(void)
 		usage->init_status = true;
 	}
 
-	ret = share_mem_send_config();
-	if (ret < 0)
-		pr_err("config fail %d\n", ret);
+	return share_mem_send_config();
 }
 
 void share_mem_config_handler_register(uint8_t notify_cmd,

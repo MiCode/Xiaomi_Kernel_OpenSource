@@ -6,6 +6,8 @@
 #define pr_fmt(fmt) "sensor_comm " fmt
 
 #include <linux/err.h>
+#include <linux/device.h>
+#include <linux/printk.h>
 #include <linux/atomic.h>
 #include <linux/string.h>
 
@@ -18,6 +20,7 @@ struct sensor_notify_handle {
 	void *private_data;
 };
 
+static bool scp_status;
 static atomic_t sensor_comm_sequence;
 static
 struct sensor_notify_handle sens_notify_handle[MAX_SENS_COMM_NOTIFY_CMD];
@@ -83,6 +86,12 @@ int sensor_comm_ctrl_send(struct sensor_comm_ctrl *ctrl, unsigned int size)
 	int retry = 0, ret = 0;
 	const int max_retry = 10;
 
+	if (!READ_ONCE(scp_status)) {
+		pr_err_ratelimited("dropped comm %u %u\n",
+			ctrl->sensor_type, ctrl->command);
+		return 0;
+	}
+
 	do {
 		ret = sensor_comm_ctrl_seq_send(ctrl, size);
 	} while (retry++ < max_retry && ret < 0);
@@ -91,6 +100,23 @@ int sensor_comm_ctrl_send(struct sensor_comm_ctrl *ctrl, unsigned int size)
 }
 
 int sensor_comm_notify(struct sensor_comm_notify *notify)
+{
+	if (!READ_ONCE(scp_status)) {
+		pr_err_ratelimited("dropped comm %u %u\n",
+			notify->sensor_type, notify->command);
+		return 0;
+	}
+
+	notify->crc8 =
+		tiny_crc8((uint8_t *)notify, offsetof(typeof(*notify), crc8));
+	return ipi_comm_noack(get_notify_id(), (unsigned char *)notify,
+		sizeof(*notify));
+}
+
+/*
+ * no need check scp_status due to send ready to scp.
+ */
+int sensor_comm_notify_bypass(struct sensor_comm_notify *notify)
 {
 	notify->crc8 =
 		tiny_crc8((uint8_t *)notify, offsetof(typeof(*notify), crc8));
@@ -121,6 +147,7 @@ void sensor_comm_notify_handler_unregister(uint8_t cmd)
 static int sensor_comm_ready_notifier_call(struct notifier_block *this,
 		unsigned long event, void *ptr)
 {
+	WRITE_ONCE(scp_status, !!event);
 	return NOTIFY_DONE;
 }
 

@@ -28,6 +28,11 @@ static int major;
 static struct class *hf_manager_class;
 static struct task_struct *task;
 
+struct coordinate {
+	int8_t sign[3];
+	uint8_t map[3];
+};
+
 static const struct coordinate coordinates[] = {
 	{ { 1, 1, 1}, {0, 1, 2} },
 	{ { -1, 1, 1}, {1, 0, 2} },
@@ -43,7 +48,7 @@ static const struct coordinate coordinates[] = {
 static DECLARE_BITMAP(sensor_list_bitmap, SENSOR_TYPE_SENSOR_MAX);
 static struct hf_core hfcore;
 
-#define print_s64(l) ((l == S64_MAX) ? -1 : l)
+#define print_s64(l) (((l) == S64_MAX) ? -1 : (l))
 static int hf_manager_find_client(struct hf_core *core,
 		struct hf_manager_event *event);
 
