@@ -475,10 +475,12 @@ void helio_dvfsrc_platform_pre_init(struct helio_dvfsrc *dvfsrc)
 		pr_info("not get spm register\n");
 
 	dvfsrc_rsrv = readl(dvfsrc->regs + DVFSRC_RSRV_4);
+#if 0
 	if (((dvfsrc_rsrv >> V_OPP_TYPE_SHIFT) & 0x3) && (dvfsrc->dvfsrc_flag == 0)) {
 		dvfsrc->dvfsrc_flag = 0x3;
 		writel(0x7000, dvfsrc->regs + DVFSRC_SW_REQ6);
 	}
+#endif
 }
 
 __weak void pm_qos_trace_dbg_dump(int pm_qos_class)
