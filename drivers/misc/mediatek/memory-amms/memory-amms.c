@@ -65,7 +65,7 @@ static const struct of_device_id amms_of_ids[] = {
 
 static bool amms_static_free;
 
-int free_reserved_memory(phys_addr_t start_phys,
+static int free_reserved_memory(phys_addr_t start_phys,
 				phys_addr_t end_phys)
 {
 
@@ -89,7 +89,6 @@ int free_reserved_memory(phys_addr_t start_phys,
 
 	return 0;
 }
-EXPORT_SYMBOL(free_reserved_memory);
 
 static irqreturn_t amms_legacy_handler(int irq, void *data)
 {
