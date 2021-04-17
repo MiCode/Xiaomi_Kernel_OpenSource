@@ -1045,7 +1045,7 @@
 		compatible = "mediatek,iommu_v0";
 		reg = <0 0x10205000 0 0x1000>;
 		mediatek,larbs = <&smi_larb0 &smi_larb1 &smi_larb2>;
-		interrupts = <GIC_SPI 158 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <GIC_SPI 102 IRQ_TYPE_LEVEL_LOW>;
 		#iommu-cells = <1>;
 	};
 
