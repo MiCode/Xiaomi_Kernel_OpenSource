@@ -446,6 +446,7 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 
 	gs[GS_WDMA_BUF_CON1] += (fifo_size_uv << 10) + fifo_size;
 
+#if BITS_PER_LONG == 64
 	/* WDMA_BUF_CON5 */
 	tmp = DIV_ROUND_UP(consume_rate * Bpp * preultra_low_us, FP);
 	gs[GS_WDMA_PRE_ULTRA_LOW_Y] = (fifo_size > tmp) ? (fifo_size - tmp) : 1;
@@ -574,6 +575,137 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	tmp = DIV_ROUND_UP(consume_rate * urgent_high_offset, FP * factor2);
 	gs[GS_WDMA_URGENT_HIGH_V] = (fifo > tmp) ? (fifo - tmp) : 1;
 
+#elif BITS_PER_LONG == 32
+	/* WDMA_BUF_CON5 */
+	tmp = DIV64_U64_ROUND_UP(consume_rate * Bpp * preultra_low_us, FP);
+	gs[GS_WDMA_PRE_ULTRA_LOW_Y] = (fifo_size > tmp) ? (fifo_size - tmp) : 1;
+
+	tmp = DIV64_U64_ROUND_UP(consume_rate * Bpp * ultra_low_us, FP);
+	gs[GS_WDMA_ULTRA_LOW_Y] = (fifo_size > tmp) ? (fifo_size - tmp) : 1;
+
+	/* WDMA_BUF_CON6 */
+	tmp = DIV64_U64_ROUND_UP(consume_rate * Bpp * preultra_high_us, FP);
+	gs[GS_WDMA_PRE_ULTRA_HIGH_Y] =
+		(fifo_size > tmp) ? (fifo_size - tmp) : 1;
+
+	tmp = DIV64_U64_ROUND_UP(consume_rate * Bpp * ultra_high_us, FP);
+	gs[GS_WDMA_ULTRA_HIGH_Y] = (fifo_size > tmp) ? (fifo_size - tmp) : 1;
+
+	/* WDMA_BUF_CON7 */
+	tmp = DIV64_U64_ROUND_UP(consume_rate * preultra_low_us, FP * factor1);
+	gs[GS_WDMA_PRE_ULTRA_LOW_U] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	tmp = DIV64_U64_ROUND_UP(consume_rate * ultra_low_us, FP * factor1);
+	gs[GS_WDMA_ULTRA_LOW_U] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	/* WDMA_BUF_CON8 */
+	tmp = DIV64_U64_ROUND_UP(consume_rate * preultra_high_us, FP * factor1);
+	gs[GS_WDMA_PRE_ULTRA_HIGH_U] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	tmp = DIV64_U64_ROUND_UP(consume_rate * ultra_high_us, FP * factor1);
+	gs[GS_WDMA_ULTRA_HIGH_U] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	/* WDMA_BUF_CON9 */
+	tmp = DIV64_U64_ROUND_UP(consume_rate * preultra_low_us, FP * factor2);
+	gs[GS_WDMA_PRE_ULTRA_LOW_V] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	tmp = DIV64_U64_ROUND_UP(consume_rate * ultra_low_us, FP * factor2);
+	gs[GS_WDMA_ULTRA_LOW_V] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	/* WDMA_BUF_CON10 */
+	tmp = DIV64_U64_ROUND_UP(consume_rate * preultra_high_us, FP * factor2);
+	gs[GS_WDMA_PRE_ULTRA_HIGH_V] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	tmp = DIV64_U64_ROUND_UP(consume_rate * ultra_high_us, FP * factor2);
+	gs[GS_WDMA_ULTRA_HIGH_V] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	/* WDMA_BUF_CON11 */
+	tmp = DIV64_U64_ROUND_UP(consume_rate * Bpp * (preultra_low_us + dvfs_offset),
+			   FP);
+	gs[GS_WDMA_PRE_ULTRA_LOW_Y_DVFS] =
+		(fifo_size > tmp) ? (fifo_size - tmp) : 1;
+	tmp = DIV64_U64_ROUND_UP(consume_rate * Bpp * (ultra_low_us + dvfs_offset),
+			   FP);
+	gs[GS_WDMA_ULTRA_LOW_Y_DVFS] =
+		(fifo_size > tmp) ? (fifo_size - tmp) : 1;
+
+	/* WDMA_BUF_CON12 */
+	tmp = DIV64_U64_ROUND_UP(
+		consume_rate * Bpp * (preultra_high_us + dvfs_offset), FP);
+	gs[GS_WDMA_PRE_ULTRA_HIGH_Y_DVFS] =
+		(fifo_size > tmp) ? (fifo_size - tmp) : 1;
+	tmp = DIV64_U64_ROUND_UP(consume_rate * Bpp * (ultra_high_us + dvfs_offset),
+			   FP);
+	gs[GS_WDMA_ULTRA_HIGH_Y_DVFS] =
+		(fifo_size > tmp) ? (fifo_size - tmp) : 1;
+
+	/* WDMA_BUF_CON13 */
+	tmp = DIV64_U64_ROUND_UP(consume_rate * (preultra_low_us + dvfs_offset),
+			   FP * factor1);
+	gs[GS_WDMA_PRE_ULTRA_LOW_U_DVFS] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	tmp = DIV64_U64_ROUND_UP(consume_rate * (ultra_low_us + dvfs_offset),
+			   FP * factor1);
+	gs[GS_WDMA_ULTRA_LOW_U_DVFS] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	/* WDMA_BUF_CON14 */
+	tmp = DIV64_U64_ROUND_UP(consume_rate * (preultra_high_us + dvfs_offset),
+			   FP * factor1);
+	gs[GS_WDMA_PRE_ULTRA_HIGH_U_DVFS] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	tmp = DIV64_U64_ROUND_UP(consume_rate * (ultra_high_us + dvfs_offset),
+			   FP * factor1);
+	gs[GS_WDMA_ULTRA_HIGH_U_DVFS] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	/* WDMA_BUF_CON15 */
+	tmp = DIV64_U64_ROUND_UP(consume_rate * (preultra_low_us + dvfs_offset),
+			   FP * factor2);
+	gs[GS_WDMA_PRE_ULTRA_LOW_V_DVFS] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	tmp = DIV64_U64_ROUND_UP(consume_rate * (ultra_low_us + dvfs_offset),
+			   FP * factor2);
+	gs[GS_WDMA_ULTRA_LOW_V_DVFS] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	/* WDMA_BUF_CON16 */
+	tmp = DIV64_U64_ROUND_UP(consume_rate * (preultra_high_us + dvfs_offset),
+			   FP * factor2);
+	gs[GS_WDMA_PRE_ULTRA_HIGH_V_DVFS] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	tmp = DIV64_U64_ROUND_UP(consume_rate * (ultra_high_us + dvfs_offset),
+			   FP * factor2);
+	gs[GS_WDMA_ULTRA_HIGH_V_DVFS] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	/* WDMA_BUF_CON17 */
+	gs[GS_WDMA_DVFS_EN] = 1;
+	gs[GS_WDMA_DVFS_TH_Y] = gs[GS_WDMA_ULTRA_HIGH_Y_DVFS];
+
+	/* WDMA_BUF_CON18 */
+	gs[GS_WDMA_DVFS_TH_U] = gs[GS_WDMA_ULTRA_HIGH_U_DVFS];
+	gs[GS_WDMA_DVFS_TH_V] = gs[GS_WDMA_ULTRA_HIGH_V_DVFS];
+
+	/* WDMA URGENT CONTROL 0 */
+	tmp = DIV64_U64_ROUND_UP(consume_rate * Bpp * urgent_low_offset, FP);
+	gs[GS_WDMA_URGENT_LOW_Y] = (fifo_size > tmp) ? (fifo_size - tmp) : 1;
+
+	tmp = DIV64_U64_ROUND_UP(consume_rate * Bpp * urgent_high_offset, FP);
+	gs[GS_WDMA_URGENT_HIGH_Y] = (fifo_size > tmp) ? (fifo_size - tmp) : 1;
+
+	/* WDMA URGENT CONTROL 1 */
+	tmp = DIV64_U64_ROUND_UP(consume_rate * urgent_low_offset, FP * factor1);
+	gs[GS_WDMA_URGENT_LOW_U] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	tmp = DIV64_U64_ROUND_UP(consume_rate * urgent_high_offset, FP * factor1);
+	gs[GS_WDMA_URGENT_HIGH_U] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	/* WDMA URGENT CONTROL 2 */
+	tmp = DIV64_U64_ROUND_UP(consume_rate * urgent_low_offset, FP * factor2);
+	gs[GS_WDMA_URGENT_LOW_V] = (fifo > tmp) ? (fifo - tmp) : 1;
+
+	tmp = DIV64_U64_ROUND_UP(consume_rate * urgent_high_offset, FP * factor2);
+	gs[GS_WDMA_URGENT_HIGH_V] = (fifo > tmp) ? (fifo - tmp) : 1;
+#else
+	#error "check for api use for this architeacture"
+#endif
 	/* WDMA Buf Constant 3 */
 	gs[GS_WDMA_ISSUE_REG_TH_Y] = 16;
 	gs[GS_WDMA_ISSUE_REG_TH_U] = 16;

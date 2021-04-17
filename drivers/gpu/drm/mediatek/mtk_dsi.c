@@ -4787,8 +4787,13 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 
 	bw_base = vact * hact * vrefresh * 4 / 1000;
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+#if BITS_PER_LONG == 32
+		bw_base = div_u64(bw_base * vtotal, vact);
+		bw_base = div_u64(bw_base, 1000);
+#else
 		bw_base = bw_base * vtotal / vact;
 		bw_base = bw_base / 1000;
+#endif
 	} else {
 		bw_base = data_rate * dsi->lanes * compress_rate * 4;
 		bw_base = bw_base / bpp / 100;

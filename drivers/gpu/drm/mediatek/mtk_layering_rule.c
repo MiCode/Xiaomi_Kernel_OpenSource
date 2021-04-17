@@ -522,7 +522,11 @@ unsigned long long _layering_get_frame_bw(struct drm_crtc *crtc,
 
 	bw_base = (unsigned long long)width * height * fps * 125 * 4;
 
+#if BITS_PER_LONG == 32
+	do_div(bw_base, 100 * 1024 * 1024);
+#else
 	bw_base /= 100 * 1024 * 1024;
+#endif
 
 	return bw_base;
 }
@@ -552,7 +556,11 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 		DDPPR_ERR("Get frame hrt bw by datarate is zero\n");
 		return 600;
 	}
+#if BITS_PER_LONG == 32
+	do_div(dvfs_bw, tmp * 100);
+#else
 	dvfs_bw /= tmp * 100;
+#endif
 
 	/* error handling when requested BW is less than 2 layers */
 	if (dvfs_bw < 200) {

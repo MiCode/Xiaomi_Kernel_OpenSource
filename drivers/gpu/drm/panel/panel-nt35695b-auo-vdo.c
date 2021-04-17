@@ -220,9 +220,17 @@ static void lcm_panel_init(struct lcm *ctx)
 	gpiod_set_value(ctx->reset_gpio, 1);
 	udelay(1 * 1000);
 	gpiod_set_value(ctx->reset_gpio, 0);
+#if BITS_PER_LONG == 32
+	mdelay(10 * 1000); /* udelay not allowed > 2000 in 32 bit */
+#else
 	udelay(10 * 1000);
+#endif
 	gpiod_set_value(ctx->reset_gpio, 1);
+#if BITS_PER_LONG == 32
+	mdelay(10 * 1000);
+#else
 	udelay(10 * 1000);
+#endif
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 
 	lcm_dcs_write_seq_static(ctx, 0xFF, 0x24);
