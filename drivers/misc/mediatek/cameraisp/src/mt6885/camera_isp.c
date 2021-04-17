@@ -438,6 +438,10 @@ static int32_t ISP_PopBufTimestamp(unsigned int module, unsigned int dma_id,
 
 static int32_t ISP_WaitTimestampReady(unsigned int module, unsigned int dma_id);
 #endif
+#if ((TIMESTAMP_QUEUE_EN == 1) || (Lafi_WAM_CQ_ERR == 1))
+static void ISP_GetDmaPortsStatus(enum ISP_DEV_NODE_ENUM reg_module,
+			unsigned int *DmaPortsStats);
+#endif
 
 /******************************************************************************
  *
@@ -1441,6 +1445,7 @@ static void ISP_RecordCQAddr(enum ISP_DEV_NODE_ENUM regModule)
 	unsigned int reg_module_array[3];
 	unsigned int reg_module_count = 0;
 	unsigned int reg_value = 0;
+	unsigned int DmaEnStatus[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][_cam_max_];
 
 	reg_module_array[0] = regModule;
 	twinStatus.Raw = ISP_RD32(CAM_REG_CTL_TWIN_STATUS(regModule));
@@ -1570,6 +1575,152 @@ static void ISP_RecordCQAddr(enum ISP_DEV_NODE_ENUM regModule)
 		if (reg_value & 0x1)
 			g_cqBaseAddr[index][24] =
 				ISP_RD32(CAM_REG_CQ_THR24_BASEADDR(tmp_module));
+	}
+
+	/* record current FBC value */
+	for (i = 0; i < reg_module_count; i++) {
+		tmp_module = reg_module_array[i];
+		index = tmp_module - ISP_CAM_A_IDX;
+		if (index > (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
+			LOG_NOTICE(
+				"index is invalid! recover fail");
+				return;
+		}
+		ISP_GetDmaPortsStatus(tmp_module,
+			&DmaEnStatus[index][0]);
+		//read inner register
+		tmp_module = reg_module_array[i] - ISP_CAMSYS_RAWC_CONFIG_IDX;
+		if (DmaEnStatus[index][_aao_])
+			g_fbc_ctrl2[index][_aao_].Raw =
+				ISP_RD32(CAM_REG_FBC_AAO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_aao_].Raw = 0;
+
+		if (DmaEnStatus[index][_aaho_])
+			g_fbc_ctrl2[index][_aaho_].Raw =
+				ISP_RD32(CAM_REG_FBC_AAHO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_aaho_].Raw = 0;
+
+		if (DmaEnStatus[index][_afo_])
+			g_fbc_ctrl2[index][_afo_].Raw =
+				ISP_RD32(CAM_REG_FBC_AFO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_afo_].Raw = 0;
+
+		if (DmaEnStatus[index][_flko_])
+			g_fbc_ctrl2[index][_flko_].Raw =
+				ISP_RD32(CAM_REG_FBC_FLKO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_flko_].Raw = 0;
+
+		if (DmaEnStatus[index][_pdo_])
+			g_fbc_ctrl2[index][_pdo_].Raw =
+				ISP_RD32(CAM_REG_FBC_PDO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_pdo_].Raw = 0;
+
+		if (DmaEnStatus[index][_imgo_])
+			g_fbc_ctrl2[index][_imgo_].Raw =
+				ISP_RD32(CAM_REG_FBC_IMGO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_imgo_].Raw = 0;
+
+		if (DmaEnStatus[index][_rrzo_])
+			g_fbc_ctrl2[index][_rrzo_].Raw =
+				ISP_RD32(CAM_REG_FBC_RRZO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_rrzo_].Raw = 0;
+
+		if (DmaEnStatus[index][_ufeo_])
+			g_fbc_ctrl2[index][_ufeo_].Raw =
+				ISP_RD32(CAM_REG_FBC_UFEO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_ufeo_].Raw = 0;
+
+		if (DmaEnStatus[index][_ufgo_])
+			g_fbc_ctrl2[index][_ufgo_].Raw =
+				ISP_RD32(CAM_REG_FBC_UFGO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_ufgo_].Raw = 0;
+
+		if (DmaEnStatus[index][_rsso_])
+			g_fbc_ctrl2[index][_rsso_].Raw =
+				ISP_RD32(CAM_REG_FBC_RSSO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_rsso_].Raw = 0;
+
+		if (DmaEnStatus[index][_lmvo_])
+			g_fbc_ctrl2[index][_lmvo_].Raw =
+				ISP_RD32(CAM_REG_FBC_LMVO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_lmvo_].Raw = 0;
+
+		if (DmaEnStatus[index][_lcso_])
+			g_fbc_ctrl2[index][_lcso_].Raw =
+				ISP_RD32(CAM_REG_FBC_LCESO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_lcso_].Raw = 0;
+
+		if (DmaEnStatus[index][_lcesho_])
+			g_fbc_ctrl2[index][_lcesho_].Raw =
+				ISP_RD32(CAM_REG_FBC_LCESHO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_lcesho_].Raw = 0;
+
+		if (DmaEnStatus[index][_ltmso_])
+			g_fbc_ctrl2[index][_ltmso_].Raw =
+				ISP_RD32(CAM_REG_FBC_LTMSO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_ltmso_].Raw = 0;
+
+		if (DmaEnStatus[index][_tsfso_])
+			g_fbc_ctrl2[index][_tsfso_].Raw =
+				ISP_RD32(CAM_REG_FBC_TSFSO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_tsfso_].Raw = 0;
+
+		if (DmaEnStatus[index][_yuvo_])
+			g_fbc_ctrl2[index][_yuvo_].Raw =
+				ISP_RD32(CAM_REG_FBC_YUVO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_yuvo_].Raw = 0;
+
+		if (DmaEnStatus[index][_yuvbo_])
+			g_fbc_ctrl2[index][_yuvbo_].Raw =
+				ISP_RD32(CAM_REG_FBC_YUVBO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_yuvbo_].Raw = 0;
+
+		if (DmaEnStatus[index][_yuvco_])
+			g_fbc_ctrl2[index][_yuvco_].Raw =
+				ISP_RD32(CAM_REG_FBC_YUVCO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_yuvco_].Raw = 0;
+
+		if (DmaEnStatus[index][_crzo_])
+			g_fbc_ctrl2[index][_crzo_].Raw =
+				ISP_RD32(CAM_REG_FBC_CRZO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_crzo_].Raw = 0;
+
+		if (DmaEnStatus[index][_crzbo_])
+			g_fbc_ctrl2[index][_crzbo_].Raw =
+				ISP_RD32(CAM_REG_FBC_CRZBO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_crzbo_].Raw = 0;
+
+		if (DmaEnStatus[index][_crzo_r2_])
+			g_fbc_ctrl2[index][_crzo_r2_].Raw =
+				ISP_RD32(CAM_REG_FBC_CRZO_R2_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_crzo_r2_].Raw = 0;
+
+		if (DmaEnStatus[index][_rsso_r2_])
+			g_fbc_ctrl2[index][_rsso_r2_].Raw =
+				ISP_RD32(CAM_REG_FBC_RSSO_R2_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_rsso_r2_].Raw = 0;
 	}
 }
 #endif
@@ -9967,7 +10118,6 @@ unsigned int *reg_module, unsigned int *reg_module_array,
 unsigned int *reg_module_count)
 {
 	union CAMCTL_TWIN_STATUS_ twinStatus;
-	unsigned int  DmaEnStatus[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][_cam_max_];
 	unsigned int i = 0, tmp_module = 0, index = 0;
 
 	switch (irg_module) {
@@ -10037,150 +10187,9 @@ unsigned int *reg_module_count)
 		*reg_module_count = 1;
 	}
 
-	/* 1. record current FBC value */
-	for (i = 0; i < *reg_module_count; i++) {
-		tmp_module = reg_module_array[i];
-		index = tmp_module - ISP_CAM_A_IDX;
-		if (index > (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
-			LOG_NOTICE(
-				"index is invalid! recover fail");
-				return -1;
-		}
-		ISP_GetDmaPortsStatus(tmp_module,
-			&DmaEnStatus[index][0]);
-		if (DmaEnStatus[index][_aao_])
-			g_fbc_ctrl2[index][_aao_].Raw =
-				ISP_RD32(CAM_REG_FBC_AAO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_aao_].Raw = 0;
-
-		if (DmaEnStatus[index][_aaho_])
-			g_fbc_ctrl2[index][_aaho_].Raw =
-				ISP_RD32(CAM_REG_FBC_AAHO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_aaho_].Raw = 0;
-
-		if (DmaEnStatus[index][_afo_])
-			g_fbc_ctrl2[index][_afo_].Raw =
-				ISP_RD32(CAM_REG_FBC_AFO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_afo_].Raw = 0;
-
-		if (DmaEnStatus[index][_flko_])
-			g_fbc_ctrl2[index][_flko_].Raw =
-				ISP_RD32(CAM_REG_FBC_FLKO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_flko_].Raw = 0;
-
-		if (DmaEnStatus[index][_pdo_])
-			g_fbc_ctrl2[index][_pdo_].Raw =
-				ISP_RD32(CAM_REG_FBC_PDO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_pdo_].Raw = 0;
-
-		if (DmaEnStatus[index][_imgo_])
-			g_fbc_ctrl2[index][_imgo_].Raw =
-				ISP_RD32(CAM_REG_FBC_IMGO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_imgo_].Raw = 0;
-
-		if (DmaEnStatus[index][_rrzo_])
-			g_fbc_ctrl2[index][_rrzo_].Raw =
-				ISP_RD32(CAM_REG_FBC_RRZO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_rrzo_].Raw = 0;
-
-		if (DmaEnStatus[index][_ufeo_])
-			g_fbc_ctrl2[index][_ufeo_].Raw =
-				ISP_RD32(CAM_REG_FBC_UFEO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_ufeo_].Raw = 0;
-
-		if (DmaEnStatus[index][_ufgo_])
-			g_fbc_ctrl2[index][_ufgo_].Raw =
-				ISP_RD32(CAM_REG_FBC_UFGO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_ufgo_].Raw = 0;
-
-		if (DmaEnStatus[index][_rsso_])
-			g_fbc_ctrl2[index][_rsso_].Raw =
-				ISP_RD32(CAM_REG_FBC_RSSO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_rsso_].Raw = 0;
-
-		if (DmaEnStatus[index][_lmvo_])
-			g_fbc_ctrl2[index][_lmvo_].Raw =
-				ISP_RD32(CAM_REG_FBC_LMVO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_lmvo_].Raw = 0;
-
-		if (DmaEnStatus[index][_lcso_])
-			g_fbc_ctrl2[index][_lcso_].Raw =
-				ISP_RD32(CAM_REG_FBC_LCESO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_lcso_].Raw = 0;
-
-		if (DmaEnStatus[index][_lcesho_])
-			g_fbc_ctrl2[index][_lcesho_].Raw =
-				ISP_RD32(CAM_REG_FBC_LCESHO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_lcesho_].Raw = 0;
-
-		if (DmaEnStatus[index][_ltmso_])
-			g_fbc_ctrl2[index][_ltmso_].Raw =
-				ISP_RD32(CAM_REG_FBC_LTMSO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_ltmso_].Raw = 0;
-
-		if (DmaEnStatus[index][_tsfso_])
-			g_fbc_ctrl2[index][_tsfso_].Raw =
-				ISP_RD32(CAM_REG_FBC_TSFSO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_tsfso_].Raw = 0;
-
-		if (DmaEnStatus[index][_yuvo_])
-			g_fbc_ctrl2[index][_yuvo_].Raw =
-				ISP_RD32(CAM_REG_FBC_YUVO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_yuvo_].Raw = 0;
-
-		if (DmaEnStatus[index][_yuvbo_])
-			g_fbc_ctrl2[index][_yuvbo_].Raw =
-				ISP_RD32(CAM_REG_FBC_YUVBO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_yuvbo_].Raw = 0;
-
-		if (DmaEnStatus[index][_yuvco_])
-			g_fbc_ctrl2[index][_yuvco_].Raw =
-				ISP_RD32(CAM_REG_FBC_YUVCO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_yuvco_].Raw = 0;
-
-		if (DmaEnStatus[index][_crzo_])
-			g_fbc_ctrl2[index][_crzo_].Raw =
-				ISP_RD32(CAM_REG_FBC_CRZO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_crzo_].Raw = 0;
-
-		if (DmaEnStatus[index][_crzbo_])
-			g_fbc_ctrl2[index][_crzbo_].Raw =
-				ISP_RD32(CAM_REG_FBC_CRZBO_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_crzbo_].Raw = 0;
-
-		if (DmaEnStatus[index][_crzo_r2_])
-			g_fbc_ctrl2[index][_crzo_r2_].Raw =
-				ISP_RD32(CAM_REG_FBC_CRZO_R2_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_crzo_r2_].Raw = 0;
-
-
-		if (DmaEnStatus[index][_rsso_r2_])
-			g_fbc_ctrl2[index][_rsso_r2_].Raw =
-				ISP_RD32(CAM_REG_FBC_RSSO_R2_CTL2(tmp_module));
-		else
-			g_fbc_ctrl2[index][_rsso_r2_].Raw = 0;
-	}
+	/* 1. record current FBC value.
+	 *    Change to ISP_RecordCQAddr @SOF because FBC may be empty buffer at CQ over vsync.
+	 */
 
 	/* 2. turn off TG viewFinder, CMOS */
 	ISP_WR32(
