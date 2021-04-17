@@ -40,7 +40,6 @@
 #include "mtk_disp_notify.h"
 
 /* ************ Panel Master ********** */
-#include "mtk_drm_fbdev.h"
 #include "mtk_fbconfig_kdebug.h"
 /* ********* end Panel Master *********** */
 #define DSI_START 0x00
@@ -4339,6 +4338,18 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 				*mode = tmp;
 			}
 		}
+	}
+		break;
+	case DSI_FILL_MODE_BY_CONNETOR:
+	{
+		struct drm_connector *conn = &dsi->conn;
+		int max_width, max_height;
+		
+		mutex_lock(&conn->dev->mode_config.mutex);
+		max_width = conn->dev->mode_config.max_width;
+		max_height = conn->dev->mode_config.max_height;
+		conn->funcs->fill_modes(conn, max_width, max_height);
+		mutex_unlock(&conn->dev->mode_config.mutex);
 	}
 		break;
 

@@ -410,6 +410,44 @@ void mtk_drm_assert_fb_init(struct drm_device *dev, u32 width, u32 height)
 		 RGB888_To_RGB565(DAL_COLOR_RED), mtk_gem->base.filp);
 }
 
+void mtk_drm_assert_init(struct drm_device *dev)
+{
+	struct mtk_drm_gem_obj *mtk_gem;
+	struct drm_crtc *crtc;
+	u32 width, height, size;
+
+	crtc = list_first_entry(&(dev)->mode_config.crtc_list,
+		typeof(*crtc), head);
+
+	width = crtc->mode.hdisplay;
+	height = crtc->mode.vdisplay;
+	size = width * height * DAL_BPP;
+
+	mtk_gem = mtk_drm_gem_create(dev, size, true);
+	if (IS_ERR(mtk_gem)) {
+		DDPINFO("alloc buffer fail\n");
+		drm_gem_object_release(&mtk_gem->base);
+		return;
+	}
+	//Avoid kmemleak to scan
+	kmemleak_ignore(mtk_gem);
+
+	dal_va = mtk_gem->kvaddr;
+	dal_pa = mtk_gem->dma_addr;
+
+	MFC_Open(&mfc_handle, mtk_gem->kvaddr, width, height, DAL_BPP,
+		RGB888_To_RGB565(DAL_COLOR_WHITE),
+		RGB888_To_RGB565(DAL_COLOR_RED), mtk_gem->base.filp);
+
+	if (!dal_pa || !dal_va) {
+		DDPPR_ERR("init DAL without proper buffer\n");
+		return;
+	}
+
+	dal_crtc = crtc;
+	DAL_SetScreenColor(DAL_COLOR_RED);
+}
+
 int mtk_drm_assert_layer_init(struct drm_crtc *crtc)
 {
 	if (!dal_pa || !dal_va) {

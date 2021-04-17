@@ -25,7 +25,6 @@
 #include "mtk_drm_helper.h"
 #include "mtk_drm_assert.h"
 #include "mtk_drm_mmp.h"
-#include "mtk_drm_fbdev.h"
 #include "mtk_drm_trace.h"
 
 #define ESD_TRY_CNT 5
