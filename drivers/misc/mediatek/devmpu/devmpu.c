@@ -18,6 +18,10 @@
 #include <devmpu.h>
 #include <devmpu_emi.h>
 
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <mt-plat/aee.h>
+#endif
+
 #define LOG_TAG "[DEVMPU]"
 
 #define DEVMPU_MAX_TAG_LEN 15
@@ -243,6 +247,17 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 				(vio.is_ns) ? "non-secure" : "secure");
 	}
 
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+	pr_info("trigger aee exception\n");
+	aee_kernel_exception("DEVMPU", "%s\n%s(0x%x),%s(0x%x),%s(0x%x),%s(0x%llx)\n",
+									"violation",
+									"vio_id", vio_id,
+									"vio_domain", vio_domain,
+									"vio_rw", vio_rw,
+									"vio_addr", vio_addr
+									);
+#endif
+
 	return 0;
 }
 EXPORT_SYMBOL(devmpu_print_violation);
@@ -353,10 +368,10 @@ static int devmpu_check_violation(void)
 	if (prop_addr && prop_size) {
 		pr_info("Check if DevMPU violation is at 0x%x\n", prop_addr);
 		reg_base = ioremap((phys_addr_t)prop_addr, prop_size);
-		pr_info("Read from %p\n", reg_base);
+		pr_info("Read from 0x%pK\n", reg_base);
 		prop_value = *(uint64_t *)reg_base;
 		pr_info("value 0x%llx\n", prop_value);
-		pr_info("Write to %p\n", reg_base);
+		pr_info("Write to 0x%pK\n", reg_base);
 		*(uint64_t *)reg_base = prop_value;
 	}
 
