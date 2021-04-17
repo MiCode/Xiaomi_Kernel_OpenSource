@@ -1509,7 +1509,7 @@ static struct regulator_ops qpnp_lcdb_ncp_ops = {
 
 static int qpnp_lcdb_regulator_register(struct qpnp_lcdb *lcdb, u8 type)
 {
-	int rc = 0, off_on_delay = 0;
+	int rc = 0, off_on_delay = 0, voltage_step = VOLTAGE_STEP_50_MV;
 	struct regulator_init_data *init_data;
 	struct regulator_config cfg = {};
 	struct regulator_desc *rdesc;
@@ -1524,12 +1524,16 @@ static int qpnp_lcdb_regulator_register(struct qpnp_lcdb *lcdb, u8 type)
 		rdesc			= &lcdb->ldo.rdesc;
 		rdesc->ops		= &qpnp_lcdb_ldo_ops;
 		rdesc->off_on_delay	= off_on_delay;
+		rdesc->n_voltages = ((MAX_VOLTAGE_MV - MIN_VOLTAGE_MV)
+					/ voltage_step) + 1;
 		rdev			= lcdb->ldo.rdev;
 	} else if (type == NCP) {
 		node			= lcdb->ncp.node;
 		rdesc			= &lcdb->ncp.rdesc;
 		rdesc->ops		= &qpnp_lcdb_ncp_ops;
 		rdesc->off_on_delay	= off_on_delay;
+		rdesc->n_voltages = ((MAX_VOLTAGE_MV - MIN_VOLTAGE_MV)
+					/ voltage_step) + 1;
 		rdev			= lcdb->ncp.rdev;
 	} else {
 		pr_err("Invalid regulator type %d\n", type);
