@@ -960,7 +960,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 		return PTR_ERR(ctx->bias_gpio);
 	}
 	devm_gpiod_put(dev, ctx->bias_gpio);
-
+#endif
 	ctx->prepared = true;
 	ctx->enabled = true;
 
