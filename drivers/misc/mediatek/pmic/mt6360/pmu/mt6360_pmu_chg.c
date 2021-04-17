@@ -402,6 +402,19 @@ static int mt6360_enable_wdt(struct mt6360_pmu_chg_info *mpci, bool en)
 					  en ? 0xff : 0);
 }
 
+static int mt6360_enable_otg_wdt(struct mt6360_pmu_chg_info *mpci, bool en)
+{
+	struct mt6360_chg_platform_data *pdata = dev_get_platdata(mpci->dev);
+
+	dev_dbg(mpci->dev, "%s enable otg wdt, en = %d\n", __func__, en);
+	if (!pdata->en_otg_wdt)
+		return 0;
+	return mt6360_pmu_reg_update_bits(mpci->mpi,
+					  MT6360_PMU_CHG_CTRL13,
+					  MT6360_MASK_CHG_WDT_EN,
+					  en ? 0xff : 0);
+}
+
 static inline int mt6360_get_chrdet_ext_stat(struct mt6360_pmu_chg_info *mpci,
 					  bool *pwr_rdy)
 {
@@ -1521,7 +1534,7 @@ static int mt6360_enable_otg(struct charger_device *chg_dev, bool en)
 	int ret = 0;
 
 	dev_dbg(mpci->dev, "%s: en = %d\n", __func__, en);
-	ret = mt6360_enable_wdt(mpci, en ? true : false);
+	ret = mt6360_enable_otg_wdt(mpci, en ? true : false);
 	if (ret < 0) {
 		dev_err(mpci->dev, "%s: set wdt fail, en = %d\n", __func__, en);
 		return ret;
@@ -2672,6 +2685,7 @@ static const struct mt6360_val_prop mt6360_val_props[] = {
 	MT6360_DT_VALPROP(ircmp_vclamp, struct mt6360_chg_platform_data),
 	MT6360_DT_VALPROP(en_te, struct mt6360_chg_platform_data),
 	MT6360_DT_VALPROP(en_wdt, struct mt6360_chg_platform_data),
+	MT6360_DT_VALPROP(en_otg_wdt, struct mt6360_chg_platform_data),
 	MT6360_DT_VALPROP(aicc_once, struct mt6360_chg_platform_data),
 	MT6360_DT_VALPROP(post_aicc, struct mt6360_chg_platform_data),
 	MT6360_DT_VALPROP(batoc_notify, struct mt6360_chg_platform_data),

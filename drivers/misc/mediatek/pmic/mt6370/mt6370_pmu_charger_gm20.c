@@ -71,6 +71,7 @@ struct mt6370_pmu_charger_desc {
 	u32 dc_wdt;
 	bool en_te;
 	bool en_wdt;
+	bool en_otg_wdt;
 	bool en_polling;
 	const char *chg_dev_name;
 	const char *ls_dev_name;
@@ -1660,7 +1661,7 @@ static int mt6370_enable_otg(struct mtk_charger_info *mchr_info, void *data)
 			dev_err(chg_data->dev,
 				"%s: disable usb chrdet failed\n", __func__);
 
-		if (chg_data->chg_desc->en_wdt) {
+		if (chg_data->chg_desc->en_otg_wdt) {
 			ret = mt6370_enable_wdt(chg_data, true);
 			if (ret < 0)
 				dev_err(chg_data->dev, "%s: en wdt failed\n",
@@ -3135,6 +3136,7 @@ static inline int mt_parse_dt(struct device *dev,
 
 	chg_desc->en_te = of_property_read_bool(np, "enable_te");
 	chg_desc->en_wdt = of_property_read_bool(np, "enable_wdt");
+	chg_desc->en_otg_wdt = of_property_read_bool(np, "enable_otg_wdt");
 
 	chg_data->chg_desc = chg_desc;
 
