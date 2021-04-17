@@ -36,6 +36,10 @@ static struct share_mem_usage shm_usage_table[] = {
 		.id = SENS_MEM_ID,
 	},
 	{
+		.notify_cmd = SENS_COMM_NOTIFY_SUPER_DATA_CMD,
+		.id = SENS_SUPER_MEM_ID,
+	},
+	{
 		.notify_cmd = SENS_COMM_NOTIFY_LIST_CMD,
 		.id = SENS_LIST_MEM_ID,
 	},

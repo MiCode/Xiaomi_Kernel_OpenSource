@@ -17,6 +17,7 @@ enum {
 	HF_MANAGER_SENSOR_CONFIG_CALI,
 	HF_MANAGER_SENSOR_SELFTEST,
 	HF_MANAGER_SENSOR_RAWDATA,
+	HF_MANAGER_SENSOR_MAX_ACTION,
 };
 
 enum {
@@ -27,11 +28,13 @@ enum {
 	TEMP_ACTION,
 	TEST_ACTION,
 	RAW_ACTION,
+	MAX_ACTION,
 };
 
 enum {
 	CUST_CMD_CALI = 0,
 	/* Add custom cmd action here! */
+	MAX_CUST_CMD,
 };
 
 struct hf_manager_batch {
@@ -54,7 +57,7 @@ struct hf_manager_event {
 	uint8_t action;
 	uint8_t padding[1];
 	union {
-		int32_t word[6];
+		int32_t word[16];
 		int8_t byte[0];
 	};
 } __packed __aligned(4);

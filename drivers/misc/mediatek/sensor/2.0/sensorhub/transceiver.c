@@ -26,9 +26,6 @@
 #include "timesync.h"
 #include "debug.h"
 
-#define TRANSCEIVER_SHM_BUFFER_NUM 8
-#define TRANSCEIVER_WP_NUM 32
-
 struct transceiver_config {
 	uint8_t length;
 	uint8_t data[0] __aligned(4);
@@ -53,7 +50,9 @@ struct transceiver_device {
 	unsigned int support_size;
 
 	struct share_mem shm_reader;
-	struct share_mem_data shm_buffer[TRANSCEIVER_SHM_BUFFER_NUM];
+	struct share_mem_data shm_buffer[8];
+	struct share_mem shm_super_reader;
+	struct share_mem_super_data shm_super_buffer[4];
 	struct wakeup_source wakeup_src;
 	int64_t raw_ts_reverse_debug[SENSOR_TYPE_SENSOR_MAX];
 	int64_t comp_ts_reverse_debug[SENSOR_TYPE_SENSOR_MAX];
@@ -65,7 +64,8 @@ struct transceiver_device {
 static struct transceiver_device transceiver_dev;
 DEFINE_SPINLOCK(transceiver_fifo_lock);
 DECLARE_COMPLETION(transceiver_done);
-DEFINE_KFIFO(transceiver_fifo, uint32_t, TRANSCEIVER_WP_NUM);
+DEFINE_KFIFO(transceiver_fifo, uint32_t, 32);
+DEFINE_KFIFO(transceiver_super_fifo, uint32_t, 32);
 
 static void transceiver_notify_func(struct sensor_comm_notify *n,
 		void *private_data)
@@ -77,15 +77,36 @@ static void transceiver_notify_func(struct sensor_comm_notify *n,
 	    n->command != SENS_COMM_NOTIFY_FULL_CMD)
 		return;
 
-	timesync_filter_set(dnotify->scp_timestamp, dnotify->scp_archcounter);
-
 	spin_lock(&transceiver_fifo_lock);
+	timesync_filter_set(dnotify->scp_timestamp, dnotify->scp_archcounter);
 	if (kfifo_is_full(&transceiver_fifo)) {
 		kfifo_out(&transceiver_fifo, &wp, 1);
-		pr_err_ratelimited("drop old write position\n");
+		pr_err_ratelimited("drop old normal write position\n");
 	}
 	wp = dnotify->write_position;
 	kfifo_in(&transceiver_fifo, &wp, 1);
+	complete(&transceiver_done);
+	spin_unlock(&transceiver_fifo_lock);
+}
+
+static void transceiver_super_notify_func(struct sensor_comm_notify *n,
+		void *private_data)
+{
+	uint32_t wp = 0;
+	struct data_notify *dnotify = (struct data_notify *)n->value;
+
+	if (n->command != SENS_COMM_NOTIFY_SUPER_DATA_CMD &&
+	    n->command != SENS_COMM_NOTIFY_SUPER_FULL_CMD)
+		return;
+
+	spin_lock(&transceiver_fifo_lock);
+	timesync_filter_set(dnotify->scp_timestamp, dnotify->scp_archcounter);
+	if (kfifo_is_full(&transceiver_super_fifo)) {
+		kfifo_out(&transceiver_super_fifo, &wp, 1);
+		pr_err_ratelimited("drop old super write position\n");
+	}
+	wp = dnotify->write_position;
+	kfifo_in(&transceiver_super_fifo, &wp, 1);
 	complete(&transceiver_done);
 	spin_unlock(&transceiver_fifo_lock);
 }
@@ -111,11 +132,139 @@ static bool transceiver_wakeup_check(uint8_t action, uint8_t sensor_type)
 	return false;
 }
 
-static void transceiver_translate(struct hf_manager_event *dst,
-		struct share_mem_data *src)
+static void transceiver_copy_config(struct transceiver_config *dst,
+		struct hf_manager_event *src, uint8_t bias_len,
+		uint8_t cali_len, uint8_t temp_len)
 {
+	if (dst->length < (bias_len + cali_len + temp_len)) {
+		pr_err_ratelimited("can't copy config %u %u %u %u %u %u\n",
+			src->sensor_type, src->action, dst->length,
+			bias_len, cali_len, temp_len);
+		return;
+	}
+	if (bias_len > sizeof(src->word) ||
+		cali_len > sizeof(src->word) ||
+			temp_len > sizeof(src->word)) {
+		pr_err_ratelimited("can't copy config %u %u %u %u %u\n",
+			src->sensor_type, src->action,
+			bias_len, cali_len, temp_len);
+		return;
+	}
+	if (src->action == BIAS_ACTION)
+		memcpy(dst->data, src->word, bias_len);
+	else if (src->action == CALI_ACTION)
+		memcpy(dst->data + bias_len, src->word, cali_len);
+	else if (src->action == TEMP_ACTION)
+		memcpy(dst->data + bias_len + cali_len, src->word, temp_len);
+}
+
+static void transceiver_update_config(struct transceiver_device *dev,
+		struct hf_manager_event *src)
+{
+	struct transceiver_config *dst = NULL;
+
+	mutex_lock(&dev->config_lock);
+	dst = dev->state[src->sensor_type].config;
+	if (!dst) {
+		mutex_unlock(&dev->config_lock);
+		return;
+	}
+	switch (src->sensor_type) {
+	case SENSOR_TYPE_ACCELEROMETER:
+		transceiver_copy_config(dst, src, 12, 12, 0);
+		break;
+	case SENSOR_TYPE_MAGNETIC_FIELD:
+		transceiver_copy_config(dst, src, 12, 24, 0);
+		break;
+	case SENSOR_TYPE_GYROSCOPE:
+		transceiver_copy_config(dst, src, 12, 12, 24);
+		break;
+	default:
+		/*
+		 * NOTE: default branch only handle CALI_ACTION.
+		 * if you add new sensor type that only cali need store, you
+		 * can use default branch.
+		 * for example:
+		 * SENSOR_TYPE_LIGHT,SENSOR_TYPE_PRESSURE,
+		 * SENSOR_TYPE_PROXIMITY, SENSOR_TYPE_SAR, SENSOR_TYPE_OIS
+		 * and so on can use this branch.
+		 */
+		if (src->action == CALI_ACTION &&
+				dst->length <= sizeof(src->word))
+			transceiver_copy_config(dst, src, 0, dst->length, 0);
+		else
+			pr_err_ratelimited("can't update config %u %u %u\n",
+				src->sensor_type, src->action, dst->length);
+		break;
+	}
+	mutex_unlock(&dev->config_lock);
+}
+
+static void transceiver_report(struct transceiver_device *dev,
+		struct hf_manager_event *event)
+{
+	int ret = 0;
+	bool need_wakeup = false;
+	uint8_t sensor_type = 0, action = 0;
+	struct hf_manager *manager = dev->hf_dev.manager;
+	struct transceiver_state *state = NULL;
+
+	if (!manager)
+		return;
+
+	action = event->action;
+	sensor_type = event->sensor_type;
+	state = &dev->state[sensor_type];
+	need_wakeup = transceiver_wakeup_check(action, sensor_type);
+
+	if (action == BIAS_ACTION || action == CALI_ACTION ||
+			action == TEMP_ACTION)
+		transceiver_update_config(dev, event);
+
+	do {
+		if (action != FLUSH_ACTION) {
+			if (need_wakeup)
+				__pm_wakeup_event(&dev->wakeup_src, 250);
+			ret = manager->report(manager, event);
+		} else {
+			/*
+			 * NOTE: only for flush ret = 0 we decrease
+			 * ret must reset to 0 for each loop
+			 * sequence:
+			 *  report thread flush fail ret < 0 then retry
+			 *   disable thread report flush success
+			 *    report thread try flush = 0 no need send
+			 *     report thread while loop because ret < 0
+			 */
+			ret = 0;
+			mutex_lock(&dev->flush_lock);
+			if (state->flush > 0) {
+				ret = manager->report(manager, event);
+				if (!ret)
+					state->flush--;
+			}
+			mutex_unlock(&dev->flush_lock);
+		}
+		if (ret < 0)
+			usleep_range(2000, 4000);
+	} while (ret < 0);
+}
+
+static int transceiver_translate(struct hf_manager_event *dst,
+		const struct share_mem_data *src)
+{
+	int64_t remap_timestamp = 0;
+
+	if (src->sensor_type >= SENSOR_TYPE_SENSOR_MAX ||
+			src->action >= MAX_ACTION) {
+		pr_err_ratelimited("invalid sensor event %u %u\n",
+			src->sensor_type, src->action);
+		return -EINVAL;
+	}
+
+	remap_timestamp = src->timestamp + timesync_filter_get();
 	if (src->action == DATA_ACTION) {
-		dst->timestamp = src->timestamp;
+		dst->timestamp = remap_timestamp;
 		dst->sensor_type = src->sensor_type;
 		dst->accurancy = src->accurancy;
 		dst->action = src->action;
@@ -164,11 +313,12 @@ static void transceiver_translate(struct hf_manager_event *dst,
 			dst->word[0] = src->value[0];
 			break;
 		default:
-			memcpy(dst->word, src->value, sizeof(dst->word));
+			memcpy(dst->word, src->value,
+				min(sizeof(dst->word), sizeof(src->value)));
 			break;
 		}
 	} else if (src->action == FLUSH_ACTION) {
-		dst->timestamp = src->timestamp;
+		dst->timestamp = remap_timestamp;
 		dst->sensor_type = src->sensor_type;
 		dst->action = src->action;
 	} else {
@@ -176,164 +326,14 @@ static void transceiver_translate(struct hf_manager_event *dst,
 		 * BIAS_ACTION, CALI_ACTION, TEMP_ACTION,
 		 * TEST_ACTION and RAW_ACTION
 		 */
-		dst->timestamp = src->timestamp;
+		dst->timestamp = remap_timestamp;
 		dst->sensor_type = src->sensor_type;
 		dst->accurancy = src->accurancy;
 		dst->action = src->action;
-		memcpy(dst->word, src->value, sizeof(dst->word));
+		memcpy(dst->word, src->value,
+			min(sizeof(dst->word), sizeof(src->value)));
 	}
-}
-
-static void transceiver_copy_config(struct transceiver_config *dst,
-		struct share_mem_data *src, uint8_t bias_len,
-		uint8_t cali_len, uint8_t temp_len)
-{
-	if (dst->length < (bias_len + cali_len + temp_len)) {
-		pr_err_ratelimited("can't copy config %u %u %u %u %u %u\n",
-			src->sensor_type, src->action, dst->length,
-			bias_len, cali_len, temp_len);
-		return;
-	}
-	if (bias_len > sizeof(src->value) ||
-		cali_len > sizeof(src->value) ||
-			temp_len > sizeof(src->value)) {
-		pr_err_ratelimited("can't copy config %u %u %u %u %u\n",
-			src->sensor_type, src->action,
-			bias_len, cali_len, temp_len);
-		return;
-	}
-	if (src->action == BIAS_ACTION)
-		memcpy(dst->data, src->value, bias_len);
-	else if (src->action == CALI_ACTION)
-		memcpy(dst->data + bias_len, src->value, cali_len);
-	else if (src->action == TEMP_ACTION)
-		memcpy(dst->data + bias_len + cali_len, src->value, temp_len);
-}
-
-static void transceiver_update_config(struct transceiver_device *dev,
-		struct share_mem_data *src)
-{
-	struct transceiver_config *dst = NULL;
-
-	mutex_lock(&dev->config_lock);
-	dst = dev->state[src->sensor_type].config;
-	if (!dst) {
-		mutex_unlock(&dev->config_lock);
-		return;
-	}
-	switch (src->sensor_type) {
-	case SENSOR_TYPE_ACCELEROMETER:
-		transceiver_copy_config(dst, src, 12, 12, 0);
-		break;
-	case SENSOR_TYPE_MAGNETIC_FIELD:
-		transceiver_copy_config(dst, src, 12, 24, 0);
-		break;
-	case SENSOR_TYPE_GYROSCOPE:
-		transceiver_copy_config(dst, src, 12, 12, 24);
-		break;
-	default:
-		/*
-		 * NOTE: default branch only handle CALI_ACTION.
-		 * if you add new sensor type that only cali need store, you
-		 * can use default branch.
-		 * for example:
-		 * SENSOR_TYPE_LIGHT,SENSOR_TYPE_PRESSURE,
-		 * SENSOR_TYPE_PROXIMITY, SENSOR_TYPE_SAR, SENSOR_TYPE_OIS
-		 * and so on can use this branch.
-		 */
-		if (src->action == CALI_ACTION &&
-				dst->length <= sizeof(src->value))
-			transceiver_copy_config(dst, src, 0, dst->length, 0);
-		else
-			pr_err_ratelimited("can't update config %u %u %u\n",
-				src->sensor_type, src->action, dst->length);
-		break;
-	}
-	mutex_unlock(&dev->config_lock);
-}
-
-static void transceiver_report(struct transceiver_device *dev,
-		struct share_mem_data *src)
-{
-	int ret = 0;
-	bool need_wakeup = false;
-	uint8_t sensor_type = 0, action = 0;
-	int64_t raw_time = 0, comp_time = 0;
-	struct hf_manager *manager = dev->hf_dev.manager;
-	struct transceiver_state *state = NULL;
-	struct hf_manager_event dst;
-
-	if (!manager)
-		return;
-
-	if (src->sensor_type >= SENSOR_TYPE_SENSOR_MAX) {
-		pr_err("invalid sensor type %u\n", src->sensor_type);
-		return;
-	}
-
-	raw_time = src->timestamp;
-	src->timestamp += timesync_filter_get();
-	comp_time = src->timestamp;
-
-	memset(&dst, 0, sizeof(dst));
-	transceiver_translate(&dst, src);
-	action = dst.action;
-	sensor_type = dst.sensor_type;
-	state = &dev->state[sensor_type];
-	need_wakeup = transceiver_wakeup_check(action, sensor_type);
-
-	if (action == BIAS_ACTION || action == CALI_ACTION ||
-			action == TEMP_ACTION)
-		transceiver_update_config(dev, src);
-
-	do {
-		if (action != FLUSH_ACTION) {
-			if (need_wakeup)
-				__pm_wakeup_event(&dev->wakeup_src, 250);
-			ret = manager->report(manager, &dst);
-		} else {
-			/*
-			 * NOTE: only for flush ret = 0 we decrease
-			 * ret must reset to 0 for each loop
-			 * sequence:
-			 *  report thread flush fail ret < 0 then retry
-			 *   disable thread report flush success
-			 *    report thread try flush = 0 no need send
-			 *     report thread while loop because ret < 0
-			 */
-			ret = 0;
-			mutex_lock(&dev->flush_lock);
-			if (state->flush > 0) {
-				ret = manager->report(manager, &dst);
-				if (!ret)
-					state->flush--;
-			}
-			mutex_unlock(&dev->flush_lock);
-		}
-		if (ret < 0)
-			usleep_range(2000, 4000);
-	} while (ret < 0);
-
-	/* for debugging timestamp reverse */
-	if (action == DATA_ACTION) {
-		if (unlikely(raw_time <
-		    dev->raw_ts_reverse_debug[sensor_type])) {
-			pr_err("raw reverse %d,%lld,%lld\n",
-				sensor_type,
-				dev->raw_ts_reverse_debug[sensor_type],
-				raw_time);
-		}
-		dev->raw_ts_reverse_debug[sensor_type] = raw_time;
-		if (unlikely(comp_time <
-		    dev->comp_ts_reverse_debug[sensor_type])) {
-			pr_err("comp reverse %d,%lld,%lld,%lld\n",
-				sensor_type,
-				dev->raw_ts_reverse_debug[sensor_type],
-				dev->comp_ts_reverse_debug[sensor_type],
-				comp_time);
-		}
-		dev->comp_ts_reverse_debug[sensor_type] = comp_time;
-	}
+	return 0;
 }
 
 static void transceiver_read(struct transceiver_device *dev,
@@ -341,46 +341,134 @@ static void transceiver_read(struct transceiver_device *dev,
 {
 	int ret = 0;
 	int i = 0;
+	struct share_mem *shm = &dev->shm_reader;
+	struct share_mem_data *buffer = dev->shm_buffer;
+	uint32_t size = sizeof(dev->shm_buffer);
+	uint32_t item_size = sizeof(dev->shm_buffer[0]);
+	struct hf_manager_event evt;
 
-	ret = share_mem_seek(&dev->shm_reader, write_position);
+	ret = share_mem_seek(shm, write_position);
 	if (ret < 0) {
-		pr_err("seek fail %d\n", ret);
+		pr_err("%s seek fail %d\n", shm->name, ret);
 		return;
 	}
 
-	do {
-		ret = share_mem_read(&dev->shm_reader,
-			dev->shm_buffer, sizeof(dev->shm_buffer));
-		if (ret < 0 || ret > sizeof(dev->shm_buffer)) {
-			pr_err("read fail %d\n", ret);
+	while (1) {
+		ret = share_mem_read(shm, buffer, size);
+		if (ret < 0 || ret > size) {
+			pr_err("%s read fail %d\n", shm->name, ret);
 			break;
 		}
-
 		if (ret == 0)
 			break;
-
-		for (i = 0; i < (ret / sizeof(dev->shm_buffer[0])); i++)
-			transceiver_report(dev, &dev->shm_buffer[i]);
-	} while (ret == sizeof(dev->shm_buffer));
+		if (ret % item_size) {
+			pr_err("%s times greater fail %d\n", shm->name, ret);
+			break;
+		}
+		for (i = 0; i < (ret / item_size); i++) {
+			if (transceiver_translate(&evt, &buffer[i]) < 0)
+				continue;
+			transceiver_report(dev, &evt);
+		}
+	}
 }
 
-static int transceiver_thread(void *data)
+static void transceiver_process(struct transceiver_device *dev)
 {
 	unsigned int ret = 0;
 	uint32_t wp = 0;
 	unsigned long flags = 0;
+
+	while (1) {
+		spin_lock_irqsave(&transceiver_fifo_lock, flags);
+		ret = kfifo_out(&transceiver_fifo, &wp, 1);
+		spin_unlock_irqrestore(&transceiver_fifo_lock, flags);
+		if (!ret)
+			break;
+		transceiver_read(dev, wp);
+	}
+}
+
+static int transceiver_translate_super(struct hf_manager_event *dst,
+		const struct share_mem_super_data *src)
+{
+	if (src->sensor_type >= SENSOR_TYPE_SENSOR_MAX ||
+			src->action >= MAX_ACTION) {
+		pr_err_ratelimited("invalid sensor event %u %u\n",
+			src->sensor_type, src->action);
+		return -EINVAL;
+	}
+
+	dst->timestamp = src->timestamp + timesync_filter_get();
+	dst->sensor_type = src->sensor_type;
+	dst->accurancy = src->accurancy;
+	dst->action = src->action;
+	memcpy(dst->word, src->value,
+		min(sizeof(dst->word), sizeof(src->value)));
+	return 0;
+}
+
+static void transceiver_read_super(struct transceiver_device *dev,
+		uint32_t write_position)
+{
+	int ret = 0;
+	int i = 0;
+	struct share_mem *shm = &dev->shm_super_reader;
+	struct share_mem_super_data *buffer = dev->shm_super_buffer;
+	uint32_t size = sizeof(dev->shm_super_buffer);
+	uint32_t item_size = sizeof(dev->shm_super_buffer[0]);
+	struct hf_manager_event evt;
+
+	ret = share_mem_seek(shm, write_position);
+	if (ret < 0) {
+		pr_err("%s seek fail %d\n", shm->name, ret);
+		return;
+	}
+
+	while (1) {
+		ret = share_mem_read(shm, buffer, size);
+		if (ret < 0 || ret > size) {
+			pr_err("%s read fail %d\n", shm->name, ret);
+			break;
+		}
+		if (ret == 0)
+			break;
+		if (ret % item_size) {
+			pr_err("%s times greater fail %d\n", shm->name, ret);
+			break;
+		}
+		for (i = 0; i < (ret / item_size); i++) {
+			if (transceiver_translate_super(&evt, &buffer[i]) < 0)
+				continue;
+			transceiver_report(dev, &evt);
+		}
+	}
+}
+
+static void transceiver_process_super(struct transceiver_device *dev)
+{
+	unsigned int ret = 0;
+	uint32_t wp = 0;
+	unsigned long flags = 0;
+
+	while (1) {
+		spin_lock_irqsave(&transceiver_fifo_lock, flags);
+		ret = kfifo_out(&transceiver_super_fifo, &wp, 1);
+		spin_unlock_irqrestore(&transceiver_fifo_lock, flags);
+		if (!ret)
+			break;
+		transceiver_read_super(dev, wp);
+	}
+}
+
+static int transceiver_thread(void *data)
+{
 	struct transceiver_device *dev = data;
 
 	while (!kthread_should_stop()) {
 		wait_for_completion(&transceiver_done);
-		while (1) {
-			spin_lock_irqsave(&transceiver_fifo_lock, flags);
-			ret = kfifo_out(&transceiver_fifo, &wp, 1);
-			spin_unlock_irqrestore(&transceiver_fifo_lock, flags);
-			if (!ret)
-				break;
-			transceiver_read(dev, wp);
-		}
+		transceiver_process(dev);
+		transceiver_process_super(dev);
 	}
 	return 0;
 }
@@ -674,7 +762,7 @@ static struct notifier_block transceiver_pm_notifier = {
 	.notifier_call = transceiver_pm_notifier_call,
 };
 
-static int transceiver_share_mem_cfg(struct share_mem_config *cfg,
+static int transceiver_shm_cfg(struct share_mem_config *cfg,
 		void *private_data)
 {
 	unsigned long flags = 0;
@@ -684,11 +772,26 @@ static int transceiver_share_mem_cfg(struct share_mem_config *cfg,
 	kfifo_reset(&transceiver_fifo);
 	spin_unlock_irqrestore(&transceiver_fifo_lock, flags);
 
-	dev->shm_reader.name = "trans_data_r";
+	dev->shm_reader.name = "trans_r";
 	dev->shm_reader.item_size = sizeof(struct share_mem_data);
 	dev->shm_reader.buffer_full_detect = false;
-
 	return share_mem_init(&dev->shm_reader, cfg);
+}
+
+static int transceiver_shm_super_cfg(struct share_mem_config *cfg,
+		void *private_data)
+{
+	unsigned long flags = 0;
+	struct transceiver_device *dev = private_data;
+
+	spin_lock_irqsave(&transceiver_fifo_lock, flags);
+	kfifo_reset(&transceiver_super_fifo);
+	spin_unlock_irqrestore(&transceiver_fifo_lock, flags);
+
+	dev->shm_super_reader.name = "trans_super_r";
+	dev->shm_super_reader.item_size = sizeof(struct share_mem_super_data);
+	dev->shm_super_reader.buffer_full_detect = false;
+	return share_mem_init(&dev->shm_super_reader, cfg);
 }
 
 static int __init transceiver_init(void)
@@ -775,8 +878,14 @@ static int __init transceiver_init(void)
 		transceiver_notify_func, NULL);
 	sensor_comm_notify_handler_register(SENS_COMM_NOTIFY_FULL_CMD,
 		transceiver_notify_func, NULL);
+	sensor_comm_notify_handler_register(SENS_COMM_NOTIFY_SUPER_DATA_CMD,
+		transceiver_super_notify_func, NULL);
+	sensor_comm_notify_handler_register(SENS_COMM_NOTIFY_SUPER_FULL_CMD,
+		transceiver_super_notify_func, NULL);
 	share_mem_config_handler_register(SENS_COMM_NOTIFY_DATA_CMD,
-		transceiver_share_mem_cfg, dev);
+		transceiver_shm_cfg, dev);
+	share_mem_config_handler_register(SENS_COMM_NOTIFY_SUPER_DATA_CMD,
+		transceiver_shm_super_cfg, dev);
 
 	return 0;
 
@@ -802,7 +911,10 @@ static void __exit transceiver_exit(void)
 {
 	struct transceiver_device *dev = &transceiver_dev;
 
+	share_mem_config_handler_unregister(SENS_COMM_NOTIFY_SUPER_DATA_CMD);
 	share_mem_config_handler_unregister(SENS_COMM_NOTIFY_DATA_CMD);
+	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_SUPER_FULL_CMD);
+	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_SUPER_DATA_CMD);
 	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_FULL_CMD);
 	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_DATA_CMD);
 	if (!IS_ERR(dev->task))
