@@ -2264,7 +2264,11 @@ void mmdvfs_autok_qos_enable(bool enable)
 {
 	pr_notice("%s: step_size=%d current_max_step=%d\n",
 		__func__, step_size, current_max_step);
-	if (!enable && step_size > 0 && current_max_step == STEP_UNREQUEST)
+	if (!enable && step_size > 0
+#ifndef AUTOK_FORCE_LOW
+		&& current_max_step == STEP_UNREQUEST
+#endif
+	)
 		mmdvfs_qos_force_step(step_size - 1);
 
 	mmdvfs_autok_enable = enable;
