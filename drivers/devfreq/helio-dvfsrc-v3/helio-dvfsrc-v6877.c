@@ -146,7 +146,7 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 	{
 		{ DVFSRC_HRT_REQ_UNIT,       0x0000001E },
 		{ DVFSRC_DEBOUNCE_TIME,      0x00001965 },
-		{ DVFSRC_TIMEOUT_NEXTREQ,    0x0000001E },
+		{ DVFSRC_TIMEOUT_NEXTREQ,    0x0000003C },
 
 		{ DVFSRC_DDR_QOS0,	     0x00000019 },
 		{ DVFSRC_DDR_QOS1,	     0x00000026 },
