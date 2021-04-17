@@ -532,7 +532,7 @@ static int scp_A_ready_ipi_handler(unsigned int id, void *prdata, void *data,
  * @param data: ipi data
  * @param len:  length of ipi data
  */
-static void scp_err_info_handler(int id, void *prdata, void *data,
+static int scp_err_info_handler(unsigned int id, void *prdata, void *data,
 				 unsigned int len)
 {
 	struct error_info *info = (struct error_info *)data;
@@ -541,7 +541,7 @@ static void scp_err_info_handler(int id, void *prdata, void *data,
 		pr_notice("[SCP] error: incorrect size %d of error_info\n",
 				len);
 		WARN_ON(1);
-		return;
+		return 0;
 	}
 
 	/* Ensure the context[] is terminated by the NULL character. */
@@ -554,6 +554,8 @@ static void scp_err_info_handler(int id, void *prdata, void *data,
 		report_hub_dmd(info->case_id, info->sensor_id, info->context);
 	else
 		pr_debug("[SCP] warning: report_hub_dmd() not defined.\n");
+
+	return 0;
 }
 
 
