@@ -306,23 +306,21 @@ struct mtk_lpm_model mt6877_model_suspend = {
 
 #ifdef CONFIG_PM
 #define CPU_NUMBER (NR_CPUS)
+
 struct mtk_lpm_abort_control {
-	struct task_struct *ts;
-	struct hrtimer wakeup_timer;
-	struct completion suspend_completion;
+	struct timer_list timer;
 };
+
 static atomic_t in_sleep;
 static struct mtk_lpm_abort_control mtk_lpm_ac[CPU_NUMBER];
-static enum hrtimer_restart mtk_lpm_wakeup_func(struct hrtimer *timer)
+static void lpm_timer_callback(struct timer_list *timer)
 {
-
 	if (atomic_dec_and_test(&in_sleep)) {
-		pr_info("[name:spm&][LPM] wakeup system due to not entering suspend.\n");
+		pr_info("[name:spm&][LPM] :wakeup system due to not entering suspend.\n");
 		pm_system_wakeup();
 	}
-
-	return HRTIMER_NORESTART;
 }
+
 static int mt6877_spm_suspend_pm_event(struct notifier_block *notifier,
 			unsigned long pm_event, void *unused)
 {
@@ -346,12 +344,15 @@ static int mt6877_spm_suspend_pm_event(struct notifier_block *notifier,
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
 		atomic_set(&in_sleep, 1);
-		for_each_online_cpu(i)
-			complete(&(mtk_lpm_ac[i].suspend_completion));
+		for_each_online_cpu(i) {
+			mtk_lpm_ac[i].timer.expires = jiffies + msecs_to_jiffies(5000);
+			add_timer_on(&mtk_lpm_ac[i].timer, i);
+		}
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
 		for_each_online_cpu(i)
-			hrtimer_cancel(&(mtk_lpm_ac[i].wakeup_timer));
+			del_timer_sync(&mtk_lpm_ac[i].timer);
+
 		printk_deferred(
 		"[name:spm&][SPM] PM: suspend exit %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
@@ -367,23 +368,6 @@ static struct notifier_block mt6877_spm_suspend_pm_notifier_func = {
 	.priority = 0,
 };
 
-static int mtk_lpm_monitor_thread(void *not_used)
-{
-	int cpu;
-
-	cpu = smp_processor_id();
-	for (;;) {
-
-		if (kthread_should_stop()) {
-			pr_info("[name:spm&][LPM] stop thread!!\n");
-			break;
-		}
-		wait_for_completion(&mtk_lpm_ac[cpu].suspend_completion);
-		hrtimer_start(&(mtk_lpm_ac[cpu].wakeup_timer), ktime_set(5, 0), HRTIMER_MODE_REL);
-		init_completion(&mtk_lpm_ac[cpu].suspend_completion);
-	}
-	return 0;
-}
 #endif /* CONFIG_PM */
 
 int __init mt6877_model_suspend_init(void)
@@ -409,7 +393,6 @@ int __init mt6877_model_suspend_init(void)
 
 	cpumask_clear(&s2idle_cpumask);
 
-
 #ifdef CONFIG_PM
 	ret = register_pm_notifier(&mt6877_spm_suspend_pm_notifier_func);
 	if (ret) {
@@ -418,18 +401,7 @@ int __init mt6877_model_suspend_init(void)
 	}
 
 	for_each_online_cpu(i) {
-		mtk_lpm_ac[i].ts = kthread_create(mtk_lpm_monitor_thread, NULL, "LPM-%d", i);
-		if (!mtk_lpm_ac[i].ts) {
-			pr_info("[name:spm&][SPM] create threads fail\n");
-			break;
-		}
-		hrtimer_init(&(mtk_lpm_ac[i].wakeup_timer), CLOCK_MONOTONIC,
-			HRTIMER_MODE_ABS);
-		mtk_lpm_ac[i].wakeup_timer.function = mtk_lpm_wakeup_func;
-
-		init_completion(&(mtk_lpm_ac[i].suspend_completion));
-		kthread_bind(mtk_lpm_ac[i].ts, i);
-		wake_up_process(mtk_lpm_ac[i].ts);
+		timer_setup(&mtk_lpm_ac[i].timer, lpm_timer_callback, 0);
 	}
 #endif /* CONFIG_PM */
 
