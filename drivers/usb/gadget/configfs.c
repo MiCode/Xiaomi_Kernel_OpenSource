@@ -130,6 +130,7 @@ struct gadget_config_name {
 };
 
 #define USB_MAX_STRING_WITH_NULL_LEN	(USB_MAX_STRING_LEN+1)
+
 static int usb_string_copy(const char *s, char **s_copy)
 {
 	int ret;
@@ -138,6 +139,7 @@ static int usb_string_copy(const char *s, char **s_copy)
 	ret = strlen(s);
 	if (ret > USB_MAX_STRING_LEN)
 		return -EOVERFLOW;
+
 	if (copy) {
 		str = copy;
 	} else {
