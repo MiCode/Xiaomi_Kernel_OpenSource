@@ -25,6 +25,7 @@
 #define V_VMODE_SHIFT 0
 #define V_CT_SHIFT 5
 #define V_CT_TEST_SHIFT 6
+#define V_CONSYS_SHIFT 16
 #define V_OPP_TYPE_SHIFT 20
 
 static int dvfsrc_rsrv;
@@ -194,6 +195,7 @@ static int __init dvfsrc_opp_init(void)
 	int vcore_opp_4_uv;
 	int ct_test = 0;
 	int is_vcore_ct = 0;
+	int is_consys = 0;
 	int dvfs_v_mode = 0;
 	int opp_type = 0;
 	void __iomem *dvfsrc_base;
@@ -219,6 +221,7 @@ static int __init dvfsrc_opp_init(void)
 		is_vcore_ct = (dvfsrc_rsrv >> V_CT_SHIFT) & 0x1;
 		ct_test = (dvfsrc_rsrv >> V_CT_TEST_SHIFT) & 0x1;
 		opp_type = (dvfsrc_rsrv >> V_OPP_TYPE_SHIFT) & 0x3;
+		is_consys = (dvfsrc_rsrv >> V_CONSYS_SHIFT) & 0x1;
 	}
 
 	if (opp_type == 0)
@@ -244,6 +247,9 @@ static int __init dvfsrc_opp_init(void)
 	if (is_rising_need() == 2)
 		vcore_opp_4_uv = 575000;
 	else if (is_rising_need() == 1)
+		vcore_opp_4_uv = 600000;
+
+	if (is_consys)
 		vcore_opp_4_uv = 600000;
 
 	if (dvfs_v_mode == 3) {
