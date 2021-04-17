@@ -77,6 +77,9 @@
 #include <mt-plat/mtk_devinfo.h>
 #endif
 
+#define CREATE_TRACE_POINTS
+#include "mtk_cooler_atm_events.h"
+
 /*****************************************************************************
  *  Local switches
  *****************************************************************************/
@@ -441,6 +444,10 @@ unsigned int gpu_pwr_lmt_cnt = 1;
 #if defined(THERMAL_APU_UNLIMIT)
 static unsigned long total_apu_polling_time;
 #endif
+#if defined(EARA_THERMAL_SUPPORT)
+static int is_EARA_handled;
+#endif
+
 /*=============================================================
  *Local function prototype
  *=============================================================
@@ -1224,7 +1231,6 @@ static int adjust_gpu_power(int power)
 static int EARA_handled(int total_power)
 {
 #if defined(EARA_THERMAL_SUPPORT)
-	int ret = 0;
 	int total_power_eara;
 
 #if defined(CATM_TPCB_EXTEND)
@@ -1246,18 +1252,18 @@ static int EARA_handled(int total_power)
 	else
 		total_power_eara = total_power +
 			MINIMUM_VPU_POWER + MINIMUM_MDLA_POWER;
-	ret = mtk_eara_thermal_pb_handle(total_power_eara,
+	is_EARA_handled = mtk_eara_thermal_pb_handle(total_power_eara,
 		MAXIMUM_CPU_POWER, MAXIMUM_GPU_POWER,
 		MAXIMUM_VPU_POWER, MAXIMUM_MDLA_POWER);
 #else
 	total_power_eara = total_power;
-	ret = mtk_eara_thermal_pb_handle(total_power_eara,
+	is_EARA_handled = mtk_eara_thermal_pb_handle(total_power_eara,
 		MAXIMUM_CPU_POWER, MAXIMUM_GPU_POWER, -1, -1);
 #endif
-		return ret;
+	return is_EARA_handled;
 
 #else
-		return 0;
+	return 0;
 #endif
 }
 
@@ -1532,6 +1538,12 @@ static int P_adaptive(int total_power, unsigned int gpu_loading)
 }
 
 #if PRECISE_HYBRID_POWER_BUDGET
+static int g_theta;
+static int g_delta_power_tt;
+static int g_delta_power_tp;
+static int g_tt;
+static int g_tp;
+
 static int __phpb_dynamic_theta(int max_theta)
 {
 	int theta;
@@ -1550,6 +1562,7 @@ static int __phpb_dynamic_theta(int max_theta)
 			(MAX_TARGET_TJ - tj_trip);
 	}
 
+	g_theta = theta;
 	return theta;
 }
 
@@ -1562,13 +1575,14 @@ static int __phpb_calc_delta(int curr_temp, int prev_temp, int phpb_param_idx)
 	struct phpb_param *p = &phpb_params[phpb_param_idx];
 	int tt = TARGET_TJ - curr_temp;
 	int tp = prev_temp - curr_temp;
-	int delta_power = 0, delta_power_tt, delta_power_tp;
+	int delta_power = 0, delta_power_tt = 0, delta_power_tp = 0;
 
 	/* *2 is to cover Tj jump betwen [TTJ-tj_stable_range,
 	 * TTJ+tj_stable_range]
 	 */
 	if ((abs(tt) > tj_stable_range) || (abs(tp) > (tj_stable_range * 2))) {
-		delta_power_tt = tt / p->tt;
+		/* use theta_t = 10 when Tj < TTJ to avoid throttling by mistake */
+		delta_power_tt = (curr_temp < TARGET_TJ) ? (tt / 10) : (tt / p->tt);
 		delta_power_tp = tp / p->tp;
 		/* When Tj is rising, double power cut. */
 		if (delta_power_tp < 0)
@@ -1580,6 +1594,11 @@ static int __phpb_calc_delta(int curr_temp, int prev_temp, int phpb_param_idx)
 		delta_power = 0;
 		tscpu_dprintk("%s Wrong  TARGET_TJ\n", __func__);
 	}
+
+	g_tt = tt;
+	g_tp = tp;
+	g_delta_power_tt = delta_power_tt;
+	g_delta_power_tp = delta_power_tp;
 
 	return delta_power;
 }
@@ -1653,8 +1672,16 @@ static int phpb_calc_total(int prev_total_power, long curr_temp, long prev_temp)
 #if defined(THERMAL_VPU_SUPPORT) || defined(THERMAL_MDLA_SUPPORT)
 	g_delta_power = delta_power;
 #endif
-	if (delta_power == 0)
+	if (delta_power == 0) {
+#if defined(THERMAL_VPU_SUPPORT) || defined(THERMAL_MDLA_SUPPORT)
+		trace_ATM__pid(curr_temp, prev_temp, g_tt, g_tp, g_theta, g_delta_power_tt,
+				g_delta_power_tp, g_delta_power, prev_total_power);
+#else
+		trace_ATM__pid(curr_temp, prev_temp, g_tt, g_tp, g_theta, g_delta_power_tt,
+				g_delta_power_tp, 0, prev_total_power);
+#endif
 		return prev_total_power;
+	}
 
 	curr_power = get_total_curr_power();
 
@@ -1693,6 +1720,14 @@ static int phpb_calc_total(int prev_total_power, long curr_temp, long prev_temp)
 	total_power = clamp(total_power, MINIMUM_TOTAL_POWER,
 						MAXIMUM_TOTAL_POWER);
 
+#if defined(THERMAL_VPU_SUPPORT) || defined(THERMAL_MDLA_SUPPORT)
+	trace_ATM__pid(curr_temp, prev_temp, g_tt, g_tp, g_theta, g_delta_power_tt,
+			g_delta_power_tp, g_delta_power, total_power);
+#else
+	trace_ATM__pid(curr_temp, prev_temp, g_tt, g_tp, g_theta, g_delta_power_tt,
+			g_delta_power_tp, 0, total_power);
+#endif
+
 	return total_power;
 }
 
@@ -1702,7 +1737,7 @@ static int _adaptive_power_ppb
 	static int triggered, total_power;
 	int delta_power = 0;
 
-	if (cl_dev_adp_cpu_state_active == 1) {
+	if (curr_temp > TARGET_TJS[0] || cl_dev_adp_cpu_state_active == 1) {
 		tscpu_dprintk("%s %d %d %d %d %d %d %d\n", __func__,
 				PACKAGE_THETA_JA_RISE, PACKAGE_THETA_JA_FALL,
 				MINIMUM_BUDGET_CHANGE, MINIMUM_CPU_POWER,
@@ -3771,6 +3806,33 @@ static int krtatm_thread(void *arg)
 			_adaptive_power_calc(krtatm_prev_maxtj,
 						krtatm_curr_maxtj,
 						(unsigned int) gpu_loading);
+
+			trace_ATM__result(
+				TARGET_TJ,
+				atm_curr_maxtj,
+#if defined(CONFIG_MACH_MT6739)
+				get_immediate_cpu_wrap(),
+				0,
+#elif defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT8168)
+				get_immediate_cpuLL_wrap(),
+				get_immediate_cpuL_wrap(),
+#else
+				get_immediate_cpuL_wrap(),
+				get_immediate_cpuB_wrap(),
+#endif
+				get_immediate_gpu_wrap(),
+				gpu_loading,
+				(adaptive_cpu_power_limit == 0x7FFFFFFF)
+					? MAXIMUM_CPU_POWER : adaptive_cpu_power_limit,
+				(adaptive_gpu_power_limit == 0x7FFFFFFF)
+					? MAXIMUM_GPU_POWER : adaptive_gpu_power_limit,
+				cl_dev_adp_cpu_state_active,
+#if defined(EARA_THERMAL_SUPPORT)
+				is_EARA_handled
+#else
+				0
+#endif
+			);
 
 			/* To confirm if krtatm kthread is really running. */
 			if (krtatm_curr_maxtj >= 100000 ||
