@@ -179,7 +179,7 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 
 	uint32_t vio_axi_id;
 	uint32_t vio_port_id;
-	uint32_t page;
+	uint64_t page, temp = 0;
 	size_t rd_perm;
 	size_t wr_perm;
 
@@ -233,17 +233,17 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 		pr_info("strange read/write violation (%u)\n", vio_rw);
 
 	if (!devmpu_rw_perm_get(vio_addr, &rd_perm, &wr_perm)) {
+
 		page = vio_addr - devmpu_ctx->prot_base;
-#if BITS_PER_LONG == 32
 		do_div(page, devmpu_ctx->page_size);
-#else
-		page /= devmpu_ctx->page_size;
- #endif
-		pr_info("Page#%x RD/WR : %08zx/%08zx (%lld)\n",
+
+		temp = page;
+
+		pr_info("Page#%llx RD/WR : %08zx/%08zx (%lld)\n",
 			page,
 			switchValue(rd_perm),
 			switchValue(wr_perm),
-			(vio_addr / devmpu_ctx->page_size) % 4);
+			do_div(temp, 4));
 	}
 
 	if (!from_emimpu) {
@@ -274,7 +274,7 @@ static int devmpu_dump_perm(void)
 	uint32_t i;
 
 	uint64_t pa, pa_dump;
-	uint32_t pages;
+	uint64_t pages;
 
 	size_t rd_perm;
 	size_t wr_perm;
@@ -285,11 +285,9 @@ static int devmpu_dump_perm(void)
 	devmpu_ctx = &devmpu_ctx_ary[DEVMPU_DEFAULT_CTX];
 
 	pa = devmpu_ctx->prot_base;
-#if BITS_PER_LONG == 32
-	pages = div_u64(devmpu_ctx->prot_size, devmpu_ctx->page_size);
-#else
-	pages = devmpu_ctx->prot_size / devmpu_ctx->page_size;
-#endif
+
+	pages = devmpu_ctx->prot_size;
+	do_div(pages, devmpu_ctx->page_size);
 
 	pr_info("Page# (bus-addr)  :  RD/WR permissions\n");
 
