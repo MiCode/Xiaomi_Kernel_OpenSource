@@ -36,13 +36,14 @@ static void sensor_comm_notify_handler(int id, void *data, unsigned int len)
 	handle->handler(notify, handle->private_data);
 }
 
-static int sensor_comm_ctrl_send_retry(struct sensor_comm_ctrl *ctrl,
+static int sensor_comm_ctrl_seq_send(struct sensor_comm_ctrl *ctrl,
 		unsigned int size)
 {
 	int ret = 0;
 	struct sensor_comm_ack ack;
 
 	memset(&ack, 0, sizeof(ack));
+	ctrl->sequence = atomic_inc_return(&sensor_comm_sequence);
 	ret = ipi_comm_sync(get_ctrl_id(), (unsigned char *)ctrl, size,
 		(unsigned char *)&ack, sizeof(ack));
 	if (ret < 0)
@@ -65,10 +66,8 @@ int sensor_comm_ctrl_send(struct sensor_comm_ctrl *ctrl, unsigned int size)
 	int retry = 0, ret = 0;
 	const int max_retry = 10;
 
-	ctrl->sequence = atomic_inc_return(&sensor_comm_sequence);
-
 	do {
-		ret = sensor_comm_ctrl_send_retry(ctrl, size);
+		ret = sensor_comm_ctrl_seq_send(ctrl, size);
 	} while (retry++ < max_retry && ret < 0);
 
 	return ret;

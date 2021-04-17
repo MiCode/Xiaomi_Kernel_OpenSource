@@ -73,6 +73,8 @@ static int platform_ready_notifier_call(struct notifier_block *this,
 	} else if (event == SCP_EVENT_READY) {
 		notify.sensor_type = SENSOR_TYPE_INVALID;
 		notify.command = SENS_COMM_NOTIFY_READY_CMD;
+		notify.length = 0;
+		notify.sequence = 0;
 		if (sensor_comm_notify(&notify) < 0)
 			pr_err("Failed notify ready to scp\n");
 		spin_lock_irqsave(&sensor_ready_lock, flags);

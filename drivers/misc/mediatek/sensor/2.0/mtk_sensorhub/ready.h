@@ -9,9 +9,9 @@
 #include <linux/notifier.h>
 
 enum sensor_ready_priority {
-	READY_STDPRI, /* others use normal */
+	READY_STDPRI, /* others use std */
 	READY_HIGHPRI, /* transceiver use high */
-	READY_HIGHESTPRI, /* transceiver use high */
+	READY_HIGHESTPRI, /* sensor comm use highest */
 };
 
 void sensor_ready_notifier_chain_register(struct notifier_block *nb);

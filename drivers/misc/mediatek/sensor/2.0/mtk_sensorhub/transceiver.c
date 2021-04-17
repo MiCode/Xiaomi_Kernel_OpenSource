@@ -23,15 +23,26 @@ static int __init transceiver_init(void)
 	ret = host_ready_init();
 	if (ret < 0) {
 		pr_err("Failed host ready init, ret=%d\n", ret);
-		return ret;
+		goto out_sensor_comm;
+	}
+	ret = sensor_list_init();
+	if (ret < 0) {
+		pr_err("Failed sensor list init, ret=%d\n", ret);
+		goto out_ready;
 	}
 	return 0;
+out_ready:
+	host_ready_exit();
+out_sensor_comm:
+	sensor_comm_exit();
+	return ret;
 }
 
 static void __exit transceiver_exit(void)
 {
 	host_ready_exit();
 	sensor_comm_exit();
+	sensor_list_exit();
 }
 
 module_init(transceiver_init);

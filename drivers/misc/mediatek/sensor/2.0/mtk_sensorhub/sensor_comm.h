@@ -52,7 +52,7 @@ struct sensor_comm_share_mem {
 } __packed;
 
 struct sensor_comm_ctrl {
-	int sequence;
+	uint32_t sequence;
 	uint8_t sensor_type;
 	uint8_t command;
 	uint8_t length;
@@ -61,7 +61,7 @@ struct sensor_comm_ctrl {
 } __packed;
 
 struct sensor_comm_ack {
-	int sequence;
+	uint32_t sequence;
 	uint8_t sensor_type;
 	uint8_t command;
 	uint8_t length;
@@ -78,7 +78,7 @@ struct sensor_comm_notify {
 	uint8_t sensor_type;
 	uint8_t command;
 	uint8_t length;
-	int8_t reserved;
+	uint8_t sequence;
 	union {
 		struct data_notify dnotify;
 		int32_t value[5];

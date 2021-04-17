@@ -13,7 +13,9 @@
 #include <linux/hrtimer.h>
 
 #include "hf_sensor_type.h"
+#include "hf_manager.h"
 #include "sensor_comm.h"
+#include "sensor_list.h"
 
 struct test_sensor_t {
 	int count;
@@ -27,16 +29,25 @@ static struct test_sensor_t test_sensor = {
 	.name = "test_sensor4",
 };
 
+static struct sensor_info sensor_list[SENSOR_TYPE_SENSOR_MAX];
+
 static void test_work_func(struct work_struct *work)
 {
+	int ret = 0;
 	struct sensor_comm_notify notify;
 
 	notify.sensor_type = SENSOR_TYPE_ACCELEROMETER;
 	notify.command = SENS_COMM_NOTIFY_DEBUG_CMD;
+	notify.length = sizeof(notify.value[0]);
+	notify.sequence = 0;
 	notify.value[0] = test_sensor.count++;
-	pr_err("%s send notify sensor_type=%u, command=%u value=%d\n",
-		__func__, notify.sensor_type, notify.command, notify.value[0]);
-	sensor_comm_notify(&notify);
+	ret = sensor_comm_notify(&notify);
+	if (ret < 0)
+		pr_err("%s notify failed %d\n", __func__, ret);
+
+	ret = sensor_list_get_list(sensor_list, ARRAY_SIZE(sensor_list));
+	if (ret < 0)
+		pr_err("%s get sensor list failed %d\n", __func__, ret);
 }
 
 static enum hrtimer_restart test_timer_func(struct hrtimer *timer)
@@ -47,8 +58,6 @@ static enum hrtimer_restart test_timer_func(struct hrtimer *timer)
 
 static void notify_func(struct sensor_comm_notify *n, void *private_data)
 {
-	pr_err("%s receive notify sensor_type=%u, command=%u value=%d\n",
-		__func__, n->sensor_type, n->command, n->value[0]);
 	hrtimer_start(&test_sensor.test_timer,
 		ns_to_ktime(10000000000), HRTIMER_MODE_REL);
 }
