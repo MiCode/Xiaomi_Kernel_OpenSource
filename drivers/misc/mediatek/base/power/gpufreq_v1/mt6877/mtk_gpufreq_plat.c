@@ -1891,10 +1891,14 @@ static struct opp_table_info *__mt_gpufreq_get_segment_table(void)
 {
 	unsigned int efuse_id;
 
-	efuse_id = ((get_devinfo_with_index(209) >> 9) & 0x3);
+	efuse_id = ((get_devinfo_with_index(183) >> 14) & 0x3);
 	switch (efuse_id) {
-	case 0x2: // EFUSE 0x11C105E8[10:9] = 2'b10
+	case 0x0: // EFUSE 0x11F105F0[15:14] = 2’b00
 		return g_opp_table_segment_1;
+	case 0x1: // EFUSE 0x11F105F0[15:14] = 2’b01
+		return g_opp_table_segment_3;
+	case 0x2: // EFUSE 0x11F105F0[15:14] = 2’b10
+		return g_opp_table_segment_2;
 	default:
 		gpufreq_pr_debug("@%s: invalid efuse_id(0x%x)\n",
 				__func__, efuse_id);
