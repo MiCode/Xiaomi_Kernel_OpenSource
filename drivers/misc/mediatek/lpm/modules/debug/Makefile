@@ -9,4 +9,8 @@ ifeq ($(CONFIG_MTK_LPM_MT6853),m)
 obj-$(CONFIG_MTK_LPM_MT6853) += mt6853/
 endif
 
+ifeq ($(CONFIG_MTK_LPM_MT6893),m)
+obj-$(CONFIG_MTK_LPM_MT6893) += mt6893/
+endif
+
 
