@@ -2513,6 +2513,22 @@ static void ufshpb_init_lu_constant(struct ufshpb_dev_info *hpb_dev_info,
 	/* relation : lu <-> region <-> sub region <-> entry */
 	entries_per_rgn = rgn_mem_size / HPB_ENTRY_SIZE;
 	hpb->entries_per_srgn = hpb->srgn_mem_size / HPB_ENTRY_SIZE;
+#if BITS_PER_LONG == 32
+	hpb->srgns_per_rgn = div_u64(rgn_mem_size, hpb->srgn_mem_size);
+
+	/*
+	 * regions_per_lu = (lu_num_blocks * 4096) / region_unit_size
+	 *	          = (lu_num_blocks * HPB_ENTRY_SIZE) / region_mem_size
+	 */
+	hpb->rgns_per_lu =
+		div_u64(((unsigned long long)hpb->lu_num_blocks
+		 + (rgn_mem_size / HPB_ENTRY_SIZE) - 1),
+		 (rgn_mem_size / HPB_ENTRY_SIZE));
+	hpb->srgns_per_lu =
+		div_u64(((unsigned long long)hpb->lu_num_blocks
+		 + (hpb->srgn_mem_size / HPB_ENTRY_SIZE) - 1),
+		(hpb->srgn_mem_size / HPB_ENTRY_SIZE));
+#else
 	hpb->srgns_per_rgn = rgn_mem_size / hpb->srgn_mem_size;
 
 	/*
@@ -2527,6 +2543,7 @@ static void ufshpb_init_lu_constant(struct ufshpb_dev_info *hpb_dev_info,
 		((unsigned long long)hpb->lu_num_blocks
 		 + (hpb->srgn_mem_size / HPB_ENTRY_SIZE) - 1)
 		/ (hpb->srgn_mem_size / HPB_ENTRY_SIZE);
+#endif
 
 	/* mempool info */
 	hpb->mpage_bytes = OS_PAGE_SIZE;

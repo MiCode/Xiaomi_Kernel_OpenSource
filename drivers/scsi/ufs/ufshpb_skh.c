@@ -1936,7 +1936,11 @@ static void skhpb_init_lu_constant(struct skhpb_lu *hpb,
 	hpb->lu_num_blocks = lu_desc->lu_logblk_cnt;
 	entries_per_region = region_mem_size / SKHPB_ENTRY_SIZE;
 	hpb->entries_per_subregion = hpb->subregion_mem_size / SKHPB_ENTRY_SIZE;
+#if BITS_PER_LONG == 32
+	hpb->subregions_per_region = div_u64(region_mem_size, hpb->subregion_mem_size);
+#else
 	hpb->subregions_per_region = region_mem_size / hpb->subregion_mem_size;
+#endif
 
 	hpb->hpb_control_mode = func_desc->hpb_control_mode;
 #if defined(SKHPB_READ_LARGE_CHUNK_SUPPORT)
@@ -1954,12 +1958,21 @@ static void skhpb_init_lu_constant(struct skhpb_lu *hpb,
 	 * 2. regions_per_lu = lu_num_blocks / subregion_mem_size (is trik...)
 	 *    if SKHPB_ENTRY_SIZE != subregions_per_region, it is error.
 	 */
+#if BITS_PER_LONG == 32
+	hpb->regions_per_lu = div_u64((hpb->lu_num_blocks
+			+ (region_mem_size / SKHPB_ENTRY_SIZE) - 1),
+			(region_mem_size / SKHPB_ENTRY_SIZE));
+	hpb->subregions_per_lu = div_u64((hpb->lu_num_blocks
+			+ (hpb->subregion_mem_size / SKHPB_ENTRY_SIZE) - 1),
+			(hpb->subregion_mem_size / SKHPB_ENTRY_SIZE));
+#else
 	hpb->regions_per_lu = (hpb->lu_num_blocks
 			+ (region_mem_size / SKHPB_ENTRY_SIZE) - 1)
 			/ (region_mem_size / SKHPB_ENTRY_SIZE);
 	hpb->subregions_per_lu = (hpb->lu_num_blocks
 			+ (hpb->subregion_mem_size / SKHPB_ENTRY_SIZE) - 1)
 			/ (hpb->subregion_mem_size / SKHPB_ENTRY_SIZE);
+#endif
 
 	/*	mempool info	*/
 	hpb->mpage_bytes = PAGE_SIZE;

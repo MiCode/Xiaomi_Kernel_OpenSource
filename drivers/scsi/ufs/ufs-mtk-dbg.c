@@ -183,7 +183,11 @@ void ufs_mtk_dbg_add_trace(struct ufs_hba *hba,
 			ufshcd_update_evt_hist(hba, UFS_EVT_PERF_WARN,
 			    (u32) ((opcode << 24) |
 			    (((transfer_len >> 12) & 0xFF) << 16) |
+#if BITS_PER_LONG == 32
+			    (div_u64(ufs_cmd_hlist[ufs_cmd_ptr].duration, 1000000))));
+#else
 			    (ufs_cmd_hlist[ufs_cmd_ptr].duration / 1000000)));
+#endif
 		}
 	}
 
