@@ -863,6 +863,13 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				"emi2";
 		};
 
+		pericfg: pericfg@10003000 {
+			compatible = "mediatek,pericfg",
+				"mediatek,mt6779-pericfg", "syscon";
+			reg = <0 0x10003000 0 0x1000>;
+			#clock-cells=<1>;
+		};
+
 		gpio: gpio@10005000 {
 			compatible = "mediatek,gpio";
 			reg = <0 0x10005000 0 0x1000>;
@@ -3541,6 +3548,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			mediatek,spm-mgr = <1>;
 			maximum-speed = "high-speed";
 			usb-role-switch;
+			mediatek,syscon-wakeup = <&pericfg 0x420 101>;
+			wakeup-source;
 			status = "okay";
 
 			usb_host: xhci0@11200000 {
