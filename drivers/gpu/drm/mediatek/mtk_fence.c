@@ -87,7 +87,7 @@ _get_session_sync_info(unsigned int session_id)
 	if ((MTK_SESSION_TYPE(session_id) != MTK_SESSION_PRIMARY) &&
 	    (MTK_SESSION_TYPE(session_id) != MTK_SESSION_EXTERNAL) &&
 	    (MTK_SESSION_TYPE(session_id) != MTK_SESSION_MEMORY)) {
-		DDPPR_ERR("invalid session id:0x%08x\n", session_id);
+		DDPFENCE("invalid session id:0x%08x\n", session_id);
 		return NULL;
 	}
 
@@ -226,7 +226,7 @@ struct mtk_fence_info *_disp_sync_get_sync_info(unsigned int session_id,
 	}
 
 	if (layer_info == NULL || session_info == NULL) {
-		DDPPR_ERR(
+		DDPFENCE(
 			"cant get sync info for session_id:0x%08x, timeline_id:%d\n",
 			session_id, timeline_id);
 		goto done;
@@ -530,7 +530,7 @@ int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
 	timeline_id = mtk_fence_get_present_timeline_id(session_id);
 	layer_info = _disp_sync_get_sync_info(session_id, timeline_id);
 	if (layer_info == NULL) {
-		DDPPR_ERR("%s:%d layer_info is null\n", __func__, __LINE__);
+		DDPFENCE("%s:%d layer_info is null\n", __func__, __LINE__);
 		return -1;
 	}
 
@@ -582,7 +582,7 @@ int mtk_release_sf_present_fence(unsigned int session_id,
 	timeline_id = mtk_fence_get_sf_present_timeline_id(session_id);
 	layer_info = _disp_sync_get_sync_info(session_id, timeline_id);
 	if (layer_info == NULL) {
-		DDPPR_ERR("%s:%d layer_info is null\n", __func__, __LINE__);
+		DDPFENCE("ERROR:%s:%d layer_info is null\n", __func__, __LINE__);
 		return -1;
 	}
 
@@ -653,7 +653,7 @@ int mtk_fence_get_present_timeline_id(unsigned int session_id)
 	if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_EXTERNAL)
 		return MTK_TIMELINE_SECONDARY_PRESENT_TIMELINE_ID;
 
-	DDPPR_ERR("session id is wrong, session=0x%x!!\n", session_id);
+	DDPFENCE("session id is wrong, session=0x%x!!\n", session_id);
 	return -1;
 }
 
@@ -662,7 +662,7 @@ int mtk_fence_get_sf_present_timeline_id(unsigned int session_id)
 	if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_PRIMARY)
 		return MTK_TIMELINE_SF_PRIMARY_PRESENT_TIMELINE_ID;
 
-	DDPPR_ERR("session id is wrong, session=0x%x!!\n", session_id);
+	DDPFENCE("ERROR:session id is wrong, session=0x%x!!\n", session_id);
 	return -1;
 }
 
