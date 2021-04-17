@@ -297,7 +297,7 @@ int mtk_dp_debugfs_init(void)
 		return -ENOMEM;
 #endif
 #if IS_ENABLED(CONFIG_PROC_FS)
-	mtkdp_procfs = proc_create("mtk_dpinfo", 0644, NULL,
+	mtkdp_procfs = proc_create("mtk_dpinfo", 0640, NULL,
 		&dp_debug_fops);
 	if (IS_ERR_OR_NULL(mtkdp_procfs))
 		return -ENOMEM;

@@ -454,7 +454,7 @@ void mtk_drm_debugfs_init(struct drm_device *dev, struct mtk_drm_private *priv)
 					   &debug_fops);
 #endif
 #if IS_ENABLED(CONFIG_PROC_FS)
-	mtkdrm_dbgfs = proc_create("mtkdrm", S_IFREG | 0644, NULL,
+	mtkdrm_dbgfs = proc_create("mtkdrm", S_IFREG | 0640, NULL,
 					   &debug_fops);
 	if (!mtkdrm_dbgfs) {
 		pr_info("[%s %d]failed to create mtkdrm in /proc\n",
