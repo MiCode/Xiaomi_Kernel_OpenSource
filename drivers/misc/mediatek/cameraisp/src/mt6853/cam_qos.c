@@ -27,8 +27,8 @@
 //#define EP_STAGE
 //#define EP_PMQOS
 #elif defined CONFIG_MACH_MT6833
-//#define CONFIG_MTK_QOS_SUPPORT_ENABLE
-#define EP_STAGE
+#define CONFIG_MTK_QOS_SUPPORT_ENABLE
+//#define EP_STAGE
 #define EP_PMQOS
 #elif defined CONFIG_MACH_MT6877
 //#define CONFIG_MTK_QOS_SUPPORT_ENABLE
