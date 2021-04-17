@@ -46,7 +46,8 @@ struct sensor_comm_timesync {
 
 struct sensor_comm_share_mem {
 	struct {
-		uint32_t notify_cmd;
+		uint8_t notify_cmd;
+		uint8_t reserve[3];
 		uint32_t buffer_base;
 	} base_info[4];
 } __packed;

@@ -39,7 +39,7 @@ static void test_debug(void)
 	ctrl->length = 0;
 	ret = sensor_comm_ctrl_send(ctrl, sizeof(*ctrl) + ctrl->length);
 	if (ret < 0)
-		pr_err("debug fail\n");
+		pr_err("debug fail %d\n", ret);
 	kfree(ctrl);
 }
 
@@ -56,7 +56,7 @@ static void test_config(void)
 	memcpy(ctrl->data, cfg, sizeof(cfg));
 	ret = sensor_comm_ctrl_send(ctrl, sizeof(*ctrl) + ctrl->length);
 	if (ret < 0)
-		pr_err("config fail\n");
+		pr_err("config fail %d\n", ret);
 	kfree(ctrl);
 }
 

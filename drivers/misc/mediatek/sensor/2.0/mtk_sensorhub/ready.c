@@ -20,6 +20,12 @@ static bool sensor_ready;
 static BLOCKING_NOTIFIER_HEAD(sensor_ready_notifier_head);
 static struct workqueue_struct *sensor_ready_workqueue;
 static struct work_struct sensor_ready_work;
+static struct delayed_work sensor_rescure_work;
+
+void __attribute__((weak)) scp_wdt_reset(int cpu_id)
+{
+
+}
 
 void __attribute__((weak)) scp_A_register_notify(struct notifier_block *nb)
 {
@@ -33,9 +39,19 @@ void __attribute__((weak)) scp_A_unregister_notify(struct notifier_block *nb)
 
 void sensor_ready_notifier_chain_register(struct notifier_block *nb)
 {
+	unsigned long flags = 0;
+	bool status = false;
+
 	blocking_notifier_chain_register(&sensor_ready_notifier_head, nb);
-	if (READ_ONCE(sensor_ready))
-		nb->notifier_call(nb, true, NULL);
+	/*
+	 * must copy sensor_ready to status to avoid sensor_ready
+	 * modified during notifier calling, keep notify the same status.
+	 */
+	spin_lock_irqsave(&sensor_ready_lock, flags);
+	status = sensor_ready;
+	spin_unlock_irqrestore(&sensor_ready_lock, flags);
+	if (status)
+		nb->notifier_call(nb, status, NULL);
 }
 
 void sensor_ready_notifier_chain_unregister(struct notifier_block *nb)
@@ -52,6 +68,7 @@ static void scp_ready_notify_handler(struct sensor_comm_notify *n,
 	scp_ready = true;
 	if (platform_ready && scp_ready) {
 		sensor_ready = true;
+		cancel_delayed_work(&sensor_rescure_work);
 		queue_work(sensor_ready_workqueue, &sensor_ready_work);
 	}
 	spin_unlock_irqrestore(&sensor_ready_lock, flags);
@@ -61,9 +78,11 @@ static int platform_ready_notifier_call(struct notifier_block *this,
 		unsigned long event, void *ptr)
 {
 	unsigned long flags = 0;
+	int ret = 0;
 	struct sensor_comm_notify notify;
 
 	if (event == SCP_EVENT_STOP) {
+		cancel_delayed_work(&sensor_rescure_work);
 		spin_lock_irqsave(&sensor_ready_lock, flags);
 		platform_ready = false;
 		scp_ready = false;
@@ -75,8 +94,11 @@ static int platform_ready_notifier_call(struct notifier_block *this,
 		notify.command = SENS_COMM_NOTIFY_READY_CMD;
 		notify.length = 0;
 		notify.sequence = 0;
-		if (sensor_comm_notify(&notify) < 0)
-			pr_err("Failed notify ready to scp\n");
+		ret = sensor_comm_notify(&notify);
+		if (ret < 0)
+			pr_err("Failed notify ready to scp %d\n", ret);
+		queue_delayed_work(sensor_ready_workqueue,
+			&sensor_rescure_work, msecs_to_jiffies(5000));
 		spin_lock_irqsave(&sensor_ready_lock, flags);
 		platform_ready = true;
 		if (platform_ready && scp_ready) {
@@ -96,13 +118,36 @@ static struct notifier_block platform_ready_notifier = {
 
 static void sensor_ready_work_fn(struct work_struct *work)
 {
+	unsigned long flags = 0;
+	bool status = false;
+
+	/*
+	 * must copy sensor_ready to status to avoid sensor_ready
+	 * modified during notifier calling, keep notify the same status.
+	 */
+	spin_lock_irqsave(&sensor_ready_lock, flags);
+	status = sensor_ready;
+	spin_unlock_irqrestore(&sensor_ready_lock, flags);
 	blocking_notifier_call_chain(&sensor_ready_notifier_head,
-		READ_ONCE(sensor_ready), NULL);
+		status, NULL);
+}
+
+static void sensor_rescure_work_fn(struct work_struct *work)
+{
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&sensor_ready_lock, flags);
+	if (platform_ready && !scp_ready) {
+		pr_alert("Rescure sensor by scp reset due to no ready ack\n");
+		scp_wdt_reset(0);
+	}
+	spin_unlock_irqrestore(&sensor_ready_lock, flags);
 }
 
 int host_ready_init(void)
 {
 	INIT_WORK(&sensor_ready_work, sensor_ready_work_fn);
+	INIT_DELAYED_WORK(&sensor_rescure_work, sensor_rescure_work_fn);
 	sensor_ready_workqueue = alloc_workqueue("sensor_ready",
 		WQ_MEM_RECLAIM | WQ_HIGHPRI, 0);
 	if (!sensor_ready_workqueue) {
@@ -119,5 +164,6 @@ void host_ready_exit(void)
 {
 	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_READY_CMD);
 	scp_A_unregister_notify(&platform_ready_notifier);
+	flush_workqueue(sensor_ready_workqueue);
 	destroy_workqueue(sensor_ready_workqueue);
 }

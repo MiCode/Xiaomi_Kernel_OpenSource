@@ -35,6 +35,7 @@ static void test_work_func(struct work_struct *work)
 {
 	int ret = 0;
 	struct sensor_comm_notify notify;
+	unsigned int i = 0;
 
 	notify.sensor_type = SENSOR_TYPE_ACCELEROMETER;
 	notify.command = SENS_COMM_NOTIFY_DEBUG_CMD;
@@ -44,10 +45,23 @@ static void test_work_func(struct work_struct *work)
 	ret = sensor_comm_notify(&notify);
 	if (ret < 0)
 		pr_err("%s notify failed %d\n", __func__, ret);
+	memset(sensor_list, 0x00, sizeof(sensor_list));
 
 	ret = sensor_list_get_list(sensor_list, ARRAY_SIZE(sensor_list));
-	if (ret < 0)
+	if (ret < 0) {
 		pr_err("%s get sensor list failed %d\n", __func__, ret);
+		return;
+	}
+
+	for (i = 0; i < ret; i++) {
+		if (sensor_list[i].sensor_type == SENSOR_TYPE_INVALID)
+			continue;
+
+		pr_err("%s type:%u, gain:%u, name:%s, vendor:%s\n",
+			__func__, sensor_list[i].sensor_type,
+			sensor_list[i].gain, sensor_list[i].name,
+			sensor_list[i].vendor);
+	}
 }
 
 static enum hrtimer_restart test_timer_func(struct hrtimer *timer)

@@ -51,7 +51,7 @@ static void test_work_func(struct work_struct *work)
 	}
 	ret = sensor_comm_ctrl_send(ctrl, sizeof(*ctrl) + ctrl->length);
 	if (ret < 0)
-		pr_err("enable disable fail\n");
+		pr_err("enable disable fail %d\n", ret);
 	kfree(ctrl);
 }
 

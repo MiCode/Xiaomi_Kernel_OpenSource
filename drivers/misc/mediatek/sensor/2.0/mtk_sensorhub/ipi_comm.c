@@ -80,15 +80,11 @@ static int ipi_transfer_buffer(struct ipi_transfer *t)
 	do {
 		status = scp_ipi_send(hw->id,
 			(unsigned char *)hw->tx, hw->tx_len, 0, SCP_A_ID);
-		if (status == SCP_IPI_ERROR) {
-			pr_err("%s transfer fail\n", __func__);
+		if (status == SCP_IPI_ERROR)
 			return -EIO;
-		}
 		if (status == SCP_IPI_BUSY) {
-			if (retry++ == 1000) {
-				pr_err("%s retry fail\n", __func__);
+			if (retry++ == 1000)
 				return -EBUSY;
-			}
 			if (retry % 100 == 0)
 				usleep_range(1000, 2000);
 		}
@@ -97,10 +93,8 @@ static int ipi_transfer_buffer(struct ipi_transfer *t)
 	timeout = wait_for_completion_timeout(&hw->done,
 			msecs_to_jiffies(500));
 	spin_lock_irqsave(&hw_transfer_lock, flags);
-	if (!timeout) {
-		pr_err("%s transfer timeout!", __func__);
-		hw->count = -1;
-	}
+	if (!timeout)
+		hw->count = -ETIMEDOUT;
 	hw->context = NULL;
 	spin_unlock_irqrestore(&hw_transfer_lock, flags);
 	return hw->count;
@@ -130,19 +124,14 @@ static void ipi_transfer_messages(void)
 		list_for_each_entry(t, &m->transfers, transfer_list) {
 			if (!t->tx_buf && t->tx_len) {
 				status = -EINVAL;
-				pr_err("invalid parameter: %d\n",
-					status);
 				break;
 			}
 			if (t->tx_len)
 				status = ipi_transfer_buffer(t);
 			if (status < 0) {
-				status = -EREMOTEIO;
-				/* pr_err("transfer err :%d\n", status); */
 				break;
 			} else if (status != t->rx_len) {
-				pr_err("ack err: %d %d\n", status, t->rx_len);
-				status = -EREMOTEIO;
+				status = -EBADMSG;
 				break;
 			}
 			status = 0;
@@ -238,15 +227,11 @@ int ipi_comm_noack(int id, unsigned char *tx, unsigned int n_tx)
 
 	do {
 		status = scp_ipi_send(id, tx, n_tx, 0, SCP_A_ID);
-		if (status == SCP_IPI_ERROR) {
-			pr_err("%s transfer fail\n", __func__);
+		if (status == SCP_IPI_ERROR)
 			return -EIO;
-		}
 		if (status == SCP_IPI_BUSY) {
-			if (retry++ == 1000) {
-				pr_err("%s retry fail\n", __func__);
+			if (retry++ == 1000)
 				return -EBUSY;
-			}
 			if (retry % 100 == 0)
 				usleep_range(1000, 2000);
 		}
@@ -329,5 +314,6 @@ void ipi_comm_exit(void)
 {
 	scp_ipi_unregistration(IPI_CHRE);
 	scp_ipi_unregistration(IPI_CHREX);
+	flush_workqueue(controller.workqueue);
 	destroy_workqueue(controller.workqueue);
 }

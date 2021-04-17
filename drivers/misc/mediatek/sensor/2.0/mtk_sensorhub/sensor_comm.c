@@ -49,15 +49,15 @@ static int sensor_comm_ctrl_seq_send(struct sensor_comm_ctrl *ctrl,
 	if (ret < 0)
 		return ret;
 	if (ctrl->sequence != ack.sequence)
-		return -EIO;
+		return -EILSEQ;
 	if (ctrl->sensor_type != ack.sensor_type)
-		return -EIO;
+		return -EPROTO;
 	if (ctrl->command != ack.command)
-		return -EIO;
+		return -EPROTO;
 	if (ctrl->length != ack.length)
-		return -EIO;
+		return -EPROTO;
 	if (ack.ret_val < 0)
-		return -EIO;
+		return -EREMOTEIO;
 	return 0;
 }
 

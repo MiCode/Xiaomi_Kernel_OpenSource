@@ -45,7 +45,7 @@ static void test_work_func(struct work_struct *work)
 	local_irq_enable();
 	ret = sensor_comm_ctrl_send(ctrl, sizeof(*ctrl) + ctrl->length);
 	if (ret < 0)
-		pr_err("timesync fail\n");
+		pr_err("timesync fail %d\n", ret);
 	kfree(ctrl);
 }
 
