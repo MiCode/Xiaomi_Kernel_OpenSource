@@ -29,8 +29,9 @@
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
-#ifdef mtk09077
-#include <mtk_pbm.h>
+#if IS_ENABLED(CONFIG_MTK_PBM)
+#include "mtk_pbm.h"
+#include "mtk_mdpm.h"
 #endif
 #include "ccci_config.h"
 #include "ccci_common_config.h"
@@ -718,11 +719,11 @@ static void dump_runtime_data_v2_1(struct ccci_modem *md,
 		ap_feature->tail_pattern);
 }
 
+#if (MD_GENERATION < 6297)
 static void md_cd_smem_sub_region_init(struct ccci_modem *md)
 {
-#if (MD_GENERATION < 6297)
-	int __iomem *addr;
 	int i;
+	int __iomem *addr;
 	struct ccci_smem_region *dbm =
 		ccci_md_get_smem_by_user_id(md->index, SMEM_USER_RAW_DBM);
 
@@ -730,24 +731,37 @@ static void md_cd_smem_sub_region_init(struct ccci_modem *md)
 	addr = (int __iomem *)dbm->base_ap_view_vir;
 	addr[0] = 0x44444444; /* Guard pattern 1 header */
 	addr[1] = 0x44444444; /* Guard pattern 2 header */
+
 #ifdef DISABLE_PBM_FEATURE
-	for (i = 2; i < (CCCI_SMEM_SIZE_DBM/4+2); i++)
+	for (i = 2; i < (CCCI_SMEM_SIZE_DBM / 4 + 2); i++)
 		addr[i] = 0xFFFFFFFF;
 #else
-	for (i = 2; i < (CCCI_SMEM_SIZE_DBM/4+2); i++)
+	for (i = 2; i < (CCCI_SMEM_SIZE_DBM / 4 + 2); i++)
 		addr[i] = 0x00000000;
 #endif
+
 	addr[i++] = 0x44444444; /* Guard pattern 1 tail */
 	addr[i++] = 0x44444444; /* Guard pattern 2 tail */
-#endif
 
-#ifdef mtk09077_pbm
-	/* Notify PBM */
-#ifndef DISABLE_PBM_FEATURE
-	init_md_section_level(KR_MD1);
+#if IS_ENABLED(CONFIG_MTK_PBM)
+	addr += CCCI_SMEM_SIZE_DBM_GUARD;
 #endif
+	init_md_section_level(KR_MD1, addr);
+}
+#else
+static void md_cd_smem_sub_region_init(struct ccci_modem *md)
+{
+#if IS_ENABLED(CONFIG_MTK_PBM)
+	int __iomem *addr;
+	struct ccci_smem_region *dbm =
+		ccci_md_get_smem_by_user_id(md->index, SMEM_USER_RAW_DBM);
+
+	/* Region 0, dbm */
+	addr = (int __iomem *)dbm->base_ap_view_vir;
+	init_md_section_level(KR_MD1, addr);
 #endif
 }
+#endif
 
 static void config_ap_runtime_data_v2(struct ccci_modem *md,
 	struct ap_query_md_feature *ap_feature)
@@ -1296,7 +1310,6 @@ static struct syscore_ops ccci_modem_sysops = {
 	.resume = ccci_modem_sysresume,
 };
 
-#define DMA_BIT_MASK(n) (((n) == 64) ? ~0ULL : ((1ULL<<(n))-1))
 static u64 cldma_dmamask = DMA_BIT_MASK(36);
 
 int ccci_modem_init_common(struct platform_device *plat_dev,

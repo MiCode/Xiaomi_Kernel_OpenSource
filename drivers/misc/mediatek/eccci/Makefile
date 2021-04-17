@@ -31,6 +31,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-amms
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/hif/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mdpm/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/pbm/
 ifeq ($(CCCI_OBJ), m)
 ccflags-y += -DCCCI_KMODULE_ENABLE
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/hif

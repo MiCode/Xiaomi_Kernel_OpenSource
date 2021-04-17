@@ -43,6 +43,10 @@
 #include "modem_reg_base.h"
 #include "ap_md_reg_dump.h"
 
+#if IS_ENABLED(CONFIG_MTK_PBM)
+#include "mtk_pbm.h"
+#endif
+
 struct ccci_md_regulator {
 	struct regulator *reg_ref;
 	unsigned char *reg_name;
@@ -707,9 +711,11 @@ static int md_cd_power_on(struct ccci_modem *md)
 
 		CCCI_BOOTUP_LOG(md->index, TAG,
 			"enable md sys clk done,ret = %d\n", ret);
-		//xuxin-pbm//kicker_pbm_by_md(KR_MD1, true);
+#if IS_ENABLED(CONFIG_MTK_PBM)
+		kicker_pbm_by_md(KR_MD1, true);
 		CCCI_BOOTUP_LOG(md->index, TAG,
 			"Call end kicker_pbm_by_md(0,true)\n");
+#endif
 		break;
 	}
 	if (ret)
@@ -821,9 +827,11 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 		md_cd_topclkgen_off(md);
 
 		/* 5. DLPT */
-		//xuxin-pbm//kicker_pbm_by_md(KR_MD1, false);
+#if IS_ENABLED(CONFIG_MTK_PBM)
+		kicker_pbm_by_md(KR_MD1, false);
 		CCCI_BOOTUP_LOG(md->index, TAG,
 			"Call end kicker_pbm_by_md(0,false)\n");
+#endif
 		break;
 	}
 	return ret;
