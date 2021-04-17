@@ -42,6 +42,7 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_DEBOUNCE_TIME,      0x00001965 },
 		{ DVFSRC_TIMEOUT_NEXTREQ,    0x0000001E },
 		{ DVFSRC_LEVEL_MASK,         0x001DC000 },
+		{ DVFSRC_LEVEL_MASK,	     0x00CCCC80 },
 
 		{ DVFSRC_DDR_QOS0,           0x00000033 },
 		{ DVFSRC_DDR_QOS1,           0x0000004C },
@@ -118,7 +119,7 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_HRT_LOW_1,          0x1AD116FF },
 		{ DVFSRC_HRT_LOW,            0x0E0F095F },
 
-		{ DVFSRC_BASIC_CONTROL_3,    0x00000006 },
+/*		{ DVFSRC_BASIC_CONTROL_3,    0x0000000E },*/
 		{ DVFSRC_INT_EN,             0x00000002 },
 		{ DVFSRC_QOS_EN,             0x0000407C },
 
@@ -324,7 +325,6 @@ static void dvfsrc_autok_manager(void)
 }
 #endif
 
-
 void helio_dvfsrc_platform_pre_init(struct helio_dvfsrc *dvfsrc)
 {
 	struct platform_device *pdev = to_platform_device(dvfsrc->dev);
@@ -368,14 +368,23 @@ void dvfsrc_resume_cb(struct helio_dvfsrc *dvfsrc)
 
 }
 
+#define DVFSRC_MD_UP_SHIFT 28
 void helio_dvfsrc_platform_init(struct helio_dvfsrc *dvfsrc)
 {
 	int spmfw_idx = 0;
 	struct reg_config *config;
 	int idx = 0;
+	int dvfsrc_rsrv;
 
 
 	sysfs_merge_group(&dvfsrc->dev->kobj, &mt6893_helio_dvfsrc_attr_group);
+
+	dvfsrc_rsrv = readl(dvfsrc->regs + DVFSRC_RSRV_4);
+
+	if (((dvfsrc_rsrv >> DVFSRC_MD_UP_SHIFT) & 0x1))
+		dvfsrc_write(DVFSRC_BASIC_CONTROL_3, 0xE);
+	else
+		dvfsrc_write(DVFSRC_BASIC_CONTROL_3, 0x6);
 
 	config = dvfsrc_init_configs[spmfw_idx];
 
@@ -427,6 +436,10 @@ void get_spm_reg(char *p)
 			spm_reg_read(SPM_DVFS_CMD18),
 			spm_reg_read(SPM_DVFS_CMD19),
 			spm_reg_read(SPM_DVFS_CMD20));
+	p += sprintf(p, "%-16s: %x , 0x%08x\n",
+			"MD_MASK",
+			dvfsrc_read(DVFSRC_BASIC_CONTROL_3),
+			dvfsrc_read(DVFSRC_LEVEL_MASK));
 }
 
 void get_opp_info(char *p)
