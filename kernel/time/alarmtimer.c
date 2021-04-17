@@ -159,16 +159,19 @@ static inline void alarmtimer_rtc_timer_init(void) { }
  */
 static void alarmtimer_enqueue(struct alarm_base *base, struct alarm *alarm)
 {
+#ifdef CONFIG_ALARMTIMER_DEBUG
 	static DEFINE_RATELIMIT_STATE(ratelimit, HZ - 1, 5);
+#endif
 
 	if (alarm->state & ALARMTIMER_STATE_ENQUEUED)
 		timerqueue_del(&base->timerqueue, &alarm->node);
 
+#ifdef CONFIG_ALARMTIMER_DEBUG
 	if (__ratelimit(&ratelimit)) {
 		ratelimit.begin = jiffies;
 		pr_notice("%s, %lld\n", __func__, alarm->node.expires);
 	}
-
+#endif
 	timerqueue_add(&base->timerqueue, &alarm->node);
 	alarm->state |= ALARMTIMER_STATE_ENQUEUED;
 }
@@ -252,7 +255,10 @@ static int alarmtimer_suspend(struct device *dev)
 	int i, ret, type;
 	struct rtc_device *rtc;
 	unsigned long flags;
-	struct rtc_time tm, time;
+	struct rtc_time tm;
+#ifdef CONFIG_ALARMTIMER_DEBUG
+	struct rtc_time time;
+#endif
 
 	spin_lock_irqsave(&freezer_delta_lock, flags);
 	min = freezer_delta;
@@ -299,7 +305,7 @@ static int alarmtimer_suspend(struct device *dev)
 	rtc_read_time(rtc, &tm);
 	now = rtc_tm_to_ktime(tm);
 	now = ktime_add(now, min);
-
+#ifdef CONFIG_ALARMTIMER_DEBUG
 	time = rtc_ktime_to_tm(now);
 	pr_notice_ratelimited("%s convert %lld to %04d/%02d/%02d %02d:%02d:%02d (now = %04d/%02d/%02d %02d:%02d:%02d)\n",
 			__func__, expires,
@@ -307,7 +313,7 @@ static int alarmtimer_suspend(struct device *dev)
 			time.tm_hour, time.tm_min, time.tm_sec,
 			tm.tm_year+1900, tm.tm_mon+1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec);
-
+#endif
 	/* Set alarm, if in the past reject suspend briefly to handle */
 	ret = rtc_timer_start(rtc, &rtctimer, now, 0);
 	if (ret < 0)
