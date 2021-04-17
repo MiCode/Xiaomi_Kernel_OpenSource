@@ -3,7 +3,7 @@
  * Copyright (C) 2020 MediaTek Inc.
  */
 
-#define pr_fmt(fmt) "[sensor_ready] " fmt
+#define pr_fmt(fmt) "sensor_ready " fmt
 
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
@@ -96,7 +96,7 @@ static int platform_ready_notifier_call(struct notifier_block *this,
 		notify.sequence = 0;
 		ret = sensor_comm_notify(&notify);
 		if (ret < 0)
-			pr_err("Failed notify ready to scp %d\n", ret);
+			pr_err("notify ready to scp fail %d\n", ret);
 		queue_delayed_work(sensor_ready_workqueue,
 			&sensor_rescure_work, msecs_to_jiffies(5000));
 		spin_lock_irqsave(&sensor_ready_lock, flags);
@@ -138,7 +138,7 @@ static void sensor_rescure_work_fn(struct work_struct *work)
 
 	spin_lock_irqsave(&sensor_ready_lock, flags);
 	if (platform_ready && !scp_ready) {
-		pr_alert("Rescure sensor by scp reset due to no ready ack\n");
+		pr_alert("rescure sensor by scp reset due to no ready ack\n");
 		scp_wdt_reset(0);
 	}
 	spin_unlock_irqrestore(&sensor_ready_lock, flags);
@@ -151,7 +151,7 @@ int host_ready_init(void)
 	sensor_ready_workqueue = alloc_workqueue("sensor_ready",
 		WQ_MEM_RECLAIM | WQ_HIGHPRI, 0);
 	if (!sensor_ready_workqueue) {
-		pr_err("Failed to alloc workqueue\n");
+		pr_err("alloc workqueue fail\n");
 		return -ENOMEM;
 	}
 	sensor_comm_notify_handler_register(SENS_COMM_NOTIFY_READY_CMD,

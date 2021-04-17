@@ -3,7 +3,7 @@
  * Copyright (C) 2020 MediaTek Inc.
  */
 
-#define pr_fmt(fmt) "[test_sensor4] " fmt
+#define pr_fmt(fmt) "test_sensor4 " fmt
 
 #include <linux/module.h>
 #include <linux/string.h>
@@ -38,18 +38,18 @@ static void test_work_func(struct work_struct *work)
 	unsigned int i = 0;
 
 	notify.sensor_type = SENSOR_TYPE_ACCELEROMETER;
-	notify.command = SENS_COMM_NOTIFY_DEBUG_CMD;
+	notify.command = SENS_COMM_NOTIFY_TEST_CMD;
 	notify.length = sizeof(notify.value[0]);
 	notify.sequence = 0;
 	notify.value[0] = test_sensor.count++;
 	ret = sensor_comm_notify(&notify);
 	if (ret < 0)
-		pr_err("%s notify failed %d\n", __func__, ret);
-	memset(sensor_list, 0x00, sizeof(sensor_list));
+		pr_err("notify failed %d\n", ret);
 
+	memset(sensor_list, 0, sizeof(sensor_list));
 	ret = sensor_list_get_list(sensor_list, ARRAY_SIZE(sensor_list));
 	if (ret < 0) {
-		pr_err("%s get sensor list failed %d\n", __func__, ret);
+		pr_err("get sensor list failed %d\n", ret);
 		return;
 	}
 
@@ -57,8 +57,8 @@ static void test_work_func(struct work_struct *work)
 		if (sensor_list[i].sensor_type == SENSOR_TYPE_INVALID)
 			continue;
 
-		pr_err("%s type:%u, gain:%u, name:%s, vendor:%s\n",
-			__func__, sensor_list[i].sensor_type,
+		pr_err("sensor list type:%u, gain:%u, name:%s, vendor:%s\n",
+			sensor_list[i].sensor_type,
 			sensor_list[i].gain, sensor_list[i].name,
 			sensor_list[i].vendor);
 	}
@@ -79,7 +79,7 @@ static void notify_func(struct sensor_comm_notify *n, void *private_data)
 static int __init test_init(void)
 {
 	sensor_comm_notify_handler_register(
-		SENS_COMM_NOTIFY_DEBUG_CMD, notify_func, NULL);
+		SENS_COMM_NOTIFY_TEST_CMD, notify_func, NULL);
 	INIT_WORK(&test_sensor.test_work, test_work_func);
 	test_sensor.workqueue = create_singlethread_workqueue(test_sensor.name);
 	hrtimer_init(&test_sensor.test_timer,

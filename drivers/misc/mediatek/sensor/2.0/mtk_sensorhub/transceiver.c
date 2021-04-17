@@ -3,7 +3,7 @@
  * Copyright (C) 2020 MediaTek Inc.
  */
 
-#define pr_fmt(fmt) "[transceiver] " fmt
+#define pr_fmt(fmt) "transceiver " fmt
 
 #include <linux/err.h>
 #include <linux/module.h>
@@ -17,112 +17,90 @@
 #include "sensor_comm.h"
 #include "sensor_list.h"
 #include "share_memory.h"
+#include "debug.h"
 
-#define TRANSCEIVER_SHARE_MEM_DATA_BUFFER_NUM 8
-#define TRANSCEIVER_READ_WP_NUM 32
+#define TRANSCEIVER_SHM_BUFFER_NUM 8
+#define TRANSCEIVER_WP_NUM 32
 
-DECLARE_COMPLETION(transceiver_read_wp_completion);
-DEFINE_KFIFO(transceiver_read_wp_fifo, uint32_t, TRANSCEIVER_READ_WP_NUM);
-DEFINE_SPINLOCK(transceiver_read_wp_lock);
+DECLARE_COMPLETION(transceiver_wp_done);
+DEFINE_KFIFO(transceiver_wp_fifo, uint32_t, TRANSCEIVER_WP_NUM);
+DEFINE_SPINLOCK(transceiver_wp_fifo_lock);
 
-static struct share_mem transceiver_shm_data_reader;
-static struct share_mem_data
-share_mem_read_buffer[TRANSCEIVER_SHARE_MEM_DATA_BUFFER_NUM];
+static struct task_struct *transceiver_task;
+static struct share_mem transceiver_shm_reader;
+static struct share_mem_data share_mem_buffer[TRANSCEIVER_SHM_BUFFER_NUM];
 
 static void transceiver_notify_func(struct sensor_comm_notify *n,
 		void *private_data)
 {
-	int ret = 0;
 	uint32_t wp = 0;
 
 	if (n->command != SENS_COMM_NOTIFY_DATA_CMD &&
-		n->command != SENS_COMM_NOTIFY_FULL_CMD) {
-		pr_err("%s fail, type:%d command:%d value:%d\n",
-			__func__, n->sensor_type, n->command, n->value[0]);
+	    n->command != SENS_COMM_NOTIFY_FULL_CMD)
 		return;
-	}
 
-	spin_lock(&transceiver_read_wp_lock);
-
-	if (kfifo_is_full(&transceiver_read_wp_fifo)) {
-		ret = kfifo_out(&transceiver_read_wp_fifo, &wp, 1);
-		pr_err_ratelimited("%s drop wp:%d ret:%d\n", __func__, wp, ret);
+	spin_lock(&transceiver_wp_fifo_lock);
+	if (kfifo_is_full(&transceiver_wp_fifo)) {
+		kfifo_out(&transceiver_wp_fifo, &wp, 1);
+		pr_err_ratelimited("drop old write position\n");
 	}
 	wp = n->dnotify.write_position;
-	ret = kfifo_in(&transceiver_read_wp_fifo, &wp, 1);
-
-	spin_unlock(&transceiver_read_wp_lock);
-
-	if (ret >= 1)
-		complete(&transceiver_read_wp_completion);
-	else
-		pr_err("%s kfifo in fail wp:%d ret:%d\n", __func__, wp, ret);
+	kfifo_in(&transceiver_wp_fifo, &wp, 1);
+	complete(&transceiver_wp_done);
+	spin_unlock(&transceiver_wp_fifo_lock);
 }
 
-static void transceiver_data_report(struct share_mem_data *data)
+static void transceiver_report(struct share_mem_data *data)
 {
-	pr_err("%s type:%u, action:%u, time:%lld, data:[%d,%d,%d,%d,%d] [%d]\n",
-		__func__, data->sensor_type, data->action, data->timestamp,
+	pr_err("report type:%u, action:%u, time:%lld, data:[%d,%d,%d,%d,%d] [%d]\n",
+		data->sensor_type, data->action, data->timestamp,
 		data->value[0], data->value[1], data->value[2],
 		data->value[3], data->value[4], data->value[5]);
 }
 
-static void transceiver_data_process(void)
+static void transceiver_read(uint32_t write_position)
 {
+	int ret = 0;
 	int i = 0;
-	int size = 0;
-	int item_size = 0;
-	int buffer_size = 0;
 
-	item_size = sizeof(share_mem_read_buffer[0]);
-	buffer_size = sizeof(share_mem_read_buffer);
+	ret = share_mem_seek(&transceiver_shm_reader, write_position);
+	if (ret < 0) {
+		pr_err("seek fail %d\n", ret);
+		return;
+	}
+
 	do {
-		size = share_mem_read(&transceiver_shm_data_reader,
-			share_mem_read_buffer, buffer_size);
-		if (size < 0 || size > buffer_size) {
-			pr_err("%s share_mem_read fail, size:%d\n",
-				__func__, size);
+		ret = share_mem_read(&transceiver_shm_reader,
+			share_mem_buffer, sizeof(share_mem_buffer));
+		if (ret < 0 || ret > sizeof(share_mem_buffer)) {
+			pr_err("read fail %d\n", ret);
 			break;
 		}
 
-		if (size == 0)
+		if (ret == 0)
 			break;
 
-		for (i = 0; i < (size / item_size); i++)
-			transceiver_data_report(&share_mem_read_buffer[i]);
-
-	} while (size == buffer_size);
+		for (i = 0; i < (ret / sizeof(share_mem_buffer[0])); i++)
+			transceiver_report(&share_mem_buffer[i]);
+	} while (ret == sizeof(share_mem_buffer));
 }
 
-static int transceiver_data_handler(void *data)
+static int transceiver_thread(void *data)
 {
-	int ret = 0;
+	unsigned int ret = 0;
 	uint32_t wp = 0;
 	unsigned long flags = 0;
 
-	while (1) {
-		wait_for_completion(&transceiver_read_wp_completion);
-
+	while (!kthread_should_stop()) {
+		wait_for_completion(&transceiver_wp_done);
 		while (1) {
-			spin_lock_irqsave(&transceiver_read_wp_lock, flags);
-			ret = kfifo_out(&transceiver_read_wp_fifo, &wp, 1);
-			if (ret <= 0) {
-				spin_unlock_irqrestore(
-					&transceiver_read_wp_lock, flags);
-				break;
-			}
-			ret = share_mem_seek(&transceiver_shm_data_reader, wp);
-			if (ret < 0) {
-				pr_err("%s share_mem_seek fail, ret:%d\n",
-					__func__, ret);
-				spin_unlock_irqrestore(
-					&transceiver_read_wp_lock, flags);
-				continue;
-			}
-			spin_unlock_irqrestore(&transceiver_read_wp_lock,
+			spin_lock_irqsave(&transceiver_wp_fifo_lock, flags);
+			ret = kfifo_out(&transceiver_wp_fifo, &wp, 1);
+			spin_unlock_irqrestore(&transceiver_wp_fifo_lock,
 				flags);
-
-			transceiver_data_process();
+			if (!ret)
+				break;
+			transceiver_read(wp);
 		}
 	}
 	return 0;
@@ -147,37 +125,35 @@ static struct notifier_block transceiver_ready_notifier = {
 	.priority = READY_HIGHPRI,
 };
 
-static int transceiver_share_mem_cfg(struct share_mem_cfg *cfg,
+static int transceiver_share_mem_cfg(struct share_mem_config *cfg,
 		void *private_data)
 {
 	unsigned long flags = 0;
 
-	spin_lock_irqsave(&transceiver_read_wp_lock, flags);
-	kfifo_reset(&transceiver_read_wp_fifo);
-	spin_unlock_irqrestore(&transceiver_read_wp_lock, flags);
+	spin_lock_irqsave(&transceiver_wp_fifo_lock, flags);
+	kfifo_reset(&transceiver_wp_fifo);
+	spin_unlock_irqrestore(&transceiver_wp_fifo_lock, flags);
 
-	transceiver_shm_data_reader.name = "trans_data_r";
-	transceiver_shm_data_reader.item_size =
-		sizeof(struct share_mem_data);
-	transceiver_shm_data_reader.buffer_full_detect = false;
+	transceiver_shm_reader.name = "trans_data_r";
+	transceiver_shm_reader.item_size = sizeof(struct share_mem_data);
+	transceiver_shm_reader.buffer_full_detect = false;
 
-	return share_mem_init(&transceiver_shm_data_reader, cfg);
+	return share_mem_init(&transceiver_shm_reader, cfg);
 }
 
 static int __init transceiver_init(void)
 {
 	int ret = 0;
-	struct task_struct *task = NULL;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
 
 	ret = sensor_comm_init();
 	if (ret < 0) {
-		pr_err("Failed sensor comm init, ret=%d\n", ret);
+		pr_err("sensor comm init fail %d\n", ret);
 		return ret;
 	}
 	ret = host_ready_init();
 	if (ret < 0) {
-		pr_err("Failed host ready init, ret=%d\n", ret);
+		pr_err("host ready init fail %d\n", ret);
 		goto out_sensor_comm;
 	}
 
@@ -185,18 +161,23 @@ static int __init transceiver_init(void)
 
 	ret = sensor_list_init();
 	if (ret < 0) {
-		pr_err("Failed sensor_list_init, ret=%d\n", ret);
+		pr_err("sensor list init fail %d\n", ret);
 		goto out_ready;
 	}
 
-	task = kthread_run(transceiver_data_handler, NULL,
-		"transceiver_data_handler");
-	if (IS_ERR(task)) {
-		ret = -ENOMEM;
-		pr_err("Failed create data thread ret:%d\n", ret);
+	ret = debug_init();
+	if (ret < 0) {
+		pr_err("debug init fail %d\n", ret);
 		goto out_sensor_list;
 	}
-	sched_setscheduler(task, SCHED_FIFO, &param);
+
+	transceiver_task = kthread_run(transceiver_thread, NULL, "transceiver");
+	if (IS_ERR(transceiver_task)) {
+		ret = -ENOMEM;
+		pr_err("create thread fail %d\n", ret);
+		goto out_debug;
+	}
+	sched_setscheduler(transceiver_task, SCHED_FIFO, &param);
 
 	sensor_comm_notify_handler_register(SENS_COMM_NOTIFY_DATA_CMD,
 		transceiver_notify_func, NULL);
@@ -206,6 +187,8 @@ static int __init transceiver_init(void)
 		transceiver_share_mem_cfg, NULL);
 	return 0;
 
+out_debug:
+	debug_exit();
 out_sensor_list:
 	sensor_list_exit();
 out_ready:
@@ -221,6 +204,8 @@ static void __exit transceiver_exit(void)
 	share_mem_config_handler_unregister(SENS_COMM_NOTIFY_DATA_CMD);
 	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_FULL_CMD);
 	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_DATA_CMD);
+	if (!IS_ERR(transceiver_task))
+		kthread_stop(transceiver_task);
 	sensor_list_exit();
 	sensor_ready_notifier_chain_unregister(&transceiver_ready_notifier);
 	host_ready_exit();

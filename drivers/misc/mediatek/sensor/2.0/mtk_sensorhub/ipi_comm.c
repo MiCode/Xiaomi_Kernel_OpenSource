@@ -3,7 +3,7 @@
  * Copyright (C) 2020 MediaTek Inc.
  */
 
-#define pr_fmt(fmt) "[ipi_comm] " fmt
+#define pr_fmt(fmt) "ipi_comm " fmt
 
 #include <linux/module.h>
 #include <linux/workqueue.h>

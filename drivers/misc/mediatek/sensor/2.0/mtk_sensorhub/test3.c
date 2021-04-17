@@ -3,7 +3,7 @@
  * Copyright (C) 2020 MediaTek Inc.
  */
 
-#define pr_fmt(fmt) "[test_sensor3] " fmt
+#define pr_fmt(fmt) "test_sensor3 " fmt
 
 #include <linux/module.h>
 #include <linux/string.h>
@@ -16,6 +16,7 @@
 
 #include "hf_sensor_type.h"
 #include "sensor_comm.h"
+#include "debug.h"
 
 struct test_sensor_t {
 	char *name;
@@ -27,21 +28,6 @@ struct test_sensor_t {
 static struct test_sensor_t test_sensor = {
 	.name = "test_sensor3",
 };
-
-static void test_debug(void)
-{
-	int ret = 0;
-	struct sensor_comm_ctrl *ctrl = NULL;
-
-	ctrl = kzalloc(sizeof(*ctrl), GFP_KERNEL);
-	ctrl->sensor_type = SENSOR_TYPE_INVALID;
-	ctrl->command = SENS_COMM_CTRL_DEBUG_CMD;
-	ctrl->length = 0;
-	ret = sensor_comm_ctrl_send(ctrl, sizeof(*ctrl) + ctrl->length);
-	if (ret < 0)
-		pr_err("debug fail %d\n", ret);
-	kfree(ctrl);
-}
 
 static void test_config(void)
 {
@@ -62,7 +48,14 @@ static void test_config(void)
 
 static void test_work_func(struct work_struct *work)
 {
-	test_debug();
+	int ret = 0;
+	unsigned int len = 1024;
+	uint8_t *buffer = kzalloc(len, GFP_KERNEL);
+
+	ret = debug_get_debug(SENSOR_TYPE_INVALID, buffer, len);
+	if (ret > 0)
+		pr_err("%s\n", buffer);
+	kfree(buffer);
 	test_config();
 }
 

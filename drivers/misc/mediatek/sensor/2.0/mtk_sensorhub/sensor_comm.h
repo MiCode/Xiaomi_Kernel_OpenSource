@@ -31,26 +31,26 @@ enum sensor_comm_notify_cmd {
 	SENS_COMM_NOTIFY_READY_CMD,
 	SENS_COMM_NOTIFY_LIST_CMD,
 	SENS_COMM_NOTIFY_DEBUG_CMD,
+	SENS_COMM_NOTIFY_TEST_CMD,
 	MAX_SENS_COMM_NOTIFY_CMD,
 };
 
 struct sensor_comm_batch {
 	int64_t delay;
 	int64_t latency;
-} __packed;
+} __packed __aligned(4);
 
 struct sensor_comm_timesync {
 	int64_t host_timestamp;
 	int64_t host_archcounter;
-} __packed;
+} __packed __aligned(4);
 
 struct sensor_comm_share_mem {
 	struct {
 		uint8_t notify_cmd;
-		uint8_t reserve[3];
 		uint32_t buffer_base;
-	} base_info[4];
-} __packed;
+	} __aligned(4) base_info[4];
+} __packed __aligned(4);
 
 struct sensor_comm_ctrl {
 	uint32_t sequence;
@@ -59,7 +59,7 @@ struct sensor_comm_ctrl {
 	uint8_t length;
 	int8_t ret_val;
 	uint8_t data[0];
-} __packed;
+} __packed __aligned(4);
 
 struct sensor_comm_ack {
 	uint32_t sequence;
@@ -67,13 +67,13 @@ struct sensor_comm_ack {
 	uint8_t command;
 	uint8_t length;
 	int8_t ret_val;
-} __packed;
+} __packed __aligned(4);
 
 struct data_notify {
 	int32_t write_position;
 	int64_t scp_timestamp;
 	int64_t scp_archcounter;
-} __packed;
+} __packed __aligned(4);
 
 struct sensor_comm_notify {
 	uint8_t sensor_type;
@@ -84,7 +84,7 @@ struct sensor_comm_notify {
 		struct data_notify dnotify;
 		int32_t value[5];
 	};
-} __packed;
+} __packed __aligned(4);
 
 int sensor_comm_ctrl_send(struct sensor_comm_ctrl *ctrl, unsigned int size);
 int sensor_comm_notify(struct sensor_comm_notify *notify);

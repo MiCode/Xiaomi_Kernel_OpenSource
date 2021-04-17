@@ -11,24 +11,22 @@
 struct share_mem_data {
 	uint8_t sensor_type;
 	uint8_t action;
-	uint8_t reserve[2];
 	int64_t timestamp;
 	int32_t value[6];
-} __packed;
+} __packed __aligned(4);
 
 struct share_mem_debug {
 	uint8_t sensor_type;
-	uint8_t reserve[3];
 	uint32_t written;
 	uint8_t buffer[960]; //512+256+128+64
-} __packed;
+} __packed __aligned(4);
 
 struct share_mem_info {
 	uint8_t sensor_type;
 	uint32_t gain;
 	uint8_t name[16];
 	uint8_t vendor[16];
-} __packed;
+} __packed __aligned(4);
 
 struct share_mem_tag {
 	uint32_t rp;
@@ -36,20 +34,20 @@ struct share_mem_tag {
 	uint32_t buffer_size;
 	uint32_t item_size;
 	uint8_t data[0];
-} __packed;
+} __packed __aligned(4);
 
 struct share_mem {
 	struct share_mem_tag *base;
-	uint32_t item_size;
 
-	struct mutex mutex_lock;
+	struct mutex lock;
+	uint32_t item_size;
 
 	uint32_t write_position;
 	uint32_t last_write_position;
 
 	bool buffer_full_detect;
 	uint8_t buffer_full_cmd;
-	uint32_t buffer_full_wp;
+	uint32_t buffer_full_written;
 	uint32_t buffer_full_threshold;
 
 	char *name;
@@ -61,34 +59,23 @@ struct share_mem_notify {
 	uint8_t sequence;
 };
 
-struct share_mem_cfg {
+struct share_mem_config {
 	uint8_t notify_cmd;
 	struct share_mem_tag *base;
 	uint32_t buffer_size;
 };
 
+int share_mem_seek(struct share_mem *shm, uint32_t write_position);
+int share_mem_read_reset(struct share_mem *shm);
 int share_mem_write_reset(struct share_mem *shm);
+int share_mem_read(struct share_mem *shm, void *buf, uint32_t count);
 int share_mem_write(struct share_mem *shm, void *buf, uint32_t count);
 int share_mem_flush(struct share_mem *shm, struct share_mem_notify *notify);
-
-int share_mem_read_reset(struct share_mem *shm);
-int share_mem_seek(struct share_mem *shm, uint32_t wp);
-int share_mem_read(struct share_mem *shm, void *buf, uint32_t count);
-
-int share_mem_init(struct share_mem *shm, struct share_mem_cfg *cfg);
-
+int share_mem_init(struct share_mem *shm, struct share_mem_config *cfg);
 void share_mem_config(void);
 void share_mem_config_handler_register(uint8_t notify_cmd,
-	int (*f)(struct share_mem_cfg *cfg, void *private_data),
+	int (*f)(struct share_mem_config *cfg, void *private_data),
 	void *private_data);
 void share_mem_config_handler_unregister(uint8_t notify_cmd);
-
-#define share_mem_get_virt_addr(id) scp_get_reserve_mem_virt(id)
-#define share_mem_get_phy_addr(id) scp_get_reserve_mem_phys(id)
-#define share_mem_get_phy_size(id) scp_get_reserve_mem_size(id)
-
-#define SHARE_MEM_SENSOR_DATA_ID SENS_MEM_ID
-#define SHARE_MEM_SENSOR_LIST_ID SCP_DRV_PARAMS_MEM_ID
-#define SHARE_MEM_MAX_ID NUMS_MEM_ID
 
 #endif

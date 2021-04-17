@@ -3,7 +3,7 @@
  * Copyright (C) 2020 MediaTek Inc.
  */
 
-#define pr_fmt(fmt) "[test_sensor1] " fmt
+#define pr_fmt(fmt) "test_sensor1 " fmt
 
 #include <linux/module.h>
 #include <linux/string.h>

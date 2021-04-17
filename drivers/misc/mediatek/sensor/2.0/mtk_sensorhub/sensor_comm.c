@@ -3,7 +3,7 @@
  * Copyright (C) 2020 MediaTek Inc.
  */
 
-#define pr_fmt(fmt) "[sensor_comm] " fmt
+#define pr_fmt(fmt) "sensor_comm " fmt
 
 #include <linux/err.h>
 #include <linux/atomic.h>
