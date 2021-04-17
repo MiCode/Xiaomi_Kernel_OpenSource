@@ -996,6 +996,16 @@ static int mt_i2c_do_transfer(struct mt_i2c *i2c)
 
 	/* Prepare buffer data to start transfer */
 	if (isDMA == true && (!i2c->is_ccu_trig)) {
+		if (i2c->dev_comp->i2c_dma_handshake_rst == I2C_DMA_HANDSHAKE_RST) {
+			dev_dbg(i2c->dev, "side-band reset before dma config\n");
+			i2c_writew(I2C_SIDE_BAND_RST, i2c, OFFSET_SOFTRESET);
+			i2c_writel_dma(DMA_SIDE_BAND_RST, i2c, OFFSET_RST);
+			i2c_writew(0, i2c, OFFSET_SOFTRESET);
+			i2c_writel_dma(0, i2c, OFFSET_RST);
+			i2c_writew(I2C_FIFO_ADDR_CLR, i2c, OFFSET_FIFO_ADDR_CLR);
+			udelay(1);
+		}
+
 		if (i2c_readl_dma(i2c, OFFSET_EN)) {
 			i2c_writel_dma(I2C_DMA_WARM_RST, i2c, OFFSET_RST);
 			udelay(5);
@@ -1654,6 +1664,8 @@ int mt_i2c_parse_comp_data(void)
 		(u8 *)&i2c_common_compat.dma_support);
 	of_property_read_u8(comp_node, "fifo_support",
 		(u8 *)&i2c_common_compat.fifo_support);
+	of_property_read_u8(comp_node, "i2c_dma_handshake_rst",
+		(u8 *)&i2c_common_compat.i2c_dma_handshake_rst);
 	of_property_read_u8(comp_node, "idvfs",
 		(u8 *)&i2c_common_compat.idvfs_i2c);
 	of_property_read_u8(comp_node, "set_dt_div",

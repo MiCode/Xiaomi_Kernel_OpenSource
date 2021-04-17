@@ -100,6 +100,7 @@
 #define I2C_DMA_DIR_CHANGE              (0x1 << 9)
 #define I2C_DMA_SKIP_CONFIG             (0x1 << 4)
 #define I2C_DMA_ASYNC_MODE              (0x1 << 2)
+#define DMA_SIDE_BAND_RST		(0x1 << 2)
 
 #define I2C_DEFAUT_SPEED		100000/* hz */
 #define MAX_FS_MODE_SPEED		400000/* hz */
@@ -126,6 +127,7 @@
 #define I2C_CONTROL_WRAPPER		(0x1 << 0)
 #define I2C_MCU_INTR_EN			0x1
 #define I2C_CCU_INTR_EN			0x2
+#define I2C_SIDE_BAND_RST		(0x1 << 5)
 
 #define I2C_RECORD_LEN			10
 #define I2C_MAX_CHANNEL		10
@@ -144,6 +146,7 @@ enum {
 	DMA_SUPPORT_64G = 3,
 	FIFO_SUPPORT_WIDTH_8BIT = 0, /* 0 : FIFO width 8bit supprot */
 	FIFO_SUPPORT_WIDTH_64BIT = 1, /* 1 : FIFO width 64bit support */
+	I2C_DMA_HANDSHAKE_RST = 2,
 };
 
 enum DMA_REGS_OFFSET {
@@ -346,6 +349,8 @@ struct mtk_i2c_compatible {
 	/* 0 : original; 1: 4gb  support 2: 33bit support; 3: 36 bit support */
 	unsigned char fifo_support;
 	/* 0 : FIFO width 8bit supprot; 1 : FIFO width 64bit support */
+	unsigned char i2c_dma_handshake_rst;
+	/* 0 : no need side-band reset; 1 : need side-band reset */
 	unsigned char idvfs_i2c;
 	/* compatible before chip, set 1 if no TRANSFER_LEN_AUX */
 	unsigned char set_dt_div;/* use dt to set div */
