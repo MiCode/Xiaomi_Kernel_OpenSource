@@ -3,7 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 
 #include "cmdq-util.h"
 #include "cmdq-sec.h"
@@ -134,6 +134,25 @@ s32 cmdq_sec_pkt_set_data(struct cmdq_pkt *pkt, const u64 dapc_engine,
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_sec_pkt_set_data);
+
+void cmdq_sec_pkt_set_mtee(struct cmdq_pkt *pkt, const bool enable)
+{
+	struct cmdq_sec_data *sec_data =
+		(struct cmdq_sec_data *)pkt->sec_data;
+	sec_data->mtee = enable;
+	cmdq_msg("%s pkt:%p mtee:%d\n",
+		__func__, pkt, ((struct cmdq_sec_data *)pkt->sec_data)->mtee);
+}
+EXPORT_SYMBOL(cmdq_sec_pkt_set_mtee);
+
+void cmdq_sec_pkt_free_data(struct cmdq_pkt *pkt)
+{
+	if (pkt->sec_data == NULL)
+		return;
+	kfree((void *)((struct cmdq_sec_data *)pkt->sec_data)->addrMetadatas);
+	kfree(pkt->sec_data);
+}
+EXPORT_SYMBOL(cmdq_sec_pkt_free_data);
 
 s32 cmdq_sec_pkt_set_payload(struct cmdq_pkt *pkt, u8 idx,
 	const u32 meta_size, u32 *meta)
@@ -319,3 +338,4 @@ void cmdq_sec_err_dump(struct cmdq_pkt *pkt, struct cmdq_client *client,
 }
 EXPORT_SYMBOL(cmdq_sec_err_dump);
 
+MODULE_LICENSE("GPL v2");

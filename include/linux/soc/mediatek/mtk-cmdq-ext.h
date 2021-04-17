@@ -7,7 +7,7 @@
 #define __MTK_CMDQ_H__
 
 #include <linux/mailbox_client.h>
-#include <linux/mailbox/mtk-cmdq-mailbox-legacy.h>
+#include <linux/mailbox/mtk-cmdq-mailbox-ext.h>
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 typedef bool (*util_is_feature_en)(u8 feature);
@@ -52,8 +52,11 @@ void cmdq_helper_set_fp(struct cmdq_util_helper_fp *cust_cmdq_util);
 #define CMDQ_CPR_STRAT_ID		0x8000
 #define CMDQ_CPR_TPR_MASK		0x8000
 #define CMDQ_CPR_DISP_CNT		0x8001
-#define CMDQ_CPR_DDR_USR_CNT	0x8002
 #define CMDQ_EVENT_MAX			0x3FF
+#define CMDQ_CPR_DDR_USR_CNT		0x8002
+
+#define CMDQ_GPR_CNT_ID			32
+#define CMDQ_CPR_STRAT_ID		0x8000
 #define SUBSYS_NO_SUPPORT		99
 
 /* GCE provide 26M timer, thus each tick 1/26M second,
@@ -63,9 +66,10 @@ void cmdq_helper_set_fp(struct cmdq_util_helper_fp *cust_cmdq_util);
 #define CMDQ_TICK_TO_US(_t)		(do_div(_t, 26))
 
 extern int gce_shift_bit;
-
 #define CMDQ_REG_SHIFT_ADDR(addr)	((addr) >> gce_shift_bit)
 #define CMDQ_REG_REVERT_ADDR(addr)	((addr) << gce_shift_bit)
+
+
 
 /* GCE provide 32/64 bit General Purpose Register (GPR)
  * use as data cache or address register
@@ -113,7 +117,7 @@ enum gce_event {
 	CMDQ_TOKEN_SECURE_THR_EOF = 647,
 	CMDQ_TOKEN_TPR_LOCK = 652,
 
-	/* GPR timer token, 994 to 994+23 */
+	/* GPR timer token, 994 to 1009 (for gpr r0 to r15) */
 	CMDQ_EVENT_GPR_TIMER = 994,
 };
 
@@ -250,6 +254,8 @@ u64 *cmdq_pkt_get_va_by_offset(struct cmdq_pkt *pkt, size_t offset);
 dma_addr_t cmdq_pkt_get_pa_by_offset(struct cmdq_pkt *pkt, u32 offset);
 
 dma_addr_t cmdq_pkt_get_curr_buf_pa(struct cmdq_pkt *pkt);
+
+void *cmdq_pkt_get_curr_buf_va(struct cmdq_pkt *pkt);
 
 s32 cmdq_pkt_append_command(struct cmdq_pkt *pkt, u16 arg_c, u16 arg_b,
 	u16 arg_a, u8 s_op, u8 arg_c_type, u8 arg_b_type, u8 arg_a_type,
@@ -427,7 +433,7 @@ void cmdq_buf_print_wfe(char *text, u32 txt_sz,
 	u32 offset, void *inst);
 
 void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
-	dma_addr_t cur_pa, const char *info);
+	dma_addr_t cur_pa, const char *info, void *chan);
 
 s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa);
 
@@ -435,6 +441,8 @@ int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_inst);
 
 void cmdq_pkt_set_err_cb(struct cmdq_pkt *pkt,
 	cmdq_async_flush_cb cb, void *data);
+
+int cmdq_helper_init(void);
 
 struct cmdq_thread_task_info {
 	dma_addr_t		pa_base;

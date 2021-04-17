@@ -13,14 +13,19 @@
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/mailbox_controller.h>
-#include <linux/mailbox/mtk-cmdq-mailbox-legacy.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/mailbox/mtk-cmdq-mailbox-ext.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/timer.h>
 #include <linux/workqueue.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/atomic.h>
 #include <linux/sched/clock.h>
+
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+#include "cmdq-util.h"
+struct cmdq_util_controller_fp *cmdq_util_controller;
+#endif
 
 #ifndef cmdq_util_msg
 #define cmdq_util_msg(f, args...) cmdq_msg(f, ##args)
@@ -30,12 +35,9 @@
 #define cmdq_util_err(f, args...) cmdq_dump(f, ##args)
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-struct cmdq_util_controller_fp *cmdq_util;
-#endif
-
 /* ddp main/sub, mdp path 0/1/2/3, general(misc) */
 #define CMDQ_OP_CODE_MASK		(0xff << CMDQ_OP_CODE_SHIFT)
+#define CMDQ_IRQ_MASK			GENMASK(CMDQ_THR_MAX_COUNT - 1, 0)
 
 #define CMDQ_CURR_IRQ_STATUS		0x10
 #define CMDQ_CURR_LOADED_THR		0x18
@@ -139,8 +141,6 @@ struct cmdq {
 	phys_addr_t		base_pa;
 	u8			hwid;
 	u32			irq;
-	u32			thread_nr;
-	u32			irq_mask;
 	struct workqueue_struct	*buf_dump_wq;
 	struct cmdq_thread	thread[CMDQ_THR_MAX_COUNT];
 	u32			prefetch;
@@ -154,6 +154,9 @@ struct cmdq {
 	spinlock_t		lock;
 	u32			token_cnt;
 	u16			*tokens;
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
+	struct cmdq_mmp_event	mmp;
+#endif
 	void			*init_cmds_base;
 	dma_addr_t		init_cmds;
 	bool			sw_ddr_en;
@@ -164,9 +167,13 @@ struct gce_plat {
 	u8 shift;
 };
 
-#if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
 #include "../misc/mediatek/mmp/mmprofile.h"
 
+#define MMP_THD(t, c)	((t)->idx | ((c)->hwid << 5))
+#endif
+
+#define mmp_event unsigned int
 struct cmdq_mmp_event {
 	mmp_event cmdq;
 	mmp_event cmdq_irq;
@@ -175,15 +182,13 @@ struct cmdq_mmp_event {
 	mmp_event thread_suspend;
 	mmp_event submit;
 	mmp_event wait;
+	mmp_event wait_done;
 	mmp_event warning;
 };
 
 struct cmdq_mmp_event	cmdq_mmp;
 
-#define MMP_THD(t, c)	((t)->idx | ((c)->hwid << 5))
-#endif
-
-static void cmdq_init(struct cmdq *cmdq)
+static void cmdq_init_cpu(struct cmdq *cmdq)
 {
 	int i;
 
@@ -201,9 +206,17 @@ static void cmdq_init(struct cmdq *cmdq)
 	cmdq_trace_ex_end();
 }
 
+static void cmdq_init(struct cmdq *cmdq)
+{
+	if (cmdq->init_cmds_base)
+		cmdq_init_cmds(cmdq);
+	else
+		cmdq_init_cpu(cmdq);
+}
+
 static inline void cmdq_mmp_init(void)
 {
-#if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
 	mmprofile_enable(1);
 	if (cmdq_mmp.cmdq) {
 		mmprofile_start(1);
@@ -220,6 +233,7 @@ static inline void cmdq_mmp_init(void)
 	cmdq_mmp.submit = mmprofile_register_event(cmdq_mmp.cmdq, "submit");
 	cmdq_mmp.wait = mmprofile_register_event(cmdq_mmp.cmdq, "wait");
 	cmdq_mmp.warning = mmprofile_register_event(cmdq_mmp.cmdq, "warning");
+	mmprofile_enable_event_recursive(cmdq_mmp.cmdq, 1);
 	mmprofile_start(1);
 #endif
 }
@@ -306,7 +320,10 @@ static void cmdq_clk_disable(struct cmdq *cmdq)
 
 	usage = atomic_dec_return(&cmdq->usage);
 
-	if (usage < 0) {
+	if (usage == -1)
+		cmdq_util_aee("CMDQ", "%s cmdq:%pa suspend:%d usage:%d",
+			__func__, &cmdq->base_pa, cmdq->suspended, usage);
+	else if (usage < 0) {
 		/* print error but still try close */
 		cmdq_err("ref count error after dec:%d suspend:%s",
 			usage, cmdq->suspended ? "true" : "false");
@@ -366,7 +383,7 @@ static int cmdq_thread_suspend(struct cmdq *cmdq, struct cmdq_thread *thread)
 {
 	u32 status;
 
-#if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
 	mmprofile_log_ex(cmdq_mmp.thread_suspend, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), CMDQ_THR_SUSPEND);
 #endif
@@ -388,19 +405,19 @@ static int cmdq_thread_suspend(struct cmdq *cmdq, struct cmdq_thread *thread)
 
 static void cmdq_thread_resume(struct cmdq_thread *thread)
 {
-#if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
 	struct cmdq *cmdq = container_of(
 		thread->chan->mbox, typeof(*cmdq), mbox);
 #endif
 
 	writel(CMDQ_THR_RESUME, thread->base + CMDQ_THR_SUSPEND_TASK);
-#if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
 	mmprofile_log_ex(cmdq_mmp.thread_suspend, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), CMDQ_THR_RESUME);
 #endif
 }
 
-static int cmdq_thread_reset(struct cmdq *cmdq, struct cmdq_thread *thread)
+int cmdq_thread_reset(struct cmdq *cmdq, struct cmdq_thread *thread)
 {
 	u32 warm_reset;
 
@@ -440,7 +457,7 @@ static void cmdq_thread_err_reset(struct cmdq *cmdq, struct cmdq_thread *thread,
 	writel(thd_pri, thread->base + CMDQ_THR_CFG);
 	writel(CMDQ_THR_IRQ_EN, thread->base + CMDQ_THR_IRQ_ENABLE);
 	writel(CMDQ_THR_ENABLED, thread->base + CMDQ_THR_ENABLE_TASK);
-#if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
 	mmprofile_log_ex(cmdq_mmp.thread_en, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), CMDQ_THR_ENABLED);
 #endif
@@ -448,14 +465,14 @@ static void cmdq_thread_err_reset(struct cmdq *cmdq, struct cmdq_thread *thread,
 
 static void cmdq_thread_disable(struct cmdq *cmdq, struct cmdq_thread *thread)
 {
-#if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
 	mmprofile_log_ex(cmdq_mmp.thread_en, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), CMDQ_THR_DISABLED);
 #endif
 	cmdq_thread_reset(cmdq, thread);
 	writel(CMDQ_THR_DISABLED, thread->base + CMDQ_THR_ENABLE_TASK);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	if (cmdq->sw_ddr_en && cmdq_util->thread_ddr_module(thread->idx)) {
+	if (cmdq->sw_ddr_en && cmdq_util_controller->thread_ddr_module(thread->idx)) {
 		unsigned long flags;
 
 		spin_lock_irqsave(&cmdq->lock, flags);
@@ -645,7 +662,7 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 	}
 	pkt->task_alloc = true;
 
-#if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
 	mmprofile_log_ex(cmdq_mmp.submit, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), (unsigned long)pkt);
 #endif
@@ -667,7 +684,7 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 		if (cmdq->sw_ddr_en &&
-			cmdq_util->thread_ddr_module(thread->idx)) {
+			cmdq_util_controller->thread_ddr_module(thread->idx)) {
 			unsigned long flags;
 
 			spin_lock_irqsave(&cmdq->lock, flags);
@@ -687,7 +704,7 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 		cmdq_thread_set_pc(thread, task->pa_base);
 		writel(CMDQ_THR_IRQ_EN, thread->base + CMDQ_THR_IRQ_ENABLE);
 		writel(CMDQ_THR_ENABLED, thread->base + CMDQ_THR_ENABLE_TASK);
-#if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
 		mmprofile_log_ex(cmdq_mmp.thread_en, MMPROFILE_FLAG_PULSE,
 			MMP_THD(thread, cmdq), CMDQ_THR_ENABLED);
 #endif
@@ -774,7 +791,8 @@ static void cmdq_buf_dump_schedule(struct cmdq_task *task, bool timeout,
 		break;
 	}
 
-	cmdq_err("task:0x%p timeout:%s pkt:0x%p size:%zu pc:0x%08x inst:0x%016llx",
+	cmdq_util_user_err(task->thread->chan,
+		"task:0x%p timeout:%s pkt:0x%p size:%zu pc:0x%08x inst:0x%016llx",
 		task, timeout ? "true" : "false", task->pkt,
 		task->pkt->cmd_buf_size, pa_curr,
 		inst ? *inst : -1);
@@ -854,7 +872,7 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 		task->pkt->rec_irq = sched_clock();
 #endif
 
-#if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
 		mmprofile_log_ex(cmdq_mmp.loop_irq, MMPROFILE_FLAG_PULSE,
 			MMP_THD(thread, cmdq), (unsigned long)task->pkt);
 #endif
@@ -868,7 +886,7 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 		return;
 	}
 
-#if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
 	mmprofile_log_ex(cmdq_mmp.cmdq_irq, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), task ? (unsigned long)task->pkt : 0);
 #endif
@@ -920,30 +938,44 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 {
 	struct cmdq *cmdq = dev;
 	unsigned long irq_status, flags = 0L;
-	int bit;
+	int bit, i;
 	bool secure_irq = false;
 	struct cmdq_task *task, *tmp;
 	struct list_head removes;
 
+	if (atomic_read(&cmdq->usage) == -1)
+		cmdq_util_aee("CMDQ", "%s irq:%d cmdq:%pa suspend:%d usage:%d",
+			__func__, irq, &cmdq->base_pa, cmdq->suspended,
+			atomic_read(&cmdq->usage));
+
 	if (atomic_read(&cmdq->usage) <= 0) {
-		cmdq_msg("%s cmdq:%#lx suspend:%s",
-			__func__, (unsigned long)cmdq->base_pa,
-			cmdq->suspended ? "true" : "false");
+		if (cmdq->suspended)
+			return IRQ_HANDLED;
+
+		cmdq_clk_enable(cmdq);
+		cmdq_thread_dump_all(cmdq);
+
+		for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++)
+			if (cmdq->thread[i].chan) {
+				cmdq_dump_core(cmdq->thread[i].chan);
+				break;
+			}
+		cmdq_clk_disable(cmdq);
 		return IRQ_HANDLED;
 	}
 
-	irq_status = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS) & cmdq->irq_mask;
+	irq_status = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS) & CMDQ_IRQ_MASK;
 	cmdq_log("gce:%lx irq: %#x, %#x",
 		(unsigned long)cmdq->base_pa, (u32)irq_status,
-		(u32)(irq_status ^ cmdq->irq_mask));
-	if (!(irq_status ^ cmdq->irq_mask)) {
+		(u32)(irq_status ^ CMDQ_IRQ_MASK));
+	if (!(irq_status ^ CMDQ_IRQ_MASK)) {
 		cmdq_msg("not handle for empty status:0x%x",
 			(u32)irq_status);
 		return IRQ_NONE;
 	}
 
 	INIT_LIST_HEAD(&removes);
-	for_each_clear_bit(bit, &irq_status, fls(cmdq->irq_mask)) {
+	for_each_clear_bit(bit, &irq_status, fls(CMDQ_IRQ_MASK)) {
 		struct cmdq_thread *thread = &cmdq->thread[bit];
 
 		cmdq_log("bit=%d, thread->base=%p", bit, thread->base);
@@ -1034,7 +1066,8 @@ static void cmdq_thread_handle_timeout_work(struct work_struct *work_item)
 		goto unlock_free_done;
 	}
 
-	cmdq_err("timeout for thread:0x%p idx:%u usage:%d",
+	cmdq_util_user_err(thread->chan,
+		"timeout for thread:0x%p idx:%u usage:%d",
 		thread->base, thread->idx, atomic_read(&cmdq->usage));
 
 	pa_curr = cmdq_thread_get_pc(thread);
@@ -1059,7 +1092,7 @@ static void cmdq_thread_handle_timeout_work(struct work_struct *work_item)
 		kfree(task);
 	}
 
-#if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
 	mmprofile_log_ex(cmdq_mmp.warning, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq),
 		timeout_task ? (unsigned long)timeout_task : 0);
@@ -1133,12 +1166,6 @@ void cmdq_dump_core(struct mbox_chan *chan)
 	struct cmdq *cmdq = dev_get_drvdata(chan->mbox->dev);
 	u32 irq, loaded, cycle, thd_timer, tpr_mask, tpr_en;
 
-	if (!atomic_read(&cmdq->usage)) {
-		cmdq_util_msg("cmdq:%#x try dump core without enable",
-			(u32)(unsigned long)cmdq->base_pa);
-		return;
-	}
-
 	irq = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS);
 	loaded = readl(cmdq->base + CMDQ_CURR_LOADED_THR);
 	cycle = readl(cmdq->base + CMDQ_THR_EXEC_CYCLES);
@@ -1146,11 +1173,11 @@ void cmdq_dump_core(struct mbox_chan *chan)
 	tpr_mask = readl(cmdq->base + CMDQ_TPR_MASK);
 	tpr_en = readl(cmdq->base + CMDQ_TPR_TIMEOUT_EN);
 
-	cmdq_util_msg(
+	cmdq_util_user_msg(chan,
 		"irq:%#x loaded:%#x cycle:%#x thd timer:%#x mask:%#x en:%#x",
 		irq, loaded, cycle, thd_timer, tpr_mask, tpr_en);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	cmdq_util->dump_dbg_reg(chan);
+	cmdq_util_controller->dump_dbg_reg(chan);
 #endif
 }
 EXPORT_SYMBOL(cmdq_dump_core);
@@ -1165,13 +1192,14 @@ void cmdq_thread_dump_spr(struct cmdq_thread *thread)
 	dbg[0] = readl(cmdq->base + GCE_DEBUG_START_ADDR);
 	dbg[1] = readl(cmdq->base + GCE_DEBUG_END_ADDR);
 
-	cmdq_util_msg("thrd:%u spr:%#x %#x %#x %#x dbg:%#x %#x",
+	cmdq_util_user_msg(thread->chan,
+		"thrd:%u spr:%#x %#x %#x %#x dbg:%#x %#x",
 		thread->idx, spr[0], spr[1], spr[2], spr[3], dbg[0], dbg[1]);
 
 	for (i = 0; i < 16; i++)
 		gpr[i] = readl(cmdq->base + GCE_GPR_R0_START + i * 4);
 
-	cmdq_util_msg(
+	cmdq_util_user_msg(thread->chan,
 		"cmdq:%pa gpr:%#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x",
 		&cmdq->base_pa, gpr[0], gpr[1], gpr[2], gpr[3], gpr[4], gpr[5],
 		gpr[6], gpr[7], gpr[8], gpr[9], gpr[10], gpr[11], gpr[12],
@@ -1249,25 +1277,25 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	}
 	spin_unlock_irqrestore(&chan->lock, flags);
 
-	cmdq_util_msg(
+	cmdq_util_user_msg(chan,
 		"thd:%u pc:%#010x(%p) inst:%#018llx end:%#010x cnt:%#x token:%#010x",
 		thread->idx, curr_pa, curr_va, inst, end_pa, cnt, wait_token);
-	cmdq_util_msg(
+	cmdq_util_user_msg(chan,
 		"rst:%#x en:%#x suspend:%#x status:%#x irq:%x en:%#x cfg:%#x",
 		warn_rst, en, suspend, status, irq, irq_en, cfg);
 	cmdq_thread_dump_spr(thread);
 
 	if (pkt) {
-		cmdq_util_msg(
+		cmdq_util_user_msg(chan,
 			"cur pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",
 			pkt, size, va_base, &pa_base, pri);
-		cmdq_util_msg("last inst %#018llx %#018llx",
+		cmdq_util_user_msg(chan, "last inst %#018llx %#018llx",
 			last_inst[0], last_inst[1]);
 
 		if (cl_pkt && cl_pkt != pkt) {
 			buf = list_first_entry(&cl_pkt->buf, typeof(*buf),
 				list_entry);
-			cmdq_util_msg(
+			cmdq_util_user_msg(chan,
 				"expect pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",
 				cl_pkt, cl_pkt->cmd_buf_size, buf->va_base,
 				&buf->pa_base, cl_pkt->priority);
@@ -1283,12 +1311,8 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 
 /* if pc match end and irq flag on, dump irq status */
 	if (curr_pa == end_pa && irq)
-#ifdef CONFIG_MTK_GIC_V3_EXT
-		mt_irq_dump_status(cmdq->irq);
-#else
 		cmdq_util_msg("gic dump not support irq id:%u\n",
 			cmdq->irq);
-#endif
 
 	if (inst_out)
 		*inst_out = curr_va;
@@ -1308,7 +1332,7 @@ void cmdq_thread_dump_all(void *mbox_cmdq)
 	if (usage <= 0)
 		return;
 
-	for (i = 0; i < cmdq->thread_nr; i++) {
+	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		struct cmdq_thread *thread = &cmdq->thread[i];
 
 		if (!thread->occupied || list_empty(&thread->task_busy_list))
@@ -1325,7 +1349,6 @@ void cmdq_thread_dump_all(void *mbox_cmdq)
 			thread->idx, curr_pa, end_pa);
 		cmdq_thread_dump_spr(thread);
 	}
-
 }
 EXPORT_SYMBOL(cmdq_thread_dump_all);
 
@@ -1341,7 +1364,7 @@ void cmdq_thread_dump_all_seq(void *mbox_cmdq, struct seq_file *seq)
 	if (usage <= 0)
 		return;
 
-	for (i = 0; i < cmdq->thread_nr; i++) {
+	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		struct cmdq_thread *thread = &cmdq->thread[i];
 
 		if (!thread->occupied || list_empty(&thread->task_busy_list))
@@ -1524,7 +1547,7 @@ static int cmdq_suspend(struct device *dev)
 
 	cmdq->suspended = true;
 
-	for (i = 0; i < cmdq->thread_nr; i++) {
+	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		thread = &cmdq->thread[i];
 		if (!list_empty(&thread->task_busy_list)) {
 			cmdq_mbox_thread_stop(thread);
@@ -1738,11 +1761,17 @@ static int cmdq_probe(struct platform_device *pdev)
 	int err, i;
 	struct gce_plat *plat_data;
 
+
 	cmdq = devm_kzalloc(dev, sizeof(*cmdq), GFP_KERNEL);
 	if (!cmdq)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		cmdq_err("failed to get resource");
+		return -EINVAL;
+	}
+
 	cmdq->base = devm_ioremap_resource(dev, res);
 	cmdq->base_pa = res->start;
 	if (IS_ERR(cmdq->base)) {
@@ -1764,13 +1793,11 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	plat_data = (struct gce_plat *)of_device_get_match_data(dev);
 	if (!plat_data) {
-		dev_notice(dev, "failed to get match data\n");
+		cmdq_err("failed to get match data\n");
 		return -EINVAL;
 	}
 
-	cmdq->thread_nr = plat_data->thread_nr;
 	gce_shift_bit = plat_data->shift;
-	cmdq->irq_mask = GENMASK(cmdq->thread_nr - 1, 0);
 
 	dev_notice(dev, "cmdq thread:%u shift:%u base:0x%lx pa:0x%lx\n",
 		plat_data->thread_nr, plat_data->shift,
@@ -1800,12 +1827,12 @@ static int cmdq_probe(struct platform_device *pdev)
 	}
 
 	cmdq->mbox.dev = dev;
-	cmdq->mbox.chans = devm_kcalloc(dev, plat_data->thread_nr,
-			sizeof(*cmdq->mbox.chans), GFP_KERNEL);
+	cmdq->mbox.chans = devm_kcalloc(dev, CMDQ_THR_MAX_COUNT,
+					sizeof(*cmdq->mbox.chans), GFP_KERNEL);
 	if (!cmdq->mbox.chans)
 		return -ENOMEM;
 
-	cmdq->mbox.num_chans = plat_data->thread_nr;
+	cmdq->mbox.num_chans = CMDQ_THR_MAX_COUNT;
 	cmdq->mbox.ops = &cmdq_mbox_chan_ops;
 	cmdq->mbox.of_xlate = cmdq_xlate;
 
@@ -1813,7 +1840,8 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq->mbox.txdone_irq = false;
 	cmdq->mbox.txdone_poll = false;
 
-	for (i = 0; i < cmdq->thread_nr; i++) {
+
+	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		cmdq->thread[i].base = cmdq->base + CMDQ_THR_BASE +
 				CMDQ_THR_SIZE * i;
 		cmdq->thread[i].gce_pa = cmdq->base_pa;
@@ -1825,6 +1853,7 @@ static int cmdq_probe(struct platform_device *pdev)
 		INIT_WORK(&cmdq->thread[i].timeout_work,
 			cmdq_thread_handle_timeout_work);
 	}
+
 
 	err = mbox_controller_register(&cmdq->mbox);
 	if (err < 0) {
@@ -1849,16 +1878,12 @@ static int cmdq_probe(struct platform_device *pdev)
 	spin_lock_init(&cmdq->lock);
 	clk_enable(cmdq->clock);
 	cmdq_init(cmdq);
-
-	cmdq->sw_ddr_en = of_property_read_bool(dev->of_node, "gce-gctl-sw");
-	if (cmdq->sw_ddr_en)
-		writel(0x7, cmdq->base + GCE_GCTL_VALUE);
 	clk_disable(cmdq->clock);
 
 	cmdq_mmp_init();
 
-#ifdef CONFIG_MTK_CMDQ_MBOX_EXT
-	cmdq->hwid = cmdq_util->track_ctrl(cmdq, cmdq->base_pa, false);
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+	cmdq->hwid = cmdq_util_controller->track_ctrl(cmdq, cmdq->base_pa, false);
 #endif
 	return 0;
 }
@@ -1873,10 +1898,18 @@ static const struct gce_plat gce_plat_v4 = {.thread_nr = 24, .shift = 3};
 
 static const struct of_device_id cmdq_of_ids[] = {
 	{.compatible = "mediatek,mt8173-gce", .data = (void *)&gce_plat_v2},
+	{.compatible = "mediatek,mt8168-gce", .data = (void *)&gce_plat_v2},
+	{.compatible = "mediatek,mt6739-gce", .data = (void *)&gce_plat_v2},
 	{.compatible = "mediatek,mt6761-gce", .data = (void *)&gce_plat_v2},
+	{.compatible = "mediatek,mt6765-gce", .data = (void *)&gce_plat_v2},
+	{.compatible = "mediatek,mt6768-gce", .data = (void *)&gce_plat_v2},
+	{.compatible = "mediatek,mt6771-gce", .data = (void *)&gce_plat_v2},
 	{.compatible = "mediatek,mt6779-gce", .data = (void *)&gce_plat_v4},
-	{.compatible = "mediatek,mt6873-gce", .data = (void *)&gce_plat_v4},
+	{.compatible = "mediatek,mt6785-gce", .data = (void *)&gce_plat_v4},
+	{.compatible = "mediatek,mt6833-gce", .data = (void *)&gce_plat_v4},
 	{.compatible = "mediatek,mt6853-gce", .data = (void *)&gce_plat_v4},
+	{.compatible = "mediatek,mt6873-gce", .data = (void *)&gce_plat_v4},
+	{.compatible = "mediatek,mt6877-gce", .data = (void *)&gce_plat_v4},
 	{.compatible = "mediatek,mt6885-gce", .data = (void *)&gce_plat_v4},
 	{}
 };
@@ -1897,11 +1930,13 @@ static __init int cmdq_drv_init(void)
 
 	cmdq_msg("%s enter", __func__);
 
+	cmdq_util_init();
 	err = platform_driver_register(&cmdq_drv);
 	if (err) {
 		cmdq_err("platform driver register failed:%d", err);
 		return err;
 	}
+	cmdq_helper_init();
 
 	return 0;
 }
@@ -1911,7 +1946,13 @@ void cmdq_mbox_enable(void *chan)
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
 
-	WARN_ON(clk_prepare(cmdq->clock) < 0);
+	WARN_ON(cmdq->suspended);
+	if (cmdq->suspended) {
+		cmdq_err("cmdq:%pa id:%u suspend:%d cannot enable usage:%d",
+			&cmdq->base_pa, cmdq->hwid, cmdq->suspended,
+			atomic_read(&cmdq->usage));
+		return;
+	}
 	cmdq_clk_enable(cmdq);
 }
 EXPORT_SYMBOL(cmdq_mbox_enable);
@@ -1921,8 +1962,14 @@ void cmdq_mbox_disable(void *chan)
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
 
+	WARN_ON(cmdq->suspended);
+	if (cmdq->suspended) {
+		cmdq_err("cmdq:%pa id:%u suspend:%d cannot disable usage:%d",
+			&cmdq->base_pa, cmdq->hwid, cmdq->suspended,
+			atomic_read(&cmdq->usage));
+		return;
+	}
 	cmdq_clk_disable(cmdq);
-	clk_unprepare(cmdq->clock);
 }
 EXPORT_SYMBOL(cmdq_mbox_disable);
 
@@ -1958,6 +2005,16 @@ struct device *cmdq_mbox_get_dev(void *chan)
 		typeof(*cmdq), mbox);
 
 	return cmdq->mbox.dev;
+}
+
+s32 cmdq_mbox_set_hw_id(void *cmdq_mbox)
+{
+	struct cmdq *cmdq = cmdq_mbox;
+
+	if (!cmdq)
+		return -EINVAL;
+	cmdq->hwid = (u8)cmdq_util_get_hw_id(cmdq->base_pa);
+	return 0;
 }
 
 s32 cmdq_mbox_thread_reset(void *chan)
@@ -2248,7 +2305,7 @@ void cmdq_event_verify(void *chan, u16 event_id)
 }
 EXPORT_SYMBOL(cmdq_event_verify);
 
-#if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
 void cmdq_mmp_wait(struct mbox_chan *chan, void *pkt)
 {
 	struct cmdq_thread *thread = chan->con_priv;
@@ -2263,7 +2320,7 @@ EXPORT_SYMBOL(cmdq_mmp_wait);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 void cmdq_controller_set_fp(struct cmdq_util_controller_fp *cust_cmdq_util)
 {
-	cmdq_util = cust_cmdq_util;
+	cmdq_util_controller = cust_cmdq_util;
 }
 EXPORT_SYMBOL(cmdq_controller_set_fp);
 #endif
@@ -2271,4 +2328,3 @@ EXPORT_SYMBOL(cmdq_controller_set_fp);
 module_init(cmdq_drv_init);
 
 MODULE_LICENSE("GPL v2");
-

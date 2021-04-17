@@ -7,7 +7,7 @@
 #define __CMDQ_RECORD_H__
 
 #include <linux/types.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 
 #include "mdp_def.h"
 #include "cmdq_helper_ext.h"

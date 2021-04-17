@@ -467,7 +467,8 @@ static void cmdq_test_mbox_loop(struct cmdq_test *test)
 
 	test->iter = 0;
 	test->tick = true;
-	timer_setup(&test->timer, cmdq_test_mbox_sync_token_loop_iter, 0);
+	timer_setup(&test->timer, cmdq_test_mbox_sync_token_loop_iter,
+		0);
 	mod_timer(&test->timer, jiffies + msecs_to_jiffies(300));
 
 	writel(test->token_user0,
@@ -595,7 +596,7 @@ static void cmdq_test_mbox_sync_token_flush(struct timer_list *t)
 }
 
 void cmdq_test_mbox_flush(
-	struct cmdq_test *test, const bool secure, const bool threaded)
+	struct cmdq_test *test, const s32 secure, const bool threaded)
 {
 	struct cmdq_client		*clt = secure ? test->sec : test->clt;
 	struct cmdq_pkt			*pkt[CMDQ_TEST_CNT] = {0};
@@ -604,15 +605,21 @@ void cmdq_test_mbox_flush(
 	cmdq_msg("%s sec:%d threaded:%d", __func__, secure, threaded);
 
 	test->tick = true;
-	timer_setup(&test->timer, &cmdq_test_mbox_sync_token_flush, 0);
+	timer_setup(&test->timer, cmdq_test_mbox_sync_token_flush,
+		0);
 	mod_timer(&test->timer, jiffies + msecs_to_jiffies(10));
 
 	for (i = 0; i < CMDQ_TEST_CNT; i++) {
 		pkt[i] = cmdq_pkt_create(clt);
 #ifdef CMDQ_SECURE_SUPPORT
-		if (secure)
+		if (secure) {
 			cmdq_sec_pkt_set_data(pkt[i], 0, 0, CMDQ_SEC_DEBUG,
 				CMDQ_METAEX_NONE);
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+			if (!~secure)
+				cmdq_sec_pkt_set_mtee(pkt[i], true);
+#endif
+		}
 #endif
 
 		cmdq_pkt_wfe(pkt[i], test->token_user0);
@@ -651,7 +658,7 @@ void cmdq_test_mbox_flush(
 }
 
 static void cmdq_test_mbox_write(
-	struct cmdq_test *test, const bool secure, const bool need_mask)
+	struct cmdq_test *test, const s32 secure, const bool need_mask)
 {
 	const u32	mask = need_mask ? (1 << 16) : ~0;
 	const u32	pttn = (1 << 0) | (1 << 2) | (1 << 16);
@@ -677,9 +684,14 @@ static void cmdq_test_mbox_write(
 
 	pkt = cmdq_pkt_create(clt);
 #ifdef CMDQ_SECURE_SUPPORT
-	if (secure)
+	if (secure) {
 		cmdq_sec_pkt_set_data(pkt, 0, 0, CMDQ_SEC_DEBUG,
 			CMDQ_METAEX_NONE);
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+		if (!~secure)
+			cmdq_sec_pkt_set_mtee(pkt, true);
+#endif
+	}
 #endif
 
 	cmdq_pkt_write(pkt, NULL, pa, pttn, mask);
@@ -740,6 +752,10 @@ static void cmdq_access_sub_impl(struct cmdq_test *test,
 	u32 pat_init = 0xdeaddead, pat_src = 0xbeefbeef;
 
 	va = cmdq_mbox_buf_alloc(clt->client.dev, &pa);
+	if (!va) {
+		cmdq_err("cmdq_mbox_buf_alloc failed");
+		return;
+	}
 	count = cmdq_util_test_get_subsys_list(&regs);
 
 	for (i = 0; i < count; i++) {
@@ -933,7 +949,8 @@ cmdq_test_write(struct file *filp, const char *buf, size_t count, loff_t *offp)
 {
 	struct cmdq_test *test = (struct cmdq_test *)filp->f_inode->i_private;
 	char		str[MAX_SCAN] = {0};
-	s32		len, sec, id = 0;
+	s32		sec, id = 0;
+	u32		len;
 
 	len = (count < MAX_SCAN - 1) ? count : (MAX_SCAN - 1);
 	if (copy_from_user(str, buf, len)) {
@@ -1045,17 +1062,23 @@ static int cmdq_test_probe(struct platform_device *pdev)
 
 	// clt
 	test->clt = cmdq_mbox_create(&pdev->dev, 0);
-	if (IS_ERR(test->clt) || !test->clt)
-		return -ENXIO;
+	if (IS_ERR(test->clt) || !test->clt) {
+		if (!test->clt)
+			return -ENXIO;
+	}
 
 	test->loop = cmdq_mbox_create(&pdev->dev, 1);
-	if (IS_ERR(test->loop) || !test->loop)
-		return -ENXIO;
+	if (IS_ERR(test->loop) || !test->loop) {
+		if (!test->loop)
+			return -ENXIO;
+	}
 
 #ifdef CMDQ_SECURE_SUPPORT
 	test->sec = cmdq_mbox_create(&pdev->dev, 2);
-	if (IS_ERR(test->sec) || !test->sec)
-		return -ENXIO;
+	if (IS_ERR(test->sec) || !test->sec) {
+		if (!test->sec)
+			return -ENXIO;
+	}
 #endif
 	cmdq_msg("%s test:%p dev:%p clt:%p loop:%p sec:%p",
 		__func__, test, test->dev, test->clt, test->loop, test->sec);
@@ -1094,10 +1117,13 @@ static int cmdq_test_probe(struct platform_device *pdev)
 	}
 
 	// fs
-	dir = debugfs_create_dir("cmdq", NULL);
-	if (IS_ERR(dir) && PTR_ERR(dir) != -EEXIST) {
-		cmdq_err("debugfs_create_dir cmdq failed:%ld", PTR_ERR(dir));
-		return PTR_ERR(dir);
+	dir = debugfs_lookup("cmdq", NULL);
+	if (!dir) {
+		dir = debugfs_create_dir("cmdq", NULL);
+		if (IS_ERR(dir) && PTR_ERR(dir) != -EEXIST) {
+			cmdq_err("debugfs_create_dir cmdq failed:%ld", PTR_ERR(dir));
+			return PTR_ERR(dir);
+		}
 	}
 
 	test->fs = debugfs_create_file(

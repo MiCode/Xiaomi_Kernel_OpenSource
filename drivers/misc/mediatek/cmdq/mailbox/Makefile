@@ -19,6 +19,14 @@ ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
 include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
 endif
 
+ifeq ($(strip $(CONFIG_MTK_ENABLE_GENIEZONE)),y)
+ifeq ($(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
+ccflags-y += -DCMDQ_SECURE_MTEE_SUPPORT
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq_sec_mtee.o
+endif
+endif
+
 ccflags-y += -DCMDQ_SECURE_SUPPORT
 
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-sec-gp.o
@@ -27,8 +35,13 @@ obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-sec-mailbox.o
 
 endif # $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) or $(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 
+
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += mtk-cmdq-drv-ext.o
+mtk-cmdq-drv-ext-y := mtk-cmdq-mailbox-ext.o \
+					mtk-cmdq-helper-ext.o \
+					cmdq-util.o
+
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-test.o
-obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-util.o
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-platform-mt6873.o
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-platform-mt6853.o
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-platform-mt6885.o

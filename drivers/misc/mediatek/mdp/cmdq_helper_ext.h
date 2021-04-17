@@ -8,7 +8,7 @@
 
 #include <linux/kernel.h>
 #include <linux/printk.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/trace_events.h>
 
 #include "mdp_def.h"

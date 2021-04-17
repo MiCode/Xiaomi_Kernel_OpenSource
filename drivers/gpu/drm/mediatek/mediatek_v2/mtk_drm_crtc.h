@@ -9,7 +9,7 @@
 #include <linux/types.h>
 #include <linux/workqueue.h>
 #include <linux/wait.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <drm/drm_crtc.h>
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_plane.h"

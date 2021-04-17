@@ -29,6 +29,7 @@ void cmdq_controller_set_fp(struct cmdq_util_controller_fp *cust_cmdq_util);
 #define CMDQ_TIMEOUT_DEFAULT		1000
 
 #define CMDQ_THR_MAX_COUNT		24
+
 #define CMDQ_INST_SIZE			8 /* instruction is 64-bit */
 #define CMDQ_SUBSYS_SHIFT		16
 #define CMDQ_OP_CODE_SHIFT		24
@@ -133,7 +134,6 @@ struct cmdq_pkt {
 	void			*flush_item;
 	struct completion	cmplt;
 	struct cmdq_buf_pool	cur_pool;
-	bool			task_alloc;
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	bool			mdp;
 	u64			rec_submit;
@@ -146,6 +146,8 @@ struct cmdq_pkt {
 	void			*sec_data;
 #endif
 #endif	/* end of CONFIG_MTK_CMDQ_MBOX_EXT */
+	bool			task_alloc;
+	bool			task_alive;
 };
 
 struct cmdq_thread {
@@ -230,13 +232,15 @@ extern int cmdq_trace;
 #define cmdq_trace_end() do { \
 } while (0)
 
+extern int cmdq_trace;
 #define cmdq_trace_ex_begin(fmt, args...) do { \
+	if (cmdq_trace) \
+		cmdq_trace_begin(fmt, ##args); \
 } while (0)
 
-#define cmdq_trace_ex_end() do { \
-} while (0)
-
-#define cmdq_trace_c(fmt, args...) do { \
+#define cmdq_trace_ex_end(fmt, args...) do { \
+	if (cmdq_trace) \
+		cmdq_trace_end(fmt, ##args); \
 } while (0)
 #endif
 
@@ -280,6 +284,7 @@ void cmdq_event_verify(void *chan, u16 event_id);
 unsigned long cmdq_get_tracing_mark(void);
 u32 cmdq_thread_timeout_backup(struct cmdq_thread *thread, const u32 ms);
 void cmdq_thread_timeout_restore(struct cmdq_thread *thread, const u32 ms);
+s32 cmdq_mbox_set_hw_id(void *cmdq);
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 void cmdq_mmp_wait(struct mbox_chan *chan, void *pkt);

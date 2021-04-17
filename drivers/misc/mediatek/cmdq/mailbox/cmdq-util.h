@@ -7,7 +7,7 @@
 #define __CMDQ_UTIL_H__
 
 #include <linux/kernel.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
@@ -40,6 +40,34 @@ enum {
 		cmdq_util_error_save("[cmdq][err] "fmt"\n", ##args); \
 	} while (0)
 
+#define cmdq_util_user_msg(chan, fmt, args...) \
+	do { \
+		if (chan) {  \
+			u32 gce = cmdq_util_get_hw_id( \
+				(u32)cmdq_mbox_get_base_pa(chan)); \
+			s32 thd = cmdq_mbox_chan_id(chan); \
+			pr_notice("[%s]<%u>(%d)[cmdq] "fmt"\n", \
+				cmdq_util_thread_module_dispatch(gce, thd), \
+				gce, thd, ##args); \
+			cmdq_util_error_save("[cmdq] "fmt"\n", ##args); \
+		} else \
+			cmdq_util_msg(fmt, ##args); \
+	} while (0)
+
+#define cmdq_util_user_err(chan, fmt, args...) \
+	do { \
+		if (chan) {  \
+			u32 gce = cmdq_util_get_hw_id( \
+				(u32)cmdq_mbox_get_base_pa(chan)); \
+			s32 thd = cmdq_mbox_chan_id(chan); \
+			pr_notice("[%s]<%u>(%d)[cmdq][err] "fmt"\n", \
+				cmdq_util_thread_module_dispatch(gce, thd), \
+				gce, thd, ##args); \
+			cmdq_util_error_save("[cmdq][err] "fmt"\n", ##args); \
+		} else \
+			cmdq_util_msg(fmt, ##args); \
+	} while (0)
+
 #define DB_OPT_CMDQ	(DB_OPT_DEFAULT | DB_OPT_PROC_CMDQ_INFO | \
 	DB_OPT_MMPROFILE_BUFFER | DB_OPT_FTRACE | DB_OPT_DUMP_DISPLAY)
 
@@ -47,7 +75,10 @@ enum {
 #define cmdq_util_aee(key, fmt, args...) \
 	do { \
 		char tag[LINK_MAX]; \
-		snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
+		int len = snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
+		if (len >= LINK_MAX) \
+			pr_debug("len:%d over max:%d\n", \
+				__func__, __LINE__, len, LINK_MAX); \
 		cmdq_aee(fmt, ##args); \
 		cmdq_util_error_save("[cmdq][aee] "fmt"\n", ##args); \
 		aee_kernel_warning_api(__FILE__, __LINE__, \
@@ -57,7 +88,10 @@ enum {
 #define cmdq_util_aee(key, fmt, args...) \
 	do { \
 		char tag[LINK_MAX]; \
-		snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
+		int len = snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
+		if (len >= LINK_MAX) \
+			pr_debug("len:%d over max:%d\n", \
+				__func__, __LINE__, len, LINK_MAX); \
 		cmdq_aee(fmt" (aee not ready)", ##args); \
 		cmdq_util_error_save("[cmdq][aee] "fmt"\n", ##args); \
 	} while (0)
@@ -85,6 +119,7 @@ struct cmdq_util_platform_fp {
 
 void cmdq_util_set_fp(struct cmdq_util_platform_fp *cust_cmdq_platform);
 const char *cmdq_util_event_module_dispatch(phys_addr_t gce_pa, const u16 event, s32 thread);
+const char *cmdq_util_thread_module_dispatch(phys_addr_t gce_pa, s32 thread);
 u32 cmdq_util_get_hw_id(u32 pa);
 u32 cmdq_util_test_get_subsys_list(u32 **regs_out);
 
@@ -111,4 +146,5 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 u32 cmdq_util_hw_id(u32 pa);
 const char *cmdq_util_hw_name(void *chan);
 bool cmdq_thread_ddr_module(const s32 thread);
+int cmdq_util_init(void);
 #endif

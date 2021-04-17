@@ -63,7 +63,7 @@
 #include <linux/of_platform.h>
 //#include <cmdq_core.h>
 //#include <cmdq_record.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 //#include <linux/soc/mediatek/mtk-cmdq.h>
 #include <soc/mediatek/smi.h>
 //!

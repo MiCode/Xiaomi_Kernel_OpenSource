@@ -32,7 +32,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/dma-buf.h>
 #include <soc/mediatek/smi.h>
-#include "linux/soc/mediatek/mtk-cmdq-legacy.h"
+#include "linux/soc/mediatek/mtk-cmdq-ext.h"
 
 /*#include <linux/xlog.h>		 For xlog_printk(). */
 /*  */

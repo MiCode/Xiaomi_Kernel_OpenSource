@@ -10,7 +10,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <soc/mediatek/smi.h>
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 #include "iommu_debug.h"

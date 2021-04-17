@@ -7,13 +7,12 @@
 #include <linux/io.h>
 #include <linux/debugfs.h>
 #include <linux/sched/clock.h>
-#include <linux/soc/mediatek/mtk-cmdq-legacy.h>
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/arm-smccc.h>
 
 #include "cmdq-util.h"
 
 #ifdef CMDQ_SECURE_SUPPORT
-#include <mt-plat/mtk_secure_api.h>
 #include "cmdq-sec-mailbox.h"
 #endif
 
@@ -101,12 +100,10 @@ static struct cmdq_util	util;
 
 static DEFINE_MUTEX(cmdq_record_mutex);
 static DEFINE_MUTEX(cmdq_dump_mutex);
-
 struct cmdq_util_controller_fp controller_fp = {
 	.dump_dbg_reg = cmdq_util_dump_dbg_reg,
 	.track_ctrl = cmdq_util_track_ctrl,
 };
-
 struct cmdq_util_helper_fp helper_fp = {
 	.is_feature_en = cmdq_util_is_feature_en,
 	.dump_lock = cmdq_util_dump_lock,
@@ -122,6 +119,7 @@ struct cmdq_util_platform_fp *cmdq_platform;
 
 void cmdq_util_set_fp(struct cmdq_util_platform_fp *cust_cmdq_platform)
 {
+	s32 i;
 	if (!cust_cmdq_platform) {
 		cmdq_err("%s cmdq_util_platform_fp is NULL ", __func__);
 		return;
@@ -131,6 +129,8 @@ void cmdq_util_set_fp(struct cmdq_util_platform_fp *cust_cmdq_platform)
 	helper_fp.hw_name = cmdq_platform->util_hw_name;
 	helper_fp.event_module_dispatch = cmdq_platform->event_module_dispatch;
 	helper_fp.thread_module_dispatch = cmdq_platform->thread_module_dispatch;
+	for (i = 0; i < util.mbox_cnt; i++)
+		cmdq_mbox_set_hw_id(util.cmdq_mbox[i]);
 }
 EXPORT_SYMBOL(cmdq_util_set_fp);
 
@@ -142,15 +142,26 @@ const char *cmdq_util_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 		mod = cmdq_platform->event_module_dispatch(gce_pa, event, thread);
 	else
 		cmdq_err("%s event_module_dispatch is NULL ", __func__);
-
 	return mod;
 }
 EXPORT_SYMBOL(cmdq_util_event_module_dispatch);
 
+const char *cmdq_util_thread_module_dispatch(phys_addr_t gce_pa, s32 thread)
+{
+	const char *mod = NULL;
+
+	if (cmdq_platform->thread_module_dispatch)
+		mod = cmdq_platform->thread_module_dispatch(gce_pa, thread);
+	else
+		cmdq_err("%s thread_module_dispatch is NULL ", __func__);
+	return mod;
+}
+EXPORT_SYMBOL(cmdq_util_thread_module_dispatch);
+
 u32 cmdq_util_get_hw_id(u32 pa)
 {
-	if (!cmdq_platform->util_hw_id) {
-		cmdq_err("%s util_hw_id is NULL ", __func__);
+	if (!cmdq_platform || !cmdq_platform->util_hw_id) {
+		cmdq_msg("%s cmdq_platform->util_hw_id is NULL ", __func__);
 		return -EINVAL;
 	}
 	return cmdq_platform->util_hw_id(pa);
@@ -166,7 +177,6 @@ u32 cmdq_util_test_get_subsys_list(u32 **regs_out)
 	return cmdq_platform->test_get_subsys_list(regs_out);
 }
 EXPORT_SYMBOL(cmdq_util_test_get_subsys_list);
-
 
 u32 cmdq_util_get_bit_feature(void)
 {
@@ -217,6 +227,9 @@ s32 cmdq_util_error_save_lst(const char *format, va_list args)
 	spin_lock_irqsave(&util.err.lock, flags);
 	size = vsnprintf(util.err.buffer + util.err.length,
 		CMDQ_FIRST_ERR_SIZE - util.err.length, format, args);
+	if (size >= CMDQ_FIRST_ERR_SIZE - util.err.length)
+		cmdq_log("size:%d over buf size:%d",
+			size, CMDQ_FIRST_ERR_SIZE - util.err.length);
 	util.err.length += size;
 	spin_unlock_irqrestore(&util.err.lock, flags);
 
@@ -421,7 +434,7 @@ void cmdq_util_dump_dbg_reg(void *chan)
 
 	dbg3 = readl(base + GCE_DBG3);
 
-	cmdq_util_msg(
+	cmdq_util_user_msg(chan,
 		"id:%u dbg0:%#x %#x %#x dbg2:%#x %#x %#x %#x %#x %#x dbg3:%#x",
 		id,
 		dbg0[0], dbg0[1], dbg0[2],
@@ -536,6 +549,7 @@ u8 cmdq_util_track_ctrl(void *cmdq, phys_addr_t base, bool sec)
 
 	return (u8)cmdq_util_get_hw_id((u32)base);
 }
+EXPORT_SYMBOL(cmdq_util_track_ctrl);
 
 void cmdq_util_set_first_err_mod(void *chan, const char *mod)
 {
@@ -553,12 +567,10 @@ const char *cmdq_util_get_first_err_mod(void *chan)
 }
 EXPORT_SYMBOL(cmdq_util_get_first_err_mod);
 
-static int __init cmdq_util_init(void)
+int cmdq_util_init(void)
 {
-#if IS_ENABLED(CMDQ_DEBUGFS_SUPPORT)
 	struct dentry	*dir;
 	bool exists = false;
-#endif
 
 	cmdq_msg("%s begin", __func__);
 
@@ -569,7 +581,6 @@ static int __init cmdq_util_init(void)
 	if (!util.err.buffer)
 		return -ENOMEM;
 
-#if IS_ENABLED(CMDQ_DEBUGFS_SUPPORT)
 	dir = debugfs_lookup("cmdq", NULL);
 	if (!dir) {
 		dir = debugfs_create_dir("cmdq", NULL);
@@ -603,9 +614,9 @@ static int __init cmdq_util_init(void)
 			PTR_ERR(util.fs.log_feature));
 		return PTR_ERR(util.fs.log_feature);
 	}
+
 	if (exists)
 		dput(dir);
-#endif
 
 	cmdq_util_log_feature_set(NULL, CMDQ_LOG_FEAT_PERF);
 
@@ -617,6 +628,6 @@ static int __init cmdq_util_init(void)
 
 	return 0;
 }
-late_initcall(cmdq_util_init);
+EXPORT_SYMBOL(cmdq_util_init);
 
 MODULE_LICENSE("GPL v2");
