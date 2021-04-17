@@ -618,8 +618,8 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 		}
 
 		priv->mem_base_va = devm_ioremap(&priv->pdev->dev,
-							 priv->mem_base_pa,
-							 priv->mem_base_size);
+						 priv->mem_base_pa,
+						 priv->mem_base_size);
 		if (!priv->mem_base_va) {
 			icnss_pr_err("Ioremap failed for bar address\n");
 			goto err_power_on;
@@ -628,6 +628,17 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 		icnss_pr_dbg("Non-Secured Bar Address pa: %pa, va: 0x%pK\n",
 			     &priv->mem_base_pa,
 			     priv->mem_base_va);
+
+		if (priv->mhi_state_info_pa)
+			priv->mhi_state_info_va = devm_ioremap(&priv->pdev->dev,
+						priv->mhi_state_info_pa,
+						PAGE_SIZE);
+		if (!priv->mhi_state_info_va)
+			icnss_pr_err("Ioremap failed for MHI info address\n");
+
+		icnss_pr_dbg("MHI state info Address pa: %pa, va: 0x%pK\n",
+			     &priv->mhi_state_info_pa,
+			     priv->mhi_state_info_va);
 
 		icnss_wlfw_bdf_dnld_send_sync(priv, ICNSS_BDF_REGDB);
 
@@ -1453,6 +1464,7 @@ static void icnss_driver_event_work(struct work_struct *work)
 			break;
 		case ICNSS_DRIVER_EVENT_M3_DUMP_UPLOAD_REQ:
 			ret = icnss_m3_dump_upload_req_hdlr(priv, event->data);
+			break;
 		case ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA:
 			ret = icnss_qdss_trace_req_data_hdlr(priv,
 							     event->data);
@@ -1977,7 +1989,8 @@ enable_pdr:
 	return 0;
 }
 
-static int icnss_trigger_ssr_smp2p(struct icnss_priv *priv)
+static int icnss_send_smp2p(struct icnss_priv *priv,
+			    enum icnss_smp2p_msg_id msg_id)
 {
 	unsigned int value = 0;
 	int ret;
@@ -1985,19 +1998,22 @@ static int icnss_trigger_ssr_smp2p(struct icnss_priv *priv)
 	if (IS_ERR(priv->smp2p_info.smem_state))
 		return -EINVAL;
 
+	if (test_bit(ICNSS_FW_DOWN, &priv->state))
+		return -ENODEV;
+
 	value |= priv->smp2p_info.seq++;
 	value <<= ICNSS_SMEM_SEQ_NO_POS;
-	value |= ICNSS_TRIGGER_SSR;
+	value |= msg_id;
+
+	icnss_pr_vdbg1("Sending SMP2P value: 0x%X\n", value);
+
 	ret = qcom_smem_state_update_bits(
 			priv->smp2p_info.smem_state,
 			ICNSS_SMEM_VALUE_MASK,
 			value);
 	if (ret)
-		icnss_pr_vdbg1("Error in SMP2P sent ret: %d\n", ret);
+		icnss_pr_vdbg1("Error in SMP2P send ret: %d\n", ret);
 
-	icnss_pr_vdbg1("Initiate Root PD restart. SMP2P sent value: 0x%X\n",
-		     value);
-	set_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
 	return ret;
 }
 
@@ -2470,6 +2486,22 @@ int icnss_get_soc_info(struct device *dev, struct icnss_soc_info *info)
 }
 EXPORT_SYMBOL(icnss_get_soc_info);
 
+int icnss_get_mhi_state(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	if (!priv) {
+		icnss_pr_err("Platform driver not initialized\n");
+		return -EINVAL;
+	}
+
+	if (!priv->mhi_state_info_va)
+		return -ENOMEM;
+
+	return ioread32(priv->mhi_state_info_va);
+}
+EXPORT_SYMBOL(icnss_get_mhi_state);
+
 int icnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode)
 {
 	int ret;
@@ -2553,9 +2585,6 @@ int icnss_is_device_awake(struct device *dev)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
 
-	if (!dev)
-		return -ENODEV;
-
 	if (!priv) {
 		icnss_pr_err("Platform driver not initialized\n");
 		return -EINVAL;
@@ -2564,6 +2593,22 @@ int icnss_is_device_awake(struct device *dev)
 	return atomic_read(&priv->soc_wake_ref_count);
 }
 EXPORT_SYMBOL(icnss_is_device_awake);
+
+int icnss_is_pci_ep_awake(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	if (!priv) {
+		icnss_pr_err("Platform driver not initialized\n");
+		return -EINVAL;
+	}
+
+	if (!priv->mhi_state_info_va)
+		return -ENOMEM;
+
+	return ioread32(priv->mhi_state_info_va + ICNSS_PCI_EP_WAKE_OFFSET);
+}
+EXPORT_SYMBOL(icnss_is_pci_ep_awake);
 
 int icnss_athdiag_read(struct device *dev, uint32_t offset,
 		       uint32_t mem_type, uint32_t data_len,
@@ -2846,8 +2891,13 @@ int icnss_trigger_recovery(struct device *dev)
 		goto out;
 	}
 
-	if (priv->device_id == WCN6750_DEVICE_ID)
-		return icnss_trigger_ssr_smp2p(priv);
+	if (priv->device_id == WCN6750_DEVICE_ID) {
+		icnss_pr_vdbg1("Initiate Root PD restart");
+		ret = icnss_send_smp2p(priv, ICNSS_TRIGGER_SSR);
+		if (!ret)
+			set_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
+		return ret;
+	}
 
 	if (!test_bit(ICNSS_PDR_REGISTERED, &priv->state)) {
 		icnss_pr_err("PD restart not enabled to trigger recovery: state: 0x%lx\n",
@@ -2926,8 +2976,6 @@ EXPORT_SYMBOL(icnss_idle_restart);
 int icnss_exit_power_save(struct device *dev)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
-	unsigned int value = 0;
-	int ret;
 
 	icnss_pr_vdbg1("Calling Exit Power Save\n");
 
@@ -2935,20 +2983,33 @@ int icnss_exit_power_save(struct device *dev)
 	    !test_bit(ICNSS_MODE_ON, &priv->state))
 		return 0;
 
-	value |= priv->smp2p_info.seq++;
-	value <<= ICNSS_SMEM_SEQ_NO_POS;
-	value |= ICNSS_POWER_SAVE_EXIT;
-	ret = qcom_smem_state_update_bits(
-			priv->smp2p_info.smem_state,
-			ICNSS_SMEM_VALUE_MASK,
-			value);
-	if (ret)
-		icnss_pr_vdbg1("Error in SMP2P sent ret: %d\n", ret);
-
-	icnss_pr_vdbg1("SMP2P sent value: 0x%X\n", value);
-	return ret;
+	return icnss_send_smp2p(priv, ICNSS_POWER_SAVE_EXIT);
 }
 EXPORT_SYMBOL(icnss_exit_power_save);
+
+int icnss_prevent_l1(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
+	    !test_bit(ICNSS_MODE_ON, &priv->state))
+		return 0;
+
+	return icnss_send_smp2p(priv, ICNSS_PCI_EP_POWER_SAVE_EXIT);
+}
+EXPORT_SYMBOL(icnss_prevent_l1);
+
+void icnss_allow_l1(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
+	    !test_bit(ICNSS_MODE_ON, &priv->state))
+		return;
+
+	icnss_send_smp2p(priv, ICNSS_PCI_EP_POWER_SAVE_ENTER);
+}
+EXPORT_SYMBOL(icnss_allow_l1);
 
 void icnss_allow_recursive_recovery(struct device *dev)
 {
@@ -3699,7 +3760,6 @@ static int icnss_remove(struct platform_device *pdev)
 static int icnss_pm_suspend(struct device *dev)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
-	unsigned int value = 0;
 	int ret = 0;
 
 	if (priv->magic != ICNSS_MAGIC) {
@@ -3723,19 +3783,7 @@ static int icnss_pm_suspend(struct device *dev)
 			    !test_bit(ICNSS_MODE_ON, &priv->state))
 				return 0;
 
-			value |= priv->smp2p_info.seq++;
-			value <<= ICNSS_SMEM_SEQ_NO_POS;
-			value |= ICNSS_POWER_SAVE_ENTER;
-
-			ret = qcom_smem_state_update_bits(
-				priv->smp2p_info.smem_state,
-				ICNSS_SMEM_VALUE_MASK,
-				value);
-			if (ret)
-				icnss_pr_vdbg1("Error in SMP2P sent ret: %d\n",
-					     ret);
-
-			icnss_pr_vdbg1("SMP2P sent value: 0x%X\n", value);
+			ret = icnss_send_smp2p(priv, ICNSS_POWER_SAVE_ENTER);
 		}
 		priv->stats.pm_suspend++;
 		set_bit(ICNSS_PM_SUSPEND, &priv->state);
@@ -3836,7 +3884,6 @@ out:
 static int icnss_pm_runtime_suspend(struct device *dev)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
-	unsigned int value = 0;
 	int ret = 0;
 
 	if (priv->magic != ICNSS_MAGIC) {
@@ -3856,18 +3903,7 @@ static int icnss_pm_runtime_suspend(struct device *dev)
 		    !test_bit(ICNSS_MODE_ON, &priv->state))
 			return 0;
 
-		value |= priv->smp2p_info.seq++;
-		value <<= ICNSS_SMEM_SEQ_NO_POS;
-		value |= ICNSS_POWER_SAVE_ENTER;
-
-		ret = qcom_smem_state_update_bits(
-				priv->smp2p_info.smem_state,
-				ICNSS_SMEM_VALUE_MASK,
-				value);
-		if (ret)
-			icnss_pr_vdbg1("Error in SMP2P sent ret: %d\n", ret);
-
-		icnss_pr_vdbg1("SMP2P sent value: 0x%X\n", value);
+		ret = icnss_send_smp2p(priv, ICNSS_POWER_SAVE_ENTER);
 	}
 out:
 	return ret;

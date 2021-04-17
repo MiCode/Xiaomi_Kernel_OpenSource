@@ -334,6 +334,15 @@ int wlfw_device_info_send_msg(struct icnss_priv *priv)
 		goto out;
 	}
 
+	if (resp->mhi_state_info_addr_valid)
+		priv->mhi_state_info_pa = resp->mhi_state_info_addr;
+
+	if (resp->mhi_state_info_size_valid)
+		priv->mhi_state_info_size = resp->mhi_state_info_size;
+
+	if (!priv->mhi_state_info_pa)
+		icnss_pr_err("Fail to get MHI info address\n");
+
 	kfree(resp);
 	kfree(req);
 	return 0;
