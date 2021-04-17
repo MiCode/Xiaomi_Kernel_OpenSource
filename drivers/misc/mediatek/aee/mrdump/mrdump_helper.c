@@ -24,7 +24,7 @@
 #ifdef MODULE
 
 #define KV		kimage_vaddr
-#define S_MAX		SZ_64M
+#define S_MAX		SZ_128M
 #define SM_SIZE		28
 #define TT_SIZE		256
 #define NAME_LEN	128
@@ -136,6 +136,9 @@ int mrdump_ka_init(void)
 {
 	unsigned int kns;
 
+#if IS_ENABLED(CONFIG_KASAN_GENERIC) || IS_ENABLED(CONFIG_KASAN_SW_TAGS)
+	current->kasan_depth--;
+#endif
 	mrdump_krb = mrdump_krb_addr();
 	if (!mrdump_krb)
 		return -EINVAL;
@@ -148,7 +151,9 @@ int mrdump_ka_init(void)
 	mrdump_ktt = (u8 *)round_up((unsigned long)(mrdump_km +
 				    (round_up(kns, 256) / 256)), 8);
 	mrdump_kti = mrdump_kti_addr();
-
+#if IS_ENABLED(CONFIG_KASAN_GENERIC) || IS_ENABLED(CONFIG_KASAN_SW_TAGS)
+	current->kasan_depth++;
+#endif
 	aee_base_addrs_init();
 	return 0;
 }
