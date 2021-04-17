@@ -3558,9 +3558,12 @@ int msdc_error_tuning(struct mmc_host *mmc,  struct mmc_request *mrq)
 	}
 
 	/* send stop command if device not in transfer state */
-	if (R1_CURRENT_STATE(status) != R1_STATE_TRAN &&
-		msdc_stop_and_wait_busy(host))
-		goto recovery;
+	if (R1_CURRENT_STATE(status) == R1_STATE_DATA ||
+		R1_CURRENT_STATE(status) == R1_STATE_RCV) {
+		ret = msdc_stop_and_wait_busy(host);
+		if (ret)
+			goto recovery;
+	}
 
 start_tune:
 	msdc_pmic_force_vcore_pwm(true);
