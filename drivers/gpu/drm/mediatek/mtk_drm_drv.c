@@ -64,6 +64,10 @@
 #endif
 #include "swpm_me.h"
 
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6877)
+#include "include/pmic_api_buck.h"
+#endif
+
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
 #define DRIVER_DATE "20150513"
@@ -598,6 +602,21 @@ static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
 		drm_atomic_crtc_needs_modeset(crtc->state),
 		mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]);
 
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6877)
+	if (mtk_state->doze_changed) {
+		if (mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE] &&
+			prepare) {
+			DDPMSG("enter AOD, disable PMIC LPMODE\n");
+			pmic_ldo_vio18_lp(SRCLKEN0, 0, 1, HW_LP);
+			pmic_ldo_vio18_lp(SRCLKEN2, 0, 1, HW_LP);
+		} else if (!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE] &&
+			!prepare) {
+			DDPMSG("exit AOD, enable PMIC LPMODE\n");
+			pmic_ldo_vio18_lp(SRCLKEN0, 1, 0, HW_LP);
+			pmic_ldo_vio18_lp(SRCLKEN2, 1, 0, HW_LP);
+		}
+	}
+#endif
 	if (!mtk_state->doze_changed ||
 		!drm_atomic_crtc_needs_modeset(crtc->state))
 		return;
