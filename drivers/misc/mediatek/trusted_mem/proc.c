@@ -269,7 +269,7 @@ static int trusted_mem_init(struct platform_device *pdev)
 {
 	pr_info("%s:%d\n", __func__, __LINE__);
 
-	ssmr_probe(pdev);
+	ssmr_init(pdev);
 
 	trusted_mem_subsys_init();
 

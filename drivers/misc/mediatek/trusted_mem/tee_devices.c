@@ -47,10 +47,10 @@ static struct tmem_device_description tee_smem_devs[] = {
 #ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 #if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)
 	{
-		.kern_tmem_type = TRUSTED_MEM_SVP,
+		.kern_tmem_type = TRUSTED_MEM_SVP_REGION,
 		.tee_smem_type = TEE_SMEM_SVP,
 		.mtee_chunks_id = MTEE_MCUHNKS_INVALID,
-		.ssmr_feature_id = SSMR_FEAT_SVP,
+		.ssmr_feature_id = SSMR_FEAT_SVP_REGION,
 		/* clang-format off */
 		.u_ops_data.tee = {
 			.tee_cmds[TEE_OP_ALLOC] = CMD_SEC_MEM_ALLOC,

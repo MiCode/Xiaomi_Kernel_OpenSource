@@ -38,7 +38,8 @@ static u64 ssmr_upper_limit = UPPER_LIMIT64;
 
 static struct device *ssmr_dev;
 
-struct SSMR_HEAP_INFO _ssmr_heap_info[__MAX_NR_SSMR_FEATURES];
+static struct SSMR_HEAP_INFO _ssmr_heap_info[__MAX_NR_SSMR_FEATURES];
+
 
 #if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
@@ -47,7 +48,7 @@ static int __init dedicate_svp_memory(struct reserved_mem *rmem)
 {
 	struct SSMR_Feature *feature;
 
-	feature = &_ssmr_feats[SSMR_FEAT_SVP];
+	feature = &_ssmr_feats[SSMR_FEAT_SVP_REGION];
 
 	pr_info("%s, name: %s, base: 0x%pa, size: 0x%pa\n", __func__,
 		rmem->name, &rmem->base, &rmem->size);
@@ -78,7 +79,7 @@ static int get_svp_memory_info(void)
 	const __be32 *reg;
 	u64 base, size;
 
-	feature = &_ssmr_feats[SSMR_FEAT_SVP];
+	feature = &_ssmr_feats[SSMR_FEAT_SVP_REGION];
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,memory-svp");
 	if (!node) {
@@ -192,7 +193,7 @@ static int memory_ssmr_init_feature(char *name, u64 size,
 	}
 
 	feature->state = SSMR_STATE_ON;
-	pr_info("%s: %s is enable with size: %pa\n", __func__, name, &size);
+	pr_debug("%s: %s is enable with size: %pa\n", __func__, name, &size);
 	return 0;
 }
 
@@ -246,7 +247,7 @@ static int get_reserved_cma_memory(struct device *dev)
 		return -EINVAL;
 	}
 
-	pr_info("resource base=%pa, size=%pa\n", &rmem->base, &rmem->size);
+	pr_info("cma base=%pa, size=%pa\n", &rmem->base, &rmem->size);
 
 	/*
 	 * setup init device with rmem
@@ -455,6 +456,13 @@ int ssmr_online(unsigned int feat)
 }
 EXPORT_SYMBOL(ssmr_online);
 
+bool is_page_based_memory(enum TRUSTED_MEM_TYPE mem_type)
+{
+	return _ssmr_feats[mem_type].is_page_based &&
+		   (_ssmr_feats[mem_type].req_size > 0);
+}
+EXPORT_SYMBOL(is_page_based_memory);
+
 #if IS_ENABLED(CONFIG_SYSFS)
 static ssize_t ssmr_show(struct kobject *kobj, struct kobj_attribute *attr,
 			 char *buf)
@@ -566,11 +574,9 @@ static int memory_ssmr_sysfs_init(void)
 }
 #endif /* end of CONFIG_SYSFS */
 
-int ssmr_probe(struct platform_device *pdev)
+int ssmr_init(struct platform_device *pdev)
 {
 	int i;
-
-	pr_info("memory_ssmr driver probe done\n");
 
 	ssmr_dev = &pdev->dev;
 	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
@@ -600,6 +606,8 @@ int ssmr_probe(struct platform_device *pdev)
 #endif
 
 	get_reserved_cma_memory(&pdev->dev);
+
+	pr_info("ssmr init done\n");
 
 	return 0;
 }

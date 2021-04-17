@@ -43,6 +43,7 @@
  *  enable :           show feature status
  */
 struct SSMR_Feature {
+	bool is_page_based;
 	bool is_unmapping;
 	bool use_cache_memory;
 	char dt_prop_name[NAME_LEN];
@@ -129,11 +130,11 @@ static struct SSMR_Scheme _ssmrscheme[__MAX_NR_SCHEME] = {
 };
 
 static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
-	[SSMR_FEAT_SVP] = {
-		.dt_prop_name = "svp-size",
-		.feat_name = "svp",
-		.cmd_online = "svp=on",
-		.cmd_offline = "svp=off",
+	[SSMR_FEAT_SVP_REGION] = {
+		.dt_prop_name = "svp-region-based-size",
+		.feat_name = "svp_region_based",
+		.cmd_online = "svp_region=on",
+		.cmd_offline = "svp_region=off",
 #if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
 	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT) || \
@@ -142,7 +143,9 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 #else
 		.enable = "off",
 #endif
-		.scheme_flag = SVP_FLAGS
+		.scheme_flag = SVP_FLAGS,
+		.req_size = 0,
+		.is_page_based = false
 	},
 	[SSMR_FEAT_PROT_SHAREDMEM] = {
 		.dt_prop_name = "prot-sharedmem-size",
@@ -155,7 +158,9 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.enable = "off",
 #endif
 		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
-				FACE_UNLOCK_FLAGS | SVP_FLAGS
+				FACE_UNLOCK_FLAGS | SVP_FLAGS,
+		.req_size = 0,
+		.is_page_based = false
 	},
 	[SSMR_FEAT_WFD] = {
 		.dt_prop_name = "wfd-size",
@@ -167,7 +172,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 #else
 		.enable = "off",
 #endif
-		.scheme_flag = SVP_FLAGS
+		.scheme_flag = SVP_FLAGS,
+		.is_page_based = false
 	},
 	[SSMR_FEAT_TA_ELF] = {
 		.dt_prop_name = "ta-elf-size",
@@ -180,7 +186,9 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.enable = "off",
 #endif
 		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
-				FACE_UNLOCK_FLAGS
+				FACE_UNLOCK_FLAGS,
+		.req_size = 0,
+		.is_page_based = false
 	},
 	[SSMR_FEAT_TA_STACK_HEAP] = {
 		.dt_prop_name = "ta-stack-heap-size",
@@ -193,7 +201,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.enable = "off",
 #endif
 		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
-				FACE_UNLOCK_FLAGS
+				FACE_UNLOCK_FLAGS,
+		.is_page_based = false
 	},
 	[SSMR_FEAT_SDSP_TEE_SHAREDMEM] = {
 		.dt_prop_name = "sdsp-tee-sharedmem-size",
@@ -206,7 +215,9 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.enable = "off",
 #endif
 		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
-				FACE_UNLOCK_FLAGS
+				FACE_UNLOCK_FLAGS,
+		.req_size = 0,
+		.is_page_based = false
 	},
 	[SSMR_FEAT_SDSP_FIRMWARE] = {
 		.dt_prop_name = "sdsp-firmware-size",
@@ -218,7 +229,9 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 #else
 		.enable = "off",
 #endif
-		.scheme_flag = FACE_UNLOCK_FLAGS
+		.scheme_flag = FACE_UNLOCK_FLAGS,
+		.req_size = 0,
+		.is_page_based = false
 	},
 	[SSMR_FEAT_2D_FR] = {
 		.dt_prop_name = "2d_fr-size",
@@ -231,7 +244,9 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.enable = "off",
 #endif
 		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
-				FACE_UNLOCK_FLAGS
+				FACE_UNLOCK_FLAGS,
+		.req_size = 0,
+		.is_page_based = false
 	},
 	[SSMR_FEAT_TUI] = {
 		.dt_prop_name = "tui-size",
@@ -244,8 +259,27 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 #else
 		.enable = "off",
 #endif
-		.scheme_flag = TUI_FLAGS
-	}
+		.scheme_flag = TUI_FLAGS,
+		.req_size = 0,
+		.is_page_based = false
+	},
+	[SSMR_FEAT_SVP_PAGE] = {
+		.dt_prop_name = "svp-page-based-size",
+		.feat_name = "svp_page_based",
+		.cmd_online = "svp_page=on",
+		.cmd_offline = "svp_page=off",
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = SVP_FLAGS,
+		.req_size = 0,
+		.is_page_based = true
+	},
 };
 /* clang-format on */
 
@@ -255,7 +289,5 @@ struct SSMR_HEAP_INFO {
 	unsigned int heap_id;
 	char heap_name[NAME_SIZE];
 };
-
-struct SSMR_HEAP_INFO _ssmr_heap_info[__MAX_NR_SSMR_FEATURES];
 
 #endif

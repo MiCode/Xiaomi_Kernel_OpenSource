@@ -26,6 +26,9 @@ enum UT_RET_STATE mem_basic_test(enum TRUSTED_MEM_TYPE mem_type,
 enum UT_RET_STATE mem_alloc_simple_test(enum TRUSTED_MEM_TYPE mem_type,
 					u8 *mem_owner, int region_final_state,
 					int un_order_sz_cfg);
+enum UT_RET_STATE mem_alloc_page_test(enum TRUSTED_MEM_TYPE mem_type,
+					u8 *mem_owner, int region_final_state,
+					int un_order_sz_cfg);
 enum UT_RET_STATE mem_alloc_alignment_test(enum TRUSTED_MEM_TYPE mem_type,
 					   u8 *mem_owner,
 					   int region_final_state);

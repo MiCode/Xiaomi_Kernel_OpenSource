@@ -15,10 +15,12 @@
 #include "private/tmem_entry.h"
 #include "private/tmem_utils.h"
 #include "public/trusted_mem_api.h"
+#include "ssmr/memory_ssmr.h"
 
 static inline void trusted_mem_type_enum_validate(void)
 {
-	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_SVP == (int)TRUSTED_MEM_SVP);
+	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_SVP_REGION == (int)TRUSTED_MEM_SVP_REGION);
+	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_SVP_PAGE == (int)TRUSTED_MEM_SVP_PAGE);
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_PROT == (int)TRUSTED_MEM_PROT);
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_WFD == (int)TRUSTED_MEM_WFD);
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_HAPP == (int)TRUSTED_MEM_HAPP);
@@ -28,16 +30,19 @@ static inline void trusted_mem_type_enum_validate(void)
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_SDSP_SHARED
 		       == (int)TRUSTED_MEM_SDSP_SHARED);
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_2D_FR == (int)TRUSTED_MEM_2D_FR);
-	COMPILE_ASSERT((int)(TRUSTED_MEM_MAX - 1) == (int)TRUSTED_MEM_2D_FR);
+	COMPILE_ASSERT((int)(TRUSTED_MEM_MAX - 1) == (int)TRUSTED_MEM_SVP_PAGE);
 }
 
 static inline enum TRUSTED_MEM_TYPE
 get_mem_type(enum TRUSTED_MEM_REQ_TYPE req_type)
 {
 	trusted_mem_type_enum_validate();
+
 	switch (req_type) {
-	case TRUSTED_MEM_REQ_SVP:
-		return TRUSTED_MEM_SVP;
+	case TRUSTED_MEM_REQ_SVP_REGION:
+		return TRUSTED_MEM_SVP_REGION;
+	case TRUSTED_MEM_REQ_SVP_PAGE:
+		return TRUSTED_MEM_SVP_PAGE;
 	case TRUSTED_MEM_REQ_PROT:
 		return TRUSTED_MEM_PROT;
 	case TRUSTED_MEM_REQ_WFD:
@@ -53,7 +58,7 @@ get_mem_type(enum TRUSTED_MEM_REQ_TYPE req_type)
 	case TRUSTED_MEM_REQ_2D_FR:
 		return TRUSTED_MEM_2D_FR;
 	default:
-		return TRUSTED_MEM_SVP;
+		return TRUSTED_MEM_SVP_REGION;
 	}
 }
 

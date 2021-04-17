@@ -46,18 +46,18 @@ trusted_mem-y += tests/ut_server.o
 trusted_mem-y += tests/ut_cases.o
 endif # !CONFIG_TEST_MTK_TRUSTED_MEMORY
 
-ifneq ($(filter m,$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)),)
+ifneq ($(filter y m,$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)),)
 #==========================================================================
 # TEE Seecure Memory Devices & Trustzone Peer Driver
 #==========================================================================
-ifneq ($(filter y,$(CONFIG_MTK_SECURE_MEM_SUPPORT) \
-				  $(CONFIG_MTK_WFD_SMEM_SUPPORT) \
+ifneq ($(filter y m,$(CONFIG_MTK_SECURE_MEM_SUPPORT)\
+				  $(CONFIG_MTK_WFD_SMEM_SUPPORT)\
 				  $(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE)),)
 trusted_mem-y += tee_devices.o
 ccflags-y += -DTEE_DEVICES_SUPPORT
 trusted_mem-y += tee_impl/tee_invoke.o
 
-ifneq ($(filter m,$(CONFIG_MICROTRUST_TEE_SUPPORT) \
+ifneq ($(filter y m,$(CONFIG_MICROTRUST_TEE_SUPPORT)\
 				  $(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
 trusted_mem-y += tee_impl/tee_ops.o
 endif
@@ -67,8 +67,8 @@ endif
 #==========================================================================
 # MTEE Multiple Chunk Devices & Geniezone Peer Driver
 #==========================================================================
-ifneq ($(filter y m,$(CONFIG_MTK_PROT_MEM_SUPPORT) \
-					$(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT) \
+ifneq ($(filter y m,$(CONFIG_MTK_PROT_MEM_SUPPORT)\
+					$(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)\
 					$(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)),)
 trusted_mem-y += mtee_devices.o
 ccflags-y += -DMTEE_DEVICES_SUPPORT
@@ -94,10 +94,6 @@ ifneq ($(filter y m,$(CONFIG_MTK_GZ_KREE)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/gz/
 endif # !CONFIG_MTK_GZ_KREE
-
-ifneq ($(filter y m,$(CONFIG_MTK_SVP)),)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-ssvp/
-endif # !CONFIG_MTK_SVP
 
 ifneq ($(filter y m,$(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
 ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public

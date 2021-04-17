@@ -177,6 +177,20 @@ enum UT_RET_STATE mem_alloc_simple_test(enum TRUSTED_MEM_TYPE mem_type,
 	return UT_STATE_PASS;
 }
 
+enum UT_RET_STATE mem_alloc_page_test(enum TRUSTED_MEM_TYPE mem_type,
+					u8 *mem_owner, int region_final_state,
+					int un_order_sz_cfg)
+{
+	int ret;
+	u32 handle, ref_count;
+
+	ret = tmem_core_alloc_chunk(mem_type, 0, SZ_256M * 2, &ref_count,
+				    &handle, mem_owner, 0, 0);
+	ASSERT_NE(0, ret, "alloc status check");
+
+	return UT_STATE_PASS;
+}
+
 enum UT_RET_STATE mem_alloc_alignment_test(enum TRUSTED_MEM_TYPE mem_type,
 					   u8 *mem_owner,
 					   int region_final_state)

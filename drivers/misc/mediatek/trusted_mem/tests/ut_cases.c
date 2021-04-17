@@ -95,6 +95,23 @@ static enum UT_RET_STATE tmem_alloc_simple_test(struct ut_params *params,
 	return UT_STATE_PASS;
 }
 
+static enum UT_RET_STATE tmem_alloc_page_test(struct ut_params *params,
+						char *test_desc)
+{
+	enum TRUSTED_MEM_TYPE mem_type = params->param1;
+	int reg_final_state = params->param2;
+	int un_order_size_cfg = params->param3;
+
+	pr_info("%s:%d\n", __func__, __LINE__);
+	if (ut_is_halt())
+		return UT_STATE_FAIL;
+
+	ASSERT_EQ(0, mem_alloc_page_test(mem_type, NULL, reg_final_state,
+					   un_order_size_cfg),
+		  test_desc);
+	return UT_STATE_PASS;
+}
+
 static enum UT_RET_STATE tmem_alloc_alignment_test(struct ut_params *params,
 						   char *test_desc)
 {
@@ -434,8 +451,8 @@ static enum UT_RET_STATE multiple_ssmr_region_request(struct ut_params *params,
 		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_PROT),
 			  "pmem ssmr release check");
 
-	if (tmem_core_is_device_registered(TRUSTED_MEM_SVP))
-		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_SVP),
+	if (tmem_core_is_device_registered(TRUSTED_MEM_SVP_REGION))
+		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_SVP_REGION),
 			  "svp ssmr allocate check");
 	if (tmem_core_is_device_registered(TRUSTED_MEM_WFD)) {
 		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_WFD),
@@ -443,19 +460,19 @@ static enum UT_RET_STATE multiple_ssmr_region_request(struct ut_params *params,
 		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_WFD),
 			  "wfd ssmr release check");
 	}
-	if (tmem_core_is_device_registered(TRUSTED_MEM_SVP))
-		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_SVP),
+	if (tmem_core_is_device_registered(TRUSTED_MEM_SVP_REGION))
+		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_SVP_REGION),
 			  "svp ssmr release check");
 
-	if (tmem_core_is_device_registered(TRUSTED_MEM_SVP))
-		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_SVP),
+	if (tmem_core_is_device_registered(TRUSTED_MEM_SVP_REGION))
+		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_SVP_REGION),
 			  "svp ssmr allocate check");
 	if (tmem_core_is_device_registered(TRUSTED_MEM_2D_FR)) {
 		ASSERT_NE(0, tmem_core_ssmr_allocate(TRUSTED_MEM_2D_FR),
 			  "FR ssmr allocate check");
 	}
-	if (tmem_core_is_device_registered(TRUSTED_MEM_SVP))
-		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_SVP),
+	if (tmem_core_is_device_registered(TRUSTED_MEM_SVP_REGION))
+		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_SVP_REGION),
 			  "svp ssmr release check");
 
 	return UT_STATE_PASS;
@@ -489,35 +506,42 @@ mtee_mchunks_multiple_thread_alloc(struct ut_params *params, char *test_desc)
 
 static struct test_case test_cases[] = {
 #if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)
-	CASE(SECMEM_UT_PROC_BASIC, "SVP Basic", TRUSTED_MEM_SVP,
+	CASE(SECMEM_UT_PROC_BASIC, "SVP Basic", TRUSTED_MEM_SVP_REGION,
 	     REGMGR_REGION_FINAL_STATE_OFF, 0, tmem_basic_test),
-	CASE(SECMEM_UT_PROC_SIMPLE_ALLOC, "SVP Alloc Simple", TRUSTED_MEM_SVP,
-	     REGMGR_REGION_FINAL_STATE_OFF, MEM_UNORDER_SIZE_TEST_CFG_DISABLE,
-	     tmem_alloc_simple_test),
+	CASE(SECMEM_UT_PROC_REGION_SIMPLE_ALLOC, "SVP-region-based Alloc Simple",
+	     TRUSTED_MEM_SVP_REGION, REGMGR_REGION_FINAL_STATE_OFF,
+	     MEM_UNORDER_SIZE_TEST_CFG_DISABLE, tmem_alloc_simple_test),
 	CASE(SECMEM_UT_PROC_UNORDERED_SIZE, "SVP Alloc Un-ordered Size",
-	     TRUSTED_MEM_SVP, REGMGR_REGION_FINAL_STATE_OFF,
+	     TRUSTED_MEM_SVP_REGION, REGMGR_REGION_FINAL_STATE_OFF,
 	     MEM_UNORDER_SIZE_TEST_CFG_ENABLE, tmem_alloc_simple_test),
-	CASE(SECMEM_UT_PROC_ALIGNMENT, "SVP Alloc Alignment", TRUSTED_MEM_SVP,
+	CASE(SECMEM_UT_PROC_ALIGNMENT, "SVP Alloc Alignment", TRUSTED_MEM_SVP_REGION,
 	     REGMGR_REGION_FINAL_STATE_OFF, 0, tmem_alloc_alignment_test),
-	CASE(SECMEM_UT_PROC_SATURATION, "SVP Saturation", TRUSTED_MEM_SVP,
+	CASE(SECMEM_UT_PROC_SATURATION, "SVP Saturation", TRUSTED_MEM_SVP_REGION,
 	     REGMGR_REGION_FINAL_STATE_OFF, 1, tmem_alloc_saturation_test),
 	CASE(SECMEM_UT_PROC_SATURATION_STRESS, "SVP Saturation Stress",
-	     TRUSTED_MEM_SVP, REGMGR_REGION_FINAL_STATE_OFF,
+	     TRUSTED_MEM_SVP_REGION, REGMGR_REGION_FINAL_STATE_OFF,
 	     UT_SATURATION_STRESS_ROUNDS, tmem_alloc_saturation_test),
 	CASE(SECMEM_UT_PROC_REGION_DEFER, "SVP Region Defer Off",
-	     TRUSTED_MEM_SVP, REGMGR_REGION_FINAL_STATE_OFF, 0,
+	     TRUSTED_MEM_SVP_REGION, REGMGR_REGION_FINAL_STATE_OFF, 0,
 	     tmem_regmgr_region_defer_off_test),
 	CASE(SECMEM_UT_PROC_REGION_ONLINE_CNT, "SVP Region Online Count",
-	     TRUSTED_MEM_SVP, REGMGR_REGION_FINAL_STATE_OFF, 0,
+	     TRUSTED_MEM_SVP_REGION, REGMGR_REGION_FINAL_STATE_OFF, 0,
 	     tmem_regmgr_region_online_count_test),
 	CASE(SECMEM_UT_PROC_REGION_STRESS, "SVP Region On/Off Stress",
-	     TRUSTED_MEM_SVP, REGMGR_REGION_FINAL_STATE_OFF,
+	     TRUSTED_MEM_SVP_REGION, REGMGR_REGION_FINAL_STATE_OFF,
 	     MEM_REGION_ON_OFF_STREE_ROUND, tmem_region_on_off_stress_test),
 	CASE(SECMEM_UT_PROC_ALLOC_MULTITHREAD, "SVP Alloc Multi-thread",
-	     TRUSTED_MEM_SVP, REGMGR_REGION_FINAL_STATE_OFF, 0,
+	     TRUSTED_MEM_SVP_REGION, REGMGR_REGION_FINAL_STATE_OFF, 0,
 	     tmem_alloc_multithread_test),
-	CASE(SECMEM_UT_PROC_ALL, "SVP Run ALL", TRUSTED_MEM_SVP,
-	     REGMGR_REGION_FINAL_STATE_OFF, 0, tmem_regmgr_run_all),
+	CASE(SECMEM_UT_PROC_ALL, "SVP region-based Run ALL",
+	     TRUSTED_MEM_SVP_REGION, REGMGR_REGION_FINAL_STATE_OFF, 0,
+	     tmem_regmgr_run_all),
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)
+	CASE(SECMEM_UT_PROC_PAGE_SIMPLE_ALLOC, "SVP-page-based Alloc Simple",
+	     TRUSTED_MEM_SVP_PAGE, REGMGR_REGION_FINAL_STATE_OFF,
+	     MEM_UNORDER_SIZE_TEST_CFG_DISABLE, tmem_alloc_page_test),
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)

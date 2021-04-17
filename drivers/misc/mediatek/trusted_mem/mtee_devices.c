@@ -46,14 +46,11 @@ static struct tmem_device_description mtee_mchunks[] = {
 #if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT) && \
 	IS_ENABLED(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
 	{
-		.kern_tmem_type = TRUSTED_MEM_SVP,
+		.kern_tmem_type = TRUSTED_MEM_SVP_REGION,
 		.tee_smem_type = TEE_SMEM_SVP,
 		.mtee_chunks_id = MTEE_MCHUNKS_SVP,
-#if IS_ENABLED(CONFIG_MTK_SSMR) || \
-	(IS_ENABLED(CONFIG_CMA) && IS_ENABLED(CONFIG_MTK_SVP))
-		.ssmr_feature_id = SSMR_FEAT_SVP,
-#endif
-		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_SVP},
+		.ssmr_feature_id = SSMR_FEAT_SVP_REGION,
+		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_SVP_REGION},
 #if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
 	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 		.notify_remote = true,

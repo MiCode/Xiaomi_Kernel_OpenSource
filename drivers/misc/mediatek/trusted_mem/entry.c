@@ -33,6 +33,7 @@
 #include "private/tmem_device.h"
 #include "private/tmem_priv.h"
 #include "private/tmem_cfg.h"
+#include "memory_ssmr.h"
 
 static bool is_invalid_hooks(struct trusted_mem_device *mem_device)
 {
@@ -218,7 +219,7 @@ parameter_checks_with_alignment_adjust(enum TRUSTED_MEM_TYPE mem_type,
 	return TMEM_OK;
 }
 
-static int tmem_core_alloc_chunk_internal(enum TRUSTED_MEM_TYPE mem_type,
+static int tmem_core_region_based_alloc(enum TRUSTED_MEM_TYPE mem_type,
 					  u32 alignment, u32 size,
 					  u32 *refcount, u32 *sec_handle,
 					  u8 *owner, u32 id, u32 clean,
@@ -271,20 +272,44 @@ static int tmem_core_alloc_chunk_internal(enum TRUSTED_MEM_TYPE mem_type,
 	return TMEM_OK;
 }
 
+static int tmem_core_page_based_alloc(enum TRUSTED_MEM_TYPE mem_type,
+					  u32 size, u32 *sec_iova)
+{
+		return 1;
+}
+
+static inline enum TRUSTED_MEM_TYPE
+get_region_mem_type(enum TRUSTED_MEM_TYPE req_type)
+{
+	switch (req_type) {
+	case TRUSTED_MEM_SVP_PAGE:
+		return TRUSTED_MEM_SVP_REGION;
+	default:
+		return req_type;
+	}
+}
+
 int tmem_core_alloc_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 			  u32 size, u32 *refcount, u32 *sec_handle, u8 *owner,
 			  u32 id, u32 clean)
 {
-	return tmem_core_alloc_chunk_internal(mem_type, alignment, size,
-					      refcount, sec_handle, owner, id,
-					      clean, true);
+	if (is_page_based_memory(mem_type)) {
+		pr_info("[%d] %s: page-base: size = 0x%x\n", mem_type, __func__, size);
+		return tmem_core_page_based_alloc(mem_type, size, sec_handle);
+	} else {
+		mem_type = get_region_mem_type(mem_type);
+
+		pr_info("[%d] %s: region-base: size = 0x%x\n", mem_type, __func__, size);
+		return tmem_core_region_based_alloc(mem_type, alignment, size,
+					      refcount, sec_handle, owner, id, clean, true);
+	}
 }
 
 int tmem_core_alloc_chunk_priv(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 			       u32 size, u32 *refcount, u32 *sec_handle,
 			       u8 *owner, u32 id, u32 clean)
 {
-	return tmem_core_alloc_chunk_internal(mem_type, alignment, size,
+	return tmem_core_region_based_alloc(mem_type, alignment, size,
 					      refcount, sec_handle, owner, id,
 					      clean, false);
 }
@@ -410,7 +435,9 @@ u32 tmem_core_get_min_chunk_size(enum TRUSTED_MEM_TYPE mem_type)
 static int get_max_pool_size(enum TRUSTED_MEM_TYPE mem_type)
 {
 	switch (mem_type) {
-	case TRUSTED_MEM_SVP:
+	case TRUSTED_MEM_SVP_REGION:
+		return SZ_256M;
+	case TRUSTED_MEM_SVP_PAGE:
 		return SZ_256M;
 	case TRUSTED_MEM_PROT:
 		return SZ_128M;
@@ -466,7 +493,7 @@ bool is_mtee_mchunks(enum TRUSTED_MEM_TYPE mem_type)
 {
 	switch (mem_type) {
 #if IS_ENABLED(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
-	case TRUSTED_MEM_SVP:
+	case TRUSTED_MEM_SVP_REGION:
 #endif
 	case TRUSTED_MEM_PROT:
 	case TRUSTED_MEM_HAPP:
