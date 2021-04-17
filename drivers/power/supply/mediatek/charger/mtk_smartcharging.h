@@ -107,6 +107,7 @@ struct smartcharging {
 	enum sc_current_direction solution;
 	int sc_ibat;
 	int pre_ibat;
+	int bh;
 
 	bool disable_in_this_plug;
 };

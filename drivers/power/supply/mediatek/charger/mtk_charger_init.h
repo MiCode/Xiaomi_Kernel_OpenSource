@@ -118,4 +118,8 @@
 #define VSYS_WATT 5000000
 #define IBUS_ERR 14
 
+#define SC_BATTERY_SIZE 3000
+#define SC_CV_TIME 3600
+#define SC_CURRENT_LIMIT 2000
+
 #endif /*__MTK_CHARGER_INIT_H__*/
