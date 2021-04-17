@@ -8,4 +8,6 @@
 #define AEE_FILTER_NUM 70
 #define AEE_FILTER_LEN 70
 
+extern void mtk_audit_hook_set(void (*fn)(char*));
+
 #endif

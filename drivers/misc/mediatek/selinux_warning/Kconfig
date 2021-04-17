@@ -1,6 +1,6 @@
 # SELinux
 config MTK_SELINUX_AEE_WARNING
-	bool "Enable SELinux AEE Warning "
+	tristate "Enable SELinux AEE Warning"
 	depends on SECURITY_SELINUX
 	help
 	  This option enables SELinux violation AEE warning.

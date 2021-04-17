@@ -703,6 +703,15 @@ static void avc_audit_pre_callback(struct audit_buffer *ab, void *a)
 	audit_log_format(ab, " } for ");
 }
 
+#if IS_ENABLED(CONFIG_MTK_SELINUX_AEE_WARNING)
+static void (*mtk_audit_hook)(char*) = NULL;
+void mtk_audit_hook_set(void (*fn)(char*))
+{
+	mtk_audit_hook=fn;
+
+}
+EXPORT_SYMBOL_GPL(mtk_audit_hook_set);
+#endif
 /**
  * avc_audit_post_callback - SELinux specific information
  * will be called by generic audit code
@@ -739,7 +748,7 @@ static void avc_audit_post_callback(struct audit_buffer *ab, void *a)
 
 	if (sad->denied){
 		audit_log_format(ab, " permissive=%u", sad->result ? 0 : 1);
-#ifdef CONFIG_MTK_SELINUX_AEE_WARNING
+#if IS_ENABLED(CONFIG_MTK_SELINUX_AEE_WARNING)
 		{
 			struct nlmsghdr *nlh;
 			char *selinux_data;
@@ -747,7 +756,8 @@ static void avc_audit_post_callback(struct audit_buffer *ab, void *a)
 				nlh = nlmsg_hdr(audit_get_skb(ab));
 				selinux_data = nlmsg_data(nlh);
 
-				if (nlh->nlmsg_type != AUDIT_EOE
+				if (mtk_audit_hook
+						&& nlh->nlmsg_type != AUDIT_EOE
 						&& nlh->nlmsg_type == 1400)
 					mtk_audit_hook(selinux_data);
 			}
