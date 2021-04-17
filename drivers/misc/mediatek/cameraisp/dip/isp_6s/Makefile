@@ -25,4 +25,5 @@ ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/iommu
 ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
 
-obj-$(CONFIG_MTK_CAMERA_ISP_DIP_SUPPORT) += camera_dip.o
+obj-$(CONFIG_MTK_CAMERA_DIP_ISP6S) += camera_dip_isp6s.o
+camera_dip_isp6s-objs += camera_dip.o

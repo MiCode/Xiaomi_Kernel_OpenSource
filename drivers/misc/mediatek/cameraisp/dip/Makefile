@@ -15,7 +15,7 @@
 MTK_DIP_COUNT := 1
 MTK_MSF_OFFSET := 0
 $(warning "Marvin test")
-$(warning $(CONFIG_MTK_CAMERA_ISPVER))
+$(warning $(CONFIG_MTK_CAMERA_ISP_VER))
 $(warning $(CONFIG_ISP_DIP_SUPPORT))
 
 ifeq ($(CONFIG_MACH_MT6775),y)
@@ -37,8 +37,14 @@ ifeq ($(CONFIG_MACH_MT6883),y)
 endif
 
 ifeq ($(CONFIG_MTK_CAMERA_ISP_VER),"isp6s")
-obj-$(CONFIG_MTK_CAMERA_ISP_DIP_SUPPORT) += isp_6s/
-MTK_MSF_OFFSET := 1
+  obj-$(CONFIG_MTK_CAMERA_DIP_ISP6S) += isp_6s/
+    ifeq ($(CONFIG_MTK_CAMERA_DUAL_DIP_ISP6S),m)
+        $(warning "This path for dual dip")
+        MTK_DIP_COUNT := 2
+    else
+        $(warning "This path for single dip")
+        MTK_MSF_OFFSET := 1
+    endif
 endif
 
 ifeq ($(CONFIG_MACH_MT6853),y)
