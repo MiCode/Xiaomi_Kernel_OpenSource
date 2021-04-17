@@ -92,7 +92,7 @@ int __mtk_disp_set_module_bw(struct icc_path *request, int comp_id,
 	DDPINFO("%s set %d bw = %u\n", __func__, comp_id, bandwidth);
 	bandwidth = bandwidth * 133 / 100;
 
-	icc_set_bw(request, MBps_to_icc(bandwidth), 0);
+	mtk_icc_set_bw(request, MBps_to_icc(bandwidth), 0);
 
 	DRM_MMP_MARK(pmqos, comp_id, bandwidth);
 
@@ -103,9 +103,9 @@ void __mtk_disp_set_module_hrt(struct icc_path *request,
 			       unsigned int bandwidth)
 {
 	if (bandwidth > 0)
-		icc_set_bw(request, 0, MTK_MMQOS_MAX_BW);
+		mtk_icc_set_bw(request, 0, MTK_MMQOS_MAX_BW);
 	else
-		icc_set_bw(request, 0, MBps_to_icc(bandwidth));
+		mtk_icc_set_bw(request, 0, MBps_to_icc(bandwidth));
 }
 
 int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
@@ -130,7 +130,7 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 	if (ret == RDMA_REQ_HRT)
 		tmp = mtk_drm_primary_frame_bw(crtc);
 
-	icc_set_bw(priv->hrt_bw_request, 0, MBps_to_icc(tmp));
+	mtk_icc_set_bw(priv->hrt_bw_request, 0, MBps_to_icc(tmp));
 	DRM_MMP_MARK(hrt_bw, 0, tmp);
 	DDPINFO("set HRT bw %u\n", tmp);
 

@@ -15,6 +15,7 @@
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/mmdvfs/ \
+	     -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/ \
              -I$(srctree)/drivers/misc/mediatek/include/ \
              -I$(srctree)/drivers/misc/mediatek/mmp/ \
              -I$(srctree)/drivers/iommu
