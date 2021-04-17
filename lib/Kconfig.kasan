@@ -76,6 +76,12 @@ config KASAN_GENERIC
 	  Currently CONFIG_KASAN_GENERIC doesn't work with CONFIG_DEBUG_SLAB
 	  (the resulting kernel does not boot).
 
+config MTK_KASAN_GENERIC
+	bool "enable mtk kasan feature"
+	depends on KASAN_GENERIC
+	help
+	  Enable mtk kasan feature e.g., trigger KE when kasan report.
+
 config KASAN_SW_TAGS
 	bool "Software tag-based mode"
 	depends on HAVE_ARCH_KASAN_SW_TAGS && CC_HAS_KASAN_SW_TAGS
