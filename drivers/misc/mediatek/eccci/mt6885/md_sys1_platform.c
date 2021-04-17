@@ -153,7 +153,9 @@ static struct devapc_vio_callbacks devapc_test_handle = {
 void ccci_md_devapc_register_cb(void)
 {
 	/*register handle function*/
+#ifdef CONFIG_MTK_DEVAPC
 	register_devapc_vio_callback(&devapc_test_handle);
+#endif
 }
 
 void ccci_md_dump_in_interrupt(char *user_info)
