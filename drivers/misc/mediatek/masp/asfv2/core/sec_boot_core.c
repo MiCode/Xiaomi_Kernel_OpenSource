@@ -35,9 +35,11 @@ int sec_get_random_id(unsigned int *rid)
 {
 	int ret = 0;
 
-	if (rid == NULL)
+	if (rid == NULL) {
 		SEC_ASSERT(0);
-	if (!rid)
+		ret = ERR_SBOOT_CHECK_NULL_POINTER;
+	}
+	if (rid)
 		memcpy(rid, g_random_id, 16);
 	return ret;
 }
