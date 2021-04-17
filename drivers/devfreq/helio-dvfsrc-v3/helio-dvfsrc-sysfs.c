@@ -299,7 +299,11 @@ static ssize_t dvfsrc_get_dvfs_time_show(struct device *dev,
 	time_2 = dvfsrc_read(DVFSRC_RECORD_0_1 + RECORD_SHIFT * last);
 	time_2 = time_2 << 32;
 	time_2 = dvfsrc_read(DVFSRC_RECORD_0_0 + RECORD_SHIFT * last) + time_2;
+#if BITS_PER_LONG == 32
+	dvfs_time_us = div_u64((time_1 - time_2), 13);
+#else
 	dvfs_time_us = (time_1 - time_2) / 13;
+#endif
 
 	return sprintf(buf, "dvfs_time = %llu us\n", dvfs_time_us);
 }
