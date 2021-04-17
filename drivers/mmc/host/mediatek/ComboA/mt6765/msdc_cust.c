@@ -207,13 +207,6 @@ int msdc_sd_power_switch(struct msdc_host *host, u32 on)
 #if !defined(CONFIG_MTK_MSDC_BRING_UP_BYPASS)
 
 	if (host->id == 1) {
-		if (on) {
-#if defined(CONFIG_MTK_PMIC_WRAP)
-			/* VMC calibration +60mV. According to SA's request. */
-			regmap_update_bits(regmap, MT6357_VMC_ANA_CON0,
-				MT6357_RG_VMC_VOCAL_MASK, 6);
-#endif
-		}
 
 		msdc_ldo_power(on, host->mmc->supply.vqmmc, VOL_1800,
 		&host->power_io);
@@ -224,6 +217,15 @@ int msdc_sd_power_switch(struct msdc_host *host, u32 on)
 				regulator_get_voltage(host->mmc->supply.vqmmc));
 			return 1;
 		}
+
+		if (on) {
+#if defined(CONFIG_MTK_PMIC_WRAP)
+			/* VMC calibration +60mV. According to SA's request. */
+			regmap_update_bits(regmap, MT6357_VMC_ANA_CON0,
+				MT6357_RG_VMC_VOCAL_MASK, 6);
+#endif
+		}
+
 		msdc_set_tdsel(host, MSDC_TDRDSEL_1V8, 0);
 		msdc_set_rdsel(host, MSDC_TDRDSEL_1V8, 0);
 		host->hw->driving_applied = &host->hw->driving_sdr50;

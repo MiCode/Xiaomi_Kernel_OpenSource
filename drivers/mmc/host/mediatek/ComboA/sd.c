@@ -4434,8 +4434,15 @@ static int msdc_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
 		 * Must keep clock gate 5ms before switch voltage
 		 */
 		usleep_range(10000, 10500);
+
 		/* set as 500T -> 1.25ms for 400KHz or 1.9ms for 260KHz */
 		msdc_set_vol_change_wait_count(VOL_CHG_CNT_DEFAULT_VAL);
+
+		/*  CMD11 will enable SWITCH detect while mmc core layer trriger
+		 *  switch voltage flow without cmd11 for somecase,so also enable switch
+		 *  detect before switch.Otherwise will hang in this func.
+		 */
+		MSDC_SET_BIT32(SDC_CMD, SDC_CMD_VOLSWTH);
 		/* start to provide clock to device */
 		MSDC_SET_BIT32(MSDC_CFG, MSDC_CFG_BV18SDT);
 		/* Delay 1ms wait HW to finish voltage switch */
