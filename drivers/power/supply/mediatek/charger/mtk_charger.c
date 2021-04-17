@@ -3384,14 +3384,15 @@ static void chg_nl_data_handler(struct sk_buff *skb)
 
 void sc_select_charging_current(struct charger_manager *info, struct charger_data *pdata)
 {
-	chr_err("sck: en:%d pid:%d %d %d %d %d %d\n",
+	chr_err("sck: en:%d pid:%d %d %d %d %d %d thermal.dis:%d\n",
 			info->sc.enable,
 			info->sc.g_scd_pid,
 			info->sc.pre_ibat,
 			info->sc.sc_ibat,
 			pdata->charging_current_limit,
 			pdata->thermal_charging_current_limit,
-			info->sc.solution);
+			info->sc.solution,
+			pinfo->sc.disable_in_this_plug);
 
 
 	if (pinfo->sc.g_scd_pid != 0 && pinfo->sc.disable_in_this_plug == false) {
