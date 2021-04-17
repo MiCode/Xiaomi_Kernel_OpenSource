@@ -18,3 +18,15 @@ config MTK_IOMMU_MISC_DBG
 	  use dma_buf information to monitor iova, but if user use
 	  "dma_alloc_attrs" to allocate buffer, we can not monitor iova.
 	  So we can use list to save all iova node and dump it.
+
+config MTK_IOMMU_MISC_SECURE
+	tristate "Enable Mediatek IOMMU secure feature"
+	depends on MTK_IOMMU_MISC
+	help
+	  Choose this option to enable mediatek iommu secure driver. IOMMU
+	  also can support transaction besides supporting normal transaction.
+	  In iommu secure driver, we can implement IOMMU secure driver
+	  initialization for MTEE and other requirements for secure mapping.
+	  In addition, we also run iommu protected banks(bank1~bank3) probe
+	  and link with mtk_iommu.
+
