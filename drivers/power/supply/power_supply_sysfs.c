@@ -213,7 +213,6 @@ static struct power_supply_attr power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(MANUFACTURER),
 	POWER_SUPPLY_ATTR(SERIAL_NUMBER),
 	POWER_SUPPLY_ATTR(QUICK_CHARGE_TYPE),
-	POWER_SUPPLY_ATTR(TX_ADAPTER),
 };
 
 static struct attribute *
