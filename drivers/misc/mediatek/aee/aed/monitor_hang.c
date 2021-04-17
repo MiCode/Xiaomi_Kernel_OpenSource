@@ -349,6 +349,7 @@ static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 		hang_detect_counter = 1;
 #endif
 		hd_timeout = 3;
+		hd_detect_enabled = 1;
 		pr_info("hang_detect: %s set reboot command.\n", current->comm);
 		return ret;
 	}
