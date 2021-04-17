@@ -2004,15 +2004,9 @@ static long mtk_vcu_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 
 static int mtk_vcu_write(const char *val, const struct kernel_param *kp)
 {
-	long ret = -1;
-
 	if (vcu_ptr != NULL &&
 		vcu_ptr->vdec_log_info != NULL &&
 		val != NULL) {
-		ret = param_set_charp(val, kp);
-		if (ret != 0)
-			return -EINVAL;
-
 		memcpy(vcu_ptr->vdec_log_info->log_info,
 			val, strnlen(val, LOG_INFO_SIZE - 1) + 1);
 	} else
@@ -2042,7 +2036,6 @@ static int mtk_vcu_write(const char *val, const struct kernel_param *kp)
 
 static struct kernel_param_ops log_param_ops = {
 	.set = mtk_vcu_write,
-	.get = param_get_charp,
 };
 
 module_param_cb(test_info, &log_param_ops, &vcodec_param_string, 0644);
