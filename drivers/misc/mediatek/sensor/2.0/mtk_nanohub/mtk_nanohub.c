@@ -78,8 +78,6 @@ struct mtk_nanohub_device {
 	atomic_t cfg_data_after_reboot;
 	atomic_t start_timesync_first_boot;
 	atomic_t create_manager_first_boot;
-	atomic_t mtk_nanohub_ready;
-	atomic64_t mtk_nanohub_ready_time;
 
 	int32_t acc_config_data[6];
 	int32_t gyro_config_data[12];
@@ -2005,10 +2003,11 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 		int sensor_type, struct custom_cmd *cust_cmd)
 {
 	struct mtk_nanohub_device *device = mtk_nanohub_dev;
-	enum custom_action cust_action = cust_cmd->data[0];
+	int cust_action = cust_cmd->data[0];
 	int ret = 0;
 
-	/* User can use the cust_action to distinguish their own operations
+	/*
+	 * User can use the cust_action to distinguish their own operations
 	 * the default value(0) means the action to get sensors calibrated
 	 * values.
 	 */
@@ -2442,29 +2441,18 @@ static struct notifier_block mtk_nanohub_pm_notifier_func = {
 static int mtk_nanohub_create_manager(void)
 {
 	int err = 0;
-	struct hf_device *hf_dev = &mtk_nanohub_dev->hf_dev;
 	struct mtk_nanohub_device *device = mtk_nanohub_dev;
 
 	if (likely(atomic_xchg(&device->create_manager_first_boot, 1)))
 		return 0;
 
-	memset(hf_dev, 0, sizeof(*hf_dev));
-
+	/* must update support_sensors firstly */
 	mtk_nanohub_get_sensor_info();
-
-	hf_dev->dev_name = "mtk_nanohub";
-	hf_dev->device_poll = HF_DEVICE_IO_INTERRUPT;
-	hf_dev->device_bus = HF_DEVICE_IO_ASYNC;
-	hf_dev->support_list = support_sensors;
-	hf_dev->support_size = support_size;
-	hf_dev->enable = mtk_nanohub_enable;
-	hf_dev->batch = mtk_nanohub_batch;
-	hf_dev->flush = mtk_nanohub_flush;
-	hf_dev->calibration = mtk_nanohub_calibration;
-	hf_dev->config_cali = mtk_nanohub_config;
-	hf_dev->selftest = mtk_nanohub_selftest;
-	hf_dev->rawdata = mtk_nanohub_rawdata;
-	hf_dev->custom_cmd = mtk_nanohub_custom_cmd;
+	/* refill support_list and support_size then create manager */
+	device->hf_dev.support_list = support_sensors;
+	device->hf_dev.support_size = support_size;
+	err = hf_manager_create(&device->hf_dev);
+	mtk_nanohub_get_sensor_info();
 
 	err = hf_manager_create(hf_dev);
 	if (err < 0) {
@@ -2472,8 +2460,6 @@ static int mtk_nanohub_create_manager(void)
 		return err;
 	}
 
-	atomic64_set(&device->mtk_nanohub_ready_time, ktime_get_boottime_ns());
-	atomic_set(&device->mtk_nanohub_ready, 1);
 	return err;
 }
 
@@ -2526,24 +2512,10 @@ err_out:
 	return count;
 }
 
-static ssize_t state_show(struct device_driver *ddri, char *buf)
-{
-	struct mtk_nanohub_device *device = mtk_nanohub_dev;
-	const char *status =
-		atomic_read(&device->mtk_nanohub_ready) ? "ready" : "unready";
-	int64_t ready_time = atomic64_read(&device->mtk_nanohub_ready_time);
-	int64_t now_time = ktime_get_boottime_ns();
-
-	return snprintf(buf, PAGE_SIZE, "%s,%lld,%lld\n",
-		status, ready_time, now_time);
-}
-
 static DRIVER_ATTR_RW(trace);
-static DRIVER_ATTR_RO(state);
 
 static struct driver_attribute *mtk_nanohub_attrs[] = {
 	&driver_attr_trace,
-	&driver_attr_state,
 };
 
 static int mtk_nanohub_create_attr(struct device_driver *driver)
@@ -2592,6 +2564,24 @@ static int mtk_nanohub_probe(struct platform_device *pdev)
 		err = -ENOMEM;
 		goto exit;
 	}
+	device->hf_dev.dev_name = "mtk_nanohub";
+	device->hf_dev.device_poll = HF_DEVICE_IO_INTERRUPT;
+	device->hf_dev.device_bus = HF_DEVICE_IO_ASYNC;
+	device->hf_dev.support_list = support_sensors;
+	device->hf_dev.support_size = support_size;
+	device->hf_dev.enable = mtk_nanohub_enable;
+	device->hf_dev.batch = mtk_nanohub_batch;
+	device->hf_dev.flush = mtk_nanohub_flush;
+	device->hf_dev.calibration = mtk_nanohub_calibration;
+	device->hf_dev.config_cali = mtk_nanohub_config;
+	device->hf_dev.selftest = mtk_nanohub_selftest;
+	device->hf_dev.rawdata = mtk_nanohub_rawdata;
+	device->hf_dev.custom_cmd = mtk_nanohub_custom_cmd;
+	err = hf_device_register(&device->hf_dev);
+	if (err < 0) {
+		pr_err("register hf device fail!\n");
+		goto exit_kfree;
+	}
 	mtk_nanohub_dev = device;
 
 	/* init sensor share dram write pointer event queue */
@@ -2603,7 +2593,7 @@ static int mtk_nanohub_probe(struct platform_device *pdev)
 		vzalloc(device->wp_queue.bufsize * sizeof(uint32_t));
 	if (!device->wp_queue.ringbuffer) {
 		err = -ENOMEM;
-		goto exit_kfree;
+		goto exit_device;
 	}
 
 	/* init the debug trace flag */
@@ -2702,6 +2692,8 @@ exit_wakeup_source_unreg:
 	wakeup_source_unregister(device->time_sync_wakeup_src);
 exit_kfree_2:
 	vfree(device->wp_queue.ringbuffer);
+exit_device:
+	hf_device_unregister(&device->hf_dev);
 exit_kfree:
 	kfree(device);
 exit:
@@ -2720,6 +2712,7 @@ static int mtk_nanohub_remove(struct platform_device *pdev)
 	scp_A_unregister_notify(&mtk_nanohub_ready_notifier);
 	scp_ipi_unregistration(IPI_SENSOR);
 	vfree(device->wp_queue.ringbuffer);
+	hf_device_unregister(&device->hf_dev);
 	kfree(device);
 	return 0;
 }

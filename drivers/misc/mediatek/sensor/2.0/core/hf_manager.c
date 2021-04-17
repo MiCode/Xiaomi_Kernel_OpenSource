@@ -62,6 +62,9 @@ static void init_hf_core(struct hf_core *core)
 	spin_lock_init(&core->client_lock);
 	INIT_LIST_HEAD(&core->client_list);
 
+	mutex_init(&core->device_lock);
+	INIT_LIST_HEAD(&core->device_list);
+
 	kthread_init_worker(&core->kworker);
 }
 
@@ -250,6 +253,31 @@ static void hf_manager_io_interrupt(struct hf_manager *manager,
 	hf_manager_sched_sample(manager, timestamp);
 }
 
+int hf_device_register(struct hf_device *device)
+{
+	struct hf_core *core = &hfcore;
+
+	INIT_LIST_HEAD(&device->list);
+	device->ready = false;
+	mutex_lock(&core->device_lock);
+	list_add(&device->list, &core->device_list);
+	mutex_unlock(&core->device_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(hf_device_register);
+
+void hf_device_unregister(struct hf_device *device)
+{
+	struct hf_core *core = &hfcore;
+
+	mutex_lock(&core->device_lock);
+	list_del(&device->list);
+	mutex_unlock(&core->device_lock);
+	device->ready = false;
+}
+EXPORT_SYMBOL_GPL(hf_device_unregister);
+
 int hf_manager_create(struct hf_device *device)
 {
 	uint8_t sensor_type = 0;
@@ -314,6 +342,10 @@ int hf_manager_create(struct hf_device *device)
 	list_add(&manager->list, &manager->core->manager_list);
 	mutex_unlock(&manager->core->manager_lock);
 
+	mutex_lock(&manager->core->device_lock);
+	manager->hf_dev->ready = true;
+	mutex_unlock(&manager->core->device_lock);
+
 	return 0;
 out_err:
 	kfree(manager);
@@ -322,14 +354,14 @@ out_err:
 }
 EXPORT_SYMBOL_GPL(hf_manager_create);
 
-int hf_manager_destroy(struct hf_manager *manager)
+void hf_manager_destroy(struct hf_manager *manager)
 {
 	uint8_t sensor_type = 0;
 	int i = 0;
 	struct hf_device *device = NULL;
 
 	if (!manager || !manager->hf_dev || !manager->hf_dev->support_list)
-		return -EINVAL;
+		return;
 
 	device = manager->hf_dev;
 	for (i = 0; i < device->support_size; ++i) {
@@ -355,9 +387,26 @@ int hf_manager_destroy(struct hf_manager *manager)
 		cpu_relax();
 
 	kfree(manager);
-	return 0;
 }
 EXPORT_SYMBOL_GPL(hf_manager_destroy);
+
+int hf_device_register_manager_create(struct hf_device *device)
+{
+	int ret = 0;
+
+	ret = hf_device_register(device);
+	if (ret < 0)
+		return ret;
+	return hf_manager_create(device);
+}
+EXPORT_SYMBOL_GPL(hf_device_register_manager_create);
+
+void hf_device_unregister_manager_destroy(struct hf_device *device)
+{
+	hf_manager_destroy(device->manager);
+	hf_device_unregister(device);
+}
+EXPORT_SYMBOL_GPL(hf_device_unregister_manager_destroy);
 
 static int hf_manager_distinguish_event(struct hf_client *client,
 		struct hf_manager_event *event)
@@ -1199,6 +1248,7 @@ static long hf_manager_ioctl(struct file *filp,
 	struct ioctl_packet packet;
 	struct sensor_info info;
 	struct custom_cmd cust_cmd;
+	struct hf_device *device = NULL;
 
 	memset(&packet, 0, sizeof(packet));
 
@@ -1250,6 +1300,21 @@ static long hf_manager_ioctl(struct file *filp,
 		if (sizeof(packet.byte) < sizeof(cust_cmd))
 			return -EINVAL;
 		memcpy(packet.byte, &cust_cmd, sizeof(cust_cmd));
+		if (copy_to_user(ubuf, &packet, sizeof(packet)))
+			return -EFAULT;
+		break;
+	case HF_MANAGER_REQUEST_READY_STATUS:
+		mutex_lock(&client->core->device_lock);
+		packet.status = true;
+		list_for_each_entry(device, &client->core->device_list, list) {
+			if (!READ_ONCE(device->ready)) {
+				pr_err_ratelimited("Device:%s not ready\n",
+					device->dev_name);
+				packet.status = false;
+				break;
+			}
+		}
+		mutex_unlock(&client->core->device_lock);
 		if (copy_to_user(ubuf, &packet, sizeof(packet)))
 			return -EFAULT;
 		break;

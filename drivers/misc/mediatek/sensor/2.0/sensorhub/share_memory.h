@@ -11,7 +11,8 @@
 struct share_mem_data {
 	uint8_t sensor_type;
 	uint8_t action;
-	uint8_t padding[2];
+	uint8_t accurancy;
+	uint8_t padding[1];
 	int64_t timestamp;
 	int32_t value[6] __aligned(4);
 } __packed __aligned(4);

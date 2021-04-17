@@ -29,6 +29,11 @@ enum {
 	RAW_ACTION,
 };
 
+enum {
+	CUST_CMD_CALI = 0,
+	/* Add custom cmd action here! */
+};
+
 struct hf_manager_batch {
 	int64_t delay;
 	int64_t latency;
@@ -54,6 +59,18 @@ struct hf_manager_event {
 	};
 } __packed __aligned(4);
 
+struct sensor_info {
+	uint8_t sensor_type;
+	uint8_t padding[3];
+	uint32_t gain;
+	char name[16];
+	char vendor[16];
+} __packed __aligned(4);
+
+struct custom_cmd {
+	int data[16];
+} __packed __aligned(4);
+
 struct ioctl_packet {
 	uint8_t sensor_type;
 	uint8_t padding[3];
@@ -70,5 +87,6 @@ struct ioctl_packet {
 #define HF_MANAGER_REQUEST_TEST_DATA        _IOW('a', 5, struct ioctl_packet)
 #define HF_MANAGER_REQUEST_SENSOR_INFO      _IOWR('a', 6, struct ioctl_packet)
 #define HF_MANAGER_REQUEST_CUST_DATA        _IOWR('a', 7, struct ioctl_packet)
+#define HF_MANAGER_REQUEST_READY_STATUS     _IOWR('a', 8, struct ioctl_packet)
 
 #endif
