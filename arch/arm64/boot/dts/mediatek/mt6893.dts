@@ -697,6 +697,11 @@
 		};
 	};
 
+	therm_intf: therm_intf@0010F000 {
+		compatible = "mediatek,therm_intf";
+		reg = <0 0x0010F000 0 0x400>;
+	};
+
 	lk_charger: lk_charger {
 		compatible = "mediatek,lk_charger";
 		enable_anime;
