@@ -1,0 +1,104 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2021 MediaTek Inc.
+ */
+
+/dts-v1/;
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	model = "MT6879";
+	compatible = "mediatek,MT6879";
+	interrupt-parent = <&sysirq>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	/* chosen */
+	chosen: chosen {
+		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
+			vmalloc=400M slub_debug=OFZPU swiotlb=noforce \
+			firmware_class.path=/vendor/firmware \
+			memblock=debug \
+			page_owner=on";
+	};
+
+	cpus {
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0 0x40000000 0 0x3e605000>;
+	};
+
+	reserved_memory: reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+	};
+
+	gic: interrupt-controller {
+		compatible = "arm,gic-v3";
+		#interrupt-cells = <3>;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		#redistributor-regions = <1>;
+		interrupt-parent = <&gic>;
+		interrupt-controller;
+		reg = <0 0x0c000000 0 0x40000>, // distributor
+		      <0 0x0c040000 0 0x200000>, // redistributor
+		      <0 0x0c53d668 0 0x50>; //INTPOL
+		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	sysirq: intpol-controller@0 {
+		compatible = "mediatek,mt6577-sysirq";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		interrupt-parent = <&gic>;
+		reg = <0 0x0c53d668 0 0x50>;
+	};
+
+	timer: timer {
+		compatible = "arm,armv8-timer";
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_PPI 14 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_PPI 11 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_PPI 10 IRQ_TYPE_LEVEL_HIGH>;
+		clock-frequency = <13000000>;
+	};
+
+	apdma: dma-controller@11000980 {
+		compatible = "mediatek,mt6577-uart-dma";
+		reg = <0 0x11000a80 0 0x80>,
+		      <0 0x11000b00 0 0x80>,
+		      <0 0x11000b80 0 0x80>,
+		      <0 0x11000c00 0 0x80>;
+		interrupts = <GIC_SPI 146 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 147 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 148 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 149 IRQ_TYPE_LEVEL_LOW>;
+		#dma-cells = <1>;
+		dma-bits = <34>;
+	};
+
+	apuart0: serial@11002000 {
+		compatible = "mediatek,mt6577-uart";
+		reg = <0 0x11002000 0 0x1000>;
+		interrupts = <GIC_SPI 109 IRQ_TYPE_LEVEL_LOW>;
+		dmas = <&apdma 0
+				&apdma 1>;
+		dma-names = "tx", "rx";
+	};
+
+	apuart1: serial@11003000 {
+		compatible = "mediatek,mt6577-uart";
+		reg = <0 0x11003000 0 0x1000>;
+		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_LOW>;
+		dmas = <&apdma 2
+				&apdma 3>;
+		dma-names = "tx", "rx";
+	};
+};
+
