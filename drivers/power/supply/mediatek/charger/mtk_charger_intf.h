@@ -174,6 +174,7 @@ struct charger_custom_data {
 	int charging_host_charger_current;
 	int apple_1_0a_charger_current;
 	int apple_2_1a_charger_current;
+	int usb_unlimited_current;
 	int ta_ac_charger_current;
 	int pd_charger_current;
 

@@ -2101,6 +2101,15 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 					TA_AC_CHARGING_CURRENT;
 	}
 
+	if (of_property_read_u32(np, "usb_unlimited_current", &val) >= 0)
+		info->data.usb_unlimited_current = val;
+	else {
+		chr_err("use default usb_unlimited_current:%d\n",
+			USB_UNLIMITED_CURRENT);
+		info->data.usb_unlimited_current =
+					USB_UNLIMITED_CURRENT;
+	}
+
 	/* sw jeita */
 	if (of_property_read_u32(np, "jeita_temp_above_t4_cv", &val) >= 0)
 		info->data.jeita_temp_above_t4_cv = val;
