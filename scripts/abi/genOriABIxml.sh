@@ -127,7 +127,7 @@ $PWD/prebuilts/clang/host/linux-x86/clang-r383902/bin/:$PATH
 with commit id:$target_commit"
 	mkdir $TARGET_KERNEL_DIR
 	cd $TARGET_KERNEL_DIR
-	repo init -u http://gerrit.mediatek.inc:8080/kernel/manifest -b $target_branch
+	repo init -u https://gerrit.mediatek.inc/kernel/manifest -b $target_branch
 	$SERVER_QUEUE mtk_repo sync -f -j8 --no-clone-bundle -c --no-tags
 
 	cd common
