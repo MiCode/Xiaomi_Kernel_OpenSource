@@ -231,8 +231,37 @@ int ppm_find_pwr_idx(struct ppm_cluster_status *cluster_status)
 #ifdef CONFIG_MTK_UNIFY_POWER
 		if (core > 0 && opp >= 0 && opp < DVFS_OPP_NUM) {
 #if 1
-			pwr_idx += cobra_tbl->basic_pwr_tbl
-			[get_cl_first_core_id(i)+core-1][opp].power_idx;
+			if (i == 0) {
+				pwr_idx += cobra_tbl->basic_pwr_tbl
+				[get_cl_first_core_id(i)+core-1][opp].power_idx;
+
+			} else {
+				unsigned int bb_volt, bl_volt, sb_volt;
+				unsigned int pwr, sb_pwr;
+
+				bb_volt = 0;
+				bl_volt = 0;
+				sb_volt = 0;
+
+				if (cluster_status[2].freq_idx >= 0 &&
+					cluster_status[2].freq_idx < DVFS_OPP_NUM)
+					bb_volt = volt_bb[cluster_status[2].freq_idx];
+
+				if (cluster_status[1].freq_idx >= 0 &&
+					cluster_status[1].freq_idx < DVFS_OPP_NUM)
+					bl_volt = volt_bl[cluster_status[1].freq_idx];
+
+				sb_volt = MAX(bb_volt, bl_volt);
+
+				pwr =  cobra_tbl->basic_pwr_tbl
+				[get_cl_first_core_id(i)+core-1][opp].power_idx;
+				sb_pwr = (i == 1)
+				? get_sb_pwr(pwr, bl_volt, sb_volt) :
+				get_sb_pwr(pwr, bb_volt, sb_volt);
+
+				pwr_idx += sb_pwr;
+			}
+
 			/*TODO: change to get_cl_max_core_id()*/
 #else
 			pwr_idx +=

@@ -117,6 +117,8 @@ struct ppm_cobra_lookup {
 extern struct ppm_cobra_data *cobra_tbl;
 extern struct ppm_cobra_lookup cobra_lookup_data;
 extern int cobra_init_done;
+extern unsigned int volt_bb[COBRA_OPP_NUM];
+extern unsigned int volt_bl[COBRA_OPP_NUM];
 
 /*==============================================================*/
 /* APIs								*/
@@ -135,6 +137,7 @@ extern void ppm_cobra_init(void);
 extern void ppm_cobra_dump_tbl(struct seq_file *m);
 extern void ppm_cobra_lookup_get_result(
 		struct seq_file *m, enum ppm_cobra_lookup_type type);
+extern unsigned int get_sb_pwr(unsigned int tbl_pwr, unsigned int tbl_volt, unsigned int sb_volt);
 
 unsigned int __attribute__((weak))
 	mt_cpufreq_get_cur_phy_freq_no_lock(unsigned int id)

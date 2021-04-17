@@ -18,11 +18,15 @@
 #include <linux/cpumask.h>
 #include <linux/topology.h>
 #include <linux/io.h>
+#include <trace/events/mtk_events.h>
+
+#define CREATE_TRACE_POINTS
 
 #include "mtk_ppm_platform.h"
 #include "mtk_ppm_internal.h"
 #include "mtk_upower.h"
 
+#include "mtk_ppm_cobra_event.h"
 
 struct ppm_cobra_data *cobra_tbl;
 struct ppm_cobra_lookup cobra_lookup_data;
@@ -33,6 +37,19 @@ static int is_perf_fist;
 
 #define ACT_CORE(cluster)	(active_core[PPM_CLUSTER_##cluster])
 #define CORE_LIMIT(cluster)	(core_limit_tmp[PPM_CLUSTER_##cluster])
+
+unsigned int volt_bb[COBRA_OPP_NUM] = {101250, 98750, 94375, 91250,
+					83750, 80625, 76875, 72500,
+					71875, 70000, 68125, 66250,
+					64375, 62500, 60000, 55625};
+
+unsigned int volt_bl[COBRA_OPP_NUM] = { 91250, 89375, 86250, 83125,
+					78125, 75625, 72500, 70625,
+					69375, 68125, 66250, 63125,
+					61250, 59375, 55625, 55000};
+
+unsigned int g_curr_bb_opp;
+unsigned int g_curr_bl_opp;
 
 struct ppm_cobra_data *ppm_cobra_pass_tbl(void)
 {
@@ -48,7 +65,9 @@ int eara_is_perf_first(void)
 
 void eara_pass_perf_first_hint(int enable)
 {
+	ppm_lock(&ppm_main_info.lock);
 	is_perf_fist = enable;
+	ppm_unlock(&ppm_main_info.lock);
 }
 
 static unsigned int get_idx_in_pwr_tbl(enum ppm_cluster cluster)
@@ -66,6 +85,22 @@ static unsigned int get_idx_in_pwr_tbl(enum ppm_cluster cluster)
 	return idx;
 }
 
+unsigned int get_sb_pwr(unsigned int tbl_pwr, unsigned int tbl_volt, unsigned int sb_volt)
+{
+	u64 sb_variant;
+	u64 tbl_variant;
+	unsigned int actual_pwr = 0;
+
+	sb_variant = (u64)(sb_volt / 10) * (u64)(sb_volt / 10);
+	tbl_variant = (u64)(tbl_volt / 100) * (u64)(tbl_volt / 100);
+	sb_variant = sb_variant / tbl_variant;
+
+	actual_pwr = tbl_pwr * sb_variant;
+	actual_pwr = actual_pwr / 100;
+
+	return actual_pwr;
+}
+
 static short get_delta_pwr(enum ppm_cluster cluster,
 				unsigned int core, unsigned int opp)
 {
@@ -73,8 +108,15 @@ static short get_delta_pwr(enum ppm_cluster cluster,
 	unsigned int cur_opp, prev_opp;
 	int delta_pwr;
 
+	unsigned int cur_shared_buck_volt;  /* opp    */
+	unsigned int next_shared_buck_volt; /* opp  + 1*/
+	unsigned int bb_curr_volt;
+	unsigned int bb_next_volt;
+	unsigned int bl_curr_volt;
+	unsigned int bl_next_volt;
+
 	if (core > get_cluster_max_cpu_core(cluster)
-		|| opp > get_cluster_min_cpufreq_idx(cluster)) {
+		 || opp > get_cluster_min_cpufreq_idx(cluster)) {
 		ppm_err("%s: Invalid input: core=%d, opp=%d\n",
 			__func__, core, opp);
 		WARN_ON(1);
@@ -84,8 +126,13 @@ static short get_delta_pwr(enum ppm_cluster cluster,
 	if (core == 0)
 		return 0;
 
-	idx = get_idx_in_pwr_tbl(cluster);
+	bb_curr_volt = 0;
+	bb_next_volt = 0;
+	bl_curr_volt = 0;
+	bl_next_volt = 0;
+	delta_pwr = 0;
 
+	idx = get_idx_in_pwr_tbl(cluster);
 	cur_opp = opp;
 	prev_opp = opp + 1;
 
@@ -94,10 +141,124 @@ static short get_delta_pwr(enum ppm_cluster cluster,
 		? cobra_tbl->basic_pwr_tbl[idx+core-1][cur_opp].power_idx
 		: (cobra_tbl->basic_pwr_tbl[idx+core-1][cur_opp].power_idx -
 		cobra_tbl->basic_pwr_tbl[idx+core-2][cur_opp].power_idx);
-	} else {
+
+		return delta_pwr;
+	} else if (cluster == 0 ||
+			g_curr_bl_opp >= COBRA_OPP_NUM ||
+			g_curr_bb_opp >= COBRA_OPP_NUM) {
 		delta_pwr =
 		cobra_tbl->basic_pwr_tbl[idx+core-1][cur_opp].power_idx -
 		cobra_tbl->basic_pwr_tbl[idx+core-1][prev_opp].power_idx;
+
+		return delta_pwr;
+	}
+
+	if (cluster == 2) {
+		/* BB's delta */
+		bb_curr_volt = volt_bb[opp];
+		bb_next_volt = volt_bb[opp + 1];
+
+		bl_curr_volt = volt_bl[g_curr_bl_opp];
+		bl_next_volt = volt_bl[g_curr_bl_opp];
+	} else if (cluster == 1) {
+		/* BL's delta */
+		bb_curr_volt = volt_bb[g_curr_bb_opp];
+		bb_next_volt = volt_bb[g_curr_bb_opp];
+
+		bl_curr_volt = volt_bl[opp];
+		bl_next_volt = volt_bl[opp + 1];
+	}
+
+	if (cluster > 0) {
+		cur_shared_buck_volt = MAX(bb_curr_volt, bl_curr_volt);
+		next_shared_buck_volt = MAX(bb_next_volt, bl_next_volt);
+	}
+
+	if (cluster == 1 || cluster == 2) {
+		delta_pwr =
+		cobra_tbl->basic_pwr_tbl[idx+core-1][cur_opp].power_idx -
+		cobra_tbl->basic_pwr_tbl[idx+core-1][prev_opp].power_idx;
+
+		if (cluster == 1) {
+			/* BL */
+			unsigned int cur_pwr;
+			unsigned int prev_pwr;
+
+			cur_pwr = cobra_tbl->basic_pwr_tbl[idx+core-1][cur_opp].power_idx;
+			prev_pwr = cobra_tbl->basic_pwr_tbl[idx+core-1][prev_opp].power_idx;
+
+			if (bl_curr_volt != cur_shared_buck_volt) {
+				cur_pwr = get_sb_pwr(cur_pwr, bl_curr_volt,
+						cur_shared_buck_volt);
+			}
+
+			if (bl_next_volt != next_shared_buck_volt) {
+				prev_pwr = get_sb_pwr(prev_pwr, bl_next_volt,
+							next_shared_buck_volt);
+			}
+
+			delta_pwr = cur_pwr - prev_pwr;
+
+			if (next_shared_buck_volt != cur_shared_buck_volt) {
+				/* BB */
+				/* u64     bb_variant; */
+				unsigned int bb_idx;
+				unsigned int bb_pwr;
+				unsigned int bb_curr_sb_pwr;
+				unsigned int bb_next_sb_pwr;
+
+				bb_idx = get_idx_in_pwr_tbl(2);
+				bb_pwr = cobra_tbl->basic_pwr_tbl[bb_idx][g_curr_bb_opp].power_idx;
+				bb_curr_sb_pwr = get_sb_pwr(bb_pwr, bb_curr_volt,
+							cur_shared_buck_volt);
+
+				bb_next_sb_pwr = get_sb_pwr(bb_pwr, bb_curr_volt,
+							next_shared_buck_volt);
+
+				delta_pwr = delta_pwr + (bb_curr_sb_pwr - bb_next_sb_pwr);
+			}
+		} else if (cluster == 2) {
+			/* BB */
+			unsigned int cur_pwr;
+			unsigned int prev_pwr;
+
+			cur_pwr = cobra_tbl->basic_pwr_tbl[idx+core-1][cur_opp].power_idx;
+			prev_pwr = cobra_tbl->basic_pwr_tbl[idx+core-1][prev_opp].power_idx;
+
+			if (bb_curr_volt != cur_shared_buck_volt) {
+				cur_pwr =
+				get_sb_pwr(cur_pwr, bb_curr_volt, cur_shared_buck_volt);
+			}
+
+			if (bb_next_volt != next_shared_buck_volt) {
+				prev_pwr =
+				get_sb_pwr(prev_pwr, bb_next_volt, next_shared_buck_volt);
+			}
+
+			delta_pwr = cur_pwr - prev_pwr;
+
+			if (next_shared_buck_volt != cur_shared_buck_volt) {
+				/* BL */
+				/* u64     bl_variant; */
+				unsigned int bl_idx;
+				unsigned int bl_pwr;
+				unsigned int bl_curr_sb_pwr;
+				unsigned int bl_next_sb_pwr;
+
+				bl_idx = get_idx_in_pwr_tbl(1);
+				bl_pwr =
+				cobra_tbl->basic_pwr_tbl[bl_idx+2][g_curr_bl_opp].power_idx;
+				bl_curr_sb_pwr = get_sb_pwr(bl_pwr,
+							bl_curr_volt,
+							cur_shared_buck_volt);
+
+				bl_next_sb_pwr = get_sb_pwr(bl_pwr, bl_next_volt,
+							next_shared_buck_volt);
+
+				delta_pwr = delta_pwr + (bl_curr_sb_pwr - bl_next_sb_pwr);
+			}
+
+		}
 	}
 
 	return delta_pwr;
@@ -342,6 +503,13 @@ void ppm_cobra_update_limit(void *user_req)
 		ACT_CORE(L), ACT_CORE(B), ACT_CORE(BB),
 		CORE_LIMIT(L), CORE_LIMIT(B), CORE_LIMIT(BB));
 
+	g_curr_bl_opp = opp[PPM_CLUSTER_B];
+	g_curr_bb_opp = opp[PPM_CLUSTER_BB];
+
+	if (ACT_CORE(BB) == 0) {
+		g_curr_bb_opp = -1;
+	}
+
 	/* increase ferquency limit */
 	if (delta_power >= 0) {
 		while (1) {
@@ -358,6 +526,7 @@ void ppm_cobra_update_limit(void *user_req)
 
 				if (delta_power >= target_delta_pwr) {
 					ACT_CORE(BB) = 1;
+					req->limit[PPM_CLUSTER_BB].max_cpu_core = ACT_CORE(BB);
 					delta_power -= target_delta_pwr;
 					opp[PPM_CLUSTER_BB] = COBRA_OPP_NUM - 1;
 				}
@@ -372,6 +541,7 @@ void ppm_cobra_update_limit(void *user_req)
 						COBRA_OPP_NUM-1);
 				if (delta_power >= target_delta_pwr) {
 					ACT_CORE(B) = 1;
+					req->limit[PPM_CLUSTER_B].max_cpu_core = ACT_CORE(B);
 					delta_power -= target_delta_pwr;
 					opp[PPM_CLUSTER_B] = COBRA_OPP_NUM - 1;
 				}
@@ -522,6 +692,11 @@ void ppm_cobra_update_limit(void *user_req)
 			}
 end:
 #endif
+			trace_PPM__cobra_setting(power_budget,
+					delta_power,
+					0xFF,
+					0,
+					0);
 			ppm_dbg(COBRA,
 				"[+]ChoosenCl=-1! delta=%d, (opp/c_lmt)=(%d,%d,%d/%d%d%d)\n",
 				delta_power,
@@ -531,19 +706,27 @@ end:
 				CORE_LIMIT(L),
 				CORE_LIMIT(B),
 				CORE_LIMIT(BB));
-
+			g_curr_bl_opp = opp[PPM_CLUSTER_B];
+			g_curr_bb_opp = opp[PPM_CLUSTER_BB];
 			break;
 
 prepare_next_round:
 				opp[ChoosenCl] -= 1;
 			delta_power -= ChoosenPwr;
 
+			trace_PPM__cobra_setting(power_budget,
+					delta_power,
+					ChoosenCl,
+					opp[ChoosenCl],
+					ChoosenPwr);
+
 			ppm_dbg(COBRA,
 				"[+](delta/Cl/Pwr)=(%d,%d,%d), opp=%d,%d,%d\n",
 				delta_power, ChoosenCl, ChoosenPwr,
 				opp[PPM_CLUSTER_L], opp[PPM_CLUSTER_B]
 				, opp[PPM_CLUSTER_BB]);
-
+			g_curr_bl_opp = opp[PPM_CLUSTER_B];
+			g_curr_bb_opp = opp[PPM_CLUSTER_BB];
 		}
 	} else {
 		while (delta_power < 0) {
@@ -633,10 +816,11 @@ prepare_next_round:
 
 			if (ChoosenCl == -1) {
 				ppm_err("No lower OPP!(bgt/delta/cur)= ");
-				ppm_err("(%d/%d/%d),(opp/act)=(%d,%d/%d%d)\n",
+				ppm_err("(%d/%d/%d),(opp/act)=(%d,%d,%d/%d%d%d)\n",
 				power_budget, delta_power, curr_power,
-				opp[PPM_CLUSTER_L], opp[PPM_CLUSTER_B],
-				ACT_CORE(L), ACT_CORE(B));
+				opp[PPM_CLUSTER_L], opp[PPM_CLUSTER_B], opp[PPM_CLUSTER_BB],
+				ACT_CORE(L), ACT_CORE(B),  ACT_CORE(BB));
+
 				break;
 			}
 
@@ -670,12 +854,22 @@ prepare_next_round:
 			delta_power += ChoosenPwr;
 			curr_power -= ChoosenPwr;
 
+
+			trace_PPM__cobra_setting(power_budget,
+				delta_power,
+				ChoosenCl,
+				opp[ChoosenCl],
+				ChoosenPwr);
+
 			ppm_dbg(COBRA,
 				"[-](delta/Cl/Pwr)=(%d,%d,%d), (opp/act)=(%d,%d,%d/%d%d%d)\n",
 				delta_power, ChoosenCl, ChoosenPwr,
 				opp[PPM_CLUSTER_L],
 				opp[PPM_CLUSTER_B], opp[PPM_CLUSTER_BB],
 				ACT_CORE(L), ACT_CORE(B), ACT_CORE(BB));
+
+			g_curr_bl_opp = opp[PPM_CLUSTER_B];
+			g_curr_bb_opp = opp[PPM_CLUSTER_BB];
 		}
 	}
 
@@ -784,6 +978,11 @@ void ppm_cobra_init(void)
 		}
 	}
 #endif
+
+	for (j = 0; j < DVFS_OPP_NUM; j++) {
+		volt_bb[j] = mt_cpufreq_get_volt_by_idx(2, j);
+		volt_bl[j] = mt_cpufreq_get_volt_by_idx(1, j);
+	}
 
 	cobra_init_done = 1;
 
