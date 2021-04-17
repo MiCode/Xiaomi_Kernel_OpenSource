@@ -891,37 +891,6 @@ DEVICE_ATTR(recovery_flag, 0600, scp_recovery_flag_r, scp_recovery_flag_w);
 
 #endif
 
-
-/******************************************************************************
- *****************************************************************************/
-static ssize_t scp_set_log_filter(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	int ret;
-	uint32_t filter;
-
-	if (sscanf(buf, "0x%08x", &filter) != 1)
-		return -EINVAL;
-
-	ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCP_LOG_FILTER_1, 0, &filter,
-			   PIN_OUT_SIZE_SCP_LOG_FILTER_1, 0);
-	switch (ret) {
-	case IPI_ACTION_DONE:
-		pr_notice("[SCP] Set log filter to 0x%08x\n", filter);
-		return count;
-
-	case IPI_PIN_BUSY:
-		pr_notice("[SCP] IPI busy. Set log filter failed!\n");
-		return -EBUSY;
-
-	default:
-		pr_notice("[SCP] IPI error. Set log filter failed!\n");
-		return -EIO;
-	}
-}
-DEVICE_ATTR(log_filter, 0200, NULL, scp_set_log_filter);
-
-
 /******************************************************************************
  *****************************************************************************/
 static struct miscdevice scp_device = {

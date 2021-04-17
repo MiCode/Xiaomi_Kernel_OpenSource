@@ -167,6 +167,7 @@ extern struct scp_regs scpreg;
 extern struct device_attribute dev_attr_scp_mobile_log;
 extern struct device_attribute dev_attr_scp_A_get_last_log;
 extern struct device_attribute dev_attr_scp_A_status;
+extern struct device_attribute dev_attr_log_filter;
 extern struct bin_attribute bin_attr_scp_dump;
 
 /* scp loggger */
