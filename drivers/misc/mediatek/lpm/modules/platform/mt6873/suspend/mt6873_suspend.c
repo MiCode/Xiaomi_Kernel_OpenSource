@@ -3,6 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <linux/atomic.h>
 #include <linux/cpuidle.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -16,8 +17,16 @@
 #include <linux/suspend.h>
 #include <linux/timekeeping.h>
 #include <linux/rtc.h>
+#include <linux/hrtimer.h>
+#include <linux/timer.h>
+#include <linux/completion.h>
+#include <linux/jiffies.h>
 #include <asm/cpuidle.h>
 #include <asm/suspend.h>
+
+#include <linux/sched.h>
+#include <linux/kthread.h>
+
 
 #include <mtk_lpm.h>
 #include <mtk_lpm_module.h>
@@ -26,7 +35,7 @@
 #include <mtk_lpm_call_type.h>
 #include <mtk_dbg_common_v1.h>
 #include <mt-plat/mtk_ccci_common.h>
-
+#include <uapi/linux/sched/types.h>
 #include "mt6873.h"
 #include "mt6873_suspend.h"
 
@@ -303,11 +312,28 @@ struct mtk_lpm_model mt6873_model_suspend = {
 };
 
 #ifdef CONFIG_PM
+#define CPU_NUMBER (NR_CPUS)
+
+struct mtk_lpm_abort_control {
+	struct timer_list timer;
+};
+
+static atomic_t in_sleep;
+static struct mtk_lpm_abort_control mtk_lpm_ac[CPU_NUMBER];
+static void lpm_timer_callback(struct timer_list *timer)
+{
+	if (atomic_dec_and_test(&in_sleep)) {
+		pr_info("[name:spm&][LPM] wakeup system due to not entering suspend.\n");
+		pm_system_wakeup();
+	}
+}
+
 static int mt6873_spm_suspend_pm_event(struct notifier_block *notifier,
 			unsigned long pm_event, void *unused)
 {
 	struct timespec ts;
 	struct rtc_time tm;
+	int i;
 
 	getnstimeofday(&ts);
 	rtc_time_to_tm(ts.tv_sec, &tm);
@@ -324,14 +350,21 @@ static int mt6873_spm_suspend_pm_event(struct notifier_block *notifier,
 		"[name:spm&][SPM] PM: suspend entry %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
-
+		atomic_set(&in_sleep, 1);
+		for_each_online_cpu(i) {
+			mtk_lpm_ac[i].timer.expires = jiffies + msecs_to_jiffies(5000);
+			add_timer_on(&mtk_lpm_ac[i].timer, i);
+		}
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
+		for_each_online_cpu(i)
+			del_timer_sync(&mtk_lpm_ac[i].timer);
+
 		printk_deferred(
 		"[name:spm&][SPM] PM: suspend exit %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
-
+		atomic_set(&in_sleep, 0);
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_OK;
@@ -341,13 +374,15 @@ static struct notifier_block mt6873_spm_suspend_pm_notifier_func = {
 	.notifier_call = mt6873_spm_suspend_pm_event,
 	.priority = 0,
 };
-#endif
+
+#endif /* CONFIG_PM */
 
 int __init mt6873_model_suspend_init(void)
 {
 	int ret;
 
 	int suspend_type = mtk_lpm_suspend_type_get();
+	int i;
 
 	if (suspend_type == MTK_LPM_SUSPEND_S2IDLE) {
 		MT6873_SUSPEND_OP_INIT(mt6873_suspend_s2idle_prompt,
@@ -365,12 +400,15 @@ int __init mt6873_model_suspend_init(void)
 
 	cpumask_clear(&s2idle_cpumask);
 
-
 #ifdef CONFIG_PM
 	ret = register_pm_notifier(&mt6873_spm_suspend_pm_notifier_func);
 	if (ret) {
 		pr_debug("[name:spm&][SPM] Failed to register PM notifier.\n");
 		return ret;
+	}
+
+	for_each_online_cpu(i) {
+		timer_setup(&mtk_lpm_ac[i].timer, lpm_timer_callback, 0);
 	}
 #endif /* CONFIG_PM */
 
