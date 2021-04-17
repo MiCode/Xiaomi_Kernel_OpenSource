@@ -38,11 +38,15 @@ static inline void ipi_message_add_tail(struct ipi_transfer *t,
 }
 
 int get_ctrl_id(void);
+int get_notify_id(void);
 int ipi_comm_sync(int id, unsigned char *tx, unsigned int n_tx,
 		unsigned char *rx, unsigned int n_rx);
 int ipi_comm_async(struct ipi_message *m);
-void ipi_comm_notify_handler_register(void (*f)(int, void *, unsigned int));
+int ipi_comm_noack(int id, unsigned char *tx, unsigned int n_tx);
+void ipi_comm_notify_handler_register(
+		void (*f)(int id, void *data, unsigned int len));
 void ipi_comm_notify_handler_unregister(void);
 int ipi_comm_init(void);
+void ipi_comm_exit(void);
 
 #endif

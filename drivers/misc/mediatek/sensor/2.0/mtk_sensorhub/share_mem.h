@@ -6,7 +6,7 @@
 #ifndef _SHARE_MEM_H_
 #define _SHARE_MEM_H_
 
-enum flush_action {
+enum share_mem_action {
 	DATA_ACTION,
 	FLUSH_ACTION,
 	BIAS_ACTION,
@@ -16,12 +16,49 @@ enum flush_action {
 	RAW_ACTION,
 };
 
-struct data_unit_t {
+struct share_mem_data {
 	uint8_t sensor_type;
-	uint8_t flush_action;
+	uint8_t action;
 	uint8_t reserve[2];
 	int64_t timestamp;
-	int32_t value[8];
+	int32_t value[6];
+} __packed;
+
+struct share_mem_data_tag {
+	uint32_t rp;
+	uint32_t wp;
+	uint32_t size;
+	uint32_t reserve;
+	struct share_mem_data data[0];
+} __packed;
+
+struct share_mem_debug {
+	uint8_t sensor_type;
+	uint8_t reserve[3];
+	uint8_t buffer[960]; //512+256+128+64
+} __packed;
+
+struct share_mem_debug_tag {
+	uint32_t rp;
+	uint32_t wp;
+	uint32_t size;
+	uint32_t reserve;
+	struct share_mem_debug data[0];
+} __packed;
+
+struct share_mem_info {
+	uint8_t sensor_type;
+	uint32_t gain;
+	uint8_t name[16];
+	uint8_t vendor[16];
+} __packed;
+
+struct share_mem_info_tag {
+	uint32_t rp;
+	uint32_t wp;
+	uint32_t size;
+	uint32_t reserve;
+	struct share_mem_info data[0];
 } __packed;
 
 #endif

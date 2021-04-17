@@ -11,6 +11,8 @@
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 #include <linux/hrtimer.h>
+
+#include "hf_sensor_type.h"
 #include "sensor_comm.h"
 
 struct test_sensor_t {
@@ -34,12 +36,12 @@ static void test_work_func(struct work_struct *work)
 
 	if (enable_disable_count++ % 2) {
 		ctrl = kzalloc(sizeof(*ctrl), GFP_KERNEL);
-		ctrl->sensor_type = 2;
+		ctrl->sensor_type = SENSOR_TYPE_MAGNETIC_FIELD;
 		ctrl->command = SENS_COMM_CTRL_DISABLE_CMD;
 		ctrl->length = 0;
 	} else {
 		ctrl = kzalloc(sizeof(*ctrl) + sizeof(*batch), GFP_KERNEL);
-		ctrl->sensor_type = 2;
+		ctrl->sensor_type = SENSOR_TYPE_MAGNETIC_FIELD;
 		ctrl->command = SENS_COMM_CTRL_ENABLE_CMD;
 		ctrl->length = sizeof(*batch);
 		batch = (struct sensor_comm_batch *)ctrl->data;

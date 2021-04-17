@@ -29,6 +29,8 @@ enum sensor_comm_notify_cmd {
 	SENS_COMM_NOTIFY_DATA_CMD,
 	SENS_COMM_NOTIFY_FULL_CMD,
 	SENS_COMM_NOTIFY_READY_CMD,
+	SENS_COMM_NOTIFY_LIST_CMD,
+	SENS_COMM_NOTIFY_DEBUG_CMD,
 	MAX_SENS_COMM_NOTIFY_CMD,
 };
 
@@ -40,6 +42,13 @@ struct sensor_comm_batch {
 struct sensor_comm_timesync {
 	int64_t host_timestamp;
 	int64_t host_archcounter;
+} __packed;
+
+struct sensor_comm_share_mem {
+	struct {
+		uint32_t notify_cmd;
+		uint32_t buffer_base;
+	} base_info[4];
 } __packed;
 
 struct sensor_comm_ctrl {
@@ -76,18 +85,13 @@ struct sensor_comm_notify {
 	};
 } __packed;
 
-static inline void
-sensor_comm_notify_receiver_register(void (*f)(int, void *, unsigned int))
-{
-	ipi_comm_notify_handler_register(f);
-}
-
-static inline void
-sensor_comm_notify_receiver_unregister(void)
-{
-	ipi_comm_notify_handler_unregister();
-}
-
 int sensor_comm_ctrl_send(struct sensor_comm_ctrl *ctrl, unsigned int size);
+int sensor_comm_notify(struct sensor_comm_notify *notify);
+void sensor_comm_notify_handler_register(uint8_t cmd,
+		void (*f)(struct sensor_comm_notify *n, void *private_data),
+		void *private_data);
+void sensor_comm_notify_handler_unregister(uint8_t cmd);
+int sensor_comm_init(void);
+void sensor_comm_exit(void);
 
 #endif

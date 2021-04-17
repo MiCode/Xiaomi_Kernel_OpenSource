@@ -8,6 +8,7 @@
 #include <linux/module.h>
 #include <linux/workqueue.h>
 #include <linux/spinlock.h>
+#include <linux/completion.h>
 #include <linux/delay.h>
 
 #include "ipi_comm.h"
@@ -18,6 +19,18 @@
 enum scp_ipi_status __attribute__((weak)) scp_ipi_send(enum ipi_id id,
 		void *buf, unsigned int  len,
 		unsigned int wait, enum scp_core_id scp_id)
+{
+	return SCP_IPI_ERROR;
+}
+
+enum scp_ipi_status __attribute__((weak)) scp_ipi_registration(enum ipi_id id,
+	void (*ipi_handler)(int id, void *data, unsigned int len),
+	const char *name)
+{
+	return SCP_IPI_ERROR;
+}
+
+enum scp_ipi_status __attribute__((weak)) scp_ipi_unregistration(enum ipi_id id)
 {
 	return SCP_IPI_ERROR;
 }
@@ -68,27 +81,24 @@ static int ipi_transfer_buffer(struct ipi_transfer *t)
 		status = scp_ipi_send(hw->id,
 			(unsigned char *)hw->tx, hw->tx_len, 0, SCP_A_ID);
 		if (status == SCP_IPI_ERROR) {
-			pr_err("transfer fail\n");
-			return -1;
+			pr_err("%s transfer fail\n", __func__);
+			return -EIO;
 		}
 		if (status == SCP_IPI_BUSY) {
 			if (retry++ == 1000) {
-				pr_err("retry fail\n");
-				return -1;
+				pr_err("%s retry fail\n", __func__);
+				return -EBUSY;
 			}
 			if (retry % 100 == 0)
 				usleep_range(1000, 2000);
 		}
 	} while (status == SCP_IPI_BUSY);
 
-	if (retry >= 100)
-		pr_debug("retry times: %d\n", retry);
-
 	timeout = wait_for_completion_timeout(&hw->done,
 			msecs_to_jiffies(500));
 	spin_lock_irqsave(&hw_transfer_lock, flags);
 	if (!timeout) {
-		pr_err("transfer timeout!");
+		pr_err("%s transfer timeout!", __func__);
 		hw->count = -1;
 	}
 	hw->context = NULL;
@@ -222,6 +232,29 @@ int ipi_comm_async(struct ipi_message *m)
 	return ipi_async(m);
 }
 
+int ipi_comm_noack(int id, unsigned char *tx, unsigned int n_tx)
+{
+	int status = 0, retry = 0;
+
+	do {
+		status = scp_ipi_send(id, tx, n_tx, 0, SCP_A_ID);
+		if (status == SCP_IPI_ERROR) {
+			pr_err("%s transfer fail\n", __func__);
+			return -EIO;
+		}
+		if (status == SCP_IPI_BUSY) {
+			if (retry++ == 1000) {
+				pr_err("%s retry fail\n", __func__);
+				return -EBUSY;
+			}
+			if (retry % 100 == 0)
+				usleep_range(1000, 2000);
+		}
+	} while (status == SCP_IPI_BUSY);
+
+	return 0;
+}
+
 static void ipi_comm_complete(unsigned char *buffer, unsigned int len)
 {
 	struct ipi_hw_transfer *hw = &hw_transfer;
@@ -258,7 +291,13 @@ int get_ctrl_id(void)
 	return IPI_CHRE;
 }
 
-void ipi_comm_notify_handler_register(void (*f)(int, void *, unsigned int))
+int get_notify_id(void)
+{
+	return IPI_CHREX;
+}
+
+void ipi_comm_notify_handler_register(
+		void (*f)(int id, void *data, unsigned int len))
 {
 	controller.notify_callback = f;
 }
@@ -273,7 +312,8 @@ int ipi_comm_init(void)
 	INIT_WORK(&controller.work, ipi_work);
 	INIT_LIST_HEAD(&controller.head);
 	spin_lock_init(&controller.lock);
-	controller.workqueue = create_singlethread_workqueue("ipi_comm");
+	controller.workqueue = alloc_workqueue("ipi_comm",
+		WQ_MEM_RECLAIM | WQ_HIGHPRI, 0);
 	if (controller.workqueue == NULL) {
 		pr_err("create workqueue fail\n");
 		return -1;
@@ -283,4 +323,11 @@ int ipi_comm_init(void)
 	scp_ipi_registration(IPI_CHREX,
 		ipi_comm_notify_handler, "ipi_comm_notify");
 	return 0;
+}
+
+void ipi_comm_exit(void)
+{
+	scp_ipi_unregistration(IPI_CHRE);
+	scp_ipi_unregistration(IPI_CHREX);
+	destroy_workqueue(controller.workqueue);
 }

@@ -11,7 +11,10 @@
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 #include <linux/hrtimer.h>
+
+#include "hf_sensor_type.h"
 #include "sensor_comm.h"
+#include "ready.h"
 
 struct test_sensor_t {
 	char *name;
@@ -34,12 +37,12 @@ static void test_work_func(struct work_struct *work)
 
 	if (enable_disable_count++ % 2) {
 		ctrl = kzalloc(sizeof(*ctrl), GFP_KERNEL);
-		ctrl->sensor_type = 1;
+		ctrl->sensor_type = SENSOR_TYPE_ACCELEROMETER;
 		ctrl->command = SENS_COMM_CTRL_DISABLE_CMD;
 		ctrl->length = 0;
 	} else {
 		ctrl = kzalloc(sizeof(*ctrl) + sizeof(*batch), GFP_KERNEL);
-		ctrl->sensor_type = 1;
+		ctrl->sensor_type = SENSOR_TYPE_ACCELEROMETER;
 		ctrl->command = SENS_COMM_CTRL_ENABLE_CMD;
 		ctrl->length = sizeof(*batch);
 		batch = (struct sensor_comm_batch *)ctrl->data;
@@ -59,14 +62,19 @@ static enum hrtimer_restart test_timer_func(struct hrtimer *timer)
 	return HRTIMER_RESTART;
 }
 
-static void notify_func(int id, void *data, unsigned int len)
+static int test_ready_notifier_call(struct notifier_block *this,
+		unsigned long event, void *ptr)
 {
-
+	return NOTIFY_DONE;
 }
+
+static struct notifier_block test_ready_notifier = {
+	.notifier_call = test_ready_notifier_call,
+	.priority = READY_STDPRI,
+};
 
 static int __init test_init(void)
 {
-	sensor_comm_notify_receiver_register(notify_func);
 	INIT_WORK(&test_sensor.test_work, test_work_func);
 	test_sensor.workqueue = create_singlethread_workqueue(test_sensor.name);
 	hrtimer_init(&test_sensor.test_timer,
@@ -74,6 +82,7 @@ static int __init test_init(void)
 	test_sensor.test_timer.function = test_timer_func;
 	hrtimer_start(&test_sensor.test_timer,
 			ns_to_ktime(10000000000), HRTIMER_MODE_REL);
+	sensor_ready_notifier_chain_register(&test_ready_notifier);
 	return 0;
 }
 

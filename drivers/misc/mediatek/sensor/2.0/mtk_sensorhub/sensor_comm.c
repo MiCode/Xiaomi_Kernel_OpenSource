@@ -5,13 +5,36 @@
 
 #define pr_fmt(fmt) "[sensor_comm] " fmt
 
-#include <linux/module.h>
 #include <linux/err.h>
 #include <linux/atomic.h>
 #include <linux/string.h>
+
 #include "sensor_comm.h"
+#include "ready.h"
+
+struct sensor_notify_handle {
+	void (*handler)(struct sensor_comm_notify *n, void *private_data);
+	void *private_data;
+};
 
 static atomic_t sensor_comm_sequence;
+static
+struct sensor_notify_handle sens_notify_handle[MAX_SENS_COMM_NOTIFY_CMD];
+
+static void sensor_comm_notify_handler(int id, void *data, unsigned int len)
+{
+	struct sensor_comm_notify *notify = data;
+	struct sensor_notify_handle *handle = NULL;
+
+	if (sizeof(struct sensor_comm_notify) != len)
+		return;
+	if (notify->command >= MAX_SENS_COMM_NOTIFY_CMD)
+		return;
+	handle = &sens_notify_handle[notify->command];
+	if (!handle->handler)
+		return;
+	handle->handler(notify, handle->private_data);
+}
 
 static int sensor_comm_ctrl_send_retry(struct sensor_comm_ctrl *ctrl,
 		unsigned int size)
@@ -51,20 +74,55 @@ int sensor_comm_ctrl_send(struct sensor_comm_ctrl *ctrl, unsigned int size)
 	return ret;
 }
 
-static int __init sensor_comm_init(void)
+int sensor_comm_notify(struct sensor_comm_notify *notify)
+{
+	return ipi_comm_noack(get_notify_id(), (unsigned char *)notify,
+		sizeof(*notify));
+}
+
+void sensor_comm_notify_handler_register(uint8_t cmd,
+		void (*f)(struct sensor_comm_notify *n, void *private_data),
+		void *private_data)
+{
+	if (cmd >= MAX_SENS_COMM_NOTIFY_CMD)
+		return;
+
+	sens_notify_handle[cmd].private_data = private_data;
+	sens_notify_handle[cmd].handler = f;
+}
+
+void sensor_comm_notify_handler_unregister(uint8_t cmd)
+{
+	if (cmd >= MAX_SENS_COMM_NOTIFY_CMD)
+		return;
+
+	sens_notify_handle[cmd].handler = NULL;
+	sens_notify_handle[cmd].private_data = NULL;
+}
+
+static int sensor_comm_ready_notifier_call(struct notifier_block *this,
+		unsigned long event, void *ptr)
+{
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block sensor_comm_ready_notifier = {
+	.notifier_call = sensor_comm_ready_notifier_call,
+	.priority = READY_HIGHESTPRI,
+};
+
+int sensor_comm_init(void)
 {
 	atomic_set(&sensor_comm_sequence, 0);
 	ipi_comm_init();
+	ipi_comm_notify_handler_register(sensor_comm_notify_handler);
+	sensor_ready_notifier_chain_register(&sensor_comm_ready_notifier);
 	return 0;
 }
 
-static void __exit sensor_comm_exit(void)
+void sensor_comm_exit(void)
 {
-
+	sensor_ready_notifier_chain_unregister(&sensor_comm_ready_notifier);
+	ipi_comm_notify_handler_unregister();
+	ipi_comm_exit();
 }
-
-module_init(sensor_comm_init);
-module_exit(sensor_comm_exit);
-MODULE_AUTHOR("Mediatek");
-MODULE_DESCRIPTION("test driver");
-MODULE_LICENSE("GPL");

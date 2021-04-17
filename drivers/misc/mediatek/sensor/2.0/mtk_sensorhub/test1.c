@@ -13,6 +13,8 @@
 #include <linux/hrtimer.h>
 #include <linux/time.h>
 #include <asm/arch_timer.h>
+
+#include "hf_sensor_type.h"
 #include "sensor_comm.h"
 
 struct test_sensor_t {
@@ -33,7 +35,7 @@ static void test_work_func(struct work_struct *work)
 	struct sensor_comm_timesync *timesync = NULL;
 
 	ctrl = kzalloc(sizeof(*ctrl) + sizeof(*timesync), GFP_KERNEL);
-	ctrl->sensor_type = 0;
+	ctrl->sensor_type = SENSOR_TYPE_INVALID;
 	ctrl->command = SENS_COMM_CTRL_TIMESYNC_CMD;
 	ctrl->length = sizeof(*timesync);
 	timesync = (struct sensor_comm_timesync *)ctrl->data;
