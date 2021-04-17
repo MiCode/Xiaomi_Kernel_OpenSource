@@ -58,13 +58,7 @@ static void mdla_cmd_prepare_v2_0_sw_sched(struct mdla_run_cmd *cd,
 	apusys_hd->ip_time = 0;
 	ce->cmdbuf = apusys_hd->cmdbuf;
 	ce->priority = priority;
-
-	if (cd->offset_code_buf == 0)
-		/* for mdla UT */
-		ce->kva = (void *)apusys_mem_query_kva((u32)ce->mva);
-	else
-		ce->kva = (void *)(apusys_hd->cmd_entry + cd->offset_code_buf);
-
+	ce->kva = (void *)apusys_mem_query_kva((u32)ce->mva);
 
 	/* Initialize timestamp*/
 	ce->exec_time = 0;
@@ -82,11 +76,9 @@ static void mdla_cmd_prepare_v2_0_sw_sched(struct mdla_run_cmd *cd,
 
 	init_completion(&ce->swcmd_done_wait);
 
-	mdla_cmd_debug("%s: kva=0x%llx(0x%llx+0x%x) mva=0x%08x(0x%08x+0x%x) cnt=%u sz=0x%x\n",
+	mdla_cmd_debug("%s: kva=0x%llx mva=0x%08x(0x%08x+0x%x) cnt=%u sz=0x%x\n",
 			__func__,
 			(u64)ce->kva,
-			apusys_hd->cmd_entry,
-			cd->offset_code_buf,
 			ce->mva,
 			cd->mva,
 			cd->offset,

@@ -142,7 +142,7 @@ mdla_run_command_prepare(
 		ce->ctx_id = apusys_hd->ctx_id;
 		ce->context_callback = apusys_hd->context_callback;
 		apusys_hd->ip_time = 0;
-		ce->kva = (void *)(apusys_hd->cmd_entry+cd->offset_code_buf);
+		ce->kva = (void *)apusys_mem_query_kva((u32)ce->mva);
 		ce->cmdbuf = apusys_hd->cmdbuf;
 		ce->cmd_batch_en = enable_preempt;
 		if (apusys_hd->multicore_total == 2)
