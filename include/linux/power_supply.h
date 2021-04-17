@@ -177,7 +177,6 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_MANUFACTURER,
 	POWER_SUPPLY_PROP_SERIAL_NUMBER,
-	POWER_SUPPLY_PROP_QUICK_CHARGE_TYPE,
 };
 
 enum power_supply_type {
@@ -194,10 +193,6 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_PD_DRP,		/* PD Dual Role Port */
 	POWER_SUPPLY_TYPE_APPLE_BRICK_ID,	/* Apple Charging Method */
 	POWER_SUPPLY_TYPE_WIRELESS,		/* Wireless */
-	POWER_SUPPLY_TYPE_USB_HVDCP,		/* High Voltage DCP */
-	POWER_SUPPLY_TYPE_USB_HVDCP_3,		/* Efficient High Voltage DCP */
-	POWER_SUPPLY_TYPE_USB_HVDCP_3P5,	/* Efficient High Voltage DCP */
-	POWER_SUPPLY_TYPE_USB_FLOAT,		/* Floating charger */
 };
 
 enum power_supply_usb_type {
@@ -211,15 +206,6 @@ enum power_supply_usb_type {
 	POWER_SUPPLY_USB_TYPE_PD_DRP,		/* PD Dual Role Port */
 	POWER_SUPPLY_USB_TYPE_PD_PPS,		/* PD Programmable Power Supply */
 	POWER_SUPPLY_USB_TYPE_APPLE_BRICK_ID,	/* Apple Charging Method */
-};
-
-enum power_supply_quick_charge_type {
-	QUICK_CHARGE_NORMAL = 0,		/* Charging Power <= 10W */
-	QUICK_CHARGE_FAST,			/* 10W < Charging Power <= 20W */
-	QUICK_CHARGE_FLASH,			/* 20W < Charging Power <= 30W */
-	QUICK_CHARGE_TURBE,			/* 30W < Charging Power <= 50W */
-	QUICK_CHARGE_SUPER,			/* Charging Power > 50W */
-	QUICK_CHARGE_MAX,
 };
 
 enum power_supply_notifier_events {
