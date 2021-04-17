@@ -3149,7 +3149,7 @@ static void __mt_gpufreq_kick_pbm(int enable)
 
 	cur_volt = __mt_gpufreq_get_cur_vgpu();
 
-	if (buck == BUCK_ON) {
+	if (enable == BUCK_ON) {
 		cur_power = g_power_table[g_cur_opp_idx].gpufreq_power;
 
 		kicker_pbm_by_gpu(true, cur_power, cur_volt / 100);
