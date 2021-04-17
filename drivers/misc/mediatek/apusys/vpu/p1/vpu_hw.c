@@ -428,7 +428,7 @@ static uint32_t vpu_init_dev_algo_preload_entry(
 	}
 
 	/* add new algo to the list */
-	addr = info->pAddr & 0xFFF00000; /* static alloc iova */
+	addr = info->start_addr & 0xFFFF0000; /* static alloc iova */
 	if (info->info)
 		size = info->info;  // already aligned at packing stage
 
@@ -441,7 +441,7 @@ static uint32_t vpu_init_dev_algo_preload_entry(
 
 	if (info->flag & 0x1 /* EXE_SEG */) {
 		vi = &alg->prog;
-		alg->a.entry_off = info->pAddr & 0xFFFF;
+		alg->a.entry_off = info->pAddr - addr;
 	} else {
 		vi = &dummy_iova;
 		pr_info("%s: vpu%d: unexpected segment: flags: %x\n",

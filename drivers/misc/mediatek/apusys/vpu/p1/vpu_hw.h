@@ -43,7 +43,7 @@ struct vpu_pre_info {
 	uint32_t file_sz;
 	uint32_t flag;
 	uint32_t info;
-	uint32_t reserve;
+	uint32_t start_addr;
 	char name[ALGO_NAMELEN];
 };
 
