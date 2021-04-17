@@ -3420,7 +3420,7 @@ void sc_select_charging_current(struct charger_manager *info, struct charger_dat
 	} else if ((info->sc.solution == SC_REDUCE || info->sc.solution == SC_KEEP)
 		&& info->sc.sc_ibat <
 		pdata->charging_current_limit && pinfo->sc.g_scd_pid != 0 &&
-		pinfo->sc.disable_in_this_plug == false) {
+		pinfo->sc.disable_in_this_plug == false && info->sc.sc_ibat != -1) {
 		pdata->charging_current_limit = info->sc.sc_ibat;
 	}
 }
