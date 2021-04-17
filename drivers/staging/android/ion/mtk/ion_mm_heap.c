@@ -955,8 +955,13 @@ out:
 	end = sched_clock();
 	if (buffer->sg_table &&
 	    (buffer->sg_table->nents > 10 &&
+#if BITS_PER_LONG == 32
+	    (div_u64((end - start),
+	     buffer->sg_table->nents > 500000ULL)) ||
+#else
 	    ((end - start) /
 	     buffer->sg_table->nents > 500000ULL) ||
+#endif
 	    (end - start > 50000000ULL)))
 		IONMSG("warn: p(%d-%d) phys time:%lluns n:%u s:%zu\n",
 		       buffer_info->module_id,
