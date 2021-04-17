@@ -70,16 +70,6 @@
 #define DRIVER_MAJOR 1
 #define DRIVER_MINOR 0
 
-#ifndef MTK_DRM_DELAY_PRESENT_FENCE_SOF
-atomic_t _mtk_fence_idx[3] = {ATOMIC_INIT(-1), ATOMIC_INIT(-1),
-	ATOMIC_INIT(-1)};
-#ifndef MTK_DRM_DELAY_PRESENT_FENCE
-atomic_t _mtk_fence_update_event[3] = {ATOMIC_INIT(0), ATOMIC_INIT(0),
-	ATOMIC_INIT(0)};
-wait_queue_head_t _mtk_fence_wq[3];
-#endif
-#endif
-
 static atomic_t top_isr_ref; /* irq power status protection */
 static atomic_t top_clk_ref; /* top clk status protection*/
 static spinlock_t top_clk_lock; /* power status protection*/
@@ -533,7 +523,6 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 		/* blocking flush before stop trigger loop */
 		mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
 			mtk_crtc->gce_obj.client[CLIENT_CFG]);
-		/*if ARR4.0 && vdo mode AOD enable together,EVENT_VDO_EOF need confirm*/
 		if (mtk_crtc_is_frame_trigger_mode(crtc))
 			cmdq_pkt_wait_no_clear(handle,
 				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
@@ -1935,6 +1924,15 @@ static const struct mtk_mmsys_driver_data mt6833_mmsys_driver_data = {
 };
 
 #ifdef MTK_DRM_FENCE_SUPPORT
+void mtk_drm_suspend_release_present_fence(struct device *dev,
+					   unsigned int index)
+{
+	struct mtk_drm_private *private = dev_get_drvdata(dev);
+
+	mtk_release_present_fence(private->session_id[index],
+				  atomic_read(&private->crtc_present[index]));
+}
+
 void mtk_drm_suspend_release_sf_present_fence(struct device *dev,
 					      unsigned int index)
 {
@@ -1942,16 +1940,6 @@ void mtk_drm_suspend_release_sf_present_fence(struct device *dev,
 
 	mtk_release_sf_present_fence(private->session_id[index],
 			atomic_read(&private->crtc_sf_present[index]));
-}
-
-#ifdef MTK_DRM_DELAY_PRESENT_FENCE_SOF
-void mtk_drm_suspend_release_present_fence(struct device *dev,
-	unsigned int index)
-{
-	struct mtk_drm_private *private = dev_get_drvdata(dev);
-
-	mtk_release_present_fence(private->session_id[index],
-		atomic_read(&private->crtc_present[index]));
 }
 
 int mtk_drm_suspend_release_fence(struct device *dev)
@@ -1966,96 +1954,9 @@ int mtk_drm_suspend_release_fence(struct device *dev)
 	/* release present fence */
 	mtk_drm_suspend_release_present_fence(dev, 0);
 	mtk_drm_suspend_release_sf_present_fence(dev, 0);
-	return 0;
-}
-#else
-#ifndef MTK_DRM_DELAY_PRESENT_FENCE
-static int mtk_drm_fence_release_thread(void *data)
-{
-	struct sched_param param = {.sched_priority = 87};
-	struct mtk_drm_private *private = (struct mtk_drm_private *)data;
-
-	sched_setscheduler(current, SCHED_RR, &param);
-
-	while (!kthread_should_stop()) {
-		wait_event_interruptible(_mtk_fence_wq[0],
-				 atomic_read(&_mtk_fence_update_event[0]));
-		atomic_set(&_mtk_fence_update_event[0], 0);
-
-		DDPINFO("%s:%d wait vblank+\n", __func__, __LINE__);
-		drm_wait_one_vblank(private->drm, 0);
-		DDPINFO("%s:%d wait vblank-\n", __func__, __LINE__);
-
-		mutex_lock(&private->commit.lock);
-		if (private->session_id[0] > 0)
-			mtk_release_present_fence(private->session_id[0],
-						  atomic_read(&_mtk_fence_idx[0]));
-		mutex_unlock(&private->commit.lock);
-	}
 
 	return 0;
 }
-
-static int mtk_drm_fence_release_thread1(void *data)
-{
-	struct sched_param param = {.sched_priority = 87};
-	struct mtk_drm_private *private = (struct mtk_drm_private *)data;
-
-	sched_setscheduler(current, SCHED_RR, &param);
-	while (!kthread_should_stop()) {
-		wait_event_interruptible(_mtk_fence_wq[1],
-			 atomic_read(&_mtk_fence_update_event[1]));
-		atomic_set(&_mtk_fence_update_event[1], 0);
-		DDPINFO("%s:%d wait vblank+\n", __func__, __LINE__);
-		drm_wait_one_vblank(private->drm, 1);
-		DDPINFO("%s:%d wait vblank-\n", __func__, __LINE__);
-		mutex_lock(&private->commit.lock);
-		mtk_release_present_fence(private->session_id[1],
-					  atomic_read(&_mtk_fence_idx[1]));
-		mutex_unlock(&private->commit.lock);
-	}
-	return 0;
-}
-#endif//add by xiuhai
-
-void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index)
-{
-	int pf = atomic_read(&_mtk_fence_idx[index]);
-
-	DDPDBG("crtc%d,fence_idx:%d,pf:%d", index, fence_idx, pf);
-	if (pf != -1 && fence_idx < (unsigned int)pf)
-		return;
-	atomic_set(&_mtk_fence_idx[index], fence_idx);
-#ifndef MTK_DRM_DELAY_PRESENT_FENCE
-	atomic_set(&_mtk_fence_update_event[index], 1);
-	if (index != 2)
-		wake_up_interruptible(&_mtk_fence_wq[index]);
-#endif
-	CRTC_MMP_MARK(0, update_present_fence, 0, fence_idx);
-}
-int mtk_drm_suspend_release_fence(struct device *dev)
-{
-	unsigned int i = 0;
-	struct mtk_drm_private *private = dev_get_drvdata(dev);
-
-	for (i = 0; i < MTK_TIMELINE_OUTPUT_TIMELINE_ID; i++) {
-		DDPINFO("%s layerid=%d\n", __func__, i);
-		mtk_release_layer_fence(private->session_id[0], i);
-	}
-	/* release present fence */
-	mtk_release_present_fence(private->session_id[0],
-				  atomic_read(&_mtk_fence_idx[0]));
-	return 0;
-}
-void mtk_drm_suspend_release_present_fence(struct device *dev,
-					   unsigned int index)
-{
-	struct mtk_drm_private *private = dev_get_drvdata(dev);
-
-	mtk_release_present_fence(private->session_id[index],
-				  atomic_read(&private->crtc_present[index]));
-}
-#endif
 #endif
 
 /*---------------- function for repaint start ------------------*/
@@ -2784,24 +2685,6 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	for (i = 0; i < MAX_CRTC ; ++i)
 		atomic_set(&private->crtc_present[i], 0);
 	atomic_set(&private->rollback_all, 0);
-#if defined(MTK_DRM_FENCE_SUPPORT) &&\
-	!defined(MTK_DRM_DELAY_PRESENT_FENCE) &&\
-	!defined(MTK_DRM_DELAY_PRESENT_FENCE_SOF)
-	/* fence release kthread */
-	init_waitqueue_head(&_mtk_fence_wq[0]);
-	init_waitqueue_head(&_mtk_fence_wq[1]);
-	private->fence_release_thread[0] =
-			kthread_run(mtk_drm_fence_release_thread,
-			private, "fence_release_thread");
-	private->fence_release_thread[1] =
-			kthread_run(mtk_drm_fence_release_thread1,
-			private, "fence_release_thread1");
-	if (IS_ERR(private->fence_release_thread[0]) ||
-			IS_ERR(private->fence_release_thread[1])) {
-		DDPPR_ERR("Failed to create fence release thread\n");
-		goto err_kms_helper_poll_fini;
-	}
-#endif
 
 #ifdef CONFIG_DRM_MEDIATEK_DEBUG_FS
 	mtk_drm_debugfs_init(drm, private);
