@@ -110,9 +110,9 @@
 /**************************************************
  * Reference Power Setting
  **************************************************/
-#define GPU_ACT_REF_POWER               (1285)                /* mW  */
-#define GPU_ACT_REF_FREQ                (900000)              /* KHz */
-#define GPU_ACT_REF_VOLT                (90000)               /* mV x 100 */
+#define GPU_ACT_REF_POWER               (1223)                /* mW  */
+#define GPU_ACT_REF_FREQ                (950000)              /* KHz */
+#define GPU_ACT_REF_VOLT                (78125)               /* mV x 100 */
 
 /**************************************************
  * Battery Over Current Protect
