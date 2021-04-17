@@ -26,6 +26,8 @@
 	host_function = /bits/ 8 <MSDC_EMMC>;
 	bootable;
 	status = "okay";
+	infracfg = <&infracfg_ao>;
+	topckgen = <&topckgen>;
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	vmmc-supply = <&mt_pmic_vemc_ldo_reg>;
