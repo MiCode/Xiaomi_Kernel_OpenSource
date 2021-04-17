@@ -3074,7 +3074,6 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned long crtc_id = (unsigned long)drm_crtc_index(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
-	struct cmdq_pkt_buffer *buf = &(mtk_crtc->gce_obj.buf);
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
 	defined(CONFIG_MACH_MT6833)
 	struct cmdq_operand lop, rop;
@@ -3194,19 +3193,6 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 		cmdq_pkt_set_event(cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_SODI]);
 #endif
-		if (mtk_drm_helper_get_opt(priv->helper_opt,
-					   MTK_DRM_OPT_SF_PF)) {
-			cmdq_pkt_clear_event(cmdq_handle,
-				mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
-			cmdq_pkt_wait_no_clear(cmdq_handle,
-				mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
-			cmdq_pkt_mem_move(cmdq_handle, mtk_crtc->gce_obj.base,
-				buf->pa_base +
-				DISP_SLOT_SF_PRESENT_FENCE_CONF(crtc_id),
-				buf->pa_base +
-				DISP_SLOT_SF_PRESENT_FENCE(crtc_id),
-				CMDQ_THR_SPR_IDX3);
-		}
 
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 					   MTK_DRM_OPT_LAYER_REC)) {
@@ -5670,6 +5656,15 @@ static void mtk_drm_crtc_disable_fake_layer(struct drm_crtc *crtc,
 	}
 }
 
+
+static void sf_cmdq_cb(struct cmdq_cb_data data)
+{
+	struct mtk_cmdq_cb_data *cb_data = data.data;
+
+	cmdq_pkt_destroy(cb_data->cmdq_handle);
+	kfree(cb_data);
+}
+
 static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 				      struct drm_crtc_state *old_crtc_state)
 {
@@ -5783,19 +5778,6 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 			state->prop_val[CRTC_PROP_PRES_FENCE_IDX]);
 	}
 
-	if (state->prop_val[CRTC_PROP_SF_PRES_FENCE_IDX] != (unsigned int)-1) {
-		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-
-		dma_addr_t addr = cmdq_buf->pa_base +
-					DISP_SLOT_SF_PRESENT_FENCE_CONF(index);
-
-		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base, addr,
-			       state->prop_val[CRTC_PROP_SF_PRES_FENCE_IDX],
-			       ~0);
-		CRTC_MMP_MARK(index, update_sf_present_fence, 0,
-			      state->prop_val[CRTC_PROP_SF_PRES_FENCE_IDX]);
-	}
-
 	atomic_set(&mtk_crtc->delayed_trig, 1);
 	cb_data->state = old_crtc_state;
 	cb_data->cmdq_handle = cmdq_handle;
@@ -5805,6 +5787,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	drm_atomic_state_get(old_crtc_state->state);
 	mtk_drm_crtc_lfr_update(crtc, cmdq_handle);
 
+
 	/* backup ovl0 2l status for crtc0
 	 * do not insert code between back up ovl status and gce flush
 	 */
@@ -5813,6 +5796,14 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		if (comp != NULL)
 			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 				BACKUP_OVL_STATUS, NULL);
+	}
+
+
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SF_PF) &&
+	   (state->prop_val[CRTC_PROP_SF_PRES_FENCE_IDX] != (unsigned int)-1)) {
+		if (index == 0)
+			cmdq_pkt_clear_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
 	}
 
 #ifdef MTK_DRM_CMDQ_ASYNC
@@ -5832,6 +5823,42 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	ddp_cmdq_cb_blocking(cb_data);
 #endif
 
+
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SF_PF) &&
+	   (state->prop_val[CRTC_PROP_SF_PRES_FENCE_IDX] != (unsigned int)-1)) {
+		struct cmdq_pkt *cmdq_handle;
+		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+		struct mtk_cmdq_cb_data *sf_cb_data;
+		dma_addr_t addr;
+
+		cmdq_handle =
+			cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+		sf_cb_data = kmalloc(sizeof(*sf_cb_data), GFP_KERNEL);
+		if (!sf_cb_data) {
+			DDPPR_ERR("cb data creation failed\n");
+			CRTC_MMP_MARK(index, atomic_flush, 1, 1);
+			goto end;
+		}
+
+		if (index == 0)
+			cmdq_pkt_wait_no_clear(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
+
+		addr = cmdq_buf->pa_base + DISP_SLOT_SF_PRESENT_FENCE(index);
+
+		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base, addr,
+			       state->prop_val[CRTC_PROP_SF_PRES_FENCE_IDX],
+			       ~0);
+		CRTC_MMP_MARK(index, update_sf_present_fence, 0,
+			      state->prop_val[CRTC_PROP_SF_PRES_FENCE_IDX]);
+
+		sf_cb_data->cmdq_handle = cmdq_handle;
+
+		if (cmdq_pkt_flush_threaded(cmdq_handle,
+				sf_cmdq_cb, sf_cb_data) < 0)
+			DDPPR_ERR("failed to flush sf_cmdq_cb\n");
+	}
 
 end:
 	/* When open VDS path switch feature, After VDS created
