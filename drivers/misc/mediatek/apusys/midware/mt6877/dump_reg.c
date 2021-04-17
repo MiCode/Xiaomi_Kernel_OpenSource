@@ -34,7 +34,7 @@ static struct mutex dbg_lock;
 static struct mutex dump_lock;
 
 
-#define DBG_MUX_SEL_COUNT (10)
+#define DBG_MUX_SEL_COUNT (9)
 #define TOTAL_DBG_MUX_COUNT (15)
 #define DBG_MUX_VPU_START_IDX (2)
 #define DBG_MUX_VPU_END_IDX (3)
@@ -71,42 +71,41 @@ struct dbg_mux_sel_info info_table[DBG_MUX_SEL_COUNT] = {
 	{0x20138, 17, 15}, //conn_dbg5_sel
 	{0x20138, 20, 18}, //conn_dbg6_sel
 	{0x20138, 23, 21}, //conn_dbg7_sel
-	{0xf2034, 0,  0 }, //aon_dbg_sel
 };
 
 
 struct dbg_mux_sel_value value_table[TOTAL_DBG_MUX_COUNT] = {
 
 	{"VCORE2EMI_N0_GALS_TX",      0x2901C,
-		{ 0,  1, NA, NA, NA, NA, NA, NA, NA, NA} },
+		{ 0,  1, NA, NA, NA, NA, NA, NA, NA} },
 	{"VCORE2EMI_N1_GALS_TX",      0x2901C,
-		{ 0,  2, NA, NA, NA, NA, NA, NA, NA, NA} },
+		{ 0,  2, NA, NA, NA, NA, NA, NA, NA} },
 	{"VPU02CONN_GALS_RX",         0x2901C,
-		{ 0,  6, NA,  1,  1, NA, NA, NA, NA, NA} },
+		{ 0,  6, NA,  1,  1, NA, NA, NA, NA} },
 	{"VPU12CONN_GALS_RX",         0x2901C,
-		{ 0,  6, NA,  1,  2, NA, NA, NA, NA, NA} },
+		{ 0,  6, NA,  1,  2, NA, NA, NA, NA} },
 	{"CONN2VPU0_GALS_TX",         0x2901C,
-		{ 0,  6, NA,  1,  4, NA, NA, NA, NA, NA} },
+		{ 0,  6, NA,  1,  4, NA, NA, NA, NA} },
 	{"CONN2VPU1_GALS_TX",         0x2901C,
-		{ 0,  6, NA,  1,  5, NA, NA, NA, NA, NA} },
+		{ 0,  6, NA,  1,  5, NA, NA, NA, NA} },
 	{"DLA02CONN_M0_GALS_RX",      0x2901C,
-		{ 0,  6, NA,  2, NA,  1, NA, NA, NA, NA} },
+		{ 0,  6, NA,  2, NA,  1, NA, NA, NA} },
 	{"DLA02CONN_M1_GALS_RX",      0x2901C,
-		{ 0,  6, NA,  2, NA,  2, NA, NA, NA, NA} },
+		{ 0,  6, NA,  2, NA,  2, NA, NA, NA} },
 	{"MMU0_N0_GALS_TX",           0x2901C,
-		{ 0,  6, NA,  3, NA, NA,  1, NA, NA, NA} },
+		{ 0,  6, NA,  3, NA, NA,  1, NA, NA} },
 	{"MMU0_N1_GALS_TX",           0x2901C,
-		{ 0,  6, NA,  3, NA, NA,  2, NA, NA, NA} },
+		{ 0,  6, NA,  3, NA, NA,  2, NA, NA} },
 	{"EDMMA_NOC_0_RX",            0x2901C,
-		{ 0,  6, NA,  4, NA, NA, NA,  1, NA, NA} },
+		{ 0,  6, NA,  4, NA, NA, NA,  1, NA} },
 	{"MNOC_MISC_0_DBG_BUS",       0x2901C,
-		{ 0,  6, NA,  5, NA, NA, NA, NA,  1, NA} },
+		{ 0,  6, NA,  5, NA, NA, NA, NA,  1} },
 	{"APU_UP_SYS_DBG_BUS",        0x2901C,
-		{ 0,  6, NA,  5, NA, NA, NA, NA,  4, NA} },
+		{ 0,  6, NA,  5, NA, NA, NA, NA,  4} },
 	{"APUSYS_AO_DBG_PCU",         0x2901C,
-		{ 1, NA,  7, NA, NA, NA, NA, NA, NA,  0} },
+		{ 1, NA,  7, NA, NA, NA, NA, NA, NA} },
 	{"APUSYS_AO_DBG_RPC",         0x2901C,
-		{ 1, NA,  7, NA, NA, NA, NA, NA, NA,  1} },
+		{ 1, NA,  7, NA, NA, NA, NA, NA, NA} },
 };
 
 
