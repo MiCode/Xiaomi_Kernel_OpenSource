@@ -27,6 +27,7 @@ endif
 obj-${CONFIG_MTK_CM_MGR} += mtk_cm_mgr.o
 mtk_cm_mgr-y = mtk_cm_mgr_common.o
 
-mtk_cm_mgr-${CONFIG_MTK_CM_MGR_MT6873} += mtk_cm_mgr_mt6873.o
-mtk_cm_mgr-${CONFIG_MTK_CM_MGR_MT6853} += mtk_cm_mgr_mt6853.o
+obj-${CONFIG_MTK_CM_MGR_MT6893} += mtk_cm_mgr_mt6893.o
+obj-${CONFIG_MTK_CM_MGR_MT6873} += mtk_cm_mgr_mt6873.o
+obj-${CONFIG_MTK_CM_MGR_MT6853} += mtk_cm_mgr_mt6853.o
 

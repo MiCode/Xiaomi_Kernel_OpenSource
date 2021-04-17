@@ -30,6 +30,7 @@
 #include <linux/topology.h>
 #include <linux/math64.h>
 
+#include <linux/pm_domain.h>
 #include <linux/of.h>
 #include "mtk_disp_notify.h"
 #include <linux/notifier.h>
@@ -46,8 +47,8 @@
 #include <linux/tracepoint.h>
 #include <linux/kallsyms.h>
 
-struct delayed_work cm_mgr_work;
-int cm_mgr_cpu_to_dram_opp;
+static struct delayed_work cm_mgr_work;
+static int cm_mgr_cpu_to_dram_opp;
 
 /* FIXME: */
 #define USE_CM_MGR_AT_SSPM
@@ -60,25 +61,25 @@ int cm_ipi_ackdata;
 #endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
 
 static struct kobject *cm_mgr_kobj;
-struct platform_device *cm_mgr_pdev;
+static struct platform_device *cm_mgr_pdev;
 void __iomem *cm_mgr_base;
-int cm_mgr_num_perf;
-u32 *cm_mgr_perfs;
-struct icc_path *cm_perf_bw_path;
-int *cm_mgr_cpu_opp_to_dram;
-int cm_mgr_num_array;
-int *cm_mgr_buf;
+static int cm_mgr_num_perf;
+static int *cm_mgr_cpu_opp_to_dram;
+static int cm_mgr_num_array;
+static int *cm_mgr_buf;
 int cm_mgr_cpu_opp_size;
+static struct icc_path *cm_mgr_bw_path;
+static struct cm_mgr_hook hk;
 
-int cm_mgr_blank_status;
-int cm_mgr_disable_fb = 1;
+static int cm_mgr_blank_status;
+static int cm_mgr_disable_fb = 1;
 int cm_mgr_emi_demand_check = 1;
 int cm_mgr_enable = 1;
 int cm_mgr_loading_enable;
 int cm_mgr_loading_level = 1000;
 int cm_mgr_opp_enable = 1;
-int cm_mgr_perf_enable = 1;
-int cm_mgr_perf_force_enable;
+static int cm_mgr_perf_enable = 1;
+static int cm_mgr_perf_force_enable;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_V2) && defined(USE_CM_MGR_AT_SSPM)
 int cm_mgr_sspm_enable = 1;
 #endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
@@ -88,16 +89,14 @@ unsigned int *vcore_power_ratio_down;
 unsigned int *vcore_power_ratio_up;
 unsigned int *debounce_times_down_adb;
 unsigned int *debounce_times_up_adb;
-int debounce_times_perf_down = 50;
-int debounce_times_perf_force_down = 100;
+static int debounce_times_perf_down = 50;
+static int debounce_times_perf_force_down = 100;
 int debounce_times_reset_adb;
 int light_load_cps = 1000;
 
-int debounce_times_perf_down_local = -1;
-int debounce_times_perf_down_force_local = -1;
-int pm_qos_update_request_status;
-int cm_mgr_dram_opp_base = -1;
-int cm_mgr_dram_opp = -1;
+static int debounce_times_perf_down_local = -1;
+static int debounce_times_perf_down_force_local = -1;
+static int cm_mgr_dram_opp_base = -1;
 
 int cm_mgr_loop_count;
 static int cm_mgr_dram_level;
@@ -106,12 +105,164 @@ int total_bw_value;
 /* setting in DTS */
 int cm_mgr_use_bcpu_weight;
 int cm_mgr_use_cpu_to_dram_map;
-int cm_mgr_use_cpu_to_dram_map_new;
+static int cm_mgr_use_cpu_to_dram_map_new;
 int cpu_power_bcpu_weight_max = 100;
 int cpu_power_bcpu_weight_min = 100;
 int cm_mgr_cpu_map_dram_enable = 1;
 int cm_mgr_cpu_map_emi_opp = 1;
 int cm_mgr_cpu_map_skip_cpu_opp = 2;
+
+struct icc_path *cm_mgr_get_bw_path(void)
+{
+	return cm_mgr_bw_path;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_get_bw_path);
+
+struct icc_path *cm_mgr_set_bw_path(struct icc_path *bw_path)
+{
+	return cm_mgr_bw_path = bw_path;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_set_bw_path);
+
+int cm_mgr_get_blank_status(void)
+{
+	return cm_mgr_blank_status;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_get_blank_status);
+
+int cm_mgr_get_disable_fb(void)
+{
+	return cm_mgr_disable_fb;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_get_disable_fb);
+
+int cm_mgr_get_perf_enable(void)
+{
+	return cm_mgr_perf_enable;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_get_perf_enable);
+
+int cm_mgr_get_perf_force_enable(void)
+{
+	return cm_mgr_perf_force_enable;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_get_perf_force_enable);
+
+void cm_mgr_set_perf_force_enable(int enable)
+{
+	cm_mgr_perf_force_enable = enable;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_set_perf_force_enable);
+
+int debounce_times_perf_down_get(void)
+{
+	return debounce_times_perf_down;
+}
+EXPORT_SYMBOL_GPL(debounce_times_perf_down_get);
+
+int debounce_times_perf_force_down_get(void)
+{
+	return debounce_times_perf_force_down;
+}
+EXPORT_SYMBOL_GPL(debounce_times_perf_force_down_get);
+
+int debounce_times_perf_down_local_get(void)
+{
+	return debounce_times_perf_down_local;
+}
+EXPORT_SYMBOL_GPL(debounce_times_perf_down_local_get);
+
+void debounce_times_perf_down_local_set(int num)
+{
+	debounce_times_perf_down_local = num;
+}
+EXPORT_SYMBOL_GPL(debounce_times_perf_down_local_set);
+
+int debounce_times_perf_down_force_local_get(void)
+{
+	return debounce_times_perf_down_force_local;
+}
+EXPORT_SYMBOL_GPL(debounce_times_perf_down_force_local_get);
+
+void debounce_times_perf_down_force_local_set(int num)
+{
+	debounce_times_perf_down_force_local = num;
+}
+EXPORT_SYMBOL_GPL(debounce_times_perf_down_force_local_set);
+
+int cm_mgr_get_dram_opp_base(void)
+{
+	return cm_mgr_dram_opp_base;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_get_dram_opp_base);
+
+void cm_mgr_set_dram_opp_base(int num)
+{
+	cm_mgr_dram_opp_base = num;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_set_dram_opp_base);
+
+int cm_mgr_get_num_perf(void)
+{
+	return cm_mgr_num_perf;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_get_num_perf);
+
+void cm_mgr_set_num_perf(int num)
+{
+	cm_mgr_num_perf = num;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_set_num_perf);
+
+int cm_mgr_get_num_array(void)
+{
+	return cm_mgr_num_array;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_get_num_array);
+
+void cm_mgr_set_num_array(int num)
+{
+	cm_mgr_num_array = num;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_set_num_array);
+
+void cm_mgr_set_pdev(struct platform_device *pdev)
+{
+	cm_mgr_pdev = pdev;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_set_pdev);
+
+void cm_mgr_perf_set_status(int enable)
+{
+	if (hk.cm_mgr_perf_set_status)
+		hk.cm_mgr_perf_set_status(enable);
+}
+EXPORT_SYMBOL_GPL(cm_mgr_perf_set_status);
+
+void cm_mgr_register_hook(struct cm_mgr_hook *hook)
+{
+	hk.cm_mgr_get_perfs =
+		hook->cm_mgr_get_perfs;
+	hk.cm_mgr_perf_set_force_status =
+		hook->cm_mgr_perf_set_force_status;
+	hk.check_cm_mgr_status =
+		hook->check_cm_mgr_status;
+	hk.cm_mgr_perf_platform_set_status =
+		hook->cm_mgr_perf_platform_set_status;
+	hk.cm_mgr_perf_set_status =
+		hook->cm_mgr_perf_set_status;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_register_hook);
+
+void cm_mgr_unregister_hook(struct cm_mgr_hook *hook)
+{
+	hk.cm_mgr_get_perfs = NULL;
+	hk.cm_mgr_perf_set_force_status = NULL;
+	hk.check_cm_mgr_status = NULL;
+	hk.cm_mgr_perf_platform_set_status = NULL;
+	hk.cm_mgr_perf_set_status = NULL;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_unregister_hook);
 
 static int cm_mgr_fb_notifier_callback(struct notifier_block *nb,
 		unsigned long value, void *v)
@@ -128,7 +279,8 @@ static int cm_mgr_fb_notifier_callback(struct notifier_block *nb,
 			pr_info("#@# %s(%d) SCREEN OFF\n", __func__, __LINE__);
 			cm_mgr_blank_status = 1;
 			cm_mgr_dram_opp_base = -1;
-			cm_mgr_perf_platform_set_status(0);
+			if (hk.cm_mgr_perf_platform_set_status)
+				hk.cm_mgr_perf_platform_set_status(0);
 			cm_mgr_to_sspm_command(IPI_CM_MGR_BLANK, 1);
 		}
 		pr_info("%s-\n", __func__);
@@ -140,30 +292,6 @@ static int cm_mgr_fb_notifier_callback(struct notifier_block *nb,
 static struct notifier_block cm_mgr_fb_notifier = {
 	.notifier_call = cm_mgr_fb_notifier_callback,
 };
-
-void cm_mgr_perf_set_status(int enable)
-{
-	if (cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1)
-		enable = 0;
-
-	cm_mgr_perf_platform_set_force_status(enable);
-
-	if (cm_mgr_perf_force_enable)
-		return;
-
-	cm_mgr_perf_platform_set_status(enable);
-}
-EXPORT_SYMBOL_GPL(cm_mgr_perf_set_status);
-
-void cm_mgr_perf_set_force_status(int enable)
-{
-	if (enable != cm_mgr_perf_force_enable) {
-		cm_mgr_perf_force_enable = enable;
-		if (!enable)
-			cm_mgr_perf_platform_set_force_status(enable);
-	}
-}
-EXPORT_SYMBOL_GPL(cm_mgr_perf_set_force_status);
 
 void cm_mgr_enable_fn(int enable)
 {
@@ -243,7 +371,7 @@ int __weak dbg_cm_mgr_platform_show(char *buff) { return 0; }
 void __weak dbg_cm_mgr_platform_write(int len, char *cmd, u32 val_1, u32 val_2)
 {}
 
-void cm_mgr_cpu_map_update_table(void)
+static void cm_mgr_cpu_map_update_table(void)
 {
 	int i;
 
@@ -255,7 +383,16 @@ void cm_mgr_cpu_map_update_table(void)
 				cm_mgr_num_perf;
 	}
 }
-EXPORT_SYMBOL_GPL(cm_mgr_cpu_map_update_table);
+
+static void cm_mgr_add_cpu_opp_to_ddr_req(void)
+{
+	struct device *dev = &cm_mgr_pdev->dev;
+
+	dev_pm_genpd_set_performance_state(dev, 0);
+
+	if (cm_mgr_use_cpu_to_dram_map_new)
+		cm_mgr_cpu_map_update_table();
+}
 
 static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buff)
@@ -382,7 +519,8 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 		cm_mgr_perf_enable = val_1;
 	} else if (!strcmp(cmd, "cm_mgr_perf_force_enable")) {
 		cm_mgr_perf_force_enable = val_1;
-		cm_mgr_perf_set_force_status(val_1);
+		if (hk.cm_mgr_perf_set_force_status)
+			hk.cm_mgr_perf_set_force_status(val_1);
 	} else if (!strcmp(cmd, "cm_mgr_disable_fb")) {
 		cm_mgr_disable_fb = val_1;
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DISABLE_FB,
@@ -463,11 +601,13 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 	} else if (!strcmp(cmd, "1")) {
 		/* cm_mgr_perf_force_enable */
 		cm_mgr_perf_force_enable = 1;
-		cm_mgr_perf_set_force_status(cm_mgr_perf_force_enable);
+		if (hk.cm_mgr_perf_set_force_status)
+			hk.cm_mgr_perf_set_force_status(1);
 	} else if (!strcmp(cmd, "0")) {
 		/* cm_mgr_perf_force_enable */
 		cm_mgr_perf_force_enable = 0;
-		cm_mgr_perf_set_force_status(cm_mgr_perf_force_enable);
+		if (hk.cm_mgr_perf_set_force_status)
+			hk.cm_mgr_perf_set_force_status(0);
 	} else if (!strcmp(cmd, "cm_mgr_cpu_map_dram_enable")) {
 		cm_mgr_cpu_map_dram_enable = !!val_1;
 	} else if (!strcmp(cmd, "cm_mgr_cpu_map_skip_cpu_opp")) {
@@ -643,6 +783,9 @@ void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
 	int ret = 0;
 	int dram_opp = 0;
 
+	if (!cm_mgr_use_cpu_to_dram_map)
+		return;
+
 	if (!cm_mgr_cpu_map_dram_enable) {
 		if (cm_mgr_cpu_to_dram_opp != cm_mgr_num_perf) {
 			cm_mgr_cpu_to_dram_opp = cm_mgr_num_perf;
@@ -697,7 +840,8 @@ static void cm_mgr_cpu_frequency_tracer(void *ignore, unsigned int frequency,
 	if (policy) {
 		idx = cpufreq_frequency_table_target(policy, frequency,
 				CPUFREQ_RELATION_L);
-		check_cm_mgr_status(cluster, frequency, idx);
+		if (hk.check_cm_mgr_status)
+			hk.check_cm_mgr_status(cluster, frequency, idx);
 	}
 }
 
@@ -732,6 +876,14 @@ void tracepoint_cleanup(void)
 		}
 	}
 }
+
+void cm_mgr_process(struct work_struct *work)
+{
+	if (hk.cm_mgr_get_perfs)
+		icc_set_bw(cm_mgr_bw_path, 0,
+				hk.cm_mgr_get_perfs(cm_mgr_cpu_to_dram_opp));
+}
+EXPORT_SYMBOL_GPL(cm_mgr_process);
 
 int cm_mgr_common_init(void)
 {
@@ -818,6 +970,12 @@ fail_reg_cpu_frequency_entry:
 				cpu_power_bcpu_weight_min);
 	}
 
+	if (cm_mgr_use_cpu_to_dram_map) {
+		cm_mgr_add_cpu_opp_to_ddr_req();
+
+		INIT_DELAYED_WORK(&cm_mgr_work, cm_mgr_process);
+	}
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(cm_mgr_common_init);
@@ -826,6 +984,9 @@ void cm_mgr_common_exit(void)
 {
 	int ret;
 
+	kfree(cm_mgr_cpu_opp_to_dram);
+	kfree(cm_mgr_buf);
+
 	kobject_put(cm_mgr_kobj);
 
 	ret = mtk_disp_notifier_unregister(&cm_mgr_fb_notifier);
@@ -833,3 +994,4 @@ void cm_mgr_common_exit(void)
 		pr_info("[CM_MGR] FAILED TO UNREGISTER FB CLIENT (%d)\n", ret);
 }
 EXPORT_SYMBOL_GPL(cm_mgr_common_exit);
+MODULE_LICENSE("GPL");
