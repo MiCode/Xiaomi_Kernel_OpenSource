@@ -92,7 +92,8 @@ static long lpm_per_cpuidle_drv_param(void *pData)
 		for (i = 0; i < drv->state_count; i++) {
 			mtk_dbg_cpuidle_log("%12ld ",
 				mtk_cpuidle_get_param(drv, i, info->param));
-	}
+		}
+
 		mtk_dbg_cpuidle_log("\n");
 	} else if (info->type == MTK_CPUIDLE_DRIVE_STATE_SET) {
 		mtk_cpuidle_set_param(drv, info->state_idx, info->param,
