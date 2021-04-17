@@ -50,6 +50,15 @@ config MTK_MD_THERMAL
 	  This option depends on MTK_ECCCI_DRIVER which is the
 	  IPC interface between AP SoC and modem.
 
+config MTK_CHARGER_THERMAL
+	tristate "Mediatek charger cooling framework"
+	depends on MTK_CHARGER
+	help
+	  Enable this option to turn on charger throttle mechanisms
+	  for Mediatek platforms.
+	  This option depends on MTK_CHARGER which is
+	  MTK charger driver.
+
 config MTK_THERMAL_TRACE
 	tristate "Mediatek thermal ftrace driver"
 	depends on FTRACE
@@ -68,5 +77,13 @@ config MTK_THERMAL_IPI
 	  with tinysys microprocessors for Mediatek platforms.
 	  This driver defines thermal ipi commands and provides an
 	  API to send a ipi command to tinysys microprocessors.
+
+config MTK_THERMAL_INTERFACE
+	tristate "Mediatek thermal interface driver"
+	help
+	  This driver provides the interface to get:
+	  1.CPU/GPU/xPU headroom from uP.
+	  2.thermal setting or policy from userspace daemon(ex:thermal policy and TTJ)
+	  This driver also offer API to get cpu theraml headroom for other kernel module.
 
 endif
