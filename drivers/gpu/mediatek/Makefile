@@ -11,6 +11,7 @@
 # GNU General Public License for more details.
 #
 
+ifneq ($(CONFIG_MTK_GPU_VERSION),"")
 MTK_GPU_VERSION = $(subst ",,$(CONFIG_MTK_GPU_VERSION))
 
 $(info MTK_GPU_VERSION = $(MTK_GPU_VERSION))
@@ -29,6 +30,11 @@ else ifeq ($(MTK_PLATFORM),mt6853)
 subdir-ccflags-y += -DCONFIG_GPU_MT6853
 endif
 
+else
+export MTK_PLATFORM = mt6893
+subdir-ccflags-y += -DCONFIG_GPU_MT6893
+endif
+
 ifneq ($(CONFIG_MTK_GPU_SUPPORT),)
     obj-y += ged/
     obj-y += hal/
@@ -36,6 +42,7 @@ ifneq ($(CONFIG_MTK_GPU_SUPPORT),)
     #obj-y += gpueb/
     #obj-y += gpu_bm/
 
+ifneq ($(CONFIG_MTK_GPU_VERSION),"")
 # GPU R5P0
 ifeq ($(CONFIG_MTK_GPU_R5P0),y)
     obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
@@ -44,4 +51,9 @@ else ifneq ($(word 1,$(MTK_GPU_VERSION)),)
 else
     obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
+
+else
+    obj-y += gpu_mali_mt6893/
+endif
+
 endif

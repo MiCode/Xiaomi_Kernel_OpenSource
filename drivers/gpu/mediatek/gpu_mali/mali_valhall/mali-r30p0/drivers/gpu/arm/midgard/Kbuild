@@ -186,7 +186,12 @@ ccflags-y += -I$(KBASE_PATH) -I$(KBASE_PATH)/debug \
 	-I$(KBASE_PATH)/debug/backend
 
 # Tell the Linux build system from which .o file to create the kernel module
+ifneq ($(CONFIG_MTK_GPU_VERSION),"")
 obj-$(CONFIG_MALI_MIDGARD) += mali_kbase.o
+else ifeq ($(MTK_PLATFORM),mt6893)
+obj-$(CONFIG_MALI_MIDGARD) += mali_kbase_mt6893.o
+mali_kbase_mt6893-y := mali_kbase.o
+endif
 
 # Tell the Linux build system to enable building of our .c files
 mali_kbase-y := $(SRC:.c=.o)
