@@ -6,6 +6,7 @@
 #include <linux/of_device.h>
 
 #include <utilities/mdla_debug.h>
+#include <utilities/mdla_util.h>
 
 #include "mdla_plat_internal.h"
 
@@ -76,6 +77,7 @@ int mdla_plat_init(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mdla_plat_drv *drv;
+	u32 major_ver = 0;
 
 	of_property_read_u32(dev->of_node, "core_num", &nr_core_ids);
 	if (nr_core_ids > MAX_CORE_NUM) {
@@ -108,6 +110,14 @@ int mdla_plat_init(struct platform_device *pdev)
 	mdla_dbg_write_u32(FS_POWEROFF_TIME, drv->off_delay_ms);
 	mdla_dbg_write_u32(FS_POLLING_CMD_DONE, drv->polling_cmd_ms);
 	mdla_dbg_write_u32(FS_TIMEOUT, drv->timeout_ms);
+
+	major_ver = mdla_util_get_ip_version();
+	if ((major_ver == 1) || (major_ver == 2)) {
+		mdla_dbg_write_u32(FS_CFG_ENG0, 0x0);
+		mdla_dbg_write_u32(FS_CFG_ENG1, 0x0);
+		mdla_dbg_write_u32(FS_CFG_ENG2, 0x0);
+		mdla_dbg_write_u32(FS_CFG_ENG11, 0x600);
+	}
 
 	prof_ver = drv->profile_ver;
 
