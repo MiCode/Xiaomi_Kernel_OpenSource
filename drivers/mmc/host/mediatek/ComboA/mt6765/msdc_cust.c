@@ -19,13 +19,14 @@
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
 #include <linux/slab.h>
+#include <linux/regmap.h>
+#include <linux/mfd/syscon.h>
 
 #include "mtk_sd.h"
 #include "dbg.h"
 //#include "include/pmic_api_buck.h"
 
 #if defined(CONFIG_MTK_PMIC_WRAP)
-#include <linux/regmap.h>
 #include <linux/soc/mediatek/pmic_wrap.h>
 #include <linux/mfd/mt6357/registers.h>
 
@@ -89,8 +90,8 @@ const struct of_device_id msdc_of_ids[] = {
 #if !defined(FPGA_PLATFORM)
 static void __iomem *gpio_base;
 
-static void __iomem *infracfg_ao_base;
-static void __iomem *topckgen_base;
+static struct regmap *infracfg_ao_base;
+static struct regmap *topckgen_base;
 #endif
 
 void __iomem *msdc_io_cfg_bases[HOST_MAX_NUM];
@@ -555,36 +556,35 @@ static void msdc_dump_clock_sts_core(char **buff, unsigned long *size,
 {
 	char buffer[1024];
 	char *buf_ptr = buffer;
+	unsigned int reg_value;
 
 	if (topckgen_base) {
+		regmap_read(topckgen_base, 0x70, &reg_value);
 		buf_ptr += sprintf(buf_ptr,
-		" topckgen [0x%p]=0x%x(should bit[1:0]=01b, bit[7]=0, bit[10:8]=001b, bit[15]=0), bit[18:16]=001b, bit[23]=0\n",
-			topckgen_base + 0x70,
-			MSDC_READ32(topckgen_base + 0x70));
+		" topckgen 0x%x(should bit[1:0]=01b, bit[7]=0, bit[10:8]=001b, bit[15]=0), bit[18:16]=001b, bit[23]=0\n",
+			reg_value);
 
 #if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_MMC_CRYPTO)
+		regmap_read(topckgen_base, 0xa0, &reg_value);
 		buf_ptr += sprintf(buf_ptr,
-		" topckgen [0x%p]=0x%x(should bit[26:24]=001b, bit[31]=0)\n",
-			topckgen_base + 0xa0,
-			MSDC_READ32(topckgen_base + 0xa0));
+		" topckgen 0x%x(should bit[26:24]=001b, bit[31]=0)\n",
+			reg_value);
 #endif
 	}
+
 	if (infracfg_ao_base) {
+		regmap_read(infracfg_ao_base, 0x94, &reg_value);
 		buf_ptr += sprintf(buf_ptr,
-		" infracfg_ao [0x%p]=0x%x(should bit[2]=0b,bit[4]=0b)\n",
-			infracfg_ao_base + 0x94,
-			MSDC_READ32(infracfg_ao_base + 0x94));
+		" infracfg_ao 0x%x(should bit[2]=0b,bit[4]=0b)\n", reg_value);
 
 #if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_MMC_CRYPTO)
+		regmap_read(infracfg_ao_base, 0xac, &reg_value);
 		buf_ptr += sprintf(buf_ptr,
-		" infracfg_ao [0x%p]=0x%x(should bit[29]=0b)\n",
-			infracfg_ao_base + 0xac,
-			MSDC_READ32(infracfg_ao_base + 0xac));
+		" infracfg_ao 0x%x(should bit[29]=0b)\n", reg_value);
 #endif
+		regmap_read(infracfg_ao_base, 0xc8, &reg_value);
 		buf_ptr += sprintf(buf_ptr,
-		" infracfg_ao [0x%p]=0x%x(should bit[10:9]=00b)\n",
-			infracfg_ao_base + 0xc8,
-			MSDC_READ32(infracfg_ao_base + 0xc8));
+		" infracfg_ao 0x%x(should bit[10:9]=00b)\n", reg_value);
 	}
 
 	*buf_ptr = '\0';
@@ -1348,18 +1348,21 @@ int msdc_dt_init(struct platform_device *pdev, struct mmc_host *mmc)
 	}
 
 	if (topckgen_base == NULL) {
-		np = of_find_compatible_node(NULL, NULL, "mediatek,topckgen");
-		topckgen_base = of_iomap(np, 0);
-		pr_debug("of_iomap for topckgen base @ 0x%p\n",
-			topckgen_base);
+		topckgen_base =
+			syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+			"topckgen");
+		if (IS_ERR(topckgen_base))
+			pr_info("regmap of topckgen base @ 0x%p\n",
+				topckgen_base);
 	}
 
 	if (infracfg_ao_base == NULL) {
-		np = of_find_compatible_node(NULL, NULL,
-			"mediatek,infracfg_ao");
-		infracfg_ao_base = of_iomap(np, 0);
-		pr_debug("of_iomap for infracfg_ao base @ 0x%p\n",
-			infracfg_ao_base);
+		infracfg_ao_base =
+			syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+			"infracfg");
+		if (IS_ERR(infracfg_ao_base))
+			pr_info("regmap of infracfg_ao base @ 0x%p\n",
+				infracfg_ao_base);
 	}
 
 #endif
