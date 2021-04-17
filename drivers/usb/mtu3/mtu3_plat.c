@@ -18,6 +18,38 @@
 #include "mtu3_dr.h"
 #include "mtu3_debug.h"
 
+#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
+#include "mtk_spm_resource_req.h"
+#endif
+
+int ssusb_set_power_resource(struct ssusb_mtk *ssusb, int mode)
+{
+#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
+	switch (mode) {
+	case MTU3_RESOURCE_ALL:
+	case MTU3_RESOURCE_RESUME:
+		dev_info(ssusb->dev, "RESOURCE_ALL\n");
+		spm_resource_req(SPM_RESOURCE_USER_SSUSB, SPM_RESOURCE_ALL);
+		break;
+	case MTU3_RESOURCE_NONE:
+		dev_info(ssusb->dev, "RESOURCE_NONE\n");
+		spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+			SPM_RESOURCE_RELEASE);
+		break;
+	case MTU3_RESOURCE_SUSPEND:
+		dev_info(ssusb->dev, "RESOURCE_SUSPEND\n");
+		spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+			SPM_RESOURCE_MAINPLL | SPM_RESOURCE_CK_26M |
+			SPM_RESOURCE_AXI_BUS);
+		break;
+	default:
+		dev_info(ssusb->dev, "%s not support mode\n", __func__);
+		break;
+	}
+#endif
+	return 0;
+}
+
 /* u2-port0 should be powered on and enabled; */
 int ssusb_check_clocks(struct ssusb_mtk *ssusb, u32 ex_clks)
 {
@@ -509,6 +541,8 @@ static int __maybe_unused mtu3_suspend(struct device *dev)
 	ssusb_clks_disable(ssusb);
 	ssusb_wakeup_set(ssusb, true);
 
+	ssusb_set_power_resource(ssusb, MTU3_RESOURCE_SUSPEND);
+
 	return 0;
 }
 
@@ -522,6 +556,7 @@ static int __maybe_unused mtu3_resume(struct device *dev)
 	if (!ssusb->is_host)
 		return 0;
 
+	ssusb_set_power_resource(ssusb, MTU3_RESOURCE_RESUME);
 	ssusb_wakeup_set(ssusb, false);
 	ret = ssusb_clks_enable(ssusb);
 	if (ret)

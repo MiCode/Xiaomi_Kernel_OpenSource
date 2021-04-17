@@ -18,6 +18,10 @@
 #include "mtk_spm_resource_req.h"
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
+#include "mtk_spm_resource_req.h"
+#endif
+
 #if defined(CONFIG_MACH_MT6779)
 #include <linux/soc/mediatek/mtk-pm-qos.h>
 #endif
@@ -427,11 +431,9 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 
 	if (!!(otg_sx->sw_state & MTU3_SW_VBUS_VALID) ^ vbus_event) {
 		if (vbus_event) {
-#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
 			if (ssusb->spm_mgr)
-				spm_resource_req(SPM_RESOURCE_USER_SSUSB,
-						SPM_RESOURCE_ALL);
-#endif
+				ssusb_set_power_resource(ssusb,
+					MTU3_RESOURCE_ALL);
 			if (ssusb->clk_mgr) {
 				ssusb_clks_enable(ssusb);
 				ssusb_phy_set_mode(ssusb, PHY_MODE_USB_DEVICE);
@@ -452,21 +454,17 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 				ssusb_phy_power_off(ssusb);
 				ssusb_clks_disable(ssusb);
 			}
-#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
 			if (ssusb->spm_mgr)
-				spm_resource_req(SPM_RESOURCE_USER_SSUSB,
-					SPM_RESOURCE_RELEASE);
-#endif
+				ssusb_set_power_resource(ssusb,
+					MTU3_RESOURCE_NONE);
 		}
 	}
 
 	if (!!(otg_sx->sw_state & MTU3_SW_ID_GROUND) ^ id_event) {
 		if (id_event) {
-#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
 			if (ssusb->spm_mgr)
-				spm_resource_req(SPM_RESOURCE_USER_SSUSB,
-						SPM_RESOURCE_ALL);
-#endif
+				ssusb_set_power_resource(ssusb,
+					MTU3_RESOURCE_ALL);
 			if (ssusb->clk_mgr) {
 				pm_stay_awake(ssusb->dev);
 				#if defined(CONFIG_MACH_MT6779)
@@ -507,11 +505,9 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 				pm_relax(ssusb->dev);
 			} else
 				ssusb_set_mailbox(otg_sx, MTU3_ID_FLOAT);
-#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
 			if (ssusb->spm_mgr)
-				spm_resource_req(SPM_RESOURCE_USER_SSUSB,
-					SPM_RESOURCE_RELEASE);
-#endif
+				ssusb_set_power_resource(ssusb,
+					MTU3_RESOURCE_NONE);
 		}
 	}
 

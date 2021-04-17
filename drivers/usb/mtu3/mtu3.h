@@ -146,6 +146,13 @@ enum mtu3_dr_operation_mode {
 	MTU3_DR_OPERATION_DEVICE,
 };
 
+enum mtu3_power_resource_mode {
+	MTU3_RESOURCE_NONE = 0,
+	MTU3_RESOURCE_ALL,
+	MTU3_RESOURCE_SUSPEND,
+	MTU3_RESOURCE_RESUME,
+};
+
 /**
  * @base: the base address of fifo
  * @limit: the bitmap size in bits
@@ -476,6 +483,7 @@ void mtu3_gadget_suspend(struct mtu3 *mtu);
 void mtu3_gadget_resume(struct mtu3 *mtu);
 void mtu3_gadget_disconnect(struct mtu3 *mtu);
 
+int ssusb_set_power_resource(struct ssusb_mtk *ssusb, int mode);
 irqreturn_t mtu3_ep0_isr(struct mtu3 *mtu);
 extern const struct usb_ep_ops mtu3_ep0_ops;
 
