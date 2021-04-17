@@ -117,6 +117,7 @@ struct pg_callbacks md1_subsys_handle = {
 	.debug_dump = md1_subsys_debug_dump,
 };
 
+#ifdef CONFIG_MTK_DEVAPC
 /*devapc_violation_triggered*/
 static enum devapc_cb_status devapc_dump_adv_cb(uint32_t vio_addr)
 {
@@ -149,6 +150,7 @@ static struct devapc_vio_callbacks devapc_test_handle = {
 	.id = INFRA_SUBSYS_MD,
 	.debug_dump_adv = devapc_dump_adv_cb,
 };
+#endif
 
 void ccci_md_devapc_register_cb(void)
 {
