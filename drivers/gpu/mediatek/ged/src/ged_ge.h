@@ -9,8 +9,10 @@
 #include <linux/types.h>
 #include <ged_type.h>
 
-/* Must be the same as region_num in gralloc_extra/ge_config.h */
-#define GE_ALLOC_STRUCT_NUM 13
+/* Must be the same as item number in region_sizes[], which in
+ * /vendor/mediatek/proprietary/hardware/gralloc_extra/ge_misc.cpp
+ */
+#define GE_ALLOC_STRUCT_NUM 16
 
 GED_ERROR ged_ge_init(void);
 int ged_ge_exit(void);
