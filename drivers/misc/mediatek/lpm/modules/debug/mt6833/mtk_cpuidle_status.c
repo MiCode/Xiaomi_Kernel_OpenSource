@@ -333,7 +333,11 @@ void mtk_cpuidle_state_enable(bool en)
 
 unsigned long long mtk_cpuidle_state_last_dis_ms(void)
 {
+#if BITS_PER_LONG == 32
+	return div_u64(mtk_lpm_last_cpuidle_dis, 1000000);
+#else
 	return (mtk_lpm_last_cpuidle_dis / 1000000);
+#endif
 }
 
 static bool mtk_cpuidle_need_dump(unsigned int idx)

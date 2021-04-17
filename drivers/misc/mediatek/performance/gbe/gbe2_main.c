@@ -143,8 +143,13 @@ static int check_dep_run_and_update(struct gbe_boost_unit *iter)
 			put_task_struct(p);
 
 			iter->dep[i].loading =
+#if BITS_PER_LONG == 32
+				div_u64((new_runtime - iter->dep[i].runtime) * 100,
+				(cur_ts_ns - iter->runtime_ts_ns));
+#else
 				(new_runtime - iter->dep[i].runtime) * 100
 				/ (cur_ts_ns - iter->runtime_ts_ns);
+#endif
 			iter->dep[i].runtime = new_runtime;
 		}
 	}

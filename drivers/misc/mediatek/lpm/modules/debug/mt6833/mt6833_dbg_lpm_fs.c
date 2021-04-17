@@ -173,10 +173,17 @@ static ssize_t mt6833_dbg_lpm_trace_comm_show(char *ToUserBuf,
 		mt6833_dbg_lpm_trace_log(ToUserBuf, sz, len,
 				"common_footfprint: 0x%x\n", data->common_fp);
 
+#if BITS_PER_LONG == 32
+		mt6833_dbg_lpm_trace_log(ToUserBuf, sz, len,
+				"timestamp: %llu.%03llu\n",
+				div_u64(timestamp, 1000000000),
+				timestamp%1000000000);
+#else
 		mt6833_dbg_lpm_trace_log(ToUserBuf, sz, len,
 				"timestamp: %llu.%03llu\n",
 				timestamp/1000000000,
 				timestamp%1000000000);
+#endif
 		mt6833_dbg_lpm_trace_log(ToUserBuf, sz, len,
 				"last constriant\n - cpu:%d\n - rc_id:%d\n - valid:0x%x\n",
 				TRACE_DBG_LAST_RC_INFO_CPU(data->rc_info),

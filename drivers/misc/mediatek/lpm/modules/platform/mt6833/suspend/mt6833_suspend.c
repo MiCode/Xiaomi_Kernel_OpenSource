@@ -89,6 +89,42 @@ static void log_md_sleep_info(void)
 	char log_buf[LOG_BUF_SIZE] = { 0 };
 	int log_size = 0;
 
+#if BITS_PER_LONG == 32
+	if (after_md_sleep_status.sleep_time >= before_md_sleep_status.sleep_time) {
+		printk_deferred("[name:spm&][SPM] md_slp_duration = %llu (32k)\n",
+			after_md_sleep_status.sleep_time - before_md_sleep_status.sleep_time);
+
+		log_size += scnprintf(log_buf + log_size,
+		LOG_BUF_SIZE - log_size, "[name:spm&][SPM] ");
+		log_size += scnprintf(log_buf + log_size,
+		LOG_BUF_SIZE - log_size, "MD/2G/3G/4G/5G_FR1 = ");
+		log_size += scnprintf(log_buf + log_size,
+		LOG_BUF_SIZE - log_size, "%d.%03d/%d.%03d/%d.%03d/%d.%03d/%d.%03d seconds",
+			div_u64((after_md_sleep_status.md_sleep_time -
+				before_md_sleep_status.md_sleep_time), 1000000),
+			div_u64((after_md_sleep_status.md_sleep_time -
+				before_md_sleep_status.md_sleep_time) % 1000000, 1000),
+			div_u64((after_md_sleep_status.gsm_sleep_time -
+				before_md_sleep_status.gsm_sleep_time), 1000000),
+			div_u64((after_md_sleep_status.gsm_sleep_time -
+				before_md_sleep_status.gsm_sleep_time) % 1000000, 1000),
+			div_u64((after_md_sleep_status.wcdma_sleep_time -
+				before_md_sleep_status.wcdma_sleep_time), 1000000),
+			div_u64((after_md_sleep_status.wcdma_sleep_time -
+				before_md_sleep_status.wcdma_sleep_time) % 1000000, 1000),
+			div_u64((after_md_sleep_status.lte_sleep_time -
+				before_md_sleep_status.lte_sleep_time), 1000000),
+			div_u64((after_md_sleep_status.lte_sleep_time -
+				before_md_sleep_status.lte_sleep_time) % 1000000, 1000),
+			div_u64((after_md_sleep_status.nr_sleep_time -
+				before_md_sleep_status.nr_sleep_time), 1000000),
+			div_u64((after_md_sleep_status.nr_sleep_time -
+				before_md_sleep_status.nr_sleep_time) % 10000000, 1000));
+
+		WARN_ON(strlen(log_buf) >= LOG_BUF_SIZE);
+		printk_deferred("[name:spm&][SPM] %s", log_buf);
+	}
+#else
 	if (after_md_sleep_status.sleep_time >= before_md_sleep_status.sleep_time) {
 		printk_deferred("[name:spm&][SPM] md_slp_duration = %llu (32k)\n",
 			after_md_sleep_status.sleep_time - before_md_sleep_status.sleep_time);
@@ -123,6 +159,7 @@ static void log_md_sleep_info(void)
 		WARN_ON(strlen(log_buf) >= LOG_BUF_SIZE);
 		printk_deferred("[name:spm&][SPM] %s", log_buf);
 	}
+#endif
 }
 
 static inline int mt6833_suspend_common_enter(unsigned int *susp_status)

@@ -185,8 +185,13 @@ int mt6833_lpm_rc_ratio_timer_func(unsigned long long dur, void *priv)
 {
 	/* spm tick to ms: tick/32 (ms) */
 	#define RC_RESIDENCY_COVERT(x)	(x>>5)
+#if BITS_PER_LONG == 32
+	#define RC_COVERT_RATIO(dur, x)\
+		(div_u64((RC_RESIDENCY_COVERT(x) * 100), dur))
+#else
 	#define RC_COVERT_RATIO(dur, x)\
 		((RC_RESIDENCY_COVERT(x) * 100)/dur)
+#endif
 
 	unsigned long long rc_dram_t;
 	unsigned long long rc_syspll_t;

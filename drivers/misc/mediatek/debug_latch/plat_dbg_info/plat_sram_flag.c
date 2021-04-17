@@ -109,7 +109,11 @@ int set_sram_flag_timestamp(void)
 	ts = sched_clock();
 	boot_time = mtk_get_archcounter_time(arch_counter_get_cntvct());
 	boot_time -= ts;
+#if BITS_PER_LONG == 32
+	boot_time = div_u64((boot_time*13), 1000);
+#else
 	boot_time = (boot_time*13)/1000;
+#endif
 	plat->plat_sram_flag0 = boot_time;
 	pr_notice("%s: kernel_start_tick = 0x%x\n", __func__,
 			plat->plat_sram_flag0);
