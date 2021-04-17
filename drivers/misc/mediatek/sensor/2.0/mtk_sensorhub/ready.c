@@ -22,21 +22,6 @@ static struct workqueue_struct *sensor_ready_workqueue;
 static struct work_struct sensor_ready_work;
 static struct delayed_work sensor_rescure_work;
 
-void __attribute__((weak)) scp_wdt_reset(int cpu_id)
-{
-
-}
-
-void __attribute__((weak)) scp_A_register_notify(struct notifier_block *nb)
-{
-
-}
-
-void __attribute__((weak)) scp_A_unregister_notify(struct notifier_block *nb)
-{
-
-}
-
 void sensor_ready_notifier_chain_register(struct notifier_block *nb)
 {
 	unsigned long flags = 0;
@@ -90,10 +75,10 @@ static int platform_ready_notifier_call(struct notifier_block *this,
 		queue_work(sensor_ready_workqueue, &sensor_ready_work);
 		spin_unlock_irqrestore(&sensor_ready_lock, flags);
 	} else if (event == SCP_EVENT_READY) {
+		notify.sequence = 0;
 		notify.sensor_type = SENSOR_TYPE_INVALID;
 		notify.command = SENS_COMM_NOTIFY_READY_CMD;
 		notify.length = 0;
-		notify.sequence = 0;
 		ret = sensor_comm_notify(&notify);
 		if (ret < 0)
 			pr_err("notify ready to scp fail %d\n", ret);

@@ -18,7 +18,7 @@ struct share_mem_data {
 struct share_mem_debug {
 	uint8_t sensor_type;
 	uint32_t written;
-	uint8_t buffer[960]; //512+256+128+64
+	uint8_t buffer[960] __aligned(4); //512+256+128+64
 } __packed __aligned(4);
 
 struct share_mem_info {
@@ -28,16 +28,16 @@ struct share_mem_info {
 	uint8_t vendor[16];
 } __packed __aligned(4);
 
-struct share_mem_tag {
+struct share_mem_base {
 	uint32_t rp;
 	uint32_t wp;
 	uint32_t buffer_size;
 	uint32_t item_size;
-	uint8_t data[0];
+	uint8_t data[0]__aligned(4);
 } __packed __aligned(4);
 
 struct share_mem {
-	struct share_mem_tag *base;
+	struct share_mem_base *base;
 
 	struct mutex lock;
 	uint32_t item_size;
@@ -54,14 +54,14 @@ struct share_mem {
 };
 
 struct share_mem_notify {
+	uint8_t sequence;
 	uint8_t sensor_type;
 	uint8_t notify_cmd;
-	uint8_t sequence;
 };
 
 struct share_mem_config {
 	uint8_t notify_cmd;
-	struct share_mem_tag *base;
+	struct share_mem_base *base;
 	uint32_t buffer_size;
 };
 

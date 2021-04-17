@@ -12,28 +12,9 @@
 #include <linux/delay.h>
 
 #include "ipi_comm.h"
-#include "scp_ipi.h"
-#include "scp_helper.h"
-#include "scp_excep.h"
-
-enum scp_ipi_status __attribute__((weak)) scp_ipi_send(enum ipi_id id,
-		void *buf, unsigned int  len,
-		unsigned int wait, enum scp_core_id scp_id)
-{
-	return SCP_IPI_ERROR;
-}
-
-enum scp_ipi_status __attribute__((weak)) scp_ipi_registration(enum ipi_id id,
-	void (*ipi_handler)(int id, void *data, unsigned int len),
-	const char *name)
-{
-	return SCP_IPI_ERROR;
-}
-
-enum scp_ipi_status __attribute__((weak)) scp_ipi_unregistration(enum ipi_id id)
-{
-	return SCP_IPI_ERROR;
-}
+#include "scp_ipi_pin.h"
+#include "scp_mbox_layout.h"
+#include "mt-plat/mtk_tinysys_ipi.h"
 
 struct ipi_controller {
 	spinlock_t lock;
@@ -56,13 +37,17 @@ struct ipi_hw_transfer {
 	void *context;
 };
 
+#define ipi_len(x) ((x + MBOX_SLOT_SIZE - 1) / MBOX_SLOT_SIZE)
+
 static struct ipi_controller controller;
 static struct ipi_hw_transfer hw_transfer;
 static DEFINE_SPINLOCK(hw_transfer_lock);
+static uint8_t ctrl_payload[PIN_IN_SIZE_SENSOR_CTRL * MBOX_SLOT_SIZE];
+static uint8_t notify_payload[PIN_IN_SIZE_SENSOR_NOTIFY * MBOX_SLOT_SIZE];
 
 static int ipi_transfer_buffer(struct ipi_transfer *t)
 {
-	int status = 0, retry = 0;
+	int ret = 0, retry = 0;
 	int timeout;
 	unsigned long flags;
 	struct ipi_hw_transfer *hw = &hw_transfer;
@@ -78,17 +63,17 @@ static int ipi_transfer_buffer(struct ipi_transfer *t)
 	hw->context = &hw->done;
 	spin_unlock_irqrestore(&hw_transfer_lock, flags);
 	do {
-		status = scp_ipi_send(hw->id,
-			(unsigned char *)hw->tx, hw->tx_len, 0, SCP_A_ID);
-		if (status == SCP_IPI_ERROR)
+		ret = mtk_ipi_send(&scp_ipidev, hw->id, 0,
+			(unsigned char *)hw->tx, ipi_len(hw->tx_len), 0);
+		if (ret < 0 && ret != IPI_PIN_BUSY)
 			return -EIO;
-		if (status == SCP_IPI_BUSY) {
+		if (ret == IPI_PIN_BUSY) {
 			if (retry++ == 1000)
 				return -EBUSY;
 			if (retry % 100 == 0)
 				usleep_range(1000, 2000);
 		}
-	} while (status == SCP_IPI_BUSY);
+	} while (ret == IPI_PIN_BUSY);
 
 	timeout = wait_for_completion_timeout(&hw->done,
 			msecs_to_jiffies(500));
@@ -223,19 +208,19 @@ int ipi_comm_async(struct ipi_message *m)
 
 int ipi_comm_noack(int id, unsigned char *tx, unsigned int n_tx)
 {
-	int status = 0, retry = 0;
+	int ret = 0, retry = 0;
 
 	do {
-		status = scp_ipi_send(id, tx, n_tx, 0, SCP_A_ID);
-		if (status == SCP_IPI_ERROR)
+		ret = mtk_ipi_send(&scp_ipidev, id, 0, tx, ipi_len(n_tx), 0);
+		if (ret < 0 && ret != IPI_PIN_BUSY)
 			return -EIO;
-		if (status == SCP_IPI_BUSY) {
+		if (ret == IPI_PIN_BUSY) {
 			if (retry++ == 1000)
 				return -EBUSY;
 			if (retry % 100 == 0)
 				usleep_range(1000, 2000);
 		}
-	} while (status == SCP_IPI_BUSY);
+	} while (ret == IPI_PIN_BUSY);
 
 	return 0;
 }
@@ -258,27 +243,31 @@ out:
 	spin_unlock(&hw_transfer_lock);
 }
 
-static void ipi_comm_ctrl_handler(int id, void *data, unsigned int len)
+static int ipi_comm_ctrl_handler(unsigned int id, void *prdata,
+		void *data, unsigned int len)
 {
-	WARN_ON(id != IPI_CHRE);
+	WARN_ON(id != IPI_IN_SENSOR_CTRL);
 	ipi_comm_complete(data, len);
+	return 0;
 }
 
-static void ipi_comm_notify_handler(int id, void *data, unsigned int len)
+static int ipi_comm_notify_handler(unsigned int id, void *prdata,
+		void *data, unsigned int len)
 {
-	WARN_ON(id != IPI_CHREX);
+	WARN_ON(id != IPI_IN_SENSOR_NOTIFY);
 	if (controller.notify_callback)
 		controller.notify_callback(id, data, len);
+	return 0;
 }
 
 int get_ctrl_id(void)
 {
-	return IPI_CHRE;
+	return IPI_OUT_SENSOR_CTRL;
 }
 
 int get_notify_id(void)
 {
-	return IPI_CHREX;
+	return IPI_OUT_SENSOR_NOTIFY;
 }
 
 void ipi_comm_notify_handler_register(
@@ -294,6 +283,8 @@ void ipi_comm_notify_handler_unregister(void)
 
 int ipi_comm_init(void)
 {
+	int ret = 0;
+
 	INIT_WORK(&controller.work, ipi_work);
 	INIT_LIST_HEAD(&controller.head);
 	spin_lock_init(&controller.lock);
@@ -303,17 +294,21 @@ int ipi_comm_init(void)
 		pr_err("create workqueue fail\n");
 		return -1;
 	}
-	scp_ipi_registration(IPI_CHRE,
-		ipi_comm_ctrl_handler, "ipi_comm_ctrl");
-	scp_ipi_registration(IPI_CHREX,
-		ipi_comm_notify_handler, "ipi_comm_notify");
+	ret = mtk_ipi_register(&scp_ipidev, IPI_IN_SENSOR_CTRL,
+		ipi_comm_ctrl_handler, NULL, ctrl_payload);
+	if (ret < 0)
+		pr_err("register ipi %u fail %d\n", IPI_IN_SENSOR_CTRL, ret);
+	ret = mtk_ipi_register(&scp_ipidev, IPI_IN_SENSOR_NOTIFY,
+		ipi_comm_notify_handler, NULL, notify_payload);
+	if (ret < 0)
+		pr_err("register ipi %u fail %d\n", IPI_IN_SENSOR_NOTIFY, ret);
 	return 0;
 }
 
 void ipi_comm_exit(void)
 {
-	scp_ipi_unregistration(IPI_CHRE);
-	scp_ipi_unregistration(IPI_CHREX);
+	mtk_ipi_unregister(&scp_ipidev, IPI_IN_SENSOR_CTRL);
+	mtk_ipi_unregister(&scp_ipidev, IPI_IN_SENSOR_NOTIFY);
 	flush_workqueue(controller.workqueue);
 	destroy_workqueue(controller.workqueue);
 }

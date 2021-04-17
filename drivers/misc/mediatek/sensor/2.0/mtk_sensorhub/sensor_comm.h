@@ -53,20 +53,20 @@ struct sensor_comm_share_mem {
 } __packed __aligned(4);
 
 struct sensor_comm_ctrl {
-	uint32_t sequence;
+	uint8_t sequence;
 	uint8_t sensor_type;
 	uint8_t command;
 	uint8_t length;
-	int8_t ret_val;
-	uint8_t data[0];
+	uint8_t crc8;
+	uint8_t data[0]__aligned(4);
 } __packed __aligned(4);
 
 struct sensor_comm_ack {
-	uint32_t sequence;
+	uint8_t sequence;
 	uint8_t sensor_type;
 	uint8_t command;
-	uint8_t length;
 	int8_t ret_val;
+	uint8_t crc8;
 } __packed __aligned(4);
 
 struct data_notify {
@@ -76,10 +76,11 @@ struct data_notify {
 } __packed __aligned(4);
 
 struct sensor_comm_notify {
+	uint8_t sequence;
 	uint8_t sensor_type;
 	uint8_t command;
 	uint8_t length;
-	uint8_t sequence;
+	uint8_t crc8;
 	union {
 		struct data_notify dnotify;
 		int32_t value[5];

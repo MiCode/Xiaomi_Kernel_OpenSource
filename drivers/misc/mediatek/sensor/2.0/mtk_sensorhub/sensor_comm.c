@@ -9,6 +9,7 @@
 #include <linux/atomic.h>
 #include <linux/string.h>
 
+#include "tiny_crc8.h"
 #include "sensor_comm.h"
 #include "ready.h"
 
@@ -23,10 +24,18 @@ struct sensor_notify_handle sens_notify_handle[MAX_SENS_COMM_NOTIFY_CMD];
 
 static void sensor_comm_notify_handler(int id, void *data, unsigned int len)
 {
+	uint8_t crc = 0;
 	struct sensor_comm_notify *notify = data;
 	struct sensor_notify_handle *handle = NULL;
 
-	if (sizeof(struct sensor_comm_notify) != len)
+	crc = tiny_crc8((uint8_t *)notify, offsetof(typeof(*notify), crc8));
+	if (notify->crc8 != crc) {
+		pr_err("unrecognized packet %u %u %u %u %u %u\n",
+			notify->sequence, notify->sensor_type, notify->command,
+			notify->length, notify->crc8, crc);
+		return;
+	}
+	if (sizeof(*notify) != len)
 		return;
 	if (notify->command >= MAX_SENS_COMM_NOTIFY_CMD)
 		return;
@@ -40,21 +49,29 @@ static int sensor_comm_ctrl_seq_send(struct sensor_comm_ctrl *ctrl,
 		unsigned int size)
 {
 	int ret = 0;
+	uint8_t crc = 0;
 	struct sensor_comm_ack ack;
 
 	memset(&ack, 0, sizeof(ack));
+	/* safe sequence given by atomic, round from 0 to 255 */
 	ctrl->sequence = atomic_inc_return(&sensor_comm_sequence);
+	ctrl->crc8 = tiny_crc8((uint8_t *)ctrl, offsetof(typeof(*ctrl), crc8));
 	ret = ipi_comm_sync(get_ctrl_id(), (unsigned char *)ctrl, size,
 		(unsigned char *)&ack, sizeof(ack));
 	if (ret < 0)
 		return ret;
+	crc = tiny_crc8((uint8_t *)&ack, offsetof(typeof(ack), crc8));
+	if (ack.crc8 != crc) {
+		pr_err("unrecognized packet %u %u %u %u %u %u\n",
+			ack.sequence, ack.sensor_type, ack.command,
+			ack.ret_val, ack.crc8, crc);
+		return -EBADMSG;
+	}
 	if (ctrl->sequence != ack.sequence)
 		return -EILSEQ;
 	if (ctrl->sensor_type != ack.sensor_type)
 		return -EPROTO;
 	if (ctrl->command != ack.command)
-		return -EPROTO;
-	if (ctrl->length != ack.length)
 		return -EPROTO;
 	if (ack.ret_val < 0)
 		return -EREMOTEIO;
@@ -75,6 +92,8 @@ int sensor_comm_ctrl_send(struct sensor_comm_ctrl *ctrl, unsigned int size)
 
 int sensor_comm_notify(struct sensor_comm_notify *notify)
 {
+	notify->crc8 =
+		tiny_crc8((uint8_t *)notify, offsetof(typeof(*notify), crc8));
 	return ipi_comm_noack(get_notify_id(), (unsigned char *)notify,
 		sizeof(*notify));
 }

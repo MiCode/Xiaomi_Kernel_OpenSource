@@ -61,11 +61,11 @@ static int sensor_list_seq_get_list(struct sensor_info *list,
 	 */
 	init_completion(&sensor_list_done);
 
+	/* safe sequence given by atomic, round from 0 to 255 */
+	notify.sequence = atomic_inc_return(&sensor_list_sequence);
 	notify.sensor_type = SENSOR_TYPE_INVALID;
 	notify.command = SENS_COMM_NOTIFY_LIST_CMD;
 	notify.length = 0;
-	/* safe sequence given by atomic, round from 0 to 255 */
-	notify.sequence = atomic_inc_return(&sensor_list_sequence);
 	ret = sensor_comm_notify(&notify);
 	if (ret < 0) {
 		pr_err("notify fail %d\n", ret);
@@ -80,9 +80,9 @@ static int sensor_list_seq_get_list(struct sensor_info *list,
 	}
 
 	spin_lock_irqsave(&rx_notify_lock, flags);
-	if (rx_notify.sensor_type != notify.sensor_type &&
-	    rx_notify.command != notify.command &&
-	    rx_notify.sequence != notify.sequence) {
+	if (rx_notify.sequence != notify.sequence &&
+	    rx_notify.sensor_type != notify.sensor_type &&
+	    rx_notify.command != notify.command) {
 		pr_err("reply fail\n");
 		spin_unlock_irqrestore(&rx_notify_lock, flags);
 		return -EREMOTEIO;

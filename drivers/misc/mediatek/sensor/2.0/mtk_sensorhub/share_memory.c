@@ -54,9 +54,9 @@ static int share_mem_notify(struct share_mem *shm,
 	if (shm->write_position == shm->last_write_position)
 		return 0;
 
+	n.sequence = notify->sequence;
 	n.sensor_type = notify->sensor_type;
 	n.command = notify->notify_cmd;
-	n.sequence = notify->sequence;
 	n.value[0] = shm->write_position;
 	n.length = sizeof(n.value[0]);
 	ret = sensor_comm_notify(&n);
@@ -79,9 +79,9 @@ static void share_mem_buffer_full_detect(struct share_mem *shm,
 	shm->buffer_full_written = shm->base->wp - shm->base->rp;
 
 	if (shm->buffer_full_written >= shm->buffer_full_threshold) {
+		notify.sequence = 0;
 		notify.sensor_type = SENSOR_TYPE_INVALID;
 		notify.notify_cmd = shm->buffer_full_cmd;
-		notify.sequence = 0;
 		ret = share_mem_notify(shm, &notify);
 		if (ret < 0)
 			pr_err("%s buffer full notify fail %d\n",
@@ -142,7 +142,7 @@ static int share_mem_read_dram(struct share_mem *shm,
 	rp = shm->base->rp;
 	buffer_size = shm->base->buffer_size;
 	item_size = shm->base->item_size;
-	src = (uint8_t *)shm->base + offsetof(struct share_mem_tag, data);
+	src = (uint8_t *)shm->base + offsetof(struct share_mem_base, data);
 
 	if (item_size != shm->item_size)
 		return -EIO;
@@ -199,7 +199,7 @@ static int share_mem_write_dram(struct share_mem *shm,
 	wp = shm->base->wp;
 	buffer_size = shm->base->buffer_size;
 	item_size = shm->base->item_size;
-	dst = (uint8_t *)shm->base + offsetof(struct share_mem_tag, data);
+	dst = (uint8_t *)shm->base + offsetof(struct share_mem_base, data);
 
 	if (item_size != shm->item_size || count > buffer_size)
 		return -EIO;
@@ -273,7 +273,7 @@ int share_mem_init(struct share_mem *shm, struct share_mem_config *cfg)
 	cfg->base->item_size = shm->item_size;
 	cfg->base->buffer_size =
 		(((long)cfg->buffer_size -
-		offsetof(struct share_mem_tag, data)) /
+		offsetof(struct share_mem_base, data)) /
 		shm->item_size) * shm->item_size;
 
 	shm->write_position = 0;

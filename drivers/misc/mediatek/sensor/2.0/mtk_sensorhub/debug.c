@@ -81,9 +81,9 @@ static int debug_seq_get_debug(uint8_t sensor_type, uint8_t *buffer,
 	}
 
 	spin_lock_irqsave(&rx_notify_lock, flags);
-	if (rx_notify.sensor_type != ctrl->sensor_type &&
-	    rx_notify.command != ctrl->command &&
-	    rx_notify.sequence != ctrl->data[0]) {
+	if (rx_notify.sequence != ctrl->data[0] &&
+	    rx_notify.sensor_type != ctrl->sensor_type &&
+	    rx_notify.command != ctrl->command) {
 		pr_err("reply fail\n");
 		spin_unlock_irqrestore(&rx_notify_lock, flags);
 		ret = -EREMOTEIO;
