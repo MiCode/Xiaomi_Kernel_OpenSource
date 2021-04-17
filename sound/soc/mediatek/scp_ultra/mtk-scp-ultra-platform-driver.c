@@ -341,9 +341,6 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 		return 0;
 
 	case SCP_ULTRA_STATE_OFF:
-		afe->memif[scp_ultra_memif_dl_id].scp_ultra_enable = false;
-		afe->memif[scp_ultra_memif_ul_id].scp_ultra_enable = false;
-
 		ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_OFF,
 			       false,
 			       0,
@@ -583,10 +580,6 @@ static int mtk_scp_ultra_pcm_stop(struct snd_pcm_substream *substream)
 }
 static int mtk_scp_ultra_pcm_close(struct snd_pcm_substream *substream)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct mtk_base_scp_ultra *scp_ultra =
-		snd_soc_platform_get_drvdata(rtd->platform);
-	struct mtk_base_scp_ultra_mem *ultra_mem = &scp_ultra->ultra_mem;
 	struct mtk_base_afe *afe = get_afe_base();
 	if (pcm_dump_on) {
 		/* scp ultra dump buffer use dram */
@@ -595,9 +588,6 @@ static int mtk_scp_ultra_pcm_close(struct snd_pcm_substream *substream)
 		ultra_stop_engine_thread();
 		pcm_dump_on = false;
 	}
-
-	afe->memif[ultra_mem->ultra_dl_memif_id].scp_ultra_enable = false;
-	afe->memif[ultra_mem->ultra_dl_memif_id].scp_ultra_enable = false;
 
 	return 0;
 }
@@ -649,8 +639,10 @@ static int mtk_scp_ultra_pcm_new(struct snd_soc_pcm_runtime *rtd)
 				      ARRAY_SIZE(ultra_platform_kcontrols));
 
 	ret = mtk_scp_ultra_reserved_dram_init();
-	if (ret < 0)
+	if (ret < 0) {
+		pr_info("%s(), reserved dram init fail, ignore\n", __func__);
 		return ret;
+	}
 	ultra_ipi_register(ultra_ipi_rx_internal, ultra_ipi_rceive_ack);
 	audio_ipi_client_ultra_init();
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
