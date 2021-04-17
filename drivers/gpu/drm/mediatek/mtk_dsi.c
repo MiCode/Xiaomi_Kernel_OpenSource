@@ -898,8 +898,11 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 	int ret;
 
 	DDPDBG("%s+\n", __func__);
-	if (++dsi->clk_refcnt != 1)
+	if (++dsi->clk_refcnt != 1) {
+		DDPMSG("%s: clk_refcnt = %d, skip power on\n",
+			__func__, dsi->clk_refcnt);
 		return 0;
+	}
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	ret = mtk_dsi_set_data_rate(dsi);
 	if (ret < 0) {
@@ -959,6 +962,8 @@ err_phy_power_off:
 	phy_power_off(dsi->phy);
 err_refcount:
 	dsi->clk_refcnt--;
+	DDPMSG("%s: power on error, clk_refcnt = %d\n",
+			__func__, dsi->clk_refcnt);
 	return ret;
 }
 
@@ -1622,9 +1627,11 @@ static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
 		return;
 	}
 
-	if (--dsi->clk_refcnt != 0)
+	if (--dsi->clk_refcnt != 0) {
+		DDPMSG("%s: clk_refcnt = %d, skip power off\n",
+			__func__, dsi->clk_refcnt);
 		return;
-
+	}
 	clk_disable_unprepare(dsi->engine_clk);
 	clk_disable_unprepare(dsi->digital_clk);
 	phy_power_off(dsi->phy);
@@ -2976,6 +2983,15 @@ bool mtk_dsi_is_cmd_mode(struct mtk_ddp_comp *comp)
 		return false;
 	else
 		return true;
+}
+
+int mtk_dsi_get_clk_refcnt(struct mtk_ddp_comp *comp)
+{
+	struct mtk_dsi *dsi;
+
+	dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+
+	return dsi->clk_refcnt;
 }
 
 static const char *mtk_dsi_get_porch_str(enum dsi_porch_type type)

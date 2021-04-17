@@ -4669,6 +4669,9 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 
 	/* 10. power off MTCMOS*/
 	/* TODO: need to check how to unprepare MTCMOS */
+	if (mtk_dsi_get_clk_refcnt(output_comp) != 0)
+		DDPPR_ERR("%s: clk_refcnt = %d, dsi is not off when disable mtcmos\n",
+			__func__, mtk_dsi_get_clk_refcnt(output_comp));
 	mtk_drm_top_clk_disable_unprepare(crtc->dev);
 
 	/* Workaround: if CRTC2, reset wdma->fb to NULL to prevent CRTC2
