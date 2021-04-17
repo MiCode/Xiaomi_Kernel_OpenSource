@@ -1525,12 +1525,25 @@ static inline void proxy_dump_status(struct port_proxy *proxy_p)
 	struct port_t *port = NULL;
 	/* hardcode, port number should not be larger than 64 */
 	unsigned long long port_full = 0;
-	unsigned int i;
+	unsigned int i, str_len = 0;
+	char full_port[124];
+	int ret;
 
 	for (i = 0; i < proxy_p->port_number; i++) {
 		port = proxy_p->ports + i;
-		if (port->flags & PORT_F_RX_FULLED)
+		if (port->flags & PORT_F_RX_FULLED) {
 			port_full |= (1LL << i);
+			if (str_len < 124) {
+				ret = snprintf(full_port + str_len,
+					(124 - str_len), "%s;", port->name);
+				if (ret <= 0) {
+					CCCI_ERROR_LOG(proxy_p->md_id, TAG,
+						"port_full len > 124\n");
+					break;
+				}
+				str_len += ret;
+			}
+		}
 		if (port->tx_busy_count != 0 || port->rx_busy_count != 0) {
 			CCCI_REPEAT_LOG(proxy_p->md_id, TAG,
 				"port %s busy count %d/%d\n", port->name,
@@ -1543,7 +1556,7 @@ static inline void proxy_dump_status(struct port_proxy *proxy_p)
 	}
 	if (port_full)
 		CCCI_ERROR_LOG(proxy_p->md_id, TAG,
-			"port_full status=%llx\n", port_full);
+			"port_full status=%llx, %s\n", port_full, full_port);
 }
 
 static inline int proxy_register_char_dev(struct port_proxy *proxy_p)
