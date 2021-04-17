@@ -16,21 +16,24 @@
 
 #include <linux/clk.h>
 #include <linux/delay.h>
-#include <linux/slab.h>
-#include <linux/proc_fs.h>
+#include <linux/miscdevice.h>
 #include <linux/platform_device.h>
-#include <linux/regulator/consumer.h>
+#include <linux/pm_runtime.h>
+#include <linux/proc_fs.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-#include <linux/uaccess.h>
 #include <linux/random.h>
+#include <linux/regulator/consumer.h>
 #include <linux/seq_file.h>
-#include <linux/pm_runtime.h>
+#include <linux/slab.h>
+#include <linux/uaccess.h>
 #include <mboot_params.h>
 
 #include "gpueb_common_helper.h"
 #include "gpueb_common_ipi.h"
+#include "gpueb_common_logger.h"
 #include "gpueb_common_reserved_mem.h"
+#include "gpueb_plat_config.h"
 
 /*
  * ===============================================
@@ -48,6 +51,7 @@ static int __mt_gpueb_pdrv_probe(struct platform_device *pdev);
 
 static bool g_probe_done;
 static struct platform_device *g_pdev;
+static struct workqueue_struct *gpueb_logger_workqueue;
 
 static const struct of_device_id g_gpueb_of_match[] = {
     { .compatible = "mediatek,gpueb" },
@@ -64,12 +68,36 @@ static struct platform_driver g_gpueb_pdrv = {
     },
 };
 
-unsigned int mt_gpueb_bringup(void)
-{
-    return MT_GPUEB_BRINGUP;
-}
-EXPORT_SYMBOL(mt_gpueb_bringup);
+const struct file_operations gpueb_log_file_ops = {
+    .owner = THIS_MODULE,
+    .read = gpueb_log_if_read,
+    .open = gpueb_log_if_open,
+    .poll = gpueb_log_if_poll,
+};
 
+static struct miscdevice gpueb_device = {
+    .minor = MISC_DYNAMIC_MINOR,
+    .name = "gpueb",
+    .fops = &gpueb_log_file_ops
+};
+
+static int gpueb_common_create_files(void)
+{
+    int ret = 0;
+
+    ret = misc_register(&gpueb_device);
+    if (unlikely(ret != 0)) {
+        gpueb_pr_info("@%s: misc register failed\n", __func__);
+        return ret;
+    }
+
+    ret = device_create_file(gpueb_device.this_device,
+                            &dev_attr_gpueb_mobile_log);
+    if (unlikely(ret != 0))
+        return ret;
+
+    return 0;
+}
 /*
  * GPUEB driver probe
  */
@@ -80,14 +108,9 @@ static int __mt_gpueb_pdrv_probe(struct platform_device *pdev)
 
     gpueb_pr_info("@%s: GPUEB driver probe start\n", __func__);
 
-
     node = of_find_matching_node(NULL, g_gpueb_of_match);
     if (!node)
         gpueb_pr_info("@%s: find GPU node failed\n", __func__);
-
-    ret = gpueb_common_mbox_init(pdev);
-    if (ret != 0)
-        gpueb_pr_info("@%s: ipi init fail\n", __func__);
 
     ret = gpueb_common_ipi_init(pdev);
     if (ret != 0)
@@ -97,22 +120,31 @@ static int __mt_gpueb_pdrv_probe(struct platform_device *pdev)
     if (ret != 0)
         gpueb_pr_info("@%s: ipi init fail\n", __func__);
 
-#ifdef MT_GPUEB_LOGGER_ENABLE
-	gpueb_pr_info("@%s: logger init\n", __func__);
-	gpueb_logger_workqueue = create_singlethread_workqueue("GPUEB_LOG_WQ");
-	if (gpueb_common_logger_init(pdev,
-                gpueb_common_get_reserve_mem_virt(GPUEB_LOGGER_MEM_ID),
-                gpueb_common_get_reserve_mem_size(GPUEB_LOGGER_MEM_ID)) == -1) {
-		gpueb_pr_info("@%s: gpueb_common_logger_init\n", __func__);
-		goto err;
-	}
-#endif
+    if (gpueb_plat_is_logger_support()) {
+        gpueb_pr_info("@%s: logger init\n", __func__);
+        gpueb_logger_workqueue = create_singlethread_workqueue("GPUEB_LOG_WQ");
+        if (gpueb_common_logger_init(pdev,
+                    gpueb_common_get_reserve_mem_virt(GPUEB_LOGGER_MEM_ID),
+                    gpueb_common_get_reserve_mem_size(GPUEB_LOGGER_MEM_ID)) == -1) {
+            gpueb_pr_info("@%s: gpueb_common_logger_init\n", __func__);
+            goto err;
+        }
+    }
+    
+    ret = gpueb_common_create_files();
+    if (unlikely(ret != 0)) {
+        gpueb_pr_info("@%s: create files failed\n", __func__);
+        goto err;
+    }
 
     g_pdev = pdev;
     g_probe_done = true;
     gpueb_pr_info("@%s: GPUEB driver probe done\n", __func__);
 
     return 0;
+
+err:
+    return -1;
 }
 
 /*
@@ -122,7 +154,7 @@ static int __init __mt_gpueb_init(void)
 {
     int ret = 0;
 
-    if (mt_gpueb_bringup()) {
+    if (gpueb_plat_is_bringup()) {
         gpueb_pr_info("skip driver init when bringup\n");
         return 0;
     }

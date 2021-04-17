@@ -4,7 +4,7 @@
  */
 
 /**
- * @file    gpueb_common_ipi.c
+ * @file    gpueb_common_ipi_init.c
  * @brief   IPI init flow for gpueb
  */
 
@@ -22,19 +22,15 @@
 #include <linux/pm_runtime.h>
 #include <mboot_params.h>
 
-#include "gpueb_plat_ipi_setting.h"
+#include "gpueb_common_ipi.h"
 #include "gpueb_common_helper.h"
-#ifdef MT_GPUEB_IPI_TEST
-#include "gpueb_plat_ipi_test.h"
-#endif
+#include "gpueb_plat_config.h"
 
 // MTK common IPI/MBOX
 #include <linux/soc/mediatek/mtk_tinysys_ipi.h>
 #include <linux/soc/mediatek/mtk-mbox.h>
 
-static int ack_data;
-
-int gpueb_common_mbox_init(struct platform_device *pdev)
+int gpueb_common_ipi_init(struct platform_device *pdev)
 {
     int i = 0;
     int ret;
@@ -43,9 +39,12 @@ int gpueb_common_mbox_init(struct platform_device *pdev)
     struct resource *res;
     char name[32];
 
-    /*
+    /* MBOX device register
+     *
      * Using mbox 0 to probe common mbox driver.
      * It will update gpueb_plat_mbox_table's IRQ set, clear, status register.
+     *
+     * Then init SRAM base address for mbox1 ~ mbox_total
      */
     gpueb_plat_mbox_table[0].mbdev = &gpueb_plat_mboxdev;
     ret = mtk_mbox_probe(pdev, gpueb_plat_mbox_table[0].mbdev, 0);
@@ -56,7 +55,7 @@ int gpueb_common_mbox_init(struct platform_device *pdev)
     gpueb_pr_debug("mbox-%d base = 0x%X\n",
                     0, gpueb_plat_mbox_table[0].mbdev->info_table[0].base);
 
-    for (i = 1; i < GPUEB_MBOX_TOTAL; i++) {
+    for (i = 1; i < gpueb_plat_mbox_table[0].mbdev->count; i++) {
         gpueb_plat_mbox_table[i].mbdev = &gpueb_plat_mboxdev;
 
         // Get base address of MBOX i
@@ -83,38 +82,24 @@ int gpueb_common_mbox_init(struct platform_device *pdev)
         }
     }
 
-    return 0;
-}
-
-int gpueb_common_ipi_init(struct platform_device *pdev)
-{
-    int ret = 0;
-
-    // IPI device register
-    ret = mtk_ipi_device_register(&gpueb_plat_ipidev,
-                                    pdev,
-                                    &gpueb_plat_mboxdev,
-                                    GPUEB_IPI_COUNT);
+    /*
+     * IPI device register
+     *
+     * It must be noted that the number of GPUEB's
+     * send pin and receive pin are the same.
+     * If you need specific design on it, you must adjust
+     * the registered ipi num. 
+     */
+    ret = mtk_ipi_device_register(
+                &gpueb_plat_ipidev,
+                pdev,
+                &gpueb_plat_mboxdev,
+                gpueb_plat_mbox_table[0].mbdev->send_count
+            );
     if (ret != IPI_ACTION_DONE) {
         gpueb_pr_debug("ipi devcie register fail!");
         return ret;
     }
-
-    // IPI channel - CH_PLATFORM register
-    ret = mtk_ipi_register(&gpueb_plat_ipidev,
-                            CH_PLATFORM,
-                            NULL, NULL,
-                            (void *)&ack_data);
-    if (ret != IPI_ACTION_DONE) {
-        gpueb_pr_debug("ipi register fail!");
-        return ret;
-    }
-
-#ifdef MT_GPUEB_IPI_TEST
-    ret = gpueb_plat_ipi_send_testing();
-    if (ret != 0)
-        gpueb_pr_info("@%s: ipi send testing fail\n", __func__);
-#endif
 
     return 0;
 }

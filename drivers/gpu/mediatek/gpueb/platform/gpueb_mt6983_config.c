@@ -4,8 +4,8 @@
  */
 
 /**
- * @file    gpueb_plat_ipi_setting.c
- * @brief   GPUEB platform related IPI setting
+ * @file    gpueb_mt6983_config.c
+ * @brief   GPUEB platform related config
  */
 
 /**
@@ -28,13 +28,68 @@
 #include <linux/pm_runtime.h>
 #include <mboot_params.h>
 
-#include "gpueb_plat_ipi_test.h"
-#include "gpueb_plat_ipi_setting.h"
 #include "gpueb_common_helper.h"
+#include "gpueb_plat_config.h"
 
 // MTK common IPI/MBOX
 #include <linux/soc/mediatek/mtk_tinysys_ipi.h>
 #include <linux/soc/mediatek/mtk-mbox.h>
+
+#define MT_GPUEB_BRINGUP        0
+#define MT_GPUEB_LOGGER_ENABLE  0
+#define MT_GPUEB_IPI_TEST       1
+
+#define PIN_R_SIZE 20
+#define PIN_S_SIZE 20
+#define GPUEB_MBOX_TOTAL 4
+#define GPUEB_SLOT_NUM_PER_MBOX (PIN_R_SIZE + PIN_S_SIZE)
+
+#define CH_PLATFORM	0
+#define CH_DVFS	    1
+#define CH_SLEEP	2
+#define CH_TIMER	3
+#define GPUEB_IPI_COUNT	4
+#define GPUEB_TOTAL_SEND_PIN     GPUEB_IPI_COUNT
+#define GPUEB_TOTAL_RECV_PIN     GPUEB_IPI_COUNT
+
+#define PIN_R_SIZE_PLATFORM     PIN_R_SIZE
+#define PIN_R_SIZE_DVFS         PIN_R_SIZE
+#define PIN_R_SIZE_SLEEP        PIN_R_SIZE
+#define PIN_R_SIZE_TIMER        PIN_R_SIZE
+
+#define PIN_S_SIZE_PLATFORM     PIN_S_SIZE
+#define PIN_S_SIZE_DVFS         PIN_S_SIZE
+#define PIN_S_SIZE_SLEEP        PIN_S_SIZE
+#define PIN_S_SIZE_TIMER        PIN_S_SIZE
+
+#define PIN_S_OFFSET_PLATFORM   0
+#define PIN_S_OFFSET_DVFS       0
+#define PIN_S_OFFSET_SLEEP      0
+#define PIN_S_OFFSET_TIMER      0
+
+#define PIN_R_OFFSET_PLATFORM   (PIN_S_OFFSET_PLATFORM  + PIN_S_SIZE_PLATFORM)
+#define PIN_R_OFFSET_DVFS       (PIN_S_OFFSET_DVFS      + PIN_S_SIZE_DVFS)
+#define PIN_R_OFFSET_SLEEP      (PIN_S_OFFSET_SLEEP     + PIN_S_SIZE_SLEEP)
+#define PIN_R_OFFSET_TIMER      (PIN_S_OFFSET_TIMER     + PIN_S_SIZE_TIMER)
+
+#define PIN_R_MSG_SIZE_PLATFORM 1 // 1 slot,    4 bytes
+#define PIN_R_MSG_SIZE_DVFS     4 // 4 slots,   16 bytes
+#define PIN_R_MSG_SIZE_SLEEP    1 // 1 slot,    4 bytes
+#define PIN_R_MSG_SIZE_TIMER    1 // 1 slot,    4 bytes
+
+#define PIN_S_MSG_SIZE_PLATFORM 4 // 4 slots,   16 bytes
+#define PIN_S_MSG_SIZE_DVFS     4 // 4 slots,   16 bytes
+#define PIN_S_MSG_SIZE_SLEEP    3 // 3 slots,   12 bytes
+#define PIN_S_MSG_SIZE_TIMER    3 // 3 slots,   12 bytes
+
+struct gpueb_reserve_mblock gpueb_reserve_mblock_ary[] = {
+    {
+        .num = GPUEB_LOGGER_MEM_ID,
+        .start_phys = 0x0,
+        .start_virt = 0x0,
+        .size = 0x0,
+    },
+};
 
 struct mtk_mbox_info gpueb_plat_mbox_table[GPUEB_MBOX_TOTAL] = {
     {
@@ -256,3 +311,32 @@ struct mtk_ipi_device gpueb_plat_ipidev = {
     .mbdev = &gpueb_plat_mboxdev,
     .timeout_handler = gpueb_plat_ipi_timeout_cb,
 };
+
+int gpueb_plat_get_channelID_by_name(char *channel_name)
+{
+    if (!strcmp(channel_name, "CH_PLATFORM")) 
+        return CH_PLATFORM;
+    else if (!strcmp(channel_name, "CH_DVFS"))
+        return CH_DVFS;
+    else if (!strcmp(channel_name, "CH_SLEEP"))
+        return CH_SLEEP;
+    else if (!strcmp(channel_name, "CH_TIMER"))
+        return CH_TIMER;
+
+    return -1;
+}
+
+bool gpueb_plat_is_bringup(void)
+{
+    return MT_GPUEB_BRINGUP;
+}
+
+bool gpueb_plat_is_logger_support(void)
+{
+    return MT_GPUEB_LOGGER_ENABLE;
+}
+
+bool gpueb_plat_is_ipi_test_support(void)
+{
+    return MT_GPUEB_IPI_TEST;
+}

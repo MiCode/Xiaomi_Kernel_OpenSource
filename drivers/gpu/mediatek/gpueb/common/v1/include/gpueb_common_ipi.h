@@ -3,13 +3,14 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#ifndef __GPUEB_PLAT_IPI_TEST_H__
-#define __GPUEB_PLAT_IPI_TEST_H__
+#ifndef __GPUEB_COMMON_IPI_H__
+#define __GPUEB_COMMON_IPI_H__
 
-int gpueb_plat_ipi_send_testing(void);
-
+// Common implementation
 #define PLT_INIT           0x504C5401
 #define PLT_LOG_ENABLE     0x504C5402
+
+int gpueb_common_ipi_init(struct platform_device *pdev);
 
 struct plat_ipi_send_data {
     unsigned int cmd;
@@ -24,4 +25,4 @@ struct plat_ipi_send_data {
     } u;
 };
 
-#endif /* __GPUEB_PLAT_IPI_TEST_H__ */
+#endif /* __GPUEB_COMMON_IPI_H__ */

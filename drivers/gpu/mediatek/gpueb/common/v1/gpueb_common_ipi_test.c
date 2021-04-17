@@ -28,9 +28,9 @@
 #include <linux/pm_runtime.h>
 #include <mboot_params.h>
 
-#include "gpueb_plat_ipi_test.h"
-#include "gpueb_plat_ipi_setting.h"
+#include "gpueb_common_ipi.h"
 #include "gpueb_common_helper.h"
+#include "gpueb_plat_config.h"
 
 // MTK common IPI/MBOX
 #include <linux/soc/mediatek/mtk_tinysys_ipi.h>
@@ -39,17 +39,23 @@
 int gpueb_plat_ipi_send_testing(void)
 {
     int ret = 0;
+    int channel_id;
     struct plat_ipi_send_data plat_send_data;
 
     plat_send_data.cmd = PLT_INIT;
     plat_send_data.u.ctrl.phys = 1;
     plat_send_data.u.ctrl.size = 2;
-    plat_send_data.u.logger.enable = 1;
+
+    channel_id = gpueb_plat_get_channelID_by_name("CH_PLATFORM");
+    if (channel_id == -1) {
+        gpueb_pr_debug("get channel ID fail!");
+        return -1;
+    }
 
     // CH_PLATFORM message size is 16 byte, 4 slots
     ret = mtk_ipi_send_compl(
         &gpueb_plat_ipidev, // GPUEB's IPI device
-        CH_PLATFORM, // Send channel
+        channel_id, // Send channel
         0,   // 0: wait, 1: polling
         (void *)&plat_send_data, // Send data
         4,   // 4 slots message = 4 * 4 = 16tyte
