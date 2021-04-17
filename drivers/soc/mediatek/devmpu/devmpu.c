@@ -16,6 +16,10 @@
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <devmpu.h>
 
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <mt-plat/aee.h>
+#endif
+
 #define LOG_TAG "[DEVMPU]"
 
 #define DEVMPU_MAX_TAG_LEN 15
@@ -182,6 +186,10 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 	 */
 	vio_rw = (vio.is_write) ? 1 : 2;
 
+	/* filter read violation */
+	if (vio_rw == 2 && vio_domain == 0)
+		return 0;
+
 	vio_addr += devmpu_ctx->prot_base;
 
 	vio_axi_id = (vio_id >> 3) & 0x1FFF;
@@ -216,6 +224,17 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 
 	pr_info("%s transaction\n",
 			(vio.is_ns) ? "non-secure" : "secure");
+
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+	pr_info("trigger aee exception\n");
+	aee_kernel_exception("DEVMPU", "%s\n%s(0x%x),%s(0x%x),%s(0x%x),%s(0x%llx)\n",
+									"violation",
+									"vio_id", vio_id,
+									"vio_domain", vio_domain,
+									"vio_rw", vio_rw,
+									"vio_addr", vio_addr
+									);
+#endif
 
 	return 0;
 }
@@ -328,10 +347,10 @@ static int devmpu_check_violation(void)
 	if (prop_addr && prop_size) {
 		pr_info("Check if DevMPU violation is at 0x%x\n", prop_addr);
 		reg_base = ioremap((phys_addr_t)prop_addr, prop_size);
-		pr_info("Read from %p\n", reg_base);
+		pr_info("Read from 0x%pK\n", reg_base);
 		prop_value = *(uint64_t *)reg_base;
 		pr_info("value 0x%llx\n", prop_value);
-		pr_info("Write to %p\n", reg_base);
+		pr_info("Write to 0x%pK\n", reg_base);
 		*(uint64_t *)reg_base = prop_value;
 	}
 
@@ -429,13 +448,6 @@ static int devmpu_probe(struct platform_device *pdev)
 	}
 
 	virq = irq_of_parse_and_map(dn, 0);
-	rc = request_irq(virq, (irq_handler_t)devmpu_irq_handler,
-			IRQF_TRIGGER_NONE, "devmpu", NULL);
-	if (rc) {
-		pr_err("%s:%d failed to request irq, rc=%d\n",
-				__func__, __LINE__, rc);
-		return -EPERM;
-	}
 
 	if ((probe_cnt + 1) > DEVMPU_MAX_CTX) {
 		pr_err("%s:%d failed to create context\n",
@@ -460,6 +472,14 @@ static int devmpu_probe(struct platform_device *pdev)
 	pr_info("virq=0x%x\n", devmpu_ctx->virq);
 
 	probe_cnt++;
+
+	rc = request_irq(virq, (irq_handler_t)devmpu_irq_handler,
+			IRQF_TRIGGER_NONE, "devmpu", NULL);
+	if (rc) {
+		pr_err("%s:%d failed to request irq, rc=%d\n",
+				__func__, __LINE__, rc);
+		return -EPERM;
+	}
 
 	return 0;
 }
