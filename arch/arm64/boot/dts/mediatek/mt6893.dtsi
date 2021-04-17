@@ -3352,6 +3352,14 @@
 				<&iommu1 M4U_PORT_L9_IMG_TIMGO_D1_MDP>,
 				<&iommu1 M4U_PORT_L9_IMG_UFBC_W0_MDP>,
 				<&iommu1 M4U_PORT_L9_IMG_UFBC_R0_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA0_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA1_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA2_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA3_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA4_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA5_MDP>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA0_DISP>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA1_DISP>,
 				<&iommu0 M4U_PORT_L11_IMG_IMGI_D1_DISP>,
 				<&iommu0 M4U_PORT_L11_IMG_IMGBI_D1_DISP>,
 				<&iommu0 M4U_PORT_L11_IMG_DMGI_D1_DISP>,
@@ -3378,12 +3386,28 @@
 				<&iommu0 M4U_PORT_L11_IMG_WPE_RDMA1_DISP>,
 				<&iommu0 M4U_PORT_L11_IMG_WPE_RDMA0_DISP>,
 				<&iommu0 M4U_PORT_L11_IMG_WPE_WDMA_DISP>;
+
+			clocks =
+					<&imgsys1_clk CLK_IMGSYS1_LARB9>,
+					<&imgsys1_clk CLK_IMGSYS1_DIP>,
+					<&imgsys1_clk CLK_IMGSYS1_MSS>,
+					<&imgsys1_clk CLK_IMGSYS1_MFB>,
+					<&imgsys2_clk CLK_IMGSYS2_LARB9>,
+					<&imgsys2_clk CLK_IMGSYS2_DIP>;
+
+			clock-names =
+					"DIP_CG_IMG_LARB9",
+					"DIP_CG_IMG_DIP",
+					"DIP_CG_IMG_DIP_MSS",
+					"DIP_CG_IMG_MFB_DIP",
+					"DIP_CG_IMG_LARB11",
+					"DIP_CG_IMG_DIP2";
 		};
 
 		dip_a0@15021000 {
 			compatible = "mediatek,dip1";
 			reg = <0 0x15021000 0 0xc000>;
-			interrupts = <GIC_SPI 345 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 344 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
 		dip_a1@15022000 {
@@ -3430,6 +3454,16 @@
 			compatible = "mediatek,dip_a9";
 			reg = <0 0x1502a000 0 0x1000>;
 		};
+
+        dip_a10@1502b000 {
+            compatible = "mediatek,dip_a10";
+            reg = <0 0x1502b000 0 0x1000>;
+        };
+
+        dip_a11@1502c000 {
+            compatible = "mediatek,dip_a11";
+            reg = <0 0x1502c000 0 0x1000>;
+        };
 
 		larb9: larb@1502e000 {
 			compatible = "mediatek,mt6893-smi-larb";
@@ -3523,6 +3557,69 @@
 			reg = <0 0x15820000 0 0x1000>;
 			#clock-cells = <1>;
 		};
+
+
+
+        dip_b0@15821000 {
+            compatible = "mediatek,dip2";
+            reg = <0 0x15821000 0 0xc000>;
+            interrupts = <GIC_SPI 351 IRQ_TYPE_LEVEL_HIGH>;
+        };
+
+        dip_b1@15822000 {
+            compatible = "mediatek,dip_b1";
+            reg = <0 0x15822000 0 0x1000>;
+        };
+
+        dip_b2@15823000 {
+            compatible = "mediatek,dip_b2";
+            reg = <0 0x15823000 0 0x1000>;
+        };
+
+        dip_b3@15824000 {
+            compatible = "mediatek,dip_b3";
+            reg = <0 0x15824000 0 0x1000>;
+        };
+
+        dip_b4@15825000 {
+            compatible = "mediatek,dip_b4";
+            reg = <0 0x15825000 0 0x1000>;
+        };
+
+        dip_b5@15826000 {
+            compatible = "mediatek,dip_b5";
+            reg = <0 0x15826000 0 0x1000>;
+        };
+
+        dip_b6@15827000 {
+            compatible = "mediatek,dip_b6";
+            reg = <0 0x15827000 0 0x1000>;
+        };
+
+        dip_b7@15828000 {
+            compatible = "mediatek,dip_b7";
+            reg = <0 0x15828000 0 0x1000>;
+        };
+
+        dip_b8@15829000 {
+            compatible = "mediatek,dip_b8";
+            reg = <0 0x15829000 0 0x1000>;
+        };
+
+        dip_b9@1582a000 {
+            compatible = "mediatek,dip_b9";
+            reg = <0 0x1582a000 0 0x1000>;
+        };
+
+        dip_b10@1582b000 {
+            compatible = "mediatek,dip_b10";
+            reg = <0 0x1582b000 0 0x1000>;
+        };
+
+        dip_b11@1582c000 {
+            compatible = "mediatek,dip_b11";
+            reg = <0 0x1582c000 0 0x1000>;
+        };
 
 		larb11: larb@1582e000 {
 			compatible = "mediatek,mt6893-smi-larb";
@@ -4415,21 +4512,29 @@
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 
 			iommus = /* imgsys_config, msf_b and wpe */
-				<&iommu0 M4U_PORT_L9_IMG_IMGI_D1_MDP>,
-				<&iommu0 M4U_PORT_L9_IMG_IMGBI_D1_MDP>,
-				<&iommu0 M4U_PORT_L9_IMG_DMGI_D1_MDP>,
-				<&iommu0 M4U_PORT_L9_IMG_DEPI_D1_MDP>,
-				<&iommu0 M4U_PORT_L9_IMG_ICE_D1_MDP>,
-				<&iommu0 M4U_PORT_L9_IMG_SMTI_D1_MDP>,
-				<&iommu0 M4U_PORT_L9_IMG_SMTO_D2_MDP>,
-				<&iommu0 M4U_PORT_L9_IMG_SMTO_D1_MDP>,
-				<&iommu0 M4U_PORT_L9_IMG_CRZO_D1_MDP>,
-				<&iommu0 M4U_PORT_L9_IMG_IMG3O_D1_MDP>,
-				<&iommu0 M4U_PORT_L9_IMG_VIPI_D1_MDP>,
-				<&iommu0 M4U_PORT_L9_IMG_SMTI_D5_MDP>,
-				<&iommu0 M4U_PORT_L9_IMG_TIMGO_D1_MDP>,
-				<&iommu0 M4U_PORT_L9_IMG_UFBC_W0_MDP>,
-				<&iommu0 M4U_PORT_L9_IMG_UFBC_R0_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_IMGI_D1_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_IMGBI_D1_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_DMGI_D1_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_DEPI_D1_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_ICE_D1_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_SMTI_D1_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_SMTO_D2_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_SMTO_D1_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_CRZO_D1_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_IMG3O_D1_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_VIPI_D1_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_SMTI_D5_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_TIMGO_D1_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_UFBC_W0_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_UFBC_R0_MDP>,
+                <&iommu1 M4U_PORT_L9_IMG_MFB_RDMA0_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA1_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA2_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA3_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA4_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_MFB_RDMA5_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_MFB_WDMA0_MDP>,
+				<&iommu1 M4U_PORT_L9_IMG_MFB_WDMA1_MDP>,
 				<&iommu0 M4U_PORT_L11_IMG_IMGI_D1_DISP>,
 				<&iommu0 M4U_PORT_L11_IMG_IMGBI_D1_DISP>,
 				<&iommu0 M4U_PORT_L11_IMG_DMGI_D1_DISP>,
