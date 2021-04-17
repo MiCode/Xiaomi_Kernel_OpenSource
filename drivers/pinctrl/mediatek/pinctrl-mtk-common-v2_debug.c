@@ -12,45 +12,63 @@
  */
 
 #include <dt-bindings/pinctrl/mt65xx.h>
+#include <linux/gpio.h>
 #include <linux/gpio/consumer.h>
 #include <../../gpio/gpiolib.h>
 #include <linux/delay.h>
 #include "pinctrl-paris.h"
 
+#define MTK_PINCTRL_DEV_NAME "pinctrl_paris"
 #define PULL_DELAY 50 /* in ms */
 #define FUN_3STATE "gpio_get_value_tristate"
+
+
+static const char *pinctrl_paris_modname = MTK_PINCTRL_DEV_NAME;
+static struct mtk_pinctrl *g_hw;
+
+static void mtk_gpio_find_mtk_pinctrl_dev(void)
+{
+	struct gpio_desc *gdesc;
+	unsigned int pin = ARCH_NR_GPIOS - 1;
+
+	do {
+		gdesc = gpio_to_desc(pin);
+		if (!gdesc)
+			break;
+		if (!strncmp(pinctrl_paris_modname,
+				gdesc->gdev->chip->label,
+				strlen(pinctrl_paris_modname))) {
+			g_hw = gpiochip_get_data(gdesc->gdev->chip);
+			return;
+		}
+
+		pin = (pin + 1) - gdesc->gdev->chip->base;
+	} while (pin > 0);
+}
+
 int gpio_get_tristate_input(unsigned int pin)
 {
-	struct gpio_device *gdev;
-	struct gpio_chip *chip = NULL;
 	struct mtk_pinctrl *hw = NULL;
 	const struct mtk_pin_desc *desc;
 	int val, val_up, val_down, ret, pullup, pullen;
-	unsigned long flags;
 
-	spin_lock_irqsave(&gpio_lock, flags);
-	list_for_each_entry(gdev, &gpio_devices, list) {
+	if (!g_hw)
+		mtk_gpio_find_mtk_pinctrl_dev();
+	if (!g_hw)
+		return  -ENOTSUPP;
+	hw = g_hw;
 
-		chip = gdev->chip;
-
-		hw = gpiochip_get_data(chip);
-
-		break;
-	}
-
-	spin_unlock_irqrestore(&gpio_lock, flags);
-
-	if (!hw || !hw->soc) {
+	if (!hw->soc) {
 		pr_notice("invalid gpio chip\n");
 		return -EINVAL;
 	}
 
-	if (pin < chip->base) {
+	if (pin < hw->chip.base) {
 		pr_notice(FUN_3STATE ": please use virtual pin number\n");
 		return -EINVAL;
 	}
 
-	pin -= chip->base;
+	pin -= hw->chip.base;
 	if (pin >= hw->soc->npins) {
 		pr_notice(FUN_3STATE ": invalid pin number: %u\n",
 			pin);
@@ -172,36 +190,34 @@ static ssize_t mtk_gpio_show_pin(struct device *dev,
 
 void gpio_dump_regs_range(int start, int end)
 {
-	struct gpio_device *gdev;
-	struct mtk_pinctrl *hw;
 	struct gpio_chip *chip = NULL;
-	unsigned long flags;
+	struct mtk_pinctrl *hw;
 	char buf[96];
 	int i;
 
-	spin_lock_irqsave(&gpio_lock, flags);
-	list_for_each_entry(gdev, &gpio_devices, list) {
+	if (!g_hw)
+		mtk_gpio_find_mtk_pinctrl_dev();
+	if (!g_hw)
+		return;
 
-		chip = gdev->chip;
+	hw = g_hw;
+	chip = &hw->chip;
 
-		if (start < 0) {
-			start = 0;
-			end = chip->ngpio - 1;
-		}
-		if (end > chip->ngpio - 1)
-			end = chip->ngpio - 1;
-
-		pr_notice("PIN: (MODE)(DIR)(DOUT)(DIN)(DRIVE)(SMT)(IES)(PULL_EN)(PULL_SEL)(R1 R0)\n");
-
-		hw = gpiochip_get_data(chip);
-		for (i = start; i < end; i++) {
-			(void)mtk_pctrl_show_one_pin(hw, i, buf, 96);
-			pr_notice("%s", buf);
-		}
-		break;
+	if (start < 0) {
+		start = 0;
+		end = chip->ngpio - 1;
 	}
+	if (end < 0)
+		end = chip->ngpio - 1;
+	if (end > chip->ngpio - 1)
+		end = chip->ngpio - 1;
 
-	spin_unlock_irqrestore(&gpio_lock, flags);
+	pr_notice("PIN: (MODE)(DIR)(DOUT)(DIN)(DRIVE)(SMT)(IES)(PULL_EN)(PULL_SEL)(R1 R0)\n");
+
+	for (i = start; i < end; i++) {
+		(void)mtk_pctrl_show_one_pin(hw, i, buf, 96);
+		pr_notice("%s", buf);
+	}
 }
 
 void gpio_dump_regs(void)
