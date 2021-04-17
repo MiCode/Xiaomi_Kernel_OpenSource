@@ -862,8 +862,13 @@ static int m4u_debug_set(void *data, u64 val)
 					    err_size);
 #else
 		pr_notice(" >> boundary 0 top 5 user\n");
+#if BITS_PER_LONG == 32
+		m4u_find_max_port_size(0, (1ULL << 32) - 1,
+					&err_port, &err_size);
+#else
 		m4u_find_max_port_size(0, (1UL << 32) - 1,
 					&err_port, &err_size);
+#endif
 		report_custom_iommu_leakage(
 					    iommu_get_port_name(err_port),
 					    err_size);

@@ -2147,7 +2147,8 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 				   struct device *dev)
 {
 	struct mtk_iommu_data *data = dev->iommu_fwspec->iommu_priv;
-#ifndef CONFIG_ARM64
+#if 0
+	ifndef CONFIG_ARM64 case but not required for now.
 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
 #endif
 
@@ -2155,7 +2156,8 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 		return -ENODEV;
 
 	mtk_iommu_config(data, dev, true);
-#ifndef CONFIG_ARM64
+#if 0
+	ifndef CONFIG_ARM64 case but not require for now.
 	/* reserve IOVA region after pgTable ready */
 	mtk_iova_reserve_iommu_regions(dom, dev);
 #endif
