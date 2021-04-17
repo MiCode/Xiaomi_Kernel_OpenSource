@@ -11,6 +11,8 @@
  *	Andrew F. Davis <afd@ti.com>
  */
 
+#define pr_fmt(fmt) "[MTK_MM_DMABUF] "fmt
+
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-heap.h>
@@ -24,6 +26,9 @@
 
 #include "page_pool.h"
 #include "deferred-free-helper.h"
+
+#include <linux/iommu.h>
+#include <dt-bindings/memory/mtk-smi-larb-port.h>
 
 static struct dma_heap *mtk_mm_heap;
 static struct dma_heap *mtk_mm_uncached_heap;
@@ -39,6 +44,25 @@ struct mtk_mm_heap_buffer {
 	struct deferred_freelist_item deferred_free;
 
 	bool uncached;
+
+	void *priv;
+};
+
+struct mm_heap_dev_info {
+	struct device           *dev;
+	enum dma_data_direction direction;
+	unsigned long           map_attrs;
+};
+
+struct mm_heap_priv {
+	bool                    mapped[MTK_M4U_DOM_NR_MAX];
+	struct mm_heap_dev_info dev_info[MTK_M4U_DOM_NR_MAX];
+	struct sg_table         *mapped_table[MTK_M4U_DOM_NR_MAX];
+	struct mutex            lock; /* map iova lock */
+	pid_t                   pid;
+	pid_t                   tid;
+	char                    pid_name[TASK_COMM_LEN];
+	char                    tid_name[TASK_COMM_LEN];
 };
 
 struct dma_heap_attachment {
