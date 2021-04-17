@@ -26,10 +26,6 @@
 #include <linux/debugfs.h>
 #include <linux/of_irq.h>
 #include <uapi/linux/sched/types.h>
-#ifdef CONFIG_FB
-#include <linux/notifier.h>
-#include <linux/fb.h>
-#endif
 
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 #include "mtk_panel_ext.h"
@@ -1901,67 +1897,44 @@ out:
 	return 0;
 }
 
-#ifdef CONFIG_FB
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 /**
- * gt9896s_ts_fb_notifier_callback - Framebuffer notifier callback
+ * gt9896s_ts_disp_notifier_callback - mtk display notifier callback
  * Called by kernel during framebuffer blanck/unblank phrase
  */
-int gt9896s_ts_fb_notifier_callback(struct notifier_block *self,
-	unsigned long event, void *data)
+static int gt9896s_ts_disp_notifier_callback(struct notifier_block *nb,
+	unsigned long value, void *v)
 {
 	struct gt9896s_ts_core *core_data =
-		container_of(self, struct gt9896s_ts_core, fb_notifier);
-	struct fb_event *fb_event = data;
+		container_of(nb, struct gt9896s_ts_core, disp_notifier);
+	int *data = (int *)v;
 
-	if (fb_event && fb_event->data && core_data) {
-		if (event == FB_EVENT_BLANK) {
-			int *blank = fb_event->data;
-			if (*blank == FB_BLANK_UNBLANK) {
+	if (core_data && v) {
+		if (value == MTK_DISP_EARLY_EVENT_BLANK) {
+			ts_info("%s IN", __func__);
+			if (*data == MTK_DISP_BLANK_UNBLANK) {
 #ifdef CONFIG_TRUSTONIC_TRUSTED_UI
 				if (!atomic_read(&gt9896s_tui_flag))
 #endif
 					gt9896s_ts_resume(core_data);
-			} else if (*blank == FB_BLANK_POWERDOWN) {
+			} else if (*data == MTK_DISP_BLANK_POWERDOWN) {
+
 #ifdef CONFIG_TRUSTONIC_TRUSTED_UI
 				if (!atomic_read(&gt9896s_tui_flag))
 #endif
 					gt9896s_ts_suspend(core_data);
 			}
+			ts_info("%s OUT", __func__);
 		}
+	} else {
+		ts_info("gt9896s touch IC can not suspend or resume");
+		return -1;
 	}
 	return 0;
 }
 #endif
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-/**
- * gt9896s_ts_earlysuspend - Early suspend function
- * Called by kernel during system suspend phrase
- */
-static void gt9896s_ts_earlysuspend(struct early_suspend *h)
-{
-	struct gt9896s_ts_core *core_data =
-		container_of(h, struct gt9896s_ts_core,
-			 early_suspend);
-
-	gt9896s_ts_suspend(core_data);
-}
-/**
- * gt9896s_ts_lateresume - Late resume function
- * Called by kernel during system wakeup
- */
-static void gt9896s_ts_lateresume(struct early_suspend *h)
-{
-	struct gt9896s_ts_core *core_data =
-		container_of(h, struct gt9896s_ts_core,
-			 early_suspend);
-
-	gt9896s_ts_resume(core_data);
-}
-#endif
-
 #ifdef CONFIG_PM
-#if !defined(CONFIG_FB) && !defined(CONFIG_HAS_EARLYSUSPEND)
+#if !IS_ENABLED(CONFIG_DRM_MEDIATEK)
 /**
  * gt9896s_ts_pm_suspend - PM suspend function
  * Called by kernel during system suspend phrase
@@ -2034,6 +2007,8 @@ int gt9896s_ts_stage2_init(struct gt9896s_ts_core *core_data)
 	int r;
 	struct gt9896s_ts_device *ts_dev = ts_device(core_data);
 
+	if ((!core_data) && (!ts_dev))
+		return -1;
 	/* send normal-cfg to firmware */
 	r = ts_dev->hw_ops->send_config(ts_dev, &(ts_dev->normal_cfg));
 	if (r < 0) {
@@ -2066,15 +2041,10 @@ int gt9896s_ts_stage2_init(struct gt9896s_ts_core *core_data)
 	}
 	ts_info("success register irq");
 
-#ifdef CONFIG_FB
-	core_data->fb_notifier.notifier_call = gt9896s_ts_fb_notifier_callback;
-	if (fb_register_client(&core_data->fb_notifier))
-		ts_err("Failed to register fb notifier client:%d", r);
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-	core_data->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
-	core_data->early_suspend.resume = gt9896s_ts_lateresume;
-	core_data->early_suspend.suspend = gt9896s_ts_earlysuspend;
-	register_early_suspend(&core_data->early_suspend);
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+	core_data->disp_notifier.notifier_call = gt9896s_ts_disp_notifier_callback;
+	if (mtk_disp_notifier_register("Touch", &core_data->disp_notifier))
+		ts_err("Failed to register disp notifier client:%d", r);
 #endif
 	/*create sysfs files*/
 	gt9896s_ts_sysfs_init(core_data);
@@ -2233,7 +2203,7 @@ static int gt9896s_ts_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_PM
 static const struct dev_pm_ops dev_pm_ops = {
-#if !defined(CONFIG_FB) && !defined(CONFIG_HAS_EARLYSUSPEND)
+#if !IS_ENABLED(CONFIG_DRM_MEDIATEK)
 	.suspend = gt9896s_ts_pm_suspend,
 	.resume = gt9896s_ts_pm_resume,
 #endif
