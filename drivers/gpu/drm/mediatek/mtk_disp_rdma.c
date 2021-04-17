@@ -597,11 +597,19 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 		(gs[GS_RDMA_FIFO_SIZE] - gs[GS_RDMA_PRE_ULTRA_TH_LOW]);
 
 	/* DISP_RDMA_THRESHOLD_FOR_SODI */
+#if BITS_PER_LONG == 32
+	gs[GS_RDMA_TH_LOW_FOR_SODI] =
+		DIV64_U64_ROUND_UP(consume_rate * (ultra_low_us + 50), FP);
+	gs[GS_RDMA_TH_HIGH_FOR_SODI] = DIV64_U64_ROUND_UP(
+		gs[GS_RDMA_FIFO_SIZE] * FP - (fill_rate - consume_rate) * 12,
+		FP);
+#else
 	gs[GS_RDMA_TH_LOW_FOR_SODI] =
 		DIV_ROUND_UP(consume_rate * (ultra_low_us + 50), FP);
 	gs[GS_RDMA_TH_HIGH_FOR_SODI] = DIV_ROUND_UP(
 		gs[GS_RDMA_FIFO_SIZE] * FP - (fill_rate - consume_rate) * 12,
 		FP);
+#endif
 	if (gs[GS_RDMA_TH_HIGH_FOR_SODI] < gs[GS_RDMA_PRE_ULTRA_TH_HIGH])
 		gs[GS_RDMA_TH_HIGH_FOR_SODI] = gs[GS_RDMA_PRE_ULTRA_TH_HIGH];
 
@@ -614,7 +622,36 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 
 	/* DISP_RDMA_SRAM_SEL */
 	gs[GS_RDMA_SRAM_SEL] = 0;
+#if BITS_PER_LONG == 32
+	/* DISP_RDMA_DVFS_SETTING_PREULTRA */
+	gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW] =
+		DIV64_U64_ROUND_UP(consume_rate * (pre_ultra_low_us + 40), FP);
+	gs[GS_RDMA_DVFS_PRE_ULTRA_TH_HIGH] =
+		DIV64_U64_ROUND_UP(consume_rate * (pre_ultra_high_us + 40), FP);
 
+	/* DISP_RDMA_DVFS_SETTING_ULTRA */
+	gs[GS_RDMA_DVFS_ULTRA_TH_LOW] =
+		DIV64_U64_ROUND_UP(consume_rate * (ultra_low_us + 40), FP);
+	gs[GS_RDMA_DVFS_ULTRA_TH_HIGH] = gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW];
+
+	/* DISP_RDMA_LEAVE_DRS_SETTING */
+	gs[GS_RDMA_IS_DRS_STATUS_TH_LOW] =
+		DIV64_U64_ROUND_UP(consume_rate * (pre_ultra_low_us + 20), FP);
+	gs[GS_RDMA_IS_DRS_STATUS_TH_HIGH] =
+		DIV64_U64_ROUND_UP(consume_rate * (pre_ultra_low_us + 20), FP);
+
+	/* DISP_RDMA_ENTER_DRS_SETTING */
+	gs[GS_RDMA_NOT_DRS_STATUS_TH_LOW] =
+		DIV64_U64_ROUND_UP(consume_rate * (ultra_high_us + 40), FP);
+	gs[GS_RDMA_NOT_DRS_STATUS_TH_HIGH] =
+		DIV64_U64_ROUND_UP(consume_rate * (ultra_high_us + 40), FP);
+
+	/* DISP_RDMA_MEM_GMC_SETTING_3 */
+	gs[GS_RDMA_URGENT_TH_LOW] = DIV64_U64_ROUND_UP(consume_rate *
+		urgent_low_us, FP);
+	gs[GS_RDMA_URGENT_TH_HIGH] = DIV64_U64_ROUND_UP(consume_rate *
+		urgent_high_us, FP);
+#else
 	/* DISP_RDMA_DVFS_SETTING_PREULTRA */
 	gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW] =
 		DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 40), FP);
@@ -643,6 +680,7 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 		urgent_low_us, FP);
 	gs[GS_RDMA_URGENT_TH_HIGH] = DIV_ROUND_UP(consume_rate *
 		urgent_high_us, FP);
+#endif
 
 	/* DISP_RDMA_GREQ_URG_NUM_SEL */
 	gs[GS_RDMA_LAYER_SMI_ID_EN] = 1;
