@@ -344,6 +344,7 @@ enum cnss_bdf_type {
 	CNSS_BDF_BIN,
 	CNSS_BDF_ELF,
 	CNSS_BDF_REGDB = 4,
+	CNSS_BDF_HDS = 6,
 };
 
 enum cnss_cal_status {
@@ -436,6 +437,7 @@ struct cnss_plat_data {
 	enum cnss_driver_status driver_status;
 	u32 recovery_count;
 	u8 recovery_enabled;
+	u8 hds_enabled;
 	unsigned long driver_state;
 	struct list_head event_list;
 	spinlock_t event_lock; /* spinlock for driver work event handling */
