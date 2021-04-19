@@ -7032,6 +7032,8 @@ void __init free_area_init_node(int nid, unsigned long *zones_size,
 	pg_data_t *pgdat = NODE_DATA(nid);
 	unsigned long start_pfn = 0;
 	unsigned long end_pfn = 0;
+	u64 i;
+	phys_addr_t start, end;
 
 	/* pg_data_t should be reset to zero when it's allocated */
 	WARN_ON(pgdat->nr_zones || pgdat->kswapd_classzone_idx);
@@ -7045,6 +7047,10 @@ void __init free_area_init_node(int nid, unsigned long *zones_size,
 		(u64)start_pfn << PAGE_SHIFT,
 		end_pfn ? ((u64)end_pfn << PAGE_SHIFT) - 1 : 0);
 #else
+	for_each_mem_range(i, &memblock.memory, NULL, nid, MEMBLOCK_NONE,
+			   &start, &end, NULL)
+		subsection_map_init((unsigned long)start >> PAGE_SHIFT,
+				    (unsigned long)(end - start) >> PAGE_SHIFT);
 	start_pfn = node_start_pfn;
 #endif
 	calculate_node_totalpages(pgdat, start_pfn, end_pfn,
