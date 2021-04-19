@@ -855,6 +855,9 @@ static int qcom_smd_write_fifo(struct qcom_smd_channel *channel,
 				 word_aligned);
 	}
 
+	/* Ensure ordering of channel info updates */
+	wmb();
+
 	head += count;
 	head &= (channel->fifo_size - 1);
 	SET_TX_CHANNEL_INFO(channel, head, head);
