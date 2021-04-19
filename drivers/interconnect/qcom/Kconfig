@@ -20,6 +20,9 @@ config INTERCONNECT_QCOM_HOLI
 config INTERCONNECT_QCOM_MONACO
 	tristate "MONACO interconnect driver"
 	depends on INTERCONNECT_QCOM
+	depends on MSM_RPM_SMD
+	select INTERCONNECT_QCOM_RPM
+	select INTERCONNECT_QCOM_QOS
 	help
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on monaco-based platforms. The interconnect provider collects and
