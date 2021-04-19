@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __LINUX_USB_DWC3_MSM_H
@@ -19,6 +19,7 @@
 #define EUD_SPOOF_DISCONNECT		BIT(6)
 #define EUD_SPOOF_CONNECT		BIT(7)
 #define PHY_SUS_OVERRIDE		BIT(8)
+#define PHY_USB_DP_CONCURRENT_MODE	BIT(9)
 
 /*
  * The following are bit fields describing the USB BAM options.
@@ -135,7 +136,7 @@ int msm_data_fifo_config(struct usb_ep *ep, unsigned long addr, u32 size,
 	u8 dst_pipe_idx);
 bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget);
 int msm_dwc3_reset_dbm_ep(struct usb_ep *ep);
-int dwc3_msm_release_ss_lane(struct device *dev);
+int dwc3_msm_release_ss_lane(struct device *dev, bool usb_dp_concurrent_mode);
 bool usb_get_remote_wakeup_status(struct usb_gadget *gadget);
 #else
 static inline struct usb_ep *usb_ep_autoconfig_by_name(
@@ -162,7 +163,7 @@ static inline bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget)
 { return false; }
 static inline int msm_dwc3_reset_dbm_ep(struct usb_ep *ep)
 { return -ENODEV; }
-static inline int dwc3_msm_release_ss_lane(struct device *dev)
+static inline int dwc3_msm_release_ss_lane(struct device *dev, bool usb_dp_concurrent_mode)
 { return -ENODEV; }
 static bool __maybe_unused usb_get_remote_wakeup_status(struct usb_gadget *gadget)
 { return false; }
