@@ -3365,6 +3365,8 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 		usleep_range(1000, 1100);
 		ufs_qcom_phy_dbg_register_dump(phy);
 	}
+
+	BUG_ON(host->crash_on_err);
 }
 
 /*
@@ -3634,6 +3636,37 @@ static ssize_t dbg_state_show(struct device *dev,
 
 static DEVICE_ATTR_RO(dbg_state);
 
+static ssize_t crash_on_err_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", !!host->crash_on_err);
+}
+
+static ssize_t crash_on_err_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	bool v;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EACCES;
+
+	if (kstrtobool(buf, &v))
+		return -EINVAL;
+
+	host->crash_on_err = v;
+
+	return count;
+}
+
+
+static DEVICE_ATTR_RW(crash_on_err);
+
 static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_err_state.attr,
 	&dev_attr_power_mode.attr,
@@ -3641,6 +3674,7 @@ static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_clk_status.attr,
 	&dev_attr_err_count.attr,
 	&dev_attr_dbg_state.attr,
+	&dev_attr_crash_on_err.attr,
 	NULL
 };
 
