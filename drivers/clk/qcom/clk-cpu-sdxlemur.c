@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/cpu.h>
@@ -234,8 +234,12 @@ static int cpucc_notifier_cb(struct notifier_block *nb, unsigned long event,
 }
 
 static const struct clk_ops cpucc_clk_ops = {
+	.prepare = clk_prepare_regmap,
+	.unprepare = clk_unprepare_regmap,
 	.enable = cpucc_clk_enable,
 	.disable = cpucc_clk_disable,
+	.pre_rate_change = clk_pre_change_regmap,
+	.post_rate_change = clk_post_change_regmap,
 	.get_parent = cpucc_clk_get_parent,
 	.set_rate = cpucc_clk_set_rate,
 	.set_parent = cpucc_clk_set_parent,
