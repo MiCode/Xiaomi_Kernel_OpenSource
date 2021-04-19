@@ -3961,12 +3961,13 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 			err = -ECONNREFUSED;
 			goto bail;
 		}
+	} else if (!(chan->unsigned_support) && (uproc->attrs & FASTRPC_MODE_UNSIGNED_MODULE)) {
+		err = -ECONNREFUSED;
+		goto bail;
 	}
-
 	err = fastrpc_channel_open(fl);
 	if (err)
 		goto bail;
-
 	switch (init->flags) {
 	case FASTRPC_INIT_ATTACH:
 	case FASTRPC_INIT_ATTACH_SENSORS:
