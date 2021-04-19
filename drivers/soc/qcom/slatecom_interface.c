@@ -50,8 +50,10 @@
 #define RESULT_FAILURE -1
 
 #define SLATECOM_INTF_N_FILES 2
-static char btss_state[10] = "offline";
-static char dspss_state[10] = "offline";
+#define BUF_SIZE 10
+
+static char btss_state[BUF_SIZE] = "offline";
+static char dspss_state[BUF_SIZE] = "offline";
 
 /* tzapp command list.*/
 enum slate_tz_commands {
@@ -133,14 +135,14 @@ static ssize_t slate_bt_state_sysfs_read
 			(struct class *class, struct class_attribute *attr, char *buf)
 {
 	pr_debug("In %s\n", __func__);
-	return scnprintf(buf, "%s", btss_state);
+	return scnprintf(buf, BUF_SIZE, btss_state);
 }
 
 static ssize_t slate_dsp_state_sysfs_read
 			(struct class *class, struct class_attribute *attr, char *buf)
 {
 	pr_debug("In %s\n", __func__);
-	return	scnprintf(buf, "%s", dspss_state);
+	return	scnprintf(buf, BUF_SIZE, dspss_state);
 }
 
 struct class_attribute slatecom_attr[] = {
@@ -551,12 +553,12 @@ void set_slate_dsp_state(bool status)
 	struct slate_event statee;
 
 	slate_dsp_error = status;
-	if (status) {
+	if (!status) {
 		statee.e_type = SLATE_DSP_ERROR;
-		strlcpy(dspss_state, "error");
+		strlcpy(dspss_state, "error", BUF_SIZE);
 	} else {
 		statee.e_type = SLATE_DSP_READY;
-		strlcpy(dspss_state, "ready");
+		strlcpy(dspss_state, "ready", BUF_SIZE);
 	}
 	send_uevent(&statee);
 }
@@ -567,12 +569,12 @@ void set_slate_bt_state(bool status)
 	struct slate_event statee;
 
 	slate_bt_error = status;
-	if (status) {
+	if (!status) {
 		statee.e_type = SLATE_BT_ERROR;
-		strlcpy(btss_state, "error");
+		strlcpy(btss_state, "error", BUF_SIZE);
 	} else {
 		statee.e_type = SLATE_BT_READY;
-		strlcpy(btss_state, "ready");
+		strlcpy(btss_state, "ready", BUF_SIZE);
 	}
 	send_uevent(&statee);
 }
