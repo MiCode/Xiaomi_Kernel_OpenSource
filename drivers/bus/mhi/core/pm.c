@@ -905,6 +905,9 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))
 		return -EIO;
 
+	if (mhi_cntrl->pm_state != MHI_PM_M3)
+		panic("mhi_pm_state != M3");
+
 	/* Notify clients about exiting LPM */
 	list_for_each_entry_safe(itr, tmp, &mhi_cntrl->lpm_chans, node) {
 		mutex_lock(&itr->mutex);

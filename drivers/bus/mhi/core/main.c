@@ -649,6 +649,7 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 	case MHI_EV_CC_BAD_TRE:
 	default:
 		MHI_ERR("Unknown event 0x%x\n", ev_code);
+		panic("Unknown event 0x%x\n", ev_code);
 		break;
 	} /* switch(MHI_EV_READ_CODE(EV_TRB_CODE,event)) */
 
@@ -729,6 +730,7 @@ static void mhi_process_cmd_completion(struct mhi_controller *mhi_cntrl,
 				       struct mhi_tre *tre)
 {
 	dma_addr_t ptr = MHI_TRE_GET_EV_PTR(tre);
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	struct mhi_cmd *cmd_ring = &mhi_cntrl->mhi_cmd[PRIMARY_CMD_RING];
 	struct mhi_ring *mhi_ring = &cmd_ring->ring;
 	struct mhi_tre *cmd_pkt;
@@ -737,6 +739,10 @@ static void mhi_process_cmd_completion(struct mhi_controller *mhi_cntrl,
 
 	cmd_pkt = mhi_to_virtual(mhi_ring, ptr);
 
+	if (cmd_pkt != mhi_ring->rp)
+		panic("Out of order cmd completion: 0x%llx. Expected: 0x%llx\n",
+		      cmd_pkt, mhi_ring->rp);
+
 	if (MHI_TRE_GET_CMD_TYPE(cmd_pkt) == MHI_CMD_SFR_CFG) {
 		mhi_misc_cmd_completion(mhi_cntrl, MHI_CMD_SFR_CFG,
 					MHI_TRE_GET_EV_CODE(tre));
@@ -744,12 +750,17 @@ static void mhi_process_cmd_completion(struct mhi_controller *mhi_cntrl,
 	}
 
 	chan = MHI_TRE_GET_CMD_CHID(cmd_pkt);
+	if (chan >= mhi_cntrl->max_chan) {
+		MHI_ERR("Invalid channel id: %u\n", chan);
+		goto exit_cmd_completion;
+	}
 	mhi_chan = &mhi_cntrl->mhi_chan[chan];
 	write_lock_bh(&mhi_chan->lock);
 	mhi_chan->ccs = MHI_TRE_GET_EV_CODE(tre);
 	complete(&mhi_chan->completion);
 	write_unlock_bh(&mhi_chan->lock);
 
+exit_cmd_completion:
 	mhi_del_ring_element(mhi_cntrl, mhi_ring);
 }
 
