@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -1065,6 +1065,11 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 	/* Remove the headers and send only the response to this function */
 	delete_flag = diag_dci_remove_req_entry(temp, rsp_len, req_entry);
 	if (delete_flag < 0) {
+		mutex_unlock(&driver->dci_mutex);
+		return;
+	}
+
+	if (token != entry->client_info.token) {
 		mutex_unlock(&driver->dci_mutex);
 		return;
 	}
