@@ -488,7 +488,10 @@ static int qrtr_tx_wait(struct qrtr_node *node, struct sockaddr_qrtr *to,
 		flow = kzalloc(sizeof(*flow), GFP_KERNEL);
 		if (flow) {
 			INIT_LIST_HEAD(&flow->waiters);
-			radix_tree_insert(&node->qrtr_tx_flow, key, flow);
+			if (radix_tree_insert(&node->qrtr_tx_flow, key, flow)) {
+				kfree(flow);
+				flow = NULL;
+			}
 		}
 	}
 	mutex_unlock(&node->qrtr_tx_lock);

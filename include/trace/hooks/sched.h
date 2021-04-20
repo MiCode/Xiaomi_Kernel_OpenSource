@@ -204,6 +204,11 @@ DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_can_attach,
 	TP_PROTO(struct cgroup_taskset *tset, int *retval),
 	TP_ARGS(tset, retval), 1);
 
+struct cgroup_subsys_state;
+DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_online,
+	TP_PROTO(struct cgroup_subsys_state *css),
+	TP_ARGS(css), 1);
+
 DECLARE_RESTRICTED_HOOK(android_rvh_sched_fork_init,
 	TP_PROTO(struct task_struct *p),
 	TP_ARGS(p), 1);
@@ -247,8 +252,8 @@ DECLARE_RESTRICTED_HOOK(android_rvh_pick_next_entity,
 	TP_ARGS(cfs_rq, curr, se), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_check_preempt_wakeup,
-	TP_PROTO(struct rq *rq, struct task_struct *p, bool *preempt),
-	TP_ARGS(rq, p, preempt), 1);
+	TP_PROTO(struct rq *rq, struct task_struct *p, bool *preempt, bool *nopreempt),
+	TP_ARGS(rq, p, preempt, nopreempt), 1);
 
 DECLARE_HOOK(android_vh_do_wake_up_sync,
 	TP_PROTO(struct wait_queue_head *wq_head, int *done),
