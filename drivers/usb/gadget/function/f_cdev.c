@@ -871,6 +871,9 @@ static void usb_cser_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_cdev *port = func_to_port(f);
 
+	if (port->is_connected)
+		usb_cser_disable(f);
+
 	/* Reset string id */
 	cser_string_defs[0].id = 0;
 
