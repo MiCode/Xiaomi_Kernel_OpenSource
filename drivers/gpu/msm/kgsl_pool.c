@@ -425,7 +425,7 @@ static gfp_t kgsl_gfp_mask(int page_order)
  */
 static bool kgsl_pool_available(unsigned int page_size)
 {
-	int order = ilog2(page_size >> PAGE_SHIFT);
+	int order = get_order(page_size);
 
 	if (!kgsl_num_pools)
 		return true;
@@ -674,7 +674,7 @@ static int kgsl_of_parse_mempool(struct kgsl_page_pool *pool,
 	if (of_property_read_u32(node, "qcom,mempool-page-size", &size))
 		return -EINVAL;
 
-	order = ilog2(size >> PAGE_SHIFT);
+	order = get_order(size);
 
 	if (order > 8) {
 		pr_err("kgsl: %pOF: pool order %d is too big\n", node, order);
