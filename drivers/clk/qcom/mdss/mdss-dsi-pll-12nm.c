@@ -504,15 +504,14 @@ static struct clk_regmap_mux dsi1pll_gp_div_mux = {
 static struct clk_regmap_div dsi0pll_pclk_src = {
 	.reg = DSIPHY_SSC9,
 	.shift = 0,
-	.width = 6,
+	.width = 3,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "dsi0_phy_pll_out_dsiclk",
 			.parent_names = (const char *[]){
 					"dsi0pll_gp_div_mux"},
 			.num_parents = 1,
-			.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT |
-					CLK_SET_RATE_NO_REPARENT),
+			.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
 			.ops = &clk_regmap_div_ops,
 		},
 	},
@@ -521,15 +520,14 @@ static struct clk_regmap_div dsi0pll_pclk_src = {
 static struct clk_regmap_div dsi1pll_pclk_src = {
 	.reg = DSIPHY_SSC9,
 	.shift = 0,
-	.width = 6,
+	.width = 3,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "dsi1_phy_pll_out_dsiclk",
 			.parent_names = (const char *[]){
 					"dsi1pll_gp_div_mux"},
 			.num_parents = 1,
-			.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT |
-					CLK_SET_RATE_NO_REPARENT),
+			.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
 			.ops = &clk_regmap_div_ops,
 		},
 	},
@@ -542,8 +540,7 @@ static struct clk_fixed_factor dsi0pll_byte_clk_src = {
 		.name = "dsi0_phy_pll_out_byteclk",
 		.parent_names = (const char *[]){"dsi0pll_post_div_mux"},
 		.num_parents = 1,
-		.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT |
-				CLK_SET_RATE_NO_REPARENT),
+		.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
 		.ops = &clk_fixed_factor_ops,
 	},
 };
@@ -555,8 +552,7 @@ static struct clk_fixed_factor dsi1pll_byte_clk_src = {
 		.name = "dsi1_phy_pll_out_byteclk",
 		.parent_names = (const char *[]){"dsi1pll_post_div_mux"},
 		.num_parents = 1,
-		.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT |
-				CLK_SET_RATE_NO_REPARENT),
+		.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
 		.ops = &clk_fixed_factor_ops,
 	},
 };
