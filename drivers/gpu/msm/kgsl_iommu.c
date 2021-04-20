@@ -829,7 +829,8 @@ static void kgsl_iommu_print_fault(struct kgsl_mmu *mmu,
 	}
 
 	trace_kgsl_mmu_pagefault(device, addr,
-			ptname, comm, (flags & IOMMU_WRITE) ? "write" : "read");
+			ptname, comm,
+			(flags & IOMMU_FAULT_WRITE) ? "write" : "read");
 
 	if (flags & IOMMU_FAULT_TRANSLATION)
 		fault_type = "translation";
@@ -855,7 +856,7 @@ static void kgsl_iommu_print_fault(struct kgsl_mmu *mmu,
 	dev_crit(device->dev,
 		"context=%s TTBR0=0x%llx (%s %s fault)\n",
 		ctxt->name, ptbase,
-		(flags & IOMMU_WRITE) ? "write" : "read", fault_type);
+		(flags & IOMMU_FAULT_WRITE) ? "write" : "read", fault_type);
 
 	if (gpudev->iommu_fault_block) {
 		u32 fsynr1 = KGSL_IOMMU_GET_CTX_REG(ctxt,
