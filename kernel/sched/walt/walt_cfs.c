@@ -242,7 +242,7 @@ static void walt_find_best_target(struct sched_domain *sd,
 			 * accounting. However, the blocked utilization may be zero.
 			 */
 			wake_util = cpu_util_without(i, p);
-			new_util = wake_util + uclamp_task_util(p);
+			new_util = wake_util + min_util;
 			spare_wake_cap = capacity_orig - wake_util;
 
 			if (spare_wake_cap > most_spare_wake_cap) {
@@ -262,13 +262,6 @@ static void walt_find_best_target(struct sched_domain *sd,
 			new_util = max(min_util, new_util);
 			if (new_util > capacity_orig)
 				continue;
-
-			/*
-			 * Pre-compute the maximum possible capacity we expect
-			 * to have available on this CPU once the task is
-			 * enqueued here.
-			 */
-			spare_cap = capacity_orig - new_util;
 
 			/*
 			 * Find an optimal backup IDLE CPU for non latency
@@ -312,6 +305,13 @@ static void walt_find_best_target(struct sched_domain *sd,
 				best_idle_cpu = i;
 				continue;
 			}
+
+			/*
+			 * Compute the maximum possible capacity we expect
+			 * to have available on this CPU once the task is
+			 * enqueued here.
+			 */
+			spare_cap = capacity_orig - new_util;
 
 			/*
 			 * Try to spread the rtg high prio tasks so that they
