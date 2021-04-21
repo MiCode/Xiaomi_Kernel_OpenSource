@@ -189,7 +189,7 @@ static ssize_t bootkpi_writer(struct kobject *obj, struct kobj_attribute *attr,
 	if (count >= MAX_STRING_LEN)
 		return -EINVAL;
 
-	rc = scnprintf(buf, count, "%s", user_buffer);
+	rc = scnprintf(buf, sizeof(buf) - 1, "%s", user_buffer);
 	if (rc < 0)
 		return rc;
 
