@@ -2062,7 +2062,9 @@ static void context_notify_user(struct smq_invoke_ctx *ctx,
 		ctx->is_work_done = true;
 		if (ctx->asyncjob.isasyncjob)
 			fastrpc_queue_completed_async_job(ctx);
+		trace_fastrpc_msg("wakeup_task: begin");
 		complete(&ctx->work);
+		trace_fastrpc_msg("wakeup_task: end");
 		break;
 	case USER_EARLY_SIGNAL:
 		/* user hint of approximate time of completion */
@@ -2073,8 +2075,11 @@ static void context_notify_user(struct smq_invoke_ctx *ctx,
 		/* rpc framework early response with return value */
 		if (ctx->asyncjob.isasyncjob)
 			fastrpc_queue_completed_async_job(ctx);
-		else
+		else {
+			trace_fastrpc_msg("wakeup_task: begin");
 			complete(&ctx->work);
+			trace_fastrpc_msg("wakeup_task: end");
+		}
 		break;
 	default:
 		break;
@@ -3036,7 +3041,9 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		}
 	}
 
+	trace_fastrpc_msg("context_alloc: begin");
 	VERIFY(err, 0 == (err = context_alloc(fl, kernel, inv, &ctx)));
+	trace_fastrpc_msg("context_alloc: end");
 	if (err)
 		goto bail;
 	isasyncinvoke = (ctx->asyncjob.isasyncjob ? true : false);
@@ -3045,17 +3052,20 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_GETARGS),
 	VERIFY(err, 0 == (err = get_args(kernel, ctx)));
 	PERF_END);
+	trace_fastrpc_msg("get_args: end");
 	if (err)
 		goto bail;
 
 	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
 	inv_args(ctx);
 	PERF_END);
+	trace_fastrpc_msg("inv_args_1: end");
 
 	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_LINK),
 	VERIFY(err, 0 == (err = fastrpc_invoke_send(ctx,
 		kernel, invoke->handle)));
 	PERF_END);
+	trace_fastrpc_msg("invoke_send: end");
 
 	if (err)
 		goto bail;
@@ -3063,6 +3073,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		goto invoke_end;
  wait:
 	fastrpc_wait_for_completion(ctx, &interrupted, kernel, 0, &isworkdone);
+	trace_fastrpc_msg("wait_for_completion: end");
 	VERIFY(err, 0 == (err = interrupted));
 	if (err)
 		goto bail;
@@ -3078,10 +3089,12 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
 	inv_args(ctx);
 	PERF_END);
+	trace_fastrpc_msg("inv_args_2: end");
 
 	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_PUTARGS),
 	VERIFY(err, 0 == (err = put_args(kernel, ctx, invoke->pra)));
 	PERF_END);
+	trace_fastrpc_msg("put_args: end");
 	if (err)
 		goto bail;
 
@@ -3108,6 +3121,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 				ctx->perf, M_KERNEL_PERF_LIST*sizeof(uint64_t));
 		}
 		context_free(ctx);
+		trace_fastrpc_msg("context_free: end");
 	}
 	if (fl->ssrcount != fl->apps->channel[cid].ssrcount)
 		err = -ECONNRESET;
@@ -4884,6 +4898,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	unsigned long irq_flags = 0;
 	int64_t ns = 0;
 
+	trace_fastrpc_msg("rpmsg_callback: begin");
 	cid = get_cid_from_rpdev(rpdev);
 	VERIFY(err, (cid >= ADSP_DOMAIN_ID && cid <= NUM_CHANNELS));
 	if (err) {
@@ -4949,6 +4964,7 @@ bail:
 			me->duplicate_rsp_err_cnt++;
 	}
 
+	trace_fastrpc_msg("rpmsg_callback: end");
 	return err;
 }
 
@@ -5969,6 +5985,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	case FASTRPC_IOCTL_INVOKE_PERF:
 		if (!size)
 			size = sizeof(struct fastrpc_ioctl_invoke_perf);
+		trace_fastrpc_msg("ioctl invoke: begin");
 		K_COPY_FROM_USER(err, 0, &p.inv, param, size);
 		if (err) {
 			err = -EFAULT;
@@ -5976,6 +5993,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		}
 		VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl, fl->mode,
 						USER_MSG, &p.inv)));
+		trace_fastrpc_msg("ioctl invoke: end");
 		if (err)
 			goto bail;
 		break;

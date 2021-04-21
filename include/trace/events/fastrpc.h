@@ -359,6 +359,16 @@ TRACE_EVENT(fastrpc_perf_counters,
 		__entry->invoke, __entry->tid)
 );
 
+TRACE_EVENT(fastrpc_msg,
+	TP_PROTO(const char *message),
+	TP_ARGS(message),
+	TP_STRUCT__entry(__string(buf, message)),
+	TP_fast_assign(
+		__assign_str(buf, message);
+	),
+	TP_printk(" %s", __get_str(buf))
+);
+
 #endif
 
 /* This part must be outside protection */
