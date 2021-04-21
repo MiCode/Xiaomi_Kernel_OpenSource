@@ -1948,10 +1948,7 @@ static int register_extcon_conn_type(struct battery_chg_dev *bcdev)
 		return rc;
 	}
 
-	if (pst->prop[USB_CONNECTOR_TYPE] != USB_CONNECTOR_TYPE_MICRO_USB)
-		return 0;
-
-	bcdev->connector_type = USB_CONNECTOR_TYPE_MICRO_USB;
+	bcdev->connector_type = pst->prop[USB_CONNECTOR_TYPE];
 	bcdev->usb_prev_mode = EXTCON_NONE;
 
 	bcdev->extcon = devm_extcon_dev_allocate(bcdev->dev,
@@ -1973,6 +1970,9 @@ static int register_extcon_conn_type(struct battery_chg_dev *bcdev)
 					     EXTCON_USB_HOST, EXTCON_PROP_USB_SS);
 	if (rc < 0)
 		pr_err("failed to configure extcon capabilities rc=%d\n", rc);
+	else
+		pr_debug("Registered extcon, connector_type %s\n",
+			 bcdev->connector_type ? "uusb" : "Typec");
 
 	return rc;
 }
