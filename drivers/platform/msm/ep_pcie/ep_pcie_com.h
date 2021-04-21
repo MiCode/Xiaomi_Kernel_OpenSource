@@ -403,6 +403,7 @@ struct ep_pcie_dev_t {
 	bool                         client_ready;
 	atomic_t		     ep_pcie_dev_wake;
 	atomic_t                     perst_deast;
+	int                          perst_irq;
 	atomic_t                     host_wake_pending;
 	bool			     conf_ipa_msi_iatu;
 
