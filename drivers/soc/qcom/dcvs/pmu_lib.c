@@ -118,6 +118,7 @@ static int __qcom_pmu_read(int cpu, u32 event_id, u64 *pmu_data, bool local)
 	struct cpu_data *cpu_data;
 	struct event_data *event;
 	int i;
+	unsigned long flags;
 
 	if (!qcom_pmu_inited)
 		return -ENODEV;
@@ -134,14 +135,14 @@ static int __qcom_pmu_read(int cpu, u32 event_id, u64 *pmu_data, bool local)
 	if (i == cpu_data->num_evs)
 		return -ENOENT;
 
-	spin_lock(&cpu_data->read_lock);
+	spin_lock_irqsave(&cpu_data->read_lock, flags);
 	if (cpu_data->is_hp || cpu_data->is_idle) {
-		spin_unlock(&cpu_data->read_lock);
+		spin_unlock_irqrestore(&cpu_data->read_lock, flags);
 		*pmu_data = event->cached_count;
 		return 0;
 	}
 	atomic_inc(&cpu_data->read_cnt);
-	spin_unlock(&cpu_data->read_lock);
+	spin_unlock_irqrestore(&cpu_data->read_lock, flags);
 	*pmu_data = read_event(event, local);
 	atomic_dec(&cpu_data->read_cnt);
 
@@ -154,6 +155,7 @@ int __qcom_pmu_read_all(int cpu, struct qcom_pmu_data *data, bool local)
 	struct event_data *event;
 	int i, cnt = 0;
 	bool use_cache = false;
+	unsigned long flags;
 
 	if (!qcom_pmu_inited)
 		return -ENODEV;
@@ -162,12 +164,12 @@ int __qcom_pmu_read_all(int cpu, struct qcom_pmu_data *data, bool local)
 		return -EINVAL;
 
 	cpu_data = per_cpu(cpu_ev_data, cpu);
-	spin_lock(&cpu_data->read_lock);
+	spin_lock_irqsave(&cpu_data->read_lock, flags);
 	if (cpu_data->is_hp || cpu_data->is_idle)
 		use_cache = true;
 	else
 		atomic_inc(&cpu_data->read_cnt);
-	spin_unlock(&cpu_data->read_lock);
+	spin_unlock_irqrestore(&cpu_data->read_lock, flags);
 
 	for (i = 0; i < cpu_data->num_evs; i++) {
 		event = &cpu_data->events[i];
@@ -285,15 +287,16 @@ static void qcom_pmu_idle_notif(void *unused, int event, int state, int cpu)
 	struct event_data *ev;
 	struct qcom_pmu_notif_node *idle_node;
 	int i, cnt = 0;
+	unsigned long flags;
 
-	spin_lock(&cpu_data->read_lock);
+	spin_lock_irqsave(&cpu_data->read_lock, flags);
 	if (cpu_data->is_idle || cpu_data->is_hp) {
-		spin_unlock(&cpu_data->read_lock);
+		spin_unlock_irqrestore(&cpu_data->read_lock, flags);
 		return;
 	}
 	cpu_data->is_idle = true;
 	atomic_inc(&cpu_data->read_cnt);
-	spin_unlock(&cpu_data->read_lock);
+	spin_unlock_irqrestore(&cpu_data->read_lock, flags);
 	for (i = 0; i < cpu_data->num_evs; i++) {
 		ev = &cpu_data->events[i];
 		if (!ev->event_id || !ev->pevent)
@@ -317,6 +320,7 @@ static int qcom_pmu_hotplug_coming_up(unsigned int cpu)
 	struct perf_event_attr *attr = alloc_attr();
 	struct cpu_data *cpu_data = per_cpu(cpu_ev_data, cpu);
 	int i, ret = 0;
+	unsigned long flags;
 
 	if (!attr)
 		return -ENOMEM;
@@ -332,9 +336,9 @@ static int qcom_pmu_hotplug_coming_up(unsigned int cpu)
 			break;
 		}
 	}
-	spin_lock(&cpu_data->read_lock);
+	spin_lock_irqsave(&cpu_data->read_lock, flags);
 	cpu_data->is_hp = false;
-	spin_unlock(&cpu_data->read_lock);
+	spin_unlock_irqrestore(&cpu_data->read_lock, flags);
 
 out:
 	kfree(attr);
@@ -346,13 +350,14 @@ static int qcom_pmu_hotplug_going_down(unsigned int cpu)
 	struct cpu_data *cpu_data = per_cpu(cpu_ev_data, cpu);
 	struct event_data *event;
 	int i;
+	unsigned long flags;
 
 	if (!qcom_pmu_inited)
 		return 0;
 
-	spin_lock(&cpu_data->read_lock);
+	spin_lock_irqsave(&cpu_data->read_lock, flags);
 	cpu_data->is_hp = true;
-	spin_unlock(&cpu_data->read_lock);
+	spin_unlock_irqrestore(&cpu_data->read_lock, flags);
 	while (atomic_read(&cpu_data->read_cnt) > 0)
 		udelay(10);
 	for (i = 0; i < cpu_data->num_evs; i++) {
@@ -505,16 +510,17 @@ static int qcom_pmu_driver_remove(struct platform_device *pdev)
 	struct cpu_data *cpu_data;
 	struct event_data *event;
 	int cpu, i;
+	unsigned long flags;
 
 	qcom_pmu_inited = false;
 	cpuhp_remove_state_nocalls(CPUHP_AP_ONLINE_DYN);
 	unregister_trace_android_vh_cpu_idle(qcom_pmu_idle_notif, NULL);
 	for_each_possible_cpu(cpu) {
 		cpu_data = per_cpu(cpu_ev_data, cpu);
-		spin_lock(&cpu_data->read_lock);
+		spin_lock_irqsave(&cpu_data->read_lock, flags);
 		cpu_data->is_hp = true;
 		cpu_data->is_idle = true;
-		spin_unlock(&cpu_data->read_lock);
+		spin_unlock_irqrestore(&cpu_data->read_lock, flags);
 	}
 
 	for_each_possible_cpu(cpu) {
