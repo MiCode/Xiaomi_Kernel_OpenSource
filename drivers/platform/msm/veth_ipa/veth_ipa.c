@@ -54,6 +54,8 @@
 
 #define PAGE_SIZE_1 4096
 
+MODULE_LICENSE("GPL v2");
+
 static int veth_ipa_open(struct net_device *net);
 static void veth_ipa_packet_receive_notify
 	(void *priv, enum ipa_dp_evt_type evt, unsigned long data);
@@ -305,6 +307,7 @@ int veth_ipa_offload_disconnect(struct veth_ipa_dev *pdata)
 
 	return 0;
 }
+
 
 /**
  * veth_set_ul_dl_smmu_ipa_params() - This will set the UL

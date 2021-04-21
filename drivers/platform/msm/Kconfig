@@ -98,6 +98,7 @@ config IPA_WDI_UNIFIED_API
 
 config VETH_IPA
         tristate "VETH_IPA Network Interface Driver Support"
+        depends on MSM_HAB
         help
           Enables EMAC Ethernet Front end driver.
           Register net device and configure VETH0 iface. This driver will

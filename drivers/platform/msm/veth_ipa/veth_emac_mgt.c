@@ -32,6 +32,8 @@
 
 #define NO_FLAGS 0x0
 
+MODULE_LICENSE("GPL v2");
+
 /** veth_alloc_emac_export_mem() - Called when allocating the
  *  exported memory to the BE driver.
  *  @veth_emac_mem: Consists of all the export memory and
@@ -889,3 +891,4 @@ int veth_emac_open_notify(struct veth_emac_export_mem *veth_emac_mem,
 	}
 	return 0;
 }
+
