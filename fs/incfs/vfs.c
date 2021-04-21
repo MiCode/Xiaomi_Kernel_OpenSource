@@ -899,6 +899,8 @@ static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg)
 		return incfs_ioctl_get_flags(f, (void __user *) arg);
 	case FS_IOC_MEASURE_VERITY:
 		return incfs_ioctl_measure_verity(f, (void __user *)arg);
+	case FS_IOC_READ_VERITY_METADATA:
+		return incfs_ioctl_read_verity_metadata(f, (void __user *)arg);
 	default:
 		return -EINVAL;
 	}
@@ -918,6 +920,7 @@ static long incfs_compat_ioctl(struct file *file, unsigned int cmd,
 	case INCFS_IOC_GET_BLOCK_COUNT:
 	case FS_IOC_ENABLE_VERITY:
 	case FS_IOC_MEASURE_VERITY:
+	case FS_IOC_READ_VERITY_METADATA:
 		break;
 	default:
 		return -ENOIOCTLCMD;
@@ -1615,18 +1618,29 @@ static int incfs_getattr(struct user_namespace *ns, const struct path *path,
 {
 	struct inode *inode = d_inode(path->dentry);
 
+	generic_fillattr(ns, inode, stat);
+
+	stat->attributes &= ~STATX_ATTR_VERITY;
 	if (IS_VERITY(inode))
 		stat->attributes |= STATX_ATTR_VERITY;
 	stat->attributes_mask |= STATX_ATTR_VERITY;
-	generic_fillattr(ns, inode, stat);
 
-	/*
-	 * TODO: stat->blocks is wrong at this point. It should be number of
-	 * blocks in the backing file. But that information is not (necessarily)
-	 * available yet - incfs_open_dir_file may not have been called.
-	 * Solution is probably to store the backing file block count in an
-	 * xattr whenever it's changed.
-	 */
+	if (request_mask & STATX_BLOCKS) {
+		struct kstat backing_kstat;
+		struct dentry_info *di = get_incfs_dentry(path->dentry);
+		int error = 0;
+		struct path *backing_path;
+
+		if (!di)
+			return -EFSCORRUPTED;
+		backing_path = &di->backing_path;
+		error = vfs_getattr(backing_path, &backing_kstat, STATX_BLOCKS,
+				    AT_STATX_SYNC_AS_STAT);
+		if (error)
+			return error;
+
+		stat->blocks = backing_kstat.blocks;
+	}
 
 	return 0;
 }
