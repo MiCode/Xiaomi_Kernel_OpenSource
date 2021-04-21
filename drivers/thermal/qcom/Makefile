@@ -9,6 +9,9 @@ qti-adc-tm-y += adc-tm.o adc-tm-common.o adc-tm5.o adc-tm7.o
 obj-$(CONFIG_QTI_QMI_SENSOR) += qti_qmi_sensor.o
 qti_qmi_sensor-y += thermal_sensor_service_v01.o qmi_sensors.o
 
+obj-$(CONFIG_QTI_QMI_SENSOR_V2) += qti_qmi_sensor_v2.o
+qti_qmi_sensor_v2-y += thermal_sensor_service_v02.o qmi_sensors_v2.o
+
 obj-$(CONFIG_QTI_QMI_COOLING_DEVICE) += qti_qmi_cdev.o
 qti_qmi_cdev-y += thermal_mitigation_device_service_v01.o qmi_cooling.o
 

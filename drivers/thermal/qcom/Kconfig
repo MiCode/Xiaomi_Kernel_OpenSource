@@ -40,6 +40,16 @@ config QTI_QMI_SENSOR
 	   These sensors can take thresholds and notify the thermal
 	   framework when the threshold is reached.
 
+config QTI_QMI_SENSOR_V2
+	tristate "QTI QMI TS V2 sensor driver"
+	depends on QCOM_QMI_HELPERS && THERMAL_OF
+	depends on !QTI_QMI_SENSOR
+	help
+	   This enables to list the QTI remote subsystem temperature sensors
+	   with QMI TS V2 interface. This driver can read the temperature of
+	   the remote sensor. These sensors can take thresholds and notify the
+	   thermal framework when the threshold is reached.
+
 config QTI_BCL_PMIC5
 	tristate "BCL driver for BCL peripherals in PMIC5"
 	depends on SPMI && THERMAL
