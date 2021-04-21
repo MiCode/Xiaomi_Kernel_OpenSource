@@ -304,6 +304,8 @@ int btfm_slim_hw_init(struct btfmslim *btfmslim)
 
 	if (chipset_ver == QCA_HSP_SOC_ID_0100 ||
 		chipset_ver == QCA_HSP_SOC_ID_0110 ||
+		chipset_ver == QCA_HSP_SOC_ID_0210 ||
+		chipset_ver == QCA_HSP_SOC_ID_1211 ||
 		chipset_ver == QCA_HSP_SOC_ID_0200) {
 		BTFMSLIM_INFO("chipset is hastings prime, overwriting EA");
 		slim->is_laddr_valid = false;
