@@ -17,71 +17,16 @@
 #include <linux/suspend.h>
 
 #include "thermal_sensor_service_v01.h"
+#include "qmi_sensors.h"
 
 #define QMI_SENS_DRIVER		"qmi-therm-sensors"
 #define QMI_TS_RESP_TOUT	msecs_to_jiffies(100)
-#define QMI_CLIENT_NAME_LENGTH	40
 #define QMI_FL_SIGN		0x80000000
 #define QMI_FL_EXP		0x7f800000
 #define QMI_FL_MANTISSA		0x007fffff
 #define QMI_FL_NORM		0x00800000
 #define QMI_FL_SIGN_BIT		31
 #define QMI_MANTISSA_MSB	23
-
-enum qmi_ts_sensor {
-	QMI_TS_PA,
-	QMI_TS_PA_1,
-	QMI_TS_PA_2,
-	QMI_TS_QFE_PA_0,
-	QMI_TS_QFE_WTR_0,
-	QMI_TS_MODEM_MODEM,
-	QMI_TS_MMW_0,
-	QMI_TS_MMW_1,
-	QMI_TS_MMW_2,
-	QMI_TS_MMW_3,
-	QMI_TS_MODEM_SKIN,
-	QMI_TS_QFE_PA_MDM,
-	QMI_TS_QFE_PA_WTR,
-	QMI_TS_STREAMER_0,
-	QMI_TS_MOD_MMW_0,
-	QMI_TS_MOD_MMW_1,
-	QMI_TS_MOD_MMW_2,
-	QMI_TS_MOD_MMW_3,
-	QMI_TS_RET_PA_0,
-	QMI_TS_WTR_PA_0,
-	QMI_TS_WTR_PA_1,
-	QMI_TS_WTR_PA_2,
-	QMI_TS_WTR_PA_3,
-	QMI_SYS_THERM1,
-	QMI_SYS_THERM2,
-	QMI_TS_TSENS_1,
-	QMI_TS_MMW_PA1,
-	QMI_TS_MMW_PA2,
-	QMI_TS_MMW_PA3,
-	QMI_TS_SDR_MMW,
-	QMI_TS_QTM_THERM,
-	QMI_TS_BCL_WARN,
-	QMI_TS_SDR0_PA0,
-	QMI_TS_SDR0_PA1,
-	QMI_TS_SDR0_PA2,
-	QMI_TS_SDR0_PA3,
-	QMI_TS_SDR0_PA4,
-	QMI_TS_SDR0_PA5,
-	QMI_TS_SDR0,
-	QMI_TS_SDR1_PA0,
-	QMI_TS_SDR1_PA1,
-	QMI_TS_SDR1_PA2,
-	QMI_TS_SDR1_PA3,
-	QMI_TS_SDR1_PA4,
-	QMI_TS_SDR1_PA5,
-	QMI_TS_SDR1,
-	QMI_TS_MMW0,
-	QMI_TS_MMW1,
-	QMI_TS_MMW2,
-	QMI_TS_MMW3,
-	QMI_TS_MMW_IFIC0,
-	QMI_TS_MAX_NR
-};
 
 struct qmi_sensor {
 	struct device			*dev;
@@ -109,60 +54,6 @@ struct qmi_ts_instance {
 static struct qmi_ts_instance *ts_instances;
 static int ts_inst_cnt;
 static atomic_t in_suspend;
-
-static char sensor_clients[QMI_TS_MAX_NR][QMI_CLIENT_NAME_LENGTH] = {
-	{"pa"},
-	{"pa_1"},
-	{"pa_2"},
-	{"qfe_pa0"},
-	{"qfe_wtr0"},
-	{"modem_tsens"},
-	{"qfe_mmw0"},
-	{"qfe_mmw1"},
-	{"qfe_mmw2"},
-	{"qfe_mmw3"},
-	{"xo_therm"},
-	{"qfe_pa_mdm"},
-	{"qfe_pa_wtr"},
-	{"qfe_mmw_streamer0"},
-	{"qfe_mmw0_mod"},
-	{"qfe_mmw1_mod"},
-	{"qfe_mmw2_mod"},
-	{"qfe_mmw3_mod"},
-	{"qfe_ret_pa0"},
-	{"qfe_wtr_pa0"},
-	{"qfe_wtr_pa1"},
-	{"qfe_wtr_pa2"},
-	{"qfe_wtr_pa3"},
-	{"sys_therm1"},
-	{"sys_therm2"},
-	{"modem_tsens1"},
-	{"mmw_pa1"},
-	{"mmw_pa2"},
-	{"mmw_pa3"},
-	{"sdr_mmw_therm"},
-	{"qtm_therm"},
-	{"modem_bcl_warn"},
-	{"sdr0_pa0"},
-	{"sdr0_pa1"},
-	{"sdr0_pa2"},
-	{"sdr0_pa3"},
-	{"sdr0_pa4"},
-	{"sdr0_pa5"},
-	{"sdr0"},
-	{"sdr1_pa0"},
-	{"sdr1_pa1"},
-	{"sdr1_pa2"},
-	{"sdr1_pa3"},
-	{"sdr1_pa4"},
-	{"sdr1_pa5"},
-	{"sdr1"},
-	{"mmw0"},
-	{"mmw1"},
-	{"mmw2"},
-	{"mmw3"},
-	{"mmw_ific0"},
-};
 
 static int32_t encode_qmi(int32_t val)
 {
