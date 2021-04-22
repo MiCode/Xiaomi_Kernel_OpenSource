@@ -359,7 +359,7 @@ int btfm_slim_hw_init(struct btfmslim *btfmslim)
 	 */
 	ret = btfm_slim_get_logical_addr(btfmslim->slim_pgd);
 	if (ret) {
-		BTFMSLIM_ERR("failed to get slimbus %s logical address: %d", ret);
+		BTFMSLIM_ERR("failed to get slimbus logical address: %d", ret);
 		goto error;
 	}
 
@@ -368,7 +368,7 @@ int btfm_slim_hw_init(struct btfmslim *btfmslim)
 	 */
 	ret = btfm_slim_get_logical_addr(&btfmslim->slim_ifd);
 	if (ret) {
-		BTFMSLIM_ERR("failed to get slimbus %s logical address: %d", ret);
+		BTFMSLIM_ERR("failed to get slimbus logical address: %d", ret);
 		goto error;
 	}
 
