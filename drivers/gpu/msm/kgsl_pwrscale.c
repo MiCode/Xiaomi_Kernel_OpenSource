@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/devfreq_cooling.h>
@@ -654,7 +654,8 @@ static int opp_notify(struct notifier_block *nb,
 			min_level = level;
 	}
 
-	pwr->thermal_pwrlevel = max_level;
+	pwr->cooling_thermal_pwrlevel = max_level;
+	pwr->thermal_pwrlevel = max(pwr->cooling_thermal_pwrlevel, pwr->sysfs_thermal_pwrlevel);
 	pwr->thermal_pwrlevel_floor = min_level;
 
 	/* Update the current level using the new limit */
