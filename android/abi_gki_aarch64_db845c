@@ -750,12 +750,14 @@
   match_token
   noop_llseek
   notify_change
+  override_creds
   pagecache_get_page
   path_get
   path_put
   __put_cred
   __put_page
   register_filesystem
+  revert_creds
   set_anon_super
   sget
   simple_getattr
