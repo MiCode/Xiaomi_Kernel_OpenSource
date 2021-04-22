@@ -13,6 +13,7 @@ Required properties:
 	- qcom,bt-reset-gpio: GPIO pin to bring BT Controller out of reset
 
 Optional properties:
+	-	qcom,xo-clk-gpio: GPIO for enabling clock at bootstrap
 	- qcom,bt-vdd-pa-supply: Bluetooth VDD PA regulator handle
 	- qcom,bt-vdd-io-supply: Bluetooth VDD IO regulator handle
 	- qcom,bt-vdd-ldo-supply: Bluetooth VDD LDO regulator handle. Kept under
@@ -43,6 +44,7 @@ Example:
 		qcom,bt-reset-gpio = <&tlmm 81 0>; /* BT_EN */
 		qcom,wl-reset-gpio = <&tlmm 80 0>; /* WL_EN */
 		qcom,bt-sw-ctrl-gpio = <&tlmm 82 0>; /* SW_CTRL */
+		qcom,bt-xo-clk-gpio = <&tlmm 204 0>; /* XO */
 		qcom,bt-vdd-aon-supply = <&S11B>;
 		qcom,bt-vdd-dig-supply = <&S11B>;
 		qcom,bt-vdd-rfa1-supply = <&S1C>;
