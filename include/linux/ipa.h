@@ -1565,6 +1565,18 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
  */
 int ipa_rmnet_ctl_xmit(struct sk_buff *skb);
 
+/*
+ * ipa_rmnet_ll_xmit - Low lat data Tx
+ *
+ * @skb - tx low lat data packet
+ *
+ * Note: This need to be called after client receive rmnet_ll_
+ * ready_cb and want to send TX ll data message.
+ *
+ * This funciton will return 0 on success, -EAGAIN if pipe if full.
+ */
+int ipa_rmnet_ll_xmit(struct sk_buff *skb);
+
 void ipa_free_skb(struct ipa_rx_data *data);
 
 /*
@@ -1748,6 +1760,12 @@ typedef void (*ipa_rmnet_ctl_rx_notify_cb)(void *user_data, void *rx_data);
 int ipa_get_default_aggr_time_limit(enum ipa_client_type client,
 	u32 *default_aggr_time_limit);
 
+typedef void (*ipa_rmnet_ll_ready_cb)(void *user_data);
+
+typedef void (*ipa_rmnet_ll_stop_cb)(void *user_data);
+
+typedef void (*ipa_rmnet_ll_rx_notify_cb)(void *user_data, void *rx_data);
+
 /**
  * ipa_register_ipa_ready_cb() - register a callback to be invoked
  * when IPA core driver initialization is complete.
@@ -1808,6 +1826,45 @@ int ipa_register_rmnet_ctl_cb(
  * -ENXIO is feature is not enabled.
  */
 int ipa_unregister_rmnet_ctl_cb(void);
+
+/**
+ * ipa_register_rmnet_ll_cb() - register callbacks to be invoked
+ * to rmnet_ll for low latency data pipes setup/teardown/rx_notify.
+ *
+ * @ipa_rmnet_ll_ready_cb:  CB to be called when pipes setup.
+ * @user_data1: user_data for ipa_rmnet_ctl_ready_cb.
+ * @ipa_rmnet_ll_stop_cb: CB to be called when pipes teardown.
+ * @user_data2: user_data for ipa_rmnet_ctl_stop_cb.
+ * @ipa_rmnet_ll_rx_notify_cb: CB to be called when receive rx pkts.
+ * @user_data3: user_data for ipa_rmnet_ctl_rx_notify_cb.
+ * @rx_data: RX data buffer.
+ *
+ * Note: This function is expected to be utilized for rmnet_ll
+ * module.
+ *
+ * The function will return 0 on success, -EAGAIN if IPA not ready,
+ * -ENXIO is feature is not enabled, -EEXIST if already called.
+ */
+int ipa_register_rmnet_ll_cb(
+	void (*ipa_rmnet_ll_ready_cb)(void *user_data1),
+	void *user_data1,
+	void (*ipa_rmnet_ll_stop_cb)(void *user_data2),
+	void *user_data2,
+	void (*ipa_rmnet_ll_rx_notify_cb)(void *user_data3, void *rx_data),
+	void *user_data3);
+
+/**
+ * ipa_unregister_rmnet_ll_cb() - unregister callbacks to be
+ * invoked to rmnet_ll for low lat data pipes
+ * setup/teardown/rx_notify.
+ *
+ * Note: This function is expected to be utilized for rmnet_ll
+ * module.
+ *
+ * The function will return 0 on success, -EAGAIN if IPA not ready,
+ * -ENXIO is feature is not enabled.
+ */
+int ipa_unregister_rmnet_ll_cb(void);
 
 int ipa_get_smmu_params(struct ipa_smmu_in_params *in,
 	struct ipa_smmu_out_params *out);
@@ -1939,6 +1996,14 @@ static inline int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
  * QMAP Flow control TX
  */
 static inline int ipa_rmnet_ctl_xmit(struct sk_buff *skb)
+{
+	return -EPERM;
+}
+
+/*
+ * Low Latency data Tx
+ */
+static inline int ipa_rmnet_ll_xmit(struct sk_buff *skb)
 {
 	return -EPERM;
 }
@@ -2136,6 +2201,22 @@ static inline int ipa_uc_reg_rdyCB(
 
 static inline int ipa_get_default_aggr_time_limit(enum ipa_client_type client,
 	u32 *default_aggr_time_limit)
+{
+	return -EPERM;
+}
+
+static inline int ipa_register_rmnet_ll_cb(
+	void (*ipa_rmnet_ll_ready_cb)(void *user_data1),
+	void *user_data1,
+	void (*ipa_rmnet_ll_stop_cb)(void *user_data2),
+	void *user_data2,
+	void (*ipa_rmnet_ll_rx_notify_cb)(void *user_data3, void *rx_data),
+	void *user_data3)
+{
+	return -EPERM;
+}
+
+static inline int ipa_unregister_rmnet_ll_cb(void)
 {
 	return -EPERM;
 }
