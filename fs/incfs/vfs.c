@@ -898,7 +898,7 @@ static int init_new_file(struct mount_info *mi, struct dentry *dentry,
 		.dentry = dentry
 	};
 	new_file = dentry_open(&path, O_RDWR | O_NOATIME | O_LARGEFILE,
-			       current_cred());
+			       mi->mi_owner);
 
 	if (IS_ERR(new_file)) {
 		error = PTR_ERR(new_file);
@@ -1026,7 +1026,7 @@ static int dir_relative_path_resolve(
 	if (dir_fd < 0)
 		return dir_fd;
 
-	dir_f = dentry_open(base_path, O_RDONLY | O_NOATIME, current_cred());
+	dir_f = dentry_open(base_path, O_RDONLY | O_NOATIME, mi->mi_owner);
 
 	if (IS_ERR(dir_f)) {
 		error = PTR_ERR(dir_f);
@@ -1904,13 +1904,10 @@ static int file_open(struct inode *inode, struct file *file)
 	struct file *backing_file = NULL;
 	struct path backing_path = {};
 	int err = 0;
-	const struct cred *old_cred;
 
 	get_incfs_backing_path(file->f_path.dentry, &backing_path);
-	old_cred = override_creds(mi->mi_owner);
-	backing_file = dentry_open(&backing_path,
-			O_RDWR | O_NOATIME | O_LARGEFILE, current_cred());
-	revert_creds(old_cred);
+	backing_file = dentry_open(
+		&backing_path, O_RDWR | O_NOATIME | O_LARGEFILE, mi->mi_owner);
 	path_put(&backing_path);
 
 	if (IS_ERR(backing_file)) {
