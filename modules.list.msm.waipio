@@ -48,7 +48,9 @@ qcom_hwspinlock.ko
 qcom_iommu_util.ko
 qcom_ipcc.ko
 qcom_ipc_logging.ko
+qcom_llcc_pmu.ko
 qcom-pdc.ko
+qcom-pmu-lib.ko
 qcom-reboot-reason.ko
 qcom_rpmh.ko
 qcom-scm.ko
