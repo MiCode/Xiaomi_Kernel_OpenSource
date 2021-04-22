@@ -5,7 +5,6 @@
  */
 
 #include <dt-bindings/interconnect/qcom,epss-l3.h>
-#include <dt-bindings/interconnect/qcom,lahaina.h>
 #include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/interconnect-provider.h>
@@ -39,7 +38,7 @@
 	container_of(_provider, struct qcom_epss_l3_icc_provider, provider)
 
 enum {
-	LAHAINA_MASTER_EPSS_L3_APPS = SLAVE_TCU + 1,
+	LAHAINA_MASTER_EPSS_L3_APPS = 5000,
 	LAHAINA_SLAVE_EPSS_L3_CPU0,
 	LAHAINA_SLAVE_EPSS_L3_CPU1,
 	LAHAINA_SLAVE_EPSS_L3_CPU2,
@@ -127,6 +126,26 @@ static struct qcom_icc_node *lahaina_epss_l3_nodes[] = {
 static struct qcom_icc_desc lahaina_epss_l3 = {
 	.nodes = lahaina_epss_l3_nodes,
 	.num_nodes = ARRAY_SIZE(lahaina_epss_l3_nodes),
+};
+
+DEFINE_QNODE(slv_epss_l3_cpu7_direwolf, LAHAINA_SLAVE_EPSS_L3_CPU7, 1, 2, 3);
+
+static struct qcom_icc_node *direwolf_epss_l3_nodes[] = {
+	[MASTER_EPSS_L3_APPS] = &mas_epss_l3_apps,
+	[SLAVE_EPSS_L3_CPU0] = &slv_epss_l3_cpu0,
+	[SLAVE_EPSS_L3_CPU1] = &slv_epss_l3_cpu1,
+	[SLAVE_EPSS_L3_CPU2] = &slv_epss_l3_cpu2,
+	[SLAVE_EPSS_L3_CPU3] = &slv_epss_l3_cpu3,
+	[SLAVE_EPSS_L3_CPU4] = &slv_epss_l3_cpu4,
+	[SLAVE_EPSS_L3_CPU5] = &slv_epss_l3_cpu5,
+	[SLAVE_EPSS_L3_CPU6] = &slv_epss_l3_cpu6,
+	[SLAVE_EPSS_L3_CPU7] = &slv_epss_l3_cpu7_direwolf,
+	[SLAVE_EPSS_L3_SHARED] = &slv_epss_l3_shared,
+};
+
+static struct qcom_icc_desc direwolf_epss_l3 = {
+	.nodes = direwolf_epss_l3_nodes,
+	.num_nodes = ARRAY_SIZE(direwolf_epss_l3_nodes),
 };
 
 static int qcom_icc_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
@@ -302,6 +321,7 @@ err:
 
 static const struct of_device_id epss_l3_of_match[] = {
 	{ .compatible = "qcom,lahaina-epss-l3-cpu", .data = &lahaina_epss_l3 },
+	{ .compatible = "qcom,direwolf-epss-l3-cpu", .data = &direwolf_epss_l3 },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, epss_l3_of_match);
