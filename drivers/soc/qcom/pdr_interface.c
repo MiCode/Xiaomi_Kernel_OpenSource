@@ -288,6 +288,9 @@ static void pdr_indack_work(struct work_struct *work)
 		/* Ack the indication after clients release the PD resources */
 		pdr_send_indack_msg(pdr, pds, ind->transaction_id);
 
+		pr_info("PDR: Indication ack sent to %s, state: 0x%x, trans-id: %d\n",
+			pds->service_path, pds->state, ind->transaction_id);
+
 		mutex_lock(&pdr->list_lock);
 		list_del(&ind->node);
 		mutex_unlock(&pdr->list_lock);
@@ -448,8 +451,8 @@ static void pdr_notify_lookup_failure(struct pdr_handle *pdr,
 				      struct pdr_service *pds,
 				      int err)
 {
-	pr_err("PDR: service lookup for %s failed: %d\n",
-	       pds->service_name, err);
+	pr_err("PDR: service lookup for %s:%s failed: %d\n",
+		pds->service_path, pds->service_name, err);
 
 	if (err == -ENXIO)
 		return;
