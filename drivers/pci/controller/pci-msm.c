@@ -5471,6 +5471,7 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 	struct msm_pcie_dev_t *dev = data;
 	unsigned long irqsave_flags;
 	u32 status = 0;
+	irqreturn_t ret = IRQ_HANDLED;
 
 	spin_lock_irqsave(&dev->irq_lock, irqsave_flags);
 
@@ -5478,8 +5479,7 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 		PCIE_DBG2(dev,
 			"PCIe: RC%d is currently suspending.\n",
 			dev->rc_idx);
-		spin_unlock_irqrestore(&dev->irq_lock, irqsave_flags);
-		return IRQ_HANDLED;
+		goto done;
 	}
 
 	status = readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_STATUS) &
@@ -5507,13 +5507,13 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 				PCIE_DBG(dev,
 					"PCIe: RC%d: AER legacy event.\n",
 					dev->rc_idx);
-				handle_aer_irq(irq, data);
+				ret = IRQ_WAKE_THREAD;
 				break;
 			case MSM_PCIE_INT_EVT_AER_ERR:
 				PCIE_DBG(dev,
 					"PCIe: RC%d: AER event.\n",
 					dev->rc_idx);
-				handle_aer_irq(irq, data);
+				ret = IRQ_WAKE_THREAD;
 				break;
 			default:
 				PCIE_DUMP(dev,
@@ -5523,9 +5523,10 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 		}
 	}
 
+done:
 	spin_unlock_irqrestore(&dev->irq_lock, irqsave_flags);
 
-	return IRQ_HANDLED;
+	return ret;
 }
 
 static int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
@@ -5544,10 +5545,11 @@ static int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 	}
 
 	if (dev->irq[MSM_PCIE_INT_GLOBAL_INT].num) {
-		rc = devm_request_irq(pdev,
+		rc = devm_request_threaded_irq(pdev,
 				dev->irq[MSM_PCIE_INT_GLOBAL_INT].num,
 				handle_global_irq,
-				IRQF_TRIGGER_RISING,
+				handle_aer_irq,
+				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
 				dev->irq[MSM_PCIE_INT_GLOBAL_INT].name,
 				dev);
 		if (rc) {
