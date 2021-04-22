@@ -1804,6 +1804,7 @@
   __pm_runtime_use_autosuspend
   __pm_stay_awake
   pm_stay_awake
+  pm_system_cancel_wakeup
   pm_system_wakeup
   pm_wakeup_dev_event
   pm_wakeup_ws_event
