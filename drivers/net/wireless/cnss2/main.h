@@ -43,6 +43,8 @@
 #define CNSS_RAMDUMP_VERSION		0
 #define MAX_FIRMWARE_NAME_LEN		40
 #define FW_V2_NUMBER                    2
+#define POWER_ON_RETRY_MAX_TIMES        3
+#define POWER_ON_RETRY_DELAY_MS         200
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
