@@ -83,11 +83,23 @@ enum cnss_driver_status {
 	CNSS_RECOVERY,
 	CNSS_FW_DOWN,
 	CNSS_HANG_EVENT,
+	CNSS_BUS_EVENT,
+};
+
+enum cnss_bus_event_type {
+	BUS_EVENT_PCI_LINK_DOWN = 0,
+
+	BUS_EVENT_INVALID = 0xFFFF,
 };
 
 struct cnss_hang_event {
 	void *hang_event_data;
 	u16 hang_event_data_len;
+};
+
+struct cnss_bus_event {
+	enum cnss_bus_event_type etype;
+	void *event_data;
 };
 
 struct cnss_uevent_data {
