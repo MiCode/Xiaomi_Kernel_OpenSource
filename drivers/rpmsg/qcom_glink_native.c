@@ -2014,7 +2014,7 @@ static void qcom_glink_set_affinity(struct qcom_glink *glink, u32 *arr,
 	}
 	if (irq_set_affinity_hint(glink->irq, &cpumask))
 		dev_err(glink->dev, "failed to set irq affinity\n");
-	if (set_cpus_allowed_ptr(current, &cpumask))
+	if (set_cpus_allowed_ptr(glink->task, &cpumask))
 		dev_err(glink->dev, "failed to set task affinity\n");
 }
 

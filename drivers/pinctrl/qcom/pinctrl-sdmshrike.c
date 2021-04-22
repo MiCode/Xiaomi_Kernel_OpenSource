@@ -2046,7 +2046,7 @@ static const struct msm_pingroup sdmshrike_groups[] = {
 	[79] = PINGROUP(79, EAST, NA, GRFC13, NA, NA, NA, NA, NA, NA, NA),
 	[80] = PINGROUP(80, EAST, NA, GRFC14, NA, NA, NA, NA, NA, NA, NA),
 	[81] = PINGROUP(81, EAST, NA, GRFC15, GPS_TX, NAV_PPS, NAV_PPS,
-			qdss_cti, NA, emac_pps, NA),
+			emac_pps, qdss_cti, NA, NA),
 	[82] = PINGROUP(82, EAST, NA, GRFC16, GPS_TX, NAV_PPS, NAV_PPS,
 			mdp_vsync, qdss_cti, NA, NA),
 	[83] = PINGROUP(83, EAST, qup12, qup16, NA, NA, NA, NA, NA, NA, NA),

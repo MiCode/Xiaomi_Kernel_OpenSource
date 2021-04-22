@@ -1217,6 +1217,88 @@ static int adreno_read_speed_bin(struct platform_device *pdev)
 	return val;
 }
 
+static int adreno_read_gpu_model_fuse(struct platform_device *pdev)
+{
+	struct nvmem_cell *cell = nvmem_cell_get(&pdev->dev, "gpu_model");
+	int ret = PTR_ERR_OR_ZERO(cell);
+	void *buf;
+	int val = 0;
+	size_t len;
+
+	if (ret)
+		return ret;
+
+	buf = nvmem_cell_read(cell, &len);
+	nvmem_cell_put(cell);
+
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
+
+	memcpy(&val, buf, min(len, sizeof(val)));
+	kfree(buf);
+
+	return val;
+}
+
+static struct device_node *
+adreno_get_gpu_model_node(struct platform_device *pdev)
+{
+	struct device_node *node, *child;
+	int fuse_model = adreno_read_gpu_model_fuse(pdev);
+
+	if (fuse_model < 0)
+		return NULL;
+
+	node = of_find_node_by_name(pdev->dev.of_node, "qcom,gpu-models");
+	if (node == NULL)
+		return NULL;
+
+	for_each_child_of_node(node, child) {
+		u32 model;
+
+		if (of_property_read_u32(child, "qcom,gpu-model-id", &model))
+			continue;
+
+		if (model == fuse_model) {
+			of_node_put(node);
+			return child;
+		}
+	}
+
+	of_node_put(node);
+
+	return NULL;
+}
+
+static const char *adreno_get_gpu_model(struct kgsl_device *device)
+{
+	struct device_node *node;
+	static char gpu_model[32];
+	const char *model;
+	int ret;
+
+	if (strlen(gpu_model))
+		return gpu_model;
+
+	node = adreno_get_gpu_model_node(device->pdev);
+	if (!node)
+		node = of_node_get(device->pdev->dev.of_node);
+
+	ret = of_property_read_string(node, "qcom,gpu-model", &model);
+	of_node_put(node);
+
+	if (!ret)
+		strlcpy(gpu_model, model, sizeof(gpu_model));
+	else
+		scnprintf(gpu_model, sizeof(gpu_model), "Adreno%d%d%dv%d",
+			ADRENO_CHIPID_CORE(ADRENO_DEVICE(device)->chipid),
+			ADRENO_CHIPID_MAJOR(ADRENO_DEVICE(device)->chipid),
+			ADRENO_CHIPID_MINOR(ADRENO_DEVICE(device)->chipid),
+			ADRENO_CHIPID_PATCH(ADRENO_DEVICE(device)->chipid) + 1);
+
+	return gpu_model;
+}
+
 #if IS_ENABLED(CONFIG_QCOM_LLCC)
 static int adreno_probe_llcc(struct adreno_device *adreno_dev,
 		struct platform_device *pdev)
@@ -2257,6 +2339,17 @@ static int adreno_prop_device_info(struct kgsl_device *device,
 	return copy_prop(param, &devinfo, sizeof(devinfo));
 }
 
+static int adreno_prop_gpu_model(struct kgsl_device *device,
+		struct kgsl_device_getproperty *param)
+{
+	struct kgsl_gpu_model model = {0};
+
+	strlcpy(model.gpu_model, adreno_get_gpu_model(device),
+			sizeof(model.gpu_model));
+
+	return copy_prop(param, &model, sizeof(model));
+}
+
 static int adreno_prop_device_shadow(struct kgsl_device *device,
 		struct kgsl_device_getproperty *param)
 {
@@ -2400,6 +2493,7 @@ static const struct {
 	{ KGSL_PROP_DEVICE_BITNESS, adreno_prop_u32 },
 	{ KGSL_PROP_SPEED_BIN, adreno_prop_u32 },
 	{ KGSL_PROP_GAMING_BIN, adreno_prop_gaming_bin },
+	{ KGSL_PROP_GPU_MODEL, adreno_prop_gpu_model},
 };
 
 static int adreno_getproperty(struct kgsl_device *device,
@@ -2914,7 +3008,13 @@ static void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
 			offsetwords, device->reg_len >> 2))
 		return;
 
-	if (!in_interrupt())
+	/*
+	 * kgsl panic notifier will be called in atomic context to get
+	 * GPU snapshot. Also panic handler will skip snapshot dumping
+	 * incase GPU is in SLUMBER state. So we can safely ignore the
+	 * kgsl_pre_hwaccess().
+	 */
+	if (!device->snapshot_atomic && !in_interrupt())
 		kgsl_pre_hwaccess(device);
 
 	*value = readl_relaxed(device->reg_virt + (offsetwords << 2));
@@ -2938,7 +3038,13 @@ static void adreno_regwrite(struct kgsl_device *device,
 			offsetwords, device->reg_len >> 2))
 		return;
 
-	if (!in_interrupt())
+	/*
+	 * kgsl panic notifier will be called in atomic context to get
+	 * GPU snapshot. Also panic handler will skip snapshot dumping
+	 * incase GPU is in SLUMBER state. So we can safely ignore the
+	 * kgsl_pre_hwaccess().
+	 */
+	if (!device->snapshot_atomic && !in_interrupt())
 		kgsl_pre_hwaccess(device);
 
 	trace_kgsl_regwrite(device, offsetwords, value);
@@ -3608,13 +3714,7 @@ static void adreno_regulator_disable_poll(struct kgsl_device *device)
 static void adreno_gpu_model(struct kgsl_device *device, char *str,
 				size_t bufsz)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
-	snprintf(str, bufsz, "Adreno%d%d%dv%d",
-			ADRENO_CHIPID_CORE(adreno_dev->chipid),
-			 ADRENO_CHIPID_MAJOR(adreno_dev->chipid),
-			 ADRENO_CHIPID_MINOR(adreno_dev->chipid),
-			 ADRENO_CHIPID_PATCH(adreno_dev->chipid) + 1);
+	scnprintf(str, bufsz, adreno_get_gpu_model(device));
 }
 
 static bool adreno_is_hwcg_on(struct kgsl_device *device)

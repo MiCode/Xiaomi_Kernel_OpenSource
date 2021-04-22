@@ -292,13 +292,14 @@ static int virti2c_probe(struct virtio_device *vdev)
 	if (err)
 		goto err_init_vq;
 
+	virtio_device_ready(vdev);
+
+	virtqueue_enable_cb(vi2c->vq);
+
 	err = virti2c_init_hw(vdev, vi2c);
 	if (err)
 		goto err_init_hw;
 
-	virtio_device_ready(vdev);
-
-	virtqueue_enable_cb(vi2c->vq);
 	return 0;
 
 err_init_hw:

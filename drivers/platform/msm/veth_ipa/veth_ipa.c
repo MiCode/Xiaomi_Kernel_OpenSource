@@ -46,8 +46,8 @@
 #define VETH_IPA_IPV4_HDR_NAME  "veth_eth_ipv4"
 #define VETH_IPA_IPV6_HDR_NAME  "veth_eth_ipv6"
 #define INACTIVITY_MSEC_DELAY    100
-#define DEFAULT_OUTSTANDING_HIGH 64
-#define DEFAULT_OUTSTANDING_LOW  32
+#define DEFAULT_OUTSTANDING_HIGH 224
+#define DEFAULT_OUTSTANDING_LOW  192
 #define DEBUGFS_TEMP_BUF_SIZE    4
 #define TX_TIMEOUT              (5 * HZ)
 #define IPA_VETH_IPC_LOG_PAGES   50
@@ -596,7 +596,7 @@ static int veth_map_rx_tx_setup_info_params(
 	}
 
 
-	for (i = 0; i <= rx_setup_info->num_buffers; i++) {
+	for (i = 0; i < rx_setup_info->num_buffers; i++) {
 		rx_setup_info->data_buff_list[i].iova =
 			rx_setup_info->data_buff_list[0].iova +
 			i*VETH_ETH_FRAME_LEN_IPA;
@@ -629,7 +629,7 @@ static int veth_map_rx_tx_setup_info_params(
 		tx_setup_info->data_buff_list[0].iova =
 			veth_emac_mem->tx_buf_mem_iova;
 	}
-	for (i = 0; i <= tx_setup_info->num_buffers; i++) {
+	for (i = 0; i < tx_setup_info->num_buffers; i++) {
 		tx_setup_info->data_buff_list[i].iova =
 			tx_setup_info->data_buff_list[0].iova +
 			i*VETH_ETH_FRAME_LEN_IPA;

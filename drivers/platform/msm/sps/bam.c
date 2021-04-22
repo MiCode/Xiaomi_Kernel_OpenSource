@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  */
 /* Bus-Access-Manager (BAM) Hardware manager. */
 
@@ -1358,8 +1358,13 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 		bam_write_reg_field(base, P_FIFO_SIZES, pipe,
 				    P_DATA_FIFO_SIZE, param->data_size);
 
-		bam_write_reg(base, P_EVNT_DEST_ADDR, pipe, peer_dest_addr);
-
+		if (!(param->dummy_peer)) {
+			bam_write_reg(base, P_EVNT_DEST_ADDR, pipe,
+						peer_dest_addr);
+		} else {
+			bam_write_reg(base, P_EVNT_DEST_ADDR, pipe,
+						param->peer_phys_addr);
+		}
 		SPS_DBG2(dev,
 			"sps:bam=0x%pK(va).pipe=%d.peer_bam=0x%x.peer_pipe=%d\n",
 			dev->base, pipe,

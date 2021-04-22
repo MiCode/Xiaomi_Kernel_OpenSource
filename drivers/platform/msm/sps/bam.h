@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  */
 /* Bus-Access-Manager (BAM) Hardware manager functions API. */
 
@@ -75,6 +75,7 @@ struct bam_pipe_parameters {
 	u32 peer_pipe;
 	phys_addr_t data_base;	/* Physical address of data FIFO */
 	u32 data_size;	/* Size (bytes) of data FIFO */
+	bool dummy_peer;
 };
 
 /**

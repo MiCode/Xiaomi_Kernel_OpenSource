@@ -395,6 +395,7 @@ enum cnss_ce_index {
 
 struct cnss_dms_data {
 	u32 mac_valid;
+	u8 nv_mac_not_prov;
 	u8 mac[QMI_WLFW_MAC_ADDR_SIZE_V01];
 };
 

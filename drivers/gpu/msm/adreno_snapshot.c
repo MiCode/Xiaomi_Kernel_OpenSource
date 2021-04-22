@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include "adreno.h"
@@ -746,7 +746,7 @@ size_t adreno_snapshot_global(struct kgsl_device *device, u8 *buf,
 
 	u8 *ptr = buf + sizeof(*header);
 
-	if (!memdesc || memdesc->size == 0)
+	if (IS_ERR_OR_NULL(memdesc) || memdesc->size == 0)
 		return 0;
 
 	if (remain < (memdesc->size + sizeof(*header))) {
@@ -845,6 +845,9 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 		 (adreno_dev->next_rb != adreno_dev->cur_rb))
 		adreno_snapshot_ringbuffer(device, snapshot,
 			adreno_dev->next_rb);
+
+	if (device->snapshot_atomic)
+		return;
 
 	/* Dump selected global buffers */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,

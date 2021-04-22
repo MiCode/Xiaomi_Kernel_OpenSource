@@ -136,6 +136,7 @@
 #define IPA_IOCTL_ADD_UC_ACT_ENTRY              83
 #define IPA_IOCTL_DEL_UC_ACT_ENTRY              84
 #define IPA_IOCTL_SET_SW_FLT                    85
+#define IPA_IOCTL_GET_HW_FEATURE_SUPPORT        86
 
 /**
  * max size of the header to be inserted
@@ -910,6 +911,17 @@ enum ipa_hw_type {
 #define IPA_HW_v4_11 IPA_HW_v4_11
 #define IPA_HW_v5_0 IPA_HW_v5_0
 #define IPA_HW_v5_1 IPA_HW_v5_1
+
+/**
+ * enum ipa_hw_feature_support - IPA HW supported feature
+ * ETH_BRIDGING_SUPPORT: To check ETH BRIDGING support.
+ * Add here new feature information need to send to userspace
+ */
+enum ipa_hw_feature_support {
+	ETH_BRIDGING_SUPPORT = 0,
+};
+
+#define IPA_HW_ETH_BRIDGING_SUPPORT_BMSK 0x1
 
 /**
  * struct ipa_rule_attrib - attributes of a routing/filtering
@@ -3367,6 +3379,10 @@ struct ipa_ioc_sw_flt_list_type {
 #define IPA_IOC_SET_SW_FLT _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_SET_SW_FLT, \
 				struct ipa_ioc_sw_flt_list_type)
+
+#define IPA_IOC_GET_HW_FEATURE_SUPPORT _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_GET_HW_FEATURE_SUPPORT, \
+				__u32)
 /*
  * unique magic number of the Tethering bridge ioctls
  */

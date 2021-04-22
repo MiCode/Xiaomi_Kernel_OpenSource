@@ -204,6 +204,8 @@ enum sps_option {
 	SPS_O_NO_EP_SYNC = 0x40000000,
 	/* Allow partial polling duing IRQ mode */
 	SPS_O_HYBRID = 0x80000000,
+	/* Allow dummy BAM connection */
+	SPS_O_DUMMY_PEER = 0x00000400,
 };
 
 /**

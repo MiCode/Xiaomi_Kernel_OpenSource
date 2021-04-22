@@ -117,6 +117,8 @@ static void stmmac_exit_fs(struct net_device *dev);
 
 #define STMMAC_COAL_TIMER(x) (jiffies + usecs_to_jiffies(x))
 
+static void stmmac_set_speed100(struct phy_device *phydev);
+
 /**
  * stmmac_verify_args - verify the driver parameters.
  * Description: it checks the driver parameters and set a default in case of
@@ -875,6 +877,31 @@ static void stmmac_validate(struct phylink_config *config,
 		   __ETHTOOL_LINK_MODE_MASK_NBITS);
 	bitmap_andnot(state->advertising, state->advertising, mask,
 		      __ETHTOOL_LINK_MODE_MASK_NBITS);
+
+	/* Early ethernet settings to bring up link in 100M,
+	 * Auto neg Off with full duplex link.
+	 */
+	if (priv->phydev && priv->plat->early_eth && !priv->early_eth_config_set) {
+		priv->phydev->autoneg = AUTONEG_DISABLE;
+		priv->phydev->speed = SPEED_100;
+		priv->phydev->duplex = DUPLEX_FULL;
+		phylink_clear(mac_supported, 1000baseT_Full);
+	bitmap_and(state->advertising, state->advertising, mac_supported,
+		   __ETHTOOL_LINK_MODE_MASK_NBITS);
+	bitmap_andnot(state->advertising, state->advertising, mask,
+		      __ETHTOOL_LINK_MODE_MASK_NBITS);
+
+	pr_info(" qcom-ethqos: %s early eth setting successful\n",
+		__func__);
+
+		stmmac_set_speed100(priv->phydev);
+		/* Validate method will also be called
+		 * when we change speed using ethtool.
+		 * Add check to avoid multiple calls
+		 */
+		priv->early_eth_config_set = 1;
+	}
+
 }
 
 static int stmmac_mac_link_state(struct phylink_config *config,
@@ -970,6 +997,12 @@ static void stmmac_mac_link_up(struct phylink_config *config,
 		priv->eee_enabled = stmmac_eee_init(priv);
 		stmmac_set_eee_pls(priv, priv->hw, true);
 	}
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+	if (phy->link == 1 && !priv->boot_kpi) {
+		place_marker("M - Ethernet is Ready.Link is UP");
+		priv->boot_kpi = true;
+	}
+#endif
 }
 
 static const struct phylink_mac_ops stmmac_phylink_mac_ops = {
@@ -1006,6 +1039,30 @@ static void stmmac_check_pcs_mode(struct stmmac_priv *priv)
 	}
 }
 
+static void stmmac_set_speed100(struct phy_device *phydev)
+{
+	u16 bmcr_val, ctrl1000_val, adv_val;
+
+	/* Disable 1000M mode */
+	ctrl1000_val = phy_read(phydev, MII_CTRL1000);
+	ctrl1000_val &= ~(ADVERTISE_1000HALF | ADVERTISE_1000FULL);
+	phy_write(phydev, MII_CTRL1000, ctrl1000_val);
+
+	/* Disable 100M mode */
+	adv_val = phy_read(phydev, MII_ADVERTISE);
+	adv_val &= ~(ADVERTISE_100HALF);
+	phy_write(phydev, MII_ADVERTISE, adv_val);
+
+	/* Disable autoneg */
+	bmcr_val = phy_read(phydev, MII_BMCR);
+	bmcr_val &= ~(BMCR_ANENABLE);
+	phy_write(phydev, MII_BMCR, bmcr_val);
+
+	bmcr_val = phy_read(phydev, MII_BMCR);
+	bmcr_val |= BMCR_ANRESTART;
+	phy_write(phydev, MII_BMCR, bmcr_val);
+}
+
 /**
  * stmmac_init_phy - PHY initialization
  * @dev: net device structure
@@ -1019,6 +1076,8 @@ static int stmmac_init_phy(struct net_device *dev)
 	struct stmmac_priv *priv = netdev_priv(dev);
 	struct device_node *node;
 	int ret;
+
+	priv->boot_kpi = false;
 
 	node = priv->plat->phylink_node;
 
@@ -1938,6 +1997,11 @@ static int stmmac_tx_clean(struct stmmac_priv *priv, int budget, u32 queue)
 			} else {
 				priv->dev->stats.tx_packets++;
 				priv->xstats.tx_pkt_n++;
+				priv->xstats.q_tx_pkt_n[queue]++;
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+if (priv->dev->stats.tx_packets == 1)
+	place_marker("M - Ethernet first packet transmitted");
+#endif
 			}
 			stmmac_get_tx_hwtstamp(priv, p, skb);
 		}
@@ -3719,6 +3783,10 @@ read_again:
 		napi_gro_receive(&ch->rx_napi, skb);
 
 		priv->dev->stats.rx_packets++;
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+	if (priv->dev->stats.rx_packets == 1)
+		place_marker("M - Ethernet first packet received");
+#endif
 		priv->dev->stats.rx_bytes += len;
 		count++;
 	}
@@ -3733,6 +3801,7 @@ read_again:
 	stmmac_rx_refill(priv, queue);
 
 	priv->xstats.rx_pkt_n += count;
+	priv->xstats.q_rx_pkt_n[queue] += count;
 
 	return count;
 }

@@ -839,10 +839,10 @@ static int bt_disable_asd(void)
 	int i;
 	int num_vregs =  bt_power_pdata->num_vregs;
 	struct bt_power_vreg_data *vreg_info = NULL;
-
+	pr_warn("%s: Checking for ASD regulator\n", __func__);
 	for (i = 0; i < num_vregs; i++) {
 		vreg_info = &bt_power_pdata->vreg_info[i];
-		if (strnstr(vreg_info->name, "bt-vdd-asd", sizeof(vreg_info->name))) {
+		if (strnstr(vreg_info->name, "bt-vdd-asd", strlen(vreg_info->name))) {
 			if (vreg_info->reg) {
 				pr_warn("%s: Disabling ASD regulator\n", __func__);
 				rc = bt_vreg_disable(vreg_info);

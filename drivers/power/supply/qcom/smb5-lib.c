@@ -7958,6 +7958,49 @@ out:
 	chg->jeita_configured = JEITA_CFG_FAILURE;
 }
 
+void smblib_moisture_detection_enable(struct smb_charger *chg, int pval)
+{
+	int rc, input_present, val;
+
+	if (chg->pd_disabled)
+		return;
+
+	smblib_is_input_present(chg, &input_present);
+
+	if (pval) {
+		chg->lpd_disabled = false;
+		pr_debug("Moisture detection enabled\n");
+		if (input_present)
+			schedule_delayed_work(&chg->lpd_ra_open_work,
+					msecs_to_jiffies(300));
+		return;
+	}
+
+	chg->lpd_disabled = true;
+
+	if (!is_client_vote_enabled(chg->usb_icl_votable, LPD_VOTER))
+		goto done;
+
+	cancel_delayed_work_sync(&chg->lpd_ra_open_work);
+
+	alarm_cancel(&chg->lpd_recheck_timer);
+
+	vote(chg->usb_icl_votable, LPD_VOTER, false, 0);
+	/* restore DRP mode */
+	val = QTI_POWER_SUPPLY_TYPEC_PR_DUAL;
+	rc = smblib_set_prop_typec_power_role(chg, val);
+	if (rc < 0) {
+		smblib_err(chg, "Failed to set power-role to DRP rc=%d\n",
+						rc);
+		return;
+	}
+
+	chg->lpd_reason = LPD_NONE;
+	chg->lpd_stage = LPD_STAGE_NONE;
+done:
+	pr_debug("Moisture detection disabled\n");
+}
+
 static void smblib_lpd_ra_open_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
@@ -7965,7 +8008,7 @@ static void smblib_lpd_ra_open_work(struct work_struct *work)
 	u8 stat;
 	int rc, val;
 
-	if (chg->pr_swap_in_progress || chg->pd_hard_reset) {
+	if (chg->pr_swap_in_progress || chg->pd_hard_reset || chg->lpd_disabled) {
 		chg->lpd_stage = LPD_STAGE_NONE;
 		goto out;
 	}

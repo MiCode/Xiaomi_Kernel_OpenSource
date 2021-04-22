@@ -5,12 +5,38 @@
 #define	_DWMAC_QCOM_ETHQOS_H
 
 //#include <linux/msm-bus.h>
+#include <linux/ipc_logging.h>
+
+extern void *ipc_emac_log_ctxt;
+
+#define IPCLOG_STATE_PAGES 50
+#define __FILENAME__ (strrchr(__FILE__, '/') ? \
+		strrchr(__FILE__, '/') + 1 : __FILE__)
+
+#include <linux/inetdevice.h>
+#include <linux/inet.h>
+
+#include <net/addrconf.h>
+#include <net/ipv6.h>
+#include <net/inet_common.h>
+
+#include <linux/uaccess.h>
+
+#define QCOM_ETH_QOS_MAC_ADDR_LEN 6
+#define QCOM_ETH_QOS_MAC_ADDR_STR_LEN 18
 
 #define DRV_NAME "qcom-ethqos"
 #define ETHQOSDBG(fmt, args...) \
 	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 #define ETHQOSERR(fmt, args...) \
-	pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+do {\
+	pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+	if (ipc_emac_log_ctxt) { \
+		ipc_log_string(ipc_emac_log_ctxt, \
+		"%s: %s[%u]:[emac] ERROR:" fmt, __FILENAME__,\
+		__func__, __LINE__, ## args); \
+	} \
+} while (0)
 #define ETHQOSINFO(fmt, args...) \
 	pr_info(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 #define RGMII_IO_MACRO_CONFIG		0x0
@@ -162,6 +188,15 @@ struct qcom_ethqos {
 	int clks_suspended;
 	/* Structure which holds done and wait members */
 	struct completion clk_enable_done;
+	/* early ethernet parameters */
+	struct work_struct early_eth;
+	struct delayed_work ipv4_addr_assign_wq;
+	struct delayed_work ipv6_addr_assign_wq;
+	bool early_eth_enabled;
+	/* Key Performance Indicators */
+	bool print_kpi;
+
+	struct dentry *debugfs_dir;
 };
 
 struct pps_cfg {
@@ -189,6 +224,19 @@ struct ifr_data_struct {
 
 struct pps_info {
 	int channel_no;
+};
+
+struct ip_params {
+	unsigned char mac_addr[QCOM_ETH_QOS_MAC_ADDR_LEN];
+	bool is_valid_mac_addr;
+	char link_speed[32];
+	bool is_valid_link_speed;
+	char ipv4_addr_str[32];
+	struct in_addr ipv4_addr;
+	bool is_valid_ipv4_addr;
+	char ipv6_addr_str[48];
+	struct in6_ifreq ipv6_addr;
+	bool is_valid_ipv6_addr;
 };
 
 int ethqos_init_reqgulators(struct qcom_ethqos *ethqos);

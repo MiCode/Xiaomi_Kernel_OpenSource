@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __DT_BINDINGS_INTERCONNECT_QCOM_YUPIK_H
@@ -58,6 +58,7 @@
 #define MASTER_SDCC_4				49
 #define MASTER_UFS_MEM				50
 #define MASTER_USB3_0				51
+#define MASTER_GIC_1				52
 #define SLAVE_EBI1				512
 #define SLAVE_AHB2PHY_SOUTH				513
 #define SLAVE_AHB2PHY_NORTH				514
