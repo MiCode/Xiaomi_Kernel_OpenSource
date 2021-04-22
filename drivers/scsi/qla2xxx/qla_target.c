@@ -596,7 +596,8 @@ static void qla2x00_async_nack_sp_done(srb_t *sp, int res)
 			spin_lock_irqsave(&vha->hw->tgt.sess_lock, flags);
 		} else {
 			sp->fcport->login_retry = 0;
-			sp->fcport->disc_state = DSC_LOGIN_COMPLETE;
+			qla2x00_set_fcport_disc_state(sp->fcport,
+			    DSC_LOGIN_COMPLETE);
 			sp->fcport->deleted = 0;
 			sp->fcport->logout_on_delete = 1;
 		}
@@ -1056,7 +1057,7 @@ void qlt_free_session_done(struct work_struct *work)
 			tgt->sess_count--;
 	}
 
-	sess->disc_state = DSC_DELETED;
+	qla2x00_set_fcport_disc_state(sess, DSC_DELETED);
 	sess->fw_login_state = DSC_LS_PORT_UNAVAIL;
 	sess->deleted = QLA_SESS_DELETED;
 
@@ -1166,7 +1167,7 @@ void qlt_unreg_sess(struct fc_port *sess)
 		vha->hw->tgt.tgt_ops->clear_nacl_from_fcport_map(sess);
 
 	sess->deleted = QLA_SESS_DELETION_IN_PROGRESS;
-	sess->disc_state = DSC_DELETE_PEND;
+	qla2x00_set_fcport_disc_state(sess, DSC_DELETE_PEND);
 	sess->last_rscn_gen = sess->rscn_gen;
 	sess->last_login_gen = sess->login_gen;
 
@@ -1268,7 +1269,7 @@ void qlt_schedule_sess_for_deletion(struct fc_port *sess)
 	spin_unlock_irqrestore(&sess->vha->work_lock, flags);
 
 	sess->prli_pend_timer = 0;
-	sess->disc_state = DSC_DELETE_PEND;
+	qla2x00_set_fcport_disc_state(sess, DSC_DELETE_PEND);
 
 	qla24xx_chk_fcp_state(sess);
 
@@ -6061,7 +6062,7 @@ static fc_port_t *qlt_get_port_database(struct scsi_qla_host *vha,
 		if (!IS_SW_RESV_ADDR(fcport->d_id))
 		   vha->fcport_count++;
 		fcport->login_gen++;
-		fcport->disc_state = DSC_LOGIN_COMPLETE;
+		qla2x00_set_fcport_disc_state(fcport, DSC_LOGIN_COMPLETE);
 		fcport->login_succ = 1;
 		newfcport = 1;
 	}
