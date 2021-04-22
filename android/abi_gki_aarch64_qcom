@@ -2022,6 +2022,7 @@
   rpmsg_set_signals
   rpmsg_trysend
   rpmsg_unregister_device
+  rtc_add_group
   rtc_class_close
   rtc_class_open
   rtc_read_time
