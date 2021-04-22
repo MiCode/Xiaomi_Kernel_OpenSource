@@ -199,7 +199,6 @@ void incfs_free_data_file(struct data_file *df)
 	for (i = 0; i < ARRAY_SIZE(df->df_segments); i++)
 		data_file_segment_destroy(&df->df_segments[i]);
 	incfs_free_bfc(df->df_backing_file_context);
-	kfree(df->df_signature);
 	kfree(df);
 }
 
