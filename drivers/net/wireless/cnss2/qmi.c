@@ -15,11 +15,15 @@
 #define WLFW_CLIENT_ID			0x4b4e454c
 #define BDF_FILE_NAME_PREFIX		"bdwlan"
 #define ELF_BDF_FILE_NAME		"bdwlan.elf"
+#define ELF_BDF_FILE_NAME_GF		"bdwlang.elf"
 #define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
+#define ELF_BDF_FILE_NAME_GF_PREFIX	"bdwlang.e"
 #define BIN_BDF_FILE_NAME		"bdwlan.bin"
+#define BIN_BDF_FILE_NAME_GF		"bdwlang.bin"
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
+#define BIN_BDF_FILE_NAME_GF_PREFIX	"bdwlang.b"
 #define REGDB_FILE_NAME			"regdb.bin"
-#define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
+#define CHIP_ID_GF_MASK			0x10
 
 #define QDSS_TRACE_CONFIG_FILE		"qdss_trace_config"
 #define DEBUG_STR			"debug"
@@ -372,7 +376,7 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 	struct wlfw_cap_resp_msg_v01 *resp;
 	struct qmi_txn txn;
 	char *fw_build_timestamp;
-	int ret = 0;
+	int ret = 0, i;
 
 	cnss_pr_dbg("Sending target capability message, state: 0x%lx\n",
 		    plat_priv->driver_state);
@@ -457,7 +461,17 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 	}
 	if (resp->otp_version_valid)
 		plat_priv->otp_version = resp->otp_version;
-
+	if (resp->dev_mem_info_valid) {
+		for (i = 0; i < QMI_WLFW_MAX_DEV_MEM_NUM_V01; i++) {
+			plat_priv->dev_mem_info[i].start =
+				resp->dev_mem_info[i].start;
+			plat_priv->dev_mem_info[i].size =
+				resp->dev_mem_info[i].size;
+			cnss_pr_buf("Device memory info[%d]: start = 0x%llx, size = 0x%llx\n",
+				    i, plat_priv->dev_mem_info[i].start,
+				    plat_priv->dev_mem_info[i].size);
+		}
+	}
 	if (resp->fw_caps_valid)
 		plat_priv->fw_pcie_gen_switch =
 			!!(resp->fw_caps & QMI_WLFW_HOST_PCIE_GEN_SWITCH_V01);
@@ -491,38 +505,56 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 
 	switch (bdf_type) {
 	case CNSS_BDF_ELF:
-		if (plat_priv->board_info.board_id == 0xFF)
-			snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME);
-		else if (plat_priv->board_info.board_id < 0xFF)
-			snprintf(filename_tmp, filename_len,
-				 ELF_BDF_FILE_NAME_PREFIX "%02x",
-				 plat_priv->board_info.board_id);
-		else
+		/* Board ID will be equal or less than 0xFF in GF mask case */
+		if (plat_priv->board_info.board_id == 0xFF) {
+			if (plat_priv->chip_info.chip_id & CHIP_ID_GF_MASK)
+				snprintf(filename_tmp, filename_len,
+					 ELF_BDF_FILE_NAME_GF);
+			else
+				snprintf(filename_tmp, filename_len,
+					 ELF_BDF_FILE_NAME);
+		} else if (plat_priv->board_info.board_id < 0xFF) {
+			if (plat_priv->chip_info.chip_id & CHIP_ID_GF_MASK)
+				snprintf(filename_tmp, filename_len,
+					 ELF_BDF_FILE_NAME_GF_PREFIX "%02x",
+					 plat_priv->board_info.board_id);
+			else
+				snprintf(filename_tmp, filename_len,
+					 ELF_BDF_FILE_NAME_PREFIX "%02x",
+					 plat_priv->board_info.board_id);
+		} else {
 			snprintf(filename_tmp, filename_len,
 				 BDF_FILE_NAME_PREFIX "%02x.e%02x",
 				 plat_priv->board_info.board_id >> 8 & 0xFF,
 				 plat_priv->board_info.board_id & 0xFF);
+		}
 		break;
 	case CNSS_BDF_BIN:
-		if (plat_priv->board_info.board_id == 0xFF)
-			snprintf(filename_tmp, filename_len, BIN_BDF_FILE_NAME);
-		else if (plat_priv->board_info.board_id < 0xFF)
-			snprintf(filename_tmp, filename_len,
-				 BIN_BDF_FILE_NAME_PREFIX "%02x",
-				 plat_priv->board_info.board_id);
-		else
+		if (plat_priv->board_info.board_id == 0xFF) {
+			if (plat_priv->chip_info.chip_id & CHIP_ID_GF_MASK)
+				snprintf(filename_tmp, filename_len,
+					 BIN_BDF_FILE_NAME_GF);
+			else
+				snprintf(filename_tmp, filename_len,
+					 BIN_BDF_FILE_NAME);
+		} else if (plat_priv->board_info.board_id < 0xFF) {
+			if (plat_priv->chip_info.chip_id & CHIP_ID_GF_MASK)
+				snprintf(filename_tmp, filename_len,
+					 BIN_BDF_FILE_NAME_GF_PREFIX "%02x",
+					 plat_priv->board_info.board_id);
+			else
+				snprintf(filename_tmp, filename_len,
+					 BIN_BDF_FILE_NAME_PREFIX "%02x",
+					 plat_priv->board_info.board_id);
+		} else {
 			snprintf(filename_tmp, filename_len,
 				 BDF_FILE_NAME_PREFIX "%02x.b%02x",
 				 plat_priv->board_info.board_id >> 8 & 0xFF,
 				 plat_priv->board_info.board_id & 0xFF);
+		}
 		break;
 	case CNSS_BDF_REGDB:
 		snprintf(filename_tmp, filename_len, REGDB_FILE_NAME);
-		break;
-	case CNSS_BDF_DUMMY:
-		cnss_pr_dbg("CNSS_BDF_DUMMY is set, sending dummy BDF\n");
-		snprintf(filename_tmp, filename_len, DUMMY_BDF_FILE_NAME);
-		ret = MAX_FIRMWARE_NAME_LEN;
 		break;
 	default:
 		cnss_pr_err("Invalid BDF type: %d\n",
@@ -531,7 +563,7 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 		break;
 	}
 
-	if (ret >= 0)
+	if (!ret)
 		cnss_bus_add_fw_prefix_name(plat_priv, filename, filename_tmp);
 
 	return ret;
@@ -564,13 +596,8 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 
 	ret = cnss_get_bdf_file_name(plat_priv, bdf_type,
 				     filename, sizeof(filename));
-	if (ret > 0) {
-		temp = DUMMY_BDF_FILE_NAME;
-		remaining = MAX_FIRMWARE_NAME_LEN;
-		goto bypass_bdf;
-	} else if (ret < 0) {
+	if (ret)
 		goto err_req_fw;
-	}
 
 	ret = request_firmware(&fw_entry, filename, &plat_priv->plat_dev->dev);
 	if (ret) {
@@ -581,7 +608,6 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 	temp = fw_entry->data;
 	remaining = fw_entry->size;
 
-bypass_bdf:
 	cnss_pr_dbg("Downloading BDF: %s, size: %u\n", filename, remaining);
 
 	while (remaining) {
@@ -644,8 +670,7 @@ bypass_bdf:
 		req->seg_id++;
 	}
 
-	if (bdf_type != CNSS_BDF_DUMMY)
-		release_firmware(fw_entry);
+	release_firmware(fw_entry);
 
 	/* QCA6490 enable S3E regulator for IPA configuration only */
 	if (resp->host_bdf_data_valid) {
@@ -658,8 +683,7 @@ bypass_bdf:
 	return 0;
 
 err_send:
-	if (bdf_type != CNSS_BDF_DUMMY)
-		release_firmware(fw_entry);
+	release_firmware(fw_entry);
 err_req_fw:
 	if (!(bdf_type == CNSS_BDF_REGDB ||
 	      test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state) ||

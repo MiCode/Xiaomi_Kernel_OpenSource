@@ -47,6 +47,7 @@
 #define DEFAULT_M3_FILE_NAME		"m3.bin"
 #define DEFAULT_FW_FILE_NAME		"amss.bin"
 #define FW_V2_FILE_NAME			"amss20.bin"
+#define DEVICE_MAJOR_VERSION_MASK	0xF
 
 #define WAKE_MSI_NAME			"WAKE"
 
@@ -1343,8 +1344,6 @@ static void cnss_pci_handle_linkdown(struct cnss_pci_data *pci_priv)
 	}
 	pci_priv->pci_link_down_ind = true;
 	spin_unlock_irqrestore(&pci_link_down_lock, flags);
-
-	reinit_completion(&pci_priv->wake_event);
 
 	if (pci_dev->device == QCA6174_DEVICE_ID)
 		disable_irq(pci_dev->irq);
@@ -2873,6 +2872,12 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 		return -EINVAL;
 	}
 
+	if (!driver_ops->id_table || !pci_dev_present(driver_ops->id_table)) {
+		cnss_pr_err("PCIe device id is %x, not supported by platform\n",
+			    pci_priv->device_id);
+		return -ENODEV;
+	}
+
 	if (!plat_priv->cbc_enabled ||
 	    test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state))
 		goto register_driver;
@@ -3031,7 +3036,6 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 		cnss_pci_handle_linkdown(pci_priv);
 		break;
 	case MSM_PCIE_EVENT_WAKEUP:
-		complete(&pci_priv->wake_event);
 		if ((cnss_pci_get_monitor_wake_intr(pci_priv) &&
 		     cnss_pci_get_auto_suspended(pci_priv)) ||
 		     dev->power.runtime_status == RPM_SUSPENDING) {
@@ -4330,6 +4334,8 @@ int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info)
 		sizeof(info->fw_build_timestamp));
 	memcpy(&info->device_version, &plat_priv->device_version,
 	       sizeof(info->device_version));
+	memcpy(&info->dev_mem_info, &plat_priv->dev_mem_info,
+	       sizeof(info->dev_mem_info));
 
 	return 0;
 }
@@ -5083,6 +5089,9 @@ static int cnss_pci_update_fw_name(struct cnss_pci_data *pci_priv)
 		    plat_priv->device_version.major_version,
 		    plat_priv->device_version.minor_version);
 
+	/* Only keep lower 4 bits as real device major version */
+	plat_priv->device_version.major_version &= DEVICE_MAJOR_VERSION_MASK;
+
 	switch (pci_priv->device_id) {
 	case QCA6390_DEVICE_ID:
 		if (plat_priv->device_version.major_version < FW_V2_NUMBER) {
@@ -5452,7 +5461,6 @@ static irqreturn_t cnss_pci_wake_handler(int irq, void *data)
 	 */
 	pm_system_wakeup();
 
-	complete(&pci_priv->wake_event);
 	if (cnss_pci_get_monitor_wake_intr(pci_priv) &&
 	    cnss_pci_get_auto_suspended(pci_priv)) {
 		cnss_pci_set_monitor_wake_intr(pci_priv, false);
@@ -5666,7 +5674,6 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 		cnss_pci_set_wlaon_pwr_ctrl(pci_priv, false, false, false);
 		timer_setup(&pci_priv->dev_rddm_timer,
 			    cnss_dev_rddm_timeout_hdlr, 0);
-		init_completion(&pci_priv->wake_event);
 		INIT_DELAYED_WORK(&pci_priv->time_sync_work,
 				  cnss_pci_time_sync_work_hdlr);
 		cnss_pci_get_link_status(pci_priv);
@@ -5726,7 +5733,6 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	case QCA6490_DEVICE_ID:
 	case WCN7850_DEVICE_ID:
 		cnss_pci_wake_gpio_deinit(pci_priv);
-		complete_all(&pci_priv->wake_event);
 		del_timer(&pci_priv->dev_rddm_timer);
 		break;
 	default:

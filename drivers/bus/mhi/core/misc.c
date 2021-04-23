@@ -16,6 +16,23 @@
 #include <linux/wait.h>
 #include "internal.h"
 
+#ifdef CONFIG_MHI_BUS_DEBUG
+#define MHI_MISC_DEBUG_LEVEL MHI_MSG_LVL_VERBOSE
+#else
+#define MHI_MISC_DEBUG_LEVEL MHI_MSG_LVL_ERROR
+#endif
+
+const char * const mhi_log_level_str[MHI_MSG_LVL_MAX] = {
+	[MHI_MSG_LVL_VERBOSE] = "Verbose",
+	[MHI_MSG_LVL_INFO] = "Info",
+	[MHI_MSG_LVL_ERROR] = "Error",
+	[MHI_MSG_LVL_CRITICAL] = "Critical",
+	[MHI_MSG_LVL_MASK_ALL] = "Mask all",
+};
+#define TO_MHI_LOG_LEVEL_STR(level) ((level >= MHI_MSG_LVL_MAX || \
+				     !mhi_log_level_str[level]) ? \
+				     "Mask all" : mhi_log_level_str[level])
+
 struct mhi_bus mhi_bus;
 
 void mhi_misc_init(void)
@@ -94,6 +111,55 @@ static const struct attribute_group mhi_tsync_group = {
 	.attrs = mhi_tsync_attrs,
 };
 
+static ssize_t log_level_show(struct device *dev,
+			      struct device_attribute *attr,
+			      char *buf)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	struct mhi_private *mhi_priv = dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
+
+	if (!mhi_priv)
+		return -EIO;
+
+	return scnprintf(buf, PAGE_SIZE, "IPC log level begins from: %s\n",
+			 TO_MHI_LOG_LEVEL_STR(mhi_priv->log_lvl));
+}
+
+static ssize_t log_level_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf,
+			       size_t count)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	struct mhi_private *mhi_priv = dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
+	enum MHI_DEBUG_LEVEL log_level;
+
+	if (kstrtou32(buf, 0, &log_level) < 0)
+		return -EINVAL;
+
+	if (!mhi_priv)
+		return -EIO;
+
+	mhi_priv->log_lvl = log_level;
+
+	MHI_LOG("IPC log level changed to: %s\n",
+		TO_MHI_LOG_LEVEL_STR(log_level));
+
+	return count;
+}
+static DEVICE_ATTR_RW(log_level);
+
+static struct attribute *mhi_misc_attrs[] = {
+	&dev_attr_log_level.attr,
+	NULL,
+};
+
+static const struct attribute_group mhi_misc_group = {
+	.attrs = mhi_misc_attrs,
+};
+
 int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 {
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
@@ -114,6 +180,7 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 
 	mhi_priv->log_buf = ipc_log_context_create(MHI_IPC_LOG_PAGES,
 						   mhi_dev->name, 0);
+	mhi_priv->log_lvl = MHI_MISC_DEBUG_LEVEL;
 	mhi_priv->mhi_cntrl = mhi_cntrl;
 
 	/* adding it to this list only for debug purpose */
@@ -122,6 +189,10 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 	mutex_unlock(&mhi_bus.lock);
 
 	dev_set_drvdata(dev, mhi_priv);
+
+	ret = sysfs_create_group(&dev->kobj, &mhi_misc_group);
+	if (ret)
+		MHI_ERR("Failed to create misc sysfs group\n");
 
 	ret = sysfs_create_group(&dev->kobj, &mhi_tsync_group);
 	if (ret)
@@ -143,6 +214,7 @@ void mhi_misc_unregister_controller(struct mhi_controller *mhi_cntrl)
 	mutex_unlock(&mhi_bus.lock);
 
 	sysfs_remove_group(&dev->kobj, &mhi_tsync_group);
+	sysfs_remove_group(&dev->kobj, &mhi_misc_group);
 
 	if (mhi_priv->sfr_info)
 		kfree(mhi_priv->sfr_info->str);

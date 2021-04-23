@@ -56,6 +56,7 @@ struct kgsl_snapshot_section_header {
 #define KGSL_SNAPSHOT_SECTION_MVC_V2       0x1502
 #define KGSL_SNAPSHOT_SECTION_GMU          0x1601
 #define KGSL_SNAPSHOT_SECTION_GMU_MEMORY   0x1701
+#define KGSL_SNAPSHOT_SECTION_SIDE_DEBUGBUS 0x1801
 
 #define KGSL_SNAPSHOT_SECTION_END          0xFFFF
 
@@ -261,6 +262,12 @@ struct kgsl_snapshot_debug {
 struct kgsl_snapshot_debugbus {
 	int id;	   /* Debug bus ID */
 	int count; /* Number of dwords in the dump */
+} __packed;
+
+struct kgsl_snapshot_side_debugbus {
+	int id;   /* Debug bus ID */
+	int size; /* Number of dwords in the dump */
+	int valid_data;  /* Mask of valid bits of the side debugbus */
 } __packed;
 
 struct kgsl_snapshot_shader {

@@ -17,6 +17,7 @@
 
 #include <trace/hooks/debug.h>
 #include <trace/hooks/printk.h>
+#include <trace/hooks/timer.h>
 
 static DEFINE_PER_CPU(struct pt_regs, regs_before_stop);
 static DEFINE_RAW_SPINLOCK(stop_lock);
@@ -38,6 +39,12 @@ static void trace_ipi_stop(void *unused, struct pt_regs *regs)
 	raw_spin_unlock_irqrestore(&stop_lock, flags);
 }
 
+static void timer_recalc_index(void *unused,
+			unsigned int lvl, unsigned long *expires)
+{
+	*expires -= 1;
+}
+
 static int cpu_vendor_hooks_driver_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -55,6 +62,14 @@ static int cpu_vendor_hooks_driver_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	ret = register_trace_android_vh_timer_calc_index(timer_recalc_index, NULL);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to android_vh_timer_calc_index hook\n");
+		unregister_trace_android_vh_ipi_stop(trace_ipi_stop, NULL);
+		unregister_trace_android_vh_printk_hotplug(printk_hotplug, NULL);
+		return ret;
+	}
+
 	return ret;
 }
 
@@ -63,6 +78,7 @@ static int cpu_vendor_hooks_driver_remove(struct platform_device *pdev)
 	/* Reset all initialized global variables and unregister callbacks. */
 	unregister_trace_android_vh_ipi_stop(trace_ipi_stop, NULL);
 	unregister_trace_android_vh_printk_hotplug(printk_hotplug, NULL);
+	unregister_trace_android_vh_timer_calc_index(timer_recalc_index, NULL);
 	return 0;
 }
 

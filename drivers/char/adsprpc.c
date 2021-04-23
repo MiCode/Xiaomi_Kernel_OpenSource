@@ -2412,7 +2412,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 				}
 				offset = buf_page_start(buf) - vma->vm_start;
 				up_read(&current->mm->mmap_lock);
-				VERIFY(err, offset < (uintptr_t)map->size);
+				VERIFY(err, offset + len <= (uintptr_t)map->size);
 				if (err) {
 					ADSPRPC_ERR(
 						"buffer address is invalid for the fd passed for %d address 0x%llx and size %zu\n",
@@ -5457,7 +5457,10 @@ static int fastrpc_set_process_info(struct fastrpc_file *fl)
 {
 	int err = 0, buf_size = 0;
 	char strpid[PID_SIZE];
+	char cur_comm[TASK_COMM_LEN];
 
+	memcpy(cur_comm, current->comm, TASK_COMM_LEN);
+	cur_comm[TASK_COMM_LEN-1] = '\0';
 	fl->tgid = current->tgid;
 
 	/*
@@ -5469,7 +5472,7 @@ static int fastrpc_set_process_info(struct fastrpc_file *fl)
 		fl->untrusted_process = true;
 	snprintf(strpid, PID_SIZE, "%d", current->pid);
 	if (debugfs_root) {
-		buf_size = strlen(current->comm) + strlen("_")
+		buf_size = strlen(cur_comm) + strlen("_")
 			+ strlen(strpid) + 1;
 
 		spin_lock(&fl->hlock);
@@ -5485,13 +5488,13 @@ static int fastrpc_set_process_info(struct fastrpc_file *fl)
 			err = -ENOMEM;
 			return err;
 		}
-		snprintf(fl->debug_buf, UL_SIZE, "%.10s%s%d",
-			current->comm, "_", current->pid);
+		snprintf(fl->debug_buf, buf_size, "%.10s%s%d",
+			cur_comm, "_", current->pid);
 		fl->debugfs_file = debugfs_create_file(fl->debug_buf, 0644,
 			debugfs_root, fl, &debugfs_fops);
 		if (IS_ERR_OR_NULL(fl->debugfs_file)) {
 			pr_warn("Error: %s: %s: failed to create debugfs file %s\n",
-				current->comm, __func__, fl->debug_buf);
+				cur_comm, __func__, fl->debug_buf);
 			fl->debugfs_file = NULL;
 			kfree(fl->debug_buf);
 			fl->debug_buf = NULL;
@@ -5500,27 +5503,57 @@ static int fastrpc_set_process_info(struct fastrpc_file *fl)
 	return err;
 }
 
+static bool fastrpc_session_exists(struct fastrpc_apps *me, uint32_t cid, int tgid)
+{
+	struct fastrpc_file *fl;
+	struct hlist_node *n;
+	bool session_found = false;
+
+	spin_lock(&me->hlock);
+	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
+		if (fl->tgid == tgid && fl->cid == cid) {
+			session_found = true;
+			break;
+		}
+	}
+	spin_unlock(&me->hlock);
+	if (session_found)
+		ADSPRPC_ERR(
+			"trying to open a session that already exists for tgid %d, channel ID %u\n",
+			tgid, cid);
+
+	return session_found;
+}
+
 static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 {
 	int err = 0;
-	uint32_t cid;
+	uint32_t cid = *info;
 	struct fastrpc_apps *me = &gfa;
 
 	VERIFY(err, fl != NULL);
 	if (err)
 		goto bail;
+
 	fastrpc_get_process_gids(&fl->gidlist);
 	err = fastrpc_set_process_info(fl);
 	if (err)
 		goto bail;
-	cid = *info;
+
+	VERIFY(err, !fastrpc_session_exists(me, cid, fl->tgid));
+	if (err) {
+		err = -EEXIST;
+		goto bail;
+	}
+
 	if (fl->cid == -1) {
-		struct fastrpc_channel_ctx *chan = &me->channel[cid];
+		struct fastrpc_channel_ctx *chan = NULL;
 		VERIFY(err, cid < NUM_CHANNELS);
 		if (err) {
 			err = -ECHRNG;
 			goto bail;
 		}
+		chan = &me->channel[cid];
 		/* Check to see if the device node is non-secure */
 		if (fl->dev_minor == MINOR_NUM_DEV) {
 			/*

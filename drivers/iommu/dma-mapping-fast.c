@@ -353,7 +353,7 @@ static int fast_smmu_map_sg(struct device *dev, struct scatterlist *sg,
 	int ret;
 	dma_addr_t iova;
 	unsigned long flags;
-	size_t unused;
+	size_t unused = 0;
 
 	iova_len = qcom_iommu_dma_prepare_map_sg(dev, mapping->iovad, sg, nents);
 

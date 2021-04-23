@@ -87,8 +87,10 @@ static int cnss_pool_init(void)
 	for (i = 0; i < ARRAY_SIZE(cnss_pools); i++) {
 		/* Create the slab cache */
 		cnss_pools[i].cache =
-		    kmem_cache_create(cnss_pools[i].name, cnss_pools[i].size, 0,
-				      SLAB_ACCOUNT, NULL);
+			kmem_cache_create_usercopy(cnss_pools[i].name,
+						   cnss_pools[i].size, 0,
+						   SLAB_ACCOUNT, 0,
+						   cnss_pools[i].size, NULL);
 		if (!cnss_pools[i].cache) {
 			pr_err("cnss_prealloc: cache %s failed\n",
 			       cnss_pools[i].name);

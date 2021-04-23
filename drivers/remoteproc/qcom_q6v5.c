@@ -165,6 +165,9 @@ int qcom_q6v5_request_stop(struct qcom_q6v5 *q6v5)
 
 	q6v5->running = false;
 
+	if (q6v5->rproc->state != RPROC_RUNNING)
+		return 0;
+
 	qcom_smem_state_update_bits(q6v5->state,
 				    BIT(q6v5->stop_bit), BIT(q6v5->stop_bit));
 
@@ -224,7 +227,7 @@ int qcom_q6v5_init(struct qcom_q6v5 *q6v5, struct platform_device *pdev,
 
 	ret = devm_request_threaded_irq(&pdev->dev, q6v5->wdog_irq,
 					NULL, q6v5_wdog_interrupt,
-					IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+					IRQF_ONESHOT,
 					"q6v5 wdog", q6v5);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to acquire wdog IRQ\n");

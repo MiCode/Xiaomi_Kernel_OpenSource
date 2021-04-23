@@ -43,6 +43,17 @@
 				"", __func__, ##__VA_ARGS__); \
 } while (0)
 
+const char * const mhi_log_level_str[MHI_MSG_LVL_MAX] = {
+	[MHI_MSG_LVL_VERBOSE] = "Verbose",
+	[MHI_MSG_LVL_INFO] = "Info",
+	[MHI_MSG_LVL_ERROR] = "Error",
+	[MHI_MSG_LVL_CRITICAL] = "Critical",
+	[MHI_MSG_LVL_MASK_ALL] = "Mask all",
+};
+#define MHI_NETDEV_LOG_LEVEL_STR(level) ((level >= MHI_MSG_LVL_MAX || \
+					 !mhi_log_level_str[level]) ? \
+					 "Mask all" : mhi_log_level_str[level])
+
 struct mhi_net_chain {
 	struct sk_buff *head, *tail; /* chained skb */
 };
@@ -899,6 +910,60 @@ static void mhi_netdev_create_debugfs_dir(void)
 
 #endif
 
+static ssize_t log_level_show(struct device *dev,
+			      struct device_attribute *attr,
+			      char *buf)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_netdev *mhi_netdev = dev_get_drvdata(&mhi_dev->dev);
+
+	if (!mhi_netdev)
+		return -EIO;
+
+	return scnprintf(buf, PAGE_SIZE,
+			 "MHI network device IPC log level begins from: %s\n",
+			 MHI_NETDEV_LOG_LEVEL_STR(mhi_netdev->msg_lvl));
+}
+
+static ssize_t log_level_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf,
+			       size_t count)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_netdev *mhi_netdev = dev_get_drvdata(&mhi_dev->dev);
+	enum MHI_DEBUG_LEVEL log_level;
+
+	if (kstrtou32(buf, 0, &log_level) < 0)
+		return -EINVAL;
+
+	if (!mhi_netdev)
+		return -EIO;
+
+	mhi_netdev->msg_lvl = log_level;
+
+	/* set level for parent if RSC child netdev and vice versa */
+	if (mhi_netdev->is_rsc_dev)
+		mhi_netdev->rsc_parent->msg_lvl = log_level;
+	else if (mhi_netdev->rsc_dev)
+		mhi_netdev->rsc_dev->msg_lvl = log_level;
+
+	MSG_LOG("MHI Network device IPC log level changed to: %s\n",
+		MHI_NETDEV_LOG_LEVEL_STR(log_level));
+
+	return count;
+}
+static DEVICE_ATTR_RW(log_level);
+
+static struct attribute *mhi_netdev_attrs[] = {
+	&dev_attr_log_level.attr,
+	NULL,
+};
+
+static const struct attribute_group mhi_netdev_group = {
+	.attrs = mhi_netdev_attrs,
+};
+
 static void mhi_netdev_remove(struct mhi_device *mhi_dev)
 {
 	struct mhi_netdev *mhi_netdev = dev_get_drvdata(&mhi_dev->dev);
@@ -911,6 +976,7 @@ static void mhi_netdev_remove(struct mhi_device *mhi_dev)
 		return;
 	}
 
+	sysfs_remove_group(&mhi_dev->dev.kobj, &mhi_netdev_group);
 	kthread_stop(mhi_netdev->alloc_task);
 	netif_stop_queue(mhi_netdev->ndev);
 	napi_disable(mhi_netdev->napi);
@@ -985,6 +1051,11 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 		mhi_netdev_clone_dev(mhi_netdev, rsc_parent_netdev);
 	} else {
 		mhi_netdev->msg_lvl = MHI_MSG_LVL_ERROR;
+
+		ret = sysfs_create_group(&mhi_dev->dev.kobj, &mhi_netdev_group);
+		if (ret)
+			MSG_ERR("Failed to create MHI netdev sysfs group\n");
+
 		if (data->chain_skb) {
 			mhi_netdev->chain = devm_kzalloc(&mhi_dev->dev,
 						sizeof(*mhi_netdev->chain),

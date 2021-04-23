@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
  */
 
 #if !defined(_KGSL_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
@@ -1334,6 +1334,24 @@ TRACE_EVENT(kgsl_drawobj_timeline,
 	),
 	TP_printk("timeline=%u seqno=%llu",
 		__entry->timeline, __entry->seqno
+	)
+);
+
+TRACE_EVENT(kgsl_thermal_constraint,
+	TP_PROTO(
+		s32 max_freq
+	),
+	TP_ARGS(
+		max_freq
+	),
+	TP_STRUCT__entry(
+		__field(s32, max_freq)
+	),
+	TP_fast_assign(
+		__entry->max_freq = max_freq;
+	),
+	TP_printk("Thermal max freq=%d",
+		__entry->max_freq
 	)
 );
 

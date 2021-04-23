@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk/qcom.h>
@@ -1366,12 +1366,12 @@ static void a3xx_microcode_load(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A3XX_CP_ME_RAM_WADDR, 0);
 
 	kgsl_regmap_bulk_write(&device->regmap, A3XX_CP_ME_RAM_DATA,
-		adreno_dev->fw[ADRENO_FW_PM4].fwvirt, pm4_size);
+		&adreno_dev->fw[ADRENO_FW_PM4].fwvirt[1], pm4_size - 1);
 
 	kgsl_regwrite(device, A3XX_CP_PFP_UCODE_ADDR, 0);
 
 	kgsl_regmap_bulk_write(&device->regmap, A3XX_CP_PFP_UCODE_DATA,
-		adreno_dev->fw[ADRENO_FW_PFP].fwvirt, pfp_size);
+		&adreno_dev->fw[ADRENO_FW_PFP].fwvirt[1], pfp_size - 1);
 }
 
 #if IS_ENABLED(CONFIG_COMMON_CLK_QCOM)

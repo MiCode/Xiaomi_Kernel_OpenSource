@@ -168,7 +168,6 @@ int genc_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_genc_core *genc_core = to_genc_core(adreno_dev);
-	int ret;
 
 	adreno_dev->highest_bank_bit = genc_core->highest_bank_bit;
 	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
@@ -176,15 +175,9 @@ int genc_init(struct adreno_device *adreno_dev)
 
 	genc_crashdump_init(adreno_dev);
 
-	ret = adreno_allocate_global(device, &adreno_dev->pwrup_reglist,
+	return adreno_allocate_global(device, &adreno_dev->pwrup_reglist,
 		PAGE_SIZE, 0, 0, KGSL_MEMDESC_PRIVILEGED,
 		"powerup_register_list");
-	if (ret)
-		return ret;
-
-	adreno_create_profile_buffer(adreno_dev);
-
-	return 0;
 }
 
 static void genc_protect_init(struct adreno_device *adreno_dev)
@@ -901,7 +894,7 @@ static void genc_cp_callback(struct adreno_device *adreno_dev, int bit)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (adreno_is_preemption_enabled(adreno_dev))
-		genc_preemption_trigger(adreno_dev);
+		genc_preemption_trigger(adreno_dev, true);
 
 	adreno_dispatcher_schedule(device);
 }
@@ -1287,6 +1280,7 @@ const struct genc_gpudev adreno_genc_hwsched_gpudev = {
 		.preemption_context_init = genc_preemption_context_init,
 		.context_detach = genc_hwsched_context_detach,
 		.read_alwayson = genc_read_alwayson,
+		.reset = genc_hwsched_reset,
 		.power_ops = &genc_hwsched_power_ops,
 		.power_stats = genc_power_stats,
 		.setproperty = genc_setproperty,
@@ -1306,7 +1300,7 @@ const struct genc_gpudev adreno_genc_gmu_gpudev = {
 		.gpu_keepalive = genc_gpu_keepalive,
 		.hw_isidle = genc_hw_isidle,
 		.iommu_fault_block = genc_iommu_fault_block,
-		.reset = genc_gmu_restart,
+		.reset = genc_gmu_reset,
 		.preemption_schedule = genc_preemption_schedule,
 		.preemption_context_init = genc_preemption_context_init,
 		.read_alwayson = genc_read_alwayson,

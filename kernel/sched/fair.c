@@ -824,6 +824,8 @@ void post_init_entity_util_avg(struct task_struct *p)
 		return;
 	}
 
+	/* Hook before this se's util is attached to cfs_rq's util */
+	trace_android_rvh_post_init_entity_util_avg(se);
 	attach_entity_cfs_rq(se);
 }
 
@@ -6801,7 +6803,8 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 	int sync = (wake_flags & WF_SYNC) && !(current->flags & PF_EXITING);
 	int target_cpu = -1;
 
-	if (trace_android_rvh_select_task_rq_fair_enabled())
+	if (trace_android_rvh_select_task_rq_fair_enabled() &&
+	    !(sd_flag & SD_BALANCE_FORK))
 		sync_entity_load_avg(&p->se);
 	trace_android_rvh_select_task_rq_fair(p, prev_cpu, sd_flag,
 			wake_flags, &target_cpu);

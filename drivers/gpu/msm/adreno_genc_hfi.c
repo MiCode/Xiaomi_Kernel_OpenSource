@@ -333,8 +333,11 @@ int genc_hfi_send_core_fw_start(struct adreno_device *adreno_dev)
 	struct hfi_core_fw_start_cmd cmd = {
 		.handle = 0x0,
 	};
+	int ret;
 
-	CMD_MSG_HDR(cmd, H2F_MSG_CORE_FW_START);
+	ret = CMD_MSG_HDR(cmd, H2F_MSG_CORE_FW_START);
+	if (ret)
+		return ret;
 
 	return genc_hfi_send_generic_req(adreno_dev, &cmd);
 }
@@ -360,7 +363,9 @@ int genc_hfi_send_feature_ctrl(struct adreno_device *adreno_dev,
 	};
 	int ret;
 
-	CMD_MSG_HDR(cmd, H2F_MSG_FEATURE_CTRL);
+	ret = CMD_MSG_HDR(cmd, H2F_MSG_FEATURE_CTRL);
+	if (ret)
+		return ret;
 
 	ret = genc_hfi_send_generic_req(adreno_dev, &cmd);
 	if (ret)
@@ -369,6 +374,29 @@ int genc_hfi_send_feature_ctrl(struct adreno_device *adreno_dev,
 				enable ? "enable" : "disable",
 				feature_to_string(feature),
 				feature);
+	return ret;
+}
+
+int genc_hfi_send_set_value(struct adreno_device *adreno_dev,
+		u32 type, u32 subtype, u32 data)
+{
+	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
+	struct hfi_set_value_cmd cmd = {
+		.type = type,
+		.subtype = subtype,
+		.data = data,
+	};
+	int ret;
+
+	ret = CMD_MSG_HDR(cmd, H2F_MSG_SET_VALUE);
+	if (ret)
+		return ret;
+
+	ret = genc_hfi_send_generic_req(adreno_dev, &cmd);
+	if (ret)
+		dev_err(&gmu->pdev->dev,
+			"Unable to set HFI Value %d, %d to %d, error = %d\n",
+			type, subtype, data, ret);
 	return ret;
 }
 

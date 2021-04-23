@@ -2198,11 +2198,8 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 			"%s: Failed to suspend:%d\n", __func__, ret);
 		}
 
-		if (msm_port->wakeup_irq > 0) {
+		if (msm_port->wakeup_irq > 0)
 			irq_set_irq_wake(msm_port->wakeup_irq, 0);
-			disable_irq(msm_port->wakeup_irq);
-			free_irq(msm_port->wakeup_irq, uport);
-		}
 	}
 	IPC_LOG_MSG(msm_port->ipc_log_misc, "%s: End\n", __func__);
 }
@@ -2339,15 +2336,6 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 		enable_irq(uport->irq);
 
 	if (msm_port->wakeup_irq > 0) {
-		ret = request_irq(msm_port->wakeup_irq, msm_geni_wakeup_isr,
-				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-				"hs_uart_wakeup", uport);
-		if (unlikely(ret)) {
-			dev_err(uport->dev, "%s:Failed to get WakeIRQ ret%d\n",
-								__func__, ret);
-			goto exit_startup;
-		}
-		disable_irq(msm_port->wakeup_irq);
 		ret = irq_set_irq_wake(msm_port->wakeup_irq, 1);
 		if (unlikely(ret)) {
 			dev_err(uport->dev, "%s:Failed to set IRQ wake:%d\n",
@@ -2938,22 +2926,13 @@ static int msm_geni_serial_get_irq_pinctrl(struct platform_device *pdev,
 			return PTR_ERR(dev_port->serial_rsc.geni_gpio_active);
 		}
 	}
-	/*
-	 * For clients who setup an Inband wakeup, leave the GPIO pins
-	 * always connected to the core, else move the pins to their
-	 * defined "sleep" state.
-	 */
-	if (dev_port->wakeup_irq > 0) {
-		dev_port->serial_rsc.geni_gpio_sleep =
-			dev_port->serial_rsc.geni_gpio_active;
-	} else {
-		dev_port->serial_rsc.geni_gpio_sleep =
-			pinctrl_lookup_state(dev_port->serial_rsc.geni_pinctrl,
-							PINCTRL_SLEEP);
-		if (IS_ERR_OR_NULL(dev_port->serial_rsc.geni_gpio_sleep)) {
-			dev_err(&pdev->dev, "No sleep config specified!\n");
-			return PTR_ERR(dev_port->serial_rsc.geni_gpio_sleep);
-		}
+
+	dev_port->serial_rsc.geni_gpio_sleep =
+		pinctrl_lookup_state(dev_port->serial_rsc.geni_pinctrl,
+						PINCTRL_SLEEP);
+	if (IS_ERR_OR_NULL(dev_port->serial_rsc.geni_gpio_sleep)) {
+		dev_err(&pdev->dev, "No sleep config specified!\n");
+		return PTR_ERR(dev_port->serial_rsc.geni_gpio_sleep);
 	}
 
 	uport->irq = platform_get_irq(pdev, 0);
@@ -2972,6 +2951,18 @@ static int msm_geni_serial_get_irq_pinctrl(struct platform_device *pdev,
 		dev_err(uport->dev, "%s: Failed to get IRQ ret %d\n",
 							__func__, ret);
 		return ret;
+	}
+
+	if (dev_port->wakeup_irq > 0) {
+		ret = devm_request_irq(uport->dev, dev_port->wakeup_irq,
+					msm_geni_wakeup_isr,
+					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+					"hs_uart_wakeup", uport);
+		if (unlikely(ret)) {
+			dev_err(uport->dev, "%s:Failed to get WakeIRQ ret%d\n",
+								__func__, ret);
+			return ret;
+		}
 	}
 
 	return ret;
@@ -3319,6 +3310,7 @@ static int msm_geni_serial_runtime_resume(struct device *dev)
 	__pm_stay_awake(port->geni_wake);
 	if (port->wakeup_irq > 0)
 		disable_irq(port->wakeup_irq);
+
 	/*
 	 * Resources On.
 	 * Start Rx.

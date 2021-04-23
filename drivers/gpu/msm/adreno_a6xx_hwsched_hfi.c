@@ -10,7 +10,6 @@
 #include "adreno_a6xx.h"
 #include "adreno_a6xx_hwsched.h"
 #include "adreno_hfi.h"
-#include "adreno_hwsched.h"
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
 #include "kgsl_device.h"
@@ -236,6 +235,7 @@ static void process_dbgq_irq(struct adreno_device *adreno_dev)
 		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_ERR) {
 			adreno_a6xx_receive_err_req(gmu, rcvd);
 			recovery = true;
+			break;
 		}
 
 		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_DEBUG)
@@ -770,7 +770,8 @@ int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
-	ret = a6xx_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_KPROF, 1, 0);
+	ret = a6xx_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_A6XX_KPROF,
+			1, 0);
 	if (ret)
 		goto err;
 
@@ -781,6 +782,9 @@ int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
 	if (gmu->log_stream_enable)
 		a6xx_hfi_send_set_value(adreno_dev,
 			HFI_VALUE_LOG_STREAM_ENABLE, 0, 1);
+
+	if (gmu->log_group_mask)
+		a6xx_hfi_send_set_value(adreno_dev, HFI_VALUE_LOG_GROUP, 0, gmu->log_group_mask);
 
 	ret = a6xx_hfi_send_core_fw_start(adreno_dev);
 	if (ret)

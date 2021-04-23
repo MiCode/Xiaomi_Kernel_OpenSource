@@ -127,9 +127,11 @@ struct walt_sched_cluster {
 	int			id;
 	/*
 	 * max_possible_freq = maximum supported by hardware
+	 * max_freq = max freq as per cpufreq limits
 	 */
 	unsigned int		cur_freq;
 	unsigned int		max_possible_freq;
+	unsigned int		max_freq;
 	u64			aggr_grp_load;
 };
 
@@ -226,6 +228,13 @@ extern struct list_head cluster_head;
 #define for_each_sched_cluster(cluster) \
 	list_for_each_entry_rcu(cluster, &cluster_head, list)
 
+static inline struct walt_sched_cluster *cpu_cluster(int cpu)
+{
+	struct walt_rq *wrq = (struct walt_rq *) cpu_rq(cpu)->android_vendor_data1;
+
+	return wrq->cluster;
+}
+
 static inline u32 cpu_cycles_to_freq(u64 cycles, u64 period)
 {
 	return div64_u64(cycles, period);
@@ -262,7 +271,6 @@ extern unsigned int __read_mostly sysctl_sched_group_downmigrate_pct;
 extern unsigned int __read_mostly sysctl_sched_group_upmigrate_pct;
 extern unsigned int __read_mostly sysctl_sched_window_stats_policy;
 extern unsigned int sysctl_sched_ravg_window_nr_ticks;
-extern unsigned int sysctl_sched_dynamic_ravg_window_enable;
 extern unsigned int sysctl_sched_walt_rotate_big_tasks;
 extern unsigned int sysctl_sched_task_unfilter_period;
 extern unsigned int __read_mostly sysctl_sched_asym_cap_sibling_freq_match_pct;
@@ -732,6 +740,7 @@ extern void sched_update_hyst_times(void);
 extern enum sched_boost_policy sched_boost_policy(void);
 extern void walt_rt_init(void);
 extern void walt_cfs_init(void);
+extern void walt_pause_init(void);
 extern void walt_fixup_init(void);
 extern int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 					int sync, int sibling_count_hint);
@@ -782,6 +791,22 @@ static inline struct walt_related_thread_group
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	return rcu_dereference(wts->grp);
+}
+
+static inline bool walt_get_rtg_status(struct task_struct *p)
+{
+	struct walt_related_thread_group *grp;
+	bool ret = false;
+
+	rcu_read_lock();
+
+	grp = task_related_thread_group(p);
+	if (grp)
+		ret = grp->skip_min;
+
+	rcu_read_unlock();
+
+	return ret;
 }
 
 #define CPU_RESERVED 1

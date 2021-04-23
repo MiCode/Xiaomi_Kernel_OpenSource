@@ -60,7 +60,17 @@
 #define HFI_FEATURE_BCL		11
 #define HFI_FEATURE_ACD		12
 #define HFI_FEATURE_DIDT	13
-#define HFI_FEATURE_KPROF	14
+#define HFI_FEATURE_DEPRECATED	14
+#define HFI_FEATURE_CB		15
+#define HFI_FEATURE_KPROF	16
+#define HFI_FEATURE_BAIL_OUT_TIMER	17
+#define HFI_FEATURE_GMU_STATS	18
+#define HFI_FEATURE_DBQ		19
+#define HFI_FEATURE_MINBW	20
+#define HFI_FEATURE_CLX		21
+
+/* A6xx uses a different value for KPROF */
+#define HFI_FEATURE_A6XX_KPROF	14
 
 #define HFI_VALUE_FT_POLICY		100
 #define HFI_VALUE_RB_MAX_CMDS		101
@@ -73,7 +83,7 @@
 #define HFI_VALUE_MAX_GPU_THERMAL_INDEX	108
 #define HFI_VALUE_GPUCLK		109
 #define HFI_VALUE_CLK_TIME		110
-#define HFI_VALUE_LOG_LEVEL		111
+#define HFI_VALUE_LOG_GROUP		111
 #define HFI_VALUE_LOG_EVENT_ON		112
 #define HFI_VALUE_LOG_EVENT_OFF		113
 #define HFI_VALUE_DCVS_OBJ		114
@@ -712,4 +722,8 @@ static inline int _CMD_MSG_HDR(u32 *hdr, int id, size_t size)
 #define CMD_MSG_HDR(cmd, id) \
 	_CMD_MSG_HDR(&(cmd).hdr, id, sizeof(cmd))
 
+/* Maximum number of IBs in a submission */
+#define HWSCHED_MAX_NUMIBS \
+	((HFI_MAX_MSG_SIZE - offsetof(struct hfi_issue_cmd_cmd, ibs)) \
+		/ sizeof(struct hfi_issue_ib))
 #endif

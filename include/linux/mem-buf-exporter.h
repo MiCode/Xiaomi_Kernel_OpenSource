@@ -21,7 +21,7 @@ struct mem_buf_vmperm;
  * in the exporter's private_data, or a negative number on error.
  * @attach: The exporter's normal dma_buf_attach callback
  * @dma_ops: The exporter's standard dma_buf callbacks, except for
- * attach which must be mem_buf_dma_buf_attach().
+ * attach which must be NULL.
  */
 struct mem_buf_dma_buf_ops {
 	struct mem_buf_vmperm *(*lookup)(struct dma_buf *dmabuf);
@@ -30,7 +30,8 @@ struct mem_buf_dma_buf_ops {
 };
 
 struct dma_buf *
-mem_buf_dma_buf_export(const struct dma_buf_export_info *exp_info);
+mem_buf_dma_buf_export(struct dma_buf_export_info *exp_info,
+			struct mem_buf_dma_buf_ops *ops);
 
 
 #define MEM_BUF_WRAPPER_FLAG_STATIC_VM BIT(0)

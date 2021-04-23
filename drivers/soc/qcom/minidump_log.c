@@ -23,11 +23,15 @@
 #include <linux/ratelimit.h>
 #include <linux/notifier.h>
 #include <linux/sizes.h>
-#include <linux/slab.h>
 #include <linux/sched/task.h>
 #include <linux/suspend.h>
 #include <linux/vmalloc.h>
 #include <linux/android_debug_symbols.h>
+#ifdef CONFIG_QCOM_MINIDUMP_PSTORE
+#include <linux/math64.h>
+#include <linux/of_address.h>
+#include <linux/of.h>
+#endif
 
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
 #include <linux/bits.h>
@@ -46,7 +50,10 @@
 
 #include <linux/module.h>
 #include <linux/cma.h>
-#include <linux/dma-contiguous.h>
+#include <linux/dma-map-ops.h>
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
+#include <trace/hooks/debug.h>
+#endif
 #endif
 
 #ifdef CONFIG_QCOM_DYN_MINIDUMP_STACK
@@ -82,10 +89,15 @@ static struct md_suspend_context_data md_suspend_context;
 static bool is_vmap_stack __read_mostly;
 
 #ifdef CONFIG_QCOM_MINIDUMP_FTRACE
+#include <trace/hooks/ftrace_dump.h>
+#include <linux/ring_buffer.h>
+
 #define MD_FTRACE_BUF_SIZE	SZ_2M
 
 static char *md_ftrace_buf_addr;
 static size_t md_ftrace_buf_current;
+static bool minidump_ftrace_in_oops;
+static bool minidump_ftrace_dump = true;
 #endif
 
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
@@ -102,26 +114,7 @@ static md_align_offset;
 
 static int die_cpu = -1;
 static struct seq_buf *md_cntxt_seq_buf;
-#endif
-
-/* Meminfo */
-#define MD_MEMINFO_PAGES	1
-
-struct seq_buf *md_meminfo_seq_buf;
-
-/* Slabinfo */
-#define MD_SLABINFO_PAGES	8
-
-struct seq_buf *md_slabinfo_seq_buf;
-
-#ifdef CONFIG_PAGE_OWNER
-size_t md_pageowner_dump_size = SZ_2M;
-char *md_pageowner_dump_addr;
-#endif
-
-#ifdef CONFIG_SLUB_DEBUG
-size_t md_slabowner_dump_size = SZ_2M;
-char *md_slabowner_dump_addr;
+static DEFINE_PER_CPU(struct pt_regs, regs_before_stop);
 #endif
 
 /* Modules information */
@@ -141,6 +134,20 @@ static struct seq_buf *md_mod_info_seq_buf;
 static int mod_curr_count;
 static DEFINE_SPINLOCK(md_modules_lock);
 #endif	/* CONFIG_MODULES */
+#endif
+
+#ifdef CONFIG_QCOM_MINIDUMP_PSTORE
+struct minidump_pstore {
+	phys_addr_t paddr;
+	unsigned long size;
+	unsigned long record_size;
+	unsigned long ftrace_size;
+	unsigned long console_size;
+	unsigned long pmsg_size;
+	unsigned int  record_cnt;
+};
+
+static struct minidump_pstore pstore_data;
 #endif
 
 static void register_log_buf(void)
@@ -587,7 +594,7 @@ static inline void register_irq_stack(void) {}
 #endif
 
 #ifdef CONFIG_QCOM_MINIDUMP_FTRACE
-void minidump_add_trace_event(char *buf, size_t size)
+static void minidump_add_trace_event(char *buf, size_t size)
 {
 	char *addr;
 
@@ -600,6 +607,51 @@ void minidump_add_trace_event(char *buf, size_t size)
 	addr = md_ftrace_buf_addr + md_ftrace_buf_current;
 	memcpy(addr, buf, size);
 	md_ftrace_buf_current += size;
+}
+
+static void md_trace_oops_enter(void *unused, bool *enter_check)
+{
+	if (!minidump_ftrace_in_oops) {
+		minidump_ftrace_in_oops = true;
+		*enter_check = false;
+	} else {
+		*enter_check = true;
+	}
+}
+
+static void md_trace_oops_exit(void *unused, bool *exit_check)
+{
+	minidump_ftrace_in_oops = false;
+}
+
+static void md_update_trace_fmt(void *unused, bool *format_check)
+{
+	*format_check = false;
+}
+
+static void md_buf_size_check(void *unused, unsigned long buffer_size,
+			      bool *size_check)
+{
+	if (!minidump_ftrace_dump) {
+		*size_check = true;
+		return;
+	}
+
+	if (buffer_size > (SZ_256K + PAGE_SIZE)) {
+		pr_err("Skip md ftrace buffer dump for: %#lx\n", buffer_size);
+		minidump_ftrace_dump = false;
+		*size_check = true;
+	}
+}
+
+static void md_dump_trace_buf(void *unused, struct trace_seq *trace_buf,
+			      bool *printk_check)
+{
+	if (minidump_ftrace_in_oops && minidump_ftrace_dump) {
+		minidump_add_trace_event(trace_buf->buffer,
+					 trace_buf->seq.len);
+		*printk_check = false;
+	}
 }
 
 static void md_register_trace_buf(void)
@@ -618,6 +670,17 @@ static void md_register_trace_buf(void)
 	md_entry.size = MD_FTRACE_BUF_SIZE;
 	if (msm_minidump_add_region(&md_entry) < 0)
 		pr_err("Failed to add ftrace buffer entry in Minidump\n");
+
+	register_trace_android_vh_ftrace_oops_enter(md_trace_oops_enter,
+							 NULL);
+	register_trace_android_vh_ftrace_oops_exit(md_trace_oops_exit,
+							 NULL);
+	register_trace_android_vh_ftrace_size_check(md_buf_size_check,
+						    NULL);
+	register_trace_android_vh_ftrace_format_check(md_update_trace_fmt,
+						      NULL);
+	register_trace_android_vh_ftrace_dump_buffer(md_dump_trace_buf,
+						     NULL);
 
 	/* Complete registration before adding enteries */
 	smp_mb();
@@ -828,7 +891,6 @@ static void md_dump_data(unsigned long addr, int nbytes, const char *name)
 	nbytes += (addr & (sizeof(u32) - 1));
 	nlines = (nbytes + 31) / 32;
 
-
 	for (i = 0; i < nlines; i++) {
 		/*
 		 * just display low 16 bits of address to keep
@@ -837,9 +899,9 @@ static void md_dump_data(unsigned long addr, int nbytes, const char *name)
 		seq_buf_printf(md_cntxt_seq_buf, "%04lx ",
 			       (unsigned long)p & 0xffff);
 		for (j = 0; j < 8; j++) {
-			u32	data;
+			u32	data = 0;
 
-			if (probe_kernel_address(p, data))
+			if (get_kernel_nofault(data, p))
 				seq_buf_printf(md_cntxt_seq_buf, " ********");
 			else
 				seq_buf_printf(md_cntxt_seq_buf, " %08x", data);
@@ -921,14 +983,13 @@ static inline void md_dump_panic_regs(void)
 
 static void md_dump_other_cpus_context(void)
 {
-	unsigned long ipi_stop_addr = kallsyms_lookup_name("regs_before_stop");
 	int cpu;
-	struct pt_regs *regs;
+	struct pt_regs regs;
 
 	for_each_possible_cpu(cpu) {
-		regs = (struct pt_regs *)(ipi_stop_addr + per_cpu_offset(cpu));
+		regs = per_cpu(regs_before_stop, cpu);
 		seq_buf_printf(md_cntxt_seq_buf, "\nSTOPPED CPU : %d\n", cpu);
-		md_reg_context_data(regs);
+		md_reg_context_data(&regs);
 	}
 }
 
@@ -955,6 +1016,13 @@ static struct notifier_block md_die_context_nb = {
 	.notifier_call = md_die_context_notify,
 	.priority = INT_MAX - 2, /* < msm watchdog die notifier */
 };
+
+static void md_ipi_stop(void *unused, struct pt_regs *regs)
+{
+	unsigned int cpu = smp_processor_id();
+
+	per_cpu(regs_before_stop, cpu) = *regs;
+}
 #endif
 
 #ifdef CONFIG_MODULES
@@ -991,21 +1059,6 @@ dump_rq:
 	md_dump_runqueues();
 #ifdef CONFIG_MODULES
 	md_dump_module_data();
-#endif
-	if (md_meminfo_seq_buf)
-		md_dump_meminfo();
-
-	if (md_slabinfo_seq_buf)
-		md_dump_slabinfo();
-
-#ifdef CONFIG_SLUB_DEBUG
-	if (md_slabowner_dump_addr)
-		md_dump_slabowner();
-#endif
-
-#ifdef CONFIG_PAGE_OWNER
-	if (md_pageowner_dump_addr)
-		md_dump_pageowner();
 #endif
 	md_in_oops_handler = false;
 	return NOTIFY_DONE;
@@ -1069,175 +1122,6 @@ err_seq_buf:
 	return ret;
 }
 
-static bool md_register_memory_dump(int size, char *name)
-{
-	void *buffer_start;
-	struct page *page;
-	int ret;
-
-	page  = cma_alloc(dev_get_cma_area(NULL), size >> PAGE_SHIFT,
-			0, false);
-
-	if (!page) {
-		pr_err("Failed to allocate %s minidump, increase cma size\n",
-			name);
-		return false;
-	}
-
-	buffer_start = page_to_virt(page);
-	ret = md_register_minidump_entry(name, (uintptr_t)buffer_start,
-			virt_to_phys(buffer_start), size);
-	if (ret < 0) {
-		cma_release(dev_get_cma_area(NULL), page, size >> PAGE_SHIFT);
-		return false;
-	}
-
-	/* Complete registration before adding enteries */
-	smp_mb();
-
-#ifdef CONFIG_PAGE_OWNER
-	if (!strcmp(name, "PAGEOWNER"))
-		WRITE_ONCE(md_pageowner_dump_addr, buffer_start);
-#endif
-#ifdef CONFIG_SLUB_DEBUG
-	if (!strcmp(name, "SLABOWNER"))
-		WRITE_ONCE(md_slabowner_dump_addr, buffer_start);
-#endif
-	return true;
-}
-
-static bool md_unregister_memory_dump(char *name)
-{
-	struct page *page;
-	struct md_region *mdr;
-	struct md_region md_entry;
-
-	mdr = md_get_region(name);
-	if (!mdr) {
-		pr_err("minidump entry for %s not found\n", name);
-		return false;
-	}
-	strlcpy(md_entry.name, mdr->name, sizeof(md_entry.name));
-	md_entry.virt_addr = mdr->virt_addr;
-	md_entry.phys_addr = mdr->phys_addr;
-	md_entry.size = mdr->size;
-	page = virt_to_page(mdr->virt_addr);
-
-	if (msm_minidump_remove_region(&md_entry) < 0)
-		return false;
-
-	cma_release(dev_get_cma_area(NULL), page,
-			(md_entry.size) >> PAGE_SHIFT);
-	return true;
-}
-
-static void update_dump_size(char *name, size_t size,
-		char **addr, size_t *dump_size)
-{
-	if ((*dump_size) == 0) {
-		if (md_register_memory_dump(size * SZ_1M,
-						name)) {
-			*dump_size = size * SZ_1M;
-			pr_info_ratelimited("%s Minidump set to %zd MB size\n",
-					name, size);
-		}
-		return;
-	}
-	if (md_unregister_memory_dump(name)) {
-		*addr = NULL;
-		if (size == 0) {
-			*dump_size = 0;
-			pr_info_ratelimited("%s Minidump : disabled\n", name);
-			return;
-		}
-		if (md_register_memory_dump(size * SZ_1M,
-						name)) {
-			*dump_size = size * SZ_1M;
-			pr_info_ratelimited("%s Minidump : set to %zd MB\n",
-					name, size);
-		} else if (md_register_memory_dump(*dump_size,
-							name)) {
-			pr_info_ratelimited("%s Minidump : Fallback to %zd MB\n",
-					name, (*dump_size) / SZ_1M);
-		} else {
-			pr_err_ratelimited("%s Minidump : disabled, Can't fallback to %zd MB,\n",
-						name, (*dump_size) / SZ_1M);
-			*dump_size = 0;
-		}
-	} else {
-		pr_err_ratelimited("Failed to unregister %s Minidump\n", name);
-	}
-}
-
-#ifdef CONFIG_PAGE_OWNER
-static DEFINE_MUTEX(page_owner_dump_size_lock);
-
-static ssize_t page_owner_dump_size_write(struct file *file,
-					  const char __user *ubuf,
-					  size_t count, loff_t *offset)
-{
-	unsigned long long  size;
-
-	if (kstrtoull_from_user(ubuf, count, 0, &size)) {
-		pr_err_ratelimited("Invalid format for size\n");
-		return -EINVAL;
-	}
-	mutex_lock(&page_owner_dump_size_lock);
-	update_dump_size("PAGEOWNER", size,
-			&md_pageowner_dump_addr, &md_pageowner_dump_size);
-	mutex_unlock(&page_owner_dump_size_lock);
-	return count;
-}
-
-static ssize_t page_owner_dump_size_read(struct file *file, char __user *ubuf,
-				       size_t count, loff_t *offset)
-{
-	char buf[100];
-
-	snprintf(buf, sizeof(buf), "%llu MB\n",
-			md_pageowner_dump_size / SZ_1M);
-	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
-}
-
-static const struct file_operations proc_page_owner_dump_size_ops = {
-	.open	= simple_open,
-	.write	= page_owner_dump_size_write,
-	.read	= page_owner_dump_size_read,
-};
-#endif
-
-#ifdef CONFIG_SLUB_DEBUG
-static ssize_t slab_owner_dump_size_write(struct file *file,
-					  const char __user *ubuf,
-					  size_t count, loff_t *offset)
-{
-	unsigned long long  size;
-
-	if (kstrtoull_from_user(ubuf, count, 0, &size)) {
-		pr_err_ratelimited("Invalid format for size\n");
-		return -EINVAL;
-	}
-	update_dump_size("SLABOWNER", size,
-			&md_slabowner_dump_addr, &md_slabowner_dump_size);
-	return count;
-}
-
-static ssize_t slab_owner_dump_size_read(struct file *file, char __user *ubuf,
-				       size_t count, loff_t *offset)
-{
-	char buf[100];
-
-	snprintf(buf, sizeof(buf), "%llu MB\n", md_slabowner_dump_size/SZ_1M);
-	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
-}
-
-static const struct file_operations proc_slab_owner_dump_size_ops = {
-	.open	= simple_open,
-	.write	= slab_owner_dump_size_write,
-	.read	= slab_owner_dump_size_read,
-};
-#endif
-
 static void md_register_panic_data(void)
 {
 	md_register_panic_entries(MD_RUNQUEUE_PAGES, "KRUNQUEUE",
@@ -1245,21 +1129,8 @@ static void md_register_panic_data(void)
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
 	md_register_panic_entries(MD_CPU_CNTXT_PAGES, "KCNTXT",
 				  &md_cntxt_seq_buf);
+	register_trace_android_vh_ipi_stop(md_ipi_stop, NULL);
 #endif
-	md_register_panic_entries(MD_MEMINFO_PAGES, "MEMINFO",
-				  &md_meminfo_seq_buf);
-	md_register_panic_entries(MD_SLABINFO_PAGES, "SLABINFO",
-				  &md_slabinfo_seq_buf);
-	if (is_page_owner_enabled()) {
-		md_register_memory_dump(md_pageowner_dump_size, "PAGEOWNER");
-		debugfs_create_file("page_owner_dump_size_mb", 0400, NULL, NULL,
-			    &proc_page_owner_dump_size_ops);
-	}
-	if (is_slub_debug_enabled()) {
-		md_register_memory_dump(md_slabowner_dump_size, "SLABOWNER");
-		debugfs_create_file("slab_owner_dump_size_mb", 0400, NULL, NULL,
-			    &proc_slab_owner_dump_size_ops);
-	}
 }
 
 #ifdef CONFIG_MODULES
@@ -1328,6 +1199,59 @@ static void md_register_module_data(void)
 #endif	/* CONFIG_MODULES */
 #endif	/* CONFIG_QCOM_MINIDUMP_PANIC_DUMP */
 
+#ifdef CONFIG_QCOM_MINIDUMP_PSTORE
+static void register_pstore_info(void)
+{
+	struct device_node *node;
+	struct resource resource;
+	unsigned int value;
+	unsigned long dump_sz;
+	int ret;
+	struct md_region md_entry;
+	struct minidump_pstore *pstore = &pstore_data;
+
+	for_each_compatible_node(node, NULL, "ramoops") {
+		ret = of_property_read_u32(node, "record-size", &value);
+		if (!ret)
+			pstore->record_size = value;
+
+		ret = of_property_read_u32(node, "ftrace-size", &value);
+		if (!ret)
+			pstore->ftrace_size = value;
+
+		ret = of_property_read_u32(node, "console-size", &value);
+		if (!ret)
+			pstore->console_size = value;
+
+		ret = of_property_read_u32(node, "pmsg-size", &value);
+		if (!ret)
+			pstore->pmsg_size = value;
+
+		ret = of_address_to_resource(node, 0, &resource);
+		if (!ret) {
+			pstore->paddr = resource.start;
+			pstore->size = resource_size(&resource);
+		} else {
+			pr_err("Failed to get pstore resource %d\n", ret);
+			return;
+		}
+	}
+
+	dump_sz = pstore->size - pstore->pmsg_size
+		  - pstore->console_size - pstore->ftrace_size;
+
+	pstore->record_cnt = div_u64(dump_sz, pstore->record_size);
+
+	strlcpy(md_entry.name, "KPSTORE", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)phys_to_virt(pstore->paddr);
+	md_entry.phys_addr = pstore->paddr;
+	md_entry.size = pstore->size;
+
+	if (msm_minidump_add_region(&md_entry) < 0)
+		pr_err("Failed to add pstore data in Minidump\n");
+}
+#endif
+
 int msm_minidump_log_init(void)
 {
 	register_kernel_sections();
@@ -1338,6 +1262,9 @@ int msm_minidump_log_init(void)
 	register_suspend_context();
 #endif
 	register_log_buf();
+#ifdef CONFIG_QCOM_MINIDUMP_PSTORE
+	register_pstore_info();
+#endif
 #ifdef CONFIG_QCOM_MINIDUMP_FTRACE
 	md_register_trace_buf();
 #endif

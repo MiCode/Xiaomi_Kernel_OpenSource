@@ -1922,8 +1922,11 @@ long kgsl_ioctl_gpu_aux_command(struct kgsl_device_private *dev_priv,
 		(KGSL_GPU_AUX_COMMAND_TIMELINE)))
 		return -EINVAL;
 
-	/* Make sure we don't overflow count */
-	if (param->numcmds == UINT_MAX)
+	/*
+	 * Make sure we don't overflow count. Couple of drawobjs are reserved:
+	 * One drawobj for timestamp sync and another for aux command sync.
+	 */
+	if (param->numcmds > (UINT_MAX - 2))
 		return -EINVAL;
 
 	context = kgsl_context_get_owner(dev_priv, param->context_id);
@@ -2007,12 +2010,13 @@ long kgsl_ioctl_gpu_aux_command(struct kgsl_device_private *dev_priv,
 				goto err;
 			}
 
+			drawobjs[index++] = DRAWOBJ(timelineobj);
+
 			ret = kgsl_drawobj_add_timeline(dev_priv, timelineobj,
 				cmdlist, param->cmdsize);
 			if (ret)
 				goto err;
 
-			drawobjs[index++] = DRAWOBJ(timelineobj);
 		} else {
 			ret = -EINVAL;
 			goto err;
@@ -2503,6 +2507,11 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 		if (vma->vm_file->f_op == &kgsl_fops) {
 			mmap_read_unlock(current->mm);
 			return -EFAULT;
+		}
+
+		if (!is_dma_buf_file(vma->vm_file)) {
+			mmap_read_unlock(current->mm);
+			return -ENODEV;
 		}
 
 		fd = get_unused_fd_flags(0);

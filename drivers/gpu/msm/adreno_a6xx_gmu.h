@@ -80,8 +80,11 @@ struct a6xx_gmu_device {
 	void __iomem *rdpm_cx_virt;
 	/** @rdpm_mx_virt: Pointer where the RDPM MX block is mapped */
 	void __iomem *rdpm_mx_virt;
-	/** @log_stream_enable: GMU log streaming enable */
+	/** @log_stream_enable: GMU log streaming enable. Disabled by default */
 	bool log_stream_enable;
+	/** @log_group_mask: Allows overriding default GMU log group mask */
+	u32 log_group_mask;
+	struct kobject log_kobj;
 };
 
 /* Helper function to get to a6xx gmu device from adreno device */
@@ -147,12 +150,12 @@ int a6xx_gmu_device_probe(struct platform_device *pdev,
 	u32 chipid, const struct adreno_gpu_core *gpucore);
 
 /**
- * a6xx_gmu_restart - Reset and restart the gmu
- * @device: Pointer to the kgsl device
+ * a6xx_gmu_reset - Reset and restart the gmu
+ * @adreno_dev: Pointer to the adreno device
  *
  * Return: 0 on success or negative error on failure
  */
-int a6xx_gmu_restart(struct kgsl_device *device);
+int a6xx_gmu_reset(struct adreno_device *adreno_dev);
 
 /**
  * a6xx_enable_gpu_irq - Enable gpu interrupt

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -188,6 +188,11 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 		return -EINVAL;
 
 	BTFMSLIM_INFO("port:%d ", ch->port);
+	if (ch->dai.sruntime == NULL) {
+		BTFMSLIM_ERR("Channel not enabled yet. returning");
+		return -EINVAL;
+	}
+
 	btfm_is_port_opening_delayed = false;
 
 	ret = slim_stream_disable(ch->dai.sruntime);

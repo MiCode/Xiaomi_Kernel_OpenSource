@@ -96,8 +96,30 @@ void clk_common_debug_init(struct clk_hw *hw, struct dentry *dentry);
 
 /* hw debug registration */
 int clk_hw_debug_register(struct device *dev, struct clk_hw *clk_hw);
-
 int clk_debug_init(void);
 void clk_debug_exit(void);
+extern void clk_debug_print_hw(struct clk_hw *hw, struct seq_file *f);
+
+#define WARN_CLK(hw, cond, fmt, ...)						\
+	do {									\
+		clk_debug_print_hw(hw, NULL);					\
+		WARN(cond, "%s: " fmt, clk_hw_get_name(hw), ##__VA_ARGS__);	\
+	} while (0)
+
+#define clock_debug_output(m, fmt, ...)			\
+	do {							\
+		if (m)						\
+			seq_printf(m, fmt, ##__VA_ARGS__);	\
+		else						\
+			pr_info(fmt, ##__VA_ARGS__);		\
+	} while (0)
+
+#define clock_debug_output_cont(s, fmt, ...)			\
+	do {							\
+		if (s)						\
+			seq_printf(s, fmt, ##__VA_ARGS__);	\
+		else						\
+			pr_cont(fmt, ##__VA_ARGS__);		\
+	} while (0)
 
 #endif

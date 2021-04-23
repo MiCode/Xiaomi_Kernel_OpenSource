@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
 /*
  * Copyright (c) 2015, Sony Mobile Communications Inc.
- * Copyright (c) 2013, 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2020-2021, The Linux Foundation. All rights reserved.
  * Copyright (c) 2020, Linaro Ltd.
  */
 
@@ -287,7 +287,7 @@ static int server_del(struct qrtr_node *node, unsigned int port)
 
 	srv = xa_load(&node->servers, port);
 	if (!srv)
-		return -ENOENT;
+		return 0;
 
 	xa_erase(&node->servers, port);
 
@@ -415,10 +415,6 @@ static int ctrl_cmd_del_client(struct sockaddr_qrtr *from,
 	iv.iov_base = &pkt;
 	iv.iov_len = sizeof(pkt);
 
-	/* Don't accept spoofed messages */
-	if (from->sq_node != node_id)
-		return -EINVAL;
-
 	/* Local DEL_CLIENT messages comes from the port being closed */
 	if (from->sq_node == qrtr_ns.local_node && from->sq_port != port)
 		return -EINVAL;
@@ -483,10 +479,6 @@ static int ctrl_cmd_new_server(struct sockaddr_qrtr *from,
 		port = from->sq_port;
 	}
 
-	/* Don't accept spoofed messages */
-	if (from->sq_node != node_id)
-		return -EINVAL;
-
 	srv = server_add(service, instance, node_id, port);
 	if (!srv)
 		return -EINVAL;
@@ -524,10 +516,6 @@ static int ctrl_cmd_del_server(struct sockaddr_qrtr *from,
 		node_id = from->sq_node;
 		port = from->sq_port;
 	}
-
-	/* Don't accept spoofed messages */
-	if (from->sq_node != node_id)
-		return -EINVAL;
 
 	/* Local servers may only unregister themselves */
 	if (from->sq_node == qrtr_ns.local_node && from->sq_port != port)

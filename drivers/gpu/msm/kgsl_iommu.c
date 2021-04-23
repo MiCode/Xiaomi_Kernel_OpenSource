@@ -67,7 +67,6 @@ static void _tlb_add_page(struct iommu_iotlb_gather *gather,
 static const struct iommu_flush_ops kgsl_iopgtbl_tlb_ops = {
 	.tlb_flush_all = _tlb_flush_all,
 	.tlb_flush_walk = _tlb_flush_walk,
-	.tlb_flush_leaf = _tlb_flush_walk,
 	.tlb_add_page = _tlb_add_page,
 };
 
@@ -1008,9 +1007,6 @@ static void _enable_gpuhtw_llc(struct kgsl_mmu *mmu, struct iommu_domain *domain
 	if (!test_bit(KGSL_MMU_LLCC_ENABLE, &mmu->features))
 		return;
 
-	if (!IS_ENABLED(CONFIG_QCOM_IOMMU_IO_PGTABLE_QUIRKS))
-		return;
-
 	if (mmu->subtype == KGSL_IOMMU_SMMU_V500)
 		iommu_domain_set_attr(domain, DOMAIN_ATTR_USE_LLC_NWA, &val);
 	else
@@ -1142,7 +1138,7 @@ static struct kgsl_pagetable *kgsl_iommu_secure_pagetable(struct kgsl_mmu *mmu)
 		return ERR_PTR(-EPERM);
 
 	iommu_pt = kzalloc(sizeof(*iommu_pt), GFP_KERNEL);
-	if (iommu_pt)
+	if (!iommu_pt)
 		return ERR_PTR(-ENOMEM);
 
 	kgsl_mmu_pagetable_init(mmu, &iommu_pt->base, KGSL_MMU_SECURE_PT);
@@ -1156,7 +1152,7 @@ static struct kgsl_pagetable *kgsl_iommu_secure_pagetable(struct kgsl_mmu *mmu)
 	iommu_pt->base.va_end = KGSL_IOMMU_SECURE_END(mmu);
 
 	kgsl_mmu_pagetable_add(mmu, &iommu_pt->base);
-	return 0;
+	return &iommu_pt->base;
 }
 #else
 static struct kgsl_pagetable *kgsl_iommu_secure_pagetable(struct kgsl_mmu *mmu)

@@ -19,6 +19,7 @@
 #include <linux/tick.h>
 #include <linux/time64.h>
 #include <trace/events/ipi.h>
+#include <trace/hooks/cpuidle.h>
 
 #include "qcom-lpm.h"
 #define CREATE_TRACE_POINTS
@@ -544,11 +545,6 @@ static int lpm_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 	if (lpm_disallowed(duration_ns, dev->cpu))
 		goto done;
 
-	if (cpu_gov->ipi_pending) {
-		reason = UPDATE_REASON(i, LPM_SELECT_STATE_IPI_PENDING);
-		goto done;
-	}
-
 	if (check_cpu_isactive(dev->cpu))
 		cpu_predict(cpu_gov, duration_ns);
 
@@ -617,6 +613,36 @@ static void lpm_reflect(struct cpuidle_device *dev, int state)
 }
 
 /**
+ * lpm_idle_enter() - Notification with cpuidle state during idle entry
+ * @unused:   unused
+ * @state:    selected state by governor's .select
+ * @dev:      cpuidle_device
+ */
+static void lpm_idle_enter(void *unused, int *state, struct cpuidle_device *dev)
+{
+	struct lpm_cpu *cpu_gov = this_cpu_ptr(&lpm_cpu_data);
+	u64 reason = 0;
+
+	/* Restrict to WFI state if there is an IPI pending on current CPU */
+	if (cpu_gov->ipi_pending) {
+		reason = UPDATE_REASON(*state, LPM_SELECT_STATE_IPI_PENDING);
+		*state = 0;
+		trace_lpm_gov_select(*state, 0xdeaffeed, 0xdeaffeed, reason);
+	}
+}
+
+/**
+ * lpm_idle_exit() - Notification with cpuidle state during idle exit
+ * @unused:   unused
+ * @state:    actual entered state by cpuidle
+ * @dev:      cpuidle_device
+ */
+static void lpm_idle_exit(void *unused, int state, struct cpuidle_device *dev)
+{
+
+}
+
+/**
  * lpm_enable_device() - Initialize the governor's data for the CPU
  * @drv:      cpuidle driver
  * @dev:      Target CPU
@@ -639,6 +665,24 @@ static int lpm_enable_device(struct cpuidle_driver *drv,
 		ret = register_trace_ipi_entry(ipi_entry, NULL);
 		if (ret) {
 			unregister_trace_ipi_raise(ipi_raise, NULL);
+			return ret;
+		}
+
+		ret = register_trace_prio_android_vh_cpu_idle_enter(
+					lpm_idle_enter, NULL, INT_MIN);
+		if (ret) {
+			unregister_trace_ipi_raise(ipi_raise, NULL);
+			unregister_trace_ipi_entry(ipi_entry, NULL);
+			return ret;
+		}
+
+		ret = register_trace_prio_android_vh_cpu_idle_exit(
+					lpm_idle_exit, NULL, INT_MIN);
+		if (ret) {
+			unregister_trace_ipi_raise(ipi_raise, NULL);
+			unregister_trace_ipi_entry(ipi_entry, NULL);
+			unregister_trace_android_vh_cpu_idle_enter(
+					lpm_idle_enter, NULL);
 			return ret;
 		}
 
@@ -680,6 +724,10 @@ static void lpm_disable_device(struct cpuidle_driver *drv,
 	if (traces_registered) {
 		unregister_trace_ipi_raise(ipi_raise, NULL);
 		unregister_trace_ipi_entry(ipi_entry, NULL);
+		unregister_trace_android_vh_cpu_idle_enter(
+					lpm_idle_enter, NULL);
+		unregister_trace_android_vh_cpu_idle_exit(
+					lpm_idle_exit, NULL);
 		if (cluster_gov_ops && cluster_gov_ops->disable)
 			cluster_gov_ops->disable();
 

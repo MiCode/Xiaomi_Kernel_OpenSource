@@ -10,6 +10,14 @@
 #include "adreno_trace.h"
 #include "kgsl_trace.h"
 
+static bool is_concurrent_binning(struct adreno_context *drawctxt)
+{
+	if (!drawctxt)
+		return false;
+
+	return !(drawctxt->base.flags & KGSL_CONTEXT_SECURE);
+}
+
 static int genc_rb_pagetable_switch(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
 		struct kgsl_pagetable *pagetable, u32 *cmds)
@@ -37,15 +45,17 @@ static int genc_rb_pagetable_switch(struct adreno_device *adreno_dev,
 	cmds[count++] = upper_32_bits(ttbr0);
 	cmds[count++] = id;
 
+	/*
+	 * Sync both threads after switching pagetables and enable BR only
+	 * to make sure BV doesn't race ahead while BR is still switching
+	 * pagetables.
+	 */
+	if (is_concurrent_binning(drawctxt)) {
+		cmds[count++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
+		cmds[count++] = CP_SYNC_THREADS | CP_SET_THREAD_BR;
+	}
+
 	return count;
-}
-
-static bool is_concurrent_binning(struct adreno_context *drawctxt)
-{
-	if (!drawctxt)
-		return false;
-
-	return !(drawctxt->base.flags & KGSL_CONTEXT_SECURE);
 }
 
 static int genc_rb_context_switch(struct adreno_device *adreno_dev,
@@ -94,12 +104,6 @@ static int genc_rb_context_switch(struct adreno_device *adreno_dev,
 		 */
 		cmds[count++] = cp_type4_packet(offset, 1);
 		cmds[count++] = id;
-	}
-
-	if (is_concurrent_binning(drawctxt)) {
-		/* Sync both threads after switching pagetables and enable BR only */
-		cmds[count++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
-		cmds[count++] = CP_SYNC_THREADS | CP_SET_THREAD_BR;
 	}
 
 	cmds[count++] = cp_type7_packet(CP_NOP, 1);

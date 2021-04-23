@@ -158,8 +158,8 @@ static void cluster_predict(struct lpm_cluster *cluster_gov)
 
 		if (count > PRED_PREMATURE_CNT) {
 			do_div(avg_residency, count);
-			cluster_gov->pred_wakeup = ktime_add_us(avg_residency,
-								cluster_gov->now);
+			cluster_gov->pred_wakeup = ktime_add_us(cluster_gov->now,
+								avg_residency);
 			cluster_gov->predicted = true;
 			return;
 		}
@@ -205,7 +205,8 @@ static void update_cluster_history(struct lpm_cluster *cluster_gov)
 	if ((cluster_gov->entry_idx == -1) || (cluster_gov->entry_idx == idx)) {
 		residency = ktime_sub(cluster_gov->now, cluster_gov->entry_time);
 		residency = ktime_to_us(residency);
-		cluster_gov->history[samples_idx].entry_time = cluster_gov->entry_time;
+		cluster_gov->history[samples_idx].entry_time =
+					ktime_to_us(cluster_gov->entry_time);
 	} else
 		return;
 
@@ -252,7 +253,7 @@ static void cluster_power_down(struct lpm_cluster *cluster_gov)
 	if (idx < 0)
 		return;
 
-	cluster_gov->entry_time = ktime_to_us(cluster_gov->now);
+	cluster_gov->entry_time = cluster_gov->now;
 	cluster_gov->entry_idx = idx;
 	trace_cluster_pred_select(genpd->state_idx, genpd->next_wakeup,
 				  0, cluster_gov->predicted, cluster_gov->next_wakeup);
@@ -281,16 +282,36 @@ static int cluster_power_cb(struct notifier_block *nb,
 			    unsigned long action, void *data)
 {
 	struct lpm_cluster *cluster_gov = container_of(nb, struct lpm_cluster, genpd_nb);
+	struct lpm_cpu *cpu_gov;
+	int cpu;
 
-	cluster_gov->now = ktime_get();
 	switch (action) {
 	case GENPD_NOTIFY_ON:
+		if (cluster_gov->genpd->suspended_count != 0)
+			break;
+
+		cluster_gov->now = ktime_get();
 		clusttimer_cancel(cluster_gov);
 		update_cluster_history(cluster_gov);
 		cluster_predict(cluster_gov);
 		trace_cluster_exit(raw_smp_processor_id());
 		break;
 	case GENPD_NOTIFY_PRE_OFF:
+		if (cluster_gov->genpd->suspended_count != 0) {
+			clear_cpu_predict_history();
+			clear_cluster_history(cluster_gov);
+			break;
+		}
+
+		for_each_cpu(cpu, cluster_gov->genpd->cpus) {
+			if (cpu_online(cpu)) {
+				cpu_gov = per_cpu_ptr(&lpm_cpu_data, cpu);
+				if (cpu_gov->ipi_pending)
+					return NOTIFY_BAD;
+			}
+		}
+
+		cluster_gov->now = ktime_get();
 		cluster_power_down(cluster_gov);
 		break;
 	default:

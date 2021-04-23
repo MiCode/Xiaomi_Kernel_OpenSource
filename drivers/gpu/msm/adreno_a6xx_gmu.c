@@ -10,17 +10,18 @@
 #include <linux/firmware.h>
 #include <linux/interconnect.h>
 #include <linux/io.h>
+#include <linux/kobject.h>
 #include <linux/of_platform.h>
 #include <linux/qcom-iommu-util.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/soc/qcom/llcc-qcom.h>
+#include <linux/sysfs.h>
 #include <linux/mailbox/qmp.h>
 #include <soc/qcom/cmd-db.h>
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
-#include "adreno_hwsched.h"
 #include "adreno_trace.h"
 #include "kgsl_bus.h"
 #include "kgsl_device.h"
@@ -85,6 +86,68 @@ static struct gmu_vma_entry a6xx_gmu_vma[] = {
 		},
 };
 
+static ssize_t log_stream_enable_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	struct a6xx_gmu_device *gmu = container_of(kobj, struct a6xx_gmu_device, log_kobj);
+	bool val;
+	int ret;
+
+	ret = kstrtobool(buf, &val);
+	if (ret)
+		return ret;
+
+	gmu->log_stream_enable = val;
+	return count;
+}
+
+static ssize_t log_stream_enable_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	struct a6xx_gmu_device *gmu = container_of(kobj, struct a6xx_gmu_device, log_kobj);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", gmu->log_stream_enable);
+}
+
+static ssize_t log_group_mask_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	struct a6xx_gmu_device *gmu = container_of(kobj, struct a6xx_gmu_device, log_kobj);
+	u32 val;
+	int ret;
+
+	ret = kstrtou32(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	gmu->log_group_mask = val;
+	return count;
+}
+
+static ssize_t log_group_mask_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	struct a6xx_gmu_device *gmu = container_of(kobj, struct a6xx_gmu_device, log_kobj);
+
+	return scnprintf(buf, PAGE_SIZE, "%x\n", gmu->log_group_mask);
+}
+
+static struct kobj_attribute log_stream_enable_attr =
+	__ATTR(log_stream_enable, 0644, log_stream_enable_show, log_stream_enable_store);
+
+static struct kobj_attribute log_group_mask_attr =
+	__ATTR(log_group_mask, 0644, log_group_mask_show, log_group_mask_store);
+
+static struct attribute *log_attrs[] = {
+	&log_stream_enable_attr.attr,
+	&log_group_mask_attr.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(log);
+
+static struct kobj_type log_kobj_type = {
+	.sysfs_ops = &kobj_sysfs_ops,
+	.default_groups = log_groups,
+};
+
 static int timed_poll_check_rscc(struct kgsl_device *device,
 		unsigned int offset, unsigned int expected_ret,
 		unsigned int timeout, unsigned int mask)
@@ -139,7 +202,7 @@ void a6xx_load_rsc_ucode(struct adreno_device *adreno_dev)
 	if (adreno_is_a650_family(adreno_dev))
 		rscc = gmu->rscc_virt;
 	else
-		rscc = kgsl_regmap_virt(&device->regmap, 0x23400);
+		rscc = kgsl_regmap_virt(&device->regmap, 0x23000);
 
 	/* Disable SDE clock gating */
 	_regwrite(rscc, A6XX_GPU_RSCC_RSC_STATUS0_DRV0, BIT(24));
@@ -892,12 +955,7 @@ static int a6xx_complete_rpmh_votes(struct adreno_device *adreno_dev)
 	return ret;
 }
 
-#define SPTPRAC_POWERON_CTRL_MASK	0x00778000
-#define SPTPRAC_POWEROFF_CTRL_MASK	0x00778001
-#define SPTPRAC_POWEROFF_STATUS_MASK	BIT(2)
-#define SPTPRAC_POWERON_STATUS_MASK	BIT(3)
 #define SPTPRAC_CTRL_TIMEOUT		10 /* ms */
-#define A6XX_RETAIN_FF_ENABLE_ENABLE_MASK BIT(11)
 
 /*
  * a6xx_gmu_sptprac_enable() - Power on SPTPRAC
@@ -914,26 +972,6 @@ int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 
 	if (test_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED, &adreno_dev->priv))
 		return 0;
-
-	if (adreno_is_a619_holi(adreno_dev)) {
-		u32 val;
-		void __iomem *addr = kgsl_regmap_virt(&device->regmap,
-			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS);
-
-		kgsl_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
-			SPTPRAC_POWERON_CTRL_MASK);
-
-		if (readl_poll_timeout(addr, val,
-			(val & SPTPRAC_POWERON_STATUS_MASK) ==
-			SPTPRAC_POWERON_STATUS_MASK, 10,
-			10 * 1000)) {
-			dev_err(device->dev, "power on SPTPRAC fail\n");
-			return -EINVAL;
-		}
-
-		set_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED, &adreno_dev->priv);
-		return 0;
-	}
 
 	/* GMU enabled a630 and a615 targets */
 	gmu_core_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
@@ -969,26 +1007,6 @@ void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev)
 	if (!test_and_clear_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED,
 		&adreno_dev->priv))
 		return;
-
-	if (adreno_is_a619_holi(adreno_dev)) {
-		u32 val;
-		void __iomem *addr = kgsl_regmap_virt(&device->regmap,
-			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS);
-
-		/* Ensure that retention is on */
-		kgsl_regrmw(device, A6XX_GPU_CC_GX_GDSCR,
-			0, A6XX_RETAIN_FF_ENABLE_ENABLE_MASK);
-
-		kgsl_regwrite(device,
-			A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
-			SPTPRAC_POWEROFF_CTRL_MASK);
-		if (readl_poll_timeout(addr, val,
-			(val & SPTPRAC_POWEROFF_STATUS_MASK) ==
-			SPTPRAC_POWEROFF_STATUS_MASK, 10,
-			10 * 1000))
-			dev_err(device->dev, "power off SPTPRAC fail\n");
-		return;
-	}
 
 	/* GMU enabled a630 and a615 targets */
 
@@ -2537,6 +2555,8 @@ void a6xx_gmu_remove(struct kgsl_device *device)
 	a6xx_free_gmu_globals(gmu);
 
 	vfree(gmu->itcm_shadow);
+
+	kobject_put(&gmu->log_kobj);
 }
 
 static int a6xx_gmu_iommu_fault_handler(struct iommu_domain *domain,
@@ -2600,6 +2620,7 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int ret;
 
@@ -2665,6 +2686,13 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 	set_bit(GMU_ENABLED, &device->gmu_core.flags);
 
 	device->gmu_core.dev_ops = &a6xx_gmudev;
+
+	/* Set default GMU attributes */
+	gmu->log_stream_enable = false;
+	gmu->log_group_mask = 0x3;
+
+	/* GMU sysfs nodes setup */
+	kobject_init_and_add(&gmu->log_kobj, &log_kobj_type, &dev->kobj, "log");
 
 	gmu->irq = kgsl_request_irq(gmu->pdev, "kgsl_gmu_irq",
 		a6xx_gmu_irq_handler, device);
@@ -3284,9 +3312,8 @@ int a6xx_gmu_device_probe(struct platform_device *pdev,
 	return 0;
 }
 
-int a6xx_gmu_restart(struct kgsl_device *device)
+int a6xx_gmu_reset(struct adreno_device *adreno_dev)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 
 	a6xx_hfi_stop(adreno_dev);
@@ -3295,6 +3322,8 @@ int a6xx_gmu_restart(struct kgsl_device *device)
 
 	/* Hard reset the gmu and gpu */
 	a6xx_gmu_suspend(adreno_dev);
+
+	a6xx_reset_preempt_records(adreno_dev);
 
 	clear_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
 

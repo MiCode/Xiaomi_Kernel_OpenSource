@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 
@@ -10,6 +10,7 @@
 #include <linux/interrupt.h>
 #include <linux/ipc_logging.h>
 #include <linux/io.h>
+#include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
@@ -1147,6 +1148,17 @@ setup_ipc:
 		mas->tx_fifo_width);
 	if (!mas->shared_ee)
 		mas->setup = true;
+
+	/*
+	 * Bypass hw_version read for LE. QUP common registers
+	 * should not be accessed from SVM as that memory is
+	 * assigned to PVM. So, bypass the reading of hw version
+	 *  registers and rely on PVM for the specific HW initialization
+	 *  done based on different hw versions.
+	 */
+	if (mas->is_le_vm)
+		return ret;
+
 	hw_ver = geni_se_qupv3_hw_version(mas->wrapper_dev, &major,
 						&minor, &step);
 	if (hw_ver)
@@ -1850,6 +1862,7 @@ static int spi_geni_probe(struct platform_device *pdev)
 			goto spi_geni_probe_unmap;
 		}
 
+		irq_set_status_flags(geni_mas->irq, IRQ_NOAUTOEN);
 		ret = devm_request_irq(&pdev->dev, geni_mas->irq,
 			geni_spi_irq, IRQF_TRIGGER_HIGH, "spi_geni", geni_mas);
 		if (ret) {

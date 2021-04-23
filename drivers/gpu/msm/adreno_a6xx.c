@@ -161,7 +161,6 @@ int a6xx_fenced_write(struct adreno_device *adreno_dev, u32 offset,
 int a6xx_init(struct adreno_device *adreno_dev)
 {
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
-	int ret;
 
 	adreno_dev->highest_bank_bit = a6xx_core->highest_bank_bit;
 
@@ -180,13 +179,10 @@ int a6xx_init(struct adreno_device *adreno_dev)
 
 	a6xx_crashdump_init(adreno_dev);
 
-	ret = adreno_allocate_global(KGSL_DEVICE(adreno_dev), &adreno_dev->pwrup_reglist,
-		PAGE_SIZE, 0, 0, KGSL_MEMDESC_PRIVILEGED, "powerup_register_list");
-	if (ret)
-		return ret;
-
-	adreno_create_profile_buffer(adreno_dev);
-	return 0;
+	return adreno_allocate_global(KGSL_DEVICE(adreno_dev),
+		&adreno_dev->pwrup_reglist,
+		PAGE_SIZE, 0, 0, KGSL_MEMDESC_PRIVILEGED,
+		"powerup_register_list");
 }
 
 static int a6xx_nogmu_init(struct adreno_device *adreno_dev)
@@ -211,6 +207,8 @@ static int a6xx_nogmu_init(struct adreno_device *adreno_dev)
 		"gmu_wrapper", NULL, NULL);
 	if (ret && ret != -ENODEV)
 		dev_err(device->dev, "Couldn't map the GMU wrapper registers\n");
+
+	adreno_create_profile_buffer(adreno_dev);
 
 	return a6xx_init(adreno_dev);
 }
@@ -1335,14 +1333,14 @@ static int a6xx_clear_pending_transactions(struct adreno_device *adreno_dev)
 
 /**
  * a6xx_reset() - Helper function to reset the GPU
- * @device: Pointer to the KGSL device structure for the GPU
+ * @adreno_dev: Pointer to the adreno device structure for the GPU
  *
  * Try to reset the GPU to recover from a fault for targets without
  * a GMU.
  */
-static int a6xx_reset(struct kgsl_device *device)
+static int a6xx_reset(struct adreno_device *adreno_dev)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 	unsigned long flags = device->pwrctrl.ctrl_flags;
 
@@ -1357,6 +1355,8 @@ static int a6xx_reset(struct kgsl_device *device)
 
 	/* since device is officially off now clear start bit */
 	clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
+
+	a6xx_reset_preempt_records(adreno_dev);
 
 	ret = adreno_start(device, 0);
 	if (ret)
@@ -1650,7 +1650,7 @@ static void a6xx_cp_callback(struct adreno_device *adreno_dev, int bit)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (adreno_is_preemption_enabled(adreno_dev))
-		a6xx_preemption_trigger(adreno_dev);
+		a6xx_preemption_trigger(adreno_dev, true);
 
 	adreno_dispatcher_schedule(device);
 }
@@ -2534,6 +2534,53 @@ static int a6xx_setproperty(struct kgsl_device_private *dev_priv,
 	return 0;
 }
 
+static int a619_holi_sptprac_enable(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	void __iomem *addr = kgsl_regmap_virt(&device->regmap,
+		A6XX_GMU_SPTPRAC_PWR_CLK_STATUS);
+	u32 val;
+
+	if (test_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED, &adreno_dev->priv))
+		return 0;
+
+	kgsl_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
+		SPTPRAC_POWERON_CTRL_MASK);
+
+	if (readl_poll_timeout(addr, val,
+		(val & SPTPRAC_POWERON_STATUS_MASK) ==
+		SPTPRAC_POWERON_STATUS_MASK, 10, 10 * 1000)) {
+		dev_err(device->dev, "power on SPTPRAC fail\n");
+		return -EINVAL;
+	}
+
+	set_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED, &adreno_dev->priv);
+	return 0;
+}
+
+static void a619_holi_sptprac_disable(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	void __iomem *addr = kgsl_regmap_virt(&device->regmap,
+		A6XX_GMU_SPTPRAC_PWR_CLK_STATUS);
+	u32 val;
+
+	if (!test_and_clear_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED,
+		&adreno_dev->priv))
+		return;
+
+	/* Ensure that retention is on */
+	kgsl_regrmw(device, A6XX_GPU_CC_GX_GDSCR, 0,
+		A6XX_RETAIN_FF_ENABLE_ENABLE_MASK);
+
+	kgsl_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
+		SPTPRAC_POWEROFF_CTRL_MASK);
+	if (readl_poll_timeout(addr, val,
+		(val & SPTPRAC_POWEROFF_STATUS_MASK) ==
+		SPTPRAC_POWEROFF_STATUS_MASK, 10, 10 * 1000))
+		dev_err(device->dev, "power off SPTPRAC fail\n");
+}
+
 /* This is a non GMU/RGMU part */
 const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
@@ -2581,6 +2628,7 @@ const struct a6xx_gpudev adreno_a6xx_hwsched_gpudev = {
 		.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
 		.read_alwayson = a6xx_read_alwayson,
+		.reset = a6xx_hwsched_reset,
 		.power_ops = &a6xx_hwsched_power_ops,
 		.power_stats = a6xx_power_stats,
 		.setproperty = a6xx_setproperty,
@@ -2601,7 +2649,7 @@ const struct a6xx_gpudev adreno_a6xx_gmu_gpudev = {
 		.gpu_keepalive = a6xx_gpu_keepalive,
 		.hw_isidle = a6xx_hw_isidle,
 		.iommu_fault_block = a6xx_iommu_fault_block,
-		.reset = a6xx_gmu_restart,
+		.reset = a6xx_gmu_reset,
 		.preemption_schedule = a6xx_preemption_schedule,
 		.preemption_context_init = a6xx_preemption_context_init,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
@@ -2629,7 +2677,7 @@ const struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 	.gpu_keepalive = a6xx_gpu_keepalive,
 	.hw_isidle = a6xx_hw_isidle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
-	.reset = a6xx_rgmu_restart,
+	.reset = a6xx_rgmu_reset,
 	.preemption_schedule = a6xx_preemption_schedule,
 	.preemption_context_init = a6xx_preemption_context_init,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
@@ -2652,8 +2700,8 @@ const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.init = a6xx_nogmu_init,
 	.irq_handler = a6xx_irq_handler,
 	.rb_start = a6xx_rb_start,
-	.regulator_enable = a6xx_sptprac_enable,
-	.regulator_disable = a6xx_sptprac_disable,
+	.regulator_enable = a619_holi_sptprac_enable,
+	.regulator_disable = a619_holi_sptprac_disable,
 	.gpu_keepalive = a6xx_gpu_keepalive,
 	.hw_isidle = a619_holi_hw_isidle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
@@ -2689,7 +2737,7 @@ const struct a6xx_gpudev adreno_a630_gpudev = {
 		.gpu_keepalive = a6xx_gpu_keepalive,
 		.hw_isidle = a6xx_hw_isidle,
 		.iommu_fault_block = a6xx_iommu_fault_block,
-		.reset = a6xx_gmu_restart,
+		.reset = a6xx_gmu_reset,
 		.preemption_schedule = a6xx_preemption_schedule,
 		.preemption_context_init = a6xx_preemption_context_init,
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT

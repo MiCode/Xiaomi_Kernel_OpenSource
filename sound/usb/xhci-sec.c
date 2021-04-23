@@ -13,7 +13,6 @@
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
 
-#include "xhci-trace.h"
 #include "xhci.h"
 
 struct xhci_sec {
@@ -28,6 +27,10 @@ struct xhci_sec {
 };
 
 static LIST_HEAD(xhci_sec);
+
+/* simplified redefinition from XHCI */
+#define hcd_to_xhci(h) \
+	((struct xhci_hcd *)(((h)->primary_hcd ?: (h))->hcd_priv))
 
 static int xhci_event_ring_setup(struct xhci_hcd *xhci, struct xhci_ring **er,
 	struct xhci_intr_reg __iomem *ir_set, struct xhci_erst *erst,
@@ -46,8 +49,7 @@ static int xhci_event_ring_setup(struct xhci_hcd *xhci, struct xhci_ring **er,
 	if (ret)
 		return ret;
 
-	xhci_dbg_trace(xhci, trace_xhci_dbg_init,
-		"intr# %d: num segs = %i, virt addr = %pK, dma addr = 0x%llx",
+	xhci_dbg(xhci, "intr# %d: num segs = %i, virt addr = %pK, dma addr = 0x%llx",
 			intr_num,
 			erst->num_entries,
 			erst->entries,
@@ -57,17 +59,14 @@ static int xhci_event_ring_setup(struct xhci_hcd *xhci, struct xhci_ring **er,
 	val = readl_relaxed(&ir_set->erst_size);
 	val &= ERST_SIZE_MASK;
 	val |= ERST_NUM_SEGS;
-	xhci_dbg_trace(xhci, trace_xhci_dbg_init,
-		"Write ERST size = %i to ir_set %d (some bits preserved)", val,
-		intr_num);
+	xhci_dbg(xhci, "Write ERST size = %i to ir_set %d (some bits preserved)",
+			val, intr_num);
 	writel_relaxed(val, &ir_set->erst_size);
 
-	xhci_dbg_trace(xhci, trace_xhci_dbg_init,
-			"intr# %d: Set ERST entries to point to event ring.",
+	xhci_dbg(xhci, "intr# %d: Set ERST entries to point to event ring.",
 			intr_num);
 	/* set the segment table base address */
-	xhci_dbg_trace(xhci, trace_xhci_dbg_init,
-			"Set ERST base address for ir_set %d = 0x%llx",
+	xhci_dbg(xhci, "Set ERST base address for ir_set %d = 0x%llx",
 			intr_num,
 			(unsigned long long)erst->erst_dma_addr);
 	val_64 = xhci_read_64(xhci, &ir_set->erst_base);
@@ -76,7 +75,7 @@ static int xhci_event_ring_setup(struct xhci_hcd *xhci, struct xhci_ring **er,
 	xhci_write_64(xhci, val_64, &ir_set->erst_base);
 
 	/* Set the event ring dequeue address */
-	deq = trb_virt_to_dma((*er)->deq_seg, (*er)->dequeue);
+	deq = xhci_trb_virt_to_dma((*er)->deq_seg, (*er)->dequeue);
 	if (deq == 0 && !in_interrupt())
 		xhci_warn(xhci,
 		"intr# %d:WARN something wrong with SW event ring deq ptr.\n",
@@ -88,13 +87,11 @@ static int xhci_event_ring_setup(struct xhci_hcd *xhci, struct xhci_ring **er,
 	 * there might be more events to service.
 	 */
 	val_64 &= ~ERST_EHB;
-	xhci_dbg_trace(xhci, trace_xhci_dbg_init,
-		"intr# %d:Write event ring dequeue pointer, preserving EHB bit",
+	xhci_dbg(xhci, "intr# %d:Write event ring dequeue pointer, preserving EHB bit",
 		intr_num);
 	xhci_write_64(xhci, ((u64) deq & (u64) ~ERST_PTR_MASK) | val_64,
 			&ir_set->erst_dequeue);
-	xhci_dbg_trace(xhci, trace_xhci_dbg_init,
-			"Wrote ERST address to ir_set %d.", intr_num);
+	xhci_dbg(xhci, "Wrote ERST address to ir_set %d.", intr_num);
 
 	return 0;
 }
@@ -197,7 +194,7 @@ static void xhci_handle_sec_intr_events(struct xhci_hcd *xhci,
 	}
 
 	if (erdp_trb != current_trb) {
-		deq = trb_virt_to_dma(ring->deq_seg, current_trb);
+		deq = xhci_trb_virt_to_dma(ring->deq_seg, current_trb);
 		if (deq == 0)
 			xhci_warn(xhci,
 				"WARN invalid SW event ring dequeue ptr.\n");
@@ -229,7 +226,7 @@ static int sec_event_ring_cleanup(struct xhci_hcd *xhci, struct xhci_ring *ring,
 	}
 
 	xhci_ring_free(xhci, ring);
-	xhci_dbg_trace(xhci, trace_xhci_dbg_init, "Freed sec event ring");
+	xhci_dbg(xhci, "Freed sec event ring");
 
 	return 0;
 }
@@ -284,6 +281,47 @@ phys_addr_t xhci_get_sec_event_ring_phys_addr(struct usb_device *udev,
 	return 0;
 }
 
+/* Returns 1 if the arguments are OK;
+ * returns 0 this is a root hub; returns -EINVAL for NULL pointers.
+ */
+static int xhci_check_args(struct usb_hcd *hcd, struct usb_device *udev,
+		struct usb_host_endpoint *ep, int check_ep, bool check_virt_dev,
+		const char *func)
+{
+	struct xhci_hcd	*xhci;
+	struct xhci_virt_device	*virt_dev;
+
+	if (!hcd || (check_ep && !ep) || !udev) {
+		pr_debug("xHCI %s called with invalid args\n", func);
+		return -EINVAL;
+	}
+	if (!udev->parent) {
+		pr_debug("xHCI %s called for root hub\n", func);
+		return 0;
+	}
+
+	xhci = hcd_to_xhci(hcd);
+	if (check_virt_dev) {
+		if (!udev->slot_id || !xhci->devs[udev->slot_id]) {
+			xhci_dbg(xhci, "xHCI %s called with unaddressed device\n",
+					func);
+			return -EINVAL;
+		}
+
+		virt_dev = xhci->devs[udev->slot_id];
+		if (virt_dev->udev != udev) {
+			xhci_dbg(xhci, "xHCI %s called with udev and virt_dev does not match\n",
+					func);
+			return -EINVAL;
+		}
+	}
+
+	if (xhci->xhc_state & XHCI_STATE_HALTED)
+		return -ENODEV;
+
+	return 1;
+}
+
 phys_addr_t xhci_get_xfer_ring_phys_addr(struct usb_device *udev,
 		struct usb_host_endpoint *ep, dma_addr_t *dma)
 {
@@ -327,6 +365,7 @@ phys_addr_t xhci_get_xfer_ring_phys_addr(struct usb_device *udev,
 	return 0;
 }
 
+/* Ring the host controller doorbell after placing a command on the ring */
 int xhci_stop_endpoint(struct usb_device *udev, struct usb_host_endpoint *ep)
 {
 	struct usb_hcd *hcd = bus_to_hcd(udev->bus);
@@ -360,7 +399,7 @@ int xhci_stop_endpoint(struct usb_device *udev, struct usb_host_endpoint *ep)
 		if (ret)
 			goto err;
 
-		ring_cmd_db(xhci);
+		xhci_ring_cmd_db(xhci);
 		spin_unlock_irqrestore(&xhci->lock, flags);
 
 		/* Wait for stop endpoint command to finish */

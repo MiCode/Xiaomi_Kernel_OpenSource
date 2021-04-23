@@ -10,7 +10,6 @@
 #include "adreno_genc.h"
 #include "adreno_genc_hwsched.h"
 #include "adreno_hfi.h"
-#include "adreno_hwsched.h"
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
 #include "kgsl_device.h"
@@ -230,11 +229,15 @@ static void process_dbgq_irq(struct adreno_device *adreno_dev)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
 	u32 rcvd[MAX_RCVD_SIZE];
+	bool recovery = false;
 
 	while (genc_hfi_queue_read(gmu, HFI_DBG_ID, rcvd, sizeof(rcvd)) > 0) {
 
-		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_ERR)
+		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_ERR) {
 			adreno_genc_receive_err_req(gmu, rcvd);
+			recovery = true;
+			break;
+		}
 
 		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_DEBUG)
 			adreno_genc_receive_debug_req(gmu, rcvd);
@@ -242,6 +245,12 @@ static void process_dbgq_irq(struct adreno_device *adreno_dev)
 		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_LOG_BLOCK)
 			adreno_genc_add_log_block(adreno_dev, rcvd);
 	}
+
+	if (!recovery)
+		return;
+
+	adreno_get_gpu_halt(adreno_dev);
+	adreno_hwsched_set_fault(adreno_dev);
 }
 
 /* HFI interrupt handler */
@@ -276,10 +285,13 @@ static irqreturn_t genc_hwsched_hfi_handler(int irq, void *data)
 
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU CM3 fault interrupt received\n");
+
+		adreno_get_gpu_halt(adreno_dev);
+		adreno_hwsched_set_fault(adreno_dev);
 	}
 
 	/* Ignore OOB bits */
-	status &= GENMASK(31, 31 - (oob_max - 1));
+	status &= GENMASK(31 - (oob_max - 1), 0);
 
 	if (status & ~hfi->irq_mask)
 		dev_err_ratelimited(&gmu->pdev->dev,
@@ -516,6 +528,9 @@ static struct hfi_mem_alloc_entry *get_mem_alloc_entry(
 	if (!(desc->flags & HFI_MEMFLAG_GFX_WRITEABLE))
 		flags |= KGSL_MEMFLAGS_GPUREADONLY;
 
+	if (desc->flags & HFI_MEMFLAG_GFX_SECURE)
+		flags |= KGSL_MEMFLAGS_SECURE;
+
 	entry->gpu_md = kgsl_allocate_global(device, desc->size, 0, flags, priv,
 		memkind_string);
 	if (IS_ERR(entry->gpu_md)) {
@@ -735,7 +750,15 @@ int genc_hwsched_hfi_start(struct adreno_device *adreno_dev)
 
 	ret = genc_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_KPROF, 1, 0);
 	if (ret)
-		return ret;
+		goto err;
+
+	if (gmu->log_stream_enable)
+		genc_hfi_send_set_value(adreno_dev,
+			HFI_VALUE_LOG_STREAM_ENABLE, 0, 1);
+
+	if (gmu->log_group_mask)
+		genc_hfi_send_set_value(adreno_dev,
+			HFI_VALUE_LOG_GROUP, 0, gmu->log_group_mask);
 
 	ret = genc_hfi_send_core_fw_start(adreno_dev);
 	if (ret)

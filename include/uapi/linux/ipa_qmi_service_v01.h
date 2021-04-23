@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -1798,6 +1798,8 @@ struct ipa_data_usage_quota_info_type_v01 {
 	 */
 };  /* Type */
 
+#define IPA_DATA_WARNING_QUOTA
+
 /* Request Message; Master driver sets a data usage quota value on
  * modem driver
  */
@@ -1815,6 +1817,21 @@ struct ipa_set_data_usage_quota_req_msg_v01 {
 	 * driver. Making this as list for expandability to support more
 	 * APNs in future.
 	 */
+
+	/* Optional */
+	/* APN Warning List */
+	__u8 apn_warning_list_valid;
+	/* Must be set to true if apn_warning_list is being passed */
+	__u32 apn_warning_list_len;
+	/* Must be set to # of elements in apn_warning_list */
+	struct ipa_data_usage_quota_info_type_v01
+		apn_warning_list[QMI_IPA_MAX_APN_V01];
+	/* The list of APNs on which a data usage warning to be set on modem
+	 * driver. For now, only one APN monitoring is supported on modem
+	 * driver. Making this as list for expandability to support more
+	 * APNs in future.
+	 */
+
 };  /* Message */
 
 /* Response Message; Master driver sets a data usage on modem driver. */
@@ -1833,8 +1850,16 @@ struct ipa_data_usage_quota_reached_ind_msg_v01 {
 	/*  APN Quota List */
 	struct ipa_data_usage_quota_info_type_v01 apn;
 	/* This message indicates which APN has the previously set quota
-	 * reached. For now, only one APN monitoring is supported on modem
-	 * driver.
+	 * or warning reached. For now, only one APN monitoring is supported
+	 * on modem driver.
+	 */
+	/* Optional */
+	/* Warning Limit reached indication */
+	/* Must be set to true if is_warning_limit is being passed */
+	__u8 is_warning_limit_valid;
+	__u8 is_warning_limit;
+	/* If set to TRUE, Warning Limit is reached.
+	 * If set to FALSE, Quota Limit is reached.
 	 */
 };  /* Message */
 
@@ -1842,14 +1867,23 @@ struct ipa_data_usage_quota_reached_ind_msg_v01 {
  * the current data usage quota monitoring session.
  */
 struct ipa_stop_data_usage_quota_req_msg_v01 {
-	/* This element is a placeholder to prevent the declaration of
-	 *  an empty struct.  DO NOT USE THIS FIELD UNDER ANY CIRCUMSTANCE
-	 */
-	char __placeholder;
+	/* Optional */
+	/* Stop monitoring Quota Limit */
+	/* Must be set to true if is_quota_limit is being passed */
+	__u8 is_quota_limit_valid;
+	__u8 is_quota_limit;
+	/* If set to TRUE, Quota Limit will not be monitored */
+
+	/* Optional */
+	/* Stop monitoring Warning Limit */
+	/* Must be set to true if is_warning_limit is being passed */
+	__u8 is_warning_limit_valid;
+	__u8 is_warning_limit;
+	/* If set to TRUE, Warning Limit will not be monitored */
 };  /* Message */
 
 /* Response Message; Master driver request modem driver to terminate
- * the current quota monitoring session.
+ * the current quota or warning limit monitoring session.
  */
 struct ipa_stop_data_usage_quota_resp_msg_v01 {
 	/* Mandatory */
@@ -2754,7 +2788,7 @@ struct ipa_bw_change_ind_msg_v01 {
 #define QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_MAX_MSG_LEN_V01 1899
 #define QMI_IPA_FILTER_INSTALLED_NOTIF_RESP_MAX_MSG_LEN_V01 7
 #define QMI_IPA_MASTER_DRIVER_INIT_COMPLETE_IND_MAX_MSG_LEN_V01 7
-#define QMI_IPA_DATA_USAGE_QUOTA_REACHED_IND_MAX_MSG_LEN_V01 15
+#define QMI_IPA_DATA_USAGE_QUOTA_REACHED_IND_MAX_MSG_LEN_V01 19
 
 
 #define QMI_IPA_ENABLE_FORCE_CLEAR_DATAPATH_REQ_MAX_MSG_LEN_V01 37
@@ -2773,9 +2807,9 @@ struct ipa_bw_change_ind_msg_v01 {
 #define QMI_IPA_GET_DATA_STATS_RESP_MAX_MSG_LEN_V01 2234
 #define QMI_IPA_GET_APN_DATA_STATS_REQ_MAX_MSG_LEN_V01 36
 #define QMI_IPA_GET_APN_DATA_STATS_RESP_MAX_MSG_LEN_V01 299
-#define QMI_IPA_SET_DATA_USAGE_QUOTA_REQ_MAX_MSG_LEN_V01 100
+#define QMI_IPA_SET_DATA_USAGE_QUOTA_REQ_MAX_MSG_LEN_V01 200
 #define QMI_IPA_SET_DATA_USAGE_QUOTA_RESP_MAX_MSG_LEN_V01 7
-#define QMI_IPA_STOP_DATA_USAGE_QUOTA_REQ_MAX_MSG_LEN_V01 0
+#define QMI_IPA_STOP_DATA_USAGE_QUOTA_REQ_MAX_MSG_LEN_V01 8
 #define QMI_IPA_STOP_DATA_USAGE_QUOTA_RESP_MAX_MSG_LEN_V01 7
 
 #define QMI_IPA_INIT_MODEM_DRIVER_CMPLT_REQ_MAX_MSG_LEN_V01 4

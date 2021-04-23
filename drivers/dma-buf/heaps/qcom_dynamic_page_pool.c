@@ -18,27 +18,14 @@
 #include <linux/slab.h>
 #include <linux/swap.h>
 #include <linux/sched/signal.h>
+#include <uapi/linux/sched/types.h>
 
 #include "qcom_dynamic_page_pool.h"
 
 static LIST_HEAD(pool_list);
 static DEFINE_MUTEX(pool_list_lock);
 
-static inline
-struct page *dynamic_page_pool_alloc_pages(struct dynamic_page_pool *pool)
-{
-	if (fatal_signal_pending(current))
-		return NULL;
-	return alloc_pages(pool->gfp_mask, pool->order);
-}
-
-static void dynamic_page_pool_free_pages(struct dynamic_page_pool *pool,
-				     struct page *page)
-{
-	__free_pages(page, pool->order);
-}
-
-static void dynamic_page_pool_add(struct dynamic_page_pool *pool, struct page *page)
+void dynamic_page_pool_add(struct dynamic_page_pool *pool, struct page *page)
 {
 	mutex_lock(&pool->mutex);
 	if (PageHighMem(page)) {
@@ -49,12 +36,13 @@ static void dynamic_page_pool_add(struct dynamic_page_pool *pool, struct page *p
 		pool->low_count++;
 	}
 
+	atomic_inc(&pool->count);
 	mod_node_page_state(page_pgdat(page), NR_KERNEL_MISC_RECLAIMABLE,
 			    1 << pool->order);
 	mutex_unlock(&pool->mutex);
 }
 
-static struct page *dynamic_page_pool_remove(struct dynamic_page_pool *pool, bool high)
+struct page *dynamic_page_pool_remove(struct dynamic_page_pool *pool, bool high)
 {
 	struct page *page;
 
@@ -68,28 +56,10 @@ static struct page *dynamic_page_pool_remove(struct dynamic_page_pool *pool, boo
 		pool->low_count--;
 	}
 
+	atomic_dec(&pool->count);
 	list_del(&page->lru);
 	mod_node_page_state(page_pgdat(page), NR_KERNEL_MISC_RECLAIMABLE,
 			    -(1 << pool->order));
-	return page;
-}
-
-struct page *dynamic_page_pool_alloc(struct dynamic_page_pool *pool)
-{
-	struct page *page = NULL;
-
-	BUG_ON(!pool);
-
-	mutex_lock(&pool->mutex);
-	if (pool->high_count)
-		page = dynamic_page_pool_remove(pool, true);
-	else if (pool->low_count)
-		page = dynamic_page_pool_remove(pool, false);
-	mutex_unlock(&pool->mutex);
-
-	if (!page)
-		page = dynamic_page_pool_alloc_pages(pool);
-
 	return page;
 }
 
@@ -133,7 +103,10 @@ struct dynamic_page_pool *dynamic_page_pool_create(gfp_t gfp_mask, unsigned int 
 
 void dynamic_page_pool_destroy(struct dynamic_page_pool *pool)
 {
-	struct page *page;
+	struct page *page, *tmp;
+	LIST_HEAD(pages);
+	int num_pages = 0;
+	int ret = DYNAMIC_POOL_SUCCESS;
 
 	/* Remove us from the pool list */
 	mutex_lock(&pool_list_lock);
@@ -150,18 +123,35 @@ void dynamic_page_pool_destroy(struct dynamic_page_pool *pool)
 		else
 			break;
 
-		dynamic_page_pool_free_pages(pool, page);
+		list_add(&page->lru, &pages);
+		num_pages++;
 	}
 	mutex_unlock(&pool->mutex);
+
+	if (num_pages && pool->prerelease_callback)
+		ret = pool->prerelease_callback(pool, &pages, num_pages);
+
+	if (ret != DYNAMIC_POOL_SUCCESS) {
+		pr_err("Failed to reclaim pages when destroying the pool!\n");
+		return;
+	}
+
+	list_for_each_entry_safe(page, tmp, &pages, lru) {
+		list_del(&page->lru);
+		__free_pages(page, pool->order);
+	}
 
 	kfree(pool);
 }
 
-int dynamic_page_pool_do_shrink(struct dynamic_page_pool *pool, gfp_t gfp_mask,
-				int nr_to_scan)
+static int dynamic_page_pool_do_shrink(struct dynamic_page_pool *pool, gfp_t gfp_mask,
+				       int nr_to_scan)
 {
 	int freed = 0;
 	bool high;
+	struct page *page, *tmp;
+	LIST_HEAD(pages);
+	int ret = DYNAMIC_POOL_SUCCESS;
 
 	if (current_is_kswapd())
 		high = true;
@@ -172,8 +162,6 @@ int dynamic_page_pool_do_shrink(struct dynamic_page_pool *pool, gfp_t gfp_mask,
 		return dynamic_page_pool_total(pool, high);
 
 	while (freed < nr_to_scan) {
-		struct page *page;
-
 		mutex_lock(&pool->mutex);
 		if (pool->low_count) {
 			page = dynamic_page_pool_remove(pool, false);
@@ -184,11 +172,42 @@ int dynamic_page_pool_do_shrink(struct dynamic_page_pool *pool, gfp_t gfp_mask,
 			break;
 		}
 		mutex_unlock(&pool->mutex);
-		dynamic_page_pool_free_pages(pool, page);
+		list_add(&page->lru, &pages);
 		freed += (1 << pool->order);
 	}
 
+	if (freed && pool->prerelease_callback)
+		ret = pool->prerelease_callback(pool, &pages, freed >> pool->order);
+
+	if (ret != DYNAMIC_POOL_SUCCESS) {
+		pr_err("Failed to reclaim secure page pool pages!\n");
+		return 0;
+	}
+
+	list_for_each_entry_safe(page, tmp, &pages, lru) {
+		list_del(&page->lru);
+		__free_pages(page, pool->order);
+	}
+
 	return freed;
+}
+
+void dynamic_page_pool_shrink_high_and_low(struct dynamic_page_pool **pools_list,
+					   int num_pools, int nr_to_scan)
+{
+	int i, remaining = nr_to_scan;
+
+	mutex_lock(&pool_list_lock);
+	for (i = 0; i < num_pools; i++) {
+		remaining -= dynamic_page_pool_do_shrink(pools_list[i], __GFP_HIGHMEM,
+							 remaining);
+
+		if (remaining <= 0) {
+			mutex_unlock(&pool_list_lock);
+			return;
+		}
+	}
+	mutex_unlock(&pool_list_lock);
 }
 
 static int dynamic_page_pool_shrink(gfp_t gfp_mask, int nr_to_scan)
@@ -239,7 +258,8 @@ static unsigned long dynamic_page_pool_shrink_scan(struct shrinker *shrinker,
 	return dynamic_page_pool_shrink(sc->gfp_mask, to_scan);
 }
 
-struct dynamic_page_pool **dynamic_page_pool_create_pools(void)
+struct dynamic_page_pool **dynamic_page_pool_create_pools(int vmid,
+							  prerelease_callback callback)
 {
 	struct dynamic_page_pool **pool_list;
 	int i;
@@ -252,6 +272,10 @@ struct dynamic_page_pool **dynamic_page_pool_create_pools(void)
 	for (i = 0; i < NUM_ORDERS; i++) {
 		pool_list[i] = dynamic_page_pool_create(order_flags[i],
 							orders[i]);
+		pool_list[i]->vmid = vmid;
+		pool_list[i]->prerelease_callback = callback;
+		atomic_set(&pool_list[i]->count, 0);
+		pool_list[i]->last_low_watermark_ktime = 0;
 
 		if (IS_ERR_OR_NULL(pool_list[i])) {
 			int j;

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2020-2021, The Linux Foundation. All rights reserved. */
 
 #include <dt-bindings/thermal/thermal.h>
 
@@ -41,6 +41,27 @@
 #define QMI_MMW_PA2		27
 #define QMI_MMW_PA3		28
 #define QMI_SDR_MMW		29
+#define QMI_QTM_THERM		30
+#define QMI_BCL_WARN		31
+#define QMI_SDR0_PA0		32
+#define QMI_SDR0_PA1		33
+#define QMI_SDR0_PA2		34
+#define QMI_SDR0_PA3		35
+#define QMI_SDR0_PA4		36
+#define QMI_SDR0_PA5		37
+#define QMI_SDR0		38
+#define QMI_SDR1_PA0		39
+#define QMI_SDR1_PA1		40
+#define QMI_SDR1_PA2		41
+#define QMI_SDR1_PA3		42
+#define QMI_SDR1_PA4		43
+#define QMI_SDR1_PA5		44
+#define QMI_SDR1		45
+#define QMI_MMW0		46
+#define QMI_MMW1		47
+#define QMI_MMW2		48
+#define QMI_MMW3		49
+#define QMI_MMW_IFIC0		50
 
 #define QMI_MODEM_INST_ID	0x0
 #define QMI_ADSP_INST_ID	0x1

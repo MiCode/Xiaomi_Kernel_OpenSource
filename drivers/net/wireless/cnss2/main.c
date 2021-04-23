@@ -80,6 +80,82 @@ struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev)
 	return plat_env;
 }
 
+/**
+ * cnss_get_mem_seg_count - Get segment count of memory
+ * @type: memory type
+ * @seg: segment count
+ *
+ * Return: 0 on success, negative value on failure
+ */
+int cnss_get_mem_seg_count(enum cnss_remote_mem_type type, u32 *seg)
+{
+	struct cnss_plat_data *plat_priv;
+
+	plat_priv = cnss_get_plat_priv(NULL);
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (type) {
+	case CNSS_REMOTE_MEM_TYPE_FW:
+		*seg = plat_priv->fw_mem_seg_len;
+		break;
+	case CNSS_REMOTE_MEM_TYPE_QDSS:
+		*seg = plat_priv->qdss_mem_seg_len;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_get_mem_seg_count);
+
+/**
+ * cnss_get_mem_segment_info - Get memory info of different type
+ * @type: memory type
+ * @segment: array to save the segment info
+ * @seg: segment count
+ *
+ * Return: 0 on success, negative value on failure
+ */
+int cnss_get_mem_segment_info(enum cnss_remote_mem_type type,
+			      struct cnss_mem_segment segment[],
+			      u32 segment_count)
+{
+	struct cnss_plat_data *plat_priv;
+	u32 i;
+
+	plat_priv = cnss_get_plat_priv(NULL);
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (type) {
+	case CNSS_REMOTE_MEM_TYPE_FW:
+		if (segment_count > plat_priv->fw_mem_seg_len)
+			segment_count = plat_priv->fw_mem_seg_len;
+		for (i = 0; i < segment_count; i++) {
+			segment[i].size = plat_priv->fw_mem[i].size;
+			segment[i].va = plat_priv->fw_mem[i].va;
+			segment[i].pa = plat_priv->fw_mem[i].pa;
+		}
+		break;
+	case CNSS_REMOTE_MEM_TYPE_QDSS:
+		if (segment_count > plat_priv->qdss_mem_seg_len)
+			segment_count = plat_priv->qdss_mem_seg_len;
+		for (i = 0; i < segment_count; i++) {
+			segment[i].size = plat_priv->qdss_mem[i].size;
+			segment[i].va = plat_priv->qdss_mem[i].va;
+			segment[i].pa = plat_priv->qdss_mem[i].pa;
+		}
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_get_mem_segment_info);
+
 static int cnss_pm_notify(struct notifier_block *b,
 			  unsigned long event, void *p)
 {
@@ -371,6 +447,9 @@ static int cnss_fw_mem_ready_hdlr(struct cnss_plat_data *plat_priv)
 	if (ret)
 		goto out;
 
+	if (cnss_wlfw_qdss_dnld_send_sync(plat_priv))
+		cnss_pr_info("Failed to download qdss configuration file");
+
 	return 0;
 out:
 	return ret;
@@ -460,9 +539,6 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 	clear_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
 
 	cnss_wlfw_send_pcie_gen_speed_sync(plat_priv);
-
-	if (cnss_wlfw_qdss_dnld_send_sync(plat_priv))
-		cnss_pr_info("Failed to download qdss configuration file");
 
 	if (test_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state)) {
 		clear_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state);
@@ -2593,13 +2669,13 @@ static ssize_t fs_ready_store(struct device *dev,
 	cnss_pr_dbg("File system is ready, fs_ready is %d, count is %zu\n",
 		    fs_ready, count);
 
-	if (test_bit(QMI_BYPASS, &plat_priv->ctrl_params.quirks)) {
-		cnss_pr_dbg("QMI is bypassed.\n");
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL\n");
 		return count;
 	}
 
-	if (!plat_priv) {
-		cnss_pr_err("plat_priv is NULL!\n");
+	if (test_bit(QMI_BYPASS, &plat_priv->ctrl_params.quirks)) {
+		cnss_pr_dbg("QMI is bypassed\n");
 		return count;
 	}
 
@@ -2973,6 +3049,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	cnss_get_wlaon_pwr_ctrl_info(plat_priv);
 	cnss_get_tcs_info(plat_priv);
 	cnss_get_cpr_info(plat_priv);
+	cnss_aop_mbox_init(plat_priv);
 	cnss_init_control_params(plat_priv);
 
 	ret = cnss_get_resources(plat_priv);

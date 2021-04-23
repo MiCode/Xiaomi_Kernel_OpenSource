@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -794,7 +794,7 @@ static int adc_tm5_set_trip_temp(struct adc_tm_sensor *sensor,
 		}
 	}
 
-	if (low_temp != INT_MIN) {
+	if (low_temp != INT_MIN && low_temp != -INT_MAX) {
 		ret = adc_tm_write_reg(chip, reg_high_thr_lsb,
 						trip_high_thr, 2);
 		if (ret) {

@@ -503,11 +503,11 @@ static struct mem_buf_vmperm *qcom_sg_lookup_vmperm(struct dma_buf *dmabuf)
 	return buffer->vmperm;
 }
 
-const struct mem_buf_dma_buf_ops qcom_sg_buf_ops = {
+struct mem_buf_dma_buf_ops qcom_sg_buf_ops = {
 	.attach = qcom_sg_attach,
 	.lookup = qcom_sg_lookup_vmperm,
 	.dma_ops = {
-		.attach = mem_buf_dma_buf_attach,
+		.attach = NULL, /* Will be set by mem_buf_dma_buf_export */
 		.detach = qcom_sg_detach,
 		.map_dma_buf = qcom_sg_map_dma_buf,
 		.unmap_dma_buf = qcom_sg_unmap_dma_buf,

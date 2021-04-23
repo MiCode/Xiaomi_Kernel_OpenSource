@@ -159,9 +159,7 @@ static size_t genc_legacy_snapshot_shader(struct kgsl_device *device,
 	struct genc_shader_block *block = info->block;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	unsigned int read_sel;
-
-	if (!device->snapshot_legacy)
-		return 0;
+	int i;
 
 	if (remain < (sizeof(*header) + (block->size << 2))) {
 		SNAPSHOT_ERR_NOMEM(device, "SHADER MEMORY");
@@ -186,8 +184,8 @@ static size_t genc_legacy_snapshot_shader(struct kgsl_device *device,
 	 */
 	mb();
 
-	kgsl_regmap_bulk_read(&device->regmap, GENC_SP_AHB_READ_APERTURE,
-			&data, block->size);
+	for (i = 0; i < block->size; i++)
+		data[i] = kgsl_regmap_read(&device->regmap, GENC_SP_AHB_READ_APERTURE + i);
 
 	return (sizeof(*header) + (block->size << 2));
 }
@@ -321,9 +319,6 @@ static size_t genc_legacy_snapshot_cluster_dbgahb(struct kgsl_device *device,
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	int j;
 	unsigned int size = adreno_snapshot_regs_count(ptr) * 4;
-
-	if (!device->snapshot_legacy)
-		return 0;
 
 	if (remain < (sizeof(*header) + size)) {
 		SNAPSHOT_ERR_NOMEM(device, "MVC REGISTERS");
@@ -565,12 +560,12 @@ static void genc_snapshot_mvc_regs(struct kgsl_device *device,
 		struct genc_cluster_registers *cluster = &genc_clusters[i];
 		const u32 *regs = cluster->regs;
 
-		if (cluster->sel)
-			ptr += CD_WRITE(ptr, cluster->sel->cd_reg, cluster->sel->val);
-
 		cluster->offset = offset;
 		ptr += CD_WRITE(ptr, GENC_CP_APERTURE_CNTL_CD, GENC_CP_APERTURE_REG_VAL
 			(cluster->pipe_id, cluster->cluster_id, cluster->context_id));
+
+		if (cluster->sel)
+			ptr += CD_WRITE(ptr, cluster->sel->cd_reg, cluster->sel->val);
 
 		for (; regs[0] != UINT_MAX; regs += 2) {
 			count = REG_COUNT(regs);
@@ -643,6 +638,53 @@ static size_t genc_snapshot_dbgc_debugbus_block(struct kgsl_device *device,
 	return GENC_DEBUGBUS_SECTION_SIZE;
 }
 
+static u32 genc_dbgc_side_debug_bus_read(struct kgsl_device *device,
+	unsigned int block_id, unsigned int index)
+{
+	u32 val;
+	unsigned int reg = FIELD_PREP(GENMASK(7, 0), index) |
+			FIELD_PREP(GENMASK(24, 16), block_id);
+
+	kgsl_regwrite(device, GENC_DBGC_CFG_DBGBUS_SEL_A, reg);
+	kgsl_regwrite(device, GENC_DBGC_CFG_DBGBUS_SEL_B, reg);
+	kgsl_regwrite(device, GENC_DBGC_CFG_DBGBUS_SEL_C, reg);
+	kgsl_regwrite(device, GENC_DBGC_CFG_DBGBUS_SEL_D, reg);
+
+	/*
+	 * There needs to be a delay of 1 us to ensure enough time for correct
+	 * data is funneled into the trace buffer
+	 */
+	udelay(1);
+
+	val = kgsl_regmap_read(&device->regmap, GENC_DBGC_CFG_DBGBUS_OVER);
+
+	return FIELD_GET(GENMASK(27, 24), val);
+}
+
+static size_t genc_snapshot_dbgc_side_debugbus_block(struct kgsl_device *device,
+	u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_side_debugbus *header =
+		(struct kgsl_snapshot_side_debugbus *)buf;
+	const u32 *block = priv;
+	int i;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+
+	if (remain < GENC_DEBUGBUS_BLOCK_SIZE) {
+		SNAPSHOT_ERR_NOMEM(device, "DEBUGBUS");
+		return 0;
+	}
+
+	header->id = *block;
+	header->size = GENC_DEBUGBUS_BLOCK_SIZE;
+	header->valid_data = 0x4;
+
+	for (i = 0; i < GENC_DEBUGBUS_BLOCK_SIZE; i++)
+		data[i] = genc_dbgc_side_debug_bus_read(device, *block, i);
+
+	return GENC_DEBUGBUS_BLOCK_SIZE;
+}
+
 /* genc_cx_dbgc_debug_bus_read() - Read data from trace bus */
 static void genc_cx_debug_bus_read(struct kgsl_device *device,
 	unsigned int block_id, unsigned int index, unsigned int *val)
@@ -693,6 +735,56 @@ static size_t genc_snapshot_cx_dbgc_debugbus_block(struct kgsl_device *device,
 		genc_cx_debug_bus_read(device, *block, i, &data[i*2]);
 
 	return GENC_DEBUGBUS_SECTION_SIZE;
+}
+
+/* genc_cx_side_dbgc_debug_bus_read() - Read data from trace bus */
+static void genc_cx_side_debug_bus_read(struct kgsl_device *device,
+	unsigned int block_id, unsigned int index, unsigned int *val)
+{
+	unsigned int reg = FIELD_PREP(GENMASK(7, 0), index) |
+			FIELD_PREP(GENMASK(24, 16), block_id);
+
+	adreno_cx_dbgc_regwrite(device, GENC_CX_DBGC_CFG_DBGBUS_SEL_A, reg);
+	adreno_cx_dbgc_regwrite(device, GENC_CX_DBGC_CFG_DBGBUS_SEL_B, reg);
+	adreno_cx_dbgc_regwrite(device, GENC_CX_DBGC_CFG_DBGBUS_SEL_C, reg);
+	adreno_cx_dbgc_regwrite(device, GENC_CX_DBGC_CFG_DBGBUS_SEL_D, reg);
+
+	/*
+	 * There needs to be a delay of 1 us to ensure enough time for correct
+	 * data is funneled into the trace buffer
+	 */
+	udelay(1);
+
+	adreno_cx_dbgc_regread(device, GENC_CX_DBGC_CFG_DBGBUS_OVER, &reg);
+	*val = FIELD_GET(GENMASK(27, 24), reg);
+}
+
+/*
+ * genc_snapshot_cx_dbgc_debugbus_block() - Capture debug data for a gpu
+ * block from the CX DBGC block
+ */
+static size_t genc_snapshot_cx_side_dbgc_debugbus_block(struct kgsl_device *device,
+	u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_side_debugbus *header =
+		(struct kgsl_snapshot_side_debugbus *)buf;
+	const u32 *block = priv;
+	int i;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+
+	if (remain < GENC_DEBUGBUS_BLOCK_SIZE) {
+		SNAPSHOT_ERR_NOMEM(device, "DEBUGBUS");
+		return 0;
+	}
+
+	header->id = *block;
+	header->size = GENC_DEBUGBUS_BLOCK_SIZE;
+	header->valid_data = 0x4;
+
+	for (i = 0; i < GENC_DEBUGBUS_BLOCK_SIZE; i++)
+		genc_cx_side_debug_bus_read(device, *block, i, &data[i]);
+
+	return GENC_DEBUGBUS_BLOCK_SIZE;
 }
 
 /* genc_snapshot_debugbus() - Capture debug bus data */
@@ -777,6 +869,10 @@ static void genc_snapshot_debugbus(struct adreno_device *adreno_dev,
 			KGSL_SNAPSHOT_SECTION_DEBUGBUS,
 			snapshot, genc_snapshot_dbgc_debugbus_block,
 			(void *) &genc_debugbus_blocks[i]);
+		kgsl_snapshot_add_section(device,
+			KGSL_SNAPSHOT_SECTION_SIDE_DEBUGBUS,
+			snapshot, genc_snapshot_dbgc_side_debugbus_block,
+			(void *) &genc_debugbus_blocks[i]);
 	}
 
 	/*
@@ -794,12 +890,26 @@ static void genc_snapshot_debugbus(struct adreno_device *adreno_dev,
 			snapshot, genc_snapshot_dbgc_debugbus_block,
 			(void *) &genc_gbif_debugbus_blocks[1]);
 
+	kgsl_snapshot_add_section(device,
+			KGSL_SNAPSHOT_SECTION_SIDE_DEBUGBUS,
+			snapshot, genc_snapshot_dbgc_side_debugbus_block,
+			(void *) &genc_gbif_debugbus_blocks[0]);
+
+	kgsl_snapshot_add_section(device,
+			KGSL_SNAPSHOT_SECTION_SIDE_DEBUGBUS,
+			snapshot, genc_snapshot_dbgc_side_debugbus_block,
+			(void *) &genc_gbif_debugbus_blocks[1]);
+
 	/* Dump the CX debugbus data if the block exists */
 	if (adreno_is_cx_dbgc_register(device, GENC_CX_DBGC_CFG_DBGBUS_SEL_A)) {
 		for (i = 0; i < ARRAY_SIZE(genc_cx_dbgc_debugbus_blocks); i++) {
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
 				snapshot, genc_snapshot_cx_dbgc_debugbus_block,
+				(void *) &genc_cx_dbgc_debugbus_blocks[i]);
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_SIDE_DEBUGBUS,
+				snapshot, genc_snapshot_cx_side_dbgc_debugbus_block,
 				(void *) &genc_cx_dbgc_debugbus_blocks[i]);
 		}
 		/*
@@ -810,6 +920,10 @@ static void genc_snapshot_debugbus(struct adreno_device *adreno_dev,
 		kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_DEBUGBUS, snapshot,
 				genc_snapshot_cx_dbgc_debugbus_block,
+				(void *) &genc_gbif_debugbus_blocks[0]);
+		kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_SIDE_DEBUGBUS, snapshot,
+				genc_snapshot_cx_side_dbgc_debugbus_block,
 				(void *) &genc_gbif_debugbus_blocks[0]);
 	}
 }
@@ -985,7 +1099,7 @@ void genc_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	unsigned int i;
-	u32 hi, lo, val, cgc, cgc1, cgc2;
+	u32 hi, lo, cgc, cgc1, cgc2;
 
 	/*
 	 * Dump debugbus data here to capture it for both
@@ -1091,10 +1205,9 @@ void genc_snapshot(struct adreno_device *adreno_dev,
 	/* registers dumped through DBG AHB */
 	genc_snapshot_dbgahb_regs(device, snapshot);
 
-	kgsl_regread(device, GENC_RBBM_SNAPSHOT_STATUS, &val);
-	if (!val)
-		dev_err(device->dev,
-			"Interface signals may have changed during snapshot\n");
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS_V2,
+		snapshot, adreno_snapshot_registers_v2,
+		(void *)genc_post_crashdumper_registers);
 
 	kgsl_regwrite(device, GENC_RBBM_SNAPSHOT_STATUS, 0x0);
 

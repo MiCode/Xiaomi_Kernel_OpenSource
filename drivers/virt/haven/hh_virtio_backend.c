@@ -690,20 +690,20 @@ static int virtio_backend_mmap(struct file *file,
 				struct vm_area_struct *vma)
 {
 	struct virt_machine *vm = file->private_data;
-	size_t nr_pages;
+	size_t mmap_size;
 
 	if (!vm)
 		return -EINVAL;
 
-	nr_pages = vma->vm_end - vma->vm_start;
-	if (nr_pages > vm->shmem_size)
+	mmap_size = vma->vm_end - vma->vm_start;
+	if (mmap_size > vm->shmem_size)
 		return -EINVAL;
 
 	vma->vm_flags = vma->vm_flags | VM_DONTEXPAND | VM_DONTDUMP;
 
 	if (io_remap_pfn_range(vma, vma->vm_start,
 			__phys_to_pfn(vm->shmem_addr),
-			vm->shmem_size, vma->vm_page_prot)) {
+			mmap_size, vma->vm_page_prot)) {
 		pr_err("%s: ioremap_pfn_range failed\n", VIRTIO_PRINT_MARKER);
 		return -EAGAIN;
 	}

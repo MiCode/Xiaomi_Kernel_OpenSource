@@ -127,15 +127,15 @@ int create_cluster_sysfs_nodes(struct lpm_cluster *cluster)
 	return 0;
 }
 
-static ssize_t sleep_disabled_show(struct device *dev,
-				 struct device_attribute *attr,
+static ssize_t sleep_disabled_show(struct kobject *kobj,
+				 struct kobj_attribute *attr,
 				 char *buf)
 {
 	return scnprintf(buf, PAGE_SIZE, "%u\n", sleep_disabled);
 }
 
-static ssize_t sleep_disabled_store(struct device *dev,
-				  struct device_attribute *attr,
+static ssize_t sleep_disabled_store(struct kobject *kobj,
+				  struct kobj_attribute *attr,
 				  const char *buf, size_t count)
 {
 	bool val;
@@ -152,15 +152,15 @@ static ssize_t sleep_disabled_store(struct device *dev,
 	return count;
 }
 
-static ssize_t prediction_disabled_show(struct device *dev,
-				struct device_attribute *attr,
+static ssize_t prediction_disabled_show(struct kobject *kobj,
+				struct kobj_attribute *attr,
 				char *buf)
 {
 	return scnprintf(buf, PAGE_SIZE, "%u\n", prediction_disabled);
 }
 
-static ssize_t prediction_disabled_store(struct device *dev,
-				 struct device_attribute *attr,
+static ssize_t prediction_disabled_store(struct kobject *kobj,
+				 struct kobj_attribute *attr,
 				 const char *buf, size_t count)
 {
 	bool val;
@@ -177,12 +177,12 @@ static ssize_t prediction_disabled_store(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR_RW(sleep_disabled);
-static DEVICE_ATTR_RW(prediction_disabled);
+static struct kobj_attribute attr_sleep_disabled = __ATTR_RW(sleep_disabled);
+static struct kobj_attribute attr_prediction_disabled = __ATTR_RW(prediction_disabled);
 
 static struct attribute *lpm_gov_attrs[] = {
-	&dev_attr_sleep_disabled.attr,
-	&dev_attr_prediction_disabled.attr,
+	&attr_sleep_disabled.attr,
+	&attr_prediction_disabled.attr,
 	NULL
 };
 

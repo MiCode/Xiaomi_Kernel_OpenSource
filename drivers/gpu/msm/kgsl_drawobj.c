@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -923,6 +923,7 @@ err:
 		kgsl_timeline_put(timelineobj->timelines[i].timeline);
 
 	kvfree(timelineobj->timelines);
+	timelineobj->timelines = NULL;
 	return ret;
 }
 

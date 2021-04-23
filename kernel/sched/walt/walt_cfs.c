@@ -92,22 +92,6 @@ static unsigned long cpu_util_without(int cpu, struct task_struct *p)
 	return min_t(unsigned long, util, capacity_orig_of(cpu));
 }
 
-static inline bool walt_get_rtg_status(struct task_struct *p)
-{
-	struct walt_related_thread_group *grp;
-	bool ret = false;
-
-	rcu_read_lock();
-
-	grp = task_related_thread_group(p);
-	if (grp)
-		ret = grp->skip_min;
-
-	rcu_read_unlock();
-
-	return ret;
-}
-
 static inline bool walt_task_skip_min_cpu(struct task_struct *p)
 {
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
@@ -648,8 +632,7 @@ unlock:
 done:
 	trace_sched_task_util(p, cpumask_bits(candidates)[0], best_energy_cpu,
 			sync, fbt_env.need_idle, fbt_env.fastpath,
-			task_boost_policy(p), start_t, boosted, is_rtg,
-			walt_get_rtg_status(p), start_cpu);
+			start_t, boosted, start_cpu);
 
 	return best_energy_cpu;
 
@@ -709,12 +692,14 @@ static void walt_place_entity(void *unused, struct cfs_rq *cfs_rq,
 	}
 }
 
-static void walt_binder_low_latency_set(void *unused, struct task_struct *task)
+static void walt_binder_low_latency_set(void *unused, struct task_struct *task,
+					bool sync, struct binder_proc *proc)
 {
 	struct walt_task_struct *wts = (struct walt_task_struct *) task->android_vendor_data1;
 
 	if (unlikely(walt_disabled))
 		return;
+
 	if (task && current->signal &&
 			(current->signal->oom_score_adj == 0) &&
 			((current->prio < DEFAULT_PRIO) ||
@@ -728,6 +713,7 @@ static void walt_binder_low_latency_clear(void *unused, struct binder_transactio
 
 	if (unlikely(walt_disabled))
 		return;
+
 	if (wts->low_latency & WALT_LOW_LATENCY_BINDER)
 		wts->low_latency &= ~WALT_LOW_LATENCY_BINDER;
 }

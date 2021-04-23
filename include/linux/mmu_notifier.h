@@ -8,6 +8,7 @@
 #include <linux/mmap_lock.h>
 #include <linux/srcu.h>
 #include <linux/interval_tree.h>
+#include <linux/android_kabi.h>
 
 struct mmu_notifier_subscriptions;
 struct mmu_notifier;
@@ -169,11 +170,11 @@ struct mmu_notifier_ops {
 	 * the last refcount is dropped.
 	 *
 	 * If blockable argument is set to false then the callback cannot
-	 * sleep and has to return with -EAGAIN. 0 should be returned
-	 * otherwise. Please note that if invalidate_range_start approves
-	 * a non-blocking behavior then the same applies to
-	 * invalidate_range_end.
-	 *
+	 * sleep and has to return with -EAGAIN if sleeping would be required.
+	 * 0 should be returned otherwise. Please note that notifiers that can
+	 * fail invalidate_range_start are not allowed to implement
+	 * invalidate_range_end, as there is no mechanism for informing the
+	 * notifier that its start failed.
 	 */
 	int (*invalidate_range_start)(struct mmu_notifier *subscription,
 				      const struct mmu_notifier_range *range);
@@ -215,6 +216,11 @@ struct mmu_notifier_ops {
 	 */
 	struct mmu_notifier *(*alloc_notifier)(struct mm_struct *mm);
 	void (*free_notifier)(struct mmu_notifier *subscription);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 /*
@@ -234,6 +240,9 @@ struct mmu_notifier {
 	struct mm_struct *mm;
 	struct rcu_head rcu;
 	unsigned int users;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 };
 
 /**

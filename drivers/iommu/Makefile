@@ -29,7 +29,6 @@ obj-$(CONFIG_S390_IOMMU) += s390-iommu.o
 obj-$(CONFIG_HYPERV_IOMMU) += hyperv-iommu.o
 obj-$(CONFIG_VIRTIO_IOMMU) += virtio-iommu.o
 obj-$(CONFIG_QCOM_IOMMU_UTIL) += qcom_iommu_util.o
-obj-$(CONFIG_QCOM_IOMMU_LEGACY_DEBUG) += iommu-debug.o
 qcom_iommu_util-y += qcom-iommu-util.o
 qcom_iommu_util-y += qcom-dma-iommu-generic.o
 qcom_iommu_util-$(CONFIG_IOMMU_IO_PGTABLE_FAST) += io-pgtable-fast.o dma-mapping-fast.o

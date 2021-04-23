@@ -501,6 +501,11 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 
 	dev_dbg(uphy->dev, "Initializing QMP phy\n");
 
+	if (uphy->flags & PHY_DP_MODE) {
+		dev_info(uphy->dev, "QMP PHY currently in DP mode\n");
+		return -EBUSY;
+	}
+
 	ret = msm_ssusb_qmp_ldo_enable(phy, 1);
 	if (ret) {
 		dev_err(phy->phy.dev,
@@ -710,7 +715,8 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 			msm_ssusb_qmp_enable_autonomous(phy, 1);
 		} else {
 			/* Reset phy mode to USB only if DP not connected */
-			if (phy->phy_type  == USB3_AND_DP)
+			if (phy->phy_type == USB3_AND_DP &&
+				!(uphy->flags & PHY_DP_MODE))
 				msm_ssphy_qmp_setmode(phy, USB3_MODE);
 			writel_relaxed(0x00,
 			phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
@@ -724,6 +730,11 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 		msm_ssphy_power_enable(phy, 0);
 		dev_dbg(uphy->dev, "QMP PHY is suspend\n");
 	} else {
+		if (uphy->flags & PHY_DP_MODE) {
+			dev_info(uphy->dev, "QMP PHY currently in DP mode\n");
+			return -EBUSY;
+		}
+
 		msm_ssphy_power_enable(phy, 1);
 		msm_ssphy_qmp_enable_clks(phy, true);
 		if (!phy->cable_connected) {

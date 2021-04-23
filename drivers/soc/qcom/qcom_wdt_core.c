@@ -116,7 +116,7 @@ out:
 static void print_irq_stat(struct msm_watchdog_data *wdog_dd)
 {
 	int index;
-	int cpu;
+	int cpu, ipi_nr;
 	struct qcom_irq_info *info;
 
 	pr_info("(virq:irq_count)- ");
@@ -132,7 +132,8 @@ static void print_irq_stat(struct msm_watchdog_data *wdog_dd)
 	pr_cont("\n");
 
 	pr_info("(ipi:irq_count)- ");
-	for (index = 0; index < WDOG_NR_IPI; index++) {
+	ipi_nr = nr_ipi_get();
+	for (index = 0; index < ipi_nr; index++) {
 		info = &wdog_dd->ipi_counts[index];
 		pr_cont("%u:%u ", info->irq, info->total_count);
 	}
@@ -142,8 +143,8 @@ static void print_irq_stat(struct msm_watchdog_data *wdog_dd)
 static void compute_irq_stat(struct work_struct *work)
 {
 	unsigned int count;
-	int index = 0, cpu, irq;
-	struct irq_desc *desc;
+	int index = 0, cpu, irq, ipi_nr;
+	struct irq_desc *desc, **desc_ipi_arr;
 	struct qcom_irq_info *pos;
 	struct qcom_irq_info *start;
 	struct qcom_irq_info key = {0};
@@ -222,12 +223,15 @@ static void compute_irq_stat(struct work_struct *work)
 		wdog_dd->tot_irq_count[cpu] = kstat_cpu_irqs_sum(cpu);
 
 	/* per IPI counts */
-	for (index = 0; index < WDOG_NR_IPI; index++) {
+	ipi_nr = nr_ipi_get();
+	desc_ipi_arr = ipi_desc_get();
+	for (index = 0; index < ipi_nr; index++) {
 		wdog_dd->ipi_counts[index].total_count = 0;
 		wdog_dd->ipi_counts[index].irq = index;
+		irq = irq_desc_get_irq(desc_ipi_arr[index]);
 		for_each_possible_cpu(cpu) {
 			wdog_dd->ipi_counts[index].irq_counter[cpu] =
-				__IRQ_STAT(cpu, ipi_irqs[index]);
+				kstat_irqs_cpu(irq, cpu);
 			wdog_dd->ipi_counts[index].total_count +=
 				wdog_dd->ipi_counts[index].irq_counter[cpu];
 		}

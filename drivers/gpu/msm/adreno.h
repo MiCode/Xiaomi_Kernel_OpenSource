@@ -10,6 +10,7 @@
 #include "adreno_coresight.h"
 #include "adreno_dispatch.h"
 #include "adreno_drawctxt.h"
+#include "adreno_hwsched.h"
 #include "adreno_perfcounter.h"
 #include "adreno_profile.h"
 #include "adreno_ringbuffer.h"
@@ -590,6 +591,8 @@ struct adreno_device {
 	bool wake_on_touch;
 	/* @dispatch_ops: A pointer to a set of adreno dispatch ops */
 	const struct adreno_dispatch_ops *dispatch_ops;
+	/** @hwsched: Container for the hardware dispatcher */
+	struct adreno_hwsched hwsched;
 };
 
 /**
@@ -769,7 +772,7 @@ struct adreno_gpudev {
 	bool (*hw_isidle)(struct adreno_device *adreno_dev);
 	const char *(*iommu_fault_block)(struct kgsl_device *device,
 				unsigned int fsynr1);
-	int (*reset)(struct kgsl_device *device);
+	int (*reset)(struct adreno_device *adreno_dev);
 	/** @read_alwayson: Return the current value of the alwayson counter */
 	u64 (*read_alwayson)(struct adreno_device *adreno_dev);
 	/**

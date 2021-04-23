@@ -489,23 +489,12 @@ static struct qcom_icc_node qnm_gpu = {
 	.links = { SLAVE_GEM_NOC_CNOC, SLAVE_LLCC },
 };
 
-static struct qcom_icc_qosbox qnm_mdsp_qos = {
-	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
-	.num_ports = 1,
-	.offsets = { 0xa2000 },
-	.config = &(struct qos_config) {
-		.prio = 7,
-		.urg_fwd = 1,
-	},
-};
-
 static struct qcom_icc_node qnm_mdsp = {
 	.name = "qnm_mdsp",
 	.id = MASTER_MSS_PROC,
 	.channels = 1,
 	.buswidth = 16,
 	.noc_ops = &qcom_qnoc4_ops,
-	.qosbox = &qnm_mdsp_qos,
 	.num_links = 3,
 	.links = { SLAVE_GEM_NOC_CNOC, SLAVE_LLCC,
 		   SLAVE_MEM_NOC_PCIE_SNOC },
@@ -1968,6 +1957,8 @@ static struct qcom_icc_node qns_mem_noc_sf_disp = {
 static struct qcom_icc_bcm bcm_acv = {
 	.name = "ACV",
 	.voter_idx = 0,
+	.enable_mask = BIT(3),
+	.perf_mode_mask = BIT(1),
 	.num_nodes = 1,
 	.nodes = { &ebi },
 };
@@ -2142,6 +2133,8 @@ static struct qcom_icc_bcm bcm_sn7 = {
 static struct qcom_icc_bcm bcm_acv_disp = {
 	.name = "ACV",
 	.voter_idx = 1,
+	.enable_mask = BIT(0),
+	.perf_mode_mask = BIT(1),
 	.num_nodes = 1,
 	.nodes = { &ebi_disp },
 };
@@ -2662,6 +2655,12 @@ static int qnoc_probe(struct platform_device *pdev)
 	if (qp->num_clks < 0)
 		return qp->num_clks;
 
+	ret = clk_bulk_prepare_enable(qp->num_clks, qp->clks);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable clocks\n");
+		return ret;
+	}
+
 	for (i = 0; i < qp->num_bcms; i++)
 		qcom_icc_bcm_init(qp->bcms[i], &pdev->dev);
 
@@ -2679,6 +2678,11 @@ static int qnoc_probe(struct platform_device *pdev)
 			goto err;
 		}
 
+		if (qnodes[i]->qosbox) {
+			qnodes[i]->noc_ops->set_qos(qnodes[i]);
+			qnodes[i]->qosbox->initialized = true;
+		}
+
 		node->name = qnodes[i]->name;
 		node->data = qnodes[i];
 		icc_node_add(node, provider);
@@ -2693,6 +2697,8 @@ static int qnoc_probe(struct platform_device *pdev)
 		data->nodes[i] = node;
 	}
 	data->num_nodes = num_nodes;
+
+	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
 
 	platform_set_drvdata(pdev, qp);
 
@@ -2714,6 +2720,7 @@ err:
 		icc_node_destroy(node->id);
 	}
 
+	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
 	clk_bulk_put_all(qp->num_clks, qp->clks);
 
 	icc_provider_del(provider);

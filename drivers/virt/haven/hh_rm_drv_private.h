@@ -33,6 +33,10 @@ struct hh_rm_rpc_reply_hdr {
 /* VM specific properties to be cached */
 struct hh_vm_property {
 	hh_vmid_t vmid;
+	u8 *guid;
+	char *uri;
+	char *name;
+	char *sign_auth;
 };
 
 /* RPC Header versions */
@@ -69,6 +73,7 @@ struct hh_vm_property {
 #define HH_RM_RPC_MSG_ID_CALL_VM_START			0x56000004
 
 /* Message IDs: VM Query */
+#define HH_RM_RPC_MSG_ID_CALL_VM_GET_ID			0x56000010
 #define HH_RM_RPC_MSG_ID_CALL_VM_GET_STATE		0x56000017
 #define HH_RM_RPC_MSG_ID_CALL_VM_GET_HYP_RESOURCES	0x56000020
 #define HH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_HYP_CAPIDS	0x56000021
@@ -126,6 +131,29 @@ struct hh_vm_console_write_req_payload {
 	hh_vmid_t vmid;
 	u16 num_bytes;
 	u8 data[0];
+} __packed;
+
+/* Call: GET_ID */
+#define HH_RM_ID_TYPE_GUID		0
+#define HH_RM_ID_TYPE_URI		1
+#define HH_RM_ID_TYPE_NAME		2
+#define HH_RM_ID_TYPE_SIGN_AUTH		3
+
+struct hh_vm_get_id_req_payload {
+	hh_vmid_t vmid;
+	u16 reserved;
+} __packed;
+
+struct hh_vm_get_id_resp_entry {
+	u8 id_type;
+	u8 reserved;
+	u16 id_size;
+	void *id_info;
+} __packed;
+
+struct hh_vm_get_id_resp_payload {
+	u32 n_id_entries;
+	struct hh_vm_get_id_resp_entry resp_entries[];
 } __packed;
 
 /* Message ID headers */
@@ -295,6 +323,8 @@ int hh_update_vm_prop_table(enum hh_vm_names vm_name,
 void *hh_rm_call(hh_rm_msgid_t message_id,
 			void *req_buff, size_t req_buff_size,
 			size_t *resp_buff_size, int *reply_err_code);
+struct hh_vm_get_id_resp_entry *
+hh_rm_vm_get_id(hh_vmid_t vmid, u32 *out_n_entries);
 struct hh_vm_get_hyp_res_resp_entry *
 hh_rm_vm_get_hyp_res(hh_vmid_t vmid, u32 *out_n_entries);
 int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,

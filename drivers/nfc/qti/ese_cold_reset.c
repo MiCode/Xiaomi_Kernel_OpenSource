@@ -18,12 +18,12 @@ static int send_ese_cmd(struct nfc_dev *nfc_dev)
 {
 	int ret;
 
-	if (gpio_get_value(nfc_dev->gpio.dwl_req)) {
+	if (nfc_dev->nfc_state == NFC_STATE_FW_DWL) {
 		dev_err(nfc_dev->nfc_device,
 			"cannot send ese cmd as FW download is in-progress\n");
 		return -EBUSY;
 	}
-	if (!gpio_get_value(nfc_dev->gpio.ven)) {
+	if (!gpio_get_value(nfc_dev->configs.gpio.ven)) {
 		dev_err(nfc_dev->nfc_device,
 				"cannot send ese cmd as NFCC powered off\n");
 		return -ENODEV;
@@ -63,7 +63,8 @@ int read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header)
 	 */
 	if ((!cold_rst->is_nfc_enabled) &&
 			(nfc_dev->interface == PLATFORM_IF_I2C)) {
-		ret = nfc_dev->nfc_read(nfc_dev, rsp_buf, NCI_HDR_LEN);
+		ret = nfc_dev->nfc_read(nfc_dev, rsp_buf, NCI_HDR_LEN,
+						NCI_CMD_RSP_TIMEOUT);
 		if (ret <= 0) {
 			dev_err(nfc_dev->nfc_device,
 				"%s: failure to read cold reset rsp header\n",
@@ -104,7 +105,8 @@ int read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header)
 	if (nfc_dev->interface == PLATFORM_IF_I2C)
 		ret = nfc_dev->nfc_read(nfc_dev,
 			     &rsp_buf[NCI_PAYLOAD_IDX],
-			     rsp_buf[NCI_PAYLOAD_LEN_IDX]);
+			     rsp_buf[NCI_PAYLOAD_LEN_IDX],
+			     NCI_CMD_RSP_TIMEOUT);
 
 	if (ret <= 0) {
 		dev_err(nfc_dev->nfc_device,

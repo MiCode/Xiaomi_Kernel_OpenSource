@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -81,6 +81,8 @@
 #define USB_HSPHY_1P8_VOL_MAX			1800000 /* uV */
 #define USB_HSPHY_1P8_HPM_LOAD			19000	/* uA */
 
+#define USB_HSPHY_VDD_HPM_LOAD			30000	/* uA */
+
 struct msm_hsphy {
 	struct usb_phy		phy;
 	void __iomem		*base;
@@ -112,6 +114,10 @@ struct msm_hsphy {
 	struct mutex		phy_lock;
 	struct regulator_desc	dpdm_rdesc;
 	struct regulator_dev	*dpdm_rdev;
+
+	struct power_supply	*usb_psy;
+	unsigned int		vbus_draw;
+	struct work_struct	vbus_draw_work;
 
 	/* debugfs entries */
 	struct dentry		*root;
@@ -146,23 +152,6 @@ static void msm_hsphy_enable_clocks(struct msm_hsphy *phy, bool on)
 	}
 
 }
-static int msm_hsphy_config_vdd(struct msm_hsphy *phy, int high)
-{
-	int min, ret;
-
-	min = high ? 1 : 0; /* low or none? */
-	ret = regulator_set_voltage(phy->vdd, phy->vdd_levels[min],
-				    phy->vdd_levels[2]);
-	if (ret) {
-		dev_err(phy->phy.dev, "unable to set voltage for hsusb vdd\n");
-		return ret;
-	}
-
-	dev_dbg(phy->phy.dev, "%s: min_vol:%d max_vol:%d\n", __func__,
-		phy->vdd_levels[min], phy->vdd_levels[2]);
-
-	return ret;
-}
 
 static int msm_hsphy_enable_power(struct msm_hsphy *phy, bool on)
 {
@@ -179,11 +168,17 @@ static int msm_hsphy_enable_power(struct msm_hsphy *phy, bool on)
 	if (!on)
 		goto disable_vdda33;
 
-	ret = msm_hsphy_config_vdd(phy, true);
-	if (ret) {
-		dev_err(phy->phy.dev, "Unable to config VDD:%d\n",
-							ret);
+	ret = regulator_set_load(phy->vdd, USB_HSPHY_VDD_HPM_LOAD);
+	if (ret < 0) {
+		dev_err(phy->phy.dev, "Unable to set HPM of vdd:%d\n", ret);
 		goto err_vdd;
+	}
+
+	ret = regulator_set_voltage(phy->vdd, phy->vdd_levels[1],
+				    phy->vdd_levels[2]);
+	if (ret) {
+		dev_err(phy->phy.dev, "unable to set voltage for hsusb vdd\n");
+		goto put_vdd_lpm;
 	}
 
 	ret = regulator_enable(phy->vdd);
@@ -272,14 +267,18 @@ put_vdda18_lpm:
 disable_vdd:
 	ret = regulator_disable(phy->vdd);
 	if (ret)
-		dev_err(phy->phy.dev, "Unable to disable vdd:%d\n",
-								ret);
+		dev_err(phy->phy.dev, "Unable to disable vdd:%d\n", ret);
 
 unconfig_vdd:
-	ret = msm_hsphy_config_vdd(phy, false);
+	ret = regulator_set_voltage(phy->vdd, phy->vdd_levels[0],
+				    phy->vdd_levels[2]);
 	if (ret)
-		dev_err(phy->phy.dev, "Unable unconfig VDD:%d\n",
-								ret);
+		dev_err(phy->phy.dev, "unable to set voltage for hsusb vdd\n");
+
+put_vdd_lpm:
+	ret = regulator_set_load(phy->vdd, 0);
+	if (ret < 0)
+		dev_err(phy->phy.dev, "Unable to set LPM of vdd\n");
 err_vdd:
 	phy->power_enabled = false;
 	dev_dbg(phy->phy.dev, "HSUSB PHY's regulators are turned OFF.\n");
@@ -554,6 +553,42 @@ static int msm_hsphy_notify_disconnect(struct usb_phy *uphy,
 	return 0;
 }
 
+static void msm_hsphy_vbus_draw_work(struct work_struct *w)
+{
+	struct msm_hsphy *phy = container_of(w, struct msm_hsphy,
+			vbus_draw_work);
+	union power_supply_propval val = {0};
+	int ret;
+
+	if (!phy->usb_psy) {
+		phy->usb_psy = power_supply_get_by_name("usb");
+		if (!phy->usb_psy) {
+			dev_err(phy->phy.dev, "Could not get usb psy\n");
+			return;
+		}
+	}
+
+	dev_info(phy->phy.dev, "Avail curr from USB = %u\n", phy->vbus_draw);
+
+	/* Set max current limit in uA */
+	val.intval = 1000 * phy->vbus_draw;
+	ret = power_supply_set_property(phy->usb_psy, POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT, &val);
+	if (ret) {
+		dev_dbg(phy->phy.dev, "Error (%d) setting input current limit\n", ret);
+		return;
+	}
+}
+
+static int msm_hsphy_set_power(struct usb_phy *uphy, unsigned int mA)
+{
+	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
+
+	phy->vbus_draw = mA;
+	schedule_work(&phy->vbus_draw_work);
+
+	return 0;
+}
+
 static int msm_hsphy_dpdm_regulator_enable(struct regulator_dev *rdev)
 {
 	int ret = 0;
@@ -823,6 +858,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	phy->phy.set_suspend		= msm_hsphy_set_suspend;
 	phy->phy.notify_connect		= msm_hsphy_notify_connect;
 	phy->phy.notify_disconnect	= msm_hsphy_notify_disconnect;
+	phy->phy.set_power		= msm_hsphy_set_power;
 	phy->phy.type			= USB_PHY_TYPE_USB2;
 
 	ret = usb_add_phy_dev(&phy->phy);
@@ -835,6 +871,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	INIT_WORK(&phy->vbus_draw_work, msm_hsphy_vbus_draw_work);
 	msm_hsphy_create_debugfs(phy);
 
 	/*
@@ -856,6 +893,9 @@ static int msm_hsphy_remove(struct platform_device *pdev)
 
 	if (!phy)
 		return 0;
+
+	if (phy->usb_psy)
+		power_supply_put(phy->usb_psy);
 
 	debugfs_remove_recursive(phy->root);
 

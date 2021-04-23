@@ -28,6 +28,7 @@ void qcom_icc_pre_aggregate(struct icc_node *node)
 	for (i = 0; i < QCOM_ICC_NUM_BUCKETS; i++) {
 		qn->sum_avg[i] = 0;
 		qn->max_peak[i] = 0;
+		qn->perf_mode[i] = false;
 	}
 }
 EXPORT_SYMBOL_GPL(qcom_icc_pre_aggregate);
@@ -58,6 +59,8 @@ int qcom_icc_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
 		if (tag & BIT(i)) {
 			qn->sum_avg[i] += avg_bw;
 			qn->max_peak[i] = max_t(u32, qn->max_peak[i], peak_bw);
+			if (tag & QCOM_ICC_TAG_PERF_MODE && (avg_bw || peak_bw))
+				qn->perf_mode[i] = true;
 		}
 	}
 
@@ -205,8 +208,8 @@ int qcom_icc_bcm_init(struct qcom_icc_bcm *bcm, struct device *dev)
 		return -EINVAL;
 	}
 
-	bcm->aux_data.unit = le32_to_cpu(data->unit);
-	bcm->aux_data.width = le16_to_cpu(data->width);
+	bcm->aux_data.unit = max_t(u32, 1, le32_to_cpu(data->unit));
+	bcm->aux_data.width = max_t(u16, 1, le16_to_cpu(data->width));
 	bcm->aux_data.vcd = data->vcd;
 	bcm->aux_data.reserved = data->reserved;
 	INIT_LIST_HEAD(&bcm->list);

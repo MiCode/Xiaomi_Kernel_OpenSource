@@ -185,7 +185,7 @@ static int genc_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 	/* Vote for minimal DDR BW for GMU to init */
 	level = pwr->pwrlevels[pwr->default_pwrlevel].bus_min;
 
-	icc_set_bw(pwr->icc_path, 0, MBps_to_icc(pwr->ddr_table[level]));
+	icc_set_bw(pwr->icc_path, 0, kBps_to_icc(pwr->ddr_table[level]));
 
 	ret = genc_gmu_device_start(adreno_dev);
 	if (ret)
@@ -204,10 +204,13 @@ static int genc_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 	return 0;
 
 err:
-	if (device->gmu_fault)
+	if (device->gmu_fault) {
 		genc_gmu_suspend(adreno_dev);
 
-	return ret;
+		return ret;
+	}
+
+	genc_gmu_irq_disable(adreno_dev);
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
@@ -262,10 +265,13 @@ static int genc_hwsched_gmu_boot(struct adreno_device *adreno_dev)
 
 	return 0;
 err:
-	if (device->gmu_fault)
+	if (device->gmu_fault) {
 		genc_gmu_suspend(adreno_dev);
 
-	return ret;
+		return ret;
+	}
+
+	genc_gmu_irq_disable(adreno_dev);
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
@@ -299,21 +305,6 @@ static void genc_hwsched_active_count_put(struct adreno_device *adreno_dev)
 		(unsigned long) __builtin_return_address(0));
 
 	wake_up(&device->active_cnt_wq);
-}
-
-static int unregister_context_hwsched(int id, void *ptr, void *data)
-{
-	struct kgsl_context *context = ptr;
-
-	/*
-	 * We don't need to send the unregister hfi packet because
-	 * we are anyway going to lose the gmu state of registered
-	 * contexts. So just reset the flag so that the context
-	 * registers with gmu on its first submission post slumber.
-	 */
-	context->gmu_registered = false;
-
-	return 0;
 }
 
 static int genc_hwsched_notify_slumber(struct adreno_device *adreno_dev)
@@ -514,6 +505,8 @@ static int genc_hwsched_boot(struct adreno_device *adreno_dev)
 
 	trace_kgsl_pwr_request_state(device, KGSL_STATE_ACTIVE);
 
+	adreno_hwsched_start(adreno_dev);
+
 	ret = genc_hwsched_gmu_boot(adreno_dev);
 	if (ret)
 		return ret;
@@ -522,7 +515,6 @@ static int genc_hwsched_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	adreno_hwsched_start(adreno_dev);
 	kgsl_start_idle_timer(device);
 	kgsl_pwrscale_wake(device);
 
@@ -542,6 +534,8 @@ static int genc_hwsched_first_boot(struct adreno_device *adreno_dev)
 
 	if (test_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags))
 		return genc_hwsched_boot(adreno_dev);
+
+	adreno_hwsched_start(adreno_dev);
 
 	ret = genc_microcode_read(adreno_dev);
 	if (ret)
@@ -564,12 +558,6 @@ static int genc_hwsched_first_boot(struct adreno_device *adreno_dev)
 	ret = genc_hwsched_gpu_boot(adreno_dev);
 	if (ret)
 		return ret;
-
-	ret = adreno_hwsched_init(adreno_dev);
-	if (ret)
-		return ret;
-
-	adreno_hwsched_start(adreno_dev);
 
 	adreno_get_bus_counters(adreno_dev);
 
@@ -626,9 +614,7 @@ no_gx_power:
 
 	genc_hwsched_gmu_power_off(adreno_dev);
 
-	read_lock(&device->context_lock);
-	idr_for_each(&device->context_idr, unregister_context_hwsched, NULL);
-	read_unlock(&device->context_lock);
+	adreno_hwsched_unregister_contexts(adreno_dev);
 
 	if (!IS_ERR_OR_NULL(adreno_dev->gpu_llc_slice))
 		llcc_slice_deactivate(adreno_dev->gpu_llc_slice);
@@ -946,10 +932,9 @@ static void genc_hwsched_drain_ctxt_unregister(struct adreno_device *adreno_dev)
 	read_unlock(&hfi->msglock);
 }
 
-void genc_hwsched_restart(struct adreno_device *adreno_dev)
+int genc_hwsched_reset(struct adreno_device *adreno_dev)
 {
 	struct genc_gmu_device *gmu = to_genc_gmu(adreno_dev);
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
 	/*
@@ -960,13 +945,10 @@ void genc_hwsched_restart(struct adreno_device *adreno_dev)
 	 */
 	genc_hwsched_drain_ctxt_unregister(adreno_dev);
 
-	read_lock(&device->context_lock);
-	idr_for_each(&device->context_idr, unregister_context_hwsched, NULL);
-	read_unlock(&device->context_lock);
-
+	adreno_hwsched_unregister_contexts(adreno_dev);
 
 	if (!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
-		return;
+		return 0;
 
 	genc_hwsched_hfi_stop(adreno_dev);
 
@@ -979,6 +961,8 @@ void genc_hwsched_restart(struct adreno_device *adreno_dev)
 	ret = genc_hwsched_boot(adreno_dev);
 
 	BUG_ON(ret);
+
+	return ret;
 }
 
 const struct adreno_power_ops genc_hwsched_power_ops = {
@@ -991,6 +975,11 @@ const struct adreno_power_ops genc_hwsched_power_ops = {
 	.pm_resume = genc_hwsched_pm_resume,
 	.gpu_clock_set = genc_hwsched_clock_set,
 	.gpu_bus_set = genc_hwsched_bus_set,
+};
+
+const struct adreno_hwsched_ops genc_hwsched_ops = {
+	.submit_cmdobj = genc_hwsched_submit_cmdobj,
+	.preempt_count = genc_hwsched_preempt_count_get,
 };
 
 int genc_hwsched_probe(struct platform_device *pdev,
@@ -1020,5 +1009,5 @@ int genc_hwsched_probe(struct platform_device *pdev,
 
 	adreno_dev->irq_mask = GENC_HWSCHED_INT_MASK;
 
-	return 0;
+	return adreno_hwsched_init(adreno_dev, &genc_hwsched_ops);
 }

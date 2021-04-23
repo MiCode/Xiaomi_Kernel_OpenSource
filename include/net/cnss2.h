@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #ifndef _NET_CNSS2_H
 #define _NET_CNSS2_H
@@ -8,6 +8,7 @@
 
 #define CNSS_MAX_FILE_NAME		20
 #define CNSS_MAX_TIMESTAMP_LEN		32
+#define CNSS_MAX_DEV_MEM_NUM		4
 
 /*
  * Temporary change for compilation, will be removed
@@ -51,6 +52,11 @@ struct cnss_device_version {
 	u32 minor_version;
 };
 
+struct cnss_dev_mem_info {
+	u64 start;
+	u64 size;
+};
+
 struct cnss_soc_info {
 	void __iomem *va;
 	phys_addr_t pa;
@@ -61,6 +67,7 @@ struct cnss_soc_info {
 	uint32_t fw_version;
 	char fw_build_timestamp[CNSS_MAX_TIMESTAMP_LEN + 1];
 	struct cnss_device_version device_version;
+	struct cnss_dev_mem_info dev_mem_info[CNSS_MAX_DEV_MEM_NUM];
 };
 
 struct cnss_wlan_runtime_ops {
@@ -169,6 +176,18 @@ enum cnss_recovery_reason {
 	CNSS_REASON_TIMEOUT,
 };
 
+enum cnss_remote_mem_type {
+	CNSS_REMOTE_MEM_TYPE_FW,
+	CNSS_REMOTE_MEM_TYPE_QDSS,
+	CNSS_REMOTE_MEM_TYPE_MAX,
+};
+
+struct cnss_mem_segment {
+	size_t size;
+	void *va;
+	phys_addr_t pa;
+};
+
 extern int cnss_wlan_register_driver(struct cnss_wlan_driver *driver);
 extern void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver);
 extern void cnss_device_crashed(struct device *dev);
@@ -239,4 +258,8 @@ extern int cnss_athdiag_write(struct device *dev, uint32_t offset,
 			      uint8_t *input);
 extern int cnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode);
 extern int cnss_set_pcie_gen_speed(struct device *dev, u8 pcie_gen_speed);
+extern int cnss_get_mem_seg_count(enum cnss_remote_mem_type type, u32 *seg);
+extern int cnss_get_mem_segment_info(enum cnss_remote_mem_type type,
+				     struct cnss_mem_segment segment[],
+				     u32 segment_count);
 #endif /* _NET_CNSS2_H */

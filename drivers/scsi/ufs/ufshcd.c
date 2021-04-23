@@ -2599,14 +2599,14 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	lrbp->lun = ufshcd_scsi_to_upiu_lun(cmd->device->lun);
 	lrbp->intr_cmd = !ufshcd_is_intr_aggr_allowed(hba) ? true : false;
 
+	ufshcd_prepare_lrbp_crypto(cmd->request, lrbp);
+
 	trace_android_vh_ufs_prepare_command(hba, cmd->request, lrbp, &err);
 	if (err) {
 		lrbp->cmd = NULL;
 		ufshcd_release(hba);
 		goto out;
 	}
-
-	ufshcd_prepare_lrbp_crypto(cmd->request, lrbp);
 
 	lrbp->req_abort_skip = false;
 
@@ -4809,6 +4809,8 @@ static int ufshcd_slave_configure(struct scsi_device *sdev)
 		sdev->rpm_autosuspend = 1;
 
 	ufshcd_crypto_setup_rq_keyslot_manager(hba, q);
+
+	trace_android_vh_ufs_update_sdev(sdev);
 
 	return 0;
 }

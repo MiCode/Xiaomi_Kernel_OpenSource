@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2017, 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -874,6 +874,10 @@ static int mem_dump_alloc(struct platform_device *pdev)
 static int mem_dump_probe(struct platform_device *pdev)
 {
 	int ret;
+
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret < 0)
+		return ret;
 
 	ret = mem_dump_alloc(pdev);
 	return ret;

@@ -224,7 +224,7 @@ opp_err_exit:
 		kfree(cc_cdev);
 	}
 
-	return ERR_PTR(-ENODEV);
+	return ERR_PTR(-EPROBE_DEFER);
 }
 
 static int cc_init(struct device_node *np, int *cpus)
@@ -245,9 +245,9 @@ static int cc_init(struct device_node *np, int *cpus)
 	}
 	policy = cpufreq_cpu_get(cpus[0]);
 	if (!policy) {
-		pr_err("No policy for CPU:%d\n", cpus[0]);
+		pr_err("No policy for CPU:%d. Defer.\n", cpus[0]);
 		mutex_unlock(&cc_list_lock);
-		return -ENODEV;
+		return -EPROBE_DEFER;
 	}
 	if (cpumask_test_cpu(cpus[1], policy->related_cpus)) {
 		pr_err("CPUs:%d %d are related.\n", cpus[0], cpus[1]);

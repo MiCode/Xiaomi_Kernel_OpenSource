@@ -1,10 +1,26 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _ADRENO_HWSCHED_H_
 #define _ADRENO_HWSCHED_H_
+
+/**
+ * struct adreno_hwsched_ops - Function table to hook hwscheduler things
+ * to target specific routines
+ */
+struct adreno_hwsched_ops {
+	/**
+	 * @submit_cmdobj - Target specific function to submit IBs to hardware
+	 */
+	int (*submit_cmdobj)(struct adreno_device *adreno_dev,
+		struct kgsl_drawobj_cmd *cmdobj);
+	/**
+	 * @preempt_count - Target specific function to get preemption count
+	 */
+	u32 (*preempt_count)(struct adreno_device *adreno_dev);
+};
 
 /**
  * struct adreno_hwsched - Container for the hardware scheduler
@@ -27,6 +43,8 @@ struct adreno_hwsched {
 	/** @fault: Atomic to record a fault */
 	atomic_t fault;
 	struct kthread_worker *worker;
+	/** @hwsched_ops: Container for target specific hwscheduler ops */
+	const struct adreno_hwsched_ops *hwsched_ops;
 };
 
 enum adreno_hwsched_flags {
@@ -53,11 +71,13 @@ void adreno_hwsched_start(struct adreno_device *adreno_dev);
 /**
  * adreno_hwsched_dispatcher_init() - Initialize the hwsched dispatcher
  * @adreno_dev: pointer to the adreno device
+ * @hwsched_ops: Pointer to target specific hwsched ops
  *
  * Set up the dispatcher resources.
  * Return: 0 on success or negative on failure.
  */
-int adreno_hwsched_init(struct adreno_device *adreno_dev);
+int adreno_hwsched_init(struct adreno_device *adreno_dev,
+	const struct adreno_hwsched_ops *hwsched_ops);
 
 /**
  * adreno_hwsched_set_fault - Set hwsched fault to request recovery
@@ -89,4 +109,13 @@ void adreno_hwsched_parse_fault_cmdobj(struct adreno_device *adreno_dev,
 	struct kgsl_snapshot *snapshot);
 
 void adreno_hwsched_flush(struct adreno_device *adreno_dev);
+
+/**
+ * adreno_hwsched_unregister_contexts - Reset context gmu_registered bit
+ * @adreno_dev: pointer to the adreno device
+ *
+ * Walk the list of contexts and reset the gmu_registered for all
+ * contexts
+ */
+void adreno_hwsched_unregister_contexts(struct adreno_device *adreno_dev);
 #endif

@@ -47,7 +47,7 @@ DEFINE_DEBUGFS_ATTRIBUTE(iommu_debug_nr_iters_fops,
 int iommu_debug_check_mapping_flags(struct device *dev, dma_addr_t iova, size_t size,
 				    phys_addr_t expected_pa, u32 flags)
 {
-	struct qcom_iommu_atos_txn txn = {0};
+	struct qcom_iommu_atos_txn txn;
 	struct iommu_fwspec *fwspec;
 	struct iommu_domain *domain;
 
@@ -253,6 +253,8 @@ static int iommu_debug_debugfs_setup(struct iommu_debug_device *ddev)
 	debugfs_create_file("atos", 0600, dir, ddev, &iommu_debug_atos_fops);
 	debugfs_create_file("map", 0200, dir, ddev, &iommu_debug_map_fops);
 	debugfs_create_file("unmap", 0200, dir, ddev, &iommu_debug_unmap_fops);
+	debugfs_create_file("dma_map", 0200, dir, ddev, &iommu_debug_dma_map_fops);
+	debugfs_create_file("dma_unmap", 0200, dir, ddev, &iommu_debug_dma_unmap_fops);
 	debugfs_create_file("nr_iters", 0600, dir, ddev, &iommu_debug_nr_iters_fops);
 	debugfs_create_file("test_virt_addr", 0400, dir, ddev, &iommu_debug_test_virt_addr_fops);
 	debugfs_create_file("profiling", 0400, dir, ddev, &iommu_debug_profiling_fops);
