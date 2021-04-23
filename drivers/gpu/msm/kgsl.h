@@ -161,6 +161,11 @@ struct kgsl_memdesc_ops {
 	void (*free)(struct kgsl_memdesc *memdesc);
 	int (*map_kernel)(struct kgsl_memdesc *memdesc);
 	void (*unmap_kernel)(struct kgsl_memdesc *memdesc);
+	/**
+	 * @put_gpuaddr: Put away the GPU address and unmap the memory
+	 * descriptor
+	 */
+	void (*put_gpuaddr)(struct kgsl_memdesc *memdesc);
 };
 
 /* Internal definitions for memdesc->priv */
