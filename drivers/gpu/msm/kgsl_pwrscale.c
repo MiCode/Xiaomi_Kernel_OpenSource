@@ -627,7 +627,7 @@ static void pwrscale_busmon_create(struct kgsl_device *device,
 	struct device *dev = &pwrscale->busmondev;
 	struct msm_busmon_extended_profile *bus_profile;
 	struct devfreq *bus_devfreq;
-	int i;
+	int i, ret;
 
 	bus_profile = &pwrscale->bus_profile;
 	bus_profile->private_data = &adreno_tz_data;
@@ -654,11 +654,19 @@ static void pwrscale_busmon_create(struct kgsl_device *device,
 		dev_pm_opp_add(dev, pwr->pwrlevels[i].gpu_freq, 0);
 	}
 
+	ret = devfreq_gpubw_init();
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to add busmon governor: %d\n", ret);
+		put_device(dev);
+		return;
+	}
+
 	bus_devfreq = devfreq_add_device(dev, &pwrscale->bus_profile.profile,
 		"gpubw_mon", NULL);
 
 	if (IS_ERR_OR_NULL(bus_devfreq)) {
 		dev_err(&pdev->dev, "Bus scaling not enabled\n");
+		devfreq_gpubw_exit();
 		put_device(dev);
 		return;
 	}
@@ -728,7 +736,7 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct devfreq *devfreq;
 	struct msm_adreno_extended_profile *gpu_profile;
-	int i;
+	int i, ret;
 
 	pwrscale->enabled = true;
 
@@ -806,10 +814,18 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 			adreno_tz_data.bus.floating = false;
 	}
 
+	ret = msm_adreno_tz_init();
+	if (ret) {
+		dev_err(device->dev, "Failed to add adreno tz governor: %d\n", ret);
+		device->pwrscale.enabled = false;
+		return ret;
+	}
+
 	devfreq = devfreq_add_device(&pdev->dev, &gpu_profile->profile,
 			governor, &adreno_tz_data);
 	if (IS_ERR(devfreq)) {
 		device->pwrscale.enabled = false;
+		msm_adreno_tz_exit();
 		return PTR_ERR(devfreq);
 	}
 
@@ -858,6 +874,7 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 	if (pwrscale->gpu_profile.bus_devfreq) {
 		devfreq_remove_device(pwrscale->gpu_profile.bus_devfreq);
 		put_device(&pwrscale->busmondev);
+		devfreq_gpubw_exit();
 	}
 
 	if (!pwrscale->devfreqptr)
@@ -873,6 +890,7 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 	kgsl_midframe = NULL;
 	device->pwrscale.devfreqptr = NULL;
 	srcu_cleanup_notifier_head(&device->pwrscale.nh);
+	msm_adreno_tz_exit();
 }
 
 static void do_devfreq_suspend(struct work_struct *work)

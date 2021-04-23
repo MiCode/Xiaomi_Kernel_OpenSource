@@ -3,7 +3,6 @@
  * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
  */
 #include <linux/errno.h>
-#include <linux/module.h>
 #include <linux/devfreq.h>
 #include <linux/dma-mapping.h>
 #include <linux/math64.h>
@@ -655,7 +654,7 @@ static struct devfreq_governor msm_adreno_tz = {
 	.event_handler = tz_handler,
 };
 
-static int __init msm_adreno_tz_init(void)
+int msm_adreno_tz_init(void)
 {
 	workqueue = create_freezable_workqueue("governor_msm_adreno_tz_wq");
 
@@ -664,9 +663,8 @@ static int __init msm_adreno_tz_init(void)
 
 	return devfreq_add_governor(&msm_adreno_tz);
 }
-subsys_initcall(msm_adreno_tz_init);
 
-static void __exit msm_adreno_tz_exit(void)
+void msm_adreno_tz_exit(void)
 {
 	int ret = devfreq_remove_governor(&msm_adreno_tz);
 
@@ -676,7 +674,3 @@ static void __exit msm_adreno_tz_exit(void)
 	if (workqueue != NULL)
 		destroy_workqueue(workqueue);
 }
-
-module_exit(msm_adreno_tz_exit);
-
-MODULE_LICENSE("GPL v2");
