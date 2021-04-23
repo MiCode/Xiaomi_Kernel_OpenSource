@@ -57,6 +57,7 @@ struct btpower_platform_data {
 	int wl_gpio_sys_rst;                   /* Wlan reset gpio */
 	int bt_gpio_sw_ctrl;                   /* Bluetooth sw_ctrl gpio */
 	int bt_gpio_debug;                     /* Bluetooth debug gpio */
+	int xo_gpio_clk;                       /* XO clock gpio*/
 	struct device *slim_dev;
 	struct bt_power_vreg_data *vreg_info;  /* VDDIO voltage regulator */
 	struct bt_power_clk_data *bt_chip_clk; /* bluetooth reference clock */
