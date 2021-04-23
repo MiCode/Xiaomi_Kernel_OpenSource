@@ -686,7 +686,7 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	u64 start_t = 0;
 	int delta = 0;
 	int task_boost = per_task_boost(p);
-	bool uclamp_boost = uclamp_boosted(p);
+	bool uclamp_boost = walt_uclamp_boosted(p);
 	int start_cpu, order_index, end_index;
 	int max_cap_cpu = -1;
 	bool energy_eval_needed = true;
