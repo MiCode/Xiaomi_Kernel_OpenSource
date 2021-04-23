@@ -52,7 +52,7 @@ imported_mem_show(struct kgsl_process_private *priv,
 		int egl_surface_count = 0, egl_image_count = 0;
 		struct kgsl_memdesc *m;
 
-		if (kgsl_mem_entry_get(entry) == 0)
+		if (!kgsl_mem_entry_get(entry))
 			continue;
 		spin_unlock(&priv->mem_lock);
 
