@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -142,6 +142,27 @@ struct ipa_route_tbl_info_type_v01 {
 	 *	(5 bits used to specify the routing table index), unless there
 	 *	is a change in the hardware.
 	 */
+};  /* Type */
+
+#define IPA_RQOS_FILTER_STATS_INFO
+struct ipa_filter_stats_info_type_v01 {
+	__u32 hw_filter_stats_start_addr;
+	/*	Identifies the start of the filter stats. Denotes the offset
+	 *	from the start of the IPA Shared Mem
+	 */
+
+	__u32 hw_filter_stats_size;
+	/*	Identifies size in bytes of the HW filter statistics table. */
+
+	__u8 hw_filter_stats_start_index;
+	/* Identifies the start index of the modem driver managed
+	 * indices in the hw filter statistics table.
+	 */
+
+	__u8 hw_filter_stats_end_index;
+	 /* Identifies the end index os the modem driver managed
+	  * indices in the hw filter statistics table.
+	  */
 };  /* Type */
 
 struct ipa_modem_mem_info_type_v01 {
@@ -356,6 +377,14 @@ struct ipa_init_modem_driver_req_msg_v01 {
 	 */
 	__u8 hw_drop_stats_table_size_valid;
 	__u32 hw_drop_stats_table_size;
+
+	/* optional
+	 * Modem HW flt stats info
+	 * Must be set to true if filter_stats_info
+	 * is being passed
+	 */
+	__u8 hw_fiter_stats_info_valid;
+	struct ipa_filter_stats_info_type_v01 hw_filter_stats_info;
 };  /* Message */
 
 /* Response Message; Requests the modem IPA driver about initialization */
@@ -2745,7 +2774,7 @@ struct ipa_bw_change_ind_msg_v01 {
 #define QMI_IPA_BW_CHANGE_INDICATION_V01 0x0044
 
 /* add for max length*/
-#define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 162
+#define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 186
 #define QMI_IPA_INIT_MODEM_DRIVER_RESP_MAX_MSG_LEN_V01 25
 #define QMI_IPA_INDICATION_REGISTER_REQ_MAX_MSG_LEN_V01 16
 #define QMI_IPA_INDICATION_REGISTER_RESP_MAX_MSG_LEN_V01 7
