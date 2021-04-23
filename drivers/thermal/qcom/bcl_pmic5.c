@@ -580,7 +580,12 @@ static void bcl_vbat_init(struct platform_device *pdev,
 		vbat->tz_dev = NULL;
 		return;
 	}
-	thermal_zone_device_update(vbat->tz_dev, THERMAL_DEVICE_UP);
+
+	ret = thermal_zone_device_enable(vbat->tz_dev);
+	if (ret) {
+		thermal_zone_device_unregister(vbat->tz_dev);
+		vbat->tz_dev = NULL;
+	}
 }
 
 static void bcl_probe_vbat(struct platform_device *pdev,
