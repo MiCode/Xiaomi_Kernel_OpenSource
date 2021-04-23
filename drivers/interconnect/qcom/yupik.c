@@ -849,6 +849,27 @@ static struct qcom_icc_node qxm_nsp = {
 	.links = { SLAVE_CDSP_MEM_NOC },
 };
 
+static struct qcom_icc_qosbox qhm_gic_qos = {
+	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
+	.num_ports = 1,
+	.offsets = { 0x9000 },
+	.config = &(struct qos_config) {
+		.prio = 2,
+		.urg_fwd = 0,
+	},
+};
+
+static struct qcom_icc_node qhm_gic = {
+	.name = "qhm_gic",
+	.id = MASTER_GIC_1,
+	.channels = 1,
+	.buswidth = 4,
+	.noc_ops = &qcom_qnoc4_ops,
+	.qosbox = &qhm_gic_qos,
+	.num_links = 1,
+	.links = { SLAVE_SNOC_GEM_NOC_SF },
+};
+
 static struct qcom_icc_node qnm_aggre1_noc = {
 	.name = "qnm_aggre1_noc",
 	.id = MASTER_A1NOC_SNOC,
@@ -2437,6 +2458,7 @@ static struct qcom_icc_bcm *system_noc_bcms[] = {
 };
 
 static struct qcom_icc_node *system_noc_nodes[] = {
+	[MASTER_GIC_1] = &qhm_gic,
 	[MASTER_A1NOC_SNOC] = &qnm_aggre1_noc,
 	[MASTER_A2NOC_SNOC] = &qnm_aggre2_noc,
 	[MASTER_SNOC_CFG] = &qnm_snoc_cfg,

@@ -193,7 +193,6 @@
 #define MAX_PROP_SIZE (32)
 #define MAX_RC_NAME_LEN (15)
 #define MSM_PCIE_MAX_VREG (5)
-#define MSM_PCIE_VREG_0P9 (2)
 #define MSM_PCIE_MAX_CLK (21)
 #define MSM_PCIE_MAX_PIPE_CLK (1)
 #define MAX_RC_NUM (5)
@@ -874,7 +873,6 @@ struct msm_pcie_dev_t {
 	struct msm_pcie_drv_info *drv_info;
 	struct work_struct drv_enable_pc_work;
 	struct work_struct drv_disable_pc_work;
-	int vreg_levels[3];
 
 	/* cache drv pc req from RC client, by default drv pc is enabled */
 	int drv_disable_pc_vote;
@@ -6423,22 +6421,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		sizeof(msm_pcie_reset_info[rc_idx]));
 	memcpy(pcie_dev->pipe_reset, msm_pcie_pipe_reset_info[rc_idx],
 		sizeof(msm_pcie_pipe_reset_info[rc_idx]));
-
-	ret = of_property_read_u32_array(of_node,
-				"qcom,vreg-0.9-voltage-level",
-				(u32 *) pcie_dev->vreg_levels,
-				ARRAY_SIZE(pcie_dev->vreg_levels));
-	if (ret) {
-		PCIE_DBG(pcie_dev,
-		"vreg-0.9-voltage-level missing, using default values\n");
-	} else {
-		pcie_dev->vreg[MSM_PCIE_VREG_0P9].max_v =
-						pcie_dev->vreg_levels[0];
-		pcie_dev->vreg[MSM_PCIE_VREG_0P9].min_v =
-						pcie_dev->vreg_levels[1];
-		pcie_dev->vreg[MSM_PCIE_VREG_0P9].opt_mode =
-						pcie_dev->vreg_levels[2];
-	}
 
 	for (i = 0; i < PCIE_CONF_SPACE_DW; i++)
 		pcie_dev->rc_shadow[i] = PCIE_CLEAR;

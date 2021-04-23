@@ -2478,6 +2478,27 @@ int  __init scm_mem_protection_init_do(struct device *dev)
 }
 #endif
 
+int __qcom_scm_ddrbw_profiler(struct device *dev, phys_addr_t in_buf,
+	size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_INFO,
+		.cmd = TZ_SVC_BW_PROF_ID,
+		.owner = ARM_SMCCC_OWNER_SIP,
+	};
+
+	desc.args[0] = in_buf;
+	desc.args[1] = in_buf_size;
+	desc.args[2] = out_buf;
+	desc.args[3] = out_buf_size;
+	desc.arginfo = QCOM_SCM_ARGS(4, QCOM_SCM_RW, QCOM_SCM_VAL, QCOM_SCM_RW,
+								 QCOM_SCM_VAL);
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret;
+}
+
 void __qcom_scm_init(void)
 {
 

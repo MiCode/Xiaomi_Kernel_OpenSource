@@ -15,4 +15,14 @@ config CAN_MCP251X
 	  Driver for the Microchip MCP251x and MCP25625 SPI CAN
 	  controllers.
 
+config QTI_CAN
+	tristate "Unified driver for QTI CAN controllers"
+	depends on SPI
+	help
+	  This adds unified driver for QTI CAN controllers on auto
+	  Platform. This driver can support a few SPI controllers
+	  being used on automotive paltform. This Driver is based
+	  on Calypso MPC5746 MCU ans uses SPI bus for data access.
+	  It support most CAN operations including version lookup,
+	  firmware upgrade, CAN message filter, etc.
 endmenu

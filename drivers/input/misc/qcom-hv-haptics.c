@@ -28,6 +28,7 @@
 #define HAP_CFG_REVISION2_REG			0x01
 #define HAP_CFG_V1				0x1
 #define HAP_CFG_V2				0x2
+#define HAP_CFG_V3				0x3
 
 #define HAP_CFG_STATUS_DATA_MSB_REG		0x09
 /* STATUS_DATA_MSB definitions while MOD_STATUS_SEL is 0 */
@@ -79,7 +80,9 @@
 #define DRV_WF_SEL_MASK				GENMASK(1, 0)
 
 #define HAP_CFG_AUTO_SHUTDOWN_CFG_REG		0x4A
+
 #define HAP_CFG_TRIG_PRIORITY_REG		0x4B
+#define SWR_IGNORE_BIT				BIT(4)
 
 #define HAP_CFG_SPMI_PLAY_REG			0x4C
 #define PLAY_EN_BIT				BIT(7)
@@ -3902,6 +3905,34 @@ static int swr_slave_reg_enable(struct regulator_dev *rdev)
 		return rc;
 	}
 
+	/*
+	 * If haptics has already been in SWR mode when enabling the SWR
+	 * slave, it means that the haptics module was stuck in prevous
+	 * SWR play. Then toggle HAPTICS_EN to reset haptics module and
+	 * ignore SWR mode until next SWR slave enable request is coming.
+	 */
+	if (is_swr_play_enabled(chip)) {
+		rc = haptics_masked_write(chip, chip->cfg_addr_base,
+				HAP_CFG_TRIG_PRIORITY_REG,
+				SWR_IGNORE_BIT, SWR_IGNORE_BIT);
+		if (rc < 0) {
+			dev_err(chip->dev, "Failed to enable SWR_IGNORE, rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = haptics_toggle_module_enable(chip);
+		if (rc < 0)
+			return rc;
+	} else {
+		rc = haptics_masked_write(chip, chip->cfg_addr_base,
+				HAP_CFG_TRIG_PRIORITY_REG,
+				SWR_IGNORE_BIT, 0);
+		if (rc < 0) {
+			dev_err(chip->dev, "Failed to disable SWR_IGNORE, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
 	chip->swr_slave_enabled = true;
 	return 0;
 }
@@ -4335,6 +4366,15 @@ static struct attribute *hap_class_attrs[] = {
 };
 ATTRIBUTE_GROUPS(hap_class);
 
+static bool is_swr_supported(struct haptics_chip *chip)
+{
+	/* Haptics config version 3 does not support soundwire */
+	if (chip->cfg_revision == HAP_CFG_V3)
+		return false;
+
+	return true;
+}
+
 static int haptics_probe(struct platform_device *pdev)
 {
 	struct haptics_chip *chip;
@@ -4375,11 +4415,13 @@ static int haptics_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = haptics_init_swr_slave_regulator(chip);
-	if (rc < 0) {
-		dev_err(chip->dev, "Initialize swr slave regulator failed, rc = %d\n",
-				rc);
-		return rc;
+	if (is_swr_supported(chip)) {
+		rc = haptics_init_swr_slave_regulator(chip);
+		if (rc < 0) {
+			dev_err(chip->dev, "Initialize swr slave regulator failed, rc = %d\n",
+					rc);
+			return rc;
+		}
 	}
 
 	rc = devm_request_threaded_irq(chip->dev, chip->fifo_empty_irq,

@@ -517,11 +517,11 @@ static int cnss_setup_dms_mac(struct cnss_plat_data *plat_priv)
 				break;
 
 			ret = cnss_qmi_get_dms_mac(plat_priv);
-			if (ret == 0)
+			if (ret != -EAGAIN)
 				break;
 			msleep(CNSS_DMS_QMI_CONNECTION_WAIT_MS);
 		}
-		if (!plat_priv->dms.mac_valid) {
+		if (!plat_priv->dms.nv_mac_not_prov && !plat_priv->dms.mac_valid) {
 			cnss_pr_err("Unable to get MAC from DMS after retries\n");
 			CNSS_ASSERT(0);
 			return -EINVAL;
@@ -2131,13 +2131,15 @@ int cnss_do_elf_ramdump(struct cnss_plat_data *plat_priv)
 			continue;
 		}
 
+		seg = kcalloc(1, sizeof(*seg), GFP_KERNEL);
+		if (!seg)
+			continue;
+
 		if (meta_info.entry[dump_seg->type].entry_start == 0) {
 			meta_info.entry[dump_seg->type].type = dump_seg->type;
 			meta_info.entry[dump_seg->type].entry_start = i + 1;
 		}
 		meta_info.entry[dump_seg->type].entry_num++;
-
-		seg = kcalloc(1, sizeof(*seg), GFP_KERNEL);
 		seg->da = dump_seg->address;
 		seg->va = dump_seg->v_address;
 		seg->size = dump_seg->size;
@@ -2145,16 +2147,19 @@ int cnss_do_elf_ramdump(struct cnss_plat_data *plat_priv)
 		dump_seg++;
 	}
 
+	seg = kcalloc(1, sizeof(*seg), GFP_KERNEL);
+	if (!seg)
+		goto do_elf_dump;
+
 	meta_info.magic = CNSS_RAMDUMP_MAGIC;
 	meta_info.version = CNSS_RAMDUMP_VERSION;
 	meta_info.chipset = plat_priv->device_id;
 	meta_info.total_entries = CNSS_FW_DUMP_TYPE_MAX;
-
-	seg = kcalloc(1, sizeof(*seg), GFP_KERNEL);
 	seg->va = &meta_info;
 	seg->size = sizeof(meta_info);
 	list_add(&seg->node, &head);
 
+do_elf_dump:
 	ret = do_elf_dump(&head, info_v2->ramdump_dev);
 
 	while (!list_empty(&head)) {

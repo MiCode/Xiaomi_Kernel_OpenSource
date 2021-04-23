@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021 The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QTI_POWER_SUPPLY_IIO_H__
@@ -148,4 +148,7 @@
 #define PSY_IIO_INPUT_SUSPEND			0x78
 #define PSY_IIO_PARALLEL_BATFET_MODE		0x79
 #define PSY_IIO_PARALLEL_FCC_MAX		0x7a
+
+/* USB */
+#define PSY_IIO_MOISTURE_DETECTION_EN		0x7b
 #endif /* __QTI_POWER_SUPPLY_IIO_H__ */

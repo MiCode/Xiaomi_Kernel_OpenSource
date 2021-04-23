@@ -1591,7 +1591,8 @@ static void _a6xx_do_crashdump(struct kgsl_device *device)
 
 	timeout = ktime_add_ms(ktime_get(), CP_CRASH_DUMPER_TIMEOUT);
 
-	might_sleep();
+	if (!device->snapshot_atomic)
+		might_sleep();
 
 	for (;;) {
 		/* make sure we're reading the latest value */
@@ -1603,7 +1604,8 @@ static void _a6xx_do_crashdump(struct kgsl_device *device)
 			break;
 
 		/* Wait 1msec to avoid unnecessary looping */
-		usleep_range(100, 1000);
+		if (!device->snapshot_atomic)
+			usleep_range(100, 1000);
 	}
 
 	kgsl_regread(device, A6XX_CP_CRASH_DUMP_STATUS, &val);

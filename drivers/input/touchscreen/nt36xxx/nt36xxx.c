@@ -761,6 +761,9 @@ static int nvt_ts_bus_get(struct nvt_ts_data *ts)
 {
 	int rc = 0;
 
+	if (atomic_read(&ts->suspend_resume_underway))
+		wait_for_completion_interruptible(&ts->touch_suspend_resume);
+
 	reinit_completion(&ts->trusted_touch_powerdown);
 	mutex_lock(&ts->nvt_clk_io_ctrl_mutex);
 	rc = pm_runtime_get_sync(ts->client->adapter->dev.parent);
@@ -1174,6 +1177,7 @@ static void nvt_ts_trusted_touch_init(struct nvt_ts_data *ts)
 		return;
 
 	init_completion(&ts->trusted_touch_powerdown);
+	init_completion(&ts->touch_suspend_resume);
 
 	/* Get clocks */
 	ts->core_clk = devm_clk_get(ts->client->dev.parent,
@@ -2040,14 +2044,6 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 #endif
 
 	mutex_lock(&ts->lock);
-
-#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-#ifndef CONFIG_ARCH_QTI_VM
-	if (nvt_ts_trusted_touch_get_pvm_driver_state(ts) !=
-					TRUSTED_TOUCH_PVM_INIT)
-		return IRQ_HANDLED;
-#endif
-#endif
 
 	ret = CTP_I2C_READ(ts->client, I2C_FW_Address, point_data, POINT_DATA_LEN + 1);
 	if (ret < 0) {
@@ -3052,9 +3048,12 @@ static int32_t nvt_ts_suspend(struct device *dev)
 	}
 
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-	if (atomic_read(&ts->trusted_touch_enabled))
+	if (atomic_read(&ts->trusted_touch_underway))
 		wait_for_completion_interruptible(
 			&ts->trusted_touch_powerdown);
+
+	atomic_set(&ts->suspend_resume_underway, 1);
+	reinit_completion(&ts->touch_suspend_resume);
 #endif
 
 #if !WAKEUP_GESTURE
@@ -3108,7 +3107,10 @@ static int32_t nvt_ts_suspend(struct device *dev)
 	input_sync(ts->input_dev);
 
 	msleep(50);
-
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+	complete(&ts->touch_suspend_resume);
+	atomic_set(&ts->suspend_resume_underway, 0);
+#endif
 	NVT_LOG("end\n");
 
 	return 0;
@@ -3132,9 +3134,12 @@ static int32_t nvt_ts_resume(struct device *dev)
 	}
 
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-	if (atomic_read(&ts->trusted_touch_enabled))
+	if (atomic_read(&ts->trusted_touch_underway))
 		wait_for_completion_interruptible(
 			&ts->trusted_touch_powerdown);
+
+	atomic_set(&ts->suspend_resume_underway, 1);
+	reinit_completion(&ts->touch_suspend_resume);
 #endif
 	mutex_lock(&ts->lock);
 
@@ -3165,6 +3170,10 @@ static int32_t nvt_ts_resume(struct device *dev)
 
 	mutex_unlock(&ts->lock);
 
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+	complete(&ts->touch_suspend_resume);
+	atomic_set(&ts->suspend_resume_underway, 0);
+#endif
 	NVT_LOG("end\n");
 
 	return 0;

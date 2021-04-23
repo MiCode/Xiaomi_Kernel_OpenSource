@@ -131,19 +131,24 @@ static ssize_t msm_rpmh_master_stats_show(struct kobject *kobj,
 	ssize_t length = 0;
 	int i = 0;
 	struct msm_rpmh_master_stats *record = NULL;
+	bool skip_apss = false;
 
 	mutex_lock(&rpmh_stats_mutex);
 
 	/* First Read APSS master stats */
 
-	if (rpmh_unit_base)
+	if (rpmh_unit_base) {
 		length = msm_rpmh_master_stats_print_data(buf, PAGE_SIZE,
 							  &apss_master_stats,
 							  "APSS");
-
+		skip_apss = true;
+	}
 	/* Read SMEM data written by other masters */
 
 	for (i = 0; i < ARRAY_SIZE(rpmh_masters); i++) {
+		if (skip_apss && i == 0)
+			continue;
+
 		record = (struct msm_rpmh_master_stats *) qcom_smem_get(
 					rpmh_masters[i].pid,
 					rpmh_masters[i].smem_id, NULL);

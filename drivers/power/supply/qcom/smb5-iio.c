@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -98,6 +98,9 @@ int smb5_iio_get_prop(struct smb_charger *chg, int channel, int *val)
 		break;
 	case PSY_IIO_MOISTURE_DETECTED:
 		*val = chg->moisture_present;
+		break;
+	case PSY_IIO_MOISTURE_DETECTION_EN:
+		*val = !chg->lpd_disabled;
 		break;
 	case PSY_IIO_HVDCP_OPTI_ALLOWED:
 		*val = !chg->flash_active;
@@ -348,6 +351,9 @@ int smb5_iio_set_prop(struct smb_charger *chg, int channel, int val)
 		del_timer_sync(&chg->apsd_timer);
 		chg->apsd_ext_timeout = false;
 		smblib_rerun_apsd(chg);
+		break;
+	case PSY_IIO_MOISTURE_DETECTION_EN:
+		smblib_moisture_detection_enable(chg, val);
 		break;
 	/* MAIN */
 	case PSY_IIO_FLASH_ACTIVE:
