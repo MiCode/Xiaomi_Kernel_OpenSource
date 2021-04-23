@@ -19,6 +19,7 @@
  * @is_dynamic:	indicates if memory can be added or removed from carveout heaps
  * @token:	the end points to which memory for secure carveout memory is
  *		assigned to
+ * @max_align:  page order of the maximum alignment. Used by cma heap.
  *
  * Provided by the board file.
  */
@@ -30,6 +31,7 @@ struct platform_heap {
 	struct device *dev;
 	bool is_dynamic;
 	u32 token;
+	u32 max_align;
 };
 
 /**

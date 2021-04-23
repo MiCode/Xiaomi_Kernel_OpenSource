@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -29,6 +29,7 @@ static int populate_heap(struct device_node *node,
 	heap->is_dynamic = of_property_read_bool(node, "qcom,dynamic-heap");
 
 	of_property_read_u32(node, "qcom,token", &heap->token);
+	of_property_read_u32(node, "qcom,max-align", &heap->max_align);
 out:
 	if (ret)
 		pr_err("%s: Unable to populate heap, error: %d\n", __func__,

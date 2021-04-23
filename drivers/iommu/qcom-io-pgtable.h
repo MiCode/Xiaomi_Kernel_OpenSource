@@ -10,6 +10,7 @@
 struct qcom_iommu_pgtable_ops {
 	void *(*alloc)(void *cookie, gfp_t gfp_mask, int order);
 	void (*free)(void *cookie, void *virt, int order);
+	void (*tlb_add_walk)(void *cookie, void *virt, unsigned long iova, size_t granule);
 };
 
 struct qcom_io_pgtable_info {
@@ -37,6 +38,14 @@ void *qcom_io_pgtable_alloc_pages(const struct qcom_iommu_pgtable_ops *ops,
 				  void *cookie, gfp_t gfp, int order);
 void qcom_io_pgtable_free_pages(const struct qcom_iommu_pgtable_ops *ops,
 				void *cookie, void *virt, int order);
+static inline void
+qcom_io_pgtable_tlb_add_walk(const struct qcom_iommu_pgtable_ops *ops, void *cookie, void *virt,
+				unsigned long iova, size_t granule)
+{
+	ops->tlb_add_walk(cookie, virt, iova, granule);
+}
+
+
 
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
 extern struct io_pgtable_init_fns io_pgtable_av8l_fast_init_fns;
