@@ -1,4 +1,5 @@
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+#include <dt-bindings/iio/qcom,spmi-adc7-smb139x.h>
 
 #include "pmk8350.dtsi"
 #include "pm8350.dtsi"
@@ -137,6 +138,66 @@
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 		qcom,pre-scaling = <1 1>;
+	};
+
+	pm8350b_chg_temp {
+		reg = <PM8350B_ADC7_CHG_TEMP>;
+		label = "pm8350b_chg_temp";
+		qcom,pre-scaling = <1 1>;
+	};
+
+	pm8350b_iin_fb {
+		reg = <PM8350B_ADC7_IIN_FB>;
+		label = "pm8350b_iin_fb";
+		qcom,pre-scaling = <32 100>;
+	};
+
+	pm8350b_ichg_fb {
+		reg = <PM8350B_ADC7_ICHG_FB>;
+		label = "pm8350b_ichg_fb";
+		qcom,pre-scaling = <1000 305185>;
+	};
+
+	pm8350b_usb_in_v_div_16 {
+		reg = <PM8350B_ADC7_USB_IN_V_16>;
+		label = "pm8350b_usb_in_v_div_16";
+		qcom,pre-scaling = <1 16>;
+	};
+
+	smb139x_1_smb_temp {
+		reg = <SMB1394_1_ADC7_SMB_TEMP>;
+		label = "smb139x_1_smb_temp";
+		qcom,pre-scaling = <1 1>;
+	};
+
+	smb139x_1_ichg_smb {
+		reg = <SMB1394_1_ADC7_ICHG_SMB>;
+		label = "smb139x_1_ichg_smb";
+		qcom,pre-scaling = <16 100>;
+	};
+
+	smb139x_1_iin_smb {
+		reg = <SMB1394_1_ADC7_IIN_SMB>;
+		label = "smb139x_1_iin_smb";
+		qcom,pre-scaling = <32 100>;
+	};
+
+	smb139x_2_smb_temp {
+		reg = <SMB1394_2_ADC7_SMB_TEMP>;
+		label = "smb139x_2_smb_temp";
+		qcom,pre-scaling = <1 1>;
+	};
+
+	smb139x_2_ichg_smb {
+		reg = <SMB1394_2_ADC7_ICHG_SMB>;
+		label = "smb139x_2_ichg_smb";
+		qcom,pre-scaling = <16 100>;
+	};
+
+	smb139x_2_iin_smb {
+		reg = <SMB1394_2_ADC7_IIN_SMB>;
+		label = "smb139x_2_iin_smb";
+		qcom,pre-scaling = <32 100>;
 	};
 };
 
@@ -380,6 +441,12 @@
 				temperature = <80000>;
 				hysteresis = <10000>;
 				type = "passive";
+			};
+
+			xo_config2: xo-config2 {
+				temperature = <90000>;
+				hysteresis = <10000>;
+				type = "critical";
 			};
 		};
 	};

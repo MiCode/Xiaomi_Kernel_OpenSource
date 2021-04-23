@@ -25,6 +25,13 @@ properties:
   reg:
     maxItems: 1
 
+  ss-name:
+    $ref: /schemas/types.yaml#/definitions/string
+    Value type: <stringlist>
+    Definition: Supported subsystem names. Must be from "modem", "adsp",
+                "adsp_island", "cdsp", "slpi", "slpi_island", "apss",
+                "gpu", "display".
+
 required:
   - compatible
   - reg
@@ -35,6 +42,9 @@ examples:
     rpmh-sleep-stats@c3f0000 {
       compatible = "qcom,rpmh-sleep-stats";
       reg = <0 0xc3f0000 0 0x400>;
+      ss-name = "modem", "adsp", "adsp_island",
+                "cdsp", "slpi", "slpi_island",
+                "apss";
     };
   # Example of rpm sleep stats
   - |

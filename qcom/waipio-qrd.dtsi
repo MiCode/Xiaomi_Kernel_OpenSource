@@ -256,6 +256,7 @@
 		focaltech,display-coords = <0 0 1080 2340>;
 		focaltech,max-touch-number = <5>;
 		focaltech,ic-type = <0x3658D488>;
+		focaltech,touch-type = "primary";
 
 		vdd-supply = <&L3C>;
 
@@ -279,6 +280,13 @@
 			remote-endpoint = <&usb_port0_connector>;
 		};
 	};
+};
+
+&usb2_phy0 {
+	qcom,param-override-seq =
+		<0xe3 0x6c
+		0x0c 0x70
+		0x17 0x74>;
 };
 
 &ucsi {

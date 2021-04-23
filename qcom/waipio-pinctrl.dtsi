@@ -1396,14 +1396,14 @@
 			};
 		};
 
-		qupv3_se20_ctsrx: qupv3_se20_ctsrx {
+		qupv3_se20_cts: qupv3_se20_cts {
 			mux {
-				pins = "gpio76", "gpio79";
+				pins = "gpio76";
 				function = "qup20";
 			};
 
 			config {
-				pins = "gpio76", "gpio79";
+				pins = "gpio76";
 				drive-strength = <2>;
 				bias-disable;
 			};
@@ -1432,6 +1432,33 @@
 				pins = "gpio78";
 				drive-strength = <2>;
 				bias-pull-up;
+			};
+		};
+
+		/* RX to be in gpio mode for sleep config */
+		qupv3_se20_rx_wake: qupv3_se20_rx_wake {
+			mux {
+				pins = "gpio79";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio79";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		qupv3_se20_rx_active: qupv3_se20_rx_active {
+			mux {
+				pins = "gpio79";
+				function = "qup20";
+			};
+
+			config {
+				pins = "gpio79";
+				drive-strength = <2>;
+				bias-disable;
 			};
 		};
 	};

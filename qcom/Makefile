@@ -104,7 +104,7 @@ dtb-$(CONFIG_ARCH_WAIPIO) += waipio-rumi.dtb \
 	waipio-mtp-pm8010.dtb \
 	waipio-cdp-pm8010.dtb \
 	waipio-qrd-pm8010.dtb \
-	waipio-atp-pm8010.dtb
+	waipio-atp-pm8010.dtb \
 	waipiop-mtp-pm8008.dtb \
 	waipiop-cdp-pm8008.dtb \
 	waipiop-qrd-pm8008.dtb \

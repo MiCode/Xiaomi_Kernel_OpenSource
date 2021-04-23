@@ -96,6 +96,9 @@ Optional properties:
                             without sub-nodes.
   - qcom,converged-dt: Boolean property to decide whether it supports multiple
                        WLAN devices using the same DT node with sub-nodes.
+  - mboxes: Specifies mbox channel data for AOP messaging
+  - qcom,vreg_ipa: Specifies voltage regulator used for WLAN device internal
+                   power amp config
 
 Example:
 

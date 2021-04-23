@@ -61,6 +61,27 @@ Subsystem properties:
 		28. mmw_pa2
 		29. mmw_pa3
 		30. sdr_mmw_therm
+		31. qtm_therm
+		32. modem_bcl_warn
+		33. sdr0_pa0
+		34. sdr0_pa1
+		35. sdr0_pa2
+		36. sdr0_pa3
+		37. sdr0_pa4
+		38. sdr0_pa5
+		39. sdr0
+		40. sdr1_pa0
+		41. sdr1_pa1
+		42. sdr1_pa2
+		43. sdr1_pa3
+		44. sdr1_pa4
+		45. sdr1_pa5
+		46. sdr1
+		47. mmw0
+		48. mmw1
+		49. mmw2
+		50. mmw3
+		51. mmw_ific0
 
 Example:
 
