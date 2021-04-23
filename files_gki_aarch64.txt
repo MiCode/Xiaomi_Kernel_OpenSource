@@ -3849,6 +3849,7 @@ include/trace/hooks/gic.h
 include/trace/hooks/gic_v3.h
 include/trace/hooks/gpiolib.h
 include/trace/hooks/iommu.h
+include/trace/hooks/logbuf.h
 include/trace/hooks/memory.h
 include/trace/hooks/mm.h
 include/trace/hooks/module.h
@@ -3870,6 +3871,7 @@ include/trace/hooks/traps.h
 include/trace/hooks/typec.h
 include/trace/hooks/ufshcd.h
 include/trace/hooks/vendor_hooks.h
+include/trace/hooks/vmscan.h
 include/trace/hooks/workqueue.h
 include/trace/hooks/wqlockup.h
 include/trace/perf.h
