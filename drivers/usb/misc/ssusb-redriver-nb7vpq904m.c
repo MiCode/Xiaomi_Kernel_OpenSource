@@ -1057,7 +1057,7 @@ MODULE_DEVICE_TABLE(i2c, redriver_i2c_id);
 
 static struct i2c_driver redriver_i2c_driver = {
 	.driver = {
-		.name	= "ssusb redriver",
+		.name	= "ssusb-redriver",
 		.of_match_table	= redriver_match_table,
 		.pm	= &redriver_i2c_pm,
 	},
