@@ -1050,7 +1050,7 @@ static const struct of_device_id redriver_match_table[] = {
 };
 
 static const struct i2c_device_id redriver_i2c_id[] = {
-	{ "ssusb redriver", 0 },
+	{ "ssusb-redriver", 0 },
 	{ },
 };
 MODULE_DEVICE_TABLE(i2c, redriver_i2c_id);
