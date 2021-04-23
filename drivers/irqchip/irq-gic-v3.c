@@ -621,6 +621,10 @@ static asmlinkage void __exception_irq_entry gic_handle_irq(struct pt_regs *regs
 
 	irqnr = gic_read_iar();
 
+	/* Check for special IDs first */
+	if ((irqnr >= 1020 && irqnr <= 1023))
+		return;
+
 	if (gic_supports_nmi() &&
 	    unlikely(gic_read_rpr() == GICD_INT_NMI_PRI)) {
 		gic_handle_nmi(irqnr, regs);
@@ -631,10 +635,6 @@ static asmlinkage void __exception_irq_entry gic_handle_irq(struct pt_regs *regs
 		gic_pmr_mask_irqs();
 		gic_arch_enable_irqs();
 	}
-
-	/* Check for special IDs first */
-	if ((irqnr >= 1020 && irqnr <= 1023))
-		return;
 
 	/* Treat anything but SGIs in a uniform way */
 	if (likely(irqnr > 15)) {
