@@ -746,7 +746,7 @@ static void mhi_process_cmd_completion(struct mhi_controller *mhi_cntrl,
 	if (MHI_TRE_GET_CMD_TYPE(cmd_pkt) == MHI_CMD_SFR_CFG) {
 		mhi_misc_cmd_completion(mhi_cntrl, MHI_CMD_SFR_CFG,
 					MHI_TRE_GET_EV_CODE(tre));
-		return;
+		goto exit_cmd_completion;
 	}
 
 	chan = MHI_TRE_GET_CMD_CHID(cmd_pkt);
