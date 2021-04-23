@@ -5364,8 +5364,8 @@ int qseecom_process_listener_from_smcinvoke(uint32_t *result,
 	if (ret)
 		pr_err("Failed on cmd %d for lsnr %d session %d, ret = %d\n",
 			resp.result, resp.data, resp.resp_type, ret);
-	*result = resp.result;
-	*response_type = resp.resp_type;
+	*result = resp.resp_type;
+	*response_type = resp.result;
 	*data = resp.data;
 	return ret;
 }
