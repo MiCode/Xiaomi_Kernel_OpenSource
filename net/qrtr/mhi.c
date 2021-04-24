@@ -59,13 +59,16 @@ static int qcom_mhi_qrtr_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 	if (rc)
 		goto free_skb;
 
-	rc = mhi_queue_skb(qdev->mhi_dev, DMA_TO_DEVICE, skb, skb->len,
-			   MHI_EOT);
-	if (rc)
-		goto free_skb;
-
 	if (skb->sk)
 		sock_hold(skb->sk);
+
+	rc = mhi_queue_skb(qdev->mhi_dev, DMA_TO_DEVICE, skb, skb->len,
+			   MHI_EOT);
+	if (rc) {
+		if (skb->sk)
+			sock_put(skb->sk);
+		goto free_skb;
+	}
 
 	return rc;
 
