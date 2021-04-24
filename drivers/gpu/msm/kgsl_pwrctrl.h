@@ -6,6 +6,7 @@
 #define __KGSL_PWRCTRL_H
 
 #include <linux/clk.h>
+#include <linux/pm_qos.h>
 
 /*****************************************************************************
  * power flags
@@ -155,6 +156,8 @@ struct kgsl_pwrctrl {
 	struct timer_list minbw_timer;
 	/** @minbw_timeout - Timeout for entering minimum bandwidth state */
 	u32 minbw_timeout;
+	/** @sysfs_thermal_req - PM QoS maximum frequency request from user (via sysfs) */
+	struct dev_pm_qos_request sysfs_thermal_req;
 };
 
 int kgsl_pwrctrl_init(struct kgsl_device *device);
@@ -195,6 +198,7 @@ void kgsl_pwrctrl_busy_time(struct kgsl_device *device, u64 time, u64 busy);
 void kgsl_pwrctrl_set_constraint(struct kgsl_device *device,
 			struct kgsl_pwr_constraint *pwrc, uint32_t id);
 int kgsl_pwrctrl_set_default_gpu_pwrlevel(struct kgsl_device *device);
+void kgsl_pwrctrl_update_thermal_pwrlevel(struct kgsl_device *device);
 
 /**
  * kgsl_pwrctrl_request_state - Request a specific power state
