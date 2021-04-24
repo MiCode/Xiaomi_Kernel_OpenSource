@@ -782,8 +782,8 @@ static int _i3c_geni_execute_command
 		geni_setup_m_cmd(gi3c->se.base, xfer->m_cmd, xfer->m_param);
 
 		GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
-			"I3C cmd:0x%x param:0x%x READ len:%d, m_cmd: 0x%x\n",
-			xfer->m_cmd, xfer->m_param, len,
+			"Read_mode:%d cmd:0x%x param:0x%x len:%d m_cmd:0x%x\n",
+			xfer->mode, xfer->m_cmd, xfer->m_param, len,
 			geni_read_reg(gi3c->se.base, SE_GENI_M_CMD0));
 
 		if (xfer->mode == SE_DMA) {
@@ -794,6 +794,10 @@ static int _i3c_geni_execute_command
 				GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
 					"DMA Err:%d, FIFO mode enabled\n", ret);
 				xfer->mode = FIFO_MODE;
+				GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
+					"DMA Read Err:%d,Enabling FIFO mode\n",
+									ret);
+				WARN_ON(1);
 				geni_se_select_mode(gi3c->se.base, xfer->mode);
 			}
 		}
@@ -802,8 +806,8 @@ static int _i3c_geni_execute_command
 		geni_setup_m_cmd(gi3c->se.base, xfer->m_cmd, xfer->m_param);
 
 		GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
-			"I3C cmd:0x%x param:0x%x WRITE len:%d, m_cmd: 0x%x\n",
-			xfer->m_cmd, xfer->m_param, len,
+			"Write_mode:%d cmd:0x%x param:0x%x len:%d m_cmd:0x%x\n",
+			xfer->mode, xfer->m_cmd, xfer->m_param, len,
 			geni_read_reg(gi3c->se.base, SE_GENI_M_CMD0));
 
 		if (xfer->mode == SE_DMA) {
@@ -814,6 +818,10 @@ static int _i3c_geni_execute_command
 				GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
 					"DMA Err:%d, FIFO mode enabled\n", ret);
 				xfer->mode = FIFO_MODE;
+				GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
+					"DMA Write Err:%d,Enabling FIFO mode\n",
+									ret);
+				WARN_ON(1);
 				geni_se_select_mode(gi3c->se.base, xfer->mode);
 			}
 		}
@@ -1139,7 +1147,7 @@ static int geni_i3c_master_priv_xfers
 
 	for (i = 0; i < nxfers; i++) {
 		bool stall = (i < (nxfers - 1));
-		struct i3c_xfer_params xfer = { FIFO_MODE };
+		struct i3c_xfer_params xfer = { SE_DMA };
 
 		xfer.m_param  = (stall ? STOP_STRETCH : 0);
 		xfer.m_param |= ((dev->info.dyn_addr & I3C_ADDR_MASK)
