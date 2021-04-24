@@ -256,12 +256,13 @@ void usb_qdss_free_req(struct usb_qdss_ch *ch)
 	unsigned long flags;
 
 	spin_lock_irqsave(&channel_lock, flags);
-	qdss = ch->priv_usb;
-	if (!qdss) {
+	if (ch == NULL || ch->priv_usb == NULL) {
 		spin_unlock_irqrestore(&channel_lock, flags);
-		pr_err("%s: qdss ctx is NULL\n", __func__);
+		pr_err("%s: qdss channel or qdss ctx is NULL\n", __func__);
 		return;
 	}
+
+	qdss = ch->priv_usb;
 	spin_unlock_irqrestore(&channel_lock, flags);
 
 	spin_lock_irqsave(&qdss->lock, flags);
