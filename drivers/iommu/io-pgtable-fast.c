@@ -271,6 +271,18 @@ int av8l_fast_map_public(struct io_pgtable_ops *ops, unsigned long iova,
 	return av8l_fast_map(ops, iova, paddr, size, prot, GFP_ATOMIC);
 }
 
+static int av8l_fast_map_pages(struct io_pgtable_ops *ops, unsigned long iova,
+			       phys_addr_t paddr, size_t pgsize, size_t pgcount,
+			       int prot, gfp_t gfp, size_t *mapped)
+{
+	int ret = av8l_fast_map(ops, iova, paddr, pgsize * pgcount, prot, gfp);
+
+	if (!ret)
+		*mapped = pgsize * pgcount;
+
+	return ret;
+}
+
 static size_t
 __av8l_fast_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 			size_t size, bool allow_stale_tlb)
@@ -305,6 +317,13 @@ static size_t av8l_fast_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 			      size_t size, struct iommu_iotlb_gather *gather)
 {
 	return __av8l_fast_unmap(ops, iova, size, false);
+}
+
+static size_t av8l_fast_unmap_pages(struct io_pgtable_ops *ops, unsigned long iova,
+				    size_t pgsize, size_t pgcount,
+				    struct iommu_iotlb_gather *gather)
+{
+	return __av8l_fast_unmap(ops, iova, pgsize * pgcount, false);
 }
 
 static int av8l_fast_map_sg(struct io_pgtable_ops *ops,
@@ -406,8 +425,10 @@ av8l_fast_alloc_pgtable_data(struct io_pgtable_cfg *cfg)
 
 	data->iop.ops = (struct io_pgtable_ops) {
 		.map		= av8l_fast_map,
+		.map_pages	= av8l_fast_map_pages,
 		.map_sg		= av8l_fast_map_sg,
 		.unmap		= av8l_fast_unmap,
+		.unmap_pages	= av8l_fast_unmap_pages,
 		.iova_to_phys	= av8l_fast_iova_to_phys,
 	};
 
