@@ -14,15 +14,19 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/skbuff.h>
+#include <linux/rpmsg.h>
 #include <linux/workqueue.h>
-#include <soc/qcom/smd.h>
 #include <media/radio-iris.h>
 #include <linux/uaccess.h>
+
+
 
 struct radio_data {
 	struct radio_hci_dev *hdev;
 	struct tasklet_struct   rx_task;
-	struct smd_channel  *fm_channel;
+	struct rpmsg_endpoint  *fm_channel;
+	unsigned  char *data;
+	int length;
 };
 struct radio_data hs;
 DEFINE_MUTEX(fm_smd_enable);
@@ -46,44 +50,29 @@ static void radio_hci_smd_recv_event(unsigned long temp)
 	int rc;
 	struct sk_buff *skb;
 	unsigned  char *buf;
-	struct radio_data *hsmd = &hs;
-
-	len = smd_read_avail(hsmd->fm_channel);
-
-	while (len) {
-		skb = alloc_skb(len, GFP_ATOMIC);
-		if (!skb) {
-			FMDERR("Memory not allocated for the socket\n");
-			return;
-		}
-
-		buf = kmalloc(len, GFP_ATOMIC);
-		if (!buf) {
-			kfree_skb(skb);
-			return;
-		}
-
-		rc = smd_read(hsmd->fm_channel, (void *)buf, len);
-
-		memcpy(skb_put(skb, len), buf, len);
-
-		skb_orphan(skb);
-		skb->dev = (struct net_device   *)hs.hdev;
-
-		rc = radio_hci_recv_frame(skb);
-
-		kfree(buf);
-		len = smd_read_avail(hsmd->fm_channel);
+	FMDBG("smd_recv event: is called\n");
+	len = hs.length;
+	buf = hs.data;
+	skb = alloc_skb(len, GFP_ATOMIC);
+	if (!skb) {
+		FMDERR("Memory not allocated for the socket\n");
+		return;
 	}
+
+	memcpy(skb_put(skb, len), buf, len);
+	skb_orphan(skb);
+	skb->dev = (struct net_device   *)hs.hdev;
+	rc = radio_hci_recv_frame(skb);
+	kfree(buf);
 }
 
 static int radio_hci_smd_send_frame(struct sk_buff *skb)
 {
 	int len = 0;
+	FMDBG("hci_send_frame: is called\n");
+	FM_INFO("skb %pK\n", skb);
 
-	FMDBG("skb %pK\n", skb);
-
-	len = smd_write(hs.fm_channel, skb->data, skb->len);
+	len = rpmsg_send(hs.fm_channel, skb->data, skb->len);
 	if (len < skb->len) {
 		FMDERR("Failed to write Data %d\n", len);
 		kfree_skb(skb);
@@ -118,107 +107,128 @@ static void send_disable_event(struct work_struct *worker)
 	kfree(worker);
 }
 
-static void radio_hci_smd_notify_cmd(void *data, unsigned int event)
-{
-	struct radio_hci_dev *hdev = (struct radio_hci_dev *)data;
-
-	FMDBG("data %p event %u\n", data, event);
-
-	if (!hdev) {
-		FMDERR("Frame for unknown HCI device (hdev=NULL)\n");
-		return;
-	}
-
-	switch (event) {
-	case SMD_EVENT_DATA:
-		tasklet_schedule(&hs.rx_task);
-		break;
-	case SMD_EVENT_OPEN:
-		break;
-	case SMD_EVENT_CLOSE:
-		reset_worker = kzalloc(sizeof(*reset_worker), GFP_ATOMIC);
-		if (reset_worker) {
-			INIT_WORK(reset_worker, send_disable_event);
-			schedule_work(reset_worker);
-		}
-		break;
-	default:
-		break;
-	}
-}
-
 static int radio_hci_smd_register_dev(struct radio_data *hsmd)
 {
 	struct radio_hci_dev *hdev;
-	int rc;
-
-	FMDBG("hsmd: %pK\n", hsmd);
-
+	FMDBG("smd_register event: is called\n");
 	if (hsmd == NULL)
 		return -ENODEV;
-
 	hdev = kmalloc(sizeof(struct radio_hci_dev), GFP_KERNEL);
 	if (hdev == NULL)
 		return -ENODEV;
 
 	tasklet_init(&hsmd->rx_task, radio_hci_smd_recv_event,
-		(unsigned long) hsmd);
-	hdev->send  = radio_hci_smd_send_frame;
+				(unsigned long) hsmd);
+	hdev->send = radio_hci_smd_send_frame;
 	hdev->destruct = radio_hci_smd_destruct;
 	hdev->close_smd = radio_hci_smd_exit;
 
-	/* Open the SMD Channel and device and register the callback function */
-	rc = smd_named_open_on_edge("APPS_FM", SMD_APPS_WCNSS,
-		&hsmd->fm_channel, hdev, radio_hci_smd_notify_cmd);
-
-	if (rc < 0) {
-		FMDERR("Cannot open the command channel\n");
-		hsmd->hdev = NULL;
-		kfree(hdev);
-		return -ENODEV;
-	}
-
-	smd_disable_read_intr(hsmd->fm_channel);
-
 	if (radio_hci_register_dev(hdev) < 0) {
 		FMDERR("Can't register HCI device\n");
-		smd_close(hsmd->fm_channel);
 		hsmd->hdev = NULL;
 		kfree(hdev);
 		return -ENODEV;
 	}
-
 	hsmd->hdev = hdev;
 	return 0;
 }
 
 static void radio_hci_smd_deregister(void)
 {
+	FM_INFO("smd_deregister: is called\n");
 	radio_hci_unregister_dev();
 	kfree(hs.hdev);
 	hs.hdev = NULL;
-
-	smd_close(hs.fm_channel);
 	hs.fm_channel = 0;
 	fmsmd_set = 0;
 }
 
-static int radio_hci_smd_init(void)
+
+static int qcom_smd_fm_callback(struct rpmsg_device *rpdev,
+			void *data, int len, void *priv, u32 addr)
+{
+	FM_INFO("fm_callback: is called\n");
+	if (!len) {
+		FMDERR("length received is NULL\n");
+		return -EINVAL;
+	}
+
+	hs.data = kmemdup((unsigned char *)data, len, GFP_ATOMIC);
+	if (!hs.data) {
+		FMDERR("Memory not allocated\n");
+		return -ENOMEM;
+	}
+
+	hs.length = len;
+	tasklet_schedule(&hs.rx_task);
+	return 0;
+}
+
+static int qcom_smd_fm_probe(struct rpmsg_device *rpdev)
 {
 	int ret;
 
+	FM_INFO("fm_probe: is called\n");
 	if (chan_opened) {
 		FMDBG("Channel is already opened\n");
 		return 0;
 	}
 
-	/* this should be called with fm_smd_enable lock held */
+	hs.fm_channel = rpdev->ept;
 	ret = radio_hci_smd_register_dev(&hs);
 	if (ret < 0) {
-		FMDERR("Failed to register smd device\n");
+		FMDERR("Failed to register with rpmsg device\n");
 		chan_opened = false;
 		return ret;
 	}
+	FMDBG("probe succeeded\n");
+	chan_opened = true;
+	return ret;
+}
+
+static void qcom_smd_fm_remove(struct rpmsg_device *rpdev)
+{
+	FM_INFO("fm_remove: is called\n");
+	reset_worker = kzalloc(sizeof(*reset_worker), GFP_ATOMIC);
+	if (reset_worker) {
+		INIT_WORK(reset_worker, send_disable_event);
+		schedule_work(reset_worker);
+	}
+}
+
+
+static const struct rpmsg_device_id qcom_smd_fm_match[] = {
+	{ "APPS_FM" },
+	{}
+};
+
+
+static struct rpmsg_driver qcom_smd_fm_driver = {
+	.probe = qcom_smd_fm_probe,
+	.remove = qcom_smd_fm_remove,
+	.callback = qcom_smd_fm_callback,
+	.id_table = qcom_smd_fm_match,
+	.drv = {
+		.name = "qcom_smd_fm",
+	},
+};
+
+static int radio_hci_smd_init(void)
+{
+	int ret = 0;
+
+	FM_INFO("smd_init : is called\n");
+	if (chan_opened) {
+		FMDBG("Channel is already opened\n");
+		return 0;
+	}
+
+	ret = register_rpmsg_driver(&qcom_smd_fm_driver);
+	if (ret < 0) {
+		FMDERR("%s: Failed to register with rpmsg\n", __func__);
+		return ret;
+	}
+
 	chan_opened = true;
 	return ret;
 }
@@ -232,6 +242,7 @@ static void radio_hci_smd_exit(void)
 
 	/* this should be called with fm_smd_enable lock held */
 	radio_hci_smd_deregister();
+	unregister_rpmsg_driver(&qcom_smd_fm_driver);
 	chan_opened = false;
 }
 
@@ -256,7 +267,11 @@ static int hcismd_fm_set_enable(const char *val, const struct kernel_param *kp)
 	}
 done:
 	mutex_unlock(&fm_smd_enable);
+
 	return ret;
 }
+
+MODULE_ALIAS("rpmsg:APPS_FM");
+
 MODULE_DESCRIPTION("FM SMD driver");
 MODULE_LICENSE("GPL v2");

@@ -43,6 +43,9 @@ io_pgtable_init_table[IO_PGTABLE_NUM_FMTS] = {
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
 	[ARM_V8L_FAST] = &io_pgtable_av8l_fast_init_fns,
 #endif
+#ifdef CONFIG_MSM_TZ_SMMU
+	[ARM_MSM_SECURE] = &io_pgtable_arm_msm_secure_init_fns,
+#endif
 };
 
 static struct dentry *io_pgtable_top;

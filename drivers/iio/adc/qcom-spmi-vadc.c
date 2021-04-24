@@ -1,14 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Copyright (c) 2012-2016,2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitops.h>
@@ -560,19 +552,19 @@ static const struct vadc_channels vadc_chans[] = {
 	VADC_CHAN_NO_SCALE(SPARE1_03, 1)
 	VADC_CHAN_NO_SCALE(USB_ID_MV, 1)
 	VADC_CHAN_VOLT(VCOIN, 1, SCALE_DEFAULT)
-	VADC_CHAN_NO_SCALE(VBAT_SNS, 1)
+	VADC_CHAN_VOLT(VBAT_SNS, 1, SCALE_DEFAULT)
 	VADC_CHAN_VOLT(VSYS, 1, SCALE_DEFAULT)
 	VADC_CHAN_TEMP(DIE_TEMP, 0, SCALE_PMIC_THERM)
 	VADC_CHAN_VOLT(REF_625MV, 0, SCALE_DEFAULT)
 	VADC_CHAN_VOLT(REF_1250MV, 0, SCALE_DEFAULT)
 	VADC_CHAN_NO_SCALE(CHG_TEMP, 0)
-	VADC_CHAN_NO_SCALE(SPARE1, 0)
+	VADC_CHAN_VOLT(SPARE1, 0, SCALE_DEFAULT)
 	VADC_CHAN_TEMP(SPARE2, 0, SCALE_PMI_CHG_TEMP)
 	VADC_CHAN_VOLT(GND_REF, 0, SCALE_DEFAULT)
 	VADC_CHAN_VOLT(VDD_VADC, 0, SCALE_DEFAULT)
 
 	VADC_CHAN_NO_SCALE(P_MUX1_1_1, 0)
-	VADC_CHAN_NO_SCALE(P_MUX2_1_1, 0)
+	VADC_CHAN_TEMP(P_MUX2_1_1, 0, SCALE_THERM_100K_PULLUP)
 	VADC_CHAN_NO_SCALE(P_MUX3_1_1, 0)
 	VADC_CHAN_NO_SCALE(P_MUX4_1_1, 0)
 	VADC_CHAN_NO_SCALE(P_MUX5_1_1, 0)
@@ -606,18 +598,18 @@ static const struct vadc_channels vadc_chans[] = {
 	VADC_CHAN_NO_SCALE(P_MUX16_1_3, 1)
 
 	VADC_CHAN_NO_SCALE(LR_MUX1_BAT_THERM, 0)
-	VADC_CHAN_NO_SCALE(LR_MUX2_BAT_ID, 0)
-	VADC_CHAN_NO_SCALE(LR_MUX3_XO_THERM, 0)
+	VADC_CHAN_VOLT(LR_MUX2_BAT_ID, 0, SCALE_DEFAULT)
+	VADC_CHAN_TEMP(LR_MUX3_XO_THERM, 0, SCALE_THERM_100K_PULLUP)
 	VADC_CHAN_NO_SCALE(LR_MUX4_AMUX_THM1, 0)
 	VADC_CHAN_NO_SCALE(LR_MUX5_AMUX_THM2, 0)
 	VADC_CHAN_NO_SCALE(LR_MUX6_AMUX_THM3, 0)
-	VADC_CHAN_NO_SCALE(LR_MUX7_HW_ID, 0)
+	VADC_CHAN_TEMP(LR_MUX7_HW_ID, 0, SCALE_THERM_100K_PULLUP)
 	VADC_CHAN_NO_SCALE(LR_MUX8_AMUX_THM4, 0)
 	VADC_CHAN_NO_SCALE(LR_MUX9_AMUX_THM5, 0)
 	VADC_CHAN_NO_SCALE(LR_MUX10_USB_ID, 0)
 	VADC_CHAN_NO_SCALE(AMUX_PU1, 0)
 	VADC_CHAN_NO_SCALE(AMUX_PU2, 0)
-	VADC_CHAN_NO_SCALE(LR_MUX3_BUF_XO_THERM, 0)
+	VADC_CHAN_TEMP(LR_MUX3_BUF_XO_THERM, 0, SCALE_THERM_100K_PULLUP)
 
 	VADC_CHAN_NO_SCALE(LR_MUX1_PU1_BAT_THERM, 0)
 	VADC_CHAN_NO_SCALE(LR_MUX2_PU1_BAT_ID, 0)
@@ -735,6 +727,12 @@ static int vadc_get_dt_channel_data(struct device *dev,
 	else
 		prop->calibration = VADC_CALIB_ABSOLUTE;
 
+	prop->scale_fn_type = -EINVAL;
+	ret = of_property_read_u32(node, "qcom,scale-fn-type", &value);
+
+	if (!ret && value < SCALE_HW_CALIB_MAX)
+		prop->scale_fn_type = value;
+
 	dev_dbg(dev, "%02x name %s\n", chan, name);
 
 	return 0;
@@ -747,6 +745,7 @@ static int vadc_get_dt_data(struct vadc_priv *vadc, struct device_node *node)
 	struct vadc_channel_prop prop;
 	struct device_node *child;
 	unsigned int index = 0;
+	bool scale_fn_type_from_dt = false;
 	int ret;
 
 	vadc->nchannels = of_get_available_child_count(node);
@@ -772,14 +771,24 @@ static int vadc_get_dt_data(struct vadc_priv *vadc, struct device_node *node)
 			return ret;
 		}
 
-		prop.scale_fn_type = vadc_chans[prop.channel].scale_fn_type;
+		if (prop.scale_fn_type == -EINVAL) {
+			prop.scale_fn_type =
+				vadc_chans[prop.channel].scale_fn_type;
+		} else {
+			scale_fn_type_from_dt = true;
+		}
+
 		vadc->chan_props[index] = prop;
 
 		vadc_chan = &vadc_chans[prop.channel];
 
 		iio_chan->channel = prop.channel;
 		iio_chan->datasheet_name = vadc_chan->datasheet_name;
-		iio_chan->info_mask_separate = vadc_chan->info_mask;
+		if (!scale_fn_type_from_dt)
+			iio_chan->info_mask_separate = vadc_chan->info_mask;
+		else
+			iio_chan->info_mask_separate =
+			  vadc_chan->info_mask | BIT(IIO_CHAN_INFO_PROCESSED);
 		iio_chan->type = vadc_chan->type;
 		iio_chan->indexed = 1;
 		iio_chan->address = index++;
