@@ -57,6 +57,12 @@ patternProperties:
           Specifies the set of secure domains which will be able to access
           the memory-region.
 
+      qcom,max-align:
+        $ref: '/schemas/types.yaml#/definitions/uint32'
+        minItems: 1
+        description: |
+          Maximum alignment of an allocation, in units of page order.
+
       memory-region:
         $ref: '/schemas/types.yaml#/definitions/phandle'
         maxItems: 1
