@@ -60,7 +60,7 @@ struct gh_rm_notif_validate {
 static struct task_struct *gh_rm_drv_recv_task;
 static struct gh_msgq_desc *gh_rm_msgq_desc;
 static gh_virtio_mmio_cb_t gh_virtio_mmio_fn;
-static gh_vcpu_affinity_cb_t gh_vcpu_affinity_fn;
+static gh_vcpu_affinity_set_cb_t gh_vcpu_affinity_set_fn;
 static gh_vcpu_affinity_reset_cb_t gh_vcpu_affinity_reset_fn;
 static gh_vpm_grp_set_cb_t gh_vpm_grp_set_fn;
 static gh_vpm_grp_reset_cb_t gh_vpm_grp_reset_fn;
@@ -906,10 +906,8 @@ int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 					GH_MSGQ_DIRECTION_RX, linux_irq);
 				break;
 			case GH_RM_RES_TYPE_VCPU:
-				if (!gh_vcpu_affinity_fn)
-					break;
-
-				ret = (*gh_vcpu_affinity_fn)(vmid, label, cap_id);
+				if (gh_vcpu_affinity_set_fn)
+					ret = (*gh_vcpu_affinity_set_fn)(vmid, label, cap_id);
 				break;
 			case GH_RM_RES_TYPE_DB_TX:
 				ret = gh_dbl_populate_cap_info(label, cap_id,
@@ -1085,15 +1083,15 @@ EXPORT_SYMBOL(gh_rm_unset_virtio_mmio_cb);
  *	-EINVAL -> Indicates invalid input argument
  *	-EBUSY	-> Indicates that a callback is already set
  */
-int gh_rm_set_vcpu_affinity_cb(gh_vcpu_affinity_cb_t fnptr)
+int gh_rm_set_vcpu_affinity_cb(gh_vcpu_affinity_set_cb_t fnptr)
 {
 	if (!fnptr)
 		return -EINVAL;
 
-	if (gh_vcpu_affinity_fn)
+	if (gh_vcpu_affinity_set_fn)
 		return -EBUSY;
 
-	gh_vcpu_affinity_fn = fnptr;
+	gh_vcpu_affinity_set_fn = fnptr;
 
 	return 0;
 }
