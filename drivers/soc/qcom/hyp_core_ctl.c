@@ -91,6 +91,7 @@ static bool freq_qos_init_done;
 static u64 vpmg_cap_id;
 static struct timer_list gh_suspend_timer;
 static bool is_vpm_group_info_populated;
+static int susp_res_irq;
 
 static inline void hyp_core_ctl_print_status(char *msg)
 {
@@ -694,7 +695,27 @@ static void hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
 
 	cpumask_copy(&hcd->final_reserved_cpus, &hcd->reserve_cpus);
 	spin_unlock_irqrestore(&hcd->lock, flags);
-	pr_info("reserve_cpus=%*pbl\n", cpumask_pr_args(&hcd->reserve_cpus));
+	pr_info("init: reserve_cpus=%*pbl\n", cpumask_pr_args(&hcd->reserve_cpus));
+}
+
+static void hyp_core_ctl_deinit_reserve_cpus(struct hyp_core_ctl_data *hcd)
+{
+	int i;
+
+	if (hcd->reservation_enabled) {
+		hyp_core_ctl_undo_reservation(hcd);
+		hcd->reservation_enabled = false;
+	}
+
+	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
+		hcd->cpumap[i].cap_id = GH_CAPID_INVAL;
+		hcd->cpumap[i].pcpu = U32_MAX;
+		hcd->cpumap[i].curr_pcpu = U32_MAX;
+	}
+
+	cpumask_clear(&hcd->reserve_cpus);
+	cpumask_clear(&hcd->final_reserved_cpus);
+	pr_info("deinit: reserve_cpus=%*pbl\n", cpumask_pr_args(&hcd->reserve_cpus));
 }
 
 /*
@@ -740,6 +761,25 @@ out:
 	return ret;
 }
 
+static int gh_vcpu_unpopulate_affinity_info(gh_vmid_t vmid, gh_label_t cpu_idx)
+{
+	if (!init_done) {
+		pr_err("Driver probe failed\n");
+		return -ENXIO;
+	}
+
+	if (is_vcpu_info_populated) {
+		gh_cpumap[nr_vcpus].cap_id = GH_CAPID_INVAL;
+		gh_cpumap[nr_vcpus].pcpu = U32_MAX;
+		gh_cpumap[nr_vcpus].curr_pcpu = U32_MAX;
+
+		if (nr_vcpus)
+			nr_vcpus--;
+	}
+
+	return 0;
+}
+
 static int gh_vcpu_done_populate_affinity_info(struct notifier_block *nb,
 						unsigned long cmd, void *data)
 {
@@ -760,6 +800,13 @@ static int gh_vcpu_done_populate_affinity_info(struct notifier_block *nb,
 		mutex_lock(&the_hcd->reservation_mutex);
 		hyp_core_ctl_init_reserve_cpus(the_hcd);
 		is_vcpu_info_populated = true;
+		mutex_unlock(&the_hcd->reservation_mutex);
+	} else if (cmd == GH_RM_NOTIF_VM_STATUS &&
+			vm_status == GH_RM_VM_STATUS_RESET &&
+			is_vcpu_info_populated) {
+		mutex_lock(&the_hcd->reservation_mutex);
+		hyp_core_ctl_deinit_reserve_cpus(the_hcd);
+		is_vcpu_info_populated = false;
 		mutex_unlock(&the_hcd->reservation_mutex);
 	}
 
@@ -837,10 +884,29 @@ static int gh_vpm_grp_populate_info(gh_vmid_t vmid, gh_capid_t cap_id, int virq_
 		return ret;
 	}
 
+	susp_res_irq = virq_num;
 	timer_setup(&gh_suspend_timer, gh_suspend_timer_callback, 0);
 	is_vpm_group_info_populated = true;
 
 	return ret;
+}
+
+static int gh_vpm_grp_unpopulate_info(gh_vmid_t vmid, int *irq)
+{
+	if (!init_done) {
+		pr_err("%s: Driver probe failed\n", __func__);
+		return -ENXIO;
+	}
+
+	if (is_vpm_group_info_populated) {
+		*irq = susp_res_irq;
+		free_irq(susp_res_irq, NULL);
+		gh_del_suspend_timer();
+		susp_res_irq = 0;
+		is_vpm_group_info_populated = false;
+	}
+
+	return 0;
 }
 
 static void hyp_core_ctl_enable(bool enable)
@@ -1143,28 +1209,51 @@ static void hyp_core_ctl_debugfs_init(void)
 		debugfs_remove(dir);
 }
 
+static int hyp_core_ctl_reg_rm_cbs(void)
+{
+	int ret = -EINVAL;
+
+	ret = gh_rm_set_vcpu_affinity_cb(&gh_vcpu_populate_affinity_info);
+	if (ret) {
+		pr_err("fail to set the vcpu affinity populate callback\n");
+		return ret;
+	}
+
+	ret = gh_rm_reset_vcpu_affinity_cb(&gh_vcpu_unpopulate_affinity_info);
+	if (ret) {
+		pr_err("fail to set the vcpu affinity unpopulate callback\n");
+		return ret;
+	}
+
+	ret = gh_rm_set_vpm_grp_cb(&gh_vpm_grp_populate_info);
+	if (ret) {
+		pr_err("fail to set the vpm grp populate callback\n");
+		return ret;
+	}
+
+	ret = gh_rm_reset_vpm_grp_cb(&gh_vpm_grp_unpopulate_info);
+	if (ret) {
+		pr_err("fail to set the vpm grp unpopulate callback\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 static int hyp_core_ctl_probe(struct platform_device *pdev)
 {
 	int ret, i;
 	struct hyp_core_ctl_data *hcd;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
 
-	ret = gh_rm_set_vcpu_affinity_cb(&gh_vcpu_populate_affinity_info);
-	if (ret) {
-		pr_err("fail to set the vcpu affinity callback\n");
+	ret = hyp_core_ctl_reg_rm_cbs();
+	if (ret)
 		return ret;
-	}
-
-	ret = gh_rm_set_vpm_grp_cb(&gh_vpm_grp_populate_info);
-	if (ret) {
-		pr_err("fail to set the vpm grp callback\n");
-		goto reset_vcpu_affinity_cb;
-	}
 
 	ret = gh_rm_register_notifier(&gh_vcpu_nb);
 	if (ret) {
 		pr_err("fail to register gh_rm_notifier\n");
-		goto reset_vpm_grp_cb;
+		return ret;
 	}
 
 	hcd = kzalloc(sizeof(*hcd), GFP_KERNEL);
@@ -1215,10 +1304,6 @@ free_hcd:
 	kfree(hcd);
 unregister_rm_notifier:
 	gh_rm_unregister_notifier(&gh_vcpu_nb);
-reset_vpm_grp_cb:
-	gh_rm_set_vpm_grp_cb(NULL);
-reset_vcpu_affinity_cb:
-	gh_rm_set_vcpu_affinity_cb(NULL);
 
 	return ret;
 }
