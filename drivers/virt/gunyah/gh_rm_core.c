@@ -61,6 +61,7 @@ static struct task_struct *gh_rm_drv_recv_task;
 static struct gh_msgq_desc *gh_rm_msgq_desc;
 static gh_virtio_mmio_cb_t gh_virtio_mmio_fn;
 static gh_vcpu_affinity_cb_t gh_vcpu_affinity_fn;
+static gh_vcpu_affinity_reset_cb_t gh_vcpu_affinity_reset_fn;
 static gh_vpm_grp_set_cb_t gh_vpm_grp_set_fn;
 static gh_vpm_grp_reset_cb_t gh_vpm_grp_reset_fn;
 
@@ -1000,7 +1001,8 @@ int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 						GH_RM_RES_TYPE_DB_RX, &irq);
 			break;
 		case GH_RM_RES_TYPE_VCPU:
-			/* TODO: Call the unpopulate callback */
+			if (gh_vcpu_affinity_reset_fn)
+				ret = (*gh_vcpu_affinity_reset_fn)(vmid, label);
 			break;
 		case GH_RM_RES_TYPE_VIRTIO_MMIO:
 			/* Virtio cleanup is handled in gh_virtio_mmio_exit() */
@@ -1096,6 +1098,31 @@ int gh_rm_set_vcpu_affinity_cb(gh_vcpu_affinity_cb_t fnptr)
 	return 0;
 }
 EXPORT_SYMBOL(gh_rm_set_vcpu_affinity_cb);
+
+/**
+ * gh_rm_reset_vcpu_affinity_cb: Reset callback that handles vcpu affinity
+ * @fnptr: Pointer to callback function
+ *
+ * @fnptr callback is invoked providing details of the vcpu resource.
+ *
+ * This function returns these values:
+ *	0	-> indicates success
+ *	-EINVAL -> Indicates invalid input argument
+ *	-EBUSY	-> Indicates that a callback is already set
+ */
+int gh_rm_reset_vcpu_affinity_cb(gh_vcpu_affinity_reset_cb_t fnptr)
+{
+	if (!fnptr)
+		return -EINVAL;
+
+	if (gh_vcpu_affinity_reset_fn)
+		return -EBUSY;
+
+	gh_vcpu_affinity_reset_fn = fnptr;
+
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_reset_vcpu_affinity_cb);
 
 /**
  * gh_rm_set_vpm_grp_cb: Set callback that handles vpm grp state
