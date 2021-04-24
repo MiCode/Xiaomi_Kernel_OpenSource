@@ -21,6 +21,8 @@ IPA node:
 - interrupt-names: "ipa-irq" - string to identify the IPA core interrupt.
                    "bam-irq" - string to identify the IPA BAM interrupt.
                    "a2-bam-irq" - string to identify the A2 BAM interrupt.
+                   "msi-irq-rmnet-ctl" - string to identify QMAP MSI interrupt
+                   "msi-irq-rmnet-ll" - string to identify LL MSI interrupt
 - qcom,ipa-hw-ver: Specifies the IPA hardware version.
 - qcom,ipa-ram-mmap: An array of unsigned integers representing addresses and
                      sizes which are used by the driver to access IPA RAM.
@@ -128,6 +130,14 @@ memory allocation over a PCIe bridge
 				2 (override scm call as though it returned false)
 - qcom,ipa-gpi-event-rp-ddr: Boolean context flag to control whether GPI and GCI event
                                 rings read pointer should be read from the ddr.
+- qcom,rmnet-ll-enable: Flag to indicate low latency data channels should be supported
+						for the target
+- qcom,gsi-msi-addr: APSS_GICA_SETSPI_NSR register address for IPA firmware to write
+						the MSI IRQ number to get the ISR triggered
+- qcom,gsi-msi-clear-addr: APSS_GICA_CLRSPI_NSR register address for IPA driver to write
+							the MSI IRQ number to clear the respective interrupt
+- qcom,gsi-rmnet-ctl-evt-ring-intvec: Integer vector value for the QMAP flow control pipe
+- qcom,gsi-rmnet-ll-evt-ring-intvec: Integer vector value for the low lat data pipe
 
 IPA pipe sub nodes (A2 static pipes configurations):
 
