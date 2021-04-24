@@ -20,9 +20,13 @@ function compile_external_dtc() {
   (
     OUT_DIR=${COMMON_OUT_DIR}/external/dtc
     cd ${ROOT_DIR}/external/dtc
-    NO_PYTHON=1 CC=cc make all install PREFIX=${COMMON_OUT_DIR}/host
+    DTC_MAKE_ARGS=("CC=${HOSTCC}" "AR=${AR}")
+    DTC_MAKE_ARGS+=("LDFLAGS=${HOSTLDFLAGS} -fuse-ld=${LD##*.} --rtlib=compiler-rt")
+    DTC_MAKE_ARGS+=("EXTRA_CFLAGS=${HOSTCFLAGS}")
+    make all install "${DTC_MAKE_ARGS[@]}" NO_PYTHON=1 PREFIX=${COMMON_OUT_DIR}/host
   )
 }
+ADDITIONAL_HOST_TOOLS=pkg-config
 append_cmd PRE_DEFCONFIG_CMDS 'compile_external_dtc'
 
 ################################################################################
