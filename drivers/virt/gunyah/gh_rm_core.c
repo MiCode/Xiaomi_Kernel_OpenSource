@@ -61,6 +61,8 @@ static struct task_struct *gh_rm_drv_recv_task;
 static struct gh_msgq_desc *gh_rm_msgq_desc;
 static gh_virtio_mmio_cb_t gh_virtio_mmio_fn;
 static gh_vcpu_affinity_cb_t gh_vcpu_affinity_fn;
+static gh_vpm_grp_set_cb_t gh_vpm_grp_set_fn;
+static gh_vpm_grp_reset_cb_t gh_vpm_grp_reset_fn;
 
 static DEFINE_MUTEX(gh_rm_call_idr_lock);
 static DEFINE_MUTEX(gh_virtio_mmio_fn_lock);
@@ -917,6 +919,8 @@ int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 					GH_MSGQ_DIRECTION_RX, linux_irq);
 				break;
 			case GH_RM_RES_TYPE_VPMGRP:
+				if (gh_vpm_grp_set_fn)
+					ret = (*gh_vpm_grp_set_fn)(vmid, cap_id, linux_irq);
 				break;
 			case GH_RM_RES_TYPE_VIRTIO_MMIO:
 				mutex_lock(&gh_virtio_mmio_fn_lock);
@@ -1002,6 +1006,8 @@ int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 			/* Virtio cleanup is handled in gh_virtio_mmio_exit() */
 			break;
 		case GH_RM_RES_TYPE_VPMGRP:
+			if (gh_vpm_grp_reset_fn)
+				ret = (*gh_vpm_grp_reset_fn)(vmid, &irq);
 			break;
 		default:
 			pr_err("%s: Unknown resource type: %u\n",
@@ -1090,6 +1096,56 @@ int gh_rm_set_vcpu_affinity_cb(gh_vcpu_affinity_cb_t fnptr)
 	return 0;
 }
 EXPORT_SYMBOL(gh_rm_set_vcpu_affinity_cb);
+
+/**
+ * gh_rm_set_vpm_grp_cb: Set callback that handles vpm grp state
+ * @fnptr: Pointer to callback function
+ *
+ * @fnptr callback is invoked providing details of the vcpu grp state IRQ.
+ *
+ * This function returns these values:
+ *	0	-> indicates success
+ *	-EINVAL -> Indicates invalid input argument
+ *	-EBUSY	-> Indicates that a callback is already set
+ */
+int gh_rm_set_vpm_grp_cb(gh_vpm_grp_set_cb_t fnptr)
+{
+	if (!fnptr)
+		return -EINVAL;
+
+	if (gh_vpm_grp_set_fn)
+		return -EBUSY;
+
+	gh_vpm_grp_set_fn = fnptr;
+
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_set_vpm_grp_cb);
+
+/**
+ * gh_rm_reset_vpm_grp_cb: Reset callback that handles vpm grp state
+ * @fnptr: Pointer to callback function
+ *
+ * @fnptr callback is invoked providing details of the vcpu grp state IRQ.
+ *
+ * This function returns these values:
+ *	0	-> indicates success
+ *	-EINVAL -> Indicates invalid input argument
+ *	-EBUSY	-> Indicates that a callback is already set
+ */
+int gh_rm_reset_vpm_grp_cb(gh_vpm_grp_reset_cb_t fnptr)
+{
+	if (!fnptr)
+		return -EINVAL;
+
+	if (gh_vpm_grp_reset_fn)
+		return -EBUSY;
+
+	gh_vpm_grp_reset_fn = fnptr;
+
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_reset_vpm_grp_cb);
 
 static void gh_rm_get_svm_res_work_fn(struct work_struct *work)
 {
