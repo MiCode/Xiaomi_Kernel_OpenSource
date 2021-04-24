@@ -2,9 +2,18 @@
 #ifndef __RPROC_QCOM_COMMON_H__
 #define __RPROC_QCOM_COMMON_H__
 
+#include <linux/timer.h>
 #include <linux/remoteproc.h>
 #include "remoteproc_internal.h"
 #include <linux/soc/qcom/qmi.h>
+#include <linux/remoteproc/qcom_rproc.h>
+
+static const char * const subdevice_state_string[] = {
+	[QCOM_SSR_BEFORE_POWERUP]	= "before_powerup",
+	[QCOM_SSR_AFTER_POWERUP]	= "after_powerup",
+	[QCOM_SSR_BEFORE_SHUTDOWN]	= "before_shutdown",
+	[QCOM_SSR_AFTER_SHUTDOWN]	= "after_shutdown",
+};
 
 struct reg_info {
 	struct regulator *reg;
@@ -36,6 +45,8 @@ struct qcom_ssr_subsystem;
 
 struct qcom_rproc_ssr {
 	struct rproc_subdev subdev;
+	enum qcom_ssr_notify_type notification;
+	struct timer_list timer;
 	struct qcom_ssr_subsystem *info;
 };
 
