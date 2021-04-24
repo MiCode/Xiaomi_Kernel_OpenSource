@@ -10,7 +10,9 @@
 #include <linux/vmalloc.h>
 #include <linux/android_debug_symbols.h>
 #include <linux/cma.h>
+#include <linux/slab.h>
 #include "minidump_memory.h"
+#include "../../../mm/slab.h"
 
 static void show_val_kb(struct seq_buf *m, const char *s, unsigned long num)
 {
@@ -119,3 +121,83 @@ void md_dump_meminfo(struct seq_buf *m)
 #endif
 }
 
+#ifdef CONFIG_SLUB_DEBUG
+static void slabinfo_stats(struct seq_buf *m, struct kmem_cache *cachep)
+{
+#ifdef CONFIG_DEBUG_SLAB
+	{			/* node stats */
+		unsigned long high = cachep->high_mark;
+		unsigned long allocs = cachep->num_allocations;
+		unsigned long grown = cachep->grown;
+		unsigned long reaped = cachep->reaped;
+		unsigned long errors = cachep->errors;
+		unsigned long max_freeable = cachep->max_freeable;
+		unsigned long node_allocs = cachep->node_allocs;
+		unsigned long node_frees = cachep->node_frees;
+		unsigned long overflows = cachep->node_overflow;
+
+		seq_buf_printf(m,
+				" : globalstat %7lu %6lu %5lu %4lu %4lu %4lu %4lu %4lu %4lu",
+				allocs, high, grown,
+				reaped, errors, max_freeable,
+				node_allocs, node_frees, overflows);
+	}
+	/* cpu stats */
+	{
+		unsigned long allochit = atomic_read(&cachep->allochit);
+		unsigned long allocmiss = atomic_read(&cachep->allocmiss);
+		unsigned long freehit = atomic_read(&cachep->freehit);
+		unsigned long freemiss = atomic_read(&cachep->freemiss);
+
+		seq_buf_printf(m,
+				" : cpustat %6lu %6lu %6lu %6lu",
+				allochit, allocmiss, freehit, freemiss);
+	}
+#endif
+}
+
+void md_dump_slabinfo(struct seq_buf *m)
+{
+	struct kmem_cache *s;
+	struct slabinfo sinfo;
+	struct list_head *slab_caches;
+	struct mutex *slab_mutex;
+
+	slab_caches = (struct list_head *)android_debug_symbol(ADS_SLAB_CACHES);
+	slab_mutex = (struct mutex *) android_debug_symbol(ADS_SLAB_MUTEX);
+
+	/* print_slabinfo_header */
+		seq_buf_printf(m,
+				"# name            <active_objs> <num_objs> <objsize> <objperslab> <pagesperslab>");
+		seq_buf_printf(m,
+				" : tunables <limit> <batchcount> <sharedfactor>");
+		seq_buf_printf(m,
+				" : slabdata <active_slabs> <num_slabs> <sharedavail>");
+	#ifdef CONFIG_DEBUG_SLAB
+		seq_buf_printf(m,
+				" : globalstat <listallocs> <maxobjs> <grown> <reaped> <error> <maxfreeable> <nodeallocs> <remotefrees> <alienoverflow>");
+		seq_buf_printf(m,
+				" : cpustat <allochit> <allocmiss> <freehit> <freemiss>");
+	#endif
+		seq_buf_printf(m, "\n");
+
+	/* Loop through all slabs */
+	mutex_lock(slab_mutex);
+	list_for_each_entry(s, slab_caches, list) {
+		memset(&sinfo, 0, sizeof(sinfo));
+		get_slabinfo(s, &sinfo);
+
+		seq_buf_printf(m, "%-17s %6lu %6lu %6u %4u %4d",
+		   s->name, sinfo.active_objs, sinfo.num_objs, s->size,
+		   sinfo.objects_per_slab, (1 << sinfo.cache_order));
+
+		seq_buf_printf(m, " : tunables %4u %4u %4u",
+		   sinfo.limit, sinfo.batchcount, sinfo.shared);
+		seq_buf_printf(m, " : slabdata %6lu %6lu %6lu",
+		   sinfo.active_slabs, sinfo.num_slabs, sinfo.shared_avail);
+		slabinfo_stats(m, s);
+		seq_buf_printf(m, "\n");
+	}
+	mutex_unlock(slab_mutex);
+}
+#endif

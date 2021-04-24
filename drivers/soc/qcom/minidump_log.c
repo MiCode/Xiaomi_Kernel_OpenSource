@@ -121,6 +121,11 @@ static DEFINE_PER_CPU(struct pt_regs, regs_before_stop);
 /* Meminfo */
 static struct seq_buf *md_meminfo_seq_buf;
 
+/* Slabinfo */
+#ifdef CONFIG_SLUB_DEBUG
+static struct seq_buf *md_slabinfo_seq_buf;
+#endif
+
 /* Modules information */
 #ifdef CONFIG_MODULES
 #define NUM_MD_MODULES	200
@@ -1066,6 +1071,11 @@ dump_rq:
 #endif
 	if (md_meminfo_seq_buf)
 		md_dump_meminfo(md_meminfo_seq_buf);
+
+#ifdef CONFIG_SLUB_DEBUG
+	if (md_slabinfo_seq_buf)
+		md_dump_slabinfo(md_slabinfo_seq_buf);
+#endif
 	md_in_oops_handler = false;
 	return NOTIFY_DONE;
 }
@@ -1139,6 +1149,10 @@ static void md_register_panic_data(void)
 #endif
 	md_register_panic_entries(MD_MEMINFO_PAGES, "MEMINFO",
 				  &md_meminfo_seq_buf);
+#ifdef CONFIG_SLUB_DEBUG
+	md_register_panic_entries(MD_SLABINFO_PAGES, "SLABINFO",
+				  &md_slabinfo_seq_buf);
+#endif
 }
 
 #ifdef CONFIG_MODULES
