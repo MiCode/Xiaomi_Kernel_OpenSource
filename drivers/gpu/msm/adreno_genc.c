@@ -1296,6 +1296,7 @@ const struct genc_gpudev adreno_genc_hwsched_gpudev = {
 		.hw_isidle = genc_hw_isidle,
 	},
 	.hfi_probe = genc_hwsched_hfi_probe,
+	.hfi_remove = genc_hwsched_hfi_remove,
 	.handle_watchdog = genc_hwsched_handle_watchdog,
 };
 

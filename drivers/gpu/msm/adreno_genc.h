@@ -21,6 +21,7 @@ extern const struct adreno_perfcounters adreno_genc_perfcounters;
 struct genc_gpudev {
 	struct adreno_gpudev base;
 	int (*hfi_probe)(struct adreno_device *adreno_dev);
+	void (*hfi_remove)(struct adreno_device *adreno_dev);
 	void (*handle_watchdog)(struct adreno_device *adreno_dev);
 };
 

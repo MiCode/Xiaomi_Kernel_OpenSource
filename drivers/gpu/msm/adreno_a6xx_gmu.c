@@ -3371,6 +3371,12 @@ static void a6xx_gmu_unbind(struct device *dev, struct device *master,
 		void *data)
 {
 	struct kgsl_device *device = dev_get_drvdata(master);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct a6xx_gpudev *a6xx_gpudev = to_a6xx_gpudev(gpudev);
+
+	if (a6xx_gpudev->hfi_remove)
+		a6xx_gpudev->hfi_remove(adreno_dev);
 
 	a6xx_gmu_remove(device);
 }
