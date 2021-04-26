@@ -69,6 +69,7 @@ obj-$(CONFIG_SDM_GCC_845) += gcc-sdm845.o
 obj-$(CONFIG_SDM_GPUCC_845) += gpucc-sdm845.o
 obj-$(CONFIG_SDM_LPASSCC_845) += lpasscc-sdm845.o
 obj-$(CONFIG_SDM_VIDEOCC_845) += videocc-sdm845.o
+obj-$(CONFIG_SDW_DEBUGCC_MONACO) += debugcc-monaco.o
 obj-$(CONFIG_SDW_DISPCC_MONACO) += dispcc-monaco.o
 obj-$(CONFIG_SDW_GCC_MONACO) += gcc-monaco.o
 obj-$(CONFIG_SDW_GPUCC_MONACO) += gpucc-monaco.o
