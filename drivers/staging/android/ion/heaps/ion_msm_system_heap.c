@@ -578,10 +578,50 @@ static int ion_msm_system_heap_shrink(struct ion_heap *heap, gfp_t gfp_mask,
 	return nr_total;
 }
 
+static long ion_msm_system_heap_get_pool_size(struct ion_heap *heap)
+{
+	struct ion_msm_system_heap *sys_heap;
+	unsigned long total_size = 0;
+	int i, j;
+	struct ion_msm_page_pool *pool;
+
+	sys_heap = to_msm_system_heap(heap);
+	for (i = 0; i < NUM_ORDERS; i++) {
+		pool = sys_heap->uncached_pools[i];
+		total_size += (1 << pool->order) *
+				pool->high_count;
+		total_size += (1 << pool->order) *
+				pool->low_count;
+	}
+
+	for (i = 0; i < NUM_ORDERS; i++) {
+		pool = sys_heap->cached_pools[i];
+		total_size += (1 << pool->order) *
+				pool->high_count;
+		total_size += (1 << pool->order) *
+				pool->low_count;
+	}
+
+	for (i = 0; i < NUM_ORDERS; i++) {
+		for (j = 0; j < VMID_LAST; j++) {
+			if (!is_secure_vmid_valid(j))
+				continue;
+			pool = sys_heap->secure_pools[j][i];
+		total_size += (1 << pool->order) *
+				pool->high_count;
+		total_size += (1 << pool->order) *
+				pool->low_count;
+		}
+	}
+
+	return total_size;
+}
+
 static struct ion_heap_ops system_heap_ops = {
 	.allocate = ion_msm_system_heap_allocate,
 	.free = ion_msm_system_heap_free,
 	.shrink = ion_msm_system_heap_shrink,
+	.get_pool_size = ion_msm_system_heap_get_pool_size,
 };
 
 static int ion_msm_system_heap_debug_show(struct ion_heap *heap,
