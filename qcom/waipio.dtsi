@@ -3522,3 +3522,24 @@
 		reg = <0x42>;
 	};
 };
+
+&pcie1_rp {
+	#address-cells = <5>;
+	#size-cells = <0>;
+
+	mhi0: qcom,mhi@0 {
+		reg = <0 0 0 0 0 >;
+
+		qcom,iommu-group = <&mhi0_iommu_group>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		mhi0_iommu_group: mhi0_iommu_group {
+			qcom,iommu-msi-size = <0x1000>;
+			qcom,iommu-dma-addr-pool = <0x20000000 0x0fffffff>;
+			qcom,iommu-dma = "fastmap";
+			qcom,iommu-pagetable = "coherent";
+		};
+	};
+};
