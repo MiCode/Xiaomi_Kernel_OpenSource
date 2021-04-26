@@ -210,6 +210,8 @@
   clk_hw_round_rate
   __clk_is_enabled
   __clk_mux_determine_rate_closest
+  clk_notifier_register
+  clk_notifier_unregister
   clk_prepare
   clk_put
   clk_register
@@ -1041,7 +1043,6 @@
   hrtimer_init_sleeper
   hrtimer_start_range_ns
   hrtimer_try_to_cancel
-  hrtimer_init_sleeper
   hvc_alloc
   hvc_instantiate
   hvc_kick
@@ -1057,13 +1058,20 @@
   hwspin_lock_unregister
   __hwspin_unlock
   hypervisor_kobj
+  i2c_adapter_type
   i2c_add_adapter
   i2c_add_numbered_adapter
   i2c_del_adapter
   i2c_del_driver
+  i2c_get_device_id
   i2c_get_dma_safe_msg_buf
   i2c_put_dma_safe_msg_buf
   i2c_register_driver
+  i2c_smbus_read_byte
+  i2c_smbus_write_byte
+  __i2c_smbus_xfer
+  i2c_smbus_xfer
+  __i2c_transfer
   i2c_transfer
   i2c_transfer_buffer_flags
   icc_get
@@ -1082,6 +1090,7 @@
   ida_free
   idr_alloc
   idr_alloc_cyclic
+  idr_alloc_u32
   idr_destroy
   idr_find
   idr_for_each
@@ -1207,6 +1216,7 @@
   irq_domain_remove
   irq_domain_set_hwirq_and_chip
   irq_domain_set_info
+  irq_domain_simple_ops
   irq_domain_update_bus_token
   irq_domain_xlate_onecell
   irq_domain_xlate_twocell
@@ -1647,6 +1657,7 @@
   pci_device_group
   pci_disable_device
   pci_disable_msi
+  pcie_bus_configure_settings
   pcie_capability_read_word
   pci_enable_device
   pci_find_capability
@@ -1889,7 +1900,6 @@
   __refrigerator
   regcache_cache_bypass
   regcache_cache_only
-  regcache_cache_bypass
   regcache_mark_dirty
   regcache_sync
   regcache_sync_region
@@ -1976,6 +1986,7 @@
   reset_control_put
   reset_control_reset
   revalidate_disk
+  revert_creds
   rfkill_alloc
   rfkill_destroy
   rfkill_init_sw_state
@@ -2010,6 +2021,9 @@
   rtc_tm_to_time64
   rtc_update_irq
   rtc_valid_tm
+  rt_mutex_lock
+  rt_mutex_trylock
+  rt_mutex_unlock
   rtnl_is_locked
   rtnl_link_register
   rtnl_link_unregister
@@ -2722,6 +2736,7 @@
   vb2_create_bufs
   vb2_create_framevec
   vb2_destroy_framevec
+  vb2_dma_contig_memops
   vb2_dqbuf
   vb2_expbuf
   vb2_fop_mmap
@@ -2858,3 +2873,7 @@
   xdp_rxq_info_reg
   xdp_rxq_info_reg_mem_model
   xdp_rxq_info_unreg
+  pci_get_slot
+  pcie_capability_clear_and_set_word
+  pci_device_is_present
+  pci_find_bus
