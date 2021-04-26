@@ -15,6 +15,7 @@
 #include <linux/random.h>
 #include <linux/regulator/consumer.h>
 #include <soc/qcom/secure_buffer.h>
+#include <linux/io-64-nonatomic-hi-lo.h>
 
 #include "adreno.h"
 #include "kgsl_device.h"

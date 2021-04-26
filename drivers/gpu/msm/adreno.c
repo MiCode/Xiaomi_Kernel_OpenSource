@@ -3537,8 +3537,8 @@ static void adreno_power_stats(struct kgsl_device *device,
 	} else {
 		/* clock sourced from GFX3D */
 		s64 freq = kgsl_pwrctrl_active_freq(pwr) / 1000000;
-
-		stats->busy_time = gpu_busy / freq;
+		do_div(gpu_busy, freq);
+		stats->busy_time = gpu_busy;
 	}
 
 	if (device->pwrctrl.bus_control) {
