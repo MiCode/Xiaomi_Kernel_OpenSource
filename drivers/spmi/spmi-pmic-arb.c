@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2012-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/bitmap.h>
 #include <linux/debugfs.h>
@@ -157,6 +157,7 @@ struct spmi_pmic_arb {
 	u8			channel;
 	int			irq;
 	u8			ee;
+	u8			mid;
 	u16			min_apid;
 	u16			max_apid;
 	u32			*mapping_table;
@@ -463,6 +464,7 @@ enum qpnpint_regs {
 	QPNPINT_REG_EN_SET		= 0x15,
 	QPNPINT_REG_EN_CLR		= 0x16,
 	QPNPINT_REG_LATCHED_STS		= 0x18,
+	QPNPINT_REG_MID_SEL		= 0x1A,
 };
 
 struct spmi_pmic_arb_qpnpint_type {
@@ -721,6 +723,13 @@ static int qpnpint_irq_domain_activate(struct irq_domain *domain,
 			pmic_arb->apid_data[apid].irq_ee);
 		return -ENODEV;
 	}
+
+	/*
+	 * Make sure the interrupt is assigned to primary SOC by writing the
+	 * MID value to MID_SEL register.
+	 */
+	if (pmic_arb->mid != EINVAL)
+		qpnpint_spmi_write(d, QPNPINT_REG_MID_SEL, &pmic_arb->mid, 1);
 
 	buf = BIT(irq);
 	qpnpint_spmi_write(d, QPNPINT_REG_EN_CLR, &buf, 1);
@@ -1441,7 +1450,7 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	struct resource *res;
 	void __iomem *core;
 	u32 *mapping_table;
-	u32 channel, ee, hw_ver;
+	u32 channel, ee, hw_ver, mid = 0;
 	int err;
 
 	ctrl = spmi_controller_alloc(&pdev->dev, sizeof(*pmic_arb));
@@ -1556,6 +1565,17 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	}
 
 	pmic_arb->ee = ee;
+
+	pmic_arb->mid = EINVAL;
+	err = of_property_read_u32(pdev->dev.of_node, "qcom,mid", &mid);
+	if (!err && mid <= 3) {
+		pmic_arb->mid = mid;
+	} else if (err != -EINVAL) {
+		dev_err(&pdev->dev, "invalid MID (%u) specified\n", mid);
+		err = -EINVAL;
+		goto err_put_ctrl;
+	}
+
 	mapping_table = devm_kcalloc(&ctrl->dev, PMIC_ARB_MAX_PERIPHS,
 					sizeof(*mapping_table), GFP_KERNEL);
 	if (!mapping_table) {
