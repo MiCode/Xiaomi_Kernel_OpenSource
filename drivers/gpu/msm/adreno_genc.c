@@ -326,7 +326,7 @@ static void _llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 			FIELD_PREP(GENMASK(4, 0), gpu_scid));
 
 	kgsl_regwrite(device, GENC_GBIF_SCACHE_CNTL0,
-			FIELD_PREP(GENMASK(14, 10), gpu_scid));
+			FIELD_PREP(GENMASK(14, 10), gpu_scid) | BIT(8));
 }
 
 static void _llc_gpuhtw_slice_activate(struct adreno_device *adreno_dev)
