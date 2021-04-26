@@ -4,7 +4,7 @@
 #ifndef __QCOM_BOOT_STATS_H__
 #define __QCOM_BOOT_STATS_H__
 
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
 void place_marker(const char *name);
 void destroy_marker(const char *name);
 static inline int boot_marker_enabled(void) { return 1; }
