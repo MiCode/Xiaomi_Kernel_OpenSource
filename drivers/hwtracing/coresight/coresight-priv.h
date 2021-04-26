@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2012, 2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CORESIGHT_PRIV_H
@@ -48,7 +48,12 @@ static ssize_t name##_show(struct device *_dev,				\
 	type *drvdata = dev_get_drvdata(_dev->parent);			\
 	coresight_read_fn fn = func;					\
 	u64 val;							\
-	pm_runtime_get_sync(_dev->parent);				\
+	int ret;							\
+	ret = pm_runtime_get_sync(_dev->parent);			\
+	if (ret < 0) {							\
+		pm_runtime_put_noidle(_dev->parent);			\
+		return ret;						\
+	}								\
 	if (fn)								\
 		val = (u64)fn(_dev->parent, lo_off);			\
 	else								\

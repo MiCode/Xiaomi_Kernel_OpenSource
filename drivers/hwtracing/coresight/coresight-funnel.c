@@ -188,8 +188,13 @@ static ssize_t funnel_ctrl_show(struct device *dev,
 {
 	u32 val;
 	struct funnel_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	int ret;
 
-	pm_runtime_get_sync(dev->parent);
+	ret = pm_runtime_get_sync(dev->parent);
+	if (ret < 0) {
+		pm_runtime_put_noidle(dev->parent);
+		return ret;
+	}
 
 	val = get_funnel_ctrl_hw(drvdata);
 
