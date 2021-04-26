@@ -126,6 +126,11 @@ static struct seq_buf *md_meminfo_seq_buf;
 static struct seq_buf *md_slabinfo_seq_buf;
 #endif
 
+#ifdef CONFIG_PAGE_OWNER
+size_t md_pageowner_dump_size = SZ_2M;
+char *md_pageowner_dump_addr;
+#endif
+
 /* Modules information */
 #ifdef CONFIG_MODULES
 #define NUM_MD_MODULES	200
@@ -1076,6 +1081,11 @@ dump_rq:
 	if (md_slabinfo_seq_buf)
 		md_dump_slabinfo(md_slabinfo_seq_buf);
 #endif
+
+#ifdef CONFIG_PAGE_OWNER
+	if (md_pageowner_dump_addr)
+		md_dump_pageowner(md_pageowner_dump_addr, md_pageowner_dump_size);
+#endif
 	md_in_oops_handler = false;
 	return NOTIFY_DONE;
 }
@@ -1140,6 +1150,8 @@ err_seq_buf:
 
 static void md_register_panic_data(void)
 {
+	struct dentry *minidump_dir = NULL;
+
 	md_register_panic_entries(MD_RUNQUEUE_PAGES, "KRUNQUEUE",
 				  &md_runq_seq_buf);
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
@@ -1152,6 +1164,14 @@ static void md_register_panic_data(void)
 #ifdef CONFIG_SLUB_DEBUG
 	md_register_panic_entries(MD_SLABINFO_PAGES, "SLABINFO",
 				  &md_slabinfo_seq_buf);
+#endif
+	if (!minidump_dir)
+		minidump_dir = debugfs_create_dir("minidump", NULL);
+#ifdef CONFIG_PAGE_OWNER
+	if (is_page_owner_enabled()) {
+		md_register_memory_dump(md_pageowner_dump_size, "PAGEOWNER");
+		md_debugfs_pageowner(minidump_dir);
+	}
 #endif
 }
 
