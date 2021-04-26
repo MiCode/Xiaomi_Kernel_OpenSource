@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -50,11 +50,11 @@
 	}
 
 static struct llcc_slice_config sdxlemur_data[] =  {
-	SCT_ENTRY(LLCC_MDMHPGRW, 7, 128, 1, 1, 0xF,  0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_MDMHW,    9, 128, 1, 1, 0xF,  0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_MDMVPE,  29,  64, 1, 1, 0xF,  0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_APTCM,   30, 128, 3, 1, 0xF,  0x2, 1, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_MDMCLD2, 25, 128, 1, 1, 0xF,  0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_MDMHPGRW, 7, 128, 1, 1, 0xC,  0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_MDMHW,    9, 128, 1, 1, 0xC,  0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_MDMVPE,  29,  64, 1, 1, 0xC,  0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_APTCM,   30, 128, 3, 1, 0x3,  0x3, 1, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_MDMCLD2, 25, 128, 1, 1, 0x3,  0x0, 0, 0, 0, 1, 0),
 };
 
 static int sdxlemur_qcom_llcc_probe(struct platform_device *pdev)
