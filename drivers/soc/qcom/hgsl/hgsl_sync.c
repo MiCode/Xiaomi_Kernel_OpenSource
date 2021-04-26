@@ -266,6 +266,7 @@ int hgsl_isync_timeline_create(struct hgsl_priv *priv,
 	INIT_LIST_HEAD(&timeline->fence_list);
 	spin_lock_init(&timeline->lock);
 	timeline->priv = priv;
+	timeline->last_ts = 0;
 
 	idr_preload(GFP_KERNEL);
 	spin_lock(&priv->isync_timeline_lock);
@@ -516,6 +517,21 @@ static bool hgsl_isync_enable_signaling(struct dma_fence *base)
 	return true;
 }
 
+static bool hgsl_isync_has_signaled(struct dma_fence *base)
+{
+	struct hgsl_isync_fence *fence = NULL;
+	struct hgsl_isync_timeline *timeline = NULL;
+
+	if (base) {
+		fence = container_of(base, struct hgsl_isync_fence, fence);
+		timeline = fence->timeline;
+		if (timeline && timeline->last_ts > 0)
+			return hgsl_ts_ge(timeline->last_ts, fence->ts);
+	}
+
+	return false;
+}
+
 static void hgsl_isync_fence_release(struct dma_fence *base)
 {
 	struct hgsl_isync_fence *fence = container_of(base,
@@ -538,6 +554,7 @@ static const struct dma_fence_ops hgsl_isync_fence_ops = {
 	.get_driver_name = hgsl_isync_get_driver_name,
 	.get_timeline_name = hgsl_isync_get_timeline_name,
 	.enable_signaling = hgsl_isync_enable_signaling,
+	.signaled = hgsl_isync_has_signaled,
 	.wait = dma_fence_default_wait,
 	.release = hgsl_isync_fence_release,
 
