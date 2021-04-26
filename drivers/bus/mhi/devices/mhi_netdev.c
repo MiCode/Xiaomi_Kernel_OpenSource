@@ -43,7 +43,7 @@
 } while (0)
 
 #define MSG_ERR(fmt, ...) do { \
-	pr_err("%s[E][%s] " fmt, __func__, ##__VA_ARGS__);\
+	pr_err("[E][%s] " fmt, __func__, ##__VA_ARGS__);\
 	if (mhi_netdev->ipc_log && mhi_netdev->msg_lvl <= MHI_MSG_LVL_ERROR) \
 		ipc_log_string(mhi_netdev->ipc_log, "%s[E][%s] " fmt, \
 				"", __func__, ##__VA_ARGS__); \
