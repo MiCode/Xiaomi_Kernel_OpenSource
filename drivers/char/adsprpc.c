@@ -1668,7 +1668,7 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 		goto bail;
 	}
 
-	VERIFY(err, fl->sctx != NULL);
+	VERIFY(err, fl && fl->sctx != NULL);
 	if (err) {
 		err = -EBADR;
 		goto bail;
@@ -1700,11 +1700,6 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	buf->type = buf_type;
 	ktime_get_real_ts64(&buf->buf_start_time);
 
-	VERIFY(err, fl && fl->sctx != NULL);
-	if (err) {
-		err = -EBADR;
-		goto bail;
-	}
 	buf->virt = dma_alloc_attrs(fl->sctx->smmu.dev, buf->size,
 						(dma_addr_t *)&buf->phys,
 						GFP_KERNEL, buf->dma_attr);
@@ -3293,7 +3288,7 @@ read_async_job:
 		break;
 	}
 	spin_unlock_irqrestore(&fl->aqlock, flags);
-	if (fl->profile)
+	if (fl->profile && ctx)
 		perf_counter = (uint64_t *)ctx->perf + PERF_COUNT;
 	if (ctx) {
 		fastrpc_wait_for_completion(ctx, &interrupted, 0, 1,
