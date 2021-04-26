@@ -26,6 +26,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/dma-mapping.h>
 #include <uapi/linux/msm_geni_serial.h>
+#include <soc/qcom/boot_stats.h>
 
 /* UART specific GENI registers */
 #define SE_UART_LOOPBACK_CFG		(0x22C)
@@ -3146,6 +3147,7 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	struct uart_driver *drv;
 	const struct of_device_id *id;
 	bool is_console = false;
+	char boot_marker[40];
 
 	id = of_match_device(msm_geni_device_tbl, &pdev->dev);
 	if (!id) {
@@ -3171,6 +3173,14 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	} else {
 		line = pdev->id;
 	}
+
+	if (strcmp(id->compatible, "qcom,msm-geni-console") == 0)
+		snprintf(boot_marker, sizeof(boot_marker),
+				"M - DRIVER GENI_UART_%d Init", line);
+	else
+		snprintf(boot_marker, sizeof(boot_marker),
+				"M - DRIVER GENI_HS_UART_%d Init", line);
+	place_marker(boot_marker);
 
 	is_console = (drv->cons ? true : false);
 	dev_port = get_port_from_line(line, is_console);
@@ -3257,6 +3267,14 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		geni_se_remove_earlycon_icc_vote(dev_port->wrapper_dev);
 	else
 		spin_lock_init(&dev_port->rx_lock);
+
+	if (strcmp(id->compatible, "qcom,msm-geni-console") == 0)
+		snprintf(boot_marker, sizeof(boot_marker),
+				"M - DRIVER GENI_UART_%d Ready", line);
+	else
+		snprintf(boot_marker, sizeof(boot_marker),
+			"M - DRIVER GENI_HS_UART_%d Ready", line);
+	place_marker(boot_marker);
 
 exit_geni_serial_probe:
 	IPC_LOG_MSG(dev_port->ipc_log_misc, "%s: ret:%d\n",
