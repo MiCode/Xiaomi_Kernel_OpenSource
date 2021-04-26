@@ -65,6 +65,8 @@ struct kgsl_pwrscale {
 	unsigned int ctxt_aware_busy_penalty;
 	/** @busmondev: A child device for the busmon  governor */
 	struct device busmondev;
+	/** @bus_devfreq: Pointer to the bus devfreq device */
+	struct devfreq *bus_devfreq;
 };
 
 /**
