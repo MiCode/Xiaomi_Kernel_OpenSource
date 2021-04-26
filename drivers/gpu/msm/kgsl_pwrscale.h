@@ -29,7 +29,6 @@ struct kgsl_power_stats {
  * @enabled - Whether or not power scaling is enabled
  * @time - Last submitted sample timestamp
  * @on_time - Timestamp when gpu busy begins
- * @nh - Notifier for the partner devfreq bus device
  * @devfreq_wq - Main devfreq workqueue
  * @devfreq_suspend_ws - Pass device suspension to devfreq
  * @devfreq_resume_ws - Pass device resume to devfreq
@@ -53,7 +52,6 @@ struct kgsl_pwrscale {
 	bool enabled;
 	ktime_t time;
 	s64 on_time;
-	struct srcu_notifier_head nh;
 	struct workqueue_struct *devfreq_wq;
 	struct work_struct devfreq_suspend_ws;
 	struct work_struct devfreq_resume_ws;
