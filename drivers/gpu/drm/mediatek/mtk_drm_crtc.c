@@ -7112,7 +7112,10 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 			mtk_crtc->ddp_ctx[p_mode].wb_comp[i] = comp;
 			continue;
 		}
-
+		if (comp_id < 0) {
+			DDPPR_ERR("%s: Invalid comp_id:%d\n", __func__, comp_id);
+			return 0;
+		}
 		node = priv->comp_node[comp_id];
 		comp = priv->ddp_comp[comp_id];
 

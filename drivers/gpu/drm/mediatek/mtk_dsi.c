@@ -822,7 +822,7 @@ static bool mtk_dsi_is_LFR_Enable(struct mtk_dsi *dsi)
 		MTK_DRM_OPT_LFR))) {
 		return false;
 	}
-	if (dsi->ext->params->lfr_enable == 0)
+	if (dsi->ext && dsi->ext->params->lfr_enable == 0)
 		return false;
 
 	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
