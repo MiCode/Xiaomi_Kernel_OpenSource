@@ -62,8 +62,9 @@ static void __nanohub_interrupt_cfg(struct nanohub_data *data,
 
 	do {
 		ret = request_wakeup_timeout(data, WAKEUP_TIMEOUT_MS);
-		if (ret)
+		if (ret) {
 			return;
+		}
 
 		ret =
 		    nanohub_comms_tx_rx_retrans(data, cmd,

@@ -15,6 +15,7 @@
 #define _HF_SENSOR_TYPE_H_
 
 enum {
+	SENSOR_TYPE_INVALID = 0,
 	/* follow google default sensor type */
 	SENSOR_TYPE_ACCELEROMETER = 1,
 	SENSOR_TYPE_MAGNETIC_FIELD,
