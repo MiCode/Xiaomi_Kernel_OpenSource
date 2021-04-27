@@ -407,7 +407,8 @@ static void mtk_vdec_queue_error_event(struct mtk_vcodec_ctx *ctx)
 	v4l2_event_queue_fh(&ctx->fh, &ev_error);
 }
 
-static void mtk_vdec_flush_decoder(struct mtk_vcodec_ctx *ctx)
+static void mtk_vdec_flush_decoder(struct mtk_vcodec_ctx *ctx,
+	struct mtk_vcodec_mem *current_bs)
 {
 	unsigned int src_chg = 0;
 	int ret = 0;
@@ -422,7 +423,7 @@ static void mtk_vdec_flush_decoder(struct mtk_vcodec_ctx *ctx)
 		return;
 	}
 
-	clean_free_bs_buffer(ctx, NULL);
+	clean_free_bs_buffer(ctx, current_bs);
 	clean_display_buffer(ctx, 0);
 	clean_free_fm_buffer(ctx);
 }
@@ -805,7 +806,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 			 * remaining buffers from before the resolution change
 			 * point, so call flush decode here
 			 */
-			mtk_vdec_flush_decoder(ctx);
+			mtk_vdec_flush_decoder(ctx, NULL);
 			/*
 			 * After all buffers containing decoded frames from
 			 * before the resolution change point ready to be
@@ -2438,19 +2439,39 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 {
 	struct vb2_buffer *src_buf = NULL, *dst_buf = NULL;
 	struct mtk_vcodec_ctx *ctx = vb2_get_drv_priv(q);
+	struct vb2_v4l2_buffer *vb2_v4l2 = NULL;
+	struct mtk_video_dec_buf *src_buf_info = NULL;
 	unsigned int i = 0;
 
 	mtk_v4l2_debug(4, "[%d] (%d) state=(%x) ctx->decoded_frame_cnt=%d",
 		ctx->id, q->type, ctx->state, ctx->decoded_frame_cnt);
 
 	if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		if (ctx->state >= MTK_STATE_HEADER)
-			mtk_vdec_flush_decoder(ctx);
+		if (ctx->state >= MTK_STATE_HEADER) {
+			src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
+			if (src_buf != NULL) {
+				vb2_v4l2 = to_vb2_v4l2_buffer(src_buf);
+				src_buf_info = container_of(vb2_v4l2,
+					struct mtk_video_dec_buf, vb);
+				/* for bs buffer reuse case & avoid put to done twice*/
+				mtk_vdec_flush_decoder(ctx, &src_buf_info->bs_buffer);
+			} else {
+				mtk_vdec_flush_decoder(ctx, NULL);
+			}
+		}
 		while ((src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx)))
 			if (to_vb2_v4l2_buffer(src_buf)
-				!= &ctx->dec_flush_buf->vb)
-				v4l2_m2m_buf_done(to_vb2_v4l2_buffer(src_buf),
+				!= &ctx->dec_flush_buf->vb) {
+
+				vb2_v4l2 = to_vb2_v4l2_buffer(src_buf);
+
+				mtk_v4l2_debug(2,
+					"[%d] src_buf_remove queue id=%d",
+					ctx->id, vb2_v4l2->vb2_buf.index);
+
+				v4l2_m2m_buf_done(vb2_v4l2,
 					VB2_BUF_STATE_ERROR);
+			}
 		return;
 	}
 
@@ -2475,19 +2496,20 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 			ctx->last_decoded_picinfo.buf_h,
 			ctx->picinfo.bitdepth);
 
-		mtk_vdec_flush_decoder(ctx);
+		mtk_vdec_flush_decoder(ctx, NULL);
 	}
 
 	while ((dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
-		struct vb2_v4l2_buffer *vb2_v4l2 = NULL;
-
 		for (i = 0; i < dst_buf->num_planes; i++)
 			vb2_set_plane_payload(dst_buf, i, 0);
 
-		vb2_v4l2 = container_of(dst_buf,
-			struct vb2_v4l2_buffer, vb2_buf);
+		vb2_v4l2 = to_vb2_v4l2_buffer(dst_buf);
 
-		v4l2_m2m_buf_done(to_vb2_v4l2_buffer(dst_buf),
+		mtk_v4l2_debug(2,
+			"[%d] dst_buf_remove queue id=%d",
+			ctx->id, vb2_v4l2->vb2_buf.index);
+
+		v4l2_m2m_buf_done(vb2_v4l2,
 						  VB2_BUF_STATE_ERROR);
 	}
 
