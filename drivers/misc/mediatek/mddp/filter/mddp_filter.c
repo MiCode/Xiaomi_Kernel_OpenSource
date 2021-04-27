@@ -496,7 +496,7 @@ static int mddp_f_e_tag_packet(
 	bool is_uplink,
 	struct sk_buff *skb,
 	unsigned char ip_ver,
-	struct mddp_f_cb *cb,
+	struct mddp_f_tag_packet_t *skb_tag,
 	unsigned int hit_cnt)
 {
 	struct mddp_f_e_tag_common_t *skb_e_tag;
@@ -512,20 +512,12 @@ static int mddp_f_e_tag_packet(
 
 	/* extension tag for MAC address */
 
-	/* headroom check */
 	tag_len = sizeof(struct mddp_f_tag_packet_t);
 	etag_len = sizeof(struct mddp_f_e_tag_common_t) +
 			sizeof(struct mddp_f_e_tag_mac_t);
-	if (skb_headroom(skb) < (tag_len + etag_len)) {
-		MDDP_F_LOG(MDDP_LL_NOTICE,
-				"%s: Add MDDP Etag Fail, headroom[%d], tag_len[%d], etag_len[%d]\n",
-				__func__, skb_headroom(skb),
-				tag_len, etag_len);
-		return -1;
-	}
 
 	skb_e_tag = (struct mddp_f_e_tag_common_t *)
-		((unsigned char *)skb->head + tag_len);
+		(skb_tail_pointer(skb) + tag_len);
 	skb_e_tag->type = MDDP_E_TAG_MAC;
 	skb_e_tag->len  = etag_len;
 
@@ -586,43 +578,10 @@ static int mddp_f_e_tag_packet(
 			e_tag_mac.mac_addr[4], e_tag_mac.mac_addr[5],
 			e_tag_mac.access_cnt);
 
-	return etag_len;
+	skb_tag->tag_len += etag_len;
+	return 0;
 }
 
-
-/*
- *  Please discuss with CCMNI owner before adding extension tag!
- *  tag length should be controlled.
- */
-static int _mddp_f_e_tag_packet(
-	bool is_uplink,
-	struct sk_buff *skb,
-	unsigned char ip_ver,
-	struct mddp_f_tag_packet_t *skb_tag,
-	struct mddp_f_cb *cb,
-	unsigned int hit_cnt)
-{
-	int etag_len;
-	int ret = 0;
-
-	/* Add Extension tag */
-	etag_len = mddp_f_e_tag_packet(is_uplink, skb, ip_ver, cb, hit_cnt);
-
-	if (etag_len < 0) {
-		MDDP_F_LOG(MDDP_LL_NOTICE,
-				"%s: Add MDDP etag FAIL! Clean tag. etag_len[%d], is_uplink[%d], skb[%p], ip_ver[%d], skb_tag[%p]\n",
-				__func__, etag_len, is_uplink,
-				skb, ip_ver, skb_tag);
-
-		memset(skb->head, 0, skb_tag->tag_len);
-		skb_tag->tag_len = 0;
-		ret = -EBADF;
-	} else {
-		skb_tag->tag_len += etag_len;
-	}
-
-	return ret;
-}
 
 static int mddp_f_tag_packet(
 	bool is_uplink,
@@ -635,11 +594,10 @@ static int mddp_f_tag_packet(
 {
 	struct mddp_f_tag_packet_t *skb_tag;
 	struct sk_buff *fake_skb;
-	int ret = 0;
-
+	int ret;
 
 	if (is_uplink == true) { /* uplink*/
-		skb_tag = (struct mddp_f_tag_packet_t *)skb->head;
+		skb_tag = (struct mddp_f_tag_packet_t *) skb_tail_pointer(skb);
 		skb_tag->guard_pattern = MDDP_TAG_PATTERN;
 		skb_tag->version = __MDDP_VERSION__;
 		skb_tag->tag_len = sizeof(struct mddp_f_tag_packet_t);
@@ -650,8 +608,11 @@ static int mddp_f_tag_packet(
 		skb_tag->v2.ip = cb->src[0];  /* Don't care IPv6 IP */
 
 		/* Add Extension tag */
-		ret = _mddp_f_e_tag_packet(is_uplink, skb, ip_ver,
-				skb_tag, cb, hit_cnt);
+		ret = mddp_f_e_tag_packet(is_uplink, skb, ip_ver,
+				skb_tag, hit_cnt);
+		if (ret < 0)
+			return -EFAULT;
+		__skb_put(skb, skb_tag->tag_len);
 
 		MDDP_F_LOG(MDDP_LL_NOTICE,
 				"%s: Add MDDP UL tag, guard_pattern[%x], version[%d], tag_len[%d], tag_info[%d], lan_netif_id[%x], port[%x], ip[%x], skb[%p].\n",
@@ -683,7 +644,7 @@ static int mddp_f_tag_packet(
 		}
 
 		fake_skb->dev = cb->dev;
-		skb_tag = (struct mddp_f_tag_packet_t *)fake_skb->head;
+		skb_tag = (struct mddp_f_tag_packet_t *) skb_tail_pointer(fake_skb);
 		skb_tag->guard_pattern = MDDP_TAG_PATTERN;
 		skb_tag->version = __MDDP_VERSION__;
 		skb_tag->tag_len = sizeof(struct mddp_f_tag_packet_t);
@@ -694,8 +655,11 @@ static int mddp_f_tag_packet(
 		skb_tag->v2.ip = cb->dst[0];  /* Don't care IPv6 IP */
 
 		/* Add Extension tag */
-		ret = _mddp_f_e_tag_packet(is_uplink, fake_skb, ip_ver,
-				skb_tag, cb, hit_cnt);
+		ret = mddp_f_e_tag_packet(is_uplink, fake_skb, ip_ver,
+				skb_tag, hit_cnt);
+		if (ret < 0)
+			return -EFAULT;
+		__skb_put(fake_skb, skb_tag->tag_len);
 
 		MDDP_F_LOG(MDDP_LL_NOTICE,
 				"%s: Add MDDP DL tag, guard_pattern[%x], version[%d], tag_len[%d], tag_info[%d], lan_netif_id[%x], port[%x], ip[%x], skb[%p], fake_skb[%p].\n",
@@ -712,7 +676,7 @@ static int mddp_f_tag_packet(
 		dev_queue_xmit(fake_skb);
 	}
 
-	return ret;
+	return 0;
 }
 
 static int32_t mddp_ct_update(void *buf, uint32_t buf_len)
