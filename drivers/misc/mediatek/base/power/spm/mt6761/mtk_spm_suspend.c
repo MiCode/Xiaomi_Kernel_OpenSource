@@ -229,7 +229,7 @@ static void spm_suspend_pcm_setup_before_wfi(u32 cpu,
 #endif
 
 	/* Only get resource usage from user SCP */
-	resource_usage = spm_get_resource_usage_by_user(SPM_RESOURCE_USER_SCP);
+	resource_usage = spm_get_resource_usage();
 
 	spm_suspend_pre_process(pwrctrl);
 
