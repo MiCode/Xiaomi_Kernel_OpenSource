@@ -101,6 +101,10 @@ extern int charger_manager_enable_power_path(
 	struct charger_consumer *consumer,
 	int idx,
 	bool en);
+extern int charger_manager_force_disable_power_path(
+	struct charger_consumer *consumer,
+	int idx,
+	bool disable);
 extern int charger_manager_enable_charging(
 	struct charger_consumer *consumer,
 	int idx,

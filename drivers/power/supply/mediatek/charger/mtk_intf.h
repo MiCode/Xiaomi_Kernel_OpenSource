@@ -43,6 +43,7 @@ extern int charger_get_ibat(u32 *ibat);
 extern int charger_set_constant_voltage(u32 uV);
 extern int charger_enable_termination(bool en);
 extern int charger_enable_powerpath(bool en);
+extern int charger_force_disable_powerpath(bool disable);
 extern int charger_dump_registers(void);
 
 extern int adapter_set_cap(int mV, int mA);

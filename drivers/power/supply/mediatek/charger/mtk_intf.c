@@ -80,6 +80,12 @@ int charger_enable_powerpath(bool en)
 	return charger_dev_enable_powerpath(pinfo->chg1_dev, en);
 }
 
+int charger_force_disable_powerpath(bool disable)
+{
+	return charger_manager_force_disable_power_path(pinfo->chg1_consumer,
+							MAIN_CHARGER, disable);
+}
+
 int charger_dump_registers(void)
 {
 	return charger_dev_dump_registers(pinfo->chg1_dev);

@@ -431,6 +431,9 @@ struct charger_manager {
 	u_int g_scd_pid;
 	struct scd_cmd_param_t_1 sc_data;
 
+	bool force_disable_pp[TOTAL_CHARGER];
+	bool enable_pp[TOTAL_CHARGER];
+	struct mutex pp_lock[TOTAL_CHARGER];
 };
 
 /* charger related module interface */

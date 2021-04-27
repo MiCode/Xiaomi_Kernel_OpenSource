@@ -47,6 +47,7 @@
 #include <mach/upmu_hw.h>
 #include <mt-plat/mtk_boot.h>
 #include <mt-plat/charger_type.h>
+#include <mt-plat/mtk_charger.h>
 #include <pmic.h>
 #include <tcpm.h>
 
@@ -77,7 +78,7 @@ void __attribute__((weak)) fg_charger_in_handler(void)
 struct chg_type_info {
 	struct device *dev;
 	struct charger_consumer *chg_consumer;
-	struct tcpc_device *tcpc;
+	struct tcpc_device *tcpc_dev;
 	struct notifier_block pd_nb;
 	bool tcpc_kpoc;
 	/* Charger Detection */
@@ -92,7 +93,6 @@ struct chg_type_info {
 	struct work_struct chg_in_work;
 	bool ignore_usb;
 	bool plugin;
-	bool bypass_chgdet;
 };
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
@@ -237,6 +237,7 @@ static int mt_charger_set_property(struct power_supply *psy,
 	info = mtk_chg->extcon_info;
 #endif
 
+	cti = mtk_chg->cti;
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		mtk_chg->chg_online = val->intval;
@@ -244,6 +245,12 @@ static int mt_charger_set_property(struct power_supply *psy,
 		return 0;
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		mtk_chg->chg_type = val->intval;
+		if (mtk_chg->chg_type != CHARGER_UNKNOWN)
+			charger_manager_force_disable_power_path(
+				cti->chg_consumer, MAIN_CHARGER, false);
+		else if (!cti->tcpc_kpoc)
+			charger_manager_force_disable_power_path(
+				cti->chg_consumer, MAIN_CHARGER, true);
 		break;
 	default:
 		return -EINVAL;
@@ -251,7 +258,6 @@ static int mt_charger_set_property(struct power_supply *psy,
 
 	dump_charger_name(mtk_chg->chg_type);
 
-	cti = mtk_chg->cti;
 	if (!cti->ignore_usb) {
 		/* usb */
 		if ((mtk_chg->chg_type == STANDARD_HOST) ||
@@ -378,11 +384,6 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 	int vbus = 0;
 
 	switch (event) {
-	case TCP_NOTIFY_SINK_VBUS:
-		if (tcpm_inquire_typec_attach_state(cti->tcpc) ==
-						   TYPEC_ATTACHED_AUDIO)
-			plug_in_out_handler(cti, !!noti->vbus_state.mv, true);
-		break;
 	case TCP_NOTIFY_TYPEC_STATE:
 		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
 		    (noti->typec_state.new_state == TYPEC_ATTACHED_SNK ||
@@ -393,8 +394,7 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 			plug_in_out_handler(cti, true, false);
 		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SNK ||
 		    noti->typec_state.old_state == TYPEC_ATTACHED_CUSTOM_SRC ||
-		    noti->typec_state.old_state == TYPEC_ATTACHED_NORP_SRC ||
-		    noti->typec_state.old_state == TYPEC_ATTACHED_AUDIO)
+			noti->typec_state.old_state == TYPEC_ATTACHED_NORP_SRC)
 			&& noti->typec_state.new_state == TYPEC_UNATTACHED) {
 			if (cti->tcpc_kpoc) {
 				vbus = battery_get_vbus();
@@ -425,15 +425,8 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 static int chgdet_task_threadfn(void *data)
 {
 	struct chg_type_info *cti = data;
-	bool attach = false, ignore_usb = false;
+	bool attach = false;
 	int ret = 0;
-	struct power_supply *psy = power_supply_get_by_name("charger");
-	union power_supply_propval val = {.intval = 0};
-
-	if (!psy) {
-		pr_notice("%s: power supply get fail\n", __func__);
-		return -ENODEV;
-	}
 
 	pr_info("%s: ++\n", __func__);
 	while (!kthread_should_stop()) {
@@ -449,16 +442,7 @@ static int chgdet_task_threadfn(void *data)
 		mutex_lock(&cti->chgdet_lock);
 		atomic_set(&cti->chgdet_cnt, 0);
 		attach = cti->chgdet_en;
-		ignore_usb = cti->ignore_usb;
 		mutex_unlock(&cti->chgdet_lock);
-
-		if (attach && ignore_usb) {
-			cti->bypass_chgdet = true;
-			goto bypass_chgdet;
-		} else if (!attach && cti->bypass_chgdet) {
-			cti->bypass_chgdet = false;
-			goto bypass_chgdet;
-		}
 
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
 		if (cti->chg_consumer)
@@ -467,27 +451,6 @@ static int chgdet_task_threadfn(void *data)
 #else
 		mtk_pmic_enable_chr_type_det(attach);
 #endif
-		goto pm_relax;
-bypass_chgdet:
-		val.intval = attach;
-		ret = power_supply_set_property(psy, POWER_SUPPLY_PROP_ONLINE,
-						&val);
-		if (ret < 0)
-			pr_notice("%s: power supply set online fail(%d)\n",
-				  __func__, ret);
-		if (tcpm_inquire_typec_attach_state(cti->tcpc) ==
-						   TYPEC_ATTACHED_AUDIO)
-			val.intval = attach ? NONSTANDARD_CHARGER :
-					      CHARGER_UNKNOWN;
-		else
-			val.intval = attach ? STANDARD_HOST : CHARGER_UNKNOWN;
-		ret = power_supply_set_property(psy,
-						POWER_SUPPLY_PROP_CHARGE_TYPE,
-						&val);
-		if (ret < 0)
-			pr_notice("%s: power supply set charge type fail(%d)\n",
-				  __func__, ret);
-pm_relax:
 		pm_relax(cti->dev);
 	}
 	pr_info("%s: --\n", __func__);
@@ -803,14 +766,14 @@ static int __init mt_charger_det_notifier_call_init(void)
 	mt_chg = power_supply_get_drvdata(psy);
 	cti = mt_chg->cti;
 
-	cti->tcpc = tcpc_dev_get_by_name("type_c_port0");
-	if (cti->tcpc == NULL) {
+	cti->tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
+	if (cti->tcpc_dev == NULL) {
 		pr_notice("%s: get tcpc dev fail\n", __func__);
 		ret = -ENODEV;
 		goto out;
 	}
 	cti->pd_nb.notifier_call = pd_tcp_notifier_call;
-	ret = register_tcp_dev_notifier(cti->tcpc,
+	ret = register_tcp_dev_notifier(cti->tcpc_dev,
 		&cti->pd_nb, TCP_NOTIFY_TYPE_ALL);
 	if (ret < 0) {
 		pr_notice("%s: register tcpc notifier fail(%d)\n",
