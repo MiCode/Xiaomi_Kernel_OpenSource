@@ -78,7 +78,9 @@ extern void (*low_battery_callback)(LOW_BATTERY_LEVEL tag);
 extern void register_low_battery_notify(
 			void (*low_battery_callback)(LOW_BATTERY_LEVEL tag),
 			LOW_BATTERY_PRIO prio_val);
-
+extern void register_low_battery_notify_ext(
+			void (*low_battery_callback)(LOW_BATTERY_LEVEL tag),
+			LOW_BATTERY_PRIO prio_val);
 
 /* =============================================================================
  * Battery OC level define

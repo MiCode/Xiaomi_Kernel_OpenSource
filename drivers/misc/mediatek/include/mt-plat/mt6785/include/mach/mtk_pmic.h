@@ -18,7 +18,11 @@
 
 #define LOW_POWER_LIMIT_LEVEL_1 15
 
+#if defined(CONFIG_MACH_MT6781)
+#define PT_DLPT_BRINGUP 1
+#else
 #define PT_DLPT_BRINGUP 0
+#endif
 
 #if defined(CONFIG_FPGA_EARLY_PORTING) || PT_DLPT_BRINGUP
 /* Define for disable low battery protect feature,
@@ -36,12 +40,25 @@
 #define DISABLE_DLPT_FEATURE
 #endif /* defined(CONFIG_FPGA_EARLY_PORTING) || PT_DLPT_BRINGUP */
 
+/* if not support GM3, disable DLPT */
+#if defined(CONFIG_MTK_DISABLE_GAUGE)
+#define DISABLE_DLPT_FEATURE
+#endif /* defined(CONFIG_MTK_DISABLE_GAUGE) */
+
+#ifndef DISABLE_LOW_BATTERY_PROTECT
+#define LBAT_LIMIT_BCPU_OPP
+#endif
+
 #define POWER_UVLO_VOLT_LEVEL 2600
 #define IMAX_MAX_VALUE 5500
 
 #define POWER_INT0_VOLT 3400
 #define POWER_INT1_VOLT 3250
 #define POWER_INT2_VOLT 3100
+
+#define POWER_INT0_VOLT_EXT 3700
+#define POWER_INT1_VOLT_EXT 3550
+#define POWER_INT2_VOLT_EXT 1000
 
 #define POWER_BAT_OC_CURRENT_H    5800
 #define POWER_BAT_OC_CURRENT_L    6300
