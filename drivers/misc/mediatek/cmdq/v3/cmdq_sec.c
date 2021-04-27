@@ -1852,11 +1852,18 @@ static s32 cmdq_sec_insert_handle_from_thread_array_by_cookie(
 	struct cmdq_task *task, struct cmdq_sec_thread *thread,
 	const s32 cookie, const bool reset_thread)
 {
-	if (!task || !thread || thread->idx < CMDQ_MIN_SECURE_THREAD_ID) {
+	if (!task || !thread) {
+		CMDQ_ERR(
+			"invalid param pTask:0x%p pThread:0x%p cookie:%d needReset:%d\n",
+			task, thread, cookie, reset_thread);
+		return -EFAULT;
+	}
+
+	if (thread->idx < CMDQ_MIN_SECURE_THREAD_ID) {
 		CMDQ_ERR(
 			"invalid param pTask:0x%p pThread:0x%p idx:%u cookie:%d needReset:%d\n",
 			task, thread, thread->idx, cookie, reset_thread);
-		return -EFAULT;
+		return -EINVAL;
 	}
 
 	if (reset_thread == true) {
