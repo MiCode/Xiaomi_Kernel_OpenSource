@@ -3,6 +3,7 @@
  * Copyright (C) 2016 MediaTek Inc.
  */
 
+#include <linux/android_debug_symbols.h>
 #include <linux/bug.h>
 #include <linux/compiler.h>
 #include <linux/elf.h>
@@ -22,6 +23,7 @@
 #include <linux/stacktrace.h>
 #include <linux/uaccess.h>
 #include <linux/vmalloc.h>
+#include "../../../../kernel/printk/printk_ringbuffer.h"
 #include "../../../../kernel/sched/sched.h"
 
 #include <asm/irq.h>
@@ -633,6 +635,40 @@ void mrdump_mini_set_addr_size(unsigned int addr, unsigned int size)
 }
 EXPORT_SYMBOL(mrdump_mini_set_addr_size);
 
+static void mrdump_mini_add_klog(void)
+{
+	struct mrdump_mini_elf_misc misc;
+	struct printk_ringbuffer **pprb;
+	struct printk_ringbuffer *prb;
+	unsigned int cnt;
+
+	pprb = (struct printk_ringbuffer **)aee_log_buf_addr_get();
+	if (!pprb || !*pprb)
+		return;
+	prb = *pprb;
+
+	cnt = 1 << prb->desc_ring.count_bits;
+
+	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
+	misc.vaddr = (unsigned long)prb->desc_ring.descs;
+	misc.size = (unsigned long)(cnt * sizeof(struct prb_desc));
+	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start,
+			     "_KERNEL_LOG_DESCS_");
+	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
+	misc.vaddr = (unsigned long)prb->desc_ring.infos;
+	misc.size = (unsigned long)(cnt * sizeof(struct printk_info));
+	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start,
+			     "_KERNEL_LOG_INFOS_");
+	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
+	misc.vaddr = (unsigned long)prb->text_data_ring.data;
+	misc.size = (unsigned long)(1 << prb->text_data_ring.size_bits);
+	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start,
+			     "_KERNEL_LOG_DATA_");
+	mrdump_mini_add_misc((unsigned long)prb,
+			     sizeof(struct printk_ringbuffer),
+			     0, "_KERNEL_LOG_TP_");
+}
+
 static void mrdump_mini_build_elf_misc(void)
 {
 	struct mrdump_mini_elf_misc misc;
@@ -653,11 +689,8 @@ static void mrdump_mini_build_elf_misc(void)
 	}
 	mrdump_mini_add_misc_pa(task_info_va, task_info_pa,
 			sizeof(struct aee_process_info), 0, "PROC_CUR_TSK");
-	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
 	/* could also use the kernel log in pstore for LKM case */
-	misc.vaddr = (unsigned long)aee_log_buf_addr_get();
-	misc.size = (unsigned long)aee_log_buf_len_get();
-	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_KERNEL_LOG_");
+	mrdump_mini_add_klog();
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
 	get_mbootlog_buffer(&misc.vaddr, &misc.size, &misc.start);
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_LAST_KMSG");
@@ -697,6 +730,10 @@ static void mrdump_mini_build_elf_misc(void)
 	get_pidmap_aee_buffer(&misc.vaddr, &misc.size);
 	misc.start = 0;
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_PIDMAP_");
+	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
+	misc.vaddr = (unsigned long)android_debug_symbol(ADS_LINUX_BANNER);
+	misc.size = strlen((char *)misc.vaddr);
+	mrdump_mini_add_misc(misc.vaddr, misc.size, 0, "_VERSION_BR");
 }
 
 static void mrdump_mini_clear_loads(void)

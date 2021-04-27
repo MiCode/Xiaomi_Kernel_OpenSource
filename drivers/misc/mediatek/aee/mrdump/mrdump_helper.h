@@ -18,8 +18,7 @@ extern unsigned long aee_get_text(void);
 extern unsigned long aee_get_sdata(void);
 extern unsigned long aee_get_edata(void);
 
-extern u32 aee_log_buf_len_get(void);
-extern char *aee_log_buf_addr_get(void);
+extern void *aee_log_buf_addr_get(void);
 extern phys_addr_t aee_memblock_start_of_DRAM(void);
 extern phys_addr_t aee_memblock_end_of_DRAM(void);
 #ifdef CONFIG_SYSFS

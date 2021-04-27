@@ -456,26 +456,16 @@ struct list_head *aee_get_modules(void)
 }
 #endif
 
-u32 aee_log_buf_len_get(void)
+static void *p_log_ptr;
+void *aee_log_buf_addr_get(void)
 {
-	u32 log_buf_len = 1 << CONFIG_LOG_BUF_SHIFT;
+	if (p_log_ptr)
+		return p_log_ptr;
 
-	if (log_buf_len > 0 && log_buf_len <= (1 << 25))
-		return log_buf_len;
+	p_log_ptr = (void *)(aee_addr_find("prb"));
 
-	return 0;
-}
-
-static char *p__log_buf;
-char *aee_log_buf_addr_get(void)
-{
-	if (p__log_buf)
-		return p__log_buf;
-
-	p__log_buf = (void *)(aee_addr_find("__log_buf"));
-
-	if (p__log_buf)
-		return p__log_buf;
+	if (p_log_ptr)
+		return p_log_ptr;
 
 	pr_info("%s failed", __func__);
 	return NULL;
@@ -668,8 +658,8 @@ static void aee_base_addrs_init(void)
 			continue;
 		}
 
-		if (!p__log_buf && strcmp(strbuf, "__log_buf") == 0) {
-			p__log_buf = (void *)mrdump_idx2addr(i);
+		if (!p_log_ptr&& strcmp(strbuf, "prb") == 0) {
+			p_log_ptr = (void *)mrdump_idx2addr(i);
 			search_num--;
 			continue;
 		}
@@ -746,14 +736,19 @@ struct list_head *aee_get_modules(void)
 }
 #endif
 
-u32 aee_log_buf_len_get(void)
+static void *p_log_ptr;
+void *aee_log_buf_addr_get(void)
 {
-	return log_buf_len_get();
-}
+	if (p_log_ptr)
+		return p_log_ptr;
 
-char *aee_log_buf_addr_get(void)
-{
-	return log_buf_addr_get();
+	p_log_ptr = (void *)(kallsyms_lookup_name("prb"));
+
+	if (p_log_ptr)
+		return p_log_ptr;
+
+	pr_info("%s failed", __func__);
+	return NULL;
 }
 
 pgd_t *aee_pgd_offset_k(unsigned long addr)
