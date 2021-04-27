@@ -33,8 +33,8 @@ int scmi_tinysys_common_set(const struct scmi_protocol_handle *ph, u32 feature_i
 int scmi_tinysys_common_get(const struct scmi_protocol_handle *ph, u32 feature_id,
 	u32 p1, struct scmi_tinysys_status *rvalue);
 
-int scmi_tinysys_event_notify(const struct scmi_protocol_handle *ph, u32 feature_id,
-	u32 notify_enable);
+int scmi_tinysys_event_notify(u32 feature_id, u32 notify_enable);
 
 typedef void (*f_handler_t)(u32 feature_id, scmi_tinysys_report* report);
 
+void scmi_tinysys_register_event_notifier(u32 feature_id, f_handler_t hand);

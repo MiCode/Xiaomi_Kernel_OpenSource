@@ -11,13 +11,10 @@
 #include "tinysys-scmi.h"
 
 #define TINYSYS_SCMI_DEBUG
-//#include <v2/sspm_helper.h>
 
 static struct scmi_tinysys_info_st *t_info;
 static const struct scmi_tinysys_proto_ops *tinysys_ops;
 
-//#define to_scmi_tinysys_info_st(p)	container_of((p), struct scmi_tinysys_info_st, reserv)
-//#define to_scmi_handle(p)	(to_scmi_tinysys_info_st(p)->handle)
 f_handler_t cb_array[SCMI_TINYSYS_CB_MAX];
 
 struct scmi_tinysys_info_st *get_scmi_tinysys_info(void)
@@ -40,35 +37,16 @@ int scmi_tinysys_common_get(const struct scmi_protocol_handle *ph, u32 feature_i
 }
 EXPORT_SYMBOL(scmi_tinysys_common_get);
 
-int scmi_tinysys_event_notify(const struct scmi_protocol_handle *ph, u32 feature_id,
-	u32 notify_enable)
-{
-
-
-	return tinysys_ops->event_notify(ph, feature_id, notify_enable);
-}
-EXPORT_SYMBOL(scmi_tinysys_event_notify);
-
-void scmi_tinysys_register_event_notifier(u32 feature_id, f_handler_t hand)
-{
-	if(feature_id < SCMI_TINYSYS_CB_MAX)
-	{
-			cb_array[feature_id] = hand;
-	} else {
-		pr_notice("feature_id %d >= SCMI_TINYSYS_CB_MAX\n", feature_id);
-	}
-}
-
 int scmi_tinysys_notifier_fn(struct notifier_block *nb,
 			unsigned long action, void *data)
 {
 	struct scmi_tinysys_power_state_notifier_report *r = data;
 	f_handler_t func;
 
-	pr_notice("scmi notify report ktime:%ld f_id:%d p1:%d %d %d %d\n",
+	/* pr_notice("scmi notify report ktime:%ld f_id:%d p1:%d %d %d %d\n",
 		r->timestamp, r->f_id, r->p1_status, r->p2_status, r->p3_status,
 		r->p4_status);
-
+	*/
 	if(r->f_id < SCMI_TINYSYS_CB_MAX) {
 
 		func = cb_array[r->f_id];
@@ -82,6 +60,40 @@ static struct notifier_block tinysys_nb = {
 	.notifier_call = scmi_tinysys_notifier_fn,
 };
 
+int scmi_tinysys_event_notify(u32 feature_id, u32 notify_enable)
+{
+	int ret;
+	int f_id = feature_id;
+	const struct scmi_handle *handle = t_info->sdev->handle;
+
+	if(notify_enable) {
+		ret = handle->notify_ops->register_event_notifier(handle, SCMI_PROTOCOL_TINYSYS,
+			SCMI_EVENT_TINYSYS_POWER_STATE_NOTIFIER, &f_id, &tinysys_nb);	//fix NULL
+		if(ret)
+			pr_notice("scmi register_event_notifier f_id:%d ret:%d\n",f_id, ret);
+
+	} else {
+		ret = handle->notify_ops->unregister_event_notifier(handle, SCMI_PROTOCOL_TINYSYS,
+			SCMI_EVENT_TINYSYS_POWER_STATE_NOTIFIER, &f_id, &tinysys_nb);	//fix NULL
+		if(ret)
+			pr_notice("scmi unregister_event_notifier f_id:%d ret:%d\n",f_id, ret);
+
+	}
+	return ret;
+}
+EXPORT_SYMBOL(scmi_tinysys_event_notify);
+
+void scmi_tinysys_register_event_notifier(u32 feature_id, f_handler_t hand)
+{
+	if(feature_id < SCMI_TINYSYS_CB_MAX)
+	{
+			cb_array[feature_id] = hand;
+	} else {
+		pr_notice("feature_id %d >= SCMI_TINYSYS_CB_MAX\n", feature_id);
+	}
+}
+EXPORT_SYMBOL(scmi_tinysys_register_event_notifier);
+
 #ifdef TINYSYS_SCMI_DEBUG
 
 static ssize_t tinysys_scmi_debug_store(struct device *kobj,
@@ -90,7 +102,6 @@ static ssize_t tinysys_scmi_debug_store(struct device *kobj,
 
 	int ret;
 	int pro_id, f_id, p1, p2, p3, p4, p5;
-	const struct scmi_handle *handle = t_info->sdev->handle;
 	struct scmi_tinysys_info_st * tt;
 	struct scmi_tinysys_status rvalue;
 	char *prompt = "SCMI:";
@@ -110,15 +121,15 @@ static ssize_t tinysys_scmi_debug_store(struct device *kobj,
 	case 1:
 		ret = scmi_tinysys_common_get(tt->ph, f_id, p1, &rvalue);
 		if(ret)
-			pr_notice("%s scmi_tinysys_common_get ret = %d\n", prompt, ret);
-		pr_notice("%s scmi_tinysys_common_get status:%d r1:%d r2:%d r3:%d\n", prompt, rvalue.status, rvalue.r1, rvalue.r2, rvalue.r3);
+			pr_notice("%s scmi_tinysys_common_get error ret = %d\n", prompt, ret);
+		else
+			pr_notice("%s scmi_tinysys_common_get status:%d r1:%d r2:%d r3:%d\n", prompt, rvalue.status, rvalue.r1, rvalue.r2, rvalue.r3);
 		break;
 	case 2:
-		ret = handle->notify_ops->register_event_notifier(handle, SCMI_PROTOCOL_TINYSYS,
-			SCMI_EVENT_TINYSYS_POWER_STATE_NOTIFIER, &f_id, &tinysys_nb);	//fix NULL
-		if(ret)
-			pr_notice("scmi register_event_notifier f_id:%d ret:%d\n",f_id, ret);
-
+		ret = scmi_tinysys_event_notify(f_id, 1);
+		break;
+	case 3:
+		ret = scmi_tinysys_event_notify(f_id, 0);
 		break;
 
 	default:
