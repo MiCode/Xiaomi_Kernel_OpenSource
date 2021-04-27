@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -121,7 +121,7 @@ static ssize_t fan_show(struct device *dev, struct device_attribute *attr,
 static ssize_t fan_store(struct device *dev, struct device_attribute *attr,
 				const char *buf, size_t count)
 {
-	long val;
+	long val, val1;
 	struct max31760 *pdata;
 
 	pdata =  dev_get_drvdata(dev);
@@ -131,8 +131,15 @@ static ssize_t fan_store(struct device *dev, struct device_attribute *attr,
 	}
 
 	kstrtol(buf, 0, &val);
-	pr_debug("%s, count:%d  val:%lx, buf:%s\n",
-				 __func__, count, val, buf);
+	val1 = val >> 8;
+	pr_debug("%s, count:%d  val:%lx, val1:%lx, buf:%s\n",
+				 __func__, count, val, val1, buf);
+	if (val1 == 0x50) {
+		val1 = val & 0xFF;
+		pr_debug("%s, reg value val1:%lx\n", __func__, val1);
+		max31760_i2c_reg_set(pdata, 0x50, val1);
+		return count;
+	}
 
 	if (val == 0xff) {
 		turn_gpio(pdata, false);
