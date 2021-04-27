@@ -17,10 +17,12 @@
 #include <linux/spinlock.h>
 #include <linux/dma-mapping.h>
 #include <soc/mediatek/smi.h>
-#include <dt-bindings/memory/mtk-smi-larb-port.h>
+#include <dt-bindings/memory/mtk-memory-port.h>
 
 #define MTK_LARB_COM_MAX	16
 #define MTK_LARB_SUBCOM_MAX	4
+
+#define MTK_IOMMU_GROUP_MAX	8
 
 struct mtk_iommu_suspend_reg {
 	union {
@@ -47,6 +49,7 @@ enum mtk_iommu_plat {
 	M4U_MT6893,
 	M4U_MT8173,
 	M4U_MT8183,
+	M4U_MT8192,
 };
 
 enum mtk_iommu_type {
@@ -56,32 +59,23 @@ enum mtk_iommu_type {
 	TYPE_NUM
 };
 
-enum mm_iommu {
+enum mm_iommu{
 	DISP_IOMMU,
 	MDP_IOMMU,
 	MM_IOMMU_NUM
 };
 
-enum apu_iommu {
+enum apu_iommu{
 	APU_IOMMU0,
 	APU_IOMMU1,
 	APU_IOMMU_NUM
 };
 
-enum peri_iommu {
+enum peri_iommu{
 	PERI_IOMMU_M4,
 	PERI_IOMMU_M6,
 	PERI_IOMMU_M7,
 	PERI_IOMMU_NUM
-};
-
-enum IOMMU_BANK {
-	IOMMU_BK0, /* normal bank */
-	IOMMU_BK1, /* protected bank1 */
-	IOMMU_BK2, /* protected bank2 */
-	IOMMU_BK3, /* protected bank3 */
-	IOMMU_BK4, /* secure bank */
-	IOMMU_BK_NUM
 };
 
 struct mtk_iommu_iova_region;
@@ -90,28 +84,25 @@ struct mtk_iommu_plat_data {
 	enum mtk_iommu_plat m4u_plat;
 	u32                 flags;
 	u32                 inv_sel_reg;
-	u32		    reg_val;
-	int		    iommu_id;
+
+	u32		    tbw_reg_val;
 	enum mtk_iommu_type iommu_type;
-	unsigned char       larbid_remap[MTK_LARB_COM_MAX][MTK_LARB_SUBCOM_MAX];
-	unsigned int        iova_region_nr;
+	unsigned int				iova_region_nr;
 	const struct mtk_iommu_iova_region	*iova_region;
+	unsigned char       larbid_remap[MTK_LARB_COM_MAX][MTK_LARB_SUBCOM_MAX];
 };
 
 struct mtk_iommu_domain;
 
 struct mtk_iommu_data {
 	void __iomem			*base;
-	void __iomem			*bk_base[IOMMU_BK_NUM];
 	int				irq;
-	int				bk_irq[IOMMU_BK_NUM];
 	struct device			*dev;
-	struct device			*bk_dev[IOMMU_BK_NUM];
 	struct clk			*bclk;
 	phys_addr_t			protect_base; /* protect memory base */
 	struct mtk_iommu_suspend_reg	reg;
 	struct mtk_iommu_domain		*m4u_dom;
-	struct iommu_group		*m4u_group[MTK_M4U_DOM_NR_MAX];
+	struct iommu_group		*m4u_group[MTK_IOMMU_GROUP_MAX];
 	bool                            enable_4GB;
 	spinlock_t			tlb_lock; /* lock for tlb range flush */
 
@@ -121,7 +112,6 @@ struct mtk_iommu_data {
 
 	struct dma_iommu_mapping	*mapping; /* For mtk_iommu_v1.c */
 
-	unsigned int			cur_domid;
 	struct list_head		list;
 	struct mtk_smi_larb_iommu	larb_imu[MTK_LARB_NR_MAX];
 };

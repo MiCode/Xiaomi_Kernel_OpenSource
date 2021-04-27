@@ -28,7 +28,7 @@
 #include "deferred-free-helper.h"
 
 #include <linux/iommu.h>
-#include <dt-bindings/memory/mtk-smi-larb-port.h>
+#include <dt-bindings/memory/mtk-memory-port.h>
 
 static struct dma_heap *mtk_mm_heap;
 static struct dma_heap *mtk_mm_uncached_heap;
