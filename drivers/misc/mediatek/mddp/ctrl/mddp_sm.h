@@ -25,10 +25,6 @@ enum mddp_event_e {
 	MDDP_EVT_FUNC_ACT,  /**< Activate MDDP. */
 	MDDP_EVT_FUNC_DEACT,  /**< Deactivate MDDP. */
 
-	MDDP_EVT_DRV_REGHDLR, /**< Driver reg handler. */
-	MDDP_EVT_DRV_DEREGHDLR, /**< Driver dereg handler. */
-	MDDP_EVT_DRV_DISABLE, /**< Disable MDDP from driver. */
-
 	MDDP_EVT_MD_RSP_OK,  /**< MD Response OK. */
 	MDDP_EVT_MD_RSP_FAIL,  /**< MD Response FAIL. */
 
@@ -98,6 +94,7 @@ struct mddp_app_t {
 	mddp_sysfs_cbf_t            sysfs_callback; /**< Sysfs callback. */
 
 	struct mddp_sm_entry_t     *state_machines[MDDP_STATE_CNT];
+	uint32_t                    drv_reg;
 };
 
 

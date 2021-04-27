@@ -54,20 +54,6 @@ static void _mddp_set_state(struct mddp_app_t *app, enum mddp_state_e new_state)
 	MDDP_SM_UNLOCK(app->locker);
 }
 
-static int32_t _mddp_sm_drv_notify(
-	enum mddp_app_type_e app_type,
-	enum mddp_drv_notify_type_e notify_type)
-{
-	struct mddp_app_t              *app;
-
-	app = mddp_get_app_inst(app_type);
-
-	if (notify_type == MDDP_DRV_NOTIFY_DISABLE)
-		mddp_sm_on_event(app, MDDP_EVT_DRV_DISABLE);
-
-	return 0;
-}
-
 static int32_t mddp_sm_ctrl_msg_hdlr(
 		uint32_t msg_id,
 		void *buf,
@@ -339,11 +325,10 @@ int32_t mddp_sm_reg_callback(
 	 * OK. This app_type is configured.
 	 */
 	if (app->is_config && app->reg_drv_callback) {
-		handle->drv_notify = _mddp_sm_drv_notify;
 		app->reg_drv_callback(handle);
 		memcpy(&app->drv_hdlr,
 			handle, sizeof(struct mddp_drv_handle_t));
-		mddp_sm_on_event(app, MDDP_EVT_DRV_REGHDLR);
+		app->drv_reg = 1;
 		return 0;
 	}
 
@@ -368,11 +353,10 @@ void mddp_sm_dereg_callback(
 	 * OK. This app_type is configured.
 	 */
 	if (app->is_config && app->dereg_drv_callback) {
-		handle->drv_notify = NULL;
 		app->dereg_drv_callback(handle);
-		memcpy(&app->drv_hdlr,
-			handle, sizeof(struct mddp_drv_handle_t));
-		mddp_sm_on_event(app, MDDP_EVT_DRV_DEREGHDLR);
+		memset(&app->drv_hdlr,
+			0, sizeof(struct mddp_drv_handle_t));
+		app->drv_reg = 0;
 		return;
 	}
 

@@ -27,9 +27,7 @@ enum mddp_state_e {
 	MDDP_STATE_ACTIVATED,
 	MDDP_STATE_DEACTIVATING,
 	MDDP_STATE_DISABLING,
-	MDDP_STATE_DRV_DISABLING,
-	MDDP_STATE_WAIT_DRV_REG,
-	MDDP_STATE_WAIT_ENABLE,
+	MDDP_STATE_DISABLED,
 
 	MDDP_STATE_CNT,
 	MDDP_STATE_DUMMY = 0x7fff /* Make it a 2-byte enum. */
@@ -49,25 +47,12 @@ struct mddp_drv_conf_t {
 	enum mddp_app_type_e app_type;
 };
 
-enum mddp_drv_notify_type_e {
-	MDDP_DRV_NOTIFY_DISABLE = 0,
-
-	MDDP_DRV_NOTIFY_CNT,
-	MDDP_DRV_NOTIFY_DUMMY = 0x7fff /* Mark it a 2-byte enum */
-};
-
 typedef int32_t (*drv_cbf_change_state_t)(
 	enum mddp_state_e state, void *buf, uint32_t *buf_len);
-typedef int32_t (*mddp_cbf_drv_notify_t)(
-	enum mddp_app_type_e app_type,
-	enum mddp_drv_notify_type_e notify_type);
 
 struct mddp_drv_handle_t {
 	/* MDDP invokes these APIs provided by driver. */
 	drv_cbf_change_state_t          change_state;
-
-	/* Driver invokes these APIs provided by MDDP. */
-	mddp_cbf_drv_notify_t           drv_notify;
 
 	/* Application layer handler. */
 	union {
