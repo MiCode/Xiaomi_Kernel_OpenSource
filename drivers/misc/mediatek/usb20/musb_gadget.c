@@ -1324,7 +1324,7 @@ static void fifo_setup(struct musb *musb, struct musb_ep *musb_ep)
 
 	/* Set double buffer, if the transfer type is bulk or isoc. */
 	/* So user need to take care the fifo buffer is enough or not. */
-	if (musb_ep->fifo_mode == MUSB_BUF_DOUBLE
+	if (musb_ep->fifo_mode == BUF_DOUBLE
 	    && (musb_ep->type == USB_ENDPOINT_XFER_BULK
 		|| musb_ep->type == USB_ENDPOINT_XFER_ISOC)) {
 
@@ -1335,7 +1335,7 @@ static void fifo_setup(struct musb *musb, struct musb_ep *musb_ep)
 	if (dbuffer_needed) {
 		if ((musb->fifo_addr + (maxpacket << 1)) > (musb->fifo_size)) {
 			DBG(0,
-				"MUSB_BUF_DOUBLE USB FIFO is not enough!!! (%d>%d), fifo_addr=%d\n",
+				"BUF_DOUBLE USB FIFO is not enough!!! (%d>%d), fifo_addr=%d\n",
 			    (musb->fifo_addr + (maxpacket << 1)),
 			    (musb->fifo_size),
 			    musb->fifo_addr);
@@ -1354,7 +1354,7 @@ static void fifo_setup(struct musb *musb, struct musb_ep *musb_ep)
 			c_size |= MUSB_FIFOSZ_DPB;
 		}
 	} else if ((musb->fifo_addr + maxpacket) > (musb->fifo_size)) {
-		DBG(0, "MUSB_BUF_SINGLE USB FIFO is not enough!!! (%d>%d)\n",
+		DBG(0, "BUF_SINGLE USB FIFO is not enough!!! (%d>%d)\n",
 		    (musb->fifo_addr + maxpacket), (musb->fifo_size));
 		return;
 	}

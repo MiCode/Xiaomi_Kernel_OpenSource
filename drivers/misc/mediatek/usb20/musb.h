@@ -16,25 +16,16 @@ enum musb_mode {
 	MUSB_OTG		/* Mini-AB connector */
 };
 
-/* add MUSB_ prefix to avoid
- * confilicts with musbfsh.h, gang
- */
-
 enum musb_fifo_style {
-	MUSB_FIFO_RXTX,
-	MUSB_FIFO_TX,
-	MUSB_FIFO_RX
-} __packed;
-
-/* add MUSB_ prefix to
- * avoid confilicts
- * with musbfsh.h, gang
- */
+	FIFO_RXTX,
+	FIFO_TX,
+	FIFO_RX
+} __attribute__ ((packed));
 
 enum musb_buf_mode {
-	MUSB_BUF_SINGLE,
-	MUSB_BUF_DOUBLE
-} __packed;
+	BUF_SINGLE,
+	BUF_DOUBLE
+} __attribute__ ((packed));
 
 enum musb_ep_mode {
 	EP_CONT,

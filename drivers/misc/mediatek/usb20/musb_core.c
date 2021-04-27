@@ -673,7 +673,7 @@ EXPORT_SYMBOL_GPL(musb_hnp_stop);
  * @param power
  */
 static struct musb_fifo_cfg ep0_cfg = {
-	.style = MUSB_FIFO_RXTX, .maxpacket = 64, .ep_mode = EP_CONT,
+	.style = FIFO_RXTX, .maxpacket = 64, .ep_mode = EP_CONT,
 };
 
 static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb, u8 devctl)
@@ -1550,7 +1550,7 @@ static int fifo_setup(struct musb *musb, struct musb_hw_ep *hw_ep,
 
 	c_size = size - 3;
 #ifdef NEVER
-	if (cfg->mode == MUSB_BUF_DOUBLE) {
+	if (cfg->mode == BUF_DOUBLE) {
 		if ((offset + (maxpacket << 1)) > (musb->fifo_size))
 			return -EMSGSIZE;
 		c_size |= MUSB_FIFOSZ_DPB;
@@ -1562,7 +1562,7 @@ static int fifo_setup(struct musb *musb, struct musb_hw_ep *hw_ep,
 #endif
 
 	switch (cfg->style) {
-	case MUSB_FIFO_TX:
+	case FIFO_TX:
 		DBG(1, "Tx ep:%d fifo size:%d fifo address:%x\n",
 			hw_ep->epnum, maxpacket, c_off);
 		/* musb_write_txfifosz(mbase, c_size); */
@@ -1572,7 +1572,7 @@ static int fifo_setup(struct musb *musb, struct musb_hw_ep *hw_ep,
 		hw_ep->ep_in.fifo_size = maxpacket;
 		hw_ep->ep_in.fifo_mode = cfg->mode;
 		break;
-	case MUSB_FIFO_RX:
+	case FIFO_RX:
 		DBG(1, "Rx ep:%d fifo size:%d fifo address:%x\n"
 			, hw_ep->epnum, maxpacket, c_off);
 		/* musb_write_rxfifosz(mbase, c_size); */
@@ -1582,7 +1582,7 @@ static int fifo_setup(struct musb *musb, struct musb_hw_ep *hw_ep,
 		hw_ep->ep_out.fifo_size = maxpacket;
 		hw_ep->ep_out.fifo_mode = cfg->mode;
 		break;
-	case MUSB_FIFO_RXTX:
+	case FIFO_RXTX:
 		/* musb_write_txfifosz(mbase, c_size); */
 		/* musb_write_txfifoadd(mbase, c_off); */
 		hw_ep->rx_double_buffered = !!(c_size & MUSB_FIFOSZ_DPB);
@@ -1677,7 +1677,7 @@ static int fifo_setup_for_host(struct musb *musb, struct musb_hw_ep *hw_ep,
 	maxpacket = 1 << size;
 
 	c_size = size - 3;
-	if (cfg->mode == MUSB_BUF_DOUBLE) {
+	if (cfg->mode == BUF_DOUBLE) {
 		if ((offset + (maxpacket << 1)) > (musb->fifo_size))
 			return -EMSGSIZE;
 		c_size |= MUSB_FIFOSZ_DPB;
@@ -1688,7 +1688,7 @@ static int fifo_setup_for_host(struct musb *musb, struct musb_hw_ep *hw_ep,
 	musb_writeb(mbase, MUSB_INDEX, hw_ep->epnum);
 
 	switch (cfg->style) {
-	case MUSB_FIFO_TX:
+	case FIFO_TX:
 		DBG(4, "Tx ep %d fifo size is %d fifo address is %x\n",
 			hw_ep->epnum, c_size, c_off);
 		musb_write_txfifosz(mbase, c_size);
@@ -1696,7 +1696,7 @@ static int fifo_setup_for_host(struct musb *musb, struct musb_hw_ep *hw_ep,
 		hw_ep->tx_double_buffered = !!(c_size & MUSB_FIFOSZ_DPB);
 		hw_ep->max_packet_sz_tx = maxpacket;
 		break;
-	case MUSB_FIFO_RX:
+	case FIFO_RX:
 		DBG(4, "Rx ep %d fifo size is %d fifo address is %x\n",
 			hw_ep->epnum, c_size, c_off);
 		musb_write_rxfifosz(mbase, c_size);
@@ -1704,7 +1704,7 @@ static int fifo_setup_for_host(struct musb *musb, struct musb_hw_ep *hw_ep,
 		hw_ep->rx_double_buffered = !!(c_size & MUSB_FIFOSZ_DPB);
 		hw_ep->max_packet_sz_rx = maxpacket;
 		break;
-	case MUSB_FIFO_RXTX:
+	case FIFO_RXTX:
 		musb_write_txfifosz(mbase, c_size);
 		musb_write_txfifoadd(mbase, c_off);
 		hw_ep->rx_double_buffered = !!(c_size & MUSB_FIFOSZ_DPB);
