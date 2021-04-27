@@ -91,9 +91,19 @@ struct mtk_addon_rsz_config {
 	uint8_t lc_tgt_layer;
 };
 
+struct mtk_addon_wdma_config {
+	struct mtk_addon_config_type config_type;
+	struct mtk_rect wdma_src_roi;
+	struct mtk_rect wdma_dst_roi;
+	u32 addr;
+	struct drm_framebuffer *fb;
+	struct golden_setting_context *p_golden_setting_context;
+};
+
 union mtk_addon_config {
 	struct mtk_addon_config_type config_type;
 	struct mtk_addon_rsz_config addon_rsz_config;
+	struct mtk_addon_wdma_config addon_wdma_config;
 };
 
 const struct mtk_addon_path_data *

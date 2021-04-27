@@ -247,6 +247,7 @@ enum mtk_ddp_io_cmd {
 	DSI_LFR_SET,
 	DSI_LFR_UPDATE,
 	DSI_LFR_STATUS_CHECK,
+	WDMA_WRITE_DST_ADDR0,
 };
 
 struct golden_setting_context {

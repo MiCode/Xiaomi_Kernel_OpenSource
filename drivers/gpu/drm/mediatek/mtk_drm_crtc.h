@@ -472,6 +472,17 @@ enum CRTC_DDP_PATH {
 	DDP_PATH_NR,
 };
 
+/**
+ * enum CWB_BUFFER_TYPE - user want to use buffer type
+ * @IMAGE_ONLY: u8 *image
+ * @CARRY_METADATA: struct user_cwb_buffer
+ */
+enum CWB_BUFFER_TYPE {
+	IMAGE_ONLY,
+	CARRY_METADATA,
+	BUFFER_TYPE_NR,
+};
+
 struct mtk_crtc_path_data {
 	const enum mtk_ddp_comp_id *path[DDP_MODE_NR][DDP_PATH_NR];
 	unsigned int path_len[DDP_MODE_NR][DDP_PATH_NR];
@@ -534,6 +545,71 @@ struct disp_ccorr_config {
 	int mode;
 	int color_matrix[16];
 	bool featureFlag;
+};
+
+struct user_cwb_image {
+	u8 *image;
+	int width, height;
+};
+
+struct user_cwb_metadata {
+	unsigned long long timestamp;
+	unsigned int frameIndex;
+};
+
+struct user_cwb_buffer {
+	struct user_cwb_image data;
+	struct user_cwb_metadata meta;
+};
+
+struct mtk_cwb_buffer_info {
+	struct mtk_rect dst_roi;
+	u32 addr_mva;
+	u64 addr_va;
+	struct drm_framebuffer *fb;
+	unsigned long long timestamp;
+};
+
+struct mtk_cwb_funcs {
+	/**
+	 * @get_buffer:
+	 *
+	 * This function is optional.
+	 *
+	 * If user hooks this callback, driver will use this first when
+	 * wdma irq is arrived. (capture done)
+	 * User need fill buffer address to *buffer.
+	 *
+	 * If user not hooks this callback driver will confirm whether
+	 * mtk_wdma_capture_info->user_buffer is NULL or not.
+	 * User can use setUserBuffer() assigned this param.
+	 */
+	void (*get_buffer)(void **buffer);
+
+	/**
+	 * @copy_done:
+	 *
+	 * When Buffer copy done will be use this callback to notify user.
+	 */
+	void (*copy_done)(void *buffer, enum CWB_BUFFER_TYPE type);
+};
+
+struct mtk_cwb_info {
+	unsigned int enable;
+
+	struct mtk_rect src_roi;
+	unsigned int count;
+	bool is_sec;
+
+	unsigned int buf_idx;
+	struct mtk_cwb_buffer_info buffer[2];
+
+	enum addon_scenario scn;
+	struct mtk_ddp_comp *comp;
+
+	void *user_buffer;
+	enum CWB_BUFFER_TYPE type;
+	const struct mtk_cwb_funcs *funcs;
 };
 
 /**
@@ -643,6 +719,12 @@ struct mtk_drm_crtc {
 	wait_queue_head_t sf_present_fence_wq;
 	struct task_struct *sf_pf_release_thread;
 	atomic_t sf_pf_event;
+
+	/*capture write back ctx*/
+	struct mtk_cwb_info *cwb_info;
+	struct task_struct *cwb_task;
+	wait_queue_head_t cwb_wq;
+	atomic_t cwb_task_active;
 };
 
 struct mtk_crtc_state {
