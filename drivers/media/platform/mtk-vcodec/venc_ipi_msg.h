@@ -109,6 +109,10 @@ enum venc_set_param_type {
 	VENC_SET_PARAM_SEC_MODE,
 	VENC_SET_PARAM_TSVC,
 	VENC_SET_PARAM_NONREFPFREQ,
+	VENC_SET_PARAM_ADJUST_MAX_QP,
+	VENC_SET_PARAM_ADJUST_MIN_QP,
+	VENC_SET_PARAM_ADJUST_I_P_QP_DELTA,
+	VENC_SET_PARAM_ADJUST_FRAME_LEVEL_QP,
 };
 
 /**
@@ -220,6 +224,9 @@ struct venc_ap_ipi_msg_enc {
 	__s16 bs_fd;
 	__u8 fb_num_planes;
 	__u8 bs_mode;
+	__u32 meta_size;
+	__s16 meta_fd;
+	__u32 qpmap;
 };
 
 /**
@@ -405,6 +412,11 @@ struct venc_vcu_config {
 	__u32 b_qp;
 	__u32 svp_mode;
 	__u32 tsvc;
+	__u32 max_qp;
+	__u32 min_qp;
+	__u32 i_p_qp_delta;
+	__u32 qp_control_mode;
+	__u32 frame_level_qp;
 };
 
 /**
@@ -441,6 +453,7 @@ struct venc_info {
 	__u32 index;
 	__u64 timestamp;
 	__u32 roimap;
+	__u32 qpmap;
 };
 
 /**

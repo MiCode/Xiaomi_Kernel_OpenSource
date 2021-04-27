@@ -96,6 +96,7 @@ struct temp_job {
 	int visible_width; /* temp usage only, will use kcy */
 	int visible_height; /* temp usage only, will use kcy */
 	int operation_rate;
+	int bitratemode;
 	long long submit;
 	int kcy;
 	struct temp_job *next;
@@ -511,7 +512,10 @@ void mtk_venc_dvfs_begin(struct temp_job **job_list)
 			else /* H.264 */
 				idx = 2;
 		} else {
-			idx = 0;
+			if (job->bitratemode == 1) /* CBR */
+				idx = 1;
+			else
+				idx = 0;
 		}
 	} else {
 		idx = 0;
@@ -525,6 +529,9 @@ void mtk_venc_dvfs_begin(struct temp_job **job_list)
 
 	if (job->format == V4L2_PIX_FMT_HEIF)
 		idx = 3;
+
+	mtk_v4l2_debug(2, "[Debug] freq idx %d (%d, %d, %d)",
+		idx, area, job->operation_rate, job->bitratemode);
 
 	venc_req_freq[job->module] = venc_freq_map[idx];
 	venc_freq = venc_req_freq[0];
@@ -784,8 +791,11 @@ void mtk_venc_pmqos_gce_flush(struct mtk_vcodec_ctx *ctx, int core_id,
 		frame_rate = ctx->enc_params.framerate_num /
 				ctx->enc_params.framerate_denom;
 	}
-	if (job != NULL)
+
+	if (job != NULL) {
 		job->operation_rate = frame_rate;
+		job->bitratemode = ctx->enc_params.bitratemode;
+	}
 
 	if (job_cnt == 0) {
 		// Adjust dvfs immediately
