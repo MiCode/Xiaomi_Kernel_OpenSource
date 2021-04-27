@@ -262,7 +262,8 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) mtk_dump_reg(comp);
 
 	//addon from CWB
-	if (mtk_crtc->cwb_info && mtk_crtc->cwb_info->enable) {
+	if (mtk_crtc->cwb_info && mtk_crtc->cwb_info->enable
+		&& !mtk_crtc->cwb_info->is_sec) {
 		addon_data = mtk_addon_get_scenario_data(__func__, crtc,
 						mtk_crtc->cwb_info->scn);
 		mtk_drm_crtc_addon_dump(crtc, addon_data);
@@ -381,7 +382,8 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 		mtk_dump_analysis(comp);
 
 	//addon from CWB
-	if (mtk_crtc->cwb_info && mtk_crtc->cwb_info->enable) {
+	if (mtk_crtc->cwb_info && mtk_crtc->cwb_info->enable
+		&& !mtk_crtc->cwb_info->is_sec) {
 		addon_data = mtk_addon_get_scenario_data(__func__, crtc,
 						mtk_crtc->cwb_info->scn);
 		mtk_drm_crtc_addon_analysis(crtc, addon_data);
@@ -5190,6 +5192,27 @@ static u64 mtk_crtc_secure_port_lookup(struct mtk_ddp_comp *comp)
 	return ret;
 }
 
+static u64 mtk_crtc_secure_dapc_lookup(struct mtk_ddp_comp *comp)
+{
+	u64 ret = 0;
+
+	if (!comp)
+		return ret;
+
+	switch (comp->id) {
+	case DDP_COMPONENT_WDMA0:
+		ret = 1L << CMDQ_SEC_DISP_WDMA0;
+		break;
+	case DDP_COMPONENT_WDMA1:
+		ret = 1L << CMDQ_SEC_DISP_WDMA1;
+		break;
+	default:
+		ret = 0;
+	}
+
+	return ret;
+}
+
 void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 {
 	struct cmdq_pkt *cmdq_handle;
@@ -5197,6 +5220,7 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 	struct mtk_ddp_comp *comp = NULL;
 	u32 sec_disp_type, idx = drm_crtc_index(crtc);
 	u64 sec_disp_port;
+	u64 sec_disp_dapc = 0;
 
 	comp = mtk_ddp_comp_request_output(mtk_crtc);
 
@@ -5209,6 +5233,8 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 			CMDQ_SEC_DISP_SUB_DISABLE_SECURE_PATH;
 		sec_disp_port = (idx == 1) ? 0 :
 			mtk_crtc_secure_port_lookup(comp);
+		sec_disp_dapc = (idx == 1) ? 0 :
+			mtk_crtc_secure_dapc_lookup(comp);
 	}
 	DDPINFO("%s+ crtc%d\n", __func__, drm_crtc_index(crtc));
 	mtk_crtc_pkt_create(&cmdq_handle, crtc,
@@ -5220,10 +5246,13 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 
 	/* Disable secure path */
 	cmdq_sec_pkt_set_data(cmdq_handle,
-		0,
+		sec_disp_dapc,
 		sec_disp_port,
 		sec_disp_type,
 		CMDQ_METAEX_NONE);
+
+	if (idx == 2)
+		mtk_ddp_comp_io_cmd(comp, cmdq_handle, IRQ_LEVEL_ALL, NULL);
 
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
@@ -5252,6 +5281,7 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 	#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		u32 sec_disp_type, idx = drm_crtc_index(crtc);
 		u64 sec_disp_port;
+		u64 sec_disp_dapc = 0;
 		struct mtk_ddp_comp *comp = NULL;
 
 		comp = mtk_ddp_comp_request_output(mtk_crtc);
@@ -5263,8 +5293,13 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 			sec_disp_type = CMDQ_SEC_SUB_DISP;
 			sec_disp_port = (idx == 1) ? 0 :
 				mtk_crtc_secure_port_lookup(comp);
+			sec_disp_dapc = (idx == 1) ? 0 :
+				mtk_crtc_secure_dapc_lookup(comp);
+			if (idx == 2)
+				mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+						IRQ_LEVEL_IDLE, NULL);
 		}
-		cmdq_sec_pkt_set_data(cmdq_handle, 0,
+		cmdq_sec_pkt_set_data(cmdq_handle, sec_disp_dapc,
 			sec_disp_port, sec_disp_type,
 			CMDQ_METAEX_NONE);
 	#endif
