@@ -6,7 +6,7 @@
 #ifndef _SHARE_MEMORY_H_
 #define _SHARE_MEMORY_H_
 
-#include "scp_helper.h"
+#include "scp.h"
 
 struct share_mem_data {
 	uint8_t sensor_type;

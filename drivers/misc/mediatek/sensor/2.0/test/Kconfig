@@ -1,0 +1,8 @@
+config MTK_HF_TEST_CASE
+	bool "high frequency manager test demo for MediaTek package"
+	default n
+	help
+	  It support high frequency manager test demo.
+	  If this option is set,
+	  it will support
+	  high frequency manager test demo.

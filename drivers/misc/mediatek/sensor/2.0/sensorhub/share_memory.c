@@ -15,7 +15,6 @@
 #include "share_memory.h"
 #include "hf_sensor_type.h"
 
-#define SHARE_MEM_FULL_THRESHOLD_SCALE 0.8
 
 struct share_mem_config_handle {
 	int (*handler)(struct share_mem_config *cfg, void *private_data);
@@ -292,7 +291,7 @@ int share_mem_init(struct share_mem *shm, struct share_mem_config *cfg)
 		shm->buffer_full_written = 0;
 		shm->buffer_full_threshold =
 			((uint32_t)(((cfg->base->buffer_size - shm->item_size) /
-			shm->item_size) * SHARE_MEM_FULL_THRESHOLD_SCALE)) *
+			shm->item_size) * 8 / 10)) *
 			shm->item_size;
 		if (shm->buffer_full_threshold <= shm->item_size) {
 			ret = -EINVAL;

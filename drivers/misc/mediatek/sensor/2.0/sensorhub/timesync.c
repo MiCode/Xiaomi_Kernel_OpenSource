@@ -20,7 +20,7 @@
 static bool timesync_suspend_flag;
 static struct timer_list timesync_timer;
 static struct work_struct timesync_work;
-static struct wakeup_source wakeup_src;
+static struct wakeup_source *wakeup_src;
 
 /* arch counter is 13M, mult is 161319385, shift is 21 */
 static inline int64_t arch_counter_to_ns(int64_t cyc)
@@ -89,8 +89,8 @@ static int timesync_comm_with_nolock(void)
 	time = (struct sensor_comm_timesync *)ctrl->data;
 
 	local_irq_save(flags);
-	now_time = ktime_get_boot_ns();
-	arch_counter = arch_counter_get_cntvct();
+	now_time = ktime_get_boottime_ns();
+	arch_counter = __arch_counter_get_cntvct();
 	local_irq_restore(flags);
 	pr_info("host boottime %lld\n", now_time);
 
@@ -109,9 +109,9 @@ static int timesync_comm_with(void)
 	if (READ_ONCE(timesync_suspend_flag))
 		return 0;
 
-	__pm_stay_awake(&wakeup_src);
+	__pm_stay_awake(wakeup_src);
 	ret = timesync_comm_with_nolock();
-	__pm_relax(&wakeup_src);
+	__pm_relax(wakeup_src);
 	return ret;
 }
 
@@ -120,7 +120,7 @@ static void timesync_work_func(struct work_struct *work)
 	timesync_comm_with();
 }
 
-static void timesync_timer_func(unsigned long data)
+static void timesync_timer_func(struct timer_list *list)
 {
 	schedule_work(&timesync_work);
 	timesync_start();
@@ -133,14 +133,16 @@ void timesync_filter_set(struct timesync_filter *filter,
 	int64_t host_timestamp = 0, host_archcounter = 0;
 	int64_t ipi_transfer_time = 0;
 
-	if (!timekeeping_rtc_skipresume()) {
-		if (READ_ONCE(timesync_suspend_flag))
-			return;
-	}
+	/*
+	 *if (!timekeeping_rtc_skipresume()) {
+	 *	if (READ_ONCE(timesync_suspend_flag))
+	 *		return;
+	 *}
+	*/
 
 	local_irq_save(flags);
-	host_timestamp = ktime_get_boot_ns();
-	host_archcounter = arch_counter_get_cntvct();
+	host_timestamp = ktime_get_boottime_ns();
+	host_archcounter = __arch_counter_get_cntvct();
 	local_irq_restore(flags);
 	ipi_transfer_time = arch_counter_to_ns(host_archcounter -
 		scp_archcounter);
@@ -196,28 +198,33 @@ void timesync_stop(void)
 
 void timesync_resume(void)
 {
-	pr_info("host resume boottime %lld\n", ktime_get_boot_ns());
+	pr_info("host resume boottime %lld\n", ktime_get_boottime_ns());
 	WRITE_ONCE(timesync_suspend_flag, false);
 	timesync_comm_with();
 }
 
 void timesync_suspend(void)
 {
-	pr_info("host suspend boottime %lld\n", ktime_get_boot_ns());
+	pr_info("host suspend boottime %lld\n", ktime_get_boottime_ns());
 	WRITE_ONCE(timesync_suspend_flag, true);
 }
 
 int timesync_init(void)
 {
 	INIT_WORK(&timesync_work, timesync_work_func);
-	timesync_timer.function = timesync_timer_func;
-	init_timer(&timesync_timer);
-	wakeup_source_init(&wakeup_src, "timesync");
+	timer_setup(&timesync_timer, timesync_timer_func, 0);
+	wakeup_src = wakeup_source_register(NULL, "timesync");
+	if (!wakeup_src) {
+		pr_err("timesync wakeup source init fail\n");
+		return -ENOMEM;
+	}
+
 	return 0;
 }
 
 void timesync_exit(void)
 {
 	timesync_stop();
+	wakeup_source_unregister(wakeup_src);
 	flush_work(&timesync_work);
 }

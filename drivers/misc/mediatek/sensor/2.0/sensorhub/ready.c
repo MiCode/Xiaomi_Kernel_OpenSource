@@ -8,8 +8,8 @@
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
 
+#include "scp.h"
 #include "hf_sensor_type.h"
-#include "scp_helper.h"
 #include "sensor_comm.h"
 #include "ready.h"
 

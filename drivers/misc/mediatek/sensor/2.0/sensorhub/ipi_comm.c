@@ -11,10 +11,8 @@
 #include <linux/completion.h>
 #include <linux/delay.h>
 
+#include "scp.h"
 #include "ipi_comm.h"
-#include "scp_ipi_pin.h"
-#include "scp_mbox_layout.h"
-#include "mt-plat/mtk_tinysys_ipi.h"
 
 struct ipi_controller {
 	spinlock_t lock;

@@ -55,7 +55,7 @@ struct transceiver_device {
 	struct share_mem_data shm_buffer[8];
 	struct share_mem shm_super_reader;
 	struct share_mem_super_data shm_super_buffer[4];
-	struct wakeup_source wakeup_src;
+	struct wakeup_source *wakeup_src;
 	int64_t raw_ts_reverse_debug[SENSOR_TYPE_SENSOR_MAX];
 	int64_t comp_ts_reverse_debug[SENSOR_TYPE_SENSOR_MAX];
 
@@ -230,7 +230,7 @@ static void transceiver_report(struct transceiver_device *dev,
 	do {
 		if (action != FLUSH_ACTION) {
 			if (need_wakeup)
-				__pm_wakeup_event(&dev->wakeup_src, 250);
+				__pm_wakeup_event(dev->wakeup_src, 250);
 			ret = manager->report(manager, event);
 		} else {
 			/*
@@ -812,7 +812,12 @@ static int __init transceiver_init(void)
 	mutex_init(&dev->enable_lock);
 	mutex_init(&dev->flush_lock);
 	mutex_init(&dev->config_lock);
-	wakeup_source_init(&dev->wakeup_src, "trans_data");
+	dev->wakeup_src = wakeup_source_register(NULL, "trans_data");
+	if (!dev->wakeup_src) {
+		pr_err("trans_data wakeup source register fail\n");
+		return -ENOMEM;
+	}
+
 	atomic_set(&dev->first_bootup, true);
 
 	memset(&dev->hf_dev, 0, sizeof(dev->hf_dev));
@@ -925,6 +930,7 @@ out_sensor_comm:
 	sensor_comm_exit();
 out_device:
 	hf_device_unregister(&dev->hf_dev);
+	wakeup_source_unregister(dev->wakeup_src);
 	return ret;
 }
 
@@ -948,6 +954,7 @@ static void __exit transceiver_exit(void)
 	host_ready_exit();
 	sensor_comm_exit();
 	hf_device_unregister(&dev->hf_dev);
+	wakeup_source_unregister(dev->wakeup_src);
 	transceiver_destroy_manager(dev);
 }
 
