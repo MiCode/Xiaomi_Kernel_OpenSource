@@ -353,7 +353,10 @@
 			compatible = "arm,cortex-a55";
 			reg = <0x0000>;
 			enable-method = "psci";
+			performance-domains = <&performance 0>;
 			clock-frequency = <1701000000>;
+			capacity-dmips-mhz = <230>;
+			#cooling-cells = <2>;
 		};
 
 		cpu1: cpu@001 {
@@ -361,7 +364,10 @@
 			compatible = "arm,cortex-a55";
 			reg = <0x0100>;
 			enable-method = "psci";
+			performance-domains = <&performance 0>;
 			clock-frequency = <1701000000>;
+			capacity-dmips-mhz = <230>;
+			#cooling-cells = <2>;
 		};
 
 		cpu2: cpu@002 {
@@ -369,7 +375,10 @@
 			compatible = "arm,cortex-a55";
 			reg = <0x0200>;
 			enable-method = "psci";
+			performance-domains = <&performance 0>;
 			clock-frequency = <1701000000>;
+			capacity-dmips-mhz = <230>;
+			#cooling-cells = <2>;
 		};
 
 		cpu3: cpu@003 {
@@ -377,7 +386,10 @@
 			compatible = "arm,cortex-a55";
 			reg = <0x0300>;
 			enable-method = "psci";
+			performance-domains = <&performance 0>;
 			clock-frequency = <1701000000>;
+			capacity-dmips-mhz = <230>;
+			#cooling-cells = <2>;
 		};
 
 		cpu-map {
@@ -834,11 +846,15 @@
 		compatible = "simple-bus";
 		ranges;
 
-		cpufreq_hw: cpufreq@0011bc00 {
+		performance: performance-controller@0011bc00 {
 			compatible = "mediatek,cpufreq-hw";
-			reg = <0 0x0011bc10 0 0x460>, <0 0x0011bca0 0 0x460>;
-			reg-names = "freq-domain0", "freq-domain1";
-			#freq-domain-cells = <1>;
+			reg = <0 0x0011bc10 0 0x120>,
+					<0 0x0011bd30 0 0x120>,
+					<0 0x0011be50 0 0x120>;
+			reg-names = "performance-domain0",
+						"performance-domain1",
+						"performance-domain2";
+			#performance-domain-cells = <1>;
 		};
 
 		dvfsp: dvfsp@0011bc00 {
