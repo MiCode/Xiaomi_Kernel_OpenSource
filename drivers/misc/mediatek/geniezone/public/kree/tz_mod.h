@@ -71,6 +71,7 @@ struct kree_tee_service_cmd_param {
 	uint32_t command;
 	uint32_t paramTypes;
 	uint64_t param;
+	int32_t cpumask;
 };
 
 /* param for shared memory */

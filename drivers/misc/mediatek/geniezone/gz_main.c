@@ -33,7 +33,6 @@
 #include <tz_cross/ta_test.h>
 #include <tz_cross/trustzone.h>
 #include <linux/vmalloc.h>
-#include <linux/compat.h>
 
 #include "gz_main.h"
 #include "mtee_ut/gz_ut.h"
@@ -112,6 +111,11 @@ static ssize_t gz_test_store(struct device *dev,
 	char tmp[50];
 	char c;
 	struct task_struct *th;
+
+	if (n > 50) {
+		KREE_DEBUG("err: n > 50\n");
+		return n;
+	}
 
 	strncpy(tmp, buf, 1);
 	tmp[n - 1] = '\0';
@@ -861,10 +865,8 @@ static long tz_client_tee_service(struct file *file, unsigned long arg,
 		}
 	}
 
-	KREE_SESSION_LOCK(handle);
-	ret = KREE_TeeServiceCall(handle, cparam.command, cparam.paramTypes,
-			param);
-	KREE_SESSION_UNLOCK(handle);
+	ret = KREE_TeeServiceCallPlus(handle, cparam.command, cparam.paramTypes,
+				      param, cparam.cpumask);
 
 	cparam.ret = ret;
 	tmpTypes = cparam.paramTypes;
@@ -1238,6 +1240,8 @@ TZ_RESULT gz_manual_adjust_trusty_wq_attr(char __user *user_req)
 		manual_task_attr.mask[TRUSTY_TASK_CHK_ID],
 		manual_task_attr.pri[TRUSTY_TASK_CHK_ID]);
 
+	tipc_set_default_cpumask(manual_task_attr.mask[TRUSTY_TASK_KICK_ID]);
+
 	return gz_adjust_task_attr(&manual_task_attr);
 }
 
@@ -1444,7 +1448,6 @@ static int __init gz_init(void)
 		KREE_DEBUG("create sysfs failed: %d\n", res);
 	} else {
 		struct task_struct *gz_get_cpuinfo_task;
-		struct task_struct *ree_dummy_task;
 
 		gz_get_cpuinfo_task =
 		    kthread_create(gz_get_cpuinfo_thread, NULL,
@@ -1455,17 +1458,6 @@ static int __init gz_init(void)
 			res = PTR_ERR(gz_get_cpuinfo_task);
 		} else
 			wake_up_process(gz_get_cpuinfo_task);
-
-		ree_dummy_task =
-		kthread_create(ree_dummy_thread, NULL, "ree_dummy_task");
-		if (IS_ERR(ree_dummy_task)) {
-			KREE_ERR("Unable to start kernel thread %s\n",
-				__func__);
-			res = PTR_ERR(ree_dummy_task);
-		} else {
-			set_user_nice(ree_dummy_task, -20);
-			wake_up_process(ree_dummy_task);
-		}
 	}
 
 #if enable_code

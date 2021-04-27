@@ -86,6 +86,20 @@ TZ_RESULT KREE_CreateSessionWithTag(const char *ta_uuid,
  */
 TZ_RESULT KREE_CloseSession(KREE_SESSION_HANDLE handle);
 
+/**
+ * Make a TEE service call and schedule on a CPU mask
+ *
+ * @param handle      Session handle to make the call
+ * @param command     The command to call.
+ * @param paramTypes  Types for the parameters, use TZ_ParamTypes() to
+ * consturct.
+ * @param param       The parameters to pass to TEE. Maximum 4 params.
+ * @param cpumask     CPU mask.
+ * @return            Return value from TEE service.
+ */
+TZ_RESULT KREE_TeeServiceCallPlus(KREE_SESSION_HANDLE handle, uint32_t command,
+				   uint32_t paramTypes, union MTEEC_PARAM param[4],
+				   int32_t cpumask);
 
 /**
  * Make a TEE service call
