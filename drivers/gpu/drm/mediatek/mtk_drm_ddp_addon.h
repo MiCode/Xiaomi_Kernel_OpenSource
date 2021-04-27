@@ -40,6 +40,7 @@ enum addon_module {
 enum addon_type {
 	ADDON_BETWEEN,
 	ADDON_BEFORE,
+	ADDON_AFTER,
 };
 
 struct mtk_lye_ddp_state {
@@ -115,6 +116,14 @@ void mtk_addon_connect_before(struct drm_crtc *crtc, unsigned int ddp_mode,
 			      union mtk_addon_config *addon_config,
 			      struct cmdq_pkt *cmdq_handle);
 void mtk_addon_disconnect_before(
+	struct drm_crtc *crtc, unsigned int ddp_mode,
+	const struct mtk_addon_module_data *module_data,
+	union mtk_addon_config *addon_config, struct cmdq_pkt *cmdq_handle);
+void mtk_addon_connect_after(struct drm_crtc *crtc, unsigned int ddp_mode,
+			      const struct mtk_addon_module_data *module_data,
+			      union mtk_addon_config *addon_config,
+			      struct cmdq_pkt *cmdq_handle);
+void mtk_addon_disconnect_after(
 	struct drm_crtc *crtc, unsigned int ddp_mode,
 	const struct mtk_addon_module_data *module_data,
 	union mtk_addon_config *addon_config, struct cmdq_pkt *cmdq_handle);
