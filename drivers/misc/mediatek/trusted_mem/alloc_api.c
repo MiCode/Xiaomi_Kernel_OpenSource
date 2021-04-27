@@ -83,6 +83,15 @@ int trusted_mem_api_alloc_zero(enum TRUSTED_MEM_REQ_TYPE mem_type,
 }
 EXPORT_SYMBOL(trusted_mem_api_alloc_zero);
 
+int trusted_mem_api_query_pa(enum TRUSTED_MEM_REQ_TYPE mem_type, u32 alignment,
+			      u32 size, u32 *refcount, u32 *sec_handle,
+			      u8 *owner, u32 id, u32 clean, uint64_t *phy_addr)
+{
+	return tmem_query_handle_to_pa(get_mem_type(mem_type), alignment, size,
+				refcount, sec_handle, owner, id, 0, phy_addr);
+}
+EXPORT_SYMBOL(trusted_mem_api_query_pa);
+
 int trusted_mem_api_unref(enum TRUSTED_MEM_REQ_TYPE mem_type, u32 sec_handle,
 			  uint8_t *owner, uint32_t id)
 {

@@ -287,6 +287,46 @@ int tmem_core_alloc_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 					      clean, true);
 }
 
+#define SECMEM_PATTERN (0x3C2D37A4)
+#define SECMEM_64BIT_PHYS_SHIFT (6)
+#define SECMEM_HANDLE_TO_PA(handle)                                            \
+	((((u64)handle) ^ SECMEM_PATTERN) << SECMEM_64BIT_PHYS_SHIFT)
+
+#define SECMEM_HANDLE_TO_PA_NO_XOR(handle)                                     \
+	((((u64)handle)) << SECMEM_64BIT_PHYS_SHIFT)
+
+#define PMEM_PATTERN (0xD1C05A97)
+#define PMEM_64BIT_PHYS_SHIFT (10)
+#define PMEM_HANDLE_TO_PA(handle)                                              \
+	(((((u64)handle) ^ PMEM_PATTERN) << PMEM_64BIT_PHYS_SHIFT)             \
+	 & ~((1 << PMEM_64BIT_PHYS_SHIFT) - 1))
+
+#define PMEM_HANDLE_TO_PA_NO_XOR(handle)                                       \
+	(((((u64)handle)) << PMEM_64BIT_PHYS_SHIFT)             \
+	 & ~((1 << PMEM_64BIT_PHYS_SHIFT) - 1))
+
+static u64 get_phy_addr_by_handle(enum TRUSTED_MEM_TYPE mem_type,
+				  u32 sec_handle)
+{
+	if (IS_ZERO(sec_handle))
+		return 0;
+
+	if (is_mtee_mchunks(mem_type))
+		return PMEM_HANDLE_TO_PA(sec_handle);
+	return SECMEM_HANDLE_TO_PA(sec_handle);
+}
+
+int tmem_query_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
+			      u32 size, u32 *refcount, u32 *sec_handle,
+			      u8 *owner, u32 id, u32 clean, uint64_t *phy_addr)
+{
+	int rc = 0;
+
+	if (!rc && VALID(phy_addr))
+		*phy_addr = get_phy_addr_by_handle(mem_type, *sec_handle);
+	return rc;
+}
+
 int tmem_core_alloc_chunk_priv(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 			       u32 size, u32 *refcount, u32 *sec_handle,
 			       u8 *owner, u32 id, u32 clean)
