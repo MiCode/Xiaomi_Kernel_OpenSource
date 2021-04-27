@@ -147,6 +147,7 @@ static int aconstrain_event_handler(struct devfreq *df,
 
 		/* restore req to default opp */
 		gov_data->req.value = gov_data->max_opp;
+		apu_dump_list(gov_data);
 
 		/* restore parent's req as default opp */
 		if (!IS_ERR_OR_NULL(parent_gov)) {

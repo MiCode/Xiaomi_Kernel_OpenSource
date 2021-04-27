@@ -14,6 +14,7 @@
 /* DEVFREQ governor name */
 #define APUGOV_USR		"apuuser"
 #define APUGOV_PASSIVE		"apupassive"
+#define APUGOV_PASSIVE_PE	"apupassive-pe"
 #define APUGOV_CONSTRAIN	"apuconstrain"
 #define APUGOV_POLL_RATE	20 /* ms */
 struct apu_dev;
@@ -21,8 +22,15 @@ struct apu_dev;
 struct apu_req {
 	struct device *dev;
 	struct list_head list;
+	int pe_flag;
 	int value;
 };
+
+struct apu_pe {
+	struct work_struct pe_work;
+	struct apu_req *req;
+};
+
 /**
  * struct apu_gov_data - void *data fed to struct devfreq
  *	and devfreq_add_device
@@ -66,14 +74,19 @@ struct apu_gov_data {
 	int threshold_opp;   /* located in child's gov */
 	int child_opp_limit; /* located in parent's gov */
 
+	/* req_parent: request hook on parent's head */
+	struct apu_req req_parent;
+
 	/*
 	 * head: use to hook child's and self reqeusts
-	 * req_parent: request hook on parent's head
 	 * req: request from user
+	 * req_pe: request for power efficiency
 	 */
 	struct list_head head;
-	struct apu_req req_parent;
 	struct apu_req req;
+
+	/* gov_pe: vote to power efficiency governor */
+	struct apu_pe gov_pe;
 
 	/*
 	 * DEVFREQ_PRECHANGE/DEVFREQ_POSTCHANGE
@@ -94,5 +107,6 @@ struct apu_gov_data *apu_gov_init(struct device *dev,
 int apu_gov_setup(struct apu_dev *ad, void *data);
 void apu_gov_unsetup(struct apu_dev *ad);
 void apu_dump_list(struct apu_gov_data *gov_data);
+void apu_dump_pe_gov(struct apu_dev *ad, struct list_head *head);
 
 #endif

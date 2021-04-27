@@ -48,6 +48,7 @@ extern struct devfreq_governor agov_composite;
 extern struct devfreq_governor agov_constrain;
 extern struct devfreq_governor agov_userspace;
 extern struct devfreq_governor agov_passive;
+extern struct devfreq_governor agov_passive_pe;
 extern struct platform_driver con_devfreq_driver;
 extern struct platform_driver core_devfreq_driver;
 extern struct platform_driver vpu_devfreq_driver;
