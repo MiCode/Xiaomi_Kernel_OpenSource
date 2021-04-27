@@ -50,6 +50,8 @@
 #define SPM_DVFS_CMD2                  (0x0718)
 #define SPM_DVFS_CMD3                  (0x071C)
 #define SPM_DVFS_CMD4                  (0x0720)
+#define SPM_DVFS_CMD7                  (0x072C)
+#define SPM_DVFS_CMD8                  (0x0730)
 #define SPM_DVFS_CMD16                 (0x0750)
 #define SPM_DVFS_CMD17                 (0x0754)
 #define SPM_DVFS_CMD18                 (0x0758)

@@ -23,7 +23,11 @@
 #elif defined(CONFIG_MACH_MT6765)
 #include <helio-dvfsrc-opp-mt6765.h>
 #elif defined(CONFIG_MACH_MT6785)
-#include <helio-dvfsrc-opp-mt6785.h>
+	#if defined(CONFIG_MTK_DVFSRC_MT6781_PRETEST)
+	#include <helio-dvfsrc-opp-v6781.h>
+	#else
+	#include <helio-dvfsrc-opp-mt6785.h>
+	#endif
 #elif defined(CONFIG_MACH_MT6885)
 #include <helio-dvfsrc-opp-mt6885.h>
 #elif defined(CONFIG_MACH_MT6873)
@@ -42,6 +46,8 @@
 #include <helio-dvfsrc-opp-mt6833.h>
 #elif defined(CONFIG_MACH_MT6877)
 #include <helio-dvfsrc-opp-v6877.h>
+#elif defined(CONFIG_MACH_MT6781)
+#include <helio-dvfsrc-opp-v6781.h>
 #else
 #include <helio-dvfsrc-opp-mt67xx.h>
 #endif
@@ -50,7 +56,7 @@
 	|| defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6765) \
 	|| defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
 	|| defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6833) \
-	|| defined(CONFIG_MACH_MT6877)
+	|| defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6781)
 struct opp_profile {
 	int vcore_uv;
 	int ddr_khz;
