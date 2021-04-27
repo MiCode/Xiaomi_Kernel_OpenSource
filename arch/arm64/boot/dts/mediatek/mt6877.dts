@@ -1652,28 +1652,9 @@
 		interrupts = <GIC_SPI 639 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	mcucfg@10200000 {
+	mcucfg@0c530000 {
 		compatible = "mediatek,mcucfg";
-		reg = <0 0x10200000 0 0x1000>;
-		interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	mcucfg@10201000 {
-		compatible = "mediatek,mcucfg";
-		reg = <0 0x10201000 0 0x1000>;
-		interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	mcucfg@10202000 {
-		compatible = "mediatek,mcucfg";
-		reg = <0 0x10202000 0 0x1000>;
-		interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	mcucfg@10203000 {
-		compatible = "mediatek,mcucfg";
-		reg = <0 0x10203000 0 0x1000>;
-		interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0 0x0c530000 0 0x10000>;
 	};
 
 	m4u@10205000 {
