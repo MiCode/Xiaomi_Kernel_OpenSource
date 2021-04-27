@@ -38,16 +38,16 @@
 #define ENTRY_EACH_LOG		5
 
 #define CSRAM_BASE	0x0011bc00
-#define CSRAM_SIZE	0x1400
 #define USRAM_BASE	0x00115400
-#define APMIXED_BASE	0x1000c20c
+#define APMIXED_BASE	0x1000c000
 #define APMIXED_SIZE	0x10
-#define MCUCFG_BASE	0x0c53a2a0
+#define MCUCFG_BASE	0x0c530000
 #define MCUCFG_SIZE	0x10
 
-#define	LL_OFF	4
-#define	L_OFF	76
-#define	CCI_OFF	148
+#define	C0_OFF	4		//L  or LL
+#define	C1_OFF	76		//BL or L
+#define	C2_OFF	148		//B  or CCI
+#define	C3_OFF	220		//CCI
 #define get_volt(offs, repo) ((repo[offs] >> 12) & 0x1FFFF)
 #define get_freq(offs, repo) ((repo[offs] & 0xFFF) * 1000)
 
@@ -61,22 +61,29 @@ u32 *g_dbg_repo;
 u32 *g_usram_repo;
 u32 *g_cpufreq_debug;
 u32 *g_phyclk;
-u32 *g_CCI_opp_idx;
-u32 *g_LL_opp_idx;
-u32 *g_L_opp_idx;
+u32 *g_C0_opp_idx;
+u32 *g_C1_opp_idx;
+u32 *g_C2_opp_idx;
+u32 *g_C3_opp_idx;
 unsigned int seq;
 
 struct pll_addr pll_addr[CLUSTER_NRS];
 
 struct pll_addr_offs pll_addr_offs[CLUSTER_NRS] = {
 	[0] = {
-		.armpll_con = 0,
-		.clkdiv_cfg = 0,
+		.armpll_con = 0x20c,
+		.clkdiv_cfg = 0xa2a0,
 	},
 	[1] = {
-		.armpll_con = 0x10,
-		.clkdiv_cfg = 0x4,
+		.armpll_con = 0x22c,
+		.clkdiv_cfg = 0xa2a4,
 	},
+#if CLUSTER_NRS>2
+	[2] = {
+		.armpll_con = 0x21c,
+		.clkdiv_cfg = 0xa2b0,
+	},
+#endif
 };
 
 static unsigned int pll_to_clk(unsigned int pll_f, unsigned int ckdiv1)
@@ -288,35 +295,57 @@ static int opp_idx_show(struct seq_file *m, void *v, u32 pos)
 
 }
 
-static int CCI_opp_idx_proc_show(struct seq_file *m, void *v)
+static int C0_opp_idx_proc_show(struct seq_file *m, void *v)
 {
-	return opp_idx_show(m, v, CCI_OFF);
+	return opp_idx_show(m, v, C0_OFF);
 }
 
-PROC_FOPS_RO(CCI_opp_idx);
+PROC_FOPS_RO(C0_opp_idx);
 
-static int LL_opp_idx_proc_show(struct seq_file *m, void *v)
+static int C1_opp_idx_proc_show(struct seq_file *m, void *v)
 {
-	return opp_idx_show(m, v, LL_OFF);
+	return opp_idx_show(m, v, C1_OFF);
 }
 
-PROC_FOPS_RO(LL_opp_idx);
+PROC_FOPS_RO(C1_opp_idx);
 
-static int L_opp_idx_proc_show(struct seq_file *m, void *v)
+static int C2_opp_idx_proc_show(struct seq_file *m, void *v)
 {
-	return opp_idx_show(m, v, L_OFF);
+	return opp_idx_show(m, v, C2_OFF);
 }
 
-PROC_FOPS_RO(L_opp_idx);
+PROC_FOPS_RO(C2_opp_idx);
+
+static int C3_opp_idx_proc_show(struct seq_file *m, void *v)
+{
+	return opp_idx_show(m, v, C3_OFF);
+}
+
+PROC_FOPS_RO(C3_opp_idx);
 
 static int phyclk_proc_show(struct seq_file *m, void *v)
 {
 	int i;
-	char *name_arr[2] = {"LL", "L"};
+	unsigned int con1;
+	unsigned int ckdiv1;
+	unsigned int freq;
+	unsigned int posdiv;
+	char *name_arr[] = {"C0", "C1", "C2"};
 
-	for (i = 0; i < CLUSTER_NRS; i++)
+	for (i = 0; i < CLUSTER_NRS; i++){
 		seq_printf(m, "cluster: %s, frequency = %d\n", name_arr[i], get_cur_phy_freq(i));
+#if 1
+		con1 = readl((void __iomem *)ioremap(pll_addr[i].reg_addr[0], 4));
+		ckdiv1 = readl((void __iomem *)ioremap(pll_addr[i].reg_addr[1], 4));
+		ckdiv1 = _GET_BITS_VAL_(21:17, ckdiv1);
+		seq_printf(m, "con1 =%u, ckdiv1 = %u\n", con1, ckdiv1);
 
+		posdiv = _GET_BITS_VAL_(26:24, con1);
+		con1 &= _BITMASK_(21:0);
+		freq = ((con1 * 26) >> 14) * 1000;
+		seq_printf(m, "con1 =%u, posdiv = %u, freq = %u\n", con1, posdiv, freq);
+#endif
+	}
 	return 0;
 }
 
@@ -337,9 +366,12 @@ static int create_cpufreq_debug_fs(void)
 		PROC_ENTRY_DATA(dbg_repo),
 		PROC_ENTRY_DATA(cpufreq_debug),
 		PROC_ENTRY_DATA(phyclk),
-		PROC_ENTRY_DATA(CCI_opp_idx),
-		PROC_ENTRY_DATA(L_opp_idx),
-		PROC_ENTRY_DATA(LL_opp_idx),
+		PROC_ENTRY_DATA(C0_opp_idx),
+		PROC_ENTRY_DATA(C1_opp_idx),
+		PROC_ENTRY_DATA(C2_opp_idx),
+#if CLUSTER_NRS>2
+		PROC_ENTRY_DATA(C3_opp_idx),
+#endif
 		PROC_ENTRY_DATA(usram_repo),
 	};
 
