@@ -44,7 +44,7 @@ config MTK_SECURE_MEM_SUPPORT
 
 config MTK_SVP_ON_MTEE_SUPPORT
 	bool "MTK SVP Secure Memory allocator on MTEE"
-	default y
+	default n
 	depends on MTK_GZ_KREE
 	help
 	  Enable the support of MediaTek SVP on MTEE.
