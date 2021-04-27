@@ -7073,7 +7073,7 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
-		suspend-method = "disable";
+		suspend-method = "enable";
 
 		logger-enable-states = "mcusysoff", "system_mem",
 					"system_pll", "system_bus";
