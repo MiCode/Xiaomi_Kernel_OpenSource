@@ -11,23 +11,18 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+#include <linux/device.h>
 #include <linux/init.h>
 #include <linux/module.h>
-#include <linux/device.h>
-#include <linux/platform_device.h>
-#include <linux/slab.h>
 #include <linux/notifier.h>
 #include <linux/of.h>
-
-#include <tcpm.h>
+#include <linux/platform_device.h>
+#include <linux/slab.h>
 #include <mt-plat/prop_chgalgo_class.h>
+#include <tcpm.h>
 
-#define PCA_PPS_TA_VERSION	"1.0.6_G"
+#define PCA_PPS_TA_VERSION	"2.0.0_G"
 #define PCA_PPS_CMD_RETRY_COUNT	2
-
-#ifndef MIN
-#define MIN(A, B) (((A) < (B)) ? (A) : (B))
-#endif
 
 struct pca_pps_desc {
 	u32 ita_min;
@@ -273,13 +268,13 @@ static int pca_pps_authenticate_ta(struct prop_chgalgo_device *pca,
 						  TCPM_POWER_CAP_APDO_TYPE_PPS,
 						  &cap_idx, &apdo_cap);
 		if (ret != TCP_DPM_RET_SUCCESS) {
-			PCA_ERR("inquire pd apdo fail(%d)\n", ret);
+			if (apdo_idx == -1)
+				PCA_ERR("inquire pd apdo fail(%d)\n", ret);
 			break;
 		}
 
-		PCA_INFO("cap_idx[%d], %d mv ~ %d mv, %d ma, pl: %d\n", cap_idx,
-			 apdo_cap.min_mv, apdo_cap.max_mv, apdo_cap.ma,
-			 apdo_cap.pwr_limit);
+		PCA_INFO("cap_idx[%d], %d mv ~ %d mv, %d ma\n", cap_idx,
+			 apdo_cap.min_mv, apdo_cap.max_mv, apdo_cap.ma);
 
 		/*
 		 * !(apdo_cap.min_mv <= data->vcap_min &&
@@ -318,8 +313,8 @@ static int pca_pps_authenticate_ta(struct prop_chgalgo_device *pca,
 					if (apdo_pps_tbl[i].max_mv <
 					    data->vta_max)
 						continue;
-					prog_mv = MIN(apdo_pps_tbl[i].prog_mv,
-						      data->vta_max);
+					prog_mv = min_t(u32 apdo_pps_tbl[i].prog_mv,
+						    data->vta_max);
 					data->pdp = prog_mv * data->ita_max /
 						    1000000;
 				}
@@ -353,7 +348,7 @@ static int pca_pps_authenticate_ta(struct prop_chgalgo_device *pca,
 		if (info->desc->force_cv)
 			data->support_cc = false;
 		PCA_INFO("select cap_idx[%d], power limit[%d,%dW]\n",
-			 cap_idx, data->pwr_lmt, data->pdp);
+			 apdo_idx, data->pwr_lmt, data->pdp);
 	} else {
 		PCA_ERR("cannot find apdo for pps algo\n");
 		return -EINVAL;
@@ -374,11 +369,6 @@ static int pca_pps_set_wdt(struct prop_chgalgo_device *pca, u32 ms)
 	return 0;
 }
 
-static struct prop_chgalgo_desc pca_ta_pps_desc = {
-	.name = "pca_ta_pps",
-	.type = PCA_DEVTYPE_TA,
-};
-
 static struct prop_chgalgo_ta_ops pca_pps_ops = {
 	.enable_charging = pca_pps_enable_charging,
 	.set_cap = pca_pps_set_cap,
@@ -391,6 +381,7 @@ static struct prop_chgalgo_ta_ops pca_pps_ops = {
 	.enable_wdt = pca_pps_enable_wdt,
 	.set_wdt = pca_pps_set_wdt,
 };
+static SIMPLE_PCA_TA_DESC(pca_ta_pps, pca_pps_ops);
 
 static int pca_pps_tcp_notifier_call(struct notifier_block *nb,
 				     unsigned long event, void *data)
@@ -478,7 +469,6 @@ static int pca_pps_probe(struct platform_device *pdev)
 	}
 
 	info->pca = prop_chgalgo_device_register(info->dev, &pca_ta_pps_desc,
-						 &pca_pps_ops, NULL, NULL,
 						 info);
 	if (!info->pca) {
 		dev_notice(info->dev, "%s register pps fail\n", __func__);
@@ -514,26 +504,20 @@ static struct platform_driver pca_pps_platdrv = {
 	.probe = pca_pps_probe,
 	.remove = pca_pps_remove,
 };
-
-static int __init pca_pps_init(void)
-{
-	return platform_driver_register(&pca_pps_platdrv);
-}
-device_initcall_sync(pca_pps_init);
-// module_init(pca_pps_init);
-
-static void __exit pca_pps_exit(void)
-{
-	platform_driver_unregister(&pca_pps_platdrv);
-}
-module_exit(pca_pps_exit);
+module_platform_driver(pca_pps_platdrv);
 
 MODULE_DESCRIPTION("Programmable Power Supply TA For PCA");
 MODULE_AUTHOR("ShuFan Lee<shufan_lee@richtek.com>");
 MODULE_VERSION(PCA_PPS_TA_VERSION);
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");
 
 /*
+ * 2.0.0_G
+ * (1) Adapt to prop_chgalgo_class V2.0.0
+ *
+ * 1.0.8_G
+ * (1) Add ita_meas_acc in authentication data
+ *
  * 1.0.7_G
  * (1) Add ita_min option in dtsi to support TA which only accepts
  *     request with current greater than certain value

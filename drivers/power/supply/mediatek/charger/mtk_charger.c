@@ -1581,6 +1581,7 @@ static void mtk_chg_get_tchg(struct charger_manager *info)
 	int ret;
 	int tchg_min = -127, tchg_max = -127;
 	struct charger_data *pdata;
+	bool en;
 
 	pdata = &info->chg1_data;
 	ret = charger_dev_get_temperature(info->chg1_dev, &tchg_min, &tchg_max);
@@ -1609,27 +1610,33 @@ static void mtk_chg_get_tchg(struct charger_manager *info)
 
 	if (info->dvchg1_dev) {
 		pdata = &info->dvchg1_data;
-		ret = charger_dev_get_adc(info->dvchg1_dev, ADC_CHANNEL_TEMP_JC,
-					  &tchg_min, &tchg_max);
-		if (ret < 0) {
-			pdata->junction_temp_min = -127;
-			pdata->junction_temp_max = -127;
-		} else {
-			pdata->junction_temp_min = tchg_min;
-			pdata->junction_temp_max = tchg_max;
+		pdata->junction_temp_min = -127;
+		pdata->junction_temp_max = -127;
+		ret = charger_dev_is_enabled(info->dvchg1_dev, &en);
+		if (ret >= 0 && en) {
+			ret = charger_dev_get_adc(info->dvchg1_dev,
+						  ADC_CHANNEL_TEMP_JC,
+						  &tchg_min, &tchg_max);
+			if (ret >= 0) {
+				pdata->junction_temp_min = tchg_min;
+				pdata->junction_temp_max = tchg_max;
+			}
 		}
 	}
 
 	if (info->dvchg2_dev) {
 		pdata = &info->dvchg2_data;
-		ret = charger_dev_get_adc(info->dvchg2_dev, ADC_CHANNEL_TEMP_JC,
-					  &tchg_min, &tchg_max);
-		if (ret < 0) {
-			pdata->junction_temp_min = -127;
-			pdata->junction_temp_max = -127;
-		} else {
-			pdata->junction_temp_min = tchg_min;
-			pdata->junction_temp_max = tchg_max;
+		pdata->junction_temp_min = -127;
+		pdata->junction_temp_max = -127;
+		ret = charger_dev_is_enabled(info->dvchg2_dev, &en);
+		if (ret >= 0 && en) {
+			ret = charger_dev_get_adc(info->dvchg2_dev,
+						  ADC_CHANNEL_TEMP_JC,
+						  &tchg_min, &tchg_max);
+			if (ret >= 0) {
+				pdata->junction_temp_min = tchg_min;
+				pdata->junction_temp_max = tchg_max;
+			}
 		}
 	}
 }

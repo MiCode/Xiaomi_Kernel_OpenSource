@@ -24,7 +24,7 @@
 #define PCA_DBG(fmt, ...) \
 	do { \
 		if (PCA_DBG_EN) \
-			pr_debug("[PCA]%s " fmt, __func__, ##__VA_ARGS__); \
+			pr_info("[PCA]%s " fmt, __func__, ##__VA_ARGS__); \
 	} while (0)
 
 #define PCA_INFO(fmt, ...) \
@@ -36,8 +36,35 @@
 #define PCA_ERR(fmt, ...) \
 	do { \
 		if (PCA_ERR_EN) \
-			pr_notice("[PCA]%s " fmt, __func__, ##__VA_ARGS__); \
+			pr_info("[PCA]%s " fmt, __func__, ##__VA_ARGS__); \
 	} while (0)
+
+#define SIMPLE_PCA_TA_DESC(_name, ops) \
+const struct prop_chgalgo_desc _name##_desc = { \
+	.name = #_name, \
+	.type = PCA_DEVTYPE_TA, \
+	.ta_ops = &ops, \
+	.chg_ops = NULL, \
+	.algo_ops = NULL, \
+}
+
+#define SIMPLE_PCA_CHG_DESC(_name, ops) \
+const struct prop_chgalgo_desc _name##_desc = { \
+	.name = #_name, \
+	.type = PCA_DEVTYPE_CHARGER, \
+	.ta_ops = NULL, \
+	.chg_ops = &ops, \
+	.algo_ops = NULL, \
+}
+
+#define SIMPLE_PCA_ALGO_DESC(_name, ops) \
+const struct prop_chgalgo_desc _name##_desc = { \
+	.name = #_name, \
+	.type = PCA_DEVTYPE_ALGO, \
+	.ta_ops = NULL, \
+	.chg_ops = NULL, \
+	.algo_ops = &ops, \
+}
 
 struct prop_chgalgo_ta_status {
 	int temp1;
@@ -104,6 +131,7 @@ enum prop_chgalgo_adc_channel {
 	PCA_ADCCHAN_TBAT,
 	PCA_ADCCHAN_TCHG,
 	PCA_ADCCHAN_VOUT,
+	PCA_ADCCHAN_VSYS,
 	PCA_ADCCHAN_MAX,
 };
 
@@ -146,10 +174,14 @@ struct prop_chgalgo_chg_ops {
 		       enum prop_chgalgo_adc_channel chan, int *min, int *max);
 	int (*get_soc)(struct prop_chgalgo_device *pca, u32 *soc);
 	int (*is_vbuslowerr)(struct prop_chgalgo_device *pca, bool *err);
+	int (*is_charging_enabled)(struct prop_chgalgo_device *pca, bool *en);
 	int (*get_adc_accuracy)(struct prop_chgalgo_device *pca,
 				enum prop_chgalgo_adc_channel chan, int *min,
 				int *max);
 	int (*init_chip)(struct prop_chgalgo_device *pca);
+	int (*enable_auto_trans)(struct prop_chgalgo_device *pca, bool en);
+	int (*set_auto_trans)(struct prop_chgalgo_device *pca, u32 mV, bool en);
+	int (*dump_registers)(struct prop_chgalgo_device *pca);
 };
 
 struct prop_chgalgo_algo_ops {
@@ -175,24 +207,23 @@ enum prop_chgalgo_dev_type {
 struct prop_chgalgo_desc {
 	const char *name;
 	enum prop_chgalgo_dev_type type;
-	struct srcu_notifier_head nh;
+	const struct prop_chgalgo_ta_ops *ta_ops;
+	const struct prop_chgalgo_chg_ops *chg_ops;
+	const struct prop_chgalgo_algo_ops *algo_ops;
 };
 
 struct prop_chgalgo_device {
 	struct device dev;
-	struct prop_chgalgo_ta_ops *ta_ops;
-	struct prop_chgalgo_chg_ops *chg_ops;
-	struct prop_chgalgo_algo_ops *algo_ops;
-	struct prop_chgalgo_desc *desc;
+	const struct prop_chgalgo_desc *desc;
+	struct srcu_notifier_head nh;
 	void *drv_data;
+	int (*suspend)(struct prop_chgalgo_device *pca);
+	int (*resume)(struct prop_chgalgo_device *pca);
 };
 
 extern struct prop_chgalgo_device *
 prop_chgalgo_device_register(struct device *parent,
-			     struct prop_chgalgo_desc *prop_chgalgo_desc,
-			     struct prop_chgalgo_ta_ops *ta_ops,
-			     struct prop_chgalgo_chg_ops *chg_ops,
-			     struct prop_chgalgo_algo_ops *algo_ops,
+			     const struct prop_chgalgo_desc *desc,
 			     void *drv_data);
 extern void prop_chgalgo_device_unregister(struct prop_chgalgo_device *pca);
 extern struct prop_chgalgo_device *
@@ -214,14 +245,14 @@ static inline int
 prop_chgalgo_notifier_register(struct prop_chgalgo_device *pca,
 			       struct notifier_block *nb)
 {
-	return srcu_notifier_chain_register(&pca->desc->nh, nb);
+	return srcu_notifier_chain_register(&pca->nh, nb);
 }
 
 static inline int
 prop_chgalgo_notifier_unregister(struct prop_chgalgo_device *pca,
 				 struct notifier_block *nb)
 {
-	return srcu_notifier_chain_unregister(&pca->desc->nh, nb);
+	return srcu_notifier_chain_unregister(&pca->nh, nb);
 }
 
 /* Richtek pca TA interface */
@@ -268,10 +299,16 @@ extern int prop_chgalgo_set_ichg(struct prop_chgalgo_device *pca, u32 mA);
 extern int prop_chgalgo_set_aicr(struct prop_chgalgo_device *pca, u32 mA);
 extern int prop_chgalgo_is_vbuslowerr(struct prop_chgalgo_device *pca,
 				      bool *err);
+extern int prop_chgalgo_is_charging_enabled(struct prop_chgalgo_device *pca,
+					    bool *en);
 extern int prop_chgalgo_get_adc_accuracy(struct prop_chgalgo_device *pca,
 					 enum prop_chgalgo_adc_channel chan,
 					 int *min, int *max);
 extern int prop_chgalgo_init_chip(struct prop_chgalgo_device *pca);
+extern int prop_chgalgo_enable_auto_trans(struct prop_chgalgo_device *pca,
+					  bool en);
+extern int prop_chgalgo_set_auto_trans(struct prop_chgalgo_device *pca, u32 mV, bool en);
+extern int prop_chgalgo_dump_registers(struct prop_chgalgo_device *pca);
 
 /* Richtek pca algorithm interface */
 #ifdef CONFIG_RT_PROP_CHGALGO

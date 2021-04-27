@@ -514,6 +514,10 @@ static int mtk_switch_chr_pe50_running(struct charger_manager *info)
 
 	if (!mtk_pe50_is_running(info))
 		goto stop;
+	if (!info->enable_hv_charging) {
+		mtk_pe50_stop_algo(info, true);
+		goto stop;
+	}
 
 	mtk_pe50_thermal_throttling(info,
 				    dvchg_data->thermal_input_current_limit);
@@ -783,10 +787,15 @@ static int dvchg1_dev_event(struct notifier_block *nb, unsigned long event,
 {
 	struct charger_manager *info =
 			container_of(nb, struct charger_manager, dvchg1_nb);
+	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
 
 	chr_info("%s %ld", __func__, event);
 
-	return mtk_pe50_notifier_call(info, MTK_PE50_NOTISRC_CHG, event, data);
+	if (swchgalg->state == CHR_PE50_READY ||
+	    swchgalg->state == CHR_PE50_RUNNING)
+		return mtk_pe50_notifier_call(info, MTK_PE50_NOTISRC_CHG, event,
+					      data);
+	return 0;
 }
 
 static int dvchg2_dev_event(struct notifier_block *nb, unsigned long event,
@@ -794,10 +803,15 @@ static int dvchg2_dev_event(struct notifier_block *nb, unsigned long event,
 {
 	struct charger_manager *info =
 			container_of(nb, struct charger_manager, dvchg2_nb);
+	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
 
 	chr_info("%s %ld", __func__, event);
 
-	return mtk_pe50_notifier_call(info, MTK_PE50_NOTISRC_CHG, event, data);
+	if (swchgalg->state == CHR_PE50_READY ||
+	    swchgalg->state == CHR_PE50_RUNNING)
+		return mtk_pe50_notifier_call(info, MTK_PE50_NOTISRC_CHG, event,
+					      data);
+	return 0;
 }
 
 int mtk_switch_charging_init(struct charger_manager *info)

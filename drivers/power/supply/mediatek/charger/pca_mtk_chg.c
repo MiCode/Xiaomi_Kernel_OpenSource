@@ -11,24 +11,24 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+#include <linux/device.h>
 #include <linux/init.h>
 #include <linux/module.h>
-#include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-
-#include <mt-plat/prop_chgalgo_class.h>
-#include <mt-plat/mtk_charger.h>
 #include <mt-plat/charger_class.h>
+#include <mt-plat/mtk_charger.h>
 #include <mt-plat/mtk_battery.h>
+#include <mt-plat/prop_chgalgo_class.h>
 
-#define PCA_MTK_CHG_VERSION	"1.0.4_MTK"
+#define PCA_MTK_CHG_VERSION	"2.0.0_MTK"
 
 enum mtk_chg_type {
 	MTK_CHGTYP_SWCHG = 0,
 	MTK_CHGTYP_LOADSW,
 	MTK_CHGTYP_DVCHG,
 	MTK_CHGTYP_DVCHG_SLAVE,
+	MTK_CHGTYP_HV_DVCHG,
 	MTK_CHGTYP_MAX,
 };
 
@@ -37,25 +37,7 @@ static const char *mtk_chgtyp_name[MTK_CHGTYP_MAX] = {
 	"primary_load_switch",
 	"primary_divider_chg",
 	"secondary_divider_chg",
-};
-
-static struct prop_chgalgo_desc pca_mtk_chg_desc_tbl[MTK_CHGTYP_MAX] = {
-	{
-		.name = "pca_chg_swchg",
-		.type = PCA_DEVTYPE_CHARGER,
-	},
-	{
-		.name = "pca_chg_loadsw",
-		.type = PCA_DEVTYPE_CHARGER,
-	},
-	{
-		.name = "pca_chg_dvchg",
-		.type = PCA_DEVTYPE_CHARGER,
-	},
-	{
-		.name = "pca_chg_dvchg_slave",
-		.type = PCA_DEVTYPE_CHARGER,
-	},
+	"primary_hv_divider_chg",
 };
 
 struct pca_mtk_chg_info {
@@ -65,12 +47,23 @@ struct pca_mtk_chg_info {
 	struct charger_consumer *chg_consumer;
 };
 
+static inline u32 milli_to_micro(u32 val)
+{
+	return val * 1000;
+}
+
+static inline u32 micro_to_milli(u32 val)
+{
+	return val / 1000;
+}
+
+static const struct prop_chgalgo_desc *pca_mtk_chg_desc_tbl[MTK_CHGTYP_MAX];
 static inline int get_mtk_chgtyp(struct prop_chgalgo_device *pca)
 {
 	int i;
 
 	for (i = 0; i < MTK_CHGTYP_MAX; i++) {
-		if (strcmp(pca->desc->name, pca_mtk_chg_desc_tbl[i].name) == 0)
+		if (strcmp(pca->desc->name, pca_mtk_chg_desc_tbl[i]->name) == 0)
 			return i;
 	}
 	return -EINVAL;
@@ -95,11 +88,7 @@ static int pca_mtk_chg_enable_charging(struct prop_chgalgo_device *pca, bool en)
 
 	if (chgtyp < 0)
 		return -EINVAL;
-	if (chgtyp == MTK_CHGTYP_SWCHG)
-		return charger_dev_enable(info->chgdev[chgtyp], en);
-	else
-		return charger_dev_enable_direct_charging(info->chgdev[chgtyp],
-							  en);
+	return charger_dev_enable(info->chgdev[chgtyp], en);
 }
 
 static int pca_mtk_chg_enable_chip(struct prop_chgalgo_device *pca, bool en)
@@ -119,8 +108,8 @@ static int pca_mtk_chg_set_vbusovp(struct prop_chgalgo_device *pca, u32 mV)
 
 	if (chgtyp < 0)
 		return -EINVAL;
-	return charger_dev_set_direct_charging_vbusov(info->chgdev[chgtyp],
-						      mV * 1000);
+	return charger_dev_set_vbusovp(info->chgdev[chgtyp],
+				       milli_to_micro(mV));
 }
 
 static int pca_mtk_chg_set_ibusocp(struct prop_chgalgo_device *pca, u32 mA)
@@ -130,8 +119,8 @@ static int pca_mtk_chg_set_ibusocp(struct prop_chgalgo_device *pca, u32 mA)
 
 	if (chgtyp < 0)
 		return -EINVAL;
-	return charger_dev_set_direct_charging_ibusoc(info->chgdev[chgtyp],
-						      mA * 1000);
+	return charger_dev_set_ibusocp(info->chgdev[chgtyp],
+				       milli_to_micro(mA));
 }
 
 static int pca_mtk_chg_set_vbatovp(struct prop_chgalgo_device *pca, u32 mV)
@@ -141,8 +130,8 @@ static int pca_mtk_chg_set_vbatovp(struct prop_chgalgo_device *pca, u32 mV)
 
 	if (chgtyp < 0)
 		return -EINVAL;
-	return charger_dev_set_direct_charging_vbatov(info->chgdev[chgtyp],
-						      mV * 1000);
+	return charger_dev_set_vbatovp(info->chgdev[chgtyp],
+				       milli_to_micro(mV));
 }
 
 static int pca_mtk_chg_set_vbatovp_alarm(struct prop_chgalgo_device *pca,
@@ -153,8 +142,8 @@ static int pca_mtk_chg_set_vbatovp_alarm(struct prop_chgalgo_device *pca,
 
 	if (chgtyp < 0)
 		return -EINVAL;
-	return charger_dev_set_direct_charging_vbatov_alarm(
-		info->chgdev[chgtyp], mV * 1000);
+	return charger_dev_set_vbatovp_alarm(info->chgdev[chgtyp],
+					     milli_to_micro(mV));
 }
 
 static int pca_mtk_chg_reset_vbatovp_alarm(struct prop_chgalgo_device *pca)
@@ -164,8 +153,7 @@ static int pca_mtk_chg_reset_vbatovp_alarm(struct prop_chgalgo_device *pca)
 
 	if (chgtyp < 0)
 		return -EINVAL;
-	return charger_dev_reset_direct_charging_vbatov_alarm(
-		info->chgdev[chgtyp]);
+	return charger_dev_reset_vbatovp_alarm(info->chgdev[chgtyp]);
 }
 
 static int pca_mtk_chg_set_vbusovp_alarm(struct prop_chgalgo_device *pca,
@@ -176,8 +164,8 @@ static int pca_mtk_chg_set_vbusovp_alarm(struct prop_chgalgo_device *pca,
 
 	if (chgtyp < 0)
 		return -EINVAL;
-	return charger_dev_set_direct_charging_vbusov_alarm(
-		info->chgdev[chgtyp], mV * 1000);
+	return charger_dev_set_vbusovp_alarm(info->chgdev[chgtyp],
+					     milli_to_micro(mV));
 }
 
 static int pca_mtk_chg_reset_vbusovp_alarm(struct prop_chgalgo_device *pca)
@@ -187,8 +175,7 @@ static int pca_mtk_chg_reset_vbusovp_alarm(struct prop_chgalgo_device *pca)
 
 	if (chgtyp < 0)
 		return -EINVAL;
-	return charger_dev_reset_direct_charging_vbusov_alarm(
-		info->chgdev[chgtyp]);
+	return charger_dev_reset_vbusovp_alarm(info->chgdev[chgtyp]);
 }
 
 static int pca_mtk_chg_set_ibatocp(struct prop_chgalgo_device *pca, u32 mA)
@@ -198,8 +185,8 @@ static int pca_mtk_chg_set_ibatocp(struct prop_chgalgo_device *pca, u32 mA)
 
 	if (chgtyp < 0)
 		return -EINVAL;
-	return charger_dev_set_direct_charging_ibatoc(info->chgdev[chgtyp],
-						      mA * 1000);
+	return charger_dev_set_ibatocp(info->chgdev[chgtyp],
+				       milli_to_micro(mA));
 }
 
 static int pca_mtk_chg_enable_hz(struct prop_chgalgo_device *pca, bool en)
@@ -229,6 +216,8 @@ static inline int to_chgclass_adc(enum prop_chgalgo_adc_channel chan)
 		return ADC_CHANNEL_TEMP_JC;
 	case PCA_ADCCHAN_VOUT:
 		return ADC_CHANNEL_VOUT;
+	case PCA_ADCCHAN_VSYS:
+		return ADC_CHANNEL_VSYS;
 	default:
 		break;
 	}
@@ -243,24 +232,44 @@ static int pca_mtk_chg_get_adc(struct prop_chgalgo_device *pca,
 	struct pca_mtk_chg_info *info = prop_chgalgo_get_drvdata(pca);
 	int chgtyp = get_mtk_chgtyp(pca);
 	int _chan = to_chgclass_adc(chan);
+	bool hv_dvchg = false;
 
 	if (chgtyp < 0 || _chan < 0)
 		return -EINVAL;
 
 	if (_chan == ADC_CHANNEL_TBAT) {
-		*max = battery_get_bat_temperature();
-		*max = *min;
+		*max = *min = battery_get_bat_temperature();
 		return 0;
 	}
 	ret = charger_dev_get_adc(info->chgdev[chgtyp], _chan, min, max);
+	if (ret == -ENOTSUPP) {
+		/* Temporary solution */
+		if (chgtyp == MTK_CHGTYP_HV_DVCHG) {
+			hv_dvchg = true;
+			ret = charger_dev_get_adc(
+				info->chgdev[MTK_CHGTYP_DVCHG], _chan, min,
+				max);
+		}
+	}
 	if (ret < 0)
 		return ret;
 	if (_chan == ADC_CHANNEL_VBAT || _chan == ADC_CHANNEL_IBAT ||
 	    _chan == ADC_CHANNEL_VBUS || _chan == ADC_CHANNEL_IBUS ||
-	    _chan == ADC_CHANNEL_VOUT) {
-		*max /= 1000;
+	    _chan == ADC_CHANNEL_VOUT || _chan == ADC_CHANNEL_VSYS) {
+		*max = micro_to_milli(*max);
 		if (min != max)
-			*min /= 1000;
+			*min = micro_to_milli(*min);
+	}
+	if (hv_dvchg) {
+		if (_chan == ADC_CHANNEL_VBUS) {
+			*max *= 2;
+			if (min != max)
+				*min *= 2;
+		} else if (_chan == ADC_CHANNEL_IBUS) {
+			*max /= 2;
+			if (min != max)
+				*min /= 2;
+		}
 	}
 	return 0;
 }
@@ -281,7 +290,8 @@ static int pca_mtk_chg_set_aicr(struct prop_chgalgo_device *pca, u32 mA)
 
 	if (chgtyp < 0)
 		return -EINVAL;
-	return charger_dev_set_input_current(info->chgdev[chgtyp], mA * 1000);
+	return charger_dev_set_input_current(info->chgdev[chgtyp],
+					     milli_to_micro(mA));
 }
 
 static int pca_mtk_chg_set_ichg(struct prop_chgalgo_device *pca, u32 mA)
@@ -292,7 +302,7 @@ static int pca_mtk_chg_set_ichg(struct prop_chgalgo_device *pca, u32 mA)
 	if (chgtyp < 0)
 		return -EINVAL;
 	return charger_dev_set_charging_current(info->chgdev[chgtyp],
-						mA * 1000);
+						milli_to_micro(mA));
 }
 
 static int pca_mtk_chg_is_vbuslowerr(struct prop_chgalgo_device *pca, bool *err)
@@ -302,8 +312,18 @@ static int pca_mtk_chg_is_vbuslowerr(struct prop_chgalgo_device *pca, bool *err)
 
 	if (chgtyp < 0)
 		return -EINVAL;
-	return charger_dev_is_direct_charging_vbuslowerr(info->chgdev[chgtyp],
-							 err);
+	return charger_dev_is_vbuslowerr(info->chgdev[chgtyp], err);
+}
+
+static int pca_mtk_chg_is_charging_enabled(struct prop_chgalgo_device *pca,
+					   bool *en)
+{
+	struct pca_mtk_chg_info *info = prop_chgalgo_get_drvdata(pca);
+	int chgtyp = get_mtk_chgtyp(pca);
+
+	if (chgtyp < 0)
+		return -EINVAL;
+	return charger_dev_is_enabled(info->chgdev[chgtyp], en);
 }
 
 static int pca_mtk_chg_get_adc_accuracy(struct prop_chgalgo_device *pca,
@@ -323,10 +343,10 @@ static int pca_mtk_chg_get_adc_accuracy(struct prop_chgalgo_device *pca,
 		return ret;
 	if (_chan == ADC_CHANNEL_VBAT || _chan == ADC_CHANNEL_IBAT ||
 	    _chan == ADC_CHANNEL_VBUS || _chan == ADC_CHANNEL_IBUS ||
-	    _chan == ADC_CHANNEL_VOUT) {
-		*max /= 1000;
+	    _chan == ADC_CHANNEL_VOUT || _chan == ADC_CHANNEL_VSYS) {
+		*max = micro_to_milli(*max);
 		if (min != max)
-			*min /= 1000;
+			*min = micro_to_milli(*min);
 	}
 	return 0;
 }
@@ -338,10 +358,44 @@ static int pca_mtk_chg_init_chip(struct prop_chgalgo_device *pca)
 
 	if (chgtyp < 0)
 		return -EINVAL;
-	if (chgtyp == MTK_CHGTYP_DVCHG || chgtyp == MTK_CHGTYP_DVCHG_SLAVE)
-		return charger_dev_init_direct_charging_chip(
-			info->chgdev[chgtyp]);
-	return 0;
+	return charger_dev_init_chip(info->chgdev[chgtyp]);
+}
+
+static int pca_mtk_chg_dump_registers(struct prop_chgalgo_device *pca)
+{
+	int ret;
+	struct pca_mtk_chg_info *info = prop_chgalgo_get_drvdata(pca);
+	int chgtyp = get_mtk_chgtyp(pca);
+
+	if (chgtyp < 0)
+		return -EINVAL;
+
+	ret = charger_dev_dump_registers(info->chgdev[chgtyp]);
+
+	return ret;
+}
+
+static int pca_mtk_chg_enable_auto_trans(struct prop_chgalgo_device *pca,
+					 bool en)
+{
+	struct pca_mtk_chg_info *info = prop_chgalgo_get_drvdata(pca);
+	int chgtyp = get_mtk_chgtyp(pca);
+
+	if (chgtyp < 0)
+		return -EINVAL;
+	return charger_dev_enable_auto_trans(info->chgdev[chgtyp], en);
+}
+
+static int pca_mtk_chg_set_auto_trans(struct prop_chgalgo_device *pca, u32 mV,
+				      bool en)
+{
+	struct pca_mtk_chg_info *info = prop_chgalgo_get_drvdata(pca);
+	int chgtyp = get_mtk_chgtyp(pca);
+
+	if (chgtyp < 0)
+		return -EINVAL;
+	return charger_dev_set_auto_trans(info->chgdev[chgtyp],
+					  milli_to_micro(mV), en);
 }
 
 static struct prop_chgalgo_chg_ops pca_chg_ops = {
@@ -362,8 +416,25 @@ static struct prop_chgalgo_chg_ops pca_chg_ops = {
 	.set_aicr = pca_mtk_chg_set_aicr,
 	.set_ichg = pca_mtk_chg_set_ichg,
 	.is_vbuslowerr = pca_mtk_chg_is_vbuslowerr,
+	.is_charging_enabled = pca_mtk_chg_is_charging_enabled,
 	.get_adc_accuracy = pca_mtk_chg_get_adc_accuracy,
 	.init_chip = pca_mtk_chg_init_chip,
+	.enable_auto_trans = pca_mtk_chg_enable_auto_trans,
+	.set_auto_trans = pca_mtk_chg_set_auto_trans,
+	.dump_registers = pca_mtk_chg_dump_registers,
+};
+static SIMPLE_PCA_CHG_DESC(pca_chg_swchg, pca_chg_ops);
+static SIMPLE_PCA_CHG_DESC(pca_chg_loadsw, pca_chg_ops);
+static SIMPLE_PCA_CHG_DESC(pca_chg_dvchg, pca_chg_ops);
+static SIMPLE_PCA_CHG_DESC(pca_chg_dvchg_slave, pca_chg_ops);
+static SIMPLE_PCA_CHG_DESC(pca_chg_hv_dvchg, pca_chg_ops);
+
+static const struct prop_chgalgo_desc *pca_mtk_chg_desc_tbl[MTK_CHGTYP_MAX] = {
+	&pca_chg_swchg_desc,
+	&pca_chg_loadsw_desc,
+	&pca_chg_dvchg_desc,
+	&pca_chg_dvchg_slave_desc,
+	&pca_chg_hv_dvchg_desc,
 };
 
 static int pca_mtk_chg_register(struct pca_mtk_chg_info *info)
@@ -377,8 +448,7 @@ static int pca_mtk_chg_register(struct pca_mtk_chg_info *info)
 			continue;
 		info->pca[i] =
 			prop_chgalgo_device_register(info->dev,
-						     &pca_mtk_chg_desc_tbl[i],
-						     NULL, &pca_chg_ops, NULL,
+						     pca_mtk_chg_desc_tbl[i],
 						     info);
 		if (IS_ERR_OR_NULL(info->pca[i]))
 			return PTR_ERR(info->pca[i]);
@@ -411,15 +481,13 @@ static int pca_mtk_chg_probe(struct platform_device *pdev)
 	info->chg_consumer = charger_manager_get_by_name(info->dev,
 							 "charger_port1");
 	if (!info->chg_consumer) {
-		dev_notice(info->dev, "%s get charger consumer fail\n",
-			   __func__);
+		dev_notice(info->dev, "%s get charger consumer fail\n", __func__);
 		return -ENODEV;
 	}
 
 	ret = pca_mtk_chg_register(info);
 	if (ret < 0) {
-		dev_notice(info->dev, "%s register pca fail(%d)\n", __func__,
-			   ret);
+		dev_notice(info->dev, "%s register pca fail(%d)\n", __func__, ret);
 		return ret;
 	}
 
@@ -443,7 +511,7 @@ static int pca_mtk_chg_remove(struct platform_device *pdev)
 
 static struct platform_device pca_mtk_chg_platdev = {
 	.name = "pca_mtk_chg",
-	.id = -1,
+	.id = PLATFORM_DEVID_NONE,
 };
 
 static struct platform_driver pca_mtk_chg_platdrv = {
@@ -460,21 +528,27 @@ static int __init pca_mtk_chg_init(void)
 	platform_device_register(&pca_mtk_chg_platdev);
 	return platform_driver_register(&pca_mtk_chg_platdrv);
 }
-device_initcall_sync(pca_mtk_chg_init);
 
 static void __exit pca_mtk_chg_exit(void)
 {
 	platform_driver_unregister(&pca_mtk_chg_platdrv);
 	platform_device_unregister(&pca_mtk_chg_platdev);
 }
+device_initcall_sync(pca_mtk_chg_init);
 module_exit(pca_mtk_chg_exit);
 
+MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MTK Charger Interface for PCA");
 MODULE_AUTHOR("ShuFan Lee <shufan_lee@richtek.com>");
 MODULE_VERSION(PCA_MTK_CHG_VERSION);
-MODULE_LICENSE("GPL");
 
 /*
+ * 2.0.0
+ * (1) Adapt to new charger_class ops
+ * (2) Adapt to prop_chgalgo_class v2.0.0
+ * (3) Add high voltage divider charger
+ * (4) Add enable/set_auto_trans ops
+ *
  * Revision Note
  * 1.0.4
  * (1) Add init_chip ops

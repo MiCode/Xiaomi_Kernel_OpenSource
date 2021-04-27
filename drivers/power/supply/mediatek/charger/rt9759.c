@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -28,7 +28,7 @@
 #endif /* CONFIG_RT_REGMAP */
 
 /* Information */
-#define RT9759_DRV_VERSION	"1.0.8_MTK"
+#define RT9759_DRV_VERSION	"2.0.1_MTK"
 #define RT9759_DEVID		0x08
 
 /* Registers */
@@ -90,6 +90,12 @@
 #define RT9759_ADCEN_MASK	BIT(7)
 #define RT9759_WDTEN_MASK	BIT(2)
 #define RT9759_WDTMR_MASK	0x03
+#define RT9759_REGRST_MASK	BIT(7)
+#define RT9759_DEVREV_MASK	0xF0
+#define RT9759_DEVREV_SHFT	4
+#define RT9759_DEVID_MASK	0x0F
+#define RT9759_MS_MASK		0x60
+#define RT9759_MS_SHFT		5
 #define RT9759_VBUSOVP_MASK	0x7F
 #define RT9759_IBUSOCP_MASK	0x0F
 #define RT9759_VBATOVP_MASK	0x3F
@@ -265,6 +271,7 @@ struct rt9759_desc {
 	bool tsbusadc_dis;
 	bool tsbatadc_dis;
 	bool tdieadc_dis;
+	bool ibat_rsense_half;
 };
 
 static const struct rt9759_desc rt9759_desc_defval = {
@@ -298,6 +305,7 @@ static const struct rt9759_desc rt9759_desc_defval = {
 	.tdieotp_dis = false,
 	.reg_en = false,
 	.voutovp_dis = false,
+	.ibat_rsense_half = false,
 };
 
 struct rt9759_chip {
@@ -306,8 +314,6 @@ struct rt9759_chip {
 	struct mutex io_lock;
 	struct mutex adc_lock;
 	struct mutex stat_lock;
-	struct mutex hm_lock;
-	struct mutex suspend_lock;
 	struct mutex notify_lock;
 	struct charger_device *chg_dev;
 	struct charger_properties chg_prop;
@@ -376,30 +382,16 @@ static const u32 rt9759_adc_accuracy_tbl[RT9759_ADC_MAX] = {
 
 static int rt9759_read_device(void *client, u32 addr, int len, void *dst)
 {
-	int ret;
 	struct i2c_client *i2c = (struct i2c_client *)client;
-	struct rt9759_chip *chip = i2c_get_clientdata(i2c);
 
-	pm_stay_awake(chip->dev);
-	mutex_lock(&chip->suspend_lock);
-	ret = i2c_smbus_read_i2c_block_data(i2c, addr, len, dst);
-	mutex_unlock(&chip->suspend_lock);
-	pm_relax(chip->dev);
-	return ret;
+	return i2c_smbus_read_i2c_block_data(i2c, addr, len, dst);
 }
 
 static int rt9759_write_device(void *client, u32 addr, int len, const void *src)
 {
-	int ret;
 	struct i2c_client *i2c = (struct i2c_client *)client;
-	struct rt9759_chip *chip = i2c_get_clientdata(i2c);
 
-	pm_stay_awake(chip->dev);
-	mutex_lock(&chip->suspend_lock);
-	ret = i2c_smbus_write_i2c_block_data(i2c, addr, len, src);
-	mutex_unlock(&chip->suspend_lock);
-	pm_relax(chip->dev);
-	return ret;
+	return i2c_smbus_write_i2c_block_data(i2c, addr, len, src);
 }
 
 #ifdef CONFIG_RT_REGMAP
@@ -540,8 +532,7 @@ static int rt9759_register_regmap(struct rt9759_chip *chip)
 						    chip->desc->rm_slave_addr,
 						    chip);
 	if (!chip->rm_dev) {
-		dev_notice(chip->dev, "%s register regmap dev fail\n",
-			__func__);
+		dev_notice(chip->dev, "%s register regmap dev fail\n", __func__);
 		return -EINVAL;
 	}
 
@@ -566,24 +557,12 @@ static inline int __rt9759_i2c_write8(struct rt9759_chip *chip, u8 reg, u8 data)
 	} while (ret < 0 && retry < I2C_ACCESS_MAX_RETRY);
 
 	if (ret < 0) {
-		dev_notice(chip->dev, "%s I2CW[0x%02X] = 0x%02X fail\n",
-			__func__, reg, data);
+		dev_notice(chip->dev, "%s I2CW[0x%02X] = 0x%02X fail\n", __func__,
+			reg, data);
 		return ret;
 	}
-	dev_dbg_ratelimited(chip->dev, "%s I2CW[0x%02X] = 0x%02X\n", __func__,
-			reg, data);
+	dev_dbg(chip->dev, "%s I2CW[0x%02X] = 0x%02X\n", __func__, reg, data);
 	return 0;
-}
-
-static int rt9759_i2c_write8(struct rt9759_chip *chip, u8 reg, u8 data)
-{
-	int ret;
-
-	mutex_lock(&chip->io_lock);
-	ret = __rt9759_i2c_write8(chip, reg, data);
-	mutex_unlock(&chip->io_lock);
-
-	return ret;
 }
 
 static inline int __rt9759_i2c_read8(struct rt9759_chip *chip, u8 reg, u8 *data)
@@ -605,8 +584,7 @@ static inline int __rt9759_i2c_read8(struct rt9759_chip *chip, u8 reg, u8 *data)
 		dev_notice(chip->dev, "%s I2CR[0x%02X] fail\n", __func__, reg);
 		return ret;
 	}
-	dev_dbg_ratelimited(chip->dev, "%s I2CR[0x%02X] = 0x%02X\n", __func__,
-			reg, *data);
+	dev_dbg(chip->dev, "%s I2CR[0x%02X] = 0x%02X\n", __func__, reg, *data);
 	return 0;
 }
 
@@ -631,18 +609,6 @@ static inline int __rt9759_i2c_write_block(struct rt9759_chip *chip, u8 reg,
 #else
 	ret = rt9759_write_device(chip->client, reg, len, data);
 #endif /* CONFIG_RT_REGMAP */
-
-	return ret;
-}
-
-static int rt9759_i2c_write_block(struct rt9759_chip *chip, u8 reg, u32 len,
-				  const u8 *data)
-{
-	int ret;
-
-	mutex_lock(&chip->io_lock);
-	ret = __rt9759_i2c_write_block(chip, reg, len, data);
-	mutex_unlock(&chip->io_lock);
 
 	return ret;
 }
@@ -684,8 +650,7 @@ static int rt9759_i2c_test_bit(struct rt9759_chip *chip, u8 reg, u8 shft,
 		*one = false;
 		return ret;
 	}
-
-	*one = (data & (1 << shft)) ? true : false;
+	*one = (data & BIT(shft)) ? true : false;
 	return 0;
 }
 
@@ -727,7 +692,7 @@ static inline u8 rt9759_val_toreg(u32 min, u32 max, u32 step, u32 target,
 		return (max - min) / step;
 
 	if (ru)
-		return (target - min + step) / step;
+		return (target - min + step - 1) / step;
 	return (target - min) / step;
 }
 
@@ -796,41 +761,6 @@ static u8 rt9759_vacovp_toreg(u32 uV)
 static int __rt9759_update_status(struct rt9759_chip *chip);
 static int __rt9759_init_chip(struct rt9759_chip *chip);
 
-static const u8 rt9759_hm_password[2] = {0x69, 0x96};
-static int __maybe_unused __rt9759_enter_hidden_mode(struct rt9759_chip *chip,
-						     bool en)
-{
-	int ret = 0;
-
-	mutex_lock(&chip->hm_lock);
-
-	if (en) {
-		if (chip->hm_cnt == 0) {
-			ret = rt9759_i2c_write_block(chip, RT9759_REG_PASSWORD0,
-						     2, rt9759_hm_password);
-			if (ret < 0)
-				goto err;
-		}
-		chip->hm_cnt++;
-	} else {
-		if (chip->hm_cnt == 1) /* last one */
-			ret = rt9759_i2c_write8(chip, RT9759_REG_PASSWORD0,
-						0x00);
-		if (chip->hm_cnt > 0)
-			chip->hm_cnt--;
-		if (ret < 0)
-			goto err;
-	}
-	dev_info(chip->dev, "%s en = %d\n", __func__, en);
-	goto out;
-
-err:
-	dev_notice(chip->dev, "%s en = %d fail(%d)\n", __func__, en, ret);
-out:
-	mutex_unlock(&chip->hm_lock);
-	return ret;
-}
-
 /* Must be called while holding a lock */
 static int rt9759_enable_wdt(struct rt9759_chip *chip, bool en)
 {
@@ -867,6 +797,8 @@ static int __rt9759_get_adc(struct rt9759_chip *chip,
 	case RT9759_ADC_VBAT:
 	case RT9759_ADC_IBAT:
 		*val = ((data[0] << 8) + data[1]) * 1000;
+		if (chan == RT9759_ADC_IBAT && chip->desc->ibat_rsense_half)
+			*val *= 2;
 		break;
 	case RT9759_ADC_TDIE:
 		*val = (data[0] << 7) + (data[1] >> 1);
@@ -934,8 +866,8 @@ static int rt9759_enable_chg(struct charger_device *chg_dev, bool en)
 	__rt9759_update_status(chip);
 	if ((chip->stat & err_check) ||
 	    ((chip->stat & stat_check) != stat_check)) {
-		dev_notice(chip->dev, "%s error(0x%08X,0x%08X,0x%08X)\n",
-			__func__, chip->stat, err_check, stat_check);
+		dev_notice(chip->dev, "%s error(0x%08X,0x%08X,0x%08X)\n", __func__,
+			chip->stat, err_check, stat_check);
 		ret = -EINVAL;
 		mutex_unlock(&chip->stat_lock);
 		goto out;
@@ -961,8 +893,10 @@ static int rt9759_is_chg_enabled(struct charger_device *chg_dev, bool *en)
 
 	ret = rt9759_i2c_test_bit(chip, RT9759_REG_CHGCTRL1, RT9759_CHGEN_SHFT,
 				   en);
-	dev_info(chip->dev, "%s %d, ret(%d)\n", __func__, *en, ret);
-	return ret;
+	if (ret < 0)
+		return ret;
+	dev_info(chip->dev, "%s %d\n", __func__, *en);
+	return 0;
 }
 
 static inline enum rt9759_adc_channel to_rt9759_adc(enum adc_channel chan)
@@ -1158,7 +1092,7 @@ static int rt9759_init_chip(struct charger_device *chg_dev)
 		if (ret < 0)
 			return ret;
 		if ((val & reg_defval->mask) == reg_defval->value) {
-			dev_info(chip->dev,
+			dev_notice(chip->dev,
 				"%s chip reset happened, reinit\n", __func__);
 			return __rt9759_init_chip(chip);
 		}
@@ -1511,16 +1445,6 @@ static int __rt9759_update_status(struct rt9759_chip *chip)
 	return 0;
 }
 
-static int __maybe_unused rt9759_update_status(struct rt9759_chip *chip)
-{
-	int ret;
-
-	mutex_lock(&chip->stat_lock);
-	ret = __rt9759_update_status(chip);
-	mutex_unlock(&chip->stat_lock);
-	return ret;
-}
-
 static int rt9759_notify_task_threadfn(void *data)
 {
 	int i;
@@ -1571,19 +1495,19 @@ static irqreturn_t rt9759_irq_handler(int irq, void *data)
 }
 
 static const struct charger_ops rt9759_chg_ops = {
-	.enable_direct_charging = rt9759_enable_chg,
+	.enable = rt9759_enable_chg,
 	.is_enabled = rt9759_is_chg_enabled,
 	.get_adc = rt9759_get_adc,
-	.set_direct_charging_vbusov = rt9759_set_vbusovp,
-	.set_direct_charging_ibusoc = rt9759_set_ibusocp,
-	.set_direct_charging_vbatov = rt9759_set_vbatovp,
-	.set_direct_charging_ibatoc = rt9759_set_ibatocp,
-	.init_direct_charging_chip = rt9759_init_chip,
-	.set_direct_charging_vbatov_alarm = rt9759_set_vbatovp_alarm,
-	.reset_direct_charging_vbatov_alarm = rt9759_reset_vbatovp_alarm,
-	.set_direct_charging_vbusov_alarm = rt9759_set_vbusovp_alarm,
-	.reset_direct_charging_vbusov_alarm = rt9759_reset_vbusovp_alarm,
-	.is_direct_charging_vbuslowerr = rt9759_is_vbuslowerr,
+	.set_vbusovp = rt9759_set_vbusovp,
+	.set_ibusocp = rt9759_set_ibusocp,
+	.set_vbatovp = rt9759_set_vbatovp,
+	.set_ibatocp = rt9759_set_ibatocp,
+	.init_chip = rt9759_init_chip,
+	.set_vbatovp_alarm = rt9759_set_vbatovp_alarm,
+	.reset_vbatovp_alarm = rt9759_reset_vbatovp_alarm,
+	.set_vbusovp_alarm = rt9759_set_vbusovp_alarm,
+	.reset_vbusovp_alarm = rt9759_reset_vbusovp_alarm,
+	.is_vbuslowerr = rt9759_is_vbuslowerr,
 	.get_adc_accuracy = rt9759_get_adc_accuracy,
 };
 
@@ -1593,9 +1517,7 @@ static int rt9759_register_chgdev(struct rt9759_chip *chip)
 	chip->chg_dev = charger_device_register(chip->desc->chg_name, chip->dev,
 						chip, &rt9759_chg_ops,
 						&chip->chg_prop);
-	if (!chip->chg_dev)
-		return -EINVAL;
-	return 0;
+	return chip->chg_dev ? 0 : -EINVAL;
 }
 
 static int rt9759_clearall_irq(struct rt9759_chip *chip)
@@ -1619,14 +1541,13 @@ static int rt9759_init_irq(struct rt9759_chip *chip)
 	dev_info(chip->dev, "%s\n", __func__);
 	ret = rt9759_clearall_irq(chip);
 	if (ret < 0) {
-		dev_notice(chip->dev, "%s clr all irq fail(%d)\n",
-			__func__, ret);
+		dev_notice(chip->dev, "%s clr all irq fail(%d)\n", __func__, ret);
 		return ret;
 	}
+	// Fix Me
 	if (chip->type == RT9759_TYPE_SLAVE)
 		return 0;
 
-	len = strlen(chip->desc->chg_name);
 	chip->irq = gpiod_to_irq(chip->irq_gpio);
 	if (chip->irq < 0) {
 		dev_notice(chip->dev, "%s irq mapping fail(%d)\n", __func__,
@@ -1636,14 +1557,15 @@ static int rt9759_init_irq(struct rt9759_chip *chip)
 	dev_info(chip->dev, "%s irq = %d\n", __func__, chip->irq);
 
 	/* Request threaded IRQ */
+	len = strlen(chip->desc->chg_name);
 	name = devm_kzalloc(chip->dev, len + 5, GFP_KERNEL);
 	snprintf(name, len + 5, "%s_irq", chip->desc->chg_name);
 	ret = devm_request_threaded_irq(chip->dev, chip->irq, NULL,
 		rt9759_irq_handler, IRQF_TRIGGER_FALLING | IRQF_ONESHOT, name,
 		chip);
 	if (ret < 0) {
-		dev_notice(chip->dev, "%s request thread irq fail(%d)\n",
-			__func__, ret);
+		dev_notice(chip->dev, "%s request thread irq fail(%d)\n", __func__,
+			ret);
 		return ret;
 	}
 	device_init_wakeup(chip->dev, true);
@@ -1778,7 +1700,7 @@ static int rt9759_parse_dt(struct rt9759_chip *chip)
 
 	if (!np)
 		return -ENODEV;
-
+	//FIX ME
 	if (chip->type == RT9759_TYPE_SLAVE)
 		goto ignore_intr;
 
@@ -1786,6 +1708,7 @@ static int rt9759_parse_dt(struct rt9759_chip *chip)
 	if (IS_ERR(chip->irq_gpio))
 		return PTR_ERR(chip->irq_gpio);
 
+//FIX ME
 ignore_intr:
 	desc = devm_kzalloc(chip->dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
@@ -1807,8 +1730,20 @@ ignore_intr:
 			    ARRAY_SIZE(rt9759_dtprops_u32));
 	rt9759_parse_dt_bool(child_np, (void *)desc, rt9759_dtprops_bool,
 			     ARRAY_SIZE(rt9759_dtprops_bool));
+	desc->ibat_rsense_half = of_property_read_bool(child_np,
+						       "ibat_rsense_half");
 	chip->desc = desc;
 	return 0;
+}
+
+static int rt9759_reset_register(struct rt9759_chip *chip)
+{
+	int ret;
+
+	ret = rt9759_set_bits(chip, RT9759_REG_CHGCTRL0, RT9759_REGRST_MASK);
+	dev_info(chip->dev, "%s ret(%d)\n", __func__, ret);
+	usleep_range(5, 10);
+	return ret;
 }
 
 static int __rt9759_init_chip(struct rt9759_chip *chip)
@@ -1816,6 +1751,9 @@ static int __rt9759_init_chip(struct rt9759_chip *chip)
 	int ret;
 
 	dev_info(chip->dev, "%s\n", __func__);
+	ret = rt9759_reset_register(chip);
+	if (ret < 0)
+		return ret;
 	ret = rt9759_apply_dt(chip, (void *)chip->desc, rt9759_dtprops_u32,
 			      ARRAY_SIZE(rt9759_dtprops_u32));
 	if (ret < 0)
@@ -1836,14 +1774,14 @@ static int rt9759_check_devinfo(struct i2c_client *client, u8 *chip_rev,
 	ret = i2c_smbus_read_byte_data(client, RT9759_REG_DEVINFO);
 	if (ret < 0)
 		return ret;
-	if ((ret & 0x0f) != RT9759_DEVID)
+	if ((ret & RT9759_DEVID_MASK) != RT9759_DEVID)
 		return -ENODEV;
-	*chip_rev = (ret & 0xf0) >> 4;
+	*chip_rev = (ret & RT9759_DEVREV_MASK) >> RT9759_DEVREV_SHFT;
 
 	ret = i2c_smbus_read_byte_data(client, RT9759_REG_CHGCTRL1);
 	if (ret < 0)
 		return ret;
-	*type = (ret & 0x60) >> 5;
+	*type = (ret & RT9759_MS_MASK) >> RT9759_MS_SHFT;
 	dev_info(&client->dev, "%s rev(0x%02X), type(%s)\n", __func__,
 		 *chip_rev, rt9759_type_name[*type]);
 	return 0;
@@ -1873,8 +1811,6 @@ static int rt9759_i2c_probe(struct i2c_client *client,
 	mutex_init(&chip->io_lock);
 	mutex_init(&chip->adc_lock);
 	mutex_init(&chip->stat_lock);
-	mutex_init(&chip->hm_lock);
-	mutex_init(&chip->suspend_lock);
 	mutex_init(&chip->notify_lock);
 	init_waitqueue_head(&chip->wq);
 	i2c_set_clientdata(client, chip);
@@ -1884,52 +1820,52 @@ static int rt9759_i2c_probe(struct i2c_client *client,
 		dev_notice(chip->dev, "%s parse dt fail(%d)\n", __func__, ret);
 		goto err;
 	}
+
 #ifdef CONFIG_RT_REGMAP
 	ret = rt9759_register_regmap(chip);
 	if (ret < 0) {
-		dev_notice(chip->dev, "%s reg regmap fail(%d)\n",
-			__func__, ret);
+		dev_notice(chip->dev, "%s reg regmap fail(%d)\n", __func__, ret);
 		goto err;
 	}
 #endif /* CONFIG_RT_REGMAP */
+
 	ret = __rt9759_init_chip(chip);
 	if (ret < 0) {
 		dev_notice(chip->dev, "%s init chip fail(%d)\n", __func__, ret);
-		goto err_initchip;
+		goto err_unreg_regmap;
 	}
+
 	ret = rt9759_register_chgdev(chip);
 	if (ret < 0) {
-		dev_notice(chip->dev, "%s reg chgdev fail(%d)\n",
-			__func__, ret);
-		goto err_initchip;
+		dev_notice(chip->dev, "%s reg chgdev fail(%d)\n", __func__, ret);
+		goto err_unreg_regmap;
 	}
 
 	chip->notify_task = kthread_run(rt9759_notify_task_threadfn, chip,
 					"notify_thread");
 	if (IS_ERR(chip->notify_task)) {
-		dev_notice(chip->dev, "%s run notify thread fail(%d)\n",
-			__func__, ret);
+		dev_notice(chip->dev, "%s run notify thread fail(%d)\n", __func__,
+			ret);
 		ret = PTR_ERR(chip->notify_task);
-		goto err_initirq;
+		goto err_unreg_chgdev;
 	}
+
 	ret = rt9759_init_irq(chip);
 	if (ret < 0) {
 		dev_notice(chip->dev, "%s init irq fail(%d)\n", __func__, ret);
-		goto err_initirq;
+		goto err_unreg_chgdev;
 	}
 
 	dev_info(chip->dev, "%s successfully\n", __func__);
 	return 0;
-err_initirq:
+err_unreg_chgdev:
 	charger_device_unregister(chip->chg_dev);
-err_initchip:
+err_unreg_regmap:
 #ifdef CONFIG_RT_REGMAP
 	rt_regmap_device_unregister(chip->rm_dev);
 #endif /* CONFIG_RT_REGMAP */
 err:
 	mutex_destroy(&chip->notify_lock);
-	mutex_destroy(&chip->suspend_lock);
-	mutex_destroy(&chip->hm_lock);
 	mutex_destroy(&chip->stat_lock);
 	mutex_destroy(&chip->adc_lock);
 	mutex_destroy(&chip->io_lock);
@@ -1938,7 +1874,11 @@ err:
 
 static void rt9759_i2c_shutdown(struct i2c_client *client)
 {
+	struct rt9759_chip *chip = i2c_get_clientdata(client);
+
 	dev_info(&client->dev, "%s\n", __func__);
+	if (chip)
+		rt9759_reset_register(chip);
 }
 
 static int rt9759_i2c_remove(struct i2c_client *client)
@@ -1955,8 +1895,6 @@ static int rt9759_i2c_remove(struct i2c_client *client)
 	rt_regmap_device_unregister(chip->rm_dev);
 #endif /* CONFIG_RT_REGMAP */
 	mutex_destroy(&chip->notify_lock);
-	mutex_destroy(&chip->suspend_lock);
-	mutex_destroy(&chip->hm_lock);
 	mutex_destroy(&chip->stat_lock);
 	mutex_destroy(&chip->adc_lock);
 	mutex_destroy(&chip->io_lock);
@@ -1969,9 +1907,9 @@ static int __maybe_unused rt9759_i2c_suspend(struct device *dev)
 	struct rt9759_chip *chip = i2c_get_clientdata(i2c);
 
 	dev_info(dev, "%s\n", __func__);
-	mutex_lock(&chip->suspend_lock);
 	if (device_may_wakeup(dev))
 		enable_irq_wake(chip->irq);
+	disable_irq(chip->irq);
 	return 0;
 }
 
@@ -1981,9 +1919,9 @@ static int __maybe_unused rt9759_i2c_resume(struct device *dev)
 	struct rt9759_chip *chip = i2c_get_clientdata(i2c);
 
 	dev_info(dev, "%s\n", __func__);
-	mutex_unlock(&chip->suspend_lock);
 	if (device_may_wakeup(dev))
 		disable_irq_wake(chip->irq);
+	enable_irq(chip->irq);
 	return 0;
 }
 
@@ -2015,12 +1953,23 @@ static struct i2c_driver rt9759_i2c_driver = {
 };
 module_i2c_driver(rt9759_i2c_driver);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Richtek RT9759 Charger Driver");
 MODULE_AUTHOR("ShuFan Lee<shufan_lee@richtek.com>");
 MODULE_VERSION(RT9759_DRV_VERSION);
 
 /*
+ * 2.0.1_MTK
+ * (1) Remove ignoring slave charger irq init
+ *
+ * 2.0.0_MTK
+ * (1) Adapt to new ops of charger_class
+ * (2) Arrange include files by alphabet
+ * (3) Remove suspend_lock, use enable/disable irq instead
+ * (4) Reset register before shutdown and init_chip
+ * (5) Add ibat_rsense_half to allow user to use rsense with only
+ *     half of ibat rsense setting
+ *
  * 1.0.8_MTK
  * (1) Add init_chip ops, if register reset happened, init_chip again.
  *
