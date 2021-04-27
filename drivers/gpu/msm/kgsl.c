@@ -4,6 +4,7 @@
  */
 
 #include <uapi/linux/sched/types.h>
+#include <linux/bitfield.h>
 #include <linux/ctype.h>
 #include <linux/debugfs.h>
 #include <linux/dma-buf.h>
@@ -344,7 +345,13 @@ kgsl_mem_entry_destroy(struct kref *kref)
 	/* pull out the memtype before the flags get cleared */
 	memtype = kgsl_memdesc_usermem_type(&entry->memdesc);
 
-	atomic64_sub(entry->memdesc.size, &entry->priv->stats[memtype].cur);
+	/*
+	 * VBO allocations at gpumem_alloc_vbo_entry are not added into stats
+	 * (using kgsl_process_add_stats) so do not subtract here. For all other
+	 * allocations subtract before freeing memdesc
+	 */
+	if (!(entry->memdesc.flags & KGSL_MEMFLAGS_VBO))
+		atomic64_sub(entry->memdesc.size, &entry->priv->stats[memtype].cur);
 
 	/* Detach from process list */
 	kgsl_mem_entry_detach_process(entry);
@@ -1922,7 +1929,7 @@ long kgsl_ioctl_gpu_aux_command(struct kgsl_device_private *dev_priv,
 		return -EINVAL;
 
 	if (!(param->flags &
-		(KGSL_GPU_AUX_COMMAND_TIMELINE)))
+		(KGSL_GPU_AUX_COMMAND_BIND | KGSL_GPU_AUX_COMMAND_TIMELINE)))
 		return -EINVAL;
 
 	/*
@@ -2002,7 +2009,23 @@ long kgsl_ioctl_gpu_aux_command(struct kgsl_device_private *dev_priv,
 			goto err;
 		}
 
-		if (generic.type == KGSL_GPU_AUX_COMMAND_TIMELINE) {
+		if (generic.type == KGSL_GPU_AUX_COMMAND_BIND) {
+			struct kgsl_drawobj_bind *bindobj;
+
+			bindobj = kgsl_drawobj_bind_create(device, context);
+
+			if (IS_ERR(bindobj)) {
+				ret = PTR_ERR(bindobj);
+				goto err;
+			}
+
+			drawobjs[index++] = DRAWOBJ(bindobj);
+
+			ret = kgsl_drawobj_add_bind(dev_priv, bindobj,
+				cmdlist, param->cmdsize);
+			if (ret)
+				goto err;
+		} else if (generic.type == KGSL_GPU_AUX_COMMAND_TIMELINE) {
 			struct kgsl_drawobj_timeline *timelineobj;
 
 			timelineobj = kgsl_drawobj_timeline_create(device,
@@ -2732,6 +2755,9 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 		param->type != KGSL_USER_MEM_TYPE_DMABUF)
 		return -ENOTSUPP;
 
+	if (param->flags & KGSL_MEMFLAGS_VBO)
+		return -EINVAL;
+
 	entry = kgsl_mem_entry_create();
 	if (entry == NULL)
 		return -ENOMEM;
@@ -3385,6 +3411,84 @@ static uint64_t kgsl_filter_cachemode(uint64_t flags)
 /* The largest allowable alignment for a GPU object is 32MB */
 #define KGSL_MAX_ALIGN (32 * SZ_1M)
 
+static u64 cap_alignment(struct kgsl_device *device, u64 flags)
+{
+	u32 align = FIELD_GET(KGSL_MEMALIGN_MASK, flags);
+
+	if (align >= ilog2(KGSL_MAX_ALIGN)) {
+	/* Cap the alignment bits to the highest number we can handle */
+		dev_err(device->dev,
+			"Alignment too large; restricting to %dK\n",
+			KGSL_MAX_ALIGN >> 10);
+		align = ilog2(KGSL_MAX_ALIGN);
+	}
+
+	flags &= ~((u64) KGSL_MEMALIGN_MASK);
+	return flags | FIELD_PREP(KGSL_MEMALIGN_MASK, align);
+}
+
+static struct kgsl_mem_entry *
+gpumem_alloc_vbo_entry(struct kgsl_device_private *dev_priv,
+		u64 size, u64 flags)
+{
+	struct kgsl_process_private *private = dev_priv->process_priv;
+	struct kgsl_device *device = dev_priv->device;
+	struct kgsl_memdesc *memdesc;
+	struct kgsl_mem_entry *entry;
+	int ret;
+
+	/* Disallow specific flags */
+	if (flags & (KGSL_MEMFLAGS_GPUREADONLY | KGSL_CACHEMODE_MASK))
+		return ERR_PTR(-EINVAL);
+
+	if (flags & (KGSL_MEMFLAGS_USE_CPU_MAP | KGSL_MEMFLAGS_IOCOHERENT))
+		return ERR_PTR(-EINVAL);
+
+	/* Quietly ignore the other flags that aren't this list */
+	flags &= KGSL_MEMFLAGS_SECURE |
+		KGSL_MEMFLAGS_VBO    |
+		KGSL_MEMTYPE_MASK   |
+		KGSL_MEMALIGN_MASK  |
+		KGSL_MEMFLAGS_FORCE_32BIT;
+
+	if ((flags & KGSL_MEMFLAGS_SECURE) && !check_and_warn_secured(device))
+		return ERR_PTR(-EOPNOTSUPP);
+
+	flags = cap_alignment(device, flags);
+
+	entry = kgsl_mem_entry_create();
+	if (!entry)
+		return ERR_PTR(-ENOMEM);
+
+	memdesc = &entry->memdesc;
+
+	ret = kgsl_sharedmem_allocate_vbo(device, memdesc, size, flags);
+	if (ret) {
+		kfree(entry);
+		return ERR_PTR(ret);
+	}
+
+	if (flags & KGSL_MEMFLAGS_SECURE)
+		entry->memdesc.priv |= KGSL_MEMDESC_SECURE;
+
+	ret = kgsl_mem_entry_attach_to_process(device, private, entry);
+	if (ret)
+		goto out;
+
+	ret = kgsl_mmu_map_zero_page_to_range(memdesc->pagetable,
+		memdesc, 0, memdesc->size);
+	if (!ret) {
+		trace_kgsl_mem_alloc(entry);
+		kgsl_mem_entry_commit_process(entry);
+		return entry;
+	}
+
+out:
+	kgsl_sharedmem_free(memdesc);
+	kfree(entry);
+	return ERR_PTR(ret);
+}
+
 struct kgsl_mem_entry *gpumem_alloc_entry(
 		struct kgsl_device_private *dev_priv,
 		uint64_t size, uint64_t flags)
@@ -3393,7 +3497,9 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	struct kgsl_mem_entry *entry;
 	struct kgsl_device *device = dev_priv->device;
-	unsigned int align;
+
+	if (flags & KGSL_MEMFLAGS_VBO)
+		return gpumem_alloc_vbo_entry(dev_priv, size, flags);
 
 	flags &= KGSL_MEMFLAGS_GPUREADONLY
 		| KGSL_CACHEMODE_MASK
@@ -3409,16 +3515,7 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 	if ((flags & KGSL_MEMFLAGS_SECURE) && !check_and_warn_secured(device))
 		return ERR_PTR(-EOPNOTSUPP);
 
-	/* Cap the alignment bits to the highest number we can handle */
-	align = FIELD_GET(KGSL_MEMALIGN_MASK, flags);
-	if (align >= ilog2(KGSL_MAX_ALIGN)) {
-		dev_err(device->dev,
-			"Alignment too large; restricting to %dK\n",
-			KGSL_MAX_ALIGN >> 10);
-
-		flags &= ~((uint64_t) KGSL_MEMALIGN_MASK);
-		flags |= FIELD_PREP(KGSL_MEMALIGN_MASK, ilog2(KGSL_MAX_ALIGN));
-	}
+	flags = cap_alignment(device, flags);
 
 	/* For now only allow allocations up to 4G */
 	if (size == 0 || size > UINT_MAX)
@@ -3616,7 +3713,13 @@ long kgsl_ioctl_gpuobj_info(struct kgsl_device_private *dev_priv,
 	param->gpuaddr = entry->memdesc.gpuaddr;
 	param->flags = entry->memdesc.flags;
 	param->size = entry->memdesc.size;
-	param->va_len = kgsl_memdesc_footprint(&entry->memdesc);
+
+	/* VBOs cannot be mapped, so don't report a va_len */
+	if (entry->memdesc.flags & KGSL_MEMFLAGS_VBO)
+		param->va_len = 0;
+	else
+		param->va_len = kgsl_memdesc_footprint(&entry->memdesc);
+
 	/*
 	 * Entries can have multiple user mappings so thre isn't any one address
 	 * we can report. Plus, the user should already know their mappings, so

@@ -64,6 +64,11 @@ static void cmdobj_destroy_object(struct kgsl_drawobj *drawobj)
 	kfree(CMDOBJ(drawobj));
 }
 
+static void bindobj_destroy_object(struct kgsl_drawobj *drawobj)
+{
+	kfree(BINDOBJ(drawobj));
+}
+
 static void timelineobj_destroy_object(struct kgsl_drawobj *drawobj)
 {
 	kfree(TIMELINEOBJ(drawobj));
@@ -344,6 +349,13 @@ static void timelineobj_destroy(struct kgsl_drawobj *drawobj)
 	kvfree(timelineobj->timelines);
 	timelineobj->timelines = NULL;
 	timelineobj->count = 0;
+}
+
+static void bindobj_destroy(struct kgsl_drawobj *drawobj)
+{
+	struct kgsl_drawobj_bind *bindobj = BINDOBJ(drawobj);
+
+	kgsl_sharedmem_put_bind_op(bindobj->bind);
 }
 
 static void cmdobj_destroy(struct kgsl_drawobj *drawobj)
@@ -925,6 +937,74 @@ err:
 	kvfree(timelineobj->timelines);
 	timelineobj->timelines = NULL;
 	return ret;
+}
+
+static void kgsl_drawobj_bind_callback(struct kgsl_sharedmem_bind_op *op)
+{
+	struct kgsl_drawobj_bind *bindobj = op->data;
+	struct kgsl_drawobj *drawobj = DRAWOBJ(bindobj);
+	struct kgsl_device *device = drawobj->device;
+
+	set_bit(KGSL_BINDOBJ_STATE_DONE, &bindobj->state);
+
+	/* Re-schedule the context */
+	if (device->ftbl->drawctxt_sched)
+		device->ftbl->drawctxt_sched(device,
+			drawobj->context);
+
+	/* Put back the reference we took when we started the operation */
+	kgsl_context_put(drawobj->context);
+	kgsl_drawobj_put(drawobj);
+}
+
+int kgsl_drawobj_add_bind(struct kgsl_device_private *dev_priv,
+		struct kgsl_drawobj_bind *bindobj,
+		void __user *src, u64 cmdsize)
+{
+	struct kgsl_gpu_aux_command_bind cmd;
+	struct kgsl_process_private *private = dev_priv->process_priv;
+	struct kgsl_sharedmem_bind_op *op;
+	int ret;
+
+	ret = get_aux_command(src, cmdsize,
+		KGSL_GPU_AUX_COMMAND_BIND, &cmd, sizeof(cmd));
+	if (ret)
+		return ret;
+
+	op = kgsl_sharedmem_create_bind_op(private, cmd.target,
+		u64_to_user_ptr(cmd.rangeslist), cmd.numranges,
+		cmd.rangesize);
+
+	if (IS_ERR(op))
+		return PTR_ERR(op);
+
+	op->callback = kgsl_drawobj_bind_callback;
+	op->data = bindobj;
+
+	bindobj->bind = op;
+	return 0;
+}
+
+struct kgsl_drawobj_bind *kgsl_drawobj_bind_create(struct kgsl_device *device,
+		struct kgsl_context *context)
+{
+	int ret;
+	struct kgsl_drawobj_bind *bindobj =
+		kzalloc(sizeof(*bindobj), GFP_KERNEL);
+
+	if (!bindobj)
+		return ERR_PTR(-ENOMEM);
+
+	ret = drawobj_init(device, context, &bindobj->base, BINDOBJ_TYPE);
+	if (ret) {
+		kfree(bindobj);
+		return ERR_PTR(ret);
+	}
+
+	bindobj->base.destroy = bindobj_destroy;
+	bindobj->base.destroy_object = bindobj_destroy_object;
+
+	return bindobj;
 }
 
 /**

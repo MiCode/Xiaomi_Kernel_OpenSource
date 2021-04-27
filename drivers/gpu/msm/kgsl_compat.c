@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 #include "kgsl_device.h"
@@ -352,6 +352,8 @@ static const struct kgsl_ioctl kgsl_compat_ioctl_funcs[] = {
 			NULL),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPU_SPARSE_COMMAND,
 			NULL),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUMEM_BIND_RANGES,
+			kgsl_ioctl_gpumem_bind_ranges),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPU_AUX_COMMAND,
 			kgsl_ioctl_gpu_aux_command),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMELINE_CREATE,

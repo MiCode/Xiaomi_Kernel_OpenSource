@@ -224,6 +224,10 @@ struct kgsl_memdesc {
 	 * multiple entities trying to map the same SVM region at once
 	 */
 	spinlock_t lock;
+	/** @ranges: rbtree base for the interval list of vbo ranges */
+	struct rb_root_cached ranges;
+	/** @ranges_lock: Mutex to protect the range database */
+	struct mutex ranges_lock;
 };
 
 /**
@@ -440,6 +444,8 @@ long kgsl_ioctl_gpuobj_sync(struct kgsl_device_private *dev_priv,
 long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
 				unsigned int cmd, void *data);
 long kgsl_ioctl_gpuobj_set_info(struct kgsl_device_private *dev_priv,
+				unsigned int cmd, void *data);
+long kgsl_ioctl_gpumem_bind_ranges(struct kgsl_device_private *dev_priv,
 				unsigned int cmd, void *data);
 long kgsl_ioctl_gpu_aux_command(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data);
