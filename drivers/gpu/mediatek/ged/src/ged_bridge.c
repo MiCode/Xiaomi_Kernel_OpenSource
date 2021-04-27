@@ -6,9 +6,7 @@
 #include <linux/kernel.h>
 #include <mt-plat/mtk_gpu_utility.h>
 
-#ifdef CONFIG_MTK_FPSGO_V3
 #include <mt-plat/fpsgo_common.h>
-#endif
 
 #include "ged_base.h"
 #include "ged_bridge.h"

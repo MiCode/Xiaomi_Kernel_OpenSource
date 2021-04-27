@@ -287,7 +287,6 @@ static ssize_t dvfs_margin_value_store(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(dvfs_margin_value);
 //-----------------------------------------------------------------------------
-#ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 static ssize_t loading_base_dvfs_step_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -327,9 +326,7 @@ static ssize_t loading_base_dvfs_step_store(struct kobject *kobj,
 }
 
 static KOBJ_ATTR_RW(loading_base_dvfs_step);
-#endif /* GED_CONFIGURE_LOADING_BASE_DVFS_STEP */
 //-----------------------------------------------------------------------------
-#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 static ssize_t timer_base_dvfs_margin_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -369,7 +366,6 @@ static ssize_t timer_base_dvfs_margin_store(struct kobject *kobj,
 }
 
 static KOBJ_ATTR_RW(timer_base_dvfs_margin);
-#endif /* GED_ENABLE_TIMER_BASED_DVFS_MARGIN */
 
 
 static ssize_t dvfs_loading_mode_show(struct kobject *kobj,
@@ -595,7 +591,6 @@ GED_ERROR ged_hal_init(void)
 		goto ERROR;
 	}
 
-#ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 	err = ged_sysfs_create_file(hal_kobj,
 		&kobj_attr_loading_base_dvfs_step);
 	if (unlikely(err != GED_OK)) {
@@ -603,9 +598,7 @@ GED_ERROR ged_hal_init(void)
 			"Failed to create loading_base_dvfs_step entry!\n");
 		goto ERROR;
 	}
-#endif
 
-#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 	err = ged_sysfs_create_file(hal_kobj,
 		&kobj_attr_timer_base_dvfs_margin);
 	if (unlikely(err != GED_OK)) {
@@ -613,7 +606,6 @@ GED_ERROR ged_hal_init(void)
 			"Failed to create timer_base_dvfs_margin entry!\n");
 		goto ERROR;
 	}
-#endif
 
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_dvfs_loading_mode);
 	if (unlikely(err != GED_OK)) {
@@ -637,14 +629,8 @@ ERROR:
 void ged_hal_exit(void)
 {
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dvfs_loading_mode);
-
-#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_timer_base_dvfs_margin);
-#endif
-#ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_loading_base_dvfs_step);
-#endif
-
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dvfs_margin_value);
 
 #ifdef MTK_GED_KPI

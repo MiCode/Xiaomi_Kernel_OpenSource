@@ -50,10 +50,11 @@ unsigned int ged_kpi_enabled(void);
 void ged_kpi_set_target_FPS(u64 ulID, int target_FPS);
 void ged_kpi_set_target_FPS_margin(u64 ulID, int target_FPS,
 		int target_FPS_margin, int cpu_time);
-#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+
 GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
 	int *pT_gpu_target, unsigned long long *pullWnd);
-#endif
 
 extern spinlock_t gsGpuUtilLock;
+
+// extern unsigned int g_gpufreqv2;
 #endif

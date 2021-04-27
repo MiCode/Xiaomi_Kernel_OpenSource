@@ -151,12 +151,9 @@ extern int (*mtk_get_dvfs_margin_value_fp)(void);
 extern int ged_get_dvfs_margin(void);
 extern unsigned int ged_get_dvfs_margin_mode(void);
 
-#ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 extern void (*mtk_loading_base_dvfs_step_fp)(int i32MarginValue);
 extern int (*mtk_get_loading_base_dvfs_step_fp)(void);
-#endif /* GED_CONFIGURE_LOADING_BASE_DVFS_STEP */
 
-#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 extern void (*mtk_timer_base_dvfs_margin_fp)(int i32MarginValue);
 extern int (*mtk_get_timer_base_dvfs_margin_fp)(void);
 /* it is not good that ged_dvfs extern API of ged_kpi, need to refactor */
@@ -164,7 +161,6 @@ extern GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real,
 	int *pT_gpu_pipe, int *pT_gpu_target, unsigned long long *pullWnd);
 int ged_dvfs_get_tb_dvfs_margin_cur(void);
 unsigned int ged_dvfs_get_tb_dvfs_margin_mode(void);
-#endif /* GED_ENABLE_TIMER_BASED_DVFS_MARGIN */
 
 
 #define LOADING_ACTIVE 0
@@ -177,4 +173,6 @@ extern void ged_get_gpu_utli_ex(struct GpuUtilization_Ex *util_ex);
 #define MAX(x, y)	((x) < (y) ? (y) : (x))
 
 extern unsigned int ged_log_perf_trace_enable;
+extern unsigned int g_gpufreq_v2;
+
 #endif

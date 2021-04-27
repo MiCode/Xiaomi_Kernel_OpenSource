@@ -17,29 +17,29 @@ GPU_TOP = $(srctree)/drivers/gpu/mediatek/
 
 subdir-ccflags-y += -Wno-error
 
+ccflags-y += \
+        -Wno-unused-variable \
+        -Wno-unused-function
+
 # ccflags-y += -DMTK_CPUFREQ
 # ccflags-y += -DGED_KPI_DEBUG
 ccflags-y += -DMTK_GPUFREQ_V2
 ccflags-y += -DMTK_GED_KPI
-
-# No more used:
-# ccflags-y += -DGED_KPI_DEBUG
-# ccflags-y += -DGED_ENABLE_FB_DVFS
-
-# TODO: remove the LB-DVFS MACRO
-ccflags-y += -DGED_CONFIGURE_LOADING_BASE_DVFS_STEP
-ccflags-y += -DGED_ENABLE_TIMER_BASED_DVFS_MARGIN
-
-# TODO: decouple gpufreq_v1 and v2
-ifneq (,$(filter $(MTK_PLATFORM), mt6853))
-ccflags-y += -DMTK_GPUFREQ_V1
-endif
+ccflags-y += -DMET_USER_EVENT_SUPPORT -DMTK_GPU_DVFS
+ccflags-y += -DGED_DVFS_DEBUG_BUF
 
 ifeq ($(CONFIG_MTK_ENABLE_GMO), y)
 ccflags-y += -DGED_BUFFER_LOG_DISABLE
 endif
 
-ccflags-y += -DMET_USER_EVENT_SUPPORT -DMTK_GPU_DVFS
+ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
+ccflags-y += -DENABLE_COMMON_DVFS \
+             -DENABLE_TIMER_BACKUP
+endif
+
+ifeq ($(CONFIG_MTK_FTRACE_DEFAULT_ENABLE),y)
+ccflags-y += -DENABLE_GED_SYSTRACE_UTIL
+endif
 
 ccflags-y += \
 	     -I$(srctree)/include/ \
@@ -47,39 +47,14 @@ ccflags-y += \
 	     -I$(GED_TOP)/include/ \
 	     -I$(GPU_TOP)/hal/ \
 	     -I$(GPU_TOP)/ \
-	     -I$(MTK_TOP)/base/power/$(MTK_PLATFORM)/ \
-	     -I$(srctree)/drivers/misc/mediatek/video/include \
-	     -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox \
-	     -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/dispsys \
 	     -I$(srctree)/drivers/misc/mediatek/lcm/inc/ \
 	     -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/ \
+		 -I$(srctree)/drivers/gpu/mediatek/gpufreq/v1/include/ \
+		 -I$(srctree)/drivers/gpu/mediatek/gpufreq/v2/include/ \
 	     -I$(srctree)/drivers/misc/mediatek/performance/fpsgo_v3
-
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)
-
 ccflags-y += \
 		 -I$(srctree)/drivers/misc/mediatek/cmdq/v3
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(subst ",,$(MTK_PLATFORM))
-
-
-#$(info $$CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT is [${CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT}])
-
-ifneq ($(CONFIG_FPGA_EARLY_PORTING), y)
-ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
-ccflags-y += -DENABLE_COMMON_DVFS \
-             -DENABLE_TIMER_BACKUP \
-             -DGED_DVFS_ENABLE
-endif
-else
-$(info $[GED]CONFIG_FPGA_EARLY_PORTING is [${CONFIG_FPGA_EARLY_PORTING}])
-endif
-
-ifeq ($(CONFIG_MTK_FTRACE_DEFAULT_ENABLE),y)
-ccflags-y += -DENABLE_GED_SYSTRACE_UTIL
-endif
-
-ccflags-y += -DGED_DVFS_DEBUG_BUF
 
 obj-$(CONFIG_MTK_GPU_SUPPORT) += ged.o
 
@@ -87,6 +62,15 @@ ifeq ($(CONFIG_DEBUG_FS),y)
 ccflags-y += -DGED_DEBUG_FS
 ged-y += \
 	src/ged_debugFS.o
+endif
+
+# $(info $ [Hans1]CONFIG_MTK_GPUFREQ_V2 is [${CONFIG_MTK_GPUFREQ_V2}])
+ifeq ($(CONFIG_MTK_GPUFREQ_V2),y)
+ged-y += \
+	src/ged_gpufreq_v2.o
+else
+ged-y += \
+	src/ged_gpufreq_v1.o
 endif
 
 ged-y += \
