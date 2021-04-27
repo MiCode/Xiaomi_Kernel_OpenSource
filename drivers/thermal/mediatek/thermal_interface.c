@@ -70,9 +70,9 @@ static struct therm_intf_info tm_data;
 void __iomem * thermal_csram_base;
 EXPORT_SYMBOL(thermal_csram_base);
 
-static int  therm_intf_get_cpu_headroom(enum headroom_id id)
+static int  therm_intf_read_csram_s32(int offset)
 {
-	void __iomem *addr = tm_data.csram_base + CPU_HEADROOM_OFFSET + 4 * id;
+	void __iomem *addr = tm_data.csram_base + offset;
 
 	return sign_extend32(readl(addr), 31);
 }
@@ -84,11 +84,11 @@ int get_thermal_headroom(enum headroom_id id)
 	if (!tm_data.sw_ready)
 		return MAX_HEADROOM;
 
-	if (id >= SOC_CPU0 && id < SOC_CPU0 + NR_CPUS) {
-		headroom = therm_intf_get_cpu_headroom(id);
+	if (id >= SOC_CPU0 && id < SOC_CPU0 + num_possible_cpus()) {
+		headroom = therm_intf_read_csram_s32(CPU_HEADROOM_OFFSET + 4 * id);
 	} else if (id == PCB_AP) {
 		mutex_lock(&tm_data.lock);
-		headroom = readl(tm_data.csram_base + AP_NTC_HEADROOM_OFFSET);
+		headroom = therm_intf_read_csram_s32(AP_NTC_HEADROOM_OFFSET);
 		mutex_unlock(&tm_data.lock);
 	}
 
@@ -109,6 +109,19 @@ int set_cpu_min_opp(int gear, int opp)
 	return 0;
 }
 EXPORT_SYMBOL(set_cpu_min_opp);
+
+int get_cpu_temp(int cpu_id)
+{
+	int temp = 25000;
+
+	if (!tm_data.sw_ready || cpu_id >= num_possible_cpus())
+		return temp;
+
+	temp = therm_intf_read_csram_s32(CPU_TEMP_OFFSET + 4 * cpu_id);
+
+	return temp;
+}
+EXPORT_SYMBOL(get_cpu_temp);
 
 static int therm_intf_hr_info_show(struct seq_file *m, void *unused)
 {

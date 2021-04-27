@@ -40,6 +40,7 @@ enum headroom_id {
 extern void update_ap_ntc_headroom(int temp, int polling_interval);
 extern int get_thermal_headroom(enum headroom_id id);
 extern int set_cpu_min_opp(int gear, int opp);
+extern int get_cpu_temp(int cpu_id);
 #if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
 extern void __iomem * thermal_csram_base;
 #else
