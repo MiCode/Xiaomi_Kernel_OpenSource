@@ -164,7 +164,38 @@ int fbt_get_default_adj_loading(void)
 	return 0;
 }
 
-int fbt_get_cluster_limit(int *cluster, int *freq)
+int fbt_get_default_adj_count(void)
+{
+	return 30;
+}
+
+int fbt_get_default_adj_tdiff(void)
+{
+	return 2000000;
+}
+
+int fbt_get_cluster_limit(int *cluster, int *freq, int *r_freq)
+{
+	return 0;
+}
+
+int fbt_get_default_uboost(void)
+{
+	return 0;
+}
+
+int fbt_get_default_qr_enable(void)
+{
+	return 0;
+}
+
+
+int fbt_get_default_gcc_enable(void)
+{
+	return 0;
+}
+
+int fbt_get_l_min_bhropp(void)
 {
 	return 0;
 }

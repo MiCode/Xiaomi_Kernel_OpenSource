@@ -24,7 +24,9 @@
 #include <linux/workqueue.h>
 
 #define WINDOW 20
-#define RESCUE_TIMER_NUM 3
+#define RESCUE_TIMER_NUM 5
+#define QUOTA_MAX_SIZE 300
+#define GCC_MAX_SIZE 300
 
 /* EARA job type */
 enum HW_EVENT4RENDER {
@@ -70,6 +72,7 @@ struct fbt_thread_blc {
 };
 
 struct fbt_boost_info {
+	int target_fps;
 	unsigned long long target_time;
 	unsigned int last_blc;
 
@@ -78,9 +81,11 @@ struct fbt_boost_info {
 	int weight_cnt;
 	int hit_cnt;
 	int deb_cnt;
+	int hit_cluster;
 
 	/* rescue*/
 	struct fbt_proc proc;
+	int cur_stage;
 
 	/* variance control */
 	struct fbt_frame_info frame_info[WINDOW];
@@ -88,6 +93,36 @@ struct fbt_boost_info {
 	int floor_count;
 	int reset_floor_bound;
 	int f_iter;
+
+	/* quota */
+	long long quota_raw[QUOTA_MAX_SIZE];
+	int quota_cnt;
+	int quota_cur_idx;
+	int quota_fps;
+	int quota;
+	int quota_adj; /* remove outlier */
+	int quota_mod; /* mod target time */
+
+	/* GCC */
+	int gcc_quota;
+	int gcc_count;
+	int gcc_target_fps;
+	int correction;
+	int gcc_pct_thrs;
+	int gcc_avg_pct;
+	unsigned long long gcc_pct_reset_ts;
+	int quantile_cpu_time;
+	int quantile_gpu_time;
+
+};
+
+struct uboost {
+	unsigned long long vsync_u_runtime;
+	unsigned long long checkp_u_runtime;
+	unsigned long long timer_period;
+	int uboosting;
+	struct hrtimer timer;
+	struct work_struct work;
 };
 
 struct render_info {
@@ -104,6 +139,8 @@ struct render_info {
 	int tgid;	/*render's process pid*/
 	int api;	/*connected API*/
 	int frame_type;
+	int hwui;
+	int ux;
 
 	/*render queue/dequeue/frame time info*/
 	unsigned long long t_enqueue_start;
@@ -124,9 +161,13 @@ struct render_info {
 	int dep_valid_size;
 	unsigned long long dep_loading_ts;
 	unsigned long long linger_ts;
+	long long last_sched_runtime;
 
 	/*TODO: EARA mid list*/
 	unsigned long long mid;
+
+	/*uboost*/
+	struct uboost uboost_info;
 
 	struct mutex thr_mlock;
 };
@@ -141,11 +182,17 @@ struct BQ_id {
 	struct rb_node entry;
 };
 
+struct hwui_info {
+	int pid;
+	struct rb_node entry;
+};
+
 struct fpsgo_loading {
 	int pid;
 	int loading;
 	int prefer_type;
 	int policy;
+	long nice_bk;
 };
 
 struct gbe_runtime {
@@ -178,6 +225,8 @@ void fpsgo_delete_render_info(int pid,
 	unsigned long long buffer_id, unsigned long long identifier);
 struct render_info *fpsgo_search_and_add_render_info(int pid,
 		unsigned long long identifier, int force);
+struct hwui_info *fpsgo_search_and_add_hwui_info(int pid, int force);
+void fpsgo_delete_hwui_info(int pid);
 int fpsgo_has_bypass(void);
 void fpsgo_check_thread_status(void);
 void fpsgo_clear(void);
@@ -189,6 +238,9 @@ void fpsgo_main_trace(const char *fmt, ...);
 void fpsgo_clear_uclamp_boost(void);
 void fpsgo_clear_llf_cpu_policy(int orig_llf);
 void fpsgo_del_linger(struct render_info *thr);
+int fpsgo_uboost_traverse(unsigned long long ts);
+int fpsgo_base_is_finished(struct render_info *thr);
+int fpsgo_update_swap_buffer(int pid);
 
 int init_fpsgo_common(void);
 

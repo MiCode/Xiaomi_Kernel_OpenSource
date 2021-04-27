@@ -111,6 +111,9 @@ static int generate_cpu_mask(unsigned int prefer_type, struct cpumask *cpu_mask)
 	else if (prefer_type == FPSGO_PREFER_BIG) {
 		cpumask_clear(cpu_mask);
 		cpumask_set_cpu(7, cpu_mask);
+	} else if (prefer_type == FPSGO_PREFER_L_M) {
+		cpumask_setall(cpu_mask);
+		cpumask_clear_cpu(7, cpu_mask);
 	} else
 		return -1;
 
@@ -128,6 +131,7 @@ void fbt_set_affinity(pid_t pid, unsigned int prefer_type)
 					&mask[FPSGO_PREFER_LITTLE]);
 		generate_cpu_mask(FPSGO_PREFER_NONE, &mask[FPSGO_PREFER_NONE]);
 		generate_cpu_mask(FPSGO_PREFER_BIG, &mask[FPSGO_PREFER_BIG]);
+		generate_cpu_mask(FPSGO_PREFER_L_M, &mask[FPSGO_PREFER_L_M]);
 	}
 
 	ret = sched_setaffinity(pid, &mask[prefer_type]);
@@ -165,10 +169,46 @@ int fbt_get_default_adj_loading(void)
 	return 1;
 }
 
-int fbt_get_cluster_limit(int *cluster, int *freq)
+int fbt_get_default_adj_count(void)
 {
+	return 10;
+}
+
+int fbt_get_default_adj_tdiff(void)
+{
+	return 1000000;
+}
+
+int fbt_get_cluster_limit(int *cluster, int *freq, int *r_freq)
+{
+/*
+ * when return value is zero -> no limit
+ * when cluster is not set -> no limit
+ * when cluster is set and freq is set -> ceiling limit
+ * when cluster is set and r_freq is set -> rescue ceiling limit
+ */
 	*cluster = 2;
-	*freq = INT_MAX;
+	*freq = 2600000;
+	return 1;
+}
+
+int fbt_get_default_uboost(void)
+{
+	return 75;
+}
+
+int fbt_get_default_qr_enable(void)
+{
+	return 0;
+}
+
+int fbt_get_default_gcc_enable(void)
+{
+	return 0;
+}
+
+int fbt_get_l_min_bhropp(void)
+{
 	return 1;
 }
 

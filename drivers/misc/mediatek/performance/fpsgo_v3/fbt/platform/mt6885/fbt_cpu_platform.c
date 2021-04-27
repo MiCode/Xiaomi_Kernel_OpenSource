@@ -172,14 +172,38 @@ int fbt_get_default_adj_loading(void)
 	return 1;
 }
 
-int fbt_get_cluster_limit(int *cluster, int *freq)
+int fbt_get_default_adj_count(void)
 {
-#if defined(CONFIG_MTK_SCHED_MULTI_GEARS)
-	*cluster = 2;
-	*freq = 0;
-	return 1;
-#else
+	return 30;
+}
+
+int fbt_get_default_adj_tdiff(void)
+{
+	return 2000000;
+}
+
+int fbt_get_cluster_limit(int *cluster, int *freq, int *r_freq)
+{
 	return 0;
-#endif
+}
+
+int fbt_get_default_uboost(void)
+{
+	return 0;
+}
+
+int fbt_get_default_qr_enable(void)
+{
+	return 0;
+}
+
+int fbt_get_default_gcc_enable(void)
+{
+	return 0;
+}
+
+int fbt_get_l_min_bhropp(void)
+{
+	return 0;
 }
 

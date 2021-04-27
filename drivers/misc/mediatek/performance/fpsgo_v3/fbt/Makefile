@@ -32,10 +32,17 @@ else
 obj-y += platform/$(MTK_PLATFORM)/fbt_cpu_platform.o
 endif
 
+ifneq ($(MTK_PLATFORM),mt6739)
+CONFIG_FPSGO_THERMAL_SUPPORT := n
+endif
+
 obj-y += \
 	src/fbt_cpu.o \
 	src/xgf.o \
-	src/mini_top.o
+	src/mini_top.o \
+	src/uboost.o \
+
+obj-$(CONFIG_FPSGO_THERMAL_SUPPORT) += src/thermal_aware.o
 
 ccflags-y += \
 	-I$(srctree)/include/ \
@@ -48,4 +55,7 @@ ccflags-y += \
 	-I$(MTK_TOP)/base/power/$(MTK_PLATFORM)/ \
 	-I$(FSTB_TOP)/ \
 	-I$(EARA_TOP)/include/ \
-	-I$(srctree)/kernel/
+	-I$(srctree)/kernel/ \
+	-I$(MTK_TOP)/thermal/$(MTK_PLATFORM)/inc/ \
+	-I$(MTK_TOP)/include/mt-plat \
+	-I$(MTK_TOP)/include/mt-plat/$(MTK_PLATFORM)/include/mach
