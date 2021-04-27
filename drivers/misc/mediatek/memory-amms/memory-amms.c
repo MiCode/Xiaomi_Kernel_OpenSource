@@ -293,6 +293,9 @@ static int __init amms_probe(struct platform_device *pdev)
 #if CONFIG_SYSFS
 	amms_sysfs_init();
 #endif
+	/* set amms_task interruptible */
+	smp_store_mb(amms_task->state, (TASK_INTERRUPTIBLE));
+
 	return 0;
 }
 
