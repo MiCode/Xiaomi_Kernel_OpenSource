@@ -219,6 +219,7 @@ enum mddp_drv_onoff_status {
 	MDDPW_DRV_INFO_WLAN_ON_END = 1,
 	MDDPW_DRV_INFO_WLAN_OFF_START = 2,
 	MDDPW_DRV_INFO_WLAN_OFF_END = 3,
+	MDDPW_DRV_INFO_WLAN_ON_END_QOS = 4,
 };
 
 enum mddp_md_notify_info_type {
