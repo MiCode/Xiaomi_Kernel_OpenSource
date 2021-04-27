@@ -169,6 +169,9 @@ update_average_load(enum AVG_LOAD_ID id, unsigned int freq, unsigned int cpu)
 	prev_cpu_idle = pcpu->prev_cpu_idle;
 	prev_cpu_iowait = pcpu->prev_cpu_iowait;
 
+	if (unlikely(cur_wall_time < pcpu->prev_cpu_wall))
+		return 0;
+
 	wall_time = (unsigned int) (cur_wall_time - pcpu->prev_cpu_wall);
 	pcpu->prev_cpu_wall = cur_wall_time;
 
