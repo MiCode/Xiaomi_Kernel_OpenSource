@@ -15,6 +15,7 @@
 #include <linux/seq_file.h>
 #include <linux/energy_model.h>
 #include <trace/hooks/topology.h>
+#include <trace/hooks/sched.h>
 #include "sched_main.h"
 
 #if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
@@ -283,6 +284,14 @@ static int __init mtk_scheduler_init(void)
 	if (ret)
 		pr_info("register android_vh_arch_set_freq_scale failed\n");
 #endif
+
+#if IS_ENABLED(CONFIG_MTK_EAS)
+	ret = register_trace_android_rvh_find_busiest_group(
+			mtk_find_busiest_group, NULL);
+	if (ret)
+		pr_info("register android_rvh_find_busiest_group failed\n");
+#endif
+
 	return ret;
 
 }

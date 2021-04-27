@@ -24,3 +24,12 @@ config NONLINEAR_FREQ_CTL
 	  freuqency to evaluated by benchmark. This makes capacity
 	  more accurate and will let scheduler/schedutil use more
 	  suitable frequency.
+
+config MTK_EAS
+	bool "MTK EAS enhancement"
+	depends on MTK_SCHEDULER
+	help
+	  MTK EAS enhancement features.
+	  These featues include
+		load balance in the same frequency domain
+		hint aware in idle balance

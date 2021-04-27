@@ -28,4 +28,9 @@ extern int pd_freq_to_opp(int cpu, unsigned long freq);
 extern unsigned long pd_get_opp_capacity(int cpu, int opp);
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_EAS)
+extern void mtk_find_busiest_group(void *data, struct sched_group *busiest,
+		struct rq *dst_rq, int *out_balance);
+#endif
+
 #endif
