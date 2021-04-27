@@ -702,6 +702,10 @@
 		reg = <0 0x0010F000 0 0x400>;
 	};
 
+	mdpm: mdpm {
+		compatible = "mediatek,mt6893-mdpm";
+	};
+
 	lk_charger: lk_charger {
 		compatible = "mediatek,lk_charger";
 		enable_anime;
