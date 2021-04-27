@@ -1098,6 +1098,13 @@ static void msdc_init_hw(struct msdc_host *host)
 	/* Config SDIO device detect interrupt function */
 	sdr_clr_bits(host->base + SDC_CFG, SDC_CFG_SDIOIDE);
 
+	sdr_set_bits(host->base + SDC_ADV_CFG0, SDC_IRQ_ENHANCE_EN);
+
+	/* For SDIO which do not support INCR1 */
+	if (host->no_sdio_incr1)
+		sdr_set_bits(host->base + MSDC_PATCH_BIT1,
+			MSDC_PB1_SINGLE_BURST);
+
 	/* Configure to default data timeout */
 	sdr_set_field(host->base + SDC_CFG, SDC_CFG_DTOC, 3);
 
@@ -1839,6 +1846,11 @@ static void msdc_of_property_parse(struct platform_device *pdev,
 		host->hs400_cmd_resp_sel_rising = true;
 	else
 		host->hs400_cmd_resp_sel_rising = false;
+
+	if (of_property_read_bool(pdev->dev.of_node, "no-sdio-incr1"))
+		host->no_sdio_incr1 = true;
+	else
+		host->no_sdio_incr1 = false;
 }
 
 static int msdc_drv_probe(struct platform_device *pdev)

@@ -229,6 +229,7 @@
 
 /* SDC_ADV_CFG0 mask */
 #define SDC_CMD_RESP_CRC        (0x7f  << 0) /* RW */
+#define SDC_IRQ_ENHANCE_EN      (0x1 << 19)     /* RW */
 #define SDC_RX_ENHANCE_EN	(0x1 << 20)	/* RW */
 
 /* DMA_SA_H4BIT mask */
@@ -573,6 +574,7 @@ struct msdc_host {
 				 /* cmd response sample selection for HS400 */
 	bool hs400_mode;	/* current eMMC will run at hs400 mode */
 	bool is_ddr208;
+	bool no_sdio_incr1;
 	struct msdc_save_para save_para; /* used when gate HCLK */
 	struct msdc_tune_para def_tune_para; /* default tune setting */
 	struct msdc_tune_para saved_tune_para; /* tune result of CMD21/CMD19 */
