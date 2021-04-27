@@ -341,7 +341,8 @@ int Ripi_cpu_dvfs_thread(void *data)
 				}
 #endif
 
-#if defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6877)
+#if defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6781)
 				if (p->mt_policy->cur > p->mt_policy->max) {
 					freqs.old = p->mt_policy->cur;
 					freqs.new = p->mt_policy->max;
@@ -374,7 +375,8 @@ int Ripi_cpu_dvfs_thread(void *data)
 				if (p->idx_opp_tbl != j ||
 				(p->idx_opp_ppm_limit != previous_limit) ||
 				(p->idx_opp_ppm_base != previous_base)) {
-#if !defined(CONFIG_MACH_MT6893) || !defined(CONFIG_MACH_MT6877)
+#if !defined(CONFIG_MACH_MT6893) || !defined(CONFIG_MACH_MT6877) \
+	|| !defined(CONFIG_MACH_MT6781)
 					freqs.old = cpu_dvfs_get_cur_freq(p);
 					freqs.new =
 					cpu_dvfs_get_freq_by_idx(p, j);
