@@ -703,6 +703,13 @@
 		reg = <0 0x0010F000 0 0x400>;
 	};
 
+	bp_thl: bp_thl {
+		compatible = "mediatek,mtk-bp-thl";
+		soc_limit = <15>;
+		soc_limit_ext = <20>;
+		soc_limit_ext_release = <25>;
+	};
+
 	mdpm: mdpm {
 		compatible = "mediatek,mt6893-mdpm";
 	};
