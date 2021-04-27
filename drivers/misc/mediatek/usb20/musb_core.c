@@ -81,6 +81,8 @@ int mtk_host_qmu_concurrent = 1;
 /* | (PIPE_BULK + 1) | (PIPE_INTERRUPT+ 1) */
 int mtk_host_qmu_pipe_msk = (PIPE_ISOCHRONOUS + 1);
 int mtk_host_qmu_force_isoc_restart = 1;
+EXPORT_SYMBOL(mtk_host_qmu_force_isoc_restart);
+
 int mtk_host_active_dev_cnt;
 module_param(mtk_host_qmu_concurrent, int, 0644);
 module_param(mtk_host_qmu_pipe_msk, int, 0644);
@@ -116,9 +118,17 @@ module_param(isoc_ep_gpd_count, int, 0644);
 #endif
 
 DEFINE_SPINLOCK(usb_io_lock);
+EXPORT_SYMBOL(usb_io_lock);
+
 unsigned int musb_debug;
+EXPORT_SYMBOL(musb_debug);
+
 unsigned int musb_debug_limit = 1;
+EXPORT_SYMBOL(musb_debug_limit);
+
 unsigned int musb_uart_debug = 1;
+EXPORT_SYMBOL(musb_uart_debug);
+
 struct musb *mtk_musb;
 unsigned int musb_speed = 1;
 bool mtk_usb_power;
@@ -1345,6 +1355,7 @@ void musb_generic_disable(struct musb *musb)
 	musb_writeb(musb->mregs, MUSB_INTRUSB, 0xEF);
 #endif
 }
+EXPORT_SYMBOL(musb_start);
 
 static void gadget_stop(struct musb *musb)
 {
@@ -1487,6 +1498,7 @@ void musb_stop(struct musb *musb)
 	mt_usb_dual_role_changed(musb);
 #endif
 }
+EXPORT_SYMBOL(musb_stop);
 
 static void musb_shutdown(struct platform_device *pdev)
 {
@@ -1782,7 +1794,7 @@ int ep_config_from_table_for_host(struct musb *musb)
 
 	return 0;
 }
-
+EXPORT_SYMBOL(ep_config_from_table_for_host);
 
 /*
  * ep_config_from_hw - when MUSB_C_DYNFIFO_DEF is false

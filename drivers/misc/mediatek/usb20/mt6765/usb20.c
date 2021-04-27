@@ -778,6 +778,7 @@ void mt_usb_connect(void)
 	DBG(0, "[MUSB] USB connect\n");
 	issue_connection_work(CONNECTION_OPS_CONN);
 }
+EXPORT_SYMBOL(mt_usb_connect);
 
 void mt_usb_disconnect(void)
 {
@@ -796,6 +797,7 @@ void mt_usb_reconnect(void)
 	DBG(0, "[MUSB] USB reconnect\n");
 	issue_connection_work(CONNECTION_OPS_CHECK);
 }
+EXPORT_SYMBOL(mt_usb_reconnect);
 
 /* build time force on */
 #if defined(CONFIG_FPGA_EARLY_PORTING) ||\
@@ -885,11 +887,13 @@ void musb_platform_reset(struct musb *musb)
 	swrst |= (MUSB_SWRST_DISUSBRESET | MUSB_SWRST_SWRST);
 	musb_writew(mbase, MUSB_SWRST, swrst);
 }
+EXPORT_SYMBOL(musb_platform_reset);
 
 void musb_sync_with_bat(struct musb *musb, int usb_state)
 {
 	DBG(1, "BATTERY_SetUSBState, state=%d\n", usb_state);
 }
+EXPORT_SYMBOL(musb_sync_with_bat);
 
 /*-------------------------------------------------------------------------*/
 static irqreturn_t generic_interrupt(int irq, void *__hci)
@@ -1061,6 +1065,7 @@ bool is_saving_mode(void)
 	DBG(0, "%d\n", saving_mode);
 	return saving_mode;
 }
+EXPORT_SYMBOL(is_saving_mode);
 
 void usb_dump_debug_register(void)
 {

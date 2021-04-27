@@ -79,7 +79,7 @@ static void do_low_power_timer_monitor_work(struct work_struct *work)
 static void low_power_timer_wakeup_func(unsigned long data);
 static DEFINE_TIMER(low_power_timer, low_power_timer_wakeup_func, 0, 0);
 
-void low_power_timer_resource_reset(void)
+static void low_power_timer_resource_reset(void)
 {
 	low_power_timer_total_sleep = low_power_timer_total_wake = 0;
 	low_power_timer_trigger_cnt = low_power_timer_wake_cnt = 0;
@@ -138,7 +138,7 @@ static void low_power_timer_wakeup_func(struct timer_list *timer)
 
 }
 
-void try_trigger_low_power_timer(signed int sleep_ms)
+static void try_trigger_low_power_timer(signed int sleep_ms)
 {
 
 	DBG(1, "sleep_ms:%d\n", sleep_ms);
@@ -188,7 +188,7 @@ void try_trigger_low_power_timer(signed int sleep_ms)
 		usb_hal_dpidle_request(USB_DPIDLE_SRAM);
 }
 
-void do_low_power_timer_test_work(struct work_struct *work)
+static void do_low_power_timer_test_work(struct work_struct *work)
 {
 	unsigned long flags;
 	signed int set_time;
@@ -223,7 +223,7 @@ void do_low_power_timer_test_work(struct work_struct *work)
 	}
 }
 
-void lower_power_timer_test_init(void)
+static void lower_power_timer_test_init(void)
 {
 	INIT_WORK(&low_power_timer_test_work, do_low_power_timer_test_work);
 	low_power_timer_test_wq =
@@ -242,7 +242,7 @@ void lower_power_timer_test_init(void)
  *  mode 2 + option 2: simulate SCREEN OFF mode 1 real case
  */
 
-void low_power_timer_sleep(unsigned int sleep_ms)
+static void low_power_timer_sleep(unsigned int sleep_ms)
 {
 	DBG(1, "sleep(%d) ms\n", sleep_ms);
 
@@ -263,7 +263,7 @@ void low_power_timer_sleep(unsigned int sleep_ms)
 }
 #endif
 
-void mtk_host_active_dev_resource_reset(void)
+static void mtk_host_active_dev_resource_reset(void)
 {
 	memset(mtk_host_active_dev_table, 0, sizeof(mtk_host_active_dev_table));
 	mtk_host_active_dev_cnt = 0;
@@ -279,7 +279,7 @@ void musb_host_active_dev_add(unsigned int addr)
 		mtk_host_active_dev_cnt++;
 	}
 }
-
+EXPORT_SYMBOL(musb_host_active_dev_add);
 
 void __iomem *qmu_base;
 /* debug variable to check qmu_base issue */
@@ -315,11 +315,13 @@ int musb_qmu_init(struct musb *musb)
 
 	return 0;
 }
+EXPORT_SYMBOL(musb_qmu_init);
 
 void musb_qmu_exit(struct musb *musb)
 {
 	qmu_destroy_gpd_pool(musb->controller);
 }
+EXPORT_SYMBOL(musb_qmu_exit);
 
 void musb_disable_q_all(struct musb *musb)
 {
@@ -348,6 +350,7 @@ void musb_disable_q_all(struct musb *musb)
 		host_qmu_tx_max_number_of_pkts[ep_num] = 0;
 	}
 }
+EXPORT_SYMBOL(musb_disable_q_all);
 
 void musb_kick_D_CmdQ(struct musb *musb, struct musb_request *request)
 {
@@ -372,6 +375,7 @@ void musb_kick_D_CmdQ(struct musb *musb, struct musb_request *request)
 
 	mtk_qmu_resume(request->epnum, isRx);
 }
+EXPORT_SYMBOL(musb_kick_D_CmdQ);
 
 irqreturn_t musb_q_irq(struct musb *musb)
 {
@@ -400,6 +404,7 @@ irqreturn_t musb_q_irq(struct musb *musb)
 
 	return retval;
 }
+EXPORT_SYMBOL(musb_q_irq);
 
 void musb_flush_qmu(u32 ep_num, u8 isRx)
 {
@@ -407,6 +412,7 @@ void musb_flush_qmu(u32 ep_num, u8 isRx)
 	mtk_qmu_stop(ep_num, isRx);
 	qmu_reset_gpd_pool(ep_num, isRx);
 }
+EXPORT_SYMBOL(musb_flush_qmu);
 
 void musb_restart_qmu(struct musb *musb, u32 ep_num, u8 isRx)
 {
@@ -414,6 +420,7 @@ void musb_restart_qmu(struct musb *musb, u32 ep_num, u8 isRx)
 	flush_ep_csr(musb, ep_num, isRx);
 	mtk_qmu_enable(musb, ep_num, isRx);
 }
+EXPORT_SYMBOL(musb_restart_qmu);
 
 bool musb_is_qmu_stop(u32 ep_num, u8 isRx)
 {
@@ -743,3 +750,4 @@ int mtk_kick_CmdQ(struct musb *musb,
 	DBG(4, "\n");
 	return 0;
 }
+EXPORT_SYMBOL(mtk_kick_CmdQ);

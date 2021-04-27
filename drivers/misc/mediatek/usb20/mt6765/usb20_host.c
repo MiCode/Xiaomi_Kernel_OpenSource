@@ -122,6 +122,7 @@ bool usb20_check_vbus_on(void)
 	DBG(0, "vbus_on<%d>\n", vbus_on);
 	return vbus_on;
 }
+EXPORT_SYMBOL(usb20_check_vbus_on);
 
 static void _set_vbus(int is_on)
 {
@@ -241,12 +242,16 @@ void mt_usb_host_connect(int delay)
 	DBG(0, "%s\n", typec_req_host ? "connect" : "disconnect");
 	issue_host_work(CONNECTION_OPS_CONN, delay, true);
 }
+EXPORT_SYMBOL(mt_usb_host_connect);
+
 void mt_usb_host_disconnect(int delay)
 {
 	typec_req_host = false;
 	DBG(0, "%s\n", typec_req_host ? "connect" : "disconnect");
 	issue_host_work(CONNECTION_OPS_DISC, delay, true);
 }
+EXPORT_SYMBOL(mt_usb_host_disconnect);
+
 #ifdef CONFIG_MTK_USB_TYPEC
 #ifdef CONFIG_TCPC_CLASS
 static void do_vbus_work(struct work_struct *data)
@@ -399,6 +404,7 @@ void musb_session_restart(struct musb *musb)
 				MUSB_DEVCTL) | MUSB_DEVCTL_SESSION));
 	DBG(0, "[MUSB] restart session\n");
 }
+EXPORT_SYMBOL(musb_session_restart);
 
 static struct delayed_work host_plug_test_work;
 int host_plug_test_enable; /* default disable */
@@ -749,11 +755,14 @@ void mt_usb_otg_init(struct musb *musb)
 	musb->fifo_cfg_host_size = ARRAY_SIZE(fifo_cfg_host);
 
 }
+EXPORT_SYMBOL(mt_usb_otg_init);
+
 void mt_usb_otg_exit(struct musb *musb)
 {
 	DBG(0, "OTG disable vbus\n");
 	mt_usb_set_vbus(mtk_musb, 0);
 }
+EXPORT_SYMBOL(mt_usb_otg_exit);
 
 enum {
 	DO_IT = 0,
@@ -883,10 +892,16 @@ module_param_cb(option, &option_param_ops, &option, 0644);
 #include "musb_core.h"
 /* for not define CONFIG_USB_MTK_OTG */
 void mt_usb_otg_init(struct musb *musb) {}
+EXPORT_SYMBOL(mt_usb_otg_init);
+
 void mt_usb_otg_exit(struct musb *musb) {}
+EXPORT_SYMBOL(mt_usb_otg_exit);
+
 void mt_usb_set_vbus(struct musb *musb, int is_on) {}
 int mt_usb_get_vbus_status(struct musb *musb) {return 1; }
 void switch_int_to_device(struct musb *musb) {}
 void switch_int_to_host(struct musb *musb) {}
+
 void musb_session_restart(struct musb *musb) {}
+EXPORT_SYMBOL(musb_session_restart);
 #endif

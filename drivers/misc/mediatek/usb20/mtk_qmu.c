@@ -592,6 +592,7 @@ bool mtk_is_qmu_enabled(u8 ep_num, u8 isRx)
 	}
 	return false;
 }
+EXPORT_SYMBOL(mtk_is_qmu_enabled);
 
 void mtk_qmu_enable(struct musb *musb, u8 ep_num, u8 isRx)
 {
@@ -764,6 +765,7 @@ void mtk_qmu_enable(struct musb *musb, u8 ep_num, u8 isRx)
 		MGC_WriteQMU32(base, MGC_O_QMU_TQCSR(ep_num), DQMU_QUE_START);
 	}
 }
+EXPORT_SYMBOL(mtk_qmu_enable);
 
 void mtk_qmu_stop(u8 ep_num, u8 isRx)
 {
@@ -791,6 +793,7 @@ void mtk_qmu_stop(u8 ep_num, u8 isRx)
 		}
 	}
 }
+EXPORT_SYMBOL(mtk_qmu_stop);
 
 static void mtk_qmu_disable(u8 ep_num, u8 isRx)
 {
@@ -1216,6 +1219,7 @@ void mtk_disable_q(struct musb *musb, u8 ep_num, u8 isRx)
 		flush_ep_csr(musb, ep_num, isRx);
 	}
 }
+EXPORT_SYMBOL(mtk_disable_q);
 
 void h_qmu_done_rx(struct musb *musb, u8 ep_num)
 {
