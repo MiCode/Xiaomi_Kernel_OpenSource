@@ -1133,7 +1133,7 @@ cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 		/* do m4u sec init */
 		if (atomic_cmpxchg(&m4u_init, 0, 1) == 0) {
 			m4u_sec_init();
-			cmdq_log("[SEC] M4U_sec_init is called\n");
+			cmdq_msg("[SEC][task] M4U_sec_init is called\n");
 		}
 #endif
 
