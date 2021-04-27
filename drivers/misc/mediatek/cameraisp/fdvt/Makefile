@@ -154,9 +154,12 @@ endif
 
 
 ifeq ($(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)),y)
-  subdir-ccflags-y += -DMTK_SECURE_FD_SUPPORT
+  MTK_SECURE_FD_SUPPORT := 1
+else
+  MTK_SECURE_FD_SUPPORT := 0
 endif
 
 subdir-ccflags-y += -DMTK_FD_LARB=$(MTK_FD_LARB)
+subdir-ccflags-y += -DMTK_SECURE_FD_SUPPORT=$(MTK_SECURE_FD_SUPPORT)
 
 
