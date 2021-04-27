@@ -1,0 +1,40 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2016 MediaTek Inc.
+ */
+#include <linux/scmi_protocol.h>
+
+#define SCMI_TINYSYS_CB_MAX		10
+
+struct scmi_tinysys_power_state_notifier_payld {
+	__le32 f_id;
+	__le32 p1;
+	__le32 p2;
+	__le32 p3;
+	__le32 p4;
+};
+
+struct scmi_tinysys_info_st {
+	struct scmi_device *sdev;
+	struct scmi_protocol_handle *ph;
+};
+
+typedef struct scmi_tinysys_report_st {
+	u32 feature_id;
+	u32 p1; u32 p2;
+	u32 p3; u32 p4;
+}scmi_tinysys_report;
+
+struct scmi_tinysys_info_st *get_scmi_tinysys_info(void);
+
+int scmi_tinysys_common_set(const struct scmi_protocol_handle *ph, u32 feature_id,
+	u32 p1, u32 p2, u32 p3, u32 p4, u32 p5);
+
+int scmi_tinysys_common_get(const struct scmi_protocol_handle *ph, u32 feature_id,
+	u32 p1, struct scmi_tinysys_status *rvalue);
+
+int scmi_tinysys_event_notify(const struct scmi_protocol_handle *ph, u32 feature_id,
+	u32 notify_enable);
+
+typedef void (*f_handler_t)(u32 feature_id, scmi_tinysys_report* report);
+
