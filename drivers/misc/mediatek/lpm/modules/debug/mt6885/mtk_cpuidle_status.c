@@ -75,10 +75,8 @@ struct mtk_cpuidle_device {
 	struct mtk_cpuidle_ratio ratio;
 	struct mtk_cpuidle_info info;
 	struct mtk_cpuidle_prof prof;
-	struct hrtimer timer;
 	int cpu;
 	int state_count;
-	bool tmr_running;
 };
 
 static DEFINE_PER_CPU(struct mtk_cpuidle_device, mtk_cpuidle_dev);
@@ -426,62 +424,6 @@ static void mtk_cpuidle_dump_info(void)
 			(unsigned int)(last_dump_ns & 0xFFFFFFFF));
 }
 
-static enum hrtimer_restart mtk_cpuidle_hrtimer_func(struct hrtimer *timer)
-{
-	return HRTIMER_NORESTART;
-}
-
-static void mtk_cpuidle_set_timer(struct mtk_cpuidle_device *mtk_idle)
-{
-	int index;
-	int limit_sleep_us;
-	struct cpuidle_driver *drv;
-
-	if (!mtk_cpuidle_ctrl.tmr_en)
-		return;
-
-	index = mtk_idle->info.idle_index;
-
-	/* Only support WFI/CPU_OFF state */
-	if (index != 1)
-		return;
-
-	drv = cpuidle_get_driver();
-
-	if (unlikely(!drv))
-		return;
-
-	if (index + 1 >= mtk_idle->state_count
-		|| !tick_nohz_tick_stopped())
-		return;
-
-	limit_sleep_us = 4 * max_t(unsigned int,
-				get_residency(drv, index),
-				get_residency(drv, index + 1));
-
-	if (index != 0)
-		tick_broadcast_exit();
-
-	RCU_NONIDLE(hrtimer_start(&mtk_idle->timer,
-			ns_to_ktime(limit_sleep_us * NSEC_PER_USEC),
-			HRTIMER_MODE_REL_PINNED));
-	mtk_idle->tmr_running = true;
-
-	if (index != 0)
-		tick_broadcast_enter();
-}
-
-static void mtk_cpuidle_cancel_timer(struct mtk_cpuidle_device *mtk_idle)
-{
-	if (!mtk_cpuidle_ctrl.tmr_en)
-		return;
-
-	if (mtk_idle->tmr_running) {
-		mtk_idle->tmr_running = true;
-		RCU_NONIDLE(hrtimer_try_to_cancel(&mtk_idle->timer));
-	}
-}
-
 static void mtk_cpuidle_set_last_off_ts(int idx)
 {
 	int i;
@@ -550,8 +492,6 @@ static int mtk_cpuidle_status_update(struct notifier_block *nb,
 			mtk_idle->ratio.idle_time_ns[nb_data->index] +=
 				(sched_clock() - mtk_idle->info.enter_time_ns);
 
-		mtk_cpuidle_cancel_timer(mtk_idle);
-
 	} else if (action & MTK_LPM_NB_AFTER_PROMPT) {
 
 		/* prevent race conditions by mtk_lp_mod_locker */
@@ -563,8 +503,6 @@ static int mtk_cpuidle_status_update(struct notifier_block *nb,
 		mtk_idle = &per_cpu(mtk_cpuidle_dev, nb_data->cpu);
 		mtk_idle->info.idle_index = nb_data->index;
 		mtk_idle->info.enter_time_ns = sched_clock();
-
-		mtk_cpuidle_set_timer(mtk_idle);
 
 		aee_rr_rec_mcdi_val(nb_data->cpu,
 				(nb_data->index << 16) | 0xff);
@@ -588,11 +526,7 @@ static void mtk_cpuidle_init_per_cpu(void *info)
 
 	put_cpu();
 
-	hrtimer_init(&mtk_idle->timer,
-		CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-
 	mtk_idle->cpu = cpu;
-	mtk_idle->timer.function = mtk_cpuidle_hrtimer_func;
 	mtk_idle->state_count = mtk_cpupm_get_idle_state_count(cpu);
 }
 
