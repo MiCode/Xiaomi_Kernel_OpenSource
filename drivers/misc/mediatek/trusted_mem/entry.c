@@ -41,6 +41,15 @@
 #include "private/tmem_priv.h"
 #include "private/tmem_cfg.h"
 
+#if defined(CONFIG_MTK_GZ_KREE)
+#include <tz_cross/ta_mem.h>
+#include <tz_cross/trustzone.h>
+#include <kree/mem.h>
+#include <kree/system.h>
+
+#define TZ_TA_SECMEM_UUID   "charcom.mediatek.geniezone.srv.mem"
+#endif
+
 static bool is_invalid_hooks(struct trusted_mem_device *mem_device)
 {
 	if (unlikely(INVALID(mem_device)))
@@ -287,6 +296,47 @@ int tmem_core_alloc_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 					      clean, true);
 }
 
+#if defined(CONFIG_MTK_GZ_KREE)
+
+#define SECMEM_64BIT_PHYS_SHIFT (6)
+
+int tmem_query_gz_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
+			u32 size, u32 *refcount, u32 *gz_handle,
+			u8 *owner, u32 id, u32 clean, uint64_t *phy_addr)
+{
+	int ret = TMEM_OK;
+	union MTEEC_PARAM p[4];
+	KREE_SESSION_HANDLE session = 0;
+
+	if (!gz_handle) {
+		pr_info("[%s] Fail.invalid parameters\n", __func__);
+		return TMEM_GENERAL_ERROR;
+	}
+
+	ret = KREE_CreateSession(TZ_TA_SECMEM_UUID, &session);
+	if (ret != TZ_RESULT_SUCCESS) {
+		pr_info("KREE_CreateSession error, ret = %x\n", ret);
+		return ret;
+	}
+
+	p[0].value.a = *gz_handle;
+
+	ret = KREE_TeeServiceCall(session, TZCMD_MEM_Query_SECUREMEM_INFO,
+			TZ_ParamTypes2(TZPT_VALUE_INPUT, TZPT_VALUE_OUTPUT), p);
+	if (ret != TZ_RESULT_SUCCESS) {
+		pr_info("[%s] query pa Fail(0x%x)\n", __func__, ret);
+		return ret;
+	}
+
+	*phy_addr = p[1].value.a << SECMEM_64BIT_PHYS_SHIFT;
+	pr_info("[%s] ok(pa=0x%x)\n", __func__, *phy_addr);
+
+	KREE_CloseSession(session);
+
+	return ret;
+}
+#endif
+
 #define SECMEM_PATTERN (0x3C2D37A4)
 #define SECMEM_64BIT_PHYS_SHIFT (6)
 #define SECMEM_HANDLE_TO_PA(handle)                                            \
@@ -316,7 +366,7 @@ static u64 get_phy_addr_by_handle(enum TRUSTED_MEM_TYPE mem_type,
 	return SECMEM_HANDLE_TO_PA(sec_handle);
 }
 
-int tmem_query_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
+int tmem_query_sec_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 			      u32 size, u32 *refcount, u32 *sec_handle,
 			      u8 *owner, u32 id, u32 clean, uint64_t *phy_addr)
 {
