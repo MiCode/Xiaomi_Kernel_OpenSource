@@ -15,7 +15,12 @@ $(info $(srctree))
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mdp/
+ifeq ($(CONFIG_MACH_MT6781),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mdp/mt6781/
+else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mdp/$(MTK_PLATFORM)/
+endif
+
 ccflags-y += -I$(srctree)/drivers/staging/android/ion \
              -I$(srctree)/drivers/staging/android/ion/mtk
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/

@@ -73,3 +73,7 @@ endif
 ifeq ($(CONFIG_MACH_MT6877),y)
   obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += isp_6s/camera_rsc.o
 endif
+
+ifeq ($(CONFIG_MACH_MT6781),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += isp_6s/camera_rsc.o
+endif
