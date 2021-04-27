@@ -12,6 +12,7 @@
  */
 
 #include <linux/kthread.h>
+#include <linux/mutex.h>
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #include <sspm_ipi_id.h>
@@ -25,6 +26,7 @@
 #include "mtk_qos_ipi.h"
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+static DEFINE_MUTEX(qos_ipi_mutex);
 static int qos_sspm_ready;
 int qos_ipi_ackdata;
 struct qos_ipi_data qos_recv_ackdata;
@@ -76,9 +78,11 @@ static int qos_ipi_recv_thread(void *arg)
 int qos_ipi_to_sspm_command(void *buffer, int slot)
 {
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
-	int ret;
+	int ret, ackdata;
 	struct qos_ipi_data *qos_ipi_d = buffer;
 	int slot_num = sizeof(struct qos_ipi_data)/SSPM_MBOX_SLOT_SIZE;
+
+	mutex_lock(&qos_ipi_mutex);
 
 	if (qos_sspm_ready != 1) {
 		pr_info("qos ipi not ready, skip cmd=%d\n", qos_ipi_d->cmd);
@@ -107,9 +111,11 @@ int qos_ipi_to_sspm_command(void *buffer, int slot)
 		qos_ipi_d->cmd, qos_ipi_ackdata);
 		goto error;
 	}
-
-	return qos_ipi_ackdata;
+	ackdata = qos_ipi_ackdata;
+	mutex_unlock(&qos_ipi_mutex);
+	return ackdata;
 error:
+	mutex_unlock(&qos_ipi_mutex);
 #endif
 	return -1;
 }
