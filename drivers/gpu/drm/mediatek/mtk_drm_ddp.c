@@ -6171,6 +6171,11 @@ void mutex_dump_analysis_mt6885(struct mtk_disp_mutex *mutex)
 				      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_EOF, val)),
 			      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF_WAIT, val));
 
+		if (len < 0) {
+			/* Handle sprintf() error */
+			DDPPR_ERR("sprintf error\n");
+		}
+
 		p += len;
 
 		mod0 = readl_relaxed(ddp->regs +
@@ -6192,6 +6197,11 @@ void mutex_dump_analysis_mt6885(struct mtk_disp_mutex *mutex)
 			if ((mod1 & (1 << j))) {
 				len = sprintf(p, "%s,",
 					ddp_get_mutex_module1_name_mt6885(j));
+
+				if (len < 0) {
+					/* Handle sprintf() error */
+					DDPPR_ERR("sprintf error\n");
+				}
 				p += len;
 			}
 		}

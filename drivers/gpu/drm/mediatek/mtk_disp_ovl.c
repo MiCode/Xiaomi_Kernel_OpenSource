@@ -1030,13 +1030,18 @@ static u32 *mtk_get_ovl_csc(enum mtk_ovl_colorspace in,
 	static u32 *ovl_csc[OVL_CS_NUM][OVL_CS_NUM];
 	static bool inited;
 
-	if (inited)
-		goto done;
+	if (out < 0) {
+		DDPPR_ERR("%s: Invalid ovl colorspace in:%d\n", __func__, out);
+		out = 0;
+	}
 
 	if (in < 0) {
 		DDPPR_ERR("%s: Invalid ovl colorspace in:%d\n", __func__, in);
 		in = 0;
 	}
+
+	if (inited)
+		goto done;
 
 	ovl_csc[OVL_SRGB][OVL_P3] = sRGB_to_DCI_P3;
 	ovl_csc[OVL_P3][OVL_SRGB] = DCI_P3_to_sRGB;

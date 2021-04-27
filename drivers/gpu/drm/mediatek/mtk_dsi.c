@@ -4943,8 +4943,8 @@ static void mtk_dsi_dy_fps_cmdq_cb(struct cmdq_cb_data data)
 
 	DDPINFO("%s vdo mode fps change done\n", __func__);
 
-	if (comp->id == DDP_COMPONENT_DSI0 ||
-		comp->id == DDP_COMPONENT_DSI1) {
+	if (comp && (comp->id == DDP_COMPONENT_DSI0 ||
+		comp->id == DDP_COMPONENT_DSI1)) {
 		dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 		mtk_dsi_set_mmclk_by_datarate(dsi, mtk_crtc, 1);
 	}
