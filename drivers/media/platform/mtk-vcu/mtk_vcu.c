@@ -1015,15 +1015,17 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 		(buff.cmdq_buff.secure == 0)?vcu_gce_timeout_callback:NULL;
 	pkt_ptr->err_cb.data = (void *)&vcu_ptr->gce_info[j].buff[i];
 
-	pr_info("[VCU][%d] %s: buff %p type %d cnt %d order %d hndl %llx %d %d\n",
+	pr_info("[VCU][%d] %s: buff %p type %d cnt %d order %d pkt %p hndl %llx %d %d\n",
 		core_id, __func__, &vcu_ptr->gce_info[j].buff[i],
 		buff.cmdq_buff.codec_type,
-		cmds->cmd_cnt, buff.cmdq_buff.flush_order,
+		cmds->cmd_cnt, buff.cmdq_buff.flush_order, pkt_ptr,
 		buff.cmdq_buff.gce_handle, ret, j);
 
 	/* flush cmd async */
-	cmdq_pkt_flush_threaded(pkt_ptr,
+	ret = cmdq_pkt_flush_threaded(pkt_ptr,
 		vcu_gce_flush_callback, (void *)&vcu_ptr->gce_info[j].buff[i]);
+	if (ret < 0)
+		pr_info("[VCU] cmdq flush fail pkt %p\n", pkt_ptr);
 
 	atomic_inc(&vcu_ptr->gce_info[j].flush_pending);
 	time_check_end(100, strlen(vcodec_param_string));
