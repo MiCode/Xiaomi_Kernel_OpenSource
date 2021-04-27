@@ -278,7 +278,7 @@ static ssize_t msg_copy_to_user(const char *prefix, char *msg, char __user *buf,
 
 	len = ((struct AE_Msg *) msg_tmp)->len + sizeof(struct AE_Msg);
 
-	if (*f_pos >= len) {
+	if ((*f_pos < 0) || (*f_pos >= len)) {
 		ret = 0;
 		goto out;
 	}
@@ -446,6 +446,8 @@ static void ke_gen_userbacktrace_msg(void)
 	char *data;
 	int userinfo_len;
 
+	if (aed_dev.kerec.lastlog->userthread_stack.StackLength < 0)
+		return;
 	userinfo_len = aed_dev.kerec.lastlog->userthread_stack.StackLength +
 		sizeof(pid_t)+sizeof(int);
 	rep_msg = msg_create(&aed_dev.kerec.msg, MaxStackSize);
@@ -478,6 +480,8 @@ static void ke_gen_usermaps_msg(void)
 	char *data;
 	int userinfo_len;
 
+	if (aed_dev.kerec.lastlog->userthread_maps.Userthread_mapsLength < 0)
+		return;
 	userinfo_len =
 		aed_dev.kerec.lastlog->userthread_maps.Userthread_mapsLength +
 		sizeof(pid_t)+sizeof(int);
@@ -1037,7 +1041,10 @@ static ssize_t aed_ee_write(struct file *filp, const char __user *buf,
 		pr_info("%s: ERR, aed_write count=%zx\n", __func__, count);
 		return -1;
 	}
-
+	if (!buf) {
+		pr_info("%s: ERR, aed_write buf=NULL\n", __func__);
+		return -1;
+	}
 	rsize = copy_from_user(&msg, buf, count);
 	if (rsize) {
 		pr_info("%s: ERR, copy_from_user rsize=%d\n", __func__, rsize);
@@ -1174,6 +1181,8 @@ static int current_ke_show(struct seq_file *m, void *p)
 	ke_buffer = m->private;
 	if (!ke_buffer)
 		return 0;
+	if (ke_buffer->size < 0)
+		return 0;
 	if ((unsigned long)p >=
 			(unsigned long)ke_buffer->data + ke_buffer->size)
 		return 0;
@@ -1247,7 +1256,10 @@ static ssize_t aed_ke_write(struct file *filp, const char __user *buf,
 		pr_info("ERR: aed_write count=%zx\n", count);
 		return -1;
 	}
-
+	if (!buf) {
+		pr_info("ERR: aed_write buf=NULL\n");
+		return -1;
+	}
 	rsize = copy_from_user(&msg, buf, count);
 	if (rsize) {
 		pr_info("copy_from_user rsize=%d\n", rsize);
@@ -1522,6 +1534,10 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int pid;
 	struct aee_siginfo aee_si;
 
+	if (!arg && (cmd != AEEIOCTL_DAL_CLEAN)) {
+		pr_info("ERR: %s arg=NULL\n", __func__);
+		return -EINVAL;
+	}
 	if (down_interruptible(&aed_dal_sem) < 0)
 		return -ERESTARTSYS;
 
@@ -1603,15 +1619,13 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			user_ret = task_pt_regs(task);
 			memcpy(&(tmp->regs), user_ret,
 					sizeof(struct pt_regs));
+			rcu_read_unlock();
 			if (copy_to_user((struct aee_thread_reg __user *)arg,
 					tmp, sizeof(struct aee_thread_reg))) {
 				kfree(tmp);
-				rcu_read_unlock();
 				ret = -EFAULT;
 				goto EXIT;
 			}
-			rcu_read_unlock();
-
 		} else {
 			pr_info("%s: get thread registers ioctl tid invalid\n",
 				__func__);
