@@ -1219,7 +1219,7 @@
 		};
 
 		watchdog: watchdog@10007000 {
-			compatible = "mediatek,mt6873-wdt",
+			compatible = "mediatek,mt6893-wdt",
 				     "mediatek,mt6589-wdt",
 				     "syscon", "simple-mfd";
 			mediatek,rg_dfd_timeout = <0xea60>;
@@ -1237,6 +1237,11 @@
 				mode-meta = <BOOT_META>;
 				mode-rpmbpk = <BOOT_RPMBPK>;
 			};
+		};
+
+		apxgpt: apxgpt@10008000 {
+			compatible = "mediatek,apxgpt";
+			reg = <0 0x10008000 0 0x1000>;
 		};
 
 		apmixedsys_clk: syscon@1000C000 {
