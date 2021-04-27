@@ -227,6 +227,7 @@ static const struct mhi_event_config modem_qcom_sdx65_mhi_events[] = {
 static const struct mhi_controller_config modem_qcom_sdx65_mhi_config = {
 	.max_channels = 128,
 	.timeout_ms = 2000,
+	.buf_len = 0x8000,
 	.num_channels = ARRAY_SIZE(modem_qcom_sdx65_mhi_channels),
 	.ch_cfg = modem_qcom_sdx65_mhi_channels,
 	.num_events = ARRAY_SIZE(modem_qcom_sdx65_mhi_events),
