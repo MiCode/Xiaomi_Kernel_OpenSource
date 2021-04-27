@@ -584,7 +584,7 @@ void disp_aal_flip_sram(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	const char *caller)
 {
 #ifdef CONFIG_MTK_DRE30_SUPPORT
-	u32 hist_apb = 0, hist_int = 0, sram_cfg;
+	u32 hist_apb = 0, hist_int = 0, sram_cfg = 0;
 	phys_addr_t dre3_pa = mtk_aal_dre3_pa(comp);
 
 	if (aal_sram_method != AAL_SRAM_SOF)
@@ -653,7 +653,7 @@ void disp_aal_first_flip_sram(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, const char *caller)
 {
 #ifdef CONFIG_MTK_DRE30_SUPPORT
-	u32 hist_apb, hist_int, sram_cfg;
+	u32 hist_apb = 0, hist_int = 0, sram_cfg = 0;
 	phys_addr_t dre3_pa = mtk_aal_dre3_pa(comp);
 
 	if (aal_sram_method != AAL_SRAM_SOF)
@@ -2375,6 +2375,9 @@ static void ddp_aal_restore(struct mtk_ddp_comp *comp)
 static bool debug_skip_first_br;
 static void mtk_aal_prepare(struct mtk_ddp_comp *comp)
 {
+#if defined(CONFIG_MTK_DRE30_SUPPORT)
+	int ret = 0;
+#endif
 	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
 	bool first_restore = (atomic_read(&aal_data->is_clock_on) == 0);
 
@@ -2383,8 +2386,13 @@ static void mtk_aal_prepare(struct mtk_ddp_comp *comp)
 	atomic_set(&aal_data->is_clock_on, 1);
 
 #if defined(CONFIG_MTK_DRE30_SUPPORT)
-	if (aal_data->dre3_hw.clk)
-		clk_prepare(aal_data->dre3_hw.clk);
+	if (aal_data->dre3_hw.clk) {
+		ret = clk_prepare(aal_data->dre3_hw.clk);
+		if (ret) {
+			AALERR("Can't prepare dre3 hw clk: %d\n", ret);
+			return;
+		}
+	}
 #endif
 	if (!first_restore && !debug_skip_first_br)
 		return;
