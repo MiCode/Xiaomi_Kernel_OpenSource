@@ -66,7 +66,7 @@ static struct m4u_client_t *ion_m4u_client;
 int m4u_log_level = 2;
 int m4u_log_to_uart = 2;
 
-LIST_HEAD(pseudo_sglist);
+static LIST_HEAD(pseudo_sglist);
 /* this is the mutex lock to protect mva_sglist->list*/
 static spinlock_t pseudo_list_lock;
 
@@ -80,7 +80,7 @@ static const struct of_device_id mtk_pseudo_port_of_ids[] = {
 	{}
 };
 
-int M4U_L2_ENABLE = 1;
+#define M4U_L2_ENABLE		1
 
 /* garbage collect related */
 #define MVA_REGION_FLAG_NONE 0x0
@@ -89,7 +89,7 @@ int M4U_L2_ENABLE = 1;
 
 static unsigned long pseudo_mmubase[TOTAL_M4U_NUM];
 static unsigned long pseudo_larbbase[SMI_LARB_NR];
-struct m4u_device *pseudo_mmu_dev;
+static struct m4u_device *pseudo_mmu_dev;
 
 static inline unsigned int pseudo_readreg32(
 						unsigned long base,
@@ -3052,6 +3052,8 @@ int m4u_map_nonsec_buf(int port, unsigned long mva, unsigned long size)
 	int ret;
 	struct m4u_sec_context *ctx;
 
+	return -EPERM; /* Not allow */
+
 	if ((mva > DMA_BIT_MASK(32)) ||
 	    (mva + size > DMA_BIT_MASK(32))) {
 		M4U_MSG("%s invalid mva:0x%lx, size:0x%lx\n",
@@ -3087,6 +3089,8 @@ int m4u_unmap_nonsec_buffer(unsigned long mva, unsigned long size)
 	int ret;
 	struct m4u_sec_context *ctx;
 
+	return -EPERM;
+
 	if ((mva > DMA_BIT_MASK(32)) ||
 	    (mva + size > DMA_BIT_MASK(32))) {
 		M4U_MSG("%s invalid mva:0x%lx, size:0x%lx\n",
@@ -3118,7 +3122,7 @@ out:
 
 #ifdef M4U_GZ_SERVICE_ENABLE
 static DEFINE_MUTEX(gM4u_gz_sec_init);
-bool m4u_gz_en[SEC_ID_COUNT];
+static bool m4u_gz_en[SEC_ID_COUNT];
 
 static int __m4u_gz_sec_init(int mtk_iommu_sec_id)
 {
@@ -3211,6 +3215,8 @@ int m4u_map_gz_nonsec_buf(int iommu_sec_id, int port,
 	int ret;
 	struct m4u_gz_sec_context *ctx;
 
+	return -EPERM; /* Not allow */
+
 	if ((mva > DMA_BIT_MASK(32)) ||
 	    (mva + size > DMA_BIT_MASK(32))) {
 		M4U_MSG("[MTEE]%s invalid mva:0x%lx, size:0x%lx\n",
@@ -3247,6 +3253,8 @@ int m4u_unmap_gz_nonsec_buffer(int iommu_sec_id, unsigned long mva,
 {
 	int ret;
 	struct m4u_gz_sec_context *ctx;
+
+	return -EPERM; /* Not allow */
 
 	if ((mva > DMA_BIT_MASK(32)) ||
 	    (mva + size > DMA_BIT_MASK(32))) {
@@ -3336,7 +3344,7 @@ static long pseudo_ioctl(struct file *filp,
 
 	default:
 		M4U_MSG("MTK M4U ioctl:No such command(0x%x)!!\n", cmd);
-		ret = -EINVAL;
+		ret = -EPERM;
 		break;
 	}
 
@@ -3871,6 +3879,5 @@ static void __exit mtk_pseudo_exit(void)
 module_init(mtk_pseudo_init);
 module_exit(mtk_pseudo_exit);
 
-MODULE_DESCRIPTION("MTK pseudo m4u driver based on iommu");
-MODULE_AUTHOR("Honghui Zhang <honghui.zhang@mediatek.com>");
+MODULE_DESCRIPTION("MTK pseudo m4u v2 driver based on iommu");
 MODULE_LICENSE("GPL");

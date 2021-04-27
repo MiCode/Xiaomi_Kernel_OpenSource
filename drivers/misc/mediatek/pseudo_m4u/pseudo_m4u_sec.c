@@ -22,7 +22,7 @@ static struct m4u_sec_gp_context m4u_gp_ta_ctx = {
 	.ctx_lock = __MUTEX_INITIALIZER(m4u_gp_ta_ctx.ctx_lock),
 	.ctx_type = CTX_TYPE_TA,
 };
-struct m4u_sec_context m4u_ta_ctx;
+static struct m4u_sec_context m4u_ta_ctx;
 
 void m4u_sec_set_context(void)
 {
