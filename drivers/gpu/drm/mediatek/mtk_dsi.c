@@ -2755,7 +2755,6 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 
 	if (get_panel_ext) {
 		cur_panel_params = get_panel_ext->params;
-		adjust_panel_params = get_panel_ext->params;
 	}
 
 	if (panel_ext && panel_ext->funcs &&
@@ -2767,6 +2766,10 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 	if (new_get_sta)
 		DDPINFO("%s,error:not support dst MODE:(%d)\n", __func__,
 			dst_mode_idx);
+
+	if (get_panel_ext) {
+		adjust_panel_params = get_panel_ext->params;
+	}
 
 	if (!(dsi->mipi_hopping_sta && adjust_panel_params &&
 		cur_panel_params && cur_panel_params->dyn.switch_en &&
