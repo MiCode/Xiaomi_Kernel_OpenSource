@@ -3359,28 +3359,12 @@ static int __mt_gpufreq_init_pmic(struct platform_device *pdev)
 	g_vsram_sfchg_rrate = __calculate_vsram_sfchg_rate(true);
 	g_vsram_sfchg_frate = __calculate_vsram_sfchg_rate(false);
 
-	/* set VSRAM_GPU */
-	regulator_set_voltage(g_pmic->reg_vsram_gpu, VSRAM_GPU_MAX_VOLT * 10,
-		VSRAM_GPU_MAX_VOLT * 10 + 125);
-	/* set VGPU */
-	regulator_set_voltage(g_pmic->reg_vgpu, VGPU_MAX_VOLT * 10, VGPU_MAX_VOLT * 10 + 125);
-
-	/* enable bucks (VGPU && VSRAM_GPU) enforcement */
-	if (regulator_enable(g_pmic->reg_vsram_gpu))
-		gpufreq_pr_info("@%s: enable VSRAM_GPU failed\n", __func__);
-	if (regulator_enable(g_pmic->reg_vgpu))
-		gpufreq_pr_info("@%s: enable VGPU failed\n", __func__);
 
 	gpufreq_pr_info("@%s: VGPU sfchg raising rate: %d us, VGPU sfchg falling rate: %d us, \t"
 			"VSRAM_GPU sfchg raising rate: %d us, VSRAM_GPU sfchg falling rate: %d us\n"
 			, __func__, g_vgpu_sfchg_rrate, g_vgpu_sfchg_frate,
 			g_vsram_sfchg_rrate, g_vsram_sfchg_frate);
 
-	gpufreq_pr_info("@%s: VGPU is enabled = %d (%d mV), VSRAM_GPU is enabled = %d (%d mV)\n",
-			__func__, regulator_is_enabled(g_pmic->reg_vgpu),
-			(regulator_get_voltage(g_pmic->reg_vgpu) / 1000),
-			regulator_is_enabled(g_pmic->reg_vsram_gpu),
-			(regulator_get_voltage(g_pmic->reg_vsram_gpu) / 1000));
 
 	return 0;
 }

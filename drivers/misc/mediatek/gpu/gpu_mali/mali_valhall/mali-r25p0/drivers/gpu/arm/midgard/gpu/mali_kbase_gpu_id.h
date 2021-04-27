@@ -96,7 +96,8 @@
 #define GPU_ID2_PRODUCT_TGOX              GPU_ID2_MODEL_MAKE(7, 2)
 #define GPU_ID2_PRODUCT_TTRX              GPU_ID2_MODEL_MAKE(9, 0)
 
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833) \
+	|| defined(CONFIG_MACH_MT6781)
 /* GPU ID: 0x90930000 */
 #define GPU_ID2_PRODUCT_TNAX              GPU_ID2_MODEL_MAKE(9, 3)
 #else
