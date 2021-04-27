@@ -541,4 +541,21 @@
 	pinctrl-3 = <&sw_disable>;
 	status = "okay";
 };
+
+&mt6360_typec {
+	port {
+		tcpc_typec_usb: endpoint@0 {
+			remote-endpoint = <&ssusb_mux>;
+		};
+	};
+};
+
+&typec_mux_switch {
+	orientation-switch;
+	port {
+		ssusb_mux: endpoint@0 {
+			remote-endpoint = <&tcpc_typec_usb>;
+		};
+	};
+};
 /* CONSYS end */
