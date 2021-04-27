@@ -402,7 +402,13 @@ static void md_cd_get_md_bootup_status(
 	struct ccci_modem *md, unsigned int *buff, int length)
 {
 	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
-	struct md_pll_reg *md_reg = md_info->md_pll_base;
+	struct md_pll_reg *md_reg = NULL;
+
+	md_reg = md_info->md_pll_base;
+	if (!md_reg) {
+		CCCI_ERROR_LOG(md->index, TAG, "%s:md_reg is null\n", __func__);
+		return;
+	}
 
 	CCCI_NOTICE_LOG(md->index, TAG, "md_boot_stats len %d\n", length);
 
