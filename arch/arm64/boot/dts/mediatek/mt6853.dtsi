@@ -1239,7 +1239,7 @@
 			infracfg = <&infracfg_ao_clk>;
 		};
 		scp_infra: scp_infra@10001000 {
-			compatible = "mediatek,scp_infra", "syscon";
+			compatible = "mediatek,scpinfra", "syscon";
 			reg = <0 0x10001000 0 0x1000>;	/* infracfg_ao */
 		};
 		sleep: sleep@10006000 {
