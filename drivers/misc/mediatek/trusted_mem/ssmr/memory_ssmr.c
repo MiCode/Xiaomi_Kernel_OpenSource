@@ -240,6 +240,7 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 	struct device_node *np;
 	size_t alloc_size;
 	struct page *page;
+	unsigned long attrs;
 
 	if (!ssmr_dev) {
 		pr_info("%s: feature: %s, No ssmr device\n", __func__, feature->feat_name);
@@ -281,9 +282,10 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 	 */
 	of_reserved_mem_device_init_by_idx(ssmr_dev, ssmr_dev->of_node, 0);
 
+	attrs = DMA_ATTR_NO_KERNEL_MAPPING;
 	do {
 		feature->virt_addr = dma_alloc_attrs(ssmr_dev, alloc_size,
-					     &feature->phy_addr, GFP_KERNEL, 0);
+					     &feature->phy_addr, GFP_KERNEL, attrs);
 
 #if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 		if (!feature->phy_addr) {
@@ -371,6 +373,7 @@ int ssmr_offline(phys_addr_t *pa, unsigned long *size, bool is_64bit,
 static int memory_region_online(struct SSMR_Feature *feature)
 {
 	size_t alloc_size;
+	unsigned long attrs;
 
 	if (!ssmr_dev)
 		pr_info("%s: No ssmr device\n", __func__);
@@ -383,10 +386,11 @@ static int memory_region_online(struct SSMR_Feature *feature)
 	}
 
 	alloc_size = feature->alloc_size;
+	attrs = DMA_ATTR_NO_KERNEL_MAPPING;
 
 	if (feature->phy_addr) {
 		dma_free_attrs(ssmr_dev, alloc_size, feature->virt_addr,
-			       feature->phy_addr, 0);
+			       feature->phy_addr, attrs);
 		feature->alloc_size = 0;
 		feature->phy_addr = 0;
 	}
