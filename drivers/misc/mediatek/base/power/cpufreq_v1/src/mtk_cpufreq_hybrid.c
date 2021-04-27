@@ -310,6 +310,9 @@ int Ripi_cpu_dvfs_thread(void *data)
 				p->mt_policy->max =
 					cpu_dvfs_get_freq_by_idx(p,
 					p->idx_opp_ppm_limit);
+				p->mt_policy->min =
+					(p->mt_policy->min > p->mt_policy->max) ?
+					p->mt_policy->max : p->mt_policy->min;
 
 #ifdef SINGLE_CLUSTER
 				cid =
