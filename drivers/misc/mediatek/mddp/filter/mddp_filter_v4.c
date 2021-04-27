@@ -1052,7 +1052,7 @@ static uint32_t mddp_nfhook_postrouting_v4
 
 	if (!mddp_f_is_support_dev(state->out->name)) {
 		MDDP_F_LOG(MDDP_LL_DEBUG,
-			"%s: Unsuport device,state->out->name(%s).\n",
+			"%s: Unsupport device,state->out->name(%s).\n",
 			__func__, state->out->name);
 		return NF_ACCEPT;
 	}
