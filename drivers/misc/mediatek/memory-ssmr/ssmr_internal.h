@@ -135,7 +135,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 	defined(CONFIG_MTK_TEE_GP_SUPPORT) ||\
 	defined(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
 	[SSMR_FEAT_SVP] = {
-		.dt_prop_name = "svp-size",
+		.dt_prop_name = "svp-region-based-size",
 		.feat_name = "svp",
 		.cmd_online = "svp=on",
 		.cmd_offline = "svp=off",
