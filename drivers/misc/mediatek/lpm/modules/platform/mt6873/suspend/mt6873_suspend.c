@@ -352,6 +352,7 @@ static int mt6873_spm_suspend_pm_event(struct notifier_block *notifier,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
 		atomic_set(&in_sleep, 1);
 		for_each_online_cpu(i) {
+			timer_setup(&mtk_lpm_ac[i].timer, lpm_timer_callback, 0);
 			mtk_lpm_ac[i].timer.expires = jiffies + msecs_to_jiffies(5000);
 			add_timer_on(&mtk_lpm_ac[i].timer, i);
 		}
@@ -382,7 +383,6 @@ int __init mt6873_model_suspend_init(void)
 	int ret;
 
 	int suspend_type = mtk_lpm_suspend_type_get();
-	int i;
 
 	if (suspend_type == MTK_LPM_SUSPEND_S2IDLE) {
 		MT6873_SUSPEND_OP_INIT(mt6873_suspend_s2idle_prompt,
@@ -405,10 +405,6 @@ int __init mt6873_model_suspend_init(void)
 	if (ret) {
 		pr_debug("[name:spm&][SPM] Failed to register PM notifier.\n");
 		return ret;
-	}
-
-	for_each_online_cpu(i) {
-		timer_setup(&mtk_lpm_ac[i].timer, lpm_timer_callback, 0);
 	}
 #endif /* CONFIG_PM */
 
