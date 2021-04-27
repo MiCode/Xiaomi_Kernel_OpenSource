@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2016, 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, 2018-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -769,21 +769,13 @@ static int __unvote_buses(struct venus_hfi_device *device)
 {
 	int rc = 0;
 	struct bus_info *bus = NULL;
-	unsigned long freq = 0, zero = 0;
+	unsigned long freq = 0;
 
 	venus_hfi_for_each_bus(device, bus) {
-		if (!bus->is_prfm_gov_used) {
-			freq = __calc_bw(bus, &device->bus_vote);
 			rc = __vote_bandwidth(bus, &freq);
-		} else
-			rc = __vote_bandwidth(bus, &zero);
-
-		if (rc)
-			goto err_unknown_device;
+			if (rc)
+				goto err_unknown_device;
 	}
-
-	if (rc)
-		dprintk(VIDC_WARN, "Failed to unvote some buses\n");
 
 err_unknown_device:
 	return rc;
@@ -795,7 +787,7 @@ static int __vote_buses(struct venus_hfi_device *device,
 	int rc = 0;
 	struct bus_info *bus = NULL;
 	struct vidc_bus_vote_data *new_data = NULL;
-	unsigned long freq = 0, zero = 0;
+	unsigned long freq = 0;
 
 	if (!num_data) {
 		dprintk(VIDC_DBG, "No vote data available\n");
@@ -822,8 +814,10 @@ no_data_count:
 		if (!bus->is_prfm_gov_used) {
 			freq = __calc_bw(bus, &device->bus_vote);
 			rc = __vote_bandwidth(bus, &freq);
-		} else
-			rc = __vote_bandwidth(bus, &zero);
+		} else {
+			freq = bus->range[1];
+			rc = __vote_bandwidth(bus, &freq);
+		}
 
 		if (rc)
 			return rc;

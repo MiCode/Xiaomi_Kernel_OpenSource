@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -820,6 +820,8 @@ static int msm_vidc_populate_bus(struct device *dev,
 			&bus->mode);
 	if (!rc && !strcmp(bus->mode, PERF_GOV))
 		bus->is_prfm_gov_used = true;
+	else
+		bus->is_prfm_gov_used = false;
 
 	rc = of_property_read_u32_array(dev->of_node, "qcom,bus-range-kbps",
 			range, ARRAY_SIZE(range));
