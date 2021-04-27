@@ -54,8 +54,13 @@
 /* ============================================================ */
 
 /* this is mbox pool for 2 cores */
-#define PIN_OUT_SIZE_SCP_MPOOL          34 /* the following will use mbox 2,4 */
-#define PIN_IN_SIZE_SCP_MPOOL           30 /* the following will use mbox 2,4 */
+#define PIN_OUT_SIZE_SCP_MPOOL          4 /* the following will use mbox 2,4 */
+#define PIN_IN_SIZE_SCP_MPOOL           4 /* the following will use mbox 2,4 */
+
+#define PIN_OUT_SIZE_SENSOR_CTRL        16 /* core0 mbox 2 */
+#define PIN_IN_SIZE_SENSOR_CTRL          2 /* core0 mbox 2 */
+#define PIN_OUT_SIZE_SENSOR_NOTIFY       7 /* core0 mbox 2 */
+#define PIN_IN_SIZE_SENSOR_NOTIFY        7 /* core0 mbox 2 */
 
 /* scp Core ID definition */
 enum scp_core_id {
@@ -105,6 +110,13 @@ enum {
 	IPI_OUT_AUDIO_ULTRA_SND_0 =  26,
 	IPI_IN_AUDIO_ULTRA_SND_ACK_0 = 27,
 	IPI_IN_AUDIO_ULTRA_SND_0  =  28,
+
+/* core0 */
+	/* the following will use mbox2 */
+	IPI_OUT_SENSOR_CTRL       = 29,
+	IPI_IN_SENSOR_CTRL        = 30,
+	IPI_OUT_SENSOR_NOTIFY     = 31,
+	IPI_IN_SENSOR_NOTIFY      = 32,
 	SCP_IPI_COUNT
 };
 
@@ -139,6 +151,9 @@ enum scp_reserve_mem_id_t {
 	VOW_BARGEIN_MEM_ID,
 	SCP_DRV_PARAMS_MEM_ID,
 	ULTRA_MEM_ID,
+	SENS_SUPER_MEM_ID,
+	SENS_LIST_MEM_ID,
+	SENS_DEBUG_MEM_ID,
 	NUMS_MEM_ID,
 };
 
@@ -200,6 +215,8 @@ extern phys_addr_t scp_get_reserve_mem_size(enum scp_reserve_mem_id_t id);
 extern void scp_register_feature(enum feature_id id);
 extern void scp_deregister_feature(enum feature_id id);
 
+/* APIs for reset scp */
+extern void scp_wdt_reset(int cpu_id);
 
 #endif
 
