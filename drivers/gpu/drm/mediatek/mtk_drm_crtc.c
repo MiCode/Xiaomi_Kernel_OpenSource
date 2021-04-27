@@ -6624,6 +6624,10 @@ static void mtk_drm_cwb_give_buf(struct drm_crtc *crtc)
 	const struct mtk_cwb_funcs *funcs;
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+	if (!mtk_crtc->enabled) {
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		return;
+	}
 	cwb_info = mtk_crtc->cwb_info;
 	user_buffer = 0;
 	funcs = cwb_info->funcs;
