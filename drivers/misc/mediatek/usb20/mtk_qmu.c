@@ -35,6 +35,22 @@ static u32 Tx_gpd_max_count[MAX_QMU_EP + 1];
 static bool Tx_enable[MAX_QMU_EP + 1];
 static bool Rx_enable[MAX_QMU_EP + 1];
 
+int isoc_ep_end_idx = 3;
+EXPORT_SYMBOL(isoc_ep_end_idx);
+
+int isoc_ep_gpd_count = 260;
+EXPORT_SYMBOL(isoc_ep_gpd_count);
+
+int mtk_qmu_dbg_level = LOG_WARN;
+EXPORT_SYMBOL(mtk_qmu_dbg_level);
+
+int mtk_qmu_max_gpd_num;
+EXPORT_SYMBOL(mtk_qmu_max_gpd_num);
+
+module_param(mtk_qmu_dbg_level, int, 0644);
+module_param(mtk_qmu_max_gpd_num, int, 0644);
+module_param(isoc_ep_end_idx, int, 0644);
+module_param(isoc_ep_gpd_count, int, 0644);
 
 u32 qmu_used_gpd_count(u8 isRx, u32 num)
 {
