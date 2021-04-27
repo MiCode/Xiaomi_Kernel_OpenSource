@@ -42,6 +42,8 @@
 #include "scp_helper.h"
 #include "scp_excep.h"
 #include "scp_dvfs.h"
+#include <linux/of_gpio.h>
+#include <linux/gpio.h>
 
 #ifdef CONFIG_MTK_CLKMGR
 #include <mach/mt_clkmgr.h>
@@ -56,7 +58,12 @@
 
 #include <linux/pm_qos.h>
 #include "helio-dvfsrc-opp.h"
+
+#if defined(CONFIG_MACH_MT6781)
+#include "mtk_secure_api.h"
+#else
 #include "mtk_spm_resource_req.h"
+#endif
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -67,8 +74,6 @@
 #define DRV_WriteReg32(addr, val) writel(val, addr)
 #define DRV_SetReg32(addr, val)	DRV_WriteReg32(addr, DRV_Reg32(addr) | (val))
 #define DRV_ClrReg32(addr, val)	DRV_WriteReg32(addr, DRV_Reg32(addr) & ~(val))
-
-#define SCP_VCORE_REQ_TO_DVFSRC 1
 
 /* -1:SCP DVFS OFF, 1:SCP DVFS ON */
 static int scp_dvfs_flag = 1;
@@ -87,15 +92,41 @@ static struct wakeup_source scp_suspend_lock;
 static int g_scp_dvfs_init_flag = -1;
 
 static void __iomem *gpio_base;
+
+#if defined(CONFIG_MACH_MT6781)
+/* SCP_VREQ: GPIO 108 */
+#define ADR_GPIO_MODE_OF_SCP_VREQ	(gpio_base + 0x3d0)
+#define BIT_GPIO_MODE_OF_SCP_VREQ	16
+#define MSK_GPIO_MODE_OF_SCP_VREQ	0x7
+#else
 #define ADR_GPIO_MODE_OF_SCP_VREQ	(gpio_base + 0x410)
 #define BIT_GPIO_MODE_OF_SCP_VREQ	24
 #define MSK_GPIO_MODE_OF_SCP_VREQ	0x7
-
-#if SCP_VCORE_REQ_TO_DVFSRC
-static struct pm_qos_request dvfsrc_scp_vcore_req;
 #endif
 
-#if 1
+static struct pm_qos_request dvfsrc_scp_vcore_req;
+
+static void mt_pmic_sshub_init(void);
+static void mt_scp_dvfs_ipi_init(void);
+
+#if defined(CONFIG_MACH_MT6781)
+/* 0: GPIO Dir. as Input; 1: GPIO Dir. as Output; */
+#define ADR_GPIO_DIR6 (gpio_base + 0x060)
+#define BIT_GPIO_DIR6_GPIO200 8
+#define MAK_GPIO_DIR6_GPIO200 0x1
+
+/* GPIO200=Lo:   SCP uses VASRAM_CORE  */
+/* GPIO200=High: SCP uses VASRAM_OTHERS  */
+#define ADR_GPIO_DIN6 (gpio_base + 0x260)
+#define BIT_GPIO_DIN6_GPIO200 8
+#define MAK_GPIO_DIN6_GPIO200 0x1
+
+#define USE_VSRAM_CORE		1
+#define USE_VSRAM_OTHERS	2
+int Scp_Vsram_Ldo_usage = USE_VSRAM_OTHERS;
+#endif
+
+#if 0
 bool __attribute__((weak))
 spm_resource_req(unsigned int user, unsigned int req_mask)
 {
@@ -111,10 +142,51 @@ get_vcore_uv_table(unsigned int vcore_opp)
 }
 #endif
 
+#if defined(CONFIG_MACH_MT6781)
+int scp_resource_req(unsigned int req_type)
+{
+	unsigned long ret = 0;
+
+	ret = mt_secure_call(MTK_SIP_KERNEL_SCP_DVFS_CTRL,
+			req_type,
+			0, 0, 0);
+
+	return ret;
+}
+#endif
+
 int scp_set_pmic_vcore(unsigned int cur_freq)
 {
 	int ret = 0;
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if defined(CONFIG_MACH_MT6781)
+	unsigned int ret_vc = 0, ret_vs = 0;
+
+	if (cur_freq == CLK_OPP0) {
+		ret_vc = pmic_scp_set_vcore(600000);
+		ret_vs = pmic_scp_set_vsram_vcore(850000);
+	} else if (cur_freq == CLK_OPP1 || cur_freq == CLK_OPP2) {
+		ret_vc = pmic_scp_set_vcore(650000);
+		ret_vs = pmic_scp_set_vsram_vcore(850000);
+	} else if (cur_freq == CLK_OPP3) {
+		ret_vc = pmic_scp_set_vcore(700000);
+		ret_vs = pmic_scp_set_vsram_vcore(850000);
+	} else if (cur_freq == CLK_OPP4) {
+		ret_vc = pmic_scp_set_vcore(800000);
+		ret_vs = pmic_scp_set_vsram_vcore(900000);
+	} else {
+		ret = -2;
+		pr_notice("cur_freq=%d is not supported\n", cur_freq);
+		WARN_ON(1);
+	}
+
+	if (ret_vc != 0 || ret_vs != 0) {
+		ret = -1;
+		pr_notice("ERROR: %s: scp vcore/vsram setting error, (%d, %d)\n",
+					__func__, ret_vc, ret_vs);
+		WARN_ON(1);
+	}
+#else /* CONFIG_MACH_MT6781 */
 	unsigned int ret_vc = 0, ret_vs = 0;
 	int get_vcore_val = 0;
 
@@ -152,7 +224,7 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 		WARN_ON(1);
 	}
 
-#if SCP_VOW_LOW_POWER_MODE
+  #if SCP_VOW_LOW_POWER_MODE
 	if (cur_freq == CLK_OPP0 || cur_freq == CLK_OPP1) {
 		/* enable VOW low power mode */
 		pmic_buck_vcore_lp(SRCLKEN11, 0, 1, HW_LP);
@@ -162,7 +234,8 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 		pmic_buck_vcore_lp(SRCLKEN11, 0, 1, HW_OFF);
 		pmic_ldo_vsram_others_lp(SRCLKEN11, 0, 1, HW_OFF);
 	}
-#endif
+  #endif
+#endif /* CONFIG_MACH_MT6781 */
 
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 
@@ -201,12 +274,14 @@ uint32_t scp_get_freq(void)
 		return_freq = CLK_OPP3;
 	else if (sum <= CLK_OPP4)
 		return_freq = CLK_OPP4;
+#if !defined(CONFIG_MACH_MT6781)
 	else if (sum <= CLK_OPP5)
 		return_freq = CLK_OPP5;
+#endif
 	else {
-		return_freq = CLK_OPP5;
+		return_freq = CLK_MAX_OPP;
 		pr_debug("warning: request freq %d > max opp %d\n",
-				sum, CLK_OPP5);
+				sum, return_freq);
 	}
 
 	return return_freq;
@@ -219,12 +294,23 @@ void scp_vcore_request(unsigned int clk_opp)
 	/* Set PMIC */
 	scp_set_pmic_vcore(clk_opp);
 
-#if SCP_VCORE_REQ_TO_DVFSRC
-	/* DVFSRC_VCORE_REQUEST [31:30]
-	 * 2'b00: scp request 0.575v/0.6v/0.625v
-	 * 2'b01: scp request 0.7v
-	 * 2'b10: scp request 0.8v
-	 */
+#if defined(CONFIG_MACH_MT6781)
+	/* 2'b00: scp request 0.65v */
+	/* 2'b01: scp request 0.7v */
+	/* 2'b10: scp request 0.8v */
+	if (clk_opp == CLK_OPP0 ||
+		clk_opp == CLK_OPP1 ||
+		clk_opp == CLK_OPP2)
+		pm_qos_update_request(&dvfsrc_scp_vcore_req, 0x0);
+	else if (clk_opp == CLK_OPP3)
+		pm_qos_update_request(&dvfsrc_scp_vcore_req, 0x1);
+	else
+		pm_qos_update_request(&dvfsrc_scp_vcore_req, 0x2);
+#else /* CONFIG_MACH_MT6781 */
+	/* DVFSRC_VCORE_REQUEST [31:30] */
+	/* 2'b00: scp request 0.575v/0.6v/0.625v */
+	/* 2'b01: scp request 0.7v */
+	/* 2'b10: scp request 0.8v */
 	if (clk_opp == CLK_OPP0 ||
 		clk_opp == CLK_OPP1 ||
 		clk_opp == CLK_OPP2 ||
@@ -234,8 +320,22 @@ void scp_vcore_request(unsigned int clk_opp)
 		pm_qos_update_request(&dvfsrc_scp_vcore_req, 0x1);
 	else
 		pm_qos_update_request(&dvfsrc_scp_vcore_req, 0x2);
-#endif
+#endif /* CONFIG_MACH_MT6781 */
 
+#if defined(CONFIG_MACH_MT6781)
+	/* 0.60V: SCP_VCORE_LEVEL[11:0] = 0x008 */
+	/* 0.65V: SCP_VCORE_LEVEL[11:0] = 0x004 */
+	/* 0.70V: SCP_VCORE_LEVEL[11:0] = 0x102 */
+	/* 0.80V: SCP_VCORE_LEVEL[11:0] = 0x201 */
+	if (clk_opp == CLK_OPP0)
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x008);
+	else if (clk_opp == CLK_OPP1 || clk_opp == CLK_OPP2)
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x004);
+	else if (clk_opp == CLK_OPP3)
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x102);
+	else
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x201);
+#else /* CONFIG_MACH_MT6781 */
 	/* SCP to SPM voltage level 0x100066C4 (scp reg 0xC0094)
 	 * 0x0: scp request 0.575v/0.6v
 	 * 0x1: scp request 0.625v
@@ -250,6 +350,7 @@ void scp_vcore_request(unsigned int clk_opp)
 		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x12);
 	else
 		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x28);
+#endif /* CONFIG_MACH_MT6781 */
 }
 
 /* scp_request_freq
@@ -279,17 +380,22 @@ int scp_request_freq(void)
 	if (scp_current_freq != scp_expected_freq) {
 
 		/* do DVS before DFS if increasing frequency */
-		if (scp_current_freq < scp_expected_freq) {
+		if (scp_current_freq < scp_expected_freq
+				|| scp_current_freq == CLK_UNINIT) {
 			scp_vcore_request(scp_expected_freq);
 			is_increasing_freq = 1;
 		}
 
 		/* Request SPM not to turn off mainpll/26M/infra */
 		/* because SCP may park in it during DFS process */
+		#if defined(CONFIG_MACH_MT6781)
+		scp_resource_req(SCP_REQ_26M | SCP_REQ_IFR | SCP_REQ_SYSPLL1);
+		#else
 		spm_resource_req(SPM_RESOURCE_USER_SCP,
 						SPM_RESOURCE_MAINPLL |
 						SPM_RESOURCE_CK_26M |
 						SPM_RESOURCE_AXI_BUS);
+		#endif
 
 		/*  turn on PLL if necessary */
 		scp_pll_ctrl_set(PLL_ENABLE, scp_expected_freq);
@@ -327,20 +433,32 @@ int scp_request_freq(void)
 		if (is_increasing_freq == 0)
 			scp_vcore_request(scp_expected_freq);
 
-		if (scp_expected_freq == (unsigned int)CLK_OPP3)
+		if (scp_expected_freq == (unsigned int)CLK_MAINPLL)
 			/* request SPM not to turn off mainpll/26M/infra */
+			#if defined(CONFIG_MACH_MT6781)
+			scp_resource_req(SCP_REQ_26M | SCP_REQ_IFR | SCP_REQ_SYSPLL1);
+			#else
 			spm_resource_req(SPM_RESOURCE_USER_SCP,
 							SPM_RESOURCE_MAINPLL |
 							SPM_RESOURCE_CK_26M |
 							SPM_RESOURCE_AXI_BUS);
-		else if (scp_expected_freq == (unsigned int)CLK_OPP5)
+			#endif
+		else if (scp_expected_freq == (unsigned int)CLK_UNIVPLL)
 			/* request SPM not to turn off 26M/infra */
+			#if defined(CONFIG_MACH_MT6781)
+			scp_resource_req(SCP_REQ_26M | SCP_REQ_IFR);
+			#else
 			spm_resource_req(SPM_RESOURCE_USER_SCP,
 							 SPM_RESOURCE_CK_26M |
 							 SPM_RESOURCE_AXI_BUS);
+			#endif
 		else
+			#if defined(CONFIG_MACH_MT6781)
+			scp_resource_req(SCP_REQ_RELEASE);
+			#else
 			spm_resource_req(SPM_RESOURCE_USER_SCP,
 							 SPM_RESOURCE_RELEASE);
+			#endif
 	}
 
 	__pm_relax(&scp_suspend_lock);
@@ -386,7 +504,7 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 	pr_debug("%s(%d, %d)\n", __func__, pll_ctrl_flag, pll_sel);
 
 	if (pll_ctrl_flag == PLL_ENABLE) {
-		if (pre_pll_sel != CLK_OPP3 && pre_pll_sel != CLK_OPP5) {
+		if (pre_pll_sel != CLK_MAINPLL && pre_pll_sel != CLK_UNIVPLL) {
 			ret = clk_prepare_enable(mt_scp_pll->clk_mux);
 			if (ret) {
 				pr_err("clk_prepare_enable() failed\n");
@@ -402,6 +520,33 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 					mt_scp_pll->clk_mux,
 					mt_scp_pll->clk_pll0); /* 26 MHz */
 			break;
+#if defined(CONFIG_MACH_MT6781)
+		case CLK_OPP0: /* 125M */
+			ret = clk_set_parent(
+					mt_scp_pll->clk_mux,
+					mt_scp_pll->clk_pll0); /* 26 MHz */
+			break;
+		case CLK_OPP1: /* 250M */
+			ret = clk_set_parent(
+					mt_scp_pll->clk_mux,
+					mt_scp_pll->clk_pll2); /* 218.4 MHz */
+			break;
+		case CLK_OPP2: /* 273M */
+			ret = clk_set_parent(
+					mt_scp_pll->clk_mux,
+					mt_scp_pll->clk_pll3); /* 273 MHz */
+			break;
+		case CLK_OPP3: /* 330M */
+			ret = clk_set_parent(
+					mt_scp_pll->clk_mux,
+					mt_scp_pll->clk_pll3); /* 273 MHz */
+			break;
+		case CLK_OPP4: /* 416M */
+			ret = clk_set_parent(
+					mt_scp_pll->clk_mux,
+					mt_scp_pll->clk_pll5); /* 416 MHz */
+			break;
+#else
 		case CLK_OPP0: /* 110M */
 			ret = clk_set_parent(
 					mt_scp_pll->clk_mux,
@@ -432,6 +577,7 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 					mt_scp_pll->clk_mux,
 					mt_scp_pll->clk_pll4); /* 416 MHz */
 			break;
+#endif
 		default:
 			pr_err("not support opp freq %d\n", pll_sel);
 			WARN_ON(1);
@@ -448,7 +594,7 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 			pre_pll_sel = pll_sel;
 
 	} else if (pll_ctrl_flag == PLL_DISABLE
-			&& (pll_sel != CLK_OPP3 && pll_sel != CLK_OPP5)) {
+			&& (pll_sel != CLK_MAINPLL && pll_sel != CLK_UNIVPLL)) {
 		clk_disable_unprepare(mt_scp_pll->clk_mux);
 		pr_debug("clk_disable_unprepare()\n");
 	} else {
@@ -626,8 +772,10 @@ static void _mt_scp_dvfs_set_test_opp(int dvfs_opp)
 		added_freq = CLK_OPP3 - sum;
 	else if (dvfs_opp == 4 && sum < CLK_OPP4)
 		added_freq = CLK_OPP4 - sum;
+#if !defined(CONFIG_MACH_MT6781)
 	else if (dvfs_opp == 5 && sum < CLK_OPP5)
 		added_freq = CLK_OPP5 - sum;
+#endif
 
 	feature_table[VCORE_TEST_FEATURE_ID].freq =
 		added_freq;
@@ -668,9 +816,12 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 				pr_info("remove the opp setting of command\n");
 				feature_table[VCORE_TEST_FEATURE_ID].freq = 0;
 				scp_deregister_feature(VCORE_TEST_FEATURE_ID);
+#if defined(CONFIG_MACH_MT6781)
+			} else if (dvfs_opp >= 0 && dvfs_opp <= 4) {
+#else
 			} else if (dvfs_opp >= 0 && dvfs_opp <= 5) {
+#endif
 				_mt_scp_dvfs_set_test_opp(dvfs_opp);
-
 				scp_register_feature(VCORE_TEST_FEATURE_ID);
 			} else {
 				pr_info("invalid opp value %d\n", dvfs_opp);
@@ -788,6 +939,9 @@ static int mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 {
 	struct device_node *node;
 	unsigned int gpio_mode;
+#if defined(CONFIG_MACH_MT6781)
+	int gpio_idx, gpio_val;
+#endif
 
 	pr_debug("%s()\n", __func__);
 
@@ -844,12 +998,14 @@ static int mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	    WARN_ON(1);
 		return PTR_ERR(mt_scp_pll->clk_pll5);
 	}
+#if !defined(CONFIG_MACH_MT6781)
 	mt_scp_pll->clk_pll6 = devm_clk_get(&pdev->dev, "clk_pll_6");
 	if (IS_ERR(mt_scp_pll->clk_pll6)) {
 		dev_notice(&pdev->dev, "cannot get 7th clock parent\n");
 	    WARN_ON(1);
 		return PTR_ERR(mt_scp_pll->clk_pll6);
 	}
+#endif
 
 	/* get GPIO base address */
 	node = of_find_compatible_node(NULL, NULL, "mediatek,gpio");
@@ -876,6 +1032,52 @@ static int mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 		pr_err("wrong V_REQ muxpin setting - %d\n", gpio_mode);
 	    WARN_ON(1);
 	}
+
+#if defined(CONFIG_MACH_MT6781)
+#if 1 /* get GPIO value by GPIO API */
+	/* get high/low level of gpio pin */
+	gpio_idx = of_get_named_gpio(pdev->dev.of_node, "vsram_chk_gpio", 0);
+	gpio_val = gpio_get_value(gpio_idx);
+	pr_notice("vsram_chk_gpio value: %d\n", gpio_val);
+	if (gpio_val == 0) {
+		Scp_Vsram_Ldo_usage = USE_VSRAM_CORE;
+		pr_notice("VSRAM LDO: VSRAM_CORE\n");
+	} else {
+		Scp_Vsram_Ldo_usage = USE_VSRAM_OTHERS;
+		pr_notice("VSRAM LDO: VSRAM_OTHERS\n");
+	}
+#else /* get GPIO value by reading RG */
+	/* check GPIO200 dirction */
+	if (((DRV_Reg32(ADR_GPIO_DIR6) >>
+			BIT_GPIO_DIR6_GPIO200) &
+			MAK_GPIO_DIR6_GPIO200) == 0)
+		pr_notice("GPIO200 DIR: input\n");
+	else {
+		pr_notice("ERROR: GPIO200 DIR: output\n");
+		WARN_ON(1);
+	}
+
+	/* check VSRAM LDO usage */
+	if (((DRV_Reg32(ADR_GPIO_DIN6) >>
+			BIT_GPIO_DIN6_GPIO200) &
+			MAK_GPIO_DIN6_GPIO200) == 0) {
+		Scp_Vsram_Ldo_usage = USE_VSRAM_CORE;
+		pr_notice("VSRAM LDO: VSRAM_CORE\n");
+	} else {
+		Scp_Vsram_Ldo_usage = USE_VSRAM_OTHERS;
+		pr_notice("VSRAM LDO: VSRAM_OTHERS\n");
+	}
+#endif
+#endif
+
+	wakeup_source_init(&scp_suspend_lock, "scp wakelock");
+
+	mt_scp_dvfs_ipi_init();
+	mt_pmic_sshub_init();
+
+	pm_qos_add_request(&dvfsrc_scp_vcore_req,
+			PM_QOS_SCP_VCORE_REQUEST,
+			PM_QOS_SCP_VCORE_REQUEST_DEFAULT_VALUE);
 
 	g_scp_dvfs_init_flag = 1;
 
@@ -915,10 +1117,46 @@ static struct platform_driver mt_scp_dvfs_pdrv = {
 /**********************************
  * mediatek scp dvfs initialization
  ***********************************/
-void mt_pmic_sshub_init(void)
+static void mt_pmic_sshub_init(void)
 {
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 
+#if defined(CONFIG_MACH_MT6781)
+	pmic_scp_set_vcore(600000);
+	pmic_scp_set_vcore_sleep(600000);
+	pmic_set_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_EN, 1);
+	pmic_set_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_SLEEP_VOSEL_EN, 0);
+
+	if (Scp_Vsram_Ldo_usage == USE_VSRAM_OTHERS)
+		pr_notice("SCP VSRAM: VSRAM_OTHERS\n");
+	else if (Scp_Vsram_Ldo_usage == USE_VSRAM_CORE)
+		pr_notice("SCP VSRAM: VSRAM_CORE\n");
+	else {
+		Scp_Vsram_Ldo_usage = USE_VSRAM_OTHERS;
+		pr_notice("ERROR: unknown VSRAM LDO usage before PMIC setting\n");
+		WARN_ON(1);
+	}
+
+	pmic_scp_set_vsram_vcore(850000);
+	pmic_scp_set_vsram_vcore_sleep(850000);
+
+	if (Scp_Vsram_Ldo_usage == USE_VSRAM_CORE) {
+		pmic_set_register_value(
+			PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_EN, 0);
+	} else {
+		pmic_set_register_value(
+			PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_EN, 1);
+
+	}
+
+	pmic_set_register_value(
+			PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_SLEEP_VOSEL_EN, 0);
+
+	/*  Workaround once force BUCK in NML mode */
+	pmic_set_register_value(PMIC_RG_SRCVOLTEN_LP_EN, 1);
+#else /* CONFIG_MACH_MT6781 */
 	/* set SCP VCORE voltage */
 	if (pmic_scp_set_vcore(575000) != 0)
 		pr_notice("Set wrong vcore voltage\n");
@@ -927,25 +1165,26 @@ void mt_pmic_sshub_init(void)
 	if (pmic_scp_set_vsram_vcore(800000) != 0)
 		pr_notice("Set wrong vsram voltage\n");
 
-#if SCP_VOW_LOW_POWER_MODE
+  #if SCP_VOW_LOW_POWER_MODE
 	/* enable VOW low power mode */
 	pmic_buck_vcore_lp(SRCLKEN11, 0, 1, HW_LP);
 	pmic_ldo_vsram_others_lp(SRCLKEN11, 0, 1, HW_LP);
-#else
+  #else
 	/* disable VOW low power mode */
 	pmic_buck_vcore_lp(SRCLKEN11, 0, 1, HW_OFF);
 	pmic_ldo_vsram_others_lp(SRCLKEN11, 0, 1, HW_OFF);
-#endif
+  #endif
 
 	/* BUCK_VCORE_SSHUB_EN: ON */
 	/* LDO_VSRAM_OTHERS_SSHUB_EN: ON */
 	/* pmrc_mode: OFF */
 	pmic_scp_ctrl_enable(true, true, false);
+#endif /* CONFIG_MACH_MT6781 */
 
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 }
 
-void mt_scp_dvfs_ipi_init(void)
+static void mt_scp_dvfs_ipi_init(void)
 {
 	scp_ipi_registration(IPI_SCP_PLL_CTRL,
 						scp_pll_ctrl_handler,
@@ -982,17 +1221,6 @@ int __init scp_dvfs_init(void)
 		WARN_ON(1);
 		return -1;
 	}
-
-	wakeup_source_init(&scp_suspend_lock, "scp wakelock");
-
-	mt_scp_dvfs_ipi_init();
-	mt_pmic_sshub_init();
-
-#if SCP_VCORE_REQ_TO_DVFSRC
-	pm_qos_add_request(&dvfsrc_scp_vcore_req,
-			PM_QOS_SCP_VCORE_REQUEST,
-			PM_QOS_SCP_VCORE_REQUEST_DEFAULT_VALUE);
-#endif
 
 	return ret;
 }

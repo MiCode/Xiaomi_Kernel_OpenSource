@@ -42,17 +42,41 @@ enum {
 	CLK_SYS_IRQ_EN_BIT = 16,
 	CLK_HIGH_IRQ_EN_BIT = 17,
 };
-/*#ifdef CONFIG_PINCTRL_MT6797*/
 
 enum clk_opp_enum {
 	CLK_26M = 26,
+#if defined(CONFIG_MACH_MT6781)
+	CLK_OPP0 = 125,
+	CLK_OPP1 = 250,
+	CLK_OPP2 = 273,
+	CLK_OPP3 = 330,
+	CLK_OPP4 = 416,
+	CLK_MAX_OPP = CLK_OPP4,
+	CLK_MAINPLL = CLK_OPP2,
+	CLK_UNIVPLL = CLK_OPP4,
+#else
 	CLK_OPP0 = 110,
 	CLK_OPP1 = 130,
 	CLK_OPP2 = 165,
 	CLK_OPP3 = 218,
 	CLK_OPP4 = 330,
 	CLK_OPP5 = 416,
+	CLK_MAX_OPP = CLK_OPP5,
+	CLK_MAINPLL = CLK_OPP3,
+	CLK_UNIVPLL = CLK_OPP5,
+#endif
+	CLK_UNINIT = 0xffff,
 };
+
+#if defined(CONFIG_MACH_MT6781)
+enum scp_req_r {
+	SCP_REQ_RELEASE = 0,
+	SCP_REQ_26M = 1 << 0,
+	SCP_REQ_IFR = 1 << 1,
+	SCP_REQ_SYSPLL1 = 1 << 2,
+	SCP_REQ_MAX	= 1 << 3,
+};
+#endif
 
 enum clk_div_enum {
 	CLK_DIV_1 = 0,
