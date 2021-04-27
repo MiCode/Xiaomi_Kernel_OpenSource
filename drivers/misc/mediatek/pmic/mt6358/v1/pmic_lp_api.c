@@ -97,6 +97,11 @@ const struct PMU_LP_TABLE_ENTRY pmu_lp_table[] = {
 	PMIC_LP_LDO_VUSB_0_ENTRY(VUSB_0),
 	PMIC_LP_LDO_VUSB_1_ENTRY(VUSB_1),
 	PMIC_LP_LDO_ENTRY(VBIF28),
+#if defined(USE_PMIC_MT6366) && USE_PMIC_MT6366
+	PMIC_LP_LDO_ENTRY(VM18),
+	PMIC_LP_LDO_ENTRY(VMDDR),
+	PMIC_LP_LDO_ENTRY(VSRAM_CORE),
+#endif
 };
 
 static int pmic_lp_golden_set(unsigned int en_adr,
@@ -556,3 +561,19 @@ int pmic_ldo_vbif28_lp(
 				VBIF28, user, op_en, op_cfg);
 }
 
+#if defined(USE_PMIC_MT6366) && USE_PMIC_MT6366
+int pmic_ldo_vm18_lp(enum BUCK_LDO_EN_USER user, unsigned char op_en, unsigned char op_cfg)
+{
+	return pmic_lp_type_set(MT6358_LDO_VM18_OP_EN, VM18, user, op_en, op_cfg);
+}
+
+int pmic_ldo_vmddr_lp(enum BUCK_LDO_EN_USER user, unsigned char op_en, unsigned char op_cfg)
+{
+	return pmic_lp_type_set(MT6358_LDO_VMDDR_OP_EN, VMDDR, user, op_en, op_cfg);
+}
+
+int pmic_ldo_vsram_core_lp(enum BUCK_LDO_EN_USER user, unsigned char op_en, unsigned char op_cfg)
+{
+	return pmic_lp_type_set(MT6358_LDO_VSRAM_CORE_OP_EN, VSRAM_CORE, user, op_en, op_cfg);
+}
+#endif

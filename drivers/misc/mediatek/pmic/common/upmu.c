@@ -592,6 +592,9 @@ static int pmic_mt_probe(struct platform_device *pdev)
 	/*get PMIC CID */
 	PMICLOG("PMIC CID = 0x%x\n", pmic_get_register_value(PMIC_SWCID));
 
+#if defined(CONFIG_MACH_MT6781)
+	record_is_pmic_new_power_grid(pdev);
+#endif
 	record_md_vosel();
 
 	PMIC_INIT_SETTING_V1();

@@ -12,6 +12,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
@@ -26,6 +27,8 @@
 #define MT6358_BUCK_MODE_AUTO		0
 #define MT6358_BUCK_MODE_FORCE_PWM	1
 
+#define DEF_OC_IRQ_ENABLE_DELAY_MS	10
+
 /*
  * MT6358 regulators' information
  *
@@ -38,6 +41,9 @@
  * @modeset_shift: SHIFT for operating modeset register.
  */
 struct mt6358_regulator_info {
+	int irq;
+	int oc_irq_enable_delay_ms;
+	struct delayed_work oc_work;
 	struct regulator_desc desc;
 	struct regulation_constraints constraints;
 	u32 da_vsel_reg;
@@ -318,6 +324,7 @@ static const u32 vusb_voltages[] = {
 	3100000,
 };
 
+#if !USE_PMIC_MT6366
 static const u32 vcamio_voltages[] = {
 	1800000,
 };
@@ -337,6 +344,7 @@ static const u32 vcamd_voltages[] = {
 	0,
 	1800000,
 };
+#endif
 
 static const u32 vcn18_voltages[] = {
 	1800000,
@@ -388,6 +396,7 @@ static const u32 vbif28_voltages[] = {
 	2800000,
 };
 
+#if !USE_PMIC_MT6366
 static const u32 vcama1_voltages[] = {
 	1800000,
 	0,
@@ -403,6 +412,7 @@ static const u32 vcama1_voltages[] = {
 	2900000,
 	3000000,
 };
+#endif
 
 static const u32 vemc_voltages[] = {
 	0,
@@ -439,6 +449,7 @@ static const u32 vcn33_wifi_voltages[] = {
 	3500000,
 };
 
+#if !USE_PMIC_MT6366
 static const u32 vcama2_voltages[] = {
 	1800000,
 	0,
@@ -461,6 +472,7 @@ static const u32 vldo28_voltages[] = {
 	0,
 	3000000,
 };
+#endif
 
 static const u32 vaud28_voltages[] = {
 	2800000,
@@ -841,6 +853,7 @@ static struct mt6358_regulator_info mt6358_regulators[] = {
 		PMIC_RG_VUSB_VOSEL_MASK <<
 		PMIC_RG_VUSB_VOSEL_SHIFT,
 		MT_LDO_VOL_EN),
+#if !USE_PMIC_MT6366
 	MT_REG_FIXED("ldo_vcamio", VCAMIO, PMIC_RG_LDO_VCAMIO_EN_ADDR,
 		PMIC_DA_VCAMIO_EN_ADDR,
 		1800000, MT_LDO_EN),
@@ -851,6 +864,7 @@ static struct mt6358_regulator_info mt6358_regulators[] = {
 		PMIC_RG_VCAMD_VOSEL_MASK <<
 		PMIC_RG_VCAMD_VOSEL_SHIFT,
 		MT_LDO_VOL_EN),
+#endif
 	MT_REG_FIXED("ldo_vcn18", VCN18, PMIC_RG_LDO_VCN18_EN_ADDR,
 		PMIC_DA_VCN18_EN_ADDR,
 		1800000, MT_LDO_EN),
@@ -923,6 +937,7 @@ static struct mt6358_regulator_info mt6358_regulators[] = {
 		PMIC_RG_LDO_VSRAM_PROC12_VOSEL_MASK <<
 		PMIC_RG_LDO_VSRAM_PROC12_VOSEL_SHIFT,
 		MT_LDO_VOL_EN),
+#if !USE_PMIC_MT6366
 	MT_LDO_NON_REGULAR("ldo_vcama1", VCAMA1,
 		vcama1_voltages, PMIC_RG_LDO_VCAMA1_EN_ADDR,
 		PMIC_DA_VCAMA1_EN_ADDR,
@@ -930,6 +945,7 @@ static struct mt6358_regulator_info mt6358_regulators[] = {
 		PMIC_RG_VCAMA1_VOSEL_MASK <<
 		PMIC_RG_VCAMA1_VOSEL_SHIFT,
 		MT_LDO_VOL_EN),
+#endif
 	MT_LDO_NON_REGULAR("ldo_vemc", VEMC,
 		vemc_voltages, PMIC_RG_LDO_VEMC_EN_ADDR,
 		PMIC_DA_VEMC_EN_ADDR,
@@ -960,6 +976,7 @@ static struct mt6358_regulator_info mt6358_regulators[] = {
 		PMIC_RG_VCN33_VOSEL_MASK <<
 		PMIC_RG_VCN33_VOSEL_SHIFT,
 		MT_LDO_VOL_EN),
+#if !USE_PMIC_MT6366
 	MT_LDO_NON_REGULAR("ldo_vcama2", VCAMA2,
 		vcama2_voltages, PMIC_RG_LDO_VCAMA2_EN_ADDR,
 		PMIC_DA_VCAMA2_EN_ADDR,
@@ -967,10 +984,12 @@ static struct mt6358_regulator_info mt6358_regulators[] = {
 		PMIC_RG_VCAMA2_VOSEL_MASK <<
 		PMIC_RG_VCAMA2_VOSEL_SHIFT,
 		MT_LDO_VOL_EN),
+#endif
 	MT6358_LDO_VMC_DESC("ldo_vmc", VMC, mt_volt_range5,
 			    PMIC_RG_LDO_VMC_EN_ADDR,
 			    PMIC_DA_VMC_EN_ADDR, PMIC_RG_VMC_VOSEL_ADDR,
 			    0xFFF, MT_LDO_VOL_EN),
+#if !USE_PMIC_MT6366
 	MT_LDO_NON_REGULAR("ldo_vldo28", VLDO28,
 		vldo28_voltages, PMIC_RG_LDO_VLDO28_EN_0_ADDR,
 		PMIC_DA_VLDO28_EN_ADDR,
@@ -978,6 +997,7 @@ static struct mt6358_regulator_info mt6358_regulators[] = {
 		PMIC_RG_VLDO28_VOSEL_MASK <<
 		PMIC_RG_VLDO28_VOSEL_SHIFT,
 		MT_LDO_VOL_EN),
+#endif
 	MT_REG_FIXED("ldo_vaud28", VAUD28, PMIC_RG_LDO_VAUD28_EN_ADDR,
 		PMIC_DA_VAUD28_EN_ADDR,
 		2800000, MT_LDO_EN),
@@ -1029,6 +1049,48 @@ static const struct of_device_id mt6358_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, mt6358_of_match);
 
+static void mt6358_oc_irq_enable_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct mt6358_regulator_info *info
+		= container_of(dwork, struct mt6358_regulator_info, oc_work);
+
+	enable_irq(info->irq);
+}
+
+static irqreturn_t mt6358_oc_irq(int irq, void *data)
+{
+	struct regulator_dev *rdev = (struct regulator_dev *)data;
+	struct mt6358_regulator_info *info = rdev_get_drvdata(rdev);
+
+	disable_irq_nosync(info->irq);
+	if (!regulator_is_enabled_regmap(rdev))
+		goto delayed_enable;
+	mutex_lock(&rdev->mutex);
+	regulator_notifier_call_chain(rdev, REGULATOR_EVENT_OVER_CURRENT,
+				      NULL);
+	mutex_unlock(&rdev->mutex);
+delayed_enable:
+	schedule_delayed_work(&info->oc_work,
+			      msecs_to_jiffies(info->oc_irq_enable_delay_ms));
+	return IRQ_HANDLED;
+}
+
+static int mt6358_of_parse_cb(struct device_node *np,
+			      const struct regulator_desc *desc,
+			      struct regulator_config *config)
+{
+	int ret;
+	struct mt6358_regulator_info *info = config->driver_data;
+
+	ret = of_property_read_u32(np, "mediatek,oc-irq-enable-delay-ms",
+				   &info->oc_irq_enable_delay_ms);
+	if (ret || !info->oc_irq_enable_delay_ms)
+		info->oc_irq_enable_delay_ms = DEF_OC_IRQ_ENABLE_DELAY_MS;
+
+	return 0;
+}
+
 static int mt6358_regulator_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id;
@@ -1038,7 +1100,7 @@ static int mt6358_regulator_probe(struct platform_device *pdev)
 	struct regulator_config config = {};
 	struct regulator_dev *rdev;
 	struct regulation_constraints *c;
-	int i;
+	int i, ret;
 	u32 reg_value = 0;
 
 	of_id = of_match_device(mt6358_of_match, &pdev->dev);
@@ -1054,23 +1116,42 @@ static int mt6358_regulator_probe(struct platform_device *pdev)
 	}
 	dev_info(&pdev->dev, "Chip ID = 0x%x\n", reg_value);
 
-	for (i = 0; i < regulator_init_data->size; i++) {
+	for (i = 0; i < regulator_init_data->size; i++, mt_regulators++) {
+		mt_regulators->desc.of_parse_cb = mt6358_of_parse_cb;
 		config.dev = &pdev->dev;
-		config.driver_data = (mt_regulators + i);
+		config.driver_data = mt_regulators;
 		config.regmap = mt6358->regmap;
 		rdev = devm_regulator_register(&pdev->dev,
-				&(mt_regulators + i)->desc, &config);
+					       &mt_regulators->desc, &config);
 		if (IS_ERR(rdev)) {
 			dev_notice(&pdev->dev, "failed to register %s\n",
-				(mt_regulators + i)->desc.name);
+				   mt_regulators->desc.name);
 			return PTR_ERR(rdev);
 		}
 
 		c = rdev->constraints;
 		c->valid_ops_mask |=
-			(mt_regulators + i)->constraints.valid_ops_mask;
+			mt_regulators->constraints.valid_ops_mask;
 		c->valid_modes_mask |=
-			(mt_regulators + i)->constraints.valid_modes_mask;
+			mt_regulators->constraints.valid_modes_mask;
+
+		mt_regulators->irq =
+			platform_get_irq_byname(pdev,
+						mt_regulators->desc.name);
+		if (mt_regulators->irq < 0)
+			continue;
+		ret = devm_request_threaded_irq(&pdev->dev, mt_regulators->irq,
+						NULL, mt6358_oc_irq,
+						IRQF_TRIGGER_HIGH,
+						mt_regulators->desc.name,
+						rdev);
+		if (ret) {
+			dev_notice(&pdev->dev, "Failed to request IRQ:%s,%d",
+				   mt_regulators->desc.name, ret);
+			continue;
+		}
+		INIT_DELAYED_WORK(&mt_regulators->oc_work,
+				  mt6358_oc_irq_enable_work);
 	}
 
 	return 0;

@@ -39,6 +39,7 @@
 #define MT6357_CID_CODE		0x5700
 #define MT6358_CID_CODE		0x5800
 #define MT6359_CID_CODE		0x5900
+#define MT6366_CID_CODE		0x6600
 #define MT6390_CID_CODE		0x9000
 
 static const struct mfd_cell mt6357_devs[] = {
@@ -76,6 +77,9 @@ static const struct mfd_cell mt6358_devs[] = {
 	}, {
 		.name = "mt6358-misc",
 		.of_compatible = "mediatek,mt6358-misc",
+	}, {
+		.name = "pmic-oc-debug",
+		.of_compatible = "mediatek,pmic-oc-debug",
 	},
 };
 

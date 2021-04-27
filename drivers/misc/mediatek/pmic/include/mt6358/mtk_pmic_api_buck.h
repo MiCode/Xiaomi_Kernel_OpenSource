@@ -14,6 +14,8 @@
 #ifndef _MT_PMIC_API_BUCK_H_
 #define _MT_PMIC_API_BUCK_H_
 
+#include <mach/upmu_hw.h>
+
 void vmd1_pmic_setting_on(void);
 void vmd1_pmic_setting_off(void);
 
@@ -98,6 +100,11 @@ enum PMU_LP_TABLE_ENUM {
 	VUSB_0,
 	VUSB_1,
 	VBIF28,
+#if defined(USE_PMIC_MT6366) && USE_PMIC_MT6366
+	VM18,
+	VMDDR,
+	VSRAM_CORE,
+#endif
 	TABLE_COUNT_END
 };
 
@@ -188,5 +195,10 @@ extern int pmic_ldo_vusb_lp(enum BUCK_LDO_EN_USER user,
 			    unsigned char op_en, unsigned char op_cfg);
 extern int pmic_ldo_vbif28_lp(enum BUCK_LDO_EN_USER user,
 			      unsigned char op_en, unsigned char op_cfg);
-
+#if defined(USE_PMIC_MT6366) && USE_PMIC_MT6366
+extern int pmic_ldo_vm18_lp(enum BUCK_LDO_EN_USER user, unsigned char op_en, unsigned char op_cfg);
+extern int pmic_ldo_vmddr_lp(enum BUCK_LDO_EN_USER user, unsigned char op_en, unsigned char op_cfg);
+extern int pmic_ldo_vsram_core_lp(enum BUCK_LDO_EN_USER user, unsigned char op_en,
+				  unsigned char op_cfg);
+#endif
 #endif
