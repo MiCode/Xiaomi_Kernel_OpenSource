@@ -1882,6 +1882,51 @@
 
 			core_0 = "enable";
 			scp_sramSize = <0x000c0000>;
+			core_nums = <1>;	/* core number */
+			twohart = <1>;		/* two hart arch */
+			mbox_count = <5>;
+			/* id, mbox, send_size*/
+			send_table =
+			< 0 0  9>,/* IPI_OUT_AUDIO_VOW_1 */
+			< 3 1  2>,/* IPI_OUT_APCCCI_0 */
+			< 4 1  1>,/* IPI_OUT_DVFS_SET_FREQ_0 */
+			< 5 1  2>,/* IPI_OUT_C_SLEEP_0 */
+			< 6 1  1>,/* IPI_OUT_TEST_0 */
+			<26 1  9>,/* IPI_OUT_AUDIO_ULTRA_SND_0 */
+			<11 2 34>,/* IPI_OUT_SCP_MPOOL_0 */
+			<14 3  1>,/* IPI_OUT_DVFS_SET_FREQ_1 */
+			<15 3  2>,/* IPI_OUT_C_SLEEP_1 */
+			<16 3  1>,/* IPI_OUT_TEST_1 */
+			<17 3  6>,/* IPI_OUT_LOGGER_CTRL */
+			<18 3  2>,/* IPI_OUT_SCPCTL_1 */
+			<24 4 34>;/* IPI_OUT_SCP_MPOOL_1 */
+
+			/* id, mbox, recv_size, recv_opt */
+			recv_table =
+			< 1 0  2 0>,/* IPI_IN_AUDIO_VOW_ACK_1 */
+			< 2 0 26 0>,/* IPI_IN_AUDIO_VOW_1 */
+			< 7 1  2 0>,/* IPI_IN_APCCCI_0 */
+			< 8 1 10 0>,/* IPI_IN_SCP_ERROR_INFO_0 */
+			< 9 1  1 0>,/* IPI_IN_SCP_READY_0 */
+			<10 1  2 0>,/* IPI_IN_SCP_RAM_DUMP_0 */
+			<27 1  2 0>,/* IPI_IN_AUDIO_ULTRA_SND_ACK_0 */
+			<28 1  5 0>,/* IPI_IN_AUDIO_ULTRA_SND_0 */
+			< 5 1  1 1>,/* IPI_OUT_C_SLEEP_0 */
+			<12 2 30 0>,/* IPI_IN_SCP_MPOOL_0 */
+			<20 3 10 0>,/* IPI_IN_SCP_ERROR_INFO_1 */
+			<21 3  6 0>,/* IPI_IN_LOGGER_CTRL */
+			<22 3  1 0>,/* IPI_IN_SCP_READY_1 */
+			<23 3  2 0>,/* IPI_IN_SCP_RAM_DUMP_1 */
+			<15 3  1 1>,/* IPI_OUT_C_SLEEP_1 */
+			<25 4 30 0>;/* IPI_IN_SCP_MPOOL_1 */
+
+			legacy_table = 	<11>, /* out_id_0 IPI_OUT_SCP_MPOOL_0 */
+					<24>, /* out_id_1 IPI_OUT_SCP_MPOOL_1 */
+					<12>, /* in_id_0 IPI_IN_SCP_MPOOL_0 */
+					<12>, /* in_id_1 IPI_IN_SCP_MPOOL_0 */
+					<34>, /* out_size */
+					<30>; /* in_size */
+
 			scp_feature_tbl = <0 5>,   /* vow */
 					  <1 29>,  /* sensor */
 					  <2 26>,  /* flp */
