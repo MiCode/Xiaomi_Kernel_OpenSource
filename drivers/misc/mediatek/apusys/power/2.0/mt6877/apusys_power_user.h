@@ -15,6 +15,7 @@
 #define _APUSYS_POWER_USER_H_
 
 /* Aging marging voltage */
+#define MG_VOLT_25000  (25000)
 #define MG_VOLT_18750  (18750)
 #define MG_VOLT_12500  (12500)
 #define MG_VOLT_06250  (6250)
@@ -41,7 +42,7 @@
  * (the precondition is VPU/MDLA aging voltage on 575mv are the same)
  */
 #ifdef AGING_MARGIN
-#define MARGIN_VOLT_8	(MG_VOLT_06250)
+#define MARGIN_VOLT_8	(MG_VOLT_18750)
 #else
 #define MARGIN_VOLT_8	(0)
 #endif
