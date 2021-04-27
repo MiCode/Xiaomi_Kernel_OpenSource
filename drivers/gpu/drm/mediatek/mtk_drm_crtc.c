@@ -4510,7 +4510,8 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 
 	/* 10. set dirty for cmd mode */
 	if (mtk_crtc_is_frame_trigger_mode(crtc) &&
-		!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE])
+		!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE] &&
+		!mtk_state->doze_changed)
 		mtk_crtc_set_dirty(mtk_crtc);
 
 	/* 11. set vblank*/
