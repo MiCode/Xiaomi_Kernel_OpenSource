@@ -38,6 +38,10 @@ static const int dmdp_pq_with_rdma_path[] = {
 	DDP_COMPONENT_DMDP_TDSHP0,
 };
 
+static const int disp_wdma_path[] = {
+	DDP_COMPONENT_WDMA0,
+};
+
 static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 		[DISP_RSZ] = {
 				.path = disp_rsz_path,
@@ -54,6 +58,10 @@ static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 		[DMDP_PQ_WITH_RDMA] = {
 				.path = dmdp_pq_with_rdma_path,
 				.path_len = ARRAY_SIZE(dmdp_pq_with_rdma_path),
+			},
+		[DISP_WDMA] = {
+				.path = disp_wdma_path,
+				.path_len = ARRAY_SIZE(disp_wdma_path),
 			},
 };
 

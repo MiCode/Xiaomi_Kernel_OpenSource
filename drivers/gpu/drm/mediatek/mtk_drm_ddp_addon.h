@@ -23,6 +23,7 @@ enum addon_scenario {
 	NONE,
 	ONE_SCALING,
 	TWO_SCALING,
+	WDMA_WRITE_BACK,
 	GAME_PQ,
 	VP_PQ,
 	TRIPLE_DISP,
@@ -33,6 +34,7 @@ enum addon_module {
 	DISP_RSZ,
 	DISP_RSZ_v2,
 	DISP_RSZ_v3,
+	DISP_WDMA,
 	DMDP_PQ_WITH_RDMA,
 	ADDON_MODULE_NUM,
 };
