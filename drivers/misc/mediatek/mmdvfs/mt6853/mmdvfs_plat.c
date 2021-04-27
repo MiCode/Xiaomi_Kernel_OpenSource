@@ -125,6 +125,8 @@ s32 get_md_hrt_bw(void)
 	return 3344;
 #elif IS_ENABLED(CONFIG_MACH_MT6877)
 	return (3427*100/65+1700);
+#elif IS_ENABLED(CONFIG_MACH_MT6781)
+	return 1843;
 #else
 	return 3888;
 #endif

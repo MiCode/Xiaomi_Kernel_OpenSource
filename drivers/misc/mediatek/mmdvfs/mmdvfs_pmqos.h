@@ -229,4 +229,6 @@ void mmdvfs_prepare_action(enum mmdvfs_prepare_event event);
 
 s32 get_virtual_port(enum virtual_source_id id);
 
+void mm_qos_update_larb_bwl(u32 larb_update, bool bw_change);
+
 #endif /* __MMDVFS_PMQOS_H__ */
