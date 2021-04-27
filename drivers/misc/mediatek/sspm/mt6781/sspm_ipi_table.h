@@ -80,9 +80,6 @@ struct mtk_mbox_pin_send sspm_mbox_pin_send[] = {
 	{0, IPIS_C_GPU_PM_OUT_OFFSET, 1, 0, IPIS_C_GPU_PM_OUT_SIZE,
 	 IPIS_C_GPU_PM_OUT_OFFSET, IPIS_C_GPU_PM,
 	 { { 0 } }, { 0 }, { { { { 0 } } } } },
-	{0, IPIS_C_FHCTL_OUT_OFFSET, 1, 0, IPIS_C_FHCTL_OUT_SIZE,
-	 IPIS_C_FHCTL_OUT_OFFSET, IPIS_C_FHCTL,
-	 { { 0 } }, { 0 }, { { { { 0 } } } } },
 /* the following will use mbox 1 */
 	{1, IPIS_C_PLATFORM_OUT_OFFSET, 1, 0, IPIS_C_PLATFORM_OUT_SIZE,
 	 IPIS_C_PLATFORM_OUT_OFFSET, IPIS_C_PLATFORM,
@@ -110,6 +107,9 @@ struct mtk_mbox_pin_send sspm_mbox_pin_send[] = {
 	 { { 0 } }, { 0 }, { { { { 0 } } } } },
 	{1, IPIR_C_SLBC_OUT_OFFSET, 1, 0, IPIR_C_SLBC_OUT_SIZE,
 	 IPIR_C_SLBC_OUT_OFFSET, IPIR_C_SLBC,
+	 { { 0 } }, { 0 }, { { { { 0 } } } } },
+	{1, IPIS_C_FHCTL_OUT_OFFSET, 1, 0, IPIS_C_FHCTL_OUT_SIZE,
+	 IPIS_C_FHCTL_OUT_OFFSET, IPIS_C_FHCTL,
 	 { { 0 } }, { 0 }, { { { { 0 } } } } },
 };
 
