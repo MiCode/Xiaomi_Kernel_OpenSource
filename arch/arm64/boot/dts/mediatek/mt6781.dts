@@ -610,8 +610,8 @@
 		reg = <0 0x10002E00 0 0x200>;
 	};
 
-	pericfg@10003000 {
-		compatible = "mediatek,pericfg";
+	pericfg: pericfg@10003000 {
+		compatible = "mediatek,pericfg", "syscon";
 		reg = <0 0x10003000 0 0x1000>;
 	};
 
@@ -2296,6 +2296,7 @@
 		mode = <2>;
 		multipoint = <1>;
 		num_eps = <16>;
+		pericfg= <&pericfg>;
 	};
 
 	infra_dbgsystop_cpu0@0e000000 {
