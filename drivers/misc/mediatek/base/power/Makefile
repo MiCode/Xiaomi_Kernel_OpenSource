@@ -141,6 +141,7 @@ obj-$(CONFIG_MACH_MT6873) += ppm_v3/
 obj-$(CONFIG_MACH_MT6853) += ppm_v3/
 obj-$(CONFIG_MACH_MT6833) += ppm_v3/
 obj-$(CONFIG_MACH_MT6877) += ppm_v3/
+obj-$(CONFIG_MACH_MT6781) += ppm_v3/
 obj-$(CONFIG_MACH_MT6771) += spm_v4/
 obj-$(CONFIG_MACH_MT6739) += spm_v4/
 obj-$(CONFIG_MACH_MT6771) += clkbuf_v1/

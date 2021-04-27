@@ -457,6 +457,7 @@ static int get_devinfo(void)
 
 #ifdef MC50_LOAD
 	safeEfuse = 1;
+	gpu_vb_volt = 87500;
 #endif
 	if (safeEfuse) {
 
@@ -1804,9 +1805,11 @@ static void get_volt_table_in_thread(struct eem_det *det)
 		/* only when set_volt_to_upower == 0,
 		 * the volt will be apply to upower
 		 */
-		if ((init2chk) && (ndet->ctrl_id < EEM_CTRL_GPU)) {
-			eem_update_init2_volt_to_upower
-				(ndet, ndet->volt_tbl_pmic);
+		if (init2chk) {
+			if (ndet->ctrl_id < EEM_CTRL_GPU)
+				eem_update_init2_volt_to_upower
+					(ndet, ndet->volt_tbl_pmic);
+
 			ndet->set_volt_to_upower = 1;
 		}
 	}

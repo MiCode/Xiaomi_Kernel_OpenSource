@@ -85,6 +85,10 @@
 #include "mtk_static_power_mt8168.h"
 #endif
 
+#if defined(CONFIG_MACH_MT6781)
+#include "mtk_static_power_mt6781.h"
+#endif
+
 /*
  * bit operation
  */
