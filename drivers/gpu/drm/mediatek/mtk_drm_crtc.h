@@ -603,6 +603,8 @@ struct mtk_cwb_info {
 
 	unsigned int buf_idx;
 	struct mtk_cwb_buffer_info buffer[2];
+	unsigned int copy_w;
+	unsigned int copy_h;
 
 	enum addon_scenario scn;
 	struct mtk_ddp_comp *comp;
