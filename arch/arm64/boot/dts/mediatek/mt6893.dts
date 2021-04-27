@@ -5347,12 +5347,6 @@ page_owner=on loop.max_part=7";
 		mediatek,smi-id = <7>;
 	};
 
-	venc@17020000 {
-		compatible = "mediatek,venc";
-		reg = <0 0x17020000 0 0x10000>;
-		interrupts = <GIC_SPI 308 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
 	jpgenc@17030000 {
 		compatible = "mediatek,jpgenc";
 		reg = <0 0x17030000 0 0x10000>;
