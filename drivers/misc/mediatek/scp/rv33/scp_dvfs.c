@@ -1101,7 +1101,7 @@ static const struct of_device_id scpdvfs_of_ids[] = {
 
 static void __init mt_pmic_sshub_init(void)
 {
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	int max_vcore = dvfs.opp[dvfs.scp_opp_nums - 1].tuned_vcore + 100000;
 	int max_vsram = dvfs.opp[dvfs.scp_opp_nums - 1].vsram + 100000;
 

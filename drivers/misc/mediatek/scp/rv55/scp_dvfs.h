@@ -87,6 +87,7 @@ enum scp_ipi_cmd {
 	SCP_SLEEP_GET_DBG_FLAG,
 	SCP_SLEEP_GET_COUNT,
 	SCP_SLEEP_RESET,
+	SCP_SYNC_ULPOSC_CALI,
 	SCP_SLEEP_BLOCK_BY_TIMER_CNI,
 	SCP_SLEEP_BLOCK_BY_COMPILER_CNT,
 	SCP_SLEEP_BLOCK_BY_SEMAPHORE_CNT,
@@ -96,7 +97,6 @@ enum scp_ipi_cmd {
 	SCP_SLEEP_BLOCK_BY_SLP_DISABLED_CNT,
 	SCP_SLEEP_BLOCK_BY_SLP_BUSY_CNT,
 	SCP_SLEEP_BLOCK_BY_HARD1_BUSY_CNT,
-	SCP_SYNC_ULPOSC_CALI,
 	SCP_SLEEP_CMD_MAX,
 };
 
@@ -107,6 +107,8 @@ enum ulposc_ver_enum {
 
 enum scp_dvfs_chip_hw_enum {
 	MT6853,
+	MT6873,
+	MT6893,
 	MAX_SCP_DVFS_CHIP_HW,
 };
 
@@ -194,6 +196,9 @@ struct scp_pmic_regs {
 	struct reg_info _sshub_op_mode;
 	struct reg_info _sshub_op_en;
 	struct reg_info _sshub_op_cfg;
+	struct reg_info _sshub_buck_en;
+	struct reg_info _sshub_ldo_en;
+	struct reg_info _pmrc_en;
 };
 
 struct dvfs_opp {
