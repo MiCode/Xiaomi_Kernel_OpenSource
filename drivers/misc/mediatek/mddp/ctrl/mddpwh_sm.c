@@ -96,7 +96,8 @@ static void mddpwh_sm_rsp_enable_ok(struct mddp_app_t *app)
 	struct mddp_dev_rsp_enable_t            enable;
 
 	// 1. Send RSP to WiFi
-	app->drv_hdlr.change_state(app->state, NULL, NULL);
+	if (app->drv_hdlr.change_state != NULL)
+		app->drv_hdlr.change_state(app->state, NULL, NULL);
 
 	// 2. Send RSP to upper module.
 	mddp_dev_response(app->type, MDDP_CMCMD_ENABLE_RSP,
@@ -108,7 +109,8 @@ static void mddpwh_sm_rsp_enable_fail(struct mddp_app_t *app)
 	struct mddp_dev_rsp_enable_t    enable;
 
 	// 1. Send RSP to WiFi
-	app->drv_hdlr.change_state(app->state, NULL, NULL);
+	if (app->drv_hdlr.change_state != NULL)
+		app->drv_hdlr.change_state(app->state, NULL, NULL);
 
 	// 2. Send RSP to upper module.
 	mddp_dev_response(app->type, MDDP_CMCMD_ENABLE_RSP,
@@ -121,7 +123,8 @@ static void mddpwh_sm_disable(struct mddp_app_t *app)
 	struct wfpm_md_fast_path_common_req_t  *disable_req;
 
 	// 1. Send DISABLE to WiFi
-	app->drv_hdlr.change_state(MDDP_STATE_DISABLING, NULL, NULL);
+	if (app->drv_hdlr.change_state != NULL)
+		app->drv_hdlr.change_state(MDDP_STATE_DISABLING, NULL, NULL);
 
 	// 2. Send DISABLE to MD
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
@@ -145,7 +148,8 @@ static void mddpwh_sm_disable(struct mddp_app_t *app)
 static void mddpwh_sm_rsp_disable(struct mddp_app_t *app)
 {
 	// 1. Send RSP to WiFi
-	app->drv_hdlr.change_state(app->state, NULL, NULL);
+	if (app->drv_hdlr.change_state != NULL)
+		app->drv_hdlr.change_state(app->state, NULL, NULL);
 
 	// 2. NO NEED to send RSP to upper module.
 
@@ -161,7 +165,8 @@ static void mddpwh_sm_act(struct mddp_app_t *app)
 	mddp_f_dev_add_lan_dev(app->ap_cfg.dl_dev_name, MDDP_WIFI_NETIF_ID);
 
 	// 2. Send ACTIVATING to WiFi
-	app->drv_hdlr.change_state(MDDP_STATE_ACTIVATING, NULL, NULL);
+	if (app->drv_hdlr.change_state != NULL)
+		app->drv_hdlr.change_state(MDDP_STATE_ACTIVATING, NULL, NULL);
 
 	// 3. Send ACTIVATING to MD
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
@@ -185,7 +190,8 @@ static void mddpwh_sm_rsp_act_ok(struct mddp_app_t *app)
 	struct mddp_dev_rsp_act_t       act;
 
 	// 1. Send RSP to WiFi
-	app->drv_hdlr.change_state(app->state, NULL, NULL);
+	if (app->drv_hdlr.change_state != NULL)
+		app->drv_hdlr.change_state(app->state, NULL, NULL);
 
 	// 2. Send RSP to upper module.
 	mddp_dev_response(app->type, MDDP_CMCMD_ACT_RSP,
@@ -199,7 +205,8 @@ static void mddpwh_sm_rsp_act_fail(struct mddp_app_t *app)
 	struct mddp_dev_rsp_act_t       act;
 
 	// 1. Send RSP to WiFi
-	app->drv_hdlr.change_state(app->state, NULL, NULL);
+	if (app->drv_hdlr.change_state != NULL)
+		app->drv_hdlr.change_state(app->state, NULL, NULL);
 
 	// 2. Send RSP to upper module.
 	mddp_dev_response(app->type, MDDP_CMCMD_ACT_RSP,
@@ -212,7 +219,8 @@ static void mddpwh_sm_deact(struct mddp_app_t *app)
 	struct wfpm_activate_md_func_req_t   *deact_req;
 
 	// 1. Send ACTIVATING to WiFi
-	app->drv_hdlr.change_state(MDDP_STATE_DEACTIVATING, NULL, NULL);
+	if (app->drv_hdlr.change_state != NULL)
+		app->drv_hdlr.change_state(MDDP_STATE_DEACTIVATING, NULL, NULL);
 
 	// 2. Send ACTIVATING to MD
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
@@ -240,7 +248,8 @@ static void mddpwh_sm_rsp_deact(struct mddp_app_t *app)
 	mddp_f_dev_del_lan_dev(app->ap_cfg.dl_dev_name);
 
 	// 2. Send RSP to WiFi
-	app->drv_hdlr.change_state(app->state, NULL, NULL);
+	if (app->drv_hdlr.change_state != NULL)
+		app->drv_hdlr.change_state(app->state, NULL, NULL);
 
 	// 3. Send RSP to upper module.
 	mddp_dev_response(app->type, MDDP_CMCMD_DEACT_RSP,
@@ -253,80 +262,75 @@ static void mddpwh_sm_rsp_deact(struct mddp_app_t *app)
 // MDDPWH State machine.
 //------------------------------------------------------------------------------
 static struct mddp_sm_entry_t mddpwh_uninit_state_machine_s[] = {
-/* event                new_state                action */
-{MDDP_EVT_FUNC_ENABLE,  MDDP_STATE_WAIT_DRV_REG, NULL},
-{MDDP_EVT_DRV_REGHDLR,  MDDP_STATE_WAIT_ENABLE,  NULL},
-{MDDP_EVT_DUMMY,        MDDP_STATE_UNINIT,       NULL} /* End of SM. */
+/* event                  new_state                action */
+{MDDP_EVT_FUNC_ENABLE,    MDDP_STATE_UNINIT,       NULL},
+{MDDP_EVT_FUNC_DISABLE,   MDDP_STATE_UNINIT,       NULL},
+{MDDP_EVT_FUNC_ACT,       MDDP_STATE_UNINIT,       NULL},
+{MDDP_EVT_FUNC_DEACT,     MDDP_STATE_UNINIT,       NULL},
+{MDDP_EVT_DUMMY,          MDDP_STATE_UNINIT,       NULL} /* End of SM. */
 };
 
-static struct mddp_sm_entry_t mddpwh_wait_drv_reg_state_machine_s[] = {
-/* event                new_state                action */
-{MDDP_EVT_DRV_REGHDLR,  MDDP_STATE_ENABLING,     mddpwh_sm_enable},
-{MDDP_EVT_DUMMY,        MDDP_STATE_WAIT_DRV_REG, NULL} /* End of SM. */
-};
-
-static struct mddp_sm_entry_t mddpwh_wait_enable_state_machine_s[] = {
-/* event                new_state                action */
-{MDDP_EVT_FUNC_ENABLE,  MDDP_STATE_ENABLING,     mddpwh_sm_enable},
-{MDDP_EVT_DRV_DEREGHDLR, MDDP_STATE_UNINIT,      NULL},
-{MDDP_EVT_DRV_REGHDLR,  MDDP_STATE_WAIT_ENABLE,  NULL},
-{MDDP_EVT_DUMMY,        MDDP_STATE_WAIT_ENABLE,  NULL} /* End of SM. */
+static struct mddp_sm_entry_t mddpwh_disabled_state_machine_s[] = {
+/* event                  new_state                action */
+{MDDP_EVT_FUNC_ENABLE,    MDDP_STATE_ENABLING,     mddpwh_sm_enable},
+{MDDP_EVT_FUNC_DISABLE,   MDDP_STATE_DISABLED,     NULL},
+{MDDP_EVT_FUNC_ACT,       MDDP_STATE_DISABLED,     NULL},
+{MDDP_EVT_FUNC_DEACT,     MDDP_STATE_DISABLED,     NULL},
+{MDDP_EVT_DUMMY,          MDDP_STATE_DISABLED,     NULL} /* End of SM. */
 };
 
 static struct mddp_sm_entry_t mddpwh_enabling_state_machine_s[] = {
-/* event                new_state                action */
-{MDDP_EVT_MD_RSP_OK,    MDDP_STATE_DEACTIVATED,  mddpwh_sm_rsp_enable_ok},
-{MDDP_EVT_MD_RSP_FAIL,  MDDP_STATE_WAIT_ENABLE,  mddpwh_sm_rsp_enable_fail},
-{MDDP_EVT_DUMMY,        MDDP_STATE_ENABLING,     NULL} /* End of SM. */
+/* event                  new_state                action */
+{MDDP_EVT_MD_RSP_OK,      MDDP_STATE_DEACTIVATED,  mddpwh_sm_rsp_enable_ok},
+{MDDP_EVT_MD_RSP_FAIL,    MDDP_STATE_DISABLED,     mddpwh_sm_rsp_enable_fail},
+{MDDP_EVT_DUMMY,          MDDP_STATE_ENABLING,     NULL} /* End of SM. */
 };
 
 static struct mddp_sm_entry_t mddpwh_disabling_state_machine_s[] = {
-/* event                new_state                action */
-{MDDP_EVT_MD_RSP_OK,    MDDP_STATE_WAIT_ENABLE,  mddpwh_sm_rsp_disable},
-{MDDP_EVT_MD_RSP_FAIL,  MDDP_STATE_WAIT_ENABLE,  mddpwh_sm_rsp_disable},
-{MDDP_EVT_DUMMY,        MDDP_STATE_DISABLING,    NULL} /* End of SM. */
-};
-
-static struct mddp_sm_entry_t mddpwh_drv_disabling_state_machine_s[] = {
-/* event                new_state                action */
-{MDDP_EVT_DUMMY,        MDDP_STATE_DRV_DISABLING, NULL} /* End of SM. */
+/* event                  new_state                action */
+{MDDP_EVT_MD_RSP_OK,      MDDP_STATE_DISABLED,     mddpwh_sm_rsp_disable},
+{MDDP_EVT_MD_RSP_FAIL,    MDDP_STATE_DISABLED,     mddpwh_sm_rsp_disable},
+{MDDP_EVT_DUMMY,          MDDP_STATE_DISABLING,    NULL} /* End of SM. */
 };
 
 static struct mddp_sm_entry_t mddpwh_deactivated_state_machine_s[] = {
-/* event                new_state                action */
-{MDDP_EVT_FUNC_ACT,     MDDP_STATE_ACTIVATING,   mddpwh_sm_act},
-{MDDP_EVT_FUNC_DISABLE, MDDP_STATE_DISABLING,    mddpwh_sm_disable},
-{MDDP_EVT_DUMMY,        MDDP_STATE_DEACTIVATED,  NULL} /* End of SM. */
+/* event                  new_state                action */
+{MDDP_EVT_FUNC_DISABLE,   MDDP_STATE_DISABLING,    mddpwh_sm_disable},
+{MDDP_EVT_FUNC_ACT,       MDDP_STATE_ACTIVATING,   mddpwh_sm_act},
+{MDDP_EVT_FUNC_DEACT,     MDDP_STATE_DEACTIVATED,  NULL},
+{MDDP_EVT_DUMMY,          MDDP_STATE_DEACTIVATED,  NULL} /* End of SM. */
 };
 
 static struct mddp_sm_entry_t mddpwh_activating_state_machine_s[] = {
-/* event                new_state                action */
-{MDDP_EVT_FUNC_DEACT,   MDDP_STATE_DEACTIVATING, mddpwh_sm_deact},
-{MDDP_EVT_MD_RSP_OK,    MDDP_STATE_ACTIVATED,    mddpwh_sm_rsp_act_ok},
-{MDDP_EVT_MD_RSP_FAIL,  MDDP_STATE_DEACTIVATED,  mddpwh_sm_rsp_act_fail},
-{MDDP_EVT_DUMMY,        MDDP_STATE_ACTIVATING,   NULL} /* End of SM. */
+/* event                  new_state                action */
+{MDDP_EVT_FUNC_DEACT,     MDDP_STATE_DEACTIVATING, mddpwh_sm_deact},
+{MDDP_EVT_MD_RSP_OK,      MDDP_STATE_ACTIVATED,    mddpwh_sm_rsp_act_ok},
+{MDDP_EVT_MD_RSP_FAIL,    MDDP_STATE_DEACTIVATED,  mddpwh_sm_rsp_act_fail},
+{MDDP_EVT_DUMMY,          MDDP_STATE_ACTIVATING,   NULL} /* End of SM. */
 };
 
 static struct mddp_sm_entry_t mddpwh_activated_state_machine_s[] = {
-/* event                new_state                action */
-{MDDP_EVT_FUNC_DEACT,   MDDP_STATE_DEACTIVATING, mddpwh_sm_deact},
-{MDDP_EVT_FUNC_DISABLE, MDDP_STATE_DISABLING,    mddpwh_sm_disable},
-{MDDP_EVT_DRV_DEREGHDLR, MDDP_STATE_ACTIVATED,    NULL},
-{MDDP_EVT_DUMMY,        MDDP_STATE_ACTIVATED,    NULL} /* End of SM. */
+/* event                  new_state                action */
+{MDDP_EVT_FUNC_DISABLE,   MDDP_STATE_DISABLING,    mddpwh_sm_disable},
+{MDDP_EVT_FUNC_DEACT,     MDDP_STATE_DEACTIVATING, mddpwh_sm_deact},
+{MDDP_EVT_DUMMY,          MDDP_STATE_ACTIVATED,    NULL} /* End of SM. */
 };
 
 static struct mddp_sm_entry_t mddpwh_deactivating_state_machine_s[] = {
-/* event                new_state                action */
-{MDDP_EVT_FUNC_ACT,     MDDP_STATE_ACTIVATING,   mddpwh_sm_act},
-{MDDP_EVT_MD_RSP_OK,    MDDP_STATE_DEACTIVATED,  mddpwh_sm_rsp_deact},
-{MDDP_EVT_MD_RSP_FAIL,  MDDP_STATE_DEACTIVATED,  mddpwh_sm_rsp_deact},
-{MDDP_EVT_DUMMY,        MDDP_STATE_DEACTIVATING, NULL} /* End of SM. */
+/* event                  new_state                action */
+{MDDP_EVT_FUNC_ACT,       MDDP_STATE_ACTIVATING,   mddpwh_sm_act},
+{MDDP_EVT_MD_RSP_OK,      MDDP_STATE_DEACTIVATED,  mddpwh_sm_rsp_deact},
+{MDDP_EVT_MD_RSP_FAIL,    MDDP_STATE_DEACTIVATED,  mddpwh_sm_rsp_deact},
+{MDDP_EVT_DUMMY,          MDDP_STATE_DEACTIVATING, NULL} /* End of SM. */
 };
 
-static struct mddp_sm_entry_t *prev_mddpwh_state_machines_s;
 static struct mddp_sm_entry_t mddpwh_dead_state_machine_s[] = {
-/* event                new_state                action */
-{MDDP_EVT_DUMMY,        MDDP_STATE_DEACTIVATED,  NULL} /* End of SM. */
+/* event                  new_state                action */
+{MDDP_EVT_FUNC_ENABLE,    MDDP_STATE_DISABLED,     NULL},
+{MDDP_EVT_FUNC_DISABLE,   MDDP_STATE_DISABLED,     NULL},
+{MDDP_EVT_FUNC_ACT,       MDDP_STATE_DISABLED,     NULL},
+{MDDP_EVT_FUNC_DEACT,     MDDP_STATE_DISABLED,     NULL},
+{MDDP_EVT_DUMMY,          MDDP_STATE_DISABLED,     NULL} /* End of SM. */
 };
 
 struct mddp_sm_entry_t *mddpwh_state_machines_s[MDDP_STATE_CNT] = {
@@ -337,9 +341,7 @@ struct mddp_sm_entry_t *mddpwh_state_machines_s[MDDP_STATE_CNT] = {
 	mddpwh_activated_state_machine_s, /* ACTIVATED */
 	mddpwh_deactivating_state_machine_s, /* DEACTIVATING */
 	mddpwh_disabling_state_machine_s, /* DISABLING */
-	mddpwh_drv_disabling_state_machine_s, /* DRV DISABLING */
-	mddpwh_wait_drv_reg_state_machine_s, /* WAIT DRV REG */
-	mddpwh_wait_enable_state_machine_s, /* WAIT ENABLE */
+	mddpwh_disabled_state_machine_s, /* DISABLED */
 };
 
 //------------------------------------------------------------------------------
@@ -376,10 +378,8 @@ static void mddpw_ack_md_reset(struct work_struct *mddp_work)
 	md_msg->data_len = 0;
 	if (unlikely(mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL) >= 0)) {
 		MDDP_S_LOG(MDDP_LL_INFO, "%s: send_success.\n", __func__);
-		app->state_machines[app->state] = prev_mddpwh_state_machines_s;
-		if (app->state != MDDP_STATE_UNINIT &&
-		    app->state != MDDP_STATE_WAIT_DRV_REG) {
-			app->state = MDDP_STATE_WAIT_ENABLE;
+		if (app->state != MDDP_STATE_DISABLED) {
+			app->state = MDDP_STATE_DISABLED;
 			mddp_sm_on_event(app, MDDP_EVT_FUNC_ENABLE);
 		}
 		if (app->drv_hdlr.wifi_handle != NULL) {
@@ -546,10 +546,8 @@ static int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 				"%s: Received WFPM RESET IND\n", __func__);
 		if (mddpw_reset_ongoing == 0) {
 			mddpw_reset_ongoing = 1;
-			prev_mddpwh_state_machines_s =
-				app->state_machines[app->state];
-			app->state_machines[app->state] =
-				mddpwh_dead_state_machine_s;
+			if (app->state == MDDP_STATE_UNINIT)
+				app->state = MDDP_STATE_DISABLED;
 			mod_timer(&mddpw_timer,
 					jiffies + msecs_to_jiffies(100));
 		} else
@@ -857,12 +855,12 @@ static ssize_t mddpwh_sysfs_callback(
 	}
 	if (cmd == MDDP_SYSFS_CMD_ENABLE_WRITE) {
 		if (sysfs_streq(buf, "1")) {
-			app->state_machines[MDDP_STATE_DEACTIVATED] =
-				mddpwh_deactivated_state_machine_s;
+			app->state_machines[MDDP_STATE_DISABLED] =
+				mddpwh_disabled_state_machine_s;
 			mddpwh_state = 1;
 			MDDP_S_LOG(MDDP_LL_NOTICE, "%s: enable!\n", __func__);
 		} else if (sysfs_streq(buf, "0")) {
-			app->state_machines[MDDP_STATE_DEACTIVATED] =
+			app->state_machines[MDDP_STATE_DISABLED] =
 				mddpwh_dead_state_machine_s;
 			mddpwh_state = 0;
 			MDDP_S_LOG(MDDP_LL_NOTICE, "%s: disable!\n", __func__);
