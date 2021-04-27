@@ -221,6 +221,7 @@ enum overutil_type_t is_task_overutil(struct task_struct *p)
 
 #ifdef CONFIG_MTK_CORE_CTL
 #define MAX_UTIL_TRACKER_PERIODIC_MS 8
+static unsigned int fpsgo_update_max_util_windows;
 #else
 #define MAX_UTIL_TRACKER_PERIODIC_MS 32
 #endif
@@ -245,10 +246,12 @@ void sched_max_util_task_tracking(void)
 	static ktime_t max_util_tracker_last_update;
 	pid_t tasks[NR_CPUS] = {0};
 	int   utils[NR_CPUS] = {0};
+#ifdef CONFIG_MTK_CORE_CTL
+	bool skip_mintop = false;
+#endif
 
 	spin_lock_irqsave(&gb_max_util_lock, flag);
 
-	/* periodic: 32ms */
 	if (ktime_before(now, ktime_add_ms(
 		max_util_tracker_last_update, MAX_UTIL_TRACKER_PERIODIC_MS))) {
 		spin_unlock_irqrestore(&gb_max_util_lock, flag);
@@ -258,6 +261,16 @@ void sched_max_util_task_tracking(void)
 	/* update last update time for tracker */
 	max_util_tracker_last_update = now;
 
+#ifdef CONFIG_MTK_CORE_CTL
+	fpsgo_update_max_util_windows += 1;
+
+	/* periodic: 32ms */
+	if (fpsgo_update_max_util_windows < 4)
+		skip_mintop = true;
+	else
+		fpsgo_update_max_util_windows = 0;
+
+#endif
 	spin_unlock_irqrestore(&gb_max_util_lock, flag);
 
 	for_each_possible_cpu(cpu) {
@@ -285,6 +298,11 @@ void sched_max_util_task_tracking(void)
 	gb_boosted_util = boost_util;
 	gb_task_pid = max_task_pid;
 	gb_task_cpu = max_cpu;
+
+#ifdef CONFIG_MTK_CORE_CTL
+	if (skip_mintop)
+		return;
+#endif
 
 	if (fpsgo_sched_nominate_fp)
 		fpsgo_sched_nominate_fp(&tasks[0], &utils[0]);
