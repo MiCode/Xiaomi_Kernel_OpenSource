@@ -20,8 +20,10 @@ int vpu_init(struct apusys_core_info *info);
 void vpu_exit(void);
 int mnoc_init(struct apusys_core_info *info);
 void mnoc_exit(void);
+#ifdef MTK_APU_AOSP_ION_SUPPORT
 int mdw_mem_drv_init(struct apusys_core_info *info);
 void mdw_mem_drv_exit(void);
+#endif
 int apu_power_drv_init(struct apusys_core_info *info);
 void apu_power_drv_exit(void);
 int apupwr_init_tags(struct apusys_core_info *info);
@@ -43,7 +45,9 @@ static int (*apusys_init_func[])(struct apusys_core_info *) = {
 	devapc_init,
 	mnoc_init,
 	reviser_init,
+#ifdef MTK_APU_AOSP_ION_SUPPORT
 	mdw_mem_drv_init,
+#endif
 	mdw_init,
 	sample_init,
 	edma_init,
@@ -71,7 +75,9 @@ static void (*apusys_exit_func[])(void) = {
 	edma_exit,
 	sample_exit,
 	mdw_exit,
+#ifdef MTK_APU_AOSP_ION_SUPPORT
 	mdw_mem_drv_exit,
+#endif
 	reviser_exit,
 	mnoc_exit,
 	devapc_exit,

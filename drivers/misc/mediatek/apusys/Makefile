@@ -38,10 +38,15 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(APUSYS_VERSION_MIDWARE)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(APUSYS_VERSION_MIDWARE)/v1_0/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(APUSYS_VERSION_MIDWARE)/v2_0/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/$(UTIL_DIR)/
 
 apusys-$(CONFIG_FTRACE) += $(UTIL_DIR)/apusys_trace.o
 apusys-objs += $(UTIL_DIR)/apu_bmap.o
+
+ifeq ($(APUSYS_VERSION_MIDWARE), 1.5)
+ccflags-y  += -DMTK_APU_AOSP_ION_SUPPORT
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_drv.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_usr.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_dbg.o
@@ -64,6 +69,32 @@ apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_tag.o
 endif
 ifeq ($(CONFIG_MTK_ION), y)
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_ion.o
+endif
+else
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_drv.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_ctx.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_dev.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_ioctl.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_dma.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_cmd.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_cmn.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_hs.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_sysfs.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_dbg.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_import.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/v1_0/mdw_ap.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/v1_0/mdw_ap_cmd.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/v1_0/mdw_ap_sched.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/v1_0/mdw_ap_dispr.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/v1_0/mdw_ap_queue.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/v1_0/mdw_ap_queue_deadline.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/v1_0/mdw_ap_queue_norm.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/v1_0/mdw_ap_rsc.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/v1_0/mdw_ap_tag.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/v2_0/mdw_rv.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/v2_0/mdw_rv_cmd.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/v2_0/mdw_rv_dev.o
 endif
 
 # sample driver makefile

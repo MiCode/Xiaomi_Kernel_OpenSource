@@ -16,12 +16,10 @@ enum {
 	APUSYS_DEVICE_MDLA,
 	APUSYS_DEVICE_VPU,
 	APUSYS_DEVICE_EDMA,
-	APUSYS_DEVICE_WAIT,// subgraph mean wait event
 	APUSYS_DEVICE_RT = 32,
 	APUSYS_DEVICE_SAMPLE_RT,
 	APUSYS_DEVICE_MDLA_RT,
 	APUSYS_DEVICE_VPU_RT,
-	APUSYS_DEVICE_LAST,
 
 	APUSYS_DEVICE_MAX = 64, //total support 64 different devices
 };
@@ -67,14 +65,13 @@ struct apusys_power_hnd {
 	uint32_t timeout;
 };
 
-/**< apusys kernel memory */
+/* apusys kernel memory */
 struct apusys_kmem {
 	unsigned long long uva; /**< user space virtual address (for debug) */
 	unsigned long long kva; /**< mapped kernel space virtual address */
 	unsigned int iova; /**< mapped kernel space virtual address */
 	unsigned int size; /**< mapped kernel space virtual address */
 	unsigned int iova_size; /**< iova size get from shared fd */
-
 	unsigned int align; /**< memory alignment */
 	unsigned int cache; /**< non-cached(0), cached(1) */
 
@@ -133,6 +130,28 @@ struct apusys_cmd_hnd {
 	int ctx_id;
 };
 
+struct apusys_cmdbuf {
+	void *kva;
+	unsigned int size;
+};
+
+struct apusys_cmd_handle {
+	struct apusys_cmdbuf *cmdbufs;
+	unsigned int num_cmdbufs;
+
+	uint64_t kid;
+	uint32_t subcmd_idx;
+	uint32_t boost;
+	uint32_t ip_time;
+
+	uint32_t multicore_total;
+	int cluster_size;
+
+	int (*context_callback)(int a, int b, uint8_t c);
+	uint32_t vlm_ctx;
+};
+
+
 struct apusys_firmware_hnd {
 	char name[32];
 	uint32_t magic; // for user checking byself
@@ -158,11 +177,14 @@ struct apusys_preempt_hnd {
 };
 
 /* device definition */
+#define APUSYS_DEVICE_META_SIZE (32)
+
 struct apusys_device {
 	int dev_type;
 	int idx;
 	int preempt_type;
 	uint8_t preempt_level;
+	char meta_data[APUSYS_DEVICE_META_SIZE];
 
 	void *private; // for hw driver to record private structure
 
@@ -209,8 +231,8 @@ struct apusys_device {
 int apusys_register_device(struct apusys_device *dev);
 int apusys_unregister_device(struct apusys_device *dev);
 
-uint64_t apusys_mem_query_kva(uint32_t iova);
-uint32_t apusys_mem_query_iova(uint64_t kva);
+uint64_t apusys_mem_query_kva(uint64_t iova);
+uint64_t apusys_mem_query_iova(uint64_t kva);
 
 int apusys_mem_flush(struct apusys_kmem *mem);
 int apusys_mem_invalidate(struct apusys_kmem *mem);
