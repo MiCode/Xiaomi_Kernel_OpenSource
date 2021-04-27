@@ -37,6 +37,7 @@
 #include <linux/workqueue.h>
 
 #include <mt-plat/aee.h>
+#include <mt-plat/slog.h>
 
 #include "aed.h"
 #include "mrdump_helper.h"
@@ -1996,6 +1997,10 @@ static void kernel_reportAPI(const enum AE_DEFECT_ATTR attr, const int db_opt,
 	struct timespec64 tv;
 #endif
 
+	if ((attr == AE_DEFECT_EXCEPTION) &&
+		(strstr(msg, "GPUHS") || strstr(module, "cache parity")))
+		slog("#$#kernel#@#%s#:%s", module, msg);
+
 	if ((aee_mode >= AEE_MODE_CUSTOMER_USER || (aee_mode ==
 		AEE_MODE_CUSTOMER_ENG && attr == AE_DEFECT_WARNING))
 		&& (attr != AE_DEFECT_FATAL)) {
@@ -2042,6 +2047,9 @@ static void external_exception(const char *assert_type, const int *log,
 	char trigger_time[60];
 	int n;
 #endif
+
+	if (strstr(assert_type, "combo_bt") || strstr(assert_type, "combo_wifi"))
+		slog("#$#external#@#%s#%s", assert_type, detail);
 
 	if ((aee_mode >= AEE_MODE_CUSTOMER_USER) &&
 		(aee_force_exp == AEE_FORCE_EXP_NOT_SET)) {
@@ -2319,6 +2327,8 @@ static int __init aed_init(void)
 	aed_hrtimer_init();
 	pr_notice("aee kernel api ready");
 
+	mtk_slog_init();
+
 	return err;
 }
 
@@ -2332,6 +2342,8 @@ static void __exit aed_exit(void)
 
 	aed_proc_done();
 	aed_hrtimer_exit();
+
+	mtk_slog_exit();
 }
 module_init(aed_init);
 module_exit(aed_exit);
