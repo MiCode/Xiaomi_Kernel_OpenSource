@@ -296,8 +296,10 @@ int tmem_core_alloc_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 	if((mem_type == TRUSTED_MEM_SVP_REGION ||
 		mem_type == TRUSTED_MEM_SVP_REGION ||
 		mem_type == TRUSTED_MEM_WFD) &&
-		!is_svp_enabled())
+		!is_svp_enabled()) {
+		pr_info("[%d] %s: TMEM_OPERATION_NOT_REGISTERED\n", mem_type, __func__);
 		return TMEM_OPERATION_NOT_REGISTERED;
+	}
 
 	if (is_page_based_memory(mem_type)) {
 		pr_info("[%d] %s: page-base: size = 0x%x\n", mem_type, __func__, size);

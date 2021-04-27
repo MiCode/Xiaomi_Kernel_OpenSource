@@ -330,13 +330,13 @@ int tee_mem_reg_add(u64 pa, u32 size, void *tee_data, void *dev_desc)
 			pa, size, tee_dev_desc->mtee_chunks_id);
 		if (ret != 0) {
 			pr_err("[%d] TEE notify reg mem add to MTEE failed:%d\n",
-			       tee_dev_desc->mtee_chunks_id, ret);
+			       tee_dev_desc->kern_tmem_type, ret);
 			return TMEM_TEE_NOTIFY_MEM_ADD_CFG_TO_MTEE_FAILED;
 		}
 	}
 
 	pr_info("[%d] TEE append reg mem PASS: PA=0x%lx, size=0x%lx\n",
-				tee_dev_desc->mtee_chunks_id, pa, size);
+				tee_dev_desc->kern_tmem_type, pa, size);
 
 	return TMEM_OK;
 }
