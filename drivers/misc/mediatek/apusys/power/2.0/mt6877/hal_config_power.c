@@ -30,6 +30,7 @@
 #endif
 
 #include "mtk_devinfo.h"
+#include "apupwr_secure.h"
 
 static int is_apu_power_initilized;
 static int force_pwr_on = 1;
@@ -447,6 +448,14 @@ static int init_power_resource(void *param)
 	hw_init_setting();
 
 #if !BYPASS_POWER_OFF
+#ifdef APUPWR_SECURE
+	// PLL on in preloader but no CCF to off
+	enable_apu_device_clksrc(VPU0);
+	enable_apu_device_clksrc(MDLA0);
+	disable_apu_device_clksrc(VPU0);
+	disable_apu_device_clksrc(MDLA0);
+#endif
+
 	disable_apu_conn_clksrc();
 
 	ret = buck_control(VPU0, 3); // buck on
