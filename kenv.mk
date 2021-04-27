@@ -47,9 +47,6 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
     ifneq ($(LLVM_IAS),)
       ARGS += LLVM_IAS=$(LLVM_IAS)
     endif
-    ifneq ($(LD_LIBRARY_PATH),)
-      ARGS += LD_LIBRARY_PATH=$(KERNEL_ROOT_DIR)/$(LD_LIBRARY_PATH)
-    endif
   endif
 
   TARGET_KERNEL_CROSS_COMPILE := $(KERNEL_ROOT_DIR)/$(LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN)/$(CROSS_COMPILE)
