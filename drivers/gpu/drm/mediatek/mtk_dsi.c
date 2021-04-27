@@ -391,6 +391,7 @@ enum DSI_MODE_CON {
 };
 
 struct mtk_panel_ext *mtk_dsi_get_panel_ext(struct mtk_ddp_comp *comp);
+static s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle);
 
 static inline struct mtk_dsi *encoder_to_dsi(struct drm_encoder *e)
 {
@@ -431,6 +432,56 @@ static bool mtk_dsi_doze_status_change(struct mtk_dsi *dsi)
 	if (dsi->doze_enabled == doze_enabled)
 		return false;
 	return true;
+}
+
+static void mtk_dsi_pre_cmd(struct mtk_dsi *dsi,
+		struct drm_crtc *crtc)
+{
+	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+		struct cmdq_pkt *handle;
+
+		mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+				mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+		/* 1. wait frame done & wait DSI not busy */
+		cmdq_pkt_wait_no_clear(handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+		/* Clear stream block to prevent trigger loop start */
+		cmdq_pkt_clear_event(handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+		cmdq_pkt_wfe(handle,
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_clear_event(handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		cmdq_pkt_wfe(handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+		mtk_dsi_poll_for_idle(dsi, handle);
+		cmdq_pkt_flush(handle);
+		cmdq_pkt_destroy(handle);
+
+	}
+}
+
+static void mtk_dsi_post_cmd(struct mtk_dsi *dsi,
+		struct drm_crtc *crtc)
+{
+	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+		struct cmdq_pkt *handle;
+
+		mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+				mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		mtk_dsi_poll_for_idle(dsi, handle);
+		cmdq_pkt_set_event(handle,
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_set_event(handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+		cmdq_pkt_set_event(handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+		cmdq_pkt_flush(handle);
+		cmdq_pkt_destroy(handle);
+	}
 }
 
 static void mtk_dsi_dphy_timconfig(struct mtk_dsi *dsi, void *handle)
@@ -1882,9 +1933,11 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	DDPINFO("%s +\n", __func__);
 
 	if (dsi->output_en) {
-		if (mtk_dsi_doze_status_change(dsi))
+		if (mtk_dsi_doze_status_change(dsi)) {
+			mtk_dsi_pre_cmd(dsi, crtc);
 			mtk_output_en_doze_switch(dsi);
-		else
+			mtk_dsi_post_cmd(dsi, crtc);
+		} else
 			DDPINFO("dsi is initialized\n");
 		return;
 	}
