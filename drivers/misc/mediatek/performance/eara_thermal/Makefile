@@ -19,6 +19,8 @@ FPSGO_TOP = $(srctree)/drivers/misc/mediatek/performance/fpsgo_v3/
 
 ifeq ($(CONFIG_MACH_MT6877),y)
 obj-y += platform/mt6877/thermal_budget_platform.o
+else ifeq ($(CONFIG_MACH_MT6781),y)
+obj-y += platform/mt6781/thermal_budget_platform.o
 else
 obj-y += platform/$(MTK_PLATFORM)/thermal_budget_platform.o
 endif
@@ -26,11 +28,15 @@ obj-y += thermal_budget.o
 obj-y += thermal_base.o
 
 ccflags-y += -I$(MTK_TOP)/thermal/common/inc/
+ccflags-$(CONFIG_MACH_MT6833) += -I$(MTK_TOP)/thermal/mt6833/inc/
 ccflags-$(CONFIG_MACH_MT6877) += -I$(MTK_TOP)/thermal/mt6877/inc/
+ccflags-$(CONFIG_MACH_MT6781) += -I$(MTK_TOP)/thermal/mt6781/inc/
 ccflags-y += -I$(MTK_TOP)/thermal/$(MTK_PLATFORM)/inc/
 ccflags-y += -I$(MTK_TOP)/base/power/$(MTK_PLATFORM)/
 ccflags-y += -I$(MTK_TOP)/base/power/include/
+ccflags-$(CONFIG_MACH_MT6833) += -I$(MTK_TOP)/base/power/ppm_v3/src/mach/mt6833/
 ccflags-$(CONFIG_MACH_MT6877) += -I$(MTK_TOP)/base/power/ppm_v3/src/mach/mt6877/
+ccflags-$(CONFIG_MACH_MT6781) += -I$(MTK_TOP)/base/power/ppm_v3/src/mach/mt6781/
 ccflags-y += -I$(MTK_TOP)/base/power/ppm_v3/src/mach/$(MTK_PLATFORM)/
 ccflags-y += -I$(MTK_TOP)/base/power/ppm_v3/inc/
 ccflags-y += -I$(FPSGO_TOP)/

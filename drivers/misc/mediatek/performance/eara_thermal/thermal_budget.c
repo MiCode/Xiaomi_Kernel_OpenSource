@@ -120,7 +120,8 @@
 #define TIME_MAX(a, b) ((a) >= (b) ? (a) : (b))
 #define DIFF_ABS(a, b) (((a) >= (b)) ? ((a) - (b)) : ((b) - (a)))
 #define for_each_clusters(i)	for (i = 0; i < g_cluster_num; i++)
-#define CORE_CAP(cls, opp)	(cpu_dvfs_tbl[cls].capacity_ratio[opp])
+#define CORE_CAP(cls, opp)	((opp >= 0 && opp < CPU_OPP_NUM) \
+	? (cpu_dvfs_tbl[cls].capacity_ratio[opp]) : (0))
 #define NEXT_CLS(cluster) \
 	((max_cluster > min_cluster) \
 	? (cluster + 1) : (cluster - 1))
@@ -1693,6 +1694,9 @@ void eara_thrm_pb_frame_start(int pid, unsigned long long bufid,
 	mutex_lock(&thrm_lock);
 
 	if (!is_enable || !is_throttling)
+		goto exit;
+
+	if (cpu_time == -1)
 		goto exit;
 
 	if (enable_debug_log) {
