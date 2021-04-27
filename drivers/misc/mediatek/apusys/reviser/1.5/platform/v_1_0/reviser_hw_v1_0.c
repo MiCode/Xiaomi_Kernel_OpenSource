@@ -699,6 +699,14 @@ int reviser_set_context_ID(void *drvinfo, int type,
 		LOG_ERR("invalid argument\n");
 		return -EINVAL;
 	}
+
+	if (!reviser_is_power(drvinfo)) {
+		LOG_ERR("Can Not set contxet when power disable\n");
+		ret = -EINVAL;
+		return ret;
+	}
+
+
 	offset = _reviser_get_contex_offset(reviser_type, index);
 	if (offset == REVISER_FAIL) {
 		LOG_ERR("invalid argument\n");

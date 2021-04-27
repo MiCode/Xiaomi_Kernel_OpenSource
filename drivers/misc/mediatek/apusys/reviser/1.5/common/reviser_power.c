@@ -67,7 +67,13 @@ int reviser_power_off(void *drvinfo)
 	mutex_lock(&rdv->lock.mutex_power);
 	rdv->power.power_count--;
 
-	if (rdv->power.power_count == 0) {
+	if (rdv->power.power_count < 0) {
+		LOG_ERR("Power count invalid (%d)\n",
+				rdv->power.power_count);
+		ret = -EINVAL;
+		mutex_unlock(&rdv->lock.mutex_power);
+		return ret;
+	} else if (rdv->power.power_count == 0) {
 
 		ret = apu_device_power_off(REVISER);
 		if (ret < 0)

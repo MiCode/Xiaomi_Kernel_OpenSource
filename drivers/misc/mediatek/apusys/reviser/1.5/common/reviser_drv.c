@@ -114,6 +114,7 @@ static void reviser_power_on_cb(void *para)
 		LOG_ERR("Set Boundary Fail\n");
 		return;
 	}
+	reviser_mgt_dmp_boundary(g_rdv, NULL);
 	if (reviser_mgt_set_default(g_rdv)) {
 		LOG_ERR("Set Default IOVA Fail\n");
 		return;

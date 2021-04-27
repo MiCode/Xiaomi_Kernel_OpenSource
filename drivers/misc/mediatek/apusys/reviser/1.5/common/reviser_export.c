@@ -96,6 +96,7 @@ int reviser_set_context(int type,
 		return ret;
 	}
 
+
 	if (reviser_mgt_set_ctx(g_rdv,
 			type, index, ctx)) {
 		LOG_ERR("Set reviser Ctx Fail\n");
