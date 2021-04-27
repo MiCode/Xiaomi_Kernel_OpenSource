@@ -84,6 +84,7 @@ unsigned int mipi_volt;
 unsigned int disp_met_en;
 
 int gCaptureOVLEn;
+int gCaptureWDMAEn;
 int gCapturePriLayerDownX = 20;
 int gCapturePriLayerDownY = 20;
 u64 vfp_backup;
@@ -1415,6 +1416,21 @@ int mtk_drm_ioctl_pq_debug_set_bypass(struct drm_device *dev, void *data,
 	return ret;
 }
 
+int mtk_dprec_mmp_dump_cwb_buffer(struct drm_crtc *crtc,
+		void *buffer, unsigned int buf_idx)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	if (gCaptureWDMAEn && mtk_crtc->cwb_info) {
+		mtk_drm_mmp_cwb_buffer(crtc, mtk_crtc->cwb_info,
+					buffer, buf_idx);
+		return 0;
+	}
+	DDPDBG("%s, gCaptureWDMAEn is %d\n",
+		__func__, gCaptureWDMAEn);
+	return -1;
+}
+
 static void user_copy_done_function(void *buffer,
 	enum CWB_BUFFER_TYPE type)
 {
@@ -2091,6 +2107,17 @@ static void process_dbg_opt(const char *opt)
 		if (downSampleY)
 			gCapturePriLayerDownY = downSampleY;
 		gCaptureOVLEn = dump_en;
+	} else if (strncmp(opt, "dump_user_buffer:", 17) == 0) {
+		int ret;
+		unsigned int dump_en;
+
+		DDPMSG("get dump\n");
+		ret = sscanf(opt, "dump_user_buffer:%d\n", &dump_en);
+		if (ret != 1) {
+			DDPMSG("error to parse cmd\n");
+			return;
+		}
+		gCaptureWDMAEn = dump_en;
 #ifdef CONFIG_MTK_HDMI_SUPPORT
 	} else if (strncmp(opt, "dptx:", 5) == 0) {
 		mtk_dp_debug(opt + 5);

@@ -52,6 +52,8 @@ void disp_dbg_probe(void);
 void disp_dbg_init(struct drm_device *drm_dev);
 void disp_dbg_deinit(void);
 int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
+int mtk_dprec_mmp_dump_cwb_buffer(struct drm_crtc *crtc,
+	void *buffer, unsigned int buf_idx);
 int disp_met_set(void *data, u64 val);
 void mtk_drm_idlemgr_kick_ext(const char *source);
 unsigned int mtk_dbg_get_lfr_mode_value(void);

@@ -239,6 +239,13 @@ void init_crtc_mmp_event(void)
 					"layer5_dump");
 		g_CRTC_MMP_Events[i].lcm = mmprofile_register_event(
 			crtc_mmp_root, "lcm");
+		g_CRTC_MMP_Events[i].cwbBmpDump =
+					mmprofile_register_event(
+					crtc_mmp_root, "CwbBmpDump");
+		g_CRTC_MMP_Events[i].cwb_dump =
+					mmprofile_register_event(
+					g_CRTC_MMP_Events[i].cwbBmpDump,
+					"cwb_dump");
 	}
 }
 void drm_mmp_init(void)
@@ -434,5 +441,50 @@ end:
 	CRTC_MMP_EVENT_END(crtc_idx, layerBmpDump,
 			   pending->addr, pending->format);
 
+	return 0;
+}
+
+int mtk_drm_mmp_cwb_buffer(struct drm_crtc *crtc,
+		struct mtk_cwb_info *cwb_info,
+		void *buffer, unsigned int buf_idx)
+{
+	int crtc_idx = drm_crtc_index(crtc);
+	enum CWB_BUFFER_TYPE type = cwb_info->type;
+	struct mmp_metadata_bitmap_t bitmap;
+	mmp_event event_base = 0;
+
+	memset(&bitmap, 0, sizeof(struct mmp_metadata_bitmap_t));
+	bitmap.data1 = buf_idx;
+	bitmap.width = cwb_info->buffer[0].dst_roi.width;
+	bitmap.height = cwb_info->buffer[0].dst_roi.height;
+
+	bitmap.format = MMPROFILE_BITMAP_RGB888;
+	bitmap.bpp = 24;
+
+	CRTC_MMP_EVENT_START(crtc_idx, cwbBmpDump,
+			     0, 0);
+
+	bitmap.pitch = bitmap.width * 3;
+	bitmap.start_pos = 0;
+	bitmap.data_size = bitmap.pitch * bitmap.height;
+	bitmap.down_sample_x = 1;
+	bitmap.down_sample_y = 1;
+	if (type == IMAGE_ONLY) {
+		bitmap.p_data = (void *)buffer;
+	} else if (type == CARRY_METADATA) {
+		struct user_cwb_buffer *tmp = (struct user_cwb_buffer *)buffer;
+
+		bitmap.p_data = (void *)tmp->data.image;
+	}
+
+	event_base = g_CRTC_MMP_Events[crtc_idx].cwb_dump;
+	if (event_base)
+		mmprofile_log_meta_bitmap(
+			event_base,
+			MMPROFILE_FLAG_PULSE,
+			&bitmap);
+
+	CRTC_MMP_EVENT_END(crtc_idx, cwbBmpDump,
+			   0, 0);
 	return 0;
 }

@@ -6487,6 +6487,7 @@ static void mtk_drm_cwb_give_buf(struct drm_crtc *crtc)
 
 	//3. copy target_buf_idx context
 	mtk_drm_cwb_copy_buf(crtc, cwb_info, user_buffer, target_idx);
+	mtk_dprec_mmp_dump_cwb_buffer(crtc, user_buffer, target_idx);
 
 	//4. notify user
 	if (funcs && funcs->copy_done)
