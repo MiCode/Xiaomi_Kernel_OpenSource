@@ -184,6 +184,32 @@ int mtk_drm_crtc_wait_blank(struct mtk_drm_crtc *mtk_crtc)
 	return ret;
 }
 
+static void mtk_drm_crtc_addon_dump(struct drm_crtc *crtc,
+			const struct mtk_addon_scenario_data *addon_data)
+{
+	int i, j;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	const struct mtk_addon_path_data *addon_path;
+	enum addon_module module;
+	struct mtk_ddp_comp *comp;
+
+	if (!addon_data)
+		return;
+
+	for (i = 0; i < addon_data->module_num; i++) {
+		module = addon_data->module_data[i].module;
+		addon_path = mtk_addon_module_get_path(module);
+
+		for (j = 0; j < addon_path->path_len; j++) {
+			if (mtk_ddp_comp_get_type(addon_path->path[j])
+				== MTK_DISP_VIRTUAL)
+				continue;
+			comp = priv->ddp_comp[addon_path->path[j]];
+			mtk_dump_reg(comp);
+		}
+	}
+}
+
 void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 {
 	int i, j;
@@ -191,8 +217,6 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	struct mtk_crtc_state *state;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	const struct mtk_addon_scenario_data *addon_data;
-	const struct mtk_addon_path_data *addon_path;
-	enum addon_module module;
 	struct mtk_ddp_comp *comp;
 	int crtc_id = drm_crtc_index(crtc);
 	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
@@ -237,13 +261,39 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) mtk_dump_reg(comp);
 
-	if (!crtc->state) {
-		DDPDUMP("%s dump nothing for null state\n", __func__);
-		return;
+	//addon from CWB
+	if (mtk_crtc->cwb_info && mtk_crtc->cwb_info->enable) {
+		addon_data = mtk_addon_get_scenario_data(__func__, crtc,
+						mtk_crtc->cwb_info->scn);
+		mtk_drm_crtc_addon_dump(crtc, addon_data);
 	}
-	state = to_mtk_crtc_state(crtc->state);
-	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
-						state->lye_state.scn[crtc_id]);
+
+	//addon from layering rule
+	if (!crtc->state)
+		DDPDUMP("%s dump nothing for null state\n", __func__);
+	else {
+		state = to_mtk_crtc_state(crtc->state);
+		addon_data = mtk_addon_get_scenario_data(__func__, crtc,
+					state->lye_state.scn[crtc_id]);
+		mtk_drm_crtc_addon_dump(crtc, addon_data);
+	}
+
+	if (panel_ext &&
+		panel_ext->output_mode == MTK_PANEL_DSC_SINGLE_PORT) {
+		comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
+		mtk_dump_reg(comp);
+	}
+}
+
+static void mtk_drm_crtc_addon_analysis(struct drm_crtc *crtc,
+			const struct mtk_addon_scenario_data *addon_data)
+{
+	int i, j;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	const struct mtk_addon_path_data *addon_path;
+	enum addon_module module;
+	struct mtk_ddp_comp *comp;
+
 	if (!addon_data)
 		return;
 
@@ -256,14 +306,8 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 				== MTK_DISP_VIRTUAL)
 				continue;
 			comp = priv->ddp_comp[addon_path->path[j]];
-			mtk_dump_reg(comp);
+			mtk_dump_analysis(comp);
 		}
-	}
-
-	if (panel_ext &&
-		panel_ext->output_mode == MTK_PANEL_DSC_SINGLE_PORT) {
-		comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
-		mtk_dump_reg(comp);
 	}
 }
 
@@ -274,8 +318,6 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	struct mtk_crtc_state *state;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	const struct mtk_addon_scenario_data *addon_data;
-	const struct mtk_addon_path_data *addon_path;
-	enum addon_module module;
 	struct mtk_ddp_comp *comp;
 	int crtc_id = drm_crtc_index(crtc);
 #ifndef CONFIG_FPGA_EARLY_PORTING
@@ -333,34 +375,23 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 		mtk_dump_analysis(comp);
 
-	if (!crtc->state) {
+	//addon from CWB
+	if (mtk_crtc->cwb_info && mtk_crtc->cwb_info->enable) {
+		addon_data = mtk_addon_get_scenario_data(__func__, crtc,
+						mtk_crtc->cwb_info->scn);
+		mtk_drm_crtc_addon_analysis(crtc, addon_data);
+	}
+
+	//addon from layering rule
+	if (!crtc->state)
 		DDPDUMP("%s dump nothing for null state\n", __func__);
-		return;
-	}
-	state = to_mtk_crtc_state(crtc->state);
-
-	if (crtc_id < 0) {
+	else if (crtc_id < 0)
 		DDPPR_ERR("%s: Invalid crtc_id:%d\n", __func__, crtc_id);
-		return;
-	}
-
-	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
+	else {
+		state = to_mtk_crtc_state(crtc->state);
+		addon_data = mtk_addon_get_scenario_data(__func__, crtc,
 					state->lye_state.scn[crtc_id]);
-	if (!addon_data)
-		return;
-
-	for (i = 0; i < addon_data->module_num; i++) {
-		module = addon_data->module_data[i].module;
-		addon_path = mtk_addon_module_get_path(module);
-
-		for (j = 0; j < addon_path->path_len; j++) {
-			if (mtk_ddp_comp_get_type(addon_path->path[j])
-				== MTK_DISP_VIRTUAL)
-				continue;
-
-			comp = priv->ddp_comp[addon_path->path[j]];
-			mtk_dump_analysis(comp);
-		}
+		mtk_drm_crtc_addon_analysis(crtc, addon_data);
 	}
 }
 
