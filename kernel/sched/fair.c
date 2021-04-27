@@ -10443,9 +10443,16 @@ no_move:
 			raw_spin_unlock_irqrestore(&busiest->lock, flags);
 
 			if (active_balance) {
-				stop_one_cpu_nowait(cpu_of(busiest),
+				int ret;
+
+				ret = stop_one_cpu_nowait(cpu_of(busiest),
 					active_load_balance_cpu_stop, busiest,
 					&busiest->active_balance_work);
+				if (!ret) {
+					clear_reserved(this_cpu);
+					busiest->active_balance = 0;
+					active_balance = 0;
+				}
 				*continue_balancing = 0;
 			}
 
