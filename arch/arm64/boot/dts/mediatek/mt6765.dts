@@ -661,9 +661,9 @@ firmware_class.path=/vendor/firmware";
 		#clock-cells = <1>;
 	};
 
-	mcdi@0010fc00 {
+	mcdi@00110100 {
 		compatible = "mediatek,mt6765-mcdi";
-		reg = <0 0x0010fc00 0 0x800>;
+		reg = <0 0x00110100 0 0x800>;
 	};
 
 	scpsys: scpsys@10001000 {
@@ -1088,9 +1088,9 @@ firmware_class.path=/vendor/firmware";
 			compatible = "mediatek,mt6765-dvfsrc-met";
 		};
 
-		qos@00110780 {
+		qos@00110b80 {
 			compatible = "mediatek,mt6765-qos";
-			reg = <0 0x00110780 0 0x80>;
+			reg = <0 0x00110b80 0 0x80>;
 		};
 	};
 
@@ -1459,10 +1459,10 @@ firmware_class.path=/vendor/firmware";
 		reg = <0 0x10227000 0 0x1000>;
 	};
 
-	dvfsp@00110800 {
+	dvfsp@00110c00 {
 		compatible = "mediatek,mt6765-dvfsp";
-		reg = <0 0x00110800 0 0x1400>,
-		      <0 0x00110800 0 0x1400>;
+		reg = <0 0x00110c00 0 0x1400>,
+		      <0 0x00110c00 0 0x1400>;
 		state = <1>;
 		change_flag = <0>;
 		little-rise-time = <1000>;
