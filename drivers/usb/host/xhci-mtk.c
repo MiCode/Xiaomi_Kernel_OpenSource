@@ -21,6 +21,7 @@
 
 #include "xhci.h"
 #include "xhci-mtk.h"
+#include "xhci-plat.h"
 
 /* ip_pw_ctrl0 register */
 #define CTRL0_IP_SW_RST	BIT(0)
@@ -416,6 +417,7 @@ static int xhci_mtk_setup(struct usb_hcd *hcd)
 }
 
 static const struct xhci_driver_overrides xhci_mtk_overrides __initconst = {
+	.extra_priv_size = sizeof(struct xhci_plat_priv),
 	.reset = xhci_mtk_setup,
 	.add_endpoint = xhci_mtk_add_ep,
 	.drop_endpoint = xhci_mtk_drop_ep,
