@@ -16,7 +16,9 @@ struct kgsl_timeline {
 	int id;
 	/** @value: Current value of the timeline */
 	u64 value;
-	/** @lock: Lock to protect @fences */
+	/** @fence_lock: Lock to protect @fences */
+	spinlock_t fence_lock;
+	/** @lock: Lock to use for locking each fence in @fences */
 	spinlock_t lock;
 	/** @ref: Reference count for the struct */
 	struct kref ref;
