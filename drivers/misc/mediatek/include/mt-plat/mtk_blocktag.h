@@ -231,8 +231,12 @@ struct mtk_blocktag {
 struct mtk_blocktag *mtk_btag_alloc(const char *name,
 	unsigned int ringtrace_count, size_t ctx_size, unsigned int ctx_count,
 	struct mtk_btag_vops *vops);
-void mtk_btag_earaio_boost(bool boost);
 void mtk_btag_free(struct mtk_blocktag *btag);
+#if IS_ENABLED(CONFIG_SCHED_TUNE)
+void mtk_btag_earaio_boost(bool boost);
+#else
+#define mtk_btag_earaio_boost(...)
+#endif
 
 struct mtk_btag_trace *mtk_btag_curr_trace(struct mtk_btag_ringtrace *rt);
 struct mtk_btag_trace *mtk_btag_next_trace(struct mtk_btag_ringtrace *rt);
