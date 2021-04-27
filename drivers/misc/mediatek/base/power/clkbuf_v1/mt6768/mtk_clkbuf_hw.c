@@ -78,7 +78,9 @@ static void __iomem *pwrap_base;
 #define XO_BUF7_BBLPM_EN_MASK	(0x1 << 7)
 
 /* TODO: marked this after driver is ready */
-/* #define CLKBUF_BRINGUP */
+#if defined(CONFIG_MACH_MT6781)
+#define CLKBUF_BRINGUP
+#endif
 
 /* #define CLKBUF_CONN_SUPPORT_CTRL_FROM_I1 */
 

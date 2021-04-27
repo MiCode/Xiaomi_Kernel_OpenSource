@@ -19,6 +19,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/clkbuf_v1/$(M
 obj-y += mtk_clkbuf_ctl.o
 ifeq ($(CONFIG_MACH_MT6893), y)
 	obj-y += mt6885/
+else ifeq ($(CONFIG_MACH_MT6781), y)
+	obj-y += mt6768/
 else
 	obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
