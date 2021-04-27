@@ -242,7 +242,7 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 	struct page *page;
 
 	if (!ssmr_dev) {
-		pr_info("%s: No ssmr device\n", __func__);
+		pr_info("%s: feature: %s, No ssmr device\n", __func__, feature->feat_name);
 		return -EINVAL;
 	}
 
@@ -256,15 +256,15 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 
 		feature->phy_addr = page_to_phys(page);
 		feature->alloc_size = alloc_size;
-		pr_info("%s: [cache memory] pa %pa(%zx) is allocated\n",
-			__func__, &feature->phy_addr, alloc_size);
+		pr_info("%s: feature: %s, [cache memory] pa %pa(%zx) is allocated\n",
+			__func__, feature->feat_name, &feature->phy_addr, alloc_size);
 		return 0;
 	}
 
 	np = of_parse_phandle(ssmr_dev->of_node, "memory-region", 0);
 
 	if (!np) {
-		pr_info(" %s, no ssmr region\n", __func__);
+		pr_info(" %s: feature: %s, No ssmr region\n", __func__, feature->feat_name);
 		return -EINVAL;
 	}
 
@@ -273,7 +273,7 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 
 	feature->alloc_size = alloc_size;
 
-	pr_debug("%s[%d]: upper_limit: %llx, feature{ alloc_size : 0x%lx",
+	pr_debug("%s %d: upper_limit: %llx, feature{ alloc_size : 0x%lx",
 		__func__, __LINE__, upper_limit, alloc_size);
 
 	/*
@@ -301,12 +301,11 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 	} while (!feature->phy_addr && offline_retry < 20);
 
 	if (feature->phy_addr) {
-		pr_info("%s: pa=%pad is allocated, retry = %d\n", __func__,
-				&feature->phy_addr, offline_retry);
-		pr_debug("%s: virt 0x%lx\n", __func__,
-				(unsigned long)phys_to_virt(dma_to_phys(ssmr_dev, feature->phy_addr)));
+		pr_info("%s: feature: %s, pa=%pad is allocated, retry = %d\n", __func__,
+				feature->feat_name, &feature->phy_addr, offline_retry);
 	} else {
-		pr_info("%s: ssmr offline failed, retry = %d\n", __func__, offline_retry);
+		pr_info("%s: feature: %s, ssmr offline failed, retry = %d\n", __func__,
+				feature->feat_name, offline_retry);
 		return -1;
 	}
 
@@ -325,8 +324,8 @@ static int _ssmr_offline_internal(phys_addr_t *pa, unsigned long *size,
 	struct SSMR_Feature *feature = NULL;
 
 	feature = &_ssmr_feats[feat];
-	pr_info("%s %d: START: feature: %s, state: %s\n",
-		__func__, __LINE__,
+	pr_info("%s: START: feature: %s, state: %s\n",
+		__func__,
 		feat < __MAX_NR_SSMR_FEATURES ? feature->feat_name : "NULL",
 		ssmr_state_text[feature->state]);
 
@@ -344,12 +343,12 @@ static int _ssmr_offline_internal(phys_addr_t *pa, unsigned long *size,
 		goto out;
 	}
 	feature->state = SSMR_STATE_OFF;
-	pr_info("%s %d: reserve done: pa: %pad, size: 0x%lx\n", __func__,
-		__LINE__, &feature->phy_addr, feature->alloc_size);
+	pr_info("%s: feature: %s, pa: 0x%lx, size: 0x%lx\n", __func__,
+		feature->feat_name, *pa, *size);
 
 out:
-	pr_info("%s %d: END: feature: %s, state: %s, retval: %d\n",
-		__func__, __LINE__,
+	pr_info("%s: END: feature: %s, state: %s, retval: %d\n",
+		__func__,
 		feat < __MAX_NR_SSMR_FEATURES ? _ssmr_feats[feat].feat_name : "NULL",
 		ssmr_state_text[feature->state], retval);
 
@@ -400,7 +399,7 @@ static int _ssmr_online_internal(unsigned int feat)
 	struct SSMR_Feature *feature = NULL;
 
 	feature = &_ssmr_feats[feat];
-	pr_info("%s %d: START: feature: %s, state: %s\n", __func__, __LINE__,
+	pr_info("%s: START: feature: %s, state: %s\n", __func__,
 		feat < __MAX_NR_SSMR_FEATURES ? _ssmr_feats[feat].feat_name : "NULL",
 		ssmr_state_text[feature->state]);
 
@@ -414,8 +413,8 @@ static int _ssmr_online_internal(unsigned int feat)
 	feature->state = SSMR_STATE_ON;
 
 out:
-	pr_info("%s %d: END: feature: %s, state: %s, retval: %d",
-		__func__, __LINE__,
+	pr_info("%s: END: feature: %s, state: %s, retval: %d",
+		__func__,
 		feat < __MAX_NR_SSMR_FEATURES ? _ssmr_feats[feat].feat_name : "NULL",
 		ssmr_state_text[feature->state], retval);
 
