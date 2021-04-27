@@ -35,6 +35,8 @@
 
 #define USIP_EMP_IOC_MAGIC 'D'
 #define GET_USIP_EMI_SIZE _IOWR(USIP_EMP_IOC_MAGIC, 0xF0, unsigned long long)
+#define GET_USIP_ADSP_PHONE_CALL_ENH_CONFIG _IOWR(USIP_EMP_IOC_MAGIC, 0xF1, unsigned long long)
+#define SET_USIP_ADSP_PHONE_CALL_ENH_CONFIG _IOWR(USIP_EMP_IOC_MAGIC, 0xF2, unsigned long long)
 
 #define NUM_MPU_REGION 3
 
@@ -60,17 +62,18 @@ struct usip_info {
 	void *memory_area;
 	dma_addr_t memory_addr;
 	phys_addr_t addr_phy;
+
+	unsigned int adsp_phone_call_enh_config;
 };
 
 static struct usip_info usip;
-
 
 static long usip_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
 	long size_for_spe = 0;
 
-	pr_debug("%s(), cmd 0x%x, arg %lu, memory_size = %ld addr_phy = 0x%llx\n",
+	pr_info("%s(), cmd 0x%x, arg %lu, memory_size = %ld addr_phy = 0x%llx\n",
 		 __func__, cmd, arg, usip.memory_size, usip.addr_phy);
 
 	size_for_spe = EMI_TABLE[SP_EMI_AP_USIP_PARAMETER][SP_EMI_SIZE];
@@ -88,6 +91,28 @@ static long usip_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 
+	case GET_USIP_ADSP_PHONE_CALL_ENH_CONFIG:
+		if (copy_to_user((void __user *)arg, &(usip.adsp_phone_call_enh_config),
+			sizeof(usip.adsp_phone_call_enh_config))) {
+			pr_info("%s(), Fail copy CALL_ENH_CONFIG to user Ptr: %x",
+				__func__,
+				usip.adsp_phone_call_enh_config);
+			ret = -1;
+		}
+		break;
+
+	case SET_USIP_ADSP_PHONE_CALL_ENH_CONFIG:
+		if (copy_from_user(&(usip.adsp_phone_call_enh_config), (void __user *)arg,
+			sizeof(usip.adsp_phone_call_enh_config))) {
+			pr_info("%s(), Fail copy CALL_ENH_CONFIG from user Ptr: %x",
+				__func__,
+				arg);
+			ret = -1;
+		}
+		pr_info("%s(): in SET_USIP_ADSP_PHONE_CALL_ENH_CONFIG: %d",
+			__func__,
+			usip.adsp_phone_call_enh_config);
+		break;
 	default:
 		pr_debug("%s(), default\n", __func__);
 		break;
@@ -111,7 +136,6 @@ unsigned long arg)
 }
 #endif
 
-
 int usip_mmap_data(struct usip_info *usip, struct vm_area_struct *area)
 {
 	long size;
@@ -120,8 +144,7 @@ int usip_mmap_data(struct usip_info *usip, struct vm_area_struct *area)
 	unsigned long pfn;
 	int ret;
 
-
-	pr_debug("%s(), memory ready %d, size %zu, align_bytes %zu\n",
+	pr_info("%s(), memory ready %d, size %zu, align_bytes %zu\n",
 	__func__, usip->memory_ready, usip->memory_size, align_bytes);
 
 	if (!usip->memory_ready)
@@ -205,6 +228,13 @@ static void usip_send_emi_info_to_dsp(void)
 	struct ipi_msg_t ipi_msg;
 	long long usip_emi_info[2]; //idx0 for addr, idx1 for size
 	phys_addr_t offset = 0;
+
+	if ((usip.adsp_phone_call_enh_config & 0x1) == 0) {
+		pr_info("%s(), adsp_phone_call_enh_config(%d) is close",
+			__func__,
+			usip.adsp_phone_call_enh_config);
+		return;
+	}
 
 	if (usip.addr_phy == 0) {
 		pr_info("%s(), cannot get emi addr from ccci", __func__);
@@ -316,6 +346,12 @@ static int __init usip_init(void)
 	usip.memory_addr = 0x11220000L;
 	usip.addr_phy = phys_addr;
 	usip.memory_ready = true;
+
+#ifdef CONFIG_MTK_AURISYS_PHONE_CALL_SUPPORT
+	usip.adsp_phone_call_enh_config = 1;
+#else
+	usip.adsp_phone_call_enh_config = 0;
+#endif
 
 #ifdef CONFIG_MTK_AURISYS_PHONE_CALL_SUPPORT
 #ifdef CFG_RECOVERY_SUPPORT
