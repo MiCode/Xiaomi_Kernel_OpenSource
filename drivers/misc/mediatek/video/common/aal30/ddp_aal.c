@@ -287,6 +287,8 @@ static int g_aal_dre_en_cmd_id;
 static int g_aal_ess_en_cmd_id;
 #endif
 
+static int prev_backlight;
+
 #define aal_min(a, b)			(((a) < (b)) ? (a) : (b))
 
 static inline bool disp_aal_check_module(enum DISP_MODULE_ENUM module,
@@ -1732,7 +1734,8 @@ int disp_aal_set_param(struct DISP_AAL_PARAM __user *param,
 	if (atomic_read(&g_aal_backlight_notified) == 0)
 		backlight_value = 0;
 
-	if (ret == 0)
+	if ((ret == 0) && ((prev_backlight != backlight_value)
+		|| (backlight_value == 0)))
 		ret |= disp_pwm_set_backlight_cmdq(DISP_PWM0,
 			backlight_value, cmdq);
 
@@ -1742,10 +1745,13 @@ int disp_aal_set_param(struct DISP_AAL_PARAM __user *param,
 	AAL_DBG("(latency = %d): ret = %d",
 		g_aal_param.refreshLatency, ret);
 
-	backlight_brightness_set(backlight_value);
+	if ((prev_backlight != backlight_value) || (backlight_value == 0))
+		backlight_brightness_set(backlight_value);
 
 	disp_aal_flip_sram(cmdq, __func__);
 	disp_aal_trigger_refresh(g_aal_param.refreshLatency);
+
+	prev_backlight = backlight_value;
 
 	return ret;
 }
