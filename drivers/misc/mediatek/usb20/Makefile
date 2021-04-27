@@ -21,21 +21,32 @@ endif
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 
-#Platform
-obj-$(CONFIG_MACH_MT6765) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
-obj-$(CONFIG_MACH_MT6761) += mt6765/
-obj-$(CONFIG_MACH_MT8163) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+# for SPM control usage
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
 
-#Driver
-obj-$(CONFIG_USB_MTK_HDRC) += musb_hdrc.o
-musb_hdrc-$(CONFIG_USB_MTK_HDRC) := musb_core.o
-musb_hdrc-$(CONFIG_USB_MTK_HDRC) += musb_gadget_ep0.o musb_gadget.o
-musb_hdrc-$(CONFIG_USB_MTK_HDRC) += musb_virthub.o musb_host.o
-musb_hdrc-$(CONFIG_USB_MTK_HDRC) += musbhsdma.o
-musb_hdrc-$(CONFIG_DEBUG_FS) += musb_debugfs.o
+# for phy and vbus settings
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb20/mt6765
+
+ifeq ($(CONFIG_TCPC_CLASS),y)
+	ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
+endif
+
+# Driver
+obj-$(CONFIG_USB_MTK_HDRC)		:= musb_hdrc.o
+musb_hdrc-$(CONFIG_USB_MTK_HDRC)	+= musb_core.o
+musb_hdrc-$(CONFIG_USB_MTK_HDRC)	+= musb_virthub.o musb_host.o
+musb_hdrc-$(CONFIG_USB_MTK_HDRC)	+= musb_gadget_ep0.o musb_gadget.o
+musb_hdrc-$(CONFIG_DEBUG_FS)		+= musb_debugfs.o
+musb_hdrc-$(CONFIG_MTK_MUSB_DUAL_ROLE)	+= musb_dr.o
+
+# obj-$(CONFIG_MTK_MUSB_PLAT)		+= mtk_musb.o
+obj-$(CONFIG_USB_MTK_HDRC)		+= musbhsdma.o
+obj-$(CONFIG_USB_MTK_HDRC)		+= mt6765/usb20.o
+obj-$(CONFIG_USB_MTK_HDRC)		+= mt6765/usb20_host.o
+obj-$(CONFIG_USBIF_COMPLIANCE)		+= mt6765/usb20_otg_if.o
 
 # QMU Realted
-obj-$(CONFIG_MTK_MUSB_QMU_SUPPORT) += mtk_qmu.o musb_qmu.o
+musb_hdrc-$(CONFIG_MTK_MUSB_QMU_SUPPORT)+= mtk_qmu.o musb_qmu.o
 ifeq ($(CONFIG_MTK_MUSB_QMU_SUPPORT),y)
 subdir-ccflags-$(CONFIG_MACH_MT8163) += -DMUSB_QMU_LIMIT_SUPPORT -DMUSB_QMU_LIMIT_RXQ_NUM=4 -DMUSB_QMU_LIMIT_TXQ_NUM=4
 endif
@@ -43,4 +54,3 @@ ifeq ($(CONFIG_MTK_MUSB_QMU_SUPPORT),y)
 subdir-ccflags-$(CONFIG_MACH_MT8167) += -DMUSB_QMU_LIMIT_SUPPORT -DMUSB_QMU_LIMIT_RXQ_NUM=4 -DMUSB_QMU_LIMIT_TXQ_NUM=4
 endif
 
-obj-$(CONFIG_DUAL_ROLE_USB_INTF) += mtk_dual_role.o

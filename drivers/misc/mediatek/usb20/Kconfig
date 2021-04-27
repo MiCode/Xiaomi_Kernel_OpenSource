@@ -80,3 +80,17 @@ config MTK_MUSB_PORT0_LOWPOWER_MODE
 	  Dynamic control the usb port0 clock when PORT1 not exist.
 	  Say Y here if your want to enable port0 low power mode for saving power.
 
+config MTK_MUSB_DUAL_ROLE
+	bool "Mediatek MUSB Dual Role mode support"
+	select USB_ROLE_SWITCH
+	help
+	  This is the default mode of working of MTK MUSB controller
+	  where both host and gadget
+	  features are enabled.
+	  It is better to be be used with Mediatek extcon and tphy support.
+	  Say Y here if your want to use usb role switch.
+
+config MTK_MUSB_PHY
+	tristate "MediaTek USB20 PHY support"
+        help
+          MediaTek USB20 PHY support.

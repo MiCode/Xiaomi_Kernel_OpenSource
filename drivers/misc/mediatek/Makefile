@@ -99,6 +99,7 @@ obj-$(CONFIG_MTK_FLASHLIGHT) += flashlight/
 obj-$(CONFIG_RT_FLASHLIGHT)     += flashlight/richtek/
 obj-$(CONFIG_USB) += usb_boost/
 obj-$(CONFIG_USB_MTK_HDRC) += usb20/
+obj-$(CONFIG_MTK_MUSB_PHY) += usb20/mt6765/
 obj-$(CONFIG_EXTCON_MTK_USB) += extcon/
 obj-$(CONFIG_MTK_DRAM_LOG_STORE) += log_store/
 obj-$(CONFIG_MTK_ECCCI_C2K) += c2k_usb/
