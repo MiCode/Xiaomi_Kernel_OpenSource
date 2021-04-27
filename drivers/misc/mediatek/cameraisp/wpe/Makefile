@@ -34,10 +34,21 @@ ifeq ($(CONFIG_MACH_MT6885),y)
   MTK_WPE_COUNT := 2
 endif
 
+ifeq ($(CONFIG_MTK_CAMERA_ISP_VER),"isp50")
+  obj-y += $(subst ",,isp_50)/
+endif
+
+
 ifeq ($(CONFIG_MTK_CAMERA_ISP_VER),"isp6s")
-  obj-$(CONFIG_MTK_CAMERA_ISP_WPE_SUPPORT) += isp_6s/
-  MTK_WPE_COUNT := 1
-  subdir-ccflags-y += -DWPE_B_ONLY
+    obj-y += $(subst ",,isp_6s)/
+    ifeq ($(CONFIG_MTK_CAMERA_DUAL_DIP_ISP6S),m)
+        MTK_WPE_COUNT := 2
+        subdir-ccflags-y += -DWPE_GKI_IMG1_LARB_ON
+    else
+        TK_WPE_COUNT := 1
+        subdir-ccflags-y += -DWPE_B_ONLY
+    endif
+
   ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6853")
     subdir-ccflags-y += -DWPE_GKI_IMG1_LARB_ON
   endif

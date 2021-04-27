@@ -1,4 +1,4 @@
-config MTK_CAMERA_ISP_WPE_SUPPORT
+config MTK_CAMERA_WPE_ISP6S
 	tristate "[WPE] Warping Engine"
 	default n
 	depends on MTK_CAMERA_ISP_SUPPORT
@@ -7,3 +7,4 @@ config MTK_CAMERA_ISP_WPE_SUPPORT
 	  CPU/GPU loading on te feature like Electronic Image
 	  Stabilization. The function of WPE is dedicated for
 	  real-time image warping.
+

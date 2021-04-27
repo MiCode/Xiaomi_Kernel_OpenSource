@@ -3,7 +3,6 @@
  * Copyright (c) 2018 MediaTek Inc.
  */
 
-
 #include <linux/types.h>
 #include <linux/device.h>
 #include <linux/cdev.h>
@@ -25,6 +24,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
 #include <linux/pm_runtime.h>
+
 
 /*#include <linux/xlog.h>		 For xlog_printk(). */
 /*  */
@@ -114,30 +114,26 @@ int wpe_get_cnt;
 struct WPE_CLK_STRUCT {
 	struct clk *CG_IMGSYS_LARB9;
 	struct clk *CG_IMGSYS_WPE_A;
-#if (MTK_WPE_COUNT == 2)
 	struct clk *CG_IMGSYS_LARB11;
 	struct clk *CG_IMGSYS_WPE_B;
-#endif
-#ifdef FORCE_IMG1_ON
 	struct clk *CG_IMGSYS1;
-#endif
 };
 struct WPE_CLK_STRUCT wpe_clk;
 
 #ifndef M4U_PORT_L11_IMG_WPE_WDMA_DISP
-#define M4U_PORT_L11_IMG_WPE_WDMA_DISP M4U_PORT_L11_IMG_WPE_WDMA
+#define M4U_PORT_L11_IMG_WPE_WDMA_DISP M4U_PORT_L11_IMG_WPE_WDMA_DISP
 #endif
 
 #ifndef M4U_PORT_L11_IMG_WPE_RDMA1_DISP
-#define M4U_PORT_L11_IMG_WPE_RDMA1_DISP M4U_PORT_L11_IMG_WPE_RDMA1
+#define M4U_PORT_L11_IMG_WPE_RDMA1_DISP M4U_PORT_L11_IMG_WPE_RDMA1_DISP
 #endif
 
 #ifndef M4U_PORT_L9_IMG_WPE_WDMA_MDP
-#define M4U_PORT_L9_IMG_WPE_WDMA_MDP M4U_PORT_L9_IMG_WPE_WDMA
+#define M4U_PORT_L9_IMG_WPE_WDMA_MDP M4U_PORT_L9_IMG_WPE_WDMA_MDP
 #endif
 
 #ifndef M4U_PORT_L9_IMG_WPE_RDMA1_MDP
-#define M4U_PORT_L9_IMG_WPE_RDMA1_MDP M4U_PORT_L9_IMG_WPE_RDMA1
+#define M4U_PORT_L9_IMG_WPE_RDMA1_MDP M4U_PORT_L9_IMG_WPE_RDMA1_MDP
 #endif
 
 unsigned int ver;
@@ -300,9 +296,8 @@ struct WPE_device {
 	struct device *dev;
 	int irq;
 	struct device *larb9;
-#ifdef WPE_GKI_IMG1_LARB_ON
 	struct device *larb11;
-#endif
+
 };
 
 static struct WPE_device *WPE_devs;
@@ -2823,34 +2818,43 @@ static inline void WPE_Prepare_Enable_ccf_clock(void)
 	ret = mtk_smi_larb_get(WPE_devs->larb11);
 	if (ret)
 		LOG_ERR("mtk_smi_larb_get larb11 fail %d\n", ret);
-#endif
 
+#endif
+	LOG_INF("get larb OK");	
 	ret = clk_prepare_enable(wpe_clk.CG_IMGSYS_LARB9);
 	if (ret)
-		LOG_ERR("cannot prepare and enable IMG_LARB9 clock\n");
+		LOG_INF("cannot prepare and enable IMG_LARB9 clock\n");
+		
+	LOG_INF("get CG_IMGSYS_LARB9 OK");		
 
 	ret = clk_prepare_enable(wpe_clk.CG_IMGSYS_WPE_A);
 	if (ret)
-		LOG_ERR("cannot prepare CG_IMGSYS_WPE_A clock\n");
+		LOG_INF("cannot prepare CG_IMGSYS_WPE_A clock\n");
 
+	LOG_INF("get CG_IMGSYS_WPE_A OK");
+		
 #ifdef FORCE_IMG1_ON
 	ret = clk_prepare_enable(wpe_clk.CG_IMGSYS1);
 	if (ret)
-		LOG_ERR("cannot prepare and enable IMGSYS1 clock\n");
+		LOG_INF("cannot prepare and enable IMGSYS1 clock\n");
 #endif
 
 #if (MTK_WPE_COUNT == 2)
-	ret = mtk_smi_larb_get(WPE_devs->larb11);
-	if (ret)
-		LOG_ERR("mtk_smi_larb_get larb9 fail %d\n", ret);
+	//ret = mtk_smi_larb_get(WPE_devs->larb11);
+	//if (ret)
+		//LOG_ERR("mtk_smi_larb_get larb9 fail %d\n", ret);
 
 	ret = clk_prepare_enable(wpe_clk.CG_IMGSYS_LARB11);
 	if (ret)
-		LOG_ERR("cannot prepare and enable IMG_LARB11 clock\n");
+		LOG_INF("cannot prepare and enable IMG_LARB11 clock\n");
+		
+	LOG_INF("get CG_IMGSYS_LARB11 OK");	
 
 	ret = clk_prepare_enable(wpe_clk.CG_IMGSYS_WPE_B);
 	if (ret)
-		LOG_ERR("cannot prepare and enable CG_IMGSYS_WPE_B clock\n");
+		LOG_INF("cannot prepare and enable CG_IMGSYS_WPE_B clock\n");
+		
+	LOG_INF("get CG_IMGSYS_WPE_B OK");		
 #endif
 
 }
@@ -2861,8 +2865,9 @@ static inline void WPE_Disable_Unprepare_ccf_clock(void)
 	/*WPE clk -> CG_SCP_SYS_ISP -> */
 	/*CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS */
 #ifdef FORCE_IMG1_ON
-	clk_disable_unprepare(wpe_clk.CG_IMGSYS1);
+		clk_disable_unprepare(wpe_clk.CG_IMGSYS1);
 #endif
+
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_WPE_A);
 	/* In 6873, 6853, larb9 here is IMG2 larb11*/
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_LARB9);
@@ -3170,6 +3175,11 @@ static signed int WPE_WaitIrq(struct WPE_WAIT_IRQ_STRUCT *WaitIrq)
 	/* FIX to avoid build warning */
 	unsigned int irqStatus;
 	/*int cnt = 0; */
+	struct timespec64 time_getrequest ;
+
+	/* do_gettimeofday(&time_getrequest); */
+
+	ktime_get_ts64(&time_getrequest);
 
 	/* Debug interrupt */
 	if (WPEInfo.DebugMask & WPE_DBG_INT) {
@@ -5060,10 +5070,8 @@ static signed int WPE_probe(struct platform_device *pDev)
 	struct WPE_device *WPE_dev;
 	struct device_node *node_larb9;
 	struct platform_device *pdev_larb9;
-#ifdef WPE_GKI_IMG1_LARB_ON
 	struct device_node *node_larb11;
 	struct platform_device *pdev_larb11;
-#endif
 #endif
 
 
@@ -5106,6 +5114,7 @@ static signed int WPE_probe(struct platform_device *pDev)
 		node_larb9 = of_parse_phandle(pDev->dev.of_node, "mediatek,larb", 0);
 		if (!node_larb9)
 			return -EINVAL;
+
 		pdev_larb9 = of_find_device_by_node(node_larb9);
 		if (WARN_ON(!pdev_larb9)) {
 			of_node_put(node_larb9);
@@ -5113,13 +5122,14 @@ static signed int WPE_probe(struct platform_device *pDev)
 		}
 		of_node_put(node_larb9);
 		WPE_devs->larb9 = &pdev_larb9->dev;
-
+		LOG_INF("larb 9 %p", WPE_devs->larb9);
 #ifdef WPE_GKI_IMG1_LARB_ON
 		/* parse larb node*/
 		/* In 6873, 6853, larb11 here  is IMG1 larb9*/
 		node_larb11 = of_parse_phandle(pDev->dev.of_node, "mediatek,larb", 1);
 		if (!node_larb11)
 			return -EINVAL;
+
 		pdev_larb11 = of_find_device_by_node(node_larb11);
 		if (WARN_ON(!pdev_larb11)) {
 			of_node_put(node_larb11);
@@ -5127,7 +5137,7 @@ static signed int WPE_probe(struct platform_device *pDev)
 		}
 		of_node_put(node_larb11);
 		WPE_devs->larb11 = &pdev_larb11->dev;
-		LOG_INF("of_node_put(node_larb11).");
+		LOG_INF("larb11 %p", WPE_devs->larb11);
 #endif
 	}
 
@@ -5233,15 +5243,16 @@ static signed int WPE_probe(struct platform_device *pDev)
 		}
 
 #ifdef FORCE_IMG1_ON
-		wpe_clk.CG_IMGSYS1 =
-			devm_clk_get(&pDev->dev, "WPE_CLK_IMG");
-		LOG_INF("devm_clk_get CG_IMGSYS1");
+			wpe_clk.CG_IMGSYS1 =
+				devm_clk_get(&pDev->dev, "WPE_CLK_IMG");
+				LOG_INF("devm_clk_get CG_IMGSYS1");
 
-		if (IS_ERR(wpe_clk.CG_IMGSYS1)) {
-			LOG_ERR("cannot get CG_IMGSYS1 clock\n");
-			return PTR_ERR(wpe_clk.CG_IMGSYS1);
-		}
+			if (IS_ERR(wpe_clk.CG_IMGSYS1)) {
+				LOG_ERR("cannot get CG_IMGSYS1 clock\n");
+				return PTR_ERR(wpe_clk.CG_IMGSYS1);
+			}
 #endif
+
 #endif
 		/* Create class register */
 		pWPEClass = class_create(THIS_MODULE, "WPEdrv");
