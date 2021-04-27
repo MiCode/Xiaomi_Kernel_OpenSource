@@ -225,9 +225,6 @@ static void ssusb_host_cleanup(struct ssusb_mtk *ssusb)
  */
 int ssusb_host_init(struct ssusb_mtk *ssusb, struct device_node *parent_dn)
 {
-#if 1
-	ssusb_host_setup(ssusb);
-#else
 	struct device *parent_dev = ssusb->dev;
 	int ret;
 
@@ -241,7 +238,7 @@ int ssusb_host_init(struct ssusb_mtk *ssusb, struct device_node *parent_dn)
 	}
 
 	dev_info(parent_dev, "xHCI platform device register success...\n");
-#endif
+
 	return 0;
 }
 
