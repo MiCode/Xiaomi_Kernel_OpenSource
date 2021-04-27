@@ -29,7 +29,7 @@ enum gh_msgq_label {
 #define GH_MSGQ_NONBLOCK	BIT(32)
 
 #if IS_ENABLED(CONFIG_GH_MSGQ)
-void *gh_msgq_register(enum gh_msgq_label label);
+void *gh_msgq_register(int label);
 int gh_msgq_unregister(void *msgq_client_desc);
 int gh_msgq_send(void *msgq_client_desc,
 			void *buff, size_t size, unsigned long flags);
@@ -37,11 +37,11 @@ int gh_msgq_recv(void *msgq_client_desc,
 			void *buff, size_t buff_size,
 			size_t *recv_size, unsigned long flags);
 
-int gh_msgq_populate_cap_info(enum gh_msgq_label label, u64 cap_id,
+int gh_msgq_populate_cap_info(int label, u64 cap_id,
 				int direction, int irq);
-int gh_msgq_probe(struct platform_device *pdev, enum gh_msgq_label label);
+int gh_msgq_probe(struct platform_device *pdev, int label);
 #else
-static inline void *gh_msgq_register(enum gh_msgq_label label)
+static inline void *gh_msgq_register(int label)
 {
 	return ERR_PTR(-ENODEV);
 }
@@ -64,16 +64,13 @@ static inline int gh_msgq_recv(void *msgq_client_desc,
 	return -EINVAL;
 }
 
-static inline int gh_msgq_populate_cap_info(enum gh_msgq_label label,
-					    u64 cap_id,
-					    int direction,
-					    int irq)
+static inline int gh_msgq_populate_cap_info(int label, u64 cap_id,
+					    int direction, int irq)
 {
 	return -EINVAL;
 }
 
-static inline int gh_msgq_probe(struct platform_device *pdev,
-				enum gh_msgq_label label)
+static inline int gh_msgq_probe(struct platform_device *pdev, int label)
 {
 	return -ENODEV;
 }
