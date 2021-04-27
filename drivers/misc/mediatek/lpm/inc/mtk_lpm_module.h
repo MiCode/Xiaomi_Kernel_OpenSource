@@ -99,6 +99,7 @@ enum MT_CPU_PM_SMC_UID {
 	IRQ_REMAIN_LIST_ALLOC,
 	IRQ_REMAIN_IRQ_ADD,
 	IRQ_REMAIN_IRQ_SUBMIT,
+	MBOX_INFO,
 };
 
 #define mtk_lpm_smc_cpu_pm(_lp_id, _act, _val1, _val2) ({\
@@ -135,6 +136,7 @@ enum MT_SPM_DBG_SMC_UID {
 	MT_SPM_DBG_SMC_UID_RC_BBLPM,
 	MT_SPM_DBG_SMC_UID_RC_TRACE,
 	MT_SPM_DBG_SMC_UID_RC_TRACE_TIME,
+	MT_SPM_DBG_SMC_UID_RC_GPIO200_DATAIN,
 };
 
 #define mtk_lpm_smc_spm_dbg(_lp_id, _act, _val1, _val2) ({\
