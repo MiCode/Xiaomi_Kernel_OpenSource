@@ -36,7 +36,7 @@
 
 #define DVFSP_DT_NODE		"mediatek,mt6761-dvfsp"
 
-#define CSRAM_BASE		0x00110800
+#define CSRAM_BASE		0x00110C00
 #define CSRAM_SIZE		0x1400		/* 5K bytes */
 
 #define DVFS_LOG_NUM		150
