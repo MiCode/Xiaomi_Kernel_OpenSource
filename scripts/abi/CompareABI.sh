@@ -34,7 +34,7 @@ based on src_project and compare with abi_{src_project}.xml${eol}"
 	echo "[src_project]: source project name"
 	echo ""
 	echo -e "${green}Example:${eol} ${red}src_project=\
-k6893v1_64 mode=m \
+mgk_64_k510 mode=m \
 ./scripts/abi/CompareABI.sh 2>&1 | tee buildABI.log${eol}"
 	echo ""
 	echo -e "${green}Script for auto generate target_branch's ABI xml \
@@ -51,7 +51,7 @@ monitor result to [abi_result_path]${eol}"
 	echo "[abi_result_path]: absolute path to put abi monitor result"
 	echo ""
 	echo -e "${green}Example:${eol} ${red}src_project=\
-k6893v1_64 mode=m abi_result_path=absolute_path \
+mgk_64_k510 mode=m abi_result_path=absolute_path \
 ./scripts/abi/CompareABI.sh 2>&1 | tee buildABI.log${eol}"
 	echo ""
 	echo -e "${red}Command for delete temp files:${eol}"

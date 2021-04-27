@@ -1,26 +1,5 @@
 #Add symbols to bypass ABI Monitor here
 bypass_arr=( \
-"android_vh" \
-"led_" \
-"function void gpio_dump_regs_range" \
-"function void __kasan" \
-"function int mtk_build_eint" \
-"function int mtk_eh_ctrl" \
-"function int mtk_eint" \
-"function int mtk_hw_get_value" \
-"function int mtk_hw_set_value" \
-"function bool mtk_is_virt_gpio" \
-"function void mtk_mmsys" \
-"function ssize_t mtk_pctrl_show_one_pin" \
-"function int mtk_pinconf" \
-"function const char\* pptp_msg_name" \
 "function int timer_of_init" \
-"asan_" \
-"kasan_" \
 "ion_" \
-"mtk_paris_pinctrl" \
-"struct ehci_hcd " \
-"struct iommu_ops " \
-"struct module " \
-"struct task_struct " \
-"struct thread_struct ")
+"struct iommu_ops ")

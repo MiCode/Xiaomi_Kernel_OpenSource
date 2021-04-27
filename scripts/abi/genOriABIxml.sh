@@ -46,7 +46,7 @@ mode=m ./scripts/abi/genOriABIxml.sh"
 	echo "[target_commit]: target kernel commit id"
 	echo ""
 	echo -e "${green}Example:${eol} ${red}src_commit=491f0e3 \
-src_project=k6893v1_64 \
+src_project=mgk_64_k510 \
 target_branch=common-android12-5.10 target_commit=f232ce6 mode=m \
 ./scripts/abi/genOriABIxml.sh 2>&1 | tee buildOriABI.log${eol}"
 	echo ""
@@ -62,7 +62,7 @@ for preflight based on src_project ${eol}"
 	echo "[target_branch]: target branch"
 	echo ""
 	echo -e "${green}Example:${eol} ${red}src_project=\
-k6893v1_64 \
+mgk_64_k510 \
 target_branch=common-android12-5.10 mode=p \
 ./scripts/abi/genOriABIxml.sh 2>&1 | tee buildOriABI.log${eol}"
 	echo ""
