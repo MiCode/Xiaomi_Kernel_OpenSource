@@ -190,6 +190,7 @@ static const char FLL_RO_REG_NAME[][5] = {
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF_RESERVED_MEM
 
+#ifdef PTP3_STATUS_PROBE_DUMP
 static char *fll_buf;
 static unsigned long long fll_mem_size;
 void fll_save_memory_info(char *buf, unsigned long long ptp3_mem_size)
@@ -284,6 +285,7 @@ int fll_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 	return 0;
 }
 
+#endif
 #endif
 #endif
 
@@ -1063,11 +1065,13 @@ int fll_probe(struct platform_device *pdev)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF_RESERVED_MEM
+#ifdef PTP3_STATUS_PROBE_DUMP
 	/* dump reg status into PICACHU dram for DB */
 	if (fll_buf != NULL) {
 		fll_reserve_memory_dump(
 			fll_buf, fll_mem_size, FLL_TRIGGER_STAGE_PROBE);
 	}
+#endif /* PTP3_STATUS_PROBE_DUMP */
 #endif /* CONFIG_OF_RESERVED_MEM */
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
@@ -1075,29 +1079,11 @@ int fll_probe(struct platform_device *pdev)
 
 int fll_suspend(struct platform_device *pdev, pm_message_t state)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF_RESERVED_MEM
-	/* dump reg status into PICACHU dram for DB */
-	if (fll_buf != NULL) {
-		fll_reserve_memory_dump(
-			fll_buf+0x1000, fll_mem_size, FLL_TRIGGER_STAGE_SUSPEND);
-	}
-#endif /* CONFIG_OF_RESERVED_MEM */
-#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 int fll_resume(struct platform_device *pdev)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF_RESERVED_MEM
-	/* dump reg status into PICACHU dram for DB */
-	if (fll_buf != NULL) {
-		fll_reserve_memory_dump(
-			fll_buf+0x2000, fll_mem_size, FLL_TRIGGER_STAGE_RESUME);
-	}
-#endif /* CONFIG_OF_RESERVED_MEM */
-#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 

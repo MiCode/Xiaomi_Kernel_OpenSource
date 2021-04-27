@@ -109,6 +109,7 @@ static unsigned int pdp_state_pinctl;
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF_RESERVED_MEM
 
+#ifdef PTP3_STATUS_PROBE_DUMP
 static char *pdp_buf;
 static unsigned long long pdp_mem_size;
 void pdp_save_memory_info(char *buf, unsigned long long ptp3_mem_size)
@@ -171,6 +172,7 @@ int pdp_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 
 	return 0;
 }
+#endif
 
 #endif
 #endif
@@ -444,42 +446,28 @@ int pdp_probe(struct platform_device *pdev)
 			(pdp_state_pinctl >> pdp_n) & 0x1, pdp_n);
 	}
 #endif /* CONFIG_OF */
+
 #ifdef CONFIG_OF_RESERVED_MEM
+#ifdef PTP3_STATUS_PROBE_DUMP
 	/* dump reg status into PICACHU dram for DB */
 	if (pdp_buf != NULL) {
 		pdp_reserve_memory_dump(pdp_buf, pdp_mem_size,
 				PDP_TRIGGER_STAGE_PROBE);
 	}
+#endif /* PTP3_STATUS_PROBE_DUMP */
 #endif /* CONFIG_OF_RESERVED_MEM */
+
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 
 }
 int pdp_suspend(struct platform_device *pdev, pm_message_t state)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF_RESERVED_MEM
-	/* dump reg status into PICACHU dram for DB */
-	if (pdp_buf != NULL) {
-		pdp_reserve_memory_dump(pdp_buf+0x1000, pdp_mem_size,
-				PDP_TRIGGER_STAGE_SUSPEND);
-	}
-#endif /* CONFIG_OF_RESERVED_MEM */
-#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 int pdp_resume(struct platform_device *pdev)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF_RESERVED_MEM
-	/* dump reg status into PICACHU dram for DB */
-	if (pdp_buf != NULL) {
-		pdp_reserve_memory_dump(pdp_buf+0x2000, pdp_mem_size,
-				PDP_TRIGGER_STAGE_RESUME);
-	}
-#endif /* CONFIG_OF_RESERVED_MEM */
-#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 

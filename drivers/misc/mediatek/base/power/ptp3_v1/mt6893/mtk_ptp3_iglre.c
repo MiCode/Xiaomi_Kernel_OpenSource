@@ -82,6 +82,8 @@
  ************************************************/
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF_RESERVED_MEM
+
+#ifdef PTP3_STATUS_PROBE_DUMP
 static char *iglre_buf;
 static unsigned long long iglre_mem_size;
 void iglre_save_memory_info(char *buf, unsigned long long ptp3_mem_size)
@@ -140,6 +142,8 @@ int iglre_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 
 	return 0;
 }
+#endif
+
 #endif
 #endif
 
@@ -374,42 +378,28 @@ int iglre_probe(struct platform_device *pdev)
 			mtk_lre_cfg((lreBitEn >> iglre_n) & 0x10, iglre_n);
 	}
 #endif /* CONFIG_OF */
+
 #ifdef CONFIG_OF_RESERVED_MEM
+#ifdef PTP3_STATUS_PROBE_DUMP
 	/* dump reg status into PICACHU dram for DB */
 	if (iglre_buf != NULL) {
 		iglre_reserve_memory_dump(iglre_buf, iglre_mem_size,
 		IGLRE_TRIGGER_STAGE_PROBE);
 	}
 #endif /* CONFIG_OF_RESERVED_MEM */
+#endif /* PTP3_STATUS_PROBE_DUMP */
+
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 int iglre_suspend(struct platform_device *pdev, pm_message_t state)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF_RESERVED_MEM
-	/* dump reg status into PICACHU dram for DB */
-	if (iglre_buf != NULL) {
-		iglre_reserve_memory_dump(iglre_buf+0x1000, iglre_mem_size,
-		IGLRE_TRIGGER_STAGE_SUSPEND);
-	}
-#endif /* CONFIG_OF_RESERVED_MEM */
-#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 
 int iglre_resume(struct platform_device *pdev)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF_RESERVED_MEM
-	/* dump reg status into PICACHU dram for DB */
-	if (iglre_buf != NULL) {
-		iglre_reserve_memory_dump(iglre_buf+0x2000, iglre_mem_size,
-		IGLRE_TRIGGER_STAGE_RESUME);
-	}
-#endif /* CONFIG_OF_RESERVED_MEM */
-#endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
 }
 

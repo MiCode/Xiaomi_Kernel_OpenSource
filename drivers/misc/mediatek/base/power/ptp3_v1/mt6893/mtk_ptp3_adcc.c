@@ -121,6 +121,8 @@ static unsigned int adcc_smc_handle(unsigned int key,
  ************************************************/
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF_RESERVED_MEM
+
+#ifdef PTP3_STATUS_PROBE_DUMP
 static char *adcc_buf;
 static unsigned long long adcc_mem_size;
 void adcc_save_memory_info(char *buf, unsigned long long ptp3_mem_size)
@@ -274,6 +276,8 @@ int adcc_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 
 	return 0;
 }
+
+#endif
 #endif
 #endif
 
@@ -594,6 +598,7 @@ int adcc_probe(struct platform_device *pdev)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF_RESERVED_MEM
+#ifdef PTP3_STATUS_PROBE_DUMP
 	/* dump reg status into PICACHU dram for DB */
 	if (adcc_buf != NULL) {
 		adcc_reserve_memory_dump(adcc_buf, adcc_mem_size,
@@ -601,38 +606,17 @@ int adcc_probe(struct platform_device *pdev)
 	}
 #endif
 #endif
+#endif
 	return 0;
 }
 
 int adcc_suspend(struct platform_device *pdev, pm_message_t state)
 {
-#ifdef ADCC_DEBUG_ON
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF_RESERVED_MEM
-	/* dump reg status into PICACHU dram for DB */
-	if (adcc_buf != NULL) {
-		adcc_reserve_memory_dump(adcc_buf+0x1000, adcc_mem_size,
-			ADCC_TRIGGER_STAGE_SUSPEND);
-	}
-#endif
-#endif
-#endif
 	return 0;
 }
 
 int adcc_resume(struct platform_device *pdev)
 {
-#ifdef ADCC_DEBUG_ON
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF_RESERVED_MEM
-	/* dump reg status into PICACHU dram for DB */
-	if (adcc_buf != NULL) {
-		adcc_reserve_memory_dump(adcc_buf+0x2000, adcc_mem_size,
-			ADCC_TRIGGER_STAGE_RESUME);
-	}
-#endif
-#endif
-#endif
 	return 0;
 }
 
