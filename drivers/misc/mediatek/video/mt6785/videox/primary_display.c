@@ -8541,7 +8541,7 @@ int _set_backlight_by_cmdq(unsigned int level)
 				     CMDQ_SYNC_TOKEN_CABC_EOF);
 		mmprofile_log_ex(ddp_mmp_get_events()->primary_set_bl,
 				 MMPROFILE_FLAG_PULSE, 1, 4);
-		_cmdq_flush_config_handle_mira(cmdq_handle_backlight, 1);
+		_cmdq_flush_config_handle_mira(cmdq_handle_backlight, 0);
 		mmprofile_log_ex(ddp_mmp_get_events()->primary_set_bl,
 				 MMPROFILE_FLAG_PULSE, 1, 6);
 		DISPMSG("[BL]%s ret=%d\n", __func__, ret);
