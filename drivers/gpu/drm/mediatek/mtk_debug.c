@@ -2345,6 +2345,8 @@ static void process_dbg_opt(const char *opt)
 		}
 		kfree(user_buffer);
 		reinit_completion(&cwb_cmp);
+	}  else if (strncmp(opt, "drm:", 4) == 0) {
+		disp_drm_debug(opt + 4);
 	}
 
 }
