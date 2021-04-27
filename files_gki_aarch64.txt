@@ -698,6 +698,7 @@ drivers/cpuidle/dt_idle_states.c
 drivers/cpuidle/dt_idle_states.h
 drivers/cpuidle/governor.c
 drivers/cpuidle/governors/menu.c
+drivers/cpuidle/governors/teo.c
 drivers/cpuidle/sysfs.c
 drivers/dax/bus.c
 drivers/dax/bus.h
@@ -1844,6 +1845,8 @@ fs/incfs/internal.h
 fs/incfs/main.c
 fs/incfs/pseudo_files.c
 fs/incfs/pseudo_files.h
+fs/incfs/sysfs.c
+fs/incfs/sysfs.h
 fs/incfs/verity.c
 fs/incfs/verity.h
 fs/incfs/vfs.c
@@ -3858,6 +3861,7 @@ include/trace/hooks/pm_domain.h
 include/trace/hooks/power.h
 include/trace/hooks/preemptirq.h
 include/trace/hooks/printk.h
+include/trace/hooks/psi.h
 include/trace/hooks/rwsem.h
 include/trace/hooks/sched.h
 include/trace/hooks/signal.h
@@ -4626,6 +4630,8 @@ kernel/trace/trace_entries.h
 kernel/trace/trace_event_perf.c
 kernel/trace/trace_events.c
 kernel/trace/trace_events_filter.c
+kernel/trace/trace_events_hist.c
+kernel/trace/trace_events_synth.c
 kernel/trace/trace_events_trigger.c
 kernel/trace/trace_export.c
 kernel/trace/trace.h
@@ -4643,7 +4649,10 @@ kernel/trace/trace_sched_switch.c
 kernel/trace/trace_seq.c
 kernel/trace/trace_stat.c
 kernel/trace/trace_stat.h
+kernel/trace/trace_synth.h
 kernel/trace/trace_uprobe.c
+kernel/trace/tracing_map.c
+kernel/trace/tracing_map.h
 kernel/tsacct.c
 kernel/ucount.c
 kernel/uid16.c
@@ -5797,6 +5806,7 @@ sound/soc/soc-jack.c
 sound/soc/soc-link.c
 sound/soc/soc-ops.c
 sound/soc/soc-pcm.c
+sound/soc/soc-topology.c
 sound/soc/soc-utils.c
 sound/sound_core.c
 sound/usb/card.c
