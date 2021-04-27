@@ -130,6 +130,7 @@ static inline bool support_color_format(enum DISP_FORMAT src_fmt)
 	case DISP_FORMAT_PRGBA8888:
 	case DISP_FORMAT_PBGRA8888:
 	case DISP_FORMAT_DIM:
+	case DISP_FORMAT_RGBA1010102:
 		return true;
 	default:
 		return false;
