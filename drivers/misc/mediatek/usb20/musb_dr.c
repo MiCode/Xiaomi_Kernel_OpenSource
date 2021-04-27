@@ -13,6 +13,9 @@
 #include <musb_dr.h>
 #include <musb_host.h>
 #include <musb_gadget.h>
+#ifdef CONFIG_DEBUG_FS
+#include <musb_debug.h>
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_BASE_POWER)
 #include "mtk_spm_resource_req.h"
@@ -427,8 +430,10 @@ int mt_usb_otg_switch_init(struct mt_usb_glue *glue)
 	if (ret)
 		dev_info(mtk_musb->controller, "error creating sysfs attributes\n");
 
+#ifdef CONFIG_DEBUG_FS
 	if (otg_sx->manual_drd_enabled)
 		musb_dr_debugfs_init(mtk_musb);
+#endif
 	else if (otg_sx->role_sw_used)
 		ret = mt_usb_role_sw_register(otg_sx);
 	else

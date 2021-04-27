@@ -8,13 +8,14 @@
 
 #include <linux/io.h>
 #include <linux/spinlock.h>
+#include <mt6765/usb20.h>
+#include <musb_debug.h>
 
 extern bool mtk_usb_power;
 #ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
 extern void mt_usb_clock_prepare(void);
 extern void mt_usb_clock_unprepare(void);
 #endif
-extern bool usb_enable_clock(bool enable);
 extern spinlock_t usb_io_lock;
 
 static inline u16 musb_readw(const void __iomem *addr, unsigned int offset)

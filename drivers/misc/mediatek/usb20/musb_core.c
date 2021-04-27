@@ -21,32 +21,43 @@
 #include <linux/err.h>
 #endif
 
-#include "musb_core.h"
-#include "musbhsdma.h"
+#include <musb_core.h>
+#include <musbhsdma.h>
 #ifdef CONFIG_OF
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
-#include "mtk_musb.h"
+#include <mtk_musb.h>
 #endif
 
+#ifdef CONFIG_MTK_MUSB_PHY
+#include <usb20_phy.h>
+#endif
+
+#include <usb20.h>
+
 int musb_fake_CDP;
-/* kernel_init_done should be set in
- * early-init stage through
+
+/*
+ * kernel_init_done should be set in early-init stage through
  * init.$platform.usb.rc
+ * Fixme: kernel_init_done should be move to mt6765/usb20_host.c
  */
 int kernel_init_done;
-int musb_force_on;
+EXPORT_SYMBOL(kernel_init_done);
+module_param(kernel_init_done, int, 0644);
+
 int musb_host_dynamic_fifo = 1;
 int musb_host_dynamic_fifo_usage_msk;
 bool musb_host_db_enable;
 bool musb_host_db_workaround1;
 bool musb_host_db_workaround2;
+EXPORT_SYMBOL(musb_host_db_workaround2);
+
 long musb_host_db_delay_ns;
 long musb_host_db_workaround_cnt;
 int mtk_host_audio_free_ep_udelay = 1000;
 
 module_param(musb_fake_CDP, int, 0644);
-module_param(kernel_init_done, int, 0644);
 module_param(musb_host_dynamic_fifo, int, 0644);
 module_param(musb_host_dynamic_fifo_usage_msk, int, 0644);
 module_param(musb_host_db_enable, bool, 0644);
@@ -101,9 +112,7 @@ EXPORT_SYMBOL(musb_debug_limit);
 unsigned int musb_uart_debug = 1;
 EXPORT_SYMBOL(musb_uart_debug);
 
-struct musb *mtk_musb;
 unsigned int musb_speed = 1;
-bool mtk_usb_power;
 
 struct timeval writeTime;
 struct timeval interruptTime;
@@ -118,14 +127,11 @@ static const struct of_device_id apusb_of_ids[] = {
 	{},
 };
 
-/* void __iomem	*USB_BASE; */
-
 module_param_named(speed, musb_speed, uint, 0644);
 MODULE_PARM_DESC(debug, "USB speed configuration. default = 1, high speed");
 module_param_named(debug, musb_debug, uint, 0644);
 MODULE_PARM_DESC(debug, "Debug message level. Default = 0");
 module_param_named(debug_limit, musb_debug_limit, uint, 0644);
-module_param_named(dbg_uart, musb_uart_debug, uint, 0644);
 
 #define TA_WAIT_BCON(m) max_t(int, (m)->a_wait_bcon, OTG_TIME_A_WAIT_BCON)
 
@@ -1123,8 +1129,10 @@ b_host:
 			 * Recover usb phy setting and allow it can be
 			 * enter suspend status
 			 */
+#ifdef CONFIG_MTK_MUSB_PHY
 			USBPHY_CLR8(0x68, 0x08);
 			USBPHY_CLR8(0x6a, 0x04);
+#endif
 #ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 			musb_disable_q_all(musb);
 #endif
@@ -2392,6 +2400,9 @@ static int musb_init_controller
 	musb->min_power = plat->min_power;
 	musb->ops = plat->platform_ops;
 	musb->nIrq = nIrq;
+
+	glue->mtk_musb = mtk_musb;
+
 	/* The musb_platform_init() call:
 	 *   - adjusts musb->mregs
 	 *   - sets the musb->isr
@@ -2537,6 +2548,14 @@ static int musb_init_controller
 #endif
 #endif
 
+#ifdef CONFIG_MTK_MUSB_DUAL_ROLE
+	status = mt_usb_otg_switch_init(glue);
+	if (status < 0) {
+		DBG(0, "failed to initialize switch\n");
+		goto fail3;
+	}
+#endif
+
 	/*initial done, turn off usb */
 	musb_platform_disable(musb);
 	musb_platform_unprepare_clk(musb);
@@ -2602,7 +2621,12 @@ static int musb_probe(struct platform_device *pdev)
 	void __iomem *base;
 	void __iomem *pbase;
 	struct resource *iomem;
-	static struct device *efuse_dev;
+
+	if (usb_disabled())
+		return 0;
+
+	pr_info("%s: version " MUSB_VERSION ", ?dma?, otg (peripheral+host)\n"
+		, musb_driver_name);
 
 	iomem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	base = devm_ioremap(dev, iomem->start, resource_size(iomem));
@@ -2621,12 +2645,6 @@ static int musb_probe(struct platform_device *pdev)
 	pr_info("%s mac=0x%lx, phy=0x%lx, irq=%d\n"
 		, __func__, (unsigned long)base, (unsigned long)pbase, irq);
 	status = musb_init_controller(dev, irq, base, pbase);
-
-	if (!status) {
-		efuse_dev = &pdev->dev;
-		/* get phy efuse val */
-		mtk_musb->efuse_val = usb_phy_get_efuse_val(efuse_dev);
-	}
 
 	return status;
 }
@@ -2680,7 +2698,6 @@ static void musb_save_context(struct musb *musb)
 	musb->context.intrusbe = musb_readb(musb_base, MUSB_INTRUSBE);
 	musb->context.index = musb_readb(musb_base, MUSB_INDEX);
 	musb->context.devctl = musb_readb(musb_base, MUSB_DEVCTL);
-
 	musb->context.l1_int = musb_readl(musb_base, USB_L1INTM);
 
 	for (i = 0; i < musb->config->num_eps; ++i) {
@@ -2811,7 +2828,9 @@ static int musb_suspend_noirq(struct device *dev)
 	musb_platform_enable_clk(musb);
 
 	musb_save_context(musb);
+#ifdef CONFIG_MTK_UART_USB_SWITCH
 	usb_phy_context_save();
+#endif
 
 	/*Turn off USB clock, after finishing reading regs */
 	musb_platform_disable_clk(musb);
@@ -2822,7 +2841,7 @@ static int musb_suspend_noirq(struct device *dev)
 	#endif
 
 	usb_pre_clock(false);
-	/*spin_unlock_irqrestore(&musb->lock, flags); */
+	/* spin_unlock_irqrestore(&musb->lock, flags); */
 	return 0;
 }
 
@@ -2844,7 +2863,7 @@ static int musb_resume_noirq(struct device *dev)
 
 	usb_pre_clock(true);
 
-	/*Turn on USB clock, before writing a batch of regs */
+	/* Turn on USB clock, before writing a batch of regs */
 	mtk_usb_power = true;
 	#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
 	mt_usb_clock_prepare();
@@ -2853,7 +2872,9 @@ static int musb_resume_noirq(struct device *dev)
 	musb_platform_enable_clk(musb);
 
 	musb_restore_context(musb);
+#ifdef CONFIG_MTK_UART_USB_SWITCH
 	usb_phy_context_restore();
+#endif
 	/*Turn off USB clock, after finishing writing regs */
 	musb_platform_disable_clk(musb);
 	musb_platform_unprepare_clk(musb);
@@ -2889,6 +2910,7 @@ static struct platform_driver musb_driver = {
 	.remove = musb_remove,
 	.shutdown = musb_shutdown,
 };
+module_platform_driver(musb_driver);
 
 /*-------------------------------------------------------------------------*/
 

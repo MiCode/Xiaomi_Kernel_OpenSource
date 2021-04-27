@@ -6,6 +6,7 @@
 #ifndef __MT_MUSB_REG_H__
 #define __MT_MUSB_REG_H__
 
+#include "musb_debug.h"
 
 #define MUSB_EP0_FIFOSIZE	64	/* This is non-configurable */
 

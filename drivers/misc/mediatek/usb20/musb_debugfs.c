@@ -13,9 +13,15 @@
 
 #include <linux/uaccess.h>
 
+#ifdef CONFIG_MTK_MUSB_PHY
+#include <usb20_phy.h>
+#endif
+
 #define MUSB_OTG_CSR0 0x102
-#include "musb_core.h"
-#include "musb_debug.h"
+#include <musb.h>
+#include <musb_core.h>
+#include <musb_debug.h>
+#include <musb_dr.h>
 
 struct musb_register_map {
 	char *name;
@@ -431,11 +437,13 @@ static ssize_t musb_regw_mode_write
 			pr_notice("Must use 32bits alignment address\n");
 			return count;
 		}
+#ifdef CONFIG_MTK_MUSB_PHY
 		pr_notice("Phy base adddr 0x%lx, Write 0x%x[0x%x]\n",
 		(unsigned long)((void __iomem *)
 		(((unsigned long)musb->xceiv->io_priv)
 		+ 0x800)), offset, data);
 		USBPHY_WRITE32(offset, data);
+#endif
 	}
 
 	return count;
@@ -512,11 +520,13 @@ static ssize_t musb_regr_mode_write(struct file *file,
 			pr_notice("Must use 32bits alignment address\n");
 			return count;
 		}
+#ifdef CONFIG_MTK_MUSB_PHY
 		pr_notice("Read Phy base adddr 0x%lx, Read 0x%x[0x%x]\n",
 			(unsigned long)((void __iomem *)
 			(((unsigned long)musb->xceiv->io_priv)
 			+ 0x800)), offset,
 			USBPHY_READ32(offset));
+#endif
 	}
 
 	return count;
@@ -584,4 +594,110 @@ err0:
 void /* __init_or_exit */ musb_exit_debugfs(struct musb *musb)
 {
 	debugfs_remove_recursive(musb_debugfs_root);
+}
+
+static int musb_mode_show(struct seq_file *sf, void *unused)
+{
+	struct musb *musb = sf->private;
+	struct mt_usb_glue *glue =
+		container_of(&musb, struct mt_usb_glue, mtk_musb);
+
+	seq_printf(sf, "current mode: %s(%s drd)\n(echo device/host)\n",
+		   musb->is_host ? "host" : "device",
+		   glue->otg_sx.manual_drd_enabled ? "manual" : "auto");
+
+	return 0;
+}
+
+static int musb_mode_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, musb_mode_show, inode->i_private);
+}
+
+static ssize_t musb_mode_write(struct file *file, const char __user *ubuf,
+				size_t count, loff_t *ppos)
+{
+	struct seq_file *sf = file->private_data;
+	struct musb *musb = sf->private;
+	char buf[16];
+
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (!strncmp(buf, "host", 4) && !musb->is_host) {
+		mt_usb_mode_switch(musb, 1);
+	} else if (!strncmp(buf, "device", 6) && musb->is_host) {
+		mt_usb_mode_switch(musb, 0);
+	} else {
+		dev_err(musb->controller, "wrong or duplicated setting\n");
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static const struct file_operations musb_mode_fops = {
+	.open = musb_mode_open,
+	.write = musb_mode_write,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int musb_vbus_show(struct seq_file *sf, void *unused)
+{
+	struct musb *musb = sf->private;
+	struct mt_usb_glue *glue =
+		container_of(&musb, struct mt_usb_glue, mtk_musb);
+	struct otg_switch_mtk *otg_sx = &glue->otg_sx;
+
+	seq_printf(sf, "vbus state: %s\n(echo on/off)\n",
+		   regulator_is_enabled(otg_sx->vbus) ? "on" : "off");
+
+	return 0;
+}
+
+static int musb_vbus_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, musb_vbus_show, inode->i_private);
+}
+
+static ssize_t musb_vbus_write(struct file *file, const char __user *ubuf,
+				size_t count, loff_t *ppos)
+{
+	struct seq_file *sf = file->private_data;
+	struct musb *musb = sf->private;
+	struct mt_usb_glue *glue =
+		container_of(&musb, struct mt_usb_glue, mtk_musb);
+	struct otg_switch_mtk *otg_sx = &glue->otg_sx;
+	char buf[16];
+	bool enable;
+
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (kstrtobool(buf, &enable)) {
+		dev_err(musb->controller, "wrong setting\n");
+		return -EINVAL;
+	}
+
+	mt_usb_set_vbus(otg_sx, enable);
+
+	return count;
+}
+
+static const struct file_operations musb_vbus_fops = {
+	.open = musb_vbus_open,
+	.write = musb_vbus_write,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+void musb_dr_debugfs_init(struct musb *musb)
+{
+	struct dentry *root = musb_debugfs_root;
+
+	debugfs_create_file("mode", 0644, root, musb, &musb_mode_fops);
+	debugfs_create_file("vbus", 0644, root, musb, &musb_vbus_fops);
 }
