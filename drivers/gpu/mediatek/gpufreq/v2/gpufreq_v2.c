@@ -892,7 +892,7 @@ static void gpufreq_batt_percent_callback(
 		target = TARGET_GPU;
 
 	if (gpufreq_fp->get_batt_percent_idx)
-		ceiling = gpufreq_fp->get_batt_percent_idx(batt_oc_level);
+		ceiling = gpufreq_fp->get_batt_percent_idx(batt_percent_level);
 	else
 		ceiling = GPUPPM_RESET_IDX;
 
@@ -931,7 +931,7 @@ static void gpufreq_low_batt_callback(enum LOW_BATTERY_LEVEL_TAG low_batt_level)
 		target = TARGET_GPU;
 
 	if (gpufreq_fp->get_low_batt_idx)
-		ceiling = gpufreq_fp->get_low_batt_idx(batt_oc_level);
+		ceiling = gpufreq_fp->get_low_batt_idx(low_batt_level);
 	else
 		ceiling = GPUPPM_RESET_IDX;
 

@@ -37,5 +37,11 @@ mtk_gpufreq_mt6893-y := \
 	gpufreq_mt6893.o \
 	gpudfd_mt6893.o
 
+mtk_gpufreq_mt6983-y := \
+	gpuppm.o \
+	gpufreq_mt6983.o \
+	gpudfd_mt6983.o
+
 obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreq_wrapper.o
 obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreq_mt6893.o
+obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreq_mt6983.o
