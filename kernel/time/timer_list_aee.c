@@ -41,6 +41,7 @@ static void print_name_offset(struct seq_file *m, void *sym,
 		SEQ_printf_at_AEE(m, "<%pK>", sym);
 	} else {
 		SEQ_printf_at_AEE(m, "%s", symname);
+#if CONFIG_TIMER_AEE_FULL_DUMP
 		if (timer && !strncmp(symname, "hrtimer_wakeup",
 		    strlen("hrtimer_wakeup"))) {
 			struct hrtimer_sleeper *t =
@@ -48,6 +49,7 @@ static void print_name_offset(struct seq_file *m, void *sym,
 					      timer);
 			SEQ_printf_at_AEE(m, " (task: %s)", t->task->comm);
 		}
+#endif
 	}
 }
 
@@ -55,6 +57,7 @@ static void
 print_timer(struct seq_file *m, struct hrtimer *taddr, struct hrtimer *timer,
 	    int idx, u64 now)
 {
+#if CONFIG_TIMER_AEE_FULL_DUMP
 #ifdef CONFIG_TIMER_STATS
 	char tmp[TASK_COMM_LEN + 1];
 #endif
@@ -77,6 +80,16 @@ print_timer(struct seq_file *m, struct hrtimer *taddr, struct hrtimer *timer,
 		(unsigned long long)ktime_to_ns(hrtimer_get_expires(timer)),
 		(long long)(ktime_to_ns(hrtimer_get_softexpires(timer)) - now),
 		(long long)(ktime_to_ns(hrtimer_get_expires(timer)) - now));
+#else
+	SEQ_printf_at_AEE(m, " #%d: ", idx);
+	print_name_offset(m, taddr, NULL);
+	SEQ_printf_at_AEE(m, ", ");
+	print_name_offset(m, timer->function, taddr);
+#ifdef CONFIG_TIMER_STATS
+	SEQ_printf_at_AEE(m, ", ");
+	print_name_offset(m, timer->start_site, NULL);
+#endif
+#endif
 }
 
 static void
