@@ -39,6 +39,9 @@ static int mtk_clk_mux_enable_setclr(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
 
+	if (mux->data->gate_shift > 31)
+		return -EINVAL;
+
 	return regmap_write(mux->regmap, mux->data->clr_ofs,
 			BIT(mux->data->gate_shift));
 }
@@ -57,6 +60,8 @@ static int mtk_clk_mux_is_enabled(struct clk_hw *hw)
 	u32 val;
 
 	regmap_read(mux->regmap, mux->data->mux_ofs, &val);
+	if (mux->data->gate_shift > 31)
+		return -EINVAL;
 
 	return (val & BIT(mux->data->gate_shift)) == 0;
 }
