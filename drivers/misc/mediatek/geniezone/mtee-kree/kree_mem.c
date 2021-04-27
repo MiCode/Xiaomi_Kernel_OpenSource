@@ -39,7 +39,7 @@ DEFINE_MUTEX(chmem_mutex_unref);
 /*Translate mem_handle to ION_handle*/
 /*If this is optimized. set IONHandle_Transfer:0*/
 /*IONHandle_Transfer=1, as usual*/
-#define IONHandle_Transfer 1 /*1:ION_handle opt not impl */
+#define IONHandle_Transfer 0 /*1:ION_handle opt not impl */
 
 #if IONHandle_Transfer
 
@@ -663,6 +663,7 @@ TZ_RESULT KREE_UnreferenceSecuremem(KREE_SESSION_HANDLE session,
 
 #if API_chunkMem /*chunk memory APIs */
 
+#if IONHandle_Transfer
 static TZ_RESULT _add_HandleMapping_ION_MEM(
 	KREE_SECUREMEM_HANDLE mem_handle, KREE_ION_HANDLE IONHandle)
 {
@@ -721,6 +722,7 @@ static TZ_RESULT _del_HandleMapping_ION_MEM(
 	mutex_unlock(&chmem_mutex_unref);
 	return ret;
 }
+#endif
 
 uint32_t _IONHandle2MemHandle(KREE_ION_HANDLE IONHandle,
 	KREE_SECUREMEM_HANDLE *mem_handle)
