@@ -1019,7 +1019,7 @@ signed int rsc_deque_cb(struct frame *frames, void *req)
 	return 0;
 }
 
-
+#if CHECK_SERVICE_IF_0
 static bool mmu_get_dma_buffer(struct tee_mmu *mmu, int fd)
 {
 
@@ -1052,7 +1052,7 @@ err_attach:
 
 	return false;
 }
-
+#endif
 static void mmu_release(struct tee_mmu *mmu)
 {
 	if (mmu->dma_buf) {
@@ -1083,14 +1083,15 @@ void rsc_cmdq_cb_destroy(struct cmdq_cb_data data)
 unsigned long FD_OFFSET_ADDR[NUM_BASEADDR];
 signed int CmdqRSCHW(struct frame *frame)
 {
-	struct tee_mmu mmu;
 	struct tee_mmu *records = NULL;
 	struct RSC_Config *pRscConfig = NULL;
+#if CHECK_SERVICE_IF_0
+	struct tee_mmu mmu;
 	unsigned int hw_array[NUM_BASEADDR];
 	unsigned int fd_array[NUM_BASEADDR];
 	unsigned int offset_array[NUM_BASEADDR];
 	int i = 0;
-
+#endif
 #if CHECK_SERVICE_IF_1
 	struct cmdq_pkt *pkt;
 #if CHECK_SERVICE_IF_0
@@ -1140,6 +1141,7 @@ signed int CmdqRSCHW(struct frame *frame)
 	cmdq_pkt_write(pkt, cmdq_base, RSC_INT_CTL_HW, 0x1, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_CTRL_HW, pRscConfig->RSC_CTRL, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_SIZE_HW, pRscConfig->RSC_SIZE, ~0);
+#if CHECK_SERVICE_IF_0
 	if (!pRscConfig->IS_LEGACY) {
 		records = kzalloc(sizeof(struct tee_mmu) * NUM_BASEADDR
 					+ sizeof(unsigned long), GFP_KERNEL);
@@ -1182,6 +1184,7 @@ signed int CmdqRSCHW(struct frame *frame)
 			}
 		}
 	} else {
+#endif
 		cmdq_pkt_write(pkt, cmdq_base, RSC_APLI_C_BASE_ADDR_HW,
 				pRscConfig->RSC_APLI_C_BASE_ADDR, ~0);
 		cmdq_pkt_write(pkt, cmdq_base, RSC_APLI_P_BASE_ADDR_HW,
@@ -1196,8 +1199,9 @@ signed int CmdqRSCHW(struct frame *frame)
 				pRscConfig->RSC_MVO_BASE_ADDR, ~0);
 		cmdq_pkt_write(pkt, cmdq_base, RSC_BVO_BASE_ADDR_HW,
 				pRscConfig->RSC_BVO_BASE_ADDR, ~0);
+#if CHECK_SERVICE_IF_0
 	}
-
+#endif
 	cmdq_pkt_write(pkt, cmdq_base, RSC_IMGI_C_STRIDE_HW,
 			pRscConfig->RSC_IMGI_C_STRIDE, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_IMGI_P_STRIDE_HW,
