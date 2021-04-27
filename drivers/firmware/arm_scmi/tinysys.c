@@ -87,7 +87,7 @@ static int scmi_tinysys_common_get(const struct scmi_protocol_handle *ph,
 	struct scmi_tinysys_common_get_state *gt;
 
 	ret = ph->xops->xfer_get_init(ph, TINYSYS_COMMON_GET,
-				 sizeof(u32), sizeof(u32), &t);
+				 sizeof(*gt), sizeof(*rvalue), &t);
 	if (ret)
 		return ret;
 
