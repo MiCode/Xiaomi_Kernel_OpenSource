@@ -764,7 +764,7 @@ void base_ops_set_phase_gpu(struct eemg_det *det, enum eemg_phase phase)
 
 	case EEMG_PHASE_INIT02:
 		/* check if DCVALUES is minus and set DCVOFFSETIN to zero */
-		if ((det->DCVOFFSETIN & 0x8000) || (eemg_devinfo.FT_PGM == 0))
+		//if ((det->DCVOFFSETIN & 0x8000) || (eemg_devinfo.FT_PGM == 0))
 			det->DCVOFFSETIN = 0;
 
 #if ENABLE_MINIHQA
@@ -2444,6 +2444,7 @@ det->ops->get_volt_gpu(det));
 #endif
 void eemg_init01_gpu(void)
 {
+#if 0
 	struct eemg_det *det;
 	struct eemg_ctrl *ctrl;
 	unsigned int out = 0, timeout = 0;
@@ -2542,8 +2543,9 @@ __func__, __LINE__, det->name, det->real_vboot, det->VBOOT);
 	eemg_detectors[EEMG_DET_GPU_HI].AGEVOFFSETIN =
 		eemg_detectors[EEMG_DET_GPU].AGEVOFFSETIN;
 #endif
+#endif
 	eemg_init02_gpu(__func__);
-	FUNC_EXIT(FUNC_LV_LOCAL);
+//	FUNC_EXIT(FUNC_LV_LOCAL);
 }
 
 #if EN_EEMGPU
@@ -2719,7 +2721,7 @@ static int eemg_probe(struct platform_device *pdev)
 	eemg_debug("finish eemg_init_ctrl\n");
 #if !EARLY_PORTING
 #ifdef CONFIG_MTK_GPU_SUPPORT
-	mt_gpufreq_disable_by_ptpod();
+	//mt_gpufreq_disable_by_ptpod();
 #endif
 /* @@ */
 #if ENABLE_VPU
