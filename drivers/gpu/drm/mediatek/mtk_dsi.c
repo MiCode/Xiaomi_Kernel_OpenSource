@@ -5269,21 +5269,26 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 	case DSI_GET_MODE_BY_MAX_VREFRESH:
 	{
-		struct drm_display_mode *max_mode = NULL;
+		struct drm_display_mode *max_mode, *next;
 		unsigned int vrefresh = 0;
 
 		if (dsi == NULL)
 			break;
 
 		mode = (struct drm_display_mode **)params;
-		list_for_each_entry(max_mode, &dsi->conn.modes, head) {
-			if (max_mode) {
-				if (max_mode->vrefresh > vrefresh) {
-					vrefresh = max_mode->vrefresh;
-					*mode = max_mode;
-				}
+		mutex_lock(&dsi->conn.dev->mode_config.mutex);
+		list_for_each_entry_safe(max_mode, next, &dsi->conn.modes, head) {
+
+			if (max_mode == NULL)
+				break;
+
+			if (max_mode->vrefresh > vrefresh) {
+				vrefresh = max_mode->vrefresh;
+				*mode = max_mode;
 			}
 		}
+
+		mutex_unlock(&dsi->conn.dev->mode_config.mutex);
 	}
 		break;
 
@@ -5468,8 +5473,10 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	{
 		struct mtk_drm_crtc *crtc = (struct mtk_drm_crtc *)params;
 		struct drm_display_mode *m;
-		unsigned int i = 0;
+		struct drm_display_mode *n;
+		unsigned int i = 0, max_fps = 0;
 
+		mutex_lock(&dsi->conn.dev->mode_config.mutex);
 		crtc->avail_modes_num = 0;
 		list_for_each_entry(m, &dsi->conn.modes, head)
 			crtc->avail_modes_num++;
@@ -5477,10 +5484,16 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		crtc->avail_modes =
 		    vzalloc(sizeof(struct drm_display_mode) *
 			    crtc->avail_modes_num);
-		list_for_each_entry(m, &dsi->conn.modes, head) {
+
+		list_for_each_entry_safe(m, n, &dsi->conn.modes, head) {
+			if (m && m->vrefresh > max_fps)
+				max_fps = m->vrefresh;
 			drm_mode_copy(&crtc->avail_modes[i], m);
 			i++;
 		}
+		mutex_unlock(&dsi->conn.dev->mode_config.mutex);
+
+		crtc->max_fps = max_fps;
 	}
 		break;
 	case DSI_TIMING_CHANGE:

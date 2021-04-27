@@ -2159,22 +2159,10 @@ static void mtk_crtc_update_hrt_state_ex(struct drm_crtc *crtc,
 	int crtc_idx = drm_crtc_index(crtc);
 	unsigned int  ovl0_2l_no_compress_num =
 		HRT_GET_NO_COMPRESS_FLAG(lyeblob_ids->hrt_num);
-	struct mtk_ddp_comp *output_comp;
-	struct drm_display_mode *mode = NULL;
-	unsigned int max_fps = 0;
+	unsigned int max_fps = mtk_crtc->max_fps;
 
 	DDPINFO("%s bw=%d, last_hrt_req=%d\n",
 			__func__, bw, mtk_crtc->qos_ctx->last_hrt_req);
-
-	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-
-	if (output_comp && ((output_comp->id == DDP_COMPONENT_DSI0) ||
-					(output_comp->id == DDP_COMPONENT_DSI1))
-					&& !(mtk_dsi_is_cmd_mode(output_comp)))
-		mtk_ddp_comp_io_cmd(output_comp, NULL,
-			DSI_GET_MODE_BY_MAX_VREFRESH, &mode);
-	if (mode)
-		max_fps = mode->vrefresh;
 
 	DDPINFO("%s CRTC%u bw:%d, no_compress_num:%d max_fps:%d\n",
 		__func__, crtc_idx, bw, ovl0_2l_no_compress_num, max_fps);

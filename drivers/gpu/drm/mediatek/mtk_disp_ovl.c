@@ -1556,7 +1556,6 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		unsigned int vact = 0;
 		unsigned int vtotal = 0;
 		struct mtk_ddp_comp *output_comp;
-		struct drm_display_mode *mode = NULL;
 
 		mtk_crtc = comp->mtk_crtc;
 		crtc = &mtk_crtc->base;
@@ -1568,10 +1567,8 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		if (output_comp && ((output_comp->id == DDP_COMPONENT_DSI0) ||
 				(output_comp->id == DDP_COMPONENT_DSI1))
 				&& !(mtk_dsi_is_cmd_mode(output_comp))) {
-			mtk_ddp_comp_io_cmd(output_comp, NULL,
-				DSI_GET_MODE_BY_MAX_VREFRESH, &mode);
-			vtotal = mode->vtotal;
-			vact = mode->vdisplay;
+			vtotal = crtc->state->adjusted_mode.vtotal;
+			vact = crtc->state->adjusted_mode.vdisplay;
 			ratio_tmp = vtotal * 100 / vact;
 		} else
 			ratio_tmp = 125;
