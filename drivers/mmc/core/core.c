@@ -1704,7 +1704,7 @@ struct mmc_async_req *mmc_start_areq(struct mmc_host *host,
 		start_err =
 			__mmc_start_data_req(host, mrq);
 		if (!cmdq_en)
-			mt_biolog_mmcqd_req_start(host);
+			mt_biolog_mmcqd_req_start(host, mrq);
 	}
 
 	/* Postprocess the old request at this point */

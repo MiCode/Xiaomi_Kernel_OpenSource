@@ -29,7 +29,7 @@ void mt_bio_queue_alloc(struct task_struct *thread, struct request_queue *q);
 void mt_bio_queue_free(struct task_struct *thread);
 
 void mt_biolog_mmcqd_req_check(void);
-void mt_biolog_mmcqd_req_start(struct mmc_host *host);
+void mt_biolog_mmcqd_req_start(struct mmc_host *host, struct mmc_request *mrq);
 void mt_biolog_mmcqd_req_end(struct mmc_data *data);
 
 void mt_biolog_cmdq_check(void);
@@ -42,6 +42,8 @@ void mt_biolog_cmdq_isdone_end(unsigned int task_id);
 void mt_biolog_cqhci_check(void);
 void mt_biolog_cqhci_queue_task(unsigned int task_id, struct mmc_request *req);
 void mt_biolog_cqhci_complete(unsigned int task_id);
+
+extern void mtk_btag_commit_req(struct request *rq);
 
 #define MMC_BIOLOG_RINGBUF_MAX 120
 #define MMC_BIOLOG_CONTEXTS 10       /* number of request queues */

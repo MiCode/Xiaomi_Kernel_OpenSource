@@ -30,10 +30,6 @@
 #include <linux/mmc/card.h>
 #include <linux/module.h>
 
-#ifdef CONFIG_MTK_USE_RESERVED_EXT_MEM
-#include <linux/exm_driver.h>
-#endif
-
 #include "mtk_mmc_block.h"
 #include <mt-plat/mtk_blocktag.h>
 
@@ -659,6 +655,9 @@ void mt_biolog_cqhci_queue_task(unsigned int task_id, struct mmc_request *req)
 	if (!tsk)
 		return;
 
+	if (req->req)
+		mtk_btag_commit_req(req->req);
+
 	spin_lock_irqsave(&ctx->lock, flags);
 
 #ifdef CONFIG_MTK_EMMC_HW_CQ
@@ -767,7 +766,7 @@ void mt_biolog_mmcqd_req_check(void)
 }
 
 /* MMC Queue Hook: request start function at mmc_start_req() */
-void mt_biolog_mmcqd_req_start(struct mmc_host *host)
+void mt_biolog_mmcqd_req_start(struct mmc_host *host, struct mmc_request *mrq)
 {
 	struct mt_bio_context *ctx;
 	struct mt_bio_context_task *tsk;
@@ -775,6 +774,9 @@ void mt_biolog_mmcqd_req_start(struct mmc_host *host)
 	tsk = mt_bio_curr_task(0, &ctx);
 	if (!tsk)
 		return;
+	if (mrq && mrq->req)
+		mtk_btag_commit_req(mrq->req);
+
 	tsk->t[tsk_req_start] = sched_clock();
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
