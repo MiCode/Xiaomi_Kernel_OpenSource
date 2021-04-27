@@ -298,6 +298,11 @@ void aee_sram_printk(const char *fmt, ...)
 	tlen = sprintf(sram_printk_buf, ">%5lu.%06lu< ", (unsigned long)t,
 			nanosec_rem / 1000);
 
+	if (tlen < 0) {
+		preempt_enable();
+		return;
+	}
+
 	r = vscnprintf(sram_printk_buf + tlen, sizeof(sram_printk_buf) - tlen,
 			fmt, args);
 
