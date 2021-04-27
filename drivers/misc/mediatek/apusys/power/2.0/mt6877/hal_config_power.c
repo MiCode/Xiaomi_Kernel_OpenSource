@@ -1092,21 +1092,21 @@ static int set_domain_to_default_clk(int domain_idx)
 	int ret = 0;
 
 	if (domain_idx == 2)
-		ret = set_apu_clock_source(DVFS_FREQ_ACC_PARKING,
+		ret = set_apu_clock_source(DVFS_FREQ_ACC_SOC,
 								V_VPU0);
 	else if (domain_idx == 3)
-		ret = set_apu_clock_source(DVFS_FREQ_ACC_PARKING,
+		ret = set_apu_clock_source(DVFS_FREQ_ACC_SOC,
 								V_VPU1);
 	else if (domain_idx == 6)
-		ret = set_apu_clock_source(DVFS_FREQ_ACC_PARKING,
+		ret = set_apu_clock_source(DVFS_FREQ_ACC_SOC,
 								V_MDLA0);
 	else {
-		ret = set_apu_clock_source(DVFS_FREQ_ACC_PARKING,
+		ret = set_apu_clock_source(DVFS_FREQ_ACC_SOC,
 								V_APU_CONN);
 		if (ret)
 			goto exit;
 
-		ret = set_apu_clock_source(DVFS_FREQ_ACC_PARKING,
+		ret = set_apu_clock_source(DVFS_FREQ_ACC_SOC,
 								V_TOP_IOMMU);
 	}
 

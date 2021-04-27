@@ -34,6 +34,18 @@ static DEFINE_SPINLOCK(meter_lock);
  * MUST mapping to clock-names @ mt6877.dts
  **********************************************/
 
+/* for dvfs clock source */
+static struct clk *clk_top_dsp_sel;		/* CONN */
+static struct clk *clk_top_dsp1_sel;	/* VPU_CORE0 */
+static struct clk *clk_top_dsp2_sel;	/* VPU_CORE1 */
+static struct clk *clk_top_dsp5_sel;	/* MDLA0 */
+static struct clk *clk_top_ipu_if_sel;		/* IOMMU */
+
+/* for dvfs clock parent */
+static struct clk *clk_top_mainpll_d4_d2;	// 273
+static struct clk *clk_top_univpll_d4_d2;	// 312
+static struct clk *clk_top_univpll_d6_d2;	// 208
+
 #ifndef APUPWR_SECURE
 /* for dvfs clock source */
 static struct clk *clk_apupll_apupll;  /* MDLA  */
@@ -85,6 +97,15 @@ int prepare_apu_clock(struct device *dev)
 	PREPARE_CLK(clk_apupll_apupll1);
 	PREPARE_CLK(clk_apupll_apupll2);
 #endif
+	PREPARE_CLK(clk_top_dsp_sel);
+	PREPARE_CLK(clk_top_dsp1_sel);
+	PREPARE_CLK(clk_top_dsp2_sel);
+	PREPARE_CLK(clk_top_dsp5_sel);
+	PREPARE_CLK(clk_top_ipu_if_sel);
+
+	PREPARE_CLK(clk_top_mainpll_d4_d2);
+	PREPARE_CLK(clk_top_univpll_d4_d2);
+	PREPARE_CLK(clk_top_univpll_d6_d2);
 
 	return ret;
 }
@@ -217,7 +238,11 @@ int enable_apu_vcore_clksrc(void)
 
 int enable_apu_conn_clksrc(void)
 {
+	int ret = 0;
 	int ret_all = 0;
+
+	ENABLE_CLK(clk_top_dsp_sel);
+	ENABLE_CLK(clk_top_ipu_if_sel);
 
 	// MNOC, uP
 	enable_apupll(APUPLL1);
@@ -296,11 +321,15 @@ void acc_init(void)
 
 int enable_apu_device_clksrc(enum DVFS_USER user)
 {
+	int ret = 0;
 	int ret_all = 0;
 
 	switch (user) {
 	case VPU0:
 	case VPU1:
+		ENABLE_CLK(clk_top_dsp1_sel);
+		ENABLE_CLK(clk_top_dsp2_sel);
+
 		enable_apupll(NPUPLL);
 		if (user == VPU0)
 			enable_apuacc(V_VPU0);
@@ -309,6 +338,8 @@ int enable_apu_device_clksrc(enum DVFS_USER user)
 
 		break;
 	case MDLA0:
+		ENABLE_CLK(clk_top_dsp5_sel);
+
 		enable_apupll(APUPLL);
 		enable_apuacc(V_MDLA0);
 
@@ -391,6 +422,9 @@ void disable_apu_conn_clksrc(void)
 	disable_apuacc(V_APU_CONN);
 	disable_apupll(APUPLL1);
 
+	DISABLE_CLK(clk_top_dsp_sel);
+	DISABLE_CLK(clk_top_ipu_if_sel);
+
 	LOG_DBG("%s\n", __func__);
 }
 
@@ -400,14 +434,19 @@ void disable_apu_device_clksrc(enum DVFS_USER user)
 	case VPU0:
 		disable_apuacc(V_VPU0);
 		disable_apupll(NPUPLL);
+		DISABLE_CLK(clk_top_dsp1_sel);
+		DISABLE_CLK(clk_top_dsp2_sel);
 		break;
 	case VPU1:
 		disable_apuacc(V_VPU1);
 		disable_apupll(NPUPLL);
+		DISABLE_CLK(clk_top_dsp1_sel);
+		DISABLE_CLK(clk_top_dsp2_sel);
 		break;
 	case MDLA0:
 		disable_apuacc(V_MDLA0);
 		disable_apupll(APUPLL);
+		DISABLE_CLK(clk_top_dsp5_sel);
 		break;
 	default:
 		LOG_ERR("%s illegal DVFS_USER: %d\n", __func__, user);
@@ -907,30 +946,12 @@ void dump_frequency(struct apu_power_info *info)
 	info->apupll1_freq = apupll1_fmeter / dump_div;
 	info->apupll2_freq = apupll2_fmeter / dump_div;
 
-	if (info->acc_status[0] & BIT(BIT_SEL_APU))
-		info->conn_freq = acc0_fmeter;
-	else
-		info->conn_freq = acc7_pout_fmeter;
+	info->conn_freq = acc0_fmeter;
+	info->vpu0_freq = acc1_fmeter;
+	info->vpu1_freq = acc2_fmeter;
+	info->mdla0_freq = acc4_fmeter;
+	info->iommu_freq = acc7_fmeter;
 
-	if (info->acc_status[1] & BIT(BIT_SEL_APU))
-		info->vpu0_freq = acc1_fmeter;
-	else
-		info->vpu0_freq = acc0_pout_fmeter;
-
-	if (info->acc_status[2] & BIT(BIT_SEL_APU))
-		info->vpu1_freq = acc2_fmeter;
-	else
-		info->vpu1_freq = acc0_pout_fmeter;
-
-	if (info->acc_status[4] & BIT(BIT_SEL_APU))
-		info->mdla0_freq = acc4_fmeter;
-	else
-		info->mdla0_freq = acc0_pout_fmeter;
-
-	if (info->acc_status[7] & BIT(BIT_SEL_APU))
-		info->iommu_freq = acc7_fmeter;
-	else
-		info->iommu_freq = acc0_pout_fmeter;
 #endif
 
 #if 0
