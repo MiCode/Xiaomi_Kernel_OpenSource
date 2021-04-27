@@ -883,8 +883,14 @@
 
 	dvfsrc@10012000 {
 		compatible = "mediatek,dvfsrc";
-		reg = <0 0x10012000 0 0x1000>;
-		status = "disabled";
+		reg = <0 0x10012000 0 0x1000>,
+			<0 0x10006000 0 0x1000>;
+		interrupts = <GIC_SPI 290 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	boot_dramboost: boot_dramboost {
+		compatible = "mediatek,dvfsrc-boost";
+		boost_opp = <0>;
 	};
 
 	mbist_ao@10013000 {
@@ -1026,9 +1032,16 @@
 		reg = <0 0x1001c000 0 0x1000>;
 	};
 
-	dramc0@1001d000 {
-		compatible = "mediatek,dramc0";
-		reg = <0 0x1001d000 0 0x1000>;
+	dramc@10220000 {
+		compatible = "mediatek,dramc";
+		reg = <0 0x10220000 0 0x2000>,
+			<0 0x10230000 0 0x2000>,
+			<0 0x10224000 0 0x1000>,
+			<0 0x10234000 0 0x1000>,
+			<0 0x10228000 0 0x2000>,
+			<0 0x10238000 0 0x2000>,
+			<0 0x10226000 0 0x1000>,
+			<0 0x10236000 0 0x1000>;
 	};
 
 	ddrphy@1001e000 {
@@ -1449,11 +1462,15 @@
 		compatible = "mediatek,adsp_common";
 		reg = <0 0x10001000 0 0x1000>,  /* infracfg_ao */
 			<0 0x10003000 0 0x1000>;  /* pericfg */
-		clocks = <&infracfg_ao INFRACFG_AO_FADSP_CG>,  /* subsys_cg */
+		clocks = <&infracfg_ao INFRACFG_AO_FADSP_26M_CG>,  /* subsys_cg */
+			<&infracfg_ao INFRACFG_AO_FADSP_32K_CG>,  /* subsys_cg */
+			<&infracfg_ao INFRACFG_AO_FADSP_CG>,  /* subsys_cg */
 			<&topckgen TOP_MUX_ADSP>,   /* mux */
 			<&clk26m>,
 			<&topckgen TOP_ADSPPLL_CK>;
-		clock-names = "clk_adsp_infra",
+		clock-names = "clk_adsp_infra_26m",
+			"clk_adsp_infra_32k",
+			"clk_adsp_infra",
 			"clk_top_adsp_sel",
 			"clk_adsp_clk26m",
 			"clk_top_adsppll_ck";
@@ -2364,9 +2381,18 @@
 #endif
 	};
 
-	dfd_controller@13e00000 {
-		compatible = "mediatek,dfd_controller";
-		reg = <0 0x13e00000 0 0x112000>;
+	dfd: dfd {
+		compatible = "mediatek,dfd";
+		mediatek,enabled = <1>;
+		mediatek,chain_length = <0xa7f8>;
+		mediatek,rg_dfd_timeout = <0xa0>;
+	};
+
+	dfd_cache: dfd_cache {
+		compatible = "mediatek,dfd_cache";
+		mediatek,enabled = <0>;
+		mediatek,l2c_trigger = <0>;
+		mediatek,rg_dfd_timeout = <0x3e80>;
 	};
 
 	g3d_secure_reg@13fbc000 {
