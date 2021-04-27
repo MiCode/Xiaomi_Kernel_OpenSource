@@ -93,10 +93,17 @@ static int fpsgo_update_tracemark(void)
 	return 1;
 }
 
+static noinline int tracing_mark_write(const char *buf)
+{
+	trace_printk(buf);
+	return 0;
+}
+
 void __fpsgo_systrace_c(pid_t pid, unsigned long long bufID,
 	int val, const char *fmt, ...)
 {
 	char log[256];
+	char buf2[256];
 	va_list args;
 	int len;
 
@@ -114,20 +121,19 @@ void __fpsgo_systrace_c(pid_t pid, unsigned long long bufID,
 		log[255] = '\0';
 
 	if (!bufID) {
-		preempt_disable();
-		event_trace_printk(mark_addr, "C|%d|%s|%d\n", pid, log, val);
-		preempt_enable();
+		snprintf(buf2, sizeof(buf2), "C|%d|%s|%d\n", pid, log, val);
+		tracing_mark_write(buf2);
 	} else {
-		preempt_disable();
-		event_trace_printk(mark_addr, "C|%d|%s|%d|0x%llx\n",
+		snprintf(buf2, sizeof(buf2), "C|%d|%s|%d|0x%llx\n",
 			pid, log, val, bufID);
-		preempt_enable();
+		tracing_mark_write(buf2);
 	}
 }
 
 void __fpsgo_systrace_b(pid_t tgid, const char *fmt, ...)
 {
 	char log[256];
+	char buf2[256];
 	va_list args;
 	int len;
 
@@ -144,19 +150,18 @@ void __fpsgo_systrace_b(pid_t tgid, const char *fmt, ...)
 	else if (unlikely(len == 256))
 		log[255] = '\0';
 
-	preempt_disable();
-	event_trace_printk(mark_addr, "B|%d|%s\n", tgid, log);
-	preempt_enable();
+	snprintf(buf2, sizeof(buf2), "B|%d|%s\n", tgid, log);
+	tracing_mark_write(buf2);
 }
 
 void __fpsgo_systrace_e(void)
 {
+	char buf2[256];
 	if (unlikely(!fpsgo_update_tracemark()))
 		return;
 
-	preempt_disable();
-	event_trace_printk(mark_addr, "E\n");
-	preempt_enable();
+	snprintf(buf2, sizeof(buf2), "E\n");
+	tracing_mark_write(buf2);
 }
 
 void fpsgo_main_trace(const char *fmt, ...)
