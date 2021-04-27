@@ -21,7 +21,6 @@
 #include <linux/version.h>
 
 #include "private/tmem_entry.h"
-#include "private/tmem_error.h"
 #include "private/tmem_utils.h"
 #include "public/trusted_mem_api.h"
 
@@ -85,14 +84,15 @@ int trusted_mem_api_alloc_zero(enum TRUSTED_MEM_REQ_TYPE mem_type,
 EXPORT_SYMBOL(trusted_mem_api_alloc_zero);
 
 int trusted_mem_api_query_pa(enum TRUSTED_MEM_REQ_TYPE mem_type, u32 alignment,
-			      u32 size, u32 *refcount, u32 *gz_handle,
+			      u32 size, u32 *refcount, u32 *handle,
 			      u8 *owner, u32 id, u32 clean, uint64_t *phy_addr)
 {
-#if defined(CONFIG_MTK_GZ_KREE)
+#if defined(CONFIG_MTK_SVP_ON_MTEE_SUPPORT) && defined(CONFIG_MTK_GZ_KREE)
 	return tmem_query_gz_handle_to_pa(get_mem_type(mem_type), alignment, size,
-				refcount, gz_handle, owner, id, 0, phy_addr);
+				refcount, handle, owner, id, 0, phy_addr);
 #else
-	return TMEM_OPERATION_NOT_REGISTERED;
+	return tmem_query_sec_handle_to_pa(get_mem_type(mem_type), alignment, size,
+				refcount, handle, owner, id, 0, phy_addr);
 #endif
 }
 EXPORT_SYMBOL(trusted_mem_api_query_pa);
