@@ -382,7 +382,7 @@ static int mtk_sec_heap_create(void)
 		return PTR_ERR(mtk_svp_heap);
 	pr_info("%s add heap[%s] success\n", __func__, exp_info.name);
 
-	exp_info.name = "mtk_prot-uncached";
+	exp_info.name = "mtk_prot_region-uncached";
 	exp_info.ops = &prot_heap_ops;
 	exp_info.priv = NULL;
 
