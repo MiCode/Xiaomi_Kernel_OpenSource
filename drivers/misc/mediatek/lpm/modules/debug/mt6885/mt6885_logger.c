@@ -789,8 +789,10 @@ int __init mt6885_logger_init(void)
 	mtk_lpm_sysfs_root_entry_create();
 	mt6885_logger_timer_debugfs_init();
 
+	preempt_disable();
 	dev = cpuidle_get_device();
 	drv = cpuidle_get_cpu_driver(dev);
+	preempt_enable();
 	mt6885_logger_fired.state_index = -1;
 
 	if (drv) {
