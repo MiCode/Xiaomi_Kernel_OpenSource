@@ -968,6 +968,9 @@ static void msdc_init_hw(struct msdc_host *host)
 	/* Reset */
 	msdc_reset_hw(host->id);
 
+#ifdef SUPPORT_NEW_TX
+	msdc_select_new_tx(host);
+#endif
 #ifdef SUPPORT_NEW_TX_OLD_RX
 	msdc_new_tx_old_rx_setting(host);
 #endif
