@@ -88,8 +88,8 @@ struct gpufreq_debug_opp_info {
 	int segment_lowbound;
 	unsigned int dvfs_state;
 	unsigned int shader_present;
-	bool aging_enable;
-	bool stress_test_enable;
+	unsigned int aging_enable;
+	unsigned int stress_test_enable;
 };
 
 struct gpufreq_debug_limit_info {
@@ -104,6 +104,10 @@ struct gpufreq_debug_limit_info {
 /**************************************************
  * Function
  **************************************************/
+void gpufreq_debug_register_gpufreq_fp(
+	struct gpufreq_platform_fp *platform_fp);
+void gpufreq_debug_register_gpuppm_fp(
+	struct gpuppm_platform_fp *platform_fp);
 int gpufreq_debug_init(unsigned int dual_buck, unsigned int gpueb_support);
 
 #endif /* __GPUFREQ_DEBUG_H__ */

@@ -18,6 +18,7 @@
 #include <gpufreq_v2.h>
 #include <gpufreq_debug.h>
 #include <gpuppm.h>
+#include <gpufreq_common.h>
 
 /**
  * ===============================================
@@ -26,10 +27,10 @@
  */
 static DEFINE_MUTEX(gpuppm_lock_gpu);
 static DEFINE_MUTEX(gpuppm_lock_gstack);
-struct gpuppm_status g_gpu;
-struct gpuppm_status g_gstack;
+static struct gpuppm_status g_gpu;
+static struct gpuppm_status g_gstack;
 
-struct gpuppm_limit_info g_gpu_limit_table[] = {
+static struct gpuppm_limit_info g_gpu_limit_table[] = {
 	LIMITOP(LIMIT_SEGMENT, "SEGMENT", GPUPPM_PRIO_9,
 		GPUPPM_DEFAULT_IDX, LIMIT_ENABLE,
 		GPUPPM_DEFAULT_IDX, LIMIT_ENABLE),
@@ -62,9 +63,28 @@ struct gpuppm_limit_info g_gpu_limit_table[] = {
 		GPUPPM_DEFAULT_IDX, LIMIT_ENABLE),
 };
 
-struct gpuppm_limit_info g_gstack_limit_table[] = {};
+static struct gpuppm_limit_info g_gstack_limit_table[] = {};
 
-static void __gpuppm_sort_limit(enum gpufreq_target target);
+static struct gpuppm_platform_fp platform_fp = {
+	.limited_commit_gpu = gpuppm_limited_commit_gpu,
+	.limited_commit_gstack = gpuppm_limited_commit_gstack,
+	.set_limit_gpu = gpuppm_set_limit_gpu,
+	.switch_limit_gpu = gpuppm_switch_limit_gpu,
+	.set_limit_gstack = gpuppm_set_limit_gstack,
+	.switch_limit_gstack = gpuppm_switch_limit_gstack,
+	.get_ceiling_gpu = gpuppm_get_ceiling_gpu,
+	.get_floor_gpu = gpuppm_get_floor_gpu,
+	.get_c_limiter_gpu = gpuppm_get_c_limiter_gpu,
+	.get_f_limiter_gpu = gpuppm_get_f_limiter_gpu,
+	.get_limit_table_gpu = gpuppm_get_limit_table_gpu,
+	.get_debug_limit_info_gpu = gpuppm_get_debug_limit_info_gpu,
+	.get_ceiling_gstack = gpuppm_get_ceiling_gstack,
+	.get_floor_gstack = gpuppm_get_floor_gstack,
+	.get_c_limiter_gstack = gpuppm_get_c_limiter_gstack,
+	.get_f_limiter_gstack = gpuppm_get_f_limiter_gstack,
+	.get_limit_table_gstack = gpuppm_get_limit_table_gstack,
+	.get_debug_limit_info_gstack = gpuppm_get_debug_limit_info_gstack,
+};
 
 /**
  * ===============================================
@@ -153,31 +173,26 @@ int gpuppm_get_ceiling_gpu(void)
 {
 	return g_gpu.ceiling;
 }
-EXPORT_SYMBOL(gpuppm_get_ceiling_gpu);
 
 int gpuppm_get_floor_gpu(void)
 {
 	return g_gpu.floor;
 }
-EXPORT_SYMBOL(gpuppm_get_floor_gpu);
 
 unsigned int gpuppm_get_c_limiter_gpu(void)
 {
 	return g_gpu.c_limiter;
 }
-EXPORT_SYMBOL(gpuppm_get_c_limiter_gpu);
 
 unsigned int gpuppm_get_f_limiter_gpu(void)
 {
 	return g_gpu.f_limiter;
 }
-EXPORT_SYMBOL(gpuppm_get_f_limiter_gpu);
 
 const struct gpuppm_limit_info *gpuppm_get_limit_table_gpu(void)
 {
 	return g_gpu_limit_table;
 }
-EXPORT_SYMBOL(gpuppm_get_limit_table_gpu);
 
 struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info_gpu(void)
 {
@@ -196,37 +211,31 @@ struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info_gpu(void)
 
 	return limit_info;
 }
-EXPORT_SYMBOL(gpuppm_get_debug_limit_info_gpu);
 
 int gpuppm_get_ceiling_gstack(void)
 {
 	return g_gstack.ceiling;
 }
-EXPORT_SYMBOL(gpuppm_get_ceiling_gstack);
 
 int gpuppm_get_floor_gstack(void)
 {
 	return g_gstack.floor;
 }
-EXPORT_SYMBOL(gpuppm_get_floor_gstack);
 
 unsigned int gpuppm_get_c_limiter_gstack(void)
 {
 	return g_gstack.c_limiter;
 }
-EXPORT_SYMBOL(gpuppm_get_c_limiter_gstack);
 
 unsigned int gpuppm_get_f_limiter_gstack(void)
 {
 	return g_gstack.f_limiter;
 }
-EXPORT_SYMBOL(gpuppm_get_f_limiter_gstack);
 
 const struct gpuppm_limit_info *gpuppm_get_limit_table_gstack(void)
 {
 	return g_gstack_limit_table;
 }
-EXPORT_SYMBOL(gpuppm_get_limit_table_gstack);
 
 struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info_gstack(void)
 {
@@ -245,7 +254,6 @@ struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info_gstack(void)
 
 	return limit_info;
 }
-EXPORT_SYMBOL(gpuppm_get_debug_limit_info_gstack);
 
 int gpuppm_set_limit_gpu(
 	unsigned int limiter, int ceiling, int floor)
@@ -295,7 +303,6 @@ done:
 
 	return ret;
 }
-EXPORT_SYMBOL(gpuppm_set_limit_gpu);
 
 int gpuppm_switch_limit_gpu(
 	unsigned int limiter, int c_enable, int f_enable)
@@ -340,14 +347,12 @@ int gpuppm_switch_limit_gpu(
 done:
 	return ret;
 }
-EXPORT_SYMBOL(gpuppm_switch_limit_gpu);
 
 int gpuppm_set_limit_gstack(
 	unsigned int limiter, int ceiling, int floor)
 {
 	return GPUFREQ_SUCCESS;
 }
-EXPORT_SYMBOL(gpuppm_set_limit_gstack);
 
 int gpuppm_switch_limit_gstack(
 	unsigned int limiter, int c_enable, int f_enable)
@@ -392,7 +397,6 @@ int gpuppm_switch_limit_gstack(
 done:
 	return ret;
 }
-EXPORT_SYMBOL(gpuppm_switch_limit_gstack);
 
 int gpuppm_limited_commit_gpu(int oppidx)
 {
@@ -425,7 +429,6 @@ int gpuppm_limited_commit_gpu(int oppidx)
 
 	return ret;
 }
-EXPORT_SYMBOL(gpuppm_limited_commit_gpu);
 
 int gpuppm_limited_commit_gstack(int oppidx)
 {
@@ -440,13 +443,16 @@ int gpuppm_limited_commit_gstack(int oppidx)
 
 	return ret;
 }
-EXPORT_SYMBOL(gpuppm_limited_commit_gstack);
 
 int gpuppm_init(void)
 {
 	int max_oppidx_gpu = 0, min_oppidx_gpu = 0;
 	unsigned int opp_num_gpu = 0;
 	int ret = GPUFREQ_SUCCESS;
+
+	/* register gpuppm function to wrapper */
+	gpufreq_register_gpuppm_fp(&platform_fp);
+	gpufreq_debug_register_gpuppm_fp(&platform_fp);
 
 	opp_num_gpu = __gpufreq_get_opp_num_gpu();
 	max_oppidx_gpu = __gpufreq_get_max_idx_gpu();

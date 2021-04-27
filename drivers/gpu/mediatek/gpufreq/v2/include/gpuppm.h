@@ -54,16 +54,6 @@ struct gpuppm_status {
 	unsigned int opp_num;
 };
 
-struct gpuppm_limit_info {
-	unsigned int limiter;
-	char *name;
-	unsigned int priority;
-	int ceiling;
-	unsigned int c_enable;
-	int floor;
-	unsigned int f_enable;
-};
-
 /**************************************************
  * Function
  **************************************************/
