@@ -3,6 +3,8 @@
  * Copyright (c) 2015-2016 MediaTek Inc.
  * Author: Yong Wu <yong.wu@mediatek.com>
  */
+#define pr_fmt(fmt)    "mtk_iommu: " fmt
+
 #include <linux/bitfield.h>
 #include <linux/bug.h>
 #include <linux/clk.h>
@@ -131,6 +133,7 @@
 #define SET_TBW_ID			BIT(10)
 #define LINK_WITH_APU			BIT(11)
 #define TLB_SYNC_EN			BIT(12)
+#define GET_DOM_ID_LEGACY		BIT(13)
 
 #define MTK_IOMMU_HAS_FLAG(pdata, _x) \
 		((((pdata)->flags) & (_x)) == (_x))
@@ -410,8 +413,23 @@ static int mtk_iommu_get_domain_id(struct device *dev,
 {
 	const struct mtk_iommu_iova_region *rgn = plat_data->iova_region;
 	const struct bus_dma_region *dma_rgn = dev->dma_range_map;
+	struct mtk_iommu_data *data = dev_iommu_priv_get(dev);
 	int i, candidate = -1;
 	dma_addr_t dma_end;
+
+	if (MTK_IOMMU_HAS_FLAG(data->plat_data, GET_DOM_ID_LEGACY)) {
+		int domid;
+		struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+
+		domid = MTK_M4U_TO_DOM(fwspec->ids[0]);
+		if (domid >= plat_data->iova_region_nr) {
+			dev_err(dev, "iommu domain id(%d/%d) is error.\n", domid,
+				plat_data->iova_region_nr);
+			return -EINVAL;
+		}
+
+		return domid;
+	}
 
 	if (!dma_rgn || plat_data->iova_region_nr == 1)
 		return 0;
@@ -1273,11 +1291,10 @@ static const struct mtk_iommu_plat_data mt8167_data = {
 
 static const struct mtk_iommu_plat_data mt6893_data_iommu0 = {
 	.m4u_plat        = M4U_MT6893,
-	.flags           = NOT_STD_AXI_MODE,
+	.flags           = NOT_STD_AXI_MODE | HAS_SUB_COMM | OUT_ORDER_WR_EN | WR_THROT_EN | HAS_BCLK | IOVA_34_EN | GET_DOM_ID_LEGACY,
 	/* not use larbid_remap */
 	.larbid_remap    = {{0}, {1}, {4, 5}, {7}, {2}, {9, 11, 19, 20},
 			    {0, 14, 16}, {0, 13, 18, 17}},
-	.flags           = HAS_SUB_COMM | OUT_ORDER_WR_EN | WR_THROT_EN | HAS_BCLK,
 	.inv_sel_reg     = REG_MMU_INV_SEL_GEN2,
 	.iommu_type      = MM_IOMMU,
 	.iova_region     = mt6873_multi_dom,
@@ -1286,11 +1303,10 @@ static const struct mtk_iommu_plat_data mt6893_data_iommu0 = {
 
 static const struct mtk_iommu_plat_data mt6893_data_iommu1 = {
 	.m4u_plat        = M4U_MT6893,
-	.flags           = NOT_STD_AXI_MODE,
+	.flags           = NOT_STD_AXI_MODE | HAS_SUB_COMM | OUT_ORDER_WR_EN | WR_THROT_EN | HAS_BCLK | IOVA_34_EN | GET_DOM_ID_LEGACY,
 	/* not use larbid_remap */
 	.larbid_remap    = {{0}, {1}, {4, 5}, {7}, {2}, {9, 11, 19, 20},
 			    {0, 14, 16}, {0, 13, 18, 17}},
-	.flags           = HAS_SUB_COMM | OUT_ORDER_WR_EN | WR_THROT_EN | HAS_BCLK,
 	.inv_sel_reg     = REG_MMU_INV_SEL_GEN2,
 	.iommu_type      = MM_IOMMU,
 	.iova_region     = mt6873_multi_dom,
@@ -1299,7 +1315,7 @@ static const struct mtk_iommu_plat_data mt6893_data_iommu1 = {
 
 static const struct mtk_iommu_plat_data mt6893_data_iommu2 = {
 	.m4u_plat        = M4U_MT6893,
-	.flags           = LINK_WITH_APU,
+	.flags           = LINK_WITH_APU | IOVA_34_EN | GET_DOM_ID_LEGACY,
 	.iommu_type      = APU_IOMMU,
 	.inv_sel_reg	 = REG_MMU_INV_SEL_GEN2,
 	.iova_region	 = mt6873_multi_dom,
