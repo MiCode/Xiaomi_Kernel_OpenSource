@@ -26,6 +26,8 @@
 #include "mtk-eint.h"
 #include "pinctrl-mtk-common-v2.h"
 
+#define MTK_PINCTRL_DEV "pinctrl_mtk_v2"
+
 #define MTK_RANGE(_a)		{ .range = (_a), .nranges = ARRAY_SIZE(_a), }
 
 #define MTK_EINT_FUNCTION(_eintmux, _eintnum)				\

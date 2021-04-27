@@ -1,10 +1,34 @@
 # SPDX-License-Identifier: GPL-2.0
 # Core
-obj-$(CONFIG_EINT_MTK)		+= mtk-eint.o
+ifeq ($(CONFIG_EINT_MTK),m)
+obj-m += pinctrl-mtk-v2.o
+else ifeq ($(CONFIG_PINCTRL_MTK_V2),m)
+obj-m += pinctrl-mtk-v2.o
+else ifeq ($(CONFIG_PINCTRL_MTK_PARIS),m)
+obj-m += pinctrl-mtk-v2.o
+endif
+
+ifeq ($(CONFIG_EINT_MTK),y)
+obj-y += mtk-eint.o
+else ifeq ($(CONFIG_EINT_MTK),m)
+pinctrl-mtk-v2-y += mtk-eint.o
+endif
+
+ifeq ($(CONFIG_PINCTRL_MTK_V2),y)
+obj-y += pinctrl-mtk-common-v2.o
+else ifeq ($(CONFIG_PINCTRL_MTK_V2),m)
+pinctrl-mtk-v2-y += pinctrl-mtk-common-v2.o
+endif
+
+ifeq ($(CONFIG_PINCTRL_MTK_PARIS),y)
+obj-y += pinctrl-paris.o pinctrl-mtk-common-v2_debug.o
+else ifeq ($(CONFIG_PINCTRL_MTK_PARIS),m)
+pinctrl-mtk-v2-y += pinctrl-paris.o
+obj-m += pinctrl-mtk-common-v2_debug.o
+endif
+
 obj-$(CONFIG_PINCTRL_MTK)	+= pinctrl-mtk-common.o
-obj-$(CONFIG_PINCTRL_MTK_V2)	+= pinctrl-mtk-common-v2.o
 obj-$(CONFIG_PINCTRL_MTK_MOORE) += pinctrl-moore.o
-obj-$(CONFIG_PINCTRL_MTK_PARIS) += pinctrl-paris.o pinctrl-mtk-common-v2_debug.o
 
 # SoC Drivers
 obj-$(CONFIG_PINCTRL_MT2701)	+= pinctrl-mt2701.o

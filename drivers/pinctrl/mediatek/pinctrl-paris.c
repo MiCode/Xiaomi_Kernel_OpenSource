@@ -15,8 +15,6 @@
 #include <dt-bindings/pinctrl/mt65xx.h>
 #include "pinctrl-paris.h"
 
-#define PINCTRL_PINCTRL_DEV	KBUILD_MODNAME
-
 /* Custom pinconf parameters */
 #define MTK_PIN_CONFIG_TDSEL	(PIN_CONFIG_END + 1)
 #define MTK_PIN_CONFIG_RDSEL	(PIN_CONFIG_END + 2)
@@ -781,7 +779,7 @@ static const struct pinconf_ops mtk_confops = {
 };
 
 static struct pinctrl_desc mtk_desc = {
-	.name = PINCTRL_PINCTRL_DEV,
+	.name = MTK_PINCTRL_DEV,
 	.pctlops = &mtk_pctlops,
 	.pmxops = &mtk_pmxops,
 	.confops = &mtk_confops,
@@ -910,7 +908,7 @@ static int mtk_build_gpiochip(struct mtk_pinctrl *hw, struct device_node *np)
 	struct gpio_chip *chip = &hw->chip;
 	int ret;
 
-	chip->label		= PINCTRL_PINCTRL_DEV;
+	chip->label		= MTK_PINCTRL_DEV;
 	chip->parent		= hw->dev;
 	chip->request		= gpiochip_generic_request;
 	chip->free		= gpiochip_generic_free;

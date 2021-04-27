@@ -16,11 +16,10 @@
 #include <linux/delay.h>
 #include "pinctrl-paris.h"
 
-#define MTK_PINCTRL_DEV_NAME "pinctrl_paris"
 #define PULL_DELAY 50 /* in ms */
 #define FUN_3STATE "gpio_get_value_tristate"
 
-static const char *pinctrl_paris_modname = MTK_PINCTRL_DEV_NAME;
+static const char *pinctrl_paris_modname = MTK_PINCTRL_DEV;
 static struct mtk_pinctrl *g_hw;
 
 static void mtk_gpio_find_mtk_pinctrl_dev(void)

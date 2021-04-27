@@ -761,7 +761,6 @@ static const struct mtk_eh_pin_pinmux mt6885_eh_pin_pinmux_list[] = {
 	{203, 1},
 	{204, 1},
 	{205, 1},
-	{0xffff, 0}, /* indicate end of array */
 };
 
 static const char * const mt6885_pinctrl_register_base_names[] = {
@@ -788,6 +787,7 @@ static const struct mtk_pin_soc mt6885_data = {
 	.gpio_m = 0,
 	.race_free_access = true,
 	.eh_pin_pinmux = mt6885_eh_pin_pinmux_list,
+	.neh_pins = ARRAY_SIZE(mt6885_eh_pin_pinmux_list),
 	.bias_set_combo = mtk_pinconf_bias_set_combo,
 	.bias_get_combo = mtk_pinconf_bias_get_combo,
 	.drive_set = mtk_pinconf_drive_set_raw,
