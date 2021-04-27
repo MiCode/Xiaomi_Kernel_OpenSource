@@ -70,6 +70,7 @@ struct esoc_eng {
  * @userspace_handle_shutdown: True if user space handles shutdown requests.
  * @ssctl_id: SSCTL id for a subsystem.
  * @sysmon_name: Sysmon name for external soc
+ * @dbg_dir: Debugfs entry associated to this clink
  */
 struct esoc_clink {
 	const char *name;
@@ -97,6 +98,7 @@ struct esoc_clink {
 	struct esoc_client_hook *client_hook[ESOC_MAX_HOOKS];
 	int ssctl_id;
 	char *sysmon_name;
+	struct dentry *dbg_dir;
 };
 
 /**
