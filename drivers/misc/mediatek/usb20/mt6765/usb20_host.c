@@ -343,8 +343,7 @@ static int otg_tcp_notifier_call(struct notifier_block *nb,
 				noti->typec_state.new_state ==
 					TYPEC_ATTACHED_NORP_SRC) &&
 				in_uart_mode) {
-			pr_info("%s USB cable plugged-in in UART mode.
-					Switch to USB mode.\n", __func__);
+			DBG(0, "USB cable plugged-in in UART mode. Switch to USB mode.\n");
 			usb_phy_switch_to_usb();
 #endif
 		}

@@ -1218,24 +1218,6 @@ static ssize_t portmode_store(struct device *dev,
 
 DEVICE_ATTR_RW(portmode);
 
-static ssize_t uartpath_show(struct device *dev,
-					struct device_attribute *attr,
-					char *buf)
-{
-	u32 var;
-
-	if (!dev) {
-		DBG(0, "dev is null!!\n");
-		return 0;
-	}
-
-	var = GET_GPIO_SEL_VAL(readl(ap_gpio_base));
-	DBG(0, "[MUSB]GPIO SELECT=%x\n", var);
-
-	return scnprintf(buf, PAGE_SIZE, "%x\n", var);
-}
-
-DEVICE_ATTR_RW(uartpath);
 #endif
 
 #ifndef FPGA_PLATFORM
@@ -1243,7 +1225,6 @@ static struct device_attribute *mt_usb_attributes[] = {
 	&dev_attr_saving,
 #ifdef CONFIG_MTK_UART_USB_SWITCH
 	&dev_attr_portmode,
-	&dev_attr_uartpath,
 #endif
 	NULL
 };
