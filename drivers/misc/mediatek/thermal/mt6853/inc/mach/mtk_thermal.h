@@ -44,6 +44,7 @@ struct mt_gpufreq_power_table_info {
  */
 #define CFG_THERM_LVTS				(1)
 #define CFG_THERM_NO_AUXADC			(1)
+#define CFG_THERM_MCU_LVTS				(1)
 
 #if CFG_THERM_LVTS
 #define	CFG_LVTS_DOMINATOR			(1)
