@@ -1161,6 +1161,10 @@ void mtk_wdma_dump_golden_setting(struct mtk_ddp_comp *comp)
 	int i;
 
 	DDPDUMP("-- %s Golden Setting --\n", mtk_dump_comp_str(comp));
+	if (comp->mtk_crtc->sec_on) {
+		DDPDUMP("Skip dump secure wdma!\n");
+		return;
+	}
 	DDPDUMP("0x%03x:0x%08x 0x%03x:0x%08x\n",
 		0x10, readl(DISP_REG_WDMA_SMI_CON + baddr),
 		0x38, readl(DISP_REG_WDMA_BUF_CON1 + baddr));
@@ -1309,6 +1313,10 @@ int mtk_wdma_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	if (comp->mtk_crtc->sec_on) {
+		DDPDUMP("Skip dump secure wdma!\n");
+		return 0;
+	}
 	if (mtk_ddp_comp_helper_get_opt(comp,
 					MTK_DRM_OPT_REG_PARSER_RAW_DUMP)) {
 		unsigned int i = 0;
@@ -1392,6 +1400,10 @@ int mtk_wdma_analysis(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 
 	DDPDUMP("== DISP %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
+	if (comp->mtk_crtc->sec_on) {
+		DDPDUMP("Skip dump secure wdma!\n");
+		return 0;
+	}
 	DDPDUMP("en=%d,src(%dx%d),clip=(%d,%d,%dx%d)\n",
 		readl(baddr + DISP_REG_WDMA_EN) & 0x01,
 		readl(baddr + DISP_REG_WDMA_SRC_SIZE) & 0x3fff,
