@@ -233,6 +233,7 @@ static int rescue_second_time;
 static int rescue_second_group;
 static int rescue_second_copp;
 static int rescue_second_enable;
+static int rescue_second_enhance_f;
 static int qr_enable;
 static int qr_t2wnt_x;
 static int qr_t2wnt_y_p;
@@ -306,6 +307,7 @@ module_param(cm_tdiff_120, int, 0644);
 module_param(rescue_second_time, int, 0644);
 module_param(rescue_second_group, int, 0644);
 module_param(rescue_second_enable, int, 0644);
+module_param(rescue_second_enhance_f, int, 0644);
 module_param(qr_enable, int, 0644);
 module_param(qr_t2wnt_x, int, 0644);
 module_param(qr_t2wnt_y_p, int, 0644);
@@ -1794,7 +1796,7 @@ static void fbt_do_sjerk(struct work_struct *work)
 		goto EXIT;
 
 	blc_wt = fbt_get_new_base_blc(pld, thr->boost_info.last_blc,
-			rescue_enhance_f, rescue_second_copp);
+			rescue_second_enhance_f, rescue_second_copp);
 
 	thrm_aware_switch(0);
 	fbt_set_hard_limit_locked(FPSGO_HARD_NONE, pld);
@@ -5320,6 +5322,7 @@ int __init fbt_cpu_init(void)
 	loading_th = 0;
 	sampling_period_MS = 256;
 	rescue_enhance_f = 25;
+	rescue_second_enhance_f = 100;
 	loading_adj_cnt = fbt_get_default_adj_count();
 	loading_debnc_cnt = 30;
 	loading_time_diff = fbt_get_default_adj_tdiff();
