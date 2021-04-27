@@ -59,10 +59,20 @@ struct mtk_vcodec_pm {
 	struct mutex dec_racing_info_mutex;
 };
 
+enum mtk_dec_dump_addr_type {
+	DUMP_VDEC_IN_BUF,
+	DUMP_VDEC_OUT_BUF,
+	DUMP_VDEC_REF_BUF,
+	DUMP_VDEC_MV_BUF,
+	DUMP_VDEC_UBE_BUF,
+};
+
 enum mtk_dec_dtsi_reg_idx {
 	VDEC_SYS,
 	VDEC_BASE,
 	VDEC_VLD,
+	VDEC_MC,
+	VDEC_MV,
 	VDEC_MISC,
 	VDEC_LAT_MISC,
 	VDEC_LAT_VLD,
