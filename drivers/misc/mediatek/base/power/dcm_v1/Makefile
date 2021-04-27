@@ -15,6 +15,9 @@ obj-y += mt6833/
 else ifeq ($(CONFIG_MACH_MT6877),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/dcm_v1/mt6877/
 obj-y += mt6877/
+else ifeq ($(CONFIG_MACH_MT6781),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/dcm_v1/mt6781/
+obj-y += mt6781/
 else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/dcm_v1/$(MTK_PLATFORM)/
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
@@ -30,3 +33,4 @@ obj-$(CONFIG_MACH_MT6765) += mtk_dcm.o
 obj-$(CONFIG_MACH_MT6893) += mtk_dcm.o
 obj-$(CONFIG_MACH_MT8168) += mtk_dcm.o
 obj-$(CONFIG_MACH_MT6833) += mtk_dcm.o
+obj-$(CONFIG_MACH_MT6781) += mtk_dcm.o
