@@ -419,14 +419,17 @@ static void get_picachu_efuse(void)
 
 	addr_ptr = (void __iomem *) picachu_reserve_mem_get_virt(PICACHU_EEM_ID);
 
-	/* check signature */
-	sig = (eem_read(addr_ptr) >> PICACHU_SIGNATURE_SHIFT_BIT) & 0xff;
+	if (addr_ptr != NULL) {
+		/* check signature */
+		sig = (eem_read(addr_ptr) >> PICACHU_SIGNATURE_SHIFT_BIT)
+			& 0xff;
 
-	if (sig == PICACHU_SIG) {
-		ctrl_agingload_enable = eem_read(addr_ptr) & 0x1;
-		addr_ptr += 4;
-		memcpy(eemsn_log->vf_tbl_det,
-			addr_ptr, sizeof(eemsn_log->vf_tbl_det));
+		if (sig == PICACHU_SIG) {
+			ctrl_agingload_enable = eem_read(addr_ptr) & 0x1;
+			addr_ptr += 4;
+			memcpy(eemsn_log->vf_tbl_det,
+				addr_ptr, sizeof(eemsn_log->vf_tbl_det));
+		}
 	}
 }
 #endif
@@ -434,7 +437,6 @@ static void get_picachu_efuse(void)
 
 static int get_devinfo(void)
 {
-
 #if 0
 	struct eemsn_det *det;
 	unsigned int tmp;
@@ -483,6 +485,8 @@ static int get_devinfo(void)
 	val[17] = get_devinfo_with_index(DEVINFO_IDX_17);
 	val[18] = get_devinfo_with_index(DEVINFO_IDX_18);
 	val[19] = get_devinfo_with_index(DEVINFO_IDX_19);
+	val[20] = get_devinfo_with_index(DEVINFO_IDX_20);
+	val[21] = get_devinfo_with_index(DEVINFO_IDX_21);
 
 
 #if 0
@@ -519,6 +523,8 @@ static int get_devinfo(void)
 	val[17] = DEVINFO_17;
 	val[18] = DEVINFO_18;
 	val[19] = DEVINFO_19;
+	val[20] = DEVINFO_20;
+	val[21] = DEVINFO_21;
 
 #endif
 
@@ -593,6 +599,8 @@ static int get_devinfo(void)
 		val[17] = DEVINFO_17;
 		val[18] = DEVINFO_18;
 		val[19] = DEVINFO_19;
+		val[20] = DEVINFO_20;
+		val[21] = DEVINFO_21;
 	}
 #if FAKE_SN_DVT_EFUSE_FOR_DE
 		val[14] = DEVINFO_14;
@@ -601,8 +609,16 @@ static int get_devinfo(void)
 		val[17] = DEVINFO_17;
 		val[18] = DEVINFO_18;
 		val[19] = DEVINFO_19;
+		val[20] = DEVINFO_20;
+		val[21] = DEVINFO_21;
 #endif
+#if 0
+	vsn_lower_bound_26G = ((255 - eem_devinfo.Vsn_BCPU_2P6G) +
+			(255 - eem_devinfo.Final_Vmin_BCPU_2P6G) -
+			(255 - eem_devinfo.FPC_recovery_BCPU_2P6G) + 3) * CPU_PMIC_STEP;
 
+	eem_error("vsn_lower_bound_26G:%d", vsn_lower_bound_26G);
+#endif
 	FUNC_EXIT(FUNC_LV_HELP);
 	return ret;
 }

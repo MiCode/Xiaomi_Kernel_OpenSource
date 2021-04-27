@@ -35,7 +35,7 @@
 #define SET_PMIC_VOLT_TO_DVFS	(1)
 #define UPDATE_TO_UPOWER	(1)
 
-#define NR_HW_RES_FOR_BANK (20)	/* real eemsn banks for efuse */
+#define NR_HW_RES_FOR_BANK (22)	/* real eemsn banks for efuse */
 #define IDX_HW_RES_SN (14)	/* start index of Sensor Network efuse */
 
 #define NR_FREQ 16
@@ -99,6 +99,8 @@
 #define DEVINFO_IDX_17 168
 #define DEVINFO_IDX_18 169
 #define DEVINFO_IDX_19 170
+#define DEVINFO_IDX_20 173
+#define DEVINFO_IDX_21 174
 
 
 #define DEVINFO_TIME_IDX 132
@@ -144,5 +146,7 @@
 #define DEVINFO_17 0x396D396D
 #define DEVINFO_18 0x3C6C3C6C
 #define DEVINFO_19 0x00003210
+#define DEVINFO_20 0x0000727C
+#define DEVINFO_21 0x00000080
 
 #endif

@@ -172,6 +172,14 @@ struct eemsn_devinfo {
 	unsigned int ATE_TEMP:8;
 	unsigned int RSV4:16;
 
+	/* M_HW_RES20 */
+	unsigned int FPC_recovery_BCPU_2P6G:8;
+	unsigned int Final_Vmin_BCPU_2P6G:8;
+	unsigned int RSV5:16;
+
+	/* M_HW_RES21 */
+	unsigned int Vsn_BCPU_2P6G:8;
+	unsigned int RSV6:24;
 };
 
 
