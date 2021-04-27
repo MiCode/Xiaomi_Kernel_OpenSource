@@ -12,9 +12,9 @@
 #include <linux/interrupt.h>
 #include <linux/ratelimit.h>
 
-#include <linux/gunyah/hcall.h>
 #include <linux/gunyah/gh_msgq.h>
 #include <linux/gunyah/gh_errno.h>
+#include "hcall_msgq.h"
 
 /* HVC call specific mask: 0 to 31 */
 #define GH_MSGQ_HVC_FLAGS_MASK GENMASK_ULL(31, 0)

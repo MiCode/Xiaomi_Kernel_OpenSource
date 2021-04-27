@@ -27,11 +27,11 @@
 #include <linux/gh_virtio_backend.h>
 #include <linux/of_irq.h>
 #include <uapi/linux/virtio_mmio.h>
-#include <linux/gunyah/hcall.h>
 #include <linux/gunyah/gh_rm_drv.h>
 #include <linux/pgtable.h>
 #include <soc/qcom/secure_buffer.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "hcall_virtio.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/gh_virtio_backend.h>

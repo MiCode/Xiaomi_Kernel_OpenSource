@@ -11,7 +11,7 @@
 
 #include <linux/gunyah/gh_dbl.h>
 #include <linux/gunyah/gh_errno.h>
-#include <linux/gunyah/hcall.h>
+#include "hcall_dbl.h"
 
 struct gh_dbl_desc {
 	enum gh_dbl_label label;
