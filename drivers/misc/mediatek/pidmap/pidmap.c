@@ -48,7 +48,7 @@ static bool mtk_pidmap_allocate(void)
 	char *pidmap = NULL;
 	char *old_pidmap = NULL;
 
-	pidmap = vmalloc(PIDMAP_AEE_BUF_SIZE);
+	pidmap = kmalloc(PIDMAP_AEE_BUF_SIZE, GFP_KERNEL);
 	if (!pidmap)
 		return false;
 
@@ -57,8 +57,7 @@ static bool mtk_pidmap_allocate(void)
 
 	rcu_assign_pointer(mtk_pidmap, pidmap);
 	synchronize_rcu();
-	if (old_pidmap)
-		vfree(old_pidmap);
+	kfree(old_pidmap);
 	return true;
 }
 
@@ -80,8 +79,7 @@ static void mtk_pidmap_free(void)
 	old_pidmap = rcu_dereference(mtk_pidmap);
 	rcu_assign_pointer(mtk_pidmap, NULL);
 	synchronize_rcu();
-	if (old_pidmap)
-		vfree(old_pidmap);
+	kfree(old_pidmap);
 }
 
 static void mtk_pidmap_init_map(void)
@@ -419,4 +417,3 @@ EXPORT_SYMBOL(get_pidmap_aee_buffer);
 MODULE_AUTHOR("Stanley Chu <stanley.chu@mediatek.com>");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("PID Map");
-

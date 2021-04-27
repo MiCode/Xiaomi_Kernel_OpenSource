@@ -1297,13 +1297,12 @@ static bool mtk_btag_allocate_aee_buffer(void)
 	char *old_aee_buffer;
 
 	old_aee_buffer = rcu_dereference(blockio_aee_buffer);
-	aee_buffer = vmalloc(BLOCKIO_AEE_BUFFER_SIZE);
+	aee_buffer = kmalloc(BLOCKIO_AEE_BUFFER_SIZE, GFP_KERNEL);
 	if (aee_buffer) {
 		memset(aee_buffer, 0, BLOCKIO_AEE_BUFFER_SIZE);
 		rcu_assign_pointer(blockio_aee_buffer, aee_buffer);
 		synchronize_rcu();
-		if (old_aee_buffer)
-			vfree(old_aee_buffer);
+		kfree(old_aee_buffer);
 		pr_info(TAG " aeebuffer: new aee buffer is allocated\n");
 		return true;
 	}
@@ -1318,8 +1317,7 @@ static void mtk_btag_destroy_aee_buffer(void)
 	old_aee_buffer = rcu_dereference(blockio_aee_buffer);
 	rcu_assign_pointer(blockio_aee_buffer, NULL);
 	synchronize_rcu();
-	if (old_aee_buffer)
-		vfree(old_aee_buffer);
+	kfree(old_aee_buffer);
 }
 
 static bool mtk_btag_init_pidlogger(void)
