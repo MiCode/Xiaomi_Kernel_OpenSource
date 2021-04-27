@@ -1221,30 +1221,17 @@ exit:
 	return ret;
 }
 
-typedef int (*dma_buf_destructor)(struct dma_buf *dmabuf, void *dtor_data);
-static void dma_buf_set_destructor(struct dma_buf *dmabuf,
-				   dma_buf_destructor dtor,
-				   void *dtor_data)
-{
-}
-
-static int qseecom_destroy_bridge_callback(
-				struct dma_buf *dmabuf, void *dtor_data)
+static int qseecom_destroy_bridge_callback(void *dtor_data)
 {
 	int ret = 0;
 	uint64_t handle = (uint64_t)dtor_data;
 
-	if (!dmabuf) {
-		pr_err("dmabuf NULL\n");
-		return -EINVAL;
-	}
 	pr_debug("to destroy shm bridge %lld\n", handle);
 	ret = qtee_shmbridge_deregister(handle);
 	if (ret) {
 		pr_err("failed to destroy shm bridge %lld\n", handle);
 		return ret;
 	}
-	dma_buf_set_destructor(dmabuf, NULL, NULL);
 	return ret;
 }
 
@@ -1295,7 +1282,7 @@ static int qseecom_create_bridge_for_secbuf(int ion_fd, struct dma_buf *dmabuf,
 	}
 
 	pr_debug("created shm bridge %lld\n", handle);
-	dma_buf_set_destructor(dmabuf, qseecom_destroy_bridge_callback,
+	mem_buf_dma_buf_set_destructor(dmabuf, qseecom_destroy_bridge_callback,
 			       (void *)handle);
 
 exit:
