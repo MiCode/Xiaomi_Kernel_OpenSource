@@ -386,7 +386,7 @@ static int mtk_btag_earaio_init(void)
 
 }
 #else
-static inline bool mtk_btag_is_top_task(struct task_struct *task)
+static inline bool mtk_btag_is_top_task(struct task_struct *task, int mode, unsigned long page_idx)
 {
 	return false;
 }
