@@ -266,6 +266,11 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 		addon_data = mtk_addon_get_scenario_data(__func__, crtc,
 						mtk_crtc->cwb_info->scn);
 		mtk_drm_crtc_addon_dump(crtc, addon_data);
+		if (mtk_crtc->is_dual_pipe) {
+			addon_data = mtk_addon_get_scenario_data_dual
+				(__func__, crtc, mtk_crtc->cwb_info->scn);
+			mtk_drm_crtc_addon_dump(crtc, addon_data);
+		}
 	}
 
 	//addon from layering rule
@@ -380,6 +385,11 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 		addon_data = mtk_addon_get_scenario_data(__func__, crtc,
 						mtk_crtc->cwb_info->scn);
 		mtk_drm_crtc_addon_analysis(crtc, addon_data);
+		if (mtk_crtc->is_dual_pipe) {
+			addon_data = mtk_addon_get_scenario_data_dual
+				(__func__, crtc, mtk_crtc->cwb_info->scn);
+			mtk_drm_crtc_addon_analysis(crtc, addon_data);
+		}
 	}
 
 	//addon from layering rule
@@ -1506,6 +1516,7 @@ static void _mtk_crtc_cwb_addon_module_disconnect(
 {
 	int i;
 	const struct mtk_addon_scenario_data *addon_data;
+	const struct mtk_addon_scenario_data *addon_data_dual;
 	const struct mtk_addon_module_data *addon_module;
 	union mtk_addon_config addon_config;
 	int index = drm_crtc_index(crtc);
@@ -1522,16 +1533,34 @@ static void _mtk_crtc_cwb_addon_module_disconnect(
 	if (!addon_data)
 		return;
 
+	if (mtk_crtc->is_dual_pipe) {
+		addon_data_dual = mtk_addon_get_scenario_data_dual
+			(__func__, crtc, cwb_info->scn);
+
+		if (!addon_data_dual)
+			return;
+	}
+
 	for (i = 0; i < addon_data->module_num; i++) {
 		addon_module = &addon_data->module_data[i];
 		addon_config.config_type.module = addon_module->module;
 		addon_config.config_type.type = addon_module->type;
 
 		if (addon_module->type == ADDON_AFTER &&
-			addon_module->module == DISP_WDMA) {
-			mtk_addon_disconnect_after(crtc, ddp_mode, addon_module,
-							  &addon_config,
-							  cmdq_handle);
+			addon_module->module == DISP_WDMA0) {
+			if (mtk_crtc->is_dual_pipe) {
+				/* disconnect left pipe */
+				mtk_addon_disconnect_after(crtc, ddp_mode, addon_module,
+							  &addon_config, cmdq_handle);
+				/* disconnect right pipe */
+				addon_module = &addon_data_dual->module_data[i];
+				mtk_addon_disconnect_after(crtc, ddp_mode, addon_module,
+							  &addon_config, cmdq_handle);
+			} else {
+				mtk_addon_disconnect_after(crtc, ddp_mode, addon_module,
+								  &addon_config,
+								  cmdq_handle);
+			}
 		} else
 			DDPPR_ERR("addon type1:%d + module:%d not support\n",
 					  addon_module->type,
@@ -1634,6 +1663,7 @@ _mtk_crtc_cwb_addon_module_connect(
 {
 	int i;
 	const struct mtk_addon_scenario_data *addon_data;
+	const struct mtk_addon_scenario_data *addon_data_dual;
 	const struct mtk_addon_module_data *addon_module;
 	union mtk_addon_config addon_config;
 	int index = drm_crtc_index(crtc);
@@ -1657,13 +1687,21 @@ _mtk_crtc_cwb_addon_module_connect(
 	if (!addon_data)
 		return;
 
+	if (mtk_crtc->is_dual_pipe) {
+		addon_data_dual = mtk_addon_get_scenario_data_dual
+			(__func__, crtc, cwb_info->scn);
+
+		if (!addon_data_dual)
+			return;
+	}
+
 	for (i = 0; i < addon_data->module_num; i++) {
 		addon_module = &addon_data->module_data[i];
 		addon_config.config_type.module = addon_module->module;
 		addon_config.config_type.type = addon_module->type;
 
 		if (addon_module->type == ADDON_AFTER &&
-		    addon_module->module == DISP_WDMA) {
+		    addon_module->module == DISP_WDMA0) {
 			buf_idx = cwb_info->buf_idx;
 			addon_config.addon_wdma_config.wdma_src_roi =
 				cwb_info->src_roi;
@@ -1675,6 +1713,79 @@ _mtk_crtc_cwb_addon_module_connect(
 				cwb_info->buffer[buf_idx].fb;
 			addon_config.addon_wdma_config.p_golden_setting_context
 				= __get_golden_setting_context(mtk_crtc);
+			if (mtk_crtc->is_dual_pipe) {
+				int w = crtc->state->adjusted_mode.hdisplay;
+				struct mtk_rect src_roi_l;
+				struct mtk_rect src_roi_r;
+				struct mtk_rect dst_roi_l;
+				struct mtk_rect dst_roi_r;
+				unsigned int r_buff_off = 0;
+
+				src_roi_l = src_roi_r = cwb_info->src_roi;
+				dst_roi_l = dst_roi_r = cwb_info->buffer[buf_idx].dst_roi;
+
+				src_roi_l.x = 0;
+				src_roi_l.width = w/2;
+				src_roi_r.x = 0;
+				src_roi_r.width = w/2;
+
+				if (cwb_info->buffer[buf_idx].dst_roi.x +
+					cwb_info->buffer[buf_idx].dst_roi.width < w/2) {
+				/* handle source ROI locate in left pipe*/
+					dst_roi_r.x = 0;
+					dst_roi_r.y = 0;
+					dst_roi_r.width = 0;
+					dst_roi_r.height = 0;
+				} else if (cwb_info->buffer[buf_idx].dst_roi.x >= w/2) {
+				/* handle source ROI locate in right pipe*/
+					dst_roi_l.x = 0;
+					dst_roi_l.width = 0;
+					dst_roi_r.x = cwb_info->buffer[buf_idx].dst_roi.x - w/2;
+				} else {
+				/* handle source ROI locate in both display pipe*/
+					dst_roi_l.width = w/2 - cwb_info->buffer[buf_idx].dst_roi.x;
+					dst_roi_r.x = 0;
+					dst_roi_r.width =
+						cwb_info->buffer[buf_idx].dst_roi.width -
+						dst_roi_l.width;
+					r_buff_off = dst_roi_l.width;
+				}
+				DDPINFO("cwb (%u, %u %u, %u) (%u ,%u %u,%u)\n",
+					cwb_info->src_roi.width, cwb_info->src_roi.height,
+					cwb_info->src_roi.x, cwb_info->src_roi.y,
+					cwb_info->buffer[buf_idx].dst_roi.width,
+					cwb_info->buffer[buf_idx].dst_roi.height,
+					cwb_info->buffer[buf_idx].dst_roi.x,
+					cwb_info->buffer[buf_idx].dst_roi.y);
+				DDPDBG("L s(%u,%u %u,%u), d(%u,%u %u,%u)\n",
+					src_roi_l.width, src_roi_l.height,
+					src_roi_l.x, src_roi_l.y,
+					dst_roi_l.width, dst_roi_l.height,
+					dst_roi_l.x, dst_roi_l.y);
+				DDPDBG("R s(%u,%u %u,%u), d(%u,%u %u,%u)\n",
+					src_roi_r.width, src_roi_r.height,
+					src_roi_r.x, src_roi_r.y,
+					dst_roi_r.width, dst_roi_r.height,
+					dst_roi_r.x, dst_roi_r.y);
+				addon_config.addon_wdma_config.wdma_src_roi =
+					src_roi_l;
+				addon_config.addon_wdma_config.wdma_dst_roi =
+					dst_roi_l;
+
+				/* connect left pipe */
+				mtk_addon_connect_after(crtc, ddp_mode, addon_module,
+							  &addon_config, cmdq_handle);
+
+				addon_module = &addon_data_dual->module_data[i];
+				addon_config.addon_wdma_config.wdma_src_roi =
+					src_roi_r;
+				addon_config.addon_wdma_config.wdma_dst_roi =
+					dst_roi_r;
+				addon_config.addon_wdma_config.addr += r_buff_off * 3;
+				/* connect right pipe */
+				mtk_addon_connect_after(crtc, ddp_mode, addon_module,
+							  &addon_config, cmdq_handle);
+			}
 			mtk_addon_connect_after(crtc, ddp_mode, addon_module,
 						  &addon_config, cmdq_handle);
 		} else
@@ -1905,6 +2016,9 @@ static unsigned int dual_pipe_comp_mapping(unsigned int comp_id)
 
 	case DDP_COMPONENT_AAL0:
 		ret = DDP_COMPONENT_AAL1;
+		break;
+	case DDP_COMPONENT_WDMA0:
+		ret = DDP_COMPONENT_WDMA1;
 		break;
 	default:
 		DDPMSG("unknown comp %u for %s\n", comp_id, __func__);
@@ -6489,6 +6603,7 @@ static void mtk_drm_cwb_cb(struct cmdq_cb_data data)
 static void mtk_drm_cwb_give_buf(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_cwb_info *cwb_info;
 	struct mtk_ddp_comp *comp;
 	unsigned int target_idx, next_idx, addr = 0;
@@ -6530,6 +6645,10 @@ static void mtk_drm_cwb_give_buf(struct drm_crtc *crtc)
 	mtk_crtc_pkt_create(&handle, crtc, client);
 	mtk_crtc_wait_frame_done(mtk_crtc, handle, DDP_FIRST_PATH, 0);
 	mtk_ddp_comp_io_cmd(comp, handle, WDMA_WRITE_DST_ADDR0, &addr);
+	if (mtk_crtc->is_dual_pipe) {
+		comp = priv->ddp_comp[dual_pipe_comp_mapping(comp->id)];
+		mtk_ddp_comp_io_cmd(comp, handle, WDMA_WRITE_DST_ADDR0, &addr);
+	}
 	cb_data->cmdq_handle = handle;
 	if (cmdq_pkt_flush_threaded(handle, mtk_drm_cwb_cb, cb_data) < 0)
 		DDPPR_ERR("failed to flush write_back\n");
