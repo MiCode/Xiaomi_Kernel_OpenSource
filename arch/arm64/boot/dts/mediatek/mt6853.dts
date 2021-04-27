@@ -698,6 +698,14 @@
 		};
 	};
 
+
+	bp_thl: bp_thl {
+		compatible = "mediatek,mtk-bp-thl";
+		soc_limit = <15>;
+		soc_limit_ext = <20>;
+		soc_limit_ext_release = <25>;
+	};
+
 	lk_charger: lk_charger {
 		compatible = "mediatek,lk_charger";
 		enable_anime;
