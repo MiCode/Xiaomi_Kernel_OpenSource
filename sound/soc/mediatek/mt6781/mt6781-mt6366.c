@@ -539,6 +539,17 @@ static struct snd_soc_dai_link mt6781_mt6366_dai_links[] = {
 		.dpcm_capture = 1,
 	},
 	{
+		.name = "Capture_8",
+		.stream_name = "Capture_8",
+		.cpu_dai_name = "UL8",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.trigger = {SND_SOC_DPCM_TRIGGER_PRE,
+			    SND_SOC_DPCM_TRIGGER_PRE},
+		.dynamic = 1,
+		.dpcm_capture = 1,
+	},
+	{
 		.name = "Capture_Mono_1",
 		.stream_name = "Capture_Mono_1",
 		.cpu_dai_name = "UL_MONO_1",
