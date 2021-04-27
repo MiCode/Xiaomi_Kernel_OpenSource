@@ -83,9 +83,10 @@ unsigned long mtk_dp_atf_call(unsigned int cmd, unsigned int para)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	struct arm_smccc_res res;
+	u32 x3 = (cmd << 16) | para;
 
 	arm_smccc_smc(MTK_SIP_DP_CONTROL, cmd, para,
-		0, 0, 0, 0, 0, &res);
+		x3, 0xFEFD, 0, 0, 0, &res);
 
 	DPTXDBG("%s cmd 0x%x, p1 0x%x, ret 0x%x-0x%x",
 		__func__, cmd, para, res.a0, res.a1);
