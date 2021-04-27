@@ -13,6 +13,9 @@
 #include "mddp_export.h"
 #include "mddp_ipc.h"
 
+#define MDDP_ABNORMAL_CCCI_SEND_FAILED                      (1U << 0)
+#define MDDP_ABNORMAL_CHECK_FEATURE_ABSENT                  (1U << 1)
+#define MDDP_ABNORMAL_WIFI_DRV_GET_FEATURE_BEFORE_MD_READY  (1U << 2)
 //------------------------------------------------------------------------------
 // Struct definition.
 // -----------------------------------------------------------------------------
@@ -96,6 +99,8 @@ struct mddp_app_t {
 	struct mddp_sm_entry_t     *state_machines[MDDP_STATE_CNT];
 	uint32_t                    drv_reg;
 	atomic_t                    feature;
+	uint32_t                    abnormal_flags;
+	uint32_t                    reset_cnt;
 };
 
 
