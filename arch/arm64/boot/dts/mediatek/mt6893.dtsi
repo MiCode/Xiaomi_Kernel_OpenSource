@@ -4528,7 +4528,7 @@
 					operating-points-v2 = <&mdla_opp_table>;
 					top-mux = <&topckgen_clk CLK_TOP_DSP6_SEL>;
 					devfreq = <&mdla>;
-					gov = "apupassive";
+					gov = "apupassive-pe";
 					depth = <0>;
 				};
 				APUMDLA@1 {
@@ -4536,7 +4536,7 @@
 					operating-points-v2 = <&mdla_opp_table>;
 					top-mux = <&topckgen_clk CLK_TOP_DSP6_SEL>;
 					devfreq = <&mdla>;
-					gov = "apupassive";
+					gov = "apupassive-pe";
 					depth = <0>;
 				};
 			};
@@ -4551,7 +4551,7 @@
 					<&topckgen_clk CLK_TOP_MAINPLL_D3>,
 					<&topckgen_clk CLK_TOP_UNIVPLL_D3>;
 				devfreq = <&apuiommu>;
-				gov = "apupassive";
+				gov = "apupassive-pe";
 				depth = <0>;
 			};
 			vpu1: APUVPU@1 {
@@ -4565,7 +4565,7 @@
 					<&topckgen_clk CLK_TOP_MAINPLL_D3>,
 					<&topckgen_clk CLK_TOP_UNIVPLL_D3>;
 				devfreq = <&apuiommu>;
-				gov = "apupassive";
+				gov = "apupassive-pe";
 				depth = <0>;
 			};
 			vpu2: APUVPU@2 {
@@ -4579,7 +4579,7 @@
 					<&topckgen_clk CLK_TOP_MAINPLL_D3>,
 					<&topckgen_clk CLK_TOP_UNIVPLL_D3>;
 				devfreq = <&apuiommu>;
-				gov = "apupassive";
+				gov = "apupassive-pe";
 				depth = <0>;
 			};
 		};
