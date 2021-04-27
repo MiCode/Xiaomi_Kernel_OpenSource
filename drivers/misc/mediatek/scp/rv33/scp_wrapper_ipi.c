@@ -9,24 +9,8 @@
 
 #define IPI_NO_USE 0xFF
 
-static char msg_legacy_ipi_mpool_0[PIN_IN_SIZE_SCP_MPOOL * MBOX_SLOT_SIZE];
-static char msg_legacy_ipi_mpool_1[PIN_IN_SIZE_SCP_MPOOL * MBOX_SLOT_SIZE];
-
-#define SCP_IPI_LEGACY_GROUP				  \
-{							  \
-	{	.out_id_0 = IPI_OUT_SCP_MPOOL_0,	  \
-		.out_id_1 = IPI_OUT_SCP_MPOOL_1,	  \
-		.in_id_0 = IPI_IN_SCP_MPOOL_0,		  \
-		.in_id_1 = IPI_IN_SCP_MPOOL_1,		  \
-		.out_size = PIN_OUT_SIZE_SCP_MPOOL,	  \
-		.in_size = PIN_IN_SIZE_SCP_MPOOL,	  \
-		.msg_0 = msg_legacy_ipi_mpool_0,	  \
-		.msg_1 = msg_legacy_ipi_mpool_1,	  \
-	},						  \
-}
-
 struct scp_ipi_desc mpool[SCP_NR_IPI - IPI_MPOOL - 1];
-struct scp_ipi_wrapper scp_ipi_legacy_id[] = SCP_IPI_LEGACY_GROUP;
+struct scp_ipi_wrapper scp_ipi_legacy_id[1];
 
 
 struct scp_ipi_legacy_pkt {
@@ -170,12 +154,12 @@ enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 		tmp_id = id;
 
 	if (is_scp_ready(scp_id) == 0) {
-		pr_err("[SCP] %s: %s not ready\n", __func__, core_ids[scp_id]);
+		pr_notice("[SCP] %s: %s not ready\n", __func__, core_ids[scp_id]);
 		return SCP_IPI_NOT_READY;
 	}
 
 	if (len > (scp_ipi_legacy_id[tmp_id].out_size - 2) * MBOX_SLOT_SIZE) {
-		pr_err("%s: len overflow\n", __func__);
+		pr_notice("%s: len overflow\n", __func__);
 		return SCP_IPI_ERROR;
 	}
 
@@ -223,14 +207,14 @@ enum scp_ipi_status scp_legacy_ipi_init(void)
 
 	ret = mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_MPOOL_0,
 			      (void *)scp_legacy_handler, 0,
-			      msg_legacy_ipi_mpool_0);
+			      scp_ipi_legacy_id[0].msg_0);
 
 	if (ret != IPI_ACTION_DONE)
 		return SCP_IPI_ERROR;
 
 	ret = mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_MPOOL_1,
 			      (void *)scp_legacy_handler, 0,
-			      msg_legacy_ipi_mpool_1);
+			      scp_ipi_legacy_id[0].msg_1);
 
 	if (ret != IPI_ACTION_DONE)
 		return SCP_IPI_ERROR;
@@ -242,7 +226,7 @@ void mbox_setup_pin_table(unsigned int mbox)
 {
 	int i, last_ofs = 0, last_idx = 0, last_slot = 0, last_sz = 0;
 
-	for (i = 0; i < SCP_TOTAL_SEND_PIN; i++) {
+	for (i = 0; i < scp_mboxdev.recv_count; i++) {
 		if (mbox == scp_mbox_pin_send[i].mbox) {
 			scp_mbox_pin_send[i].offset = last_ofs + last_slot;
 			scp_mbox_pin_send[i].pin_index = last_idx + last_sz;
@@ -261,7 +245,7 @@ void mbox_setup_pin_table(unsigned int mbox)
 			break; /* no need to search the rest ipi */
 	}
 
-	for (i = 0; i < SCP_TOTAL_RECV_PIN; i++) {
+	for (i = 0; i < scp_mboxdev.recv_count; i++) {
 		if (mbox == scp_mbox_pin_recv[i].mbox) {
 			scp_mbox_pin_recv[i].offset = last_ofs + last_slot;
 			scp_mbox_pin_recv[i].pin_index = last_idx + last_sz;
@@ -283,7 +267,7 @@ void mbox_setup_pin_table(unsigned int mbox)
 
 	if (last_idx > 32 ||
 	   (last_ofs + last_slot) > (scp_mbox_info[mbox].is64d + 1) * 32) {
-		pr_err("mbox%d ofs(%d)/slot(%d) exceed the maximum\n",
+		pr_notice("mbox%d ofs(%d)/slot(%d) exceed the maximum\n",
 			mbox, last_idx, last_ofs + last_slot);
 		WARN_ON(1);
 	}
@@ -302,7 +286,7 @@ void mt_print_scp_ipi_id(unsigned int mbox)
 	} buf;
 
 	irq_status = mtk_mbox_read_recv_irq(&scp_mboxdev, mbox);
-	for (i = 0; i < SCP_TOTAL_RECV_PIN; i++) {
+	for (i = 0; i < scp_mboxdev.recv_count; i++) {
 		if (scp_mbox_pin_recv[i].mbox == mbox) {
 			if (irq_status & 1 << scp_mbox_pin_recv[i].pin_index) {
 				if (scp_mbox_pin_recv[i].chan_id

@@ -22,7 +22,8 @@ struct scp_ipi_wrapper {
 
 extern struct mtk_mbox_device scp_mboxdev;
 extern struct mtk_ipi_device scp_ipidev;
-extern struct mtk_mbox_info scp_mbox_info[SCP_MBOX_TOTAL];
+extern struct mtk_mbox_info *scp_mbox_info;
+extern struct scp_ipi_wrapper scp_ipi_legacy_id[1];
 
 extern enum scp_ipi_status scp_legacy_ipi_init(void);
 

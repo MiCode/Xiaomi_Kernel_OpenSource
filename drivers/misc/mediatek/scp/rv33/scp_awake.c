@@ -83,7 +83,7 @@ int scp_awake_lock(void *_scp_id)
 
 	count = 0;
 	while (++count != SCP_AWAKE_TIMEOUT) {
-		#if SCP_RECOVERY_SUPPORT
+#if SCP_RECOVERY_SUPPORT
 		if (atomic_read(&scp_reset_status) == RESET_STATUS_START) {
 			pr_notice("%s: resetting scp, break\n", __func__);
 			break;
@@ -174,7 +174,7 @@ int scp_awake_unlock(void *_scp_id)
 
 	count = 0;
 	while (++count != SCP_AWAKE_TIMEOUT) {
-		#if SCP_RECOVERY_SUPPORT
+#if SCP_RECOVERY_SUPPORT
 		if (atomic_read(&scp_reset_status) == RESET_STATUS_START) {
 			pr_notice("%s: scp is being reset, break\n", __func__);
 			break;
@@ -246,9 +246,11 @@ int scp_sys_full_reset(void)
 	/* reset dram from dram back */
 	if ((int)(scp_region_info_copy.ap_dram_size) > 0) {
 		tmp = (void *)(scp_ap_dram_virt +
-			ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*2);
+			ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)
+			* scpreg.core_nums);
 		memset(scp_ap_dram_virt, 0,
-			ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*2);
+			ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)
+			* scpreg.core_nums);
 		memcpy(scp_ap_dram_virt, tmp,
 			scp_region_info_copy.ap_dram_size);
 	}

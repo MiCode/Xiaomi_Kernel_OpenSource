@@ -91,6 +91,8 @@ struct scp_regs {
 	unsigned int total_tcmsize;
 	unsigned int cfgregsize;
 	unsigned int scp_tcmsize;
+	unsigned int core_nums;
+	unsigned int twohart;
 };
 
 /* scp work struct definition*/

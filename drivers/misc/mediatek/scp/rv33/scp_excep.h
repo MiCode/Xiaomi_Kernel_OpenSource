@@ -46,13 +46,15 @@ enum { r0, r1, r2, r3, r12, lr, pc, psr};
 extern int scp_ee_enable;
 extern int scp_reset_counts;
 
-extern struct scp_status_reg c0_m;
-extern struct scp_status_reg c1_m;
+extern struct scp_status_reg *c0_m;
+extern struct scp_status_reg *c0_t1_m;
+extern struct scp_status_reg *c1_m;
+extern struct scp_status_reg *c1_t1_m;
 
-#define MDUMP_L2TCM_SIZE     0x100000 /* L2_TCM */
+#define MDUMP_L2TCM_SIZE     0x200000 /* L2_TCM , for all scp maximum sram size */
 #define MDUMP_L1C_SIZE       0x03c000
-#define MDUMP_REGDUMP_SIZE   0x003f00 /* register backup (max size) */
-#define MDUMP_TBUF_SIZE      0x000100
+#define MDUMP_REGDUMP_SIZE   0x003c00 /* register backup (max size) */
+#define MDUMP_TBUF_SIZE      0x000400
 #define MDUMP_DRAM_SIZE      SCP_DRAM_MAPSIZE
 
 struct MemoryDump {

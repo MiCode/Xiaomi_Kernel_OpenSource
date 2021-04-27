@@ -46,6 +46,9 @@
 #define R_CORE1_DBG_CTRL	(scpreg.cfg_core1 + 0x0010)
 	#define M_CORE_TBUF_DBG_SEL	(7 << 4)
 	#define S_CORE_TBUF_DBG_SEL	(4)
+	#define M_CORE_TBUF_DBG_SEL_RV55	(0xfff0ff0f)
+	#define S_CORE_TBUF_S		(4)
+	#define S_CORE_TBUF1_S		(16)
 #define R_CORE0_WDT_IRQ		(scpreg.cfg_core0 + 0x0030)
 #define R_CORE1_WDT_IRQ		(scpreg.cfg_core1 + 0x0030)
 	#define B_WDT_IRQ	(1 << 0)
@@ -66,6 +69,14 @@
 #define R_CORE0_MON_LR_LATCH		(scpreg.cfg_core0 + 0x00d4)
 #define R_CORE0_MON_SP_LATCH		(scpreg.cfg_core0 + 0x00d8)
 
+#define R_CORE0_T1_MON_PC		(scpreg.cfg_core0 + 0x0160)
+#define R_CORE0_T1_MON_LR		(scpreg.cfg_core0 + 0x0164)
+#define R_CORE0_T1_MON_SP		(scpreg.cfg_core0 + 0x0168)
+
+#define R_CORE0_T1_MON_PC_LATCH		(scpreg.cfg_core0 + 0x0170)
+#define R_CORE0_T1_MON_LR_LATCH		(scpreg.cfg_core0 + 0x0174)
+#define R_CORE0_T1_MON_SP_LATCH		(scpreg.cfg_core0 + 0x0178)
+
 #define R_CORE1_STATUS			(scpreg.cfg_core1 + 0x0070)
 #define R_CORE1_MON_PC			(scpreg.cfg_core1 + 0x0080)
 #define R_CORE1_MON_LR			(scpreg.cfg_core1 + 0x0084)
@@ -76,15 +87,33 @@
 #define R_CORE1_MON_LR_LATCH		(scpreg.cfg_core1 + 0x00d4)
 #define R_CORE1_MON_SP_LATCH		(scpreg.cfg_core1 + 0x00d8)
 
+#define R_CORE1_T1_MON_PC		(scpreg.cfg_core1 + 0x0160)
+#define R_CORE1_T1_MON_LR		(scpreg.cfg_core1 + 0x0164)
+#define R_CORE1_T1_MON_SP		(scpreg.cfg_core1 + 0x0168)
+
+#define R_CORE1_T1_MON_PC_LATCH		(scpreg.cfg_core1 + 0x0170)
+#define R_CORE1_T1_MON_LR_LATCH		(scpreg.cfg_core1 + 0x0174)
+#define R_CORE1_T1_MON_SP_LATCH		(scpreg.cfg_core1 + 0x0178)
+
 #define R_CORE0_TBUF_DATA31_0		(scpreg.cfg_core0 + 0x00e0)
 #define R_CORE0_TBUF_DATA63_32		(scpreg.cfg_core0 + 0x00e4)
 #define R_CORE0_TBUF_DATA95_64		(scpreg.cfg_core0 + 0x00e8)
 #define R_CORE0_TBUF_DATA127_96		(scpreg.cfg_core0 + 0x00ec)
 
+#define R_CORE0_TBUF1_DATA31_0		(scpreg.cfg_core0 + 0x00f0)
+#define R_CORE0_TBUF1_DATA63_32		(scpreg.cfg_core0 + 0x00f4)
+#define R_CORE0_TBUF1_DATA95_64		(scpreg.cfg_core0 + 0x00f8)
+#define R_CORE0_TBUF1_DATA127_96	(scpreg.cfg_core0 + 0x00fc)
+
 #define R_CORE1_TBUF_DATA31_0		(scpreg.cfg_core1 + 0x00e0)
 #define R_CORE1_TBUF_DATA63_32		(scpreg.cfg_core1 + 0x00e4)
 #define R_CORE1_TBUF_DATA95_64		(scpreg.cfg_core1 + 0x00e8)
 #define R_CORE1_TBUF_DATA127_96		(scpreg.cfg_core1 + 0x00ec)
+
+#define R_CORE1_TBUF1_DATA31_0		(scpreg.cfg_core1 + 0x00f0)
+#define R_CORE1_TBUF1_DATA63_32		(scpreg.cfg_core1 + 0x00f4)
+#define R_CORE1_TBUF1_DATA95_64		(scpreg.cfg_core1 + 0x00f8)
+#define R_CORE1_TBUF1_DATA127_96	(scpreg.cfg_core1 + 0x00fc)
 
 #define SCP_A_GENERAL_REG0       (scpreg.cfg_core0 + 0x0040)
 /* DRAM reserved address and size */
@@ -94,20 +123,19 @@
 #define DRAM_RESV_SIZE_REG	 SCP_A_GENERAL_REG2
 /*EXPECTED_FREQ_REG*/
 #define SCP_A_GENERAL_REG3       (scpreg.cfg_core0 + 0x004C)
-#define EXPECTED_FREQ_REG        (scpreg.cfg_core0  + 0x4C)
+#define EXPECTED_FREQ_REG        SCP_A_GENERAL_REG3
 /*CURRENT_FREQ_REG*/
 #define SCP_A_GENERAL_REG4       (scpreg.cfg_core0 + 0x0050)
-#define CURRENT_FREQ_REG         (scpreg.cfg_core0  + 0x50)
+#define CURRENT_FREQ_REG         SCP_A_GENERAL_REG4
 /*SCP_GPR_CM4_A_REBOOT*/
 #define SCP_A_GENERAL_REG5		(scpreg.cfg_core0 + 0x0054)
-#define SCP_GPR_CORE0_REBOOT		(scpreg.cfg_core0 + 0x54)
+#define SCP_GPR_CORE0_REBOOT		SCP_A_GENERAL_REG5
 	#define CORE_RDY_TO_REBOOT	0x34
 	#define CORE_REBOOT_OK		0x1
+#define SCP_GPR_CORE1_REBOOT		(scpreg.cfg_core1 + 0x0054)
+
 #define SCP_A_GENERAL_REG6		(scpreg.cfg_core0 + 0x0058)
 #define SCP_A_GENERAL_REG7		(scpreg.cfg_core0 + 0x005C)
-
-#define SCP_GPR_CORE1_REBOOT		(scpreg.cfg_core1 + 0x54)
-
 /* bus tracker reg */
 #define SCP_BUS_DBG_CON			(scpreg.bus_tracker)
 #define SCP_BUS_DBG_AR_TRACK0_L		(scpreg.bus_tracker + 0x100)
@@ -129,9 +157,9 @@
 #define SCP_BUS_DBG_AW_TRACK7_L		(scpreg.bus_tracker + 0x338)
 
 /* clk reg*/
-#define SCP_A_SLEEP_DEBUG_REG	(scpreg.clkctrl + 0x0028)
-#define SCP_CLK_CTRL_L1_SRAM_PD	(scpreg.clkctrl + 0x002C)
-#define SCP_CLK_HIGH_CORE_CG	(scpreg.clkctrl + 0x005C)
+#define SCP_A_SLEEP_DEBUG_REG		(scpreg.clkctrl + 0x0028)
+#define SCP_CLK_CTRL_L1_SRAM_PD		(scpreg.clkctrl + 0x002C)
+#define SCP_CLK_HIGH_CORE_CG		(scpreg.clkctrl + 0x005C)
 #define SCP_CPU0_SRAM_PD		(scpreg.clkctrl + 0x0080)
 #define SCP_CPU1_SRAM_PD		(scpreg.clkctrl + 0x0084)
 #define SCP_CLK_CTRL_TCM_TAIL_SRAM_PD	(scpreg.clkctrl + 0x0094)

@@ -48,7 +48,6 @@
 /* definition of slot size for received PINs */
 #define PIN_IN_SIZE_SCP_ERROR_INFO_1	10 /* the following will use mbox 3 */
 #define PIN_IN_SIZE_LOGGER_CTRL		 6 /* the following will use mbox 3 */
-#define PIN_IN_SIZE_LOGGER_INIT_1	 5 /* the following will use mbox 3 */
 #define PIN_IN_SIZE_SCP_READY_1		 1 /* the following will use mbox 3 */
 #define PIN_IN_SIZE_SCP_RAM_DUMP_1	 2 /* the following will use mbox 3 */
 /* ============================================================ */
@@ -176,6 +175,8 @@ enum feature_id {
 
 extern struct mtk_mbox_device scp_mboxdev;
 extern struct mtk_ipi_device scp_ipidev;
+extern struct mtk_mbox_pin_send *scp_mbox_pin_send;
+extern struct mtk_mbox_pin_recv *scp_mbox_pin_recv;
 
 
 /* An API to get scp status */
