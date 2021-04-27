@@ -6,6 +6,9 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_device.h>
 #include "mtk_pbm.h"
 #include "mtk_mdpm.h"
 #include "mtk_mdpm_platform.h"
@@ -29,69 +32,69 @@ static int section_shift[DBM_SECTION_NUM] = {
 	DBM_SECTION_7,  DBM_SECTION_8,  DBM_SECTION_9,
 	DBM_SECTION_10, DBM_SECTION_11, DBM_SECTION_12};
 
-static struct tx_power mdpm_tx_pwr[TX_DBM_NUM] = {
+static struct tx_power mt6873_mdpm_tx_pwr[TX_DBM_NUM] = {
 	[TX_2G_DBM] = {
 		.dbm_name = "2G",
 		.shm_dbm_idx = {M_2G_DBM_TABLE, M_2G_DBM_1_TABLE},
 		.shm_sec_idx = {M_2G_SECTION_LEVEL, M_2G_SECTION_1_LEVEL},
-		.rfhw = &rfhw0[TX_2G_DBM],
+		.rfhw = &rfhw_6873[TX_2G_DBM],
 	},
 
 	[TX_3G_DBM] = {
 		.dbm_name = "3G",
 		.shm_dbm_idx = {M_3G_DBM_TABLE, M_3G_DBM_1_TABLE},
 		.shm_sec_idx = {M_3G_SECTION_LEVEL, M_3G_SECTION_1_LEVEL},
-		.rfhw = &rfhw0[TX_3G_DBM],
+		.rfhw = &rfhw_6873[TX_3G_DBM],
 	},
 
 	[TX_3GTDD_DBM] = {
 		.dbm_name = "3GTDD",
 		.shm_dbm_idx = {M_TDD_DBM_TABLE, M_TDD_DBM_1_TABLE},
 		.shm_sec_idx = {M_TDD_SECTION_LEVEL, M_TDD_SECTION_1_LEVEL},
-		.rfhw = &rfhw0[TX_3GTDD_DBM],
+		.rfhw = &rfhw_6873[TX_3GTDD_DBM],
 	},
 
 	[TX_4G_CC0_DBM] = {
 		.dbm_name = "4G_CC0",
 		.shm_dbm_idx = {M_4G_DBM_TABLE, M_4G_DBM_2_TABLE},
 		.shm_sec_idx = {M_4G_SECTION_LEVEL, M_4G_SECTION_9_LEVEL},
-		.rfhw = &rfhw0[TX_4G_CC0_DBM],
+		.rfhw = &rfhw_6873[TX_4G_CC0_DBM],
 	},
 
 	[TX_4G_CC1_DBM] = {
 		.dbm_name = "4G_CC1",
 		.shm_dbm_idx = {M_4G_DBM_1_TABLE, M_4G_DBM_3_TABLE},
 		.shm_sec_idx = {M_4G_SECTION_LEVEL, M_4G_SECTION_9_LEVEL},
-		.rfhw = &rfhw0[TX_4G_CC1_DBM],
+		.rfhw = &rfhw_6873[TX_4G_CC1_DBM],
 	},
 
 	[TX_C2K_DBM] = {
 		.dbm_name = "C2K",
 		.shm_dbm_idx = {M_C2K_DBM_1_TABLE, M_C2K_DBM_2_TABLE},
 		.shm_sec_idx = {M_C2K_SECTION_1_LEVEL, M_C2K_SECTION_2_LEVEL},
-		.rfhw = &rfhw0[TX_C2K_DBM],
+		.rfhw = &rfhw_6873[TX_C2K_DBM],
 	},
 
 	[TX_NR_CC0_DBM] = {
 		.dbm_name = "NR_CC0",
 		.shm_dbm_idx = {M_NR_DBM_TABLE, M_NR_DBM_1_TABLE},
 		.shm_sec_idx = {M_NR_SECTION_LEVEL, M_NR_SECTION_1_LEVEL},
-		.rfhw = &rfhw0[TX_NR_CC0_DBM],
+		.rfhw = &rfhw_6873[TX_NR_CC0_DBM],
 	},
 
 	[TX_NR_CC1_DBM] = {
 		.dbm_name = "NR_CC1",
 		.shm_dbm_idx = {M_NR_DBM_2_TABLE, M_NR_DBM_3_TABLE},
 		.shm_sec_idx = {M_NR_SECTION_2_LEVEL, M_NR_SECTION_3_LEVEL},
-		.rfhw = &rfhw0[TX_NR_CC1_DBM],
+		.rfhw = &rfhw_6873[TX_NR_CC1_DBM],
 	}
 };
 
-static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
+static struct mdpm_scenario mt6873_mdpm_scen[SCENARIO_NUM] = {
 	[S_STANDBY] = {
 		.scenario_reg = 0,
 		.scenario_name = "S_STANDBY",
-		.scenario_power = &md_scen_power[S_STANDBY],
+		.scenario_power = &md_scen_power_6873[S_STANDBY],
 		.tx_power_rat = {0, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -99,7 +102,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_2G_IDLE] = {
 		.scenario_reg = 1 << 2,
 		.scenario_name = "S_2G_IDLE",
-		.scenario_power = &md_scen_power[S_2G_IDLE],
+		.scenario_power = &md_scen_power_6873[S_2G_IDLE],
 		.tx_power_rat = {RAT_2G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -107,7 +110,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_2G_NON_IDLE] = {
 		.scenario_reg = 1 << 3,
 		.scenario_name = "S_2G_NON_IDLE",
-		.scenario_power = &md_scen_power[S_2G_NON_IDLE],
+		.scenario_power = &md_scen_power_6873[S_2G_NON_IDLE],
 		.tx_power_rat = {RAT_2G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -115,7 +118,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_C2K_DATALINK] = {
 		.scenario_reg = 1 << 5,
 		.scenario_name = "S_C2K_DATALINK",
-		.scenario_power = &md_scen_power[S_C2K_DATALINK],
+		.scenario_power = &md_scen_power_6873[S_C2K_DATALINK],
 		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -123,7 +126,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_C2K_SHDR] = {
 		.scenario_reg = 1 << 6,
 		.scenario_name = "S_C2K_SHDR",
-		.scenario_power = &md_scen_power[S_C2K_SHDR],
+		.scenario_power = &md_scen_power_6873[S_C2K_SHDR],
 		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -131,7 +134,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_C2K_1X_TRAFFIC] = {
 		.scenario_reg = 1 << 4,
 		.scenario_name = "S_C2K_1X_TRAFFIC",
-		.scenario_power = &md_scen_power[S_C2K_1X_TRAFFIC],
+		.scenario_power = &md_scen_power_6873[S_C2K_1X_TRAFFIC],
 		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -139,7 +142,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_3G_TDD_PAGING] = {
 		.scenario_reg = 1 << 7,
 		.scenario_name = "S_3G_TDD_PAGING",
-		.scenario_power = &md_scen_power[S_3G_TDD_PAGING],
+		.scenario_power = &md_scen_power_6873[S_3G_TDD_PAGING],
 		.tx_power_rat = {RAT_3GTDD, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -147,7 +150,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_3G_TDD_TALKING] = {
 		.scenario_reg = 1 << 8,
 		.scenario_name = "S_3G_TDD_TALKING",
-		.scenario_power = &md_scen_power[S_3G_TDD_TALKING],
+		.scenario_power = &md_scen_power_6873[S_3G_TDD_TALKING],
 		.tx_power_rat = {RAT_3GTDD, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -155,7 +158,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_3G_TDD_DATALINK] = {
 		.scenario_reg = 1 << 9,
 		.scenario_name = "S_3G_TDD_DATALINK",
-		.scenario_power = &md_scen_power[S_3G_TDD_DATALINK],
+		.scenario_power = &md_scen_power_6873[S_3G_TDD_DATALINK],
 		.tx_power_rat = {RAT_3GTDD, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -163,7 +166,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_3G_IDLE] = {
 		.scenario_reg = 1 << 1,
 		.scenario_name = "S_3G_IDLE",
-		.scenario_power = &md_scen_power[S_3G_IDLE],
+		.scenario_power = &md_scen_power_6873[S_3G_IDLE],
 		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -171,7 +174,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_3G_WCDMA_TALKING] = {
 		.scenario_reg = 1 << 10,
 		.scenario_name = "S_3G_WCDMA_TALKING",
-		.scenario_power = &md_scen_power[S_3G_WCDMA_TALKING],
+		.scenario_power = &md_scen_power_6873[S_3G_WCDMA_TALKING],
 		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -179,7 +182,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_3G_1C] = {
 		.scenario_reg = 1 << 11,
 		.scenario_name = "S_3G_1C",
-		.scenario_power = &md_scen_power[S_3G_1C],
+		.scenario_power = &md_scen_power_6873[S_3G_1C],
 		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -187,7 +190,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_3G_2C] = {
 		.scenario_reg = 1 << 12,
 		.scenario_name = "S_3G_2C",
-		.scenario_power = &md_scen_power[S_3G_2C],
+		.scenario_power = &md_scen_power_6873[S_3G_2C],
 		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -195,7 +198,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_4G_0D0U] = {
 		.scenario_reg = 1 << 13,
 		.scenario_name = "S_4G_0D0U",
-		.scenario_power = &md_scen_power[S_4G_0D0U],
+		.scenario_power = &md_scen_power_6873[S_4G_0D0U],
 		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -203,7 +206,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_4G_1CC] = {
 		.scenario_reg = 1 << 14,
 		.scenario_name = "S_4G_1CC",
-		.scenario_power = &md_scen_power[S_4G_1CC],
+		.scenario_power = &md_scen_power_6873[S_4G_1CC],
 		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -211,7 +214,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_4G_2CC] = {
 		.scenario_reg = 1 << 15,
 		.scenario_name = "S_4G_2CC",
-		.scenario_power = &md_scen_power[S_4G_2CC],
+		.scenario_power = &md_scen_power_6873[S_4G_2CC],
 		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -219,7 +222,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_4G_3CC] = {
 		.scenario_reg = 1 << 16,
 		.scenario_name = "S_4G_3CC",
-		.scenario_power = &md_scen_power[S_4G_3CC],
+		.scenario_power = &md_scen_power_6873[S_4G_3CC],
 		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -227,7 +230,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_4G_4CC] = {
 		.scenario_reg = 1 << 17,
 		.scenario_name = "S_4G_4CC",
-		.scenario_power = &md_scen_power[S_4G_4CC],
+		.scenario_power = &md_scen_power_6873[S_4G_4CC],
 		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -235,7 +238,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_4G_5CC] = {
 		.scenario_reg = 1 << 18,
 		.scenario_name = "S_4G_5CC",
-		.scenario_power = &md_scen_power[S_4G_5CC],
+		.scenario_power = &md_scen_power_6873[S_4G_5CC],
 		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -243,7 +246,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_5G_1CC_2CC] = {
 		.scenario_reg = 1 << 21,
 		.scenario_name = "S_5G_1CC_2CC",
-		.scenario_power = &md_scen_power[S_5G_1CC_2CC],
+		.scenario_power = &md_scen_power_6873[S_5G_1CC_2CC],
 		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
@@ -251,7 +254,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_5G_1CC_2CC_4G_4CC] = {
 		.scenario_reg = 1 << 21 | 1 << 17,
 		.scenario_name = "S_5G_1CC_2CC_4G_4CC",
-		.scenario_power = &md_scen_power[S_5G_1CC_2CC_4G_4CC],
+		.scenario_power = &md_scen_power_6873[S_5G_1CC_2CC_4G_4CC],
 		.tx_power_rat = {RAT_5G, RAT_4G, 0, 0, 0},
 		.tx_power_rat_sum = true,
 	},
@@ -259,7 +262,7 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_5G_1CC_2CC_4G_1CC] = {
 		.scenario_reg = 1 << 21 | 1 << 14,
 		.scenario_name = "S_5G_1CC_2CC_4G_1CC",
-		.scenario_power = &md_scen_power[S_5G_1CC_2CC_4G_1CC],
+		.scenario_power = &md_scen_power_6873[S_5G_1CC_2CC_4G_1CC],
 		.tx_power_rat = {RAT_5G, RAT_4G, 0, 0, 0},
 		.tx_power_rat_sum = true,
 	},
@@ -268,14 +271,285 @@ static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
 	[S_4G_POS_URGENT] = {
 		.scenario_reg = 1 << 31,
 		.scenario_name = "S_4G_POS_URGENT",
-		.scenario_power = &md_scen_power[S_4G_POS_URGENT],
+		.scenario_power = &md_scen_power_6873[S_4G_POS_URGENT],
 		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	}
 };
 
-#ifdef GET_MD_SCEANRIO_BY_SHARE_MEMORY
-static int scen_priority[SCENARIO_NUM] = {
+static int mt6873_scen_priority[SCENARIO_NUM] = {
+	S_5G_1CC_2CC_4G_1CC,
+	S_5G_1CC_2CC_4G_4CC,
+	S_5G_1CC_2CC,
+	S_4G_5CC,
+	S_4G_4CC,
+	S_4G_3CC,
+	S_4G_2CC,
+	S_4G_1CC,
+	S_3G_2C,
+	S_3G_1C,
+	S_3G_WCDMA_TALKING,
+	S_C2K_SHDR,
+	S_3G_TDD_DATALINK,
+	S_3G_TDD_TALKING,
+	S_C2K_DATALINK,
+	S_C2K_1X_TRAFFIC,
+	S_2G_NON_IDLE,
+	S_4G_0D0U,
+	S_3G_TDD_PAGING,
+	S_3G_IDLE,
+	S_2G_IDLE,
+	S_STANDBY,
+	S_4G_POS_URGENT
+};
+
+
+static struct tx_power mt6893_mdpm_tx_pwr[TX_DBM_NUM] = {
+	[TX_2G_DBM] = {
+		.dbm_name = "2G",
+		.shm_dbm_idx = {M_2G_DBM_TABLE, M_2G_DBM_1_TABLE},
+		.shm_sec_idx = {M_2G_SECTION_LEVEL, M_2G_SECTION_1_LEVEL},
+		.rfhw = &rfhw_6893[TX_2G_DBM],
+	},
+
+	[TX_3G_DBM] = {
+		.dbm_name = "3G",
+		.shm_dbm_idx = {M_3G_DBM_TABLE, M_3G_DBM_1_TABLE},
+		.shm_sec_idx = {M_3G_SECTION_LEVEL, M_3G_SECTION_1_LEVEL},
+		.rfhw = &rfhw_6893[TX_3G_DBM],
+	},
+
+	[TX_3GTDD_DBM] = {
+		.dbm_name = "3GTDD",
+		.shm_dbm_idx = {M_TDD_DBM_TABLE, M_TDD_DBM_1_TABLE},
+		.shm_sec_idx = {M_TDD_SECTION_LEVEL, M_TDD_SECTION_1_LEVEL},
+		.rfhw = &rfhw_6893[TX_3GTDD_DBM],
+	},
+
+	[TX_4G_CC0_DBM] = {
+		.dbm_name = "4G_CC0",
+		.shm_dbm_idx = {M_4G_DBM_TABLE, M_4G_DBM_2_TABLE},
+		.shm_sec_idx = {M_4G_SECTION_LEVEL, M_4G_SECTION_9_LEVEL},
+		.rfhw = &rfhw_6893[TX_4G_CC0_DBM],
+	},
+
+	[TX_4G_CC1_DBM] = {
+		.dbm_name = "4G_CC1",
+		.shm_dbm_idx = {M_4G_DBM_1_TABLE, M_4G_DBM_3_TABLE},
+		.shm_sec_idx = {M_4G_SECTION_LEVEL, M_4G_SECTION_9_LEVEL},
+		.rfhw = &rfhw_6893[TX_4G_CC1_DBM],
+	},
+
+	[TX_C2K_DBM] = {
+		.dbm_name = "C2K",
+		.shm_dbm_idx = {M_C2K_DBM_1_TABLE, M_C2K_DBM_2_TABLE},
+		.shm_sec_idx = {M_C2K_SECTION_1_LEVEL, M_C2K_SECTION_2_LEVEL},
+		.rfhw = &rfhw_6893[TX_C2K_DBM],
+	},
+
+	[TX_NR_CC0_DBM] = {
+		.dbm_name = "NR_CC0",
+		.shm_dbm_idx = {M_NR_DBM_TABLE, M_NR_DBM_1_TABLE},
+		.shm_sec_idx = {M_NR_SECTION_LEVEL, M_NR_SECTION_1_LEVEL},
+		.rfhw = &rfhw_6893[TX_NR_CC0_DBM],
+	},
+
+	[TX_NR_CC1_DBM] = {
+		.dbm_name = "NR_CC1",
+		.shm_dbm_idx = {M_NR_DBM_2_TABLE, M_NR_DBM_3_TABLE},
+		.shm_sec_idx = {M_NR_SECTION_2_LEVEL, M_NR_SECTION_3_LEVEL},
+		.rfhw = &rfhw_6893[TX_NR_CC1_DBM],
+	}
+};
+
+static struct mdpm_scenario mt6893_mdpm_scen[SCENARIO_NUM] = {
+	[S_STANDBY] = {
+		.scenario_reg = 0,
+		.scenario_name = "S_STANDBY",
+		.scenario_power = &md_scen_power_6893[S_STANDBY],
+		.tx_power_rat = {0, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_2G_IDLE] = {
+		.scenario_reg = 1 << 2,
+		.scenario_name = "S_2G_IDLE",
+		.scenario_power = &md_scen_power_6893[S_2G_IDLE],
+		.tx_power_rat = {RAT_2G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_2G_NON_IDLE] = {
+		.scenario_reg = 1 << 3,
+		.scenario_name = "S_2G_NON_IDLE",
+		.scenario_power = &md_scen_power_6893[S_2G_NON_IDLE],
+		.tx_power_rat = {RAT_2G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_C2K_DATALINK] = {
+		.scenario_reg = 1 << 5,
+		.scenario_name = "S_C2K_DATALINK",
+		.scenario_power = &md_scen_power_6893[S_C2K_DATALINK],
+		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_C2K_SHDR] = {
+		.scenario_reg = 1 << 6,
+		.scenario_name = "S_C2K_SHDR",
+		.scenario_power = &md_scen_power_6893[S_C2K_SHDR],
+		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_C2K_1X_TRAFFIC] = {
+		.scenario_reg = 1 << 4,
+		.scenario_name = "S_C2K_1X_TRAFFIC",
+		.scenario_power = &md_scen_power_6893[S_C2K_1X_TRAFFIC],
+		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_3G_TDD_PAGING] = {
+		.scenario_reg = 1 << 7,
+		.scenario_name = "S_3G_TDD_PAGING",
+		.scenario_power = &md_scen_power_6893[S_3G_TDD_PAGING],
+		.tx_power_rat = {RAT_3GTDD, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_3G_TDD_TALKING] = {
+		.scenario_reg = 1 << 8,
+		.scenario_name = "S_3G_TDD_TALKING",
+		.scenario_power = &md_scen_power_6893[S_3G_TDD_TALKING],
+		.tx_power_rat = {RAT_3GTDD, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_3G_TDD_DATALINK] = {
+		.scenario_reg = 1 << 9,
+		.scenario_name = "S_3G_TDD_DATALINK",
+		.scenario_power = &md_scen_power_6893[S_3G_TDD_DATALINK],
+		.tx_power_rat = {RAT_3GTDD, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_3G_IDLE] = {
+		.scenario_reg = 1 << 1,
+		.scenario_name = "S_3G_IDLE",
+		.scenario_power = &md_scen_power_6893[S_3G_IDLE],
+		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_3G_WCDMA_TALKING] = {
+		.scenario_reg = 1 << 10,
+		.scenario_name = "S_3G_WCDMA_TALKING",
+		.scenario_power = &md_scen_power_6893[S_3G_WCDMA_TALKING],
+		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_3G_1C] = {
+		.scenario_reg = 1 << 11,
+		.scenario_name = "S_3G_1C",
+		.scenario_power = &md_scen_power_6893[S_3G_1C],
+		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_3G_2C] = {
+		.scenario_reg = 1 << 12,
+		.scenario_name = "S_3G_2C",
+		.scenario_power = &md_scen_power_6893[S_3G_2C],
+		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_4G_0D0U] = {
+		.scenario_reg = 1 << 13,
+		.scenario_name = "S_4G_0D0U",
+		.scenario_power = &md_scen_power_6893[S_4G_0D0U],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_4G_1CC] = {
+		.scenario_reg = 1 << 14,
+		.scenario_name = "S_4G_1CC",
+		.scenario_power = &md_scen_power_6893[S_4G_1CC],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_4G_2CC] = {
+		.scenario_reg = 1 << 15,
+		.scenario_name = "S_4G_2CC",
+		.scenario_power = &md_scen_power_6893[S_4G_2CC],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_4G_3CC] = {
+		.scenario_reg = 1 << 16,
+		.scenario_name = "S_4G_3CC",
+		.scenario_power = &md_scen_power_6893[S_4G_3CC],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_4G_4CC] = {
+		.scenario_reg = 1 << 17,
+		.scenario_name = "S_4G_4CC",
+		.scenario_power = &md_scen_power_6893[S_4G_4CC],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_4G_5CC] = {
+		.scenario_reg = 1 << 18,
+		.scenario_name = "S_4G_5CC",
+		.scenario_power = &md_scen_power_6893[S_4G_5CC],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_5G_1CC_2CC] = {
+		.scenario_reg = 1 << 21,
+		.scenario_name = "S_5G_1CC_2CC",
+		.scenario_power = &md_scen_power_6893[S_5G_1CC_2CC],
+		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_5G_1CC_2CC_4G_4CC] = {
+		.scenario_reg = 1 << 21 | 1 << 17,
+		.scenario_name = "S_5G_1CC_2CC_4G_4CC",
+		.scenario_power = &md_scen_power_6893[S_5G_1CC_2CC_4G_4CC],
+		.tx_power_rat = {RAT_5G, RAT_4G, 0, 0, 0},
+		.tx_power_rat_sum = true,
+	},
+
+	[S_5G_1CC_2CC_4G_1CC] = {
+		.scenario_reg = 1 << 21 | 1 << 14,
+		.scenario_name = "S_5G_1CC_2CC_4G_1CC",
+		.scenario_power = &md_scen_power_6893[S_5G_1CC_2CC_4G_1CC],
+		.tx_power_rat = {RAT_5G, RAT_4G, 0, 0, 0},
+		.tx_power_rat_sum = true,
+	},
+
+
+	[S_4G_POS_URGENT] = {
+		.scenario_reg = 1 << 31,
+		.scenario_name = "S_4G_POS_URGENT",
+		.scenario_power = &md_scen_power_6893[S_4G_POS_URGENT],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	}
+};
+
+static int mt6893_scen_priority[SCENARIO_NUM] = {
 	S_5G_1CC_2CC_4G_4CC,
 	S_5G_1CC_2CC_4G_1CC,
 	S_5G_1CC_2CC,
@@ -300,7 +574,10 @@ static int scen_priority[SCENARIO_NUM] = {
 	S_STANDBY,
 	S_4G_POS_URGENT
 };
-#endif
+
+static struct tx_power *mdpm_tx_pwr;
+static struct mdpm_scenario *mdpm_scen;
+static int *scen_priority;
 
 void init_md_section_level(enum pbm_kicker kicker, u32 *share_mem)
 {
@@ -841,6 +1118,7 @@ int get_md1_tx_power(enum md_scenario scenario, u32 *share_mem,
 	else
 		return 0;
 
+/*
 	if (rfhw_sel != rf_ret) {
 		switch (rf_ret) {
 		case 0:
@@ -862,6 +1140,7 @@ int get_md1_tx_power(enum md_scenario scenario, u32 *share_mem,
 			break;
 		}
 	}
+*/
 
 	if (mt_mdpm_debug == 2)
 		for (i = 0; i < SHARE_MEM_SIZE; i++) {
@@ -923,17 +1202,72 @@ int get_md1_tx_power(enum md_scenario scenario, u32 *share_mem,
 	return tx_power_max;
 }
 
-static int __init mdpm_module_init(void)
+static int mdpm_probe(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
+	struct mdpm_data *mdpm_data;
+
+	mdpm_data = (struct mdpm_data *) of_device_get_match_data(dev);
+
+	if (!mdpm_data) {
+		dev_notice(dev, "Error: Failed to get mdpm platform data\n");
+		return -ENODATA;
+	}
+
+	mdpm_data->dev = &pdev->dev;
+
+	platform_set_drvdata(pdev, mdpm_data);
+
+	mdpm_tx_pwr = mdpm_data->tx_power_t;
+	mdpm_scen = mdpm_data->scenario_power_t;
+	scen_priority = mdpm_data->prority_t;
+
 	return 0;
 }
 
-static void __exit mdpm_module_exit(void)
-{
-}
+enum mdpm_platform {
+	MT6873_MDPM_DATA,
+	MT6893_MDPM_DATA
+};
 
-module_init(mdpm_module_init);
-module_exit(mdpm_module_exit);
+static struct mdpm_data mt6873_mdpm_data = {
+	.platform = MT6873_MDPM_DATA,
+	.scenario_power_t = mt6873_mdpm_scen,
+	.tx_power_t = mt6873_mdpm_tx_pwr,
+	.prority_t = (void *)&mt6873_scen_priority
+};
+
+static struct mdpm_data mt6893_mdpm_data = {
+	.platform = MT6893_MDPM_DATA,
+	.scenario_power_t = mt6893_mdpm_scen,
+	.tx_power_t = mt6893_mdpm_tx_pwr,
+	.prority_t = (void *)&mt6893_scen_priority
+};
+
+static const struct of_device_id mdpm_of_match[] = {
+	{
+		.compatible = "mediatek,mt6873-mdpm",
+		.data = (void *)&mt6873_mdpm_data,
+	},
+	{
+		.compatible = "mediatek,mt6893-mdpm",
+		.data = (void *)&mt6893_mdpm_data,
+	},
+	{
+	},
+};
+
+MODULE_DEVICE_TABLE(of, mdpm_of_match);
+
+static struct platform_driver mdpm_driver = {
+	.driver = {
+		.name = "mtk-modem_power_meter",
+		.of_match_table = mdpm_of_match,
+	},
+	.probe = mdpm_probe,
+};
+
+module_platform_driver(mdpm_driver);
 
 MODULE_AUTHOR("Samuel Hsieh");
 MODULE_DESCRIPTION("MTK modem power meter driver");

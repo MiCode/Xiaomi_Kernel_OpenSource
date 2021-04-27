@@ -7,7 +7,7 @@
 #ifndef _MTK_MDPM_PLATFORM_DATA_H_
 #define _MTK_MDPM_PLATFORM_DATA_H_
 
-static struct scenario_power_type_t md_scen_power[SCENARIO_NUM] = {
+static struct scenario_power_type_t md_scen_power_6893[SCENARIO_NUM] = {
 	[S_STANDBY]		= {    1,    1},
 	[S_2G_IDLE]		= {    1,    1},
 	[S_2G_NON_IDLE]		= {   62,   62},
@@ -33,7 +33,7 @@ static struct scenario_power_type_t md_scen_power[SCENARIO_NUM] = {
 	[S_4G_POS_URGENT]	= {  556,  556}
 };
 
-static struct rfhw_power_t rfhw0[TX_DBM_NUM] = {
+static struct rfhw_power_t rfhw_6893[TX_DBM_NUM] = {
 	[TX_2G_DBM] = {
 		.pa_power = {
 			{  680,  420,  340,  268,  212,  172,
@@ -155,7 +155,35 @@ static struct rfhw_power_t rfhw0[TX_DBM_NUM] = {
 	}
 };
 
-static struct rfhw_power_t rfhw1[TX_DBM_NUM] = {
+
+static struct scenario_power_type_t md_scen_power_6873[SCENARIO_NUM] = {
+	[S_STANDBY]		= {    1,    1},
+	[S_2G_IDLE]		= {    1,    1},
+	[S_2G_NON_IDLE]		= {   62,   62},
+	[S_C2K_DATALINK]	= {   86,   86},
+	[S_C2K_SHDR]		= {   50,   50},
+	[S_C2K_1X_TRAFFIC]	= {   83,   83},
+	[S_3G_TDD_PAGING]	= {    4,    4},
+	[S_3G_TDD_TALKING]	= {   82,   82},
+	[S_3G_TDD_DATALINK]	= {   77,   77},
+	[S_3G_IDLE]		= {    4,    4},
+	[S_3G_WCDMA_TALKING]	= {   83,   83},
+	[S_3G_1C]		= {  122,  122},
+	[S_3G_2C]		= {  138,  138},
+	[S_4G_0D0U]		= {    4,    4},
+	[S_4G_1CC]		= {  134,  134},
+	[S_4G_2CC]		= {  199,  199},
+	[S_4G_3CC]		= {  528,  528},
+	[S_4G_4CC]		= {  574,  574},
+	[S_4G_5CC]		= {  574,  574},
+	[S_5G_1CC_2CC]		= {  466,  466},
+	[S_5G_1CC_2CC_4G_4CC]	= {  631,  631},
+	[S_5G_1CC_2CC_4G_1CC]	= {  854,  854},
+	[S_4G_POS_URGENT]	= {  556,  556}
+};
+
+
+static struct rfhw_power_t rfhw_6873[TX_DBM_NUM] = {
 	[TX_2G_DBM] = {
 		.pa_power = {
 			{  680,  420,  340,  268,  212,  172,

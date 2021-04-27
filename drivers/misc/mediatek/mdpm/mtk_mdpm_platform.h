@@ -211,6 +211,14 @@ struct mdpm_scenario {
 		struct md_power_status *md_power_s);
 };
 
+struct mdpm_data {
+	struct device *dev;
+	unsigned int platform;
+	struct mdpm_scenario *scenario_power_t;
+	struct tx_power *tx_power_t;
+	void *prority_t;
+};
+
 extern void mt_mdpm_init(void);
 extern void init_md1_section_level(u32 *share_mem);
 extern void init_version_check(u32 *share_mem);
