@@ -304,17 +304,30 @@ static int mdw_cmd_get_ctx(struct mdw_ap_sc *sc)
 
 	mutex_lock(&ac->mtx);
 	if (!ctx_idx)
-		goto out;
+		goto get_vlm;
 
+	/* ctx exist in repo */
 	if (ac->ctx_repo[ctx_idx] != MDW_CMD_EMPTY_NUM) {
 		sc->vlm_ctx = ac->ctx_repo[ctx_idx];
+		mdw_flw_debug("sc(0x%llx-%u) re-use ctx(%u)\n",
+			sc->parent->c->kid, sc->idx,
+			sc->vlm_ctx);
 		goto out;
 	}
 
+get_vlm:
 	ret = mdw_rvs_get_vlm(sc->hdr->info->vlm_usage,
 		sc->hdr->info->vlm_force,
 		&sc->vlm_ctx,
 		&sc->tcm_real_size);
+
+	if (!ret && ac->ctx_repo[ctx_idx] == MDW_CMD_EMPTY_NUM)
+		ac->ctx_repo[ctx_idx] = sc->vlm_ctx;
+
+	mdw_flw_debug("sc(0x%llx-%u) get ctx(%u)(%u/%u)\n",
+		sc->parent->c->kid, sc->idx,
+		sc->vlm_ctx, sc->hdr->info->vlm_usage,
+		sc->tcm_real_size);
 
 out:
 	mutex_unlock(&ac->mtx);
@@ -327,15 +340,22 @@ static void mdw_cmd_put_ctx(struct mdw_ap_sc *sc)
 	uint32_t ctx_idx = sc->hdr->info->vlm_ctx_id;
 
 	mutex_lock(&ac->mtx);
-	if (ctx_idx)
-		mdw_rvs_free_vlm(sc->vlm_ctx);
+	if (!ctx_idx)
+		goto free_ctx;
 
 	ac->ctx_cnt[ctx_idx]--;
-	if (!ac->ctx_cnt[ctx_idx]) {
-		mdw_rvs_free_vlm(sc->vlm_ctx);
-		ac->ctx_repo[ctx_idx] = MDW_CMD_EMPTY_NUM;
-	}
+	if (!ac->ctx_cnt[ctx_idx])
+		goto out;
+	ac->ctx_repo[ctx_idx] = MDW_CMD_EMPTY_NUM;
 
+free_ctx:
+	mdw_rvs_free_vlm(sc->vlm_ctx);
+	mdw_flw_debug("sc(0x%llx-%u) put ctx(%u)(%u/%u)\n",
+		sc->parent->c->kid, sc->idx,
+		sc->vlm_ctx, sc->hdr->info->vlm_usage,
+		sc->tcm_real_size);
+
+out:
 	mutex_unlock(&ac->mtx);
 }
 
