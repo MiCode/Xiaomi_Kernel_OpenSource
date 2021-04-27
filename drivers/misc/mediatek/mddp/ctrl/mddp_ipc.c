@@ -7,6 +7,7 @@
 
 #include <linux/delay.h>
 #include <linux/kthread.h>
+#include <linux/sched/signal.h>
 
 #include "mddp_debug.h"
 #include "mddp_ipc.h"
@@ -91,7 +92,7 @@ static int32_t mddp_ipc_md_smem_layout_config(void)
 	}
 
 	MDDP_C_LOG(MDDP_LL_INFO,
-			"%s: smem total_len(%d)\n!", __func__, total_len);
+			"%s: smem total_len(%d)!\n", __func__, total_len);
 	return 0;
 }
 
@@ -131,7 +132,9 @@ static int32_t mddp_md_msg_hdlr(void *arg)
 	struct mdfpm_ctrl_msg_t     ctrl_msg;
 	int32_t                     rx_count;
 
-	while (1) {
+	allow_signal(SIGTERM);
+
+	while (!kthread_should_stop()) {
 		if (mddp_ipc_tty_port_s < 0) {
 			MDDP_C_LOG(MDDP_LL_WARN,
 					"%s: ipc_tty_port is invalid(%d)!\n",
@@ -142,6 +145,9 @@ static int32_t mddp_md_msg_hdlr(void *arg)
 
 		rx_count = mtk_ccci_read_data(mddp_ipc_tty_port_s,
 				(char *)&(ctrl_msg), sizeof(ctrl_msg));
+
+		if (signal_pending(current))
+			break;
 
 		if (rx_count > 0 && rx_count >= MDFPM_CTRL_MSG_HEADER_SZ) {
 			// OK. Forward to dest_user.
@@ -259,6 +265,7 @@ int32_t mddp_ipc_init(void)
 void mddp_ipc_uninit(void)
 {
 	if (rx_task) {
+		send_sig(SIGTERM, rx_task, 1);
 		kthread_stop(rx_task);
 		rx_task = NULL;
 	}

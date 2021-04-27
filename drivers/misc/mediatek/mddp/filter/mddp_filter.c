@@ -113,7 +113,9 @@ static uint32_t mddp_nfhook_postrouting_v6
 (void *priv, struct sk_buff *skb, const struct nf_hook_state *state);
 
 static int32_t mddp_f_init_nat_tuple(void);
+static void mddp_f_uninit_nat_tuple(void);
 static int32_t mddp_f_init_router_tuple(void);
+static void mddp_f_uninit_router_tuple(void);
 //------------------------------------------------------------------------------
 // Registered callback function.
 //------------------------------------------------------------------------------
@@ -953,8 +955,13 @@ int32_t mddp_filter_init(void)
 	return 0;
 }
 
+static atomic_t mddp_filter_quit = ATOMIC_INIT(0);
 void mddp_filter_uninit(void)
 {
+	mddp_netfilter_unhook();
+	atomic_set(&mddp_filter_quit, 1);
+	mddp_f_uninit_nat_tuple();
+	mddp_f_uninit_router_tuple();
 	dest_track_table();
 }
 
