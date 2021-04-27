@@ -386,7 +386,7 @@ static int mtk_sec_heap_create(void)
 	exp_info.ops = &prot_heap_ops;
 	exp_info.priv = NULL;
 
-	mtk_svp_heap = dma_heap_add(&exp_info);
+	mtk_prot_heap = dma_heap_add(&exp_info);
 	if (IS_ERR(mtk_prot_heap))
 		return PTR_ERR(mtk_prot_heap);
 	pr_info("%s add heap[%s] done\n", __func__, exp_info.name);
