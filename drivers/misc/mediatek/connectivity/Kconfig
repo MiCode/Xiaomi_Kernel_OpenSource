@@ -10,15 +10,6 @@ config MTK_COMBO
 # MTK Combo Chip Selection
 #
 
-choice
-	prompt "Select Chip"
-	depends on MTK_COMBO
-	help
-	  This is used to select chip.
-	  When MTK_COMBO is y,
-	  we need to choose
-	  a chip.
-
 config MTK_COMBO_CHIP_MT6620
 	bool "MT6620"
 	help
@@ -179,33 +170,6 @@ config MTK_COMBO_CHIP_CONSYS_6893
 	  in current platform
 	  is
 	  MT6893(BT/WIFI/GPS/FM combo chip)
-
-endchoice
-
-config MTK_COMBO_CHIP
-	string
-	default "MT6620" if MTK_COMBO_CHIP_MT6620
-	default "MT6628" if MTK_COMBO_CHIP_MT6628
-	default "MT6630" if MTK_COMBO_CHIP_MT6630
-	default "MT6632" if MTK_COMBO_CHIP_MT6632
-	default "MT7668" if MTK_COMBO_CHIP_MT7668
-	default "CONSYS_6757" if MTK_COMBO_CHIP_CONSYS_6757
-	default "CONSYS_6763" if MTK_COMBO_CHIP_CONSYS_6763
-	default "CONSYS_6758" if MTK_COMBO_CHIP_CONSYS_6758
-	default "CONSYS_6759" if MTK_COMBO_CHIP_CONSYS_6759
-	default "CONSYS_6765" if MTK_COMBO_CHIP_CONSYS_6765
-	default "CONSYS_6761" if MTK_COMBO_CHIP_CONSYS_6761
-	default "CONSYS_8167" if MTK_COMBO_CHIP_CONSYS_8167
-	default "CONSYS_3967" if MTK_COMBO_CHIP_CONSYS_3967
-	default "CONSYS_6771" if MTK_COMBO_CHIP_CONSYS_6771
-	default "CONSYS_6739" if MTK_COMBO_CHIP_CONSYS_6739
-	default "CONSYS_6779" if MTK_COMBO_CHIP_CONSYS_6779
-	default "CONSYS_6853" if MTK_COMBO_CHIP_CONSYS_6853
-	default "CONSYS_6873" if MTK_COMBO_CHIP_CONSYS_6873
-	default "CONSYS_6893" if MTK_COMBO_CHIP_CONSYS_6893
-	help
-	  this feature is used to identify combo chip version or SOC chip
-	  consys version.
 
 #
 # Target Platform Selection
