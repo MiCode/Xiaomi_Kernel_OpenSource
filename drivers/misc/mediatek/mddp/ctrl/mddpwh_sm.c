@@ -6,12 +6,16 @@
  */
 
 #include <linux/slab.h>
+#include <linux/delay.h>
 
 #include "mddp_ctrl.h"
 #include "mddp_debug.h"
 #include "mddp_dev.h"
 #include "mddp_filter.h"
 #include "mddp_sm.h"
+
+#define MDDP_RESET_READY_TIME_MS (100)
+static struct work_struct wfpm_reset_work;
 
 //------------------------------------------------------------------------------
 // Struct definition.
@@ -30,8 +34,6 @@ static struct mddp_md_cfg_t mddpw_md_cfg_s = {
 	MDFPM_USER_ID_WFPM,
 };
 
-static struct timer_list mddpw_timer;
-static struct work_struct mddpw_reset_workq;
 static uint8_t mddpw_reset_ongoing;
 
 #define MDDP_WIFI_NETIF_ID 0x500 /* copy from MD IPC_NETIF_ID_MCIF_BEGIN */
@@ -348,14 +350,13 @@ struct mddp_sm_entry_t *mddpwh_state_machines_s[MDDP_STATE_CNT] = {
 // Public functions.
 //------------------------------------------------------------------------------
 
-static void mddpw_ack_md_reset(struct work_struct *mddp_work)
+static void mddpw_wfpm_send_smem_layout(void)
 {
 	struct mddp_app_t                *app;
 	struct mddp_md_msg_t             *md_msg;
 	struct mddpw_md_notify_info_t     md_info;
 	struct wfpm_enable_md_func_req_t *enable_req;
 	struct wfpm_smem_info_t          *smem_info;
-	uint32_t                          timer;
 	uint32_t                          smem_num;
 
 	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
@@ -367,77 +368,51 @@ static void mddpw_ack_md_reset(struct work_struct *mddp_work)
 		return;
 	}
 
-	md_msg = kzalloc(sizeof(struct mddp_md_msg_t), GFP_ATOMIC);
+	// 2. Send SMEM_LAYOUT to MD
+	if (wfpm_ipc_get_smem_list((void **)&smem_info, &smem_num)) {
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: Failed to get smem info!\n",
+				__func__);
+		smem_num = 0;
+	}
+	MDDP_S_LOG(MDDP_LL_INFO,
+			"%s: smem_info(%llx), smem_num(%u)\n",
+			__func__, (unsigned long long)smem_info, smem_num);
+
+	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
+			sizeof(struct wfpm_enable_md_func_req_t) +
+			smem_num * sizeof(struct wfpm_smem_info_t),
+			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
 		return;
 	}
 
-	// 1. Send RESET_IND to MD
-	md_msg->msg_id = IPC_MSG_ID_WFPM_RESET_IND;
-	md_msg->data_len = 0;
-	if (unlikely(mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL) >= 0)) {
-		MDDP_S_LOG(MDDP_LL_INFO, "%s: send_success.\n", __func__);
-		if (app->state != MDDP_STATE_DISABLED) {
-			app->state = MDDP_STATE_DISABLED;
-			mddp_sm_on_event(app, MDDP_EVT_FUNC_ENABLE);
+	md_msg->msg_id = IPC_MSG_ID_WFPM_SEND_SMEM_LAYOUT_NOTIFY;
+	md_msg->data_len = sizeof(struct wfpm_enable_md_func_req_t) +
+			smem_num * sizeof(struct wfpm_smem_info_t);
+	enable_req = (struct wfpm_enable_md_func_req_t *)
+			&(md_msg->data);
+	enable_req->mode = WFPM_FUNC_MODE_TETHER;
+	enable_req->version = __MDDP_VERSION__;
+	enable_req->smem_num = smem_num;
+	memcpy(&(enable_req->smem_info), smem_info,
+			smem_num * sizeof(struct wfpm_smem_info_t));
+
+	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL);
+
+	if (app->drv_hdlr.wifi_handle != NULL) {
+		struct mddpw_drv_handle_t *wifi_handle =
+			app->drv_hdlr.wifi_handle;
+		if (wifi_handle->notify_md_info != NULL) {
+			md_info.version = 0;
+			md_info.info_type = 1;
+			md_info.buf_len = 0;
+			wifi_handle->notify_md_info(&md_info);
 		}
-		if (app->drv_hdlr.wifi_handle != NULL) {
-			struct mddpw_drv_handle_t *wifi_handle =
-				app->drv_hdlr.wifi_handle;
-			if (wifi_handle->notify_md_info != NULL) {
-				md_info.version = 0;
-				md_info.info_type = 1;
-				md_info.buf_len = 0;
-				wifi_handle->notify_md_info(&md_info);
-			}
-		}
-
-		// 2. Send SMEM_LAYOUT to MD
-		if (wfpm_ipc_get_smem_list((void **)&smem_info, &smem_num)) {
-			MDDP_S_LOG(MDDP_LL_NOTICE,
-					"%s: Failed to get smem info!\n",
-					__func__);
-			smem_num = 0;
-		}
-		MDDP_S_LOG(MDDP_LL_INFO,
-				"%s: smem_info(%llx), smem_num(%u)\n",
-				__func__, (unsigned long long)smem_info, smem_num);
-
-		md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
-				sizeof(struct wfpm_enable_md_func_req_t) +
-				smem_num * sizeof(struct wfpm_smem_info_t),
-				GFP_ATOMIC);
-		if (unlikely(!md_msg)) {
-			WARN_ON(1);
-			return;
-		}
-
-		md_msg->msg_id = IPC_MSG_ID_WFPM_SEND_SMEM_LAYOUT_NOTIFY;
-		md_msg->data_len = sizeof(struct wfpm_enable_md_func_req_t) +
-				smem_num * sizeof(struct wfpm_smem_info_t);
-		enable_req = (struct wfpm_enable_md_func_req_t *)
-				&(md_msg->data);
-		enable_req->mode = WFPM_FUNC_MODE_TETHER;
-		enable_req->version = __MDDP_VERSION__;
-		enable_req->smem_num = smem_num;
-		memcpy(&(enable_req->smem_info), smem_info,
-				smem_num * sizeof(struct wfpm_smem_info_t));
-
-		mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL);
-
-		mddpw_reset_ongoing = 0;
-	} else {
-		timer = 100;
-		MDDP_S_LOG(MDDP_LL_DEBUG,
-				"%s: timer start (%d).\n", __func__, timer);
-		mod_timer(&mddpw_timer, jiffies + msecs_to_jiffies(timer));
 	}
-}
 
-static void mddpw_reset_work(struct timer_list *t)
-{
-	schedule_work(&(mddpw_reset_workq));
+	mddpw_reset_ongoing = 0;
 }
 
 static int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
@@ -548,8 +523,8 @@ static int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 			mddpw_reset_ongoing = 1;
 			if (app->state == MDDP_STATE_UNINIT)
 				app->state = MDDP_STATE_DISABLED;
-			mod_timer(&mddpw_timer,
-					jiffies + msecs_to_jiffies(100));
+			msleep(MDDP_RESET_READY_TIME_MS);
+			schedule_work(&wfpm_reset_work);
 		} else
 			MDDP_S_LOG(MDDP_LL_NOTICE,
 					"%s: WFPM RESET ongoing", __func__);
@@ -888,6 +863,18 @@ static ssize_t mddpwh_sysfs_callback(
 	return 0;
 }
 
+static void wfpm_reset_work_func(struct work_struct *work)
+{
+	struct mddp_app_t       *app;
+
+	mddpw_wfpm_send_smem_layout();
+	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+	if (app->state != MDDP_STATE_DISABLED) {
+		app->state = MDDP_STATE_DISABLED;
+		mddp_sm_on_event(app, MDDP_EVT_FUNC_ENABLE);
+	}
+}
+
 int32_t mddpwh_sm_init(struct mddp_app_t *app)
 {
 	memcpy(&app->state_machines,
@@ -907,7 +894,7 @@ int32_t mddpwh_sm_init(struct mddp_app_t *app)
 	memcpy(&app->md_cfg, &mddpw_md_cfg_s, sizeof(struct mddp_md_cfg_t));
 	app->is_config = 1;
 
-	timer_setup(&mddpw_timer, mddpw_reset_work, 0);
-	INIT_WORK(&(mddpw_reset_workq), mddpw_ack_md_reset);
+	INIT_WORK(&wfpm_reset_work, wfpm_reset_work_func);
+
 	return 0;
 }
