@@ -27,8 +27,6 @@ ccflags-y += -I$(srctree)/drivers/staging/android/ion \
 						 -I$(srctree)/drivers/staging/android/ion/mtk
 
 ifeq ($(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)),y)
-ifneq (,$(filter $(CONFIG_MTK_CAMERA_ISP_PLATFORM), "mt6885" "mt6873" "mt6853"))
 ccflags-y += -DCMDQ_MTEE
-endif
 endif
 
