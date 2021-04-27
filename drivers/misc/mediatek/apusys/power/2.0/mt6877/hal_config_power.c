@@ -764,17 +764,17 @@ static int binning_support_check(void)
 
 #if BINNING_VOLTAGE_SUPPORT || VOLTAGE_RAISE_UP
 	vpu_efuse_bin_highv =
-		GET_BITS_VAL(25:27, get_devinfo_with_index(EFUSE_BIN));
+		GET_BITS_VAL(27:25, get_devinfo_with_index(EFUSE_BIN));
 	LOG_DBG("Vol bin: vpu_efuse_hv=%d, efuse: 0x%x\n",
 			vpu_efuse_bin_highv, get_devinfo_with_index(EFUSE_BIN));
 
 	vpu_efuse_bin_midv =
-		GET_BITS_VAL(22:24, get_devinfo_with_index(EFUSE_BIN));
+		GET_BITS_VAL(24:22, get_devinfo_with_index(EFUSE_BIN));
 	LOG_DBG("Vol bin: vpu_efuse_mv=%d, efuse: 0x%x\n",
 			vpu_efuse_bin_midv, get_devinfo_with_index(EFUSE_BIN));
 
 	vpu_efuse_raise =
-		GET_BITS_VAL(20:21, get_devinfo_with_index(EFUSE_BIN));
+		GET_BITS_VAL(21:20, get_devinfo_with_index(EFUSE_BIN));
 	LOG_DBG("Raise bin: vpu_efuse=%d, efuse: 0x%x\n",
 			vpu_efuse_raise, get_devinfo_with_index(EFUSE_BIN));
 
