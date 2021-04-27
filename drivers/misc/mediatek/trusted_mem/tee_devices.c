@@ -52,6 +52,8 @@ static struct trusted_mem_configs tee_smem_general_configs = {
 };
 
 static struct tmem_device_description tee_smem_devs[] = {
+/* If CONFIG_MTK_SVP_ON_MTEE_SUPPORT enabled, then SVP on MTEE */
+#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 #ifdef CONFIG_MTK_SECURE_MEM_SUPPORT
 	{
 		.kern_tmem_type = TRUSTED_MEM_SVP,
@@ -74,6 +76,7 @@ static struct tmem_device_description tee_smem_devs[] = {
 		.mem_cfg = &tee_smem_general_configs,
 		.dev_name = "SECMEM_SVP",
 	},
+#endif
 #endif
 
 #ifdef CONFIG_MTK_CAM_SECURITY_SUPPORT
@@ -175,7 +178,9 @@ create_tee_smem_device(enum TRUSTED_MEM_TYPE mem_type,
 		return NULL;
 	}
 
+#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || defined(CONFIG_MICROTRUST_TEE_SUPPORT)
 	get_tee_peer_ops(&t_device->peer_ops);
+#endif
 	t_device->dev_desc = dev_desc;
 
 	snprintf(t_device->name, MAX_DEVICE_NAME_LEN, "%s", dev_name);
@@ -199,8 +204,8 @@ static int __init tee_smem_devs_init(void)
 	struct trusted_mem_device *t_device;
 	int idx = 0;
 
-	pr_info("%s:%d (%d)\n", __func__, __LINE__,
-		(int)TEE_SECURE_MEM_DEVICE_COUNT);
+	pr_info("%s:%d DEVICE COUNT:(%d), MIN CHUNK SIZE: (0x%x)\n", __func__, __LINE__,
+		(int)TEE_SECURE_MEM_DEVICE_COUNT, tee_smem_general_configs.minimal_chunk_size);
 
 	for (idx = 0; idx < TEE_SECURE_MEM_DEVICE_COUNT; idx++) {
 		t_device = create_tee_smem_device(
