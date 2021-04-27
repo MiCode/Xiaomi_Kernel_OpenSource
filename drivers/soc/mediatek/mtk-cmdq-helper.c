@@ -87,7 +87,6 @@ struct cmdq_flush_item {
 	cmdq_async_flush_cb err_cb;
 	void *err_data;
 	s32 err;
-	bool done;
 };
 
 static s8 cmdq_subsys_base_to_id(struct cmdq_base *clt_base, u32 base)
@@ -1589,7 +1588,6 @@ static void cmdq_flush_async_cb(struct cmdq_cb_data data)
 	if (item->cb)
 		item->cb(user_data);
 	complete(&pkt->cmplt);
-	item->done = true;
 }
 #endif
 
