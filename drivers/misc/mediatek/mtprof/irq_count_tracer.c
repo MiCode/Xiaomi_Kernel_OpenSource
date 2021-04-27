@@ -59,7 +59,7 @@ const char *irq_to_name(int irq)
 
 #ifdef MODULE
 // workaround for kstat_irqs_cpu & kstat_irqs
-const unsigned int irq_mon_irqs(unsigned int irq)
+static unsigned int irq_mon_irqs(unsigned int irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
 	unsigned int sum = 0;
@@ -73,7 +73,7 @@ const unsigned int irq_mon_irqs(unsigned int irq)
 	return sum;
 }
 
-const unsigned int irq_mon_irqs_cpu(unsigned int irq, int cpu)
+static unsigned int irq_mon_irqs_cpu(unsigned int irq, int cpu)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
 
@@ -160,6 +160,9 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 	unsigned long long t_avg, t_diff, t_diff_ms;
 	char msg[128];
 	int list_num = ARRAY_SIZE(irq_count_plist);
+
+	if (!irq_count_tracer)
+		return HRTIMER_NORESTART;
 
 	/* check irq count on all cpu */
 	if (cpu == 0) {
@@ -265,7 +268,6 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 		}
 	}
 
-
 	return HRTIMER_RESTART;
 }
 
@@ -288,7 +290,7 @@ static int irq_count_tracer_start_fn(void *ignore)
 	return 0;
 }
 
-static int irq_count_tracer_kthread(void *data)
+static void irq_count_tracer_work(struct work_struct *work)
 {
 	int cpu, done;
 
@@ -306,10 +308,9 @@ static int irq_count_tracer_kthread(void *data)
 		if (!done)
 			msleep(500);
 	} while (!done);
-
-	return 0;
 }
 
+static DECLARE_WORK(tracer_work, irq_count_tracer_work);
 void irq_count_tracer_init(void)
 {
 	int i;
@@ -317,5 +318,56 @@ void irq_count_tracer_init(void)
 	for (i = 0; i < REC_NUM; i++)
 		spin_lock_init(&irq_cpus[i].lock);
 
-	kthread_run(irq_count_tracer_kthread, NULL, "irqcnt_tracer");
+	irq_count_tracer = 1;
+	schedule_work(&tracer_work);
+}
+
+/* Must holding lock*/
+void irq_count_tracer_set(bool val)
+{
+	int cpu;
+
+	if (irq_count_tracer == val)
+		return;
+
+	if (val) {
+		/* restart irq_count_tracer */
+		irq_count_tracer = 1;
+		schedule_work(&tracer_work);
+	}
+	else {
+		flush_scheduled_work();
+		irq_count_tracer = 0;
+		for_each_possible_cpu(cpu) {
+			struct hrtimer *hrtimer =
+				per_cpu_ptr(&irq_count_tracer_hrtimer, cpu);
+
+			per_cpu_ptr(&irq_count_data, cpu)->enabled = 0;
+			hrtimer_cancel(hrtimer);
+		}
+	}
+}
+
+const struct proc_ops irq_mon_count_pops = {
+	.proc_open = irq_mon_bool_open,
+	.proc_write = irq_mon_count_set,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+void irq_count_tracer_proc_init(struct proc_dir_entry *parent)
+{
+	struct proc_dir_entry *dir;
+
+	dir = proc_mkdir("irq_count_tracer", parent);
+	if (!dir)
+		return;
+
+	proc_create_data("irq_count_tracer", 0644,
+			dir, &irq_mon_count_pops, (void *)&irq_count_tracer);
+	IRQ_MON_TRACER_PROC_ENTRY(irq_period_th1_ns, 0644, uint, dir, &irq_period_th1_ns);
+	IRQ_MON_TRACER_PROC_ENTRY(irq_period_th2_ns, 0644, uint, dir, &irq_period_th2_ns);
+	IRQ_MON_TRACER_PROC_ENTRY(irq_count_aee_limit, 0644, uint, dir, &irq_count_aee_limit);
+	return;
 }

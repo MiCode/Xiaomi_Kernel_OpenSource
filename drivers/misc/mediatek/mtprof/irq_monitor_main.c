@@ -82,7 +82,7 @@ struct irq_mon_tracer {
 };
 
 static struct irq_mon_tracer irq_handler_tracer __read_mostly = {
-	.tracing = true,
+	.tracing = false,
 	.name = "irq_handler_tracer",
 	.th1_ms = 100,
 	.th2_ms = 500,
@@ -91,7 +91,7 @@ static struct irq_mon_tracer irq_handler_tracer __read_mostly = {
 };
 
 static struct irq_mon_tracer softirq_tracer __read_mostly = {
-	.tracing = true,
+	.tracing = false,
 	.name = "softirq_tracer",
 	.th1_ms = 100,
 	.th2_ms = 500,
@@ -100,7 +100,7 @@ static struct irq_mon_tracer softirq_tracer __read_mostly = {
 };
 
 static struct irq_mon_tracer ipi_tracer __read_mostly = {
-	.tracing = true,
+	.tracing = false,
 	.name = "ipi_tracer",
 	.th1_ms = 100,
 	.th2_ms = 500,
@@ -109,7 +109,7 @@ static struct irq_mon_tracer ipi_tracer __read_mostly = {
 };
 
 static struct irq_mon_tracer irq_off_tracer __read_mostly = {
-	.tracing = true,
+	.tracing = false,
 	.name = "irq_off_tracer",
 	.th1_ms = 9,
 	.th2_ms = 500,
@@ -118,7 +118,7 @@ static struct irq_mon_tracer irq_off_tracer __read_mostly = {
 };
 
 static struct irq_mon_tracer preempt_off_tracer __read_mostly = {
-	.tracing = true,
+	.tracing = false,
 	.name = "preempt_off_tracer",
 	.th1_ms = 60000,
 	.th2_ms = 180000,
@@ -196,7 +196,8 @@ static void irq_mon_dump_stack_trace(unsigned int out, struct preemptirq_stat *p
 /* irq: 1 = irq, 0 = preempt*/
 static void check_preemptirq_stat(struct preemptirq_stat *pi_stat, int irq)
 {
-	struct irq_mon_tracer *tracer = (irq) ? &irq_off_tracer : &preempt_off_tracer;
+	struct irq_mon_tracer *tracer =
+		(irq) ? &irq_off_tracer : &preempt_off_tracer;
 	unsigned long long duration;
 	unsigned int out;
 
@@ -215,13 +216,17 @@ static void check_preemptirq_stat(struct preemptirq_stat *pi_stat, int irq)
 			pi_stat->disable_timestamp,
 			pi_stat->enable_timestamp);
 	irq_mon_msg(out, "disable_ip       : [<%p>] %pS",
-			(void *)pi_stat->disable_ip, (void *)pi_stat->disable_ip);
+			(void *)pi_stat->disable_ip,
+			(void *)pi_stat->disable_ip);
 	irq_mon_msg(out, "disable_parent_ip: [<%p>] %pS",
-			(void *)pi_stat->disable_parent_ip, (void *)pi_stat->disable_parent_ip);
+			(void *)pi_stat->disable_parent_ip,
+			(void *)pi_stat->disable_parent_ip);
 	irq_mon_msg(out, "enable_ip        : [<%p>] %pS",
-			(void *)pi_stat->enable_ip, (void *)pi_stat->enable_ip);
+			(void *)pi_stat->enable_ip,
+			(void *)pi_stat->enable_ip);
 	irq_mon_msg(out, "enable_parent_ip : [<%p>] %pS",
-			(void *)pi_stat->enable_parent_ip, (void *)pi_stat->enable_parent_ip);
+			(void *)pi_stat->enable_parent_ip,
+			(void *)pi_stat->enable_parent_ip);
 	irq_mon_dump_stack_trace(out, pi_stat);
 
 	if (out & TO_KERNEL_LOG)
@@ -280,7 +285,10 @@ static void probe_irq_handler_entry(void *ignore,
 		int irq, struct irqaction *action)
 {
 	unsigned long long ts;
+	struct irq_mon_tracer *tracer = &irq_handler_tracer;
 
+	if (!tracer->tracing)
+		return;
 	if (__this_cpu_cmpxchg(irq_trace_stat.tracing, 0, 1))
 		return;
 
@@ -297,6 +305,8 @@ static void probe_irq_handler_exit(void *ignore,
 	unsigned long long ts, duration;
 	unsigned int out;
 
+	if (!tracer->tracing)
+		return;
 	if (!__this_cpu_read(irq_trace_stat.tracing))
 		return;
 
@@ -332,7 +342,10 @@ static void probe_irq_handler_exit(void *ignore,
 static void probe_softirq_entry(void *ignore, unsigned int vec_nr)
 {
 	unsigned long long ts;
+	struct irq_mon_tracer *tracer = &softirq_tracer;
 
+	if (!tracer->tracing)
+		return;
 	if (__this_cpu_cmpxchg(softirq_trace_stat.tracing, 0, 1))
 		return;
 
@@ -348,6 +361,8 @@ static void probe_softirq_exit(void *ignore, unsigned int vec_nr)
 	unsigned long long ts, duration;
 	unsigned int out;
 
+	if (!tracer->tracing)
+		return;
 	if (!__this_cpu_read(softirq_trace_stat.tracing))
 		return;
 
@@ -370,7 +385,10 @@ static void probe_softirq_exit(void *ignore, unsigned int vec_nr)
 static void probe_ipi_entry(void *ignore, const char *reason)
 {
 	unsigned long long ts;
+	struct irq_mon_tracer *tracer = &ipi_tracer;
 
+	if (!tracer->tracing)
+		return;
 	if (__this_cpu_cmpxchg(ipi_trace_stat.tracing, 0, 1))
 		return;
 
@@ -387,6 +405,8 @@ static void probe_ipi_exit(void *ignore, const char *reason)
 	unsigned long long ts, duration;
 	unsigned int out;
 
+	if (!tracer->tracing)
+		return;
 	if (!__this_cpu_read(ipi_trace_stat.tracing))
 		return;
 
@@ -410,8 +430,11 @@ static void probe_irq_disable(void *ignore,
 		unsigned long ip, unsigned long parent_ip)
 {
 	struct preemptirq_stat *pi_stat = raw_cpu_ptr(&irq_pi_stat);
+	struct irq_mon_tracer *tracer = &irq_off_tracer;
 	unsigned long long ts;
 
+	if (!tracer->tracing)
+		return;
 	if (__this_cpu_cmpxchg(irq_pi_stat.tracing, 0, 1))
 		return;
 
@@ -428,6 +451,7 @@ static void probe_irq_enable(void *ignore,
 		unsigned long ip, unsigned long parent_ip)
 {
 	struct preemptirq_stat *pi_stat = raw_cpu_ptr(&irq_pi_stat);
+	struct irq_mon_tracer *tracer = &irq_off_tracer;
 	unsigned long long ts;
 
 	if (!__this_cpu_read(irq_pi_stat.tracing))
@@ -436,6 +460,9 @@ static void probe_irq_enable(void *ignore,
 	if (!__this_cpu_cmpxchg(irq_pi_stat.enable_locked, 0, 1))
 		return;
 
+	if (!tracer->tracing) {
+		return;
+	}
 	ts = sched_clock();
 	this_cpu_write(irq_pi_stat.enable_timestamp, ts);
 	this_cpu_write(irq_pi_stat.enable_ip, ip);
@@ -451,8 +478,11 @@ static void probe_preempt_disable(void *ignore
 		, unsigned long ip, unsigned long parent_ip)
 {
 	struct preemptirq_stat *pi_stat = raw_cpu_ptr(&preempt_pi_stat);
+	struct irq_mon_tracer *tracer = &preempt_off_tracer;
 	unsigned long long ts;
 
+	if (!tracer->tracing)
+		return;
 	if (__this_cpu_cmpxchg(preempt_pi_stat.tracing, 0, 1))
 		return;
 
@@ -469,8 +499,11 @@ static void probe_preempt_enable(void *ignore,
 		unsigned long ip, unsigned long parent_ip)
 {
 	struct preemptirq_stat *pi_stat = raw_cpu_ptr(&preempt_pi_stat);
+	struct irq_mon_tracer *tracer = &preempt_off_tracer;
 	unsigned long long ts;
 
+	if (!tracer->tracing)
+		return;
 	if (!__this_cpu_read(preempt_pi_stat.tracing))
 		return;
 
@@ -488,31 +521,84 @@ static void probe_preempt_enable(void *ignore,
 	this_cpu_write(preempt_pi_stat.tracing, 0);
 }
 
+/* tracepoints */
 struct irq_mon_tracepoint {
 	struct tracepoint *tp;
 	const char *name;
 	void *func;
 	void *data;
 	bool probe;
+	struct irq_mon_tracer *tracer;
 };
 
 struct irq_mon_tracepoint irq_mon_tracepoint_table[] = {
-	/* irq.h */
-	{.name = "irq_handler_entry", .func = probe_irq_handler_entry, .data = NULL},
-	{.name = "irq_handler_exit", .func = probe_irq_handler_exit, .data = NULL},
-	{.name = "softirq_entry", .func = probe_softirq_entry, .data = NULL},
-	{.name = "softirq_exit", .func = probe_softirq_exit, .data = NULL},
-	/* ipi.h */
-	{.name = "ipi_entry", .func = probe_ipi_entry, .data = NULL},
-	{.name = "ipi_exit", .func = probe_ipi_exit, .data = NULL},
-	/* irqoff_tracer */
-	{.name = "irq_disable", .func = probe_irq_disable, .data = NULL},
-	{.name = "irq_enable", .func = probe_irq_enable, .data = NULL},
-	/* preempt_tracer */
-	{.name = "preempt_disable", .func = probe_preempt_disable, .data = NULL},
-	{.name = "preempt_enable", .func = probe_preempt_enable, .data = NULL},
-	/* The last item must be NULL!! */
-	{.name = NULL, .func = NULL, .data = NULL}
+	/* irq_handler_tracer irq.h */
+	{
+		.name = "irq_handler_entry",
+		.func = probe_irq_handler_entry,
+		.data = NULL,
+		.tracer = &irq_handler_tracer,
+	},
+	{
+		.name = "irq_handler_exit",
+		.func = probe_irq_handler_exit,
+		.data = NULL,
+		.tracer = &irq_handler_tracer,
+	},
+	/* softirq_tracer irq.h */
+	{
+		.name = "softirq_entry",
+		.func = probe_softirq_entry,
+		.data = NULL,
+		.tracer = &softirq_tracer
+	},
+	{
+		.name = "softirq_exit",
+		.func = probe_softirq_exit,
+		.data = NULL,
+		.tracer = &softirq_tracer,
+	},
+	/* ipi_tracer ipi.h */
+	{
+		.name = "ipi_entry",
+		.func = probe_ipi_entry,
+		.data = NULL,
+		.tracer = &ipi_tracer,
+	},
+	{
+		.name = "ipi_exit",
+		.func = probe_ipi_exit,
+		.data = NULL,
+		.tracer = &ipi_tracer,
+	},
+	/* irq_off_tracer */
+	{
+		.name = "irq_disable",
+		.func = probe_irq_disable,
+		.data = NULL,
+		.tracer = &irq_off_tracer,
+	},
+	{
+		.name = "irq_enable",
+		.func = probe_irq_enable,
+		.data = NULL,
+		.tracer = &irq_off_tracer,
+	},
+	/* preempt_off_tracer */
+	{
+		.name = "preempt_disable",
+		.func = probe_preempt_disable,
+		.data = NULL,
+		.tracer = &preempt_off_tracer,
+	},
+	{
+		.name = "preempt_enable",
+		.func = probe_preempt_enable,
+		.data = NULL,
+		.tracer = &preempt_off_tracer,
+	},
+	/* Last item must be NULL!! */
+	{.name = NULL, .func = NULL, .data = NULL},
 };
 
 /* lookup tracepoints */
@@ -534,7 +620,7 @@ static void irq_mon_tracepoint_lookup(struct tracepoint *tp, void *priv)
 	}
 }
 
-/* probe tracepoints for all irq_monitor tracers */
+/* probe tracepoints for all tracers */
 static int irq_mon_tracepoint_init(void)
 {
 	struct irq_mon_tracepoint *t;
@@ -557,9 +643,97 @@ static int irq_mon_tracepoint_init(void)
 		pr_info("tp: %s,%pS probed\n", t->name, t->tp);
 		t->probe = true;
 	}
+	irq_handler_tracer.tracing = true;
+	softirq_tracer.tracing = true;
+	ipi_tracer.tracing = true;
+	irq_off_tracer.tracing = true;
+	preempt_off_tracer.tracing = true;
 	return 0;
 }
 
+static int irq_mon_tracer_probe(struct irq_mon_tracer *tracer)
+{
+	struct irq_mon_tracepoint *t;
+
+	for (t = irq_mon_tracepoint_table; t->name != NULL; t++) {
+		int ret;
+
+		if (t->tracer != tracer)
+			continue;
+
+		if (!t->tp) {
+			pr_info("tp: %s not found\n", t->name);
+			return -1;
+		}
+		ret = tracepoint_probe_register(t->tp, t->func, t->data);
+		if (ret) {
+			pr_info("tp: %s probe failed\n", t->name);
+			return ret;
+		}
+		pr_info("tp: %s,%pS probed\n", t->name, t->tp);
+		t->probe = true;
+	}
+	return 0;
+}
+
+static int irq_mon_tracer_unprobe(struct irq_mon_tracer *tracer)
+{
+	struct irq_mon_tracepoint *t;
+	struct trace_stat *t_stat = NULL;
+	struct preemptirq_stat *p_stat = NULL;
+	int cpu;
+
+	for (t = irq_mon_tracepoint_table; t->name != NULL; t++) {
+		if (t->tracer != tracer)
+			continue;
+		if (!t->tp)
+			continue;
+		if (t->probe) {
+			tracepoint_probe_unregister(t->tp, t->func, t->data);
+			t->probe = false;
+		}
+	}
+	tracepoint_synchronize_unregister();
+
+	/* clear trace_stat or preemptirq_stat. no data race here
+	 * because all probes are unregistered */
+	if (tracer == &irq_handler_tracer)
+		t_stat = &irq_trace_stat;
+	else if (tracer == &softirq_tracer)
+		t_stat = &softirq_trace_stat;
+	else if (tracer == &ipi_tracer)
+		t_stat = &ipi_trace_stat;
+	else if (tracer == &irq_off_tracer)
+		p_stat = &irq_pi_stat;
+	else if (tracer == &preempt_off_tracer)
+		p_stat = &preempt_pi_stat;
+
+	if (t_stat) {
+		for_each_possible_cpu(cpu) {
+			per_cpu(t_stat->tracing, cpu) = 0;
+		}
+	} else if (p_stat) {
+		for_each_possible_cpu(cpu) {
+			per_cpu(p_stat->tracing, cpu) = 0;
+		}
+	}
+
+	return 0;
+}
+
+static void irq_mon_tracer_tracing_set(struct irq_mon_tracer *tracer, bool val)
+{
+	if (tracer->tracing == val) {
+		return;
+	}
+	if (val) {
+		if (!irq_mon_tracer_probe(tracer))
+			tracer->tracing = val;
+	} else {
+		tracer->tracing = val;
+		irq_mon_tracer_unprobe(tracer);
+	}
+}
 /* proc functions */
 
 static DEFINE_MUTEX(proc_lock);
@@ -575,7 +749,7 @@ static int irq_mon_bool_show(struct seq_file *s, void *p)
 	return 0;
 }
 
-static int irq_mon_bool_open(struct inode *inode, struct file *file)
+int irq_mon_bool_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, irq_mon_bool_show, PDE_DATA(inode));
 }
@@ -598,7 +772,7 @@ static ssize_t irq_mon_bool_write(struct file *filp,
 	return count;
 }
 
-static const struct proc_ops irq_mon_bool_pops = {
+const struct proc_ops irq_mon_bool_pops = {
 	.proc_open = irq_mon_bool_open,
 	.proc_write = irq_mon_bool_write,
 	.proc_read = seq_read,
@@ -606,6 +780,50 @@ static const struct proc_ops irq_mon_bool_pops = {
 	.proc_release = single_release,
 };
 
+static ssize_t irq_mon_tracing_set(struct file *filp,
+		const char *ubuf, size_t count, loff_t *data)
+{
+	int ret;
+	bool val;
+	bool *ptr = (bool *)PDE_DATA(file_inode(filp));
+	struct irq_mon_tracer *tracer =
+		container_of(ptr, struct irq_mon_tracer, tracing);
+
+	ret = kstrtobool_from_user(ubuf, count, &val);
+	if (ret)
+		return ret;
+
+	mutex_lock(&proc_lock);
+	irq_mon_tracer_tracing_set(tracer, val);
+	mutex_unlock(&proc_lock);
+
+	return count;
+}
+
+static const struct proc_ops irq_mon_tracing_pops = {
+	.proc_open = irq_mon_bool_open,
+	.proc_write = irq_mon_tracing_set,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+ssize_t irq_mon_count_set(struct file *filp,
+		const char *ubuf, size_t count, loff_t *data)
+{
+	int ret;
+	bool val;
+
+	ret = kstrtobool_from_user(ubuf, count, &val);
+	if (ret)
+		return ret;
+
+	mutex_lock(&proc_lock);
+	irq_count_tracer_set(val);
+	mutex_unlock(&proc_lock);
+
+	return count;
+}
 
 static int irq_mon_uint_show(struct seq_file *s, void *p)
 {
@@ -641,7 +859,7 @@ static ssize_t irq_mon_uint_write(struct file *filp,
 	return count;
 }
 
-static const struct proc_ops irq_mon_uint_pops = {
+const struct proc_ops irq_mon_uint_pops = {
 	.proc_open = irq_mon_uint_open,
 	.proc_write = irq_mon_uint_write,
 	.proc_read = seq_read,
@@ -649,8 +867,8 @@ static const struct proc_ops irq_mon_uint_pops = {
 	.proc_release = single_release,
 };
 
-#define IRQ_MON_TRACER_PROC_ENTRY(name, mode, type, dir, tracer) \
-	proc_create_data(#name, mode, dir, &irq_mon_##type##_pops, (void *)tracer)
+#define IRQ_MON_TRACER_PROC_ENTRY(name, mode, type, dir, ptr) \
+	proc_create_data(#name, mode, dir, &irq_mon_##type##_pops, (void *)ptr)
 
 static void irq_mon_tracer_proc_init(struct irq_mon_tracer *tracer,
 		struct proc_dir_entry *parent)
@@ -661,12 +879,15 @@ static void irq_mon_tracer_proc_init(struct irq_mon_tracer *tracer,
 	if (!dir)
 		return;
 
-	IRQ_MON_TRACER_PROC_ENTRY(tracing, 0644, bool, dir, &tracer->tracing);
+	IRQ_MON_TRACER_PROC_ENTRY(tracing, 0644,
+			tracing, dir, &tracer->tracing);
 	IRQ_MON_TRACER_PROC_ENTRY(th1_ms, 0644, uint, dir, &tracer->th1_ms);
 	IRQ_MON_TRACER_PROC_ENTRY(th2_ms, 0644, uint, dir, &tracer->th2_ms);
 	IRQ_MON_TRACER_PROC_ENTRY(th3_ms, 0644, uint, dir, &tracer->th3_ms);
-	IRQ_MON_TRACER_PROC_ENTRY(aee_limit, 0644, uint, dir, &tracer->aee_limit);
-	IRQ_MON_TRACER_PROC_ENTRY(aee_debounce_ms, 0644, uint, dir, &tracer->aee_debounce_ms);
+	IRQ_MON_TRACER_PROC_ENTRY(aee_limit, 0644,
+			uint, dir, &tracer->aee_limit);
+	IRQ_MON_TRACER_PROC_ENTRY(aee_debounce_ms, 0644,
+			uint, dir, &tracer->aee_debounce_ms);
 	return;
 }
 
@@ -684,7 +905,7 @@ static void irq_mon_proc_init(void)
 	irq_mon_tracer_proc_init(&ipi_tracer, dir);
 	irq_mon_tracer_proc_init(&irq_off_tracer, dir);
 	irq_mon_tracer_proc_init(&preempt_off_tracer, dir);
-
+	irq_count_tracer_proc_init(dir);
 	mt_irq_monitor_test_init(dir);
 }
 
