@@ -13,6 +13,12 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
 
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
+#define CREATE_TRACE_POINTS
+#include "internal.h"
+#include "mtk-dvfsrc-regulator-trace.h"
+#endif
+
 #define DVFSRC_ID_VCORE		0
 #define DVFSRC_ID_VSCP		1
 
@@ -58,6 +64,21 @@ static inline struct device *to_dvfsrc_dev(struct regulator_dev *rdev)
 	return rdev_get_dev(rdev)->parent;
 }
 
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
+static int regulator_trace_consumers(struct regulator_dev *rdev, int qos_class)
+{
+	struct regulator *regulator;
+	struct regulator_voltage *voltage;
+	const char *devname;
+
+	list_for_each_entry(regulator, &rdev->consumer_list, list) {
+		voltage = &regulator->voltage[PM_SUSPEND_ON];
+		devname = regulator->dev ? dev_name(regulator->dev) : "deviceless";
+		trace_mtk_pm_qos_update_request(qos_class, voltage->min_uV / 1000, devname);
+	}
+	return 0;
+}
+#endif
 static int dvfsrc_set_voltage_sel(struct regulator_dev *rdev,
 				   unsigned int selector)
 {
@@ -69,6 +90,9 @@ static int dvfsrc_set_voltage_sel(struct regulator_dev *rdev,
 		mtk_dvfsrc_send_request(dvfsrc_dev,
 					MTK_DVFSRC_CMD_VCORE_REQUEST,
 					selector);
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
+		regulator_trace_consumers(rdev, 20);
+#endif
 	break;
 	case DVFSRC_ID_VSCP:
 		mtk_dvfsrc_send_request(dvfsrc_dev,
