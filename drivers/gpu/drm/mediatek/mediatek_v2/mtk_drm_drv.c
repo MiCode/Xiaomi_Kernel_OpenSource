@@ -1890,6 +1890,7 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 
 	memset(caps_info, 0, sizeof(*caps_info));
 
+	caps_info->hw_ver = private->data->mmsys_id;
 	caps_info->disp_feature_flag |= DRM_DISP_FEATURE_DISP_SELF_REFRESH;
 
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_HRT))

@@ -516,7 +516,21 @@ enum MTK_DRM_DISP_FEATURE {
 	DRM_DISP_FEATURE_FBDC = 0x00000040,
 };
 
+enum mtk_mmsys_id {
+	MMSYS_MT2701 = 0x2701,
+	MMSYS_MT2712 = 0x2712,
+	MMSYS_MT8173 = 0x8173,
+	MMSYS_MT6779 = 0x6779,
+	MMSYS_MT6885 = 0x6885,
+	MMSYS_MT6873 = 0x6873,
+	MMSYS_MT6853 = 0x6853,
+	MMSYS_MT6833 = 0x6833,
+	MMSYS_MT6877 = 0x6877,
+	MMSYS_MAX,
+};
+
 struct mtk_drm_disp_caps_info {
+	unsigned int hw_ver;
 	unsigned int disp_feature_flag;
 	int lcm_degree; /* for rotate180 */
 	unsigned int rsz_in_max[2]; /* for RPO { width, height } */
