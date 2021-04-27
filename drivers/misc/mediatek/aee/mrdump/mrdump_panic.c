@@ -137,8 +137,6 @@ void ipanic_recursive_ke(struct pt_regs *regs, struct pt_regs *excp_regs,
 				&saved_regs, "Kernel NestedPanic");
 	}
 	mrdump_mini_ke_cpu_regs(excp_regs);
-	mrdump_mini_per_cpu_regs(cpu, regs, current);
-	dis_D_inner_flush_all();
 	aee_exception_reboot();
 }
 EXPORT_SYMBOL(ipanic_recursive_ke);
@@ -162,19 +160,13 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 	aee_rr_rec_scp();
 #endif
 	__mrdump_create_oops_dump(reboot_reason, regs, msg);
-
+	mrdump_mini_ke_cpu_regs(regs);
 	switch (reboot_reason) {
 	case AEE_REBOOT_MODE_KERNEL_OOPS:
-#ifdef CONFIG_MTK_RAM_CONSOLE
-		aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
-#endif
 		__show_regs(regs);
 		dump_stack();
 		break;
 	case AEE_REBOOT_MODE_KERNEL_PANIC:
-#ifdef CONFIG_MTK_RAM_CONSOLE
-		aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
-#endif
 #ifndef CONFIG_DEBUG_BUGVERBOSE
 		dump_stack();
 #endif
@@ -189,8 +181,6 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 		break;
 	}
 
-	mrdump_mini_ke_cpu_regs(regs);
-	dis_D_inner_flush_all();
 	aee_wdt_zap_locks();
 	console_unlock();
 	aee_exception_reboot();
@@ -204,7 +194,9 @@ int ipanic(struct notifier_block *this, unsigned long event, void *ptr)
 
 #ifdef CONFIG_MTK_RAM_CONSOLE
 	fiq_step = AEE_FIQ_STEP_KE_IPANIC_START;
+	aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
 #endif
+
 	crash_setup_regs(&saved_regs, NULL);
 	return mrdump_common_die(fiq_step,
 				 AEE_REBOOT_MODE_KERNEL_PANIC,
@@ -218,6 +210,7 @@ static int ipanic_die(struct notifier_block *self, unsigned long cmd, void *ptr)
 
 #ifdef CONFIG_MTK_RAM_CONSOLE
 	fiq_step = AEE_FIQ_STEP_KE_IPANIC_DIE;
+	aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
 #endif
 	return mrdump_common_die(fiq_step,
 				 AEE_REBOOT_MODE_KERNEL_OOPS,

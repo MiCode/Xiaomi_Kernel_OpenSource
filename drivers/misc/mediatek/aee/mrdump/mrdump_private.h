@@ -56,8 +56,7 @@ int mrdump_wdt_init(void);
 
 void mrdump_save_control_register(void *creg);
 
-extern void dis_D_inner_flush_all(void);
-extern void __inner_flush_dcache_all(void);
+extern void __flush_dcache_area(void *addr, size_t len);
 extern void mrdump_mini_add_entry(unsigned long addr, unsigned long size);
 
 int aee_dump_stack_top_binary(char *buf, int buf_len, unsigned long bottom,
@@ -95,12 +94,7 @@ int in_fiq_handler(void);
 
 void aee_disable_api(void);
 
-extern void mrdump_mini_per_cpu_regs(int cpu, struct pt_regs *regs,
-		struct task_struct *tsk);
 extern void mrdump_mini_ke_cpu_regs(struct pt_regs *regs);
-extern void mrdump_mini_add_misc(unsigned long addr, unsigned long size,
-		unsigned long start, char *name);
-extern int mrdump_task_info(unsigned char *buffer, size_t sz_buf);
 extern int mrdump_modules_info(unsigned char *buffer, size_t sz_buf);
 
 /* for WDT timeout case : dump timer/schedule/irq/softirq etc...

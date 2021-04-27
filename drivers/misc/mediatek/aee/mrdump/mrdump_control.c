@@ -143,5 +143,6 @@ __init void mrdump_cblock_init(void)
 	pr_notice("%s: done.\n", __func__);
 
 end:
-	__inner_flush_dcache_all();
+	__flush_dcache_area(mrdump_cblock,
+			sizeof(struct mrdump_control_block));
 }

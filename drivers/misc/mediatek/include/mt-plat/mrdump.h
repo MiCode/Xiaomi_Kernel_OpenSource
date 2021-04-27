@@ -172,7 +172,8 @@ struct mrdump_mini_header {
 #define MRDUMP_MINI_NR_SECTION 60
 #define MRDUMP_MINI_SECTION_SIZE (32 * 1024)
 #define NT_IPANIC_MISC 4095
-#define MRDUMP_MINI_NR_MISC 20
+#define MRDUMP_MINI_NR_MISC 40
+#define MRDUMP_MINI_MISC_LOAD "load"
 
 struct mrdump_mini_elf_misc {
 	unsigned long vaddr;
@@ -206,7 +207,7 @@ struct mrdump_mini_elf_header {
 	struct elfhdr ehdr;
 	struct elf_phdr phdrs[MRDUMP_MINI_NR_SECTION];
 	struct mrdump_mini_elf_psinfo psinfo;
-	struct mrdump_mini_elf_prstatus prstatus[NR_CPUS + 1];
+	struct mrdump_mini_elf_prstatus prstatus[NR_CPUS];
 	struct mrdump_mini_elf_note misc[MRDUMP_MINI_NR_MISC];
 };
 
@@ -225,21 +226,7 @@ struct mrdump_rsvmem_block {
 int mrdump_init(void);
 void __mrdump_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
 		struct pt_regs *regs, const char *msg, ...);
-void mrdump_save_ctrlreg(int cpu);
-void mrdump_save_per_cpu_reg(int cpu, struct pt_regs *regs);
 
 int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 		      struct pt_regs *regs);
-
-
-__weak void dis_D_inner_flush_all(void)
-{
-	pr_notice("%s:weak function.\n", __func__);
-}
-
-__weak void __inner_flush_dcache_all(void)
-{
-	pr_notice("%s:weak function.\n", __func__);
-}
-
 #endif
