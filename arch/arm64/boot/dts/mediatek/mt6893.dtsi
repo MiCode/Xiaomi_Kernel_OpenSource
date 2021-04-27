@@ -971,6 +971,20 @@
 			#performance-domain-cells = <1>;
 		};
 
+		cpuhvfs: cpuhvfs@00115400{
+			compatible = "mediatek,cpufreq-hybrid";
+			reg = <0 0x00115400 0 0xC00>,
+				<0 0x0011bc00 0 0x1400>;
+			reg-names="CSRAM","USRAM";
+			cslog-range =<0x03d0>,<0x0fa0>;
+
+			pll-con = <0x20c>, <0x22c>, <0x21c>;
+			clk-div = <0xa2a0>,<0xa2a4>,<0xa2b0>;
+			tbl-off = <4>,     <76>,    <148>,   <220>;
+			apmixedsys   = <&apmixedsys_clk>;
+			clk-div-base = <&cm_mgr>;
+		};
+
 		dvfsp: dvfsp@0011bc00 {
 			compatible = "mediatek,mt6873-mcupm-dvfs";
 			reg = <0 0x0011bc00 0 0x1400>,
