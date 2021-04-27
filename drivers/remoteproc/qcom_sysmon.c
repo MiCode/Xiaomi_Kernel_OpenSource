@@ -499,7 +499,7 @@ static int sysmon_prepare(struct rproc_subdev *subdev)
 						  subdev);
 	sysmon->ssr_event = QCOM_SSR_BEFORE_POWERUP;
 
-	blocking_notifier_call_chain(&sysmon_notifiers, 0, (void *)&sysmon);
+	blocking_notifier_call_chain(&sysmon_notifiers, 0, (void *)sysmon);
 
 	return 0;
 }
@@ -520,7 +520,7 @@ static int sysmon_start(struct rproc_subdev *subdev)
 	struct qcom_sysmon *target;
 	sysmon->ssr_event = QCOM_SSR_AFTER_POWERUP;
 
-	blocking_notifier_call_chain(&sysmon_notifiers, 0, (void *)&sysmon);
+	blocking_notifier_call_chain(&sysmon_notifiers, 0, (void *)sysmon);
 
 	mutex_lock(&sysmon_lock);
 	list_for_each_entry(target, &sysmon_list, node) {
@@ -545,7 +545,7 @@ static void sysmon_stop(struct rproc_subdev *subdev, bool crashed)
 	dev_info(sysmon->dev, "Incrementing tid for %s to %d\n", sysmon->name,
 		 sysmon->transaction_id);
 
-	blocking_notifier_call_chain(&sysmon_notifiers, 0, (void *)&sysmon);
+	blocking_notifier_call_chain(&sysmon_notifiers, 0, (void *)sysmon);
 
 	/* Don't request graceful shutdown if we've crashed */
 	if (crashed)
@@ -569,7 +569,7 @@ static void sysmon_unprepare(struct rproc_subdev *subdev)
 						  subdev);
 	sysmon->ssr_event = QCOM_SSR_AFTER_SHUTDOWN;
 
-	blocking_notifier_call_chain(&sysmon_notifiers, 0, (void *)&sysmon);
+	blocking_notifier_call_chain(&sysmon_notifiers, 0, (void *)sysmon);
 }
 
 /**
