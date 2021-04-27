@@ -431,7 +431,7 @@ static int perfmgr_perfserv_freq_proc_show(struct seq_file *m, void *v)
 static ssize_t perfmgr_boot_freq_proc_write(struct file *filp,
 		const char __user *ubuf, size_t cnt, loff_t *pos)
 {
-	int i = 0, data;
+	int i = 0, data, cid;
 	struct ppm_limit_data *freq_limit;
 	unsigned int arg_num = perfmgr_clusters * 2; /* for min and max */
 	char *tok, *tmp;
@@ -441,6 +441,11 @@ static ssize_t perfmgr_boot_freq_proc_write(struct file *filp,
 			sizeof(struct ppm_limit_data), GFP_KERNEL);
 	if (!freq_limit)
 		goto out;
+
+	if (!buf) {
+		pr_debug("buf is null\n");
+		goto out;
+	}
 
 	tmp = buf;
 	while ((tok = strsep(&tmp, " ")) != NULL) {
@@ -471,8 +476,8 @@ static ssize_t perfmgr_boot_freq_proc_write(struct file *filp,
 	}
 
 	isBooting = 0;
-	for_each_perfmgr_clusters(i)
-		if (freq_limit[i].min != -1 || freq_limit[i].max != -1) {
+	for_each_perfmgr_clusters(cid)
+		if (freq_limit[cid].min != -1 || freq_limit[cid].max != -1) {
 			isBooting = 1;
 #ifdef CONFIG_MTK_CORE_CTL
 			core_ctl_set_boost(1);
