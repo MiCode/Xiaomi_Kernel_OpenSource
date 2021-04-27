@@ -15,12 +15,9 @@
 #include <linux/seq_file.h>
 #include <linux/energy_model.h>
 #include <trace/hooks/topology.h>
-#include "scheduler.h"
+#include "sched_main.h"
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Yun Hsiang");
-
-#if defined(CONFIG_MTK_OPP_CAP_INFO)
+#if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
 static void __iomem *sram_base_addr;
 static struct pd_capacity_info *pd_capacity_tbl;
 static int pd_count;
@@ -113,7 +110,7 @@ static int init_capacity_table(void)
 
 	return 0;
 err:
-	pr_err("count %d does not match entry_count %d\n", count, entry_count);
+	pr_info("count %d does not match entry_count %d\n", count, entry_count);
 
 	free_capacity_table();
 	return -ENOENT;
@@ -171,7 +168,7 @@ static int init_sram_mapping(void)
 	sram_base_addr = ioremap(DVFS_TBL_BASE_PHYS + CAPACITY_TBL_OFFSET, CAPACITY_TBL_SIZE);
 
 	if (!sram_base_addr) {
-		pr_err("Remap capacity table failed!\n");
+		pr_info("Remap capacity table failed!\n");
 
 		return -EIO;
 	}
@@ -228,7 +225,7 @@ static int init_opp_cap_info(struct proc_dir_entry *dir)
 
 	entry = proc_create("pd_capacity_tbl", 0644, dir, &pd_capacity_tbl_ops);
 	if (!entry)
-		pr_warn("mtk_scheduler/pd_capacity_tbl entry create failed\n");
+		pr_info("mtk_scheduler/pd_capacity_tbl entry create failed\n");
 
 	return ret;
 }
@@ -238,7 +235,7 @@ static void clear_opp_cap_info(void)
 	free_capacity_table();
 }
 
-#if defined(CONFIG_NONLINEAR_FREQ_CTL)
+#if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
 static void mtk_arch_set_freq_scale(void *data, struct cpumask *cpus,
 		unsigned long freq, unsigned long max, unsigned long *scale)
 {
@@ -273,10 +270,14 @@ static int __init mtk_scheduler_init(void)
 	if (!dir)
 		return -ENOMEM;
 
+	ret = init_sched_common_sysfs();
+	if (ret)
+		return ret;
+
 	ret = init_opp_cap_info(dir);
 	if (ret)
 		return ret;
-#if defined(CONFIG_NONLINEAR_FREQ_CTL)
+#if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
 	ret = register_trace_android_vh_arch_set_freq_scale(
 			mtk_arch_set_freq_scale, NULL);
 	if (ret)
@@ -289,7 +290,12 @@ static int __init mtk_scheduler_init(void)
 static void __exit mtk_scheduler_exit(void)
 {
 	clear_opp_cap_info();
+	cleanup_sched_common_sysfs();
 }
 
 module_init(mtk_scheduler_init);
 module_exit(mtk_scheduler_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("MediaTek scheduler");
+MODULE_AUTHOR("MediaTek Inc.");

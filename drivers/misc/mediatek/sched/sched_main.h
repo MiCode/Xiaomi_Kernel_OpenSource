@@ -3,8 +3,10 @@
  *  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#ifndef SCHEDULER_H
-#define SCHEDULER_H
+#ifndef SCHED_MAIN_H
+#define SCHED_MAIN_H
+
+#include "sched_sys_common.h"
 
 #define MAX_PD_COUNT 3
 #define MAX_CAP_ENTRYIES 168
@@ -21,7 +23,7 @@ struct pd_capacity_info {
 	struct cpumask cpus;
 };
 
-#if defined(CONFIG_MTK_OPP_CAP_INFO)
+#if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
 extern int pd_freq_to_opp(int cpu, unsigned long freq);
 extern unsigned long pd_get_opp_capacity(int cpu, int opp);
 #endif

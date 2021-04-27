@@ -34,7 +34,7 @@
 #include <linux/sched/task.h>
 #include <sched/sched.h>
 #include <linux/cpufreq.h>
-#include "scheduler.h"
+#include "sched_main.h"
 
 #include <mt-plat/fpsgo_common.h>
 
