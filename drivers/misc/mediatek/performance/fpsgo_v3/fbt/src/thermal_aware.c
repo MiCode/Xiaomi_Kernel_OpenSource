@@ -19,6 +19,7 @@
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 #include "tscpu_settings.h"
+#include "mtk_thermal_monitor.h"
 #include "cpu_ctrl.h"
 #include "fpsgo_base.h"
 #include "fpsgo_sysfs.h"
@@ -33,6 +34,7 @@ static int debnc_time;
 static int limit_cpu;
 static int sub_cpu;
 static int activate_fps;
+static int iso_pcbtemp_th;
 
 static struct kobject *thrm_aware_kobj;
 static struct hrtimer hrt;
@@ -68,6 +70,15 @@ enum THRM_AWARE_CORE {
 static int thrm_get_temp(void)
 {
 	int temp = tscpu_get_curr_max_ts_temp();
+
+	temp /= 1000;
+
+	return temp;
+}
+
+static int thrm_get_pcb_temp(void)
+{
+	int temp = mtk_thermal_get_temp(MTK_THERMAL_SENSOR_AP);
 
 	temp /= 1000;
 
@@ -210,12 +221,16 @@ EXIT:
 
 void thrm_aware_switch(int enable)
 {
+	int temp;
+
 	mutex_lock(&thrm_aware_lock);
 
 	if (enable == thrm_aware_enable)
 		goto EXIT;
 
-	if (!enable) {
+	temp = thrm_get_pcb_temp();
+
+	if (!enable && temp < iso_pcbtemp_th) {
 		thrm_aware_enable = 0;
 
 		if (cur_state != THRM_AWARE_STATE_ACTIVE)
@@ -229,7 +244,7 @@ void thrm_aware_switch(int enable)
 
 		if (sub_cpu != -1)
 			thrm_set_isolation(THRM_AWARE_CORE_ISO, sub_cpu);
-	} else if (limit_cpu != -1) {
+	} else if (enable && (limit_cpu != -1)) {
 		thrm_aware_enable = 1;
 
 		if (sub_cpu != -1)
@@ -441,6 +456,45 @@ EXIT:
 
 static KOBJ_ATTR_RW(thrm_activate_fps);
 
+static ssize_t thrm_iso_pcbtemp_th_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	int val = -1;
+
+	mutex_lock(&thrm_aware_lock);
+	val = iso_pcbtemp_th;
+	mutex_unlock(&thrm_aware_lock);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
+}
+
+static ssize_t thrm_iso_pcbtemp_th_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	int val = -1;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
+
+	mutex_lock(&thrm_aware_lock);
+	iso_pcbtemp_th = val;
+	mutex_unlock(&thrm_aware_lock);
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(thrm_iso_pcbtemp_th);
+
 static void update_cpu_info(void)
 {
 	int i;
@@ -468,6 +522,7 @@ void __init thrm_aware_init(struct kobject *dir_kobj)
 	cur_state = THRM_AWARE_STATE_INACTIVE;
 	debnc_time = TIME_1S;
 	activate_fps = 1;
+	iso_pcbtemp_th = 200;
 
 	update_cpu_info();
 
@@ -480,6 +535,7 @@ void __init thrm_aware_init(struct kobject *dir_kobj)
 	fpsgo_sysfs_create_file(thrm_aware_kobj, &kobj_attr_thrm_limit_cpu);
 	fpsgo_sysfs_create_file(thrm_aware_kobj, &kobj_attr_thrm_sub_cpu);
 	fpsgo_sysfs_create_file(thrm_aware_kobj, &kobj_attr_thrm_activate_fps);
+	fpsgo_sysfs_create_file(thrm_aware_kobj, &kobj_attr_thrm_iso_pcbtemp_th);
 }
 
 void __exit thrm_aware_exit(void)
@@ -495,5 +551,6 @@ void __exit thrm_aware_exit(void)
 	fpsgo_sysfs_remove_file(thrm_aware_kobj, &kobj_attr_thrm_limit_cpu);
 	fpsgo_sysfs_remove_file(thrm_aware_kobj, &kobj_attr_thrm_sub_cpu);
 	fpsgo_sysfs_remove_file(thrm_aware_kobj, &kobj_attr_thrm_activate_fps);
+	fpsgo_sysfs_remove_file(thrm_aware_kobj, &kobj_attr_thrm_iso_pcbtemp_th);
 }
 
