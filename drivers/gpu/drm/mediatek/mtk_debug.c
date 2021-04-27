@@ -821,6 +821,8 @@ int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
 			DDP_FIRST_PATH, 0);
 
 	if (is_frame_mode) {
+		cmdq_pkt_clear_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
 		cmdq_pkt_wfe(cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 		cmdq_pkt_clear_event(cmdq_handle,
@@ -837,6 +839,8 @@ int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
 			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 		cmdq_pkt_set_event(cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
 	}
 
 	if (blocking) {
