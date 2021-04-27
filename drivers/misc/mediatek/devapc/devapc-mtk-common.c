@@ -249,10 +249,12 @@ static void start_devapc(void)
 	} else
 		DEVAPC_MSG("No violation happened before booting kernel\n");
 
+	DEVAPC_MSG("Number of devices: %u\n", mtk_devapc_ctx->soc->ndevices);
+
 	for (i = 0; i < mtk_devapc_ctx->soc->ndevices; i++)
 		if (true == device_info[i].enable_vio_irq) {
-			clear_infra_vio_status(i);
 			unmask_infra_module_irq(i);
+			clear_infra_vio_status(i);
 		}
 
 	print_vio_mask_sta();
@@ -874,6 +876,8 @@ int mtk_devapc_probe(struct platform_device *pdev,
 			mtk_devapc_ctx->devapc_pd_base,
 			mtk_devapc_ctx->devapc_irq);
 
+/* Enable devapc-infra-clock in preloader */
+#ifndef CONFIG_DEVAPC_MT6781
 	/* CCF (Common Clock Framework) */
 	mtk_devapc_ctx->devapc_infra_clk = devm_clk_get(&pdev->dev,
 			"devapc-infra-clock");
@@ -885,12 +889,13 @@ int mtk_devapc_probe(struct platform_device *pdev,
 
 	if (clk_prepare_enable(mtk_devapc_ctx->devapc_infra_clk))
 		return -EINVAL;
+#endif
 
 	start_devapc();
 
 	ret = request_irq(mtk_devapc_ctx->devapc_irq,
 			(irq_handler_t)devapc_violation_irq,
-			IRQF_TRIGGER_LOW, "devapc", NULL);
+			IRQF_TRIGGER_NONE, "devapc", NULL);
 	if (ret) {
 		pr_err(PFX "Failed to request devapc irq, ret(%d)\n", ret);
 		return ret;
@@ -909,7 +914,10 @@ int mtk_devapc_probe(struct platform_device *pdev,
 
 int mtk_devapc_remove(struct platform_device *dev)
 {
+/* devapc-infra-clock is always on */
+#ifndef CONFIG_DEVAPC_MT6781
 	clk_disable_unprepare(mtk_devapc_ctx->devapc_infra_clk);
+#endif
 	return 0;
 }
 
