@@ -13,6 +13,7 @@
 #include "md_cooling.h"
 #endif
 #include "thermal_interface.h"
+#include "thermal_trace_local.h"
 
 #if IS_ENABLED(CONFIG_MTK_MD_THERMAL)
 TRACE_DEFINE_ENUM(MD_LV_THROTTLE_DISABLED);
@@ -119,6 +120,107 @@ TRACE_EVENT(network_tput,
 
 	TP_printk("MD_Tput=%d Wifi_Tput=%d (Kb/s)",
 		__entry->md_tput, __entry->wifi_tput)
+);
+
+TRACE_EVENT(thermal_cpu,
+
+	TP_PROTO(struct thermal_cpu_info *cpu),
+
+	TP_ARGS(cpu),
+
+	TP_STRUCT__entry(
+		__field(int, ttj)
+		__field(int, limit_powerbudget)
+		__field(int, LL_min_opp_hint)
+		__field(int, LL_cur_opp)
+		__field(int, LL_limit_opp)
+		__field(int, LL_max_temp)
+		__field(int, BL_min_opp_hint)
+		__field(int, BL_cur_opp)
+		__field(int, BL_limit_opp)
+		__field(int, BL_max_temp)
+		__field(int, B_min_opp_hint)
+		__field(int, B_cur_opp)
+		__field(int, B_limit_opp)
+		__field(int, B_max_temp)
+	),
+
+	TP_fast_assign(
+		__entry->ttj = cpu->ttj;
+		__entry->limit_powerbudget = cpu->limit_powerbudget;
+		__entry->LL_min_opp_hint = cpu->LL_min_opp_hint;
+		__entry->LL_cur_opp = cpu->LL_cur_opp;
+		__entry->LL_limit_opp = cpu->LL_limit_opp;
+		__entry->LL_max_temp = cpu->LL_max_temp;
+		__entry->BL_min_opp_hint = cpu->BL_min_opp_hint;
+		__entry->BL_cur_opp = cpu->BL_cur_opp;
+		__entry->BL_limit_opp = cpu->BL_limit_opp;
+		__entry->BL_max_temp = cpu->BL_max_temp;
+		__entry->B_min_opp_hint = cpu->B_min_opp_hint;
+		__entry->B_cur_opp = cpu->B_cur_opp;
+		__entry->B_limit_opp = cpu->B_limit_opp;
+		__entry->B_max_temp = cpu->B_max_temp;
+	),
+
+	TP_printk("ttj=%d limit_pb=%d LL_min_opp_h=%d LL_cur_opp=%d LL_limit_opp=%d LL_max_t=%d "
+		"BL_min_opp_h=%d BL_cur_opp=%d BL_limit_opp=%d BL_max_t=%d "
+		"B_min_opp_h=%d B_cur_opp=%d B_limit_opp=%d B_max_t=%d",
+		__entry->ttj, __entry->limit_powerbudget,
+		__entry->LL_min_opp_hint, __entry->LL_cur_opp, __entry->LL_limit_opp, __entry->LL_max_temp,
+		__entry->BL_min_opp_hint, __entry->BL_cur_opp, __entry->BL_limit_opp, __entry->BL_max_temp,
+		__entry->B_min_opp_hint, __entry->B_cur_opp, __entry->B_limit_opp, __entry->B_max_temp)
+);
+
+TRACE_EVENT(thermal_gpu,
+
+	TP_PROTO(struct thermal_gpu_info *gpu),
+
+	TP_ARGS(gpu),
+
+	TP_STRUCT__entry(
+		__field(int, ttj)
+		__field(int, limit_powerbudget)
+		__field(int, temp)
+		__field(int, limit_opp)
+		__field(int, cur_opp)
+	),
+
+	TP_fast_assign(
+		__entry->ttj = gpu->ttj;
+		__entry->limit_powerbudget = gpu->limit_powerbudget;
+		__entry->temp = gpu->temp;
+		__entry->limit_opp = gpu->limit_opp;
+		__entry->cur_opp = gpu->cur_opp;
+	),
+
+	TP_printk("ttj=%d limit_pb=%d t=%d limit_opp=%d cur_opp=%d",
+		__entry->ttj, __entry->limit_powerbudget, __entry->temp, __entry->limit_opp, __entry->cur_opp)
+);
+
+TRACE_EVENT(thermal_apu,
+
+	TP_PROTO(struct thermal_apu_info *apu),
+
+	TP_ARGS(apu),
+
+	TP_STRUCT__entry(
+		__field(int, ttj)
+		__field(int, limit_powerbudget)
+		__field(int, temp)
+		__field(int, limit_opp)
+		__field(int, cur_opp)
+	),
+
+	TP_fast_assign(
+		__entry->ttj = apu->ttj;
+		__entry->limit_powerbudget = apu->limit_powerbudget;
+		__entry->temp = apu->temp;
+		__entry->limit_opp = apu->limit_opp;
+		__entry->cur_opp = apu->cur_opp;
+	),
+
+	TP_printk("ttj=%d limit_pb=%d t=%d limit_opp=%d cur_opp=%d",
+		__entry->ttj, __entry->limit_powerbudget, __entry->temp, __entry->limit_opp, __entry->cur_opp)
 );
 
 TRACE_EVENT(cpu_hr_info_0,
@@ -251,6 +353,28 @@ TRACE_EVENT(ap_ntc_hr,
 
 	TP_printk("temp=%d predict_temp=%d headroom=%d ratio=%d",
 		__entry->temp, __entry->predict_temp, __entry->headroom, __entry->ratio)
+);
+
+TRACE_EVENT(fps_cooler,
+
+	TP_PROTO(struct fps_cooler_info *fps_cooler),
+
+	TP_ARGS(fps_cooler),
+
+	TP_STRUCT__entry(
+		__field(int, target_fps)
+		__field(int, tpcb)
+		__field(int, ap_headroom)
+	),
+
+	TP_fast_assign(
+		__entry->target_fps = fps_cooler->target_fps;
+		__entry->tpcb = fps_cooler->tpcb;
+		__entry->ap_headroom = fps_cooler->ap_headroom;
+	),
+
+	TP_printk("target_fps=%d tpcb=%d ap_headroom=%d",
+		__entry->target_fps, __entry->tpcb, __entry->ap_headroom)
 );
 
 #endif /* _TRACE_MTK_THERMAL_H */

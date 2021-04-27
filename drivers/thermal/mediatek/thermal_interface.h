@@ -14,6 +14,11 @@
 #define TTJ_OFFSET                 (0x100)
 #define POWER_BUDGET_OFFSET        (0x110)
 #define CPU_MIN_OPP_HINT_OFFSET    (0x120)
+#define CPU_LIMIT_OPP_OFFSET       (0x200)
+#define CPU_CUR_OPP_OFFSET         (0x210)
+#define CPU_MAX_TEMP_OFFSET        (0x220)
+#define GPU_TEMP_OFFSET            (0x180)
+#define APU_TEMP_OFFSET            (0x190)
 
 struct headroom_info {
     int temp;
@@ -37,13 +42,21 @@ enum headroom_id {
 	NR_HEADROOM_ID
 };
 
+struct fps_cooler_info {
+	int target_fps;
+	int tpcb;
+	int ap_headroom;
+};
+
 extern void update_ap_ntc_headroom(int temp, int polling_interval);
 extern int get_thermal_headroom(enum headroom_id id);
 extern int set_cpu_min_opp(int gear, int opp);
 extern int get_cpu_temp(int cpu_id);
 #if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
 extern void __iomem * thermal_csram_base;
+extern struct fps_cooler_info fps_cooler_data;
 #else
 void __iomem * thermal_csram_base;
+struct fps_cooler_info fps_cooler_data;
 #endif
 #endif

@@ -26,35 +26,6 @@
 #include <linux/io.h>
 #include "thermal_interface.h"
 
-#define THERM_INTF_DEBUGFS_ENTRY_RO(name) \
-static int therm_intf_##name##_open(struct inode *i, struct file *file) \
-{ \
-	return single_open(file, therm_intf_##name##_show, i->i_private); \
-} \
-\
-static const struct file_operations therm_intf_##name##_fops = { \
-	.owner = THIS_MODULE, \
-	.open = therm_intf_##name##_open, \
-	.read = seq_read, \
-	.llseek = seq_lseek, \
-	.release = single_release, \
-}
-
-#define THERM_INTF_DEBUGFS_ENTRY_RW(name) \
-static int therm_intf_##name##_open(struct inode *i, struct file *file) \
-{ \
-	return single_open(file, therm_intf_##name##_show, i->i_private); \
-} \
-\
-static const struct file_operations therm_intf_##name##_fops = { \
-	.owner = THIS_MODULE, \
-	.open = therm_intf_##name##_open, \
-	.read = seq_read, \
-	.write = therm_intf_##name##_write, \
-	.llseek = seq_lseek, \
-	.release = single_release, \
-}
-
 #define MAX_HEADROOM		(100)
 
 struct therm_intf_info {
@@ -69,6 +40,8 @@ struct therm_intf_info {
 static struct therm_intf_info tm_data;
 void __iomem * thermal_csram_base;
 EXPORT_SYMBOL(thermal_csram_base);
+struct fps_cooler_info fps_cooler_data;
+EXPORT_SYMBOL(fps_cooler_data);
 
 static int  therm_intf_read_csram_s32(int offset)
 {
@@ -123,20 +96,24 @@ int get_cpu_temp(int cpu_id)
 }
 EXPORT_SYMBOL(get_cpu_temp);
 
-static int therm_intf_hr_info_show(struct seq_file *m, void *unused)
+static ssize_t headroom_info_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
 {
 	int i;
+	int len = 0;
 
 	for (i = 0; i < NR_HEADROOM_ID; i++) {
 		if (i == NR_HEADROOM_ID - 1)
-			seq_printf(m, "%d\n", get_thermal_headroom((enum headroom_id)i));
+			len += snprintf(buf + len, PAGE_SIZE - len, "%d\n",
+				get_thermal_headroom((enum headroom_id)i));
 		else
-			seq_printf(m, "%d,", get_thermal_headroom((enum headroom_id)i));
+			len += snprintf(buf + len, PAGE_SIZE - len, "%d,",
+				get_thermal_headroom((enum headroom_id)i));
 	}
 
-	return 0;
+	return len;
 }
-THERM_INTF_DEBUGFS_ENTRY_RO(hr_info);
+
 static void write_ttj(unsigned int cpu_ttj, unsigned int gpu_ttj,
 	unsigned int apu_ttj)
 {
@@ -151,10 +128,11 @@ static ssize_t ttj_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
 	int len = 0;
-	void __iomem *addr = tm_data.csram_base + TTJ_OFFSET;
 
 	len += snprintf(buf + len, PAGE_SIZE - len, "%u, %u, %u\n",
-		readl(addr), readl(addr + 4), readl(addr + 8));
+		therm_intf_read_csram_s32(TTJ_OFFSET),
+		therm_intf_read_csram_s32(TTJ_OFFSET + 4),
+		therm_intf_read_csram_s32(TTJ_OFFSET + 8));
 
 	return len;
 }
@@ -193,10 +171,11 @@ static ssize_t power_budget_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
 	int len = 0;
-	void __iomem *addr = tm_data.csram_base + POWER_BUDGET_OFFSET;
 
 	len += snprintf(buf + len, PAGE_SIZE - len, "%u, %u, %u\n",
-		readl(addr), readl(addr + 4), readl(addr + 8));
+		therm_intf_read_csram_s32(POWER_BUDGET_OFFSET),
+		therm_intf_read_csram_s32(POWER_BUDGET_OFFSET + 4),
+		therm_intf_read_csram_s32(POWER_BUDGET_OFFSET + 8));
 
 	return len;
 }
@@ -219,32 +198,105 @@ static ssize_t power_budget_store(struct kobject *kobj,
 	return -EINVAL;
 }
 
-static ssize_t ap_headroom_show(struct kobject *kobj,
+static ssize_t cpu_info_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
 	int len = 0;
 
-	len += snprintf(buf + len, PAGE_SIZE - len, "AP NTC HEADROOM = %d\n",
-		readl(tm_data.csram_base + AP_NTC_HEADROOM_OFFSET));
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+		therm_intf_read_csram_s32(CPU_MIN_OPP_HINT_OFFSET),
+		therm_intf_read_csram_s32(CPU_MIN_OPP_HINT_OFFSET + 4),
+		therm_intf_read_csram_s32(CPU_MIN_OPP_HINT_OFFSET + 8),
+		therm_intf_read_csram_s32(CPU_LIMIT_OPP_OFFSET),
+		therm_intf_read_csram_s32(CPU_LIMIT_OPP_OFFSET + 4),
+		therm_intf_read_csram_s32(CPU_LIMIT_OPP_OFFSET + 8),
+		therm_intf_read_csram_s32(CPU_CUR_OPP_OFFSET),
+		therm_intf_read_csram_s32(CPU_CUR_OPP_OFFSET + 4),
+		therm_intf_read_csram_s32(CPU_CUR_OPP_OFFSET + 8),
+		therm_intf_read_csram_s32(CPU_MAX_TEMP_OFFSET),
+		therm_intf_read_csram_s32(CPU_MAX_TEMP_OFFSET + 4),
+		therm_intf_read_csram_s32(CPU_MAX_TEMP_OFFSET + 8));
 
 	return len;
 }
 
-static ssize_t ap_headroom_store(struct kobject *kobj,
+static ssize_t cpu_temp_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+	int cpu_id = 0;
+
+	for (cpu_id = 0; cpu_id < num_possible_cpus(); cpu_id++) {
+		if (cpu_id == num_possible_cpus() - 1)
+			len += snprintf(buf + len, PAGE_SIZE - len, "%d\n",
+				get_cpu_temp(cpu_id));
+		else
+			len += snprintf(buf + len, PAGE_SIZE - len, "%d,",
+				get_cpu_temp(cpu_id));
+	}
+
+	return len;
+}
+
+static ssize_t gpu_info_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d,%d,%d\n",
+		therm_intf_read_csram_s32(GPU_TEMP_OFFSET),
+		therm_intf_read_csram_s32(GPU_TEMP_OFFSET + 4),
+		therm_intf_read_csram_s32(GPU_TEMP_OFFSET + 8));
+
+	return len;
+}
+
+static ssize_t apu_info_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d,%d,%d\n",
+		therm_intf_read_csram_s32(APU_TEMP_OFFSET),
+		therm_intf_read_csram_s32(APU_TEMP_OFFSET + 4),
+		therm_intf_read_csram_s32(APU_TEMP_OFFSET + 8));
+
+	return len;
+}
+
+static ssize_t fps_cooler_info_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d,%d,%d\n",
+		fps_cooler_data.target_fps, fps_cooler_data.tpcb,
+		fps_cooler_data.ap_headroom);
+
+	return len;
+}
+
+static ssize_t fps_cooler_info_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
-	char cmd[10];
+	int target_fps, tpcb, ap_headroom;
 	void __iomem *addr = tm_data.csram_base + AP_NTC_HEADROOM_OFFSET;
-	int headroom;
 
-	if (sscanf(buf, "%6s %d", cmd, &headroom) == 2) {
-		if ((strncmp(cmd, "AP_HD", 5) == 0)
-			&& (headroom >= -100) && (headroom <= 100))
-			writel(headroom, addr);
-		else
-			pr_info("get ap ntc headroom fail\n");
+	if(sscanf(buf, "%d,%d,%d", &target_fps, &tpcb, &ap_headroom) == 3)
+	{
+		if ((ap_headroom >= -100) && (ap_headroom <= 100))
+		{
+			writel(ap_headroom, addr);
+			fps_cooler_data.ap_headroom = ap_headroom;
+		} else {
+			pr_info("[fps_cooler_info_store] invalid ap head room input\n");
+			return -EINVAL;
+		}
+
+		fps_cooler_data.target_fps = target_fps;
+		fps_cooler_data.tpcb = tpcb;
 	} else {
-		pr_info("[headroom_store] invalid input\n");
+		pr_info("[fps_cooler_info_store] invalid input\n");
 		return -EINVAL;
 	}
 
@@ -253,12 +305,22 @@ static ssize_t ap_headroom_store(struct kobject *kobj,
 
 static struct kobj_attribute ttj_attr = __ATTR_RW(ttj);
 static struct kobj_attribute power_budget_attr = __ATTR_RW(power_budget);
-static struct kobj_attribute ap_ntc_headroom_attr = __ATTR_RW(ap_headroom);
+static struct kobj_attribute cpu_info_attr = __ATTR_RO(cpu_info);
+static struct kobj_attribute gpu_info_attr = __ATTR_RO(gpu_info);
+static struct kobj_attribute apu_info_attr = __ATTR_RO(apu_info);
+static struct kobj_attribute fps_cooler_info_attr = __ATTR_RW(fps_cooler_info);
+static struct kobj_attribute cpu_temp_attr = __ATTR_RO(cpu_temp);
+static struct kobj_attribute headroom_info_attr = __ATTR_RO(headroom_info);
 
 static struct attribute *thermal_attrs[] = {
 	&ttj_attr.attr,
 	&power_budget_attr.attr,
-	&ap_ntc_headroom_attr.attr,
+	&cpu_info_attr.attr,
+	&gpu_info_attr.attr,
+	&apu_info_attr.attr,
+	&fps_cooler_info_attr.attr,
+	&cpu_temp_attr.attr,
+	&headroom_info_attr.attr,
 	NULL
 };
 static struct attribute_group thermal_attr_group = {
@@ -326,16 +388,6 @@ static int therm_intf_probe(struct platform_device *pdev)
 #else
 	tm_data.cpu_cluster_num = 3;
 #endif
-
-	/* debugfs */
-	tm_data.debug_dir = debugfs_create_dir("therm_intf", NULL);
-	if (!tm_data.debug_dir) {
-		dev_info(tm_data.dev, "failed to create therm_intf debugfs dir\n");
-		return -ENODEV;
-	}
-	if (!debugfs_create_file("hr_info", 0440,
-		tm_data.debug_dir, NULL, &therm_intf_hr_info_fops))
-		return -ENODEV;
 
 	ret = sysfs_create_group(kernel_kobj, &thermal_attr_group);
 	if (ret) {
