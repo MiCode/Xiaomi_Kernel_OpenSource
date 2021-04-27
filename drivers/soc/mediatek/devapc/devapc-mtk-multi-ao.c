@@ -673,6 +673,12 @@ static bool mtk_devapc_dump_vio_dbg(int slave_type, int *vio_idx, int *index)
 	return false;
 }
 
+static void register_devapc_violation_callback(struct devapc_vio_callbacks *viocb)
+{
+	INIT_LIST_HEAD(&viocb->list);
+	list_add_tail(&viocb->list, &viocb_list);
+}
+
 /*
  * start_devapc - initialize devapc status and start receiving interrupt
  *		  while devapc violation is triggered.
@@ -747,7 +753,7 @@ static void start_devapc(void)
 	print_vio_mask_sta(false);
 
 	/* register subsys test cb */
-	register_devapc_vio_callback(&devapc_test_handle);
+	register_devapc_violation_callback(&devapc_test_handle);
 
 	pr_info(PFX "%s done\n", __func__);
 }
@@ -938,13 +944,6 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 	spin_unlock_irqrestore(&devapc_lock, flags);
 	return IRQ_HANDLED;
 }
-
-void register_devapc_vio_callback(struct devapc_vio_callbacks *viocb)
-{
-	INIT_LIST_HEAD(&viocb->list);
-	list_add_tail(&viocb->list, &viocb_list);
-}
-EXPORT_SYMBOL(register_devapc_vio_callback);
 
 /*
  * devapc_ut - There are two UT commands to support
@@ -1387,14 +1386,12 @@ int mtk_devapc_probe(struct platform_device *pdev,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mtk_devapc_probe);
 
 int mtk_devapc_remove(struct platform_device *dev)
 {
 	clk_disable_unprepare(mtk_devapc_ctx->devapc_infra_clk);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mtk_devapc_remove);
 
 MODULE_DESCRIPTION("Mediatek Device APC Driver");
 MODULE_AUTHOR("Neal Liu <neal.liu@mediatek.com>");

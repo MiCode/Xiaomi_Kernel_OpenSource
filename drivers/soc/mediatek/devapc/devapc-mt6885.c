@@ -1856,7 +1856,6 @@ void devapc_catch_illegal_range(phys_addr_t phys_addr, size_t size)
 		BUG_ON(1);
 	}
 }
-EXPORT_SYMBOL(devapc_catch_illegal_range);
 
 static struct mtk_devapc_dbg_status mt6885_devapc_dbg_stat = {
 	.enable_ut = PLAT_DBG_UT_DEFAULT,
