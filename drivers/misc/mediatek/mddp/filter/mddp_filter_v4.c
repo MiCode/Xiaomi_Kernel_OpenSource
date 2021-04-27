@@ -116,13 +116,15 @@ static unsigned int nat_tuple_hash_rnd;
 	((t)->src.all | ((t)->dst.all << 16)), \
 	nat_tuple_hash_rnd) & (NAT_TUPLE_HASH_SIZE - 1))
 
-static int mddp_f_nat_cnt;
+static atomic_t mddp_f_nat_cnt = ATOMIC_INIT(0);
+static struct wait_queue_head nat_wq;
 
 static int32_t mddp_f_init_nat_tuple(void)
 {
 	int i;
 
 	MDDP_F_NAT_TUPLE_INIT_LOCK(&mddp_f_nat_tuple_lock);
+	init_waitqueue_head(&nat_wq);
 
 	/* get 4 bytes random number */
 	get_random_bytes(&nat_tuple_hash_rnd, 4);
@@ -146,13 +148,20 @@ static int32_t mddp_f_init_nat_tuple(void)
 	return 0;
 }
 
+static void mddp_f_uninit_nat_tuple(void)
+{
+	wait_event(nat_wq, !atomic_read(&mddp_f_nat_cnt));
+	kmem_cache_destroy(mddp_f_nat_tuple_cache);
+	vfree(nat_tuple_hash);
+}
+
 static void mddp_f_del_nat_tuple_w_unlock(struct nat_tuple *t, unsigned long flag)
 {
 	MDDP_F_LOG(MDDP_LL_DEBUG,
 			"%s: Del nat tuple[%p], next[%p], prev[%p].\n",
 			__func__, t, t->list.next, t->list.prev);
 
-	mddp_f_nat_cnt--;
+	atomic_dec(&mddp_f_nat_cnt);
 
 	/* remove from the list */
 	if (t->list.next != LIST_POISON1 && t->list.prev != LIST_POISON2) {
@@ -173,6 +182,12 @@ static void mddp_f_timeout_nat_tuple(struct timer_list *timer)
 	struct nat_tuple *t = from_timer(t, timer, timeout_used);
 	unsigned long flag;
 
+	if (unlikely(atomic_read(&mddp_filter_quit))) {
+		kmem_cache_free(mddp_f_nat_tuple_cache, t);
+		if (atomic_dec_and_test(&mddp_f_nat_cnt))
+			wake_up(&nat_wq);
+		return;
+	}
 	MDDP_F_NAT_TUPLE_LOCK(&mddp_f_nat_tuple_lock, flag);
 	if (t->curr_cnt == t->last_cnt)
 		mddp_f_del_nat_tuple_w_unlock(t, flag);
@@ -196,7 +211,7 @@ static bool mddp_f_add_nat_tuple(struct nat_tuple *t)
 			"%s: Add new nat tuple[%p] with src_port[%d] & proto[%d].\n",
 			__func__, t, t->src.all, t->proto);
 
-	if (mddp_f_nat_cnt >= mddp_f_max_nat) {
+	if (atomic_read(&mddp_f_nat_cnt) >= mddp_f_max_nat) {
 		MDDP_F_LOG(MDDP_LL_NOTICE,
 				"%s: Nat tuple table is full! Tuple[%p] is about to free.\n",
 				__func__, t);
@@ -242,7 +257,7 @@ static bool mddp_f_add_nat_tuple(struct nat_tuple *t)
 
 	/* add to the list */
 	list_add_tail(&t->list, &nat_tuple_hash[hash]);
-	mddp_f_nat_cnt++;
+	atomic_inc(&mddp_f_nat_cnt);
 	MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock, flag);
 
 	MDDP_F_LOG(MDDP_LL_DEBUG,

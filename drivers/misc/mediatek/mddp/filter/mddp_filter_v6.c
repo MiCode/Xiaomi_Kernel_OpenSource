@@ -66,13 +66,15 @@ static unsigned int router_tuple_hash_rnd;
 	((t)->in.all | ((t)->out.all << 16)), \
 	router_tuple_hash_rnd) & (ROUTER_TUPLE_HASH_SIZE - 1))
 
-static int mddp_f_router_cnt;
+static atomic_t mddp_f_router_cnt = ATOMIC_INIT(0);
+static struct wait_queue_head router_wq;
 
 static int32_t mddp_f_init_router_tuple(void)
 {
 	int i;
 
 	MDDP_F_ROUTER_TUPLE_INIT_LOCK(&mddp_f_router_tuple_lock);
+	init_waitqueue_head(&router_wq);
 
 	/* get 4 bytes random number */
 	get_random_bytes(&router_tuple_hash_rnd, 4);
@@ -94,6 +96,13 @@ static int32_t mddp_f_init_router_tuple(void)
 	return 0;
 }
 
+static void mddp_f_uninit_router_tuple(void)
+{
+	wait_event(router_wq, !atomic_read(&mddp_f_router_cnt));
+	kmem_cache_destroy(mddp_f_router_tuple_cache);
+	vfree(router_tuple_hash);
+}
+
 static void mddp_f_del_router_tuple_w_unlock(struct router_tuple *t,
 		unsigned long flag)
 {
@@ -101,7 +110,7 @@ static void mddp_f_del_router_tuple_w_unlock(struct router_tuple *t,
 			"%s: Del router tuple[%p], next[%p], prev[%p].\n",
 			__func__, t, t->list.next, t->list.prev);
 
-	mddp_f_router_cnt--;
+	atomic_dec(&mddp_f_router_cnt);
 
 	/* remove from the list */
 	if (t->list.next != LIST_POISON1 && t->list.prev != LIST_POISON2) {
@@ -121,6 +130,13 @@ static void mddp_f_timeout_router_tuple(struct timer_list *timer)
 {
 	struct router_tuple *t = from_timer(t, timer, timeout_used);
 	unsigned long flag;
+
+	if (unlikely(atomic_read(&mddp_filter_quit))) {
+		kmem_cache_free(mddp_f_router_tuple_cache, t);
+		if (atomic_dec_and_test(&mddp_f_router_cnt))
+			wake_up(&router_wq);
+		return;
+	}
 
 	MDDP_F_ROUTER_TUPLE_LOCK(&mddp_f_router_tuple_lock, flag);
 	if (t->curr_cnt == t->last_cnt)
@@ -145,7 +161,7 @@ static bool mddp_f_add_router_tuple_tcpudp(struct router_tuple *t)
 			"%s: Add new tcpudp router tuple[%p] with src_port[%d] & proto[%d].\n",
 			__func__, t, t->in.all, t->proto);
 
-	if (mddp_f_router_cnt >= mddp_f_max_router) {
+	if (atomic_read(&mddp_f_router_cnt) >= mddp_f_max_router) {
 		kmem_cache_free(mddp_f_router_tuple_cache, t);
 
 		MDDP_F_LOG(MDDP_LL_NOTICE,
@@ -187,7 +203,7 @@ static bool mddp_f_add_router_tuple_tcpudp(struct router_tuple *t)
 	/* add to the list */
 	list_add_tail(&t->list, &router_tuple_hash[hash]);
 
-	mddp_f_router_cnt++;
+	atomic_inc(&mddp_f_router_cnt);
 	MDDP_F_ROUTER_TUPLE_UNLOCK(&mddp_f_router_tuple_lock, flag);
 
 	MDDP_F_LOG(MDDP_LL_DEBUG,
