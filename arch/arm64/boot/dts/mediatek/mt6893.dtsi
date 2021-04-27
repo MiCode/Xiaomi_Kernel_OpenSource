@@ -80,6 +80,10 @@
 		compatible = "simple-bus";
 	};
 
+	clk_disable_unused: clk_disable_unused {
+		compatible = "simple-bus";
+	};
+
 	clocks {
 		clk_null: clk_null {
 			compatible = "fixed-clock";
