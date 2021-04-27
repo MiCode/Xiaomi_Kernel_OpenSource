@@ -320,6 +320,9 @@ unsigned int mt_gpufreq_get_shader_present(void)
 	case MT6877_SEGMENT:
 		shader_present = MT_GPU_SHADER_PRESENT_4;
 		break;
+	case MT6877T_SEGMENT:
+		shader_present = MT_GPU_SHADER_PRESENT_4;
+		break;
 	default:
 		shader_present = MT_GPU_SHADER_PRESENT_4;
 		gpufreq_pr_info("@%s: invalid segment_id(%d)\n",
@@ -2107,12 +2110,14 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 	if (segment_id != -1)
 		return segment_id;
 
-	efuse_id = (get_devinfo_with_index(30) & 0xFF);
+	efuse_id = (get_devinfo_with_index(7) & 0xFF);
 
 	switch (efuse_id) {
 	case 0x01:
-	case 0x02:
 		segment_id = MT6877_SEGMENT;    /* 5G-5 */
+		break;
+	case 0x02:
+		segment_id = MT6877T_SEGMENT;    /* 5G-5+ */
 		break;
 	default:
 		segment_id = MT6877_SEGMENT;
@@ -3425,8 +3430,10 @@ static void __mt_gpufreq_init_table(void)
 	/* determine max_opp/num/segment_table... by segment  */
 	if (segment_id == MT6877_SEGMENT)
 		g_segment_max_opp_idx = 4;
-	else
+	else if (segment_id == MT6877T_SEGMENT)
 		g_segment_max_opp_idx = 0;
+	else
+		g_segment_max_opp_idx = 4;
 
 	g_segment_min_opp_idx = NUM_OF_OPP_IDX - 1;
 

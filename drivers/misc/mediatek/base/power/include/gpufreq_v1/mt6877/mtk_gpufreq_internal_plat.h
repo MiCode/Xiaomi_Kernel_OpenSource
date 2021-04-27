@@ -256,6 +256,7 @@ static int ceil(float a)
  **************************************************/
 enum g_segment_id_enum {
 	MT6877_SEGMENT = 1,
+	MT6877T_SEGMENT,
 };
 
 enum g_posdiv_power_enum  {
