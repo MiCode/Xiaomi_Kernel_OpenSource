@@ -82,9 +82,6 @@ extern void __iomem *ap_gpio_base;
 extern bool in_uart_mode;
 #endif
 extern int usb20_phy_init_debugfs(void);
-#define PHY_IDLE_MODE       0
-#define PHY_DEV_ACTIVE      1
-#define PHY_HOST_ACTIVE     2
 void set_usb_phy_mode(int mode);
 #ifdef CONFIG_USB_MTK_OTG
 extern bool usb20_check_vbus_on(void);

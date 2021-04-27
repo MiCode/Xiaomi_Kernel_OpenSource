@@ -22,6 +22,7 @@
 #include "tcpm.h"
 #include <linux/workqueue.h>
 #include <linux/mutex.h>
+#include <linux/phy/phy.h>
 static struct notifier_block otg_nb;
 static struct tcpc_device *otg_tcpc_dev;
 static struct delayed_work register_otg_work;
@@ -581,14 +582,15 @@ static void do_host_work(struct work_struct *data)
 		devctl = musb_readb(mtk_musb->mregs, MUSB_DEVCTL);
 		musb_writeb(mtk_musb->mregs,
 				MUSB_DEVCTL, (devctl&(~MUSB_DEVCTL_SESSION)));
-		set_usb_phy_mode(PHY_IDLE_MODE);
+		set_usb_phy_mode(PHY_MODE_INVALID);
+
 		/* wait */
 		mdelay(5);
 		/* restart session */
 		devctl = musb_readb(mtk_musb->mregs, MUSB_DEVCTL);
 		musb_writeb(mtk_musb->mregs,
 				MUSB_DEVCTL, (devctl | MUSB_DEVCTL_SESSION));
-		set_usb_phy_mode(PHY_HOST_ACTIVE);
+		set_usb_phy_mode(PHY_MODE_USB_HOST);
 
 		musb_start(mtk_musb);
 		if (!typec_control && !host_plug_test_triggered)
@@ -617,7 +619,7 @@ static void do_host_work(struct work_struct *data)
 		mt_usb_set_vbus(mtk_musb, 0);
 
 		/* for no VBUS sensing IP */
-		set_usb_phy_mode(PHY_IDLE_MODE);
+		set_usb_phy_mode(PHY_MODE_INVALID);
 
 		musb_stop(mtk_musb);
 
