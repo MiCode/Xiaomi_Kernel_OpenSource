@@ -1038,6 +1038,8 @@ struct ipa_wdi_ul_params {
 	u32 rdy_comp_ring_size;
 	u32 *rdy_ring_rp_va;
 	u32 *rdy_comp_ring_wp_va;
+	bool is_txr_rn_db_pcie_addr;
+	bool is_evt_rn_db_pcie_addr;
 };
 
 /**
@@ -1056,6 +1058,8 @@ struct ipa_wdi_ul_params_smmu {
 	u32 rdy_comp_ring_size;
 	u32 *rdy_ring_rp_va;
 	u32 *rdy_comp_ring_wp_va;
+	bool is_txr_rn_db_pcie_addr;
+	bool is_evt_rn_db_pcie_addr;
 };
 
 /**
@@ -1076,6 +1080,8 @@ struct ipa_wdi_dl_params {
 	phys_addr_t ce_door_bell_pa;
 	u32 ce_ring_size;
 	u32 num_tx_buffers;
+	bool is_txr_rn_db_pcie_addr;
+	bool is_evt_rn_db_pcie_addr;
 };
 
 /**
@@ -1095,6 +1101,8 @@ struct ipa_wdi_dl_params_smmu {
 	phys_addr_t ce_door_bell_pa;
 	u32 ce_ring_size;
 	u32 num_tx_buffers;
+	bool is_txr_rn_db_pcie_addr;
+	bool is_evt_rn_db_pcie_addr;
 };
 
 /**

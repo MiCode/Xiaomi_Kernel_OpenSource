@@ -250,6 +250,13 @@ struct ipa_wdi_perf_profile {
 int ipa_wdi_init(struct ipa_wdi_init_in_params *in,
 	struct ipa_wdi_init_out_params *out);
 
+/** ipa_get_wdi_version - return wdi version
+ *
+ * @Return void
+ */
+int ipa_get_wdi_version(void);
+
+
 /**
  * ipa_wdi_cleanup - Client should call this function to
  * clean up WDI IPA offload data path
@@ -389,6 +396,11 @@ int ipa_wdi_sw_stats(struct ipa_wdi_tx_info *info);
 
 static inline int ipa_wdi_init(struct ipa_wdi_init_in_params *in,
 	struct ipa_wdi_init_out_params *out)
+{
+	return -EPERM;
+}
+
+static inline int ipa_get_wdi_version(void)
 {
 	return -EPERM;
 }
