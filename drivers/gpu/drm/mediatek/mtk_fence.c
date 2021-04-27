@@ -450,12 +450,14 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 		layer_info->fence_fd = buf->fence;
 
 #ifdef CONFIG_MTK_IOMMU_V2
-		DDPFENCE("R+/%s%d/L%d/id%d/last%d/new%d/idx%d/hnd0x%8p-0x%lx\n",
-			 mtk_fence_session_mode_spy(session_id),
-			 MTK_SESSION_DEV(session_id), layer_id, fence,
-			 current_timeline_idx, layer_info->fence_idx,
-			 buf->idx, buf->hnd,
-			 (unsigned long)buf->hnd->buffer);
+		if (buf->hnd) {
+			DDPFENCE("R+/%s%d/L%d/id%d/last%d/new%d/idx%d/hnd0x%8p-0x%lx\n",
+				 mtk_fence_session_mode_spy(session_id),
+				 MTK_SESSION_DEV(session_id), layer_id, fence,
+				 current_timeline_idx, layer_info->fence_idx,
+				 buf->idx, buf->hnd,
+				 (unsigned long)buf->hnd->buffer);
+		}
 #else
 		DDPFENCE("R+/%s%d/L%d/id%d/last%d/new%d/idx%d\n",
 			 mtk_fence_session_mode_spy(session_id),
