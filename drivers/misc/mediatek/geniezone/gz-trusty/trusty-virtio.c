@@ -121,8 +121,8 @@ static void check_all_vqs(struct trusty_ctx *tctx)
 
 	list_for_each_entry(tvdev, &tctx->vdev_list, node) {
 		for (i = 0; i < tvdev->vring_num; i++) {
-			/* vq->vq.callback(&vq->vq);  trusty_virtio_notify */
-			vring_interrupt(0, tvdev->vrings[i].vq);
+			if (tvdev->vrings[i].vq)
+				vring_interrupt(0, tvdev->vrings[i].vq);
 		}
 	}
 }
@@ -264,6 +264,22 @@ static void kick_vqs(struct trusty_ctx *tctx)
 	mutex_unlock(&tctx->mlock);
 }
 
+static int trusty_vqueue_to_cpu(struct trusty_ctx *tctx, struct virtqueue *vq)
+{
+	struct trusty_vring *tvr = vq->priv;
+	u32 api_ver = trusty_get_api_version(tctx->trusty_dev);
+	int cpu = -1;
+
+	if (unlikely(api_ver < TRUSTY_API_VERSION_MULTI_VQUEUE))
+		return -1;
+
+	/* TXVQs are binded on specific CPU */
+	if (tvr->notifyid >= TIPC_TXVQ_NOTIFYID_START)
+		cpu = tvr->notifyid - TIPC_TXVQ_NOTIFYID_START;
+
+	return cpu_possible(cpu) ? cpu : -1;
+}
+
 static bool trusty_virtio_notify(struct virtqueue *vq)
 {
 	struct trusty_vring *tvr = vq->priv;
@@ -275,7 +291,8 @@ static bool trusty_virtio_notify(struct virtqueue *vq)
 		atomic_set(&tvr->needs_kick, 1);
 		complete(&tctx->task_info[TRUSTY_TASK_KICK_ID].run);
 	} else {
-		trusty_enqueue_nop(tctx->trusty_dev, &tvr->kick_nop);
+		trusty_enqueue_nop(tctx->trusty_dev, &tvr->kick_nop,
+				   trusty_vqueue_to_cpu(tctx, vq));
 	}
 
 	return true;
@@ -319,7 +336,7 @@ static void trusty_virtio_stop(struct trusty_ctx *tctx, void *va, size_t sz)
 
 static int trusty_virtio_start(struct trusty_ctx *tctx, void *va, size_t sz)
 {
-	int ret;
+	int ret, i = 0;
 	u32 smcnr_virtio_start = MTEE_SMCNR(SMCF_SC_VIRTIO_START,
 					    tctx->trusty_dev);
 
@@ -332,6 +349,13 @@ static int trusty_virtio_start(struct trusty_ctx *tctx, void *va, size_t sz)
 			 __func__, ret);
 		return -ENODEV;
 	}
+
+	/* Send NOP to secure world to init per-cpu resource */
+	for (i = 0; i < num_possible_cpus(); i++) {
+		dev_dbg(tctx->dev, "%s: init per cpu %d\n", __func__, i);
+		trusty_enqueue_nop(tctx->trusty_dev, NULL, i);
+	}
+
 	return 0;
 }
 
