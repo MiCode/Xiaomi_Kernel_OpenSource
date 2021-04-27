@@ -88,6 +88,8 @@ struct cpu_data {
 #define MAX_NR_DOWN_THRESHOLD	4
 /* reference cpu_ctrl.h */
 #define CPU_KIR_CORE_CTL	11
+#define MAX_BTASK_THRESH	100
+#define MAX_CPU_TJ_DEGREE	100000
 
 static DEFINE_PER_CPU(struct cpu_data, cpu_state);
 static struct cluster_data cluster_state[MAX_CLUSTERS];
@@ -299,6 +301,45 @@ void set_not_preferred_locked(struct cluster_data *cluster, int cpu, bool enable
 	}
 }
 
+static void set_btask_up_thresh(struct cluster_data *cluster, unsigned int val)
+{
+	unsigned int old_thresh;
+	unsigned long flags;
+
+	spin_lock_irqsave(&state_lock, flags);
+	old_thresh = cluster->btask_up_thresh;
+	cluster->btask_up_thresh = cluster->btask_up_thresh;
+
+	if (old_thresh != cluster->btask_up_thresh) {
+		update_next_cluster_down_thresh(
+				cluster->cluster_id,
+				cluster->btask_up_thresh);
+		set_overutil_threshold(cluster->cluster_id,
+				       cluster->btask_up_thresh);
+	}
+	spin_unlock_irqrestore(&state_lock, flags);
+}
+
+static inline
+void set_cpu_tj_degree(struct cluster_data *cluster, int degree)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&state_lock, flags);
+	cluster->cpu_tj_degree = cluster->cpu_tj_degree;
+	spin_unlock_irqrestore(&state_lock, flags);
+}
+
+static inline
+void set_cpu_tj_btask_thresh(struct cluster_data *cluster, unsigned int val)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&state_lock, flags);
+	cluster->cpu_tj_btask_thresh = val;
+	spin_unlock_irqrestore(&state_lock, flags);
+}
+
 /* ==================== export function ======================== */
 
 int core_ctl_set_min_cpus(unsigned int cid, unsigned int min)
@@ -454,6 +495,57 @@ extern int core_ctl_set_not_preferred(int cid, int cpu, bool enable)
 }
 EXPORT_SYMBOL_GPL(core_ctl_set_not_preferred);
 
+int core_ctl_set_btask_up_thresh(int cid, unsigned int val)
+{
+	struct cluster_data *cluster;
+
+	if (cid >= num_clusters)
+		return -EINVAL;
+
+	/* Range of up thrash should be 0 - 100 */
+	if (val > MAX_BTASK_THRESH)
+		return -EINVAL;
+
+	cluster = &cluster_state[cid];
+	set_btask_up_thresh(cluster, val);
+	return 0;
+}
+EXPORT_SYMBOL(core_ctl_set_btask_up_thresh);
+
+int core_ctl_set_cpu_tj_degree(int cid, unsigned int degree)
+{
+	struct cluster_data *cluster;
+
+	if (cid != AB_CLUSTER_ID)
+		return -EINVAL;
+
+	/* tempature <= 100 degree */
+	if (degree > MAX_CPU_TJ_DEGREE)
+		return -EINVAL;
+
+	cluster = &cluster_state[cid];
+	set_cpu_tj_degree(cluster, degree);
+	return 0;
+}
+EXPORT_SYMBOL(core_ctl_set_cpu_tj_degree);
+
+int core_ctl_set_cpu_tj_btask_thresh(int cid, unsigned int val)
+{
+	struct cluster_data *cluster;
+
+	/* only allow AB cluster */
+	if (cid != AB_CLUSTER_ID)
+		return -EINVAL;
+
+	if (val > MAX_BTASK_THRESH)
+		return -EINVAL;
+
+	cluster = &cluster_state[cid];
+	set_cpu_tj_btask_thresh(cluster, val);
+	return 0;
+}
+EXPORT_SYMBOL(core_ctl_set_cpu_tj_btask_thresh);
+
 /* ==================== sysctl node ======================== */
 
 static ssize_t store_min_cpus(struct cluster_data *state,
@@ -512,28 +604,18 @@ static ssize_t store_btask_up_thresh(struct cluster_data *state,
 		const char *buf, size_t count)
 {
 	unsigned int val;
-	unsigned int old_thresh;
-	unsigned long flags;
 
 	if (sscanf(buf, "%u\n", &val) != 1)
 		return -EINVAL;
 
-	/* No need to change up_thresh for max cluster */
-	if (state->cluster_id == AB_CLUSTER_ID)
+	/* No need to change up_thresh for the last cluster */
+	if (state->cluster_id == num_clusters-1)
 		return -EINVAL;
 
-	spin_lock_irqsave(&state_lock, flags);
-	old_thresh = state->btask_up_thresh;
-	state->btask_up_thresh =
-		(val <= 100) ? val : state->btask_up_thresh;
+	if (val > MAX_BTASK_THRESH)
+		return -EINVAL;
 
-	if (old_thresh != state->btask_up_thresh) {
-		update_next_cluster_down_thresh(state->cluster_id,
-				state->btask_up_thresh);
-		set_overutil_threshold(state->cluster_id,
-				       state->btask_up_thresh);
-	}
-	spin_unlock_irqrestore(&state_lock, flags);
+	set_btask_up_thresh(state, val);
 	return count;
 }
 
@@ -580,7 +662,6 @@ static ssize_t store_cpu_tj_degree(struct cluster_data *state,
 		const char *buf, size_t count)
 {
 	unsigned int val;
-	unsigned long flags;
 
 	if (sscanf(buf, "%u\n", &val) != 1)
 		return -EINVAL;
@@ -589,11 +670,11 @@ static ssize_t store_cpu_tj_degree(struct cluster_data *state,
 	if (state->cluster_id != AB_CLUSTER_ID)
 		return -EINVAL;
 
-	spin_lock_irqsave(&state_lock, flags);
 	/* tempature <= 100 degree */
-	state->cpu_tj_degree =
-		(val <= 100000) ? val : state->cpu_tj_degree;
-	spin_unlock_irqrestore(&state_lock, flags);
+	if (val > MAX_CPU_TJ_DEGREE)
+		return -EINVAL;
+
+	set_cpu_tj_degree(state, val);
 	return count;
 }
 
@@ -606,7 +687,6 @@ static ssize_t store_cpu_tj_btask_thresh(struct cluster_data *state,
 		const char *buf, size_t count)
 {
 	unsigned int val;
-	unsigned long flags;
 
 	if (sscanf(buf, "%u\n", &val) != 1)
 		return -EINVAL;
@@ -615,10 +695,10 @@ static ssize_t store_cpu_tj_btask_thresh(struct cluster_data *state,
 	if (state->cluster_id != AB_CLUSTER_ID)
 		return -EINVAL;
 
-	spin_lock_irqsave(&state_lock, flags);
-	state->cpu_tj_btask_thresh =
-		(val <= 100) ? val : state->cpu_tj_btask_thresh;
-	spin_unlock_irqrestore(&state_lock, flags);
+	if (val > MAX_BTASK_THRESH)
+		return -EINVAL;
+
+	set_cpu_tj_btask_thresh(state, val);
 	return count;
 }
 

@@ -24,5 +24,8 @@ extern int core_ctl_set_limit_cpus(unsigned int cid,
 				   unsigned int max);
 extern int core_ctl_set_not_preferred(int cid, int cpu, bool enable);
 extern int core_ctl_set_boost(bool boost);
+extern int core_ctl_set_btask_up_thresh(int cid, unsigned int val);
+extern int core_ctl_set_cpu_tj_degree(int cid, unsigned int degree);
+extern int core_ctl_set_cpu_tj_btask_thresh(int cid, unsigned int val);
 #endif
 
