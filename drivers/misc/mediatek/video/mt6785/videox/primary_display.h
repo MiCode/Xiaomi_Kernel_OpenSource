@@ -555,6 +555,10 @@ int lcm_fps_ctx_reset(struct lcm_fps_ctx_t *fps_ctx);
 int lcm_fps_ctx_update(struct lcm_fps_ctx_t *fps_ctx,
 		unsigned long long cur_ns);
 
+int primary_display_set_lcm_hbm(bool en, struct disp_frame_cfg_t *cfg);
+int primary_display_hbm_wait(bool en);
+int primary_display_hbm_delay(bool en, struct disp_frame_cfg_t *cfg);
+
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE
 /**************function for DynFPS start************************/
 unsigned int primary_display_is_support_DynFPS(void);
