@@ -108,7 +108,9 @@ const char *scp_clk_ver[MAX_SCP_CLK_VERSION] __initconst = {
 };
 
 const char *scp_dvfs_hw_chip_ver[MAX_SCP_DVFS_CHIP_HW] __initconst = {
+	[MT6853] = "mediatek,mt6853",
 	[MT6873] = "mediatek,mt6873",
+	[MT6893] = "mediatek,mt6893",
 };
 
 struct ulposc_cali_regs cali_regs[MAX_ULPOSC_VERSION] __initdata = {
@@ -149,7 +151,20 @@ struct scp_clk_hw scp_clk_hw_regs[MAX_SCP_CLK_VERSION] = {
 };
 
 struct scp_pmic_regs scp_pmic_hw_regs[MAX_SCP_DVFS_CHIP_HW] = {
+	[MT6853] = {
+		REG_DEFINE_WITH_INIT(sshub_op_mode, 0x1520, 0x1, 11, 0, 1)
+		REG_DEFINE_WITH_INIT(sshub_op_en, 0x1514, 0x1, 11, 1, 1)
+		REG_DEFINE_WITH_INIT(sshub_op_cfg, 0x151a, 0x1, 11, 1, 1)
+	},
 	[MT6873] = {
+		REG_DEFINE_WITH_INIT(sshub_op_mode, 0x15a0, 0x1, 11, 0, 1)
+		REG_DEFINE_WITH_INIT(sshub_op_en, 0x1594, 0x1, 11, 1, 1)
+		REG_DEFINE_WITH_INIT(sshub_op_cfg, 0x159a, 0x1, 11, 1, 1)
+		REG_DEFINE_WITH_INIT(sshub_buck_en, 0x15aa, 0x1, 0, 1, 0)
+		REG_DEFINE_WITH_INIT(sshub_ldo_en, 0x1f28, 0x1, 0, 0, 0)
+		REG_DEFINE_WITH_INIT(pmrc_en, 0x1ac, 0x1, 2, 0, 1)
+	},
+	[MT6893] = {
 		REG_DEFINE_WITH_INIT(sshub_op_mode, 0x15a0, 0x1, 11, 0, 1)
 		REG_DEFINE_WITH_INIT(sshub_op_en, 0x1594, 0x1, 11, 1, 1)
 		REG_DEFINE_WITH_INIT(sshub_op_cfg, 0x159a, 0x1, 11, 1, 1)
@@ -286,7 +301,7 @@ static int scp_update_pmic_vow_lp_mode(bool on)
 static int scp_set_pmic_vcore(unsigned int cur_freq)
 {
 	int ret = 0;
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	int idx = 0;
 	unsigned int ret_vc = 0, ret_vs = 0;
 
