@@ -145,8 +145,10 @@ int dcm_infra(int on)
 {
 	dcm_infracfg_ao_audio_bus(on);
 	dcm_infracfg_ao_icusb_bus(on);
+	dcm_infracfg_ao_infra_bus(on);
 	dcm_infracfg_ao_infra_mem(on);
 	dcm_infracfg_ao_p2p_rx_clk(on);
+	dcm_infracfg_ao_peri_bus(on);
 
 	return 0;
 }
