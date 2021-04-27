@@ -301,7 +301,6 @@ done:
 		chr_err("min_charging_current is too low %d %d\n",
 			pdata->charging_current_limit, ichg1_min);
 		is_basic = true;
-		info->enable_hv_charging = false;
 	}
 
 	ret = charger_dev_get_min_input_current(info->chg1_dev, &aicr1_min);
@@ -310,7 +309,6 @@ done:
 		chr_err("min_input_current is too low %d %d\n",
 			pdata->input_current_limit, aicr1_min);
 		is_basic = true;
-		info->enable_hv_charging = false;
 	}
 
 	chr_err("m:%d chg1:%d,%d,%d,%d chg2:%d,%d,%d,%d type:%d:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d bm:%d b:%d\n",
@@ -441,13 +439,13 @@ static int do_algorithm(struct mtk_charger *info)
 			pdata->charging_current_limit);
 		charger_dev_set_constant_voltage(info->chg1_dev,
 			info->setting.cv);
-
-		if (pdata->input_current_limit == 0 ||
-		    pdata->charging_current_limit == 0)
-			charger_dev_enable(info->chg1_dev, false);
-		else
-			charger_dev_enable(info->chg1_dev, true);
 	}
+
+	if (pdata->input_current_limit == 0 ||
+	    pdata->charging_current_limit == 0)
+		charger_dev_enable(info->chg1_dev, false);
+	else
+		charger_dev_enable(info->chg1_dev, true);
 
 	if (info->chg1_dev != NULL)
 		charger_dev_dump_registers(info->chg1_dev);
