@@ -3,8 +3,8 @@
  * Copyright (c) 2014-2015 MediaTek Inc.
  * Author: Chaotian.Jing <chaotian.jing@mediatek.com>
  */
-#include "mtk-dbg.h"
 #include "mtk-mmc.h"
+#include "mtk-mmc-dbg.h"
 
 static int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode);
 

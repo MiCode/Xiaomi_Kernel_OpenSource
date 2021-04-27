@@ -4,8 +4,8 @@
  */
 
 #include "cqhci.h"
-#include "mtk-dbg.h"
 #include "mtk-mmc.h"
+#include "mtk-mmc-dbg.h"
 #include "../core/queue.h"
 #include <linux/clk-provider.h>
 #include <linux/module.h>
