@@ -46,7 +46,7 @@ static ssize_t dvfsrc_req_hrtbw_store(struct device *dev,
 	if (!dvfsrc->hrt_path)
 		return -EINVAL;
 
-	icc_set_bw(dvfsrc->hrt_path, MBps_to_icc(val), MBps_to_icc(val));
+	icc_set_bw(dvfsrc->hrt_path, MBps_to_icc(val), 0);
 
 	return count;
 }
@@ -170,6 +170,15 @@ static ssize_t dvfsrc_opp_table_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(dvfsrc_opp_table);
 
+static ssize_t dvfsrc_num_opps_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", dvfsrc->opp_desc->num_opp);
+}
+static DEVICE_ATTR_RO(dvfsrc_num_opps);
+
 static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_req_bw.attr,
 	&dev_attr_dvfsrc_req_hrtbw.attr,
@@ -178,6 +187,7 @@ static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_dump.attr,
 	&dev_attr_dvfsrc_force_vcore_dvfs_opp.attr,
 	&dev_attr_dvfsrc_opp_table.attr,
+	&dev_attr_dvfsrc_num_opps.attr,
 	NULL,
 };
 

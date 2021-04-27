@@ -5,6 +5,7 @@
 
 #include <linux/arm-smccc.h>
 #include <linux/clk.h>
+#include <linux/interconnect.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
@@ -95,13 +96,28 @@ char **vcorefs_get_src_req_name(void)
 	return NULL;
 }
 EXPORT_SYMBOL(vcorefs_get_src_req_name);
+
+static DEFINE_RATELIMIT_STATE(tracelimit, 3 * HZ, 1);
+void vcorefs_trace_qos(struct mtk_dvfsrc_met *dvfsrc)
+{
+	if (__ratelimit(&tracelimit)) {
+		if (dvfsrc->dvfsrc_vcore_power)
+			regulator_set_voltage(dvfsrc->dvfsrc_vcore_power, 0, INT_MAX);
+		if (dvfsrc->bw_path)
+			icc_set_bw(dvfsrc->bw_path, 0, 0);
+		if (dvfsrc->hrt_path)
+			icc_set_bw(dvfsrc->hrt_path, 0, 0);
+	}
+}
+
 unsigned int *vcorefs_get_src_req(void)
 {
 	struct mtk_dvfsrc_met *dvfsrc = dvfsrc_drv;
 
-	if (dvfsrc)
+	if (dvfsrc) {
+		vcorefs_trace_qos(dvfsrc);
 		return dvfsrc->dvd->met->dvfsrc_get_src_req(dvfsrc);
-
+	}
 	return NULL;
 }
 EXPORT_SYMBOL(vcorefs_get_src_req);
@@ -276,6 +292,26 @@ static int mtk_dvfsrc_met_probe(struct platform_device *pdev)
 
 	if (IS_ERR(dvfsrc->regs))
 		return PTR_ERR(dvfsrc->regs);
+
+	dvfsrc->dvfsrc_vcore_power =
+		regulator_get_optional(dvfsrc->dev, "rc-vcore");
+	if (IS_ERR(dvfsrc->dvfsrc_vcore_power)) {
+		dev_info(dvfsrc->dev, "get dvfsrc_vcore failed = %ld\n",
+			PTR_ERR(dvfsrc->dvfsrc_vcore_power));
+		dvfsrc->dvfsrc_vcore_power = NULL;
+	}
+
+	dvfsrc->bw_path = of_icc_get(dvfsrc->dev, "icc-bw");
+	if (IS_ERR(dvfsrc->bw_path)) {
+		dev_info(dvfsrc->dev, "get icc-bw fail\n");
+		dvfsrc->bw_path = NULL;
+	}
+
+	dvfsrc->hrt_path = of_icc_get(dvfsrc->dev, "icc-hrt-bw");
+	if (IS_ERR(dvfsrc->hrt_path)) {
+		dev_info(dvfsrc->dev, "get icc-hrt_bw fail\n");
+		dvfsrc->hrt_path = NULL;
+	}
 
 	dvfsrc_drv = dvfsrc;
 	platform_set_drvdata(pdev, dvfsrc);

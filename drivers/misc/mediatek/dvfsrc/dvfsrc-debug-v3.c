@@ -512,12 +512,13 @@ static char *dvfsrc_dump_mt6873_spm_info(struct mtk_dvfsrc *dvfsrc,
 			"SPM_DVFS_STA",
 			spm_read(dvfsrc, SPM_DVFS_STA));
 	p += snprintf(p, buff_end - p,
-			"%-24s: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
+			"%-24s: 0x%08x, 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
 			"SPM_DVFS_CMD0~4",
 			spm_read(dvfsrc, SPM_DVFS_CMD0),
 			spm_read(dvfsrc, SPM_DVFS_CMD1),
 			spm_read(dvfsrc, SPM_DVFS_CMD2),
-			spm_read(dvfsrc, SPM_DVFS_CMD3));
+			spm_read(dvfsrc, SPM_DVFS_CMD3),
+			spm_read(dvfsrc, SPM_DVFS_CMD4));
 	return p;
 }
 
