@@ -32,7 +32,7 @@
 #define CONFIG_MTK_MDLA_ION //move to dts latter
 #endif
 
-#define __APUSYS_MDLA_UT__ //TODO remove after UT issue fixed
+//#define __APUSYS_MDLA_UT__ //TODO remove after UT issue fixed
 //#define __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 
 #define __APUSYS_MDLA_PMU_SUPPORT__
