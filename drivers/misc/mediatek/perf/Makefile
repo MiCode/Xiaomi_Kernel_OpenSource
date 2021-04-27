@@ -18,6 +18,9 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/vcorefs_v3/
 ccflags-y += -I$(srctree)/drivers/devfreq/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/net/ipv4/
+ccflags-$(CONFIG_MTK_CORE_CTL) += -I$(srctree)/drivers/misc/mediatek/base/power/include/ppm_v3/
+ccflags-$(CONFIG_MTK_CORE_CTL) += -I$(srctree)/drivers/misc/mediatek/sched/
+ccflags-$(CONFIG_MTK_CORE_CTL) += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 
 #ccflags-y += \
 #	-I$(srctree)/drivers/misc/mediatek/base/power/cm_mgr_v1/ \
@@ -29,3 +32,4 @@ obj-$(CONFIG_MTK_PERF_TRACKER) += perf_tracker.o
 obj-y += perf_common.o
 # a low memory hint sent to userspace
 obj-$(CONFIG_MTK_LOWMEM_HINT) += lowmem_hint.o
+obj-$(CONFIG_MTK_CORE_CTL) += core_ctl.o

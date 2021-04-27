@@ -357,6 +357,15 @@ config MTK_SKB_OWNER
 	  belong to which process. Add RTT information per TCP session,
 	  which helps identify network latency between client and server.
 
+config MTK_CORE_CTL
+	bool "MTK Core Control with CPU Isolation"
+	help
+	  This config is for the core control policy with CPU isolation.
+	  The core control online and offline CPU cores based on task
+	  utilizations from scheduler information automatically.
+	  If you are not sure about whether to enable it or not,
+	  please set n.
+
 source "drivers/misc/mediatek/task_turbo/Kconfig"
 endmenu # PPT
 

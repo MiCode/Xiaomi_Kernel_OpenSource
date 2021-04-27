@@ -60,8 +60,14 @@ static unsigned int heavy_task_threshold2 = 920;
 static unsigned int avg_heavy_task_threshold = 65;
 static int htask_cpucap_ctrl = 1;
 
+#ifdef CONFIG_MTK_CORE_CTL
+#define OVERUTIL_THRESHOLD_SIZE	2
+/* cap(LL)*0.8, cap(BL)*0.7 */
+static unsigned int overutil_thres[OVERUTIL_THRESHOLD_SIZE] = {19, 60};
+#else
 /* max = 100, threshold for capacity overutiled */
 static int overutil_threshold = 35;
+#endif
 
 struct cpu_load_data {
 	u64 prev_cpu_idle;
@@ -86,10 +92,20 @@ enum AVG_LOAD_ID {
 	AVG_LOAD_UPDATE
 };
 
+#ifdef CONFIG_MTK_CORE_CTL
+unsigned int get_overutil_threshold(int index)
+{
+	if (index >= 0 || index <= OVERUTIL_THRESHOLD_SIZE)
+		return overutil_thres[index];
+	return 100;
+}
+EXPORT_SYMBOL(get_overutil_threshold);
+#else
 int get_overutil_threshold(void)
 {
 	return overutil_threshold;
 }
+#endif
 
 #ifdef CONFIG_SCHED_HMP_PRIO_FILTER
 static unsigned int heavy_task_prio =
@@ -947,6 +963,65 @@ static struct kobj_attribute avg_htasks_ac_attr =
 __ATTR(avg_htasks_ac, 0600 /* S_IWUSR | S_IRUSR */, show_avg_heavy_task_ac,
 		store_avg_heavy_task_ac);
 
+#ifdef CONFIG_MTK_CORE_CTL
+void set_overutil_threshold(unsigned int index, unsigned int val)
+{
+	if (index >= OVERUTIL_THRESHOLD_SIZE)
+		return;
+
+	if (val <= 100) {
+		overutil_thres[index] = (int)val;
+#ifdef CONFIG_MTK_SCHED_RQAVG_KS
+		overutil_thresh_chg_notify();
+#endif
+	}
+}
+EXPORT_SYMBOL(set_overutil_threshold);
+
+/* For read/write utilization related settings */
+static ssize_t store_overutil(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int val[OVERUTIL_THRESHOLD_SIZE];
+	int ret, i;
+
+	ret = sscanf(buf, "%u %u\n", &val[0], &val[1]);
+	if (ret <= 0 || OVERUTIL_THRESHOLD_SIZE <= ret)
+		return -EINVAL;
+
+	if (ret == 1) {
+		for (i = 0; i < OVERUTIL_THRESHOLD_SIZE; i++)
+			overutil_thres[i] =
+				val[0] < 100 ? val[0] : overutil_thres[i];
+	} else {
+		for (i = 0; i < OVERUTIL_THRESHOLD_SIZE; i++)
+			overutil_thres[i] =
+				val[i] < 100 ? val[i] : overutil_thres[i];
+	}
+	overutil_thresh_chg_notify();
+	return count;
+}
+
+static ssize_t show_overutil(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int len = 0, i;
+	unsigned int max_len = 4096;
+
+	for (i = 0; i < OVERUTIL_THRESHOLD_SIZE; i++) {
+		len += snprintf(buf+len,
+			max_len-len, "over_util threshold[%u]=%d max=100\n",
+				i, overutil_thres[i]);
+	}
+#ifdef CONFIG_MTK_SCHED_RQAVG_KS
+	len += get_overutil_stats(buf+len, max_len-len);
+#endif
+
+	return len;
+}
+
+#else /* CONFIG_MTK_CORE_CTL is not set */
+
 void set_overutil_threshold(int val)
 {
 	overutil_threshold = (int)val;
@@ -984,6 +1059,8 @@ static ssize_t show_overutil(struct kobject *kobj,
 
 	return len;
 }
+
+#endif /* end of CONFIG_MTK_CORE_CTL */
 
 static struct kobj_attribute over_util_attr =
 __ATTR(over_util, 0600 /* S_IWUSR | S_IRUSR*/, show_overutil,
