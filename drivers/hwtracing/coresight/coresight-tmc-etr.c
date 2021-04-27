@@ -1089,7 +1089,7 @@ ssize_t tmc_etr_get_sysfs_trace(struct tmc_drvdata *drvdata,
 static struct etr_buf *
 tmc_etr_setup_sysfs_buf(struct tmc_drvdata *drvdata)
 {
-	struct etr_buf *sysfs_buf = NULL;
+	struct etr_buf *sysfs_buf = NULL, *new_buf = NULL;
 
 	/*
 	 * If we are enabling the ETR from disabled state, we need to make
@@ -1110,16 +1110,16 @@ tmc_etr_setup_sysfs_buf(struct tmc_drvdata *drvdata)
 
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB
 			&& drvdata->byte_cntr->sw_usb)
-			sysfs_buf = tmc_alloc_etr_buf(drvdata, TMC_ETR_SW_USB_BUF_SIZE,
+			new_buf = tmc_alloc_etr_buf(drvdata, TMC_ETR_SW_USB_BUF_SIZE,
 					 0, cpu_to_node(0), NULL);
 		else if (drvdata->out_mode == TMC_ETR_OUT_MODE_PCIE)
-			sysfs_buf = tmc_alloc_etr_buf(drvdata, TMC_ETR_PCIE_MEM_SIZE,
+			new_buf = tmc_alloc_etr_buf(drvdata, TMC_ETR_PCIE_MEM_SIZE,
 					 0, cpu_to_node(0), NULL);
 		else
-			sysfs_buf = tmc_alloc_etr_buf(drvdata, drvdata->size,
+			new_buf = tmc_alloc_etr_buf(drvdata, drvdata->size,
 					 0, cpu_to_node(0), NULL);
 	}
-	return sysfs_buf;
+	return new_buf;
 }
 
 static void
@@ -1603,7 +1603,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	int ret = 0;
 	unsigned long flags;
 	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
-	struct etr_buf *sysfs_buf = NULL, *new_buf = NULL, *free_buf = NULL;
+	struct etr_buf *new_buf = NULL, *free_buf = NULL;
 
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (drvdata->reading) {
@@ -1647,7 +1647,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 		 * use the buffer allocated above. Otherwise reuse the existing buffer.
 		 */
 		if (new_buf) {
-			free_buf = sysfs_buf;
+			free_buf = drvdata->sysfs_buf;
 			drvdata->sysfs_buf = new_buf;
 		}
 		ret = tmc_etr_enable_hw(drvdata, drvdata->sysfs_buf);
