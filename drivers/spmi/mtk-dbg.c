@@ -1342,32 +1342,8 @@ static const u32 mt6885_pmif_dbg_regs[] = {
 
 static char d_log_buf[1280];
 static struct spmi_controller *dbg_ctrl;
-static int is_drv_attr;
 static char *wp;
 
-/*
- * Function : mtk_spmi_readl_d()
- * Description : mtk spmi controller read api
- * Parameter :
- * Return :
- */
-static u32 mtk_spmi_readl_d(struct pmif *arb, enum spmi_regs reg)
-{
-	return readl(arb->spmimst_base + arb->spmimst_regs[reg]);
-}
-#if 0
-/*
- * Function : mtk_spmi_writel_d()
- * Description : mtk spmi controller write api
- * Parameter :
- * Return :
- */
-static void mtk_spmi_writel_d(struct pmif *arb, u32 val,
-		enum spmi_regs reg)
-{
-	writel(val, arb->spmimst_base + arb->spmimst_regs[reg]);
-}
-#endif
 /* spmi & pmif debug mechanism */
 void spmi_dump_wdt_reg(void)
 {
@@ -1385,6 +1361,8 @@ void spmi_dump_wdt_reg(void)
 				    offset, tmp_dat);
 	}
 	log_size += sprintf(wp + log_size, "\n");
+	if (log_size < 0)
+		pr_notice("sprintf failed\n");
 	pr_info("[PMIF] %s", wp);
 }
 
@@ -1411,6 +1389,8 @@ void spmi_dump_pmif_acc_vio_reg(void)
 				    offset, tmp_dat);
 	}
 	log_size += sprintf(wp + log_size, "\n");
+	if (log_size < 0)
+		pr_notice("sprintf failed\n");
 	pr_info("[PMIF] %s %s", __func__, wp);
 }
 
@@ -1430,6 +1410,8 @@ void spmi_dump_pmic_acc_vio_reg(void)
 				    offset, tmp_dat);
 	}
 	log_size += sprintf(wp + log_size, "\n");
+	if (log_size < 0)
+		pr_notice("sprintf failed\n");
 	pr_info("[PMIF] %s %s", __func__, wp);
 }
 
@@ -1449,6 +1431,8 @@ static char *get_pmif_busy_reg_dump(void)
 				    offset, tmp_dat);
 	}
 	log_size += sprintf(wp + log_size, "\n");
+	if (log_size < 0)
+		pr_notice("sprintf failed\n");
 	return wp;
 }
 
@@ -1517,6 +1501,8 @@ static char *get_pmif_swinf_reg_dump(void)
 		log_size += sprintf(wp + log_size, "fsm:%d, en:%d]\n", fsm, en);
 	}
 	log_size += sprintf(wp + log_size, "\n");
+	if (log_size < 0)
+		pr_notice("sprintf failed\n");
 	return wp;
 }
 
@@ -1539,14 +1525,17 @@ static char *get_spmimst_all_reg_dump(void)
 		if (i % 8 == 0)
 			log_size += sprintf(wp + log_size, "\n[SPMI] ");
 	}
-#if SPMI_RCS_SUPPORT
-	offset = arb->spmimst_regs[SPMI_DEC_DBG];
-	tmp_dat = readl(arb->spmimst_base + offset);
-	log_size += sprintf(wp + log_size, "(0x%x)=0x%x ", offset, tmp_dat);
-#endif
+	if (arb->dbgver != 0x1) {
+		offset = arb->spmimst_regs[SPMI_DEC_DBG];
+		tmp_dat = readl(arb->spmimst_base + offset);
+		log_size += sprintf(wp + log_size, "(0x%x)=0x%x ",
+				offset, tmp_dat);
+	}
 	offset = arb->spmimst_regs[SPMI_MST_DBG];
 	tmp_dat = readl(arb->spmimst_base + offset);
 	log_size += sprintf(wp + log_size, "(0x%x)=0x%x\n", offset, tmp_dat);
+	if (log_size < 0)
+		pr_notice("sprintf failed\n");
 	return wp;
 }
 
@@ -1592,15 +1581,16 @@ void spmi_dump_pmif_all_reg(void)
 		} else if (i % 8 == 0)
 			log_size += sprintf(wp + log_size, "\n[PMIF] ");
 	}
+	if (log_size < 0)
+		pr_notice("sprintf failed\n");
 	pr_notice("\n[PMIF] %s", wp);
 }
 
 static void spmi_dump_pmif_all_reg_d(struct seq_file *m)
 {
 	struct pmif *arb = spmi_controller_get_drvdata(dbg_ctrl);
-	unsigned int offset, tmp_dat, log_size = 0;
+	unsigned int offset, tmp_dat;
 	unsigned int start, end;
-	int i = 0;
 
 	start = arb->dbgregs[PMIF_INIT_DONE];
 	end = arb->dbgregs[PMIF_RESERVED_0];
@@ -1648,6 +1638,8 @@ void spmi_dump_pmif_record_reg(void)
 		}
 	}
 	/* logging mode no need to clear record */
+	if (log_size < 0)
+		pr_notice("sprintf failed\n");
 }
 
 static void spmi_dump_pmif_record_reg_d(struct seq_file *m)
