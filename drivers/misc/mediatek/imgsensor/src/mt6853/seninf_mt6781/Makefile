@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2018 MediaTek Inc.
+# Copyright (C) 2017 MediaTek Inc.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -11,10 +11,5 @@
 # GNU General Public License for more details.
 #
 
-MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-
-ifeq ($(CONFIG_MACH_MT6781),y)
-obj-y += mt6781/
-else
-obj-y += $(MTK_PLATFORM)/
-endif
+obj-y				+= ../../common/v1_1/seninf_clk.o
+obj-y				+= seninf_irq.o

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2018 MediaTek Inc.
+# Copyright (C) 2017 MediaTek Inc.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -11,10 +11,13 @@
 # GNU General Public License for more details.
 #
 
-MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+#
+# Makefile for misc devices that really don't fit anywhere else.
+#
+ccflags-y += -I$(MTK_CUSTOM_PATH)/imgsensor/inc \
 
-ifeq ($(CONFIG_MACH_MT6781),y)
-obj-y += mt6781/
-else
-obj-y += $(MTK_PLATFORM)/
-endif
+obj-y		+= ../../common/v1_1/camera_hw/regulator/
+obj-y		+= ../../common/v1_1/camera_hw/gpio/
+obj-y		+= ../../common/v1_1/camera_hw/mclk/
+obj-y		+= imgsensor_cfg_table.o
+#obj-y           += imgsensor_oc.o
