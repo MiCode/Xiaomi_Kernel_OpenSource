@@ -109,7 +109,7 @@ struct irq_count_all {
 static struct irq_count_all irq_cpus[REC_NUM];
 static unsigned int rec_indx;
 
-static void __show_irq_count_info(int output)
+static void __show_irq_count_info(unsigned int output)
 {
 	int cpu;
 
@@ -143,7 +143,7 @@ static void __show_irq_count_info(int output)
 	}
 }
 
-void show_irq_count_info(int output)
+void show_irq_count_info(unsigned int output)
 {
 	if (irq_count_tracer)
 		__show_irq_count_info(output);

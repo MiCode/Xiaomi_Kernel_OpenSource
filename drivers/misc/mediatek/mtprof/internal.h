@@ -18,14 +18,15 @@ void mt_irq_monitor_test_init(struct proc_dir_entry *dir);
 // irq count tracer
 void irq_count_tracer_init(void);
 const char *irq_to_name(int irq);
-void show_irq_count_info(int output);
+void show_irq_count_info(unsigned int output);
 
-#define TO_FTRACE     1
-#define TO_KERNEL_LOG 2
+#define TO_FTRACE     (1U << 0)
+#define TO_KERNEL_LOG (1U << 1)
+#define TO_AEE        (1U << 2)
+#define TO_SRAM       (1U << 3)
 #define TO_BOTH       (TO_FTRACE | TO_KERNEL_LOG)
-#define TO_SRAM       4
 
-void irq_mon_msg(int out, char *buf, ...);
+void irq_mon_msg(unsigned int out, char *buf, ...);
 
 #endif
 

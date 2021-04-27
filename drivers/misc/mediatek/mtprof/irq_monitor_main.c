@@ -3,9 +3,6 @@
  * Copyright (C) 2020 MediaTek Inc.
  */
 
-#ifdef pr_fmt
-#undef pr_fmt
-#endif
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/interrupt.h>
@@ -32,6 +29,7 @@
 #include "irq_monitor_trace.h"
 
 #ifdef MODULE
+/* reference kernel/softirq.c */
 const char * const softirq_to_name[NR_SOFTIRQS] = {
 	"HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "IRQ_POLL",
 	"TASKLET", "SCHED", "HRTIMER", "RCU"
@@ -54,7 +52,7 @@ static inline void irq_mon_msg_ftrace(const char *msg)
 
 #define MAX_MSG_LEN 128
 
-void irq_mon_msg(int out, char *buf, ...)
+void irq_mon_msg(unsigned int out, char *buf, ...)
 {
 	char msg[MAX_MSG_LEN];
 	va_list args;
@@ -77,7 +75,7 @@ struct irq_mon_tracer {
 	bool tracing;
 	char *name;
 	unsigned int th1_ms;          /* ftrace */
-	unsigned int th2_ms;          /* ftrace + kernel log */
+	unsigned int th2_ms;          /* kernel log */
 	unsigned int th3_ms;          /* aee */
 	unsigned int aee_limit;
 	unsigned int aee_debounce_ms;
@@ -86,6 +84,24 @@ struct irq_mon_tracer {
 static struct irq_mon_tracer irq_handler_tracer __read_mostly = {
 	.tracing = true,
 	.name = "irq_handler_tracer",
+	.th1_ms = 100,
+	.th2_ms = 500,
+	.th3_ms = 500,
+	.aee_limit = 0,
+};
+
+static struct irq_mon_tracer softirq_tracer __read_mostly = {
+	.tracing = true,
+	.name = "softirq_tracer",
+	.th1_ms = 100,
+	.th2_ms = 500,
+	.th3_ms = 500,
+	.aee_limit = 0,
+};
+
+static struct irq_mon_tracer ipi_tracer __read_mostly = {
+	.tracing = true,
+	.name = "ipi_tracer",
 	.th1_ms = 100,
 	.th2_ms = 500,
 	.th3_ms = 500,
@@ -108,6 +124,24 @@ static struct irq_mon_tracer preempt_off_tracer __read_mostly = {
 	.th2_ms = 180000,
 };
 
+
+static unsigned int check_threshold(unsigned long long duration,
+					struct irq_mon_tracer *tracer)
+{
+	unsigned int out = 0;
+
+	if (!tracer->tracing)
+		return 0;
+
+	if (duration >= (unsigned long long)tracer->th1_ms * 1000000ULL)
+		out |= TO_FTRACE;
+	if (duration >= (unsigned long long)tracer->th2_ms * 1000000ULL)
+		out |= TO_KERNEL_LOG;
+	if (duration >= (unsigned long long)tracer->th3_ms * 1000000ULL)
+		out |= TO_AEE;
+
+	return out;
+}
 /* structues of probe funcitons */
 
 #define MAX_STACK_TRACE_DEPTH   32
@@ -145,7 +179,7 @@ static void irq_mon_save_stack_trace(struct preemptirq_stat *pi_stat)
 						MAX_STACK_TRACE_DEPTH * sizeof(unsigned long), 2);
 }
 
-static void irq_mon_dump_stack_trace(int out, struct preemptirq_stat *pi_stat)
+static void irq_mon_dump_stack_trace(unsigned int out, struct preemptirq_stat *pi_stat)
 {
 	char msg[MAX_MSG_LEN];
 	int i;
@@ -162,23 +196,18 @@ static void irq_mon_dump_stack_trace(int out, struct preemptirq_stat *pi_stat)
 /* irq: 1 = irq, 0 = preempt*/
 static void check_preemptirq_stat(struct preemptirq_stat *pi_stat, int irq)
 {
-	unsigned long long threshold, duration;
-	int out;
+	struct irq_mon_tracer *tracer = (irq) ? &irq_off_tracer : &preempt_off_tracer;
+	unsigned long long duration;
+	unsigned int out;
 
 	/* skip <idle-0> task */
 	if (current->pid == 0)
 		return;
 
 	duration = pi_stat->enable_timestamp - pi_stat->disable_timestamp;
-
-	/* threshold 1: ftrace */
-	threshold = irq ? irq_off_tracer.th1_ms : preempt_off_tracer.th1_ms;
-	if (likely(duration < threshold * 1000000ULL))
+	out = check_threshold(duration, tracer);
+	if (!out)
 		return;
-
-	/* threshold 2: ftrace + kernel log */
-	threshold = irq ? irq_off_tracer.th2_ms : preempt_off_tracer.th2_ms;
-	out = (duration >= threshold * 1000000ULL) ? TO_BOTH : TO_FTRACE;
 
 	irq_mon_msg(out, "%s off, duration %llu ms, from %llu ns to %llu ns",
 			irq ? "irq" : "preempt",
@@ -207,8 +236,6 @@ static DEFINE_PER_CPU(struct trace_stat, ipi_trace_stat);
 static int irq_aee_state[MAX_IRQ_NUM];
 
 #define stat_dur(stat) (stat->end_timestamp - stat->start_timestamp)
-#define th_exceeded(threshold, duration, tracer) \
-	(duration > (unsigned long long)tracer.threshold * 1000000ULL)
 
 #define dur_fmt "duration: %lld us, start: %llu.%06lu, end:%llu.%06lu"
 
@@ -221,7 +248,7 @@ static int irq_aee_state[MAX_IRQ_NUM];
 		sec_high(stat->end_timestamp), \
 		sec_low(stat->end_timestamp))
 
-static void __show_irq_handle_info(int out)
+static void __show_irq_handle_info(unsigned int out)
 {
 	int cpu;
 
@@ -234,7 +261,7 @@ static void __show_irq_handle_info(int out)
 	}
 }
 
-static void show_irq_handle_info(int out)
+static void show_irq_handle_info(unsigned int out)
 {
 	if (irq_handler_tracer.tracing)
 		__show_irq_handle_info(out);
@@ -247,7 +274,7 @@ void mt_aee_dump_irq_info(void)
 }
 EXPORT_SYMBOL_GPL(mt_aee_dump_irq_info);
 
-/* probe functions*/
+/* probe functions */
 
 static void probe_irq_handler_entry(void *ignore,
 		int irq, struct irqaction *action)
@@ -266,8 +293,9 @@ static void probe_irq_handler_exit(void *ignore,
 		int irq, struct irqaction *action, int ret)
 {
 	struct trace_stat *trace_stat = raw_cpu_ptr(&irq_trace_stat);
+	struct irq_mon_tracer *tracer = &irq_handler_tracer;
 	unsigned long long ts, duration;
-	int out;
+	unsigned int out;
 
 	if (!__this_cpu_read(irq_trace_stat.tracing))
 		return;
@@ -276,7 +304,8 @@ static void probe_irq_handler_exit(void *ignore,
 	trace_stat->end_timestamp = ts;
 
 	duration = stat_dur(trace_stat);
-	if (th_exceeded(th1_ms, duration, irq_handler_tracer)) {
+	out = check_threshold(duration, tracer);
+	if (out) {
 		char msg[MAX_MSG_LEN];
 
 		snprintf(msg, sizeof(msg),
@@ -286,13 +315,9 @@ static void probe_irq_handler_exit(void *ignore,
 			trace_stat->start_timestamp,
 			trace_stat->end_timestamp);
 
-		out = th_exceeded(th2_ms, duration, irq_handler_tracer) ?
-			TO_BOTH : TO_FTRACE;
-
 		irq_mon_msg(out, msg);
 
-		if (th_exceeded(th3_ms, duration, irq_handler_tracer) &&
-				irq_handler_tracer.aee_limit &&
+		if ( (out & TO_AEE) && tracer->aee_limit &&
 				!irq_aee_state[irq]){
 			irq_aee_state[irq] = 1;
 			aee_kernel_warning_api(__FILE__, __LINE__,
@@ -319,8 +344,9 @@ static void probe_softirq_entry(void *ignore, unsigned int vec_nr)
 static void probe_softirq_exit(void *ignore, unsigned int vec_nr)
 {
 	struct trace_stat *trace_stat = raw_cpu_ptr(&softirq_trace_stat);
+	struct irq_mon_tracer *tracer = &softirq_tracer;
 	unsigned long long ts, duration;
-	int out;
+	unsigned int out;
 
 	if (!__this_cpu_read(softirq_trace_stat.tracing))
 		return;
@@ -329,10 +355,8 @@ static void probe_softirq_exit(void *ignore, unsigned int vec_nr)
 	trace_stat->end_timestamp = ts;
 
 	duration = stat_dur(trace_stat);
-	if (th_exceeded(th1_ms, duration, irq_handler_tracer)) {
-		out = th_exceeded(th2_ms, duration, irq_handler_tracer) ?
-			TO_BOTH : TO_FTRACE;
-
+	out = check_threshold(duration, tracer);
+	if (out) {
 		irq_mon_msg(out, "softirq: %u %s, duration %llu ms, from %llu ns to %llu ns",
 				vec_nr, softirq_to_name[vec_nr],
 				msec_high(duration),
@@ -359,8 +383,9 @@ static void probe_ipi_entry(void *ignore, const char *reason)
 static void probe_ipi_exit(void *ignore, const char *reason)
 {
 	struct trace_stat *trace_stat = raw_cpu_ptr(&ipi_trace_stat);
+	struct irq_mon_tracer *tracer = &ipi_tracer;
 	unsigned long long ts, duration;
-	int out;
+	unsigned int out;
 
 	if (!__this_cpu_read(ipi_trace_stat.tracing))
 		return;
@@ -369,10 +394,8 @@ static void probe_ipi_exit(void *ignore, const char *reason)
 	trace_stat->end_timestamp = ts;
 
 	duration = stat_dur(trace_stat);
-	if (th_exceeded(th1_ms, duration, irq_handler_tracer)) {
-		out = th_exceeded(th2_ms, duration, irq_handler_tracer) ?
-			TO_BOTH : TO_FTRACE;
-
+	out = check_threshold(duration, tracer);
+	if (out) {
 		irq_mon_msg(out, "ipi: %s, duration %llu ms, from %llu ns to %llu ns",
 			reason,
 			msec_high(duration),
@@ -657,6 +680,8 @@ static void irq_mon_proc_init(void)
 		return;
 	// irq_mon_tracers
 	irq_mon_tracer_proc_init(&irq_handler_tracer, dir);
+	irq_mon_tracer_proc_init(&softirq_tracer, dir);
+	irq_mon_tracer_proc_init(&ipi_tracer, dir);
 	irq_mon_tracer_proc_init(&irq_off_tracer, dir);
 	irq_mon_tracer_proc_init(&preempt_off_tracer, dir);
 
@@ -698,8 +723,8 @@ static void __exit irq_monitor_exit(void)
 #if IS_ENABLED(CONFIG_MTK_AEE_HANGDET)
 	kwdt_regist_irq_info(NULL);
 #endif
-	irq_mon_tracepoint_exit();
 	remove_proc_subtree("mtmon", NULL);
+	irq_mon_tracepoint_exit();
 }
 
 MODULE_DESCRIPTION("MEDIATEK IRQ MONITOR");
