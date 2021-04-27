@@ -1900,22 +1900,41 @@
 
 		scp_dvfs {
 			compatible = "mediatek,scp_dvfs";
+			clocks = <&topckgen_clk CLK_TOP_SCP_SEL>,
+				<&clk26m>,
+				<&topckgen_clk CLK_TOP_UNIVPLL_D5>,
+				<&topckgen_clk CLK_TOP_MAINPLL_D6_D2>,
+				<&topckgen_clk CLK_TOP_MAINPLL_D6>,
+				<&topckgen_clk CLK_TOP_UNIVPLL_D6>,
+				<&topckgen_clk CLK_TOP_MAINPLL_D4_D2>,
+				<&topckgen_clk CLK_TOP_MAINPLL_D5_D2>,
+				<&topckgen_clk CLK_TOP_UNIVPLL_D4_D2>;
+
+			clock-names = "clk_mux",
+				"clk_pll_0",
+				"clk_pll_1",
+				"clk_pll_2",
+				"clk_pll_3",
+				"clk_pll_4",
+				"clk_pll_5",
+				"clk_pll_6",
+				"clk_pll_7";
 
 			vow-lp-en-gear = <2>;
 			scp-cores = <2>;
 
 			dvfs-opp =
 			/* vcore	vsram	opp spm    freq mux resource */
-			< 575000	750000	0x0 0x8    196  2	0>,
-			< 600000	750000	0x1 0x104  260  6	0>,
-			< 650000	750000	0x2 0x202  280  7	0>,
-			< 725000	750000	0x3 0x301  360  3	0>,
-			< 725000	750000	0x3 0x301  416  4	0x3>;
+			< 575000	750000	0x0 0x10   196  2	0>,
+			< 600000	750000	0x1 0x108  260  6	0>,
+			< 650000	750000	0x2 0x204  280  7	0>,
+			< 725000	750000	0x3 0x302  360  3	0>,
+			< 725000	750000	0x3 0x302  416  4	0x3>;
 
 			pmic = <&pmic>;
 			pmic-sshub-support;
 
-			gpio = <&pio>;
+			gpio-base = <&pio>;
 			gpio-vreq-mode = <1>;
 			gpio-vreq = <0x410 0x7 24>;
 
@@ -1933,9 +1952,9 @@
 			ulposc-cali-target = <196 280 360>;
 			ulposc-cali-config =
 				/* con0		con1		con2 */
-				<0x5aa940	0x3002900	0x40>,
-				<0x3ca940	0x2900		0x40>,
-				<0x52a940	0x2900		0x40>;
+				<0x5aeb40	0x3002900	0x43>,
+				<0x3ceb40	0x2900		0x43>,
+				<0x52eb40	0x2900		0x43>;
 			clk-dbg-ver = "v1";
 		};
 
