@@ -63,69 +63,10 @@ int mt_dfs_general_pll(int pll_id, int dds)
 	return -1;
 }
 EXPORT_SYMBOL(mt_dfs_general_pll);
-#ifdef CONFIG_MACH_MT6739
-#define FH_ARM_PLLID 0
-int mt_dfs_armpll(int fh_id, int dds)
-{
-	return mt_dfs_general_pll(FH_ARM_PLLID, dds);
-}
-#define FH_ID_MEM_6739 4
-int freqhopping_config(unsigned int fh_id
-	, unsigned long vco_freq, unsigned int enable)
-{
-	int i;
-	struct fh_hdlr *hdlr = NULL;
-	struct pll_dts *array = get_dts_array();
-	int num_pll = array->num_pll;
-	static bool on;
-	static DEFINE_MUTEX(lock);
-
-	if (!_inited) {
-		FHDBG("!_inited\n");
-		return -1;
-	}
-
-	for (i = 0; i < num_pll; i++, array++) {
-		if (fh_id == array->fh_id) {
-			hdlr = array->hdlr;
-			break;
-		}
-	}
-
-	if (!hdlr || fh_id != FH_ID_MEM_6739) {
-		FHDBG("err!, hdlr<%x>, fh_id<%d>\n",
-				hdlr, fh_id);
-		return -1;
-	}
-
-	mutex_lock(&lock);
-	if (!on && enable) {
-		FHDBG("enable\n");
-		hdlr->ops->ssc_enable(hdlr->data,
-				array->domain,
-				array->fh_id,
-				8);
-		on = true;
-	} else if (on && !enable) {
-		FHDBG("disable\n");
-		hdlr->ops->ssc_disable(hdlr->data,
-				array->domain,
-				array->fh_id);
-		on = false;
-	} else
-		FHDBG("already %s\n",
-				on ? "enabled" : "disabled");
-	mutex_unlock(&lock);
-
-	return 0;
-}
-EXPORT_SYMBOL(freqhopping_config);
-#else
 int mt_dfs_armpll(int fh_id, int dds)
 {
 	return mt_dfs_general_pll(fh_id, dds);
 }
-#endif
 EXPORT_SYMBOL(mt_dfs_armpll);
 static struct pll_dts *parse_dt(struct platform_device *pdev)
 {
@@ -266,9 +207,10 @@ static void fh_plt_drv_shutdown(struct platform_device *pdev)
 }
 
 static const struct of_device_id fh_of_match[] = {
-	{ .compatible = "mediatek,mt6877-fhctl"},
 	{ .compatible = "mediatek,mt6853-fhctl"},
-	{ .compatible = "mediatek,mt6739-fhctl"},
+	{ .compatible = "mediatek,mt6877-fhctl"},
+	{ .compatible = "mediatek,mt6873-fhctl"},
+	{ .compatible = "mediatek,mt6885-fhctl"},
 	{}
 };
 static struct platform_driver fhctl_driver = {

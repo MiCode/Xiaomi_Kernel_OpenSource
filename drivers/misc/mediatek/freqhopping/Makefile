@@ -14,12 +14,14 @@
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/$(MTK_PLATFORM)/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach/
 
-ifeq (y,$(filter y,$(CONFIG_MACH_MT6739) \
+ifeq (y,$(filter y,$(CONFIG_MACH_MT6853) \
 			$(CONFIG_MACH_MT6833) \
-			$(CONFIG_MACH_MT6877)))
+			$(CONFIG_MACH_MT6877) \
+			$(CONFIG_MACH_MT6873) \
+			$(CONFIG_MACH_MT6885) \
+			$(CONFIG_MACH_MT6893)))
 obj-y += fhctl_new/
 else
 obj-y += mtk_freqhopping_drv.o
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
-

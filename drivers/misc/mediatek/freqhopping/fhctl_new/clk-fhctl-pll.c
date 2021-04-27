@@ -97,6 +97,20 @@ static int init_v1(struct fh_pll_domain *d,
 		.msk_frddsx_dys = GENMASK(23, 20),	\
 		.msk_frddsx_dts = GENMASK(19, 16),	\
 	}
+#define OFFSET_6853_TOP(_fhctl, _con_pcw) {	\
+		.offset_fhctl = _fhctl,				\
+		.offset_con_pcw = _con_pcw,			\
+		.offset_hp_en = 0x0,				\
+		.offset_clk_con = 0x8,				\
+		.offset_rst_con = 0xc,				\
+		.offset_slope0 = 0x10,				\
+		.offset_slope1 = 0x14,				\
+		.offset_cfg = 0x0,					\
+		.offset_updnlmt = 0x4,				\
+		.offset_dds = 0x8,					\
+		.offset_dvfs = 0xc,					\
+		.offset_mon = 0x10,					\
+	}
 static struct fh_pll_data mt6853_top_data[] = {
 	DATA_6853_TOP("armpll_ll"),
 	DATA_6853_TOP("armpll_bl0"),
@@ -115,20 +129,6 @@ static struct fh_pll_data mt6853_top_data[] = {
 	DATA_6853_TOP("tvdpll"),
 	{}
 };
-#define OFFSET_6853_TOP(_fhctl, _con_pcw) {	\
-		.offset_fhctl = _fhctl,				\
-		.offset_con_pcw = _con_pcw,			\
-		.offset_hp_en = 0x0,				\
-		.offset_clk_con = 0x8,				\
-		.offset_rst_con = 0xc,				\
-		.offset_slope0 = 0x10,				\
-		.offset_slope1 = 0x14,				\
-		.offset_cfg = 0x0,					\
-		.offset_updnlmt = 0x4,				\
-		.offset_dds = 0x8,					\
-		.offset_dvfs = 0xc,					\
-		.offset_mon = 0x10,					\
-	}
 static struct fh_pll_offset mt6853_top_offset[SIZE_6853_TOP] = {
 	OFFSET_6853_TOP(0x003C, 0x020C),
 	OFFSET_6853_TOP(0x0050, 0x021C),
@@ -168,37 +168,67 @@ static struct match mt6853_match = {
 /* 6877 begin */
 #define SIZE_6877_TOP (sizeof(mt6877_top_data)\
 	/sizeof(struct fh_pll_data))
-
+#define DATA_6877_TOP(_name) {				\
+		.name = _name,						\
+		.dds_mask = GENMASK(21, 0),			\
+		.slope0_value = 0x6003c97,			\
+		.slope1_value = 0x6003c97,			\
+		.sfstrx_en = BIT(2),				\
+		.frddsx_en = BIT(1),				\
+		.fhctlx_en = BIT(0),				\
+		.tgl_org = BIT(31),					\
+		.dvfs_tri = BIT(31),				\
+		.pcwchg = BIT(31),					\
+		.dt_val = 0x0,						\
+		.df_val = 0x9,						\
+		.updnlmt_shft = 16,					\
+		.msk_frddsx_dys = GENMASK(23, 20),	\
+		.msk_frddsx_dts = GENMASK(19, 16),	\
+	}
+#define OFFSET_6877_TOP(_fhctl, _con_pcw) {	\
+		.offset_fhctl = _fhctl,				\
+		.offset_con_pcw = _con_pcw,			\
+		.offset_hp_en = 0x0,				\
+		.offset_clk_con = 0x8,				\
+		.offset_rst_con = 0xc,				\
+		.offset_slope0 = 0x10,				\
+		.offset_slope1 = 0x14,				\
+		.offset_cfg = 0x0,					\
+		.offset_updnlmt = 0x4,				\
+		.offset_dds = 0x8,					\
+		.offset_dvfs = 0xc,					\
+		.offset_mon = 0x10,					\
+	}
 static struct fh_pll_data mt6877_top_data[] = {
-	DATA_6853_TOP("armpll_ll"),
-	DATA_6853_TOP("armpll_bl0"),
-	DATA_6853_TOP("armpll_b"),
-	DATA_6853_TOP("ccipll"),
-	DATA_6853_TOP("mempll"),
-	DATA_6853_TOP("emipll"),
-	DATA_6853_TOP("mpll"),
-	DATA_6853_TOP("mmpll"),
-	DATA_6853_TOP("mainpll"),
-	DATA_6853_TOP("msdcpll"),
-	DATA_6853_TOP("adsppll"),
-	DATA_6853_TOP("imgpll"),
-	DATA_6853_TOP("tvdpll"),
+	DATA_6877_TOP("armpll_ll"),
+	DATA_6877_TOP("armpll_bl0"),
+	DATA_6877_TOP("armpll_b"),
+	DATA_6877_TOP("ccipll"),
+	DATA_6877_TOP("mempll"),
+	DATA_6877_TOP("emipll"),
+	DATA_6877_TOP("mpll"),
+	DATA_6877_TOP("mmpll"),
+	DATA_6877_TOP("mainpll"),
+	DATA_6877_TOP("msdcpll"),
+	DATA_6877_TOP("adsppll"),
+	DATA_6877_TOP("imgpll"),
+	DATA_6877_TOP("tvdpll"),
 	{}
 };
 static struct fh_pll_offset mt6877_top_offset[] = {
-	OFFSET_6853_TOP(0x003C, 0x020C),  // FHCTL0_CFG, ARMPLL_LL_CON1
-	OFFSET_6853_TOP(0x0050, 0x021C),  // FHCTL1_CFG, ARMPLL_BL_CON1
-	OFFSET_6853_TOP(0x0064, 0x022C),  // FHCTL2_CFG, ARMPLL_B_CON1
-	OFFSET_6853_TOP(0x0078, 0x023C),  // FHCTL3_CFG, CCIPLL_CON1
-	OFFSET_6853_TOP(0x008C, 0xffff),  // FHCTL4_CFG,
-	OFFSET_6853_TOP(0x00A0, 0x03B4),  // FHCTL5_CFG, EMIPLL_CON1
-	OFFSET_6853_TOP(0x00B4, 0x0394),  // FHCTL6_CFG, MPLL_CON1
-	OFFSET_6853_TOP(0x00C8, 0x03A4),  // FHCTL7_CFG, MMPLL_CON1
-	OFFSET_6853_TOP(0x00DC, 0x0354),  // FHCTL8_CFG, MAINPLL_CON1
-	OFFSET_6853_TOP(0x00F0, 0x0364),  // FHCTL9_CFG, MSDCPLL_CON1
-	OFFSET_6853_TOP(0x0104, 0x0384),  // FHCTL10_CFG, ADSPPLL_CON1
-	OFFSET_6853_TOP(0x0118, 0x0374),  // FHCTL11_CFG, IMGPLL_CON1
-	OFFSET_6853_TOP(0x012c, 0x024c),  // FHCTL12_CFG, TVDPLL_CON1
+	OFFSET_6877_TOP(0x003C, 0x020C),  // FHCTL0_CFG, ARMPLL_LL_CON1
+	OFFSET_6877_TOP(0x0050, 0x021C),  // FHCTL1_CFG, ARMPLL_BL_CON1
+	OFFSET_6877_TOP(0x0064, 0x022C),  // FHCTL2_CFG, ARMPLL_B_CON1
+	OFFSET_6877_TOP(0x0078, 0x023C),  // FHCTL3_CFG, CCIPLL_CON1
+	OFFSET_6877_TOP(0x008C, 0xffff),  // FHCTL4_CFG,
+	OFFSET_6877_TOP(0x00A0, 0x03B4),  // FHCTL5_CFG, EMIPLL_CON1
+	OFFSET_6877_TOP(0x00B4, 0x0394),  // FHCTL6_CFG, MPLL_CON1
+	OFFSET_6877_TOP(0x00C8, 0x03A4),  // FHCTL7_CFG, MMPLL_CON1
+	OFFSET_6877_TOP(0x00DC, 0x0354),  // FHCTL8_CFG, MAINPLL_CON1
+	OFFSET_6877_TOP(0x00F0, 0x0364),  // FHCTL9_CFG, MSDCPLL_CON1
+	OFFSET_6877_TOP(0x0104, 0x0384),  // FHCTL10_CFG, ADSPPLL_CON1
+	OFFSET_6877_TOP(0x0118, 0x0374),  // FHCTL11_CFG, IMGPLL_CON1
+	OFFSET_6877_TOP(0x012c, 0x024c),  // FHCTL12_CFG, TVDPLL_CON1
 	{}
 };
 
@@ -206,17 +236,17 @@ static struct fh_pll_offset mt6877_top_offset[] = {
 	/sizeof(struct fh_pll_data))
 
 static struct fh_pll_data mt6877_gpu_data[] = {
-	DATA_6853_TOP("mfgpll1"),
-	DATA_6853_TOP("mfgpll2"),
-	DATA_6853_TOP("mfgpll3"),
-	DATA_6853_TOP("mfgpll4"),
+	DATA_6877_TOP("mfgpll1"),
+	DATA_6877_TOP("mfgpll2"),
+	DATA_6877_TOP("mfgpll3"),
+	DATA_6877_TOP("mfgpll4"),
 	{}
 };
 static struct fh_pll_offset mt6877_gpu_offset[] = {
-	OFFSET_6853_TOP(0x003C, 0x000C),  // PLL4H_FHCTL0_CFG, PLL4H_PLL1_CON1
-	OFFSET_6853_TOP(0x0050, 0x001C),  // PLL4HPLL_FHCTL1_CFG, PLL4H_PLL2_CON1
-	OFFSET_6853_TOP(0x0064, 0x002C),  // PLL4HPLL_FHCTL2_CFG, PLL4H_PLL3_CON1
-	OFFSET_6853_TOP(0x0078, 0x003C),  // PLL4HPLL_FHCTL3_CFG, PLL4H_PLL4_CON1
+	OFFSET_6877_TOP(0x003C, 0x000C),  // PLL4H_FHCTL0_CFG, PLL4H_PLL1_CON1
+	OFFSET_6877_TOP(0x0050, 0x001C),  // PLL4HPLL_FHCTL1_CFG, PLL4H_PLL2_CON1
+	OFFSET_6877_TOP(0x0064, 0x002C),  // PLL4HPLL_FHCTL2_CFG, PLL4H_PLL3_CON1
+	OFFSET_6877_TOP(0x0078, 0x003C),  // PLL4HPLL_FHCTL3_CFG, PLL4H_PLL4_CON1
 	{}
 };
 
@@ -224,17 +254,17 @@ static struct fh_pll_offset mt6877_gpu_offset[] = {
 	/sizeof(struct fh_pll_data))
 
 static struct fh_pll_data mt6877_apu_data[] = {
-	DATA_6853_TOP("apupll"),
-	DATA_6853_TOP("npupll"),
-	DATA_6853_TOP("apupll1"),
-	DATA_6853_TOP("apupll2"),
+	DATA_6877_TOP("apupll"),
+	DATA_6877_TOP("npupll"),
+	DATA_6877_TOP("apupll1"),
+	DATA_6877_TOP("apupll2"),
 	{}
 };
 static struct fh_pll_offset mt6877_apu_offset[] = {
-	OFFSET_6853_TOP(0x003C, 0x000C),  // PLL4HPLL_FHCTL0_CFG, PLL4H_PLL1_CON1
-	OFFSET_6853_TOP(0x0050, 0x001C),  // PLL4HPLL_FHCTL1_CFG, PLL4H_PLL2_CON1
-	OFFSET_6853_TOP(0x0064, 0x002C),  // PLL4HPLL_FHCTL2_CFG, PLL4H_PLL3_CON1
-	OFFSET_6853_TOP(0x0078, 0x003C),  // PLL4HPLL_FHCTL3_CFG, PLL4H_PLL4_CON1
+	OFFSET_6877_TOP(0x003C, 0x000C),  // PLL4HPLL_FHCTL0_CFG, PLL4H_PLL1_CON1
+	OFFSET_6877_TOP(0x0050, 0x001C),  // PLL4HPLL_FHCTL1_CFG, PLL4H_PLL2_CON1
+	OFFSET_6877_TOP(0x0064, 0x002C),  // PLL4HPLL_FHCTL2_CFG, PLL4H_PLL3_CON1
+	OFFSET_6877_TOP(0x0078, 0x003C),  // PLL4HPLL_FHCTL3_CFG, PLL4H_PLL4_CON1
 	{}
 };
 static struct fh_pll_regs mt6877_top_regs[SIZE_6877_TOP];
@@ -273,14 +303,15 @@ static struct match mt6877_match = {
 };
 /* 6877 end */
 
-/* 6739 begin */
-#define SIZE_6739_TOP (sizeof(mt6739_top_data)\
+/* platform data begin */
+/* 6873 begin */
+#define SIZE_6873_TOP (sizeof(mt6873_top_data)\
 	/sizeof(struct fh_pll_data))
-#define DATA_6739_TOP(_name) {				\
+#define DATA_6873_TOP(_name) {				\
 		.name = _name,						\
-		.dds_mask = GENMASK(20, 0),			\
-		.slope0_value = 0x6000F4B,			\
-		.slope1_value = 0xFF000368,			\
+		.dds_mask = GENMASK(21, 0),			\
+		.slope0_value = 0x6003c97,			\
+		.slope1_value = 0x6003c97,			\
 		.sfstrx_en = BIT(2),				\
 		.frddsx_en = BIT(1),				\
 		.fhctlx_en = BIT(0),				\
@@ -293,62 +324,168 @@ static struct match mt6877_match = {
 		.msk_frddsx_dys = GENMASK(23, 20),	\
 		.msk_frddsx_dts = GENMASK(19, 16),	\
 	}
-static struct fh_pll_data mt6739_top_data[] = {
-	DATA_6739_TOP("armpll"),
-	DATA_6739_TOP("mainpll"),
-	DATA_6739_TOP("msdcpll"),
-	DATA_6739_TOP("mfgpll"),
-	DATA_6739_TOP("mempll"),
-	DATA_6739_TOP("mmpll"),
-	{}
-};
-#define OFFSET_6739_TOP(_fhctl, _con_pcw) {	\
+#define OFFSET_6873_TOP(_fhctl, _con_pcw) {	\
 		.offset_fhctl = _fhctl,				\
 		.offset_con_pcw = _con_pcw,			\
 		.offset_hp_en = 0x0,				\
-		.offset_clk_con = 0x4,				\
-		.offset_rst_con = 0x8,				\
-		.offset_slope0 = 0xc,				\
-		.offset_slope1 = 0x10,				\
+		.offset_clk_con = 0x8,				\
+		.offset_rst_con = 0xc,				\
+		.offset_slope0 = 0x10,				\
+		.offset_slope1 = 0x14,				\
 		.offset_cfg = 0x0,					\
 		.offset_updnlmt = 0x4,				\
 		.offset_dds = 0x8,					\
 		.offset_dvfs = 0xc,					\
 		.offset_mon = 0x10,					\
 	}
-static struct fh_pll_offset mt6739_top_offset[SIZE_6739_TOP] = {
-	OFFSET_6739_TOP(0x0038, 0x0204),
-	OFFSET_6739_TOP(0x004C, 0x0224),
-	OFFSET_6739_TOP(0x0060, 0x0254),
-	OFFSET_6739_TOP(0x0074, 0x0244),
-	OFFSET_6739_TOP(0x0088, 0xffff),
-	OFFSET_6739_TOP(0x009C, 0x0274),
+static struct fh_pll_data mt6873_top_data[] = {
+	DATA_6873_TOP("armpll_ll"),
+	DATA_6873_TOP("armpll_bl0"),
+	DATA_6873_TOP("armpll_bl1"),
+	DATA_6873_TOP("armpll_bl2"),
+	DATA_6873_TOP("npupll"),
+	DATA_6873_TOP("ccipll"),
+	DATA_6873_TOP("mfgpll"),
+	DATA_6873_TOP("mempll"),
+	DATA_6873_TOP("mpll"),
+	DATA_6873_TOP("mmpll"),
+	DATA_6873_TOP("mainpll"),
+	DATA_6873_TOP("msdcpll"),
+	DATA_6873_TOP("adsppll"),
+	DATA_6873_TOP("apupll"),
+	DATA_6873_TOP("tvdpll"),
 	{}
 };
-static struct fh_pll_regs mt6739_top_regs[SIZE_6739_TOP];
-static struct fh_pll_domain mt6739_top = {
+static struct fh_pll_offset mt6873_top_offset[SIZE_6873_TOP] = {
+	OFFSET_6873_TOP(0x003C, 0x020C),
+	OFFSET_6873_TOP(0x0050, 0x021C),
+	OFFSET_6873_TOP(0x0064, 0x022C),
+	OFFSET_6873_TOP(0x0078, 0x023C),
+	OFFSET_6873_TOP(0x008C, 0x03B8),
+	OFFSET_6873_TOP(0x00A0, 0x025C),
+	OFFSET_6873_TOP(0x00B4, 0x026C),
+	OFFSET_6873_TOP(0x00C8, 0xffff),
+	OFFSET_6873_TOP(0x00DC, 0x0394),
+	OFFSET_6873_TOP(0x00F0, 0x0364),
+	OFFSET_6873_TOP(0x0104, 0x0344),
+	OFFSET_6873_TOP(0x0118, 0x0354),
+	OFFSET_6873_TOP(0x012c, 0x0374),
+	OFFSET_6873_TOP(0x0140, 0x03A4),
+	OFFSET_6873_TOP(0x0154, 0x0384),
+	{}
+};
+static struct fh_pll_regs mt6873_top_regs[SIZE_6873_TOP];
+static struct fh_pll_domain mt6873_top = {
 	.name = "top",
-	.data = (struct fh_pll_data *)&mt6739_top_data,
-	.offset = (struct fh_pll_offset *)&mt6739_top_offset,
-	.regs = (struct fh_pll_regs *)&mt6739_top_regs,
+	.data = (struct fh_pll_data *)&mt6873_top_data,
+	.offset = (struct fh_pll_offset *)&mt6873_top_offset,
+	.regs = (struct fh_pll_regs *)&mt6873_top_regs,
 	.init = &init_v1,
 };
-
-static struct fh_pll_domain *mt6739_domain[] = {
-	&mt6739_top,
+static struct fh_pll_domain *mt6873_domain[] = {
+	&mt6873_top,
 	NULL
 };
-static struct match mt6739_match = {
-	.compatible = "mediatek,mt6739-fhctl",
-	.domain_list = (struct fh_pll_domain **)mt6739_domain,
+static struct match mt6873_match = {
+	.compatible = "mediatek,mt6873-fhctl",
+	.domain_list = (struct fh_pll_domain **)mt6873_domain,
 };
-/* 6739 end */
-/* platform data end */
+/* 6873 end */
+
+/* platform data begin */
+/* 6885 begin */
+#define SIZE_6885_TOP (sizeof(mt6885_top_data)\
+	/sizeof(struct fh_pll_data))
+#define DATA_6885_TOP(_name) {				\
+		.name = _name,						\
+		.dds_mask = GENMASK(21, 0),			\
+		.slope0_value = 0x6003c97,			\
+		.slope1_value = 0x6003c97,			\
+		.sfstrx_en = BIT(2),				\
+		.frddsx_en = BIT(1),				\
+		.fhctlx_en = BIT(0),				\
+		.tgl_org = BIT(31),					\
+		.dvfs_tri = BIT(31),				\
+		.pcwchg = BIT(31),					\
+		.dt_val = 0x0,						\
+		.df_val = 0x9,						\
+		.updnlmt_shft = 16,					\
+		.msk_frddsx_dys = GENMASK(23, 20),	\
+		.msk_frddsx_dts = GENMASK(19, 16),	\
+	}
+#define OFFSET_6885_TOP(_fhctl, _con_pcw) {	\
+		.offset_fhctl = _fhctl,				\
+		.offset_con_pcw = _con_pcw,			\
+		.offset_hp_en = 0x0,				\
+		.offset_clk_con = 0x8,				\
+		.offset_rst_con = 0xc,				\
+		.offset_slope0 = 0x10,				\
+		.offset_slope1 = 0x14,				\
+		.offset_cfg = 0x0,					\
+		.offset_updnlmt = 0x4,				\
+		.offset_dds = 0x8,					\
+		.offset_dvfs = 0xc,					\
+		.offset_mon = 0x10,					\
+	}
+static struct fh_pll_data mt6885_top_data[] = {
+	DATA_6885_TOP("armpll_ll"),
+	DATA_6885_TOP("armpll_bl0"),
+	DATA_6885_TOP("armpll_bl1"),
+	DATA_6885_TOP("armpll_bl2"),
+	DATA_6885_TOP("armpll_bl3"),
+	DATA_6885_TOP("ccipll"),
+	DATA_6885_TOP("mfgpll"),
+	DATA_6885_TOP("mempll"),
+	DATA_6885_TOP("mpll"),
+	DATA_6885_TOP("mmpll"),
+	DATA_6885_TOP("mainpll"),
+	DATA_6885_TOP("msdcpll"),
+	DATA_6885_TOP("adsppll"),
+	DATA_6885_TOP("apupll"),
+	DATA_6885_TOP("tvdpll"),
+	{}
+};
+static struct fh_pll_offset mt6885_top_offset[SIZE_6885_TOP] = {
+	OFFSET_6885_TOP(0x003C, 0x020C),
+	OFFSET_6885_TOP(0x0050, 0x021C),
+	OFFSET_6885_TOP(0x0064, 0x022C),
+	OFFSET_6885_TOP(0x0078, 0x023C),
+	OFFSET_6885_TOP(0x008C, 0x024C),
+	OFFSET_6885_TOP(0x00A0, 0x025C),
+	OFFSET_6885_TOP(0x00B4, 0x026C),
+	OFFSET_6885_TOP(0x00C8, 0xffff),
+	OFFSET_6885_TOP(0x00DC, 0x0394),
+	OFFSET_6885_TOP(0x00F0, 0x0364),
+	OFFSET_6885_TOP(0x0104, 0x0344),
+	OFFSET_6885_TOP(0x0118, 0x0354),
+	OFFSET_6885_TOP(0x012c, 0x0374),
+	OFFSET_6885_TOP(0x0140, 0x03A4),
+	OFFSET_6885_TOP(0x0154, 0x0384),
+	{}
+};
+static struct fh_pll_regs mt6885_top_regs[SIZE_6885_TOP];
+static struct fh_pll_domain mt6885_top = {
+	.name = "top",
+	.data = (struct fh_pll_data *)&mt6885_top_data,
+	.offset = (struct fh_pll_offset *)&mt6885_top_offset,
+	.regs = (struct fh_pll_regs *)&mt6885_top_regs,
+	.init = &init_v1,
+};
+static struct fh_pll_domain *mt6885_domain[] = {
+	&mt6885_top,
+	NULL
+};
+static struct match mt6885_match = {
+	.compatible = "mediatek,mt6885-fhctl",
+	.domain_list = (struct fh_pll_domain **)mt6885_domain,
+};
+/* 6885 end */
 
 static const struct match *matchs[] = {
-	&mt6877_match,
 	&mt6853_match,
-	&mt6739_match,
+	&mt6877_match,
+	&mt6873_match,
+	&mt6885_match,
 	NULL
 };
 
