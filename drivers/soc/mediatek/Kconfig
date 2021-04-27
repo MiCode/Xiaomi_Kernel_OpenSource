@@ -49,7 +49,7 @@ config MTK_SCPSYS
 	  driver.
 
 config MTK_MMSYS
-	bool "MediaTek MMSYS Support"
+	tristate "MediaTek MMSYS Support"
 	default ARCH_MEDIATEK
 	help
 	  Say yes here to add support for the MediaTek Multimedia
