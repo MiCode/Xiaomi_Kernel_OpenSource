@@ -26,36 +26,26 @@
 #include "mtk_cpu_dbg.h"
 #include <linux/delay.h>
 
-#define OFFS_LOG_S		0x03d0
-#define OFFS_LOG_E		0x0fa0
-#define CSRAM_SIZE		0x1400		/* 5K bytes */
-#define USRAM_SIZE		0xC00
-#define DBG_REPO_NUM		(CSRAM_SIZE / sizeof(u32))
-#define USRAM_REPO_NUM		(USRAM_SIZE / sizeof(u32))
-#define REPO_I_LOG_S		(OFFS_LOG_S / sizeof(u32))
-#define REPO_I_LOG_E		(OFFS_LOG_E / sizeof(u32))
 
+unsigned int DBG_REPO_NUM;  //(CSRAM_SIZE / sizeof(u32))
+unsigned int USRAM_REPO_NUM;//(USRAM_SIZE / sizeof(u32))
+/*
+These 3 are only used for having a beautiful dump format,
+and you can recoginize log msg by seeing starting ':' symbol.
+*/
+unsigned int REPO_I_LOG_S;// (OFFS_LOG_S / sizeof(u32))
+unsigned int REPO_I_LOG_E;// (OFFS_LOG_E / sizeof(u32))
 #define ENTRY_EACH_LOG		5
 
-#define CSRAM_BASE	0x0011bc00
-#define USRAM_BASE	0x00115400
-#define APMIXED_BASE	0x1000c000
-#define APMIXED_SIZE	0x10
-#define MCUCFG_BASE	0x0c530000
-#define MCUCFG_SIZE	0x10
-
-#define	C0_OFF	4		//L  or LL
-#define	C1_OFF	76		//BL or L
-#define	C2_OFF	148		//B  or CCI
-#define	C3_OFF	220		//CCI
 #define get_volt(offs, repo) ((repo[offs] >> 12) & 0x1FFFF)
 #define get_freq(offs, repo) ((repo[offs] & 0xFFF) * 1000)
 
 
 static DEFINE_MUTEX(cpufreq_mutex);
-static int cpufreq_force_opp;
 static void __iomem *csram_base;
 static void __iomem *usram_base;
+static void __iomem *apmixed_base;
+static void __iomem *mcucfg_base;
 
 u32 *g_dbg_repo;
 u32 *g_usram_repo;
@@ -65,26 +55,16 @@ u32 *g_C0_opp_idx;
 u32 *g_C1_opp_idx;
 u32 *g_C2_opp_idx;
 u32 *g_C3_opp_idx;
-unsigned int seq;
 
-struct pll_addr pll_addr[CLUSTER_NRS];
-
-struct pll_addr_offs pll_addr_offs[CLUSTER_NRS] = {
-	[0] = {
-		.armpll_con = 0x20c,
-		.clkdiv_cfg = 0xa2a0,
-	},
-	[1] = {
-		.armpll_con = 0x22c,
-		.clkdiv_cfg = 0xa2a4,
-	},
-#if CLUSTER_NRS>2
-	[2] = {
-		.armpll_con = 0x21c,
-		.clkdiv_cfg = 0xa2b0,
-	},
-#endif
-};
+int g_num_cluster;//g_num_cluster<=MAX_CLUSTER_NRS
+struct pll_addr pll_addr[MAX_CLUSTER_NRS];
+unsigned int cluster_off[MAX_CLUSTER_NRS+1];//domain + cci
+#define PLL_CONFIG_PROP_NAME "pll-con"
+#define TBL_OFF_PROP_NAME "tbl-off"
+#define CLK_DIV_PROP_NAME "clk-div"
+#define APMIXED_BASE_PROP_NAME "apmixedsys"
+#define MCUCFG_BASE_PROP_NAME "clk-div-base"
+#define CSRAM_DVFS_LOG_RANGE "cslog-range"
 
 static unsigned int pll_to_clk(unsigned int pll_f, unsigned int ckdiv1)
 {
@@ -175,9 +155,9 @@ unsigned int get_cur_phy_freq(int cluster)
 	unsigned int con1;
 	unsigned int ckdiv1;
 	unsigned int cur_khz;
-
-	con1 = readl((void __iomem *)ioremap(pll_addr[cluster].reg_addr[0], 4));
-	ckdiv1 = readl((void __iomem *)ioremap(pll_addr[cluster].reg_addr[1], 4));
+	
+	con1 = readl(apmixed_base+pll_addr[cluster].reg_addr[0]);
+	ckdiv1 = readl(mcucfg_base+pll_addr[cluster].reg_addr[1]);
 	ckdiv1 = _GET_BITS_VAL_(21:17, ckdiv1);
 	cur_khz = _cpu_freq_calc(con1, ckdiv1);
 
@@ -297,28 +277,28 @@ static int opp_idx_show(struct seq_file *m, void *v, u32 pos)
 
 static int C0_opp_idx_proc_show(struct seq_file *m, void *v)
 {
-	return opp_idx_show(m, v, C0_OFF);
+	return opp_idx_show(m, v, cluster_off[0]);
 }
 
 PROC_FOPS_RO(C0_opp_idx);
 
 static int C1_opp_idx_proc_show(struct seq_file *m, void *v)
 {
-	return opp_idx_show(m, v, C1_OFF);
+	return opp_idx_show(m, v, cluster_off[1]);
 }
 
 PROC_FOPS_RO(C1_opp_idx);
 
 static int C2_opp_idx_proc_show(struct seq_file *m, void *v)
 {
-	return opp_idx_show(m, v, C2_OFF);
+	return opp_idx_show(m, v, cluster_off[2]);
 }
 
 PROC_FOPS_RO(C2_opp_idx);
 
 static int C3_opp_idx_proc_show(struct seq_file *m, void *v)
 {
-	return opp_idx_show(m, v, C3_OFF);
+	return opp_idx_show(m, v, cluster_off[3]);
 }
 
 PROC_FOPS_RO(C3_opp_idx);
@@ -326,24 +306,18 @@ PROC_FOPS_RO(C3_opp_idx);
 static int phyclk_proc_show(struct seq_file *m, void *v)
 {
 	int i;
-	unsigned int con1;
-	unsigned int ckdiv1;
-	unsigned int freq;
-	unsigned int posdiv;
 	char *name_arr[] = {"C0", "C1", "C2"};
+#if 0
+	unsigned int con1,ckdiv1,freq,posdiv;
+#endif
 
-	for (i = 0; i < CLUSTER_NRS; i++){
-		seq_printf(m, "cluster: %s, frequency = %d\n", name_arr[i], get_cur_phy_freq(i));
-#if 1
+	for (i = 0; i < g_num_cluster; i++){
+		seq_printf(m, "old cluster: %s, frequency = %d\n", name_arr[i], get_cur_phy_freq(i));
+#if 0
 		con1 = readl((void __iomem *)ioremap(pll_addr[i].reg_addr[0], 4));
 		ckdiv1 = readl((void __iomem *)ioremap(pll_addr[i].reg_addr[1], 4));
 		ckdiv1 = _GET_BITS_VAL_(21:17, ckdiv1);
 		seq_printf(m, "con1 =%u, ckdiv1 = %u\n", con1, ckdiv1);
-
-		posdiv = _GET_BITS_VAL_(26:24, con1);
-		con1 &= _BITMASK_(21:0);
-		freq = ((con1 * 26) >> 14) * 1000;
-		seq_printf(m, "con1 =%u, posdiv = %u, freq = %u\n", con1, posdiv, freq);
 #endif
 	}
 	return 0;
@@ -366,15 +340,14 @@ static int create_cpufreq_debug_fs(void)
 		PROC_ENTRY_DATA(dbg_repo),
 		PROC_ENTRY_DATA(cpufreq_debug),
 		PROC_ENTRY_DATA(phyclk),
-		PROC_ENTRY_DATA(C0_opp_idx),
-		PROC_ENTRY_DATA(C1_opp_idx),
-		PROC_ENTRY_DATA(C2_opp_idx),
-#if CLUSTER_NRS>2
-		PROC_ENTRY_DATA(C3_opp_idx),
-#endif
 		PROC_ENTRY_DATA(usram_repo),
 	};
-
+	const struct pentry clusters[MAX_CLUSTER_NRS+1] = {
+		PROC_ENTRY_DATA(C0_opp_idx),//L  or LL
+		PROC_ENTRY_DATA(C1_opp_idx),//BL or L
+		PROC_ENTRY_DATA(C2_opp_idx),//B  or CCI
+		PROC_ENTRY_DATA(C3_opp_idx),//CCI
+	};
 
 	/* create /proc/cpuhvfs */
 	dir = proc_mkdir("cpuhvfs", NULL);
@@ -394,25 +367,93 @@ static int create_cpufreq_debug_fs(void)
 	i = ARRAY_SIZE(entries)-1;
 	proc_create_data(entries[i].name, 0664, dir, entries[i].fops, usram_base);
 
+	if(g_num_cluster>MAX_CLUSTER_NRS){
+		pr_info("fail to create CX_opp_idx @ %s()\n",
+								__func__);
+		return -EINVAL;
+	}
+	for (i = 0; i < g_num_cluster+1; i++) {
+		if (!proc_create_data
+			(clusters[i].name, 0664,
+			dir, clusters[i].fops, csram_base))
+			pr_info("%s(), create /proc/cpuhvfs/%s failed\n",
+					__func__, entries[0].name);
+	}
+
 	return 0;
 }
 
 static int mtk_cpuhvfs_init(void)
 {
 	int ret = 0;
+	struct device_node *hvfs_node;
+	struct device_node *apmixed_node;
+	struct device_node *mcucfg_node;
+	struct platform_device *pdev;
+	struct resource *csram_res,*usram_res;
 
-	seq = 0;
+	hvfs_node=of_find_node_by_name(NULL,"cpuhvfs");
+	if(hvfs_node==NULL){
+		pr_notice("[cpuhvfs] failed to find node @ %s\n",__func__);
+		return -ENODEV;
+	}
+	
+	pdev=of_device_alloc(hvfs_node,NULL,NULL);
+	usram_res=platform_get_resource(pdev, IORESOURCE_MEM,0);
+	usram_base = ioremap(usram_res->start,resource_size(usram_res));
+	USRAM_REPO_NUM=(resource_size(usram_res)/ sizeof(u32));
 
-	cpufreq_force_opp = 0;
+	csram_res=platform_get_resource(pdev, IORESOURCE_MEM,1);
+	csram_base = ioremap(csram_res->start,resource_size(csram_res));
+	DBG_REPO_NUM=(resource_size(csram_res)/ sizeof(u32));
+	of_property_read_u32_index(hvfs_node,CSRAM_DVFS_LOG_RANGE,0,&REPO_I_LOG_S);//Start address from csram
+	of_property_read_u32_index(hvfs_node,CSRAM_DVFS_LOG_RANGE,1,&REPO_I_LOG_E);//End address from csram
+	REPO_I_LOG_S/=sizeof(u32);//only used for having a pretty dump format
+	REPO_I_LOG_E/=sizeof(u32);
 
-	usram_base = ioremap(USRAM_BASE, USRAM_SIZE);
+	/* get PLL config & CLKDIV for every cluster*/
+	ret=of_property_count_u32_elems(hvfs_node, PLL_CONFIG_PROP_NAME);
+	if(ret<0){
+		pr_notice("[cpuhvfs] failed to get num_cluster @ %s\n",__func__);
+		return -EINVAL;
+	}
+	g_num_cluster=ret;
+	ret=of_property_count_u32_elems(hvfs_node, CLK_DIV_PROP_NAME);
+	if(ret!=g_num_cluster){
+		pr_notice("[cpuhvfs] clk-div size is not aligned@ %s\n",__func__);
+		return -EINVAL;
+	}
 
-	if (!csram_base)
-		csram_base = ioremap(CSRAM_BASE, CSRAM_SIZE);
+	//get APMIXED_BASE & MCUCFG_BASE
+	apmixed_node=of_parse_phandle(hvfs_node,APMIXED_BASE_PROP_NAME,0);
+	if(apmixed_node==NULL){
+		pr_notice("[cpuhvfs] failed to get apmixed base @ %s\n",__func__);
+		return -EINVAL;
+	}
+	apmixed_base=of_iomap(apmixed_node,0);
 
-	for (ret = 0; ret < CLUSTER_NRS; ret++) {
-		pll_addr[ret].reg_addr[0] = APMIXED_BASE + pll_addr_offs[ret].armpll_con;
-		pll_addr[ret].reg_addr[1] = MCUCFG_BASE + pll_addr_offs[ret].clkdiv_cfg;
+	mcucfg_node=of_parse_phandle(hvfs_node,MCUCFG_BASE_PROP_NAME,0);
+	if(mcucfg_node==NULL){
+		pr_notice("[cpuhvfs] failed to get mcucfg base @ %s\n",__func__);
+		return -EINVAL;
+	}else{
+		pr_notice("[cpuhvfs] successed to get mcucfg base @ %s\n",__func__);
+	}
+	mcucfg_base=of_iomap(mcucfg_node,0);
+
+	for (ret = 0; ret < g_num_cluster; ret++) {
+		of_property_read_u32_index(hvfs_node,PLL_CONFIG_PROP_NAME,ret,&pll_addr[ret].reg_addr[0]);
+		of_property_read_u32_index(hvfs_node,CLK_DIV_PROP_NAME,ret,&pll_addr[ret].reg_addr[1]);
+	}
+
+	//Offsets used to fetch OPP table
+	ret=of_property_count_u32_elems(hvfs_node, TBL_OFF_PROP_NAME);
+	if(ret!=g_num_cluster+1){
+		pr_notice("[cpuhvfs] only get %d opp offset@ %s\n",ret, __func__);
+		return -EINVAL;
+	}
+	for(ret=0;ret<g_num_cluster+1;ret++){
+		of_property_read_u32_index(hvfs_node,TBL_OFF_PROP_NAME,ret,&cluster_off[ret]);
 	}
 
 	create_cpufreq_debug_fs();
