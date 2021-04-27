@@ -151,7 +151,6 @@ enum VAL_DRIVER_TYPE_T {
 	VAL_DRIVER_TYPE_VC1_SP_DEC,      /* /< VC-1 simple profile decoder */
 	VAL_DRIVER_TYPE_RV9_DEC,	 /* /< RV9 decoder */
 	VAL_DRIVER_TYPE_MP1_MP2_DEC,     /* /< MPEG1/2 decoder */
-	VAL_DRIVER_TYPE_XVID_DEC,	/* /< Xvid decoder */
 	/* /< VC-1 main profile (WMV9) decoder */
 	VAL_DRIVER_TYPE_VC1_MP_WMV9_DEC,
 	VAL_DRIVER_TYPE_RV8_DEC,       /* /< RV8 decoder */
