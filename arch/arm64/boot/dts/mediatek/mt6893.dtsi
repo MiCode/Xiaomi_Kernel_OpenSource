@@ -392,6 +392,54 @@
 			#cooling-cells = <2>;
 		};
 
+		cpu4: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x0400>;
+			enable-method = "psci";
+			performance-domains = <&performance 1>;
+			clock-frequency = <2171000000>;
+			capacity-dmips-mhz = <877>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
+			#cooling-cells = <2>;
+		};
+
+		cpu5: cpu@101 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x0500>;
+			enable-method = "psci";
+			performance-domains = <&performance 1>;
+			clock-frequency = <2171000000>;
+			capacity-dmips-mhz = <877>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
+			#cooling-cells = <2>;
+		};
+
+		cpu6: cpu@102 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x0600>;
+			enable-method = "psci";
+			performance-domains = <&performance 1>;
+			clock-frequency = <2171000000>;
+			capacity-dmips-mhz = <877>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
+			#cooling-cells = <2>;
+		};
+
+		cpu7: cpu@200 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x0700>;
+			enable-method = "psci";
+			performance-domains = <&performance 2>;
+			clock-frequency = <2171000000>;
+			capacity-dmips-mhz = <1024>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
+			#cooling-cells = <2>;
+		};
+
 		cpu-map {
 			cluster0 {
 				core0 {
@@ -405,6 +453,24 @@
 				};
 				core3 {
 					cpu = <&cpu3>;
+				};
+			};
+
+			cluster1 {
+				core0 {
+					cpu = <&cpu4>;
+				};
+				core1 {
+					cpu = <&cpu5>;
+				};
+				core2 {
+					cpu = <&cpu6>;
+				};
+			};
+
+			cluster2 {
+				core0 {
+					cpu = <&cpu7>;
 				};
 			};
 		};
