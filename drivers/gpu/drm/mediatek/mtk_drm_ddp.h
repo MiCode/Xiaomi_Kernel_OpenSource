@@ -30,18 +30,6 @@ struct regmap;
 struct device;
 struct mtk_disp_mutex;
 struct mtk_mmsys_reg_data;
-enum mtk_mmsys_id {
-	MMSYS_MT2701,
-	MMSYS_MT2712,
-	MMSYS_MT8173,
-	MMSYS_MT6779,
-	MMSYS_MT6885,
-	MMSYS_MT6873,
-	MMSYS_MT6853,
-	MMSYS_MT6877,
-	MMSYS_MT6833,
-	MMSYS_MAX,
-};
 
 const struct mtk_mmsys_reg_data *
 mtk_ddp_get_mmsys_reg_data(enum mtk_mmsys_id mmsys_id);
