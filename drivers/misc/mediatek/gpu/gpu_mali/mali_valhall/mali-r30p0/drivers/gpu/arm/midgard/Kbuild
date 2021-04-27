@@ -89,6 +89,11 @@ DEFINES += -DMALI_KBASE_BUILD
 ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH) -I$(srctree)/include/linux
 subdir-ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH) -I$(srctree)/include/linux
 
+ifeq ($(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM), y)
+	include $(srctree)/drivers/misc/mediatek/trusted_mem/Makefile.include
+	ccflags-y += -I$(srctree)/drivers/staging/android/ion
+endif
+
 SRC := \
 	context/mali_kbase_context.c \
 	debug/mali_kbase_debug_ktrace.c \
