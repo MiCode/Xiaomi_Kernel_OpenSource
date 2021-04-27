@@ -5261,11 +5261,16 @@ void mtk_ddp_insert_dsc_prim_MT6885(struct mtk_drm_crtc *mtk_crtc,
 	if (!mtk_crtc->is_dual_pipe)
 		return;
 
+	/* remove MT6885_DISP_DITHER1_MOUT_EN -> DSI1_SEL*/
+	addr = MT6885_DISP_DITHER1_MOUT_EN;
+	value = DISP_DITHER1_MOUT_EN_TO_DSI1_SEL;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, ~value, value);
 	/* MT6885_DISP_DITHER1_MOUT_EN -> PQ1_SOUT */
 	addr = MT6885_DISP_DITHER1_MOUT_EN;
 	value = DISP_DITHER1_MOUT_EN_TO_PQ1_SOUT;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-		       mtk_crtc->config_regs_pa + addr, value, ~0);
+		       mtk_crtc->config_regs_pa + addr, value, value);
 
 	/* MT6885_DISP_PQ1_SOUT_SEL -> RDMA5_PQ1_SEL */
 	addr = MT6885_DISP_PQ1_SOUT_SEL;
@@ -5324,9 +5329,9 @@ void mtk_ddp_remove_dsc_prim_MT6885(struct mtk_drm_crtc *mtk_crtc,
 
 	/* MT6885_DISP_DITHER1_MOUT_EN -> PQ1_SOUT */
 	addr = MT6885_DISP_DITHER1_MOUT_EN;
-	value = DISP_DITHER1_MOUT_EN_TO_DSI1_SEL;
+	value = DISP_DITHER1_MOUT_EN_TO_PQ1_SOUT;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-		       mtk_crtc->config_regs_pa + addr, value, ~0);
+		       mtk_crtc->config_regs_pa + addr, ~value, value);
 
 	/* MT6885_DISP_PQ1_SOUT_SEL -> RDMA5_PQ1_SEL */
 	addr = MT6885_DISP_PQ1_SOUT_SEL;
