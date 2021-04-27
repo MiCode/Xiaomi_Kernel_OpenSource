@@ -202,8 +202,8 @@ void mtk_jpeg_enc_set_config(void __iomem *base,
 				config->enc_format, config->total_encdu);
 
 
-	if (config->enc_format == JPEG_YUV_FORMAT_NV12 ||
-		config->enc_format == JPEG_YUV_FORMAT_NV21 &&
+	if (((config->enc_format == JPEG_YUV_FORMAT_NV12) ||
+		(config->enc_format == JPEG_YUV_FORMAT_NV21)) &&
 		fb->num_planes == 1) {
 
 		pr_info("%s set 2 plane by add offset w %d h %d\n", __func__,

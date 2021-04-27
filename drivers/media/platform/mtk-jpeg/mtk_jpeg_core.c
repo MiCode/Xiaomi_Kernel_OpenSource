@@ -285,7 +285,6 @@ void mtk_jpeg_update_bw_request(struct mtk_jpeg_ctx *ctx,
 	unsigned int emi_bw = 0;
 	unsigned int picSize = 0;
 	unsigned int limitedFPS = 0;
-	unsigned int core_id = ctx->coreid;
 	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
 
 	/* Support QoS */
@@ -341,7 +340,6 @@ void mtk_jpeg_update_bw_request(struct mtk_jpeg_ctx *ctx,
 
 void mtk_jpeg_end_bw_request(struct mtk_jpeg_ctx *ctx)
 {
-	unsigned int core_id = ctx->coreid;
 	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
 
 	mm_qos_set_request(&jpeg->jpeg_y_rdma, 0, 0, BW_COMP_NONE);
@@ -1615,9 +1613,8 @@ static void mtk_jpeg_clk_on_ctx(struct mtk_jpeg_ctx *ctx)
 
 static void mtk_jpeg_clk_off_ctx(struct mtk_jpeg_ctx *ctx)
 {
-	pr_info("%s  +", __func__);
 	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
-
+	pr_info("%s  +", __func__);
 	disable_irq(jpeg->irq[ctx->coreid]);
 
 	if (jpeg->mode == MTK_JPEG_ENC)
