@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/stacktrace.h>
 #include <linux/tracepoint.h>
+#include <mt-plat/aee.h>
 #include <mt-plat/mboot_params.h>
 #include <mt-plat/mrdump.h>
 
@@ -36,13 +37,13 @@ const char * const softirq_to_name[NR_SOFTIRQS] = {
 	"TASKLET", "SCHED", "HRTIMER", "RCU"
 };
 
-static inline void irq_mon_msg_ftrace(const char *str)
+static inline void irq_mon_msg_ftrace(const char *msg)
 {
 	if (rcu_is_watching())
-		trace_irq_mon_msg(str);
+		trace_irq_mon_msg(msg);
 }
 #else
-#define irq_mon_msg_ftrace(str) trace_irq_mon_msg_rcuidle(str)
+#define irq_mon_msg_ftrace(msg) trace_irq_mon_msg_rcuidle(msg)
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
@@ -51,21 +52,23 @@ static inline void irq_mon_msg_ftrace(const char *str)
 #define pr_aee_sram(msg) do {} while (0)
 #endif
 
+#define MAX_MSG_LEN 128
+
 void irq_mon_msg(int out, char *buf, ...)
 {
-	char str[128];
+	char msg[MAX_MSG_LEN];
 	va_list args;
 
 	va_start(args, buf);
-	vsnprintf(str, sizeof(str), buf, args);
+	vsnprintf(msg, sizeof(msg), buf, args);
 	va_end(args);
 
 	if (out & TO_FTRACE)
-		irq_mon_msg_ftrace(str);
+		irq_mon_msg_ftrace(msg);
 	if (out & TO_KERNEL_LOG)
-		pr_info("%s\n", str);
+		pr_info("%s\n", msg);
 	if (out & TO_SRAM) {
-		pr_aee_sram(str);
+		pr_aee_sram(msg);
 		pr_aee_sram("\n");
 	}
 }
@@ -82,7 +85,9 @@ struct irq_mon_tracer {
 static struct irq_mon_tracer irq_handler_tracer __read_mostly = {
 	.tracing = true,
 	.th1_ms = 100,
-	.th2_ms = 500
+	.th2_ms = 500,
+	.th3_ms = 500,
+	.aee_limit = 0,
 };
 
 static struct irq_mon_tracer irq_off_tracer __read_mostly = {
@@ -138,15 +143,15 @@ static void irq_mon_save_stack_trace(struct preemptirq_stat *pi_stat)
 
 static void irq_mon_dump_stack_trace(int out, struct preemptirq_stat *pi_stat)
 {
-	char msg2[128];
+	char msg[MAX_MSG_LEN];
 	int i;
 
 	irq_mon_msg(out, "disable call trace:");
 	for (i = 0; i < pi_stat->nr_entries; i++) {
-		scnprintf(msg2, sizeof(msg2), "[<%p>] %pS",
+		scnprintf(msg, sizeof(msg), "[<%p>] %pS",
 			 (void *)pi_stat->trace_entries[i],
 			 (void *)pi_stat->trace_entries[i]);
-		irq_mon_msg(out, "%s", msg2);
+		irq_mon_msg(out, "%s", msg);
 	}
 }
 
@@ -193,6 +198,9 @@ static void check_preemptirq_stat(struct preemptirq_stat *pi_stat, int irq)
 static DEFINE_PER_CPU(struct trace_stat, irq_trace_stat);
 static DEFINE_PER_CPU(struct trace_stat, softirq_trace_stat);
 static DEFINE_PER_CPU(struct trace_stat, ipi_trace_stat);
+
+#define MAX_IRQ_NUM 1024
+static int irq_aee_state[MAX_IRQ_NUM];
 
 #define stat_dur(stat) (stat->end_timestamp - stat->start_timestamp)
 #define th_exceeded(threshold, duration, tracer) \
@@ -265,14 +273,28 @@ static void probe_irq_handler_exit(void *ignore,
 
 	duration = stat_dur(trace_stat);
 	if (th_exceeded(th1_ms, duration, irq_handler_tracer)) {
+		char msg[MAX_MSG_LEN];
+
+		snprintf(msg, sizeof(msg),
+			"irq: %d [<%px>]%pS, duration %llu ms, from %llu ns to %llu ns",
+			irq, (void *)action->handler, (void *)action->handler,
+			msec_high(duration),
+			trace_stat->start_timestamp,
+			trace_stat->end_timestamp);
+
 		out = th_exceeded(th2_ms, duration, irq_handler_tracer) ?
 			TO_BOTH : TO_FTRACE;
 
-		irq_mon_msg(out, "irq: %d %pS, duration %llu ms, from %llu ns to %llu ns",
-				irq, (void *)action->handler,
-				msec_high(duration),
-				trace_stat->start_timestamp,
-				trace_stat->end_timestamp);
+		irq_mon_msg(out, msg);
+
+		if (th_exceeded(th3_ms, duration, irq_handler_tracer) &&
+				irq_handler_tracer.aee_limit &&
+				!irq_aee_state[irq]){
+			irq_aee_state[irq] = 1;
+			aee_kernel_warning_api(__FILE__, __LINE__,
+					DB_OPT_DEFAULT | DB_OPT_FTRACE,
+					"IRQ HANDLER DURATION", msg);
+		}
 	}
 
 	this_cpu_write(irq_trace_stat.tracing, 0);
