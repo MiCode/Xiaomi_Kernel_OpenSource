@@ -5396,7 +5396,7 @@
 			clock-names = "RSC_CLK_IPE_RSC",
 				      "RSC_CLK_IPE_LARB20";
 		};
-                
+
 		ipe_smi_subcom@1b00e000 {
 			compatible = "mediatek,ipe_smi_subcom",
 				     "mediatek,mt6893-smi-common";
@@ -6922,6 +6922,22 @@
 	slbc: slbc {
 		compatible = "mediatek,mt6873-slbc";
 		status = "enable";
+	};
+
+	mmsram@1f005000 {
+		compatible = "mediatek,mmsram";
+		reg = <0 0x1f005000 0 0x1000>,
+			<0 0x1e000000 0 0x160000>;
+		interrupts = <GIC_SPI 495 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&scpsys MT6893_POWER_DOMAIN_MDP>;
+
+		clocks = <&mdpsys_config CLK_MDP_APMCU_GALS>,
+			<&mdpsys_config CLK_MDP_SMI0>, <&mdpsys_config CLK_MDP_SMI1>,
+			<&mdpsys_config CLK_MDP_SMI2>,
+			<&mdpsys_config CLK_MDP_MMSYSRAM>;
+		clock-names = "mdp_apmcu_gals",
+				"mdp_smi0", "mdp_smi1",
+				"mdp_smi2", "mdp_mmsysram";
 	};
 
 	sound: sound {
