@@ -47,11 +47,11 @@
 
 struct ccmni_ctl_block *ccmni_ctl_blk[MAX_MD_NUM];
 
-/* Time in nano seconds. This number must be less than a second. */
+/* Time in ns. This number must be less than 500ms. */
 #ifdef ENABLE_WQ_GRO
-long gro_flush_timer __read_mostly = 2000000L;
+long int gro_flush_timer __read_mostly = 2000000L;
 #else
-long gro_flush_timer;
+long int gro_flush_timer;
 #endif
 
 #define APP_VIP_MARK		0x80000000
@@ -223,15 +223,12 @@ static void ccmni_gro_flush(struct ccmni_instance *ccmni)
 	if (!gro_flush_timer)
 		return;
 
-	if (unlikely(ccmni->flush_time.tv_sec == 0)) {
+	ktime_get_real_ts64(&curr_time);
+	diff = timespec64_sub(curr_time, ccmni->flush_time);
+	if ((diff.tv_sec > 0) || (diff.tv_nsec > gro_flush_timer)) {
+		napi_gro_flush(ccmni->napi, false);
+		timeout_flush_num++;
 		ktime_get_real_ts64(&ccmni->flush_time);
-	} else {
-		ktime_get_real_ts64(&curr_time);
-		diff = timespec64_sub(curr_time, ccmni->flush_time);
-		if ((diff.tv_sec > 0) || (diff.tv_nsec > gro_flush_timer)) {
-			napi_gro_flush(ccmni->napi, false);
-			ktime_get_real_ts64(&ccmni->flush_time);
-		}
 	}
 }
 #endif
@@ -377,6 +374,9 @@ static int ccmni_open(struct net_device *dev)
 			dev->name, ccmni->md_id);
 		return -1;
 	}
+
+	if (gro_flush_timer)
+		ktime_get_real_ts64(&ccmni->flush_time);
 
 	netif_carrier_on(dev);
 
