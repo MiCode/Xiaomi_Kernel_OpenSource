@@ -576,7 +576,8 @@ static struct dma_buf *mtk_mm_heap_do_allocate(struct dma_heap *heap,
 
 
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
-	if (!buffer)
+	info = kzalloc(sizeof(*info), GFP_KERNEL);
+	if (!buffer || !info)
 		return ERR_PTR(-ENOMEM);
 
 	INIT_LIST_HEAD(&buffer->attachments);
@@ -638,11 +639,6 @@ static struct dma_buf *mtk_mm_heap_do_allocate(struct dma_heap *heap,
 		dma_map_sgtable(dma_heap_get_dev(heap), table, DMA_BIDIRECTIONAL, 0);
 		dma_unmap_sgtable(dma_heap_get_dev(heap), table, DMA_BIDIRECTIONAL, 0);
 	}
-
-	/* add debug info, use kzalloc to init as zero */
-	info = kzalloc(sizeof(*info), GFP_KERNEL);
-	if (!info)
-		goto free_pages;
 
 	buffer->priv = info;
 	mutex_init(&info->lock);
@@ -757,6 +753,7 @@ static int mtk_mm_heap_create(void)
 	mtk_mm_heap = dma_heap_add(&exp_info);
 	if (IS_ERR(mtk_mm_heap))
 		return PTR_ERR(mtk_mm_heap);
+	pr_info("%s add heap[%s] success\n", __func__, exp_info.name);
 
 	exp_info.name = "mtk_mm-uncached";
 	exp_info.ops = &mtk_mm_uncached_heap_ops;
@@ -769,6 +766,7 @@ static int mtk_mm_heap_create(void)
 	dma_coerce_mask_and_coherent(dma_heap_get_dev(mtk_mm_uncached_heap), DMA_BIT_MASK(64));
 	mb(); /* make sure we only set allocate after dma_mask is set */
 	mtk_mm_uncached_heap_ops.allocate = mtk_mm_uncached_heap_allocate;
+	pr_info("%s add heap[%s] success\n", __func__, exp_info.name);
 
 	return 0;
 }
