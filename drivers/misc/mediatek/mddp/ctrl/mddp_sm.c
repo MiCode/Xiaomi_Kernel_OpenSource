@@ -54,6 +54,35 @@ static void _mddp_set_state(struct mddp_app_t *app, enum mddp_state_e new_state)
 	MDDP_SM_UNLOCK(app->locker);
 }
 
+void mddp_check_feature(void)
+{
+	struct mddp_md_msg_t           *md_msg;
+	struct mddp_app_t *app;
+
+	md_msg = kzalloc(sizeof(struct mddp_md_msg_t), GFP_ATOMIC);
+	if (unlikely(!md_msg)) {
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+			"%s: failed to alloc md_msg bug!\n", __func__);
+		WARN_ON(1);
+		return;
+	}
+
+	md_msg->msg_id = IPC_MSG_ID_MDFPM_CHECK_FEATURE_REQ;
+	md_msg->data_len = 0;
+
+	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+
+	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_MDFPM);
+}
+
+static void mddp_handshake_done(uint32_t feature)
+{
+	struct mddp_app_t *app;
+
+	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+	atomic_set(&app->feature, feature);
+}
+
 static int32_t mddp_sm_ctrl_msg_hdlr(
 		uint32_t msg_id,
 		void *buf,
@@ -72,6 +101,9 @@ static int32_t mddp_sm_ctrl_msg_hdlr(
 		MDDP_S_LOG(MDDP_LL_NOTICE,
 				"%s: MDDP resume indication.\n", __func__);
 		ret = mddp_f_resume_tag();
+		break;
+	case IPC_MSG_ID_MDFPM_CHECK_FEATURE_RSP:
+		mddp_handshake_done(*(uint32_t *)buf);
 		break;
 	default:
 		MDDP_S_LOG(MDDP_LL_ERR,
@@ -104,6 +136,7 @@ int32_t mddp_sm_init(void)
 		_mddp_set_state(app, MDDP_STATE_UNINIT);
 
 		mddp_sm_init_func_list_s[idx](app);
+		atomic_set(&app->feature, 0);
 	}
 
 	return 0;
