@@ -298,20 +298,20 @@ static int apupw_dbg_register_clk(const char *name, struct clk *clk)
 
 	/* search the list of dbg_clk_list for this clk */
 	list_for_each_entry(dbg_clk, &apupw_dbg.clk_list, node)
-		if (!dbg_clk || dbg_clk->clk == clk)
-			break;
-allocate:
-
-	/* if clk wasn't in the dbg_clk_list, allocate new clk_notifier */
-	if (!dbg_clk || dbg_clk->clk != clk) {
-		dbg_clk = kzalloc(sizeof(*dbg_clk), GFP_KERNEL);
-		if (!dbg_clk)
+		if (dbg_clk->clk == clk) {
+			ret = 0;
 			goto out;
-		dbg_clk->clk = clk;
-		dbg_clk->name = name;
-		list_add(&dbg_clk->node, &apupw_dbg.clk_list);
-		ret = 0;
-	}
+		}
+
+allocate:
+	/* if clk wasn't in the dbg_clk_list, allocate new dbg_clk */
+	dbg_clk = kzalloc(sizeof(*dbg_clk), GFP_KERNEL);
+	if (!dbg_clk)
+		goto out;
+	dbg_clk->clk = clk;
+	dbg_clk->name = name;
+	list_add(&dbg_clk->node, &apupw_dbg.clk_list);
+	ret = 0;
 out:
 	return ret;
 }
