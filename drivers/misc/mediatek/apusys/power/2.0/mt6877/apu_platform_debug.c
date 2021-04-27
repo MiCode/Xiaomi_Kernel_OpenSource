@@ -58,7 +58,7 @@ void apu_power_dump_opp_table(struct seq_file *s)
 	seq_printf(s, info);
 	for (bd = 0 ; bd < APUSYS_BUCK_DOMAIN_NUM; bd++) {
 		line_size += snprintf(info, INFO_LENGTH,
-			 "%16s|", buck_domain_str[bd]);
+			 "%14s|", buck_domain_str[bd]);
 		seq_printf(s, info);
 		memset(info, 0, sizeof(info));
 	}
@@ -73,7 +73,7 @@ void apu_power_dump_opp_table(struct seq_file *s)
 		seq_printf(s, "|%3d|", opp_num);
 		for (bd = 0 ; bd < APUSYS_BUCK_DOMAIN_NUM; bd++) {
 			memset(info, 0, sizeof(info));
-			snprintf(info, INFO_LENGTH, "%3dMhz(%6dmv)|",
+			snprintf(info, INFO_LENGTH, "%3dMhz(%6d)|",
 				apusys_opps.opps[opp_num][bd].freq / 1000,
 				apusys_opps.opps[opp_num][bd].voltage);
 				seq_printf(s, info);

@@ -805,6 +805,9 @@ static int apu_power_probe(struct platform_device *pdev)
 	#endif
 
 	apusys_power_debugfs_init();
+	#if defined(CONFIG_MACH_MT6877)
+	apusys_power_create_procfs();
+	#endif
 	#ifdef APUPWR_TAG_TP
 	apupwr_init_drv_tags();
 	#endif

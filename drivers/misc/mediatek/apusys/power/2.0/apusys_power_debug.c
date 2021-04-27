@@ -30,6 +30,7 @@
 #include <linux/uaccess.h>
 #include <linux/string.h>
 #include <linux/random.h>
+#include <linux/proc_fs.h>
 
 #include "apusys_power_ctl.h"
 #include "hal_config_power.h"
@@ -610,4 +611,112 @@ void apusys_power_debugfs_exit(void)
 {
 	debugfs_remove(apusys_power_dir);
 }
+
+#if defined(CONFIG_MACH_MT6877)
+static int mt_apupwr_minOPP_proc_show(struct seq_file *m, void *v)
+{
+	if (is_power_debug_lock)
+		seq_puts(m, "apupwr minOPP enabled\n");
+	else
+		seq_puts(m, "apupwr minOPP disabled\n");
+
+	seq_printf(m, "fixed_opp: %d\n",
+		fixed_opp);
+
+	return 0;
+}
+
+static ssize_t mt_apupwr_minOPP_proc_write
+(struct file *file, const char __user *buffer, size_t count, loff_t *data)
+{
+	char desc[32];
+	int len = 0;
+	int minOPP = 0;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+	desc[len] = '\0';
+
+	if (kstrtoint(desc, 10, &minOPP) == 0) {
+		if (minOPP == 0)
+			is_power_debug_lock = false;
+		else if (minOPP == 1) {
+			fixed_opp = APUSYS_MAX_NUM_OPPS - 1;
+			fix_dvfs_debug();
+		} else
+			pr_notice("should be [0:disable,1:enable]\n");
+	} else
+		pr_notice("should be [0:disable,1:enable]\n");
+
+	return count;
+}
+
+#define PROC_FOPS_RW(name)						\
+static int mt_ ## name ## _proc_open(struct inode *inode, struct file *file)\
+{									\
+	return single_open(file, mt_ ## name ## _proc_show, PDE_DATA(inode));\
+}									\
+static const struct file_operations mt_ ## name ## _proc_fops = {	\
+	.owner		= THIS_MODULE,					\
+	.open		= mt_ ## name ## _proc_open,			\
+	.read		= seq_read,					\
+	.llseek		= seq_lseek,					\
+	.release	= single_release,				\
+	.write		= mt_ ## name ## _proc_write,			\
+}
+
+#define PROC_FOPS_RO(name)						\
+static int mt_ ## name ## _proc_open(struct inode *inode, struct file *file)\
+{									\
+	return single_open(file, mt_ ## name ## _proc_show, PDE_DATA(inode));\
+}									\
+static const struct file_operations mt_ ## name ## _proc_fops = {	\
+	.owner		= THIS_MODULE,				\
+	.open		= mt_ ## name ## _proc_open,		\
+	.read		= seq_read,				\
+	.llseek		= seq_lseek,				\
+	.release	= single_release,			\
+}
+
+#define PROC_ENTRY(name)	{__stringify(name), &mt_ ## name ## _proc_fops}
+
+PROC_FOPS_RW(apupwr_minOPP);
+
+int apusys_power_create_procfs(void)
+{
+	struct proc_dir_entry *dir = NULL;
+	int i;
+
+	struct pentry {
+		const char *name;
+		const struct file_operations *fops;
+	};
+
+	const struct pentry entries[] = {
+		PROC_ENTRY(apupwr_minOPP),
+	};
+
+	dir = proc_mkdir("apupwr", NULL);
+
+	if (!dir) {
+		pr_notice("fail to create /proc/apupwr @ %s()\n", __func__);
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(entries); i++) {
+		if (!proc_create
+		    (entries[i].name, 0664, dir, entries[i].fops))
+			pr_notice("@%s: create /proc/apupwr/%s failed\n", __func__,
+				    entries[i].name);
+	}
+
+	return 0;
+}
+#else
+int apusys_power_create_procfs(void)
+{
+	return 0;
+}
+#endif
 
