@@ -103,7 +103,7 @@ static ssize_t mtk_dbg_suspend_state_read(char *ToUser, size_t sz, void *priv)
 	mtk_dbg_log("golden dump disable/enable:\n");
 	mtk_dbg_log("echo golden_dump 0/1 > %s\n", MTK_DGB_SUSP_NODE);
 	mtk_dbg_log("golden type setting (default)PMIC[0], CG[1], DCM[2]:\n");
-	mtk_dbg_log("echo golden_type 1/3/7 > %s\n", MTK_DGB_SUSP_NODE);
+	mtk_dbg_log("echo golden_type 1/3/7/15 > %s\n", MTK_DGB_SUSP_NODE);
 
 	return p - ToUser;
 }
