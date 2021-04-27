@@ -6850,6 +6850,39 @@
 			clocks = <&mmsys_config_clk CLK_MM_DISP_DSC_WRAP>;
 		};
 
+		dp_intf: dp_intf@14125000 {
+			compatible = "mediatek,dp_intf",
+						"mediatek,mt6885-dp-intf";
+			reg = <0 0x14125000 0 0x1000>;
+			interrupts = <GIC_SPI 282 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&mmsys_config_clk  CLK_MM_DP_INTF_INTF_CLK>,
+				<&mmsys_config_clk CLK_MM_DP_INTF_MM_CLK>,
+				<&topckgen_clk CLK_TOP_DP>,
+				<&topckgen_clk CLK_TOP_TVDPLL_D2>,
+				<&topckgen_clk CLK_TOP_TVDPLL_D4>,
+				<&topckgen_clk CLK_TOP_TVDPLL_D8>,
+				<&topckgen_clk CLK_TOP_TVDPLL_D16>,
+				<&topckgen_clk CLK_TOP_TVDPLL>;
+			clock-names = "hf_fmm_ck",
+			  "hf_fdp_ck",
+				"MUX_DP",
+				"TVDPLL_D2",
+				"TVDPLL_D4",
+				"TVDPLL_D8",
+				"TVDPLL_D16",
+				"DPI_CK";
+			phys = <&dp_tx>;
+			phy-names = "dp_tx";
+		};
+
+		dp_tx: dp_tx@14800000 {
+			compatible = "mediatek,dp_tx",
+						"mediatek,mt6885-dp_tx";
+			reg = <0 0x14800000 0 0x8000>;
+			power-domains = <&scpsys MT6893_POWER_DOMAIN_DP_TX>;
+			interrupts = <GIC_SPI 430 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
 		mipi_tx_config0: mipi_tx_config@11e50000 {
 			compatible = "mediatek,mipi_tx_config0",
 						"mediatek,mt6885-mipi-tx";
