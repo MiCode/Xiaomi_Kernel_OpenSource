@@ -50,11 +50,8 @@ static int con_devfreq_target(struct device *dev,
 	}
 
 	old_rate = clk_ops->get_rate(ad->aclk);
-	if (round_Mhz(*rate, old_rate)) {
-		advfs_info(dev, "[%s] cur/next %luMhz/%luMhz are close\n",
-					__func__, TOMHZ(old_rate), TOMHZ(*rate));
+	if (round_Mhz(*rate, old_rate))
 		return 0;
-	}
 
 	/* Scaling up? Scale voltage before frequency */
 	if (*rate >= old_rate && regul_ops) {
