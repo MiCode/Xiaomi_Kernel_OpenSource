@@ -167,7 +167,6 @@ struct reg_dump_info range_table[SEGMENT_COUNT] = {
 	{"noc_dapc_ap_wrapper", 0x190FC000, 0x4000},
 };
 
-
 static void set_dbg_sel(int val, int offset, int shift, int mask)
 {
 	void *target = apu_top + offset;
@@ -231,7 +230,6 @@ void show_gals(struct seq_file *sfile)
 			value_table[i].name, gals_reg[i]);
 }
 
-
 void apusys_dump_reg_skip_gals(int onoff)
 {
 	if (onoff)
@@ -244,10 +242,18 @@ void apusys_reg_dump(void)
 {
 	int i, offset, size;
 	bool dump_vpu = false;
+
 	mutex_lock(&dump_lock);
 
-	if (reg_all_mem == NULL)
+	if (reg_all_mem == NULL) {
+
 		reg_all_mem = vzalloc(APUSYS_REG_SIZE);
+		if (reg_all_mem == NULL)
+			goto out;
+	} else {
+		pr_info("[apusys][dump] dump is in process, skip this dump!\n");
+		goto out;
+	}
 
 	if (!apusys_dump_skip_gals)
 		dump_gals_reg(dump_vpu);
@@ -259,6 +265,7 @@ void apusys_reg_dump(void)
 		memcpy_fromio(reg_all_mem + offset, apu_top + offset, size);
 	}
 
+out:
 	mutex_unlock(&dump_lock);
 }
 
@@ -273,12 +280,13 @@ int dump_show(struct seq_file *sfile, void *v)
 	if (apusys_dump_force)
 		apusys_reg_dump();
 
+	mutex_lock(&dump_lock);
 
 	if (reg_all_mem == NULL)
 		goto out;
 
 	t = sched_clock();
-		nanosec_rem = do_div(t, 1000000000);
+	nanosec_rem = do_div(t, 1000000000);
 
 	seq_printf(sfile, "[%5lu.%06lu] ------- dump GALS -------\n",
 		(unsigned long) t, (unsigned long) (nanosec_rem / 1000));
@@ -298,6 +306,7 @@ int dump_show(struct seq_file *sfile, void *v)
 	reg_all_mem = NULL;
 
 out:
+	mutex_unlock(&dump_lock);
 	mutex_unlock(&dbg_lock);
 
 	return 0;

@@ -145,7 +145,6 @@ struct reg_dump_info range_table[SEGMENT_COUNT] = {
 	{"apu_n0_ssc_config", 0x1901e000, 0x1000},
 };
 
-
 static void set_dbg_sel(int val, int offset, int shift, int mask)
 {
 	void *target = apu_top + offset;
@@ -209,7 +208,6 @@ void show_gals(struct seq_file *sfile)
 			value_table[i].name, gals_reg[i]);
 }
 
-
 void apusys_dump_reg_skip_gals(int onoff)
 {
 	if (onoff)
@@ -244,6 +242,7 @@ void apusys_reg_dump(void)
 
 		memcpy_fromio(reg_all_mem + offset, apu_top + offset, size);
 	}
+
 out:
 	mutex_unlock(&dump_lock);
 }
@@ -259,6 +258,7 @@ int dump_show(struct seq_file *sfile, void *v)
 	if (apusys_dump_force)
 		apusys_reg_dump();
 
+	mutex_lock(&dump_lock);
 
 	if (reg_all_mem == NULL)
 		goto out;
@@ -284,6 +284,7 @@ int dump_show(struct seq_file *sfile, void *v)
 	reg_all_mem = NULL;
 
 out:
+	mutex_unlock(&dump_lock);
 	mutex_unlock(&dbg_lock);
 
 	return 0;
