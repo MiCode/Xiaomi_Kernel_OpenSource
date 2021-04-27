@@ -1075,6 +1075,8 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u32 tick, u16 reg_gpr)
 	struct cmdq_operand lop, rop;
 	const u32 timeout_en = cmdq_mbox_get_base_pa(cl->chan) +
 		CMDQ_TPR_TIMEOUT_EN;
+	u32 end_addr_mark;
+	u64 *inst;
 
 	/* set target gpr value to max to avoid event trigger
 	 * before new value write to gpr
@@ -1114,7 +1116,29 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u32 tick, u16 reg_gpr)
 			CMDQ_GPR_CNT_ID + reg_gpr, &lop, &rop);
 	}
 	cmdq_pkt_poll_gpr_check(pkt, reg_gpr, 16);
+	cmdq_pkt_assign_command(pkt, CMDQ_SPR_FOR_TEMP, 0);
+	end_addr_mark = pkt->cmd_buf_size - 8;
+
+	lop.reg = true;
+	lop.idx = CMDQ_TPR_ID;
+	rop.reg = true;
+	rop.idx = CMDQ_GPR_CNT_ID + reg_gpr;
+	cmdq_pkt_cond_jump_abs(pkt, CMDQ_SPR_FOR_TEMP, &lop, &rop,
+		CMDQ_GREATER_THAN_AND_EQUAL);
+
+	cmdq_pkt_assign_command(pkt, CMDQ_CPR_SLP_GPR_MAX, 0xFFFFFF00);
+	lop.reg = true;
+	lop.idx = CMDQ_GPR_CNT_ID + reg_gpr;
+	rop.reg = true;
+	rop.idx = CMDQ_CPR_SLP_GPR_MAX;
+	cmdq_pkt_cond_jump_abs(pkt, CMDQ_SPR_FOR_TEMP, &lop, &rop,
+		CMDQ_GREATER_THAN_AND_EQUAL);
+
 	cmdq_pkt_wfe(pkt, event);
+
+	/* read current buffer pa as end mark and fill preview assign */
+	inst = cmdq_pkt_get_va_by_offset(pkt, end_addr_mark);
+	*inst |= CMDQ_REG_SHIFT_ADDR(cmdq_pkt_get_curr_buf_pa(pkt));
 
 	lop.reg = true;
 	lop.idx = CMDQ_CPR_TPR_MASK;
