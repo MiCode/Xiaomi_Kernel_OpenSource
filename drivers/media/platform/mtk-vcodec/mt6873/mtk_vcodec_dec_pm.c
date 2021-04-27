@@ -619,7 +619,9 @@ enum mtk_iommu_callback_ret_t mtk_vdec_translation_fault_callback(
 	struct mtk_vcodec_ctx *ctx;
 	u32 fourcc;
 
-	if ((port >> 5) == 5) // larb5 LAT
+	if (port == M4U_PORT_L5_VDEC_UFO_ENC_EXT)
+		hw_id = MTK_VDEC_CORE;
+	else if ((port >> 5) == 5) // larb5 LAT
 		hw_id = MTK_VDEC_LAT;
 	else
 		hw_id = MTK_VDEC_CORE;
@@ -627,9 +629,9 @@ enum mtk_iommu_callback_ret_t mtk_vdec_translation_fault_callback(
 	ctx = dev->curr_dec_ctx[hw_id];
 	fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 	mtk_v4l2_err("codec:0x%08x(%c%c%c%c) %s TF larb %d port %x mva 0x%lx",
-		(hw_id == MTK_VDEC_LAT) ? "LAT" : "CORE",
 		fourcc, fourcc & 0xFF, (fourcc >> 8) & 0xFF,
 		(fourcc >> 16) & 0xFF, (fourcc >> 24) & 0xFF,
+		(hw_id == MTK_VDEC_LAT) ? "LAT" : "CORE",
 		port >> 5, port, mva);
 
 	switch (port) {
