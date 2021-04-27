@@ -6831,6 +6831,11 @@
 			memory-region = <&wifi_mem>;
 		};
 
+		fm: fm@18000000 {
+			compatible = "mediatek,fm";
+			interrupts = <GIC_SPI 380 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
 		gps: gps@18C00000 {
 			compatible = "mediatek,mt6885-gps";
 			reg = <0 0x18000000 0 0x100000>,
