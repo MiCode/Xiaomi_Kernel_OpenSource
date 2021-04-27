@@ -1929,8 +1929,10 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	struct mtk_panel_ext *ext = dsi->ext;
 	bool new_doze_state = mtk_dsi_doze_state(dsi);
 	struct drm_crtc *crtc = dsi->encoder.crtc;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
 	unsigned int mode_id = mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
+	unsigned int fps_chg_index = 0;
 
 	DDPINFO("%s +\n", __func__);
 
@@ -1965,8 +1967,11 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 			return;
 		}
 
+		fps_chg_index = mtk_crtc->fps_change_index;
+
 		/* add for ESD recovery */
-		if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && mode_id != 0) {
+		if ((mtk_dsi_is_cmd_mode(&dsi->ddp_comp) ||
+			fps_chg_index & DYNFPS_DSI_HFP) && mode_id != 0) {
 			if (dsi->ext && dsi->ext->funcs &&
 				dsi->ext->funcs->mode_switch) {
 				DDPMSG("%s do lcm mode_switch to %u\n",

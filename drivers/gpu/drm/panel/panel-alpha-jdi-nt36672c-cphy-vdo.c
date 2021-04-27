@@ -44,6 +44,9 @@
 #define AVDD_REG 0x01
 #define HFP_SUPPORT 1
 
+#if HFP_SUPPORT
+static int current_fps = 60;
+#endif
 /* i2c control start */
 #define LCM_I2C_ID_NAME "I2C_LCD_BIAS"
 static struct i2c_client *_lcm_i2c_client;
@@ -252,7 +255,12 @@ static void jdi_panel_init(struct jdi *ctx)
  #if HFP_SUPPORT
 	jdi_dcs_write_seq_static(ctx, 0xFF, 0x25);
 	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
-	jdi_dcs_write_seq_static(ctx, 0x18, 0x21);
+	if (current_fps == 60)
+		jdi_dcs_write_seq_static(ctx, 0x18, 0x21);
+	else if (current_fps == 90)
+		jdi_dcs_write_seq_static(ctx, 0x18, 0x20);
+	else
+		jdi_dcs_write_seq_static(ctx, 0x18, 0x22);
 #else
 	jdi_dcs_write_seq_static(ctx, 0xFF, 0x25);
 	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
@@ -1018,13 +1026,22 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel, unsigned int mode)
 	int ret = 0;
 	struct drm_display_mode *m = get_mode_by_id_hfp(panel, mode);
 
-	if (m->vrefresh == 60)
+	if (m->vrefresh == 60) {
 		ext->params = &ext_params;
-	else if (m->vrefresh == 90)
+#if HFP_SUPPORT
+		current_fps = 60;
+#endif
+	} else if (m->vrefresh == 90) {
 		ext->params = &ext_params_90hz;
-	else if (m->vrefresh == 120)
+#if HFP_SUPPORT
+		current_fps = 90;
+#endif
+	} else if (m->vrefresh == 120) {
 		ext->params = &ext_params_120hz;
-	else
+#if HFP_SUPPORT
+		current_fps = 120;
+#endif
+	} else
 		ret = 1;
 
 	return ret;
@@ -1039,6 +1056,8 @@ static void mode_switch_to_120(struct drm_panel *panel)
 	jdi_dcs_write_seq_static(ctx, 0xFF, 0x25);
 	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
 	jdi_dcs_write_seq_static(ctx, 0x18, 0x22);//120hz
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0x10);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
 	//cb(dsi, handle, bl_tb0, ARRAY_SIZE(bl_tb0));
 
 }
@@ -1052,6 +1071,8 @@ static void mode_switch_to_90(struct drm_panel *panel)
 	jdi_dcs_write_seq_static(ctx, 0xFF, 0x25);
 	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
 	jdi_dcs_write_seq_static(ctx, 0x18, 0x20);//90hz
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0x10);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
 
 }
 
@@ -1062,21 +1083,23 @@ static void mode_switch_to_60(struct drm_panel *panel)
 	jdi_dcs_write_seq_static(ctx, 0xFF, 0x25);
 	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
 	jdi_dcs_write_seq_static(ctx, 0x18, 0x21);
+	jdi_dcs_write_seq_static(ctx, 0xFF, 0x10);
+	jdi_dcs_write_seq_static(ctx, 0xFB, 0x01);
 }
 
 static int mode_switch(struct drm_panel *panel, unsigned int cur_mode,
 		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage)
 {
 	int ret = 0;
-	//struct drm_display_mode *m = get_mode_by_id(panel, dst_mode);
+	struct drm_display_mode *m = get_mode_by_id_hfp(panel, dst_mode);
 
 	pr_info("%s cur_mode = %d dst_mode %d\n", __func__, cur_mode, dst_mode);
 
-	if (dst_mode == 60) { /* 60 switch to 120 */
+	if (m->vrefresh == 60) { /* 60 switch to 120 */
 		mode_switch_to_60(panel);
-	} else if (dst_mode == 90) { /* 1200 switch to 60 */
+	} else if (m->vrefresh == 90) { /* 1200 switch to 60 */
 		mode_switch_to_90(panel);
-	} else if (dst_mode == 120) { /* 1200 switch to 60 */
+	} else if (m->vrefresh == 120) { /* 1200 switch to 60 */
 		mode_switch_to_120(panel);
 	} else
 		ret = 1;
