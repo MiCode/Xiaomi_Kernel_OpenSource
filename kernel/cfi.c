@@ -35,7 +35,7 @@ static inline void handle_cfi_failure(void *ptr)
 	opcode = (uint32_t)*vptr;
 	signextend = 0x10000000;
 	imm26 = opcode & 0x3FFFFFF;
-	func_addr = ptr + (imm26 << 2) - signextend;
+	func_addr = (uintptr_t)ptr + (imm26 << 2) - signextend;
 #endif
 
 #ifdef CONFIG_CFI_PERMISSIVE
