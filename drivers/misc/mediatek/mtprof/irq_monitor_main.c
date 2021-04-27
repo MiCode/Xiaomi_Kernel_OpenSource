@@ -87,7 +87,11 @@ static struct irq_mon_tracer irq_handler_tracer __read_mostly = {
 	.th1_ms = 100,
 	.th2_ms = 500,
 	.th3_ms = 500,
+#if IS_ENABLED(CONFIG_KASAN)
+	.aee_limit = 1,
+#else
 	.aee_limit = 0,
+#endif
 };
 
 static struct irq_mon_tracer softirq_tracer __read_mostly = {
