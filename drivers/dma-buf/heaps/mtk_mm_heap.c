@@ -11,7 +11,7 @@
  *	Andrew F. Davis <afd@ti.com>
  */
 
-#define pr_fmt(fmt) "[MTK_MM_DMABUF] "fmt
+#define pr_fmt(fmt) "[MTK_DMABUF_HEAP: MM] "fmt
 
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
@@ -677,8 +677,37 @@ static struct dma_buf *mtk_mm_heap_allocate(struct dma_heap *heap,
 	return mtk_mm_heap_do_allocate(heap, len, fd_flags, heap_flags, false);
 }
 
+static long mtk_mm_heap_get_pool_size(struct dma_heap *heap) {
+	int i, j;
+	long page_cnt = 0;
+	struct dmabuf_page_pool *pool;
+	int count = 0;
+
+	/* "mtk_mm" & "mtk_mm-uncached" use same page pool
+	 * here we return 0 for uncached pool
+	 */
+	if (heap != mtk_mm_heap)
+		return 0;
+
+	for (i = 0; i < NUM_ORDERS; i++) {
+		pool = pools[i];
+		count = 0;
+
+		mutex_lock(&pool->mutex);
+		for (j = 0; j < POOL_TYPE_SIZE; j++) {
+			count += pool->count[j];
+		}
+		page_cnt += (count << pool->order);
+		mutex_unlock(&pool->mutex);
+	}
+
+	return page_cnt * PAGE_SIZE;
+}
+
+
 static const struct dma_heap_ops mtk_mm_heap_ops = {
 	.allocate = mtk_mm_heap_allocate,
+	.get_pool_size = mtk_mm_heap_get_pool_size,
 };
 
 static struct dma_buf *mtk_mm_uncached_heap_allocate(struct dma_heap *heap,
