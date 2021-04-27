@@ -37,6 +37,7 @@ enum dsu_user {
 enum cpu_level {
 	CPU_LEVEL_0, /* FY */
 	CPU_LEVEL_1, /* B24G */
+	CPU_LEVEL_2, /* B25G */
 
 	NUM_CPU_LEVEL,
 };

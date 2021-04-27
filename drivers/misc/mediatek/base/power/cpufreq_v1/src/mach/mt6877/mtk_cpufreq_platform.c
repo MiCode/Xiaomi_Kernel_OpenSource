@@ -628,8 +628,18 @@ int mt_cpufreq_dts_map(void)
 
 unsigned int _mt_cpufreq_get_cpu_level(void)
 {
-	unsigned int lv = CPU_LEVEL_1;
+	unsigned int lv = CPU_LEVEL_0;
+	int val = get_devinfo_with_index(7) & 0xF; /* segment code */
 
+	if (val == 2)
+		lv = CPU_LEVEL_2;
+	else if (val == 3)
+		lv = CPU_LEVEL_0;
+	else
+		lv = CPU_LEVEL_1;
+
+	tag_pr_info("%d, Settle time(%d, %d) efuse_val = 0x%x\n",
+		lv, UP_SRATE, DOWN_SRATE, val);
 	return lv;
 }
 #ifdef DFD_WORKAROUND
