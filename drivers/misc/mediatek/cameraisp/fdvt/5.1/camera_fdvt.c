@@ -84,6 +84,7 @@
 #if IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 #ifdef CMDQ_MTEE
 #include <linux/atomic.h>
+#include "tz_m4u.h"
 static atomic_t m4u_gz_init = ATOMIC_INIT(0);
 #endif
 #endif
@@ -1699,7 +1700,7 @@ static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config)
 			CMDQ_SEC_ISP_FDVT,
 			CMDQ_METAEX_FD);
 #ifdef CMDQ_MTEE
-		cmdq_sec_pkt_set_mtee(pkt, true);
+		cmdq_sec_pkt_set_mtee(pkt, true, SEC_ID_SEC_CAM);
 		if (atomic_cmpxchg(&m4u_gz_init, 0, 1) == 0)
 			m4u_gz_sec_init(0);
 #endif

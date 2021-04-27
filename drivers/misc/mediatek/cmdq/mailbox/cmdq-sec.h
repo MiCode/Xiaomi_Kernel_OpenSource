@@ -103,6 +103,9 @@ struct cmdq_sec_data {
 
 	/* MTEE */
 	bool mtee;
+
+	/* iommu_sec_id */
+	int32_t sec_id;
 };
 
 /* implementation in cmdq-sec-helper.c */
@@ -123,7 +126,7 @@ void cmdq_sec_err_dump(struct cmdq_pkt *pkt, struct cmdq_client *client,
 	u64 **inst, const char **dispatch);
 
 /* MTEE */
-void cmdq_sec_pkt_set_mtee(struct cmdq_pkt *pkt, const bool enable);
+void cmdq_sec_pkt_set_mtee(struct cmdq_pkt *pkt, const bool enable, const int32_t sec_id);
 
 /* implementation in cmdq-sec-mailbox.c */
 void cmdq_sec_mbox_switch_normal(struct cmdq_client *cl);

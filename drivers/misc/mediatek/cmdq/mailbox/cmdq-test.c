@@ -16,9 +16,14 @@
 #include <linux/timer.h>
 #include <linux/uaccess.h>
 
+
 #include "cmdq-util.h"
 #include "cmdq-sec.h"
 #include "../../mdp/mdp_cmdq_helper_ext.h"
+
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+#include "tz_m4u.h"
+#endif
 
 #define CMDQ_THR_SPR3(base, id)		((base) + (0x80 * (id)) + 0x16c)
 #define CMDQ_GPR_R32(base, id)		((base) + (0x4 * (id)) + 0x80)
@@ -613,7 +618,7 @@ void cmdq_test_mbox_flush(
 				CMDQ_METAEX_NONE);
 #ifdef CMDQ_SECURE_MTEE_SUPPORT
 			if (!~secure)
-				cmdq_sec_pkt_set_mtee(pkt[i], true);
+				cmdq_sec_pkt_set_mtee(pkt[i], true, SEC_ID_SVP);
 #endif
 		}
 #endif
@@ -685,7 +690,7 @@ static void cmdq_test_mbox_write(
 			CMDQ_METAEX_NONE);
 #ifdef CMDQ_SECURE_MTEE_SUPPORT
 		if (!~secure)
-			cmdq_sec_pkt_set_mtee(pkt, true);
+			cmdq_sec_pkt_set_mtee(pkt, true, SEC_ID_SVP);
 #endif
 	}
 #endif
