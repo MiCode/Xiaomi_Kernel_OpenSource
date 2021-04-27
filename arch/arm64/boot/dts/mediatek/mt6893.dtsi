@@ -1925,7 +1925,9 @@
 			< 5 1  2>,/* IPI_OUT_C_SLEEP_0 */
 			< 6 1  1>,/* IPI_OUT_TEST_0 */
 			<26 1  9>,/* IPI_OUT_AUDIO_ULTRA_SND_0 */
-			<11 2 34>,/* IPI_OUT_SCP_MPOOL_0 */
+			<11 2  4>,/* IPI_OUT_SCP_MPOOL_0 */
+			<29 2 16>,/* IPI_OUT_SENSOR_CTRL_0 */
+			<31 2  7>,/* IPI_OUT_SENSOR_NOTIFY_0 */
 			<14 3  1>,/* IPI_OUT_DVFS_SET_FREQ_1 */
 			<15 3  2>,/* IPI_OUT_C_SLEEP_1 */
 			<16 3  1>,/* IPI_OUT_TEST_1 */
@@ -1944,7 +1946,9 @@
 			<27 1  2 0>,/* IPI_IN_AUDIO_ULTRA_SND_ACK_0 */
 			<28 1  5 0>,/* IPI_IN_AUDIO_ULTRA_SND_0 */
 			< 5 1  1 1>,/* IPI_OUT_C_SLEEP_0 */
-			<12 2 30 0>,/* IPI_IN_SCP_MPOOL_0 */
+			<12 2  4 0>,/* IPI_IN_SCP_MPOOL_0 */
+			<30 2  2 0>,/* IPI_IN_SENSOR_CTRL_0 */
+			<32 2  7 0>,/* IPI_IN_SENSOR_NOTIFY_0 */
 			<20 3 10 0>,/* IPI_IN_SCP_ERROR_INFO_1 */
 			<21 3  6 0>,/* IPI_IN_LOGGER_CTRL */
 			<22 3  1 0>,/* IPI_IN_SCP_READY_1 */
