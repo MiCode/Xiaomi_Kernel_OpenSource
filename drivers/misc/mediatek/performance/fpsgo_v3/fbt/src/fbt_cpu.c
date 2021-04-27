@@ -267,6 +267,7 @@ static int gcc_enq_bound_thrs;
 static int gcc_enq_bound_quota;
 static int gcc_deq_bound_thrs;
 static int gcc_deq_bound_quota;
+static int gcc_positive_clamp;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
@@ -341,6 +342,7 @@ module_param(gcc_enq_bound_thrs, int, 0644);
 module_param(gcc_enq_bound_quota, int, 0644);
 module_param(gcc_deq_bound_thrs, int, 0644);
 module_param(gcc_deq_bound_quota, int, 0644);
+module_param(gcc_positive_clamp, int, 0644);
 
 static DEFINE_SPINLOCK(freq_slock);
 static DEFINE_MUTEX(fbt_mlock);
@@ -2996,7 +2998,10 @@ static int fbt_boost_policy(
 		fpsgo_systrace_c_fbt(pid, buffer_id, gcc_boost, "gcc_boost");
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->correction, "correction");
 		fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "before correction");
-		blc_wt = clamp((int)blc_wt + boost_info->correction, 1, 100);
+		if (!gcc_positive_clamp || boost_info->correction < 0)
+			blc_wt = clamp((int)blc_wt + boost_info->correction, 1, 100);
+		else
+			fpsgo_systrace_c_fbt(pid, buffer_id, 0, "correction");
 		fpsgo_systrace_c_fbt(pid, buffer_id, gpu_loading, "gpu_loading");
 		if (gcc_check_under_boost) {
 			fpsgo_systrace_c_fbt(pid, buffer_id,
