@@ -84,8 +84,8 @@ static void transceiver_notify_func(struct sensor_comm_notify *n,
 	timesync_filter_set(&dev->filter,
 		dnotify->scp_timestamp, dnotify->scp_archcounter);
 	if (kfifo_is_full(&transceiver_fifo)) {
-		kfifo_out(&transceiver_fifo, &wp, 1);
-		pr_err_ratelimited("drop old normal write position\n");
+		if (kfifo_out(&transceiver_fifo, &wp, 1))
+			pr_err_ratelimited("drop normal write position\n");
 	}
 	wp = dnotify->write_position;
 	kfifo_in(&transceiver_fifo, &wp, 1);
@@ -108,8 +108,8 @@ static void transceiver_super_notify_func(struct sensor_comm_notify *n,
 	timesync_filter_set(&dev->filter,
 		dnotify->scp_timestamp, dnotify->scp_archcounter);
 	if (kfifo_is_full(&transceiver_super_fifo)) {
-		kfifo_out(&transceiver_super_fifo, &wp, 1);
-		pr_err_ratelimited("drop old super write position\n");
+		if (kfifo_out(&transceiver_super_fifo, &wp, 1))
+			pr_err_ratelimited("drop super write position\n");
 	}
 	wp = dnotify->write_position;
 	kfifo_in(&transceiver_super_fifo, &wp, 1);
