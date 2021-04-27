@@ -204,6 +204,8 @@ static struct usb_gadget_strings *qdss_strings[] = {
 	NULL,
 };
 
+static void qdss_disable(struct usb_function *f);
+
 static inline struct f_qdss *func_to_qdss(struct usb_function *f)
 {
 	return container_of(f, struct f_qdss, port.function);
@@ -493,6 +495,7 @@ static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	qdss_log("channel:%s\n", qdss->ch.name);
 
+	qdss_disable(f);
 	flush_workqueue(qdss->wq);
 
 	if (qdss->endless_req) {
