@@ -4837,8 +4837,11 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 			pixclk = pixclk * 16 / 7;
 		pixclk = pixclk / bpp / 100;
 	}
-	DDPINFO("%s,data_rate =%d,clk=%u pixclk_min=%d\n", __func__,
-			data_rate, pixclk, pixclk_min);
+	if (mtk_crtc->is_dual_pipe)
+		pixclk /= 2;
+
+	DDPINFO("%s,data_rate =%d,clk=%u pixclk_min=%d, dual=%u\n", __func__,
+			data_rate, pixclk, pixclk_min, mtk_crtc->is_dual_pipe);
 	mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
 }
 
