@@ -41,12 +41,10 @@
 #include <linux/of_gpio.h>
 #include <linux/regulator/consumer.h>
 #endif
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
-#endif
-#ifdef CONFIG_FB
-#include <linux/notifier.h>
-#include <linux/fb.h>
+
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+#include "mtk_panel_ext.h"
+#include "mtk_disp_notify.h"
 #endif
 
 /* macros definition */
@@ -457,10 +455,8 @@ struct goodix_ts_core {
 	struct notifier_block ts_notifier;
 	struct goodix_ts_esd ts_esd;
 
-#ifdef CONFIG_FB
-	struct notifier_block fb_notifier;
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-	struct early_suspend early_suspend;
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+	struct notifier_block disp_notifier;
 #endif
 };
 
@@ -748,8 +744,8 @@ int goodix_ts_register_notifier(struct notifier_block *nb);
 int goodix_generic_noti_callback(struct notifier_block *self,
 				unsigned long action, void *data);
 
-int goodix_ts_fb_notifier_callback(struct notifier_block *self,
-			unsigned long event, void *data);
+int goodix_ts_disp_notifier_callback(struct notifier_block *nb,
+		unsigned long value, void *v);
 int goodix_ts_irq_enable(struct goodix_ts_core *core_data,
 			bool enable);
 extern void goodix_msg_printf(const char *fmt, ...);

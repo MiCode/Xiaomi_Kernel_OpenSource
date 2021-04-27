@@ -19,9 +19,6 @@
   */
 #include <linux/of_platform.h>
 #include <uapi/linux/sched/types.h>
-#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
-#include "mtk_panel_ext.h"
-#endif
 #define TAG_CORE ""
 #include "goodix_ts_core.h"
 
@@ -1933,24 +1930,23 @@ static void resume_workqueue_callback(struct work_struct *work)
 	goodix_ts_resume(resume_core_data);
 }
 
-#ifdef CONFIG_FB
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 /**
- * goodix_ts_fb_notifier_callback - Framebuffer notifier callback
+ * goodix_ts_disp_notifier_callback - Framebuffer notifier callback
  * Called by kernel during framebuffer blanck/unblank phrase
  */
-int goodix_ts_fb_notifier_callback(struct notifier_block *self,
-	unsigned long event, void *data)
+int goodix_ts_disp_notifier_callback(struct notifier_block *nb,
+		unsigned long value, void *v)
 {
 	struct goodix_ts_core *core_data =
-		container_of(self, struct goodix_ts_core, fb_notifier);
-	struct fb_event *fb_event = data;
+		container_of(nb, struct goodix_ts_core, disp_notifier);
+	int *data = (int *)v;
 	int err = 0;
 
-	if (fb_event && fb_event->data && core_data) {
-		if (event == FB_EVENT_BLANK) {
-			int *blank = fb_event->data;
-
-			if (*blank == FB_BLANK_UNBLANK) {
+	if (core_data && v) {
+		if (value == MTK_DISP_EARLY_EVENT_BLANK) {
+			ts_info("%s IN", __func__);
+			if (*data == MTK_DISP_BLANK_UNBLANK) {
 				if (touch_suspend_flag
 #ifdef CONFIG_TRUSTONIC_TRUSTED_UI
 				&& !atomic_read(&gt9886_tui_flag)
@@ -1964,7 +1960,7 @@ int goodix_ts_fb_notifier_callback(struct notifier_block *self,
 					}
 					touch_suspend_flag = 0;
 				}
-			} else if (*blank == FB_BLANK_POWERDOWN) {
+			} else if (*data == MTK_DISP_BLANK_POWERDOWN) {
 				if (!touch_suspend_flag
 #ifdef CONFIG_TRUSTONIC_TRUSTED_UI
 				&& !atomic_read(&gt9886_tui_flag)
@@ -1978,41 +1974,15 @@ int goodix_ts_fb_notifier_callback(struct notifier_block *self,
 				}
 				touch_suspend_flag = 1;
 			}
+			ts_info("%s OUT", __func__);
 		}
 	}
 	return 0;
 }
 #endif
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-/**
- * goodix_ts_earlysuspend - Early suspend function
- * Called by kernel during system suspend phrase
- */
-static void goodix_ts_earlysuspend(struct early_suspend *h)
-{
-	struct goodix_ts_core *core_data =
-		container_of(h, struct goodix_ts_core,
-			 early_suspend);
-
-	goodix_ts_suspend(core_data);
-}
-/**
- * goodix_ts_lateresume - Late resume function
- * Called by kernel during system wakeup
- */
-static void goodix_ts_lateresume(struct early_suspend *h)
-{
-	struct goodix_ts_core *core_data =
-		container_of(h, struct goodix_ts_core,
-			 early_suspend);
-
-	goodix_ts_resume(core_data);
-}
-#endif
-
 #ifdef CONFIG_PM
-#if !defined(CONFIG_FB) && !defined(CONFIG_HAS_EARLYSUSPEND)
+#if !IS_ENABLED(CONFIG_DRM_MEDIATEK)
 /**
  * goodix_ts_pm_suspend - PM suspend function
  * Called by kernel during system suspend phrase
@@ -2228,7 +2198,7 @@ static int goodix_ts_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_PM
 static const struct dev_pm_ops dev_pm_ops = {
-#if !defined(CONFIG_FB) && !defined(CONFIG_HAS_EARLYSUSPEND)
+#if !IS_ENABLED(CONFIG_DRM_MEDIATEK)
 	.suspend = goodix_ts_pm_suspend,
 	.resume = goodix_ts_pm_resume,
 #endif

@@ -292,15 +292,10 @@ int goodix_cfg_bin_proc(void *data)
 	goodix_modules.core_exit = false;
 	/*complete_all(&goodix_modules.core_comp);*/
 
-#ifdef CONFIG_FB
-	core_data->fb_notifier.notifier_call = goodix_ts_fb_notifier_callback;
-	if (fb_register_client(&core_data->fb_notifier))
-		ts_err("Failed to register fb notifier client:%d", r);
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-	core_data->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
-	core_data->early_suspend.resume = goodix_ts_lateresume;
-	core_data->early_suspend.suspend = goodix_ts_earlysuspend;
-	register_early_suspend(&core_data->early_suspend);
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+	core_data->disp_notifier.notifier_call = goodix_ts_disp_notifier_callback;
+	if (mtk_disp_notifier_register("Touch-gt9886", &core_data->disp_notifier))
+		ts_err("Failed to register disp notifier client:%d", r);
 #endif
 
 	/* esd protector */
