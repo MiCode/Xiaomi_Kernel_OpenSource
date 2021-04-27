@@ -1,0 +1,340 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
+
+#include <linux/module.h>
+#include <trace/hooks/sched.h>
+#include "../../../../kernel/sched/sched.h"
+#include "../../../../kernel/sched/pelt.h"
+
+MODULE_LICENSE("GPL");
+
+#ifdef CONFIG_SMP
+/*
+ * The margin used when comparing utilization with CPU capacity.
+ *
+ * (default: ~20%)
+ */
+#define fits_capacity(cap, max)	((cap) * 1280 < (max) * 1024)
+
+static unsigned long capacity_of(int cpu);
+#endif
+
+/*
+ * Unsigned subtract and clamp on underflow.
+ *
+ * Explicitly do a load-store to ensure the intermediate value never hits
+ * memory. This allows lockless observations without ever seeing the negative
+ * values.
+ */
+#define sub_positive(_ptr, _val) do {				\
+	typeof(_ptr) ptr = (_ptr);				\
+	typeof(*ptr) val = (_val);				\
+	typeof(*ptr) res, var = READ_ONCE(*ptr);		\
+	res = var - val;					\
+	if (res > var)						\
+		res = 0;					\
+	WRITE_ONCE(*ptr, res);					\
+} while (0)
+
+/*
+ * Remove and clamp on negative, from a local variable.
+ *
+ * A variant of sub_positive(), which does not use explicit load-store
+ * and is thus optimized for local variable updates.
+ */
+#define lsub_positive(_ptr, _val) do {				\
+	typeof(_ptr) ptr = (_ptr);				\
+	*ptr -= min_t(typeof(*ptr), *ptr, _val);		\
+} while (0)
+
+#ifdef CONFIG_SMP
+static inline unsigned long task_util(struct task_struct *p)
+{
+	return READ_ONCE(p->se.avg.util_avg);
+}
+
+static inline unsigned long _task_util_est(struct task_struct *p)
+{
+	struct util_est ue = READ_ONCE(p->se.avg.util_est);
+
+	return (max(ue.ewma, ue.enqueued) | UTIL_AVG_UNCHANGED);
+}
+
+static inline unsigned long task_util_est(struct task_struct *p)
+{
+	return max(task_util(p), _task_util_est(p));
+}
+
+#ifdef CONFIG_UCLAMP_TASK
+static inline unsigned long uclamp_task_util(struct task_struct *p)
+{
+	return clamp(task_util_est(p),
+		     uclamp_eff_value(p, UCLAMP_MIN),
+		     uclamp_eff_value(p, UCLAMP_MAX));
+}
+#else
+static inline unsigned long uclamp_task_util(struct task_struct *p)
+{
+	return task_util_est(p);
+}
+#endif
+
+static inline int task_fits_capacity(struct task_struct *p, long capacity)
+{
+	return fits_capacity(uclamp_task_util(p), capacity);
+}
+
+static unsigned long capacity_of(int cpu)
+{
+	return cpu_rq(cpu)->cpu_capacity;
+
+}
+
+/*
+ * Predicts what cpu_util(@cpu) would return if @p was migrated (and enqueued)
+ * to @dst_cpu.
+ */
+static unsigned long cpu_util_next(int cpu, struct task_struct *p, int dst_cpu)
+{
+	struct cfs_rq *cfs_rq = &cpu_rq(cpu)->cfs;
+	unsigned long util_est, util = READ_ONCE(cfs_rq->avg.util_avg);
+
+	/*
+	 * If @p migrates from @cpu to another, remove its contribution. Or,
+	 * if @p migrates from another CPU to @cpu, add its contribution. In
+	 * the other cases, @cpu is not impacted by the migration, so the
+	 * util_avg should already be correct.
+	 */
+	if (task_cpu(p) == cpu && dst_cpu != cpu)
+		sub_positive(&util, task_util(p));
+	else if (task_cpu(p) != cpu && dst_cpu == cpu)
+		util += task_util(p);
+
+	if (sched_feat(UTIL_EST)) {
+		util_est = READ_ONCE(cfs_rq->avg.util_est.enqueued);
+
+		/*
+		 * During wake-up, the task isn't enqueued yet and doesn't
+		 * appear in the cfs_rq->avg.util_est.enqueued of any rq,
+		 * so just add it (if needed) to "simulate" what will be
+		 * cpu_util() after the task has been enqueued.
+		 */
+		if (dst_cpu == cpu)
+			util_est += _task_util_est(p);
+
+		util = max(util, util_est);
+	}
+
+	return min(util, capacity_orig_of(cpu));
+}
+
+/*
+ * compute_energy(): Estimates the energy that @pd would consume if @p was
+ * migrated to @dst_cpu. compute_energy() predicts what will be the utilization
+ * landscape of @pd's CPUs after the task migration, and uses the Energy Model
+ * to compute what would be the energy if we decided to actually migrate that
+ * task.
+ */
+static long
+compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
+{
+	struct cpumask *pd_mask = perf_domain_span(pd);
+	unsigned long cpu_cap = arch_scale_cpu_capacity(cpumask_first(pd_mask));
+	unsigned long max_util = 0, sum_util = 0;
+	unsigned long energy = 0;
+	int cpu;
+
+	/*
+	 * The capacity state of CPUs of the current rd can be driven by CPUs
+	 * of another rd if they belong to the same pd. So, account for the
+	 * utilization of these CPUs too by masking pd with cpu_online_mask
+	 * instead of the rd span.
+	 *
+	 * If an entire pd is outside of the current rd, it will not appear in
+	 * its pd list and will not be accounted by compute_energy().
+	 */
+	for_each_cpu_and(cpu, pd_mask, cpu_online_mask) {
+		unsigned long cpu_util, util_cfs = cpu_util_next(cpu, p, dst_cpu);
+		struct task_struct *tsk = cpu == dst_cpu ? p : NULL;
+
+		/*
+		 * Busy time computation: utilization clamping is not
+		 * required since the ratio (sum_util / cpu_capacity)
+		 * is already enough to scale the EM reported power
+		 * consumption at the (eventually clamped) cpu_capacity.
+		 */
+		sum_util += schedutil_cpu_util(cpu, util_cfs, cpu_cap,
+					       ENERGY_UTIL, NULL);
+
+		/*
+		 * Performance domain frequency: utilization clamping
+		 * must be considered since it affects the selection
+		 * of the performance domain frequency.
+		 * NOTE: in case RT tasks are running, by default the
+		 * FREQUENCY_UTIL's utilization can be max OPP.
+		 */
+		cpu_util = schedutil_cpu_util(cpu, util_cfs, cpu_cap,
+					      FREQUENCY_UTIL, tsk);
+		max_util = max(max_util, cpu_util);
+	}
+
+	trace_android_vh_em_cpu_energy(pd->em_pd, max_util, sum_util, &energy);
+	if (!energy)
+		energy = em_cpu_energy(pd->em_pd, max_util, sum_util);
+
+	return energy;
+}
+
+void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_cpu, int sync, int *new_cpu)
+{
+	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX;
+	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
+	int max_spare_cap_cpu_ls = prev_cpu, best_idle_cpu = -1;
+	unsigned long max_spare_cap_ls = 0, target_cap;
+	unsigned long cpu_cap, util, base_energy = 0;
+	bool boosted, latency_sensitive = false;
+	unsigned int min_exit_lat = UINT_MAX;
+	int cpu, best_energy_cpu = prev_cpu;
+	struct cpuidle_state *idle;
+	struct perf_domain *pd;
+
+
+	rcu_read_lock();
+	pd = rcu_dereference(rd->pd);
+	if (!pd || READ_ONCE(rd->overutilized))
+		goto fail;
+
+	cpu = smp_processor_id();
+	if (sync && cpu_rq(cpu)->nr_running == 1 &&
+	    cpumask_test_cpu(cpu, p->cpus_ptr) &&
+	    task_fits_capacity(p, capacity_of(cpu))) {
+		rcu_read_unlock();
+		*new_cpu = cpu;
+		return;
+	}
+
+	if (!task_util_est(p))
+		goto unlock;
+
+	latency_sensitive = uclamp_latency_sensitive(p);
+	boosted = uclamp_boosted(p);
+	target_cap = boosted ? 0 : ULONG_MAX;
+
+	for (; pd; pd = pd->next) {
+		unsigned long cur_delta, spare_cap, max_spare_cap = 0;
+		unsigned long base_energy_pd;
+		int max_spare_cap_cpu = -1;
+
+		/* Compute the 'base' energy of the pd, without @p */
+		base_energy_pd = compute_energy(p, -1, pd);
+		base_energy += base_energy_pd;
+
+		for_each_cpu_and(cpu, perf_domain_span(pd), cpu_online_mask) {
+			if (!cpumask_test_cpu(cpu, p->cpus_ptr))
+				continue;
+
+			util = cpu_util_next(cpu, p, cpu);
+			cpu_cap = capacity_of(cpu);
+			spare_cap = cpu_cap;
+			lsub_positive(&spare_cap, util);
+
+			/*
+			 * Skip CPUs that cannot satisfy the capacity request.
+			 * IOW, placing the task there would make the CPU
+			 * overutilized. Take uclamp into account to see how
+			 * much capacity we can get out of the CPU; this is
+			 * aligned with schedutil_cpu_util().
+			 */
+			util = uclamp_rq_util_with(cpu_rq(cpu), util, p);
+			if (!fits_capacity(util, cpu_cap))
+				continue;
+
+			/* Always use prev_cpu as a candidate. */
+			if (!latency_sensitive && cpu == prev_cpu) {
+				prev_delta = compute_energy(p, prev_cpu, pd);
+				prev_delta -= base_energy_pd;
+				best_delta = min(best_delta, prev_delta);
+			}
+
+			/*
+			 * Find the CPU with the maximum spare capacity in
+			 * the performance domain
+			 */
+			if (spare_cap > max_spare_cap) {
+				max_spare_cap = spare_cap;
+				max_spare_cap_cpu = cpu;
+			}
+
+			if (!latency_sensitive)
+				continue;
+
+			if (idle_cpu(cpu)) {
+				cpu_cap = capacity_orig_of(cpu);
+				if (boosted && cpu_cap < target_cap)
+					continue;
+				if (!boosted && cpu_cap > target_cap)
+					continue;
+				idle = idle_get_state(cpu_rq(cpu));
+				if (idle && idle->exit_latency > min_exit_lat &&
+						cpu_cap == target_cap)
+					continue;
+
+				if (idle)
+					min_exit_lat = idle->exit_latency;
+				target_cap = cpu_cap;
+				best_idle_cpu = cpu;
+			} else if (spare_cap > max_spare_cap_ls) {
+				max_spare_cap_ls = spare_cap;
+				max_spare_cap_cpu_ls = cpu;
+			}
+		}
+
+		/* Evaluate the energy impact of using this CPU. */
+		if (!latency_sensitive && max_spare_cap_cpu >= 0 &&
+						max_spare_cap_cpu != prev_cpu) {
+			cur_delta = compute_energy(p, max_spare_cap_cpu, pd);
+			cur_delta -= base_energy_pd;
+			if (cur_delta < best_delta) {
+				best_delta = cur_delta;
+				best_energy_cpu = max_spare_cap_cpu;
+			}
+		}
+	}
+unlock:
+	rcu_read_unlock();
+
+	if (latency_sensitive){
+		*new_cpu = best_idle_cpu >= 0 ? best_idle_cpu : max_spare_cap_cpu_ls;
+		return;
+	}
+
+	/*
+	 * Pick the best CPU if prev_cpu cannot be used, or if it saves at
+	 * least 6% of the energy used by prev_cpu.
+	 */
+	if (prev_delta == ULONG_MAX){
+		*new_cpu = best_energy_cpu;
+		return;
+
+	}
+
+	if ((prev_delta - best_delta) > ((prev_delta + base_energy) >> 4)){
+		*new_cpu = best_energy_cpu;
+		return;
+	}
+
+	*new_cpu = prev_cpu;
+	return;
+
+
+fail:
+	rcu_read_unlock();
+
+	*new_cpu = -1;
+
+	return;
+}
+
+#endif
