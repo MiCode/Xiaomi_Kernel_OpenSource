@@ -205,6 +205,7 @@ int32_t mddp_ipc_send_md(
 		MDDP_C_LOG(MDDP_LL_WARN,
 				"%s: mtk_ccci_send_data error(%d)!\n",
 				__func__, ret);
+		app->abnormal_flags |= MDDP_ABNORMAL_CCCI_SEND_FAILED;
 		return -EAGAIN;
 	}
 

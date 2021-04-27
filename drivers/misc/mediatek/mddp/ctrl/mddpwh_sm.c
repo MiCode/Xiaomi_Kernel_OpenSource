@@ -534,7 +534,7 @@ static int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 		break;
 
 	case IPC_MSG_ID_WFPM_RESET_IND:
-		MDDP_S_LOG(MDDP_LL_NOTICE,
+		MDDP_S_LOG(MDDP_LL_WARN,
 				"%s: Received WFPM RESET IND\n", __func__);
 		if (mddpw_reset_ongoing == 0) {
 			mddpw_reset_ongoing = 1;
@@ -760,6 +760,7 @@ static int32_t mddpw_drv_notify_info(
 static int32_t mddpw_drv_get_mddp_feature(void)
 {
 	struct mddp_app_t       *app;
+	int feature;
 
 	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
 
@@ -770,7 +771,12 @@ static int32_t mddpw_drv_get_mddp_feature(void)
 		return -ENODEV;
 	}
 
-	return atomic_read(&app->feature);
+	feature = atomic_read(&app->feature);
+	if (!app->reset_cnt) {
+		MDDP_S_LOG(MDDP_LL_ERR, "%s before MD ready!\n", __func__);
+		app->abnormal_flags |= MDDP_ABNORMAL_WIFI_DRV_GET_FEATURE_BEFORE_MD_READY;
+	}
+	return feature;
 }
 
 static int32_t mddpw_drv_reg_callback(struct mddp_drv_handle_t *handle)
@@ -903,6 +909,8 @@ static void wfpm_reset_work_func(struct work_struct *work)
 	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
 	atomic_set(&app->feature, 0x0);
 	atomic_or(MDDP_FEATURE_MCIF_WIFI, &app->feature);
+	app->abnormal_flags &= ~MDDP_ABNORMAL_CCCI_SEND_FAILED;
+	app->reset_cnt++;
 	mddp_check_feature();
 	mddpw_wfpm_send_smem_layout();
 	if (app->state != MDDP_STATE_DISABLED) {

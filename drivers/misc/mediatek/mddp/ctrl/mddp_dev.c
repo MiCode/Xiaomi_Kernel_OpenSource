@@ -194,6 +194,9 @@ state_show(struct device *dev, struct device_attribute *attr, char *buf)
 		ret_num += scnprintf(buf + ret_num, PAGE_SIZE - ret_num,
 				"drv_reg(%d), feature(%d)\n",
 				app->drv_reg, atomic_read(&app->feature));
+		ret_num += scnprintf(buf + ret_num, PAGE_SIZE - ret_num,
+				"abnormal(%x), reset_cnt(%d)\n",
+				app->abnormal_flags, app->reset_cnt);
 
 		// NG. Failed to fill-in data!
 		if (ret_num <= 0)

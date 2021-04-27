@@ -71,6 +71,7 @@ void mddp_check_feature(void)
 	md_msg->data_len = 0;
 
 	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+	app->abnormal_flags |= MDDP_ABNORMAL_CHECK_FEATURE_ABSENT;
 
 	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_MDFPM);
 }
@@ -81,6 +82,7 @@ static void mddp_handshake_done(uint32_t feature)
 
 	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
 	atomic_set(&app->feature, feature);
+	app->abnormal_flags &= ~MDDP_ABNORMAL_CHECK_FEATURE_ABSENT;
 }
 
 static int32_t mddp_sm_ctrl_msg_hdlr(
@@ -362,6 +364,7 @@ int32_t mddp_sm_reg_callback(
 		memcpy(&app->drv_hdlr,
 			handle, sizeof(struct mddp_drv_handle_t));
 		app->drv_reg = 1;
+		app->abnormal_flags &= ~MDDP_ABNORMAL_WIFI_DRV_GET_FEATURE_BEFORE_MD_READY;
 		return 0;
 	}
 
