@@ -82,7 +82,7 @@ irqreturn_t mtk_vcodec_dec_irq_handler(int irq, void *priv)
 		return IRQ_HANDLED;
 
 	/* check if HW active or not */
-	cg_status = readl(dev->dec_reg_base[0]);
+	cg_status = readl(dev->dec_reg_base[VDEC_SYS]);
 	if ((cg_status & MTK_VDEC_HW_ACTIVE) != 0) {
 		mtk_v4l2_err("DEC ISR, VDEC active is not 0x0 (0x%08x)",
 					 cg_status);
@@ -126,7 +126,7 @@ irqreturn_t mtk_vcodec_lat_dec_irq_handler(int irq, void *priv)
 		return IRQ_HANDLED;
 
 	/* check if HW active or not */
-	cg_status = readl(dev->dec_reg_base[0]);
+	cg_status = readl(dev->dec_reg_base[VDEC_BASE]);
 	if ((cg_status & MTK_VDEC_HW_ACTIVE) != 0) {
 		mtk_v4l2_err("DEC LAT ISR, VDEC active is not 0x0 (0x%08x)",
 					 cg_status);
