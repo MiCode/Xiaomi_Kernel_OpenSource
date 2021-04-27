@@ -95,6 +95,7 @@ struct mddp_app_t {
 
 	struct mddp_sm_entry_t     *state_machines[MDDP_STATE_CNT];
 	uint32_t                    drv_reg;
+	atomic_t                    feature;
 };
 
 
@@ -137,6 +138,8 @@ void mddp_dump_sm_table(struct mddp_app_t *app);
 #endif
 enum mddp_state_e mddp_sm_on_event(struct mddp_app_t *app,
 		enum mddp_event_e event);
+
+void mddp_check_feature(void);
 
 int32_t mddp_sm_msg_hdlr(uint32_t user_id,
 		uint32_t msg_id, void *buf, uint32_t buf_len);
