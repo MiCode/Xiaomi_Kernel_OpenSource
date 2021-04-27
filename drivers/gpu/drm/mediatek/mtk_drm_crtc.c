@@ -1511,6 +1511,7 @@ static void _mtk_crtc_cwb_addon_module_disconnect(
 	int index = drm_crtc_index(crtc);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_cwb_info *cwb_info;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	cwb_info = mtk_crtc->cwb_info;
 	if (index != 0 || mtk_crtc_is_dc_mode(crtc) ||
@@ -1518,11 +1519,9 @@ static void _mtk_crtc_cwb_addon_module_disconnect(
 		return;
 
 	mtk_crtc_cwb_set_sec(crtc);
-	if (cwb_info->enable) {
-		if (!cwb_info->is_sec)
-			return;
-		DDPINFO("[capture] has secure content!!");
-	}
+	if (cwb_info->enable && !cwb_info->is_sec &&
+				!priv->need_cwb_path_disconnect)
+		return;
 
 	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
 						cwb_info->scn);
@@ -1647,6 +1646,7 @@ _mtk_crtc_cwb_addon_module_connect(
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_cwb_info *cwb_info;
 	unsigned int buf_idx;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	cwb_info = mtk_crtc->cwb_info;
 	if (index != 0 || mtk_crtc_is_dc_mode(crtc) ||
@@ -1654,7 +1654,8 @@ _mtk_crtc_cwb_addon_module_connect(
 		return;
 
 	mtk_crtc_cwb_set_sec(crtc);
-	if (!cwb_info->enable || cwb_info->is_sec)
+	if (!cwb_info->enable || cwb_info->is_sec ||
+			priv->need_cwb_path_disconnect)
 		return;
 
 	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
@@ -1788,6 +1789,33 @@ _mtk_crtc_atmoic_addon_module_connect(
 
 	_mtk_crtc_lye_addon_module_connect(
 			crtc, ddp_mode, lye_state, cmdq_handle);
+}
+
+void mtk_crtc_cwb_path_disconnect(struct drm_crtc *crtc)
+{
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
+	struct cmdq_pkt *handle;
+	int ddp_mode = mtk_crtc->ddp_mode;
+
+	if (!mtk_crtc->cwb_info || !mtk_crtc->cwb_info->enable) {
+		priv->need_cwb_path_disconnect = true;
+		priv->cwb_is_preempted = true;
+		return;
+	}
+
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	priv->need_cwb_path_disconnect = true;
+	mtk_crtc_pkt_create(&handle, crtc, client);
+	mtk_crtc_wait_frame_done(mtk_crtc, handle, DDP_FIRST_PATH, 0);
+	_mtk_crtc_cwb_addon_module_disconnect(crtc, ddp_mode, handle);
+	cmdq_pkt_flush(handle);
+	cmdq_pkt_destroy(handle);
+	priv->cwb_is_preempted = true;
+
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 }
 
 static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,

@@ -211,6 +211,7 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 	struct mtk_disp_wdma *priv = dev_id;
 	struct mtk_ddp_comp *wdma = &priv->ddp_comp;
 	struct mtk_cwb_info *cwb_info;
+	struct mtk_drm_private *drm_priv;
 	unsigned int buf_idx;
 	unsigned int val = 0;
 	unsigned int ret = 0;
@@ -243,9 +244,11 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 
 		DDPIRQ("[IRQ] %s: frame complete!\n",
 			mtk_dump_comp_str(wdma));
+		drm_priv = mtk_crtc->base.dev->dev_private;
 		cwb_info = mtk_crtc->cwb_info;
 		if (cwb_info && cwb_info->enable &&
-			cwb_info->comp->id == wdma->id) {
+			cwb_info->comp->id == wdma->id &&
+			!drm_priv->cwb_is_preempted) {
 			buf_idx = cwb_info->buf_idx;
 			cwb_info->buffer[buf_idx].timestamp = 100;
 			atomic_set(&mtk_crtc->cwb_task_active, 1);
