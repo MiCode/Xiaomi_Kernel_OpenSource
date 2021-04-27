@@ -119,13 +119,13 @@ static struct perf_event_attr cycle_event_attr = {
 
 /* rt => /100000, uA => *1000, res => 100 */
 #define CORE_DEFAULT_DEG (30)
-#define CORE_DEFAULT_LKG (115)
+#define CORE_DEFAULT_LKG (43)
 #define CORE_LKG_RT_RES (100)
 static unsigned int core_lkg;
 static unsigned int core_lkg_replaced;
 static unsigned short core_lkg_rt[NR_CORE_LKG_TYPE] = {
-	7547, 4198, 5670, 11214, 16155, 19466,
-	5042, 9301, 12999, 2085, 6321
+	12539, 5658, 5408, 10131, 7076, 24648,
+	3972, 6310, 18839, 2884, 2515
 };
 static unsigned short core_volt_tbl[NR_CORE_VOLT] = {
 	550, 600, 650, 725, 750,
@@ -477,32 +477,32 @@ static struct aphy_others_pwr_data aphy_def_others_pwr_tbl[] = {
 static struct dram_pwr_conf dram_def_pwr_conf[] = {
 	[DRAM_VDD1_1P8V] = {
 		/* SW co-relation */
-		.i_dd0 = 3000,
-		.i_dd2p = 350,
-		.i_dd2n = 430,
-		.i_dd4r = 5280,
-		.i_dd4w = 5580,
-		.i_dd5 = 800,
-		.i_dd6 = 218,
+		.i_dd0 = 13000,
+		.i_dd2p = 1000,
+		.i_dd2n = 3000,
+		.i_dd4r = 9000,
+		.i_dd4w = 10000,
+		.i_dd5 = 5000,
+		.i_dd6 = 475,
 	},
 	[DRAM_VDD2_1P1V] = {
 		/* SW co-relation */
-		.i_dd0 = 27714,
-		.i_dd2p = 1380,
-		.i_dd2n = 4012,
-		.i_dd4r = 120000,
-		.i_dd4w = 115619,
-		.i_dd5 = 10600,
-		.i_dd6 = 266,
+		.i_dd0 = 50000,
+		.i_dd2p = 8000,
+		.i_dd2n = 13500,
+		.i_dd4r = 147000,
+		.i_dd4w = 151000,
+		.i_dd5 = 25000,
+		.i_dd6 = 625,
 	},
 	[DRAM_VDDQ_0P6V] = {
-		.i_dd0 = 980,
-		.i_dd2p = 75,
-		.i_dd2n = 75,
-		.i_dd4r = 58138,
-		.i_dd4w = 511,
-		.i_dd5 = 600,
-		.i_dd6 = 36,
+		.i_dd0 = 9000,
+		.i_dd2p = 11250,
+		.i_dd2n = 7500,
+		.i_dd4r = 38000,
+		.i_dd4w = 10000,
+		.i_dd5 = 8000,
+		.i_dd6 = 65,
 	},
 };
 
@@ -750,11 +750,9 @@ static void swpm_core_thermal_cb(void)
 	if (!core_ptr)
 		return;
 
-#if 0
-	/* need fix */
-	infra_temp = get_immediate_tslvts6_0_wrap();
-	cam_temp = get_immediate_tslvts6_1_wrap();
-#endif
+	infra_temp = get_immediate_tslvts3_3_wrap();
+	cam_temp = get_immediate_tslvts3_2_wrap();
+
 	temp = (infra_temp + cam_temp) / 2;
 
 	/* truncate negative deg */
@@ -762,8 +760,8 @@ static void swpm_core_thermal_cb(void)
 	core_ptr->thermal = (unsigned int)temp;
 
 #if SWPM_TEST
-	swpm_err("swpm_core infra lvts6_0 = %d\n", infra_temp);
-	swpm_err("swpm_core cam lvts6_1 = %d\n", cam_temp);
+	swpm_err("swpm_core infra = %d\n", infra_temp);
+	swpm_err("swpm_core cam = %d\n", cam_temp);
 	swpm_err("swpm_core cpuL = %d\n", get_immediate_cpuL_wrap());
 	swpm_err("swpm_core cpuB = %d\n", get_immediate_cpuB_wrap());
 #endif
@@ -826,6 +824,9 @@ static void swpm_update_lkg_table(void)
 #else
 		temp = 85;
 #endif
+		if (swpm_info_ref)
+			swpm_info_ref->cpu_temp[i] = temp;
+
 		for (j = 0; j < NR_CPU_OPP; j++) {
 #ifdef CONFIG_MTK_CPU_FREQ
 			volt = mt_cpufreq_get_volt_by_idx(i, j) / 100;
@@ -1229,6 +1230,34 @@ static ssize_t pmu_ms_mode_proc_write(struct file *file,
 	return count;
 }
 
+static unsigned int swpm_pmsr_en = 1;
+static int swpm_pmsr_en_proc_show(struct seq_file *m, void *v)
+{
+	seq_puts(m, "swpm_pmsr only support disabling cmd\n");
+	seq_printf(m, "%d\n", swpm_pmsr_en);
+	return 0;
+}
+static ssize_t swpm_pmsr_en_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int enable = 0;
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	if (!kstrtouint(buf, 10, &enable)) {
+		if (!enable) {
+			swpm_pmsr_en = enable;
+			/* TODO: remove this path after qos commander ready */
+			swpm_set_update_cnt(0, 9696 << SWPM_CODE_USER_BIT);
+		}
+	} else
+		swpm_err("echo <0/1> > /proc/swpm/swpm_pmsr_en\n");
+
+	return count;
+}
+
 static int core_static_replace_proc_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "default: %d, replaced %d (valid:0~999)\n",
@@ -1259,6 +1288,7 @@ static ssize_t core_static_replace_proc_write(struct file *file,
 PROC_FOPS_RW(idd_tbl);
 PROC_FOPS_RO(dram_bw);
 PROC_FOPS_RW(pmu_ms_mode);
+PROC_FOPS_RW(swpm_pmsr_en);
 PROC_FOPS_RW(core_static_replace);
 
 static void swpm_cmd_dispatcher(unsigned int type,
@@ -1380,11 +1410,13 @@ static void swpm_platform_procfs(void)
 	struct swpm_entry idd_tbl = PROC_ENTRY(idd_tbl);
 	struct swpm_entry dram_bw = PROC_ENTRY(dram_bw);
 	struct swpm_entry pmu_mode = PROC_ENTRY(pmu_ms_mode);
+	struct swpm_entry swpm_pmsr = PROC_ENTRY(swpm_pmsr_en);
 	struct swpm_entry core_lkg_rp = PROC_ENTRY(core_static_replace);
 
 	swpm_append_procfs(&idd_tbl);
 	swpm_append_procfs(&dram_bw);
 	swpm_append_procfs(&pmu_mode);
+	swpm_append_procfs(&swpm_pmsr);
 	swpm_append_procfs(&core_lkg_rp);
 }
 

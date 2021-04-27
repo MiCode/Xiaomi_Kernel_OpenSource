@@ -1009,8 +1009,8 @@ static ssize_t idd_tbl_proc_write(struct file *file,
 
 	if (sscanf(buf, "%d %d %d", &type, &idd_idx, &val) == 3) {
 		if (type < (NR_DRAM_PWR_TYPE) &&
-		    idd_idx <= (sizeof(struct dram_pwr_conf) /
-				sizeof(unsigned int)))
+		    idd_idx < (sizeof(struct dram_pwr_conf) /
+			       sizeof(unsigned int)))
 			*(&mem_ptr->dram_conf[type].i_dd0 + idd_idx) = val;
 	} else {
 		swpm_err("echo <type> <idx> <val> > /proc/swpm/idd_tbl\n");

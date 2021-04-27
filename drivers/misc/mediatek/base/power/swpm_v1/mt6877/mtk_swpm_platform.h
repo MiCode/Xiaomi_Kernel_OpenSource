@@ -186,6 +186,7 @@ struct cpu_swpm_index {
 	unsigned int cpu_emi_bw;
 	struct cpu_swpm_vf_index vf;
 	unsigned int cpu_lkg[NR_CPU_LKG_TYPE];
+	unsigned int thermal[NR_CPU_LKG_TYPE];
 	unsigned int cpu_pwr[NR_CPU_PWR_TYPE];
 };
 
@@ -256,6 +257,8 @@ struct mem_swpm_index {
 	unsigned int phr_pct[MAX_EMI_NUM];	/* page-hit rate */
 	unsigned int acc_util[MAX_EMI_NUM];	/* accumulate EMI utilization */
 	unsigned int trans[MAX_EMI_NUM];	/* transaction count */
+	unsigned int ddr_ratio[MAX_EMI_NUM];	/* ddr_ratio */
+	unsigned int index_in_us;		/* data collection in us */
 	unsigned int mr4;
 	struct mem_swpm_vf_index vf;
 };
@@ -379,6 +382,9 @@ struct swpm_rec_data {
 	/* 4(int) * 64(rec_cnt) * 7 = 1792 bytes */
 	unsigned int pwr[NR_POWER_RAIL][MAX_RECORD_CNT];
 
+	/* 4(int) * 3(lkg_type) = 12 bytes */
+	unsigned int cpu_temp[NR_CPU_LKG_TYPE];
+
 	/* 4(int) * 3(lkg_type) * 16 = 192 bytes */
 	unsigned int cpu_lkg_pwr[NR_CPU_LKG_TYPE][NR_CPU_OPP];
 
@@ -396,7 +402,7 @@ struct swpm_rec_data {
 
 	/* 4(int) * 11 = 44 bytes */
 	unsigned int me_reserved[ME_SWPM_RESERVED_SIZE];
-	/* remaining size = 72/6144 bytes */
+	/* remaining size = 60/6144 bytes */
 } __aligned(8);
 
 extern struct swpm_rec_data *swpm_info_ref;
