@@ -33,7 +33,7 @@ static void _regulator_apu_settle_time(struct apu_regulator *reg,
 				       int old_uV, int new_uV)
 {
 	unsigned int ramp_delay = 0;
-	unsigned int settle_rate = 0;
+	unsigned int settle_rate = 1;
 	unsigned int latency = 0;
 
 	/* check whehter kernel regulator frame work suggest delay time already */
