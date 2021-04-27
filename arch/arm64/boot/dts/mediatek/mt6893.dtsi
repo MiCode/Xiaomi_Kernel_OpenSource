@@ -605,6 +605,30 @@
 		method = "smc";
 	};
 
+	firmware: firmware {
+		scmi: scmi {
+			compatible = "arm,scmi";
+			mboxes = <&tinysys_mbox 0>, <&tinysys_mbox 1>;
+			shmem = <&scmi_tx_shmem>, <&scmi_rx_shmem>;
+			mbox-names = "tx", "rx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			scmi_tinysys: protocol@80 {
+				reg = <0x80>;
+				scmi_qos = <1>;
+				scmi_pmic = <2>;
+				scmi_met = <3>;
+				scmi_thermal = <4>;
+				scmi_gpupm = <6>;
+				scmi_plt = <7>;
+				scmi_smi = <8>;
+				scmi_cm = <9>;
+				scmi_slbc = <10>;
+			};
+		};
+	};
+
 	reserved_memory: reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -1727,54 +1751,14 @@
 		sspm@10400000 {
 			compatible = "mediatek,sspm";
 			reg = <0 0x10400000 0 0x28000>,
-				<0 0x10440000 0 0x10000>,
-				<0 0x10450000 0 0x100>,
-				<0 0x10451000 0 0x4>,
-				<0 0x10451004 0 0x4>,
-				<0 0x10460000 0 0x100>,
-				<0 0x10461000 0 0x4>,
-				<0 0x10461004 0 0x4>,
-				<0 0x10470000 0 0x100>,
-				<0 0x10471000 0 0x4>,
-				<0 0x10471004 0 0x4>,
-				<0 0x10480000 0 0x100>,
-				<0 0x10481000 0 0x4>,
-				<0 0x10481004 0 0x4>,
-				<0 0x10490000 0 0x100>,
-				<0 0x10491000 0 0x4>,
-				<0 0x10491004 0 0x4>;
+				<0 0x10440000 0 0x10000>;
 
 			reg-names = "sspm_base",
-				"cfgreg",
-				"mbox0_base",
-				"mbox0_set",
-				"mbox0_clr",
-				"mbox1_base",
-				"mbox1_set",
-				"mbox1_clr",
-				"mbox2_base",
-				"mbox2_set",
-				"mbox2_clr",
-				"mbox3_base",
-				"mbox3_set",
-				"mbox3_clr",
-				"mbox4_base",
-				"mbox4_set",
-				"mbox4_clr";
+				"cfgreg";
 
-			interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH 0>,
-				<GIC_SPI 244 IRQ_TYPE_LEVEL_HIGH 0>,
-				<GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH 0>,
-				<GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH 0>,
-				<GIC_SPI 247 IRQ_TYPE_LEVEL_HIGH 0>,
-				<GIC_SPI 248 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH 0>;
 
-			interrupt-names = "ipc",
-				"mbox0",
-				"mbox1",
-				"mbox2",
-				"mbox3",
-				"mbox4";
+			interrupt-names = "ipc";
 		};
 
 		/* Trustonic Mobicore SW IRQ number 536 = 32 + 504 */
@@ -1788,11 +1772,49 @@
 			interrupts = <GIC_SPI 505 IRQ_TYPE_EDGE_RISING 0>;
 		};
 
+		ssram1@10450000 {
+			compatible = "mmio-sram_1";
+			reg = <0x0 0x10450000 0x0 0x80>;
+
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0 0x0 0x10450000 0x80>;
+
+			scmi_tx_shmem: tiny_mbox@0 {
+				compatible = "arm,scmi-tx-shmem";
+				reg = <0x0 0x80>;
+			};
+		};
+
+		ssram2@10460000 {
+			compatible = "mmio-sram_2";
+			reg = <0x0 0x10460000 0x0 0x80>;
+
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0 0x0 0x10460000 0x80>;
+
+			scmi_rx_shmem: tiny_mbox@1 {
+				compatible = "arm,scmi-rx-shmem";
+				reg = <0x0 0x80>;
+			};
+		};
+
+		tinysys_mbox: tinysys_mbox@10451000 {
+			compatible = "mediatek,tinysys_mbox";
+			reg = <0 0x10451000 0 0x1000>,
+				  <0 0x10461000 0 0x1000>;
+			interrupts = <GIC_SPI 244 IRQ_TYPE_LEVEL_HIGH 0>,
+					 <GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH 0>;
+			#mbox-cells = <1>;
+		};
+
 		scp_adsp: scp_adsp@10720000 {
 			compatible = "mediatek,mt8192-scp_adsp", "syscon";
 			reg = <0 0x10720000 0 0x1000>;
 			#clock-cells = <1>;
 		};
+
 		scp: scp@10700000 {
 			compatible = "mediatek,scp";
 			status = "okay";
