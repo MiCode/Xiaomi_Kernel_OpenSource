@@ -206,8 +206,14 @@ static bool demand_eval(struct cluster_data *cluster)
 		cluster->next_offline_time = now;
 		cluster->need_cpus = new_need;
 	}
-	trace_core_ctl_demand_eval(cluster->cluster_id, old_need, new_need,
-				cluster->active_cpus, ret && need_flag);
+	trace_core_ctl_demand_eval(cluster->cluster_id,
+			old_need, new_need,
+			cluster->active_cpus,
+			cluster->min_cpus,
+			cluster->max_cpus,
+			cluster->boost,
+			cluster->enable,
+			ret && need_flag);
 unlock:
 	spin_unlock_irqrestore(&state_lock, flags);
 	return ret && need_flag;
@@ -1037,14 +1043,12 @@ void get_nr_running_big_task(struct cluster_data *cluster)
 		cluster[i].nr_down = cluster[i].nr_down < 0 ? 0 : cluster[i].nr_down;
 	}
 
-	if (debug_enable) {
-		for (i = 0; i < num_clusters; i++) {
-			nr_up[i] = cluster[i].nr_up;
-			nr_down[i] = cluster[i].nr_down;
-			max_nr[i] = cluster[i].max_nr;
-		}
-		trace_core_ctl_update_nr_btask(nr_up, nr_down, max_nr);
+	for (i = 0; i < num_clusters; i++) {
+		nr_up[i] = cluster[i].nr_up;
+		nr_down[i] = cluster[i].nr_down;
+		max_nr[i] = cluster[i].max_nr;
 	}
+	trace_core_ctl_update_nr_btask(nr_up, nr_down, max_nr);
 }
 
 /*
