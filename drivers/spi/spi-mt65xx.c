@@ -378,6 +378,10 @@ static int mtk_spi_prepare_message(struct spi_master *master,
 		writel(mdata->pad_sel[spi->chip_select],
 		       mdata->base + SPI_PAD_SEL_REG);
 
+	reg_val = readl(mdata->base + SPI_CFG1_REG);
+	reg_val |= ((chip_config->tick_delay & 0x1FFFFFFF) <<
+				SPI_CFG1_GET_TICK_DLY_OFFSET);
+	writel(reg_val, mdata->base + SPI_CFG1_REG);
 	return 0;
 }
 
@@ -953,13 +957,6 @@ static int mtk_spi_probe(struct platform_device *pdev)
 		goto err_put_master;
 	}
 
-	ret = devm_spi_register_master(&pdev->dev, master);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to register master (%d)\n", ret);
-		clk_disable(mdata->spi_clk);
-		goto err_disable_runtime_pm;
-	}
-
 	mdata->spi_clk_hz = clk_get_rate(mdata->spi_clk);
 	clk_disable(mdata->spi_clk);
 
@@ -1011,6 +1008,11 @@ static int mtk_spi_probe(struct platform_device *pdev)
 	pm_qos_add_request(&mdata->spi_qos_request, PM_QOS_CPU_DMA_LATENCY,
 		PM_QOS_DEFAULT_VALUE);
 
+	ret = devm_spi_register_master(&pdev->dev, master);
+	if (ret) {
+		dev_notice(&pdev->dev, "failed to register master (%d)\n", ret);
+		goto err_disable_runtime_pm;
+	}
 	return 0;
 
 err_disable_runtime_pm:
