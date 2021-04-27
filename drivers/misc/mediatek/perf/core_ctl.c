@@ -193,6 +193,7 @@ static bool demand_eval(struct cluster_data *cluster)
 		/* TODO: should consider that new_need == last_need ? */
 		if (new_need == cluster->active_cpus) {
 			cluster->next_offline_time = now;
+			cluster->need_cpus = new_need;
 			goto unlock;
 		}
 
@@ -1442,6 +1443,7 @@ static int isolation_cpuhp_state(unsigned int cpu,  bool online)
 	spin_lock_irqsave(&state_lock, flags);
 	if (online) {
 		cluster->active_cpus = get_active_cpu_count(cluster);
+	/* cpu_online() is false */
 	} else {
 		/*
 		 * When CPU is offline, CPU should be un-isolated.
@@ -1449,18 +1451,18 @@ static int isolation_cpuhp_state(unsigned int cpu,  bool online)
 		 * it was isolated by core_ctl.
 		 */
 		if (state->iso_by_core_ctl) {
-			sched_deisolate_cpu_unlocked(cpu);
 			state->iso_by_core_ctl = false;
+			cluster->nr_isolated_cpus--;
 			unisolated = true;
 		}
 		cluster->active_cpus = get_active_cpu_count(cluster);
 	}
 
 	need = apply_limits(cluster, cluster->need_cpus);
-	if (unisolated)
-		cluster->nr_isolated_cpus--;
 	do_wakeup = adjustment_possible(cluster, need);
 	spin_unlock_irqrestore(&state_lock, flags);
+	if (unisolated)
+		sched_deisolate_cpu_unlocked(cpu);
 	if (do_wakeup)
 		wake_up_core_ctl_thread(cluster);
 
