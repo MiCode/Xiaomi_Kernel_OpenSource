@@ -6,6 +6,8 @@
 #ifndef __LINUX_USB_MUSB_H
 #define __LINUX_USB_MUSB_H
 
+#include <linux/extcon.h>
+#include <linux/usb/otg.h>
 #include <linux/usb/role.h>
 
 /* The USB role is defined by the connector used on the board, so long as
@@ -95,7 +97,7 @@ struct musb_hdrc_config {
 
 struct musb_hdrc_platform_data {
 	/* MUSB_HOST, MUSB_PERIPHERAL, or MUSB_OTG */
-	u8 mode;
+	u8 dr_mode;
 
 	/* for clk_get() */
 	const char *clock;
