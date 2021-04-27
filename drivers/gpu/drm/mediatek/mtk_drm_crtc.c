@@ -1511,16 +1511,10 @@ static void _mtk_crtc_cwb_addon_module_disconnect(
 	int index = drm_crtc_index(crtc);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_cwb_info *cwb_info;
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	cwb_info = mtk_crtc->cwb_info;
 	if (index != 0 || mtk_crtc_is_dc_mode(crtc) ||
 		!cwb_info)
-		return;
-
-	mtk_crtc_cwb_set_sec(crtc);
-	if (cwb_info->enable && !cwb_info->is_sec &&
-				!priv->need_cwb_path_disconnect)
 		return;
 
 	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
