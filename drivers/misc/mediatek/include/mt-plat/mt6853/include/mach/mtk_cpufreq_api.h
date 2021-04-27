@@ -92,4 +92,5 @@ extern void aee_record_cpufreq_cb(unsigned int step);
 extern int mt_cpufreq_update_legacy_volt(unsigned int cluster_id,
 			unsigned int *volt_tbl, int nr_volt_tbl);
 
+extern void mt_cpufreq_update_cci_mode(unsigned int mode, unsigned int use_id);
 #endif	/* __MTK_CPUFREQ_API_H__ */

@@ -18,6 +18,8 @@
 #include <dramc.h>
 #endif /* CONFIG_MEDIATEK_DRAMC */
 
+
+#define CM_TRIGEAR
 #define PER_CPU_STALL_RATIO
 #define LIGHT_LOAD
 /* #define USE_AVG_PMU */
@@ -27,10 +29,12 @@
 #define USE_NEW_CPU_OPP
 #define USE_CM_MGR_AT_SSPM
 /* #define USE_SINGLE_CLUSTER */
+#define USE_CPU_TO_DRAM_MAP
+#define USE_BCPU_WEIGHT
 /* #define USE_CPU_TO_DRAM_MAP */
-/* #define USE_BCPU_WEIGHT */
+/* #define USE_CPU_TO_DRAM_MAP_NEW */
 
-#define CM_MGR_EMI_OPP 5
+#define CM_MGR_EMI_OPP 6
 #define CM_MGR_LOWER_OPP 6
 #define CM_MGR_CPU_CLUSTER 3
 #define CM_MGR_CPU_COUNT 8
@@ -49,11 +53,21 @@
 #define CM_MGR_INIT_DELAY_MS 1
 #define CM_MGR_BW_VALUE 0
 #define CM_MGR_VCORE_OPP_COUNT 22
+#define DSU_DVFS_ENABLE
 
 enum {
 	CM_MGR_LP4 = 0,
 	CM_MGR_MAX,
 };
+
+enum cm_mgr_cpu_cluster {
+	CM_MGR_L,
+	CM_MGR_B,
+	CM_MGR_BB,
+	CM_MGR_CCI,
+	CM_MGR_NUM,
+};
+
 
 extern void __iomem *mcucfg_mp0_counter_base;
 
@@ -107,8 +121,7 @@ extern int cm_mgr_check_bw_status(void);
 extern int cm_mgr_get_bw(void);
 
 extern void dbg_cm_mgr_platform_show(struct seq_file *m);
-extern void dbg_cm_mgr_platform_write(int len, const char *cmd, u32 val_1,
-		u32 val_2);
+extern void dbg_cm_mgr_platform_write(int len, char *cmd, u32 val_1, u32 val_2);
 extern int x_ratio_enable;
 extern int cm_mgr_camera_enable;
 extern unsigned int cpu_power_ratio_up_x_camera[CM_MGR_EMI_OPP];

@@ -51,6 +51,7 @@
 #include <linux/of_address.h>
 #include <mtk_cm_mgr.h>
 
+
 #define CREATE_TRACE_POINTS
 #include "mtk_cm_mgr_platform_events.h"
 
@@ -666,6 +667,8 @@ static struct delayed_work cm_mgr_timeout_work;
 
 static void cm_mgr_timeout_process(struct work_struct *work)
 {
+	/* timeout set normal mode */
+	mt_cpufreq_update_cci_mode(0, 2);
 	pm_qos_update_request(&ddr_opp_req,
 			PM_QOS_DDR_OPP_DEFAULT_VALUE);
 }
@@ -687,17 +690,21 @@ static void cm_mgr_perf_timeout_timer_fn(unsigned long data)
 	}
 }
 
-#define PERF_TIME 3000
+#define PERF_TIME 100
+
 
 static ktime_t perf_now;
 void cm_mgr_perf_platform_set_status(int enable)
 {
 	unsigned long expires;
 
-	if (pm_qos_update_request_status) {
+	if (enable || pm_qos_update_request_status) {
 		expires = jiffies + CM_MGR_PERF_TIMEOUT_MS;
 		mod_timer(&cm_mgr_perf_timeout_timer, expires);
 	}
+
+	/* set dsu mode */
+	mt_cpufreq_update_cci_mode(enable, 2);
 
 	if (enable) {
 		if (cm_mgr_perf_enable == 0)
@@ -741,6 +748,8 @@ void cm_mgr_perf_platform_set_status(int enable)
 
 		if ((cm_mgr_dram_opp < cm_mgr_dram_opp_base) &&
 				(debounce_times_perf_down > 0)) {
+
+
 			cm_mgr_dram_opp = cm_mgr_dram_opp_base *
 				debounce_times_perf_down_local /
 				debounce_times_perf_down;
@@ -767,10 +776,13 @@ void cm_mgr_perf_platform_set_force_status(int enable)
 {
 	unsigned long expires;
 
-	if (pm_qos_update_request_status) {
+	if (enable || pm_qos_update_request_status) {
 		expires = jiffies + CM_MGR_PERF_TIMEOUT_MS;
 		mod_timer(&cm_mgr_perf_timeout_timer, expires);
 	}
+
+	/* set dsu mode */
+	mt_cpufreq_update_cci_mode(enable, 2);
 
 	if (enable) {
 		if (cm_mgr_perf_enable == 0)
@@ -872,6 +884,10 @@ static void cm_mgr_add_cpu_opp_to_ddr_req(void)
 
 	strncpy(ddr_opp_req_by_cpu_opp.owner,
 			owner, sizeof(ddr_opp_req_by_cpu_opp.owner) - 1);
+
+#ifdef USE_CPU_TO_DRAM_MAP_NEW
+	cm_mgr_cpu_map_update_table();
+#endif /* USE_CPU_TO_DRAM_MAP_NEW */
 }
 #endif /* USE_CPU_TO_DRAM_MAP */
 
@@ -908,7 +924,7 @@ int cm_mgr_platform_init(void)
 	mtk_idle_notifier_register(&cm_mgr_idle_notify);
 #endif /* USE_IDLE_NOTIFY */
 
-	init_timer_deferrable(&cm_mgr_ratio_timer);
+	init_timer(&cm_mgr_ratio_timer);
 	cm_mgr_ratio_timer.function = cm_mgr_ratio_timer_fn;
 	cm_mgr_ratio_timer.data = 0;
 
@@ -938,10 +954,10 @@ int cm_mgr_platform_init(void)
 
 /* no 1200 */
 int phy_to_virt_dram_opp[] = {
-	0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x5
+	0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x6
 };
 int virt_to_phy_dram_level[] = {
-	0x0, 0x2, 0x3, 0x4, 0x5, 0x6
+	0x0, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7
 };
 
 void cm_mgr_set_dram_level(int level)
@@ -980,24 +996,24 @@ int cm_mgr_get_bw(void)
 }
 
 #ifdef USE_CPU_TO_DRAM_MAP
-static int cm_mgr_cpu_opp_to_dram[CM_MGR_CPU_OPP_SIZE] = {
+int cm_mgr_cpu_opp_to_dram[CM_MGR_CPU_OPP_SIZE] = {
 /* start from cpu opp 0 */
-	0,
-	0,
-	0,
-	0,
-	1,
-	1,
-	1,
-	1,
-	1,
-	2,
-	2,
-	2,
-	2,
-	2,
-	2,
-	2,
+	DDR_OPP_0,
+	DDR_OPP_0,
+	DDR_OPP_0,
+	DDR_OPP_0,
+	DDR_OPP_0,
+	DDR_OPP_0,
+	DDR_OPP_0,
+	DDR_OPP_0,
+	DDR_OPP_0,
+	DDR_OPP_0,
+	DDR_OPP_0,
+	DDR_OPP_1,
+	DDR_OPP_1,
+	DDR_OPP_1,
+	DDR_OPP_1,
+	DDR_OPP_1,
 };
 
 static void cm_mgr_process(struct work_struct *work)
@@ -1024,8 +1040,10 @@ void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
 	if ((cpu_opp >= 0) && (cpu_opp < CM_MGR_CPU_OPP_SIZE))
 		dram_opp = cm_mgr_cpu_opp_to_dram[cpu_opp];
 
+
 	if (cm_mgr_cpu_to_dram_opp == dram_opp)
 		return;
+
 
 	cm_mgr_cpu_to_dram_opp = dram_opp;
 
@@ -1068,9 +1086,9 @@ void dbg_cm_mgr_platform_show(struct seq_file *m)
 	seq_puts(m, "\n");
 }
 
-void dbg_cm_mgr_platform_write(int len, const char *cmd, u32 val_1, u32 val_2)
+void dbg_cm_mgr_platform_write(int len, char *cmd, u32 val_1, u32 val_2)
 {
-	unsigned int i;
+	int i;
 
 	if (!strcmp(cmd, "x_ratio_enable")) {
 		x_ratio_enable = val_1;
