@@ -16,7 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include "mtk_gpufreq.h"
-#include "thermal_budget.h"
+#include "thermal_internal.h"
 
 #if defined(CONFIG_MTK_APUSYS_SUPPORT)
 #include <linux/platform_device.h>

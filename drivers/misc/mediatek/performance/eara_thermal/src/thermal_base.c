@@ -2,11 +2,15 @@
 /*
  * Copyright (C) 2020 MediaTek Inc.
  */
+#include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/trace_events.h>
 #include <trace/events/fpsgo.h>
+
 #include "thermal_base.h"
+#include "thermal_budget.h"
+#include "thermal_prethrottle.h"
 
 #define EARA_THRM_SYSFS_DIR_NAME "eara_thermal"
 
@@ -85,7 +89,7 @@ void eara_thrm_sysfs_remove_file(struct kobj_attribute *kobj_attr)
 	sysfs_remove_file(thrm_kobj, &(kobj_attr->attr));
 }
 
-int eara_thrm_base_init(void)
+static int __init eara_thrm_base_init(void)
 {
 	eara_thrm_update_tracemark();
 
@@ -98,15 +102,28 @@ int eara_thrm_base_init(void)
 	if (thrm_kobj == NULL)
 		return -1;
 
+	eara_thrm_pb_init();
+	eara_thrm_pre_init();
+
 	return 0;
 }
 
-void eara_thrm_base_exit(void)
+static void __exit eara_thrm_base_exit(void)
 {
+	eara_thrm_pb_exit();
+	eara_thrm_pre_exit();
+
 	if (thrm_kobj == NULL)
 		return;
 
 	kobject_put(thrm_kobj);
 	thrm_kobj = NULL;
 }
+
+module_init(eara_thrm_base_init);
+module_exit(eara_thrm_base_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("MediaTek EARA-QoS");
+MODULE_AUTHOR("MediaTek Inc.");
 

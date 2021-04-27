@@ -41,6 +41,7 @@
 #include <mt-plat/mtk_perfobserver.h>
 #endif
 #include "thermal_budget.h"
+#include "thermal_internal.h"
 
 #ifdef MAX
 #undef MAX
@@ -2776,7 +2777,7 @@ static ssize_t fake_throttle_store(struct kobject *kobj,
 }
 KOBJ_ATTR_RW(fake_throttle);
 
-static void __exit eara_thrm_pb_exit(void)
+void __exit eara_thrm_pb_exit(void)
 {
 	apthermolmt_unregister_user(&ap_eara);
 	eara_thrm_frame_start_fp = NULL;
@@ -2821,10 +2822,9 @@ static void __exit eara_thrm_pb_exit(void)
 #endif
 	eara_thrm_sysfs_remove_file(&kobj_attr_info);
 	eara_thrm_sysfs_remove_file(&kobj_attr_fake_throttle);
-	eara_thrm_base_exit();
 }
 
-static int __init eara_thrm_pb_init(void)
+int __init eara_thrm_pb_init(void)
 {
 	render_list = RB_ROOT;
 
@@ -2848,9 +2848,6 @@ static int __init eara_thrm_pb_init(void)
 	pob_xpufreq_register_client(&eara_thrm_xpufreq_notifier);
 #endif
 
-	if (eara_thrm_base_init())
-		return 0;
-
 	eara_thrm_sysfs_create_file(&kobj_attr_enable);
 	eara_thrm_sysfs_create_file(&kobj_attr_debug_log);
 	eara_thrm_sysfs_create_file(&kobj_attr_ctable_power);
@@ -2867,10 +2864,3 @@ static int __init eara_thrm_pb_init(void)
 
 	return 0;
 }
-
-module_init(eara_thrm_pb_init);
-module_exit(eara_thrm_pb_exit);
-
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek EARA-QoS");
-MODULE_AUTHOR("MediaTek Inc.");
