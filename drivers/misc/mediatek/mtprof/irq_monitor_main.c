@@ -75,6 +75,7 @@ void irq_mon_msg(int out, char *buf, ...)
 
 struct irq_mon_tracer {
 	bool tracing;
+	char *name;
 	unsigned int th1_ms;          /* ftrace */
 	unsigned int th2_ms;          /* ftrace + kernel log */
 	unsigned int th3_ms;          /* aee */
@@ -84,6 +85,7 @@ struct irq_mon_tracer {
 
 static struct irq_mon_tracer irq_handler_tracer __read_mostly = {
 	.tracing = true,
+	.name = "irq_handler_tracer",
 	.th1_ms = 100,
 	.th2_ms = 500,
 	.th3_ms = 500,
@@ -92,6 +94,7 @@ static struct irq_mon_tracer irq_handler_tracer __read_mostly = {
 
 static struct irq_mon_tracer irq_off_tracer __read_mostly = {
 	.tracing = true,
+	.name = "irq_off_tracer",
 	.th1_ms = 9,
 	.th2_ms = 500,
 	.th3_ms = 500,
@@ -100,6 +103,7 @@ static struct irq_mon_tracer irq_off_tracer __read_mostly = {
 
 static struct irq_mon_tracer preempt_off_tracer __read_mostly = {
 	.tracing = true,
+	.name = "preempt_off_tracer",
 	.th1_ms = 60000,
 	.th2_ms = 180000,
 };
@@ -533,13 +537,129 @@ static int irq_mon_tracepoint_init(void)
 	return 0;
 }
 
+/* proc functions */
+
+static DEFINE_MUTEX(proc_lock);
+
+static int irq_mon_bool_show(struct seq_file *s, void *p)
+{
+	bool val;
+
+	mutex_lock(&proc_lock);
+	val = *(bool *)s->private;
+	mutex_unlock(&proc_lock);
+	seq_printf(s, "%s\n", (val) ? "1" : "0");
+	return 0;
+}
+
+static int irq_mon_bool_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, irq_mon_bool_show, PDE_DATA(inode));
+}
+
+static ssize_t irq_mon_bool_write(struct file *filp,
+		const char *ubuf, size_t count, loff_t *data)
+{
+	int ret;
+	bool val;
+	bool *ptr = (bool *)PDE_DATA(file_inode(filp));
+
+	ret = kstrtobool_from_user(ubuf, count, &val);
+	if (ret)
+		return ret;
+
+	mutex_lock(&proc_lock);
+	*ptr = val;
+	mutex_unlock(&proc_lock);
+
+	return count;
+}
+
+static const struct proc_ops irq_mon_bool_pops = {
+	.proc_open = irq_mon_bool_open,
+	.proc_write = irq_mon_bool_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+
+static int irq_mon_uint_show(struct seq_file *s, void *p)
+{
+	unsigned int val;
+
+	mutex_lock(&proc_lock);
+	val = *(unsigned int *)s->private;
+	mutex_unlock(&proc_lock);
+	seq_printf(s, "%u\n", val);
+	return 0;
+}
+
+static int irq_mon_uint_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, irq_mon_uint_show, PDE_DATA(inode));
+}
+
+static ssize_t irq_mon_uint_write(struct file *filp,
+		const char *ubuf, size_t count, loff_t *data)
+{
+	int ret;
+	unsigned int val;
+	unsigned int *ptr = (unsigned int *)PDE_DATA(file_inode(filp));
+
+	ret = kstrtouint_from_user(ubuf, count, 10, &val);
+	if (ret)
+		return ret;
+
+	mutex_lock(&proc_lock);
+	*ptr = val;
+	mutex_unlock(&proc_lock);
+
+	return count;
+}
+
+static const struct proc_ops irq_mon_uint_pops = {
+	.proc_open = irq_mon_uint_open,
+	.proc_write = irq_mon_uint_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+#define IRQ_MON_TRACER_PROC_ENTRY(name, mode, type, dir, tracer) \
+	proc_create_data(#name, mode, dir, &irq_mon_##type##_pops, (void *)tracer)
+
+static void irq_mon_tracer_proc_init(struct irq_mon_tracer *tracer,
+		struct proc_dir_entry *parent)
+{
+	struct proc_dir_entry *dir;
+
+	dir = proc_mkdir(tracer->name, parent);
+	if (!dir)
+		return;
+
+	IRQ_MON_TRACER_PROC_ENTRY(tracing, 0644, bool, dir, &tracer->tracing);
+	IRQ_MON_TRACER_PROC_ENTRY(th1_ms, 0644, uint, dir, &tracer->th1_ms);
+	IRQ_MON_TRACER_PROC_ENTRY(th2_ms, 0644, uint, dir, &tracer->th2_ms);
+	IRQ_MON_TRACER_PROC_ENTRY(th3_ms, 0644, uint, dir, &tracer->th3_ms);
+	IRQ_MON_TRACER_PROC_ENTRY(aee_limit, 0644, uint, dir, &tracer->aee_limit);
+	IRQ_MON_TRACER_PROC_ENTRY(aee_debounce_ms, 0644, uint, dir, &tracer->aee_debounce_ms);
+	return;
+}
+
 static void irq_mon_proc_init(void)
 {
 	struct proc_dir_entry *dir;
 
+	// root
 	dir = proc_mkdir("mtmon", NULL);
 	if (!dir)
 		return;
+	// irq_mon_tracers
+	irq_mon_tracer_proc_init(&irq_handler_tracer, dir);
+	irq_mon_tracer_proc_init(&irq_off_tracer, dir);
+	irq_mon_tracer_proc_init(&preempt_off_tracer, dir);
+
 	mt_irq_monitor_test_init(dir);
 }
 
