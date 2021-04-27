@@ -20,6 +20,9 @@
 #ifdef CONFIG_MACH_MT8183
 #include "helio-dvfsrc-opp-mt8183.h"
 #endif
+#ifdef CONFIG_MACH_MT6785
+#include "helio-dvfsrc-opp-mt6785.h"
+#endif
 #endif
 #endif
 
@@ -719,6 +722,20 @@ static const struct mtk_mmc_compatible mt7622_compat = {
 };
 
 static const struct mtk_mmc_compatible mt8183_compat = {
+	.clk_div_bits = 12,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = true,
+	.tune_resp_data_together = true,
+	.v3_plus = true,
+};
+
+static const struct mtk_mmc_compatible mt8185_compat = {
 	.clk_div_bits = 12,
 	.hs400_tune = false,
 	.pad_tune_reg = MSDC_PAD_TUNE0,

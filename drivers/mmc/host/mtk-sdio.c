@@ -48,6 +48,7 @@ static const struct of_device_id sdio_of_ids[] = {
 	{ .compatible = "mediatek,mt2712-mmc", .data = &mt2712_compat},
 	{ .compatible = "mediatek,mt7622-mmc", .data = &mt7622_compat},
 	{ .compatible = "mediatek,mt8183-sdio", .data = &mt8183_compat},
+	{ .compatible = "mediatek,mt8185-sdio", .data = &mt8185_compat},
 	{}
 };
 MODULE_DEVICE_TABLE(of, sdio_of_ids);
