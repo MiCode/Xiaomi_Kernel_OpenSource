@@ -370,6 +370,7 @@ struct tcpc_device *tcpc_dev_get_by_name(const char *name)
 			NULL, (const void *)name, tcpc_match_device_by_name);
 	return dev ? dev_get_drvdata(dev) : NULL;
 }
+EXPORT_SYMBOL(tcpc_dev_get_by_name);
 
 static void tcpc_device_release(struct device *dev)
 {
