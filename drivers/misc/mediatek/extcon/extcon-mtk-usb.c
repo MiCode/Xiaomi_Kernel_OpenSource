@@ -413,7 +413,7 @@ static const struct of_device_id mtk_usb_extcon_of_match[] = {
 	{ .compatible = "mediatek,extcon-usb", },
 	{ },
 };
-MODULE_DEVICE_TABLE(of, mtk_usb_extcon_dt_match);
+MODULE_DEVICE_TABLE(of, mtk_usb_extcon_of_match);
 
 static struct platform_driver mtk_usb_extcon_driver = {
 	.probe		= mtk_usb_extcon_probe,
