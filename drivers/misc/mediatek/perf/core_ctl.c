@@ -110,6 +110,7 @@ module_param_named(debug_enable, debug_enable, bool, 0600);
 
 static DEFINE_SPINLOCK(state_lock);
 static bool initialized;
+static unsigned int default_min_cpus[MAX_CLUSTERS] = {4, 2, 0};
 
 static unsigned int apply_limits(const struct cluster_data *cluster,
 		unsigned int need_cpus)
@@ -949,42 +950,6 @@ static struct kobj_type ktype_core_ctl = {
 static unsigned int thermal_btask_thresh = 512;
 static unsigned int btask_thresh = 230;
 
-static unsigned int sport_mode_enable;
-static int set_sport_mode_enable(const char *buf,
-		const struct kernel_param *kp)
-{
-	int ret = 0;
-	unsigned int val;
-
-	ret = kstrtouint(buf, 0, &val);
-
-	if (val == ENABLE) {
-		cluster_state[L_CLUSTER_ID].enable = false;
-		core_ctl_set_limit_cpus(1, 2, 3);
-		core_ctl_set_limit_cpus(2, 0, 1);
-		ret = param_set_uint(buf, kp);
-	} else if (val == DISABLE) {
-		core_ctl_set_limit_cpus(1, 3, 3);
-		core_ctl_set_limit_cpus(2, 1, 1);
-		ret = param_set_uint(buf, kp);
-	} else
-		ret = -EINVAL;
-
-	if (!ret)
-		core_ctl_debug("isolation_feats is change to %d successfully", sport_mode_enable);
-
-	return ret;
-}
-
-static struct kernel_param_ops sport_mode_enable_param_ops = {
-	.set = set_sport_mode_enable,
-	.get = param_get_uint,
-};
-
-param_check_uint(sport_mode_enable, &sport_mode_enable);
-module_param_cb(sport_mode_enable, &sport_mode_enable_param_ops, &sport_mode_enable, 0644);
-MODULE_PARM_DESC(sport_mode_enable, "enable isolation features if needed");
-
 /* ==================== algorithm of core control ======================== */
 
 #define BIG_TASK_AVG_THRESHOLD 25
@@ -1546,10 +1511,7 @@ static int cluster_init(struct hmp_domain *domain)
 	cluster->nr_up = 0;
 	cluster->nr_assist = 0;
 
-	if (cluster->cluster_id == 1)
-		cluster->min_cpus = 2;
-	else if (cluster->cluster_id == 2)
-		cluster->min_cpus = 0;
+	cluster->min_cpus = default_min_cpus[cluster->cluster_id];
 
 	if (cluster->cluster_id ==
 			(arch_get_nr_clusters() - 1))
