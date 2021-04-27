@@ -2,6 +2,7 @@
 /*
  * Copyright (C) 2021 MediaTek Inc.
  */
+#include <linux/sched/signal.h>
 #include "thermal_internal.h"
 #include "fpsgo_common.h"
 #include "fstb.h"
