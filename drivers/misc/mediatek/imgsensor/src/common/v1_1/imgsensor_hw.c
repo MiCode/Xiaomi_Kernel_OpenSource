@@ -26,6 +26,9 @@ char * const imgsensor_hw_pin_names[] = {
 	"pdn",
 	"rst",
 	"vcama",
+#ifdef CONFIG_REGULATOR_RT5133
+	"vcama1",
+#endif
 	"vcamd",
 	"vcamio",
 #ifdef MIPI_SWITCH
@@ -197,6 +200,7 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 	ppwr_info = ppwr_seq->pwr_info;
 
 	while (ppwr_info->pin != IMGSENSOR_HW_PIN_NONE &&
+	       ppwr_info->pin < IMGSENSOR_HW_PIN_MAX_NUM &&
 	       ppwr_info < ppwr_seq->pwr_info + IMGSENSOR_HW_POWER_INFO_MAX) {
 
 		if (pwr_status == IMGSENSOR_HW_POWER_STATUS_ON) {
