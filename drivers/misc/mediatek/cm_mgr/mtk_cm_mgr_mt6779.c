@@ -237,6 +237,16 @@ static void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
 	int ret = 0;
 	int dram_opp = 0;
 
+	if (cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1) {
+		if (cm_mgr_cpu_to_dram_opp !=
+				MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE) {
+			cm_mgr_cpu_to_dram_opp =
+				MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE;
+			ret = schedule_delayed_work(&cm_mgr_work, 1);
+		}
+		return;
+	}
+
 	if (!cm_mgr_work_ready)
 		return;
 
