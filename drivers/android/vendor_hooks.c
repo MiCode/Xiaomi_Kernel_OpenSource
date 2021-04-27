@@ -52,6 +52,7 @@
 #include <trace/hooks/signal.h>
 #include <trace/hooks/logbuf.h>
 #include <trace/hooks/vmscan.h>
+#include <trace/hooks/psi.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -243,3 +244,18 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_typec_tcpm_adj_current_limit);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_logbuf);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_tune_scan_type);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_tune_swappiness);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_psi_event);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_psi_group);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_cpuset_fork);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_cpus_allowed_comm);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sched_setaffinity_early);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_free_task);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_after_enqueue_task);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_after_dequeue_task);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_enqueue_entity);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_dequeue_entity);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_entity_tick);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_enqueue_task_fair);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_dequeue_task_fair);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_prepare_update_load_avg_se);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_finish_update_load_avg_se);
