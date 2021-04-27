@@ -7,6 +7,8 @@ obj-y += sspm_mbox.o sspm_ipi_mbox.o sspm_logger_impl.o sspm_timesync.o
 ccflags-$(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) += -I$(srctree)/drivers/misc/mediatek/sspm
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/submodule
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/$(CONFIG_MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM)
 ccflags-$(CONFIG_MTK_ENG_BUILD) += -DDEBUG
 endif
