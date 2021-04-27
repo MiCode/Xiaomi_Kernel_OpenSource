@@ -121,7 +121,6 @@ static unsigned long preisys_dump_offset[] = {
 	0x538, /* PERIBUS_DBG14 */
 	0x53C, /* PERIBUS_DBG15 */
 	0x580, /* PERIBUS_DBG16 */
-	0x584, /* PERIBUS_DBG17 */
 };
 
 int peri_dump(const struct plt_cfg_bus_latch *self, char *buf, int *wp)
@@ -149,7 +148,7 @@ int peri_dump(const struct plt_cfg_bus_latch *self, char *buf, int *wp)
 
 struct plt_cfg_bus_latch cfg_bus_latch = {
 	.supported = 1,
-	.num_perisys_mon = 16,
+	.num_perisys_mon = 15,
 	.num_infrasys_mon = 15,
 	.perisys_offsets = {
 		.bus_peri_r0 = 0x0500,
