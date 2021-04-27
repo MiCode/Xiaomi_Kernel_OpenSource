@@ -855,7 +855,6 @@ static ssize_t mddpwh_sysfs_callback(
 			md_stats->tx_errors, md_stats->rx_errors);
 		return show_cnt;
 	}
-#ifdef CONFIG_MTK_ENG_BUILD
 	if (cmd == MDDP_SYSFS_CMD_ENABLE_WRITE) {
 		if (sysfs_streq(buf, "1")) {
 			app->state_machines[MDDP_STATE_DEACTIVATED] =
@@ -873,7 +872,6 @@ static ssize_t mddpwh_sysfs_callback(
 	} else if (cmd == MDDP_SYSFS_CMD_ENABLE_READ)
 		return scnprintf(buf, PAGE_SIZE,
 					"wh_enable(%d)\n", mddpwh_state);
-#endif
 #ifdef MDDP_EM_SUPPORT
 	if (cmd == MDDP_SYSFS_EM_CMD_TEST_WRITE) {
 		md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +

@@ -126,8 +126,8 @@ mddp_dev_rsp_status_mapping_s[MDDP_CMCMD_RSP_CNT][2] =  {
 static uint32_t mddp_dev_major_s;
 static struct cdev mddp_cdev_s;
 struct class *mddp_dev_class_s;
-uint32_t mddp_debug_log_class_s;
-uint32_t mddp_debug_log_level_s;
+uint32_t mddp_debug_log_class_s = MDDP_LC_ALL;
+uint32_t mddp_debug_log_level_s = MDDP_LL_DEFAULT;
 static bool mddp_dstate_activated_s;
 
 //------------------------------------------------------------------------------
@@ -261,7 +261,6 @@ wh_statistic_show(struct device *dev, struct device_attribute *attr, char *buf)
 }
 static DEVICE_ATTR_RO(wh_statistic);
 
-#ifdef CONFIG_MTK_ENG_BUILD
 static ssize_t
 wh_enable_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -375,7 +374,6 @@ not_support_error:
 }
 static DEVICE_ATTR_RW(em_test);
 #endif /* MDDP_EM_SUPPORT */
-#endif /* CONFIG_MTK_ENG_BUILD */
 
 static struct attribute *mddp_attrs[] = {
 	&dev_attr_version.attr,
@@ -383,11 +381,9 @@ static struct attribute *mddp_attrs[] = {
 	&dev_attr_wh_statistic.attr,
 	&dev_attr_debug_log.attr,
 
-#ifdef CONFIG_MTK_ENG_BUILD
 	&dev_attr_wh_enable.attr,
 #ifdef MDDP_EM_SUPPORT
 	&dev_attr_em_test.attr,
-#endif
 #endif
 
 	NULL,
@@ -606,17 +602,6 @@ void mddp_dev_list_init(struct mddp_dev_rb_head_t *list)
 
 int32_t mddp_dev_init(void)
 {
-	/*
-	 * Debug log init.
-	 */
-#ifdef CONFIG_MTK_ENG_BUILD
-	mddp_debug_log_class_s = MDDP_LC_ALL;
-	mddp_debug_log_level_s = MDDP_LL_ENG_DEF;
-#else
-	mddp_debug_log_class_s = MDDP_LC_ALL;
-	mddp_debug_log_level_s = MDDP_LL_NON_ENG_DEF;
-#endif
-
 	atomic_set(&mddp_dev_open_ref_cnt_s, 0);
 
 	/*
