@@ -271,7 +271,15 @@ const struct ISR_TABLE IRQ_CB_TBL[ISP_IRQ_TYPE_AMOUNT] = {
  */
 static const struct of_device_id isp_of_ids[] = {
 	{
+#ifdef CONFIG_MACH_MT6781
+		/*
+		 * On mt6781, "mediatek,camsys" is used by CG node already.
+		 * Use "mediatek,camisp". instead.
+		 */
+		.compatible = "mediatek,camisp",
+#else
 		.compatible = "mediatek,camsys",
+#endif
 	},
 	{
 		.compatible = "mediatek,camsys_a",
@@ -2189,6 +2197,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 	if (ret)
 		LOG_NOTICE("cannot pre-en CAMSYS_CAM2MM_GALS_CGPDN clock\n");
 
+#ifndef DISABLE_CCU
 	ret = clk_prepare_enable(isp_clk.CAMSYS_TOP_MUX_CCU);
 	if (ret)
 		LOG_NOTICE("cannot pre-en CAMSYS_TOP_MUX_CCU clock\n");
@@ -2196,6 +2205,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 	ret = clk_prepare_enable(isp_clk.CAMSYS_CCU0_CGPDN);
 	if (ret)
 		LOG_NOTICE("cannot pre-en CAMSYS_CCU0_CGPDN clock\n");
+#endif
 
 	ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSYS);
 	if (ret)
@@ -6772,13 +6782,13 @@ static int ISP_probe(struct platform_device *pDev)
 		isp_clk.CAMSYS_CAM2MM_GALS_CGPDN =
 			devm_clk_get(&pDev->dev,
 				"CAMSYS_MAIN_CAM2MM_GALS_CGPDN");
-
+#ifndef DISABLE_CCU
 		isp_clk.CAMSYS_TOP_MUX_CCU =
 			devm_clk_get(&pDev->dev, "TOPCKGEN_TOP_MUX_CCU");
 
 		isp_clk.CAMSYS_CCU0_CGPDN =
 			devm_clk_get(&pDev->dev, "CAMSYS_CCU0_CGPDN");
-
+#endif
 		isp_clk.ISP_SCP_SYS_RAWA =
 			devm_clk_get(&pDev->dev, "ISP_SCP_SYS_RAWA");
 
@@ -6843,7 +6853,7 @@ static int ISP_probe(struct platform_device *pDev)
 				"cannot get CAMSYS_CAM2MM_GALS_CGPDN clock\n");
 			return PTR_ERR(isp_clk.CAMSYS_CAM2MM_GALS_CGPDN);
 		}
-
+#ifndef DISABLE_CCU
 		if (IS_ERR(isp_clk.CAMSYS_TOP_MUX_CCU)) {
 			LOG_NOTICE("cannot get CAMSYS_TOP_MUX_CCU clock\n");
 			return PTR_ERR(isp_clk.CAMSYS_TOP_MUX_CCU);
@@ -6852,6 +6862,7 @@ static int ISP_probe(struct platform_device *pDev)
 			LOG_NOTICE("cannot get CAMSYS_CCU0_CGPDN clock\n");
 			return PTR_ERR(isp_clk.CAMSYS_CCU0_CGPDN);
 		}
+#endif
 		if (IS_ERR(isp_clk.ISP_SCP_SYS_RAWA)) {
 			LOG_NOTICE("cannot get ISP_SCP_SYS_RAWA clock\n");
 			return PTR_ERR(isp_clk.ISP_SCP_SYS_RAWA);
