@@ -29,26 +29,6 @@
 #include "mtk_musb.h"
 #endif
 
-static void (*usb_hal_dpidle_request_fptr)(int);
-void usb_hal_dpidle_request(int mode)
-{
-	if (usb_hal_dpidle_request_fptr)
-		usb_hal_dpidle_request_fptr(mode);
-}
-void register_usb_hal_dpidle_request(void (*function)(int))
-{
-	usb_hal_dpidle_request_fptr = function;
-}
-static void (*usb_hal_disconnect_check_fptr)(void);
-void usb_hal_disconnect_check(void)
-{
-	if (usb_hal_disconnect_check_fptr)
-		usb_hal_disconnect_check_fptr();
-}
-void register_usb_hal_disconnect_check(void (*function)(void))
-{
-	usb_hal_disconnect_check_fptr = function;
-}
 int musb_fake_CDP;
 /* kernel_init_done should be set in
  * early-init stage through

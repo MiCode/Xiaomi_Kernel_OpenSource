@@ -20,6 +20,36 @@
 
 #include <mt-plat/mtk_boot_common.h>
 
+MODULE_LICENSE("GPL v2");
+
+static void (*usb_hal_dpidle_request_fptr)(int);
+void usb_hal_dpidle_request(int mode)
+{
+	if (usb_hal_dpidle_request_fptr)
+		usb_hal_dpidle_request_fptr(mode);
+}
+EXPORT_SYMBOL(usb_hal_dpidle_request);
+
+void register_usb_hal_dpidle_request(void (*function)(int))
+{
+	usb_hal_dpidle_request_fptr = function;
+}
+EXPORT_SYMBOL(register_usb_hal_dpidle_request);
+
+void (*usb_hal_disconnect_check_fptr)(void);
+void usb_hal_disconnect_check(void)
+{
+	if (usb_hal_disconnect_check_fptr)
+		usb_hal_disconnect_check_fptr();
+}
+EXPORT_SYMBOL(usb_hal_disconnect_check);
+
+void register_usb_hal_disconnect_check(void (*function)(void))
+{
+	usb_hal_disconnect_check_fptr = function;
+}
+EXPORT_SYMBOL(register_usb_hal_disconnect_check);
+
 #ifdef FPGA_PLATFORM
 #include <linux/i2c.h>
 #include "mtk-phy-a60810.h"

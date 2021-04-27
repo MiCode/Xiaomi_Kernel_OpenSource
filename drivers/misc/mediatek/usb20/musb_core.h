@@ -669,6 +669,7 @@ enum {
 };
 extern void usb_hal_dpidle_request(int mode);
 extern void register_usb_hal_dpidle_request(void (*function)(int));
+extern void usb_hal_disconnect_check(void);
 extern void register_usb_hal_disconnect_check(void (*function)(void));
 extern void wake_up_bat(void);
 extern void wait_tx_done(u8 epnum, unsigned int timeout_ns);
