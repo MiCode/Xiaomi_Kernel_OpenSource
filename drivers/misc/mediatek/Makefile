@@ -73,3 +73,4 @@ obj-$(CONFIG_MTK_DRAM_LOG_STORE) += log_store/
 obj-$(CONFIG_MTK_PRINTK) += mtprintk/
 obj-$(CONFIG_MTK_TASK_TURBO) += task_turbo/
 obj-$(CONFIG_MTK_SELINUX_AEE_WARNING) += selinux_warning/
+obj-$(CONFIG_INTERCONNECT_MTK_EXTENSION) += mtk-interconnect/

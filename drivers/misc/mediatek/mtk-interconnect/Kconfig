@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config INTERCONNECT_MTK_EXTENSION
+	tristate "Mediatek Network-on-Chip interconnect extension drivers"
+	depends on INTERCONNECT_MTK
+	help
+	  New framework for Mediatek's Network-on-Chip interconnect hardware.
