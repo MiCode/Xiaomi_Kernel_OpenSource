@@ -27,7 +27,6 @@ subdir-ccflags-y += $(CUSTOM_KERNEL_FLAGS)
 # for layer decouple 2.0
 ifeq ($(CONFIG_MTK_IMGSENSOR_PLATFORM_SUPPORT),y)
 obj-$(CONFIG_MTK_IMGSENSOR) += \
-                        $(MTK_PLATFORM_MT6853)/ \
                         $(MTK_PLATFORM_MT6893)/
 
 # for layer decouple 1.0
