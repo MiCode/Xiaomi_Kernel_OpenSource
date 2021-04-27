@@ -358,10 +358,8 @@ void kasan_report_invalid_free(void *object, unsigned long ip)
 	pr_err("\n");
 	print_memory_metadata(object);
 	end_report(&flags, (unsigned long)object);
-#ifdef CONFIG_MTK_KASAN_GENERIC
 	/* trigger KE to get the KAsan corruption message */
 	BUG();
-#endif
 }
 
 static void __kasan_report(unsigned long addr, size_t size, bool is_write,
@@ -408,10 +406,8 @@ static void __kasan_report(unsigned long addr, size_t size, bool is_write,
 	}
 
 	end_report(&flags, addr);
-#ifdef CONFIG_MTK_KASAN_GENERIC
 	/* trigger KE to get the KAsan corruption message */
 	BUG();
-#endif
 }
 
 bool kasan_report(unsigned long addr, size_t size, bool is_write,
