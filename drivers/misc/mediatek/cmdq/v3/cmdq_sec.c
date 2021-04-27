@@ -1852,6 +1852,7 @@ static s32 cmdq_sec_insert_handle_from_thread_array_by_cookie(
 	struct cmdq_task *task, struct cmdq_sec_thread *thread,
 	const s32 cookie, const bool reset_thread)
 {
+	s32 err = 0, max_task = 0;
 	if (!task || !thread) {
 		CMDQ_ERR(
 			"invalid param pTask:0x%p pThread:0x%p cookie:%d needReset:%d\n",
@@ -1896,6 +1897,15 @@ static s32 cmdq_sec_insert_handle_from_thread_array_by_cookie(
 		thread->task_cnt++;
 	}
 
+	max_task = cmdq_max_task_in_secure_thread[
+		thread->idx - CMDQ_MIN_SECURE_THREAD_ID];
+	if (thread->task_cnt > max_task) {
+		CMDQ_ERR("task_cnt:%u cannot more than %u task:%p thrd-idx:%u",
+			task->thread->task_cnt, max_task,
+			task, task->thread->idx);
+		err = -EMSGSIZE;
+	}
+
 	thread->task_list[cookie % cmdq_max_task_in_secure_thread[
 		thread->idx - CMDQ_MIN_SECURE_THREAD_ID]] = task;
 	task->handle->secData.waitCookie = cookie;
@@ -1923,6 +1933,7 @@ static void cmdq_sec_exec_task_async_impl(struct work_struct *work_item)
 	struct cmdq_sec_thread *thread = task->thread;
 	u32 cookie;
 	unsigned long flags;
+	s32 err = 0;
 
 	thread_id = thread->idx;
 	buf = list_first_entry(&handle->pkt->buf, struct cmdq_pkt_buffer,
@@ -1951,7 +1962,7 @@ static void cmdq_sec_exec_task_async_impl(struct work_struct *work_item)
 		if (thread->task_cnt <= 0) {
 			/* TODO: enable clock */
 			cookie = 1;
-			cmdq_sec_insert_handle_from_thread_array_by_cookie(
+			err = cmdq_sec_insert_handle_from_thread_array_by_cookie(
 				task, thread, cookie, true);
 
 			mod_timer(&thread->timeout,
@@ -1959,12 +1970,33 @@ static void cmdq_sec_exec_task_async_impl(struct work_struct *work_item)
 		} else {
 			/* append directly */
 			cookie = thread->next_cookie;
-			cmdq_sec_insert_handle_from_thread_array_by_cookie(
+			err = cmdq_sec_insert_handle_from_thread_array_by_cookie(
 				task, thread, cookie, false);
 		}
 
 		spin_unlock_irqrestore(&cmdq_sec_task_list_lock, flags);
+		if (err) {
+			cmdq_sec_task_callback(task->handle->pkt, err);
 
+			spin_lock_irqsave(&task->thread->chan->lock, flags);
+			if (!task->thread->task_cnt)
+				CMDQ_ERR("thread:%u task_cnt:%u cannot below zero",
+					task->thread->idx, task->thread->task_cnt);
+			else
+				task->thread->task_cnt -= 1;
+
+			task->thread->next_cookie = (task->thread->next_cookie - 1 +
+				CMDQ_MAX_COOKIE_VALUE) % CMDQ_MAX_COOKIE_VALUE;
+
+			CMDQ_ERR(
+				"gce: err:%d task:%p pkt:%p thread:%u task_cnt:%u wait_cookie:%u next_cookie:%u",
+				(unsigned long) err, task, task->handle->pkt,
+				task->thread->idx, task->thread->task_cnt,
+				task->thread->wait_cookie, task->thread->next_cookie);
+			spin_unlock_irqrestore(&task->thread->chan->lock, flags);
+
+			cmdq_sec_release_task(task);
+		}
 		handle->state = TASK_STATE_BUSY;
 		handle->trigger = sched_clock();
 
