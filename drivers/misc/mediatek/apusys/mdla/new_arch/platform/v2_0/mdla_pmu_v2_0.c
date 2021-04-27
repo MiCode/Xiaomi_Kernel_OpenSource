@@ -463,6 +463,7 @@ static int mdla_pmu_ioctl(struct file *filp,
 	struct mdla_pmu_info *pmu_info;
 	struct ioctl_perf perf_data;
 	u32 core_id;
+	int cnt_idx = 0;
 	int i;
 
 	if (copy_from_user(&perf_data, (void *) arg, sizeof(perf_data)))
@@ -502,7 +503,9 @@ static int mdla_pmu_ioctl(struct file *filp,
 					core_id, perf_data.handle);
 		break;
 	case IOCTL_PERF_GET_CNT:
-		perf_data.counter = pmu_info->data.l_counters[perf_data.handle];
+		cnt_idx = perf_data.handle;
+		if (cnt_idx < MDLA_PMU_COUNTERS && cnt_idx >= 0)
+			perf_data.counter = pmu_info->data.l_counters[cnt_idx];
 		break;
 	case IOCTL_PERF_GET_START:
 		perf_data.start = pmu_info->data.l_start_t;

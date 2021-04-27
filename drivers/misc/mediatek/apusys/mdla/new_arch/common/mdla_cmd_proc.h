@@ -12,7 +12,7 @@ struct apusys_cmd_hnd;
 typedef int (*run_sync_t)(struct mdla_run_cmd_sync *cmd_data,
 				struct mdla_dev *mdla_info,
 				struct apusys_cmd_hnd *apusys_hd,
-				int priority);
+				uint32_t priority);
 
 typedef int (*ut_run_sync_t)(void *run_cmd, void *wait_cmd,
 				struct mdla_dev *mdla_info);
