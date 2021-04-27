@@ -41,8 +41,11 @@
 
 #define FDVT_REG_RANGE           (0x1000)
 
+#ifdef CONFIG_MACH_MT6781
+#define FDVT_BASE_HW   0x1C001000
+#else
 #define FDVT_BASE_HW   0x1B001000
-
+#endif
 
 /*This macro is for setting irq status represnted
  * by a local variable,FDVTInfo.IrqInfo.status[FDVT_IRQ_TYPE_INT_FDVT_ST]

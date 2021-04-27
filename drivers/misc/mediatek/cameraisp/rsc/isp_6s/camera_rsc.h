@@ -41,7 +41,11 @@
 
 #define RSC_REG_RANGE           (0x1000)
 
-#define RSC_BASE_HW   0x1b003000
+#ifdef CONFIG_MACH_MT6781
+#define RSC_BASE_HW   0x1C003000
+#else
+#define RSC_BASE_HW   0x1B003000
+#endif
 
 /*This macro is for setting irq status represnted
  * by a local variable,RSCInfo.IrqInfo.Status[RSC_IRQ_TYPE_INT_RSC_ST]
