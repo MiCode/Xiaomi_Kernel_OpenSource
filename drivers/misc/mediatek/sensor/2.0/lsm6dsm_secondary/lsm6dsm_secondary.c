@@ -45,8 +45,13 @@ struct lsm6dsm_device {
 	uint32_t direction;
 };
 
-static unsigned char support_sensors[] = {
-	SENSOR_TYPE_GYRO_SECONDARY,
+static struct sensor_info support_sensors[] = {
+	{
+		.sensor_type = SENSOR_TYPE_ACCELEROMETER,
+		.gain = 1,
+		.name = {'a', 'c', 'c', 'e', 'l'},
+		.vendor = {'m', 't', 'k'},
+	}
 };
 
 static int lsm6dsm_enable(struct hf_device *hfdev, int sensor_type, int en)
@@ -197,15 +202,14 @@ static int lsm6dsm_probe(struct spi_device *spi_dev)
 	driver_dev->hf_dev.enable = lsm6dsm_enable;
 	driver_dev->hf_dev.batch = lsm6dsm_batch;
 	driver_dev->hf_dev.sample = lsm6dsm_sample;
-
-	err = hf_manager_create(&driver_dev->hf_dev);
+	hf_device_set_private_data(&driver_dev->hf_dev, spi_dev);
+	err = hf_device_register_manager_create(&driver_dev->hf_dev);
 	if (err < 0) {
 		pr_err("%s hf_manager_create fail\n", __func__);
 		err = -1;
 		goto create_manager_fail;
 	}
 	spi_set_drvdata(spi_dev, driver_dev);
-	hf_device_set_private_data(&driver_dev->hf_dev, spi_dev);
 	return 0;
 
 create_manager_fail:

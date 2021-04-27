@@ -104,6 +104,7 @@ static ssize_t control_store(struct kobject *kobj,
 {
 	int ret = 0;
 	struct hf_manager_cmd cmd;
+	struct hf_manager_batch *batch = NULL;
 
 	if (!test_app.client)
 		goto out;
@@ -140,8 +141,9 @@ static ssize_t control_store(struct kobject *kobj,
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.sensor_type = test_app.sensor_type;
 	cmd.action = test_app.val1;
-	cmd.delay = test_app.val2;
-	cmd.latency = 0;
+	batch = (struct hf_manager_batch *)cmd.data;
+	batch->delay = test_app.val2;
+	batch->latency = 0;
 	ret = hf_client_control_sensor(test_app.client, &cmd);
 	if (ret < 0) {
 		pr_err("hf_client_control_sensor %u fail\n",

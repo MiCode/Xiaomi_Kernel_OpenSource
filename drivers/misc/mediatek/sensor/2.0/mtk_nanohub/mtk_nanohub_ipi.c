@@ -66,7 +66,7 @@ static int ipi_txrx_bufs(struct ipi_transfer *t)
 	hw->tx_len = t->tx_len;
 	hw->rx_len = t->rx_len;
 
-	init_completion(&hw->done);
+	reinit_completion(&hw->done);
 	hw->context = &hw->done;
 	spin_unlock_irqrestore(&hw_transfer_lock, flags);
 	do {
@@ -245,6 +245,7 @@ out:
 
 int mtk_nanohub_ipi_init(void)
 {
+	init_completion(&hw_transfer.done);
 	INIT_WORK(&hw_master.work, ipi_work);
 	INIT_LIST_HEAD(&hw_master.head);
 	spin_lock_init(&hw_master.lock);
