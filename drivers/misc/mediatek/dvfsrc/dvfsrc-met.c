@@ -230,6 +230,11 @@ static const struct dvfsrc_met_data mt6877_data = {
 	.version = 0x6877,
 };
 
+static const struct dvfsrc_met_data mt6983_data = {
+	.met = &mt6983_met_config,
+	.version = 0x6983,
+};
+
 
 static const struct of_device_id dvfsrc_met_of_match[] = {
 #if IS_ENABLED(CONFIG_MTK_DVFSRC_MET_MT6873)
@@ -251,6 +256,9 @@ static const struct of_device_id dvfsrc_met_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6877-dvfsrc",
 		.data = &mt6877_data,
+	}, {
+		.compatible = "mediatek,mt6983-dvfsrc",
+		.data = &mt6983_data,
 	},
 #endif
 	{

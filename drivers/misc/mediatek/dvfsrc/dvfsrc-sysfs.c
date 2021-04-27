@@ -205,7 +205,11 @@ int dvfsrc_register_sysfs(struct device *dev)
 
 	ret = sysfs_create_link(&dev->parent->kobj, &dev->kobj,
 		"helio-dvfsrc");
+	if (ret)
+		return ret;
 
+	ret = sysfs_create_link(kernel_kobj, &dev->kobj,
+		"helio-dvfsrc");
 	return ret;
 }
 

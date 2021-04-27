@@ -38,6 +38,8 @@ enum dvfsrc_regs {
 	DVFSRC_95MD_SCEN_BW0,
 	DVFSRC_95MD_SCEN_BW0_T,
 	DVFSRC_RSRV_4,
+	DVFSRC_MD_DDR_FLOOR_REQUEST,
+	DVFSRC_QOS_DDR_REQUEST,
 };
 
 static const int mt6779_regs[] = {
@@ -81,6 +83,32 @@ static const int mt6873_regs[] = {
 	[DVFSRC_95MD_SCEN_BW0] = 0x524,
 	[DVFSRC_95MD_SCEN_BW0_T] = 0x534,
 	[DVFSRC_RSRV_4] = 0x610,
+};
+
+static const int mt6983_regs[] = {
+	[DVFSRC_BASIC_CONTROL] = 0x0,
+	[DVFSRC_SW_REQ1] = 0x10,
+	[DVFSRC_INT] = 0xC8,
+	[DVFSRC_INT_EN] = 0xCC,
+	[DVFSRC_SW_BW_0] = 0x1DC,
+	[DVFSRC_ISP_HRT] = 0x20C,
+	[DVFSRC_DEBUG_STA_0] = 0x29C,
+	[DVFSRC_VCORE_REQUEST] = 0x80,
+	[DVFSRC_CURRENT_LEVEL] = 0x5F0,
+	[DVFSRC_TARGET_LEVEL] = 0x5F0,
+	[DVFSRC_LAST] = 0x3AC,
+	[DVFSRC_RECORD_0] = 0x388,
+	[DVFSRC_DDR_REQUEST] = 0x2C8,
+	[DVSFRC_HRT_REQ_MD_URG] = 0x320,
+	[DVFSRC_HRT_REQ_MD_BW_0] = 0x324,
+	[DVFSRC_HRT_REQ_MD_BW_8] = 0x344,
+	[DVFSRC_MD_TURBO] = 0xE0,
+	[DVFSRC_95MD_SCEN_BW4] = 0x278,
+	[DVFSRC_95MD_SCEN_BW0] = 0x258,
+	[DVFSRC_95MD_SCEN_BW0_T] = 0x268,
+	[DVFSRC_RSRV_4] = 0x290,
+	[DVFSRC_MD_DDR_FLOOR_REQUEST] = 0x5E4,
+	[DVFSRC_QOS_DDR_REQUEST] = 0x5E8,
 };
 
 enum dvfsrc_spm_regs {
@@ -129,9 +157,9 @@ static const int mt6877_spm_regs[] = {
 	[POWERON_CONFIG_EN] = 0x0,
 	[SPM_PC_STA] = 0x0194,
 	[SPM_SW_FLAG] = 0x600,
-	[SPM_DVFS_LEVEL] = 0x038C,
+	[SPM_DVFS_LEVEL] = 0x0390,
 	[SPM_DVFS_STA] = 0x0388,
-	[SPM_DVS_DFS_LEVEL] = 0x0390,
+	[SPM_DVS_DFS_LEVEL] = 0x038C,
 	[SPM_DVFS_CMD0] = 0x0310,
 	[SPM_DVFS_CMD1] = 0x0314,
 	[SPM_DVFS_CMD2] = 0x0318,
@@ -189,17 +217,24 @@ static u32 dvfsrc_get_hifi_ddr_gear(struct mtk_dvfsrc *dvfsrc)
 
 static u32 dvfsrc_get_hifi_rising_ddr_gear(struct mtk_dvfsrc *dvfsrc)
 {
-	u32 val;
+	u32 val = 0;
 	u32 last;
 
-	if (dvfsrc->dvd->config->ip_verion == 0) {
-		/* DVFSRC_RECORD_0_6 */
+	switch (dvfsrc->dvd->config->ip_verion) {
+	case 0:
 		last = dvfsrc_read(dvfsrc, DVFSRC_LAST, 0);
 		val = dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, 0x18 + 0x1C * last);
 		val = (val >> 15) & 0x7;
-	} else {
+	break;
+	case 2:
 		val = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0);
 		val = (val >> 22) & 0x7;
+	break;
+	case 3:
+		val = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x20);
+		val = (val >> 4) & 0xF;
+	default:
+	break;
 	}
 
 	return val;
@@ -207,13 +242,12 @@ static u32 dvfsrc_get_hifi_rising_ddr_gear(struct mtk_dvfsrc *dvfsrc)
 
 static u32 dvfsrc_get_md_bw(struct mtk_dvfsrc *dvfsrc)
 {
+	u32 val = 0;
 	u32 is_urgent, md_scen;
-	u32 val;
 	u32 index, shift;
 
-	if (dvfsrc->dvd->config->ip_verion == 2)
-		val = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0xC) & 0x3FF;
-	else {
+	switch (dvfsrc->dvd->config->ip_verion) {
+	case 0:
 		val = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0);
 		is_urgent = (val >> 16) & 0x1;
 		md_scen = val & 0xFFFF;
@@ -239,6 +273,13 @@ static u32 dvfsrc_get_md_bw(struct mtk_dvfsrc *dvfsrc)
 			}
 			val = (val >> shift) & 0x3FF;
 		}
+	break;
+	case 2:
+	case 3:
+		val = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0xC) & 0x3FF;
+	break;
+	default:
+	break;
 	}
 
 	return val;
@@ -246,17 +287,27 @@ static u32 dvfsrc_get_md_bw(struct mtk_dvfsrc *dvfsrc)
 
 static u32 dvfsrc_get_md_rising_ddr_gear(struct mtk_dvfsrc *dvfsrc)
 {
-	u32 val;
+	u32 val = 0;
 	u32 last;
 
-	if (dvfsrc->dvd->config->ip_verion == 0) {
+	switch (dvfsrc->dvd->config->ip_verion) {
+	case 0:
 		/* DVFSRC_RECORD_0_6 */
 		last = dvfsrc_read(dvfsrc, DVFSRC_LAST, 0);
 		val = dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, 0x18 + 0x1C * last);
 		val = (val >> 9) & 0x7;
-	} else {
+	break;
+	case 2:
 		val = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0);
 		val = (val >> 29) & 0x7;
+	break;
+	case 3:
+
+		val = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0);
+		val = (val >> 20) & 0xF;
+	break;
+	default:
+	break;
 	}
 
 	return val;
@@ -264,20 +315,26 @@ static u32 dvfsrc_get_md_rising_ddr_gear(struct mtk_dvfsrc *dvfsrc)
 
 static u32 dvfsrc_get_hrt_bw_ddr_gear(struct mtk_dvfsrc *dvfsrc)
 {
-	u32 val;
-	u32 last = dvfsrc_read(dvfsrc, DVFSRC_LAST, 0);
+	u32 val = 0;
+	u32 last;
 
-	if (dvfsrc->dvd->config->ip_verion == 0) {
+	switch (dvfsrc->dvd->config->ip_verion) {
+	case 0:
 		/* DVFSRC_RECORD_0_6 */
+		last = dvfsrc_read(dvfsrc, DVFSRC_LAST, 0);
 		val = dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, 0x18 + 0x1C * last);
 		val = (val >> 2) & 0x7;
-	} else if (dvfsrc->dvd->config->ip_verion == 1) {
-		/* DVFSRC_RECORD_0_5 */
-		val = dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, 0x14 + 0x20 * last);
-		val = (val >> 21) & 0x7;
-	} else {
+	break;
+	case 2:
 		val = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x10);
 		val = (val >> 16) & 0x7;
+	break;
+	case 3:
+		val = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x24);
+		val = (val >> 16) & 0xF;
+	break;
+	default:
+	break;
 	}
 
 	return val;
@@ -290,30 +347,40 @@ static u32 dvfsrc_get_md_scen_ddr_gear(struct mtk_dvfsrc *dvfsrc)
 	u32 sta0;
 	u32 val = 0;
 
-	if (dvfsrc->dvd->config->ip_verion == 0)
-		return 0;
+	switch (dvfsrc->dvd->config->ip_verion) {
+	case 0:
+		val = 0;
+	break;
+	case 2:
+		is_turbo = (dvfsrc_read(dvfsrc, DVFSRC_MD_TURBO, 0x0) == 0) ? 1 : 0;
+		sta0 = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x0);
+		is_urgent = (sta0 >> 16) & 0x1;
+		md_scen = sta0 & 0xFFFF;
 
-	is_turbo = (dvfsrc_read(dvfsrc, DVFSRC_MD_TURBO, 0x0) == 0) ? 1 : 0;
-	sta0 = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x0);
-	is_urgent = (sta0 >> 16) & 0x1;
-	md_scen = sta0 & 0xFFFF;
+		if (is_urgent)
+			val = dvfsrc_read(dvfsrc, DVFSRC_95MD_SCEN_BW4, 0x0);
+		else {
+			index = md_scen / 8;
+			shift = (md_scen % 8) * 4;
+			if (md_scen > 31)
+				return 0;
 
-	if (is_urgent)
-		val = dvfsrc_read(dvfsrc, DVFSRC_95MD_SCEN_BW4, 0x0);
-	else {
-		index = md_scen / 8;
-		shift = (md_scen % 8) * 4;
-		if (md_scen > 31)
-			return 0;
+			if (is_turbo)
+				val = dvfsrc_read(dvfsrc, DVFSRC_95MD_SCEN_BW0_T
+						  , index * 4);
+			else
+				val = dvfsrc_read(dvfsrc, DVFSRC_95MD_SCEN_BW0
+						  , index * 4);
 
-		if (is_turbo)
-			val = dvfsrc_read(dvfsrc, DVFSRC_95MD_SCEN_BW0_T
-					  , index * 4);
-		else
-			val = dvfsrc_read(dvfsrc, DVFSRC_95MD_SCEN_BW0
-					  , index * 4);
-
-		val = (val >> shift) & 0x7;
+			val = (val >> shift) & 0x7;
+		}
+	break;
+	case 3:
+		val = dvfsrc_read(dvfsrc, DVFSRC_MD_DDR_FLOOR_REQUEST, 0x0);
+		val = val & 0xF;
+	break;
+	default:
+	break;
 	}
 
 	return val;
@@ -321,16 +388,27 @@ static u32 dvfsrc_get_md_scen_ddr_gear(struct mtk_dvfsrc *dvfsrc)
 
 static u32 dvfsrc_get_md_imp_ddr(struct mtk_dvfsrc *dvfsrc)
 {
-	u32 val;
+	u32 val = 0;
 
-	if (dvfsrc->dvd->config->ip_verion == 0)
-		return 0;
-
-	val = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x10);
-	val = (val >> 19) & 0x7;
+	switch (dvfsrc->dvd->config->ip_verion) {
+	case 0:
+		val = 0;
+	break;
+	case 2:
+		val = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x10);
+		val = (val >> 19) & 0x7;
+	break;
+	case 3:
+		val = dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0x24);
+		val = val & 0xF;
+	break;
+	default:
+	break;
+	}
 
 	return val;
 }
+
 
 static char *dvfsrc_dump_record(struct mtk_dvfsrc *dvfsrc,
 	char *p, u32 size)
@@ -412,6 +490,15 @@ static char *dvfsrc_dump_reg(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
 		dvfsrc_read(dvfsrc, DVFSRC_SW_REQ1, 0x14),
 		dvfsrc_read(dvfsrc, DVFSRC_SW_REQ1, 0x18),
 		dvfsrc_read(dvfsrc, DVFSRC_SW_REQ1, 0x1C));
+
+	if (dvfsrc->dvd->config->ip_verion > 2) {
+		p += snprintf(p, buff_end - p,
+			"%-12s: %d, %d, %d\n",
+			"SW_BW_7~9",
+			dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x20),
+			dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x24),
+			dvfsrc_read(dvfsrc, DVFSRC_SW_BW_0, 0x28));
+	}
 
 	p += snprintf(p, buff_end - p,
 		"%-12s: %d, %d, %d, %d, %d, %d, %d\n",
@@ -644,3 +731,15 @@ const struct dvfsrc_config mt6877_dvfsrc_config = {
 	.dump_vmode_info = dvfsrc_dump_mt6873_vmode_info,
 	.query_request = dvfsrc_query_request_status,
 };
+
+const struct dvfsrc_config mt6983_dvfsrc_config = {
+	.ip_verion = 3, /*mt6983 series*/
+	.regs = mt6983_regs,
+	.spm_regs = mt6877_spm_regs,
+	.dump_record = dvfsrc_dump_record,
+	.dump_reg = dvfsrc_dump_reg,
+	.dump_spm_info = dvfsrc_dump_mt6873_spm_info,
+	.dump_vmode_info = dvfsrc_dump_mt6873_vmode_info,
+	.query_request = dvfsrc_query_request_status,
+};
+

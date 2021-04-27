@@ -97,6 +97,6 @@ extern const struct dvfsrc_config mt6779_dvfsrc_config;
 extern const struct dvfsrc_config mt6873_dvfsrc_config;
 extern const struct dvfsrc_config mt6893_dvfsrc_config;
 extern const struct dvfsrc_config mt6877_dvfsrc_config;
-
+extern const struct dvfsrc_config mt6983_dvfsrc_config;
 #endif
 
