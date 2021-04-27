@@ -24,6 +24,8 @@
 
 #define USIP_EMP_IOC_MAGIC 'D'
 #define GET_USIP_EMI_SIZE _IOWR(USIP_EMP_IOC_MAGIC, 0xF0, unsigned long long)
+#define GET_USIP_ADSP_PHONE_CALL_ENH_CONFIG _IOWR(USIP_EMP_IOC_MAGIC, 0xF1, unsigned long long)
+#define SET_USIP_ADSP_PHONE_CALL_ENH_CONFIG _IOWR(USIP_EMP_IOC_MAGIC, 0xF2, unsigned long long)
 
 #define NUM_MPU_REGION 3
 
@@ -49,6 +51,8 @@ struct usip_info {
 	void *memory_area;
 	dma_addr_t memory_addr;
 	phys_addr_t addr_phy;
+
+	unsigned int adsp_phone_call_enh_config;
 };
 
 static struct usip_info usip;
@@ -76,6 +80,28 @@ static long usip_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 
+	case GET_USIP_ADSP_PHONE_CALL_ENH_CONFIG:
+		if (copy_to_user((void __user *)arg, &(usip.adsp_phone_call_enh_config),
+			sizeof(usip.adsp_phone_call_enh_config))) {
+			pr_info("%s(), Fail copy CALL_ENH_CONFIG to user Ptr: %x",
+				__func__,
+				usip.adsp_phone_call_enh_config);
+			ret = -1;
+		}
+		break;
+
+	case SET_USIP_ADSP_PHONE_CALL_ENH_CONFIG:
+		if (copy_from_user(&(usip.adsp_phone_call_enh_config), (void __user *)arg,
+			sizeof(usip.adsp_phone_call_enh_config))) {
+			pr_info("%s(), Fail copy CALL_ENH_CONFIG from user Ptr: %x",
+				__func__,
+				arg);
+			ret = -1;
+		}
+		pr_info("%s(): in SET_USIP_ADSP_PHONE_CALL_ENH_CONFIG: %d",
+			__func__,
+			usip.adsp_phone_call_enh_config);
+		break;
 	default:
 		pr_debug("%s(), default\n", __func__);
 		break;
@@ -194,6 +220,13 @@ static void usip_send_emi_info_to_dsp(void)
 	long long usip_emi_info[2]; //idx0 for addr, idx1 for size
 	phys_addr_t offset = 0;
 
+	if ((usip.adsp_phone_call_enh_config & 0x1) == 0) {
+		pr_info("%s(), adsp_phone_call_enh_config(%d) is close",
+			__func__,
+			usip.adsp_phone_call_enh_config);
+		return;
+	}
+
 	if (!usip.memory_ready) {
 		usip_get_addr();
 		if (!usip.memory_ready) {
@@ -291,6 +324,7 @@ static struct miscdevice usip_miscdevice = {
 };
 #endif
 
+
 static int __init usip_init(void)
 {
 	int ret;
@@ -312,6 +346,11 @@ static int __init usip_init(void)
 
 	/* init usip info */
 	usip.memory_addr = 0x11220000L;
+#ifdef CONFIG_MTK_AURISYS_PHONE_CALL_SUPPORT
+	usip.adsp_phone_call_enh_config = 1;
+#else
+	usip.adsp_phone_call_enh_config = 0;
+#endif
 
 
 #ifdef CONFIG_MTK_AURISYS_PHONE_CALL_SUPPORT
