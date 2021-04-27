@@ -696,7 +696,9 @@ static void mddp_f_out_nf_ipv6(
 
 
 		/* Tag this packet for MD tracking */
-		if (skb_headroom(skb) > sizeof(struct mddp_f_tag_packet_t)) {
+		if (skb_tailroom(skb) > (sizeof(struct mddp_f_tag_packet_t) +
+					sizeof(struct mddp_f_e_tag_common_t) +
+					sizeof(struct mddp_f_e_tag_mac_t))) {
 			MDDP_F_ROUTER_TUPLE_LOCK(&mddp_f_router_tuple_lock, flag);
 			found_router_tuple =
 				mddp_f_get_router_tuple_tcpudp_wo_lock(&t);
@@ -753,8 +755,8 @@ static void mddp_f_out_nf_ipv6(
 			}
 		} else {
 			MDDP_F_LOG(MDDP_LL_NOTICE,
-					"%s: Headroom of skb[%p] is not enough to add MDDP tag, headroom[%d].\n",
-					__func__, skb, skb_headroom(skb));
+					"%s: Teadroom of skb[%p] is not enough to add MDDP tag, tailroom[%d].\n",
+					__func__, skb, skb_tailroom(skb));
 		}
 		break;
 	case IPPROTO_UDP:
@@ -843,8 +845,10 @@ static void mddp_f_out_nf_ipv6(
 			/* Don't fastpath dhcp packet */
 
 			/* Tag this packet for MD tracking */
-			if (skb_headroom(skb)
-					> sizeof(struct mddp_f_tag_packet_t)) {
+			if (skb_tailroom(skb) >
+					(sizeof(struct mddp_f_tag_packet_t) +
+					sizeof(struct mddp_f_e_tag_common_t) +
+					sizeof(struct mddp_f_e_tag_mac_t))) {
 				MDDP_F_ROUTER_TUPLE_LOCK(&mddp_f_router_tuple_lock, flag);
 				found_router_tuple =
 					mddp_f_get_router_tuple_tcpudp_wo_lock(
@@ -916,9 +920,9 @@ static void mddp_f_out_nf_ipv6(
 				}
 			} else {
 				MDDP_F_LOG(MDDP_LL_NOTICE,
-						"%s: Headroom of skb[%p] is not enough to add MDDP tag, headroom[%d].\n",
+						"%s: Tailroom of skb[%p] is not enough to add MDDP tag, tailroom[%d].\n",
 						__func__,
-						skb, skb_headroom(skb));
+						skb, skb_tailroom(skb));
 			}
 		} else {
 			MDDP_F_LOG(MDDP_LL_DEBUG,
