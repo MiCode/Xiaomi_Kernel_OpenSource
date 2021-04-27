@@ -74,6 +74,11 @@ void mdee_set_ex_time_str(unsigned char md_id, unsigned int type, char *str)
 {
 	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
 
+	if (ctl == NULL) {
+		CCCI_ERROR_LOG(md_id, FSM,
+			"%s:fsm_get_entity_by_md_id fail\n", __func__);
+		return;
+	}
 	mdee_set_ex_start_str(&ctl->ee_ctl, type, str);
 }
 
@@ -308,7 +313,8 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 	__pm_stay_awake(ctl->wakelock);
 	/* 2. poll for critical users exit */
 	while (count < BOOT_TIMEOUT/EVENT_POLL_INTEVAL && !needforcestop) {
-		if (ccci_port_check_critical_user(ctl->md_id) == 0) {
+		if (ccci_port_check_critical_user(ctl->md_id) == 0 ||
+				ccci_port_critical_user_only_fsd(ctl->md_id)) {
 			user_exit = 1;
 			break;
 		}
