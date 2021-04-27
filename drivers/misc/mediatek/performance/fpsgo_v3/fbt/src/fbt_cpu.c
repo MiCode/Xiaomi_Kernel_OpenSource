@@ -5007,7 +5007,7 @@ static ssize_t limit_cfreq_store(struct kobject *kobj,
 	}
 
 	mutex_lock(&fbt_mlock);
-	if (limit_policy != FPSGO_LIMIT_CAPACITY || !limit_clus_ceil)
+	if (!limit_clus_ceil)
 		goto EXIT;
 
 	cluster = max_cap_cluster;
@@ -5019,6 +5019,7 @@ static ssize_t limit_cfreq_store(struct kobject *kobj,
 	if (val == 0) {
 		limit->cfreq = 0;
 		limit->copp = INVALID_NUM;
+		limit_policy = FPSGO_LIMIT_NONE;
 		goto EXIT;
 	}
 
@@ -5030,6 +5031,7 @@ static ssize_t limit_cfreq_store(struct kobject *kobj,
 	limit->cfreq = cpu_dvfs[cluster].power[opp];
 	limit->copp = opp;
 	limit_cap = check_limit_cap(0);
+	limit_policy = FPSGO_LIMIT_CAPACITY;
 
 EXIT:
 	mutex_unlock(&fbt_mlock);
