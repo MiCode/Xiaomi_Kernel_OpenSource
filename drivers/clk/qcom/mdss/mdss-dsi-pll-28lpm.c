@@ -17,7 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/delay.h>
-#include <dt-bindings/clock/mdss-28nm-pll-clk.h>
+#include <dt-bindings/clock/mdss-28nm-pll-clk-legacy.h>
 
 #include "mdss-pll.h"
 #include "mdss-dsi-pll.h"
@@ -388,13 +388,13 @@ static struct clk_regmap_div dsi1pll_pclk_src = {
 };
 
 static struct clk_hw *mdss_dsi_pllcc_28lpm[] = {
-	[VCO_CLK_0] = &dsi0pll_vco_clk.hw,
+	[VCOCLK_0] = &dsi0pll_vco_clk.hw,
 	[ANALOG_POSTDIV_0_CLK] = &dsi0pll_analog_postdiv.clkr.hw,
 	[INDIRECT_PATH_SRC_0_CLK] = &dsi0pll_indirect_path_src.hw,
 	[BYTECLK_SRC_MUX_0_CLK] = &dsi0pll_byteclk_src_mux.clkr.hw,
 	[BYTECLK_SRC_0_CLK] = &dsi0pll_byteclk_src.hw,
 	[PCLK_SRC_0_CLK] = &dsi0pll_pclk_src.clkr.hw,
-	[VCO_CLK_1] = &dsi1pll_vco_clk.hw,
+	[VCOCLK_1] = &dsi1pll_vco_clk.hw,
 	[ANALOG_POSTDIV_1_CLK] = &dsi1pll_analog_postdiv.clkr.hw,
 	[INDIRECT_PATH_SRC_1_CLK] = &dsi1pll_indirect_path_src.hw,
 	[BYTECLK_SRC_MUX_1_CLK] = &dsi1pll_byteclk_src_mux.clkr.hw,
@@ -486,7 +486,7 @@ int dsi_pll_clock_register_28lpm(struct platform_device *pdev,
 		dsi0pll_pclk_src.clkr.regmap = rmap;
 
 		dsi0pll_vco_clk.priv = pll_res;
-		for (i = VCO_CLK_0; i <= PCLK_SRC_0_CLK; i++) {
+		for (i = VCOCLK_0; i <= PCLK_SRC_0_CLK; i++) {
 			clk = devm_clk_register(&pdev->dev,
 						mdss_dsi_pllcc_28lpm[i]);
 			if (IS_ERR(clk)) {
@@ -531,7 +531,7 @@ int dsi_pll_clock_register_28lpm(struct platform_device *pdev,
 		dsi1pll_pclk_src.clkr.regmap = rmap;
 
 		dsi1pll_vco_clk.priv = pll_res;
-		for (i = VCO_CLK_1; i <= PCLK_SRC_1_CLK; i++) {
+		for (i = VCOCLK_1; i <= PCLK_SRC_1_CLK; i++) {
 			clk = devm_clk_register(&pdev->dev,
 						mdss_dsi_pllcc_28lpm[i]);
 			if (IS_ERR(clk)) {

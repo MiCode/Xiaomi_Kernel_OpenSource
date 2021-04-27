@@ -22,33 +22,21 @@
 #include <linux/gfp.h>
 #include <net/tcp.h>
 
-static u32 tcp_retransmit_stamp(const struct sock *sk)
-{
-	u32 start_ts = tcp_sk(sk)->retrans_stamp;
-
-	if (unlikely(!start_ts)) {
-		struct sk_buff *head = tcp_rtx_queue_head(sk);
-
-		if (!head)
-			return 0;
-		start_ts = tcp_skb_timestamp(head);
-	}
-	return start_ts;
-}
-
 static u32 tcp_clamp_rto_to_user_timeout(const struct sock *sk)
 {
 	struct inet_connection_sock *icsk = inet_csk(sk);
 	u32 elapsed, start_ts;
+	s32 remaining;
 
-	start_ts = tcp_retransmit_stamp(sk);
-	if (!icsk->icsk_user_timeout || !start_ts)
+	start_ts = tcp_sk(sk)->retrans_stamp;
+	if (!icsk->icsk_user_timeout)
 		return icsk->icsk_rto;
 	elapsed = tcp_time_stamp(tcp_sk(sk)) - start_ts;
-	if (elapsed >= icsk->icsk_user_timeout)
+	remaining = icsk->icsk_user_timeout - elapsed;
+	if (remaining <= 0)
 		return 1; /* user timeout has passed; fire ASAP */
-	else
-		return min_t(u32, icsk->icsk_rto, msecs_to_jiffies(icsk->icsk_user_timeout - elapsed));
+
+	return min_t(u32, icsk->icsk_rto, msecs_to_jiffies(remaining));
 }
 
 static void set_tcp_default(void)
@@ -204,7 +192,20 @@ static void tcp_mtu_probing(struct inet_connection_sock *icsk, struct sock *sk)
 	tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);
 }
 
+static unsigned int tcp_model_timeout(struct sock *sk,
+				      unsigned int boundary,
+				      unsigned int rto_base)
+{
+	unsigned int linear_backoff_thresh, timeout;
 
+	linear_backoff_thresh = ilog2(TCP_RTO_MAX / rto_base);
+	if (boundary <= linear_backoff_thresh)
+		timeout = ((2 << boundary) - 1) * rto_base;
+	else
+		timeout = ((2 << linear_backoff_thresh) - 1) * rto_base +
+			(boundary - linear_backoff_thresh) * TCP_RTO_MAX;
+	return jiffies_to_msecs(timeout);
+}
 /**
  *  retransmits_timed_out() - returns true if this connection has timed out
  *  @sk:       The current socket
@@ -222,27 +223,21 @@ static bool retransmits_timed_out(struct sock *sk,
 				  unsigned int boundary,
 				  unsigned int timeout)
 {
-	const unsigned int rto_base = TCP_RTO_MIN;
-	unsigned int linear_backoff_thresh, start_ts;
+	unsigned int start_ts;
 
 	if (!inet_csk(sk)->icsk_retransmits)
 		return false;
 
-	start_ts = tcp_retransmit_stamp(sk);
-	if (!start_ts)
-		return false;
-
+	start_ts = tcp_sk(sk)->retrans_stamp;
 	if (likely(timeout == 0)) {
-		linear_backoff_thresh = ilog2(TCP_RTO_MAX/rto_base);
+		unsigned int rto_base = TCP_RTO_MIN;
 
-		if (boundary <= linear_backoff_thresh)
-			timeout = ((2 << boundary) - 1) * rto_base;
-		else
-			timeout = ((2 << linear_backoff_thresh) - 1) * rto_base +
-				(boundary - linear_backoff_thresh) * TCP_RTO_MAX;
-		timeout = jiffies_to_msecs(timeout);
+		if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV))
+			rto_base = tcp_timeout_init(sk);
+		timeout = tcp_model_timeout(sk, boundary, rto_base);
 	}
-	return (tcp_time_stamp(tcp_sk(sk)) - start_ts) >= timeout;
+
+	return (s32)(tcp_time_stamp(tcp_sk(sk)) - start_ts - timeout) >= 0;
 }
 
 /* A write timeout has occurred. Process the after effects. */
@@ -541,14 +536,13 @@ void tcp_retransmit_timer(struct sock *sk)
 
 	tcp_enter_loss(sk);
 
+	icsk->icsk_retransmits++;
 	if (tcp_retransmit_skb(sk, tcp_rtx_queue_head(sk), 1) > 0) {
 		/* Retransmission failed because of local congestion,
-		 * do not backoff.
+		 * Let senders fight for local resources conservatively.
 		 */
-		if (!icsk->icsk_retransmits)
-			icsk->icsk_retransmits = 1;
 		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
-					  min(icsk->icsk_rto, TCP_RESOURCE_PROBE_INTERVAL),
+					  TCP_RESOURCE_PROBE_INTERVAL,
 					  TCP_RTO_MAX);
 		goto out;
 	}
@@ -569,7 +563,6 @@ void tcp_retransmit_timer(struct sock *sk)
 	 * the 120 second clamps though!
 	 */
 	icsk->icsk_backoff++;
-	icsk->icsk_retransmits++;
 
 out_reset_timer:
 	/* If stream is thin, use linear timeouts. Since 'icsk_backoff' is

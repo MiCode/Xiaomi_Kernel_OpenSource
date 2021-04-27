@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2015-2021, The Linux Foundation. All rights reserved. */
 
 #ifndef WLAN_FIRMWARE_SERVICE_V01_H
 #define WLAN_FIRMWARE_SERVICE_V01_H
@@ -115,6 +115,7 @@
 #define QMI_WLFW_MAX_NUM_SHADOW_REG_V01 24
 #define QMI_WLFW_MAC_ADDR_SIZE_V01 6
 #define QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01 36
+#define QMI_WLFW_MAX_DEV_MEM_NUM_V01 4
 #define QMI_WLFW_MAX_PLATFORM_NAME_LEN_V01 64
 #define QMI_WLFW_MAX_NUM_SVC_V01 24
 
@@ -348,6 +349,11 @@ struct wlfw_m3_segment_info_s_v01 {
 	char name[QMI_WLFW_MAX_STR_LEN_V01 + 1];
 };
 
+struct wlfw_dev_mem_info_s_v01 {
+	u64 start;
+	u64 size;
+};
+
 struct wlfw_ind_register_req_msg_v01 {
 	u8 fw_ready_enable_valid;
 	u8 fw_ready_enable;
@@ -506,9 +512,12 @@ struct wlfw_cap_resp_msg_v01 {
 	u64 fw_caps;
 	u8 rd_card_chain_cap_valid;
 	enum wlfw_rd_card_chain_cap_v01 rd_card_chain_cap;
+	u8 dev_mem_info_valid;
+	struct wlfw_dev_mem_info_s_v01
+		dev_mem_info[QMI_WLFW_MAX_DEV_MEM_NUM_V01];
 };
 
-#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 253
+#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 320
 extern struct qmi_elem_info wlfw_cap_resp_msg_v01_ei[];
 
 struct wlfw_bdf_download_req_msg_v01 {

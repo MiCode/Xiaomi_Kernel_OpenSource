@@ -66,6 +66,7 @@ int msm_iommu_sec_pgtbl_init(void)
 	/* Now allocate memory for the secure page tables */
 	attrs = DMA_ATTR_NO_KERNEL_MAPPING;
 	dev.coherent_dma_mask = DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
+	arch_setup_dma_ops(&dev, 0, 0, NULL, 0);
 	cpu_addr = dma_alloc_attrs(&dev, psize[0], &paddr, GFP_KERNEL, attrs);
 	if (!cpu_addr) {
 		pr_err("%s: Failed to allocate %d bytes for PTBL\n",

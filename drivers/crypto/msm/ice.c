@@ -2,7 +2,7 @@
 /*
  * QTI Inline Crypto Engine (ICE) driver
  *
- * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, 2021 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -59,6 +59,8 @@
 #define ICE_CRYPTO_CXT_FDE 1
 #define ICE_CRYPTO_CXT_FBE 2
 
+#define ICE_FDE_KEY_INDEX 31
+
 static int ice_fde_flag;
 
 struct ice_clk_info {
@@ -103,6 +105,11 @@ static int qti_ice_setting_config(struct request *req,
 			setting->encr_bypass = true;
 			setting->decr_bypass = true;
 		}
+		/* Qseecom now sets the FDE key to slot 31 by default, instead
+		 * of slot 0, so use the same slot here during read/write
+		 */
+		if (cxt == ICE_CRYPTO_CXT_FDE)
+			setting->crypto_data.key_index = ICE_FDE_KEY_INDEX;
 	}
 
 	return 0;

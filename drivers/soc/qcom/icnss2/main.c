@@ -566,7 +566,7 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 
 	ret = icnss_hw_power_on(priv);
 	if (ret)
-		goto clear_server;
+		goto fail;
 
 	ret = wlfw_ind_register_send_sync_msg(priv);
 	if (ret < 0) {
@@ -654,8 +654,6 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 
 err_power_on:
 	icnss_hw_power_off(priv);
-clear_server:
-	icnss_clear_server(priv);
 fail:
 	ICNSS_ASSERT(ignore_assert);
 qmi_registered:
