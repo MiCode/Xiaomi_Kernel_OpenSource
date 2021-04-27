@@ -9,6 +9,8 @@ else ifeq ($(CONFIG_MACH_MT6893),y)
 	PDIR = mt6893
 else ifeq ($(CONFIG_MACH_MT6877),y)
 	PDIR = mt6877
+else ifeq ($(CONFIG_MACH_MT6781),y)
+	PDIR = mt6781
 else
 	PDIR = $(MTK_PLATFORM)
 endif
@@ -33,7 +35,11 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/dfrc/
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT),y)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/v1
+ifeq ($(CONFIG_MACH_MT6781),y)
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/$(PDIR)
+else
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)
+endif
 ifeq ($(CONFIG_MACH_MT6877),y)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mcupm/$(MTK_PLATFORM)
 else
