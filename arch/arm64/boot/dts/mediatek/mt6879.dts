@@ -10,7 +10,7 @@
 / {
 	model = "MT6879";
 	compatible = "mediatek,MT6879";
-	interrupt-parent = <&sysirq>;
+	interrupt-parent = <&gic>;
 	#address-cells = <2>;
 	#size-cells = <2>;
 
@@ -19,7 +19,6 @@
 		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
 			vmalloc=400M slub_debug=OFZPU swiotlb=noforce \
 			firmware_class.path=/vendor/firmware \
-			memblock=debug \
 			page_owner=on";
 	};
 
@@ -46,17 +45,8 @@
 		interrupt-parent = <&gic>;
 		interrupt-controller;
 		reg = <0 0x0c000000 0 0x40000>, // distributor
-		      <0 0x0c040000 0 0x200000>, // redistributor
-		      <0 0x0c53d668 0 0x50>; //INTPOL
+		      <0 0x0c040000 0 0x200000>; // redistributor
 		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	sysirq: intpol-controller@0 {
-		compatible = "mediatek,mt6577-sysirq";
-		interrupt-controller;
-		#interrupt-cells = <3>;
-		interrupt-parent = <&gic>;
-		reg = <0 0x0c53d668 0 0x50>;
 	};
 
 	timer: timer {
@@ -97,6 +87,11 @@
 		dmas = <&apdma 2
 				&apdma 3>;
 		dma-names = "tx", "rx";
+	};
+
+	odm: odm {
+		compatible = "simple-bus";
+		/* reserved for overlay by odm */
 	};
 };
 
