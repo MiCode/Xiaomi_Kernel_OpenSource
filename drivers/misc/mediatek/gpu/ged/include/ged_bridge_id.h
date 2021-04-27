@@ -58,6 +58,7 @@ struct GED_BRIDGE_PACKAGE {
 #define GED_BRIDGE_COMMAND_GPU_HINT_TO_CPU        13
 #define GED_BRIDGE_COMMAND_HINT_FORCE_MDP         14
 #define GED_BRIDGE_COMMAND_QUERY_DVFS_FREQ_PRED   15
+#define GED_BRIDGE_COMMAND_QUERY_GPU_DVFS_INFO    16
 
 #define GED_BRIDGE_COMMAND_GE_ALLOC              100
 #define GED_BRIDGE_COMMAND_GE_GET                101
@@ -98,6 +99,8 @@ struct GED_BRIDGE_PACKAGE {
 	GED_IOWR(GED_BRIDGE_COMMAND_HINT_FORCE_MDP)
 #define GED_BRIDGE_IO_QUERY_DVFS_FREQ_PRED \
 	GED_IOWR(GED_BRIDGE_COMMAND_QUERY_DVFS_FREQ_PRED)
+#define GED_BRIDGE_IO_QUERY_GPU_DVFS_INFO \
+	GED_IOWR(GED_BRIDGE_COMMAND_QUERY_GPU_DVFS_INFO)
 #define GED_BRIDGE_IO_GE_ALLOC \
 	GED_IOWR(GED_BRIDGE_COMMAND_GE_ALLOC)
 #define GED_BRIDGE_IO_GE_GET \
@@ -355,6 +358,26 @@ struct GED_BRIDGE_OUT_QUERY_DVFS_FREQ_PRED {
 	int gpu_freq_cur;
 	int gpu_freq_max;
 	int gpu_freq_dvfs_pred;
+};
+
+/******************************************************************************
+ *  QEURY DVFS GPU_FREQ PREDICTION
+ ******************************************************************************/
+struct GED_BRIDGE_IN_QUERY_GPU_DVFS_INFO {
+	int32_t pid;
+	int32_t hint;
+};
+
+/*****************************************************************************
+ *  Hint DVFS related INFOs to MEOW
+ *****************************************************************************/
+struct GED_BRIDGE_OUT_QUERY_GPU_DVFS_INFO {
+	GED_ERROR eError;
+	int gpu_freq_cur;
+	int gpu_freq_max;
+	int gpu_freq_dvfs_pred;
+	int target_fps;
+	int gpu_time;
 };
 
 /*****************************************************************************
