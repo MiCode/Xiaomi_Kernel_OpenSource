@@ -332,6 +332,7 @@
 #define MT6885_DISP_DITHER0_MOUT_EN	0xF50
 	#define DISP_DITHER0_MOUT_EN_TO_DSI0_SEL	BIT(0)
 	#define DISP_DITHER0_MOUT_EN_TO_WDMA0_SEL	BIT(1)
+	#define DISP_DITHER0_MOUT_EN_TO_PQ0_SOUT	BIT(3)
 #define MT6885_DSI0_SEL_IN		0xF54
 	#define DSI0_SEL_IN_FROM_DISP_DITHER0_MOUT	0x1
 #define MT6885_DISP_WDMA0_SEL_IN	0xF58
@@ -5211,11 +5212,15 @@ void mtk_ddp_insert_dsc_prim_MT6885(struct mtk_drm_crtc *mtk_crtc,
 {
 	unsigned int addr, value;
 
-	/* DISP_DITHER0_MOUT -> DISP_PQ0_SOUT */
+	/* remove DISP_DITHER0_MOUT -> DSI0_SEL*/
 	addr = MT6885_DISP_DITHER0_MOUT_EN;
-	value = (1 << 3);
+	value = DISP_DITHER0_MOUT_EN_TO_DSI0_SEL;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-		       mtk_crtc->config_regs_pa + addr, value, ~0);
+		       mtk_crtc->config_regs_pa + addr, ~value, value);
+	/* DISP_DITHER0_MOUT -> DISP_PQ0_SOUT */
+	value = DISP_DITHER0_MOUT_EN_TO_PQ0_SOUT;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, value);
 
 	/* DISP_PQ0_SOUT -> DISP_RDMA4_PQ0_MERGE0_SEL_IN */
 	addr = MT6885_DISP_PQ0_SOUT_SEL;
@@ -5274,9 +5279,9 @@ void mtk_ddp_remove_dsc_prim_MT6885(struct mtk_drm_crtc *mtk_crtc,
 
 	/* DISP_DITHER0_MOUT -> DISP_PQ0_SOUT */
 	addr = MT6885_DISP_DITHER0_MOUT_EN;
-	value = 0;
+	value = DISP_DITHER0_MOUT_EN_TO_PQ0_SOUT;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-		       mtk_crtc->config_regs_pa + addr, value, ~0);
+		       mtk_crtc->config_regs_pa + addr, ~value, value);
 
 	/* DISP_PQ0_SOUT -> DISP_RDMA4_PQ0_MERGE0_SEL_IN */
 	addr = MT6885_DISP_PQ0_SOUT_SEL;
