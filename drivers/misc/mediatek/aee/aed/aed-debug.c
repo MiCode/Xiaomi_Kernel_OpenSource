@@ -145,6 +145,10 @@ static ssize_t proc_generate_wdt_write(struct file *file,
 		pr_notice("\n size = %zx\n", size);
 		return -EINVAL;
 	}
+	if (!buf) {
+		pr_notice("\n buf = NULL\n");
+		return -EINVAL;
+	}
 	if (copy_from_user(msg, buf, size)) {
 		pr_notice("copy_from_user error");
 		return -EFAULT;
@@ -369,6 +373,10 @@ static ssize_t proc_generate_oops_write(struct file *file,
 		pr_notice("%s: count = %zx\n", __func__, size);
 		return -EINVAL;
 	}
+	if (!buf) {
+		pr_notice("%s: buf = NULL\n", __func__);
+		return -EINVAL;
+	}
 	if (copy_from_user(msg, buf, size)) {
 		pr_notice("%s: error\n", __func__);
 		return -EFAULT;
@@ -441,6 +449,10 @@ static ssize_t proc_generate_nested_ke_write(struct file *file,
 
 	if ((size < 2) || (size > sizeof(msg))) {
 		pr_notice("%s: count = %zx\n", __func__, size);
+		return -EINVAL;
+	}
+	if (!buf) {
+		pr_notice("%s: buf = NULL\n", __func__);
 		return -EINVAL;
 	}
 	if (copy_from_user(msg, buf, size)) {
@@ -659,6 +671,10 @@ static ssize_t proc_generate_kernel_notify_write(struct file *file,
 	if ((size < 5) || (size >= sizeof(msg))) {
 		pr_notice("aed: %s size sould be >= 5 and <= %zx bytes.\n",
 				__func__, sizeof(msg));
+		return -EINVAL;
+	}
+	if (!buf) {
+		pr_notice("aed: %s buf = NULL\n", __func__);
 		return -EINVAL;
 	}
 
