@@ -434,8 +434,8 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 void mtk_vdec_dump_addr_reg(
 	struct mtk_vcodec_dev *dev, int hw_id, enum mtk_dec_dump_addr_type type)
 {
-	struct mtk_vcodec_ctx *ctx = dev->curr_dec_ctx[hw_id];
-	u32 fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+	struct mtk_vcodec_ctx *ctx;
+	u32 fourcc;
 	void __iomem *vld_addr = dev->dec_reg_base[VDEC_VLD];
 	void __iomem *mc_addr = dev->dec_reg_base[VDEC_MC];
 	void __iomem *mv_addr = dev->dec_reg_base[VDEC_MV];
@@ -468,6 +468,13 @@ void mtk_vdec_dump_addr_reg(
 	#define UBE_CORE_VLD_NUM 3
 	const unsigned int ube_core_vld_reg[UBE_CORE_VLD_NUM] = {
 		0xB0, 0xB4, 0xB8};
+
+	if (hw_id != MTK_VDEC_CORE && hw_id != MTK_VDEC_LAT) {
+		mtk_v4l2_err("hw_id %d not support !!", hw_id);
+		return;
+	}
+	ctx = dev->curr_dec_ctx[hw_id];
+	fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 
 	if (hw_id == MTK_VDEC_CORE && fourcc != V4L2_PIX_FMT_AV1)
 		is_ufo = (readl(ufo_addr + 0x08C) & 0x1) == 0x1;
