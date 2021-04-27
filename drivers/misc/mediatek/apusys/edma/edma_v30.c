@@ -34,6 +34,7 @@ void printV30_error_status(struct edma_sub *edma_sub,
 {
 	u32 status, i, j;
 	unsigned int *ext_reg = NULL;
+	u32 portID = edma_sub->dbg_portID;
 
 	status = edma_read_reg32(edma_sub->base_addr, APU_EDMA3_ERR_STATUS);
 	pr_notice("%s error status %x\n", edma_sub->sub_name,
@@ -45,7 +46,10 @@ void printV30_error_status(struct edma_sub *edma_sub,
 		i*4, status);
 	}
 
-	for (i = (0xC00/4); i < (0xD00/4); i++) {
+	pr_notice("---------------- dump port [%d] registers ----------------\n"
+		, portID);
+
+	for (i = ((0x800+portID*0x100)/4); i < ((0x900+portID*0x100)/4); i++) {
 		status = edma_read_reg32(edma_sub->base_addr, i*4);
 		pr_notice("edma error dump register[0x%x] = 0x%x\n",
 		i*4, status);
@@ -75,37 +79,23 @@ irqreturn_t edmaV30_isr_handler(int irq, void *edma_sub_info)
 	struct edma_sub *edma_sub = (struct edma_sub *)edma_sub_info;
 	u32 status;
 	u32 portID = edma_sub->dbg_portID;
-#if 0
-	status = edma_read_reg32(edma_sub->base_addr, APU_EDMA3_CMDQ_CH5_LO_F);
-	pr_notice("APU_EDMA3_CMDQ_CH5_LO_F status = %d -!!\n", status);
-	if (status) {
-		edma_write_reg32(edma_sub->base_addr, APU_EDMA3_CMDQ_CH5_LO_F, 0x1);
-		edma_sub->is_cmd_done = true;
-		wake_up_interruptible(&edma_sub->cmd_wait);
-	} else {
 
-		pr_notice("error!!!! status = 0, edma not finished!! ");
-		status = edma_read_reg32(edma_sub->base_addr, APU_EDMA3_DONE_STATUS);
-		pr_notice("APU_EDMA3_DONE_STATUS = 0x%x ", APU_EDMA3_DONE_STATUS);
 
-		status = edma_read_reg32(edma_sub->base_addr, APU_EDMA3_ERR_STATUS);
-		pr_notice("APU_EDMA3_ERR_STATUS = 0x%x ", APU_EDMA3_DONE_STATUS);
-	}
-#else
+	status = edma_read_reg32(edma_sub->base_addr, APU_EDMA3_DONE_STATUS);
+	//pr_notice("%s in, done status = 0x%x!!\r\n", __func__, status);
 
-	status = edma_read_reg32(edma_sub->base_addr, 0x01c);
-	pr_notice("%s in, status = 0x%x!!\r\n", __func__, status);
+	//status = edma_read_reg32(edma_sub->base_addr, 0x814+portID*0x100);
 
-	status = edma_read_reg32(edma_sub->base_addr, 0x814+portID*0x100);
+	//pr_notice("status portID[%d][0x%x]  = 0x%x!!\r\n", portID, 0x814+portID*0x100, status);
 
-	pr_notice("status portID[%d][0x%x]  = 0x%x!!\r\n", portID, 0x814+portID*0x100, status);
+	//status = edma_read_reg32(edma_sub->base_addr, APU_EDMA3_ERR_STATUS);
 
-	status = edma_read_reg32(edma_sub->base_addr, APU_EDMA3_ERR_STATUS);
-
-	pr_notice("APU_EDMA3_ERR_STATUS = 0x%x ", status);
+	//pr_notice("APU_EDMA3_ERR_STATUS = 0x%x ", status);
 
 	/* if ((*(uint32_t*)((uint8_t*)edma_sub->base_addr + 0x01c)) & 0x1) { */
-	if (edma_read_reg32(edma_sub->base_addr, 0x01c) & 0x1) {
+	/* check port 5 low channel ==> lo5 = 0x20 */
+	/*  {hi7, hi6, hi5, hi4, hi3, hi2, hi1, hi0, lo7, lo6, lo5, lo4, lo3, lo2, lo1, lo0} */
+	if (edma_read_reg32(edma_sub->base_addr, APU_EDMA3_DONE_STATUS) & (0x1 << portID)) {
 		edma_sub->is_cmd_done = true;
 		wake_up_interruptible(&edma_sub->cmd_wait);
 	} else if (edma_read_reg32(edma_sub->base_addr, APU_EDMA3_ERR_STATUS) != 0) {
@@ -115,16 +105,14 @@ irqreturn_t edmaV30_isr_handler(int irq, void *edma_sub_info)
 		edma_sub->is_cmd_done = true;
 		wake_up_interruptible(&edma_sub->cmd_wait);
 	} else {
-		pr_notice("0x1C not done & not error...");
+		pr_notice("EDMA3_DONE_STATUS not done & not error...");
 		edma_sub->is_cmd_done = true;
 		wake_up_interruptible(&edma_sub->cmd_wait);
 	}
 
-
 	/* *(uint32_t*)((uint8_t*)edma_sub->base_addr + 0x814) |= 0x1; */
 	edma_set_reg32(edma_sub->base_addr, 0x814+portID*0x100, 0x1);
 
-#endif
 	return IRQ_HANDLED;
 
 }
@@ -132,8 +120,8 @@ irqreturn_t edmaV30_isr_handler(int irq, void *edma_sub_info)
 void edmaV30_sw_reset(struct edma_sub *edma_sub)
 {
 	unsigned long flags;
-#if 1
-	pr_notice("%s: new init for edma 3.0\n", __func__);
+
+	//pr_notice("%s: new init for edma 3.0\n", __func__);
 	spin_lock_irqsave(&edma_sub->reg_lock, flags);
 
 	edma_set_reg32(edma_sub->base_addr, 0x004, (0x1 << 0));
@@ -142,8 +130,6 @@ void edmaV30_sw_reset(struct edma_sub *edma_sub)
 	udelay(5);
 	edma_clear_reg32(edma_sub->base_addr, 0x004, (0x1 << 4));
 	spin_unlock_irqrestore(&edma_sub->reg_lock, flags);
-
-#endif
 	//LOG_DBG("%s edma 3.0 skip sw reset\n", __func__);
 }
 
@@ -164,21 +150,6 @@ void edmaV30_trigger_external(struct edma_sub *edma_sub, u32 ext_addr, u32 num_d
 	pr_notice("%s:port id == %d\n", __func__, portID);
 
 	spin_lock_irqsave(&edma_sub->reg_lock, flags);
-#if 0
-	if (desp_iommu_en)
-		edma_set_reg32(base_addr, APU_EDMA3_CTRL, EXT_IOMMU_WRITE | EXT_IOMMU_READ);
-	else
-		edma_clear_reg32(base_addr, APU_EDMA3_CTRL, EXT_IOMMU_WRITE | EXT_IOMMU_READ);
-
-
-	//udelay(5); //?
-
-	edma_write_reg32(base_addr, APU_EDMA3_CMDQ_CH5_LO_B,
-		EXT_CMDQ_INT_ENABLE | num_desp);
-
-	edma_write_reg32(base_addr, APU_EDMA3_CMDQ_CH5_LO_A, ext_addr);
-	edma_write_reg32(base_addr, APU_EDMA3_CMDQ_CH5_LO_C, 0x1);
-#else
 
 	if (desp_iommu_en)
 		edma_set_reg32(edma_sub->base_addr, 0x004, ((0x2 << 30) | (0x2 << 28)));
@@ -194,7 +165,6 @@ void edmaV30_trigger_external(struct edma_sub *edma_sub, u32 ext_addr, u32 num_d
 	edma_write_reg32(edma_sub->base_addr, 0x808+portID*0x100, (0x1 << 0));
 	spin_unlock_irqrestore(&edma_sub->reg_lock, flags);
 
-#endif
 }
 
 

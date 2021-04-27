@@ -10,7 +10,7 @@
 #include <linux/io.h>
 
 
-#define EDMA30_REG_SHOW_RANGE			0x150
+#define EDMA30_REG_SHOW_RANGE			0x200
 
 /* APU_EDMA2_CFG_0 */
 #define EXT_IOMMU_READ				BIT(29)
