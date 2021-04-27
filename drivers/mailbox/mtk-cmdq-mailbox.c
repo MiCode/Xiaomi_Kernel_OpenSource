@@ -607,6 +607,7 @@ void cmdq_init_cmds(void *dev_cmdq)
 	struct cmdq *cmdq = dev_cmdq;
 	struct cmdq_thread *thread = &cmdq->thread[0];
 	dma_addr_t pc, end;
+	int i;
 
 	cmdq_trace_ex_begin("%s", __func__);
 
@@ -624,6 +625,15 @@ void cmdq_init_cmds(void *dev_cmdq)
 		cmdq_err("clear event instructions timeout pc:%#lx end:%#lx",
 			(unsigned long)pc,
 			(unsigned long)end);
+		for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++)
+			if (cmdq->thread->chan) {
+				cmdq_err("%s cmdq:%d thread:%d i:%d",
+					__func__, cmdq->hwid, thread->idx, i);
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+				cmdq_util_dump_dbg_reg(cmdq->thread->chan);
+#endif
+				break;
+			}
 		cmdq_thread_reset(cmdq, thread);
 	}
 	writel(CMDQ_THR_DISABLED, thread->base + CMDQ_THR_ENABLE_TASK);
