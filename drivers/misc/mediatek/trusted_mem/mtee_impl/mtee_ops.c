@@ -249,6 +249,9 @@ static int mtee_mem_reg_add(u64 pa, u32 size, void *peer_data, void *dev_desc)
 		return TMEM_MTEE_APPEND_MEMORY_FAILED;
 	}
 
+	pr_debug("[%d] MTEE append reg mem PASS: PA=0x%lx, size=0x%lx\n",
+		       mtee_dev_desc->kern_tmem_type, pa, size);
+
 	if (mtee_dev_desc->notify_remote && mtee_dev_desc->notify_remote_fn) {
 		ret = mtee_dev_desc->notify_remote_fn(
 			pa, size, mtee_dev_desc->tee_smem_type);

@@ -343,6 +343,9 @@ int tee_mem_reg_add(u64 pa, u32 size, void *tee_data, void *dev_desc)
 		}
 	}
 
+	pr_debug("[%d] TEE append reg mem PASS: PA=0x%lx, size=0x%lx\n",
+		       tee_dev_desc->mtee_chunks_id, pa, size);
+
 	return TMEM_OK;
 }
 
