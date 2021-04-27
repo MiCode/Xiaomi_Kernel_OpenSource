@@ -251,6 +251,7 @@ struct ddrphy_golden_cfg {
 enum {
 	SPMFW_LP4_2CH_3200 = 0,
 	SPMFW_LP4X_2CH_3600,
+	SPMFW_LP4X_2CH_3200,
 	SPMFW_LP3_1CH_1866,
 };
 
