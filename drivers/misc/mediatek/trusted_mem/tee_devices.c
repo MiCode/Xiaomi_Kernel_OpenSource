@@ -43,8 +43,6 @@ static struct trusted_mem_configs tee_smem_general_configs = {
 };
 
 static struct tmem_device_description tee_smem_devs[] = {
-/* If CONFIG_MTK_SVP_ON_MTEE_SUPPORT enabled, then SVP on MTEE */
-#ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 #if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)
 	{
 		.kern_tmem_type = TRUSTED_MEM_SVP_REGION,
@@ -63,9 +61,8 @@ static struct tmem_device_description tee_smem_devs[] = {
 		.notify_remote = false,
 		.notify_remote_fn = NULL,
 		.mem_cfg = &tee_smem_general_configs,
-		.dev_name = "SECMEM_SVP",
+		.dev_name = "TEE_SVP",
 	},
-#endif
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
@@ -88,7 +85,7 @@ static struct tmem_device_description tee_smem_devs[] = {
 		.notify_remote = false,
 		.notify_remote_fn = NULL,
 		.mem_cfg = &tee_smem_general_configs,
-		.dev_name = "SECMEM_2DFR",
+		.dev_name = "TEE_2DFR",
 	},
 #endif
 
@@ -110,7 +107,7 @@ static struct tmem_device_description tee_smem_devs[] = {
 		.notify_remote = false,
 		.notify_remote_fn = NULL,
 		.mem_cfg = &tee_smem_general_configs,
-		.dev_name = "SECMEM_WFD",
+		.dev_name = "TEE_WFD",
 	},
 #endif
 
@@ -139,7 +136,7 @@ static struct tmem_device_description tee_smem_devs[] = {
 		.notify_remote_fn = NULL,
 #endif
 		.mem_cfg = &tee_smem_general_configs,
-		.dev_name = "SECMEM_SDSP",
+		.dev_name = "TEE_SDSP",
 	},
 #endif
 };
@@ -154,6 +151,10 @@ create_tee_smem_device(enum TRUSTED_MEM_TYPE mem_type,
 {
 	int ret = TMEM_OK;
 	struct trusted_mem_device *t_device;
+
+	/* skip svp on MTEE */
+	if (mem_type == TRUSTED_MEM_SVP_REGION && is_svp_on_mtee())
+		return NULL;
 
 	t_device = create_trusted_mem_device(mem_type, cfg);
 	if (INVALID(t_device)) {
@@ -197,10 +198,9 @@ int tee_smem_devs_init(void)
 			tee_smem_devs[idx].ssmr_feature_id,
 			tee_smem_devs[idx].dev_name);
 		if (INVALID(t_device)) {
-			pr_err("create tee smem device failed: %d:%s\n",
+			pr_info("don't create TEE tmem device: %d:%s\n",
 			       tee_smem_devs[idx].kern_tmem_type,
 			       tee_smem_devs[idx].dev_name);
-			return TMEM_CREATE_DEVICE_FAILED;
 		}
 	}
 

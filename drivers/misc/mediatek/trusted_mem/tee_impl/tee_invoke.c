@@ -85,8 +85,7 @@ int tee_directly_invoke_cmd(struct trusted_driver_cmd_params *invoke_params)
 }
 
 #if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
-	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT) && \
-	IS_ENABLED(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 int secmem_fr_set_svp_region(u64 pa, u32 size, int remote_region_type)
 {
 	struct trusted_driver_cmd_params cmd_params = {0};

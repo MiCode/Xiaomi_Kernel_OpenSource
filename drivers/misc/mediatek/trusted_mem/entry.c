@@ -293,6 +293,12 @@ int tmem_core_alloc_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 			  u32 size, u32 *refcount, u32 *sec_handle, u8 *owner,
 			  u32 id, u32 clean)
 {
+	if((mem_type == TRUSTED_MEM_SVP_REGION ||
+		mem_type == TRUSTED_MEM_SVP_REGION ||
+		mem_type == TRUSTED_MEM_WFD) &&
+		!is_svp_enabled())
+		return TMEM_OPERATION_NOT_REGISTERED;
+
 	if (is_page_based_memory(mem_type)) {
 		pr_info("[%d] %s: page-base: size = 0x%x\n", mem_type, __func__, size);
 		return tmem_core_page_based_alloc(mem_type, size, sec_handle);
@@ -492,9 +498,8 @@ bool tmem_core_get_region_info(enum TRUSTED_MEM_TYPE mem_type, u64 *pa,
 bool is_mtee_mchunks(enum TRUSTED_MEM_TYPE mem_type)
 {
 	switch (mem_type) {
-#if IS_ENABLED(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
 	case TRUSTED_MEM_SVP_REGION:
-#endif
+		return is_svp_on_mtee();
 	case TRUSTED_MEM_PROT:
 	case TRUSTED_MEM_HAPP:
 	case TRUSTED_MEM_HAPP_EXTRA:

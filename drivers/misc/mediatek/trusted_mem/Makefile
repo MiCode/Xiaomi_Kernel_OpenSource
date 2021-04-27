@@ -69,7 +69,7 @@ endif
 #==========================================================================
 ifneq ($(filter y m,$(CONFIG_MTK_PROT_MEM_SUPPORT)\
 					$(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)\
-					$(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)),)
+					$(CONFIG_MTK_SECURE_MEM_SUPPORT)),)
 trusted_mem-y += mtee_devices.o
 ccflags-y += -DMTEE_DEVICES_SUPPORT
 endif

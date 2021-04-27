@@ -33,6 +33,9 @@
 #include "ssmr_internal.h"
 
 #define SSMR_FEATURES_DT_UNAME "memory-ssmr-features"
+#define SVP_FEATURES_DT_UNAME "SecureVideoPath"
+#define SVP_ON_MTEE_DT_UNAME "MTEE"
+#define SVP_STATIC_RESERVED_DT_UNAME "mediatek,reserve-memory-svp"
 
 static u64 ssmr_upper_limit = UPPER_LIMIT64;
 
@@ -54,11 +57,9 @@ static void set_svp_reserve_memory(void)
 	feature = &_ssmr_feats[SSMR_FEAT_SVP_REGION];
 
 	/* Get reserved memory */
-	rmem_node = of_find_compatible_node(NULL, NULL, "mediatek,reserve-memory-svp");
-	if (!rmem_node) {
-		pr_info("no memory-svp node for reserved memory\n");
+	rmem_node = of_find_compatible_node(NULL, NULL, SVP_STATIC_RESERVED_DT_UNAME);
+	if (!rmem_node)
 		return;
-	}
 
 	rmem = of_reserved_mem_lookup(rmem_node);
 	if (!rmem) {
@@ -117,7 +118,6 @@ static void setup_feature_size(void)
 	struct device_node *dt_node;
 
 	dt_node = of_find_node_by_name(NULL, SSMR_FEATURES_DT_UNAME);
-
 	if (!dt_node)
 		pr_info("%s, failed to find the ssmr device tree\n", __func__);
 
@@ -368,7 +368,6 @@ int ssmr_offline(phys_addr_t *pa, unsigned long *size, bool is_64bit,
 	return _ssmr_offline_internal(
 		pa, size, is_64bit ? UPPER_LIMIT64 : UPPER_LIMIT32, feat);
 }
-EXPORT_SYMBOL(ssmr_offline);
 
 static int memory_region_online(struct SSMR_Feature *feature)
 {
@@ -430,14 +429,34 @@ int ssmr_online(unsigned int feat)
 
 	return _ssmr_online_internal(feat);
 }
-EXPORT_SYMBOL(ssmr_online);
 
 bool is_page_based_memory(enum TRUSTED_MEM_TYPE mem_type)
 {
 	return _ssmr_feats[mem_type].is_page_based &&
 		   (_ssmr_feats[mem_type].req_size > 0);
 }
-EXPORT_SYMBOL(is_page_based_memory);
+
+bool is_svp_on_mtee(void)
+{
+	struct device_node *dt_node;
+
+	dt_node = of_find_node_by_name(NULL, SVP_ON_MTEE_DT_UNAME);
+	if (!dt_node)
+		return false;
+
+	return true;
+}
+
+bool is_svp_enabled(void)
+{
+	struct device_node *dt_node;
+
+	dt_node = of_find_node_by_name(NULL, SVP_FEATURES_DT_UNAME);
+	if (!dt_node)
+		return false;
+
+	return true;
+}
 
 #if IS_ENABLED(CONFIG_SYSFS)
 static ssize_t ssmr_show(struct kobject *kobj, struct kobj_attribute *attr,

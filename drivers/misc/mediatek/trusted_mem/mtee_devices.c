@@ -43,8 +43,7 @@ static struct trusted_mem_configs mchunk_general_configs = {
 };
 
 static struct tmem_device_description mtee_mchunks[] = {
-#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT) && \
-	IS_ENABLED(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)
 	{
 		.kern_tmem_type = TRUSTED_MEM_SVP_REGION,
 		.tee_smem_type = TEE_SMEM_SVP,
@@ -79,7 +78,7 @@ static struct tmem_device_description mtee_mchunks[] = {
 		.notify_remote_fn = NULL,
 #endif
 		.mem_cfg = &mchunk_general_configs,
-		.dev_name = "PMEM",
+		.dev_name = "MTEE_ProtSharedMem",
 	},
 #endif
 
@@ -118,7 +117,7 @@ static struct tmem_device_description mtee_mchunks[] = {
 		.notify_remote = true,
 		.notify_remote_fn = secmem_set_mchunks_region,
 		.mem_cfg = &mchunk_general_configs,
-		.dev_name = "SDSP",
+		.dev_name = "MTEE_SDSP",
 	},
 #endif
 
@@ -140,7 +139,7 @@ static struct tmem_device_description mtee_mchunks[] = {
 		.notify_remote = true,
 		.notify_remote_fn = secmem_set_mchunks_region,
 		.mem_cfg = &mchunk_general_configs,
-		.dev_name = "SDSP_SHARED",
+		.dev_name = "MTEE_SDSP_SHARED",
 	},
 #endif
 };
@@ -155,6 +154,10 @@ create_mtee_mchunk_device(enum TRUSTED_MEM_TYPE mem_type,
 {
 	int ret = TMEM_OK;
 	struct trusted_mem_device *t_device;
+
+	/* skip svp on TEE */
+	if (mem_type == TRUSTED_MEM_SVP_REGION && !is_svp_on_mtee())
+		return NULL;
 
 	t_device = create_trusted_mem_device(mem_type, cfg);
 	if (INVALID(t_device)) {
@@ -194,10 +197,9 @@ int mtee_mchunks_init(void)
 			mtee_mchunks[idx].ssmr_feature_id,
 			mtee_mchunks[idx].dev_name);
 		if (INVALID(t_device)) {
-			pr_err("create mchunk device failed: %d:%s\n",
+			pr_info("don't create MTEE tmem device: %d:%s\n",
 			       mtee_mchunks[idx].kern_tmem_type,
 			       mtee_mchunks[idx].dev_name);
-			return TMEM_CREATE_DEVICE_FAILED;
 		}
 	}
 

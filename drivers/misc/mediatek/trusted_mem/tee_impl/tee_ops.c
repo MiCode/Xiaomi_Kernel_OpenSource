@@ -428,6 +428,6 @@ static struct trusted_driver_operations tee_gp_peer_ops = {
 
 void get_tee_peer_ops(struct trusted_driver_operations **ops)
 {
-	pr_info("SECMEM_TEE_GP_OPS\n");
+	pr_info("TEE_OPS set\n");
 	*ops = &tee_gp_peer_ops;
 }

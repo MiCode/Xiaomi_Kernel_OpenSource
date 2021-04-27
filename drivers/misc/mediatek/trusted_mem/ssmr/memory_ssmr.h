@@ -34,5 +34,7 @@ int ssmr_query_heap_info(int heap_index, char *heap_name);
 int ssmr_init(struct platform_device *pdev);
 
 bool is_page_based_memory(enum TRUSTED_MEM_TYPE mem_type);
+bool is_svp_on_mtee(void);
+bool is_svp_enabled(void);
 
 #endif
