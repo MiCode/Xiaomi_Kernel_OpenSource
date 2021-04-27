@@ -4,11 +4,13 @@
  */
 
 #include <linux/io.h>
-#ifdef CONFIG_OF_RESERVED_MEM
+#if IS_ENABLED(CONFIG_OF_RESERVED_MEM)
 #include <linux/of.h>
 #include <linux/of_reserved_mem.h>
 #endif
+#if IS_ENABLED(CONFIG_MEDIATEK_EMI)
 #include <soc/mediatek/emi.h>
+#endif
 #include "adsp_reserved_mem.h"
 #include "adsp_feature_define.h"
 #include "adsp_platform.h"
@@ -40,7 +42,7 @@ static struct adsp_reserve_mblock adsp_reserve_mblocks[] = {
 		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-core-dump-a"),
 	[ADSP_B_CORE_DUMP_MEM_ID]
 		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-core-dump-b"),
-#ifndef CONFIG_FPGA_EARLY_PORTING
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	[ADSP_AUDIO_COMMON_MEM_ID]
 		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-audio"),
 #endif
@@ -89,7 +91,7 @@ EXPORT_SYMBOL(adsp_get_reserve_mem_size);
 
 void adsp_set_emimpu_shared_region(void)
 {
-#if ADSP_EMI_PROTECTION_ENABLE
+#if IS_ENABLED(CONFIG_MEDIATEK_EMI)
 	struct emimpu_region_t adsp_region;
 	struct adsp_reserve_mblock *mem = &adsp_reserve_mem;
 	int ret = 0;
@@ -108,6 +110,8 @@ void adsp_set_emimpu_shared_region(void)
 	if (ret < 0)
 		pr_info("%s fail to set emimpu protection\n", __func__);
 	mtk_emimpu_free_region(&adsp_region);
+#else
+	pr_info("%s(), emi config not enable\n", __func__);
 #endif
 }
 
@@ -133,7 +137,6 @@ void adsp_init_reserve_memory(void)
 	struct adsp_reserve_mblock *mem = &adsp_reserve_mem;
 	size_t acc_size = 0;
 
-#if defined(MODULE)
 	struct device_node *node;
 	struct reserved_mem *rmem;
 
@@ -152,7 +155,6 @@ void adsp_init_reserve_memory(void)
 
 	mem->phys_addr = rmem->base;
 	mem->size = rmem->size;
-#endif
 	if (!mem->phys_addr || !mem->size) {
 		pr_info("%s() reserve memory illegal addr:%llx, size:%zx\n",
 			__func__, mem->phys_addr, mem->size);
@@ -202,7 +204,7 @@ ssize_t adsp_reserve_memory_dump(char *buffer, int size)
 	return n;
 }
 
-#if defined(CONFIG_OF_RESERVED_MEM) && !defined(MODULE)
+#if IS_ENABLED(CONFIG_OF_RESERVED_MEM)
 static int __init adsp_reserve_mem_of_init(struct reserved_mem *rmem)
 {
 	adsp_reserve_mem.phys_addr = (phys_addr_t) rmem->base;

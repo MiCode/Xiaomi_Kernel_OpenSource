@@ -43,7 +43,7 @@
 #include <mt_emi_api.h>
 #endif
 
-#ifdef CONFIG_ARM64
+#if IS_ENABLED(CONFIG_ARM64)
 #define IOMEM(a)                     ((void __force __iomem *)((a)))
 #endif
 

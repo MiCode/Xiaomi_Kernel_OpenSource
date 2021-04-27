@@ -107,7 +107,7 @@ int adsp_core0_init(struct adsp_priv *pdata)
 {
 	int ret = 0;
 
-#ifdef CONFIG_DEBUG_FS
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	pdata->debugfs = debugfs_create_file("audiodsp0", S_IFREG | 0644, NULL,
 					     pdata, &adsp_debug_ops);
 #endif
@@ -157,7 +157,7 @@ int adsp_core1_init(struct adsp_priv *pdata)
 {
 	int ret = 0;
 
-#ifdef CONFIG_DEBUG_FS
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	pdata->debugfs = debugfs_create_file("audiodsp1", S_IFREG | 0644, NULL,
 					     pdata, &adsp_debug_ops);
 #endif
@@ -497,7 +497,7 @@ struct notifier_block adsp_uevent_notifier = {
 	.priority = AUDIO_HAL_FEATURE_PRI,
 };
 
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 static int adsp_pm_event(struct notifier_block *notifier
 			, unsigned long pm_event, void *unused)
 {
@@ -578,7 +578,7 @@ static int adsp_common_drv_probe(struct platform_device *pdev)
 	if (!pm_runtime_enabled(&pdev->dev))
 		pr_warn("%s(), pm_runtime_enable fail, %d\n", __func__, ret);
 
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 	ret = register_pm_notifier(&adsp_pm_notifier_block);
 	if (ret)
 		pr_warn("[ADSP] failed to register PM notifier %d\n", ret);
@@ -744,10 +744,10 @@ static struct platform_driver adsp_common_driver = {
 	.driver = {
 		.name = "adsp_common",
 		.owner = THIS_MODULE,
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 		.of_match_table = adsp_common_of_ids,
 #endif
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 		.pm = &adsp_ap_pm_ops,
 #endif
 	},
@@ -759,7 +759,7 @@ static struct platform_driver adsp_core0_driver = {
 	.driver = {
 		.name = "adsp_core0",
 		.owner = THIS_MODULE,
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 		.of_match_table = adsp_of_ids,
 #endif
 	},
@@ -771,7 +771,7 @@ static struct platform_driver adsp_core1_driver = {
 	.driver = {
 		.name = "adsp_core1",
 		.owner = THIS_MODULE,
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 		.of_match_table = adsp_of_ids,
 #endif
 	},

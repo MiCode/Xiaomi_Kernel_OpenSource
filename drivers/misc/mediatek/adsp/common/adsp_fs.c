@@ -389,7 +389,7 @@ const struct file_operations adsp_common_file_ops = {
 	.owner = THIS_MODULE,
 	.open = adsp_driver_open,
 	.unlocked_ioctl = adsp_driver_ioctl,
-#ifdef CONFIG_COMPAT
+#if IS_ENABLED(CONFIG_COMPAT)
 	.compat_ioctl   = adsp_driver_compat_ioctl,
 #endif
 };

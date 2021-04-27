@@ -9,9 +9,6 @@
 /* reset recovery feature kernel option*/
 #define CFG_RECOVERY_SUPPORT
 
-/* adsp platform configs*/
-#define ADSP_EMI_PROTECTION_ENABLE       (1)
-
 /* adsp feature PRI list */
 /* The higher number, higher priority */
 enum adsp_feature_pri {

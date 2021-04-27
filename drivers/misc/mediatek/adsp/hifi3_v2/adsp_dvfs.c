@@ -26,7 +26,7 @@
 #include <linux/io.h>
 //#include <mt-plat/upmu_common.h>
 #include <mt-plat/mtk_secure_api.h>
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 #include <linux/of.h>
 #include <linux/of_address.h>
 #endif
@@ -44,7 +44,7 @@
 #include "adsp_clk.h"
 #include "adsp_reg.h"
 
-#ifdef CONFIG_MTK_CLKMGR
+#if IS_ENABLED(CONFIG_MTK_CLKMGR)
 #include <mach/mt_clkmgr.h>
 #else
 #include <linux/clk.h>

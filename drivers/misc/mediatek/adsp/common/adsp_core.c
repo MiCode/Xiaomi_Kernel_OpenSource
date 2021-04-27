@@ -13,6 +13,13 @@
 #include "adsp_platform_driver.h"
 #include "adsp_core.h"
 #include "adsp_mbox.h"
+#include "adsp_reg.h"
+
+#ifdef ADSP_BASE
+#undef ADSP_BASE
+#endif
+
+#define ADSP_BASE                  (pdata->cfg)
 
 int (*ipi_queue_send_msg_handler)(
 	uint32_t core_id, /* enum adsp_core_id */
@@ -378,7 +385,10 @@ static int adsp_system_bootup(void)
 
 	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
 		pdata = adsp_cores[cid];
-
+		/* need to release SW_RSTN, otherwise adsp cannot access core1 TCM region */
+		if (cid == 0) {
+			writel(0, ADSP_CFGREG_SW_RSTN);
+		}
 		if (unlikely(!pdata)) {
 			ret = -EFAULT;
 			goto ERROR;
