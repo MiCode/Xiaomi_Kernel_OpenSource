@@ -13,6 +13,7 @@
 #include <dt-bindings/gce/mt6765-gce.h>
 #include <generated/autoconf.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
+#include <dt-bindings/phy/phy.h>
 
 /dts-v1/;
 
@@ -2482,13 +2483,27 @@ firmware_class.path=/vendor/firmware";
 		clock-names = "usb0",
 			"usb0_clk_top_sel",
 			"usb0_clk_univpll3_d4";
-		charger = <&mt6370_chg>;
 		pericfg= <&pericfg>;
+		interrupt-names = "mc";
+		phys = <&u2port0 PHY_TYPE_USB2>;
+		dr_mode = "otg";
+		usb-role-switch;
 	};
 
-	usb_sif@11210000 {
-		compatible = "mediatek,usb_sif";
-		reg = <0 0x11210000 0 0x10000>;
+	u2phy0: usb-phy@11210000 {
+		compatible = "mediatek,generic-tphy-v1";
+		reg = <0 0x11cc0000 0 0x0800>;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		status = "okay";
+		u2port0: usb-phy@11210000 {
+			reg = <0 0x11cc0800 0 0x100>;
+			clocks = <&clk26m>;
+			clock-names = "ref";
+			#phy-cells = <1>;
+			status = "okay";
+		};
 	};
 
 	msdc0:msdc@11230000 {
@@ -3527,6 +3542,16 @@ firmware_class.path=/vendor/firmware";
 	pd_adapter: pd_adapter {
 		compatible = "mediatek,pd_adapter";
 		adapter_name = "pd_adapter";
+	};
+
+	extcon_usb: extcon_usb {
+		compatible = "mediatek,extcon-usb";
+		charger = <&mt6370_chg>;
+		vbus-supply = <&otg_vbus>;
+		vbus-voltage = <5000000>;
+		vbus-current = <1800000>;
+		dev-conn = <&usb>;
+		mediatek,bypss-typec-sink = <1>;
 	};
 
 	rt9465_slave_chr: rt9465_slave_chr {
