@@ -911,7 +911,7 @@ static void wfpm_reset_work_func(struct work_struct *work)
 	atomic_or(MDDP_FEATURE_MCIF_WIFI, &app->feature);
 	app->abnormal_flags &= ~MDDP_ABNORMAL_CCCI_SEND_FAILED;
 	app->reset_cnt++;
-//	mddp_check_feature();
+	mddp_check_feature();
 	mddpw_wfpm_send_smem_layout();
 	if (app->state != MDDP_STATE_DISABLED) {
 		mddp_sm_on_event(app, MDDP_EVT_FUNC_ENABLE);
