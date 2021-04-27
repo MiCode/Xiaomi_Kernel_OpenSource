@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/debugfs.h>
@@ -158,12 +158,15 @@ static void mtk_sync_timeline_fence_release(struct dma_fence *fence)
 	struct sync_timeline *parent = dma_fence_parent(fence);
 	unsigned long flags;
 
-	spin_lock_irqsave(fence->lock, flags);
-	if (!list_empty(&pt->link)) {
-		list_del(&pt->link);
-		rb_erase(&pt->node, &parent->pt_tree);
+	if (pt) {
+		spin_lock_irqsave(fence->lock, flags);
+		if (!list_empty(&pt->link)) {
+			list_del(&pt->link);
+			rb_erase(&pt->node, &parent->pt_tree);
+
+		}
+		spin_unlock_irqrestore(fence->lock, flags);
 	}
-	spin_unlock_irqrestore(fence->lock, flags);
 
 	mtk_sync_timeline_put(parent);
 	dma_fence_free(fence);
@@ -186,7 +189,13 @@ static void mtk_sync_timeline_fence_value_str(
 					      char *str,
 					      int size)
 {
-	snprintf(str, size, "%lld", fence->seqno);
+	int r;
+
+	r = snprintf(str, size, "%lld", fence->seqno);
+	if (r < 0) {
+		/* Handle snprintf() error */
+		pr_debug("snprintf error\n");
+	}
 }
 
 static void mtk_sync_timeline_fence_timeline_value_str(struct dma_fence *fence,
@@ -254,6 +263,7 @@ static void mtk_sync_timeline_signal(struct sync_timeline *obj,
  * Creates a new sync_timeline. Returns the sync_timeline object or NULL in
  * case of error.
  */
+
 struct sync_timeline *mtk_sync_timeline_create(const char *name)
 {
 	struct sync_timeline *obj;

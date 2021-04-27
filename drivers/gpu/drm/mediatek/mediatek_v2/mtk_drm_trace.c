@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include "mtk_drm_trace.h"
@@ -64,6 +64,7 @@ void mtk_drm_refresh_tag_start(struct mtk_ddp_comp *ddp_comp)
 	bool b_layer_changed = 0;
 	struct mtk_ddp_comp *comp;
 	struct mtk_drm_private *priv;
+	int r;
 
 	if (!mtk_crtc)
 		return;
@@ -87,8 +88,12 @@ void mtk_drm_refresh_tag_start(struct mtk_ddp_comp *ddp_comp)
 	}
 
 	if (b_layer_changed) {
-		sprintf(tag_name,
+		r = sprintf(tag_name,
 			crtc_idx ? "ExtDispRefresh" : "PrimDispRefresh");
+		if (r < 0) {
+			/* Handle sprintf() error */
+			pr_debug("sprintf error\n");
+		}
 		preempt_disable();
 		//  event_trace_printk(mtk_drm_get_tracing_mark(),
 		//		"C|%d|%s|%d\n", DRM_TRACE_FPS_ID,
@@ -103,6 +108,7 @@ void mtk_drm_refresh_tag_end(struct mtk_ddp_comp *ddp_comp)
 	int crtc_idx, met_mode;
 	struct mtk_drm_crtc *mtk_crtc = ddp_comp->mtk_crtc;
 	struct mtk_drm_private *priv;
+	int r;
 
 	if (!mtk_crtc)
 		return;
@@ -112,7 +118,11 @@ void mtk_drm_refresh_tag_end(struct mtk_ddp_comp *ddp_comp)
 		return;
 
 	crtc_idx = drm_crtc_index(&mtk_crtc->base);
-	sprintf(tag_name, crtc_idx ? "ExtDispRefresh" : "PrimDispRefresh");
+	r = sprintf(tag_name, crtc_idx ? "ExtDispRefresh" : "PrimDispRefresh");
+	if (r < 0) {
+		/* Handle sprintf() error */
+		pr_debug("sprintf error\n");
+	}
 	preempt_disable();
 	// event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
 	//			DRM_TRACE_FPS_ID, tag_name, 0);

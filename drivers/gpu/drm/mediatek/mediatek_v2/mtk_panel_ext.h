@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef __MTK_PANEL_EXT_H__
@@ -13,6 +13,7 @@
 #define MAX_TX_CMD_NUM 20
 #define MAX_RX_CMD_NUM 20
 #define READ_DDIC_SLOT_NUM 4
+#define MAX_DYN_CMD_NUM 20
 
 
 struct mtk_dsi;
@@ -187,9 +188,17 @@ struct dynamic_mipi_params {
 	unsigned int hfp;
 };
 
+struct dfps_switch_cmd {
+	unsigned int src_fps;
+	unsigned int cmd_num;
+	unsigned char para_list[64];
+};
+
 struct dynamic_fps_params {
 	unsigned int switch_en;
 	unsigned int vact_timing_fps;
+	unsigned int data_rate;
+	struct dfps_switch_cmd dfps_cmd_table[MAX_DYN_CMD_NUM];
 };
 
 struct mtk_panel_params {
@@ -212,7 +221,11 @@ struct mtk_panel_params {
 	unsigned int corner_pattern_height;
 	unsigned int corner_pattern_height_bot;
 	unsigned int corner_pattern_tp_size;
+	unsigned int corner_pattern_tp_size_l;
+	unsigned int corner_pattern_tp_size_r;
 	void *corner_pattern_lt_addr;
+	void *corner_pattern_lt_addr_l;
+	void *corner_pattern_lt_addr_r;
 	unsigned int physical_width_um;
 	unsigned int physical_height_um;
 	unsigned int lane_swap_en;
@@ -221,10 +234,16 @@ struct mtk_panel_params {
 		lane_swap[MIPITX_PHY_PORT_NUM][MIPITX_PHY_LANE_NUM];
 	struct mtk_panel_dsc_params dsc_params;
 	unsigned int output_mode;
+	unsigned int lcm_cmd_if;
 	unsigned int hbm_en_time;
 	unsigned int hbm_dis_time;
 	unsigned int lcm_index;
 	unsigned int wait_sof_before_dec_vfp;
+	unsigned int doze_delay;
+
+//Settings for LFR Function:
+	unsigned int lfr_enable;
+	unsigned int lfr_minimum_fps;
 };
 
 struct mtk_panel_ext {
@@ -242,6 +261,8 @@ struct mtk_panel_ctx {
 struct mtk_panel_funcs {
 	int (*set_backlight_cmdq)(void *dsi_drv, dcs_write_gce cb,
 		void *handle, unsigned int level);
+	int (*set_aod_light_mode)(void *dsi_drv, dcs_write_gce cb,
+		void *handle, unsigned int mode);
 	int (*set_backlight_grp_cmdq)(void *dsi_drv, dcs_grp_write_gce cb,
 		void *handle, unsigned int level);
 	int (*reset)(struct drm_panel *panel, int on);

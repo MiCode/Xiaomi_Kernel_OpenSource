@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef _MTK_DRM_GEM_H_
@@ -55,8 +55,6 @@ int mtk_drm_gem_mmap_buf(struct drm_gem_object *obj,
 void mtk_drm_gem_ion_free_handle(struct dma_buf *buf_hnd, const char *name,
 				int line);
 struct dma_buf *mtk_drm_gem_ion_import_handle(int fd);
-struct drm_gem_object *
-mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf);
 struct sg_table *mtk_gem_prime_get_sg_table(struct drm_gem_object *obj);
 struct drm_gem_object *
 mtk_gem_prime_import_sg_table(struct drm_device *dev,

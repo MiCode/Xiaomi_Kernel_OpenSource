@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/clk.h>
 #include <linux/component.h>
-#include <linux/iommu.h>
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
@@ -105,6 +104,7 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define L_CON_FLD_LSRC REG_FLD_MSB_LSB(29, 28)
 #define L_CON_FLD_SKEN REG_FLD_MSB_LSB(30, 30)
 #define L_CON_FLD_DKEN REG_FLD_MSB_LSB(31, 31)
+#define CON_LSRC_RES BIT(28)
 #define CON_VERTICAL_FLIP BIT(9)
 #define CON_HORI_FLIP BIT(10)
 
@@ -384,6 +384,7 @@ struct mtk_disp_ovl_data {
 	unsigned int fmt_uyvy;
 	unsigned int fmt_yuyv;
 	const struct compress_info *compr_info;
+	bool support_shadow;
 	bool need_bypass_shadow;
 	/* golden setting */
 	unsigned int preultra_th_dc;
@@ -391,7 +392,6 @@ struct mtk_disp_ovl_data {
 	unsigned int issue_req_th_dl;
 	unsigned int issue_req_th_urg_dl;
 	unsigned int greq_num_dl;
-	unsigned int pre_ultra_low_th_dc;
 };
 
 #define MAX_LAYER_NUM 4
@@ -596,8 +596,8 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 		DDPPR_ERR("[IRQ] %s: frame underflow! cnt=%d\n",
 			  mtk_dump_comp_str(ovl), priv->underflow_cnt);
 		priv->underflow_cnt++;
-		mtk_ovl_dump(ovl);
-		mtk_ovl_analysis(ovl);
+//		mtk_ovl_dump(ovl);
+//		mtk_ovl_analysis(ovl);
 	}
 	if (val & (1 << 3))
 		DDPIRQ("[IRQ] %s: sw reset done!\n", mtk_dump_comp_str(ovl));
@@ -717,7 +717,11 @@ static void mtk_ovl_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_EN,
 		       0x0, 0x1);
 	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_RST, 1, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_INTSTA, 0, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_RST, 0, ~0);
 
 	comp->qos_bw = 0;
 	comp->fbdc_bw = 0;
@@ -747,11 +751,19 @@ static int mtk_ovl_golden_setting(struct mtk_ddp_comp *comp,
 static void mtk_ovl_config(struct mtk_ddp_comp *comp,
 			   struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
 {
+	unsigned int width;
+
+	if (comp->mtk_crtc->is_dual_pipe) {
+		width = cfg->w / 2;
+		DDPMSG("\n");
+	} else
+		width = cfg->w;
+
 	if (cfg->w != 0 && cfg->h != 0) {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_ROI_SIZE,
-			       cfg->h << 16 | cfg->w, ~0);
-		_store_bg_roi(comp, cfg->h, cfg->w);
+			       cfg->h << 16 | width, ~0);
+		_store_bg_roi(comp, cfg->h, width);
 	}
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_ROI_BGCLR, OVL_ROI_BGCLR,
@@ -771,6 +783,8 @@ static void mtk_ovl_layer_on(struct mtk_ddp_comp *comp, unsigned int idx,
 		con_mask =
 			BIT(ext_idx - 1) | (0xFFFF << ((ext_idx - 1) * 4 + 16));
 		con = BIT(ext_idx - 1) | (idx << ((ext_idx - 1) * 4 + 16));
+		cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_REG_OVL_RDMA_CTRL(idx), 0x1, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_DATAPATH_EXT_CON,
 			       con, con_mask);
@@ -853,27 +867,27 @@ static unsigned int ovl_fmt_convert(struct mtk_disp_ovl *ovl, unsigned int fmt,
 		       OVL_CON_BYTE_SWAP;
 	case DRM_FORMAT_RGBX8888:
 	case DRM_FORMAT_RGBA8888:
-		if (modifier & MTK_FMT_PREMULTIPLIER)
+		if (modifier & MTK_FMT_PREMULTIPLIED)
 			return OVL_CON_CLRFMT_ARGB8888 | OVL_CON_CLRFMT_MAN;
 		else
 			return OVL_CON_CLRFMT_ARGB8888;
 	case DRM_FORMAT_BGRX8888:
 	case DRM_FORMAT_BGRA8888:
-		if (modifier & MTK_FMT_PREMULTIPLIER)
+		if (modifier & MTK_FMT_PREMULTIPLIED)
 			return OVL_CON_CLRFMT_ARGB8888 | OVL_CON_BYTE_SWAP |
 			       OVL_CON_CLRFMT_MAN;
 		else
 			return OVL_CON_CLRFMT_ARGB8888 | OVL_CON_BYTE_SWAP;
 	case DRM_FORMAT_XRGB8888:
 	case DRM_FORMAT_ARGB8888:
-		if (modifier & MTK_FMT_PREMULTIPLIER)
+		if (modifier & MTK_FMT_PREMULTIPLIED)
 			return OVL_CON_CLRFMT_ARGB8888 | OVL_CON_BYTE_SWAP |
 			       OVL_CON_CLRFMT_MAN | OVL_CON_RGB_SWAP;
 		else
 			return OVL_CON_CLRFMT_RGBA8888;
 	case DRM_FORMAT_XBGR8888:
 	case DRM_FORMAT_ABGR8888:
-		if (modifier & MTK_FMT_PREMULTIPLIER)
+		if (modifier & MTK_FMT_PREMULTIPLIED)
 			return OVL_CON_CLRFMT_ARGB8888 | OVL_CON_CLRFMT_MAN |
 			       OVL_CON_RGB_SWAP;
 		else
@@ -883,12 +897,12 @@ static unsigned int ovl_fmt_convert(struct mtk_disp_ovl *ovl, unsigned int fmt,
 	case DRM_FORMAT_YUYV:
 		return OVL_CON_CLRFMT_YUYV(ovl);
 	case DRM_FORMAT_ABGR2101010:
-		if (modifier & MTK_FMT_PREMULTIPLIER)
+		if (modifier & MTK_FMT_PREMULTIPLIED)
 			return OVL_CON_CLRFMT_ARGB8888 | OVL_CON_CLRFMT_MAN |
 			       OVL_CON_RGB_SWAP;
 		return OVL_CON_CLRFMT_RGBA8888 | OVL_CON_BYTE_SWAP;
 	case DRM_FORMAT_ABGR16161616F:
-		if (modifier & MTK_FMT_PREMULTIPLIER)
+		if (modifier & MTK_FMT_PREMULTIPLIED)
 			return OVL_CON_CLRFMT_ARGB8888 | OVL_CON_CLRFMT_MAN |
 			       OVL_CON_RGB_SWAP;
 		return OVL_CON_CLRFMT_RGBA8888 | OVL_CON_BYTE_SWAP;
@@ -899,6 +913,11 @@ static unsigned int ovl_fmt_convert(struct mtk_disp_ovl *ovl, unsigned int fmt,
 
 static const char *mtk_ovl_get_transfer_str(enum mtk_ovl_transfer transfer)
 {
+	if (transfer < 0) {
+		DDPPR_ERR("%s: Invalid ovl transfer:%d\n", __func__, transfer);
+		transfer = 0;
+	}
+
 	return mtk_ovl_transfer_str[transfer];
 }
 
@@ -992,6 +1011,16 @@ static u32 *mtk_get_ovl_csc(enum mtk_ovl_colorspace in,
 {
 	static u32 *ovl_csc[OVL_CS_NUM][OVL_CS_NUM];
 	static bool inited;
+
+	if (out < 0) {
+		DDPPR_ERR("%s: Invalid ovl colorspace in:%d\n", __func__, out);
+		out = 0;
+	}
+
+	if (in < 0) {
+		DDPPR_ERR("%s: Invalid ovl colorspace in:%d\n", __func__, in);
+		in = 0;
+	}
 
 	if (inited)
 		goto done;
@@ -1242,8 +1271,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		offset = (src_x + dst_w) * mtk_drm_format_plane_cpp(fmt, 0) +
 			 (src_y + dst_h - 1) * pitch - 1;
 	else
-		offset = src_x * mtk_drm_format_plane_cpp(fmt, 0) +
-			src_y * pitch;
+		offset = src_x * mtk_drm_format_plane_cpp(fmt, 0) + src_y * pitch;
 	addr += offset;
 
 	if (state->comp_state.comp_id) {
@@ -1272,7 +1300,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			size = buf_size;
 			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_EL_ADDR(id);
-			if (state->pending.is_sec) {
+			if (state->pending.is_sec && pending->addr) {
 				meta_type = CMDQ_IWC_H_2_MVA;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
 					pending->addr, meta_type,
@@ -1330,7 +1358,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			size = buf_size;
 			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_ADDR(ovl, lye_idx);
-			if (state->pending.is_sec) {
+			if (state->pending.is_sec && pending->addr) {
 				meta_type = CMDQ_IWC_H_2_MVA;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
 					pending->addr, meta_type,
@@ -1387,6 +1415,14 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	unsigned long long temp_bw;
 	unsigned int dim_color;
 
+	/* handle dim layer for compression flag & color dim*/
+	if (fmt == DRM_FORMAT_C8) {
+		pending->prop_val[PLANE_PROP_COMPRESS] = 0;
+		dim_color = pending->prop_val[PLANE_PROP_DIM_COLOR];
+	} else {
+		dim_color = 0xff000000;
+	}
+
 	/* handle buffer de-compression */
 	if (ovl->data->compr_info && ovl->data->compr_info->l_config) {
 		if (ovl->data->compr_info->l_config(comp,
@@ -1434,11 +1470,15 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 		con |= mtk_ovl_yuv_matrix_convert((enum mtk_drm_dataspace)prop);
 	}
-	/* add for color dim */
-	if (fmt == DRM_FORMAT_C8)
-		dim_color = pending->prop_val[PLANE_PROP_DIM_COLOR];
-	else
-		dim_color = 0xff000000;
+
+	if (!pending->addr)
+		con |= BIT(28);
+
+	DDPINFO("%s+ id %d, idx:%d, enable:%d, fmt:0x%x, ",
+		__func__, comp->id, idx, pending->enable, pending->format);
+	DDPINFO("addr 0x%lx, compr %d, con 0x%x\n",
+		pending->addr, pending->prop_val[PLANE_PROP_COMPRESS], con);
+
 	if (rotate) {
 		unsigned int bg_w = 0, bg_h = 0;
 
@@ -1523,6 +1563,11 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			__func__, vtotal, vact);
 
 		mtk_ovl_layer_on(comp, lye_idx, ext_lye_idx, handle);
+		/*constant color :non RDMA source*/
+		/* TODO: cause RPO abnormal */
+//		if (!pending->addr)
+//			cmdq_pkt_write(handle, comp->cmdq_base,
+//		       comp->regs_pa + DISP_REG_OVL_RDMA_CTRL(idx), 0x0, ~0);
 		/* TODO: consider FBDC */
 		/* SRT BW (one layer) =
 		 * layer_w * layer_h * bpp * vrefresh * max fps blanking_ratio
@@ -1701,7 +1746,7 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 
 			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_EL_ADDR(id);
-			if (state->pending.is_sec) {
+			if (state->pending.is_sec && pending->addr) {
 				size = buf_size;
 				meta_type = CMDQ_IWC_H_2_MVA;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
@@ -1756,7 +1801,7 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 
 			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_ADDR(ovl, lye_idx);
-			if (state->pending.is_sec) {
+			if (state->pending.is_sec && pending->addr) {
 				size = buf_size;
 				meta_type = CMDQ_IWC_H_2_MVA;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
@@ -1990,7 +2035,7 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 
 			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_EL_ADDR(id);
-			if (state->pending.is_sec) {
+			if (state->pending.is_sec && pending->addr) {
 				size = buf_size;
 				meta_type = CMDQ_IWC_H_2_MVA;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
@@ -2052,7 +2097,7 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 
 			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_ADDR(ovl, lye_idx);
-			if (state->pending.is_sec) {
+			if (state->pending.is_sec && pending->addr) {
 				size = buf_size;
 				meta_type = CMDQ_IWC_H_2_MVA;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
@@ -2185,7 +2230,8 @@ static void mtk_ovl_addon_config(struct mtk_ddp_comp *comp,
 				 struct cmdq_pkt *handle)
 {
 	if ((addon_config->config_type.module == DISP_RSZ ||
-		addon_config->config_type.module == DISP_RSZ_v2) &&
+		addon_config->config_type.module == DISP_RSZ_v2 ||
+		addon_config->config_type.module == DISP_RSZ_v3) &&
 		addon_config->config_type.type == ADDON_BETWEEN) {
 		struct mtk_addon_rsz_config *config =
 			&addon_config->addon_rsz_config;
@@ -2760,6 +2806,9 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	int i;
 
+	if (comp->blank_mode)
+		return 0;
+
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
 	if (mtk_ddp_comp_helper_get_opt(comp,
 					MTK_DRM_OPT_REG_PARSER_RAW_DUMP)) {
@@ -3017,9 +3066,16 @@ int mtk_ovl_analysis(struct mtk_ddp_comp *comp)
 	void __iomem *Lx_base;
 	void __iomem *rdma_offset;
 	void __iomem *baddr = comp->regs;
-	unsigned int src_con = readl(DISP_REG_OVL_SRC_CON + baddr);
-	unsigned int ext_con = readl(DISP_REG_OVL_DATAPATH_EXT_CON + baddr);
-	unsigned int addcon = readl(DISP_REG_OVL_ADDCON_DBG + baddr);
+	unsigned int src_con;
+	unsigned int ext_con;
+	unsigned int addcon;
+
+	if (comp->blank_mode)
+		return 0;
+
+	src_con = readl(DISP_REG_OVL_SRC_CON + baddr);
+	ext_con = readl(DISP_REG_OVL_DATAPATH_EXT_CON + baddr);
+	addcon = readl(DISP_REG_OVL_ADDCON_DBG + baddr);
 
 	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
 	DDPDUMP("ovl_en=%d,layer_en(%d,%d,%d,%d),bg(%dx%d)\n",
@@ -3369,6 +3425,7 @@ static const struct mtk_disp_ovl_data mt2701_ovl_driver_data = {
 	.fmt_rgb565_is_0 = false,
 	.fmt_uyvy = 9U << 12,
 	.fmt_yuyv = 8U << 12,
+	.support_shadow = false,
 	.need_bypass_shadow = false,
 };
 
@@ -3383,6 +3440,7 @@ static const struct mtk_disp_ovl_data mt6779_ovl_driver_data = {
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
 	.compr_info = &compr_info_mt6779,
+	.support_shadow = false,
 	.need_bypass_shadow = false,
 };
 
@@ -3397,6 +3455,7 @@ static const struct mtk_disp_ovl_data mt6885_ovl_driver_data = {
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
 	.compr_info = &compr_info_mt6885,
+	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.preultra_th_dc = 0x15e,
 	.fifo_size = 384,
@@ -3416,6 +3475,7 @@ static const struct mtk_disp_ovl_data mt6873_ovl_driver_data = {
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
 	.compr_info = &compr_info_mt6873,
+	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.preultra_th_dc = 0xe0,
 	.fifo_size = 288,
@@ -3435,6 +3495,27 @@ static const struct mtk_disp_ovl_data mt6853_ovl_driver_data = {
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
 	.compr_info = &compr_info_mt6853,
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+	.preultra_th_dc = 0xe0,
+	.fifo_size = 288,
+	.issue_req_th_dl = 191,
+	.issue_req_th_urg_dl = 95,
+	.greq_num_dl = 0x5555,
+};
+
+static const struct compress_info compr_info_mt6833  = {
+	.name = "AFBC_V1_2_MTK_1",
+	.l_config = &compr_l_config_AFBC_V1_2,
+};
+
+static const struct mtk_disp_ovl_data mt6833_ovl_driver_data = {
+	.addr = DISP_REG_OVL_ADDR_BASE,
+	.fmt_rgb565_is_0 = true,
+	.fmt_uyvy = 4U << 12,
+	.fmt_yuyv = 5U << 12,
+	.compr_info = &compr_info_mt6833,
+	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.preultra_th_dc = 0xe0,
 	.fifo_size = 288,
@@ -3448,6 +3529,7 @@ static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
+	.support_shadow = false,
 	.need_bypass_shadow = false,
 };
 
@@ -3464,6 +3546,8 @@ static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {
 	 .data = &mt6873_ovl_driver_data},
 	{.compatible = "mediatek,mt6853-disp-ovl",
 	 .data = &mt6853_ovl_driver_data},
+	{.compatible = "mediatek,mt6833-disp-ovl",
+	 .data = &mt6833_ovl_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_ovl_driver_dt_match);

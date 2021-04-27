@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include "mtk_layering_rule.h"
@@ -250,7 +250,7 @@ void mtk_drm_mmdvfs_init(struct device *dev)
 	mtk_drm_mmdvfs_get_avail_freq(dev);
 }
 
-static void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
+void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 			const char *caller)
 {
 	struct dev_pm_opp *opp;

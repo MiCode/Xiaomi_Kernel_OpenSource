@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/clk.h>
@@ -33,6 +33,7 @@
 /* pinctrl implementation */
 long _set_state(struct drm_crtc *crtc, const char *name)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct pinctrl_state *pState = 0;
 	long ret = 0;
@@ -56,10 +57,14 @@ long _set_state(struct drm_crtc *crtc, const char *name)
 
 exit:
 	return ret; /* Good! */
+#else
+	return 0; /* Good! */
+#endif
 }
 
 long disp_dts_gpio_init(struct device *dev, struct mtk_drm_private *private)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	long ret = 0;
 	struct pinctrl *pctrl;
 
@@ -75,6 +80,9 @@ long disp_dts_gpio_init(struct device *dev, struct mtk_drm_private *private)
 
 exit:
 	return ret;
+#else
+	return 0;
+#endif
 }
 
 static inline int _can_switch_check_mode(struct drm_crtc *crtc,
@@ -410,6 +418,12 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	mtk_drm_crtc_disable(crtc, true);
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 2);
 
+#ifdef MTK_DISP_MMQOS_SUPPORT
+	if (drm_crtc_index(crtc) == 0)
+		mtk_disp_set_hrt_bw(mtk_crtc,
+			mtk_crtc->qos_ctx->last_hrt_req);
+#endif
+
 	mtk_drm_crtc_enable(crtc);
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 3);
 
@@ -595,7 +609,10 @@ static void mtk_disp_esd_chk_init(struct drm_crtc *crtc)
 	atomic_set(&esd_ctx->check_wakeup, 0);
 	atomic_set(&esd_ctx->ext_te_event, 0);
 	atomic_set(&esd_ctx->target_time, 0);
-	esd_ctx->chk_mode = READ_EINT;
+	if (panel_ext->params->cust_esd_check == 1)
+		esd_ctx->chk_mode = READ_LCM;
+	else
+		esd_ctx->chk_mode = READ_EINT;
 	mtk_drm_request_eint(crtc);
 
 	wake_up_process(esd_ctx->disp_esd_chk_task);

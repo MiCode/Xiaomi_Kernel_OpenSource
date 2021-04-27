@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/kthread.h>
@@ -18,7 +18,7 @@
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_mmp.h"
 
-#define MAX_ENTER_IDLE_RSZ_RATIO 250
+#define MAX_ENTER_IDLE_RSZ_RATIO 300
 
 static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc);
 static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc);
@@ -50,12 +50,17 @@ static void mtk_drm_vdo_mode_enter_idle(struct drm_crtc *crtc)
 	}
 
 	comp = mtk_ddp_comp_request_output(mtk_crtc);
-	if (comp)
+	if (comp) {
 		mtk_ddp_comp_io_cmd(comp, handle, DSI_VFP_IDLE_MODE, NULL);
+		if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_LFR)) {
+			int en = 0;
 
+			mtk_ddp_comp_io_cmd(comp, handle, DSI_LFR_SET, &en);
+		}
+	}
 	cmdq_pkt_flush(handle);
 	cmdq_pkt_destroy(handle);
-	lcm_fps_ctx_reset(crtc);
+	drm_crtc_vblank_off(crtc);
 }
 
 static void mtk_drm_cmd_mode_enter_idle(struct drm_crtc *crtc)
@@ -83,12 +88,18 @@ static void mtk_drm_vdo_mode_leave_idle(struct drm_crtc *crtc)
 	}
 
 	comp = mtk_ddp_comp_request_output(mtk_crtc);
-	if (comp)
+	if (comp) {
 		mtk_ddp_comp_io_cmd(comp, handle, DSI_VFP_DEFAULT_MODE, NULL);
+		if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_LFR)) {
+			int en = 1;
+
+			mtk_ddp_comp_io_cmd(comp, handle, DSI_LFR_SET, &en);
+		}
+	}
 
 	cmdq_pkt_flush(handle);
 	cmdq_pkt_destroy(handle);
-	lcm_fps_ctx_reset(crtc);
+	drm_crtc_vblank_on(crtc);
 }
 
 static void mtk_drm_cmd_mode_leave_idle(struct drm_crtc *crtc)
@@ -305,7 +316,10 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 	struct mtk_drm_idlemgr *idlemgr = mtk_crtc->idlemgr;
 	struct mtk_drm_idlemgr_context *idlemgr_ctx = idlemgr->idlemgr_ctx;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
-	struct mtk_crtc_state *mtk_state;
+	struct mtk_crtc_state *mtk_state = NULL;
+	struct drm_vblank_crtc *vblank = NULL;
+	int crtc_id = drm_crtc_index(crtc);
+	static unsigned long long idlemgr_vblank_check_internal;
 
 	msleep(16000);
 	while (1) {
@@ -314,8 +328,12 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 			atomic_read(&idlemgr->idlemgr_task_active));
 
 		t_idle = local_clock() - idlemgr_ctx->idlemgr_last_kick_time;
-		t_to_check =
-			idlemgr_ctx->idle_check_interval * 1000 * 1000 - t_idle;
+		if (idlemgr_vblank_check_internal)
+			t_to_check = idlemgr_vblank_check_internal *
+				1000 * 1000 - t_idle;
+		else
+			t_to_check = idlemgr_ctx->idle_check_interval *
+				1000 * 1000 - t_idle;
 		do_div(t_to_check, 1000000);
 
 		t_to_check = min(t_to_check, 1000LL);
@@ -364,7 +382,10 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 		}
 
 		t_idle = local_clock() - idlemgr_ctx->idlemgr_last_kick_time;
-		if (t_idle < idlemgr_ctx->idle_check_interval * 1000 * 1000) {
+		if ((idlemgr_vblank_check_internal &&
+		    t_idle < idlemgr_vblank_check_internal * 1000 * 1000) ||
+		    (!idlemgr_vblank_check_internal &&
+		    t_idle < idlemgr_ctx->idle_check_interval * 1000 * 1000)) {
 			/* kicked in idle_check_interval msec, it's not idle */
 			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 			continue;
@@ -372,14 +393,18 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 		/* double check if dynamic switch on/off */
 		if (atomic_read(&idlemgr->idlemgr_task_active)) {
 			DDPINFO("[LP] enter idle\n");
+			crtc_id = drm_crtc_index(crtc);
+			vblank = &crtc->dev->vblank[crtc_id];
 
 			/* enter idle state */
-			mtk_drm_idlemgr_enter_idle_nolock(crtc);
-			idlemgr_ctx->is_idle = 1;
-			if (mtk_crtc->esd_ctx) {
-				atomic_set(&mtk_crtc->esd_ctx->target_time, 1);
-				wake_up_interruptible(
-					&mtk_crtc->esd_ctx->check_task_wq);
+			if (!vblank || atomic_read(&vblank->refcount) == 0) {
+				mtk_drm_idlemgr_enter_idle_nolock(crtc);
+				idlemgr_ctx->is_idle = 1;
+				idlemgr_vblank_check_internal = 0;
+			} else {
+				idlemgr_ctx->idlemgr_last_kick_time =
+					sched_clock();
+				idlemgr_vblank_check_internal = 50;
 			}
 		}
 

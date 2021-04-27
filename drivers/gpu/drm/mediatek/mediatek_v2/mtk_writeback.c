@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <drm/drm_atomic_helper.h>
@@ -179,7 +179,10 @@ void mtk_wb_atomic_commit(struct mtk_drm_crtc *mtk_crtc)
 		void *cmdq_handle = NULL;
 #endif
 		wdma = mtk_wb_find_wdma(mtk_crtc);
+		if (!wdma)
+			return;
 		mtk_crtc->wb_enable = true;
+
 		drm_writeback_queue_job(wb_conn, conn_state);
 
 		addr = (u32)mtk_fb_get_dma(fb);

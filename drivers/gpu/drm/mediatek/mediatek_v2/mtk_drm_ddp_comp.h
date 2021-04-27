@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef MTK_DRM_DDP_COMP_H
@@ -49,7 +49,9 @@ enum mtk_ddp_comp_type {
 	MTK_DMDP_RSZ,
 	MTK_DMDP_TDSHP,
 	MTK_DISP_DSC,
+	MTK_DP_INTF,
 	MTK_DISP_MERGE,
+	MTK_DISP_DPTX,
 	MTK_DISP_VIRTUAL,
 	MTK_DDP_COMP_TYPE_MAX,
 };
@@ -60,62 +62,72 @@ enum mtk_ddp_comp_type {
 	EXPR(DDP_COMPONENT_BLS)                                             \
 	EXPR(DDP_COMPONENT_CCORR0)                                          \
 	EXPR(DDP_COMPONENT_CCORR1)                                          \
-	EXPR(DDP_COMPONENT_COLOR0)                                          \
+/*5*/	EXPR(DDP_COMPONENT_COLOR0)                                          \
 	EXPR(DDP_COMPONENT_COLOR1)                                          \
 	EXPR(DDP_COMPONENT_COLOR2)                                          \
 	EXPR(DDP_COMPONENT_DITHER0)                                         \
 	EXPR(DDP_COMPONENT_DITHER1)                                         \
-	EXPR(DDP_COMPONENT_DPI0)                                            \
+/*10*/	EXPR(DDP_COMPONENT_DPI0)                                            \
 	EXPR(DDP_COMPONENT_DPI1)                                            \
 	EXPR(DDP_COMPONENT_DSI0)                                            \
 	EXPR(DDP_COMPONENT_DSI1)                                            \
 	EXPR(DDP_COMPONENT_GAMMA0)                                          \
-	EXPR(DDP_COMPONENT_GAMMA1)                                          \
+/*15*/	EXPR(DDP_COMPONENT_GAMMA1)                                          \
 	EXPR(DDP_COMPONENT_OD)                                              \
 	EXPR(DDP_COMPONENT_OD1)                                             \
 	EXPR(DDP_COMPONENT_OVL0)                                            \
 	EXPR(DDP_COMPONENT_OVL1)                                            \
-	EXPR(DDP_COMPONENT_OVL2)                                            \
+/*20*/	EXPR(DDP_COMPONENT_OVL2)                                            \
 	EXPR(DDP_COMPONENT_OVL0_2L)                                         \
 	EXPR(DDP_COMPONENT_OVL1_2L)                                         \
 	EXPR(DDP_COMPONENT_OVL2_2L)                                         \
 	EXPR(DDP_COMPONENT_OVL3_2L)                                         \
-	EXPR(DDP_COMPONENT_OVL0_2L_VIRTUAL0)                                \
+/*25*/	EXPR(DDP_COMPONENT_OVL0_2L_VIRTUAL0)                                \
 	EXPR(DDP_COMPONENT_OVL1_2L_VIRTUAL0)                                \
 	EXPR(DDP_COMPONENT_OVL0_VIRTUAL0)                                   \
 	EXPR(DDP_COMPONENT_OVL1_VIRTUAL0)                                   \
 	EXPR(DDP_COMPONENT_OVL0_OVL0_2L_VIRTUAL0)                           \
-	EXPR(DDP_COMPONENT_PWM0)                                            \
+/*30*/	EXPR(DDP_COMPONENT_PWM0)                                            \
 	EXPR(DDP_COMPONENT_PWM1)                                            \
 	EXPR(DDP_COMPONENT_PWM2)                                            \
 	EXPR(DDP_COMPONENT_RDMA0)                                           \
 	EXPR(DDP_COMPONENT_RDMA1)                                           \
-	EXPR(DDP_COMPONENT_RDMA2)                                           \
+/*35*/	EXPR(DDP_COMPONENT_RDMA2)                                           \
 	EXPR(DDP_COMPONENT_RDMA3)                                           \
 	EXPR(DDP_COMPONENT_RDMA4)                                           \
 	EXPR(DDP_COMPONENT_RDMA5)                                           \
 	EXPR(DDP_COMPONENT_RDMA0_VIRTUAL0)                                  \
-	EXPR(DDP_COMPONENT_RDMA1_VIRTUAL0)                                  \
+/*40*/	EXPR(DDP_COMPONENT_RDMA1_VIRTUAL0)                                  \
 	EXPR(DDP_COMPONENT_RDMA2_VIRTUAL0)                                  \
 	EXPR(DDP_COMPONENT_RSZ0)                                            \
 	EXPR(DDP_COMPONENT_RSZ1)                                            \
 	EXPR(DDP_COMPONENT_UFOE)                                            \
-	EXPR(DDP_COMPONENT_WDMA0)                                           \
+/*45*/	EXPR(DDP_COMPONENT_WDMA0)                                           \
 	EXPR(DDP_COMPONENT_WDMA1)                                           \
 	EXPR(DDP_COMPONENT_UFBC_WDMA0)                                      \
 	EXPR(DDP_COMPONENT_WDMA_VIRTUAL0)                                   \
 	EXPR(DDP_COMPONENT_WDMA_VIRTUAL1)                                   \
-	EXPR(DDP_COMPONENT_POSTMASK0)                                       \
+/*50*/	EXPR(DDP_COMPONENT_POSTMASK0)                                       \
 	EXPR(DDP_COMPONENT_POSTMASK1)                                       \
 	EXPR(DDP_COMPONENT_DMDP_RDMA0)                                      \
 	EXPR(DDP_COMPONENT_DMDP_HDR0)                                       \
 	EXPR(DDP_COMPONENT_DMDP_AAL0)                                       \
-	EXPR(DDP_COMPONENT_DMDP_RSZ0)                                       \
+/*55*/	EXPR(DDP_COMPONENT_DMDP_RSZ0)                                       \
 	EXPR(DDP_COMPONENT_DMDP_TDSHP0)                                     \
+	EXPR(DDP_COMPONENT_DMDP_RDMA1)                                      \
+	EXPR(DDP_COMPONENT_DMDP_HDR1)                                       \
+	EXPR(DDP_COMPONENT_DMDP_AAL1)                                       \
+/*60*/	EXPR(DDP_COMPONENT_DMDP_RSZ1)                                       \
+	EXPR(DDP_COMPONENT_DMDP_TDSHP1)                                     \
 	EXPR(DDP_COMPONENT_DSC0)                                            \
 	EXPR(DDP_COMPONENT_MERGE0)                                          \
+	EXPR(DDP_COMPONENT_DPTX)                                            \
+/*65*/	EXPR(DDP_COMPONENT_DP_INTF0)                                        \
+	EXPR(DDP_COMPONENT_RDMA4_VIRTUAL0)                                  \
+	EXPR(DDP_COMPONENT_RDMA5_VIRTUAL0)                                  \
+	EXPR(DDP_COMPONENT_MERGE1)                                          \
 	EXPR(DDP_COMPONENT_SPR0_VIRTUAL)                                    \
-	EXPR(DDP_COMPONENT_CM0)                                          \
+/*70*/	EXPR(DDP_COMPONENT_CM0)                                          \
 	EXPR(DDP_COMPONENT_SPR0)                                          \
 	EXPR(DDP_COMPONENT_ID_MAX)
 
@@ -204,6 +216,7 @@ enum mtk_ddp_io_cmd {
 	BACKUP_INFO_CMP,
 	LCM_RESET,
 	DSI_SET_BL,
+	DSI_SET_BL_AOD,
 	DSI_SET_BL_GRP,
 	DSI_HBM_SET,
 	DSI_HBM_GET_STATE,
@@ -226,6 +239,10 @@ enum mtk_ddp_io_cmd {
 	DSI_GET_VIRTUAL_HEIGH,
 	DSI_GET_VIRTUAL_WIDTH,
 	FRAME_DIRTY,
+	DSI_LFR_SET,
+	DSI_LFR_UPDATE,
+	DSI_LFR_STATUS_CHECK,
+	WDMA_WRITE_DST_ADDR0,
 };
 
 struct golden_setting_context {
@@ -318,6 +335,7 @@ struct mtk_ddp_comp {
 	struct icc_path *qos_req;
 	struct icc_path *fbdc_qos_req;
 	struct icc_path *hrt_qos_req;
+	bool blank_mode;
 	u32 qos_bw;
 	u32 fbdc_bw;
 	u32 hrt_bw;
@@ -327,33 +345,33 @@ static inline void mtk_ddp_comp_config(struct mtk_ddp_comp *comp,
 				       struct mtk_ddp_config *cfg,
 				       struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->config)
+	if (comp && comp->funcs && comp->funcs->config && !comp->blank_mode)
 		comp->funcs->config(comp, cfg, handle);
 }
 
 static inline void mtk_ddp_comp_prepare(struct mtk_ddp_comp *comp)
 {
-	if (comp && comp->funcs && comp->funcs->prepare)
+	if (comp && comp->funcs && comp->funcs->prepare && !comp->blank_mode)
 		comp->funcs->prepare(comp);
 }
 
 static inline void mtk_ddp_comp_unprepare(struct mtk_ddp_comp *comp)
 {
-	if (comp && comp->funcs && comp->funcs->unprepare)
+	if (comp && comp->funcs && comp->funcs->unprepare && !comp->blank_mode)
 		comp->funcs->unprepare(comp);
 }
 
 static inline void mtk_ddp_comp_start(struct mtk_ddp_comp *comp,
 				      struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->start)
+	if (comp && comp->funcs && comp->funcs->start && !comp->blank_mode)
 		comp->funcs->start(comp, handle);
 }
 
 static inline void mtk_ddp_comp_stop(struct mtk_ddp_comp *comp,
 				     struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->stop)
+	if (comp && comp->funcs && comp->funcs->stop && !comp->blank_mode)
 		comp->funcs->stop(comp, handle);
 }
 
@@ -361,14 +379,16 @@ static inline void mtk_ddp_comp_enable_vblank(struct mtk_ddp_comp *comp,
 					      struct drm_crtc *crtc,
 					      struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->enable_vblank)
+	if (comp && comp->funcs && comp->funcs->enable_vblank &&
+			!comp->blank_mode)
 		comp->funcs->enable_vblank(comp, crtc, handle);
 }
 
 static inline void mtk_ddp_comp_disable_vblank(struct mtk_ddp_comp *comp,
 					       struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->disable_vblank)
+	if (comp && comp->funcs && comp->funcs->disable_vblank &&
+			!comp->blank_mode)
 		comp->funcs->disable_vblank(comp, handle);
 }
 
@@ -376,7 +396,7 @@ static inline void mtk_ddp_comp_layer_on(struct mtk_ddp_comp *comp,
 					 unsigned int idx, unsigned int ext_idx,
 					 struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->layer_on)
+	if (comp && comp->funcs && comp->funcs->layer_on && !comp->blank_mode)
 		comp->funcs->layer_on(comp, idx, ext_idx, handle);
 }
 
@@ -385,7 +405,7 @@ static inline void mtk_ddp_comp_layer_off(struct mtk_ddp_comp *comp,
 					  unsigned int ext_idx,
 					  struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->layer_off)
+	if (comp && comp->funcs && comp->funcs->layer_off && !comp->blank_mode)
 		comp->funcs->layer_off(comp, idx, ext_idx, handle);
 }
 
@@ -394,7 +414,8 @@ static inline void mtk_ddp_comp_layer_config(struct mtk_ddp_comp *comp,
 					     struct mtk_plane_state *state,
 					     struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->layer_config) {
+	if (comp && comp->funcs && comp->funcs->layer_config &&
+			!comp->blank_mode) {
 		DDPDBG("[DRM]func:%s, line:%d ==>\n",
 			__func__, __LINE__);
 		DDPDBG("comp_funcs:0x%p, layer_config:0x%p\n",
@@ -408,14 +429,14 @@ static inline void mtk_ddp_gamma_set(struct mtk_ddp_comp *comp,
 				     struct drm_crtc_state *state,
 				     struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->gamma_set)
+	if (comp && comp->funcs && comp->funcs->gamma_set && !comp->blank_mode)
 		comp->funcs->gamma_set(comp, state, handle);
 }
 
 static inline void mtk_ddp_comp_bypass(struct mtk_ddp_comp *comp,
 				       struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->bypass)
+	if (comp && comp->funcs && comp->funcs->bypass && !comp->blank_mode)
 		comp->funcs->bypass(comp, handle);
 }
 
@@ -423,7 +444,7 @@ static inline void mtk_ddp_comp_first_cfg(struct mtk_ddp_comp *comp,
 				       struct mtk_ddp_config *cfg,
 				       struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->first_cfg)
+	if (comp && comp->funcs && comp->funcs->first_cfg && !comp->blank_mode)
 		comp->funcs->first_cfg(comp, cfg, handle);
 }
 
@@ -431,7 +452,8 @@ static inline void
 mtk_ddp_comp_config_trigger(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			    enum mtk_ddp_comp_trigger_flag flag)
 {
-	if (comp && comp->funcs && comp->funcs->config_trigger)
+	if (comp && comp->funcs && comp->funcs->config_trigger &&
+			!comp->blank_mode)
 		comp->funcs->config_trigger(comp, handle, flag);
 }
 
@@ -441,9 +463,10 @@ mtk_ddp_comp_addon_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 			  union mtk_addon_config *addon_config,
 			  struct cmdq_pkt *handle)
 {
-	if (comp && comp->funcs && comp->funcs->addon_config)
+	if (comp && comp->funcs && comp->funcs->addon_config &&
+			!comp->blank_mode)
 		comp->funcs->addon_config(comp, prev, next, addon_config,
-					  handle);
+				handle);
 }
 
 static inline int mtk_ddp_comp_io_cmd(struct mtk_ddp_comp *comp,
@@ -452,7 +475,7 @@ static inline int mtk_ddp_comp_io_cmd(struct mtk_ddp_comp *comp,
 {
 	int ret = -EINVAL;
 
-	if (comp && comp->funcs && comp->funcs->io_cmd)
+	if (comp && comp->funcs && comp->funcs->io_cmd && !comp->blank_mode)
 		ret = comp->funcs->io_cmd(comp, handle, io_cmd, params);
 
 	return ret;
@@ -463,7 +486,7 @@ mtk_ddp_comp_is_busy(struct mtk_ddp_comp *comp)
 {
 	int ret = 0;
 
-	if (comp && comp->funcs && comp->funcs->is_busy)
+	if (comp && comp->funcs && comp->funcs->is_busy && !comp->blank_mode)
 		ret = comp->funcs->is_busy(comp);
 
 	return ret;
@@ -515,6 +538,8 @@ void mt6885_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 void mt6873_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
 void mt6853_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data);
+void mt6833_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
 
 

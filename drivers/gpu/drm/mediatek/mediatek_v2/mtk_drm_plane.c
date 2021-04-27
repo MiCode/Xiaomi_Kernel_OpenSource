@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <drm/drm_atomic.h>
@@ -129,7 +129,7 @@ char *mtk_get_format_name(uint32_t format)
 	case DRM_FORMAT_ABGR2101010:
 		return "ABGR2101010";
 	case DRM_FORMAT_ABGR16161616F:
-		return "ABGR16161616F";
+		return "ABGRFP16";
 	}
 	return "fmt_unknown";
 }
@@ -450,7 +450,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 
 	if (cnt <= 5) {
 		cnt++;
-		if (state->pending.format == DRM_FORMAT_RGB565 &&
+		if (state->pending.format == DRM_FORMAT_RGB332 &&
 			drm_crtc_index(crtc) == 0)
 			skip_update = 1;
 	}
@@ -475,7 +475,6 @@ static void mtk_plane_atomic_disable(struct drm_plane *plane,
 		DDPPR_ERR("%s, empty crtc state\n", __func__);
 	else
 		mtk_drm_crtc_plane_disable(state->crtc, plane, state);
-
 #endif
 }
 

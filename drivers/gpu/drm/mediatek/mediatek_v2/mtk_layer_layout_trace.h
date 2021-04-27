@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
+
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM layer_layout
 

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef MTK_DRM_DDP_H
@@ -66,12 +66,6 @@ void mtk_disp_mutex_acquire(struct mtk_disp_mutex *mutex);
 void mtk_disp_mutex_release(struct mtk_disp_mutex *mutex);
 void mtk_disp_mutex_trigger(struct mtk_disp_mutex *mutex, void *handle);
 
-void mutex_dump_reg(struct mtk_disp_mutex *mutex);
-void mutex_dump_analysis(struct mtk_disp_mutex *mutex);
-
-void mmsys_config_dump_reg(void __iomem *config_regs);
-void mmsys_config_dump_analysis(void __iomem *config_regs);
-
 void mtk_disp_mutex_enable_cmdq(struct mtk_disp_mutex *mutex,
 				struct cmdq_pkt *cmdq_handle,
 				struct cmdq_base *cmdq_base);
@@ -90,6 +84,10 @@ void mtk_ddp_insert_dsc_prim_MT6885(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle);
 void mtk_ddp_remove_dsc_prim_MT6885(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle);
+void mtk_ddp_connect_dual_pipe_path(struct mtk_drm_crtc *mtk_crtc,
+	struct mtk_disp_mutex *mutex);
+void mtk_disp_mutex_submit_sof(struct mtk_disp_mutex *mutex);
+void mtk_ddp_dual_pipe_dump(struct mtk_drm_crtc *mtk_crtc);
 
 void mutex_dump_reg_mt6873(struct mtk_disp_mutex *mutex);
 void mutex_dump_analysis_mt6873(struct mtk_disp_mutex *mutex);
@@ -109,5 +107,8 @@ void mtk_ddp_insert_dsc_prim_MT6853(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle);
 void mtk_ddp_remove_dsc_prim_MT6853(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle);
+
+void mmsys_config_dump_analysis_mt6833(void __iomem *config_regs);
+void mutex_dump_analysis_mt6833(struct mtk_disp_mutex *mutex);
 
 #endif /* MTK_DRM_DDP_H */

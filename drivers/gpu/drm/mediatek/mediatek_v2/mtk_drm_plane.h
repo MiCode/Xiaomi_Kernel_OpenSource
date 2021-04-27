@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef _MTK_DRM_PLANE_H_
@@ -98,7 +98,7 @@ enum DISP_YUV_RANGE_ENUM {
 
 enum MTK_FMT_MODIFIER {
 	MTK_FMT_NONE = 0,
-	MTK_FMT_PREMULTIPLIER = 1,
+	MTK_FMT_PREMULTIPLIED = 1,
 };
 
 enum MTK_PLANE_PROP {

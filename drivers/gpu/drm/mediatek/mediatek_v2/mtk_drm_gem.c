@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <drm/drm_gem.h>
@@ -92,47 +92,7 @@ static struct sg_table *mtk_gem_vmap_pa(struct mtk_drm_gem_obj *mtk_gem,
 
 	return sgt;
 }
-#ifdef IF_ZERO
-static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
-				   struct mtk_drm_gem_obj *mtk_gem)
-{
-#if defined(CONFIG_MTK_IOMMU_V2)
-	struct ion_client *client;
-	struct ion_handle *handle;
-	struct ion_mm_data mm_data;
 
-	mtk_gem->cookie = (void *)ioremap_nocache(pa, size);
-	mtk_gem->kvaddr = mtk_gem->cookie;
-
-	client = mtk_drm_gem_ion_create_client("disp_fb0");
-	handle =
-		ion_alloc(client, size, (size_t)mtk_gem->kvaddr,
-			  ION_HEAP_MULTIMEDIA_MAP_MVA_MASK, 0);
-	if (IS_ERR(handle)) {
-		DDPPR_ERR("ion alloc failed, handle:0x%p\n", handle);
-		return;
-	}
-
-	/* use get_iova replace config_buffer & get_phys*/
-	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
-	/* should use Your HW port id, please don't use other's port id */
-	mm_data.get_phys_param.module_id = 0;
-	mm_data.get_phys_param.kernel_handle = handle;
-	mm_data.mm_cmd = ION_MM_GET_IOVA;
-
-	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
-				 (unsigned long)&mm_data) < 0) {
-		DDPPR_ERR("ion config failed, handle:0x%p\n", handle);
-		mtk_drm_gem_ion_free_handle(client, handle,
-				__func__, __LINE__);
-		return;
-	}
-	mtk_gem->sec = false;
-	mtk_gem->dma_addr = (unsigned int)mm_data.get_phys_param.phy_addr;
-	mtk_gem->size = mm_data.get_phys_param.len;
-#endif
-}
-#endif
 static inline void *mtk_gem_dma_alloc(struct device *dev, size_t size,
 				       dma_addr_t *dma_handle, gfp_t flag,
 				       unsigned long attrs, const char *name,
@@ -383,6 +343,7 @@ void mtk_drm_gem_ion_free_handle(struct dma_buf *buf_hnd,
 {
 	if (!buf_hnd) {
 		DDPPR_ERR("invalid buf_hnd handle!\n");
+
 		return;
 	}
 
@@ -405,7 +366,7 @@ struct dma_buf *mtk_drm_gem_ion_import_handle(int fd)
 
 	if (IS_ERR(buf_hnd)) {
 		DDPPR_ERR("%s:%d error! hnd:0x%p, fd:%d\n",
-				__func__, __LINE__, buf_hnd, fd);
+					__func__, __LINE__, buf_hnd, fd);
 		return NULL;
 	}
 
@@ -564,7 +525,7 @@ int mtk_gem_create_ioctl(struct drm_device *dev, void *data,
 		goto err_handle_create;
 
 	/* drop reference from allocate - handle holds it now. */
-	drm_gem_object_put_unlocked(&mtk_gem->base);
+	drm_gem_object_put(&mtk_gem->base);
 
 	return 0;
 

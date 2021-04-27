@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef __MTKFB_DUMP_H
@@ -13,6 +13,7 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp);
 int mtk_wdma_dump(struct mtk_ddp_comp *comp);
 int mtk_rsz_dump(struct mtk_ddp_comp *comp);
 int mtk_dsi_dump(struct mtk_ddp_comp *comp);
+int mtk_dp_intf_dump(struct mtk_ddp_comp *comp);
 int mtk_postmask_dump(struct mtk_ddp_comp *comp);
 void mtk_color_dump(struct mtk_ddp_comp *comp);
 void mtk_ccorr_dump(struct mtk_ddp_comp *comp);
@@ -21,14 +22,18 @@ void mtk_aal_dump(struct mtk_ddp_comp *comp);
 void mtk_dmdp_aal_dump(struct mtk_ddp_comp *comp);
 void mtk_gamma_dump(struct mtk_ddp_comp *comp);
 void mtk_dsc_dump(struct mtk_ddp_comp *comp);
+void mtk_merge_dump(struct mtk_ddp_comp *comp);
 
 int mtk_ovl_analysis(struct mtk_ddp_comp *comp);
 int mtk_rdma_analysis(struct mtk_ddp_comp *comp);
 int mtk_wdma_analysis(struct mtk_ddp_comp *comp);
 int mtk_rsz_analysis(struct mtk_ddp_comp *comp);
 int mtk_dsi_analysis(struct mtk_ddp_comp *comp);
+int mtk_dp_intf_analysis(struct mtk_ddp_comp *comp);
 int mtk_postmask_analysis(struct mtk_ddp_comp *comp);
 int mtk_dsc_analysis(struct mtk_ddp_comp *comp);
+int mtk_merge_analysis(struct mtk_ddp_comp *comp);
+
 
 int mtk_dump_reg(struct mtk_ddp_comp *comp);
 int mtk_dump_analysis(struct mtk_ddp_comp *comp);

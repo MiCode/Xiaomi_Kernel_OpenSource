@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/of.h>
@@ -50,7 +50,7 @@ static struct mtk_drm_helper help_info[] = {
 	{MTK_DRM_OPT_RPO, 0, "MTK_DRM_OPT_RPO"},
 	{MTK_DRM_OPT_DUAL_PIPE, 0, "MTK_DRM_OPT_DUAL_PIPE"},
 	{MTK_DRM_OPT_DC_BY_HRT, 0, "MTK_DRM_OPT_DC_BY_HRT"},
-	{MTK_DRM_OPT_OVL_WCG, 0, "MTK_DRM_OPT_OVL_WCG"},
+	{MTK_DRM_OPT_OVL_WCG, 1, "MTK_DRM_OPT_OVL_WCG"},
 	{MTK_DRM_OPT_OVL_SBCH, 0, "MTK_DRM_OPT_OVL_SBCH"},
 	{MTK_DRM_OPT_COMMIT_NO_WAIT_VBLANK, 0,
 	 "MTK_DRM_OPT_COMMIT_NO_WAIT_VBLANK"},
@@ -62,6 +62,12 @@ static struct mtk_drm_helper help_info[] = {
 	{MTK_DRM_OPT_HBM, 0, "MTK_DRM_OPT_HBM"},
 	{MTK_DRM_OPT_LAYER_REC, 0, "MTK_DRM_OPT_LAYER_REC"},
 	{MTK_DRM_OPT_CLEAR_LAYER, 0, "MTK_DRM_OPT_CLEAR_LAYER"},
+	{MTK_DRM_OPT_VDS_PATH_SWITCH, 0, "MTK_DRM_OPT_VDS_PATH_SWITCH"},
+	{MTK_DRM_OPT_LFR, 0, "MTK_DRM_OPT_LFR"},
+	{MTK_DRM_OPT_SF_PF, 0, "MTK_DRM_OPT_SF_PF"},
+	{MTK_DRM_OPT_PQ_34_COLOR_MATRIX, 0, "MTK_DRM_OPT_PQ_34_COLOR_MATRIX"},
+	{MTK_DRM_OPT_DYN_MIPI_CHANGE, 1, "MTK_DRM_OPT_DYN_MIPI_CHANGE"},
+	{MTK_DRM_OPT_PRIM_DUAL_PIPE, 0, "MTK_DRM_OPT_PRIM_DUAL_PIPE"},
 };
 
 static const char *mtk_drm_helper_opt_spy(struct mtk_drm_helper *helper_opt,

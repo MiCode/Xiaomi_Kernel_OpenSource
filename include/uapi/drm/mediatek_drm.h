@@ -208,6 +208,10 @@ struct DISPLAY_COLOR_REG {
 	unsigned int SKIN_TONE_H[SKIN_TONE_SIZE];
 	unsigned int GRASS_TONE_H[GRASS_TONE_SIZE];
 	unsigned int SKY_TONE_H[SKY_TONE_SIZE];
+	unsigned int S_GAIN_BY_Y[S_GAIN_BY_Y_CONTROL_CNT]
+				[S_GAIN_BY_Y_HUE_PHASE_CNT];
+	unsigned int S_GAIN_BY_Y_EN;
+	unsigned int LSP_EN;
 	unsigned int COLOR_3D[COLOR_3D_WINDOW_CNT][COLOR_3D_WINDOW_SIZE];
 };
 #define DISPLAY_COLOR_REG_T struct DISPLAY_COLOR_REG
@@ -393,7 +397,9 @@ struct DISP_PQ_PARAM {
 #define DRM_MTK_GET_DISPLAY_CAPS	0x08
 #define DRM_MTK_SET_DDP_MODE   0x09
 #define DRM_MTK_GET_SESSION_INFO	0x0A
-#define DRM_MTK_SEC_HND_TO_GEM_HND   0x0B
+#define DRM_MTK_SEC_HND_TO_GEM_HND	0x0B
+#define DRM_MTK_GET_MASTER_INFO		0x0C
+#define DRM_MTK_CRTC_GETSFFENCE         0x0D
 
 /* PQ */
 #define DRM_MTK_SET_CCORR			0x20
@@ -420,6 +426,49 @@ struct DISP_PQ_PARAM {
 #define DRM_MTK_AAL_EVENTCTL	0x33
 #define DRM_MTK_AAL_INIT_DRE30	0x34
 #define DRM_MTK_AAL_GET_SIZE	0x35
+
+#define DRM_MTK_HDMI_GET_DEV_INFO	0x3A
+#define DRM_MTK_HDMI_AUDIO_ENABLE	0x3B
+#define DRM_MTK_HDMI_AUDIO_CONFIG	0x3C
+#define DRM_MTK_HDMI_GET_CAPABILITY	0x3D
+
+enum MTKFB_DISPIF_TYPE {
+	DISPIF_TYPE_DBI = 0,
+	DISPIF_TYPE_DPI,
+	DISPIF_TYPE_DSI,
+	DISPIF_TYPE_DPI0,
+	DISPIF_TYPE_DPI1,
+	DISPIF_TYPE_DSI0,
+	DISPIF_TYPE_DSI1,
+	HDMI = 7,
+	HDMI_SMARTBOOK,
+	MHL,
+	DISPIF_TYPE_EPD,
+	DISPLAYPORT,
+	SLIMPORT
+};
+
+
+enum MTKFB_DISPIF_MODE {
+	DISPIF_MODE_VIDEO = 0,
+	DISPIF_MODE_COMMAND
+};
+
+struct mtk_dispif_info {
+	unsigned int display_id;
+	unsigned int isHwVsyncAvailable;
+	enum MTKFB_DISPIF_TYPE displayType;
+	unsigned int displayWidth;
+	unsigned int displayHeight;
+	unsigned int displayFormat;
+	enum MTKFB_DISPIF_MODE displayMode;
+	unsigned int vsyncFPS;
+	unsigned int physicalWidth;
+	unsigned int physicalHeight;
+	unsigned int isConnected;
+	unsigned int lcmOriginalWidth;
+	unsigned int lcmOriginalHeight;
+};
 
 #define DRM_IOCTL_MTK_SET_DDP_MODE	DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_SET_DDP_MODE, unsigned int)
@@ -514,6 +563,8 @@ enum MTK_DRM_DISP_FEATURE {
 	DRM_DISP_FEATURE_OUTPUT_ROTATED = 0x00000010,
 	DRM_DISP_FEATURE_THREE_SESSION = 0x00000020,
 	DRM_DISP_FEATURE_FBDC = 0x00000040,
+	DRM_DISP_FEATURE_SF_PRESENT_FENCE = 0x00000080,
+	DRM_DISP_FEATURE_PQ_34_COLOR_MATRIX = 0x00000100,
 };
 
 enum mtk_mmsys_id {
@@ -607,6 +658,9 @@ struct DRM_DISP_WRITE_REG {
 #define DRM_IOCTL_MTK_CRTC_GETFENCE	DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_CRTC_GETFENCE, struct drm_mtk_fence)
 
+#define DRM_IOCTL_MTK_CRTC_GETSFFENCE	DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_CRTC_GETSFFENCE, struct drm_mtk_fence)
+
 #define DRM_IOCTL_MTK_WAIT_REPAINT	DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_WAIT_REPAINT, unsigned int)
 
@@ -618,6 +672,10 @@ struct DRM_DISP_WRITE_REG {
 
 #define DRM_IOCTL_MTK_GET_SESSION_INFO     DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_GET_SESSION_INFO, struct drm_mtk_session_info)
+
+#define DRM_IOCTL_MTK_GET_MASTER_INFO     DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_GET_MASTER_INFO, int)
+
 #define DRM_IOCTL_MTK_SEC_HND_TO_GEM_HND     DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_SEC_HND_TO_GEM_HND, struct drm_mtk_sec_gem_hnd)
 
@@ -676,6 +734,7 @@ struct DRM_DISP_WRITE_REG {
 /* AAL IOCTL */
 #define AAL_HIST_BIN            33	/* [0..32] */
 #define AAL_DRE_POINT_NUM       29
+#define AAL_DRE_BLK_NUM			(16)
 
 struct DISP_AAL_INITREG {
 	/* DRE */
@@ -710,6 +769,10 @@ struct DISP_AAL_INITREG {
 	int act_win_y_end;
 	int blk_num_x_start;
 	int blk_num_x_end;
+	int dre0_blk_num_x_start;
+	int dre0_blk_num_x_end;
+	int dre1_blk_num_x_start;
+	int dre1_blk_num_x_end;
 	int blk_cnt_x_start;
 	int blk_cnt_x_end;
 	int blk_num_y_start;
@@ -743,15 +806,21 @@ struct DISP_AAL_DISPLAY_SIZE {
 struct DISP_AAL_HIST {
 	unsigned int serviceFlags;
 	int backlight;
-	int colorHist;
-	unsigned int maxHist[AAL_HIST_BIN];
+	int aal0_colorHist;
+	int aal1_colorHist;
+	unsigned int aal0_maxHist[AAL_HIST_BIN];
+	unsigned int aal1_maxHist[AAL_HIST_BIN];
 	int requestPartial;
 	unsigned long long dre30_hist;
 	unsigned int panel_type;
 	int essStrengthIndex;
 	int ess_enable;
 	int dre_enable;
-	unsigned int yHist[AAL_HIST_BIN];
+	unsigned int aal0_yHist[AAL_HIST_BIN];
+	unsigned int aal1_yHist[AAL_HIST_BIN];
+	unsigned int MaxHis_denominator_pipe0[AAL_DRE_BLK_NUM];
+	unsigned int MaxHis_denominator_pipe1[AAL_DRE_BLK_NUM];
+	int pipeLineNum;
 };
 
 #define DRM_IOCTL_MTK_AAL_INIT_REG	DRM_IOWR(DRM_COMMAND_BASE + \
@@ -771,6 +840,17 @@ struct DISP_AAL_HIST {
 
 #define DRM_IOCTL_MTK_AAL_GET_SIZE	DRM_IOWR(DRM_COMMAND_BASE + \
 			DRM_MTK_AAL_GET_SIZE, struct DISP_AAL_DISPLAY_SIZE)
+
+#define DRM_IOCTL_MTK_HDMI_GET_DEV_INFO     DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_HDMI_GET_DEV_INFO, struct mtk_dispif_info)
+#define DRM_IOCTL_MTK_HDMI_AUDIO_ENABLE     DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_HDMI_AUDIO_ENABLE, unsigned int)
+
+#define DRM_IOCTL_MTK_HDMI_AUDIO_CONFIG     DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_HDMI_AUDIO_CONFIG, unsigned int)
+
+#define DRM_IOCTL_MTK_HDMI_GET_CAPABILITY     DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_HDMI_GET_CAPABILITY, unsigned int)
 
 #define MTK_DRM_ADVANCE
 #define MTK_DRM_FORMAT_DIM		fourcc_code('D', ' ', '0', '0')

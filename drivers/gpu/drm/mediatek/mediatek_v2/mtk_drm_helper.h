@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef _MTK_DRM_HELPER_H_
@@ -48,6 +48,14 @@ enum MTK_DRM_HELPER_OPT {
 	MTK_DRM_OPT_HBM,
 	MTK_DRM_OPT_LAYER_REC,
 	MTK_DRM_OPT_CLEAR_LAYER,
+	MTK_DRM_OPT_VDS_PATH_SWITCH,
+	/*ARR4*/
+	MTK_DRM_OPT_LFR,
+	MTK_DRM_OPT_SF_PF,
+	/*PQ*/
+	MTK_DRM_OPT_PQ_34_COLOR_MATRIX,
+	MTK_DRM_OPT_DYN_MIPI_CHANGE,
+	MTK_DRM_OPT_PRIM_DUAL_PIPE,
 	MTK_DRM_OPT_NUM
 };
 

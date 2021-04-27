@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/delay.h>
@@ -169,21 +169,29 @@ static int is_overlap_on_yaxis(struct drm_mtk_layer_config *lhs,
 	return 1;
 }
 
-static bool is_layer_across_each_pipe(struct drm_mtk_layer_config *layer_info)
+static bool is_layer_across_each_pipe(struct drm_crtc *crtc,
+			struct drm_mtk_layer_config *layer_info)
 {
-/* TODO: support dual pipe */
-#ifdef IF_ZERO
-	int dst_x, dst_w;
+	unsigned int dst_x, dst_w;
+	unsigned int disp_w;
+	struct mtk_drm_crtc *mtk_crtc;
 
-	if (!get_layering_opt(LYE_OPT_DUAL_PIPE))
+	if (crtc == NULL)
 		return true;
+
+	mtk_crtc = to_mtk_crtc(crtc);
+	if (!mtk_crtc->is_dual_pipe)
+		return true;
+
+	disp_w = crtc->mode.hdisplay;
 
 	dst_x = layer_info->dst_offset_x;
 	dst_w = layer_info->dst_width;
-	if ((dst_x + dst_w <= primary_display_get_width() / 2) ||
-	    (dst_x > primary_display_get_width() / 2))
+
+	if ((dst_x + dst_w <= disp_w / 2) ||
+	    (dst_x > disp_w / 2))
 		return false;
-#endif
+
 	return true;
 }
 
@@ -192,8 +200,8 @@ static inline bool is_extended_layer(struct drm_mtk_layer_config *layer_info)
 	return (layer_info->ext_sel_layer != -1);
 }
 
-static bool is_extended_base_layer_valid(struct drm_mtk_layer_config *configs,
-					 int layer_idx)
+static bool is_extended_base_layer_valid(struct drm_crtc *crtc,
+		struct drm_mtk_layer_config *configs, int layer_idx)
 {
 	if ((layer_idx == 0) ||
 		(configs->src_fmt == MTK_DRM_FORMAT_DIM) ||
@@ -206,9 +214,14 @@ static bool is_extended_base_layer_valid(struct drm_mtk_layer_config *configs,
 	 * because extended layer would not find base layer in one of
 	 * display pipe.
 	 * So always mark this specific layer as overlap to avoid the fail case.
+	 * *
+	 * UPDATE @ 2020/12/17
+	 * Could skip this step through revise ovl extended layer config
+	 * flow; by enable attached layer index's RDMA, extended layer
+	 * can work well even attached layer does not enable.
 	 */
-	if (!is_layer_across_each_pipe(configs))
-		return false;
+	//if (!is_layer_across_each_pipe(crtc, configs))
+	//	return false;
 
 	return true;
 }
@@ -227,8 +240,8 @@ static inline bool is_extended_over_limit(int ext_cnt)
  * 1. check all ext layers, if overlapped with any one, change it to phy layer
  * 2. if more than 1 ext layer exist, need to check the phy layer
  */
-static int is_continuous_ext_layer_overlap(struct drm_mtk_layer_config *configs,
-					   int curr)
+static int is_continuous_ext_layer_overlap(struct drm_crtc *crtc,
+		struct drm_mtk_layer_config *configs, int curr)
 {
 	int overlapped;
 	struct drm_mtk_layer_config *src_info, *dst_info;
@@ -244,7 +257,7 @@ static int is_continuous_ext_layer_overlap(struct drm_mtk_layer_config *configs,
 				break;
 		} else {
 			overlapped |= is_overlap_on_yaxis(src_info, dst_info);
-			if (!is_extended_base_layer_valid(src_info, i))
+			if (!is_extended_base_layer_valid(crtc, src_info, i))
 				overlapped |= 1;
 			break;
 		}
@@ -479,6 +492,8 @@ static void dump_disp_trace(struct drm_mtk_layering_info *disp_info)
 			     disp_info->gles_tail[i]);
 
 		for (j = 0; j < disp_info->layer_num[i]; j++) {
+			if (n >= LEN)
+				break;
 			c = &disp_info->input_config[i][j];
 			n += snprintf(msg + n, LEN - n,
 				      "|L%d->%d(%u,%u,%ux%u),f:0x%x,c:%d",
@@ -709,16 +724,21 @@ static int rollback_to_GPU(struct drm_mtk_layering_info *info, int disp,
 		available_ovl_num = _rollback_to_GPU_top_down(
 			info, disp, available_ovl_num);
 
+	if (info->gles_head[disp] == -1 && info->gles_tail[disp] == -1)
+		goto out;
+
 	if (mtk_is_layer_id_valid(info, disp, info->gles_head[disp]) == false) {
 		dump_disp_info(info, DISP_DEBUG_LEVEL_CRITICAL);
 		DDPAEE("invalid gles_head:%d, aval:%d\n",
 			  info->gles_head[disp], available);
+		goto out;
 	}
 
 	if (mtk_is_layer_id_valid(info, disp, info->gles_tail[disp]) == false) {
 		dump_disp_info(info, DISP_DEBUG_LEVEL_CRITICAL);
 		DDPAEE("invalid gles_tail:%d, aval:%d\n",
 			  info->gles_tail[disp], available);
+		goto out;
 	}
 
 	/* Clear extended layer for all GLES layer */
@@ -733,6 +753,7 @@ static int rollback_to_GPU(struct drm_mtk_layering_info *info, int disp,
 			l_info->ext_sel_layer = -1;
 	}
 
+out:
 	return available_ovl_num;
 }
 
@@ -799,7 +820,7 @@ static void ext_id_adjustment_and_retry(struct drm_device *dev,
 
 		if (ext_idx == -1) {
 			layer_info->ext_sel_layer = -1;
-			if (is_extended_base_layer_valid(layer_info, j))
+			if (is_extended_base_layer_valid(NULL, layer_info, j))
 				ext_idx = j;
 		} else {
 			layer_info->ext_sel_layer = ext_idx;
@@ -1195,6 +1216,8 @@ static int get_layer_weight(int disp_idx,
 		bpp = HRT_UINT_BOUND_BPP;
 #ifdef CONFIG_MTK_HDMI_SUPPORT
 	if (disp_idx == HRT_SECONDARY) {
+		/* To Be Impl */
+#ifdef IF_ZERO
 		struct disp_session_info dispif_info;
 
 		/* For seconary display, set the weight 4K@30 as 2K@60.	*/
@@ -1211,6 +1234,7 @@ static int get_layer_weight(int disp_idx,
 			weight /= 2;
 
 		return weight * bpp;
+#endif
 	}
 #endif
 
@@ -1379,11 +1403,14 @@ static int calc_hrt_num(struct drm_device *dev,
 			_calc_hrt_num(dev, disp_info, HRT_SECONDARY,
 				      HRT_TYPE_EMI, scan_overlap, false);
 	}
+	/* Virtual Display should not add to HRT sum: ovl -> wdma */
+	/*
 	if (has_hrt_limit(disp_info, HRT_THIRD)) {
-		sum_overlap_w += _calc_hrt_num(dev, disp_info, HRT_THIRD,
-					       HRT_TYPE_EMI, scan_overlap,
-					       false);
+		sum_overlap_w += calc_hrt_num(dev, disp_info, HRT_THIRD,
+				HRT_TYPE_EMI, scan_overlap,
+				false);
 	}
+	*/
 
 	emi_hrt_level = get_hrt_level(sum_overlap_w, false);
 
@@ -1431,6 +1458,7 @@ static int ext_layer_grouping(struct drm_device *dev,
 	int is_ext_layer, disp_idx, i;
 	struct drm_mtk_layer_config *src_info, *dst_info;
 	int available_layers = 0, phy_layer_cnt = 0;
+	struct drm_crtc *crtc;
 
 	for (disp_idx = 0; disp_idx < HRT_DISP_TYPE_NUM; disp_idx++) {
 		/* initialize ext layer info */
@@ -1445,6 +1473,13 @@ static int ext_layer_grouping(struct drm_device *dev,
 			continue;
 #endif
 
+		if (disp_idx == HRT_PRIMARY) {
+			drm_for_each_crtc(crtc, dev)
+				if (drm_crtc_index(crtc) == disp_idx)
+					break;
+		} else {
+			crtc = NULL;
+		}
 		/*
 		 * If the physical layer > input layer,
 		 * then skip using extended layer.
@@ -1476,7 +1511,7 @@ static int ext_layer_grouping(struct drm_device *dev,
 				continue;
 			}
 
-			is_ext_layer = !is_continuous_ext_layer_overlap(
+			is_ext_layer = !is_continuous_ext_layer_overlap(crtc,
 				disp_info->input_config[disp_idx], i);
 
 			/*
@@ -1526,11 +1561,17 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 {
 	uint16_t ovl_mapping_tb = l_rule_ops->get_mapping_table(
 		drm_dev, disp_idx, DISP_HW_OVL_TB, 0);
+	struct mtk_drm_private *priv = drm_dev->dev_private;
 
 	/* TODO: The component ID should be changed by ddp path and platforms */
 	if (disp_idx == 0) {
 		if (HRT_GET_FIRST_SET_BIT(ovl_mapping_tb) >= layer_map_idx)
 			return DDP_COMPONENT_DMDP_RDMA0;
+		/* When open VDS path switch feature, primary OVL have OVL0 only */
+		else if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_VDS_PATH_SWITCH) &&
+			priv->need_vds_path_switch)
+			return DDP_COMPONENT_OVL0;
 		else if (HRT_GET_FIRST_SET_BIT(
 				 ovl_mapping_tb -
 				 HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
@@ -1538,7 +1579,13 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 			return DDP_COMPONENT_OVL0_2L;
 		else
 			return DDP_COMPONENT_OVL0;
-	} else
+	} else if (priv->data->mmsys_id == MMSYS_MT6885)
+		return DDP_COMPONENT_OVL2_2L;
+	/* When open VDS path switch feature, vds OVL is OVL0_2L */
+	else if (mtk_drm_helper_get_opt(priv->helper_opt,
+		MTK_DRM_OPT_VDS_PATH_SWITCH))
+		return DDP_COMPONENT_OVL0_2L;
+	else
 		return DDP_COMPONENT_OVL2_2L;
 }
 
@@ -1600,8 +1647,9 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 		else
 			c->layer_caps |= MTK_DISP_CLIENT_CLEAR_LAYER;
 
-		if ((c->src_width < c->dst_width ||
+		if ((c->src_width < c->dst_width &&
 		     c->src_height < c->dst_height) &&
+		     get_layering_opt(LYE_OPT_RPO) &&
 		    top < disp_info->gles_tail[di]) {
 			c->layer_caps |= MTK_DISP_RSZ_LAYER;
 			l_rule_info->addon_scn[di] = ONE_SCALING;
@@ -1947,8 +1995,10 @@ static int set_disp_info(struct drm_mtk_layering_info *disp_info_user,
 	memcpy(&layering_info, disp_info_user,
 		sizeof(struct drm_mtk_layering_info));
 
+
 	for (i = 0; i < HRT_DISP_TYPE_NUM; i++)
-		_copy_layer_info_from_disp(disp_info_user, debug_mode, i);
+		if (_copy_layer_info_from_disp(disp_info_user, debug_mode, i))
+			return -EFAULT;
 
 	memset(l_rule_info->addon_scn, 0x0, sizeof(l_rule_info->addon_scn));
 	return 0;
@@ -2052,8 +2102,17 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 	struct drm_property_blob *blob;
 	struct mtk_lye_ddp_state lye_state;
 	struct mtk_drm_private *mtk_drm = drm_dev->dev_private;
+	unsigned int i;
 
 	memcpy(lye_state.scn, l_rule_info->addon_scn, sizeof(lye_state.scn));
+	for (i = 0 ; i < HRT_DISP_TYPE_NUM ; i++) {
+		if (lye_state.scn[i] < NONE ||
+				lye_state.scn[i] >= ADDON_SCN_NR) {
+			DDPPR_ERR("[%s]abnormal scn[%u]:%d,set scn to 0\n",
+				__func__, i, lye_state.scn[i]);
+			lye_state.scn[i] = NONE;
+		}
+	}
 	lye_state.lc_tgt_layer = 0;
 
 	blob = drm_property_create_blob(
@@ -2141,6 +2200,124 @@ static bool same_ratio_limitation(struct drm_crtc *crtc,
 		return false;
 }
 
+#define UNIT 32768
+#define TILE_LOSS 4
+static int check_cross_pipe_rpo(
+	unsigned int src_x, unsigned int src_w,
+	unsigned int dst_x, unsigned int dst_w,
+	unsigned int disp_w)
+{
+	int left = dst_x;
+	int right = dst_x + dst_w - 1;
+	int tile_idx = 0;
+	int tile_loss = 4;
+	u32 step = 0;
+	s32 init_phase = 0;
+	s32 offset[2] = {0};
+	s32 int_offset[2] = {0};
+	s32 sub_offset[2] = {0};
+	u32 tile_in_len[2] = {0};
+	u32 tile_out_len[2] = {0};
+	u32 out_x[2] = {0};
+	bool is_dual = true;
+	int width = disp_w;
+	struct mtk_rsz_param param[2];
+
+	if (right < width / 2)
+		tile_idx = 0;
+	else if (left >= width / 2)
+		tile_idx = 1;
+	else
+		is_dual = true;
+
+	step = (UNIT * (src_w - 1) + (dst_w - 2)) /
+			(dst_w - 1);
+
+	offset[0] = (step * (dst_w - 1) -
+		UNIT * (src_w - 1)) / 2;
+	init_phase = UNIT - offset[0];
+	sub_offset[0] = -offset[0];
+	if (sub_offset[0] < 0) {
+		int_offset[0]--;
+		sub_offset[0] = UNIT + sub_offset[0];
+	}
+	if (sub_offset[0] >= UNIT) {
+		int_offset[0]++;
+		sub_offset[0] = sub_offset[0] - UNIT;
+	}
+	if (is_dual) {
+		/*left side*/
+		tile_in_len[0] = (((width / 2) * src_w * 10) /
+			dst_w + 5) / 10 - src_x + tile_loss;
+		tile_out_len[0] = width / 2 - dst_x;
+		out_x[0] = dst_x;
+	} else {
+		tile_in_len[0] = src_w;
+		tile_out_len[0] = dst_w;
+		if (tile_idx == 0)
+			out_x[0] = dst_x;
+		else
+			out_x[0] = dst_x - width / 2;
+	}
+
+	param[tile_idx].out_x = out_x[0];
+	param[tile_idx].step = step;
+	param[tile_idx].int_offset = (u32)(int_offset[0] & 0xffff);
+	param[tile_idx].sub_offset = (u32)(sub_offset[0] & 0x1fffff);
+	param[tile_idx].in_len = tile_in_len[0];
+	param[tile_idx].out_len = tile_out_len[0];
+	DDPINFO("HRT %s:%s:step:%u,offset:%u.%u,len:%u->%u,out_x:%u\n", __func__,
+		   is_dual ? "dual" : "single",
+		   param[0].step,
+		   param[0].int_offset,
+		   param[0].sub_offset,
+		   param[0].in_len,
+		   param[0].out_len,
+		   param[0].out_x);
+
+	/* right half */
+	offset[1] =
+		(init_phase + dst_w / 2 * step) -
+		(src_w / 2 - tile_loss - (offset[0] ? 1 : 0) + 1) * UNIT +
+		UNIT;
+	int_offset[1] = offset[1] / UNIT;
+	sub_offset[1] = offset[1] - UNIT * int_offset[1];
+	tile_out_len[1] = dst_x + dst_w - width / 2;
+	tile_in_len[1] = ((tile_out_len[1] * src_w * 10) /
+			dst_w + 5) / 10 + tile_loss + (offset[0] ? 1 : 0);
+
+	if (int_offset[1] & 0x1) {
+		int_offset[1]++;
+		tile_in_len[1]++;
+		DDPINFO("HRT right tile int_offset: make odd to even\n");
+	}
+
+	param[1].step = step;
+	param[1].out_x = 0;
+	param[1].int_offset = (u32)(int_offset[1] & 0xffff);
+	param[1].sub_offset = (u32)(sub_offset[1] & 0x1fffff);
+	param[1].in_len = tile_in_len[1];
+	param[1].out_len = tile_out_len[1];
+
+	DDPINFO("HRT %s:%s:step:%u,offset:%u.%u,len:%u->%u,out_x:%u\n", __func__,
+		   is_dual ? "dual" : "single",
+		   param[1].step,
+		   param[1].int_offset,
+		   param[1].sub_offset,
+		   param[1].in_len,
+		   param[1].out_len,
+		   param[1].out_x);
+
+	if (param[1].in_len == param[1].out_len) {
+		DDPDBG("skip_pipe1_no_scale\n");
+		return -1;
+	}
+
+	if (tile_in_len[1] > tile_out_len[1] || tile_in_len[0] > tile_out_len[0])
+		return -1;
+
+	return 0;
+}
 static int RPO_rule(struct drm_crtc *crtc,
 		struct drm_mtk_layering_info *disp_info, int disp_idx,
 		bool has_pq)
@@ -2151,6 +2328,8 @@ static int RPO_rule(struct drm_crtc *crtc,
 	struct mtk_rect dst_layer_roi = {0};
 	struct mtk_rect src_roi = {0};
 	struct mtk_rect dst_roi = {0};
+	unsigned int disp_w = crtc->state->adjusted_mode.hdisplay;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	int rsz_idx = -1;
 	int i = 0;
 
@@ -2220,6 +2399,14 @@ static int RPO_rule(struct drm_crtc *crtc,
 				dst_roi.width, dst_roi.height);
 			break;
 		}
+
+		if (!is_layer_across_each_pipe(crtc, c))
+			break;
+
+		if (mtk_crtc->is_dual_pipe &&
+			check_cross_pipe_rpo(src_roi.x, src_roi.width,
+						dst_roi.x, dst_roi.width, disp_w))
+			break;
 
 		if (src_roi.width > RSZ_TILE_LENGTH ||
 		    src_roi.height > RSZ_IN_MAX_HEIGHT)
@@ -2295,11 +2482,22 @@ static int get_crtc_num(
 		crtc_num = 2;
 		break;
 	case MTK_DRM_SESSION_TRIPLE_DL:
-		crtc_num = 1;
+		crtc_num = 3;
 		break;
 	default:
 		crtc_num = 0;
 		break;
+	}
+
+	/*
+	 * when CRTC 0 disabled, disp_mode[0] would be 0,
+	 * but it might still exist other display.
+	 * Thus traverse each CRTC's disp_mode for
+	 * active CRTC number
+	 */
+	if (crtc_num == 0) {
+		for (i = 0 ; i < 3; i++)
+			crtc_num += !!disp_info_user->disp_mode[i];
 	}
 
 	/* check input config number */
@@ -2332,7 +2530,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	unsigned int scale_num = 0;
 	unsigned int scn_decision_flag = 0;
 	int crtc_num, crtc_mask;
-	int disp_idx;
+	int disp_idx = 0;
 
 	DRM_MMP_EVENT_START(layering, (unsigned long)disp_info_user,
 			(unsigned long)dev);
@@ -2399,7 +2597,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	 * for optimizing secondary display BW
 	 */
 	if (l_rule_ops->fbdc_rule)
-		l_rule_ops->fbdc_rule(&layering_info);
+		l_rule_ops->fbdc_rule(dev, &layering_info);
 
 	/* Add for FBDC */
 	if (l_rule_ops->fbdc_pre_calculate)
@@ -2446,9 +2644,16 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	 * All the gles layers set as same layer id.
 	 */
 	if (l_rule_ops->rollback_all_to_GPU_for_idle != NULL &&
-	    l_rule_ops->rollback_all_to_GPU_for_idle(dev)) {
+			l_rule_ops->rollback_all_to_GPU_for_idle(dev)) {
+		int i;
+
 		roll_gpu_for_idle = 1;
 		rollback_all_to_GPU(&layering_info, HRT_PRIMARY);
+		/* TODO: assume resize layer would be 2 */
+		for (i = 0 ; i < layering_info.layer_num[disp_idx] ; i++)
+			layering_info.input_config[HRT_PRIMARY][i].layer_caps &=
+				~MTK_DISP_RSZ_LAYER;
+		l_rule_info->addon_scn[HRT_PRIMARY] = NONE;
 		layering_info.hrt_num = HRT_LEVEL_LEVEL0;
 		layering_info.hrt_weight = 2;
 	}
@@ -2893,35 +3098,7 @@ static int gen_hrt_pattern(struct drm_device *dev)
 }
 #endif
 
-bool already_free;
-bool second_query;
-
 /**** UT Program end ****/
-
-int free_fb_buf(void) 
-{
-	unsigned long va_start = 0;
-	unsigned long va_end = 0;
-	phys_addr_t fb_base;
-	unsigned int vramsize, fps;
-
-	_parse_tag_videolfb(&vramsize, &fb_base, &fps);
-
-	if (!fb_base) {
-		DDPINFO("%s:get fb pa error\n", __func__);
-		return -1;
-	}	va_start = (unsigned long)__va(fb_base);
-
-	va_end = (unsigned long)__va(fb_base + (unsigned long)vramsize);
-	if (va_start)
-		//free_reserved_area((void *)va_start,
-		//(void *)va_end, 0xff, "fbmem");
-		;
-	else
-		DDPINFO("%s:va invalid\n", __func__);
-
-	return 0;
-}
 
 int mtk_layering_rule_ioctl(struct drm_device *dev, void *data,
 			    struct drm_file *file_priv)
@@ -2929,19 +3106,9 @@ int mtk_layering_rule_ioctl(struct drm_device *dev, void *data,
 	struct drm_mtk_layering_info *disp_info_user = data;
 	int ret;
 
-	/*free fb buf in second query valid*/
-	if (second_query && !already_free) {
-		mtk_drm_fb_gem_release(dev);
-		free_fb_buf();
-		already_free = true;
-	}
-
 	ret = layering_rule_start(disp_info_user, 0, dev);
 	if (ret < 0)
 		DDPPR_ERR("layering_rule_start error:%d\n", ret);
-
-	if (!second_query)
-		second_query = true;
 
 	return 0;
 }

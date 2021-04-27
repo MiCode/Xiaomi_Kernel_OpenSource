@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef __MTK_DISP_AAL_H__
@@ -84,6 +84,8 @@
 #define MDP_AAL_TILE_01				(0x4F0)
 #define MDP_AAL_TILE_02				(0x0F4)
 
+#define MDP_AAL_DUAL_PIPE00				(0x500)
+#define MDP_AAL_DUAL_PIPE08				(0x544)
 #define AAL_DRE30_GAIN_REGISTER_NUM		(544)
 #define AAL_DRE30_HIST_REGISTER_NUM		(768)
 
@@ -118,7 +120,8 @@ enum DISP_AAL_REFRESH_LATENCY {
 };
 
 struct DISP_DRE30_HIST {
-	unsigned int dre_hist[AAL_DRE30_HIST_REGISTER_NUM];
+	unsigned int aal0_dre_hist[AAL_DRE30_HIST_REGISTER_NUM];
+	unsigned int aal1_dre_hist[AAL_DRE30_HIST_REGISTER_NUM];
 	int dre_blk_x_num;
 	int dre_blk_y_num;
 };

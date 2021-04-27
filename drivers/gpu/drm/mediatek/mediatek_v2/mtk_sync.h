@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef _MTK_SYNC_H
@@ -65,6 +65,7 @@ struct fence_data {
 	char name[32];
 	__s32 fence; /* fd of new fence */
 };
+
 
 /*
  * sync_timeline, sync_fence API

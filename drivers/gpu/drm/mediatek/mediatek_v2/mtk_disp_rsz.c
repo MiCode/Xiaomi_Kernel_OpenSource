@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/clk.h>
@@ -67,6 +67,7 @@
 struct mtk_disp_rsz_data {
 	unsigned int tile_length;
 	unsigned int in_max_height;
+	bool support_shadow;
 	bool need_bypass_shadow;
 };
 
@@ -279,8 +280,21 @@ static void mtk_rsz_addon_config(struct mtk_ddp_comp *comp,
 		return;
 	}
 
-	mtk_rsz_calc_tile_params(rsz_config->frm_in_w, rsz_config->frm_out_w,
-				 tile_mode, rsz_config->tw);
+	if (comp->mtk_crtc->is_dual_pipe) {
+		rsz_config->tw[tile_idx].in_len =
+			addon_config->addon_rsz_config.rsz_param.in_len;
+		rsz_config->tw[tile_idx].out_len =
+			addon_config->addon_rsz_config.rsz_param.out_len;
+		rsz_config->tw[tile_idx].step =
+			addon_config->addon_rsz_config.rsz_param.step;
+		rsz_config->tw[tile_idx].int_offset =
+			addon_config->addon_rsz_config.rsz_param.int_offset;
+		rsz_config->tw[tile_idx].sub_offset =
+			addon_config->addon_rsz_config.rsz_param.sub_offset;
+	} else {
+		mtk_rsz_calc_tile_params(rsz_config->frm_in_w, rsz_config->frm_out_w,
+					 tile_mode, rsz_config->tw);
+	}
 	mtk_rsz_calc_tile_params(rsz_config->frm_in_h, rsz_config->frm_out_h,
 				 tile_mode, rsz_config->th);
 
@@ -556,21 +570,31 @@ static int mtk_disp_rsz_remove(struct platform_device *pdev)
 
 static const struct mtk_disp_rsz_data mt6779_rsz_driver_data = {
 	.tile_length = 1088, .in_max_height = 4096,
+	.support_shadow = false,
 	.need_bypass_shadow = false,
 };
 
 static const struct mtk_disp_rsz_data mt6885_rsz_driver_data = {
 	.tile_length = 1440, .in_max_height = 4096,
+	.support_shadow = false,
 	.need_bypass_shadow = false,
 };
 
 static const struct mtk_disp_rsz_data mt6873_rsz_driver_data = {
 	.tile_length = 1440, .in_max_height = 4096,
+	.support_shadow = false,
 	.need_bypass_shadow = true,
 };
 
 static const struct mtk_disp_rsz_data mt6853_rsz_driver_data = {
 	.tile_length = 1088, .in_max_height = 4096,
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+};
+
+static const struct mtk_disp_rsz_data mt6833_rsz_driver_data = {
+	.tile_length = 1088, .in_max_height = 4096,
+	.support_shadow = false,
 	.need_bypass_shadow = true,
 };
 
@@ -583,6 +607,8 @@ static const struct of_device_id mtk_disp_rsz_driver_dt_match[] = {
 	 .data = &mt6873_rsz_driver_data},
 	{.compatible = "mediatek,mt6853-disp-rsz",
 	 .data = &mt6853_rsz_driver_data},
+	{.compatible = "mediatek,mt6833-disp-rsz",
+	 .data = &mt6833_rsz_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_rsz_driver_dt_match);

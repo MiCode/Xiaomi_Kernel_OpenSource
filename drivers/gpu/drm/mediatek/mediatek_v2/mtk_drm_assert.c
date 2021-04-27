@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <drm/drm_gem.h>
@@ -214,7 +214,10 @@ static struct mtk_plane_state *drm_set_dal_plane_state(struct drm_crtc *crtc,
 	struct mtk_plane_pending_state *pending;
 	struct mtk_ddp_comp *ovl_comp = _handle_phy_top_plane(mtk_crtc);
 	struct MFC_CONTEXT *ctxt = (struct MFC_CONTEXT *)mfc_handle;
-	int layer_id = mtk_ovl_layer_num(ovl_comp) - 1;
+	int layer_id = -1;
+
+	if (ovl_comp)
+		layer_id = mtk_ovl_layer_num(ovl_comp) - 1;
 
 	if (!ctxt) {
 		DDPPR_ERR("%s MFC_CONTEXT is NULL\n", __func__);
@@ -250,6 +253,7 @@ static struct mtk_plane_state *drm_set_dal_plane_state(struct drm_crtc *crtc,
 	plane_state->comp_state.comp_id = ovl_comp->id;
 	plane_state->comp_state.lye_id = layer_id;
 	plane_state->comp_state.ext_lye_id = 0;
+	plane_state->base.crtc = crtc;
 
 	return plane_state;
 }
@@ -290,7 +294,31 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 	/* set DAL config and trigger display */
 	cmdq_handle = mtk_crtc_gce_commit_begin(crtc);
 
-	mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
+	if (mtk_crtc->is_dual_pipe) {
+		struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
+		struct mtk_plane_state plane_state_l;
+		struct mtk_plane_state plane_state_r;
+		struct mtk_ddp_comp *comp;
+
+		if (plane_state->comp_state.comp_id == 0)
+			plane_state->comp_state.comp_id = ovl_comp->id;
+
+		mtk_drm_layer_dispatch_to_dual_pipe(plane_state,
+			&plane_state_l, &plane_state_r,
+			crtc->state->adjusted_mode.hdisplay);
+
+		comp = priv->ddp_comp[plane_state_r.comp_state.comp_id];
+		mtk_ddp_comp_layer_config(comp, layer_id,
+					&plane_state_r, cmdq_handle);
+		DDPINFO("%s+ comp_id:%d, comp_id:%d\n",
+			__func__, comp->id,
+			plane_state_r.comp_state.comp_id);
+
+		mtk_ddp_comp_layer_config(ovl_comp, layer_id, &plane_state_l,
+					  cmdq_handle);
+	} else {
+		mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
+	}
 
 	mtk_crtc_gce_flush(crtc, mtk_drm_cmdq_done, cmdq_handle, cmdq_handle);
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
@@ -320,7 +348,31 @@ void drm_set_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 		return;
 	}
 
-	mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
+	if (mtk_crtc->is_dual_pipe) {
+		struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
+		struct mtk_plane_state plane_state_l;
+		struct mtk_plane_state plane_state_r;
+		struct mtk_ddp_comp *comp;
+
+		if (plane_state->comp_state.comp_id == 0)
+			plane_state->comp_state.comp_id = ovl_comp->id;
+
+		mtk_drm_layer_dispatch_to_dual_pipe(plane_state,
+			&plane_state_l, &plane_state_r,
+			crtc->state->adjusted_mode.hdisplay);
+
+		comp = priv->ddp_comp[plane_state_r.comp_state.comp_id];
+		mtk_ddp_comp_layer_config(comp, layer_id,
+					&plane_state_r, cmdq_handle);
+		DDPINFO("%s+ comp_id:%d, comp_id:%d\n",
+			__func__, comp->id,
+			plane_state_r.comp_state.comp_id);
+
+		mtk_ddp_comp_layer_config(ovl_comp, layer_id, &plane_state_l,
+					  cmdq_handle);
+	} else {
+		mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
+	}
 }
 
 int DAL_Clean(void)

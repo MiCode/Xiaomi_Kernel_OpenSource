@@ -580,7 +580,6 @@ static const struct drm_display_mode default_mode = {
 	.vsync_start = 2280 + 10,
 	.vsync_end = 2280 + 10 + 2,
 	.vtotal = 2280 + 10 + 2 + 16,
-	.vrefresh = 60,
 };
 
 #if defined(CONFIG_MTK_PANEL_EXT)
@@ -690,7 +689,7 @@ static int lcm_get_modes(struct drm_panel *panel)
 	if (!mode) {
 		dev_err(panel->drm->dev, "failed to add mode %ux%ux@%u\n",
 			default_mode.hdisplay, default_mode.vdisplay,
-			default_mode.vrefresh);
+			drm_mode_vrefresh(&default_mode));
 		return -ENOMEM;
 	}
 
@@ -771,9 +770,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	ctx->panel.dev = dev;
 	ctx->panel.funcs = &lcm_drm_funcs;
 
-	ret = drm_panel_add(&ctx->panel);
-	if (ret < 0)
-		return ret;
+	drm_panel_add(&ctx->panel);
 
 	ret = mipi_dsi_attach(dsi);
 	if (ret < 0)
