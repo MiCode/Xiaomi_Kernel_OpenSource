@@ -32,6 +32,9 @@ endif
 ifeq ($(CONFIG_MTK_CAM_GENIEZONE_SUPPORT), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/m4u
 endif
+ifeq ($(CONFIG_MTK_SVP_ON_MTEE_SUPPORT), y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/m4u
+endif
 ifeq ($(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT),y)
   ccflags-y += -DCONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
 endif
@@ -48,7 +51,9 @@ ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6761" "mt6758" "mt6779" "mt
 obj-y += pseudo_m4u_v2.o pseudo_m4u_debug.o
 ifeq ($(CONFIG_MTK_TEE_GP_SUPPORT),y)
 ifeq ($(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT),y)
+ifneq ($(CONFIG_MTK_SVP_ON_MTEE_SUPPORT), y)
 obj-y += pseudo_m4u_sec.o
+endif
 else ifeq ($(CONFIG_MTK_CAM_SECURITY_SUPPORT),y)
 obj-y += pseudo_m4u_sec.o
 else ifeq ($(CONFIG_MTK_GZ_SUPPORT_SDSP),y)
@@ -66,5 +71,8 @@ endif
 obj-$(CONFIG_FPGA_EARLY_PORTING) += pseudo_m4u_ut.o
 
 ifeq ($(CONFIG_MTK_CAM_GENIEZONE_SUPPORT),y)
+obj-y += pseudo_m4u_gz_sec.o
+endif
+ifeq ($(CONFIG_MTK_SVP_ON_MTEE_SUPPORT),y)
 obj-y += pseudo_m4u_gz_sec.o
 endif
