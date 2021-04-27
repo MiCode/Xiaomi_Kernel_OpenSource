@@ -128,7 +128,7 @@ void pmic_enable_interrupt(enum PMIC_IRQ_ENUM intNo, unsigned int en, char *str)
 	} else if (en == 0 && pmic_cb->has_requested)
 		disable_irq_nosync(irq);
 	desc = irq_to_desc(irq);
-	pr_info("[%s] intNo=%d, en=%d, depth=%d\n",
+	IRQLOG("[%s] intNo=%d, en=%d, depth=%d\n",
 		__func__, intNo, en, desc ? desc->depth : -1);
 }
 
