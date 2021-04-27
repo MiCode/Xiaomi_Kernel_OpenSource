@@ -103,7 +103,7 @@ static void apu_mdla_restore_default_opp(struct work_struct *work)
 
 	/* try to restore default voltage for MDLA */
 	apu_get_recommend_freq_volt(ad->dev, &rate, &volt, 0);
-	mutex_lock_nested(&ad->df->lock, (struct apu_gov_data *)(ad->df->data)->depth);
+	mutex_lock_nested(&ad->df->lock, ((struct apu_gov_data *)(ad->df->data))->depth);
 	if (round_Mhz(clk_ops->get_rate(ad->aclk), rate)) {
 		regulator_set_voltage(dst->vdd, volt, volt);
 		argul_info(ad->dev, "[%s] set voltage to %d\n", __func__, volt);
