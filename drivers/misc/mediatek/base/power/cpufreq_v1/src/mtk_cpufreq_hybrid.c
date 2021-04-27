@@ -340,14 +340,41 @@ int Ripi_cpu_dvfs_thread(void *data)
 						p->mt_policy->min);
 				}
 #endif
+
+#if defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6877)
+				if (p->mt_policy->cur > p->mt_policy->max) {
+					freqs.old = p->mt_policy->cur;
+					freqs.new = p->mt_policy->max;
+					cpufreq_freq_transition_begin(p->mt_policy, &freqs);
+					cpufreq_freq_transition_end(p->mt_policy, &freqs, 0);
+					p->idx_opp_tbl = _search_available_freq_idx(p,
+						freqs.new, 0);
+				} else if (p->mt_policy->cur < p->mt_policy->min) {
+					freqs.old = p->mt_policy->cur;
+					freqs.new = p->mt_policy->min;
+					cpufreq_freq_transition_begin(p->mt_policy, &freqs);
+					cpufreq_freq_transition_end(p->mt_policy, &freqs, 0);
+					p->idx_opp_tbl = _search_available_freq_idx(p,
+						freqs.new, 0);
+				} else if (cpu_dvfs_get_freq_by_idx(p, p->idx_opp_tbl) !=
+						p->mt_policy->cur) {
+					freqs.old = cpu_dvfs_get_freq_by_idx(p, p->idx_opp_tbl);
+					freqs.new = p->mt_policy->cur;
+					cpufreq_freq_transition_begin(p->mt_policy, &freqs);
+					cpufreq_freq_transition_end(p->mt_policy, &freqs, 0);
+					p->idx_opp_tbl = _search_available_freq_idx(p,
+						freqs.new, 0);
+				}
+#endif
 				trace_cpu_frequency_limits(p->mt_policy->max,
-						p->mt_policy->min,
-						p->mt_policy->cpu);
+					p->mt_policy->min,
+					p->mt_policy->cpu);
 
 				/* Policy notification */
 				if (p->idx_opp_tbl != j ||
 				(p->idx_opp_ppm_limit != previous_limit) ||
 				(p->idx_opp_ppm_base != previous_base)) {
+#if !defined(CONFIG_MACH_MT6893) || !defined(CONFIG_MACH_MT6877)
 					freqs.old = cpu_dvfs_get_cur_freq(p);
 					freqs.new =
 					cpu_dvfs_get_freq_by_idx(p, j);
@@ -357,6 +384,7 @@ int Ripi_cpu_dvfs_thread(void *data)
 					p->mt_policy, &freqs);
 					cpufreq_freq_transition_end(
 					p->mt_policy, &freqs, 0);
+#endif
 				}
 			}
 		}
