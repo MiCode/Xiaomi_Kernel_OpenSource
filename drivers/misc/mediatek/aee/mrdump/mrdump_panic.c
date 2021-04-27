@@ -49,53 +49,6 @@ static void aee_exception_reboot(void)
 		opt2, 0, 0, 0, 0, 0, &res);
 }
 
-static void aee_flush_reboot(void)
-{
-#if IS_ENABLED(CONFIG_MEDIATEK_CACHE_API)
-		dis_D_inner_flush_all();
-#else
-		pr_info("dis_D_inner_flush_all invalid");
-#endif
-		aee_exception_reboot();
-}
-
-/*save stack as binary into buf,
- *return value
-
-    -1: bottom unaligned
-    -2: bottom out of kernel addr space
-    -3 top out of kernel addr addr
-    -4: buff len not enough
-    >0: used length of the buf
- */
-int aee_dump_stack_top_binary(char *buf, int buf_len, unsigned long bottom,
-		unsigned long top)
-{
-	/*should check stack address in kernel range */
-	if (bottom & 3)
-		return -1;
-	if (!((bottom >= (PAGE_OFFSET + THREAD_SIZE)) &&
-	      (bottom <= (PAGE_OFFSET + get_linear_memory_size())))) {
-		if (!((bottom >= VMALLOC_START) && (bottom <= VMALLOC_END)))
-			return -2;
-	}
-
-	if (!((top >= (PAGE_OFFSET + THREAD_SIZE)) &&
-	      (top <= (PAGE_OFFSET + get_linear_memory_size())))) {
-		if (!((top >= VMALLOC_START) && (top <= VMALLOC_END)))
-			return -3;
-	}
-
-	if (top > ALIGN(bottom, THREAD_SIZE))
-		top = ALIGN(bottom, THREAD_SIZE);
-
-	if (buf_len < top - bottom)
-		return -4;
-
-	memcpy((void *)buf, (void *)bottom, top - bottom);
-
-	return top - bottom;
-}
 
 #if defined(CONFIG_RANDOMIZE_BASE) && defined(CONFIG_ARM64)
 static inline void show_kaslr(void)
@@ -132,7 +85,7 @@ int aee_nested_printf(const char *fmt, ...)
 }
 
 static int num_die;
-int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
+int mrdump_common_die(u8 fiq_step, int reboot_reason, const char *msg,
 		      struct pt_regs *regs)
 {
 	int last_step;
@@ -143,7 +96,9 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 	last_step = aee_rr_curr_fiq_step();
 	if (num_die > 1) {
 		/* NESTED KE */
+#if IS_ENABLED(CONFIG_ARM64)
 		aee_reinit_die_lock();
+#endif
 	}
 	aee_nested_printf("num_die-%d, fiq_step-%d last_step-%d\n",
 			  num_die, fiq_step, last_step);
@@ -158,12 +113,13 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 	case AEE_FIQ_STEP_COMMON_DIE_START:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_START);
 		__mrdump_create_oops_dump(reboot_reason, regs, msg);
-		mdelay(1000);
+		mrdump_mini_ke_cpu_regs(regs);
 		/* FALLTHRU */
 	case AEE_FIQ_STEP_COMMON_DIE_LOCK:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_LOCK);
-		/* release locks after stopping other cpus */
+#if IS_ENABLED(CONFIG_ARM64)
 		aee_reinit_die_lock();
+#endif
 		aee_zap_locks();
 		/* FALLTHRU */
 	case AEE_FIQ_STEP_COMMON_DIE_KASLR:
@@ -174,6 +130,10 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 	case AEE_FIQ_STEP_COMMON_DIE_SCP:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_SCP);
 		aee_rr_rec_scp();
+		/* FALLTHRU */
+	case AEE_FIQ_STEP_COMMON_DIE_EMISC:
+		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_EMISC);
+		mrdump_mini_add_extra_misc();
 		/* FALLTHRU */
 	case AEE_FIQ_STEP_COMMON_DIE_TRACE:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_TRACE);
@@ -195,10 +155,6 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 			break;
 		}
 		/* FALLTHRU */
-	case AEE_FIQ_STEP_COMMON_DIE_REGS:
-		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_REGS);
-		mrdump_mini_ke_cpu_regs(regs);
-		/* FALLTHRU */
 	case AEE_FIQ_STEP_COMMON_DIE_CS:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_CS);
 		console_unlock();
@@ -210,7 +166,7 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 		aee_nested_printf("num_die-%d, fiq_step-%d, last_step-%d, next_step-%d\n",
 				  num_die, fiq_step,
 				  last_step, next_step);
-		aee_flush_reboot();
+		aee_exception_reboot();
 		break;
 	}
 
@@ -221,12 +177,10 @@ EXPORT_SYMBOL(mrdump_common_die);
 int ipanic(struct notifier_block *this, unsigned long event, void *ptr)
 {
 	struct pt_regs saved_regs;
-	int fiq_step;
 
 	aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
-	fiq_step = AEE_FIQ_STEP_KE_IPANIC_START;
 	crash_setup_regs(&saved_regs, NULL);
-	return mrdump_common_die(fiq_step,
+	return mrdump_common_die(AEE_FIQ_STEP_KE_IPANIC_START,
 				 AEE_REBOOT_MODE_KERNEL_PANIC,
 				 "Kernel Panic", &saved_regs);
 }
@@ -234,11 +188,9 @@ int ipanic(struct notifier_block *this, unsigned long event, void *ptr)
 static int ipanic_die(struct notifier_block *self, unsigned long cmd, void *ptr)
 {
 	struct die_args *dargs = (struct die_args *)ptr;
-	int fiq_step;
 
 	aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
-	fiq_step = AEE_FIQ_STEP_KE_IPANIC_DIE;
-	return mrdump_common_die(fiq_step,
+	return mrdump_common_die(AEE_FIQ_STEP_KE_IPANIC_DIE,
 				 AEE_REBOOT_MODE_KERNEL_OOPS,
 				 "Kernel Oops", dargs->regs);
 }
@@ -290,6 +242,21 @@ static __init int mrdump_parse_chosen(struct mrdump_params *mparams)
 	return -1;
 }
 
+#ifdef CONFIG_MODULES
+/* Module notifier call back, update module info list */
+static int mrdump_module_callback(struct notifier_block *nb,
+				  unsigned long val, void *data)
+{
+	if (val == MODULE_STATE_LIVE)
+		mrdump_modules_info(NULL, -1);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block mrdump_module_nb = {
+	.notifier_call = mrdump_module_callback,
+};
+#endif
+
 static int __init mrdump_panic_init(void)
 {
 	struct mrdump_params mparams = {};
@@ -320,6 +287,9 @@ static int __init mrdump_panic_init(void)
 
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 	register_die_notifier(&die_blk);
+#ifdef CONFIG_MODULES
+	register_module_notifier(&mrdump_module_nb);
+#endif
 	pr_debug("ipanic: startup\n");
 	return 0;
 }
@@ -331,6 +301,7 @@ static void __exit mrdump_panic_exit(void)
 {
 	atomic_notifier_chain_unregister(&panic_notifier_list, &panic_blk);
 	unregister_die_notifier(&die_blk);
+	unregister_module_notifier(&mrdump_module_nb);
 	pr_debug("ipanic: exit\n");
 }
 module_exit(mrdump_panic_exit);

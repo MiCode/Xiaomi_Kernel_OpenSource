@@ -164,7 +164,8 @@ struct mrdump_mini_header {
 #define MRDUMP_MINI_NR_SECTION 60
 #define MRDUMP_MINI_SECTION_SIZE (32 * 1024)
 #define NT_IPANIC_MISC 4095
-#define MRDUMP_MINI_NR_MISC 20
+#define MRDUMP_MINI_NR_MISC 40
+#define MRDUMP_MINI_MISC_LOAD "load"
 
 struct mrdump_mini_elf_misc {
 	unsigned long vaddr;
@@ -177,28 +178,28 @@ struct mrdump_mini_elf_misc {
 #define NOTE_NAME_LONG  20
 
 struct mrdump_mini_elf_psinfo {
-		struct elf_note note;
-		char name[NOTE_NAME_SHORT];
-		struct elf_prpsinfo data;
+	struct elf_note note;
+	char name[NOTE_NAME_SHORT];
+	struct elf_prpsinfo data;
 };
 
 struct mrdump_mini_elf_prstatus {
-		struct elf_note note;
-		char name[NOTE_NAME_SHORT];
-		struct elf_prstatus data;
+	struct elf_note note;
+	char name[NOTE_NAME_SHORT];
+	struct elf_prstatus data;
 };
 
 struct mrdump_mini_elf_note {
-		struct elf_note note;
-		char name[NOTE_NAME_LONG];
-		struct mrdump_mini_elf_misc data;
+	struct elf_note note;
+	char name[NOTE_NAME_LONG];
+	struct mrdump_mini_elf_misc data;
 };
 
 struct mrdump_mini_elf_header {
 	struct elfhdr ehdr;
 	struct elf_phdr phdrs[MRDUMP_MINI_NR_SECTION];
 	struct mrdump_mini_elf_psinfo psinfo;
-	struct mrdump_mini_elf_prstatus prstatus[AEE_MTK_CPU_NUMS + 1];
+	struct mrdump_mini_elf_prstatus prstatus[AEE_MTK_CPU_NUMS];
 	struct mrdump_mini_elf_note misc[MRDUMP_MINI_NR_MISC];
 };
 
@@ -211,11 +212,8 @@ struct mrdump_mini_elf_header {
 
 int mrdump_init(void);
 void __mrdump_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
-		struct pt_regs *regs, const char *msg, ...);
-void mrdump_save_ctrlreg(int cpu);
-void mrdump_save_per_cpu_reg(int cpu, struct pt_regs *regs);
-
-int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
+				struct pt_regs *regs, const char *msg, ...);
+int mrdump_common_die(u8 fiq_step, int reboot_reason, const char *msg,
 		      struct pt_regs *regs);
 void mrdump_mini_add_hang_raw(unsigned long vaddr, unsigned long size);
 void mrdump_mini_add_extra_misc(void);

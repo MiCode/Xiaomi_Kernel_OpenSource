@@ -44,8 +44,6 @@ static struct mrdump_mini_elf_header *mrdump_mini_ehdr;
 static char *modules_info_buf;
 #endif
 
-static bool dump_all_cpus;
-
 __weak void get_gz_log_buffer(unsigned long *addr, unsigned long *paddr,
 			unsigned long *size, unsigned long *start)
 {
@@ -206,18 +204,6 @@ static void fill_elf_note_phdr(struct elf_phdr *phdr, int sz, loff_t offset)
 	phdr->p_align = 0;
 }
 
-static void fill_elf_load_phdr(struct elf_phdr *phdr, int sz,
-			       unsigned long vaddr, unsigned long paddr)
-{
-	phdr->p_type = PT_LOAD;
-	phdr->p_vaddr = vaddr;
-	phdr->p_paddr = paddr;
-	phdr->p_filesz = sz;
-	phdr->p_memsz = 0;
-	phdr->p_flags = 0;
-	phdr->p_align = 0;
-}
-
 static noinline void fill_note(struct elf_note *note, const char *name,
 		int type, unsigned int sz, unsigned int namesz)
 {
@@ -274,7 +260,7 @@ static int fill_psinfo(struct elf_prpsinfo *psinfo)
 #define __pa_nodebug __pa
 #endif
 #endif
-void mrdump_mini_add_misc_pa(unsigned long va, unsigned long pa,
+static void mrdump_mini_add_misc_pa(unsigned long va, unsigned long pa,
 		unsigned long size, unsigned long start, char *name)
 {
 	int i;
@@ -283,6 +269,8 @@ void mrdump_mini_add_misc_pa(unsigned long va, unsigned long pa,
 	for (i = 0; i < MRDUMP_MINI_NR_MISC; i++) {
 		note = &mrdump_mini_ehdr->misc[i].note;
 		if (note->n_type == NT_IPANIC_MISC) {
+			if (strncmp(name, MRDUMP_MINI_MISC_LOAD, 4) == 0)
+				continue;
 			if (strncmp(mrdump_mini_ehdr->misc[i].name, name, 16)
 					!= 0)
 				continue;
@@ -313,198 +301,6 @@ int kernel_addr_valid(unsigned long addr)
 		return 0;
 
 	return pfn_valid(virt_2_pfn(addr));
-}
-
-static void mrdump_mini_add_entry_ext(unsigned long start, unsigned long end,
-		unsigned long pa)
-{
-	unsigned long laddr, haddr;
-	struct elf_phdr *phdr;
-	int i;
-
-	for (i = 0; i < MRDUMP_MINI_NR_SECTION; i++) {
-		phdr = &mrdump_mini_ehdr->phdrs[i];
-		if (phdr->p_type == PT_NULL)
-			break;
-		if (phdr->p_type != PT_LOAD)
-			continue;
-		laddr = phdr->p_vaddr;
-		haddr = laddr + phdr->p_filesz;
-		if (start >= laddr && end <= haddr)
-			return;
-		if (start >= haddr || end <= laddr)
-			continue;
-		if (laddr < start) {
-			start = laddr;
-			pa = phdr->p_paddr;
-		}
-		if (haddr > end)
-			end = haddr;
-		break;
-	}
-	if (i < MRDUMP_MINI_NR_SECTION)
-		fill_elf_load_phdr(phdr, end - start, start, pa);
-	else
-		pr_notice("mrdump: MINI_NR_SECTION overflow!\n");
-}
-
-void mrdump_mini_add_entry(unsigned long addr, unsigned long size)
-{
-	unsigned long start = 0, __end, _pfn;
-	unsigned long laddr;
-
-	if (!pfn_valid(virt_2_pfn(addr)))
-		return;
-
-	if (size > PAGE_SIZE) {
-		__end = ALIGN(addr + size / 2, PAGE_SIZE);
-		laddr = __end - ALIGN(size, PAGE_SIZE);
-
-		start = addr & PAGE_MASK;
-		while (start >= laddr) {
-			_pfn = virt_2_pfn(start - PAGE_SIZE);
-			if (!pfn_valid(_pfn)) {
-				laddr = start;
-				break;
-			}
-			start -= PAGE_SIZE;
-		}
-
-		start = addr & PAGE_MASK;
-		while (start < __end) {
-			start += PAGE_SIZE;
-			_pfn = virt_2_pfn(start);
-			if (!pfn_valid(_pfn)) {
-				__end = start;
-				break;
-			}
-		}
-
-		if (pfn_valid(virt_2_pfn(laddr))
-			&& __end > laddr) {
-			mrdump_mini_add_entry_ext(laddr, __end,
-					__pfn_to_phys(virt_2_pfn(laddr)));
-		} else {
-			/* should never be here just in case and 1 page safe*/
-			start = addr & PAGE_MASK;
-			mrdump_mini_add_entry_ext(start, start + PAGE_SIZE,
-					__pfn_to_phys(virt_2_pfn(addr)));
-		}
-	} else {
-		start = addr & PAGE_MASK;
-		mrdump_mini_add_entry_ext(start, start + PAGE_SIZE,
-				__pfn_to_phys(virt_2_pfn(addr)));
-	}
-}
-
-static void mrdump_mini_add_tsk_ti(int cpu, struct pt_regs *regs,
-		struct task_struct *tsk, int stack)
-{
-	struct thread_info *ti = NULL;
-	unsigned long *bottom;
-	unsigned long *top;
-	unsigned long *p;
-
-	if (!mrdump_virt_addr_valid(tsk)) {
-		pr_notice("mrdump: cpu:[%d] invalid task pointer:0x%lx\n",
-				cpu, tsk);
-		if (cpu < num_possible_cpus())
-			tsk = aee_cpu_curr(cpu);
-		else
-			pr_notice("mrdump: cpu:[%d] overflow with total:%d\n",
-					cpu, num_possible_cpus());
-	}
-	if (!mrdump_virt_addr_valid(tsk))
-		pr_notice("mrdump: cpu:[%d] CAN'T get a valid task pointer:%px\n",
-				cpu, tsk);
-	else
-		ti = (struct thread_info *)tsk->stack;
-
-	bottom = (unsigned long *)regs->reg_sp;
-	mrdump_mini_add_entry(regs->reg_sp, MRDUMP_MINI_SECTION_SIZE);
-	mrdump_mini_add_entry((unsigned long)ti, MRDUMP_MINI_SECTION_SIZE);
-	mrdump_mini_add_entry((unsigned long)tsk, MRDUMP_MINI_SECTION_SIZE);
-	pr_notice("mrdump: cpu[%d] tsk:0x%lx ti:0x%lx\n", cpu, tsk, ti);
-	if (!stack)
-		return;
-	if (ti == NULL)
-		return;
-#ifdef __aarch64__
-	if (aee_on_irq_stack((unsigned long)bottom, NULL))
-		/* TODO: correct me */
-		top = 0;
-		/* top = (unsigned long *)IRQ_STACK_PTR(cpu); */
-	else {
-		top = (unsigned long *)ALIGN((unsigned long)bottom,
-					THREAD_SIZE);
-		p = (unsigned long *)((void *)ti + THREAD_SIZE);
-		if ((!mrdump_virt_addr_valid(top)
-				&& !(((unsigned long)top >= VMALLOC_START)
-				&& ((unsigned long)top <= VMALLOC_END)))
-			|| (!mrdump_virt_addr_valid(bottom)
-				&& !(((unsigned long)bottom >= VMALLOC_START)
-				&& ((unsigned long)bottom <= VMALLOC_END)))
-			|| top != p || bottom > top) {
-			pr_notice(
-				"mrdump: unexpected case bottom:%p top:%p ti + THREAD_SIZE:%p\n"
-				, bottom, top, p);
-			return;
-		}
-	}
-#else
-	top = (unsigned long *)((void *)ti + THREAD_SIZE);
-	if (!mrdump_virt_addr_valid(ti) || !mrdump_virt_addr_valid(top)
-		|| bottom < (unsigned long *)ti
-		|| bottom > top)
-		return;
-#endif
-
-	for (p = (unsigned long *)ALIGN((unsigned long)bottom,
-				sizeof(unsigned long)); p < top; p++) {
-		if (!mrdump_virt_addr_valid(*p))
-			continue;
-		if (*p >= (unsigned long)ti && *p <= (unsigned long)top)
-			continue;
-		if (*p >= aee_get_stext() && *p <=
-				(unsigned long)aee_get_etext())
-			continue;
-		mrdump_mini_add_entry(*p, MRDUMP_MINI_SECTION_SIZE);
-	}
-}
-
-static int mrdump_mini_cpu_regs(int cpu, struct pt_regs *regs,
-		struct task_struct *tsk, int main)
-{
-	char name[NOTE_NAME_SHORT];
-	int id;
-
-	if (!mrdump_mini_ehdr) {
-		pr_notice("mrdump: invalid ehdr");
-		return -1;
-	}
-	if (cpu >= nr_cpu_ids) {
-		pr_notice("mrdump: invalid cpu - %d", cpu);
-		return -1;
-	}
-	if (!regs) {
-		pr_notice("mrdump: invalid regs");
-		return -1;
-	}
-	id = main ? 0 : cpu + 1;
-	if (strncmp(mrdump_mini_ehdr->prstatus[id].name, "NA", 2))
-		return -1;
-	snprintf(name, NOTE_NAME_SHORT - 1, main ? "ke%d" : "core%d", cpu);
-	fill_prstatus(&mrdump_mini_ehdr->prstatus[id].data, regs, tsk,
-			id ? id : (100 + cpu));
-	fill_note_S(&mrdump_mini_ehdr->prstatus[id].note, name, NT_PRSTATUS,
-		    sizeof(struct elf_prstatus));
-	return 0;
-}
-
-void mrdump_mini_per_cpu_regs(int cpu, struct pt_regs *regs,
-		struct task_struct *tsk)
-{
-	mrdump_mini_cpu_regs(cpu, regs, tsk, 0);
 }
 
 static void mrdump_mini_build_task_info(struct pt_regs *regs)
@@ -627,16 +423,8 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 
 }
 
-int mrdump_task_info(unsigned char *buffer, size_t sz_buf)
-{
-	if (sz_buf < sizeof(struct aee_process_info))
-		return -1;
-	memcpy(buffer, (void *)mrdump_mini_ehdr + MRDUMP_MINI_HEADER_SIZE,
-	       sizeof(struct aee_process_info));
-	return sizeof(struct aee_process_info);
-}
 
-static int mrdump_modules_info(unsigned char *buffer, size_t sz_buf)
+int mrdump_modules_info(unsigned char *buffer, size_t sz_buf)
 {
 #ifdef CONFIG_MODULES
 	int sz;
@@ -666,8 +454,6 @@ static int mrdump_modules_info(unsigned char *buffer, size_t sz_buf)
 static struct mrdump_mini_extra_misc extra_members[] = {
 	#include "mrdump_mini_extra_misc.h"
 };
-
-void *extra_members_buf;
 
 #define EXTRA_TOTAL_NUM ((sizeof(extra_members)) / (sizeof(extra_members[0])))
 static size_t __maybe_unused dummy_check(void)
@@ -714,12 +500,6 @@ void mrdump_mini_add_extra_misc(void)
 					extra_members[i].dump_name,
 					vaddr, size);
 		}
-		extra_members_buf = kzalloc(sizeof(extra_members), GFP_KERNEL);
-		if (!extra_members_buf)
-			return;
-		memcpy(extra_members_buf, extra_members, sizeof(extra_members));
-		_mrdump_mini_add_extra_misc((unsigned long)extra_members_buf,
-			sizeof(extra_members), "ALL");
 	}
 }
 EXPORT_SYMBOL(mrdump_mini_add_extra_misc);
@@ -811,65 +591,6 @@ static void mrdump_mini_build_elf_misc(void)
 #endif
 }
 
-static void mrdump_mini_add_loads(void)
-{
-	int cpu, i, id;
-	struct pt_regs regs;
-	struct elf_prstatus *prstatus;
-	struct task_struct *tsk;
-	struct thread_info *ti;
-
-	if (!mrdump_mini_ehdr)
-		return;
-	for (id = 0; id < nr_cpu_ids + 1; id++) {
-		if (!strncmp(mrdump_mini_ehdr->prstatus[id].name, "NA", 2))
-			continue;
-		prstatus = &mrdump_mini_ehdr->prstatus[id].data;
-		tsk = (prstatus->pr_sigpend) ?
-			(struct task_struct *)prstatus->pr_sigpend : current;
-		memcpy(&regs, &prstatus->pr_reg, sizeof(prstatus->pr_reg));
-		if (prstatus->pr_pid >= 100) {
-			for (i = 0; i < ELF_NGREG; i++)
-				mrdump_mini_add_entry(
-						((unsigned long *)&regs)[i],
-						MRDUMP_MINI_SECTION_SIZE);
-			cpu = prstatus->pr_pid - 100;
-			mrdump_mini_add_tsk_ti(cpu, &regs, tsk, 1);
-			mrdump_mini_add_entry((unsigned long)aee_cpu_rq(cpu),
-					MRDUMP_MINI_SECTION_SIZE);
-		} else if (prstatus->pr_pid <= nr_cpu_ids) {
-			cpu = prstatus->pr_pid - 1;
-			mrdump_mini_add_tsk_ti(cpu, &regs, tsk, 0);
-			for (i = 0; i < ELF_NGREG; i++) {
-				mrdump_mini_add_entry(
-					((unsigned long *)&regs)[i],
-					MRDUMP_MINI_SECTION_SIZE);
-			}
-		} else {
-			pr_notice("mrdump: wrong pr_pid: %d\n",
-					prstatus->pr_pid);
-		}
-	}
-
-	mrdump_mini_add_entry((unsigned long)__per_cpu_offset,
-			MRDUMP_MINI_SECTION_SIZE);
-	if (dump_all_cpus) {
-		for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
-			tsk = aee_cpu_curr(cpu);
-			if (mrdump_virt_addr_valid(tsk))
-				ti = (struct thread_info *)tsk->stack;
-			else
-				ti = NULL;
-			mrdump_mini_add_entry((unsigned long)aee_cpu_rq(cpu),
-					MRDUMP_MINI_SECTION_SIZE);
-			mrdump_mini_add_entry((unsigned long)tsk,
-					MRDUMP_MINI_SECTION_SIZE);
-			mrdump_mini_add_entry((unsigned long)ti,
-					MRDUMP_MINI_SECTION_SIZE);
-		}
-	}
-}
-
 static void mrdump_mini_clear_loads(void)
 {
 	struct elf_phdr *phdr;
@@ -899,19 +620,7 @@ EXPORT_SYMBOL(mrdump_mini_add_hang_raw);
 
 void mrdump_mini_ke_cpu_regs(struct pt_regs *regs)
 {
-	int cpu;
-	struct pt_regs context;
-
-	if (!regs) {
-		regs = &context;
-		crash_setup_regs(regs, NULL);
-	}
-	cpu = get_HW_cpuid();
-	mrdump_mini_cpu_regs(cpu, regs, current, 1);
-	mrdump_mini_add_loads();
 	mrdump_mini_build_task_info(regs);
-	mrdump_modules_info(NULL, -1);
-	mrdump_mini_add_extra_misc();
 }
 
 static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
@@ -973,8 +682,8 @@ static void __init mrdump_mini_elf_header_init(void)
 
 int __init mrdump_mini_init(const struct mrdump_params *mparams)
 {
-	int i;
-	unsigned long size, offset;
+	int i, cpu;
+	unsigned long size, offset, vaddr;
 	struct pt_regs regs;
 
 	mrdump_mini_elf_header_init();
@@ -987,7 +696,7 @@ int __init mrdump_mini_init(const struct mrdump_params *mparams)
 		    sizeof(struct elf_prpsinfo));
 
 	memset_io(&regs, 0, sizeof(struct pt_regs));
-	for (i = 0; i < AEE_MTK_CPU_NUMS + 1; i++) {
+	for (i = 0; i < AEE_MTK_CPU_NUMS; i++) {
 		fill_prstatus(&mrdump_mini_ehdr->prstatus[i].data, &regs,
 				NULL, i);
 		fill_note_S(&mrdump_mini_ehdr->prstatus[i].note, "NA",
@@ -1008,20 +717,28 @@ int __init mrdump_mini_init(const struct mrdump_params *mparams)
 			offsetof(struct mrdump_mini_elf_header, misc));
 
 	if (mrdump_cblock) {
-		mrdump_mini_add_entry_ext(
-		  (unsigned long)mrdump_cblock,
-		  (unsigned long)mrdump_cblock + mparams->cb_size,
-		  mparams->cb_addr);
+		mrdump_mini_add_misc_pa((unsigned long)mrdump_cblock,
+				mparams->cb_addr, mparams->cb_size,
+				0, MRDUMP_MINI_MISC_LOAD);
 
-		mrdump_mini_add_entry(
-		  (unsigned long)mrdump_cblock,
-		  sizeof(struct mrdump_control_block) + 2 * PAGE_SIZE
-		);
+		vaddr = aee_get_kallsyms_addresses();
+		vaddr = round_down(vaddr, PAGE_SIZE);
+		size = mrdump_cblock->machdesc.kallsyms.size;
+		size = round_up(size, PAGE_SIZE);
+		if (vaddr)
+			mrdump_mini_add_misc_pa(vaddr, __pa_nodebug(vaddr),
+					size, 0, MRDUMP_MINI_MISC_LOAD);
+	}
 
-		mrdump_mini_add_entry(
-		  (aee_get_kallsyms_addresses() +
-		  (mrdump_cblock->machdesc.kallsyms.size / 2 - PAGE_SIZE)),
-		  mrdump_cblock->machdesc.kallsyms.size + 2 * PAGE_SIZE);
+	vaddr = round_down((unsigned long)__per_cpu_offset, PAGE_SIZE);
+	mrdump_mini_add_misc_pa(vaddr, __pa_nodebug(vaddr),
+			PAGE_SIZE * 2, 0, MRDUMP_MINI_MISC_LOAD);
+
+	for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
+		vaddr = (unsigned long)aee_cpu_rq(cpu);
+		vaddr = round_down(vaddr, PAGE_SIZE);
+		mrdump_mini_add_misc(vaddr, MRDUMP_MINI_SECTION_SIZE,
+				0, MRDUMP_MINI_MISC_LOAD);
 	}
 
 	return 0;
@@ -1040,6 +757,3 @@ int mini_rdump_reserve_memory(struct reserved_mem *rmem)
 
 RESERVEDMEM_OF_DECLARE(reserve_memory_minirdump, "mediatek,minirdump",
 		       mini_rdump_reserve_memory);
-
-/* 0644: S_IRUGO | S_IWUSR */
-module_param(dump_all_cpus, bool, 0644);

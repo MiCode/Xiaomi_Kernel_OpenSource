@@ -2512,110 +2512,6 @@ static struct miscdevice aed_ke_dev = {
 	.fops = &aed_ke_fops,
 };
 
-static int warn_aee(struct notifier_block *self, unsigned long cmd, void *ptr)
-{
-	char msg[SZ_512];
-	char *p_file;
-	char *p_line;
-	char *p_line_end;
-	char *p_opt;
-	char *p_level;
-	char *p_module;
-	char *p_msg;
-	u32 line_num;
-	u64 db_opt = 0;
-
-	memcpy(msg, ptr, SZ_512);
-	msg[SZ_512 - 1] = 0;
-	pr_info("%s: %s", __func__, msg);
-
-	p_file = strchr(msg, '<');
-	p_line = strchr(msg, ':');
-	p_line_end = strchr(msg, '>');
-	p_opt = strstr(msg, "opt=");
-	p_level = strstr(msg, "level=");
-	p_module = strstr(msg, "module=");
-	p_msg = strstr(msg, "msg=");
-
-	if (p_file) {
-		p_file += 1;
-	} else {
-		pr_info("invalid file path");
-		return -EINVAL;
-	}
-
-	if (p_line && p_line_end) {
-		*p_line = 0;
-		p_line += 1;
-		*p_line_end = 0;
-		if (kstrtou32(p_line, 10, &line_num))
-			pr_info("fail to convert line num");
-
-	} else {
-		pr_info("invalid file line");
-		return -EINVAL;
-	}
-
-	if (p_opt) {
-		p_opt += strlen("opt=");
-		if (kstrtou64(p_opt, 16, &db_opt))
-			pr_info("fail to convert db opt");
-	} else {
-		pr_info("invalid db option");
-		return -EINVAL;
-	}
-
-	if (p_level) {
-		*(p_level - 1) = 0;
-		p_level += strlen("level=");
-	} else {
-		pr_info("invalid exception level");
-		return -EINVAL;
-	}
-
-	if (p_module) {
-		*(p_module - 1) = 0;
-		p_module += strlen("module=");
-	} else {
-		pr_info("invalid module name");
-		return -EINVAL;
-	}
-
-	if (p_msg) {
-		*(p_msg - 1) = 0;
-		p_msg += strlen("msg=");
-	} else {
-		pr_info("invalid debug message");
-		return -EINVAL;
-	}
-
-	switch (*p_level) {
-	case 'W':
-	case 'w':
-		/*
-		 * do not use  kernel_reportAPI() directly or aee_disable_api()
-		 * would be affected.
-		 */
-		aee_kernel_warning_api(p_file, line_num, db_opt,
-				p_module, p_msg);
-		break;
-	case 'E':
-	case 'e':
-		aee_kernel_exception_api(p_file, line_num, db_opt,
-				p_module, p_msg);
-		break;
-	default:
-		pr_info("unsupport exception level");
-	}
-	return 0;
-}
-
-static struct notifier_block warn_blk = {
-	.notifier_call = warn_aee,
-};
-static int (*p_register_warn_nt)(struct notifier_block *nb);
-static int (*p_unregister_warn_nt)(struct notifier_block *nb);
-
 /* UTC time sync */
 static struct hrtimer aed_hrtimer;
 
@@ -2691,11 +2587,6 @@ static int __init aed_init(void)
 	INIT_WORK(&ee_work, ee_worker);
 
 	aee_register_api(&kernel_api);
-	p_register_warn_nt = (void *)symbol_get(register_warn_notifier);
-	if (p_register_warn_nt)
-		p_register_warn_nt(&warn_blk);
-	else
-		pr_notice("failed to register warn notifier");
 
 	spin_lock_init(&aed_device_lock);
 	err = misc_register(&aed_ee_dev);
@@ -2722,12 +2613,6 @@ static void __exit aed_exit(void)
 
 	ee_destroy_log();
 	ke_destroy_log();
-
-	p_unregister_warn_nt = (void *)symbol_get(unregister_warn_notifier);
-	if (p_unregister_warn_nt)
-		p_unregister_warn_nt(&warn_blk);
-	else
-		pr_notice("failed to unregister warn notifier");
 
 	aed_proc_done();
 	ksysfs_bootinfo_exit();
