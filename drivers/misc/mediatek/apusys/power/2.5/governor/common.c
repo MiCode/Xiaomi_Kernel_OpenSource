@@ -102,7 +102,7 @@ void apu_dump_list(struct apu_gov_data *gov_data)
 				n_pos += scnprintf(buffer + n_pos, (sizeof(buffer) - n_pos),
 						   "->%s_pe[%d]",
 						   apu_dev_name(ptr->dev), ptr->value);
-			else
+			else if (!ptr->pe_flag)
 				n_pos += scnprintf(buffer + n_pos, (sizeof(buffer) - n_pos),
 						   "->%s[%d]",
 						   apu_dev_name(ptr->dev), ptr->value);
