@@ -41,17 +41,6 @@ config MTK_SECURE_MEM_SUPPORT
 	  management.
 	  Say Y if you would like to enable this feature.
 	  If unsure, say N.
-
-config MTK_SVP_ON_MTEE_SUPPORT
-	bool "MTK SVP Secure Memory allocator on MTEE"
-	default n
-	depends on MTK_GZ_KREE
-	help
-	  Enable the support of MediaTek SVP on MTEE.
-	  The continued memory managed by MTEE, so it is a memory allocator.
-	  Say Y if you would like to enable SVP by using MTEE.
-	  If unsure, say N.
-
 #
 # WFD Secure Memory configuration
 #
