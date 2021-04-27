@@ -2180,6 +2180,7 @@ static int rpmb_gp_execute_ufs(u32 cmdId)
 #endif
 
 #ifndef CONFIG_MTK_TEE_GP_SUPPORT
+#if defined(CONFIG_MMC_MTK_PRO)
 static int rpmb_execute_emmc(u32 cmdId)
 {
 	int ret;
@@ -2263,7 +2264,9 @@ static int rpmb_execute_emmc(u32 cmdId)
 	return 0;
 }
 #endif
+#endif
 
+#if defined(CONFIG_MMC_MTK_PRO)
 static int rpmb_gp_execute_emmc(u32 cmdId)
 {
 	int ret;
@@ -2345,6 +2348,7 @@ static int rpmb_gp_execute_emmc(u32 cmdId)
 
 	return 0;
 }
+#endif
 
 #ifndef CONFIG_MTK_TEE_GP_SUPPORT
 int rpmb_listenDci(void *data)
@@ -2881,11 +2885,17 @@ long rpmb_ioctl_emmc(struct file *file, unsigned int cmd, unsigned long arg)
 	memset(&rpmbinfor, 0, sizeof(struct rpmb_infor));
 #endif
 
+#if defined(CONFIG_MMC_MTK_PRO)
 	if (!mtk_msdc_host[0] || !mtk_msdc_host[0]->mmc
 		|| !mtk_msdc_host[0]->mmc->card)
 		return -EFAULT;
 
 	card = mtk_msdc_host[0]->mmc->card;
+
+#else
+	card = NULL;
+	ret = -EFAULT;
+#endif
 
 #if defined(RPMB_IOCTL_UT)
 	err = copy_from_user(&param, (void *)arg, sizeof(param));
