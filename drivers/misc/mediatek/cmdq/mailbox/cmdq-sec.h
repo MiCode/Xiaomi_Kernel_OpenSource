@@ -103,6 +103,9 @@ struct cmdq_sec_data {
 
 	/* MTEE */
 	bool mtee;
+
+	/* iommu_sec_id */
+	int32_t sec_id;
 };
 
 /* implementation in cmdq-sec-helper.c */
