@@ -99,9 +99,6 @@ struct md_sys1_info {
 		unsigned int ap_ccif_irq_id;
 		unsigned long ap_ccif_irq_flags;
 
-#ifdef FEATURE_SCP_CCCI_SUPPORT
-		struct work_struct scp_md_state_sync_work;
-#endif
 		void __iomem *md_rgu_base;
 		void __iomem *l1_rgu_base;
 		void __iomem *md_global_con0;

@@ -28,6 +28,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/conn_md/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mt6873
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/$(CONFIG_MTK_TINYSYS_SCP_VERSION)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-amms
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/hif/
@@ -76,7 +77,6 @@ ccci_md_all-$(CCCI_OBJ) += fsm/ccci_fsm.o \
 			fsm/ccci_fsm_ioctl.o \
 			fsm/ccci_fsm_monitor.o \
 			fsm/ccci_fsm_poller.o \
-			fsm/ccci_fsm_scp.o \
 			fsm/ccci_fsm_ee.o \
 			fsm/ccci_fsm_sys.o \
 			fsm/mdee_dumper_v1.o \
@@ -128,6 +128,9 @@ ccci_md_all-$(CCCI_OBJ) += platform/ccci_platform.o $(core_obj) $(mach_obj) $(se
 ifeq ($(CONFIG_MTK_ECCCI_C2K), y)
 ccci_md_all-$(CCCI_OBJ) += modem_sys3.o
 endif
+
+ccci_fsm_scp-y := fsm/ccci_fsm_scp.o
+obj-$(CCCI_OBJ) += ccci_fsm_scp.o
 
 # ccci_ccif.ko
 ccci_ccif-y := hif/ccci_ringbuf.o hif/ccci_hif_ccif.o
