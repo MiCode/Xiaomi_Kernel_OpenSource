@@ -1400,6 +1400,8 @@ int mtk_devapc_probe(struct platform_device *pdev,
 
 	pr_debug(PFX " IRQ:%d\n", mtk_devapc_ctx->devapc_irq);
 
+/* Enable devapc-infra-clock in preloader */
+#ifndef CONFIG_DEVAPC_MT6877
 	/* CCF (Common Clock Framework) */
 	mtk_devapc_ctx->devapc_infra_clk = devm_clk_get(&pdev->dev,
 			"devapc-infra-clock");
@@ -1408,6 +1410,7 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		pr_err(PFX "(Infra) Cannot get devapc clock from CCF\n");
 		return -EINVAL;
 	}
+#endif
 
 	proc_create("devapc_dbg", 0664, NULL, &devapc_dbg_fops);
 
@@ -1419,10 +1422,13 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		pr_info(PFX "create SWP sysfs file failed, ret:%d\n", ret);
 #endif
 
+/* Enable devapc-infra-clock in preloader */
+#ifndef CONFIG_DEVAPC_MT6877
 	if (clk_prepare_enable(mtk_devapc_ctx->devapc_infra_clk)) {
 		pr_err(PFX " Cannot enable devapc clock\n");
 		return -EINVAL;
 	}
+#endif
 
 	start_devapc();
 
@@ -1440,7 +1446,10 @@ EXPORT_SYMBOL_GPL(mtk_devapc_probe);
 
 int mtk_devapc_remove(struct platform_device *dev)
 {
+/* devapc-infra-clock is always on */
+#ifndef CONFIG_DEVAPC_MT6877
 	clk_disable_unprepare(mtk_devapc_ctx->devapc_infra_clk);
+#endif
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_devapc_remove);
