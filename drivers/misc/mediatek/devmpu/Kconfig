@@ -15,6 +15,36 @@ config MTK_DEVMPU_EMI
 	  receive violation via call-back function of
 	  EMI MPU.
 
+config MTK_DEVMPU_AEE
+	bool "Enable aee_kernel_exception for Device MPU violation"
+	depends on MTK_DEVMPU
+	help
+	  Say yes here to enable aee_kernel_exception. When Device
+	  MPU violation occur, Device MPU driver will call
+	  aee_kernel_exception, and we will get kernelAPI dump
+	  DB for analyze.
+
+config MTK_DEVMPU_SLOG
+	bool "Enable slog for Device MPU violation"
+	depends on MTK_DEVMPU
+	help
+	  Say yes here to enable mtk slog. When Device
+	  MPU violation occur, Device MPU driver will dump
+	  violation info to slog, then slog system record
+	  it and list as issue when offline parsing.
+
+config DEVMPU_MT6781
+	bool "Mediatek MT6781 Device MPU driver"
+	depends on MACH_MT6781
+	select MTK_DEVMPU
+	select MTK_DEVMPU_SLOG if MTK_AEE_FEATURE
+	select MTK_DEVMPU_AEE if MTK_AEE_FEATURE
+	help
+	  Say yes here to enable support Mediatek MT6781
+	  Device MPU driver. This driver is only for
+	  Device MPU feature in MT6781 platfom without
+	  EMI.
+
 config DEVMPU_MT6833
 	bool "Mediatek MT6833 Device MPU driver"
 	depends on MACH_MT6833

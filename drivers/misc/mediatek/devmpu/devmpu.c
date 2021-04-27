@@ -18,6 +18,11 @@
 #include <devmpu.h>
 #include <devmpu_emi.h>
 
+#if IS_ENABLED(CONFIG_MTK_DEVMPU_SLOG)
+#define CREATE_TRACE_POINTS
+#include "devmpu_trace.h"
+#endif
+
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
@@ -250,6 +255,11 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 		pr_info("%s transaction\n",
 				(vio.is_ns) ? "non-secure" : "secure");
 	}
+
+#if IS_ENABLED(CONFIG_MTK_DEVMPU_SLOG)
+	pr_info("dump info to slog\n");
+	trace_devmpu_event(vio_addr, vio_id, vio_domain, vio_rw);
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	pr_info("trigger aee exception\n");
