@@ -34,6 +34,9 @@ static int __init ppm_power_data_init(void)
 
 	ppm_unlock(&ppm_main_info.lock);
 
+	/* let PPM apply setting issued earlier*/
+	mt_ppm_main();
+
 	ppm_info("power data init done!\n");
 
 	return 0;

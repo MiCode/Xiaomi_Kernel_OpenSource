@@ -22,11 +22,11 @@ extern "C" {
 #include "mtk_ppm_api.h"
 #include "mach/mtk_cpufreq_api.h"
 
-#if 0 /* No PPM in SSPM @ 6768 */
+#if 0 /* No PPM in SSPM @ 6761 */
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #define PPM_SSPM_SUPPORT        (1)
 #endif
-#endif /* No PPM in SSPM @ 6768 */
+#endif /* No PPM in SSPM @ 6761 */
 
 /*==============================================================*/
 /* Macros							*/
