@@ -258,6 +258,13 @@ void msdc_emmc_power(struct msdc_host *host, u32 on)
 #endif
 }
 
+struct reg_oc_msdc {
+	struct notifier_block nb;
+	struct work_struct work;
+	int reg_status;	/* 1 for register already and 0 for other case */
+};
+
+static struct reg_oc_msdc sd_oc;
 void msdc_sd_power(struct msdc_host *host, u32 on)
 {
 #if !defined(CONFIG_MTK_MSDC_BRING_UP_BYPASS)
@@ -291,6 +298,15 @@ void msdc_sd_power(struct msdc_host *host, u32 on)
 #endif
 		}
 
+		/* Disable VMCH/VMC OC */
+		if (!card_on && sd_oc.reg_status) {
+			devm_regulator_unregister_notifier(
+				host->mmc->supply.vmmc, &sd_oc.nb);
+			devm_regulator_unregister_notifier(
+				host->mmc->supply.vqmmc, &sd_oc.nb);
+			sd_oc.reg_status = 0;
+		}
+
 		/* VMCH VOLSEL */
 		msdc_ldo_power(card_on, host->mmc->supply.vmmc, VOL_3000,
 			&host->power_flash);
@@ -303,6 +319,16 @@ void msdc_sd_power(struct msdc_host *host, u32 on)
 		msdc_ldo_power(on, host->mmc->supply.vqmmc, VOL_3000,
 			&host->power_io);
 #endif
+
+		/* Enable VMCH/VMC OC */
+		if (card_on && !sd_oc.reg_status) {
+			mdelay(3);
+			devm_regulator_register_notifier(
+				host->mmc->supply.vmmc, &sd_oc.nb);
+			devm_regulator_register_notifier(
+				host->mmc->supply.vqmmc, &sd_oc.nb);
+			sd_oc.reg_status = 1;
+		}
 
 		pr_info("msdc%d power %s\n", host->id, (on ? "on" : "off"));
 		break;
@@ -324,7 +350,7 @@ static int msdc_sd_event(struct notifier_block *nb,
 	switch (event) {
 	case REGULATOR_EVENT_OVER_CURRENT:
 	case REGULATOR_EVENT_FAIL:
-		msdc_sd_power_off();
+		schedule_work(&sd_oc.work);
 		break;
 	default:
 		break;
@@ -332,6 +358,12 @@ static int msdc_sd_event(struct notifier_block *nb,
 #endif
 	return NOTIFY_OK;
 }
+
+static void sdcard_oc_handler(struct work_struct *work)
+{
+	msdc_sd_power_off();
+}
+
 void msdc_sd_power_off(void)
 {
 #if !defined(CONFIG_MTK_MSDC_BRING_UP_BYPASS)
@@ -1333,7 +1365,6 @@ static int msdc_get_register_settings(struct msdc_host *host,
  *	@host: host whose node should be parsed.
  *
  */
-static struct notifier_block sd_oc_nb;  //register call back for 6360 PMIC OC
 int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 {
 	struct device_node *np;
@@ -1476,12 +1507,9 @@ int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 
 #if !defined(FPGA_PLATFORM) && !defined(CONFIG_MTK_MSDC_BRING_UP_BYPASS)
 	if (host->id == 1) {
-		sd_oc_nb.notifier_call = msdc_sd_event;
-		devm_regulator_register_notifier(mmc->supply.vmmc
-			, &sd_oc_nb);
-		devm_regulator_register_notifier(mmc->supply.vqmmc
-
-			, &sd_oc_nb);
+		sd_oc.nb.notifier_call = msdc_sd_event;
+		INIT_WORK(&sd_oc.work, sdcard_oc_handler);
+		sd_oc.reg_status = 0;
 	}
 #endif
 
