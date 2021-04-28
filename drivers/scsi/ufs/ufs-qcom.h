@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef UFS_QCOM_H_
@@ -398,6 +398,7 @@ struct ufs_qcom_host {
 	struct ufs_qcom_thermal uqt;
 	/* FlashPVL entries */
 	bool err_occurred;
+	bool crash_on_err;
 	atomic_t scale_up;
 	atomic_t clks_on;
 };
