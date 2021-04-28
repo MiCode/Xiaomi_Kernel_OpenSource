@@ -22,6 +22,7 @@ subdir-ccflags-y += -Wno-error
 # mt6781 config
 #
 ifeq ($(CONFIG_MACH_MT6781),y)
+ccflags-y += -DMTK_GPUFREQ_V1
 #ccflags-y += -DGED_KPI_MET_DEBUG
 ccflags-y += -DMTK_GED_KPI
 ccflags-y += -DGED_KPI_CPU_BOOST
@@ -31,6 +32,7 @@ ccflags-y += -DGED_ENABLE_FB_DVFS
 ccflags-y += -DGED_ENABLE_DYNAMIC_DVFS_MARGIN
 ccflags-y += -DGED_CONFIGURE_LOADING_BASE_DVFS_STEP
 ccflags-y += -DGED_ENABLE_TIMER_BASED_DVFS_MARGIN
+ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
 ccflags-y += -DMTK_CPUFREQ
 endif
 
