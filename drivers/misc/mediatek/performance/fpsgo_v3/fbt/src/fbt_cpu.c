@@ -233,6 +233,8 @@ static int qr_t2wnt_x;
 static int qr_t2wnt_y_p;
 static int qr_t2wnt_y_n;
 static int qr_hwui_hint;
+static int qr_filter_outlier;
+static int qr_mod_frame;
 static int qr_debug;
 static int gcc_enable;
 static int gcc_reserved_up_quota_pct;
@@ -292,6 +294,8 @@ module_param(qr_t2wnt_x, int, 0644);
 module_param(qr_t2wnt_y_p, int, 0644);
 module_param(qr_t2wnt_y_n, int, 0644);
 module_param(qr_hwui_hint, int, 0644);
+module_param(qr_filter_outlier, int, 0644);
+module_param(qr_mod_frame, int, 0644);
 module_param(qr_debug, int, 0644);
 module_param(gcc_enable, int, 0644);
 module_param(gcc_reserved_up_quota_pct, int, 0644);
@@ -2502,7 +2506,7 @@ void update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	int rm_idx, new_idx, first_idx;
 	//long long target_time = div64_s64(1000000, target_fps * 100);
 	long long target_time = div64_s64(1000000, target_fps * 100 + gcc_fps_margin);
-	int avg = 0, std_square = 0, i, quota_adj = 0;
+	int avg = 0, std_square = 0, i, quota_adj = 0, qr_quota = 0;
 	int s32_target_time = target_time;
 
 	if (target_fps != boost_info->quota_fps) {
@@ -2558,26 +2562,49 @@ void update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	do_div(std_square, boost_info->quota_cnt);
 
 	if (first_idx < new_idx) {
-		for (i = first_idx; i <= new_idx; i++)
+		for (i = first_idx; i <= new_idx; i++) {
 			if ((boost_info->quota_raw[i] * 100 - avg) *
 				(boost_info->quota_raw[i] * 100 - avg) <
 				gcc_std_filter * gcc_std_filter * std_square)
 				quota_adj += boost_info->quota_raw[i];
+
+			qr_quota += (boost_info->quota_raw[i] < -s32_target_time) ?
+				boost_info->quota_raw[i] % s32_target_time :
+				boost_info->quota_raw[i];
+		}
 	} else {
-		for (i = first_idx; i < QUOTA_MAX_SIZE ; i++)
+		for (i = first_idx; i < QUOTA_MAX_SIZE ; i++) {
 			if ((boost_info->quota_raw[i] * 100 - avg) *
 				(boost_info->quota_raw[i] * 100 - avg) <
 				gcc_std_filter * gcc_std_filter * std_square)
 				quota_adj += boost_info->quota_raw[i];
-		for (i = 0; i <= new_idx ; i++)
+
+			qr_quota += (boost_info->quota_raw[i] < -s32_target_time) ?
+				boost_info->quota_raw[i] % s32_target_time :
+				boost_info->quota_raw[i];
+		}
+		for (i = 0; i <= new_idx ; i++) {
 			if ((boost_info->quota_raw[i] * 100 - avg) *
 				(boost_info->quota_raw[i] * 100 - avg) <
 				gcc_std_filter * gcc_std_filter * std_square)
 				quota_adj += boost_info->quota_raw[i];
+
+			qr_quota += (boost_info->quota_raw[i] < -s32_target_time) ?
+				boost_info->quota_raw[i] % s32_target_time :
+				boost_info->quota_raw[i];
+		}
 	}
 
 	boost_info->quota_adj = quota_adj;
-	boost_info->quota_mod = boost_info->quota % s32_target_time;
+
+	if (qr_mod_frame)
+		boost_info->quota_mod = qr_quota % s32_target_time;
+	else {
+		if (qr_filter_outlier)
+			boost_info->quota_mod = boost_info->quota_adj % s32_target_time;
+		else
+			boost_info->quota_mod = boost_info->quota % s32_target_time;
+	}
 
 	fpsgo_main_trace("%s raw[%d]:%d raw[%d]:%d cnt:%d sum:%d avg:%d std_sqr:%d quota:%d mod:%d",
 		__func__, first_idx, boost_info->quota_raw[first_idx],
@@ -4978,6 +5005,8 @@ int __init fbt_cpu_init(void)
 	qr_t2wnt_y_p = DEFAULT_QR_T2WNT_Y_P;
 	qr_t2wnt_y_n = DEFAULT_QR_T2WNT_Y_N;
 	qr_hwui_hint = DEFAULT_QR_HWUI_HINT;
+	qr_filter_outlier = 0;
+	qr_mod_frame = 1;
 	qr_debug = 0;
 
 	gcc_enable = fbt_get_default_gcc_enable();
