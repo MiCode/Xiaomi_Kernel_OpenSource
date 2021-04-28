@@ -2195,9 +2195,11 @@
 		reg = <0 0x1100e000 0 0x1000>;
 		interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>;
 		#pwm-cells = <2>;
+		pwm_src_base = <&sleep>;
+		pwm_src_addr = <0x420>;
 		clocks = <&infracfg_ao INFRACFG_AO_DISP_PWM_CG>,
 			<&topckgen TOP_MUX_DISP_PWM>,
-			<&topckgen TOP_OSC_D4>;
+			<&topckgen TOP_OSC_D8>;
 		clock-names = "main", "mm", "pwm_src";
 	};
 
