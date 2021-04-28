@@ -163,6 +163,10 @@ DEFINE_SPINLOCK(record_spinlock);
 #define PI_DVTFIXED_MASK	(0xF)
 #define WAIT_TIME	(2500000)
 #define FALL_NUM        (3)
+#if SUPPORT_PICACHU
+#define PICACHU_SIG					(0xA5)
+#define PICACHU_SIGNATURE_SHIFT_BIT	(24)
+#endif
 
 struct pi_efuse_index {
 	enum eem_det_id det_id;
@@ -246,6 +250,65 @@ static struct eem_det *id_to_eem_det(enum eem_det_id id)
 	else
 		return NULL;
 }
+
+#ifndef MC50_LOAD
+#if SUPPORT_PICACHU
+static void get_picachu_efuse(void)
+{
+	int *val;
+	phys_addr_t picachu_mem_base_phys;
+	phys_addr_t picachu_mem_size;
+	phys_addr_t picachu_mem_base_virt = 0;
+	unsigned int i = 1, cnt, sig;
+	void __iomem *addr_ptr = 0;
+
+	val = (int *)&eem_devinfo;
+
+	picachu_mem_size = 0x80000;
+	picachu_mem_base_phys = eem_read(EEMSPARE0);
+	if ((void __iomem *)picachu_mem_base_phys != NULL)
+		picachu_mem_base_virt =
+			(phys_addr_t)(uintptr_t)ioremap_wc(
+			picachu_mem_base_phys,
+			picachu_mem_size);
+
+#if 0
+	eem_error("phys:0x%llx, size:0x%llx, virt:0x%llx\n",
+		(unsigned long long)picachu_mem_base_phys,
+		(unsigned long long)picachu_mem_size,
+		(unsigned long long)picachu_mem_base_virt);
+#endif
+	if ((void __iomem *)(picachu_mem_base_virt) != NULL) {
+		/* 0x60000 was reserved for eem efuse using */
+		addr_ptr = (void __iomem *)(picachu_mem_base_virt
+			+ 0x60000);
+
+		/* check signature */
+		sig = (eem_read(addr_ptr) >>
+			PICACHU_SIGNATURE_SHIFT_BIT) & 0xff;
+
+		if (sig == PICACHU_SIG) {
+			cnt = (eem_read(addr_ptr) >> 8) & 0xff;
+			if (cnt > NR_HW_RES_FOR_BANK)
+				cnt = NR_HW_RES_FOR_BANK;
+			addr_ptr += 4;
+
+			/* check efuse data */
+
+			if (eem_read(addr_ptr) == 0) {
+				eem_error("Wrong PI-OD%d: 0x%x\n",
+					i, eem_read(addr_ptr + i * 4));
+				return;
+			}
+
+			for (i = 1; i < cnt; i++)
+				val[i] = eem_read(addr_ptr + i * 4);
+
+		}
+	}
+}
+#endif
+#endif
 
 static int get_devinfo(void)
 {
@@ -3456,6 +3519,12 @@ static int eem_probe(struct platform_device *pdev)
 		WARN_ON(1);
 	}
 	eem_debug("Set EEM IRQ OK.\n");
+
+#ifndef MC50_LOAD
+#if SUPPORT_PICACHU
+	get_picachu_efuse();
+#endif
+#endif
 
 #ifdef CONFIG_EEM_AEE_RR_REC
 		_mt_eem_aee_init();

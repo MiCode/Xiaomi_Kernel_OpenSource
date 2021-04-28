@@ -29,6 +29,7 @@
 #define ENABLE_LOO_B			(1)
 #define ENABLE_LOO_G			(1)
 #define SUPPORT_GPU_VB	(1)	/* gpu voltage bin */
+#define SUPPORT_PICACHU		(1)
 
 #ifdef CORN_LOAD
 #define ENABLE_VPU              (1)
