@@ -61,15 +61,15 @@ static struct imgsensor_info_struct imgsensor_info = {
 
 	.pre = {
 		.pclk = 115200000,
-		.linelength = 1200,
-		.framelength = 3200,
+		.linelength = 576,
+		.framelength = 3333,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 4000,
 		.grabwindow_height = 3000,
 		.mipi_data_lp2hs_settle_dc = 120,
-		.max_framerate = 300,
-		.mipi_pixel_rate = 583600000,
+		.max_framerate = 600,
+		.mipi_pixel_rate = 954600000,
 	},
 	.cap = {
 		.pclk = 115200000,
@@ -97,12 +97,12 @@ static struct imgsensor_info_struct imgsensor_info = {
 	},
 	.hs_video = {
 		.pclk = 115200000,
-		.linelength = 576,
-		.framelength = 1666,
+		.linelength = 1152,
+		.framelength = 833,
 		.startx = 0,
 		.starty = 0,
-		.grabwindow_width = 2000,
-		.grabwindow_height = 1128,
+		.grabwindow_width = 1280,
+		.grabwindow_height = 720,
 		.mipi_data_lp2hs_settle_dc = 120,
 		.max_framerate = 1200,
 		.mipi_pixel_rate = 528000000,
@@ -184,9 +184,9 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.margin = 22,					/* sensor framelength & shutter margin */
 	.min_shutter = 4,				/* min shutter */
 	.min_gain = 64, /*1x gain*/
-	.max_gain = 1024, /*16x gain*/
+	.max_gain = 992, /*15.5x gain*/
 	.min_gain_iso = 100,
-	.gain_step = 1,
+	.gain_step = 4, /*minimum step = 4 in 1x~2x gain*/
 	.gain_type = 1,/*to be modify,no gain table for sony*/
 	.max_frame_length = 0xffffe9,     /* max framelength by sensor register's limitation */
 	.ae_shut_delay_frame = 0,		//check
@@ -216,11 +216,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.mipi_sensor_type = MIPI_OPHY_NCSI2,
 #endif
 	.mipi_settle_delay_mode = 1,
-#ifdef ROTATION_180
 	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
-#else
-	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
-#endif
 	.mclk = 24,//mclk value, suggest 24 or 26 for 24Mhz or 26Mhz
 #ifdef CPHY_3TRIO
 	.mipi_lane_num = SENSOR_MIPI_3_LANE,//mipi lane num
@@ -254,9 +250,9 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
 	{8000, 6000,    0,    0, 8000, 6000, 4000, 3000,  0,   0, 4000, 3000, 0, 0, 4000, 3000},
 	/* video */
 	{8000, 6000,    0,  744, 8000, 4512, 4000, 2256,  0,   0, 4000, 2256, 0, 0, 4000, 2256},
-	/* hs vedio */
-	{8000, 6000,    0,    0, 8000, 6000, 2000, 1500,  0, 186, 2000, 1128, 0, 0, 2000, 1128},
-	/* slim vedio */
+	/* hs video */
+	{8000, 6000, 1440, 1560, 5120, 2880, 1280,  720,  0,   0, 1280,  720, 0, 0, 1280,  720},
+	/* slim video */
 	{8000, 6000,    0,  400, 8000, 5200, 4000, 2600,  0,   0, 4000, 2600, 0, 0, 4000, 2600},
 	/* Custom1 */
 	{8000, 6000, 2000, 1500, 4000, 3000, 4000, 3000,  0,   0, 4000, 3000, 0, 0, 4000, 3000},
@@ -275,7 +271,7 @@ static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[4] = {
 	{
 		0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
 		0x00, 0x2b, 0x0FA0, 0x0BB8, 0x00, 0x00, 0x0280, 0x0001,
-		0x01, 0x2b, 0x01F0, 0x05D8, 0x03, 0x00, 0x0000, 0x0000
+		0x00, 0x2b, 0x01F0, 0x05D8, 0x03, 0x00, 0x0000, 0x0000
 	},
 	/* Capture mode setting  496(Pixel)*1496*/
 	{
@@ -2358,7 +2354,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 0;
 			break;
 		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
-			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 1;
+			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 0;
 			break;
 		default:
 			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 0;
@@ -2418,7 +2414,6 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		break;
 	case SENSOR_FEATURE_GET_BINNING_TYPE:
 		switch (*(feature_data + 1)) {
-		case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
 		case MSDK_SCENARIO_ID_CUSTOM4:
 			*feature_return_para_32 = 2;
 			break;
