@@ -55,7 +55,9 @@
 #include "cmdq-sec.h"
 #include "cmdq-sec-iwc-common.h"
 #include "mtk_disp_ccorr.h"
-
+#ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
+#include "tz_m4u.h"
+#endif
 /* *****Panel_Master*********** */
 #include "mtk_fbconfig_kdebug.h"
 #include "mtk_layering_rule_base.h"
@@ -4622,7 +4624,7 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 		sec_disp_type,
 		CMDQ_METAEX_NONE);
 #ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
-	cmdq_sec_pkt_set_mtee(cmdq_handle, true);
+	cmdq_sec_pkt_set_mtee(cmdq_handle, true, SEC_ID_SVP);
 #endif
 
 	cmdq_pkt_flush(cmdq_handle);
@@ -4668,7 +4670,7 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 			sec_disp_port, sec_disp_type,
 			CMDQ_METAEX_NONE);
 #ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
-		cmdq_sec_pkt_set_mtee(cmdq_handle, true);
+		cmdq_sec_pkt_set_mtee(cmdq_handle, true, SEC_ID_SVP);
 #endif
 	#endif
 		DDPDBG("%s:%d crtc:0x%p, sec_on:%d +\n",
@@ -7112,6 +7114,9 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 				cmdq_sec_pkt_set_data(cmdq_handle, 0, 0,
 					CMDQ_SEC_PRIMARY_DISP, CMDQ_METAEX_NONE);
+#ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
+				cmdq_sec_pkt_set_mtee(cmdq_handle, true, SEC_ID_SVP);
+#endif
 #endif
 				DDPMSG("Switch vds: Primary display is sec\n");
 			} else {
@@ -7198,6 +7203,9 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 				cmdq_sec_pkt_set_data(cmdq_handle, 0, 0,
 					CMDQ_SEC_PRIMARY_DISP, CMDQ_METAEX_NONE);
+#ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
+				cmdq_sec_pkt_set_mtee(cmdq_handle, true, SEC_ID_SVP);
+#endif
 #endif
 				DDPMSG("Switch vds: Primary display is sec\n");
 			} else {
