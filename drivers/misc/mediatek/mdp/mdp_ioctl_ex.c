@@ -57,7 +57,7 @@
 #ifdef MDP_M4U_TEE_SUPPORT
 static atomic_t m4u_init = ATOMIC_INIT(0);
 #endif
-#ifdef MDP_M4U_MTEE_SUPPORT
+#if defined(MDP_M4U_MTEE_SEC_CAM_SUPPORT) || defined(MDP_M4U_MTEE_SVP_SUPPORT)
 static atomic_t m4u_gz_init = ATOMIC_INIT(0);
 #endif
 
@@ -660,11 +660,18 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		CMDQ_LOG("[SEC] m4u_sec_init is called\n");
 	}
 #endif
-#ifdef MDP_M4U_MTEE_SUPPORT
+#ifdef MDP_M4U_MTEE_SEC_CAM_SUPPORT
 	if (atomic_cmpxchg(&m4u_gz_init, 0, 1) == 0) {
 		// 0: SEC_ID_SEC_CAM
 		m4u_gz_sec_init(0);
-		CMDQ_LOG("[SEC] m4u_gz_sec_init is called\n");
+		CMDQ_LOG("[SEC] m4u_gz_sec_init SEC_ID_SEC_CAM is called\n");
+	}
+#endif
+#ifdef MDP_M4U_MTEE_SVP_SUPPORT
+	if (atomic_cmpxchg(&m4u_gz_init, 0, 1) == 0) {
+		// 1: SEC_ID_SVP
+		m4u_gz_sec_init(1);
+		CMDQ_LOG("[SEC] m4u_gz_sec_init SEC_ID_SVP is called\n");
 	}
 #endif
 
