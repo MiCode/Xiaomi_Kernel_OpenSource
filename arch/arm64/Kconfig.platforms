@@ -195,6 +195,7 @@ config MACH_MT6781
 	select DEVMPU_MT6781
 	select MEDIATEK_MC if MEMORY
 	select MTK_CM_MGR
+	select MTK_SECURITY_SW_SUPPORT
 	help
 	  This enables support for MediaTek MT6781
 	  Support for aarch64 Architecture
