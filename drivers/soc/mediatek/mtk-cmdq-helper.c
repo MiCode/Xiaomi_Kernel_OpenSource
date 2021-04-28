@@ -1509,8 +1509,13 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 	const char *mod = "CMDQ";
 	struct cmdq_pkt_buffer *buf;
 	u32 size = pkt->cmd_buf_size, cnt = 0;
-	s32 thread_id = cmdq_mbox_chan_id(client->chan);
+	s32 thread_id;
 	static u8 err_num;
+
+	if (!client->chan)
+		return;
+
+	thread_id = cmdq_mbox_chan_id(client->chan);
 
 	cmdq_msg("%s pkt:%p", __func__, pkt);
 
@@ -1595,6 +1600,9 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 	char text_gpr[30] = {0};
 	void *base;
 	u32 gprid, val, len;
+
+	if (!chan)
+		return;
 
 	cmdq_buf_print_wfe(text, txt_len, (u32)(pc & 0xFFFF), (void *)inst);
 
@@ -2368,7 +2376,7 @@ EXPORT_SYMBOL(cmdq_pkt_dump_buf);
 
 int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 {
-	struct cmdq_client *client = (struct cmdq_client *)pkt->cl;
+	struct cmdq_client *client;
 
 	if (!pkt) {
 		cmdq_err("%s pkt is empty");
@@ -2379,6 +2387,7 @@ int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 		return -EINVAL;
 	}
 
+	client = (struct cmdq_client *)pkt->cl;
 	cmdq_util_user_msg(client->chan,
 		"pkt:0x%p(%#x) size:%zu/%zu avail size:%zu priority:%u%s",
 		pkt, (u32)(unsigned long)pkt, pkt->cmd_buf_size,
