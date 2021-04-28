@@ -197,7 +197,7 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_buck_vproc11_lp(SW, 1, SW_OFF);
 	pmic_buck_vcore_lp(SRCLKEN2, 1, HW_LP);
 	pmic_buck_vgpu_lp(SW, 1, SW_OFF);
-	pmic_buck_vmodem_lp(SW, 1, SW_ON);
+	pmic_buck_vmodem_lp(SRCLKEN2, 1, HW_LP);
 	pmic_buck_vs1_lp(SRCLKEN2, 1, HW_LP);
 	pmic_buck_vs2_lp(SRCLKEN2, 1, HW_LP);
 	pmic_buck_vpa_lp(SW, 1, SW_OFF);
