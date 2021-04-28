@@ -1187,7 +1187,7 @@ struct spower_raw_t spower_raw[MTK_SPOWER_MAX] = {
 		.instance = DEFAULT_INSTANCE,
 		.print_leakage = true,
 	},
-
+#if 0 //CCJ
 	[MTK_VPU_LEAKAGE] = {
 		.vsize = VSIZE,
 		.tsize = TSIZE,
@@ -1202,6 +1202,7 @@ struct spower_raw_t spower_raw[MTK_SPOWER_MAX] = {
 		.instance = DEFAULT_INSTANCE,
 		.print_leakage = true,
 	},
+#endif
 
 	[MTK_VSRAM_PROC12_LEAKAGE] = {
 		.vsize = VSIZE,
@@ -1248,7 +1249,7 @@ struct spower_raw_t spower_raw[MTK_SPOWER_MAX] = {
 		.print_leakage = true,
 	},
 
-	[MTK_VSRAM_OTHERS_LEAKAGE] = {
+	[MTK_VSRAM_CORE_LEAKAGE] = {
 		.vsize = VSIZE,
 		.tsize = TSIZE,
 		.table_size = MAX_TABLE_SIZE,
@@ -1257,8 +1258,53 @@ struct spower_raw_t spower_raw[MTK_SPOWER_MAX] = {
 			(int *)&vpu_leakage_data[1],
 			(int *)&vpu_leakage_data[2]
 		},
-		.devinfo_domain = VSRAM_OTHERS_DEVINFO_DOMAIN,
-		.leakage_id = MTK_VSRAM_OTHERS_LEAKAGE,
+		.devinfo_domain = VSRAM_CORE_DEVINFO_DOMAIN,
+		.leakage_id = MTK_VSRAM_CORE_LEAKAGE,
+		.instance = DEFAULT_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_VSRAM_MODEM_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&vpu_leakage_data[0],
+			(int *)&vpu_leakage_data[1],
+			(int *)&vpu_leakage_data[2]
+		},
+		.devinfo_domain = VSRAM_MODEM_DEVINFO_DOMAIN,
+		.leakage_id = MTK_VSRAM_MODEM_LEAKAGE,
+		.instance = DEFAULT_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_VCORE_OFF_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&vcore_leakage_data[0],
+			(int *)&vcore_leakage_data[1],
+			(int *)&vcore_leakage_data[2]
+		},
+		.devinfo_domain = VCORE_OFF_DEVINFO_DOMAIN,
+		.leakage_id = MTK_VCORE_OFF_LEAKAGE,
+		.instance = DEFAULT_INSTANCE,
+		.print_leakage = true,
+	},
+
+	[MTK_MODEM_OFF_LEAKAGE] = {
+		.vsize = VSIZE,
+		.tsize = TSIZE,
+		.table_size = MAX_TABLE_SIZE,
+		.table = {
+			(int *)&modem_leakage_data[0],
+			(int *)&modem_leakage_data[1],
+			(int *)&modem_leakage_data[2]
+		},
+		.devinfo_domain = MODEM_OFF_DEVINFO_DOMAIN,
+		.leakage_id = MTK_MODEM_OFF_LEAKAGE,
 		.instance = DEFAULT_INSTANCE,
 		.print_leakage = true,
 	},
