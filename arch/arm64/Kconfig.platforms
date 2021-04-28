@@ -158,7 +158,6 @@ config MACH_MT6781
 	select MTK_TIMER_SYSTIMER
 	select IRQ_DOMAIN
 	select MFD_SYSCON
-	select MTK_SYSIRQ
 	select SDCARD_FS
 	select MTK_LPM
 	select MTK_LOW_POWER_MODULE
