@@ -1449,11 +1449,15 @@
 		compatible = "mediatek,adsp_common";
 		reg = <0 0x10001000 0 0x1000>,  /* infracfg_ao */
 			<0 0x10003000 0 0x1000>;  /* pericfg */
-		clocks = <&infracfg_ao INFRACFG_AO_FADSP_CG>,  /* subsys_cg */
+		clocks = <&infracfg_ao INFRACFG_AO_FADSP_26M_CG>,  /* subsys_cg */
+			<&infracfg_ao INFRACFG_AO_FADSP_32K_CG>,  /* subsys_cg */
+			<&infracfg_ao INFRACFG_AO_FADSP_CG>,  /* subsys_cg */
 			<&topckgen TOP_MUX_ADSP>,   /* mux */
 			<&clk26m>,
 			<&topckgen TOP_ADSPPLL_CK>;
-		clock-names = "clk_adsp_infra",
+		clock-names = "clk_adsp_infra_26m",
+			"clk_adsp_infra_32k",
+			"clk_adsp_infra",
 			"clk_top_adsp_sel",
 			"clk_adsp_clk26m",
 			"clk_top_adsppll_ck";
