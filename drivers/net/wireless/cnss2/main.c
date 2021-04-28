@@ -11,6 +11,7 @@
 #include <linux/rwsem.h>
 #include <linux/suspend.h>
 #include <linux/timer.h>
+#include <linux/cnss_plat_ipc_qmi.h>
 #if IS_ENABLED(CONFIG_QCOM_MINIDUMP)
 #include <soc/qcom/minidump.h>
 #endif
@@ -45,6 +46,16 @@
 #endif
 #define CNSS_BDF_TYPE_DEFAULT		CNSS_BDF_ELF
 #define CNSS_TIME_SYNC_PERIOD_DEFAULT	900000
+#define CNSS_DMS_QMI_CONNECTION_WAIT_MS 50
+#define CNSS_DMS_QMI_CONNECTION_WAIT_RETRY 200
+#define CNSS_DAEMON_CONNECT_TIMEOUT_MS  30000
+#define CNSS_CAL_DB_FILE_NAME "wlfw_cal_db.bin"
+
+enum cnss_cal_db_op {
+	CNSS_CAL_DB_UPLOAD,
+	CNSS_CAL_DB_DOWNLOAD,
+	CNSS_CAL_DB_INVALID_OP,
+};
 
 static struct cnss_plat_data *plat_env;
 
@@ -487,12 +498,11 @@ static void cnss_release_antenna_sharing(struct cnss_plat_data *plat_priv)
 		coex_antenna_switch_to_mdm_send_sync_msg(plat_priv);
 }
 
-#define CNSS_DMS_QMI_CONNECTION_WAIT_MS 50
-#define CNSS_DMS_QMI_CONNECTION_WAIT_RETRY 200
 static int cnss_setup_dms_mac(struct cnss_plat_data *plat_priv)
 {
 	u32 i;
 	int ret = 0;
+	struct cnss_plat_ipc_user_config *cfg;
 
 	ret = cnss_qmi_get_dms_mac(plat_priv);
 	if (ret == 0 && plat_priv->dms.mac_valid)
@@ -502,6 +512,15 @@ static int cnss_setup_dms_mac(struct cnss_plat_data *plat_priv)
 	 * Thus assert on failure to get MAC from DMS even after retries
 	 */
 	if (plat_priv->use_nv_mac) {
+		/* Check if Daemon says platform support DMS MAC provisioning */
+		cfg = cnss_plat_ipc_qmi_user_config();
+		if (cfg) {
+			if (!cfg->dms_mac_addr_supported) {
+				cnss_pr_err("DMS MAC address not supported\n");
+				CNSS_ASSERT(0);
+				return -EINVAL;
+			}
+		}
 		for (i = 0; i < CNSS_DMS_QMI_CONNECTION_WAIT_RETRY; i++) {
 			if (plat_priv->dms.mac_valid)
 				break;
@@ -526,9 +545,91 @@ qmi_send:
 	return ret;
 }
 
+static int cnss_cal_db_mem_update(struct cnss_plat_data *plat_priv,
+				  enum cnss_cal_db_op op, u32 *size)
+{
+	int ret = 0;
+	u32 timeout = cnss_get_timeout(plat_priv,
+				       CNSS_TIMEOUT_DAEMON_CONNECTION);
+
+	if (op >= CNSS_CAL_DB_INVALID_OP)
+		return -EINVAL;
+
+	if (!plat_priv->cbc_file_download) {
+		cnss_pr_info("CAL DB file not required as per BDF\n");
+		return 0;
+	}
+	if (*size == 0) {
+		cnss_pr_err("Invalid cal file size\n");
+		return -EINVAL;
+	}
+	if (!test_bit(CNSS_DAEMON_CONNECTED, &plat_priv->driver_state)) {
+		cnss_pr_info("Waiting for CNSS Daemon connection\n");
+		ret = wait_for_completion_timeout(&plat_priv->daemon_connected,
+						  msecs_to_jiffies(timeout));
+		if (!ret) {
+			cnss_pr_err("Daemon not yet connected\n");
+			CNSS_ASSERT(0);
+			return ret;
+		}
+	}
+	if (!plat_priv->cal_mem->va) {
+		cnss_pr_err("CAL DB Memory not setup for FW\n");
+		return -EINVAL;
+	}
+
+	/* Copy CAL DB file contents to/from CAL_TYPE_DDR mem allocated to FW */
+	if (op == CNSS_CAL_DB_DOWNLOAD) {
+		cnss_pr_dbg("Initiating Calibration file download to mem\n");
+		ret = cnss_plat_ipc_qmi_file_download(CNSS_CAL_DB_FILE_NAME,
+						      plat_priv->cal_mem->va,
+						      size);
+	} else {
+		cnss_pr_dbg("Initiating Calibration mem upload to file\n");
+		ret = cnss_plat_ipc_qmi_file_upload(CNSS_CAL_DB_FILE_NAME,
+						    plat_priv->cal_mem->va,
+						    *size);
+	}
+
+	if (ret)
+		cnss_pr_err("Cal DB file %s %s failure\n",
+			    CNSS_CAL_DB_FILE_NAME,
+			    op == CNSS_CAL_DB_DOWNLOAD ? "download" : "upload");
+	else
+		cnss_pr_dbg("Cal DB file %s %s size %d done\n",
+			    CNSS_CAL_DB_FILE_NAME,
+			    op == CNSS_CAL_DB_DOWNLOAD ? "download" : "upload",
+			    *size);
+
+	return ret;
+}
+
+static int cnss_cal_mem_upload_to_file(struct cnss_plat_data *plat_priv)
+{
+	if (plat_priv->cal_file_size > plat_priv->cal_mem->size) {
+		cnss_pr_err("Cal file size is larger than Cal DB Mem size\n");
+		return -EINVAL;
+	}
+	return cnss_cal_db_mem_update(plat_priv, CNSS_CAL_DB_UPLOAD,
+				      &plat_priv->cal_file_size);
+}
+
+static int cnss_cal_file_download_to_mem(struct cnss_plat_data *plat_priv,
+					 u32 *cal_file_size)
+{
+	/* To download pass the total size of cal DB mem allocated.
+	 * After cal file is download to mem, its size is updated in
+	 * return pointer
+	 */
+	*cal_file_size = plat_priv->cal_mem->size;
+	return cnss_cal_db_mem_update(plat_priv, CNSS_CAL_DB_DOWNLOAD,
+				      cal_file_size);
+}
+
 static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
+	u32 cal_file_size = 0;
 
 	if (!plat_priv)
 		return -ENODEV;
@@ -550,6 +651,9 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 						    CNSS_WALTEST);
 	} else if (test_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state)) {
 		cnss_request_antenna_sharing(plat_priv);
+		cnss_cal_file_download_to_mem(plat_priv, &cal_file_size);
+		cnss_wlfw_cal_report_req_send_sync(plat_priv, cal_file_size);
+		plat_priv->cal_time = jiffies;
 		ret = cnss_wlfw_wlan_mode_send_sync(plat_priv,
 						    CNSS_CALIBRATION);
 	} else {
@@ -733,6 +837,8 @@ unsigned int cnss_get_timeout(struct cnss_plat_data *plat_priv,
 		return CNSS_RDDM_TIMEOUT_MS;
 	case CNSS_TIMEOUT_RECOVERY:
 		return RECOVERY_TIMEOUT;
+	case CNSS_TIMEOUT_DAEMON_CONNECTION:
+		return qmi_timeout + CNSS_DAEMON_CONNECT_TIMEOUT_MS;
 	default:
 		return qmi_timeout;
 	}
@@ -1614,6 +1720,7 @@ static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv,
 	set_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state);
 
 	if (cal_info->cal_status == CNSS_CAL_DONE) {
+		cnss_cal_mem_upload_to_file(plat_priv);
 		if (cancel_delayed_work_sync(&plat_priv->wlan_reg_driver_work)
 		   ) {
 			cnss_pr_dbg("Schedule WLAN driver load\n");
@@ -2640,6 +2747,25 @@ static int cnss_register_bus_scale(struct cnss_plat_data *plat_priv)
 static void cnss_unregister_bus_scale(struct cnss_plat_data *plat_priv) {}
 #endif /* CONFIG_INTERCONNECT */
 
+void cnss_daemon_connection_update_cb(void *cb_ctx, bool status)
+{
+	struct cnss_plat_data *plat_priv = cb_ctx;
+
+	if (!plat_priv) {
+		cnss_pr_err("%s: Invalid context\n", __func__);
+		return;
+	}
+	if (status) {
+		cnss_pr_info("CNSS Daemon connected\n");
+		set_bit(CNSS_DAEMON_CONNECTED, &plat_priv->driver_state);
+		complete(&plat_priv->daemon_connected);
+	} else {
+		cnss_pr_info("CNSS Daemon disconnected\n");
+		reinit_completion(&plat_priv->daemon_connected);
+		clear_bit(CNSS_DAEMON_CONNECTED, &plat_priv->driver_state);
+	}
+}
+
 static ssize_t recovery_store(struct device *dev,
 			      struct device_attribute *attr,
 			      const char *buf, size_t count)
@@ -2926,6 +3052,7 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 	init_completion(&plat_priv->cal_complete);
 	init_completion(&plat_priv->rddm_complete);
 	init_completion(&plat_priv->recovery_complete);
+	init_completion(&plat_priv->daemon_connected);
 	mutex_init(&plat_priv->dev_lock);
 	mutex_init(&plat_priv->driver_ops_lock);
 	plat_priv->recovery_ws =
@@ -2934,7 +3061,11 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 	if (!plat_priv->recovery_ws)
 		cnss_pr_err("Failed to setup FW recovery wake source\n");
 
-	return 0;
+	ret = cnss_plat_ipc_register(cnss_daemon_connection_update_cb,
+				     plat_priv);
+	if (ret)
+		cnss_pr_err("QMI IPC connection call back register failed\n");
+	return ret;
 }
 
 static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)
@@ -2943,19 +3074,18 @@ static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)
 	complete_all(&plat_priv->rddm_complete);
 	complete_all(&plat_priv->cal_complete);
 	complete_all(&plat_priv->power_up_complete);
+	complete_all(&plat_priv->daemon_connected);
 	device_init_wakeup(&plat_priv->plat_dev->dev, false);
 	unregister_reboot_notifier(&plat_priv->reboot_nb);
 	unregister_pm_notifier(&cnss_pm_notifier);
 	del_timer(&plat_priv->fw_boot_timer);
 	wakeup_source_unregister(plat_priv->recovery_ws);
+	cnss_plat_ipc_unregister(plat_priv);
 }
 
 static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
 {
 	plat_priv->ctrl_params.quirks = CNSS_QUIRKS_DEFAULT;
-	if (of_property_read_bool(plat_priv->plat_dev->dev.of_node,
-				  "cnss-daemon-support"))
-		plat_priv->ctrl_params.quirks |= BIT(ENABLE_DAEMON_SUPPORT);
 
 	plat_priv->cbc_enabled = !IS_ENABLED(CONFIG_CNSS_EMULATION) &&
 		of_property_read_bool(plat_priv->plat_dev->dev.of_node,
