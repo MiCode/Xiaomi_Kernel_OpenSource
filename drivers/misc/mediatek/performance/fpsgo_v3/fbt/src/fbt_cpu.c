@@ -2576,7 +2576,7 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		boost_info->quota_fps = target_fps;
 	}
 
-	if (s32_t_enq_len * 100 > s32_target_time * gcc_enq_bound_thrs ||
+	if (boost_info->enq_avg * 100 > s32_target_time * gcc_enq_bound_thrs ||
 		s32_t_deq_len * 100 > s32_target_time * gcc_deq_bound_thrs) {
 		boost_info->quota_cur_idx = -1;
 		boost_info->quota_cnt = 0;
@@ -2588,7 +2588,7 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	if (new_idx >= QUOTA_MAX_SIZE)
 		new_idx -= QUOTA_MAX_SIZE;
 
-	if (s32_t_enq_len * 100 > s32_target_time * gcc_enq_bound_thrs)
+	if (boost_info->enq_avg * 100 > s32_target_time * gcc_enq_bound_thrs)
 		boost_info->quota_raw[new_idx] = target_time * gcc_enq_bound_quota / 100;
 	else if (s32_t_deq_len * 100 > s32_target_time * gcc_deq_bound_thrs)
 		boost_info->quota_raw[new_idx] = target_time * gcc_deq_bound_quota / 100;
@@ -2596,6 +2596,9 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		boost_info->quota_raw[new_idx] = target_time - s32_t_Q2Q;
 
 	boost_info->quota += boost_info->quota_raw[new_idx];
+
+	boost_info->enq_raw[new_idx] = s32_t_enq_len;
+	boost_info->enq_sum += boost_info->enq_raw[new_idx];
 
 	if (boost_info->quota_cnt >= gcc_window_size) {
 		rm_idx = new_idx - gcc_window_size;
@@ -2607,6 +2610,7 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 			first_idx -= QUOTA_MAX_SIZE;
 
 		boost_info->quota -= boost_info->quota_raw[rm_idx];
+		boost_info->enq_sum -= boost_info->enq_raw[rm_idx];
 	} else {
 		first_idx = new_idx - boost_info->quota_cnt;
 		if (first_idx < 0)
@@ -2618,6 +2622,7 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 
 	/* remove outlier */
 	avg = boost_info->quota / boost_info->quota_cnt;
+	boost_info->enq_avg = boost_info->enq_sum / boost_info->quota_cnt;
 
 
 	if (first_idx <= new_idx)
@@ -2685,10 +2690,12 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	if (boost_info->quota_mod < -s32_target_time)
 		boost_info->quota_mod = -s32_target_time;
 
-	fpsgo_main_trace("%s raw[%d]:%d raw[%d]:%d cnt:%d sum:%d avg:%d std_sqr:%d quota:%d mod:%d",
+	fpsgo_main_trace(
+		"%s raw[%d]:%d raw[%d]:%d cnt:%d sum:%d avg:%d std_sqr:%d quota:%d mod:%d enq:%d enq_avg:%d",
 		__func__, first_idx, boost_info->quota_raw[first_idx],
 		new_idx, boost_info->quota_raw[new_idx], boost_info->quota_cnt,
-		boost_info->quota, avg, std_square, quota_adj, boost_info->quota_mod);
+		boost_info->quota, avg, std_square, quota_adj, boost_info->quota_mod,
+		s32_t_enq_len, boost_info->enq_avg);
 
 	return s32_target_time;
 }

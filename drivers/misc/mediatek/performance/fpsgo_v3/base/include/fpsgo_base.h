@@ -102,6 +102,9 @@ struct fbt_boost_info {
 	int quota;
 	int quota_adj; /* remove outlier */
 	int quota_mod; /* mod target time */
+	int enq_raw[QUOTA_MAX_SIZE];
+	int enq_sum;
+	int enq_avg;
 
 	/* GCC */
 	int gcc_quota;
