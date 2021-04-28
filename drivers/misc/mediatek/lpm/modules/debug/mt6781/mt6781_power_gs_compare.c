@@ -115,7 +115,7 @@ struct mtk_lpm_gs_pmic mt6781_pmic6366 = {
 };
 
 struct mtk_lpm_gs_pmic *mt6781_pmic[] = {
-//	&mt6781_pmic6366,
+	&mt6781_pmic6366,
 	NULL,
 };
 
