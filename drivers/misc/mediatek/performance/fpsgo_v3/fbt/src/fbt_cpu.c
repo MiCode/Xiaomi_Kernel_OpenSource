@@ -2741,7 +2741,8 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 
 		if (weight_t_gpu > 0 && weight_t_cpu > 0 &&
 				weight_t_gpu * 100 > target_time * gcc_gpu_bound_time &&
-				target_time * gcc_gpu_bound_time > weight_t_cpu * 100)
+				target_time * gcc_gpu_bound_time > weight_t_cpu * 100 &&
+				nsec_to_usec(t_cpu) * 100 < target_time * gcc_gpu_bound_time)
 			goto over_boost;
 
 		if (nsec_to_usec(t_cpu) * 100 < target_time * gcc_cpu_unknown_sleep)
