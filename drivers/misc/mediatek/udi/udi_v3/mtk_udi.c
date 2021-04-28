@@ -372,7 +372,8 @@ out0:
 /* udi_debug_reg */
 static int udi_reg_proc_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "Reg[%x] = 0x%x.\n",
+	if (func_lv_mask_udi == 1)
+		seq_printf(m, "Reg[%x] = 0x%x.\n",
 				udi_addr_phy, udi_reg_read(udi_addr_phy));
 	return 0;
 }
