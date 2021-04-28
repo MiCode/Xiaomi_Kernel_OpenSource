@@ -14,17 +14,18 @@
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/
 
-#ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
-#ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
-#
-#ifeq ($(CONFIG_MACH_MT6781),y)
-#ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/mt6781
-#else
-#ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)
-#endif
-#
-#obj-y := mtk_freqhopping_sspm.o
-#else
+ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+
+ifeq ($(CONFIG_MACH_MT6781),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/mt6781
+obj-y := mtk_freqhopping_sspm_v2.o
+else
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)
+obj-y := mtk_freqhopping_sspm.o
+endif
+
+else
 obj-y := mtk_freqhopping.o
-#endif
+endif
 

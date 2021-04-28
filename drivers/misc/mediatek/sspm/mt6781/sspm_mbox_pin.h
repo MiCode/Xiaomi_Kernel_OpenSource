@@ -25,7 +25,6 @@
 #define IPIS_C_THERMAL_OUT_SIZE        4
 #define IPIS_C_GPU_DVFS_OUT_SIZE       4
 #define IPIS_C_GPU_PM_OUT_SIZE         2
-#define IPIS_C_FHCTL_OUT_SIZE          9
 /* the following will use mbox 1 */
 #define IPIS_C_PLATFORM_OUT_SIZE       3
 #define IPIS_C_SMI_OUT_SIZE            3
@@ -36,6 +35,7 @@
 #define IPIR_C_GPU_DVFS_OUT_SIZE       1
 #define IPIR_C_PLATFORM_OUT_SIZE       1
 #define IPIR_C_SLBC_OUT_SIZE           1
+#define IPIS_C_FHCTL_OUT_SIZE          9
 
 /* definition of slot offset for OUT PINs */
 /* the following will use mbox 0 */
@@ -52,8 +52,6 @@
 					+ IPIS_C_THERMAL_OUT_SIZE)
 #define IPIS_C_GPU_PM_OUT_OFFSET       (IPIS_C_GPU_DVFS_OUT_OFFSET \
 					+ IPIS_C_GPU_DVFS_OUT_SIZE)
-#define IPIS_C_FHCTL_OUT_OFFSET        (IPIS_C_GPU_PM_OUT_OFFSET \
-					+ IPIS_C_GPU_PM_OUT_SIZE)
 /* the following will use mbox 1 */
 #define IPIS_C_PLATFORM_OUT_OFFSET     0
 #define IPIS_C_SMI_OUT_OFFSET          (IPIS_C_PLATFORM_OUT_OFFSET \
@@ -72,6 +70,8 @@
 					+ IPIR_C_GPU_DVFS_OUT_SIZE)
 #define IPIR_C_SLBC_OUT_OFFSET         (IPIR_C_PLATFORM_OUT_OFFSET \
 					+ IPIR_C_PLATFORM_OUT_SIZE)
+#define IPIS_C_FHCTL_OUT_OFFSET        (IPIR_C_SLBC_OUT_OFFSET \
+					+ IPIR_C_SLBC_OUT_SIZE)
 
 /* definition of slot size for IN PINs */
 /* the following will use mbox 2 */
@@ -92,7 +92,7 @@
 #define IPIS_C_CM_IN_SIZE              1
 #define IPIS_C_SLBC_IN_SIZE            1
 #define IPIS_C_SPM_SUSPEND_IN_SIZE     1
-#define IPIS_C_FHCTL_IN_SIZE           4
+#define IPIS_C_FHCTL_IN_SIZE           1
 
 /* definition of slot offset for IN PINs */
 /* the following will use mbox 2 */
