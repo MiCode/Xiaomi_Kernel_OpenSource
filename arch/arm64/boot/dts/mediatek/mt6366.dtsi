@@ -195,6 +195,8 @@
 				  "bat_l",
 				  "fg_cur_h",
 				  "fg_cur_l";
+		/* WK for power plan change */
+		pmic,init_gpio = <&pio 200 0x0>;
 	};
 
 	pmic_auxadc: mt635x-auxadc {
