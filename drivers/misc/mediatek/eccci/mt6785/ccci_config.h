@@ -55,7 +55,7 @@
 
 #ifdef CCCI_PLATFORM_MT6781
 /* only bringup need BY_PASS_MD_BROM, normal load no need */
-#define BY_PASS_MD_BROM
+//#define BY_PASS_MD_BROM
 #endif
 
 /* feature option, always try using platform info first! */
