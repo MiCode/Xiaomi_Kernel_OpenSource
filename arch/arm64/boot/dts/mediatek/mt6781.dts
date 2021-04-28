@@ -223,6 +223,8 @@
 		suspend-method = "s2idle";
 		cpupm-method = "mcu";
 
+		irq-remain = <&edge_keypad &edge_mdwdt>;
+
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
 
@@ -241,6 +243,17 @@
 		lpm_sysram: lpm_sysram@0011b500 {
 			compatible = "mediatek,lpm-sysram";
 			reg = <0 0x0011b500 0 0x300>;
+		};
+
+		irq-remain-list {
+			edge_keypad: edge_keypad {
+				target = <&keypad>;
+				value = <1 0 0 0x04>;
+			};
+			edge_mdwdt: edge_mdwdt {
+				target = <&mddriver>;
+				value = <1 0 0 0x02000000>;
+			};
 		};
 
 		resource-ctrl-list {
