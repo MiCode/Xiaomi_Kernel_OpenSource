@@ -198,6 +198,7 @@ static int bhr_opp;
 static int bhr_opp_l;
 static int rescue_opp_f;
 static int rescue_enhance_f;
+static int rescue_enhance_f_90;
 static int rescue_opp_c;
 static int rescue_percent;
 static int min_rescue_percent;
@@ -237,6 +238,12 @@ static int qr_enable;
 static int qr_t2wnt_x;
 static int qr_t2wnt_y_p;
 static int qr_t2wnt_y_n;
+static int qr_t2wnt_x_90;
+static int qr_t2wnt_y_p_90;
+static int qr_t2wnt_y_n_90;
+static int qr_t2wnt_x_120;
+static int qr_t2wnt_y_p_120;
+static int qr_t2wnt_y_n_120;
 static int qr_hwui_hint;
 static int qr_filter_outlier;
 static int qr_mod_frame;
@@ -266,6 +273,7 @@ module_param(bhr_opp, int, 0644);
 module_param(bhr_opp_l, int, 0644);
 module_param(rescue_opp_f, int, 0644);
 module_param(rescue_enhance_f, int, 0644);
+module_param(rescue_enhance_f_90, int, 0644);
 module_param(rescue_opp_c, int, 0644);
 module_param(rescue_percent, int, 0644);
 module_param(min_rescue_percent, int, 0644);
@@ -304,6 +312,12 @@ module_param(qr_enable, int, 0644);
 module_param(qr_t2wnt_x, int, 0644);
 module_param(qr_t2wnt_y_p, int, 0644);
 module_param(qr_t2wnt_y_n, int, 0644);
+module_param(qr_t2wnt_x_90, int, 0644);
+module_param(qr_t2wnt_y_p_90, int, 0644);
+module_param(qr_t2wnt_y_n_90, int, 0644);
+module_param(qr_t2wnt_x_120, int, 0644);
+module_param(qr_t2wnt_y_p_120, int, 0644);
+module_param(qr_t2wnt_y_n_120, int, 0644);
 module_param(qr_hwui_hint, int, 0644);
 module_param(qr_filter_outlier, int, 0644);
 module_param(qr_mod_frame, int, 0644);
@@ -351,6 +365,8 @@ static int fbt_cap_margin_enable;
 static int ultra_rescue;
 static int loading_policy;
 static int llf_task_policy;
+static int loading_policy_90;
+static int llf_task_policy_90;
 
 static int cluster_num;
 static unsigned int cpu_max_freq;
@@ -1255,10 +1271,22 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		}
 
 		if (fbt_is_light_loading(fl->loading)) {
+			int tfps_level;
+			int fps_loading_policy, fps_llf_task_policy;
+
+			tfps_level = fbt_get_fps_level(thr->boost_info.target_fps);
+			if (tfps_level == fbt_fps_level[0]) {
+				fps_loading_policy = loading_policy;
+				fps_llf_task_policy = llf_task_policy;
+			} else {
+				fps_loading_policy = loading_policy_90;
+				fps_llf_task_policy = llf_task_policy_90;
+			}
+
 			fbt_set_per_task_min_cap(fl->pid,
-				(!loading_policy) ? 0
-				: min_cap * loading_policy / 100);
-			fbt_set_task_policy(fl, llf_task_policy,
+				(!fps_loading_policy) ? 0
+				: min_cap * fps_loading_policy / 100);
+			fbt_set_task_policy(fl, fps_llf_task_policy,
 					FPSGO_PREFER_LITTLE, 0);
 		} else if (heavy_pid && heavy_pid == fl->pid) {
 			fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
@@ -1704,6 +1732,8 @@ static void fbt_do_sjerk(struct work_struct *work)
 	unsigned int blc_wt = 0U, last_blc = 0U;
 	struct ppm_limit_data *pld;
 	int do_jerk;
+	int tfps_level;
+	int fps_rescue_enhance_f = rescue_enhance_f;
 
 	jerk = container_of(work, struct fbt_sjerk, work);
 
@@ -1746,8 +1776,12 @@ static void fbt_do_sjerk(struct work_struct *work)
 	if (!pld)
 		goto EXIT;
 
+	tfps_level = fbt_get_fps_level(thr->boost_info.target_fps);
+	if (tfps_level != fbt_fps_level[0])
+		fps_rescue_enhance_f = rescue_enhance_f_90;
+
 	blc_wt = fbt_get_new_base_blc(pld, thr->boost_info.last_blc,
-			rescue_enhance_f, rescue_second_copp);
+			fps_rescue_enhance_f, rescue_second_copp);
 
 	thrm_aware_switch(0);
 	fbt_set_hard_limit_locked(FPSGO_HARD_NONE, pld);
@@ -1780,6 +1814,8 @@ static void fbt_do_jerk_locked(struct render_info *thr, struct fbt_jerk *jerk, i
 	unsigned int blc_wt = 0U;
 	struct ppm_limit_data *pld;
 	int do_jerk;
+	int tfps_level;
+	int fps_rescue_enhance_f = rescue_enhance_f;
 
 	if (!thr)
 		return;
@@ -1795,7 +1831,11 @@ static void fbt_do_jerk_locked(struct render_info *thr, struct fbt_jerk *jerk, i
 
 	mutex_lock(&fbt_mlock);
 
-	blc_wt = fbt_get_new_base_blc(pld, blc_wt, rescue_enhance_f, rescue_opp_c);
+	tfps_level = fbt_get_fps_level(thr->boost_info.target_fps);
+	if (tfps_level != fbt_fps_level[0])
+		fps_rescue_enhance_f = rescue_enhance_f_90;
+
+	blc_wt = fbt_get_new_base_blc(pld, blc_wt, fps_rescue_enhance_f, rescue_opp_c);
 	if (!blc_wt)
 		goto EXIT;
 
@@ -2943,6 +2983,23 @@ static int fbt_boost_policy(
 	if (blc_wt) {
 		 /* ignore hwui hint || not hwui */
 		if (qr_enable && (!qr_hwui_hint || thread_info->ux != 1)) {
+			int tfps_level = fbt_get_fps_level(target_fps);
+			int fps_qr_t2wnt_x, fps_qr_t2wnt_y_p, fps_qr_t2wnt_y_n;
+
+			if (tfps_level == fbt_fps_level[0]) {
+				fps_qr_t2wnt_x = qr_t2wnt_x;
+				fps_qr_t2wnt_y_p = qr_t2wnt_y_p;
+				fps_qr_t2wnt_y_n = qr_t2wnt_y_n;
+			} else if (tfps_level == fbt_fps_level[1]) {
+				fps_qr_t2wnt_x = qr_t2wnt_x_90;
+				fps_qr_t2wnt_y_p = qr_t2wnt_y_p_90;
+				fps_qr_t2wnt_y_n = qr_t2wnt_y_n_90;
+			} else {
+				fps_qr_t2wnt_x = qr_t2wnt_x_120;
+				fps_qr_t2wnt_y_p = qr_t2wnt_y_p_120;
+				fps_qr_t2wnt_y_n = qr_t2wnt_y_n_120;
+			}
+
 			rescue_target_t = div64_s64(1000000, target_fps); /* unit:1us */
 
 			/* t2wnt = target_time * (1+x) + quota * y */
@@ -2951,19 +3008,19 @@ static int fbt_boost_policy(
 				rescue_target_t * 1000, "t2wnt");
 
 			/* rescue_target_t, unit: 1us */
-			rescue_target_t = (qr_t2wnt_x) ?
-				rescue_target_t * 10 * (100 + qr_t2wnt_x) :
+			rescue_target_t = (fps_qr_t2wnt_x) ?
+				rescue_target_t * 10 * (100 + fps_qr_t2wnt_x) :
 				rescue_target_t * 1000;
 
 			if (boost_info->quota_mod > 0) { /* qr_quota, unit: 1us */
 				/* qr_t2wnt_y_p: percentage */
-				qr_quota_adj = (qr_t2wnt_y_p != 100) ?
-					boost_info->quota_mod * 10 * qr_t2wnt_y_p :
+				qr_quota_adj = (fps_qr_t2wnt_y_p != 100) ?
+					boost_info->quota_mod * 10 * fps_qr_t2wnt_y_p :
 					boost_info->quota_mod * 1000;
 			} else {
 				 /* qr_t2wnt_y_n: percentage */
-				qr_quota_adj = (qr_t2wnt_y_n != 0) ?
-					boost_info->quota_mod * 10 * qr_t2wnt_y_n :
+				qr_quota_adj = (fps_qr_t2wnt_y_n != 0) ?
+					boost_info->quota_mod * 10 * fps_qr_t2wnt_y_n :
 					0;
 			}
 			t2wnt = (rescue_target_t + qr_quota_adj > 0)
@@ -4256,6 +4313,46 @@ static ssize_t light_loading_policy_store(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(light_loading_policy);
 
+static ssize_t light_loading_policy_90_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	int val = -1;
+
+	mutex_lock(&fbt_mlock);
+	val = loading_policy_90;
+	mutex_unlock(&fbt_mlock);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
+}
+
+static ssize_t light_loading_policy_90_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	int val = -1;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
+
+	if (val < 0 || val > 100)
+		return count;
+
+	loading_policy_90 = val;
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(light_loading_policy_90);
+
 static ssize_t switch_idleprefer_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -4659,6 +4756,15 @@ static ssize_t ultra_rescue_store(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(ultra_rescue);
 
+static void llf_switch_policy(struct work_struct *work)
+{
+	fpsgo_main_trace("fpsgo %s and clear_llf_cpu_policy",
+		__func__);
+	fpsgo_clear_llf_cpu_policy(0);
+}
+static DECLARE_WORK(llf_switch_policy_work,
+		(void *) llf_switch_policy);
+
 static ssize_t llf_task_policy_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -4672,14 +4778,6 @@ static ssize_t llf_task_policy_show(struct kobject *kobj,
 	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
 }
 
-static void llf_switch_policy(struct work_struct *work)
-{
-	fpsgo_main_trace("fpsgo %s and clear_llf_cpu_policy",
-		__func__);
-	fpsgo_clear_llf_cpu_policy(0);
-}
-static DECLARE_WORK(llf_switch_policy_work,
-		(void *) llf_switch_policy);
 static ssize_t llf_task_policy_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
@@ -4726,6 +4824,66 @@ static ssize_t llf_task_policy_store(struct kobject *kobj,
 }
 
 static KOBJ_ATTR_RW(llf_task_policy);
+
+static ssize_t llf_task_policy_90_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	int val = -1;
+
+	mutex_lock(&fbt_mlock);
+	val = llf_task_policy_90;
+	mutex_unlock(&fbt_mlock);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
+}
+
+static ssize_t llf_task_policy_90_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	int val = 0;
+	int orig_policy;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
+
+	mutex_lock(&fbt_mlock);
+	if (!fbt_enable) {
+		mutex_unlock(&fbt_mlock);
+		return count;
+	}
+
+	if (val < FPSGO_TPOLICY_NONE || val >= FPSGO_TPOLICY_MAX) {
+		mutex_unlock(&fbt_mlock);
+		return count;
+	}
+
+	if (llf_task_policy_90 == val) {
+		mutex_unlock(&fbt_mlock);
+		return count;
+	}
+
+	orig_policy = llf_task_policy_90;
+	llf_task_policy_90 = val;
+	fpsgo_main_trace("fpsgo set llf_task_policy_90 %d",
+		llf_task_policy_90);
+	mutex_unlock(&fbt_mlock);
+
+	schedule_work(&llf_switch_policy_work);
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(llf_task_policy_90);
 
 static ssize_t limit_cfreq_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -5034,6 +5192,8 @@ void __exit fbt_cpu_exit(void)
 	fpsgo_sysfs_remove_file(fbt_kobj,
 			&kobj_attr_light_loading_policy);
 	fpsgo_sysfs_remove_file(fbt_kobj,
+			&kobj_attr_light_loading_policy_90);
+	fpsgo_sysfs_remove_file(fbt_kobj,
 			&kobj_attr_fbt_info);
 	fpsgo_sysfs_remove_file(fbt_kobj,
 			&kobj_attr_switch_idleprefer);
@@ -5049,6 +5209,8 @@ void __exit fbt_cpu_exit(void)
 			&kobj_attr_ultra_rescue);
 	fpsgo_sysfs_remove_file(fbt_kobj,
 			&kobj_attr_llf_task_policy);
+	fpsgo_sysfs_remove_file(fbt_kobj,
+			&kobj_attr_llf_task_policy_90);
 	fpsgo_sysfs_remove_file(fbt_kobj,
 			&kobj_attr_boost_ta);
 	fpsgo_sysfs_remove_file(fbt_kobj,
@@ -5090,11 +5252,10 @@ int __init fbt_cpu_init(void)
 	floor_opp = 2;
 	loading_th = 0;
 	sampling_period_MS = 256;
-	rescue_enhance_f = 25;
+	rescue_enhance_f = rescue_enhance_f_90 = 25;
 	loading_adj_cnt = fbt_get_default_adj_count();
 	loading_debnc_cnt = 30;
 	loading_time_diff = fbt_get_default_adj_tdiff();
-	llf_task_policy = FPSGO_TPOLICY_NONE;
 	fps_level_range = 10;
 	check_running = 1;
 	uboost_enhance_f = fbt_get_default_uboost();
@@ -5123,9 +5284,12 @@ int __init fbt_cpu_init(void)
 	qr_t2wnt_x = DEFAULT_QR_T2WNT_X;
 	qr_t2wnt_y_p = DEFAULT_QR_T2WNT_Y_P;
 	qr_t2wnt_y_n = DEFAULT_QR_T2WNT_Y_N;
+	qr_t2wnt_x_90 = qr_t2wnt_x_120 = DEFAULT_QR_T2WNT_X;
+	qr_t2wnt_y_p_90 = qr_t2wnt_y_p_120 = DEFAULT_QR_T2WNT_Y_P;
+	qr_t2wnt_y_n_90 = qr_t2wnt_y_n_120 = DEFAULT_QR_T2WNT_Y_N;
 	qr_hwui_hint = DEFAULT_QR_HWUI_HINT;
 	qr_filter_outlier = 0;
-	qr_mod_frame = 1;
+	qr_mod_frame = 0;
 	qr_debug = 0;
 
 	gcc_enable = fbt_get_default_gcc_enable();
@@ -5173,6 +5337,8 @@ int __init fbt_cpu_init(void)
 		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_light_loading_policy);
 		fpsgo_sysfs_create_file(fbt_kobj,
+				&kobj_attr_light_loading_policy_90);
+		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_fbt_info);
 		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_switch_idleprefer);
@@ -5188,6 +5354,8 @@ int __init fbt_cpu_init(void)
 				&kobj_attr_ultra_rescue);
 		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_llf_task_policy);
+		fpsgo_sysfs_create_file(fbt_kobj,
+				&kobj_attr_llf_task_policy_90);
 		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_boost_ta);
 		fpsgo_sysfs_create_file(fbt_kobj,
