@@ -50,5 +50,6 @@ int fbt_get_cluster_limit(int *cluster, int *freq, int *r_freq);
 int fbt_get_default_uboost(void);
 int fbt_get_default_qr_enable(void);
 int fbt_get_default_gcc_enable(void);
+int fbt_get_l_min_bhropp(void);
 
 #endif

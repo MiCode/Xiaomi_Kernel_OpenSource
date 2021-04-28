@@ -191,6 +191,7 @@ static struct kobject *fbt_kobj;
 
 static int bhr;
 static int bhr_opp;
+static int bhr_opp_l;
 static int rescue_opp_f;
 static int rescue_enhance_f;
 static int rescue_opp_c;
@@ -253,6 +254,7 @@ static int gcc_check_under_boost;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
+module_param(bhr_opp_l, int, 0644);
 module_param(rescue_opp_f, int, 0644);
 module_param(rescue_enhance_f, int, 0644);
 module_param(rescue_opp_c, int, 0644);
@@ -2134,7 +2136,6 @@ static void fbt_do_boost(unsigned int blc_wt, int pid,
 	struct ppm_limit_data *pld;
 	int *clus_opp;
 	unsigned int *clus_floor_freq;
-
 	int tgt_opp = 0;
 	unsigned int mbhr;
 	int mbhr_opp;
@@ -2176,7 +2177,11 @@ static void fbt_do_boost(unsigned int blc_wt, int pid,
 		clus_floor_freq[cluster] = cpu_dvfs[cluster].power[tgt_opp];
 		clus_opp[cluster] = tgt_opp;
 
-		mbhr_opp = max((clus_opp[cluster] - bhr_opp), 0);
+		if (cluster == min_cap_cluster
+			&& blc_wt <= cpu_dvfs[min_cap_cluster].power[0]) {
+			mbhr_opp = max((clus_opp[cluster] - MAX(bhr_opp, bhr_opp_l)), 0);
+		} else
+			mbhr_opp = max((clus_opp[cluster] - bhr_opp), 0);
 
 		mbhr = clus_floor_freq[cluster] * 100U;
 		mbhr = mbhr / cpu_max_freq;
@@ -4955,6 +4960,7 @@ int __init fbt_cpu_init(void)
 {
 	bhr = 5;
 	bhr_opp = 1;
+	bhr_opp_l = fbt_get_l_min_bhropp();
 	rescue_opp_c = (NR_FREQ_CPU - 1);
 	rescue_opp_f = 5;
 	rescue_percent = DEF_RESCUE_PERCENT;

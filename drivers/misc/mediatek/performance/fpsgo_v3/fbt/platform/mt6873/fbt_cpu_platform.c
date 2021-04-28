@@ -198,3 +198,8 @@ int fbt_get_default_gcc_enable(void)
 	return 0;
 }
 
+int fbt_get_l_min_bhropp(void)
+{
+	return 0;
+}
+
