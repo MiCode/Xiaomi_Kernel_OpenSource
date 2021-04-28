@@ -91,6 +91,14 @@ struct fbt_boost_info {
 	int floor_count;
 	int reset_floor_bound;
 	int f_iter;
+
+	/* quota rescue */
+	int qr_count;
+	int qr_conti_cnt;
+	int qr_target_fps;
+	int qr_quota;
+	int qr_signed;
+	int qr_signed_cnt;
 };
 
 struct uboost {
@@ -116,6 +124,8 @@ struct render_info {
 	int tgid;	/*render's process pid*/
 	int api;	/*connected API*/
 	int frame_type;
+	int hwui;
+	int ux;
 
 	/*render queue/dequeue/frame time info*/
 	unsigned long long t_enqueue_start;
@@ -153,6 +163,11 @@ struct BQ_id {
 	int queue_SF;
 	int pid;
 	int queue_pid;
+	struct rb_node entry;
+};
+
+struct hwui_info {
+	int pid;
 	struct rb_node entry;
 };
 
@@ -194,6 +209,8 @@ void fpsgo_delete_render_info(int pid,
 	unsigned long long buffer_id, unsigned long long identifier);
 struct render_info *fpsgo_search_and_add_render_info(int pid,
 		unsigned long long identifier, int force);
+struct hwui_info *fpsgo_search_and_add_hwui_info(int pid, int force);
+void fpsgo_delete_hwui_info(int pid);
 int fpsgo_has_bypass(void);
 void fpsgo_check_thread_status(void);
 void fpsgo_clear(void);
@@ -207,6 +224,7 @@ void fpsgo_clear_llf_cpu_policy(int orig_llf);
 void fpsgo_del_linger(struct render_info *thr);
 int fpsgo_uboost_traverse(unsigned long long ts);
 int fpsgo_base_is_finished(struct render_info *thr);
+int fpsgo_update_swap_buffer(int pid);
 
 int init_fpsgo_common(void);
 

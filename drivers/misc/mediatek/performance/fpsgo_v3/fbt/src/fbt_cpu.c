@@ -89,6 +89,15 @@
 #define DEF_RESCUE_PERCENT 33
 #define DEF_RESCUE_NS_TH 0
 #define INVALID_NUM -1
+#define DEFAULT_QR_T2WNT_X 0
+#define DEFAULT_QR_T2WNT_Y_P 100
+#define DEFAULT_QR_T2WNT_Y_N 0
+#define DEFAULT_QR_LITTLE_CNT 4
+#define DEFAULT_QR_LITTLE_MAX 5
+#define DEFAULT_QR_LITTLE_MIN (-5)
+#define DEFAULT_QR_Q2Q_MAX 3
+#define DEFAULT_QR_CNT_DIVIDER 2
+#define DEFAULT_QR_HWUI_HINT 1
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -130,10 +139,11 @@ struct fbt_syslimit {
 };
 
 enum FPSGO_JERK {
-	FPSGO_JERK_ONLY_CEILING = 0,
-	FPSGO_JERK_NEED = 1,
-	FPSGO_JERK_POSTPONE = 2,
-	FPSGO_JERK_DISAPPEAR = 3,
+	FPSGO_JERK_DISAPPEAR = 0,
+	FPSGO_JERK_ONLY_CEILING_WAIT_ENQ = 1,
+	FPSGO_JERK_ONLY_CEILING_WAIT_DEQ = 2,
+	FPSGO_JERK_NEED = 3,
+	FPSGO_JERK_POSTPONE = 4,
 };
 
 enum FPSGO_TASK_POLICY {
@@ -210,6 +220,17 @@ static int rescue_second_time;
 static int rescue_second_group;
 static int rescue_second_copp;
 static int rescue_second_enable;
+static int qr_enable;
+static int qr_t2wnt_x;
+static int qr_t2wnt_y_p;
+static int qr_t2wnt_y_n;
+static int qr_little_cnt;
+static int qr_little_max;
+static int qr_little_min;
+static int qr_q2q_max;
+static int qr_cnt_divider;
+static int qr_hwui_hint;
+static int qr_debug;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
@@ -249,6 +270,17 @@ module_param(cm_tdiff_120, int, 0644);
 module_param(rescue_second_time, int, 0644);
 module_param(rescue_second_group, int, 0644);
 module_param(rescue_second_enable, int, 0644);
+module_param(qr_enable, int, 0644);
+module_param(qr_t2wnt_x, int, 0644);
+module_param(qr_t2wnt_y_p, int, 0644);
+module_param(qr_t2wnt_y_n, int, 0644);
+module_param(qr_little_cnt, int, 0644);
+module_param(qr_little_max, int, 0644);
+module_param(qr_little_min, int, 0644);
+module_param(qr_q2q_max, int, 0644);
+module_param(qr_cnt_divider, int, 0644);
+module_param(qr_hwui_hint, int, 0644);
+module_param(qr_debug, int, 0644);
 
 static DEFINE_SPINLOCK(freq_slock);
 static DEFINE_MUTEX(fbt_mlock);
@@ -1494,6 +1526,55 @@ EXIT:
 	return hit;
 }
 
+static int fbt_print_rescue_info(int pid, int buffer_id,
+	unsigned long long q_end_ts,
+	int quota, int scn, int num, int policy, int blc_wt, int last_blw)
+{
+	int blc_changed = 0;
+
+	switch (policy) {
+	case FPSGO_JERK_ONLY_CEILING_WAIT_ENQ:
+		fpsgo_systrace_c_fbt(pid, buffer_id, num, "wait_enqueue");
+		fpsgo_systrace_c_fbt(pid, buffer_id, 0, "wait_enqueue");
+		break;
+
+	case FPSGO_JERK_ONLY_CEILING_WAIT_DEQ:
+		fpsgo_systrace_c_fbt(pid, buffer_id, num, "wait_enqueue");
+		fpsgo_systrace_c_fbt(pid, buffer_id, 0, "wait_enqueue");
+		break;
+
+	case FPSGO_JERK_NEED:
+		fpsgo_systrace_c_fbt(pid, buffer_id, num, "jerk_need");
+		fpsgo_systrace_c_fbt(pid, buffer_id, 0, "jerk_need");
+		blc_changed = 1;
+		break;
+
+	case FPSGO_JERK_POSTPONE:
+		fpsgo_systrace_c_fbt(pid, buffer_id, num, "jerk_postpone");
+		fpsgo_systrace_c_fbt(pid, buffer_id, 0, "jerk_postpone");
+		return 0;
+
+	case FPSGO_JERK_DISAPPEAR:
+		fpsgo_systrace_c_fbt(pid, buffer_id, num, "not_running");
+		fpsgo_systrace_c_fbt(pid, buffer_id, 0, "not_running");
+		policy = 0;
+		break;
+
+	default:
+		break;
+	}
+
+	if (num > 1 || policy == FPSGO_JERK_NEED) /* perf idx is valid */
+		fpsgo_main_trace("rescue_info:%llu,%d,%d,%d,%d,%d,%d",
+			q_end_ts, pid, quota, scn, num, policy, blc_wt);
+	else
+		fpsgo_main_trace("rescue_info:%llu,%d,%d,%d,%d,%d,%d",
+			q_end_ts, pid, quota, scn, num, policy, last_blw);
+
+
+	return 0;
+}
+
 static int fbt_check_to_jerk(
 		unsigned long long enq_start, unsigned long long enq_end,
 		unsigned long long deq_start, unsigned long long deq_end,
@@ -1501,18 +1582,12 @@ static int fbt_check_to_jerk(
 		unsigned long long buffer_id, int tgid)
 {
 	/*not running*/
-	if (check_running && !fbt_query_state(pid, tgid)) {
-		fpsgo_systrace_c_fbt(pid, buffer_id, 1, "not_running");
-		fpsgo_systrace_c_fbt(pid, buffer_id, 0, "not_running");
+	if (check_running && !fbt_query_state(pid, tgid))
 		return FPSGO_JERK_DISAPPEAR;
-	}
 
 	/*during enqueue*/
-	if (enq_start >= enq_end) {
-		fpsgo_systrace_c_fbt(pid, buffer_id, 1, "wait_enqueue");
-		fpsgo_systrace_c_fbt(pid, buffer_id, 0, "wait_enqueue");
-		return FPSGO_JERK_ONLY_CEILING;
-	}
+	if (enq_start >= enq_end)
+		return FPSGO_JERK_ONLY_CEILING_WAIT_ENQ;
 
 	/*after enqueue before dequeue*/
 	if (enq_end > enq_start && enq_end >= deq_start)
@@ -1520,11 +1595,9 @@ static int fbt_check_to_jerk(
 
 	/*after dequeue before enqueue*/
 	if (deq_end >= deq_start && deq_start > enq_end) {
-		if (deq_len > deqtime_bound) {
-			fpsgo_systrace_c_fbt(pid, buffer_id, 1, "wait_dequeue");
-			fpsgo_systrace_c_fbt(pid, buffer_id, 0, "wait_dequeue");
-			return FPSGO_JERK_ONLY_CEILING;
-		} else
+		if (deq_len > deqtime_bound)
+			return FPSGO_JERK_ONLY_CEILING_WAIT_DEQ;
+		else
 			return FPSGO_JERK_NEED;
 	}
 
@@ -1581,8 +1654,9 @@ static void fbt_do_sjerk(struct work_struct *work)
 {
 	struct fbt_sjerk *jerk;
 	struct render_info *thr;
-	unsigned int blc_wt = 0U;
+	unsigned int blc_wt = 0U, last_blc = 0U;
 	struct ppm_limit_data *pld;
+	int do_jerk;
 
 	jerk = container_of(work, struct fbt_sjerk, work);
 
@@ -1612,10 +1686,12 @@ static void fbt_do_sjerk(struct work_struct *work)
 	if (!blc_wt || thr->linger != 0 || jerk->active_id != thr->boost_info.proc.active_jerk_id)
 		goto EXIT;
 
-	if (fbt_check_to_jerk(thr->t_enqueue_start,
+	do_jerk = fbt_check_to_jerk(thr->t_enqueue_start,
 		thr->t_enqueue_end, thr->t_dequeue_start,
 		thr->t_dequeue_end, thr->dequeue_length,
-		thr->pid, thr->buffer_id, thr->tgid) == FPSGO_JERK_DISAPPEAR)
+		thr->pid, thr->buffer_id, thr->tgid);
+
+	if (do_jerk == FPSGO_JERK_DISAPPEAR)
 		goto EXIT;
 
 	pld = kcalloc(cluster_num,
@@ -1643,6 +1719,9 @@ static void fbt_do_sjerk(struct work_struct *work)
 
 EXIT:
 	jerk->jerking = 0;
+
+	fbt_print_rescue_info(thr->pid, thr->buffer_id, thr->t_enqueue_end,
+		0, 0, 2, do_jerk, blc_wt, last_blc);
 
 	mutex_unlock(&fbt_mlock);
 	fpsgo_thread_unlock(&(thr->thr_mlock));
@@ -1679,9 +1758,13 @@ static void fbt_do_jerk_locked(struct render_info *thr, struct fbt_jerk *jerk, i
 		fbt_set_sjerk(thr->pid, thr->identifier, jerk_id);
 
 	do_jerk = fbt_check_to_jerk(thr->t_enqueue_start, thr->t_enqueue_end,
-				thr->t_dequeue_start, thr->t_dequeue_end,
-				thr->dequeue_length,
-				thr->pid, thr->buffer_id, thr->tgid);
+		thr->t_dequeue_start, thr->t_dequeue_end,
+		thr->dequeue_length,
+		thr->pid, thr->buffer_id, thr->tgid);
+
+	fbt_print_rescue_info(thr->pid, thr->buffer_id, thr->t_enqueue_end,
+		thr->boost_info.qr_quota, 0, 1, do_jerk,
+		blc_wt, thr->boost_info.last_blc);
 
 	if (do_jerk == FPSGO_JERK_DISAPPEAR)
 		goto EXIT;
@@ -2387,6 +2470,66 @@ static int fbt_get_next_jerk(int cur_id)
 	return ret_id;
 }
 
+void fbt_eva_rescue(int pid, int buffer_id,
+		int *count, int *quota, int *quota_signed, int *quota_signed_cnt,
+		int *g_target_fps, long long *g_target_time,
+		int target_fps, unsigned long long t_Q2Q)
+{
+	int quota_signed_now;
+	long long target_time = div64_s64(10000, target_fps); /* unit:100us */
+	int diff = target_time - t_Q2Q;
+
+	*g_target_time = target_time;
+
+	if (*g_target_fps != target_fps) { /* target fps is changed */
+		*g_target_fps = target_fps;
+		*count = 1;
+		*quota = diff;
+		*quota_signed = (diff > 0) ? 1 : -1;
+		*quota_signed_cnt = 1;
+	} else if ((*count) >= qr_little_cnt &&
+		(*quota) >= qr_little_min && (*quota) <= qr_little_max) {
+		/* 4 frames and quota < +-0.5ms */
+		*count = 1;
+		*quota = diff;
+		*quota_signed = (diff > 0) ? 1 : -1;
+		*quota_signed_cnt = 1;
+	} else if (t_Q2Q > target_time * qr_q2q_max) {
+		/* t_Q2Q is too big. more than 3 target time */
+		*count = 0;
+		*quota = 0;
+		*quota_signed = 0;
+		*quota_signed_cnt = 0;
+	} else if ((*quota_signed_cnt) >= target_fps / qr_cnt_divider) {
+		*count = 1;
+		*quota = diff;
+		*quota_signed = (diff > 0) ? 1 : -1;
+		*quota_signed_cnt = 1;
+	} else {
+
+		while ((*quota) < (-target_time))
+			(*quota) += target_time;
+		while ((*quota) > (target_time))
+			(*quota) -= target_time;
+
+		(*count)++;
+		*quota += diff;
+
+		quota_signed_now = ((*quota) > 0) ? 1 : -1;
+		if (quota_signed_now == (*quota_signed))
+			(*quota_signed_cnt) += 1;
+		else {
+			*quota_signed_cnt = 1;
+			*quota_signed = quota_signed_now;
+		}
+	}
+
+	if (qr_debug) {
+		fpsgo_systrace_c_fbt(pid, buffer_id, *quota_signed, "quota_signed");
+		fpsgo_systrace_c_fbt(pid, buffer_id, *quota_signed_cnt, "quota_signed_cnt");
+	}
+}
+
 static int fbt_boost_policy(
 	long long t_cpu_cur,
 	long long target_time,
@@ -2398,17 +2541,21 @@ static int fbt_boost_policy(
 	unsigned int blc_wt = 0U;
 	unsigned long long temp_blc;
 	unsigned long long t1, t2, t_Q2Q;
+	unsigned long long cur_ts;
 	struct fbt_boost_info *boost_info;
 	int pid;
 	unsigned long long buffer_id;
 	struct hrtimer *timer;
 	u64 t2wnt = 0ULL;
 	int active_jerk_id = 0;
+	long long rescue_target_t, qr_quota_adj;
 
 	if (!thread_info) {
 		FPSGO_LOGE("ERROR %d\n", __LINE__);
 		return 0;
 	}
+
+	cur_ts = fpsgo_get_time();
 
 	pid = thread_info->pid;
 	buffer_id = thread_info->buffer_id;
@@ -2467,6 +2614,22 @@ static int fbt_boost_policy(
 
 	blc_wt = fbt_limit_capacity(blc_wt, 0);
 
+	/* ignore hwui hint || not hwui */
+	if (qr_enable && (!qr_hwui_hint || thread_info->ux != 1)) {
+		fbt_eva_rescue(
+				pid, buffer_id,
+				&(boost_info->qr_count),
+				&(boost_info->qr_quota),
+				&(boost_info->qr_signed),
+				&(boost_info->qr_signed_cnt),
+				&(boost_info->qr_target_fps),
+				&rescue_target_t,
+				target_fps, t_Q2Q);
+		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->qr_quota, "rescue_quota");
+		if (qr_debug)
+			fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->qr_count, "rescue_count");
+	}
+
 	fbt_set_limit(blc_wt, pid, buffer_id, thread_info, t_cpu_cur);
 
 	if (!boost_ta)
@@ -2487,9 +2650,50 @@ static int fbt_boost_policy(
 	boost_info->last_blc = blc_wt;
 
 	if (blc_wt) {
-		t2wnt = (u64) fbt_get_t2wnt(target_fps, ts,
-			fbt_is_always_running(t_cpu_cur, target_time));
-		fpsgo_systrace_c_fbt(pid, buffer_id, t2wnt, "t2wnt");
+		 /* ignore hwui hint || not hwui */
+		if (qr_enable && (!qr_hwui_hint || thread_info->ux != 1)) {
+			/* t2wnt = target_time * (1+x) + quota * y */
+			//rescue_target_t *= 100000; /* unit: ns */
+			if (qr_debug)
+				fpsgo_systrace_c_fbt(pid, buffer_id,
+				rescue_target_t * 100000, "t2wnt");
+
+			/* rescue_target_t, unit: 100us */
+			rescue_target_t = (qr_t2wnt_x) ?
+				rescue_target_t * 1000 * (100 + qr_t2wnt_x) :
+				rescue_target_t * 100000;
+
+			if (boost_info->qr_quota > 0) { /* qr_quota, unit: 100us */
+				/* qr_t2wnt_y_p: percentage */
+				qr_quota_adj = (qr_t2wnt_y_p != 100) ?
+					boost_info->qr_quota * 1000 * qr_t2wnt_y_p :
+					boost_info->qr_quota * 100000;
+			} else {
+				 /* qr_t2wnt_y_n: percentage */
+				qr_quota_adj = (qr_t2wnt_y_n != 0) ?
+					boost_info->qr_quota * 1000 * qr_t2wnt_y_n :
+					0;
+			}
+			t2wnt = (rescue_target_t + qr_quota_adj > 0)
+				? rescue_target_t + qr_quota_adj : 0;
+
+			if (cur_ts > ts) {
+				if (t2wnt > cur_ts - ts) {
+					if (qr_debug)
+						fpsgo_systrace_c_fbt(pid,
+						buffer_id, t2wnt, "t2wnt_before");
+					t2wnt -= (cur_ts - ts);
+				} else
+					t2wnt = 1;
+			}
+
+			t2wnt = MAX(1ULL, t2wnt);
+			fpsgo_systrace_c_fbt(pid, buffer_id, t2wnt, "t2wnt_adjust");
+		} else {
+			t2wnt = (u64) fbt_get_t2wnt(target_fps, ts,
+				fbt_is_always_running(t_cpu_cur, target_time));
+			fpsgo_systrace_c_fbt(pid, buffer_id, t2wnt, "t2wnt");
+		}
 
 		if (t2wnt) {
 			if (t2wnt == 1ULL) {
@@ -4565,6 +4769,20 @@ int __init fbt_cpu_init(void)
 	fbt_cap_margin_enable = 1;
 	boost_ta = fbt_get_default_boost_ta();
 	adjust_loading = fbt_get_default_adj_loading();
+
+	/* t2wnt = target_time * (1+x) + quota * y_p, if quota > 0 */
+	/* t2wnt = target_time * (1+x) + quota * y_n, if quota < 0 */
+	qr_enable = fbt_get_default_qr_enable();
+	qr_t2wnt_x = DEFAULT_QR_T2WNT_X;
+	qr_t2wnt_y_p = DEFAULT_QR_T2WNT_Y_P;
+	qr_t2wnt_y_n = DEFAULT_QR_T2WNT_Y_N;
+	qr_little_cnt = DEFAULT_QR_LITTLE_CNT;
+	qr_little_max = DEFAULT_QR_LITTLE_MAX;
+	qr_little_min = DEFAULT_QR_LITTLE_MIN;
+	qr_q2q_max = DEFAULT_QR_Q2Q_MAX;
+	qr_cnt_divider = DEFAULT_QR_CNT_DIVIDER;
+	qr_hwui_hint = DEFAULT_QR_HWUI_HINT;
+	qr_debug = 0;
 
 	cluster_num = arch_get_nr_clusters();
 

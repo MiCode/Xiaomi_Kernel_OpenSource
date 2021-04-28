@@ -300,6 +300,7 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 	unsigned long long identifier)
 {
 	struct render_info *f_render;
+	struct hwui_info *h_info;
 	int xgf_ret = 0;
 	int check_render;
 	unsigned long long running_time = 0;
@@ -332,6 +333,15 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 		fpsgo_render_tree_unlock(__func__);
 		fpsgo_thread_unlock(&f_render->thr_mlock);
 		return;
+	}
+
+	/* hwui */
+	if (!f_render->hwui) {
+		h_info = fpsgo_search_and_add_hwui_info(f_render->pid, 0);
+		if (h_info)
+			f_render->hwui = 1;
+		else
+			f_render->hwui = 2;
 	}
 
 	fpsgo_render_tree_unlock(__func__);

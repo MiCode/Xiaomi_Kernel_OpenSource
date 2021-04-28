@@ -197,3 +197,8 @@ int fbt_get_default_uboost(void)
 	return 75;
 }
 
+int fbt_get_default_qr_enable(void)
+{
+	return 0;
+}
+

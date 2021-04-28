@@ -65,6 +65,7 @@ void fpsgo_base2uboost_compute(
 
 	get_result = uboost2xgf_get_info(render->pid,
 		render->buffer_id, &timer_period, &frame_idx);
+	render->ux = get_result;
 
 	if (!get_result)
 		return;
