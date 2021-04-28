@@ -1111,6 +1111,7 @@ static int get_dlpt_imix_charging(void)
 	int zcv_val = 0;
 	int vsys_min_1_val = DLPT_VOLT_MIN;
 	int imix = 0;
+	int ret = 0;
 	static struct iio_channel *chan;
 
 	if (chan == NULL) {
@@ -1125,7 +1126,12 @@ static int get_dlpt_imix_charging(void)
 			is_power_path_supported());
 		return 0;
 	}
-	iio_read_channel_processed(chan, &zcv_val);
+	ret = iio_read_channel_processed(chan, &zcv_val);
+	if (ret < 0) {
+		pr_notice("[%s] iio_read_channel_processed error\n",
+			  __func__);
+		return 0;
+	}
 	imix = (zcv_val - vsys_min_1_val) * 1000 / ptim_rac_val_avg * 9 / 10;
 	PMICLOG("[%s] %d %d %d %d\n", __func__,
 		imix, zcv_val, vsys_min_1_val, ptim_rac_val_avg);
