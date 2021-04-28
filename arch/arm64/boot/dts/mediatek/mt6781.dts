@@ -4600,14 +4600,14 @@
 	};
 	aud_gpio_i2s0_off: aud_gpio_i2s0_off {
 		pins_cmd1_dat {
-			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			pinmux = <PINMUX_GPIO59__FUNC_GPIO59>;
 			input-enable;
 			bias-pull-down;
 		};
 	};
 	aud_gpio_i2s0_on: aud_gpio_i2s0_on {
 		pins_cmd1_dat {
-			pinmux = <PINMUX_GPIO3__FUNC_I2S0_DI>;
+			pinmux = <PINMUX_GPIO59__FUNC_I2S0_DI>;
 			input-schmitt-enable;
 			bias-disable;
 		};
