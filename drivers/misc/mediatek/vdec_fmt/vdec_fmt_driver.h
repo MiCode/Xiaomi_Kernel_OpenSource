@@ -120,6 +120,7 @@ struct mtk_vdec_fmt {
 	struct cmdq_client *clt_fmt_sec[FMT_CORE_NUM];
 	int gce_th_num;
 	u16 gce_codec_eid[GCE_EVENT_MAX];
+	struct gce_cmds *gce_cmds[FMT_CORE_NUM];
 	struct map_hw_reg map_base[FMT_MAP_HW_REG_NUM];
 	u32 gce_gpr[FMT_CORE_NUM];
 	bool is_entering_suspend;

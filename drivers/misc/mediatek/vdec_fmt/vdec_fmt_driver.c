@@ -238,19 +238,6 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 		return -EINVAL;
 	}
 
-	cmds = kmalloc(sizeof(struct gce_cmds), GFP_KERNEL);
-
-	user_data_addr = (unsigned char *)
-				   (unsigned long)buff.cmds_user_ptr;
-	ret = (long)copy_from_user(cmds, user_data_addr,
-				   (unsigned long)sizeof(struct gce_cmds));
-	if (ret != 0L) {
-		fmt_err("gce_cmds copy_from_user failed! %d",
-			ret);
-		return -EINVAL;
-	}
-
-	buff.cmds_user_ptr = (u64)(unsigned long)cmds;
 	identifier = buff.identifier;
 
 	cl = fmt->clt_fmt[identifier];
@@ -281,6 +268,21 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 		}
 	}
 
+	cmds = fmt->gce_cmds[identifier];
+
+	user_data_addr = (unsigned char *)
+				   (unsigned long)buff.cmds_user_ptr;
+	ret = (long)copy_from_user(cmds, user_data_addr,
+				   (unsigned long)sizeof(struct gce_cmds));
+	if (ret != 0L) {
+		fmt_err("gce_cmds copy_from_user failed! %d",
+			ret);
+		mutex_unlock(&fmt->mux_gce_th[identifier]);
+		return -EINVAL;
+	}
+
+	buff.cmds_user_ptr = (u64)(unsigned long)cmds;
+
 	mutex_lock(&fmt->mux_fmt);
 	if ((atomic_read(&fmt->gce_job_cnt[0])
 		+ atomic_read(&fmt->gce_job_cnt[1])) == 0) {
@@ -291,6 +293,8 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 		if (ret != 0L) {
 			fmt_err("fmt_clock_on failed!%d",
 			ret);
+			mutex_unlock(&fmt->mux_gce_th[identifier]);
+			mutex_unlock(&fmt->mux_fmt);
 			return -EINVAL;
 		}
 	}
@@ -298,7 +302,6 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 	mutex_unlock(&fmt->mux_fmt);
 
 	fmt_start_dvfs_emi_bw(buff.pmqos_param);
-	mutex_unlock(&fmt->mux_gce_th[identifier]);
 
 	pkt_ptr = cmdq_pkt_create(cl);
 	if (IS_ERR_OR_NULL(pkt_ptr)) {
@@ -324,6 +327,8 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 			cmds->dma_offset[i], cmds->dma_size[i], map);
 	}
 
+	mutex_unlock(&fmt->mux_gce_th[identifier]);
+
 	taskid = fmt_set_gce_task(pkt_ptr, identifier);
 
 	memcpy(&fmt->gce_task[taskid].cmdq_buff, &buff, sizeof(buff));
@@ -336,8 +341,6 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 		fmt_err("copy task id to user fail");
 		return -EFAULT;
 	}
-
-	kfree(cmds);
 
 	fmt_debug(1, "-");
 
@@ -738,6 +741,13 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 	of_property_read_u16(dev->of_node,
 						"wdma1_tile_done",
 						&fmt->gce_codec_eid[FMT_WDMA1_TILE_DONE]);
+
+	for (i = 0; i < (int)FMT_CORE_NUM; i++) {
+		fmt->gce_cmds[i] = devm_kzalloc(dev,
+		sizeof(struct gce_cmds), GFP_KERNEL);
+		if (fmt->gce_cmds[i] == NULL)
+			goto err_device;
+	}
 
 	for (i = 0; i < GCE_EVENT_MAX; i++)
 		fmt_debug(0, "gce event %d id %d", i, fmt->gce_codec_eid[i]);
