@@ -54,6 +54,7 @@ endif
 # Enabel by specific platform
 ifeq ($(CONFIG_MACH_MT6781),y)
 ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
+ccflags-y += -DMTK_GPU_BM_2
 endif
 
 # Enable by specific platform
