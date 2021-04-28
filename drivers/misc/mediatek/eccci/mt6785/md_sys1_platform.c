@@ -46,7 +46,11 @@
 
 #include "md_sys1_platform.h"
 #include "modem_reg_base.h"
+#ifdef CCCI_PLATFORM_MT6781
+#include "ap_md_reg_dump_6781.h"
+#else
 #include "ap_md_reg_dump.h"
+#endif
 
 static struct ccci_clk_node clk_table[] = {
 	{ NULL, "scp-sys-md1-main"},
@@ -478,15 +482,15 @@ void md_cd_dump_debug_register(struct ccci_modem *md)
 			"In interrupt, skip dump MD debug register.\n");
 		return;
 	}
-/* disable internal_md_dump_debug_register for bring-up*/
-/* need enable after bring-up */
-/*
+	/* disable internal_md_dump_debug_register for bring-up*/
+	/* need enable after bring-up */
+
 	md_cd_lock_modem_clock_src(1);
 
 	internal_md_dump_debug_register(md->index);
 
 	md_cd_lock_modem_clock_src(0);
-*/
+
 }
 
 int md_cd_pccif_send(struct ccci_modem *md, int channel_id)

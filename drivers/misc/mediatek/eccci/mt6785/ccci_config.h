@@ -60,11 +60,7 @@
 
 /* feature option, always try using platform info first! */
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
-#ifdef CCCI_PLATFORM_MT6781
-//#define FEATURE_SCP_CCCI_SUPPORT
-#else
 #define FEATURE_SCP_CCCI_SUPPORT
-#endif
 #endif
 /*#define ENABLE_EMI_PROTECTION*/
 #define ENABLE_32K_CLK_LESS
