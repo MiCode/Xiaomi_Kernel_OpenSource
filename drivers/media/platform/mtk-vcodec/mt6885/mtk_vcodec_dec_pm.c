@@ -310,15 +310,17 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 	s32 usec, timeout = 20000;
 	int offset, idx;
 	unsigned long value;
-	u32 fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+	u32 fourcc;
 	u32 is_ufo = 0;
 
 	if (hw_id == MTK_VDEC_CORE) {
+		ctx = dev->curr_dec_ctx[hw_id];
+		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+
 		if (fourcc != V4L2_PIX_FMT_AV1)
 			is_ufo = readl(vdec_ufo_addr + 0x08C) & 0x1;
 
 		/* hw break */
-		ctx = dev->curr_dec_ctx[hw_id];
 		writel((readl(vdec_misc_addr + 0x0100) | 0x1),
 			vdec_misc_addr + 0x0100);
 		if (is_ufo)
@@ -387,8 +389,9 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 		writel(0x1, vdec_vld_addr + 0x0108);
 		writel(0x0, vdec_vld_addr + 0x0108);
 	} else if (hw_id == MTK_VDEC_LAT) {
-		/* hw break */
 		ctx = dev->curr_dec_ctx[hw_id];
+		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+		/* hw break */
 		writel((readl(vdec_lat_misc_addr + 0x0100) | 0x1),
 			vdec_lat_misc_addr + 0x0100);
 

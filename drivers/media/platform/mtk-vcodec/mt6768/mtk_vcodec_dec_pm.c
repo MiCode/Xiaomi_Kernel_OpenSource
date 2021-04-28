@@ -163,10 +163,11 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 	s32 usec, timeout = 20000;
 	int offset, idx;
 	unsigned long value;
-	u32 fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+	u32 fourcc;
 
 	if (hw_id == MTK_VDEC_CORE) {
 		ctx = dev->curr_dec_ctx[hw_id];
+		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 		/* hw break */
 		writel((readl(vdec_misc_addr + 0x0100) | 0x1),
 			vdec_misc_addr + 0x0100);
