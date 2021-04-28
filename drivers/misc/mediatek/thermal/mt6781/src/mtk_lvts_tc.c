@@ -1067,10 +1067,12 @@ void lvts_thermal_cal_prepare(void)
 	temp[14] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_16);
 	temp[15] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_17);
 
-	for (i = 0; (i + 4) <= sizeof(temp); i = i + 4)
+	for (i = 0; (i + 4) < 16; i = i + 4)
 		lvts_printk("[lvts_call] %d: 0x%x, %d: 0x%x, %d: 0x%x, %d: 0x%x\n",
 		i, temp[i], i + 1, temp[i + 1], i + 2, temp[i + 2],
 		i + 3, temp[i + 3]);
+	lvts_printk("[lvts_call] 12: 0x%x, 13: 0x%x, 14: 0x%x, 15: 0x%x\n",
+		temp[12], temp[13], temp[14], temp[15]);
 
 	g_golden_temp = (temp[0] & _BITMASK_(7:0));
 	g_count_r[0] = (temp[1] & _BITMASK_(23:0));
