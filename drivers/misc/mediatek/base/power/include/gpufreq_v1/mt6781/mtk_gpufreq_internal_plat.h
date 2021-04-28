@@ -56,13 +56,13 @@
  * MT6366 PMIC Setting
  **************************************************/
 /* PMIC hardware range:
- * vgpu      0.55 ~ 1.1V
- * vsram_gpu 0.6 ~ 1.2V
+ * vgpu      0.5 ~ 1.29375V
+ * vsram_gpu 0.5 ~ 1.29375V
  */
-#define VGPU_MAX_VOLT                   (110000)        /* mV x 100 */
-#define VGPU_MIN_VOLT                   (55000)         /* mV x 100 */
-#define VSRAM_GPU_MAX_VOLT              (120000)        /* mV x 100 */
-#define VSRAM_GPU_MIN_VOLT              (60000)         /* mV x 100 */
+#define VGPU_MAX_VOLT                   (129375)        /* mV x 100 */
+#define VGPU_MIN_VOLT                   (50000)         /* mV x 100 */
+#define VSRAM_GPU_MAX_VOLT              (129375)        /* mV x 100 */
+#define VSRAM_GPU_MIN_VOLT              (50000)         /* mV x 100 */
 #define PMIC_STEP                       (625)           /* mV x 100 */
 /*
  * (100)mv <= (VSRAM - VGPU) <= (250)mV
