@@ -25,6 +25,7 @@ extern unsigned long get_cpu_orig_capacity(unsigned int cpu);
 extern int upower_get_turn_point(void);
 extern void set_capacity_margin(unsigned int margin);
 extern unsigned int get_capacity_margin(void);
+extern void set_user_nice(struct task_struct *p, long nice);
 
 extern int fpsgo_fbt2minitop_start(int count, struct fpsgo_loading *fl);
 extern int fpsgo_fbt2minitop_query(int count, struct fpsgo_loading *fl);

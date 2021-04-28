@@ -34,7 +34,8 @@ obj-y += \
 	src/fbt_cpu.o \
 	src/xgf.o \
 	src/mini_top.o \
-	src/uboost.o
+	src/uboost.o \
+	src/thermal_aware.o
 
 ccflags-y += \
 	-I$(srctree)/include/ \
@@ -47,4 +48,5 @@ ccflags-y += \
 	-I$(MTK_TOP)/base/power/$(MTK_PLATFORM)/ \
 	-I$(FSTB_TOP)/ \
 	-I$(EARA_TOP)/include/ \
-	-I$(srctree)/kernel/
+	-I$(srctree)/kernel/ \
+	-I$(MTK_TOP)/thermal/$(MTK_PLATFORM)/inc/
