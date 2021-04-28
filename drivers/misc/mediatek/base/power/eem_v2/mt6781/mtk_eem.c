@@ -457,6 +457,7 @@ static int get_devinfo(void)
 
 #ifdef MC50_LOAD
 	safeEfuse = 1;
+	gpu_vb_volt = 87500;
 #endif
 	if (safeEfuse) {
 
