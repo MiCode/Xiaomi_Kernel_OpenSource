@@ -1815,6 +1815,12 @@ static const struct snd_soc_dapm_route mt6781_memif_routes[] = {
 	{"UL8_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
 	{"UL8_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
 
+	{"DSP_DL", "DSP_DL1", "DL1"},
+	{"DSP_DL", "DSP_DL2", "DL2"},
+	{"DSP_DL", "DSP_DL12", "DL12"},
+	{"DSP_DL", "DSP_DL6", "DL6"},
+	{"DSP_DL", "DSP_DL3", "DL3"},
+	{"DSP_DL", "DSP_DL4", "DL4"},
 
 	{"HW_GAIN2_IN_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
 	{"HW_GAIN2_IN_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
