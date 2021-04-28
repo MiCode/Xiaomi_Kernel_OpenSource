@@ -2163,8 +2163,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		goto end;
 
 #if IS_ENABLED(CONFIG_MMC_DEBUG)
-	if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
-		ret = mmc_dbg_register(mmc);
+	ret = mmc_dbg_register(mmc);
 #endif
 
 	return 0;
