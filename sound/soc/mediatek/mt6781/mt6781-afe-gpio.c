@@ -14,26 +14,6 @@
 
 struct pinctrl *aud_pinctrl;
 
-enum mt6781_afe_gpio {
-	MT6781_AFE_GPIO_DAT_MISO_OFF,
-	MT6781_AFE_GPIO_DAT_MISO_ON,
-	MT6781_AFE_GPIO_DAT_MOSI_OFF,
-	MT6781_AFE_GPIO_DAT_MOSI_ON,
-	MT6781_AFE_GPIO_I2S0_OFF,
-	MT6781_AFE_GPIO_I2S0_ON,
-	MT6781_AFE_GPIO_I2S1_OFF,
-	MT6781_AFE_GPIO_I2S1_ON,
-	MT6781_AFE_GPIO_I2S2_OFF,
-	MT6781_AFE_GPIO_I2S2_ON,
-	MT6781_AFE_GPIO_I2S3_OFF,
-	MT6781_AFE_GPIO_I2S3_ON,
-	MT6781_AFE_GPIO_VOW_DAT_OFF,
-	MT6781_AFE_GPIO_VOW_DAT_ON,
-	MT6781_AFE_GPIO_VOW_CLK_OFF,
-	MT6781_AFE_GPIO_VOW_CLK_ON,
-	MT6781_AFE_GPIO_GPIO_NUM
-};
-
 struct audio_gpio_attr {
 	const char *name;
 	bool gpio_prepare;
@@ -41,8 +21,10 @@ struct audio_gpio_attr {
 };
 
 static struct audio_gpio_attr aud_gpios[MT6781_AFE_GPIO_GPIO_NUM] = {
-	[MT6781_AFE_GPIO_DAT_MISO_OFF] = {"aud_dat_miso_off", false, NULL},
-	[MT6781_AFE_GPIO_DAT_MISO_ON] = {"aud_dat_miso_on", false, NULL},
+	[MT6781_AFE_GPIO_DAT_MISO0_OFF] = {"aud_dat_miso0_off", false, NULL},
+	[MT6781_AFE_GPIO_DAT_MISO0_ON] = {"aud_dat_miso0_on", false, NULL},
+	[MT6781_AFE_GPIO_DAT_MISO1_OFF] = {"aud_dat_miso1_off", false, NULL},
+	[MT6781_AFE_GPIO_DAT_MISO1_ON] = {"aud_dat_miso1_on", false, NULL},
 	[MT6781_AFE_GPIO_DAT_MOSI_OFF] = {"aud_dat_mosi_off", false, NULL},
 	[MT6781_AFE_GPIO_DAT_MOSI_ON] = {"aud_dat_mosi_on", false, NULL},
 	[MT6781_AFE_GPIO_I2S0_OFF] = {"aud_gpio_i2s0_off", false, NULL},
@@ -120,27 +102,12 @@ static int mt6781_afe_gpio_select(struct mtk_base_afe *afe,
 	return ret;
 }
 
-static int mt6781_afe_gpio_adda_dl(struct mtk_base_afe *afe, bool enable)
+bool mt6781_afe_gpio_is_prepared(enum mt6781_afe_gpio type)
 {
-	if (enable) {
-		return mt6781_afe_gpio_select(afe,
-					      MT6781_AFE_GPIO_DAT_MOSI_ON);
-	} else {
-		return mt6781_afe_gpio_select(afe,
-					      MT6781_AFE_GPIO_DAT_MOSI_OFF);
-	}
+	return aud_gpios[type].gpio_prepare;
 }
 
-static int mt6781_afe_gpio_adda_ul(struct mtk_base_afe *afe, bool enable)
-{
-	if (enable) {
-		return mt6781_afe_gpio_select(afe,
-					      MT6781_AFE_GPIO_DAT_MISO_ON);
-	} else {
-		return mt6781_afe_gpio_select(afe,
-					      MT6781_AFE_GPIO_DAT_MISO_OFF);
-	}
-}
+
 
 int mt6781_afe_gpio_request(struct mtk_base_afe *afe, bool enable,
 			    int dai, int uplink)
@@ -148,34 +115,37 @@ int mt6781_afe_gpio_request(struct mtk_base_afe *afe, bool enable,
 	mutex_lock(&gpio_request_mutex);
 	switch (dai) {
 	case MT6781_DAI_ADDA:
-		if (uplink)
-			mt6781_afe_gpio_adda_ul(afe, enable);
-		else
-			mt6781_afe_gpio_adda_dl(afe, enable);
+		if (uplink) {
+			mt6781_afe_gpio_select(afe, enable ?
+			       MT6781_AFE_GPIO_DAT_MISO0_ON :
+			       MT6781_AFE_GPIO_DAT_MISO0_OFF);
+			mt6781_afe_gpio_select(afe, enable ?
+			       MT6781_AFE_GPIO_DAT_MISO1_ON :
+			       MT6781_AFE_GPIO_DAT_MISO1_OFF);
+		} else
+			mt6781_afe_gpio_select(afe, enable ?
+			       MT6781_AFE_GPIO_DAT_MOSI_ON :
+			       MT6781_AFE_GPIO_DAT_MOSI_OFF);
 		break;
 	case MT6781_DAI_I2S_0:
-		if (enable)
-			mt6781_afe_gpio_select(afe, MT6781_AFE_GPIO_I2S0_ON);
-		else
-			mt6781_afe_gpio_select(afe, MT6781_AFE_GPIO_I2S0_OFF);
+		mt6781_afe_gpio_select(afe, enable ?
+			 MT6781_AFE_GPIO_I2S0_ON :
+			 MT6781_AFE_GPIO_I2S0_OFF);
 		break;
 	case MT6781_DAI_I2S_1:
-		if (enable)
-			mt6781_afe_gpio_select(afe, MT6781_AFE_GPIO_I2S1_ON);
-		else
-			mt6781_afe_gpio_select(afe, MT6781_AFE_GPIO_I2S1_OFF);
+		mt6781_afe_gpio_select(afe, enable ?
+			 MT6781_AFE_GPIO_I2S1_ON :
+			 MT6781_AFE_GPIO_I2S1_OFF);
 		break;
 	case MT6781_DAI_I2S_2:
-		if (enable)
-			mt6781_afe_gpio_select(afe, MT6781_AFE_GPIO_I2S2_ON);
-		else
-			mt6781_afe_gpio_select(afe, MT6781_AFE_GPIO_I2S2_OFF);
+		mt6781_afe_gpio_select(afe, enable ?
+			 MT6781_AFE_GPIO_I2S2_ON :
+			 MT6781_AFE_GPIO_I2S2_OFF);
 		break;
 	case MT6781_DAI_I2S_3:
-		if (enable)
-			mt6781_afe_gpio_select(afe, MT6781_AFE_GPIO_I2S3_ON);
-		else
-			mt6781_afe_gpio_select(afe, MT6781_AFE_GPIO_I2S3_OFF);
+		mt6781_afe_gpio_select(afe, enable ?
+			 MT6781_AFE_GPIO_I2S3_ON :
+			 MT6781_AFE_GPIO_I2S3_OFF);
 		break;
 	case MT6781_DAI_VOW:
 		if (enable) {

@@ -321,6 +321,23 @@ static int mtk_adda_pad_top_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static bool is_adda_mtkaif_need_phase_delay(struct mt6781_afe_private *afe_priv)
+{
+	if (mt6781_afe_gpio_is_prepared(MT6781_AFE_GPIO_DAT_MISO0_ON) &&
+	    afe_priv->mtkaif_chosen_phase[0] < 0) {
+		AUDIO_AEE("adda mtkaif miso0 calib fail");
+		return false;
+	}
+
+	if (mt6781_afe_gpio_is_prepared(MT6781_AFE_GPIO_DAT_MISO1_ON) &&
+	    afe_priv->mtkaif_chosen_phase[1] < 0) {
+		AUDIO_AEE("adda mtkaif miso1 calib fail");
+		return false;
+	}
+
+	return true;
+}
+
 static int mtk_adda_mtkaif_cfg_event(struct snd_soc_dapm_widget *w,
 				     struct snd_kcontrol *kcontrol,
 				     int event)
@@ -337,37 +354,23 @@ static int mtk_adda_mtkaif_cfg_event(struct snd_soc_dapm_widget *w,
 			/* set protocol 2 */
 			regmap_write(afe->regmap, AFE_ADDA_MTKAIF_CFG0,
 				     0x00010000);
-			/* mtkaif_rxif_clkinv_adc inverse */
+			/* mtkaif_rxif_clkinv_adc inverse for calibrtion */
 			regmap_update_bits(afe->regmap, AFE_ADDA_MTKAIF_CFG0,
 					   MTKAIF_RXIF_CLKINV_ADC_MASK_SFT,
 					   0x1 << MTKAIF_RXIF_CLKINV_ADC_SFT);
 
-			if (strcmp(w->name, "ADDA_MTKAIF_CFG") == 0) {
-				if (afe_priv->mtkaif_chosen_phase[0] < 0 &&
-				    afe_priv->mtkaif_chosen_phase[1] < 0) {
-					dev_info(afe->dev,
-						 "%s(), calib fail mtkaif_chosen_phase[0/1]:%d/%d\n",
-						 __func__,
-						 afe_priv->mtkaif_chosen_phase[0],
-						 afe_priv->mtkaif_chosen_phase[1]);
-					/* trigger mediatek AEE */
-					AUDIO_AEE("adda mtkaif calib fail");
-					break;
-				}
-
-				if (afe_priv->mtkaif_chosen_phase[0] < 0 ||
-				    afe_priv->mtkaif_chosen_phase[1] < 0) {
-					dev_info(afe->dev,
-						 "%s(), skip dealy setting mtkaif_chosen_phase[0/1]:%d/%d\n",
-						 __func__,
-						 afe_priv->mtkaif_chosen_phase[0],
-						 afe_priv->mtkaif_chosen_phase[1]);
-					break;
-				}
+			if (strcmp(w->name, "ADDA_MTKAIF_CFG") == 0 &&
+				!is_adda_mtkaif_need_phase_delay(afe_priv)) {
+				dev_warn(afe->dev,
+					 "%s(), check adda mtkaif_chosen_phase[0/1]:%d/%d\n",
+					 __func__,
+					 afe_priv->mtkaif_chosen_phase[0],
+					 afe_priv->mtkaif_chosen_phase[1]);
+				break;
 
 			}
 
-			/* set delay for ch12 */
+			/* set delay for ch12 to align phase of miso0 and miso1 */
 			if (afe_priv->mtkaif_phase_cycle[0] >=
 			    afe_priv->mtkaif_phase_cycle[1]) {
 				delay_data = DELAY_DATA_MISO1;
