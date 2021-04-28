@@ -1137,7 +1137,7 @@
 			"mediatek,common-emimpu";
 		reg = <0 0x1021b000 0 0x1000>;
 		mediatek,emi-reg = <&emicen>;
-		interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>;
 		region_cnt = <32>;
 		domain_cnt = <16>;
 		addr_align = <16>;
