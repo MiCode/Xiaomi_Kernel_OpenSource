@@ -18,6 +18,7 @@
 	bring-up {
 		compatible = "mediatek,clk-bring-up";
 		clocks =
-			<&clk26m>;
+			<&clk26m>,
+			<&scpsys SCP_SYS_CSI>;
 	};
 };
