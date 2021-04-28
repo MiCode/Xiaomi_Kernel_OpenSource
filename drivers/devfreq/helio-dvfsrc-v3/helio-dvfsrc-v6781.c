@@ -193,11 +193,11 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 
 		{ DVFSRC_RSRV_5,             0x00000001 },
 #ifdef DVFSRC_1600_FLOOR
-		{ DVFSRC_DDR_REQUEST,		 0x00004322 },
+		{ DVFSRC_DDR_REQUEST,		 0x00000022 },
 #else
-		{ DVFSRC_DDR_REQUEST,        0x00004321 },
+		{ DVFSRC_DDR_REQUEST,        0x00000021 },
 #endif
-		{ DVFSRC_DDR_REQUEST3,       0x00000065 },
+		{ DVFSRC_DDR_REQUEST3,       0x00654300 },
 		{ DVFSRC_DDR_ADD_REQUEST,    0x66543210 },
 #ifdef DVFSRC_1600_FLOOR
 		{ DVFSRC_DDR_REQUEST5,	     0x00322000 },
@@ -291,10 +291,13 @@ u32 dvfsrc_get_ddr_qos(void)
 
 static int dvfsrc_get_emi_mon_gear(void)
 {
-	unsigned int total_bw_status;
+	unsigned int val, total_bw_status;
 	int i;
 
-	total_bw_status = vcorefs_get_total_emi_status() & 0x1F;
+	val = vcorefs_get_total_emi_status();
+
+	total_bw_status = (val & 0x3) | ((val & 0x3C0) >> 4);
+
 	for (i = 4; i >= 0 ; i--) {
 		if ((total_bw_status >> i) > 0) {
 #ifdef DVFSRC_1600_FLOOR
