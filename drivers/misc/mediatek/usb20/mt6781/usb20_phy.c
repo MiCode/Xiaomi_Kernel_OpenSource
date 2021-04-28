@@ -703,7 +703,7 @@ void usb_phy_recover(void)
 	set_usb_phy_mode(PHY_DEV_ACTIVE);
 
 	/* M_ANALOG8[4:0] => RG_USB20_INTR_CAL[4:0] */
-	efuse_val = (get_devinfo_with_index(107) & (0x1f<<0)) >> 0;
+	efuse_val = (get_devinfo_with_index(108) & (0x1f<<0)) >> 0;
 	if (efuse_val) {
 		DBG(0, "apply efuse setting, RG_USB20_INTR_CAL=0x%x\n",
 			efuse_val);
@@ -715,9 +715,13 @@ void usb_phy_recover(void)
 	USBPHY_CLR32(0x18, (0xf0<<0));
 	USBPHY_SET32(0x18, (0x70<<0));
 
-	USBPHY_SET32(0x18, (0x1<<28));
+	/* HQA Request comes from SA */
+	USBPHY_CLR32(0x18, (0x1<<28));
 	USBPHY_CLR32(0x18, (0xf<<0));
-	USBPHY_SET32(0x18, (0x5<<0));
+	USBPHY_SET32(0x18, (0x2<<0));
+
+	USBPHY_SET32(0x8,  (0x1<<3));
+
 
 	usb_phy_tuning();
 
