@@ -2031,6 +2031,14 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			int domain_idx = ion_get_domain_id(
 				1, &param.config_buffer_param.module_id);
 			buffer_sec = buffer_info->security;
+			if (domain_idx < 0 ||
+			    (domain_idx >= DOMAIN_NUM &&
+			    domain_idx != MTK_GET_DOMAIN_IGNORE)) {
+				IONMSG("%s ION_FB_HEAP dom out of bound\n", __func__);
+				ret = -EINVAL;
+				ion_drv_put_kernel_handle(kernel_handle);
+				break;
+			}
 #ifndef CONFIG_MTK_IOMMU_V2
 			if (buffer_info->MVA[domain_idx] == 0) {
 #endif
@@ -2041,6 +2049,13 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 				buffer_info->coherent =
 				    param.config_buffer_param.coherent;
 				if (param.mm_cmd == ION_MM_CONFIG_BUFFER_EXT) {
+					if (domain_idx == MTK_GET_DOMAIN_IGNORE) {
+						IONMSG("%s GPU not support ION_FB_HEAP_EXT\n",
+						       __func__);
+						ret = -EINVAL;
+						ion_drv_put_kernel_handle(kernel_handle);
+						break;
+				}
 					buffer_info->iova_start[domain_idx] =
 				param.config_buffer_param.reserve_iova_start;
 					buffer_info->iova_end[domain_idx] =
