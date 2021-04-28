@@ -2247,8 +2247,8 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
 					pending->addr, meta_type, addr_offset,
 					size, 0);
-				addr_offset = title_offset *
-						AFBC_V1_2_HEADER_SIZE_PER_TITLE_BYTES;
+				addr_offset = tile_offset *
+						AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES;
 				cmdq_sec_pkt_write_reg(handle, hdr_addr,
 						pending->addr, meta_type, addr_offset,
 						size, 0);
