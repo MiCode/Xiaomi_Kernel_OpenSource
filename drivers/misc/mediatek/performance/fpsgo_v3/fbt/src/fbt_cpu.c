@@ -5292,7 +5292,7 @@ int __init fbt_cpu_init(void)
 	loading_th = 0;
 	sampling_period_MS = 256;
 	rescue_enhance_f = 25;
-	rescue_second_enhance_f = 25;
+	rescue_second_enhance_f = 100;
 	loading_adj_cnt = fbt_get_default_adj_count();
 	loading_debnc_cnt = 30;
 	loading_time_diff = fbt_get_default_adj_tdiff();
