@@ -140,6 +140,11 @@ unsigned int bcpu_final_init02_flag;
 #endif
 unsigned int cur_init02_flag;
 
+#if ENABLE_LOO_G
+unsigned int gpu_final_init02_flag;
+#endif
+unsigned int gpu_cur_init02_flag;
+
 DEFINE_MUTEX(record_mutex);
 #if ENABLE_LOO_B
 DEFINE_MUTEX(bcpu_mutex);
@@ -1326,6 +1331,13 @@ static void get_volt_table_in_thread(struct eem_det *det)
 		else if (det->ctrl_id == EEM_CTRL_B_HI)
 			cur_init02_flag |= BIT(det->ctrl_id);
 #endif
+		/* To check GPU banks init2 isr */
+		else if (det->ctrl_id == EEM_CTRL_GPU)
+			gpu_cur_init02_flag |= BIT(det->ctrl_id);
+#if ENABLE_LOO_G
+		else if (det->ctrl_id == EEM_CTRL_GPU_HI)
+			gpu_cur_init02_flag |= BIT(det->ctrl_id);
+#endif
 
 #if ENABLE_LOO
 		/* Receive init2 isr and update init2 volt_table */
@@ -1712,20 +1724,24 @@ static void get_volt_table_in_thread(struct eem_det *det)
 
 #if UPDATE_TO_UPOWER
 #if ENABLE_LOO
-	if ((ndet->set_volt_to_upower == 0) &&
-		(ndet->ctrl_id < EEM_CTRL_GPU)) {
+	if (ndet->set_volt_to_upower == 0) {
 		if (((ndet->ctrl_id == EEM_CTRL_B) &&
 			(cur_init02_flag !=
-			bcpu_final_init02_flag)))
+			bcpu_final_init02_flag)) ||
+			((ndet->ctrl_id == EEM_CTRL_GPU) &&
+			(gpu_cur_init02_flag !=
+			gpu_final_init02_flag))
+			)
 			init2chk = 0;
 		else
 			init2chk = 1;
-		eem_error("cur_flag:0x%x, b_flag:0x%x\n",
-			cur_init02_flag, bcpu_final_init02_flag);
+		eem_error("cur_flag:0x%x, b_flag:0x%x, gc:0x%x, g_f:0x%x\n",
+			cur_init02_flag, bcpu_final_init02_flag,
+			gpu_cur_init02_flag, gpu_final_init02_flag);
 		/* only when set_volt_to_upower == 0,
 		 * the volt will be apply to upower
 		 */
-		if (init2chk) {
+		if ((init2chk) && (ndet->ctrl_id < EEM_CTRL_GPU)) {
 			eem_update_init2_volt_to_upower
 				(ndet, ndet->volt_tbl_pmic);
 			ndet->set_volt_to_upower = 1;
@@ -1741,7 +1757,7 @@ static void get_volt_table_in_thread(struct eem_det *det)
 	}
 #endif
 #endif
-	if (0 == (ndet->disabled % 2))
+	if ((0 == (ndet->disabled % 2)) && ndet->set_volt_to_upower)
 		ndet->ops->set_volt(ndet);
 #if 0
 skip_update:
@@ -2145,6 +2161,7 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 		break;
 
 	case EEM_DET_GPU:
+		gpu_final_init02_flag |= BIT(det_id);
 #if ENABLE_LOO_G
 		if (gpu_2line) {
 			det->MDES	= devinfo->GPU_LO_MDES;
@@ -2258,6 +2275,16 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 			det->features = 0;
 	}
 #endif
+#if ENABLE_LOO_G
+	if ((gpu_2line) &&
+		(det_id == EEM_DET_GPU_HI)) {
+		if (det->turn_pt != 0)
+			gpu_final_init02_flag |= BIT(det_id);
+		else
+			det->features = 0;
+		}
+#endif
+
 	eem_debug("END init_det %s, turn_pt:%d\n",
 		det->name, det->turn_pt);
 	FUNC_EXIT(FUNC_LV_HELP);
