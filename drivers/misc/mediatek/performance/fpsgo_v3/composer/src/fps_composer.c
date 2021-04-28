@@ -237,33 +237,28 @@ void fpsgo_ctrl2comp_enqueue_start(int pid,
 	if (!f_render->api && identifier) {
 		ret = fpsgo_com_refetch_buffer(f_render, pid, identifier, 1);
 		if (!ret) {
-			fpsgo_render_tree_unlock(__func__);
-			fpsgo_thread_unlock(&f_render->thr_mlock);
+			goto exit;
 			return;
 		}
 
 		ret = fpsgo_com_update_render_api_info(f_render);
 		if (!ret) {
-			fpsgo_render_tree_unlock(__func__);
-			fpsgo_thread_unlock(&f_render->thr_mlock);
+			goto exit;
 			return;
 		}
 	} else if (identifier) {
 		ret = fpsgo_com_refetch_buffer(f_render, pid, identifier, 1);
 		if (!ret) {
-			fpsgo_render_tree_unlock(__func__);
-			fpsgo_thread_unlock(&f_render->thr_mlock);
+			goto exit;
 			return;
 		}
 	}
-
-	fpsgo_render_tree_unlock(__func__);
 
 	if (f_render->api == NATIVE_WINDOW_API_CAMERA)
 		fpsgo_comp2fstb_camera_active(pid);
 
 	if (!f_render->queue_SF) {
-		fpsgo_thread_unlock(&f_render->thr_mlock);
+		goto exit;
 		return;
 	}
 
@@ -292,7 +287,9 @@ void fpsgo_ctrl2comp_enqueue_start(int pid,
 			pid, f_render->frame_type);
 		break;
 	}
+exit:
 	fpsgo_thread_unlock(&f_render->thr_mlock);
+	fpsgo_render_tree_unlock(__func__);
 }
 
 void fpsgo_ctrl2comp_enqueue_end(int pid,
@@ -330,8 +327,7 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 
 	ret = fpsgo_com_refetch_buffer(f_render, pid, identifier, 0);
 	if (!ret) {
-		fpsgo_render_tree_unlock(__func__);
-		fpsgo_thread_unlock(&f_render->thr_mlock);
+		goto exit;
 		return;
 	}
 
@@ -344,10 +340,8 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 			f_render->hwui = 2;
 	}
 
-	fpsgo_render_tree_unlock(__func__);
-
 	if (!f_render->queue_SF) {
-		fpsgo_thread_unlock(&f_render->thr_mlock);
+		goto exit;
 		return;
 	}
 
@@ -392,8 +386,9 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 			pid, f_render->frame_type);
 		break;
 	}
+exit:
 	fpsgo_thread_unlock(&f_render->thr_mlock);
-
+	fpsgo_render_tree_unlock(__func__);
 }
 
 void fpsgo_ctrl2comp_dequeue_start(int pid,
@@ -444,15 +439,12 @@ void fpsgo_ctrl2comp_dequeue_start(int pid,
 
 	ret = fpsgo_com_refetch_buffer(f_render, pid, identifier, 0);
 	if (!ret) {
-		fpsgo_render_tree_unlock(__func__);
-		fpsgo_thread_unlock(&f_render->thr_mlock);
+		goto exit;
 		return;
 	}
 
-	fpsgo_render_tree_unlock(__func__);
-
 	if (!f_render->queue_SF) {
-		fpsgo_thread_unlock(&f_render->thr_mlock);
+		goto exit;
 		return;
 	}
 
@@ -473,7 +465,9 @@ void fpsgo_ctrl2comp_dequeue_start(int pid,
 			pid, f_render->frame_type);
 		break;
 	}
+exit:
 	fpsgo_thread_unlock(&f_render->thr_mlock);
+	fpsgo_render_tree_unlock(__func__);
 
 }
 
@@ -519,15 +513,12 @@ void fpsgo_ctrl2comp_dequeue_end(int pid,
 
 	ret = fpsgo_com_refetch_buffer(f_render, pid, identifier, 0);
 	if (!ret) {
-		fpsgo_render_tree_unlock(__func__);
-		fpsgo_thread_unlock(&f_render->thr_mlock);
+		goto exit;
 		return;
 	}
 
-	fpsgo_render_tree_unlock(__func__);
-
 	if (!f_render->queue_SF) {
-		fpsgo_thread_unlock(&f_render->thr_mlock);
+		goto exit;
 		return;
 	}
 
@@ -554,8 +545,9 @@ void fpsgo_ctrl2comp_dequeue_end(int pid,
 			pid, f_render->frame_type);
 		break;
 	}
+exit:
 	fpsgo_thread_unlock(&f_render->thr_mlock);
-
+	fpsgo_render_tree_unlock(__func__);
 }
 
 void fpsgo_ctrl2comp_connect_api(int pid, int api,
