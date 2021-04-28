@@ -140,7 +140,7 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 	{
 		{ DVFSRC_HRT_REQ_UNIT,       0x0000001E },
 		{ DVFSRC_DEBOUNCE_TIME,      0x00001965 },
-		{ DVFSRC_TIMEOUT_NEXTREQ,    0x0000001F },
+		{ DVFSRC_TIMEOUT_NEXTREQ,    0x0000002B },
 
 		{ DVFSRC_DDR_QOS0,           0x00000019 },
 		{ DVFSRC_DDR_QOS1,           0x00000026 },
@@ -162,25 +162,25 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_MD_LATENCY_IMPROVE, 0x00000040 },
 		{ DVFSRC_HRT_BW_BASE,        0x00000004 },
 		{ DVSFRC_HRT_REQ_MD_URG,     0x0000D3D3 },
-		{ DVFSRC_HRT_REQ_MD_BW_0,    0x00200802 },
-		{ DVFSRC_HRT_REQ_MD_BW_1,    0x00200800 },
-		{ DVFSRC_HRT_REQ_MD_BW_2,    0x00200002 },
-		{ DVFSRC_HRT_REQ_MD_BW_3,    0x00200802 },
-		{ DVFSRC_HRT_REQ_MD_BW_4,    0x00400802 },
-		{ DVFSRC_HRT_REQ_MD_BW_5,    0x00601404 },
-		{ DVFSRC_HRT_REQ_MD_BW_6,    0x00902008 },
-		{ DVFSRC_HRT_REQ_MD_BW_7,    0x00E0380E },
+		{ DVFSRC_HRT_REQ_MD_BW_0,    0x00501405 },
+		{ DVFSRC_HRT_REQ_MD_BW_1,    0x00501400 },
+		{ DVFSRC_HRT_REQ_MD_BW_2,    0x00500005 },
+		{ DVFSRC_HRT_REQ_MD_BW_3,    0x00601405 },
+		{ DVFSRC_HRT_REQ_MD_BW_4,    0x00B01806 },
+		{ DVFSRC_HRT_REQ_MD_BW_5,    0x00F0300C },
+		{ DVFSRC_HRT_REQ_MD_BW_6,    0x00000014 },
+		{ DVFSRC_HRT_REQ_MD_BW_7,    0x00000000 },
 		{ DVFSRC_HRT_REQ_MD_BW_8,    0x00000000 },
 		{ DVFSRC_HRT_REQ_MD_BW_9,    0x00000000 },
 		{ DVFSRC_HRT_REQ_MD_BW_10,   0x00034C00 },
-		{ DVFSRC_HRT1_REQ_MD_BW_0,   0x0360D836 },
-		{ DVFSRC_HRT1_REQ_MD_BW_1,   0x0360D800 },
-		{ DVFSRC_HRT1_REQ_MD_BW_2,   0x03600036 },
-		{ DVFSRC_HRT1_REQ_MD_BW_3,   0x0360D836 },
-		{ DVFSRC_HRT1_REQ_MD_BW_4,   0x0360D836 },
-		{ DVFSRC_HRT1_REQ_MD_BW_5,   0x0360D836 },
-		{ DVFSRC_HRT1_REQ_MD_BW_6,   0x0360D836 },
-		{ DVFSRC_HRT1_REQ_MD_BW_7,   0x0360D836 },
+		{ DVFSRC_HRT1_REQ_MD_BW_0,   0x03D0F43D },
+		{ DVFSRC_HRT1_REQ_MD_BW_1,   0x03D0F400 },
+		{ DVFSRC_HRT1_REQ_MD_BW_2,   0x03D0003D },
+		{ DVFSRC_HRT1_REQ_MD_BW_3,   0x03D0F43D },
+		{ DVFSRC_HRT1_REQ_MD_BW_4,   0x03D0F43D },
+		{ DVFSRC_HRT1_REQ_MD_BW_5,   0x03D0F43D },
+		{ DVFSRC_HRT1_REQ_MD_BW_6,   0x0000003D },
+		{ DVFSRC_HRT1_REQ_MD_BW_7,   0x00000000 },
 		{ DVFSRC_HRT1_REQ_MD_BW_8,   0x00000000 },
 		{ DVFSRC_HRT1_REQ_MD_BW_9,   0x00000000 },
 		{ DVFSRC_HRT1_REQ_MD_BW_10,  0x00034C00 },
@@ -206,7 +206,6 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 #endif
 		{ DVFSRC_DDR_REQUEST7,       0x54000000 },
 		{ DVFSRC_EMI_MON_DEBOUNCE_TIME,   0x4C2D0000 },
-		{ DVFSRC_DDR_REQUEST6,       0x66543210 },
 		{ DVFSRC_VCORE_USER_REQ,     0x00010A29 },
 
 		{ DVFSRC_HRT_HIGH,           0x070804B0 },
@@ -518,6 +517,11 @@ void get_spm_reg(char *p)
 			spm_reg_read(SPM_DVFS_CMD2),
 			spm_reg_read(SPM_DVFS_CMD3),
 			spm_reg_read(SPM_DVFS_CMD4));
+
+	p += sprintf(p, "%-24s: 0x%08x, 0x%08x\n",
+			"SPM_DVFS_CMD7~8",
+			spm_reg_read(SPM_DVFS_CMD7),
+			spm_reg_read(SPM_DVFS_CMD8));
 }
 #endif
 
@@ -526,8 +530,10 @@ void get_opp_info(char *p)
 #if defined(CONFIG_FPGA_EARLY_PORTING) || !defined(CONFIG_MTK_PMIC_COMMON) \
 					|| !defined(CONFIG_MTK_PMIC_NEW_ARCH)
 	int pmic_val = 0;
+	int vsram_val = 0;
 #else
 	int pmic_val = pmic_get_register_value(PMIC_VCORE_ADDR);
+	int vsram_val = pmic_get_register_value(PMIC_VSRAM_OTHERS_ADDR);
 #endif
 
 #if defined(CONFIG_MTK_DRAMC)
@@ -539,9 +545,12 @@ void get_opp_info(char *p)
 #endif
 
 	int vcore_uv = vcore_pmic_to_uv(pmic_val);
+	int vsram_uv = vsram_pmic_to_uv(vsram_val);
 
 	p += sprintf(p, "%-10s: %-8u uv  (PMIC: 0x%x)\n",
 			"Vcore", vcore_uv, vcore_uv_to_pmic(vcore_uv));
+	p += sprintf(p, "%-10s: %-8u uv  (PMIC: 0x%x)\n",
+			"Vsram", vsram_uv, vsram_uv_to_pmic(vsram_uv));
 	p += sprintf(p, "%-10s: %-8u khz\n", "DDR", ddr_khz);
 
 }

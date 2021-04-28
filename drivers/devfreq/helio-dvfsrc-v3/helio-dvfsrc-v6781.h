@@ -25,12 +25,24 @@
 #define VCORE_BASE_UV		500000
 #define VCORE_STEP_UV		6250
 #endif
+
+#define PMIC_VSRAM_OTHERS_ADDR	PMIC_RG_LDO_VSRAM_OTHERS_VOSEL
+#define VSRAM_BASE_UV	500000
+#define VSRAM_STEP_UV	6250
+
 /* PMIC */
 #define __vcore_pmic_to_uv(pmic)	\
 	(((pmic) * VCORE_STEP_UV) + VCORE_BASE_UV)
 
 #define __vcore_uv_to_pmic(uv)	/* pmic >= uv */	\
 	((((uv) - VCORE_BASE_UV) + (VCORE_STEP_UV - 1)) / VCORE_STEP_UV)
+
+/* VSRAM_OTHERS */
+#define vsram_pmic_to_uv(pmic)	\
+		(((pmic) * VSRAM_STEP_UV) + VSRAM_BASE_UV)
+
+#define vsram_uv_to_pmic(uv)	/* pmic >= uv */	\
+		((((uv) - VSRAM_BASE_UV) + (VSRAM_STEP_UV - 1)) / VSRAM_STEP_UV)
 
 
 enum met_src_index {
