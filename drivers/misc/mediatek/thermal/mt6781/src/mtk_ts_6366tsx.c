@@ -314,7 +314,7 @@ static void mt6366tsx_unregister_thermal(void);
 static ssize_t mt6366tsx_write
 (struct file *file, const char __user *buffer, size_t count, loff_t *data)
 {
-	int len = 0;
+	unsigned int len = 0;
 	int i;
 
 	struct mt6366tsx_data {
