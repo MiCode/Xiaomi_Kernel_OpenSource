@@ -1035,8 +1035,11 @@
 	};
 
 	devapc@10207000 {
-		compatible = "mediatek,devapc";
-		reg = <0 0x10207000 0 0x1000>;
+		compatible = "mediatek,mt6781-devapc";
+		reg = <0 0x10207000 0 0x1000>,
+		      <0 0x1000e000 0 0x1000>,
+		      <0 0x10033000 0 0x1000>;
+		interrupts = <GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	hwrng: hwrng {
