@@ -298,6 +298,12 @@
 		ccorr0 = &disp_ccorr0;
 	};
 
+	/* Trustonic Mobicore SW IRQ number 96 = 32 + 64 */
+	mobicore {
+		compatible = "trustonic,mobicore";
+		interrupts = <GIC_SPI 64 IRQ_TYPE_EDGE_RISING>;
+	};
+
 	reserved_memory: reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
