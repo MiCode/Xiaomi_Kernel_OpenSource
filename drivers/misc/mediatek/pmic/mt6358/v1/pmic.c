@@ -21,8 +21,7 @@
 #include "include/regulator_codegen.h"
 
 #if defined(CONFIG_MACH_MT6781)
-#include <linux/gpio.h>
-#define IS_NEW_POWER_GRID_GPIO		200
+#include <linux/of_gpio.h>
 
 static unsigned int g_is_new_power_grid;
 
@@ -31,20 +30,20 @@ unsigned int is_pmic_new_power_grid(void)
 	return g_is_new_power_grid;
 }
 
-static void record_is_pmic_new_power_grid(void)
+void record_is_pmic_new_power_grid(struct platform_device *pdev)
 {
-	if (gpio_get_value(IS_NEW_POWER_GRID_GPIO))
+	unsigned int GPIO200_idx = 0;
+
+	GPIO200_idx = of_get_named_gpio(pdev->dev.of_node, "pmic,init_gpio", 0);
+
+	if (gpio_get_value(GPIO200_idx))
 		g_is_new_power_grid = 1;
-	pr_info("[PMIC] (%d) = %d\n"
-		, IS_NEW_POWER_GRID_GPIO, g_is_new_power_grid);
+	pr_info("[PMIC] (GPIO200)(%d) = %d\n", GPIO200_idx, g_is_new_power_grid);
 }
 #endif
 
 void record_md_vosel(void)
 {
-#if defined(CONFIG_MACH_MT6781)
-	record_is_pmic_new_power_grid();
-#endif
 	g_vmodem_vosel = pmic_get_register_value(PMIC_RG_BUCK_VMODEM_VOSEL);
 	pr_info("[%s] vmodem_vosel = 0x%x\n", __func__, g_vmodem_vosel);
 }

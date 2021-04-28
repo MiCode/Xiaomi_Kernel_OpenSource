@@ -22,9 +22,8 @@
 #define PMIC6358_E3_CID_CODE    0x5830
 
 
-//TODO, enable it after bring up
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-//#define IPIMB /* disable for Bring up */
+#define IPIMB /* disable for Bring up */
 #endif
 
 /*
@@ -70,6 +69,7 @@ extern unsigned int pmic_scp_set_vsram_vcore_sleep(unsigned int voltage);
 extern void wk_pmic_enable_sdn_delay(void);
 #if defined(CONFIG_MACH_MT6781)
 extern unsigned int is_pmic_new_power_grid(void);
+extern void record_is_pmic_new_power_grid(struct platform_device *pdev);
 #endif
 
 #endif				/* _MT_PMIC_INFO_H_ */
