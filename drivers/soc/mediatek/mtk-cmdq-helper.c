@@ -1242,7 +1242,7 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	/* instruction may hit boundary case,
 	 * check if op code is jump and get next instruction if necessary
 	 */
-	if (inst->op == CMDQ_CODE_JUMP)
+	if (inst && inst->op == CMDQ_CODE_JUMP)
 		inst = (struct cmdq_instruction *)cmdq_pkt_get_va_by_offset(
 			pkt, end_addr_mark + CMDQ_INST_SIZE);
 	if (absolute)
@@ -1257,7 +1257,7 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	if (cnt_end_addr_mark) {
 		inst = (struct cmdq_instruction *)cmdq_pkt_get_va_by_offset(
 			pkt, cnt_end_addr_mark);
-		if (inst->op == CMDQ_CODE_JUMP)
+		if (inst && inst->op == CMDQ_CODE_JUMP)
 			inst = (struct cmdq_instruction *)
 				cmdq_pkt_get_va_by_offset(
 				pkt, end_addr_mark + CMDQ_INST_SIZE);
