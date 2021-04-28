@@ -750,6 +750,25 @@
 		compatible = "mediatek,imgsensor";
 	};
 
+	seninf_n3d_top: seninf_n3d_top@1a004000 {
+		compatible = "mediatek,seninf_n3d_top";
+		interrupts = <GIC_SPI 248 IRQ_TYPE_LEVEL_HIGH>;
+
+		reg = <0 0x1a004000 0 0x100>,
+		      <0 0x1a004100 0 0x100>,
+		      <0 0x1a004200 0 0x100>;
+		reg-names = "seninf_top",
+			    "seninf_n3d_a",
+			    "seninf_n3d_b";
+
+		clocks = <&scpsys SCP_SYS_CAM>,
+			 <&camsys CLK_CAM_M_SENINF>,
+			 <&camsys CLK_CAM_M_CAMTG>;
+		clock-names = "SCP_SYS_CAM",
+			      "CAMSYS_SENINF_CGPDN",
+			      "CAMSYS_CAMTG_CGPDN";
+	};
+
 	sleep: sleep@10006000 {
 		compatible = "mediatek,sleep";
 		reg = <0 0x10006000 0 0x1000>;
