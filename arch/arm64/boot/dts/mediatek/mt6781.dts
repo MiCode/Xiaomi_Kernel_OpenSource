@@ -223,7 +223,8 @@
 		suspend-method = "s2idle";
 		cpupm-method = "mcu";
 
-		irq-remain = <&edge_keypad &edge_mdwdt>;
+		irq-remain = <&edge_keypad &edge_mdwdt>,
+				<&level_btif_tx &level_btif_rx>;
 
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
@@ -253,6 +254,14 @@
 			edge_mdwdt: edge_mdwdt {
 				target = <&mddriver>;
 				value = <1 0 0 0x02000000>;
+			};
+			level_btif_tx: level_btif_tx{
+				target = <&btif>;
+				value = <0 1 0 0>;
+			};
+			level_btif_rx: level_btif_rx{
+				target = <&btif>;
+				value = <0 2 0 0>;
 			};
 		};
 
@@ -1820,7 +1829,7 @@
 		eem-offset-gpu = <0xff>;
 	};
 
-	btif@1100c000 {
+	btif: btif@1100c000 {
 		compatible = "mediatek,btif";
 			/*btif base*/
 		reg = <0 0x1100c000 0 0x1000>,
