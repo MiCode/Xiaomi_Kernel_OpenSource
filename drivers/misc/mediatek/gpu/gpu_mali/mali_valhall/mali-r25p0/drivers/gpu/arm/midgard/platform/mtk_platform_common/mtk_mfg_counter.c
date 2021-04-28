@@ -848,6 +848,14 @@ void mtk_GPU_STALL_RAW(unsigned int *diff, int size)
 {
 	unsigned int stall_counters[4] = {0};
 	int i;
+#if defined(CONFIG_MACH_MT6781)
+	for (i = 0; i < size; i++) {
+			diff[i] = stall_counters[i];
+	}
+	for(i = 0; i < size; i++) {
+			pre_stall_counters[i] = stall_counters[i];
+	}
+#else
 	if (io_addr_gpu_stall) {
 		stall_counters[0] = ((unsigned int)readl(io_addr_gpu_stall + OFFSET_STALL_GPU_M0_WR_CNT)) >> 1;
 		stall_counters[1] = ((unsigned int)readl(io_addr_gpu_stall + OFFSET_STALL_GPU_M0_RD_CNT)) >> 1;
@@ -866,5 +874,6 @@ void mtk_GPU_STALL_RAW(unsigned int *diff, int size)
 			pre_stall_counters[i] = stall_counters[i];
 		}
 	}
+#endif
 }
 
