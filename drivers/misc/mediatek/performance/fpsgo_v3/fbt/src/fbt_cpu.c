@@ -701,8 +701,10 @@ static void fbt_set_hard_limit_locked(int input, struct ppm_limit_data *pld)
 {
 	int set_margin, set_ceiling, is_rescue;
 
-	if (limit_policy == FPSGO_LIMIT_NONE)
+	if (limit_policy == FPSGO_LIMIT_NONE) {
+		fbt_set_cap_margin_locked(0);
 		return;
+	}
 
 	fpsgo_main_trace("limit: %d", input);
 
