@@ -746,6 +746,21 @@
 		reg = <0 0x10006000 0 0x1000>;
 	};
 
+	spmtwam: spmtwam@10006000 {
+		compatible = "mediatek,spmtwam";
+		reg = <0 0x10006000 0 0x1000>;
+		interrupts = <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH>;
+		spm_twam_con = <0x970>;
+		spm_twam_window_len = <0x974>;
+		spm_twam_idle_sel = <0x978>;
+		spm_irq_mask = <0xb4>;
+		spm_irq_sta = <0x128>;
+		spm_twam_last_sta0 = <0x1d0>;
+		spm_twam_last_sta1 = <0x1d4>;
+		spm_twam_last_sta2 = <0x1d8>;
+		spm_twam_last_sta3 = <0x1dc>;
+	};
+
 	toprgu: toprgu@10007000 {
 		compatible = "mediatek,toprgu";
 		reg = <0 0x10007000 0 0x1000>;
