@@ -1732,7 +1732,7 @@
 		mediatek,pad-select = <0>;
 		reg = <0 0x1100a000 0 0x1000>;
 		interrupts = <GIC_SPI 138 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&topckgen TOP_MAINPLL_D5_D2>,
+		clocks = <&topckgen TOP_MAINPLL_D5>,
 			 <&topckgen TOP_MUX_SPI>,
 			 <&infracfg_ao INFRACFG_AO_SPI0_CG>;
 		clock-names = "parent-clk", "sel-clk", "spi-clk";
@@ -1815,7 +1815,7 @@
 		mediatek,pad-select = <0>;
 		reg = <0 0x11010000 0 0x1000>;
 		interrupts = <GIC_SPI 139 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&topckgen TOP_MAINPLL_D5_D2>,
+		clocks = <&topckgen TOP_MAINPLL_D5>,
 			 <&topckgen TOP_MUX_SPI>,
 			 <&infracfg_ao INFRACFG_AO_SPI1_CG>;
 		clock-names = "parent-clk", "sel-clk", "spi-clk";
@@ -1826,7 +1826,7 @@
 		mediatek,pad-select = <0>;
 		reg = <0 0x11012000 0 0x1000>;
 		interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&topckgen TOP_MAINPLL_D5_D2>,
+		clocks = <&topckgen TOP_MAINPLL_D5>,
 			 <&topckgen TOP_MUX_SPI>,
 			 <&infracfg_ao INFRACFG_AO_SPI2_CG>;
 		clock-names = "parent-clk", "sel-clk", "spi-clk";
@@ -1837,7 +1837,7 @@
 		mediatek,pad-select = <0>;
 		reg = <0 0x11013000 0 0x1000>;
 		interrupts = <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&topckgen TOP_MAINPLL_D5_D2>,
+		clocks = <&topckgen TOP_MAINPLL_D5>,
 			 <&topckgen TOP_MUX_SPI>,
 			 <&infracfg_ao INFRACFG_AO_SPI3_CG>;
 		clock-names = "parent-clk", "sel-clk", "spi-clk";
@@ -1848,7 +1848,7 @@
 		mediatek,pad-select = <0>;
 		reg = <0 0x11014000 0 0x1000>;
 		interrupts = <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&topckgen TOP_MAINPLL_D5_D2>,
+		clocks = <&topckgen TOP_MAINPLL_D5>,
 			 <&topckgen TOP_MUX_SPI>,
 			 <&infracfg_ao INFRACFG_AO_SPI4_CG>;
 		clock-names = "parent-clk", "sel-clk", "spi-clk";
@@ -1859,7 +1859,7 @@
 		mediatek,pad-select = <1>;
 		reg = <0 0x11015000 0 0x1000>;
 		interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&topckgen TOP_MAINPLL_D5_D2>,
+		clocks = <&topckgen TOP_MAINPLL_D5>,
 			 <&topckgen TOP_MUX_SPI>,
 			 <&infracfg_ao INFRACFG_AO_SPI5_CG>;
 		clock-names = "parent-clk", "sel-clk", "spi-clk";
