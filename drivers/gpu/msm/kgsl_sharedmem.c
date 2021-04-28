@@ -337,12 +337,10 @@ done:
 
 static int lock_sgt(struct sg_table *sgt, u64 size)
 {
-	struct scatterlist *sg;
 	int dest_perms = PERM_READ | PERM_WRITE;
 	int source_vm = VMID_HLOS;
 	int dest_vm = VMID_CP_PIXEL;
 	int ret;
-	int i;
 
 	do {
 		ret = hyp_assign_table(sgt, &source_vm, 1, &dest_vm,
@@ -364,10 +362,6 @@ static int lock_sgt(struct sg_table *sgt, u64 size)
 		return ret;
 	}
 
-	/* Set private bit for each sg to indicate that its secured */
-	for_each_sg(sgt->sgl, sg, sgt->nents, i)
-		SetPagePrivate(sg_page(sg));
-
 	return 0;
 }
 
@@ -377,7 +371,6 @@ static int unlock_sgt(struct sg_table *sgt)
 	int source_vm = VMID_CP_PIXEL;
 	int dest_vm = VMID_HLOS;
 	int ret;
-	struct sg_page_iter sg_iter;
 
 	do {
 		ret = hyp_assign_table(sgt, &source_vm, 1, &dest_vm,
@@ -387,8 +380,6 @@ static int unlock_sgt(struct sg_table *sgt)
 	if (ret)
 		return ret;
 
-	for_each_sg_page(sgt->sgl, &sg_iter, sgt->nents, 0)
-		ClearPagePrivate(sg_page_iter_page(&sg_iter));
 	return 0;
 }
 #endif
