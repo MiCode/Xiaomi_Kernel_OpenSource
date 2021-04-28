@@ -1188,7 +1188,7 @@ int hal_btif_dump_reg(struct _MTK_BTIF_INFO_STR_ *p_btif,
 	}
 #endif
 #if defined(CONFIG_MTK_GIC_V3_EXT)
-	mt_irq_dump_status(p_btif->p_irq->irq_id);
+	//mt_irq_dump_status(p_btif->p_irq->irq_id);
 #endif
 	lsr = BTIF_READ32(BTIF_LSR(base));
 	dma_en = BTIF_READ32(BTIF_DMA_EN(base));
