@@ -5764,6 +5764,12 @@ void mtk_ddp_insert_dsc_prim_MT6781(struct mtk_drm_crtc *mtk_crtc,
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 
+	/* DISP_DSC_WRAP0 -> DISP_DSI */
+	addr = MT6781_DISP_REG_CONFIG_DISP_DSC_WRAP0_MOUT_EN;
+	value = MT6781_DISP_DSC_WRAP0_TO_DISP_DSI0_SEL;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
 	addr = MT6781_DISP_REG_CONFIG_DSI0_SEL_IN;
 	value = MT6781_SEL_IN_FROM_DISP_DSC_WRAP0;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
@@ -5777,6 +5783,12 @@ void mtk_ddp_remove_dsc_prim_MT6781(struct mtk_drm_crtc *mtk_crtc,
 
 	/* DISP_DITHER0_MOUT -> DISP_DSC_WRAP0 */
 	addr = MT6781_DISP_REG_CONFIG_DISP_DITHER0_MOUT_EN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	/* DISP_DSC_WRAP0 -> DISP_DSI */
+	addr = MT6781_DISP_REG_CONFIG_DISP_DSC_WRAP0_MOUT_EN;
 	value = 0;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
