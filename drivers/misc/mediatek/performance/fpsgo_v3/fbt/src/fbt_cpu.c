@@ -106,10 +106,10 @@
 #define DEFAULT_GCC_GPU_BOUND_TIME 90
 #define DEFAULT_GCC_CPU_UNKNOWN_SLEEP 80
 #define DEFAULT_GCC_CHECK_UNDER_BOOST 0
-#define DEFAULT_GCC_ENQ_BOUND_THRS 200
-#define DEFAULT_GCC_ENQ_BOUND_QUOTA 0
-#define DEFAULT_GCC_DEQ_BOUND_THRS 200
-#define DEFAULT_GCC_DEQ_BOUND_QUOTA 100
+#define DEFAULT_GCC_ENQ_BOUND_THRS 20
+#define DEFAULT_GCC_ENQ_BOUND_QUOTA 6
+#define DEFAULT_GCC_DEQ_BOUND_THRS 20
+#define DEFAULT_GCC_DEQ_BOUND_QUOTA 6
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -233,6 +233,7 @@ static int rescue_second_time;
 static int rescue_second_group;
 static int rescue_second_copp;
 static int rescue_second_enable;
+static int rescue_second_enhance_f;
 static int qr_enable;
 static int qr_t2wnt_x;
 static int qr_t2wnt_y_p;
@@ -306,6 +307,7 @@ module_param(cm_tdiff_120, int, 0644);
 module_param(rescue_second_time, int, 0644);
 module_param(rescue_second_group, int, 0644);
 module_param(rescue_second_enable, int, 0644);
+module_param(rescue_second_enhance_f, int, 0644);
 module_param(qr_enable, int, 0644);
 module_param(qr_t2wnt_x, int, 0644);
 module_param(qr_t2wnt_y_p, int, 0644);
@@ -1773,7 +1775,7 @@ static void fbt_do_sjerk(struct work_struct *work)
 		goto EXIT;
 
 	blc_wt = fbt_get_new_base_blc(pld, thr->boost_info.last_blc,
-			rescue_enhance_f, rescue_second_copp);
+			rescue_second_enhance_f, rescue_second_copp);
 
 	thrm_aware_switch(0);
 	fbt_set_hard_limit_locked(FPSGO_HARD_NONE, pld);
@@ -2679,10 +2681,9 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	else
 		boost_info->quota_mod = boost_info->quota;
 
-	/* mod target time only if quota < 0 */
-	if (boost_info->quota_mod < 0)
-		boost_info->quota_mod = boost_info->quota_mod % s32_target_time;
-
+	/* clamp if quota < -target_time */
+	if (boost_info->quota_mod < -s32_target_time)
+		boost_info->quota_mod = -s32_target_time;
 
 	fpsgo_main_trace("%s raw[%d]:%d raw[%d]:%d cnt:%d sum:%d avg:%d std_sqr:%d quota:%d mod:%d",
 		__func__, first_idx, boost_info->quota_raw[first_idx],
@@ -5291,6 +5292,7 @@ int __init fbt_cpu_init(void)
 	loading_th = 0;
 	sampling_period_MS = 256;
 	rescue_enhance_f = 25;
+	rescue_second_enhance_f = 25;
 	loading_adj_cnt = fbt_get_default_adj_count();
 	loading_debnc_cnt = 30;
 	loading_time_diff = fbt_get_default_adj_tdiff();
