@@ -158,6 +158,8 @@ static void mtk_drm_idlemgr_leave_idle_nolock(struct drm_crtc *crtc)
 		return;
 
 	mode = mtk_dsi_is_cmd_mode(output_comp);
+
+
 	CRTC_MMP_EVENT_START(index, leave_idle, mode, 0);
 
 	mtk_drm_trace_c("%d|DISP:idle_leave|%d",

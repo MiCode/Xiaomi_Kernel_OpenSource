@@ -932,7 +932,10 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 			mtk_mipi_tx_cphy_lane_config(dsi->phy, dsi->ext);
 		else
 			mtk_mipi_tx_dphy_lane_config(dsi->phy, dsi->ext);
-		}
+	} else{
+		DDPPR_ERR("%s dsi->ext is NULL\n", __func__);
+		goto err_refcount;
+	}
 	phy_power_on(dsi->phy);
 
 	ret = clk_prepare_enable(dsi->engine_clk);
@@ -2670,7 +2673,7 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 	struct mtk_panel_ext *get_panel_ext = find_panel_ext(dsi->panel);
 	struct drm_display_mode *old_mode;
 	struct drm_display_mode *adjust_mode;
-	struct mtk_panel_params *cur_panel_params = panel_ext->params;
+	struct mtk_panel_params *cur_panel_params = NULL;
 	struct mtk_panel_params *adjust_panel_params = NULL;
 	unsigned int fps_chg_index = 0;
 	unsigned int old_get_sta = 0, new_get_sta = 0;
@@ -2697,7 +2700,7 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 		DDPINFO("%s,error:not support src MODE:(%d)\n", __func__,
 			src_mode_idx);
 
-	if (get_panel_ext) {
+	if (get_panel_ext && get_panel_ext->params) {
 		cur_panel_params = get_panel_ext->params;
 		adjust_panel_params = get_panel_ext->params;
 	}
@@ -4550,10 +4553,8 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 {
 	struct cmdq_pkt *cmdq_handle;
 	struct cmdq_pkt *cmdq_handle2;
-	struct mtk_crtc_state *state =
-		to_mtk_crtc_state(mtk_crtc->base.state);
-	struct mtk_crtc_state *old_mtk_state =
-		to_mtk_crtc_state(old_state);
+	struct mtk_crtc_state *state;
+	struct mtk_crtc_state *old_mtk_state = to_mtk_crtc_state(old_state);
 	unsigned int src_mode =
 		old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
 	unsigned int dst_mode =
@@ -4561,6 +4562,9 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	bool need_mipi_change = 1;
 	unsigned int clk_cnt = 0;
 	struct mtk_drm_private *priv = NULL;
+
+	if (mtk_crtc)
+		state = to_mtk_crtc_state(mtk_crtc->base.state);
 
 	/* use no mipi clk change solution */
 	if (mtk_crtc && mtk_crtc->base.dev)
