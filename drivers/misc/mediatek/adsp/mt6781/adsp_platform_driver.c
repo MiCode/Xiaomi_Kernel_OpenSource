@@ -369,8 +369,6 @@ static int adsp_common_drv_probe(struct platform_device *pdev)
 		pr_warn("%s(), misc_register fail, %d\n", __func__, ret);
 		goto ERROR;
 	}
-	/* remove this emimpu setting after emimpu use common kernel struct in mt6785 */
-	adsp_set_emimpu_shared_region();
 
 	adsp_register_notify(&adsp_uevent_notifier);
 

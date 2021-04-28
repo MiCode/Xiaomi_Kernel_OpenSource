@@ -8,14 +8,14 @@
 #include <linux/of.h>
 #include <linux/of_reserved_mem.h>
 #endif
+#if defined(CONFIG_MEDIATEK_EMI)
+#include <memory/mediatek/emi.h>
+#endif
 #include "adsp_reserved_mem.h"
 #include "adsp_feature_define.h"
 #include "adsp_platform.h"
 #include "adsp_core.h"
 
-#if ADSP_EMI_PROTECTION_ENABLE
-#include <mt_emi_api.h>
-#endif
 
 #define ADSP_RESERVE_MEMORY_BLOCK(xname) \
 		{.phys_addr = 0x0, .virt_addr = NULL, \
@@ -78,19 +78,27 @@ size_t adsp_get_reserve_mem_size(enum adsp_reserve_mem_id_t id)
 
 void adsp_set_emimpu_shared_region(void)
 {
-#if ADSP_EMI_PROTECTION_ENABLE
+#if defined(CONFIG_MEDIATEK_EMI)
+	struct emimpu_region_t adsp_region;
 	struct adsp_reserve_mblock *mem = &adsp_reserve_mem;
-	struct emi_region_info_t region_info;
+	int ret = 0;
 
-	region_info.start = mem->phys_addr;
-	region_info.end = mem->phys_addr + mem->size - 0x1;
-	region_info.region = MPU_PROCT_REGION_ADSP_SHARED;
-	SET_ACCESS_PERMISSION(region_info.apc, UNLOCK,
-			      FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN,
-			      FORBIDDEN, NO_PROTECTION, FORBIDDEN, FORBIDDEN,
-			      FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN,
-			      FORBIDDEN, FORBIDDEN, FORBIDDEN, NO_PROTECTION);
-	emi_mpu_set_protection(&region_info);
+	ret = mtk_emimpu_init_region(&adsp_region,
+				     MPU_PROCT_REGION_ADSP_SHARED);
+	if (ret < 0)
+		pr_info("%s fail to init emimpu region\n", __func__);
+	mtk_emimpu_set_addr(&adsp_region, mem->phys_addr,
+			    (mem->phys_addr + mem->size - 0x1));
+	mtk_emimpu_set_apc(&adsp_region, MPU_PROCT_D0_AP,
+			   MTK_EMIMPU_NO_PROTECTION);
+	mtk_emimpu_set_apc(&adsp_region, MPU_PROCT_D10_ADSP,
+			   MTK_EMIMPU_NO_PROTECTION);
+	ret = mtk_emimpu_set_protection(&adsp_region);
+	if (ret < 0)
+		pr_info("%s fail to set emimpu protection\n", __func__);
+	mtk_emimpu_free_region(&adsp_region);
+#else
+	pr_info("%s(), emi config not enable", __func__);
 #endif
 }
 
