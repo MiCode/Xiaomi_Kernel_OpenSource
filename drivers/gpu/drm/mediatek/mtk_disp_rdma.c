@@ -314,7 +314,8 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 					   priv->ddp_comp.mtk_crtc->base.index,
 					   1);
 		}
-		mtk_drm_refresh_tag_end(&priv->ddp_comp);
+		if (!mtk_drm_is_idle(&(rdma->mtk_crtc->base)))
+			mtk_drm_refresh_tag_end(&priv->ddp_comp);
 	}
 
 	if (val & (1 << 1)) {
@@ -325,7 +326,8 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 			wake_up_interruptible(&mtk_crtc->present_fence_wq);
 		}
 #endif
-		mtk_drm_refresh_tag_start(&priv->ddp_comp);
+		if (!mtk_drm_is_idle(&(rdma->mtk_crtc->base)))
+			mtk_drm_refresh_tag_start(&priv->ddp_comp);
 		MMPathTraceDRM(rdma);
 	}
 

@@ -94,6 +94,8 @@ int gCapturePriLayerDownX = 20;
 int gCapturePriLayerDownY = 20;
 u64 vfp_backup;
 
+int hwc_pid;
+
 
 static atomic_t lfr_dbg;
 static atomic_t lfr_params;
