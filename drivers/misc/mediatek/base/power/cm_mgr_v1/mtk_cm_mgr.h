@@ -51,6 +51,16 @@ struct cm_mgr_data {
 #define IPI_CM_MGR_OPP_VOLT_SET 23
 #define IPI_CM_MGR_BCPU_WEIGHT_MAX_SET 24
 #define IPI_CM_MGR_BCPU_WEIGHT_MIN_SET 25
+#define IPI_CM_MGR_BBCPU_WEIGHT_MAX_SET 26
+#define IPI_CM_MGR_BBCPU_WEIGHT_MIN_SET 27
+#define IPI_CM_MGR_DSU_DEBOUNCE_UP_SET 28
+#define IPI_CM_MGR_DSU_DEBOUNCE_DOWN_SET 29
+#define IPI_CM_MGR_DSU_DIFF_PWR_UP_SET 30
+#define IPI_CM_MGR_DSU_DIFF_PWR_DOWN_SET 31
+#define IPI_CM_MGR_DSU_PWR_RATIO_SET 31
+#define IPI_CM_MGR_DSU_L_PWR_RATIO_SET 32
+#define IPI_CM_MGR_DSU_B_PWR_RATIO_SET 33
+#define IPI_CM_MGR_DSU_BB_PWR_RATIO_SET 34
 
 extern spinlock_t cm_mgr_lock;
 extern int cm_mgr_disable_fb;
@@ -91,7 +101,7 @@ extern int cm_mgr_to_sspm_command(u32 cmd, int val);
 
 enum mt_cpu_dvfs_id;
 
-extern unsigned int mt_cpufreq_get_cur_phy_freq_no_lock(enum mt_cpu_dvfs_id id);
+extern unsigned int mt_cpufreq_get_cur_phy_freq_no_lock(unsigned int id);
 
 extern void sched_get_percpu_load2(int cpu, bool reset,
 		unsigned int *rel_load, unsigned int *abs_load);

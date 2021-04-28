@@ -649,6 +649,9 @@ cm_mgr_opp_end:
 
 void check_cm_mgr_status(unsigned int cluster, unsigned int freq)
 {
+#ifdef CM_TRIGEAR
+	unsigned int clamping_idx = CM_MGR_CPU_OPP_SIZE - 1;
+#endif
 #ifdef CONFIG_MTK_CPU_FREQ
 	int freq_idx = 0;
 	struct mt_cpu_dvfs *p;
@@ -667,8 +670,13 @@ void check_cm_mgr_status(unsigned int cluster, unsigned int freq)
 	prev_freq[cluster] = 0;
 #endif /* CONFIG_MTK_CPU_FREQ */
 
+	/* if TRIGEAR use B cluster freq */
+#ifdef CM_TRIGEAR
+	clamping_idx = MIN(prev_freq_idx[CM_MGR_B], prev_freq_idx[CM_MGR_BB]);
+	cm_mgr_update_dram_by_cpu_opp(clamping_idx);
+#else
 	cm_mgr_update_dram_by_cpu_opp(prev_freq_idx[CM_MGR_CPU_CLUSTER - 1]);
-
+#endif
 	check_cm_mgr_status_internal();
 }
 
@@ -722,6 +730,32 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 	case IPI_CM_MGR_OPP_VOLT_SET:
 	case IPI_CM_MGR_BCPU_WEIGHT_MAX_SET:
 	case IPI_CM_MGR_BCPU_WEIGHT_MIN_SET:
+#ifdef CM_TRIGEAR
+	/* FALLTHROUGH */
+	case IPI_CM_MGR_BBCPU_WEIGHT_MAX_SET:
+		/* FALLTHROUGH */
+	case IPI_CM_MGR_BBCPU_WEIGHT_MIN_SET:
+		/* FALLTHROUGH */
+#endif
+#ifdef DSU_DVFS_ENABLE
+		/* FALLTHROUGH */
+	case IPI_CM_MGR_DSU_DEBOUNCE_UP_SET:
+		/* FALLTHROUGH */
+	case IPI_CM_MGR_DSU_DEBOUNCE_DOWN_SET:
+		/* FALLTHROUGH */
+	case IPI_CM_MGR_DSU_DIFF_PWR_UP_SET:
+		/* FALLTHROUGH */
+	case IPI_CM_MGR_DSU_DIFF_PWR_DOWN_SET:
+		/* FALLTHROUGH */
+	case IPI_CM_MGR_DSU_L_PWR_RATIO_SET:
+		/* FALLTHROUGH */
+	case IPI_CM_MGR_DSU_B_PWR_RATIO_SET:
+		/* FALLTHROUGH */
+#ifdef CM_TRIGEAR
+	case IPI_CM_MGR_DSU_BB_PWR_RATIO_SET:
+		/* FALLTHROUGH */
+#endif
+#endif /* DSU_DVFS_ENABLE */
 		cm_mgr_d.cmd = cmd;
 		cm_mgr_d.arg = val;
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_CM,
@@ -772,6 +806,32 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 	case IPI_CM_MGR_EMI_DEMAND_CHECK:
 	case IPI_CM_MGR_BCPU_WEIGHT_MAX_SET:
 	case IPI_CM_MGR_BCPU_WEIGHT_MIN_SET:
+#ifdef CM_TRIGEAR
+	/* FALLTHROUGH */
+	case IPI_CM_MGR_BBCPU_WEIGHT_MAX_SET:
+		/* FALLTHROUGH */
+	case IPI_CM_MGR_BBCPU_WEIGHT_MIN_SET:
+		/* FALLTHROUGH */
+#endif
+#ifdef DSU_DVFS_ENABLE
+		/* FALLTHROUGH */
+	case IPI_CM_MGR_DSU_DEBOUNCE_UP_SET:
+		/* FALLTHROUGH */
+	case IPI_CM_MGR_DSU_DEBOUNCE_DOWN_SET:
+		/* FALLTHROUGH */
+	case IPI_CM_MGR_DSU_DIFF_PWR_UP_SET:
+		/* FALLTHROUGH */
+	case IPI_CM_MGR_DSU_DIFF_PWR_DOWN_SET:
+		/* FALLTHROUGH */
+	case IPI_CM_MGR_DSU_L_PWR_RATIO_SET:
+		/* FALLTHROUGH */
+	case IPI_CM_MGR_DSU_B_PWR_RATIO_SET:
+		/* FALLTHROUGH */
+#ifdef CM_TRIGEAR
+	case IPI_CM_MGR_DSU_BB_PWR_RATIO_SET:
+		/* FALLTHROUGH */
+#endif
+#endif /* DSU_DVFS_ENABLE */
 		cm_mgr_d.cmd = cmd;
 		cm_mgr_d.arg = val;
 		ret = sspm_ipi_send_sync(IPI_ID_CM, IPI_OPT_POLLING,
@@ -880,7 +940,12 @@ static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 		seq_printf(m, " %d", cm_mgr_cpu_opp_to_dram[i]);
 	seq_puts(m, "\n");
 #endif /* USE_CPU_TO_DRAM_MAP_NEW */
-
+#ifdef USE_STEP_PERF_OPP
+	seq_printf(m, "cm_mgr_dram_perf_opp %d\n",
+			cm_mgr_dram_perf_opp);
+	seq_printf(m, "cm_mgr_dram_step_opp %d\n",
+			cm_mgr_dram_step_opp);
+#endif /* USE_STEP_PERF_OPP */
 	seq_printf(m, "cm_mgr_disable_fb %d\n", cm_mgr_disable_fb);
 	seq_printf(m, "light_load_cps %d\n", light_load_cps);
 	seq_printf(m, "total_bw_value %d\n", total_bw_value);
@@ -926,7 +991,30 @@ static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "cpu_power_bcpu_weight_min %d\n",
 			cpu_power_bcpu_weight_min);
 #endif /* USE_BCPU_WEIGHT */
-
+#ifdef CM_TRIGEAR
+	seq_printf(m, "cpu_power_bbcpu_weight_max %d\n",
+			cpu_power_bbcpu_weight_max);
+	seq_printf(m, "cpu_power_bbcpu_weight_min %d\n",
+			cpu_power_bbcpu_weight_min);
+#endif
+#ifdef DSU_DVFS_ENABLE
+	seq_printf(m, "dsu_dvfs_debounce_up %d\n",
+			dsu_debounce_up);
+	seq_printf(m, "dsu_dvfs_debounce_down %d\n",
+			dsu_debounce_down);
+	seq_printf(m, "dsu_dvfs_diff_pwr_up %d\n",
+			dsu_diff_pwr_up);
+	seq_printf(m, "dsu_dvfs_diff_pwr_down %d\n",
+			dsu_diff_pwr_down);
+	seq_printf(m, "dsu_dvfs_l_pwr_ratio %d\n",
+			dsu_l_pwr_ratio);
+	seq_printf(m, "dsu_dvfs_b_pwr_ratio %d\n",
+			dsu_b_pwr_ratio);
+#ifdef CM_TRIGEAR
+	seq_printf(m, "dsu_dvfs_bb_pwr_ratio %d\n",
+			dsu_bb_pwr_ratio);
+#endif
+#endif
 	seq_puts(m, "debounce_times_up_adb");
 	for (i = 0; i < CM_MGR_EMI_OPP; i++)
 		seq_printf(m, " %d", debounce_times_up_adb[i]);
@@ -1224,6 +1312,8 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 	} else if (!strcmp(cmd, "cm_mgr_perf_force_enable")) {
 		cm_mgr_perf_force_enable = val_1;
 		cm_mgr_perf_set_force_status(val_1);
+	} else if (!strcmp(cmd, "cm_mgr_perf_set_status")) {
+		cm_mgr_perf_set_status(!!val_1);
 	} else if (!strcmp(cmd, "cm_mgr_disable_fb")) {
 		cm_mgr_disable_fb = val_1;
 		if (cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1)
@@ -1333,6 +1423,74 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 		}
 #endif /* USE_BCPU_WEIGHT */
+#ifdef CM_TRIGEAR
+	} else if (!strcmp(cmd, "cpu_power_bbcpu_weight_max")) {
+		if (cpu_power_bbcpu_weight_max < cpu_power_bbcpu_weight_min) {
+			ret = -1;
+		} else {
+			cpu_power_bbcpu_weight_max = val_1;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+			cm_mgr_to_sspm_command(IPI_CM_MGR_BBCPU_WEIGHT_MAX_SET,
+					val_1);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+		}
+	} else if (!strcmp(cmd, "cpu_power_bbcpu_weight_min")) {
+		if (cpu_power_bbcpu_weight_max < cpu_power_bbcpu_weight_min) {
+			ret = -1;
+		} else {
+			cpu_power_bbcpu_weight_min = val_1;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+			cm_mgr_to_sspm_command(IPI_CM_MGR_BBCPU_WEIGHT_MIN_SET,
+					val_1);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+		}
+#endif /* CM_TRIGEAR */
+#ifdef DSU_DVFS_ENABLE
+	} else if (!strcmp(cmd, "dsu_dvfs_debounce_up")) {
+		dsu_debounce_up = val_1;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+		cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_DEBOUNCE_UP_SET,
+				val_1);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+	} else if (!strcmp(cmd, "dsu_dvfs_debounce_down")) {
+		dsu_debounce_down = val_1;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+		cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_DEBOUNCE_DOWN_SET,
+				val_1);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+	} else if (!strcmp(cmd, "dsu_dvfs_diff_pwr_up")) {
+		dsu_diff_pwr_up = val_1;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+		cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_DIFF_PWR_UP_SET,
+				val_1);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+	} else if (!strcmp(cmd, "dsu_dvfs_diff_pwr_down")) {
+		dsu_diff_pwr_down = val_1;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+		cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_DIFF_PWR_DOWN_SET,
+				val_1);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+	} else if (!strcmp(cmd, "dsu_dvfs_l_pwr_ratio")) {
+		dsu_l_pwr_ratio = val_1;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+		cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_L_PWR_RATIO_SET,
+				val_1);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+	} else if (!strcmp(cmd, "dsu_dvfs_b_pwr_ratio")) {
+		dsu_b_pwr_ratio = val_1;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+		cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_B_PWR_RATIO_SET,
+				val_1);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+#ifdef CM_TRIGEAR
+	} else if (!strcmp(cmd, "dsu_dvfs_bb_pwr_ratio")) {
+		dsu_bb_pwr_ratio = val_1;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+		cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_BB_PWR_RATIO_SET,
+				val_1);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+#endif /* CM_TRIGEAR */
+#endif /* DSU_DVFS_ENABLE */
 	} else if (!strcmp(cmd, "debounce_times_perf_down")) {
 		debounce_times_perf_down = val_1;
 	} else if (!strcmp(cmd, "debounce_times_perf_force_down")) {
@@ -1361,6 +1519,14 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 		cm_mgr_cpu_map_emi_opp = val_1;
 		cm_mgr_cpu_map_update_table();
 #endif /* USE_CPU_TO_DRAM_MAP_NEW */
+#ifdef USE_STEP_PERF_OPP
+	} else if (!strcmp(cmd, "cm_mgr_dram_perf_opp")) {
+		cm_mgr_dram_perf_opp = val_1;
+	} else if (!strcmp(cmd, "cm_mgr_dram_step_opp")) {
+		if (val_1 < 0)
+			val_1 = 0;
+		cm_mgr_dram_step_opp = val_1;
+#endif /* USE_STEP_PERF_OPP */
 	} else {
 		dbg_cm_mgr_platform_write(ret, cmd, val_1, val_2);
 	}
@@ -1498,6 +1664,36 @@ int __init cm_mgr_module_init(void)
 	cm_mgr_to_sspm_command(IPI_CM_MGR_BCPU_WEIGHT_MIN_SET,
 			cpu_power_bcpu_weight_min);
 #endif /* USE_BCPU_WEIGHT */
+#ifdef CM_TRIGEAR
+	cm_mgr_to_sspm_command(IPI_CM_MGR_BBCPU_WEIGHT_MAX_SET,
+			cpu_power_bbcpu_weight_max);
+
+	cm_mgr_to_sspm_command(IPI_CM_MGR_BBCPU_WEIGHT_MIN_SET,
+			cpu_power_bbcpu_weight_min);
+#endif
+#ifdef DSU_DVFS_ENABLE
+	cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_DEBOUNCE_UP_SET,
+			dsu_debounce_up);
+
+	cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_DEBOUNCE_DOWN_SET,
+			dsu_debounce_down);
+
+	cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_DIFF_PWR_UP_SET,
+			dsu_diff_pwr_up);
+
+	cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_DIFF_PWR_DOWN_SET,
+			dsu_diff_pwr_down);
+
+	cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_L_PWR_RATIO_SET,
+			dsu_l_pwr_ratio);
+
+	cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_B_PWR_RATIO_SET,
+			dsu_b_pwr_ratio);
+#ifdef CM_TRIGEAR
+	cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_BB_PWR_RATIO_SET,
+			dsu_bb_pwr_ratio);
+#endif /* CM_TRIGEAR */
+#endif /* DSU_DVFS_ENABLE */
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 
 	return 0;
