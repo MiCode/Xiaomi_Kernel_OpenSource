@@ -1566,10 +1566,10 @@ static const struct mtk_gate infra_clks[] __initconst = {
 		"axi_sel", 21),
 
 
-	//GATE_INFRA3(INFRACFG_AO_FADSP_26M_CG, "infra_fadsp_26m",
-	//	"adsp_sel", 22),
-	//GATE_INFRA3(INFRACFG_AO_FADSP_32K_CG, "infra_fadsp_32k",
-		//"adsp_sel", 23),
+	GATE_INFRA3(INFRACFG_AO_FADSP_26M_CG, "infra_fadsp_26m",
+		"adsp_sel", 22),
+	GATE_INFRA3(INFRACFG_AO_FADSP_32K_CG, "infra_fadsp_32k",
+		"adsp_sel", 23),
 
 	GATE_INFRA3(INFRACFG_AO_CCIF4_AP_CG, "infra_ccif4_ap",
 		"axi_sel", 24),
