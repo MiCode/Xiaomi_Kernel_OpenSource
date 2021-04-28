@@ -14,7 +14,7 @@
 ifeq ($(CONFIG_MACH_MT6781),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/mt6781/inc/mach/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6781/include/mach/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/mt6781/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/mt6785/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dbgtop/mt6781/
 endif
 

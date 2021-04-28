@@ -31,7 +31,7 @@
 #ifdef HP_EN_REG_SEMAPHORE_PROTECT
 #include "mtk_cpufreq_hybrid.h"
 #endif
-#include "v1/sspm_ipi.h"
+#include "sspm_ipi_id.h"
 #include <linux/seq_file.h>
 #include <linux/of_address.h>
 
@@ -229,17 +229,19 @@ static int fhctl_to_sspm_command(unsigned int cmd,
 				struct fhctl_ipi_data *ipi_data)
 {
 	#define FHCTL_D_LEN    (9)
+	#define IPI_TIMEOUT_MS (3000)
 
 	int ret = 0;
 	unsigned int ack_data = 0;
 
-	FH_MSG_DEBUG("send ipi command %x", cmd);
+	//FH_MSG_DEBUG("send ipi command %x", cmd);
+	FH_MSG("send ipi command %x", cmd);
 
 	switch (cmd) {
 	case FH_DCTL_CMD_DVFS:
 		ipi_data->cmd = cmd;
-		ret = sspm_ipi_send_sync(IPI_ID_FHCTL, IPI_OPT_POLLING,
-					ipi_data, FHCTL_D_LEN, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_FHCTL, IPI_SEND_POLLING,
+					ipi_data, FHCTL_D_LEN, IPI_TIMEOUT_MS);
 		if (ret != 0)
 			FH_MSG(F2S_CMD_ERR_MSG(FH_DCTL_CMD_DVFS),
 					ret, ack_data);
@@ -250,8 +252,8 @@ static int fhctl_to_sspm_command(unsigned int cmd,
 
 	case FH_DCTL_CMD_DVFS_SSC_ENABLE:
 		ipi_data->cmd = cmd;
-		ret = sspm_ipi_send_sync(IPI_ID_FHCTL, IPI_OPT_POLLING,
-					ipi_data, FHCTL_D_LEN, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_FHCTL, IPI_SEND_POLLING,
+					ipi_data, FHCTL_D_LEN, IPI_TIMEOUT_MS);
 		if (ret != 0)
 			FH_MSG(F2S_CMD_ERR_MSG(FH_DCTL_CMD_DVFS_SSC_ENABLE),
 					ret, ack_data);
@@ -262,8 +264,8 @@ static int fhctl_to_sspm_command(unsigned int cmd,
 
 	case FH_DCTL_CMD_DVFS_SSC_DISABLE:
 		ipi_data->cmd = cmd;
-		ret = sspm_ipi_send_sync(IPI_ID_FHCTL, IPI_OPT_POLLING,
-					ipi_data, FHCTL_D_LEN, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_FHCTL, IPI_SEND_POLLING,
+					ipi_data, FHCTL_D_LEN, IPI_TIMEOUT_MS);
 		if (ret != 0)
 			FH_MSG(F2S_CMD_ERR_MSG(FH_DCTL_CMD_DVFS_SSC_DISABLE),
 						ret, ack_data);
@@ -274,8 +276,8 @@ static int fhctl_to_sspm_command(unsigned int cmd,
 
 	case FH_DCTL_CMD_SSC_ENABLE:
 		ipi_data->cmd = cmd;
-		ret = sspm_ipi_send_sync(IPI_ID_FHCTL, IPI_OPT_POLLING,
-					ipi_data, FHCTL_D_LEN, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_FHCTL, IPI_SEND_POLLING,
+					ipi_data, FHCTL_D_LEN, IPI_TIMEOUT_MS);
 		if (ret != 0)
 			FH_MSG(F2S_CMD_ERR_MSG(FH_DCTL_CMD_SSC_ENABLE),
 						ret, ack_data);
@@ -286,8 +288,8 @@ static int fhctl_to_sspm_command(unsigned int cmd,
 
 	case FH_DCTL_CMD_SSC_DISABLE:
 		ipi_data->cmd = cmd;
-		ret = sspm_ipi_send_sync(IPI_ID_FHCTL, IPI_OPT_POLLING,
-					ipi_data, FHCTL_D_LEN, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_FHCTL, IPI_SEND_POLLING,
+					ipi_data, FHCTL_D_LEN, IPI_TIMEOUT_MS);
 		if (ret != 0)
 			FH_MSG(F2S_CMD_ERR_MSG(FH_DCTL_CMD_SSC_DISABLE),
 						ret, ack_data);
@@ -298,8 +300,8 @@ static int fhctl_to_sspm_command(unsigned int cmd,
 
 	case FH_DCTL_CMD_GENERAL_DFS:
 		ipi_data->cmd = cmd;
-		ret = sspm_ipi_send_sync(IPI_ID_FHCTL, IPI_OPT_POLLING,
-					ipi_data, FHCTL_D_LEN, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_FHCTL, IPI_SEND_POLLING,
+					ipi_data, FHCTL_D_LEN, IPI_TIMEOUT_MS);
 		if (ret != 0)
 			FH_MSG(F2S_CMD_ERR_MSG(FH_DCTL_CMD_GENERAL_DFS),
 						ret, ack_data);
@@ -310,8 +312,8 @@ static int fhctl_to_sspm_command(unsigned int cmd,
 
 	case FH_DCTL_CMD_ARM_DFS:
 		ipi_data->cmd = cmd;
-		ret = sspm_ipi_send_sync(IPI_ID_FHCTL, IPI_OPT_POLLING,
-					ipi_data, FHCTL_D_LEN, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_FHCTL, IPI_SEND_POLLING,
+					ipi_data, FHCTL_D_LEN, IPI_TIMEOUT_MS);
 		if (ret != 0)
 			FH_MSG(F2S_CMD_ERR_MSG(FH_DCTL_CMD_ARM_DFS),
 						ret, ack_data);
@@ -322,8 +324,8 @@ static int fhctl_to_sspm_command(unsigned int cmd,
 
 	case FH_DCTL_CMD_MM_DFS:
 		ipi_data->cmd = cmd;
-		ret = sspm_ipi_send_sync(IPI_ID_FHCTL, IPI_OPT_POLLING,
-					ipi_data, FHCTL_D_LEN, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_FHCTL, IPI_SEND_POLLING,
+					ipi_data, FHCTL_D_LEN, IPI_TIMEOUT_MS);
 		if (ret != 0)
 			FH_MSG(F2S_CMD_ERR_MSG(FH_DCTL_CMD_MM_DFS),
 						ret, ack_data);
@@ -334,8 +336,8 @@ static int fhctl_to_sspm_command(unsigned int cmd,
 
 	case FH_DCTL_CMD_FH_CONFIG:
 		ipi_data->cmd = cmd;
-		ret = sspm_ipi_send_sync(IPI_ID_FHCTL, IPI_OPT_POLLING,
-					ipi_data, FHCTL_D_LEN, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_FHCTL, IPI_SEND_POLLING,
+					ipi_data, FHCTL_D_LEN, IPI_TIMEOUT_MS);
 		if (ret != 0)
 			FH_MSG(F2S_CMD_ERR_MSG(FH_DCTL_CMD_FH_CONFIG),
 						ret, ack_data);
@@ -346,8 +348,8 @@ static int fhctl_to_sspm_command(unsigned int cmd,
 
 	case FH_DCTL_CMD_SSC_TBL_CONFIG:
 		ipi_data->cmd = cmd;
-		ret = sspm_ipi_send_sync(IPI_ID_FHCTL, IPI_OPT_POLLING,
-					ipi_data, FHCTL_D_LEN, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_FHCTL, IPI_SEND_POLLING,
+					ipi_data, FHCTL_D_LEN, IPI_TIMEOUT_MS);
 		if (ret != 0)
 			FH_MSG(F2S_CMD_ERR_MSG(FH_DCTL_CMD_SSC_TBL_CONFIG),
 						ret, ack_data);
@@ -358,8 +360,8 @@ static int fhctl_to_sspm_command(unsigned int cmd,
 
 	case FH_DCTL_CMD_SET_PLL_STRUCT:
 		ipi_data->cmd = cmd;
-		ret = sspm_ipi_send_sync(IPI_ID_FHCTL, IPI_OPT_POLLING,
-					ipi_data, FHCTL_D_LEN, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_FHCTL, IPI_SEND_POLLING,
+					ipi_data, FHCTL_D_LEN, IPI_TIMEOUT_MS);
 		if (ret != 0)
 			FH_MSG(F2S_CMD_ERR_MSG(FH_DCTL_CMD_SET_PLL_STRUCT),
 						ret, ack_data);
@@ -370,8 +372,8 @@ static int fhctl_to_sspm_command(unsigned int cmd,
 
 	case FH_DCTL_CMD_GET_PLL_STRUCT:
 		ipi_data->cmd = cmd;
-		ret = sspm_ipi_send_sync(IPI_ID_FHCTL, IPI_OPT_POLLING,
-					ipi_data, FHCTL_D_LEN, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_FHCTL, IPI_SEND_POLLING,
+					ipi_data, FHCTL_D_LEN, IPI_TIMEOUT_MS);
 		if (ret != 0)
 			FH_MSG(F2S_CMD_ERR_MSG(FH_DCTL_CMD_GET_PLL_STRUCT),
 						ret, ack_data);
@@ -382,8 +384,8 @@ static int fhctl_to_sspm_command(unsigned int cmd,
 
 	case FH_DCTL_CMD_PLL_PAUSE:
 		ipi_data->cmd = cmd;
-		ret = sspm_ipi_send_sync(IPI_ID_FHCTL, IPI_OPT_POLLING,
-					ipi_data, FHCTL_D_LEN, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_FHCTL, IPI_SEND_POLLING,
+					ipi_data, FHCTL_D_LEN, IPI_TIMEOUT_MS);
 		if (ret != 0)
 			FH_MSG(F2S_CMD_ERR_MSG(FH_DCTL_CMD_PLL_PAUSE),
 						ret, ack_data);
@@ -793,11 +795,19 @@ static void __global_var_init(void)
 static int mt_fh_hal_init(void)
 {
 	int of_init_result = 0;
+	int sspm_fhctl_ack, ret;
 
 	FH_MSG_DEBUG("EN: %s", __func__);
 
 	if (g_initialize == 1)
 		return 0;
+
+	ret = mtk_ipi_register(&sspm_ipidev, IPIS_C_FHCTL, NULL, NULL,
+				(void *)&sspm_fhctl_ack);
+	if (ret) {
+		FH_MSG("[FHCTL] ipi_register fail, ret=%d\n", ret);
+		return -1;
+	}
 
 	/* Init relevant register base address by device tree */
 	of_init_result = __reg_base_addr_init();

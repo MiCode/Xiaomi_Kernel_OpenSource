@@ -407,7 +407,7 @@ static int __freqhopping_ctrl(struct freqhopping_ioctl *fh_ctl, bool enable)
 		goto Exit;
 	if (!IS_PLLID_VALID(fh_ctl->pll_id)) {
 		FH_MSG("(ERROR) %s [pll_id]: %d freqhop isn't supported ",
-			__func__, pll_id);
+			__func__, fh_ctl->pll_id);
 		WARN_ON(1);
 		goto Exit;
 	}
@@ -999,7 +999,7 @@ static int __reg_base_addr_init(void)
 
 	/* Init APMIXED base address */
 	apmixed_node =
-		of_find_compatible_node(NULL, NULL, "mediatek,apmixedsys");
+		of_find_compatible_node(NULL, NULL, "mediatek,apmixed");
 	g_apmixed_base = of_iomap(apmixed_node, 0);
 	if (!g_apmixed_base) {
 		FH_MSG_DEBUG("Error, APMIXED iomap failed");

@@ -17,7 +17,7 @@ ccflags-y += \
         -I$(srctree)/drivers/misc/mediatek/base/power/include \
         -I$(srctree)/drivers/misc/mediatek/base/power/eem_v2/mt6781/inc \
         -I$(srctree)/drivers/misc/mediatek/freqhopping \
-        -I$(srctree)/drivers/misc/mediatek/freqhopping/mt6781
+        -I$(srctree)/drivers/misc/mediatek/freqhopping/mt6785
 else
 ccflags-y += \
 	-I$(CPUFREQ_ROOT_DIR)/inc \

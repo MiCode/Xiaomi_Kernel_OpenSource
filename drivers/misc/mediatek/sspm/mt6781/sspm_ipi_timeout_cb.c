@@ -37,6 +37,7 @@ static char *pin_name[SSPM_IPI_COUNT] = {
 	"CM",
 	"SLBC",
 	"SPM_SUSPEND",
+	"FHCTL",
 	"QOS",
 	"MET",
 	"GPU_DVFS",
