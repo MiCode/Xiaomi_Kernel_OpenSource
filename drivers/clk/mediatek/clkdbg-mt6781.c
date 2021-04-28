@@ -1106,4 +1106,42 @@ static int __init clkdbg_mt6781_init(void)
 
 	return 0;
 }
-device_initcall(clkdbg_mt6781_init);
+subsys_initcall(clkdbg_mt6781_init);
+
+static struct regbase *lookup_regbase(char *name)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(rb) - 1; i++) {
+		if (!strcmp(name, rb[i].name))
+			return &rb[i];
+	}
+	return NULL;
+}
+
+void print_subsys_reg(char *subsys_name)
+{
+	struct regbase *rb_dump;
+	const struct regname *rns = &rn[0];
+
+	if (rns == NULL)
+		return;
+
+	rb_dump = lookup_regbase(subsys_name);
+	if (rb_dump == NULL) {
+		pr_info("wrong regbase name:%s\n", subsys_name);
+		return;
+	}
+
+	for (; rns->base != NULL; rns++) {
+		if (!is_valid_reg(ADDR(rns)))
+			return;
+
+		/* filter out the subsys that we don't want */
+		if (rns->base != rb_dump)
+			continue;
+
+		pr_info("%-18s: [0x%08x] = 0x%08x\n",
+			rns->name, PHYSADDR(rns), clk_readl(ADDR(rns)));
+	}
+}

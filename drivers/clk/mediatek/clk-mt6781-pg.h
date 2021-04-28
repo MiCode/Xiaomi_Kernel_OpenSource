@@ -56,6 +56,12 @@ extern unsigned int mt_get_ckgen_freq(unsigned int ID);
 extern void print_enabled_clks_once(void);
 extern void mtk_wcn_cmb_stub_clock_fail_dump(void);
 extern unsigned int cam_if_on(void);
+extern void mtk_check_subsys_swcg(enum subsys_id id);
+/*
+ * Resident in clkdbg-mt6781.c
+ * For debug use.
+ */
+extern void print_subsys_reg(char *subsys_name);
 /*ram console api*/
 /*
  *[0] bus protect reg

@@ -135,6 +135,9 @@ static void __iomem *smi_common_base;
 #define INFRA_REG(offset)	(infra_base + offset)
 #define CKGEN_REG(offset)	(ckgen_base + offset)
 #define SMI_COMMON_REG(offset)	(smi_common_base + offset)
+#define MM_REG(offset)	(clk_mmsys_config_base + offset)
+
+#define MM_CG_CLR		MM_REG(0x108)
 
 //lagrange REVIEW done
 #define INFRA_TOPAXI_PROTECTEN		INFRACFG_REG(0x0220)
@@ -1894,6 +1897,7 @@ int spm_mtcmos_ctrl_dis(int state)
 		/* Note that this protect ack check after releasing protect has been ignored */
 #endif
 		/* TINFO="Finish to turn on DIS" */
+		spm_write(MM_CG_CLR, 0x1000000);
 	}
 	return err;
 }
@@ -2735,6 +2739,12 @@ static int disable_subsys(enum subsys_id id)
 		return 0;
 	}
 #endif				/* CHECK_PWR_ST */
+
+	/*
+	 * Check if subsys CGs are still on before the mtcmos  is going
+	 * to be off. (Could do nothing here for early porting)
+	 */
+	mtk_check_subsys_swcg(id);
 
 	r = sys->ops->disable(sys);
 	WARN_ON(r);
