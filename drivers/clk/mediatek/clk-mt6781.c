@@ -52,6 +52,7 @@ while (0)
 #define clk_clrl(addr, val) \
 	mt_reg_sync_writel(clk_readl(addr) & ~(val), addr)
 
+#define INV_BIT	-1
 #define PLL_EN  (0x1 << 0)
 #define PLL_PWR_ON  (0x1 << 0)
 #define PLL_ISO_EN  (0x1 << 1)
@@ -804,285 +805,285 @@ static const char * const i2s5_m_ck_parents[] __initconst = {
 
 static const struct mtk_mux top_muxes[] __initconst = {
 	/* CLK_CFG_0 */
-	MUX_CLR_SET_UPD_FLAGS(TOP_MUX_AXI, "axi_sel", axi_parents,
+	MUX_CLR_SET_UPD(TOP_MUX_AXI, "axi_sel", axi_parents,
 		CK_CFG_0, CK_CFG_0_SET, CK_CFG_0_CLR,
-		0, 2, 7,
-		0x004, 0, CLK_IS_CRITICAL),
+		0, 2, INV_BIT,
+		0x004, 0),
 
 	MUX_CLR_SET_UPD(TOP_MUX_SCP, "scp_sel", scp_parents,
 		CK_CFG_0, CK_CFG_0_SET, CK_CFG_0_CLR,
-		8, 3, 15,
+		8, 3, INV_BIT,
 		0x004, 1),
 
 	MUX_CLR_SET_UPD(TOP_MUX_MFG, "mfg_sel", mfg_parents,
 		CK_CFG_0, CK_CFG_0_SET, CK_CFG_0_CLR,
-		16, 2, 23,
+		16, 2, INV_BIT,
 		0x004, 2),
 
 	MUX_CLR_SET_UPD(TOP_MUX_CAMTG, "camtg_sel", camtg_parents,
 		CK_CFG_0, CK_CFG_0_SET, CK_CFG_0_CLR,
-		24, 3, 31,
+		24, 3, INV_BIT,
 		0x004, 3),
 
 	/* CLK_CFG_1 */
 	MUX_CLR_SET_UPD(TOP_MUX_CAMTG1, "camtg1_sel", camtg1_parents,
 		CK_CFG_1, CK_CFG_1_SET, CK_CFG_1_CLR,
-		0, 3, 7,
+		0, 3, INV_BIT,
 		0x004, 4),
 
 	MUX_CLR_SET_UPD(TOP_MUX_CAMTG2, "camtg2_sel", camtg2_parents,
 		CK_CFG_1, CK_CFG_1_SET, CK_CFG_1_CLR,
-		8, 3, 15,
+		8, 3, INV_BIT,
 		0x004, 5),
 
 	MUX_CLR_SET_UPD(TOP_MUX_CAMTG3, "camtg3_sel", camtg3_parents,
 		CK_CFG_1, CK_CFG_1_SET, CK_CFG_1_CLR,
-		16, 3, 23,
+		16, 3, INV_BIT,
 		0x004, 6),
 
 	MUX_CLR_SET_UPD(TOP_MUX_CAMTG4, "camtg4_sel", camtg4_parents,
 		CK_CFG_1, CK_CFG_1_SET, CK_CFG_1_CLR,
-		24, 3, 31,
+		24, 3, INV_BIT,
 		0x004, 7),
 
 	/* CLK_CFG_2 */
 	MUX_CLR_SET_UPD(TOP_MUX_CAMTG5, "camtg5_sel", camtg5_parents,
 		CK_CFG_2, CK_CFG_2_SET, CK_CFG_2_CLR,
-		0, 3, 7,
+		0, 3, INV_BIT,
 		0x004, 8),
 
 	MUX_CLR_SET_UPD(TOP_MUX_CAMTG6, "camtg6_sel", camtg6_parents,
 		CK_CFG_2, CK_CFG_2_SET, CK_CFG_2_CLR,
-		8, 3, 15,
+		8, 3, INV_BIT,
 		0x004, 9),
 
 	MUX_CLR_SET_UPD(TOP_MUX_UART, "uart_sel", uart_parents,
 		CK_CFG_2, CK_CFG_2_SET, CK_CFG_2_CLR,
-		16, 1, 23,
+		16, 1, INV_BIT,
 		0x004, 10),
 
 	MUX_CLR_SET_UPD(TOP_MUX_SPI, "spi_sel", spi_parents,
 		CK_CFG_2, CK_CFG_2_SET, CK_CFG_2_CLR,
-		24, 3, 31,
+		24, 3, INV_BIT,
 		0x004, 11),
 
 	/* CLK_CFG_3 */
 	MUX_CLR_SET_UPD(TOP_MUX_MSDC50_0_HCLK, "msdc50_0_hclk_sel", msdc50_0_hclk_parents,
 		CK_CFG_3, CK_CFG_3_SET, CK_CFG_3_CLR,
-		0, 2, 7,
+		0, 2, INV_BIT,
 		0x004, 12),
 
 	MUX_CLR_SET_UPD(TOP_MUX_MSDC50_0, "msdc50_0_sel", msdc50_0_parents,
 		CK_CFG_3, CK_CFG_3_SET, CK_CFG_3_CLR,
-		8, 3, 15,
+		8, 3, INV_BIT,
 		0x004, 13),
 
 	MUX_CLR_SET_UPD(TOP_MUX_MSDC30_1, "msdc30_1_sel", msdc30_1_parents,
 		CK_CFG_3, CK_CFG_3_SET, CK_CFG_3_CLR,
-		16, 3, 23,
+		16, 3, INV_BIT,
 		0x004, 14),
 
 	MUX_CLR_SET_UPD(TOP_MUX_AUDIO, "audio_sel", audio_parents,
 		CK_CFG_3, CK_CFG_3_SET, CK_CFG_3_CLR,
-		24, 2, 31,
+		24, 2, INV_BIT,
 		0x004, 15),
 	/* CLK_CFG_4 */
 	MUX_CLR_SET_UPD(TOP_MUX_AUD_INTBUS, "aud_intbus_sel", aud_intbus_parents,
 		CK_CFG_4, CK_CFG_4_SET, CK_CFG_4_CLR,
-		0, 2, 7,
+		0, 2, INV_BIT,
 		0x004, 16),
 
 	MUX_CLR_SET_UPD(TOP_MUX_AUD_1, "aud_1_sel", aud_1_parents,
 		CK_CFG_4, CK_CFG_4_SET, CK_CFG_4_CLR,
-		8, 1, 15,
+		8, 1, INV_BIT,
 		0x004, 17),
 
 	MUX_CLR_SET_UPD(TOP_MUX_AUD_2, "aud_2_sel", aud_2_parents,
 		CK_CFG_4, CK_CFG_4_SET, CK_CFG_4_CLR,
-		16, 1, 23,
+		16, 1, INV_BIT,
 		0x004, 18),
 
 	MUX_CLR_SET_UPD(TOP_MUX_AUD_ENG1, "aud_eng1_sel", aud_eng1_parents,
 		CK_CFG_4, CK_CFG_4_SET, CK_CFG_4_CLR,
-		24, 2, 31,
+		24, 2, INV_BIT,
 		0x004, 19),
 
 	/* CLK_CFG_5 */
 	MUX_CLR_SET_UPD(TOP_MUX_AUD_ENG2, "aud_eng2_sel", aud_eng2_parents,
 		CK_CFG_5, CK_CFG_5_SET, CK_CFG_5_CLR,
-		0, 2, 7,
+		0, 2, INV_BIT,
 		0x004, 20),
 
 	MUX_CLR_SET_UPD(TOP_MUX_DISP_PWM, "disppwm_sel", disppwm_parents,
 		CK_CFG_5, CK_CFG_5_SET, CK_CFG_5_CLR,
-		8, 3, 15,
+		8, 3, INV_BIT,
 		0x004, 21),
 
 	MUX_CLR_SET_UPD(TOP_MUX_SSPM, "sspm_sel",
 		sspm_parents,
 		CK_CFG_5, CK_CFG_5_SET, CK_CFG_5_CLR,
-		16, 3, 23,
+		16, 3, INV_BIT,
 		0x004, 22),
 
 	MUX_CLR_SET_UPD(TOP_MUX_DXCC, "dxcc_sel",
 		dxcc_parents,
 		CK_CFG_5, CK_CFG_5_SET, CK_CFG_5_CLR,
-		24, 2, 31,
+		24, 2, INV_BIT,
 		0x004, 23),
 
 	/* CLK_CFG_6 */
 	MUX_CLR_SET_UPD(TOP_MUX_USB_TOP, "usb_top_sel",
 		usb_top_parents,
 		CK_CFG_6, CK_CFG_6_SET, CK_CFG_6_CLR,
-		0, 2, 7,
+		0, 2, INV_BIT,
 		0x004, 24),
 
 	MUX_CLR_SET_UPD(TOP_MUX_SRCK, "srck_sel", srck_parents,
 		CK_CFG_6, CK_CFG_6_SET, CK_CFG_6_CLR,
-		8, 2, 15,
+		8, 2, INV_BIT,
 		0x004, 25),
 
 	MUX_CLR_SET_UPD(TOP_MUX_SPM, "spm_sel",
 		spm_parents,
 		CK_CFG_6, CK_CFG_6_SET, CK_CFG_6_CLR,
-		16, 2, 23,
+		16, 2, INV_BIT,
 		0x004, 26),
 
 	MUX_CLR_SET_UPD(TOP_MUX_I2C, "i2c_sel",
 		i2c_parents,
 		CK_CFG_6, CK_CFG_6_SET, CK_CFG_6_CLR,
-		24, 2, 31,
+		24, 2, INV_BIT,
 		0x004, 27),
 
 	/* CLK_CFG_7 */
 	MUX_CLR_SET_UPD(TOP_MUX_PWM, "pwm_sel",
 		pwm_parents,
 		CK_CFG_7, CK_CFG_7_SET, CK_CFG_7_CLR,
-		0, 2, 7,
+		0, 2, INV_BIT,
 		0x004, 28),
 
 	MUX_CLR_SET_UPD(TOP_MUX_SENINF, "seninf_sel",
 		seninf_parents,
 		CK_CFG_7, CK_CFG_7_SET, CK_CFG_7_CLR,
-		8, 2, 15,
+		8, 2, INV_BIT,
 		0x004, 29),
 
 	MUX_CLR_SET_UPD(TOP_MUX_SENINF1, "seninf1_sel",
 		seninf1_parents,
 		CK_CFG_7, CK_CFG_7_SET, CK_CFG_7_CLR,
-		16, 2, 23,
+		16, 2, INV_BIT,
 		0x004, 30),
 
 	MUX_CLR_SET_UPD(TOP_MUX_SENINF2, "seninf2_sel",
 		seninf2_parents,
 		CK_CFG_7, CK_CFG_7_SET, CK_CFG_7_CLR,
-		24, 2, 31,
+		24, 2, INV_BIT,
 		0x008, 0),
 
 	/* CLK_CFG_8 */
 	MUX_CLR_SET_UPD(TOP_MUX_SENINF3, "seninf3_sel",
 		seninf3_parents,
 		CK_CFG_8, CK_CFG_8_SET, CK_CFG_8_CLR,
-		0, 2, 7,
+		0, 2, INV_BIT,
 		0x008, 1),
 
 	MUX_CLR_SET_UPD(TOP_MUX_AES_MSDCFDE, "aes_msdcfde_sel",
 		aes_msdcfde_parents,
 		CK_CFG_8, CK_CFG_8_SET, CK_CFG_8_CLR,
-		8, 3, 15,
+		8, 3, INV_BIT,
 		0x008, 2),
 
 	MUX_CLR_SET_UPD(TOP_MUX_FPWRAP_ULPOSC, "fpwrap_ulposc_sel",
 		fpwrap_ulposc_parents,
 		CK_CFG_8, CK_CFG_8_SET, CK_CFG_8_CLR,
-		16, 3, 23,
+		16, 3, INV_BIT,
 		0x008, 3),
 
 	MUX_CLR_SET_UPD(TOP_MUX_CAMTM, "camtm_sel", camtm_parents,
 		CK_CFG_8, CK_CFG_8_SET, CK_CFG_8_CLR,
-		24, 1, 31,
+		24, 1, INV_BIT,
 		0x008, 4),
 
 	/* CLK_CFG_9 */
 	MUX_CLR_SET_UPD(TOP_MUX_VENC, "venc_sel", venc_parents,
 		CK_CFG_9, CK_CFG_9_SET, CK_CFG_9_CLR,
-		0, 3, 7,
+		0, 3, INV_BIT,
 		0x008, 5),
 
 	MUX_CLR_SET_UPD(TOP_MUX_CAM, "cam_sel", cam_parents,
 		CK_CFG_9, CK_CFG_9_SET, CK_CFG_9_CLR,
-		8, 4, 15,
+		8, 4, INV_BIT,
 		0x008, 6),
 
 	MUX_CLR_SET_UPD(TOP_MUX_IMG1, "img1_sel", img1_parents,
 		CK_CFG_9, CK_CFG_9_SET, CK_CFG_9_CLR,
-		16, 4, 23,
+		16, 4, INV_BIT,
 		0x008, 7),
 
 	MUX_CLR_SET_UPD(TOP_MUX_IPE, "ipe_sel", ipe_parents,
 		CK_CFG_9, CK_CFG_9_SET, CK_CFG_9_CLR,
-		24, 4, 31,
+		24, 4, INV_BIT,
 		0x008, 8),
 
 	/* CLK_CFG_10 */
 	MUX_CLR_SET_UPD(TOP_MUX_DPMAIF, "dpmaif_sel", dpmaif_parents,
 		CK_CFG_10, CK_CFG_10_SET, CK_CFG_10_CLR,
-		0, 3, 7,
+		0, 3, INV_BIT,
 		0x008, 9),
 
 	MUX_CLR_SET_UPD(TOP_MUX_VDEC, "vdec_sel",
 		vdec_parents,
 		CK_CFG_10, CK_CFG_10_SET, CK_CFG_10_CLR,
-		8, 3, 15,
+		8, 3, INV_BIT,
 		0x008, 10),
 
 	MUX_CLR_SET_UPD(TOP_MUX_DISP, "disp_sel",
 		disp_parents,
 		CK_CFG_10, CK_CFG_10_SET, CK_CFG_10_CLR,
-		16, 4, 23,
+		16, 4, INV_BIT,
 		0x008, 11),
 
 	MUX_CLR_SET_UPD(TOP_MUX_MDP, "mdp_sel",
 		mdp_parents,
 		CK_CFG_10, CK_CFG_10_SET, CK_CFG_10_CLR,
-		24, 4, 31,
+		24, 4, INV_BIT,
 		0x008, 12),
 
 	/* CLK_CFG_11 */
 	MUX_CLR_SET_UPD(TOP_MUX_AUDIO_H, "audio_h_sel", audio_h_parents,
 		CK_CFG_11, CK_CFG_11_SET, CK_CFG_11_CLR,
-		0, 2, 7,
+		0, 2, INV_BIT,
 		0x008, 13),
 
 	MUX_CLR_SET_UPD(TOP_MUX_UFS, "ufs_sel", ufs_parents,
 		CK_CFG_11, CK_CFG_11_SET, CK_CFG_11_CLR,
-		8, 2, 15,
+		8, 2, INV_BIT,
 		0x008, 14),
 
 	MUX_CLR_SET_UPD(TOP_MUX_AES_FDE, "aes_fde_sel", aes_fde_parents,
 		CK_CFG_11, CK_CFG_11_SET, CK_CFG_11_CLR,
-		16, 2, 23,
+		16, 2, INV_BIT,
 		0x008, 15),
 
 	MUX_CLR_SET_UPD(TOP_MUX_ADSP, "adsp_sel", adsp_parents,
 		CK_CFG_11, CK_CFG_11_SET, CK_CFG_11_CLR,
-		24, 3, 31,
+		24, 3, INV_BIT,
 		0x008, 16),
 
 	/* CLK_CFG_12 */
 	MUX_CLR_SET_UPD(TOP_MUX_DVFSRC, "dvfsrc_sel", dvfsrc_parents,
 		CK_CFG_12, CK_CFG_12_SET, CK_CFG_12_CLR,
-		0, 1, 7,
+		0, 1, INV_BIT,
 		0x008, 17),
 
 	MUX_CLR_SET_UPD(TOP_MUX_DSI_OCC, "dsi_occ_sel", dsi_occ_parents,
 		CK_CFG_12, CK_CFG_12_SET, CK_CFG_12_CLR,
-		8, 2, 15,
+		8, 2, INV_BIT,
 		0x008, 18),
 
 	MUX_CLR_SET_UPD(TOP_MUX_SPMI_MST, "spmi_mst_sel", spmi_mst_parents,
 		CK_CFG_12, CK_CFG_12_SET, CK_CFG_12_CLR,
-		16, 3, 23,
+		16, 3, INV_BIT,
 		0x008, 19),
 };
 
@@ -1336,16 +1337,16 @@ static const struct mtk_gate_regs infra3_cg_regs = {
 
 static const struct mtk_gate infra_clks[] __initconst = {
 	/* INFRA0 */
-	GATE_INFRA0(INFRACFG_AO_PMIC_CG_TMR, "infra_pmic_tmr",
-		"axi_sel", 0),
-	GATE_INFRA0(INFRACFG_AO_PMIC_CG_AP, "infra_pmic_ap",
-		"axi_sel", 1),
-	GATE_INFRA0(INFRACFG_AO_PMIC_CG_MD, "infra_pmic_md",
-		"axi_sel", 2),
-	GATE_INFRA0(INFRACFG_AO_PMIC_CG_CONN, "infra_pmic_conn",
-		"axi_sel", 3),
-	GATE_INFRA0(INFRACFG_AO_SCPSYS_CG, "infra_scp",
-		"axi_sel", 4),
+	//GATE_INFRA0(INFRACFG_AO_PMIC_CG_TMR, "infra_pmic_tmr",
+	//"axi_sel", 0),
+	//GATE_INFRA0(INFRACFG_AO_PMIC_CG_AP, "infra_pmic_ap",
+	//	"axi_sel", 1),
+	//GATE_INFRA0(INFRACFG_AO_PMIC_CG_MD, "infra_pmic_md",
+	//	"axi_sel", 2),
+	//GATE_INFRA0(INFRACFG_AO_PMIC_CG_CONN, "infra_pmic_conn",
+	//	"axi_sel", 3),
+	//GATE_INFRA0(INFRACFG_AO_SCPSYS_CG, "infra_scp",
+	//	"axi_sel", 4),
 	GATE_INFRA0(INFRACFG_AO_SEJ_CG, "infra_sej",
 		"clk26m", 5),
 	GATE_INFRA0(INFRACFG_AO_APXGPT_CG, "infra_apxgpt",
@@ -1388,8 +1389,8 @@ static const struct mtk_gate infra_clks[] __initconst = {
 		"uart_sel", 25),
 	GATE_INFRA0(INFRACFG_AO_GCE_26M_CG, "infra_gce_26m",
 		"axi_sel", 27),
-	GATE_INFRA0(INFRACFG_AO_CQ_DMA_FPC_CG, "infra_cqdma_fpc",
-		"axi_sel", 28),
+	//GATE_INFRA0(INFRACFG_AO_CQ_DMA_FPC_CG, "infra_cqdma_fpc",
+		//"axi_sel", 28),
 	GATE_INFRA0(INFRACFG_AO_BTIF_CG, "infra_btif",
 		"axi_sel", 31),
 	/* INFRA1 */
@@ -1405,10 +1406,10 @@ static const struct mtk_gate infra_clks[] __initconst = {
 		"axi_sel", 5),
 	GATE_INFRA1(INFRACFG_AO_MSDC0_SCK_CG, "infra_msdc0_sck",
 		"msdc50_0_sel", 6),
-	GATE_INFRA1(INFRACFG_AO_DVFSRC_CG, "infra_dvfsrc",
-		"clk26m", 7),
-	GATE_INFRA1(INFRACFG_AO_GCPU_CG, "infra_gcpu",
-		"axi_sel", 8),
+	//GATE_INFRA1(INFRACFG_AO_DVFSRC_CG, "infra_dvfsrc",
+	//	"clk26m", 7),
+	//GATE_INFRA1(INFRACFG_AO_GCPU_CG, "infra_gcpu",
+	//	"axi_sel", 8),
 	GATE_INFRA1(INFRACFG_AO_TRNG_CG, "infra_trng",
 		"axi_sel", 9),
 	GATE_INFRA1(INFRACFG_AO_AUXADC_CG, "infra_auxadc",
@@ -1419,36 +1420,36 @@ static const struct mtk_gate infra_clks[] __initconst = {
 		"axi_sel", 12),
 	GATE_INFRA1(INFRACFG_AO_CCIF1_MD_CG, "infra_ccif1_md",
 		"axi_sel", 13),
-	GATE_INFRA1(INFRACFG_AO_AUXADC_MD_CG, "infra_auxadc_md",
-		"clk26m", 14),
+	//GATE_INFRA1(INFRACFG_AO_AUXADC_MD_CG, "infra_auxadc_md",
+	//	"clk26m", 14),
 	GATE_INFRA1(INFRACFG_AO_MSDC1_SCK_CG, "infra_msdc1_sck",
 		"msdc30_1_sel", 16),
 	GATE_INFRA1(INFRACFG_AO_MSDC2_SCK_CG, "infra_msdc2_sck",
 		"msdc30_2_sel", 17),
 	GATE_INFRA1(INFRACFG_AO_AP_DMA_CG, "infra_apdma",
 		"axi_sel", 18),
-	GATE_INFRA1(INFRACFG_AO_XIU_CG, "infra_xiu",
-		"axi_sel", 19),
-	GATE_INFRA1(INFRACFG_AO_DEVICE_APC_CG, "infra_devapc",
-		"axi_sel", 20),
+	//GATE_INFRA1(INFRACFG_AO_XIU_CG, "infra_xiu",
+	//	"axi_sel", 19),
+	//GATE_INFRA1(INFRACFG_AO_DEVICE_APC_CG, "infra_devapc",
+	//	"axi_sel", 20),
 	GATE_INFRA1(INFRACFG_AO_CCIF_AP_CG, "infra_ccif_ap",
 		"axi_sel", 23),
-	GATE_INFRA1(INFRACFG_AO_DEBUGSYS_CG, "infra_debugsys",
-		"axi_sel", 24),
+	//GATE_INFRA1(INFRACFG_AO_DEBUGSYS_CG, "infra_debugsys",
+	//	"axi_sel", 24),
 	GATE_INFRA1(INFRACFG_AO_AUDIO_CG, "infra_audio",
 		"axi_sel", 25),
 	GATE_INFRA1(INFRACFG_AO_CCIF_MD_CG, "infra_ccif_md",
 		"axi_sel", 26),
 	GATE_INFRA1(INFRACFG_AO_DXCC_SEC_CORE_CG, "infra_dxcc_sec_core",
 		"dxcc_sel", 27),
-	GATE_INFRA1(INFRACFG_AO_DXCC_AO_CG, "infra_dxcc_ao",
-		"dxcc_sel", 28),
+	//GATE_INFRA1(INFRACFG_AO_DXCC_AO_CG, "infra_dxcc_ao",
+	//	"dxcc_sel", 28),
 	GATE_INFRA1(INFRACFG_AO_IMP_IIC_CG, "infra_imp_iic",
 		"i2c_sel", 29),
-	GATE_INFRA1(INFRACFG_AO_DEVMPU_BCLK_CG, "infra_devmpu_bclk",
-		"axi_sel", 30),
-	GATE_INFRA1(INFRACFG_AO_DRAMC_F26M_CG, "infra_dramc_f26m",
-		"clk26m", 31),
+	//GATE_INFRA1(INFRACFG_AO_DEVMPU_BCLK_CG, "infra_devmpu_bclk",
+	//	"axi_sel", 30),
+	//GATE_INFRA1(INFRACFG_AO_DRAMC_F26M_CG, "infra_dramc_f26m",
+	//	"clk26m", 31),
 	/* INFRA2 */
 	GATE_INFRA2(INFRACFG_AO_PWM_BCLK6_CG, "infra_pwm_bclk6",
 		"clk26m", 0),
@@ -1565,10 +1566,10 @@ static const struct mtk_gate infra_clks[] __initconst = {
 		"axi_sel", 21),
 
 
-	GATE_INFRA3(INFRACFG_AO_FADSP_26M_CG, "infra_fadsp_26m",
-		"adsp_sel", 22),
-	GATE_INFRA3(INFRACFG_AO_FADSP_32K_CG, "infra_fadsp_32k",
-		"adsp_sel", 23),
+	//GATE_INFRA3(INFRACFG_AO_FADSP_26M_CG, "infra_fadsp_26m",
+	//	"adsp_sel", 22),
+	//GATE_INFRA3(INFRACFG_AO_FADSP_32K_CG, "infra_fadsp_32k",
+		//"adsp_sel", 23),
 
 	GATE_INFRA3(INFRACFG_AO_CCIF4_AP_CG, "infra_ccif4_ap",
 		"axi_sel", 24),
@@ -2734,6 +2735,20 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 	clk_writel(AP_PLL_CON8, clk_readl(AP_PLL_CON8) & 0xfffff6af);
 	#endif
 
+/*APLL1*/
+	clk_clrl(APLL1_CON0, PLL_EN);
+	clk_setl(APLL1_PWR_CON0, PLL_ISO_EN);
+	clk_clrl(APLL1_PWR_CON0, PLL_PWR_ON);
+/*APLL2*/
+	clk_clrl(APLL2_CON0, PLL_EN);
+	clk_setl(APLL2_PWR_CON0, PLL_ISO_EN);
+	clk_clrl(APLL2_PWR_CON0, PLL_PWR_ON);
+/*ADSPPLL*/
+	/* clk_clrl(ADSPPLL_CON0, ADSPPLL_DIV_RSTB); */
+	clk_clrl(ADSPPLL_CON0, PLL_EN);
+	clk_setl(ADSPPLL_PWR_CON0, PLL_ISO_EN);
+	clk_clrl(ADSPPLL_PWR_CON0, PLL_PWR_ON);
+	clk_clrl(ADSPPLL_CON0, ADSPPLL_DIV_RSTB);/*move to front*/
 #if 0 /* note srt_bar should do before disable */
 /*MMPLL*/
 	/* clk_clrl(MMPLL_CON0, MMPLL_DIV_RSTB); */
@@ -2753,20 +2768,6 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 	clk_clrl(MSDCPLL_CON0, PLL_EN);
 	clk_setl(MSDCPLL_PWR_CON0, PLL_ISO_EN);
 	clk_clrl(MSDCPLL_PWR_CON0, PLL_PWR_ON);
-/*APLL1*/
-	clk_clrl(APLL1_CON0, PLL_EN);
-	clk_setl(APLL1_PWR_CON0, PLL_ISO_EN);
-	clk_clrl(APLL1_PWR_CON0, PLL_PWR_ON);
-/*APLL2*/
-	clk_clrl(APLL2_CON0, PLL_EN);
-	clk_setl(APLL2_PWR_CON0, PLL_ISO_EN);
-	clk_clrl(APLL2_PWR_CON0, PLL_PWR_ON);
-/*ADSPPLL*/
-	/* clk_clrl(ADSPPLL_CON0, ADSPPLL_DIV_RSTB); */
-	clk_clrl(ADSPPLL_CON0, PLL_EN);
-	clk_setl(ADSPPLL_PWR_CON0, PLL_ISO_EN);
-	clk_clrl(ADSPPLL_PWR_CON0, PLL_PWR_ON);
-	clk_clrl(ADSPPLL_CON0, ADSPPLL_DIV_RSTB);/*move to front*/
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_apmixedsys, "mediatek,apmixed",
