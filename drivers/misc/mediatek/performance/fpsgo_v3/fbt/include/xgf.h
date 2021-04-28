@@ -36,6 +36,7 @@
 #define TIME_50MS  50000000
 #define UB_SKIP_FRAME 20
 #define UB_BEGIN_FRAME 50
+#define XGF_MAX_SPID_LIST_LENGTH 20
 
 enum XGF_ERROR {
 	XGF_NOTIFY_OK,
@@ -177,6 +178,17 @@ struct xgf_hw_event {
 
 	unsigned long long head_ts;
 	unsigned long long tail_ts;
+};
+
+struct xgf_spid {
+	struct hlist_node hlist;
+	char process_name[16];
+	char thread_name[16];
+	int pid;
+	int rpid;
+	int tid;
+	unsigned long long bufID;
+	int action;
 };
 
 extern int (*xgf_est_runtime_fp)(pid_t r_pid,
