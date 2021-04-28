@@ -31,6 +31,45 @@ void msdc_sdio_restore_after_resume(struct msdc_host *host)
 {
 }
 
+/* new tx select will be saved to and restored from host->saved_para.sdc_adv_cfg0 */
+void msdc_select_new_tx(struct msdc_host *host)
+{
+	void __iomem *base = host->base, *base_top = host->base_top;
+
+	MSDC_SET_FIELD(SDC_ADV_CFG0, SDC_ADV_CFG0_TX_PIPE_EN, 1);
+}
+
+void msdc_loop_setting(struct msdc_host *host, struct mmc_ios *ios)
+{
+	void __iomem *base = host->base, *base_top = host->base_top;
+
+	switch (ios->timing) {
+	case MMC_TIMING_MMC_HS400:
+		MSDC_SET_FIELD(TOP_TEST_LOOP, TEST_LOOP_LATCH_MUX0, 0);
+		MSDC_SET_FIELD(TOP_TEST_LOOP, TEST_LOOP_LATCH_MUX1, 0);
+		MSDC_SET_FIELD(TOP_TEST_LOOP, TEST_LOOP_EN_SEL_CLK, 1);
+		break;
+	case MMC_TIMING_MMC_HS200:
+	case MMC_TIMING_UHS_SDR104:
+	case MMC_TIMING_UHS_SDR50:
+		MSDC_SET_FIELD(TOP_TEST_LOOP, TEST_LOOP_LATCH_MUX0, 1);
+		MSDC_SET_FIELD(TOP_TEST_LOOP, TEST_LOOP_LATCH_MUX1, 1);
+		MSDC_SET_FIELD(TOP_TEST_LOOP, TEST_LOOP_EN_SEL_CLK, 1);
+		break;
+	case MMC_TIMING_MMC_DDR52:
+	case MMC_TIMING_UHS_DDR50:
+		MSDC_SET_FIELD(TOP_TEST_LOOP, TEST_LOOP_LATCH_MUX0, 1);
+		MSDC_SET_FIELD(TOP_TEST_LOOP, TEST_LOOP_LATCH_MUX1, 1);
+		MSDC_SET_FIELD(TOP_TEST_LOOP, TEST_LOOP_EN_SEL_CLK, 0);
+		break;
+	default:
+		MSDC_SET_FIELD(TOP_TEST_LOOP, TEST_LOOP_LATCH_MUX0, 1);
+		MSDC_SET_FIELD(TOP_TEST_LOOP, TEST_LOOP_LATCH_MUX1, 1);
+		MSDC_SET_FIELD(TOP_TEST_LOOP, TEST_LOOP_EN_SEL_CLK, 0);
+		break;
+	}
+}
+
 void msdc_save_timing_setting(struct msdc_host *host)
 {
 	struct msdc_hw *hw = host->hw;
@@ -505,5 +544,8 @@ void msdc_init_tune_setting(struct msdc_host *host)
 
 void msdc_ios_tune_setting(struct msdc_host *host, struct mmc_ios *ios)
 {
+#ifdef SUPPORT_NEW_TX
+	msdc_loop_setting(host, ios);
+#endif
 	autok_msdc_tx_setting(host, ios);
 }

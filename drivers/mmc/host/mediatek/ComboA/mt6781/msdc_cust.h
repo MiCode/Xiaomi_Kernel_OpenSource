@@ -533,6 +533,9 @@
 /* nano memory card support flag by platform */
 //#define NMCARD_SUPPORT
 
+/* support new tx */
+#define SUPPORT_NEW_TX
+
 /**************************************************************/
 /* Section 6: BBChip-depenent Tunnig Parameter                */
 /**************************************************************/
