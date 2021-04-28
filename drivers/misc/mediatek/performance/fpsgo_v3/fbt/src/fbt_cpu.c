@@ -106,6 +106,10 @@
 #define DEFAULT_GCC_GPU_BOUND_TIME 90
 #define DEFAULT_GCC_CPU_UNKNOWN_SLEEP 80
 #define DEFAULT_GCC_CHECK_UNDER_BOOST 0
+#define DEFAULT_GCC_ENQ_BOUND_THRS 200
+#define DEFAULT_GCC_ENQ_BOUND_QUOTA 0
+#define DEFAULT_GCC_DEQ_BOUND_THRS 200
+#define DEFAULT_GCC_DEQ_BOUND_QUOTA 100
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -252,6 +256,10 @@ static int gcc_gpu_bound_time;
 static int gcc_cpu_unknown_sleep;
 static int gcc_check_under_boost;
 static int gcc_upper_clamp;
+static int gcc_enq_bound_thrs;
+static int gcc_enq_bound_quota;
+static int gcc_deq_bound_thrs;
+static int gcc_deq_bound_quota;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
@@ -315,6 +323,10 @@ module_param(gcc_gpu_bound_time, int, 0644);
 module_param(gcc_cpu_unknown_sleep, int, 0644);
 module_param(gcc_check_under_boost, int, 0644);
 module_param(gcc_upper_clamp, int, 0644);
+module_param(gcc_enq_bound_thrs, int, 0644);
+module_param(gcc_enq_bound_quota, int, 0644);
+module_param(gcc_deq_bound_thrs, int, 0644);
+module_param(gcc_deq_bound_quota, int, 0644);
 
 static DEFINE_SPINLOCK(freq_slock);
 static DEFINE_MUTEX(fbt_mlock);
@@ -2511,13 +2523,16 @@ static int fbt_get_next_jerk(int cur_id)
 }
 
 int update_quota(struct fbt_boost_info *boost_info, int target_fps,
-	unsigned long long t_Q2Q_ns)
+	unsigned long long t_Q2Q_ns, unsigned long long t_enq_len_ns,
+	unsigned long long t_deq_len_ns)
 {
 	int rm_idx, new_idx, first_idx;
 	long long target_time = div64_s64(100000000, target_fps * 100 + gcc_fps_margin);
-	int s32_t_Q2Q = t_Q2Q_ns / 1000;
+	int s32_t_Q2Q = nsec_to_usec(t_Q2Q_ns);
+	int s32_t_enq_len = nsec_to_usec(t_enq_len_ns);
+	int s32_t_deq_len = nsec_to_usec(t_deq_len_ns);
 	int avg = 0, std_square = 0, i, quota_adj = 0, qr_quota = 0;
-	int s32_target_time = target_time;
+	int s32_target_time;
 
 	if (!gcc_fps_margin && target_fps == 60)
 		target_time = vsync_duration_us_60;
@@ -2535,12 +2550,25 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		boost_info->quota_fps = target_fps;
 	}
 
+	if (s32_t_enq_len * 100 > s32_target_time * gcc_enq_bound_thrs ||
+		s32_t_deq_len * 100 > s32_target_time * gcc_deq_bound_thrs) {
+		boost_info->quota_cur_idx = -1;
+		boost_info->quota_cnt = 0;
+		boost_info->quota = 0;
+	}
+
 	new_idx = boost_info->quota_cur_idx + 1;
 
 	if (new_idx >= QUOTA_MAX_SIZE)
 		new_idx -= QUOTA_MAX_SIZE;
 
-	boost_info->quota_raw[new_idx] = target_time - s32_t_Q2Q;
+	if (s32_t_enq_len * 100 > s32_target_time * gcc_enq_bound_thrs)
+		boost_info->quota_raw[new_idx] = target_time * gcc_enq_bound_quota / 100;
+	else if (s32_t_deq_len * 100 > s32_target_time * gcc_deq_bound_thrs)
+		boost_info->quota_raw[new_idx] = target_time * gcc_deq_bound_quota / 100;
+	else
+		boost_info->quota_raw[new_idx] = target_time - s32_t_Q2Q;
+
 	boost_info->quota += boost_info->quota_raw[new_idx];
 
 	if (boost_info->quota_cnt >= gcc_window_size) {
@@ -2566,7 +2594,7 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	avg = boost_info->quota / boost_info->quota_cnt;
 
 
-	if (first_idx < new_idx)
+	if (first_idx <= new_idx)
 		for (i = first_idx; i <= new_idx; i++)
 			std_square += (boost_info->quota_raw[i] - avg) *
 			(boost_info->quota_raw[i] - avg);
@@ -2580,7 +2608,7 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	}
 	do_div(std_square, boost_info->quota_cnt);
 
-	if (first_idx < new_idx) {
+	if (first_idx <= new_idx) {
 		for (i = first_idx; i <= new_idx; i++) {
 			if ((boost_info->quota_raw[i] - avg) *
 				(boost_info->quota_raw[i] - avg) <
@@ -2619,14 +2647,18 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 
 	boost_info->quota_adj = quota_adj;
 
+	/* default: mod each frame */
 	if (qr_mod_frame)
 		boost_info->quota_mod = qr_quota % s32_target_time;
-	else {
-		if (qr_filter_outlier)
-			boost_info->quota_mod = boost_info->quota_adj % s32_target_time;
-		else
-			boost_info->quota_mod = boost_info->quota % s32_target_time;
-	}
+	else if (qr_filter_outlier)
+		boost_info->quota_mod = boost_info->quota_adj;
+	else
+		boost_info->quota_mod = boost_info->quota;
+
+	/* mod target time only if quota < 0 */
+	if (boost_info->quota_mod < 0)
+		boost_info->quota_mod = boost_info->quota_mod % s32_target_time;
+
 
 	fpsgo_main_trace("%s raw[%d]:%d raw[%d]:%d cnt:%d sum:%d avg:%d std_sqr:%d quota:%d mod:%d",
 		__func__, first_idx, boost_info->quota_raw[first_idx],
@@ -2855,7 +2887,11 @@ static int fbt_boost_policy(
 
 	/* update quota */
 	if (qr_enable || gcc_enable) {
-		int s32_target_time = update_quota(boost_info, target_fps, thread_info->Q2Q_time);
+		int s32_target_time = update_quota(boost_info,
+				target_fps,
+				thread_info->Q2Q_time,
+				thread_info->enqueue_length,
+				thread_info->dequeue_length);
 
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->quota, "quota");
 		fpsgo_systrace_c_fbt(pid, buffer_id, s32_target_time, "gcc_target_time");
@@ -5107,7 +5143,10 @@ int __init fbt_cpu_init(void)
 	gcc_gpu_bound_time = DEFAULT_GCC_GPU_BOUND_TIME;
 	gcc_cpu_unknown_sleep = DEFAULT_GCC_CPU_UNKNOWN_SLEEP;
 	gcc_check_under_boost = DEFAULT_GCC_CHECK_UNDER_BOOST;
-	gcc_upper_clamp = 0;
+	gcc_enq_bound_thrs = DEFAULT_GCC_ENQ_BOUND_THRS;
+	gcc_enq_bound_quota = DEFAULT_GCC_ENQ_BOUND_QUOTA;
+	gcc_deq_bound_thrs = DEFAULT_GCC_DEQ_BOUND_THRS;
+	gcc_deq_bound_quota = DEFAULT_GCC_DEQ_BOUND_QUOTA;
 
 	cluster_num = arch_get_nr_clusters();
 
