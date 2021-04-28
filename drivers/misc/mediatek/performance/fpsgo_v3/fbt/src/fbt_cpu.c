@@ -93,19 +93,19 @@
 #define DEFAULT_QR_T2WNT_Y_P 100
 #define DEFAULT_QR_T2WNT_Y_N 0
 #define DEFAULT_QR_HWUI_HINT 1
-#define DEFAULT_GCC_RESERVED_UP_QUOTA_PCT 33
+#define DEFAULT_GCC_RESERVED_UP_QUOTA_PCT 100
 #define DEFAULT_GCC_RESERVED_DOWN_QUOTA_PCT 5
 #define DEFAULT_GCC_STD_FILTER 2
 #define DEFAULT_GCC_WINDOW_SIZE 60
 #define DEFAULT_GCC_UP_STEP 5
 #define DEFAULT_GCC_DOWN_STEP 10
 #define DEFAULT_GCC_FPS_MARGIN 0
-#define DEFAULT_GCC_UP_WINDOW 4
+#define DEFAULT_GCC_UP_WINDOW 15
 #define DEFAULT_GCC_DOWN_SEC_PCT 100
 #define DEFAULT_GCC_GPU_BOUND_LOADING 80
 #define DEFAULT_GCC_GPU_BOUND_TIME 90
 #define DEFAULT_GCC_CPU_UNKNOWN_SLEEP 80
-#define DEFAULT_GCC_CHECK_UNDER_BOOST 1
+#define DEFAULT_GCC_CHECK_UNDER_BOOST 0
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -251,6 +251,7 @@ static int gcc_gpu_bound_loading;
 static int gcc_gpu_bound_time;
 static int gcc_cpu_unknown_sleep;
 static int gcc_check_under_boost;
+static int gcc_upper_clamp;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
@@ -313,6 +314,7 @@ module_param(gcc_gpu_bound_loading, int, 0644);
 module_param(gcc_gpu_bound_time, int, 0644);
 module_param(gcc_cpu_unknown_sleep, int, 0644);
 module_param(gcc_check_under_boost, int, 0644);
+module_param(gcc_upper_clamp, int, 0644);
 
 static DEFINE_SPINLOCK(freq_slock);
 static DEFINE_MUTEX(fbt_mlock);
@@ -363,6 +365,9 @@ static unsigned int *clus_obv;
 static unsigned int last_obv;
 
 static unsigned long long vsync_time;
+static unsigned long long vsync_duration_us_90;
+static unsigned long long vsync_duration_us_60;
+static unsigned long long vsync_duration_us_120;
 
 static int vsync_period;
 static int _gdfrc_fps_limit;
@@ -2505,14 +2510,23 @@ static int fbt_get_next_jerk(int cur_id)
 	return ret_id;
 }
 
-void update_quota(struct fbt_boost_info *boost_info, int target_fps,
-	unsigned long long t_Q2Q)
+int update_quota(struct fbt_boost_info *boost_info, int target_fps,
+	unsigned long long t_Q2Q_ns)
 {
 	int rm_idx, new_idx, first_idx;
-	//long long target_time = div64_s64(1000000, target_fps * 100);
-	long long target_time = div64_s64(1000000, target_fps * 100 + gcc_fps_margin);
+	long long target_time = div64_s64(100000000, target_fps * 100 + gcc_fps_margin);
+	int s32_t_Q2Q = t_Q2Q_ns / 1000;
 	int avg = 0, std_square = 0, i, quota_adj = 0, qr_quota = 0;
 	int s32_target_time = target_time;
+
+	if (!gcc_fps_margin && target_fps == 60)
+		target_time = vsync_duration_us_60;
+	if (!gcc_fps_margin && target_fps == 90)
+		target_time = vsync_duration_us_90;
+	if (!gcc_fps_margin && target_fps == 120)
+		target_time = vsync_duration_us_120;
+
+	s32_target_time = target_time;
 
 	if (target_fps != boost_info->quota_fps) {
 		boost_info->quota_cur_idx = -1;
@@ -2526,7 +2540,7 @@ void update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	if (new_idx >= QUOTA_MAX_SIZE)
 		new_idx -= QUOTA_MAX_SIZE;
 
-	boost_info->quota_raw[new_idx] = target_time - t_Q2Q;
+	boost_info->quota_raw[new_idx] = target_time - s32_t_Q2Q;
 	boost_info->quota += boost_info->quota_raw[new_idx];
 
 	if (boost_info->quota_cnt >= gcc_window_size) {
@@ -2549,29 +2563,29 @@ void update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	boost_info->quota_cur_idx = new_idx;
 
 	/* remove outlier */
-	avg = boost_info->quota * 100 / boost_info->quota_cnt;
+	avg = boost_info->quota / boost_info->quota_cnt;
 
 
 	if (first_idx < new_idx)
 		for (i = first_idx; i <= new_idx; i++)
-			std_square += (boost_info->quota_raw[i] * 100 - avg) *
-			(boost_info->quota_raw[i] * 100 - avg);
+			std_square += (boost_info->quota_raw[i] - avg) *
+			(boost_info->quota_raw[i] - avg);
 	else {
 		for (i = first_idx; i < QUOTA_MAX_SIZE; i++)
-			std_square += (boost_info->quota_raw[i] * 100 - avg) *
-			(boost_info->quota_raw[i] * 100 - avg);
+			std_square += (boost_info->quota_raw[i] - avg) *
+			(boost_info->quota_raw[i] - avg);
 		for (i = 0; i <= new_idx; i++)
-			std_square += (boost_info->quota_raw[i] * 100 - avg) *
-			(boost_info->quota_raw[i] * 100 - avg);
+			std_square += (boost_info->quota_raw[i] - avg) *
+			(boost_info->quota_raw[i] - avg);
 	}
 	do_div(std_square, boost_info->quota_cnt);
 
 	if (first_idx < new_idx) {
 		for (i = first_idx; i <= new_idx; i++) {
-			if ((boost_info->quota_raw[i] * 100 - avg) *
-				(boost_info->quota_raw[i] * 100 - avg) <
+			if ((boost_info->quota_raw[i] - avg) *
+				(boost_info->quota_raw[i] - avg) <
 				gcc_std_filter * gcc_std_filter * std_square ||
-				t_Q2Q < 2 * target_time)
+				s32_t_Q2Q < 2 * target_time)
 				quota_adj += boost_info->quota_raw[i];
 
 			qr_quota += (boost_info->quota_raw[i] < -s32_target_time) ?
@@ -2580,10 +2594,10 @@ void update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		}
 	} else {
 		for (i = first_idx; i < QUOTA_MAX_SIZE ; i++) {
-			if ((boost_info->quota_raw[i] * 100 - avg) *
-				(boost_info->quota_raw[i] * 100 - avg) <
+			if ((boost_info->quota_raw[i] - avg) *
+				(boost_info->quota_raw[i] - avg) <
 				gcc_std_filter * gcc_std_filter * std_square ||
-				t_Q2Q < 2 * target_time)
+				s32_t_Q2Q < 2 * target_time)
 				quota_adj += boost_info->quota_raw[i];
 
 			qr_quota += (boost_info->quota_raw[i] < -s32_target_time) ?
@@ -2591,10 +2605,10 @@ void update_quota(struct fbt_boost_info *boost_info, int target_fps,
 				boost_info->quota_raw[i];
 		}
 		for (i = 0; i <= new_idx ; i++) {
-			if ((boost_info->quota_raw[i] * 100 - avg) *
-				(boost_info->quota_raw[i] * 100 - avg) <
+			if ((boost_info->quota_raw[i] - avg) *
+				(boost_info->quota_raw[i] - avg) <
 				gcc_std_filter * gcc_std_filter * std_square ||
-				t_Q2Q < 2 * target_time)
+				s32_t_Q2Q < 2 * target_time)
 				quota_adj += boost_info->quota_raw[i];
 
 			qr_quota += (boost_info->quota_raw[i] < -s32_target_time) ?
@@ -2618,6 +2632,8 @@ void update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		__func__, first_idx, boost_info->quota_raw[first_idx],
 		new_idx, boost_info->quota_raw[new_idx], boost_info->quota_cnt,
 		boost_info->quota, avg, std_square, quota_adj, boost_info->quota_mod);
+
+	return s32_target_time;
 }
 
 
@@ -2625,14 +2641,21 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 		int target_fps, int fps_margin, unsigned long long t_Q2Q,
 		unsigned int gpu_loading, int pct, int blc_wt, long long t_cpu)
 {
-	long long target_time = div64_s64(1000000, target_fps * 100 + gcc_fps_margin);
+	long long target_time = div64_s64(100000000, target_fps * 100 + gcc_fps_margin);
 	int gcc_down_window;
 	int quota = INT_MAX;
 	unsigned long long ts = fpsgo_get_time();
 	int weight_t_gpu = boost_info->quantile_gpu_time > 0 ?
-		nsec_to_100usec(boost_info->quantile_gpu_time) : -1;
+		nsec_to_usec(boost_info->quantile_gpu_time) : -1;
 	int weight_t_cpu = boost_info->quantile_cpu_time > 0 ?
-		nsec_to_100usec(boost_info->quantile_cpu_time) : -1;
+		nsec_to_usec(boost_info->quantile_cpu_time) : -1;
+
+	if (!gcc_fps_margin && target_fps == 60)
+		target_time = vsync_duration_us_60;
+	if (!gcc_fps_margin && target_fps == 90)
+		target_time = vsync_duration_us_90;
+	if (!gcc_fps_margin && target_fps == 120)
+		target_time = vsync_duration_us_120;
 
 	gcc_down_window = target_fps * gcc_down_sec_pct;
 	do_div(gcc_down_window, 100);
@@ -2689,7 +2712,7 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 				target_time * gcc_gpu_bound_time > weight_t_cpu * 100)
 			goto over_boost;
 
-		if (t_cpu * 100 < target_time * gcc_cpu_unknown_sleep)
+		if (nsec_to_usec(t_cpu) * 100 < target_time * gcc_cpu_unknown_sleep)
 			goto over_boost;
 
 		boost_info->correction += gcc_up_step;
@@ -2703,8 +2726,8 @@ under_boost:
 	if (quota != INT_MAX)
 		boost_info->gcc_quota = quota;
 
-	if ((boost_info->correction) + blc_wt > 100)
-		(boost_info->correction) = 100 - blc_wt;
+	if ((boost_info->correction) + blc_wt > 100 + gcc_upper_clamp)
+		(boost_info->correction) = 100 + gcc_upper_clamp - blc_wt;
 	else if ((boost_info->correction) + blc_wt < 0)
 		(boost_info->correction) = -blc_wt;
 
@@ -2832,8 +2855,10 @@ static int fbt_boost_policy(
 
 	/* update quota */
 	if (qr_enable || gcc_enable) {
-		update_quota(boost_info, target_fps, t_Q2Q);
+		int s32_target_time = update_quota(boost_info, target_fps, thread_info->Q2Q_time);
+
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->quota, "quota");
+		fpsgo_systrace_c_fbt(pid, buffer_id, s32_target_time, "gcc_target_time");
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->quota_adj, "quota_adj");
 		if (qr_debug)
 			fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->quota_mod, "quota_mod");
@@ -2849,7 +2874,7 @@ static int fbt_boost_policy(
 		quota = fbt_eva_gcc(
 				boost_info,
 				target_fps, fps_margin,
-				t_Q2Q, gpu_loading, pct, blc_wt, t1);
+				thread_info->Q2Q_time, gpu_loading, pct, blc_wt, t_cpu_cur);
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->gcc_count, "gcc_count");
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->correction, "correction");
 		fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "before correction");
@@ -2883,27 +2908,27 @@ static int fbt_boost_policy(
 	if (blc_wt) {
 		 /* ignore hwui hint || not hwui */
 		if (qr_enable && (!qr_hwui_hint || thread_info->ux != 1)) {
-			rescue_target_t = div64_s64(10000, target_fps); /* unit:100us */
+			rescue_target_t = div64_s64(1000000, target_fps); /* unit:1us */
 
 			/* t2wnt = target_time * (1+x) + quota * y */
 			if (qr_debug)
 				fpsgo_systrace_c_fbt(pid, buffer_id,
-				rescue_target_t * 100000, "t2wnt");
+				rescue_target_t * 1000, "t2wnt");
 
-			/* rescue_target_t, unit: 100us */
+			/* rescue_target_t, unit: 1us */
 			rescue_target_t = (qr_t2wnt_x) ?
-				rescue_target_t * 1000 * (100 + qr_t2wnt_x) :
-				rescue_target_t * 100000;
+				rescue_target_t * 10 * (100 + qr_t2wnt_x) :
+				rescue_target_t * 1000;
 
-			if (boost_info->quota_mod > 0) { /* qr_quota, unit: 100us */
+			if (boost_info->quota_mod > 0) { /* qr_quota, unit: 1us */
 				/* qr_t2wnt_y_p: percentage */
 				qr_quota_adj = (qr_t2wnt_y_p != 100) ?
-					boost_info->quota_mod * 1000 * qr_t2wnt_y_p :
-					boost_info->quota_mod * 100000;
+					boost_info->quota_mod * 10 * qr_t2wnt_y_p :
+					boost_info->quota_mod * 1000;
 			} else {
 				 /* qr_t2wnt_y_n: percentage */
 				qr_quota_adj = (qr_t2wnt_y_n != 0) ?
-					boost_info->quota_mod * 1000 * qr_t2wnt_y_n :
+					boost_info->quota_mod * 10 * qr_t2wnt_y_n :
 					0;
 			}
 			t2wnt = (rescue_target_t + qr_quota_adj > 0)
@@ -3438,12 +3463,62 @@ SKIP:
 
 void fpsgo_ctrl2fbt_vsync(unsigned long long ts)
 {
+	unsigned long long vsync_duration;
+
 	if (!fbt_is_enable())
 		return;
 
 	mutex_lock(&fbt_mlock);
+
+	vsync_duration = nsec_to_usec(ts - vsync_time);
+
+	if (_gdfrc_fps_limit == 60) {
+		vsync_duration_us_90 = 0;
+		vsync_duration_us_120 = 0;
+		if (vsync_duration_us_60 == 0)
+			vsync_duration_us_60 = 1000000 / 60;
+		else {
+			vsync_duration_us_60 =
+				vsync_duration < 1000000 / 60 * 15 / 10 &&
+				vsync_duration > 1000000 / 60 / 2 ?
+				(vsync_duration * 3 + vsync_duration_us_60 * 7) / 10 :
+				vsync_duration_us_60;
+		}
+
+	} else if (_gdfrc_fps_limit == 90) {
+		vsync_duration_us_60 = 0;
+		vsync_duration_us_120 = 0;
+		if (vsync_duration_us_90 == 0)
+			vsync_duration_us_90 = 1000000 / 90;
+		else {
+			vsync_duration_us_90 =
+				vsync_duration < 1000000 / 90 * 15 / 10 &&
+				vsync_duration > 1000000 / 90 / 2 ?
+				(vsync_duration * 3 + vsync_duration_us_90 * 7) / 10 :
+				vsync_duration_us_90;
+		}
+	} else if (_gdfrc_fps_limit == 120) {
+		vsync_duration_us_60 = 0;
+		vsync_duration_us_90 = 0;
+		if (vsync_duration_us_120 == 0)
+			vsync_duration_us_120 = 1000000 / 120;
+		else {
+			vsync_duration_us_120 =
+				vsync_duration < 1000000 / 120 * 15 / 10 &&
+				vsync_duration > 1000000 / 120 / 2 ?
+				(vsync_duration * 3 + vsync_duration_us_120 * 7) / 10 :
+				vsync_duration_us_120;
+		}
+	}
+
 	vsync_time = ts;
-	xgf_trace("vsync_time=%llu", nsec_to_usec(vsync_time));
+	xgf_trace(
+		"vsync_time=%llu, vsync_duration=%llu, vsync_duration_60=%llu, vsync_duration_90=%llu, vsync_duration_120=%llu",
+		nsec_to_usec(vsync_time), vsync_duration,
+		vsync_duration_us_60,
+		vsync_duration_us_90,
+		vsync_duration_us_120);
+
 	mutex_unlock(&fbt_mlock);
 }
 
@@ -5032,6 +5107,7 @@ int __init fbt_cpu_init(void)
 	gcc_gpu_bound_time = DEFAULT_GCC_GPU_BOUND_TIME;
 	gcc_cpu_unknown_sleep = DEFAULT_GCC_CPU_UNKNOWN_SLEEP;
 	gcc_check_under_boost = DEFAULT_GCC_CHECK_UNDER_BOOST;
+	gcc_upper_clamp = 0;
 
 	cluster_num = arch_get_nr_clusters();
 
