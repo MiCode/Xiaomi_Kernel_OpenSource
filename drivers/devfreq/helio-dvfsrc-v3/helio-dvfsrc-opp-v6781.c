@@ -240,6 +240,10 @@ static int __init dvfsrc_opp_init(void)
 	set_vcore_uv_table(VCORE_OPP_1, vcore_opp_1_uv);
 	set_vcore_uv_table(VCORE_OPP_2, vcore_opp_2_uv);
 
+		/* meta vcore opp*/
+	spm_dvfs_pwrap_cmd(1,
+		vcore_uv_to_pmic((vcore_opp_0_uv + vcore_opp_1_uv) >> 1));
+
 	return 0;
 }
 
