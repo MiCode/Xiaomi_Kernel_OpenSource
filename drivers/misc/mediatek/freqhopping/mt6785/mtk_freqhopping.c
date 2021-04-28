@@ -382,6 +382,9 @@ static noinline int __freq_to_index(enum FH_PLL_ID pll_id, int pattern)
 	unsigned int i = PLL_IDX__DEF;	/* start from 1 */
 	const unsigned int size = ARRAY_SIZE(g_pll_ssc_tbl[pll_id]);
 
+	if (pll_id < 0)
+		return 0;
+
 	while (i < size) {
 		if (pattern == g_pll_ssc_tbl[pll_id][i].idx_pattern) {
 			retVal = i;
