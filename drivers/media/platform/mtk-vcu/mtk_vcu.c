@@ -903,6 +903,21 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 
 	time_check_start();
 	mutex_lock(&vcu->vcu_gce_mutex[i]);
+
+	if (buff.cmdq_buff.codec_type == VCU_VENC) {
+		int lock = -1;
+
+		while (lock != 0) {
+			lock = venc_lock(vcu->gce_info[j].v4l2_ctx, core_id,
+				(bool)buff.cmdq_buff.secure);
+			if (lock != 0) {
+				mutex_unlock(&vcu->vcu_gce_mutex[i]);
+				usleep_range(1000, 2000);
+				mutex_lock(&vcu->vcu_gce_mutex[i]);
+			}
+		}
+	}
+
 	if (atomic_read(&vcu->gce_job_cnt[i][core_id]) == 0 &&
 		vcu->gce_info[j].v4l2_ctx != NULL){
 		if (i == VCU_VENC) {

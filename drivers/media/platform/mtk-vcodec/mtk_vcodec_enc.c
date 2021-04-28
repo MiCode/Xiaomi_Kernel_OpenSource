@@ -2824,20 +2824,25 @@ void mtk_venc_unlock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 	if (hw_id >= MTK_VENC_HW_NUM)
 		return;
 
-	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d",
-		ctx, ctx->id, hw_id, ctx->dev->enc_sem[hw_id].count);
+	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d, lock: %d",
+		ctx, ctx->id, hw_id, ctx->dev->enc_sem[hw_id].count,
+		ctx->dev->enc_hw_locked[hw_id]);
 
 	if (hw_id < MTK_VENC_HW_NUM)
 		up(&ctx->dev->enc_sem[hw_id]);
+
+	ctx->dev->enc_hw_locked[hw_id] = VENC_LOCK_NONE;
+
 }
 
-void mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
+int mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id, bool sec)
 {
 	unsigned int suspend_block_cnt = 0;
 	int ret = -1;
+	enum venc_lock lock = VENC_LOCK_NONE;
 
 	if (hw_id >= MTK_VENC_HW_NUM)
-		return;
+		return ret;
 
 	while (ctx->dev->is_codec_suspending == 1) {
 		suspend_block_cnt++;
@@ -2848,12 +2853,24 @@ void mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 		usleep_range(10000, 20000);
 	}
 
-	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d",
-		ctx, ctx->id, hw_id, ctx->dev->enc_sem[hw_id].count);
+	if (sec != 0)
+		lock = VENC_LOCK_SEC;
+	else
+		lock = VENC_LOCK_NORMAL;
 
-	while (hw_id < MTK_VENC_HW_NUM && ret != 0
-		&& !ctx->lock_abort)
-		ret = down_interruptible(&ctx->dev->enc_sem[hw_id]);
+	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d, sec: %d, lock: %d",
+		ctx, ctx->id, hw_id, ctx->dev->enc_sem[hw_id].count, sec,
+		ctx->dev->enc_hw_locked[hw_id]);
+
+	if (!ctx->lock_abort && lock != ctx->dev->enc_hw_locked[hw_id])
+		ret = down_trylock(&ctx->dev->enc_sem[hw_id]);
+	else
+		ret = 0;
+
+	if (ret == 0)
+		ctx->dev->enc_hw_locked[hw_id] = lock;
+
+	return ret;
 }
 
 void mtk_vcodec_enc_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx)
