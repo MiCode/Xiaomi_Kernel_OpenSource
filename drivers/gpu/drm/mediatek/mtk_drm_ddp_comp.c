@@ -668,9 +668,9 @@ static enum mtk_iommu_callback_ret_t
 	DDPPR_ERR("fault call port=%d, mva=0x%lx, data=0x%p\n", port, mva,
 		  data);
 
-	if (comp) {
-		mtk_dump_analysis(comp);
-		mtk_dump_reg(comp);
+	if (comp && comp->mtk_crtc) {
+		mtk_drm_crtc_analysis(&(comp->mtk_crtc->base));
+		mtk_drm_crtc_dump(&(comp->mtk_crtc->base));
 	}
 
 	return MTK_IOMMU_CALLBACK_HANDLED;
