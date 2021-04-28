@@ -2381,9 +2381,18 @@
 #endif
 	};
 
-	dfd_controller@13e00000 {
-		compatible = "mediatek,dfd_controller";
-		reg = <0 0x13e00000 0 0x112000>;
+	dfd: dfd {
+		compatible = "mediatek,dfd";
+		mediatek,enabled = <1>;
+		mediatek,chain_length = <0xa7f8>;
+		mediatek,rg_dfd_timeout = <0xa0>;
+	};
+
+	dfd_cache: dfd_cache {
+		compatible = "mediatek,dfd_cache";
+		mediatek,enabled = <0>;
+		mediatek,l2c_trigger = <0>;
+		mediatek,rg_dfd_timeout = <0x3e80>;
 	};
 
 	g3d_secure_reg@13fbc000 {
