@@ -11,6 +11,7 @@
 #include <asm/kvm_mmu.h>
 #include <asm/kvm_pgtable.h>
 #include <asm/virt.h>
+#include <nvhe/ffa.h>
 #include <nvhe/spinlock.h>
 
 /*
@@ -48,6 +49,7 @@ struct host_kvm {
 	struct kvm_arch arch;
 	struct kvm_pgtable pgt;
 	struct kvm_pgtable_mm_ops mm_ops;
+	struct kvm_ffa_buffers ffa;
 	hyp_spinlock_t lock;
 };
 extern struct host_kvm host_kvm;
