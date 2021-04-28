@@ -357,11 +357,11 @@ static void mt6781_suspend_show_detailed_wakeup_reason
 	}
 }
 
-static void dump_lp_cond(void)
-{
 #define MT6781_DBG_SMC(_id, _act, _rc, _param) ({\
 	(u32) mtk_lpm_smc_spm_dbg(_id, _act, _rc, _param); })
 
+static void dump_lp_cond(void)
+{
 	int i;
 	u32 blkcg;
 
@@ -505,7 +505,7 @@ static int mt6781_show_message(struct mt6781_spm_wake_status *wakesrc, int type,
 			wakesrc->sw_flag0, wakesrc->sw_flag1);
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_OUT_SZ - log_size,
-			" sw_flag = 0x%x 0x%x\n",
+			" sw_flag = 0x%x 0x%x",
 			wakesrc->sw_flag0, wakesrc->sw_flag1);
 
 		aee_sram_printk(" b_sw_flag = 0x%x 0x%x",
@@ -514,6 +514,10 @@ static int mt6781_show_message(struct mt6781_spm_wake_status *wakesrc, int type,
 			LOG_BUF_OUT_SZ - log_size,
 			" b_sw_flag = 0x%x 0x%x",
 			wakesrc->b_sw_flag0, wakesrc->b_sw_flag1);
+
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_OUT_SZ - log_size,
+			"gpio200 = %u\n", wakesrc->gpio200_datain);
 
 		wr =  WR_ABORT;
 	} else {
@@ -651,11 +655,15 @@ static int mt6781_show_message(struct mt6781_spm_wake_status *wakesrc, int type,
 			}
 			log_size += scnprintf(log_buf + log_size,
 				LOG_BUF_OUT_SZ - log_size,
-				"wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x, 26M_off_pct = %d\n",
+				"wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x, 26M_off_pct = %d, ",
 				plat_mmio_read(SYS_TIMER_VALUE_L),
 				plat_mmio_read(SYS_TIMER_VALUE_H),
 				spm_26M_off_pct);
 		}
+
+		log_size += scnprintf(log_buf + log_size,
+				LOG_BUF_OUT_SZ - log_size,
+				"gpio200 = %u\n", wakesrc->gpio200_datain);
 	}
 	WARN_ON(log_size >= LOG_BUF_OUT_SZ);
 
@@ -897,6 +905,10 @@ int __init mt6781_logger_init(void)
 	dev = cpuidle_get_device();
 	drv = cpuidle_get_cpu_driver(dev);
 	mt6781_logger_fired.state_index = -1;
+
+	mt6781_logger_help.wakesrc->gpio200_datain =
+			MT6781_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_GPIO200_DATAIN,
+			MT_LPM_SMC_ACT_GET, 0, 0);
 
 	if (drv) {
 		int idx;

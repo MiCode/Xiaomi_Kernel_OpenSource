@@ -252,18 +252,35 @@ static ssize_t mt6781_lpm_rc_block_info(int rc_id,
 static ssize_t mt6781_rc_state(int rc_id, char *ToUserBuf, size_t sz)
 {
 	ssize_t len = 0;
+	unsigned long gpio200_datain = 0;
 
 	if (rc_id < 0)
 		return 0;
 
-	mt6781_rc_log(ToUserBuf, sz, len,
-		"enable=%lu, count=%lu, rc-id=%d\n",
-		MT6781_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_SWITCH,
-				MT_LPM_SMC_ACT_GET, rc_id, 0)
-				& MT_SPM_RC_VALID_SW,
-		MT6781_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_CNT,
-				MT_LPM_SMC_ACT_GET, rc_id, 0),
-		rc_id);
+	if (rc_id == MT_RM_CONSTRAINT_ID_BUS26M) {
+		gpio200_datain = MT6781_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_GPIO200_DATAIN,
+				MT_LPM_SMC_ACT_GET, 0, 0);
+
+		mt6781_rc_log(ToUserBuf, sz, len,
+			"enable=%lu(gpio200=%lu), count=%lu, rc-id=%d\n",
+			MT6781_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_SWITCH,
+					MT_LPM_SMC_ACT_GET, rc_id, 0)
+					& MT_SPM_RC_VALID_SW,
+					gpio200_datain,
+			MT6781_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_CNT,
+					MT_LPM_SMC_ACT_GET, rc_id, 0),
+			rc_id);
+	} else {
+		mt6781_rc_log(ToUserBuf, sz, len,
+			"enable=%lu, count=%lu, rc-id=%d\n",
+			MT6781_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_SWITCH,
+					MT_LPM_SMC_ACT_GET, rc_id, 0)
+					& MT_SPM_RC_VALID_SW,
+			MT6781_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_CNT,
+					MT_LPM_SMC_ACT_GET, rc_id, 0),
+			rc_id);
+	}
+
 	return len;
 }
 

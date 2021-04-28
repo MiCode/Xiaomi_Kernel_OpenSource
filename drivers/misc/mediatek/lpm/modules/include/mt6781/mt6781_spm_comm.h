@@ -41,6 +41,7 @@ struct mt6781_spm_wake_status {
 	u32 rt_req_sta3; /* SPM_SW_RSV_5 */
 	u32 rt_req_sta4; /* SPM_SW_RSV_6 */
 	u32 mcupm_req_sta;
+	u32 gpio200_datain;
 };
 
 struct spm_wakesrc_irq_list {
