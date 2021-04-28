@@ -941,7 +941,7 @@ void msdc_set_ies_by_id(u32 id, int set_ies)
 {
 	if (id == 0) {
 		MSDC_SET_FIELD(MSDC0_GPIO_IES_CFG0, MSDC0_IES_ALL_MASK,
-			(set_ies ? 0x7FF : 0));
+			(set_ies ? 0xFFF : 0));
 	} else if (id == 1) {
 		MSDC_SET_FIELD(MSDC1_GPIO_IES_CFG0, MSDC1_IES_ALL_MASK,
 			(set_ies ? 0x3F : 0));
@@ -952,7 +952,7 @@ void msdc_set_smt_by_id(u32 id, int set_smt)
 {
 	if (id == 0) {
 		MSDC_SET_FIELD(MSDC0_GPIO_SMT_CFG0, MSDC0_SMT_ALL_MASK,
-			(set_smt ? 0x7FF : 0));
+			(set_smt ? 0xFFF : 0));
 	} else if (id == 1) {
 		MSDC_SET_FIELD(MSDC1_GPIO_SMT_CFG0, MSDC1_SMT_ALL_MASK,
 			(set_smt ? 0x3F : 0));
@@ -989,6 +989,8 @@ void msdc_set_tdsel_by_id(u32 id, u32 flag, u32 value)
 		MSDC_SET_FIELD(MSDC0_GPIO_TDSEL_CFG1, MSDC0_TDSEL_DAT7_MASK,
 			cust_val);
 		MSDC_SET_FIELD(MSDC0_GPIO_TDSEL_CFG1, MSDC0_TDSEL_DSL_MASK,
+			cust_val);
+		MSDC_SET_FIELD(MSDC0_GPIO_TDSEL_CFG1, MSDC0_TDSEL_RSTB_MASK,
 			cust_val);
 	} else if (id == 1) {
 		if (flag == MSDC_TDRDSEL_CUST)
@@ -1117,6 +1119,8 @@ void msdc_set_driving_by_id(u32 id, struct msdc_hw_driving *driving)
 			driving->dat_drv);
 		MSDC_SET_FIELD(MSDC0_GPIO_DRV_CFG1, MSDC0_DRV_DSL_MASK,
 			driving->ds_drv);
+		MSDC_SET_FIELD(MSDC0_GPIO_DRV_CFG1, MSDC0_DRV_RSTB_MASK,
+			driving->rst_drv);
 	} else if (id == 1) {
 		MSDC_SET_FIELD(MSDC1_GPIO_DRV_CFG0, MSDC1_DRV_CLK_MASK,
 			driving->clk_drv);
@@ -1210,7 +1214,7 @@ void msdc_pin_config_by_id(u32 id, u32 mode)
 			 * MSDC0_DSL to 50K ohm PD
 			 */
 			MSDC_SET_FIELD(MSDC0_GPIO_PUPD_CFG0, MSDC0_PUPD_ALL_MASK, 0x401);
-			MSDC_SET_FIELD(MSDC0_GPIO_R0_CFG0, MSDC0_R0_ALL_MASK, 0x3FE);
+			MSDC_SET_FIELD(MSDC0_GPIO_R0_CFG0, MSDC0_R0_ALL_MASK, 0xBFE);
 			MSDC_SET_FIELD(MSDC0_GPIO_R1_CFG0, MSDC0_R1_ALL_MASK, 0x401);
 		}
 	} else if (id == 1) {
