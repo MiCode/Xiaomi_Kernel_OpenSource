@@ -134,6 +134,8 @@ static struct cpu_dvfs_log_box log_box_parsed[1 + MAX_LOG_FETCH];
 void parse_time_log_content(unsigned int time_stamp_l_log,
 	unsigned int time_stamp_h_log, int idx)
 {
+	if (idx < 0)
+		return;
 	if (time_stamp_h_log == 0 && time_stamp_l_log == 0)
 		log_box_parsed[idx].time_stamp = 0;
 
