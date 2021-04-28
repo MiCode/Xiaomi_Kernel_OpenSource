@@ -1137,7 +1137,7 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	u32 begin_mark, end_addr_mark, cnt_end_addr_mark = 0, shift_pa;
 	dma_addr_t cmd_pa;
 	struct cmdq_operand lop, rop;
-	struct cmdq_instruction *inst;
+	struct cmdq_instruction *inst = NULL;
 	bool absolute = true;
 
 	if (pkt->avail_buf_size > PAGE_SIZE)
