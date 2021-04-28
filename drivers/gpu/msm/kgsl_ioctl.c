@@ -183,8 +183,6 @@ long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 			return device->ftbl->compat_ioctl(dev_priv, cmd, arg);
 
 		return device->ftbl->ioctl(dev_priv, cmd, arg);
-
-		dev_err(device->dev, "invalid ioctl code 0x%08X\n", cmd);
 	}
 
 	return ret;
