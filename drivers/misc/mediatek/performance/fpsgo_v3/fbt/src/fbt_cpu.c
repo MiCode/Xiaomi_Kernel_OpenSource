@@ -2574,6 +2574,7 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		boost_info->quota_cnt = 0;
 		boost_info->quota = 0;
 		boost_info->quota_fps = target_fps;
+		boost_info->enq_sum = 0;
 	}
 
 	if (boost_info->enq_avg * 100 > s32_target_time * gcc_enq_bound_thrs ||
@@ -2581,6 +2582,7 @@ int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		boost_info->quota_cur_idx = -1;
 		boost_info->quota_cnt = 0;
 		boost_info->quota = 0;
+		boost_info->enq_sum = 0;
 	}
 
 	new_idx = boost_info->quota_cur_idx + 1;
