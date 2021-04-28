@@ -60,7 +60,10 @@
 #include "scp_reservedmem_define.h"
 #endif
 
-#if ENABLE_SCP_EMI_PROTECTION
+#ifdef CONFIG_MEDIATEK_EMI
+#include "memory/mediatek/emi.h"
+#endif
+#ifdef CONFIG_MTK_EMI
 #include <mt_emi_api.h>
 #endif
 
@@ -1150,7 +1153,29 @@ static int scp_reserve_memory_ioremap(void)
 }
 #endif
 
-#if ENABLE_SCP_EMI_PROTECTION
+#ifdef CONFIG_MEDIATEK_EMI
+void set_scp_mpu(void)
+{
+	struct emimpu_region_t md_region;
+	int ret;
+
+	ret = mtk_emimpu_init_region(&md_region, MPU_REGION_ID_SCP_SMEM);
+	if (ret) {
+		pr_notice("[SCP]mtk_emimpu_init_region failed\n");
+		return;
+	}
+	mtk_emimpu_set_addr(&md_region, scp_mem_base_phys,
+		scp_mem_base_phys + scp_mem_size - 1);
+	mtk_emimpu_set_apc(&md_region, MPU_DOMAIN_D0,
+		MTK_EMIMPU_NO_PROTECTION);
+	mtk_emimpu_set_apc(&md_region, MPU_DOMAIN_D3,
+		MTK_EMIMPU_NO_PROTECTION);
+	if (mtk_emimpu_set_protection(&md_region))
+		pr_notice("[SCP]mtk_emimpu_set_protection fail\n");
+	mtk_emimpu_free_region(&md_region);
+}
+#endif
+#ifdef CONFIG_MTK_EMI
 void set_scp_mpu(void)
 {
 	struct emi_region_info_t region_info;
@@ -2004,7 +2029,7 @@ static int __init scp_init(void)
 	}
 #endif
 
-#if ENABLE_SCP_EMI_PROTECTION
+#if (defined(CONFIG_MEDIATEK_EMI) || defined(CONFIG_MTK_EMI))
 	set_scp_mpu();
 #endif
 
