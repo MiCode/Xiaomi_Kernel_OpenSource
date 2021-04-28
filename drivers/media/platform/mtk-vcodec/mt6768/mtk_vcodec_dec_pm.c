@@ -155,7 +155,7 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 	void __iomem *vdec_misc_addr = dev->dec_reg_base[VDEC_MISC];
 	void __iomem *vdec_vld_addr = dev->dec_reg_base[VDEC_VLD];
 	void __iomem *vdec_gcon_addr = dev->dec_reg_base[VDEC_SYS];
-	struct mtk_vcodec_ctx *ctx = dev->curr_dec_ctx[hw_id];
+	struct mtk_vcodec_ctx *ctx = NULL;
 	int misc_offset[4] = {64, 66, 67, 65};
 
 	struct timeval tv_start;
@@ -166,6 +166,7 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 	u32 fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 
 	if (hw_id == MTK_VDEC_CORE) {
+		ctx = dev->curr_dec_ctx[hw_id];
 		/* hw break */
 		writel((readl(vdec_misc_addr + 0x0100) | 0x1),
 			vdec_misc_addr + 0x0100);

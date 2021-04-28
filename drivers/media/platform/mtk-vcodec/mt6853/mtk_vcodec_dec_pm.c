@@ -210,7 +210,7 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 	void __iomem *vdec_vld_addr = dev->dec_reg_base[VDEC_VLD];
 	void __iomem *vdec_gcon_addr = dev->dec_reg_base[VDEC_SYS];
 	void __iomem *vdec_ufo_addr = dev->dec_reg_base[VDEC_UFO];
-	struct mtk_vcodec_ctx *ctx = dev->curr_dec_ctx[hw_id];
+	struct mtk_vcodec_ctx *ctx = NULL;
 	int misc_offset[4] = {64, 66, 67, 65};
 
 	struct timeval tv_start;
@@ -222,6 +222,7 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 	u32 is_ufo = 0;
 
 	if (hw_id == MTK_VDEC_CORE) {
+		ctx = dev->curr_dec_ctx[hw_id];
 		if (fourcc != V4L2_PIX_FMT_AV1)
 			is_ufo = readl(vdec_ufo_addr + 0x08C) & 0x1;
 
