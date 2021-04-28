@@ -794,7 +794,7 @@ int ccu_read_info_reg(int regNo)
 	int *offset;
 
 	if (regNo < 0 || regNo >= 32) {
-		LOG_ERR("invalid regNo");
+		LOG_ERR("Invalid regNo : %d\n", regNo);
 		return 0;
 	}
 
@@ -807,7 +807,14 @@ int ccu_read_info_reg(int regNo)
 
 void ccu_write_info_reg(int regNo, int val)
 {
-	int *offset = (int *)(uintptr_t)(ccu_base + 0x80 + regNo * 4);
+	int *offset;
+
+	if (regNo < 0 || regNo >= 32) {
+		LOG_ERR("invalid regNo");
+		return;
+	}
+
+	offset = (int *)(uintptr_t)(ccu_base + 0x80 + regNo * 4);
 	*offset = val;
 	LOG_DBG("%s: %x\n", __func__, (unsigned int)(*offset));
 }
