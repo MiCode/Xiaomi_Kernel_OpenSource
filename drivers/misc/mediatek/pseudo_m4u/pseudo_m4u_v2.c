@@ -2730,7 +2730,7 @@ out:
 }
 #endif
 
-int m4u_sec_init(void)
+static int m4u_sec_init_nolock(void)
 {
 	int ret;
 #if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && \
@@ -2800,6 +2800,16 @@ m4u_sec_reinit:
 	/* don't deinit ta because of multiple init operation */
 
 	return 0;
+}
+
+int m4u_sec_init(void)
+{
+	int ret = 0;
+
+	mutex_lock(&gM4u_sec_init);
+	ret = m4u_sec_init_nolock();
+	mutex_unlock(&gM4u_sec_init);
+	return ret;
 }
 
 int m4u_config_port_tee(struct M4U_PORT_STRUCT *pM4uPort)	/* native */
@@ -3292,9 +3302,7 @@ static long pseudo_ioctl(struct file *filp,
 			M4U_MSG(
 				"MTK M4U ioctl : MTK_M4U_T_SEC_INIT command!! 0x%x\n",
 					cmd);
-			mutex_lock(&gM4u_sec_init);
 			ret = m4u_sec_init();
-			mutex_unlock(&gM4u_sec_init);
 		}
 		break;
 #endif
@@ -3444,9 +3452,7 @@ long pseudo_compat_ioctl(struct file *filp,
 			M4U_MSG(
 				"MTK_M4U_T_SEC_INIT command!! 0x%x\n",
 					cmd);
-			mutex_lock(&gM4u_sec_init);
 			ret = m4u_sec_init();
-			mutex_unlock(&gM4u_sec_init);
 		}
 		break;
 #endif
