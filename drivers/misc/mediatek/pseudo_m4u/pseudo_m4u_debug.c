@@ -945,6 +945,7 @@ static int m4u_debug_set(void *data, u64 val)
 			pseudo_dealloc_mva(client, M4U_PORT_OVL_DEBUG, mva);
 		mtk_iommu_iova_to_pa(dev, mva, &pa);
 		M4U_MSG("(2) mva:0x%lx pa:0x%lx\n", mva, pa);
+		vfree(pSrc);
 	}
 	break;
 	case 25:
