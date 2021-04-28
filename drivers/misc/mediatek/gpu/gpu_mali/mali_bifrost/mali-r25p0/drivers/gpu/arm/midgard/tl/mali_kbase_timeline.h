@@ -81,6 +81,30 @@ void kbase_timeline_streams_flush(struct kbase_timeline *timeline);
  */
 void kbase_timeline_streams_body_reset(struct kbase_timeline *timeline);
 
+/**
+ * kbase_timeline_post_kbase_context_create - Inform timeline that a new KBase
+ *                                            Context has been created.
+ * @kctx:    KBase Context
+ */
+void kbase_timeline_post_kbase_context_create(struct kbase_context *kctx);
+
+/**
+ * kbase_timeline_pre_kbase_context_destroy - Inform timeline that a KBase
+ *                                            Context is about to be destroyed.
+ * @kctx:    KBase Context
+ */
+void kbase_timeline_pre_kbase_context_destroy(struct kbase_context *kctx);
+
+/**
+ * kbase_timeline_post_kbase_context_destroy - Inform timeline that a KBase
+ *                                             Context has been destroyed.
+ * @kctx:    KBase Context
+ *
+ * Should be called immediately before the memory is freed, and the context ID
+ * and kbdev pointer should still be valid.
+ */
+void kbase_timeline_post_kbase_context_destroy(struct kbase_context *kctx);
+
 #if MALI_UNIT_TEST
 /**
  * kbase_timeline_test - start timeline stream data generator
