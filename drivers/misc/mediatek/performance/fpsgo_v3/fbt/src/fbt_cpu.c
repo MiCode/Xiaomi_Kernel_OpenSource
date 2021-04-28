@@ -2583,39 +2583,6 @@ void update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		boost_info->quota, avg, std_square, quota_adj);
 }
 
-int eva_quota(long long array[], int i)
-{
-	int idx_first = 0;
-	int idx;
-	int sum = 0, avg = 0, std_square = 0;
-	int retval = 0;
-
-	if (gcc_window_size >= GCC_MAX_SIZE)
-		return 0;
-
-	if (i - gcc_window_size + 1 >= 0)
-		idx_first = i - gcc_window_size + 1;
-
-	for (idx = idx_first; idx <= i; idx++)
-		sum += (array[idx] * 100);
-	avg = sum;
-
-	avg = avg / (i - idx_first + 1);
-
-	for (idx = idx_first; idx <= i; idx++)
-		std_square += (array[idx] * 100 - avg) * (array[idx] * 100 - avg);
-	do_div(std_square, i - idx_first + 1);
-
-	for (idx = idx_first; idx <= i; idx++)
-		if ((array[idx] * 100 - avg) * (array[idx] * 100 - avg) <
-			gcc_std_filter * gcc_std_filter * std_square)
-			retval += array[idx];
-
-	fpsgo_main_trace("%s begin:%d %d end:%d %d sum:%d avg:%d std_square:%d, quota:%d",
-		__func__, idx_first, array[idx_first], i, array[i], sum, avg, std_square, retval);
-
-	return retval;
-}
 
 int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 		int target_fps, int fps_margin, unsigned long long t_Q2Q,
@@ -2623,7 +2590,7 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 {
 	long long target_time = div64_s64(1000000, target_fps * 100 + gcc_fps_margin);
 	int gcc_down_window;
-	int quota = -999;
+	int quota = INT_MAX;
 	unsigned long long ts = fpsgo_get_time();
 	int weight_t_gpu = boost_info->quantile_gpu_time > 0 ?
 		nsec_to_100usec(boost_info->quantile_gpu_time) : -1;
@@ -2643,21 +2610,10 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 	if (boost_info->gcc_target_fps != target_fps) {
 		boost_info->gcc_target_fps = target_fps;
 		boost_info->correction = 0;
-		boost_info->gcc_quota_i = 0;
-		boost_info->gcc_quota_array[0] = target_time - t_Q2Q;
 		boost_info->gcc_count = 1;
 		boost_info->gcc_pct_thrs = 1000;
 	} else {
 		boost_info->gcc_count++;
-		if (boost_info->gcc_quota_i >= GCC_MAX_SIZE - 1) {
-			memmove(boost_info->gcc_quota_array,
-				&(boost_info->gcc_quota_array[GCC_MAX_SIZE - gcc_window_size]),
-				sizeof(long long) * gcc_window_size);
-			boost_info->gcc_quota_i = gcc_window_size - 1;
-		}
-			boost_info->gcc_quota_i++;
-			boost_info->gcc_quota_array[boost_info->gcc_quota_i] =
-				target_time - t_Q2Q;
 	}
 
 	boost_info->gcc_avg_pct = (50 * pct + 50 * (boost_info->gcc_avg_pct)) / 100;
@@ -2666,7 +2622,7 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 		if (fps_margin > 0)
 			goto ignore_gcc;
 
-		quota = eva_quota(boost_info->gcc_quota_array, boost_info->gcc_quota_i);
+		quota = boost_info->quota_adj;
 
 		if (quota * 100 < target_time * gcc_reserved_down_quota_pct)
 			goto under_boost;
@@ -2680,7 +2636,7 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 		if (fps_margin > 0)
 			goto ignore_gcc;
 
-		quota = eva_quota(boost_info->gcc_quota_array, boost_info->gcc_quota_i);
+		quota = boost_info->quota_adj;
 
 		if (quota * 100 + target_time * gcc_reserved_up_quota_pct > 0)
 			goto over_boost;
@@ -2707,7 +2663,7 @@ ignore_gcc:
 over_boost:
 under_boost:
 
-	if (quota != -999)
+	if (quota != INT_MAX)
 		boost_info->gcc_quota = quota;
 
 	if ((boost_info->correction) + blc_wt > 100)
@@ -2856,9 +2812,6 @@ static int fbt_boost_policy(
 				target_fps, fps_margin,
 				t_Q2Q, gpu_loading, pct, blc_wt, t1);
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->gcc_count, "gcc_count");
-		if (quota != -999)
-			fpsgo_systrace_c_fbt(pid, buffer_id, quota, "gcc_quota");
-		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->gcc_target_fps, "gcc_target_fps");
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->correction, "correction");
 		fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "before correction");
 		blc_wt = clamp((int)blc_wt + boost_info->correction, 1, 100);

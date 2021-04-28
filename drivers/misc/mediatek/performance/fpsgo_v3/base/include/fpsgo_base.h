@@ -103,8 +103,6 @@ struct fbt_boost_info {
 	int quota_adj; /* remove outlier */
 
 	/* GCC */
-	long long gcc_quota_array[GCC_MAX_SIZE];
-	int gcc_quota_i;
 	int gcc_quota;
 	int gcc_count;
 	int gcc_target_fps;
