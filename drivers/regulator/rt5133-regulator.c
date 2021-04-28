@@ -31,7 +31,7 @@
 #include <linux/debugfs.h>
 #endif /* GENERIC_DEBUGFS */
 
-#define RT5133_DRV_VERSION	"1.0.1_MTK"
+#define RT5133_DRV_VERSION	"1.0.2_MTK"
 
 #define RT5133_REG_CHIP_INFO		0x00
 #define RT5133_REG_RST_CTRL		0x06
@@ -289,8 +289,12 @@ static ssize_t lock_debug_read(struct file *file,
 	struct dbg_info *di = file->private_data;
 	struct dbg_internal *d = &di->internal;
 	char buf[10];
+	int ret;
 
-	snprintf(buf, sizeof(buf), "%d\n", mutex_is_locked(&d->io_lock));
+	ret = snprintf(buf, sizeof(buf), "%d\n", mutex_is_locked(&d->io_lock));
+	if (ret < 0)
+		return ret;
+
 	return simple_read_from_buffer(user_buf, cnt, loff, buf, strlen(buf));
 }
 
@@ -751,7 +755,7 @@ static int rt5133_chip_reset(struct rt5133_priv *priv)
 
 static int rt5133_validate_vendor_info(struct rt5133_priv *priv)
 {
-	unsigned int val;
+	unsigned int val = 0;
 	int ret;
 
 	ret = regmap_read(priv->regmap, RT5133_REG_CHIP_INFO, &val);
@@ -767,10 +771,10 @@ static int rt5133_validate_vendor_info(struct rt5133_priv *priv)
 void rt5133_register_interrupt_callback(enum RT5133_IRQ_NUM intno,
 					RT5133_IRQ_FUNC_PTR IRQ_FUNC_PTR)
 {
-	if (intno < RT5133_IRQ_MAX && intno >= 0)
+	if (intno < RT5133_IRQ_MAX && intno >= 0) {
 		rt5133_callback[intno] = IRQ_FUNC_PTR;
-
-	rt5133_callback[intno]();
+		rt5133_callback[intno]();
+	}
 }
 EXPORT_SYMBOL(rt5133_register_interrupt_callback);
 
@@ -783,7 +787,7 @@ EXPORT_SYMBOL(rt5133_enable_interrupt);
 static int rt5133_regulator_notify(struct notifier_block *nb,
 				   unsigned long event, void *data)
 {
-	int idx;
+	int idx = 0;
 
 	if (event != REGULATOR_EVENT_OVER_CURRENT &&
 		event != REGULATOR_EVENT_FAIL)
@@ -820,7 +824,7 @@ static int rt5133_register_notifier(struct rt5133_priv *priv)
 
 	regulator_name = kcalloc(8, sizeof(char *),  GFP_KERNEL);
 	if (of_property_read_string_array(np, "regulator_nb", regulator_name, 8) < 0)
-		return -EINVAL;
+		goto err_read_property;
 
 	for (i = 0; i < 8; i++) {
 		rt5133_callback[i] = rt5133_callback[i+1] = NULL;
@@ -850,6 +854,8 @@ err_get_regulator:
 							   &rt5133_nb[i]);
 		}
 	}
+
+err_read_property:
 	kfree(regulator_name);
 	return -EINVAL;
 }
@@ -975,6 +981,13 @@ MODULE_LICENSE("GPL v2");
 MODULE_VERSION(RT5133_DRV_VERSION);
 /*
  * Release Note
+ * 1.0.2
+ * (1) Free regulator_name when read of_property failed to avoid memory leak
+ * (2) Check snprintf error return
+ * (3) Call rt5133_callback only when intno is in the valid range
+ * (4) Initialize idx in rt5133_regulator_notify
+ * (5) Initialize val of regmap_read before using it
+ *
  * 1.0.1
  * (1) Add driver version description
  * (2) Remove check of gpio regulator
