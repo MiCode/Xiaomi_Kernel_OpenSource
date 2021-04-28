@@ -96,7 +96,7 @@ struct spower_leakage_info spower_lkg_info[MTK_SPOWER_MAX] = {
 		.devinfo_idx = DEVINFO_IDX_VSRAM_GPU,
 		.devinfo_offset = DEVINFO_OFF_VSRAM_GPU,
 		.value = DEF_VSRAM_GPU_LEAKAGE,
-		.v_of_fuse = V_OF_FUSE_GPU,
+		.v_of_fuse = V_OF_FUSE_VSRAM_GPU,
 		.t_of_fuse = T_OF_FUSE,
 	},
 	[MTK_VSRAM_CORE_LEAKAGE] = {
