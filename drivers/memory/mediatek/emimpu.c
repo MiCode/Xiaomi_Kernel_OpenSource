@@ -683,7 +683,7 @@ module_exit(emimpu_drv_exit);
  * @rg_info:	the target region for init
  * @rg_num:	the region id for the rg_info
  *
- * Returns 0 for success and 1 for abort
+ * Returns 0 for success and non-zero for abort
  */
 int mtk_emimpu_init_region(
 	struct emimpu_region_t *rg_info, unsigned int rg_num)
@@ -691,6 +691,11 @@ int mtk_emimpu_init_region(
 	struct emimpu_dev_t *emimpu_dev_ptr;
 	unsigned int size;
 	unsigned int i;
+
+	if (!rg_info) {
+		pr_info("%s: %p is NULL", __func__, __builtin_return_address(0));
+		return -EINVAL;
+	}
 
 	if (!emimpu_pdev)
 		return -1;
@@ -727,6 +732,10 @@ EXPORT_SYMBOL(mtk_emimpu_init_region);
  */
 int mtk_emimpu_free_region(struct emimpu_region_t *rg_info)
 {
+	if (!rg_info) {
+		pr_info("%s: %p is NULL", __func__, __builtin_return_address(0));
+		return -EINVAL;
+	}
 	kfree(rg_info->apc);
 	return 0;
 }
@@ -743,6 +752,10 @@ EXPORT_SYMBOL(mtk_emimpu_free_region);
 int mtk_emimpu_set_addr(struct emimpu_region_t *rg_info,
 	unsigned long long start, unsigned long long end)
 {
+	if (!rg_info) {
+		pr_info("%s: %p is NULL", __func__, __builtin_return_address(0));
+		return -EINVAL;
+	}
 	rg_info->start = start;
 	rg_info->end = end;
 	return 0;
@@ -761,6 +774,11 @@ int mtk_emimpu_set_apc(struct emimpu_region_t *rg_info,
 	unsigned int d_num, unsigned int apc)
 {
 	struct emimpu_dev_t *emimpu_dev_ptr;
+
+	if (!rg_info) {
+		pr_info("%s: %p is NULL", __func__, __builtin_return_address(0));
+		return -EINVAL;
+	}
 
 	if (!emimpu_pdev)
 		return -1;
