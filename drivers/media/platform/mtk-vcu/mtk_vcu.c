@@ -52,7 +52,9 @@
 #include <uapi/linux/mtk_vcu_controls.h>
 #include "mtk_vcu.h"
 #include "smi_public.h"
-
+#ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
+#include "tz_m4u.h"
+#endif
 /*
 #undef pr_debug
 #define pr_debug pr_info
@@ -992,7 +994,8 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 			if (buff.cmdq_buff.secure == 3) {
 				// CMDQ MTEE hint
 				pr_debug("[VCU] Use MTEE\n");
-				cmdq_sec_pkt_set_mtee(pkt_ptr, (buff.cmdq_buff.secure == 3));
+				cmdq_sec_pkt_set_mtee(pkt_ptr,
+					 (buff.cmdq_buff.secure == 3), SEC_ID_SVP);
 			}
 #endif
 		}
