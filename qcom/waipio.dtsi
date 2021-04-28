@@ -3486,6 +3486,7 @@
 		#size-cells = <1>;
 
 		cnss_pci_iommu_group: cnss_pci_iommu_group {
+			qcom,iommu-msi-size = <0x1000>;
 			qcom,iommu-dma-addr-pool = <0xa0000000 0x10000000>;
 			qcom,iommu-dma = "fastmap";
 			qcom,iommu-pagetable = "coherent";
