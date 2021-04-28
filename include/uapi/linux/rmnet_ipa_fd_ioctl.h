@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _RMNET_IPA_FD_IOCTL_H
@@ -36,6 +36,7 @@
 #define WAN_IOCTL_ADD_OFFLOAD_CONNECTION     18
 #define WAN_IOCTL_RMV_OFFLOAD_CONNECTION     19
 #define WAN_IOCTL_GET_WAN_MTU                20
+#define WAN_IOCTL_NOTIFY_NAT_MOVE_RES        21
 
 /* User space may not have this defined. */
 #ifndef IFNAMSIZ
@@ -273,4 +274,8 @@ struct wan_ioctl_query_per_client_stats {
 #define WAN_IOC_GET_WAN_MTU _IOWR(WAN_IOC_MAGIC, \
 		WAN_IOCTL_GET_WAN_MTU, \
 		struct ipa_mtu_info *)
+
+#define WAN_IOC_NOTIFY_NAT_MOVE_RES _IOWR(WAN_IOC_MAGIC, \
+	WAN_IOCTL_NOTIFY_NAT_MOVE_RES, \
+	bool)
 #endif /* _RMNET_IPA_FD_IOCTL_H */
