@@ -3607,6 +3607,27 @@
 		reg = <0 0x15820000 0 0x1000>;
 	};
 
+	vdec_fmt: vdec_fmt@16080000 {
+		compatible = "mediatek-vdec-fmt";
+		mediatek,fmtname = "vdec-fmt";
+		reg = <0 0x16080000 0 0x1000>, /* VDEC_MINI_MDP_TOP_MDP_RDMA */
+			  <0 0x16081000 0 0x1000>, /* VDEC_MINI_MDP_TOP_MDP_WDMA */
+			  <0 0x1602f000 0 0x10000>; /* VDEC_SOC_GCON */
+		clocks = <&vdec_gcon VDEC_VDEC>;
+		clock-names = "MT_CG_VDEC";
+		mediatek,fmt_gce_th_num = <1>; /* FMT GCE HW THREAD NUM*/
+		mboxes = <&gce_mbox 23 0 CMDQ_THR_PRIO_1>;
+		/* rdma_sw_rst_done_eng_event */
+		rdma0_sw_rst_done_eng = /bits/ 16 <CMDQ_EVENT_VDEC_MINI_MDP_EVENT_0>;
+		/* rdma_tile_done */
+		rdma0_tile_done = /bits/ 16 <CMDQ_EVENT_VDEC_MINI_MDP_EVENT_1>;
+		/* wdma_sw_rst_done_eng_event */
+		wdma0_sw_rst_done_eng = /bits/ 16 <CMDQ_EVENT_VDEC_MINI_MDP_EVENT_2>;
+		/* wdma_tile_done */
+		wdma0_tile_done = /bits/ 16 <CMDQ_EVENT_VDEC_MINI_MDP_EVENT_3>;
+		gce-gpr = <GCE_GPR_R10>;
+	};
+
 	vcu: vcu@16000000 {
 		compatible = "mediatek-vcu";
 		mediatek,vcuid = <0>;
