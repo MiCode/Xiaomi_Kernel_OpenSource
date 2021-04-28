@@ -50,5 +50,9 @@
 #define MTK_SIP_DP_CONTROL \
 	(0x82000523 | MTK_SIP_SMC_AARCH_BIT)
 
+/* USB related SMC call */
+#define MTK_SIP_USB_CONTROL \
+	(0x82000527 | MTK_SIP_SMC_AARCH_BIT)
+
 #endif
 /* _MTK_SECURE_API_H_ */
