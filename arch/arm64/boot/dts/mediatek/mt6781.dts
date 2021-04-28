@@ -2320,7 +2320,7 @@
 			"CLIENT_SUB_CFG0",
 			"CLIENT_DSI_CFG0";
 #endif
-		/* define subsys, see mt6853-gce.h */
+		/* define subsys, see mt6781-gce.h */
 		gce-subsys = <&gce_mbox 0x14000000 SUBSYS_1400XXXX>,
 			<&gce_mbox 0x14010000 SUBSYS_1401XXXX>,
 			<&gce_mbox 0x14020000 SUBSYS_1402XXXX>;
@@ -2393,7 +2393,9 @@
 			"MTK_DRM_OPT_VDS_PATH_SWITCH",
 			"MTK_DRM_OPT_LAYER_REC",
 			"MTK_DRM_OPT_CLEAR_LAYER",
-			"MTK_DRM_OPT_LFR";
+			"MTK_DRM_OPT_LFR",
+			"MTK_DRM_OPT_DYN_MIPI_CHANGE",
+			"MTK_DRM_OPT_SF_PF";
 
 		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 			<1>, /*MTK_DRM_OPT_USE_CMDQ*/
@@ -2433,7 +2435,9 @@
 			<0>, /*MTK_DRM_OPT_VDS_PATH_SWITCH*/
 			<0>, /*MTK_DRM_OPT_LAYER_REC*/
 			<1>, /*MTK_DRM_OPT_CLEAR_LAYER*/
-			<1>; /*MTK_DRM_OPT_LFR*/
+			<1>, /*MTK_DRM_OPT_LFR*/
+			<1>, /*MTK_DRM_OPT_DYN_MIPI_CHANGE*/
+			<1>; /*MTK_DRM_OPT_SF_PF*/
 	};
 
 	disp_mutex0: disp_mutex@14001000 {
