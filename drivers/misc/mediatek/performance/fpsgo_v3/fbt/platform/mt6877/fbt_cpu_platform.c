@@ -161,7 +161,7 @@ int fbt_get_default_boost_ta(void)
 
 int fbt_get_default_adj_loading(void)
 {
-	return 1;
+	return 0;
 }
 
 int fbt_get_default_adj_count(void)
@@ -185,6 +185,11 @@ int fbt_get_default_uboost(void)
 }
 
 int fbt_get_default_qr_enable(void)
+{
+	return 1;
+}
+
+int fbt_get_default_gcc_enable(void)
 {
 	return 1;
 }

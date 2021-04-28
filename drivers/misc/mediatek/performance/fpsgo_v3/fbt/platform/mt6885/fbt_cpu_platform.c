@@ -197,3 +197,8 @@ int fbt_get_default_qr_enable(void)
 	return 0;
 }
 
+int fbt_get_default_gcc_enable(void)
+{
+	return 0;
+}
+

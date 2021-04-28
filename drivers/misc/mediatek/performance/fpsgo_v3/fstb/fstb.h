@@ -51,8 +51,9 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 	unsigned int Max_cap,
 	unsigned long long mid);
 void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
-		int *target_fps, int *target_cpu_time,
-		int tgid, unsigned long long mid);
+		int *target_fps, int *target_cpu_time, int *fps_margin,
+		int tgid, unsigned long long mid, int *quantile_cpu_time,
+		int *quantile_gpu_time);
 void fpsgo_ctrl2fstb_dfrc_fps(int dfrc_fps);
 
 #else
@@ -79,8 +80,9 @@ static inline int fpsgo_fbt2fstb_update_cpu_frame_info(
 	unsigned int Max_cap,
 	unsigned long long mid) { return 0; }
 static inline void fpsgo_fbt2fstb_query_fps(int pid,
-			int *target_fps, int *target_cpu_time,
-			int tgid, unsigned long long mid) { }
+		int *target_fps, int *target_cpu_time, int *fps_margin,
+		int tgid, unsigned long long mid, int *quantile_cpu_time,
+		int *quantile_gpu_time) { }
 static void fpsgo_ctrl2fstb_dfrc_fps(int dfrc_fps) { }
 
 #endif

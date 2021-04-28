@@ -25,6 +25,7 @@
 
 #define WINDOW 20
 #define RESCUE_TIMER_NUM 3
+#define GCC_MAX_SIZE 300
 
 /* EARA job type */
 enum HW_EVENT4RENDER {
@@ -99,6 +100,20 @@ struct fbt_boost_info {
 	int qr_quota;
 	int qr_signed;
 	int qr_signed_cnt;
+
+	/* GCC */
+	long long gcc_quota_array[GCC_MAX_SIZE];
+	int gcc_quota_i;
+	int gcc_quota;
+	int gcc_count;
+	int gcc_target_fps;
+	int correction;
+	int gcc_pct_thrs;
+	int gcc_avg_pct;
+	unsigned long long gcc_pct_reset_ts;
+	int quantile_cpu_time;
+	int quantile_gpu_time;
+
 };
 
 struct uboost {
@@ -146,6 +161,7 @@ struct render_info {
 	int dep_valid_size;
 	unsigned long long dep_loading_ts;
 	unsigned long long linger_ts;
+	long long last_sched_runtime;
 
 	/*TODO: EARA mid list*/
 	unsigned long long mid;
