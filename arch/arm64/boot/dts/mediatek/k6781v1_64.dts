@@ -258,6 +258,36 @@
 		};
 	};
 };
+
+/* IRTX GPIO Start */
+&irtx_pwm {
+	pinctrl-names = "irtx_gpio_led_default", "irtx_gpio_led_set";
+	pinctrl-0 = <&irtx_gpio_led_default>;
+	pinctrl-1 = <&irtx_gpio_led_set>;
+	status = "okay";
+};
+&pio {
+	/* IRTX GPIO Settings -Start */
+	/* default: GPIO0, output, high */
+	irtx_gpio_led_default:irtx_gpio_led_def@gpio42 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO42__FUNC_GPIO42>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+			input-schmitt-enable = <0>;
+		};
+	};
+
+	irtx_gpio_led_set:irtx_gpio_led_set@gpio42 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO42__FUNC_PWM1>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+}; /* IRTX GPIO Settings -End */
+
 #endif
 
 

@@ -1315,6 +1315,12 @@
 		mediatek,accdet-pmic = <0x66>;
 	};
 
+	irtx_pwm:irtx_pwm {
+		compatible = "mediatek,irtx-pwm";
+		pwm_ch = <1>;
+		pwm_data_invert = <0>;
+	};
+
 	mt6358_gauge {
 		compatible = "mediatek,mt6358_gauge";
 		gauge_name = "gauge";
