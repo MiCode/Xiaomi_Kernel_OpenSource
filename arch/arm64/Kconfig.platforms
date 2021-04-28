@@ -162,6 +162,7 @@ config MACH_MT6781
 	select MTK_LPM
 	select MTK_LOW_POWER_MODULE
 	select MTK_LPM_MT6781
+	select MTK_SPMTWAM
 	select OVERLAY_FS
 	select EXT4_FS
 	select EXT4_FS_SECURITY
