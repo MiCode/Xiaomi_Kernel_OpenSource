@@ -2503,6 +2503,7 @@ void update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	//long long target_time = div64_s64(1000000, target_fps * 100);
 	long long target_time = div64_s64(1000000, target_fps * 100 + gcc_fps_margin);
 	int avg = 0, std_square = 0, i, quota_adj = 0;
+	int s32_target_time = target_time;
 
 	if (target_fps != boost_info->quota_fps) {
 		boost_info->quota_cur_idx = -1;
@@ -2576,11 +2577,12 @@ void update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	}
 
 	boost_info->quota_adj = quota_adj;
+	boost_info->quota_mod = boost_info->quota % s32_target_time;
 
-	fpsgo_main_trace("%s begin:%d %d end:%d %d cnt:%d sum:%d avg:%d std_square:%d, quota:%d",
+	fpsgo_main_trace("%s raw[%d]:%d raw[%d]:%d cnt:%d sum:%d avg:%d std_sqr:%d quota:%d mod:%d",
 		__func__, first_idx, boost_info->quota_raw[first_idx],
 		new_idx, boost_info->quota_raw[new_idx], boost_info->quota_cnt,
-		boost_info->quota, avg, std_square, quota_adj);
+		boost_info->quota, avg, std_square, quota_adj, boost_info->quota_mod);
 }
 
 
@@ -2798,6 +2800,8 @@ static int fbt_boost_policy(
 		update_quota(boost_info, target_fps, t_Q2Q);
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->quota, "quota");
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->quota_adj, "quota_adj");
+		if (qr_debug)
+			fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->quota_mod, "quota_mod");
 	}
 
 	if (gcc_enable) {
@@ -2856,15 +2860,15 @@ static int fbt_boost_policy(
 				rescue_target_t * 1000 * (100 + qr_t2wnt_x) :
 				rescue_target_t * 100000;
 
-			if (boost_info->quota_adj > 0) { /* qr_quota, unit: 100us */
+			if (boost_info->quota_mod > 0) { /* qr_quota, unit: 100us */
 				/* qr_t2wnt_y_p: percentage */
 				qr_quota_adj = (qr_t2wnt_y_p != 100) ?
-					boost_info->quota_adj * 1000 * qr_t2wnt_y_p :
-					boost_info->quota_adj * 100000;
+					boost_info->quota_mod * 1000 * qr_t2wnt_y_p :
+					boost_info->quota_mod * 100000;
 			} else {
 				 /* qr_t2wnt_y_n: percentage */
 				qr_quota_adj = (qr_t2wnt_y_n != 0) ?
-					boost_info->quota_adj * 1000 * qr_t2wnt_y_n :
+					boost_info->quota_mod * 1000 * qr_t2wnt_y_n :
 					0;
 			}
 			t2wnt = (rescue_target_t + qr_quota_adj > 0)

@@ -24,7 +24,7 @@
 #include <linux/workqueue.h>
 
 #define WINDOW 20
-#define RESCUE_TIMER_NUM 3
+#define RESCUE_TIMER_NUM 5
 #define QUOTA_MAX_SIZE 300
 #define GCC_MAX_SIZE 300
 
@@ -101,6 +101,7 @@ struct fbt_boost_info {
 	int quota_fps;
 	int quota;
 	int quota_adj; /* remove outlier */
+	int quota_mod; /* mod target time */
 
 	/* GCC */
 	int gcc_quota;
