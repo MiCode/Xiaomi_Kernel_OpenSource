@@ -1,0 +1,3 @@
+config MTK_FIQ_CACHE
+	bool "cache flush by fiq"
+	default n

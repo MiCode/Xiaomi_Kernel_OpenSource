@@ -1,0 +1,8 @@
+config MTK_IRRX_SIRC
+	bool "Support MTK IR SIRC protocol"
+	depends on MTK_IRRX
+	help
+		It support different IR protocol.
+		This protocol is defined by Sony.
+		If this option is set, it will support
+		SIRC IRRX protocol.

@@ -1,0 +1,23 @@
+#
+# Copyright (C) 2017 MediaTek Inc.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+
+#######################################
+# Specify source files
+#######################################
+
+# BUILD-IN
+obj-$(CONFIG_TRUSTONIC_TEE_SUPPORT) += common/    ### For MT6xxx
+obj-$(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) += mt8xxx/ ### For MT8xxx
+ifeq ($(CONFIG_HAVE_MTK_IN_HOUSE_TEE_SUPPORT),y)
+obj-$(CONFIG_TRUSTY) += mt8xxx/ ### For MT8xxx
+endif

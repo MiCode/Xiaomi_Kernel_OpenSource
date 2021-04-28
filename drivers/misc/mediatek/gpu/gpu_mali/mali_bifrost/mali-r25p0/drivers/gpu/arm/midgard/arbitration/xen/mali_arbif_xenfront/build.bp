@@ -1,0 +1,45 @@
+/*
+ * Copyright:
+ * ----------------------------------------------------------------------------
+ * This confidential and proprietary software may be used only as authorized
+ * by a licensing agreement from ARM Limited.
+ *      (C) COPYRIGHT 2019-2020 ARM Limited, ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorized copies and
+ * copies may only be made to the extent permitted by a licensing agreement
+ * from ARM Limited.
+ * ----------------------------------------------------------------------------
+ */
+
+/* Default settings shared among Arbif modules */
+bob_defaults {
+    name: "mali_arbif_shared_config_defaults",
+    local_include_dirs: [
+        "../../../arbiter",
+    ],
+    defaults: [
+        "mali_arbitration_shared_config_defaults",
+    ],
+}
+
+bob_kernel_module {
+    name: "mali_arbif_xenfront",
+    srcs: [
+        "Kbuild",
+        "mali_arbif_adapter.c",
+        "mali_arbif_adapter.h",
+        "mali_arbif_xenfront_main.c",
+    ],
+    local_include_dirs: [
+        "../../include",
+    ],
+    enabled: false,
+    bsp_has_hypervisor: {
+        enabled: true,
+    },
+    add_to_alias: [
+        "kernel",
+    ],
+    defaults: [
+        "mali_arbif_shared_config_defaults",
+    ],
+}

@@ -1,0 +1,9 @@
+config MTK_TASK_TURBO
+	bool "MTK task turbo feature"
+	help
+	  A new option CONFIG_MTK_TASK_TURBO for the feature.
+	  Task turbo provide enhancement of APP launch and lock
+	  latency via Preempting lock waiting queue and more
+	  oppotunity to occupy CPU resource.
+	  If you are not sure about whether to enable it or not,
+	  please set n.

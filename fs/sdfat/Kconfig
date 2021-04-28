@@ -1,0 +1,122 @@
+config SDFAT_FS
+	tristate "sdFAT fs support"
+	default y
+	select NLS
+	select NLS_UTF8
+	select NLS_CODEPAGE_437
+	select NLS_ISO8859_1
+	help
+	  If you want to use the sdFAT file system, then you must say Y or M
+	  here to inlucde sdFAT support.
+	  sdFAT is unified FAT-based file system which supports not only fat12/
+	  16/32 with vfat but also exfat. sdFAT supports winnt short-name rule.
+	  (winnt: emulate the Windows NT rule for display/create.)
+
+	  To compile this as a module, choose M here: the module will be called
+	  sdfat_core and sdfat_fs.
+
+config SDFAT_USE_FOR_EXFAT
+	bool "Register sdFAT as exFAT"
+	default y
+	depends on SDFAT_FS && !EXFAT_FS
+	help
+	  If you want to register sdFAT as available for exFAT, say Y.
+
+config SDFAT_USE_FOR_VFAT
+	bool "Register sdFAT as VFAT"
+	default y
+	depends on SDFAT_FS && !VFAT_FS
+	help
+	  If you want to register sdFAT as available for VFAT, say Y.
+
+config SDFAT_DELAYED_META_DIRTY
+	bool "Enable delayed metadata dirty"
+	default y
+	depends on SDFAT_FS
+	help
+	  If you enable this feature, metadata(FAT/Directory entry) is updated
+	  by flush thread.
+
+config SDFAT_SUPPORT_DIR_SYNC
+	bool "Enable supporting dir sync"
+	default n
+	depends on SDFAT_FS
+	help
+	  If you enable this feature, the modification for directory operation
+	  is written to a storage at once.
+
+config SDFAT_DEFAULT_CODEPAGE
+	int "Default codepage for sdFAT"
+	default 437
+	depends on SDFAT_FS
+	help
+	  This option should be set to the codepage of your sdFAT filesystems.
+
+config SDFAT_DEFAULT_IOCHARSET
+	string "Default iocharset for sdFAT"
+	default "utf8"
+	depends on SDFAT_FS
+	help
+	  Set this to the default input/output character set you'd
+	  like sdFAT to use. It should probably match the character set
+	  that most of your sdFAT filesystems use, and can be overridden
+	  with the "iocharset" mount option for sdFAT filesystems.
+
+config SDFAT_CHECK_RO_ATTR
+	bool "Check read-only attribute"
+	default n
+	depends on SDFAT_FS
+
+config SDFAT_ALIGNED_MPAGE_WRITE
+	bool "Enable supporting aligned mpage_write"
+	default y
+	depends on SDFAT_FS
+
+config SDFAT_VIRTUAL_XATTR
+	bool "Virtual xattr support for sdFAT"
+	default y
+	depends on SDFAT_FS
+	help
+	  To support virtual xattr.
+
+config SDFAT_VIRTUAL_XATTR_SELINUX_LABEL
+	string "Default string for SELinux label"
+	default "u:object_r:sdcard_external:s0"
+	depends on SDFAT_FS && SDFAT_VIRTUAL_XATTR
+	help
+	  Set this to the default string for SELinux label.
+
+config SDFAT_SUPPORT_STLOG
+	bool "Enable storage log"
+	default y
+	depends on SDFAT_FS && PROC_STLOG
+
+config SDFAT_DEBUG
+	bool "Enable debug features"
+	depends on SDFAT_FS
+	default y
+
+config SDFAT_DBG_IOCTL
+	bool "Enable debug-ioctl features"
+	depends on SDFAT_FS && SDFAT_DEBUG
+	default n
+
+config SDFAT_DBG_MSG
+	bool "Enable debug messages"
+	depends on SDFAT_FS && SDFAT_DEBUG
+	default y
+
+config SDFAT_DBG_BUGON
+	bool "Enable strict BUG_ON() for debugging"
+	depends on SDFAT_FS && SDFAT_DEBUG
+	default n
+
+config SDFAT_DBG_WARNON
+	bool "Enable strict WARN_ON() for debugging"
+	depends on SDFAT_FS && SDFAT_DEBUG
+	default n
+
+config SDFAT_STATISTICS
+	bool "Enable statistics for bigdata"
+	depends on SDFAT_FS
+	default y

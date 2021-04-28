@@ -1,0 +1,44 @@
+wl2866d2_pm:willsemi,ldo@28 {
+	compatible = "willsemi,wl2866d2";
+	reg = <0x28>;/*slave address*/
+
+	wl2866d2_dvdd1:on,wl2866d2@0{
+		offset = /bits/ 16 <0x0000>;
+		regulator-name ="wl2866d-dvdd1";
+		regulator-min-microvolt = <600000>;
+		regulator-max-microvolt = <1800000>;
+		min-dropout-voltage = <80000>;
+		iout_ua = <500000>;
+		init-voltage = <1050000>;
+	};
+
+	wl2866d2_dvdd2:on,wl2866d2@1{
+		offset = /bits/ 16 <0x0001>;
+		regulator-name ="wl2866d-dvdd2";
+		regulator-min-microvolt = <600000>;
+		regulator-max-microvolt = <1800000>;
+		min-dropout-voltage = <80000>;
+		iout_ua = <500000>;
+		init-voltage = <1200000>;
+	};
+
+	wl2866d2_avdd1:on,wl2866d2@2{
+		offset = /bits/ 16 <0x0002>;
+		regulator-name ="wl2866d-avdd1";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <4300000>;
+		min-dropout-voltage = <90000>;
+		iout_ua = <300000>;
+		init-voltage = <2800000>;
+	};
+
+	wl2866d2_avdd2:on,wl2866d2@3{
+		offset = /bits/ 16 <0x0003>;
+		regulator-name ="wl2866d-avdd2";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <4300000>;
+		min-dropout-voltage = <90000>;
+		iout_ua = <300000>;
+		init-voltage = <2700000>;
+	};
+};
