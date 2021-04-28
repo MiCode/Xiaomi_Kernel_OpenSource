@@ -257,7 +257,8 @@ static ssize_t mt6781_rc_state(int rc_id, char *ToUserBuf, size_t sz)
 	if (rc_id < 0)
 		return 0;
 
-	if (rc_id == MT_RM_CONSTRAINT_ID_BUS26M) {
+	if (rc_id == MT_RM_CONSTRAINT_ID_BUS26M ||
+		rc_id == MT_RM_CONSTRAINT_ID_SYSPLL) {
 		gpio200_datain = MT6781_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_GPIO200_DATAIN,
 				MT_LPM_SMC_ACT_GET, 0, 0);
 
