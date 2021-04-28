@@ -253,8 +253,8 @@ static void start_devapc(void)
 
 	for (i = 0; i < mtk_devapc_ctx->soc->ndevices; i++)
 		if (true == device_info[i].enable_vio_irq) {
-			clear_infra_vio_status(i);
 			unmask_infra_module_irq(i);
+			clear_infra_vio_status(i);
 		}
 
 	print_vio_mask_sta();
