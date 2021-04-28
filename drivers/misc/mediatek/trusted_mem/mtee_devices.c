@@ -97,6 +97,29 @@ static struct tmem_device_description mtee_mchunks[] = {
 	},
 #endif
 
+#if defined(CONFIG_MTK_WFD_SMEM_SUPPORT) \
+	&& defined(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
+	{
+		.kern_tmem_type = TRUSTED_MEM_WFD,
+		.tee_smem_type = TEE_SMEM_WFD,
+		.mtee_chunks_id = MTEE_MCHUNKS_WFD,
+#if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
+		.ssmr_feature_id = SSMR_FEAT_WFD,
+#endif
+		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_WFD},
+#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT)                                     \
+	|| defined(CONFIG_MICROTRUST_TEE_SUPPORT)
+		.notify_remote = true,
+		.notify_remote_fn = secmem_fr_set_wfd_region,
+#else
+		.notify_remote = false,
+		.notify_remote_fn = NULL,
+#endif
+		.mem_cfg = &mchunk_general_configs,
+		.dev_name = "MTEE_WFD",
+	},
+#endif
+
 #ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
 	{
 		.kern_tmem_type = TRUSTED_MEM_HAPP,
