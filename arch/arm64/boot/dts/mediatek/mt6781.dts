@@ -680,6 +680,7 @@
 		compatible = "mediatek,seninf_top";
 		reg = <0 0x1a004000 0 0x1000>;
 		clocks = <&scpsys SCP_SYS_CAM>,
+			<&scpsys SCP_SYS_CSI>,
 			<&camsys CLK_CAM_M_SENINF>,
 			<&topckgen TOP_MUX_SENINF>,
 			<&topckgen TOP_MUX_SENINF1>,
@@ -694,12 +695,14 @@
 			<&topckgen TOP_MUX_CAMTG6>,
 			<&topckgen TOP_UNIVP_192M_D32>,
 			<&topckgen TOP_UNIVP_192M_D16>,
+			<&topckgen TOP_UNIVPLL_D3_D32>,
 			<&topckgen TOP_UNIVP_192M_D8>,
 			<&clk26m>,
 			<&topckgen TOP_UNIVP_192M_D4>,
 			<&topckgen TOP_UNIVPLL_D3_D8>;
 
 		clock-names = "SCP_SYS_CAM",
+			"SCP_SYS_CSI",
 			"CAMSYS_SENINF_CGPDN",
 			"TOP_MUX_SENINF",
 			"TOP_MUX_SENINF1",
@@ -714,6 +717,7 @@
 			"TOP_MUX_CAMTG6",
 			"TOP_UNIVP_192M_D32",
 			"TOP_UNIVP_192M_D16",
+			"TOP_UNIVPLL_D3_D32",
 			"TOP_UNIVP_192M_D8",
 			"TOP_CLK26M",
 			"TOP_UNIVP_192M_D4",
