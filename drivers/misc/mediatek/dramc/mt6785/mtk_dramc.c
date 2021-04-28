@@ -38,7 +38,7 @@
 #include "mtk_dramc.h"
 #include "dramc.h"
 #ifdef EMI_READY
-#include "mt_emi_api.h"
+#include <memory/mediatek/emi.h>
 #endif
 
 #include <mt-plat/aee.h>
@@ -101,7 +101,9 @@ unsigned int highfreq_4266;
 #define Reg_Sync_Writel(addr, val)   writel(val, IOMEM(addr))
 #define Reg_Readl(addr) readl(IOMEM(addr))
 
+#ifndef EMI_READY
 static unsigned int dram_rank_num;
+#endif
 static unsigned int dram_mr_mode;
 #ifdef SW_TX_TRACKING
 static unsigned int dram_sw_tx;
@@ -642,7 +644,7 @@ int enter_pasr_dpd_config(unsigned char segment_rank0,
 
 /* #if PASR_TEST_SCENARIO == PASR_SUPPORT_2_CHANNEL*/
 #ifdef EMI_READY
-	for (iChannelIdx = 0; iChannelIdx < get_ch_num(); iChannelIdx++) {
+	for (iChannelIdx = 0; iChannelIdx < mtk_emicen_get_ch_cnt(); iChannelIdx++) {
 #else
 	for (iChannelIdx = 0; iChannelIdx < 2; iChannelIdx++) {
 #endif
@@ -697,7 +699,7 @@ int enter_pasr_dpd_config(unsigned char segment_rank0,
 				((0x1<<4) | (0x1<<6)), u4rg_24);
 		/* CKE0 CKE1 fix on no matter the setting of CKE2RANK*/
 #ifdef EMI_READY
-		for (iRankIdx = 0; iRankIdx < get_rk_num(); iRankIdx++) {
+		for (iRankIdx = 0; iRankIdx < mtk_emicen_get_rk_cnt(); iRankIdx++) {
 #else
 		for (iRankIdx = 0; iRankIdx < 2; iRankIdx++) {
 #endif
@@ -1268,10 +1270,16 @@ int get_ddr_type(void)
 }
 EXPORT_SYMBOL(get_ddr_type);
 
+unsigned int mtk_dramc_get_ddr_type(void)
+{
+	return DRAM_TYPE;
+}
+EXPORT_SYMBOL(mtk_dramc_get_ddr_type);
+
 int get_emi_ch_num(void)
 {
 #ifdef EMI_READY
-	return get_ch_num();
+	return mtk_emicen_get_ch_cnt();
 #else
 	return 2;
 #endif
@@ -1496,12 +1504,12 @@ void zqcs_timer_callback(unsigned long data)
 #endif
   /* CH0_Rank0 --> CH1Rank0 */
 #ifdef EMI_READY
-	for (RankCounter = 0; RankCounter < get_rk_num(); RankCounter++) {
+	for (RankCounter = 0; RankCounter < mtk_emicen_get_rk_cnt(); RankCounter++) {
 #else
 	for (RankCounter = 0; RankCounter < 2; RankCounter++) {
 #endif
 #ifdef EMI_READY
-		for (CHCounter = 0; CHCounter < get_ch_num(); CHCounter++) {
+		for (CHCounter = 0; CHCounter < mtk_emicen_get_ch_cnt(); CHCounter++) {
 #else
 		for (CHCounter = 0; CHCounter < 2; CHCounter++) {
 #endif
@@ -1842,11 +1850,10 @@ static int dram_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-#ifdef EMI_READY
-	DRAM_TYPE = get_dram_type();
-#else
+	//DRAM_TYPE = get_dram_type();
+
 	DRAM_TYPE = TYPE_LPDDR4;
-#endif
+
 	dramc_info("dram type =%d\n", DRAM_TYPE);
 
 	if (!DRAM_TYPE) {
@@ -1855,7 +1862,7 @@ static int dram_probe(struct platform_device *pdev)
 	}
 
 #ifdef EMI_READY
-	CH_NUM = get_ch_num();
+	CH_NUM = mtk_emicen_get_ch_cnt();
 	dramc_info("Channel num =%d\n", CH_NUM);
 
 	if (!CH_NUM) {
@@ -1995,7 +2002,7 @@ static void __exit dram_test_exit(void)
 	platform_driver_unregister(&dram_test_drv);
 }
 
-postcore_initcall(dram_test_init);
+late_initcall(dram_test_init);
 module_exit(dram_test_exit);
 
 void *mt_dramc_chn_base_get(int channel)
@@ -2073,6 +2080,28 @@ unsigned int mt_dramc_chp_get(unsigned int emi_cona)
 	return chp + 7;
 }
 
+#ifdef EMI_READY
+phys_addr_t mt_dramc_rankbase_get(unsigned int rank)
+{
+	int rank_num = mtk_emicen_get_rk_cnt(),
+	i = 0;
+	phys_addr_t rank_base = 0x40000000;
+
+	if (rank >= rank_num)
+		return 0;
+
+	for (i = rank; i > 0; i--)
+		rank_base += mtk_emicen_get_rk_size(i-1) * 0x8000000;
+
+	return rank_base;
+}
+
+unsigned int mt_dramc_ta_support_ranks(void)
+{
+	return mtk_emicen_get_rk_cnt();
+}
+
+#else
 phys_addr_t mt_dramc_rankbase_get(unsigned int rank)
 {
 	if (!get_dram_info)
@@ -2088,6 +2117,7 @@ unsigned int mt_dramc_ta_support_ranks(void)
 {
 	return dram_rank_num;
 }
+#endif
 
 late_initcall(dramc_apxgpt3_init);
 MODULE_DESCRIPTION("MediaTek DRAMC Driver v0.1");

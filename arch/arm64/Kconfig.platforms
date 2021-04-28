@@ -193,7 +193,8 @@ config MACH_MT6781
 	select MTK_GIC_TARGET_ALL
 	select MTK_CPU_KORO
 	select DEVMPU_MT6781
-	select MEDIATEK_MC if MEMORY
+	select MEDIATEK_EMI
+	select MTK_DRAMC
 	select MTK_CM_MGR
 	select MTK_SECURITY_SW_SUPPORT
 	help
