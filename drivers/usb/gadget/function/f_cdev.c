@@ -970,10 +970,11 @@ static void usb_cser_read_complete(struct usb_ep *ep, struct usb_request *req)
 
 	if (req->status || !req->actual) {
 		/*
-		 * ECONNRESET can be returned when host issues clear EP halt,
-		 * restart OUT requests if so.
+		 * ECONNRESET/EPIPE can be returned when host issues clear
+		 * EP halt, restart OUT requests if so.
 		 */
-		if (req->status == -ECONNRESET) {
+		if (req->status == -ECONNRESET ||
+		    req->status == -EPIPE) {
 			spin_unlock_irqrestore(&port->port_lock, flags);
 			ret = usb_ep_queue(ep, req, GFP_KERNEL);
 			if (!ret)
