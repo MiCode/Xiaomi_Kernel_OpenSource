@@ -1591,7 +1591,7 @@ static void ISP_RecordCQAddr(enum ISP_DEV_NODE_ENUM regModule)
 /*******************************************************************************
  *
  ******************************************************************************/
-//#define Rdy_ReqDump
+#define Rdy_ReqDump
 static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 {
 #ifdef Rdy_ReqDump
@@ -1600,21 +1600,25 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 	unsigned int moduleRdyStatus[ISP_MODULE_GROUPS];
 	unsigned int i;
 #endif
-	unsigned int dmaerr[_cam_max_];
+	unsigned int dmaerr[_cam_max_] = {0};
 	char cam[10] = {'\0'};
 	enum ISP_DEV_NODE_ENUM regModule; /* for read/write register */
+	enum ISP_DEV_NODE_ENUM innerRegModule; /* for read/write register */
 
 	switch (module) {
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
 		regModule = ISP_CAM_A_IDX;
+		innerRegModule = ISP_CAM_A_INNER_IDX;
 		strncpy(cam, "CAM_A", sizeof("CAM_A"));
 		break;
 	case ISP_IRQ_TYPE_INT_CAM_B_ST:
 		regModule = ISP_CAM_B_IDX;
+		innerRegModule = ISP_CAM_B_INNER_IDX;
 		strncpy(cam, "CAM_B", sizeof("CAM_B"));
 		break;
 	case ISP_IRQ_TYPE_INT_CAM_C_ST:
 		regModule = ISP_CAM_C_IDX;
+		innerRegModule = ISP_CAM_C_INNER_IDX;
 		strncpy(cam, "CAM_C", sizeof("CAM_C"));
 		break;
 	default:
@@ -1782,20 +1786,21 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 #ifdef Rdy_ReqDump
 	/* Module DebugInfo when no p1_done */
 	for (i = 0; i < ISP_MODULE_GROUPS; i++) {
-		ISP_WR32(CAM_REG_DBG_SET(regModule),
-			 (0x00800100 + (i * 0x100)));
-		moduleReqStatus[i] = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+	/* SNAPSHOT_SEL = (tg_overrun|tg_graberr|cq_over_vsync|dma_err|seninf_full) */
+		ISP_WR32(CAM_REG_DBG_SET(innerRegModule),
+			 (0x007c0101 + (i * 0x100)));
+		moduleReqStatus[i] = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
 	}
 
 	for (i = 0; i < ISP_MODULE_GROUPS; i++) {
-		ISP_WR32(CAM_REG_DBG_SET(regModule),
-			 (0x00801100 + (i * 0x100)));
-		moduleRdyStatus[i] = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+		ISP_WR32(CAM_REG_DBG_SET(innerRegModule),
+			 (0x007c1101 + (i * 0x100)));
+		moduleRdyStatus[i] = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
 	}
 
 	IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR,
 		"%s Module[%d] Req/Rdy Status: 0=(0x%08x 0x%08x)",
-		cam, ISP_MODULE_GROUPS,
+		cam, innerRegModule,
 		moduleReqStatus[0], moduleRdyStatus[0]);
 	IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR,
 		"1=(0x%08x 0x%08x), 2=(0x%08x 0x%08x)",
@@ -3041,7 +3046,8 @@ static long ISP_Buf_CTRL_FUNC(unsigned long Param)
 	if (copy_from_user(&rt_buf_ctrl, (void __user *)Param,
 			   sizeof(struct ISP_BUFFER_CTRL_STRUCT)) == 0) {
 
-		if (rt_buf_ctrl.module >= ISP_IRQ_TYPE_AMOUNT) {
+		if ((rt_buf_ctrl.module >= ISP_IRQ_TYPE_AMOUNT) ||
+		    (rt_buf_ctrl.module < 0)) {
 			LOG_NOTICE("[rtbc]not supported module:0x%x\n",
 				   rt_buf_ctrl.module);
 
@@ -3056,7 +3062,8 @@ static long ISP_Buf_CTRL_FUNC(unsigned long Param)
 		}
 
 		rt_dma = rt_buf_ctrl.buf_id;
-		if (rt_dma >= _cam_max_) {
+		if ((rt_dma >= _cam_max_) ||
+		    (rt_dma < 0)) {
 			LOG_NOTICE("[rtbc]buf_id error:0x%x\n", rt_dma);
 			return -EFAULT;
 		}
@@ -3296,19 +3303,21 @@ static int ISP_FLUSH_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 			irqinfo->Type, irqinfo->EventInfo.UserKey,
 			irqinfo->EventInfo.St_type, irqinfo->EventInfo.Status);
 
-	if (irqinfo->Type >= ISP_IRQ_TYPE_AMOUNT) {
+	if ((irqinfo->Type >= ISP_IRQ_TYPE_AMOUNT) ||
+	    (irqinfo->Type < 0)) {
 		LOG_NOTICE("FLUSH_IRQ: type error(%d)", irqinfo->Type);
 		return -EFAULT;
 	}
 
-	if (irqinfo->EventInfo.St_type >= ISP_IRQ_ST_AMOUNT) {
+	if ((irqinfo->EventInfo.St_type >= ISP_IRQ_ST_AMOUNT) ||
+	    (irqinfo->EventInfo.St_type < 0)) {
 		LOG_NOTICE("FLUSH_IRQ: st_type error(%d)",
 			   irqinfo->EventInfo.St_type);
 		return -EFAULT;
 	}
 
-	if (irqinfo->EventInfo.UserKey >= IRQ_USER_NUM_MAX ||
-	    irqinfo->EventInfo.UserKey < 0) {
+	if ((irqinfo->EventInfo.UserKey >= IRQ_USER_NUM_MAX) ||
+	    (irqinfo->EventInfo.UserKey < 0)) {
 
 		LOG_NOTICE("FLUSH_IRQ: userkey error(%d)",
 			   irqinfo->EventInfo.UserKey);
@@ -3392,12 +3401,14 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 	time_getrequest.tv_usec = usec;
 	time_getrequest.tv_sec = sec;
 
-	if (WaitIrq->Type >= ISP_IRQ_TYPE_AMOUNT) {
+	if ((WaitIrq->Type >= ISP_IRQ_TYPE_AMOUNT) ||
+	    (WaitIrq->Type < 0)) {
 		LOG_NOTICE("WaitIrq: type error(%d)", WaitIrq->Type);
 		return -EFAULT;
 	}
 
-	if (WaitIrq->EventInfo.St_type >= ISP_IRQ_ST_AMOUNT) {
+	if ((WaitIrq->EventInfo.St_type >= ISP_IRQ_ST_AMOUNT) ||
+	    (WaitIrq->EventInfo.St_type < 0)) {
 		LOG_NOTICE("WaitIrq: st_type error(%d)",
 			   WaitIrq->EventInfo.St_type);
 
@@ -3615,7 +3626,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 			      WaitIrq->EventInfo.UserKey,
 			      WaitIrq->EventInfo.Status))) {
 
-		LOG_DBG(
+		LOG_INF(
 			"interrupted by system signal,return value(%d),irq Type/User/Sts(0x%x/%d/0x%x)\n",
 			Timeout, WaitIrq->Type,
 			WaitIrq->EventInfo.UserKey,
@@ -4250,9 +4261,14 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	}
 	/*  */
 	case ISP_REGISTER_IRQ_USER_KEY:
-		if (copy_from_user(
-			    &RegUserKey, (void *)Param,
+		if (copy_from_user(&RegUserKey, (void *)Param,
 			    sizeof(struct ISP_REGISTER_USERKEY_STRUCT)) == 0) {
+			if (strnlen(RegUserKey.userName, USERKEY_STR_LEN) >=
+					USERKEY_STR_LEN) {
+				LOG_NOTICE("userName > Max string size\n");
+				Ret = -1;
+				break;
+			}
 			RegUserKey.userName[sizeof(RegUserKey.userName)-1] = '\0';
 			userKey = ISP_REGISTER_IRQ_USERKEY(RegUserKey.userName);
 			RegUserKey.userKey = userKey;
@@ -4425,6 +4441,9 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					ISP_WR32(
 						CAM_REG_TG_VF_CON(DebugFlag[1]),
 						(vf + 0x1));
+					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_A_IDX), 0x007c0000);
+					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_B_IDX), 0x007c0000);
+					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_C_IDX), 0x007c0000);
 				}
 
 #if (TIMESTAMP_QUEUE_EN == 1)
@@ -6462,7 +6481,7 @@ static int ISP_mmap(struct file *pFile, struct vm_area_struct *pVma)
 	case CAM_C_INNER_BASE_HW:
 		if (length > ISP_REG_RANGE) {
 			LOG_NOTICE("range err:mod:0x%x len:0x%x RANGE:0x%x\n",
-				   pfn, (unsigned int)length,
+				   (unsigned int)pfn, (unsigned int)length,
 				   (unsigned int)ISP_REG_RANGE);
 			return -EAGAIN;
 		}
@@ -6477,7 +6496,7 @@ static int ISP_mmap(struct file *pFile, struct vm_area_struct *pVma)
 	case CAMSV_7_BASE_HW:
 		if (length > ISPSV_REG_RANGE) {
 			LOG_NOTICE("range err:mod:0x%x len:0x%x RANGE:0x%x\n",
-				   pfn, (unsigned int)length,
+				   (unsigned int)pfn, (unsigned int)length,
 				   (unsigned int)ISPSV_REG_RANGE);
 			return -EAGAIN;
 		}
@@ -7077,7 +7096,7 @@ static int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 {
 	unsigned int regVal;
 	int IrqType, ret, module;
-	char moduleName[128];
+	char moduleName[128] = {'\0'};
 
 	unsigned int regTGSt, loopCnt;
 	struct ISP_WAIT_IRQ_STRUCT waitirq;
@@ -7087,7 +7106,8 @@ static int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 
 	ret = 0;
 	module = -1;
-	strncpy(moduleName, pDev->dev.of_node->name, 127);
+	strncpy(moduleName, pDev->dev.of_node->name, sizeof(moduleName)-1);
+	moduleName[sizeof(moduleName)-1] = '\0';
 
 	/* update device node count */
 	atomic_dec(&G_u4DevNodeCt);
@@ -7279,11 +7299,12 @@ static int ISP_resume(struct platform_device *pDev)
 {
 	unsigned int regVal;
 	int IrqType, ret, module;
-	char moduleName[128];
+	char moduleName[128] = {'\0'};
 
 	ret = 0;
 	module = -1;
-	strncpy(moduleName, pDev->dev.of_node->name, 127);
+	strncpy(moduleName, pDev->dev.of_node->name, sizeof(moduleName)-1);
+	moduleName[sizeof(moduleName)-1] = '\0';
 
 	/* update device node count */
 	atomic_inc(&G_u4DevNodeCt);
@@ -7898,6 +7919,12 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 				module, m_CurrentPPB, _LOG_ERR,
 				"CAM_A:raw_int_err:0x%x, raw_int5_wrn:0x%x,lsci_wrn:0x%x\n",
 				ErrStatus, WarnStatus, warnTwo);
+
+			/* TG ERR print */
+			if (ErrStatus & TG_ERR_ST) {
+				ISP_DumpDmaDeepDbg(ISP_IRQ_TYPE_INT_CAM_A_ST);
+				ISP_DumpDmaDeepDbg(ISP_IRQ_TYPE_INT_CAM_B_ST);
+			}
 
 			/* DMA ERR print */
 			if (ErrStatus & (DMA_ERR_ST | TG_ERR_ST))
