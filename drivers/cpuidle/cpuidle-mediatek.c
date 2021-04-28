@@ -38,6 +38,9 @@ static int mtk_idle_state_enter(struct cpuidle_device *dev,
 {
 	int ret;
 
+	if (idx < 0 || idx >= CPUIDLE_STATE_MAX)
+		return -1;
+
 	if (mtk_pwr_conservation) {
 		ret = mtk_pwr_conservation(MTK_CPUIDLE_PREPARE, drv, idx);
 		/* abort s2idle when fail */
