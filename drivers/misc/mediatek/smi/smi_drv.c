@@ -735,6 +735,60 @@ static void smi_debug_dump_status(const bool gce)
 	}
 }
 
+s32 smi_debug_bus_hang_detect_disp(const bool gce, const char *user)
+{
+#if IS_ENABLED(CONFIG_MACH_MT6781)
+	u32 time = 5, busy[SMI_DEV_NUM] = {0};
+	s32 i, j, ret = 0;
+
+#if IS_ENABLED(CONFIG_MEDIATEK_EMI)
+	mtk_emidbg_dump();
+#elif IS_ENABLED(CONFIG_MTK_EMI) || IS_ENABLED(CONFIG_MTK_EMI_BWL)
+	dump_emi_outstanding();
+#endif
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+	mtk_dump_reg_for_hang_issue(0);
+#elif IS_ENABLED(CONFIG_MTK_M4U)
+	m4u_dump_reg_for_smi_hang_issue();
+#endif
+	for (i = 0; i < time; i++) {
+		for (j = 0; j < SMI_LARB_NUM; j++)
+			busy[j] += ((ATOMR_CLK(j) > 0 &&
+			readl(smi_dev[j]->base + SMI_LARB_STAT)) ? 1 : 0);
+		/* COMM */
+		for (j = SMI_LARB_NUM; j < SMI_DEV_NUM; j++)
+			busy[j] += ((ATOMR_CLK(j) > 0 &&
+				!(readl(smi_dev[j]->base + SMI_DEBUG_MISC) &
+				0x1)) ? 1 : 0);
+	}
+
+	for (i = 0; i < SMI_LARB_NUM && !ret; i++)
+		ret = (busy[i] == time ? i : ret);
+	if (!ret || busy[SMI_LARB_NUM] < time) {
+		SMIWRN(gce, "SMI MM bus NOT hang, check master %s\n", user);
+		smi_debug_dump_status(gce);
+		return 0;
+	}
+
+	SMIWRN(gce, "SMI MM bus may hang by %s/M4U/EMI/DVFS\n", user);
+	for (i = 0; i <= SMI_DEV_NUM; i++)
+		if (!i || i == SMI_LARB_NUM || i == SMI_DEV_NUM)
+			smi_debug_dumper(gce, true, i);
+
+	for (i = 1; i < time; i++)
+		for (j = 0; j <= SMI_DEV_NUM; j++)
+			smi_debug_dumper(gce, false, j);
+	smi_debug_dump_status(gce);
+
+	for (i = 0; i < SMI_DEV_NUM; i++)
+		SMIWRN(gce, "%s%u=%u/%u busy with clk:%d\n",
+			i < SMI_LARB_NUM ? "LARB" : "COMMON",
+			i, busy[i], time, ATOMR_CLK(i));
+#endif
+	return 0;
+}
+EXPORT_SYMBOL_GPL(smi_debug_bus_hang_detect_disp);
+
 s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
 {
 	u32 time = 5, busy[SMI_DEV_NUM] = {0};

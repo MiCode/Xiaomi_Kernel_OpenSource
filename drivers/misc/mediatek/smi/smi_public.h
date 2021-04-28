@@ -32,12 +32,14 @@ bool smi_mm_first_get(void);
 s32 smi_bus_prepare_enable(const u32 id, const char *user);
 s32 smi_bus_disable_unprepare(const u32 id, const char *user);
 s32 smi_debug_bus_hang_detect(const bool gce, const char *user);
+s32 smi_debug_bus_hang_detect_disp(const bool gce, const char *user);
 s32 smi_sysram_enable(const u32 master_id, const bool enable, const char *user);
 #else
 #define smi_mm_first_get() (true)
 #define smi_bus_prepare_enable(id, user) (0)
 #define smi_bus_disable_unprepare(id, user) (0)
 #define smi_debug_bus_hang_detect(gce, user) (0)
+#define smi_debug_bus_hang_detect_disp(gce, user) (0)
 #define smi_sysram_enable(master_id, enable, user) (0)
 #endif
 
