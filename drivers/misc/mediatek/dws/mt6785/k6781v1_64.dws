@@ -174,7 +174,7 @@
                 <eint_mode>true</eint_mode>
                 <def_mode>0</def_mode>
                 <inpull_en>true</inpull_en>
-                <inpull_selhigh>false</inpull_selhigh>
+                <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
                 <varName0>GPIO_SDHC_EINT_PIN</varName0>
