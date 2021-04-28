@@ -1697,15 +1697,15 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 		NVT_LOG("nt36672c touch fw name : %s", BOOT_UPDATE_FIRMWARE_NAME);
 	} else
 		NVT_ERR("Can't find node: chose in dts");
-	nvt_fwu_wq = alloc_workqueue("nvt_fwu_wq", WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
-	if (!nvt_fwu_wq) {
-		NVT_ERR("nvt_fwu_wq create workqueue failed\n");
+	nvt_fwu_worker = kthread_create_worker(0, "nvt_fwu_worker");
+	if (!nvt_fwu_worker) {
+		NVT_ERR("nvt_fwu_worker create kthread failed\n");
 		ret = -ENOMEM;
 		goto err_create_nvt_fwu_wq_failed;
 	}
-	INIT_DELAYED_WORK(&ts->nvt_fwu_work, Boot_Update_Firmware);
-	// please make sure boot update start after display reset(RESX) sequence
-	queue_delayed_work(nvt_fwu_wq, &ts->nvt_fwu_work, msecs_to_jiffies(14000));
+	kthread_init_delayed_work(&ts->nvt_fwu_dw, Boot_Update_Firmware);
+	kthread_queue_delayed_work(nvt_fwu_worker, &ts->nvt_fwu_dw, msecs_to_jiffies(14000));
+	NVT_LOG("start kthread_queue_delayed_work nt36672c\n");
 #endif
 
 	NVT_LOG("NVT_TOUCH_ESD_PROTECT is %d\n", NVT_TOUCH_ESD_PROTECT);
@@ -1815,10 +1815,11 @@ err_flash_proc_init_failed:
 err_create_nvt_esd_check_wq_failed:
 #endif
 #if BOOT_UPDATE_FIRMWARE
-	if (nvt_fwu_wq) {
-		cancel_delayed_work_sync(&ts->nvt_fwu_work);
-		destroy_workqueue(nvt_fwu_wq);
-		nvt_fwu_wq = NULL;
+	if (nvt_fwu_worker) {
+		kthread_cancel_delayed_work_sync(&ts->nvt_fwu_dw);
+		kthread_destroy_worker(nvt_fwu_worker);
+		NVT_LOG("kthread_destroy_worker err_create nt36672c\n");
+		nvt_fwu_worker = NULL;
 	}
 err_create_nvt_fwu_wq_failed:
 #endif
@@ -1896,10 +1897,11 @@ static int32_t nvt_ts_remove(struct spi_device *client)
 #endif
 
 #if BOOT_UPDATE_FIRMWARE
-	if (nvt_fwu_wq) {
-		cancel_delayed_work_sync(&ts->nvt_fwu_work);
-		destroy_workqueue(nvt_fwu_wq);
-		nvt_fwu_wq = NULL;
+	if (nvt_fwu_worker) {
+		kthread_cancel_delayed_work_sync(&ts->nvt_fwu_dw);
+		kthread_destroy_worker(nvt_fwu_worker);
+		NVT_LOG("kthread_destroy_worker remove nt36672c\n");
+		nvt_fwu_worker = NULL;
 	}
 #endif
 
@@ -1968,11 +1970,13 @@ static void nvt_ts_shutdown(struct spi_device *client)
 #endif				/* #if NVT_TOUCH_ESD_PROTECT */
 
 #if BOOT_UPDATE_FIRMWARE
-	if (nvt_fwu_wq) {
-		cancel_delayed_work_sync(&ts->nvt_fwu_work);
-		destroy_workqueue(nvt_fwu_wq);
-		nvt_fwu_wq = NULL;
+	if (nvt_fwu_worker) {
+		kthread_cancel_delayed_work_sync(&ts->nvt_fwu_dw);
+		kthread_destroy_worker(nvt_fwu_worker);
+		NVT_LOG("kthread_destroy_worker shutdown nt36672c\n");
+		nvt_fwu_worker = NULL;
 	}
+
 #endif
 
 #if WAKEUP_GESTURE

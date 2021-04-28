@@ -1018,7 +1018,7 @@ Description:
 return:
 	n.a.
 *******************************************************/
-void Boot_Update_Firmware(struct work_struct *work)
+void Boot_Update_Firmware(struct kthread_work *work)
 {
 	mutex_lock(&ts->lock);
 	nvt_update_firmware(BOOT_UPDATE_FIRMWARE_NAME);

@@ -106,6 +106,7 @@ struct nvt_ts_data {
 	struct spi_device *client;
 	struct input_dev *input_dev;
 	struct delayed_work nvt_fwu_work;
+	struct kthread_delayed_work nvt_fwu_dw;
 	uint16_t addr;
 	int8_t phys[32];
 #if defined(CONFIG_FB)
@@ -212,8 +213,8 @@ extern int32_t nvt_extra_proc_init(void);
 extern void nvt_extra_proc_deinit(void);
 #endif
 #if BOOT_UPDATE_FIRMWARE
-static struct workqueue_struct *nvt_fwu_wq;
-extern void Boot_Update_Firmware(struct work_struct *work);
+static struct kthread_worker *nvt_fwu_worker;
+extern void Boot_Update_Firmware(struct kthread_work *work);
 #endif
 
 #endif				/* _LINUX_NVT_TOUCH_H */
