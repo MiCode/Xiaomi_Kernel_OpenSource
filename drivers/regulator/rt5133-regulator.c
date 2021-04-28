@@ -31,7 +31,7 @@
 #include <linux/debugfs.h>
 #endif /* GENERIC_DEBUGFS */
 
-#define RT5133_DRV_VERSION	"1.0.2_MTK"
+#define RT5133_DRV_VERSION	"1.0.3_MTK"
 
 #define RT5133_REG_CHIP_INFO		0x00
 #define RT5133_REG_RST_CTRL		0x06
@@ -787,17 +787,23 @@ EXPORT_SYMBOL(rt5133_enable_interrupt);
 static int rt5133_regulator_notify(struct notifier_block *nb,
 				   unsigned long event, void *data)
 {
-	int idx = 0;
+	int idx;
 
 	if (event != REGULATOR_EVENT_OVER_CURRENT &&
-		event != REGULATOR_EVENT_FAIL)
+	    event != REGULATOR_EVENT_FAIL)
 		return NOTIFY_OK;
 
-	if (data != NULL) {
-		idx = *(int *)data;
-		pr_info("%s, ldo(%d), event = %d\n", __func__, idx, event);
-		idx = idx - 1;
+	if (data == NULL) {
+		pr_info("%s: data gets null pointer\n", __func__);
+		goto out;
 	}
+
+	idx = *(int *)data;
+	pr_info("%s, ldo(%d), event = %d\n", __func__, idx, event);
+
+	idx = idx - 1;
+	if (idx < 0)
+		goto out;
 
 	switch (event) {
 	case REGULATOR_EVENT_OVER_CURRENT:
@@ -812,6 +818,7 @@ static int rt5133_regulator_notify(struct notifier_block *nb,
 		break;
 	}
 
+out:
 	return NOTIFY_OK;
 }
 
@@ -981,6 +988,9 @@ MODULE_LICENSE("GPL v2");
 MODULE_VERSION(RT5133_DRV_VERSION);
 /*
  * Release Note
+ * 1.0.3
+ *  (1) Handle the case of data == NULL or idx < 0 in rt5133_regulator_notify
+ *
  * 1.0.2
  * (1) Free regulator_name when read of_property failed to avoid memory leak
  * (2) Check snprintf error return
