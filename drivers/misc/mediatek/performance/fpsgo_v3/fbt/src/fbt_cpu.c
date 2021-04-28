@@ -94,7 +94,7 @@
 #define DEFAULT_QR_T2WNT_Y_N 0
 #define DEFAULT_QR_HWUI_HINT 1
 #define DEFAULT_GCC_RESERVED_UP_QUOTA_PCT 33
-#define DEFAULT_GCC_RESERVED_DOWN_QUOTA_PCT 33
+#define DEFAULT_GCC_RESERVED_DOWN_QUOTA_PCT 5
 #define DEFAULT_GCC_STD_FILTER 2
 #define DEFAULT_GCC_WINDOW_SIZE 60
 #define DEFAULT_GCC_UP_STEP 5
@@ -2570,7 +2570,8 @@ void update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		for (i = first_idx; i <= new_idx; i++) {
 			if ((boost_info->quota_raw[i] * 100 - avg) *
 				(boost_info->quota_raw[i] * 100 - avg) <
-				gcc_std_filter * gcc_std_filter * std_square)
+				gcc_std_filter * gcc_std_filter * std_square ||
+				t_Q2Q < 2 * target_time)
 				quota_adj += boost_info->quota_raw[i];
 
 			qr_quota += (boost_info->quota_raw[i] < -s32_target_time) ?
@@ -2581,7 +2582,8 @@ void update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		for (i = first_idx; i < QUOTA_MAX_SIZE ; i++) {
 			if ((boost_info->quota_raw[i] * 100 - avg) *
 				(boost_info->quota_raw[i] * 100 - avg) <
-				gcc_std_filter * gcc_std_filter * std_square)
+				gcc_std_filter * gcc_std_filter * std_square ||
+				t_Q2Q < 2 * target_time)
 				quota_adj += boost_info->quota_raw[i];
 
 			qr_quota += (boost_info->quota_raw[i] < -s32_target_time) ?
@@ -2591,7 +2593,8 @@ void update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		for (i = 0; i <= new_idx ; i++) {
 			if ((boost_info->quota_raw[i] * 100 - avg) *
 				(boost_info->quota_raw[i] * 100 - avg) <
-				gcc_std_filter * gcc_std_filter * std_square)
+				gcc_std_filter * gcc_std_filter * std_square ||
+				t_Q2Q < 2 * target_time)
 				quota_adj += boost_info->quota_raw[i];
 
 			qr_quota += (boost_info->quota_raw[i] < -s32_target_time) ?
