@@ -140,7 +140,7 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 	{
 		{ DVFSRC_HRT_REQ_UNIT,       0x0000001E },
 		{ DVFSRC_DEBOUNCE_TIME,      0x00001965 },
-		{ DVFSRC_TIMEOUT_NEXTREQ,    0x00000015 },
+		{ DVFSRC_TIMEOUT_NEXTREQ,    0x0000001F },
 
 		{ DVFSRC_DDR_QOS0,           0x00000019 },
 		{ DVFSRC_DDR_QOS1,           0x00000026 },
@@ -212,15 +212,15 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_HRT_HIGH,           0x070804B0 },
 		{ DVFSRC_HRT_HIGH_1,         0x11830B80 },
 		{ DVFSRC_HRT_HIGH_2,         0x18A618A6 },
-		{ DVFSRC_HRT_HIGH_3,         0x000018A6 },
+		{ DVFSRC_HRT_HIGH_3,         0x18A618A6 },
 		{ DVFSRC_HRT_LOW,            0x070704AF },
 		{ DVFSRC_HRT_LOW_1,          0x11820B7F },
 		{ DVFSRC_HRT_LOW_2,          0x18A518A5 },
-		{ DVFSRC_HRT_LOW_3,          0x000018A5 },
+		{ DVFSRC_HRT_LOW_3,          0x18A518A5 },
 #ifdef DVFSRC_1600_FLOOR
-		{ DVFSRC_HRT_REQUEST,	     0x05554322 },
+		{ DVFSRC_HRT_REQUEST,	     0x55554322 },
 #else
-		{ DVFSRC_HRT_REQUEST,	     0x05554321 },
+		{ DVFSRC_HRT_REQUEST,	     0x55554321 },
 #endif
 		{ DVFSRC_BASIC_CONTROL_3,    0x00000006 },
 		{ DVFSRC_INT_EN,             0x00000002 },
