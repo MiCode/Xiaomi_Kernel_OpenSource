@@ -254,10 +254,16 @@ int ppsout_config(struct stmmac_priv *priv, struct pps_cfg *eth_pps_cfg)
 	return 0;
 }
 
-int ethqos_init_pps(struct stmmac_priv *priv)
+int ethqos_init_pps(void *priv_n)
 {
+	struct stmmac_priv *priv;
 	u32 value;
 	struct pps_cfg eth_pps_cfg = {0};
+
+	if (!priv_n)
+		return -ENODEV;
+
+	priv = priv_n;
 
 	priv->ptpaddr = priv->ioaddr + PTP_GMAC4_OFFSET;
 	value = (PTP_TCR_TSENA | PTP_TCR_TSCFUPDT | PTP_TCR_TSUPDT);

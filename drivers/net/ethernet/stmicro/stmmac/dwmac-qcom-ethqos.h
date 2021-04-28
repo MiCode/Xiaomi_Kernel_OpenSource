@@ -309,5 +309,5 @@ struct dwmac_qcom_avb_algorithm {
 void dwmac_qcom_program_avb_algorithm(struct stmmac_priv *priv,
 				      struct ifr_data_struct *req);
 unsigned int dwmac_qcom_get_plat_tx_coal_frames(struct sk_buff *skb);
-void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat);
+int ethqos_init_pps(void *priv);
 #endif
