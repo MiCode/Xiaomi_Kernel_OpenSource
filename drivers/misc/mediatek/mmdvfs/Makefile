@@ -51,7 +51,15 @@ BUILD_MMDVFS_PMQOS := true
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739"))
 BUILD_MMDVFS_PMQOS := true
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6785"))
+ifeq ($(CONFIG_MACH_MT6781),y)
+BUILD_MMDVFS := true
+BUILD_MMQOS := true
+MTK_FREQ_HOPPING := true
+ccflags-y += -DPMQOS_USE_IOMMU_PORT
+ccflags-y += -DCHECK_OSTD_UPDATE
+else
 BUILD_MMDVFS_PMQOS := true
+endif
 HRT_MECHANISM := true
 BLOCKING_MECHANISM := true
 SUPPORT_MMP := true
@@ -101,18 +109,6 @@ else
 MMDVFS_PLATFORM_DIR=$(srctree)/drivers/misc/mediatek/mmdvfs/$(MTK_PLATFORM)
 endif
 platformdir_exists=$(shell if [ -d $(MMDVFS_PLATFORM_DIR) ]; then echo "y"; else echo "n"; fi;)
-
-ifeq ($(CONFIG_MACH_MT6781),y)
-platformdir_exists := n
-BUILD_MMDVFS := true
-BUILD_MMDVFS_PMQOS := false
-BUILD_MMQOS := false
-FORCE_STEP0 := true
-#SKIP_SMI_CONFIG := true
-MTK_FREQ_HOPPING := true
-#ccflags-y += -DPMQOS_USE_IOMMU_PORT #should add to mt6785@CONFIG_MTK_PLATFORM
-#ccflags-y += -DCHECK_OSTD_UPDATE #should add to mt6785@CONFIG_MTK_PLATFORM
-endif
 
 ifeq (true, $(BUILD_MMDVFS_PMQOS))
 obj-y += mmdvfs_pmqos.o
