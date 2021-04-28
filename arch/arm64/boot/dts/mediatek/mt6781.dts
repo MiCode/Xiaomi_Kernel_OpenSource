@@ -1298,6 +1298,10 @@
 		reg = <0 0x1023e000 0 0x1000>;
 	};
 
+	goodix_fp: fingerprint {
+		compatible = "mediatek,goodix-fp";
+	};
+
 	accdet: accdet {
 		compatible = "mediatek,pmic-accdet";
 		mediatek,accdet-pmic = <0x66>;
