@@ -26,27 +26,28 @@
 //For 120Hz rotation issue
 #include <linux/time.h>
 
-//workaround for fix led related build error
-#if defined(CONFIG_MACH_MT6877)
-#define mt_leds_brightness_set(x, y) do { } while (0)
-#define MT65XX_LED_MODE_NONE (0)
-#define MT65XX_LED_MODE_CUST_LCM (4)
-#else
-
-#ifdef CONFIG_LEDS_MTK_DISP
-#define CONFIG_LEDS_BRIGHTNESS_CHANGED
+#ifdef CONFIG_MTK_LEDS
 #include <mtk_leds_drv.h>
+#ifdef CONFIG_LEDS_MTK_DISP
+#ifdef CONFIG_MTK_AAL_SUPPORT
+#define CONFIG_LEDS_BRIGHTNESS_CHANGED
+#endif
 #include <leds-mtk-disp.h>
 #elif defined CONFIG_LEDS_MTK_PWM
+#ifdef CONFIG_MTK_AAL_SUPPORT
 #define CONFIG_LEDS_BRIGHTNESS_CHANGED
-#include <mtk_leds_drv.h>
+#endif
 #include <leds-mtk-pwm.h>
+#elif defined CONFIG_LEDS_MTK_I2C
+#ifdef CONFIG_MTK_AAL_SUPPORT
+#define CONFIG_LEDS_BRIGHTNESS_CHANGED
+#endif
+#include <leds-mtk-i2c.h>
+#endif
 #else
 #define mt_leds_brightness_set(x, y) do { } while (0)
 #define MT65XX_LED_MODE_NONE (0)
 #define MT65XX_LED_MODE_CUST_LCM (4)
-#endif
-
 #endif
 
 #include "mtk_drm_crtc.h"
@@ -439,7 +440,7 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 
 	// FIXME
 	//max_backlight = disp_pwm_get_max_backlight(DISP_PWM0);
-	max_backlight = 1024;
+	max_backlight = 2048;
 	if (bl_1024 > max_backlight)
 		bl_1024 = max_backlight;
 
@@ -464,6 +465,8 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 	g_aal_hist.serviceFlags |= service_flags;
 	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 	// always notify aal service for LED changed
+	if (default_comp == NULL)
+		return;
 	mtk_drm_idlemgr_kick(__func__, &default_comp->mtk_crtc->base, 1);
 	disp_aal_refresh_by_kernel();
 }

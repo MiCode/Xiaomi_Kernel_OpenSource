@@ -82,8 +82,10 @@ enum DISP_PMQOS_SLOT {
 	(DISP_SLOT_CUR_CONFIG_FENCE_BASE + (0x4 * (n)))
 #define DISP_SLOT_PRESENT_FENCE(n)                                          \
 	(DISP_SLOT_CUR_CONFIG_FENCE(OVL_LAYER_NR) + (0x4 * (n)))
+#define DISP_SLOT_SF_PRESENT_FENCE(n)                                          \
+	(DISP_SLOT_PRESENT_FENCE(MAX_CRTC) + (0x4 * (n)))
 #define DISP_SLOT_SUBTRACTOR_WHEN_FREE_BASE                                    \
-	(DISP_SLOT_PRESENT_FENCE(MAX_CRTC) + 0x4)
+	(DISP_SLOT_SF_PRESENT_FENCE(MAX_CRTC) + 0x4)
 #define DISP_SLOT_SUBTRACTOR_WHEN_FREE(n)                                      \
 	(DISP_SLOT_SUBTRACTOR_WHEN_FREE_BASE + (0x4 * (n)))
 #define DISP_SLOT_ESD_READ_BASE DISP_SLOT_SUBTRACTOR_WHEN_FREE(OVL_LAYER_NR)
@@ -350,6 +352,7 @@ enum MTK_CRTC_PROP {
 	CRTC_PROP_OVERLAP_LAYER_NUM,
 	CRTC_PROP_LYE_IDX,
 	CRTC_PROP_PRES_FENCE_IDX,
+	CRTC_PROP_SF_PRES_FENCE_IDX,
 	CRTC_PROP_DOZE_ACTIVE,
 	CRTC_PROP_OUTPUT_ENABLE,
 	CRTC_PROP_OUTPUT_FENCE_IDX,
@@ -629,6 +632,14 @@ struct mtk_drm_crtc {
 	wait_queue_head_t state_wait_queue;
 	bool crtc_blank;
 	struct mutex blank_lock;
+
+	wait_queue_head_t present_fence_wq;
+	struct task_struct *pf_release_thread;
+	atomic_t pf_event;
+
+	wait_queue_head_t sf_present_fence_wq;
+	struct task_struct *sf_pf_release_thread;
+	atomic_t sf_pf_event;
 };
 
 struct mtk_crtc_state {
@@ -657,6 +668,8 @@ struct mtk_cmdq_cb_data {
 	unsigned int misc;
 };
 
+extern unsigned int te_cnt;
+
 int mtk_drm_crtc_enable_vblank(struct drm_device *drm, unsigned int pipe);
 void mtk_drm_crtc_disable_vblank(struct drm_device *drm, unsigned int pipe);
 bool mtk_crtc_get_vblank_timestamp(struct drm_device *dev, unsigned int pipe,
@@ -684,6 +697,8 @@ struct mtk_ddp_comp *mtk_ddp_comp_request_output(struct mtk_drm_crtc *mtk_crtc);
 /* get fence */
 int mtk_drm_crtc_getfence_ioctl(struct drm_device *dev, void *data,
 				struct drm_file *file_priv);
+int mtk_drm_crtc_get_sf_fence_ioctl(struct drm_device *dev, void *data,
+				    struct drm_file *file_priv);
 
 long mtk_crtc_wait_status(struct drm_crtc *crtc, bool status, long timeout);
 int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int path_sel,
@@ -784,5 +799,6 @@ struct golden_setting_context *
 void mtk_crtc_start_for_pm(struct drm_crtc *crtc);
 void mtk_crtc_stop_for_pm(struct mtk_drm_crtc *mtk_crtc, bool need_wait);
 bool mtk_crtc_frame_buffer_existed(void);
+int m4u_sec_init(void);
 
 #endif /* MTK_DRM_CRTC_H */

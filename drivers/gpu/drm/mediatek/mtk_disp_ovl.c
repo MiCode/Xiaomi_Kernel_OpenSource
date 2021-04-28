@@ -2225,18 +2225,33 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	buf_total_size = header_offset + src_buf_tile_num * tile_body_size;
 	if (ext_lye_idx != LYE_NORMAL) {
 		unsigned int id = ext_lye_idx - 1;
+		unsigned int regs_addr, hdr_addr;
+
+		regs_addr = comp->regs_pa +
+			DISP_REG_OVL_EL_ADDR(id);
+		hdr_addr = comp->regs_pa +
+			DISP_REG_OVL_ELX_HDR_ADDR(id);
 
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if (comp->mtk_crtc->sec_on) {
-			u32 size, meta_type, regs_addr;
+		if (comp->mtk_crtc->sec_on && state->pending.is_sec) {
+			u32 size, meta_type;
+			u32 addr_offset;
 
 			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_EL_ADDR(id);
 			if (state->pending.is_sec && pending->addr) {
 				size = buf_size;
 				meta_type = CMDQ_IWC_H_2_MVA;
+				addr_offset = header_offset + tile_offset *
+						tile_body_size;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
-					pending->addr, meta_type, 0, size, 0);
+					pending->addr, meta_type, addr_offset,
+					size, 0);
+				addr_offset = title_offset *
+						AFBC_V1_2_HEADER_SIZE_PER_TITLE_BYTES;
+				cmdq_sec_pkt_write_reg(handle, hdr_addr,
+						pending->addr, meta_type, addr_offset,
+						size, 0);
 #ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
@@ -2277,6 +2292,8 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 					&pending->addr,
 					size);
 #endif
+				cmdq_pkt_write(handle, comp->cmdq_base,
+						hdr_addr, lx_hdr_addr, ~0);
 			}
 		} else {
 #endif
@@ -2301,6 +2318,9 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 					&pending->addr,
 					0);
 #endif
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				hdr_addr, lx_hdr_addr, ~0);
+
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		}
 #endif
@@ -2322,24 +2342,32 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 			lx_clip, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa +
-			DISP_REG_OVL_ELX_HDR_ADDR(id),
-			lx_hdr_addr, ~0);
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa +
 			DISP_REG_OVL_ELX_HDR_PITCH(id),
 			lx_hdr_pitch, ~0);
 	} else {
+		unsigned int regs_addr, hdr_addr;
+
+		regs_addr = comp->regs_pa +
+			DISP_REG_OVL_ADDR(ovl, lye_idx);
+		hdr_addr = comp->regs_pa +
+			DISP_REG_OVL_LX_HDR_ADDR(lye_idx);
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if (comp->mtk_crtc->sec_on) {
-			u32 size, meta_type, regs_addr;
+		if (comp->mtk_crtc->sec_on && state->pending.is_sec) {
+			u32 size, meta_type, addr_offset;
 
 			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_ADDR(ovl, lye_idx);
 			if (state->pending.is_sec && pending->addr) {
 				size = buf_size;
 				meta_type = CMDQ_IWC_H_2_MVA;
+				addr_offset = header_offset + tile_offset *
+						tile_body_size;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
-					pending->addr, meta_type, 0, size, 0);
+					pending->addr, meta_type, addr_offset, size, 0);
+				addr_offset = tile_offset *
+						AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES;
+				cmdq_sec_pkt_write_reg(handle, hdr_addr,
+					pending->addr, meta_type, addr_offset, size, 0);
 #ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
@@ -2379,6 +2407,8 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 					&pending->addr,
 					size);
 #endif
+				cmdq_pkt_write(handle, comp->cmdq_base, hdr_addr,
+						lx_hdr_addr, ~0);
 			}
 		} else {
 #endif
@@ -2403,6 +2433,9 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 					&pending->addr,
 					0);
 #endif
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				hdr_addr, lx_hdr_addr, ~0);
+
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		}
 #endif
@@ -2418,9 +2451,6 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_CLIP(lye_idx),
 			lx_clip, ~0);
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_REG_OVL_LX_HDR_ADDR(lye_idx),
-			lx_hdr_addr, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_LX_HDR_PITCH(lye_idx),
 			lx_hdr_pitch, ~0);

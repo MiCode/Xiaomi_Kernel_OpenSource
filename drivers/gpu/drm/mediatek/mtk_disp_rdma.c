@@ -263,6 +263,7 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_rdma *priv = dev_id;
 	struct mtk_ddp_comp *rdma = &priv->ddp_comp;
+	struct mtk_drm_crtc *mtk_crtc = rdma->mtk_crtc;
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
@@ -318,6 +319,12 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 
 	if (val & (1 << 1)) {
 		DDPIRQ("[IRQ] %s: frame start!\n", mtk_dump_comp_str(rdma));
+#ifdef MTK_DRM_DELAY_PRESENT_FENCE_SOF
+		if (mtk_crtc) {
+			atomic_set(&mtk_crtc->pf_event, 1);
+			wake_up_interruptible(&mtk_crtc->present_fence_wq);
+		}
+#endif
 		mtk_drm_refresh_tag_start(&priv->ddp_comp);
 		MMPathTraceDRM(rdma);
 	}
@@ -363,6 +370,20 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	}
 	if (val & (1 << 5)) {
 		DDPIRQ("[IRQ] %s: target line!\n", mtk_dump_comp_str(rdma));
+		if (mtk_crtc) {
+			struct mtk_drm_private *drm_priv = NULL;
+
+			if (mtk_crtc->base.dev)
+				drm_priv =
+					mtk_crtc->base.dev->dev_private;
+			if (drm_priv && mtk_drm_helper_get_opt(
+				drm_priv->helper_opt,
+				MTK_DRM_OPT_SF_PF) &&
+				!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+				atomic_set(&mtk_crtc->sf_pf_event, 1);
+				wake_up_interruptible(&mtk_crtc->sf_present_fence_wq);
+			}
+		}
 		if (rdma->mtk_crtc && rdma->mtk_crtc->esd_ctx &&
 			(!(val & (1 << 2)))) {
 			atomic_set(&rdma->mtk_crtc->esd_ctx->target_time, 1);
