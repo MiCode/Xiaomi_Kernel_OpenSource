@@ -374,6 +374,11 @@ static struct mtk_panel_params ext_params = {
 		.data_rate = MODE_0_DATA_RATE,
 	},
 	.data_rate = MODE_2_DATA_RATE,
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = MODE_0_DATA_RATE + 10,
+	},
+
 };
 static struct mtk_panel_params ext_params_mode_1 = {
 	.cust_esd_check = 0,
@@ -425,6 +430,10 @@ static struct mtk_panel_params ext_params_mode_1 = {
 		.data_rate = MODE_1_DATA_RATE,
 	},
 	.data_rate = MODE_2_DATA_RATE,
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = MODE_1_DATA_RATE + 10,
+	},
 };
 
 static struct mtk_panel_params ext_params_mode_2 = {
@@ -477,6 +486,10 @@ static struct mtk_panel_params ext_params_mode_2 = {
 		.data_rate = MODE_2_DATA_RATE,
 	},
 	.data_rate = MODE_2_DATA_RATE,
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = MODE_2_DATA_RATE + 10,
+	},
 };
 
 static int tianma_setbacklight_cmdq(void *dsi, dcs_write_gce cb,

@@ -1391,7 +1391,11 @@ static int mtk_mipi_tx_pll_prepare_mt6781(struct clk_hw *hw)
 	rate = (mipi_tx->data_rate_adpt) ? mipi_tx->data_rate_adpt :
 			mipi_tx->data_rate / 1000000;
 
-	dev_dbg(mipi_tx->dev, "prepare: %u MHz\n", rate);
+	DDPINFO(
+		"prepare: %u MHz, mipi_tx->data_rate_adpt: %d MHz, mipi_tx->data_rate : %d MHz\n",
+		rate, mipi_tx->data_rate_adpt,
+		(mipi_tx->data_rate / 1000000));
+
 	if (rate >= 2000) {
 		txdiv = 1;
 		txdiv0 = 0;
@@ -1809,13 +1813,15 @@ static void mtk_mipi_tx_pll_unprepare_mt6781(struct clk_hw *hw)
 	writel(0x3FFF0180, mipi_tx->regs + MIPITX_LANE_CON);
 	writel(0x3FFF0100, mipi_tx->regs + MIPITX_LANE_CON);
 
-	DDPINFO("%s-\n", __func__);
+	DDPDBG("%s-\n", __func__);
 }
 
 
 void mtk_mipi_tx_pll_rate_set_adpt(struct phy *phy, unsigned long rate)
 {
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
+
+	DDPDBG("%s set rate: %lu Hz\n", __func__, rate);
 
 	mipi_tx->data_rate_adpt = rate;
 }
@@ -1897,6 +1903,8 @@ static int mtk_mipi_tx_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 				    unsigned long parent_rate)
 {
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
+
+	DDPDBG("%s set rate: %lu Hz\n", __func__, rate);
 
 	dev_dbg(mipi_tx->dev, "set rate: %lu Hz\n", rate);
 

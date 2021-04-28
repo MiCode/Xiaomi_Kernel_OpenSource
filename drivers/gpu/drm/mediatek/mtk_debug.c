@@ -85,7 +85,7 @@ bool g_fence_log;
 bool g_irq_log;
 bool g_detail_log;
 #endif
-bool g_trace_log;
+bool g_trace_log = 1;
 unsigned int mipi_volt;
 unsigned int disp_met_en;
 
