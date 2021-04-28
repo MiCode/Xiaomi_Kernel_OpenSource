@@ -2029,7 +2029,7 @@ static int __init scp_init(void)
 	}
 #endif
 
-#if (defined(CONFIG_MEDIATEK_EMI) || defined(CONFIG_MTK_EMI))
+#ifdef CONFIG_MTK_EMI
 	set_scp_mpu();
 #endif
 
@@ -2100,5 +2100,15 @@ static void __exit scp_exit(void)
 #endif
 }
 
+static int __init scp_late_init(void)
+{
+	pr_notice("[SCP] %s\n", __func__);
+#ifdef CONFIG_MEDIATEK_EMI
+	set_scp_mpu();
+#endif
+	return 0;
+}
+
 module_init(scp_init);
 module_exit(scp_exit);
+late_initcall(scp_late_init);
