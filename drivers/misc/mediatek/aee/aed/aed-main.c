@@ -44,6 +44,7 @@
 #include <linux/rtc.h>
 #include "aed.h"
 #include <linux/highmem.h>
+#include <mt-plat/slog.h>
 
 struct aee_req_queue {
 	struct list_head list;
@@ -2332,6 +2333,10 @@ static void kernel_reportAPI(const enum AE_DEFECT_ATTR attr, const int db_opt,
 	struct timeval tv = { 0 };
 	int len;
 
+	if ((attr == AE_DEFECT_EXCEPTION) &&
+		(strstr(msg, "GPUHS") || strstr(module, "cache parity")))
+		slog("#$#kernel#@#%s#:%s", module, msg);
+
 	if ((aee_mode >= AEE_MODE_CUSTOMER_USER || (aee_mode ==
 		AEE_MODE_CUSTOMER_ENG && attr == AE_DEFECT_WARNING))
 		&& (attr != AE_DEFECT_FATAL))
@@ -2405,6 +2410,9 @@ static void external_exception(const char *assert_type, const int *log,
 	struct rtc_time tm;
 	struct timeval tv = { 0 };
 	char trigger_time[60];
+
+	if (strstr(assert_type, "combo_bt") || strstr(assert_type, "combo_wifi"))
+		slog("#$#external#@#%s#%s", assert_type, detail);
 
 	if ((aee_mode >= AEE_MODE_CUSTOMER_USER) &&
 		(aee_force_exp == AEE_FORCE_EXP_NOT_SET))
