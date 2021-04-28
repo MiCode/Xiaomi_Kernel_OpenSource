@@ -449,6 +449,11 @@
 		};
 	};
 
+	qos@0011bb80 {
+		compatible = "mediatek,qos-2.0";
+		reg = <0 0x0011bb80 0 0x80>;
+	};
+
 	topckgen: topckgen@10000000 {
 		compatible = "mediatek,topckgen", "syscon";
 		reg = <0 0x10000000 0 0x1000>;
