@@ -198,7 +198,6 @@ static int bhr_opp;
 static int bhr_opp_l;
 static int rescue_opp_f;
 static int rescue_enhance_f;
-static int rescue_enhance_f_90;
 static int rescue_opp_c;
 static int rescue_percent;
 static int min_rescue_percent;
@@ -273,7 +272,6 @@ module_param(bhr_opp, int, 0644);
 module_param(bhr_opp_l, int, 0644);
 module_param(rescue_opp_f, int, 0644);
 module_param(rescue_enhance_f, int, 0644);
-module_param(rescue_enhance_f_90, int, 0644);
 module_param(rescue_opp_c, int, 0644);
 module_param(rescue_percent, int, 0644);
 module_param(min_rescue_percent, int, 0644);
@@ -1732,8 +1730,6 @@ static void fbt_do_sjerk(struct work_struct *work)
 	unsigned int blc_wt = 0U, last_blc = 0U;
 	struct ppm_limit_data *pld;
 	int do_jerk;
-	int tfps_level;
-	int fps_rescue_enhance_f = rescue_enhance_f;
 
 	jerk = container_of(work, struct fbt_sjerk, work);
 
@@ -1776,12 +1772,8 @@ static void fbt_do_sjerk(struct work_struct *work)
 	if (!pld)
 		goto EXIT;
 
-	tfps_level = fbt_get_fps_level(thr->boost_info.target_fps);
-	if (tfps_level != fbt_fps_level[0])
-		fps_rescue_enhance_f = rescue_enhance_f_90;
-
 	blc_wt = fbt_get_new_base_blc(pld, thr->boost_info.last_blc,
-			fps_rescue_enhance_f, rescue_second_copp);
+			rescue_enhance_f, rescue_second_copp);
 
 	thrm_aware_switch(0);
 	fbt_set_hard_limit_locked(FPSGO_HARD_NONE, pld);
@@ -1814,8 +1806,6 @@ static void fbt_do_jerk_locked(struct render_info *thr, struct fbt_jerk *jerk, i
 	unsigned int blc_wt = 0U;
 	struct ppm_limit_data *pld;
 	int do_jerk;
-	int tfps_level;
-	int fps_rescue_enhance_f = rescue_enhance_f;
 
 	if (!thr)
 		return;
@@ -1831,11 +1821,7 @@ static void fbt_do_jerk_locked(struct render_info *thr, struct fbt_jerk *jerk, i
 
 	mutex_lock(&fbt_mlock);
 
-	tfps_level = fbt_get_fps_level(thr->boost_info.target_fps);
-	if (tfps_level != fbt_fps_level[0])
-		fps_rescue_enhance_f = rescue_enhance_f_90;
-
-	blc_wt = fbt_get_new_base_blc(pld, blc_wt, fps_rescue_enhance_f, rescue_opp_c);
+	blc_wt = fbt_get_new_base_blc(pld, blc_wt, rescue_enhance_f, rescue_opp_c);
 	if (!blc_wt)
 		goto EXIT;
 
@@ -5304,7 +5290,7 @@ int __init fbt_cpu_init(void)
 	floor_opp = 2;
 	loading_th = 0;
 	sampling_period_MS = 256;
-	rescue_enhance_f = rescue_enhance_f_90 = 25;
+	rescue_enhance_f = 25;
 	loading_adj_cnt = fbt_get_default_adj_count();
 	loading_debnc_cnt = 30;
 	loading_time_diff = fbt_get_default_adj_tdiff();
