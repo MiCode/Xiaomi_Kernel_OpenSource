@@ -35,9 +35,9 @@
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
 #include "vcodec_dvfs.h"
-#define STD_VENC_FREQ 249
-#define STD_LUMA_BW 70
-#define STD_CHROMA_BW 35
+#define STD_VENC_FREQ 364
+#define STD_LUMA_BW 100
+#define STD_CHROMA_BW 50
 static struct pm_qos_request venc_qos_req_f;
 static u64 venc_freq;
 static u32 venc_freq_step_size;
@@ -255,8 +255,8 @@ void mtk_venc_dvfs_begin(struct mtk_vcodec_ctx *ctx)
 		target_freq_64 = match_freq(target_freq, &venc_freq_steps[0],
 					venc_freq_step_size);
 
-		if (target_freq_64 > 458)
-			target_freq_64 = 458;
+		if (target_freq_64 > 450)
+			target_freq_64 = 450;
 
 		if (target_freq > 0) {
 			venc_freq = target_freq;
@@ -278,7 +278,7 @@ void mtk_venc_dvfs_begin(struct mtk_vcodec_ctx *ctx)
 #if ENC_DVFS
 static int mtk_venc_get_exec_cnt(struct mtk_vcodec_ctx *ctx)
 {
-	return (int)((readl(ctx->dev->enc_reg_base[VENC_SYS] + 0x17C) &
+	return (int)((readl(ctx->dev->enc_reg_base[VENC_SYS] + 0x1030) &
 			0x7FFFFFFF) / 1000);
 }
 #endif

@@ -35,7 +35,7 @@
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
 #include "vcodec_dvfs.h"
-#define STD_VDEC_FREQ 218
+#define STD_VDEC_FREQ 312
 static struct pm_qos_request vdec_qos_req_f;
 static u64 vdec_freq;
 static u32 vdec_freq_step_size;
@@ -615,18 +615,18 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 #if DEC_EMI_BW
 	int b_freq_idx = 0;
 	int f_type = 1; /* TODO */
-	long emi_bw = 0;
-	long emi_bw_input = 0;
-	long emi_bw_output = 0;
+	long long emi_bw = 0;
+	long long emi_bw_input = 0;
+	long long emi_bw_output = 0;
 	int is_ufo_on = 0;
 
 	if (vdec_freq_step_size > 1)
 		b_freq_idx = vdec_freq_step_size - 1;
 
-	emi_bw = 8L * 1920 * 1080 * 2 * 10 * vdec_freq;
-	emi_bw_input = 8 * vdec_freq / STD_VDEC_FREQ;
-	emi_bw_output = 1920 * 1088 * 3 * 20 * 10 * vdec_freq /
-			2 / 3 / STD_VDEC_FREQ / 1024 / 1024;
+	emi_bw = 8LL * 1920 * 1080 * 2 * 10 * 3 * vdec_freq / 2;
+	emi_bw_input = 8LL * 3 * vdec_freq / STD_VDEC_FREQ / 2;
+	emi_bw_output = 1920LL * 1088 * 9 * 20 * 10 * vdec_freq /
+			4 / 3 / STD_VDEC_FREQ / 1024 / 1024;
 
 	switch (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc) {
 	case V4L2_PIX_FMT_H264:
@@ -650,15 +650,7 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 		break;
 	}
 
-	is_ufo_on = (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
-			V4L2_PIX_FMT_H264 ||
-			ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
-			V4L2_PIX_FMT_H265 ||
-			ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
-			V4L2_PIX_FMT_VP9) &&
-			((ctx->q_data[MTK_Q_DATA_DST].coded_width *
-			ctx->q_data[MTK_Q_DATA_DST].coded_height) >=
-			(1920 * 1080)) ? 1 : 0;
+	is_ufo_on = 0;
 
 	/* bits/s to MBytes/s */
 	emi_bw = emi_bw / (1024 * 1024) / 8;
