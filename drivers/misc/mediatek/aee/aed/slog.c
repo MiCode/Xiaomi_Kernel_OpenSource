@@ -33,6 +33,7 @@ struct tracepoints_table {
 
 static unsigned int ufs_count;
 static unsigned int ccci_count;
+static unsigned int devmpu_count;
 static unsigned int threshold;
 static struct proc_dir_entry *dir;
 
@@ -64,9 +65,18 @@ static void probe_ccci_event(void *data, char *string, char *sub_string,
 	slog("#$#%s#@#%s#%d:%d#%d", string, sub_string, sub_type, resv, ccci_count);
 }
 
+static void probe_devmpu_event(void *data, unsigned long long vio_addr, unsigned int vio_id,
+		unsigned int vio_domain, unsigned int vio_rw)
+{
+	devmpu_count++;
+	slog("#$#devmpu#@#event#vio_id(0x%x),vio_domain(0x%x),vio_rw(0x%x),vio_addr(0x%llx)#%d",
+		vio_id, vio_domain, vio_rw, vio_addr, devmpu_count);
+}
+
 static struct tracepoints_table interests[] = {
 	{.name = "ufs_mtk_event", .mod_name = NULL, .module = false, .func = probe_ufs_mtk_event},
 	{.name = "ccci_event", .mod_name = "NULL", .module = false, .func = probe_ccci_event},
+	{.name = "devmpu_event", .mod_name = "NULL", .module = false, .func = probe_devmpu_event},
 };
 
 #define FOR_EACH_INTEREST(i) \
