@@ -568,8 +568,8 @@ struct fastrpc_mmap {
 	uintptr_t raddr;
 	int uncached;
 	int secure;
-	/* Minidump unique index */
-	int frpc_md_index;
+	bool is_persistent;                     //the map is persistenet across sessions
+	int frpc_md_index;                      //Minidump unique index
 	uintptr_t attr;
 	struct timespec64 map_start_time;
 	struct timespec64 map_end_time;
@@ -1196,7 +1196,7 @@ static int fastrpc_mmap_remove(struct fastrpc_file *fl, int fd, uintptr_t va,
 	hlist_for_each_entry_safe(map, n, &me->maps, hn) {
 		if ((fd < 0 || map->fd == fd) && map->raddr == va &&
 			map->raddr + map->len == va + len &&
-			map->refs == 1) {
+			map->refs == 1 && !map->is_persistent) {
 			match = map;
 			hlist_del_init(&map->hn);
 			break;
@@ -1248,7 +1248,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 				map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		spin_lock(&me->hlock);
 		map->refs--;
-		if (!map->refs)
+		if (!map->refs && !map->is_persistent)
 			hlist_del_init(&map->hn);
 		spin_unlock(&me->hlock);
 		if (map->refs > 0) {
@@ -3863,7 +3863,7 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		 * If remote-heap VMIDs are defined in DTSI, then do
 		 * hyp_assign from HLOS to those VMs (LPASS, ADSP).
 		 */
-		if (rhvm->vmid) {
+		if (rhvm->vmid && mem && !mem->is_persistent) {
 			err = hyp_assign_phys(phys, (uint64_t)size,
 				hlosvm, 1,
 				rhvm->vmid, rhvm->vmperm, rhvm->vmcount);
@@ -3877,6 +3877,7 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 			rh_hyp_done = 1;
 		}
 		me->staticpd_flags = 1;
+		mem->is_persistent = true;
 	}
 
 	/*
@@ -4516,6 +4517,10 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 		spin_lock(&me->hlock);
 		hlist_for_each_entry_safe(map, n, &me->maps, hn) {
 			match = map;
+			if (map->is_persistent) {
+				match = NULL;
+				continue;
+			}
 			hlist_del_init(&map->hn);
 			break;
 		}
@@ -4655,8 +4660,11 @@ static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 		err = -EINVAL;
 		goto bail;
 	}
-	VERIFY(err, !(err = fastrpc_munmap_on_dsp(fl, map->raddr,
-			map->phys, map->size, map->flags)));
+	if (!map->is_persistent) {
+		VERIFY(err, !(err = fastrpc_munmap_on_dsp(fl, map->raddr,
+					map->phys, map->size, map->flags)));
+	}
+
 	if (err)
 		goto bail;
 	mutex_lock(&fl->map_mutex);
