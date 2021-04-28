@@ -12,7 +12,11 @@
 #
 
 ifdef CONFIG_MTK_PLATFORM
+ifeq ($(CONFIG_MACH_MT6781),y)
+MTK_PLATFORM := mt6781
+else
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+endif
 include $(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/Makefile
 endif
 
