@@ -281,8 +281,8 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 void mtk_vdec_dump_addr_reg(
 	struct mtk_vcodec_dev *dev, int hw_id, enum mtk_dec_dump_addr_type type)
 {
-	struct mtk_vcodec_ctx *ctx = dev->curr_dec_ctx[hw_id];
-	u32 fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+	struct mtk_vcodec_ctx *ctx;
+	u32 fourcc;
 	void __iomem *vld_addr = dev->dec_reg_base[VDEC_VLD];
 	void __iomem *mc_addr = dev->dec_reg_base[VDEC_MC];
 	void __iomem *mv_addr = dev->dec_reg_base[VDEC_MV];
@@ -301,6 +301,13 @@ void mtk_vdec_dump_addr_reg(
 	const unsigned int ref_mc_base[REF_MC_NUM] = {
 		0x3DC, 0xB60, 0x45C, 0xBE0, 0x4DC, 0xC60, 0xD28};
 	// P_L0_Y, P_L0_C, B_L0_Y, B_L0_C, B_L1_Y, B_L1_C, REF
+
+	if (hw_id != MTK_VDEC_CORE) {
+		mtk_v4l2_err("hw_id %d not support !!", hw_id);
+		return;
+	}
+	ctx = dev->curr_dec_ctx[hw_id];
+	fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 
 	spin_lock_irqsave(&dev->dec_power_lock[hw_id], flags);
 	if (dev->dec_is_power_on[hw_id] == false) {
