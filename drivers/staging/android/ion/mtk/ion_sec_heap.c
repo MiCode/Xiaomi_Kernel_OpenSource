@@ -160,6 +160,23 @@ static enum TRUSTED_MEM_REQ_TYPE get_trusted_mem_type(unsigned int heap_id)
 		return TRUSTED_MEM_REQ_SVP;
 	}
 }
+
+enum TRUSTED_MEM_REQ_TYPE ion_get_trust_mem_type(struct dma_buf *dmabuf)
+{
+	enum TRUSTED_MEM_REQ_TYPE tmem_type = TRUSTED_MEM_REQ_SVP;
+	struct ion_buffer *buffer;
+
+	if (!dmabuf) {
+		IONMSG("%s dmabuf is NULL\n");
+		return TRUSTED_MEM_REQ_SVP;
+	}
+
+	buffer = dmabuf->priv;
+	if (buffer)
+		tmem_type = get_trusted_mem_type(buffer->heap->id);
+
+	return tmem_type;
+}
 #endif
 
 static int ion_sec_heap_allocate(struct ion_heap *heap,
