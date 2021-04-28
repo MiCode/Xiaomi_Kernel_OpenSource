@@ -25,6 +25,10 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mach/$(CMDQ_PLATFORM)/include \
              -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/mdp/$(MDP_PLATFORM) \
              -I$(srctree)/drivers/misc/mediatek/mmp/
+ifeq ($(or $(strip $(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)), $(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT))),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/m4u
+ccflags-y += -I$(srctree)/drivers/iommu
+endif
 
 ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
 
@@ -44,12 +48,17 @@ obj-y += cmdq_sec_mtee.o
 endif
 endif
 
-ccflags-y += -DCMDQ_SECURE_SUPPORT
+ifeq ($(strip $(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
+ccflags-y += -DCMDQ_SECURE_MTEE_SUPPORT
+obj-y += cmdq_sec_mtee.o
 
-ifeq ($(strip $(CONFIG_MTK_TEE_GP_SUPPORT)),y)
+else ifeq ($(strip $(CONFIG_MTK_TEE_GP_SUPPORT)),y)
 ccflags-y += -DCMDQ_GP_SUPPORT
 obj-y += cmdq-sec-gp.o
 endif
+
+ccflags-y += -DCMDQ_SECURE_SUPPORT
 obj-y += cmdq-sec-helper.o
 obj-y += cmdq-sec-mailbox.o
 
