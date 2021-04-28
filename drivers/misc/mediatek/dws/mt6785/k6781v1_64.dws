@@ -403,12 +403,13 @@
             </gpio30>
             <gpio31>
                 <eint_mode>false</eint_mode>
-                <def_mode>0</def_mode>
+                <def_mode>1</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
-                <def_dir>IN</def_dir>
+                <def_dir>OUT</def_dir>
                 <out_high>false</out_high>
-                <smt>false</smt>
+                <varName0>GPIO_ANT_SEL2_PIN</varName0>
+                <smt>true</smt>
                 <ies>true</ies>
             </gpio31>
             <gpio32>
