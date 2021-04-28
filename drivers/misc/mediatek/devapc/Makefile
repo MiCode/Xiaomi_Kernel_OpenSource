@@ -19,6 +19,7 @@ else
   obj-$(CONFIG_DEVAPC_MT6779) += devapc-mt6779.o
   obj-$(CONFIG_DEVAPC_MT6768) += devapc-mt6768.o
   obj-$(CONFIG_DEVAPC_MT6785) += devapc-mt6785.o
+  obj-$(CONFIG_DEVAPC_MT6781) += devapc-mt6781.o
   obj-$(CONFIG_DEVAPC_MT6885) += devapc-mt6885.o
   obj-$(CONFIG_DEVAPC_MT6873) += devapc-mt6873.o
   obj-$(CONFIG_DEVAPC_MT6853) += devapc-mt6853.o

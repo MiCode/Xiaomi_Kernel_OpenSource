@@ -84,6 +84,18 @@ config DEVAPC_MT6785
 	  This driver is combined with DEVAPC_ARCH_V1 for
 	  common handle flow.
 
+config DEVAPC_MT6781
+	bool "Mediatek MT6781 Device APC driver"
+	depends on MACH_MT6781 || COMPILE_TEST
+	select DEVAPC_ARCH_V1
+	select MTK_DEVAPC
+	select DEVAPC_SWP_SUPPORT if MTK_ENG_BUILD
+	help
+	  Say yes here to enable support Mediatek MT6781
+	  Device APC driver.
+	  This driver is combined with DEVAPC_ARCH_V1 for
+	  common handle flow.
+
 config DEVAPC_MT6885
 	bool "Mediatek MT6885 Device APC driver"
 	depends on MACH_MT6885 || MACH_MT6893 || COMPILE_TEST
