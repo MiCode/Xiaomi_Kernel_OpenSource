@@ -92,11 +92,6 @@
 #define DEFAULT_QR_T2WNT_X 0
 #define DEFAULT_QR_T2WNT_Y_P 100
 #define DEFAULT_QR_T2WNT_Y_N 0
-#define DEFAULT_QR_LITTLE_CNT 4
-#define DEFAULT_QR_LITTLE_MAX 5
-#define DEFAULT_QR_LITTLE_MIN (-5)
-#define DEFAULT_QR_Q2Q_MAX 3
-#define DEFAULT_QR_CNT_DIVIDER 2
 #define DEFAULT_QR_HWUI_HINT 1
 #define DEFAULT_GCC_RESERVED_UP_QUOTA_PCT 33
 #define DEFAULT_GCC_RESERVED_DOWN_QUOTA_PCT 33
@@ -237,11 +232,6 @@ static int qr_enable;
 static int qr_t2wnt_x;
 static int qr_t2wnt_y_p;
 static int qr_t2wnt_y_n;
-static int qr_little_cnt;
-static int qr_little_max;
-static int qr_little_min;
-static int qr_q2q_max;
-static int qr_cnt_divider;
 static int qr_hwui_hint;
 static int qr_debug;
 static int gcc_enable;
@@ -301,11 +291,6 @@ module_param(qr_enable, int, 0644);
 module_param(qr_t2wnt_x, int, 0644);
 module_param(qr_t2wnt_y_p, int, 0644);
 module_param(qr_t2wnt_y_n, int, 0644);
-module_param(qr_little_cnt, int, 0644);
-module_param(qr_little_max, int, 0644);
-module_param(qr_little_min, int, 0644);
-module_param(qr_q2q_max, int, 0644);
-module_param(qr_cnt_divider, int, 0644);
 module_param(qr_hwui_hint, int, 0644);
 module_param(qr_debug, int, 0644);
 module_param(gcc_enable, int, 0644);
@@ -1804,7 +1789,7 @@ static void fbt_do_jerk_locked(struct render_info *thr, struct fbt_jerk *jerk, i
 		thr->pid, thr->buffer_id, thr->tgid);
 
 	fbt_print_rescue_info(thr->pid, thr->buffer_id, thr->t_enqueue_end,
-		thr->boost_info.qr_quota, 0, 1, do_jerk,
+		thr->boost_info.quota_adj, 0, 1, do_jerk,
 		blc_wt, thr->boost_info.last_blc);
 
 	if (do_jerk == FPSGO_JERK_DISAPPEAR)
@@ -2511,6 +2496,93 @@ static int fbt_get_next_jerk(int cur_id)
 	return ret_id;
 }
 
+void update_quota(struct fbt_boost_info *boost_info, int target_fps,
+	unsigned long long t_Q2Q)
+{
+	int rm_idx, new_idx, first_idx;
+	//long long target_time = div64_s64(1000000, target_fps * 100);
+	long long target_time = div64_s64(1000000, target_fps * 100 + gcc_fps_margin);
+	int avg = 0, std_square = 0, i, quota_adj = 0;
+
+	if (target_fps != boost_info->quota_fps) {
+		boost_info->quota_cur_idx = -1;
+		boost_info->quota_cnt = 0;
+		boost_info->quota = 0;
+		boost_info->quota_fps = target_fps;
+	}
+
+	new_idx = boost_info->quota_cur_idx + 1;
+
+	if (new_idx >= QUOTA_MAX_SIZE)
+		new_idx -= QUOTA_MAX_SIZE;
+
+	boost_info->quota_raw[new_idx] = target_time - t_Q2Q;
+	boost_info->quota += boost_info->quota_raw[new_idx];
+
+	if (boost_info->quota_cnt >= gcc_window_size) {
+		rm_idx = new_idx - gcc_window_size;
+		if (rm_idx < 0)
+			rm_idx += QUOTA_MAX_SIZE;
+
+		first_idx = rm_idx + 1;
+		if (first_idx >= QUOTA_MAX_SIZE)
+			first_idx -= QUOTA_MAX_SIZE;
+
+		boost_info->quota -= boost_info->quota_raw[rm_idx];
+	} else {
+		first_idx = new_idx - boost_info->quota_cnt;
+		if (first_idx < 0)
+			first_idx += QUOTA_MAX_SIZE;
+
+		boost_info->quota_cnt += 1;
+	}
+	boost_info->quota_cur_idx = new_idx;
+
+	/* remove outlier */
+	avg = boost_info->quota * 100 / boost_info->quota_cnt;
+
+
+	if (first_idx < new_idx)
+		for (i = first_idx; i <= new_idx; i++)
+			std_square += (boost_info->quota_raw[i] * 100 - avg) *
+			(boost_info->quota_raw[i] * 100 - avg);
+	else {
+		for (i = first_idx; i < QUOTA_MAX_SIZE; i++)
+			std_square += (boost_info->quota_raw[i] * 100 - avg) *
+			(boost_info->quota_raw[i] * 100 - avg);
+		for (i = 0; i <= new_idx; i++)
+			std_square += (boost_info->quota_raw[i] * 100 - avg) *
+			(boost_info->quota_raw[i] * 100 - avg);
+	}
+	do_div(std_square, boost_info->quota_cnt);
+
+	if (first_idx < new_idx) {
+		for (i = first_idx; i <= new_idx; i++)
+			if ((boost_info->quota_raw[i] * 100 - avg) *
+				(boost_info->quota_raw[i] * 100 - avg) <
+				gcc_std_filter * gcc_std_filter * std_square)
+				quota_adj += boost_info->quota_raw[i];
+	} else {
+		for (i = first_idx; i < QUOTA_MAX_SIZE ; i++)
+			if ((boost_info->quota_raw[i] * 100 - avg) *
+				(boost_info->quota_raw[i] * 100 - avg) <
+				gcc_std_filter * gcc_std_filter * std_square)
+				quota_adj += boost_info->quota_raw[i];
+		for (i = 0; i <= new_idx ; i++)
+			if ((boost_info->quota_raw[i] * 100 - avg) *
+				(boost_info->quota_raw[i] * 100 - avg) <
+				gcc_std_filter * gcc_std_filter * std_square)
+				quota_adj += boost_info->quota_raw[i];
+	}
+
+	boost_info->quota_adj = quota_adj;
+
+	fpsgo_main_trace("%s begin:%d %d end:%d %d cnt:%d sum:%d avg:%d std_square:%d, quota:%d",
+		__func__, first_idx, boost_info->quota_raw[first_idx],
+		new_idx, boost_info->quota_raw[new_idx], boost_info->quota_cnt,
+		boost_info->quota, avg, std_square, quota_adj);
+}
+
 int eva_quota(long long array[], int i)
 {
 	int idx_first = 0;
@@ -2680,67 +2752,6 @@ int fbt_get_max_dep_pct(struct render_info *thread_info)
 	return pct;
 }
 
-
-void fbt_eva_rescue(int pid, int buffer_id,
-		int *count, int *quota, int *quota_signed, int *quota_signed_cnt,
-		int *g_target_fps, long long *g_target_time,
-		int target_fps, unsigned long long t_Q2Q)
-{
-	int quota_signed_now;
-	long long target_time = div64_s64(10000, target_fps); /* unit:100us */
-	int diff = target_time - t_Q2Q;
-
-	*g_target_time = target_time;
-
-	if (*g_target_fps != target_fps) { /* target fps is changed */
-		*g_target_fps = target_fps;
-		*count = 1;
-		*quota = diff;
-		*quota_signed = (diff > 0) ? 1 : -1;
-		*quota_signed_cnt = 1;
-	} else if ((*count) >= qr_little_cnt &&
-		(*quota) >= qr_little_min && (*quota) <= qr_little_max) {
-		/* 4 frames and quota < +-0.5ms */
-		*count = 1;
-		*quota = diff;
-		*quota_signed = (diff > 0) ? 1 : -1;
-		*quota_signed_cnt = 1;
-	} else if (t_Q2Q > target_time * qr_q2q_max) {
-		/* t_Q2Q is too big. more than 3 target time */
-		*count = 0;
-		*quota = 0;
-		*quota_signed = 0;
-		*quota_signed_cnt = 0;
-	} else if ((*quota_signed_cnt) >= target_fps / qr_cnt_divider) {
-		*count = 1;
-		*quota = diff;
-		*quota_signed = (diff > 0) ? 1 : -1;
-		*quota_signed_cnt = 1;
-	} else {
-
-		while ((*quota) < (-target_time))
-			(*quota) += target_time;
-		while ((*quota) > (target_time))
-			(*quota) -= target_time;
-
-		(*count)++;
-		*quota += diff;
-
-		quota_signed_now = ((*quota) > 0) ? 1 : -1;
-		if (quota_signed_now == (*quota_signed))
-			(*quota_signed_cnt) += 1;
-		else {
-			*quota_signed_cnt = 1;
-			*quota_signed = quota_signed_now;
-		}
-	}
-
-	if (qr_debug) {
-		fpsgo_systrace_c_fbt(pid, buffer_id, *quota_signed, "quota_signed");
-		fpsgo_systrace_c_fbt(pid, buffer_id, *quota_signed_cnt, "quota_signed_cnt");
-	}
-}
-
 static int fbt_boost_policy(
 	long long t_cpu_cur,
 	long long target_time,
@@ -2826,20 +2837,11 @@ static int fbt_boost_policy(
 
 	blc_wt = fbt_limit_capacity(blc_wt, 0);
 
-	/* ignore hwui hint || not hwui */
-	if (qr_enable && (!qr_hwui_hint || thread_info->ux != 1)) {
-		fbt_eva_rescue(
-				pid, buffer_id,
-				&(boost_info->qr_count),
-				&(boost_info->qr_quota),
-				&(boost_info->qr_signed),
-				&(boost_info->qr_signed_cnt),
-				&(boost_info->qr_target_fps),
-				&rescue_target_t,
-				target_fps, t_Q2Q);
-		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->qr_quota, "rescue_quota");
-		if (qr_debug)
-			fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->qr_count, "rescue_count");
+	/* update quota */
+	if (qr_enable || gcc_enable) {
+		update_quota(boost_info, target_fps, t_Q2Q);
+		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->quota, "quota");
+		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->quota_adj, "quota_adj");
 	}
 
 	if (gcc_enable) {
@@ -2855,7 +2857,7 @@ static int fbt_boost_policy(
 				t_Q2Q, gpu_loading, pct, blc_wt, t1);
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->gcc_count, "gcc_count");
 		if (quota != -999)
-			fpsgo_systrace_c_fbt(pid, buffer_id, quota, "quota");
+			fpsgo_systrace_c_fbt(pid, buffer_id, quota, "gcc_quota");
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->gcc_target_fps, "gcc_target_fps");
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->correction, "correction");
 		fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "before correction");
@@ -2900,15 +2902,15 @@ static int fbt_boost_policy(
 				rescue_target_t * 1000 * (100 + qr_t2wnt_x) :
 				rescue_target_t * 100000;
 
-			if (boost_info->qr_quota > 0) { /* qr_quota, unit: 100us */
+			if (boost_info->quota_adj > 0) { /* qr_quota, unit: 100us */
 				/* qr_t2wnt_y_p: percentage */
 				qr_quota_adj = (qr_t2wnt_y_p != 100) ?
-					boost_info->qr_quota * 1000 * qr_t2wnt_y_p :
-					boost_info->qr_quota * 100000;
+					boost_info->quota_adj * 1000 * qr_t2wnt_y_p :
+					boost_info->quota_adj * 100000;
 			} else {
 				 /* qr_t2wnt_y_n: percentage */
 				qr_quota_adj = (qr_t2wnt_y_n != 0) ?
-					boost_info->qr_quota * 1000 * qr_t2wnt_y_n :
+					boost_info->quota_adj * 1000 * qr_t2wnt_y_n :
 					0;
 			}
 			t2wnt = (rescue_target_t + qr_quota_adj > 0)
@@ -5017,11 +5019,6 @@ int __init fbt_cpu_init(void)
 	qr_t2wnt_x = DEFAULT_QR_T2WNT_X;
 	qr_t2wnt_y_p = DEFAULT_QR_T2WNT_Y_P;
 	qr_t2wnt_y_n = DEFAULT_QR_T2WNT_Y_N;
-	qr_little_cnt = DEFAULT_QR_LITTLE_CNT;
-	qr_little_max = DEFAULT_QR_LITTLE_MAX;
-	qr_little_min = DEFAULT_QR_LITTLE_MIN;
-	qr_q2q_max = DEFAULT_QR_Q2Q_MAX;
-	qr_cnt_divider = DEFAULT_QR_CNT_DIVIDER;
 	qr_hwui_hint = DEFAULT_QR_HWUI_HINT;
 	qr_debug = 0;
 

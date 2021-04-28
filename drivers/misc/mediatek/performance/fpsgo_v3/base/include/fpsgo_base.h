@@ -25,6 +25,7 @@
 
 #define WINDOW 20
 #define RESCUE_TIMER_NUM 3
+#define QUOTA_MAX_SIZE 300
 #define GCC_MAX_SIZE 300
 
 /* EARA job type */
@@ -93,13 +94,13 @@ struct fbt_boost_info {
 	int reset_floor_bound;
 	int f_iter;
 
-	/* quota rescue */
-	int qr_count;
-	int qr_conti_cnt;
-	int qr_target_fps;
-	int qr_quota;
-	int qr_signed;
-	int qr_signed_cnt;
+	/* quota */
+	long long quota_raw[QUOTA_MAX_SIZE];
+	int quota_cnt;
+	int quota_cur_idx;
+	int quota_fps;
+	int quota;
+	int quota_adj; /* remove outlier */
 
 	/* GCC */
 	long long gcc_quota_array[GCC_MAX_SIZE];
