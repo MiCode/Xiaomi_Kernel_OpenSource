@@ -54,7 +54,7 @@
 #define TZCMD_MEM_APPEND_MULTI_CHUNKMEM_ION 31
 #define TZCMD_MEM_RELEASE_CHUNKMEM_ION 32
 #define TZCMD_MEM_CONFIG_CHUNKMEM_INFO_ION 34
-
+#define TZCMD_MEM_Query_SECUREMEM_INFO 35
 
 /* data structure for parameter passing */
 struct shm_buffer_s {
