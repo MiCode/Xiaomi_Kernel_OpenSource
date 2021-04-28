@@ -1778,8 +1778,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				g_psMEOW->gpu_freq_pred = gpu_freq_pre;
 				if (main_head == psHead &&
 					psHead->pid == g_psMEOW->target_pid) {
-					g_psMEOW->target_fps = psHead->target_fps
-						+ psHead->target_fps_margin;
+					g_psMEOW->target_fps = psHead->target_fps;
 					g_psMEOW->gpu_time = time_spent;
 				} else {
 					g_psMEOW->target_fps = -1;
