@@ -14,7 +14,7 @@
 #define _MTK_EEM_CONFIG_H_
 
 /* CONFIG (SW related) */
-#define EEM_NOT_READY	(1)
+/* #define EEM_NOT_READY	(1) */
 #define CONFIG_EEM_SHOWLOG	(0)
 #define EN_ISR_LOG		(0)
 #define EEM_BANK_SOC		(0) /* use voltage bin, so disable it */
@@ -41,7 +41,7 @@
 
 #define EEM_OFFSET
 /* CCJ set to 0 for bring up */
-#define EARLY_PORTING_GPU
+/* #define EARLY_PORTING_GPU */
 #define SET_PMIC_VOLT		(1)
 #define SET_PMIC_VOLT_TO_DVFS (1)
 #define LOG_INTERVAL	(2LL * NSEC_PER_SEC)

@@ -132,6 +132,7 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.DCCONFIG	= DCCONFIG_VAL,
 		.EEMCTL0	= EEM_CTL0_L,
 		.low_temp_off	= EXTRA_TEMP_OFF_L,
+		.high_temp_off	= EXTRA_TEMP_OFF_L,
 		.volt_policy	= 1,
 	},
 
@@ -168,6 +169,7 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.DCCONFIG	= DCCONFIG_VAL,
 		.EEMCTL0	= EEM_CTL0_B,
 		.low_temp_off	= EXTRA_TEMP_OFF_B,
+		.high_temp_off  = EXTRA_TEMP_OFF_L,
 		.volt_policy	= 1,
 	},
 
@@ -198,6 +200,7 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.DCCONFIG	= DCCONFIG_VAL,
 		.EEMCTL0	= EEM_CTL0_CCI,
 		.low_temp_off	= EXTRA_TEMP_OFF_L,
+		.high_temp_off  = EXTRA_TEMP_OFF_L,
 		.volt_policy	= 1,
 	},
 
@@ -236,6 +239,7 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.DCCONFIG	= DCCONFIG_VAL,
 		.EEMCTL0	= EEM_CTL0_GPU,
 		.low_temp_off	= EXTRA_TEMP_OFF_GPU,
+		.high_temp_off  = EXTRA_TEMP_OFF_L,
 		.volt_policy	= 1,
 	},
 
@@ -267,6 +271,7 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.DCCONFIG	= DCCONFIG_VAL,
 		.EEMCTL0	= EEM_CTL0_MDLA,
 		.low_temp_off	= LOW_TEMP_OFF_DEFAULT,
+		.high_temp_off  = EXTRA_TEMP_OFF_L,
 	},
 #endif
 
@@ -298,6 +303,7 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.DCCONFIG	= DCCONFIG_VAL,
 		.EEMCTL0	= EEM_CTL0_VPU,
 		.low_temp_off	= LOW_TEMP_OFF_DEFAULT,
+		.high_temp_off  = EXTRA_TEMP_OFF_L,
 	},
 #endif
 
@@ -334,6 +340,7 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.DCCONFIG	= DCCONFIG_VAL,
 		.EEMCTL0	= EEM_CTL0_GPU,
 		.low_temp_off	= EXTRA_TEMP_OFF_GPU,
+		.high_temp_off  = EXTRA_TEMP_OFF_L,
 		.volt_policy	= 1,
 
 	},
@@ -370,6 +377,7 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.DCCONFIG	= DCCONFIG_VAL,
 		.EEMCTL0	= EEM_CTL0_B,
 		.low_temp_off	= EXTRA_TEMP_OFF_B,
+		.high_temp_off  = EXTRA_TEMP_OFF_L,
 		.volt_policy	= 1,
 	},
 #endif
