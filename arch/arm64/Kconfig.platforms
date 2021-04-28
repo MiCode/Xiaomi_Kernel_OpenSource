@@ -187,6 +187,7 @@ config MACH_MT6781
 	select MTK_DEBUG_LATCH
 	select MTK_LASTBUS_INTERFACE
 	select MTK_CPU_KORO
+	select DEVMPU_MT6781
 	help
 	  This enables support for MediaTek MT6781
 	  Support for aarch64 Architecture
