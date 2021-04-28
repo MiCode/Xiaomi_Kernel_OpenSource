@@ -848,7 +848,7 @@ void cm_mgr_perf_platform_set_force_status(int enable)
 
 int cm_mgr_register_init(void)
 {
-	struct device_node *node;
+	struct device_node *node, *np;
 	int ret;
 	const char *buf;
 
@@ -856,7 +856,8 @@ int cm_mgr_register_init(void)
 			"mediatek,mcucfg_mp0_counter");
 	if (!node)
 		pr_info("find mcucfg_mp0_counter node failed\n");
-	mcucfg_mp0_counter_base = of_iomap(node, 0);
+	np = of_parse_phandle(node, "reg_mp0_counter_base", 0);
+	mcucfg_mp0_counter_base = of_iomap(np, 0);
 	if (!mcucfg_mp0_counter_base) {
 		pr_info("base mcucfg_mp0_counter_base failed\n");
 		return -1;
