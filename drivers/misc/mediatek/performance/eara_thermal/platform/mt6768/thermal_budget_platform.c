@@ -16,7 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include "mtk_gpufreq.h"
-#include "thermal_budget.h"
+#include "thermal_internal.h"
 
 void eara_thrm_update_gpu_info(int *input_opp_num, int *in_max_opp_idx,
 			struct mt_gpufreq_power_table_info **gpu_tbl,

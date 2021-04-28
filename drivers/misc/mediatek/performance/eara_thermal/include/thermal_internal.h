@@ -1,21 +1,12 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2018 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * Copyright (C) 2021 MediaTek Inc.
  */
 
-#ifndef EARA_THRM_PB_H
-#define EARA_THRM_PB_H
+#ifndef __EARA_THERMAL_INT_H__
+#define __EARA_THERMAL_INT_H__
+
+#include <linux/ktime.h>
 
 extern struct ppm_cobra_data *ppm_cobra_pass_tbl(void);
 extern void eara_pass_perf_first_hint(int enable);
@@ -33,6 +24,14 @@ extern void (*eara_thrm_frame_start_fp)(int pid, unsigned long long bufID,
 	int AI_bg_mdla, ktime_t cur_time);
 extern void (*eara_thrm_enqueue_end_fp)(int pid, unsigned long long bufID,
 	int gpu_time, int gpu_freq, unsigned long long enq);
+
+extern int get_tpcb_headroom(void);
+
+extern void (*eara_enable_fp)(int enable);
+extern void (*eara_set_tfps_diff_fp)(int max_cnt, int *pid, unsigned long long *buf_id, int *diff);
+extern void (*eara_get_tfps_pair_fp)(int max_cnt, int *pid, unsigned long long *buf_id, int *tfps,
+	char name[][16]);
+extern void (*eara_pre_active_fp)(int is_active);
 
 /* platform */
 struct thrm_pb_ratio {
