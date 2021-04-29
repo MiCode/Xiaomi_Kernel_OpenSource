@@ -103,6 +103,9 @@ static inline u64 read_event(struct event_data *event, bool local)
 {
 	u64 enabled, running, total = 0;
 
+	if (!event->pevent)
+		return event->cached_count;
+
 	if (local)
 		perf_event_read_local(event->pevent, &total, NULL, NULL);
 	else
