@@ -654,9 +654,8 @@ static void delete_vma(struct mm_struct *mm, struct vm_area_struct *vma)
 {
 	if (vma->vm_ops && vma->vm_ops->close)
 		vma->vm_ops->close(vma);
-	if (vma->vm_file)
-		fput(vma->vm_file);
 	put_nommu_region(vma->vm_region);
+	/* fput(vma->vm_file) happens within vm_area_free() */
 	vm_area_free(vma);
 }
 
@@ -1254,8 +1253,7 @@ error:
 	if (region->vm_file)
 		fput(region->vm_file);
 	kmem_cache_free(vm_region_jar, region);
-	if (vma->vm_file)
-		fput(vma->vm_file);
+	/* fput(vma->vm_file) happens within vm_area_free() */
 	vm_area_free(vma);
 	return ret;
 
