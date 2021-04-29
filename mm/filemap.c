@@ -3335,25 +3335,31 @@ vm_fault_t filemap_map_pages(struct vm_fault *vmf,
 	struct vm_area_struct *vma = vmf->vma;
 	struct file *file = vma->vm_file;
 	struct address_space *mapping = file->f_mapping;
-	pgoff_t last_pgoff = start_pgoff;
+	pgoff_t last_pgoff;
 	unsigned long addr;
 	XA_STATE(xas, &mapping->i_pages, start_pgoff);
 	struct page *head, *page;
 	unsigned int mmap_miss = READ_ONCE(file->f_ra.mmap_miss);
-	vm_fault_t ret = 0;
+	vm_fault_t ret = (vmf->flags & FAULT_FLAG_SPECULATIVE) ?
+		VM_FAULT_RETRY : 0;
 
-	rcu_read_lock();
+	/* filemap_map_pages() is called within an rcu read lock already. */
 	head = first_map_page(mapping, &xas, end_pgoff);
 	if (!head)
-		goto out;
+		return ret;
 
-	if (filemap_map_pmd(vmf, head)) {
-		ret = VM_FAULT_NOPAGE;
-		goto out;
+	if (!(vmf->flags & FAULT_FLAG_SPECULATIVE) &&
+	    filemap_map_pmd(vmf, head))
+		return VM_FAULT_NOPAGE;
+
+	if (!pte_map_lock(vmf)) {
+		unlock_page(head);
+		put_page(head);
+		return VM_FAULT_RETRY;
 	}
+	addr = vmf->address;
+	last_pgoff = vmf->pgoff;
 
-	addr = vma->vm_start + ((start_pgoff - vma->vm_pgoff) << PAGE_SHIFT);
-	vmf->pte = pte_offset_map_lock(vma->vm_mm, vmf->pmd, addr, &vmf->ptl);
 	do {
 		page = find_subpage(head, xas.xa_index);
 		if (PageHWPoison(page))
@@ -3383,8 +3389,7 @@ unlock:
 		put_page(head);
 	} while ((head = next_map_page(mapping, &xas, end_pgoff)) != NULL);
 	pte_unmap_unlock(vmf->pte, vmf->ptl);
-out:
-	rcu_read_unlock();
+	vmf->pte = NULL;
 	WRITE_ONCE(file->f_ra.mmap_miss, mmap_miss);
 	return ret;
 }
