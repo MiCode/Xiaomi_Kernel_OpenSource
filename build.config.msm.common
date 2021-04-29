@@ -23,10 +23,13 @@ function compile_external_dtc() {
     DTC_MAKE_ARGS=("CC=${HOSTCC}" "AR=${AR}")
     DTC_MAKE_ARGS+=("LDFLAGS=${HOSTLDFLAGS} -fuse-ld=${LD##*.} --rtlib=compiler-rt")
     DTC_MAKE_ARGS+=("EXTRA_CFLAGS=${HOSTCFLAGS}")
+    # PKG_CONFIG would pull from host environment to determine if libyaml and libpython are
+    # available. We want a hermetic build that doesn't rely on host tools, so make dtc build think
+    #  none of these libraries are installed.
+    DTC_MAKE_ARGS+=("PKG_CONFIG=false")
     make all install "${DTC_MAKE_ARGS[@]}" NO_PYTHON=1 PREFIX=${COMMON_OUT_DIR}/host
   )
 }
-ADDITIONAL_HOST_TOOLS=pkg-config
 append_cmd PRE_DEFCONFIG_CMDS 'compile_external_dtc'
 
 ################################################################################
