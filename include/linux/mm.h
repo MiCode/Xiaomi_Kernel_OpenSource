@@ -663,6 +663,13 @@ struct vm_operations_struct {
 	 */
 	struct page *(*find_special_page)(struct vm_area_struct *vma,
 					  unsigned long addr);
+	/*
+	 * speculative indicates that the vm_operations support
+	 * speculative page faults. This allows ->fault and ->map_pages
+	 * to be called with FAULT_FLAG_SPECULATIVE set; such calls will
+	 * run within an rcu read locked section and with mmap lock not held.
+	 */
+	bool speculative;
 };
 
 static inline void vma_init(struct vm_area_struct *vma, struct mm_struct *mm)
