@@ -330,7 +330,6 @@ struct ep_pcie_dev_t {
 	struct ep_pcie_irq_info_t    irq[EP_PCIE_MAX_IRQ];
 	struct ep_pcie_res_info_t    res[EP_PCIE_MAX_RES];
 
-	u32			     mmio_res_size;
 	void __iomem                 *parf;
 	void __iomem                 *phy;
 	void __iomem                 *mmio;
