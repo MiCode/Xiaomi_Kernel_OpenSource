@@ -925,8 +925,12 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 		return num_entries * size;
 	} else if ((lvl == ARM_LPAE_MAX_LEVELS - 2) && !iopte_leaf(pte, lvl,
 								   iop->fmt)) {
-		arm_lpae_iopte *table = iopte_deref(pte, data);
-		arm_lpae_iopte *entry = table + ARM_LPAE_LVL_IDX(iova, lvl + 1, data);
+		arm_lpae_iopte *table;
+		arm_lpae_iopte *entry;
+
+		table = iopte_deref(pte, data);
+		unmap_idx_start = ARM_LPAE_LVL_IDX(iova, lvl + 1, data);
+		entry = table + unmap_idx_start;
 
 		max_entries = ptes_per_table - unmap_idx_start;
 		num_entries = min_t(int, pgcount, max_entries);
