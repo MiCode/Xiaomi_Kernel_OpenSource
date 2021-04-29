@@ -722,6 +722,20 @@ static inline bool vma_is_accessible(struct vm_area_struct *vma)
 	return vma->vm_flags & VM_ACCESS_FLAGS;
 }
 
+static inline bool vma_can_speculate(struct vm_area_struct *vma,
+		unsigned int flags)
+{
+	if (vma_is_anonymous(vma))
+		return true;
+	if (!vma->vm_ops->speculative)
+		return false;
+	if (!(flags & FAULT_FLAG_WRITE))
+		return true;
+	if (!(vma->vm_flags & VM_SHARED))
+		return true;
+	return false;
+}
+
 #ifdef CONFIG_SHMEM
 /*
  * The vma_is_shmem is not inline because it is used only by slow

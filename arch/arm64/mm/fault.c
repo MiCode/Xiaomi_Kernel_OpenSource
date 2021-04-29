@@ -602,7 +602,7 @@ static int __kprobes do_page_fault(unsigned long far, unsigned int esr,
 		count_vm_spf_event(SPF_ABORT_UNMAPPED);
 		goto spf_abort;
 	}
-	if (!vma_is_anonymous(vma)) {
+	if (!vma_can_speculate(vma, mm_flags)) {
 		rcu_read_unlock();
 		count_vm_spf_event(SPF_ABORT_NO_SPECULATE);
 		goto spf_abort;

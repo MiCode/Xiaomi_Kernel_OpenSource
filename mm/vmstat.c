@@ -1400,6 +1400,7 @@ const char * const vmstat_text[] = {
 	"SPF_ABORT_FAULT",
 	"SPF_ABORT_SWAP",
 	"SPF_ATTEMPT_ANON",
+	"SPF_ATTEMPT_FILE",
 	"SPF_ATTEMPT_NUMA",
 	"SPF_ATTEMPT_PTE",
 	"SPF_ATTEMPT_WP",

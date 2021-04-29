@@ -1348,7 +1348,7 @@ void do_user_addr_fault(struct pt_regs *regs,
 		count_vm_spf_event(SPF_ABORT_UNMAPPED);
 		goto spf_abort;
 	}
-	if (!vma_is_anonymous(vma)) {
+	if (!vma_can_speculate(vma, flags)) {
 		rcu_read_unlock();
 		count_vm_spf_event(SPF_ABORT_NO_SPECULATE);
 		goto spf_abort;
