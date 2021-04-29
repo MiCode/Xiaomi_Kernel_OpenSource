@@ -1131,7 +1131,7 @@
 		};
 	};
 
-	qcom,guestvm_loader@0xe0b00000 {
+	qcom,guestvm_loader@e0b00000 {
 		compatible = "qcom,guestvm-loader";
 		qcom,pas-id = <28>;
 		qcom,isolate-cpus;
@@ -1142,7 +1142,7 @@
 		memory-region = <&trust_ui_vm_mem>;
 	};
 
-	qcom,guestvm_loader@0xe0600000 {
+	qcom,guestvm_loader@e0600000 {
 		compatible = "qcom,guestvm-loader";
 		qcom,pas-id = <35>;
 		qcom,vmid = <50>;
