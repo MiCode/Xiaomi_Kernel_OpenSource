@@ -55,7 +55,7 @@ DTC_OVERLAY_TEST_EXT=ufdt_apply_overlay
 function add_dt_overlay_defconfig() {
   ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
     -e BUILD_ARM64_DT_OVERLAY
-  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} olddefconfig)
+  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" olddefconfig)
 }
 if [ ! -z $DT_OVERLAY_SUPPORT ] && [ ! $DT_OVERLAY_SUPPORT -eq "0" ]; then
   append_cmd POST_DEFCONFIG_CMDS 'add_dt_overlay_defconfig'
@@ -105,7 +105,7 @@ function merge_defconfig_fragments() {
     exit 1
   fi
   local temp_config=$(mktemp)
-  (cd ${KERNEL_DIR} && KCONFIG_CONFIG=${temp_config} make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${DEFCONFIG}) 2>&1 | tee $output
+  (cd ${KERNEL_DIR} && KCONFIG_CONFIG=${temp_config} make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" ${DEFCONFIG}) 2>&1 | tee $output
   if grep -q -e "warning:" $output; then
     echo "========================================================"
     echo "ERROR! Treating config warnings as errors"
