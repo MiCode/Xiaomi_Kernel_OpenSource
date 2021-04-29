@@ -3977,29 +3977,51 @@ static vm_fault_t __do_fault(struct vm_fault *vmf)
 	struct vm_area_struct *vma = vmf->vma;
 	vm_fault_t ret;
 
-	/*
-	 * Preallocate pte before we take page_lock because this might lead to
-	 * deadlocks for memcg reclaim which waits for pages under writeback:
-	 *				lock_page(A)
-	 *				SetPageWriteback(A)
-	 *				unlock_page(A)
-	 * lock_page(B)
-	 *				lock_page(B)
-	 * pte_alloc_one
-	 *   shrink_page_list
-	 *     wait_on_page_writeback(A)
-	 *				SetPageWriteback(B)
-	 *				unlock_page(B)
-	 *				# flush A, B to clear the writeback
-	 */
-	if (pmd_none(*vmf->pmd) && !vmf->prealloc_pte) {
-		vmf->prealloc_pte = pte_alloc_one(vma->vm_mm);
-		if (!vmf->prealloc_pte)
-			return VM_FAULT_OOM;
-		smp_wmb(); /* See comment in __pte_alloc() */
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	if (vmf->flags & FAULT_FLAG_SPECULATIVE) {
+		rcu_read_lock();
+		if (!mmap_seq_read_check(vmf->vma->vm_mm, vmf->seq,
+					 SPF_ABORT_FAULT)) {
+			ret = VM_FAULT_RETRY;
+		} else {
+			/*
+			 * The mmap sequence count check guarantees that the
+			 * vma we fetched at the start of the fault was still
+			 * current at that point in time. The rcu read lock
+			 * ensures vmf->vma->vm_file stays valid.
+			 */
+			ret = vma->vm_ops->fault(vmf);
+		}
+		rcu_read_unlock();
+	} else
+#endif
+	{
+		/*
+		 * Preallocate pte before we take page_lock because
+		 * this might lead to deadlocks for memcg reclaim
+		 * which waits for pages under writeback:
+		 *				lock_page(A)
+		 *				SetPageWriteback(A)
+		 *				unlock_page(A)
+		 * lock_page(B)
+		 *				lock_page(B)
+		 * pte_alloc_one
+		 *   shrink_page_list
+		 *     wait_on_page_writeback(A)
+		 *				SetPageWriteback(B)
+		 *				unlock_page(B)
+		 *				# flush A, B to clear writeback
+		 */
+		if (pmd_none(*vmf->pmd) && !vmf->prealloc_pte) {
+			vmf->prealloc_pte = pte_alloc_one(vma->vm_mm);
+			if (!vmf->prealloc_pte)
+				return VM_FAULT_OOM;
+			smp_wmb(); /* See comment in __pte_alloc() */
+		}
+
+		ret = vma->vm_ops->fault(vmf);
 	}
 
-	ret = vma->vm_ops->fault(vmf);
 	if (unlikely(ret & (VM_FAULT_ERROR | VM_FAULT_NOPAGE | VM_FAULT_RETRY |
 			    VM_FAULT_DONE_COW)))
 		return ret;
