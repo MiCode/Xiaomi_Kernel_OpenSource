@@ -877,3 +877,5 @@ ssize_t qmi_send_indication(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
 	return rval;
 }
 EXPORT_SYMBOL(qmi_send_indication);
+
+MODULE_SOFTDEP("pre: qrtr");
