@@ -1295,17 +1295,12 @@
 };
 
 &spmi {
-	mt6315_3: mt6315@3 {
-		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
-		reg = <0x3 0 0xb 1>;
+	mt6315_3: pmic@3 {
+		compatible = "mediatek,mt6315-regulator";
+		reg = <0x3 0>;
 
-		extbuck_debug {
-			compatible = "mediatek,extbuck-debug";
-		};
-		mt6315_3_regulator: mt6315_3_regulator {
-			compatible = "mediatek,mt6315_3-regulator";
-
-			mt6315_3_vbuck1: 3_vbuck1 {
+		regulators {
+			mt6315_3_vbuck1: vbuck1 {
 				regulator-compatible = "vbuck1";
 				regulator-name = "3_vbuck1";
 				regulator-min-microvolt = <300000>;
@@ -1315,7 +1310,7 @@
 				regulator-always-on;
 			};
 
-			mt6315_3_vbuck3: 3_vbuck3 {
+			mt6315_3_vbuck3: vbuck3 {
 				regulator-compatible = "vbuck3";
 				regulator-name = "3_vbuck3";
 				regulator-min-microvolt = <300000>;
@@ -1325,7 +1320,7 @@
 				regulator-always-on;
 			};
 
-			mt6315_3_vbuck4: 3_vbuck4 {
+			mt6315_3_vbuck4: vbuck4 {
 				regulator-compatible = "vbuck4";
 				regulator-name = "3_vbuck4";
 				regulator-min-microvolt = <300000>;
@@ -1337,19 +1332,14 @@
 		};
 	};
 
-	mt6315_6: mt6315@6 {
-		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
-		reg = <0x6 0 0xb 1>;
+	mt6315_6: pmic@6 {
+		compatible = "mediatek,mt6315-regulator";
+		reg = <0x6 0>;
 
-		extbuck_debug {
-			compatible = "mediatek,extbuck-debug";
-		};
-		mt6315_6_regulator: mt6315_6_regulator {
-			compatible = "mediatek,mt6315_6-regulator";
-
-			mt6315_6_vbuck1: 6_vbuck1 {
+		regulators {
+			mt6315_6_vbuck1: vbuck1 {
 				regulator-compatible = "vbuck1";
-				regulator-name = "6_vbuck1";
+				regulator-name = "Vbcpu";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1193750>;
 				regulator-enable-ramp-delay = <256>;
@@ -1357,9 +1347,9 @@
 				regulator-always-on;
 			};
 
-			mt6315_6_vbuck3: 6_vbuck3 {
+			mt6315_6_vbuck3: vbuck3 {
 				regulator-compatible = "vbuck3";
-				regulator-name = "6_vbuck3";
+				regulator-name = "Vlcpu";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1193750>;
 				regulator-enable-ramp-delay = <256>;
@@ -1369,30 +1359,18 @@
 		};
 	};
 
-	mt6315_7: mt6315@7 {
-		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
-		reg = <0x7 0 0xb 1>;
+	mt6315_7: pmic@7 {
+		compatible = "mediatek,mt6315-regulator";
+		reg = <0x7 0>;
 
-		extbuck_debug {
-			compatible = "mediatek,extbuck-debug";
-		};
-		mt6315_7_regulator: mt6315_7_regulator {
-			compatible = "mediatek,mt6315_7-regulator";
-			mt6315_7_vbuck1: 7_vbuck1 {
+		regulators {
+			mt6315_7_vbuck1: vbuck1 {
 				regulator-compatible = "vbuck1";
-				regulator-name = "7_vbuck1";
+				regulator-name = "Vgpu";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1193750>;
 				regulator-enable-ramp-delay = <256>;
 				regulator-allowed-modes = <0 1 2 4>;
-			};
-
-			mt6315_7_vbuck3: 7_vbuck3 {
-				regulator-compatible = "vbuck3";
-				regulator-name = "7_vbuck3";
-				regulator-min-microvolt = <300000>;
-				regulator-max-microvolt = <1193750>;
-				regulator-enable-ramp-delay = <256>;
 			};
 		};
 	};
