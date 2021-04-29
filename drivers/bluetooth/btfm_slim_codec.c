@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -174,9 +174,10 @@ static int btfm_slim_dai_prepare(struct snd_pcm_substream *substream,
 	struct btfmslim *btfmslim;
 
 	btfmslim = snd_soc_component_get_drvdata(dai->component);
+	btfmslim->direction = substream->stream;
 	bt_soc_enable_status = 0;
-	BTFMSLIM_DBG("dai->name: %s, dai->id: %d, dai->rate: %d", dai->name,
-		dai->id, dai->rate);
+	BTFMSLIM_INFO("dai->name: %s, dai->id: %d, dai->rate: %d direction: %d", dai->name,
+		dai->id, dai->rate, btfmslim->direction);
 
 	/* save sample rate */
 	btfmslim->sample_rate = dai->rate;
