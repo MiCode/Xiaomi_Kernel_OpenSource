@@ -4301,6 +4301,7 @@ static vm_fault_t do_fault_around(struct vm_fault *vmf)
 	pgoff_t start_pgoff = vmf->pgoff;
 	pgoff_t end_pgoff;
 	int off;
+	vm_fault_t ret;
 
 	nr_pages = READ_ONCE(fault_around_bytes) >> PAGE_SHIFT;
 	mask = ~(nr_pages * PAGE_SIZE - 1) & PAGE_MASK;
@@ -4319,14 +4320,32 @@ static vm_fault_t do_fault_around(struct vm_fault *vmf)
 	end_pgoff = min3(end_pgoff, vma_pages(vmf->vma) + vmf->vma->vm_pgoff - 1,
 			start_pgoff + nr_pages - 1);
 
-	if (pmd_none(*vmf->pmd)) {
+	if (!(vmf->flags & FAULT_FLAG_SPECULATIVE) &&
+	    pmd_none(*vmf->pmd)) {
 		vmf->prealloc_pte = pte_alloc_one(vmf->vma->vm_mm);
 		if (!vmf->prealloc_pte)
 			return VM_FAULT_OOM;
 		smp_wmb(); /* See comment in __pte_alloc() */
 	}
 
-	return vmf->vma->vm_ops->map_pages(vmf, start_pgoff, end_pgoff);
+	rcu_read_lock();
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	if (vmf->flags & FAULT_FLAG_SPECULATIVE) {
+		if (!mmap_seq_read_check(vmf->vma->vm_mm, vmf->seq,
+					 SPF_ABORT_FAULT)) {
+			rcu_read_unlock();
+			return VM_FAULT_RETRY;
+		}
+		/*
+		 * the mmap sequence check verified that vmf->vma was still
+		 * current at that point in time.
+		 * The rcu read lock ensures vmf->vma->vm_file stays valid.
+		 */
+	}
+#endif
+	ret = vmf->vma->vm_ops->map_pages(vmf, start_pgoff, end_pgoff);
+	rcu_read_unlock();
+	return ret;
 }
 
 static vm_fault_t do_read_fault(struct vm_fault *vmf)
