@@ -57,6 +57,7 @@ obj-$(CONFIG_QM_GPUCC_SCUBA) += gpucc-scuba.o
 obj-$(CONFIG_QM_DEBUGCC_SCUBA) += debugcc-scuba.o
 obj-$(CONFIG_SDM_CAMCC_LAGOON) += camcc-lagoon.o
 obj-$(CONFIG_SDM_DEBUGCC_429W) += debugcc-sdm429w.o
+obj-$(CONFIG_SDM_DEBUGCC_439) += debugcc-sdm439.o
 obj-$(CONFIG_SDM_DEBUGCC_LAGOON) += debugcc-lagoon.o
 obj-$(CONFIG_SDM_DISPCC_845) += dispcc-sdm845.o
 obj-$(CONFIG_SDM_DISPCC_LAGOON) += dispcc-lagoon.o

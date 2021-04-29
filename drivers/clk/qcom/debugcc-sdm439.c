@@ -27,14 +27,17 @@ static struct measure_clk_data debug_mux_priv = {
 
 static const char *const apss_cc_debug_mux_parent_names[] = {
 	"pwrcl_clk",
+	"perfcl_clk",
 };
 
 static int apss_cc_debug_mux_sels[] = {
 	0x0,		/* pwrcl_clk */
+	0x1,		/* perfcl_clk */
 };
 
 static int apss_cc_debug_mux_pre_divs[] = {
 	0x1,		/* pwrcl_clk */
+	0x1,		/* perfcl_clk */
 };
 
 static struct clk_debug_mux apss_cc_debug_mux = {
@@ -46,7 +49,7 @@ static struct clk_debug_mux apss_cc_debug_mux = {
 	.src_sel_shift = 8,
 	.post_div_mask = 0xF0000000,
 	.post_div_shift = 28,
-	.post_div_val = 1,
+	.post_div_val = 2,
 	.mux_sels = apss_cc_debug_mux_sels,
 	.pre_div_vals = apss_cc_debug_mux_pre_divs,
 	.hw.init = &(struct clk_init_data){
@@ -190,6 +193,14 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"bimc_clk",
 	"gcc_smmu_cfg_clk",
 	"apss_cc_debug_mux",
+	"gcc_mdss_pclk1_clk",
+	"gcc_mdss_byte1_clk",
+	"gcc_mdss_esc1_clk",
+	"gcc_oxili_timer_clk",
+	"gcc_blsp1_qup1_spi_apps_clk",
+	"gcc_blsp1_qup1_i2c_apps_clk",
+	"gcc_blsp2_qup4_spi_apps_clk",
+	"gcc_blsp2_qup4_i2c_apps_clk",
 };
 
 static int gcc_debug_mux_sels[] = {
@@ -324,6 +335,14 @@ static int gcc_debug_mux_sels[] = {
 	0x15A,		/* bimc_clk */
 	0x5B,		/* gcc_smmu_cfg_clk */
 	0x16A,		/* apss_cc_debug_mux */
+	0x1e3,		/* gcc_mdss_pclk1_clk */
+	0x1e4,		/* gcc_mdss_byte1_clk */
+	0x1e5,		/* gcc_mdss_esc1_clk */
+	0x1e9,		/* gcc_oxili_timer_clk */
+	0x8a,		/* gcc_blsp1_qup1_spi_apps_clk */
+	0x8b,		/* gcc_blsp1_qup1_i2c_apps_clk */
+	0xa5,		/* gcc_blsp2_qup4_spi_apps_clk */
+	0xa6,		/* gcc_blsp2_qup4_i2c_apps_clk */
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
@@ -355,8 +374,17 @@ static struct clk_dummy pwrcl_clk = {
 	},
 };
 
-struct clk_hw *debugcc_qm215_hws[] = {
+static struct clk_dummy perfcl_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "perfcl_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+struct clk_hw *debugcc_sdm439_hws[] = {
 	&pwrcl_clk.hw,
+	&perfcl_clk.hw,
 };
 
 static struct mux_regmap_names mux_list[] = {
@@ -365,9 +393,7 @@ static struct mux_regmap_names mux_list[] = {
 };
 
 static const struct of_device_id clk_debug_match_table[] = {
-	{ .compatible = "qcom,sdm429w-debugcc" },
-	{ .compatible = "qcom,qm215-debugcc" },
-	{ .compatible = "qcom,sdm429-debugcc" },
+	{ .compatible = "qcom,sdm439-debugcc" },
 	{ }
 };
 
@@ -405,11 +431,13 @@ static int clk_debug_sdm429w_probe(struct platform_device *pdev)
 		}
 	}
 
-	for (i = 0; i < ARRAY_SIZE(debugcc_qm215_hws); i++) {
-		clk = devm_clk_register(&pdev->dev, debugcc_qm215_hws[i]);
+	for (i = 0; i < ARRAY_SIZE(debugcc_sdm439_hws); i++) {
+		clk = devm_clk_register(&pdev->dev,
+			debugcc_sdm439_hws[i]);
 		if (IS_ERR(clk)) {
 			dev_err(&pdev->dev, "Unable to register %s, err:(%d)\n",
-			debugcc_qm215_hws[i]->init->name, PTR_ERR(clk));
+			debugcc_sdm439_hws[i]->init->name,
+			PTR_ERR(clk));
 			return PTR_ERR(clk);
 		}
 	}
@@ -428,7 +456,7 @@ static int clk_debug_sdm429w_probe(struct platform_device *pdev)
 static struct platform_driver clk_debug_driver = {
 	.probe = clk_debug_sdm429w_probe,
 	.driver = {
-		.name = "sdm429w-debugcc",
+		.name = "sdm439-debugcc",
 		.of_match_table = clk_debug_match_table,
 	},
 };
