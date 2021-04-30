@@ -30,6 +30,9 @@ enum {
 	DISABLE_CHARGE,
 };
 
+#define CHGR_CHG_EN_STATUS_REG(base)		(base.chg_base + 0x07)
+#define CHARGING_DISABLED_FROM_BOOST_BIT	BIT(6)
+
 #define CHARGER_VBAT_STATUS_REG(base)			(base.chg_base + 0x08)
 #define BAT_OV_BIT				BIT(7)
 
@@ -102,6 +105,9 @@ enum {
 
 #define DCDC_LDO_CFG_REG(base)			(base.dcdc_base + 0x70)
 #define LDO_MODE_BIT				BIT(0)
+
+#define CONCURRENT_MODE_CFG_REG(base)			(base.dcdc_base + 0x50)
+#define CONCURRENT_MODE_EN_BIT			BIT(0)
 
 /********************************
  *  BATIF Peripheral Registers  *

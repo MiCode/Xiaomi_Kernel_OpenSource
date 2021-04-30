@@ -51,6 +51,7 @@ enum print_reason {
 #define ICL_CHANGE_VOTER		"ICL_CHANGE_VOTER"
 #define TYPEC_SWAP_VOTER		"TYPEC_SWAP_VOTER"
 #define FLASH_ACTIVE_VOTER		"FLASH_ACTIVE_VOTER"
+#define CONCURRENT_MODE_VOTER		"CONCURRENT_MODE_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -264,8 +265,10 @@ struct smb_charger {
 	struct iio_channel	*iio_chans;
 	struct iio_channel	**iio_chan_list_qg;
 	struct iio_channel	**iio_chan_list_smb_parallel;
+	struct class            qcom_class;
 	int			*debug_mask;
 	enum smb_mode		mode;
+	u8			subtype;
 	int			weak_chg_icl_ua;
 
 	/* locks */
@@ -359,6 +362,8 @@ struct smb_charger {
 	bool			uusb_apsd_rerun_done;
 	bool			dpdm_enabled;
 	bool			hvdcp3_detected;
+	bool			concurrent_mode_supported;
+	bool			concurrent_mode_status;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -503,5 +508,7 @@ int smblite_iio_get_prop(struct smb_charger *chg, int channel, int *val);
 int smblite_iio_set_prop(struct smb_charger *chg, int channel, int val);
 int smblite_lib_get_fcc(struct smb_chg_param *param, u8 val_raw);
 int smblite_lib_set_fcc(struct smb_chg_param *param, int val_u, u8 *val_raw);
+int smblite_lib_set_concurrent_config(struct smb_charger *chg, bool enable);
+bool is_concurrent_mode_supported(struct smb_charger *chg);
 
 #endif /* __SMBLITE_LIB_H */
