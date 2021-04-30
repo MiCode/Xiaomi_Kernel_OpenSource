@@ -51,11 +51,3 @@ config ATLFWD_FWD_NETLINK
 
 endif
 
-config AQFWD_QCOM_IPA
-	bool "QTI IPA offload support"
-	depends on IPA_ETH
-	depends on AQFWD
-	select ATLFWD_FWD
-	help
-	  Enable support for Qualcomm Technologies, Inc. IPA (Internet Protocol Accelerator).
-	  If unsure, say N.
