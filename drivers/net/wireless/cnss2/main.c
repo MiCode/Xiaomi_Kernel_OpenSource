@@ -3214,10 +3214,18 @@ static int cnss_probe(struct platform_device *plat_dev)
 	if (ret)
 		goto reset_ctx;
 
+	/* In GKI, qrtr module might return EPROBE_DEFER due to vendor DLKM
+	 * parallel loading. Since PCIE does not support re-enumeration move
+	 * QMI init first to avoid re-enumeration on cnss_probe retry
+	 */
+	ret = cnss_qmi_init(plat_priv);
+	if (ret)
+		goto free_res;
+
 	if (!test_bit(SKIP_DEVICE_BOOT, &plat_priv->ctrl_params.quirks)) {
 		ret = cnss_power_on_device(plat_priv);
 		if (ret)
-			goto free_res;
+			goto deinit_qmi;
 
 		ret = cnss_bus_init(plat_priv);
 		if (ret)
@@ -3240,13 +3248,9 @@ static int cnss_probe(struct platform_device *plat_dev)
 	if (ret)
 		goto remove_sysfs;
 
-	ret = cnss_qmi_init(plat_priv);
-	if (ret)
-		goto deinit_event_work;
-
 	ret = cnss_dms_init(plat_priv);
 	if (ret)
-		goto deinit_qmi;
+		goto deinit_event_work;
 
 	ret = cnss_debugfs_create(plat_priv);
 	if (ret)
@@ -3271,8 +3275,6 @@ destroy_debugfs:
 	cnss_debugfs_destroy(plat_priv);
 deinit_dms:
 	cnss_dms_deinit(plat_priv);
-deinit_qmi:
-	cnss_qmi_deinit(plat_priv);
 deinit_event_work:
 	cnss_event_work_deinit(plat_priv);
 remove_sysfs:
@@ -3287,6 +3289,8 @@ deinit_bus:
 power_off:
 	if (!test_bit(SKIP_DEVICE_BOOT, &plat_priv->ctrl_params.quirks))
 		cnss_power_off_device(plat_priv);
+deinit_qmi:
+	cnss_qmi_deinit(plat_priv);
 free_res:
 	cnss_put_resources(plat_priv);
 reset_ctx:
