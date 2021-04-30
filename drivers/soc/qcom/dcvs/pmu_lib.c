@@ -48,6 +48,7 @@ struct cpu_data {
 
 static DEFINE_PER_CPU(struct cpu_data *, cpu_ev_data);
 static bool qcom_pmu_inited;
+static bool pmu_long_counter;
 static int cpuhp_state;
 static LIST_HEAD(idle_notif_list);
 static DEFINE_SPINLOCK(idle_list_lock);
@@ -77,6 +78,10 @@ static int set_event(struct event_data *ev, int cpu,
 		return 0;
 
 	attr->config = ev->event_id;
+	/* enable 64-bit counter */
+	if (pmu_long_counter)
+		attr->config1 = 1;
+
 	if (ev->event_id == QCOM_LLCC_PMU_RD_EV) {
 		ret = qcom_llcc_pmu_hw_type(&type);
 		if (ret < 0)
@@ -437,6 +442,9 @@ static int setup_pmu_events(struct device *dev)
 	int ret, len, i, j, cpu;
 	u32 data, event_id;
 	unsigned long cpus;
+
+	if (of_find_property(of_node, "qcom,long-counter", &len))
+		pmu_long_counter = true;
 
 	if (!of_find_property(of_node, PMU_TBL_PROP, &len))
 		return -ENODEV;
