@@ -892,7 +892,7 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 	arm_lpae_iopte pte;
 	struct io_pgtable *iop = &data->iop;
 	int ptes_per_table = ARM_LPAE_PTES_PER_TABLE(data);
-	int num_entries, max_entries, unmap_idx_start;
+	int i = 0, num_entries, max_entries, unmap_idx_start;
 
 	/* Something went horribly wrong and we ran out of page table */
 	if (WARN_ON(lvl == ARM_LPAE_MAX_LEVELS))
@@ -908,25 +908,38 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 	if (size == ARM_LPAE_BLOCK_SIZE(lvl, data)) {
 		max_entries = ptes_per_table - unmap_idx_start;
 		num_entries = min_t(int, pgcount, max_entries);
-		__arm_lpae_set_pte(ptep, 0, num_entries, &iop->cfg);
 
-		if (!iopte_leaf(pte, lvl, iop->fmt)) {
-			ptep = iopte_deref(pte, data);
-			__arm_lpae_free_pgtable(data, lvl + 1, ptep);
-		} else if (iop->cfg.quirks & IO_PGTABLE_QUIRK_NON_STRICT) {
-			/*
-			 * Order the PTE update against queueing the IOVA, to
-			 * guarantee that a flush callback from a different CPU
-			 * has observed it before the TLBIALL can be issued.
-			 */
-			smp_wmb();
+		while (i < num_entries) {
+			pte = READ_ONCE(*ptep);
+			if (WARN_ON(!pte))
+				break;
+
+			__arm_lpae_set_pte(ptep, 0, 1, &iop->cfg);
+
+			if (!iopte_leaf(pte, lvl, iop->fmt)) {
+				__arm_lpae_free_pgtable(data, lvl + 1, iopte_deref(pte, data));
+			} else if (iop->cfg.quirks & IO_PGTABLE_QUIRK_NON_STRICT) {
+				/*
+				 * Order the PTE update against queueing the IOVA, to
+				 * guarantee that a flush callback from a different CPU
+				 * has observed it before the TLBIALL can be issued.
+				 */
+				smp_wmb();
+			}
+
+			ptep++;
+			i++;
 		}
 
-		return num_entries * size;
+		return i * size;
 	} else if ((lvl == ARM_LPAE_MAX_LEVELS - 2) && !iopte_leaf(pte, lvl,
 								   iop->fmt)) {
-		arm_lpae_iopte *table = iopte_deref(pte, data);
-		arm_lpae_iopte *entry = table + ARM_LPAE_LVL_IDX(iova, lvl + 1, data);
+		arm_lpae_iopte *table;
+		arm_lpae_iopte *entry;
+
+		table = iopte_deref(pte, data);
+		unmap_idx_start = ARM_LPAE_LVL_IDX(iova, lvl + 1, data);
+		entry = table + unmap_idx_start;
 
 		max_entries = ptes_per_table - unmap_idx_start;
 		num_entries = min_t(int, pgcount, max_entries);
