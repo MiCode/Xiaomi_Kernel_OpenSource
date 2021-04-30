@@ -4205,7 +4205,6 @@ static const struct qcom_reset_map gcc_blair_resets[] = {
 	[GCC_GPU_BCR] = { 0x36000 },
 	[GCC_MMSS_BCR] = { 0x17000 },
 	[GCC_PDM_BCR] = { 0x20000 },
-	[GCC_PRNG_BCR] = { 0x21000 },
 	[GCC_QUPV3_WRAPPER_0_BCR] = { 0x1f000 },
 	[GCC_QUPV3_WRAPPER_1_BCR] = { 0x53000 },
 	[GCC_QUSB2PHY_PRIM_BCR] = { 0x1c000 },
