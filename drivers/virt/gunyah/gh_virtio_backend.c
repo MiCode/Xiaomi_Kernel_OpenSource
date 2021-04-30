@@ -1019,7 +1019,7 @@ new_vm(const char *vm_name, struct device_node *np)
 	vm->shmem_size = resource_size(&r);
 
 	snprintf(vm->cdev_name, sizeof(vm->cdev_name),
-			"hh_virtio_backend_%s", vm_name);
+			"gh_virtio_backend_%s", vm_name);
 	spin_lock_init(&vm->vb_dev_lock);
 	mutex_init(&vm->mutex);
 	INIT_LIST_HEAD(&vm->vb_dev_list);
