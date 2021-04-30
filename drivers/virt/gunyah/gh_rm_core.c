@@ -1009,10 +1009,13 @@ static int gh_vm_probe(struct device *dev, struct device_node *hyp_root)
 	struct gh_vm_property temp_property = {0};
 	int vmid, owner_vmid, ret;
 
-	node = of_find_compatible_node(hyp_root, NULL, "qcom,haven-vm-id-1.0");
+	node = of_find_compatible_node(hyp_root, NULL, "qcom,gunyah-vm-id-1.0");
 	if (IS_ERR_OR_NULL(node)) {
-		dev_err(dev, "Could not find vm-id node\n");
-		return -ENODEV;
+		node = of_find_compatible_node(hyp_root, NULL, "qcom,haven-vm-id-1.0");
+		if (IS_ERR_OR_NULL(node)) {
+			dev_err(dev, "Could not find vm-id node\n");
+			return -ENODEV;
+		}
 	}
 
 	ret = of_property_read_u32(node, "qcom,vmid", &vmid);
