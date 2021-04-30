@@ -172,6 +172,7 @@ static struct dma_buf *__carveout_heap_allocate(struct carveout_heap *carveout_h
 
 
 	/* Instantiate our dma_buf */
+	exp_info.exp_name = dma_heap_get_name(carveout_heap->heap);
 	exp_info.size = buffer->len;
 	exp_info.flags = fd_flags;
 	exp_info.priv = buffer;

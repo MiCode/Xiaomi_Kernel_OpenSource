@@ -118,6 +118,7 @@ struct dma_buf *cma_heap_allocate(struct dma_heap *heap,
 		goto free_sgtable;
 
 	/* create the dmabuf */
+	exp_info.exp_name = dma_heap_get_name(heap);
 	exp_info.size = helper_buffer->len;
 	exp_info.flags = fd_flags;
 	exp_info.priv = helper_buffer;
