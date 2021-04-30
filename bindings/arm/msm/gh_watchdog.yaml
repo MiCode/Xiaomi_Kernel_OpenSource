@@ -23,7 +23,7 @@ properties:
   compatible:
     Usage: required
     Value type: <string>
-    Definition: Must be "qcom,hh-watchdog"
+    Definition: Must be "qcom,gh-watchdog"
 
   interrupts:
      Usage: required
@@ -33,7 +33,7 @@ properties:
 example:
   - |
     wdog_gh: qcom,wdt_gh {
-		    compatible = "qcom,hh-watchdog";
+		    compatible = "qcom,gh-watchdog";
 		    interrupts = <0 0 IRQ_TYPE_LEVEL_HIGH>;
 	    };
 ...
